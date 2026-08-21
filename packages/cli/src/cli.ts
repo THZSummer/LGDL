@@ -24,7 +24,7 @@ const program = new Command();
 
 program
   .name('lgdl')
-  .description('Logical Graph Description Language — semantic-first diagram DSL for AI agents')
+  .description('Logical Graph Description Language — semantic-first diagram language for AI agents')
   .version('0.1.0');
 
 function loadDocument(file: string) {

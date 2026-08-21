@@ -1,10 +1,8 @@
 # LGDL — Logical Graph Description Language
 
-> 逻辑化的图描述语言 · Semantic-first diagram DSL for AI agents
+> 逻辑化的图描述语言 · Semantic-first diagram language for AI agents
 
-**LGDL 是一门「领域特定语言（DSL）」**——DSL 是这类语言的统称（Mermaid、SQL 都是 DSL），**LGDL 是它的名字**：Logical Graph Description Language（逻辑化的图描述语言）。
-
-**LGDL 是一门面向 AI Agent 的语义优先图表描述语言。** 它只描述图的「逻辑」（节点、关系、层级），从不描述「布局」（坐标、样式）。布局由确定性引擎自动完成，AI 修改图时只改逻辑，不碰布局——彻底告别「AI 来回调整图形布局」的低效循环。
+**LGDL（Logical Graph Description Language）是一门面向 AI Agent 的语义优先图表描述语言。** 它只描述图的「逻辑」（节点、关系、层级），从不描述「布局」（坐标、样式）。布局由确定性引擎自动完成，AI 修改图时只改逻辑，不碰布局——彻底告别「AI 来回调整图形布局」的低效循环。
 
 **LGDL is a semantic-first diagram description language built for AI agents.** It describes only the *logic* of a diagram (nodes, relations, hierarchy) — never the *layout* (coordinates, styles). Layout is handled automatically by a deterministic engine, so AI edits change only the logic, never the layout. No more endless back-and-forth fiddling with diagram layout.
 
@@ -22,7 +20,7 @@
 
 ```
 ┌─────────────────────────────┐
-│  语义 DSL（.lgdl 文件）        │ ← 只有节点/关系/层级，没有坐标
+|  语义 LGDL（.lgdl 文件）     │ ← 只有节点/关系/层级，没有坐标
 │  nodes: [{id, label, kind}]  │
 │  edges: [{from, to, label}]  │
 └─────────────────────────────┘
@@ -46,7 +44,7 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 
 ## 🖼️ 效果展示 / Gallery
 
-一种 DSL，九种图——全部由 `lgdl render` 自动布局生成，无任何手工排版：
+一种 LGDL 语言，九种图——全部由 `lgdl render` 自动布局生成，无任何手工排版：
 
 | flowchart 流程图 | mindmap 思维导图 | sequence 时序图 |
 |---|---|---|
@@ -74,7 +72,7 @@ lgdl render my-diagram.lgdl -o out.svg  # 渲染（自动布局）
 lgdl status my-diagram.lgdl  # 输出文本化图结构 ← AI 读取当前图
 ```
 
-### DSL 示例 / Example
+### LGDL 示例 / Example
 
 ```yaml
 title: 用户登录流程
@@ -120,7 +118,7 @@ groups:
 ```
 LGDL/
 ├── packages/
-│   ├── core/          # DSL 解析、模型、校验（纯 TS，零依赖）
+│   ├── core/          # LGDL 解析、模型、校验（纯 TS，零依赖）
 │   ├── layout/        # 布局引擎（确定性算法 + 局部重排）
 │   ├── render/        # SVG/PNG 渲染器
 │   ├── cli/           # lgdl 命令行
@@ -134,7 +132,7 @@ LGDL/
 
 ## 📚 文档 / Docs
 
-- [DSL 规范](docs/dsl-spec.md) — DSL Specification
+- [LGDL 语言规范](docs/lgdl-spec.md) — LGDL Specification
 - [AI Agent 集成指南](docs/ai-agent-guide.md) — AI Agent Integration Guide（待编写）
 
 ---
@@ -143,7 +141,7 @@ LGDL/
 
 | 版本 | 内容 |
 |---|---|
-| **v0.1** | ✅ DSL 解析器 + 层级布局引擎 + CLI（`init`/`render`/`status`/增量编辑）+ SVG 输出 |
+| **v0.1** | ✅ LGDL 解析器 + 层级布局引擎 + CLI（`init`/`render`/`status`/增量编辑）+ SVG 输出 |
 | **v0.2** | ✅ 增量编辑协议 + 9 种图类型（flowchart/mindmap/sequence/uml-class/datastream/arch/er/state/gantt） |
 | **v0.3** | ✅ attrs 扩展属性（逃生舱）+ ER/状态机/甘特图布局渲染 |
 | **v0.4** | ⬜ Web 工作台（React + React Flow）+ Mermaid 导入导出 + 局部重排 + MCP Server |

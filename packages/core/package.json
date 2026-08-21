@@ -1,7 +1,7 @@
 {
   "name": "@lgdl/core",
   "version": "0.1.0",
-  "description": "LGDL DSL parser, model and validation (zero dependencies)",
+  "description": "LGDL parser, model and validation (zero dependencies)",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

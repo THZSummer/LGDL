@@ -1,5 +1,5 @@
 /**
- * LGDL DSL parser and validator.
+ * LGDL parser and validator.
  *
  * v0.1 supports YAML via a minimal hand-rolled parser to keep the core
  * dependency-free. In future this can be swapped for a full YAML library

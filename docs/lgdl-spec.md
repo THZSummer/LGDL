@@ -1,9 +1,9 @@
-# LGDL DSL 规范（v0.2）
+# LGDL 语言规范（v0.2）
 
 ## 文件格式
 
 - 扩展名：`.lgdl`（semantic diagram graph）
-- 格式：YAML（只支持 YAML；后续考虑 JSON 导入）
+- 格式：YAML（目前只支持 YAML；后续考虑 JSON 导入）
 
 ## 顶层结构
 

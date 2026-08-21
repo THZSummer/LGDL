@@ -1,6 +1,6 @@
 /**
  * LGDL core type definitions.
- * The DSL describes ONLY semantics (nodes, edges, groups) — never layout.
+ * LGDL describes ONLY semantics (nodes, edges, groups) — never layout.
  */
 
 /** Supported diagram types */
