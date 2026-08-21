@@ -1,0 +1,65 @@
+title: Web 应用系统架构
+type: arch
+
+nodes:
+  - id: user
+    label: 用户浏览器
+    kind: start
+  - id: cdn
+    label: CDN
+    kind: process
+  - id: nginx
+    label: Nginx 网关
+    kind: process
+  - id: app
+    label: 应用服务
+    kind: process
+  - id: redis
+    label: Redis 缓存
+    kind: entity
+  - id: mysql
+    label: MySQL 主库
+    kind: entity
+  - id: mq
+    label: 消息队列
+    kind: entity
+  - id: worker
+    label: 异步任务
+    kind: process
+  - id: oss
+    label: 对象存储
+    kind: entity
+
+edges:
+  - from: user
+    to: cdn
+    label: HTTPS
+  - from: cdn
+    to: nginx
+  - from: nginx
+    to: app
+  - from: app
+    to: redis
+    label: 读缓存
+  - from: app
+    to: mysql
+    label: 读写库
+  - from: app
+    to: mq
+    label: 发消息
+  - from: mq
+    to: worker
+  - from: worker
+    to: oss
+    label: 上传
+
+groups:
+  - id: front
+    label: 接入层
+    contains: [cdn, nginx]
+  - id: core
+    label: 核心服务
+    contains: [app]
+  - id: data
+    label: 数据层
+    contains: [redis, mysql, mq, worker, oss]
