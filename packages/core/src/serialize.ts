@@ -1,5 +1,5 @@
 /**
- * LGDL document serializer — writes an LgdlDocument back to .sdg YAML.
+ * LGDL document serializer — writes an LgdlDocument back to .lgdl YAML.
  *
  * Produces clean, deterministic output so diffs between edits are minimal
  * (important for the incremental-edit workflow).

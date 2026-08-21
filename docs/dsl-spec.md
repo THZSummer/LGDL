@@ -2,7 +2,7 @@
 
 ## 文件格式
 
-- 扩展名：`.sdg`（semantic diagram graph）
+- 扩展名：`.lgdl`（semantic diagram graph）
 - 格式：YAML（只支持 YAML；后续考虑 JSON 导入）
 
 ## 顶层结构

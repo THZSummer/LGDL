@@ -20,7 +20,7 @@
 
 ```
 ┌─────────────────────────────┐
-│  语义 DSL（.sdg 文件）        │ ← 只有节点/关系/层级，没有坐标
+│  语义 DSL（.lgdl 文件）        │ ← 只有节点/关系/层级，没有坐标
 │  nodes: [{id, label, kind}]  │
 │  edges: [{from, to, label}]  │
 └─────────────────────────────┘
@@ -48,15 +48,15 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 
 | flowchart 流程图 | mindmap 思维导图 | sequence 时序图 |
 |---|---|---|
-| <p align="center"><img src="examples/login-flow.png" width="280"/><br/>[📄 源码](examples/login-flow.sdg)</p> | <p align="center"><img src="examples/mindmap.png" width="280"/><br/>[📄 源码](examples/mindmap.sdg)</p> | <p align="center"><img src="examples/sequence.png" width="280"/><br/>[📄 源码](examples/sequence.sdg)</p> |
+| <p align="center"><img src="examples/login-flow.png" width="280"/><br/>[📄 源码](examples/login-flow.lgdl)</p> | <p align="center"><img src="examples/mindmap.png" width="280"/><br/>[📄 源码](examples/mindmap.lgdl)</p> | <p align="center"><img src="examples/sequence.png" width="280"/><br/>[📄 源码](examples/sequence.lgdl)</p> |
 
 | uml-class 类图 | arch 架构图 | datastream 数据流 |
 |---|---|---|
-| <p align="center"><img src="examples/uml-class.png" width="280"/><br/>[📄 源码](examples/uml-class.sdg)</p> | <p align="center"><img src="examples/architecture.png" width="280"/><br/>[📄 源码](examples/architecture.sdg)</p> | <p align="center"><img src="examples/datastream.png" width="280"/><br/>[📄 源码](examples/datastream.sdg)</p> |
+| <p align="center"><img src="examples/uml-class.png" width="280"/><br/>[📄 源码](examples/uml-class.lgdl)</p> | <p align="center"><img src="examples/architecture.png" width="280"/><br/>[📄 源码](examples/architecture.lgdl)</p> | <p align="center"><img src="examples/datastream.png" width="280"/><br/>[📄 源码](examples/datastream.lgdl)</p> |
 
 | er ER 图 | state 状态机 | gantt 甘特图 |
 |---|---|---|
-| <p align="center"><img src="examples/er.png" width="280"/><br/>[📄 源码](examples/er.sdg)</p> | <p align="center"><img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.sdg)</p> | <p align="center"><img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.sdg)</p> |
+| <p align="center"><img src="examples/er.png" width="280"/><br/>[📄 源码](examples/er.lgdl)</p> | <p align="center"><img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.lgdl)</p> | <p align="center"><img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.lgdl)</p> |
 
 ---
 
@@ -67,9 +67,9 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 ```bash
 npm install -g @lgdl/cli    # 安装 CLI（待发布）
 
-lgdl init my-diagram.sdg    # 初始化空图
-lgdl render my-diagram.sdg -o out.svg  # 渲染（自动布局）
-lgdl status my-diagram.sdg  # 输出文本化图结构 ← AI 读取当前图
+lgdl init my-diagram.lgdl    # 初始化空图
+lgdl render my-diagram.lgdl -o out.svg  # 渲染（自动布局）
+lgdl status my-diagram.lgdl  # 输出文本化图结构 ← AI 读取当前图
 ```
 
 ### DSL 示例 / Example
@@ -124,7 +124,7 @@ LGDL/
 │   ├── cli/           # lgdl 命令行
 │   └── web/           # Web 工作台（React + React Flow）
 ├── docs/              # 设计文档、AI 集成指南
-├── examples/          # 示例 .sdg 文件
+├── examples/          # 示例 .lgdl 文件
 └── README.md
 ```
 
