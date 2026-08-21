@@ -133,6 +133,7 @@ LGDL/
 ## 📚 文档 / Docs
 
 - [LGDL 语言规范](docs/lgdl-spec.md) — LGDL Specification
+- [CLI 使用指南](docs/cli-guide.md) — CLI Guide（命令参考、AI Agent 工作流）
 - [AI Agent 集成指南](docs/ai-agent-guide.md) — AI Agent Integration Guide（待编写）
 
 ---

@@ -132,7 +132,7 @@ program
   .description('add a node')
   .requiredOption('--id <id>', 'node id')
   .option('--label <label>', 'display label')
-  .option('--kind <kind>', 'node kind (start|end|process|decision|entity|note)', 'process')
+  .option('--kind <kind>', 'node kind (start|end|process|decision|entity|note|state|milestone)', 'process')
   .option('--group <group>', 'group id to place the node into')
   .action((file: string, opts: { id: string; label?: string; kind: string; group?: string }) => {
     mutate(file, (doc) => addNode(doc, { id: opts.id, label: opts.label, kind: opts.kind as never, group: opts.group }));
