@@ -2,6 +2,8 @@
 
 > 逻辑化的图描述语言 · Semantic-first diagram DSL for AI agents
 
+**LGDL 是一门「领域特定语言（DSL）」**——DSL 是这类语言的统称（Mermaid、SQL 都是 DSL），**LGDL 是它的名字**：Logical Graph Description Language（逻辑化的图描述语言）。
+
 **LGDL 是一门面向 AI Agent 的语义优先图表描述语言。** 它只描述图的「逻辑」（节点、关系、层级），从不描述「布局」（坐标、样式）。布局由确定性引擎自动完成，AI 修改图时只改逻辑，不碰布局——彻底告别「AI 来回调整图形布局」的低效循环。
 
 **LGDL is a semantic-first diagram description language built for AI agents.** It describes only the *logic* of a diagram (nodes, relations, hierarchy) — never the *layout* (coordinates, styles). Layout is handled automatically by a deterministic engine, so AI edits change only the logic, never the layout. No more endless back-and-forth fiddling with diagram layout.
