@@ -58,7 +58,11 @@ export function layoutDocument(doc: LgdlDocument): LayoutResult {
     case 'datastream':
       return layoutSwimlane(doc);
     case 'uml-class':
+    case 'er':
       return layoutHierarchical(doc, 'LR');
+    case 'gantt':
+      return layoutGantt(doc);
+    case 'state':
     default:
       return layoutHierarchical(doc, 'TB');
   }
@@ -370,6 +374,60 @@ function layoutSwimlane(doc: LgdlDocument): LayoutResult {
       points: [
         { x: a.x + a.width / 2, y: a.y + a.height / 2 },
         { x: b.x + b.width / 2, y: b.y + b.height / 2 },
+      ],
+    };
+  });
+
+  return { nodes, edges, width, height };
+}
+
+// ---------------------------------------------------------------------------
+// gantt: timeline bars (tasks on rows, time on x-axis)
+// ---------------------------------------------------------------------------
+
+const GANTT_ROW_H = 48; // height per task row
+const GANTT_COL_W = 40; // width per time unit (day)
+const GANTT_LABEL_W = 220; // left label column width
+const GANTT_HEADER_H = 40; // time axis header
+
+/**
+ * Gantt layout: each node is a task with attrs.start (number, day offset)
+ * and attrs.duration (number of days). Edges = dependencies (drawn by renderer).
+ * Tasks are stacked vertically in document order.
+ */
+function layoutGantt(doc: LgdlDocument): LayoutResult {
+  const tasks = doc.nodes;
+  const maxEnd = tasks.reduce((max, t) => {
+    const start = typeof t.attrs?.start === 'number' ? t.attrs.start : 0;
+    const dur = typeof t.attrs?.duration === 'number' ? t.attrs.duration : 1;
+    return Math.max(max, start + dur);
+  }, 1);
+
+  const width = GRAPH_MARGIN * 2 + GANTT_LABEL_W + maxEnd * GANTT_COL_W;
+  const height = GRAPH_MARGIN * 2 + GANTT_HEADER_H + tasks.length * GANTT_ROW_H;
+
+  const nodes: LayoutNode[] = tasks.map((t, i) => {
+    const start = typeof t.attrs?.start === 'number' ? t.attrs.start : 0;
+    const dur = typeof t.attrs?.duration === 'number' ? t.attrs.duration : 1;
+    return {
+      id: t.id,
+      x: GRAPH_MARGIN + GANTT_LABEL_W + start * GANTT_COL_W,
+      y: GRAPH_MARGIN + GANTT_HEADER_H + i * GANTT_ROW_H + 8,
+      width: Math.max(dur * GANTT_COL_W - 4, 20),
+      height: GANTT_ROW_H - 16,
+    };
+  });
+
+  // dependencies: vertical connector from dep bar bottom to dependent bar top
+  const edges: LayoutEdge[] = doc.edges.map((e) => {
+    const a = nodes.find((n) => n.id === e.from)!;
+    const b = nodes.find((n) => n.id === e.to)!;
+    return {
+      from: e.from,
+      to: e.to,
+      points: [
+        { x: a.x + a.width, y: a.y + a.height / 2 },
+        { x: b.x, y: b.y + b.height / 2 },
       ],
     };
   });

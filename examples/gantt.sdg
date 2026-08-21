@@ -1,0 +1,44 @@
+title: 产品发布甘特图
+type: gantt
+
+nodes:
+  - id: research
+    label: 需求调研
+    kind: process
+    attrs:
+      start: 0
+      duration: 3
+  - id: design
+    label: 原型设计
+    kind: process
+    attrs:
+      start: 3
+      duration: 3
+  - id: develop
+    label: 开发实现
+    kind: process
+    attrs:
+      start: 6
+      duration: 8
+  - id: test
+    label: 测试验收
+    kind: process
+    attrs:
+      start: 14
+      duration: 4
+  - id: launch
+    label: 上线发布
+    kind: milestone
+    attrs:
+      start: 18
+      duration: 1
+
+edges:
+  - from: research
+    to: design
+  - from: design
+    to: develop
+  - from: develop
+    to: test
+  - from: test
+    to: launch

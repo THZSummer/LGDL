@@ -23,6 +23,9 @@ const DIAGRAM_TYPES: readonly DiagramType[] = [
   'arch',
   'datastream',
   'sequence',
+  'er',
+  'state',
+  'gantt',
 ];
 
 const NODE_KINDS: readonly NodeKind[] = [
@@ -32,6 +35,8 @@ const NODE_KINDS: readonly NodeKind[] = [
   'decision',
   'entity',
   'note',
+  'state',
+  'milestone',
 ];
 
 /** Parse an LGDL document from YAML text. */
@@ -142,13 +147,27 @@ export function validate(
  * - node/edge/group object lists under indented keys
  * - scalar values (string/number/boolean)
  * - inline lists: [a, b, c]
- * Nested structures beyond this are not supported in v0.1.
+ * - nested objects (e.g. attrs: { start: ..., end: ... })
  */
 function parseYamlShallow(source: string, issues: LgdlIssue[]): Partial<LgdlDocument> {
   const lines = source.split(/\r?\n/);
-  const doc: Record<string, unknown> = {};
+  const { obj } = parseBlock(lines, 0, 0, issues);
+  return obj as Partial<LgdlDocument>;
+}
 
-  let i = 0;
+/**
+ * Recursively parse a YAML block at a given indentation.
+ * Returns the parsed object and the index after the block.
+ */
+function parseBlock(
+  lines: string[],
+  start: number,
+  indent: number,
+  issues: LgdlIssue[],
+): { obj: Record<string, unknown>; next: number } {
+  const obj: Record<string, unknown> = {};
+  let i = start;
+
   while (i < lines.length) {
     const line = lines[i];
     const trimmed = line.trim();
@@ -156,22 +175,29 @@ function parseYamlShallow(source: string, issues: LgdlIssue[]): Partial<LgdlDocu
       i++;
       continue;
     }
-    const indent = line.length - line.trimStart().length;
-
-    if (indent === 0) {
-      const colon = findTopLevelColon(trimmed);
-      if (colon === -1) {
-        issues.push({ severity: 'error', message: `Cannot parse line: "${trimmed}"`, location: `line ${i + 1}` });
-        i++;
-        continue;
-      }
-      const key = trimmed.slice(0, colon).trim();
-      let value: unknown = parseScalar(trimmed.slice(colon + 1).trim());
+    const li = line.length - line.trimStart().length;
+    if (li < indent) break; // dedent: block ended
+    if (li > indent) {
+      issues.push({ severity: 'warning', message: `Unexpected indentation at line ${i + 1} (ignored)` });
       i++;
+      continue;
+    }
 
-      // Look ahead: if next line is indented, this is a list of objects
-      if (i < lines.length && lines[i].trim() && lines[i].length - lines[i].trimStart().length > indent) {
-        const listIndent = lines[i].length - lines[i].trimStart().length;
+    const colon = findTopLevelColon(trimmed);
+    if (colon === -1) {
+      issues.push({ severity: 'error', message: `Cannot parse line: "${trimmed}"`, location: `line ${i + 1}` });
+      i++;
+      continue;
+    }
+    const key = trimmed.slice(0, colon).trim();
+    const rawValue = trimmed.slice(colon + 1).trim();
+    i++;
+
+    // Empty value with deeper-indented children?
+    if (rawValue === '' && i < lines.length && lines[i].trim() && lines[i].length - lines[i].trimStart().length > indent) {
+      const childIndent = lines[i].length - lines[i].trimStart().length;
+      if (lines[i].trim().startsWith('- ')) {
+        // list of items
         const items: unknown[] = [];
         while (i < lines.length) {
           const l = lines[i];
@@ -179,27 +205,28 @@ function parseYamlShallow(source: string, issues: LgdlIssue[]): Partial<LgdlDocu
             i++;
             continue;
           }
-          const li = l.length - l.trimStart().length;
-          if (li <= indent) break;
-          if (li !== listIndent || !l.trim().startsWith('- ')) {
+          const lli = l.length - l.trimStart().length;
+          if (lli <= indent) break;
+          if (lli !== childIndent || !l.trim().startsWith('- ')) {
             issues.push({ severity: 'error', message: `Expected list item at line ${i + 1}`, location: key });
             break;
           }
           const itemText = l.trim().slice(2).trim();
           const itemIndent = l.length - l.trimStart().length;
           if (itemText === '' || findTopLevelColon(itemText) !== -1) {
-            // Nested object under the list item
-            const obj: Record<string, unknown> = {};
-            // First field may sit on the same line as the dash (e.g. "- id: a")
+            // object item: "- key: value" possibly followed by more fields
+            const item: Record<string, unknown> = {};
             if (itemText !== '') {
               const c = findTopLevelColon(itemText);
               if (c === -1) {
                 issues.push({ severity: 'error', message: `Cannot parse list item: "${itemText}"`, location: `line ${i + 1}` });
               } else {
-                obj[itemText.slice(0, c).trim()] = parseScalar(itemText.slice(c + 1).trim());
+                item[itemText.slice(0, c).trim()] = parseScalar(itemText.slice(c + 1).trim());
               }
             }
             i++;
+            // consume following fields belonging to this item (deeper indent),
+            // and possibly nested objects (e.g. attrs)
             while (i < lines.length) {
               const nl = lines[i];
               if (!nl.trim() || nl.trim().startsWith('#')) {
@@ -215,26 +242,36 @@ function parseYamlShallow(source: string, issues: LgdlIssue[]): Partial<LgdlDocu
                 continue;
               }
               const k = nl.trim().slice(0, c).trim();
-              const v = parseScalar(nl.trim().slice(c + 1).trim());
-              obj[k] = v;
-              i++;
+              const v = nl.trim().slice(c + 1).trim();
+              if (v === '' && i + 1 < lines.length && lines[i + 1].trim() && lines[i + 1].length - lines[i + 1].trimStart().length > ni) {
+                // nested object (e.g. attrs)
+                const sub = parseBlock(lines, i + 1, lines[i + 1].length - lines[i + 1].trimStart().length, issues);
+                item[k] = sub.obj;
+                i = sub.next;
+              } else {
+                item[k] = parseScalar(v);
+                i++;
+              }
             }
-            items.push(obj);
+            items.push(item);
           } else {
             items.push(parseScalar(itemText));
             i++;
           }
         }
-        value = items;
+        obj[key] = items;
+      } else {
+        // nested object (e.g. attrs)
+        const sub = parseBlock(lines, i, childIndent, issues);
+        obj[key] = sub.obj;
+        i = sub.next;
       }
-      doc[key] = value;
     } else {
-      issues.push({ severity: 'warning', message: `Unexpected indentation at line ${i + 1} (ignored)` });
-      i++;
+      obj[key] = parseScalar(rawValue);
     }
   }
 
-  return doc as Partial<LgdlDocument>;
+  return { obj, next: i };
 }
 
 function findTopLevelColon(line: string): number {

@@ -10,7 +10,10 @@ export type DiagramType =
   | 'uml-class'
   | 'arch'
   | 'datastream'
-  | 'sequence';
+  | 'sequence'
+  | 'er'
+  | 'state'
+  | 'gantt';
 
 /** Semantic role of a node; shapes are mapped by the renderer */
 export type NodeKind =
@@ -19,15 +22,26 @@ export type NodeKind =
   | 'process'
   | 'decision'
   | 'entity'
-  | 'note';
+  | 'note'
+  | 'state'
+  | 'milestone';
+
+/**
+ * Extension attributes — the "escape hatch" for diagram-specific fields
+ * (e.g. gantt start/duration, ER cardinality). Never breaks the core model:
+ * unknown keys are preserved verbatim by the parser and serializer.
+ */
+export type LgdlAttrs = Record<string, unknown>;
 
 export interface LgdlNode {
-  /** Unique identifier (letters, digits, underscore) */
+  /** Unique identifier (letters, digits, underscore, hyphen) */
   id: string;
   /** Display text; defaults to id */
   label?: string;
   /** Semantic kind; defaults to 'process' */
   kind?: NodeKind;
+  /** Diagram-specific extension attributes */
+  attrs?: LgdlAttrs;
 }
 
 export interface LgdlEdge {
@@ -37,6 +51,8 @@ export interface LgdlEdge {
   to: string;
   /** Optional edge label */
   label?: string;
+  /** Diagram-specific extension attributes (e.g. ER cardinality) */
+  attrs?: LgdlAttrs;
 }
 
 export interface LgdlGroup {
@@ -44,6 +60,8 @@ export interface LgdlGroup {
   label?: string;
   /** Node ids contained in this group */
   contains: string[];
+  /** Diagram-specific extension attributes */
+  attrs?: LgdlAttrs;
 }
 
 export interface LgdlMeta {

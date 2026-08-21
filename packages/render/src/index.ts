@@ -26,7 +26,7 @@ function text(
   content: string,
   fontSize = 14,
   fill = '#1f2937',
-  anchor: 'middle' | 'start' = 'middle',
+  anchor: 'middle' | 'start' | 'end' = 'middle',
 ): string {
   const lines = String(content).split('\n');
   const lineHeight = fontSize + 4;
@@ -160,13 +160,18 @@ export function renderSvg(doc: LgdlDocument, layout: LayoutResult): string {
   switch (doc.type) {
     case 'sequence':
       return renderSequence(doc, layout);
+    case 'gantt':
+      return renderGantt(doc, layout);
     case 'uml-class':
       return renderGeneral(doc, layout, 'uml-class');
     case 'datastream':
       return renderGeneral(doc, layout, 'datastream');
+    case 'er':
+      return renderGeneral(doc, layout, 'er');
     case 'mindmap':
     case 'flowchart':
     case 'arch':
+    case 'state':
     default:
       return renderGeneral(doc, layout, 'default');
   }
@@ -219,7 +224,7 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
 }
 
 /** General renderer (flowchart/mindmap/arch/datastream), with optional class-node styling. */
-function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream'): string {
+function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream' | 'er'): string {
   const parts: string[] = [];
 
   // defs: arrowhead marker
@@ -378,4 +383,59 @@ interface LayoutNodeLike {
   y: number;
   width: number;
   height: number;
+}
+
+/** Gantt chart renderer: time axis + task bars + dependency arrows. */
+function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
+  const parts: string[] = [];
+  parts.push(
+    `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/></marker></defs>`,
+  );
+  parts.push(`<rect x="0" y="0" width="${layout.width}" height="${layout.height}" fill="#ffffff"/>`);
+
+  const barY = new Map<string, number>();
+  layout.nodes.forEach((n) => barY.set(n.id, n.y));
+
+  // dependencies first (behind bars)
+  for (const edge of layout.edges) {
+    const pts = edge.points;
+    if (pts.length < 2) continue;
+    const [a, b] = pts;
+    // L-shaped connector: from end of source bar, right, then down to target
+    const midX = Math.min(a.x + 20, b.x);
+    parts.push(
+      `<g class="lgdl-dep"><path d="M ${a.x},${a.y} L ${midX},${a.y} L ${midX},${b.y} L ${b.x},${b.y}" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/></g>`,
+    );
+  }
+
+  // task bars
+  for (const node of layout.nodes) {
+    const lgdlNode = doc.nodes.find((n) => n.id === node.id);
+    const start = typeof lgdlNode?.attrs?.start === 'number' ? lgdlNode.attrs.start : 0;
+    const dur = typeof lgdlNode?.attrs?.duration === 'number' ? lgdlNode.attrs.duration : 1;
+    const label = lgdlNode?.label ?? node.id;
+    const cy = node.y + node.height / 2;
+    // left label
+    parts.push(text(node.x - 12, cy, label, 12, '#374151', 'end'));
+    // bar
+    parts.push(
+      `<g class="lgdl-gantt-bar"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" fill="#3b82f6" opacity="0.85"/>${text(node.x + node.width / 2, cy, `${start}d +${dur}d`, 11, '#ffffff')}</g>`,
+    );
+  }
+
+  // time axis header
+  const labelW = 220;
+  const colW = 40;
+  const axisX = 40 + labelW;
+  const axisY = 40;
+  const maxDay = Math.floor((layout.width - 40 - labelW) / colW);
+  parts.push(
+    `<g class="lgdl-gantt-axis"><rect x="${axisX}" y="${axisY}" width="${maxDay * colW}" height="40" fill="#f1f5f9" stroke="#e2e8f0"/>`,
+  );
+  for (let d = 0; d < maxDay; d++) {
+    parts.push(text(axisX + d * colW + colW / 2, axisY + 20, `D${d}`, 10, '#64748b'));
+  }
+  parts.push('</g>');
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">${parts.join('')}</svg>`;
 }

@@ -96,3 +96,61 @@ test('serialized output can be re-parsed to identical model', () => {
   const reparsed = parseLgdl(yaml);
   assert.deepEqual(reparsed.document, BASE);
 });
+
+test('attrs nested object parses and roundtrips', () => {
+  const yaml = `type: gantt
+nodes:
+  - id: task1
+    label: 开发
+    attrs:
+      start: 2026-09-01
+      duration: 5
+      tags: [a, b]
+`;
+  const parsed = parseLgdl(yaml);
+  assert.equal(parsed.valid, true);
+  const node = parsed.document.nodes[0];
+  assert.deepEqual(node.attrs, { start: '2026-09-01', duration: 5, tags: ['a', 'b'] });
+
+  const back = serializeLgdl(parsed.document);
+  const reparsed = parseLgdl(back);
+  assert.deepEqual(reparsed.document.nodes[0].attrs, { start: '2026-09-01', duration: 5, tags: ['a', 'b'] });
+});
+
+test('edge attrs parse and roundtrip', () => {
+  const yaml = `type: er
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+    label: 拥有
+    attrs:
+      cardinality: "1..*"
+`;
+  const parsed = parseLgdl(yaml);
+  assert.equal(parsed.valid, true);
+  assert.deepEqual(parsed.document.edges[0].attrs, { cardinality: '1..*' });
+  const back = serializeLgdl(parsed.document);
+  const reparsed = parseLgdl(back);
+  assert.deepEqual(reparsed.document.edges[0].attrs, { cardinality: '1..*' });
+});
+
+test('new diagram types are accepted', () => {
+  for (const type of ['er', 'state', 'gantt']) {
+    const result = parseLgdl(`type: ${type}\nnodes:\n  - id: a\n`);
+    assert.equal(result.valid, true, `${type} should be valid: ${result.issues.map((i) => i.message).join('; ')}`);
+  }
+});
+
+test('new node kinds are accepted', () => {
+  const result = parseLgdl(`type: state
+nodes:
+  - id: s1
+    kind: state
+  - id: m1
+    kind: milestone
+`);
+  assert.equal(result.valid, true);
+});

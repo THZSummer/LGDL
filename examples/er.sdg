@@ -1,0 +1,33 @@
+title: 电商 ER 图
+type: er
+
+nodes:
+  - id: user
+    label: "用户\n- id\n- name\n- email"
+    kind: entity
+  - id: order
+    label: "订单\n- id\n- userId\n- amount"
+    kind: entity
+  - id: product
+    label: "商品\n- id\n- name\n- price"
+    kind: entity
+  - id: order-item
+    label: "订单项\n- id\n- orderId\n- productId"
+    kind: entity
+
+edges:
+  - from: user
+    to: order
+    label: "拥有 1..*"
+    attrs:
+      cardinality: "1..*"
+  - from: order
+    to: order-item
+    label: "包含 1..*"
+    attrs:
+      cardinality: "1..*"
+  - from: product
+    to: order-item
+    label: "关联 1..*"
+    attrs:
+      cardinality: "1..*"

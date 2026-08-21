@@ -14,6 +14,24 @@ function yamlString(s: string): string {
   return s;
 }
 
+/** Serialize an attrs object as indented YAML key: value lines. */
+function serializeAttrs(attrs: Record<string, unknown>, indent: string): string[] {
+  const lines: string[] = [];
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      lines.push(`${indent}${k}:`);
+      lines.push(...serializeAttrs(v as Record<string, unknown>, indent + '  '));
+    } else if (Array.isArray(v)) {
+      lines.push(`${indent}${k}: [${v.map((x) => yamlString(String(x))).join(', ')}]`);
+    } else if (typeof v === 'number' || typeof v === 'boolean' || v === null) {
+      lines.push(`${indent}${k}: ${v}`);
+    } else {
+      lines.push(`${indent}${k}: ${yamlString(String(v))}`);
+    }
+  }
+  return lines;
+}
+
 export function serializeLgdl(doc: LgdlDocument): string {
   const lines: string[] = [];
 
@@ -33,6 +51,10 @@ export function serializeLgdl(doc: LgdlDocument): string {
     if (node.kind && node.kind !== 'process') {
       lines.push(`    kind: ${node.kind}`);
     }
+    if (node.attrs && Object.keys(node.attrs).length > 0) {
+      lines.push(`    attrs:`);
+      lines.push(...serializeAttrs(node.attrs, '      '));
+    }
   }
 
   // edges
@@ -44,6 +66,10 @@ export function serializeLgdl(doc: LgdlDocument): string {
       lines.push(`    to: ${yamlString(edge.to)}`);
       if (edge.label !== undefined) {
         lines.push(`    label: ${yamlString(edge.label)}`);
+      }
+      if (edge.attrs && Object.keys(edge.attrs).length > 0) {
+        lines.push(`    attrs:`);
+        lines.push(...serializeAttrs(edge.attrs, '      '));
       }
     }
   }
@@ -58,6 +84,10 @@ export function serializeLgdl(doc: LgdlDocument): string {
         lines.push(`    label: ${yamlString(group.label)}`);
       }
       lines.push(`    contains: [${group.contains.map(yamlString).join(', ')}]`);
+      if (group.attrs && Object.keys(group.attrs).length > 0) {
+        lines.push(`    attrs:`);
+        lines.push(...serializeAttrs(group.attrs, '      '));
+      }
     }
   }
 

@@ -124,9 +124,9 @@ LGDL/
 | 版本 | 内容 |
 |---|---|
 | **v0.1** | ✅ DSL 解析器 + 层级布局引擎 + CLI（`init`/`render`/`status`/增量编辑）+ SVG 输出 |
-| **v0.2** | ✅ 增量编辑协议 + 6 种图类型（flowchart/mindmap/sequence/uml-class/datastream/arch） |
-| **v0.3** | ⬜ Web 工作台（React + React Flow，左侧 DSL 右侧实时渲染）+ Mermaid 导入导出 |
-| **v0.4** | ⬜ 局部重排（布局稳定）+ AI Agent 集成（MCP Server + Skill 文档） |
+| **v0.2** | ✅ 增量编辑协议 + 9 种图类型（flowchart/mindmap/sequence/uml-class/datastream/arch/er/state/gantt） |
+| **v0.3** | ✅ attrs 扩展属性（逃生舱）+ ER/状态机/甘特图布局渲染 |
+| **v0.4** | ⬜ Web 工作台（React + React Flow）+ Mermaid 导入导出 + 局部重排 + MCP Server |
 
 ---
 

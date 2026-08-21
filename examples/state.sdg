@@ -1,0 +1,45 @@
+title: 订单状态机
+type: state
+
+nodes:
+  - id: created
+    label: 已创建
+    kind: state
+  - id: pending
+    label: 待支付
+    kind: state
+  - id: paid
+    label: 已支付
+    kind: state
+  - id: shipped
+    label: 已发货
+    kind: state
+  - id: done
+    label: 已完成
+    kind: end
+  - id: cancelled
+    label: 已取消
+    kind: end
+  - id: refunded
+    label: 已退款
+    kind: end
+
+edges:
+  - from: created
+    to: pending
+    label: 提交订单
+  - from: pending
+    to: paid
+    label: 支付成功
+  - from: pending
+    to: cancelled
+    label: 超时取消
+  - from: paid
+    to: shipped
+    label: 发货
+  - from: shipped
+    to: done
+    label: 确认收货
+  - from: paid
+    to: refunded
+    label: 申请退款
