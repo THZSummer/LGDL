@@ -42,6 +42,26 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 
 ---
 
+## 🖼️ 效果展示 / Gallery
+
+一种 DSL，九种图——全部由 `lgdl render` 自动布局生成，无任何手工排版：
+
+| flowchart 流程图 | mindmap 思维导图 | sequence 时序图 |
+|---|---|---|
+| <img src="examples/login-flow.png" width="280"/> | <img src="examples/mindmap.png" width="280"/> | <img src="examples/sequence.png" width="280"/> |
+
+| uml-class 类图 | arch 架构图 | datastream 数据流 |
+|---|---|---|
+| <img src="examples/uml-class.png" width="280"/> | <img src="examples/architecture.png" width="280"/> | <img src="examples/datastream.png" width="280"/> |
+
+| er ER 图 | state 状态机 | gantt 甘特图 |
+|---|---|---|
+| <img src="examples/er.png" width="280"/> | <img src="examples/state.png" width="280"/> | <img src="examples/gantt.png" width="280"/> |
+
+> 点击可查看源码：`examples/*.sdg` 是 DSL 源文件，`examples/*.svg` 是矢量图。
+
+---
+
 ## 🚀 快速开始 / Quick Start
 
 > 开发中，v0.1 尚未发布
@@ -58,7 +78,7 @@ lgdl status my-diagram.sdg  # 输出文本化图结构 ← AI 读取当前图
 
 ```yaml
 title: 用户登录流程
-type: flowchart            # flowchart | mindmap | uml-class | arch | datastream
+type: flowchart            # flowchart | mindmap | uml-class | arch | datastream | er | state | gantt | sequence
 
 nodes:
   - id: start
