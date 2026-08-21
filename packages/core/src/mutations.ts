@@ -40,8 +40,8 @@ export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult
   if (doc.nodes.some((n) => n.id === id)) {
     throw new Error(`Node id already exists: "${id}"`);
   }
-  if (!/^[A-Za-z0-9_]+$/.test(id)) {
-    throw new Error(`Invalid node id: "${id}" (letters, digits, underscore only)`);
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+    throw new Error(`Invalid node id: "${id}" (letters, digits, underscore, hyphen only)`);
   }
 
   const node: LgdlNode = { id, label: label ?? id, kind: kind ?? 'process' };

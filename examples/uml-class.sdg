@@ -1,0 +1,27 @@
+title: 订单系统类图
+type: uml-class
+
+nodes:
+  - id: user
+    label: "User\n- id: int\n- name: string\n+ login()\n+ logout()"
+    kind: entity
+  - id: order
+    label: "Order\n- id: int\n- userId: int\n- amount: float\n+ create()\n+ pay()\n+ cancel()"
+    kind: entity
+  - id: payment
+    label: "Payment\n- orderId: int\n- method: string\n+ process()"
+    kind: entity
+  - id: cart
+    label: "Cart\n- items: list\n+ addItem()\n+ removeItem()\n+ checkout()"
+    kind: entity
+
+edges:
+  - from: user
+    to: order
+    label: 拥有 1..*
+  - from: order
+    to: payment
+    label: 发起 1..1
+  - from: user
+    to: cart
+    label: 关联 1..1

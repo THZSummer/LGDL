@@ -1,0 +1,53 @@
+title: 订单处理数据流
+type: datastream
+
+nodes:
+  - id: web
+    label: 下单请求
+    kind: start
+  - id: order-svc
+    label: 订单服务
+    kind: process
+  - id: inv-svc
+    label: 库存服务
+    kind: process
+  - id: pay-svc
+    label: 支付服务
+    kind: process
+  - id: order-db
+    label: 订单库
+    kind: entity
+  - id: inv-db
+    label: 库存库
+    kind: entity
+  - id: pay-db
+    label: 支付流水
+    kind: entity
+
+edges:
+  - from: web
+    to: order-svc
+    label: 创建订单
+  - from: order-svc
+    to: order-db
+    label: 写入订单
+  - from: order-svc
+    to: inv-svc
+    label: 扣库存
+  - from: inv-svc
+    to: inv-db
+    label: 更新库存
+  - from: order-svc
+    to: pay-svc
+    label: 发起支付
+  - from: pay-svc
+    to: pay-db
+    label: 记录流水
+
+groups:
+  - id: app
+    label: 应用层
+    contains: [web, order-svc, inv-svc, pay-svc]
+  - id: data
+    label: 数据层
+    contains: [order-db, inv-db, pay-db]

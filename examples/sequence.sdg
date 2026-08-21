@@ -1,0 +1,36 @@
+title: 用户登录时序
+type: sequence
+
+nodes:
+  - id: user
+    label: 用户
+    kind: start
+  - id: browser
+    label: 浏览器
+    kind: process
+  - id: server
+    label: 后端服务
+    kind: process
+  - id: db
+    label: 数据库
+    kind: entity
+
+edges:
+  - from: user
+    to: browser
+    label: 输入账号密码
+  - from: browser
+    to: server
+    label: POST /login
+  - from: server
+    to: db
+    label: 查询用户
+  - from: db
+    to: server
+    label: 返回结果
+  - from: server
+    to: browser
+    label: 返回 Token
+  - from: browser
+    to: user
+    label: 显示登录成功

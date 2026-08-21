@@ -1,0 +1,50 @@
+title: AI 项目技术选型
+type: mindmap
+
+nodes:
+  - id: root
+    label: AI 项目
+    kind: start
+  - id: models
+    label: 模型选择
+    kind: process
+  - id: framework
+    label: 开发框架
+    kind: process
+  - id: deploy
+    label: 部署方案
+    kind: process
+  - id: llm
+    label: 大语言模型
+  - id: vision
+    label: 视觉模型
+  - id: rag
+    label: RAG
+    kind: decision
+  - id: agent
+    label: Agent
+    kind: decision
+  - id: cloud
+    label: 云部署
+  - id: edge
+    label: 边缘部署
+
+edges:
+  - from: root
+    to: models
+  - from: root
+    to: framework
+  - from: root
+    to: deploy
+  - from: models
+    to: llm
+  - from: models
+    to: vision
+  - from: framework
+    to: rag
+  - from: framework
+    to: agent
+  - from: deploy
+    to: cloud
+  - from: deploy
+    to: edge

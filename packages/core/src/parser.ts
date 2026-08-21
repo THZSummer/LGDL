@@ -66,10 +66,10 @@ export function validate(
   // nodes: ids must be unique
   const seenIds = new Set<string>();
   result.nodes.forEach((node, i) => {
-    if (!node.id || !/^[A-Za-z0-9_]+$/.test(node.id)) {
+    if (!node.id || !/^[A-Za-z0-9_-]+$/.test(node.id)) {
       issues.push({
         severity: 'error',
-        message: `Node id must be non-empty and contain only letters, digits, underscore (got "${node.id}")`,
+        message: `Node id must be non-empty and contain only letters, digits, underscore, hyphen (got "${node.id}")`,
         location: `nodes[${i}].id`,
       });
     } else if (seenIds.has(node.id)) {
@@ -263,7 +263,16 @@ function parseScalar(raw: string): unknown {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
   }
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+  if (value.startsWith('"') && value.endsWith('"')) {
+    // double-quoted: process escapes (\n, \t, \", \\)
+    return value
+      .slice(1, -1)
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  }
+  if (value.startsWith("'") && value.endsWith("'")) {
     return value.slice(1, -1);
   }
   return value;

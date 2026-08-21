@@ -8,8 +8,8 @@ import type { LgdlDocument } from './types.js';
 
 function yamlString(s: string): string {
   // Quote if it contains characters that could break YAML
-  if (/[:#\[\]{},&*!|>'"%@`]|^\s|\s$|^[-\d]/.test(s)) {
-    return `"${s.replace(/"/g, '\\"')}"`;
+  if (/[:#\[\]{},&*!|>'"%@`]|^\s|\s$|^[-\d]|\n/.test(s)) {
+    return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
   }
   return s;
 }
