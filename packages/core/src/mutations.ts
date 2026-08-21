@@ -6,7 +6,7 @@
  * the affected area. Layout stability is handled by the layout engine;
  * here we only mutate the semantic model.
  */
-import type { LgdlDocument, LgdlEdge, LgdlNode, NodeKind } from './types.js';
+import type { LgdlAttrs, LgdlDocument, LgdlEdge, LgdlGroup, LgdlNode, NodeKind } from './types.js';
 
 export interface AddNodeOptions {
   id: string;
@@ -14,18 +14,39 @@ export interface AddNodeOptions {
   kind?: NodeKind;
   /** Optional group to place the node into */
   group?: string;
+  /** Extension attributes (e.g. gantt start/duration) */
+  attrs?: LgdlAttrs;
 }
 
 export interface AddEdgeOptions {
   from: string;
   to: string;
   label?: string;
+  /** Extension attributes (e.g. ER cardinality) */
+  attrs?: LgdlAttrs;
 }
 
 export interface UpdateNodeOptions {
   id: string;
   label?: string;
   kind?: NodeKind;
+  /** Replace extension attributes (merge) */
+  attrs?: LgdlAttrs;
+}
+
+export interface UpdateEdgeOptions {
+  from: string;
+  to: string;
+  label?: string;
+  /** Replace extension attributes (merge) */
+  attrs?: LgdlAttrs;
+}
+
+export interface AddGroupOptions {
+  id: string;
+  label?: string;
+  /** Initial member node ids */
+  contains?: string[];
 }
 
 /** Result of a mutation: the new document + a human/AI-readable summary. */
@@ -35,7 +56,7 @@ export interface MutationResult {
 }
 
 export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult {
-  const { id, label, kind, group } = opts;
+  const { id, label, kind, group, attrs } = opts;
 
   if (doc.nodes.some((n) => n.id === id)) {
     throw new Error(`Node id already exists: "${id}"`);
@@ -44,7 +65,12 @@ export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult
     throw new Error(`Invalid node id: "${id}" (letters, digits, underscore, hyphen only)`);
   }
 
-  const node: LgdlNode = { id, label: label ?? id, kind: kind ?? 'process' };
+  const node: LgdlNode = {
+    id,
+    label: label ?? id,
+    kind: kind ?? 'process',
+    ...(attrs !== undefined ? { attrs } : {}),
+  };
 
   const document: LgdlDocument = {
     ...doc,
@@ -89,7 +115,7 @@ export function removeNode(doc: LgdlDocument, id: string): MutationResult {
 }
 
 export function addEdge(doc: LgdlDocument, opts: AddEdgeOptions): MutationResult {
-  const { from, to, label } = opts;
+  const { from, to, label, attrs } = opts;
 
   if (!doc.nodes.some((n) => n.id === from)) {
     throw new Error(`Source node not found: "${from}"`);
@@ -104,7 +130,7 @@ export function addEdge(doc: LgdlDocument, opts: AddEdgeOptions): MutationResult
     throw new Error(`Edge already exists: ${from} -> ${to}`);
   }
 
-  const edge: LgdlEdge = { from, to, label };
+  const edge: LgdlEdge = { from, to, label, ...(attrs !== undefined ? { attrs } : {}) };
 
   return {
     document: { ...doc, edges: [...doc.edges, edge] },
@@ -128,7 +154,7 @@ export function removeEdge(doc: LgdlDocument, from: string, to: string): Mutatio
 }
 
 export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): MutationResult {
-  const { id, label, kind } = opts;
+  const { id, label, kind, attrs } = opts;
   if (!doc.nodes.some((n) => n.id === id)) {
     throw new Error(`Node not found: "${id}"`);
   }
@@ -137,7 +163,12 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
     ...doc,
     nodes: doc.nodes.map((n) =>
       n.id === id
-        ? { ...n, ...(label !== undefined ? { label } : {}), ...(kind !== undefined ? { kind } : {}) }
+        ? {
+            ...n,
+            ...(label !== undefined ? { label } : {}),
+            ...(kind !== undefined ? { kind } : {}),
+            ...(attrs !== undefined ? { attrs: { ...n.attrs, ...attrs } } : {}),
+          }
         : n,
     ),
   };
@@ -145,5 +176,61 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
   const changes: string[] = [];
   if (label !== undefined) changes.push(`label="${label}"`);
   if (kind !== undefined) changes.push(`kind=${kind}`);
+  if (attrs !== undefined) changes.push(`attrs={${Object.keys(attrs).join(',')}}`);
   return { document, summary: `updated node "${id}" (${changes.join(', ')})` };
+}
+
+export function updateEdge(doc: LgdlDocument, opts: UpdateEdgeOptions): MutationResult {
+  const { from, to, label, attrs } = opts;
+  if (!doc.edges.some((e) => e.from === from && e.to === to)) {
+    throw new Error(`Edge not found: ${from} -> ${to}`);
+  }
+
+  const document: LgdlDocument = {
+    ...doc,
+    edges: doc.edges.map((e) =>
+      e.from === from && e.to === to
+        ? {
+            ...e,
+            ...(label !== undefined ? { label } : {}),
+            ...(attrs !== undefined ? { attrs: { ...e.attrs, ...attrs } } : {}),
+          }
+        : e,
+    ),
+  };
+
+  const changes: string[] = [];
+  if (label !== undefined) changes.push(`label="${label}"`);
+  if (attrs !== undefined) changes.push(`attrs={${Object.keys(attrs).join(',')}}`);
+  return { document, summary: `updated edge ${from} -> ${to} (${changes.join(', ')})` };
+}
+
+export function addGroup(doc: LgdlDocument, opts: AddGroupOptions): MutationResult {
+  const { id, label, contains } = opts;
+  if (doc.groups.some((g) => g.id === id)) {
+    throw new Error(`Group id already exists: "${id}"`);
+  }
+  if (contains) {
+    for (const nodeId of contains) {
+      if (!doc.nodes.some((n) => n.id === nodeId)) {
+        throw new Error(`Group contains unknown node: "${nodeId}"`);
+      }
+    }
+  }
+
+  const group: LgdlGroup = { id, label, contains: contains ?? [] };
+  return {
+    document: { ...doc, groups: [...doc.groups, group] },
+    summary: `added group "${id}"${label ? ` (${label})` : ''}${contains && contains.length > 0 ? ` with ${contains.length} member(s)` : ''}`,
+  };
+}
+
+export function removeGroup(doc: LgdlDocument, id: string): MutationResult {
+  if (!doc.groups.some((g) => g.id === id)) {
+    throw new Error(`Group not found: "${id}"`);
+  }
+  return {
+    document: { ...doc, groups: doc.groups.filter((g) => g.id !== id) },
+    summary: `removed group "${id}"`,
+  };
 }

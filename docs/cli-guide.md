@@ -28,11 +28,14 @@ lgdl --version    # 查看版本
 | `lgdl init <file>` | 创建空图文件 | ⭐ |
 | `lgdl render <file>` | 渲染为 SVG（自动布局） | ⭐⭐⭐ |
 | `lgdl status <file>` | 输出文本化图结构 | ⭐⭐⭐ |
-| `lgdl add-node <file>` | 加节点（增量） | ⭐⭐⭐ |
+| `lgdl add-node <file>` | 加节点（增量，支持 attrs） | ⭐⭐⭐ |
 | `lgdl remove-node <file>` | 删节点（自动清理关联边） | ⭐⭐⭐ |
-| `lgdl update-node <file>` | 改节点 label/kind | ⭐⭐ |
-| `lgdl add-edge <file>` | 加边（增量） | ⭐⭐⭐ |
+| `lgdl update-node <file>` | 改节点 label/kind/attrs | ⭐⭐ |
+| `lgdl add-edge <file>` | 加边（增量，支持 attrs） | ⭐⭐⭐ |
+| `lgdl update-edge <file>` | 改边 label/attrs | ⭐⭐ |
 | `lgdl remove-edge <file>` | 删边 | ⭐⭐ |
+| `lgdl add-group <file>` | 加分组（泳道/分区） | ⭐⭐ |
+| `lgdl remove-group <file>` | 删分组 | ⭐ |
 
 ---
 
@@ -89,7 +92,7 @@ lgdl status my-diagram.lgdl
 
 所有增量命令都遵循同一模式：**读文件 → 修改 → 校验 → 写回**。AI Agent 通过这些命令精确修改图，**绝不重写整个文件**。
 
-#### `lgdl add-node <file> --id <id> [--label <label>] [--kind <kind>] [--group <group>]`
+#### `lgdl add-node <file> --id <id> [--label <label>] [--kind <kind>] [--group <group>] [--attrs <key=value>]`
 
 ```bash
 lgdl add-node my-diagram.lgdl --id register --label "注册账号" --kind process
@@ -98,9 +101,17 @@ lgdl add-node my-diagram.lgdl --id register --label "注册账号" --kind proces
 
 # 加入分组
 lgdl add-node my-diagram.lgdl --id register --group frontend
+
+# 带扩展属性（甘特图任务：起始日 + 工期）
+lgdl add-node my-diagram.lgdl --id dev --label "开发" --attrs start=6 --attrs duration=8
 ```
 
 `--kind` 可选值：`start` `end` `process` `decision` `entity` `note` `state` `milestone`（默认 `process`）
+
+**`--attrs` 扩展属性**：可重复传多个 `key=value`，自动识别类型：
+- 数字：`--attrs start=6` → `start: 6`
+- 布尔：`--attrs done=true` → `done: true`
+- 字符串：`--attrs name="a b"` → `name: "a b"`
 
 #### `lgdl remove-node <file> --id <id>`
 
@@ -111,21 +122,32 @@ lgdl remove-node my-diagram.lgdl --id register
 
 ⚠️ 删节点会**自动删除所有关联的边**，并把它从分组中移除。
 
-#### `lgdl update-node <file> --id <id> [--label <label>] [--kind <kind>]`
+#### `lgdl update-node <file> --id <id> [--label <label>] [--kind <kind>] [--attrs <key=value>]`
 
 ```bash
 lgdl update-node my-diagram.lgdl --id register --label "新用户注册"
 lgdl update-node my-diagram.lgdl --id verify --kind decision
+lgdl update-node my-diagram.lgdl --id dev --attrs progress=0.5   # 合并进 attrs
 ```
 
-#### `lgdl add-edge <file> --from <id> --to <id> [--label <label>]`
+#### `lgdl add-edge <file> --from <id> --to <id> [--label <label>] [--attrs <key=value>]`
 
 ```bash
 lgdl add-edge my-diagram.lgdl --from login --to register --label "没有账号？"
 # ✓ added edge login -> register [没有账号？]
+
+# ER 图：带关系基数
+lgdl add-edge my-diagram.lgdl --from user --to order --label "拥有" --attrs cardinality="1..*"
 ```
 
 ⚠️ 不支持自环（from === to），重复边会报错。
+
+#### `lgdl update-edge <file> --from <id> --to <id> [--label <label>] [--attrs <key=value>]`
+
+```bash
+lgdl update-edge my-diagram.lgdl --from user --to order --label "拥有多个"
+lgdl update-edge my-diagram.lgdl --from user --to order --attrs cardinality="0..*"
+```
 
 #### `lgdl remove-edge <file> --from <id> --to <id>`
 
@@ -133,6 +155,23 @@ lgdl add-edge my-diagram.lgdl --from login --to register --label "没有账号�
 lgdl remove-edge my-diagram.lgdl --from verify --to fail
 # ✓ removed edge verify -> fail
 ```
+
+#### `lgdl add-group <file> --id <id> [--label <label>] [--contains <ids>]`
+
+```bash
+# 创建分组（泳道/分区），可指定初始成员
+lgdl add-group my-diagram.lgdl --id frontend --label "前端层" --contains start,login
+# ✓ added group "frontend" (前端层) with 2 member(s)
+```
+
+#### `lgdl remove-group <file> --id <id>`
+
+```bash
+lgdl remove-group my-diagram.lgdl --id frontend
+# ✓ removed group "frontend"
+```
+
+⚠️ 删除分组不会删除其中的节点，节点只是脱离分组。
 
 ---
 

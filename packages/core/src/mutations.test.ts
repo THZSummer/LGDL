@@ -6,6 +6,9 @@ import {
   removeNode,
   removeEdge,
   updateNode,
+  updateEdge,
+  addGroup,
+  removeGroup,
   serializeLgdl,
   parseLgdl,
 } from './index.js';
@@ -153,4 +156,51 @@ nodes:
     kind: milestone
 `);
   assert.equal(result.valid, true);
+});
+
+test('addNode supports attrs (gantt start/duration)', () => {
+  const { document } = addNode(BASE, { id: 'task', attrs: { start: 3, duration: 5 } });
+  const node = document.nodes.find((n) => n.id === 'task');
+  assert.deepEqual(node?.attrs, { start: 3, duration: 5 });
+  const yaml = serializeLgdl(document);
+  const reparsed = parseLgdl(yaml);
+  assert.deepEqual(reparsed.document.nodes.find((n) => n.id === 'task')?.attrs, { start: 3, duration: 5 });
+});
+
+test('addEdge supports attrs (ER cardinality)', () => {
+  const { document } = addEdge(BASE, { from: 'b', to: 'a', label: '拥有', attrs: { cardinality: '1..*' } });
+  const edge = document.edges.find((e) => e.from === 'b' && e.to === 'a');
+  assert.deepEqual(edge?.attrs, { cardinality: '1..*' });
+});
+
+test('updateNode merges attrs', () => {
+  const doc = { ...BASE, nodes: [{ id: 'a', label: 'A', attrs: { x: 1 } }] };
+  const { document } = updateNode(doc, { id: 'a', attrs: { y: 2 } });
+  assert.deepEqual(document.nodes[0].attrs, { x: 1, y: 2 });
+});
+
+test('updateEdge merges attrs', () => {
+  const doc = { ...BASE, edges: [{ from: 'a', to: 'b', label: 'go', attrs: { k: 1 } }] };
+  const { document } = updateEdge(doc, { from: 'a', to: 'b', attrs: { cardinality: '1..1' } });
+  assert.deepEqual(document.edges[0].attrs, { k: 1, cardinality: '1..1' });
+});
+
+test('addGroup creates group with members', () => {
+  const { document, summary } = addGroup(BASE, { id: 'g2', label: 'G2', contains: ['b'] });
+  assert.equal(document.groups.length, 2);
+  assert.deepEqual(document.groups[1].contains, ['b']);
+  assert.ok(summary.includes('added group "g2"'));
+});
+
+test('addGroup rejects unknown member', () => {
+  assert.throws(() => addGroup(BASE, { id: 'g2', contains: ['ghost'] }), /unknown node/);
+});
+
+test('removeGroup removes group', () => {
+  const { document } = removeGroup(BASE, 'g1');
+  assert.equal(document.groups.length, 0);
+});
+
+test('removeGroup throws on missing', () => {
+  assert.throws(() => removeGroup(BASE, 'nope'), /not found/);
 });

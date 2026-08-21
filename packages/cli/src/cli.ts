@@ -15,10 +15,18 @@ import {
   removeNode,
   removeEdge,
   updateNode,
+  updateEdge,
+  addGroup,
+  removeGroup,
   serializeLgdl,
 } from '@lgdl/core';
 import { layoutDocument } from '@lgdl/layout';
 import { renderSvg } from '@lgdl/render';
+
+/** commander option collector: accumulate repeated --attrs into an array */
+function collect(value: string, previous: string[]): string[] {
+  return [...(previous ?? []), value];
+}
 
 const program = new Command();
 
@@ -127,6 +135,33 @@ function mutate(file: string, fn: (doc: ReturnType<typeof loadDocument>) => { do
   }
 }
 
+/**
+ * Parse repeated --attrs key=value options into an attrs object.
+ * Supports: --attrs start=0 --attrs duration=3 --attrs done=true --attrs name="a b"
+ */
+function parseAttrs(values: string[] | undefined): Record<string, unknown> | undefined {
+  if (!values || values.length === 0) return undefined;
+  const attrs: Record<string, unknown> = {};
+  for (const raw of values) {
+    const eq = raw.indexOf('=');
+    if (eq === -1) {
+      console.error(`✖ invalid --attrs "${raw}" (expected key=value)`);
+      process.exit(1);
+    }
+    const key = raw.slice(0, eq).trim();
+    let value: unknown = raw.slice(eq + 1).trim();
+    if (value === 'true') value = true;
+    else if (value === 'false') value = false;
+    else if (/^-?\d+$/.test(String(value))) value = parseInt(String(value), 10);
+    else if (/^-?\d+\.\d+$/.test(String(value))) value = parseFloat(String(value));
+    else if ((value as string).startsWith('"') && (value as string).endsWith('"')) {
+      value = (value as string).slice(1, -1);
+    }
+    attrs[key] = value;
+  }
+  return attrs;
+}
+
 program
   .command('add-node <file>')
   .description('add a node')
@@ -134,8 +169,11 @@ program
   .option('--label <label>', 'display label')
   .option('--kind <kind>', 'node kind (start|end|process|decision|entity|note|state|milestone)', 'process')
   .option('--group <group>', 'group id to place the node into')
-  .action((file: string, opts: { id: string; label?: string; kind: string; group?: string }) => {
-    mutate(file, (doc) => addNode(doc, { id: opts.id, label: opts.label, kind: opts.kind as never, group: opts.group }));
+  .option('--attrs <key=value>', 'extension attribute (repeatable, e.g. --attrs start=0 --attrs duration=3)', collect)
+  .action((file: string, opts: { id: string; label?: string; kind: string; group?: string; attrs?: string[] }) => {
+    mutate(file, (doc) =>
+      addNode(doc, { id: opts.id, label: opts.label, kind: opts.kind as never, group: opts.group, attrs: parseAttrs(opts.attrs) }),
+    );
   });
 
 program
@@ -148,12 +186,15 @@ program
 
 program
   .command('update-node <file>')
-  .description('update a node label/kind')
+  .description('update a node label/kind/attrs')
   .requiredOption('--id <id>', 'node id')
   .option('--label <label>', 'new label')
   .option('--kind <kind>', 'new kind')
-  .action((file: string, opts: { id: string; label?: string; kind?: string }) => {
-    mutate(file, (doc) => updateNode(doc, { id: opts.id, label: opts.label, kind: opts.kind as never }));
+  .option('--attrs <key=value>', 'extension attribute (repeatable, merged)', collect)
+  .action((file: string, opts: { id: string; label?: string; kind?: string; attrs?: string[] }) => {
+    mutate(file, (doc) =>
+      updateNode(doc, { id: opts.id, label: opts.label, kind: opts.kind as never, attrs: parseAttrs(opts.attrs) }),
+    );
   });
 
 program
@@ -162,8 +203,20 @@ program
   .requiredOption('--from <id>', 'source node id')
   .requiredOption('--to <id>', 'target node id')
   .option('--label <label>', 'edge label')
-  .action((file: string, opts: { from: string; to: string; label?: string }) => {
-    mutate(file, (doc) => addEdge(doc, { from: opts.from, to: opts.to, label: opts.label }));
+  .option('--attrs <key=value>', 'extension attribute (repeatable, e.g. --attrs cardinality="1..*")', collect)
+  .action((file: string, opts: { from: string; to: string; label?: string; attrs?: string[] }) => {
+    mutate(file, (doc) => addEdge(doc, { from: opts.from, to: opts.to, label: opts.label, attrs: parseAttrs(opts.attrs) }));
+  });
+
+program
+  .command('update-edge <file>')
+  .description('update an edge label/attrs')
+  .requiredOption('--from <id>', 'source node id')
+  .requiredOption('--to <id>', 'target node id')
+  .option('--label <label>', 'new label')
+  .option('--attrs <key=value>', 'extension attribute (repeatable, merged)', collect)
+  .action((file: string, opts: { from: string; to: string; label?: string; attrs?: string[] }) => {
+    mutate(file, (doc) => updateEdge(doc, { from: opts.from, to: opts.to, label: opts.label, attrs: parseAttrs(opts.attrs) }));
   });
 
 program
@@ -173,6 +226,25 @@ program
   .requiredOption('--to <id>', 'target node id')
   .action((file: string, opts: { from: string; to: string }) => {
     mutate(file, (doc) => removeEdge(doc, opts.from, opts.to));
+  });
+
+program
+  .command('add-group <file>')
+  .description('add a group (lane/partition)')
+  .requiredOption('--id <id>', 'group id')
+  .option('--label <label>', 'group label')
+  .option('--contains <ids>', 'comma-separated member node ids')
+  .action((file: string, opts: { id: string; label?: string; contains?: string }) => {
+    const contains = opts.contains ? opts.contains.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+    mutate(file, (doc) => addGroup(doc, { id: opts.id, label: opts.label, contains }));
+  });
+
+program
+  .command('remove-group <file>')
+  .description('remove a group')
+  .requiredOption('--id <id>', 'group id')
+  .action((file: string, opts: { id: string }) => {
+    mutate(file, (doc) => removeGroup(doc, opts.id));
   });
 
 program.parseAsync().catch((err) => {
