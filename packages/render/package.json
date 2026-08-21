@@ -1,0 +1,23 @@
+{
+  "name": "@lgdl/render",
+  "version": "0.1.0",
+  "description": "LGDL SVG/PNG renderer",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@lgdl/core": "0.1.0",
+    "@lgdl/layout": "0.1.0"
+  },
+  "license": "MIT"
+}

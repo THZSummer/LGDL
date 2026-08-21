@@ -1,0 +1,65 @@
+# LGDL 核心设计原则
+
+## 1. 语义与呈现解耦（Semantic-Presentation Decoupling）
+
+**LGDL 文件只包含语义，绝不包含布局信息。**
+
+- ✅ 节点 id、label、kind（类型）
+- ✅ 边 from、to、label
+- ✅ 分组 groups（层级/分区）
+- ❌ 坐标、宽高、颜色、形状（形状由 kind 映射，主题可换）
+
+**理由**：AI 擅长理解语义、生成逻辑；不擅长（也不应该）计算视觉布局。布局是确定性算法问题，交给引擎。这样：
+- 同样的 `.sdg` 永远渲染出同样的图（确定性、可测试）
+- AI 修改内容不会破坏布局
+- 换主题/换样式不碰逻辑
+
+## 2. 增量编辑协议（Incremental Edit Protocol）
+
+AI 的每次修改必须是**增量操作**，而不是整图重写：
+
+```
+add-node      — 加节点（自动接入孤立检测）
+remove-node   — 删节点（自动清理关联边）
+update-node   — 改节点内容/类型
+add-edge      — 加边
+remove-edge   — 删边
+```
+
+**局部重排规则**：增量操作只重算受影响子图，其余节点位置保持不动。当且仅当用户显式 `--relayout all` 时才全图重排。
+
+## 3. 确定性布局（Deterministic Layout）
+
+- 默认布局算法：dagre（层级图）/ 径向树（思维导图）
+- 同样的输入 → 同样的输出，AI 可预测、可测试
+- 布局结果可以缓存，增量修改时复用
+
+## 4. AI 友好（AI-Friendly）
+
+- `lgdl status` 输出**纯文本图结构**，AI 一读就懂
+- 所有 CLI 命令参数化、可脚本化
+- 提供 MCP Server 让 AI Agent 深度集成（v0.4）
+
+## 5. 图类型（Diagram Types）
+
+| type | 说明 | 布局 |
+|---|---|---|
+| `flowchart` | 业务流程图 | 层级布局 |
+| `mindmap` | 思维导图 | 径向树布局 |
+| `uml-class` | UML 类图 | 分层 + 边约束 |
+| `arch` | 架构图 | 分区布局（groups） |
+| `datastream` | 数据流图 | 层级 + 泳道 |
+| `sequence` | 时序图 | 时间轴布局 |
+
+## 6. Node Kinds（节点类型）
+
+`kind` 决定节点的**语义角色**，形状由渲染器映射：
+
+| kind | 语义 | 默认形状 |
+|---|---|---|
+| `start` / `end` | 开始/结束 | 圆角矩形 |
+| `process` | 处理步骤 | 矩形 |
+| `decision` | 判断 | 菱形 |
+| `entity` | 实体/数据 | 圆柱 |
+| `note` | 备注 | 便签 |
+| `group` | 分组容器 | 大虚线框 |

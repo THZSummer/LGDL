@@ -1,0 +1,19 @@
+{
+  "name": "@lgdl/cli",
+  "version": "0.1.0",
+  "description": "LGDL command-line interface",
+  "type": "module",
+  "bin": {
+    "lgdl": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@lgdl/core": "0.1.0",
+    "@lgdl/render": "0.1.0",
+    "commander": "^12.0.0"
+  },
+  "license": "MIT"
+}

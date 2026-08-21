@@ -1,0 +1,19 @@
+{
+  "name": "lgdl",
+  "version": "0.1.0",
+  "description": "Logical Graph Description Language: semantic-first diagram DSL for AI agents",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

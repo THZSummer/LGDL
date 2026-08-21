@@ -1,0 +1,41 @@
+title: 用户登录流程
+type: flowchart
+
+nodes:
+  - id: start
+    label: 用户访问
+    kind: start
+  - id: login
+    label: 输入账号密码
+    kind: process
+  - id: verify
+    label: 验证凭据
+    kind: decision
+  - id: ok
+    label: 登录成功
+    kind: end
+  - id: fail
+    label: 登录失败
+    kind: end
+
+edges:
+  - from: start
+    to: login
+    label: 打开页面
+  - from: login
+    to: verify
+    label: 提交
+  - from: verify
+    to: ok
+    label: 通过
+  - from: verify
+    to: fail
+    label: 失败
+
+groups:
+  - id: frontend
+    label: 前端层
+    contains: [start, login]
+  - id: backend
+    label: 后端层
+    contains: [verify]
