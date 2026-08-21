@@ -1,7 +1,7 @@
 {
   "name": "lgdl",
   "version": "0.1.0",
-  "description": "Logical Graph Description Language: semantic-first diagram DSL for AI agents",
+  "description": "Logical Graph Description Language: semantic-first diagram language for AI agents",
   "private": true,
   "type": "module",
   "workspaces": [
