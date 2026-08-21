@@ -48,15 +48,15 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 
 | flowchart 流程图 | mindmap 思维导图 | sequence 时序图 |
 |---|---|---|
-| <img src="examples/login-flow.png" width="280"/><br/>[📄 源码](examples/login-flow.sdg) | <img src="examples/mindmap.png" width="280"/><br/>[📄 源码](examples/mindmap.sdg) | <img src="examples/sequence.png" width="280"/><br/>[📄 源码](examples/sequence.sdg) |
+| <p align="center"><img src="examples/login-flow.png" width="280"/><br/>[📄 源码](examples/login-flow.sdg)</p> | <p align="center"><img src="examples/mindmap.png" width="280"/><br/>[📄 源码](examples/mindmap.sdg)</p> | <p align="center"><img src="examples/sequence.png" width="280"/><br/>[📄 源码](examples/sequence.sdg)</p> |
 
 | uml-class 类图 | arch 架构图 | datastream 数据流 |
 |---|---|---|
-| <img src="examples/uml-class.png" width="280"/><br/>[📄 源码](examples/uml-class.sdg) | <img src="examples/architecture.png" width="280"/><br/>[📄 源码](examples/architecture.sdg) | <img src="examples/datastream.png" width="280"/><br/>[📄 源码](examples/datastream.sdg) |
+| <p align="center"><img src="examples/uml-class.png" width="280"/><br/>[📄 源码](examples/uml-class.sdg)</p> | <p align="center"><img src="examples/architecture.png" width="280"/><br/>[📄 源码](examples/architecture.sdg)</p> | <p align="center"><img src="examples/datastream.png" width="280"/><br/>[📄 源码](examples/datastream.sdg)</p> |
 
 | er ER 图 | state 状态机 | gantt 甘特图 |
 |---|---|---|
-| <img src="examples/er.png" width="280"/><br/>[📄 源码](examples/er.sdg) | <img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.sdg) | <img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.sdg) |
+| <p align="center"><img src="examples/er.png" width="280"/><br/>[📄 源码](examples/er.sdg)</p> | <p align="center"><img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.sdg)</p> | <p align="center"><img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.sdg)</p> |
 
 ---
 
