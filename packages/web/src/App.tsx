@@ -1,11 +1,177 @@
-// LGDL Web workbench — v0.3 milestone scaffold
-import React from 'react';
+// LGDL Web Workbench — edit .lgdl in the browser, live render
+import React, { useMemo, useState, useCallback, useRef } from 'react';
+import { parseLgdl, validate } from '@lgdl/core';
+import { layoutDocument } from '@lgdl/layout';
+import { renderSvg } from '@lgdl/render';
+import { EXAMPLES, type Example } from './examples';
+import './app.css';
+
+interface RenderState {
+  svg: string;
+  width: number;
+  height: number;
+  nodeCount: number;
+  edgeCount: number;
+  issues: { severity: string; message: string; location?: string }[];
+}
+
+function compile(source: string): RenderState {
+  const result = parseLgdl(source);
+  const issues = result.issues;
+  if (!result.valid) {
+    return {
+      svg: '',
+      width: 0,
+      height: 0,
+      nodeCount: 0,
+      edgeCount: 0,
+      issues: issues.map((i) => ({ severity: i.severity, message: i.message, location: i.location })),
+    };
+  }
+  const doc = result.document;
+  const layout = layoutDocument(doc);
+  const svg = renderSvg(doc, layout);
+  return {
+    svg,
+    width: layout.width,
+    height: layout.height,
+    nodeCount: doc.nodes.length,
+    edgeCount: doc.edges.length,
+    issues: issues.map((i) => ({ severity: i.severity, message: i.message, location: i.location })),
+  };
+}
 
 export function App(): React.JSX.Element {
+  const [source, setSource] = useState<string>(EXAMPLES[0].source);
+  const [exampleId, setExampleId] = useState<string>(EXAMPLES[0].id);
+  const [copied, setCopied] = useState(false);
+  const svgRef = useRef<HTMLDivElement>(null);
+
+  const state = useMemo(() => compile(source), [source]);
+  const hasErrors = state.issues.some((i) => i.severity === 'error');
+
+  const loadExample = useCallback((ex: Example) => {
+    setExampleId(ex.id);
+    setSource(ex.source);
+  }, []);
+
+  const downloadSvg = useCallback(() => {
+    const blob = new Blob([state.svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exampleId}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [state.svg, exampleId]);
+
+  const downloadPng = useCallback(() => {
+    if (!state.svg) return;
+    const blob = new Blob([state.svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = state.width * scale;
+      canvas.height = state.height * scale;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const pngUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = `${exampleId}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }, [state.svg, state.width, state.height, exampleId]);
+
+  const copySource = useCallback(() => {
+    navigator.clipboard.writeText(source).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [source]);
+
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>LGDL Workbench</h1>
-      <p>Web 工作台（v0.3 里程碑）— 左侧 LGDL 编辑器，右侧实时渲染</p>
+    <div className="app">
+      <header className="app-header">
+        <div className="brand">
+          <span className="brand-mark">LGDL</span>
+          <span className="brand-text">Web Workbench</span>
+        </div>
+        <div className="example-picker">
+          <select
+            value={exampleId}
+            onChange={(e) => {
+              const ex = EXAMPLES.find((x) => x.id === e.target.value);
+              if (ex) loadExample(ex);
+            }}
+          >
+            {EXAMPLES.map((ex) => (
+              <option key={ex.id} value={ex.id}>
+                {ex.label} ({ex.id})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="header-actions">
+          <button onClick={copySource}>{copied ? '✓ 已复制' : '复制源码'}</button>
+          <button onClick={downloadSvg} disabled={hasErrors || !state.svg}>
+            导出 SVG
+          </button>
+          <button onClick={downloadPng} disabled={hasErrors || !state.svg}>
+            导出 PNG
+          </button>
+        </div>
+      </header>
+
+      <main className="workspace">
+        <section className="editor-pane">
+          <div className="pane-title">
+            编辑器 <span className="pane-hint">.lgdl 源码</span>
+          </div>
+          <textarea
+            className="editor"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            spellCheck={false}
+            aria-label="LGDL source editor"
+          />
+          <div className="status-bar">
+            <span className={hasErrors ? 'status-error' : 'status-ok'}>
+              {hasErrors ? `✖ ${state.issues.filter((i) => i.severity === 'error').length} 个错误` : '✓ 语法正确'}
+            </span>
+            <span>
+              {state.nodeCount} 节点 · {state.edgeCount} 边 · {state.width}×{state.height}
+            </span>
+          </div>
+        </section>
+
+        <section className="preview-pane">
+          <div className="pane-title">预览</div>
+          <div className="preview-body">
+            {state.svg ? (
+              <div ref={svgRef} className="svg-container" dangerouslySetInnerHTML={{ __html: state.svg }} />
+            ) : (
+              <div className="preview-empty">等待渲染…</div>
+            )}
+          </div>
+          {state.issues.length > 0 && (
+            <div className="issue-list">
+              {state.issues.map((issue, i) => (
+                <div key={i} className={`issue issue-${issue.severity}`}>
+                  {issue.severity === 'error' ? '✖' : '⚠'} [{issue.location ?? 'doc'}] {issue.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

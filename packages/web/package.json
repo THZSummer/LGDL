@@ -1,7 +1,7 @@
 {
   "name": "@lgdl/web",
   "version": "0.1.0",
-  "description": "LGDL web workbench (React + React Flow) — v0.3 milestone",
+  "description": "LGDL web workbench — edit .lgdl in the browser, live render",
   "type": "module",
   "private": true,
   "scripts": {
@@ -10,9 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lgdl/core": "0.1.0",
+    "@lgdl/layout": "0.1.0",
+    "@lgdl/render": "0.1.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "reactflow": "^11.11.0"
+    "react-dom": "^18.3.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",
