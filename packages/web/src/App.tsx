@@ -757,21 +757,17 @@ export function App(): React.JSX.Element {
           </div>
           <span className="switcher-pointer" aria-hidden="true" />
         </div>
-        <div className="header-actions">
-          <button onClick={copySource}>{copied ? '✓ 已复制' : '复制源码'}</button>
-          <button onClick={downloadSvg} disabled={hasErrors || !state.svg}>
-            导出 SVG
-          </button>
-          <button onClick={downloadPng} disabled={hasErrors || !state.svg}>
-            导出 PNG
-          </button>
-        </div>
       </header>
 
       <main className="workspace">
         <section className="editor-pane">
           <div className="pane-title">
-            编辑器 <span className="pane-hint">.lgdl 源码</span>
+            <span>
+              编辑器 <span className="pane-hint">.lgdl 源码</span>
+            </span>
+            <button className="pane-btn" onClick={copySource}>
+              {copied ? '✓ 已复制' : '复制源码'}
+            </button>
           </div>
           <div className="editor" ref={editorHostRef} aria-label="LGDL source editor" />
           <div className="status-bar">
@@ -790,7 +786,17 @@ export function App(): React.JSX.Element {
         </section>
 
         <section className="preview-pane">
-          <div className="pane-title">预览</div>
+          <div className="pane-title">
+            <span>预览</span>
+            <div className="pane-actions">
+              <button className="pane-btn" onClick={downloadSvg} disabled={hasErrors || !state.svg}>
+                导出 SVG
+              </button>
+              <button className="pane-btn" onClick={downloadPng} disabled={hasErrors || !state.svg}>
+                导出 PNG
+              </button>
+            </div>
+          </div>
           <div className="preview-body">
             {state.svg ? (
               <ZoomableSvg svg={state.svg} width={state.width} height={state.height} onScaleChange={setZoomScale} onLocate={jumpToIssue} />
