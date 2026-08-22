@@ -62,6 +62,26 @@ function nodeEdges(doc: LgdlDocument): LgdlEdge[] {
   return doc.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
 }
 
+/**
+ * Point on the target box border where a ray from the source center
+ * crosses it — edge endpoints stop at the border so the arrowhead stays
+ * visible (not hidden under the node's filled rect).
+ */
+function borderPoint(
+  from: { x: number; y: number },
+  to: { x: number; y: number; width: number; height: number },
+): { x: number; y: number } {
+  const bx = to.x + to.width / 2;
+  const by = to.y + to.height / 2;
+  const dx = bx - from.x;
+  const dy = by - from.y;
+  if (dx === 0 && dy === 0) return { x: bx, y: by };
+  const tX = dx !== 0 ? to.width / 2 / Math.abs(dx) : Infinity;
+  const tY = dy !== 0 ? to.height / 2 / Math.abs(dy) : Infinity;
+  const t = Math.min(tX, tY);
+  return { x: bx - dx * t, y: by - dy * t };
+}
+
 export function layoutDocument(doc: LgdlDocument): LayoutResult {
   // Large graphs: skip the expensive dagre layout, use O(n) grid.
   // This keeps the editor interactive; dagre quality matters for small/medium.
@@ -265,19 +285,19 @@ function layoutMindmap(doc: LgdlDocument): LayoutResult {
     height: p.height,
   }));
 
-  // edges: straight line from parent edge to child edge (center-to-center)
+  // edges: straight line from parent to child, ending at the child border
+  // so the arrowhead stays visible
   const edges: LayoutEdge[] = [];
   for (const node of tree.values()) {
     for (const child of node.children) {
       const p = placed.get(node.id)!;
       const c = placed.get(child)!;
+      const from = { x: p.x + p.width / 2 + shiftX, y: p.y + p.height / 2 + shiftY };
+      const toBox = { x: c.x + shiftX, y: c.y + shiftY, width: c.width, height: c.height };
       edges.push({
         from: node.id,
         to: child,
-        points: [
-          { x: p.x + p.width / 2 + shiftX, y: p.y + p.height / 2 + shiftY },
-          { x: c.x + c.width / 2 + shiftX, y: c.y + c.height / 2 + shiftY },
-        ],
+        points: [from, borderPoint(from, toBox)],
       });
     }
   }
@@ -373,23 +393,37 @@ function layoutSwimlane(doc: LgdlDocument): LayoutResult {
   const sizeOf = (id: string) =>
     NODE_SIZE[doc.nodes.find((n) => n.id === id)?.kind ?? 'process'] ?? NODE_SIZE.process;
 
+  // pass 1: content height per lane (stacked nodes + gaps), overall = max
+  const laneHeights = new Map<string, number>();
+  let maxContent = 0;
+  for (const lane of effectiveLanes) {
+    const ids = laneNodes.get(lane.id) ?? [];
+    let h = 0;
+    for (const id of ids) h += sizeOf(id).height + 40;
+    const content = Math.max(h - 40, 0);
+    laneHeights.set(lane.id, content);
+    maxContent = Math.max(maxContent, content);
+  }
+  const contentTop = GRAPH_MARGIN + LANE_HEADER;
+
+  // pass 2: place nodes, vertically centering each lane's stack so short
+  // lanes don't leave a big empty band at the bottom
   const nodePos = new Map<string, { x: number; y: number; width: number; height: number }>();
-  let maxHeight = 0;
   effectiveLanes.forEach((lane, li) => {
     const ids = laneNodes.get(lane.id) ?? [];
-    let y = GRAPH_MARGIN + LANE_HEADER;
+    const total = laneHeights.get(lane.id) ?? 0;
+    let y = contentTop + (maxContent - total) / 2;
     for (const id of ids) {
       const size = sizeOf(id);
       const x = GRAPH_MARGIN + li * LANE_W + (LANE_W - size.width) / 2;
       nodePos.set(id, { x, y, width: size.width, height: size.height });
       y += size.height + 40;
     }
-    maxHeight = Math.max(maxHeight, y);
   });
 
   const nodes: LayoutNode[] = doc.nodes.map((n) => ({ id: n.id, ...nodePos.get(n.id)! }));
   const width = GRAPH_MARGIN * 2 + effectiveLanes.length * LANE_W;
-  const height = maxHeight + GRAPH_MARGIN;
+  const height = contentTop + maxContent + GRAPH_MARGIN;
 
   // edges: straight center-to-center lines (crossing lanes)
   const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
@@ -400,7 +434,7 @@ function layoutSwimlane(doc: LgdlDocument): LayoutResult {
       to: e.to,
       points: [
         { x: a.x + a.width / 2, y: a.y + a.height / 2 },
-        { x: b.x + b.width / 2, y: b.y + b.height / 2 },
+        borderPoint({ x: a.x + a.width / 2, y: a.y + a.height / 2 }, b),
       ],
     };
   });
@@ -501,7 +535,7 @@ function layoutGrid(doc: LgdlDocument): LayoutResult {
       to: e.to,
       points: [
         { x: a.x + a.width / 2, y: a.y + a.height / 2 },
-        { x: b.x + b.width / 2, y: b.y + b.height / 2 },
+        borderPoint({ x: a.x + a.width / 2, y: a.y + a.height / 2 }, b),
       ],
     };
   });
