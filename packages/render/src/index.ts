@@ -155,6 +155,10 @@ const STROKE_BY_KIND: Record<string, string> = {
   note: '#9ca3af',
 };
 
+/** Pastel fills for group/lane backgrounds, picked by nesting depth (or lane
+ * index) so different layers are visually distinguishable. */
+const GROUP_FILLS = ['#eff6ff', '#ecfdf5', '#fffbeb', '#faf5ff', '#f8fafc'];
+
 /** Render an LGDL document + layout into an SVG string. */
 export function renderSvg(doc: LgdlDocument, layout: LayoutResult): string {
   switch (doc.type) {
@@ -206,18 +210,18 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
     );
   }
 
-  // messages (horizontal arrows with labels)
+  // messages (horizontal arrows with labels); return messages (pointing
+  // left) are dashed to distinguish them from forward requests
   for (const edge of layout.edges) {
     const pts = edge.points;
     if (pts.length < 2) continue;
     const [a, b] = pts;
     const label = doc.edges.find((e) => e.from === edge.from && e.to === edge.to)?.label;
-    const isLeft = a.x > b.x;
+    const isReturn = a.x > b.x;
+    const dash = isReturn ? ' stroke-dasharray="6 4"' : '';
     parts.push(
-      `<g class="lgdl-message"><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrowhead)"/>${label ? text((a.x + b.x) / 2, a.y - 8, label, 12, '#374151') : ''}</g>`,
+      `<g class="lgdl-message"><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrowhead)"${dash}/>${label ? text((a.x + b.x) / 2, a.y - 8, label, 12, '#374151') : ''}</g>`,
     );
-    // self-call loop hint (same participant)
-    void isLeft;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">${parts.join('')}</svg>`;
@@ -291,8 +295,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     // swimlanes: full-height columns with header
     doc.groups.forEach((group, i) => {
       const laneX = 40 + i * 260;
+      const fill = GROUP_FILLS[i % GROUP_FILLS.length];
       parts.push(
-        `<g class="lgdl-lane"><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="#f8fafc" stroke="#e2e8f0"/>` +
+        `<g class="lgdl-lane"><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="${fill}" stroke="#e2e8f0"/>` +
           `<rect x="${laneX}" y="40" width="260" height="36" fill="#eef2ff" stroke="#e2e8f0"/>` +
           `${text(laneX + 130, 58, group.label ?? group.id, 13, '#4338ca')}</g>`,
       );
@@ -319,13 +324,14 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       return d;
     };
     const orderedGroups = [...doc.groups].sort((a, b) => depthOf(a.id) - depthOf(b.id));
-    for (const group of orderedGroups) {
+    orderedGroups.forEach((group, i) => {
       const box = boxOf.get(group.id);
-      if (!box) continue;
+      if (!box) return;
+      const fill = GROUP_FILLS[i % GROUP_FILLS.length];
       parts.push(
-        `<g class="lgdl-group"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="#f9fafb" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>`,
+        `<g class="lgdl-group"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="${fill}" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>`,
       );
-    }
+    });
   }
 
   // aggregate edges (group <-> node / group <-> group) — drawn above the
@@ -369,16 +375,18 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     const label = edge.label;
     let labelEl = '';
     if (label) {
-      const labelW = label.length * 12;
-      const segMinX = Math.min(src.x, dst.x);
-      const segMaxX = Math.max(src.x, dst.x);
-      const segLen = segMaxX - segMinX;
-      // shrink the font when the segment is too short for the label
-      const fontSize = segLen >= labelW + 16 ? 12 : segLen >= labelW * 0.9 ? 10 : 8;
+      // keep the label readable: readable 11px font with a white backdrop,
+      // centered on the segment (clamped to the canvas); never shrink to
+      // tiny unreadable sizes even on very short segments
+      const fontSize = 11;
       const w = label.length * fontSize;
-      const midX = Math.max(segMinX + 4, Math.min((src.x + dst.x) / 2, segMaxX - 4 - w));
-      const clampedX = Math.max(10, Math.min(midX, layout.width - 10 - w));
-      labelEl = text(clampedX, (src.y + dst.y) / 2 - 4, label, fontSize, '#7c3aed');
+      const x = Math.max(10 + w / 2, Math.min((src.x + dst.x) / 2, layout.width - 10 - w / 2));
+      const y = (src.y + dst.y) / 2 - 4;
+      const bgW = w + 8;
+      const bgH = fontSize + 6;
+      labelEl =
+        `<rect x="${(x - bgW / 2).toFixed(1)}" y="${(y - bgH / 2).toFixed(1)}" width="${bgW}" height="${bgH}" rx="3" fill="#ffffff" opacity="0.9"/>` +
+        text(x, y, label, fontSize, '#7c3aed');
     }
     parts.push(
       `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dstIn.x}" y2="${dstIn.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>`,
@@ -403,7 +411,28 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         }
       }
       mid ??= { x: (pts[0].x + pts[pts.length - 1].x) / 2, y: (pts[0].y + pts[pts.length - 1].y) / 2 };
-      labelEl = text(mid.x, mid.y - 4, label, 12, '#6b7280');
+      if (mode === 'er') {
+        // ER convention: split "关系名 1..*" — relation name at the midpoint,
+        // cardinalities near each entity end ("1" at source, "*" at target)
+        const card = label.match(/^(.*?)\s+(\d+)\.\.(\d+|\*)$/);
+        if (card) {
+          const rel = card[1];
+          const p0 = pts[0];
+          const pn = pts[pts.length - 1];
+          const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
+          const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
+          const srcCard = { x: p0.x + ux * 16, y: p0.y + uy * 16 };
+          const dstCard = { x: pn.x - ux * 16, y: pn.y - uy * 16 };
+          labelEl =
+            text(mid.x, mid.y - 4, rel, 12, '#6b7280') +
+            text(srcCard.x, srcCard.y - 6, card[2], 12, '#b45309') +
+            text(dstCard.x, dstCard.y - 6, card[3], 12, '#b45309');
+        } else {
+          labelEl = text(mid.x, mid.y - 4, label, 12, '#6b7280');
+        }
+      } else {
+        labelEl = text(mid.x, mid.y - 4, label, 12, '#6b7280');
+      }
     }
     parts.push(
       `<g class="lgdl-edge"><path d="${d}" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowhead)"/>${labelEl}</g>`,
@@ -483,7 +512,7 @@ function renderClassNode(node: LayoutNodeLike, lgdlNode: { label?: string; id: s
   parts.push(
     `<rect x="${x}" y="${y}" width="${width}" height="${headerH}" fill="#eef2ff" stroke="#4f46e5" stroke-width="${border}"/>`,
   );
-  parts.push(text(x + width / 2, y + headerH / 2, name, 13, '#312e81'));
+  parts.push(`<text x="${x + width / 2}" y="${y + headerH / 2}" font-family="${FONT_FAMILY}" font-size="13" font-weight="bold" fill="#312e81" text-anchor="middle" dominant-baseline="middle">${escapeXml(name)}</text>`);
   // divider
   parts.push(`<line x1="${x}" y1="${y + headerH}" x2="${x + width}" y2="${y + headerH}" stroke="#4f46e5" stroke-width="${border}"/>`);
 
