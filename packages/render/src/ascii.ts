@@ -174,10 +174,19 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
     return { top, mid, bot, w };
   };
 
-  // ---- compose lines with display-width padding ----
-  const lines: string[] = [];
-  const centerOf = new Map<string, number>(); // id -> display col of center
+  // ---- pass 1: compute center col for every node (all ranks) ----
+  const centerOf = new Map<string, number>();
+  for (const ids of ranks) {
+    let col = 0;
+    for (const id of ids) {
+      const b = boxLines(id);
+      centerOf.set(id, col + Math.floor(b.w / 2));
+      col += b.w + 2;
+    }
+  }
 
+  // ---- pass 2: compose lines ----
+  const lines: string[] = [];
   for (let ri = 0; ri < ranks.length; ri++) {
     const ids = ranks[ri];
     let topLine = '';
@@ -189,7 +198,6 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
       topLine = padToW(topLine, col) + b.top;
       midLine = padToW(midLine, col) + b.mid;
       botLine = padToW(botLine, col) + b.bot;
-      centerOf.set(id, col + Math.floor(b.w / 2));
       col += b.w + 2;
     }
     lines.push(topLine);
@@ -197,58 +205,118 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
     lines.push(botLine);
 
     if (ri < ranks.length - 1) {
-      const width = Math.max(maxW(lines), ...ranks[ri + 1].map((id) => (centerOf.get(id) ?? 0) + 1));
-      const conn = blank(width);
-      // edges from this rank to the next (for fork drawing)
       const downEdges = doc.edges.filter((e) => (rankOf.get(e.from) ?? 0) === ri && (rankOf.get(e.to) ?? 0) === ri + 1);
-      // group targets by source
       const targetsBySource = new Map<string, string[]>();
       for (const e of downEdges) {
         if (!targetsBySource.has(e.from)) targetsBySource.set(e.from, []);
         targetsBySource.get(e.from)!.push(e.to);
       }
-      // draw vertical from each source center
-      for (const id of ids) {
-        const c = centerOf.get(id) ?? 0;
-        if (c < width) conn[c] = '│';
-      }
-      // forks: for sources with >1 target, draw a horizontal branch line
-      // connecting the source pipe to each target's arrow
-      for (const [fromId, toIds] of targetsBySource) {
-        if (toIds.length <= 1) continue;
-        const srcC = centerOf.get(fromId) ?? 0;
-        const minC = Math.min(...toIds.map((id) => centerOf.get(id) ?? 0));
-        const maxC = Math.max(...toIds.map((id) => centerOf.get(id) ?? 0));
-        // horizontal line at the connector row
-        for (let c = Math.min(srcC, minC); c <= Math.max(srcC, maxC); c++) {
-          if (conn[c] === ' ') conn[c] = '─';
-        }
-        // vertical drops from the horizontal branch to each target
-        // (done via a second connector line below)
-        conn[srcC] = '┴';
-      }
-      lines.push(conn.join('').replace(/ +$/, ''));
+      const width = Math.max(maxW(lines), ...ranks[ri + 1].map((id) => (centerOf.get(id) ?? 0) + 1));
+      const hasFork = [...targetsBySource.values()].some((ts) => ts.length > 1);
 
-      // second connector row: arrows above next-rank boxes + drops from forks
-      const conn2 = blank(width);
-      for (const [fromId, toIds] of targetsBySource) {
-        if (toIds.length <= 1) continue;
-        const srcC = centerOf.get(fromId) ?? 0;
-        for (const t of toIds) {
-          const tc = centerOf.get(t) ?? 0;
-          if (tc !== srcC) conn2[tc] = '│';
+      if (!hasFork) {
+        // one connector row: source pipes + target arrows + labels
+        const conn = blank(width);
+        for (const id of ids) {
+          const c = centerOf.get(id) ?? 0;
+          if (c < width) conn[c] = '│';
         }
+        for (const id of ranks[ri + 1]) {
+          const c = centerOf.get(id) ?? 0;
+          if (c < width) conn[c] = '▼';
+        }
+        for (const e of downEdges) {
+          if (e.label) {
+            const fromC = centerOf.get(e.from) ?? 0;
+            const start = fromC + 2;
+            for (let k = 0; k < e.label.length && start + k < width; k++) {
+              conn[start + k] = e.label[k];
+            }
+          }
+        }
+        lines.push(conn.join('').replace(/ +$/, ''));
+      } else {
+        // fork: row1 = trunks + horizontal branches, row2 = drops + arrows
+        const row1 = blank(width);
+        for (const id of ids) {
+          const c = centerOf.get(id) ?? 0;
+          if (c < width) row1[c] = '│';
+        }
+        for (const [fromId, toIds] of targetsBySource) {
+          if (toIds.length <= 1) continue;
+          const srcC = centerOf.get(fromId) ?? 0;
+          const cols = toIds.map((id) => centerOf.get(id) ?? 0);
+          const minC = Math.min(...cols);
+          const maxC = Math.max(...cols);
+          for (let c = Math.min(srcC, minC); c <= Math.max(srcC, maxC); c++) {
+            if (row1[c] === ' ') row1[c] = '─';
+          }
+          row1[srcC] = '┴';
+          for (const tc of cols) {
+            if (tc !== srcC && row1[tc] === '─') row1[tc] = '┬';
+          }
+          // edge labels along each branch (before row1 is pushed);
+          // place on the branch segment between src and target, skipping
+          // cells already used so labels don't overlap
+          for (const t of toIds) {
+            const tc = centerOf.get(t) ?? 0;
+            if (tc !== srcC) {
+              const e = downEdges.find((x) => x.from === fromId && x.to === t);
+              if (e && e.label) {
+                const label = e.label;
+                const lo = Math.min(srcC, tc) + 1;
+                const hi = Math.max(srcC, tc);
+                // find a free run of cells for the label
+                for (let start = lo; start + label.length <= hi; start++) {
+                  let free = true;
+                  for (let k = 0; k < label.length; k++) {
+                    if (row1[start + k] !== ' ' && row1[start + k] !== '─') { free = false; break; }
+                  }
+                  if (free) {
+                    for (let k = 0; k < label.length; k++) row1[start + k] = label[k];
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+        lines.push(row1.join('').replace(/ +$/, ''));
+
+        const row2 = blank(width);
+        for (const [fromId, toIds] of targetsBySource) {
+          if (toIds.length <= 1) continue;
+          const srcC = centerOf.get(fromId) ?? 0;
+          for (const t of toIds) {
+            const tc = centerOf.get(t) ?? 0;
+            row2[tc] = '│';
+          }
+        }
+        for (const id of ranks[ri + 1]) {
+          const c = centerOf.get(id) ?? 0;
+          if (c < width) row2[c] = '▼';
+        }
+        // trunk-edge labels (source -> target at same column): place right of ▼
+        for (const [fromId, toIds] of targetsBySource) {
+          if (toIds.length <= 1) continue;
+          const srcC = centerOf.get(fromId) ?? 0;
+          for (const t of toIds) {
+            const tc = centerOf.get(t) ?? 0;
+            if (tc === srcC) {
+              const e = downEdges.find((x) => x.from === fromId && x.to === t);
+              if (e && e.label) {
+                const start = srcC + 2;
+                for (let k = 0; k < e.label.length && start + k < width; k++) {
+                  row2[start + k] = e.label[k];
+                }
+              }
+            }
+          }
+        }
+        lines.push(row2.join('').replace(/ +$/, ''));
       }
-      for (const id of ranks[ri + 1]) {
-        const c = centerOf.get(id) ?? 0;
-        if (c < width) conn2[c] = '▼';
-      }
-      lines.push(conn2.join('').replace(/ +$/, ''));
     }
   }
-
-  // ---- edge labels: place on the arrow line if a single edge between ranks ----
-  // (v1: skip edge labels in ascii; structure is the focus)
 
   return lines.join('\n');
 

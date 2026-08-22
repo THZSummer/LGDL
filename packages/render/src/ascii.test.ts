@@ -74,3 +74,42 @@ test('renderAscii CJK labels stay aligned', () => {
     }
   }
 });
+
+test('renderAscii draws fork with ┴ and multiple arrows', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: '判断', kind: 'decision' },
+      { id: 'b', label: '成功', kind: 'end' },
+      { id: 'c', label: '失败', kind: 'end' },
+    ],
+    edges: [
+      { from: 'a', to: 'b', label: '通过' },
+      { from: 'a', to: 'c', label: '失败' },
+    ],
+    groups: [],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  assert.ok(out.includes('┴'), 'fork source marker ┴');
+  assert.ok(out.includes('┬'), 'fork branch marker ┬');
+  // two arrows for two targets
+  const arrowCount = (out.match(/▼/g) ?? []).length;
+  assert.ok(arrowCount >= 2, `expected >=2 arrows, got ${arrowCount}`);
+  // edge labels present
+  assert.ok(out.includes('通过'), 'label 通过');
+  assert.ok(out.includes('失败'), 'label 失败');
+});
+
+test('renderAscii chain edge label placement', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: '开始', kind: 'start' },
+      { id: 'b', label: '处理' },
+    ],
+    edges: [{ from: 'a', to: 'b', label: '下一步' }],
+    groups: [],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  assert.ok(out.includes('下一步'), 'chain label present');
+});
