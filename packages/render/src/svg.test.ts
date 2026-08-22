@@ -165,3 +165,61 @@ test('renderSvg uml-class mode renders explicit multiplicities at endpoints', ()
   assert.ok(svg.includes('>1</text>'), 'source multiplicity');
   assert.ok(svg.includes('>*</text>'), 'target multiplicity');
 });
+
+test('renderSvg emits data-lgdl-loc source mappings on nodes, edges and groups', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+    ],
+    edges: [{ from: 'a', to: 'b', label: '去' }],
+    groups: [{ id: 'g1', label: '组一', contains: ['a'] }],
+  };
+  const layout: LayoutResult = {
+    nodes: [
+      { id: 'a', x: 60, y: 60, width: 120, height: 48 },
+      { id: 'b', x: 300, y: 60, width: 120, height: 48 },
+    ],
+    edges: [{ from: 'a', to: 'b', points: [{ x: 120, y: 84 }, { x: 300, y: 84 }] }],
+    width: 480,
+    height: 200,
+  };
+  const svg = renderSvg(doc, layout);
+  // document-order indexes, usable by the web workbench's source lookup
+  assert.ok(svg.includes('data-lgdl-loc="nodes[0]"'), 'node a mapped');
+  assert.ok(svg.includes('data-lgdl-loc="nodes[1]"'), 'node b mapped');
+  assert.ok(svg.includes('data-lgdl-loc="edges[0]"'), 'edge mapped');
+  assert.ok(svg.includes('data-lgdl-loc="groups[0]"'), 'group mapped');
+  const locs = [...svg.matchAll(/data-lgdl-loc="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(locs.length >= 4, `loc count: ${locs.length}`);
+});
+
+test('renderSvg uml-class member rows carry nodes[i].members[j] mappings', () => {
+  const doc: LgdlDocument = {
+    type: 'uml-class',
+    nodes: [
+      {
+        id: 'cart',
+        label: 'Cart',
+        kind: 'entity',
+        members: [
+          { kind: 'attribute', name: 'items', type: 'list' },
+          { kind: 'method', name: 'addItem', type: 'void', params: '(item)' },
+        ],
+      },
+    ],
+    edges: [],
+    groups: [],
+  };
+  const layout: LayoutResult = {
+    nodes: [{ id: 'cart', x: 40, y: 40, width: 220, height: 84 }],
+    edges: [],
+    width: 300,
+    height: 200,
+  };
+  const svg = renderSvg(doc, layout);
+  assert.ok(svg.includes('data-lgdl-loc="nodes[0].members[0]"'), 'attribute row mapped');
+  assert.ok(svg.includes('data-lgdl-loc="nodes[0].members[1]"'), 'method row mapped');
+  assert.ok(svg.includes('data-lgdl-loc="nodes[0]"'), 'card maps to the node');
+});

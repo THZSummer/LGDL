@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "tsc src/locate.test.ts --outDir dist-test --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --declaration false --allowImportingTsExtensions --rewriteRelativeImportExtensions && node --test dist-test/*.test.js",
     "predev": "npm run build --workspace @lgdl/core --workspace @lgdl/layout --workspace @lgdl/render"
   },
   "dependencies": {

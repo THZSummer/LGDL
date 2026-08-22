@@ -318,10 +318,11 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
   // participant headers
   for (const node of layout.nodes) {
     const lgdlNode = doc.nodes.find((n) => n.id === node.id);
+    const docIdx = lgdlNode ? doc.nodes.indexOf(lgdlNode) : -1;
     const cx = node.x + node.width / 2;
     const cy = node.y + node.height / 2;
     parts.push(
-      `<g class="lgdl-participant" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5">${rect(node.x, node.y, node.width, node.height, 8)}${text(cx, cy, lgdlNode?.label ?? node.id, 13, '#1e40af')}</g>`,
+      `<g class="lgdl-participant"${docIdx >= 0 ? ` data-lgdl-loc="nodes[${docIdx}]"` : ''} fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5">${rect(node.x, node.y, node.width, node.height, 8)}${text(cx, cy, lgdlNode?.label ?? node.id, 13, '#1e40af')}</g>`,
     );
   }
 
@@ -331,11 +332,13 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
     const pts = edge.points;
     if (pts.length < 2) continue;
     const [a, b] = pts;
-    const label = doc.edges.find((e) => e.from === edge.from && e.to === edge.to)?.label;
+    const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
+    const edgeIdx = edgeDoc ? doc.edges.indexOf(edgeDoc) : -1;
+    const label = edgeDoc?.label;
     const isReturn = a.x > b.x;
     const dash = isReturn ? ' stroke-dasharray="6 4"' : '';
     parts.push(
-      `<g class="lgdl-message"><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrowhead)"${dash}/>${label ? text((a.x + b.x) / 2, a.y - 8, label, 12, '#374151') : ''}</g>`,
+      `<g class="lgdl-message"${edgeIdx >= 0 ? ` data-lgdl-loc="edges[${edgeIdx}]"` : ''}><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrowhead)"${dash}/>${label ? text((a.x + b.x) / 2, a.y - 8, label, 12, '#374151') : ''}</g>`,
     );
   }
 
@@ -438,7 +441,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       const laneX = 40 + i * 260;
       const fill = GROUP_FILLS[i % GROUP_FILLS.length];
       parts.push(
-        `<g class="lgdl-lane"><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="${fill}" stroke="#e2e8f0"/>` +
+        `<g class="lgdl-lane" data-lgdl-loc="groups[${i}]"><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="${fill}" stroke="#e2e8f0"/>` +
           `<rect x="${laneX}" y="40" width="260" height="36" fill="#eef2ff" stroke="#e2e8f0"/>` +
           `${text(laneX + 130, 58, group.label ?? group.id, 13, '#4338ca')}</g>` +
           anchorDots({ x: laneX, y: 40, w: 260, h: layout.height - 40 }, '#64748b'),
@@ -470,8 +473,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       const box = boxOf.get(group.id);
       if (!box) return;
       const fill = GROUP_FILLS[i % GROUP_FILLS.length];
+      // data-lgdl-loc must use the ORIGINAL document index, not the sorted
+      // draw order
+      const groupIdx = doc.groups.indexOf(group);
       parts.push(
-        `<g class="lgdl-group"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="${fill}" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>` +
+        `<g class="lgdl-group" data-lgdl-loc="groups[${groupIdx}]"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="${fill}" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>` +
           anchorDots(box, '#64748b'),
       );
     });
@@ -481,10 +487,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   if (initialId) {
     const initNode = layout.nodes.find((n) => n.id === initialId);
     if (initNode) {
+      const initIdx = doc.nodes.findIndex((n) => n.id === initialId);
       const cx = initNode.x + initNode.width / 2;
       const top = initNode.y;
       parts.push(
-        `<g class="lgdl-initial"><circle cx="${cx}" cy="${top - 18}" r="6" fill="#111827"/>` +
+        `<g class="lgdl-initial"${initIdx >= 0 ? ` data-lgdl-loc="nodes[${initIdx}]"` : ''}><circle cx="${cx}" cy="${top - 18}" r="6" fill="#111827"/>` +
           `<line x1="${cx}" y1="${top - 12}" x2="${cx}" y2="${top - 2}" stroke="#111827" stroke-width="1.5" marker-end="url(#arrowhead)"/></g>`,
       );
     }
@@ -494,10 +501,12 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   for (const node of layout.nodes) {
     const lgdlNode = doc.nodes.find((n) => n.id === node.id);
     if (!lgdlNode) continue;
+    const docIdx = doc.nodes.indexOf(lgdlNode);
+    const loc = `nodes[${docIdx}]`;
     let nodeClass = 'lgdl-node';
     let stroke: string;
     if (mode === 'uml-class') {
-      parts.push(renderClassNode(node, lgdlNode));
+      parts.push(renderClassNode(node, lgdlNode, docIdx));
       nodeClass = 'lgdl-class';
       stroke = '#4f46e5';
     } else {
@@ -535,7 +544,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         display = [display, ...rows].join('\n');
       }
       parts.push(
-        `<g class="${nodeClass}" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, display, fontSize)}</g>`,
+        `<g class="${nodeClass}" data-lgdl-loc="${loc}" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, display, fontSize)}</g>`,
       );
     }
     // hover anchors: the node's 8 fixed border anchors, hidden until the
@@ -570,8 +579,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     }
     return nodeCenter(id);
   };
-  for (const edge of doc.edges) {
-    if (nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to)) continue; // regular node edge
+  doc.edges.forEach((edge, i) => {
+    if (nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to)) return; // regular node edge
     const fromBox = nodeIdSet.has(edge.from) ? undefined : boxOf.get(edge.from);
     const toBox = nodeIdSet.has(edge.to) ? undefined : boxOf.get(edge.to);
     const fromCenter = centerOf(edge.from);
@@ -612,11 +621,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         text(x, y, label, fontSize, '#7c3aed');
     }
     parts.push(
-      `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dst.x}" y2="${dst.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>` +
+      `<g class="lgdl-aggregate-edge" data-lgdl-loc="edges[${i}]"><line x1="${src.x}" y1="${src.y}" x2="${dst.x}" y2="${dst.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>` +
         // hover the aggregate edge -> reveal its two endpoint anchors
         `<g class="lgdl-edge-anchors"><circle cx="${src.x.toFixed(1)}" cy="${src.y.toFixed(1)}" r="3.5" fill="#7c3aed"/><circle cx="${dst.x.toFixed(1)}" cy="${dst.y.toFixed(1)}" r="3.5" fill="#7c3aed"/></g>`,
     );
-  }
+  });
 
   // edges (behind nodes)
   // placed node-edge labels, tracked so dense labels (e.g. state diagrams)
@@ -638,6 +647,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     }
     const d = trimmed.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
     const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
+    const edgeIdx = edgeDoc ? doc.edges.indexOf(edgeDoc) : -1;
     const label = edgeDoc?.label;
     let labelEl = '';
     if (label || edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined) {
@@ -683,7 +693,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       }
     }
     parts.push(
-      `<g class="lgdl-edge"><path d="${d}" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowhead)"/>${labelEl}</g>` +
+      `<g class="lgdl-edge"${edgeIdx >= 0 ? ` data-lgdl-loc="edges[${edgeIdx}]"` : ''}><path d="${d}" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowhead)"/>${labelEl}</g>` +
         // hover the edge -> reveal the two anchors it connects to
         `<g class="lgdl-edge-anchors"><circle cx="${trimmed[0].x.toFixed(1)}" cy="${trimmed[0].y.toFixed(1)}" r="3.5" fill="#6b7280"/><circle cx="${trimmed[trimmed.length - 1].x.toFixed(1)}" cy="${trimmed[trimmed.length - 1].y.toFixed(1)}" r="3.5" fill="#6b7280"/></g>`,
     );
@@ -862,20 +872,23 @@ function roundedRectPoint(
  * Nothing is parsed out of text — every row is an explicit field.
  * A node without members renders a name-only card (no legacy parsing).
  */
-function renderClassNode(node: LayoutNodeLike, lgdlNode: { label?: string; id: string; members?: LgdlMember[] }): string {
+function renderClassNode(node: LayoutNodeLike, lgdlNode: { label?: string; id: string; members?: LgdlMember[] }, nodeIdx: number): string {
   const { x, y, width, height } = node;
+  const locBase = `nodes[${nodeIdx}]`;
 
   const name = lgdlNode.label ?? lgdlNode.id;
-  const attrs: string[] = [];
-  const methods: string[] = [];
-  for (const m of lgdlNode.members ?? []) {
+  // member rows keep their ORIGINAL member index (mi) so clicking a row can
+  // jump to "nodes[i].members[mi]" even though rows are split by kind
+  const attrs: { text: string; mi: number }[] = [];
+  const methods: { text: string; mi: number }[] = [];
+  lgdlNode.members?.forEach((m, mi) => {
     const vis = m.visibility ? VIS_SYMBOL[m.visibility] ?? '' : '';
-    const line =
+    const text =
       m.kind === 'method'
         ? `${vis} ${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
         : `${vis} ${m.name}${m.type ? `: ${m.type}` : ''}`;
-    (m.kind === 'method' ? methods : attrs).push(line);
-  }
+    (m.kind === 'method' ? methods : attrs).push({ text, mi });
+  });
 
   const headerH = 32;
   const attrsH = attrs.length * 18 + (attrs.length > 0 ? 8 : 0);
@@ -897,7 +910,9 @@ function renderClassNode(node: LayoutNodeLike, lgdlNode: { label?: string; id: s
       `<rect x="${x}" y="${cursorY}" width="${width}" height="${attrsH}" fill="#ffffff" stroke="#4f46e5" stroke-width="${border}"/>`,
     );
     attrs.forEach((a, i) => {
-      parts.push(text(x + 10, cursorY + 16 + i * 18, a, 11, '#374151', 'start'));
+      parts.push(
+        `<text data-lgdl-loc="${locBase}.members[${a.mi}]" x="${x + 10}" y="${cursorY + 16 + i * 18}" font-family="${FONT_FAMILY}" font-size="11" fill="#374151" text-anchor="start" dominant-baseline="middle">${escapeXml(a.text)}</text>`,
+      );
     });
     cursorY += attrsH;
     parts.push(`<line x1="${x}" y1="${cursorY}" x2="${x + width}" y2="${cursorY}" stroke="#4f46e5" stroke-width="${border}"/>`);
@@ -908,11 +923,13 @@ function renderClassNode(node: LayoutNodeLike, lgdlNode: { label?: string; id: s
       `<rect x="${x}" y="${cursorY}" width="${width}" height="${methodsH}" fill="#ffffff" stroke="#4f46e5" stroke-width="${border}"/>`,
     );
     methods.forEach((m, i) => {
-      parts.push(text(x + 10, cursorY + 16 + i * 18, m, 11, '#374151', 'start'));
+      parts.push(
+        `<text data-lgdl-loc="${locBase}.members[${m.mi}]" x="${x + 10}" y="${cursorY + 16 + i * 18}" font-family="${FONT_FAMILY}" font-size="11" fill="#374151" text-anchor="start" dominant-baseline="middle">${escapeXml(m.text)}</text>`,
+      );
     });
   }
 
-  return `<g class="lgdl-class">${parts.join('')}</g>`;
+  return `<g class="lgdl-class" data-lgdl-loc="${locBase}">${parts.join('')}</g>`;
 }
 
 /** Minimal structural type (avoids importing layout types into render). */
@@ -940,10 +957,12 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
     const pts = edge.points;
     if (pts.length < 2) continue;
     const [a, b] = pts;
+    const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
+    const edgeIdx = edgeDoc ? doc.edges.indexOf(edgeDoc) : -1;
     // L-shaped connector: from end of source bar, right, then down to target
     const midX = Math.min(a.x + 20, b.x);
     parts.push(
-      `<g class="lgdl-dep"><path d="M ${a.x},${a.y} L ${midX},${a.y} L ${midX},${b.y} L ${b.x},${b.y}" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/></g>`,
+      `<g class="lgdl-dep"${edgeIdx >= 0 ? ` data-lgdl-loc="edges[${edgeIdx}]"` : ''}><path d="M ${a.x},${a.y} L ${midX},${a.y} L ${midX},${b.y} L ${b.x},${b.y}" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/></g>`,
     );
   }
 
@@ -951,6 +970,7 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
   const labelColX = 40 + 220 - 12; // task names pinned to the left label column
   for (const node of layout.nodes) {
     const lgdlNode = doc.nodes.find((n) => n.id === node.id);
+    const docIdx = lgdlNode ? doc.nodes.indexOf(lgdlNode) : -1;
     const start = typeof lgdlNode?.attrs?.start === 'number' ? lgdlNode.attrs.start : 0;
     const dur = typeof lgdlNode?.attrs?.duration === 'number' ? lgdlNode.attrs.duration : 1;
     const label = lgdlNode?.label ?? node.id;
@@ -964,7 +984,7 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
       ? text(node.x + node.width / 2, cy, timeText, 11, '#ffffff')
       : text(node.x + node.width + 6, cy, timeText, 10, '#2563eb', 'start');
     parts.push(
-      `<g class="lgdl-gantt-bar"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" fill="#3b82f6" opacity="0.85"/>${barText}</g>`,
+      `<g class="lgdl-gantt-bar"${docIdx >= 0 ? ` data-lgdl-loc="nodes[${docIdx}]"` : ''}><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" fill="#3b82f6" opacity="0.85"/>${barText}</g>`,
     );
   }
 

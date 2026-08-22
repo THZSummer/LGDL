@@ -11,6 +11,7 @@ import { tags as t } from '@lezer/highlight';
 import { parseLgdl } from '@lgdl/core';
 import { layoutDocument } from '@lgdl/layout';
 import { renderSvg } from '@lgdl/render';
+import { locateIssue, type DocSpan } from './locate';
 import { EXAMPLES, type Example } from './examples';
 import webPkg from '../package.json';
 import './app.css';
@@ -77,153 +78,6 @@ const lgdlValueHighlight = StateField.define<DecorationSet>({
   },
   provide: (f) => EditorView.decorations.from(f),
 });
-
-/** Absolute position (char offsets) of a field value in the document. */
-interface DocSpan {
-  from: number;
-  to: number;
-}
-
-/**
- * Map an LGDL issue location to the char range of the offending text.
- * Supports every location format the parser emits:
- *   - "type"                         -> value after "type:"
- *   - "nodes[i].id|kind|label"       -> that field's value in node i
- *   - "edges[i].from|to|label"       -> that field's value in edge i
- *   - "groups[i].contains"           -> first value in the inline list
- *   - "groups[i].contains[j]"        -> the j-th value in the list
- *   - "line N"                       -> the whole line N
- *   - "doc" / "runtime" / undefined  -> null (no location)
- */
-function locateIssue(source: string, location: string | undefined): DocSpan | null {
-  if (!location) return null;
-  const lines = source.split('\n');
-  const lineStart: number[] = [];
-  let off = 0;
-  for (const l of lines) {
-    lineStart.push(off);
-    off += l.length + 1;
-  }
-
-  // "line N" — highlight the whole line
-  let lineMatch = location.match(/^line (\d+)$/);
-  if (lineMatch) {
-    const ln = parseInt(lineMatch[1], 10) - 1;
-    if (ln < 0 || ln >= lines.length) return null;
-    const content = lines[ln];
-    const firstNonSpace = content.match(/\S/);
-    const start = firstNonSpace ? lineStart[ln] + firstNonSpace.index! : lineStart[ln];
-    return { from: start, to: lineStart[ln] + content.length };
-  }
-
-  // structured: section[index].field  or  section[index].contains[j]
-  const m = location.match(/^(\w+)(?:\[(\d+)\])?(?:\.(\w+)(?:\[(\d+)\])?)?$/);
-  if (!m) return null;
-  const [, section, idxStr, field, subIdxStr] = m;
-  const idx = idxStr !== undefined ? parseInt(idxStr, 10) : 0;
-  const subIdx = subIdxStr !== undefined ? parseInt(subIdxStr, 10) : 0;
-
-  // find the top-level section line, e.g. "edges:" (may or may not have a value)
-  let sectionLine = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-    const indent = line.length - line.trimStart().length;
-    if (indent > 0) continue; // only top-level keys
-    if (/^\w+:/.test(trimmed) && trimmed.startsWith(section + ':')) {
-      sectionLine = i;
-      break;
-    }
-  }
-  if (sectionLine === -1) return null;
-
-  // section without list items (e.g. "type", "title"): value after colon
-  if (idxStr === undefined && !field) {
-    const line = lines[sectionLine];
-    const colonIdx = line.indexOf(':');
-    const value = line.slice(colonIdx + 1).trim();
-    if (!value) {
-      // empty value — mark right after the colon
-      return { from: lineStart[sectionLine] + colonIdx + 1, to: lineStart[sectionLine] + colonIdx + 2 };
-    }
-    const vStart = line.indexOf(value, colonIdx + 1);
-    return { from: lineStart[sectionLine] + vStart, to: lineStart[sectionLine] + vStart + value.length };
-  }
-
-  // walk the list items under the section
-  let itemCount = -1;
-  for (let i = sectionLine + 1; i < lines.length; i++) {
-    const l = lines[i];
-    if (!l.trim() || l.trim().startsWith('#')) continue;
-    const indent = l.length - l.trimStart().length;
-    if (indent === 0) break; // next top-level key
-    if (!l.trim().startsWith('- ')) continue;
-    itemCount++;
-    if (itemCount !== idx) continue;
-
-    const itemIndent = indent;
-    if (!field) {
-      // whole item line fallback
-      return { from: lineStart[i], to: lineStart[i] + l.length };
-    }
-
-    // the field may sit on the item's first line: "- from: paid1"
-    const firstMatch = l.trim().slice(2).match(new RegExp(`^${field}:\\s*(.*)$`));
-    if (firstMatch) {
-      const value = firstMatch[1].trim();
-      if (subIdxStr !== undefined) {
-        // inline list value: contains: [a, b, c]
-        return locateListValue(source, lines, lineStart, i, value, subIdx);
-      }
-      const vStart = l.indexOf(value);
-      return { from: lineStart[i] + vStart, to: lineStart[i] + vStart + value.length };
-    }
-
-    // scan following indented lines for "field: value"
-    for (let j = i + 1; j < lines.length; j++) {
-      const nl = lines[j];
-      if (!nl.trim() || nl.trim().startsWith('#')) continue;
-      const ni = nl.length - nl.trimStart().length;
-      if (ni <= itemIndent) break;
-      const fm = nl.trim().match(new RegExp(`^${field}:\\s*(.*)$`));
-      if (fm) {
-        const value = fm[1].trim();
-        if (subIdxStr !== undefined) {
-          return locateListValue(source, lines, lineStart, j, value, subIdx);
-        }
-        const vStart = nl.indexOf(value);
-        return { from: lineStart[j] + vStart, to: lineStart[j] + vStart + value.length };
-      }
-    }
-
-    // field not found in this item — fallback to whole item line
-    return { from: lineStart[i], to: lineStart[i] + l.length };
-  }
-  return null;
-}
-
-/** Locate the j-th element of an inline list like "contains: [a, b, c]". */
-function locateListValue(
-  source: string,
-  lines: string[],
-  lineStart: number[],
-  lineIdx: number,
-  rawValue: string,
-  subIdx: number,
-): DocSpan | null {
-  const listMatch = rawValue.match(/^\[(.*)\]$/s);
-  if (!listMatch) return null;
-  const items = listMatch[1].split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-  if (subIdx >= items.length) return null;
-  // find the sub-item within the raw list text
-  const listStart = lines[lineIdx].indexOf(rawValue);
-  const itemPos = listMatch[1].indexOf(items[subIdx]);
-  if (itemPos === -1) return null;
-  return {
-    from: lineStart[lineIdx] + listStart + 1 + itemPos,
-    to: lineStart[lineIdx] + listStart + 1 + itemPos + items[subIdx].length,
-  };
-}
 
 /** CodeMirror linter: red squiggles at every issue position (all are errors). */
 const lgdlLinter = linter((view) => {
@@ -423,12 +277,14 @@ function ZoomableSvg({
   height,
   extraClass = '',
   onScaleChange,
+  onLocate,
 }: {
   svg: string;
   width: number;
   height: number;
   extraClass?: string;
   onScaleChange?: (scale: number) => void;
+  onLocate?: (loc: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -509,8 +365,17 @@ function ZoomableSvg({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // left-click an element -> jump to its source location ("nodes[3]",
+  // "edges[1]", "groups[0]", "nodes[0].members[2]"...). Rendered by the
+  // renderer as data-lgdl-loc on every interactive SVG element.
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = (e.target as Element).closest('[data-lgdl-loc]');
+    if (!el) return;
+    onLocate?.(el.getAttribute('data-lgdl-loc') ?? '');
+  };
+
   return (
-    <div className="preview-canvas" ref={hostRef}>
+    <div className="preview-canvas" ref={hostRef} onClick={handleClick}>
       <div className={`svg-container svg-zoom ${extraClass}`} ref={innerRef}>
         <div className="svg-inner" dangerouslySetInnerHTML={{ __html: svg }} />
       </div>
@@ -736,13 +601,17 @@ export function App(): React.JSX.Element {
     });
   }, [source]);
 
-  // click an issue -> jump to the offending location in the editor
+  // click an issue / preview element -> jump to the location in the editor,
+  // centering the target line vertically and moving the cursor onto it
   const jumpToIssue = useCallback((location: string | undefined) => {
     const view = editorViewRef.current;
-    if (!view) return;
+    if (!view || !location) return;
     const span = locateIssue(view.state.doc.toString(), location);
-    const pos = span ? span.from : 0;
-    view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+    if (!span) return;
+    view.dispatch({
+      selection: { anchor: span.from },
+      effects: EditorView.scrollIntoView(span.from, { y: 'center' }),
+    });
     view.focus();
   }, []);
 
@@ -805,11 +674,11 @@ export function App(): React.JSX.Element {
           <div className="pane-title">预览</div>
           <div className="preview-body">
             {state.svg ? (
-              <ZoomableSvg svg={state.svg} width={state.width} height={state.height} onScaleChange={setZoomScale} />
+              <ZoomableSvg svg={state.svg} width={state.width} height={state.height} onScaleChange={setZoomScale} onLocate={jumpToIssue} />
             ) : hasErrors && lastGood.svg ? (
               // keep the last good render visible, overlay an error mask
               <div className="preview-stale-wrap">
-                <ZoomableSvg svg={lastGood.svg} width={lastGood.width} height={lastGood.height} extraClass="svg-stale" onScaleChange={setZoomScale} />
+                <ZoomableSvg svg={lastGood.svg} width={lastGood.width} height={lastGood.height} extraClass="svg-stale" onScaleChange={setZoomScale} onLocate={jumpToIssue} />
                 {!maskDismissed && (
                   <div className="error-mask">
                     <div className="error-mask-card">
@@ -864,7 +733,7 @@ export function App(): React.JSX.Element {
             <span className={zoomScale !== null ? 'status-ok' : ''}>
               {zoomScale !== null ? `缩放 ${Math.round(zoomScale * 100)}%` : '缩放 —'}
             </span>
-            <span>滚轮中央缩放 · 边缘滚轮平移</span>
+            <span>左键点击元素定位源码 · 滚轮中央缩放 · 边缘滚轮平移</span>
           </div>
         </section>
       </main>

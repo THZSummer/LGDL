@@ -208,6 +208,11 @@ body,
   display: flex;
 }
 
+/* any renderer element carrying a source location is clickable */
+.preview-canvas [data-lgdl-loc] {
+  cursor: pointer;
+}
+
 /* stale (last good) render with error mask */
 .preview-stale-wrap {
   position: relative;
