@@ -177,8 +177,10 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
     const labelW = strWidth(label);
     const w = labelW + 4;
     const kind = n.kind ?? 'process';
-    const rounded = kind === 'start' || kind === 'end';
-    const isDecision = kind === 'decision';
+    // mindmap: no branching/terminal shapes — every node is a plain box
+    const isMindmap = doc.type === 'mindmap';
+    const rounded = !isMindmap && (kind === 'start' || kind === 'end');
+    const isDecision = !isMindmap && kind === 'decision';
     const tl = rounded ? BOX.tlR : BOX.tl;
     const tr = rounded ? BOX.trR : BOX.tr;
     const bl = rounded ? BOX.blR : BOX.bl;

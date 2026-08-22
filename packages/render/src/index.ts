@@ -589,7 +589,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       continue;
     }
     const kind = lgdlNode.kind ?? 'process';
-    const shape = SHAPES[kind] ?? SHAPES.process;
+    // mindmap has no branching/terminal shapes: every node is a rounded
+    // rect (decision diamonds and start/end pills are flowchart concepts —
+    // in a mindmap they only break visual consistency). Hierarchy is shown
+    // by branch colors and font size, not by kind shapes.
+    const shape = mindmapInfo ? SHAPES.process : (SHAPES[kind] ?? SHAPES.process);
     let fill = FILL_BY_KIND[kind] ?? FILL_BY_KIND.process;
     let stroke = STROKE_BY_KIND[kind] ?? STROKE_BY_KIND.process;
     let fontSize = 13;
@@ -600,7 +604,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         const color = info.branch === 'root' ? MIND_COLORS[0] : MIND_COLORS[info.branchIndex % MIND_COLORS.length];
         fill = info.branch === 'root' ? '#eff6ff' : MIND_FILLS[info.branchIndex % MIND_FILLS.length];
         stroke = color;
-        fontSize = info.depth === 0 ? 17 : info.depth === 1 ? 14 : 12;
+        // distinct font hierarchy: root > level 1 > level 2
+        fontSize = info.depth === 0 ? 20 : info.depth === 1 ? 15 : 12;
       }
     }
     const cx = node.x + node.width / 2;

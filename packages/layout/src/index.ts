@@ -221,7 +221,10 @@ const MIND_LEVEL_SEP = 180; // radial distance between levels
 const MIND_ANGLE_UNIT = (Math.PI / 180) * 14; // radians per leaf
 
 function layoutMindmap(doc: LgdlDocument): LayoutResult {
-  const sizeOf = (id: string) => NODE_SIZE[doc.nodes.find((n) => n.id === id)?.kind ?? 'process'] ?? NODE_SIZE.process;
+  // mindmap nodes are uniformly sized — kind shapes (decision diamond,
+  // start pill) are flowchart concepts and are ignored here so the radial
+  // layout stays visually even
+  const sizeOf = (_id: string) => NODE_SIZE.process;
 
   // adjacency + in-degree
   const childrenOf = new Map<string, string[]>();

@@ -2,6 +2,14 @@
 
 ## 0.4.0（未发布）
 
+**渲染改进：mindmap 视觉一致性（评审驱动）**
+
+- 🎨 mindmap 不再使用 flowchart 概念形状：`decision` 菱形、`start/end` 胶囊在思维导图语义中无意义，全部统一为圆角矩形（识图评审指出 RAG/Agent 菱形突兀）
+- 🎨 布局同步：mindmap 节点统一尺寸（160×56），径向布局更均匀
+- 🎨 字号层级加大区分度：中心主题 20px → 一级 15px → 二级 12px（原 17/14/12 层级感不足）
+- ASCII 渲染同步（mindmap 下所有节点普通方框，无 `< >` 菱形标记）
+
+
 **新特性：聚合边（group 间关系）**
 
 - 🆕 edge 的 `from`/`to` 支持 **group id**：group→group、group→node、node→group
