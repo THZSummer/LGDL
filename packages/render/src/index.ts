@@ -682,17 +682,23 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
   }
 
   // task bars
+  const labelColX = 40 + 220 - 12; // task names pinned to the left label column
   for (const node of layout.nodes) {
     const lgdlNode = doc.nodes.find((n) => n.id === node.id);
     const start = typeof lgdlNode?.attrs?.start === 'number' ? lgdlNode.attrs.start : 0;
     const dur = typeof lgdlNode?.attrs?.duration === 'number' ? lgdlNode.attrs.duration : 1;
     const label = lgdlNode?.label ?? node.id;
     const cy = node.y + node.height / 2;
-    // left label
-    parts.push(text(node.x - 12, cy, label, 12, '#374151', 'end'));
-    // bar
+    // left label: fixed column (aligned across rows), not glued to the bar
+    parts.push(text(labelColX, cy, label, 12, '#374151', 'end'));
+    // bar; narrow bars get their time text outside (right) instead of clipped
+    const timeText = `${start}d +${dur}d`;
+    const inside = node.width >= 64;
+    const barText = inside
+      ? text(node.x + node.width / 2, cy, timeText, 11, '#ffffff')
+      : text(node.x + node.width + 6, cy, timeText, 10, '#2563eb', 'start');
     parts.push(
-      `<g class="lgdl-gantt-bar"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" fill="#3b82f6" opacity="0.85"/>${text(node.x + node.width / 2, cy, `${start}d +${dur}d`, 11, '#ffffff')}</g>`,
+      `<g class="lgdl-gantt-bar"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" fill="#3b82f6" opacity="0.85"/>${barText}</g>`,
     );
   }
 
