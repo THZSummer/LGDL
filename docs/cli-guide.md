@@ -52,14 +52,28 @@ lgdl init my-diagram.lgdl
 # ✓ initialized my-diagram.lgdl
 ```
 
-### `lgdl render <file> [-o out.svg]`
+### `lgdl render <file> [-o out.svg] [--format svg|ascii]`
 
-解析 `.lgdl` 文件 → 自动布局 → 输出 SVG。
+解析 `.lgdl` 文件 → 自动布局 → 输出 SVG（默认）或 ASCII 图。
 
 ```bash
 lgdl render my-diagram.lgdl                    # 输出到 out.svg
 lgdl render my-diagram.lgdl -o diagram.svg     # 指定输出文件
+lgdl render my-diagram.lgdl --format ascii     # 终端直接显示 ASCII 图
 # ✓ rendered my-diagram.lgdl -> diagram.svg (370x612, 5 nodes, 4 edges)
+```
+
+**`--format ascii`**：输出纯文本图（box-drawing 字符），适合终端、CI 日志、不支持图片的环境，也是 AI Agent 在终端「看图」的方式：
+
+```
+╭──────────╮
+│  用户访问 │
+╰──────────╯
+      │
+▼
+┌──────────────┐
+│  输入账号密码 │
+└──────────────┘
 ```
 
 - 布局是**确定性**的：同样的输入永远同样的输出

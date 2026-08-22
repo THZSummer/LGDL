@@ -439,3 +439,4 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">${parts.join('')}</svg>`;
 }
+export { renderAscii } from './ascii.js';
