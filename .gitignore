@@ -40,3 +40,4 @@ pnpm-debug.log*
 packages/web/pure-test.html
 packages/web/test-cm.html
 out.svg
+dist-test/
