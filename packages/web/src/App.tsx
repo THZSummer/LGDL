@@ -1,7 +1,7 @@
 // LGDL Web Workbench — edit .lgdl in the browser, live render
 import React, { useMemo, useState, useCallback, useRef, useEffect, Component, type ReactNode } from 'react';
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, type DecorationSet } from '@codemirror/view';
+import { EditorState, StateField, type Range } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { syntaxHighlighting, HighlightStyle, indentUnit } from '@codemirror/language';
 import { yaml } from '@codemirror/lang-yaml';
@@ -12,16 +12,68 @@ import { renderSvg } from '@lgdl/render';
 import { EXAMPLES, type Example } from './examples';
 import './app.css';
 
-/** LGDL-tuned highlight theme: emphasize keys, types and kinds. */
+/** LGDL-tuned highlight: keys stay teal, values are colored semantically below. */
 const lgdlHighlight = HighlightStyle.define([
-  { tag: t.keyword, color: '#7c3aed', fontWeight: '600' }, // type, kind values
   { tag: t.propertyName, color: '#0f766e' }, // yaml keys (id, label, from...)
-  { tag: t.string, color: '#0d9488' },
-  { tag: t.number, color: '#ea580c' },
   { tag: t.comment, color: '#94a3b8', fontStyle: 'italic' },
-  { tag: t.bool, color: '#db2777' },
   { tag: t.invalid, color: '#dc2626', textDecoration: 'underline wavy' },
 ]);
+
+/** Values that are LGDL enum keywords (diagram types + node kinds). */
+const LGDL_ENUMS = new Set([
+  'flowchart', 'mindmap', 'uml-class', 'arch', 'datastream', 'sequence',
+  'er', 'state', 'gantt',
+  'start', 'end', 'process', 'decision', 'entity', 'note', 'milestone',
+]);
+
+// Decoration marks for semantic coloring of YAML values.
+const enumMark = Decoration.mark({ class: 'cm-lgdl-enum' });
+const numMark = Decoration.mark({ class: 'cm-lgdl-num' });
+const boolMark = Decoration.mark({ class: 'cm-lgdl-bool' });
+const plainMark = Decoration.mark({ class: 'cm-lgdl-plain' });
+
+/**
+ * LGDL semantic highlighting: @lezer/yaml labels every value as `Literal`
+ * (mapped to t.string), so numbers/bools/enums all look identical. This
+ * field re-colors each `key: value` line by the value's content.
+ */
+const lgdlValueHighlight = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(_deco, tr) {
+    const text = tr.state.doc.toString();
+    const ranges: Range<Decoration>[] = [];
+    // match indented "key: value" lines
+    const lineRe = /^[ \t]*[A-Za-z_][A-Za-z0-9_-]*:[ \t]*(.*)$/gm;
+    let m: RegExpExecArray | null;
+    while ((m = lineRe.exec(text))) {
+      const full = m[0];
+      const keyMatch = full.match(/[A-Za-z_][A-Za-z0-9_-]*/);
+      if (!keyMatch) continue;
+      const key = keyMatch[0];
+      const valRaw = m[1].trim();
+      if (!valRaw) continue;
+      // value span within the doc
+      const valueStart = m.index + m[0].length - valRaw.length;
+      const valueEnd = valueStart + valRaw.length;
+      const val = valRaw.replace(/^["']|["']$/g, '');
+      let mark: Decoration;
+      if ((key === 'type' || key === 'kind') && LGDL_ENUMS.has(val)) {
+        mark = enumMark;
+      } else if (/^-?\d+(\.\d+)?$/.test(val)) {
+        mark = numMark;
+      } else if (val === 'true' || val === 'false') {
+        mark = boolMark;
+      } else {
+        mark = plainMark;
+      }
+      ranges.push(mark.range(valueStart, valueEnd));
+    }
+    return Decoration.set(ranges, true);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
 
 /** Error boundary: never let an unexpected error blank the whole page. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -156,6 +208,7 @@ export function App(): React.JSX.Element {
           indentUnit.of('  '),
           yaml(),
           syntaxHighlighting(lgdlHighlight),
+          lgdlValueHighlight,
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               setSource(update.state.doc.toString());
@@ -168,6 +221,11 @@ export function App(): React.JSX.Element {
             '.cm-gutters': { backgroundColor: '#f8fafc', color: '#94a3b8', border: 'none' },
             '.cm-activeLine': { backgroundColor: '#f1f5f9' },
             '.cm-activeLineGutter': { backgroundColor: '#e2e8f0', color: '#475569' },
+            // semantic value colors (from lgdlValueHighlight marks)
+            '.cm-lgdl-enum': { color: '#7c3aed', fontWeight: '600' },
+            '.cm-lgdl-num': { color: '#ea580c' },
+            '.cm-lgdl-bool': { color: '#db2777' },
+            '.cm-lgdl-plain': { color: '#334155' },
           }),
         ],
       }),
