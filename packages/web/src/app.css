@@ -60,14 +60,91 @@ body,
   padding: 1px 6px;
 }
 
-.example-picker select {
-  padding: 6px 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 13px;
+/* 示例胶囊按钮行：全部示例平铺可见，点击即切换（一步）；空间不足时
+   该区域横向滑动（触控板横滑 / Shift+滚轮 / 普通滚轮自动转横滑）。
+   滑动停稳后，中心指针所指的示例会自动吸附居中并选中。 */
+.example-switcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.example-switcher::-webkit-scrollbar {
+  height: 5px;
+}
+.example-switcher::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.example-switcher::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.example-switcher::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 左右淡出遮罩：提示该行可滑动，内容从边缘滑入 */
+.example-switcher::before,
+.example-switcher::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 28px;
+  pointer-events: none;
+  z-index: 2;
+}
+.example-switcher::before {
+  left: 0;
+  background: linear-gradient(to right, #ffffff, rgba(255, 255, 255, 0));
+}
+.example-switcher::after {
+  right: 0;
+  background: linear-gradient(to left, #ffffff, rgba(255, 255, 255, 0));
+}
+
+/* 滑动指针：视口中心的竖线，滑动停稳后指针所指示例被吸附选中 */
+.switcher-pointer {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #4f46e5, #3b82f6);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.example-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
   background: #ffffff;
   color: #334155;
-  max-width: 260px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.example-chip:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+  background: #eef2ff;
+}
+.example-chip.active {
+  background: linear-gradient(135deg, #4f46e5, #3b82f6);
+  color: #ffffff;
+  border-color: transparent;
+  font-weight: 600;
 }
 
 .header-actions {

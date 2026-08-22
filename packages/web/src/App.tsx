@@ -470,6 +470,7 @@ export function App(): React.JSX.Element {
   const [zoomScale, setZoomScale] = useState<number | null>(null);
   const editorHostRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
+  const switcherRef = useRef<HTMLDivElement>(null);
   const sourceRef = useRef(source);
   sourceRef.current = source;
 
@@ -559,6 +560,88 @@ export function App(): React.JSX.Element {
     compileCache.clear();
   }, []);
 
+  // 滑动指针：指针 = 容器视口中心的竖线。滚动（含惯性）停稳后，把指针
+  // 所指的示例平滑吸附居中并自动选中；点击胶囊也直接切换并滚到指针下。
+  const exampleIdRef = useRef(exampleId);
+  exampleIdRef.current = exampleId;
+
+  const selectExample = useCallback((ex: Example) => {
+    loadExample(ex);
+    // 把点击的胶囊滚到指针（视口中心）位置，保持「指针所指 = 当前项」
+    const el = switcherRef.current;
+    if (!el) return;
+    const chip = el.querySelector<HTMLElement>(`.example-chip[data-id="${ex.id}"]`);
+    if (!chip) return;
+    const cr = el.getBoundingClientRect();
+    const r = chip.getBoundingClientRect();
+    el.scrollBy({ left: r.left + r.width / 2 - (cr.left + cr.width / 2), behavior: 'smooth' });
+  }, [loadExample]);
+
+  useEffect(() => {
+    const el = switcherRef.current;
+    if (!el) return;
+    // 垂直滚轮转为横向滑动（空间不足时滚动浏览）
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+
+    // 滚动停稳（180ms 无滚动事件）→ 吸附指针所指的示例并选中
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const snap = () => {
+      timer = undefined;
+      const cr = el.getBoundingClientRect();
+      if (cr.width <= 0) return;
+      const centerX = cr.left + cr.width / 2;
+      const chips = Array.from(el.querySelectorAll<HTMLElement>('.example-chip'));
+      let best: HTMLElement | null = null;
+      let bestDist = Infinity;
+      for (const chip of chips) {
+        const r = chip.getBoundingClientRect();
+        const d = Math.abs(r.left + r.width / 2 - centerX);
+        if (d < bestDist) {
+          bestDist = d;
+          best = chip;
+        }
+      }
+      if (!best) return;
+      // 平滑吸附居中
+      const r = best.getBoundingClientRect();
+      el.scrollBy({ left: r.left + r.width / 2 - centerX, behavior: 'smooth' });
+      // 自动选中指针所指的示例（与当前不同才切换，避免重复加载）
+      const id = best.dataset.id;
+      if (id && id !== exampleIdRef.current) {
+        const ex = EXAMPLES.find((x) => x.id === id);
+        if (ex) loadExample(ex);
+      }
+    };
+    const onScroll = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(snap, 180);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('scroll', onScroll);
+      if (timer) clearTimeout(timer);
+    };
+  }, [loadExample]);
+
+  // 切换示例后，把当前胶囊滚动到可见（兜底，如窗口 resize 后）
+  useEffect(() => {
+    const el = switcherRef.current;
+    if (!el) return;
+    const chip = el.querySelector<HTMLElement>('.example-chip.active');
+    if (!chip) return;
+    const cr = el.getBoundingClientRect();
+    const r = chip.getBoundingClientRect();
+    if (r.left < cr.left) el.scrollLeft -= cr.left - r.left;
+    else if (r.right > cr.right) el.scrollLeft += r.right - cr.right;
+  }, [exampleId]);
+
   const downloadSvg = useCallback(() => {
     const blob = new Blob([state.svg], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
@@ -623,20 +706,21 @@ export function App(): React.JSX.Element {
           <span className="brand-text">Web Workbench</span>
           <span className="brand-version">v{webPkg.version}</span>
         </div>
-        <div className="example-picker">
-          <select
-            value={exampleId}
-            onChange={(e) => {
-              const ex = EXAMPLES.find((x) => x.id === e.target.value);
-              if (ex) loadExample(ex);
-            }}
-          >
-            {EXAMPLES.map((ex) => (
-              <option key={ex.id} value={ex.id}>
-                {ex.label} ({ex.id})
-              </option>
-            ))}
-          </select>
+        <div className="example-switcher" ref={switcherRef} aria-label="示例列表">
+          {EXAMPLES.map((ex) => (
+            <button
+              key={ex.id}
+              type="button"
+              data-id={ex.id}
+              className={`example-chip${ex.id === exampleId ? ' active' : ''}`}
+              aria-pressed={ex.id === exampleId}
+              title={`${ex.label} (${ex.id})`}
+              onClick={() => selectExample(ex)}
+            >
+              {ex.label}
+            </button>
+          ))}
+          <span className="switcher-pointer" aria-hidden="true" />
         </div>
         <div className="header-actions">
           <button onClick={copySource}>{copied ? '✓ 已复制' : '复制源码'}</button>
