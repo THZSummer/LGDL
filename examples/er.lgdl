@@ -3,17 +3,45 @@ type: er
 
 nodes:
   - id: user
-    label: "用户\n- id\n- name\n- email"
+    label: 用户
     kind: entity
+    members:
+      - kind: attribute
+        name: id
+      - kind: attribute
+        name: name
+      - kind: attribute
+        name: email
   - id: order
-    label: "订单\n- id\n- userId\n- amount"
+    label: 订单
     kind: entity
+    members:
+      - kind: attribute
+        name: id
+      - kind: attribute
+        name: userId
+      - kind: attribute
+        name: amount
   - id: product
-    label: "商品\n- id\n- name\n- price"
+    label: 商品
     kind: entity
+    members:
+      - kind: attribute
+        name: id
+      - kind: attribute
+        name: name
+      - kind: attribute
+        name: price
   - id: order-item
-    label: "订单项\n- id\n- orderId\n- productId"
+    label: 订单项
     kind: entity
+    members:
+      - kind: attribute
+        name: id
+      - kind: attribute
+        name: orderId
+      - kind: attribute
+        name: productId
 
 edges:
   - from: user

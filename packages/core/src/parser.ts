@@ -108,10 +108,10 @@ export function validate(
           location: `nodes[${i}].members`,
         });
       }
-      if (result.type !== 'uml-class') {
+      if (result.type !== 'uml-class' && result.type !== 'er') {
         issues.push({
           severity: 'error',
-          message: `"members" is only supported in uml-class diagrams (node "${node.id}", diagram type "${result.type}")`,
+          message: `"members" is only supported in uml-class and er diagrams (node "${node.id}", diagram type "${result.type}")`,
           location: `nodes[${i}].members`,
         });
       }
@@ -162,6 +162,22 @@ export function validate(
         }
       });
     }
+
+    // Strict legacy rejection: entity members must use the `members` field,
+    // never newline-packed labels. Old "User\n- id: int\n+ login()" labels
+    // are rejected instead of silently degrading.
+    if (
+      node.members === undefined &&
+      (node.kind ?? 'process') === 'entity' &&
+      (result.type === 'uml-class' || result.type === 'er') &&
+      (node.label ?? '').includes('\n')
+    ) {
+      issues.push({
+        severity: 'error',
+        message: `Entity "${node.id}" label must be a plain name — newline-packed members are no longer supported, use the "members" field`,
+        location: `nodes[${i}].label`,
+      });
+    }
   });
 
   // collect group ids early so edges may reference groups (aggregate edges)
@@ -193,6 +209,25 @@ export function validate(
           severity: 'error',
           message: `Edge "${edge.from} -> ${edge.to}" ${f} must be a string (e.g. "1", "*", "0..1")`,
           location: `edges[${i}].${f}`,
+        });
+      }
+    }
+    // Strict legacy rejection: multiplicity must live in the explicit
+    // cardinalityFrom/To fields, never packed into the label ("拥有 1..*")
+    // nor in the attrs escape hatch.
+    if (result.type === 'er' || result.type === 'uml-class') {
+      if (edge.label !== undefined && /\s+\d+\.\.(\d+|\*)$/.test(edge.label)) {
+        issues.push({
+          severity: 'error',
+          message: `Edge "${edge.from} -> ${edge.to}" label mixes a multiplicity ("${edge.label}") — put the relationship name in "label" and the multiplicities in "cardinalityFrom"/"cardinalityTo"`,
+          location: `edges[${i}].label`,
+        });
+      }
+      if ((edge.attrs as { cardinality?: unknown } | undefined)?.cardinality !== undefined) {
+        issues.push({
+          severity: 'error',
+          message: `Edge "${edge.from} -> ${edge.to}" uses attrs.cardinality — the escape hatch no longer carries multiplicity; use "cardinalityFrom"/"cardinalityTo"`,
+          location: `edges[${i}].attrs`,
         });
       }
     }

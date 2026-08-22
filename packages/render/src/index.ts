@@ -534,23 +534,20 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       mid ??= { x: (pts[0].x + pts[pts.length - 1].x) / 2, y: (pts[0].y + pts[pts.length - 1].y) / 2 };
       // ER / UML multiplicities: explicit cardinalityFrom/To fields, rendered
       // near each endpoint; the label stays the pure relationship name.
-      // Legacy fallback: a label like "拥有 1..*" is still split when no
-      // explicit fields are present.
+      // No legacy label parsing — multiplicity must live in the fields.
       const wantsCards = mode === 'er' || mode === 'uml-class';
-      const legacyCard =
-        wantsCards && edgeDoc?.cardinalityFrom === undefined && edgeDoc?.cardinalityTo === undefined && label
-          ? label.match(/^(.*?)\s+(\d+)\.\.(\d+|\*)$/)
-          : null;
-      if (wantsCards && (edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined || legacyCard)) {
-        const rel = legacyCard ? legacyCard[1] : (label ?? '');
-        const fromV = edgeDoc?.cardinalityFrom ?? legacyCard?.[2];
-        const toV = edgeDoc?.cardinalityTo ?? legacyCard?.[3];
+      if (wantsCards && (edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined)) {
+        const rel = label ?? '';
+        const fromV = edgeDoc?.cardinalityFrom;
+        const toV = edgeDoc?.cardinalityTo;
         const p0 = pts[0];
         const pn = pts[pts.length - 1];
         const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
         const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
-        const srcCard = { x: p0.x + ux * 16, y: p0.y + uy * 16 };
-        const dstCard = { x: pn.x - ux * 16, y: pn.y - uy * 16 };
+        // anchor multiplicities 22px outside the entity borders so small
+        // glyphs like "*" stay clearly readable next to the card edges
+        const srcCard = { x: p0.x + ux * 22, y: p0.y + uy * 22 };
+        const dstCard = { x: pn.x - ux * 22, y: pn.y - uy * 22 };
         let relEl = '';
         if (rel) {
           const { x, y } = placeLabel(mid.x, mid.y - 4, rel, placedLabels);
@@ -608,8 +605,19 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     }
     const cx = node.x + node.width / 2;
     const cy = node.y + node.height / 2;
+    // er entities: name + attribute rows straight from `members` (no
+    // visibility symbols — ER has no visibility concept)
+    let display = lgdlNode.label ?? lgdlNode.id;
+    if (mode === 'er' && lgdlNode.members && lgdlNode.members.length > 0) {
+      const rows = lgdlNode.members.map((m) =>
+        m.kind === 'method'
+          ? `${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
+          : `${m.name}${m.type ? `: ${m.type}` : ''}`,
+      );
+      display = [display, ...rows].join('\n');
+    }
     parts.push(
-      `<g class="lgdl-node" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, lgdlNode.label ?? lgdlNode.id, fontSize)}</g>`,
+      `<g class="lgdl-node" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, display, fontSize)}</g>`,
     );
   }
 
@@ -649,33 +657,21 @@ function boxEdgePoint(box: { x: number; y: number; w: number; h: number }, towar
  *   - `kind: method` members render in the bottom section
  *   - visibility maps to the UML symbol via VIS_SYMBOL (+ - # ~)
  * Nothing is parsed out of text — every row is an explicit field.
- *
- * Legacy fallback: when a node has no members, the label's newlines are
- * still honored (first line = class name, following lines = members).
+ * A node without members renders a name-only card (no legacy parsing).
  */
 function renderClassNode(node: LayoutNodeLike, lgdlNode: { label?: string; id: string; members?: LgdlMember[] }): string {
   const { x, y, width, height } = node;
 
-  let name: string;
-  let attrs: string[] = [];
-  let methods: string[] = [];
-  if (lgdlNode.members && lgdlNode.members.length > 0) {
-    name = lgdlNode.label ?? lgdlNode.id;
-    for (const m of lgdlNode.members) {
-      const vis = m.visibility ? VIS_SYMBOL[m.visibility] ?? '' : '';
-      const line =
-        m.kind === 'method'
-          ? `${vis} ${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
-          : `${vis} ${m.name}${m.type ? `: ${m.type}` : ''}`;
-      (m.kind === 'method' ? methods : attrs).push(line);
-    }
-  } else {
-    const raw = lgdlNode.label ?? lgdlNode.id;
-    const lines = raw.split('\n');
-    name = lines[0];
-    const rest = lines.slice(1);
-    attrs = rest.filter((m) => !m.includes('('));
-    methods = rest.filter((m) => m.includes('('));
+  const name = lgdlNode.label ?? lgdlNode.id;
+  const attrs: string[] = [];
+  const methods: string[] = [];
+  for (const m of lgdlNode.members ?? []) {
+    const vis = m.visibility ? VIS_SYMBOL[m.visibility] ?? '' : '';
+    const line =
+      m.kind === 'method'
+        ? `${vis} ${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
+        : `${vis} ${m.name}${m.type ? `: ${m.type}` : ''}`;
+    (m.kind === 'method' ? methods : attrs).push(line);
   }
 
   const headerH = 32;

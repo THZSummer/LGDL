@@ -99,13 +99,9 @@ function mermaidEr(doc: LgdlDocument): string {
     if (emitted.has(name)) continue;
     emitted.add(name);
     lines.push(`    ${name} {`);
-    const parts = (n.label ?? '').split('\n').slice(1);
-    for (const p of parts) {
-      const m = p.match(/^\s*[+-]?\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s+([A-Za-z_]+))?/);
-      if (m) {
-        const attr = m[1] ?? 'attr';
-        const type = m[2] ?? 'string';
-        lines.push(`        ${type} ${attr}`);
+    for (const m of n.members ?? []) {
+      if (m.kind === 'attribute') {
+        lines.push(`        ${m.type ?? 'string'} ${m.name}`);
       }
     }
     lines.push(`    }`);
@@ -113,10 +109,8 @@ function mermaidEr(doc: LgdlDocument): string {
   for (const e of doc.edges) {
     const a = entityName(e.from);
     const b = entityName(e.to);
-    // explicit cardinality fields first; legacy attrs.cardinality fallback
-    const legacy = (e.attrs?.cardinality as string | undefined)?.split('..') ?? [];
-    const leftCard = e.cardinalityFrom ?? legacy[0]?.trim() ?? '1';
-    const rightCard = e.cardinalityTo ?? legacy[1]?.trim() ?? '*';
+    const leftCard = e.cardinalityFrom ?? '1';
+    const rightCard = e.cardinalityTo ?? '*';
     // mermaid er: A ||--o{ B  (left cardinality, right cardinality)
     // cardinality is expressed by the connector; the label must be a
     // simple word (dots like '1..*' are not allowed in relation labels)

@@ -240,8 +240,7 @@ function importEr(lines: string[], issues: LgdlIssue[]): LgdlDocument {
     if (current) {
       const am = line.match(/^([A-Za-z_]+)\s+([A-Za-z0-9_]+)$/);
       if (am) {
-        const cid = idByEntity.get(current);
-        if (cid) attrs.get(cid)?.push(`${am[2]} ${am[1]}`);
+        attrs.get(current)?.push(`${am[2]} ${am[1]}`);
       }
       continue;
     }
@@ -266,11 +265,14 @@ function importEr(lines: string[], issues: LgdlIssue[]): LgdlDocument {
     }
   }
 
-  // apply collected attributes to labels (name + \n members)
+  // apply collected attributes to the structured members field
   for (const n of nodes) {
     const mem = attrs.get(n.id) ?? [];
     if (mem.length > 0) {
-      n.label = `${n.label}\n${mem.join('\n')}`;
+      n.members = mem.map((line) => {
+        const [name, type] = line.split(' ');
+        return { kind: 'attribute', name, ...(type ? { type } : {}) };
+      });
     }
   }
 

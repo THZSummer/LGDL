@@ -10,7 +10,7 @@
  * Same input always produces the same output (deterministic).
  */
 import dagre from 'dagre';
-import { VIS_SYMBOL, type LgdlDocument, type LgdlEdge } from '@lgdl/core';
+import { VIS_SYMBOL, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
 
 const { graphlib, layout } = dagre;
 
@@ -48,6 +48,23 @@ const NODE_SIZE: Record<string, { width: number; height: number }> = {
 const GRAPH_MARGIN = 40;
 const RANK_SEP = 48; // vertical gap between ranks
 const NODE_SEP = 40; // horizontal gap between nodes
+
+/**
+ * Display rows for a node's members — mirrors the renderer's formatting so
+ * sized cards exactly fit their content. `withVisibility` prefixes the UML
+ * symbol (+ - # ~) for uml-class cards; er entities show plain rows.
+ */
+function memberRows(node: LgdlNode, withVisibility = true): string[] {
+  if (!node.members) return [];
+  return node.members.map((m) => {
+    const sig =
+      m.kind === 'method'
+        ? `${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
+        : `${m.name}${m.type ? `: ${m.type}` : ''}`;
+    const vis = withVisibility && m.visibility ? VIS_SYMBOL[m.visibility] : '';
+    return `${vis} ${sig}`.trim();
+  });
+}
 
 /** Above this node count, use the fast grid layout instead of dagre. */
 export const LARGE_GRAPH_THRESHOLD = 120;
@@ -123,28 +140,26 @@ function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResu
 
   for (const node of doc.nodes) {
     let size = NODE_SIZE[node.kind ?? 'process'] ?? NODE_SIZE.process;
-    // uml-class cards size to their content: header 32 + rows × 18 + padding;
+    // uml-class cards size to their members: header 32 + rows × 18 + padding;
     // width follows the longest line (class name or member text)
     if (doc.type === 'uml-class') {
-      const rows: string[] = [];
-      if (node.members && node.members.length > 0) {
-        for (const m of node.members) {
-          const vis = m.visibility ? VIS_SYMBOL[m.visibility] : '';
-          rows.push(
-            m.kind === 'method'
-              ? `${vis} ${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
-              : `${vis} ${m.name}${m.type ? `: ${m.type}` : ''}`,
-          );
-        }
-      } else {
-        rows.push(...(node.label ?? node.id).split('\n').slice(1));
-      }
+      const rows = memberRows(node, true);
       const longest = Math.max(
         (node.label ?? node.id).length * 8,
         ...rows.map((r) => r.length * 7),
         0,
       );
       size = { width: Math.max(160, longest + 24), height: 32 + rows.length * 18 + 16 };
+    }
+    // er entities size to their attribute rows: name area + rows × 18
+    if (doc.type === 'er' && node.members && node.members.length > 0) {
+      const rows = memberRows(node, false);
+      const longest = Math.max(
+        (node.label ?? node.id).length * 8,
+        ...rows.map((r) => r.length * 7),
+        0,
+      );
+      size = { width: Math.max(140, longest + 24), height: 44 + rows.length * 18 + 6 };
     }
     g.setNode(node.id, { width: size.width, height: size.height, label: node.label ?? node.id });
   }

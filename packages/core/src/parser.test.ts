@@ -520,3 +520,90 @@ edges:
   assert.equal(reparsed.document.edges[0].cardinalityFrom, '1');
   assert.equal(reparsed.document.edges[0].cardinalityTo, '*');
 });
+
+// ---- strict legacy rejection: no old-writing compatibility ----
+
+test('members are allowed in er diagrams too', () => {
+  const result = parseLgdl(`type: er
+nodes:
+  - id: user
+    label: 用户
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+      - kind: attribute
+        name: name
+`);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+  assert.deepEqual(result.document.nodes[0].members, [
+    { kind: 'attribute', name: 'id' },
+    { kind: 'attribute', name: 'name' },
+  ]);
+});
+
+test('entity label with newline-packed members is rejected (uml-class)', () => {
+  const result = parseLgdl(`type: uml-class
+nodes:
+  - id: cart
+    label: "Cart\\n- items: list\\n+ addItem()"
+    kind: entity
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('newline-packed members')), result.issues.map((i) => i.message).join('; '));
+});
+
+test('entity label with newline-packed attributes is rejected (er)', () => {
+  const result = parseLgdl(`type: er
+nodes:
+  - id: user
+    label: "用户\\n- id\\n- name"
+    kind: entity
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('newline-packed members')));
+});
+
+test('edge label mixing multiplicity is rejected (er)', () => {
+  const result = parseLgdl(`type: er
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+    label: "拥有 1..*"
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('mixes a multiplicity')), result.issues.map((i) => i.message).join('; '));
+});
+
+test('edge label mixing multiplicity is rejected (uml-class)', () => {
+  const result = parseLgdl(`type: uml-class
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+    label: "发起 1..1"
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('mixes a multiplicity')));
+});
+
+test('attrs.cardinality escape hatch is rejected (er)', () => {
+  const result = parseLgdl(`type: er
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+    label: 拥有
+    attrs:
+      cardinality: "1..*"
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('attrs.cardinality')));
+});

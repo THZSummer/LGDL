@@ -150,14 +150,14 @@ edges:
     to: b
     label: 拥有
     attrs:
-      cardinality: "1..*"
+      note: "manual note"
 `;
   const parsed = parseLgdl(yaml);
   assert.equal(parsed.valid, true);
-  assert.deepEqual(parsed.document.edges[0].attrs, { cardinality: '1..*' });
+  assert.deepEqual(parsed.document.edges[0].attrs, { note: 'manual note' });
   const back = serializeLgdl(parsed.document);
   const reparsed = parseLgdl(back);
-  assert.deepEqual(reparsed.document.edges[0].attrs, { cardinality: '1..*' });
+  assert.deepEqual(reparsed.document.edges[0].attrs, { note: 'manual note' });
 });
 
 test('new diagram types are accepted', () => {
@@ -434,6 +434,9 @@ test('importMermaid er', () => {
   const r = importMermaid(mermaid);
   assert.equal(r.document.type, 'er');
   assert.equal(r.document.nodes.length, 2);
+  // entity attributes land in the structured members field
+  assert.deepEqual(r.document.nodes[0].members, [{ kind: 'attribute', name: 'name', type: 'string' }]);
+  assert.deepEqual(r.document.nodes[1].members, [{ kind: 'attribute', name: 'id', type: 'int' }]);
   // mermaid connectors map to the explicit cardinality fields
   assert.equal(r.document.edges[0].cardinalityFrom, '1'); // ||
   assert.equal(r.document.edges[0].cardinalityTo, '0..*'); // o{

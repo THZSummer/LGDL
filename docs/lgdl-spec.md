@@ -102,7 +102,7 @@ edges:
     cardinalityTo: "*"   # order 端：一个用户拥有多个订单
 ```
 
-（兼容：旧写法 `label: "拥有 1..*"` 仍被渲染器识别，规范写法是显性字段。）
+（旧写法——`label` 内嵌 `1..*`、`attrs.cardinality`、实体 `label` 内 `\n` 拼成员——**全部被校验拒绝**，不再兼容。）
 
 **聚合边（aggregate edge）**：`from`/`to` 除了 node id，也可以是 **group id**，表示"组作为整体参与流向/依赖"（不绑定组内具体节点）：
 

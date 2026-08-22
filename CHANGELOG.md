@@ -17,11 +17,13 @@
 - 🆕 node 新增显性字段 **`members`**：结构化类成员对象数组，替代 `label` 里 `\n` 拼接的隐式约定
 - 成员结构：`{kind: attribute|method, name, visibility: public|private|protected|package, type, params}`
 - 渲染器零猜测：不再靠 `(` 判断属性/方法、不再解析 `+/-` 记号；可见性符号由 `VIS_SYMBOL` 统一映射（core 单一来源，layout/render 共用）
-- 校验（全部 error）：`members` 仅限 `kind: entity` + `type: uml-class`；`member.kind`/`member.name` 必填；`params` 仅 method；`visibility` 枚举
+- 校验（全部 error）：`members` 仅限 `kind: entity`，图类型限 `uml-class` 与 `er`（er 实体属性同样用 members，无可见性概念）；`member.kind`/`member.name` 必填；`params` 仅 method；`visibility` 枚举
+- 布局/渲染：er 实体尺寸按属性行自适应，圆柱内显示名称+属性行
+- 🐛 mermaid-import：修复 CJK 实体名属性从未被导入的 bug（`current` 已是 id，反查失败）
 - 布局：类卡片尺寸按成员内容自适应（高度 = 32 + 行数×18 + 16；宽度跟随最长行）
 - CLI：`add-node --member kind=..,name=..[,visibility=..][,type=..][,params=".."]`（可重复）、`update-node --member-add / --member-remove`
 - 解析器：支持任意层级的块级对象列表（此前仅顶层，`members` 依赖此能力）
-- 兼容：`label` 内 `\n` 写法仍被渲染器识别（无 members 时的回退路径），规范写法为 `members`
+- ⚠️ **破坏性**：旧写法不再兼容——实体 `label` 内 `\n` 拼成员被校验拒绝，必须用 `members`；渲染器已删除 label-\n 回退
 
 **新特性：边多重性显性化 —— `cardinalityFrom` / `cardinalityTo`**
 
@@ -29,8 +31,8 @@
 - 渲染器零猜测：不再用正则从 `label: "拥有 1..*"` 拆基数；关系名标在中点、两端基数各标在对应实体端（er 与 uml-class 均生效）
 - 校验：两字段必须是字符串（`1` 也按字符串处理，与 id 同理）；手建文档传数字报 error
 - CLI：`add-edge --cardinality-from <v> --cardinality-to <v>`、`update-edge` 同参；`status` 边输出 `(1..*)`
-- 导入/导出：mermaid-import 的 `||--o{` 连接符映射到新字段；mermaid er 导出优先读新字段（兼容 attrs.cardinality）
-- 兼容：`label: "拥有 1..*"` 旧写法仍被渲染器识别，规范写法为显性字段
+- 导入/导出：mermaid-import 的 `||--o{` 连接符映射到新字段、实体属性写入 `members`；mermaid er 导出只读显性字段
+- ⚠️ **破坏性**：旧写法不再兼容——`label` 内嵌基数、`attrs.cardinality` 都被校验拒绝，必须用 `cardinalityFrom`/`cardinalityTo`；渲染器已删除正则拆分回退
 
 ## 0.3.0 (2026-08-22)
 
