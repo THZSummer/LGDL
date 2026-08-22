@@ -3,7 +3,7 @@ import React, { useMemo, useState, useCallback, useRef, useEffect, Component, ty
 import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, type DecorationSet } from '@codemirror/view';
 import { EditorState, StateField, type Range } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { syntaxHighlighting, HighlightStyle, indentUnit } from '@codemirror/language';
+import { syntaxHighlighting, HighlightStyle, indentUnit, syntaxTree } from '@codemirror/language';
 import { linter, type Diagnostic } from '@codemirror/lint';
 import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { yaml } from '@codemirror/lang-yaml';

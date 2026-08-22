@@ -33,3 +33,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# debug/test artifacts
+.pw-browsers/
+.App.bak
+packages/web/pure-test.html
+packages/web/test-cm.html
