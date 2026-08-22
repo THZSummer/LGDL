@@ -62,9 +62,10 @@ body,
 
 /* 示例胶囊按钮行：全部示例平铺可见，点击即切换（一步）；空间不足时
    该区域横向滑动（触控板横滑 / Shift+滚轮 / 普通滚轮自动转横滑）。
-   两端 padding ≈ 容器半宽：这是"滑动指针"轮盘的关键——没有它，靠边的
-   元素（第 2/3 个、倒数第 2/3 个）永远无法滚到指针中心，滑动时会被跳过。
-   padding 使每个元素都能滚到指针下被选中。 */
+   两端用内部 spacer（flex-basis 基于本区域宽度）撑出约半宽的滑动空间：
+   这是"滑动指针"轮盘的关键——没有它，靠边的元素（第 2/3 个、倒数第
+   2/3 个）永远无法滚到指针中心，滑动时会被跳过。spacer 是普通 flex
+   子项（随本区域宽度缩放），不会像百分比 padding 那样撑爆 header。 */
 .example-switcher {
   position: relative;
   display: flex;
@@ -73,10 +74,14 @@ body,
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  padding-block: 2px;
-  padding-inline: calc(50% - 62px); /* 62 ≈ 胶囊半宽 + 行首间距 */
+  padding: 2px 4px;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+}
+/* 两端滑动空间：≈ 半宽，使首/尾胶囊也能滚到指针中心。
+   72 = 胶囊半宽 60 + 与胶囊相邻的 gap 8 + 行内边距 4 */
+.switcher-spacer {
+  flex: 0 0 calc(50% - 72px);
 }
 .example-switcher::-webkit-scrollbar {
   height: 5px;

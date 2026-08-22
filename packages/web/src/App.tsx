@@ -715,6 +715,7 @@ export function App(): React.JSX.Element {
           <span className="brand-version">v{webPkg.version}</span>
         </div>
         <div className="example-switcher" ref={switcherRef} aria-label="示例列表">
+          <span className="switcher-spacer" aria-hidden="true" />
           {EXAMPLES.map((ex) => (
             <button
               key={ex.id}
@@ -728,6 +729,7 @@ export function App(): React.JSX.Element {
               {ex.label}
             </button>
           ))}
+          <span className="switcher-spacer" aria-hidden="true" />
           <span className="switcher-pointer" aria-hidden="true" />
         </div>
         <div className="header-actions">
