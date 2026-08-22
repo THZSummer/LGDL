@@ -66,13 +66,18 @@ body,
    这是"滑动指针"轮盘的关键——没有它，靠边的元素（第 2/3 个、倒数第
    2/3 个）永远无法滚到指针中心，滑动时会被跳过。spacer 是普通 flex
    子项（随本区域宽度缩放），不会像百分比 padding 那样撑爆 header。 */
-.example-switcher {
+/* 外层 wrapper：承载指针线与淡出遮罩。它们绝不能放在滚动容器里——
+   absolute 定位元素在 overflow 滚动容器内会随内容一起滚动（指针线会
+   一直钉在第一个胶囊上）；放在 wrapper 上则固定在可视区，不随滚动。 */
+.switcher-wrap {
   position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.example-switcher {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  min-width: 0;
   overflow-x: auto;
   padding: 2px 4px;
   scrollbar-width: thin;
@@ -98,8 +103,8 @@ body,
 }
 
 /* 左右淡出遮罩：提示该行可滑动，内容从边缘滑入；内容不满一行时隐藏 */
-.example-switcher::before,
-.example-switcher::after {
+.switcher-wrap::before,
+.switcher-wrap::after {
   content: '';
   position: absolute;
   top: 2px;
@@ -108,17 +113,17 @@ body,
   pointer-events: none;
   z-index: 2;
 }
-.example-switcher::before {
+.switcher-wrap::before {
   left: 0;
   background: linear-gradient(to right, #ffffff, rgba(255, 255, 255, 0));
 }
-.example-switcher::after {
+.switcher-wrap::after {
   right: 0;
   background: linear-gradient(to left, #ffffff, rgba(255, 255, 255, 0));
 }
-.example-switcher:not(.has-overflow)::before,
-.example-switcher:not(.has-overflow)::after,
-.example-switcher:not(.has-overflow) .switcher-pointer {
+.switcher-wrap:not(.has-overflow)::before,
+.switcher-wrap:not(.has-overflow)::after,
+.switcher-wrap:not(.has-overflow) .switcher-pointer {
   display: none;
 }
 

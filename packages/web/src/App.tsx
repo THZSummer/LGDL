@@ -569,7 +569,9 @@ export function App(): React.JSX.Element {
   const selectExample = useCallback((ex: Example) => {
     loadExample(ex);
     // 把点击的胶囊滚到指针（视口中心）位置，保持「指针所指 = 当前项」
-    const el = switcherRef.current;
+    // （指针线在 wrapper 上，滚动发生在内层 .example-switcher）
+    const wrap = switcherRef.current;
+    const el = wrap?.querySelector<HTMLElement>('.example-switcher');
     if (!el) return;
     const chip = el.querySelector<HTMLElement>(`.example-chip[data-id="${ex.id}"]`);
     if (!chip) return;
@@ -579,7 +581,8 @@ export function App(): React.JSX.Element {
   }, [loadExample]);
 
   useEffect(() => {
-    const el = switcherRef.current;
+    const wrap = switcherRef.current;
+    const el = wrap?.querySelector<HTMLElement>('.example-switcher');
     if (!el) return;
     // 垂直滚轮转为横向滑动（空间不足时滚动浏览）
     const onWheel = (e: WheelEvent) => {
@@ -651,9 +654,10 @@ export function App(): React.JSX.Element {
 
   // 内容不满一行时（无横向溢出），指针与淡出遮罩没有意义——隐藏
   useEffect(() => {
-    const el = switcherRef.current;
-    if (!el) return;
-    const sync = () => el.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 1);
+    const wrap = switcherRef.current;
+    const el = wrap?.querySelector<HTMLElement>('.example-switcher');
+    if (!el || !wrap) return;
+    const sync = () => wrap.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 1);
     sync();
     const ro = new ResizeObserver(() => {
       sync();
@@ -733,22 +737,24 @@ export function App(): React.JSX.Element {
           <span className="brand-text">Web Workbench</span>
           <span className="brand-version">v{webPkg.version}</span>
         </div>
-        <div className="example-switcher" ref={switcherRef} aria-label="示例列表">
-          <span className="switcher-spacer" aria-hidden="true" />
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex.id}
-              type="button"
-              data-id={ex.id}
-              className={`example-chip${ex.id === exampleId ? ' active' : ''}`}
-              aria-pressed={ex.id === exampleId}
-              title={`${ex.label} (${ex.id})`}
-              onClick={() => selectExample(ex)}
-            >
+        <div className="switcher-wrap" ref={switcherRef}>
+          <div className="example-switcher" aria-label="示例列表">
+            <span className="switcher-spacer" aria-hidden="true" />
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex.id}
+                type="button"
+                data-id={ex.id}
+                className={`example-chip${ex.id === exampleId ? ' active' : ''}`}
+                aria-pressed={ex.id === exampleId}
+                title={`${ex.label} (${ex.id})`}
+                onClick={() => selectExample(ex)}
+              >
               {ex.label}
             </button>
           ))}
           <span className="switcher-spacer" aria-hidden="true" />
+          </div>
           <span className="switcher-pointer" aria-hidden="true" />
         </div>
         <div className="header-actions">
