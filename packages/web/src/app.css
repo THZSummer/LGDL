@@ -51,6 +51,15 @@ body,
   color: #1e293b;
 }
 
+.brand-version {
+  font-size: 11px;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
 .example-picker select {
   padding: 6px 10px;
   border: 1px solid #cbd5e1;

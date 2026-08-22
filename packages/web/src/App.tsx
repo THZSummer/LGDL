@@ -103,6 +103,7 @@ export function App(): React.JSX.Element {
         <div className="brand">
           <span className="brand-mark">LGDL</span>
           <span className="brand-text">Web Workbench</span>
+          <span className="brand-version">v0.1</span>
         </div>
         <div className="example-picker">
           <select
