@@ -1,10 +1,39 @@
 // LGDL Web Workbench — edit .lgdl in the browser, live render
-import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect, Component, type ReactNode } from 'react';
 import { parseLgdl } from '@lgdl/core';
 import { layoutDocument } from '@lgdl/layout';
 import { renderSvg } from '@lgdl/render';
 import { EXAMPLES, type Example } from './examples';
 import './app.css';
+
+/** Error boundary: never let an unexpected error blank the whole page. */
+export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="fatal-error">
+          <h3>⚠️ 页面发生错误</h3>
+          <p>{this.state.error.message}</p>
+          <button
+            onClick={() => {
+              this.setState({ error: null });
+              location.reload();
+            }}
+          >
+            重新加载
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface RenderState {
   svg: string;
@@ -26,41 +55,61 @@ function compile(source: string): RenderState {
   if (cached) return cached;
 
   const start = performance.now();
-  const result = parseLgdl(source);
-  const issues = result.issues.map((i) => ({ severity: i.severity, message: i.message, location: i.location }));
+  try {
+    const result = parseLgdl(source);
+    const issues = result.issues.map((i) => ({
+      severity: i.severity,
+      message: i.message,
+      location: i.location,
+    }));
 
-  let state: RenderState;
-  if (!result.valid) {
-    state = {
+    let state: RenderState;
+    if (!result.valid) {
+      state = {
+        svg: '',
+        width: 0,
+        height: 0,
+        nodeCount: 0,
+        edgeCount: 0,
+        issues,
+        elapsed: performance.now() - start,
+      };
+    } else {
+      const doc = result.document;
+      const layout = layoutDocument(doc);
+      const svg = renderSvg(doc, layout);
+      state = {
+        svg,
+        width: layout.width,
+        height: layout.height,
+        nodeCount: doc.nodes.length,
+        edgeCount: doc.edges.length,
+        issues,
+        elapsed: performance.now() - start,
+      };
+    }
+
+    if (compileCache.size >= CACHE_MAX) {
+      const firstKey = compileCache.keys().next().value;
+      if (firstKey) compileCache.delete(firstKey);
+    }
+    compileCache.set(source, state);
+    return state;
+  } catch (err) {
+    // Never let an engine exception crash the page — show it as an error.
+    const message = err instanceof Error ? err.message : String(err);
+    const state: RenderState = {
       svg: '',
       width: 0,
       height: 0,
       nodeCount: 0,
       edgeCount: 0,
-      issues,
+      issues: [{ severity: 'error', message: `内部错误: ${message}`, location: 'runtime' }],
       elapsed: performance.now() - start,
     };
-  } else {
-    const doc = result.document;
-    const layout = layoutDocument(doc);
-    const svg = renderSvg(doc, layout);
-    state = {
-      svg,
-      width: layout.width,
-      height: layout.height,
-      nodeCount: doc.nodes.length,
-      edgeCount: doc.edges.length,
-      issues,
-      elapsed: performance.now() - start,
-    };
+    compileCache.set(source, state);
+    return state;
   }
-
-  if (compileCache.size >= CACHE_MAX) {
-    const firstKey = compileCache.keys().next().value;
-    if (firstKey) compileCache.delete(firstKey);
-  }
-  compileCache.set(source, state);
-  return state;
 }
 
 export function App(): React.JSX.Element {
@@ -196,8 +245,21 @@ export function App(): React.JSX.Element {
           <div className="preview-body">
             {state.svg ? (
               <div ref={svgRef} className="svg-container" dangerouslySetInnerHTML={{ __html: state.svg }} />
+            ) : hasErrors ? (
+              <div className="preview-empty preview-error">
+                <div className="preview-error-icon">✖</div>
+                <div className="preview-error-title">无法渲染</div>
+                <div className="preview-error-hint">请根据下方错误信息修正 LGDL 源码</div>
+              </div>
+            ) : isStale ? (
+              <div className="preview-empty">
+                <div className="preview-error-icon preview-loading">⏳</div>
+                <div className="preview-error-title">渲染中…</div>
+              </div>
             ) : (
-              <div className="preview-empty">等待渲染…</div>
+              <div className="preview-empty">
+                <div className="preview-error-title">暂无内容</div>
+              </div>
             )}
           </div>
           {state.issues.length > 0 && (
