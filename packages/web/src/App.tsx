@@ -263,6 +263,17 @@ function completion(text: string, label: string, detail: string, type = 'keyword
   return { label, detail, type, apply: text };
 }
 
+/** Collect all node ids from the document (for from/to/contains references). */
+function collectNodeIds(doc: string): string[] {
+  const ids: string[] = [];
+  const re = /^\s*- id:\s*([A-Za-z0-9_-]+)/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(doc))) {
+    ids.push(m[1]);
+  }
+  return ids;
+}
+
 /** Offer suggestions based on the current line's context. */
 function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
   const line = ctx.state.doc.lineAt(ctx.pos);
@@ -281,6 +292,23 @@ function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
         options = DIAGRAM_TYPES.map((t) => completion(t, t, '图类型'));
       } else if (key === 'kind') {
         options = NODE_KINDS.map((k) => completion(k, k, '节点类型'));
+      } else if (key === 'from' || key === 'to') {
+        // node id references (edges)
+        const ids = collectNodeIds(ctx.state.doc.toString());
+        options = ids.map((id) => completion(id, id, '节点引用', 'variable'));
+      } else if (key === 'contains') {
+        // node id references inside "[a, b, ...]" (groups)
+        const bracket = valPart.match(/\[([^\]\[]*)$/);
+        const inside = bracket ? bracket[1] : '';
+        const lastItem = inside.split(',').pop()?.trim() ?? '';
+        const ids = collectNodeIds(ctx.state.doc.toString());
+        // replace from the start of the current list item (or after the last comma)
+        const from = ctx.pos - lastItem.length;
+        options = ids.map((id) => completion(id, id, '节点引用', 'variable'));
+        if (options.length > 0) {
+          return { from, options };
+        }
+        return null;
       }
       if (options.length > 0) {
         return {
