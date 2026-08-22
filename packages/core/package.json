@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --test dist/**/*.test.js"
+    "test": "tsc src/*.test.ts --outDir dist-test --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --declaration false --allowImportingTsExtensions --rewriteRelativeImportExtensions && node --test dist-test/*.test.js",
+    "build:test": "tsc --outDir dist-test --exclude src/**/*.test.ts --exclude src 2>/dev/null; tsc --outDir dist-test src/*.test.ts --module nodenext --target es2022 --moduleResolution nodenext --esModuleInterop"
   },
   "files": [
     "dist"

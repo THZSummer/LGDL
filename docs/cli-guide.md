@@ -4,12 +4,19 @@
 
 ## 安装
 
-> 待发布 npm 包，当前从源码运行：
+> 📦 已发布到 npm（`@lgdl/cli`）！
+
+```bash
+npm install -g @lgdl/cli     # 全局安装
+lgdl --help                  # 验证安装
+```
+
+**从源码运行**（开发模式）：
 
 ```bash
 cd packages/cli
 npm run build
-node dist/cli.js --help        # 或 npm link 后直接用 lgdl
+node dist/cli.js --help
 ```
 
 ## 全局参数

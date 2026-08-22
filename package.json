@@ -15,5 +15,8 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@lgdl/cli": "^0.1.0"
+  }
 }

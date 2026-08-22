@@ -22,5 +22,8 @@
   "devDependencies": {
     "@types/dagre": "^0.7.52"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "files": [
+    "dist"
+  ]
 }

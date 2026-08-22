@@ -64,10 +64,10 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 
 ## 🚀 快速开始 / Quick Start
 
-> 开发中，v0.1 尚未发布
+> 📦 已发布到 npm！`npm install -g @lgdl/cli` 即可使用
 
 ```bash
-npm install -g @lgdl/cli    # 安装 CLI（待发布）
+npm install -g @lgdl/cli     # 安装 CLI
 
 lgdl init --file my-diagram.lgdl    # 初始化空图
 lgdl render --file my-diagram.lgdl -o out.svg  # 渲染（自动布局）
