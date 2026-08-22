@@ -1,6 +1,6 @@
 {
   "name": "@lgdl/render",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "LGDL SVG/PNG renderer",
   "type": "module",
   "main": "dist/index.js",
@@ -17,8 +17,8 @@
     "build:test": "tsc --outDir dist-test --exclude src/**/*.test.ts --exclude src 2>/dev/null; tsc --outDir dist-test src/*.test.ts --module nodenext --target es2022 --moduleResolution nodenext --esModuleInterop"
   },
   "dependencies": {
-    "@lgdl/core": "^0.3.0",
-    "@lgdl/layout": "^0.3.0"
+    "@lgdl/core": "^0.4.0",
+    "@lgdl/layout": "^0.4.0"
   },
   "license": "MIT",
   "files": [
