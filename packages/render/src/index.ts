@@ -356,7 +356,10 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   // defs: arrowhead markers (gray for node edges, purple for aggregate edges)
   parts.push(
     `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>` +
-      `<marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker></defs>`,
+      `<marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker></defs>` +
+      // hover anchors: hidden by default, shown when the node right before
+      // them is hovered (adjacent-sibling rule)
+      `<style>.lgdl-anchors{opacity:0;pointer-events:none;transition:opacity .12s ease}.lgdl-node:hover + .lgdl-anchors,.lgdl-class:hover + .lgdl-anchors{opacity:1}</style>`,
   );
 
   // background
@@ -603,46 +606,65 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   for (const node of layout.nodes) {
     const lgdlNode = doc.nodes.find((n) => n.id === node.id);
     if (!lgdlNode) continue;
+    let nodeClass = 'lgdl-node';
+    let stroke: string;
     if (mode === 'uml-class') {
       parts.push(renderClassNode(node, lgdlNode));
-      continue;
-    }
-    const kind = lgdlNode.kind ?? 'process';
-    // mindmap has no branching/terminal shapes: every node is a rounded
-    // rect (decision diamonds and start/end pills are flowchart concepts —
-    // in a mindmap they only break visual consistency). Hierarchy is shown
-    // by branch colors and font size, not by kind shapes.
-    const shape = mindmapInfo ? SHAPES.process : (SHAPES[kind] ?? SHAPES.process);
-    let fill = FILL_BY_KIND[kind] ?? FILL_BY_KIND.process;
-    let stroke = STROKE_BY_KIND[kind] ?? STROKE_BY_KIND.process;
-    let fontSize = 13;
-    if (mindmapInfo) {
-      const info = mindmapInfo.get(node.id);
-      if (info) {
-        // branch color overrides the kind palette; root uses the first color
-        const color = info.branch === 'root' ? MIND_COLORS[0] : MIND_COLORS[info.branchIndex % MIND_COLORS.length];
-        fill = info.branch === 'root' ? '#eff6ff' : MIND_FILLS[info.branchIndex % MIND_FILLS.length];
-        stroke = color;
-        // distinct font hierarchy: root > level 1 > level 2
-        fontSize = info.depth === 0 ? 20 : info.depth === 1 ? 15 : 12;
+      nodeClass = 'lgdl-class';
+      stroke = '#4f46e5';
+    } else {
+      const kind = lgdlNode.kind ?? 'process';
+      // mindmap has no branching/terminal shapes: every node is a rounded
+      // rect (decision diamonds and start/end pills are flowchart concepts —
+      // in a mindmap they only break visual consistency). Hierarchy is shown
+      // by branch colors and font size, not by kind shapes.
+      const shape = mindmapInfo ? SHAPES.process : (SHAPES[kind] ?? SHAPES.process);
+      let fill = FILL_BY_KIND[kind] ?? FILL_BY_KIND.process;
+      stroke = STROKE_BY_KIND[kind] ?? STROKE_BY_KIND.process;
+      let fontSize = 13;
+      if (mindmapInfo) {
+        const info = mindmapInfo.get(node.id);
+        if (info) {
+          // branch color overrides the kind palette; root uses the first color
+          const color = info.branch === 'root' ? MIND_COLORS[0] : MIND_COLORS[info.branchIndex % MIND_COLORS.length];
+          fill = info.branch === 'root' ? '#eff6ff' : MIND_FILLS[info.branchIndex % MIND_FILLS.length];
+          stroke = color;
+          // distinct font hierarchy: root > level 1 > level 2
+          fontSize = info.depth === 0 ? 20 : info.depth === 1 ? 15 : 12;
+        }
       }
-    }
-    const cx = node.x + node.width / 2;
-    const cy = node.y + node.height / 2;
-    // er entities: name + attribute rows straight from `members` (no
-    // visibility symbols — ER has no visibility concept)
-    let display = lgdlNode.label ?? lgdlNode.id;
-    if (mode === 'er' && lgdlNode.members && lgdlNode.members.length > 0) {
-      const rows = lgdlNode.members.map((m) =>
-        m.kind === 'method'
-          ? `${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
-          : `${m.name}${m.type ? `: ${m.type}` : ''}`,
+      const cx = node.x + node.width / 2;
+      const cy = node.y + node.height / 2;
+      // er entities: name + attribute rows straight from `members` (no
+      // visibility symbols — ER has no visibility concept)
+      let display = lgdlNode.label ?? lgdlNode.id;
+      if (mode === 'er' && lgdlNode.members && lgdlNode.members.length > 0) {
+        const rows = lgdlNode.members.map((m) =>
+          m.kind === 'method'
+            ? `${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
+            : `${m.name}${m.type ? `: ${m.type}` : ''}`,
+        );
+        display = [display, ...rows].join('\n');
+      }
+      parts.push(
+        `<g class="${nodeClass}" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, display, fontSize)}</g>`,
       );
-      display = [display, ...rows].join('\n');
     }
-    parts.push(
-      `<g class="lgdl-node" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, display, fontSize)}</g>`,
-    );
+    // hover anchors: the node's 8 fixed border anchors, hidden until the
+    // node is hovered (CSS sibling rule in the inline <style>). Reuses the
+    // same shape geometry the edges snap to, so dots sit exactly under the
+    // line endpoints.
+    const shapeKind = shapeKindFor(lgdlNode.kind);
+    const dots: string[] = [];
+    for (let k = 0; k < 8; k++) {
+      const th = (k * Math.PI) / 4;
+      const ap = shapeEdgePoint(shapeKind, node, {
+        x: node.x + node.width / 2 + Math.cos(th),
+        y: node.y + node.height / 2 + Math.sin(th),
+      });
+      dots.push(`<circle cx="${ap.x.toFixed(1)}" cy="${ap.y.toFixed(1)}" r="3" fill="${stroke}"/>`);
+    }
+    parts.push(`<g class="lgdl-anchors">${dots.join('')}</g>`);
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">${parts.join('')}</svg>`;
