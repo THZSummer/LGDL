@@ -674,9 +674,13 @@ function boxEdgePoint(box: { x: number; y: number; w: number; h: number }, towar
 /**
  * Point where a ray from `p` toward the box center crosses the node's REAL
  * shape border. dagre only trims endpoints to the bounding rect — diamonds
- * are empty near the rect corners, so lines from/to a decision node used to
- * float in blank space. The diamond equation |dx|/(w/2) + |dy|/(h/2) = 1
- * gives the true border; all other shapes approximate their bounding rect.
+ * are empty near the rect corners and cylinders are curved at top/bottom,
+ * so lines to/from those nodes used to float in blank space. Handled shapes:
+ *   - decision: diamond |dx|/(w/2) + |dy|/(h/2) = 1
+ *   - entity:   cylinder — straight sides plus elliptical top/bottom arcs
+ *               (arc center 10px inside the box, ry = 10, matching the
+ *               renderer's cylinder body)
+ * All other shapes approximate their bounding rect.
  */
 function shapeEdgePoint(
   kind: string,
@@ -691,6 +695,37 @@ function shapeEdgePoint(
   if (kind === 'decision') {
     const t = 1 / (Math.abs(dx) / (box.width / 2) + Math.abs(dy) / (box.height / 2));
     return { x: cx + dx * t, y: cy + dy * t };
+  }
+  if (kind === 'entity') {
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    // straight side region first: y' inside [topArcY, botArcY]
+    const topArcY = box.y + 10;
+    const botArcY = box.y + box.height - 10;
+    const tSide = Math.min(
+      ux !== 0 ? box.width / 2 / Math.abs(ux) : Infinity,
+      uy !== 0 ? box.height / 2 / Math.abs(uy) : Infinity,
+    );
+    const ySide = cy + uy * tSide;
+    if (ySide >= topArcY && ySide <= botArcY) {
+      return { x: cx + ux * tSide, y: cy + uy * tSide };
+    }
+    // arc region: intersect with the elliptical arc centered 10px inside
+    // the top/bottom edge; ((ux*t)/a)^2 + ((cy - ccy + uy*t)/r)^2 = 1
+    const a = box.width / 2;
+    const r = 10;
+    const ccy = ySide < topArcY ? topArcY : botArcY;
+    const dy0 = cy - ccy;
+    const A = (ux / a) ** 2 + (uy / r) ** 2;
+    const B = (2 * dy0 * uy) / (r * r);
+    const C = (dy0 / r) ** 2 - 1;
+    const disc = B * B - 4 * A * C;
+    if (disc >= 0) {
+      const t = (-B + Math.sqrt(disc)) / (2 * A); // exit intersection
+      return { x: cx + ux * t, y: cy + uy * t };
+    }
+    return { x: cx + ux * tSide, y: cy + uy * tSide }; // fallback
   }
   const tX = dx !== 0 ? box.width / 2 / Math.abs(dx) : Infinity;
   const tY = dy !== 0 ? box.height / 2 / Math.abs(dy) : Infinity;
