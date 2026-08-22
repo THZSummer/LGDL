@@ -41,12 +41,15 @@ while ((m = re.exec(ts))) {
   writeFileSync(join(outDir, `${id}.svg`), svg);
   console.log(`  ✓ ${id}.svg (${svg.match(/width="([\d.]+)" height="([\d.]+)"/)?.[1]}x${svg.match(/height="([\d.]+)"/)?.[1]})`);
 
-  // optional PNG
+  // optional PNG — render at least 800px wide, but scale large canvases
+  // 1:1 so text stays at its designed size (no fuzzy downscaled labels)
   try {
     const { Resvg } = await import('@resvg/resvg-js');
-    const png = new Resvg(svg, { fitTo: { mode: 'width', value: 800 } }).render().asPng();
+    const svgW = parseFloat(svg.match(/viewBox="0 0 ([\d.]+) /)?.[1] ?? '800');
+    const targetW = Math.max(800, Math.ceil(svgW));
+    const png = new Resvg(svg, { fitTo: { mode: 'width', value: targetW } }).render().asPng();
     writeFileSync(join(outDir, `${id}.png`), png);
-    console.log(`  ✓ ${id}.png (${png.length} bytes)`);
+    console.log(`  ✓ ${id}.png (${png.length} bytes, ${targetW}px)`);
   } catch {
     console.log(`  - ${id}.png 跳过（未安装 @resvg/resvg-js）`);
   }
