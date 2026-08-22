@@ -366,6 +366,12 @@ body,
   font-size: 12px;
   font-family: 'Consolas', monospace;
   border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.issue:hover {
+  background: #f1f5f9;
 }
 
 .issue-error {

@@ -83,24 +83,43 @@ interface DocSpan {
 }
 
 /**
- * Map an LGDL issue location (e.g. "edges[5].from", "nodes[3].id", "type")
- * to the char range of the offending value in the source text.
- * Returns null when the location cannot be resolved.
+ * Map an LGDL issue location to the char range of the offending text.
+ * Supports every location format the parser emits:
+ *   - "type"                         -> value after "type:"
+ *   - "nodes[i].id|kind|label"       -> that field's value in node i
+ *   - "edges[i].from|to|label"       -> that field's value in edge i
+ *   - "groups[i].contains"           -> first value in the inline list
+ *   - "groups[i].contains[j]"        -> the j-th value in the list
+ *   - "line N"                       -> the whole line N
+ *   - "doc" / "runtime" / undefined  -> null (no location)
  */
 function locateIssue(source: string, location: string | undefined): DocSpan | null {
   if (!location) return null;
-  const m = location.match(/^(\w+)(?:\[(\d+)\])?(?:\.(\w+))?$/);
-  if (!m) return null;
-  const [, section, idxStr, field] = m;
   const lines = source.split('\n');
-
-  // absolute offset of the start of each line
   const lineStart: number[] = [];
   let off = 0;
   for (const l of lines) {
     lineStart.push(off);
     off += l.length + 1;
   }
+
+  // "line N" — highlight the whole line
+  let lineMatch = location.match(/^line (\d+)$/);
+  if (lineMatch) {
+    const ln = parseInt(lineMatch[1], 10) - 1;
+    if (ln < 0 || ln >= lines.length) return null;
+    const content = lines[ln];
+    const firstNonSpace = content.match(/\S/);
+    const start = firstNonSpace ? lineStart[ln] + firstNonSpace.index! : lineStart[ln];
+    return { from: start, to: lineStart[ln] + content.length };
+  }
+
+  // structured: section[index].field  or  section[index].contains[j]
+  const m = location.match(/^(\w+)(?:\[(\d+)\])?(?:\.(\w+)(?:\[(\d+)\])?)?$/);
+  if (!m) return null;
+  const [, section, idxStr, field, subIdxStr] = m;
+  const idx = idxStr !== undefined ? parseInt(idxStr, 10) : 0;
+  const subIdx = subIdxStr !== undefined ? parseInt(subIdxStr, 10) : 0;
 
   // find the top-level section line, e.g. "edges:"
   let sectionLine = -1;
@@ -112,19 +131,14 @@ function locateIssue(source: string, location: string | undefined): DocSpan | nu
   }
   if (sectionLine === -1) return null;
 
-  // value right after the colon on the section line (for "type", "title")
-  const colonIdx = lines[sectionLine].indexOf(':');
-  const valStart = colonIdx + 1;
-
-  // no index: highlight the value on the section line
-  if (idxStr === undefined) {
-    if (!field) {
-      // whole value span (e.g. unknown diagram type)
-      return { from: lineStart[sectionLine] + valStart, to: lineStart[sectionLine] + lines[sectionLine].length };
-    }
+  // section without list items (e.g. "type", "title"): value after colon
+  if (idxStr === undefined && !field) {
+    const colonIdx = lines[sectionLine].indexOf(':');
+    const valStart = colonIdx + 1;
+    return { from: lineStart[sectionLine] + valStart, to: lineStart[sectionLine] + lines[sectionLine].length };
   }
 
-  const idx = idxStr !== undefined ? parseInt(idxStr, 10) : 0;
+  // walk the list items under the section
   let itemCount = -1;
   for (let i = sectionLine + 1; i < lines.length; i++) {
     const l = lines[i];
@@ -136,46 +150,83 @@ function locateIssue(source: string, location: string | undefined): DocSpan | nu
     if (itemCount !== idx) continue;
 
     const itemIndent = indent;
-    // 1) the field may sit on the item's first line: "- id: created"
-    const firstMatch = l.trim().slice(2).match(new RegExp(`^${field}:\\s*(.*)$`));
-    if (field && firstMatch) {
-      const fieldCol = l.indexOf(firstMatch[0]) + firstMatch[0].length - firstMatch[1].length;
-      const vStart = l.indexOf(firstMatch[1], fieldCol);
-      return { from: lineStart[i] + vStart, to: lineStart[i] + vStart + firstMatch[1].length };
+    if (!field) {
+      // whole item line fallback
+      return { from: lineStart[i], to: lineStart[i] + l.length };
     }
-    // 2) scan following lines for "field: value"
+
+    // the field may sit on the item's first line: "- from: paid1"
+    const firstMatch = l.trim().slice(2).match(new RegExp(`^${field}:\\s*(.*)$`));
+    if (firstMatch) {
+      const value = firstMatch[1].trim();
+      if (subIdxStr !== undefined) {
+        // inline list value: contains: [a, b, c]
+        return locateListValue(source, lines, lineStart, i, value, subIdx);
+      }
+      const vStart = l.indexOf(value);
+      return { from: lineStart[i] + vStart, to: lineStart[i] + vStart + value.length };
+    }
+
+    // scan following indented lines for "field: value"
     for (let j = i + 1; j < lines.length; j++) {
       const nl = lines[j];
       if (!nl.trim() || nl.trim().startsWith('#')) continue;
       const ni = nl.length - nl.trimStart().length;
       if (ni <= itemIndent) break;
       const fm = nl.trim().match(new RegExp(`^${field}:\\s*(.*)$`));
-      if (field && fm) {
-        const value = fm[1];
+      if (fm) {
+        const value = fm[1].trim();
+        if (subIdxStr !== undefined) {
+          return locateListValue(source, lines, lineStart, j, value, subIdx);
+        }
         const vStart = nl.indexOf(value);
         return { from: lineStart[j] + vStart, to: lineStart[j] + vStart + value.length };
       }
     }
-    // 3) fallback: whole item line
+
+    // field not found in this item — fallback to whole item line
     return { from: lineStart[i], to: lineStart[i] + l.length };
   }
   return null;
 }
 
-/** CodeMirror linter: red squiggles at the exact error position. */
+/** Locate the j-th element of an inline list like "contains: [a, b, c]". */
+function locateListValue(
+  source: string,
+  lines: string[],
+  lineStart: number[],
+  lineIdx: number,
+  rawValue: string,
+  subIdx: number,
+): DocSpan | null {
+  const listMatch = rawValue.match(/^\[(.*)\]$/s);
+  if (!listMatch) return null;
+  const items = listMatch[1].split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+  if (subIdx >= items.length) return null;
+  // find the sub-item within the raw list text
+  const listStart = lines[lineIdx].indexOf(rawValue);
+  const itemPos = listMatch[1].indexOf(items[subIdx]);
+  if (itemPos === -1) return null;
+  return {
+    from: lineStart[lineIdx] + listStart + 1 + itemPos,
+    to: lineStart[lineIdx] + listStart + 1 + itemPos + items[subIdx].length,
+  };
+}
+
+/** CodeMirror linter: red squiggles for errors, yellow for warnings. */
 const lgdlLinter = linter((view) => {
   const text = view.state.doc.toString();
   const state = compile(text);
   const diagnostics: Diagnostic[] = [];
   for (const issue of state.issues) {
-    if (issue.severity !== 'error') continue;
+    if (issue.severity !== 'error' && issue.severity !== 'warning') continue;
     const span = locateIssue(text, issue.location);
     const from = span ? span.from : 0;
     const to = span ? span.to : Math.min(text.length, 1);
     diagnostics.push({
       from,
       to: Math.max(to, from + 1),
-      severity: 'error',
+      severity: issue.severity,
       message: issue.message,
     });
   }
@@ -428,6 +479,16 @@ export function App(): React.JSX.Element {
     });
   }, [source]);
 
+  // click an issue -> jump to the offending location in the editor
+  const jumpToIssue = useCallback((location: string | undefined) => {
+    const view = editorViewRef.current;
+    if (!view) return;
+    const span = locateIssue(view.state.doc.toString(), location);
+    const pos = span ? span.from : 0;
+    view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+    view.focus();
+  }, []);
+
   return (
     <div className="app">
       <header className="app-header">
@@ -531,7 +592,12 @@ export function App(): React.JSX.Element {
           {state.issues.length > 0 && (
             <div className="issue-list">
               {state.issues.map((issue, i) => (
-                <div key={i} className={`issue issue-${issue.severity}`}>
+                <div
+                  key={i}
+                  className={`issue issue-${issue.severity}`}
+                  onClick={() => jumpToIssue(issue.location)}
+                  title="点击跳转到源码位置"
+                >
                   {issue.severity === 'error' ? '✖' : '⚠'} [{issue.location ?? 'doc'}] {issue.message}
                 </div>
               ))}

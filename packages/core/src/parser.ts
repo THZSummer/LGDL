@@ -126,12 +126,13 @@ export function validate(
     });
   });
   const groupMembership = new Map<string, string>();
-  result.groups.forEach((group) => {
-    group.contains?.forEach((nodeId) => {
+  result.groups.forEach((group, gi) => {
+    group.contains?.forEach((nodeId, ci) => {
       if (groupMembership.has(nodeId)) {
         issues.push({
           severity: 'warning',
           message: `Node "${nodeId}" belongs to both "${groupMembership.get(nodeId)}" and "${group.id}"`,
+          location: `groups[${gi}].contains[${ci}]`,
         });
       }
       groupMembership.set(nodeId, group.id);
