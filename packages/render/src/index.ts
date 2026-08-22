@@ -215,6 +215,37 @@ function findInitialState(doc: LgdlDocument): string | null {
   return entries.length === 1 ? entries[0].id : null;
 }
 
+/**
+ * Place an edge label at (x, y), pushing it to alternate rows when it
+ * would collide with an already-placed label (dense diagrams like state
+ * machines put many labels at the same y). The label is registered for
+ * future collision checks. Returns the final position.
+ */
+function placeLabel(
+  x: number,
+  y: number,
+  label: string,
+  placed: { x: number; y: number; w: number }[],
+): { x: number; y: number } {
+  const w = label.length * 12;
+  const clash = (lx: number, ly: number) =>
+    placed.some((p) => Math.abs(p.y - ly) < 14 && Math.min(p.x + p.w, lx + w) - Math.max(p.x, lx) > 4);
+  let ly = y;
+  if (clash(x, ly)) {
+    // try rows above/below, widening the offset each round
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const offset = 14 * attempt;
+      const cand = y + (attempt % 2 === 1 ? -offset : offset);
+      if (!clash(x, cand)) {
+        ly = cand;
+        break;
+      }
+    }
+  }
+  placed.push({ x, y: ly, w });
+  return { x, y: ly };
+}
+
 /** Render an LGDL document + layout into an SVG string. */
 export function renderSvg(doc: LgdlDocument, layout: LayoutResult): string {
   switch (doc.type) {
@@ -479,6 +510,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   }
 
   // edges (behind nodes)
+  // placed node-edge labels, tracked so dense labels (e.g. state diagrams)
+  // don't collide — conflicts are pushed to alternate rows
+  const placedLabels: { x: number; y: number; w: number }[] = [];
   for (const edge of layout.edges) {
     const pts = edge.points.length > 0 ? edge.points : routeDefault(doc, edge.from, edge.to);
     const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
@@ -513,10 +547,12 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
             text(srcCard.x, srcCard.y - 6, card[2], 12, '#b45309') +
             text(dstCard.x, dstCard.y - 6, card[3], 12, '#b45309');
         } else {
-          labelEl = text(mid.x, mid.y - 4, label, 12, '#6b7280');
+          const { x, y } = placeLabel(mid.x, mid.y - 4, label, placedLabels);
+          labelEl = text(x, y, label, 12, '#6b7280');
         }
       } else {
-        labelEl = text(mid.x, mid.y - 4, label, 12, '#6b7280');
+        const { x, y } = placeLabel(mid.x, mid.y - 4, label, placedLabels);
+        labelEl = text(x, y, label, 12, '#6b7280');
       }
     }
     parts.push(
