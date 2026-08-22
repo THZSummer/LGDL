@@ -28,8 +28,8 @@ lgdl --version    # 查看版本
 | `lgdl init --file <file>` | 创建空图文件 | ⭐ |
 | `lgdl render --file <file>` | 渲染为 SVG（自动布局） | ⭐⭐⭐ |
 | `lgdl status --file <file>` | 输出文本化图结构 | ⭐⭐⭐ |
-| `lgdl export-mermaid --file <file>` | 导出 Mermaid 语法（兼容生态） | ⭐⭐ |
-| `lgdl import-mermaid --file <file>` | 从 Mermaid 导入（迁移） | ⭐⭐ |
+| `lgdl convert --file <file>` | 导出 Mermaid 语法（兼容生态） | ⭐⭐ |
+| `lgdl import --file <file>` | 从 Mermaid 导入（迁移） | ⭐⭐ |
 | `lgdl add-node --file <file>` | 加节点（增量，支持 attrs） | ⭐⭐⭐ |
 | `lgdl remove-node --file <file>` | 删节点（自动清理关联边） | ⭐⭐⭐ |
 | `lgdl update-node --file <file>` | 改节点 label/kind/attrs | ⭐⭐ |
@@ -189,26 +189,26 @@ lgdl remove-group --file my-diagram.lgdl --id frontend
 
 ⚠️ 删除分组不会删除其中的节点，节点只是脱离分组。
 
-#### `lgdl export-mermaid --file <file> [-o out.mmd]`
+#### `lgdl convert --file <file> [-o out.mmd]`
 
 把 LGDL 图导出为 **Mermaid 语法**，兼容 Mermaid Live Editor / mermaid.js 生态。
 
 ```bash
-lgdl export-mermaid --file my-diagram.lgdl              # 输出到 stdout
-lgdl export-mermaid --file my-diagram.lgdl -o out.mmd   # 写入文件
-# ✓ exported my-diagram.lgdl -> out.mmd (flowchart)
+lgdl convert --file my-diagram.lgdl --as mermaid   # 输出到 stdout
+lgdl convert --file my-diagram.lgdl --as mermaid -o out.mmd   # 写入文件
+# ✓ converted my-diagram.lgdl -> out.mmd (flowchart)
 ```
 
 **类型映射**：`flowchart`/`mindmap`/`sequence`/`er`/`state`/`gantt` 有专属 Mermaid 语法；`uml-class`/`arch`/`datastream` 降级为 flowchart 格式。
 
 **用途**：把 LGDL 图贴到 GitHub README（Mermaid 原生渲染）、Typora、Notion 等支持 Mermaid 的地方。
 
-#### `lgdl import-mermaid --file <file> --output out.lgdl`
+#### `lgdl import --file <file> --from mermaid --output out.lgdl`
 
 把 Mermaid 语法导入为 LGDL 文件（迁移存量图）。
 
 ```bash
-lgdl import-mermaid --file existing.mmd --output new.lgdl
+lgdl import --file existing.mmd --from mermaid --output new.lgdl
 # ✓ imported existing.mmd -> new.lgdl (flowchart, 5 nodes, 4 edges)
 ```
 

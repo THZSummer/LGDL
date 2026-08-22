@@ -29,15 +29,15 @@ import { updateEdgeCommand } from './commands/update-edge.js';
 import { removeEdgeCommand } from './commands/remove-edge.js';
 import { addGroupCommand } from './commands/add-group.js';
 import { removeGroupCommand } from './commands/remove-group.js';
-import { exportMermaidCommand } from './commands/export-mermaid.js';
-import { importMermaidCommand } from './commands/import-mermaid.js';
+import { convertCommand } from './commands/convert.js';
+import { importCommand } from './commands/import.js';
 
 export const COMMANDS: LgdlCommand[] = [
   initCommand,
   renderCommand,
   statusCommand,
-  exportMermaidCommand,
-  importMermaidCommand,
+  convertCommand,
+  importCommand,
   addNodeCommand,
   removeNodeCommand,
   updateNodeCommand,

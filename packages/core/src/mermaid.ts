@@ -7,6 +7,7 @@
  * Others (uml-class, arch, datastream) fall back to flowchart-style output.
  */
 import type { LgdlDocument } from './types.js';
+import { registerConverter } from './converters.js';
 
 /** Escape text for use inside a Mermaid node label (double quotes). */
 function label(s: string | undefined, fallback = ''): string {
@@ -196,3 +197,6 @@ export function exportMermaid(doc: LgdlDocument): string {
       return mermaidFlowchart(doc);
   }
 }
+
+// register the mermaid output format (side-effect on import)
+registerConverter('mermaid', exportMermaid);

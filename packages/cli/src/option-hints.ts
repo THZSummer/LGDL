@@ -7,6 +7,8 @@
  */
 export const optionHints: Record<string, string[]> = {
   '--format': ['svg', 'ascii'],
+  '--as': ['mermaid'],
+  '--from': ['mermaid'],
   '--kind': [
     'start', 'end', 'process', 'decision',
     'entity', 'note', 'state', 'milestone',
