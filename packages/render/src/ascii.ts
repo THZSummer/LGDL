@@ -569,7 +569,83 @@ function overlayGroupBoxes(
     }
   }
 
+  // aggregate edges (one or both endpoints is a group): draw a connector
+  // between the two group/node boxes with an arrow at the target
+  drawAggregateEdges(grid, doc, nodeBoxes, boxes, dx, dy);
+
   return grid.toString();
+}
+
+/**
+ * Draw aggregate edges (group <-> node / group <-> group) onto the grid.
+ * The dominant direction (horizontal when the boxes sit side by side,
+ * vertical when stacked) picks a straight connector between the box
+ * borders, ending with ▶ / ◀ / ▼ at the target.
+ */
+function drawAggregateEdges(
+  g: Grid,
+  doc: LgdlDocument,
+  nodeBoxes: Map<string, { left: number; top: number; width: number; height: number }>,
+  boxes: { id: string; box: GroupBox }[],
+  dx: number,
+  dy: number,
+): void {
+  const nodeIds = new Set(doc.nodes.map((n) => n.id));
+  const boxById = new Map(boxes.map((b) => [b.id, b.box]));
+  for (const edge of doc.edges) {
+    if (nodeIds.has(edge.from) && nodeIds.has(edge.to)) continue; // node edge
+    const srcBox = nodeIds.has(edge.from) ? null : boxById.get(edge.from);
+    const dstBox = nodeIds.has(edge.to) ? null : boxById.get(edge.to);
+    const srcNb = nodeBoxes.get(edge.from);
+    const dstNb = nodeBoxes.get(edge.to);
+    // grid-space centers of both endpoints
+    const srcC = srcBox ? (srcBox.left + dx + srcBox.right + dx) / 2 : (srcNb ? srcNb.left + dx + srcNb.width / 2 : 0);
+    const srcR = srcBox ? (srcBox.top + dy + srcBox.bot + dy) / 2 : (srcNb ? srcNb.top + dy + 1.5 : 0);
+    const dstC = dstBox ? (dstBox.left + dx + dstBox.right + dx) / 2 : (dstNb ? dstNb.left + dx + dstNb.width / 2 : 0);
+    const dstR = dstBox ? (dstBox.top + dy + dstBox.bot + dy) / 2 : (dstNb ? dstNb.top + dy + 1.5 : 0);
+    // side-by-side boxes (overlapping row ranges) get a horizontal connector;
+    // stacked boxes get a vertical one
+    const rowsOverlap =
+      srcBox && dstBox
+        ? srcBox.top <= dstBox.bot && dstBox.top <= srcBox.bot
+        : Math.abs(dstR - srcR) < 2;
+    const horizontal = rowsOverlap;
+
+    if (horizontal) {
+      // side-to-side connector between the two boxes' facing borders
+      const row = Math.round((srcR + dstR) / 2);
+      const c1 = srcBox ? srcBox.right + dx + 1 : (srcNb ? srcNb.left + dx + srcNb.width : 0);
+      const c2 = dstBox ? dstBox.left + dx - 1 : (dstNb ? dstNb.left + dx - 1 : 0);
+      const from = Math.min(c1, c2);
+      const to = Math.max(c1, c2);
+      for (let c = from; c <= to; c++) {
+        const cur = g.get(c, row);
+        g.set(c, row, cur === '│' || cur === '┼' ? '┼' : '─');
+      }
+      g.set(dstC >= srcC ? to : from, row, dstC >= srcC ? '▶' : '◀');
+    } else {
+      // top-down connector between bottom of source and top of target.
+      // Vertical line runs on the TARGET's center column so it never lands
+      // on the target box label (which starts at the box's left edge).
+      const goingDown = dstR >= srcR;
+      const col = Math.round(dstC);
+      // start one cell outside the source box, end one cell outside the target box
+      const r1 = srcBox
+        ? (goingDown ? srcBox.bot + dy + 1 : srcBox.top + dy - 1)
+        : (srcNb ? (goingDown ? srcNb.top + dy + srcNb.height : srcNb.top + dy - 1) : 0);
+      const r2 = dstBox
+        ? (goingDown ? dstBox.top + dy - 1 : dstBox.bot + dy + 1)
+        : (dstNb ? (goingDown ? dstNb.top + dy - 1 : dstNb.top + dy + dstNb.height) : 0);
+      const from = Math.min(r1, r2);
+      const to = Math.max(r1, r2);
+      for (let r = from; r <= to; r++) {
+        const cur = g.get(col, r);
+        g.set(col, r, cur === '─' || cur === '┌' || cur === '┐' || cur === '└' || cur === '┘' ? '┼' : '│');
+      }
+      // arrow sits just outside the target box border (never on its label)
+      g.set(col, r2, goingDown ? '▼' : '▲');
+    }
+  }
 }
 
 /** Place a group border char.

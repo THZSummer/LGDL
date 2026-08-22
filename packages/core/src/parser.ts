@@ -95,19 +95,25 @@ export function validate(
     }
   });
 
-  // edges: from/to must reference existing nodes
+  // collect group ids early so edges may reference groups (aggregate edges)
+  const groupIds = new Set<string>();
+  for (const g of result.groups) {
+    if (g.id) groupIds.add(g.id);
+  }
+
+  // edges: from/to must reference existing nodes OR groups (aggregate edges)
   result.edges.forEach((edge, i) => {
-    if (!seenIds.has(edge.from)) {
+    if (!seenIds.has(edge.from) && !groupIds.has(edge.from)) {
       issues.push({
         severity: 'error',
-        message: `Edge references unknown source node: "${edge.from}"`,
+        message: `Edge references unknown source node or group: "${edge.from}"`,
         location: `edges[${i}].from`,
       });
     }
-    if (!seenIds.has(edge.to)) {
+    if (!seenIds.has(edge.to) && !groupIds.has(edge.to)) {
       issues.push({
         severity: 'error',
-        message: `Edge references unknown target node: "${edge.to}"`,
+        message: `Edge references unknown target node or group: "${edge.to}"`,
         location: `edges[${i}].to`,
       });
     }
@@ -115,7 +121,6 @@ export function validate(
 
   // groups: ids unique; contains must reference existing nodes OR groups;
   // no member (node or group) in two groups; no containment cycles
-  const groupIds = new Set<string>();
   const seenGroupIds = new Set<string>();
   result.groups.forEach((group, i) => {
     if (!group.id || !/^[A-Za-z0-9_-]+$/.test(group.id)) {
@@ -132,7 +137,6 @@ export function validate(
       });
     }
     seenGroupIds.add(group.id);
-    if (group.id) groupIds.add(group.id);
   });
 
   result.groups.forEach((group, i) => {

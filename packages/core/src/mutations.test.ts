@@ -62,10 +62,26 @@ test('addEdge appends edge', () => {
 });
 
 test('addEdge rejects unknown nodes / duplicates / self-loops', () => {
-  assert.throws(() => addEdge(BASE, { from: 'zzz', to: 'a' }), /Source node not found/);
-  assert.throws(() => addEdge(BASE, { from: 'a', to: 'zzz' }), /Target node not found/);
+  assert.throws(() => addEdge(BASE, { from: 'zzz', to: 'a' }), /Source node or group not found/);
+  assert.throws(() => addEdge(BASE, { from: 'a', to: 'zzz' }), /Target node or group not found/);
   assert.throws(() => addEdge(BASE, { from: 'a', to: 'b' }), /already exists/);
   assert.throws(() => addEdge(BASE, { from: 'a', to: 'a' }), /Self-loop/);
+});
+
+test('addEdge supports group ids (aggregate edges)', () => {
+  const { document, summary } = addEdge(BASE, { from: 'g1', to: 'a', label: '组到节点' });
+  assert.equal(document.edges.length, 2);
+  assert.equal(document.edges[1].from, 'g1');
+  assert.equal(document.edges[1].to, 'a');
+  assert.ok(summary.includes('added edge g1 -> a'));
+  // resulting document validates
+  const res = parseLgdl(serializeLgdl(document));
+  assert.equal(res.valid, true, res.issues.map((i) => i.message).join('; '));
+});
+
+test('addEdge rejects unknown group references', () => {
+  assert.throws(() => addEdge(BASE, { from: 'nope', to: 'a' }), /Source node or group not found/);
+  assert.throws(() => addEdge(BASE, { from: 'a', to: 'nope' }), /Target node or group not found/);
 });
 
 test('removeEdge removes only the matching edge', () => {

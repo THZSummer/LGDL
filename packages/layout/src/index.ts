@@ -52,6 +52,16 @@ const NODE_SEP = 40; // horizontal gap between nodes
 /** Above this node count, use the fast grid layout instead of dagre. */
 export const LARGE_GRAPH_THRESHOLD = 120;
 
+/**
+ * Edges whose endpoints are both nodes. Aggregate edges (one or both
+ * endpoints is a group id) never participate in node layout — they are
+ * drawn by the renderer between group boxes instead.
+ */
+function nodeEdges(doc: LgdlDocument): LgdlEdge[] {
+  const ids = new Set(doc.nodes.map((n) => n.id));
+  return doc.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
+}
+
 export function layoutDocument(doc: LgdlDocument): LayoutResult {
   // Large graphs: skip the expensive dagre layout, use O(n) grid.
   // This keeps the editor interactive; dagre quality matters for small/medium.
@@ -103,7 +113,7 @@ function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResu
     }
   }
 
-  for (const edge of doc.edges) {
+  for (const edge of nodeEdges(doc)) {
     g.setEdge(edge.from, edge.to, { label: edge.label ?? '', id: `${edge.from}->${edge.to}` });
   }
 
@@ -120,7 +130,7 @@ function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResu
     };
   });
 
-  const edges: LayoutEdge[] = doc.edges.map((edge) => {
+  const edges: LayoutEdge[] = nodeEdges(doc).map((edge) => {
     const eg = g.edge(edge.from, edge.to);
     const points = (eg?.points ?? []).map((p: { x: number; y: number }) => ({ x: p.x, y: p.y }));
     return { from: edge.from, to: edge.to, points };
@@ -162,7 +172,7 @@ function layoutMindmap(doc: LgdlDocument): LayoutResult {
     childrenOf.set(n.id, []);
     inDegree.set(n.id, 0);
   }
-  for (const e of doc.edges) {
+  for (const e of nodeEdges(doc)) {
     childrenOf.get(e.from)?.push(e.to);
     inDegree.set(e.to, (inDegree.get(e.to) ?? 0) + 1);
   }
@@ -284,7 +294,7 @@ const SEQ_MSG_GAP = 60; // vertical gap between messages
 
 function layoutSequence(doc: LgdlDocument): LayoutResult {
   const participants = doc.nodes;
-  const messages = doc.edges;
+  const messages = nodeEdges(doc);
 
   const width = Math.max(participants.length, 1) * SEQ_COL_W + GRAPH_MARGIN * 2;
   const bodyH = Math.max(messages.length, 1) * SEQ_MSG_GAP + SEQ_MSG_GAP;
@@ -376,7 +386,7 @@ function layoutSwimlane(doc: LgdlDocument): LayoutResult {
   const height = maxHeight + GRAPH_MARGIN;
 
   // edges: straight center-to-center lines (crossing lanes)
-  const edges: LayoutEdge[] = doc.edges.map((e) => {
+  const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
     const a = nodePos.get(e.from)!;
     const b = nodePos.get(e.to)!;
     return {
@@ -430,7 +440,7 @@ function layoutGantt(doc: LgdlDocument): LayoutResult {
   });
 
   // dependencies: vertical connector from dep bar bottom to dependent bar top
-  const edges: LayoutEdge[] = doc.edges.map((e) => {
+  const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
     const a = nodes.find((n) => n.id === e.from)!;
     const b = nodes.find((n) => n.id === e.to)!;
     return {
@@ -477,7 +487,7 @@ function layoutGrid(doc: LgdlDocument): LayoutResult {
 
   const nodes: LayoutNode[] = doc.nodes.map((n) => ({ id: n.id, ...nodePos.get(n.id)! }));
 
-  const edges: LayoutEdge[] = doc.edges.map((e) => {
+  const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
     const a = nodePos.get(e.from)!;
     const b = nodePos.get(e.to)!;
     return {

@@ -45,9 +45,9 @@ export interface LgdlNode {
 }
 
 export interface LgdlEdge {
-  /** Source node id */
+  /** Source node id — or group id for aggregate edges */
   from: string;
-  /** Target node id */
+  /** Target node id — or group id for aggregate edges */
   to: string;
   /** Optional edge label */
   label?: string;

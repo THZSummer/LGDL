@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0（未发布）
+
+**新特性：聚合边（group 间关系）**
+
+- 🆕 edge 的 `from`/`to` 支持 **group id**：group→group、group→node、node→group
+- 语义：组作为整体参与流向/依赖（不绑定组内节点）—— 架构分层、模块依赖、泳道间数据流的原生表达
+- 校验：from/to 引用 node 或 group 均可；未知引用报错
+- 布局：聚合边不参与节点布局（dagre 对 cluster 间边会崩，已过滤）
+- SVG：紫色虚线箭头，从源组边框到目标组边框（`lgdl-aggregate-edge`）
+- ASCII：水平（并排组 `──▶`）或垂直（上下组 `│` + `▼`）连接线
+- `add-edge` CLI 同样支持 group id（校验在 core 层）
+
 ## 0.3.0 (2026-08-22)
 
 **新特性：嵌套分组（P0）**

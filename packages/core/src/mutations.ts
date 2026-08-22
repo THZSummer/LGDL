@@ -117,11 +117,13 @@ export function removeNode(doc: LgdlDocument, id: string): MutationResult {
 export function addEdge(doc: LgdlDocument, opts: AddEdgeOptions): MutationResult {
   const { from, to, label, attrs } = opts;
 
-  if (!doc.nodes.some((n) => n.id === from)) {
-    throw new Error(`Source node not found: "${from}"`);
+  const isNode = (id: string) => doc.nodes.some((n) => n.id === id);
+  const isGroup = (id: string) => doc.groups.some((g) => g.id === id);
+  if (!isNode(from) && !isGroup(from)) {
+    throw new Error(`Source node or group not found: "${from}"`);
   }
-  if (!doc.nodes.some((n) => n.id === to)) {
-    throw new Error(`Target node not found: "${to}"`);
+  if (!isNode(to) && !isGroup(to)) {
+    throw new Error(`Target node or group not found: "${to}"`);
   }
   if (from === to) {
     throw new Error(`Self-loop edges are not supported (from === to === "${from}")`);

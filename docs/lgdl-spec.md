@@ -45,11 +45,25 @@ meta: {...}              # 可选，元信息（作者、版本等）
 ## Edge
 
 ```yaml
-- from: string           # 必填，源节点 id
-  to: string             # 必填，目标节点 id
+- from: string           # 必填，源 id（node id 或 group id）
+  to: string             # 必填，目标 id（node id 或 group id）
   label: string          # 可选，边上的文本
   attrs: {...}           # 可选，扩展属性（如 ER 基数 cardinality）
 ```
+
+**聚合边（aggregate edge）**：`from`/`to` 除了 node id，也可以是 **group id**，表示"组作为整体参与流向/依赖"（不绑定组内具体节点）：
+
+```yaml
+edges:
+  - from: auth        # 认证模块（group）
+    to: backend       # 后端层（group）
+    label: 整体调用
+```
+
+- 支持 group → group、group → node、node → group 三种混合
+- 渲染为紫色虚线箭头，从源组边框连到目标组边框（节点边为灰色实线）
+- 聚合边**不参与节点布局**（节点位置只由节点边决定），布局层会忽略它们
+- 常见场景：架构分层（接入层→核心层→数据层）、模块间依赖、泳道间数据流
 
 ## Group
 
@@ -94,7 +108,7 @@ groups:
 
 1. 所有 node id 必须唯一
 2. 所有 group id 必须唯一
-3. edge 的 from/to 必须引用存在的 node id
+3. edge 的 from/to 必须引用存在的 node id **或 group id**（聚合边）
 4. group 的 contains 必须引用存在的 node id **或 group id**
 5. 节点/group 不能同时属于两个 group
 6. group 不能直接或间接包含自身（检测环）

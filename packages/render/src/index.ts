@@ -227,30 +227,25 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
 function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream' | 'er'): string {
   const parts: string[] = [];
 
-  // defs: arrowhead marker
+  // defs: arrowhead markers (gray for node edges, purple for aggregate edges)
   parts.push(
-    `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker></defs>`,
+    `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>` +
+      `<marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker></defs>`,
   );
 
   // background
   parts.push(`<rect x="0" y="0" width="${layout.width}" height="${layout.height}" fill="#ffffff"/>`);
 
-  // groups (behind everything else)
+  // group boxes: compute a bbox for every group (lanes for datastream,
+  // nested dashed boxes otherwise) so groups and aggregate edges can be drawn
+  const boxOf = new Map<string, { x: number; y: number; w: number; h: number }>();
   if (mode === 'datastream') {
-    // swimlanes: full-height columns with header
-    const groups = doc.groups.length > 0 ? doc.groups : [{ id: '_default', label: '流程', contains: [] as string[] }];
-    groups.forEach((group, i) => {
-      const laneX = 40 + i * 260;
-      parts.push(
-        `<g class="lgdl-lane"><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="#f8fafc" stroke="#e2e8f0"/>` +
-          `<rect x="${laneX}" y="40" width="260" height="36" fill="#eef2ff" stroke="#e2e8f0"/>` +
-          `${text(laneX + 130, 58, group.label ?? group.id, 13, '#4338ca')}</g>`,
-      );
+    const lanes = doc.groups.length > 0 ? doc.groups : [{ id: '_default', label: '流程', contains: [] as string[] }];
+    lanes.forEach((group, i) => {
+      boxOf.set(group.id, { x: 40 + i * 260, y: 40, w: 260, h: layout.height - 40 });
     });
   } else {
-    // group boxes (may nest: an outer group contains subgroup ids)
     const groupById = new Map(doc.groups.map((g) => [g.id, g]));
-    const boxOf = new Map<string, { x: number; y: number; w: number; h: number }>();
     const computeGroupBox = (group: LgdlGroup): { x: number; y: number; w: number; h: number } | undefined => {
       if (boxOf.has(group.id)) return boxOf.get(group.id);
       const xs: number[] = [];
@@ -288,6 +283,21 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       boxOf.set(group.id, box);
       return box;
     };
+    for (const g of doc.groups) computeGroupBox(g);
+  }
+
+  // groups (behind everything else)
+  if (mode === 'datastream') {
+    // swimlanes: full-height columns with header
+    doc.groups.forEach((group, i) => {
+      const laneX = 40 + i * 260;
+      parts.push(
+        `<g class="lgdl-lane"><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="#f8fafc" stroke="#e2e8f0"/>` +
+          `<rect x="${laneX}" y="40" width="260" height="36" fill="#eef2ff" stroke="#e2e8f0"/>` +
+          `${text(laneX + 130, 58, group.label ?? group.id, 13, '#4338ca')}</g>`,
+      );
+    });
+  } else {
     // draw outer groups first (bottom layer), inner groups on top —
     // otherwise an outer group's opaque fill hides the inner group's border
     const groupIds = new Set(doc.groups.map((g) => g.id));
@@ -310,12 +320,39 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     };
     const orderedGroups = [...doc.groups].sort((a, b) => depthOf(a.id) - depthOf(b.id));
     for (const group of orderedGroups) {
-      const box = computeGroupBox(group);
+      const box = boxOf.get(group.id);
       if (!box) continue;
       parts.push(
         `<g class="lgdl-group"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="#f9fafb" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>`,
       );
     }
+  }
+
+  // aggregate edges (group <-> node / group <-> group) — drawn above the
+  // group boxes, below nodes; straight line between the two endpoints
+  const nodeIdSet = new Set(doc.nodes.map((n) => n.id));
+  const nodeCenter = (id: string): { x: number; y: number } => {
+    const ln = layout.nodes.find((n) => n.id === id);
+    return ln ? { x: ln.x + ln.width / 2, y: ln.y + ln.height / 2 } : { x: 0, y: 0 };
+  };
+  // center of an endpoint: node center, or group box center for groups
+  const centerOf = (id: string): { x: number; y: number } => {
+    if (!nodeIdSet.has(id)) {
+      const b = boxOf.get(id);
+      if (b) return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    }
+    return nodeCenter(id);
+  };
+  for (const edge of doc.edges) {
+    if (nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to)) continue; // regular node edge
+    const fromBox = nodeIdSet.has(edge.from) ? undefined : boxOf.get(edge.from);
+    const toBox = nodeIdSet.has(edge.to) ? undefined : boxOf.get(edge.to);
+    const src = fromBox ? boxEdgePoint(fromBox, centerOf(edge.to)) : nodeCenter(edge.from);
+    const dst = toBox ? boxEdgePoint(toBox, centerOf(edge.from)) : nodeCenter(edge.to);
+    const label = edge.label;
+    parts.push(
+      `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dst.x}" y2="${dst.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${label ? text((src.x + dst.x) / 2, (src.y + dst.y) / 2 - 4, label, 12, '#7c3aed') : ''}</g>`,
+    );
   }
 
   // edges (behind nodes)
@@ -372,6 +409,22 @@ function routeDefault(
   toId: string,
 ): { x: number; y: number }[] {
   return [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+}
+
+/**
+ * Point where a ray from `toward` toward the box center crosses the box
+ * border — used to anchor aggregate edges on group box boundaries.
+ */
+function boxEdgePoint(box: { x: number; y: number; w: number; h: number }, toward: { x: number; y: number }): { x: number; y: number } {
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const dx = toward.x - cx;
+  const dy = toward.y - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const tX = dx !== 0 ? box.w / 2 / Math.abs(dx) : Infinity;
+  const tY = dy !== 0 ? box.h / 2 / Math.abs(dy) : Infinity;
+  const t = Math.min(tX, tY);
+  return { x: cx + dx * t, y: cy + dy * t };
 }
 
 /**

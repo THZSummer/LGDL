@@ -44,3 +44,38 @@ test('renderSvg draws outer group boxes before inner ones (nested visible)', () 
   assert.ok(order.indexOf('前端层') < order.indexOf('认证模块'), `outer before inner: ${order.join(' -> ')}`);
   assert.equal(order.length, 3);
 });
+
+test('renderSvg draws aggregate edges between groups', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+    ],
+    edges: [{ from: 'g1', to: 'g2', label: '整体调用' }],
+    groups: [
+      { id: 'g1', label: '组一', contains: ['a'] },
+      { id: 'g2', label: '组二', contains: ['b'] },
+    ],
+  };
+  const layout: LayoutResult = {
+    nodes: [
+      { id: 'a', x: 60, y: 60, width: 120, height: 48 },
+      { id: 'b', x: 80, y: 300, width: 120, height: 48 },
+    ],
+    edges: [],
+    width: 400,
+    height: 420,
+  };
+  const svg = renderSvg(doc, layout);
+  assert.ok(svg.includes('lgdl-aggregate-edge'), 'aggregate edge element');
+  assert.ok(svg.includes('整体调用'), 'aggregate edge label');
+  // anchored on the group box boundaries (y between the two boxes, not inside)
+  const m = svg.match(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"/);
+  assert.ok(m, 'line present');
+  const y1 = parseFloat(m[2]);
+  const y2 = parseFloat(m[4]);
+  // source y ≈ bottom of g1 box (60+48+20=128), target y ≈ top of g2 box (300-20-24=256)
+  assert.ok(Math.abs(y1 - 128) < 5, `src on g1 bottom border, got ${y1}`);
+  assert.ok(Math.abs(y2 - 256) < 5, `dst on g2 top border, got ${y2}`);
+});

@@ -282,3 +282,57 @@ nodes:
   assert.equal(result.document.nodes[0].label, 'say # hi');
   assert.equal(result.document.nodes[1].label, 'url#fragment');
 });
+
+test('edges may reference group ids (aggregate edges)', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: g1
+    to: g2
+    label: 整体调用
+groups:
+  - id: g1
+    contains: [a]
+  - id: g2
+    contains: [b]
+`);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+  assert.equal(result.document.edges[0].from, 'g1');
+  assert.equal(result.document.edges[0].to, 'g2');
+});
+
+test('mixed edges: node -> group and group -> node are valid', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: g2
+  - from: g1
+    to: b
+groups:
+  - id: g1
+    contains: [a]
+  - id: g2
+    contains: [b]
+`);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+});
+
+test('edge referencing an id that is neither node nor group is an error', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+edges:
+  - from: ghost
+    to: a
+groups:
+  - id: g1
+    contains: [a]
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('unknown source node or group')));
+});

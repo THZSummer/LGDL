@@ -217,3 +217,24 @@ test('renderAscii separates sibling groups into distinct column bands', () => {
   assert.ok(out.includes('─'), 'branch line between bands');
   assert.ok(out.includes('▼'), 'arrow into the second band');
 });
+
+test('renderAscii draws an aggregate edge between groups with an arrow', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+    ],
+    edges: [{ from: 'g1', to: 'g2', label: '整体' }],
+    groups: [
+      { id: 'g1', label: '组一', contains: ['a'] },
+      { id: 'g2', label: '组二', contains: ['b'] },
+    ],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  assert.ok(out.includes('组一'), 'g1 box');
+  assert.ok(out.includes('组二'), 'g2 box');
+  // side-by-side groups get a horizontal connector ending with ▶
+  assert.ok(out.includes('─'), 'horizontal segment');
+  assert.ok(out.includes('▶'), 'arrow into g2');
+});
