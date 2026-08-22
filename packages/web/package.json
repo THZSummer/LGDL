@@ -1,13 +1,14 @@
 {
   "name": "@lgdl/web",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "LGDL web workbench — edit .lgdl in the browser, live render",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predev": "npm run build --workspace @lgdl/core --workspace @lgdl/layout --workspace @lgdl/render"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
