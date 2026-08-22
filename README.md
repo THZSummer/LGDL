@@ -176,6 +176,9 @@ LGDL/
 | **v0.3** | ✅ attrs 扩展属性 + ER/状态机/甘特图 + Mermaid/PlantUML/JSON 转换 |
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
 | **v0.5** | ⏳ Web 接入 AI 助手 |
+| **v0.6** | ⏳ 图即代码：语义 diff/评审、CI 自动渲染 |
+| **v0.7** | ⏳ 模块化：子图引用、参数化模板 |
+| **v0.8** | ⏳ 渲染与性能：大图优化、布局打磨 |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。
 
