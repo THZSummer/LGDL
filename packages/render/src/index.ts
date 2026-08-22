@@ -97,11 +97,13 @@ const SHAPES: Record<string, NodeShape> = {
       }
     },
   },
-  // Entity: cylinder-ish
+  // Entity: cylinder — straight sides + elliptical top/bottom arcs.
+  // Top arc must sweep counter-clockwise (0) so it bulges UP to y (closing
+  // the top); sweep=1 drew it downwards and the top edge vanished.
   entity: {
     body(x, y, w, h) {
       const cy = y + h;
-      return `<path d="M ${x},${y + 10} L ${x},${cy - 10} A ${w / 2},10 0 0 0 ${x + w},${cy - 10} L ${x + w},${y + 10} A ${w / 2},10 0 0 1 ${x},${y + 10} Z"/>`;
+      return `<path d="M ${x},${y + 10} L ${x},${cy - 10} A ${w / 2},10 0 0 0 ${x + w},${cy - 10} L ${x + w},${y + 10} A ${w / 2},10 0 0 0 ${x},${y + 10} Z"/>`;
     },
     anchor(x, y, w, h, dir) {
       return edgeAnchor(x, y, w, h, dir, 0);
