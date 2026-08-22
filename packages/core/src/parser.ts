@@ -347,6 +347,31 @@ function findTopLevelColon(line: string): number {
  * must stay strings — a node id like `1111` is an identifier, not a number.
  * Other fields parse normally (numbers stay numbers, e.g. attrs.duration).
  */
+/**
+ * Strip an inline comment from a scalar value. A '#' starts a comment only
+ * when it is at the start of the value or preceded by whitespace, and is
+ * not inside quotes — so `contains: [a, b] # 成员` keeps the list, while
+ * `label: "a # b"` keeps the '#'. Whole-line comments are handled earlier.
+ */
+function stripInlineComment(raw: string): string {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === "'" && !inDouble) inSingle = !inSingle;
+    else if (ch === '"' && !inSingle) inDouble = !inDouble;
+    else if (
+      ch === '#' &&
+      !inSingle &&
+      !inDouble &&
+      (i === 0 || raw[i - 1] === ' ' || raw[i - 1] === '\t')
+    ) {
+      return raw.slice(0, i);
+    }
+  }
+  return raw;
+}
+
 function parseFieldValue(key: string, raw: string): unknown {
   if (key === 'id' || key === 'from' || key === 'to') {
     const v = parseScalar(raw);
@@ -356,7 +381,7 @@ function parseFieldValue(key: string, raw: string): unknown {
 }
 
 function parseScalar(raw: string): unknown {
-  const value = raw.trim();
+  const value = stripInlineComment(raw).trim();
   if (value === '') return undefined;
   if (value === 'true') return true;
   if (value === 'false') return false;

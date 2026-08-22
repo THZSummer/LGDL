@@ -105,9 +105,12 @@ edges:
     label: 失败
 
 groups:
+  - id: auth
+    label: 认证模块
+    contains: [login]
   - id: frontend
     label: 前端层
-    contains: [start, login]
+    contains: [start, auth]    # 嵌套分组：前端层包含认证模块
   - id: backend
     label: 后端层
     contains: [verify]

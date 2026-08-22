@@ -182,10 +182,16 @@ lgdl remove-edge --file my-diagram.lgdl --from verify --to fail
 #### `lgdl add-group --file <file> --id <id> [--label <label>] [--contains <ids>]`
 
 ```bash
-# 创建分组（泳道/分区），可指定初始成员
+# 创建分组（泳道/分区），可指定初始成员（node id 或嵌套 group id）
 lgdl add-group --file my-diagram.lgdl --id frontend --label "前端层" --contains start,login
 # ✓ added group "frontend" (前端层) with 2 member(s)
+
+# 嵌套分组：把已有分组作为成员
+lgdl add-group --file my-diagram.lgdl --id frontend --label "前端层" --contains auth
+# ✓ added group "frontend" (前端层) with 1 member(s)
 ```
+
+> `--contains` 接受 node id 和 group id（嵌套）。一个 node/group 只能属于一个分组；不能直接或间接包含自身。
 
 #### `lgdl remove-group --file <file> --id <id>`
 

@@ -249,3 +249,36 @@ groups:
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('belongs to both')));
 });
+
+test('inline comments are stripped from values', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+  - id: b
+groups:
+  - id: g1
+    label: 前端层 # 说明文字
+    contains: [a, b]   # 成员列表
+edges:
+  - from: a
+    to: b
+    label: 下一步 # 边注释
+`);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+  assert.equal(result.document.groups[0].label, '前端层');
+  assert.deepEqual(result.document.groups[0].contains, ['a', 'b']);
+  assert.equal(result.document.edges[0].label, '下一步');
+});
+
+test('hash inside quotes is preserved, hash without leading space is kept', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+    label: "say # hi"
+  - id: b
+    label: url#fragment
+`);
+  assert.equal(result.valid, true);
+  assert.equal(result.document.nodes[0].label, 'say # hi');
+  assert.equal(result.document.nodes[1].label, 'url#fragment');
+});

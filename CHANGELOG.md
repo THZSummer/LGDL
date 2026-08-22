@@ -7,6 +7,7 @@
 - 🆕 group 支持嵌套：`contains` 可引用 node id **或 group id**（订单核心包住支付网关）
 - 校验新增：group id 唯一性、未知成员（node/group）、节点/group 不能同属两个组、包含环检测（直接/间接自包含都是 error）
 - `add-group --contains` 接受 group id；`remove-group` 自动从父组 contains 摘除
+- 🐛 解析器支持**行内注释**（`contains: [a, b] # 成员`），引号内的 `#` 保留
 - ASCII 渲染器完整支持 group：盒子边框、边框标题、嵌套盒子（外层包内层）、兄弟 group 自动分配到独立列带（不重叠）
 - 跨列连接线：L 形分支 + 箭头穿过 group 边框（`└───┐` / `└───▼`），边框在连接线处断开让位
 - SVG 渲染器同步支持嵌套 group（外层虚线框包住内层）
