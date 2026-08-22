@@ -45,6 +45,18 @@ program.parseAsync().catch((err) => {
     } else {
       console.error(`✖ 参数 ${flag} 需要提供一个值`);
     }
+  } else if (err?.code === 'commander.unknownOption') {
+    // `--xxx` at top level where xxx matches a command name: the user
+    // probably meant a command (commands don't take `--`).
+    const flag = (msg.match(/'([^']+)'/) ?? [])[1] ?? '';
+    const cmdName = flag.replace(/^--/, '');
+    const matchingCmd = program.commands.find((c) => c.name() === cmdName);
+    if (matchingCmd) {
+      console.error(`✖ 未知选项 '${flag}'`);
+      console.error(`  你是不是想用命令: lgdl ${cmdName} <file> ？（命令不需要 -- 前缀）`);
+    } else {
+      console.error(msg.replace(/^error:\s*/, '✖ '));
+    }
   } else if (err?.code && String(err.code).startsWith('commander.')) {
     // invalid choice / missing required option / unknown command
     console.error(msg.replace(/^error:\s*/, '✖ '));
