@@ -102,7 +102,13 @@ function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResu
     .setDefaultEdgeLabel(() => ({}));
 
   for (const node of doc.nodes) {
-    const size = NODE_SIZE[node.kind ?? 'process'] ?? NODE_SIZE.process;
+    let size = NODE_SIZE[node.kind ?? 'process'] ?? NODE_SIZE.process;
+    // uml-class cards size to their members: header 32 + rows × 18 + padding
+    if (doc.type === 'uml-class') {
+      const lines = (node.label ?? node.id).split('\n');
+      const memberRows = Math.max(lines.length - 1, 0);
+      size = { width: Math.max(160, size.width), height: 32 + memberRows * 18 + 16 };
+    }
     g.setNode(node.id, { width: size.width, height: size.height, label: node.label ?? node.id });
   }
 
