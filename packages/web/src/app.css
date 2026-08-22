@@ -141,17 +141,17 @@ body,
 /* editor */
 .editor {
   flex: 1;
-  width: 100%;
-  border: none;
-  outline: none;
-  resize: none;
-  padding: 14px 16px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #1e293b;
+  min-height: 0;
+  overflow: hidden;
   background: #ffffff;
-  tab-size: 2;
+}
+
+.editor .cm-editor {
+  height: 100%;
+}
+
+.editor .cm-editor.cm-focused {
+  outline: none;
 }
 
 .status-bar {

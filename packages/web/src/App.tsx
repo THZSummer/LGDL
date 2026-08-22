@@ -1,10 +1,27 @@
 // LGDL Web Workbench — edit .lgdl in the browser, live render
 import React, { useMemo, useState, useCallback, useRef, useEffect, Component, type ReactNode } from 'react';
+import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { syntaxHighlighting, HighlightStyle, indentUnit } from '@codemirror/language';
+import { yaml } from '@codemirror/lang-yaml';
+import { tags as t } from '@lezer/highlight';
 import { parseLgdl } from '@lgdl/core';
 import { layoutDocument } from '@lgdl/layout';
 import { renderSvg } from '@lgdl/render';
 import { EXAMPLES, type Example } from './examples';
 import './app.css';
+
+/** LGDL-tuned highlight theme: emphasize keys, types and kinds. */
+const lgdlHighlight = HighlightStyle.define([
+  { tag: t.keyword, color: '#7c3aed', fontWeight: '600' }, // type, kind values
+  { tag: t.propertyName, color: '#0f766e' }, // yaml keys (id, label, from...)
+  { tag: t.string, color: '#0d9488' },
+  { tag: t.number, color: '#ea580c' },
+  { tag: t.comment, color: '#94a3b8', fontStyle: 'italic' },
+  { tag: t.bool, color: '#db2777' },
+  { tag: t.invalid, color: '#dc2626', textDecoration: 'underline wavy' },
+]);
 
 /** Error boundary: never let an unexpected error blank the whole page. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -120,6 +137,58 @@ export function App(): React.JSX.Element {
   const [lastGood, setLastGood] = useState<RenderState>(() => compile(EXAMPLES[0].source));
   const [maskDismissed, setMaskDismissed] = useState(false);
   const svgRef = useRef<HTMLDivElement>(null);
+  const editorHostRef = useRef<HTMLDivElement>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+
+  // CodeMirror editor (created once; content flows through React state)
+  useEffect(() => {
+    if (!editorHostRef.current || editorViewRef.current) return;
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: sourceRef.current,
+        extensions: [
+          lineNumbers(),
+          highlightActiveLine(),
+          history(),
+          keymap.of([...defaultKeymap, ...historyKeymap]),
+          indentUnit.of('  '),
+          yaml(),
+          syntaxHighlighting(lgdlHighlight),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              setSource(update.state.doc.toString());
+            }
+          }),
+          EditorView.theme({
+            '&': { height: '100%', fontSize: '13px', backgroundColor: '#ffffff' },
+            '.cm-scroller': { fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace", lineHeight: '1.6' },
+            '.cm-content': { padding: '12px 0' },
+            '.cm-gutters': { backgroundColor: '#f8fafc', color: '#94a3b8', border: 'none' },
+            '.cm-activeLine': { backgroundColor: '#f1f5f9' },
+            '.cm-activeLineGutter': { backgroundColor: '#e2e8f0', color: '#475569' },
+          }),
+        ],
+      }),
+      parent: editorHostRef.current,
+    });
+    editorViewRef.current = view;
+    return () => {
+      view.destroy();
+      editorViewRef.current = null;
+    };
+  }, []);
+
+  // keep editor content in sync when source changes externally (example switch)
+  useEffect(() => {
+    const view = editorViewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current !== source) {
+      view.dispatch({ changes: { from: 0, to: current.length, insert: source } });
+    }
+  }, [source]);
 
   // debounce: only recompile 300ms after the user stops typing
   useEffect(() => {
@@ -232,13 +301,7 @@ export function App(): React.JSX.Element {
           <div className="pane-title">
             编辑器 <span className="pane-hint">.lgdl 源码</span>
           </div>
-          <textarea
-            className="editor"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            spellCheck={false}
-            aria-label="LGDL source editor"
-          />
+          <div className="editor" ref={editorHostRef} aria-label="LGDL source editor" />
           <div className="status-bar">
             <span className={hasErrors ? 'status-error' : 'status-ok'}>
               {hasErrors
