@@ -8,6 +8,7 @@
  */
 import { Command } from 'commander';
 import { registerAll } from './registry.js';
+import { hintFor } from './option-hints.js';
 
 const program = new Command();
 
@@ -26,12 +27,19 @@ registerAll(program);
 program.parseAsync().catch((err) => {
   const msg = String(err?.message ?? err);
   if (err?.code === 'commander.optionMissingArgument') {
-    // user typed `--opt` with no value: they intended to set it, so prompt
-    const flag = (msg.match(/'([^']+)'/) ?? [])[1] ?? '该选项';
-    console.error(`✖ 参数 ${flag} 需要提供一个值`);
-    console.error(`  可用选项见 --help`);
+    // user typed `--opt` with no value: report valid choices directly
+    const flag = (msg.match(/'([^']+)'/) ?? [])[1] ?? '';
+    const hints = hintFor(flag);
+    if (hints) {
+      console.error(`✖ 参数 ${flag} 需要提供一个值`);
+      console.error(`  可选值: ${hints.join(' | ')}`);
+    } else {
+      console.error(`✖ 参数 ${flag} 需要提供一个值`);
+      console.error(`  用 --help 查看用法`);
+    }
   } else if (err?.code && String(err.code).startsWith('commander.')) {
     // invalid choice / missing required option / unknown command, etc.
+    // choices errors already list allowed values in the message
     console.error(msg.replace(/^error:\s*/, '✖ '));
   } else {
     console.error(err);
