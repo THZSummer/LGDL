@@ -121,10 +121,14 @@ function locateIssue(source: string, location: string | undefined): DocSpan | nu
   const idx = idxStr !== undefined ? parseInt(idxStr, 10) : 0;
   const subIdx = subIdxStr !== undefined ? parseInt(subIdxStr, 10) : 0;
 
-  // find the top-level section line, e.g. "edges:"
+  // find the top-level section line, e.g. "edges:" (may or may not have a value)
   let sectionLine = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (/^\w+:\s*$/.test(lines[i].trim()) && lines[i].trim().startsWith(section + ':')) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    const indent = line.length - line.trimStart().length;
+    if (indent > 0) continue; // only top-level keys
+    if (/^\w+:/.test(trimmed) && trimmed.startsWith(section + ':')) {
       sectionLine = i;
       break;
     }
@@ -133,9 +137,15 @@ function locateIssue(source: string, location: string | undefined): DocSpan | nu
 
   // section without list items (e.g. "type", "title"): value after colon
   if (idxStr === undefined && !field) {
-    const colonIdx = lines[sectionLine].indexOf(':');
-    const valStart = colonIdx + 1;
-    return { from: lineStart[sectionLine] + valStart, to: lineStart[sectionLine] + lines[sectionLine].length };
+    const line = lines[sectionLine];
+    const colonIdx = line.indexOf(':');
+    const value = line.slice(colonIdx + 1).trim();
+    if (!value) {
+      // empty value — mark right after the colon
+      return { from: lineStart[sectionLine] + colonIdx + 1, to: lineStart[sectionLine] + colonIdx + 2 };
+    }
+    const vStart = line.indexOf(value, colonIdx + 1);
+    return { from: lineStart[sectionLine] + vStart, to: lineStart[sectionLine] + vStart + value.length };
   }
 
   // walk the list items under the section
