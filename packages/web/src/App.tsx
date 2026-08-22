@@ -4,6 +4,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, type 
 import { EditorState, StateField, type Range } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { syntaxHighlighting, HighlightStyle, indentUnit } from '@codemirror/language';
+import { linter, type Diagnostic } from '@codemirror/lint';
 import { yaml } from '@codemirror/lang-yaml';
 import { tags as t } from '@lezer/highlight';
 import { parseLgdl } from '@lgdl/core';
@@ -73,6 +74,112 @@ const lgdlValueHighlight = StateField.define<DecorationSet>({
     return Decoration.set(ranges, true);
   },
   provide: (f) => EditorView.decorations.from(f),
+});
+
+/** Absolute position (char offsets) of a field value in the document. */
+interface DocSpan {
+  from: number;
+  to: number;
+}
+
+/**
+ * Map an LGDL issue location (e.g. "edges[5].from", "nodes[3].id", "type")
+ * to the char range of the offending value in the source text.
+ * Returns null when the location cannot be resolved.
+ */
+function locateIssue(source: string, location: string | undefined): DocSpan | null {
+  if (!location) return null;
+  const m = location.match(/^(\w+)(?:\[(\d+)\])?(?:\.(\w+))?$/);
+  if (!m) return null;
+  const [, section, idxStr, field] = m;
+  const lines = source.split('\n');
+
+  // absolute offset of the start of each line
+  const lineStart: number[] = [];
+  let off = 0;
+  for (const l of lines) {
+    lineStart.push(off);
+    off += l.length + 1;
+  }
+
+  // find the top-level section line, e.g. "edges:"
+  let sectionLine = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\w+:\s*$/.test(lines[i].trim()) && lines[i].trim().startsWith(section + ':')) {
+      sectionLine = i;
+      break;
+    }
+  }
+  if (sectionLine === -1) return null;
+
+  // value right after the colon on the section line (for "type", "title")
+  const colonIdx = lines[sectionLine].indexOf(':');
+  const valStart = colonIdx + 1;
+
+  // no index: highlight the value on the section line
+  if (idxStr === undefined) {
+    if (!field) {
+      // whole value span (e.g. unknown diagram type)
+      return { from: lineStart[sectionLine] + valStart, to: lineStart[sectionLine] + lines[sectionLine].length };
+    }
+  }
+
+  const idx = idxStr !== undefined ? parseInt(idxStr, 10) : 0;
+  let itemCount = -1;
+  for (let i = sectionLine + 1; i < lines.length; i++) {
+    const l = lines[i];
+    if (!l.trim() || l.trim().startsWith('#')) continue;
+    const indent = l.length - l.trimStart().length;
+    if (indent === 0) break; // next top-level key
+    if (!l.trim().startsWith('- ')) continue;
+    itemCount++;
+    if (itemCount !== idx) continue;
+
+    const itemIndent = indent;
+    // 1) the field may sit on the item's first line: "- id: created"
+    const firstMatch = l.trim().slice(2).match(new RegExp(`^${field}:\\s*(.*)$`));
+    if (field && firstMatch) {
+      const fieldCol = l.indexOf(firstMatch[0]) + firstMatch[0].length - firstMatch[1].length;
+      const vStart = l.indexOf(firstMatch[1], fieldCol);
+      return { from: lineStart[i] + vStart, to: lineStart[i] + vStart + firstMatch[1].length };
+    }
+    // 2) scan following lines for "field: value"
+    for (let j = i + 1; j < lines.length; j++) {
+      const nl = lines[j];
+      if (!nl.trim() || nl.trim().startsWith('#')) continue;
+      const ni = nl.length - nl.trimStart().length;
+      if (ni <= itemIndent) break;
+      const fm = nl.trim().match(new RegExp(`^${field}:\\s*(.*)$`));
+      if (field && fm) {
+        const value = fm[1];
+        const vStart = nl.indexOf(value);
+        return { from: lineStart[j] + vStart, to: lineStart[j] + vStart + value.length };
+      }
+    }
+    // 3) fallback: whole item line
+    return { from: lineStart[i], to: lineStart[i] + l.length };
+  }
+  return null;
+}
+
+/** CodeMirror linter: red squiggles at the exact error position. */
+const lgdlLinter = linter((view) => {
+  const text = view.state.doc.toString();
+  const state = compile(text);
+  const diagnostics: Diagnostic[] = [];
+  for (const issue of state.issues) {
+    if (issue.severity !== 'error') continue;
+    const span = locateIssue(text, issue.location);
+    const from = span ? span.from : 0;
+    const to = span ? span.to : Math.min(text.length, 1);
+    diagnostics.push({
+      from,
+      to: Math.max(to, from + 1),
+      severity: 'error',
+      message: issue.message,
+    });
+  }
+  return diagnostics;
 });
 
 /** Error boundary: never let an unexpected error blank the whole page. */
@@ -209,6 +316,7 @@ export function App(): React.JSX.Element {
           yaml(),
           syntaxHighlighting(lgdlHighlight),
           lgdlValueHighlight,
+          lgdlLinter,
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               setSource(update.state.doc.toString());
