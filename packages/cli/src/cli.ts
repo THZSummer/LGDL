@@ -9,13 +9,20 @@
 import { Command } from 'commander';
 import { registerAll } from './registry.js';
 import { hintFor } from './option-hints.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 const program = new Command();
+
+// read version from package.json so `lgdl -V` tracks the published version
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8')) as { version: string };
 
 program
   .name('lgdl')
   .description('Logical Graph Description Language — semantic-first diagram language for AI agents')
-  .version('0.1.0')
+  .version(pkg.version)
   // throw instead of process.exit so we can give friendly messages
   .exitOverride()
   // after any error, print the failed command's help (options + choices)

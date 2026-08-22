@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 (2026-08-22)
+
+**新特性：更多格式转换器**
+
+- 🆕 `convert --as plantuml`：PlantUML 活动图语法（start/if-else/stop）
+- 🆕 `convert --as json`：结构化 JSON 输出
+- 转换器插件化注册表验证：加格式零 CLI 改动
+- `--as` 可选值提示动态化（自动列出 mermaid/plantuml/json）
+
+```bash
+npm install -g @lgdl/cli
+```
+
 ## 0.1.0 (2026-08-22)
 
 **首个公开发布版本 —— 已发布到 npm！**
