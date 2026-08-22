@@ -357,9 +357,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   parts.push(
     `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>` +
       `<marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker></defs>` +
-      // hover anchors: hidden by default, shown when the node right before
-      // them is hovered (adjacent-sibling rule)
-      `<style>.lgdl-anchors{opacity:0;pointer-events:none;transition:opacity .12s ease}.lgdl-node:hover + .lgdl-anchors,.lgdl-class:hover + .lgdl-anchors{opacity:1}</style>`,
+      // hover anchors: hidden by default, shown when the node/edge right
+      // before them is hovered (adjacent-sibling rule)
+      `<style>.lgdl-anchors,.lgdl-edge-anchors{opacity:0;pointer-events:none;transition:opacity .12s ease}.lgdl-node:hover + .lgdl-anchors,.lgdl-class:hover + .lgdl-anchors{opacity:1}.lgdl-edge:hover + .lgdl-edge-anchors,.lgdl-aggregate-edge:hover + .lgdl-edge-anchors{opacity:1}</style>`,
   );
 
   // background
@@ -459,136 +459,6 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     });
   }
 
-  // aggregate edges (group <-> node / group <-> group) — drawn above the
-  // group boxes, below nodes; straight line between the two endpoints
-  const nodeIdSet = new Set(doc.nodes.map((n) => n.id));
-  const nodeCenter = (id: string): { x: number; y: number } => {
-    const ln = layout.nodes.find((n) => n.id === id);
-    return ln ? { x: ln.x + ln.width / 2, y: ln.y + ln.height / 2 } : { x: 0, y: 0 };
-  };
-  // center of an endpoint: node center, or group box center for groups
-  const centerOf = (id: string): { x: number; y: number } => {
-    if (!nodeIdSet.has(id)) {
-      const b = boxOf.get(id);
-      if (b) return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-    }
-    return nodeCenter(id);
-  };
-  for (const edge of doc.edges) {
-    if (nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to)) continue; // regular node edge
-    const fromBox = nodeIdSet.has(edge.from) ? undefined : boxOf.get(edge.from);
-    const toBox = nodeIdSet.has(edge.to) ? undefined : boxOf.get(edge.to);
-    const fromCenter = centerOf(edge.from);
-    const toCenter = centerOf(edge.to);
-    // when both endpoints line up vertically (same column), offset the
-    // anchors horizontally so the aggregate edge doesn't overlap node edges
-    // running down that column
-    const offsetX = Math.abs(toCenter.x - fromCenter.x) < 1 && Math.abs(toCenter.y - fromCenter.y) > 40 ? 40 : 0;
-    // node endpoints anchor to the node's real shape border (same anchor
-    // rules as regular edges); group endpoints stay on the group box border
-    const nodeAnchor = (id: string, toward: { x: number; y: number }) => {
-      const nb = layout.nodes.find((n) => n.id === id);
-      if (!nb) return nodeCenter(id);
-      const kind = shapeKindFor(doc.nodes.find((n) => n.id === id)?.kind);
-      return shapeEdgePoint(kind, nb, toward);
-    };
-    const src = fromBox ? boxEdgePoint(fromBox, { x: toCenter.x + offsetX, y: toCenter.y }) : nodeAnchor(edge.from, { x: toCenter.x + offsetX, y: toCenter.y });
-    const dst = toBox ? boxEdgePoint(toBox, { x: fromCenter.x + offsetX, y: fromCenter.y }) : nodeAnchor(edge.to, { x: fromCenter.x + offsetX, y: fromCenter.y });
-    // push the target end slightly INTO the box so the arrowhead isn't
-    // hidden behind the box border line
-    // endpoints stay exactly ON the border anchors — the arrowhead tip
-    // touches the group/node edge (same as regular node edges); no push
-    // INTO the box, so lines never appear to pierce the shape
-    const label = edge.label;
-    let labelEl = '';
-    if (label) {
-      // keep the label readable: readable 11px font with a white backdrop,
-      // centered on the segment (clamped to the canvas); never shrink to
-      // tiny unreadable sizes even on very short segments
-      const fontSize = 11;
-      const w = label.length * fontSize;
-      const x = Math.max(10 + w / 2, Math.min((src.x + dst.x) / 2, layout.width - 10 - w / 2));
-      const y = (src.y + dst.y) / 2 - 4;
-      const bgW = w + 8;
-      const bgH = fontSize + 6;
-      labelEl =
-        `<rect x="${(x - bgW / 2).toFixed(1)}" y="${(y - bgH / 2).toFixed(1)}" width="${bgW}" height="${bgH}" rx="3" fill="#ffffff" opacity="0.9"/>` +
-        text(x, y, label, fontSize, '#7c3aed');
-    }
-    parts.push(
-      `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dst.x}" y2="${dst.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>`,
-    );
-  }
-
-  // edges (behind nodes)
-  // placed node-edge labels, tracked so dense labels (e.g. state diagrams)
-  // don't collide — conflicts are pushed to alternate rows
-  const placedLabels: { x: number; y: number; w: number }[] = [];
-  for (const edge of layout.edges) {
-    const pts = edge.points.length > 0 ? edge.points : routeDefault(doc, edge.from, edge.to);
-    // Snap both endpoints to the REAL shape border (dagre only trims to the
-    // bounding rect — diamonds are empty near the rect corners, so lines
-    // starting from a decision floated in blank space).
-    const srcNode = layout.nodes.find((n) => n.id === edge.from);
-    const dstNode = layout.nodes.find((n) => n.id === edge.to);
-    const srcKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.from)?.kind);
-    const dstKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.to)?.kind);
-    const trimmed = [...pts];
-    if (trimmed.length >= 2) {
-      if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
-      if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
-    }
-    const d = trimmed.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
-    const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
-    const label = edgeDoc?.label;
-    let labelEl = '';
-    if (label || edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined) {
-      // place label at midpoint of the longest segment
-      let mid: { x: number; y: number } | null = null;
-      for (let i = 0; i < trimmed.length - 1; i++) {
-        const a = trimmed[i];
-        const b = trimmed[i + 1];
-        if (b.y > a.y || (b.y === a.y && Math.abs(b.x - a.x) > 30)) {
-          mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-          break;
-        }
-      }
-      mid ??= { x: (trimmed[0].x + trimmed[trimmed.length - 1].x) / 2, y: (trimmed[0].y + trimmed[trimmed.length - 1].y) / 2 };
-      // ER / UML multiplicities: explicit cardinalityFrom/To fields, rendered
-      // near each endpoint; the label stays the pure relationship name.
-      // No legacy label parsing — multiplicity must live in the fields.
-      const wantsCards = mode === 'er' || mode === 'uml-class';
-      if (wantsCards && (edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined)) {
-        const rel = label ?? '';
-        const fromV = edgeDoc?.cardinalityFrom;
-        const toV = edgeDoc?.cardinalityTo;
-        const p0 = trimmed[0];
-        const pn = trimmed[trimmed.length - 1];
-        const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
-        const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
-        // anchor multiplicities 22px outside the entity borders so small
-        // glyphs like "*" stay clearly readable next to the card edges
-        const srcCard = { x: p0.x + ux * 22, y: p0.y + uy * 22 };
-        const dstCard = { x: pn.x - ux * 22, y: pn.y - uy * 22 };
-        let relEl = '';
-        if (rel) {
-          const { x, y } = placeLabel(mid.x, mid.y - 4, rel, placedLabels);
-          relEl = text(x, y, rel, 12, '#6b7280');
-        }
-        labelEl =
-          relEl +
-          (fromV !== undefined ? text(srcCard.x, srcCard.y - 6, fromV, 12, '#b45309') : '') +
-          (toV !== undefined ? text(dstCard.x, dstCard.y - 6, toV, 12, '#b45309') : '');
-      } else {
-        const { x, y } = placeLabel(mid.x, mid.y - 4, label ?? '', placedLabels);
-        labelEl = text(x, y, label ?? '', 12, '#6b7280');
-      }
-    }
-    parts.push(
-      `<g class="lgdl-edge"><path d="${d}" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowhead)"/>${labelEl}</g>`,
-    );
-  }
-
   // state: initial pseudo-state — solid dot + arrow into the entry state
   if (initialId) {
     const initNode = layout.nodes.find((n) => n.id === initialId);
@@ -665,6 +535,140 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       dots.push(`<circle cx="${ap.x.toFixed(1)}" cy="${ap.y.toFixed(1)}" r="3" fill="${stroke}"/>`);
     }
     parts.push(`<g class="lgdl-anchors">${dots.join('')}</g>`);
+  }
+
+  // aggregate edges (group <-> node / group <-> group) — drawn above the
+  // group boxes, below nodes; straight line between the two endpoints
+  const nodeIdSet = new Set(doc.nodes.map((n) => n.id));
+  const nodeCenter = (id: string): { x: number; y: number } => {
+    const ln = layout.nodes.find((n) => n.id === id);
+    return ln ? { x: ln.x + ln.width / 2, y: ln.y + ln.height / 2 } : { x: 0, y: 0 };
+  };
+  // center of an endpoint: node center, or group box center for groups
+  const centerOf = (id: string): { x: number; y: number } => {
+    if (!nodeIdSet.has(id)) {
+      const b = boxOf.get(id);
+      if (b) return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    }
+    return nodeCenter(id);
+  };
+  for (const edge of doc.edges) {
+    if (nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to)) continue; // regular node edge
+    const fromBox = nodeIdSet.has(edge.from) ? undefined : boxOf.get(edge.from);
+    const toBox = nodeIdSet.has(edge.to) ? undefined : boxOf.get(edge.to);
+    const fromCenter = centerOf(edge.from);
+    const toCenter = centerOf(edge.to);
+    // when both endpoints line up vertically (same column), offset the
+    // anchors horizontally so the aggregate edge doesn't overlap node edges
+    // running down that column
+    const offsetX = Math.abs(toCenter.x - fromCenter.x) < 1 && Math.abs(toCenter.y - fromCenter.y) > 40 ? 40 : 0;
+    // node endpoints anchor to the node's real shape border (same anchor
+    // rules as regular edges); group endpoints stay on the group box border
+    const nodeAnchor = (id: string, toward: { x: number; y: number }) => {
+      const nb = layout.nodes.find((n) => n.id === id);
+      if (!nb) return nodeCenter(id);
+      const kind = shapeKindFor(doc.nodes.find((n) => n.id === id)?.kind);
+      return shapeEdgePoint(kind, nb, toward);
+    };
+    const src = fromBox ? boxEdgePoint(fromBox, { x: toCenter.x + offsetX, y: toCenter.y }) : nodeAnchor(edge.from, { x: toCenter.x + offsetX, y: toCenter.y });
+    const dst = toBox ? boxEdgePoint(toBox, { x: fromCenter.x + offsetX, y: fromCenter.y }) : nodeAnchor(edge.to, { x: fromCenter.x + offsetX, y: fromCenter.y });
+    // push the target end slightly INTO the box so the arrowhead isn't
+    // hidden behind the box border line
+    // endpoints stay exactly ON the border anchors — the arrowhead tip
+    // touches the group/node edge (same as regular node edges); no push
+    // INTO the box, so lines never appear to pierce the shape
+    const label = edge.label;
+    let labelEl = '';
+    if (label) {
+      // keep the label readable: readable 11px font with a white backdrop,
+      // centered on the segment (clamped to the canvas); never shrink to
+      // tiny unreadable sizes even on very short segments
+      const fontSize = 11;
+      const w = label.length * fontSize;
+      const x = Math.max(10 + w / 2, Math.min((src.x + dst.x) / 2, layout.width - 10 - w / 2));
+      const y = (src.y + dst.y) / 2 - 4;
+      const bgW = w + 8;
+      const bgH = fontSize + 6;
+      labelEl =
+        `<rect x="${(x - bgW / 2).toFixed(1)}" y="${(y - bgH / 2).toFixed(1)}" width="${bgW}" height="${bgH}" rx="3" fill="#ffffff" opacity="0.9"/>` +
+        text(x, y, label, fontSize, '#7c3aed');
+    }
+    parts.push(
+      `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dst.x}" y2="${dst.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>` +
+        // hover the aggregate edge -> reveal its two endpoint anchors
+        `<g class="lgdl-edge-anchors"><circle cx="${src.x.toFixed(1)}" cy="${src.y.toFixed(1)}" r="3.5" fill="#7c3aed"/><circle cx="${dst.x.toFixed(1)}" cy="${dst.y.toFixed(1)}" r="3.5" fill="#7c3aed"/></g>`,
+    );
+  }
+
+  // edges (behind nodes)
+  // placed node-edge labels, tracked so dense labels (e.g. state diagrams)
+  // don't collide — conflicts are pushed to alternate rows
+  const placedLabels: { x: number; y: number; w: number }[] = [];
+  for (const edge of layout.edges) {
+    const pts = edge.points.length > 0 ? edge.points : routeDefault(doc, edge.from, edge.to);
+    // Snap both endpoints to the REAL shape border (dagre only trims to the
+    // bounding rect — diamonds are empty near the rect corners, so lines
+    // starting from a decision floated in blank space).
+    const srcNode = layout.nodes.find((n) => n.id === edge.from);
+    const dstNode = layout.nodes.find((n) => n.id === edge.to);
+    const srcKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.from)?.kind);
+    const dstKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.to)?.kind);
+    const trimmed = [...pts];
+    if (trimmed.length >= 2) {
+      if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
+      if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
+    }
+    const d = trimmed.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+    const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
+    const label = edgeDoc?.label;
+    let labelEl = '';
+    if (label || edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined) {
+      // place label at midpoint of the longest segment
+      let mid: { x: number; y: number } | null = null;
+      for (let i = 0; i < trimmed.length - 1; i++) {
+        const a = trimmed[i];
+        const b = trimmed[i + 1];
+        if (b.y > a.y || (b.y === a.y && Math.abs(b.x - a.x) > 30)) {
+          mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+          break;
+        }
+      }
+      mid ??= { x: (trimmed[0].x + trimmed[trimmed.length - 1].x) / 2, y: (trimmed[0].y + trimmed[trimmed.length - 1].y) / 2 };
+      // ER / UML multiplicities: explicit cardinalityFrom/To fields, rendered
+      // near each endpoint; the label stays the pure relationship name.
+      // No legacy label parsing — multiplicity must live in the fields.
+      const wantsCards = mode === 'er' || mode === 'uml-class';
+      if (wantsCards && (edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined)) {
+        const rel = label ?? '';
+        const fromV = edgeDoc?.cardinalityFrom;
+        const toV = edgeDoc?.cardinalityTo;
+        const p0 = trimmed[0];
+        const pn = trimmed[trimmed.length - 1];
+        const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
+        const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
+        // anchor multiplicities 22px outside the entity borders so small
+        // glyphs like "*" stay clearly readable next to the card edges
+        const srcCard = { x: p0.x + ux * 22, y: p0.y + uy * 22 };
+        const dstCard = { x: pn.x - ux * 22, y: pn.y - uy * 22 };
+        let relEl = '';
+        if (rel) {
+          const { x, y } = placeLabel(mid.x, mid.y - 4, rel, placedLabels);
+          relEl = text(x, y, rel, 12, '#6b7280');
+        }
+        labelEl =
+          relEl +
+          (fromV !== undefined ? text(srcCard.x, srcCard.y - 6, fromV, 12, '#b45309') : '') +
+          (toV !== undefined ? text(dstCard.x, dstCard.y - 6, toV, 12, '#b45309') : '');
+      } else {
+        const { x, y } = placeLabel(mid.x, mid.y - 4, label ?? '', placedLabels);
+        labelEl = text(x, y, label ?? '', 12, '#6b7280');
+      }
+    }
+    parts.push(
+      `<g class="lgdl-edge"><path d="${d}" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowhead)"/>${labelEl}</g>` +
+        // hover the edge -> reveal the two anchors it connects to
+        `<g class="lgdl-edge-anchors"><circle cx="${trimmed[0].x.toFixed(1)}" cy="${trimmed[0].y.toFixed(1)}" r="3.5" fill="#6b7280"/><circle cx="${trimmed[trimmed.length - 1].x.toFixed(1)}" cy="${trimmed[trimmed.length - 1].y.toFixed(1)}" r="3.5" fill="#6b7280"/></g>`,
+    );
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">${parts.join('')}</svg>`;
