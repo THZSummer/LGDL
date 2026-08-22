@@ -11,6 +11,7 @@ import {
   removeGroup,
   serializeLgdl,
   parseLgdl,
+  exportMermaid,
 } from './index.js';
 
 const BASE: Parameters<typeof addNode>[0] = {
@@ -203,4 +204,98 @@ test('removeGroup removes group', () => {
 
 test('removeGroup throws on missing', () => {
   assert.throws(() => removeGroup(BASE, 'nope'), /not found/);
+});
+
+test('exportMermaid flowchart', () => {
+  const doc = {
+    type: 'flowchart' as const,
+    nodes: [
+      { id: 'a', label: '开始', kind: 'start' as const },
+      { id: 'b', label: '处理' },
+    ],
+    edges: [{ from: 'a', to: 'b', label: '下一步' }],
+    groups: [],
+  };
+  const out = exportMermaid(doc);
+  assert.ok(out.startsWith('flowchart TD'));
+  assert.ok(out.includes('a["开始"]'));
+  assert.ok(out.includes('b["处理"]'));
+  assert.ok(out.includes('a -->|"下一步"| b'));
+});
+
+test('exportMermaid sequence', () => {
+  const doc = {
+    type: 'sequence' as const,
+    nodes: [
+      { id: 'user', label: '用户', kind: 'start' as const },
+      { id: 'srv', label: '服务' },
+    ],
+    edges: [{ from: 'user', to: 'srv', label: '请求' }],
+    groups: [],
+  };
+  const out = exportMermaid(doc);
+  assert.ok(out.startsWith('sequenceDiagram'));
+  assert.ok(out.includes('participant user as 用户'));
+  assert.ok(out.includes('user->>srv: 请求'));
+});
+
+test('exportMermaid mindmap', () => {
+  const doc = {
+    type: 'mindmap' as const,
+    nodes: [
+      { id: 'root', label: '主题' },
+      { id: 'c1', label: '分支1' },
+      { id: 'c2', label: '分支2' },
+    ],
+    edges: [
+      { from: 'root', to: 'c1' },
+      { from: 'root', to: 'c2' },
+    ],
+    groups: [],
+  };
+  const out = exportMermaid(doc);
+  assert.ok(out.startsWith('mindmap'));
+  assert.ok(out.includes('主题'));
+  assert.ok(out.includes('分支1'));
+});
+
+test('exportMermaid state', () => {
+  const doc = {
+    type: 'state' as const,
+    nodes: [
+      { id: 'a', label: '待支付', kind: 'state' as const },
+      { id: 'b', label: '已完成', kind: 'end' as const },
+    ],
+    edges: [{ from: 'a', to: 'b', label: '支付' }],
+    groups: [],
+  };
+  const out = exportMermaid(doc);
+  assert.ok(out.startsWith('stateDiagram-v2'));
+  assert.ok(out.includes('a --> [已完成]: 支付'));
+});
+
+test('exportMermaid gantt', () => {
+  const doc = {
+    type: 'gantt' as const,
+    nodes: [
+      { id: 't1', label: '开发', attrs: { start: 0, duration: 3 } },
+    ],
+    edges: [],
+    groups: [],
+  };
+  const out = exportMermaid(doc);
+  assert.ok(out.startsWith('gantt'));
+  assert.ok(out.includes('dateFormat YYYY-MM-DD'));
+  assert.ok(out.includes('开发 : t1, 2026-01-01, 3d'));
+});
+
+test('exportMermaid quotes are escaped', () => {
+  const doc = {
+    type: 'flowchart' as const,
+    nodes: [{ id: 'a', label: 'say "hi"' }],
+    edges: [],
+    groups: [],
+  };
+  const out = exportMermaid(doc);
+  assert.ok(out.includes('say &quot;hi&quot;'));
 });

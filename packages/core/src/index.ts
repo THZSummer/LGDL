@@ -22,3 +22,4 @@ export type {
   MutationResult,
 } from './mutations.js';
 export { serializeLgdl } from './serialize.js';
+export { exportMermaid } from './mermaid.js';

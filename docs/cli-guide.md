@@ -28,6 +28,7 @@ lgdl --version    # 查看版本
 | `lgdl init <file>` | 创建空图文件 | ⭐ |
 | `lgdl render <file>` | 渲染为 SVG（自动布局） | ⭐⭐⭐ |
 | `lgdl status <file>` | 输出文本化图结构 | ⭐⭐⭐ |
+| `lgdl export-mermaid <file>` | 导出 Mermaid 语法（兼容生态） | ⭐⭐ |
 | `lgdl add-node <file>` | 加节点（增量，支持 attrs） | ⭐⭐⭐ |
 | `lgdl remove-node <file>` | 删节点（自动清理关联边） | ⭐⭐⭐ |
 | `lgdl update-node <file>` | 改节点 label/kind/attrs | ⭐⭐ |
@@ -172,6 +173,20 @@ lgdl remove-group my-diagram.lgdl --id frontend
 ```
 
 ⚠️ 删除分组不会删除其中的节点，节点只是脱离分组。
+
+#### `lgdl export-mermaid <file> [-o out.mmd]`
+
+把 LGDL 图导出为 **Mermaid 语法**，兼容 Mermaid Live Editor / mermaid.js 生态。
+
+```bash
+lgdl export-mermaid my-diagram.lgdl              # 输出到 stdout
+lgdl export-mermaid my-diagram.lgdl -o out.mmd   # 写入文件
+# ✓ exported my-diagram.lgdl -> out.mmd (flowchart)
+```
+
+**类型映射**：`flowchart`/`mindmap`/`sequence`/`er`/`state`/`gantt` 有专属 Mermaid 语法；`uml-class`/`arch`/`datastream` 降级为 flowchart 格式。
+
+**用途**：把 LGDL 图贴到 GitHub README（Mermaid 原生渲染）、Typora、Notion 等支持 Mermaid 的地方。
 
 ---
 
