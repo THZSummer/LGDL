@@ -117,6 +117,8 @@ export function App(): React.JSX.Element {
   const [exampleId, setExampleId] = useState<string>(EXAMPLES[0].id);
   const [copied, setCopied] = useState(false);
   const [debouncedSource, setDebouncedSource] = useState<string>(EXAMPLES[0].source);
+  const [lastGood, setLastGood] = useState<RenderState>(() => compile(EXAMPLES[0].source));
+  const [maskDismissed, setMaskDismissed] = useState(false);
   const svgRef = useRef<HTMLDivElement>(null);
 
   // debounce: only recompile 300ms after the user stops typing
@@ -129,6 +131,18 @@ export function App(): React.JSX.Element {
   const state = useMemo(() => compile(debouncedSource), [debouncedSource]);
   const hasErrors = state.issues.some((i) => i.severity === 'error');
   const isStale = source !== debouncedSource; // typing in progress
+
+  // remember the last successfully rendered SVG so errors don't blank the view
+  useEffect(() => {
+    if (state.svg) {
+      setLastGood(state);
+    }
+  }, [state.svg]);
+
+  // when the user edits again, re-show the error mask if there are errors
+  useEffect(() => {
+    setMaskDismissed(false);
+  }, [source]);
 
   const loadExample = useCallback((ex: Example) => {
     setExampleId(ex.id);
@@ -245,6 +259,29 @@ export function App(): React.JSX.Element {
           <div className="preview-body">
             {state.svg ? (
               <div ref={svgRef} className="svg-container" dangerouslySetInnerHTML={{ __html: state.svg }} />
+            ) : hasErrors && lastGood.svg ? (
+              // keep the last good render visible, overlay an error mask
+              <div className="preview-stale-wrap">
+                <div className="svg-container svg-stale" dangerouslySetInnerHTML={{ __html: lastGood.svg }} />
+                {!maskDismissed && (
+                  <div className="error-mask">
+                    <div className="error-mask-card">
+                      <div className="error-mask-icon">✖</div>
+                      <div className="error-mask-title">无法更新渲染</div>
+                      <div className="error-mask-hint">
+                        当前源码有 {state.issues.filter((i) => i.severity === 'error').length} 个错误，
+                        下方显示的是上次成功渲染的图
+                      </div>
+                      <button
+                        className="error-mask-btn"
+                        onClick={() => setMaskDismissed(true)}
+                      >
+                        知道了，继续查看
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : hasErrors ? (
               <div className="preview-empty preview-error">
                 <div className="preview-error-icon">✖</div>
