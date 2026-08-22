@@ -671,7 +671,16 @@ export function App(): React.JSX.Element {
     const wrap = switcherRef.current;
     const el = wrap?.querySelector<HTMLElement>('.example-switcher');
     if (!el || !wrap) return;
-    const sync = () => wrap.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 1);
+    const sync = () => {
+      wrap.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 1);
+      // 两端 spacer = 最宽胶囊 × 2（紧凑轮盘）：滑动停稳后选中项约占
+      // 1x 居中，左右各露出约半个相邻胶囊，两端空白不再占半屏
+      let maxW = 124;
+      for (const chip of el.querySelectorAll<HTMLElement>('.example-chip')) {
+        maxW = Math.max(maxW, chip.offsetWidth);
+      }
+      wrap.style.setProperty('--spacer-w', `${maxW * 2}px`);
+    };
     sync();
     const ro = new ResizeObserver(() => {
       sync();
