@@ -276,122 +276,80 @@ function collectNodeIds(doc: string): string[] {
 
 /** Offer suggestions based on the current line's context. */
 function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
-  const line = ctx.state.doc.lineAt(ctx.pos);
-  const textBefore = line.text.slice(0, ctx.pos - line.from);
+  const pos = ctx.pos;
+  const docText = ctx.state.doc.toString();
+  const line = ctx.state.doc.lineAt(pos);
+  const textBefore = line.text.slice(0, pos - line.from);
   const trimmed = textBefore.trimStart();
   const indent = line.text.length - line.text.trimStart().length;
   const isItem = trimmed.startsWith('- ');
 
-  // strip "- " prefix so "- from: x" and "    to: y" are treated alike
+  // never complete inside a comment (tree-based check)
+  const tree = syntaxTree(ctx.state);
+  const node = tree.resolveInner(pos, -1);
+  if (node && node.name === 'Comment') return null;
+
+  // section (nodes/edges/groups) of the current line
+  const lines = docText.split('\n');
+  let section = '';
+  for (let i = 0; i < line.number - 1; i++) {
+    const t = lines[i].trim();
+    if (t.startsWith('nodes:') || t.startsWith('edges:') || t.startsWith('groups:')) {
+      section = t.slice(0, t.indexOf(':'));
+    }
+  }
+
   const content = isItem ? trimmed.slice(2) : trimmed;
 
-  // inside "key: value" — suggest values
-  const colonMatch = content.match(/^(\w+):\s*(.*)$/);
+  // ---- "key: value" — suggest values ----
+  const colonMatch = content.match(/^(\w+):\s*([A-Za-z0-9_\[,-]*)$/);
   if (colonMatch) {
     const key = colonMatch[1];
     const valPart = colonMatch[2];
+    const valStart = valPart !== '' && textBefore.endsWith(valPart) ? pos - valPart.length : pos;
 
-    // value validation: enums/ids are word-like; contains allows "[a, b"
-    const wordLike = valPart === '' || /^[A-Za-z-]*$/.test(valPart);
-    if (wordLike || key === 'contains') {
-      let options: ReturnType<typeof completion>[] = [];
-      if (key === 'type') {
-        options = DIAGRAM_TYPES.map((t) => completion(t, t, '图类型'));
-      } else if (key === 'kind') {
-        options = NODE_KINDS.map((k) => completion(k, k, '节点类型'));
-      } else if (key === 'from' || key === 'to') {
-        // node id references (edges)
-        const ids = collectNodeIds(ctx.state.doc.toString());
-        options = ids.map((id) => completion(id, id, '节点引用', 'variable'));
-      } else if (key === 'contains') {
-        // node id references inside "[a, b, ...]" (groups)
-        const bracket = valPart.match(/\[([^\]\[]*)$/);
-        const inside = bracket ? bracket[1] : '';
-        const lastItem = inside.split(',').pop()?.trim() ?? '';
-        const ids = collectNodeIds(ctx.state.doc.toString());
-        // replace from the start of the current list item (or after the last comma)
-        const from = ctx.pos - lastItem.length;
-        options = ids.map((id) => completion(id, id, '节点引用', 'variable'));
-        if (options.length > 0) {
-          return { from, options };
-        }
-        return null;
-      }
-      if (options.length > 0) {
-        return {
-          from: ctx.pos - valPart.length,
-          options,
-        };
-      }
+    if (key === 'type') {
+      return { from: valStart, options: DIAGRAM_TYPES.map((t) => completion(t, t, '图类型')) };
     }
-    return null; // known key with value typed — no suggestions
-  }
-
-  // field names (top-level keys, item first field, continuation fields)
-  const fieldPart = content;
-
-  // find what's being typed before the cursor: a bare word (no colon yet)
-  const prefix = fieldPart; // e.g. "ki", "lab", "id: " (with colon handled above)
-  const bareWord = prefix.match(/^[A-Za-z]*$/);
-
-  if (indent === 0 && bareWord && TOP_KEYS.some((k) => k.startsWith(prefix))) {
-    // top-level key: "ti", "no", ...
-    return {
-      from: ctx.pos - prefix.length,
-      options: TOP_KEYS.filter((k) => k.startsWith(prefix)).map((k) => completion(k + ': ', k, '顶层键')),
-    };
-  }
-
-  if (indent > 0 && bareWord) {
-    // field name inside nodes/edges/groups: "ki", "lab", ...
-    const section = currentSection(ctx.state.doc.toString(), line.number);
-    const fields =
-      section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : NODE_FIELDS;
-    const detail =
-      section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : section === 'groups' ? '分组字段' : '节点字段';
-    const matched = fields.filter((f) => f.startsWith(prefix));
-    if (matched.length > 0) {
-      return {
-        from: ctx.pos - prefix.length,
-        options: matched.map((f) => completion(f + ': ', f, detail)),
-      };
+    if (key === 'kind') {
+      return { from: valStart, options: NODE_KINDS.map((k) => completion(k, k, '节点类型')) };
+    }
+    if (key === 'from' || key === 'to') {
+      const ids = collectNodeIds(docText);
+      return { from: valStart, options: ids.map((id) => completion(id, id, '节点引用', 'variable')) };
+    }
+    if (key === 'contains') {
+      const ids = collectNodeIds(docText);
+      const upToCursor = textBefore;
+      const lastSep = Math.max(upToCursor.lastIndexOf(','), upToCursor.lastIndexOf('['));
+      const itemStart = lastSep === -1 ? valStart : line.from + lastSep + 1;
+      return { from: itemStart, options: ids.map((id) => completion(id, id, '节点引用', 'variable')) };
     }
     return null;
   }
 
-  // "- " followed by the item's first field prefix (e.g. "- ki")
-  if (isItem && bareWord && fieldPart !== '') {
-    const section = currentSection(ctx.state.doc.toString(), line.number);
-    const fields =
-      section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : NODE_FIELDS;
-    const detail =
-      section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : section === 'groups' ? '分组字段' : '节点字段';
-    const matched = fields.filter((f) => f.startsWith(fieldPart));
+  // ---- bare word: field name or top-level key (mid-typing) ----
+  const bareWord = content.match(/^[A-Za-z]*$/);
+  if (bareWord) {
+    const from = pos - content.length;
+    const prefix = content;
+    if (isItem || indent > 0) {
+      const fields = section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : NODE_FIELDS;
+      const detail = section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : '分组字段';
+      const matched = fields.filter((f) => f.startsWith(prefix));
+      if (matched.length > 0) {
+        return { from, options: matched.map((f) => completion(f + ': ', f, detail)) };
+      }
+      return null;
+    }
+    const matched = TOP_KEYS.filter((k) => k.startsWith(prefix));
     if (matched.length > 0) {
-      return {
-        from: ctx.pos - fieldPart.length,
-        options: matched.map((f) => completion(f + ': ', f, detail)),
-      };
+      return { from, options: matched.map((k) => completion(k + ': ', k, '顶层键')) };
     }
     return null;
   }
 
   return null;
-}
-
-/** Determine which top-level section (nodes/edges/groups) a line belongs to. */
-function currentSection(doc: string, lineNumber: number): string {
-  const lines = doc.split('\n');
-  let section = '';
-  for (let i = 0; i < lineNumber - 1; i++) {
-    const l = lines[i];
-    const trimmed = l.trim();
-    if (/^(\w+):/.test(trimmed) && l.length - l.trimStart().length === 0) {
-      const key = trimmed.match(/^(\w+):/)?.[1];
-      if (key === 'nodes' || key === 'edges' || key === 'groups') section = key;
-    }
-  }
-  return section;
 }
 
 const lgdlAutocomplete = autocompletion({
