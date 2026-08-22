@@ -13,6 +13,8 @@ import {
   parseLgdl,
   exportMermaid,
   importMermaid,
+  convert,
+  listFormats,
 } from './index.js';
 
 const BASE: Parameters<typeof addNode>[0] = {
@@ -406,4 +408,59 @@ test('importMermaid rejects unsupported type', () => {
   const r = importMermaid('pie\n  "A" : 1');
   assert.equal(r.valid, false);
   assert.ok(r.issues.some((i) => i.message.includes('Unsupported Mermaid diagram type')));
+});
+
+test('convert to plantuml produces activity diagram with if/else fork', () => {
+  const doc: Parameters<typeof addNode>[0] = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: '开始', kind: 'start' },
+      { id: 'b', label: '判断', kind: 'decision' },
+      { id: 'c', label: '成功', kind: 'end' },
+      { id: 'd', label: '失败', kind: 'end' },
+    ],
+    edges: [
+      { from: 'a', to: 'b' },
+      { from: 'b', to: 'c', label: '通过' },
+      { from: 'b', to: 'd', label: '失败' },
+    ],
+    groups: [],
+  };
+  const out = convert(doc, 'plantuml');
+  assert.ok(out.startsWith('@startuml'));
+  assert.ok(out.includes('start'));
+  assert.ok(out.includes('if (判断) then (通过)'));
+  assert.ok(out.includes('else (失败)'));
+  assert.ok(out.endsWith('@enduml'));
+});
+
+test('convert to json roundtrips structure', () => {
+  const doc: Parameters<typeof addNode>[0] = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A', kind: 'start' },
+      { id: 'b', label: 'B' },
+    ],
+    edges: [{ from: 'a', to: 'b', label: 'x' }],
+    groups: [],
+  };
+  const out = convert(doc, 'json');
+  const parsed = JSON.parse(out);
+  assert.equal(parsed.type, 'flowchart');
+  assert.equal(parsed.nodes.length, 2);
+  assert.equal(parsed.edges[0].label, 'x');
+});
+
+test('convert unknown format throws with available list', () => {
+  const doc: Parameters<typeof addNode>[0] = {
+    type: 'flowchart',
+    nodes: [{ id: 'a' }],
+    edges: [],
+    groups: [],
+  };
+  assert.throws(() => convert(doc, 'bogus'), /Unknown output format/);
+  const formats = listFormats();
+  assert.ok(formats.includes('mermaid'));
+  assert.ok(formats.includes('plantuml'));
+  assert.ok(formats.includes('json'));
 });

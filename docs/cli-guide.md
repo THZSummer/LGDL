@@ -35,7 +35,7 @@ lgdl --version    # 查看版本
 | `lgdl init --file <file>` | 创建空图文件 | ⭐ |
 | `lgdl render --file <file>` | 渲染为 SVG（自动布局） | ⭐⭐⭐ |
 | `lgdl status --file <file>` | 输出文本化图结构 | ⭐⭐⭐ |
-| `lgdl convert --file <file>` | 导出 Mermaid 语法（兼容生态） | ⭐⭐ |
+| `lgdl convert --file <file>` | 转换为其他格式（mermaid/plantuml/json） | ⭐⭐ |
 | `lgdl import --file <file>` | 从 Mermaid 导入（迁移） | ⭐⭐ |
 | `lgdl add-node --file <file>` | 加节点（增量，支持 attrs） | ⭐⭐⭐ |
 | `lgdl remove-node --file <file>` | 删节点（自动清理关联边） | ⭐⭐⭐ |
@@ -196,19 +196,21 @@ lgdl remove-group --file my-diagram.lgdl --id frontend
 
 ⚠️ 删除分组不会删除其中的节点，节点只是脱离分组。
 
-#### `lgdl convert --file <file> [-o out.mmd]`
+#### `lgdl convert --file <file> --as <format> [-o out]`
 
-把 LGDL 图导出为 **Mermaid 语法**，兼容 Mermaid Live Editor / mermaid.js 生态。
+把 LGDL 图转换为其他格式（当前支持 `mermaid` / `plantuml` / `json`）。
 
 ```bash
-lgdl convert --file my-diagram.lgdl --as mermaid   # 输出到 stdout
+lgdl convert --file my-diagram.lgdl --as mermaid     # 输出到 stdout
+lgdl convert --file my-diagram.lgdl --as plantuml    # PlantUML 语法
+lgdl convert --file my-diagram.lgdl --as json        # JSON 结构
 lgdl convert --file my-diagram.lgdl --as mermaid -o out.mmd   # 写入文件
-# ✓ converted my-diagram.lgdl -> out.mmd (flowchart)
 ```
 
-**类型映射**：`flowchart`/`mindmap`/`sequence`/`er`/`state`/`gantt` 有专属 Mermaid 语法；`uml-class`/`arch`/`datastream` 降级为 flowchart 格式。
-
-**用途**：把 LGDL 图贴到 GitHub README（Mermaid 原生渲染）、Typora、Notion 等支持 Mermaid 的地方。
+- **`--as mermaid`**：Mermaid 语法（`flowchart`/`mindmap`/`sequence`/`er`/`state`/`gantt` 有专属语法，其余降级 flowchart）——贴到 GitHub README/Typora/Notion
+- **`--as plantuml`**：PlantUML 活动图语法（`start`/`if-else`/`stop`）——配合 VS Code 插件、plantuml.com、kroki
+- **`--as json`**：结构化 JSON——程序处理/迁移
+- **格式可扩展**：`convert` 使用插件化注册表，未来加格式（如 Graphviz DOT）无需改 CLI
 
 #### `lgdl import --file <file> --from mermaid --output out.lgdl`
 
