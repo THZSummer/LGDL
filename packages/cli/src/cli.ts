@@ -27,6 +27,12 @@ program
 registerAll(program);
 
 program.parseAsync().catch((err) => {
+  // `-V` already printed the version; commander throws commander.version
+  // as a control-flow signal (via exitOverride) — just exit cleanly.
+  if (err?.code === 'commander.version' || err?.code === 'commander.helpDisplayed') {
+    process.exit(0);
+  }
+
   const msg = String(err?.message ?? err);
 
   if (err?.code === 'commander.optionMissingArgument') {
