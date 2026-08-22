@@ -66,6 +66,19 @@ function memberRows(node: LgdlNode, withVisibility = true): string[] {
   });
 }
 
+/**
+ * Estimate rendered text width: CJK glyphs are ~fontSize wide, Latin/digits
+ * ~0.62x. Keeps long labels inside their node boxes (e.g. note nodes like
+ * "静态资源由 CDN 回源 OSS").
+ */
+function textWidth(s: string, fontSize: number): number {
+  let w = 0;
+  for (const ch of s) {
+    w += (ch.codePointAt(0) ?? 0) > 0x2e80 ? fontSize : fontSize * 0.62;
+  }
+  return w;
+}
+
 /** Above this node count, use the fast grid layout instead of dagre. */
 export const LARGE_GRAPH_THRESHOLD = 120;
 
@@ -140,12 +153,18 @@ function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResu
 
   for (const node of doc.nodes) {
     let size = NODE_SIZE[node.kind ?? 'process'] ?? NODE_SIZE.process;
+    // generic nodes: widen the box to fit the label text (13px, centered)
+    const hasMemberSizing =
+      doc.type === 'uml-class' || (doc.type === 'er' && node.members && node.members.length > 0);
+    if (!hasMemberSizing) {
+      size = { ...size, width: Math.max(size.width, Math.round(textWidth(node.label ?? node.id, 13) + 24)) };
+    }
     // uml-class cards size to their members: header 32 + rows × 18 + padding;
     // width follows the longest line (class name or member text)
     if (doc.type === 'uml-class') {
       const rows = memberRows(node, true);
       const longest = Math.max(
-        (node.label ?? node.id).length * 8,
+        textWidth(node.label ?? node.id, 13),
         ...rows.map((r) => r.length * 7),
         0,
       );
@@ -155,7 +174,7 @@ function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResu
     if (doc.type === 'er' && node.members && node.members.length > 0) {
       const rows = memberRows(node, false);
       const longest = Math.max(
-        (node.label ?? node.id).length * 8,
+        textWidth(node.label ?? node.id, 13),
         ...rows.map((r) => r.length * 7),
         0,
       );
@@ -221,10 +240,15 @@ const MIND_LEVEL_SEP = 180; // radial distance between levels
 const MIND_ANGLE_UNIT = (Math.PI / 180) * 14; // radians per leaf
 
 function layoutMindmap(doc: LgdlDocument): LayoutResult {
-  // mindmap nodes are uniformly sized — kind shapes (decision diamond,
-  // start pill) are flowchart concepts and are ignored here so the radial
-  // layout stays visually even
-  const sizeOf = (_id: string) => NODE_SIZE.process;
+  // mindmap nodes share one height (kind shapes are flowchart concepts and
+  // are ignored here) but widen to fit their label text
+  const sizeOf = (id: string) => {
+    const n = doc.nodes.find((x) => x.id === id);
+    return {
+      width: Math.max(NODE_SIZE.process.width, Math.round(textWidth(n?.label ?? id, 14) + 24)),
+      height: NODE_SIZE.process.height,
+    };
+  };
 
   // adjacency + in-degree
   const childrenOf = new Map<string, string[]>();
