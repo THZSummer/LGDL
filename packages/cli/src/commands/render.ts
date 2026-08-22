@@ -10,19 +10,20 @@ export const renderCommand: LgdlCommand = {
   description: 'render a diagram to SVG or ASCII',
   register(program: Command) {
     program
-      .command('render <file>')
+      .command('render')
       .description('render a diagram to SVG (auto layout) or ASCII (--format ascii)')
+      .requiredOption('--file <file>', 'path to .lgdl file')
       .option('-o, --output <file>', 'output file (default: out.svg)')
       .addOption(new Option('--format <format>', 'output format').choices(['svg', 'ascii']).default('svg'))
-      .action((file: string, opts: { output?: string; format: string }) => {
-        const doc = loadDocument(file);
+      .action((opts: { file: string; output?: string; format: string }) => {
+        const doc = loadDocument(opts.file);
         if (opts.format === 'ascii') {
           // ascii ignores layout pixels; rank layout is internal
           const layout = layoutDocument(doc);
           const ascii = renderAscii(doc, layout);
           if (opts.output) {
             writeFileSync(opts.output, ascii + '\n', 'utf8');
-            console.log(`✓ rendered ${file} -> ${opts.output} (ascii, ${doc.nodes.length} nodes, ${doc.edges.length} edges)`);
+            console.log(`✓ rendered ${opts.file} -> ${opts.output} (ascii, ${doc.nodes.length} nodes, ${doc.edges.length} edges)`);
           } else {
             console.log(ascii);
           }
@@ -32,7 +33,7 @@ export const renderCommand: LgdlCommand = {
         const svg = renderSvg(doc, layout);
         const out = opts.output ?? 'out.svg';
         writeFileSync(out, svg, 'utf8');
-        console.log(`✓ rendered ${file} -> ${out} (${layout.width}x${layout.height}, ${doc.nodes.length} nodes, ${doc.edges.length} edges)`);
+        console.log(`✓ rendered ${opts.file} -> ${out} (${layout.width}x${layout.height}, ${doc.nodes.length} nodes, ${doc.edges.length} edges)`);
       });
   },
 };

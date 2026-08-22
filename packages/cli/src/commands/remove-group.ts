@@ -8,11 +8,12 @@ export const removeGroupCommand: LgdlCommand = {
   description: 'remove a group',
   register(program: Command) {
     program
-      .command('remove-group <file>')
+      .command('remove-group')
       .description('remove a group')
+      .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--id <id>', 'group id')
-      .action((file: string, opts: { id: string }) => {
-        mutate(file, (doc) => removeGroup(doc, opts.id));
+      .action((opts: { file: string; id: string }) => {
+        mutate(opts.file, (doc) => removeGroup(doc, opts.id));
       });
   },
 };

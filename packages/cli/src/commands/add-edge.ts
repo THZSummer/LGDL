@@ -8,14 +8,15 @@ export const addEdgeCommand: LgdlCommand = {
   description: 'add an edge',
   register(program: Command) {
     program
-      .command('add-edge <file>')
+      .command('add-edge')
       .description('add an edge')
+      .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--from <id>', 'source node id')
       .requiredOption('--to <id>', 'target node id')
       .option('--label <label>', 'edge label')
       .option('--attrs <key=value>', 'extension attribute (repeatable, e.g. --attrs cardinality="1..*")', collect)
-      .action((file: string, opts: { from: string; to: string; label?: string; attrs?: string[] }) => {
-        mutate(file, (doc) => addEdge(doc, { from: opts.from, to: opts.to, label: opts.label, attrs: parseAttrs(opts.attrs) }));
+      .action((opts: { file: string; from: string; to: string; label?: string; attrs?: string[] }) => {
+        mutate(opts.file, (doc) => addEdge(doc, { from: opts.from, to: opts.to, label: opts.label, attrs: parseAttrs(opts.attrs) }));
       });
   },
 };

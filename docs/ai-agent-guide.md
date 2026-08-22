@@ -42,7 +42,7 @@
 ### 第 1 步：读图（先理解，再动手）
 
 ```bash
-lgdl status my-diagram.lgdl
+lgdl status --file my-diagram.lgdl
 ```
 
 输出是纯文本结构，AI 可直接解析：
@@ -63,7 +63,7 @@ lgdl status my-diagram.lgdl
 **如果文件不存在**，用 `lgdl init` 创建：
 
 ```bash
-lgdl init my-diagram.lgdl
+lgdl init --file my-diagram.lgdl
 # ✓ initialized my-diagram.lgdl
 ```
 
@@ -71,21 +71,21 @@ lgdl init my-diagram.lgdl
 
 ```bash
 # 加节点
-lgdl add-node my-diagram.lgdl --id login --label "输入账号密码" --kind process
+lgdl add-node --file my-diagram.lgdl --id login --label "输入账号密码" --kind process
 # ✓ added node "login" (输入账号密码) :process
 
 # 加边（带标签）
-lgdl add-edge my-diagram.lgdl --from start --to login --label "打开页面"
+lgdl add-edge --file my-diagram.lgdl --from start --to login --label "打开页面"
 # ✓ added edge start -> login [打开页面]
 
 # 改节点
-lgdl update-node my-diagram.lgdl --id login --label "输入新密码" --kind decision
+lgdl update-node --file my-diagram.lgdl --id login --label "输入新密码" --kind decision
 
 # 删节点（自动清理关联边）
-lgdl remove-node my-diagram.lgdl --id login
+lgdl remove-node --file my-diagram.lgdl --id login
 
 # 加分组建分组
-lgdl add-group my-diagram.lgdl --id frontend --label "前端层" --contains start,login
+lgdl add-group --file my-diagram.lgdl --id frontend --label "前端层" --contains start,login
 ```
 
 **`kind` 只能使用以下 8 个值**（用别的会报错）：
@@ -94,16 +94,16 @@ lgdl add-group my-diagram.lgdl --id frontend --label "前端层" --contains star
 **扩展属性（图专属字段）**用 `--attrs`：
 ```bash
 # 甘特图任务：起始日 + 工期
-lgdl add-node plan.lgdl --id dev --label "开发" --attrs start=6 --attrs duration=8
+lgdl add-node --file plan.lgdl --id dev --label "开发" --attrs start=6 --attrs duration=8
 
 # ER 图关系基数
-lgdl add-edge db.lgdl --from user --to order --label "拥有" --attrs cardinality="1..*"
+lgdl add-edge --file db.lgdl --from user --to order --label "拥有" --attrs cardinality="1..*"
 ```
 
 ### 第 3 步：出图（渲染交付）
 
 ```bash
-lgdl render my-diagram.lgdl -o my-diagram.svg
+lgdl render --file my-diagram.lgdl -o my-diagram.svg
 # ✓ rendered my-diagram.lgdl -> my-diagram.svg (240x384, 3 nodes, 2 edges)
 ```
 
@@ -148,28 +148,28 @@ lgdl render my-diagram.lgdl -o my-diagram.svg
 
 ```bash
 # 1. 创建图
-lgdl init login-flow.lgdl
+lgdl init --file login-flow.lgdl
 
 # 2. 加节点（start 已存在，补其他节点）
-lgdl add-node login-flow.lgdl --id login --label "输入账号密码" --kind process
-lgdl add-node login-flow.lgdl --id verify --label "验证凭据" --kind decision
-lgdl add-node login-flow.lgdl --id ok --label "登录成功" --kind end
-lgdl add-node login-flow.lgdl --id fail --label "登录失败" --kind end
+lgdl add-node --file login-flow.lgdl --id login --label "输入账号密码" --kind process
+lgdl add-node --file login-flow.lgdl --id verify --label "验证凭据" --kind decision
+lgdl add-node --file login-flow.lgdl --id ok --label "登录成功" --kind end
+lgdl add-node --file login-flow.lgdl --id fail --label "登录失败" --kind end
 
 # 3. 加边
-lgdl add-edge login-flow.lgdl --from start --to login --label "打开页面"
-lgdl add-edge login-flow.lgdl --from login --to verify --label "提交"
-lgdl add-edge login-flow.lgdl --from verify --to ok --label "通过"
-lgdl add-edge login-flow.lgdl --from verify --to fail --label "失败"
+lgdl add-edge --file login-flow.lgdl --from start --to login --label "打开页面"
+lgdl add-edge --file login-flow.lgdl --from login --to verify --label "提交"
+lgdl add-edge --file login-flow.lgdl --from verify --to ok --label "通过"
+lgdl add-edge --file login-flow.lgdl --from verify --to fail --label "失败"
 
 # 4. 加分组建前端层
-lgdl add-group login-flow.lgdl --id frontend --label "前端层" --contains start,login
+lgdl add-group --file login-flow.lgdl --id frontend --label "前端层" --contains start,login
 
 # 5. 读图确认
-lgdl status login-flow.lgdl
+lgdl status --file login-flow.lgdl
 
 # 6. 渲染交付
-lgdl render login-flow.lgdl -o login-flow.svg
+lgdl render --file login-flow.lgdl -o login-flow.svg
 ```
 
 ---

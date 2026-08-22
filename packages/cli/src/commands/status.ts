@@ -8,10 +8,11 @@ export const statusCommand: LgdlCommand = {
   description: 'print the textual graph structure (AI-readable)',
   register(program: Command) {
     program
-      .command('status <file>')
+      .command('status')
       .description('print the textual graph structure (AI-readable)')
-      .action((file: string) => {
-        const doc = loadDocument(file);
+      .requiredOption('--file <file>', 'path to .lgdl file')
+      .action((opts: { file: string }) => {
+        const doc = loadDocument(opts.file);
         console.log(`# ${doc.title ?? 'untitled'} [${doc.type}]`);
         console.log('');
         console.log('## nodes');

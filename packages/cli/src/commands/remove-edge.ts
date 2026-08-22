@@ -8,12 +8,13 @@ export const removeEdgeCommand: LgdlCommand = {
   description: 'remove an edge',
   register(program: Command) {
     program
-      .command('remove-edge <file>')
+      .command('remove-edge')
       .description('remove an edge')
+      .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--from <id>', 'source node id')
       .requiredOption('--to <id>', 'target node id')
-      .action((file: string, opts: { from: string; to: string }) => {
-        mutate(file, (doc) => removeEdge(doc, opts.from, opts.to));
+      .action((opts: { file: string; from: string; to: string }) => {
+        mutate(opts.file, (doc) => removeEdge(doc, opts.from, opts.to));
       });
   },
 };

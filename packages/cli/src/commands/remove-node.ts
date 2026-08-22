@@ -8,11 +8,12 @@ export const removeNodeCommand: LgdlCommand = {
   description: 'remove a node (auto-cleans attached edges)',
   register(program: Command) {
     program
-      .command('remove-node <file>')
+      .command('remove-node')
       .description('remove a node (auto-cleans attached edges)')
+      .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--id <id>', 'node id')
-      .action((file: string, opts: { id: string }) => {
-        mutate(file, (doc) => removeNode(doc, opts.id));
+      .action((opts: { file: string; id: string }) => {
+        mutate(opts.file, (doc) => removeNode(doc, opts.id));
       });
   },
 };

@@ -8,14 +8,15 @@ export const updateNodeCommand: LgdlCommand = {
   description: 'update a node label/kind/attrs',
   register(program: Command) {
     program
-      .command('update-node <file>')
+      .command('update-node')
       .description('update a node label/kind/attrs')
+      .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--id <id>', 'node id')
       .option('--label <label>', 'new label')
       .option('--kind <kind>', 'new kind')
       .option('--attrs <key=value>', 'extension attribute (repeatable, merged)', collect)
-      .action((file: string, opts: { id: string; label?: string; kind?: string; attrs?: string[] }) => {
-        mutate(file, (doc) =>
+      .action((opts: { file: string; id: string; label?: string; kind?: string; attrs?: string[] }) => {
+        mutate(opts.file, (doc) =>
           updateNode(doc, { id: opts.id, label: opts.label, kind: opts.kind as never, attrs: parseAttrs(opts.attrs) }),
         );
       });

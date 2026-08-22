@@ -7,11 +7,12 @@ export const initCommand: LgdlCommand = {
   description: 'initialize an empty diagram file',
   register(program: Command) {
     program
-      .command('init <file>')
+      .command('init')
       .description('initialize an empty diagram file')
-      .action((file: string) => {
-        if (existsSync(file)) {
-          console.error(`Error: file already exists: ${file}`);
+      .requiredOption('--file <file>', 'path to .lgdl file')
+      .action((opts: { file: string }) => {
+        if (existsSync(opts.file)) {
+          console.error(`Error: file already exists: ${opts.file}`);
           process.exit(1);
         }
         const template = `# LGDL diagram
@@ -22,8 +23,8 @@ nodes:
     label: 开始
     kind: start
 `;
-        writeFileSync(file, template, 'utf8');
-        console.log(`✓ initialized ${file}`);
+        writeFileSync(opts.file, template, 'utf8');
+        console.log(`✓ initialized ${opts.file}`);
       });
   },
 };

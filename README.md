@@ -69,9 +69,9 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 ```bash
 npm install -g @lgdl/cli    # 安装 CLI（待发布）
 
-lgdl init my-diagram.lgdl    # 初始化空图
-lgdl render my-diagram.lgdl -o out.svg  # 渲染（自动布局）
-lgdl status my-diagram.lgdl  # 输出文本化图结构 ← AI 读取当前图
+lgdl init --file my-diagram.lgdl    # 初始化空图
+lgdl render --file my-diagram.lgdl -o out.svg  # 渲染（自动布局）
+lgdl status --file my-diagram.lgdl  # 输出文本化图结构 ← AI 读取当前图
 ```
 
 ### LGDL 示例 / Example

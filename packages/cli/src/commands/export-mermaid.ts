@@ -9,15 +9,16 @@ export const exportMermaidCommand: LgdlCommand = {
   description: 'export a diagram to Mermaid syntax',
   register(program: Command) {
     program
-      .command('export-mermaid <file>')
+      .command('export-mermaid')
       .description('export a diagram to Mermaid syntax (stdout or file)')
+      .requiredOption('--file <file>', 'path to .lgdl file')
       .option('-o, --output <file>', 'output file (default: stdout)')
-      .action((file: string, opts: { output?: string }) => {
-        const doc = loadDocument(file);
+      .action((opts: { file: string; output?: string }) => {
+        const doc = loadDocument(opts.file);
         const mermaid = exportMermaid(doc);
         if (opts.output) {
           writeFileSync(opts.output, mermaid + '\n', 'utf8');
-          console.log(`✓ exported ${file} -> ${opts.output} (${doc.type})`);
+          console.log(`✓ exported ${opts.file} -> ${opts.output} (${doc.type})`);
         } else {
           console.log(mermaid);
         }

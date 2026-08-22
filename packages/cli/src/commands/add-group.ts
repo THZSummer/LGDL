@@ -8,13 +8,14 @@ export const addGroupCommand: LgdlCommand = {
   description: 'add a group (lane/partition)',
   register(program: Command) {
     program
-      .command('add-group <file>')
+      .command('add-group')
       .description('add a group (lane/partition)')
+      .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--id <id>', 'group id')
       .option('--label <label>', 'group label')
       .option('--contains <ids>', 'comma-separated member node ids')
-      .action((file: string, opts: { id: string; label?: string; contains?: string }) => {
-        mutate(file, (doc) => addGroup(doc, { id: opts.id, label: opts.label, contains: parseIdList(opts.contains) }));
+      .action((opts: { file: string; id: string; label?: string; contains?: string }) => {
+        mutate(opts.file, (doc) => addGroup(doc, { id: opts.id, label: opts.label, contains: parseIdList(opts.contains) }));
       });
   },
 };
