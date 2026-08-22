@@ -18,14 +18,17 @@ program
   .version('0.1.0')
   // throw instead of process.exit so we can give friendly messages
   .exitOverride()
-  // suppress commander's own error printing; we render messages in catch
-  .configureOutput({ writeErr: () => {}, outputError: () => {} });
+  // after any error, print the failed command's help (options + choices)
+  .showHelpAfterError()
+  // suppress commander's raw "error: ..." line; we print our own message
+  .configureOutput({ writeOut: (s) => process.stdout.write(s), writeErr: (s) => process.stderr.write(s), outputError: () => {} });
 
 // register every command from the registry
 registerAll(program);
 
 program.parseAsync().catch((err) => {
   const msg = String(err?.message ?? err);
+
   if (err?.code === 'commander.optionMissingArgument') {
     // user typed `--opt` with no value: report valid choices directly
     const flag = (msg.match(/'([^']+)'/) ?? [])[1] ?? '';
@@ -35,14 +38,14 @@ program.parseAsync().catch((err) => {
       console.error(`  可选值: ${hints.join(' | ')}`);
     } else {
       console.error(`✖ 参数 ${flag} 需要提供一个值`);
-      console.error(`  用 --help 查看用法`);
     }
   } else if (err?.code && String(err.code).startsWith('commander.')) {
-    // invalid choice / missing required option / unknown command, etc.
-    // choices errors already list allowed values in the message
+    // invalid choice / missing required option / unknown command
     console.error(msg.replace(/^error:\s*/, '✖ '));
   } else {
     console.error(err);
   }
+
+  // showHelpAfterError already printed the failed command's help to stderr
   process.exit(1);
 });
