@@ -5,6 +5,7 @@ import { EditorState, StateField, type Range } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { syntaxHighlighting, HighlightStyle, indentUnit } from '@codemirror/language';
 import { linter, type Diagnostic } from '@codemirror/lint';
+import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { yaml } from '@codemirror/lang-yaml';
 import { tags as t } from '@lezer/highlight';
 import { parseLgdl } from '@lgdl/core';
@@ -242,6 +243,114 @@ const lgdlLinter = linter((view) => {
   return diagnostics;
 });
 
+// ---------------------------------------------------------------------------
+// LGDL autocompletion (IntelliSense)
+// ---------------------------------------------------------------------------
+
+const DIAGRAM_TYPES = [
+  'flowchart', 'mindmap', 'uml-class', 'arch', 'datastream',
+  'sequence', 'er', 'state', 'gantt',
+];
+const NODE_KINDS = [
+  'start', 'end', 'process', 'decision', 'entity', 'note', 'state', 'milestone',
+];
+const TOP_KEYS = ['title', 'type', 'nodes', 'edges', 'groups', 'meta'];
+const NODE_FIELDS = ['id', 'label', 'kind', 'attrs', 'group'];
+const EDGE_FIELDS = ['from', 'to', 'label', 'attrs'];
+const GROUP_FIELDS = ['id', 'label', 'contains'];
+
+function completion(text: string, label: string, detail: string, type = 'keyword') {
+  return { label, detail, type, apply: text };
+}
+
+/** Offer suggestions based on the current line's context. */
+function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
+  const line = ctx.state.doc.lineAt(ctx.pos);
+  const textBefore = line.text.slice(0, ctx.pos - line.from);
+  const trimmed = textBefore.trimStart();
+  const indent = line.text.length - line.text.trimStart().length;
+
+  // inside "key: value" — suggest values
+  const colonMatch = trimmed.match(/^(\w+):\s*(.*)$/);
+  if (colonMatch) {
+    const key = colonMatch[1];
+    const valPart = colonMatch[2];
+    if (valPart === '' || /^[A-Za-z-]*$/.test(valPart)) {
+      let options: ReturnType<typeof completion>[] = [];
+      if (key === 'type') {
+        options = DIAGRAM_TYPES.map((t) => completion(t, t, '图类型'));
+      } else if (key === 'kind') {
+        options = NODE_KINDS.map((k) => completion(k, k, '节点类型'));
+      }
+      if (options.length > 0) {
+        return {
+          from: ctx.pos - valPart.length,
+          options,
+        };
+      }
+    }
+    return null; // known key with value typed — no suggestions
+  }
+
+  // a list item or field line
+  const isItem = trimmed.startsWith('- ');
+  const fieldPart = isItem ? trimmed.slice(2) : trimmed;
+
+  // "- key: value" item — suggest the item's first field
+  const itemFieldMatch = fieldPart.match(/^(\w+):\s*$/);
+  if (isItem && itemFieldMatch) {
+    const section = currentSection(ctx.state.doc.toString(), line.number);
+    const fields = section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : NODE_FIELDS;
+    return {
+      from: ctx.pos,
+      options: fields.map((f) => completion(f + ': ', f, section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : '分组字段')),
+    };
+  }
+
+  // continuation fields inside an item (indented "field:")
+  if (!isItem && indent > 0) {
+    const fieldMatch = fieldPart.match(/^(\w+):\s*$/);
+    if (fieldMatch) {
+      const section = currentSection(ctx.state.doc.toString(), line.number);
+      const fields = section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : [];
+      return {
+        from: ctx.pos,
+        options: fields.map((f) => completion(f + ': ', f, section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : '分组字段')),
+      };
+    }
+  }
+
+  // top-level key
+  if (indent === 0 && trimmed !== '' && !trimmed.includes(':')) {
+    return {
+      from: ctx.pos - trimmed.length,
+      options: TOP_KEYS.map((k) => completion(k + ': ', k, '顶层键')),
+    };
+  }
+
+  return null;
+}
+
+/** Determine which top-level section (nodes/edges/groups) a line belongs to. */
+function currentSection(doc: string, lineNumber: number): string {
+  const lines = doc.split('\n');
+  let section = '';
+  for (let i = 0; i < lineNumber - 1; i++) {
+    const l = lines[i];
+    const trimmed = l.trim();
+    if (/^(\w+):/.test(trimmed) && l.length - l.trimStart().length === 0) {
+      const key = trimmed.match(/^(\w+):/)?.[1];
+      if (key === 'nodes' || key === 'edges' || key === 'groups') section = key;
+    }
+  }
+  return section;
+}
+
+const lgdlAutocomplete = autocompletion({
+  override: [lgdlCompletions],
+  defaultKeymap: true,
+});
+
 /** Error boundary: never let an unexpected error blank the whole page. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -377,6 +486,7 @@ export function App(): React.JSX.Element {
           syntaxHighlighting(lgdlHighlight),
           lgdlValueHighlight,
           lgdlLinter,
+          lgdlAutocomplete,
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               setSource(update.state.doc.toString());
