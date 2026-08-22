@@ -292,40 +292,54 @@ function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
     return null; // known key with value typed — no suggestions
   }
 
-  // a list item or field line
+  // field names (top-level keys, item first field, continuation fields)
   const isItem = trimmed.startsWith('- ');
   const fieldPart = isItem ? trimmed.slice(2) : trimmed;
 
-  // "- key: value" item — suggest the item's first field
-  const itemFieldMatch = fieldPart.match(/^(\w+):\s*$/);
-  if (isItem && itemFieldMatch) {
-    const section = currentSection(ctx.state.doc.toString(), line.number);
-    const fields = section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : NODE_FIELDS;
+  // find what's being typed before the cursor: a bare word (no colon yet)
+  const prefix = fieldPart; // e.g. "ki", "lab", "id: " (with colon handled above)
+  const bareWord = prefix.match(/^[A-Za-z]*$/);
+
+  if (indent === 0 && bareWord && TOP_KEYS.some((k) => k.startsWith(prefix))) {
+    // top-level key: "ti", "no", ...
     return {
-      from: ctx.pos,
-      options: fields.map((f) => completion(f + ': ', f, section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : '分组字段')),
+      from: ctx.pos - prefix.length,
+      options: TOP_KEYS.filter((k) => k.startsWith(prefix)).map((k) => completion(k + ': ', k, '顶层键')),
     };
   }
 
-  // continuation fields inside an item (indented "field:")
-  if (!isItem && indent > 0) {
-    const fieldMatch = fieldPart.match(/^(\w+):\s*$/);
-    if (fieldMatch) {
-      const section = currentSection(ctx.state.doc.toString(), line.number);
-      const fields = section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : [];
+  if (indent > 0 && bareWord) {
+    // field name inside nodes/edges/groups: "ki", "lab", ...
+    const section = currentSection(ctx.state.doc.toString(), line.number);
+    const fields =
+      section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : NODE_FIELDS;
+    const detail =
+      section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : section === 'groups' ? '分组字段' : '节点字段';
+    const matched = fields.filter((f) => f.startsWith(prefix));
+    if (matched.length > 0) {
       return {
-        from: ctx.pos,
-        options: fields.map((f) => completion(f + ': ', f, section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : '分组字段')),
+        from: ctx.pos - prefix.length,
+        options: matched.map((f) => completion(f + ': ', f, detail)),
       };
     }
+    return null;
   }
 
-  // top-level key
-  if (indent === 0 && trimmed !== '' && !trimmed.includes(':')) {
-    return {
-      from: ctx.pos - trimmed.length,
-      options: TOP_KEYS.map((k) => completion(k + ': ', k, '顶层键')),
-    };
+  // "- " followed by the item's first field prefix (e.g. "- ki")
+  if (isItem && bareWord && fieldPart !== '') {
+    const section = currentSection(ctx.state.doc.toString(), line.number);
+    const fields =
+      section === 'nodes' ? NODE_FIELDS : section === 'edges' ? EDGE_FIELDS : section === 'groups' ? GROUP_FIELDS : NODE_FIELDS;
+    const detail =
+      section === 'nodes' ? '节点字段' : section === 'edges' ? '边字段' : section === 'groups' ? '分组字段' : '节点字段';
+    const matched = fields.filter((f) => f.startsWith(fieldPart));
+    if (matched.length > 0) {
+      return {
+        from: ctx.pos - fieldPart.length,
+        options: matched.map((f) => completion(f + ': ', f, detail)),
+      };
+    }
+    return null;
   }
 
   return null;
