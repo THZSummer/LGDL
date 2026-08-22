@@ -45,7 +45,7 @@ export interface UpdateEdgeOptions {
 export interface AddGroupOptions {
   id: string;
   label?: string;
-  /** Initial member node ids */
+  /** Initial member ids — node ids and/or existing group ids (nesting) */
   contains?: string[];
 }
 
@@ -210,18 +210,37 @@ export function addGroup(doc: LgdlDocument, opts: AddGroupOptions): MutationResu
   if (doc.groups.some((g) => g.id === id)) {
     throw new Error(`Group id already exists: "${id}"`);
   }
-  if (contains) {
-    for (const nodeId of contains) {
-      if (!doc.nodes.some((n) => n.id === nodeId)) {
-        throw new Error(`Group contains unknown node: "${nodeId}"`);
-      }
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+    throw new Error(`Invalid group id: "${id}" (letters, digits, underscore, hyphen only)`);
+  }
+
+  const memberIds = contains ?? [];
+  // existing membership map: member id -> owning group id
+  const membersOf = new Map<string, string>();
+  for (const g of doc.groups) {
+    for (const m of g.contains) {
+      if (!membersOf.has(m)) membersOf.set(m, g.id);
     }
   }
 
-  const group: LgdlGroup = { id, label, contains: contains ?? [] };
+  for (const memberId of memberIds) {
+    if (memberId === id) {
+      throw new Error(`Group cannot contain itself: "${id}"`);
+    }
+    const isNode = doc.nodes.some((n) => n.id === memberId);
+    const isGroup = doc.groups.some((g) => g.id === memberId);
+    if (!isNode && !isGroup) {
+      throw new Error(`Group contains unknown node or group: "${memberId}"`);
+    }
+    if (membersOf.has(memberId)) {
+      throw new Error(`"${memberId}" already belongs to group "${membersOf.get(memberId)}"`);
+    }
+  }
+
+  const group: LgdlGroup = { id, label, contains: memberIds };
   return {
     document: { ...doc, groups: [...doc.groups, group] },
-    summary: `added group "${id}"${label ? ` (${label})` : ''}${contains && contains.length > 0 ? ` with ${contains.length} member(s)` : ''}`,
+    summary: `added group "${id}"${label ? ` (${label})` : ''}${memberIds.length > 0 ? ` with ${memberIds.length} member(s)` : ''}`,
   };
 }
 
@@ -229,8 +248,14 @@ export function removeGroup(doc: LgdlDocument, id: string): MutationResult {
   if (!doc.groups.some((g) => g.id === id)) {
     throw new Error(`Group not found: "${id}"`);
   }
+  // remove the group and detach it from any parent group's contains
   return {
-    document: { ...doc, groups: doc.groups.filter((g) => g.id !== id) },
+    document: {
+      ...doc,
+      groups: doc.groups
+        .filter((g) => g.id !== id)
+        .map((g) => ({ ...g, contains: g.contains.filter((c) => c !== id) })),
+    },
     summary: `removed group "${id}"`,
   };
 }

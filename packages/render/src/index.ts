@@ -4,7 +4,7 @@
  * Takes a LayoutResult + LgdlDocument and produces clean SVG markup.
  * Shapes are mapped from node kinds; a theme can be swapped later.
  */
-import type { LgdlDocument } from '@lgdl/core';
+import type { LgdlDocument, LgdlGroup } from '@lgdl/core';
 import type { LayoutResult } from '@lgdl/layout';
 
 const FONT_FAMILY = "'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif";
@@ -248,20 +248,51 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       );
     });
   } else {
-    for (const group of doc.groups) {
-      const memberNodes = layout.nodes.filter((n) => group.contains.includes(n.id));
-      if (memberNodes.length === 0) continue;
-      const minX = Math.min(...memberNodes.map((n) => n.x));
-      const minY = Math.min(...memberNodes.map((n) => n.y));
-      const maxX = Math.max(...memberNodes.map((n) => n.x + n.width));
-      const maxY = Math.max(...memberNodes.map((n) => n.y + n.height));
+    // group boxes (may nest: an outer group contains subgroup ids)
+    const groupById = new Map(doc.groups.map((g) => [g.id, g]));
+    const boxOf = new Map<string, { x: number; y: number; w: number; h: number }>();
+    const computeGroupBox = (group: LgdlGroup): { x: number; y: number; w: number; h: number } | undefined => {
+      if (boxOf.has(group.id)) return boxOf.get(group.id);
+      const xs: number[] = [];
+      const ys: number[] = [];
+      const xe: number[] = [];
+      const ye: number[] = [];
+      for (const m of group.contains ?? []) {
+        const ln = layout.nodes.find((n) => n.id === m);
+        if (ln) {
+          xs.push(ln.x);
+          ys.push(ln.y);
+          xe.push(ln.x + ln.width);
+          ye.push(ln.y + ln.height);
+          continue;
+        }
+        const sg = groupById.get(m);
+        if (sg) {
+          const sb = computeGroupBox(sg);
+          if (sb) {
+            xs.push(sb.x);
+            ys.push(sb.y);
+            xe.push(sb.x + sb.w);
+            ye.push(sb.y + sb.h);
+          }
+        }
+      }
+      if (xs.length === 0) return undefined;
       const pad = 20;
-      const gx = minX - pad;
-      const gy = minY - pad - 24;
-      const gw = maxX - minX + pad * 2;
-      const gh = maxY - minY + pad * 2 + 24;
+      const box = {
+        x: Math.min(...xs) - pad,
+        y: Math.min(...ys) - pad - 24,
+        w: Math.max(...xe) - Math.min(...xs) + pad * 2,
+        h: Math.max(...ye) - Math.min(...ys) + pad * 2 + 24,
+      };
+      boxOf.set(group.id, box);
+      return box;
+    };
+    for (const group of doc.groups) {
+      const box = computeGroupBox(group);
+      if (!box) continue;
       parts.push(
-        `<g class="lgdl-group"><rect x="${gx}" y="${gy}" width="${gw}" height="${gh}" rx="8" fill="#f9fafb" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(gx + 12, gy + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>`,
+        `<g class="lgdl-group"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="#f9fafb" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>`,
       );
     }
   }

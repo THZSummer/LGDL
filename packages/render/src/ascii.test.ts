@@ -75,7 +75,7 @@ test('renderAscii CJK labels stay aligned', () => {
   }
 });
 
-test('renderAscii draws fork with ┴ and multiple arrows', () => {
+test('renderAscii draws fork with branches and multiple arrows', () => {
   const doc: LgdlDocument = {
     type: 'flowchart',
     nodes: [
@@ -90,8 +90,8 @@ test('renderAscii draws fork with ┴ and multiple arrows', () => {
     groups: [],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
-  assert.ok(out.includes('┴'), 'fork source marker ┴');
-  assert.ok(out.includes('┬'), 'fork branch marker ┬');
+  // horizontal branch between source and targets
+  assert.ok(out.includes('─'), 'horizontal branch present');
   // two arrows for two targets
   const arrowCount = (out.match(/▼/g) ?? []).length;
   assert.ok(arrowCount >= 2, `expected >=2 arrows, got ${arrowCount}`);
@@ -112,4 +112,108 @@ test('renderAscii chain edge label placement', () => {
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   assert.ok(out.includes('下一步'), 'chain label present');
+});
+
+test('renderAscii draws a group box around its members', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+    ],
+    edges: [{ from: 'a', to: 'b' }],
+    groups: [{ id: 'g1', label: '业务域', contains: ['a', 'b'] }],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  assert.ok(out.includes('┌'), 'group box top-left corner');
+  assert.ok(out.includes('┐'), 'group box top-right corner');
+  assert.ok(out.includes('业务域'), 'group label on border');
+  // every member node label still visible inside the box
+  assert.ok(out.includes('A'), 'member A visible');
+  assert.ok(out.includes('B'), 'member B visible');
+});
+
+test('renderAscii draws nested group boxes (outer encloses inner)', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+      { id: 'c', label: 'C' },
+    ],
+    edges: [
+      { from: 'a', to: 'b' },
+      { from: 'b', to: 'c' },
+    ],
+    groups: [
+      { id: 'inner', label: '内层', contains: ['a', 'b'] },
+      { id: 'outer', label: '外层', contains: ['inner', 'c'] },
+    ],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  assert.ok(out.includes('外层'), 'outer group label');
+  assert.ok(out.includes('内层'), 'inner group label');
+  const lines = out.split('\n');
+  const outerRow = lines.findIndex((l) => l.includes('外层'));
+  const innerRow = lines.findIndex((l) => l.includes('内层'));
+  assert.ok(outerRow !== -1 && innerRow !== -1);
+  assert.ok(outerRow < innerRow, 'outer label row above inner label row');
+});
+
+test('renderAscii draws an outer group that only contains a subgroup', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+    ],
+    edges: [{ from: 'a', to: 'b' }],
+    groups: [
+      { id: 'inner', label: '内层', contains: ['a', 'b'] },
+      { id: 'outer', label: '外层', contains: ['inner'] },
+    ],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  assert.ok(out.includes('外层'), 'outer group box exists around inner box');
+  assert.ok(out.includes('内层'), 'inner group box exists');
+  const lines = out.split('\n');
+  const outerRow = lines.findIndex((l) => l.includes('外层'));
+  const innerRow = lines.findIndex((l) => l.includes('内层'));
+  assert.ok(outerRow !== -1 && innerRow !== -1 && outerRow < innerRow);
+});
+
+test('renderAscii separates sibling groups into distinct column bands', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+      { id: 'c', label: 'C' },
+      { id: 'd', label: 'D' },
+    ],
+    edges: [
+      { from: 'a', to: 'b' },
+      { from: 'b', to: 'c' },
+      { from: 'c', to: 'd' },
+    ],
+    groups: [
+      { id: 'g1', label: '组一', contains: ['a', 'b'] },
+      { id: 'g2', label: '组二', contains: ['c', 'd'] },
+    ],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  const lines = out.split('\n');
+  // both group labels on their own box top borders
+  assert.ok(out.includes('组一'), 'g1 label');
+  assert.ok(out.includes('组二'), 'g2 label');
+  // the groups' boxes are horizontally separated (distinct bands)
+  const row1 = lines.findIndex((l) => l.includes('组一'));
+  const row2 = lines.findIndex((l) => l.includes('组二'));
+  assert.ok(row1 !== -1 && row2 !== -1);
+  const col1 = lines[row1].indexOf('组一');
+  const col2 = lines[row2].indexOf('组二');
+  assert.ok(Math.abs(col1 - col2) > 4, 'groups are horizontally separated');
+  // cross-band edge still connects (an L-shaped branch appears)
+  assert.ok(out.includes('─'), 'branch line between bands');
+  assert.ok(out.includes('▼'), 'arrow into the second band');
 });

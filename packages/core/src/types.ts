@@ -58,7 +58,7 @@ export interface LgdlEdge {
 export interface LgdlGroup {
   id: string;
   label?: string;
-  /** Node ids contained in this group */
+  /** Member ids contained in this group — node ids and/or nested group ids */
   contains: string[];
   /** Diagram-specific extension attributes */
   attrs?: LgdlAttrs;

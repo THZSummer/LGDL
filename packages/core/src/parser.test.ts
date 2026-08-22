@@ -149,3 +149,103 @@ nodes:
   assert.equal(result.document.nodes[0].attrs?.start, 6);
   assert.equal(typeof result.document.nodes[0].attrs?.duration, 'number');
 });
+
+test('nested groups are valid (group contains another group id)', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+  - id: b
+groups:
+  - id: inner
+    label: 内层
+    contains: [a, b]
+  - id: outer
+    label: 外层
+    contains: [inner]
+`);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+  assert.equal(result.issues.length, 0);
+  assert.deepEqual(result.document.groups[1].contains, ['inner']);
+});
+
+test('group may reference a group declared later in the list', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+groups:
+  - id: outer
+    contains: [inner]
+  - id: inner
+    contains: [a]
+`);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+});
+
+test('group contains unknown id (neither node nor group) is an error', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+groups:
+  - id: g1
+    contains: [ghost]
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('contains unknown node or group')));
+});
+
+test('duplicate group id is an error', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+groups:
+  - id: g1
+    contains: [a]
+  - id: g1
+    contains: [a]
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('Duplicate group id')));
+});
+
+test('group cannot contain itself directly', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+groups:
+  - id: g1
+    contains: [g1, a]
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('cycle')));
+});
+
+test('group containment cycle (a -> b -> a) is an error', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+  - id: b
+groups:
+  - id: g1
+    contains: [g2]
+  - id: g2
+    contains: [g1]
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('cycle')));
+});
+
+test('group in two groups is an error', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+groups:
+  - id: g1
+    contains: [g3]
+  - id: g2
+    contains: [g3]
+  - id: g3
+    contains: [a]
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('belongs to both')));
+});

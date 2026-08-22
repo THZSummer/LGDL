@@ -197,7 +197,60 @@ test('addGroup creates group with members', () => {
 });
 
 test('addGroup rejects unknown member', () => {
-  assert.throws(() => addGroup(BASE, { id: 'g2', contains: ['ghost'] }), /unknown node/);
+  assert.throws(() => addGroup(BASE, { id: 'g2', contains: ['ghost'] }), /unknown node or group/);
+});
+
+test('addGroup supports nested groups (group id in contains)', () => {
+  const doc: Parameters<typeof addNode>[0] = {
+    ...BASE,
+    groups: [{ id: 'inner', label: '内层', contains: ['a'] }],
+  };
+  const { document, summary } = addGroup(doc, { id: 'outer', label: '外层', contains: ['inner', 'b'] });
+  assert.equal(document.groups.length, 2);
+  assert.deepEqual(document.groups[1].contains, ['inner', 'b']);
+  assert.ok(summary.includes('added group "outer"'));
+  // resulting document is valid (nesting is legal)
+  const res = parseLgdl(serializeLgdl(document));
+  assert.equal(res.valid, true, res.issues.map((i) => i.message).join('; '));
+});
+
+test('addGroup rejects member already in another group', () => {
+  assert.throws(() => addGroup(BASE, { id: 'g2', contains: ['a'] }), /already belongs to group "g1"/);
+});
+
+test('addGroup rejects a group already nested in another group', () => {
+  const doc: Parameters<typeof addNode>[0] = {
+    ...BASE,
+    groups: [
+      { id: 'g1', label: 'G1', contains: ['a'] },
+      { id: 'g2', label: 'G2', contains: ['b'] },
+      { id: 'g3', label: 'G3', contains: ['g2'] },
+    ],
+  };
+  assert.throws(() => addGroup(doc, { id: 'g4', contains: ['g2'] }), /already belongs to group "g3"/);
+});
+
+test('addGroup rejects self-containment', () => {
+  assert.throws(() => addGroup(BASE, { id: 'g2', contains: ['g2'] }), /cannot contain itself/);
+});
+
+test('addGroup rejects invalid id chars', () => {
+  assert.throws(() => addGroup(BASE, { id: 'bad group!' }), /Invalid group id/);
+});
+
+test('removeGroup detaches it from parent groups (nested)', () => {
+  const doc: Parameters<typeof addNode>[0] = {
+    ...BASE,
+    groups: [
+      { id: 'inner', contains: ['a'] },
+      { id: 'outer', contains: ['inner', 'b'] },
+    ],
+  };
+  const { document } = removeGroup(doc, 'inner');
+  assert.equal(document.groups.length, 1);
+  assert.deepEqual(document.groups[0].contains, ['b'], 'outer no longer references removed group');
+  const res = parseLgdl(serializeLgdl(document));
+  assert.equal(res.valid, true, res.issues.map((i) => i.message).join('; '));
 });
 
 test('removeGroup removes group', () => {

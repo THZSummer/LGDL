@@ -113,31 +113,86 @@ export function validate(
     }
   });
 
-  // groups: contains must reference existing nodes; no node in two groups
+  // groups: ids unique; contains must reference existing nodes OR groups;
+  // no member (node or group) in two groups; no containment cycles
+  const groupIds = new Set<string>();
+  const seenGroupIds = new Set<string>();
   result.groups.forEach((group, i) => {
-    group.contains?.forEach((nodeId) => {
-      if (!seenIds.has(nodeId)) {
+    if (!group.id || !/^[A-Za-z0-9_-]+$/.test(group.id)) {
+      issues.push({
+        severity: 'error',
+        message: `Group id must be non-empty and contain only letters, digits, underscore, hyphen (got "${group.id}")`,
+        location: `groups[${i}].id`,
+      });
+    } else if (seenGroupIds.has(group.id)) {
+      issues.push({
+        severity: 'error',
+        message: `Duplicate group id: "${group.id}"`,
+        location: `groups[${i}].id`,
+      });
+    }
+    seenGroupIds.add(group.id);
+    if (group.id) groupIds.add(group.id);
+  });
+
+  result.groups.forEach((group, i) => {
+    group.contains?.forEach((memberId, ci) => {
+      if (!seenIds.has(memberId) && !groupIds.has(memberId)) {
         issues.push({
           severity: 'error',
-          message: `Group "${group.id}" contains unknown node: "${nodeId}"`,
-          location: `groups[${i}].contains`,
+          message: `Group "${group.id}" contains unknown node or group: "${memberId}"`,
+          location: `groups[${i}].contains[${ci}]`,
         });
       }
     });
   });
+
   const groupMembership = new Map<string, string>();
   result.groups.forEach((group, gi) => {
-    group.contains?.forEach((nodeId, ci) => {
-      if (groupMembership.has(nodeId)) {
+    group.contains?.forEach((memberId, ci) => {
+      if (groupMembership.has(memberId)) {
         issues.push({
           severity: 'error',
-          message: `Node "${nodeId}" belongs to both "${groupMembership.get(nodeId)}" and "${group.id}"`,
+          message: `"${memberId}" belongs to both "${groupMembership.get(memberId)}" and "${group.id}"`,
           location: `groups[${gi}].contains[${ci}]`,
         });
       }
-      groupMembership.set(nodeId, group.id);
+      groupMembership.set(memberId, group.id);
     });
   });
+
+  // containment cycles: DFS over group -> contained group edges
+  const groupAdj = new Map<string, string[]>();
+  for (const g of result.groups) {
+    groupAdj.set(g.id, (g.contains ?? []).filter((m) => groupIds.has(m)));
+  }
+  const visitState = new Map<string, 0 | 1 | 2>(); // 0 unvisited, 1 visiting, 2 done
+  const cycleGroups = new Set<string>();
+  const visit = (gid: string, stack: string[]): void => {
+    const s = visitState.get(gid) ?? 0;
+    if (s === 2) return;
+    if (s === 1) {
+      const start = stack.indexOf(gid);
+      if (start !== -1) {
+        for (let k = start; k < stack.length; k++) cycleGroups.add(stack[k]);
+      }
+      return;
+    }
+    visitState.set(gid, 1);
+    for (const child of groupAdj.get(gid) ?? []) {
+      visit(child, [...stack, gid]);
+    }
+    visitState.set(gid, 2);
+  };
+  for (const gid of groupIds) visit(gid, []);
+  for (const gid of cycleGroups) {
+    const gi = result.groups.findIndex((g) => g.id === gid);
+    issues.push({
+      severity: 'error',
+      message: `Group containment cycle detected involving group "${gid}"`,
+      location: gi === -1 ? undefined : `groups[${gi}]`,
+    });
+  }
 
   return { document: result, issues, valid: !issues.some((i) => i.severity === 'error') };
 }

@@ -13,7 +13,7 @@ export const addGroupCommand: LgdlCommand = {
       .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--id <id>', 'group id')
       .option('--label <label>', 'group label')
-      .option('--contains <ids>', 'comma-separated member node ids')
+      .option('--contains <ids>', 'comma-separated member ids (node ids and/or nested group ids)')
       .action((opts: { file: string; id: string; label?: string; contains?: string }) => {
         mutate(opts.file, (doc) => addGroup(doc, { id: opts.id, label: opts.label, contains: parseIdList(opts.contains) }));
       });

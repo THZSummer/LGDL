@@ -6,7 +6,7 @@
  * text (terminals, CI logs, code comments, image-less environments).
  * CJK characters occupy 2 grid columns (full-width).
  */
-import type { LgdlDocument } from '@lgdl/core';
+import type { LgdlDocument, LgdlGroup } from '@lgdl/core';
 import type { LayoutResult } from '@lgdl/layout';
 
 /** Visual width of a character: CJK/full-width = 2, ASCII = 1. */
@@ -34,7 +34,14 @@ function strWidth(s: string): number {
   return w;
 }
 
-/** Character grid. */
+/**
+ * Character grid.
+ *
+ * Cells hold '' (never written), a printable char, or the CJK gap marker
+ * '\u0001' (the second display column of a full-width char — invisible).
+ * toString renders '' as a space so untouched areas stay readable, and the
+ * gap marker as '' so full-width chars keep their 2-column span.
+ */
 class Grid {
   cols: number;
   rows: number;
@@ -49,14 +56,21 @@ class Grid {
   /**
    * Put a string starting at (col, row).
    * CJK cells store the char in one cell but advance 2 columns — the
-   * gap cell stays blank so the terminal renders the wide char once.
+   * gap cell is marked invisible so the terminal renders the wide char once.
    */
   put(col: number, row: number, text: string): void {
     let c = col;
     for (const ch of text) {
       if (c >= this.cols || row >= this.rows) break;
       this.cells[row][c] = ch;
-      c += charWidth(ch); // CJK advances 2 cells, second cell stays ''
+      const w = charWidth(ch);
+      if (w === 2) {
+        // full-width char occupies 2 columns: mark the 2nd column invisible
+        if (c + 1 < this.cols) this.cells[row][c + 1] = GAP;
+        c += 2;
+      } else {
+        c += 1;
+      }
     }
   }
 
@@ -73,12 +87,21 @@ class Grid {
   }
 
   toString(): string {
-    // trim trailing spaces per line
+    // render unset cells as spaces (readable), CJK gap cells as nothing,
+    // then trim trailing spaces per line
     return this.cells
-      .map((rowArr) => rowArr.join('').replace(/ +$/, ''))
+      .map((rowArr) =>
+        rowArr
+          .map((c) => (c === GAP ? '' : c === '' ? ' ' : c))
+          .join('')
+          .replace(/ +$/, ''),
+      )
       .join('\n');
   }
 }
+
+/** Marker for the invisible second column of a full-width char. */
+const GAP = '\u0001';
 
 /**
  * Box-drawing helpers. Coordinates are in char-grid units.
@@ -114,7 +137,8 @@ function drawBox(g: Grid, x: number, y: number, w: number, h: number, rounded = 
  *
  * Layered (rank-based) layout: nodes are ordered by BFS rank, placed
  * top-down, connected with vertical lines. CJK labels align naturally
- * because we use display widths throughout.
+ * because we use display widths throughout. Groups (including nested
+ * groups) are drawn as dashed-style boxes around their members.
  */
 export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
   void layout;
@@ -174,31 +198,94 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
     return { top, mid, bot, w };
   };
 
+  // ---- group bands ----
+  // Each top-level group gets its own column band so sibling group boxes
+  // never overlap; ungrouped nodes share the leftmost band. Nested groups
+  // inherit their top-level parent's band.
+  const nodeGap = doc.groups.length > 0 ? 4 : 2;
+  const parentOf = new Map<string, string>();
+  for (const g of doc.groups) {
+    for (const m of g.contains) {
+      if (!parentOf.has(m)) parentOf.set(m, g.id);
+    }
+  }
+  const topOf = (id: string): string | null => {
+    let cur = parentOf.get(id);
+    const seen = new Set<string>();
+    while (cur !== undefined && !seen.has(cur)) {
+      seen.add(cur);
+      const next = parentOf.get(cur);
+      if (next === undefined) return cur;
+      cur = next;
+    }
+    return cur ?? null;
+  };
+  const topGroupOf = new Map<string, string>();
+  for (const n of doc.nodes) {
+    const t = topOf(n.id);
+    if (t !== null) topGroupOf.set(n.id, t);
+  }
+  const topGroups = doc.groups.filter((g) => !parentOf.has(g.id)).map((g) => g.id);
+  const bandIndexOf = new Map<string, number>();
+  topGroups.forEach((gid, i) => bandIndexOf.set(gid, i));
+  const bandOf = (id: string): number => {
+    const t = topGroupOf.get(id);
+    return t === undefined ? -1 : (bandIndexOf.get(t) ?? -1);
+  };
+  // band width = max over ranks of (sum of member box widths in that rank)
+  const bandWidths = new Map<number, number>();
+  for (const ids of ranks) {
+    const perBand = new Map<number, number>();
+    for (const id of ids) {
+      const b = bandOf(id);
+      perBand.set(b, (perBand.get(b) ?? 0) + boxLines(id).w + nodeGap);
+    }
+    for (const [b, w] of perBand) {
+      bandWidths.set(b, Math.max(bandWidths.get(b) ?? 0, w));
+    }
+  }
+  // ungrouped band (-1) sits leftmost; groups follow in doc order
+  const bandOffset = new Map<number, number>();
+  {
+    let offset = 0;
+    const sortedBands = [...bandWidths.keys()].sort((a, b) => (a === -1 ? -1 : a) - (b === -1 ? -1 : b));
+    for (const b of sortedBands) {
+      bandOffset.set(b, offset);
+      offset += (bandWidths.get(b) ?? 0) + 2;
+    }
+  }
+  const orderByBand = (ids: string[]): string[] => [...ids].sort((a, b) => bandOf(a) - bandOf(b));
+
   // ---- pass 1: compute center col for every node (all ranks) ----
   const centerOf = new Map<string, number>();
   for (const ids of ranks) {
     let col = 0;
-    for (const id of ids) {
+    for (const id of orderByBand(ids)) {
       const b = boxLines(id);
+      col = Math.max(col, bandOffset.get(bandOf(id)) ?? 0);
       centerOf.set(id, col + Math.floor(b.w / 2));
-      col += b.w + 2;
+      col += b.w + nodeGap;
     }
   }
 
   // ---- pass 2: compose lines ----
   const lines: string[] = [];
+  // grid-space box of every node box (top = row of its top border)
+  const nodeBoxes = new Map<string, { left: number; top: number; width: number; height: number }>();
   for (let ri = 0; ri < ranks.length; ri++) {
-    const ids = ranks[ri];
+    const ids = orderByBand(ranks[ri]);
     let topLine = '';
     let midLine = '';
     let botLine = '';
     let col = 0;
     for (const id of ids) {
       const b = boxLines(id);
+      col = Math.max(col, bandOffset.get(bandOf(id)) ?? 0);
+      nodeBoxes.set(id, { left: col, top: lines.length, width: b.w, height: 3 });
       topLine = padToW(topLine, col) + b.top;
       midLine = padToW(midLine, col) + b.mid;
       botLine = padToW(botLine, col) + b.bot;
-      col += b.w + 2;
+      col += b.w + nodeGap;
     }
     lines.push(topLine);
     lines.push(midLine);
@@ -211,10 +298,17 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
         if (!targetsBySource.has(e.from)) targetsBySource.set(e.from, []);
         targetsBySource.get(e.from)!.push(e.to);
       }
-      const width = Math.max(maxW(lines), ...ranks[ri + 1].map((id) => (centerOf.get(id) ?? 0) + 1));
+      const width = Math.max(
+        maxW(lines),
+        ...ranks[ri].map((id) => (centerOf.get(id) ?? 0) + 1),
+        ...ranks[ri + 1].map((id) => (centerOf.get(id) ?? 0) + 1),
+      );
       const hasFork = [...targetsBySource.values()].some((ts) => ts.length > 1);
+      const hasCrossCol = [...targetsBySource.entries()].some(([f, ts]) =>
+        ts.some((t) => (centerOf.get(f) ?? 0) !== (centerOf.get(t) ?? 0)),
+      );
 
-      if (!hasFork) {
+      if (!hasFork && !hasCrossCol) {
         // one connector row: source pipes + target arrows + labels
         const conn = blank(width);
         for (const id of ids) {
@@ -236,79 +330,84 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
         }
         lines.push(conn.join('').replace(/ +$/, ''));
       } else {
-        // fork: row1 = trunks + horizontal branches, row2 = drops + arrows
+        // two rows: row1 = trunks + horizontal branches, row2 = drops + arrows.
+        // Handles forks (one source -> many targets) and cross-column edges
+        // (group bands move targets to other columns).
         const row1 = blank(width);
+        const row2 = blank(width);
         for (const id of ids) {
           const c = centerOf.get(id) ?? 0;
           if (c < width) row1[c] = '│';
         }
+        for (const id of ranks[ri + 1]) {
+          const c = centerOf.get(id) ?? 0;
+          if (c < width) row2[c] = '▼';
+        }
+        // cross-column targets: their ▼ sits on the branch row (row1) so it
+        // never collides with group labels on the row2 border; clear row2
+        const crossTargets = new Set<string>();
         for (const [fromId, toIds] of targetsBySource) {
-          if (toIds.length <= 1) continue;
           const srcC = centerOf.get(fromId) ?? 0;
-          const cols = toIds.map((id) => centerOf.get(id) ?? 0);
-          const minC = Math.min(...cols);
-          const maxC = Math.max(...cols);
-          for (let c = Math.min(srcC, minC); c <= Math.max(srcC, maxC); c++) {
-            if (row1[c] === ' ') row1[c] = '─';
-          }
-          row1[srcC] = '┴';
-          for (const tc of cols) {
-            if (tc !== srcC && row1[tc] === '─') row1[tc] = '┬';
-          }
-          // edge labels along each branch (before row1 is pushed);
-          // place on the branch segment between src and target, skipping
-          // cells already used so labels don't overlap
           for (const t of toIds) {
+            if ((centerOf.get(t) ?? 0) !== srcC) crossTargets.add(t);
+          }
+        }
+        for (const t of crossTargets) {
+          const tc = centerOf.get(t) ?? 0;
+          if (tc < width) row2[tc] = ' ';
+        }
+        for (const [fromId, toIds] of targetsBySource) {
+          const srcC = centerOf.get(fromId) ?? 0;
+          const cross = toIds.filter((t) => (centerOf.get(t) ?? 0) !== srcC);
+          const same = toIds.filter((t) => (centerOf.get(t) ?? 0) === srcC);
+          if (cross.length === 0) continue; // pure vertical trunk
+          const cols = cross.map((t) => centerOf.get(t) ?? 0);
+          const minC = Math.min(srcC, ...cols);
+          const maxC = Math.max(srcC, ...cols);
+          for (let c = minC; c <= maxC; c++) {
+            if (row1[c] === ' ' || row1[c] === '─') row1[c] = '─';
+          }
+          // source junction: trunk from above + branch directions
+          row1[srcC] = junction(true, same.length > 0, minC < srcC, maxC > srcC);
+          // target: the ▼ arrow on the branch row marks the drop
+          for (const t of cross) {
             const tc = centerOf.get(t) ?? 0;
-            if (tc !== srcC) {
-              const e = downEdges.find((x) => x.from === fromId && x.to === t);
-              if (e && e.label) {
-                const label = e.label;
-                const lo = Math.min(srcC, tc) + 1;
-                const hi = Math.max(srcC, tc);
-                // find a free run of cells for the label
-                for (let start = lo; start + label.length <= hi; start++) {
-                  let free = true;
-                  for (let k = 0; k < label.length; k++) {
-                    if (row1[start + k] !== ' ' && row1[start + k] !== '─') { free = false; break; }
-                  }
-                  if (free) {
-                    for (let k = 0; k < label.length; k++) row1[start + k] = label[k];
-                    break;
-                  }
-                }
+            if (tc !== srcC) row1[tc] = '▼';
+          }
+          // edge labels along each branch, skipping cells already used
+          for (const t of cross) {
+            const tc = centerOf.get(t) ?? 0;
+            if (tc === srcC) continue;
+            const e = downEdges.find((x) => x.from === fromId && x.to === t);
+            if (!e || !e.label) continue;
+            const label = e.label;
+            const lo = Math.min(srcC, tc) + 1;
+            const hi = Math.max(srcC, tc);
+            for (let start = lo; start + label.length <= hi; start++) {
+              let free = true;
+              for (let k = 0; k < label.length; k++) {
+                if (row1[start + k] !== ' ' && row1[start + k] !== '─') { free = false; break; }
+              }
+              if (free) {
+                for (let k = 0; k < label.length; k++) row1[start + k] = label[k];
+                break;
               }
             }
           }
         }
         lines.push(row1.join('').replace(/ +$/, ''));
 
-        const row2 = blank(width);
+        // trunk-edge labels (source -> target at same column): right of ▼
         for (const [fromId, toIds] of targetsBySource) {
-          if (toIds.length <= 1) continue;
           const srcC = centerOf.get(fromId) ?? 0;
           for (const t of toIds) {
             const tc = centerOf.get(t) ?? 0;
-            row2[tc] = '│';
-          }
-        }
-        for (const id of ranks[ri + 1]) {
-          const c = centerOf.get(id) ?? 0;
-          if (c < width) row2[c] = '▼';
-        }
-        // trunk-edge labels (source -> target at same column): place right of ▼
-        for (const [fromId, toIds] of targetsBySource) {
-          if (toIds.length <= 1) continue;
-          const srcC = centerOf.get(fromId) ?? 0;
-          for (const t of toIds) {
-            const tc = centerOf.get(t) ?? 0;
-            if (tc === srcC) {
-              const e = downEdges.find((x) => x.from === fromId && x.to === t);
-              if (e && e.label) {
-                const start = srcC + 2;
-                for (let k = 0; k < e.label.length && start + k < width; k++) {
-                  row2[start + k] = e.label[k];
-                }
+            if (tc !== srcC) continue;
+            const e = downEdges.find((x) => x.from === fromId && x.to === t);
+            if (e && e.label) {
+              const start = srcC + 2;
+              for (let k = 0; k < e.label.length && start + k < width; k++) {
+                row2[start + k] = e.label[k];
               }
             }
           }
@@ -316,6 +415,11 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
         lines.push(row2.join('').replace(/ +$/, ''));
       }
     }
+  }
+
+  // ---- groups: draw boxes around members (nested groups supported) ----
+  if (doc.groups.length > 0 && nodeBoxes.size > 0) {
+    return overlayGroupBoxes(lines, doc, nodeBoxes);
   }
 
   return lines.join('\n');
@@ -330,6 +434,186 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
   function blank(w: number): string[] {
     return Array.from({ length: w }, () => ' ');
   }
+}
+
+interface GroupBox {
+  left: number;
+  top: number;
+  right: number;
+  bot: number;
+}
+
+/**
+ * Overlay group boxes onto the composed line art.
+ *
+ * Group boxes are computed bottom-up (subgroups first) so an outer box
+ * always encloses its nested subgroup boxes with padding. The line art is
+ * copied into a Grid, shifted to make room for the outer borders, and the
+ * borders are merged with any connectors they cross (┼ at crossings).
+ */
+function overlayGroupBoxes(
+  lines: string[],
+  doc: LgdlDocument,
+  nodeBoxes: Map<string, { left: number; top: number; width: number; height: number }>,
+): string {
+  const groupById = new Map(doc.groups.map((g) => [g.id, g]));
+  const memo = new Map<string, GroupBox | null>();
+
+  const compute = (g: LgdlGroup): GroupBox | null => {
+    if (memo.has(g.id)) return memo.get(g.id)!;
+    memo.set(g.id, null); // cycle guard (validation already rejects cycles)
+    const xs: number[] = [];
+    const ys: number[] = [];
+    const xe: number[] = [];
+    const ye: number[] = [];
+    for (const m of g.contains ?? []) {
+      const nb = nodeBoxes.get(m);
+      if (nb) {
+        xs.push(nb.left);
+        ys.push(nb.top);
+        xe.push(nb.left + nb.width - 1);
+        ye.push(nb.top + nb.height - 1);
+        continue;
+      }
+      const sg = groupById.get(m);
+      if (sg) {
+        const sb = compute(sg);
+        if (sb) {
+          xs.push(sb.left);
+          ys.push(sb.top);
+          xe.push(sb.right);
+          ye.push(sb.bot);
+        }
+      }
+    }
+    if (xs.length === 0) return null;
+    const box: GroupBox = {
+      left: Math.min(...xs) - 2,
+      top: Math.min(...ys) - 1,
+      right: Math.max(...xe) + 2,
+      bot: Math.max(...ye) + 1,
+    };
+    memo.set(g.id, box);
+    return box;
+  };
+
+  const boxes: { id: string; label: string; box: GroupBox }[] = [];
+  for (const g of doc.groups) {
+    const b = compute(g);
+    if (b) boxes.push({ id: g.id, label: g.label ?? g.id, box: b });
+  }
+  if (boxes.length === 0) return lines.join('\n');
+
+  // shift the whole drawing so every box has room on all sides
+  const minLeft = Math.min(...boxes.map((b) => b.box.left));
+  const minTop = Math.min(...boxes.map((b) => b.box.top));
+  const maxRight = Math.max(...boxes.map((b) => b.box.right));
+  const maxBot = Math.max(...boxes.map((b) => b.box.bot));
+  const dx = Math.max(0, -minLeft);
+  const dy = Math.max(0, -minTop);
+  const maxW = Math.max(1, ...lines.map((l) => strWidth(l)));
+  // grid must be wide/tall enough for the outermost box borders
+  const cols = Math.max(maxW + dx + 2, maxRight + dx + 1);
+  const rows = Math.max(lines.length + dy + 1, maxBot + dy + 1);
+  const grid = new Grid(cols, rows);
+  for (let r = 0; r < lines.length; r++) {
+    grid.put(dx, r + dy, lines[r]);
+  }
+
+  for (const { label, box } of boxes) {
+    const left = box.left + dx;
+    const right = box.right + dx;
+    const top = box.top + dy;
+    const bot = box.bot + dy;
+    for (let c = left; c <= right; c++) setBorder(grid, c, top, '─');
+    for (let c = left; c <= right; c++) setBorder(grid, c, bot, '─');
+    for (let r = top; r <= bot; r++) {
+      setBorder(grid, left, r, '│');
+      setBorder(grid, right, r, '│');
+    }
+    // corners: merge with a wall continuing above/below so adjacent sibling
+    // boxes sharing a border row join cleanly (├/┤); never merge with
+    // connector lines running through the corner
+    grid.set(left, top, cornerChar(grid, left, top, 'tl'));
+    grid.set(right, top, cornerChar(grid, right, top, 'tr'));
+    grid.set(left, bot, cornerChar(grid, left, bot, 'bl'));
+    grid.set(right, bot, cornerChar(grid, right, bot, 'br'));
+    // group label sits on the top border, after the corner
+    const labelStart = left + 2;
+    const avail = right - labelStart;
+    if (avail > 0) {
+      const clipped = clipToWidth(label, avail);
+      if (clipped.length > 0) grid.put(labelStart, top, clipped);
+    }
+  }
+
+  return grid.toString();
+}
+
+/** Place a group border char.
+ *
+ * Borders are drawn UNDER connectors: where a connector line or arrow
+ * already occupies the cell, the border gives way (breaks), so edges read
+ * as passing over the box border (matching the SVG dashed-box look).
+ */
+function setBorder(g: Grid, col: number, row: number, ch: '─' | '│'): void {
+  const cur = g.get(col, row);
+  if (ch === '─') {
+    if (cur === ' ' || cur === '' || cur === '─') g.set(col, row, '─');
+  } else {
+    if (cur === ' ' || cur === '' || cur === '│') g.set(col, row, '│');
+  }
+}
+
+function connectsV(ch: string): boolean {
+  return ['│', '┬', '┴', '├', '┤', '┼', '┌', '┐', '└', '┘', '╭', '╮', '╰', '╯', '▼', '▲'].includes(ch);
+}
+
+/** Box-drawing char for a set of connections (up/down/left/right). */
+function junction(up: boolean, down: boolean, left: boolean, right: boolean): string {
+  if (up && down && left && right) return '┼';
+  if (down && left && right) return '┬';
+  if (up && left && right) return '┴';
+  if (up && down && right) return '├';
+  if (up && down && left) return '┤';
+  if (up && down) return '│';
+  if (left && right) return '─';
+  if (down && right) return '┌';
+  if (down && left) return '┐';
+  if (up && right) return '└';
+  if (up && left) return '┘';
+  if (down) return '│';
+  if (up) return '│';
+  if (right) return '─';
+  if (left) return '─';
+  return ' ';
+}
+
+/**
+ * Corner char for a group box corner.
+ * The box's own wall and border are always present, so the only dynamic
+ * input is whether a wall continues past the corner (up for top corners,
+ * down for bottom corners) — that happens when a sibling group directly
+ * above/below shares the border row, and merges as ├ / ┤.
+ */
+function cornerChar(g: Grid, col: number, row: number, which: 'tl' | 'tr' | 'bl' | 'br'): string {
+  if (which === 'tl') return connectsV(g.get(col, row - 1)) ? '├' : '┌';
+  if (which === 'tr') return connectsV(g.get(col, row - 1)) ? '┤' : '┐';
+  if (which === 'bl') return connectsV(g.get(col, row + 1)) ? '├' : '└';
+  return connectsV(g.get(col, row + 1)) ? '┤' : '┘';
+}
+
+/** Clip a string to a display width (CJK-aware). */
+function clipToWidth(s: string, maxW: number): string {
+  let w = 0;
+  let out = '';
+  for (const ch of s) {
+    const cw = charWidth(ch);
+    if (w + cw > maxW) break;
+    out += ch;
+    w += cw;
+  }
+  return out;
 }
 
 /** Draw a horizontal/vertical (L-shaped) line between two points. */

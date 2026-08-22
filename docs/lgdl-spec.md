@@ -56,9 +56,26 @@ meta: {...}              # 可选，元信息（作者、版本等）
 ```yaml
 - id: string             # 必填，唯一标识
   label: string          # 可选，分组标题
-  contains: [node_id]    # 必填，包含的节点 id 列表
+  contains: [id]         # 必填，成员 id 列表（node id 或嵌套 group id）
   attrs: {...}           # 可选，扩展属性
 ```
+
+**嵌套分组**：`contains` 可以直接引用另一个 group 的 id，形成层级（如泳道内的子区域、订单核心包住支付网关）：
+
+```yaml
+groups:
+  - id: inner
+    label: 支付网关
+    contains: [pay]
+  - id: outer
+    label: 订单核心
+    contains: [start, inner]   # 引用 node id + group id
+```
+
+嵌套规则：
+- 每个 node / group 只能属于**一个** group（不允许同时出现在两个 contains 里）
+- group 不能直接或间接包含自身（禁止环）
+- 移除 group 时，会同时从父 group 的 contains 中摘除；其成员保持存在（变为未分组）
 
 ## attrs 扩展属性（逃生舱）
 
@@ -76,12 +93,14 @@ meta: {...}              # 可选，元信息（作者、版本等）
 **严格模式**：以下任何一条违规都是 **error**，文档无效、渲染被阻断（不静默忽略）：
 
 1. 所有 node id 必须唯一
-2. edge 的 from/to 必须引用存在的 node id
-3. group 的 contains 必须引用存在的 node id
-4. 节点不能同时属于两个 group
-5. type 必须是支持的图类型之一
-6. kind 必须是支持的节点类型之一
-7. 缩进必须合法（意外的缩进是错误）
+2. 所有 group id 必须唯一
+3. edge 的 from/to 必须引用存在的 node id
+4. group 的 contains 必须引用存在的 node id **或 group id**
+5. 节点/group 不能同时属于两个 group
+6. group 不能直接或间接包含自身（检测环）
+7. type 必须是支持的图类型之一
+8. kind 必须是支持的节点类型之一
+9. 缩进必须合法（意外的缩进是错误）
 
 ## 示例
 
