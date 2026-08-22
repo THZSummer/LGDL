@@ -222,7 +222,7 @@ function parseBlock(
               if (c === -1) {
                 issues.push({ severity: 'error', message: `Cannot parse list item: "${itemText}"`, location: `line ${i + 1}` });
               } else {
-                item[itemText.slice(0, c).trim()] = parseScalar(itemText.slice(c + 1).trim());
+                item[itemText.slice(0, c).trim()] = parseFieldValue(itemText.slice(0, c).trim(), itemText.slice(c + 1).trim());
               }
             }
             i++;
@@ -250,7 +250,7 @@ function parseBlock(
                 item[k] = sub.obj;
                 i = sub.next;
               } else {
-                item[k] = parseScalar(v);
+                item[k] = parseFieldValue(k, v);
                 i++;
               }
             }
@@ -285,6 +285,19 @@ function findTopLevelColon(line: string): number {
     else if (ch === ':' && !inSingle && !inDouble) return i;
   }
   return -1;
+}
+
+/**
+ * Parse a field value. Identifier fields (id, from, to, and group id)
+ * must stay strings — a node id like `1111` is an identifier, not a number.
+ * Other fields parse normally (numbers stay numbers, e.g. attrs.duration).
+ */
+function parseFieldValue(key: string, raw: string): unknown {
+  if (key === 'id' || key === 'from' || key === 'to') {
+    const v = parseScalar(raw);
+    return v === undefined ? undefined : String(v);
+  }
+  return parseScalar(raw);
 }
 
 function parseScalar(raw: string): unknown {

@@ -112,3 +112,40 @@ groups:
   assert.ok(result.issues.some((i) => i.message.includes('contains unknown node')));
   assert.equal(result.document.groups[0].contains.length, 2);
 });
+
+test('numeric node ids stay strings (id is an identifier)', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: 1111
+    label: 数字节点
+    kind: entity
+  - id: oss
+edges:
+  - from: 1111
+    to: oss
+groups:
+  - id: g1
+    contains: [1111, oss]
+`);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+  assert.equal(typeof result.document.nodes[0].id, 'string');
+  assert.equal(result.document.nodes[0].id, '1111');
+  // edge reference works
+  assert.equal(result.document.edges[0].from, '1111');
+  // group contains works
+  assert.deepEqual(result.document.groups[0].contains, ['1111', 'oss']);
+});
+
+test('numeric attrs values stay numbers', () => {
+  const result = parseLgdl(`type: gantt
+nodes:
+  - id: task
+    label: 任务
+    attrs:
+      start: 6
+      duration: 8
+`);
+  assert.equal(result.valid, true);
+  assert.equal(result.document.nodes[0].attrs?.start, 6);
+  assert.equal(typeof result.document.nodes[0].attrs?.duration, 'number');
+});
