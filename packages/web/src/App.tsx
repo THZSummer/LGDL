@@ -280,13 +280,20 @@ function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
   const textBefore = line.text.slice(0, ctx.pos - line.from);
   const trimmed = textBefore.trimStart();
   const indent = line.text.length - line.text.trimStart().length;
+  const isItem = trimmed.startsWith('- ');
+
+  // strip "- " prefix so "- from: x" and "    to: y" are treated alike
+  const content = isItem ? trimmed.slice(2) : trimmed;
 
   // inside "key: value" — suggest values
-  const colonMatch = trimmed.match(/^(\w+):\s*(.*)$/);
+  const colonMatch = content.match(/^(\w+):\s*(.*)$/);
   if (colonMatch) {
     const key = colonMatch[1];
     const valPart = colonMatch[2];
-    if (valPart === '' || /^[A-Za-z-]*$/.test(valPart)) {
+
+    // value validation: enums/ids are word-like; contains allows "[a, b"
+    const wordLike = valPart === '' || /^[A-Za-z-]*$/.test(valPart);
+    if (wordLike || key === 'contains') {
       let options: ReturnType<typeof completion>[] = [];
       if (key === 'type') {
         options = DIAGRAM_TYPES.map((t) => completion(t, t, '图类型'));
@@ -321,8 +328,7 @@ function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
   }
 
   // field names (top-level keys, item first field, continuation fields)
-  const isItem = trimmed.startsWith('- ');
-  const fieldPart = isItem ? trimmed.slice(2) : trimmed;
+  const fieldPart = content;
 
   // find what's being typed before the cursor: a bare word (no colon yet)
   const prefix = fieldPart; // e.g. "ki", "lab", "id: " (with colon handled above)
