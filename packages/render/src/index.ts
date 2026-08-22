@@ -347,6 +347,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   const mindmapInfo = mode === 'mindmap' ? computeMindmapInfo(doc) : null;
   // state: initial pseudo-state (solid dot + arrow) above the entry state
   const initialId = mode === 'state' ? findInitialState(doc) : null;
+  // anchor to the shape that is ACTUALLY drawn: mindmap renders every node
+  // as a rounded rect, uml-class renders every node as a card — diamonds
+  // only exist in the generic modes
+  const shapeKindFor = (kind: string | undefined): string =>
+    mindmapInfo || mode === 'uml-class' ? 'process' : (kind ?? 'process');
 
   // defs: arrowhead markers (gray for node edges, purple for aggregate edges)
   parts.push(
@@ -476,19 +481,21 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     // anchors horizontally so the aggregate edge doesn't overlap node edges
     // running down that column
     const offsetX = Math.abs(toCenter.x - fromCenter.x) < 1 && Math.abs(toCenter.y - fromCenter.y) > 40 ? 40 : 0;
-    const src = fromBox ? boxEdgePoint(fromBox, { x: toCenter.x + offsetX, y: toCenter.y }) : nodeCenter(edge.from);
-    const dst = toBox ? boxEdgePoint(toBox, { x: fromCenter.x + offsetX, y: fromCenter.y }) : nodeCenter(edge.to);
+    // node endpoints anchor to the node's real shape border (same anchor
+    // rules as regular edges); group endpoints stay on the group box border
+    const nodeAnchor = (id: string, toward: { x: number; y: number }) => {
+      const nb = layout.nodes.find((n) => n.id === id);
+      if (!nb) return nodeCenter(id);
+      const kind = shapeKindFor(doc.nodes.find((n) => n.id === id)?.kind);
+      return shapeEdgePoint(kind, nb, toward);
+    };
+    const src = fromBox ? boxEdgePoint(fromBox, { x: toCenter.x + offsetX, y: toCenter.y }) : nodeAnchor(edge.from, { x: toCenter.x + offsetX, y: toCenter.y });
+    const dst = toBox ? boxEdgePoint(toBox, { x: fromCenter.x + offsetX, y: fromCenter.y }) : nodeAnchor(edge.to, { x: fromCenter.x + offsetX, y: fromCenter.y });
     // push the target end slightly INTO the box so the arrowhead isn't
     // hidden behind the box border line
-    let dstIn = dst;
-    if (toBox) {
-      const cx = toBox.x + toBox.w / 2;
-      const cy = toBox.y + toBox.h / 2;
-      const dx = cx - dst.x;
-      const dy = cy - dst.y;
-      const len = Math.hypot(dx, dy) || 1;
-      dstIn = { x: dst.x + (dx / len) * 8, y: dst.y + (dy / len) * 8 };
-    }
+    // endpoints stay exactly ON the border anchors — the arrowhead tip
+    // touches the group/node edge (same as regular node edges); no push
+    // INTO the box, so lines never appear to pierce the shape
     const label = edge.label;
     let labelEl = '';
     if (label) {
@@ -506,7 +513,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         text(x, y, label, fontSize, '#7c3aed');
     }
     parts.push(
-      `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dstIn.x}" y2="${dstIn.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>`,
+      `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dst.x}" y2="${dst.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>`,
     );
   }
 
@@ -521,11 +528,6 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     // starting from a decision floated in blank space).
     const srcNode = layout.nodes.find((n) => n.id === edge.from);
     const dstNode = layout.nodes.find((n) => n.id === edge.to);
-    // anchor to the shape that is ACTUALLY drawn: mindmap renders every node
-    // as a rounded rect, uml-class renders every node as a card — diamonds
-    // only exist in the generic modes
-    const shapeKindFor = (kind: string | undefined): string =>
-      mindmapInfo || mode === 'uml-class' ? 'process' : (kind ?? 'process');
     const srcKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.from)?.kind);
     const dstKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.to)?.kind);
     const trimmed = [...pts];
@@ -672,15 +674,18 @@ function boxEdgePoint(box: { x: number; y: number; w: number; h: number }, towar
 }
 
 /**
- * Point where a ray from `p` toward the box center crosses the node's REAL
- * shape border. dagre only trims endpoints to the bounding rect — diamonds
- * are empty near the rect corners and cylinders are curved at top/bottom,
- * so lines to/from those nodes used to float in blank space. Handled shapes:
- *   - decision: diamond |dx|/(w/2) + |dy|/(h/2) = 1
- *   - entity:   cylinder — straight sides plus elliptical top/bottom arcs
- *               (arc center 10px inside the box, ry = 10, matching the
- *               renderer's cylinder body)
- * All other shapes approximate their bounding rect.
+ * Anchor point where a line from `p` attaches to the node's REAL shape
+ * border. Two ideas combined:
+ *  1. shape fidelity — dagre only trims endpoints to the bounding rect;
+ *     diamonds are empty near the rect corners and cylinders are curved at
+ *     top/bottom, so continuous intersection math is used per shape
+ *     (diamond |dx|/(w/2) + |dy|/(h/2) = 1; cylinder straight sides plus
+ *     elliptical arcs matching the renderer body)
+ *  2. anchors — the approach direction is quantized to 8 fixed directions
+ *     (every 45°), so lines attach to predictable, tidy anchor points on
+ *     the shape border (rect: edge midpoints + corners; diamond: vertices
+ *     + side midpoints; cylinder: arc top/bottom, arc shoulders, side
+ *     midpoints). The DSL is untouched — this is purely a renderer concept.
  */
 function shapeEdgePoint(
   kind: string,
@@ -692,14 +697,16 @@ function shapeEdgePoint(
   const dx = p.x - cx;
   const dy = p.y - cy;
   if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  // quantize the approach direction to the nearest 45° anchor
+  const angle = Math.atan2(dy, dx);
+  const q = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+  const ux = Math.cos(q);
+  const uy = Math.sin(q);
   if (kind === 'decision') {
-    const t = 1 / (Math.abs(dx) / (box.width / 2) + Math.abs(dy) / (box.height / 2));
-    return { x: cx + dx * t, y: cy + dy * t };
+    const t = 1 / (Math.abs(ux) / (box.width / 2) + Math.abs(uy) / (box.height / 2));
+    return { x: cx + ux * t, y: cy + uy * t };
   }
   if (kind === 'entity') {
-    const len = Math.hypot(dx, dy) || 1;
-    const ux = dx / len;
-    const uy = dy / len;
     // straight side region first: y' inside [topArcY, botArcY]
     const topArcY = box.y + 10;
     const botArcY = box.y + box.height - 10;
@@ -727,10 +734,10 @@ function shapeEdgePoint(
     }
     return { x: cx + ux * tSide, y: cy + uy * tSide }; // fallback
   }
-  const tX = dx !== 0 ? box.width / 2 / Math.abs(dx) : Infinity;
-  const tY = dy !== 0 ? box.height / 2 / Math.abs(dy) : Infinity;
+  const tX = ux !== 0 ? box.width / 2 / Math.abs(ux) : Infinity;
+  const tY = uy !== 0 ? box.height / 2 / Math.abs(uy) : Infinity;
   const t = Math.min(tX, tY);
-  return { x: cx + dx * t, y: cy + dy * t };
+  return { x: cx + ux * t, y: cy + uy * t };
 }
 
 /**

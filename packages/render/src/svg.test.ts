@@ -75,10 +75,10 @@ test('renderSvg draws aggregate edges between groups', () => {
   assert.ok(m, 'line present');
   const y1 = parseFloat(m[2]);
   const y2 = parseFloat(m[4]);
-  // source y ≈ bottom of g1 box (60+48+14=122); target end is pushed 8px
-  // INTO the g2 box past its top border (300-14-24=262) so the arrowhead shows
+  // source y ≈ bottom of g1 box (60+48+14=122); target end sits exactly ON
+  // the g2 top border (300-14-24=262) — anchors, not pushed into the box
   assert.ok(Math.abs(y1 - 122) < 5, `src on g1 bottom border, got ${y1}`);
-  assert.ok(Math.abs(y2 - 270) < 5, `dst just inside g2 top border, got ${y2}`);
+  assert.ok(Math.abs(y2 - 262) < 5, `dst on g2 top border anchor, got ${y2}`);
 });
 
 test('renderSvg renders uml-class cards from structured members', () => {
