@@ -773,6 +773,38 @@ function shapeEdgePoint(
     }
     return { x: cx + ux * tSide, y: cy + uy * tSide }; // fallback
   }
+  if (kind === 'note') {
+    // folded-corner note: pentagon (x,y) (x+w-12,y) (x+w,y+12) (x+w,y+h)
+    // (x,y+h) — the top-right corner is a diagonal fold, not a rect corner.
+    // Intersect the ray with each segment, keep the nearest hit.
+    const pts = [
+      { x: box.x, y: box.y },
+      { x: box.x + box.width - 12, y: box.y },
+      { x: box.x + box.width, y: box.y + 12 },
+      { x: box.x + box.width, y: box.y + box.height },
+      { x: box.x, y: box.y + box.height },
+    ];
+    let bestT = Infinity;
+    let best: { x: number; y: number } | null = null;
+    for (let i = 0; i < pts.length; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % pts.length];
+      const vx = p2.x - p1.x;
+      const vy = p2.y - p1.y;
+      const denom = ux * vy - uy * vx;
+      if (Math.abs(denom) < 1e-9) continue;
+      const qx = p1.x - cx;
+      const qy = p1.y - cy;
+      const t = (qx * vy - qy * vx) / denom;
+      const s = (qx * uy - qy * ux) / denom;
+      if (t > 0 && s >= 0 && s <= 1 && t < bestT) {
+        bestT = t;
+        best = { x: cx + ux * t, y: cy + uy * t };
+      }
+    }
+    if (best) return best;
+    return { x: cx + ux * (box.width / 2), y: cy }; // fallback
+  }
   // rounded rect: rx per kind (start/end are pills), overridable for groups
   const rx =
     rxOverride ??
