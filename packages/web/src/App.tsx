@@ -271,6 +271,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
  */
 const ZOOM_EDGE = 64; // px band near each viewport edge where wheel = pan
 const ZOOM_MAX = 8;
+const ZOOM_MIN = 0.5; // 最小缩放固定 50%——不再允许缩到整图适配比例以下
 
 function ZoomableSvg({
   svg,
@@ -290,7 +291,6 @@ function ZoomableSvg({
   const hostRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
-  const fitScaleRef = useRef(1);
   // keep the latest callback without re-binding the wheel listener
   const onScaleChangeRef = useRef(onScaleChange);
   onScaleChangeRef.current = onScaleChange;
@@ -315,10 +315,10 @@ function ZoomableSvg({
     const host = hostRef.current;
     if (!host) return;
     const rect = host.getBoundingClientRect();
-    // fit large diagrams into the viewport, show small ones at 1:1
+    // 默认 FitView：大图适配进视口，小图按 1:1 显示（允许 < 50%，
+    // 如超长图 40%——初始整图可见优先）
     const scale = Math.max(0.1, Math.min(1, (rect.width - 24) / width, (rect.height - 24) / height));
     scaleRef.current = scale;
-    fitScaleRef.current = scale;
     applySize(scale);
     host.scrollLeft = 0;
     host.scrollTop = 0;
@@ -357,8 +357,13 @@ function ZoomableSvg({
       }
 
       // ---- center: zoom anchored at the cursor (industry-standard math) ----
+      // 缩放下限固定 50%（ZOOM_MIN）。若当前已低于下限（初始 FitView 的
+      // 大图整图适配，如 40%），缩小保持当前值而不是反向放大。
       const cur = scaleRef.current;
-      const next = Math.min(ZOOM_MAX, Math.max(fitScaleRef.current, cur * Math.exp(-e.deltaY * 0.0015)));
+      const next = Math.min(
+        ZOOM_MAX,
+        Math.max(Math.min(cur, ZOOM_MIN), cur * Math.exp(-e.deltaY * 0.0015)),
+      );
       const k = next / cur;
       const sx = host.scrollLeft;
       const sy = host.scrollTop;
