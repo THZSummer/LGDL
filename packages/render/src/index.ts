@@ -359,7 +359,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       `<marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker></defs>` +
       // hover anchors: hidden by default, shown when the node/edge right
       // before them is hovered (adjacent-sibling rule)
-      `<style>.lgdl-anchors,.lgdl-edge-anchors{opacity:0;pointer-events:none;transition:opacity .12s ease}.lgdl-node:hover + .lgdl-anchors,.lgdl-class:hover + .lgdl-anchors{opacity:1}.lgdl-edge:hover + .lgdl-edge-anchors,.lgdl-aggregate-edge:hover + .lgdl-edge-anchors{opacity:1}</style>`,
+      `<style>.lgdl-anchors,.lgdl-edge-anchors{opacity:0;pointer-events:none;transition:opacity .12s ease}.lgdl-node:hover + .lgdl-anchors,.lgdl-class:hover + .lgdl-anchors,.lgdl-group:hover + .lgdl-anchors,.lgdl-lane:hover + .lgdl-anchors{opacity:1}.lgdl-edge:hover + .lgdl-edge-anchors,.lgdl-aggregate-edge:hover + .lgdl-edge-anchors{opacity:1}</style>`,
   );
 
   // background
@@ -416,6 +416,20 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   }
 
   // groups (behind everything else)
+  // 8 fixed border anchors for a group box, revealed on hover (same
+  // 45-deg quantization the aggregate edges snap to)
+  const anchorDots = (b: { x: number; y: number; w: number; h: number }, color: string): string => {
+    const dots: string[] = [];
+    for (let k = 0; k < 8; k++) {
+      const th = (k * Math.PI) / 4;
+      const ap = shapeEdgePoint('process', { x: b.x, y: b.y, width: b.w, height: b.h }, {
+        x: b.x + b.w / 2 + Math.cos(th),
+        y: b.y + b.h / 2 + Math.sin(th),
+      });
+      dots.push(`<circle cx="${ap.x.toFixed(1)}" cy="${ap.y.toFixed(1)}" r="3" fill="${color}"/>`);
+    }
+    return `<g class="lgdl-anchors">${dots.join('')}</g>`;
+  };
   if (mode === 'datastream') {
     // swimlanes: full-height columns with header
     doc.groups.forEach((group, i) => {
@@ -424,7 +438,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       parts.push(
         `<g class="lgdl-lane"><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="${fill}" stroke="#e2e8f0"/>` +
           `<rect x="${laneX}" y="40" width="260" height="36" fill="#eef2ff" stroke="#e2e8f0"/>` +
-          `${text(laneX + 130, 58, group.label ?? group.id, 13, '#4338ca')}</g>`,
+          `${text(laneX + 130, 58, group.label ?? group.id, 13, '#4338ca')}</g>` +
+          anchorDots({ x: laneX, y: 40, w: 260, h: layout.height - 40 }, '#64748b'),
       );
     });
   } else {
@@ -454,7 +469,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       if (!box) return;
       const fill = GROUP_FILLS[i % GROUP_FILLS.length];
       parts.push(
-        `<g class="lgdl-group"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="${fill}" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>`,
+        `<g class="lgdl-group"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="${fill}" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>` +
+          anchorDots(box, '#64748b'),
       );
     });
   }
@@ -570,8 +586,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       const kind = shapeKindFor(doc.nodes.find((n) => n.id === id)?.kind);
       return shapeEdgePoint(kind, nb, toward);
     };
-    const src = fromBox ? boxEdgePoint(fromBox, { x: toCenter.x + offsetX, y: toCenter.y }) : nodeAnchor(edge.from, { x: toCenter.x + offsetX, y: toCenter.y });
-    const dst = toBox ? boxEdgePoint(toBox, { x: fromCenter.x + offsetX, y: fromCenter.y }) : nodeAnchor(edge.to, { x: fromCenter.x + offsetX, y: fromCenter.y });
+    const src = fromBox ? shapeEdgePoint('process', { x: fromBox.x, y: fromBox.y, width: fromBox.w, height: fromBox.h }, { x: toCenter.x + offsetX, y: toCenter.y }) : nodeAnchor(edge.from, { x: toCenter.x + offsetX, y: toCenter.y });
+    const dst = toBox ? shapeEdgePoint('process', { x: toBox.x, y: toBox.y, width: toBox.w, height: toBox.h }, { x: fromCenter.x + offsetX, y: fromCenter.y }) : nodeAnchor(edge.to, { x: fromCenter.x + offsetX, y: fromCenter.y });
     // push the target end slightly INTO the box so the arrowhead isn't
     // hidden behind the box border line
     // endpoints stay exactly ON the border anchors — the arrowhead tip
@@ -681,22 +697,6 @@ function routeDefault(
   toId: string,
 ): { x: number; y: number }[] {
   return [{ x: 0, y: 0 }, { x: 0, y: 0 }];
-}
-
-/**
- * Point where a ray from `toward` toward the box center crosses the box
- * border — used to anchor aggregate edges on group box boundaries.
- */
-function boxEdgePoint(box: { x: number; y: number; w: number; h: number }, toward: { x: number; y: number }): { x: number; y: number } {
-  const cx = box.x + box.w / 2;
-  const cy = box.y + box.h / 2;
-  const dx = toward.x - cx;
-  const dy = toward.y - cy;
-  if (dx === 0 && dy === 0) return { x: cx, y: cy };
-  const tX = dx !== 0 ? box.w / 2 / Math.abs(dx) : Infinity;
-  const tY = dy !== 0 ? box.h / 2 / Math.abs(dy) : Infinity;
-  const t = Math.min(tX, tY);
-  return { x: cx + dx * t, y: cy + dy * t };
 }
 
 /**
