@@ -159,6 +159,50 @@ const STROKE_BY_KIND: Record<string, string> = {
  * index) so different layers are visually distinguishable. */
 const GROUP_FILLS = ['#eff6ff', '#ecfdf5', '#fffbeb', '#faf5ff', '#f8fafc'];
 
+/** Mindmap branch palette (stroke + matching pastel fill per top branch). */
+const MIND_COLORS = ['#3b82f6', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899'];
+const MIND_FILLS = ['#eff6ff', '#ecfdf5', '#fffbeb', '#faf5ff', '#fce7f3'];
+
+/**
+ * For mindmaps: depth of every node (BFS from the root, the node with no
+ * incoming edges) and which top-level branch it belongs to (the root's
+ * direct children are branch heads).
+ */
+function computeMindmapInfo(
+  doc: LgdlDocument,
+): Map<string, { branch: string; branchIndex: number; depth: number }> {
+  const children = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
+  for (const n of doc.nodes) {
+    children.set(n.id, []);
+    inDegree.set(n.id, 0);
+  }
+  for (const e of doc.edges) {
+    children.get(e.from)?.push(e.to);
+    inDegree.set(e.to, (inDegree.get(e.to) ?? 0) + 1);
+  }
+  const rootId = doc.nodes.find((n) => (inDegree.get(n.id) ?? 0) === 0)?.id;
+  if (!rootId) return new Map();
+
+  const info = new Map<string, { branch: string; branchIndex: number; depth: number }>();
+  info.set(rootId, { branch: 'root', branchIndex: -1, depth: 0 });
+  let branchIndex = 0;
+  const queue: { id: string; branch: string; branchIndex: number; depth: number }[] = [
+    { id: rootId, branch: 'root', branchIndex: -1, depth: 0 },
+  ];
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    for (const c of children.get(cur.id) ?? []) {
+      const isBranchHead = cur.branch === 'root';
+      const branch = isBranchHead ? c : cur.branch;
+      const idx = isBranchHead ? branchIndex++ : cur.branchIndex;
+      info.set(c, { branch, branchIndex: idx, depth: cur.depth + 1 });
+      queue.push({ id: c, branch, branchIndex: idx, depth: cur.depth + 1 });
+    }
+  }
+  return info;
+}
+
 /** Render an LGDL document + layout into an SVG string. */
 export function renderSvg(doc: LgdlDocument, layout: LayoutResult): string {
   switch (doc.type) {
@@ -173,6 +217,7 @@ export function renderSvg(doc: LgdlDocument, layout: LayoutResult): string {
     case 'er':
       return renderGeneral(doc, layout, 'er');
     case 'mindmap':
+      return renderGeneral(doc, layout, 'mindmap');
     case 'flowchart':
     case 'arch':
     case 'state':
@@ -228,8 +273,10 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
 }
 
 /** General renderer (flowchart/mindmap/arch/datastream), with optional class-node styling. */
-function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream' | 'er'): string {
+function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream' | 'er' | 'mindmap'): string {
   const parts: string[] = [];
+  // mindmap: per-branch colors + font hierarchy (root > level 1 > level 2)
+  const mindmapInfo = mode === 'mindmap' ? computeMindmapInfo(doc) : null;
 
   // defs: arrowhead markers (gray for node edges, purple for aggregate edges)
   parts.push(
@@ -449,12 +496,23 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     }
     const kind = lgdlNode.kind ?? 'process';
     const shape = SHAPES[kind] ?? SHAPES.process;
-    const fill = FILL_BY_KIND[kind] ?? FILL_BY_KIND.process;
-    const stroke = STROKE_BY_KIND[kind] ?? STROKE_BY_KIND.process;
+    let fill = FILL_BY_KIND[kind] ?? FILL_BY_KIND.process;
+    let stroke = STROKE_BY_KIND[kind] ?? STROKE_BY_KIND.process;
+    let fontSize = 13;
+    if (mindmapInfo) {
+      const info = mindmapInfo.get(node.id);
+      if (info) {
+        // branch color overrides the kind palette; root uses the first color
+        const color = info.branch === 'root' ? MIND_COLORS[0] : MIND_COLORS[info.branchIndex % MIND_COLORS.length];
+        fill = info.branch === 'root' ? '#eff6ff' : MIND_FILLS[info.branchIndex % MIND_FILLS.length];
+        stroke = color;
+        fontSize = info.depth === 0 ? 17 : info.depth === 1 ? 14 : 12;
+      }
+    }
     const cx = node.x + node.width / 2;
     const cy = node.y + node.height / 2;
     parts.push(
-      `<g class="lgdl-node" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, lgdlNode.label ?? lgdlNode.id, 13)}</g>`,
+      `<g class="lgdl-node" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, lgdlNode.label ?? lgdlNode.id, fontSize)}</g>`,
     );
   }
 
