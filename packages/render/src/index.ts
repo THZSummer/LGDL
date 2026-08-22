@@ -425,7 +425,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       const ap = shapeEdgePoint('process', { x: b.x, y: b.y, width: b.w, height: b.h }, {
         x: b.x + b.w / 2 + Math.cos(th),
         y: b.y + b.h / 2 + Math.sin(th),
-      });
+      }, 8);
       dots.push(`<circle cx="${ap.x.toFixed(1)}" cy="${ap.y.toFixed(1)}" r="3" fill="${color}"/>`);
     }
     return `<g class="lgdl-anchors">${dots.join('')}</g>`;
@@ -586,8 +586,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       const kind = shapeKindFor(doc.nodes.find((n) => n.id === id)?.kind);
       return shapeEdgePoint(kind, nb, toward);
     };
-    const src = fromBox ? shapeEdgePoint('process', { x: fromBox.x, y: fromBox.y, width: fromBox.w, height: fromBox.h }, { x: toCenter.x + offsetX, y: toCenter.y }) : nodeAnchor(edge.from, { x: toCenter.x + offsetX, y: toCenter.y });
-    const dst = toBox ? shapeEdgePoint('process', { x: toBox.x, y: toBox.y, width: toBox.w, height: toBox.h }, { x: fromCenter.x + offsetX, y: fromCenter.y }) : nodeAnchor(edge.to, { x: fromCenter.x + offsetX, y: fromCenter.y });
+    const src = fromBox ? shapeEdgePoint('process', { x: fromBox.x, y: fromBox.y, width: fromBox.w, height: fromBox.h }, { x: toCenter.x + offsetX, y: toCenter.y }, 8) : nodeAnchor(edge.from, { x: toCenter.x + offsetX, y: toCenter.y });
+    const dst = toBox ? shapeEdgePoint('process', { x: toBox.x, y: toBox.y, width: toBox.w, height: toBox.h }, { x: fromCenter.x + offsetX, y: fromCenter.y }, 8) : nodeAnchor(edge.to, { x: fromCenter.x + offsetX, y: fromCenter.y });
     // push the target end slightly INTO the box so the arrowhead isn't
     // hidden behind the box border line
     // endpoints stay exactly ON the border anchors — the arrowhead tip
@@ -707,16 +707,18 @@ function routeDefault(
  *     top/bottom, so continuous intersection math is used per shape
  *     (diamond |dx|/(w/2) + |dy|/(h/2) = 1; cylinder straight sides plus
  *     elliptical arcs matching the renderer body)
- *  2. anchors — the approach direction is quantized to 8 fixed directions
- *     (every 15°), so lines attach to predictable, tidy anchor points on
- *     the shape border (rect: edge midpoints + corners; diamond: vertices
- *     + side midpoints; cylinder: arc top/bottom, arc shoulders, side
- *     midpoints). The DSL is untouched — this is purely a renderer concept.
+ *  2. anchors — the approach direction is quantized to 15° (24 directions),
+ *     so lines attach to predictable, tidy anchor points on the shape
+ *     border. Rounded rects (process rx=6, start/end pill rx=h/2, groups
+ *     rx=8 via rxOverride) are intersected with their REAL rounded corners,
+ *     so diagonal anchors never float outside the corner arcs.
+ * The DSL is untouched — this is purely a renderer concept.
  */
 function shapeEdgePoint(
   kind: string,
   box: { x: number; y: number; width: number; height: number },
   p: { x: number; y: number },
+  rxOverride?: number,
 ): { x: number; y: number } {
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
@@ -760,10 +762,51 @@ function shapeEdgePoint(
     }
     return { x: cx + ux * tSide, y: cy + uy * tSide }; // fallback
   }
-  const tX = ux !== 0 ? box.width / 2 / Math.abs(ux) : Infinity;
-  const tY = uy !== 0 ? box.height / 2 / Math.abs(uy) : Infinity;
-  const t = Math.min(tX, tY);
-  return { x: cx + ux * t, y: cy + uy * t };
+  // rounded rect: rx per kind (start/end are pills), overridable for groups
+  const rx =
+    rxOverride ??
+    (kind === 'start' || kind === 'end' ? Math.min(box.width, box.height) / 2 : 6);
+  return roundedRectPoint(box, ux, uy, rx);
+}
+
+/**
+ * Ray (from the box center, unit direction u) intersect a rounded rect of
+ * corner radius rx. Straight sides unless the ray passes through a corner
+ * region, where the border is the quarter-arc around the corner center
+ * (a-rx, b-rx) away — the far-side circle intersection.
+ */
+function roundedRectPoint(
+  box: { x: number; y: number; width: number; height: number },
+  ux: number,
+  uy: number,
+  rx: number,
+): { x: number; y: number } {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const a = box.width / 2;
+  const b = box.height / 2;
+  const tRect = Math.min(
+    ux !== 0 ? a / Math.abs(ux) : Infinity,
+    uy !== 0 ? b / Math.abs(uy) : Infinity,
+  );
+  const ix = cx + ux * tRect;
+  const iy = cy + uy * tRect;
+  if (Math.abs(ix - cx) <= a - rx || Math.abs(iy - cy) <= b - rx) {
+    return { x: ix, y: iy }; // on a straight side
+  }
+  // corner region: intersect with the quarter-arc circle
+  const ccx = cx + Math.sign(ux) * (a - rx);
+  const ccy = cy + Math.sign(uy) * (b - rx);
+  const dxc = ccx - cx;
+  const dyc = ccy - cy;
+  const ud = ux * dxc + uy * dyc;
+  const dd = dxc * dxc + dyc * dyc;
+  const disc = ud * ud - dd + rx * rx;
+  if (disc >= 0) {
+    const t = ud + Math.sqrt(disc); // far side of the circle = the arc border
+    return { x: cx + ux * t, y: cy + uy * t };
+  }
+  return { x: ix, y: iy }; // fallback
 }
 
 /**
