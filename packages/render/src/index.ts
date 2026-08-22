@@ -4,7 +4,8 @@
  * Takes a LayoutResult + LgdlDocument and produces clean SVG markup.
  * Shapes are mapped from node kinds; a theme can be swapped later.
  */
-import type { LgdlDocument, LgdlGroup } from '@lgdl/core';
+import type { LgdlDocument, LgdlGroup, LgdlMember } from '@lgdl/core';
+import { VIS_SYMBOL } from '@lgdl/core';
 import type { LayoutResult } from '@lgdl/layout';
 
 const FONT_FAMILY = "'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif";
@@ -633,19 +634,40 @@ function boxEdgePoint(box: { x: number; y: number; w: number; h: number }, towar
 
 /**
  * UML class node: 3-section card (name / attributes / methods).
- * The node label uses newlines: first line = class name, following lines
- * are members. `+` = public, `-` = private, `#` = protected.
+ *
+ * Content comes from the structured `members` field (canonical):
+ *   - `kind: attribute` members render in the middle section
+ *   - `kind: method` members render in the bottom section
+ *   - visibility maps to the UML symbol via VIS_SYMBOL (+ - # ~)
+ * Nothing is parsed out of text — every row is an explicit field.
+ *
+ * Legacy fallback: when a node has no members, the label's newlines are
+ * still honored (first line = class name, following lines = members).
  */
-function renderClassNode(node: LayoutNodeLike, lgdlNode: { label?: string; id: string }): string {
+function renderClassNode(node: LayoutNodeLike, lgdlNode: { label?: string; id: string; members?: LgdlMember[] }): string {
   const { x, y, width, height } = node;
-  const raw = lgdlNode.label ?? lgdlNode.id;
-  const lines = raw.split('\n');
-  const name = lines[0];
-  const members = lines.slice(1);
 
-  // split members into attributes vs methods (contains '(')
-  const attrs = members.filter((m) => !m.includes('('));
-  const methods = members.filter((m) => m.includes('('));
+  let name: string;
+  let attrs: string[] = [];
+  let methods: string[] = [];
+  if (lgdlNode.members && lgdlNode.members.length > 0) {
+    name = lgdlNode.label ?? lgdlNode.id;
+    for (const m of lgdlNode.members) {
+      const vis = m.visibility ? VIS_SYMBOL[m.visibility] ?? '' : '';
+      const line =
+        m.kind === 'method'
+          ? `${vis} ${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}`
+          : `${vis} ${m.name}${m.type ? `: ${m.type}` : ''}`;
+      (m.kind === 'method' ? methods : attrs).push(line);
+    }
+  } else {
+    const raw = lgdlNode.label ?? lgdlNode.id;
+    const lines = raw.split('\n');
+    name = lines[0];
+    const rest = lines.slice(1);
+    attrs = rest.filter((m) => !m.includes('('));
+    methods = rest.filter((m) => m.includes('('));
+  }
 
   const headerH = 32;
   const attrsH = attrs.length * 18 + (attrs.length > 0 ? 8 : 0);

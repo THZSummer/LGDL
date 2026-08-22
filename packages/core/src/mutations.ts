@@ -6,7 +6,31 @@
  * the affected area. Layout stability is handled by the layout engine;
  * here we only mutate the semantic model.
  */
-import type { LgdlAttrs, LgdlDocument, LgdlEdge, LgdlGroup, LgdlNode, NodeKind } from './types.js';
+import type { LgdlAttrs, LgdlDocument, LgdlEdge, LgdlGroup, LgdlMember, LgdlNode, NodeKind } from './types.js';
+
+const MEMBER_KINDS = ['attribute', 'method'];
+const MEMBER_VISIBILITIES = ['public', 'private', 'protected', 'package'];
+
+/** Shape-check a class member; throws with a precise message on bad input. */
+export function assertMemberShape(member: LgdlMember, context: string): void {
+  if (!member || typeof member !== 'object') {
+    throw new Error(`${context}: member must be an object with "kind" and "name"`);
+  }
+  if (!MEMBER_KINDS.includes(member.kind)) {
+    throw new Error(`${context}: unknown member kind "${member.kind ?? ''}" (attribute|method)`);
+  }
+  if (typeof member.name !== 'string' || member.name.trim() === '') {
+    throw new Error(`${context}: member name is required`);
+  }
+  if (member.visibility !== undefined && !MEMBER_VISIBILITIES.includes(member.visibility)) {
+    throw new Error(
+      `${context}: unknown visibility "${member.visibility}" (public|private|protected|package)`,
+    );
+  }
+  if (member.kind === 'attribute' && member.params !== undefined) {
+    throw new Error(`${context}: attribute "${member.name}" must not have params (methods only)`);
+  }
+}
 
 export interface AddNodeOptions {
   id: string;
@@ -14,6 +38,8 @@ export interface AddNodeOptions {
   kind?: NodeKind;
   /** Optional group to place the node into */
   group?: string;
+  /** Structured class members (uml-class entity nodes) */
+  members?: LgdlMember[];
   /** Extension attributes (e.g. gantt start/duration) */
   attrs?: LgdlAttrs;
 }
@@ -30,6 +56,10 @@ export interface UpdateNodeOptions {
   id: string;
   label?: string;
   kind?: NodeKind;
+  /** Append a structured class member */
+  memberAdd?: LgdlMember;
+  /** Remove a class member by name */
+  memberRemove?: string;
   /** Replace extension attributes (merge) */
   attrs?: LgdlAttrs;
 }
@@ -56,7 +86,7 @@ export interface MutationResult {
 }
 
 export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult {
-  const { id, label, kind, group, attrs } = opts;
+  const { id, label, kind, group, members, attrs } = opts;
 
   if (doc.nodes.some((n) => n.id === id)) {
     throw new Error(`Node id already exists: "${id}"`);
@@ -64,11 +94,13 @@ export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult
   if (!/^[A-Za-z0-9_-]+$/.test(id)) {
     throw new Error(`Invalid node id: "${id}" (letters, digits, underscore, hyphen only)`);
   }
+  members?.forEach((m, i) => assertMemberShape(m, `member ${i} of node "${id}"`));
 
   const node: LgdlNode = {
     id,
     label: label ?? id,
     kind: kind ?? 'process',
+    ...(members !== undefined && members.length > 0 ? { members } : {}),
     ...(attrs !== undefined ? { attrs } : {}),
   };
 
@@ -78,6 +110,7 @@ export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult
   };
 
   let summary = `added node "${id}"${label ? ` (${label})` : ''}${kind ? ` :${kind}` : ''}`;
+  if (members && members.length > 0) summary += ` with ${members.length} member(s)`;
 
   if (group) {
     document.groups = doc.groups.map((g) =>
@@ -156,28 +189,41 @@ export function removeEdge(doc: LgdlDocument, from: string, to: string): Mutatio
 }
 
 export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): MutationResult {
-  const { id, label, kind, attrs } = opts;
-  if (!doc.nodes.some((n) => n.id === id)) {
+  const { id, label, kind, memberAdd, memberRemove, attrs } = opts;
+  const target = doc.nodes.find((n) => n.id === id);
+  if (!target) {
     throw new Error(`Node not found: "${id}"`);
+  }
+  if (memberAdd) assertMemberShape(memberAdd, `member "${memberAdd.name ?? ''}" of node "${id}"`);
+  if (memberRemove && memberRemove.trim() === '') {
+    throw new Error(`memberRemove: name is required`);
+  }
+  if (memberRemove && !(target.members ?? []).some((m) => m.name === memberRemove)) {
+    throw new Error(`Member not found: "${memberRemove}" on node "${id}"`);
   }
 
   const document: LgdlDocument = {
     ...doc,
-    nodes: doc.nodes.map((n) =>
-      n.id === id
-        ? {
-            ...n,
-            ...(label !== undefined ? { label } : {}),
-            ...(kind !== undefined ? { kind } : {}),
-            ...(attrs !== undefined ? { attrs: { ...n.attrs, ...attrs } } : {}),
-          }
-        : n,
-    ),
+    nodes: doc.nodes.map((n) => {
+      if (n.id !== id) return n;
+      let members = n.members;
+      if (memberAdd) members = [...(members ?? []), memberAdd];
+      if (memberRemove) members = members?.filter((m) => m.name !== memberRemove) ?? [];
+      return {
+        ...n,
+        ...(label !== undefined ? { label } : {}),
+        ...(kind !== undefined ? { kind } : {}),
+        ...(members !== undefined ? { members: members.length > 0 ? members : undefined } : {}),
+        ...(attrs !== undefined ? { attrs: { ...n.attrs, ...attrs } } : {}),
+      };
+    }),
   };
 
   const changes: string[] = [];
   if (label !== undefined) changes.push(`label="${label}"`);
   if (kind !== undefined) changes.push(`kind=${kind}`);
+  if (memberAdd) changes.push(`member+ ${memberAdd.name}`);
+  if (memberRemove) changes.push(`member- ${memberRemove}`);
   if (attrs !== undefined) changes.push(`attrs={${Object.keys(attrs).join(',')}}`);
   return { document, summary: `updated node "${id}" (${changes.join(', ')})` };
 }

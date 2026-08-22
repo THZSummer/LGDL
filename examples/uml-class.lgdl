@@ -3,17 +3,98 @@ type: uml-class
 
 nodes:
   - id: user
-    label: "User\n- id: int\n- name: string\n+ login()\n+ logout()"
+    label: User
     kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: int
+        visibility: private
+      - kind: attribute
+        name: name
+        type: string
+        visibility: private
+      - kind: method
+        name: login
+        type: void
+        params: "()"
+        visibility: public
+      - kind: method
+        name: logout
+        type: void
+        params: "()"
+        visibility: public
   - id: order
-    label: "Order\n- id: int\n- userId: int\n- amount: float\n+ create()\n+ pay()\n+ cancel()"
+    label: Order
     kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: int
+        visibility: private
+      - kind: attribute
+        name: userId
+        type: int
+        visibility: private
+      - kind: attribute
+        name: amount
+        type: float
+        visibility: private
+      - kind: method
+        name: create
+        type: void
+        params: "()"
+        visibility: public
+      - kind: method
+        name: pay
+        type: void
+        params: "()"
+        visibility: public
+      - kind: method
+        name: cancel
+        type: void
+        params: "()"
+        visibility: public
   - id: payment
-    label: "Payment\n- orderId: int\n- method: string\n+ process()"
+    label: Payment
     kind: entity
+    members:
+      - kind: attribute
+        name: orderId
+        type: int
+        visibility: private
+      - kind: attribute
+        name: method
+        type: string
+        visibility: private
+      - kind: method
+        name: process
+        type: void
+        params: "()"
+        visibility: public
   - id: cart
-    label: "Cart\n- items: list\n+ addItem()\n+ removeItem()\n+ checkout()"
+    label: Cart
     kind: entity
+    members:
+      - kind: attribute
+        name: items
+        type: list
+        visibility: private
+      - kind: method
+        name: addItem
+        type: void
+        params: "()"
+        visibility: public
+      - kind: method
+        name: removeItem
+        type: void
+        params: "()"
+        visibility: public
+      - kind: method
+        name: checkout
+        type: void
+        params: "()"
+        visibility: public
 
 edges:
   - from: user

@@ -80,3 +80,35 @@ test('renderSvg draws aggregate edges between groups', () => {
   assert.ok(Math.abs(y1 - 122) < 5, `src on g1 bottom border, got ${y1}`);
   assert.ok(Math.abs(y2 - 270) < 5, `dst just inside g2 top border, got ${y2}`);
 });
+
+test('renderSvg renders uml-class cards from structured members', () => {
+  const doc: LgdlDocument = {
+    type: 'uml-class',
+    nodes: [
+      {
+        id: 'cart',
+        label: 'Cart',
+        kind: 'entity',
+        members: [
+          { kind: 'attribute', name: 'items', type: 'list', visibility: 'private' },
+          { kind: 'method', name: 'addItem', type: 'void', params: '(item)', visibility: 'public' },
+        ],
+      },
+    ],
+    edges: [],
+    groups: [],
+  };
+  const layout: LayoutResult = {
+    nodes: [{ id: 'cart', x: 40, y: 40, width: 220, height: 84 }],
+    edges: [],
+    width: 300,
+    height: 200,
+  };
+  const svg = renderSvg(doc, layout);
+  // header (bold class name) + explicit member rows — no text parsing involved
+  assert.ok(svg.includes('>Cart</text>'), 'class name in header');
+  assert.ok(svg.includes('- items: list'), 'private attribute row');
+  assert.ok(svg.includes('+ addItem(item): void'), 'public method row');
+  // the old label-newline content must NOT be re-invented when members exist
+  assert.ok(!svg.includes('\\n'), 'no raw newline escapes leak into the card');
+});

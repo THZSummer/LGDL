@@ -18,6 +18,11 @@ export const statusCommand: LgdlCommand = {
         console.log('## nodes');
         for (const n of doc.nodes) {
           console.log(`  ${n.id}${n.label ? ` (${n.label})` : ''}${n.kind && n.kind !== 'process' ? ` :${n.kind}` : ''}`);
+          for (const m of n.members ?? []) {
+            const vis = m.visibility ? ` (${m.visibility})` : '';
+            const detail = m.kind === 'method' ? `${m.name}${m.params ?? '()'}${m.type ? `: ${m.type}` : ''}` : `${m.name}${m.type ? `: ${m.type}` : ''}`;
+            console.log(`    - ${m.kind} ${detail}${vis}`);
+          }
         }
         console.log('');
         console.log('## edges');

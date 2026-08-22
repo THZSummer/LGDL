@@ -39,6 +39,9 @@ const NODE_KINDS: readonly NodeKind[] = [
   'milestone',
 ];
 
+const MEMBER_KINDS: readonly string[] = ['attribute', 'method'];
+const MEMBER_VISIBILITIES: readonly string[] = ['public', 'private', 'protected', 'package'];
+
 /** Parse an LGDL document from YAML text. */
 export function parseLgdl(source: string): ParseResult {
   const issues: LgdlIssue[] = [];
@@ -91,6 +94,72 @@ export function validate(
         severity: 'error',
         message: `Unknown node kind: "${node.kind}". Supported kinds: ${NODE_KINDS.join(', ')}`,
         location: `nodes[${i}].kind`,
+      });
+    }
+
+    // members: the explicit class-member field. Strict per-kind/per-type
+    // rules — a member on the wrong kind or diagram type is an error, never
+    // silently ignored.
+    if (node.members !== undefined) {
+      if ((node.kind ?? 'process') !== 'entity') {
+        issues.push({
+          severity: 'error',
+          message: `"members" is only valid on kind: entity (node "${node.id}" has kind "${node.kind ?? 'process'}")`,
+          location: `nodes[${i}].members`,
+        });
+      }
+      if (result.type !== 'uml-class') {
+        issues.push({
+          severity: 'error',
+          message: `"members" is only supported in uml-class diagrams (node "${node.id}", diagram type "${result.type}")`,
+          location: `nodes[${i}].members`,
+        });
+      }
+      node.members.forEach((member, mi) => {
+        if (!member || typeof member !== 'object') {
+          issues.push({
+            severity: 'error',
+            message: `Member must be an object with at least "kind" and "name" (node "${node.id}")`,
+            location: `nodes[${i}].members[${mi}]`,
+          });
+          return;
+        }
+        const loc = `nodes[${i}].members[${mi}]`;
+        if (!MEMBER_KINDS.includes(member.kind)) {
+          issues.push({
+            severity: 'error',
+            message: `Unknown member kind: "${member.kind ?? ''}". Supported: ${MEMBER_KINDS.join(', ')}`,
+            location: `${loc}.kind`,
+          });
+        }
+        if (typeof member.name !== 'string' || member.name.trim() === '') {
+          issues.push({
+            severity: 'error',
+            message: `Member name is required (node "${node.id}")`,
+            location: `${loc}.name`,
+          });
+        }
+        if (member.visibility !== undefined && !MEMBER_VISIBILITIES.includes(member.visibility)) {
+          issues.push({
+            severity: 'error',
+            message: `Unknown member visibility: "${member.visibility}". Supported: ${MEMBER_VISIBILITIES.join(', ')}`,
+            location: `${loc}.visibility`,
+          });
+        }
+        if (member.kind === 'attribute' && member.params !== undefined) {
+          issues.push({
+            severity: 'error',
+            message: `Attribute member "${member.name ?? ''}" must not have "params" (params are for methods)`,
+            location: `${loc}.params`,
+          });
+        }
+        if (member.kind === 'method' && member.params !== undefined && typeof member.params !== 'string') {
+          issues.push({
+            severity: 'error',
+            message: `Method params must be a string (e.g. "(items: list)") for "${member.name ?? ''}"`,
+            location: `${loc}.params`,
+          });
+        }
       });
     }
   });
@@ -257,69 +326,10 @@ function parseBlock(
     if (rawValue === '' && i < lines.length && lines[i].trim() && lines[i].length - lines[i].trimStart().length > indent) {
       const childIndent = lines[i].length - lines[i].trimStart().length;
       if (lines[i].trim().startsWith('- ')) {
-        // list of items
-        const items: unknown[] = [];
-        while (i < lines.length) {
-          const l = lines[i];
-          if (!l.trim() || l.trim().startsWith('#')) {
-            i++;
-            continue;
-          }
-          const lli = l.length - l.trimStart().length;
-          if (lli <= indent) break;
-          if (lli !== childIndent || !l.trim().startsWith('- ')) {
-            issues.push({ severity: 'error', message: `Expected list item at line ${i + 1}`, location: key });
-            break;
-          }
-          const itemText = l.trim().slice(2).trim();
-          const itemIndent = l.length - l.trimStart().length;
-          if (itemText === '' || findTopLevelColon(itemText) !== -1) {
-            // object item: "- key: value" possibly followed by more fields
-            const item: Record<string, unknown> = {};
-            if (itemText !== '') {
-              const c = findTopLevelColon(itemText);
-              if (c === -1) {
-                issues.push({ severity: 'error', message: `Cannot parse list item: "${itemText}"`, location: `line ${i + 1}` });
-              } else {
-                item[itemText.slice(0, c).trim()] = parseFieldValue(itemText.slice(0, c).trim(), itemText.slice(c + 1).trim());
-              }
-            }
-            i++;
-            // consume following fields belonging to this item (deeper indent),
-            // and possibly nested objects (e.g. attrs)
-            while (i < lines.length) {
-              const nl = lines[i];
-              if (!nl.trim() || nl.trim().startsWith('#')) {
-                i++;
-                continue;
-              }
-              const ni = nl.length - nl.trimStart().length;
-              if (ni <= itemIndent) break;
-              const c = findTopLevelColon(nl.trim());
-              if (c === -1) {
-                issues.push({ severity: 'error', message: `Cannot parse line: "${nl.trim()}"`, location: `line ${i + 1}` });
-                i++;
-                continue;
-              }
-              const k = nl.trim().slice(0, c).trim();
-              const v = nl.trim().slice(c + 1).trim();
-              if (v === '' && i + 1 < lines.length && lines[i + 1].trim() && lines[i + 1].length - lines[i + 1].trimStart().length > ni) {
-                // nested object (e.g. attrs)
-                const sub = parseBlock(lines, i + 1, lines[i + 1].length - lines[i + 1].trimStart().length, issues);
-                item[k] = sub.obj;
-                i = sub.next;
-              } else {
-                item[k] = parseFieldValue(k, v);
-                i++;
-              }
-            }
-            items.push(item);
-          } else {
-            items.push(parseScalar(itemText));
-            i++;
-          }
-        }
+        // list of items (nodes / edges / groups / members / ...)
+        const { items, next } = parseListItems(lines, i, childIndent, issues);
         obj[key] = items;
+        i = next;
       } else {
         // nested object (e.g. attrs)
         const sub = parseBlock(lines, i, childIndent, issues);
@@ -332,6 +342,87 @@ function parseBlock(
   }
 
   return { obj, next: i };
+}
+
+/**
+ * Parse a block of list items at a given indentation.
+ * Items may be scalars (`- foo`) or objects (`- key: value` plus deeper
+ * fields, and nested objects/lists under those fields — e.g. `members:`).
+ */
+function parseListItems(
+  lines: string[],
+  start: number,
+  itemIndent: number,
+  issues: LgdlIssue[],
+): { items: unknown[]; next: number } {
+  const items: unknown[] = [];
+  let i = start;
+  while (i < lines.length) {
+    const l = lines[i];
+    if (!l.trim() || l.trim().startsWith('#')) {
+      i++;
+      continue;
+    }
+    const lli = l.length - l.trimStart().length;
+    if (lli < itemIndent) break; // dedent: list ended
+    if (lli !== itemIndent || !l.trim().startsWith('- ')) {
+      issues.push({ severity: 'error', message: `Expected list item at line ${i + 1}`, location: 'list' });
+      break;
+    }
+    const itemText = l.trim().slice(2).trim();
+    if (itemText === '' || findTopLevelColon(itemText) !== -1) {
+      // object item: "- key: value" possibly followed by more fields
+      const item: Record<string, unknown> = {};
+      if (itemText !== '') {
+        const c = findTopLevelColon(itemText);
+        if (c === -1) {
+          issues.push({ severity: 'error', message: `Cannot parse list item: "${itemText}"`, location: `line ${i + 1}` });
+        } else {
+          item[itemText.slice(0, c).trim()] = parseFieldValue(itemText.slice(0, c).trim(), itemText.slice(c + 1).trim());
+        }
+      }
+      i++;
+      // consume following fields belonging to this item (deeper indent)
+      while (i < lines.length) {
+        const nl = lines[i];
+        if (!nl.trim() || nl.trim().startsWith('#')) {
+          i++;
+          continue;
+        }
+        const ni = nl.length - nl.trimStart().length;
+        if (ni <= itemIndent) break;
+        const c = findTopLevelColon(nl.trim());
+        if (c === -1) {
+          issues.push({ severity: 'error', message: `Cannot parse line: "${nl.trim()}"`, location: `line ${i + 1}` });
+          i++;
+          continue;
+        }
+        const k = nl.trim().slice(0, c).trim();
+        const v = nl.trim().slice(c + 1).trim();
+        if (v === '' && i + 1 < lines.length && lines[i + 1].trim() && lines[i + 1].length - lines[i + 1].trimStart().length > ni) {
+          // nested object (e.g. attrs) or nested list (e.g. members)
+          const childIndent = lines[i + 1].length - lines[i + 1].trimStart().length;
+          if (lines[i + 1].trim().startsWith('- ')) {
+            const nested = parseListItems(lines, i + 1, childIndent, issues);
+            item[k] = nested.items;
+            i = nested.next;
+          } else {
+            const sub = parseBlock(lines, i + 1, childIndent, issues);
+            item[k] = sub.obj;
+            i = sub.next;
+          }
+        } else {
+          item[k] = parseFieldValue(k, v);
+          i++;
+        }
+      }
+      items.push(item);
+    } else {
+      items.push(parseScalar(itemText));
+      i++;
+    }
+  }
+  return { items, next: i };
 }
 
 function findTopLevelColon(line: string): number {

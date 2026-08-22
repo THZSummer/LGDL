@@ -51,6 +51,16 @@ export function serializeLgdl(doc: LgdlDocument): string {
     if (node.kind && node.kind !== 'process') {
       lines.push(`    kind: ${node.kind}`);
     }
+    if (node.members && node.members.length > 0) {
+      lines.push(`    members:`);
+      for (const m of node.members) {
+        lines.push(`      - kind: ${m.kind}`);
+        lines.push(`        name: ${yamlString(m.name)}`);
+        if (m.visibility !== undefined) lines.push(`        visibility: ${m.visibility}`);
+        if (m.type !== undefined) lines.push(`        type: ${yamlString(m.type)}`);
+        if (m.params !== undefined) lines.push(`        params: ${yamlString(m.params)}`);
+      }
+    }
     if (node.attrs && Object.keys(node.attrs).length > 0) {
       lines.push(`    attrs:`);
       lines.push(...serializeAttrs(node.attrs, '      '));

@@ -37,10 +37,48 @@ meta: {...}              # 可选，元信息（作者、版本等）
   label: string          # 可选，显示文本（默认用 id）
   kind: process          # 可选，节点类型（默认 process）
   # kind: start | end | process | decision | entity | note | state | milestone
+  members: [...]         # 可选，仅 kind: entity 且 type: uml-class 时合法（见下）
   attrs: {...}           # 可选，扩展属性（逃生舱）
 ```
 
 ⚠️ `kind` 必须是上表列出的值之一。**未知 kind 是错误（error），会阻断渲染**——严格模式防止无效 kind 悄悄被忽略。
+
+### kind 差异表（显性化设计）
+
+不同 kind 的差异由 **kind 本身 + 各自专属字段** 显性表达，渲染器不做任何文本猜测：
+
+| kind | 语义 | 专属显性字段 | 内容/数据来源 |
+|---|---|---|---|
+| `start` / `end` | 开始 / 结束 | — | `label` |
+| `process` | 处理步骤 | — | `label` |
+| `decision` | 判断分支 | — | `label`（分支去向在边 label 上） |
+| `entity` | 实体 / 类 | **`members`** | `label` = 类名；成员在 `members` |
+| `note` | 备注 | — | `label` |
+| `state` | 状态 | — | `label`（初始态 = 唯一无入边节点，文档规则） |
+| `milestone` | 里程碑 | — | `label` + `attrs.start/duration`（gantt） |
+
+**`members` 成员结构**（全显性，无 `+/-` 字符串约定）：
+
+```yaml
+- id: cart
+  label: Cart
+  kind: entity
+  members:
+    - kind: attribute          # attribute | method（必填，不靠 ( 猜测）
+      name: items              # 必填
+      visibility: private      # public | private | protected | package（UML 符号 + - # ~ 由渲染器映射）
+      type: list               # 属性类型 / 方法返回类型
+    - kind: method
+      name: addItem
+      type: void
+      params: "()"             # 仅 method 允许
+      visibility: public
+```
+
+校验（全部 error，不静默）：
+- `members` 仅限 `kind: entity` 且 `type: uml-class`，其它 kind/图类型报错
+- `member.kind` 必须是 `attribute | method`；`member.name` 必填
+- `params` 仅 method 允许；`visibility` 必须是四枚举之一
 
 ## Edge
 

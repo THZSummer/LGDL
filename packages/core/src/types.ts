@@ -26,6 +26,41 @@ export type NodeKind =
   | 'state'
   | 'milestone';
 
+/** Kind of a class member (uml-class `entity` nodes) */
+export type MemberKind = 'attribute' | 'method';
+
+/**
+ * UML visibility. The explicit enum replaces the in-string `+`/`-`/`#`
+ * convention — the renderer never has to parse markers out of text.
+ *   public (+), private (-), protected (#), package (~)
+ */
+export type MemberVisibility = 'public' | 'private' | 'protected' | 'package';
+
+/**
+ * A structured class member (attribute or method) for uml-class `entity`
+ * nodes. Every field is explicit — nothing is inferred from the label.
+ */
+export interface LgdlMember {
+  /** attribute | method — explicit, never guessed from '(' */
+  kind: MemberKind;
+  /** Member name (required) */
+  name: string;
+  /** UML visibility marker */
+  visibility?: MemberVisibility;
+  /** Attribute data type, or method return type */
+  type?: string;
+  /** Method parameter list, e.g. "(items: list)"; attributes must not set it */
+  params?: string;
+}
+
+/** UML visibility → display symbol. Single source shared by layout + renderers. */
+export const VIS_SYMBOL: Record<MemberVisibility, string> = {
+  public: '+',
+  private: '-',
+  protected: '#',
+  package: '~',
+};
+
 /**
  * Extension attributes — the "escape hatch" for diagram-specific fields
  * (e.g. gantt start/duration, ER cardinality). Never breaks the core model:
@@ -40,6 +75,11 @@ export interface LgdlNode {
   label?: string;
   /** Semantic kind; defaults to 'process' */
   kind?: NodeKind;
+  /**
+   * Structured class members — only valid on `kind: entity` nodes in
+   * `uml-class` diagrams. Other kinds/types are rejected by the validator.
+   */
+  members?: LgdlMember[];
   /** Diagram-specific extension attributes */
   attrs?: LgdlAttrs;
 }

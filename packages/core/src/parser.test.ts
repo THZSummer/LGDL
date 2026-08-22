@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseLgdl, validate } from './index.js';
+import { parseLgdl, validate, serializeLgdl } from './index.js';
 
 const VALID_DOC = `title: 用户登录流程
 type: flowchart
@@ -335,4 +335,131 @@ groups:
 `);
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('unknown source node or group')));
+});
+
+// ---- members: the explicit class-member field ----
+
+const UML_DOC = `title: 订单系统类图
+type: uml-class
+
+nodes:
+  - id: cart
+    label: Cart
+    kind: entity
+    members:
+      - kind: attribute
+        name: items
+        type: list
+        visibility: private
+      - kind: method
+        name: addItem
+        type: void
+        params: "(item)"
+        visibility: public
+`;
+
+test('uml-class entity with structured members parses valid', () => {
+  const result = parseLgdl(UML_DOC);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+  const cart = result.document.nodes[0];
+  assert.equal(cart.members?.length, 2);
+  assert.deepEqual(cart.members?.[0], {
+    kind: 'attribute',
+    name: 'items',
+    type: 'list',
+    visibility: 'private',
+  });
+  assert.deepEqual(cart.members?.[1], {
+    kind: 'method',
+    name: 'addItem',
+    type: 'void',
+    params: '(item)',
+    visibility: 'public',
+  });
+});
+
+test('members on a non-entity kind is an error', () => {
+  const result = parseLgdl(`type: uml-class
+nodes:
+  - id: x
+    kind: process
+    members:
+      - kind: attribute
+        name: a
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('only valid on kind: entity')));
+});
+
+test('members outside uml-class diagrams is an error', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: x
+    kind: entity
+    members:
+      - kind: attribute
+        name: a
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('only supported in uml-class')));
+});
+
+test('unknown member kind is an error', () => {
+  const result = parseLgdl(`type: uml-class
+nodes:
+  - id: x
+    kind: entity
+    members:
+      - kind: property
+        name: a
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('Unknown member kind')));
+});
+
+test('member without a name is an error', () => {
+  const result = parseLgdl(`type: uml-class
+nodes:
+  - id: x
+    kind: entity
+    members:
+      - kind: attribute
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('Member name is required')));
+});
+
+test('attribute member with params is an error', () => {
+  const result = parseLgdl(`type: uml-class
+nodes:
+  - id: x
+    kind: entity
+    members:
+      - kind: attribute
+        name: a
+        params: "(x)"
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('must not have "params"')));
+});
+
+test('unknown member visibility is an error', () => {
+  const result = parseLgdl(`type: uml-class
+nodes:
+  - id: x
+    kind: entity
+    members:
+      - kind: attribute
+        name: a
+        visibility: internal
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('Unknown member visibility')));
+});
+
+test('serialize roundtrip preserves structured members', () => {
+  const parsed = parseLgdl(UML_DOC);
+  const reparsed = parseLgdl(serializeLgdl(parsed.document));
+  assert.equal(reparsed.valid, true, reparsed.issues.map((i) => i.message).join('; '));
+  assert.deepEqual(reparsed.document.nodes[0].members, parsed.document.nodes[0].members);
 });

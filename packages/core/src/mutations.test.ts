@@ -533,3 +533,56 @@ test('convert unknown format throws with available list', () => {
   assert.ok(formats.includes('plantuml'));
   assert.ok(formats.includes('json'));
 });
+
+// ---- members: structured class members via mutations ----
+
+test('addNode supports structured members', () => {
+  const { document } = addNode({ ...BASE, type: 'uml-class' }, {
+    id: 'cart',
+    label: 'Cart',
+    kind: 'entity',
+    members: [
+      { kind: 'attribute', name: 'items', type: 'list', visibility: 'private' },
+      { kind: 'method', name: 'addItem', type: 'void', params: '()', visibility: 'public' },
+    ],
+  });
+  const cart = document.nodes.find((n) => n.id === 'cart');
+  assert.equal(cart?.members?.length, 2);
+  assert.deepEqual(cart?.members?.[0], {
+    kind: 'attribute',
+    name: 'items',
+    type: 'list',
+    visibility: 'private',
+  });
+});
+
+test('addNode rejects malformed members', () => {
+  assert.throws(
+    () => addNode({ ...BASE, type: 'uml-class' }, { id: 'x', kind: 'entity', members: [{ kind: 'property', name: 'a' }] as never }),
+    /unknown member kind/,
+  );
+  assert.throws(
+    () => addNode({ ...BASE, type: 'uml-class' }, { id: 'x', kind: 'entity', members: [{ kind: 'attribute', name: '' }] }),
+    /member name is required/,
+  );
+});
+
+test('updateNode memberAdd appends and memberRemove deletes', () => {
+  let doc = { ...BASE, type: 'uml-class' as const, nodes: [
+    { id: 'cart', label: 'Cart', kind: 'entity' as const, members: [{ kind: 'attribute' as const, name: 'items', type: 'list' }] },
+  ]};
+  let r = updateNode(doc, { id: 'cart', memberAdd: { kind: 'method', name: 'checkout', type: 'void' } });
+  assert.deepEqual(r.document.nodes[0].members, [
+    { kind: 'attribute', name: 'items', type: 'list' },
+    { kind: 'method', name: 'checkout', type: 'void' },
+  ]);
+  r = updateNode(r.document, { id: 'cart', memberRemove: 'items' });
+  assert.deepEqual(r.document.nodes[0].members, [{ kind: 'method', name: 'checkout', type: 'void' }]);
+});
+
+test('updateNode memberRemove of a missing member throws', () => {
+  assert.throws(
+    () => updateNode({ ...BASE, type: 'uml-class', nodes: [{ id: 'x', kind: 'entity' }] }, { id: 'x', memberRemove: 'ghost' }),
+    /Member not found/,
+  );
+});

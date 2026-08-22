@@ -12,6 +12,17 @@
 - ASCII：水平（并排组 `──▶`）或垂直（上下组 `│` + `▼`）连接线
 - `add-edge` CLI 同样支持 group id（校验在 core 层）
 
+**新特性：kind 差异显性化 —— 类成员结构化字段 `members`**
+
+- 🆕 node 新增显性字段 **`members`**：结构化类成员对象数组，替代 `label` 里 `\n` 拼接的隐式约定
+- 成员结构：`{kind: attribute|method, name, visibility: public|private|protected|package, type, params}`
+- 渲染器零猜测：不再靠 `(` 判断属性/方法、不再解析 `+/-` 记号；可见性符号由 `VIS_SYMBOL` 统一映射（core 单一来源，layout/render 共用）
+- 校验（全部 error）：`members` 仅限 `kind: entity` + `type: uml-class`；`member.kind`/`member.name` 必填；`params` 仅 method；`visibility` 枚举
+- 布局：类卡片尺寸按成员内容自适应（高度 = 32 + 行数×18 + 16；宽度跟随最长行）
+- CLI：`add-node --member kind=..,name=..[,visibility=..][,type=..][,params=".."]`（可重复）、`update-node --member-add / --member-remove`
+- 解析器：支持任意层级的块级对象列表（此前仅顶层，`members` 依赖此能力）
+- 兼容：`label` 内 `\n` 写法仍被渲染器识别（无 members 时的回退路径），规范写法为 `members`
+
 ## 0.3.0 (2026-08-22)
 
 **新特性：嵌套分组（P0）**
