@@ -1,5 +1,5 @@
 import { writeFileSync } from 'node:fs';
-import type { Command } from 'commander';
+import { Command, Option } from 'commander';
 import type { LgdlCommand } from '../registry.js';
 import { loadDocument } from '../shared.js';
 import { layoutDocument } from '@lgdl/layout';
@@ -13,7 +13,7 @@ export const renderCommand: LgdlCommand = {
       .command('render <file>')
       .description('render a diagram to SVG (auto layout) or ASCII (--format ascii)')
       .option('-o, --output <file>', 'output file (default: out.svg)')
-      .option('--format <format>', 'output format: svg | ascii', 'svg')
+      .addOption(new Option('--format <format>', 'output format').choices(['svg', 'ascii']).default('svg'))
       .action((file: string, opts: { output?: string; format: string }) => {
         const doc = loadDocument(file);
         if (opts.format === 'ascii') {
