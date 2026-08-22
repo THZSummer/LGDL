@@ -33,7 +33,7 @@ export const EXAMPLES: Example[] = [
   {
     id: "login-flow",
     label: "用户登录流程",
-    source: "title: 用户登录流程\ntype: flowchart\n\nnodes:\n  - id: start\n    label: 用户访问\n    kind: start\n  - id: login\n    label: 输入账号密码\n    kind: process\n  - id: verify\n    label: 验证凭据\n    kind: decision\n  - id: ok\n    label: 登录成功\n    kind: end\n  - id: fail\n    label: 登录失败\n    kind: end\n\nedges:\n  - from: start\n    to: login\n    label: 打开页面\n  - from: login\n    to: verify\n    label: 提交\n  - from: verify\n    to: ok\n    label: 通过\n  - from: verify\n    to: fail\n    label: 失败\n\ngroups:\n  - id: auth\n    label: 认证模块\n    contains: [login]\n  - id: frontend\n    label: 前端层\n    contains: [start, auth]\n  - id: backend\n    label: 后端层\n    contains: [verify, ok, fail]\n",
+    source: "title: 用户登录流程\ntype: flowchart\n\nnodes:\n  - id: start\n    label: 用户访问\n    kind: start\n  - id: login\n    label: 输入账号密码\n    kind: process\n  - id: verify\n    label: 验证凭据\n    kind: decision\n  - id: ok\n    label: 登录成功\n    kind: end\n  - id: fail\n    label: 登录失败\n    kind: end\n\nedges:\n  - from: start\n    to: login\n    label: 打开页面\n  - from: login\n    to: verify\n    label: 提交\n  - from: verify\n    to: ok\n    label: 通过\n  - from: verify\n    to: fail\n    label: 失败\n  - from: auth\n    to: backend\n    label: 整体调用\n\ngroups:\n  - id: auth\n    label: 认证模块\n    contains: [login]\n  - id: frontend\n    label: 前端层\n    contains: [start, auth]\n  - id: backend\n    label: 后端层\n    contains: [verify, ok, fail]\n",
   },
   {
     id: "mindmap",

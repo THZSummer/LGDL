@@ -31,6 +31,9 @@ edges:
   - from: verify
     to: fail
     label: 失败
+  - from: auth
+    to: backend
+    label: 整体调用
 
 groups:
   - id: auth
