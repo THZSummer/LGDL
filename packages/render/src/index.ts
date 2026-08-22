@@ -516,22 +516,39 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   const placedLabels: { x: number; y: number; w: number }[] = [];
   for (const edge of layout.edges) {
     const pts = edge.points.length > 0 ? edge.points : routeDefault(doc, edge.from, edge.to);
-    const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+    // Snap both endpoints to the REAL shape border (dagre only trims to the
+    // bounding rect — diamonds are empty near the rect corners, so lines
+    // starting from a decision floated in blank space).
+    const srcNode = layout.nodes.find((n) => n.id === edge.from);
+    const dstNode = layout.nodes.find((n) => n.id === edge.to);
+    // anchor to the shape that is ACTUALLY drawn: mindmap renders every node
+    // as a rounded rect, uml-class renders every node as a card — diamonds
+    // only exist in the generic modes
+    const shapeKindFor = (kind: string | undefined): string =>
+      mindmapInfo || mode === 'uml-class' ? 'process' : (kind ?? 'process');
+    const srcKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.from)?.kind);
+    const dstKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.to)?.kind);
+    const trimmed = [...pts];
+    if (trimmed.length >= 2) {
+      if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
+      if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
+    }
+    const d = trimmed.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
     const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
     const label = edgeDoc?.label;
     let labelEl = '';
     if (label || edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined) {
       // place label at midpoint of the longest segment
       let mid: { x: number; y: number } | null = null;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const a = pts[i];
-        const b = pts[i + 1];
+      for (let i = 0; i < trimmed.length - 1; i++) {
+        const a = trimmed[i];
+        const b = trimmed[i + 1];
         if (b.y > a.y || (b.y === a.y && Math.abs(b.x - a.x) > 30)) {
           mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
           break;
         }
       }
-      mid ??= { x: (pts[0].x + pts[pts.length - 1].x) / 2, y: (pts[0].y + pts[pts.length - 1].y) / 2 };
+      mid ??= { x: (trimmed[0].x + trimmed[trimmed.length - 1].x) / 2, y: (trimmed[0].y + trimmed[trimmed.length - 1].y) / 2 };
       // ER / UML multiplicities: explicit cardinalityFrom/To fields, rendered
       // near each endpoint; the label stays the pure relationship name.
       // No legacy label parsing — multiplicity must live in the fields.
@@ -540,8 +557,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         const rel = label ?? '';
         const fromV = edgeDoc?.cardinalityFrom;
         const toV = edgeDoc?.cardinalityTo;
-        const p0 = pts[0];
-        const pn = pts[pts.length - 1];
+        const p0 = trimmed[0];
+        const pn = trimmed[trimmed.length - 1];
         const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
         const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
         // anchor multiplicities 22px outside the entity borders so small
@@ -650,6 +667,33 @@ function boxEdgePoint(box: { x: number; y: number; w: number; h: number }, towar
   if (dx === 0 && dy === 0) return { x: cx, y: cy };
   const tX = dx !== 0 ? box.w / 2 / Math.abs(dx) : Infinity;
   const tY = dy !== 0 ? box.h / 2 / Math.abs(dy) : Infinity;
+  const t = Math.min(tX, tY);
+  return { x: cx + dx * t, y: cy + dy * t };
+}
+
+/**
+ * Point where a ray from `p` toward the box center crosses the node's REAL
+ * shape border. dagre only trims endpoints to the bounding rect — diamonds
+ * are empty near the rect corners, so lines from/to a decision node used to
+ * float in blank space. The diamond equation |dx|/(w/2) + |dy|/(h/2) = 1
+ * gives the true border; all other shapes approximate their bounding rect.
+ */
+function shapeEdgePoint(
+  kind: string,
+  box: { x: number; y: number; width: number; height: number },
+  p: { x: number; y: number },
+): { x: number; y: number } {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const dx = p.x - cx;
+  const dy = p.y - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  if (kind === 'decision') {
+    const t = 1 / (Math.abs(dx) / (box.width / 2) + Math.abs(dy) / (box.height / 2));
+    return { x: cx + dx * t, y: cy + dy * t };
+  }
+  const tX = dx !== 0 ? box.width / 2 / Math.abs(dx) : Infinity;
+  const tY = dy !== 0 ? box.height / 2 / Math.abs(dy) : Infinity;
   const t = Math.min(tX, tY);
   return { x: cx + dx * t, y: cy + dy * t };
 }
