@@ -29,6 +29,7 @@ lgdl --version    # 查看版本
 | `lgdl render <file>` | 渲染为 SVG（自动布局） | ⭐⭐⭐ |
 | `lgdl status <file>` | 输出文本化图结构 | ⭐⭐⭐ |
 | `lgdl export-mermaid <file>` | 导出 Mermaid 语法（兼容生态） | ⭐⭐ |
+| `lgdl import-mermaid <file>` | 从 Mermaid 导入（迁移） | ⭐⭐ |
 | `lgdl add-node <file>` | 加节点（增量，支持 attrs） | ⭐⭐⭐ |
 | `lgdl remove-node <file>` | 删节点（自动清理关联边） | ⭐⭐⭐ |
 | `lgdl update-node <file>` | 改节点 label/kind/attrs | ⭐⭐ |
@@ -187,6 +188,19 @@ lgdl export-mermaid my-diagram.lgdl -o out.mmd   # 写入文件
 **类型映射**：`flowchart`/`mindmap`/`sequence`/`er`/`state`/`gantt` 有专属 Mermaid 语法；`uml-class`/`arch`/`datastream` 降级为 flowchart 格式。
 
 **用途**：把 LGDL 图贴到 GitHub README（Mermaid 原生渲染）、Typora、Notion 等支持 Mermaid 的地方。
+
+#### `lgdl import-mermaid <file> --output out.lgdl`
+
+把 Mermaid 语法导入为 LGDL 文件（迁移存量图）。
+
+```bash
+lgdl import-mermaid existing.mmd --output new.lgdl
+# ✓ imported existing.mmd -> new.lgdl (flowchart, 5 nodes, 4 edges)
+```
+
+**支持**：`flowchart`/`sequenceDiagram`/`mindmap`/`stateDiagram-v2`/`erDiagram`/`gantt` 六种 Mermaid 方言。
+
+**注意**：中文实体名（ER 图）会转成合法 id（label 保留中文）；不支持的 Mermaid 类型（如 `pie`）会报错。
 
 ---
 

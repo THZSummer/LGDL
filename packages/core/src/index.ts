@@ -23,3 +23,5 @@ export type {
 } from './mutations.js';
 export { serializeLgdl } from './serialize.js';
 export { exportMermaid } from './mermaid.js';
+export { importMermaid } from './mermaid-import.js';
+export type { MermaidImportResult } from './mermaid-import.js';

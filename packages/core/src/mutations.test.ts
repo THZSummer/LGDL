@@ -12,6 +12,7 @@ import {
   serializeLgdl,
   parseLgdl,
   exportMermaid,
+  importMermaid,
 } from './index.js';
 
 const BASE: Parameters<typeof addNode>[0] = {
@@ -298,4 +299,111 @@ test('exportMermaid quotes are escaped', () => {
   };
   const out = exportMermaid(doc);
   assert.ok(out.includes('say &quot;hi&quot;'));
+});
+
+test('importMermaid flowchart', () => {
+  const mermaid = `flowchart TD
+    a["开始"]
+    b["处理"]
+    a -->|"下一步"| b
+`;
+  const r = importMermaid(mermaid);
+  assert.equal(r.valid, true);
+  assert.equal(r.document.type, 'flowchart');
+  assert.equal(r.document.nodes.length, 2);
+  assert.equal(r.document.edges[0].label, '下一步');
+});
+
+test('importMermaid sequence', () => {
+  const mermaid = `sequenceDiagram
+    participant user as 用户
+    participant srv as 服务
+    user->>srv: 请求
+`;
+  const r = importMermaid(mermaid);
+  assert.equal(r.document.type, 'sequence');
+  assert.equal(r.document.nodes.length, 2);
+  assert.equal(r.document.nodes[0].label, '用户');
+  assert.equal(r.document.edges[0].label, '请求');
+});
+
+test('importMermaid mindmap', () => {
+  const mermaid = `mindmap
+  root
+    child1
+    child2
+`;
+  const r = importMermaid(mermaid);
+  assert.equal(r.document.type, 'mindmap');
+  assert.equal(r.document.nodes.length, 3);
+  assert.equal(r.document.edges.length, 2);
+});
+
+test('importMermaid state', () => {
+  const mermaid = `stateDiagram-v2
+    a --> b: 支付
+    b --> [完成]
+`;
+  const r = importMermaid(mermaid);
+  assert.equal(r.document.type, 'state');
+  assert.equal(r.document.nodes.length, 3);
+  assert.ok(r.document.nodes.some((n) => n.kind === 'end'));
+});
+
+test('importMermaid er', () => {
+  const mermaid = `erDiagram
+    用户 {
+        string name
+    }
+    订单 {
+        int id
+    }
+    用户 ||--o{ 订单 : 拥有
+`;
+  const r = importMermaid(mermaid);
+  assert.equal(r.document.type, 'er');
+  assert.equal(r.document.nodes.length, 2);
+  assert.ok(r.document.edges[0].attrs?.cardinality);
+});
+
+test('importMermaid gantt', () => {
+  const mermaid = `gantt
+    dateFormat YYYY-MM-DD
+    section 任务
+    开发 : dev, 2026-01-01, 3d
+`;
+  const r = importMermaid(mermaid);
+  assert.equal(r.document.type, 'gantt');
+  assert.equal(r.document.nodes.length, 1);
+  assert.equal(r.document.nodes[0].attrs?.duration, 3);
+});
+
+test('importMermaid roundtrip: export -> import -> export is stable', () => {
+  // start from an LGDL doc, export, import, re-export: structure preserved
+  const doc: Parameters<typeof addNode>[0] = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: '开始', kind: 'start' },
+      { id: 'b', label: '处理' },
+    ],
+    edges: [{ from: 'a', to: 'b', label: '下一步' }],
+    groups: [],
+  };
+  const m1 = exportMermaid(doc);
+  const imported = importMermaid(m1);
+  assert.equal(imported.valid, true);
+  assert.equal(imported.document.nodes.length, 2);
+  assert.equal(imported.document.edges.length, 1);
+  // labels survive
+  const a = imported.document.nodes.find((n) => n.id === 'a');
+  assert.equal(a?.label, '开始');
+  const m2 = exportMermaid(imported.document);
+  assert.ok(m2.includes('开始'));
+  assert.ok(m2.includes('下一步'));
+});
+
+test('importMermaid rejects unsupported type', () => {
+  const r = importMermaid('pie\n  "A" : 1');
+  assert.equal(r.valid, false);
+  assert.ok(r.issues.some((i) => i.message.includes('Unsupported Mermaid diagram type')));
 });
