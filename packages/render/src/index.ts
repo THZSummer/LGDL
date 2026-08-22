@@ -245,6 +245,29 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
     );
   }
 
+  // activation bars: each participant is active from its first to its last
+  // message in the exchange (drawn under the message arrows)
+  const actRange = new Map<string, { min: number; max: number }>();
+  for (const edge of layout.edges) {
+    const y = edge.points[0]?.y ?? bodyTop;
+    for (const p of [edge.from, edge.to]) {
+      const cur = actRange.get(p) ?? { min: Infinity, max: -Infinity };
+      cur.min = Math.min(cur.min, y);
+      cur.max = Math.max(cur.max, y);
+      actRange.set(p, cur);
+    }
+  }
+  for (const node of layout.nodes) {
+    const range = actRange.get(node.id);
+    if (!range) continue;
+    const cx = node.x + node.width / 2;
+    const top = range.min - 18;
+    const h = range.max - range.min + 36;
+    parts.push(
+      `<rect class="lgdl-activation" x="${cx - 4}" y="${top}" width="8" height="${h}" fill="#dbeafe" opacity="0.7" stroke="#93c5fd" stroke-width="1"/>`,
+    );
+  }
+
   // participant headers
   for (const node of layout.nodes) {
     const lgdlNode = doc.nodes.find((n) => n.id === node.id);
