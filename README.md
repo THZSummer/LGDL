@@ -44,6 +44,8 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 
 ## 🖼️ 效果展示 / Gallery
 
+> 🚀 **在线体验 Web 工作台**：[LGDL Workbench](https://thzsummer.github.io/LGDL/) —— 浏览器里编辑源码、实时渲染、导出 SVG/PNG
+
 一种 LGDL 语言，九种图——全部由 `lgdl render` 自动布局生成，无任何手工排版：
 
 | flowchart 流程图 | mindmap 思维导图 | sequence 时序图 |
