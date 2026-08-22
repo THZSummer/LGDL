@@ -203,6 +203,18 @@ function computeMindmapInfo(
   return info;
 }
 
+/**
+ * Entry state of a state machine: the node with no incoming edges.
+ * Returns null unless there is exactly one entry (a single-entry machine).
+ */
+function findInitialState(doc: LgdlDocument): string | null {
+  const inDegree = new Map<string, number>();
+  for (const n of doc.nodes) inDegree.set(n.id, 0);
+  for (const e of doc.edges) inDegree.set(e.to, (inDegree.get(e.to) ?? 0) + 1);
+  const entries = doc.nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0);
+  return entries.length === 1 ? entries[0].id : null;
+}
+
 /** Render an LGDL document + layout into an SVG string. */
 export function renderSvg(doc: LgdlDocument, layout: LayoutResult): string {
   switch (doc.type) {
@@ -218,9 +230,10 @@ export function renderSvg(doc: LgdlDocument, layout: LayoutResult): string {
       return renderGeneral(doc, layout, 'er');
     case 'mindmap':
       return renderGeneral(doc, layout, 'mindmap');
+    case 'state':
+      return renderGeneral(doc, layout, 'state');
     case 'flowchart':
     case 'arch':
-    case 'state':
     default:
       return renderGeneral(doc, layout, 'default');
   }
@@ -296,10 +309,12 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
 }
 
 /** General renderer (flowchart/mindmap/arch/datastream), with optional class-node styling. */
-function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream' | 'er' | 'mindmap'): string {
+function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream' | 'er' | 'mindmap' | 'state'): string {
   const parts: string[] = [];
   // mindmap: per-branch colors + font hierarchy (root > level 1 > level 2)
   const mindmapInfo = mode === 'mindmap' ? computeMindmapInfo(doc) : null;
+  // state: initial pseudo-state (solid dot + arrow) above the entry state
+  const initialId = mode === 'state' ? findInitialState(doc) : null;
 
   // defs: arrowhead markers (gray for node edges, purple for aggregate edges)
   parts.push(
@@ -507,6 +522,19 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     parts.push(
       `<g class="lgdl-edge"><path d="${d}" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowhead)"/>${labelEl}</g>`,
     );
+  }
+
+  // state: initial pseudo-state — solid dot + arrow into the entry state
+  if (initialId) {
+    const initNode = layout.nodes.find((n) => n.id === initialId);
+    if (initNode) {
+      const cx = initNode.x + initNode.width / 2;
+      const top = initNode.y;
+      parts.push(
+        `<g class="lgdl-initial"><circle cx="${cx}" cy="${top - 18}" r="6" fill="#111827"/>` +
+          `<line x1="${cx}" y1="${top - 12}" x2="${cx}" y2="${top - 2}" stroke="#111827" stroke-width="1.5" marker-end="url(#arrowhead)"/></g>`,
+      );
+    }
   }
 
   // nodes (on top)
