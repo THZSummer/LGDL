@@ -29,6 +29,9 @@ nodes:
   - id: oss
     label: 对象存储
     kind: entity
+  - id: note
+    label: 静态资源由 CDN 回源 OSS
+    kind: note            # 便签节点（note 类型）
 
 edges:
   - from: user
@@ -52,6 +55,15 @@ edges:
   - from: worker
     to: oss
     label: 上传
+  - from: front
+    to: core
+    label: 转发请求       # 聚合边：接入层 → 核心服务
+  - from: core
+    to: data
+    label: 数据存储       # 聚合边：核心服务 → 数据层
+  - from: user
+    to: core
+    label: 业务入口       # 混合聚合边：节点 → 组
 
 groups:
   - id: front

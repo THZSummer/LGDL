@@ -25,3 +25,11 @@ edges:
   - from: user
     to: cart
     label: 关联 1..1
+
+groups:
+  - id: domain
+    label: 领域层
+    contains: [user, order, cart]
+  - id: infra
+    label: 基础设施
+    contains: [payment]

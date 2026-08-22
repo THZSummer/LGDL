@@ -43,6 +43,9 @@ edges:
   - from: pay-svc
     to: pay-db
     label: 记录流水
+  - from: app
+    to: data
+    label: 整体落库     # 聚合边：应用层 → 数据层（泳道间流向）
 
 groups:
   - id: app
