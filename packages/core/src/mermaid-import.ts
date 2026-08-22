@@ -260,7 +260,8 @@ function importEr(lines: string[], issues: LgdlIssue[]): LgdlDocument {
         from: a,
         to: b,
         ...(label ? { label } : {}),
-        attrs: { cardinality: `${leftCard}..${rightCard}` },
+        cardinalityFrom: leftCard,
+        cardinalityTo: rightCard,
       });
     }
   }

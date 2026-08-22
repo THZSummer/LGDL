@@ -517,9 +517,10 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   for (const edge of layout.edges) {
     const pts = edge.points.length > 0 ? edge.points : routeDefault(doc, edge.from, edge.to);
     const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
-    const label = doc.edges.find((e) => e.from === edge.from && e.to === edge.to)?.label;
+    const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
+    const label = edgeDoc?.label;
     let labelEl = '';
-    if (label) {
+    if (label || edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined) {
       // place label at midpoint of the longest segment
       let mid: { x: number; y: number } | null = null;
       for (let i = 0; i < pts.length - 1; i++) {
@@ -531,29 +532,37 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         }
       }
       mid ??= { x: (pts[0].x + pts[pts.length - 1].x) / 2, y: (pts[0].y + pts[pts.length - 1].y) / 2 };
-      if (mode === 'er') {
-        // ER convention: split "关系名 1..*" — relation name at the midpoint,
-        // cardinalities near each entity end ("1" at source, "*" at target)
-        const card = label.match(/^(.*?)\s+(\d+)\.\.(\d+|\*)$/);
-        if (card) {
-          const rel = card[1];
-          const p0 = pts[0];
-          const pn = pts[pts.length - 1];
-          const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
-          const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
-          const srcCard = { x: p0.x + ux * 16, y: p0.y + uy * 16 };
-          const dstCard = { x: pn.x - ux * 16, y: pn.y - uy * 16 };
-          labelEl =
-            text(mid.x, mid.y - 4, rel, 12, '#6b7280') +
-            text(srcCard.x, srcCard.y - 6, card[2], 12, '#b45309') +
-            text(dstCard.x, dstCard.y - 6, card[3], 12, '#b45309');
-        } else {
-          const { x, y } = placeLabel(mid.x, mid.y - 4, label, placedLabels);
-          labelEl = text(x, y, label, 12, '#6b7280');
+      // ER / UML multiplicities: explicit cardinalityFrom/To fields, rendered
+      // near each endpoint; the label stays the pure relationship name.
+      // Legacy fallback: a label like "拥有 1..*" is still split when no
+      // explicit fields are present.
+      const wantsCards = mode === 'er' || mode === 'uml-class';
+      const legacyCard =
+        wantsCards && edgeDoc?.cardinalityFrom === undefined && edgeDoc?.cardinalityTo === undefined && label
+          ? label.match(/^(.*?)\s+(\d+)\.\.(\d+|\*)$/)
+          : null;
+      if (wantsCards && (edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined || legacyCard)) {
+        const rel = legacyCard ? legacyCard[1] : (label ?? '');
+        const fromV = edgeDoc?.cardinalityFrom ?? legacyCard?.[2];
+        const toV = edgeDoc?.cardinalityTo ?? legacyCard?.[3];
+        const p0 = pts[0];
+        const pn = pts[pts.length - 1];
+        const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
+        const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
+        const srcCard = { x: p0.x + ux * 16, y: p0.y + uy * 16 };
+        const dstCard = { x: pn.x - ux * 16, y: pn.y - uy * 16 };
+        let relEl = '';
+        if (rel) {
+          const { x, y } = placeLabel(mid.x, mid.y - 4, rel, placedLabels);
+          relEl = text(x, y, rel, 12, '#6b7280');
         }
+        labelEl =
+          relEl +
+          (fromV !== undefined ? text(srcCard.x, srcCard.y - 6, fromV, 12, '#b45309') : '') +
+          (toV !== undefined ? text(dstCard.x, dstCard.y - 6, toV, 12, '#b45309') : '');
       } else {
-        const { x, y } = placeLabel(mid.x, mid.y - 4, label, placedLabels);
-        labelEl = text(x, y, label, 12, '#6b7280');
+        const { x, y } = placeLabel(mid.x, mid.y - 4, label ?? '', placedLabels);
+        labelEl = text(x, y, label ?? '', 12, '#6b7280');
       }
     }
     parts.push(

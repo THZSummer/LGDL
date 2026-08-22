@@ -13,10 +13,14 @@ export const updateEdgeCommand: LgdlCommand = {
       .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--from <id>', 'source node id')
       .requiredOption('--to <id>', 'target node id')
-      .option('--label <label>', 'new label')
+      .option('--label <label>', 'new relationship name')
+      .option('--cardinality-from <v>', 'new multiplicity at the source end')
+      .option('--cardinality-to <v>', 'new multiplicity at the target end')
       .option('--attrs <key=value>', 'extension attribute (repeatable, merged)', collect)
-      .action((opts: { file: string; from: string; to: string; label?: string; attrs?: string[] }) => {
-        mutate(opts.file, (doc) => updateEdge(doc, { from: opts.from, to: opts.to, label: opts.label, attrs: parseAttrs(opts.attrs) }));
+      .action((opts: { file: string; from: string; to: string; label?: string; cardinalityFrom?: string; cardinalityTo?: string; attrs?: string[] }) => {
+        mutate(opts.file, (doc) =>
+          updateEdge(doc, { from: opts.from, to: opts.to, label: opts.label, cardinalityFrom: opts.cardinalityFrom, cardinalityTo: opts.cardinalityTo, attrs: parseAttrs(opts.attrs) }),
+        );
       });
   },
 };

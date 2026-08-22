@@ -89,8 +89,15 @@ export interface LgdlEdge {
   from: string;
   /** Target node id — or group id for aggregate edges */
   to: string;
-  /** Optional edge label */
+  /** Relationship name (pure business semantics — no cardinality mixed in) */
   label?: string;
+  /**
+   * ER / UML multiplicity at the source end, e.g. "1", "*", "0..1".
+   * Explicit fields — the renderer never parses cardinality out of the label.
+   */
+  cardinalityFrom?: string;
+  /** ER / UML multiplicity at the target end, e.g. "1", "*", "0..*". */
+  cardinalityTo?: string;
   /** Diagram-specific extension attributes (e.g. ER cardinality) */
   attrs?: LgdlAttrs;
 }

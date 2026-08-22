@@ -18,16 +18,16 @@ nodes:
 edges:
   - from: user
     to: order
-    label: "拥有 1..*"
-    attrs:
-      cardinality: "1..*"
+    label: 拥有
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
   - from: order
     to: order-item
-    label: "包含 1..*"
-    attrs:
-      cardinality: "1..*"
+    label: 包含
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
   - from: product
     to: order-item
-    label: "关联 1..*"
-    attrs:
-      cardinality: "1..*"
+    label: 关联
+    cardinalityFrom: "1"
+    cardinalityTo: "*"

@@ -434,7 +434,9 @@ test('importMermaid er', () => {
   const r = importMermaid(mermaid);
   assert.equal(r.document.type, 'er');
   assert.equal(r.document.nodes.length, 2);
-  assert.ok(r.document.edges[0].attrs?.cardinality);
+  // mermaid connectors map to the explicit cardinality fields
+  assert.equal(r.document.edges[0].cardinalityFrom, '1'); // ||
+  assert.equal(r.document.edges[0].cardinalityTo, '0..*'); // o{
 });
 
 test('importMermaid gantt', () => {
@@ -585,4 +587,21 @@ test('updateNode memberRemove of a missing member throws', () => {
     () => updateNode({ ...BASE, type: 'uml-class', nodes: [{ id: 'x', kind: 'entity' }] }, { id: 'x', memberRemove: 'ghost' }),
     /Member not found/,
   );
+});
+
+// ---- cardinality: explicit multiplicity fields via mutations ----
+
+test('addEdge supports cardinalityFrom/To', () => {
+  const { document } = addEdge(BASE, { from: 'b', to: 'a', label: '拥有', cardinalityFrom: '1', cardinalityTo: '*' });
+  const e = document.edges[document.edges.length - 1];
+  assert.equal(e.label, '拥有');
+  assert.equal(e.cardinalityFrom, '1');
+  assert.equal(e.cardinalityTo, '*');
+});
+
+test('updateEdge sets cardinality fields', () => {
+  const r = updateEdge(BASE, { from: 'a', to: 'b', cardinalityFrom: '0..1', cardinalityTo: '*' });
+  const e = r.document.edges[0];
+  assert.equal(e.cardinalityFrom, '0..1');
+  assert.equal(e.cardinalityTo, '*');
 });

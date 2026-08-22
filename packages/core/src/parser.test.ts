@@ -463,3 +463,60 @@ test('serialize roundtrip preserves structured members', () => {
   assert.equal(reparsed.valid, true, reparsed.issues.map((i) => i.message).join('; '));
   assert.deepEqual(reparsed.document.nodes[0].members, parsed.document.nodes[0].members);
 });
+
+// ---- cardinality: explicit multiplicity fields on edges ----
+
+test('cardinality fields parse as strings (quoted and bare)', () => {
+  const result = parseLgdl(`type: er
+nodes:
+  - id: user
+  - id: order
+edges:
+  - from: user
+    to: order
+    label: 拥有
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
+  - from: order
+    to: user
+    cardinalityFrom: 1
+    cardinalityTo: 0..1
+`);
+  assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
+  const e0 = result.document.edges[0];
+  assert.equal(e0.label, '拥有');
+  assert.equal(e0.cardinalityFrom, '1');
+  assert.equal(e0.cardinalityTo, '*');
+  // bare `1` and `0..1` must stay strings, not numbers
+  assert.equal(result.document.edges[1].cardinalityFrom, '1');
+  assert.equal(result.document.edges[1].cardinalityTo, '0..1');
+});
+
+test('non-string cardinality (hand-built doc) is an error', () => {
+  const result = validate({
+    type: 'er',
+    nodes: [{ id: 'a' }, { id: 'b' }],
+    edges: [{ from: 'a', to: 'b', cardinalityFrom: 1 as never }],
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('cardinalityFrom must be a string')));
+});
+
+test('serialize roundtrip preserves cardinality fields', () => {
+  const parsed = parseLgdl(`type: er
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+    label: 拥有
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
+`);
+  const reparsed = parseLgdl(serializeLgdl(parsed.document));
+  assert.equal(reparsed.valid, true, reparsed.issues.map((i) => i.message).join('; '));
+  assert.equal(reparsed.document.edges[0].label, '拥有');
+  assert.equal(reparsed.document.edges[0].cardinalityFrom, '1');
+  assert.equal(reparsed.document.edges[0].cardinalityTo, '*');
+});

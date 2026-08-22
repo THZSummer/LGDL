@@ -77,6 +77,12 @@ export function serializeLgdl(doc: LgdlDocument): string {
       if (edge.label !== undefined) {
         lines.push(`    label: ${yamlString(edge.label)}`);
       }
+      if (edge.cardinalityFrom !== undefined) {
+        lines.push(`    cardinalityFrom: ${yamlString(edge.cardinalityFrom)}`);
+      }
+      if (edge.cardinalityTo !== undefined) {
+        lines.push(`    cardinalityTo: ${yamlString(edge.cardinalityTo)}`);
+      }
       if (edge.attrs && Object.keys(edge.attrs).length > 0) {
         lines.push(`    attrs:`);
         lines.push(...serializeAttrs(edge.attrs, '      '));

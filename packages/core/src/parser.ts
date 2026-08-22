@@ -186,6 +186,16 @@ export function validate(
         location: `edges[${i}].to`,
       });
     }
+    for (const f of ['cardinalityFrom', 'cardinalityTo'] as const) {
+      const v = edge[f];
+      if (v !== undefined && typeof v !== 'string') {
+        issues.push({
+          severity: 'error',
+          message: `Edge "${edge.from} -> ${edge.to}" ${f} must be a string (e.g. "1", "*", "0..1")`,
+          location: `edges[${i}].${f}`,
+        });
+      }
+    }
   });
 
   // groups: ids unique; contains must reference existing nodes OR groups;
@@ -468,7 +478,9 @@ function stripInlineComment(raw: string): string {
 }
 
 function parseFieldValue(key: string, raw: string): unknown {
-  if (key === 'id' || key === 'from' || key === 'to') {
+  // Identifier / multiplicity fields must stay strings — a cardinality like
+  // `1` is a multiplicity, not a number.
+  if (key === 'id' || key === 'from' || key === 'to' || key === 'cardinalityFrom' || key === 'cardinalityTo') {
     const v = parseScalar(raw);
     return v === undefined ? undefined : String(v);
   }

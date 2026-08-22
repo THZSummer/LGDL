@@ -99,13 +99,19 @@ nodes:
 edges:
   - from: user
     to: order
-    label: 拥有 1..*
+    label: 拥有
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
   - from: order
     to: payment
-    label: 发起 1..1
+    label: 发起
+    cardinalityFrom: "1"
+    cardinalityTo: "1"
   - from: user
     to: cart
-    label: 关联 1..1
+    label: 关联
+    cardinalityFrom: "1"
+    cardinalityTo: "1"
 
 groups:
   - id: domain

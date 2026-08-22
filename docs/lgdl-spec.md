@@ -85,9 +85,24 @@ meta: {...}              # 可选，元信息（作者、版本等）
 ```yaml
 - from: string           # 必填，源 id（node id 或 group id）
   to: string             # 必填，目标 id（node id 或 group id）
-  label: string          # 可选，边上的文本
-  attrs: {...}           # 可选，扩展属性（如 ER 基数 cardinality）
+  label: string          # 可选，关系名（纯业务语义，不混基数）
+  cardinalityFrom: "1"   # 可选，源端多重性（如 "1"、"*"、"0..1"）
+  cardinalityTo: "*"     # 可选，目标端多重性（如 "1"、"*"、"0..*"）
+  attrs: {...}           # 可选，扩展属性（逃生舱）
 ```
+
+**多重性（ER / UML 关联）是显性字段**：`label` 只放关系名，两端基数用 `cardinalityFrom` / `cardinalityTo` 表达——渲染器在源端/目标端各标一个，不做字符串解析：
+
+```yaml
+edges:
+  - from: user
+    to: order
+    label: 拥有          # 关系名（业务语义）
+    cardinalityFrom: "1" # user 端：每个订单属于一个用户
+    cardinalityTo: "*"   # order 端：一个用户拥有多个订单
+```
+
+（兼容：旧写法 `label: "拥有 1..*"` 仍被渲染器识别，规范写法是显性字段。）
 
 **聚合边（aggregate edge）**：`from`/`to` 除了 node id，也可以是 **group id**，表示"组作为整体参与流向/依赖"（不绑定组内具体节点）：
 

@@ -112,3 +112,56 @@ test('renderSvg renders uml-class cards from structured members', () => {
   // the old label-newline content must NOT be re-invented when members exist
   assert.ok(!svg.includes('\\n'), 'no raw newline escapes leak into the card');
 });
+
+test('renderSvg er mode: relation name at midpoint, multiplicities at endpoints', () => {
+  const doc: LgdlDocument = {
+    type: 'er',
+    nodes: [
+      { id: 'user', label: '用户' },
+      { id: 'order', label: '订单' },
+    ],
+    edges: [{ from: 'user', to: 'order', label: '拥有', cardinalityFrom: '1', cardinalityTo: '*' }],
+    groups: [],
+  };
+  const layout: LayoutResult = {
+    nodes: [
+      { id: 'user', x: 40, y: 100, width: 140, height: 60 },
+      { id: 'order', x: 420, y: 100, width: 140, height: 60 },
+    ],
+    edges: [{ from: 'user', to: 'order', points: [{ x: 110, y: 130 }, { x: 490, y: 130 }] }],
+    width: 600,
+    height: 260,
+  };
+  const svg = renderSvg(doc, layout);
+  // relation name at midpoint, multiplicities near each endpoint
+  assert.ok(svg.includes('>拥有</text>'), 'relation name at midpoint');
+  assert.ok(svg.includes('>1</text>'), 'source multiplicity rendered');
+  assert.ok(svg.includes('>*</text>'), 'target multiplicity rendered');
+  // no regex-split residue: the label must not contain "1..*" anymore
+  assert.ok(!svg.includes('拥有 1..*'), 'label stays the pure relation name');
+});
+
+test('renderSvg uml-class mode renders explicit multiplicities at endpoints', () => {
+  const doc: LgdlDocument = {
+    type: 'uml-class',
+    nodes: [
+      { id: 'user', label: 'User', kind: 'entity' },
+      { id: 'order', label: 'Order', kind: 'entity' },
+    ],
+    edges: [{ from: 'user', to: 'order', label: '拥有', cardinalityFrom: '1', cardinalityTo: '*' }],
+    groups: [],
+  };
+  const layout: LayoutResult = {
+    nodes: [
+      { id: 'user', x: 40, y: 100, width: 140, height: 60 },
+      { id: 'order', x: 420, y: 100, width: 140, height: 60 },
+    ],
+    edges: [{ from: 'user', to: 'order', points: [{ x: 110, y: 130 }, { x: 490, y: 130 }] }],
+    width: 600,
+    height: 260,
+  };
+  const svg = renderSvg(doc, layout);
+  assert.ok(svg.includes('>拥有</text>'), 'relation name at midpoint');
+  assert.ok(svg.includes('>1</text>'), 'source multiplicity');
+  assert.ok(svg.includes('>*</text>'), 'target multiplicity');
+});

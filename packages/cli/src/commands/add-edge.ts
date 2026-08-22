@@ -13,10 +13,14 @@ export const addEdgeCommand: LgdlCommand = {
       .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--from <id>', 'source node id')
       .requiredOption('--to <id>', 'target node id')
-      .option('--label <label>', 'edge label')
-      .option('--attrs <key=value>', 'extension attribute (repeatable, e.g. --attrs cardinality="1..*")', collect)
-      .action((opts: { file: string; from: string; to: string; label?: string; attrs?: string[] }) => {
-        mutate(opts.file, (doc) => addEdge(doc, { from: opts.from, to: opts.to, label: opts.label, attrs: parseAttrs(opts.attrs) }));
+      .option('--label <label>', 'relationship name (business semantics only)')
+      .option('--cardinality-from <v>', 'multiplicity at the source end (e.g. "1", "*", "0..1")')
+      .option('--cardinality-to <v>', 'multiplicity at the target end (e.g. "1", "*", "0..*")')
+      .option('--attrs <key=value>', 'extension attribute (repeatable)', collect)
+      .action((opts: { file: string; from: string; to: string; label?: string; cardinalityFrom?: string; cardinalityTo?: string; attrs?: string[] }) => {
+        mutate(opts.file, (doc) =>
+          addEdge(doc, { from: opts.from, to: opts.to, label: opts.label, cardinalityFrom: opts.cardinalityFrom, cardinalityTo: opts.cardinalityTo, attrs: parseAttrs(opts.attrs) }),
+        );
       });
   },
 };

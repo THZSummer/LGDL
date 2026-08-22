@@ -113,9 +113,10 @@ function mermaidEr(doc: LgdlDocument): string {
   for (const e of doc.edges) {
     const a = entityName(e.from);
     const b = entityName(e.to);
-    const card = (e.attrs?.cardinality as string) ?? '1..*';
-    const leftCard = card.split('..')[0]?.trim() || '1';
-    const rightCard = card.split('..')[1]?.trim() || '*';
+    // explicit cardinality fields first; legacy attrs.cardinality fallback
+    const legacy = (e.attrs?.cardinality as string | undefined)?.split('..') ?? [];
+    const leftCard = e.cardinalityFrom ?? legacy[0]?.trim() ?? '1';
+    const rightCard = e.cardinalityTo ?? legacy[1]?.trim() ?? '*';
     // mermaid er: A ||--o{ B  (left cardinality, right cardinality)
     // cardinality is expressed by the connector; the label must be a
     // simple word (dots like '1..*' are not allowed in relation labels)

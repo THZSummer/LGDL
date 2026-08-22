@@ -47,8 +47,13 @@ export interface AddNodeOptions {
 export interface AddEdgeOptions {
   from: string;
   to: string;
+  /** Relationship name (business semantics only) */
   label?: string;
-  /** Extension attributes (e.g. ER cardinality) */
+  /** ER / UML multiplicity at the source end, e.g. "1", "*", "0..1" */
+  cardinalityFrom?: string;
+  /** ER / UML multiplicity at the target end, e.g. "1", "*", "0..*" */
+  cardinalityTo?: string;
+  /** Extension attributes */
   attrs?: LgdlAttrs;
 }
 
@@ -68,6 +73,10 @@ export interface UpdateEdgeOptions {
   from: string;
   to: string;
   label?: string;
+  /** Replace the source-end multiplicity */
+  cardinalityFrom?: string;
+  /** Replace the target-end multiplicity */
+  cardinalityTo?: string;
   /** Replace extension attributes (merge) */
   attrs?: LgdlAttrs;
 }
@@ -148,7 +157,7 @@ export function removeNode(doc: LgdlDocument, id: string): MutationResult {
 }
 
 export function addEdge(doc: LgdlDocument, opts: AddEdgeOptions): MutationResult {
-  const { from, to, label, attrs } = opts;
+  const { from, to, label, cardinalityFrom, cardinalityTo, attrs } = opts;
 
   const isNode = (id: string) => doc.nodes.some((n) => n.id === id);
   const isGroup = (id: string) => doc.groups.some((g) => g.id === id);
@@ -165,11 +174,18 @@ export function addEdge(doc: LgdlDocument, opts: AddEdgeOptions): MutationResult
     throw new Error(`Edge already exists: ${from} -> ${to}`);
   }
 
-  const edge: LgdlEdge = { from, to, label, ...(attrs !== undefined ? { attrs } : {}) };
+  const edge: LgdlEdge = {
+    from,
+    to,
+    label,
+    ...(cardinalityFrom !== undefined ? { cardinalityFrom } : {}),
+    ...(cardinalityTo !== undefined ? { cardinalityTo } : {}),
+    ...(attrs !== undefined ? { attrs } : {}),
+  };
 
   return {
     document: { ...doc, edges: [...doc.edges, edge] },
-    summary: `added edge ${from} -> ${to}${label ? ` [${label}]` : ''}`,
+    summary: `added edge ${from} -> ${to}${label ? ` [${label}]` : ''}${cardinalityFrom || cardinalityTo ? ` (from=${cardinalityFrom ?? '?'}, to=${cardinalityTo ?? '?'})` : ''}`,
   };
 }
 
@@ -229,7 +245,7 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
 }
 
 export function updateEdge(doc: LgdlDocument, opts: UpdateEdgeOptions): MutationResult {
-  const { from, to, label, attrs } = opts;
+  const { from, to, label, cardinalityFrom, cardinalityTo, attrs } = opts;
   if (!doc.edges.some((e) => e.from === from && e.to === to)) {
     throw new Error(`Edge not found: ${from} -> ${to}`);
   }
@@ -241,6 +257,8 @@ export function updateEdge(doc: LgdlDocument, opts: UpdateEdgeOptions): Mutation
         ? {
             ...e,
             ...(label !== undefined ? { label } : {}),
+            ...(cardinalityFrom !== undefined ? { cardinalityFrom } : {}),
+            ...(cardinalityTo !== undefined ? { cardinalityTo } : {}),
             ...(attrs !== undefined ? { attrs: { ...e.attrs, ...attrs } } : {}),
           }
         : e,
@@ -249,6 +267,8 @@ export function updateEdge(doc: LgdlDocument, opts: UpdateEdgeOptions): Mutation
 
   const changes: string[] = [];
   if (label !== undefined) changes.push(`label="${label}"`);
+  if (cardinalityFrom !== undefined) changes.push(`cardinalityFrom=${cardinalityFrom}`);
+  if (cardinalityTo !== undefined) changes.push(`cardinalityTo=${cardinalityTo}`);
   if (attrs !== undefined) changes.push(`attrs={${Object.keys(attrs).join(',')}}`);
   return { document, summary: `updated edge ${from} -> ${to} (${changes.join(', ')})` };
 }

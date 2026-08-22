@@ -23,6 +23,15 @@
 - 解析器：支持任意层级的块级对象列表（此前仅顶层，`members` 依赖此能力）
 - 兼容：`label` 内 `\n` 写法仍被渲染器识别（无 members 时的回退路径），规范写法为 `members`
 
+**新特性：边多重性显性化 —— `cardinalityFrom` / `cardinalityTo`**
+
+- 🆕 edge 新增显性字段 **`cardinalityFrom`** / **`cardinalityTo`**：ER/UML 关联两端多重性，`label` 只放关系名
+- 渲染器零猜测：不再用正则从 `label: "拥有 1..*"` 拆基数；关系名标在中点、两端基数各标在对应实体端（er 与 uml-class 均生效）
+- 校验：两字段必须是字符串（`1` 也按字符串处理，与 id 同理）；手建文档传数字报 error
+- CLI：`add-edge --cardinality-from <v> --cardinality-to <v>`、`update-edge` 同参；`status` 边输出 `(1..*)`
+- 导入/导出：mermaid-import 的 `||--o{` 连接符映射到新字段；mermaid er 导出优先读新字段（兼容 attrs.cardinality）
+- 兼容：`label: "拥有 1..*"` 旧写法仍被渲染器识别，规范写法为显性字段
+
 ## 0.3.0 (2026-08-22)
 
 **新特性：嵌套分组（P0）**
