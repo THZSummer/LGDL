@@ -1,6 +1,6 @@
 // LGDL Web Workbench — edit .lgdl in the browser, live render
-import React, { useMemo, useState, useCallback, useRef } from 'react';
-import { parseLgdl, validate } from '@lgdl/core';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { parseLgdl } from '@lgdl/core';
 import { layoutDocument } from '@lgdl/layout';
 import { renderSvg } from '@lgdl/render';
 import { EXAMPLES, type Example } from './examples';
@@ -13,46 +13,79 @@ interface RenderState {
   nodeCount: number;
   edgeCount: number;
   issues: { severity: string; message: string; location?: string }[];
+  /** elapsed ms for the last compile */
+  elapsed: number;
 }
 
+/** Simple LRU-ish cache: source -> RenderState (bounded). */
+const compileCache = new Map<string, RenderState>();
+const CACHE_MAX = 50;
+
 function compile(source: string): RenderState {
+  const cached = compileCache.get(source);
+  if (cached) return cached;
+
+  const start = performance.now();
   const result = parseLgdl(source);
-  const issues = result.issues;
+  const issues = result.issues.map((i) => ({ severity: i.severity, message: i.message, location: i.location }));
+
+  let state: RenderState;
   if (!result.valid) {
-    return {
+    state = {
       svg: '',
       width: 0,
       height: 0,
       nodeCount: 0,
       edgeCount: 0,
-      issues: issues.map((i) => ({ severity: i.severity, message: i.message, location: i.location })),
+      issues,
+      elapsed: performance.now() - start,
+    };
+  } else {
+    const doc = result.document;
+    const layout = layoutDocument(doc);
+    const svg = renderSvg(doc, layout);
+    state = {
+      svg,
+      width: layout.width,
+      height: layout.height,
+      nodeCount: doc.nodes.length,
+      edgeCount: doc.edges.length,
+      issues,
+      elapsed: performance.now() - start,
     };
   }
-  const doc = result.document;
-  const layout = layoutDocument(doc);
-  const svg = renderSvg(doc, layout);
-  return {
-    svg,
-    width: layout.width,
-    height: layout.height,
-    nodeCount: doc.nodes.length,
-    edgeCount: doc.edges.length,
-    issues: issues.map((i) => ({ severity: i.severity, message: i.message, location: i.location })),
-  };
+
+  if (compileCache.size >= CACHE_MAX) {
+    const firstKey = compileCache.keys().next().value;
+    if (firstKey) compileCache.delete(firstKey);
+  }
+  compileCache.set(source, state);
+  return state;
 }
 
 export function App(): React.JSX.Element {
   const [source, setSource] = useState<string>(EXAMPLES[0].source);
   const [exampleId, setExampleId] = useState<string>(EXAMPLES[0].id);
   const [copied, setCopied] = useState(false);
+  const [debouncedSource, setDebouncedSource] = useState<string>(EXAMPLES[0].source);
   const svgRef = useRef<HTMLDivElement>(null);
 
-  const state = useMemo(() => compile(source), [source]);
+  // debounce: only recompile 300ms after the user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSource(source), 300);
+    return () => clearTimeout(timer);
+  }, [source]);
+
+  // cache is keyed on debounced source so stale values are reused cheaply
+  const state = useMemo(() => compile(debouncedSource), [debouncedSource]);
   const hasErrors = state.issues.some((i) => i.severity === 'error');
+  const isStale = source !== debouncedSource; // typing in progress
 
   const loadExample = useCallback((ex: Example) => {
     setExampleId(ex.id);
     setSource(ex.source);
+    setDebouncedSource(ex.source);
+    compileCache.clear();
   }, []);
 
   const downloadSvg = useCallback(() => {
@@ -145,10 +178,15 @@ export function App(): React.JSX.Element {
           />
           <div className="status-bar">
             <span className={hasErrors ? 'status-error' : 'status-ok'}>
-              {hasErrors ? `✖ ${state.issues.filter((i) => i.severity === 'error').length} 个错误` : '✓ 语法正确'}
+              {hasErrors
+                ? `✖ ${state.issues.filter((i) => i.severity === 'error').length} 个错误`
+                : isStale
+                  ? '⏳ 输入中…'
+                  : '✓ 语法正确'}
             </span>
             <span>
               {state.nodeCount} 节点 · {state.edgeCount} 边 · {state.width}×{state.height}
+              {state.elapsed > 0 && !isStale ? ` · ${state.elapsed.toFixed(1)}ms` : ''}
             </span>
           </div>
         </section>
@@ -176,3 +214,4 @@ export function App(): React.JSX.Element {
     </div>
   );
 }
+

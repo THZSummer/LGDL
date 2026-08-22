@@ -49,7 +49,18 @@ const GRAPH_MARGIN = 40;
 const RANK_SEP = 60; // vertical gap between ranks
 const NODE_SEP = 40; // horizontal gap between nodes
 
+/** Above this node count, use the fast grid layout instead of dagre. */
+export const LARGE_GRAPH_THRESHOLD = 120;
+
 export function layoutDocument(doc: LgdlDocument): LayoutResult {
+  // Large graphs: skip the expensive dagre layout, use O(n) grid.
+  // This keeps the editor interactive; dagre quality matters for small/medium.
+  if (
+    doc.nodes.length > LARGE_GRAPH_THRESHOLD &&
+    (doc.type === 'flowchart' || doc.type === 'state' || doc.type === 'er')
+  ) {
+    return layoutGrid(doc);
+  }
   switch (doc.type) {
     case 'mindmap':
       return layoutMindmap(doc);
@@ -428,6 +439,53 @@ function layoutGantt(doc: LgdlDocument): LayoutResult {
       points: [
         { x: a.x + a.width, y: a.y + a.height / 2 },
         { x: b.x, y: b.y + b.height / 2 },
+      ],
+    };
+  });
+
+  return { nodes, edges, width, height };
+}
+
+// ---------------------------------------------------------------------------
+// lightweight grid layout for large graphs (fast fallback)
+// ---------------------------------------------------------------------------
+
+const GRID_NODE_W = 150;
+const GRID_NODE_H = 44;
+const GRID_COLS = 6; // nodes per row
+
+/**
+ * O(n) grid layout — used for large graphs where dagre becomes slow.
+ * Nodes are placed in document order, wrapped into rows.
+ */
+function layoutGrid(doc: LgdlDocument): LayoutResult {
+  const rows = Math.ceil(doc.nodes.length / GRID_COLS);
+  const width = GRAPH_MARGIN * 2 + GRID_COLS * (GRID_NODE_W + NODE_SEP);
+  const height = GRAPH_MARGIN * 2 + rows * (GRID_NODE_H + RANK_SEP);
+
+  const nodePos = new Map<string, { x: number; y: number; width: number; height: number }>();
+  doc.nodes.forEach((n, i) => {
+    const col = i % GRID_COLS;
+    const row = Math.floor(i / GRID_COLS);
+    nodePos.set(n.id, {
+      x: GRAPH_MARGIN + col * (GRID_NODE_W + NODE_SEP),
+      y: GRAPH_MARGIN + row * (GRID_NODE_H + RANK_SEP),
+      width: GRID_NODE_W,
+      height: GRID_NODE_H,
+    });
+  });
+
+  const nodes: LayoutNode[] = doc.nodes.map((n) => ({ id: n.id, ...nodePos.get(n.id)! }));
+
+  const edges: LayoutEdge[] = doc.edges.map((e) => {
+    const a = nodePos.get(e.from)!;
+    const b = nodePos.get(e.to)!;
+    return {
+      from: e.from,
+      to: e.to,
+      points: [
+        { x: a.x + a.width / 2, y: a.y + a.height / 2 },
+        { x: b.x + b.width / 2, y: b.y + b.height / 2 },
       ],
     };
   });
