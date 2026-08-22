@@ -709,7 +709,7 @@ function routeDefault(
  *     elliptical arcs matching the renderer body)
  *  2. anchors — the approach direction is quantized to 15° (24 directions),
  *     so lines attach to predictable, tidy anchor points on the shape
- *     border. Rounded rects (process rx=6, start/end pill rx=h/2, groups
+ *     border. Rounded rects (process rx=6, groups
  *     rx=8 via rxOverride) are intersected with their REAL rounded corners,
  *     so diagonal anchors never float outside the corner arcs.
  * The DSL is untouched — this is purely a renderer concept.
@@ -732,6 +732,15 @@ function shapeEdgePoint(
   const uy = Math.sin(q);
   if (kind === 'decision') {
     const t = 1 / (Math.abs(ux) / (box.width / 2) + Math.abs(uy) / (box.height / 2));
+    return { x: cx + ux * t, y: cy + uy * t };
+  }
+  if (kind === 'start' || kind === 'end') {
+    // rect rx=w/2 renders as a FULL ellipse: ry is clamped to h/2, so the
+    // four corner arcs (rx=w/2, ry=h/2) join into a standard ellipse
+    // (x/a)^2 + (y/b)^2 = 1 with a = w/2, b = h/2.
+    const a = box.width / 2;
+    const b = box.height / 2;
+    const t = 1 / Math.sqrt((ux / a) ** 2 + (uy / b) ** 2);
     return { x: cx + ux * t, y: cy + uy * t };
   }
   if (kind === 'entity') {
