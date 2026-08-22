@@ -41,7 +41,7 @@ groups:
     contains: [login]
   - id: frontend
     label: 前端层
-    contains: [start, auth]        # 嵌套：前端层包含认证模块
+    contains: [start, auth]
   - id: backend
     label: 后端层
     contains: [verify, ok, fail]

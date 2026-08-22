@@ -1,6 +1,8 @@
 /**
- * Embedded example .lgdl sources for the web workbench.
- * Generated from examples/ — keep in sync with that directory.
+ * LGDL example sources — THE single source of truth.
+ * examples/*.lgdl, *.svg and *.png are generated artifacts:
+ *   node scripts/gen-examples.mjs
+ * Edit this file, then re-run the script to regenerate examples/.
  */
 
 export interface Example {
