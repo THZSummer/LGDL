@@ -417,11 +417,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
 
   // groups (behind everything else)
   // 8 fixed border anchors for a group box, revealed on hover (same
-  // 45-deg quantization the aggregate edges snap to)
+  // 15-deg quantization the aggregate edges snap to)
   const anchorDots = (b: { x: number; y: number; w: number; h: number }, color: string): string => {
     const dots: string[] = [];
-    for (let k = 0; k < 8; k++) {
-      const th = (k * Math.PI) / 4;
+    for (let k = 0; k < 24; k++) {
+      const th = (k * Math.PI) / 12;
       const ap = shapeEdgePoint('process', { x: b.x, y: b.y, width: b.w, height: b.h }, {
         x: b.x + b.w / 2 + Math.cos(th),
         y: b.y + b.h / 2 + Math.sin(th),
@@ -542,8 +542,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     // line endpoints.
     const shapeKind = shapeKindFor(lgdlNode.kind);
     const dots: string[] = [];
-    for (let k = 0; k < 8; k++) {
-      const th = (k * Math.PI) / 4;
+    for (let k = 0; k < 24; k++) {
+      const th = (k * Math.PI) / 12;
       const ap = shapeEdgePoint(shapeKind, node, {
         x: node.x + node.width / 2 + Math.cos(th),
         y: node.y + node.height / 2 + Math.sin(th),
@@ -708,7 +708,7 @@ function routeDefault(
  *     (diamond |dx|/(w/2) + |dy|/(h/2) = 1; cylinder straight sides plus
  *     elliptical arcs matching the renderer body)
  *  2. anchors — the approach direction is quantized to 8 fixed directions
- *     (every 45°), so lines attach to predictable, tidy anchor points on
+ *     (every 15°), so lines attach to predictable, tidy anchor points on
  *     the shape border (rect: edge midpoints + corners; diamond: vertices
  *     + side midpoints; cylinder: arc top/bottom, arc shoulders, side
  *     midpoints). The DSL is untouched — this is purely a renderer concept.
@@ -723,9 +723,9 @@ function shapeEdgePoint(
   const dx = p.x - cx;
   const dy = p.y - cy;
   if (dx === 0 && dy === 0) return { x: cx, y: cy };
-  // quantize the approach direction to the nearest 45° anchor
+  // quantize the approach direction to the nearest 15° anchor
   const angle = Math.atan2(dy, dx);
-  const q = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+  const q = Math.round(angle / (Math.PI / 12)) * (Math.PI / 12);
   const ux = Math.cos(q);
   const uy = Math.sin(q);
   if (kind === 'decision') {
