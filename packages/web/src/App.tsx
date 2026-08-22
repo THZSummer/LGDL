@@ -276,6 +276,15 @@ function collectNodeIds(doc: string): string[] {
 
 /** Offer suggestions based on the current line's context. */
 function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
+  try {
+    return lgdlCompletionsInner(ctx);
+  } catch {
+    // never let a completion error disable the feature
+    return null;
+  }
+}
+
+function lgdlCompletionsInner(ctx: CompletionContext): CompletionResult | null {
   const pos = ctx.pos;
   const docText = ctx.state.doc.toString();
   const line = ctx.state.doc.lineAt(pos);
@@ -355,6 +364,8 @@ function lgdlCompletions(ctx: CompletionContext): CompletionResult | null {
 const lgdlAutocomplete = autocompletion({
   override: [lgdlCompletions],
   defaultKeymap: true,
+  activateOnTyping: true,
+  activateOnTypingDelay: 50,
 });
 
 /** Error boundary: never let an unexpected error blank the whole page. */
