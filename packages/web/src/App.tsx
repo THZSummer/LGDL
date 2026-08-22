@@ -294,12 +294,21 @@ function ZoomableSvg({
   // keep the latest callback without re-binding the wheel listener
   const onScaleChangeRef = useRef(onScaleChange);
   onScaleChangeRef.current = onScaleChange;
+  // keep the LATEST diagram size in refs: the wheel listener binds once and
+  // its closure would otherwise capture the size of the FIRST diagram —
+  // zooming after switching examples would resize the SVG to the old
+  // diagram's dimensions (e.g. a portrait 650x916 box around a landscape
+  // 960x530 sequence diagram), making the white background flip orientation.
+  const widthRef = useRef(width);
+  const heightRef = useRef(height);
+  widthRef.current = width;
+  heightRef.current = height;
 
   const applySize = (scale: number) => {
     const svgEl = innerRef.current?.querySelector('svg');
     if (!svgEl) return;
-    svgEl.setAttribute('width', String(Math.max(1, Math.round(width * scale))));
-    svgEl.setAttribute('height', String(Math.max(1, Math.round(height * scale))));
+    svgEl.setAttribute('width', String(Math.max(1, Math.round(widthRef.current * scale))));
+    svgEl.setAttribute('height', String(Math.max(1, Math.round(heightRef.current * scale))));
   };
 
   const resetView = () => {
