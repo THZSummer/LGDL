@@ -594,6 +594,25 @@ export function App(): React.JSX.Element {
     // computeSnap：左/右边界选首/尾项（它们永远无法滚到指针中心），
     // 中间按「当前视口距离指针最近」的项，避免指针滑过的元素被跳过。
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // 滑动过程中实时指示指针（视口中心）下方的元素——仅视觉（.pointed），
+    // 不切换示例；停稳后才正式选中。让"指针"随着滑动变化。
+    const markPointed = () => {
+      const cr = el.getBoundingClientRect();
+      if (cr.width <= 0) return;
+      const centerX = cr.left + cr.width / 2;
+      let best: HTMLElement | null = null;
+      let bestD = Infinity;
+      for (const chip of el.querySelectorAll<HTMLElement>('.example-chip')) {
+        const r = chip.getBoundingClientRect();
+        const d = Math.abs(r.left + r.width / 2 - centerX);
+        if (d < bestD) {
+          bestD = d;
+          best = chip;
+        }
+      }
+      el.querySelectorAll<HTMLElement>('.example-chip.pointed').forEach((c) => c.classList.remove('pointed'));
+      best?.classList.add('pointed');
+    };
     const snap = () => {
       timer = undefined;
       const cr = el.getBoundingClientRect();
@@ -608,14 +627,17 @@ export function App(): React.JSX.Element {
       if (Math.abs(result.scrollLeft - el.scrollLeft) > 0.5) {
         el.scrollTo({ left: result.scrollLeft, behavior: 'smooth' });
       }
-      // 自动选中目标（与当前不同才切换，避免重复加载）
+      // 自动选中目标（与当前不同才切换，避免重复加载）；正式选中后清掉
+      // 临时的 .pointed 指示（active 高亮取而代之）
       const id = result.id;
+      el.querySelectorAll<HTMLElement>('.example-chip.pointed').forEach((c) => c.classList.remove('pointed'));
       if (id && id !== exampleIdRef.current) {
         const ex = EXAMPLES.find((x) => x.id === id);
         if (ex) loadExample(ex);
       }
     };
     const onScroll = () => {
+      markPointed();
       if (timer) clearTimeout(timer);
       timer = setTimeout(snap, 180);
     };
@@ -633,22 +655,19 @@ export function App(): React.JSX.Element {
     if (!el) return;
     const sync = () => el.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 1);
     sync();
-    const ro = new ResizeObserver(sync);
+    const ro = new ResizeObserver(() => {
+      sync();
+      // 窗口/区域尺寸变化后，若当前选中项被挤出视口，滚回可见
+      const chip = el.querySelector<HTMLElement>('.example-chip.active');
+      if (!chip) return;
+      const cr = el.getBoundingClientRect();
+      const r = chip.getBoundingClientRect();
+      if (r.left < cr.left) el.scrollLeft -= cr.left - r.left;
+      else if (r.right > cr.right) el.scrollLeft += r.right - cr.right;
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  // 切换示例后，把当前胶囊滚动到可见（兜底，如窗口 resize 后）
-  useEffect(() => {
-    const el = switcherRef.current;
-    if (!el) return;
-    const chip = el.querySelector<HTMLElement>('.example-chip.active');
-    if (!chip) return;
-    const cr = el.getBoundingClientRect();
-    const r = chip.getBoundingClientRect();
-    if (r.left < cr.left) el.scrollLeft -= cr.left - r.left;
-    else if (r.right > cr.right) el.scrollLeft += r.right - cr.right;
-  }, [exampleId]);
 
   const downloadSvg = useCallback(() => {
     const blob = new Blob([state.svg], { type: 'image/svg+xml' });

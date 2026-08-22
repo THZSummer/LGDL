@@ -163,6 +163,12 @@ body,
   border-color: transparent;
 }
 
+/* 滑动过程中的实时指示：指针（视口中心）下方的元素，仅视觉不切换 */
+.example-chip.pointed {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 1px #4f46e5 inset, 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
 .header-actions {
   margin-left: auto;
   display: flex;
