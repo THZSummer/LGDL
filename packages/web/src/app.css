@@ -62,15 +62,16 @@ body,
 
 /* 示例胶囊按钮行：全部示例平铺可见，点击即切换（一步）；空间不足时
    该区域横向滑动（触控板横滑 / Shift+滚轮 / 普通滚轮自动转横滑）。
-   两端用内部 spacer（= 最宽胶囊 × 2，JS 测量）撑出滑动空间，保证首/尾
-   元素也能滚到指针附近被选中，且两端空白紧凑（选中项约 1x 居中、左右
-   各露出约半个相邻胶囊）。spacer 是普通 flex 子项，不会撑爆 header。 */
+   区域宽度固定为"最宽胶囊 × 2 + 间隙"（紧凑轮盘），两端 spacer 只留
+   约半个胶囊，滑动停稳后选中项约 1x 居中、左右各露出约 0.5x。 */
 /* 外层 wrapper：承载指针线与淡出遮罩。它们绝不能放在滚动容器里——
    absolute 定位元素在 overflow 滚动容器内会随内容一起滚动（指针线会
-   一直钉在第一个胶囊上）；放在 wrapper 上则固定在可视区，不随滚动。 */
+   一直钉在第一个胶囊上）；放在 wrapper 上则固定在可视区，不随滚动。
+   宽度 = 最宽胶囊 × 2 + 两侧 gap（JS 测量写入 --switcher-w，回退
+   296px）：紧凑轮盘，滑动时选中项约 1x 居中、左右各露出约 0.5x。 */
 .switcher-wrap {
   position: relative;
-  flex: 1;
+  flex: 0 1 var(--switcher-w, 296px);
   min-width: 0;
 }
 .example-switcher {
@@ -82,11 +83,10 @@ body,
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
-/* 两端滑动空间：= 最宽胶囊 × 2（JS 测量写入 --spacer-w，回退 248px）。
-   紧凑轮盘：滑动停稳后选中项约 1x 居中，左右各露出约半个相邻胶囊，
-   两端空白不再占半屏。 */
+/* 两端滑动空间：≈ 半胶囊 + gap（JS 测量写入 --spacer-w，回退 74px）。
+   让首/尾胶囊也能滚到视口中心附近被选中，同时两端空白紧凑 */
 .switcher-spacer {
-  flex: 0 0 var(--spacer-w, 248px);
+  flex: 0 0 var(--spacer-w, 74px);
 }
 .example-switcher::-webkit-scrollbar {
   height: 5px;
