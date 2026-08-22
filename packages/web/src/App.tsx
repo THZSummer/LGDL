@@ -12,10 +12,8 @@ import { parseLgdl } from '@lgdl/core';
 import { layoutDocument } from '@lgdl/layout';
 import { renderSvg } from '@lgdl/render';
 import { EXAMPLES, type Example } from './examples';
+import webPkg from '../package.json';
 import './app.css';
-
-/** Injected by vite define (packages/web/package.json version). */
-declare const __APP_VERSION__: string | undefined;
 
 /** LGDL-tuned highlight: keys stay teal, values are colored semantically below. */
 const lgdlHighlight = HighlightStyle.define([
@@ -637,7 +635,7 @@ export function App(): React.JSX.Element {
         <div className="brand">
           <span className="brand-mark">LGDL</span>
           <span className="brand-text">Web Workbench</span>
-          <span className="brand-version">{__APP_VERSION__ ? `v${__APP_VERSION__}` : ''}</span>
+          <span className="brand-version">v{webPkg.version}</span>
         </div>
         <div className="example-picker">
           <select
