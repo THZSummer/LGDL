@@ -139,7 +139,7 @@ function edgeAnchor(
 
 const FILL_BY_KIND: Record<string, string> = {
   start: '#dbeafe',
-  end: '#dbeafe',
+  end: '#dcfce7',
   process: '#ffffff',
   decision: '#fef3c7',
   entity: '#fce7f3',
@@ -148,7 +148,7 @@ const FILL_BY_KIND: Record<string, string> = {
 
 const STROKE_BY_KIND: Record<string, string> = {
   start: '#3b82f6',
-  end: '#3b82f6',
+  end: '#16a34a',
   process: '#6b7280',
   decision: '#f59e0b',
   entity: '#ec4899',
@@ -273,7 +273,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         }
       }
       if (xs.length === 0) return undefined;
-      const pad = 20;
+      const pad = 14;
       const box = {
         x: Math.min(...xs) - pad,
         y: Math.min(...ys) - pad - 24,
@@ -347,11 +347,41 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     if (nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to)) continue; // regular node edge
     const fromBox = nodeIdSet.has(edge.from) ? undefined : boxOf.get(edge.from);
     const toBox = nodeIdSet.has(edge.to) ? undefined : boxOf.get(edge.to);
-    const src = fromBox ? boxEdgePoint(fromBox, centerOf(edge.to)) : nodeCenter(edge.from);
-    const dst = toBox ? boxEdgePoint(toBox, centerOf(edge.from)) : nodeCenter(edge.to);
+    const fromCenter = centerOf(edge.from);
+    const toCenter = centerOf(edge.to);
+    // when both endpoints line up vertically (same column), offset the
+    // anchors horizontally so the aggregate edge doesn't overlap node edges
+    // running down that column
+    const offsetX = Math.abs(toCenter.x - fromCenter.x) < 1 && Math.abs(toCenter.y - fromCenter.y) > 40 ? 40 : 0;
+    const src = fromBox ? boxEdgePoint(fromBox, { x: toCenter.x + offsetX, y: toCenter.y }) : nodeCenter(edge.from);
+    const dst = toBox ? boxEdgePoint(toBox, { x: fromCenter.x + offsetX, y: fromCenter.y }) : nodeCenter(edge.to);
+    // push the target end slightly INTO the box so the arrowhead isn't
+    // hidden behind the box border line
+    let dstIn = dst;
+    if (toBox) {
+      const cx = toBox.x + toBox.w / 2;
+      const cy = toBox.y + toBox.h / 2;
+      const dx = cx - dst.x;
+      const dy = cy - dst.y;
+      const len = Math.hypot(dx, dy) || 1;
+      dstIn = { x: dst.x + (dx / len) * 8, y: dst.y + (dy / len) * 8 };
+    }
     const label = edge.label;
+    let labelEl = '';
+    if (label) {
+      const labelW = label.length * 12;
+      const segMinX = Math.min(src.x, dst.x);
+      const segMaxX = Math.max(src.x, dst.x);
+      const segLen = segMaxX - segMinX;
+      // shrink the font when the segment is too short for the label
+      const fontSize = segLen >= labelW + 16 ? 12 : segLen >= labelW * 0.9 ? 10 : 8;
+      const w = label.length * fontSize;
+      const midX = Math.max(segMinX + 4, Math.min((src.x + dst.x) / 2, segMaxX - 4 - w));
+      const clampedX = Math.max(10, Math.min(midX, layout.width - 10 - w));
+      labelEl = text(clampedX, (src.y + dst.y) / 2 - 4, label, fontSize, '#7c3aed');
+    }
     parts.push(
-      `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dst.x}" y2="${dst.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${label ? text((src.x + dst.x) / 2, (src.y + dst.y) / 2 - 4, label, 12, '#7c3aed') : ''}</g>`,
+      `<g class="lgdl-aggregate-edge"><line x1="${src.x}" y1="${src.y}" x2="${dstIn.x}" y2="${dstIn.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>`,
     );
   }
 

@@ -46,7 +46,7 @@ const NODE_SIZE: Record<string, { width: number; height: number }> = {
 };
 
 const GRAPH_MARGIN = 40;
-const RANK_SEP = 60; // vertical gap between ranks
+const RANK_SEP = 48; // vertical gap between ranks
 const NODE_SEP = 40; // horizontal gap between nodes
 
 /** Above this node count, use the fast grid layout instead of dagre. */
