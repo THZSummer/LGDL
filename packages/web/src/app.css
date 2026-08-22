@@ -178,12 +178,16 @@ body,
 /* preview */
 .preview-body {
   flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* wheel-navigated viewport: native scroll container, diagram card centered */
+.preview-canvas {
+  width: 100%;
+  height: 100%;
   overflow: auto;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 24px;
-  position: relative;
 }
 
 /* stale (last good) render with error mask */
@@ -261,12 +265,15 @@ body,
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
   padding: 12px;
-  max-width: 100%;
+}
+
+/* centered in the viewport when smaller than it, scrollable when larger */
+.svg-zoom {
+  margin: auto;
 }
 
 .svg-container svg {
-  max-width: 100%;
-  height: auto;
+  display: block;
 }
 
 .preview-empty {

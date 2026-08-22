@@ -384,8 +384,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
     if (this.state.error) {
       return (
         <div className="fatal-error">
-          <h3>⚠️ 页面发生错误</h3>
-          <p>{this.state.error.message}</p>
+          <h3>⚠️ 页面发生错误</h3>          <p>{this.state.error.message}</p>
           <button
             onClick={() => {
               this.setState({ error: null });
@@ -399,6 +398,107 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
     }
     return this.props.children;
   }
+}
+
+/**
+ * Zoomable SVG preview — wheel-only navigation, no modifier keys, no
+ * press-and-hold gestures. One wheel input, two behaviors split by cursor
+ * position (edge-aware):
+ *   - cursor in the CENTER area  -> zoom anchored at the cursor
+ *   - cursor near an EDGE band   -> wheel scrolls the canvas along that
+ *     edge's axis (top/bottom band = vertical pan, left/right band =
+ *     horizontal pan) — so after zooming in, move the cursor to an edge and
+ *     keep scrolling to explore.
+ * Zooming resizes the SVG element itself, so the scrollable area grows with
+ * the diagram. Zooming all the way down stops at the fitted view (acts as a
+ * natural reset). The view refits whenever a new diagram arrives.
+ * `extraClass` is forwarded to the card (used for the dimmed stale render).
+ */
+const ZOOM_EDGE = 64; // px band near each viewport edge where wheel = pan
+const ZOOM_MAX = 8;
+
+function ZoomableSvg({ svg, width, height, extraClass = '' }: { svg: string; width: number; height: number; extraClass?: string }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef(1);
+  const fitScaleRef = useRef(1);
+
+  const applySize = (scale: number) => {
+    const svgEl = innerRef.current?.querySelector('svg');
+    if (!svgEl) return;
+    svgEl.setAttribute('width', String(Math.max(1, Math.round(width * scale))));
+    svgEl.setAttribute('height', String(Math.max(1, Math.round(height * scale))));
+  };
+
+  const resetView = () => {
+    const host = hostRef.current;
+    if (!host) return;
+    const rect = host.getBoundingClientRect();
+    // fit large diagrams into the viewport, show small ones at 1:1
+    const scale = Math.max(0.1, Math.min(1, (rect.width - 24) / width, (rect.height - 24) / height));
+    scaleRef.current = scale;
+    fitScaleRef.current = scale;
+    applySize(scale);
+    host.scrollLeft = 0;
+    host.scrollTop = 0;
+  };
+
+  // new diagram (or first mount) -> refit
+  useEffect(() => {
+    resetView();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svg]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = host.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      // ---- edge band: wheel pans along the nearest edge's axis ----
+      const dL = mx;
+      const dR = rect.width - mx;
+      const dT = my;
+      const dB = rect.height - my;
+      const minD = Math.min(dL, dR, dT, dB);
+      if (minD <= ZOOM_EDGE) {
+        if (minD === dL || minD === dR) {
+          host.scrollLeft += e.deltaY; // left/right band -> horizontal pan
+        } else {
+          host.scrollTop += e.deltaY; // top/bottom band -> vertical pan
+        }
+        return;
+      }
+
+      // ---- center: zoom anchored at the cursor (industry-standard math) ----
+      const cur = scaleRef.current;
+      const next = Math.min(ZOOM_MAX, Math.max(fitScaleRef.current, cur * Math.exp(-e.deltaY * 0.0015)));
+      const k = next / cur;
+      const sx = host.scrollLeft;
+      const sy = host.scrollTop;
+      scaleRef.current = next;
+      applySize(next);
+      // keep the point under the cursor stationary after the size change
+      host.scrollLeft = (sx + mx) * k - mx;
+      host.scrollTop = (sy + my) * k - my;
+    };
+
+    host.addEventListener('wheel', onWheel, { passive: false });
+    return () => host.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="preview-canvas" ref={hostRef}>
+      <div className={`svg-container svg-zoom ${extraClass}`} ref={innerRef}>
+        <div className="svg-inner" dangerouslySetInnerHTML={{ __html: svg }} />
+      </div>
+    </div>
+  );
 }
 
 interface RenderState {
@@ -485,7 +585,6 @@ export function App(): React.JSX.Element {
   const [debouncedSource, setDebouncedSource] = useState<string>(EXAMPLES[0].source);
   const [lastGood, setLastGood] = useState<RenderState>(() => compile(EXAMPLES[0].source));
   const [maskDismissed, setMaskDismissed] = useState(false);
-  const svgRef = useRef<HTMLDivElement>(null);
   const editorHostRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const sourceRef = useRef(source);
@@ -688,11 +787,11 @@ export function App(): React.JSX.Element {
           <div className="pane-title">预览</div>
           <div className="preview-body">
             {state.svg ? (
-              <div ref={svgRef} className="svg-container" dangerouslySetInnerHTML={{ __html: state.svg }} />
+              <ZoomableSvg svg={state.svg} width={state.width} height={state.height} />
             ) : hasErrors && lastGood.svg ? (
               // keep the last good render visible, overlay an error mask
               <div className="preview-stale-wrap">
-                <div className="svg-container svg-stale" dangerouslySetInnerHTML={{ __html: lastGood.svg }} />
+                <ZoomableSvg svg={lastGood.svg} width={lastGood.width} height={lastGood.height} extraClass="svg-stale" />
                 {!maskDismissed && (
                   <div className="error-mask">
                     <div className="error-mask-card">
