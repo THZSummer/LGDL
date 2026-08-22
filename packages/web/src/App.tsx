@@ -223,20 +223,19 @@ function locateListValue(
   };
 }
 
-/** CodeMirror linter: red squiggles for errors, yellow for warnings. */
+/** CodeMirror linter: red squiggles at every issue position (all are errors). */
 const lgdlLinter = linter((view) => {
   const text = view.state.doc.toString();
   const state = compile(text);
   const diagnostics: Diagnostic[] = [];
   for (const issue of state.issues) {
-    if (issue.severity !== 'error' && issue.severity !== 'warning') continue;
     const span = locateIssue(text, issue.location);
     const from = span ? span.from : 0;
     const to = span ? span.to : Math.min(text.length, 1);
     diagnostics.push({
       from,
       to: Math.max(to, from + 1),
-      severity: issue.severity,
+      severity: 'error',
       message: issue.message,
     });
   }

@@ -130,7 +130,7 @@ export function validate(
     group.contains?.forEach((nodeId, ci) => {
       if (groupMembership.has(nodeId)) {
         issues.push({
-          severity: 'warning',
+          severity: 'error',
           message: `Node "${nodeId}" belongs to both "${groupMembership.get(nodeId)}" and "${group.id}"`,
           location: `groups[${gi}].contains[${ci}]`,
         });
@@ -179,7 +179,7 @@ function parseBlock(
     const li = line.length - line.trimStart().length;
     if (li < indent) break; // dedent: block ended
     if (li > indent) {
-      issues.push({ severity: 'warning', message: `Unexpected indentation at line ${i + 1} (ignored)` });
+      issues.push({ severity: 'error', message: `Unexpected indentation at line ${i + 1}`, location: `line ${i + 1}` });
       i++;
       continue;
     }
