@@ -311,7 +311,8 @@ function lgdlCompletionsInner(ctx: CompletionContext): CompletionResult | null {
   const content = isItem ? trimmed.slice(2) : trimmed;
 
   // ---- "key: value" — suggest values ----
-  const colonMatch = content.match(/^(\w+):\s*([A-Za-z0-9_\[,-]*)$/);
+  // allow spaces in values (contains: [a, b] uses ", " separators)
+  const colonMatch = content.match(/^(\w+):\s*([A-Za-z0-9_\[,\s-]*)$/);
   if (colonMatch) {
     const key = colonMatch[1];
     const valPart = colonMatch[2];
@@ -331,7 +332,9 @@ function lgdlCompletionsInner(ctx: CompletionContext): CompletionResult | null {
       const ids = collectNodeIds(docText);
       const upToCursor = textBefore;
       const lastSep = Math.max(upToCursor.lastIndexOf(','), upToCursor.lastIndexOf('['));
-      const itemStart = lastSep === -1 ? valStart : line.from + lastSep + 1;
+      let itemStart = lastSep === -1 ? valStart : line.from + lastSep + 1;
+      // skip spaces after the separator so replacement starts at the id
+      while (itemStart < pos && /\s/.test(line.text[itemStart - line.from])) itemStart++;
       return { from: itemStart, options: ids.map((id) => completion(id, id, '节点引用', 'variable')) };
     }
     return null;
