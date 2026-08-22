@@ -62,7 +62,9 @@ body,
 
 /* 示例胶囊按钮行：全部示例平铺可见，点击即切换（一步）；空间不足时
    该区域横向滑动（触控板横滑 / Shift+滚轮 / 普通滚轮自动转横滑）。
-   滑动停稳后，中心指针所指的示例会自动吸附居中并选中。 */
+   两端 padding ≈ 容器半宽：这是"滑动指针"轮盘的关键——没有它，靠边的
+   元素（第 2/3 个、倒数第 2/3 个）永远无法滚到指针中心，滑动时会被跳过。
+   padding 使每个元素都能滚到指针下被选中。 */
 .example-switcher {
   position: relative;
   display: flex;
@@ -71,7 +73,8 @@ body,
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  padding: 2px 4px;
+  padding-block: 2px;
+  padding-inline: calc(50% - 62px); /* 62 ≈ 胶囊半宽 + 行首间距 */
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
@@ -89,7 +92,7 @@ body,
   background: transparent;
 }
 
-/* 左右淡出遮罩：提示该行可滑动，内容从边缘滑入 */
+/* 左右淡出遮罩：提示该行可滑动，内容从边缘滑入；内容不满一行时隐藏 */
 .example-switcher::before,
 .example-switcher::after {
   content: '';
@@ -108,6 +111,11 @@ body,
   right: 0;
   background: linear-gradient(to left, #ffffff, rgba(255, 255, 255, 0));
 }
+.example-switcher:not(.has-overflow)::before,
+.example-switcher:not(.has-overflow)::after,
+.example-switcher:not(.has-overflow) .switcher-pointer {
+  display: none;
+}
 
 /* 滑动指针：视口中心的竖线，滑动停稳后指针所指示例被吸附选中 */
 .switcher-pointer {
@@ -123,17 +131,21 @@ body,
   z-index: 2;
 }
 
+/* 所有胶囊统一样式：固定字号/内边距/边框宽度，选中态不改字重
+   （避免选中时宽度变化导致整行跳动）；min-width 让长短标题视觉整齐 */
 .example-chip {
   flex-shrink: 0;
+  min-width: 96px;
   padding: 6px 14px;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
   background: #ffffff;
   color: #334155;
   font-size: 13px;
+  text-align: center;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .example-chip:hover {
   border-color: #4f46e5;
@@ -144,7 +156,6 @@ body,
   background: linear-gradient(135deg, #4f46e5, #3b82f6);
   color: #ffffff;
   border-color: transparent;
-  font-weight: 600;
 }
 
 .header-actions {

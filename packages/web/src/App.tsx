@@ -12,6 +12,7 @@ import { parseLgdl } from '@lgdl/core';
 import { layoutDocument } from '@lgdl/layout';
 import { renderSvg } from '@lgdl/render';
 import { locateIssue, type DocSpan } from './locate';
+import { computeSnap } from './snap';
 import { EXAMPLES, type Example } from './examples';
 import webPkg from '../package.json';
 import './app.css';
@@ -589,30 +590,26 @@ export function App(): React.JSX.Element {
     };
     el.addEventListener('wheel', onWheel, { passive: false });
 
-    // 滚动停稳（180ms 无滚动事件）→ 吸附指针所指的示例并选中
+    // 滚动停稳（180ms 无滚动事件）→ 吸附并选中。目标选择交给纯函数
+    // computeSnap：左/右边界选首/尾项（它们永远无法滚到指针中心），
+    // 中间按「当前视口距离指针最近」的项，避免指针滑过的元素被跳过。
     let timer: ReturnType<typeof setTimeout> | undefined;
     const snap = () => {
       timer = undefined;
       const cr = el.getBoundingClientRect();
       if (cr.width <= 0) return;
-      const centerX = cr.left + cr.width / 2;
-      const chips = Array.from(el.querySelectorAll<HTMLElement>('.example-chip'));
-      let best: HTMLElement | null = null;
-      let bestDist = Infinity;
-      for (const chip of chips) {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      const chips = Array.from(el.querySelectorAll<HTMLElement>('.example-chip')).map((chip) => {
         const r = chip.getBoundingClientRect();
-        const d = Math.abs(r.left + r.width / 2 - centerX);
-        if (d < bestDist) {
-          bestDist = d;
-          best = chip;
-        }
+        return { chip, id: chip.dataset.id ?? '', left: r.left, width: r.width };
+      });
+      const result = computeSnap(el.scrollLeft, maxScroll, cr.left + cr.width / 2, chips);
+      if (!result) return;
+      if (Math.abs(result.scrollLeft - el.scrollLeft) > 0.5) {
+        el.scrollTo({ left: result.scrollLeft, behavior: 'smooth' });
       }
-      if (!best) return;
-      // 平滑吸附居中
-      const r = best.getBoundingClientRect();
-      el.scrollBy({ left: r.left + r.width / 2 - centerX, behavior: 'smooth' });
-      // 自动选中指针所指的示例（与当前不同才切换，避免重复加载）
-      const id = best.dataset.id;
+      // 自动选中目标（与当前不同才切换，避免重复加载）
+      const id = result.id;
       if (id && id !== exampleIdRef.current) {
         const ex = EXAMPLES.find((x) => x.id === id);
         if (ex) loadExample(ex);
@@ -629,6 +626,17 @@ export function App(): React.JSX.Element {
       if (timer) clearTimeout(timer);
     };
   }, [loadExample]);
+
+  // 内容不满一行时（无横向溢出），指针与淡出遮罩没有意义——隐藏
+  useEffect(() => {
+    const el = switcherRef.current;
+    if (!el) return;
+    const sync = () => el.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 1);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // 切换示例后，把当前胶囊滚动到可见（兜底，如窗口 resize 后）
   useEffect(() => {
