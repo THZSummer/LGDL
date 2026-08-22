@@ -39,3 +39,4 @@ pnpm-debug.log*
 .App.bak
 packages/web/pure-test.html
 packages/web/test-cm.html
+out.svg
