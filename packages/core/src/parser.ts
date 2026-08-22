@@ -88,8 +88,8 @@ export function validate(
 
     if (node.kind && !NODE_KINDS.includes(node.kind)) {
       issues.push({
-        severity: 'warning',
-        message: `Unknown node kind: "${node.kind}" (ignored, defaulting to process)`,
+        severity: 'error',
+        message: `Unknown node kind: "${node.kind}". Supported kinds: ${NODE_KINDS.join(', ')}`,
         location: `nodes[${i}].kind`,
       });
     }

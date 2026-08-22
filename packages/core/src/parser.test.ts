@@ -86,8 +86,8 @@ nodes:
   - id: a
     kind: rocket
 `);
-  assert.equal(result.valid, true);
-  assert.ok(result.issues.some((i) => i.severity === 'warning' && i.message.includes('Unknown node kind')));
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.severity === 'error' && i.message.includes('Unknown node kind')));
 });
 
 test('validate works on hand-built documents', () => {
