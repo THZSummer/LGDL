@@ -95,9 +95,19 @@ lgdl add-group --file my-diagram.lgdl --id frontend --label "前端层" --contai
 ```bash
 # 甘特图任务：起始日 + 工期
 lgdl add-node --file plan.lgdl --id dev --label "开发" --attrs start=6 --attrs duration=8
+```
 
-# ER 图关系基数
-lgdl add-edge --file db.lgdl --from user --to order --label "拥有" --attrs cardinality="1..*"
+**ER / UML 类图的显性字段**（不要塞进 `--attrs`，旧写法会被拒绝）：
+
+```bash
+# 实体属性（uml-class / er 的 kind: entity）
+lgdl add-node --file db.lgdl --id user --label "用户" --kind entity \
+  --member kind=attribute,name=id,type=int \
+  --member kind=attribute,name=name,type=string
+
+# 关联多重性：label 只放关系名，两端基数用 --cardinality-from / --cardinality-to
+lgdl add-edge --file db.lgdl --from user --to order --label "拥有" \
+  --cardinality-from 1 --cardinality-to "*"
 ```
 
 ### 第 3 步：出图（渲染交付）
@@ -118,11 +128,11 @@ lgdl render --file my-diagram.lgdl -o my-diagram.svg
 | `lgdl init <file>` | 创建空图 | — |
 | `lgdl status <file>` | 输出文本结构（AI 读图） | — |
 | `lgdl render <file>` | 渲染 SVG | `-o 输出文件` |
-| `lgdl add-node <file>` | 加节点 | `--id` `--label` `--kind` `--group` `--attrs` |
+| `lgdl add-node <file>` | 加节点 | `--id` `--label` `--kind` `--group` `--member` `--attrs` |
 | `lgdl remove-node <file>` | 删节点（自动清边） | `--id` |
-| `lgdl update-node <file>` | 改节点 | `--id` `--label` `--kind` `--attrs` |
-| `lgdl add-edge <file>` | 加边 | `--from` `--to` `--label` `--attrs` |
-| `lgdl update-edge <file>` | 改边 | `--from` `--to` `--label` `--attrs` |
+| `lgdl update-node <file>` | 改节点 | `--id` `--label` `--kind` `--member-add` `--member-remove` `--attrs` |
+| `lgdl add-edge <file>` | 加边 | `--from` `--to` `--label` `--cardinality-from` `--cardinality-to` `--attrs` |
+| `lgdl update-edge <file>` | 改边 | `--from` `--to` `--label` `--cardinality-from` `--cardinality-to` `--attrs` |
 | `lgdl remove-edge <file>` | 删边 | `--from` `--to` |
 | `lgdl add-group <file>` | 加分组 | `--id` `--label` `--contains` |
 | `lgdl remove-group <file>` | 删分组 | `--id` |
@@ -139,6 +149,7 @@ lgdl render --file my-diagram.lgdl -o my-diagram.svg
 6. **边不能自环**（from === to），重复边会报错。
 7. **大图（>120 节点）自动用网格布局**——不用管，引擎处理。
 8. **`contains` 列表用 `,` 分隔**，可以带空格：`contains: [a, b]`。
+9. **ER / 类图**：实体属性用 `--member`（`kind=attribute` / `kind=method`），关联多重性用 `--cardinality-from` / `--cardinality-to`——**不要**用 `--attrs cardinality` 或把基数拼进 `label`（0.4.0 起都被校验拒绝）。
 
 ---
 

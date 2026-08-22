@@ -37,11 +37,11 @@ lgdl --version    # 查看版本
 | `lgdl status --file <file>` | 输出文本化图结构 | ⭐⭐⭐ |
 | `lgdl convert --file <file>` | 转换为其他格式（mermaid/plantuml/json） | ⭐⭐ |
 | `lgdl import --file <file>` | 从 Mermaid 导入（迁移） | ⭐⭐ |
-| `lgdl add-node --file <file>` | 加节点（增量，支持 attrs） | ⭐⭐⭐ |
+| `lgdl add-node --file <file>` | 加节点（增量，支持 members/attrs） | ⭐⭐⭐ |
 | `lgdl remove-node --file <file>` | 删节点（自动清理关联边） | ⭐⭐⭐ |
-| `lgdl update-node --file <file>` | 改节点 label/kind/attrs | ⭐⭐ |
-| `lgdl add-edge --file <file>` | 加边（增量，支持 attrs） | ⭐⭐⭐ |
-| `lgdl update-edge --file <file>` | 改边 label/attrs | ⭐⭐ |
+| `lgdl update-node --file <file>` | 改节点 label/kind/members/attrs | ⭐⭐ |
+| `lgdl add-edge --file <file>` | 加边（增量，支持 cardinality/attrs） | ⭐⭐⭐ |
+| `lgdl update-edge --file <file>` | 改边 label/cardinality/attrs | ⭐⭐ |
 | `lgdl remove-edge --file <file>` | 删边 | ⭐⭐ |
 | `lgdl add-group --file <file>` | 加分组（泳道/分区） | ⭐⭐ |
 | `lgdl remove-group --file <file>` | 删分组 | ⭐ |
@@ -115,7 +115,7 @@ lgdl status --file my-diagram.lgdl
 
 所有增量命令都遵循同一模式：**读文件 → 修改 → 校验 → 写回**。AI Agent 通过这些命令精确修改图，**绝不重写整个文件**。
 
-#### `lgdl add-node --file <file> --id <id> [--label <label>] [--kind <kind>] [--group <group>] [--attrs <key=value>]`
+#### `lgdl add-node --file <file> --id <id> [--label <label>] [--kind <kind>] [--group <group>] [--member <kind=..,name=..>] [--attrs <key=value>]`
 
 ```bash
 lgdl add-node --file my-diagram.lgdl --id register --label "注册账号" --kind process
@@ -131,6 +131,14 @@ lgdl add-node --file my-diagram.lgdl --id dev --label "开发" --attrs start=6 -
 
 `--kind` 可选值：`start` `end` `process` `decision` `entity` `note` `state` `milestone`（默认 `process`）
 
+**`--member` 结构化类成员**（可重复，仅 uml-class / er 的 `kind: entity`）：逗号分隔的 `key=value`，字段 `kind`（attribute|method，必填）、`name`（必填）、`visibility`（public|private|protected|package）、`type`、`params`（仅 method）：
+
+```bash
+lgdl add-node --file class.lgdl --id cart --label "Cart" --kind entity \
+  --member kind=attribute,name=items,type=list,visibility=private \
+  --member kind=method,name=addItem,type=void,params="(item)",visibility=public
+```
+
 **`--attrs` 扩展属性**：可重复传多个 `key=value`，自动识别类型：
 - 数字：`--attrs start=6` → `start: 6`
 - 布尔：`--attrs done=true` → `done: true`
@@ -145,31 +153,38 @@ lgdl remove-node --file my-diagram.lgdl --id register
 
 ⚠️ 删节点会**自动删除所有关联的边**，并把它从分组中移除。
 
-#### `lgdl update-node --file <file> --id <id> [--label <label>] [--kind <kind>] [--attrs <key=value>]`
+#### `lgdl update-node --file <file> --id <id> [--label <label>] [--kind <kind>] [--member-add <kind=..,name=..>] [--member-remove <name>] [--attrs <key=value>]`
 
 ```bash
 lgdl update-node --file my-diagram.lgdl --id register --label "新用户注册"
 lgdl update-node --file my-diagram.lgdl --id verify --kind decision
 lgdl update-node --file my-diagram.lgdl --id dev --attrs progress=0.5   # 合并进 attrs
+
+# 追加 / 移除类成员（uml-class / er 实体）
+lgdl update-node --file class.lgdl --id cart --member-add kind=attribute,name=owner,type=string
+lgdl update-node --file class.lgdl --id cart --member-remove items
 ```
 
-#### `lgdl add-edge --file <file> --from <id> --to <id> [--label <label>] [--attrs <key=value>]`
+#### `lgdl add-edge --file <file> --from <id> --to <id> [--label <label>] [--cardinality-from <v>] [--cardinality-to <v>] [--attrs <key=value>]`
 
 ```bash
 lgdl add-edge --file my-diagram.lgdl --from login --to register --label "没有账号？"
 # ✓ added edge login -> register [没有账号？]
 
-# ER 图：带关系基数
-lgdl add-edge --file my-diagram.lgdl --from user --to order --label "拥有" --attrs cardinality="1..*"
+# ER 图：显性多重性（label 只放关系名）
+lgdl add-edge --file my-diagram.lgdl --from user --to order --label "拥有" \
+  --cardinality-from 1 --cardinality-to "*"
 ```
+
+> ⚠️ 多重性走 `--cardinality-from` / `--cardinality-to` 显性字段；旧写法 `--attrs cardinality="1..*"` 已被校验拒绝。
 
 ⚠️ 不支持自环（from === to），重复边会报错。
 
-#### `lgdl update-edge --file <file> --from <id> --to <id> [--label <label>] [--attrs <key=value>]`
+#### `lgdl update-edge --file <file> --from <id> --to <id> [--label <label>] [--cardinality-from <v>] [--cardinality-to <v>] [--attrs <key=value>]`
 
 ```bash
 lgdl update-edge --file my-diagram.lgdl --from user --to order --label "拥有多个"
-lgdl update-edge --file my-diagram.lgdl --from user --to order --attrs cardinality="0..*"
+lgdl update-edge --file my-diagram.lgdl --from user --to order --cardinality-to "0..*"
 ```
 
 #### `lgdl remove-edge --file <file> --from <id> --to <id>`

@@ -26,7 +26,7 @@ add-edge      — 加边
 remove-edge   — 删边
 ```
 
-**局部重排规则**：增量操作只重算受影响子图，其余节点位置保持不动。当且仅当用户显式 `--relayout all` 时才全图重排。
+**确定性重排**：每次渲染都是全量确定性布局（不缓存、不手工调坐标）——语义不变则输出不变，AI 可预测、可测试。增量命令只改语义（节点/边/分组），布局永远由引擎计算。
 
 ## 3. 确定性布局（Deterministic Layout）
 
@@ -38,7 +38,7 @@ remove-edge   — 删边
 
 - `lgdl status` 输出**纯文本图结构**，AI 一读就懂
 - 所有 CLI 命令参数化、可脚本化
-- 提供 MCP Server 让 AI Agent 深度集成（v0.4）
+- Web 工作台可接入 AI 助手（v0.5 规划）
 
 ## 5. 图类型（Diagram Types）
 
@@ -46,10 +46,13 @@ remove-edge   — 删边
 |---|---|---|
 | `flowchart` | 业务流程图 | 层级布局 |
 | `mindmap` | 思维导图 | 径向树布局 |
-| `uml-class` | UML 类图 | 分层 + 边约束 |
-| `arch` | 架构图 | 分区布局（groups） |
-| `datastream` | 数据流图 | 层级 + 泳道 |
+| `uml-class` | UML 类图 | 层级 + 类卡片 |
+| `arch` | 架构图 | 层级 + 分组 |
+| `datastream` | 数据流图 | 泳道 |
 | `sequence` | 时序图 | 时间轴布局 |
+| `er` | ER 图 | 层级（LR） |
+| `state` | 状态机图 | 层级（TB） |
+| `gantt` | 甘特图 | 时间轴（条） |
 
 ## 6. Node Kinds（节点类型）
 
@@ -57,12 +60,13 @@ remove-edge   — 删边
 
 | kind | 语义 | 默认形状 |
 |---|---|---|
-| `start` / `end` | 开始/结束 | 圆角矩形 |
-| `process` | 处理步骤 | 矩形 |
+| `start` / `end` | 开始/结束 | 胶囊 |
+| `process` | 处理步骤 | 圆角矩形 |
 | `decision` | 判断 | 菱形 |
-| `entity` | 实体/数据 | 圆柱 |
-| `note` | 备注 | 便签 |
-| `group` | 分组容器 | 大虚线框 |
+| `entity` | 实体/数据 | 圆柱（er）/ 类卡片（uml-class） |
+| `note` | 备注 | 便签（折角） |
+| `state` | 状态 | 圆角矩形 |
+| `milestone` | 里程碑 | 圆角矩形（gantt） |
 
 ### kind 差异显性化（v0.4）
 
@@ -73,8 +77,8 @@ remove-edge   — 删边
 | 层 | 机制 | 示例 |
 |---|---|---|
 | 语义 | `kind` 枚举（8 种） | `entity` = 实体/类 |
-| 专属字段 | 各 kind 可选的显性字段，**错用即 error** | `entity` 的 `members`（仅 uml-class） |
+| 专属字段 | 各 kind 可选的显性字段，**错用即 error** | `entity` 的 `members`（仅 uml-class / er） |
 | 尺寸 | `NODE_SIZE` 表 + 内容自适应 | 类卡片高度 = 32 + 成员行数×18 + 16 |
 | 渲染 | `SHAPES`/调色板 + 图类型覆盖 | entity → 圆柱（er）/ 三段类卡片（uml-class） |
 
-专属字段现状：目前只有 `entity` 有专属字段 `members`（属性/方法结构化对象）；其它 kind 内容走 `label`，图专属数据走 `attrs`（gantt 的 `start/duration`、ER 边基数）。**每个 kind 有哪些字段由文档表（lgdl-spec）定义，不存在隐式约定**。
+专属字段现状：`entity` 有专属字段 `members`（属性/方法结构化对象，uml-class / er 可用）；边有专属字段 `cardinalityFrom` / `cardinalityTo`（ER/UML 多重性）。其它 kind 内容走 `label`，图专属数据走 `attrs`（gantt 的 `start/duration`）。**每个 kind 有哪些字段由文档表（lgdl-spec）定义，不存在隐式约定**。

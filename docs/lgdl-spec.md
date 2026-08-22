@@ -1,4 +1,4 @@
-# LGDL 语言规范（v0.2）
+# LGDL 语言规范（v0.4.0）
 
 ## 文件格式
 
@@ -37,7 +37,7 @@ meta: {...}              # 可选，元信息（作者、版本等）
   label: string          # 可选，显示文本（默认用 id）
   kind: process          # 可选，节点类型（默认 process）
   # kind: start | end | process | decision | entity | note | state | milestone
-  members: [...]         # 可选，仅 kind: entity 且 type: uml-class 时合法（见下）
+  members: [...]         # 可选，仅 kind: entity 且 type: uml-class / er 时合法（见下）
   attrs: {...}           # 可选，扩展属性（逃生舱）
 ```
 
@@ -76,9 +76,9 @@ meta: {...}              # 可选，元信息（作者、版本等）
 ```
 
 校验（全部 error，不静默）：
-- `members` 仅限 `kind: entity` 且 `type: uml-class`，其它 kind/图类型报错
+- `members` 仅限 `kind: entity` 且 `type: uml-class` 或 `er`，其它 kind/图类型报错
 - `member.kind` 必须是 `attribute | method`；`member.name` 必填
-- `params` 仅 method 允许；`visibility` 必须是四枚举之一
+- `params` 仅 method 允许；`visibility` 必须是四枚举之一（uml-class 用；er 无可见性概念，可不写）
 
 ## Edge
 
@@ -152,8 +152,9 @@ groups:
 - 序列化器原样写回（数字/布尔/数组/嵌套对象类型保持）
 - 各图类型按需读取，例如：
   - 甘特图：`attrs: { start: 0, duration: 3 }`（起始日/工期）
-  - ER 图：`attrs: { cardinality: "1..*" }`（关系基数）
 - 未来新增图类型的专属字段都放这里，**无需改核心接口**
+
+> ⚠️ 多重性（ER/UML 关联基数）**不**走 `attrs.cardinality`——0.4.0 起该写法被校验拒绝，必须用边上的 `cardinalityFrom` / `cardinalityTo` 显性字段（见 Edge 节）。
 
 ## 校验规则
 
@@ -185,6 +186,12 @@ nodes:
   - id: verify
     label: 验证凭据
     kind: decision
+  - id: ok
+    label: 登录成功
+    kind: end
+  - id: fail
+    label: 登录失败
+    kind: end
 
 edges:
   - from: start
@@ -192,6 +199,7 @@ edges:
     label: 打开页面
   - from: login
     to: verify
+    label: 提交
   - from: verify
     to: ok
     label: 通过
