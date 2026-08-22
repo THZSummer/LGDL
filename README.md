@@ -175,6 +175,7 @@ LGDL/
 | **v0.2** | ✅ 增量编辑协议 + 9 种图类型渲染 |
 | **v0.3** | ✅ attrs 扩展属性 + ER/状态机/甘特图 + Mermaid/PlantUML/JSON 转换 |
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
+| **v0.5（规划中）** | ⏳ **Web 接入 AI 助手**：用户在工作台填入 AI API Key（OpenAI 兼容接口）后，即可用自然语言让 AI 帮忙写图——聊天式交互、生成结果确认后应用到编辑器（细节待定） |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。
 
