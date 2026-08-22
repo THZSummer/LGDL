@@ -288,7 +288,28 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       boxOf.set(group.id, box);
       return box;
     };
-    for (const group of doc.groups) {
+    // draw outer groups first (bottom layer), inner groups on top —
+    // otherwise an outer group's opaque fill hides the inner group's border
+    const groupIds = new Set(doc.groups.map((g) => g.id));
+    const parentOf = new Map<string, string>();
+    for (const g of doc.groups) {
+      for (const m of g.contains) {
+        if (groupIds.has(m) && !parentOf.has(m)) parentOf.set(m, g.id);
+      }
+    }
+    const depthOf = (id: string): number => {
+      let d = 0;
+      let cur = id;
+      const seen = new Set<string>();
+      while (parentOf.has(cur) && !seen.has(cur)) {
+        seen.add(cur);
+        cur = parentOf.get(cur)!;
+        d++;
+      }
+      return d;
+    };
+    const orderedGroups = [...doc.groups].sort((a, b) => depthOf(a.id) - depthOf(b.id));
+    for (const group of orderedGroups) {
       const box = computeGroupBox(group);
       if (!box) continue;
       parts.push(

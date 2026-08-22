@@ -504,6 +504,28 @@ function overlayGroupBoxes(
   }
   if (boxes.length === 0) return lines.join('\n');
 
+  // outer boxes first (bottom layer), inner on top — keeps nested borders
+  // readable even when a connector crosses multiple borders
+  const parentOf = new Map<string, string>();
+  const groupIds = new Set(doc.groups.map((g) => g.id));
+  for (const g of doc.groups) {
+    for (const m of g.contains) {
+      if (groupIds.has(m) && !parentOf.has(m)) parentOf.set(m, g.id);
+    }
+  }
+  const depthOf = (id: string): number => {
+    let d = 0;
+    let cur = id;
+    const seen = new Set<string>();
+    while (parentOf.has(cur) && !seen.has(cur)) {
+      seen.add(cur);
+      cur = parentOf.get(cur)!;
+      d++;
+    }
+    return d;
+  };
+  boxes.sort((a, b) => depthOf(a.id) - depthOf(b.id));
+
   // shift the whole drawing so every box has room on all sides
   const minLeft = Math.min(...boxes.map((b) => b.box.left));
   const minTop = Math.min(...boxes.map((b) => b.box.top));
