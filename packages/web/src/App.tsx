@@ -417,11 +417,26 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
 const ZOOM_EDGE = 64; // px band near each viewport edge where wheel = pan
 const ZOOM_MAX = 8;
 
-function ZoomableSvg({ svg, width, height, extraClass = '' }: { svg: string; width: number; height: number; extraClass?: string }) {
+function ZoomableSvg({
+  svg,
+  width,
+  height,
+  extraClass = '',
+  onScaleChange,
+}: {
+  svg: string;
+  width: number;
+  height: number;
+  extraClass?: string;
+  onScaleChange?: (scale: number) => void;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
   const fitScaleRef = useRef(1);
+  // keep the latest callback without re-binding the wheel listener
+  const onScaleChangeRef = useRef(onScaleChange);
+  onScaleChangeRef.current = onScaleChange;
 
   const applySize = (scale: number) => {
     const svgEl = innerRef.current?.querySelector('svg');
@@ -441,6 +456,7 @@ function ZoomableSvg({ svg, width, height, extraClass = '' }: { svg: string; wid
     applySize(scale);
     host.scrollLeft = 0;
     host.scrollTop = 0;
+    onScaleChangeRef.current?.(scale);
   };
 
   // new diagram (or first mount) -> refit
@@ -485,6 +501,7 @@ function ZoomableSvg({ svg, width, height, extraClass = '' }: { svg: string; wid
       // keep the point under the cursor stationary after the size change
       host.scrollLeft = (sx + mx) * k - mx;
       host.scrollTop = (sy + my) * k - my;
+      onScaleChangeRef.current?.(next);
     };
 
     host.addEventListener('wheel', onWheel, { passive: false });
@@ -585,6 +602,7 @@ export function App(): React.JSX.Element {
   const [debouncedSource, setDebouncedSource] = useState<string>(EXAMPLES[0].source);
   const [lastGood, setLastGood] = useState<RenderState>(() => compile(EXAMPLES[0].source));
   const [maskDismissed, setMaskDismissed] = useState(false);
+  const [zoomScale, setZoomScale] = useState<number | null>(null);
   const editorHostRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const sourceRef = useRef(source);
@@ -787,11 +805,11 @@ export function App(): React.JSX.Element {
           <div className="pane-title">预览</div>
           <div className="preview-body">
             {state.svg ? (
-              <ZoomableSvg svg={state.svg} width={state.width} height={state.height} />
+              <ZoomableSvg svg={state.svg} width={state.width} height={state.height} onScaleChange={setZoomScale} />
             ) : hasErrors && lastGood.svg ? (
               // keep the last good render visible, overlay an error mask
               <div className="preview-stale-wrap">
-                <ZoomableSvg svg={lastGood.svg} width={lastGood.width} height={lastGood.height} extraClass="svg-stale" />
+                <ZoomableSvg svg={lastGood.svg} width={lastGood.width} height={lastGood.height} extraClass="svg-stale" onScaleChange={setZoomScale} />
                 {!maskDismissed && (
                   <div className="error-mask">
                     <div className="error-mask-card">
@@ -842,6 +860,12 @@ export function App(): React.JSX.Element {
               ))}
             </div>
           )}
+          <div className="preview-statusbar">
+            <span className={zoomScale !== null ? 'status-ok' : ''}>
+              {zoomScale !== null ? `缩放 ${Math.round(zoomScale * 100)}%` : '缩放 —'}
+            </span>
+            <span>滚轮中央缩放 · 边缘滚轮平移</span>
+          </div>
         </section>
       </main>
     </div>

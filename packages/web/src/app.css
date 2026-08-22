@@ -165,6 +165,24 @@ body,
   flex-shrink: 0;
 }
 
+/* preview footer: zoom percentage + interaction hint */
+.preview-statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.preview-statusbar .status-ok {
+  color: #16a34a;
+  font-weight: 600;
+}
+
 .status-ok {
   color: #16a34a;
   font-weight: 600;
