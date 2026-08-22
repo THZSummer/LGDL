@@ -1,0 +1,111 @@
+title: 电商下单全流程
+type: flowchart
+
+nodes:
+  - id: browse
+    label: 浏览商品
+    kind: start
+  - id: cart
+    label: 加入购物车
+    kind: process
+  - id: submit
+    label: 提交订单
+    kind: process
+  - id: validate
+    label: 订单校验
+    kind: decision
+  - id: lock-stock
+    label: 锁定库存
+    kind: decision
+  - id: pay
+    label: 收银台支付
+    kind: decision
+  - id: risk
+    label: 风控审核
+    kind: decision
+  - id: pay-ok
+    label: 支付成功
+    kind: process
+  - id: deduct
+    label: 扣减库存
+    kind: process
+  - id: ship
+    label: 创建物流单
+    kind: process
+  - id: done
+    label: 订单完成
+    kind: end
+  - id: cancel
+    label: 订单取消
+    kind: end
+  - id: stock-fail
+    label: 库存不足
+    kind: end
+  - id: refund
+    label: 发起退款
+    kind: end
+
+edges:
+  - from: browse
+    to: cart
+    label: 选择商品
+  - from: cart
+    to: submit
+    label: 去结算
+  - from: submit
+    to: validate
+  - from: validate
+    to: lock-stock
+    label: 校验通过
+  - from: validate
+    to: cancel
+    label: 参数异常
+  - from: lock-stock
+    to: pay
+    label: 锁定成功
+  - from: lock-stock
+    to: stock-fail
+    label: 库存不足
+  - from: pay
+    to: risk
+    label: 发起支付
+  - from: pay
+    to: cancel
+    label: 用户放弃
+  - from: risk
+    to: pay-ok
+    label: 审核通过
+  - from: risk
+    to: cancel
+    label: 风险拦截
+  - from: pay-ok
+    to: deduct
+  - from: deduct
+    to: ship
+    label: 通知履约
+  - from: ship
+    to: done
+    label: 确认收货
+  - from: deduct
+    to: refund
+    label: 售后保障
+  - from: trade
+    to: fulfillment
+    label: 订单推送
+  - from: fulfillment
+    to: after-sale
+    label: 售后入口
+
+groups:
+  - id: shopping
+    label: 购物域
+    contains: [browse, cart]
+  - id: trade
+    label: 交易域
+    contains: [submit, validate, lock-stock, pay, risk, pay-ok, deduct]
+  - id: fulfillment
+    label: 履约域
+    contains: [ship, done]
+  - id: after-sale
+    label: 售后域
+    contains: [refund]

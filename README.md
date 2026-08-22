@@ -48,17 +48,21 @@ AI 的每次修改都是**增量 patch**（`add-node` / `remove-node` / `update-
 
 一种 LGDL 语言，九种图——全部由 `lgdl render` 自动布局生成，无任何手工排版：
 
-| flowchart 流程图 | mindmap 思维导图 | sequence 时序图 |
+| flowchart 流程图 | flowchart 实战 | mindmap 思维导图 |
 |---|---|---|
-| <p align="center"><img src="examples/login-flow.png" width="280"/><br/>[📄 源码](examples/login-flow.lgdl)</p> | <p align="center"><img src="examples/mindmap.png" width="280"/><br/>[📄 源码](examples/mindmap.lgdl)</p> | <p align="center"><img src="examples/sequence.png" width="280"/><br/>[📄 源码](examples/sequence.lgdl)</p> |
+| <p align="center"><img src="examples/login-flow.png" width="280"/><br/>[📄 源码](examples/login-flow.lgdl)</p> | <p align="center"><img src="examples/ecommerce-flow.png" width="280"/><br/>[📄 源码](examples/ecommerce-flow.lgdl)</p> | <p align="center"><img src="examples/mindmap.png" width="280"/><br/>[📄 源码](examples/mindmap.lgdl)</p> |
 
-| uml-class 类图 | arch 架构图 | datastream 数据流 |
+| sequence 时序图 | uml-class 类图 | arch 架构图 |
 |---|---|---|
-| <p align="center"><img src="examples/uml-class.png" width="280"/><br/>[📄 源码](examples/uml-class.lgdl)</p> | <p align="center"><img src="examples/architecture.png" width="280"/><br/>[📄 源码](examples/architecture.lgdl)</p> | <p align="center"><img src="examples/datastream.png" width="280"/><br/>[📄 源码](examples/datastream.lgdl)</p> |
+| <p align="center"><img src="examples/sequence.png" width="280"/><br/>[📄 源码](examples/sequence.lgdl)</p> | <p align="center"><img src="examples/uml-class.png" width="280"/><br/>[📄 源码](examples/uml-class.lgdl)</p> | <p align="center"><img src="examples/architecture.png" width="280"/><br/>[📄 源码](examples/architecture.lgdl)</p> |
 
-| er ER 图 | state 状态机 | gantt 甘特图 |
+| arch 实战：微服务 | datastream 数据流 | er ER 图 |
 |---|---|---|
-| <p align="center"><img src="examples/er.png" width="280"/><br/>[📄 源码](examples/er.lgdl)</p> | <p align="center"><img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.lgdl)</p> | <p align="center"><img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.lgdl)</p> |
+| <p align="center"><img src="examples/microservices.png" width="280"/><br/>[📄 源码](examples/microservices.lgdl)</p> | <p align="center"><img src="examples/datastream.png" width="280"/><br/>[📄 源码](examples/datastream.lgdl)</p> | <p align="center"><img src="examples/er.png" width="280"/><br/>[📄 源码](examples/er.lgdl)</p> |
+
+| state 状态机 | gantt 甘特图 | |
+|---|---|---|
+| <p align="center"><img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.lgdl)</p> | <p align="center"><img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.lgdl)</p> | |
 
 ---
 

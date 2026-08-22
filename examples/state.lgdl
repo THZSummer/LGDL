@@ -1,4 +1,4 @@
-title: 订单状态机
+title: 订单状态机（完整版）
 type: state
 
 nodes:
@@ -8,18 +8,36 @@ nodes:
   - id: pending
     label: 待支付
     kind: state
+  - id: paying
+    label: 支付处理中
+    kind: state
   - id: paid
     label: 已支付
+    kind: state
+  - id: preparing
+    label: 备货中
     kind: state
   - id: shipped
     label: 已发货
     kind: state
+  - id: delivering
+    label: 配送中
+    kind: state
+  - id: received
+    label: 已签收
+    kind: state
   - id: done
     label: 已完成
+    kind: end
+  - id: closed
+    label: 超时关闭
     kind: end
   - id: cancelled
     label: 已取消
     kind: end
+  - id: refunding
+    label: 退款中
+    kind: state
   - id: refunded
     label: 已退款
     kind: end
@@ -29,17 +47,55 @@ edges:
     to: pending
     label: 提交订单
   - from: pending
+    to: paying
+    label: 发起支付
+  - from: paying
     to: paid
     label: 支付成功
+  - from: paying
+    to: pending
+    label: 支付失败
+  - from: pending
+    to: closed
+    label: 30 分钟未支付
   - from: pending
     to: cancelled
-    label: 超时取消
+    label: 用户取消
   - from: paid
+    to: preparing
+    label: 支付回调
+  - from: preparing
     to: shipped
-    label: 发货
+    label: 仓库出库
+  - from: preparing
+    to: cancelled
+    label: 缺货取消
   - from: shipped
+    to: delivering
+    label: 物流揽收
+  - from: delivering
+    to: received
+    label: 用户签收
+  - from: received
     to: done
     label: 确认收货
   - from: paid
-    to: refunded
+    to: refunding
     label: 申请退款
+  - from: delivering
+    to: refunding
+    label: 拒收退款
+  - from: refunding
+    to: refunded
+    label: 退款成功
+
+groups:
+  - id: payment-flow
+    label: 支付阶段
+    contains: [pending, paying, paid]
+  - id: fulfillment-flow
+    label: 履约阶段
+    contains: [preparing, shipped, delivering, received]
+  - id: after-sale
+    label: 售后阶段
+    contains: [refunding]

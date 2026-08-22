@@ -1,0 +1,122 @@
+title: 电商微服务架构
+type: arch
+
+nodes:
+  - id: client
+    label: 客户端 App
+    kind: start
+  - id: gateway
+    label: API 网关
+    kind: process
+  - id: auth
+    label: 认证服务
+    kind: process
+  - id: user
+    label: 用户服务
+    kind: process
+  - id: product
+    label: 商品服务
+    kind: process
+  - id: order
+    label: 订单服务
+    kind: process
+  - id: inventory
+    label: 库存服务
+    kind: process
+  - id: payment
+    label: 支付服务
+    kind: process
+  - id: notify
+    label: 通知服务
+    kind: process
+  - id: search
+    label: 搜索服务
+    kind: process
+  - id: redis
+    label: Redis 缓存
+    kind: entity
+  - id: mysql
+    label: MySQL 集群
+    kind: entity
+  - id: mq
+    label: 消息队列
+    kind: entity
+  - id: es
+    label: Elasticsearch
+    kind: entity
+  - id: oss
+    label: 对象存储
+    kind: entity
+  - id: monitor
+    label: 监控告警
+    kind: note
+
+edges:
+  - from: client
+    to: gateway
+    label: HTTPS
+  - from: gateway
+    to: auth
+    label: 鉴权
+  - from: gateway
+    to: user
+  - from: gateway
+    to: product
+  - from: gateway
+    to: order
+  - from: gateway
+    to: inventory
+  - from: gateway
+    to: payment
+  - from: gateway
+    to: search
+  - from: order
+    to: inventory
+    label: 锁库存
+  - from: order
+    to: payment
+    label: 发起支付
+  - from: payment
+    to: notify
+    label: 支付回调
+  - from: order
+    to: redis
+    label: 读写缓存
+  - from: order
+    to: mysql
+    label: 订单落库
+  - from: user
+    to: mysql
+  - from: inventory
+    to: mysql
+  - from: payment
+    to: mq
+    label: 发消息
+  - from: notify
+    to: mq
+  - from: product
+    to: es
+    label: 同步索引
+  - from: client
+    to: oss
+    label: 上传头像
+  - from: gateway-layer
+    to: service-layer
+    label: 路由转发
+  - from: service-layer
+    to: infra
+    label: 数据访问
+
+groups:
+  - id: gateway-layer
+    label: 接入层
+    contains: [gateway]
+  - id: service-layer
+    label: 业务层
+    contains: [auth, user, product, order, inventory, payment, notify, search]
+  - id: infra
+    label: 基础设施
+    contains: [redis, mysql, mq, es, oss]
+  - id: observability
+    label: 可观测
+    contains: [monitor]
