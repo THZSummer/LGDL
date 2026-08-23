@@ -80,7 +80,8 @@ LGDL 的每个概念都有**显性字段**，渲染器从不从文本里猜含�
 
 ### 5. Web AI 助手（v0.5）
 
-- **命令模式（web-cli）**：AI 像在 Linux 终端里一样用 `lgdl` 命令操作图（`lgdl status` / `lgdl add-node --id x --label y` …），**不直接写 LGDL 源码**——源码只由命令执行产生；命令与 CLI 完全同一套语义（`core/web-cli.ts`），点「执行」逐条应用、失败即停
+- **lgdl-web-cli 协议**：AI 通过 ```` ```lgdl-web-cli ```` 协议块操作图（`lgdl status --doc main` / `lgdl add-node --doc main --id x --label y` …），**不直接写 LGDL 源码**——源码只由命令执行产生；命令语义与终端 lgdl-cli 完全一致（共用 `core/commands.ts` 命令注册表），点「执行」逐条应用、失败即停
+- **双 CLI 分离**：终端 `lgdl`（lgdl-cli，`--file` 操作磁盘文件）与 Web 协议（lgdl-web-cli，`--doc` 操作编辑器文档）物理分离、场景独立，业务逻辑（命令解析/校验/op 构造）在 core 单一实现
 - **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限，需本地代理（v0.6）
 - 设置面板两步配置：选服务商 + 填 API Key（各服务商 key 独立保存）；「测试连接」一键验证 key / 端点 / CORS
 - 预置快捷操作（语法修复 / 自动优化 / 九种图类型创作等）+ 自动应用开关
@@ -153,11 +154,11 @@ groups:
 ```
 LGDL/
 ├── packages/
-│   ├── core/          # LGDL 解析、语义模型、校验、格式转换（纯 TS，零依赖）
+│   ├── core/          # 语言核心：解析、语义模型、校验、格式转换、命令注册表（commands.ts，纯 TS 零依赖）
 │   ├── layout/        # 确定性布局引擎（dagre 层级 / 径向树 / 时序 / 泳道 / 甘特）
 │   ├── render/        # SVG 渲染器（形状、锚点、ASCII 输出）
-│   ├── cli/           # lgdl 命令行（命令注册表 + 增量编辑）
-│   └── web/           # Web 工作台（React + CodeMirror 6 + 自研 SVG 预览）
+│   ├── cli/           # lgdl-cli 终端命令（commander + --file 文件 IO，业务逻辑复用 core/commands.ts）
+│   └── web/           # Web 工作台（React + CodeMirror 6 + lgdl-web-cli 协议 + 自研 SVG 预览）
 ├── docs/              # 设计文档、语言规范、AI 集成指南
 ├── examples/          # 示例 .lgdl 文件
 └── README.md
@@ -182,7 +183,7 @@ LGDL/
 | **v0.2** | ✅ 增量编辑协议 + 9 种图类型渲染 |
 | **v0.3** | ✅ attrs 扩展属性 + ER/状态机/甘特图 + Mermaid/PlantUML/JSON 转换 |
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
-| **v0.5** | ✅ Web AI 助手（命令模式 web-cli、对话生成/修改图、多厂商接入 + 连接测试、共享操作层、自动应用）+ 图即代码规划（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出优化、Mermaid 导入增强） |
+| **v0.5** | ✅ Web AI 助手（lgdl-web-cli 协议、对话生成/修改图、多厂商接入 + 连接测试、双 CLI 分离 + 命令注册表复用、自动应用）+ 图即代码规划（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出优化、Mermaid 导入增强） |
 | **v0.6** | ⏳ 图即代码（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出 attrs 与格式优化、Agent 集成提示词模板、Mermaid 导入增强）；模块化：子图引用、参数化模板；渲染与性能（大图优化、布局打磨）；state 显性 `initial` 字段 |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。

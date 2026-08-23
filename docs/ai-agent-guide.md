@@ -4,8 +4,9 @@
 > 本指南面向 AI，命令示例全部实测可用。
 >
 > **Web 工作台 AI 助手**（v0.5）也使用同一套命令协议：AI 在浏览器里输出
-> ```` ```bash ```` 命令块（`lgdl status` / `lgdl add-node --id x --label y` …），
-> 工作台解析执行——与终端 `lgdl` CLI 完全同语义。下方命令在两端通用。
+> ```` ```lgdl-web-cli ```` 协议块（`lgdl status --doc main` / `lgdl add-node --doc main --id x` …），
+> 工作台解析执行——与终端 `lgdl` CLI 完全同语义（共用 `core/commands.ts` 命令注册表）。
+> 下方命令在两端通用（终端用 `--file`，Web 用 `--doc`）。
 
 ---
 

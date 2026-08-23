@@ -8,12 +8,13 @@
 - 🔧 **共享操作层**（`core/operations.ts`）：结构化增量操作协议 `LgdlOperation`（add/remove/update × node/edge/group 共 9 种）+ `applyOperation`/`applyOperations`（批量、失败即停）；**CLI 全部 9 个增量命令重构为同一入口**——终端与 Web AI 行为严格一致，无第二套实现
 - 🌐 **多厂商接入**（`ai/provider.ts`）：DeepSeek / Qwen / 火山方舟 / 腾讯混元 / OpenAI GPT 走 openai SDK（OpenAI 兼容端点），Claude 走 @anthropic-ai/sdk；**系统不内置任何 key**，用户手动填写、存 localStorage；支持自定义 baseURL（火山 coding/plan 端点）
 - ⚙️ **设置面板**：AI 标题栏 ⚙ 按钮，选服务商 / 填 Key（可显隐）/ 选模型 / 自定义 baseURL，切换服务商自动预填默认模型
-- 🎯 **提示词工程**（`ai/prompts.ts`）：LGDL 规范 system prompt（文档结构、9 图类型要点、6 条硬性约束、```ops 增量协议），AI 生成结果必须能通过校验；实测 deepseek-v4-flash 能正确输出增量操作序列修改图
+- 🎯 **提示词工程**（`ai/prompts.ts`）：LGDL 规范 system prompt（lgdl-web-cli 协议、可用调用、6 条硬性约束），AI 生成结果必须能通过校验
 - 🚀 **预置操作滑轨**：17 个快捷操作（语法修复/自动优化/九种图类型创作/追加节点/整理分组等），点击即发送（含当前源码上下文注入），滚轮横滑
 - ✅ **自动应用**：开关开启后 AI 回复中的代码块/操作块校验通过即自动写入编辑器
 - 🛡️ **错误分类**：key 无效（401/403）/ 网络不通 / CORS 不允许 / 厂商 404 均给出明确中文提示
-- 💻 **命令模式（web-cli）**：AI 不再直接写 LGDL 源码——像在 Linux 终端一样用 `lgdl` 命令操作图（`lgdl status` / `lgdl add-node --id x --label y` …）；`core/web-cli.ts` 把命令行解析为结构化操作（与 CLI 完全同语义），Web「执行」逐条应用，失败即停；源码只由命令执行产生
-- 📊 **status 命令**：`core/status.ts` 把文档渲染为 AI 可读图结构文本（CLI `lgdl status` 与 Web 共用），AI 先读图再增量修改
+- 💻 **lgdl-web-cli 协议**：AI 通过 ```` ```lgdl-web-cli ```` 协议块操作图（`lgdl status --doc main` / `lgdl add-node --doc main --id x` …），**不直接写 LGDL 源码**；表达（普通文本）与执行（协议块）严格区分；agent 循环逐步执行（1~3 条/轮，结果反馈，失败即停，10 轮上限）
+- 🔀 **双 CLI 分离**：终端 lgdl-cli（`--file` 磁盘文件）与 lgdl-web-cli（`--doc` 编辑器文档）物理分离；`core/commands.ts` 命令注册表（参数 schema / buildOperation / attrs/member 解析）为**两端业务逻辑唯一实现**，lgdl-cli（9 命令）与 lgdl-web-cli 均复用；`web/ai/web-cli.ts` 是协议解析器（仅 web 使用）
+- 📊 **status / validate / init / convert**：`core/status.ts`（图结构文本）与 `core/commands.ts` 共用；lgdl-web-cli 支持 `validate`（语法校验）、`init`（默认图）、`convert --to mermaid/plantuml/json`（导出）
 
 **Web 工作台打磨**
 
