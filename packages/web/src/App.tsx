@@ -14,6 +14,7 @@ import { renderSvg } from '@lgdl/render';
 import { locateIssue, type DocSpan } from './locate';
 import { computeSnap } from './snap';
 import { EXAMPLES, type Example } from './examples';
+import { AiPanel } from './ai/AiPanel';
 import webPkg from '../package.json';
 import './app.css';
 
@@ -483,11 +484,48 @@ export function App(): React.JSX.Element {
   const [lastGood, setLastGood] = useState<RenderState>(() => compile(EXAMPLES[0].source));
   const [maskDismissed, setMaskDismissed] = useState(false);
   const [zoomScale, setZoomScale] = useState<number | null>(null);
+  // ---- 左栏上下分栏（编辑器 / AI 助手）----
+  const [splitRatio, setSplitRatio] = useState(0.4); // 编辑器占左栏高度比例
+  const [aiCollapsed, setAiCollapsed] = useState(false); // true = 编辑器收缩（仅剩标题栏）
+  const [dragging, setDragging] = useState(false); // 分隔条拖拽中（禁用过渡，保持跟手）
+  const dragRef = useRef<{ startY: number; startRatio: number } | null>(null);
+  const editorPaneRef = useRef<HTMLElement>(null);
   const editorHostRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const switcherRef = useRef<HTMLDivElement>(null);
   const sourceRef = useRef(source);
   sourceRef.current = source;
+
+  /** 分隔条拖拽：拖动中实时调整比例（允许拖到 0 触发收缩），松手后判定收缩。 */
+  const onSplitPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+    dragRef.current = { startY: e.clientY, startRatio: aiCollapsed ? 0.4 : splitRatio };
+  }, [aiCollapsed, splitRatio]);
+
+  const onSplitPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    const pane = editorPaneRef.current;
+    if (!d || !pane) return;
+    const rect = pane.getBoundingClientRect();
+    if (rect.height <= 0) return;
+    const ratio = Math.min(0.85, Math.max(0, d.startRatio + (e.clientY - d.startY) / rect.height));
+    setSplitRatio(ratio);
+    setAiCollapsed(false); // 拖动即视为展开意图
+  }, []);
+
+  const onSplitPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    setDragging(false);
+    if (!d) return;
+    // 拖到几乎最底部（比例 < 8%）→ 编辑器收缩；否则按当前比例停住
+    if (splitRatio < 0.08) {
+      setAiCollapsed(true);
+      setSplitRatio(0.4); // 下次展开回到默认 40%
+    }
+  }, [splitRatio]);
 
   // CodeMirror editor (created once; content flows through React state)
   useEffect(() => {
@@ -632,6 +670,8 @@ export function App(): React.JSX.Element {
     };
     const snap = () => {
       timer = undefined;
+      // 滚动停稳：隐藏指针
+      wrap?.classList.remove('scrolling');
       const cr = el.getBoundingClientRect();
       if (cr.width <= 0) return;
       const maxScroll = el.scrollWidth - el.clientWidth;
@@ -654,6 +694,8 @@ export function App(): React.JSX.Element {
       }
     };
     const onScroll = () => {
+      // 滚动中显示指针（CSS: .switcher-wrap.scrolling .switcher-pointer）
+      wrap?.classList.add('scrolling');
       markPointed();
       if (timer) clearTimeout(timer);
       timer = setTimeout(snap, 180);
@@ -674,14 +716,21 @@ export function App(): React.JSX.Element {
     const sync = () => {
       wrap.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 1);
       // 紧凑轮盘：滑轨区域 = 最宽胶囊 × 2 + 两侧 gap（"选中 1x 居中、
-      // 左右各露出约 0.5x 相邻胶囊"在数学上要求视口 ≈ 2x + 2gap）；
-      // 两端 spacer ≈ 半胶囊 + gap，保证首/尾胶囊也能滚到中心附近
+      // 左右各露出约 0.5x 相邻胶囊"在数学上要求视口 ≈ 2x + 2gap）
       let maxW = 124;
-      for (const chip of el.querySelectorAll<HTMLElement>('.example-chip')) {
+      const chips = Array.from(el.querySelectorAll<HTMLElement>('.example-chip'));
+      for (const chip of chips) {
         maxW = Math.max(maxW, chip.offsetWidth);
       }
-      wrap.style.setProperty('--switcher-w', `${maxW * 2 + 16}px`);
-      wrap.style.setProperty('--spacer-w', `${Math.round(maxW / 2) + 8}px`);
+      const viewW = maxW * 2 + 16;
+      wrap.style.setProperty('--switcher-w', `${viewW}px`);
+      // 两端 spacer = (视口宽 − 首/尾胶囊宽) / 2 − 4px（.example-switcher
+      // 的左右 padding 各 4px），让首/尾胶囊的中心恰好落在视口中心
+      // （指针）上——scrollLeft=0/max 时指针正中胶囊
+      const firstW = chips[0]?.offsetWidth ?? maxW;
+      const lastW = chips[chips.length - 1]?.offsetWidth ?? maxW;
+      wrap.style.setProperty('--spacer-start', `${Math.max(8, Math.round((viewW - firstW) / 2 - 4))}px`);
+      wrap.style.setProperty('--spacer-end', `${Math.max(8, Math.round((viewW - lastW) / 2 - 4))}px`);
     };
     sync();
     const ro = new ResizeObserver(() => {
@@ -740,6 +789,13 @@ export function App(): React.JSX.Element {
     });
   }, [source]);
 
+  /** AI 输出的 LGDL 应用到编辑器（已在 AiPanel 内通过 parseLgdl 校验）。 */
+  const applyAiSource = useCallback((lgdl: string) => {
+    setSource(lgdl);
+    setDebouncedSource(lgdl);
+    compileCache.clear();
+  }, []);
+
   // click an issue / preview element -> jump to the location in the editor,
   // centering the target line vertically and moving the cursor onto it
   const jumpToIssue = useCallback((location: string | undefined) => {
@@ -785,29 +841,93 @@ export function App(): React.JSX.Element {
       </header>
 
       <main className="workspace">
-        <section className="editor-pane">
-          <div className="pane-title">
-            <span>
-              编辑器 <span className="pane-hint">.lgdl 源码</span>
-            </span>
-            <button className="pane-btn" onClick={copySource}>
-              {copied ? '✓ 已复制' : '复制源码'}
-            </button>
+        <section className="editor-pane" ref={editorPaneRef}>
+          <div
+            className={`editor-region${aiCollapsed ? ' collapsed' : ''}${dragging ? ' dragging' : ''}`}
+            style={{
+              flexGrow: 0,
+              flexShrink: 0,
+              flexBasis: aiCollapsed ? '36px' : `${splitRatio * 100}%`,
+              transition: dragging ? 'none' : 'flex-basis 0.25s ease',
+            }}
+          >
+            <div
+              className="pane-title pane-title-clickable"
+              title={aiCollapsed ? '点击展开编辑器' : '点击收起编辑器'}
+              onClick={() => {
+                if (aiCollapsed) {
+                  setAiCollapsed(false);
+                  setSplitRatio(0.4);
+                } else {
+                  setAiCollapsed(true);
+                }
+              }}
+            >
+              <span>
+                编辑器 <span className="pane-hint">.lgdl 源码</span>
+              </span>
+              <span className="pane-actions">
+                <button
+                  className="pane-icon-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (aiCollapsed) {
+                      setAiCollapsed(false);
+                      setSplitRatio(0.4);
+                    } else {
+                      setAiCollapsed(true);
+                    }
+                  }}
+                  title={aiCollapsed ? '展开编辑器' : '收缩编辑器'}
+                  aria-label={aiCollapsed ? '展开编辑器' : '收缩编辑器'}
+                >
+                  {aiCollapsed ? (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="18 15 12 9 6 15" />
+                    </svg>
+                  )}
+                </button>
+                <button className="pane-btn" onClick={copySource} title="复制源码到剪贴板">
+                  {copied ? '✓ 已复制' : '复制源码'}
+                </button>
+              </span>
+            </div>
+            <div className="editor" ref={editorHostRef} aria-label="LGDL source editor" />
+            <div className="status-bar">
+              <span className={hasErrors ? 'status-error' : 'status-ok'}>
+                {hasErrors
+                  ? `✖ ${state.issues.filter((i) => i.severity === 'error').length} 个错误`
+                  : isStale
+                    ? '⏳ 输入中…'
+                    : '✓ 语法正确'}
+              </span>
+              <span>
+                {state.nodeCount} 节点 · {state.edgeCount} 边 · {state.width}×{state.height}
+                {state.elapsed > 0 && !isStale ? ` · ${state.elapsed.toFixed(1)}ms` : ''}
+              </span>
+            </div>
           </div>
-          <div className="editor" ref={editorHostRef} aria-label="LGDL source editor" />
-          <div className="status-bar">
-            <span className={hasErrors ? 'status-error' : 'status-ok'}>
-              {hasErrors
-                ? `✖ ${state.issues.filter((i) => i.severity === 'error').length} 个错误`
-                : isStale
-                  ? '⏳ 输入中…'
-                  : '✓ 语法正确'}
-            </span>
-            <span>
-              {state.nodeCount} 节点 · {state.edgeCount} 边 · {state.width}×{state.height}
-              {state.elapsed > 0 && !isStale ? ` · ${state.elapsed.toFixed(1)}ms` : ''}
-            </span>
-          </div>
+
+          <div
+            className="split-handle"
+            onPointerDown={onSplitPointerDown}
+            onPointerMove={onSplitPointerMove}
+            onPointerUp={onSplitPointerUp}
+            title="拖动调整编辑器高度（拖到底部收起编辑器）"
+          />
+
+          <section className="ai-region">
+            <div className="pane-title">
+              <span>AI 助手 <span className="pane-hint">对话生成 / 修改图</span></span>
+            </div>
+            <div className="ai-body">
+              <AiPanel onApply={applyAiSource} currentSource={source} />
+            </div>
+          </section>
         </section>
 
         <section className="preview-pane">

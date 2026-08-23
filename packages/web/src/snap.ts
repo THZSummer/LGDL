@@ -6,14 +6,14 @@
  * snap the row. Kept DOM-free so the boundary rules are unit-testable.
  *
  * Rules:
- *   - scrolled to the LEFT edge  -> select the FIRST chip, stay at 0
- *   - scrolled to the RIGHT edge -> select the LAST chip, stay at maxScroll
- *     (the first/last chips can never reach the pointer center — scrollLeft
- *     is clamped to [0, maxScroll] — so at the edges the boundary chip wins)
- *   - middle: pick the chip whose CURRENT viewport center is closest to the
+ *   - pick the chip whose CURRENT viewport center is closest to the
  *     pointer (real distance — every chip the pointer passes becomes the
  *     nearest one, so none is ever skipped), then snap it toward center,
  *     clamped to the scrollable range.
+ *   - at the edges the same rule applies: if the first/last chip sits
+ *     off-center (e.g. spacer measurement drift), it is still snapped
+ *     toward the pointer as far as the [0, maxScroll] clamp allows —
+ *     never "stay put" with a visible offset.
  */
 
 export interface SnapChip {
@@ -40,16 +40,6 @@ export function computeSnap(
   if (chips.length === 0) return null;
   const clampScroll = (v: number) => Math.max(0, Math.min(maxScroll, v));
 
-  const atLeft = scrollLeft <= 1;
-  const atRight = maxScroll > 0 && scrollLeft >= maxScroll - 1;
-  if (atLeft) {
-    // already at the left edge — stay put, select the first chip
-    return { id: chips[0].id, scrollLeft: 0 };
-  }
-  if (atRight) {
-    // already at the right edge — stay put, select the last chip
-    return { id: chips[chips.length - 1].id, scrollLeft: maxScroll };
-  }
   // nearest to the pointer by REAL viewport distance
   let target = chips[0];
   let bestDist = Infinity;

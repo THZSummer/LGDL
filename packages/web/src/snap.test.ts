@@ -21,14 +21,16 @@ function chipsAt(scroll: number): SnapChip[] {
   }));
 }
 
-test('left edge: select the first chip and stay at 0', () => {
-  assert.deepEqual(computeSnap(0, MAX_SCROLL, CENTER, chipsAt(0)), { id: 'c0', scrollLeft: 0 });
+test('left edge: selects the first chip and snaps it toward center', () => {
+  // c0 center = 292+60 = 352, pointer at 350 → snap +2 to center it
+  assert.deepEqual(computeSnap(0, MAX_SCROLL, CENTER, chipsAt(0)), { id: 'c0', scrollLeft: 2 });
 });
 
-test('right edge: select the last chip and stay at maxScroll', () => {
+test('right edge: selects the last chip and snaps it toward center', () => {
+  // c10 center at maxScroll = 292+1280-1292+60 = 340, pointer at 350 → snap back 10
   assert.deepEqual(computeSnap(MAX_SCROLL, MAX_SCROLL, CENTER, chipsAt(MAX_SCROLL)), {
     id: 'c10',
-    scrollLeft: MAX_SCROLL,
+    scrollLeft: MAX_SCROLL - 10,
   });
 });
 
