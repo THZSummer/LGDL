@@ -31,9 +31,6 @@ import {
 import { parseWebCliBatch, parseWebFetchCommand } from './web-cli.js';
 import { webCliHelp, webOpHelp, webFetchHelp } from './help.js';
 
-/** lgdl-web-cli 协议块标记（手动输入兼容）。 */
-export const WEB_CLI_FENCE = 'lgdl-web-cli';
-
 export interface CommandExecResult {
   ok: boolean;
   /** 执行后的新源码（未修改时与原值相同） */
