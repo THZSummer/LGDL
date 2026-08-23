@@ -171,15 +171,17 @@ function renderInline(text: string): React.ReactNode[] {
   return nodes;
 }
 
-/** lgdl 命令块：展示 AI 输出的命令行序列，点「执行」在编辑器上运行（与 CLI 同语义）。 */
+/** lgdl web-cli 命令块：展示 AI 输出的协议块，点「执行」在编辑器上运行（与 CLI 同语义）。 */
 function CommandBlock({
   commands,
   currentSource,
+  docId,
   onApply,
   autoApply = false,
 }: {
   commands: string;
   currentSource: string;
+  docId: string;
   onApply: ApplySource;
   autoApply?: boolean;
 }) {
@@ -188,7 +190,7 @@ function CommandBlock({
   const lines = commands.split('\n').map((l) => l.trim()).filter(Boolean);
 
   const run = useCallback(() => {
-    const r = executeCommands(currentSource, commands);
+    const r = executeCommands(currentSource, commands, docId);
     setResult(r);
     if (r.ok && r.changed) {
       onApply(r.source);
@@ -199,7 +201,7 @@ function CommandBlock({
     } else {
       setStatus('error');
     }
-  }, [commands, currentSource, onApply]);
+  }, [commands, currentSource, docId, onApply]);
 
   // 自动应用：挂载时触发一次（autoApply 开启时新到达的回复自动执行）
   const appliedRef = useRef(false);
@@ -258,11 +260,13 @@ function MessageBody({
   content,
   onApply,
   currentSource,
+  docId,
   autoApply = false,
 }: {
   content: string;
   onApply: ApplySource;
   currentSource: string;
+  docId: string;
   autoApply?: boolean;
 }) {
   const parts: React.ReactNode[] = [];
@@ -284,7 +288,7 @@ function MessageBody({
     }
     const body = m[2].replace(/\n$/, '');
     parts.push(
-      <CommandBlock key={k++} commands={body} currentSource={currentSource} onApply={onApply} autoApply={autoApply} />,
+      <CommandBlock key={k++} commands={body} currentSource={currentSource} docId={docId} onApply={onApply} autoApply={autoApply} />,
     );
     last = m.index + m[0].length;
   }
@@ -302,11 +306,14 @@ function MessageBody({
 export function AiPanel({
   onApply,
   currentSource = '',
+  docId = 'main',
   settings,
   onSaveSettings,
 }: {
   onApply: ApplySource;
   currentSource?: string;
+  /** 当前文档 id（web-cli 的 --doc 必填，未来多标签/多文档时扩展） */
+  docId?: string;
   settings: ProviderSettings;
   onSaveSettings: (s: ProviderSettings) => void;
 }) {
@@ -315,7 +322,7 @@ export function AiPanel({
       id: nextId++,
       role: 'system',
       content:
-        '🤖 我是 LGDL AI 助手：通过自然语言生成或修改图。我会用 `lgdl` 命令（如 `lgdl status`、`lgdl add-node --id x`）操作图，点「执行」运行。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
+        '🤖 我是 LGDL AI 助手：通过自然语言生成或修改图。我会用 `lgdl` 命令（如 `lgdl status --doc main`、`lgdl add-node --doc main --id x`）操作图，点「执行」运行。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
     },
   ]);
   const [input, setInput] = useState('');
@@ -325,6 +332,8 @@ export function AiPanel({
   const idRef = useRef(nextId);
   const currentSourceRef = useRef(currentSource);
   currentSourceRef.current = currentSource;
+  const docIdRef = useRef(docId);
+  docIdRef.current = docId;
   const presetTrackRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -437,7 +446,7 @@ export function AiPanel({
           }
 
           // 执行命令（作用于当前编辑器源码）
-          const exec = executeCommands(sourceNow, commands);
+          const exec = executeCommands(sourceNow, commands, docIdRef.current);
           // 有修改才写回编辑器；status/空操作仅展示
           if (exec.changed) {
             onApply(exec.source);
@@ -507,7 +516,7 @@ export function AiPanel({
               {msg.role === 'tool' ? (
                 <pre className="ai-tool-output">{msg.content}</pre>
               ) : (
-                <MessageBody content={msg.content} onApply={onApply} currentSource={currentSourceRef.current} autoApply={autoApply} />
+                <MessageBody content={msg.content} onApply={onApply} currentSource={currentSourceRef.current} docId={docIdRef.current} autoApply={autoApply} />
               )}
             </div>
           </div>

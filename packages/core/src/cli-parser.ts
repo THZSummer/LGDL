@@ -1,21 +1,26 @@
 /**
- * CLI 命令解析器：把「lgdl <subcommand> --key value ...」命令行文本解析为
- * 结构化操作（LgdlOperation）或 status 请求。Web AI 助手与 CLI 共用同一
- * 套命令语义 —— AI 像在终端里敲 lgdl 命令一样操作图。
+ * web-cli 协议解析器（注意：这是 Web 工作台 AI 协议的解析器，**不是**终端
+ * `lgdl` CLI 的解析器——终端 CLI 用 commander + `--file`，见 packages/cli）。
+ *
+ * 把「lgdl <subcommand> --doc <id> --key value ...」命令行文本解析为结构化
+ * 操作（LgdlOperation）或 status/validate 请求。Web AI 助手与终端 CLI 共用
+ * 同一套命令语义，但对象参数不同：
+ *   - 终端 CLI：--file <path>（磁盘文件，必填）
+ *   - web-cli  ：--doc <id>（编辑器文档，必填，见下）
  *
  * 支持的子命令（与 packages/cli 一致）：
  *   add-node / remove-node / update-node
  *   add-edge / remove-edge / update-edge
  *   add-group / remove-group / update-group
- *   status
+ *   status / validate
  */
 import type { LgdlOperation } from './operations.js';
 import type { LgdlMember } from './types.js';
 
 export type ParsedCommand =
-  | { kind: 'op'; op: LgdlOperation }
-  | { kind: 'status' }
-  | { kind: 'validate' }
+  | { kind: 'op'; docId: string; op: LgdlOperation }
+  | { kind: 'status'; docId: string }
+  | { kind: 'validate'; docId: string }
   | { kind: 'error'; message: string };
 
 /** 命令行文本 → 结构化操作（或 status / validate / 错误）。 */
@@ -32,30 +37,45 @@ export function parseCliCommand(line: string): ParsedCommand {
     return { kind: 'error', message: '缺少子命令（如 add-node / status / validate）' };
   }
   const args = tokens.slice(i + 1);
+
+  // 统一提取 --doc <id>（顶层必填参数，所有子命令都要求——web-cli 的
+  // 操作对象标识，对应 CLI 的 --file）
+  const docIdx = args.indexOf('--doc');
+  let docId: string | undefined;
+  if (docIdx !== -1) {
+    const v = args[docIdx + 1];
+    if (v !== undefined && !v.startsWith('--')) docId = v;
+  }
+  if (!docId) {
+    return { kind: 'error', message: `缺少必填参数 --doc <id>（${cmd}：web-cli 操作对象标识，对应 CLI 的 --file）` };
+  }
+  // 从 args 中剔除 --doc <id>，其余传给子命令
+  const rest = docIdx !== -1 ? [...args.slice(0, docIdx), ...args.slice(docIdx + 2)] : args;
+
   try {
     switch (cmd) {
       case 'status':
-        return { kind: 'status' };
+        return { kind: 'status', docId };
       case 'validate':
-        return { kind: 'validate' };
+        return { kind: 'validate', docId };
       case 'add-node':
-        return { kind: 'op', op: parseAddNode(args) };
+        return { kind: 'op', docId, op: parseAddNode(rest) };
       case 'remove-node':
-        return { kind: 'op', op: parseRemoveNode(args) };
+        return { kind: 'op', docId, op: parseRemoveNode(rest) };
       case 'update-node':
-        return { kind: 'op', op: parseUpdateNode(args) };
+        return { kind: 'op', docId, op: parseUpdateNode(rest) };
       case 'add-edge':
-        return { kind: 'op', op: parseAddEdge(args) };
+        return { kind: 'op', docId, op: parseAddEdge(rest) };
       case 'remove-edge':
-        return { kind: 'op', op: parseRemoveEdge(args) };
+        return { kind: 'op', docId, op: parseRemoveEdge(rest) };
       case 'update-edge':
-        return { kind: 'op', op: parseUpdateEdge(args) };
+        return { kind: 'op', docId, op: parseUpdateEdge(rest) };
       case 'add-group':
-        return { kind: 'op', op: parseAddGroup(args) };
+        return { kind: 'op', docId, op: parseAddGroup(rest) };
       case 'remove-group':
-        return { kind: 'op', op: parseRemoveGroup(args) };
+        return { kind: 'op', docId, op: parseRemoveGroup(rest) };
       case 'update-group':
-        return { kind: 'op', op: parseUpdateGroup(args) };
+        return { kind: 'op', docId, op: parseUpdateGroup(rest) };
       default:
         return {
           kind: 'error',
@@ -301,6 +321,8 @@ function parseMember(raw: string): LgdlMember {
 
 /** 供 Web 端批量执行：把命令文本（可多行）解析为 ops + status/validate 标记。 */
 export interface ParsedBatch {
+  /** 这批命令统一操作的文档 id（--doc）；空表示解析失败前未取到。 */
+  docId: string | null;
   ops: LgdlOperation[];
   /** 命令中出现的 status 请求（AI 先了解图再修改）。 */
   wantsStatus: boolean;
@@ -314,20 +336,30 @@ export function parseCommandBatch(text: string): ParsedBatch {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   const ops: LgdlOperation[] = [];
   const errors: ParsedBatch['errors'] = [];
+  let docId: string | null = null;
   let wantsStatus = false;
   let wantsValidate = false;
   for (let i = 0; i < lines.length; i++) {
     const parsed = parseCliCommand(lines[i]);
-    if (parsed.kind === 'status') {
-      wantsStatus = true;
-    } else if (parsed.kind === 'validate') {
-      wantsValidate = true;
+    if (parsed.kind === 'status' || parsed.kind === 'validate') {
+      if (docId === null) docId = parsed.docId;
+      else if (parsed.docId !== docId) {
+        errors.push({ index: i, line: lines[i], message: `--doc 不一致（本批命令应操作同一文档，已有 "${docId}"，这里写 "${parsed.docId}"）` });
+        break;
+      }
+      if (parsed.kind === 'status') wantsStatus = true;
+      else wantsValidate = true;
     } else if (parsed.kind === 'op') {
+      if (docId === null) docId = parsed.docId;
+      else if (parsed.docId !== docId) {
+        errors.push({ index: i, line: lines[i], message: `--doc 不一致（本批命令应操作同一文档，已有 "${docId}"，这里写 "${parsed.docId}"）` });
+        break;
+      }
       ops.push(parsed.op);
     } else {
       errors.push({ index: i, line: lines[i], message: parsed.message });
       break; // 失败即停（与 applyOperations 一致）
     }
   }
-  return { ops, wantsStatus, wantsValidate, errors };
+  return { docId, ops, wantsStatus, wantsValidate, errors };
 }

@@ -16,8 +16,8 @@ edges:
 `;
 
 test('extractCommands: parses a ```lgdl-cli protocol block', () => {
-  const text = '我来修改：\n\n```lgdl-cli\nlgdl add-node --id c --label C\n```\n\n完成。';
-  assert.equal(extractCommands(text), 'lgdl add-node --id c --label C\n');
+  const text = '我来修改：\n\n```lgdl-cli\nlgdl add-node --doc main --id c --label C\n```\n\n完成。';
+  assert.equal(extractCommands(text), 'lgdl add-node --doc main --id c --label C\n');
 });
 
 test('extractCommands: ignores commands in other code fences (bash/code)', () => {
@@ -31,7 +31,7 @@ test('extractCommands: null when no protocol block', () => {
 });
 
 test('executeCommands: applies add-node then add-edge', () => {
-  const r = executeCommands(SRC, 'lgdl add-node --id c --label C\nlgdl add-edge --from b --to c --label next');
+  const r = executeCommands(SRC, 'lgdl add-node --doc main --id c --label C\nlgdl add-edge --doc main --from b --to c --label next', 'main');
   assert.ok(r.ok, r.error);
   assert.ok(r.changed);
   assert.ok(r.source.includes('- id: c'));
@@ -40,7 +40,7 @@ test('executeCommands: applies add-node then add-edge', () => {
 });
 
 test('executeCommands: status outputs the graph and does not modify', () => {
-  const r = executeCommands(SRC, 'lgdl status');
+  const r = executeCommands(SRC, 'lgdl status --doc main', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, false);
   assert.equal(r.source, SRC);
@@ -49,40 +49,47 @@ test('executeCommands: status outputs the graph and does not modify', () => {
 });
 
 test('executeCommands: failed op reports which command and why', () => {
-  const r = executeCommands(SRC, 'lgdl update-node --id ghost --label X');
+  const r = executeCommands(SRC, 'lgdl update-node --doc main --id ghost --label X', 'main');
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /ghost/);
 });
 
 test('executeCommands: parse error stops the batch', () => {
-  const r = executeCommands(SRC, 'lgdl add-node --id c\nlgdl explode --all');
+  const r = executeCommands(SRC, 'lgdl add-node --doc main --id c\nlgdl explode --doc main --all', 'main');
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /未知子命令/);
   assert.equal(r.changed, false);
 });
 
 test('executeCommands: rejects when the current source is invalid', () => {
-  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl add-node --id x');
+  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl add-node --doc main --id x', 'main');
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /source invalid/);
 });
 
 test('executeCommands: empty command text is a no-op', () => {
-  const r = executeCommands(SRC, '');
+  const r = executeCommands(SRC, '', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, false);
 });
 
 test('executeCommands: validate reports syntax ok on valid source', () => {
-  const r = executeCommands(SRC, 'lgdl validate');
+  const r = executeCommands(SRC, 'lgdl validate --doc main', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, false);
   assert.ok(r.lines.some((l) => l.includes('语法正确')));
 });
 
 test('executeCommands: validate reports errors on invalid source', () => {
-  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl validate');
+  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl validate --doc main', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, false);
   assert.ok(r.lines.some((l) => l.includes('✖') || l.includes('⚠')));
+});
+
+test('executeCommands: --doc mismatch with current doc is rejected', () => {
+  const r = executeCommands(SRC, 'lgdl status --doc other', 'main');
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? '', /doc mismatch/);
+  assert.equal(r.changed, false);
 });

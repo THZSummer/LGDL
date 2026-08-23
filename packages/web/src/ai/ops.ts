@@ -38,10 +38,17 @@ export interface CommandExecResult {
   error?: string;
 }
 
-/** 解析并执行命令块（可多行）。失败即停，返回已执行部分的结果。 */
+/**
+ * 解析并执行命令块（可多行）。失败即停，返回已执行部分的结果。
+ * @param source 当前编辑器源码（docId 对应文档的内容）
+ * @param commandsText web-cli 协议块文本
+ * @param docId 当前文档 id（命令 --doc 必须与之一致，否则拒绝——防止 AI
+ *              操作非当前文档，与 CLI 指定 --file 对应）
+ */
 export function executeCommands(
   source: string,
   commandsText: string,
+  docId?: string,
 ): CommandExecResult {
   const parsed = parseCommandBatch(commandsText);
   const lines: string[] = [];
@@ -57,6 +64,17 @@ export function executeCommands(
       lines: [`✖ 第 ${e.index + 1} 行解析失败：${e.message}`, `  → ${e.line}`],
       changed,
       error: e.message,
+    };
+  }
+
+  // --doc 与当前文档一致性校验（web-cli 只允许操作当前文档）
+  if (docId !== undefined && parsed.docId !== null && parsed.docId !== docId) {
+    return {
+      ok: false,
+      source: current,
+      lines: [`✖ --doc 不匹配：命令指定 "${parsed.docId}"，当前文档是 "${docId}"（web-cli 只能操作当前打开的文档）`],
+      changed,
+      error: `doc mismatch: ${parsed.docId} != ${docId}`,
     };
   }
 
