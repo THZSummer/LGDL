@@ -405,6 +405,29 @@ body,
   font-size: 12px;
 }
 
+/* web-cli 执行结果（终端样式） */
+.ai-msg-tool {
+  justify-content: flex-start;
+}
+
+.ai-msg-tool .ai-msg-bubble {
+  background: #0f172a;
+  color: #cbd5e1;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 96%;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+
+.ai-tool-output {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .ai-msg-para {
   margin: 4px 0;
 }

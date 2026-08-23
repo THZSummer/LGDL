@@ -7,12 +7,12 @@ import {
   type CommandExecResult,
 } from './ops';
 import { chat, loadSettings, PROVIDERS, type ProviderSettings } from './provider';
-import { buildTurns } from './prompts';
+import { LGDL_SYSTEM_PROMPT } from './prompts';
 import { SettingsPanel } from './SettingsPanel';
 
 export interface ChatMessage {
   id: number;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
 }
 
@@ -34,124 +34,110 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
   {
     id: 'fix',
     label: '语法修复',
-    hint: '检查当前源码的语法/校验错误，输出修复后的完整代码',
-    prompt:
-      '请检查下面当前图源码中的语法错误和校验问题（如重复边、自环、非法字段、节点/分组冲突等），' +
-      '输出修复后的完整 LGDL 代码。\n\n当前图源码：\n{source}',
+    hint: '检查并修复当前图的错误（用 lgdl 命令）',
+    prompt: '请检查当前图的错误（先 lgdl status 看结构，再定位问题），然后用 lgdl 命令修复（如 update-node / update-edge / remove-edge 等）。',
   },
   {
     id: 'optimize',
     label: '自动优化',
-    hint: '优化节点/边的结构与命名，让图更清晰',
-    prompt:
-      '请优化下面当前图的节点、边、分组的结构与命名：消除冗余、合并同类、命名更清晰，' +
-      '输出优化后的完整 LGDL 代码（保持语义不变）。\n\n当前图源码：\n{source}',
+    hint: '优化节点/边的结构与命名（用 lgdl 命令）',
+    prompt: '请优化当前图的节点、边、分组结构与命名：消除冗余、合并同类、命名更清晰（用 lgdl 命令增量修改，保持语义不变）。',
   },
   {
     id: 'simplify',
     label: '简化图',
-    hint: '删减次要节点与边，突出核心脉络',
-    prompt:
-      '请简化下面当前图：删减次要/冗余的节点和边，突出核心流程与关键依赖，' +
-      '输出简化后的完整 LGDL 代码。\n\n当前图源码：\n{source}',
+    hint: '删减次要节点与边，突出核心脉络（用 lgdl 命令）',
+    prompt: '请简化当前图：删减次要/冗余的节点和边，突出核心流程与关键依赖（用 lgdl 命令，如 remove-node / remove-edge）。',
   },
   {
     id: 'create',
     label: '自由创作',
-    hint: '从零开始创作一张新图',
-    prompt: '请自由创作一张图（可以选择 flowchart、mindmap、er、state 等类型），输出完整的 LGDL 代码。',
+    hint: '从零开始创作一张新图（用 lgdl 命令）',
+    prompt: '请自由创作一张图（flowchart、mindmap、er、state 等类型都行）。先 lgdl status 看当前图，若已有内容先清理，再用 lgdl 命令逐步搭建。',
   },
   {
     id: 'explain',
     label: '解释当前图',
     hint: '解读当前图的结构与含义',
-    prompt: '请解释下面当前图：它表达了什么、有哪些关键节点/边/分组、整体结构如何。\n\n当前图源码：\n{source}',
+    prompt: '请先用 lgdl status 查看当前图，然后解释：它表达了什么、有哪些关键节点/边/分组、整体结构如何。',
   },
   {
     id: 'flowchart',
     label: '画流程图',
-    hint: '生成一张 flowchart 流程图',
-    prompt: '请创作一张业务流程图（type: flowchart），包含开始、若干处理步骤、判断分支和结束，输出完整的 LGDL 代码。',
+    hint: '生成一张 flowchart 流程图（用 lgdl 命令）',
+    prompt: '请创作一张业务流程图（flowchart）：开始、若干处理步骤、判断分支、结束。用 lgdl 命令搭建（add-node / add-edge）。',
   },
   {
     id: 'mindmap',
     label: '画思维导图',
-    hint: '生成一张 mindmap 思维导图',
-    prompt: '请创作一张主题思维导图（type: mindmap），中心主题下分 3-5 个一级分支，每个分支有 2-3 个子项，输出完整的 LGDL 代码。',
+    hint: '生成一张 mindmap 思维导图（用 lgdl 命令）',
+    prompt: '请创作一张主题思维导图（mindmap）：中心主题 + 3-5 个一级分支，每个分支 2-3 个子项。用 lgdl 命令搭建。',
   },
   {
     id: 'sequence',
     label: '画时序图',
-    hint: '生成一张 sequence 时序图',
-    prompt: '请创作一张系统交互时序图（type: sequence），包含 3-4 个参与者、至少 5 条带标签的消息交互，输出完整的 LGDL 代码。',
+    hint: '生成一张 sequence 时序图（用 lgdl 命令）',
+    prompt: '请创作一张系统交互时序图（sequence）：3-4 个参与者、至少 5 条带标签的消息。用 lgdl 命令搭建。',
   },
   {
     id: 'er',
     label: '画 ER 图',
-    hint: '生成一张 er 实体关系图',
-    prompt: '请创作一张数据库 ER 图（type: er），包含 3-4 个实体及其成员字段、实体间关系（带基数），输出完整的 LGDL 代码。',
+    hint: '生成一张 er 实体关系图（用 lgdl 命令）',
+    prompt: '请创作一张数据库 ER 图（er）：3-4 个实体（entity + 成员）、实体间关系带基数（--cardinality-from/to）。用 lgdl 命令搭建。',
   },
   {
     id: 'state',
     label: '画状态机',
-    hint: '生成一张 state 状态机图',
-    prompt: '请创作一张状态机图（type: state），包含初始状态、3-4 个业务状态、终止状态及转移边，输出完整的 LGDL 代码。',
+    hint: '生成一张 state 状态机图（用 lgdl 命令）',
+    prompt: '请创作一张状态机图（state）：初始状态、3-4 个业务状态、终止状态、转移边带事件标签。用 lgdl 命令搭建。',
   },
   {
     id: 'gantt',
     label: '画甘特图',
-    hint: '生成一张 gantt 甘特图',
-    prompt: '请创作一张项目排期甘特图（type: gantt），包含 4-6 个任务（含开始日期/持续天数），其中至少一个里程碑，输出完整的 LGDL 代码。',
+    hint: '生成一张 gantt 甘特图（用 lgdl 命令）',
+    prompt: '请创作一张项目排期甘特图（gantt）：4-6 个任务（--attrs start=天数,duration=天数），至少一个里程碑（duration=0）。用 lgdl 命令搭建。',
   },
   {
     id: 'class',
     label: '画类图',
-    hint: '生成一张 uml-class 类图',
-    prompt: '请创作一张 UML 类图（type: uml-class），包含 3-4 个类（含成员与关系），输出完整的 LGDL 代码。',
+    hint: '生成一张 uml-class 类图（用 lgdl 命令）',
+    prompt: '请创作一张 UML 类图（uml-class）：3-4 个类（entity + --member-add kind=attribute/name=...），类间关系。用 lgdl 命令搭建。',
   },
   {
     id: 'arch',
     label: '画架构图',
-    hint: '生成一张 arch 架构图',
-    prompt: '请创作一张系统架构图（type: arch），包含分层（接入层/应用层/数据层）或模块分组、节点间依赖边，输出完整的 LGDL 代码。',
+    hint: '生成一张 arch 架构图（用 lgdl 命令）',
+    prompt: '请创作一张系统架构图（arch）：分层（接入层/应用层/数据层）用 add-group，节点用 add-node，依赖用 add-edge。用 lgdl 命令搭建。',
   },
   {
     id: 'datastream',
     label: '画数据流图',
-    hint: '生成一张 datastream 数据流图',
-    prompt: '请创作一张数据流图（type: datastream），包含 2-3 个泳道分区和若干数据流转边，输出完整的 LGDL 代码。',
+    hint: '生成一张 datastream 数据流图（用 lgdl 命令）',
+    prompt: '请创作一张数据流图（datastream）：2-3 个泳道（add-group）、数据节点（entity）、流转边。用 lgdl 命令搭建。',
   },
   {
     id: 'add-node',
     label: '追加节点',
-    hint: '在当前图中新增节点并接入现有流程',
-    prompt:
-      '请给下面当前图追加一个业务上合理的节点（kind 与现有节点匹配），并添加必要的边把它接入现有流程，' +
-      '输出修改后的完整 LGDL 代码。\n\n当前图源码：\n{source}',
+    hint: '在当前图中新增节点并接入流程（用 lgdl 命令）',
+    prompt: '请给当前图追加一个业务上合理的节点（kind 与现有节点匹配），并用 add-node / add-edge 接入现有流程。',
   },
   {
     id: 'add-edge',
     label: '补充连接',
-    hint: '补全图中缺失/合理的依赖边',
-    prompt:
-      '请检查下面当前图：节点之间的关系是否完整、是否有明显缺失的依赖边，补充合理的边，' +
-      '输出修改后的完整 LGDL 代码。\n\n当前图源码：\n{source}',
+    hint: '补全图中缺失/合理的依赖边（用 lgdl 命令）',
+    prompt: '请检查当前图（lgdl status）：节点间关系是否完整、有无缺失依赖边，用 add-edge 补充合理连接。',
   },
   {
     id: 'group',
     label: '整理分组',
-    hint: '用 groups 给节点归类分层',
-    prompt:
-      '请给下面当前图设计合理的分组（groups）：按业务域或层次归类节点，输出修改后的完整 LGDL 代码。' +
-      '\n\n当前图源码：\n{source}',
+    hint: '用 add-group 给节点归类分层',
+    prompt: '请给当前图设计合理分组（add-group / update-group）：按业务域或层次归类节点。',
   },
   {
     id: 'convert',
     label: '转换图类型',
-    hint: '把当前图转换为另一种图类型',
-    prompt:
-      '请把下面当前图转换为另一种更合适的图类型（如 flowchart → sequence），语义保持对应，' +
-      '输出转换后的完整 LGDL 代码。\n\n当前图源码：\n{source}',
+    hint: '把当前图转换为另一种图类型（用 lgdl 命令）',
+    prompt: '请把当前图转换为另一种更合适的图类型（如 flowchart → sequence），语义保持对应。用 lgdl 命令重建节点与边。',
   },
 ];
 
@@ -228,7 +214,7 @@ function CommandBlock({
   return (
     <div className={`ai-codeblock ai-opsblock${status === 'error' ? ' has-error' : ''}`}>
       <div className="ai-codeblock-head">
-        <span className="ai-codeblock-lang">lgdl · 命令</span>
+        <span className="ai-codeblock-lang">lgdl-cli · web-cli 执行</span>
         <button
           className="ai-apply-btn"
           onClick={run}
@@ -267,7 +253,7 @@ function CommandBlock({
   );
 }
 
-/** 将消息内容拆成段落 + lgdl 命令块。 */
+/** 将消息内容拆成段落 + lgdl-cli 协议块（web-cli 执行调用）。 */
 function MessageBody({
   content,
   onApply,
@@ -280,7 +266,8 @@ function MessageBody({
   autoApply?: boolean;
 }) {
   const parts: React.ReactNode[] = [];
-  const re = /```(?:bash|sh|lgdl-cli|lgdl)\s*\n([\s\S]*?)```/g;
+  // 只有 lgdl-cli 块是执行协议；其他代码块（bash/code/yaml...）一律当普通文本展示
+  const re = /```(lgdl-cli)\s*\n([\s\S]*?)```/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let k = 0;
@@ -295,7 +282,7 @@ function MessageBody({
         );
       }
     }
-    const body = m[1].replace(/\n$/, '');
+    const body = m[2].replace(/\n$/, '');
     parts.push(
       <CommandBlock key={k++} commands={body} currentSource={currentSource} onApply={onApply} autoApply={autoApply} />,
     );
@@ -339,7 +326,6 @@ export function AiPanel({
   const currentSourceRef = useRef(currentSource);
   currentSourceRef.current = currentSource;
   const presetTrackRef = useRef<HTMLDivElement>(null);
-  const historyRef = useRef<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
@@ -399,31 +385,74 @@ export function AiPanel({
         return;
       }
 
-      const { system, messages: turnMessages } = buildTurns(
-        message,
-        currentSourceRef.current,
-        historyRef.current,
-      );
+      // ---- agent 循环：像终端一样逐步执行（最多 MAX_ROUNDS 轮）----
+      const MAX_ROUNDS = 10;
+      // 会话消息序列：system + user 指令 + (assistant 回复 + tool 结果)...
+      const turns: { role: 'system' | 'user' | 'assistant' | 'tool'; content: string }[] = [
+        { role: 'user', content: message },
+      ];
+      let sourceNow = currentSourceRef.current;
 
-      chat(s, [{ role: 'system', content: system }, ...turnMessages])
-        .then((res) => {
-          if (!res.content.trim()) {
+      const step = async (round: number) => {
+        if (round > MAX_ROUNDS) {
+          appendMessage('assistant', `⚠ 已达到 ${MAX_ROUNDS} 轮上限，自动停止（可继续发消息让 AI 接着做）。`);
+          setPending(false);
+          return;
+        }
+        // 组装本轮 LLM 输入：system + 历史（tool 结果映射为 user 角色，OpenAI 兼容 API 无 tool role）
+        const sys = { role: 'system' as const, content: LGDL_SYSTEM_PROMPT };
+        const msgs: { role: 'system' | 'user' | 'assistant'; content: string }[] = turns.map((t) => ({
+          role: t.role === 'tool' ? 'user' : t.role,
+          content: t.content,
+        }));
+        try {
+          const res = await chat(s, [sys, ...msgs]);
+          const reply = res.content.trim();
+          if (!reply) {
             appendMessage('assistant', '⚠ AI 返回了空内容，请重试或换一个模型。');
+            setPending(false);
             return;
           }
-          appendMessage('assistant', res.content);
-          // 维护多轮对话历史（保留最近 20 条，避免上下文无限膨胀）
-          historyRef.current = [...historyRef.current, ...turnMessages, { role: 'assistant', content: res.content }];
-          if (historyRef.current.length > 20) {
-            historyRef.current = historyRef.current.slice(-20);
+          appendMessage('assistant', reply);
+          turns.push({ role: 'assistant', content: reply });
+
+          // 提取命令块：无命令 → 任务完成
+          const commands = extractCommands(reply);
+          if (!commands) {
+            setPending(false);
+            return; // AI 以总结收尾
           }
-        })
-        .catch((err) => {
+
+          // 执行命令（作用于当前编辑器源码）
+          const exec = executeCommands(sourceNow, commands);
+          // 有修改才写回编辑器；status/空操作仅展示
+          if (exec.changed) {
+            onApply(exec.source);
+            sourceNow = exec.source;
+          }
+          const output = exec.lines.join('\n') || '(无输出)';
+          appendMessage('tool', output);
+          // 执行结果作为 tool 反馈给 AI（映射为 user 角色时带明确前缀）
+          turns.push({
+            role: 'tool',
+            content: `[web-cli 执行结果]\n${output}`,
+          });
+
+          if (!exec.ok) {
+            // 执行失败：反馈给 AI 让其修正（终端体验：看到错误继续）
+            appendMessage('assistant', '命令执行失败，请根据上面的错误修正后继续。');
+            turns.push({ role: 'user', content: '上一条命令执行失败，请查看错误并修正命令后重试。' });
+          }
+          await step(round + 1);
+        } catch (err) {
           appendMessage('assistant', `✖ ${(err as Error).message}`);
-        })
-        .finally(() => setPending(false));
+          setPending(false);
+        }
+      };
+
+      step(1);
     },
-    [input, pending, appendMessage],
+    [input, pending, appendMessage, onApply],
   );
 
   /** 点击预置提示词胶囊：把指令（含当前源码上下文）直接发给 AI。 */
@@ -453,7 +482,11 @@ export function AiPanel({
         {messages.map((msg) => (
           <div key={msg.id} className={`ai-msg ai-msg-${msg.role}`}>
             <div className="ai-msg-bubble">
-              <MessageBody content={msg.content} onApply={onApply} currentSource={currentSourceRef.current} autoApply={autoApply} />
+              {msg.role === 'tool' ? (
+                <pre className="ai-tool-output">{msg.content}</pre>
+              ) : (
+                <MessageBody content={msg.content} onApply={onApply} currentSource={currentSourceRef.current} autoApply={autoApply} />
+              )}
             </div>
           </div>
         ))}

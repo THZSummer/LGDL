@@ -1,9 +1,11 @@
 /**
- * Web AI 命令执行器：把 AI 回复中的 lgdl 命令行序列应用到编辑器源码。
+ * Web AI 命令执行器：把 AI 回复中的 web-cli 协议块（```lgdl-cli）解析并执行。
  *
- * AI 不直接写 LGDL 源码——它像在终端里一样敲 `lgdl <subcommand>` 命令，
- * 由这里解析（cli-parser，与 CLI 同语义）并逐条 applyOperations 执行。
- * status 命令输出当前图结构文本（formatStatus），AI 先读图再修改。
+ * 通讯协议（表达 vs 执行）：
+ *   - 普通文本 = chat 表达（AI 描述意图，不执行）
+ *   - ```lgdl-cli 代码块 = web-cli 执行调用（唯一的执行协议载体），
+ *     块内每行一个 `lgdl <子命令> --key value` 调用
+ * AI 不得在其他代码块（bash/code 等）里写 lgdl 命令——那不会被解析执行。
  */
 import {
   parseLgdl,
@@ -15,9 +17,12 @@ import {
   type LgdlOperation,
 } from '@lgdl/core';
 
-/** 从 AI 回复文本中提取 ```bash / ```lgdl-cli / ```sh 代码块。 */
+/** web-cli 协议块标记：唯一被解析执行的代码块类型。 */
+export const CLI_PROTOCOL_FENCE = 'lgdl-cli';
+
+/** 从 AI 回复文本中提取 web-cli 协议块（```lgdl-cli）。 */
 export function extractCommands(text: string): string | null {
-  const m = text.match(/```(?:bash|sh|lgdl-cli|lgdl)\s*\n([\s\S]*?)```/);
+  const m = text.match(/```lgdl-cli\s*\n([\s\S]*?)```/);
   return m ? m[1] : null;
 }
 

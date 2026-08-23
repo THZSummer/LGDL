@@ -15,13 +15,19 @@ edges:
     label: dep
 `;
 
-test('extractCommands: parses a ```bash block', () => {
-  const text = '我来修改：\n\n```bash\nlgdl add-node --id c --label C\n```\n\n完成。';
+test('extractCommands: parses a ```lgdl-cli protocol block', () => {
+  const text = '我来修改：\n\n```lgdl-cli\nlgdl add-node --id c --label C\n```\n\n完成。';
   assert.equal(extractCommands(text), 'lgdl add-node --id c --label C\n');
 });
 
-test('extractCommands: null when no command block', () => {
-  assert.equal(extractCommands('没有命令'), null);
+test('extractCommands: ignores commands in other code fences (bash/code)', () => {
+  // bash 块只是表达，不是执行协议 → 不提取
+  assert.equal(extractCommands('```bash\nlgdl add-node --id c\n```'), null);
+  assert.equal(extractCommands('```lgdl\ntitle: x\n```'), null);
+});
+
+test('extractCommands: null when no protocol block', () => {
+  assert.equal(extractCommands('没有协议块'), null);
 });
 
 test('executeCommands: applies add-node then add-edge', () => {

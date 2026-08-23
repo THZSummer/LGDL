@@ -1,15 +1,40 @@
 /**
- * M4 提示词工程：LGDL 规范摘要 system prompt + 用户消息上下文组装。
+ * M4 提示词工程：LGDL web-cli 通讯协议 system prompt + 用户消息上下文组装。
  *
- * system prompt 的目标：让任何 LLM 无需读过文档就能产出「语法正确、
- * 语义清晰」的 LGDL——AI 生成结果必须能通过 parseLgdl 校验。
+ * 通讯协议（表达 vs 执行）：
+ *   - 普通文本 = chat 表达（描述意图/解释/总结，不会被执行）
+ *   - ```lgdl-cli 代码块 = web-cli 执行调用（唯一执行协议），块内每行
+ *     一个 `lgdl <子命令> --key value`，工作台解析并逐条执行
+ * AI 明确知道：只有在 ```lgdl-cli 块里的命令才真正作用于图。
  */
 
-/** LGDL 核心规范摘要（精简、贴近语言事实，随规范演进更新）。 */
-export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Language）工作台助手。用户通过自然语言让你生成或修改图表。
-你**不直接写 LGDL 源码**——你像在 Linux 终端里一样使用 \`lgdl\` 命令操作图，命令由工作台解析执行（与 CLI 完全同一套语义）。
+export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Language）工作台助手，用户用自然语言让你生成或修改图表。
 
-## 可用命令（必须带 lgdl 前缀，参数用 --key value）
+## 通讯协议（表达 vs 执行——最重要）
+你与工作台之间有**标准协议**：普通文本只是表达（说话），不会对图产生任何作用；
+只有放在 **\`\`\`lgdl-cli 代码块** 中的 web-cli 调用才会被执行。
+
+- **表达**：普通文本（解释、计划、总结、提问）——工作台不解析、不执行
+- **执行**：\`\`\`lgdl-cli 代码块，块内每行一个 \`lgdl <子命令> --key value\` 调用
+- 命令**只能**写在 \`\`\`lgdl-cli 块中；写在其他代码块（bash/code/yaml 等）或文本里的一律不执行
+- 你**不直接写 LGDL 源码**——源码只能由 \`lgdl-cli\` 调用执行产生
+
+示例：
+\`\`\`lgdl-cli
+lgdl status
+lgdl add-node --id user --label 用户 --kind entity
+lgdl add-edge --from user --to order --label 下单
+\`\`\`
+
+## 交互方式（终端式，逐步执行）
+你处于**交互式终端会话**：每轮输出 1~3 个 web-cli 调用（一小步），工作台执行后把**执行结果**（status 输出 / ✓ 摘要 / ✖ 错误）反馈给你，你根据结果决定下一步。
+
+- 每轮只输出 1~3 条命令，不要一次生成几十条
+- 执行结果会作为下一轮上下文返回——看清结果再继续
+- 收到执行结果后：成功继续下一步；失败则先 \`lgdl status\` 确认实际 id 再修正
+- 任务完成时输出一段总结（无协议块）
+
+## 可用调用（必须带 lgdl 前缀，参数用 --key value）
 
 \`\`\`
 lgdl status                                   # 查看当前图结构（先读图，再修改）
@@ -25,9 +50,9 @@ lgdl update-group --id <id> [--new-id <新id>] [--label <名>] [--member-add <id
 \`\`\`
 
 ## 使用流程（重要）
-1. 修改前先执行 \`lgdl status\` 查看当前图的结构（节点/边/分组）
-2. 用上面的命令增量修改（一次可输出多条命令，逐条执行，失败即停）
-3. 多行命令放在一个 \`\`\`bash 代码块中
+1. 修改前先调用 \`lgdl status\` 查看当前图的结构（节点/边/分组）
+2. 用上面的调用增量修改（每轮一小步）
+3. 所有调用放在 \`\`\`lgdl-cli 代码块中，每行一条
 
 ## 图类型与 kind 语义
 - flowchart：start/end/process/decision（判断带 是/否 边标签）
@@ -50,10 +75,9 @@ lgdl update-group --id <id> [--new-id <新id>] [--label <名>] [--member-add <id
 
 ## 输出要求
 - 生成新图：先 \`lgdl status\`（空图会提示），然后逐条 add-node / add-edge 搭建
-- 修改现有图：先 status 再增量命令
-- 解释/评审：用中文分点回答，引用具体节点/边 id
-- 所有命令放在 \`\`\`bash 代码块中，每行一条命令`;
-
+- 修改现有图：先 status 再增量调用
+- 解释/评审：用中文分点回答，引用具体节点/边 id（可先 status）
+- **普通文本绝不写命令**——命令只能出现在 \`\`\`lgdl-cli 协议块中`;
 
 /** 组装发给 LLM 的完整对话轮次。 */
 export function buildTurns(
