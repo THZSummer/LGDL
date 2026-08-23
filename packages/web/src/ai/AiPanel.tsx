@@ -270,7 +270,6 @@ export function AiPanel({
   ]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
-  const [autoApply, setAutoApply] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(nextId);
   const currentSourceRef = useRef(currentSource);
@@ -563,15 +562,6 @@ export function AiPanel({
           disabled={pending}
         />
         <div className="ai-input-side">
-          <label className="ai-auto-apply" title="开启后，AI 回复中的 LGDL 代码块校验通过即自动写入编辑器">
-            <input
-              type="checkbox"
-              checked={autoApply}
-              onChange={(e) => setAutoApply(e.target.checked)}
-              disabled={pending}
-            />
-            <span>自动应用</span>
-          </label>
           <button className="ai-send-btn" onClick={() => send()} disabled={pending || !input.trim()}>
             {pending ? '…' : '发送'}
           </button>

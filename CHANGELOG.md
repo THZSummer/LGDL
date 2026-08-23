@@ -16,6 +16,18 @@
 - 🔀 **双 CLI 分离**：终端 lgdl-cli（`--file` 磁盘文件）与 lgdl-web-cli（`--doc` 编辑器文档）物理分离；`core/commands.ts` 命令注册表（参数 schema / buildOperation / attrs/member 解析）为**两端业务逻辑唯一实现**，lgdl-cli（9 命令）与 lgdl-web-cli 均复用；`web/ai/web-cli.ts` 是协议解析器（仅 web 使用）
 - 📊 **status / validate / init / convert**：`core/status.ts`（图结构文本）与 `core/commands.ts` 共用；lgdl-web-cli 支持 `validate`（语法校验）、`init`（默认图）、`convert --to mermaid/plantuml/json`（导出）
 
+**Web AI 助手 · 协议升级与增强（同属 v0.5.0）**
+
+- 🔄 **原生 function calling 协议**：从 markdown 围栏协议块升级为 LLM 原生工具调用（OpenAI `tool_calls` / Claude `tool_use`）——chat 文本（表达）与工具调用（执行）由 API 字段明确区分，不再靠 markdown 解析猜类型；工具结果以 `tool` 角色回传、失败反馈修正、agent 循环轮数上限可调（默认 1000）
+- 🧰 **三平级工具**：`lgdl-web-cli`（图内容）/ `lgdl-web-op-cli`（UI 操作）/ `lgdl-web-fetch`（基础 web 获取，独立于任何 CLI）
+- 🔍 **读多写少查询命令**（`core/queries.ts` 单一实现，CLI 与 Web 共享）：`doc-info` / `get-node` / `get-edge` / `find-node` / `list-node-kinds` / `list-diagram-types`；`init --type <类型>` 指定图类型模板（9 种）
+- 🖱️ **lgdl-web-op-cli（UI 操作）**：复制源码 / 编辑器收缩展开 / 导出 SVG-PNG / 预览缩放-平移-重置 / 点击定位（编辑器同步跳转）/ 悬浮高亮（锚点）/ 切换示例 / 列出示例-图类型 / `next-actions`
+- 💊 **next-actions 推荐胶囊**：AI 完成任务后可推荐 2-4 个下一步动作（label + prompt），以可点击胶囊卡片（独立消息类型 `next-actions`）展示在聊天框——点击即把动作作为用户指令发送，形成「AI 推荐 → 用户点选 → AI 执行」闭环
+- 📖 **命令自文档化 `--help`**（clig.dev / GNU 规范）：`lgdl-web-cli <cmd> --help` / `help <cmd>` / 顶层 `--help`，`--help` 优先级最高（忽略其他参数与校验）；增量命令参数从 core `COMMANDS` 注册表动态生成（单一数据源，新增命令不用改文档）；`lgdl-web-op-cli` / `lgdl-web-fetch` 同步支持
+- 🧠 **方法论自动加载**：使用指南 `README-CLI.md` 会话开始时由系统自动 fetch 注入 system prompt（战略层：工具分工/流程/陷阱）；命令用法 `--help` 按需查询（战术层）——不依赖 AI 调 fetch 读文档（治模型漏传 `--path`）
+- 🎭 **操作助手定位**：AI 是 Web Workbench 网站操作助手——绘图过程适合时机用 op-cli 做页面交互（`preview-click`/`preview-hover`/`preview-reset`），让用户看得见、保持参与感；复制/导出等动作等用户要求再做
+- 💻 **终端 lgdl-cli 同步**：19 个命令全部补 `--help` 示例（`Examples:` 段，clig.dev），`help [command]` 子命令；修复未知选项提示的旧前缀文案
+
 **Web 工作台打磨**
 
 - 示例切换器：滚动条隐藏不占布局、指针默认隐藏（hover/滚动才显示、橙色高对比）、两端 spacer 按首尾胶囊实际宽度计算使指针正中胶囊、边界 snap 改为吸附修正（不再 stay put）

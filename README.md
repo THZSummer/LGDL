@@ -80,11 +80,15 @@ LGDL 的每个概念都有**显性字段**，渲染器从不从文本里猜含�
 
 ### 5. Web AI 助手（v0.5）
 
-- **lgdl-web-cli 协议**：AI 通过 ```` ```lgdl-web-cli ```` 协议块操作图（`lgdl-cli status --doc main` / `lgdl-cli add-node --doc main --id x --label y` …），**不直接写 LGDL 源码**——源码只由命令执行产生；命令语义与终端 lgdl-cli 完全一致（共用 `core/commands.ts` 命令注册表），点「执行」逐条应用、失败即停
-- **双 CLI 分离**：终端 `lgdl`（lgdl-cli，`--file` 操作磁盘文件）与 Web 协议（lgdl-web-cli，`--doc` 操作编辑器文档）物理分离、场景独立，业务逻辑（命令解析/校验/op 构造）在 core 单一实现
+- **原生 function calling（三平级工具）**：AI 通过 LLM 原生工具调用操作工作台，文本（表达）与工具（执行）由 API 层明确区分（OpenAI `tool_calls` / Claude `tool_use`）：
+  - `lgdl-web-cli`：图内容操作——`status`/`validate`/`init --type`/`convert`、节点/边/分组增删改（9 命令）、只读查询（`doc-info`/`get-node`/`get-edge`/`find-node`/`list-node-kinds`/`list-diagram-types`）；**AI 不直接写 LGDL 源码**——源码只由命令执行产生
+  - `lgdl-web-op-cli`：UI 操作——复制源码/导出 SVG-PNG/预览缩放平移重置/点击定位/悬浮高亮/切换示例/**`next-actions` 推荐下一步胶囊**；AI 绘图过程保持页面交互，让用户看得见、有参与感
+  - `lgdl-web-fetch`：基础 web 获取（独立工具，不属任何 CLI，`--path` 必填）
+- **两层知识（自文档化）**：方法论使用指南 `README-CLI.md` 由系统**会话开始时自动加载**进 system prompt（战略层：三个工具分工、做事流程、陷阱）；具体命令用法一律 **`--help` 按需查询**（战术层：`lgdl-web-cli <cmd> --help` / `help <cmd>`，增量命令参数从 core 命令注册表动态生成，新增命令不用改文档）
+- **双 CLI 分离**：终端 `lgdl-cli`（`--file` 操作磁盘文件）与 Web 协议（lgdl-web-cli，`--doc` 操作编辑器文档）物理分离、场景独立，业务逻辑（命令解析/校验/op 构造）在 core 单一实现；终端 CLI 全部命令同样提供 `--help` 示例
 - **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限，需本地代理（v0.6）
 - 设置面板两步配置：选服务商 + 填 API Key（各服务商 key 独立保存）；「测试连接」一键验证 key / 端点 / CORS
-- 预置快捷操作（语法修复 / 自动优化 / 九种图类型创作等）+ 自动应用开关
+- agent 循环：每轮 1~3 次工具调用、失败反馈修正、轮数上限可调（默认 1000）；预置快捷操作（语法修复 / 自动优化 / 九种图类型创作等）
 
 ---
 
@@ -183,7 +187,7 @@ LGDL/
 | **v0.2** | ✅ 增量编辑协议 + 9 种图类型渲染 |
 | **v0.3** | ✅ attrs 扩展属性 + ER/状态机/甘特图 + Mermaid/PlantUML/JSON 转换 |
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
-| **v0.5** | ✅ Web AI 助手（lgdl-web-cli 协议、对话生成/修改图、多厂商接入 + 连接测试、双 CLI 分离 + 命令注册表复用、自动应用）+ 图即代码规划（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出优化、Mermaid 导入增强） |
+| **v0.5** | ✅ Web AI 助手（原生 function calling 三工具：lgdl-web-cli 图内容 / lgdl-web-op-cli UI 操作含 next-actions / lgdl-web-fetch；命令自文档化 --help；方法论指南系统自动加载；多厂商接入 + 连接测试；双 CLI 分离 + 命令注册表复用；agent 循环）+ 图即代码规划（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出优化、Mermaid 导入增强）→ v0.6 |
 | **v0.6** | ⏳ 图即代码（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出 attrs 与格式优化、Agent 集成提示词模板、Mermaid 导入增强）；模块化：子图引用、参数化模板；渲染与性能（大图优化、布局打磨）；state 显性 `initial` 字段 |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。

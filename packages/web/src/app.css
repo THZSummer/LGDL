@@ -1123,34 +1123,6 @@ body,
   flex-shrink: 0;
 }
 
-.ai-auto-apply {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-size: 11px;
-  color: #64748b;
-  cursor: pointer;
-  user-select: none;
-  padding: 2px 4px;
-  white-space: nowrap;
-}
-
-.ai-auto-apply input[type='checkbox'] {
-  margin: 0;
-  accent-color: #4f46e5;
-  cursor: pointer;
-}
-
-.ai-auto-apply:has(input:disabled) {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ai-auto-apply input:disabled {
-  cursor: not-allowed;
-}
-
 .preview-pane {
   flex: 1;
   background: #f1f5f9;
