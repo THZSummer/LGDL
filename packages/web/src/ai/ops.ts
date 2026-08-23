@@ -13,13 +13,13 @@ import {
   validate,
   serializeLgdl,
   applyOperations,
-  parseWebCliBatch,
   formatStatus,
   initTemplate,
   convert,
   listFormats,
   type LgdlOperation,
 } from '@lgdl/core';
+import { parseWebCliBatch } from './web-cli.js';
 
 /** lgdl-web-cli 协议块标记：唯一被解析执行的代码块类型。 */
 export const WEB_CLI_FENCE = 'lgdl-web-cli';

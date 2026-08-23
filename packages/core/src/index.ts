@@ -30,8 +30,6 @@ export {
   describeOperation,
 } from './operations.js';
 export type { LgdlOperation, OperationBatchResult } from './operations.js';
-export { parseWebCliCommand, parseWebCliBatch, tokenizeCli } from './web-cli.js';
-export type { ParsedCommand, ParsedBatch } from './web-cli.js';
 export { formatStatus } from './status.js';
 export { initTemplate, emptyDocumentTemplate } from './templates.js';
 export { exportMermaid } from './mermaid.js';

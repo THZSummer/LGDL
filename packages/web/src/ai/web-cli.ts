@@ -1,19 +1,18 @@
 /**
- * lgdl-web-cli 协议解析器 —— Web 工作台 AI 专用的执行协议。
+ * lgdl-web-cli 协议解析器 —— 只供 Web 工作台使用（本包 packages/web）。
  *
- * 与终端 `lgdl` CLI（lgdl-cli）完全分离：
- *   - lgdl-cli（packages/cli）：commander 解析，--file <path> 操作磁盘文件
+ * 与终端 `lgdl` CLI（lgdl-cli，packages/cli）完全分离：
+ *   - lgdl-cli：commander 解析，--file <path> 操作磁盘文件，只用 @lgdl/core
  *   - lgdl-web-cli（本文件）：--doc <id> 操作编辑器文档，只被 Web 工作台使用
  *
- * 两者共享同一套命令语义（applyOperation/applyOperations），但对象参数、
- * I/O 后端、交互形态不同，互不解析对方的参数格式。
+ * 两者共享 @lgdl/core 的同一套命令语义（applyOperation/applyOperations），
+ * 但对象参数、I/O 后端、交互形态不同，互不解析对方的参数格式。
  *
  * 子命令：add-node / remove-node / update-node / add-edge / remove-edge /
  * update-edge / add-group / remove-group / update-group / status / validate
  * / init / convert
  */
-import type { LgdlOperation } from './operations.js';
-import type { LgdlMember } from './types.js';
+import type { LgdlOperation, LgdlMember } from '@lgdl/core';
 
 export type ParsedCommand =
   | { kind: 'op'; docId: string; op: LgdlOperation }

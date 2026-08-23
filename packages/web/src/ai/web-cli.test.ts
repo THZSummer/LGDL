@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseWebCliCommand, parseWebCliBatch, tokenizeCli } from './web-cli.js';
-import { formatStatus } from './status.js';
-import { parseLgdl } from './parser.js';
+import { formatStatus, parseLgdl } from '@lgdl/core';
 
 test('tokenizeCli: splits on whitespace, respects quotes', () => {
   assert.deepEqual(tokenizeCli('lgdl add-node --id x --label "hello world"'), [
