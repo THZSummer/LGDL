@@ -135,3 +135,29 @@ test('executeSubcommand: unknown subcommand fails clearly', async () => {
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /未知子命令|参数无效/);
 });
+
+test('executeSubcommand: list-diagram-types and list-node-kinds list the catalogs', async () => {
+  const types = await executeSubcommand(SRC, 'list-diagram-types', {}, 'main');
+  assert.ok(types.ok);
+  assert.equal(types.changed, false);
+  assert.ok(types.lines.some((l) => l.includes('flowchart')));
+  assert.ok(types.lines.some((l) => l.includes('图类型')));
+  const kinds = await executeSubcommand(SRC, 'list-node-kinds', {}, 'main');
+  assert.ok(kinds.ok);
+  assert.ok(kinds.lines.some((l) => l.includes('节点 kind')));
+});
+
+test('executeCommands: read-only queries run via text commands without modifying', async () => {
+  const r = await executeCommands(
+    SRC,
+    'lgdl-web-cli list-diagram-types --doc main\nlgdl-web-cli doc-info --doc main\nlgdl-web-cli get-node --doc main --id a\nlgdl-web-cli find-node --doc main --label B',
+    'main',
+  );
+  assert.ok(r.ok, r.error);
+  assert.equal(r.changed, false);
+  assert.equal(r.source, SRC);
+  assert.ok(r.lines.some((l) => l.includes('图类型')));
+  assert.ok(r.lines.some((l) => l.includes('规模')));
+  assert.ok(r.lines.some((l) => l.includes('节点 a')));
+  assert.ok(r.lines.some((l) => l.includes('找到 1 个节点')));
+});

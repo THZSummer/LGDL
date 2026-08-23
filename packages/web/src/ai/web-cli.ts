@@ -11,7 +11,8 @@
  *
  * 子命令：add-node / remove-node / update-node / add-edge / remove-edge /
  * update-edge / add-group / remove-group / update-group / status / validate
- * / init / convert
+ * / init / convert / fetch-doc / doc-info / get-node / get-edge / find-node
+ * / list-node-kinds / list-diagram-types
  */
 import { buildOperation } from '@lgdl/core';
 import type { LgdlOperation } from '@lgdl/core';
@@ -22,6 +23,8 @@ export type ParsedCommand =
   | { kind: 'validate'; docId: string }
   | { kind: 'init'; docId: string; type?: string }
   | { kind: 'convert'; docId: string; to: string }
+  /** 只读命令（fetch-doc / doc-info / get-node / get-edge / find-node / list-*） */
+  | { kind: 'query'; docId: string; command: string; args: Record<string, string> }
   | { kind: 'error'; message: string };
 
 /** 命令行文本 → 结构化操作（或 status / validate / init / convert / 错误）。 */
@@ -114,10 +117,21 @@ export function parseWebCliCommand(line: string): ParsedCommand {
           const a = parseArgs(rest);
           return { kind: 'op', docId, op: buildOperation('update-group', a) };
         }
+      // 只读子命令（读多写少：AI 先通过这些了解图，再写）。
+      // 执行统一走 executeSubcommand（与 function calling 入口一致），
+      // 这里只做参数解析与校验，不区分 fetch-doc/查询 的执行差异。
+      case 'fetch-doc':
+      case 'doc-info':
+      case 'get-node':
+      case 'get-edge':
+      case 'find-node':
+      case 'list-node-kinds':
+      case 'list-diagram-types':
+        return { kind: 'query', docId, command: cmd, args: parseArgs(rest) };
       default:
         return {
           kind: 'error',
-          message: `未知子命令 "${cmd}"（支持：add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / status / validate / init / convert）`,
+          message: `未知子命令 "${cmd}"（支持：fetch-doc / status / validate / init / convert / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group）`,
         };
     }
   } catch (err) {
@@ -236,6 +250,9 @@ export function parseWebCliBatch(text: string): ParsedBatch {
         wantsConvert = true;
         convertTo = parsed.to;
       } else break;
+    } else if (parsed.kind === 'query') {
+      // 只读命令：只校验 --doc 一致，不产生 op、不中断（执行交给 executeCommands 逐行委托）。
+      if (!checkDoc(parsed.docId, i, lines[i])) break;
     } else if (parsed.kind === 'op') {
       if (checkDoc(parsed.docId, i, lines[i])) ops.push(parsed.op);
       else break;

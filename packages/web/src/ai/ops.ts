@@ -24,6 +24,8 @@ import {
   queryNode,
   queryEdge,
   findNodes,
+  DIAGRAM_TYPES,
+  DIAGRAM_TYPE_LABELS,
   type LgdlOperation,
 } from '@lgdl/core';
 import { parseWebCliBatch } from './web-cli.js';
@@ -88,6 +90,11 @@ export async function executeSubcommand(
   };
   if (subcommand === 'list-node-kinds') {
     lines.push(listNodeKinds());
+    return { ok: true, source: current, lines, changed };
+  }
+  if (subcommand === 'list-diagram-types') {
+    const list = DIAGRAM_TYPES.map((t) => `${t}（${DIAGRAM_TYPE_LABELS[t]}）`).join(' / ');
+    lines.push(`图类型（${DIAGRAM_TYPES.length} 种）：${list}`);
     return { ok: true, source: current, lines, changed };
   }
   if (subcommand === 'doc-info') {
@@ -307,5 +314,12 @@ export function describeCommandLine(line: string): string {
   if (sub.subcommand === 'validate') return 'lgdl-web-cli validate — 校验当前图语法';
   if (sub.subcommand === 'init') return 'lgdl-web-cli init — 初始化为默认图';
   if (sub.subcommand === 'convert') return `lgdl-web-cli convert --to ${sub.args.to} — 导出格式`;
+  if (sub.subcommand === 'fetch-doc') return 'lgdl-web-cli fetch-doc — 读取使用指南';
+  if (sub.subcommand === 'doc-info') return 'lgdl-web-cli doc-info — 文档概览';
+  if (sub.subcommand === 'get-node') return `lgdl-web-cli get-node --id ${sub.args.id} — 节点详情`;
+  if (sub.subcommand === 'get-edge') return 'lgdl-web-cli get-edge — 边详情';
+  if (sub.subcommand === 'find-node') return `lgdl-web-cli find-node — 搜索节点（${sub.args.label ?? sub.args.q}）`;
+  if (sub.subcommand === 'list-node-kinds') return 'lgdl-web-cli list-node-kinds — 节点 kind 清单';
+  if (sub.subcommand === 'list-diagram-types') return 'lgdl-web-cli list-diagram-types — 图类型清单';
   return `${sub.subcommand} ${Object.values(sub.args).join(' ')}`;
 }

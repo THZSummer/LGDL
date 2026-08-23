@@ -77,6 +77,39 @@ test('parseWebCliCommand: unknown command is an error', () => {
   assert.equal(r.kind, 'error');
 });
 
+test('parseWebCliCommand: read-only query commands parse (fetch-doc / doc-info / get-node / get-edge / find-node / list-*)', () => {
+  const fetchDoc = parseWebCliCommand('lgdl-web-cli fetch-doc --doc main --path lgdl/web/workbench/README-CLI.md');
+  assert.equal(fetchDoc.kind, 'query');
+  if (fetchDoc.kind === 'query') {
+    assert.equal(fetchDoc.command, 'fetch-doc');
+    assert.equal(fetchDoc.args.path, 'lgdl/web/workbench/README-CLI.md');
+  }
+  const getNode = parseWebCliCommand('lgdl-web-cli get-node --doc main --id user');
+  assert.equal(getNode.kind, 'query');
+  if (getNode.kind === 'query') {
+    assert.equal(getNode.command, 'get-node');
+    assert.equal(getNode.args.id, 'user');
+  }
+  const findNode = parseWebCliCommand('lgdl-web-cli find-node --doc main --label 用户');
+  assert.equal(findNode.kind, 'query');
+  if (findNode.kind === 'query') assert.equal(findNode.args.label, '用户');
+  for (const cmd of ['doc-info', 'get-edge', 'list-node-kinds', 'list-diagram-types']) {
+    const r = parseWebCliCommand(`lgdl-web-cli ${cmd} --doc main`);
+    assert.equal(r.kind, 'query', `${cmd} should parse as query`);
+    if (r.kind === 'query') assert.equal(r.command, cmd);
+  }
+});
+
+test('parseWebCliBatch: query commands pass through without stopping the batch', () => {
+  const r = parseWebCliBatch(
+    'lgdl-web-cli fetch-doc --doc main\nlgdl-web-cli status --doc main\nlgdl-web-cli list-node-kinds --doc main\nlgdl-web-cli add-node --doc main --id a --label A',
+  );
+  assert.equal(r.errors.length, 0);
+  assert.equal(r.ops.length, 1);
+  assert.equal(r.wantsStatus, true);
+  assert.equal(r.docId, 'main');
+});
+
 test('parseWebCliCommand: missing --doc is an error (web-cli requires it)', () => {
   const r = parseWebCliCommand('lgdl-web-cli add-node --id a --label A');
   assert.equal(r.kind, 'error');
