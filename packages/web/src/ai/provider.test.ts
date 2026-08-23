@@ -6,6 +6,8 @@ import {
   providerById,
   loadSettings,
   saveSettings,
+  loadProviderSettings,
+  saveProviderInputs,
   classifyError,
   type ProviderSettings,
 } from './provider.js';
@@ -88,6 +90,51 @@ test('loadSettings preserves a custom baseURL (volc coding endpoint)', () => {
     assert.equal(loaded.baseURL, 'https://ark.cn-beijing.volces.com/api/coding/v3');
     assert.equal(loaded.providerId, 'volc');
   });
+});
+
+test('per-provider: each provider keeps its OWN apiKey/model; switching does not leak', () => {
+  withStorage({}, () => {
+    // 填 DeepSeek 的 key
+    saveSettings({ providerId: 'deepseek', apiKey: 'sk-deepseek-1', model: 'deepseek-chat' });
+    // 切到 Qwen 填不同的 key
+    saveSettings({ providerId: 'qwen', apiKey: 'sk-qwen-2', model: 'qwen-plus' });
+    // 切回 DeepSeek：应显示它自己的 key，而不是最近输入的 Qwen key
+    const ds = loadProviderSettings('deepseek');
+    assert.equal(ds.apiKey, 'sk-deepseek-1');
+    assert.equal(ds.model, 'deepseek-chat');
+    // Qwen 保持自己的
+    const qw = loadProviderSettings('qwen');
+    assert.equal(qw.apiKey, 'sk-qwen-2');
+    // active 指向最后一次保存的 provider
+    assert.equal(loadSettings().providerId, 'qwen');
+  });
+});
+
+test('per-provider: saveProviderInputs stores without touching the active pointer', () => {
+  withStorage({}, () => {
+    saveSettings({ providerId: 'deepseek', apiKey: 'sk-ds', model: 'deepseek-chat' });
+    // 用户切到 qwen 前暂存输入（active 应仍为 deepseek）
+    saveProviderInputs('qwen', { apiKey: 'sk-qw', model: 'qwen-plus' });
+    assert.equal(loadSettings().providerId, 'deepseek');
+    assert.equal(loadProviderSettings('qwen').apiKey, 'sk-qw');
+  });
+});
+
+test('legacy single-object storage migrates to per-provider format', () => {
+  withStorage(
+    {
+      'lgdl-ai-settings': JSON.stringify({ providerId: 'volc-coding', apiKey: 'ark-old', model: 'deepseek-v4-flash' }),
+    },
+    () => {
+      const s = loadSettings();
+      assert.equal(s.providerId, 'volc-coding');
+      assert.equal(s.apiKey, 'ark-old');
+      // 迁移后再次保存，其他 provider 不受影响
+      saveSettings({ providerId: 'deepseek', apiKey: 'sk-new', model: 'deepseek-chat' });
+      assert.equal(loadProviderSettings('volc-coding').apiKey, 'ark-old');
+      assert.equal(loadSettings().providerId, 'deepseek');
+    },
+  );
 });
 
 test('loadSettings falls back to provider default model when model is blank', () => {

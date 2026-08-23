@@ -65,30 +65,110 @@ const DEFAULT_SETTINGS: ProviderSettings = {
   model: 'deepseek-chat',
 };
 
-/** 读取设置（localStorage）；无存档时返回默认（deepseek + 空 key）。 */
-export function loadSettings(): ProviderSettings {
+/**
+ * 每个 provider 独立保存自己的 apiKey / model / baseURL，
+ * 切换服务商时互不覆盖。
+ */
+interface PerProviderState {
+  apiKey: string;
+  model?: string;
+  baseURL?: string;
+}
+
+interface StoredSettings {
+  /** 当前激活的 provider */
+  active: ProviderId;
+  providers: Partial<Record<ProviderId, PerProviderState>>;
+}
+
+const EMPTY_STORE: StoredSettings = { active: 'deepseek', providers: {} };
+
+function readStore(): StoredSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<ProviderSettings>;
-    const provider = PROVIDERS.find((p) => p.id === parsed.providerId);
+    if (!raw) return { ...EMPTY_STORE, providers: {} };
+    const parsed = JSON.parse(raw) as Partial<StoredSettings> & Partial<ProviderSettings>;
+    // 兼容旧格式（v0.5.0 早期：直接存 ProviderSettings 对象）
+    if (parsed.providers === undefined && typeof parsed.apiKey === 'string') {
+      const legacyActive = (PROVIDERS.find((p) => p.id === parsed.providerId) ?? PROVIDERS[0]).id;
+      return {
+        active: legacyActive,
+        providers: {
+          [legacyActive]: {
+            apiKey: parsed.apiKey,
+            model: parsed.model,
+            baseURL: parsed.baseURL,
+          },
+        },
+      };
+    }
     return {
-      providerId: provider?.id ?? DEFAULT_SETTINGS.providerId,
-      apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey : '',
-      model:
-        typeof parsed.model === 'string' && parsed.model.trim() !== ''
-          ? parsed.model
-          : provider?.defaultModel ?? DEFAULT_SETTINGS.model,
-      baseURL: typeof parsed.baseURL === 'string' && parsed.baseURL.trim() !== '' ? parsed.baseURL : undefined,
+      active: (PROVIDERS.find((p) => p.id === parsed.active) ?? PROVIDERS[0]).id,
+      providers: parsed.providers ?? {},
     };
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    return { ...EMPTY_STORE, providers: {} };
   }
 }
 
-/** 保存设置到 localStorage。 */
+function writeStore(store: StoredSettings): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+}
+
+/** 读取当前激活 provider 的设置（localStorage）。 */
+export function loadSettings(): ProviderSettings {
+  const store = readStore();
+  const provider = providerById(store.active);
+  const state = store.providers[store.active];
+  return {
+    providerId: store.active,
+    apiKey: state?.apiKey ?? '',
+    model: state?.model?.trim() ? state.model : provider.defaultModel,
+    baseURL: state?.baseURL?.trim() ? state.baseURL : undefined,
+  };
+}
+
+/** 保存当前 provider 的设置（不影响其他 provider 的 key/模型）。 */
 export function saveSettings(s: ProviderSettings): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  const store = readStore();
+  store.active = s.providerId;
+  store.providers[s.providerId] = {
+    apiKey: s.apiKey,
+    model: s.model || undefined,
+    baseURL: s.baseURL || undefined,
+  };
+  writeStore(store);
+}
+
+/** 读取指定 provider 已保存的 key/模型（用于切换服务商时回填，无则默认）。 */
+export function loadProviderSettings(providerId: ProviderId): ProviderSettings {
+  const store = readStore();
+  const provider = providerById(providerId);
+  const state = store.providers[providerId];
+  return {
+    providerId,
+    apiKey: state?.apiKey ?? '',
+    model: state?.model?.trim() ? state.model : provider.defaultModel,
+    baseURL: state?.baseURL?.trim() ? state.baseURL : undefined,
+  };
+}
+
+/**
+ * 只保存指定 provider 的 key/模型（**不改 active 指针**）。
+ * 用于设置面板切换服务商前暂存当前输入，避免未点保存的输入丢失。
+ */
+export function saveProviderInputs(
+  providerId: ProviderId,
+  s: { apiKey: string; model: string; baseURL?: string },
+): void {
+  const store = readStore();
+  const provider = providerById(providerId);
+  store.providers[providerId] = {
+    apiKey: s.apiKey,
+    model: s.model.trim() ? s.model : provider.defaultModel,
+    baseURL: s.baseURL?.trim() ? s.baseURL : undefined,
+  };
+  writeStore(store);
 }
 
 /** 切换厂商时的默认模型（供 UI 在切换 provider 时预填）。 */

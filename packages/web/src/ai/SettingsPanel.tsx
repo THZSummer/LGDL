@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import {
   PROVIDERS,
   defaultModelFor,
+  loadProviderSettings,
+  saveProviderInputs as saveProviderInputsFn,
   testConnection,
   type ProviderId,
   type ProviderSettings,
@@ -31,10 +33,26 @@ export function SettingsPanel({
   const provider = PROVIDERS.find((p) => p.id === providerId) ?? PROVIDERS[0];
 
   const switchProvider = (id: ProviderId) => {
+    // 先把当前 provider 的输入即时保存（不切换 active，仅存 key/模型）
+    if (providerId !== id) {
+      saveProviderInputs(providerId);
+    }
+    // 回填该 provider 自己保存的 key/模型/URL（各自独立，互不覆盖）
+    const saved = loadProviderSettings(id);
     setProviderId(id);
-    setModel(defaultModelFor(id));
-    setBaseURL(PROVIDERS.find((p) => p.id === id)?.baseURL ?? '');
+    setApiKey(saved.apiKey);
+    setModel(saved.model);
+    setBaseURL(saved.baseURL ?? '');
     setTestResult(null);
+  };
+
+  /** 把当前输入保存到指定 provider（不动 active 指针）。 */
+  const saveProviderInputs = (pid: ProviderId) => {
+    saveProviderInputsFn(pid, {
+      apiKey: apiKey.trim(),
+      model: model.trim() || defaultModelFor(pid),
+      baseURL: baseURL.trim() || undefined,
+    });
   };
 
   const save = () => {
