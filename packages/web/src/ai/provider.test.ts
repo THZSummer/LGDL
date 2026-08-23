@@ -6,6 +6,7 @@ import {
   providerById,
   loadSettings,
   saveSettings,
+  classifyError,
   type ProviderSettings,
 } from './provider.js';
 
@@ -118,4 +119,35 @@ test('loadSettings tolerates corrupted storage', () => {
       assert.ok(s.model);
     },
   );
+});
+
+test('classifyError: Connection error hints at CORS / browser-direct limits', () => {
+  const p = providerById('volc-coding');
+  const err = classifyError(new Error('Connection error.'), p);
+  assert.match(err.message, /浏览器直连失败/);
+  assert.match(err.message, /CORS/);
+});
+
+test('classifyError: 401 hints at invalid key', () => {
+  const p = providerById('deepseek');
+  const err = classifyError({ status: 401 } as unknown as Error, p);
+  assert.match(err.message, /API Key 可能无效/);
+});
+
+test('classifyError: 404 on volc suggests switching plan provider', () => {
+  const p = providerById('volc-coding');
+  const err = classifyError({ status: 404 } as unknown as Error, p);
+  assert.match(err.message, /火山方舟/);
+  assert.match(err.message, /Coding/);
+});
+
+test('browserDirect flags: deepseek/qwen/tencent/openai/claude direct, volc blocked', () => {
+  assert.equal(providerById('deepseek').browserDirect, true);
+  assert.equal(providerById('qwen').browserDirect, true);
+  assert.equal(providerById('tencent').browserDirect, true);
+  assert.equal(providerById('openai').browserDirect, true);
+  assert.equal(providerById('claude').browserDirect, true);
+  assert.equal(providerById('volc').browserDirect, false);
+  assert.equal(providerById('volc-coding').browserDirect, false);
+  assert.equal(providerById('volc-plan').browserDirect, false);
 });

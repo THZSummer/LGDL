@@ -7,7 +7,7 @@ import {
   type OpsApplyResult,
 } from './ops';
 import { describeOperation, type LgdlOperation } from '@lgdl/core';
-import { chat, loadSettings, type ProviderSettings } from './provider';
+import { chat, loadSettings, PROVIDERS, type ProviderSettings } from './provider';
 import { buildTurns } from './prompts';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -459,6 +459,16 @@ export function AiPanel({
         appendMessage(
           'assistant',
           '⚠ 尚未配置 API Key。请点击面板右上角 **⚙ 设置**，选择服务商并粘贴你的 API Key，然后再试。',
+        );
+        setPending(false);
+        return;
+      }
+      // 不可直连厂商（CORS 受限）直接拦截，避免白等
+      const cfg = PROVIDERS.find((p) => p.id === s.providerId);
+      if (cfg && !cfg.browserDirect) {
+        appendMessage(
+          'assistant',
+          `⚠ ${cfg.name} 不允许浏览器直连（CORS 受限），当前版本无法使用。请点击 **⚙ 设置** 换用 DeepSeek / Qwen / OpenAI 等可直连服务商；本地代理（lgdl serve）将在 v0.6 提供。`,
         );
         setPending(false);
         return;

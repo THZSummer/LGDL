@@ -29,17 +29,24 @@ export interface ProviderConfig {
   /** 模型是否可自由填写（true 时提供自由输入框） */
   freeModel: boolean;
   hint: string;
+  /**
+   * 是否支持浏览器直连（CORS 预检允许认证头）。
+   * false 的厂商（火山）浏览器会拦截请求——需本地代理（lgdl serve，v0.6）。
+   * 已实测：deepseek/qwen/tencent 预检允许 authorization；火山只允许
+   * Origin/Content-Length/Content-Type；openai/anthropic 官方支持浏览器。
+   */
+  browserDirect: boolean;
 }
 
 export const PROVIDERS: ProviderConfig[] = [
-  { id: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com', defaultModel: 'deepseek-chat', freeModel: true, hint: 'api.deepseek.com（OpenAI 兼容）' },
-  { id: 'qwen', name: 'Qwen 通义千问', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', defaultModel: 'qwen-plus', freeModel: true, hint: '阿里云百炼 compatible-mode' },
-  { id: 'volc', name: '火山方舟 · 通用', baseURL: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seed-1-6-250615', freeModel: true, hint: '通用 v3 端点（doubao-seed-1-6 等）' },
-  { id: 'volc-coding', name: '火山方舟 · Coding', baseURL: 'https://ark.cn-beijing.volces.com/api/coding/v3', defaultModel: 'deepseek-v4-flash', freeModel: true, hint: 'Coding 端点（deepseek-v4-*、doubao-seed-2-0-code 等）' },
-  { id: 'volc-plan', name: '火山方舟 · Agent Plan', baseURL: 'https://ark.cn-beijing.volces.com/api/plan/v3', defaultModel: 'ark-code-latest', freeModel: true, hint: 'Agent Plan 端点（ark-code-latest 等）' },
-  { id: 'tencent', name: '腾讯混元', baseURL: 'https://api.hunyuan.cloud.tencent.com/v1', defaultModel: 'hunyuan-turbo', freeModel: true, hint: '腾讯云混元（OpenAI 兼容）' },
-  { id: 'openai', name: 'OpenAI GPT', baseURL: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini', freeModel: true, hint: 'api.openai.com' },
-  { id: 'claude', name: 'Claude', baseURL: null, defaultModel: 'claude-3-5-haiku-latest', freeModel: true, hint: 'Anthropic Messages API' },
+  { id: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com', defaultModel: 'deepseek-chat', freeModel: true, hint: 'api.deepseek.com（OpenAI 兼容）', browserDirect: true },
+  { id: 'qwen', name: 'Qwen 通义千问', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', defaultModel: 'qwen-plus', freeModel: true, hint: '阿里云百炼 compatible-mode', browserDirect: true },
+  { id: 'volc', name: '火山方舟 · 通用', baseURL: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seed-1-6-250615', freeModel: true, hint: '通用 v3 端点（doubao-seed-1-6 等）；⚠ 浏览器直连受限，需本地代理（v0.6）', browserDirect: false },
+  { id: 'volc-coding', name: '火山方舟 · Coding', baseURL: 'https://ark.cn-beijing.volces.com/api/coding/v3', defaultModel: 'deepseek-v4-flash', freeModel: true, hint: 'Coding 端点（deepseek-v4-* 等）；⚠ 浏览器直连受限，需本地代理（v0.6）', browserDirect: false },
+  { id: 'volc-plan', name: '火山方舟 · Agent Plan', baseURL: 'https://ark.cn-beijing.volces.com/api/plan/v3', defaultModel: 'ark-code-latest', freeModel: true, hint: 'Agent Plan 端点（ark-code-latest 等）；⚠ 浏览器直连受限，需本地代理（v0.6）', browserDirect: false },
+  { id: 'tencent', name: '腾讯混元', baseURL: 'https://api.hunyuan.cloud.tencent.com/v1', defaultModel: 'hunyuan-turbo', freeModel: true, hint: '腾讯云混元（OpenAI 兼容）', browserDirect: true },
+  { id: 'openai', name: 'OpenAI GPT', baseURL: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini', freeModel: true, hint: 'api.openai.com', browserDirect: true },
+  { id: 'claude', name: 'Claude', baseURL: null, defaultModel: 'claude-3-5-haiku-latest', freeModel: true, hint: 'Anthropic Messages API', browserDirect: true },
 ];
 
 export interface ProviderSettings {
@@ -104,6 +111,34 @@ export interface ChatResult {
   model: string;
 }
 
+export interface TestResult {
+  ok: boolean;
+  message: string;
+  /** 测试耗时 ms */
+  elapsedMs: number;
+}
+
+/**
+ * 连接测试：用当前设置发一个最小请求（"ping"），验证 key / 端点 / CORS
+ * 是否可用。成功返回 ok=true；失败返回归类后的可读错误。
+ */
+export async function testConnection(settings: ProviderSettings): Promise<TestResult> {
+  const provider = providerById(settings.providerId);
+  if (!settings.apiKey.trim()) {
+    return { ok: false, message: '未填写 API Key', elapsedMs: 0 };
+  }
+  const t0 = Date.now();
+  try {
+    await chat(
+      { ...settings, model: settings.model || provider.defaultModel },
+      [{ role: 'user', content: 'ping' }],
+    );
+    return { ok: true, message: `✓ ${provider.name} 连接正常（模型 ${settings.model || provider.defaultModel}）`, elapsedMs: Date.now() - t0 };
+  } catch (err) {
+    return { ok: false, message: `✖ ${(err as Error).message}`, elapsedMs: Date.now() - t0 };
+  }
+}
+
 /**
  * 调用 LLM（非流式，完整返回）。
  * 抛错时 message 已按「key 无效 / 网络不通 / CORS 不允许」归类。
@@ -158,7 +193,7 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
 }
 
 /** 把 SDK 错误归类为可读信息（key 无效 / 网络不通 / CORS 不允许 / 端点不对）。 */
-function classifyError(err: unknown, provider: ProviderConfig): Error {
+export function classifyError(err: unknown, provider: ProviderConfig): Error {
   const e = err as { status?: number; message?: string; name?: string };
   const status = e.status;
   if (status === 401 || status === 403) {
@@ -177,11 +212,16 @@ function classifyError(err: unknown, provider: ProviderConfig): Error {
     return new Error(`${provider.name} 请求失败（HTTP ${status}）：${e.message ?? ''}`);
   }
   const msg = e.message ?? String(err);
-  if (/failed to fetch|networkerror|load failed|fetch/i.test(msg) && !/api\.deepseek|api\.openai/.test(provider.baseURL ?? '')) {
-    return new Error(`网络请求失败（${provider.name}）— 请检查网络，或该厂商 CORS 不允许浏览器直连：${msg}`);
-  }
-  if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-    return new Error(`网络请求失败 — 请检查网络连接：${msg}`);
+  // 浏览器直连被 CORS 拦截的典型表现：openai SDK 报 "Connection error"，
+  // fetch 报 "Failed to fetch" / "NetworkError"。厂商预检若不返回
+  // access-control-allow-headers 里的认证头，浏览器会在发送前拦截。
+  if (/connection error|failed to fetch|networkerror|load failed|typeerror/i.test(msg)) {
+    return new Error(
+      `浏览器直连失败（${provider.name}）— 该厂商的 CORS 策略可能不允许浏览器直连` +
+        `（或网络不通）。可尝试：① 在「测试连接」确认；② 换用支持浏览器直连的服务商` +
+        `（如 DeepSeek / OpenAI）；③ 后续版本提供本地代理（lgdl serve）绕开 CORS。` +
+        `原始错误：${msg}`,
+    );
   }
   return new Error(`${provider.name} 调用失败：${msg}`);
 }

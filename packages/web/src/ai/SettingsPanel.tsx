@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import {
   PROVIDERS,
   defaultModelFor,
+  testConnection,
   type ProviderId,
   type ProviderSettings,
 } from './provider';
@@ -24,6 +25,8 @@ export function SettingsPanel({
   const [showKey, setShowKey] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const provider = PROVIDERS.find((p) => p.id === providerId) ?? PROVIDERS[0];
 
@@ -31,6 +34,7 @@ export function SettingsPanel({
     setProviderId(id);
     setModel(defaultModelFor(id));
     setBaseURL(PROVIDERS.find((p) => p.id === id)?.baseURL ?? '');
+    setTestResult(null);
   };
 
   const save = () => {
@@ -44,6 +48,18 @@ export function SettingsPanel({
     setTimeout(onClose, 600);
   };
 
+  const runTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    const r = await testConnection({
+      providerId,
+      apiKey: apiKey.trim(),
+      model: model.trim() || defaultModelFor(providerId),
+      baseURL: baseURL.trim() || (provider.baseURL ?? undefined),
+    });
+    setTestResult({ ok: r.ok, message: r.message });
+    setTesting(false);
+  };
   return (
     <div className="ai-settings-mask" onClick={onClose}>
       <div className="ai-settings" onClick={(e) => e.stopPropagation()}>
@@ -67,6 +83,12 @@ export function SettingsPanel({
             ))}
           </select>
           <span className="ai-settings-hint">{provider.hint} · 默认模型 {provider.defaultModel}</span>
+          {!provider.browserDirect && (
+            <span className="ai-settings-warn">
+              ⚠ 该服务商不允许浏览器直连（CORS 受限），当前版本无法使用——请换用
+              DeepSeek / Qwen / OpenAI 等可直连服务商；本地代理（lgdl serve）将在 v0.6 提供。
+            </span>
+          )}
         </label>
 
         <label className="ai-settings-field">
@@ -124,7 +146,23 @@ export function SettingsPanel({
           </>
         )}
 
+        {testResult && (
+          <div className={`ai-settings-test ${testResult.ok ? 'ok' : 'fail'}`}>{testResult.message}</div>
+        )}
+
         <div className="ai-settings-actions">
+          <button
+            className="ai-settings-btn ai-settings-test-btn"
+            onClick={runTest}
+            disabled={testing || !apiKey.trim() || !provider.browserDirect}
+            title={
+              provider.browserDirect
+                ? '用当前配置发一个最小请求，验证 key / 端点 / CORS 可用性'
+                : '该服务商浏览器直连受限（CORS），无法测试'
+            }
+          >
+            {testing ? '测试中…' : '测试连接'}
+          </button>
           <button className="ai-settings-btn" onClick={save}>
             {saved ? '✓ 已保存' : '保存'}
           </button>
