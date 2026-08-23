@@ -50,16 +50,34 @@ export interface CommandExecResult {
  * @param args 结构化参数（--key value 风格，键不带连字符）
  * @param docId 当前文档 id（工具调用隐式作用于当前文档）
  */
-export function executeSubcommand(
+export async function executeSubcommand(
   source: string,
   subcommand: string,
   args: Record<string, string>,
   docId?: string,
-): CommandExecResult {
+): Promise<CommandExecResult> {
   const lines: string[] = [];
   let current = source;
   let changed = false;
 
+  // fetch-doc：获取工作台 skill 文档（lgdl/web/workbench/README-CLI.md）。
+  // AI 应先读此文档了解 lgdl-web-cli 用法，再开始操作。
+  if (subcommand === 'fetch-doc') {
+    const path = args.path ?? 'lgdl/web/workbench/README-CLI.md';
+    try {
+      const res = await fetch(path, { cache: 'no-store' });
+      if (!res.ok) {
+        lines.push(`✖ 获取文档失败（HTTP ${res.status}）：${path}`);
+        return { ok: false, source: current, lines, changed, error: `fetch failed: ${res.status}` };
+      }
+      const text = await res.text();
+      lines.push(text);
+      return { ok: true, source: current, lines, changed };
+    } catch (err) {
+      lines.push(`✖ 获取文档失败：${(err as Error).message}`);
+      return { ok: false, source: current, lines, changed, error: (err as Error).message };
+    }
+  }
   // 只读命令（不改文档）——读多写少：AI 应先用这些了解图，再写。
   // 业务逻辑在 core/queries.ts 单一实现（lgdl-cli 与 lgdl-web-cli 共享）。
   const parsedDoc = parseLgdl(current);
@@ -218,11 +236,11 @@ export function executeSubcommand(
  * 每行 `lgdl-web-cli <subcommand> --key value` → executeSubcommand；
  * 支持带 --doc（校验与当前文档一致）或不带（隐式当前文档）。
  */
-export function executeCommands(
+export async function executeCommands(
   source: string,
   commandsText: string,
   docId?: string,
-): CommandExecResult {
+): Promise<CommandExecResult> {
   const lines: string[] = [];
   let current = source;
   let changed = false;
@@ -249,7 +267,7 @@ export function executeCommands(
     }
     const sub = extractSingleSubcommand(line);
     if (!sub) continue;
-    const r = executeSubcommand(current, sub.subcommand, sub.args, docId);
+    const r = await executeSubcommand(current, sub.subcommand, sub.args, docId);
     lines.push(...r.lines);
     if (!r.ok) {
       return { ok: false, source: current, lines, changed, error: r.error };

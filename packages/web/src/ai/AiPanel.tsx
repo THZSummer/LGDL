@@ -350,7 +350,7 @@ export function AiPanel({
                 output = onWebOp(tc.subcommand, tc.args);
               } else {
                 // 图内容操作：结构化执行（不走文本解析，无 --doc 要求）
-                const exec = executeSubcommand(sourceNow, tc.subcommand, tc.args, docIdRef.current);
+                const exec = await executeSubcommand(sourceNow, tc.subcommand, tc.args, docIdRef.current);
                 if (exec.changed) {
                   onApply(exec.source);
                   sourceNow = exec.source;
