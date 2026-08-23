@@ -14,7 +14,7 @@
 
 > 🚀 **在线体验 Web 工作台**：[LGDL Workbench](https://thzsummer.github.io/LGDL/) —— 浏览器里编辑源码、实时渲染、点击定位源码、导出 SVG/PNG
 
-一种 LGDL 语言，九种图——全部由 `lgdl render` 自动布局生成，无任何手工排版：
+一种 LGDL 语言，九种图——全部由 `lgdl-cli render` 自动布局生成，无任何手工排版：
 
 | flowchart 流程图 | flowchart 实战 | mindmap 思维导图 |
 |---|---|---|
@@ -41,9 +41,9 @@
 ```bash
 npm install -g @lgdl/cli              # 安装 CLI
 
-lgdl init --file my-diagram.lgdl      # 初始化空图
-lgdl render --file my-diagram.lgdl -o out.svg   # 渲染（自动布局）
-lgdl status --file my-diagram.lgdl    # 输出文本化图结构 ← AI 读取当前图
+lgdl-cli init --file my-diagram.lgdl      # 初始化空图
+lgdl-cli render --file my-diagram.lgdl -o out.svg   # 渲染（自动布局）
+lgdl-cli status --file my-diagram.lgdl    # 输出文本化图结构 ← AI 读取当前图
 ```
 
 ---
@@ -80,7 +80,7 @@ LGDL 的每个概念都有**显性字段**，渲染器从不从文本里猜含�
 
 ### 5. Web AI 助手（v0.5）
 
-- **lgdl-web-cli 协议**：AI 通过 ```` ```lgdl-web-cli ```` 协议块操作图（`lgdl status --doc main` / `lgdl add-node --doc main --id x --label y` …），**不直接写 LGDL 源码**——源码只由命令执行产生；命令语义与终端 lgdl-cli 完全一致（共用 `core/commands.ts` 命令注册表），点「执行」逐条应用、失败即停
+- **lgdl-web-cli 协议**：AI 通过 ```` ```lgdl-web-cli ```` 协议块操作图（`lgdl-cli status --doc main` / `lgdl-cli add-node --doc main --id x --label y` …），**不直接写 LGDL 源码**——源码只由命令执行产生；命令语义与终端 lgdl-cli 完全一致（共用 `core/commands.ts` 命令注册表），点「执行」逐条应用、失败即停
 - **双 CLI 分离**：终端 `lgdl`（lgdl-cli，`--file` 操作磁盘文件）与 Web 协议（lgdl-web-cli，`--doc` 操作编辑器文档）物理分离、场景独立，业务逻辑（命令解析/校验/op 构造）在 core 单一实现
 - **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限，需本地代理（v0.6）
 - 设置面板两步配置：选服务商 + 填 API Key（各服务商 key 独立保存）；「测试连接」一键验证 key / 端点 / CORS
@@ -136,14 +136,14 @@ groups:
 
 | 命令 | 作用 |
 |---|---|
-| `lgdl init --file <f>` | 初始化空图 |
-| `lgdl render --file <f> -o out.svg` | 渲染 SVG（自动布局） |
-| `lgdl status --file <f>` | 输出文本化图结构（AI 可读） |
-| `lgdl add-node / update-node / remove-node` | 增量编辑节点（`--member` / `--member-add` / `--member-remove` 管理类成员） |
-| `lgdl add-edge / update-edge / remove-edge` | 增量编辑边（`--cardinality-from` / `--cardinality-to` 设多重性） |
-| `lgdl add-group / remove-group` | 增量编辑分组 |
-| `lgdl convert --file <f> --as mermaid\|plantuml\|json [-o out]` | 导出为其他格式 |
-| `lgdl import --file <f> --from mermaid --output out.lgdl` | 从 Mermaid 导入为 LGDL |
+| `lgdl-cli init --file <f>` | 初始化空图 |
+| `lgdl-cli render --file <f> -o out.svg` | 渲染 SVG（自动布局） |
+| `lgdl-cli status --file <f>` | 输出文本化图结构（AI 可读） |
+| `lgdl-cli add-node / update-node / remove-node` | 增量编辑节点（`--member` / `--member-add` / `--member-remove` 管理类成员） |
+| `lgdl-cli add-edge / update-edge / remove-edge` | 增量编辑边（`--cardinality-from` / `--cardinality-to` 设多重性） |
+| `lgdl-cli add-group / remove-group` | 增量编辑分组 |
+| `lgdl-cli convert --file <f> --as mermaid\|plantuml\|json [-o out]` | 导出为其他格式 |
+| `lgdl-cli import --file <f> --from mermaid --output out.lgdl` | 从 Mermaid 导入为 LGDL |
 
 增量编辑协议：AI 的每次修改都是**增量 patch**，只重算受影响区域，已有节点位置保持稳定——AI 永远不会重写整个文件。
 

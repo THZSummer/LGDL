@@ -8,7 +8,7 @@
 
 ```bash
 npm install -g @lgdl/cli     # 全局安装
-lgdl --help                  # 验证安装
+lgdl-cli --help                  # 验证安装
 ```
 
 **从源码运行**（开发模式）：
@@ -22,8 +22,8 @@ node dist/cli.js --help
 ## 全局参数
 
 ```bash
-lgdl --help       # 查看所有命令
-lgdl --version    # 查看版本
+lgdl-cli --help       # 查看所有命令
+lgdl-cli --version    # 查看版本
 ```
 
 ---
@@ -32,41 +32,41 @@ lgdl --version    # 查看版本
 
 | 命令 | 用途 | AI Agent 常用度 |
 |---|---|---|
-| `lgdl init --file <file>` | 创建空图文件 | ⭐ |
-| `lgdl render --file <file>` | 渲染为 SVG（自动布局） | ⭐⭐⭐ |
-| `lgdl status --file <file>` | 输出文本化图结构 | ⭐⭐⭐ |
-| `lgdl convert --file <file>` | 转换为其他格式（mermaid/plantuml/json） | ⭐⭐ |
-| `lgdl import --file <file>` | 从 Mermaid 导入（迁移） | ⭐⭐ |
-| `lgdl add-node --file <file>` | 加节点（增量，支持 members/attrs） | ⭐⭐⭐ |
-| `lgdl remove-node --file <file>` | 删节点（自动清理关联边） | ⭐⭐⭐ |
-| `lgdl update-node --file <file>` | 改节点 label/kind/members/attrs | ⭐⭐ |
-| `lgdl add-edge --file <file>` | 加边（增量，支持 cardinality/attrs） | ⭐⭐⭐ |
-| `lgdl update-edge --file <file>` | 改边 label/cardinality/attrs | ⭐⭐ |
-| `lgdl remove-edge --file <file>` | 删边 | ⭐⭐ |
-| `lgdl add-group --file <file>` | 加分组（泳道/分区） | ⭐⭐ |
-| `lgdl remove-group --file <file>` | 删分组 | ⭐ |
+| `lgdl-cli init --file <file>` | 创建空图文件 | ⭐ |
+| `lgdl-cli render --file <file>` | 渲染为 SVG（自动布局） | ⭐⭐⭐ |
+| `lgdl-cli status --file <file>` | 输出文本化图结构 | ⭐⭐⭐ |
+| `lgdl-cli convert --file <file>` | 转换为其他格式（mermaid/plantuml/json） | ⭐⭐ |
+| `lgdl-cli import --file <file>` | 从 Mermaid 导入（迁移） | ⭐⭐ |
+| `lgdl-cli add-node --file <file>` | 加节点（增量，支持 members/attrs） | ⭐⭐⭐ |
+| `lgdl-cli remove-node --file <file>` | 删节点（自动清理关联边） | ⭐⭐⭐ |
+| `lgdl-cli update-node --file <file>` | 改节点 label/kind/members/attrs | ⭐⭐ |
+| `lgdl-cli add-edge --file <file>` | 加边（增量，支持 cardinality/attrs） | ⭐⭐⭐ |
+| `lgdl-cli update-edge --file <file>` | 改边 label/cardinality/attrs | ⭐⭐ |
+| `lgdl-cli remove-edge --file <file>` | 删边 | ⭐⭐ |
+| `lgdl-cli add-group --file <file>` | 加分组（泳道/分区） | ⭐⭐ |
+| `lgdl-cli remove-group --file <file>` | 删分组 | ⭐ |
 
 ---
 
 ## 详细说明
 
-### `lgdl init --file <file>`
+### `lgdl-cli init --file <file>`
 
 创建包含最小模板的空图文件。
 
 ```bash
-lgdl init --file my-diagram.lgdl
+lgdl-cli init --file my-diagram.lgdl
 # ✓ initialized my-diagram.lgdl
 ```
 
-### `lgdl render --file <file> [-o out.svg] [--format svg|ascii]`
+### `lgdl-cli render --file <file> [-o out.svg] [--format svg|ascii]`
 
 解析 `.lgdl` 文件 → 自动布局 → 输出 SVG（默认）或 ASCII 图。
 
 ```bash
-lgdl render --file my-diagram.lgdl                    # 输出到 out.svg
-lgdl render --file my-diagram.lgdl -o diagram.svg     # 指定输出文件
-lgdl render --file my-diagram.lgdl --format ascii     # 终端直接显示 ASCII 图
+lgdl-cli render --file my-diagram.lgdl                    # 输出到 out.svg
+lgdl-cli render --file my-diagram.lgdl -o diagram.svg     # 指定输出文件
+lgdl-cli render --file my-diagram.lgdl-cli --format ascii     # 终端直接显示 ASCII 图
 # ✓ rendered my-diagram.lgdl -> diagram.svg (370x612, 5 nodes, 4 edges)
 ```
 
@@ -86,12 +86,12 @@ lgdl render --file my-diagram.lgdl --format ascii     # 终端直接显示 ASCII
 - 布局是**确定性**的：同样的输入永远同样的输出
 - 若文件有校验错误，渲染会失败并列出问题
 
-### `lgdl status --file <file>`
+### `lgdl-cli status --file <file>`
 
 把图的结构输出为**纯文本**——这是 AI Agent 读图的主要方式。
 
 ```bash
-lgdl status --file my-diagram.lgdl
+lgdl-cli status --file my-diagram.lgdl
 ```
 
 输出格式：
@@ -115,18 +115,18 @@ lgdl status --file my-diagram.lgdl
 
 所有增量命令都遵循同一模式：**读文件 → 修改 → 校验 → 写回**。AI Agent 通过这些命令精确修改图，**绝不重写整个文件**。
 
-#### `lgdl add-node --file <file> --id <id> [--label <label>] [--kind <kind>] [--group <group>] [--member <kind=..,name=..>] [--attrs <key=value>]`
+#### `lgdl-cli add-node --file <file> --id <id> [--label <label>] [--kind <kind>] [--group <group>] [--member <kind=..,name=..>] [--attrs <key=value>]`
 
 ```bash
-lgdl add-node --file my-diagram.lgdl --id register --label "注册账号" --kind process
+lgdl-cli add-node --file my-diagram.lgdl-cli --id register --label "注册账号" --kind process
 # ✓ added node "register" (注册账号) :process
 #   (saved my-diagram.lgdl)
 
 # 加入分组
-lgdl add-node --file my-diagram.lgdl --id register --group frontend
+lgdl-cli add-node --file my-diagram.lgdl-cli --id register --group frontend
 
 # 带扩展属性（甘特图任务：起始日 + 工期）
-lgdl add-node --file my-diagram.lgdl --id dev --label "开发" --attrs start=6 --attrs duration=8
+lgdl-cli add-node --file my-diagram.lgdl-cli --id dev --label "开发" --attrs start=6 --attrs duration=8
 ```
 
 `--kind` 可选值：`start` `end` `process` `decision` `entity` `note` `state` `milestone`（默认 `process`）
@@ -134,7 +134,7 @@ lgdl add-node --file my-diagram.lgdl --id dev --label "开发" --attrs start=6 -
 **`--member` 结构化类成员**（可重复，仅 uml-class / er 的 `kind: entity`）：逗号分隔的 `key=value`，字段 `kind`（attribute|method，必填）、`name`（必填）、`visibility`（public|private|protected|package）、`type`、`params`（仅 method）：
 
 ```bash
-lgdl add-node --file class.lgdl --id cart --label "Cart" --kind entity \
+lgdl-cli add-node --file class.lgdl-cli --id cart --label "Cart" --kind entity \
   --member kind=attribute,name=items,type=list,visibility=private \
   --member kind=method,name=addItem,type=void,params="(item)",visibility=public
 ```
@@ -144,35 +144,35 @@ lgdl add-node --file class.lgdl --id cart --label "Cart" --kind entity \
 - 布尔：`--attrs done=true` → `done: true`
 - 字符串：`--attrs name="a b"` → `name: "a b"`
 
-#### `lgdl remove-node --file <file> --id <id>`
+#### `lgdl-cli remove-node --file <file> --id <id>`
 
 ```bash
-lgdl remove-node --file my-diagram.lgdl --id register
+lgdl-cli remove-node --file my-diagram.lgdl-cli --id register
 # ✓ removed node "register" and 2 attached edge(s)
 ```
 
 ⚠️ 删节点会**自动删除所有关联的边**，并把它从分组中移除。
 
-#### `lgdl update-node --file <file> --id <id> [--label <label>] [--kind <kind>] [--member-add <kind=..,name=..>] [--member-remove <name>] [--attrs <key=value>]`
+#### `lgdl-cli update-node --file <file> --id <id> [--label <label>] [--kind <kind>] [--member-add <kind=..,name=..>] [--member-remove <name>] [--attrs <key=value>]`
 
 ```bash
-lgdl update-node --file my-diagram.lgdl --id register --label "新用户注册"
-lgdl update-node --file my-diagram.lgdl --id verify --kind decision
-lgdl update-node --file my-diagram.lgdl --id dev --attrs progress=0.5   # 合并进 attrs
+lgdl-cli update-node --file my-diagram.lgdl-cli --id register --label "新用户注册"
+lgdl-cli update-node --file my-diagram.lgdl-cli --id verify --kind decision
+lgdl-cli update-node --file my-diagram.lgdl-cli --id dev --attrs progress=0.5   # 合并进 attrs
 
 # 追加 / 移除类成员（uml-class / er 实体）
-lgdl update-node --file class.lgdl --id cart --member-add kind=attribute,name=owner,type=string
-lgdl update-node --file class.lgdl --id cart --member-remove items
+lgdl-cli update-node --file class.lgdl-cli --id cart --member-add kind=attribute,name=owner,type=string
+lgdl-cli update-node --file class.lgdl-cli --id cart --member-remove items
 ```
 
-#### `lgdl add-edge --file <file> --from <id> --to <id> [--label <label>] [--cardinality-from <v>] [--cardinality-to <v>] [--attrs <key=value>]`
+#### `lgdl-cli add-edge --file <file> --from <id> --to <id> [--label <label>] [--cardinality-from <v>] [--cardinality-to <v>] [--attrs <key=value>]`
 
 ```bash
-lgdl add-edge --file my-diagram.lgdl --from login --to register --label "没有账号？"
+lgdl-cli add-edge --file my-diagram.lgdl-cli --from login --to register --label "没有账号？"
 # ✓ added edge login -> register [没有账号？]
 
 # ER 图：显性多重性（label 只放关系名）
-lgdl add-edge --file my-diagram.lgdl --from user --to order --label "拥有" \
+lgdl-cli add-edge --file my-diagram.lgdl-cli --from user --to order --label "拥有" \
   --cardinality-from 1 --cardinality-to "*"
 ```
 
@@ -180,52 +180,52 @@ lgdl add-edge --file my-diagram.lgdl --from user --to order --label "拥有" \
 
 ⚠️ 不支持自环（from === to），重复边会报错。
 
-#### `lgdl update-edge --file <file> --from <id> --to <id> [--label <label>] [--cardinality-from <v>] [--cardinality-to <v>] [--attrs <key=value>]`
+#### `lgdl-cli update-edge --file <file> --from <id> --to <id> [--label <label>] [--cardinality-from <v>] [--cardinality-to <v>] [--attrs <key=value>]`
 
 ```bash
-lgdl update-edge --file my-diagram.lgdl --from user --to order --label "拥有多个"
-lgdl update-edge --file my-diagram.lgdl --from user --to order --cardinality-to "0..*"
+lgdl-cli update-edge --file my-diagram.lgdl-cli --from user --to order --label "拥有多个"
+lgdl-cli update-edge --file my-diagram.lgdl-cli --from user --to order --cardinality-to "0..*"
 ```
 
-#### `lgdl remove-edge --file <file> --from <id> --to <id>`
+#### `lgdl-cli remove-edge --file <file> --from <id> --to <id>`
 
 ```bash
-lgdl remove-edge --file my-diagram.lgdl --from verify --to fail
+lgdl-cli remove-edge --file my-diagram.lgdl-cli --from verify --to fail
 # ✓ removed edge verify -> fail
 ```
 
-#### `lgdl add-group --file <file> --id <id> [--label <label>] [--contains <ids>]`
+#### `lgdl-cli add-group --file <file> --id <id> [--label <label>] [--contains <ids>]`
 
 ```bash
 # 创建分组（泳道/分区），可指定初始成员（node id 或嵌套 group id）
-lgdl add-group --file my-diagram.lgdl --id frontend --label "前端层" --contains start,login
+lgdl-cli add-group --file my-diagram.lgdl-cli --id frontend --label "前端层" --contains start,login
 # ✓ added group "frontend" (前端层) with 2 member(s)
 
 # 嵌套分组：把已有分组作为成员
-lgdl add-group --file my-diagram.lgdl --id frontend --label "前端层" --contains auth
+lgdl-cli add-group --file my-diagram.lgdl-cli --id frontend --label "前端层" --contains auth
 # ✓ added group "frontend" (前端层) with 1 member(s)
 ```
 
 > `--contains` 接受 node id 和 group id（嵌套）。一个 node/group 只能属于一个分组；不能直接或间接包含自身。
 
-#### `lgdl remove-group --file <file> --id <id>`
+#### `lgdl-cli remove-group --file <file> --id <id>`
 
 ```bash
-lgdl remove-group --file my-diagram.lgdl --id frontend
+lgdl-cli remove-group --file my-diagram.lgdl-cli --id frontend
 # ✓ removed group "frontend"
 ```
 
 ⚠️ 删除分组不会删除其中的节点，节点只是脱离分组。
 
-#### `lgdl convert --file <file> --as <format> [-o out]`
+#### `lgdl-cli convert --file <file> --as <format> [-o out]`
 
 把 LGDL 图转换为其他格式（当前支持 `mermaid` / `plantuml` / `json`）。
 
 ```bash
-lgdl convert --file my-diagram.lgdl --as mermaid     # 输出到 stdout
-lgdl convert --file my-diagram.lgdl --as plantuml    # PlantUML 语法
-lgdl convert --file my-diagram.lgdl --as json        # JSON 结构
-lgdl convert --file my-diagram.lgdl --as mermaid -o out.mmd   # 写入文件
+lgdl-cli convert --file my-diagram.lgdl-cli --as mermaid     # 输出到 stdout
+lgdl-cli convert --file my-diagram.lgdl-cli --as plantuml    # PlantUML 语法
+lgdl-cli convert --file my-diagram.lgdl-cli --as json        # JSON 结构
+lgdl-cli convert --file my-diagram.lgdl-cli --as mermaid -o out.mmd   # 写入文件
 ```
 
 - **`--as mermaid`**：Mermaid 语法（`flowchart`/`mindmap`/`sequence`/`er`/`state`/`gantt` 有专属语法，其余降级 flowchart）——贴到 GitHub README/Typora/Notion
@@ -233,12 +233,12 @@ lgdl convert --file my-diagram.lgdl --as mermaid -o out.mmd   # 写入文件
 - **`--as json`**：结构化 JSON——程序处理/迁移
 - **格式可扩展**：`convert` 使用插件化注册表，未来加格式（如 Graphviz DOT）无需改 CLI
 
-#### `lgdl import --file <file> --from mermaid --output out.lgdl`
+#### `lgdl-cli import --file <file> --from mermaid --output out.lgdl`
 
 把 Mermaid 语法导入为 LGDL 文件（迁移存量图）。
 
 ```bash
-lgdl import --file existing.mmd --from mermaid --output new.lgdl
+lgdl-cli import --file existing.mmd --from mermaid --output new.lgdl
 # ✓ imported existing.mmd -> new.lgdl (flowchart, 5 nodes, 4 edges)
 ```
 
@@ -254,15 +254,15 @@ lgdl import --file existing.mmd --from mermaid --output new.lgdl
 
 ```bash
 # 1. 读图（AI 理解当前结构）
-lgdl status --file my-diagram.lgdl
+lgdl-cli status --file my-diagram.lgdl
 
 # 2. 增量修改（一次一步，不重写文件）
-lgdl add-node --file my-diagram.lgdl --id register --label "注册账号"
-lgdl add-edge --file my-diagram.lgdl --from login --to register --label "没有账号？"
-lgdl update-node --file my-diagram.lgdl --id register --kind decision
+lgdl-cli add-node --file my-diagram.lgdl-cli --id register --label "注册账号"
+lgdl-cli add-edge --file my-diagram.lgdl-cli --from login --to register --label "没有账号？"
+lgdl-cli update-node --file my-diagram.lgdl-cli --id register --kind decision
 
 # 3. 渲染成图
-lgdl render --file my-diagram.lgdl -o result.svg
+lgdl-cli render --file my-diagram.lgdl -o result.svg
 ```
 
 ---

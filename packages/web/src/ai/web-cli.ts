@@ -30,14 +30,21 @@ export function parseWebCliCommand(line: string): ParsedCommand {
   if (tokens.length === 0) {
     return { kind: 'error', message: '空命令' };
   }
-  // 可选 lgdl 前缀
-  let i = 0;
-  if (tokens[0] === 'lgdl') i++;
-  const cmd = tokens[i];
+  // 命令入口前缀必须是 lgdl-web-cli（与终端 lgdl-cli 的 `lgdl` 前缀区分）
+  if (tokens[0] !== 'lgdl-web-cli') {
+    return {
+      kind: 'error',
+      message:
+        tokens[0] === 'lgdl'
+          ? 'lgdl-web-cli 命令必须以 `lgdl-web-cli` 为前缀（`lgdl` 是终端 lgdl-cli 的前缀，Web 用 `lgdl-web-cli`）'
+          : `缺少前缀 "lgdl-web-cli"（命令格式：lgdl-web-cli <子命令> --doc <id> ...）`,
+    };
+  }
+  const cmd = tokens[1];
   if (!cmd) {
     return { kind: 'error', message: '缺少子命令（如 add-node / status / validate / init / convert）' };
   }
-  const args = tokens.slice(i + 1);
+  const args = tokens.slice(2);
 
   // 统一提取 --doc <id>（顶层必填参数，所有子命令都要求——lgdl-web-cli 的
   // 操作对象标识，对应 lgdl-cli 的 --file）

@@ -36,7 +36,7 @@ remove-edge   — 删边
 
 ## 4. AI 友好（AI-Friendly）
 
-- `lgdl status` 输出**纯文本图结构**，AI 一读就懂
+- `lgdl-cli status` 输出**纯文本图结构**，AI 一读就懂
 - 所有 CLI 命令参数化、可脚本化
 - Web 工作台可接入 AI 助手（v0.5 规划）
 

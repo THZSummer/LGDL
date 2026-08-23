@@ -1,4 +1,4 @@
-// AI 助手面板：消息列表 + 预置提示词滑轨 + 输入框 + lgdl 命令块「执行」
+// AI 助手面板：消息列表 + 预置提示词滑轨 + 输入框 + lgdl-web-cli 命令块「执行」
 import React, { useCallback, useRef, useState } from 'react';
 import {
   extractCommands,
@@ -34,98 +34,98 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
   {
     id: 'fix',
     label: '语法修复',
-    hint: '检查并修复当前图的错误（用 lgdl 命令）',
-    prompt: '请检查当前图的错误（先 lgdl status 看结构，再定位问题），然后用 lgdl 命令修复（如 update-node / update-edge / remove-edge 等）。',
+    hint: '检查并修复当前图的错误（用 lgdl-web-cli 命令）',
+    prompt: '请检查当前图的错误（先 lgdl-web-cli status --doc main 看结构，再定位问题），然后用 lgdl-web-cli 命令修复（如 update-node / update-edge / remove-edge 等）。',
   },
   {
     id: 'optimize',
     label: '自动优化',
-    hint: '优化节点/边的结构与命名（用 lgdl 命令）',
-    prompt: '请优化当前图的节点、边、分组结构与命名：消除冗余、合并同类、命名更清晰（用 lgdl 命令增量修改，保持语义不变）。',
+    hint: '优化节点/边的结构与命名（用 lgdl-web-cli 命令）',
+    prompt: '请优化当前图的节点、边、分组结构与命名：消除冗余、合并同类、命名更清晰（用 lgdl-web-cli 命令增量修改，保持语义不变）。',
   },
   {
     id: 'simplify',
     label: '简化图',
-    hint: '删减次要节点与边，突出核心脉络（用 lgdl 命令）',
-    prompt: '请简化当前图：删减次要/冗余的节点和边，突出核心流程与关键依赖（用 lgdl 命令，如 remove-node / remove-edge）。',
+    hint: '删减次要节点与边，突出核心脉络（用 lgdl-web-cli 命令）',
+    prompt: '请简化当前图：删减次要/冗余的节点和边，突出核心流程与关键依赖（用 lgdl-web-cli 命令，如 remove-node / remove-edge）。',
   },
   {
     id: 'create',
     label: '自由创作',
-    hint: '从零开始创作一张新图（用 lgdl 命令）',
-    prompt: '请自由创作一张图（flowchart、mindmap、er、state 等类型都行）。先 lgdl status 看当前图，若已有内容先清理，再用 lgdl 命令逐步搭建。',
+    hint: '从零开始创作一张新图（用 lgdl-web-cli 命令）',
+    prompt: '请自由创作一张图（flowchart、mindmap、er、state 等类型都行）。先 lgdl-web-cli status --doc main 看当前图，若已有内容先清理，再用 lgdl-web-cli 命令逐步搭建。',
   },
   {
     id: 'explain',
     label: '解释当前图',
     hint: '解读当前图的结构与含义',
-    prompt: '请先用 lgdl status 查看当前图，然后解释：它表达了什么、有哪些关键节点/边/分组、整体结构如何。',
+    prompt: '请先用 lgdl-web-cli status --doc main 查看当前图，然后解释：它表达了什么、有哪些关键节点/边/分组、整体结构如何。',
   },
   {
     id: 'flowchart',
     label: '画流程图',
-    hint: '生成一张 flowchart 流程图（用 lgdl 命令）',
-    prompt: '请创作一张业务流程图（flowchart）：开始、若干处理步骤、判断分支、结束。用 lgdl 命令搭建（add-node / add-edge）。',
+    hint: '生成一张 flowchart 流程图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张业务流程图（flowchart）：开始、若干处理步骤、判断分支、结束。用 lgdl-web-cli 命令搭建（lgdl-web-cli add-node --doc main ...）。',
   },
   {
     id: 'mindmap',
     label: '画思维导图',
-    hint: '生成一张 mindmap 思维导图（用 lgdl 命令）',
-    prompt: '请创作一张主题思维导图（mindmap）：中心主题 + 3-5 个一级分支，每个分支 2-3 个子项。用 lgdl 命令搭建。',
+    hint: '生成一张 mindmap 思维导图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张主题思维导图（mindmap）：中心主题 + 3-5 个一级分支，每个分支 2-3 个子项。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'sequence',
     label: '画时序图',
-    hint: '生成一张 sequence 时序图（用 lgdl 命令）',
-    prompt: '请创作一张系统交互时序图（sequence）：3-4 个参与者、至少 5 条带标签的消息。用 lgdl 命令搭建。',
+    hint: '生成一张 sequence 时序图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张系统交互时序图（sequence）：3-4 个参与者、至少 5 条带标签的消息。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'er',
     label: '画 ER 图',
-    hint: '生成一张 er 实体关系图（用 lgdl 命令）',
-    prompt: '请创作一张数据库 ER 图（er）：3-4 个实体（entity + 成员）、实体间关系带基数（--cardinality-from/to）。用 lgdl 命令搭建。',
+    hint: '生成一张 er 实体关系图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张数据库 ER 图（er）：3-4 个实体（entity + 成员）、实体间关系带基数（--cardinality-from/to）。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'state',
     label: '画状态机',
-    hint: '生成一张 state 状态机图（用 lgdl 命令）',
-    prompt: '请创作一张状态机图（state）：初始状态、3-4 个业务状态、终止状态、转移边带事件标签。用 lgdl 命令搭建。',
+    hint: '生成一张 state 状态机图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张状态机图（state）：初始状态、3-4 个业务状态、终止状态、转移边带事件标签。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'gantt',
     label: '画甘特图',
-    hint: '生成一张 gantt 甘特图（用 lgdl 命令）',
-    prompt: '请创作一张项目排期甘特图（gantt）：4-6 个任务（--attrs start=天数,duration=天数），至少一个里程碑（duration=0）。用 lgdl 命令搭建。',
+    hint: '生成一张 gantt 甘特图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张项目排期甘特图（gantt）：4-6 个任务（--attrs start=天数,duration=天数），至少一个里程碑（duration=0）。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'class',
     label: '画类图',
-    hint: '生成一张 uml-class 类图（用 lgdl 命令）',
-    prompt: '请创作一张 UML 类图（uml-class）：3-4 个类（entity + --member-add kind=attribute/name=...），类间关系。用 lgdl 命令搭建。',
+    hint: '生成一张 uml-class 类图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张 UML 类图（uml-class）：3-4 个类（entity + --member-add kind=attribute/name=...），类间关系。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'arch',
     label: '画架构图',
-    hint: '生成一张 arch 架构图（用 lgdl 命令）',
-    prompt: '请创作一张系统架构图（arch）：分层（接入层/应用层/数据层）用 add-group，节点用 add-node，依赖用 add-edge。用 lgdl 命令搭建。',
+    hint: '生成一张 arch 架构图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张系统架构图（arch）：分层（接入层/应用层/数据层）用 add-group，节点用 add-node，依赖用 add-edge。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'datastream',
     label: '画数据流图',
-    hint: '生成一张 datastream 数据流图（用 lgdl 命令）',
-    prompt: '请创作一张数据流图（datastream）：2-3 个泳道（add-group）、数据节点（entity）、流转边。用 lgdl 命令搭建。',
+    hint: '生成一张 datastream 数据流图（用 lgdl-web-cli 命令）',
+    prompt: '请创作一张数据流图（datastream）：2-3 个泳道（add-group）、数据节点（entity）、流转边。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'add-node',
     label: '追加节点',
-    hint: '在当前图中新增节点并接入流程（用 lgdl 命令）',
+    hint: '在当前图中新增节点并接入流程（用 lgdl-web-cli 命令）',
     prompt: '请给当前图追加一个业务上合理的节点（kind 与现有节点匹配），并用 add-node / add-edge 接入现有流程。',
   },
   {
     id: 'add-edge',
     label: '补充连接',
-    hint: '补全图中缺失/合理的依赖边（用 lgdl 命令）',
-    prompt: '请检查当前图（lgdl status）：节点间关系是否完整、有无缺失依赖边，用 add-edge 补充合理连接。',
+    hint: '补全图中缺失/合理的依赖边（用 lgdl-web-cli 命令）',
+    prompt: '请检查当前图（lgdl-web-cli status --doc main）：节点间关系是否完整、有无缺失依赖边，用 add-edge 补充合理连接。',
   },
   {
     id: 'group',
@@ -136,8 +136,8 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
   {
     id: 'convert',
     label: '转换图类型',
-    hint: '把当前图转换为另一种图类型（用 lgdl 命令）',
-    prompt: '请把当前图转换为另一种更合适的图类型（如 flowchart → sequence），语义保持对应。用 lgdl 命令重建节点与边。',
+    hint: '把当前图转换为另一种图类型（用 lgdl-web-cli 命令）',
+    prompt: '请把当前图转换为另一种更合适的图类型（如 flowchart → sequence），语义保持对应。用 lgdl-web-cli 命令重建节点与边。',
   },
 ];
 
@@ -221,7 +221,7 @@ function CommandBlock({
           className="ai-apply-btn"
           onClick={run}
           disabled={status === 'applied'}
-          title="在编辑器上逐条执行（与 CLI lgdl 命令同一套语义）"
+          title="在编辑器上逐条执行（与终端 lgdl-cli 命令同一套语义）"
         >
           {status === 'applied' ? '✓ 已执行' : '执行'}
         </button>
@@ -322,7 +322,7 @@ export function AiPanel({
       id: nextId++,
       role: 'system',
       content:
-        '🤖 我是 LGDL AI 助手：通过自然语言生成或修改图。我会用 `lgdl` 命令（如 `lgdl status --doc main`、`lgdl add-node --doc main --id x`）操作图，点「执行」运行。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
+        '🤖 我是 LGDL AI 助手：通过自然语言生成或修改图。我会用 `lgdl-web-cli` 命令（如 `lgdl-web-cli status --doc main`、`lgdl-web-cli add-node --doc main --id x`）操作图，点「执行」运行。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
     },
   ]);
   const [input, setInput] = useState('');

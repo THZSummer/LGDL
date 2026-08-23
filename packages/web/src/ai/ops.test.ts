@@ -16,13 +16,13 @@ edges:
 `;
 
 test('extractCommands: parses a ```lgdl-web-cli protocol block', () => {
-  const text = '我来修改：\n\n```lgdl-web-cli\nlgdl add-node --doc main --id c --label C\n```\n\n完成。';
-  assert.equal(extractCommands(text), 'lgdl add-node --doc main --id c --label C\n');
+  const text = '我来修改：\n\n```lgdl-web-cli\nlgdl-web-cli add-node --doc main --id c --label C\n```\n\n完成。';
+  assert.equal(extractCommands(text), 'lgdl-web-cli add-node --doc main --id c --label C\n');
 });
 
 test('extractCommands: ignores commands in other code fences (bash/code)', () => {
   // bash 块只是表达，不是执行协议 → 不提取
-  assert.equal(extractCommands('```bash\nlgdl add-node --id c\n```'), null);
+  assert.equal(extractCommands('```bash\nlgdl-web-cli add-node --doc main --id c\n```'), null);
   assert.equal(extractCommands('```lgdl\ntitle: x\n```'), null);
   assert.equal(extractCommands('```lgdl-cli\nlgdl status --doc main\n```'), null);
 });
@@ -32,7 +32,7 @@ test('extractCommands: null when no protocol block', () => {
 });
 
 test('executeCommands: applies add-node then add-edge', () => {
-  const r = executeCommands(SRC, 'lgdl add-node --doc main --id c --label C\nlgdl add-edge --doc main --from b --to c --label next', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli add-node --doc main --id c --label C\nlgdl-web-cli add-edge --doc main --from b --to c --label next', 'main');
   assert.ok(r.ok, r.error);
   assert.ok(r.changed);
   assert.ok(r.source.includes('- id: c'));
@@ -41,7 +41,7 @@ test('executeCommands: applies add-node then add-edge', () => {
 });
 
 test('executeCommands: status outputs the graph and does not modify', () => {
-  const r = executeCommands(SRC, 'lgdl status --doc main', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli status --doc main', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, false);
   assert.equal(r.source, SRC);
@@ -50,20 +50,20 @@ test('executeCommands: status outputs the graph and does not modify', () => {
 });
 
 test('executeCommands: failed op reports which command and why', () => {
-  const r = executeCommands(SRC, 'lgdl update-node --doc main --id ghost --label X', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli update-node --doc main --id ghost --label X', 'main');
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /ghost/);
 });
 
 test('executeCommands: parse error stops the batch', () => {
-  const r = executeCommands(SRC, 'lgdl add-node --doc main --id c\nlgdl explode --doc main --all', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli add-node --doc main --id c\nlgdl-web-cli explode --doc main --all', 'main');
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /未知子命令/);
   assert.equal(r.changed, false);
 });
 
 test('executeCommands: rejects when the current source is invalid', () => {
-  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl add-node --doc main --id x', 'main');
+  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl-web-cli add-node --doc main --id x', 'main');
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /source invalid/);
 });
@@ -75,28 +75,28 @@ test('executeCommands: empty command text is a no-op', () => {
 });
 
 test('executeCommands: validate reports syntax ok on valid source', () => {
-  const r = executeCommands(SRC, 'lgdl validate --doc main', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli validate --doc main', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, false);
   assert.ok(r.lines.some((l) => l.includes('语法正确')));
 });
 
 test('executeCommands: validate reports errors on invalid source', () => {
-  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl validate --doc main', 'main');
+  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl-web-cli validate --doc main', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, false);
   assert.ok(r.lines.some((l) => l.includes('✖') || l.includes('⚠')));
 });
 
 test('executeCommands: --doc mismatch with current doc is rejected', () => {
-  const r = executeCommands(SRC, 'lgdl status --doc other', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli status --doc other', 'main');
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /doc mismatch/);
   assert.equal(r.changed, false);
 });
 
 test('executeCommands: init replaces the doc with the default template', () => {
-  const r = executeCommands(SRC, 'lgdl init --doc main', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli init --doc main', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, true);
   assert.ok(r.source.includes('kind: start'));
@@ -104,7 +104,7 @@ test('executeCommands: init replaces the doc with the default template', () => {
 });
 
 test('executeCommands: convert exports mermaid without modifying the doc', () => {
-  const r = executeCommands(SRC, 'lgdl convert --doc main --to mermaid', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli convert --doc main --to mermaid', 'main');
   assert.ok(r.ok);
   assert.equal(r.changed, false);
   assert.equal(r.source, SRC);
@@ -112,7 +112,7 @@ test('executeCommands: convert exports mermaid without modifying the doc', () =>
 });
 
 test('executeCommands: convert to unknown format is an error', () => {
-  const r = executeCommands(SRC, 'lgdl convert --doc main --to nope', 'main');
+  const r = executeCommands(SRC, 'lgdl-web-cli convert --doc main --to nope', 'main');
   assert.equal(r.ok, false);
   assert.ok(r.lines.some((l) => l.includes('未知格式')));
 });

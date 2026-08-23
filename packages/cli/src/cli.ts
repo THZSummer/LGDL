@@ -15,12 +15,12 @@ import { dirname, join } from 'node:path';
 
 const program = new Command();
 
-// read version from package.json so `lgdl -V` tracks the published version
+// read version from package.json so `lgdl-cli -V` tracks the published version
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8')) as { version: string };
 
 program
-  .name('lgdl')
+  .name('lgdl-cli')
   .description('Logical Graph Description Language — semantic-first diagram language for AI agents')
   .version(pkg.version)
   // throw instead of process.exit so we can give friendly messages

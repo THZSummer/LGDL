@@ -4,8 +4,8 @@ import { parseWebCliCommand, parseWebCliBatch, tokenizeCli } from './web-cli.js'
 import { formatStatus, parseLgdl } from '@lgdl/core';
 
 test('tokenizeCli: splits on whitespace, respects quotes', () => {
-  assert.deepEqual(tokenizeCli('lgdl add-node --id x --label "hello world"'), [
-    'lgdl',
+  assert.deepEqual(tokenizeCli('lgdl-web-cli add-node --id x --label "hello world"'), [
+    'lgdl-web-cli',
     'add-node',
     '--id',
     'x',
@@ -15,7 +15,7 @@ test('tokenizeCli: splits on whitespace, respects quotes', () => {
 });
 
 test('parseWebCliCommand: add-node with lgdl prefix and --doc', () => {
-  const r = parseWebCliCommand('lgdl add-node --doc main --id user --label 用户 --kind entity');
+  const r = parseWebCliCommand('lgdl-web-cli add-node --doc main --id user --label 用户 --kind entity');
   assert.equal(r.kind, 'op');
   if (r.kind === 'op') {
     assert.equal(r.docId, 'main');
@@ -26,20 +26,20 @@ test('parseWebCliCommand: add-node with lgdl prefix and --doc', () => {
   }
 });
 
-test('parseWebCliCommand: works without lgdl prefix too', () => {
+test('parseWebCliCommand: missing lgdl-web-cli prefix is an error', () => {
   const r = parseWebCliCommand('add-edge --doc main --from a --to b --label 依赖');
-  assert.equal(r.kind, 'op');
-  if (r.kind === 'op') {
-    assert.equal(r.docId, 'main');
-    assert.equal(r.op.op, 'add-edge');
-    assert.equal(r.op.from, 'a');
-    assert.equal(r.op.to, 'b');
-    assert.equal(r.op.label, '依赖');
-  }
+  assert.equal(r.kind, 'error');
+  if (r.kind === 'error') assert.match(r.message, /lgdl-web-cli/);
+});
+
+test('parseWebCliCommand: terminal `lgdl` prefix is rejected (entry separation)', () => {
+  const r = parseWebCliCommand('lgdl status --doc main');
+  assert.equal(r.kind, 'error');
+  if (r.kind === 'error') assert.match(r.message, /lgdl-cli/);
 });
 
 test('parseWebCliCommand: update-node with new-id and attrs', () => {
-  const r = parseWebCliCommand('lgdl update-node --doc main --id old --new-id new --attrs start=0,duration=3');
+  const r = parseWebCliCommand('lgdl-web-cli update-node --doc main --id old --new-id new --attrs start=0,duration=3');
   assert.equal(r.kind, 'op');
   if (r.kind === 'op') {
     assert.equal(r.docId, 'main');
@@ -50,48 +50,48 @@ test('parseWebCliCommand: update-node with new-id and attrs', () => {
 });
 
 test('parseWebCliCommand: status', () => {
-  assert.deepEqual(parseWebCliCommand('lgdl status --doc main'), { kind: 'status', docId: 'main' });
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli status --doc main'), { kind: 'status', docId: 'main' });
 });
 
 test('parseWebCliCommand: validate', () => {
-  assert.deepEqual(parseWebCliCommand('lgdl validate --doc main'), { kind: 'validate', docId: 'main' });
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli validate --doc main'), { kind: 'validate', docId: 'main' });
 });
 
 test('parseWebCliCommand: init', () => {
-  assert.deepEqual(parseWebCliCommand('lgdl init --doc main'), { kind: 'init', docId: 'main', type: undefined });
-  assert.deepEqual(parseWebCliCommand('lgdl init --doc main --type er'), { kind: 'init', docId: 'main', type: 'er' });
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli init --doc main'), { kind: 'init', docId: 'main', type: undefined });
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli init --doc main --type er'), { kind: 'init', docId: 'main', type: 'er' });
 });
 
 test('parseWebCliCommand: convert', () => {
-  assert.deepEqual(parseWebCliCommand('lgdl convert --doc main --to mermaid'), { kind: 'convert', docId: 'main', to: 'mermaid' });
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli convert --doc main --to mermaid'), { kind: 'convert', docId: 'main', to: 'mermaid' });
 });
 
 test('parseWebCliCommand: convert missing --to is an error', () => {
-  const r = parseWebCliCommand('lgdl convert --doc main');
+  const r = parseWebCliCommand('lgdl-web-cli convert --doc main');
   assert.equal(r.kind, 'error');
   if (r.kind === 'error') assert.match(r.message, /--to/);
 });
 
 test('parseWebCliCommand: unknown command is an error', () => {
-  const r = parseWebCliCommand('lgdl explode --doc main --all');
+  const r = parseWebCliCommand('lgdl-web-cli explode --doc main --all');
   assert.equal(r.kind, 'error');
 });
 
 test('parseWebCliCommand: missing --doc is an error (web-cli requires it)', () => {
-  const r = parseWebCliCommand('lgdl add-node --id a --label A');
+  const r = parseWebCliCommand('lgdl-web-cli add-node --id a --label A');
   assert.equal(r.kind, 'error');
   if (r.kind === 'error') assert.match(r.message, /--doc/);
 });
 
 test('parseWebCliCommand: missing required arg is an error', () => {
-  const r = parseWebCliCommand('lgdl add-node --doc main --label 只有标签');
+  const r = parseWebCliCommand('lgdl-web-cli add-node --doc main --label 只有标签');
   assert.equal(r.kind, 'error');
   if (r.kind === 'error') assert.match(r.message, /--id/);
 });
 
 test('parseWebCliBatch: multiple commands, stops at first error', () => {
   const r = parseWebCliBatch(
-    'lgdl status --doc main\nlgdl add-node --doc main --id a --label A\nlgdl add-node --doc main --id b\nlgdl remove-node --doc main',
+    'lgdl-web-cli status --doc main\nlgdl-web-cli add-node --doc main --id a --label A\nlgdl-web-cli add-node --doc main --id b\nlgdl-web-cli remove-node --doc main',
   );
   assert.equal(r.ops.length, 2);
   assert.equal(r.wantsStatus, true);
@@ -101,13 +101,13 @@ test('parseWebCliBatch: multiple commands, stops at first error', () => {
 });
 
 test('parseWebCliBatch: error message names the failing command', () => {
-  const r = parseWebCliBatch('lgdl update-edge --doc main --from a --to b');
+  const r = parseWebCliBatch('lgdl-web-cli update-edge --doc main --from a --to b');
   assert.equal(r.errors.length, 1);
   assert.match(r.errors[0].message, /no change requested/);
 });
 
 test('parseWebCliBatch: validate/init/convert flags are set', () => {
-  const r = parseWebCliBatch('lgdl status --doc main\nlgdl validate --doc main\nlgdl init --doc main\nlgdl convert --doc main --to mermaid');
+  const r = parseWebCliBatch('lgdl-web-cli status --doc main\nlgdl-web-cli validate --doc main\nlgdl-web-cli init --doc main\nlgdl-web-cli convert --doc main --to mermaid');
   assert.equal(r.wantsStatus, true);
   assert.equal(r.wantsValidate, true);
   assert.equal(r.wantsInit, true);
@@ -116,13 +116,13 @@ test('parseWebCliBatch: validate/init/convert flags are set', () => {
 });
 
 test('parseWebCliBatch: mixed --doc in one batch is an error', () => {
-  const r = parseWebCliBatch('lgdl status --doc main\nlgdl add-node --doc other --id x');
+  const r = parseWebCliBatch('lgdl-web-cli status --doc main\nlgdl-web-cli add-node --doc other --id x');
   assert.equal(r.errors.length, 1);
   assert.match(r.errors[0].message, /--doc 不一致/);
 });
 
 test('parseWebCliBatch: --doc carried through the batch', () => {
-  const r = parseWebCliBatch('lgdl status --doc main\nlgdl add-node --doc main --id x');
+  const r = parseWebCliBatch('lgdl-web-cli status --doc main\nlgdl-web-cli add-node --doc main --id x');
   assert.equal(r.docId, 'main');
   assert.equal(r.errors.length, 0);
 });

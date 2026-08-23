@@ -187,7 +187,7 @@ export function describeCommandLine(line: string): string {
   if (parsed.wantsStatus) return 'lgdl status — 查看当前图结构';
   if (parsed.wantsValidate) return 'lgdl validate — 校验当前图语法';
   if (parsed.wantsInit) return 'lgdl init — 初始化为默认图';
-  if (parsed.wantsConvert) return `lgdl convert --to ${parsed.convertTo} — 导出格式`;
+  if (parsed.wantsConvert) return `lgdl-web-cli convert --to ${parsed.convertTo} — 导出格式`;
   return parsed.ops.map((op: LgdlOperation) => describeOp(op)).join('; ');
 }
 

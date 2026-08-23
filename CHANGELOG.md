@@ -12,7 +12,7 @@
 - 🚀 **预置操作滑轨**：17 个快捷操作（语法修复/自动优化/九种图类型创作/追加节点/整理分组等），点击即发送（含当前源码上下文注入），滚轮横滑
 - ✅ **自动应用**：开关开启后 AI 回复中的代码块/操作块校验通过即自动写入编辑器
 - 🛡️ **错误分类**：key 无效（401/403）/ 网络不通 / CORS 不允许 / 厂商 404 均给出明确中文提示
-- 💻 **lgdl-web-cli 协议**：AI 通过 ```` ```lgdl-web-cli ```` 协议块操作图（`lgdl status --doc main` / `lgdl add-node --doc main --id x` …），**不直接写 LGDL 源码**；表达（普通文本）与执行（协议块）严格区分；agent 循环逐步执行（1~3 条/轮，结果反馈，失败即停，10 轮上限）
+- 💻 **lgdl-web-cli 协议**：AI 通过 ```` ```lgdl-web-cli ```` 协议块操作图（`lgdl-web-cli status --doc main` / `lgdl-web-cli add-node --doc main --id x` …），**不直接写 LGDL 源码**；表达（普通文本）与执行（协议块）严格区分；agent 循环逐步执行（1~3 条/轮，结果反馈，失败即停，10 轮上限）
 - 🔀 **双 CLI 分离**：终端 lgdl-cli（`--file` 磁盘文件）与 lgdl-web-cli（`--doc` 编辑器文档）物理分离；`core/commands.ts` 命令注册表（参数 schema / buildOperation / attrs/member 解析）为**两端业务逻辑唯一实现**，lgdl-cli（9 命令）与 lgdl-web-cli 均复用；`web/ai/web-cli.ts` 是协议解析器（仅 web 使用）
 - 📊 **status / validate / init / convert**：`core/status.ts`（图结构文本）与 `core/commands.ts` 共用；lgdl-web-cli 支持 `validate`（语法校验）、`init`（默认图）、`convert --to mermaid/plantuml/json`（导出）
 

@@ -4,7 +4,7 @@
   "description": "LGDL command-line interface",
   "type": "module",
   "bin": {
-    "lgdl": "dist/cli.js"
+    "lgdl-cli": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

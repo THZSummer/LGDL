@@ -37,7 +37,7 @@ export function mutate(
   fn: (doc: LgdlDocument) => MutationResult,
 ): void {
   if (!existsSync(file)) {
-    console.error(`✖ file not found: ${file} (run "lgdl init --file ${file}" first)`);
+    console.error(`✖ file not found: ${file} (run "lgdl-cli init --file ${file}" first)`);
     process.exit(1);
   }
   const src = readFileSync(file, 'utf8');
