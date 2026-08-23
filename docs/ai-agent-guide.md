@@ -2,6 +2,10 @@
 
 > 教 AI Agent（Claude Code、DeepSeek、Copilot 等）如何用 LGDL 命令帮用户画图。
 > 本指南面向 AI，命令示例全部实测可用。
+>
+> **Web 工作台 AI 助手**（v0.5）也使用同一套命令协议：AI 在浏览器里输出
+> ```` ```bash ```` 命令块（`lgdl status` / `lgdl add-node --id x --label y` …），
+> 工作台解析执行——与终端 `lgdl` CLI 完全同语义。下方命令在两端通用。
 
 ---
 

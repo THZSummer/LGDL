@@ -6,7 +6,7 @@
 
 **LGDL is a semantic-first diagram description language built for AI agents.** It describes only the *logic* of a diagram (nodes, relations, hierarchy) — never the *layout* (coordinates, styles). Layout is handled automatically by a deterministic engine, so AI edits change only the logic, never the layout.
 
-> **v0.4.0（2026-08-23）已定型** · 语义模型、9 种图渲染、Web 工作台、CLI 全部稳定
+> **v0.5.0（2026-08-23）已定型** · 语义模型、9 种图渲染、Web 工作台、**AI 助手（命令模式）**、CLI 全部稳定
 
 ---
 
@@ -77,6 +77,13 @@ LGDL 的每个概念都有**显性字段**，渲染器从不从文本里猜含�
 - 示例**滑动指针**切换：一步切换、滑动吸附选中
 - 滚轮缩放（FitView 起，最小 50%）+ 边缘平移，导出 SVG / PNG
 - 支持 Mermaid / PlantUML / JSON 转换导入导出
+
+### 5. Web AI 助手（v0.5）
+
+- **命令模式（web-cli）**：AI 像在 Linux 终端里一样用 `lgdl` 命令操作图（`lgdl status` / `lgdl add-node --id x --label y` …），**不直接写 LGDL 源码**——源码只由命令执行产生；命令与 CLI 完全同一套语义（`core/cli-parser.ts`），点「执行」逐条应用、失败即停
+- **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限，需本地代理（v0.6）
+- 设置面板两步配置：选服务商 + 填 API Key（各服务商 key 独立保存）；「测试连接」一键验证 key / 端点 / CORS
+- 预置快捷操作（语法修复 / 自动优化 / 九种图类型创作等）+ 自动应用开关
 
 ---
 
@@ -175,7 +182,7 @@ LGDL/
 | **v0.2** | ✅ 增量编辑协议 + 9 种图类型渲染 |
 | **v0.3** | ✅ attrs 扩展属性 + ER/状态机/甘特图 + Mermaid/PlantUML/JSON 转换 |
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
-| **v0.5** | ✅ Web AI 助手（对话生成/修改图、6 厂商接入、增量操作协议、共享操作层、自动应用）+ 图即代码规划（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出优化、Mermaid 导入增强） |
+| **v0.5** | ✅ Web AI 助手（命令模式 web-cli、对话生成/修改图、多厂商接入 + 连接测试、共享操作层、自动应用）+ 图即代码规划（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出优化、Mermaid 导入增强） |
 | **v0.6** | ⏳ 图即代码（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出 attrs 与格式优化、Agent 集成提示词模板、Mermaid 导入增强）；模块化：子图引用、参数化模板；渲染与性能（大图优化、布局打磨）；state 显性 `initial` 字段 |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。
