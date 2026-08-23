@@ -188,7 +188,7 @@ LGDL/
 | **v0.3** | ✅ attrs 扩展属性 + ER/状态机/甘特图 + Mermaid/PlantUML/JSON 转换 |
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
 | **v0.5** | ✅ Web AI 助手（原生 function calling 三工具：lgdl-web-cli 图内容 / lgdl-web-op-cli UI 操作含 next-actions / lgdl-web-fetch；命令自文档化 --help；方法论指南系统自动加载；多厂商接入 + 连接测试；双 CLI 分离 + 命令注册表复用；agent 循环）+ 图即代码规划（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出优化、Mermaid 导入增强）→ v0.6 |
-| **v0.6** | ⏳ 图即代码（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出 attrs 与格式优化、Agent 集成提示词模板、Mermaid 导入增强）；模块化：子图引用、参数化模板；渲染与性能（大图优化、布局打磨）；state 显性 `initial` 字段 |
+| **v0.6** | ⏳ 图即代码（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出 attrs 与格式优化、Agent 集成提示词模板、Mermaid 导入增强）；AI 增强（图解释 / 评审 / 选区操作、流式输出 SSE、本地代理 `lgdl-cli serve` 绕 CORS）；模块化：子图引用、参数化模板；渲染与性能（大图优化、布局打磨）；state 显性 `initial` 字段 |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。
 
