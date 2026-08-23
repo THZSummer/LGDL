@@ -1,5 +1,7 @@
 // AI 助手面板：消息列表 + 预置提示词滑轨 + 输入框 + lgdl-web-cli 命令块「执行」
 import React, { useCallback, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   extractCommands,
   executeCommands,
@@ -143,34 +145,6 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
 
 let nextId = 1;
 
-/** 极简 markdown 渲染：行内 code、加粗；``` 围栏 → 代码块。 */
-function renderInline(text: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = [];
-  // 行内 `code` 与 **bold** 简单解析
-  const re = /(`[^`]+`|\*\*[^*]+\*\*)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let k = 0;
-  while ((m = re.exec(text))) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
-    const token = m[0];
-    if (token.startsWith('`')) {
-      nodes.push(
-        <code key={k++} className="ai-inline-code">
-          {token.slice(1, -1)}
-        </code>,
-      );
-    } else {
-      nodes.push(
-        <strong key={k++}>{token.slice(2, -2)}</strong>,
-      );
-    }
-    last = m.index + token.length;
-  }
-  if (last < text.length) nodes.push(text.slice(last));
-  return nodes;
-}
-
 /** lgdl web-cli 命令块：展示 AI 输出的协议块，点「执行」在编辑器上运行（与 CLI 同语义）。 */
 function CommandBlock({
   commands,
@@ -255,7 +229,11 @@ function CommandBlock({
   );
 }
 
-/** 将消息内容拆成段落 + lgdl-web-cli 协议块（执行调用）。 */
+/**
+ * 消息体渲染：react-markdown 完整渲染（标题/列表/表格/引用/代码块…）。
+ * 表达（普通 markdown）与执行（```lgdl-web-cli 块）通过代码块语言区分——
+ * lgdl-web-cli 围栏渲染为可执行命令卡，其余代码块渲染为普通代码展示。
+ */
 function MessageBody({
   content,
   onApply,
@@ -269,38 +247,49 @@ function MessageBody({
   docId: string;
   autoApply?: boolean;
 }) {
-  const parts: React.ReactNode[] = [];
-  // lgdl-web-cli 块是执行协议；其他代码块（bash/code/yaml...）一律当普通文本展示
-  const re = /```(lgdl-web-cli)\s*\n([\s\S]*?)```/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let k = 0;
-  while ((m = re.exec(content))) {
-    if (m.index > last) {
-      const text = content.slice(last, m.index).trim();
-      if (text) {
-        parts.push(
-          <p key={k++} className="ai-msg-para">
-            {renderInline(text)}
-          </p>,
-        );
-      }
-    }
-    const body = m[2].replace(/\n$/, '');
-    parts.push(
-      <CommandBlock key={k++} commands={body} currentSource={currentSource} docId={docId} onApply={onApply} autoApply={autoApply} />,
-    );
-    last = m.index + m[0].length;
-  }
-  const tail = content.slice(last).trim();
-  if (tail) {
-    parts.push(
-      <p key={k++} className="ai-msg-para">
-        {renderInline(tail)}
-      </p>,
-    );
-  }
-  return <>{parts}</>;
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        // lgdl-web-cli 块 → 可执行命令卡；其他语言 → 普通代码块
+        code({ className, children }) {
+          const match = /language-(\w+)/.exec(className ?? '');
+          const lang = match?.[1] ?? '';
+          const body = String(children).replace(/\n$/, '');
+          if (lang === 'lgdl-web-cli') {
+            return (
+              <CommandBlock
+                commands={body}
+                currentSource={currentSource}
+                docId={docId}
+                onApply={onApply}
+                autoApply={autoApply}
+              />
+            );
+          }
+          return (
+            <pre className="ai-md-code">
+              <code className={className}>{children}</code>
+            </pre>
+          );
+        },
+        // 让 markdown 元素用消息气泡内的样式
+        p: ({ children }) => <p className="ai-msg-para">{children}</p>,
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noreferrer" className="ai-md-link">
+            {children}
+          </a>
+        ),
+        table: ({ children }) => (
+          <div className="ai-md-table-wrap">
+            <table className="ai-md-table">{children}</table>
+          </div>
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
 }
 
 export function AiPanel({
