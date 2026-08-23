@@ -12,7 +12,7 @@
 - 🚀 **预置操作滑轨**：17 个快捷操作（语法修复/自动优化/九种图类型创作/追加节点/整理分组等），点击即发送（含当前源码上下文注入），滚轮横滑
 - ✅ **自动应用**：开关开启后 AI 回复中的代码块/操作块校验通过即自动写入编辑器
 - 🛡️ **错误分类**：key 无效（401/403）/ 网络不通 / CORS 不允许 / 厂商 404 均给出明确中文提示
-- 💻 **命令模式（web-cli）**：AI 不再直接写 LGDL 源码——像在 Linux 终端一样用 `lgdl` 命令操作图（`lgdl status` / `lgdl add-node --id x --label y` …）；`core/cli-parser.ts` 把命令行解析为结构化操作（与 CLI 完全同语义），Web「执行」逐条应用，失败即停；源码只由命令执行产生
+- 💻 **命令模式（web-cli）**：AI 不再直接写 LGDL 源码——像在 Linux 终端一样用 `lgdl` 命令操作图（`lgdl status` / `lgdl add-node --id x --label y` …）；`core/web-cli.ts` 把命令行解析为结构化操作（与 CLI 完全同语义），Web「执行」逐条应用，失败即停；源码只由命令执行产生
 - 📊 **status 命令**：`core/status.ts` 把文档渲染为 AI 可读图结构文本（CLI `lgdl status` 与 Web 共用），AI 先读图再增量修改
 
 **Web 工作台打磨**

@@ -15,8 +15,8 @@ edges:
     label: dep
 `;
 
-test('extractCommands: parses a ```lgdl-cli protocol block', () => {
-  const text = '我来修改：\n\n```lgdl-cli\nlgdl add-node --doc main --id c --label C\n```\n\n完成。';
+test('extractCommands: parses a ```lgdl-web-cli protocol block', () => {
+  const text = '我来修改：\n\n```lgdl-web-cli\nlgdl add-node --doc main --id c --label C\n```\n\n完成。';
   assert.equal(extractCommands(text), 'lgdl add-node --doc main --id c --label C\n');
 });
 
@@ -24,6 +24,7 @@ test('extractCommands: ignores commands in other code fences (bash/code)', () =>
   // bash 块只是表达，不是执行协议 → 不提取
   assert.equal(extractCommands('```bash\nlgdl add-node --id c\n```'), null);
   assert.equal(extractCommands('```lgdl\ntitle: x\n```'), null);
+  assert.equal(extractCommands('```lgdl-cli\nlgdl status --doc main\n```'), null);
 });
 
 test('extractCommands: null when no protocol block', () => {
@@ -92,4 +93,26 @@ test('executeCommands: --doc mismatch with current doc is rejected', () => {
   assert.equal(r.ok, false);
   assert.match(r.error ?? '', /doc mismatch/);
   assert.equal(r.changed, false);
+});
+
+test('executeCommands: init replaces the doc with the default template', () => {
+  const r = executeCommands(SRC, 'lgdl init --doc main', 'main');
+  assert.ok(r.ok);
+  assert.equal(r.changed, true);
+  assert.ok(r.source.includes('kind: start'));
+  assert.ok(r.lines.some((l) => l.includes('已初始化')));
+});
+
+test('executeCommands: convert exports mermaid without modifying the doc', () => {
+  const r = executeCommands(SRC, 'lgdl convert --doc main --to mermaid', 'main');
+  assert.ok(r.ok);
+  assert.equal(r.changed, false);
+  assert.equal(r.source, SRC);
+  assert.ok(r.lines.some((l) => l.includes('flowchart')));
+});
+
+test('executeCommands: convert to unknown format is an error', () => {
+  const r = executeCommands(SRC, 'lgdl convert --doc main --to nope', 'main');
+  assert.equal(r.ok, false);
+  assert.ok(r.lines.some((l) => l.includes('未知格式')));
 });

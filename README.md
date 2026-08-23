@@ -80,7 +80,7 @@ LGDL 的每个概念都有**显性字段**，渲染器从不从文本里猜含�
 
 ### 5. Web AI 助手（v0.5）
 
-- **命令模式（web-cli）**：AI 像在 Linux 终端里一样用 `lgdl` 命令操作图（`lgdl status` / `lgdl add-node --id x --label y` …），**不直接写 LGDL 源码**——源码只由命令执行产生；命令与 CLI 完全同一套语义（`core/cli-parser.ts`），点「执行」逐条应用、失败即停
+- **命令模式（web-cli）**：AI 像在 Linux 终端里一样用 `lgdl` 命令操作图（`lgdl status` / `lgdl add-node --id x --label y` …），**不直接写 LGDL 源码**——源码只由命令执行产生；命令与 CLI 完全同一套语义（`core/web-cli.ts`），点「执行」逐条应用、失败即停
 - **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限，需本地代理（v0.6）
 - 设置面板两步配置：选服务商 + 填 API Key（各服务商 key 独立保存）；「测试连接」一键验证 key / 端点 / CORS
 - 预置快捷操作（语法修复 / 自动优化 / 九种图类型创作等）+ 自动应用开关

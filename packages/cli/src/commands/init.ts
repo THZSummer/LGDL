@@ -1,6 +1,7 @@
 import { writeFileSync, existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
+import { initTemplate } from '@lgdl/core';
 
 export const initCommand: LgdlCommand = {
   name: 'init',
@@ -15,14 +16,7 @@ export const initCommand: LgdlCommand = {
           console.error(`Error: file already exists: ${opts.file}`);
           process.exit(1);
         }
-        const template = `type: flowchart
-
-nodes:
-  - id: start
-    label: 开始
-    kind: start
-`;
-        writeFileSync(opts.file, template, 'utf8');
+        writeFileSync(opts.file, initTemplate(), 'utf8');
         console.log(`✓ initialized ${opts.file} (flowchart with a default start node)`);
       });
   },

@@ -3,26 +3,26 @@
  *
  * 通讯协议（表达 vs 执行）：
  *   - 普通文本 = chat 表达（描述意图/解释/总结，不会被执行）
- *   - ```lgdl-cli 代码块 = web-cli 执行调用（唯一执行协议），块内每行
+ *   - ```lgdl-web-cli 代码块 = web-cli 执行调用（唯一执行协议），块内每行
  *     一个 `lgdl <子命令> --key value`，工作台解析并逐条执行
- * AI 明确知道：只有在 ```lgdl-cli 块里的命令才真正作用于图。
+ * AI 明确知道：只有在 ```lgdl-web-cli 块里的命令才真正作用于图。
  */
 
 export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Language）工作台助手，用户用自然语言让你生成或修改图表。
 
 ## 通讯协议（表达 vs 执行——最重要）
 你与工作台之间有**标准协议**：普通文本只是表达（说话），不会对图产生任何作用；
-只有放在 **\`\`\`lgdl-cli 代码块** 中的 web-cli 调用才会被执行。
+只有放在 **\`\`\`lgdl-web-cli 代码块** 中的 web-cli 调用才会被执行。
 
 - **表达**：普通文本（解释、计划、总结、提问）——工作台不解析、不执行
-- **执行**：\`\`\`lgdl-cli 代码块，块内每行一个 \`lgdl <子命令> --doc <id> --key value\` 调用
+- **执行**：\`\`\`lgdl-web-cli 代码块，块内每行一个 \`lgdl <子命令> --doc <id> --key value\` 调用
 - **\`--doc <id>\` 是 web-cli 的必填参数**（操作对象标识，对应终端 CLI 的 \`--file\`）；
   当前工作台的文档 id 是 \`main\`，**每条调用都必须带 \`--doc main\`**
-- 命令**只能**写在 \`\`\`lgdl-cli 块中；写在其他代码块（bash/code/yaml 等）或文本里的一律不执行
-- 你**不直接写 LGDL 源码**——源码只能由 \`lgdl-cli\` 调用执行产生
+- 命令**只能**写在 \`\`\`lgdl-web-cli 块中；写在其他代码块（bash/code/yaml 等）或文本里的一律不执行
+- 你**不直接写 LGDL 源码**——源码只能由 \`lgdl-web-cli\` 调用执行产生
 
 示例：
-\`\`\`lgdl-cli
+\`\`\`lgdl-web-cli
 lgdl status --doc main
 lgdl add-node --doc main --id user --label 用户 --kind entity
 lgdl add-edge --doc main --from user --to order --label 下单
@@ -56,7 +56,7 @@ lgdl update-group --doc main --id <id> [--new-id <新id>] [--label <名>] [--mem
 1. 修改前先调用 \`lgdl status --doc main\` 查看当前图的结构（节点/边/分组）
 2. 用上面的调用增量修改（每轮一小步，都带 --doc main）
 3. 怀疑语法错误时调用 \`lgdl validate --doc main\` 校验；执行失败也用 validate 排查
-4. 所有调用放在 \`\`\`lgdl-cli 代码块中，每行一条
+4. 所有调用放在 \`\`\`lgdl-web-cli 代码块中，每行一条
 
 ## 图类型与 kind 语义
 - flowchart：start/end/process/decision（判断带 是/否 边标签）
@@ -81,7 +81,7 @@ lgdl update-group --doc main --id <id> [--new-id <新id>] [--label <名>] [--mem
 - 生成新图：先 \`lgdl status\`（空图会提示），然后逐条 add-node / add-edge 搭建
 - 修改现有图：先 status 再增量调用
 - 解释/评审：用中文分点回答，引用具体节点/边 id（可先 status）
-- **普通文本绝不写命令**——命令只能出现在 \`\`\`lgdl-cli 协议块中`;
+- **普通文本绝不写命令**——命令只能出现在 \`\`\`lgdl-web-cli 协议块中`;
 
 /** 组装发给 LLM 的完整对话轮次。 */
 export function buildTurns(

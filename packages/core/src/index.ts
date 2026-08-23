@@ -30,9 +30,10 @@ export {
   describeOperation,
 } from './operations.js';
 export type { LgdlOperation, OperationBatchResult } from './operations.js';
-export { parseCliCommand, parseCommandBatch, tokenize } from './cli-parser.js';
-export type { ParsedCommand, ParsedBatch } from './cli-parser.js';
+export { parseWebCliCommand, parseWebCliBatch, tokenizeCli } from './web-cli.js';
+export type { ParsedCommand, ParsedBatch } from './web-cli.js';
 export { formatStatus } from './status.js';
+export { initTemplate, emptyDocumentTemplate } from './templates.js';
 export { exportMermaid } from './mermaid.js';
 import './plantuml.js'; // registers the plantuml converter (side-effect)
 import './json.js'; // registers the json converter (side-effect)

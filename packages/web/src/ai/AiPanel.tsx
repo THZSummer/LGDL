@@ -216,7 +216,7 @@ function CommandBlock({
   return (
     <div className={`ai-codeblock ai-opsblock${status === 'error' ? ' has-error' : ''}`}>
       <div className="ai-codeblock-head">
-        <span className="ai-codeblock-lang">lgdl-cli · web-cli 执行</span>
+        <span className="ai-codeblock-lang">lgdl-web-cli · 执行</span>
         <button
           className="ai-apply-btn"
           onClick={run}
@@ -255,7 +255,7 @@ function CommandBlock({
   );
 }
 
-/** 将消息内容拆成段落 + lgdl-cli 协议块（web-cli 执行调用）。 */
+/** 将消息内容拆成段落 + lgdl-web-cli 协议块（执行调用）。 */
 function MessageBody({
   content,
   onApply,
@@ -270,8 +270,8 @@ function MessageBody({
   autoApply?: boolean;
 }) {
   const parts: React.ReactNode[] = [];
-  // 只有 lgdl-cli 块是执行协议；其他代码块（bash/code/yaml...）一律当普通文本展示
-  const re = /```(lgdl-cli)\s*\n([\s\S]*?)```/g;
+  // lgdl-web-cli 块是执行协议；其他代码块（bash/code/yaml...）一律当普通文本展示
+  const re = /```(lgdl-web-cli)\s*\n([\s\S]*?)```/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let k = 0;

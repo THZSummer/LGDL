@@ -1,28 +1,32 @@
 /**
- * Web AI 命令执行器：把 AI 回复中的 web-cli 协议块（```lgdl-cli）解析并执行。
+ * lgdl-web-cli 执行器：把 AI 回复中的 lgdl-web-cli 协议块（```lgdl-web-cli）
+ * 解析并执行。
  *
  * 通讯协议（表达 vs 执行）：
  *   - 普通文本 = chat 表达（AI 描述意图，不执行）
- *   - ```lgdl-cli 代码块 = web-cli 执行调用（唯一的执行协议载体），
- *     块内每行一个 `lgdl <子命令> --key value` 调用
- * AI 不得在其他代码块（bash/code 等）里写 lgdl 命令——那不会被解析执行。
+ *   - ```lgdl-web-cli 代码块 = lgdl-web-cli 执行调用（唯一执行协议载体），
+ *     块内每行一个 `lgdl <子命令> --doc <id> --key value` 调用
+ * AI 不得在其他代码块（bash/code 等）里写命令——那不会被解析执行。
  */
 import {
   parseLgdl,
   validate,
   serializeLgdl,
   applyOperations,
-  parseCommandBatch,
+  parseWebCliBatch,
   formatStatus,
+  initTemplate,
+  convert,
+  listFormats,
   type LgdlOperation,
 } from '@lgdl/core';
 
-/** web-cli 协议块标记：唯一被解析执行的代码块类型。 */
-export const CLI_PROTOCOL_FENCE = 'lgdl-cli';
+/** lgdl-web-cli 协议块标记：唯一被解析执行的代码块类型。 */
+export const WEB_CLI_FENCE = 'lgdl-web-cli';
 
-/** 从 AI 回复文本中提取 web-cli 协议块（```lgdl-cli）。 */
+/** 从 AI 回复文本中提取 lgdl-web-cli 协议块（```lgdl-web-cli）。 */
 export function extractCommands(text: string): string | null {
-  const m = text.match(/```lgdl-cli\s*\n([\s\S]*?)```/);
+  const m = text.match(/```lgdl-web-cli\s*\n([\s\S]*?)```/);
   return m ? m[1] : null;
 }
 
@@ -39,18 +43,18 @@ export interface CommandExecResult {
 }
 
 /**
- * 解析并执行命令块（可多行）。失败即停，返回已执行部分的结果。
+ * 解析并执行协议块（可多行）。失败即停，返回已执行部分的结果。
  * @param source 当前编辑器源码（docId 对应文档的内容）
- * @param commandsText web-cli 协议块文本
+ * @param commandsText lgdl-web-cli 协议块文本
  * @param docId 当前文档 id（命令 --doc 必须与之一致，否则拒绝——防止 AI
- *              操作非当前文档，与 CLI 指定 --file 对应）
+ *              操作非当前文档，与 lgdl-cli 指定 --file 对应）
  */
 export function executeCommands(
   source: string,
   commandsText: string,
   docId?: string,
 ): CommandExecResult {
-  const parsed = parseCommandBatch(commandsText);
+  const parsed = parseWebCliBatch(commandsText);
   const lines: string[] = [];
   let current = source;
   let changed = false;
@@ -67,18 +71,18 @@ export function executeCommands(
     };
   }
 
-  // --doc 与当前文档一致性校验（web-cli 只允许操作当前文档）
+  // --doc 与当前文档一致性校验（lgdl-web-cli 只允许操作当前文档）
   if (docId !== undefined && parsed.docId !== null && parsed.docId !== docId) {
     return {
       ok: false,
       source: current,
-      lines: [`✖ --doc 不匹配：命令指定 "${parsed.docId}"，当前文档是 "${docId}"（web-cli 只能操作当前打开的文档）`],
+      lines: [`✖ --doc 不匹配：命令指定 "${parsed.docId}"，当前文档是 "${docId}"（lgdl-web-cli 只能操作当前打开的文档）`],
       changed,
       error: `doc mismatch: ${parsed.docId} != ${docId}`,
     };
   }
 
-  // status 先行：AI 需要先了解图结构（输出当前图，不改动）
+  // status：AI 先了解图结构（输出当前图，不改动）
   if (parsed.wantsStatus) {
     const parsedDoc = parseLgdl(current);
     if (parsedDoc.valid) {
@@ -99,6 +103,34 @@ export function executeCommands(
       }
       if (!parsedDoc.valid) {
         lines.push(`（共 ${parsedDoc.issues.filter((i) => i.severity === 'error').length} 个错误）`);
+      }
+    }
+  }
+
+  // init：清空文档为默认图（或指定类型空骨架），写回编辑器
+  if (parsed.wantsInit) {
+    current = initTemplate();
+    changed = current !== source;
+    lines.push('✓ 已初始化为默认 flowchart（含 start 节点）');
+  }
+
+  // convert：导出为其他格式（不改动文档）
+  if (parsed.wantsConvert) {
+    const parsedDoc = parseLgdl(current);
+    if (!parsedDoc.valid) {
+      lines.push('⚠ 当前源码无效，无法 convert');
+    } else {
+      const fmt = parsed.convertTo ?? '';
+      const formats = listFormats();
+      if (!formats.includes(fmt)) {
+        lines.push(`✖ 未知格式 "${fmt}"（支持：${formats.join(' / ')}）`);
+        return { ok: false, source: current, lines, changed, error: `unknown format: ${fmt}` };
+      }
+      try {
+        lines.push(convert(parsedDoc.document, fmt));
+      } catch (err) {
+        lines.push(`✖ convert 失败：${(err as Error).message}`);
+        return { ok: false, source: current, lines, changed, error: (err as Error).message };
       }
     }
   }
@@ -141,7 +173,7 @@ export function executeCommands(
   }
 
   const next = serializeLgdl(batch.document);
-  changed = next !== source;
+  changed = changed || next !== current;
   for (const r of batch.results) {
     if (r) lines.push(`✓ ${r.summary}`);
   }
@@ -150,9 +182,12 @@ export function executeCommands(
 
 /** 单条命令快速解析（供 UI 预览命令含义）。 */
 export function describeCommandLine(line: string): string {
-  const parsed = parseCommandBatch(line);
+  const parsed = parseWebCliBatch(line);
   if (parsed.errors.length > 0) return `✖ ${parsed.errors[0].message}`;
   if (parsed.wantsStatus) return 'lgdl status — 查看当前图结构';
+  if (parsed.wantsValidate) return 'lgdl validate — 校验当前图语法';
+  if (parsed.wantsInit) return 'lgdl init — 初始化为默认图';
+  if (parsed.wantsConvert) return `lgdl convert --to ${parsed.convertTo} — 导出格式`;
   return parsed.ops.map((op: LgdlOperation) => describeOp(op)).join('; ');
 }
 
