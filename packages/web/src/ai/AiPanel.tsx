@@ -265,7 +265,7 @@ export function AiPanel({
       role: 'system',
       type: 'chat',
       content:
-        '🤖 我是 LGDL AI 助手：通过自然语言生成或修改图。我会用 lgdl-web-cli 命令（如 lgdl-web-cli status --doc main、lgdl-web-cli add-node --doc main --id x）操作图，点「执行」运行。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
+        '🤖 我是 LGDL Web 工作台的 AI 操作助手：通过自然语言帮你生成或修改图。我会用 lgdl-web-cli 命令操作图（如 lgdl-web-cli status --doc main、lgdl-web-cli add-node --doc main --id x），并在预览中定位/高亮让你看到每一步改动。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
     },
   ]);
   const [input, setInput] = useState('');
