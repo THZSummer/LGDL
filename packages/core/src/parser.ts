@@ -5,28 +5,17 @@
  * dependency-free. In future this can be swapped for a full YAML library
  * without changing the public API.
  */
-import type {
-  DiagramType,
-  LgdlDocument,
-  LgdlEdge,
-  LgdlGroup,
-  LgdlIssue,
-  LgdlNode,
-  NodeKind,
-  ParseResult,
+import {
+  DIAGRAM_TYPES,
+  type DiagramType,
+  type LgdlDocument,
+  type LgdlEdge,
+  type LgdlGroup,
+  type LgdlIssue,
+  type LgdlNode,
+  type NodeKind,
+  type ParseResult,
 } from './types.js';
-
-const DIAGRAM_TYPES: readonly DiagramType[] = [
-  'flowchart',
-  'mindmap',
-  'uml-class',
-  'arch',
-  'datastream',
-  'sequence',
-  'er',
-  'state',
-  'gantt',
-];
 
 const NODE_KINDS: readonly NodeKind[] = [
   'start',

@@ -15,6 +15,32 @@ export type DiagramType =
   | 'state'
   | 'gantt';
 
+/** All supported diagram types (single source of truth for tooling). */
+export const DIAGRAM_TYPES: readonly DiagramType[] = [
+  'flowchart',
+  'mindmap',
+  'uml-class',
+  'arch',
+  'datastream',
+  'sequence',
+  'er',
+  'state',
+  'gantt',
+];
+
+/** Human-readable (Chinese) labels per diagram type. */
+export const DIAGRAM_TYPE_LABELS: Record<DiagramType, string> = {
+  flowchart: '流程图',
+  mindmap: '思维导图',
+  'uml-class': '类图',
+  arch: '架构图',
+  datastream: '数据流图',
+  sequence: '时序图',
+  er: '实体关系图',
+  state: '状态图',
+  gantt: '甘特图',
+};
+
 /** Semantic role of a node; shapes are mapped by the renderer */
 export type NodeKind =
   | 'start'

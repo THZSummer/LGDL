@@ -8,7 +8,7 @@ import { linter, type Diagnostic } from '@codemirror/lint';
 import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { yaml } from '@codemirror/lang-yaml';
 import { tags as t } from '@lezer/highlight';
-import { parseLgdl } from '@lgdl/core';
+import { parseLgdl, DIAGRAM_TYPES as CORE_DIAGRAM_TYPES, DIAGRAM_TYPE_LABELS } from '@lgdl/core';
 import { layoutDocument } from '@lgdl/layout';
 import { renderSvg } from '@lgdl/render';
 import { locateIssue, type DocSpan } from './locate';
@@ -995,12 +995,6 @@ export function App(): React.JSX.Element {
         selectExample(ex);
         return `✓ 已切换到示例 ${ex.label}`;
       }
-      case 'apply-source': {
-        const lgdl = args.source;
-        if (!lgdl) return '✖ apply-source 需要 source 参数';
-        applyAiSource(lgdl);
-        return '✓ 已应用源码';
-      }
       case 'list-examples': {
         // 列出工作台全部示例图（id、标签、类型、节点/边数）
         const rows = EXAMPLES.map((ex) => {
@@ -1013,7 +1007,9 @@ export function App(): React.JSX.Element {
         return `工作台示例图清单（${EXAMPLES.length} 个）：\n${rows.join('\n')}`;
       }
       case 'list-diagram-types': {
-        return '支持的图类型：flowchart（流程图）/ mindmap（思维导图）/ uml-class（类图）/ arch（架构图）/ datastream（数据流图）/ sequence（时序图）/ er（实体关系图）/ state（状态图）/ gantt（甘特图）——共 9 种';
+        // 从 core 单一数据源动态读取（DIAGRAM_TYPES + 中文标签）
+        const list = CORE_DIAGRAM_TYPES.map((t) => `${t}（${DIAGRAM_TYPE_LABELS[t]}）`).join(' / ');
+        return `支持的图类型（${CORE_DIAGRAM_TYPES.length} 种）：${list}`;
       }
       default:
         return `✖ 未知操作 "${subcommand}"`;

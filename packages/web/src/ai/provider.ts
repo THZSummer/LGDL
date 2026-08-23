@@ -242,8 +242,9 @@ export const WEB_OP_TOOL: {
       'Perform a UI operation on the web workbench, equivalent to the user clicking the button manually. ' +
       'Subcommands: copy-source / toggle-editor / collapse-editor / expand-editor / export-svg / export-png / ' +
       'preview-zoom (args: factor, or direction+delta, anchorX, anchorY) / preview-pan (dx, dy) / preview-reset / ' +
-      'preview-click (loc, e.g. "nodes[3]") / switch-example (id) / apply-source (source: full LGDL text). ' +
-      'Effects are identical to manual UI interaction (e.g. preview-click jumps to the element in the editor).',
+      'preview-click (loc, e.g. "nodes[3]") / preview-hover (loc) / switch-example (id) / list-examples / list-diagram-types. ' +
+      'Effects are identical to manual UI interaction (e.g. preview-click jumps to the element in the editor). ' +
+      'NOTE: there is NO apply-source command — never write LGDL source directly; edit the diagram via lgdl-web-cli incremental commands only.',
     parameters: {
       type: 'object',
       properties: {
@@ -253,7 +254,7 @@ export const WEB_OP_TOOL: {
             'copy-source', 'toggle-editor', 'collapse-editor', 'expand-editor',
             'export-svg', 'export-png',
             'preview-zoom', 'preview-pan', 'preview-reset', 'preview-click', 'preview-hover',
-            'switch-example', 'apply-source', 'list-examples', 'list-diagram-types',
+            'switch-example', 'list-examples', 'list-diagram-types',
           ],
         },
         args: {
@@ -261,7 +262,7 @@ export const WEB_OP_TOOL: {
           description:
             'Operation arguments, e.g. preview-zoom: {"factor":1.2} or {"direction":1,"delta":200}; ' +
             'preview-pan: {"dx":100,"dy":0}; preview-click: {"loc":"nodes[3]"}; preview-hover: {"loc":"nodes[3]"} or {"loc":"none"} to clear; ' +
-            'switch-example: {"id":"login-flow"}; apply-source: {"source":"<full LGDL text>"}; list-examples: {} (list all example diagrams); list-diagram-types: {} (list supported diagram types).',
+            'switch-example: {"id":"login-flow"}; list-examples: {} (list all example diagrams); list-diagram-types: {} (list supported diagram types).',
           additionalProperties: true,
         },
       },
