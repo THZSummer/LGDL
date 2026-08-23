@@ -253,7 +253,7 @@ export const WEB_OP_TOOL: {
             'copy-source', 'toggle-editor', 'collapse-editor', 'expand-editor',
             'export-svg', 'export-png',
             'preview-zoom', 'preview-pan', 'preview-reset', 'preview-click', 'preview-hover',
-            'switch-example', 'apply-source',
+            'switch-example', 'apply-source', 'list-examples', 'list-diagram-types',
           ],
         },
         args: {
@@ -261,7 +261,7 @@ export const WEB_OP_TOOL: {
           description:
             'Operation arguments, e.g. preview-zoom: {"factor":1.2} or {"direction":1,"delta":200}; ' +
             'preview-pan: {"dx":100,"dy":0}; preview-click: {"loc":"nodes[3]"}; preview-hover: {"loc":"nodes[3]"} or {"loc":"none"} to clear; ' +
-            'switch-example: {"id":"login-flow"}; apply-source: {"source":"<full LGDL text>"}.',
+            'switch-example: {"id":"login-flow"}; apply-source: {"source":"<full LGDL text>"}; list-examples: {} (list all example diagrams); list-diagram-types: {} (list supported diagram types).',
           additionalProperties: true,
         },
       },

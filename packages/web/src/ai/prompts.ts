@@ -54,6 +54,8 @@ export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Langu
 - preview-click {"loc":"nodes[3]"}          # 点击元素 → 编辑器跳转到该元素源码（与手动点击等效）
 - preview-hover {"loc":"nodes[3]"}           # 悬浮元素（预览高亮 + 显示锚点，等效鼠标悬浮）；{"loc":"none"} 取消
 - switch-example {"id":"login-flow"}        # 切换示例
+- list-examples {}                          # 获取工作台全部示例图清单（id/标签/类型/规模）
+- list-diagram-types {}                     # 获取支持的图类型清单（9 种）
 - apply-source {"source":"<完整LGDL文本>"}  # 应用整段源码
 这些操作的效果与用户在界面上手动点击完全一致。
 

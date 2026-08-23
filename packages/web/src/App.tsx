@@ -1001,6 +1001,20 @@ export function App(): React.JSX.Element {
         applyAiSource(lgdl);
         return '✓ 已应用源码';
       }
+      case 'list-examples': {
+        // 列出工作台全部示例图（id、标签、类型、节点/边数）
+        const rows = EXAMPLES.map((ex) => {
+          const parsed = parseLgdl(ex.source);
+          const type = parsed.valid ? parsed.document.type : '?';
+          const nodes = parsed.valid ? parsed.document.nodes.length : 0;
+          const edges = parsed.valid ? parsed.document.edges.length : 0;
+          return `${ex.id}\t${ex.label}\ttype=${type}\tnodes=${nodes}\tedges=${edges}`;
+        });
+        return `工作台示例图清单（${EXAMPLES.length} 个）：\n${rows.join('\n')}`;
+      }
+      case 'list-diagram-types': {
+        return '支持的图类型：flowchart（流程图）/ mindmap（思维导图）/ uml-class（类图）/ arch（架构图）/ datastream（数据流图）/ sequence（时序图）/ er（实体关系图）/ state（状态图）/ gantt（甘特图）——共 9 种';
+      }
       default:
         return `✖ 未知操作 "${subcommand}"`;
     }
