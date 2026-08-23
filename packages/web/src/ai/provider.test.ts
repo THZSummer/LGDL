@@ -28,19 +28,32 @@ function withStorage(storage: Record<string, string>, fn: () => void) {
   }
 }
 
-test('PROVIDERS covers all six vendors with OpenAI-compatible endpoints except claude', () => {
+test('PROVIDERS covers all vendors; volc split into three endpoint plans', () => {
   const ids = PROVIDERS.map((p) => p.id);
-  assert.deepEqual(ids, ['deepseek', 'qwen', 'volc', 'tencent', 'openai', 'claude']);
+  assert.deepEqual(ids, [
+    'deepseek',
+    'qwen',
+    'volc',
+    'volc-coding',
+    'volc-plan',
+    'tencent',
+    'openai',
+    'claude',
+  ]);
   for (const p of PROVIDERS) {
     assert.ok(p.defaultModel);
     assert.ok(p.hint);
   }
   assert.equal(providerById('claude').baseURL, null);
   assert.equal(providerById('qwen').baseURL, 'https://dashscope.aliyuncs.com/compatible-mode/v1');
+  assert.equal(providerById('volc-coding').baseURL, 'https://ark.cn-beijing.volces.com/api/coding/v3');
+  assert.equal(providerById('volc-plan').baseURL, 'https://ark.cn-beijing.volces.com/api/plan/v3');
+  assert.equal(providerById('volc-coding').defaultModel, 'deepseek-v4-flash');
 });
 
 test('defaultModelFor returns the provider default', () => {
   assert.equal(defaultModelFor('deepseek'), 'deepseek-chat');
+  assert.equal(defaultModelFor('volc-coding'), 'deepseek-v4-flash');
   assert.equal(defaultModelFor('claude'), 'claude-3-5-haiku-latest');
 });
 

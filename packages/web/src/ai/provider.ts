@@ -9,7 +9,15 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 
-export type ProviderId = 'deepseek' | 'qwen' | 'volc' | 'tencent' | 'openai' | 'claude';
+export type ProviderId =
+  | 'deepseek'
+  | 'qwen'
+  | 'volc'
+  | 'volc-coding'
+  | 'volc-plan'
+  | 'tencent'
+  | 'openai'
+  | 'claude';
 
 export interface ProviderConfig {
   id: ProviderId;
@@ -26,7 +34,9 @@ export interface ProviderConfig {
 export const PROVIDERS: ProviderConfig[] = [
   { id: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com', defaultModel: 'deepseek-chat', freeModel: true, hint: 'api.deepseek.com（OpenAI 兼容）' },
   { id: 'qwen', name: 'Qwen 通义千问', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', defaultModel: 'qwen-plus', freeModel: true, hint: '阿里云百炼 compatible-mode' },
-  { id: 'volc', name: '火山方舟', baseURL: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seed-1-6-250615', freeModel: true, hint: '火山引擎 Ark；coding/plan 端点请在设置中改 baseURL（如 /api/coding/v3）' },
+  { id: 'volc', name: '火山方舟 · 通用', baseURL: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seed-1-6-250615', freeModel: true, hint: '通用 v3 端点（doubao-seed-1-6 等）' },
+  { id: 'volc-coding', name: '火山方舟 · Coding', baseURL: 'https://ark.cn-beijing.volces.com/api/coding/v3', defaultModel: 'deepseek-v4-flash', freeModel: true, hint: 'Coding 端点（deepseek-v4-*、doubao-seed-2-0-code 等）' },
+  { id: 'volc-plan', name: '火山方舟 · Agent Plan', baseURL: 'https://ark.cn-beijing.volces.com/api/plan/v3', defaultModel: 'ark-code-latest', freeModel: true, hint: 'Agent Plan 端点（ark-code-latest 等）' },
   { id: 'tencent', name: '腾讯混元', baseURL: 'https://api.hunyuan.cloud.tencent.com/v1', defaultModel: 'hunyuan-turbo', freeModel: true, hint: '腾讯云混元（OpenAI 兼容）' },
   { id: 'openai', name: 'OpenAI GPT', baseURL: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini', freeModel: true, hint: 'api.openai.com' },
   { id: 'claude', name: 'Claude', baseURL: null, defaultModel: 'claude-3-5-haiku-latest', freeModel: true, hint: 'Anthropic Messages API' },
@@ -147,12 +157,21 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
   }
 }
 
-/** 把 SDK 错误归类为可读信息（key 无效 / 网络不通 / CORS 不允许）。 */
+/** 把 SDK 错误归类为可读信息（key 无效 / 网络不通 / CORS 不允许 / 端点不对）。 */
 function classifyError(err: unknown, provider: ProviderConfig): Error {
   const e = err as { status?: number; message?: string; name?: string };
   const status = e.status;
   if (status === 401 || status === 403) {
     return new Error(`${provider.name} 拒绝了请求（HTTP ${status}）— API Key 可能无效或已过期`);
+  }
+  if (status === 404) {
+    const isVolc = provider.id.startsWith('volc');
+    return new Error(
+      `${provider.name} 请求失败（HTTP 404）— 模型不存在或端点不对。` +
+        (isVolc
+          ? '火山模型分布在「通用 / Coding / Agent Plan」三个套餐端点，请在 ⚙ 设置中改选对应的火山方舟服务商（如 Coding 套餐选「火山方舟 · Coding」）'
+          : `请检查模型名，或在 ⚙ 设置中确认 Base URL 是否正确`),
+    );
   }
   if (status && status >= 400 && status < 500) {
     return new Error(`${provider.name} 请求失败（HTTP ${status}）：${e.message ?? ''}`);

@@ -820,6 +820,52 @@ body,
   color: #94a3b8;
 }
 
+/* 高级选项折叠开关 */
+.ai-settings-advanced-toggle {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 0;
+  transition: color 0.15s;
+}
+
+.ai-settings-advanced-toggle:hover {
+  color: #4f46e5;
+}
+
+/* 火山端点快捷按钮 */
+.ai-settings-endpoints {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ai-settings-ep {
+  padding: 3px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ai-settings-ep:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+}
+
+.ai-settings-ep.active {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-weight: 600;
+}
+
 .ai-settings-actions {
   display: flex;
   justify-content: flex-end;

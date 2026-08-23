@@ -1,4 +1,5 @@
-// API Provider 设置面板：选择厂商、填 Key、选模型
+// API Provider 设置面板：两步完成 —— 1. 选服务商，2. 填 API Key。
+// 模型与 Base URL 折叠为「高级选项」，默认用服务商预设值。
 import React, { useState } from 'react';
 import {
   PROVIDERS,
@@ -21,6 +22,7 @@ export function SettingsPanel({
   const [model, setModel] = useState(settings.model);
   const [baseURL, setBaseURL] = useState(settings.baseURL ?? '');
   const [showKey, setShowKey] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const provider = PROVIDERS.find((p) => p.id === providerId) ?? PROVIDERS[0];
@@ -56,22 +58,19 @@ export function SettingsPanel({
         </p>
 
         <label className="ai-settings-field">
-          <span className="ai-settings-label">API 服务商</span>
-          <select
-            value={providerId}
-            onChange={(e) => switchProvider(e.target.value as ProviderId)}
-          >
+          <span className="ai-settings-label">① API 服务商</span>
+          <select value={providerId} onChange={(e) => switchProvider(e.target.value as ProviderId)}>
             {PROVIDERS.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
           </select>
-          <span className="ai-settings-hint">{provider.hint}</span>
+          <span className="ai-settings-hint">{provider.hint} · 默认模型 {provider.defaultModel}</span>
         </label>
 
         <label className="ai-settings-field">
-          <span className="ai-settings-label">API Key</span>
+          <span className="ai-settings-label">② API Key</span>
           <div className="ai-settings-keyrow">
             <input
               type={showKey ? 'text' : 'password'}
@@ -92,32 +91,37 @@ export function SettingsPanel({
           </div>
         </label>
 
-        <label className="ai-settings-field">
-          <span className="ai-settings-label">模型</span>
-          <input
-            type="text"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder={provider.defaultModel}
-            spellCheck={false}
-          />
-          <span className="ai-settings-hint">留空使用默认 {provider.defaultModel}</span>
-        </label>
+        <button type="button" className="ai-settings-advanced-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
+          {showAdvanced ? '▾ 收起高级选项' : '▸ 高级选项（模型 / Base URL）'}
+        </button>
+        {showAdvanced && (
+          <>
+            <label className="ai-settings-field">
+              <span className="ai-settings-label">模型</span>
+              <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={provider.defaultModel}
+                spellCheck={false}
+              />
+              <span className="ai-settings-hint">留空使用默认 {provider.defaultModel}</span>
+            </label>
 
-        {provider.baseURL && (
-          <label className="ai-settings-field">
-            <span className="ai-settings-label">API Base URL</span>
-            <input
-              type="text"
-              value={baseURL}
-              onChange={(e) => setBaseURL(e.target.value)}
-              placeholder={provider.baseURL}
-              spellCheck={false}
-            />
-            <span className="ai-settings-hint">
-              默认 {provider.baseURL}；火山 coding/plan 端点可改为 .../api/coding/v3 等
-            </span>
-          </label>
+            {provider.baseURL && (
+              <label className="ai-settings-field">
+                <span className="ai-settings-label">API Base URL</span>
+                <input
+                  type="text"
+                  value={baseURL}
+                  onChange={(e) => setBaseURL(e.target.value)}
+                  placeholder={provider.baseURL}
+                  spellCheck={false}
+                />
+                <span className="ai-settings-hint">默认 {provider.baseURL}（一般无需修改）</span>
+              </label>
+            )}
+          </>
         )}
 
         <div className="ai-settings-actions">
