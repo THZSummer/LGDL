@@ -1,6 +1,6 @@
 {
   "name": "@lgdl/layout",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "LGDL deterministic layout engine (dagre) with incremental local re-layout",
   "type": "module",
   "main": "dist/index.js",
@@ -16,7 +16,7 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
-    "@lgdl/core": "^0.4.0",
+    "@lgdl/core": "^0.5.0",
     "dagre": "^0.8.5"
   },
   "devDependencies": {
