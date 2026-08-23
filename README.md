@@ -175,8 +175,8 @@ LGDL/
 | **v0.2** | ✅ 增量编辑协议 + 9 种图类型渲染 |
 | **v0.3** | ✅ attrs 扩展属性 + ER/状态机/甘特图 + Mermaid/PlantUML/JSON 转换 |
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
-| **v0.5** | ⏳ Web 接入 AI 助手；图即代码（语义 diff/评审、CI 自动渲染） |
-| **v0.6** | ⏳ 模块化：子图引用、参数化模板；渲染与性能（大图优化、布局打磨） |
+| **v0.5** | ⏳ Web 接入 AI 助手；图即代码（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出 attrs 与格式优化、Agent 集成提示词模板、Mermaid 导入增强） |
+| **v0.6** | ⏳ 模块化：子图引用、参数化模板；渲染与性能（大图优化、布局打磨）；state 显性 `initial` 字段 |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。
 

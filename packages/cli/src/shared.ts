@@ -37,6 +37,12 @@ export function mutate(
   file: string,
   fn: (doc: LgdlDocument) => MutationResult,
 ): void {
+  if (!existsSync(file)) {
+    console.error(`✖ file not found: ${file} (run "lgdl init --file ${file}" first)`);
+    process.exit(1);
+  }
+  const src = readFileSync(file, 'utf8');
+  const commentsBefore = (src.match(/^[ \t]*#.*$/gm) ?? []).length;
   const doc = loadDocument(file);
   try {
     const { document, summary } = fn(doc);
@@ -45,7 +51,12 @@ export function mutate(
       console.error(`✖ mutation rejected: ${res.issues.map((i) => i.message).join('; ')}`);
       process.exit(1);
     }
-    writeFileSync(file, serializeLgdl(document), 'utf8');
+    const text = serializeLgdl(document);
+    const commentsAfter = (text.match(/^[ \t]*#.*$/gm) ?? []).length;
+    if (commentsAfter < commentsBefore) {
+      console.error(`⚠ ${commentsBefore - commentsAfter} comment line(s) were dropped (the serializer rewrites the file)`);
+    }
+    writeFileSync(file, text, 'utf8');
     console.log(`✓ ${summary}`);
     console.log(`  (saved ${file})`);
   } catch (err) {
@@ -76,9 +87,16 @@ export function parseAttrs(values: string[] | undefined): Record<string, unknown
     let value: unknown = raw.slice(eq + 1).trim();
     if (value === 'true') value = true;
     else if (value === 'false') value = false;
-    else if (/^-?\d+$/.test(String(value))) value = parseInt(String(value), 10);
-    else if (/^-?\d+\.\d+$/.test(String(value))) value = parseFloat(String(value));
-    else if ((value as string).startsWith('"') && (value as string).endsWith('"')) {
+    else if (/^-?\d+$/.test(String(value))) {
+      // "080" must stay "080" — a lossy number conversion would silently
+      // rewrite version codes, ids and numbers with leading zeros
+      const n = parseInt(String(value), 10);
+      value = String(n) === String(value) ? n : String(value);
+    } else if (/^-?\d+\.\d+$/.test(String(value))) {
+      // "1.10" must stay "1.10" (not become 1.1)
+      const f = parseFloat(String(value));
+      value = String(f) === String(value) ? f : String(value);
+    } else if ((value as string).startsWith('"') && (value as string).endsWith('"')) {
       value = (value as string).slice(1, -1);
     }
     attrs[key] = value;

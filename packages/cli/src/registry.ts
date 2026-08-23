@@ -29,6 +29,7 @@ import { updateEdgeCommand } from './commands/update-edge.js';
 import { removeEdgeCommand } from './commands/remove-edge.js';
 import { addGroupCommand } from './commands/add-group.js';
 import { removeGroupCommand } from './commands/remove-group.js';
+import { updateGroupCommand } from './commands/update-group.js';
 import { convertCommand } from './commands/convert.js';
 import { importCommand } from './commands/import.js';
 
@@ -46,6 +47,7 @@ export const COMMANDS: LgdlCommand[] = [
   removeEdgeCommand,
   addGroupCommand,
   removeGroupCommand,
+  updateGroupCommand,
 ];
 
 /** Register every command onto a program. */

@@ -59,6 +59,8 @@ export interface AddEdgeOptions {
 
 export interface UpdateNodeOptions {
   id: string;
+  /** Rename the node — edges and group membership are rewritten too */
+  newId?: string;
   label?: string;
   kind?: NodeKind;
   /** Append a structured class member */
@@ -72,6 +74,13 @@ export interface UpdateNodeOptions {
 export interface UpdateEdgeOptions {
   from: string;
   to: string;
+  /** Locate a specific parallel edge by its current label (required when
+   * several edges share the same from/to) */
+  fromLabel?: string;
+  /** Rewrite the source endpoint (references are kept, label/cardinality/attrs preserved) */
+  newFrom?: string;
+  /** Rewrite the target endpoint */
+  newTo?: string;
   label?: string;
   /** Replace the source-end multiplicity */
   cardinalityFrom?: string;
@@ -170,8 +179,18 @@ export function addEdge(doc: LgdlDocument, opts: AddEdgeOptions): MutationResult
   if (from === to) {
     throw new Error(`Self-loop edges are not supported (from === to === "${from}")`);
   }
-  if (doc.edges.some((e) => e.from === from && e.to === to)) {
-    throw new Error(`Edge already exists: ${from} -> ${to}`);
+  // Duplicate rule: an explicit label makes the edge a distinct relation
+  // (ER: USER --places--> ORDER vs USER --manages--> ORDER), but an
+  // unlabeled add-edge means "this edge" — any a->b edge is a duplicate.
+  const relKey = (e: LgdlEdge): string => (e.attrs?.relation as string | undefined) ?? '';
+  if (
+    doc.edges.some((e) =>
+      e.from === from &&
+      e.to === to &&
+      (label !== undefined ? e.label === label : relKey(e) === relKey({ from, to, attrs })),
+    )
+  ) {
+    throw new Error(`Edge already exists: ${from} -> ${to}${label ? ` [${label}]` : ''}`);
   }
 
   const edge: LgdlEdge = {
@@ -189,26 +208,63 @@ export function addEdge(doc: LgdlDocument, opts: AddEdgeOptions): MutationResult
   };
 }
 
-export function removeEdge(doc: LgdlDocument, from: string, to: string): MutationResult {
+export function removeEdge(doc: LgdlDocument, from: string, to: string, label?: string): MutationResult {
+  // --edge-label matches the label first; only when no edge carries that
+  // label do we fall back to attrs.relation — so a label that happens to
+  // equal another edge's relation never deletes both silently
+  const candidates = doc.edges.filter((e) => e.from === from && e.to === to);
+  let matched = candidates.filter((e) => e.label === label);
+  if (label !== undefined && matched.length === 0) {
+    matched = candidates.filter((e) => e.attrs?.relation === label);
+  }
+  const targets = matched;
+  // several edges share the same label: refuse — silently deleting all of
+  // them would be data loss; there is no way to tell them apart via CLI
+  if (matched.length > 1) {
+    throw new Error(
+      `Multiple edges ${from} -> ${to} share the label "${label}" (relations: ${matched.map((e) => e.attrs?.relation ?? '(none)').join(', ')}) — edges sharing a label cannot be individually removed via CLI`,
+    );
+  }
+  const matchedIdx = new Set(matched.map((e) => doc.edges.indexOf(e)));
+  // several parallel edges exist and no label given: refuse instead of
+  // silently deleting all of them (matches the --label help text)
+  if (candidates.length > 1 && label === undefined) {
+    throw new Error(
+      `Multiple edges ${from} -> ${to} exist (${candidates.map((e) => e.label ?? '(no label)').join(', ')}) — pass --edge-label to pick the one to remove`,
+    );
+  }
   const before = doc.edges.length;
   const document: LgdlDocument = {
     ...doc,
-    edges: doc.edges.filter((e) => !(e.from === from && e.to === to)),
+    // without a label: remove every edge on (from, to); with a label:
+    // remove only that exact parallel edge
+    edges: doc.edges.filter((e, idx) => !(e.from === from && e.to === to && (label === undefined || matchedIdx.has(idx)))),
   };
-  if (document.edges.length === before) {
-    throw new Error(`Edge not found: ${from} -> ${to}`);
+  const removed = before - document.edges.length;
+  if (removed === 0) {
+    throw new Error(`Edge not found: ${from} -> ${to}${label ? ` [${label}]` : ''}`);
   }
   return {
     document,
-    summary: `removed edge ${from} -> ${to}`,
+    summary: `removed ${removed} edge(s) ${from} -> ${to}${label ? ` [${label}]` : ''}`,
   };
 }
 
 export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): MutationResult {
-  const { id, label, kind, memberAdd, memberRemove, attrs } = opts;
+  const { id, newId, label, kind, memberAdd, memberRemove, attrs } = opts;
   const target = doc.nodes.find((n) => n.id === id);
   if (!target) {
     throw new Error(`Node not found: "${id}"`);
+  }
+  // renaming to the current id is a no-op — other fields still update
+  const rename = newId !== undefined && newId !== id ? newId : undefined;
+  if (rename !== undefined) {
+    if (!/^[A-Za-z0-9_-]+$/.test(rename)) {
+      throw new Error(`Invalid node id: "${rename}" (letters, digits, underscore, hyphen only)`);
+    }
+    if (doc.nodes.some((n) => n.id === rename)) {
+      throw new Error(`Node id already exists: "${rename}"`);
+    }
   }
   if (memberAdd) assertMemberShape(memberAdd, `member "${memberAdd.name ?? ''}" of node "${id}"`);
   if (memberRemove && memberRemove.trim() === '') {
@@ -217,6 +273,7 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
   if (memberRemove && !(target.members ?? []).some((m) => m.name === memberRemove)) {
     throw new Error(`Member not found: "${memberRemove}" on node "${id}"`);
   }
+  const finalId = rename ?? id;
 
   const document: LgdlDocument = {
     ...doc,
@@ -227,15 +284,27 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
       if (memberRemove) members = members?.filter((m) => m.name !== memberRemove) ?? [];
       return {
         ...n,
+        ...(rename !== undefined ? { id: finalId } : {}),
         ...(label !== undefined ? { label } : {}),
         ...(kind !== undefined ? { kind } : {}),
         ...(members !== undefined ? { members: members.length > 0 ? members : undefined } : {}),
         ...(attrs !== undefined ? { attrs: { ...n.attrs, ...attrs } } : {}),
       };
     }),
+    // rewrite every reference to the renamed node
+    edges: doc.edges.map((e) => ({
+      ...e,
+      from: e.from === id ? finalId : e.from,
+      to: e.to === id ? finalId : e.to,
+    })),
+    groups: doc.groups.map((g) => ({
+      ...g,
+      contains: g.contains.map((m) => (m === id ? finalId : m)),
+    })),
   };
 
   const changes: string[] = [];
+  if (rename !== undefined) changes.push(`id="${rename}"`);
   if (label !== undefined) changes.push(`label="${label}"`);
   if (kind !== undefined) changes.push(`kind=${kind}`);
   if (memberAdd) changes.push(`member+ ${memberAdd.name}`);
@@ -245,27 +314,56 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
 }
 
 export function updateEdge(doc: LgdlDocument, opts: UpdateEdgeOptions): MutationResult {
-  const { from, to, label, cardinalityFrom, cardinalityTo, attrs } = opts;
-  if (!doc.edges.some((e) => e.from === from && e.to === to)) {
-    throw new Error(`Edge not found: ${from} -> ${to}`);
+  const { from, to, fromLabel, newFrom, newTo, label, cardinalityFrom, cardinalityTo, attrs } = opts;
+  if (newFrom !== undefined && !doc.nodes.some((n) => n.id === newFrom) && !doc.groups.some((g) => g.id === newFrom)) {
+    throw new Error(`New source node or group not found: "${newFrom}"`);
+  }
+  if (newTo !== undefined && !doc.nodes.some((n) => n.id === newTo) && !doc.groups.some((g) => g.id === newTo)) {
+    throw new Error(`New target node or group not found: "${newTo}"`);
+  }
+  let matches = doc.edges.filter(
+    (e) => e.from === from && e.to === to && (fromLabel === undefined || e.label === fromLabel),
+  );
+  if (fromLabel !== undefined && matches.length === 0) {
+    matches = doc.edges.filter(
+      (e) => e.from === from && e.to === to && e.attrs?.relation === fromLabel,
+    );
+  }
+  if (matches.length === 0) {
+    throw new Error(`Edge not found: ${from} -> ${to}${fromLabel ? ` [${fromLabel}]` : ''}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(
+      `Multiple edges ${from} -> ${to} exist (${matches.map((e) => e.label ?? '(no label)').join(', ')}) — pass --edge-label to pick the one to update`,
+    );
   }
 
+  const matchedIdx = new Set(matches.map((e) => doc.edges.indexOf(e)));
   const document: LgdlDocument = {
     ...doc,
-    edges: doc.edges.map((e) =>
-      e.from === from && e.to === to
-        ? {
-            ...e,
-            ...(label !== undefined ? { label } : {}),
-            ...(cardinalityFrom !== undefined ? { cardinalityFrom } : {}),
-            ...(cardinalityTo !== undefined ? { cardinalityTo } : {}),
-            ...(attrs !== undefined ? { attrs: { ...e.attrs, ...attrs } } : {}),
-          }
-        : e,
-    ),
+    edges: doc.edges.map((e, idx) => {
+      if (!(e.from === from && e.to === to && (fromLabel === undefined || matchedIdx.has(idx)))) return e;
+      const n: LgdlEdge = { ...e };
+      if (newFrom !== undefined) n.from = newFrom;
+      if (newTo !== undefined) n.to = newTo;
+      if (label !== undefined) n.label = label;
+      // an empty string clears the cardinality field ("--cardinality-from """)
+      if (cardinalityFrom !== undefined) {
+        if (cardinalityFrom === '') delete n.cardinalityFrom;
+        else n.cardinalityFrom = cardinalityFrom;
+      }
+      if (cardinalityTo !== undefined) {
+        if (cardinalityTo === '') delete n.cardinalityTo;
+        else n.cardinalityTo = cardinalityTo;
+      }
+      if (attrs !== undefined) n.attrs = { ...e.attrs, ...attrs };
+      return n;
+    }),
   };
 
   const changes: string[] = [];
+  if (newFrom !== undefined) changes.push(`from="${newFrom}"`);
+  if (newTo !== undefined) changes.push(`to="${newTo}"`);
   if (label !== undefined) changes.push(`label="${label}"`);
   if (cardinalityFrom !== undefined) changes.push(`cardinalityFrom=${cardinalityFrom}`);
   if (cardinalityTo !== undefined) changes.push(`cardinalityTo=${cardinalityTo}`);
@@ -316,14 +414,110 @@ export function removeGroup(doc: LgdlDocument, id: string): MutationResult {
   if (!doc.groups.some((g) => g.id === id)) {
     throw new Error(`Group not found: "${id}"`);
   }
-  // remove the group and detach it from any parent group's contains
+  // remove the group, detach it from any parent group's contains, and
+  // auto-clean aggregate edges touching it (same behavior as removeNode)
+  const removedEdges = doc.edges.filter((e) => e.from === id || e.to === id).length;
   return {
     document: {
       ...doc,
+      edges: doc.edges.filter((e) => e.from !== id && e.to !== id),
       groups: doc.groups
         .filter((g) => g.id !== id)
         .map((g) => ({ ...g, contains: g.contains.filter((c) => c !== id) })),
     },
-    summary: `removed group "${id}"`,
+    summary: `removed group "${id}"${removedEdges > 0 ? ` and ${removedEdges} aggregate edge(s)` : ''}`,
   };
+}
+
+export interface UpdateGroupOptions {
+  id: string;
+  /** Rename the group — aggregate edges and parent contains are rewritten */
+  newId?: string;
+  label?: string;
+  /** Append a member (node or nested group id) */
+  memberAdd?: string;
+  /** Remove a member by id */
+  memberRemove?: string;
+  /** Merge extension attributes */
+  attrs?: LgdlAttrs;
+}
+
+export function updateGroup(doc: LgdlDocument, opts: UpdateGroupOptions): MutationResult {
+  const { id, newId, label, memberAdd, memberRemove, attrs } = opts;
+  const target = doc.groups.find((g) => g.id === id);
+  if (!target) {
+    throw new Error(`Group not found: "${id}"`);
+  }
+  // renaming to the current id is a no-op — other fields still update
+  const rename = newId !== undefined && newId !== id ? newId : undefined;
+  if (rename !== undefined) {
+    if (!/^[A-Za-z0-9_-]+$/.test(rename)) {
+      throw new Error(`Invalid group id: "${rename}" (letters, digits, underscore, hyphen only)`);
+    }
+    if (doc.groups.some((g) => g.id === rename)) {
+      throw new Error(`Group id already exists: "${rename}"`);
+    }
+    if (doc.nodes.some((n) => n.id === rename)) {
+      throw new Error(`Node id already exists: "${rename}" — ids must be unique across nodes and groups`);
+    }
+  }
+  if (memberAdd !== undefined) {
+    if (memberAdd === id) {
+      throw new Error(`Group cannot contain itself: "${id}"`);
+    }
+    const isNode = doc.nodes.some((n) => n.id === memberAdd);
+    const isGroup = doc.groups.some((g) => g.id === memberAdd);
+    if (!isNode && !isGroup) {
+      throw new Error(`Group contains unknown node or group: "${memberAdd}"`);
+    }
+    if (target.contains.includes(memberAdd)) {
+      throw new Error(`"${memberAdd}" is already in group "${id}"`);
+    }
+    const membersOf = new Map<string, string>();
+    for (const g of doc.groups) {
+      for (const m of g.contains) {
+        if (!membersOf.has(m)) membersOf.set(m, g.id);
+      }
+    }
+    if (membersOf.has(memberAdd)) {
+      throw new Error(`"${memberAdd}" already belongs to group "${membersOf.get(memberAdd)}"`);
+    }
+  }
+  if (memberRemove !== undefined && !target.contains.includes(memberRemove)) {
+    throw new Error(`Member not found: "${memberRemove}" in group "${id}"`);
+  }
+  const finalId = newId ?? id;
+
+  let contains = target.contains;
+  if (memberAdd !== undefined) contains = [...contains, memberAdd];
+  if (memberRemove !== undefined) contains = contains.filter((m) => m !== memberRemove);
+
+  const document: LgdlDocument = {
+    ...doc,
+    groups: doc.groups.map((g) =>
+      g.id === id
+        ? {
+            ...g,
+            id: finalId,
+            ...(label !== undefined ? { label } : {}),
+            contains,
+            ...(attrs !== undefined ? { attrs: { ...g.attrs, ...attrs } } : {}),
+          }
+        : { ...g, contains: g.contains.map((m) => (m === id ? finalId : m)) },
+    ),
+    // aggregate edges referencing the group follow the rename
+    edges: doc.edges.map((e) => ({
+      ...e,
+      from: e.from === id ? finalId : e.from,
+      to: e.to === id ? finalId : e.to,
+    })),
+  };
+
+  const changes: string[] = [];
+  if (rename !== undefined) changes.push(`id="${rename}"`);
+  if (label !== undefined) changes.push(`label="${label}"`);
+  if (memberAdd !== undefined) changes.push(`member+ ${memberAdd}`);
+  if (memberRemove !== undefined) changes.push(`member- ${memberRemove}`);
+  if (attrs !== undefined) changes.push(`attrs={${Object.keys(attrs).join(',')}}`);
+  return { document, summary: `updated group "${id}" (${changes.join(', ')})` };
 }

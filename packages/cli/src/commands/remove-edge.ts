@@ -13,8 +13,9 @@ export const removeEdgeCommand: LgdlCommand = {
       .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--from <id>', 'source node id')
       .requiredOption('--to <id>', 'target node id')
-      .action((opts: { file: string; from: string; to: string }) => {
-        mutate(opts.file, (doc) => removeEdge(doc, opts.from, opts.to));
+      .option('--edge-label <label>', 'only remove the parallel edge with this label (required when several edges share from/to)')
+      .action((opts: { file: string; from: string; to: string; edgeLabel?: string }) => {
+        mutate(opts.file, (doc) => removeEdge(doc, opts.from, opts.to, opts.edgeLabel));
       });
   },
 };

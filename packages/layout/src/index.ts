@@ -333,13 +333,14 @@ function layoutMindmap(doc: LgdlDocument): LayoutResult {
     maxY = Math.max(maxY, y + size.height);
   }
 
-  // shift everything to positive coords with margin
+  // shift everything to positive coords with margin; round coordinates so
+  // SVG widths/heights stay clean integers (no float leakage)
   const shiftX = -minX + GRAPH_MARGIN;
   const shiftY = -minY + GRAPH_MARGIN;
   const nodes: LayoutNode[] = [...placed.entries()].map(([id, p]) => ({
     id,
-    x: p.x + shiftX,
-    y: p.y + shiftY,
+    x: Math.round(p.x + shiftX),
+    y: Math.round(p.y + shiftY),
     width: p.width,
     height: p.height,
   }));
@@ -351,12 +352,13 @@ function layoutMindmap(doc: LgdlDocument): LayoutResult {
     for (const child of node.children) {
       const p = placed.get(node.id)!;
       const c = placed.get(child)!;
-      const from = { x: p.x + p.width / 2 + shiftX, y: p.y + p.height / 2 + shiftY };
-      const toBox = { x: c.x + shiftX, y: c.y + shiftY, width: c.width, height: c.height };
+      const from = { x: Math.round(p.x + p.width / 2 + shiftX), y: Math.round(p.y + p.height / 2 + shiftY) };
+      const toBox = { x: Math.round(c.x + shiftX), y: Math.round(c.y + shiftY), width: c.width, height: c.height };
+      const bp = borderPoint(from, toBox);
       edges.push({
         from: node.id,
         to: child,
-        points: [from, borderPoint(from, toBox)],
+        points: [from, { x: Math.round(bp.x), y: Math.round(bp.y) }],
       });
     }
   }
@@ -364,8 +366,8 @@ function layoutMindmap(doc: LgdlDocument): LayoutResult {
   return {
     nodes,
     edges,
-    width: maxX - minX + GRAPH_MARGIN * 2,
-    height: maxY - minY + GRAPH_MARGIN * 2,
+    width: Math.round(maxX - minX + GRAPH_MARGIN * 2),
+    height: Math.round(maxY - minY + GRAPH_MARGIN * 2),
   };
 }
 
@@ -517,18 +519,22 @@ const GANTT_HEADER_H = 40; // time axis header
  */
 function layoutGantt(doc: LgdlDocument): LayoutResult {
   const tasks = doc.nodes;
-  const maxEnd = tasks.reduce((max, t) => {
-    const start = typeof t.attrs?.start === 'number' ? t.attrs.start : 0;
-    const dur = typeof t.attrs?.duration === 'number' ? t.attrs.duration : 1;
-    return Math.max(max, start + dur);
-  }, 1);
+  const startOf = (t: LgdlNode): number => (typeof t.attrs?.start === 'number' ? t.attrs.start : 0);
+  const durOf = (t: LgdlNode): number => (typeof t.attrs?.duration === 'number' ? t.attrs.duration : 1);
+  // normalize negative day offsets (dates before the base) so bars start
+  // at the left edge instead of overlapping the label column
+  const minStart = tasks.reduce((min, t) => Math.min(min, startOf(t)), 0);
+  // maxEnd must track the actual latest bar — an all-negative project (dates
+  // before the epoch) must not blow the canvas up to ~30000px wide
+  let maxEnd = tasks.length > 0 ? startOf(tasks[0]) + durOf(tasks[0]) : 1;
+  for (const t of tasks) maxEnd = Math.max(maxEnd, startOf(t) + durOf(t));
 
-  const width = GRAPH_MARGIN * 2 + GANTT_LABEL_W + maxEnd * GANTT_COL_W;
+  const width = GRAPH_MARGIN * 2 + GANTT_LABEL_W + (maxEnd - minStart) * GANTT_COL_W;
   const height = GRAPH_MARGIN * 2 + GANTT_HEADER_H + tasks.length * GANTT_ROW_H;
 
   const nodes: LayoutNode[] = tasks.map((t, i) => {
-    const start = typeof t.attrs?.start === 'number' ? t.attrs.start : 0;
-    const dur = typeof t.attrs?.duration === 'number' ? t.attrs.duration : 1;
+    const start = startOf(t) - minStart;
+    const dur = durOf(t);
     return {
       id: t.id,
       x: GRAPH_MARGIN + GANTT_LABEL_W + start * GANTT_COL_W,

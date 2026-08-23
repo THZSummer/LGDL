@@ -607,3 +607,212 @@ edges:
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('attrs.cardinality')));
 });
+
+test('misplaced "-" list item (bad indent) is an error, not a swallowed node', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+    label: A
+    - id: c
+      label: C
+  - id: b
+    label: B
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('misplaced "-"')), `issues: ${result.issues.map((i) => i.message).join('; ')}`);
+  // the item must NOT be swallowed as a bogus "- id" field on node a
+  assert.equal(result.document.nodes.length, 2);
+  assert.ok(!Object.keys(result.document.nodes[0]).includes('- id'));
+});
+
+test('misplaced list item at top level is an error', () => {
+  const result = parseLgdl(`type: flowchart
+- id: a
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('misplaced "-"')));
+});
+
+test('unknown node field is an error (typo guard)', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+    lable: A
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('Unknown field "lable"')));
+});
+
+test('unknown edge/group/document field is an error', () => {
+  const r1 = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+    lable: x
+`);
+  assert.equal(r1.valid, false);
+  assert.ok(r1.issues.some((i) => i.message.includes('Unknown field "lable" on edge')));
+
+  const r2 = parseLgdl(`type: flowchart
+groups:
+  - id: g
+    containz: [a]
+`);
+  assert.equal(r2.valid, false);
+  assert.ok(r2.issues.some((i) => i.message.includes('Unknown field "containz" on group')));
+
+  const r3 = parseLgdl(`type: flowchart
+titel: x
+`);
+  assert.equal(r3.valid, false);
+  assert.ok(r3.issues.some((i) => i.message.includes('Unknown document field "titel"')));
+});
+
+test('duplicate edges are an error at parse time', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+  - from: a
+    to: b
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('Duplicate edge')));
+});
+
+test('self-loop edges are an error at parse time', () => {
+  const result = parseLgdl(`type: flowchart
+nodes:
+  - id: a
+edges:
+  - from: a
+    to: a
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('Self-loop')));
+});
+
+test('er member visibility is an error (uml-class only concept)', () => {
+  const er = parseLgdl(`type: er
+nodes:
+  - id: user
+    label: User
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        visibility: private
+`);
+  assert.equal(er.valid, false);
+  assert.ok(er.issues.some((i) => i.message.includes('no visibility concept')));
+
+  // uml-class still allows it
+  const uml = parseLgdl(`type: uml-class
+nodes:
+  - id: user
+    label: User
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        visibility: private
+`);
+  assert.equal(uml.valid, true);
+});
+
+test('duplicate edges with different labels are legal (ER multi-relations)', () => {
+  const result = parseLgdl(`type: er
+nodes:
+  - id: user
+    label: User
+    kind: entity
+  - id: order
+    label: Order
+    kind: entity
+edges:
+  - from: user
+    to: order
+    label: places
+  - from: user
+    to: order
+    label: manages
+`);
+  assert.equal(result.valid, true);
+});
+
+test('UTF-8 BOM is stripped before parsing', () => {
+  const result = parseLgdl('\uFEFFtitle: t\ntype: flowchart\nnodes:\n  - id: a\n');
+  assert.equal(result.valid, true);
+  assert.equal(result.document.title, 't');
+});
+
+test('negative numeric attrs stay numbers (gantt pre-base dates)', () => {
+  const result = parseLgdl(`type: gantt
+nodes:
+  - id: a
+    attrs:
+      start: -365
+      duration: 3
+`);
+  assert.equal(result.document.nodes[0].attrs?.start, -365);
+  assert.equal(result.document.nodes[0].attrs?.duration, 3);
+});
+
+test('inline object attrs parse as objects (documented syntax)', () => {
+  const result = parseLgdl(`type: gantt
+nodes:
+  - id: a
+    label: 任务A
+    attrs: { start: 5, duration: 3 }
+`);
+  assert.equal(result.valid, true);
+  assert.equal(result.document.nodes[0].attrs?.start, 5);
+  assert.equal(result.document.nodes[0].attrs?.duration, 3);
+});
+
+test('numeric/boolean labels stay strings', () => {
+  const result = parseLgdl(`title: 123
+type: flowchart
+nodes:
+  - id: a
+    label: 123
+  - id: b
+    label: true
+`);
+  assert.equal(result.valid, true);
+  assert.equal(result.document.title, '123');
+  assert.equal(result.document.nodes[0].label, '123');
+  assert.equal(result.document.nodes[1].label, 'true');
+});
+
+test('cardinality values are validated (many is rejected)', () => {
+  const result = parseLgdl(`type: er
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+    cardinalityFrom: many
+`);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((i) => i.message.includes('is invalid')));
+  // valid values pass
+  const ok = parseLgdl(`type: er
+nodes:
+  - id: a
+  - id: b
+edges:
+  - from: a
+    to: b
+    cardinalityFrom: "0..1"
+    cardinalityTo: "*"
+`);
+  assert.equal(ok.valid, true);
+});

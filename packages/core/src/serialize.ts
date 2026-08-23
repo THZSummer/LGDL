@@ -6,12 +6,17 @@
  */
 import type { LgdlDocument } from './types.js';
 
-function yamlString(s: string): string {
+function yamlString(s: unknown): string {
+  // never assume the input is a string — a hand-built doc may carry numbers
+  const text = typeof s === 'string' ? s : String(s ?? '');
+  // an empty string must stay addressable ("label: """) instead of
+  // silently collapsing into "no label"
+  if (text === '') return '""';
   // Quote if it contains characters that could break YAML
-  if (/[:#\[\]{},&*!|>'"%@`]|^\s|\s$|^[-\d]|\n/.test(s)) {
-    return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
+  if (/[:#\[\]{},&*!|>'"%@`]|^\s|\s$|^[-\d]|\n/.test(text)) {
+    return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
   }
-  return s;
+  return text;
 }
 
 /** Serialize an attrs object as indented YAML key: value lines. */

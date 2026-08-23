@@ -27,8 +27,11 @@ export const statusCommand: LgdlCommand = {
         console.log('');
         console.log('## edges');
         for (const e of doc.edges) {
-          const cards = e.cardinalityFrom !== undefined || e.cardinalityTo !== undefined ? ` (${e.cardinalityFrom ?? '?'}..${e.cardinalityTo ?? '?'})` : '';
-          console.log(`  ${e.from} -> ${e.to}${e.label ? ` [${e.label}]` : ''}${cards}`);
+          const cards = e.cardinalityFrom !== undefined || e.cardinalityTo !== undefined
+            ? ` (from=${e.cardinalityFrom ?? '?'} -> to=${e.cardinalityTo ?? '?'})`
+            : '';
+          const rel = e.attrs?.relation !== undefined ? ` (relation=${e.attrs.relation})` : '';
+          console.log(`  ${e.from} -> ${e.to}${e.label ? ` [${e.label}]` : ''}${cards}${rel}`);
         }
         if (doc.groups.length > 0) {
           console.log('');

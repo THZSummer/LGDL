@@ -645,7 +645,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
       if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
     }
-    const d = trimmed.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+    const d = trimmed
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`)
+      .join(' ');
     const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
     const edgeIdx = edgeDoc ? doc.edges.indexOf(edgeDoc) : -1;
     const label = edgeDoc?.label;
@@ -983,9 +985,19 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
     const barText = inside
       ? text(node.x + node.width / 2, cy, timeText, 11, '#ffffff')
       : text(node.x + node.width + 6, cy, timeText, 10, '#2563eb', 'start');
-    parts.push(
-      `<g class="lgdl-gantt-bar"${docIdx >= 0 ? ` data-lgdl-loc="nodes[${docIdx}]"` : ''}><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" fill="#3b82f6" opacity="0.85"/>${barText}</g>`,
-    );
+    if (lgdlNode?.kind === 'milestone') {
+      // milestones render as a diamond marker, visually distinct from bars
+      const cx = node.x + node.width / 2;
+      const r = 9;
+      const diamond = `<polygon points="${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}" fill="#8b5cf6" stroke="#7c3aed"/>`;
+      parts.push(
+        `<g class="lgdl-gantt-milestone"${docIdx >= 0 ? ` data-lgdl-loc="nodes[${docIdx}]"` : ''}>${diamond}${barText}</g>`,
+      );
+    } else {
+      parts.push(
+        `<g class="lgdl-gantt-bar"${docIdx >= 0 ? ` data-lgdl-loc="nodes[${docIdx}]"` : ''}><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" fill="#3b82f6" opacity="0.85"/>${barText}</g>`,
+      );
+    }
   }
 
   // time axis header

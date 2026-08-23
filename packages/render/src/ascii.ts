@@ -104,6 +104,27 @@ class Grid {
 const GAP = '\u0001';
 
 /**
+ * Write an edge label into a connector row starting at `col`, stopping at
+ * `width`. CJK chars occupy 2 columns (second column marked GAP) so labels
+ * line up like the box text does.
+ */
+function putLabel(row: string[], start: number, width: number, text: string): void {
+  let col = start;
+  for (const ch of text) {
+    const w = charWidth(ch);
+    if (col + w > width) break;
+    row[col] = ch;
+    if (w === 2 && col + 1 < width) row[col + 1] = GAP;
+    col += w;
+  }
+}
+
+/** Join a connector row, hiding CJK gap markers and trimming trailing spaces. */
+function rowToString(row: string[]): string {
+  return row.map((c) => (c === GAP ? '' : c)).join('').replace(/ +$/, '');
+}
+
+/**
  * Box-drawing helpers. Coordinates are in char-grid units.
  * A box spans [x, x+w) columns and [y, y+h) rows.
  */
@@ -272,6 +293,9 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
 
   // ---- pass 2: compose lines ----
   const lines: string[] = [];
+  // edges that skip one or more ranks are not drawn — count them so the
+  // output can tell the reader the graph is incomplete
+  let skippedCrossLevel = 0;
   // grid-space box of every node box (top = row of its top border)
   const nodeBoxes = new Map<string, { left: number; top: number; width: number; height: number }>();
   for (let ri = 0; ri < ranks.length; ri++) {
@@ -294,6 +318,9 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
     lines.push(botLine);
 
     if (ri < ranks.length - 1) {
+      skippedCrossLevel += doc.edges.filter(
+        (e) => (rankOf.get(e.from) ?? 0) === ri && (rankOf.get(e.to) ?? 0) > ri + 1,
+      ).length;
       const downEdges = doc.edges.filter((e) => (rankOf.get(e.from) ?? 0) === ri && (rankOf.get(e.to) ?? 0) === ri + 1);
       const targetsBySource = new Map<string, string[]>();
       for (const e of downEdges) {
@@ -304,6 +331,11 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
         maxW(lines),
         ...ranks[ri].map((id) => (centerOf.get(id) ?? 0) + 1),
         ...ranks[ri + 1].map((id) => (centerOf.get(id) ?? 0) + 1),
+        // connector rows must be wide enough for the edge labels too —
+        // otherwise labels on single-column chains get truncated
+        ...downEdges.map((e) =>
+          e.label ? (centerOf.get(e.from) ?? 0) + 2 + strWidth(e.label) : 0,
+        ),
       );
       const hasFork = [...targetsBySource.values()].some((ts) => ts.length > 1);
       const hasCrossCol = [...targetsBySource.entries()].some(([f, ts]) =>
@@ -324,13 +356,10 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
         for (const e of downEdges) {
           if (e.label) {
             const fromC = centerOf.get(e.from) ?? 0;
-            const start = fromC + 2;
-            for (let k = 0; k < e.label.length && start + k < width; k++) {
-              conn[start + k] = e.label[k];
-            }
+            putLabel(conn, fromC + 2, width, e.label);
           }
         }
-        lines.push(conn.join('').replace(/ +$/, ''));
+        lines.push(rowToString(conn));
       } else {
         // two rows: row1 = trunks + horizontal branches, row2 = drops + arrows.
         // Handles forks (one source -> many targets) and cross-column edges
@@ -407,24 +436,23 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
             if (tc !== srcC) continue;
             const e = downEdges.find((x) => x.from === fromId && x.to === t);
             if (e && e.label) {
-              const start = srcC + 2;
-              for (let k = 0; k < e.label.length && start + k < width; k++) {
-                row2[start + k] = e.label[k];
-              }
+              putLabel(row2, srcC + 2, width, e.label);
             }
           }
         }
-        lines.push(row2.join('').replace(/ +$/, ''));
+        lines.push(rowToString(row2));
       }
     }
   }
 
   // ---- groups: draw boxes around members (nested groups supported) ----
-  if (doc.groups.length > 0 && nodeBoxes.size > 0) {
-    return overlayGroupBoxes(lines, doc, nodeBoxes);
-  }
-
-  return lines.join('\n');
+  const finalLines = doc.groups.length > 0 && nodeBoxes.size > 0
+    ? overlayGroupBoxes(lines, doc, nodeBoxes)
+    : lines.join('\n');
+  // tell the reader when the topology is incomplete
+  return skippedCrossLevel > 0
+    ? `${finalLines}\n# ${skippedCrossLevel} cross-level edge(s) skipped — use SVG or \`status\` for the full graph`
+    : finalLines;
 
   function padToW(s: string, w: number): string {
     const cur = strWidth(s);

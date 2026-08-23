@@ -51,28 +51,37 @@ function toPlantUml(doc: LgdlDocument): string {
       return;
     }
     if (kind === 'end') {
-      lines.push('stop');
+      // terminals are emitted by their incoming edges (see emitEdge) so a
+      // terminal shared by two decision branches stops each branch
       return;
     }
 
     // decision node -> if/else
     if (kind === 'decision' && edges.length >= 2) {
       lines.push(`if (${pumlLabel(n?.label, id)}) then (${pumlLabel(edges[0].label, 'yes')})`);
-      emit(edges[0].to);
+      emitEdge(edges[0]);
       for (const e of edges.slice(1)) {
         lines.push(`else (${pumlLabel(e.label, 'no')})`);
-        emit(e.to);
+        emitEdge(e);
       }
       lines.push('endif');
       return;
     }
 
-    // plain node
+    // plain node — a linear chain is all activity diagrams express cleanly;
+    // extra outgoing edges are dropped (the CLI already warns about this)
     lines.push(`:${pumlLabel(n?.label, id)};`);
-    for (const e of edges) emitEdge(e);
+    if (edges.length > 0) emitEdge(edges[0]);
   };
 
   const emitEdge = (e: { from: string; to: string; label?: string }) => {
+    // a terminal target gets its own stop on every branch — but a stop that
+    // was just emitted (shared terminal reached twice) must not repeat
+    const target = nodeById.get(e.to);
+    if (target?.kind === 'end') {
+      if (lines[lines.length - 1]?.trim() !== 'stop') lines.push('stop');
+      return;
+    }
     // emit target; the arrow is implied by sequential statements for
     // simple chains. For clarity, emit the target node directly.
     emit(e.to);

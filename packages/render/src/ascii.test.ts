@@ -238,3 +238,37 @@ test('renderAscii draws an aggregate edge between groups with an arrow', () => {
   assert.ok(out.includes('─'), 'horizontal segment');
   assert.ok(out.includes('▶'), 'arrow into g2');
 });
+
+test('renderAscii does not truncate long edge labels on single-column chains', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+      { id: 'c', label: 'C' },
+    ],
+    edges: [
+      { from: 'a', to: 'b', label: '这是一个比较长的边标签' },
+      { from: 'b', to: 'c', label: '下一步' },
+    ],
+    groups: [],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  // the full label text must appear in the connector rows
+  assert.ok(out.includes('这是一个比较长的边标签'), `label truncated:\n${out}`);
+  assert.ok(out.includes('下一步'), `second label missing:\n${out}`);
+});
+
+test('renderAscii aligns full-width (CJK) edge labels correctly', () => {
+  const doc: LgdlDocument = {
+    type: 'flowchart',
+    nodes: [
+      { id: 'a', label: '开始' },
+      { id: 'b', label: '结束' },
+    ],
+    edges: [{ from: 'a', to: 'b', label: '成功通过' }],
+    groups: [],
+  };
+  const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
+  assert.ok(out.includes('成功通过'), `CJK label broken:\n${out}`);
+});
