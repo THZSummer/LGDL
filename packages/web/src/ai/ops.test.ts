@@ -196,3 +196,28 @@ test('executeCommands: lgdl-web-fetch without --path is an error', async () => {
   assert.equal(r.changed, false);
   assert.match(r.error ?? '', /--path/);
 });
+
+test('executeCommands: top-level --help lists commands without touching the doc', async () => {
+  const r = await executeCommands(SRC, 'lgdl-web-cli --help', 'main');
+  assert.ok(r.ok, r.error);
+  assert.equal(r.changed, false);
+  assert.equal(r.source, SRC);
+  assert.ok(r.lines.some((l) => l.includes('lgdl-web-cli ——')));
+  assert.ok(r.lines.some((l) => l.includes('add-node')));
+});
+
+test('executeCommands: <subcommand> --help shows that command usage (no --doc needed)', async () => {
+  const r = await executeCommands(SRC, 'lgdl-web-cli add-node --help', 'main');
+  assert.ok(r.ok, r.error);
+  assert.equal(r.changed, false);
+  assert.ok(r.lines.some((l) => l.includes('add-node ——')));
+  assert.ok(r.lines.some((l) => l.includes('必填 --id')));
+});
+
+test('executeSubcommand: help subcommand returns usage text (function calling entry)', async () => {
+  const r = await executeSubcommand(SRC, 'help', { topic: 'update-edge' }, 'main');
+  assert.ok(r.ok);
+  assert.equal(r.changed, false);
+  assert.ok(r.lines.some((l) => l.includes('update-edge ——')));
+  assert.ok(r.lines.some((l) => l.includes('no change requested')));
+});

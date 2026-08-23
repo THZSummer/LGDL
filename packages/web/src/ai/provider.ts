@@ -246,8 +246,9 @@ export const WEB_OP_TOOL: {
       'preview-zoom (--factor, or --direction + --delta, --anchorX, --anchorY) / preview-pan (--dx, --dy) / preview-reset / ' +
       'preview-click (--loc, e.g. "nodes[3]") / preview-hover (--loc) / switch-example (--id) / list-examples / list-diagram-types / ' +
       'next-actions (--actions = JSON string array of {label, prompt}; shows clickable suggestion chips in the chat, ' +
-      'each chip sends its prompt to the AI when clicked). ' +
+      'each chip sends its prompt to the AI when clicked) / help (--topic to show one operation\'s usage). ' +
       'Effects are identical to manual UI interaction (e.g. preview-click jumps to the element in the editor). ' +
+      'NOT SURE about an operation or its args? Use subcommand "help" with {"topic":"<op>"}. ' +
       'NOTE: there is NO apply-source command — never write LGDL source directly; edit the diagram via lgdl-web-cli incremental commands only.',
     parameters: {
       type: 'object',
@@ -260,6 +261,7 @@ export const WEB_OP_TOOL: {
             'preview-zoom', 'preview-pan', 'preview-reset', 'preview-click', 'preview-hover',
             'switch-example', 'list-examples', 'list-diagram-types',
             'next-actions',
+            'help',
           ],
         },
         args: {
@@ -290,11 +292,11 @@ export const WEB_CLI_TOOL: {
     name: 'lgdl-web-cli',
     description:
       'Execute an lgdl-web-cli command on the current editor document. ' +
-      'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types. ' +
+      'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / help. ' +
       '--doc is implied (always the current document). Args use --key value style, e.g. lgdl-web-cli add-node --id user --label 用户 ' +
       '(JSON: {"subcommand":"add-node","args":{"id":"user","label":"用户"}}). ' +
-      'Read the usage guide first with the lgdl-web-fetch tool: lgdl-web-fetch --path lgdl/web/workbench/README-CLI.md ' +
-      '(--path is REQUIRED, has no default — omitting it fails).',
+      'NOT SURE about a command or its args? Use subcommand "help" with {"topic":"<cmd>"} — e.g. {"subcommand":"help","args":{"topic":"add-node"}} ' +
+      '(CLI equivalent: lgdl-web-cli add-node --help; top-level: lgdl-web-cli --help). Do not guess.',
     parameters: {
       type: 'object',
       properties: {
@@ -307,11 +309,12 @@ export const WEB_CLI_TOOL: {
             'add-group', 'remove-group', 'update-group',
             'doc-info', 'get-node', 'get-edge', 'find-node',
             'list-node-kinds', 'list-diagram-types',
+            'help',
           ],
         },
         args: {
           type: 'object',
-          description: 'Command arguments as --key value pairs (keys without the leading dashes, e.g. --id x --label 用户).',
+          description: 'Command arguments as --key value pairs (keys without the leading dashes, e.g. --id x --label 用户); help subcommand takes {"topic":"<cmd>"} to show a single command\'s usage.',
           additionalProperties: true,
         },
       },

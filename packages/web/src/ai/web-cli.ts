@@ -28,6 +28,8 @@ export type ParsedCommand =
   | { kind: 'convert'; docId: string; to: string }
   /** 只读命令（doc-info / get-node / get-edge / find-node / list-*） */
   | { kind: 'query'; docId: string; command: string; args: Record<string, string> }
+  /** --help 请求（topic 为空 = 顶层帮助，列出全部子命令） */
+  | { kind: 'help'; topic: string }
   | { kind: 'error'; message: string };
 
 /** 命令行文本 → 结构化操作（或 status / validate / init / convert / 错误）。 */
@@ -47,10 +49,21 @@ export function parseWebCliCommand(line: string): ParsedCommand {
     };
   }
   const cmd = tokens[1];
-  if (!cmd) {
-    return { kind: 'error', message: '缺少子命令（如 add-node / status / validate / init / convert）' };
-  }
   const args = tokens.slice(2);
+
+  // --help 优先级最高（clig.dev：加在任何命令末尾都显示帮助，忽略其他参数/校验）：
+  //   lgdl-web-cli --help            → 顶层帮助
+  //   lgdl-web-cli help [<子命令>]   → 顶层/单命令帮助（git 风格别名）
+  //   lgdl-web-cli <子命令> --help   → 该子命令自己的帮助（无需 --doc）
+  if (!cmd || cmd === '--help' || cmd === 'help' || args.includes('--help')) {
+    const topic =
+      cmd === 'help'
+        ? (args.find((a) => !a.startsWith('--')) ?? '')
+        : cmd === '--help' || !cmd
+          ? ''
+          : cmd;
+    return { kind: 'help', topic };
+  }
 
   // 统一提取 --doc <id>（顶层必填参数，所有子命令都要求——lgdl-web-cli 的
   // 操作对象标识，对应 lgdl-cli 的 --file）
@@ -61,7 +74,7 @@ export function parseWebCliCommand(line: string): ParsedCommand {
     if (v !== undefined && !v.startsWith('--')) docId = v;
   }
   if (!docId) {
-    return { kind: 'error', message: `缺少必填参数 --doc <id>（${cmd}：lgdl-web-cli 操作对象标识，对应 lgdl-cli 的 --file）` };
+    return { kind: 'error', message: `缺少必填参数 --doc <id>（${cmd}：lgdl-web-cli 操作对象标识，对应 lgdl-cli 的 --file；不确定用法可用 lgdl-web-cli ${cmd} --help）` };
   }
   // 从 args 中剔除 --doc <id>，其余传给子命令
   const rest = docIdx !== -1 ? [...args.slice(0, docIdx), ...args.slice(docIdx + 2)] : args;
@@ -206,6 +219,9 @@ export interface ParsedBatch {
   /** 命令中出现的 convert 请求（AI 导出为其他格式）。 */
   wantsConvert: boolean;
   convertTo?: string;
+  /** 命令中出现的 --help 请求（lgdl-web-cli [<子命令>] --help / help [<子命令>]）。 */
+  wantsHelp: boolean;
+  helpTopic: string;
   /** 解析失败的命令（索引 + 错误），batch 在其前停止。 */
   errors: { index: number; line: string; message: string }[];
 }
@@ -221,6 +237,8 @@ export function parseWebCliBatch(text: string): ParsedBatch {
   let initType: string | undefined;
   let wantsConvert = false;
   let convertTo: string | undefined;
+  let wantsHelp = false;
+  let helpTopic = '';
 
   const checkDoc = (parsedDocId: string, i: number, line: string): boolean => {
     if (docId === null) {
@@ -255,6 +273,10 @@ export function parseWebCliBatch(text: string): ParsedBatch {
     } else if (parsed.kind === 'query') {
       // 只读命令：只校验 --doc 一致，不产生 op、不中断（执行交给 executeCommands 逐行委托）。
       if (!checkDoc(parsed.docId, i, lines[i])) break;
+    } else if (parsed.kind === 'help') {
+      // --help：无 doc 概念（不参与 doc 一致性），记录 topic，不中断。
+      wantsHelp = true;
+      helpTopic = parsed.topic;
     } else if (parsed.kind === 'op') {
       if (checkDoc(parsed.docId, i, lines[i])) ops.push(parsed.op);
       else break;
@@ -263,7 +285,7 @@ export function parseWebCliBatch(text: string): ParsedBatch {
       break; // 失败即停（与 applyOperations 一致）
     }
   }
-  return { docId, ops, wantsStatus, wantsValidate, wantsInit, initType, wantsConvert, convertTo, errors };
+  return { docId, ops, wantsStatus, wantsValidate, wantsInit, initType, wantsConvert, convertTo, wantsHelp, helpTopic, errors };
 }
 
 /**
@@ -272,7 +294,10 @@ export function parseWebCliBatch(text: string): ParsedBatch {
  * 是一个平台级能力：获取同源相对路径或完整 URL 的原始文本。
  * 文本格式：`lgdl-web-fetch --path <path>`（如 lgdl/web/workbench/README-CLI.md）。
  */
-export type ParsedWebFetch = { ok: true; path: string } | { ok: false; error: string };
+export type ParsedWebFetch =
+  | { ok: true; kind: 'fetch'; path: string }
+  | { ok: true; kind: 'help' }
+  | { ok: false; error: string };
 
 export function parseWebFetchCommand(line: string): ParsedWebFetch {
   const tokens = tokenizeCli(line);
@@ -285,13 +310,17 @@ export function parseWebFetchCommand(line: string): ParsedWebFetch {
       error: `缺少前缀 "lgdl-web-fetch"（独立基础工具：lgdl-web-fetch --path <path>，如 lgdl/web/workbench/README-CLI.md）`,
     };
   }
+  // --help 优先级最高：显示用法，无需 --path
+  if (tokens.includes('--help')) {
+    return { ok: true, kind: 'help' };
+  }
   try {
     const args = parseArgs(tokens.slice(1));
     const path = args.path;
     if (!path) {
-      return { ok: false, error: '缺少必填参数 --path <path>（lgdl-web-fetch 必须显式传 path，无默认文档；如 --path lgdl/web/workbench/README-CLI.md）' };
+      return { ok: false, error: '缺少必填参数 --path <path>（lgdl-web-fetch 必须显式传 path，无默认文档；如 --path lgdl/web/workbench/README-CLI.md；--help 查看用法）' };
     }
-    return { ok: true, path };
+    return { ok: true, kind: 'fetch', path };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }

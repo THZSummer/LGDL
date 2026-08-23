@@ -112,11 +112,11 @@ test('parseWebCliBatch: query commands pass through without stopping the batch',
 
 test('parseWebFetchCommand: parses lgdl-web-fetch --path', () => {
   const r = parseWebFetchCommand('lgdl-web-fetch --path lgdl/web/workbench/README-CLI.md');
-  assert.deepEqual(r, { ok: true, path: 'lgdl/web/workbench/README-CLI.md' });
+  assert.deepEqual(r, { ok: true, kind: 'fetch', path: 'lgdl/web/workbench/README-CLI.md' });
   const quoted = parseWebFetchCommand('lgdl-web-fetch --path "lgdl/web/workbench/README-CLI.md"');
-  assert.deepEqual(quoted, { ok: true, path: 'lgdl/web/workbench/README-CLI.md' });
+  assert.deepEqual(quoted, { ok: true, kind: 'fetch', path: 'lgdl/web/workbench/README-CLI.md' });
   const url = parseWebFetchCommand('lgdl-web-fetch --path https://example.com/doc.md');
-  assert.deepEqual(url, { ok: true, path: 'https://example.com/doc.md' });
+  assert.deepEqual(url, { ok: true, kind: 'fetch', path: 'https://example.com/doc.md' });
 });
 
 test('parseWebFetchCommand: rejects missing prefix / missing --path', () => {
@@ -126,6 +126,39 @@ test('parseWebFetchCommand: rejects missing prefix / missing --path', () => {
   const noPath = parseWebFetchCommand('lgdl-web-fetch');
   assert.equal(noPath.ok, false);
   if (noPath.ok === false) assert.match(noPath.error, /--path/);
+});
+
+test('parseWebFetchCommand: --help returns help without --path', () => {
+  const r = parseWebFetchCommand('lgdl-web-fetch --help');
+  assert.equal(r.ok, true);
+  if (r.ok === true) assert.equal(r.kind, 'help');
+});
+
+test('parseWebCliCommand: top-level --help needs no --doc', () => {
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli --help'), { kind: 'help', topic: '' });
+});
+
+test('parseWebCliCommand: no subcommand shows top-level help', () => {
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli'), { kind: 'help', topic: '' });
+});
+
+test('parseWebCliCommand: help subcommand alias (git style)', () => {
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli help'), { kind: 'help', topic: '' });
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli help add-node'), { kind: 'help', topic: 'add-node' });
+});
+
+test('parseWebCliCommand: <subcommand> --help wins over missing --doc and missing args', () => {
+  // clig.dev：--help 优先级最高，加在末尾忽略其他校验
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli add-node --help'), { kind: 'help', topic: 'add-node' });
+  assert.deepEqual(parseWebCliCommand('lgdl-web-cli add-node --doc main --help'), { kind: 'help', topic: 'add-node' });
+});
+
+test('parseWebCliBatch: --help passes through without stopping the batch', () => {
+  const r = parseWebCliBatch('lgdl-web-cli status --doc main\nlgdl-web-cli add-node --help\nlgdl-web-cli add-node --doc main --id a --label A');
+  assert.equal(r.errors.length, 0);
+  assert.equal(r.wantsHelp, true);
+  assert.equal(r.helpTopic, 'add-node');
+  assert.equal(r.ops.length, 1);
 });
 
 test('parseWebCliCommand: missing --doc is an error (web-cli requires it)', () => {

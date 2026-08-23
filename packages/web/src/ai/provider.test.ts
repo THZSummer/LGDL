@@ -232,12 +232,14 @@ test('WEB_CLI_TOOL: exposes lgdl-web-cli function schema', () => {
   const enumList = (props.subcommand as { enum: string[] }).enum;
   assert.ok(!enumList.includes('fetch-doc'));
   assert.ok(enumList.includes('list-diagram-types'));
+  assert.ok(enumList.includes('help'));
 });
 
-test('WEB_OP_TOOL: exposes lgdl-web-op-cli with next-actions', () => {
+test('WEB_OP_TOOL: exposes lgdl-web-op-cli with next-actions and help', () => {
   const props = (WEB_OP_TOOL.function.parameters.properties as Record<string, unknown>).subcommand as { enum: string[] };
   assert.ok(props.enum.includes('preview-zoom'));
   assert.ok(props.enum.includes('next-actions'));
+  assert.ok(props.enum.includes('help'));
 });
 
 test('WEB_FETCH_TOOL: exposes lgdl-web-fetch as an independent base tool', () => {

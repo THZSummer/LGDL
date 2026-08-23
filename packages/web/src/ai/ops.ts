@@ -29,6 +29,7 @@ import {
   type LgdlOperation,
 } from '@lgdl/core';
 import { parseWebCliBatch, parseWebFetchCommand } from './web-cli.js';
+import { webCliHelp, webOpHelp, webFetchHelp } from './help.js';
 
 /** lgdl-web-cli 协议块标记（手动输入兼容）。 */
 export const WEB_CLI_FENCE = 'lgdl-web-cli';
@@ -88,6 +89,13 @@ export async function executeSubcommand(
   const lines: string[] = [];
   let current = source;
   let changed = false;
+
+  // help：查询命令用法（function calling 入口；等价于文本 `lgdl-web-cli help [<子命令>]`）。
+  // 参数 topic 指定子命令；空 = 顶层帮助。--help 优先级最高，不做任何校验。
+  if (subcommand === 'help' || subcommand === '--help') {
+    lines.push(webCliHelp(args.topic ?? ''));
+    return { ok: true, source: current, lines, changed };
+  }
 
   // 只读命令（不改文档）——读多写少：AI 应先用这些了解图，再写。
   // 业务逻辑在 core/queries.ts 单一实现（lgdl-cli 与 lgdl-web-cli 共享）。
@@ -275,6 +283,10 @@ export async function executeCommands(
           error: parsed.error,
         };
       }
+      if (parsed.kind === 'help') {
+        lines.push(webFetchHelp());
+        continue;
+      }
       const r = await executeWebFetch(parsed.path);
       lines.push(...r.lines);
       if (!r.ok) {
@@ -291,6 +303,11 @@ export async function executeCommands(
         changed,
         error: parsedLine.errors[0].message,
       };
+    }
+    // --help（clig.dev：优先级最高，任何位置出现即显示帮助，不校验 doc）
+    if (parsedLine.wantsHelp) {
+      lines.push(webCliHelp(parsedLine.helpTopic || undefined));
+      continue;
     }
     if (docId !== undefined && parsedLine.docId !== null && parsedLine.docId !== docId) {
       return {
@@ -338,10 +355,14 @@ export function describeCommandLine(line: string): string {
   if (line.startsWith('lgdl-web-fetch')) {
     const parsed = parseWebFetchCommand(line);
     if (parsed.ok === false) return `✖ ${parsed.error}`;
+    if (parsed.kind === 'help') return 'lgdl-web-fetch --help — 查看用法';
     return `lgdl-web-fetch --path ${parsed.path} — 获取 web 资源`;
   }
   const parsed = parseWebCliBatch(line);
   if (parsed.errors.length > 0) return `✖ ${parsed.errors[0].message}`;
+  if (parsed.wantsHelp) {
+    return parsed.helpTopic ? `lgdl-web-cli ${parsed.helpTopic} --help — 命令用法` : 'lgdl-web-cli --help — 全部命令';
+  }
   const sub = extractSingleSubcommand(line);
   if (!sub) return line;
   if (sub.subcommand === 'status') return 'lgdl-web-cli status — 查看当前图结构';

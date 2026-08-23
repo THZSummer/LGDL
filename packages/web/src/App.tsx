@@ -17,6 +17,7 @@ import { EXAMPLES, type Example } from './examples';
 import { AiPanel } from './ai/AiPanel';
 import { SettingsPanel } from './ai/SettingsPanel';
 import { loadSettings, saveSettings, type ProviderSettings } from './ai/provider';
+import { webOpHelp } from './ai/help';
 import webPkg from '../package.json';
 import './app.css';
 
@@ -1014,6 +1015,10 @@ export function App(): React.JSX.Element {
       case 'next-actions':
         // 正常流程由聊天面板（AiPanel）拦截处理（胶囊卡片），此处仅防御兜底
         return '✖ next-actions 由聊天面板处理（推荐动作以胶囊卡片展示），此处不执行';
+      case 'help': {
+        // --help 自文档：查看 UI 操作用法（topic 空 = 顶层）
+        return webOpHelp(args.topic);
+      }
       default:
         return `✖ 未知操作 "${subcommand}"`;
     }
