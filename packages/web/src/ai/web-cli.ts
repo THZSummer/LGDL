@@ -5,14 +5,16 @@
  *   - lgdl-cli：commander 解析，--file <path> 操作磁盘文件，只用 @lgdl/core
  *   - lgdl-web-cli（本文件）：--doc <id> 操作编辑器文档，只被 Web 工作台使用
  *
- * 两者共享 @lgdl/core 的同一套命令语义（applyOperation/applyOperations），
+ * 两者共享 @lgdl/core 的命令定义注册表（core/commands.ts：参数校验、op 构造、
+ * attrs/member 解析）与执行层（applyOperation/applyOperations），
  * 但对象参数、I/O 后端、交互形态不同，互不解析对方的参数格式。
  *
  * 子命令：add-node / remove-node / update-node / add-edge / remove-edge /
  * update-edge / add-group / remove-group / update-group / status / validate
  * / init / convert
  */
-import type { LgdlOperation, LgdlMember } from '@lgdl/core';
+import { buildOperation } from '@lgdl/core';
+import type { LgdlOperation } from '@lgdl/core';
 
 export type ParsedCommand =
   | { kind: 'op'; docId: string; op: LgdlOperation }
@@ -69,24 +71,42 @@ export function parseWebCliCommand(line: string): ParsedCommand {
         }
         return { kind: 'convert', docId, to };
       }
-      case 'add-node':
-        return { kind: 'op', docId, op: parseAddNode(rest) };
-      case 'remove-node':
-        return { kind: 'op', docId, op: parseRemoveNode(rest) };
-      case 'update-node':
-        return { kind: 'op', docId, op: parseUpdateNode(rest) };
-      case 'add-edge':
-        return { kind: 'op', docId, op: parseAddEdge(rest) };
-      case 'remove-edge':
-        return { kind: 'op', docId, op: parseRemoveEdge(rest) };
-      case 'update-edge':
-        return { kind: 'op', docId, op: parseUpdateEdge(rest) };
-      case 'add-group':
-        return { kind: 'op', docId, op: parseAddGroup(rest) };
-      case 'remove-group':
-        return { kind: 'op', docId, op: parseRemoveGroup(rest) };
-      case 'update-group':
-        return { kind: 'op', docId, op: parseUpdateGroup(rest) };
+      case 'add-node': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('add-node', a) };
+        }
+      case 'remove-node': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('remove-node', a) };
+        }
+      case 'update-node': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('update-node', a) };
+        }
+      case 'add-edge': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('add-edge', a) };
+        }
+      case 'remove-edge': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('remove-edge', a) };
+        }
+      case 'update-edge': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('update-edge', a) };
+        }
+      case 'add-group': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('add-group', a) };
+        }
+      case 'remove-group': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('remove-group', a) };
+        }
+      case 'update-group': {
+          const a = parseArgs(rest);
+          return { kind: 'op', docId, op: buildOperation('update-group', a) };
+        }
       default:
         return {
           kind: 'error',
@@ -148,187 +168,6 @@ function required(args: Record<string, string>, key: string, cmd: string): strin
 }
 
 /** --attrs key=value 可重复（--attrs 后跟一个 key=value，多个用多次 --attrs）。 */
-function parseAttrsFromArgs(args: Record<string, string>): Record<string, unknown> | undefined {
-  if (args.attrs === undefined) return undefined;
-  const attrs: Record<string, unknown> = {};
-  for (const pair of args.attrs.split(',')) {
-    const eq = pair.indexOf('=');
-    if (eq === -1) throw new Error(`无效 --attrs "${pair}"（期望 key=value）`);
-    const k = pair.slice(0, eq).trim();
-    let v: string | number | boolean = pair.slice(eq + 1).trim();
-    if (v === 'true') v = true;
-    else if (v === 'false') v = false;
-    else if (/^-?\d+$/.test(String(v))) v = parseInt(String(v), 10);
-    else if (/^-?\d+\.\d+$/.test(String(v))) v = parseFloat(String(v));
-    else if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
-    attrs[k] = v;
-  }
-  return attrs;
-}
-
-function parseAddNode(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  return {
-    op: 'add-node',
-    id: required(a, 'id', 'add-node'),
-    label: a.label,
-    kind: a.kind as never,
-    group: a.group,
-    attrs: parseAttrsFromArgs(a),
-  };
-}
-
-function parseRemoveNode(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  return { op: 'remove-node', id: required(a, 'id', 'remove-node') };
-}
-
-function parseUpdateNode(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  if (
-    a['new-id'] === undefined &&
-    a.label === undefined &&
-    a.kind === undefined &&
-    a['member-add'] === undefined &&
-    a['member-remove'] === undefined &&
-    a.attrs === undefined
-  ) {
-    throw new Error('no change requested — 至少传一个：--new-id / --label / --kind / --member-add / --member-remove / --attrs');
-  }
-  return {
-    op: 'update-node',
-    id: required(a, 'id', 'update-node'),
-    newId: a['new-id'],
-    label: a.label,
-    kind: a.kind as never,
-    memberAdd: a['member-add'] ? parseMember(a['member-add']) : undefined,
-    memberRemove: a['member-remove'],
-    attrs: parseAttrsFromArgs(a),
-  };
-}
-
-function parseAddEdge(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  return {
-    op: 'add-edge',
-    from: required(a, 'from', 'add-edge'),
-    to: required(a, 'to', 'add-edge'),
-    label: a.label,
-    cardinalityFrom: a['cardinality-from'],
-    cardinalityTo: a['cardinality-to'],
-    attrs: parseAttrsFromArgs(a),
-  };
-}
-
-function parseRemoveEdge(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  return {
-    op: 'remove-edge',
-    from: required(a, 'from', 'remove-edge'),
-    to: required(a, 'to', 'remove-edge'),
-    label: a['edge-label'] ?? a.label,
-  };
-}
-
-function parseUpdateEdge(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  if (
-    a['edge-label'] === undefined &&
-    a['new-from'] === undefined &&
-    a['new-to'] === undefined &&
-    a.label === undefined &&
-    a['cardinality-from'] === undefined &&
-    a['cardinality-to'] === undefined &&
-    a.attrs === undefined
-  ) {
-    throw new Error('no change requested — 至少传一个：--edge-label / --new-from / --new-to / --label / --cardinality-from / --cardinality-to / --attrs');
-  }
-  return {
-    op: 'update-edge',
-    from: required(a, 'from', 'update-edge'),
-    to: required(a, 'to', 'update-edge'),
-    fromLabel: a['edge-label'],
-    newFrom: a['new-from'],
-    newTo: a['new-to'],
-    label: a.label,
-    cardinalityFrom: a['cardinality-from'],
-    cardinalityTo: a['cardinality-to'],
-    attrs: parseAttrsFromArgs(a),
-  };
-}
-
-function parseAddGroup(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  return {
-    op: 'add-group',
-    id: required(a, 'id', 'add-group'),
-    label: a.label,
-    contains: a.contains?.split(',').map((s) => s.trim()).filter(Boolean),
-  };
-}
-
-function parseRemoveGroup(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  return { op: 'remove-group', id: required(a, 'id', 'remove-group') };
-}
-
-function parseUpdateGroup(args: string[]): LgdlOperation {
-  const a = parseArgs(args);
-  if (
-    a['new-id'] === undefined &&
-    a.label === undefined &&
-    a['member-add'] === undefined &&
-    a['member-remove'] === undefined &&
-    a.attrs === undefined
-  ) {
-    throw new Error('no change requested — 至少传一个：--new-id / --label / --member-add / --member-remove / --attrs');
-  }
-  return {
-    op: 'update-group',
-    id: required(a, 'id', 'update-group'),
-    newId: a['new-id'],
-    label: a.label,
-    memberAdd: a['member-add'],
-    memberRemove: a['member-remove'],
-    attrs: parseAttrsFromArgs(a),
-  };
-}
-
-/** 解析 member 规格（kind=..,name=..[,visibility=..][,type=..][,params=..]）。 */
-function parseMember(raw: string): LgdlMember {
-  const fields: Record<string, string> = {};
-  let current = '';
-  let inQuote = false;
-  for (const ch of raw) {
-    if (ch === '"') inQuote = !inQuote;
-    if (ch === ',' && !inQuote) {
-      const part = current.trim();
-      if (part) {
-        const eq = part.indexOf('=');
-        if (eq === -1) throw new Error(`无效 member 字段 "${part}"（期望 key=value）`);
-        fields[part.slice(0, eq).trim()] = part.slice(eq + 1).trim().replace(/^"(.*)"$/, '$1');
-      }
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-  if (current.trim()) {
-    const part = current.trim();
-    const eq = part.indexOf('=');
-    if (eq === -1) throw new Error(`无效 member 字段 "${part}"（期望 key=value）`);
-    fields[part.slice(0, eq).trim()] = part.slice(eq + 1).trim().replace(/^"(.*)"$/, '$1');
-  }
-  if (!fields.kind || !fields.name) {
-    throw new Error(`member 需要至少 kind= 和 name=（got "${raw}"）`);
-  }
-  const member: LgdlMember = { kind: fields.kind as LgdlMember['kind'], name: fields.name };
-  if (fields.visibility) member.visibility = fields.visibility as LgdlMember['visibility'];
-  if (fields.type !== undefined) member.type = fields.type;
-  if (fields.params !== undefined) member.params = fields.params;
-  return member;
-}
-
 /** 供 Web 端批量执行：把命令文本（可多行）解析为 ops + 标记。 */
 export interface ParsedBatch {
   /** 这批命令统一操作的文档 id（--doc）；空表示解析失败前未取到。 */

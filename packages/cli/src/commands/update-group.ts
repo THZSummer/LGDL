@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
-import { mutate, parseAttrs, collect } from '../shared.js';
-import { applyOperation } from '@lgdl/core';
+import { mutate, collect } from '../shared.js';
+import { applyOperation, buildOperation } from '@lgdl/core';
 
 export const updateGroupCommand: LgdlCommand = {
   name: 'update-group',
@@ -18,27 +18,17 @@ export const updateGroupCommand: LgdlCommand = {
       .option('--member-remove <id>', 'remove a member by id')
       .option('--attrs <key=value>', 'extension attribute (repeatable, merged)', collect)
       .action((opts: { file: string; id: string; newId?: string; label?: string; memberAdd?: string; memberRemove?: string; attrs?: string[] }) => {
-        if (
-          opts.newId === undefined &&
-          opts.label === undefined &&
-          opts.memberAdd === undefined &&
-          opts.memberRemove === undefined &&
-          opts.attrs === undefined
-        ) {
-          console.error('✖ no change requested — pass at least one of --new-id, --label, --member-add, --member-remove, --attrs');
-          process.exit(1);
-        }
-        mutate(opts.file, (doc) =>
-          applyOperation(doc, {
-            op: 'update-group',
+        mutate(opts.file, (doc) => {
+          const op = buildOperation('update-group', {
             id: opts.id,
-            newId: opts.newId,
+            'new-id': opts.newId,
             label: opts.label,
-            memberAdd: opts.memberAdd,
-            memberRemove: opts.memberRemove,
-            attrs: parseAttrs(opts.attrs),
-          }),
-        );
+            'member-add': opts.memberAdd,
+            'member-remove': opts.memberRemove,
+            attrs: opts.attrs?.join(','),
+          });
+          return applyOperation(doc, op);
+        });
       });
   },
 };

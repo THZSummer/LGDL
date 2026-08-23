@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
-import { mutate, parseAttrs, collect } from '../shared.js';
-import { applyOperation } from '@lgdl/core';
+import { mutate, collect } from '../shared.js';
+import { applyOperation, buildOperation } from '@lgdl/core';
 
 export const updateEdgeCommand: LgdlCommand = {
   name: 'update-edge',
@@ -21,31 +21,20 @@ export const updateEdgeCommand: LgdlCommand = {
       .option('--cardinality-to <v>', 'new multiplicity at the target end')
       .option('--attrs <key=value>', 'extension attribute (repeatable, merged)', collect)
       .action((opts: { file: string; from: string; to: string; edgeLabel?: string; newFrom?: string; newTo?: string; label?: string; cardinalityFrom?: string; cardinalityTo?: string; attrs?: string[] }) => {
-        if (
-          opts.newFrom === undefined &&
-          opts.newTo === undefined &&
-          opts.label === undefined &&
-          opts.cardinalityFrom === undefined &&
-          opts.cardinalityTo === undefined &&
-          opts.attrs === undefined
-        ) {
-          console.error('✖ no change requested — pass at least one of --new-from, --new-to, --label, --cardinality-from, --cardinality-to, --attrs');
-          process.exit(1);
-        }
-        mutate(opts.file, (doc) =>
-          applyOperation(doc, {
-            op: 'update-edge',
+        mutate(opts.file, (doc) => {
+          const op = buildOperation('update-edge', {
             from: opts.from,
             to: opts.to,
-            fromLabel: opts.edgeLabel,
-            newFrom: opts.newFrom,
-            newTo: opts.newTo,
+            'edge-label': opts.edgeLabel,
+            'new-from': opts.newFrom,
+            'new-to': opts.newTo,
             label: opts.label,
-            cardinalityFrom: opts.cardinalityFrom,
-            cardinalityTo: opts.cardinalityTo,
-            attrs: parseAttrs(opts.attrs),
-          }),
-        );
+            'cardinality-from': opts.cardinalityFrom,
+            'cardinality-to': opts.cardinalityTo,
+            attrs: opts.attrs?.join(','),
+          });
+          return applyOperation(doc, op);
+        });
       });
   },
 };

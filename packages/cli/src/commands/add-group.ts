@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
-import { mutate, parseIdList } from '../shared.js';
-import { applyOperation } from '@lgdl/core';
+import { mutate } from '../shared.js';
+import { applyOperation, buildOperation } from '@lgdl/core';
 
 export const addGroupCommand: LgdlCommand = {
   name: 'add-group',
@@ -15,9 +15,10 @@ export const addGroupCommand: LgdlCommand = {
       .option('--label <label>', 'group label')
       .option('--contains <ids>', 'comma-separated member ids (node ids and/or nested group ids)')
       .action((opts: { file: string; id: string; label?: string; contains?: string }) => {
-        mutate(opts.file, (doc) =>
-          applyOperation(doc, { op: 'add-group', id: opts.id, label: opts.label, contains: parseIdList(opts.contains) }),
-        );
+        mutate(opts.file, (doc) => {
+          const op = buildOperation('add-group', { id: opts.id, label: opts.label, contains: opts.contains });
+          return applyOperation(doc, op);
+        });
       });
   },
 };

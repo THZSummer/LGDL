@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
-import { mutate, parseAttrs, parseMember, collect } from '../shared.js';
-import { applyOperation } from '@lgdl/core';
+import { mutate, collect } from '../shared.js';
+import { applyOperation, buildOperation } from '@lgdl/core';
 
 export const addNodeCommand: LgdlCommand = {
   name: 'add-node',
@@ -19,31 +19,23 @@ export const addNodeCommand: LgdlCommand = {
       .option('--attrs <key=value>', 'extension attribute (repeatable, e.g. --attrs start=0 --attrs duration=3)', collect)
       .action((opts: { file: string; id: string; label?: string; kind?: string; group?: string; member?: string[]; attrs?: string[] }) => {
         mutate(opts.file, (doc) => {
-          // default the kind to the diagram type's semantic role so an ER
-          // node is an entity, a state node is a state, etc.
-          const kind =
-            opts.kind ??
-            (doc.type === 'er' || doc.type === 'uml-class'
-              ? 'entity'
-              : doc.type === 'state'
-                ? 'state'
-                : 'process');
           if (doc.type === 'gantt') {
-            const attrs = parseAttrs(opts.attrs) ?? {};
-            if (typeof attrs.start !== 'number' || typeof attrs.duration !== 'number') {
+            const hasStart = opts.attrs?.some((a) => a.startsWith('start='));
+            const hasDuration = opts.attrs?.some((a) => a.startsWith('duration='));
+            if (!hasStart || !hasDuration) {
               const epoch = typeof doc.meta?.ganttEpoch === 'string' ? doc.meta.ganttEpoch : '2026-01-01';
               console.error(`⚠ gantt node "${opts.id}" lacks start/duration — day 0 = ${epoch}, it will render as a placeholder at day 0/1d`);
             }
           }
-          return applyOperation(doc, {
-            op: 'add-node',
+          const op = buildOperation('add-node', {
             id: opts.id,
             label: opts.label,
-            kind: kind as never,
+            kind: opts.kind,
             group: opts.group,
-            members: opts.member?.map(parseMember),
-            attrs: parseAttrs(opts.attrs),
-          });
+            member: opts.member?.join('\n'),
+            attrs: opts.attrs?.join(','),
+          }, doc.type);
+          return applyOperation(doc, op);
         });
       });
   },

@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
-import { mutate, parseAttrs, collect } from '../shared.js';
-import { applyOperation } from '@lgdl/core';
+import { mutate, collect } from '../shared.js';
+import { applyOperation, buildOperation } from '@lgdl/core';
 
 export const addEdgeCommand: LgdlCommand = {
   name: 'add-edge',
@@ -18,17 +18,17 @@ export const addEdgeCommand: LgdlCommand = {
       .option('--cardinality-to <v>', 'multiplicity at the target end (e.g. "1", "*", "0..*")')
       .option('--attrs <key=value>', 'extension attribute (repeatable)', collect)
       .action((opts: { file: string; from: string; to: string; label?: string; cardinalityFrom?: string; cardinalityTo?: string; attrs?: string[] }) => {
-        mutate(opts.file, (doc) =>
-          applyOperation(doc, {
-            op: 'add-edge',
+        mutate(opts.file, (doc) => {
+          const op = buildOperation('add-edge', {
             from: opts.from,
             to: opts.to,
             label: opts.label,
-            cardinalityFrom: opts.cardinalityFrom,
-            cardinalityTo: opts.cardinalityTo,
-            attrs: parseAttrs(opts.attrs),
-          }),
-        );
+            'cardinality-from': opts.cardinalityFrom,
+            'cardinality-to': opts.cardinalityTo,
+            attrs: opts.attrs?.join(','),
+          });
+          return applyOperation(doc, op);
+        });
       });
   },
 };
