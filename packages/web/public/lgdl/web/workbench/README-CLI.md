@@ -7,9 +7,9 @@
 
 | 工具 | 用途 |
 |---|---|
-| `lgdl-web-fetch` | **基础 web 获取**，不属于任何 CLI：`{ path }`，获取文档/网页原文。**path 必填、无默认值**，读本指南必须显式传：`{"path": "lgdl/web/workbench/README-CLI.md"}` |
-| `lgdl-web-cli` | 图内容操作：`{ subcommand, args }`，增删改查当前文档的图 |
-| `lgdl-web-op-cli` | UI 操作：`{ subcommand, args }`，复制/导出/缩放/定位等界面动作 |
+| `lgdl-web-fetch` | **基础 web 获取**，不属于任何 CLI。**--path 必填、无默认值**，读本指南必须显式传：`lgdl-web-fetch --path lgdl/web/workbench/README-CLI.md` |
+| `lgdl-web-cli` | 图内容操作：`lgdl-web-cli <子命令> --key value ...`，增删改查当前文档的图 |
+| `lgdl-web-op-cli` | UI 操作：`lgdl-web-op-cli <子命令> --key value ...`，复制/导出/缩放/定位等界面动作 |
 
 ## 工作方式：读多写少
 

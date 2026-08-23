@@ -243,9 +243,9 @@ export const WEB_OP_TOOL: {
     description:
       'Perform a UI operation on the web workbench, equivalent to the user clicking the button manually. ' +
       'Subcommands: copy-source / toggle-editor / collapse-editor / expand-editor / export-svg / export-png / ' +
-      'preview-zoom (args: factor, or direction+delta, anchorX, anchorY) / preview-pan (dx, dy) / preview-reset / ' +
-      'preview-click (loc, e.g. "nodes[3]") / preview-hover (loc) / switch-example (id) / list-examples / list-diagram-types / ' +
-      'next-actions (args: actions = JSON string array of {label, prompt}; shows clickable suggestion chips in the chat, ' +
+      'preview-zoom (--factor, or --direction + --delta, --anchorX, --anchorY) / preview-pan (--dx, --dy) / preview-reset / ' +
+      'preview-click (--loc, e.g. "nodes[3]") / preview-hover (--loc) / switch-example (--id) / list-examples / list-diagram-types / ' +
+      'next-actions (--actions = JSON string array of {label, prompt}; shows clickable suggestion chips in the chat, ' +
       'each chip sends its prompt to the AI when clicked). ' +
       'Effects are identical to manual UI interaction (e.g. preview-click jumps to the element in the editor). ' +
       'NOTE: there is NO apply-source command — never write LGDL source directly; edit the diagram via lgdl-web-cli incremental commands only.',
@@ -265,10 +265,11 @@ export const WEB_OP_TOOL: {
         args: {
           type: 'object',
           description:
-            'Operation arguments, e.g. preview-zoom: {"factor":1.2} or {"direction":1,"delta":200}; ' +
-            'preview-pan: {"dx":100,"dy":0}; preview-click: {"loc":"nodes[3]"}; preview-hover: {"loc":"nodes[3]"} or {"loc":"none"} to clear; ' +
-            'switch-example: {"id":"login-flow"}; list-examples: {} (list all example diagrams); list-diagram-types: {} (list supported diagram types); ' +
-            'next-actions: {"actions":"[{\\"label\\":\\"增加配色分组\\",\\"prompt\\":\\"给当前图增加配色分组\\"}]"} (2-4 suggested next steps).',
+            'Operation arguments as --key value pairs (keys without leading dashes), e.g. ' +
+            'preview-zoom: --factor 1.2 or --direction 1 --delta 200; ' +
+            'preview-pan: --dx 100 --dy 0; preview-click: --loc nodes[3]; preview-hover: --loc nodes[3] or --loc none to clear; ' +
+            'switch-example: --id login-flow; list-examples / list-diagram-types: no args; ' +
+            'next-actions: --actions \'[{"label":"增加配色分组","prompt":"给当前图增加配色分组"}]\' (2-4 suggested next steps).',
           additionalProperties: true,
         },
       },
@@ -290,9 +291,10 @@ export const WEB_CLI_TOOL: {
     description:
       'Execute an lgdl-web-cli command on the current editor document. ' +
       'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types. ' +
-      '--doc is implied (always the current document). Use --key value style args, e.g. {"subcommand":"add-node","args":{"id":"user","label":"用户"}}. ' +
-      'Read the usage guide first with the lgdl-web-fetch tool: call it with the REQUIRED path argument, ' +
-      'e.g. {"path":"lgdl/web/workbench/README-CLI.md"} (path has no default — omitting it fails).',
+      '--doc is implied (always the current document). Args use --key value style, e.g. lgdl-web-cli add-node --id user --label 用户 ' +
+      '(JSON: {"subcommand":"add-node","args":{"id":"user","label":"用户"}}). ' +
+      'Read the usage guide first with the lgdl-web-fetch tool: lgdl-web-fetch --path lgdl/web/workbench/README-CLI.md ' +
+      '(--path is REQUIRED, has no default — omitting it fails).',
     parameters: {
       type: 'object',
       properties: {
@@ -309,7 +311,7 @@ export const WEB_CLI_TOOL: {
         },
         args: {
           type: 'object',
-          description: 'Command arguments as --key value pairs (keys without the leading dashes, e.g. {"id":"x","label":"用户"}).',
+          description: 'Command arguments as --key value pairs (keys without the leading dashes, e.g. --id x --label 用户).',
           additionalProperties: true,
         },
       },
@@ -337,7 +339,7 @@ export const WEB_FETCH_TOOL: {
       'Fetch a web resource (same-origin relative path or full URL) and return its raw text. ' +
       'Base platform capability, independent of lgdl-web-cli / lgdl-web-op-cli. ' +
       'The path argument is REQUIRED — there is NO default path; omitting it fails with "missing --path". ' +
-      'Example: {"path":"lgdl/web/workbench/README-CLI.md"} to read the workbench skill guide.',
+      'Example: lgdl-web-fetch --path lgdl/web/workbench/README-CLI.md (read the workbench skill guide).',
     parameters: {
       type: 'object',
       properties: {
