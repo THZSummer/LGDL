@@ -55,6 +55,8 @@ export interface ProviderSettings {
   model: string;
   /** 自定义 baseURL（留空用厂商默认；火山 coding/plan 端点需在此覆盖） */
   baseURL?: string;
+  /** agent 循环最大执行轮数（默认 1000） */
+  maxRounds?: number;
 }
 
 const STORAGE_KEY = 'lgdl-ai-settings';
@@ -79,7 +81,12 @@ interface StoredSettings {
   /** 当前激活的 provider */
   active: ProviderId;
   providers: Partial<Record<ProviderId, PerProviderState>>;
+  /** agent 循环最大执行轮数（默认 1000；防死循环，用户可在设置里调整） */
+  maxRounds?: number;
 }
+
+/** agent 循环默认轮数上限（几乎不限；真死循环时用户在设置里调小）。 */
+export const DEFAULT_MAX_ROUNDS = 1000;
 
 const EMPTY_STORE: StoredSettings = { active: 'deepseek', providers: {} };
 
@@ -105,6 +112,10 @@ function readStore(): StoredSettings {
     return {
       active: (PROVIDERS.find((p) => p.id === parsed.active) ?? PROVIDERS[0]).id,
       providers: parsed.providers ?? {},
+      maxRounds:
+        typeof parsed.maxRounds === 'number' && parsed.maxRounds > 0
+          ? parsed.maxRounds
+          : DEFAULT_MAX_ROUNDS,
     };
   } catch {
     return { ...EMPTY_STORE, providers: {} };
@@ -125,6 +136,7 @@ export function loadSettings(): ProviderSettings {
     apiKey: state?.apiKey ?? '',
     model: state?.model?.trim() ? state.model : provider.defaultModel,
     baseURL: state?.baseURL?.trim() ? state.baseURL : undefined,
+    maxRounds: store.maxRounds ?? DEFAULT_MAX_ROUNDS,
   };
 }
 
@@ -137,6 +149,7 @@ export function saveSettings(s: ProviderSettings): void {
     model: s.model || undefined,
     baseURL: s.baseURL || undefined,
   };
+  store.maxRounds = s.maxRounds && s.maxRounds > 0 ? s.maxRounds : DEFAULT_MAX_ROUNDS;
   writeStore(store);
 }
 

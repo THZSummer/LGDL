@@ -394,8 +394,9 @@ export function AiPanel({
         return;
       }
 
-      // ---- agent 循环：像终端一样逐步执行（最多 MAX_ROUNDS 轮）----
-      const MAX_ROUNDS = 10;
+      // ---- agent 循环：像终端一样逐步执行（轮数上限来自设置，默认 1000，
+      // 防死循环用；正常任务几乎不会触达，真死循环时用户在设置里调小）----
+      const MAX_ROUNDS = settingsRef.current.maxRounds ?? 1000;
       // 会话消息序列：system + user 指令 + (assistant 回复 + tool 结果)...
       const turns: { role: 'system' | 'user' | 'assistant' | 'tool'; content: string }[] = [
         { role: 'user', content: message },
@@ -405,7 +406,7 @@ export function AiPanel({
 
       const step = async (round: number) => {
         if (round > MAX_ROUNDS) {
-          appendMessage('assistant', `⚠ 已达到 ${MAX_ROUNDS} 轮上限，自动停止（可继续发消息让 AI 接着做）。`);
+          appendMessage('assistant', `⚠ 已达到 ${MAX_ROUNDS} 轮上限（可在 ⚙ 设置中调整），自动停止。`);
           setPending(false);
           return;
         }

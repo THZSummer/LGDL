@@ -70,10 +70,17 @@ test('loadSettings returns defaults when storage is empty', () => {
 
 test('loadSettings round-trips a saved settings object', () => {
   withStorage({}, () => {
-    const saved: ProviderSettings = { providerId: 'qwen', apiKey: 'sk-123', model: 'qwen-max' };
+    const saved: ProviderSettings = { providerId: 'qwen', apiKey: 'sk-123', model: 'qwen-max', maxRounds: 500 };
     saveSettings(saved);
     const loaded = loadSettings();
-    assert.deepEqual(loaded, { ...saved, baseURL: undefined });
+    assert.deepEqual(loaded, { ...saved, baseURL: undefined, maxRounds: 500 });
+  });
+});
+
+test('loadSettings defaults maxRounds to 1000 when not set', () => {
+  withStorage({}, () => {
+    saveSettings({ providerId: 'qwen', apiKey: 'sk', model: 'qwen-max' });
+    assert.equal(loadSettings().maxRounds, 1000);
   });
 });
 
