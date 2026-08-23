@@ -975,6 +975,20 @@ export function App(): React.JSX.Element {
         jumpToIssue(loc);
         return `✓ 已定位到 ${loc}（编辑器已跳转）`;
       }
+      case 'preview-hover': {
+        const loc = args.loc;
+        if (!loc) return '✖ preview-hover 需要 loc 参数（如 nodes[3]）';
+        // 清除上一处悬浮，给目标元素加 .lgdl-hovered（等效鼠标悬浮：显示锚点 + 高亮）
+        const root = document.querySelector('.preview-canvas .svg-inner');
+        if (!root) return '✖ 预览未就绪';
+        root.querySelectorAll('.lgdl-hovered').forEach((el) => el.classList.remove('lgdl-hovered'));
+        if (loc !== 'none') {
+          const target = root.querySelector(`[data-lgdl-loc="${loc}"]`);
+          if (!target) return `✖ 未找到元素 ${loc}（试试 nodes[3] / edges[1] / groups[0]）`;
+          target.classList.add('lgdl-hovered');
+        }
+        return loc === 'none' ? '✓ 已取消悬浮' : `✓ 已悬浮 ${loc}（预览中高亮 + 显示锚点）`;
+      }
       case 'switch-example': {
         const ex = EXAMPLES.find((e) => e.id === args.id);
         if (!ex) return `✖ 示例不存在: ${args.id}`;

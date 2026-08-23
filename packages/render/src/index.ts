@@ -364,7 +364,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       `<marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker></defs>` +
       // hover anchors: hidden by default, shown when the node/edge right
       // before them is hovered (adjacent-sibling rule)
-      `<style>.lgdl-anchors,.lgdl-edge-anchors{opacity:0;pointer-events:none;transition:opacity .12s ease}.lgdl-node:hover + .lgdl-anchors,.lgdl-class:hover + .lgdl-anchors,.lgdl-group:hover + .lgdl-anchors,.lgdl-lane:hover + .lgdl-anchors{opacity:1}.lgdl-edge:hover + .lgdl-edge-anchors,.lgdl-aggregate-edge:hover + .lgdl-edge-anchors{opacity:1}</style>`,
+      `<style>.lgdl-anchors,.lgdl-edge-anchors{opacity:0;pointer-events:none;transition:opacity .12s ease}.lgdl-node:hover + .lgdl-anchors,.lgdl-class:hover + .lgdl-anchors,.lgdl-group:hover + .lgdl-anchors,.lgdl-lane:hover + .lgdl-anchors{opacity:1}.lgdl-edge:hover + .lgdl-edge-anchors,.lgdl-aggregate-edge:hover + .lgdl-edge-anchors{opacity:1}.lgdl-node.lgdl-hovered + .lgdl-anchors,.lgdl-class.lgdl-hovered + .lgdl-anchors,.lgdl-group.lgdl-hovered + .lgdl-anchors,.lgdl-lane.lgdl-hovered + .lgdl-anchors{opacity:1}.lgdl-edge.lgdl-hovered + .lgdl-edge-anchors,.lgdl-aggregate-edge.lgdl-hovered + .lgdl-edge-anchors{opacity:1}.lgdl-hovered{filter:drop-shadow(0 0 3px rgba(79,70,229,.65))}</style>`,
   );
 
   // background
