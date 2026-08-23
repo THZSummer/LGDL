@@ -2,19 +2,16 @@
 import React, { useCallback, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {
-  extractCommands,
-  executeCommands,
-  describeCommandLine,
-  type CommandExecResult,
-} from './ops';
-import { chat, loadSettings, PROVIDERS, type ProviderSettings } from './provider';
+import { executeSubcommand } from './ops';
+import { chat, loadSettings, PROVIDERS, type ChatTurn, type ProviderSettings, type WebCliToolCall } from './provider';
 import { LGDL_SYSTEM_PROMPT } from './prompts';
 import { SettingsPanel } from './SettingsPanel';
 
 export interface ChatMessage {
   id: number;
   role: 'user' | 'assistant' | 'system' | 'tool';
+  /** 内容类型：chat=markdown 渲染（代码均展示）；web-cli=命令框渲染（可执行） */
+  type: 'chat' | 'web-cli';
   content: string;
 }
 
@@ -145,88 +142,13 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
 
 let nextId = 1;
 
-/** lgdl web-cli 命令块：展示 AI 输出的协议块，点「执行」在编辑器上运行（与 CLI 同语义）。 */
-function CommandBlock({
-  commands,
-  currentSource,
-  docId,
-  onApply,
-  autoApply = false,
-}: {
-  commands: string;
-  currentSource: string;
-  docId: string;
-  onApply: ApplySource;
-  autoApply?: boolean;
-}) {
-  const [status, setStatus] = useState<'idle' | 'applied' | 'error'>('idle');
-  const [result, setResult] = useState<CommandExecResult | null>(null);
-  const lines = commands.split('\n').map((l) => l.trim()).filter(Boolean);
-
-  const run = useCallback(() => {
-    const r = executeCommands(currentSource, commands, docId);
-    setResult(r);
-    if (r.ok && r.changed) {
-      onApply(r.source);
-      setStatus('applied');
-    } else if (r.ok) {
-      // status 或空操作：没有修改，仅展示输出（不写编辑器）
-      setStatus('applied');
-    } else {
-      setStatus('error');
-    }
-  }, [commands, currentSource, docId, onApply]);
-
-  // 自动应用：挂载时触发一次（autoApply 开启时新到达的回复自动执行）
-  const appliedRef = useRef(false);
-  React.useEffect(() => {
-    if (autoApply && !appliedRef.current) {
-      appliedRef.current = true;
-      run();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoApply]);
-
-  return (
-    <div className={`ai-codeblock ai-opsblock${status === 'error' ? ' has-error' : ''}`}>
-      <div className="ai-codeblock-head">
-        <span className="ai-codeblock-lang">lgdl-web-cli · 执行</span>
-        <button
-          className="ai-apply-btn"
-          onClick={run}
-          disabled={status === 'applied'}
-          title="在编辑器上逐条执行（与终端 lgdl-cli 命令同一套语义）"
-        >
-          {status === 'applied' ? '✓ 已执行' : '执行'}
-        </button>
-      </div>
-      <div className="ai-opsblock-body">
-        {lines.map((line, i) => (
-          <div key={i} className="ai-opsblock-line">
-            <span className="ai-opsblock-idx">{i + 1}</span>
-            <code>{line}</code>
-          </div>
-        ))}
-      </div>
-      {status === 'applied' && result && (
-        <div className="ai-opsblock-ok">
-          {result.lines.map((l, i) => (
-            <div key={i}>{l}</div>
-          ))}
-        </div>
-      )}
-      {status === 'error' && (
-        <div className="ai-codeblock-errors">
-          <div className="ai-codeblock-error-title">✖ 命令未执行</div>
-          {result?.lines.map((l, i) => (
-            <div key={i} className="ai-codeblock-error">
-              {l}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+/** 把 toolCall 的 args 构造成命令行文本（--key value，值带引号）。 */
+function toolCallToCommand(tc: WebCliToolCall): string {
+  const parts = [`lgdl-web-cli ${tc.subcommand}`];
+  for (const [k, v] of Object.entries(tc.args)) {
+    parts.push(`--${k} ${/[\s"]/.test(v) ? `"${v}"` : v}`);
+  }
+  return parts.join(' ');
 }
 
 /**
@@ -238,50 +160,9 @@ function CommandBlock({
  * 协议块在渲染前精确提取（不交给 markdown 解析器判断），
  * 剩余文本整体按 markdown 渲染——类型由协议层区分，无猜测。
  */
-function MessageBody({
-  content,
-  onApply,
-  currentSource,
-  docId,
-  autoApply = false,
-}: {
-  content: string;
-  onApply: ApplySource;
-  currentSource: string;
-  docId: string;
-  autoApply?: boolean;
-}) {
-  const parts: React.ReactNode[] = [];
-  const re = /```lgdl-web-cli\s*\n([\s\S]*?)```/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let k = 0;
-  while ((m = re.exec(content))) {
-    // chat 段（协议块之前/之间的文本）→ markdown 渲染
-    if (m.index > last) {
-      const chat = content.slice(last, m.index);
-      parts.push(
-        <MarkdownBody key={k++} content={chat} />,
-      );
-    }
-    // web-cli 段 → 命令块（执行）
-    const body = m[1].replace(/\n$/, '');
-    parts.push(
-      <CommandBlock key={k++} commands={body} currentSource={currentSource} docId={docId} onApply={onApply} autoApply={autoApply} />,
-    );
-    last = m.index + m[0].length;
-  }
-  // 尾部 chat 段
-  if (last < content.length) {
-    parts.push(<MarkdownBody key={k++} content={content.slice(last)} />);
-  }
-  if (parts.length === 0) {
-    parts.push(<MarkdownBody key={0} content={content} />);
-  }
-  return <>{parts}</>;
-}
-
-/** chat 段：纯 markdown 渲染（标题/列表/表格/引用/代码块展示…）。 */
+/** chat 消息：纯 markdown 渲染（标题/列表/表格/引用/代码块展示…）。
+ *  注意：chat 框内任何代码块（包括 lgdl-web-cli 字样）都是展示，不执行——
+ *  执行只发生在 type='web-cli' 的消息里（协议层区分）。 */
 function MarkdownBody({ content }: { content: string }) {
   return (
     <ReactMarkdown
@@ -340,8 +221,9 @@ export function AiPanel({
     {
       id: nextId++,
       role: 'system',
+      type: 'chat',
       content:
-        '🤖 我是 LGDL AI 助手：通过自然语言生成或修改图。我会用 `lgdl-web-cli` 命令（如 `lgdl-web-cli status --doc main`、`lgdl-web-cli add-node --doc main --id x`）操作图，点「执行」运行。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
+        '🤖 我是 LGDL AI 助手：通过自然语言生成或修改图。我会用 lgdl-web-cli 命令（如 lgdl-web-cli status --doc main、lgdl-web-cli add-node --doc main --id x）操作图，点「执行」运行。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
     },
   ]);
   const [input, setInput] = useState('');
@@ -372,9 +254,12 @@ export function AiPanel({
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  const appendMessage = useCallback((role: ChatMessage['role'], content: string) => {
-    setMessages((prev) => [...prev, { id: idRef.current++, role, content }]);
-  }, []);
+  const appendMessage = useCallback(
+    (role: ChatMessage['role'], content: string, type: ChatMessage['type'] = 'chat') => {
+      setMessages((prev) => [...prev, { id: idRef.current++, role, content, type }]);
+    },
+    [],
+  );
 
   // 滚动到底部（新消息/思考中）
   const scrollToBottom = useCallback(() => {
@@ -416,8 +301,8 @@ export function AiPanel({
       // ---- agent 循环：像终端一样逐步执行（轮数上限来自设置，默认 1000，
       // 防死循环用；正常任务几乎不会触达，真死循环时用户在设置里调小）----
       const MAX_ROUNDS = settingsRef.current.maxRounds ?? 1000;
-      // 会话消息序列：system + user 指令 + (assistant 回复 + tool 结果)...
-      const turns: { role: 'system' | 'user' | 'assistant' | 'tool'; content: string }[] = [
+      // 会话消息序列：system + user 指令 + (assistant 回复+toolCalls + tool 结果)...
+      const turns: ChatTurn[] = [
         { role: 'user', content: message },
       ];
       const failCount = { current: 0 };
@@ -429,63 +314,61 @@ export function AiPanel({
           setPending(false);
           return;
         }
-        // 组装本轮 LLM 输入：system + 历史；tool 结果映射为 user 角色，
-        // 并合并相邻同 role 消息（OpenAI 兼容 API 不允许连续 user/assistant）
+        // 组装本轮 LLM 输入：system + 历史；tool 结果保持 tool 角色
+        // （provider.chat 会映射为 OpenAI tool / Claude tool_result）
         const sys = { role: 'system' as const, content: LGDL_SYSTEM_PROMPT };
-        const raw: { role: 'user' | 'assistant'; content: string }[] = turns
-          .filter((t) => t.role !== 'system')
-          .map((t) => ({
-            role: t.role === 'tool' ? 'user' : (t.role as 'user' | 'assistant'),
-            content: t.role === 'tool' ? `[web-cli 执行结果]\n${t.content}` : t.content,
-          }));
-        const msgs: { role: 'user' | 'assistant'; content: string }[] = [];
-        for (const m of raw) {
-          const last = msgs[msgs.length - 1];
-          if (last && last.role === m.role) {
-            last.content += `\n\n${m.content}`;
-          } else {
-            msgs.push({ ...m });
-          }
-        }
+        const msgs: ChatTurn[] = turns.filter((t) => t.role !== 'system');
         try {
           const res = await chat(s, [sys, ...msgs]);
           const reply = res.content.trim();
-          if (!reply) {
-            appendMessage('assistant', '⚠ AI 返回了空内容，请重试或换一个模型。');
-            setPending(false);
+
+          // web-cli 执行（tool_calls）→ 先展示 chat 文本，再按序执行
+          if (res.toolCalls.length > 0) {
+            if (reply) {
+              appendMessage('assistant', reply);
+            }
+            // 一个 assistant 消息携带全部 toolCalls（OpenAI/Claude 要求
+            // tool 结果紧跟带 tool_calls 的 assistant 消息，中间不能插消息）
+            const toolCallsMeta = res.toolCalls.map((tc) => ({
+              id: tc.id,
+              name: 'lgdl-web-cli',
+              arguments: tc.rawArguments,
+            }));
+            turns.push({ role: 'assistant', content: reply, toolCalls: toolCallsMeta });
+
+            let failed = false;
+            for (const tc of res.toolCalls) {
+              const commandLine = toolCallToCommand(tc);
+              appendMessage('assistant', commandLine, 'web-cli');
+              // 结构化执行（subcommand + args，不走文本解析，无 --doc 要求）
+              const exec = executeSubcommand(sourceNow, tc.subcommand, tc.args, docIdRef.current);
+              if (exec.changed) {
+                onApply(exec.source);
+                sourceNow = exec.source;
+              }
+              const output = exec.lines.join('\n') || '(无输出)';
+              appendMessage('tool', output);
+              // tool 结果反馈（紧跟 assistant tool_calls，含 toolCallId）
+              turns.push({ role: 'tool', content: output, toolCallId: tc.id });
+              if (!exec.ok) failed = true;
+            }
+            if (failed) {
+              // 失败提示在所有 tool 结果之后（不插在 assistant/tool 之间）
+              appendMessage('assistant', '部分命令执行失败，请根据上面的错误修正后继续。');
+              turns.push({ role: 'user', content: '上一条命令执行失败，请查看错误并修正命令后重试。' });
+            }
+            await step(round + 1);
             return;
           }
-          appendMessage('assistant', reply);
-          turns.push({ role: 'assistant', content: reply });
 
-          // 提取命令块：无命令 → 任务完成
-          const commands = extractCommands(reply);
-          if (!commands) {
-            setPending(false);
-            return; // AI 以总结收尾
+          // 无 tool_calls：chat 表达
+          if (reply) {
+            appendMessage('assistant', reply);
+            turns.push({ role: 'assistant', content: reply });
+          } else {
+            appendMessage('assistant', '⚠ AI 返回了空内容，请重试或换一个模型。');
           }
-
-          // 执行命令（作用于当前编辑器源码）
-          const exec = executeCommands(sourceNow, commands, docIdRef.current);
-          // 有修改才写回编辑器；status/空操作仅展示
-          if (exec.changed) {
-            onApply(exec.source);
-            sourceNow = exec.source;
-          }
-          const output = exec.lines.join('\n') || '(无输出)';
-          appendMessage('tool', output);
-          // 执行结果作为 tool 反馈给 AI（映射为 user 角色时带明确前缀）
-          turns.push({
-            role: 'tool',
-            content: `[web-cli 执行结果]\n${output}`,
-          });
-
-          if (!exec.ok) {
-            // 执行失败：反馈给 AI 让其修正（终端体验：看到错误继续）
-            appendMessage('assistant', '命令执行失败，请根据上面的错误修正后继续。');
-            turns.push({ role: 'user', content: '上一条命令执行失败，请查看错误并修正命令后重试。' });
-          }
-          await step(round + 1);
+          setPending(false);
         } catch (err) {
           // LLM 调用失败（网络/API 错误）：展示并反馈给 AI 重试一次，连续失败则停
           const msg = (err as Error).message;
@@ -531,12 +414,17 @@ export function AiPanel({
     <div className="ai-panel">
       <div className="ai-messages" ref={listRef}>
         {messages.map((msg) => (
-          <div key={msg.id} className={`ai-msg ai-msg-${msg.role}`}>
+          <div key={msg.id} className={`ai-msg ai-msg-${msg.role}${msg.type === 'web-cli' ? ' ai-msg-webcli' : ''}`}>
             <div className="ai-msg-bubble">
               {msg.role === 'tool' ? (
                 <pre className="ai-tool-output">{msg.content}</pre>
+              ) : msg.type === 'web-cli' ? (
+                // web-cli 消息 → 命令文本展示（已由 agent 循环自动执行，
+                // 结果在紧随的 tool 消息里）；无 markdown 解析
+                <pre className="ai-webcli-command">{msg.content}</pre>
               ) : (
-                <MessageBody content={msg.content} onApply={onApply} currentSource={currentSourceRef.current} docId={docIdRef.current} autoApply={autoApply} />
+                // chat 消息 → markdown 渲染；里面任何代码块都是展示，不执行
+                <MarkdownBody content={msg.content} />
               )}
             </div>
           </div>

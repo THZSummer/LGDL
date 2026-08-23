@@ -9,6 +9,8 @@ import {
   loadProviderSettings,
   saveProviderInputs,
   classifyError,
+  parseToolArguments,
+  WEB_CLI_TOOL,
   type ProviderSettings,
 } from './provider.js';
 
@@ -204,4 +206,24 @@ test('browserDirect flags: deepseek/qwen/tencent/openai/claude direct, volc bloc
   assert.equal(providerById('volc').browserDirect, false);
   assert.equal(providerById('volc-coding').browserDirect, false);
   assert.equal(providerById('volc-plan').browserDirect, false);
+});
+
+test('parseToolArguments: parses subcommand and args', () => {
+  const tc = parseToolArguments('call_1', 'lgdl-web-cli', '{"subcommand":"add-node","args":{"id":"user","label":"用户","kind":"entity"}}');
+  assert.equal(tc.id, 'call_1');
+  assert.equal(tc.subcommand, 'add-node');
+  assert.deepEqual(tc.args, { id: 'user', label: '用户', kind: 'entity' });
+});
+
+test('parseToolArguments: tolerates malformed JSON', () => {
+  const tc = parseToolArguments('call_2', 'lgdl-web-cli', 'not json');
+  assert.equal(tc.subcommand, '');
+  assert.deepEqual(tc.args, {});
+});
+
+test('WEB_CLI_TOOL: exposes lgdl-web-cli function schema', () => {
+  assert.equal(WEB_CLI_TOOL.function.name, 'lgdl-web-cli');
+  const props = WEB_CLI_TOOL.function.parameters.properties as Record<string, unknown>;
+  assert.ok(props.subcommand);
+  assert.ok(props.args);
 });

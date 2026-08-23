@@ -194,15 +194,72 @@ export function providerById(id: ProviderId): ProviderConfig {
 }
 
 export interface ChatTurn {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  /** 工具调用（tool role 时回传结果；assistant role 时携带上一轮调用） */
+  toolCallId?: string;
+  /** assistant 消息携带的上一轮工具调用（OpenAI tool_calls / Claude tool_use） */
+  toolCalls?: { id: string; name: string; arguments: string }[];
+}
+
+/** 一次 lgdl-web-cli 工具调用（function calling 结构）。 */
+export interface WebCliToolCall {
+  /** 调用 id（反馈 tool 结果时回传） */
+  id: string;
+  subcommand: string;
+  /** --key value 平面参数（不含 --doc，doc 由执行时上下文决定） */
+  args: Record<string, string>;
+  /** 原始 arguments JSON（保留） */
+  rawArguments: string;
 }
 
 export interface ChatResult {
+  /** chat 文本（markdown 渲染）；无文本时为 '' */
   content: string;
-  /** 使用的模型（服务端可能改写，如 deepseek-chat → deepseek-chat） */
+  /** lgdl-web-cli 工具调用（如有） */
+  toolCalls: WebCliToolCall[];
+  /** 使用的模型 */
   model: string;
 }
+
+/** lgdl-web-cli function 定义（传给 OpenAI 兼容端点 tools）。 */
+export const WEB_CLI_TOOL: {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+} = {
+  type: 'function',
+  function: {
+    name: 'lgdl-web-cli',
+    description:
+      'Execute an lgdl-web-cli command on the current editor document. ' +
+      'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group. ' +
+      '--doc is implied (always the current document). Use --key value style args, e.g. {"subcommand":"add-node","args":{"id":"user","label":"用户"}}.',
+    parameters: {
+      type: 'object',
+      properties: {
+        subcommand: {
+          type: 'string',
+          enum: [
+            'status', 'validate', 'init', 'convert',
+            'add-node', 'remove-node', 'update-node',
+            'add-edge', 'remove-edge', 'update-edge',
+            'add-group', 'remove-group', 'update-group',
+          ],
+        },
+        args: {
+          type: 'object',
+          description: 'Command arguments as --key value pairs (keys without the leading dashes, e.g. {"id":"x","label":"用户"}).',
+          additionalProperties: true,
+        },
+      },
+      required: ['subcommand'],
+    },
+  },
+};
 
 export interface TestResult {
   ok: boolean;
@@ -249,15 +306,53 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
         model: settings.model,
         max_tokens: 4096,
         system: turns.find((t) => t.role === 'system')?.content,
+        tools: [
+          {
+            name: WEB_CLI_TOOL.function.name,
+            description: WEB_CLI_TOOL.function.description,
+            input_schema: WEB_CLI_TOOL.function.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
+          },
+        ],
         messages: turns
           .filter((t) => t.role !== 'system')
-          .map((t) => ({ role: t.role === 'assistant' ? 'assistant' : 'user', content: t.content })),
+          .map((t) => {
+            if (t.role === 'tool') {
+              return {
+                role: 'user' as const,
+                content: [
+                  {
+                    type: 'tool_result' as const,
+                    tool_use_id: t.toolCallId ?? '',
+                    content: t.content,
+                  },
+                ],
+              };
+            }
+            if (t.role === 'assistant' && t.toolCalls && t.toolCalls.length > 0) {
+              return {
+                role: 'assistant' as const,
+                content: t.content
+                  ? [{ type: 'text' as const, text: t.content }]
+                  : [],
+                tool_use: t.toolCalls.map((tc) => ({
+                  type: 'tool_use' as const,
+                  id: tc.id,
+                  name: tc.name,
+                  input: JSON.parse(tc.arguments),
+                })),
+              };
+            }
+            return { role: t.role === 'assistant' ? 'assistant' : 'user', content: t.content };
+          }),
       });
       const text = res.content
         .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
         .map((b) => b.text)
         .join('\n');
-      return { content: text, model: res.model };
+      const toolCalls: WebCliToolCall[] = res.content
+        .filter((b): b is Extract<typeof b, { type: 'tool_use' }> => b.type === 'tool_use')
+        .map((b) => parseToolArguments(b.id, b.name, JSON.stringify(b.input)));
+      return { content: text, toolCalls, model: res.model };
     } catch (err) {
       throw classifyError(err, provider);
     }
@@ -273,16 +368,65 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
   try {
     const res = await client.chat.completions.create({
       model: settings.model,
-      messages: turns.map((t) => ({ role: t.role, content: t.content })),
+      messages: turns.map((t) => {
+        if (t.role === 'tool') {
+          return {
+            role: 'tool' as const,
+            tool_call_id: t.toolCallId ?? '',
+            content: t.content,
+          };
+        }
+        if (t.role === 'assistant' && t.toolCalls && t.toolCalls.length > 0) {
+          return {
+            role: 'assistant' as const,
+            content: t.content,
+            tool_calls: t.toolCalls.map((tc) => ({
+              id: tc.id,
+              type: 'function' as const,
+              function: { name: tc.name, arguments: tc.arguments },
+            })),
+          };
+        }
+        return { role: t.role === 'system' ? 'system' : (t.role === 'assistant' ? 'assistant' : 'user'), content: t.content };
+      }),
+      tools: [WEB_CLI_TOOL],
       max_tokens: 4096,
     });
+    const msg = res.choices[0]?.message;
+    const toolCalls: WebCliToolCall[] = (msg?.tool_calls ?? [])
+      .filter(
+        (tc): tc is Extract<typeof tc, { type: 'function' }> =>
+          tc.type === 'function' && tc.function.name === 'lgdl-web-cli',
+      )
+      .map((tc) => parseToolArguments(tc.id, tc.function.name, tc.function.arguments));
     return {
-      content: res.choices[0]?.message?.content ?? '',
+      content: msg?.content ?? '',
+      toolCalls,
       model: res.model ?? settings.model,
     };
   } catch (err) {
     throw classifyError(err, provider);
   }
+}
+
+/** 解析工具调用 arguments JSON；失败时 args 为空对象（执行时会报缺参）。 */
+export function parseToolArguments(id: string, name: string, raw: string): WebCliToolCall {
+  let subcommand = '';
+  let args: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(raw) as { subcommand?: unknown; args?: unknown };
+    if (typeof parsed.subcommand === 'string') subcommand = parsed.subcommand;
+    if (parsed.args && typeof parsed.args === 'object') {
+      args = Object.fromEntries(
+        Object.entries(parsed.args as Record<string, unknown>)
+          .filter(([, v]) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')
+          .map(([k, v]) => [k, String(v)]),
+      );
+    }
+  } catch {
+    // 保持 subcommand=''，执行层会报"缺少子命令"
+  }
+  return { id, subcommand, args, rawArguments: raw };
 }
 
 /** 把 SDK 错误归类为可读信息（key 无效 / 网络不通 / CORS 不允许 / 端点不对）。 */
