@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
 import { mutate, parseAttrs, collect } from '../shared.js';
-import { updateEdge } from '@lgdl/core';
+import { applyOperation } from '@lgdl/core';
 
 export const updateEdgeCommand: LgdlCommand = {
   name: 'update-edge',
@@ -33,7 +33,18 @@ export const updateEdgeCommand: LgdlCommand = {
           process.exit(1);
         }
         mutate(opts.file, (doc) =>
-          updateEdge(doc, { from: opts.from, to: opts.to, fromLabel: opts.edgeLabel, newFrom: opts.newFrom, newTo: opts.newTo, label: opts.label, cardinalityFrom: opts.cardinalityFrom, cardinalityTo: opts.cardinalityTo, attrs: parseAttrs(opts.attrs) }),
+          applyOperation(doc, {
+            op: 'update-edge',
+            from: opts.from,
+            to: opts.to,
+            fromLabel: opts.edgeLabel,
+            newFrom: opts.newFrom,
+            newTo: opts.newTo,
+            label: opts.label,
+            cardinalityFrom: opts.cardinalityFrom,
+            cardinalityTo: opts.cardinalityTo,
+            attrs: parseAttrs(opts.attrs),
+          }),
         );
       });
   },

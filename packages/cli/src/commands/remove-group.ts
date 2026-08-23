@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
 import { mutate } from '../shared.js';
-import { removeGroup } from '@lgdl/core';
+import { applyOperation } from '@lgdl/core';
 
 export const removeGroupCommand: LgdlCommand = {
   name: 'remove-group',
@@ -13,7 +13,7 @@ export const removeGroupCommand: LgdlCommand = {
       .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--id <id>', 'group id')
       .action((opts: { file: string; id: string }) => {
-        mutate(opts.file, (doc) => removeGroup(doc, opts.id));
+        mutate(opts.file, (doc) => applyOperation(doc, { op: 'remove-group', id: opts.id }));
       });
   },
 };

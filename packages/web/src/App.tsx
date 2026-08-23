@@ -15,6 +15,8 @@ import { locateIssue, type DocSpan } from './locate';
 import { computeSnap } from './snap';
 import { EXAMPLES, type Example } from './examples';
 import { AiPanel } from './ai/AiPanel';
+import { SettingsPanel } from './ai/SettingsPanel';
+import { loadSettings, saveSettings, type ProviderSettings } from './ai/provider';
 import webPkg from '../package.json';
 import './app.css';
 
@@ -796,6 +798,14 @@ export function App(): React.JSX.Element {
     compileCache.clear();
   }, []);
 
+  // ---- AI 设置（服务商 / Key / 模型）----
+  const [aiSettings, setAiSettings] = useState<ProviderSettings>(() => loadSettings());
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const saveAiSettings = useCallback((s: ProviderSettings) => {
+    setAiSettings(s);
+    saveSettings(s);
+  }, []);
+
   // click an issue / preview element -> jump to the location in the editor,
   // centering the target line vertically and moving the cursor onto it
   const jumpToIssue = useCallback((location: string | undefined) => {
@@ -923,9 +933,22 @@ export function App(): React.JSX.Element {
           <section className="ai-region">
             <div className="pane-title">
               <span>AI 助手 <span className="pane-hint">对话生成 / 修改图</span></span>
+              <span className="pane-actions">
+                <button
+                  className="pane-icon-btn"
+                  title="API 设置（服务商 / Key / 模型）"
+                  aria-label="API 设置"
+                  onClick={() => setAiSettingsOpen(true)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
+              </span>
             </div>
             <div className="ai-body">
-              <AiPanel onApply={applyAiSource} currentSource={source} />
+              <AiPanel onApply={applyAiSource} currentSource={source} settings={aiSettings} onSaveSettings={saveAiSettings} />
             </div>
           </section>
         </section>
@@ -1007,6 +1030,9 @@ export function App(): React.JSX.Element {
           </div>
         </section>
       </main>
+      {aiSettingsOpen && (
+        <SettingsPanel settings={aiSettings} onSave={saveAiSettings} onClose={() => setAiSettingsOpen(false)} />
+      )}
     </div>
   );
 }

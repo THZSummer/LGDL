@@ -24,6 +24,12 @@ export type {
   MutationResult,
 } from './mutations.js';
 export { serializeLgdl } from './serialize.js';
+export {
+  applyOperation,
+  applyOperations,
+  describeOperation,
+} from './operations.js';
+export type { LgdlOperation, OperationBatchResult } from './operations.js';
 export { exportMermaid } from './mermaid.js';
 import './plantuml.js'; // registers the plantuml converter (side-effect)
 import './json.js'; // registers the json converter (side-effect)

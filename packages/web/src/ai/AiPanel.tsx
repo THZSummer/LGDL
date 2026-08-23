@@ -1,6 +1,15 @@
 // AI 助手面板：消息列表 + 预置提示词滑轨 + 输入框 + LGDL 代码块「应用」按钮
 import React, { useCallback, useRef, useState } from 'react';
 import { parseLgdl } from '@lgdl/core';
+import {
+  extractOperations,
+  applyOpsToSource,
+  type OpsApplyResult,
+} from './ops';
+import { describeOperation, type LgdlOperation } from '@lgdl/core';
+import { chat, loadSettings, type ProviderSettings } from './provider';
+import { buildTurns } from './prompts';
+import { SettingsPanel } from './SettingsPanel';
 
 export interface ChatMessage {
   id: number;
@@ -243,18 +252,94 @@ function LgdlCodeBlock({
   );
 }
 
-/** 将消息内容拆成段落 + 代码块。 */
+/** 增量操作块：展示 AI 输出的 ```ops JSON 操作序列，点「执行」逐条应用到编辑器。 */
+function OpsBlock({
+  ops,
+  currentSource,
+  onApply,
+  autoApply = false,
+}: {
+  ops: LgdlOperation[];
+  currentSource: string;
+  onApply: ApplySource;
+  autoApply?: boolean;
+}) {
+  const [status, setStatus] = useState<'idle' | 'applied' | 'error'>('idle');
+  const [result, setResult] = useState<OpsApplyResult | null>(null);
+
+  const run = useCallback(() => {
+    const r = applyOpsToSource(currentSource, ops);
+    setResult(r);
+    if (r.ok && r.source) {
+      onApply(r.source);
+      setStatus('applied');
+    } else {
+      setStatus('error');
+    }
+  }, [ops, currentSource, onApply]);
+
+  // 自动应用：挂载时触发一次（autoApply 开启时新到达的回复自动执行）
+  const appliedRef = useRef(false);
+  React.useEffect(() => {
+    if (autoApply && !appliedRef.current) {
+      appliedRef.current = true;
+      run();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoApply]);
+
+  return (
+    <div className={`ai-codeblock ai-opsblock${status === 'error' ? ' has-error' : ''}`}>
+      <div className="ai-codeblock-head">
+        <span className="ai-codeblock-lang">ops · 增量操作</span>
+        <button
+          className="ai-apply-btn"
+          onClick={run}
+          disabled={status === 'applied'}
+          title="逐条应用到当前图（与 CLI 同一套校验语义）"
+        >
+          {status === 'applied' ? '✓ 已执行' : '执行'}
+        </button>
+      </div>
+      <div className="ai-opsblock-body">
+        {ops.map((op, i) => (
+          <div key={i} className="ai-opsblock-line">
+            <span className="ai-opsblock-idx">{i + 1}</span>
+            <code>{describeOperation(op)}</code>
+          </div>
+        ))}
+      </div>
+      {status === 'applied' && result?.summaries && (
+        <div className="ai-opsblock-ok">
+          {result.summaries.filter(Boolean).map((s, i) => (
+            <div key={i}>✓ {s}</div>
+          ))}
+        </div>
+      )}
+      {status === 'error' && (
+        <div className="ai-codeblock-errors">
+          <div className="ai-codeblock-error-title">✖ 操作未执行</div>
+          <div className="ai-codeblock-error">{result?.error ?? '未知错误'}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 将消息内容拆成段落 + lgdl 代码块 + ops 操作块。 */
 function MessageBody({
   content,
   onApply,
+  currentSource,
   autoApply = false,
 }: {
   content: string;
   onApply: ApplySource;
+  currentSource: string;
   autoApply?: boolean;
 }) {
   const parts: React.ReactNode[] = [];
-  const re = /```(?:lgdl|yaml)?\n([\s\S]*?)```/g;
+  const re = /```(lgdl|yaml|ops)?\s*\n([\s\S]*?)```/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let k = 0;
@@ -269,9 +354,24 @@ function MessageBody({
         );
       }
     }
-    parts.push(
-      <LgdlCodeBlock key={k++} code={m[1].replace(/\n$/, '')} onApply={onApply} autoApply={autoApply} />,
-    );
+    const lang = m[1] ?? 'lgdl';
+    const body = m[2].replace(/\n$/, '');
+    if (lang === 'ops') {
+      const ops = extractOperations(m[0]);
+      if (ops) {
+        parts.push(
+          <OpsBlock key={k++} ops={ops} currentSource={currentSource} onApply={onApply} autoApply={autoApply} />,
+        );
+      } else {
+        parts.push(
+          <LgdlCodeBlock key={k++} code={body} onApply={onApply} autoApply={autoApply} />,
+        );
+      }
+    } else {
+      parts.push(
+        <LgdlCodeBlock key={k++} code={body} onApply={onApply} autoApply={autoApply} />,
+      );
+    }
     last = m.index + m[0].length;
   }
   const tail = content.slice(last).trim();
@@ -285,14 +385,25 @@ function MessageBody({
   return <>{parts}</>;
 }
 
-export function AiPanel({ onApply, currentSource = '' }: { onApply: ApplySource; currentSource?: string }) {
+export function AiPanel({
+  onApply,
+  currentSource = '',
+  settings,
+  onSaveSettings,
+}: {
+  onApply: ApplySource;
+  currentSource?: string;
+  settings: ProviderSettings;
+  onSaveSettings: (s: ProviderSettings) => void;
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: nextId++,
       role: 'system',
       content:
-        '🤖 我是 LGDL AI 助手：可以用自然语言生成新图或修改当前图（v0.5.0 开发中）。' +
-        '输入指令后，我会输出 LGDL 代码块，点「应用」即可写入编辑器实时渲染。',
+        '🤖 我是 LGDL AI 助手：可以用自然语言生成新图或修改当前图。' +
+        '输入指令后，我会输出 LGDL 代码块（点「应用」写入）或增量操作（点「执行」逐条应用）。' +
+        '首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
     },
   ]);
   const [input, setInput] = useState('');
@@ -303,6 +414,9 @@ export function AiPanel({ onApply, currentSource = '' }: { onApply: ApplySource;
   const currentSourceRef = useRef(currentSource);
   currentSourceRef.current = currentSource;
   const presetTrackRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   // 预置滑轨：垂直滚轮转横向滚动（内容溢出时才劫持，避免挡住页面滚动）
   React.useEffect(() => {
@@ -339,31 +453,40 @@ export function AiPanel({ onApply, currentSource = '' }: { onApply: ApplySource;
       appendMessage('user', message);
       setInput('');
       setPending(true);
-      // ---- M2 接入真实 LLM 前：演示回复（含 LGDL 代码块，可体验「应用」）----
-      setTimeout(() => {
+
+      const s = settingsRef.current;
+      if (!s.apiKey.trim()) {
         appendMessage(
           'assistant',
-          '收到！下面是一个演示回复（AI 服务接入后这里会是真实生成结果）：\n\n```lgdl\ntitle: AI 演示\n' +
-            'type: flowchart\n' +
-            'nodes:\n' +
-            '  - id: start\n' +
-            '    kind: start\n' +
-            '    label: 开始\n' +
-            '  - id: task\n' +
-            '    kind: process\n' +
-            '    label: 处理任务\n' +
-            '  - id: end\n' +
-            '    kind: end\n' +
-            '    label: 结束\n' +
-            'edges:\n' +
-            '  - from: start\n' +
-            '    to: task\n' +
-            '  - from: task\n' +
-            '    to: end\n' +
-            '```\n\n点「应用」写入编辑器试试。',
+          '⚠ 尚未配置 API Key。请点击面板右上角 **⚙ 设置**，选择服务商并粘贴你的 API Key，然后再试。',
         );
         setPending(false);
-      }, 800);
+        return;
+      }
+
+      const { system, messages: turnMessages } = buildTurns(
+        message,
+        currentSourceRef.current,
+        historyRef.current,
+      );
+
+      chat(s, [{ role: 'system', content: system }, ...turnMessages])
+        .then((res) => {
+          if (!res.content.trim()) {
+            appendMessage('assistant', '⚠ AI 返回了空内容，请重试或换一个模型。');
+            return;
+          }
+          appendMessage('assistant', res.content);
+          // 维护多轮对话历史（保留最近 20 条，避免上下文无限膨胀）
+          historyRef.current = [...historyRef.current, ...turnMessages, { role: 'assistant', content: res.content }];
+          if (historyRef.current.length > 20) {
+            historyRef.current = historyRef.current.slice(-20);
+          }
+        })
+        .catch((err) => {
+          appendMessage('assistant', `✖ ${(err as Error).message}`);
+        })
+        .finally(() => setPending(false));
     },
     [input, pending, appendMessage],
   );
@@ -395,7 +518,7 @@ export function AiPanel({ onApply, currentSource = '' }: { onApply: ApplySource;
         {messages.map((msg) => (
           <div key={msg.id} className={`ai-msg ai-msg-${msg.role}`}>
             <div className="ai-msg-bubble">
-              <MessageBody content={msg.content} onApply={onApply} autoApply={autoApply} />
+              <MessageBody content={msg.content} onApply={onApply} currentSource={currentSourceRef.current} autoApply={autoApply} />
             </div>
           </div>
         ))}

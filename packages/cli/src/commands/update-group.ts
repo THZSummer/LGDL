@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
 import { mutate, parseAttrs, collect } from '../shared.js';
-import { updateGroup } from '@lgdl/core';
+import { applyOperation } from '@lgdl/core';
 
 export const updateGroupCommand: LgdlCommand = {
   name: 'update-group',
@@ -29,7 +29,8 @@ export const updateGroupCommand: LgdlCommand = {
           process.exit(1);
         }
         mutate(opts.file, (doc) =>
-          updateGroup(doc, {
+          applyOperation(doc, {
+            op: 'update-group',
             id: opts.id,
             newId: opts.newId,
             label: opts.label,

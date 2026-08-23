@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
 import { mutate, parseAttrs, parseMember, collect } from '../shared.js';
-import { addNode } from '@lgdl/core';
+import { applyOperation } from '@lgdl/core';
 
 export const addNodeCommand: LgdlCommand = {
   name: 'add-node',
@@ -35,7 +35,8 @@ export const addNodeCommand: LgdlCommand = {
               console.error(`⚠ gantt node "${opts.id}" lacks start/duration — day 0 = ${epoch}, it will render as a placeholder at day 0/1d`);
             }
           }
-          return addNode(doc, {
+          return applyOperation(doc, {
+            op: 'add-node',
             id: opts.id,
             label: opts.label,
             kind: kind as never,

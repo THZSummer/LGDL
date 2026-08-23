@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
 import { mutate } from '../shared.js';
-import { removeNode } from '@lgdl/core';
+import { applyOperation } from '@lgdl/core';
 
 export const removeNodeCommand: LgdlCommand = {
   name: 'remove-node',
@@ -13,7 +13,7 @@ export const removeNodeCommand: LgdlCommand = {
       .requiredOption('--file <file>', 'path to .lgdl file')
       .requiredOption('--id <id>', 'node id')
       .action((opts: { file: string; id: string }) => {
-        mutate(opts.file, (doc) => removeNode(doc, opts.id));
+        mutate(opts.file, (doc) => applyOperation(doc, { op: 'remove-node', id: opts.id }));
       });
   },
 };

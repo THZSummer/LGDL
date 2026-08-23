@@ -507,6 +507,47 @@ body,
   line-height: 1.5;
 }
 
+/* 增量操作块（```ops） */
+.ai-opsblock-body {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-opsblock-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  color: #334155;
+}
+
+.ai-opsblock-idx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.ai-opsblock-ok {
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border-top: 1px solid #bbf7d0;
+  font-size: 12px;
+  color: #166534;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  line-height: 1.6;
+}
+
 /* 思考中动画 */
 .ai-thinking {
   display: flex;
@@ -656,6 +697,150 @@ body,
 .ai-send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ---------- API 设置面板 ---------- */
+.ai-settings-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.ai-settings {
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ai-settings-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.ai-settings-close {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.ai-settings-close:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.ai-settings-note {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.ai-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ai-settings-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ai-settings-field select,
+.ai-settings-field input[type='text'],
+.ai-settings-field input[type='password'] {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #334155;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ai-settings-field select:focus,
+.ai-settings-field input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+}
+
+.ai-settings-keyrow {
+  display: flex;
+  gap: 6px;
+}
+
+.ai-settings-keyrow input {
+  flex: 1;
+}
+
+.ai-settings-eye {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  cursor: pointer;
+  padding: 0 10px;
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.ai-settings-eye:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.ai-settings-hint {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.ai-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.ai-settings-btn {
+  padding: 7px 20px;
+  border: 1px solid #4f46e5;
+  border-radius: 6px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ai-settings-btn:hover {
+  background: #4338ca;
+  border-color: #4338ca;
 }
 
 /* 发送按钮上方的自动应用选项 */
