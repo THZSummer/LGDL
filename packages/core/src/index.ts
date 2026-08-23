@@ -31,7 +31,15 @@ export {
 } from './operations.js';
 export type { LgdlOperation, OperationBatchResult } from './operations.js';
 export { formatStatus } from './status.js';
-export { initTemplate, emptyDocumentTemplate } from './templates.js';
+export {
+  queryStatus,
+  listNodeKinds,
+  queryDocInfo,
+  queryNode,
+  queryEdge,
+  findNodes,
+} from './queries.js';
+export { initTemplate, templateForType, supportedTemplateTypes } from './templates.js';
 export { COMMANDS, KNOWN_PARAMS, buildOperation, requireParams, assertChangeRequested, parseAttrsSpec, parseMemberSpec, defaultKindFor } from './commands.js';
 export type { CommandSpec } from './commands.js';
 export { exportMermaid } from './mermaid.js';

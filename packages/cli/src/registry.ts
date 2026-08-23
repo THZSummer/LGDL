@@ -20,7 +20,7 @@ export interface LgdlCommand {
 /** All registered commands — add new ones here. */
 import { initCommand } from './commands/init.js';
 import { renderCommand } from './commands/render.js';
-import { statusCommand } from './commands/status.js';
+import { statusCommand, docInfoCommand, listNodeKindsCommand, getNodeCommand, getEdgeCommand, findNodeCommand } from './commands/queries.js';
 import { addNodeCommand } from './commands/add-node.js';
 import { removeNodeCommand } from './commands/remove-node.js';
 import { updateNodeCommand } from './commands/update-node.js';
@@ -37,6 +37,11 @@ export const COMMANDS: LgdlCommand[] = [
   initCommand,
   renderCommand,
   statusCommand,
+  docInfoCommand,
+  listNodeKindsCommand,
+  getNodeCommand,
+  getEdgeCommand,
+  findNodeCommand,
   convertCommand,
   importCommand,
   addNodeCommand,

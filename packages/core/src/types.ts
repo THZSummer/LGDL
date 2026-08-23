@@ -52,6 +52,30 @@ export type NodeKind =
   | 'state'
   | 'milestone';
 
+/** All node kinds (single source of truth for tooling). */
+export const NODE_KINDS: readonly NodeKind[] = [
+  'start',
+  'end',
+  'process',
+  'decision',
+  'entity',
+  'note',
+  'state',
+  'milestone',
+];
+
+/** Human-readable (Chinese) labels per node kind. */
+export const NODE_KIND_LABELS: Record<NodeKind, string> = {
+  start: '开始',
+  end: '结束',
+  process: '处理',
+  decision: '判断',
+  entity: '实体',
+  note: '便签',
+  state: '状态',
+  milestone: '里程碑',
+};
+
 /** Kind of a class member (uml-class `entity` nodes) */
 export type MemberKind = 'attribute' | 'method';
 

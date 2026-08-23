@@ -7,6 +7,7 @@
  */
 import {
   DIAGRAM_TYPES,
+  NODE_KINDS,
   type DiagramType,
   type LgdlDocument,
   type LgdlEdge,
@@ -16,17 +17,6 @@ import {
   type NodeKind,
   type ParseResult,
 } from './types.js';
-
-const NODE_KINDS: readonly NodeKind[] = [
-  'start',
-  'end',
-  'process',
-  'decision',
-  'entity',
-  'note',
-  'state',
-  'milestone',
-];
 
 const MEMBER_KINDS: readonly string[] = ['attribute', 'method'];
 const MEMBER_VISIBILITIES: readonly string[] = ['public', 'private', 'protected', 'package'];

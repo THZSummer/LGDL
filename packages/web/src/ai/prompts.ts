@@ -31,7 +31,7 @@ export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Langu
 
 - status                                  # 查看当前图结构（先读图，再修改）
 - validate                                # 校验当前图语法（输出错误/警告）
-- init                                    # 清空文档为默认图
+- init --type <类型>                      # 初始化为指定类型（flowchart/mindmap/uml-class/arch/datastream/sequence/er/state/gantt；缺省 flowchart）
 - convert --to mermaid|plantuml|json      # 导出为其他格式
 - add-node --id <id> --label <名> [--kind <类型>] [--group <分组>] [--attrs k=v,k2=v2]
 - remove-node --id <id>
@@ -86,7 +86,7 @@ export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Langu
 6. 修改未知 id 会失败——报错后先 status 看实际 id
 
 ## 输出要求
-- 生成新图：先 \`status\`（空图会提示），然后逐条 add-node / add-edge 搭建
+- 生成新图：先 \`init --type <类型>\` 建立对应类型的骨架（如画时序图用 init --type sequence），再逐条 add-node / add-edge 搭建
 - 修改现有图：先 status 再增量调用
 - 解释/评审：用中文分点回答，引用具体节点/边 id（可先 status）
 - 需要执行时调用 \`lgdl-web-cli\` 工具；纯对话时正常回复文本`;

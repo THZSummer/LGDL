@@ -14,10 +14,16 @@ import {
   applyOperation,
   applyOperations,
   formatStatus,
-  initTemplate,
+  templateForType,
+  supportedTemplateTypes,
   convert,
   listFormats,
   buildOperation,
+  listNodeKinds,
+  queryDocInfo,
+  queryNode,
+  queryEdge,
+  findNodes,
   type LgdlOperation,
 } from '@lgdl/core';
 import { parseWebCliBatch } from './web-cli.js';
@@ -54,7 +60,53 @@ export function executeSubcommand(
   let current = source;
   let changed = false;
 
-  // 只读命令（不改文档）
+  // 只读命令（不改文档）——读多写少：AI 应先用这些了解图，再写。
+  // 业务逻辑在 core/queries.ts 单一实现（lgdl-cli 与 lgdl-web-cli 共享）。
+  const parsedDoc = parseLgdl(current);
+  const doc = parsedDoc.valid ? parsedDoc.document : null;
+  const failDoc = (): CommandExecResult => {
+    lines.push('⚠ 当前源码无效');
+    return { ok: true, source: current, lines, changed };
+  };
+  if (subcommand === 'list-node-kinds') {
+    lines.push(listNodeKinds());
+    return { ok: true, source: current, lines, changed };
+  }
+  if (subcommand === 'doc-info') {
+    if (!doc) return failDoc();
+    lines.push(...queryDocInfo(doc));
+    return { ok: true, source: current, lines, changed };
+  }
+  if (subcommand === 'get-node') {
+    if (!doc) return failDoc();
+    const detail = queryNode(doc, args.id ?? '');
+    if (!detail) {
+      lines.push(`✖ 节点不存在: ${args.id}（可用 lgdl-web-cli status 查看全部节点）`);
+      return { ok: false, source: current, lines, changed, error: `node not found: ${args.id}` };
+    }
+    lines.push(...detail);
+    return { ok: true, source: current, lines, changed };
+  }
+  if (subcommand === 'get-edge') {
+    if (!doc) return failDoc();
+    const detail = queryEdge(doc, args.from, args.to, args.label);
+    if (!detail) {
+      lines.push(`✖ 未找到边 ${args.from ?? '?'} -> ${args.to ?? '?'}${args.label ? ` [${args.label}]` : ''}`);
+      return { ok: false, source: current, lines, changed, error: 'edge not found' };
+    }
+    lines.push(...detail);
+    return { ok: true, source: current, lines, changed };
+  }
+  if (subcommand === 'find-node') {
+    if (!doc) return failDoc();
+    const q = args.label ?? args.q;
+    if (!q) {
+      lines.push('✖ find-node 需要 --label 或 --q 参数');
+      return { ok: false, source: current, lines, changed, error: 'missing query' };
+    }
+    lines.push(...findNodes(doc, q));
+    return { ok: true, source: current, lines, changed };
+  }
   if (subcommand === 'status') {
     const parsedDoc = parseLgdl(current);
     if (parsedDoc.valid) {
@@ -79,8 +131,14 @@ export function executeSubcommand(
     return { ok: true, source: current, lines, changed };
   }
   if (subcommand === 'init') {
-    current = initTemplate();
-    lines.push('✓ 已初始化为默认 flowchart（含 start 节点）');
+    const type = args.type ?? 'flowchart';
+    const tpl = templateForType(type);
+    if (!tpl) {
+      lines.push(`✖ 不支持的图类型 "${type}"（支持：${supportedTemplateTypes().join(' / ')}）`);
+      return { ok: false, source: current, lines, changed, error: `unknown type: ${type}` };
+    }
+    current = tpl;
+    lines.push(`✓ 已初始化为 ${type} 模板（可在此基础上用 add-node / add-edge 扩展）`);
     return { ok: true, source: current, lines, changed: current !== source };
   }
   if (subcommand === 'convert') {
