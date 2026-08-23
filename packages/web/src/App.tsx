@@ -1011,6 +1011,9 @@ export function App(): React.JSX.Element {
         const list = CORE_DIAGRAM_TYPES.map((t) => `${t}（${DIAGRAM_TYPE_LABELS[t]}）`).join(' / ');
         return `支持的图类型（${CORE_DIAGRAM_TYPES.length} 种）：${list}`;
       }
+      case 'next-actions':
+        // 正常流程由聊天面板（AiPanel）拦截处理（胶囊卡片），此处仅防御兜底
+        return '✖ next-actions 由聊天面板处理（推荐动作以胶囊卡片展示），此处不执行';
       default:
         return `✖ 未知操作 "${subcommand}"`;
     }

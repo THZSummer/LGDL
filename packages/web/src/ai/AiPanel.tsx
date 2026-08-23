@@ -5,14 +5,20 @@ import remarkGfm from 'remark-gfm';
 import { executeSubcommand, executeWebFetch } from './ops';
 import { chat, loadSettings, PROVIDERS, type ChatTurn, type ProviderSettings, type WebCliToolCall } from './provider';
 import { LGDL_SYSTEM_PROMPT } from './prompts';
+import { parseNextActions, type NextAction } from './next-actions';
 import { SettingsPanel } from './SettingsPanel';
 
 export interface ChatMessage {
   id: number;
   role: 'user' | 'assistant' | 'system' | 'tool';
-  /** 内容类型：chat=markdown 渲染（代码均展示）；web-cli=命令框渲染（可执行） */
-  type: 'chat' | 'web-cli';
+  /**
+   * 内容类型：chat=markdown 渲染（代码均展示）；web-cli=命令框渲染（可执行）；
+   * next-actions=推荐下一步的胶囊卡片（点击即把动作作为用户指令发送）。
+   */
+  type: 'chat' | 'web-cli' | 'next-actions';
   content: string;
+  /** type === 'next-actions' 时的推荐动作列表（点击胶囊 → 发送 prompt） */
+  actions?: NextAction[];
 }
 
 /** 把 AI 输出写入编辑器（由 App 提供，写入后实时渲染）。 */
@@ -204,6 +210,38 @@ function MarkdownBody({ content }: { content: string }) {
   );
 }
 
+/** 推荐下一步卡片：AI 完成总结后推荐的胶囊列表，点击即把动作发送给 AI 继续。 */
+function NextActionsCard({
+  actions,
+  onPick,
+  disabled,
+}: {
+  actions: NextAction[];
+  onPick: (prompt: string) => void;
+  disabled?: boolean;
+}) {
+  if (actions.length === 0) return null;
+  return (
+    <div className="ai-next-actions">
+      <div className="ai-next-actions-title">AI 推荐下一步：</div>
+      <div className="ai-next-actions-track">
+        {actions.map((a, i) => (
+          <button
+            key={`${a.label}-${i}`}
+            type="button"
+            className="ai-next-chip"
+            title={a.prompt}
+            onClick={() => onPick(a.prompt)}
+            disabled={disabled}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AiPanel({
   onApply,
   onWebOp,
@@ -259,8 +297,8 @@ export function AiPanel({
   }, []);
 
   const appendMessage = useCallback(
-    (role: ChatMessage['role'], content: string, type: ChatMessage['type'] = 'chat') => {
-      setMessages((prev) => [...prev, { id: idRef.current++, role, content, type }]);
+    (role: ChatMessage['role'], content: string, type: ChatMessage['type'] = 'chat', actions?: NextAction[]) => {
+      setMessages((prev) => [...prev, { id: idRef.current++, role, content, type, actions }]);
     },
     [],
   );
@@ -347,8 +385,20 @@ export function AiPanel({
               appendMessage('assistant', commandLine, 'web-cli');
               let output: string;
               if (tc.name === 'lgdl-web-op-cli') {
-                // UI 操作（与手动点击等效），由 App 执行
-                output = onWebOp(tc.subcommand, tc.args);
+                if (tc.subcommand === 'next-actions') {
+                  // 推荐下一步：解析 actions，以胶囊卡片消息放入聊天框（UI 交互，App 不参与）
+                  const actions = parseNextActions(tc.args.actions ?? '');
+                  if (actions.length === 0) {
+                    output = '✖ next-actions 需要 actions 参数（JSON 数组：[{"label":"...","prompt":"..."}]）';
+                    failed = true;
+                  } else {
+                    appendMessage('assistant', '', 'next-actions', actions);
+                    output = `✓ 已展示 ${actions.length} 个推荐动作（点击胶囊即发送）`;
+                  }
+                } else {
+                  // UI 操作（与手动点击等效），由 App 执行
+                  output = onWebOp(tc.subcommand, tc.args);
+                }
               } else if (tc.name === 'lgdl-web-fetch') {
                 // 基础 web 获取（独立工具，不改文档）
                 const exec = await executeWebFetch(tc.args.path ?? '');
@@ -432,7 +482,10 @@ export function AiPanel({
         {messages.map((msg) => (
           <div key={msg.id} className={`ai-msg ai-msg-${msg.role}${msg.type === 'web-cli' ? ' ai-msg-webcli' : ''}`}>
             <div className="ai-msg-bubble">
-              {msg.role === 'tool' ? (
+              {msg.type === 'next-actions' ? (
+                // AI 推荐的下一步动作：胶囊卡片，点击即把动作作为用户指令发送
+                <NextActionsCard actions={msg.actions ?? []} onPick={(p) => send(p)} disabled={pending} />
+              ) : msg.role === 'tool' ? (
                 <pre className="ai-tool-output">{msg.content}</pre>
               ) : msg.type === 'web-cli' ? (
                 // web-cli 消息 → 命令文本展示（已由 agent 循环自动执行，

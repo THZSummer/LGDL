@@ -244,7 +244,9 @@ export const WEB_OP_TOOL: {
       'Perform a UI operation on the web workbench, equivalent to the user clicking the button manually. ' +
       'Subcommands: copy-source / toggle-editor / collapse-editor / expand-editor / export-svg / export-png / ' +
       'preview-zoom (args: factor, or direction+delta, anchorX, anchorY) / preview-pan (dx, dy) / preview-reset / ' +
-      'preview-click (loc, e.g. "nodes[3]") / preview-hover (loc) / switch-example (id) / list-examples / list-diagram-types. ' +
+      'preview-click (loc, e.g. "nodes[3]") / preview-hover (loc) / switch-example (id) / list-examples / list-diagram-types / ' +
+      'next-actions (args: actions = JSON string array of {label, prompt}; shows clickable suggestion chips in the chat, ' +
+      'each chip sends its prompt to the AI when clicked). ' +
       'Effects are identical to manual UI interaction (e.g. preview-click jumps to the element in the editor). ' +
       'NOTE: there is NO apply-source command — never write LGDL source directly; edit the diagram via lgdl-web-cli incremental commands only.',
     parameters: {
@@ -257,6 +259,7 @@ export const WEB_OP_TOOL: {
             'export-svg', 'export-png',
             'preview-zoom', 'preview-pan', 'preview-reset', 'preview-click', 'preview-hover',
             'switch-example', 'list-examples', 'list-diagram-types',
+            'next-actions',
           ],
         },
         args: {
@@ -264,7 +267,8 @@ export const WEB_OP_TOOL: {
           description:
             'Operation arguments, e.g. preview-zoom: {"factor":1.2} or {"direction":1,"delta":200}; ' +
             'preview-pan: {"dx":100,"dy":0}; preview-click: {"loc":"nodes[3]"}; preview-hover: {"loc":"nodes[3]"} or {"loc":"none"} to clear; ' +
-            'switch-example: {"id":"login-flow"}; list-examples: {} (list all example diagrams); list-diagram-types: {} (list supported diagram types).',
+            'switch-example: {"id":"login-flow"}; list-examples: {} (list all example diagrams); list-diagram-types: {} (list supported diagram types); ' +
+            'next-actions: {"actions":"[{\\"label\\":\\"增加配色分组\\",\\"prompt\\":\\"给当前图增加配色分组\\"}]"} (2-4 suggested next steps).',
           additionalProperties: true,
         },
       },

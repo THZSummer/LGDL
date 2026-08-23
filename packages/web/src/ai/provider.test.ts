@@ -11,6 +11,7 @@ import {
   classifyError,
   parseToolArguments,
   WEB_CLI_TOOL,
+  WEB_OP_TOOL,
   WEB_FETCH_TOOL,
   type ProviderSettings,
 } from './provider.js';
@@ -231,6 +232,12 @@ test('WEB_CLI_TOOL: exposes lgdl-web-cli function schema', () => {
   const enumList = (props.subcommand as { enum: string[] }).enum;
   assert.ok(!enumList.includes('fetch-doc'));
   assert.ok(enumList.includes('list-diagram-types'));
+});
+
+test('WEB_OP_TOOL: exposes lgdl-web-op-cli with next-actions', () => {
+  const props = (WEB_OP_TOOL.function.parameters.properties as Record<string, unknown>).subcommand as { enum: string[] };
+  assert.ok(props.enum.includes('preview-zoom'));
+  assert.ok(props.enum.includes('next-actions'));
 });
 
 test('WEB_FETCH_TOOL: exposes lgdl-web-fetch as an independent base tool', () => {

@@ -38,4 +38,8 @@ export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Langu
 - 修改现有图：先读后写，用增量命令
 - 生成新图：先 init --type <类型> 建骨架，再增量搭建
 - 解释/评审：用中文分点回答，引用具体节点/边 id
-- 任务完成时输出总结（纯文本，不再调用工具）`;
+- 任务完成时输出总结（纯文本，不再调用工具）
+- **推荐下一步**：任务完成后若还有合理的下一步动作，调用 \`lgdl-web-op-cli\` 的
+  \`next-actions\` 子命令推荐 2-4 个动作（actions = [{"label":"短文案","prompt":"完整指令"}]，
+  prompt 是用户点选后发给你的指令），以可点击胶囊卡片展示，供用户一键继续；
+  没有合理下一步就不调用，不要硬凑`;
