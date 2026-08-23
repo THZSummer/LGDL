@@ -13,6 +13,8 @@ export interface LgdlCommand {
   name: string;
   /** one-line description shown in help */
   description: string;
+  /** 1-2 example invocations (shown after the options block in --help, clig.dev style) */
+  examples?: string[];
   /** register the command on the program */
   register(program: Command): void;
 }
@@ -59,5 +61,13 @@ export const COMMANDS: LgdlCommand[] = [
 export function registerAll(program: Command): void {
   for (const cmd of COMMANDS) {
     cmd.register(program);
+    // clig.dev: help should include one or two example invocations.
+    if (cmd.examples && cmd.examples.length > 0) {
+      const registered = program.commands.find((c) => c.name() === cmd.name);
+      registered?.addHelpText(
+        'after',
+        `\nExamples:\n${cmd.examples.map((e) => `  $ lgdl-cli ${e}`).join('\n')}\n`,
+      );
+    }
   }
 }

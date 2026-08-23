@@ -8,6 +8,7 @@ import { convert, listFormats } from '@lgdl/core';
 export const convertCommand: LgdlCommand = {
   name: 'convert',
   description: 'convert a diagram to another format (mermaid, ...)',
+  examples: ['convert --file flow.lgdl --as mermaid', 'convert --file flow.lgdl --as json -o flow.json'],
   register(program: Command) {
     const formats = listFormats();
     program

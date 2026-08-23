@@ -6,6 +6,7 @@ import { applyOperation, buildOperation } from '@lgdl/core';
 export const updateEdgeCommand: LgdlCommand = {
   name: 'update-edge',
   description: 'update an edge label/attrs',
+  examples: ['update-edge --file flow.lgdl --from a --to b --label 新标签'],
   register(program: Command) {
     program
       .command('update-edge')

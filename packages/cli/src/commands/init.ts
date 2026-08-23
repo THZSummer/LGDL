@@ -6,6 +6,7 @@ import { templateForType, supportedTemplateTypes } from '@lgdl/core';
 export const initCommand: LgdlCommand = {
   name: 'init',
   description: 'initialize a diagram file with a typed skeleton',
+  examples: ['init --file flow.lgdl --type er', 'init --file flow.lgdl'],
   register(program: Command) {
     program
       .command('init')

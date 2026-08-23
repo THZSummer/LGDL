@@ -47,6 +47,13 @@ test('webOpHelp: single operation shows args', () => {
   assert.ok(text.includes('--direction'));
 });
 
+test('webOpHelp: export alias is documented', () => {
+  const text = webOpHelp('export');
+  assert.ok(text.includes('export ——'));
+  assert.ok(text.includes('--format'));
+  assert.ok(text.includes('别名'));
+});
+
 test('webFetchHelp: shows required --path', () => {
   const text = webFetchHelp();
   assert.ok(text.includes('lgdl-web-fetch ——'));

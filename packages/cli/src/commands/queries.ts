@@ -11,6 +11,7 @@ import { queryStatus, listNodeKinds, queryDocInfo, queryNode, queryEdge, findNod
 export const docInfoCommand: LgdlCommand = {
   name: 'doc-info',
   description: 'print document overview (type/size/kind distribution)',
+  examples: ['doc-info --file flow.lgdl'],
   register(program: Command) {
     program
       .command('doc-info')
@@ -26,6 +27,7 @@ export const docInfoCommand: LgdlCommand = {
 export const listNodeKindsCommand: LgdlCommand = {
   name: 'list-node-kinds',
   description: 'list all node kinds (AI-readable)',
+  examples: ['list-node-kinds'],
   register(program: Command) {
     program
       .command('list-node-kinds')
@@ -39,6 +41,7 @@ export const listNodeKindsCommand: LgdlCommand = {
 export const getNodeCommand: LgdlCommand = {
   name: 'get-node',
   description: 'print one node detail (members/attrs/groups)',
+  examples: ['get-node --file flow.lgdl --id user'],
   register(program: Command) {
     program
       .command('get-node')
@@ -60,6 +63,7 @@ export const getNodeCommand: LgdlCommand = {
 export const getEdgeCommand: LgdlCommand = {
   name: 'get-edge',
   description: 'print edge(s) between from/to (optionally by label)',
+  examples: ['get-edge --file flow.lgdl --from a --to b'],
   register(program: Command) {
     program
       .command('get-edge')
@@ -83,6 +87,7 @@ export const getEdgeCommand: LgdlCommand = {
 export const findNodeCommand: LgdlCommand = {
   name: 'find-node',
   description: 'search nodes by label/id substring',
+  examples: ['find-node --file flow.lgdl --label 用户'],
   register(program: Command) {
     program
       .command('find-node')
@@ -106,6 +111,7 @@ export const findNodeCommand: LgdlCommand = {
 export const statusCommand: LgdlCommand = {
   name: 'status',
   description: 'print the textual graph structure (AI-readable)',
+  examples: ['status --file flow.lgdl'],
   register(program: Command) {
     program
       .command('status')

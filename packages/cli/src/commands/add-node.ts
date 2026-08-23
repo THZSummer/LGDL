@@ -6,6 +6,7 @@ import { applyOperation, buildOperation } from '@lgdl/core';
 export const addNodeCommand: LgdlCommand = {
   name: 'add-node',
   description: 'add a node',
+  examples: ['add-node --file flow.lgdl --id user --label 用户'],
   register(program: Command) {
     program
       .command('add-node')

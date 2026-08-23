@@ -6,6 +6,7 @@ import { applyOperation, buildOperation } from '@lgdl/core';
 export const addGroupCommand: LgdlCommand = {
   name: 'add-group',
   description: 'add a group (lane/partition)',
+  examples: ['add-group --file flow.lgdl --id g1 --label 业务域'],
   register(program: Command) {
     program
       .command('add-group')

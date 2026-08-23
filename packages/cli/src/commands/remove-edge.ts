@@ -6,6 +6,7 @@ import { applyOperation, buildOperation } from '@lgdl/core';
 export const removeEdgeCommand: LgdlCommand = {
   name: 'remove-edge',
   description: 'remove an edge',
+  examples: ['remove-edge --file flow.lgdl --from a --to b'],
   register(program: Command) {
     program
       .command('remove-edge')

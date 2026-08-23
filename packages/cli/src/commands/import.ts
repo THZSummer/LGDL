@@ -7,6 +7,7 @@ import { importMermaid, serializeLgdl, validate } from '@lgdl/core';
 export const importCommand: LgdlCommand = {
   name: 'import',
   description: 'import a diagram from another format (mermaid, ...)',
+  examples: ['import --file flow.mmd --from mermaid --output flow.lgdl'],
   register(program: Command) {
     program
       .command('import')

@@ -60,7 +60,7 @@ program.parseAsync().catch((err) => {
     const matchingCmd = program.commands.find((c) => c.name() === cmdName);
     if (matchingCmd) {
       console.error(`✖ 未知选项 '${flag}'`);
-      console.error(`  你是不是想用命令: lgdl ${cmdName} <file> ？（命令不需要 -- 前缀）`);
+      console.error(`  你是不是想用命令: lgdl-cli ${cmdName} --file <path> ？（命令不需要 -- 前缀）`);
     } else {
       console.error(msg.replace(/^error:\s*/, '✖ '));
     }

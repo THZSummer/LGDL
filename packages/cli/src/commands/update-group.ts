@@ -6,6 +6,7 @@ import { applyOperation, buildOperation } from '@lgdl/core';
 export const updateGroupCommand: LgdlCommand = {
   name: 'update-group',
   description: 'update a group label/members/attrs',
+  examples: ['update-group --file flow.lgdl --id g1 --label 新域'],
   register(program: Command) {
     program
       .command('update-group')

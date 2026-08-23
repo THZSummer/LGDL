@@ -9,6 +9,7 @@ import { renderSvg, renderAscii } from '@lgdl/render';
 export const renderCommand: LgdlCommand = {
   name: 'render',
   description: 'render a diagram to SVG or ASCII',
+  examples: ['render --file flow.lgdl -o flow.svg', 'render --file flow.lgdl --format ascii'],
   register(program: Command) {
     program
       .command('render')

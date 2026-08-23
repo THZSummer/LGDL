@@ -6,6 +6,7 @@ import { applyOperation, buildOperation } from '@lgdl/core';
 export const removeGroupCommand: LgdlCommand = {
   name: 'remove-group',
   description: 'remove a group',
+  examples: ['remove-group --file flow.lgdl --id g1'],
   register(program: Command) {
     program
       .command('remove-group')

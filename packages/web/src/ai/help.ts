@@ -215,6 +215,12 @@ const WEB_OP_ENTRIES: Record<string, HelpEntry> = {
   'expand-editor': { summary: '展开编辑器', example: 'lgdl-web-op-cli expand-editor' },
   'export-svg': { summary: '导出当前图为 SVG 文件', example: 'lgdl-web-op-cli export-svg' },
   'export-png': { summary: '导出当前图为 PNG 文件', example: 'lgdl-web-op-cli export-png' },
+  export: {
+    summary: '导出当前图（别名：--format svg|png）',
+    args: [{ key: 'format', desc: '导出格式：svg（默认）或 png' }],
+    example: 'lgdl-web-op-cli export --format png',
+    note: 'export-svg / export-png 的别名。',
+  },
   'preview-zoom': {
     summary: '缩放预览：按倍率或方向+增量',
     args: [

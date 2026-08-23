@@ -6,6 +6,7 @@ import { applyOperation, buildOperation } from '@lgdl/core';
 export const removeNodeCommand: LgdlCommand = {
   name: 'remove-node',
   description: 'remove a node (auto-cleans attached edges)',
+  examples: ['remove-node --file flow.lgdl --id user'],
   register(program: Command) {
     program
       .command('remove-node')
