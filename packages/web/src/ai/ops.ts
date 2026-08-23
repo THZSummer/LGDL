@@ -28,7 +28,7 @@ import {
   DIAGRAM_TYPE_LABELS,
   type LgdlOperation,
 } from '@lgdl/core';
-import { parseWebCliBatch } from './web-cli.js';
+import { parseWebCliBatch, parseWebFetchCommand } from './web-cli.js';
 
 /** lgdl-web-cli 协议块标记（手动输入兼容）。 */
 export const WEB_CLI_FENCE = 'lgdl-web-cli';
@@ -43,6 +43,33 @@ export interface CommandExecResult {
   changed: boolean;
   /** 失败原因（!ok 时存在） */
   error?: string;
+}
+
+/**
+ * lgdl-web-fetch：基础 web 获取工具，**独立于 lgdl-web-cli / lgdl-web-op-cli**。
+ * 获取同源相对路径或完整 URL，返回原始文本。
+ * 典型用途：读取工作台 skill 文档 lgdl/web/workbench/README-CLI.md（AI 第一步必读）。
+ * 不改文档（changed 恒为 false，source 恒为空）。
+ */
+export async function executeWebFetch(path: string): Promise<CommandExecResult> {
+  const lines: string[] = [];
+  if (!path) {
+    lines.push('✖ lgdl-web-fetch 缺少必填参数 --path <path>（如 --path lgdl/web/workbench/README-CLI.md）');
+    return { ok: false, source: '', lines, changed: false, error: 'missing --path' };
+  }
+  try {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) {
+      lines.push(`✖ 获取失败（HTTP ${res.status}）：${path}`);
+      return { ok: false, source: '', lines, changed: false, error: `fetch failed: ${res.status}` };
+    }
+    const text = await res.text();
+    lines.push(text);
+    return { ok: true, source: '', lines, changed: false };
+  } catch (err) {
+    lines.push(`✖ 获取失败：${(err as Error).message}`);
+    return { ok: false, source: '', lines, changed: false, error: (err as Error).message };
+  }
 }
 
 /**
@@ -62,24 +89,6 @@ export async function executeSubcommand(
   let current = source;
   let changed = false;
 
-  // fetch-doc：获取工作台 skill 文档（lgdl/web/workbench/README-CLI.md）。
-  // AI 应先读此文档了解 lgdl-web-cli 用法，再开始操作。
-  if (subcommand === 'fetch-doc') {
-    const path = args.path ?? 'lgdl/web/workbench/README-CLI.md';
-    try {
-      const res = await fetch(path, { cache: 'no-store' });
-      if (!res.ok) {
-        lines.push(`✖ 获取文档失败（HTTP ${res.status}）：${path}`);
-        return { ok: false, source: current, lines, changed, error: `fetch failed: ${res.status}` };
-      }
-      const text = await res.text();
-      lines.push(text);
-      return { ok: true, source: current, lines, changed };
-    } catch (err) {
-      lines.push(`✖ 获取文档失败：${(err as Error).message}`);
-      return { ok: false, source: current, lines, changed, error: (err as Error).message };
-    }
-  }
   // 只读命令（不改文档）——读多写少：AI 应先用这些了解图，再写。
   // 业务逻辑在 core/queries.ts 单一实现（lgdl-cli 与 lgdl-web-cli 共享）。
   const parsedDoc = parseLgdl(current);
@@ -253,6 +262,26 @@ export async function executeCommands(
   let changed = false;
 
   for (const line of commandsText.split('\n').map((l) => l.trim()).filter(Boolean)) {
+    // 第三个前缀 lgdl-web-fetch：独立基础工具（web 获取），不走 lgdl-web-cli 解析
+    if (line.startsWith('lgdl-web-fetch')) {
+      const parsed = parseWebFetchCommand(line);
+      // 注意：非 strict 编译下 `!parsed.ok` 反向收窄失效，须用显式判别
+      if (parsed.ok === false) {
+        return {
+          ok: false,
+          source: current,
+          lines: [...lines, `✖ ${parsed.error}`, `  → ${line}`],
+          changed,
+          error: parsed.error,
+        };
+      }
+      const r = await executeWebFetch(parsed.path);
+      lines.push(...r.lines);
+      if (!r.ok) {
+        return { ok: false, source: current, lines, changed, error: r.error };
+      }
+      continue;
+    }
     const parsedLine = parseWebCliBatch(line);
     if (parsedLine.errors.length > 0) {
       return {
@@ -306,6 +335,11 @@ function extractSingleSubcommand(line: string): { subcommand: string; args: Reco
 
 /** 单条命令快速解析（供 UI 预览命令含义）。 */
 export function describeCommandLine(line: string): string {
+  if (line.startsWith('lgdl-web-fetch')) {
+    const parsed = parseWebFetchCommand(line);
+    if (parsed.ok === false) return `✖ ${parsed.error}`;
+    return `lgdl-web-fetch --path ${parsed.path} — 获取 web 资源`;
+  }
   const parsed = parseWebCliBatch(line);
   if (parsed.errors.length > 0) return `✖ ${parsed.errors[0].message}`;
   const sub = extractSingleSubcommand(line);
@@ -314,7 +348,6 @@ export function describeCommandLine(line: string): string {
   if (sub.subcommand === 'validate') return 'lgdl-web-cli validate — 校验当前图语法';
   if (sub.subcommand === 'init') return 'lgdl-web-cli init — 初始化为默认图';
   if (sub.subcommand === 'convert') return `lgdl-web-cli convert --to ${sub.args.to} — 导出格式`;
-  if (sub.subcommand === 'fetch-doc') return 'lgdl-web-cli fetch-doc — 读取使用指南';
   if (sub.subcommand === 'doc-info') return 'lgdl-web-cli doc-info — 文档概览';
   if (sub.subcommand === 'get-node') return `lgdl-web-cli get-node --id ${sub.args.id} — 节点详情`;
   if (sub.subcommand === 'get-edge') return 'lgdl-web-cli get-edge — 边详情';

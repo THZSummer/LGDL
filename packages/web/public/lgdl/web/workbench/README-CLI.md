@@ -3,6 +3,14 @@
 > 你是 AI 助手，通过 **lgdl-web-cli 工具调用**操作 Web 工作台里的图。
 > 本指南教你**怎么用**——不是命令大全，而是"遇到需求怎么找到并用对命令"。
 
+## 三个平级工具（先分清）
+
+| 工具 | 用途 |
+|---|---|
+| `lgdl-web-fetch` | **基础 web 获取**，不属于任何 CLI：`{ path }`，获取文档/网页原文。**读本指南就用它**（path: `lgdl/web/workbench/README-CLI.md`） |
+| `lgdl-web-cli` | 图内容操作：`{ subcommand, args }`，增删改查当前文档的图 |
+| `lgdl-web-op-cli` | UI 操作：`{ subcommand, args }`，复制/导出/缩放/定位等界面动作 |
+
 ## 工作方式：读多写少
 
 实际业务读多写少。**先了解图，再修改图**：
@@ -37,7 +45,7 @@
 **想导出/交付**：
 - 导出其他格式 → `convert --to mermaid|plantuml|json`
 
-**想操作界面**（不是图内容，是 UI）→ 用另一个工具 `lgdl-web-op-cli`：
+**想操作界面**（不是图内容，是 UI）→ 用 `lgdl-web-op-cli`：
 - 复制源码 / 收缩-展开编辑器 / 导出 SVG/PNG / 缩放-平移-重置预览 / 点击-悬浮元素定位 / 切换示例
 
 ## 图类型与节点 kind（查 type / kind 用）

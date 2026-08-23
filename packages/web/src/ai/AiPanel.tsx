@@ -2,7 +2,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { executeSubcommand } from './ops';
+import { executeSubcommand, executeWebFetch } from './ops';
 import { chat, loadSettings, PROVIDERS, type ChatTurn, type ProviderSettings, type WebCliToolCall } from './provider';
 import { LGDL_SYSTEM_PROMPT } from './prompts';
 import { SettingsPanel } from './SettingsPanel';
@@ -144,7 +144,8 @@ let nextId = 1;
 
 /** 把 toolCall 的 args 构造成命令行文本（--key value，值带引号）。 */
 function toolCallToCommand(tc: WebCliToolCall): string {
-  const parts = [`lgdl-web-cli ${tc.subcommand}`];
+  const prefix = tc.name === 'lgdl-web-op-cli' ? 'lgdl-web-op-cli' : tc.name === 'lgdl-web-fetch' ? 'lgdl-web-fetch' : 'lgdl-web-cli';
+  const parts = tc.subcommand ? [`${prefix} ${tc.subcommand}`] : [prefix];
   for (const [k, v] of Object.entries(tc.args)) {
     parts.push(`--${k} ${/[\s"]/.test(v) ? `"${v}"` : v}`);
   }
@@ -325,8 +326,8 @@ export function AiPanel({
           const res = await chat(s, [sys, ...msgs]);
           const reply = res.content.trim();
 
-          // web-cli（图操作）+ web-op（UI 操作）→ 统一执行
-          const allCalls = [...res.toolCalls, ...res.opCalls];
+          // web-cli（图操作）+ web-op（UI 操作）+ web-fetch（web 获取）→ 统一执行
+          const allCalls = [...res.toolCalls, ...res.opCalls, ...res.fetchCalls];
           if (allCalls.length > 0) {
             if (reply) {
               appendMessage('assistant', reply);
@@ -348,6 +349,11 @@ export function AiPanel({
               if (tc.name === 'lgdl-web-op-cli') {
                 // UI 操作（与手动点击等效），由 App 执行
                 output = onWebOp(tc.subcommand, tc.args);
+              } else if (tc.name === 'lgdl-web-fetch') {
+                // 基础 web 获取（独立工具，不改文档）
+                const exec = await executeWebFetch(tc.args.path ?? '');
+                output = exec.lines.join('\n') || '(无输出)';
+                if (!exec.ok) failed = true;
               } else {
                 // 图内容操作：结构化执行（不走文本解析，无 --doc 要求）
                 const exec = await executeSubcommand(sourceNow, tc.subcommand, tc.args, docIdRef.current);

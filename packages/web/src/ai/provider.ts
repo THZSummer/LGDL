@@ -202,11 +202,11 @@ export interface ChatTurn {
   toolCalls?: { id: string; name: string; arguments: string }[];
 }
 
-/** 一次 lgdl-web-cli 工具调用（function calling 结构）。 */
+/** 一次工具调用（function calling 结构）。 */
 export interface WebCliToolCall {
   /** 调用 id（反馈 tool 结果时回传） */
   id: string;
-  /** 工具名：lgdl-web-cli（图内容）或 lgdl-web-op-cli（UI 操作） */
+  /** 工具名：lgdl-web-cli（图内容）/ lgdl-web-op-cli（UI 操作）/ lgdl-web-fetch（web 获取） */
   name: string;
   subcommand: string;
   /** --key value 平面参数（不含 --doc，doc 由执行时上下文决定） */
@@ -222,6 +222,8 @@ export interface ChatResult {
   toolCalls: WebCliToolCall[];
   /** lgdl-web-op-cli 工具调用（UI 操作，与手动点击等效） */
   opCalls: WebCliToolCall[];
+  /** lgdl-web-fetch 工具调用（基础 web 获取，独立于两个 CLI） */
+  fetchCalls: WebCliToolCall[];
   /** 使用的模型 */
   model: string;
 }
@@ -283,16 +285,16 @@ export const WEB_CLI_TOOL: {
     name: 'lgdl-web-cli',
     description:
       'Execute an lgdl-web-cli command on the current editor document. ' +
-      'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / fetch-doc. ' +
+      'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types. ' +
       '--doc is implied (always the current document). Use --key value style args, e.g. {"subcommand":"add-node","args":{"id":"user","label":"用户"}}. ' +
-      'START WITH fetch-doc (path "lgdl/web/workbench/README-CLI.md") to read the usage guide before operating.',
+      'Read the usage guide first with the lgdl-web-fetch tool (path "lgdl/web/workbench/README-CLI.md").',
     parameters: {
       type: 'object',
       properties: {
         subcommand: {
           type: 'string',
           enum: [
-            'fetch-doc', 'status', 'validate', 'init', 'convert',
+            'status', 'validate', 'init', 'convert',
             'add-node', 'remove-node', 'update-node',
             'add-edge', 'remove-edge', 'update-edge',
             'add-group', 'remove-group', 'update-group',
@@ -307,6 +309,39 @@ export const WEB_CLI_TOOL: {
         },
       },
       required: ['subcommand'],
+    },
+  },
+};
+
+/**
+ * lgdl-web-fetch：独立基础工具（web 获取），与 lgdl-web-cli / lgdl-web-op-cli 平级，
+ * 不属于任何 CLI 的子命令。获取同源相对路径或完整 URL 的原始文本。
+ */
+export const WEB_FETCH_TOOL: {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+} = {
+  type: 'function',
+  function: {
+    name: 'lgdl-web-fetch',
+    description:
+      'Fetch a web resource (same-origin relative path or full URL) and return its raw text. ' +
+      'Base platform capability, independent of lgdl-web-cli / lgdl-web-op-cli. ' +
+      'Typical use: read the workbench skill guide first — path "lgdl/web/workbench/README-CLI.md".',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'URL or same-origin relative path to fetch, e.g. "lgdl/web/workbench/README-CLI.md" or "https://example.com/doc.md".',
+        },
+      },
+      required: ['path'],
     },
   },
 };
@@ -367,6 +402,11 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
             description: WEB_OP_TOOL.function.description,
             input_schema: WEB_OP_TOOL.function.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
           },
+          {
+            name: WEB_FETCH_TOOL.function.name,
+            description: WEB_FETCH_TOOL.function.description,
+            input_schema: WEB_FETCH_TOOL.function.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
+          },
         ],
         messages: turns
           .filter((t) => t.role !== 'system')
@@ -411,6 +451,7 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
         content: text,
         toolCalls: allCalls.filter((c) => c.name === 'lgdl-web-cli'),
         opCalls: allCalls.filter((c) => c.name === 'lgdl-web-op-cli'),
+        fetchCalls: allCalls.filter((c) => c.name === 'lgdl-web-fetch'),
         model: res.model,
       };
     } catch (err) {
@@ -456,13 +497,17 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
     const allCalls: WebCliToolCall[] = (msg?.tool_calls ?? [])
       .filter(
         (tc): tc is Extract<typeof tc, { type: 'function' }> =>
-          tc.type === 'function' && (tc.function.name === 'lgdl-web-cli' || tc.function.name === 'lgdl-web-op-cli'),
+          tc.type === 'function' &&
+          (tc.function.name === 'lgdl-web-cli' ||
+            tc.function.name === 'lgdl-web-op-cli' ||
+            tc.function.name === 'lgdl-web-fetch'),
       )
       .map((tc) => parseToolArguments(tc.id, tc.function.name, tc.function.arguments));
     return {
       content: msg?.content ?? '',
       toolCalls: allCalls.filter((c) => c.name === 'lgdl-web-cli'),
       opCalls: allCalls.filter((c) => c.name === 'lgdl-web-op-cli'),
+      fetchCalls: allCalls.filter((c) => c.name === 'lgdl-web-fetch'),
       model: res.model ?? settings.model,
     };
   } catch (err) {

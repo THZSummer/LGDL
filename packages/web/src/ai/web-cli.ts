@@ -11,8 +11,11 @@
  *
  * 子命令：add-node / remove-node / update-node / add-edge / remove-edge /
  * update-edge / add-group / remove-group / update-group / status / validate
- * / init / convert / fetch-doc / doc-info / get-node / get-edge / find-node
+ * / init / convert / doc-info / get-node / get-edge / find-node
  * / list-node-kinds / list-diagram-types
+ *
+ * 注意：web 获取（fetch）是独立基础工具 lgdl-web-fetch（见 parseWebFetchCommand），
+ * 不属于 lgdl-web-cli 的子命令——本解析器不认识它。
  */
 import { buildOperation } from '@lgdl/core';
 import type { LgdlOperation } from '@lgdl/core';
@@ -23,7 +26,7 @@ export type ParsedCommand =
   | { kind: 'validate'; docId: string }
   | { kind: 'init'; docId: string; type?: string }
   | { kind: 'convert'; docId: string; to: string }
-  /** 只读命令（fetch-doc / doc-info / get-node / get-edge / find-node / list-*） */
+  /** 只读命令（doc-info / get-node / get-edge / find-node / list-*） */
   | { kind: 'query'; docId: string; command: string; args: Record<string, string> }
   | { kind: 'error'; message: string };
 
@@ -119,8 +122,7 @@ export function parseWebCliCommand(line: string): ParsedCommand {
         }
       // 只读子命令（读多写少：AI 先通过这些了解图，再写）。
       // 执行统一走 executeSubcommand（与 function calling 入口一致），
-      // 这里只做参数解析与校验，不区分 fetch-doc/查询 的执行差异。
-      case 'fetch-doc':
+      // 这里只做参数解析与校验。
       case 'doc-info':
       case 'get-node':
       case 'get-edge':
@@ -131,7 +133,7 @@ export function parseWebCliCommand(line: string): ParsedCommand {
       default:
         return {
           kind: 'error',
-          message: `未知子命令 "${cmd}"（支持：fetch-doc / status / validate / init / convert / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group）`,
+          message: `未知子命令 "${cmd}"（支持：status / validate / init / convert / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group；web 获取请用独立工具 lgdl-web-fetch）`,
         };
     }
   } catch (err) {
@@ -262,4 +264,35 @@ export function parseWebCliBatch(text: string): ParsedBatch {
     }
   }
   return { docId, ops, wantsStatus, wantsValidate, wantsInit, initType, wantsConvert, convertTo, errors };
+}
+
+/**
+ * lgdl-web-fetch：独立基础工具（web 获取），**不属于 lgdl-web-cli 子命令**。
+ * 与 lgdl-web-cli（图内容操作）/ lgdl-web-op-cli（UI 操作）平级，
+ * 是一个平台级能力：获取同源相对路径或完整 URL 的原始文本。
+ * 文本格式：`lgdl-web-fetch --path <path>`（如 lgdl/web/workbench/README-CLI.md）。
+ */
+export type ParsedWebFetch = { ok: true; path: string } | { ok: false; error: string };
+
+export function parseWebFetchCommand(line: string): ParsedWebFetch {
+  const tokens = tokenizeCli(line);
+  if (tokens.length === 0) {
+    return { ok: false, error: '空命令' };
+  }
+  if (tokens[0] !== 'lgdl-web-fetch') {
+    return {
+      ok: false,
+      error: `缺少前缀 "lgdl-web-fetch"（独立基础工具：lgdl-web-fetch --path <path>，如 lgdl/web/workbench/README-CLI.md）`,
+    };
+  }
+  try {
+    const args = parseArgs(tokens.slice(1));
+    const path = args.path;
+    if (!path) {
+      return { ok: false, error: '缺少必填参数 --path <path>（lgdl-web-fetch：获取 web 资源原始文本）' };
+    }
+    return { ok: true, path };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
 }

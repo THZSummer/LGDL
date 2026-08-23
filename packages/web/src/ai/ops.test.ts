@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { executeSubcommand, executeCommands } from './ops.js';
+import { executeSubcommand, executeCommands, executeWebFetch } from './ops.js';
 
 const SRC = `title: t
 type: flowchart
@@ -160,4 +160,39 @@ test('executeCommands: read-only queries run via text commands without modifying
   assert.ok(r.lines.some((l) => l.includes('规模')));
   assert.ok(r.lines.some((l) => l.includes('节点 a')));
   assert.ok(r.lines.some((l) => l.includes('找到 1 个节点')));
+});
+
+test('executeWebFetch: fetches a data: URL successfully without touching the doc', async () => {
+  const r = await executeWebFetch('data:text/plain,hello%20world');
+  assert.ok(r.ok, r.error);
+  assert.equal(r.changed, false);
+  assert.ok(r.lines.some((l) => l.includes('hello world')));
+});
+
+test('executeWebFetch: missing path is an error', async () => {
+  const r = await executeWebFetch('');
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? '', /--path/);
+});
+
+test('executeWebFetch: un-fetchable path reports failure', async () => {
+  // node 环境相对路径无法解析为 URL → 走失败分支
+  const r = await executeWebFetch('lgdl/web/workbench/README-CLI.md');
+  assert.equal(r.ok, false);
+  assert.ok(r.lines.some((l) => l.includes('✖')));
+});
+
+test('executeCommands: lgdl-web-fetch line routes to the independent fetcher', async () => {
+  const r = await executeCommands(SRC, 'lgdl-web-fetch --path data:text/plain,skill%20doc', 'main');
+  assert.ok(r.ok, r.error);
+  assert.equal(r.changed, false);
+  assert.equal(r.source, SRC);
+  assert.ok(r.lines.some((l) => l.includes('skill doc')));
+});
+
+test('executeCommands: lgdl-web-fetch without --path is an error', async () => {
+  const r = await executeCommands(SRC, 'lgdl-web-fetch', 'main');
+  assert.equal(r.ok, false);
+  assert.equal(r.changed, false);
+  assert.match(r.error ?? '', /--path/);
 });

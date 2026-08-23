@@ -11,6 +11,7 @@ import {
   classifyError,
   parseToolArguments,
   WEB_CLI_TOOL,
+  WEB_FETCH_TOOL,
   type ProviderSettings,
 } from './provider.js';
 
@@ -226,4 +227,16 @@ test('WEB_CLI_TOOL: exposes lgdl-web-cli function schema', () => {
   const props = WEB_CLI_TOOL.function.parameters.properties as Record<string, unknown>;
   assert.ok(props.subcommand);
   assert.ok(props.args);
+  // fetch-doc 已从 lgdl-web-cli 移除（web 获取是独立基础工具 lgdl-web-fetch）
+  const enumList = (props.subcommand as { enum: string[] }).enum;
+  assert.ok(!enumList.includes('fetch-doc'));
+  assert.ok(enumList.includes('list-diagram-types'));
+});
+
+test('WEB_FETCH_TOOL: exposes lgdl-web-fetch as an independent base tool', () => {
+  assert.equal(WEB_FETCH_TOOL.function.name, 'lgdl-web-fetch');
+  const props = WEB_FETCH_TOOL.function.parameters.properties as Record<string, unknown>;
+  assert.ok(props.path);
+  const required = (WEB_FETCH_TOOL.function.parameters as { required?: string[] }).required;
+  assert.deepEqual(required, ['path']);
 });
