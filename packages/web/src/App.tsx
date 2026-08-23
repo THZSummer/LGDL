@@ -276,21 +276,40 @@ const ZOOM_EDGE = 64; // px band near each viewport edge where wheel = pan
 const ZOOM_MAX = 8;
 const ZOOM_MIN = 0.5; // 最小缩放固定 50%——不再允许缩到整图适配比例以下
 
-function ZoomableSvg({
-  svg,
-  width,
-  height,
-  extraClass = '',
-  onScaleChange,
-  onLocate,
-}: {
+/** 预览的命令式控制接口（供 lgdl-web-op-cli 驱动，与手动操作等效）。 */
+export interface PreviewController {
+  /** 以某锚点（视口坐标，缺省视口中心）为基准缩放 factor 倍。 */
+  zoomBy: (factor: number, anchorX?: number, anchorY?: number) => void;
+  /** 滚轮式缩放：direction=1 放大 / -1 缩小，delta 为滚轮量。 */
+  wheelZoom: (direction: 1 | -1, delta: number, anchorX?: number, anchorY?: number) => void;
+  /** 平移 dx/dy（视口像素）。 */
+  panBy: (dx: number, dy: number) => void;
+  /** 重置为 FitView。 */
+  resetView: () => void;
+  /** 模拟点击元素：跳转到其源码位置（与手动点击等效）。 */
+  clickLocate: (loc: string) => void;
+  /** 当前缩放比例。 */
+  getScale: () => number;
+}
+
+const ZoomableSvg = React.forwardRef<PreviewController, {
   svg: string;
   width: number;
   height: number;
   extraClass?: string;
   onScaleChange?: (scale: number) => void;
   onLocate?: (loc: string) => void;
-}) {
+}>(function ZoomableSvg(
+  {
+    svg,
+    width,
+    height,
+    extraClass = '',
+    onScaleChange,
+    onLocate,
+  },
+  ref,
+) {
   const hostRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
@@ -327,6 +346,67 @@ function ZoomableSvg({
     host.scrollTop = 0;
     onScaleChangeRef.current?.(scale);
   };
+
+  // 命令式控制接口（lgdl-web-op-cli 用，与手动滚轮/点击等效）
+  React.useImperativeHandle(ref, () => ({
+    zoomBy(factor, anchorX, anchorY) {
+      const host = hostRef.current;
+      if (!host) return;
+      const rect = host.getBoundingClientRect();
+      const cur = scaleRef.current;
+      const next = Math.min(ZOOM_MAX, Math.max(Math.min(cur, ZOOM_MIN), cur * factor));
+      const k = next / cur;
+      const mx = anchorX ?? rect.width / 2;
+      const my = anchorY ?? rect.height / 2;
+      const sx = host.scrollLeft;
+      const sy = host.scrollTop;
+      scaleRef.current = next;
+      applySize(next);
+      host.scrollLeft = (sx + mx) * k - mx;
+      host.scrollTop = (sy + my) * k - my;
+      onScaleChangeRef.current?.(next);
+    },
+    wheelZoom(direction, delta, anchorX, anchorY) {
+      // 与滚轮缩放同公式（exp 平滑）
+      const host = hostRef.current;
+      if (!host) return;
+      const rect = host.getBoundingClientRect();
+      const mx = anchorX ?? rect.width / 2;
+      const my = anchorY ?? rect.height / 2;
+      const cur = scaleRef.current;
+      const next = Math.min(
+        ZOOM_MAX,
+        Math.max(Math.min(cur, ZOOM_MIN), cur * Math.exp(-direction * delta * 0.0015)),
+      );
+      const k = next / cur;
+      const sx = host.scrollLeft;
+      const sy = host.scrollTop;
+      scaleRef.current = next;
+      applySize(next);
+      host.scrollLeft = (sx + mx) * k - mx;
+      host.scrollTop = (sy + my) * k - my;
+      onScaleChangeRef.current?.(next);
+    },
+    panBy(dx, dy) {
+      const host = hostRef.current;
+      if (!host) return;
+      host.scrollLeft += dx;
+      host.scrollTop += dy;
+    },
+    resetView() {
+      resetView();
+    },
+    clickLocate(loc) {
+      onLocateRef.current?.(loc);
+    },
+    getScale() {
+      return scaleRef.current;
+    },
+  }));
+
+  // keep onLocate fresh for the imperative handle
+  const onLocateRef = useRef(onLocate);
+  onLocateRef.current = onLocate;
 
   // new diagram (or first mount) -> refit
   useEffect(() => {
@@ -399,7 +479,7 @@ function ZoomableSvg({
       </div>
     </div>
   );
-}
+});
 
 interface RenderState {
   svg: string;
@@ -494,6 +574,7 @@ export function App(): React.JSX.Element {
   const editorPaneRef = useRef<HTMLElement>(null);
   const editorHostRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
+  const previewRef = useRef<PreviewController>(null);
   const switcherRef = useRef<HTMLDivElement>(null);
   const sourceRef = useRef(source);
   sourceRef.current = source;
@@ -798,6 +879,8 @@ export function App(): React.JSX.Element {
     compileCache.clear();
   }, []);
 
+
+
   // ---- AI 设置（服务商 / Key / 模型）----
   const [aiSettings, setAiSettings] = useState<ProviderSettings>(() => loadSettings());
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
@@ -805,6 +888,8 @@ export function App(): React.JSX.Element {
     setAiSettings(s);
     saveSettings(s);
   }, []);
+
+
 
   // click an issue / preview element -> jump to the location in the editor,
   // centering the target line vertically and moving the cursor onto it
@@ -819,6 +904,93 @@ export function App(): React.JSX.Element {
     });
     view.focus();
   }, []);
+
+  /**
+   * lgdl-web-op-cli 执行器：Web UI 操作（与用户手动点击等效）。
+   * 返回操作结果文本（供 AI 反馈）。
+   */
+  const handleWebOp = useCallback((subcommand: string, args: Record<string, string>): string => {
+    switch (subcommand) {
+      case 'copy-source':
+        navigator.clipboard.writeText(source).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+        return '✓ 源码已复制到剪贴板';
+      case 'toggle-editor': {
+        setAiCollapsed((c) => !c);
+        return '✓ 编辑器已切换收缩状态';
+      }
+      case 'collapse-editor':
+        setAiCollapsed(true);
+        return '✓ 编辑器已收缩';
+      case 'expand-editor':
+        setAiCollapsed(false);
+        setSplitRatio(0.4);
+        return '✓ 编辑器已展开（40%）';
+      case 'export-svg':
+        downloadSvg();
+        return '✓ 已导出 SVG';
+      case 'export-png':
+        downloadPng();
+        return '✓ 已导出 PNG';
+      case 'export': {
+        // 别名：AI 可能用 export + format=svg/png
+        const fmt = args.format ?? '';
+        if (fmt === 'png') {
+          downloadPng();
+          return '✓ 已导出 PNG';
+        }
+        downloadSvg();
+        return '✓ 已导出 SVG';
+      }
+      case 'preview-zoom': {
+        const c = previewRef.current;
+        if (!c) return '✖ 预览未就绪';
+        const factor = args.factor !== undefined ? parseFloat(args.factor) : NaN;
+        if (!Number.isNaN(factor) && factor > 0) {
+          c.zoomBy(factor, args.anchorX !== undefined ? parseFloat(args.anchorX) : undefined, args.anchorY !== undefined ? parseFloat(args.anchorY) : undefined);
+          return `✓ 已缩放 ${Math.round(c.getScale() * 100)}%`;
+        }
+        const dir = args.direction === '1' || args.direction === 'in' ? 1 : -1;
+        const delta = args.delta !== undefined ? Math.max(50, Math.min(800, parseFloat(args.delta))) : 200;
+        c.wheelZoom(dir as 1 | -1, delta, args.anchorX !== undefined ? parseFloat(args.anchorX) : undefined, args.anchorY !== undefined ? parseFloat(args.anchorY) : undefined);
+        return `✓ 已滚轮缩放，当前 ${Math.round(c.getScale() * 100)}%`;
+      }
+      case 'preview-pan': {
+        const c = previewRef.current;
+        if (!c) return '✖ 预览未就绪';
+        c.panBy(parseFloat(args.dx ?? '0') || 0, parseFloat(args.dy ?? '0') || 0);
+        return `✓ 已平移 (${args.dx ?? 0}, ${args.dy ?? 0})`;
+      }
+      case 'preview-reset': {
+        const c = previewRef.current;
+        if (!c) return '✖ 预览未就绪';
+        c.resetView();
+        return '✓ 预览已重置为整图适配';
+      }
+      case 'preview-click': {
+        const loc = args.loc;
+        if (!loc) return '✖ preview-click 需要 loc 参数（如 nodes[3]）';
+        jumpToIssue(loc);
+        return `✓ 已定位到 ${loc}（编辑器已跳转）`;
+      }
+      case 'switch-example': {
+        const ex = EXAMPLES.find((e) => e.id === args.id);
+        if (!ex) return `✖ 示例不存在: ${args.id}`;
+        selectExample(ex);
+        return `✓ 已切换到示例 ${ex.label}`;
+      }
+      case 'apply-source': {
+        const lgdl = args.source;
+        if (!lgdl) return '✖ apply-source 需要 source 参数';
+        applyAiSource(lgdl);
+        return '✓ 已应用源码';
+      }
+      default:
+        return `✖ 未知操作 "${subcommand}"`;
+    }
+  }, [source, downloadSvg, downloadPng, jumpToIssue, selectExample, applyAiSource]);
 
   return (
     <div className="app">
@@ -948,7 +1120,7 @@ export function App(): React.JSX.Element {
               </span>
             </div>
             <div className="ai-body">
-              <AiPanel onApply={applyAiSource} currentSource={source} settings={aiSettings} onSaveSettings={saveAiSettings} />
+              <AiPanel onApply={applyAiSource} onWebOp={handleWebOp} currentSource={source} settings={aiSettings} onSaveSettings={saveAiSettings} />
             </div>
           </section>
         </section>
@@ -967,11 +1139,11 @@ export function App(): React.JSX.Element {
           </div>
           <div className="preview-body">
             {state.svg ? (
-              <ZoomableSvg svg={state.svg} width={state.width} height={state.height} onScaleChange={setZoomScale} onLocate={jumpToIssue} />
+              <ZoomableSvg ref={previewRef} svg={state.svg} width={state.width} height={state.height} onScaleChange={setZoomScale} onLocate={jumpToIssue} />
             ) : hasErrors && lastGood.svg ? (
               // keep the last good render visible, overlay an error mask
               <div className="preview-stale-wrap">
-                <ZoomableSvg svg={lastGood.svg} width={lastGood.width} height={lastGood.height} extraClass="svg-stale" onScaleChange={setZoomScale} onLocate={jumpToIssue} />
+                <ZoomableSvg ref={previewRef} svg={lastGood.svg} width={lastGood.width} height={lastGood.height} extraClass="svg-stale" onScaleChange={setZoomScale} onLocate={jumpToIssue} />
                 {!maskDismissed && (
                   <div className="error-mask">
                     <div className="error-mask-card">

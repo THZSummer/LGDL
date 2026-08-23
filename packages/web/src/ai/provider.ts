@@ -206,6 +206,8 @@ export interface ChatTurn {
 export interface WebCliToolCall {
   /** 调用 id（反馈 tool 结果时回传） */
   id: string;
+  /** 工具名：lgdl-web-cli（图内容）或 lgdl-web-op-cli（UI 操作） */
+  name: string;
   subcommand: string;
   /** --key value 平面参数（不含 --doc，doc 由执行时上下文决定） */
   args: Record<string, string>;
@@ -216,13 +218,57 @@ export interface WebCliToolCall {
 export interface ChatResult {
   /** chat 文本（markdown 渲染）；无文本时为 '' */
   content: string;
-  /** lgdl-web-cli 工具调用（如有） */
+  /** lgdl-web-cli 工具调用（图内容操作） */
   toolCalls: WebCliToolCall[];
+  /** lgdl-web-op-cli 工具调用（UI 操作，与手动点击等效） */
+  opCalls: WebCliToolCall[];
   /** 使用的模型 */
   model: string;
 }
 
-/** lgdl-web-cli function 定义（传给 OpenAI 兼容端点 tools）。 */
+/** lgdl-web-op-cli function 定义（UI 操作，与用户手动点击等效）。 */
+export const WEB_OP_TOOL: {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+} = {
+  type: 'function',
+  function: {
+    name: 'lgdl-web-op-cli',
+    description:
+      'Perform a UI operation on the web workbench, equivalent to the user clicking the button manually. ' +
+      'Subcommands: copy-source / toggle-editor / collapse-editor / expand-editor / export-svg / export-png / ' +
+      'preview-zoom (args: factor, or direction+delta, anchorX, anchorY) / preview-pan (dx, dy) / preview-reset / ' +
+      'preview-click (loc, e.g. "nodes[3]") / switch-example (id) / apply-source (source: full LGDL text). ' +
+      'Effects are identical to manual UI interaction (e.g. preview-click jumps to the element in the editor).',
+    parameters: {
+      type: 'object',
+      properties: {
+        subcommand: {
+          type: 'string',
+          enum: [
+            'copy-source', 'toggle-editor', 'collapse-editor', 'expand-editor',
+            'export-svg', 'export-png',
+            'preview-zoom', 'preview-pan', 'preview-reset', 'preview-click',
+            'switch-example', 'apply-source',
+          ],
+        },
+        args: {
+          type: 'object',
+          description:
+            'Operation arguments, e.g. preview-zoom: {"factor":1.2} or {"direction":1,"delta":200}; ' +
+            'preview-pan: {"dx":100,"dy":0}; preview-click: {"loc":"nodes[3]"}; ' +
+            'switch-example: {"id":"login-flow"}; apply-source: {"source":"<full LGDL text>"}.',
+          additionalProperties: true,
+        },
+      },
+      required: ['subcommand'],
+    },
+  },
+};
 export const WEB_CLI_TOOL: {
   type: 'function';
   function: {
@@ -312,6 +358,11 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
             description: WEB_CLI_TOOL.function.description,
             input_schema: WEB_CLI_TOOL.function.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
           },
+          {
+            name: WEB_OP_TOOL.function.name,
+            description: WEB_OP_TOOL.function.description,
+            input_schema: WEB_OP_TOOL.function.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
+          },
         ],
         messages: turns
           .filter((t) => t.role !== 'system')
@@ -349,10 +400,15 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
         .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
         .map((b) => b.text)
         .join('\n');
-      const toolCalls: WebCliToolCall[] = res.content
+      const allCalls: WebCliToolCall[] = res.content
         .filter((b): b is Extract<typeof b, { type: 'tool_use' }> => b.type === 'tool_use')
         .map((b) => parseToolArguments(b.id, b.name, JSON.stringify(b.input)));
-      return { content: text, toolCalls, model: res.model };
+      return {
+        content: text,
+        toolCalls: allCalls.filter((c) => c.name === 'lgdl-web-cli'),
+        opCalls: allCalls.filter((c) => c.name === 'lgdl-web-op-cli'),
+        model: res.model,
+      };
     } catch (err) {
       throw classifyError(err, provider);
     }
@@ -389,19 +445,20 @@ export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promi
         }
         return { role: t.role === 'system' ? 'system' : (t.role === 'assistant' ? 'assistant' : 'user'), content: t.content };
       }),
-      tools: [WEB_CLI_TOOL],
+      tools: [WEB_CLI_TOOL, WEB_OP_TOOL],
       max_tokens: 4096,
     });
     const msg = res.choices[0]?.message;
-    const toolCalls: WebCliToolCall[] = (msg?.tool_calls ?? [])
+    const allCalls: WebCliToolCall[] = (msg?.tool_calls ?? [])
       .filter(
         (tc): tc is Extract<typeof tc, { type: 'function' }> =>
-          tc.type === 'function' && tc.function.name === 'lgdl-web-cli',
+          tc.type === 'function' && (tc.function.name === 'lgdl-web-cli' || tc.function.name === 'lgdl-web-op-cli'),
       )
       .map((tc) => parseToolArguments(tc.id, tc.function.name, tc.function.arguments));
     return {
       content: msg?.content ?? '',
-      toolCalls,
+      toolCalls: allCalls.filter((c) => c.name === 'lgdl-web-cli'),
+      opCalls: allCalls.filter((c) => c.name === 'lgdl-web-op-cli'),
       model: res.model ?? settings.model,
     };
   } catch (err) {
@@ -426,7 +483,7 @@ export function parseToolArguments(id: string, name: string, raw: string): WebCl
   } catch {
     // 保持 subcommand=''，执行层会报"缺少子命令"
   }
-  return { id, subcommand, args, rawArguments: raw };
+  return { id, name, subcommand, args, rawArguments: raw };
 }
 
 /** 把 SDK 错误归类为可读信息（key 无效 / 网络不通 / CORS 不允许 / 端点不对）。 */

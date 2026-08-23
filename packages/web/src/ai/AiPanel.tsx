@@ -205,12 +205,15 @@ function MarkdownBody({ content }: { content: string }) {
 
 export function AiPanel({
   onApply,
+  onWebOp,
   currentSource = '',
   docId = 'main',
   settings,
   onSaveSettings,
 }: {
   onApply: ApplySource;
+  /** lgdl-web-op-cli 执行器（UI 操作，返回结果文本给 AI 反馈） */
+  onWebOp: (subcommand: string, args: Record<string, string>) => string;
   currentSource?: string;
   /** 当前文档 id（web-cli 的 --doc 必填，未来多标签/多文档时扩展） */
   docId?: string;
@@ -322,35 +325,42 @@ export function AiPanel({
           const res = await chat(s, [sys, ...msgs]);
           const reply = res.content.trim();
 
-          // web-cli 执行（tool_calls）→ 先展示 chat 文本，再按序执行
-          if (res.toolCalls.length > 0) {
+          // web-cli（图操作）+ web-op（UI 操作）→ 统一执行
+          const allCalls = [...res.toolCalls, ...res.opCalls];
+          if (allCalls.length > 0) {
             if (reply) {
               appendMessage('assistant', reply);
             }
             // 一个 assistant 消息携带全部 toolCalls（OpenAI/Claude 要求
             // tool 结果紧跟带 tool_calls 的 assistant 消息，中间不能插消息）
-            const toolCallsMeta = res.toolCalls.map((tc) => ({
+            const toolCallsMeta = allCalls.map((tc) => ({
               id: tc.id,
-              name: 'lgdl-web-cli',
+              name: tc.name,
               arguments: tc.rawArguments,
             }));
             turns.push({ role: 'assistant', content: reply, toolCalls: toolCallsMeta });
 
             let failed = false;
-            for (const tc of res.toolCalls) {
+            for (const tc of allCalls) {
               const commandLine = toolCallToCommand(tc);
               appendMessage('assistant', commandLine, 'web-cli');
-              // 结构化执行（subcommand + args，不走文本解析，无 --doc 要求）
-              const exec = executeSubcommand(sourceNow, tc.subcommand, tc.args, docIdRef.current);
-              if (exec.changed) {
-                onApply(exec.source);
-                sourceNow = exec.source;
+              let output: string;
+              if (tc.name === 'lgdl-web-op-cli') {
+                // UI 操作（与手动点击等效），由 App 执行
+                output = onWebOp(tc.subcommand, tc.args);
+              } else {
+                // 图内容操作：结构化执行（不走文本解析，无 --doc 要求）
+                const exec = executeSubcommand(sourceNow, tc.subcommand, tc.args, docIdRef.current);
+                if (exec.changed) {
+                  onApply(exec.source);
+                  sourceNow = exec.source;
+                }
+                output = exec.lines.join('\n') || '(无输出)';
+                if (!exec.ok) failed = true;
               }
-              const output = exec.lines.join('\n') || '(无输出)';
               appendMessage('tool', output);
               // tool 结果反馈（紧跟 assistant tool_calls，含 toolCallId）
               turns.push({ role: 'tool', content: output, toolCallId: tc.id });
-              if (!exec.ok) failed = true;
             }
             if (failed) {
               // 失败提示在所有 tool 结果之后（不插在 assistant/tool 之间）
@@ -386,7 +396,7 @@ export function AiPanel({
 
       step(1);
     },
-    [input, pending, appendMessage, onApply],
+    [input, pending, appendMessage, onApply, onWebOp],
   );
 
   /** 点击预置提示词胶囊：把指令（含当前源码上下文）直接发给 AI。 */

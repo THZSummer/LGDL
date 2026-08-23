@@ -43,6 +43,19 @@ export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Langu
 - remove-group --id <id>
 - update-group --id <id> [--new-id <新id>] [--label <名>] [--member-add <id>] [--member-remove <id>]
 
+## UI 操作工具（lgdl-web-op-cli —— 与用户手动点击等效）
+需要操作界面（非图内容）时调用 \`lgdl-web-op-cli\` 工具（参数 { subcommand, args }）：
+- copy-source                               # 复制源码到剪贴板
+- collapse-editor / expand-editor / toggle-editor   # 收缩/展开/切换编辑器
+- export-svg / export-png                   # 导出 SVG / PNG
+- preview-zoom {"factor":1.2} 或 {"direction":1,"delta":200,"anchorX":x,"anchorY":y}  # 缩放（锚点=视口坐标，缺省中心）
+- preview-pan {"dx":100,"dy":0}             # 平移预览
+- preview-reset                             # 预览重置为整图适配
+- preview-click {"loc":"nodes[3]"}          # 点击元素 → 编辑器跳转到该元素源码（与手动点击等效）
+- switch-example {"id":"login-flow"}        # 切换示例
+- apply-source {"source":"<完整LGDL文本>"}  # 应用整段源码
+这些操作的效果与用户在界面上手动点击完全一致。
+
 ## 使用流程（重要）
 1. 修改前先调用 \`status\` 查看当前图的结构（节点/边/分组）
 2. 用上面的 subcommand 增量修改（每轮一小步）
