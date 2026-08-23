@@ -54,7 +54,7 @@ export interface CommandExecResult {
 export async function executeWebFetch(path: string): Promise<CommandExecResult> {
   const lines: string[] = [];
   if (!path) {
-    lines.push('✖ lgdl-web-fetch 缺少必填参数 --path <path>（如 --path lgdl/web/workbench/README-CLI.md）');
+    lines.push('✖ lgdl-web-fetch 缺少必填参数 --path：调用时必须显式传 path（无默认文档）。正确示例：{"path":"lgdl/web/workbench/README-CLI.md"}');
     return { ok: false, source: '', lines, changed: false, error: 'missing --path' };
   }
   try {

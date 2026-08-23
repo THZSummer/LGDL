@@ -21,7 +21,9 @@ export const LGDL_SYSTEM_PROMPT = `你是 LGDL（Logical Graph Description Langu
 - \`--doc\` 是隐式的（始终是当前文档），不需要传
 
 ## 第一步必做：阅读使用指南（lgdl-web-fetch）
-开始任何任务前，**先调用 \`lgdl-web-fetch\`**（path: "lgdl/web/workbench/README-CLI.md"）
+开始任何任务前，**先调用 \`lgdl-web-fetch\` 工具并显式传 path**——该参数**必填、没有默认值**，省略会报错：
+  {"path": "lgdl/web/workbench/README-CLI.md"}
+（path 传相对路径或完整 URL 均可，本指南为同源相对路径）
 获取完整使用指南并阅读。指南包含：目标→命令对照、图类型/节点 kind、常见陷阱、推荐流程。
 不要凭记忆猜测命令——以文档为准。
 

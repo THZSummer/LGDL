@@ -291,7 +291,8 @@ export const WEB_CLI_TOOL: {
       'Execute an lgdl-web-cli command on the current editor document. ' +
       'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types. ' +
       '--doc is implied (always the current document). Use --key value style args, e.g. {"subcommand":"add-node","args":{"id":"user","label":"用户"}}. ' +
-      'Read the usage guide first with the lgdl-web-fetch tool (path "lgdl/web/workbench/README-CLI.md").',
+      'Read the usage guide first with the lgdl-web-fetch tool: call it with the REQUIRED path argument, ' +
+      'e.g. {"path":"lgdl/web/workbench/README-CLI.md"} (path has no default — omitting it fails).',
     parameters: {
       type: 'object',
       properties: {
@@ -335,7 +336,8 @@ export const WEB_FETCH_TOOL: {
     description:
       'Fetch a web resource (same-origin relative path or full URL) and return its raw text. ' +
       'Base platform capability, independent of lgdl-web-cli / lgdl-web-op-cli. ' +
-      'Typical use: read the workbench skill guide first — path "lgdl/web/workbench/README-CLI.md".',
+      'The path argument is REQUIRED — there is NO default path; omitting it fails with "missing --path". ' +
+      'Example: {"path":"lgdl/web/workbench/README-CLI.md"} to read the workbench skill guide.',
     parameters: {
       type: 'object',
       properties: {

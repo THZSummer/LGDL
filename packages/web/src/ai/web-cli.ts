@@ -289,7 +289,7 @@ export function parseWebFetchCommand(line: string): ParsedWebFetch {
     const args = parseArgs(tokens.slice(1));
     const path = args.path;
     if (!path) {
-      return { ok: false, error: '缺少必填参数 --path <path>（lgdl-web-fetch：获取 web 资源原始文本）' };
+      return { ok: false, error: '缺少必填参数 --path <path>（lgdl-web-fetch 必须显式传 path，无默认文档；如 --path lgdl/web/workbench/README-CLI.md）' };
     }
     return { ok: true, path };
   } catch (err) {
