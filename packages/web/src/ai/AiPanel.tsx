@@ -280,6 +280,24 @@ export function AiPanel({
   const presetTrackRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  // 使用指南（README-CLI.md）：会话开始时由系统自动加载一次并注入 system，
+  // 不依赖 AI 调 lgdl-web-fetch（模型可能漏传 --path 导致加载失败）。
+  const guideDocRef = useRef<string | null>(null);
+  const guideLoadingRef = useRef<Promise<void> | null>(null);
+  const ensureGuideDoc = useCallback((): Promise<void> => {
+    if (guideDocRef.current !== null) return Promise.resolve();
+    if (!guideLoadingRef.current) {
+      guideLoadingRef.current = (async () => {
+        try {
+          const res = await fetch('lgdl/web/workbench/README-CLI.md', { cache: 'no-store' });
+          if (res.ok) guideDocRef.current = await res.text();
+        } catch {
+          // 加载失败不阻塞：AI 仍可全程用 --help 查询
+        }
+      })();
+    }
+    return guideLoadingRef.current;
+  }, []);
 
   // 预置滑轨：垂直滚轮转横向滚动（内容溢出时才劫持，避免挡住页面滚动）
   React.useEffect(() => {
@@ -349,6 +367,8 @@ export function AiPanel({
       ];
       const failCount = { current: 0 };
       let sourceNow = currentSourceRef.current;
+      // 触发使用指南加载（缓存幂等；step 里 await 保证已就绪）
+      ensureGuideDoc();
 
       const step = async (round: number) => {
         if (round > MAX_ROUNDS) {
@@ -356,9 +376,16 @@ export function AiPanel({
           setPending(false);
           return;
         }
+        // 使用指南已由系统自动加载：随 system 一并提供（战略层知识），
+        // AI 无需（也不应）再调 lgdl-web-fetch 获取该方法论文档
+        await ensureGuideDoc();
+        const guideDoc = guideDocRef.current;
+        const sysContent = guideDoc
+          ? `${LGDL_SYSTEM_PROMPT}\n\n## 使用指南（系统已自动加载，供参考）\n\n${guideDoc}`
+          : LGDL_SYSTEM_PROMPT;
         // 组装本轮 LLM 输入：system + 历史；tool 结果保持 tool 角色
         // （provider.chat 会映射为 OpenAI tool / Claude tool_result）
-        const sys = { role: 'system' as const, content: LGDL_SYSTEM_PROMPT };
+        const sys = { role: 'system' as const, content: sysContent };
         const msgs: ChatTurn[] = turns.filter((t) => t.role !== 'system');
         try {
           const res = await chat(s, [sys, ...msgs]);
@@ -452,7 +479,7 @@ export function AiPanel({
 
       step(1);
     },
-    [input, pending, appendMessage, onApply, onWebOp],
+    [input, pending, appendMessage, onApply, onWebOp, ensureGuideDoc],
   );
 
   /** 点击预置提示词胶囊：把指令（含当前源码上下文）直接发给 AI。 */
