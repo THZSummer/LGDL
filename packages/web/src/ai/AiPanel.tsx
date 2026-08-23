@@ -230,9 +230,13 @@ function CommandBlock({
 }
 
 /**
- * 消息体渲染：react-markdown 完整渲染（标题/列表/表格/引用/代码块…）。
- * 表达（普通 markdown）与执行（```lgdl-web-cli 块）通过代码块语言区分——
- * lgdl-web-cli 围栏渲染为可执行命令卡，其余代码块渲染为普通代码展示。
+ * 消息渲染：协议层先行拆分，chat 与 web-cli 明确分流。
+ *
+ * AI 回复由两种类型组成：
+ *   - chat（表达）：除协议块外的全部内容 → react-markdown 完整渲染
+ *   - web-cli（执行）：```lgdl-web-cli 围栏 → 命令块（可执行）
+ * 协议块在渲染前精确提取（不交给 markdown 解析器判断），
+ * 剩余文本整体按 markdown 渲染——类型由协议层区分，无猜测。
  */
 function MessageBody({
   content,
@@ -247,33 +251,59 @@ function MessageBody({
   docId: string;
   autoApply?: boolean;
 }) {
+  const parts: React.ReactNode[] = [];
+  const re = /```lgdl-web-cli\s*\n([\s\S]*?)```/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = re.exec(content))) {
+    // chat 段（协议块之前/之间的文本）→ markdown 渲染
+    if (m.index > last) {
+      const chat = content.slice(last, m.index);
+      parts.push(
+        <MarkdownBody key={k++} content={chat} />,
+      );
+    }
+    // web-cli 段 → 命令块（执行）
+    const body = m[1].replace(/\n$/, '');
+    parts.push(
+      <CommandBlock key={k++} commands={body} currentSource={currentSource} docId={docId} onApply={onApply} autoApply={autoApply} />,
+    );
+    last = m.index + m[0].length;
+  }
+  // 尾部 chat 段
+  if (last < content.length) {
+    parts.push(<MarkdownBody key={k++} content={content.slice(last)} />);
+  }
+  if (parts.length === 0) {
+    parts.push(<MarkdownBody key={0} content={content} />);
+  }
+  return <>{parts}</>;
+}
+
+/** chat 段：纯 markdown 渲染（标题/列表/表格/引用/代码块展示…）。 */
+function MarkdownBody({ content }: { content: string }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        // lgdl-web-cli 块 → 可执行命令卡；其他语言 → 普通代码块
+        // 块级代码块已由 code 组件自带 <pre>，避免 react-markdown 再套一层
+        pre: ({ children }) => <>{children}</>,
+        // 行内 `code`
         code({ className, children }) {
-          const match = /language-(\w+)/.exec(className ?? '');
+          const match = /language-([\w-]+)/.exec(className ?? '');
           const lang = match?.[1] ?? '';
-          const body = String(children).replace(/\n$/, '');
-          if (lang === 'lgdl-web-cli') {
-            return (
-              <CommandBlock
-                commands={body}
-                currentSource={currentSource}
-                docId={docId}
-                onApply={onApply}
-                autoApply={autoApply}
-              />
-            );
+          const text = String(children);
+          if (lang === '' && !text.includes('\n')) {
+            return <code className="ai-inline-code">{children}</code>;
           }
+          // 块级代码块（展示用，无执行语义）
           return (
             <pre className="ai-md-code">
               <code className={className}>{children}</code>
             </pre>
           );
         },
-        // 让 markdown 元素用消息气泡内的样式
         p: ({ children }) => <p className="ai-msg-para">{children}</p>,
         a: ({ href, children }) => (
           <a href={href} target="_blank" rel="noreferrer" className="ai-md-link">

@@ -470,14 +470,6 @@ body,
   margin: 10px 0;
 }
 
-.ai-msg-assistant .ai-msg-bubble code {
-  background: #e2e8f0;
-  border-radius: 3px;
-  padding: 1px 4px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-}
-
 .ai-md-link {
   color: #4f46e5;
   text-decoration: underline;
