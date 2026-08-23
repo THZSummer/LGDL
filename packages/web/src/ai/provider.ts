@@ -39,7 +39,7 @@ export interface ProviderConfig {
 }
 
 export const PROVIDERS: ProviderConfig[] = [
-  { id: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com', defaultModel: 'deepseek-chat', freeModel: true, hint: 'api.deepseek.com（OpenAI 兼容）', browserDirect: true },
+  { id: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com', defaultModel: 'deepseek-v4-flash', freeModel: true, hint: 'api.deepseek.com（OpenAI 兼容）', browserDirect: true },
   { id: 'qwen', name: 'Qwen 通义千问', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', defaultModel: 'qwen-plus', freeModel: true, hint: '阿里云百炼 compatible-mode', browserDirect: true },
   { id: 'volc', name: '火山方舟 · 通用', baseURL: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seed-1-6-250615', freeModel: true, hint: '通用 v3 端点（doubao-seed-1-6 等）；⚠ 浏览器直连受限，需本地代理（v0.6）', browserDirect: false },
   { id: 'volc-coding', name: '火山方舟 · Coding', baseURL: 'https://ark.cn-beijing.volces.com/api/coding/v3', defaultModel: 'deepseek-v4-flash', freeModel: true, hint: 'Coding 端点（deepseek-v4-* 等）；⚠ 浏览器直连受限，需本地代理（v0.6）', browserDirect: false },
@@ -62,7 +62,7 @@ const STORAGE_KEY = 'lgdl-ai-settings';
 const DEFAULT_SETTINGS: ProviderSettings = {
   providerId: 'deepseek',
   apiKey: '',
-  model: 'deepseek-chat',
+  model: 'deepseek-v4-flash',
 };
 
 /**

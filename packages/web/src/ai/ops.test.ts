@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractOperations, applyOpsToSource } from './ops.js';
+import { extractCommands, executeCommands } from './ops.js';
 
 const SRC = `title: t
 type: flowchart
@@ -15,43 +15,54 @@ edges:
     label: dep
 `;
 
-test('extractOperations: parses a valid ```ops block', () => {
-  const text = '好的，我来修改：\n\n```ops\n[{"op":"add-node","id":"c","label":"C"}]\n```\n\n完成。';
-  const ops = extractOperations(text);
-  assert.ok(ops);
-  assert.deepEqual(ops, [{ op: 'add-node', id: 'c', label: 'C' }]);
+test('extractCommands: parses a ```bash block', () => {
+  const text = '我来修改：\n\n```bash\nlgdl add-node --id c --label C\n```\n\n完成。';
+  assert.equal(extractCommands(text), 'lgdl add-node --id c --label C\n');
 });
 
-test('extractOperations: null when no ops block', () => {
-  assert.equal(extractOperations('没有任何操作'), null);
+test('extractCommands: null when no command block', () => {
+  assert.equal(extractCommands('没有命令'), null);
 });
 
-test('extractOperations: null when the block is not an array of known ops', () => {
-  assert.equal(extractOperations('```ops\n{"op":"add-node"}\n```'), null);
-  assert.equal(extractOperations('```ops\n[{"op":"explode"}]\n```'), null);
-  assert.equal(extractOperations('```ops\nnot json\n```'), null);
-});
-
-test('applyOpsToSource: applies a sequence and returns the new source', () => {
-  const r = applyOpsToSource(SRC, [
-    { op: 'add-node', id: 'c', label: 'C' },
-    { op: 'add-edge', from: 'b', to: 'c', label: 'next' },
-  ]);
-  assert.ok(r.ok);
-  assert.ok(r.source);
+test('executeCommands: applies add-node then add-edge', () => {
+  const r = executeCommands(SRC, 'lgdl add-node --id c --label C\nlgdl add-edge --from b --to c --label next');
+  assert.ok(r.ok, r.error);
+  assert.ok(r.changed);
   assert.ok(r.source.includes('- id: c'));
   assert.ok(r.source.includes('to: c'));
-  assert.equal(r.summaries?.length, 2);
+  assert.equal(r.lines.filter((l) => l.startsWith('✓')).length, 2);
 });
 
-test('applyOpsToSource: failed op reports which op and why', () => {
-  const r = applyOpsToSource(SRC, [{ op: 'update-node', id: 'ghost', label: 'X' }]);
-  assert.equal(r.ok, false);
-  assert.match(r.error ?? '', /update-node ghost 失败/);
+test('executeCommands: status outputs the graph and does not modify', () => {
+  const r = executeCommands(SRC, 'lgdl status');
+  assert.ok(r.ok);
+  assert.equal(r.changed, false);
+  assert.equal(r.source, SRC);
+  assert.ok(r.lines.some((l) => l.includes('# t [flowchart]')));
+  assert.ok(r.lines.some((l) => l.includes('a -> b')));
 });
 
-test('applyOpsToSource: rejects when the current source is invalid', () => {
-  const r = applyOpsToSource('nodes:\n  - id: a\n    - oops', [{ op: 'add-node', id: 'x' }]);
+test('executeCommands: failed op reports which command and why', () => {
+  const r = executeCommands(SRC, 'lgdl update-node --id ghost --label X');
   assert.equal(r.ok, false);
-  assert.match(r.error ?? '', /当前源码有/);
+  assert.match(r.error ?? '', /ghost/);
+});
+
+test('executeCommands: parse error stops the batch', () => {
+  const r = executeCommands(SRC, 'lgdl add-node --id c\nlgdl explode --all');
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? '', /未知子命令/);
+  assert.equal(r.changed, false);
+});
+
+test('executeCommands: rejects when the current source is invalid', () => {
+  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl add-node --id x');
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? '', /source invalid/);
+});
+
+test('executeCommands: empty command text is a no-op', () => {
+  const r = executeCommands(SRC, '');
+  assert.ok(r.ok);
+  assert.equal(r.changed, false);
 });

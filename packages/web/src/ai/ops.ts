@@ -1,87 +1,142 @@
 /**
- * Web AI 操作执行器：把 AI 回复中的增量操作指令（```ops JSON 数组）
- * 应用到编辑器当前源码，复用 @lgdl/core 的 applyOperations——与 CLI
- * 完全同一套 mutation/校验语义，无需第二套实现。
+ * Web AI 命令执行器：把 AI 回复中的 lgdl 命令行序列应用到编辑器源码。
+ *
+ * AI 不直接写 LGDL 源码——它像在终端里一样敲 `lgdl <subcommand>` 命令，
+ * 由这里解析（cli-parser，与 CLI 同语义）并逐条 applyOperations 执行。
+ * status 命令输出当前图结构文本（formatStatus），AI 先读图再修改。
  */
 import {
   parseLgdl,
   validate,
   serializeLgdl,
   applyOperations,
-  describeOperation,
+  parseCommandBatch,
+  formatStatus,
   type LgdlOperation,
 } from '@lgdl/core';
 
-const KNOWN_OPS = new Set([
-  'add-node',
-  'remove-node',
-  'update-node',
-  'add-edge',
-  'remove-edge',
-  'update-edge',
-  'add-group',
-  'remove-group',
-  'update-group',
-]);
-
-/**
- * 从 AI 回复文本中提取 ```ops 代码块里的操作数组。
- * 结构必须是 JSON 数组，每项含 op 字段且 op 为已知操作；否则返回 null。
- */
-export function extractOperations(text: string): LgdlOperation[] | null {
-  const m = text.match(/```ops\s*\n([\s\S]*?)```/);
-  if (!m) return null;
-  try {
-    const parsed: unknown = JSON.parse(m[1]);
-    if (!Array.isArray(parsed)) return null;
-    for (const item of parsed) {
-      if (typeof item !== 'object' || item === null) return null;
-      const op = (item as { op?: unknown }).op;
-      if (typeof op !== 'string' || !KNOWN_OPS.has(op)) return null;
-    }
-    return parsed as LgdlOperation[];
-  } catch {
-    return null;
-  }
+/** 从 AI 回复文本中提取 ```bash / ```lgdl-cli / ```sh 代码块。 */
+export function extractCommands(text: string): string | null {
+  const m = text.match(/```(?:bash|sh|lgdl-cli|lgdl)\s*\n([\s\S]*?)```/);
+  return m ? m[1] : null;
 }
 
-export interface OpsApplyResult {
+export interface CommandExecResult {
   ok: boolean;
-  /** 应用成功后的新源码（ok 时存在） */
-  source?: string;
-  /** 每条操作的人类可读摘要（ok 时存在） */
-  summaries?: string[];
+  /** 命令执行后（含 status 输出）的新源码；未发生修改时与原值相同 */
+  source: string;
+  /** 逐条命令的结果文本（成功摘要 / status 输出 / 错误） */
+  lines: string[];
+  /** 是否发生了实际修改（AI 后续可据此决定是否再 status） */
+  changed: boolean;
   /** 失败原因（!ok 时存在） */
   error?: string;
 }
 
-/** 把操作序列应用到当前源码。逐条 applyOperations，失败即停并返回原因。 */
-export function applyOpsToSource(source: string, ops: LgdlOperation[]): OpsApplyResult {
-  const parsed = parseLgdl(source);
-  if (!parsed.valid) {
+/** 解析并执行命令块（可多行）。失败即停，返回已执行部分的结果。 */
+export function executeCommands(
+  source: string,
+  commandsText: string,
+): CommandExecResult {
+  const parsed = parseCommandBatch(commandsText);
+  const lines: string[] = [];
+  let current = source;
+  let changed = false;
+
+  // 解析阶段错误（语法错误）→ 直接失败
+  if (parsed.errors.length > 0) {
+    const e = parsed.errors[0];
     return {
       ok: false,
-      error: `当前源码有 ${parsed.issues.filter((i) => i.severity === 'error').length} 个错误，无法执行操作`,
+      source: current,
+      lines: [`✖ 第 ${e.index + 1} 行解析失败：${e.message}`, `  → ${e.line}`],
+      changed,
+      error: e.message,
     };
   }
-  const batch = applyOperations(parsed.document, ops);
+
+  // status 先行：AI 需要先了解图结构（输出当前图，不改动）
+  if (parsed.wantsStatus) {
+    const parsedDoc = parseLgdl(current);
+    if (parsedDoc.valid) {
+      lines.push(formatStatus(parsedDoc.document));
+    } else {
+      lines.push('⚠ 当前源码无效，无法输出 status');
+    }
+  }
+
+  if (parsed.ops.length === 0) {
+    return { ok: true, source: current, lines, changed };
+  }
+
+  const docResult = parseLgdl(current);
+  if (!docResult.valid) {
+    return {
+      ok: false,
+      source: current,
+      lines: [...lines, `✖ 当前源码有 ${docResult.issues.filter((i) => i.severity === 'error').length} 个错误，无法执行命令`],
+      changed,
+      error: 'source invalid',
+    };
+  }
+
+  const batch = applyOperations(docResult.document, parsed.ops);
   if (batch.failedIndex !== -1) {
-    const failed = ops[batch.failedIndex];
     return {
       ok: false,
-      error: `${describeOperation(failed)} 失败：${batch.error}`,
+      source: current,
+      lines: [...lines, `✖ 第 ${batch.failedIndex + 1} 条命令失败：${batch.error}`],
+      changed,
+      error: batch.error ?? undefined,
     };
   }
+
   const res = validate(batch.document);
   if (!res.valid) {
     return {
       ok: false,
-      error: `操作结果未通过校验：${res.issues.map((i) => i.message).join('; ')}`,
+      source: current,
+      lines: [...lines, `✖ 操作结果未通过校验：${res.issues.map((i) => i.message).join('; ')}`],
+      changed,
+      error: 'validation failed',
     };
   }
-  return {
-    ok: true,
-    source: serializeLgdl(batch.document),
-    summaries: batch.results.map((r) => r?.summary ?? ''),
-  };
+
+  const next = serializeLgdl(batch.document);
+  changed = next !== source;
+  for (const r of batch.results) {
+    if (r) lines.push(`✓ ${r.summary}`);
+  }
+  return { ok: true, source: next, lines, changed };
+}
+
+/** 单条命令快速解析（供 UI 预览命令含义）。 */
+export function describeCommandLine(line: string): string {
+  const parsed = parseCommandBatch(line);
+  if (parsed.errors.length > 0) return `✖ ${parsed.errors[0].message}`;
+  if (parsed.wantsStatus) return 'lgdl status — 查看当前图结构';
+  return parsed.ops.map((op: LgdlOperation) => describeOp(op)).join('; ');
+}
+
+function describeOp(op: LgdlOperation): string {
+  switch (op.op) {
+    case 'add-node':
+      return `add-node ${op.id}`;
+    case 'remove-node':
+      return `remove-node ${op.id}`;
+    case 'update-node':
+      return `update-node ${op.id}`;
+    case 'add-edge':
+      return `add-edge ${op.from} -> ${op.to}`;
+    case 'remove-edge':
+      return `remove-edge ${op.from} -> ${op.to}`;
+    case 'update-edge':
+      return `update-edge ${op.from} -> ${op.to}`;
+    case 'add-group':
+      return `add-group ${op.id}`;
+    case 'remove-group':
+      return `remove-group ${op.id}`;
+    case 'update-group':
+      return `update-group ${op.id}`;
+  }
 }

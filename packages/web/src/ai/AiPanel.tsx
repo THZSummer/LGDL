@@ -1,12 +1,11 @@
-// AI 助手面板：消息列表 + 预置提示词滑轨 + 输入框 + LGDL 代码块「应用」按钮
+// AI 助手面板：消息列表 + 预置提示词滑轨 + 输入框 + lgdl 命令块「执行」
 import React, { useCallback, useRef, useState } from 'react';
-import { parseLgdl } from '@lgdl/core';
 import {
-  extractOperations,
-  applyOpsToSource,
-  type OpsApplyResult,
+  extractCommands,
+  executeCommands,
+  describeCommandLine,
+  type CommandExecResult,
 } from './ops';
-import { describeOperation, type LgdlOperation } from '@lgdl/core';
 import { chat, loadSettings, PROVIDERS, type ProviderSettings } from './provider';
 import { buildTurns } from './prompts';
 import { SettingsPanel } from './SettingsPanel';
@@ -186,97 +185,35 @@ function renderInline(text: string): React.ReactNode[] {
   return nodes;
 }
 
-/** LGDL 代码块：校验 + 「应用」按钮；autoApply 时挂载即自动应用（仅对新回复生效）。 */
-function LgdlCodeBlock({
-  code,
-  onApply,
-  autoApply = false,
-}: {
-  code: string;
-  onApply: ApplySource;
-  autoApply?: boolean;
-}) {
-  const [status, setStatus] = useState<'idle' | 'applied' | 'error'>('idle');
-  const [errors, setErrors] = useState<string[]>([]);
-
-  const apply = useCallback(() => {
-    const result = parseLgdl(code);
-    if (!result.valid) {
-      setStatus('error');
-      setErrors(result.issues.map((i) => `${i.location ?? 'doc'}: ${i.message}`));
-      return false;
-    }
-    onApply(code);
-    setStatus('applied');
-    setErrors([]);
-    return true;
-  }, [code, onApply]);
-
-  // 自动应用：挂载时触发一次（autoApply 开启时新到达的回复自动写入编辑器）
-  const appliedRef = useRef(false);
-  React.useEffect(() => {
-    if (autoApply && !appliedRef.current) {
-      appliedRef.current = true;
-      apply();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoApply]);
-
-  return (
-    <div className={`ai-codeblock${status === 'error' ? ' has-error' : ''}`}>
-      <div className="ai-codeblock-head">
-        <span className="ai-codeblock-lang">lgdl</span>
-        <button
-          className="ai-apply-btn"
-          onClick={apply}
-          disabled={status === 'applied'}
-          title="校验通过后写入编辑器并实时渲染"
-        >
-          {status === 'applied' ? '✓ 已应用' : '应用'}
-        </button>
-      </div>
-      <pre className="ai-codeblock-body">
-        <code>{code}</code>
-      </pre>
-      {status === 'error' && (
-        <div className="ai-codeblock-errors">
-          <div className="ai-codeblock-error-title">✖ 校验未通过，未写入编辑器</div>
-          {errors.map((e, i) => (
-            <div key={i} className="ai-codeblock-error">
-              {e}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** 增量操作块：展示 AI 输出的 ```ops JSON 操作序列，点「执行」逐条应用到编辑器。 */
-function OpsBlock({
-  ops,
+/** lgdl 命令块：展示 AI 输出的命令行序列，点「执行」在编辑器上运行（与 CLI 同语义）。 */
+function CommandBlock({
+  commands,
   currentSource,
   onApply,
   autoApply = false,
 }: {
-  ops: LgdlOperation[];
+  commands: string;
   currentSource: string;
   onApply: ApplySource;
   autoApply?: boolean;
 }) {
   const [status, setStatus] = useState<'idle' | 'applied' | 'error'>('idle');
-  const [result, setResult] = useState<OpsApplyResult | null>(null);
+  const [result, setResult] = useState<CommandExecResult | null>(null);
+  const lines = commands.split('\n').map((l) => l.trim()).filter(Boolean);
 
   const run = useCallback(() => {
-    const r = applyOpsToSource(currentSource, ops);
+    const r = executeCommands(currentSource, commands);
     setResult(r);
-    if (r.ok && r.source) {
+    if (r.ok && r.changed) {
       onApply(r.source);
+      setStatus('applied');
+    } else if (r.ok) {
+      // status 或空操作：没有修改，仅展示输出（不写编辑器）
       setStatus('applied');
     } else {
       setStatus('error');
     }
-  }, [ops, currentSource, onApply]);
+  }, [commands, currentSource, onApply]);
 
   // 自动应用：挂载时触发一次（autoApply 开启时新到达的回复自动执行）
   const appliedRef = useRef(false);
@@ -291,42 +228,46 @@ function OpsBlock({
   return (
     <div className={`ai-codeblock ai-opsblock${status === 'error' ? ' has-error' : ''}`}>
       <div className="ai-codeblock-head">
-        <span className="ai-codeblock-lang">ops · 增量操作</span>
+        <span className="ai-codeblock-lang">lgdl · 命令</span>
         <button
           className="ai-apply-btn"
           onClick={run}
           disabled={status === 'applied'}
-          title="逐条应用到当前图（与 CLI 同一套校验语义）"
+          title="在编辑器上逐条执行（与 CLI lgdl 命令同一套语义）"
         >
           {status === 'applied' ? '✓ 已执行' : '执行'}
         </button>
       </div>
       <div className="ai-opsblock-body">
-        {ops.map((op, i) => (
+        {lines.map((line, i) => (
           <div key={i} className="ai-opsblock-line">
             <span className="ai-opsblock-idx">{i + 1}</span>
-            <code>{describeOperation(op)}</code>
+            <code>{line}</code>
           </div>
         ))}
       </div>
-      {status === 'applied' && result?.summaries && (
+      {status === 'applied' && result && (
         <div className="ai-opsblock-ok">
-          {result.summaries.filter(Boolean).map((s, i) => (
-            <div key={i}>✓ {s}</div>
+          {result.lines.map((l, i) => (
+            <div key={i}>{l}</div>
           ))}
         </div>
       )}
       {status === 'error' && (
         <div className="ai-codeblock-errors">
-          <div className="ai-codeblock-error-title">✖ 操作未执行</div>
-          <div className="ai-codeblock-error">{result?.error ?? '未知错误'}</div>
+          <div className="ai-codeblock-error-title">✖ 命令未执行</div>
+          {result?.lines.map((l, i) => (
+            <div key={i} className="ai-codeblock-error">
+              {l}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-/** 将消息内容拆成段落 + lgdl 代码块 + ops 操作块。 */
+/** 将消息内容拆成段落 + lgdl 命令块。 */
 function MessageBody({
   content,
   onApply,
@@ -339,7 +280,7 @@ function MessageBody({
   autoApply?: boolean;
 }) {
   const parts: React.ReactNode[] = [];
-  const re = /```(lgdl|yaml|ops)?\s*\n([\s\S]*?)```/g;
+  const re = /```(?:bash|sh|lgdl-cli|lgdl)\s*\n([\s\S]*?)```/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let k = 0;
@@ -354,24 +295,10 @@ function MessageBody({
         );
       }
     }
-    const lang = m[1] ?? 'lgdl';
-    const body = m[2].replace(/\n$/, '');
-    if (lang === 'ops') {
-      const ops = extractOperations(m[0]);
-      if (ops) {
-        parts.push(
-          <OpsBlock key={k++} ops={ops} currentSource={currentSource} onApply={onApply} autoApply={autoApply} />,
-        );
-      } else {
-        parts.push(
-          <LgdlCodeBlock key={k++} code={body} onApply={onApply} autoApply={autoApply} />,
-        );
-      }
-    } else {
-      parts.push(
-        <LgdlCodeBlock key={k++} code={body} onApply={onApply} autoApply={autoApply} />,
-      );
-    }
+    const body = m[1].replace(/\n$/, '');
+    parts.push(
+      <CommandBlock key={k++} commands={body} currentSource={currentSource} onApply={onApply} autoApply={autoApply} />,
+    );
     last = m.index + m[0].length;
   }
   const tail = content.slice(last).trim();
@@ -401,9 +328,7 @@ export function AiPanel({
       id: nextId++,
       role: 'system',
       content:
-        '🤖 我是 LGDL AI 助手：可以用自然语言生成新图或修改当前图。' +
-        '输入指令后，我会输出 LGDL 代码块（点「应用」写入）或增量操作（点「执行」逐条应用）。' +
-        '首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
+        '🤖 我是 LGDL AI 助手：通过自然语言生成或修改图。我会用 `lgdl` 命令（如 `lgdl status`、`lgdl add-node --id x`）操作图，点「执行」运行。首次使用请点击面板右上角 ⚙ 设置 API Provider 与 Key。',
     },
   ]);
   const [input, setInput] = useState('');

@@ -55,7 +55,7 @@ test('PROVIDERS covers all vendors; volc split into three endpoint plans', () =>
 });
 
 test('defaultModelFor returns the provider default', () => {
-  assert.equal(defaultModelFor('deepseek'), 'deepseek-chat');
+  assert.equal(defaultModelFor('deepseek'), 'deepseek-v4-flash');
   assert.equal(defaultModelFor('volc-coding'), 'deepseek-v4-flash');
   assert.equal(defaultModelFor('claude'), 'claude-3-5-haiku-latest');
 });
