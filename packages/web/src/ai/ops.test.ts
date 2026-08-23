@@ -72,3 +72,17 @@ test('executeCommands: empty command text is a no-op', () => {
   assert.ok(r.ok);
   assert.equal(r.changed, false);
 });
+
+test('executeCommands: validate reports syntax ok on valid source', () => {
+  const r = executeCommands(SRC, 'lgdl validate');
+  assert.ok(r.ok);
+  assert.equal(r.changed, false);
+  assert.ok(r.lines.some((l) => l.includes('语法正确')));
+});
+
+test('executeCommands: validate reports errors on invalid source', () => {
+  const r = executeCommands('nodes:\n  - id: a\n    - oops', 'lgdl validate');
+  assert.ok(r.ok);
+  assert.equal(r.changed, false);
+  assert.ok(r.lines.some((l) => l.includes('✖') || l.includes('⚠')));
+});

@@ -70,6 +70,21 @@ export function executeCommands(
     }
   }
 
+  // validate：AI 校验当前图语法（输出全部错误/警告，不改动）
+  if (parsed.wantsValidate) {
+    const parsedDoc = parseLgdl(current);
+    if (parsedDoc.valid && parsedDoc.issues.length === 0) {
+      lines.push('✓ 语法正确，无错误无警告');
+    } else {
+      for (const issue of parsedDoc.issues) {
+        lines.push(`${issue.severity === 'error' ? '✖' : '⚠'} [${issue.location ?? 'doc'}] ${issue.message}`);
+      }
+      if (!parsedDoc.valid) {
+        lines.push(`（共 ${parsedDoc.issues.filter((i) => i.severity === 'error').length} 个错误）`);
+      }
+    }
+  }
+
   if (parsed.ops.length === 0) {
     return { ok: true, source: current, lines, changed };
   }

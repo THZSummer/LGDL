@@ -816,3 +816,10 @@ edges:
 `);
   assert.equal(ok.valid, true);
 });
+
+test('empty section (nodes: with no items) does not crash validate', () => {
+  const r = parseLgdl('title: Web 应用系统架构\ntype: arch\n\nnodes:\n');
+  // 不应抛 forEach 错误；应报 nodes 相关错误或可接受
+  assert.ok(Array.isArray(r.issues));
+  assert.equal(typeof r.valid, 'boolean');
+});

@@ -38,6 +38,7 @@ lgdl add-edge --from user --to order --label 下单
 
 \`\`\`
 lgdl status                                   # 查看当前图结构（先读图，再修改）
+lgdl validate                                # 校验当前图语法（输出错误/警告）
 lgdl add-node --id <id> --label <名> [--kind <类型>] [--group <分组>] [--attrs k=v,k2=v2]
 lgdl remove-node --id <id>
 lgdl update-node --id <id> [--new-id <新id>] [--label <名>] [--kind <类型>] [--attrs k=v]
@@ -52,7 +53,8 @@ lgdl update-group --id <id> [--new-id <新id>] [--label <名>] [--member-add <id
 ## 使用流程（重要）
 1. 修改前先调用 \`lgdl status\` 查看当前图的结构（节点/边/分组）
 2. 用上面的调用增量修改（每轮一小步）
-3. 所有调用放在 \`\`\`lgdl-cli 代码块中，每行一条
+3. 怀疑语法错误时调用 \`lgdl validate\` 校验；执行失败也用 validate 排查
+4. 所有调用放在 \`\`\`lgdl-cli 代码块中，每行一条
 
 ## 图类型与 kind 语义
 - flowchart：start/end/process/decision（判断带 是/否 边标签）

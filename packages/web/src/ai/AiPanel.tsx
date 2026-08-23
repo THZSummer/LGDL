@@ -391,6 +391,7 @@ export function AiPanel({
       const turns: { role: 'system' | 'user' | 'assistant' | 'tool'; content: string }[] = [
         { role: 'user', content: message },
       ];
+      const failCount = { current: 0 };
       let sourceNow = currentSourceRef.current;
 
       const step = async (round: number) => {
@@ -399,12 +400,24 @@ export function AiPanel({
           setPending(false);
           return;
         }
-        // 组装本轮 LLM 输入：system + 历史（tool 结果映射为 user 角色，OpenAI 兼容 API 无 tool role）
+        // 组装本轮 LLM 输入：system + 历史；tool 结果映射为 user 角色，
+        // 并合并相邻同 role 消息（OpenAI 兼容 API 不允许连续 user/assistant）
         const sys = { role: 'system' as const, content: LGDL_SYSTEM_PROMPT };
-        const msgs: { role: 'system' | 'user' | 'assistant'; content: string }[] = turns.map((t) => ({
-          role: t.role === 'tool' ? 'user' : t.role,
-          content: t.content,
-        }));
+        const raw: { role: 'user' | 'assistant'; content: string }[] = turns
+          .filter((t) => t.role !== 'system')
+          .map((t) => ({
+            role: t.role === 'tool' ? 'user' : (t.role as 'user' | 'assistant'),
+            content: t.role === 'tool' ? `[web-cli 执行结果]\n${t.content}` : t.content,
+          }));
+        const msgs: { role: 'user' | 'assistant'; content: string }[] = [];
+        for (const m of raw) {
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === m.role) {
+            last.content += `\n\n${m.content}`;
+          } else {
+            msgs.push({ ...m });
+          }
+        }
         try {
           const res = await chat(s, [sys, ...msgs]);
           const reply = res.content.trim();
@@ -445,8 +458,17 @@ export function AiPanel({
           }
           await step(round + 1);
         } catch (err) {
-          appendMessage('assistant', `✖ ${(err as Error).message}`);
-          setPending(false);
+          // LLM 调用失败（网络/API 错误）：展示并反馈给 AI 重试一次，连续失败则停
+          const msg = (err as Error).message;
+          appendMessage('assistant', `✖ ${msg}`);
+          if (failCount.current >= 1) {
+            appendMessage('assistant', '⚠ LLM 连续调用失败，已停止（可稍后重试或检查 API 设置）。');
+            setPending(false);
+            return;
+          }
+          failCount.current += 1;
+          turns.push({ role: 'user', content: `上一步调用出错：${msg}。请修正后重试（如果问题与图无关请直接总结收尾）。` });
+          await step(round + 1);
         }
       };
 

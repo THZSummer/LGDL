@@ -61,6 +61,8 @@ export function validate(
   doc: Partial<LgdlDocument>,
   issues: LgdlIssue[] = [],
 ): ParseResult {
+  // 空 section（如 "nodes:" 后无条目）解析后可能是 undefined/null——
+  // 强制回退为空数组，避免 validate 内部 forEach 崩溃
   const result: LgdlDocument = {
     type: 'flowchart',
     nodes: [],
@@ -68,6 +70,9 @@ export function validate(
     groups: [],
     ...doc,
   };
+  result.nodes = doc.nodes ?? [];
+  result.edges = doc.edges ?? [];
+  result.groups = doc.groups ?? [];
 
   // type
   if (!DIAGRAM_TYPES.includes(result.type as DiagramType)) {

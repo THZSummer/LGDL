@@ -15,9 +15,10 @@ import type { LgdlMember } from './types.js';
 export type ParsedCommand =
   | { kind: 'op'; op: LgdlOperation }
   | { kind: 'status' }
+  | { kind: 'validate' }
   | { kind: 'error'; message: string };
 
-/** 命令行文本 → 结构化操作（或 status / 错误）。 */
+/** 命令行文本 → 结构化操作（或 status / validate / 错误）。 */
 export function parseCliCommand(line: string): ParsedCommand {
   const tokens = tokenize(line);
   if (tokens.length === 0) {
@@ -28,13 +29,15 @@ export function parseCliCommand(line: string): ParsedCommand {
   if (tokens[0] === 'lgdl') i++;
   const cmd = tokens[i];
   if (!cmd) {
-    return { kind: 'error', message: '缺少子命令（如 add-node / status）' };
+    return { kind: 'error', message: '缺少子命令（如 add-node / status / validate）' };
   }
   const args = tokens.slice(i + 1);
   try {
     switch (cmd) {
       case 'status':
         return { kind: 'status' };
+      case 'validate':
+        return { kind: 'validate' };
       case 'add-node':
         return { kind: 'op', op: parseAddNode(args) };
       case 'remove-node':
@@ -56,7 +59,7 @@ export function parseCliCommand(line: string): ParsedCommand {
       default:
         return {
           kind: 'error',
-          message: `未知子命令 "${cmd}"（支持：add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / status）`,
+          message: `未知子命令 "${cmd}"（支持：add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / status / validate）`,
         };
     }
   } catch (err) {
@@ -296,11 +299,13 @@ function parseMember(raw: string): LgdlMember {
   return member;
 }
 
-/** 供 Web 端批量执行：把命令文本（可多行）解析为 ops + status 标记。 */
+/** 供 Web 端批量执行：把命令文本（可多行）解析为 ops + status/validate 标记。 */
 export interface ParsedBatch {
   ops: LgdlOperation[];
   /** 命令中出现的 status 请求（AI 先了解图再修改）。 */
   wantsStatus: boolean;
+  /** 命令中出现的 validate 请求（AI 校验当前图语法）。 */
+  wantsValidate: boolean;
   /** 解析失败的命令（索引 + 错误），batch 在其前停止。 */
   errors: { index: number; line: string; message: string }[];
 }
@@ -310,10 +315,13 @@ export function parseCommandBatch(text: string): ParsedBatch {
   const ops: LgdlOperation[] = [];
   const errors: ParsedBatch['errors'] = [];
   let wantsStatus = false;
+  let wantsValidate = false;
   for (let i = 0; i < lines.length; i++) {
     const parsed = parseCliCommand(lines[i]);
     if (parsed.kind === 'status') {
       wantsStatus = true;
+    } else if (parsed.kind === 'validate') {
+      wantsValidate = true;
     } else if (parsed.kind === 'op') {
       ops.push(parsed.op);
     } else {
@@ -321,5 +329,5 @@ export function parseCommandBatch(text: string): ParsedBatch {
       break; // 失败即停（与 applyOperations 一致）
     }
   }
-  return { ops, wantsStatus, errors };
+  return { ops, wantsStatus, wantsValidate, errors };
 }

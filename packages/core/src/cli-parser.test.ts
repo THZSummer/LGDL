@@ -105,3 +105,14 @@ groups:
   assert.match(text, /start -> task/);
   assert.match(text, /g1 \(G\): start/);
 });
+
+test('parseCliCommand: validate', () => {
+  assert.deepEqual(parseCliCommand('lgdl validate'), { kind: 'validate' });
+});
+
+test('parseCommandBatch: validate flag is set', () => {
+  const r = parseCommandBatch('lgdl status\nlgdl validate\nlgdl add-node --id x');
+  assert.equal(r.wantsStatus, true);
+  assert.equal(r.wantsValidate, true);
+  assert.equal(r.ops.length, 1);
+});
