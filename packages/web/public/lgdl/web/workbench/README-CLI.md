@@ -1,11 +1,13 @@
-# LGDL Web 工作台 AI 使用指南（概览）
+# LGDL Web 工作台 AI 方法论（使用指南）
 
-> 这份文档只是**概览**——会话内读一次即可。命令的准确用法用 **`--help` 按需查询**：
-> - `lgdl-web-cli --help` / `lgdl-web-cli <子命令> --help`（如 `add-node --help`）
-> - `lgdl-web-op-cli --help` / `lgdl-web-op-cli <操作> --help`
-> - `lgdl-web-fetch --help`
+> **两层知识，分清用哪个：**
+> - **本文档 = 战略**：方法论与做事流程——三个工具怎么分工、先做什么后做什么、
+>   有哪些原则与陷阱。**不知道怎么做事情（流程/原则/该用哪个工具）→ 读本文档**
+> - **`--help` = 战术**：具体命令怎么用（参数、示例）。**不会用命令（命令或参数
+>   不确定）→ `--help`**：`lgdl-web-cli <子命令> --help`（如 `add-node --help`）、
+>   `lgdl-web-op-cli <操作> --help`、`lgdl-web-fetch --help`
 >
-> 以 help 输出为准，不要凭记忆猜命令。
+> 本文档**会话内读一次即可**；`--help` 按需随时查。以 help 输出为准，不要凭记忆猜命令。
 
 ## 三个平级工具（先分清）
 

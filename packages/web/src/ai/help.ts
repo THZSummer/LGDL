@@ -204,6 +204,7 @@ export function webCliHelp(topic?: string): string {
     lines.push(`  ${cmd.padEnd(16)} ${e.summary}`);
   }
   lines.push('', '原则：读多写少——先 status/doc-info 了解图，再增量修改。');
+  lines.push('', '做事流程/原则等方法论问题：lgdl-web-fetch --path lgdl/web/workbench/README-CLI.md 获取使用指南（会话内读一次即可）。');
   return lines.join('\n');
 }
 
@@ -302,6 +303,7 @@ export function webOpHelp(topic?: string): string {
     lines.push(`  ${cmd.padEnd(20)} ${e.summary}`);
   }
   lines.push('', '注意：不存在 apply-source —— 图内容一律用 lgdl-web-cli 增量命令修改。');
+  lines.push('', '做事流程/原则等方法论问题：lgdl-web-fetch --path lgdl/web/workbench/README-CLI.md 获取使用指南（会话内读一次即可）。');
   return lines.join('\n');
 }
 
