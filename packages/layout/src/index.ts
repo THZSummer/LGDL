@@ -13,7 +13,10 @@
  * Same input always produces the same output (deterministic).
  */
 import dagre from 'dagre';
-import ELK, { type ElkGraph } from 'elkjs';
+// Import the self-contained bundled ELK build (not `main.js`, whose worker
+// variant does `require('web-worker')` and breaks Vite/ESM bundling). The
+// bundled build is a synchronous wasm UMD that needs no worker.
+import ELK, { type ElkGraph } from 'elkjs/lib/elk.bundled.js';
 import { VIS_SYMBOL, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
 import { LAYOUT_ENGINE } from './config.js';
 

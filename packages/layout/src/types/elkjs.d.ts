@@ -1,13 +1,18 @@
 /**
- * Ambient typing for elkjs (the bundled, worker-less build).
+ * Ambient typing for elkjs's self-contained bundled build
+ * (`elkjs/lib/elk.bundled.js`). We import the bundled CJS directly (not the
+ * package `main`), because `main.js`'s worker variant does
+ * `require('web-worker')` and breaks Vite/ESM bundling. The bundled build is a
+ * synchronous wasm UMD needing no worker.
  *
  * elkjs ships `lib/elk-api.d.ts`, whose default export is typed as a
  * constructable `{ new(...): ELK }`. With `moduleResolution: NodeNext` the
  * default import gets a synthetic shape that TS rejects as "not constructable"
  * even though it works at runtime. This module re-declares the constructable
- * default so `new ELK()` type-checks, without touching the dependency.
+ * default + the layout result types so `new ELK()` type-checks, without
+ * touching the dependency.
  */
-declare module 'elkjs' {
+declare module 'elkjs/lib/elk.bundled.js' {
   export interface ElkPoint {
     x: number;
     y: number;
