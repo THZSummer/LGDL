@@ -55,8 +55,8 @@ const NODE_SIZE: Record<string, { width: number; height: number }> = {
 };
 
 const GRAPH_MARGIN = 40;
-const RANK_SEP = 48; // vertical gap between ranks
-const NODE_SEP = 40; // horizontal gap between nodes
+const RANK_SEP = 72; // vertical gap between ranks
+const NODE_SEP = 80; // horizontal gap between nodes
 
 /**
  * Display rows for a node's members — mirrors the renderer's formatting so

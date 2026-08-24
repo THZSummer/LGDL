@@ -488,12 +488,12 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         }
       }
       if (xs.length === 0) return undefined;
-      const pad = 14;
+      const pad = 20;
       const box = {
         x: Math.min(...xs) - pad,
-        y: Math.min(...ys) - pad - 24,
+        y: Math.min(...ys) - pad - 30,
         w: Math.max(...xe) - Math.min(...xs) + pad * 2,
-        h: Math.max(...ye) - Math.min(...ys) + pad * 2 + 24,
+        h: Math.max(...ye) - Math.min(...ys) + pad * 2 + 30,
       };
       boxOf.set(group.id, box);
       return box;
@@ -716,6 +716,13 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   const nodeObstacles: LabelBox[] = layout.nodes
     .filter((n) => doc.nodes.some((dn) => dn.id === n.id))
     .map((n) => ({ x: n.x - 2, y: n.y - 2, w: n.width + 4, h: n.height + 4 }));
+  // also treat group box borders as obstacles so edge labels (e.g. 售后入口 /
+  // 通知履约) don't sit on the group boundary label area and collide with the
+  // group header text. Only non-lane (datastream) groups have a full box here.
+  const groupObstacles: LabelBox[] = [...boxOf.entries()]
+    .filter(([, b]) => b.w > 0 && b.h > 0)
+    .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
+  const labelObstacles = [...nodeObstacles, ...groupObstacles];
 
   // Bug3: 重复标签冗余 — edges that share the same `from` and same `label`
   // (a fan-out trunk, e.g. api-gateway -> 5 services all labelled 路由转发)
@@ -805,7 +812,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         const dstCard = { x: pn.x - ux * 22, y: pn.y - uy * 22 };
         let relEl = '';
         if (rel) {
-          const { x, y } = placeLabelBox(ortho, rel, nodeObstacles, placedLabels);
+          const { x, y } = placeLabelBox(ortho, rel, labelObstacles, placedLabels);
           relEl = text(x, y, rel, 12, '#6b7280');
         }
         labelEl =
@@ -813,7 +820,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
           (fromV !== undefined ? text(srcCard.x, srcCard.y - 6, fromV, 12, '#b45309') : '') +
           (toV !== undefined ? text(dstCard.x, dstCard.y - 6, toV, 12, '#b45309') : '');
       } else {
-        const { x, y } = placeLabelBox(ortho, label ?? '', nodeObstacles, placedLabels);
+        const { x, y } = placeLabelBox(ortho, label ?? '', labelObstacles, placedLabels);
         labelEl = text(x, y, label ?? '', 12, '#6b7280');
       }
       }
