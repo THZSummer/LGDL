@@ -37,7 +37,7 @@ while ((m = re.exec(ts))) {
     console.error(`  ✗ ${id}: 解析失败 — ${issues.map((i) => i.message).join('; ')}`);
     continue;
   }
-  const svg = renderSvg(document, layoutDocument(document));
+  const svg = renderSvg(document, await layoutDocument(document));
   writeFileSync(join(outDir, `${id}.svg`), svg);
   console.log(`  ✓ ${id}.svg (${svg.match(/width="([\d.]+)" height="([\d.]+)"/)?.[1]}x${svg.match(/height="([\d.]+)"/)?.[1]})`);
 

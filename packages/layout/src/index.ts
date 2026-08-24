@@ -2,17 +2,23 @@
  * LGDL deterministic layout engine.
  *
  * Layout is dispatched by diagram type:
- * - flowchart / arch / datastream -> dagre hierarchical (top-down)
- * - mindmap                          -> radial tree (root at center)
- * - sequence                         -> timeline (participants in columns)
- * - uml-class                        -> dagre hierarchical (left-right)
+ * - flowchart / arch / datastream -> hierarchical layout (top-down)
+ * - mindmap                       -> radial tree (root at center)
+ * - sequence                      -> timeline (participants in columns)
+ * - uml-class / er                -> hierarchical layout (left-right)
+ * - gantt / state                 -> see below
  *
+ * Hierarchical (layered) layouts are produced by `ELK` (elkjs, wasm) by default,
+ * with `dagre` retained as a config-selectable fallback engine (see `config.ts`).
  * Same input always produces the same output (deterministic).
  */
 import dagre from 'dagre';
+import ELK, { type ElkGraph } from 'elkjs';
 import { VIS_SYMBOL, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
+import { LAYOUT_ENGINE } from './config.js';
 
 const { graphlib, layout } = dagre;
+const elk = new ELK();
 
 export interface LayoutNode {
   id: string;
@@ -112,9 +118,9 @@ function borderPoint(
   return { x: bx - dx * t, y: by - dy * t };
 }
 
-export function layoutDocument(doc: LgdlDocument): LayoutResult {
-  // Large graphs: skip the expensive dagre layout, use O(n) grid.
-  // This keeps the editor interactive; dagre quality matters for small/medium.
+export async function layoutDocument(doc: LgdlDocument): Promise<LayoutResult> {
+  // Large graphs: skip the expensive layered layout, use O(n) grid.
+  // This keeps the editor interactive; layered quality matters for small/medium.
   if (
     doc.nodes.length > LARGE_GRAPH_THRESHOLD &&
     (doc.type === 'flowchart' || doc.type === 'state' || doc.type === 'er')
@@ -139,8 +145,41 @@ export function layoutDocument(doc: LgdlDocument): LayoutResult {
   }
 }
 
-/** dagre hierarchical layout (flowchart/arch/datastream/uml-class). */
-function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
+/** Node dimensions for a document, per kind + member content (shared by both
+ * engines so dagre/elkjs place identically-sized boxes). */
+function nodeSizes(doc: LgdlDocument): Map<string, { width: number; height: number }> {
+  const sizes = new Map<string, { width: number; height: number }>();
+  for (const node of doc.nodes) {
+    let size = NODE_SIZE[node.kind ?? 'process'] ?? NODE_SIZE.process;
+    const hasMemberSizing =
+      doc.type === 'uml-class' || (doc.type === 'er' && node.members && node.members.length > 0);
+    if (!hasMemberSizing) {
+      size = { ...size, width: Math.max(size.width, Math.round(textWidth(node.label ?? node.id, 13) + 24)) };
+    }
+    if (doc.type === 'uml-class') {
+      const rows = memberRows(node, true);
+      const longest = Math.max(textWidth(node.label ?? node.id, 13), ...rows.map((r) => r.length * 7), 0);
+      size = { width: Math.max(160, longest + 24), height: 32 + rows.length * 18 + 16 };
+    }
+    if (doc.type === 'er' && node.members && node.members.length > 0) {
+      const rows = memberRows(node, false);
+      const longest = Math.max(textWidth(node.label ?? node.id, 13), ...rows.map((r) => r.length * 7), 0);
+      size = { width: Math.max(140, longest + 24), height: 44 + rows.length * 18 + 6 };
+    }
+    sizes.set(node.id, size);
+  }
+  return sizes;
+}
+
+/** Hierarchical (layered) layout — dispatches to the configured engine. */
+async function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): Promise<LayoutResult> {
+  return LAYOUT_ENGINE === 'elkjs'
+    ? layoutHierarchicalElk(doc, rankdir)
+    : layoutHierarchicalDagre(doc, rankdir);
+}
+
+/** dagre hierarchical layout (retained as the config-selectable fallback). */
+function layoutHierarchicalDagre(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
   const g = new graphlib.Graph({ multigraph: false, compound: true })
     .setGraph({
       rankdir,
@@ -151,75 +190,89 @@ function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResu
     })
     .setDefaultEdgeLabel(() => ({}));
 
-  for (const node of doc.nodes) {
-    let size = NODE_SIZE[node.kind ?? 'process'] ?? NODE_SIZE.process;
-    // generic nodes: widen the box to fit the label text (13px, centered)
-    const hasMemberSizing =
-      doc.type === 'uml-class' || (doc.type === 'er' && node.members && node.members.length > 0);
-    if (!hasMemberSizing) {
-      size = { ...size, width: Math.max(size.width, Math.round(textWidth(node.label ?? node.id, 13) + 24)) };
-    }
-    // uml-class cards size to their members: header 32 + rows × 18 + padding;
-    // width follows the longest line (class name or member text)
-    if (doc.type === 'uml-class') {
-      const rows = memberRows(node, true);
-      const longest = Math.max(
-        textWidth(node.label ?? node.id, 13),
-        ...rows.map((r) => r.length * 7),
-        0,
-      );
-      size = { width: Math.max(160, longest + 24), height: 32 + rows.length * 18 + 16 };
-    }
-    // er entities size to their attribute rows: name area + rows × 18
-    if (doc.type === 'er' && node.members && node.members.length > 0) {
-      const rows = memberRows(node, false);
-      const longest = Math.max(
-        textWidth(node.label ?? node.id, 13),
-        ...rows.map((r) => r.length * 7),
-        0,
-      );
-      size = { width: Math.max(140, longest + 24), height: 44 + rows.length * 18 + 6 };
-    }
-    g.setNode(node.id, { width: size.width, height: size.height, label: node.label ?? node.id });
-  }
-
+  for (const [id, size] of nodeSizes(doc)) g.setNode(id, { ...size, label: doc.nodes.find((n) => n.id === id)?.label ?? id });
   for (const group of doc.groups) {
     g.setNode(group.id, { width: 0, height: 0, label: group.label ?? group.id, cluster: true });
-    for (const childId of group.contains) {
-      g.setParent(childId, group.id);
-    }
+    for (const childId of group.contains) g.setParent(childId, group.id);
   }
-
-  for (const edge of nodeEdges(doc)) {
-    g.setEdge(edge.from, edge.to, { label: edge.label ?? '', id: `${edge.from}->${edge.to}` });
-  }
+  for (const edge of nodeEdges(doc)) g.setEdge(edge.from, edge.to, { label: edge.label ?? '', id: `${edge.from}->${edge.to}` });
 
   layout(g);
 
   const nodes: LayoutNode[] = doc.nodes.map((node) => {
     const pos = g.node(node.id);
-    return {
-      id: node.id,
-      x: pos.x - pos.width / 2,
-      y: pos.y - pos.height / 2,
-      width: pos.width,
-      height: pos.height,
-    };
+    return { id: node.id, x: pos.x - pos.width / 2, y: pos.y - pos.height / 2, width: pos.width, height: pos.height };
   });
-
   const edges: LayoutEdge[] = nodeEdges(doc).map((edge) => {
     const eg = g.edge(edge.from, edge.to);
     const points = (eg?.points ?? []).map((p: { x: number; y: number }) => ({ x: p.x, y: p.y }));
     return { from: edge.from, to: edge.to, points };
   });
-
   const graph = g.graph();
-  return {
-    nodes,
-    edges,
-    width: graph.width ?? 0,
-    height: graph.height ?? 0,
+  return { nodes, edges, width: graph.width ?? 0, height: graph.height ?? 0 };
+}
+
+/**
+ * ELK (elkjs) hierarchical layout + orthogonal edge routing.
+ *
+ * Nodes are placed by `elk.layered`; edges get true orthogonal routes from
+ * `elk.edgeRouting: ORTHOGONAL` (each edge has sections with startPoint /
+ * endPoint / bendPoints). Groups are NOT passed as ELK containers (their
+ * container semantics reject plain edge sections) — nodes are laid out flat and
+ * the renderer derives group boxes from node positions, exactly as before.
+ * The engine selection lives in `config.ts` (env `LGDL_LAYOUT_ENGINE`).
+ */
+async function layoutHierarchicalElk(doc: LgdlDocument, rankdir: 'TB' | 'LR'): Promise<LayoutResult> {
+  const sizes = nodeSizes(doc);
+  const direction = rankdir === 'LR' ? 'RIGHT' : 'DOWN';
+  const graph: ElkGraph = {
+    id: 'root',
+    layoutOptions: {
+      'elk.algorithm': 'layered',
+      'elk.direction': direction,
+      'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.spacing.nodeNode': String(NODE_SEP),
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(RANK_SEP),
+      'elk.spacing.edgeNode': '16',
+      'elk.spacing.labelNode': '12',
+    },
+    children: doc.nodes.map((n) => ({
+      id: n.id,
+      width: sizes.get(n.id)?.width ?? 160,
+      height: sizes.get(n.id)?.height ?? 56,
+    })),
+    edges: nodeEdges(doc).map((e) => ({ id: `${e.from}->${e.to}`, sources: [e.from], targets: [e.to] })),
   };
+
+  const laid = await elk.layout(graph);
+
+  // ELK returns top-left coordinates; map back to LayoutNode (top-left too).
+  const byId = new Map<string, { x: number; y: number; width: number; height: number }>();
+  for (const c of laid.children ?? []) {
+    byId.set(c.id, { x: c.x ?? 0, y: c.y ?? 0, width: c.width ?? 160, height: c.height ?? 56 });
+  }
+  const nodes: LayoutNode[] = doc.nodes.map((n) => {
+    const p = byId.get(n.id)!;
+    return { id: n.id, x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
+  });
+
+  const edgeById = new Map(laid.edges?.map((e) => [e.id, e]) ?? []);
+  const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
+    const key = `${e.from}->${e.to}`;
+    const le = edgeById.get(key);
+    // Flatten every section (start -> bends -> end) into one point list.
+    const points: { x: number; y: number }[] = [];
+    if (le && 'sections' in le) {
+      for (const s of le.sections ?? []) {
+        if (s.startPoint) points.push({ x: s.startPoint.x, y: s.startPoint.y });
+        for (const bp of s.bendPoints ?? []) points.push({ x: bp.x, y: bp.y });
+        if (s.endPoint) points.push({ x: s.endPoint.x, y: s.endPoint.y });
+      }
+    }
+    return { from: e.from, to: e.to, points };
+  });
+
+  return { nodes, edges, width: Math.round(laid.width ?? 0), height: Math.round(laid.height ?? 0) };
 }
 
 // ---------------------------------------------------------------------------

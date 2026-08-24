@@ -1,5 +1,5 @@
 // LGDL Web Workbench — edit .lgdl in the browser, live render
-import React, { useMemo, useState, useCallback, useRef, useEffect, Component, type ReactNode } from 'react';
+import React, { useState, useCallback, useRef, useEffect, Component, type ReactNode } from 'react';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, type DecorationSet } from '@codemirror/view';
 import { EditorState, StateField, type Range } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
@@ -87,7 +87,7 @@ const lgdlValueHighlight = StateField.define<DecorationSet>({
 /** CodeMirror linter: red squiggles at every issue position (all are errors). */
 const lgdlLinter = linter((view) => {
   const text = view.state.doc.toString();
-  const state = compile(text);
+  const state = compileIssues(text);
   const diagnostics: Diagnostic[] = [];
   for (const issue of state.issues) {
     const span = locateIssue(text, issue.location);
@@ -493,11 +493,31 @@ interface RenderState {
   elapsed: number;
 }
 
+/** Placeholder used while the async layout for a new source is in flight. */
+const EMPTY_STATE: RenderState = {
+  svg: '',
+  width: 0,
+  height: 0,
+  nodeCount: 0,
+  edgeCount: 0,
+  issues: [],
+  elapsed: 0,
+};
+
+/** Sync parse-only: the linter needs issue positions without an async layout. */
+function compileIssues(source: string): { issues: RenderState['issues']; valid: boolean } {
+  const result = parseLgdl(source);
+  return {
+    issues: result.issues.map((i) => ({ severity: i.severity, message: i.message, location: i.location })),
+    valid: result.valid,
+  };
+}
+
 /** Simple LRU-ish cache: source -> RenderState (bounded). */
 const compileCache = new Map<string, RenderState>();
 const CACHE_MAX = 50;
 
-function compile(source: string): RenderState {
+async function compile(source: string): Promise<RenderState> {
   const cached = compileCache.get(source);
   if (cached) return cached;
 
@@ -523,7 +543,7 @@ function compile(source: string): RenderState {
       };
     } else {
       const doc = result.document;
-      const layout = layoutDocument(doc);
+      const layout = await layoutDocument(doc);
       const svg = renderSvg(doc, layout);
       state = {
         svg,
@@ -564,7 +584,7 @@ export function App(): React.JSX.Element {
   const [exampleId, setExampleId] = useState<string>(EXAMPLES[0].id);
   const [copied, setCopied] = useState(false);
   const [debouncedSource, setDebouncedSource] = useState<string>(EXAMPLES[0].source);
-  const [lastGood, setLastGood] = useState<RenderState>(() => compile(EXAMPLES[0].source));
+  const [lastGood, setLastGood] = useState<RenderState | null>(null);
   const [maskDismissed, setMaskDismissed] = useState(false);
   const [zoomScale, setZoomScale] = useState<number | null>(null);
   // ---- 左栏上下分栏（编辑器 / AI 助手）----
@@ -674,7 +694,17 @@ export function App(): React.JSX.Element {
   }, [source]);
 
   // cache is keyed on debounced source so stale values are reused cheaply
-  const state = useMemo(() => compile(debouncedSource), [debouncedSource]);
+  const [state, setState] = useState<RenderState>(EMPTY_STATE);
+  useEffect(() => {
+    let cancelled = false;
+    setState(EMPTY_STATE); // loading placeholder while the new layout computes
+    compile(debouncedSource).then((s) => {
+      if (!cancelled) setState(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSource]);
   const hasErrors = state.issues.some((i) => i.severity === 'error');
   const isStale = source !== debouncedSource; // typing in progress
 
@@ -1172,7 +1202,7 @@ export function App(): React.JSX.Element {
           <div className="preview-body">
             {state.svg ? (
               <ZoomableSvg ref={previewRef} svg={state.svg} width={state.width} height={state.height} onScaleChange={setZoomScale} onLocate={jumpToIssue} />
-            ) : hasErrors && lastGood.svg ? (
+            ) : hasErrors && lastGood && lastGood.svg ? (
               // keep the last good render visible, overlay an error mask
               <div className="preview-stale-wrap">
                 <ZoomableSvg ref={previewRef} svg={lastGood.svg} width={lastGood.width} height={lastGood.height} extraClass="svg-stale" onScaleChange={setZoomScale} onLocate={jumpToIssue} />

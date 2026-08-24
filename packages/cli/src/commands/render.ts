@@ -17,7 +17,7 @@ export const renderCommand: LgdlCommand = {
       .requiredOption('--file <file>', 'path to .lgdl file')
       .option('-o, --output <file>', 'output file (default: out.svg)')
       .addOption(new Option('--format <format>', 'output format').choices(['svg', 'ascii']).default('svg'))
-      .action((opts: { file: string; output?: string; format: string }) => {
+      .action(async (opts: { file: string; output?: string; format: string }) => {
         const doc = loadDocument(opts.file);
         if (opts.format === 'ascii') {
           if (doc.type === 'sequence') {
@@ -26,7 +26,7 @@ export const renderCommand: LgdlCommand = {
             console.error(`⚠ ascii output shows topology only — members/start/duration are not rendered for ${doc.type}`);
           }
           // ascii ignores layout pixels; rank layout is internal
-          const layout = layoutDocument(doc);
+          const layout = await layoutDocument(doc);
           const ascii = renderAscii(doc, layout);
           if (opts.output) {
             const outDir = dirname(opts.output);
@@ -49,7 +49,7 @@ export const renderCommand: LgdlCommand = {
             }
           }
         }
-        const layout = layoutDocument(doc);
+        const layout = await layoutDocument(doc);
         const svg = renderSvg(doc, layout);
         const out = opts.output ?? 'out.svg';
         const outDir = dirname(out);

@@ -28,7 +28,7 @@ if (!valid) {
   process.exit(1);
 }
 
-const svg = renderSvg(document, layoutDocument(document));
+const svg = renderSvg(document, await layoutDocument(document));
 const svgFile = abs.replace(/\.lgdl$/, '.svg');
 writeFileSync(svgFile, svg);
 const dim = svg.match(/width="([\d.]+)" height="([\d.]+)"/);

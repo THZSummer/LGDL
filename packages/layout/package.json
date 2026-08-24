@@ -1,7 +1,7 @@
 {
   "name": "@lgdl/layout",
   "version": "0.5.0",
-  "description": "LGDL deterministic layout engine (dagre) with incremental local re-layout",
+  "description": "LGDL deterministic layout engine (elkjs) with incremental local re-layout",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,7 +17,8 @@
   },
   "dependencies": {
     "@lgdl/core": "^0.5.0",
-    "dagre": "^0.8.5"
+    "dagre": "^0.8.5",
+    "elkjs": "^0.12.0"
   },
   "devDependencies": {
     "@types/dagre": "^0.7.52"

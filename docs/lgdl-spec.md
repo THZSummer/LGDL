@@ -20,15 +20,19 @@ meta: {...}              # 可选，元信息（作者、版本等）
 
 | type | 说明 | 布局 |
 |---|---|---|
-| `flowchart` | 业务流程图 | dagre 层级（TB） |
+| `flowchart` | 业务流程图 | elkjs 层级（TB）+ 正交布线 |
 | `mindmap` | 思维导图 | 径向树 |
 | `sequence` | 时序图 | 时间轴（参与者列） |
-| `uml-class` | UML 类图 | dagre 层级（LR）+ 类卡片 |
-| `arch` | 架构图 | dagre 层级（TB）+ 分组 |
+| `uml-class` | UML 类图 | elkjs 层级（LR）+ 类卡片 |
+| `arch` | 架构图 | elkjs 层级（TB）+ 分组 |
 | `datastream` | 数据流图 | 泳道 |
-| `er` | ER 图 | dagre 层级（LR） |
-| `state` | 状态机图 | dagre 层级（TB） |
+| `er` | ER 图 | elkjs 层级（LR） |
+| `state` | 状态机图 | elkjs 层级（TB） |
 | `gantt` | 甘特图 | 时间轴（条） |
+
+> 布局引擎可在 `packages/layout/src/config.ts` 用 `LAYOUT_ENGINE`（或运行时环境变量
+> `LGDL_LAYOUT_ENGINE=elkjs|dagre`）切换；默认 `elkjs`，`dagre` 保留作为可回退的旧引擎。
+> 自研布局（径向树/时序/泳道/甘特/网格）与渲染层的正交布线、标签避让算法不受引擎切换影响。
 
 ## Node
 

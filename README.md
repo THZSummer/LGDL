@@ -165,7 +165,7 @@ groups:
 LGDL/
 ├── packages/
 │   ├── core/          # 语言核心：解析、语义模型、校验、格式转换、命令注册表（commands.ts，纯 TS 零依赖）
-│   ├── layout/        # 确定性布局引擎（dagre 层级 / 径向树 / 时序 / 泳道 / 甘特）
+│   ├── layout/        # 确定性布局引擎（elkjs 层级/正交布线 / 径向树 / 时序 / 泳道 / 甘特；config.ts 可切换回 dagre）
 │   ├── render/        # SVG 渲染器（形状、锚点、ASCII 输出）
 │   ├── cli/           # lgdl-cli 终端命令（commander + --file 文件 IO，业务逻辑复用 core/commands.ts）
 │   └── web/           # Web 工作台（React + CodeMirror 6 + lgdl-web-cli 协议 + 自研 SVG 预览）

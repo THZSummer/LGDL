@@ -2,6 +2,17 @@
 
 ## Unreleased / 0.6.0（开发中）
 
+**布局引擎迁移：dagre → elkjs（ELK，可配置回退）**
+
+- 🧭 **分层布局引擎换用 ELK**（`packages/layout`）：默认用 `elkjs`（wasm）`elk.layered` 做分层布局，并开启
+  `elk.edgeRouting: ORTHOGONAL`——原生输出正交边布线（`startPoint`/`bendPoints`/`endPoint`），
+  消除 dagre 长边"绕大圈/斜线横穿/贴角不优雅"问题；`LayoutResult` 输出契约不变
+- 🔀 **双引擎可配置切换**（`packages/layout/src/config.ts`）：`LAYOUT_ENGINE` 或运行时环境变量
+  `LGDL_LAYOUT_ENGINE=elkjs|dagre` 切换；**dagre 与自研算法（正交布线/标签避让/径向树/时序/泳道/甘特/网格）全部保留**，
+  迁移只替换分层图的节点定位引擎，切换后可回退
+- 🔧 **异步布局**：`layoutDocument` 改为 `async`（elkjs 为 wasm 异步），同步适配 CLI `render`、web `App.tsx`
+  （`compile` 异步化 + 加载占位）、示例生成脚本
+
 **AI 实战与视觉评审闭环（示例与文档）**
 
 - 🤖 **AI 全流程演练**（`docs/reviews-2026-08-24/ai-vision-review.md`）：pi（DeepSeek V4）以工程师身份仅用 `lgdl-cli` 命令构建全部 9 种图类型业务图（零手写文件），`deepseek-v4-flash-vision-exp` 视觉模型逐张评审——沉淀 9 组示例三件套（`examples/*.lgdl|svg|png`）与 v0.6 改进清单（布线交叉、决策节点分支校验、状态机合法性校验、甘特渲染行高等；详见 `docs/reviews-2026-08-24/bugs.md`）
