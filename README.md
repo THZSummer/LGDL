@@ -33,7 +33,7 @@
 | <p align="center"><img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.lgdl)</p> | <p align="center"><img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.lgdl)</p> | |
 
 > 🤖 **AI 全流程演练**：9 种图类型的 AI 工程师实战（pi 仅用 `lgdl-cli` 命令生成）+ 视觉模型评审
-> 见 [docs/ai-vision-review.md](docs/ai-vision-review.md)，示例三件套（`.lgdl`/`.svg`/`.png`）在
+> 见 [docs/reviews-2026-08-24/ai-vision-review.md](docs/reviews-2026-08-24/ai-vision-review.md)，示例三件套（`.lgdl`/`.svg`/`.png`）在
 > `examples/flowchart-auth`、`examples/mindmap-product`、`examples/sequence-order`、
 > `examples/uml-class-order`、`examples/arch-ecommerce`、`examples/datastream-log`、
 > `examples/er-orders`、`examples/state-order`、`examples/gantt-saas-roadmap`。
@@ -181,7 +181,7 @@ LGDL/
 - [LGDL 语言规范](docs/lgdl-spec.md) — LGDL Specification
 - [CLI 使用指南](docs/cli-guide.md) — CLI Guide（命令参考、AI Agent 工作流）
 - [AI Agent 使用指南](docs/ai-agent-guide.md) — AI Agent Guide（教 AI 用 LGDL 画图）
-- [AI 实战与视觉评审](docs/ai-vision-review.md) — 9 种图类型 AI 全流程演练 + 视觉模型评审结论
+- [AI 实战与视觉评审](docs/reviews-2026-08-24/ai-vision-review.md) — 9 种图类型 AI 全流程演练 + 视觉模型评审结论
 - [设计文档](docs/design.md) — 设计决策与取舍
 
 ---
