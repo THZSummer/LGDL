@@ -4,7 +4,7 @@
  * Takes a LayoutResult + LgdlDocument and produces clean SVG markup.
  * Shapes are mapped from node kinds; a theme can be swapped later.
  */
-import type { LgdlDocument, LgdlGroup, LgdlMember } from '@lgdl/core';
+import type { LgdlDocument, LgdlGroup, LgdlMember, LgdlNode } from '@lgdl/core';
 import { VIS_SYMBOL } from '@lgdl/core';
 import type { LayoutResult } from '@lgdl/layout';
 
@@ -218,35 +218,112 @@ function findInitialState(doc: LgdlDocument): string | null {
   return entries.length === 1 ? entries[0].id : null;
 }
 
-/**
- * Place an edge label at (x, y), pushing it to alternate rows when it
- * would collide with an already-placed label (dense diagrams like state
- * machines put many labels at the same y). The label is registered for
- * future collision checks. Returns the final position.
- */
-function placeLabel(
-  x: number,
-  y: number,
-  label: string,
-  placed: { x: number; y: number; w: number }[],
-): { x: number; y: number } {
-  const w = label.length * 12;
-  const clash = (lx: number, ly: number) =>
-    placed.some((p) => Math.abs(p.y - ly) < 14 && Math.min(p.x + p.w, lx + w) - Math.max(p.x, lx) > 4);
-  let ly = y;
-  if (clash(x, ly)) {
-    // try rows above/below, widening the offset each round
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      const offset = 14 * attempt;
-      const cand = y + (attempt % 2 === 1 ? -offset : offset);
-      if (!clash(x, cand)) {
-        ly = cand;
-        break;
-      }
+// ---------------------------------------------------------------------------
+// Obstacle-aware label placement (Bug1: 标签重叠)
+// ---------------------------------------------------------------------------
+// A label box is centered on (x, y); `w` is its rendered width, `h` a fixed
+// line height. Labels must not overlap each other NOR sit on top of node
+// boxes (a label spanning a node is unreadable). `placeLabelBox` picks the
+// longest segment of the edge and nudges the label vertically until it fits
+// in clear space.
+
+interface LabelBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function labelBoxAt(x: number, y: number, label: string): LabelBox {
+  // 12px edge-label font; CJK ~12px, Latin ~0.62x (mirrors textWidth)
+  let w = 0;
+  for (const ch of label) w += (ch.codePointAt(0) ?? 0) > 0x2e80 ? 12 : 12 * 0.62;
+  return { x: x - w / 2, y: y - 8, w, h: 16 };
+}
+
+function boxesOverlap(a: LabelBox, b: LabelBox): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/** Midpoint of the longest segment of a polyline (preferred label spot). */
+function longestSegmentMid(pts: { x: number; y: number }[]): { x: number; y: number } {
+  let best = { x: (pts[0].x + pts[pts.length - 1].x) / 2, y: (pts[0].y + pts[pts.length - 1].y) / 2 };
+  let bestLen = -1;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len > bestLen) {
+      bestLen = len;
+      best = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     }
   }
-  placed.push({ x, y: ly, w });
-  return { x, y: ly };
+  return best;
+}
+
+/**
+ * Place an edge label, avoiding node boxes (obstacles) and already-placed
+ * labels. Rather than only nudging the longest-segment midpoint, it samples
+ * a candidate position on EVERY segment of the polyline and picks the first
+ * (nearest the ideal) that sits in clear space. This spreads the labels of
+ * dense bundles (e.g. many services -> one data node) across different
+ * segments instead of piling them all on the shared descent channel.
+ * Never drops the label: if no spot is clear, falls back to the ideal.
+ */
+function placeLabelBox(
+  pts: { x: number; y: number }[],
+  label: string,
+  obstacles: LabelBox[],
+  placed: LabelBox[],
+): { x: number; y: number } {
+  const isFree = (p: { x: number; y: number }) => {
+    const box = labelBoxAt(p.x, p.y, label);
+    if (obstacles.some((o) => boxesOverlap(box, o))) return false;
+    if (placed.some((o) => boxesOverlap(box, o))) return false;
+    return true;
+  };
+
+  const ideal = longestSegmentMid(pts);
+  const idealY = ideal.y - 4;
+  // Candidates: midpoint of every segment (each with vertical nudges), ranked
+  // by distance from the ideal position so the natural spot wins when clear.
+  type Cand = { x: number; y: number; rank: number };
+  const candidates: Cand[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    // skip "tiny" segments (arrowhead stubs) — try 12px+ only
+    if (Math.hypot(b.x - a.x, b.y - a.y) < 12) continue;
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2 - 4;
+    const dist = Math.hypot(mx - ideal.x, my - ideal.y);
+    // segments are ranked: the longest segment mid ranks best; then by how
+    // horizontal the segment is (labels read better on horizontal runs) and
+    // finally by far-ness from ideal (spread over shorter segments too).
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const horiz = Math.abs(b.x - a.x) > Math.abs(b.y - a.y) ? 1 : 0;
+    const base = dist + (1 - horiz) * 40 - len / 100;
+    for (const dy of [0, -14, 14, -28, 28, -42, 42]) {
+      candidates.push({ x: mx, y: my + dy, rank: base + Math.abs(dy) * 0.2 });
+    }
+  }
+  candidates.sort((p, q) => p.rank - q.rank);
+  for (const c of candidates) {
+    if (isFree({ x: c.x, y: c.y })) {
+      placed.push(labelBoxAt(c.x, c.y, label));
+      return { x: c.x, y: c.y };
+    }
+  }
+  // fallback: strongest vertical nudge around the ideal
+  for (const dy of [0, -14, 14, -28, 28, -42, 42, -56, 56, -70, 70, -84, 84]) {
+    const p = { x: ideal.x, y: idealY + dy };
+    if (isFree(p)) {
+      placed.push(labelBoxAt(p.x, p.y, label));
+      return p;
+    }
+  }
+  placed.push(labelBoxAt(ideal.x, idealY, label));
+  return { x: ideal.x, y: idealY };
 }
 
 /** Render an LGDL document + layout into an SVG string. */
@@ -630,7 +707,41 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   // edges (behind nodes)
   // placed node-edge labels, tracked so dense labels (e.g. state diagrams)
   // don't collide — conflicts are pushed to alternate rows
-  const placedLabels: { x: number; y: number; w: number }[] = [];
+  const placedLabels: LabelBox[] = [];
+  // obstacle boxes: every node (padded) must not be covered by an edge label
+  const nodeObstacles: LabelBox[] = layout.nodes
+    .filter((n) => doc.nodes.some((dn) => dn.id === n.id))
+    .map((n) => ({ x: n.x - 2, y: n.y - 2, w: n.width + 4, h: n.height + 4 }));
+
+  // Bug3: 重复标签冗余 — edges that share the same `from` and same `label`
+  // (a fan-out trunk, e.g. api-gateway -> 5 services all labelled 路由转发)
+  // render the label ONCE near the source instead of once per branch. The
+  // label-merge groups are computed up front (document order, so the first
+  // edge of each group is the "owner" that draws the consolidated label).
+  const mergedGroup = new Map<string, { ownerDocIdx: number; label: string; from: string }>();
+  const groupDocs = new Map<string, { ownerDocIdx: number; label: string; from: string }>();
+  doc.edges.forEach((e, docIdx) => {
+    if (!e.label) return;
+    const key = `${e.from}\u0000${e.label}`;
+    const existing = groupDocs.get(key);
+    if (existing) {
+      // keep the lowest document index as owner
+      if (docIdx < existing.ownerDocIdx) existing.ownerDocIdx = docIdx;
+    } else {
+      groupDocs.set(key, { ownerDocIdx: docIdx, label: e.label, from: e.from });
+    }
+  });
+  // a group is merged only if it fans out to >= 2 targets (true redundancy)
+  const targetCount = new Map<string, number>();
+  doc.edges.forEach((e) => {
+    if (!e.label) return;
+    const key = `${e.from}\u0000${e.label}`;
+    targetCount.set(key, (targetCount.get(key) ?? 0) + 1);
+  });
+  for (const [key, g] of groupDocs) {
+    if ((targetCount.get(key) ?? 0) >= 2) mergedGroup.set(key, g);
+  }
+
   for (const edge of layout.edges) {
     const pts = edge.points.length > 0 ? edge.points : routeDefault(doc, edge.from, edge.to);
     // Snap both endpoints to the REAL shape border (dagre only trims to the
@@ -645,25 +756,33 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
       if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
     }
-    const d = trimmed
+    // Bug1/Bug4: force 90° orthogonal routing so diagonal stubs and long
+    // slashes become clean rectilinear turns, and route the horizontal runs
+    // around intermediate nodes (order->payment no longer slices through
+    // inventory-service). The edge's own endpoints are excluded from obstacle
+    // checks so the approach into the source/target is never flagged.
+    const routeBoxes = layout.nodes
+      .filter((n) => n.id !== edge.from && n.id !== edge.to)
+      .map((n) => ({ x: n.x, y: n.y, w: n.width, h: n.height }));
+    const ortho = orthogonalize(trimmed, routeBoxes);
+    const d = ortho
       .map((p, i) => `${i === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`)
       .join(' ');
     const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
     const edgeIdx = edgeDoc ? doc.edges.indexOf(edgeDoc) : -1;
     const label = edgeDoc?.label;
+    // Bug3: merged fan-out trunk — the label renders once (near the source),
+    // on the owner edge only; non-owner edges in the group draw the line but
+    // no label, so "路由转发" no longer repeats 5x.
+    const mergedKey = label ? `${edge.from}\u0000${label}` : null;
+    const merged = mergedKey ? mergedGroup.get(mergedKey) : undefined;
+    const isMergedNonOwner = merged !== undefined && edgeIdx !== merged.ownerDocIdx && merged.from === edge.from;
     let labelEl = '';
     if (label || edgeDoc?.cardinalityFrom !== undefined || edgeDoc?.cardinalityTo !== undefined) {
-      // place label at midpoint of the longest segment
-      let mid: { x: number; y: number } | null = null;
-      for (let i = 0; i < trimmed.length - 1; i++) {
-        const a = trimmed[i];
-        const b = trimmed[i + 1];
-        if (b.y > a.y || (b.y === a.y && Math.abs(b.x - a.x) > 30)) {
-          mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-          break;
-        }
-      }
-      mid ??= { x: (trimmed[0].x + trimmed[trimmed.length - 1].x) / 2, y: (trimmed[0].y + trimmed[trimmed.length - 1].y) / 2 };
+      if (isMergedNonOwner) {
+        // drawn as a branch: suppress the label entirely
+        labelEl = '';
+      } else {
       // ER / UML multiplicities: explicit cardinalityFrom/To fields, rendered
       // near each endpoint; the label stays the pure relationship name.
       // No legacy label parsing — multiplicity must live in the fields.
@@ -672,8 +791,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         const rel = label ?? '';
         const fromV = edgeDoc?.cardinalityFrom;
         const toV = edgeDoc?.cardinalityTo;
-        const p0 = trimmed[0];
-        const pn = trimmed[trimmed.length - 1];
+        const p0 = ortho[0];
+        const pn = ortho[ortho.length - 1];
         const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
         const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
         // anchor multiplicities 22px outside the entity borders so small
@@ -682,7 +801,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         const dstCard = { x: pn.x - ux * 22, y: pn.y - uy * 22 };
         let relEl = '';
         if (rel) {
-          const { x, y } = placeLabel(mid.x, mid.y - 4, rel, placedLabels);
+          const { x, y } = placeLabelBox(ortho, rel, nodeObstacles, placedLabels);
           relEl = text(x, y, rel, 12, '#6b7280');
         }
         labelEl =
@@ -690,8 +809,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
           (fromV !== undefined ? text(srcCard.x, srcCard.y - 6, fromV, 12, '#b45309') : '') +
           (toV !== undefined ? text(dstCard.x, dstCard.y - 6, toV, 12, '#b45309') : '');
       } else {
-        const { x, y } = placeLabel(mid.x, mid.y - 4, label ?? '', placedLabels);
+        const { x, y } = placeLabelBox(ortho, label ?? '', nodeObstacles, placedLabels);
         labelEl = text(x, y, label ?? '', 12, '#6b7280');
+      }
       }
     }
     parts.push(
@@ -710,7 +830,79 @@ function routeDefault(
   fromId: string,
   toId: string,
 ): { x: number; y: number }[] {
+  // Degenerate fallback: dagre should always supply points for routed types;
+  // this is only a safety net (identical to a zero-length edge at origin).
   return [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+}
+
+/**
+ * Force a polyline to 90°-orthogonal segments (Bug1: 连线交叉/斜线) and route
+ * the horizontal runs around node boxes (Bug4: 跨层长斜线横穿节点).
+ *
+ * dagre emits near-axis-aligned runs but the per-segment anchor snapping
+ * leaves short diagonal stubs at the ends (e.g. a sweep out to x=1030 then a
+ * diagonal back to x=695). Replacing each diagonal segment with an
+ * orthogonal elbow (vertical leg then horizontal leg) keeps the whole edge
+ * clean and rectilinear, so crossings read as tidy 90° turns instead of
+ * slanted lines slicing through nodes/labels.
+ *
+ * Bug4: a blind V-then-H elbow picks the target row for the horizontal leg,
+ * which can cut THROUGH an intermediate node (e.g. order->payment route at
+ * y=500 slicing across inventory-service). When the chosen horizontal leg
+ * would cross another node box, the elbow y is nudged to a clear channel.
+ * `nodeBoxes` are the real node rects; `exclude` are the edge's own endpoints
+ * (the horizontal leg is allowed to start/end at its source/target).
+ */
+function orthogonalize(
+  pts: { x: number; y: number }[],
+  nodeBoxes: { x: number; y: number; w: number; h: number }[] = [],
+): { x: number; y: number }[] {
+  if (pts.length < 2) return pts;
+  // horizontal segment (x1,y)-(x2,y) crossing a node box (but not its own
+  // endpoints, which are outside the box only if the boxes are excluded)
+  const crosses = (x1: number, x2: number, y: number): boolean => {
+    const lo = Math.min(x1, x2);
+    const hi = Math.max(x1, x2);
+    return nodeBoxes.some((b) => {
+      const inX = b.x < hi - 2 && b.x + b.w > lo + 2;
+      const inY = b.y < y - 2 && b.y + b.h > y + 2;
+      return inX && inY;
+    });
+  };
+  // pick the y for a horizontal run from `a` toward `b` that is clear of nodes
+  const clearY = (a: { x: number; y: number }, b: { x: number; y: number }): number => {
+    const want = b.y;
+    if (!crosses(a.x, b.x, want)) return want;
+    // try channels above/below the target row, clamping within [a.y, want]
+    const loY = Math.min(a.y, want);
+    const hiY = Math.max(a.y, want);
+    for (let step = 14; step <= 84; step += 14) {
+      for (const cand of [want - step, want + step]) {
+        if (cand >= loY - 60 && cand <= hiY + 60 && !crosses(a.x, b.x, cand)) return cand;
+      }
+    }
+    return want; // give up — keep the target row (still orthogonal)
+  };
+
+  const out: { x: number; y: number }[] = [{ ...pts[0] }];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = out[out.length - 1];
+    const b = pts[i + 1];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    if (Math.abs(dx) < 0.5 || Math.abs(dy) < 0.5) {
+      out.push({ ...b });
+      continue;
+    }
+    // diagonal -> insert a V-then-H elbow (a.x, wy): descend in the source
+    // column, then run along a clear row toward the target. We're in the
+    // diagonal branch so both legs are guaranteed non-zero (a genuine 90° turn).
+    const wy = clearY(a, b);
+    out.push({ x: a.x, y: wy });
+    if (Math.abs(wy - b.y) > 0.5) out.push({ x: b.x, y: wy });
+    out.push({ ...b });
+  }
+  return out;
 }
 
 /**
@@ -943,7 +1135,7 @@ interface LayoutNodeLike {
   height: number;
 }
 
-/** Gantt chart renderer: time axis + task bars + dependency arrows. */
+/** Gantt chart renderer: time axis + task bars + dependency arrows + lanes. */
 function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
   const parts: string[] = [];
   parts.push(
@@ -951,8 +1143,52 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
   );
   parts.push(`<rect x="0" y="0" width="${layout.width}" height="${layout.height}" fill="#ffffff"/>`);
 
+  // time scale (mirrors layoutGantt's adaptive colW so bars stay aligned)
+  const MARGIN = 40;
+  const LABEL_W = 220;
+  const startOf = (t: LgdlNode): number => (typeof t.attrs?.start === 'number' ? t.attrs.start : 0);
+  const durOf = (t: LgdlNode): number => (typeof t.attrs?.duration === 'number' ? t.attrs.duration : 1);
+  const minStart = doc.nodes.reduce((min, t) => Math.min(min, startOf(t)), 0);
+  let maxEnd = doc.nodes.length > 0 ? startOf(doc.nodes[0]) + durOf(doc.nodes[0]) : 1;
+  for (const t of doc.nodes) maxEnd = Math.max(maxEnd, startOf(t) + durOf(t));
+  const span = Math.max(maxEnd - minStart, 1);
+  const colW = Math.max((layout.width - MARGIN * 2 - LABEL_W) / span, 1);
+  const axisX = MARGIN + LABEL_W;
+
   const barY = new Map<string, number>();
   layout.nodes.forEach((n) => barY.set(n.id, n.y));
+
+  // lane bands (from doc.groups) — drawn behind bars so groups read as
+  // swimlanes: a tinted band per group + a header + a bottom separator.
+  const laneFills = ['#eff6ff', '#ecfdf5', '#fffbeb', '#faf5ff', '#f8fafc'];
+  doc.groups.forEach((group, gi) => {
+    const ys: number[] = [];
+    const ye: number[] = [];
+    for (const m of group.contains ?? []) {
+      const ln = layout.nodes.find((n) => n.id === m);
+      if (ln) {
+        ys.push(ln.y - 8);
+        ye.push(ln.y + ln.height + 8);
+      }
+    }
+    if (ys.length === 0) return;
+    const band = {
+      x: MARGIN,
+      y: Math.min(...ys) - 10,
+      w: layout.width - MARGIN * 2,
+      h: Math.max(...ye) - Math.min(...ys) + 20,
+      label: group.label ?? group.id,
+    };
+    // fill + header text + bottom separator (explicit 泳道分隔线)
+    parts.push(
+      `<g class="lgdl-gantt-lane" data-lgdl-loc="groups[${gi}]">` +
+        `<rect x="${band.x}" y="${band.y}" width="${band.w}" height="${band.h}" fill="${laneFills[gi % laneFills.length]}" stroke="#cbd5e1" stroke-dasharray="4 3"/>` +
+        `<rect x="${band.x}" y="${band.y}" width="${band.w}" height="22" fill="${laneFills[gi % laneFills.length]}" stroke="#cbd5e1"/>` +
+        `<text x="${band.x + 10}" y="${band.y + 15}" font-family="${FONT_FAMILY}" font-size="12" fill="#475569" text-anchor="start" dominant-baseline="middle">${escapeXml(band.label)}</text>` +
+        `<line x1="${band.x}" y1="${band.y + band.h}" x2="${band.x + band.w}" y2="${band.y + band.h}" stroke="#94a3b8" stroke-width="1"/>` +
+        `</g>`,
+    );
+  });
 
   // dependencies first (behind bars)
   for (const edge of layout.edges) {
@@ -969,7 +1205,7 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
   }
 
   // task bars
-  const labelColX = 40 + 220 - 12; // task names pinned to the left label column
+  const labelColX = MARGIN + LABEL_W - 12; // task names pinned to the left label column
   for (const node of layout.nodes) {
     const lgdlNode = doc.nodes.find((n) => n.id === node.id);
     const docIdx = lgdlNode ? doc.nodes.indexOf(lgdlNode) : -1;
@@ -1000,17 +1236,27 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
     }
   }
 
-  // time axis header
-  const labelW = 220;
-  const colW = 40;
-  const axisX = 40 + labelW;
-  const axisY = 40;
-  const maxDay = Math.floor((layout.width - 40 - labelW) / colW);
+  // time axis header — adaptive tick stride so labels never collide: label
+  // every Nth day (the smallest "nice" stride with <= ~11 ticks).
+  const axisY = MARGIN;
+  const axisW = span * colW;
+  const niceStrides = [1, 2, 5, 10, 20, 30, 60, 90, 180, 365];
+  const stride = niceStrides.find((s) => span / s <= 11) ?? niceStrides[niceStrides.length - 1];
   parts.push(
-    `<g class="lgdl-gantt-axis"><rect x="${axisX}" y="${axisY}" width="${maxDay * colW}" height="40" fill="#f1f5f9" stroke="#e2e8f0"/>`,
+    `<g class="lgdl-gantt-axis"><rect x="${axisX}" y="${axisY}" width="${axisW}" height="40" fill="#f1f5f9" stroke="#e2e8f0"/>`,
   );
-  for (let d = 0; d < maxDay; d++) {
-    parts.push(text(axisX + d * colW + colW / 2, axisY + 20, `D${d}`, 10, '#64748b'));
+  // gridline + label at each stride multiple; also minor gridlines every day
+  for (let d = 0; d <= span; d++) {
+    const x = axisX + d * colW;
+    const isTick = d % stride === 0 || d === span;
+    if (isTick) {
+      parts.push(
+        `<line x1="${x}" y1="${axisY}" x2="${x}" y2="${axisY + 40}" stroke="#94a3b8" stroke-width="1"/>` +
+          text(x, axisY + 20, `D${d}`, 10, '#475569'),
+      );
+    } else {
+      parts.push(`<line x1="${x}" y1="${axisY + 26}" x2="${x}" y2="${axisY + 40}" stroke="#e2e8f0" stroke-width="1"/>`);
+    }
   }
   parts.push('</g>');
 

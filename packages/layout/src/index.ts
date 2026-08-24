@@ -508,7 +508,9 @@ function layoutSwimlane(doc: LgdlDocument): LayoutResult {
 // ---------------------------------------------------------------------------
 
 const GANTT_ROW_H = 48; // height per task row
-const GANTT_COL_W = 40; // width per time unit (day)
+const GANTT_COL_W_MAX = 40; // widest per day — short projects read spaciously
+const GANTT_COL_W_MIN = 14; // narrowest per day — long projects stay bounded
+const GANTT_CHART_W_TARGET = 1100; // desired advance (bar) width; colW adapts toward it
 const GANTT_LABEL_W = 220; // left label column width
 const GANTT_HEADER_H = 40; // time axis header
 
@@ -516,6 +518,11 @@ const GANTT_HEADER_H = 40; // time axis header
  * Gantt layout: each node is a task with attrs.start (number, day offset)
  * and attrs.duration (number of days). Edges = dependencies (drawn by renderer).
  * Tasks are stacked vertically in document order.
+ *
+ * The time scale is ADAPTIVE: `colW` (px per day) is chosen so the chart
+ * stays near GANTT_CHART_W_TARGET instead of blowing up linearly with a long
+ * span (a 90-day project at 40px/day is ~3700px wide — the "过扁" bug). Bars
+ * are placed with the chosen colW; the renderer re-derives it from width.
  */
 function layoutGantt(doc: LgdlDocument): LayoutResult {
   const tasks = doc.nodes;
@@ -529,7 +536,14 @@ function layoutGantt(doc: LgdlDocument): LayoutResult {
   let maxEnd = tasks.length > 0 ? startOf(tasks[0]) + durOf(tasks[0]) : 1;
   for (const t of tasks) maxEnd = Math.max(maxEnd, startOf(t) + durOf(t));
 
-  const width = GRAPH_MARGIN * 2 + GANTT_LABEL_W + (maxEnd - minStart) * GANTT_COL_W;
+  const span = Math.max(maxEnd - minStart, 1);
+  // adaptive column width, clamped to keep the chart near the target width
+  const colW =
+    span > 0
+      ? Math.round(Math.min(GANTT_COL_W_MAX, Math.max(GANTT_COL_W_MIN, GANTT_CHART_W_TARGET / span)))
+      : GANTT_COL_W_MAX;
+
+  const width = GRAPH_MARGIN * 2 + GANTT_LABEL_W + span * colW;
   const height = GRAPH_MARGIN * 2 + GANTT_HEADER_H + tasks.length * GANTT_ROW_H;
 
   const nodes: LayoutNode[] = tasks.map((t, i) => {
@@ -537,9 +551,9 @@ function layoutGantt(doc: LgdlDocument): LayoutResult {
     const dur = durOf(t);
     return {
       id: t.id,
-      x: GRAPH_MARGIN + GANTT_LABEL_W + start * GANTT_COL_W,
+      x: GRAPH_MARGIN + GANTT_LABEL_W + start * colW,
       y: GRAPH_MARGIN + GANTT_HEADER_H + i * GANTT_ROW_H + 8,
-      width: Math.max(dur * GANTT_COL_W - 4, 20),
+      width: Math.max(dur * colW - 4, 20),
       height: GANTT_ROW_H - 16,
     };
   });

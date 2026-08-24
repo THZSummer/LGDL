@@ -119,14 +119,17 @@
 
 ## 4. 跨图共性发现 → v0.6 改进清单
 
-| 问题 | 出现图 | 归属 | 建议 |
-|---|---|---|---|
-| 连线交叉/标签重叠 | arch、mindmap、er、state、uml-class | render | 布线算法优化（正交布线、文字避让） |
-| 决策节点分支不闭合 | flowchart | core/CLI | `validate` 增加结构校验（decision ≥2 出边） |
-| 状态机非法转移 | state、sequence | core/CLI | 状态机合法性校验命令（v0.6 图即代码评审） |
-| 甘特图过扁、时间刻度小 | gantt | render | 行高/刻度渲染优化 |
-| 重复标签冗余 | arch | render | "路由转发"等重复边标签去重 |
-| 补偿/失败分支缺失 | sequence、flowchart | 内容层 | 提供业务建模 checklist（AI 提示词模板） |
+| 问题 | 出现图 | 归属 | 定性 | 建议 |
+|---|---|---|---|---|
+| 连线交叉/标签重叠 | arch、mindmap、er、state、uml-class | render | bug | 布线算法优化（正交布线、文字避让） |
+| 决策节点分支不闭合 | flowchart | core/CLI | 需求 | `validate` 增加结构校验（decision ≥2 出边） |
+| 状态机非法转移 | state、sequence | core/CLI | 需求 | 状态机合法性校验命令（v0.6 图即代码评审） |
+| 甘特图过扁、时间刻度小 | gantt | render | bug | 行高/刻度渲染优化 |
+| 重复标签冗余 | arch | render | 渲染增强 | "路由转发"等重复边标签去重 |
+| 补偿/失败分支缺失 | sequence、flowchart | 内容层 | 内容层 | 提供业务建模 checklist（AI 提示词模板） |
+
+> 前 3 条 `bug` / `渲染增强` 的**现象、根因、涉及文件与行号、修法**明细见
+> [bugs.md](bugs.md)；`需求` 类的决策/状态机校验与 `内容层` 的建模 checklist 见 §5 与 AI 提示词模板范畴。
 
 ## 5. 复现要点
 

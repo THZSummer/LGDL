@@ -4,7 +4,14 @@
 
 **AI 实战与视觉评审闭环（示例与文档）**
 
-- 🤖 **AI 全流程演练**（`docs/ai-vision-review.md`）：pi（DeepSeek V4）以工程师身份仅用 `lgdl-cli` 命令构建全部 9 种图类型业务图（零手写文件），`deepseek-v4-flash-vision-exp` 视觉模型逐张评审——沉淀 9 组示例三件套（`examples/*.lgdl|svg|png`）与 v0.6 改进清单（布线交叉、决策节点分支校验、状态机合法性校验、甘特渲染行高等）
+- 🤖 **AI 全流程演练**（`docs/reviews-2026-08-24/ai-vision-review.md`）：pi（DeepSeek V4）以工程师身份仅用 `lgdl-cli` 命令构建全部 9 种图类型业务图（零手写文件），`deepseek-v4-flash-vision-exp` 视觉模型逐张评审——沉淀 9 组示例三件套（`examples/*.lgdl|svg|png`）与 v0.6 改进清单（布线交叉、决策节点分支校验、状态机合法性校验、甘特渲染行高等；详见 `docs/reviews-2026-08-24/bugs.md`）
+
+**视觉评审暴露的渲染/布局 Bug 修复（bugs.md ①②③④）**
+
+- 🐛 **正交绕障布线**（`packages/render/src/index.ts` `orthogonalize`）：边路径强制 90° 正交化，并对中间节点做水平绕障——消除长斜线横穿节点（如 order→payment 不再穿过 inventory-service）、跨层边绕外走线（state「申请退款」）
+- 🏷️ **障碍感知标签避让**（`packages/render` `placeLabelBox`）：边标签沿整条路径采样避让节点盒与其他标签，且避开节点本体——消除 arch/mindmap/er/state/uml-class 的标签重叠
+- 📊 **甘特图自适应时间刻度 + 泳道**（`packages/layout` + `packages/render` `renderGantt`）：按跨度自适应 `colW`（长项目不再爆宽成 1600×183 扁条），时间轴按「nice stride」抽稀刻度（D0/D10/D20…），并绘制 `doc.groups` 泳道背景/分隔线
+- 🔁 **扇出重复标签合并**（`packages/render`）：同 `from`+同标签发往多目标的边，标签在源端只标一次（如「路由转发」5 次 → 1 次），分支只画线不重复标注
 
 ## 0.5.0 (2026-08-23)
 
