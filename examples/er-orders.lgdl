@@ -1,0 +1,146 @@
+type: er
+
+nodes:
+  - id: user
+    label: 用户
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: bigint
+      - kind: attribute
+        name: created_at
+        type: datetime
+      - kind: attribute
+        name: name
+        type: varchar
+      - kind: attribute
+        name: phone
+        type: varchar
+  - id: order
+    label: 订单
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: bigint
+      - kind: attribute
+        name: user_id
+        type: bigint
+      - kind: attribute
+        name: status
+        type: varchar
+      - kind: attribute
+        name: total_amount
+        type: decimal
+      - kind: attribute
+        name: created_at
+        type: datetime
+  - id: order-item
+    label: 订单项
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: bigint
+      - kind: attribute
+        name: order_id
+        type: bigint
+      - kind: attribute
+        name: product_id
+        type: bigint
+      - kind: attribute
+        name: quantity
+        type: int
+      - kind: attribute
+        name: price
+        type: decimal
+  - id: product
+    label: 商品
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: bigint
+      - kind: attribute
+        name: name
+        type: varchar
+      - kind: attribute
+        name: price
+        type: decimal
+      - kind: attribute
+        name: stock
+        type: int
+  - id: payment
+    label: 支付记录
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: bigint
+      - kind: attribute
+        name: order_id
+        type: bigint
+      - kind: attribute
+        name: amount
+        type: decimal
+      - kind: attribute
+        name: pay_method
+        type: varchar
+      - kind: attribute
+        name: status
+        type: varchar
+      - kind: attribute
+        name: paid_at
+        type: datetime
+  - id: address
+    label: 收货地址
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: bigint
+      - kind: attribute
+        name: user_id
+        type: bigint
+      - kind: attribute
+        name: receiver
+        type: varchar
+      - kind: attribute
+        name: phone
+        type: varchar
+      - kind: attribute
+        name: detail
+        type: varchar
+
+edges:
+  - from: user
+    to: order
+    label: 下单
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
+  - from: order
+    to: order-item
+    label: 包含
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
+  - from: product
+    to: order-item
+    label: 被购买
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
+  - from: user
+    to: address
+    label: 拥有
+    cardinalityFrom: "1"
+    cardinalityTo: "*"
+  - from: order
+    to: payment
+    label: 支付
+    cardinalityFrom: "1"
+    cardinalityTo: "1"
+  - from: order
+    to: address
+    label: 配送至
+    cardinalityFrom: "*"
+    cardinalityTo: "1"

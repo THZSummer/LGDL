@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased / 0.6.0（开发中）
+
+**AI 实战与视觉评审闭环（示例与文档）**
+
+- 🤖 **AI 全流程演练**（`docs/ai-vision-review.md`）：pi（DeepSeek V4）以工程师身份仅用 `lgdl-cli` 命令构建全部 9 种图类型业务图（零手写文件），`deepseek-v4-flash-vision-exp` 视觉模型逐张评审——沉淀 9 组示例三件套（`examples/*.lgdl|svg|png`）与 v0.6 改进清单（布线交叉、决策节点分支校验、状态机合法性校验、甘特渲染行高等）
+
 ## 0.5.0 (2026-08-23)
 
 **Web AI 助手（v0.5.0）**

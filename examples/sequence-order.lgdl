@@ -1,0 +1,50 @@
+type: sequence
+
+nodes:
+  - id: user
+    label: 用户
+  - id: app
+    label: 客户端App
+  - id: order-service
+    label: 订单服务
+  - id: inventory-service
+    label: 库存服务
+  - id: payment-service
+    label: 支付服务
+  - id: mq
+    label: 消息队列
+
+edges:
+  - from: user
+    to: app
+    label: submitOrder
+  - from: app
+    to: order-service
+    label: createOrder
+  - from: order-service
+    to: inventory-service
+    label: lockStock
+  - from: inventory-service
+    to: order-service
+    label: stockLocked
+  - from: order-service
+    to: payment-service
+    label: initiatePayment
+  - from: payment-service
+    to: app
+    label: paymentCheckout
+  - from: app
+    to: user
+    label: showCheckout
+  - from: user
+    to: app
+    label: payCompleted
+  - from: app
+    to: payment-service
+    label: confirmPayment
+  - from: payment-service
+    to: order-service
+    label: paymentCallback
+  - from: order-service
+    to: mq
+    label: sendNotification

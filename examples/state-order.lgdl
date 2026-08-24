@@ -1,0 +1,47 @@
+type: state
+
+nodes:
+  - id: start
+    label: 初始
+    kind: start
+  - id: pending
+    label: 待支付
+    kind: state
+  - id: paid
+    label: 已支付
+    kind: state
+  - id: shipped
+    label: 已发货
+    kind: state
+  - id: completed
+    label: 已完成
+    kind: state
+  - id: cancelled
+    label: 已取消
+    kind: state
+  - id: refunded
+    label: 已退款
+    kind: state
+
+edges:
+  - from: pending
+    to: paid
+    label: 支付成功
+  - from: paid
+    to: shipped
+    label: 发货
+  - from: shipped
+    to: completed
+    label: 确认收货
+  - from: pending
+    to: cancelled
+    label: 取消订单
+  - from: paid
+    to: refunded
+    label: 申请退款
+  - from: cancelled
+    to: refunded
+    label: 退款完成
+  - from: start
+    to: pending
+    label: 创建订单
