@@ -12,6 +12,7 @@
 - 🏷️ **障碍感知标签避让**（`packages/render` `placeLabelBox`）：边标签沿整条路径采样避让节点盒与其他标签，且避开节点本体——消除 arch/mindmap/er/state/uml-class 的标签重叠
 - 📊 **甘特图自适应时间刻度 + 泳道**（`packages/layout` + `packages/render` `renderGantt`）：按跨度自适应 `colW`（长项目不再爆宽成 1600×183 扁条），时间轴按「nice stride」抽稀刻度（D0/D10/D20…），并绘制 `doc.groups` 泳道背景/分隔线
 - 🔁 **扇出重复标签合并**（`packages/render`）：同 `from`+同标签发往多目标的边，标签在源端只标一次（如「路由转发」5 次 → 1 次），分支只画线不重复标注
+- 🔤 **混排文本节点标签重叠修复**（`packages/render`）：节点 `<g>` 不再携带 `fill`/`stroke`（resvg 会把父 `<g>` 的 fill 继承进内部 `<text>`，导致「拉丁+中文」混排如 `Redis缓存` 重叠）；`fill`/`stroke` 移到 `NodeShape.body` 的形状元素上——所有图类型的混排节点标签恢复清晰
 
 ## 0.5.0 (2026-08-23)
 

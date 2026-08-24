@@ -11,14 +11,18 @@ import type { LayoutResult } from '@lgdl/layout';
 const FONT_FAMILY = "'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif";
 
 interface NodeShape {
-  /** Builds the shape body. Returns the inner content (text) markup too. */
-  body(x: number, y: number, w: number, h: number): string;
+  /** Builds the shape body. The fill/stroke go on the shape ELEMENT (never
+   * on the parent <g>), so resvg doesn't inherit fill into the inner <text>
+   * and mis-measure mixed Latin/CJK labels (the "Redis缓存" overlap bug). */
+  body(x: number, y: number, w: number, h: number, fill: string, stroke: string): string;
   /** Anchor point for edges on the shape boundary (top). */
   anchor(x: number, y: number, w: number, h: number, dir: 'top' | 'bottom' | 'left' | 'right'): { x: number; y: number };
 }
 
-function rect(x: number, y: number, w: number, h: number, rx = 4): string {
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" ry="${rx}"/>`;
+function rect(x: number, y: number, w: number, h: number, rx = 4, fill?: string, stroke?: string): string {
+  const f = fill ? ` fill="${fill}"` : '';
+  const s = stroke ? ` stroke="${stroke}" stroke-width="1.5"` : '';
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" ry="${rx}"${f}${s}/>`;
 }
 
 function text(
@@ -51,16 +55,16 @@ function escapeXml(s: string): string {
 const SHAPES: Record<string, NodeShape> = {
   // Start / end: rounded rect
   start: {
-    body(x, y, w, h) {
-      return `${rect(x, y, w, h, w / 2)}`; // pill
+    body(x, y, w, h, fill, stroke) {
+      return `${rect(x, y, w, h, w / 2, fill, stroke)}`; // pill
     },
     anchor(x, y, w, h, dir) {
       return edgeAnchor(x, y, w, h, dir, 0);
     },
   },
   end: {
-    body(x, y, w, h) {
-      return `${rect(x, y, w, h, w / 2)}`;
+    body(x, y, w, h, fill, stroke) {
+      return `${rect(x, y, w, h, w / 2, fill, stroke)}`;
     },
     anchor(x, y, w, h, dir) {
       return edgeAnchor(x, y, w, h, dir, 0);
@@ -68,8 +72,8 @@ const SHAPES: Record<string, NodeShape> = {
   },
   // Process: plain rect
   process: {
-    body(x, y, w, h) {
-      return rect(x, y, w, h, 6);
+    body(x, y, w, h, fill, stroke) {
+      return rect(x, y, w, h, 6, fill, stroke);
     },
     anchor(x, y, w, h, dir) {
       return edgeAnchor(x, y, w, h, dir, 0);
@@ -77,10 +81,10 @@ const SHAPES: Record<string, NodeShape> = {
   },
   // Decision: diamond
   decision: {
-    body(x, y, w, h) {
+    body(x, y, w, h, fill, stroke) {
       const cx = x + w / 2;
       const cy = y + h / 2;
-      return `<polygon points="${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}"/>`;
+      return `<polygon points="${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
     },
     anchor(x, y, w, h, dir) {
       const cx = x + w / 2;
@@ -101,9 +105,9 @@ const SHAPES: Record<string, NodeShape> = {
   // Top arc must sweep counter-clockwise (0) so it bulges UP to y (closing
   // the top); sweep=1 drew it downwards and the top edge vanished.
   entity: {
-    body(x, y, w, h) {
+    body(x, y, w, h, fill, stroke) {
       const cy = y + h;
-      return `<path d="M ${x},${y + 10} L ${x},${cy - 10} A ${w / 2},10 0 0 0 ${x + w},${cy - 10} L ${x + w},${y + 10} A ${w / 2},10 0 0 0 ${x},${y + 10} Z"/>`;
+      return `<path d="M ${x},${y + 10} L ${x},${cy - 10} A ${w / 2},10 0 0 0 ${x + w},${cy - 10} L ${x + w},${y + 10} A ${w / 2},10 0 0 0 ${x},${y + 10} Z" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
     },
     anchor(x, y, w, h, dir) {
       return edgeAnchor(x, y, w, h, dir, 0);
@@ -111,8 +115,8 @@ const SHAPES: Record<string, NodeShape> = {
   },
   // Note: folded corner
   note: {
-    body(x, y, w, h) {
-      return `<path d="M ${x},${y} L ${x + w - 12},${y} L ${x + w},${y + 12} L ${x + w},${y + h} L ${x},${y + h} Z"/>`;
+    body(x, y, w, h, fill, stroke) {
+      return `<path d="M ${x},${y} L ${x + w - 12},${y} L ${x + w},${y + 12} L ${x + w},${y + h} L ${x},${y + h} Z" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
     },
     anchor(x, y, w, h, dir) {
       return edgeAnchor(x, y, w, h, dir, 0);
@@ -621,7 +625,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         display = [display, ...rows].join('\n');
       }
       parts.push(
-        `<g class="${nodeClass}" data-lgdl-loc="${loc}" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${shape.body(node.x, node.y, node.width, node.height)}${text(cx, cy, display, fontSize)}</g>`,
+        `<g class="${nodeClass}" data-lgdl-loc="${loc}">${shape.body(node.x, node.y, node.width, node.height, fill, stroke)}${text(cx, cy, display, fontSize)}</g>`,
       );
     }
     // hover anchors: the node's 8 fixed border anchors, hidden until the

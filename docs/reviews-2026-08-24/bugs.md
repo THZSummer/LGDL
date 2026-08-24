@@ -6,12 +6,13 @@
 > 业务建模类问题（补 releaseStock、地址快照、枚举等）属**内容层**，不进本文档，归 AI 提示词模板范畴。
 >
 > 结论概览：bug 3 条（① 布线交叉/标签重叠、② 甘特图过扁/[时间刻度]不可读/泳道无分隔线、
-> ④ 跨层长斜线横穿）+ 渲染增强 1 条（③ 重复标签冗余）。
+> ⑤ 混排文本节点标签重叠）+ 渲染增强 1 条（③ 重复标签冗余）+ ④ 跨层长斜线横穿（bug）。
 >
-> **修复状态（已全部落地）**：①②④ 在 `packages/render`（`orthogonalize` 正交绕障布线 +
-> `placeLabelBox` 障碍感知标签避让）与 `packages/layout`（甘特自适应时间刻度）修复；
-> ③ 在 `packages/render` 用「同 from+同 label 扇出合并」将重复标签合并为源端一次标注。
-> 均经多张同类型示例图重新渲染验证，`npm run test` 全绿（core 314 / render 21 / web 107）。
+> **修复状态（已全部落地）**：①②④⑤ 在 `packages/render`（`orthogonalize` 正交绕障布线 +
+> `placeLabelBox` 障碍感知标签避让 + 节点 `<g>` 不再携带 fill 以避免混排标签重叠）与
+> `packages/layout`（甘特自适应时间刻度）修复；③ 在 `packages/render` 用「同 from+同 label 扇出合并」
+> 将重复标签合并为源端一次标注。均经多张同类型示例图重新渲染验证，`npm run test` 全绿
+> （core 314 / render 21 / web 107）。
 
 ---
 
@@ -57,3 +58,20 @@
   （`packages/render/src/index.ts:644-646`）后按直线段连接，无正交化、无绕道。当一条边连接的两个状态
   在 Y 方向跨越多个 rank 时，即得斜穿长线。
 - **修法（render/layout）**：边路由做 90° 正交化 + 中线绕行（避开节点盒与其他边）；对"向回指 / 跨层"边强制走外圈折返通道。
+
+---
+
+## ⑤ 混排文本节点标签重叠（"Redis缓存"等）— `bug`（render）
+
+- **出现图**：datastream-log（`Redis缓存`、`Flink作业`、`App客户端`）、arch、mindmap 等所有含
+  「拉丁+中文相邻」文本的**节点**
+- **现象**：节点内文字如 `Redis缓存` 明显重叠——"Redis"与"缓存"挤在一起几乎覆盖；而 `ClickHouse`
+  纯拉丁清晰、`缓存指标` 纯中文清晰——只有**单节点内拉丁与中文紧连**时出错。
+- **根因**：`renderGeneral` 的节点 `<g>` 上带 `fill="${fill}" stroke=...` 属性，本意是给内部的形状
+  `<rect>`/`<polygon>`/`<path>` 当填充。但 **resvg 会把这个父 `<g>` 的 `fill` 继承给内部的 `<text>`**，
+  导致混排文本（拉丁 + CJK）的基线/字宽度量错乱、文字重叠。`ClickHouse`（纯拉丁）与 `缓存指标`
+  （纯中文）因度量一致不受影响。
+- **修法（render）**：`<g>` 不再携带 `fill`/`stroke`/`stroke-width`（只留 `class`/`data-lgdl-loc`），
+  把这些属性移到 `NodeShape.body` 产出的形状元素上（`rect`/`polygon`/`path` 各自显式 `fill`/`stroke`）。
+  `NodeShape.body` 签名增加 `fill`、`stroke` 两参。修复后 `Redis缓存` 等全部混排标签清晰。
+
