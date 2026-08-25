@@ -165,7 +165,7 @@ groups:
 LGDL/
 ├── packages/
 │   ├── core/          # 语言核心：解析、语义模型、校验、格式转换、命令注册表（commands.ts，纯 TS 零依赖）
-│   ├── layout/        # 确定性布局引擎（自研 Sugiyama 分层：去环/分层/层内排序/坐标分配；零 dagre/elkjs 依赖；含径向树/时序/泳道/甘特专用布局）
+│   ├── layout/        # 确定性布局引擎（遵循 Sugiyama 框架的分层：去环/分层/层内排序/坐标分配——算法思想为 1981 Kōzō Sugiyama 提出，实现为自研、零 dagre/elkjs 依赖；含径向树/时序/泳道/甘特专用布局）
 │   ├── render/        # SVG 渲染器（形状、锚点、ASCII 输出）
 │   ├── cli/           # lgdl-cli 终端命令（commander + --file 文件 IO，业务逻辑复用 core/commands.ts）
 │   └── web/           # Web 工作台（React + CodeMirror 6 + lgdl-web-cli 协议 + 自研 SVG 预览）
@@ -183,7 +183,7 @@ LGDL/
 - **确定性**：同样的图（同样的球 + 同样的绳子）→ 铺出来永远是同一张网。AI 改图只改逻辑，不碰坐标，结果可预测、可测试。
 - **语义优先**：布局完全由「球（节点）与绳（关系）的连接结构」决定，而不是任何手工排版命令。LGDL 因此从不描述坐标——只描述逻辑。
 
-`packages/layout` 是这套算法的落点：对**分层图**（flowchart/arch/state/uml-class/er）用自研 **Sugiyama 分层**（去环 → 分层 → 层内排序 → 坐标分配），对**非分层**（径向树/时序/泳道/甘特）用对应的专用布局。整个引擎**零 dagre/elkjs 依赖**，只依赖 `@lgdl/core`。
+`packages/layout` 是这套算法的落点：对**分层图**（flowchart/arch/state/uml-class/er）用**遵循 Sugiyama 框架的分层布局**（去环 → 分层 → 层内排序 → 坐标分配）——该框架由日本学者 **Kōzō Sugiyama 等提出于 1981 年**（《Methods for Visual Understanding of Hierarchical System Structures》），是图可视化领域通用的分层绘制方法；**本项目的分层引擎是该框架的一种自研实现（代码自写，零 dagre/elkjs 依赖）**。对**非分层**（径向树/时序/泳道/甘特）用对应的专用布局。
 
 ---
 

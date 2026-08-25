@@ -1,6 +1,9 @@
 /**
- * Self-written Sugiyama layered layout — the LGDL-native hierarchical layout,
- * with NO dagre/elkjs dependency (only @lgdl/core in the leaf package).
+ * Layered graph layout — an LGDL-native engine that follows the **Sugiyama
+ * framework** (杉山框架, Kōzō Sugiyama et al., 1981, "Methods for Visual
+ * Understanding of Hierarchical System Structures"). The algorithm *idea* is
+ * that classic four-phase layered method; the *implementation* here is our own
+ * (no dagre/elkjs — the leaf package depends only on @lgdl/core).
  *
  * A layered (Sugiyama) layout runs four phases:
  *   1. cycle removal  — break cycles so we have a DAG (reversed back-edges)

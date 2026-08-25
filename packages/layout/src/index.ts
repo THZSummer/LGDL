@@ -8,9 +8,10 @@
  * - uml-class / er                -> hierarchical layout (left-right)
  * - gantt / state                 -> see below
  *
- * Hierarchical (layered) layouts are produced by the LGDL-native Sugiyama
- * engine (`layoutLayered`) — NO dagre / elkjs dependency. Only @lgdl/core.
- * Same input always produces the same output (deterministic).
+ * Hierarchical (layered) layouts are produced by the LGDL-native layered
+ * engine (`layoutLayered`), which follows the Sugiyama framework (1981,
+ * Kōzō Sugiyama) but is implemented here from scratch — NO dagre / elkjs
+ * dependency, only @lgdl/core. Same input always outputs the same layout.
  */
 import { VIS_SYMBOL, type DiagramType, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
 import { layoutLayered } from './layered.js';

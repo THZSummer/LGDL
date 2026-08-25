@@ -2,6 +2,18 @@
 
 ## Unreleased / 0.6.0（开发中）
 
+**布局引擎彻底自研：遵循 Sugiyama 框架，零 dagre/elkjs 依赖**
+
+- 🧭 **自研分层布局**（`packages/layout/src/layered.ts`）：遵循 **Sugiyama 框架**（杉山框架，日本学者
+  Kōzō Sugiyama 等 1981 年提出，图可视化通用分层方法；本实现为**自研引擎**、代码自写）。
+  四步：去环 → 分层 → 层内排序 → 坐标分配；确定性输出 top-left 坐标
+- 🗑️ **彻底删 dagre/elkjs**：`layoutHierarchical` 改用自研 `layoutLayered`，删除
+  `layoutHierarchicalDagre`/`layoutHierarchicalElk`；`dagreRun` 改名 `layeredRun`；删除
+  `config.ts`（原 dagre/elkjs 双引擎切换）与 `types/elkjs.d.ts`
+- 📦 **零第三方依赖**：`packages/layout` 依赖只留 `@lgdl/core`，`package-lock` 清空
+  dagre/elkjs/@types/dagre；web 打包时间约 20s → 6s（去掉 1.6MB elkjs wasm）
+- ✅ 验证：全 build 通过，core 314 / render 21 / web 107 全绿；9 种图（TB/LR/含环 state）逐类型无回归
+
 **核心模型统一：group 蜕化为特殊 node（group-as-node）**
 
 - 🧩 **模型只有 node + edge**（`packages/core` `types.ts`）：`NodeKind` 加 `'group'`，`LgdlNode` 加
@@ -9,7 +21,7 @@
 - 📝 **DSL 双语**（`parser.ts`）：`groups:`（旧语法，转 group 节点）与 `kind:'group' + contains`
   （新语法）均接受；对输入 `groups:` 原始条目的重复 id/未知字段做 loud reject（数据完整性不丢）
 - 🗺️ **分组感知分层布局**（`packages/layout` `layoutGrouped`，接入 dispatch）：分组框作为"超节点"两层
-  布局——组间 dagre 排（留 RANK_SEP/NODE_SEP 空隙）、组内 dagre 排——**分组框不再重叠/互相穿插**
+  布局——组间/组内均用自研分层引擎排（留 RANK_SEP/NODE_SEP 空隙）——**分组框不再重叠/互相穿插**
 - 🔧 **下游适配**：render/ascii/mermaid/status/queries/plantuml/serialize/cli 全部跳过 `kind:'group'` 节点；
   render `nodeIdSet` 剔除 group 节点（修复聚合边被误判为普通边而不绘制的 bug）
 - ✅ 验证：全 build 通过，core 314 / render 21 / web 107 全绿；microservices/architecture/ecommerce-flow
