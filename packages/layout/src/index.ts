@@ -174,6 +174,146 @@ function nodeSizes(doc: LgdlDocument): Map<string, { width: number; height: numb
   return sizes;
 }
 
+/**
+ * Minimal dagre run over a flat node/edge set, returning top-left positions.
+ * Used by the group-aware layout at both inter-group and intra-group levels.
+ */
+function dagreRun(
+  nodes: { id: string; width: number; height: number }[],
+  edges: { from: string; to: string }[],
+  rankdir: 'TB' | 'LR',
+): { pos: Map<string, { x: number; y: number; width: number; height: number }>; width: number; height: number } {
+  const g = new graphlib.Graph({ multigraph: false, compound: false })
+    .setGraph({ rankdir, marginx: GRAPH_MARGIN, marginy: GRAPH_MARGIN, ranksep: RANK_SEP, nodesep: NODE_SEP })
+    .setDefaultEdgeLabel(() => ({}));
+  for (const n of nodes) g.setNode(n.id, { width: n.width, height: n.height });
+  for (const e of edges) g.setEdge(e.from, e.to, {});
+  layout(g);
+  const pos = new Map<string, { x: number; y: number; width: number; height: number }>();
+  for (const n of nodes) {
+    const p = g.node(n.id);
+    pos.set(n.id, { x: p.x - p.width / 2, y: p.y - p.height / 2, width: n.width, height: n.height });
+  }
+  const gr = g.graph();
+  return { pos, width: gr.width ?? 0, height: gr.height ?? 0 };
+}
+
+/**
+ * Group-aware hierarchical layout — the fix for overlapping group boxes.
+ *
+ * ELK/dagre lay ALL nodes flat, so nodes of different groups interleave and the
+ * boxes the renderer draws afterwards overlap. This layout instead treats each
+ * group as a first-class "super-node":
+ *
+ *   1. Lay out each group's members with dagre (internal edges) → a local
+ *      layout + a group bounding box.
+ *   2. Lay out a TOP-level graph whose nodes are the groups (sized to their
+ *      bbox + padding + label) plus every ungrouped node; edges are the cross-
+ *      group / ungrouped edges collapsed to their unit level.
+ *   3. Offset each group's local layout by its super-node position.
+ *
+ * Groups never overlap (they are separate top-level nodes with RANK_SEP/NODE_SEP
+ * gaps), intra-group nodes cluster, and reading order is preserved (dagre at
+ * both levels). Cross-group edges route between the real member node positions,
+ * which the renderer orthogonalizes.
+ */
+function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
+  const sizes = nodeSizes(doc);
+  const groupOf = new Map<string, string>(); // nodeId -> groupId
+  for (const g of doc.groups) for (const m of g.contains ?? []) groupOf.set(m, g.id);
+
+  const nodeEdgesAll = nodeEdges(doc);
+  const inGroup = (id: string) => groupOf.has(id);
+
+  // ---- step 1: intra-group layering ----------------------------------------
+  // local layout per group (top-left relative to a 0,0 origin) + the group box
+  // (which also reserves label/padding via the super-node, not here).
+  const intra = new Map<string, Map<string, { x: number; y: number; width: number; height: number }>>();
+  const groupBox = new Map<string, { w: number; h: number }>(); // group interior size
+  for (const g of doc.groups) {
+    const members = (g.contains ?? []).filter((m) => sizes.has(m));
+    if (members.length === 0) continue;
+    const internalEdges = nodeEdgesAll.filter((e) => members.includes(e.from) && members.includes(e.to));
+    const r = dagreRun(
+      members.map((m) => ({ id: m, width: sizes.get(m)!.width, height: sizes.get(m)!.height })),
+      internalEdges.map((e) => ({ from: e.from, to: e.to })),
+      rankdir,
+    );
+    intra.set(g.id, r.pos);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [id, p] of r.pos) {
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x + p.width); maxY = Math.max(maxY, p.y + p.height);
+    }
+    groupBox.set(g.id, { w: maxX - minX, h: maxY - minY });
+  }
+
+  // ---- step 2: top-level layering (groups as super-nodes + ungrouped) -------
+  const unitOf = (nodeId: string): string => groupOf.get(nodeId) ?? nodeId; // group aggregates its nodes
+  const topNodes: { id: string; width: number; height: number }[] = [];
+  const isGroupId = (id: string) => doc.groups.some((g) => g.id === id);
+  for (const g of doc.groups) {
+    const box = groupBox.get(g.id);
+    if (!box) continue;
+    // super-node sized to the group's interior + padding + a header strip
+    const padX = 40, padY = 50;
+    topNodes.push({ id: g.id, width: box.w + padX * 2, height: box.h + padY * 2 });
+  }
+  for (const nd of doc.nodes) if (!inGroup(nd.id)) topNodes.push({ id: nd.id, width: sizes.get(nd.id)!.width, height: sizes.get(nd.id)!.height });
+  // collapse node edges to unit level, dedup
+  const unitEdges = new Set<string>();
+  for (const e of nodeEdgesAll) {
+    const ua = unitOf(e.from), ub = unitOf(e.to);
+    if (ua !== ub) unitEdges.add(`${ua}\u0000${ub}`);
+  }
+  const top = dagreRun(
+    topNodes,
+    [...unitEdges].map((k) => { const [f, t] = k.split('\u0000'); return { from: f, to: t }; }),
+    rankdir,
+  );
+
+  // ---- step 3: merge — offset intra-group layouts by super-node positions ---
+  const tpos = top.pos;
+  const finalPos = new Map<string, { x: number; y: number; width: number; height: number }>();
+  for (const nd of doc.nodes) {
+    const gid = groupOf.get(nd.id);
+    if (gid && intra.has(gid)) {
+      const local = intra.get(gid)!.get(nd.id)!;
+      const gp = tpos.get(gid)!;
+      const padX = 40, padY = 50;
+      finalPos.set(nd.id, { x: gp.x + padX + (local.x - (groupBox.get(gid)!.w / 2)), y: gp.y + padY + (local.y - (groupBox.get(gid)!.h / 2)), width: local.width, height: local.height });
+    } else {
+      finalPos.set(nd.id, tpos.get(nd.id)!);
+    }
+  }
+
+  // canvas spans all final node positions (guaranteed non-overlapping groups)
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of finalPos.values()) {
+    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x + p.width); maxY = Math.max(maxY, p.y + p.height);
+  }
+  const nodes: LayoutNode[] = doc.nodes.map((n) => {
+    const p = finalPos.get(n.id)!;
+    return { id: n.id, x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
+  });
+
+  // cross-group edges: route between node centers (renderer orthogonalizes).
+  const edges: LayoutEdge[] = nodeEdgesAll.map((e) => {
+    const a = finalPos.get(e.from)!, b = finalPos.get(e.to)!;
+    const ac = { x: a.x + a.width / 2, y: a.y + a.height / 2 };
+    const bc = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    const midX = Math.round((ac.x + bc.x) / 2);
+    return {
+      from: e.from, to: e.to,
+      points: [{ x: Math.round(ac.x), y: Math.round(ac.y) }, { x: midX, y: Math.round(ac.y) }, { x: midX, y: Math.round(bc.y) }, { x: Math.round(bc.x), y: Math.round(bc.y) }],
+    };
+  });
+
+  return { nodes, edges, width: Math.round(maxX - minX + GRAPH_MARGIN * 2), height: Math.round(maxY - minY + GRAPH_MARGIN * 2) };
+}
+
+
 /** Hierarchical (layered) layout — dispatches to the configured engine. */
 async function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): Promise<LayoutResult> {
   return LAYOUT_ENGINE === 'elkjs'
