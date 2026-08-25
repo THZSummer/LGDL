@@ -1,6 +1,11 @@
 /**
  * LGDL core type definitions.
- * LGDL describes ONLY semantics (nodes, edges, groups) — never layout.
+ * LGDL describes ONLY semantics, unified into two first-class concepts:
+ *   - node  (a box/shape, including `kind: 'group'` container nodes)
+ *   - edge  (a directed relationship between two nodes)
+ * `group` is NOT a separate field — it is a special node kind. A group node
+ * carries `contains` (its member node/group ids) and participates in layering
+ * exactly like any node, so the layout engine never has to special-case groups.
  */
 
 /** Supported diagram types */
@@ -41,7 +46,8 @@ export const DIAGRAM_TYPE_LABELS: Record<DiagramType, string> = {
   gantt: '甘特图',
 };
 
-/** Semantic role of a node; shapes are mapped by the renderer */
+/** Semantic role of a node; shapes are mapped by the renderer. `group` is a
+ * container node that holds other node ids via `contains`. */
 export type NodeKind =
   | 'start'
   | 'end'
@@ -50,7 +56,8 @@ export type NodeKind =
   | 'entity'
   | 'note'
   | 'state'
-  | 'milestone';
+  | 'milestone'
+  | 'group';
 
 /** All node kinds (single source of truth for tooling). */
 export const NODE_KINDS: readonly NodeKind[] = [
@@ -62,6 +69,7 @@ export const NODE_KINDS: readonly NodeKind[] = [
   'note',
   'state',
   'milestone',
+  'group',
 ];
 
 /** Human-readable (Chinese) labels per node kind. */
@@ -74,6 +82,7 @@ export const NODE_KIND_LABELS: Record<NodeKind, string> = {
   note: '便签',
   state: '状态',
   milestone: '里程碑',
+  group: '分组',
 };
 
 /** Kind of a class member (uml-class `entity` nodes) */
@@ -123,13 +132,18 @@ export interface LgdlNode {
   id: string;
   /** Display text; defaults to id */
   label?: string;
-  /** Semantic kind; defaults to 'process' */
+  /** Semantic kind; defaults to 'process'. `group` marks a container node. */
   kind?: NodeKind;
   /**
    * Structured class members — only valid on `kind: entity` nodes in
    * `uml-class` diagrams. Other kinds/types are rejected by the validator.
    */
   members?: LgdlMember[];
+  /**
+   * Member ids contained in this group node (node ids and/or other group ids).
+   * Only meaningful when `kind === 'group'`; ignored otherwise.
+   */
+  contains?: string[];
   /** Diagram-specific extension attributes */
   attrs?: LgdlAttrs;
 }
@@ -165,12 +179,20 @@ export interface LgdlMeta {
   [key: string]: unknown;
 }
 
-/** The parsed LGDL document — semantics only, no layout fields */
+/** The parsed LGDL document — semantics only, no layout fields.
+ *
+ * The model is UNIFIED: `groups` is a convenience projection of `nodes` where
+ * `kind === 'group'`. The parser derives it from group nodes; consumers that
+ * need the group container list may read either `nodes` (unified) or `groups`
+ * (derived projection). Nothing else in the model holds a separate group list.
+ */
 export interface LgdlDocument {
   title?: string;
   type: DiagramType;
   nodes: LgdlNode[];
   edges: LgdlEdge[];
+  /** Convenience projection: the nodes with kind === 'group'. Derive it when
+   * constructing a document from group nodes. */
   groups: LgdlGroup[];
   meta?: LgdlMeta;
 }
