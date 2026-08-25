@@ -55,7 +55,7 @@ const NODE_SIZE: Record<string, { width: number; height: number }> = {
 };
 
 const GRAPH_MARGIN = 40;
-const RANK_SEP = 72; // vertical gap between ranks
+const RANK_SEP = 96; // vertical gap between ranks (leaves room between stacked group boxes)
 const NODE_SEP = 80; // horizontal gap between nodes
 
 /**
