@@ -150,28 +150,33 @@ function edgeAnchor(
  * side (which makes the orthogonal drop hug the box's adjacent border).
  *
  * `box` is the node's LayoutNode; `anchor` is the border point shapeEdgePoint
- * produced (already ON the border, but possibly off-centre); `toward` is the
- * next point the edge heads to (used only to resolve corners). We detect the
- * exit face by WHERE the anchor sits on the border (its coordinate equals the
- * box's edge there), then snap the perpendicular coordinate to the box's
- * centre line — i.e. an exit on the top/bottom face moves to x = box center.
+ * produced (already ON the border); `toward` is the next point the edge heads
+ * to. The exit face is chosen from the EDGE's travel direction (toward the
+ * target), not from where the anchor happens to sit — shapeEdgePoint can snap
+ * a bottom-bound edge to a side face, and keeping that face would drop the
+ * vertical leg a few px from the box's wall. We snap to the face the edge is
+ * actually heading toward: mostly-vertical travel exits top/bottom at the
+ * horizontal center; mostly-horizontal travel exits left/right at the vertical
+ * center.
  */
 function recentreExit(
   box: { x: number; y: number; width: number; height: number },
   anchor: { x: number; y: number },
-  _toward: { x: number; y: number },
+  toward: { x: number; y: number },
 ): { x: number; y: number } {
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  const onLeft = Math.abs(anchor.x - box.x) < 1;
-  const onRight = Math.abs(anchor.x - (box.x + box.width)) < 1;
-  const onTop = Math.abs(anchor.y - box.y) < 1;
-  const onBottom = Math.abs(anchor.y - (box.y + box.height)) < 1;
-  // exit on a left/right face -> keep x, snap y to the vertical centre line
-  if (onLeft || onRight) return { x: anchor.x, y: cy };
-  // exit on a top/bottom face -> keep y, snap x to the horizontal centre line
-  if (onTop || onBottom) return { x: cx, y: anchor.y };
-  return anchor; // not cleanly on a face — leave it
+  const dx = toward.x - cx;
+  const dy = toward.y - cy;
+  // vertical-dominant travel (target meaningfully above/below) -> top/bottom
+  // face, drop along the box's horizontal centre line.
+  if (Math.abs(dy) >= Math.abs(dx) * 0.5) {
+    const onTop = dy < 0;
+    return { x: cx, y: onTop ? box.y : box.y + box.height };
+  }
+  // horizontal-dominant travel -> left/right face, run along the vertical centre.
+  const onLeft = dx < 0;
+  return { x: onLeft ? box.x : box.x + box.width, y: cy };
 }
 
 const FILL_BY_KIND: Record<string, string> = {
@@ -840,8 +845,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       // -> Agent drops at x=432, 48px off the node centre, hugging its border).
       // Re-centre the exit onto the exit face's midpoint so the vertical drop
       // runs down the node's own centre column instead of hugging a side wall.
-      if (srcNode) trimmed[0] = recentreExit(srcNode, trimmed[0], trimmed[1]);
-      if (dstNode) trimmed[trimmed.length - 1] = recentreExit(dstNode, trimmed[trimmed.length - 1], trimmed[trimmed.length - 2]);
+      // Direction = the OPPOSITE endpoint's centre (the true travel vector),
+      // not the polyline's immediate next point (which may be at the same y and
+      // wrongly read as horizontal travel).
+      if (srcNode) trimmed[0] = recentreExit(srcNode, trimmed[0], dstNode ? { x: dstNode.x + dstNode.width / 2, y: dstNode.y + dstNode.height / 2 } : trimmed[1]);
+      if (dstNode) trimmed[trimmed.length - 1] = recentreExit(dstNode, trimmed[trimmed.length - 1], srcNode ? { x: srcNode.x + srcNode.width / 2, y: srcNode.y + srcNode.height / 2 } : trimmed[trimmed.length - 2]);
     }
     // Bug1/Bug4: force 90° orthogonal routing so diagonal stubs and long
     // slashes become clean rectilinear turns, and route the horizontal runs
@@ -858,13 +866,22 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         .filter(([gid]) => !(groupsOwning(edge.from)?.has(gid) || groupsOwning(edge.to)?.has(gid)))
         .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
     ];
+    // Clearance-scoring set = ALL node/group boxes, INCLUDING the edge's own
+    // endpoints and their owning groups. `pathCrosses` still only checks
+    // `routeBoxes` (so the edge may leave/enter its own entities), but the
+    // channel score also penalizes hugging MY OWN group's wall — that's how a
+    // drop at x=480 (10px from the 核心服务 group wall) gets pushed out.
+    const scoreBoxes = [
+      ...layout.nodes.map((n) => ({ x: n.x, y: n.y, w: n.width, h: n.height })),
+      ...[...boxOf.entries()].map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
+    ];
     let ortho = orthogonalize(trimmed, routeBoxes);
     // 贴边平行: if some leg still hugs a wall (or crosses a box because the
     // channel search ignored group boxes), re-route from the border anchors
     // through a rectilinear channel that is clear of — and distant from — every
     // obstacle. Keep the orthogonalized result when it already sits well clear.
-    if (pathCrosses(ortho, routeBoxes) || pathClearance(ortho, routeBoxes) < 12) {
-      ortho = routeRectilinear(trimmed[0], trimmed[trimmed.length - 1], routeBoxes, ortho);
+    if (pathCrosses(ortho, routeBoxes) || pathClearanceInterior(ortho, scoreBoxes) < 12) {
+      ortho = routeRectilinear(trimmed[0], trimmed[trimmed.length - 1], routeBoxes, ortho, scoreBoxes);
     }
     const d = ortho
       .map((p, i) => `${i === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`)
@@ -1048,16 +1065,20 @@ function pathCrosses(
 }
 
 /**
- * Smallest clearance (px) of any leg of `pts` from a box WALL. Legs that sit
- * flush against a wall score ~0; a leg far from every wall scores high. Used
- * to prefer a route that doesn't hug a component border.
+ * Smallest clearance (px) of the INTERIOR legs of `pts` from a box WALL. The
+ * first and last legs attach to the source/target shape borders (their
+ * `scoreBoxes` distance is always ~0), so they're skipped: only the legs that
+ * run *past* a box (e.g. the vertical drop alongside a group wall) are scored.
+ * A leg flush against a wall scores ~0; a leg far from every wall scores high.
  */
-function pathClearance(
+function pathClearanceInterior(
   pts: { x: number; y: number }[],
   boxes: { x: number; y: number; w: number; h: number }[],
 ): number {
   let min = Infinity;
-  for (let i = 0; i < pts.length - 1; i++) {
+  // interior legs: i in [1, len-3] (leg i is pts[i] -> pts[i+1]); leg 0 and
+  // leg len-2 are the border attachments.
+  for (let i = 1; i < pts.length - 2; i++) {
     const a = pts[i];
     const b = pts[i + 1];
     if (Math.abs(a.x - b.x) < 0.5) {
@@ -1094,6 +1115,7 @@ function routeRectilinear(
   dst: { x: number; y: number },
   boxes: { x: number; y: number; w: number; h: number }[],
   fallback: { x: number; y: number }[],
+  scoreBoxes: { x: number; y: number; w: number; h: number }[] = boxes,
 ): { x: number; y: number }[] {
   const channels: number[] = [];
   const midX = Math.round((src.x + dst.x) / 2);
@@ -1115,7 +1137,12 @@ function routeRectilinear(
   let bestScore = -Infinity;
   for (const c of candidates) {
     if (pathCrosses(c, boxes)) continue; // must be clear of every obstacle
-    const score = pathClearance(c, boxes) + (c.length === 2 ? 500 : c.length === 3 ? 200 : 0);
+    // Score by distance from box walls over the INTERIOR legs only (the first
+    // and last legs attach to a shape border, so their clearance is always
+    // ~0). `scoreBoxes` adds the edge's own source/target + their owning
+    // groups, so a leg hugging MY OWN box/group wall gets penalized too (the
+    // crossing check above still lets me leave/enter my own entities).
+    const score = pathClearanceInterior(c, scoreBoxes) + (c.length === 2 ? 500 : c.length === 3 ? 200 : 0);
     if (score > bestScore) {
       bestScore = score;
       best = c;
