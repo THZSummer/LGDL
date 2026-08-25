@@ -144,6 +144,36 @@ function edgeAnchor(
   }
 }
 
+/**
+ * Recentre an edge exit onto the MIDPOINT of the face it leaves, so a vertical
+ * or horizontal run leaves from the box's centre line rather than off to one
+ * side (which makes the orthogonal drop hug the box's adjacent border).
+ *
+ * `box` is the node's LayoutNode; `anchor` is the border point shapeEdgePoint
+ * produced (already ON the border, but possibly off-centre); `toward` is the
+ * next point the edge heads to (used only to resolve corners). We detect the
+ * exit face by WHERE the anchor sits on the border (its coordinate equals the
+ * box's edge there), then snap the perpendicular coordinate to the box's
+ * centre line — i.e. an exit on the top/bottom face moves to x = box center.
+ */
+function recentreExit(
+  box: { x: number; y: number; width: number; height: number },
+  anchor: { x: number; y: number },
+  _toward: { x: number; y: number },
+): { x: number; y: number } {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const onLeft = Math.abs(anchor.x - box.x) < 1;
+  const onRight = Math.abs(anchor.x - (box.x + box.width)) < 1;
+  const onTop = Math.abs(anchor.y - box.y) < 1;
+  const onBottom = Math.abs(anchor.y - (box.y + box.height)) < 1;
+  // exit on a left/right face -> keep x, snap y to the vertical centre line
+  if (onLeft || onRight) return { x: anchor.x, y: cy };
+  // exit on a top/bottom face -> keep y, snap x to the horizontal centre line
+  if (onTop || onBottom) return { x: cx, y: anchor.y };
+  return anchor; // not cleanly on a face — leave it
+}
+
 const FILL_BY_KIND: Record<string, string> = {
   start: '#dbeafe',
   end: '#dcfce7',
@@ -804,6 +834,14 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     if (trimmed.length >= 2) {
       if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
       if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
+      // 贴边平行: a border anchor snaps toward the OTHER endpoint's centre, so
+      // a top/bottom exit can land off-centre and orthogonalize then drops the
+      // vertical leg right under a box's left/right border (e.g. dev-framework
+      // -> Agent drops at x=432, 48px off the node centre, hugging its border).
+      // Re-centre the exit onto the exit face's midpoint so the vertical drop
+      // runs down the node's own centre column instead of hugging a side wall.
+      if (srcNode) trimmed[0] = recentreExit(srcNode, trimmed[0], trimmed[1]);
+      if (dstNode) trimmed[trimmed.length - 1] = recentreExit(dstNode, trimmed[trimmed.length - 1], trimmed[trimmed.length - 2]);
     }
     // Bug1/Bug4: force 90° orthogonal routing so diagonal stubs and long
     // slashes become clean rectilinear turns, and route the horizontal runs
