@@ -70,16 +70,17 @@ test('renderSvg draws aggregate edges between groups', () => {
   const svg = renderSvg(doc, layout);
   assert.ok(svg.includes('lgdl-aggregate-edge'), 'aggregate edge element');
   assert.ok(svg.includes('整体调用'), 'aggregate edge label');
-  // anchored on the group box boundaries (y between the two boxes, not inside)
-  const m = svg.match(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"/);
-  assert.ok(m, 'line present');
+  // aggregate edges now route as a rectilinear <path> (no bare straight <line>
+  // that can hug a group border). Anchored on the group box boundaries.
+  const m = svg.match(/<path d="M ([\d.]+),([\d.]+) L ([\d.]+),([\d.]+) L ([\d.]+),([\d.]+)"/);
+  assert.ok(m, 'rectilinear path present');
   const y1 = parseFloat(m[2]);
-  const y2 = parseFloat(m[4]);
+  const yLast = parseFloat(m[6]);
   // group boxes pad=20 (+30 header above the top). g1 box: y in [10, 128],
   // g2 box: y in [250, 388]. Source anchors on g1 BOTTOM border (128); target
   // anchors on g2 TOP border (250) — anchors, not pushed into the box.
   assert.ok(Math.abs(y1 - 128) < 5, `src on g1 bottom border, got ${y1}`);
-  assert.ok(Math.abs(y2 - 250) < 5, `dst on g2 top border anchor, got ${y2}`);
+  assert.ok(Math.abs(yLast - 250) < 5, `dst on g2 top border anchor, got ${yLast}`);
 });
 
 test('renderSvg renders uml-class cards from structured members', () => {

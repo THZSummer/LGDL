@@ -505,6 +505,23 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     for (const g of doc.groups) computeGroupBox(g);
   }
 
+  // groups that own a node id (any nesting level). An edge is allowed to leave
+  /// and enter its own group, so those group boxes are NOT obstacles for it.
+  const groupsOwning = (id: string | undefined): Set<string> | undefined => {
+    if (!id) return undefined;
+    const seen = new Set<string>();
+    const collect = (nid: string): void => {
+      for (const g of doc.groups) {
+        if (g.contains?.includes(nid) && !seen.has(g.id)) {
+          seen.add(g.id);
+          collect(g.id); // nested containment
+        }
+      }
+    };
+    collect(id);
+    return seen.size > 0 ? seen : undefined;
+  };
+
   // groups (behind everything else)
   // 8 fixed border anchors for a group box, revealed on hover (same
   // 15-deg quantization the aggregate edges snap to)
@@ -672,10 +689,6 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     const toBox = nodeIdSet.has(edge.to) ? undefined : boxOf.get(edge.to);
     const fromCenter = centerOf(edge.from);
     const toCenter = centerOf(edge.to);
-    // when both endpoints line up vertically (same column), offset the
-    // anchors horizontally so the aggregate edge doesn't overlap node edges
-    // running down that column
-    const offsetX = Math.abs(toCenter.x - fromCenter.x) < 1 && Math.abs(toCenter.y - fromCenter.y) > 40 ? 40 : 0;
     // node endpoints anchor to the node's real shape border (same anchor
     // rules as regular edges); group endpoints stay on the group box border
     const nodeAnchor = (id: string, toward: { x: number; y: number }) => {
@@ -684,23 +697,42 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       const kind = shapeKindFor(doc.nodes.find((n) => n.id === id)?.kind);
       return shapeEdgePoint(kind, nb, toward);
     };
-    const src = fromBox ? shapeEdgePoint('process', { x: fromBox.x, y: fromBox.y, width: fromBox.w, height: fromBox.h }, { x: toCenter.x + offsetX, y: toCenter.y }, 8) : nodeAnchor(edge.from, { x: toCenter.x + offsetX, y: toCenter.y });
-    const dst = toBox ? shapeEdgePoint('process', { x: toBox.x, y: toBox.y, width: toBox.w, height: toBox.h }, { x: fromCenter.x + offsetX, y: fromCenter.y }, 8) : nodeAnchor(edge.to, { x: fromCenter.x + offsetX, y: fromCenter.y });
-    // push the target end slightly INTO the box so the arrowhead isn't
-    // hidden behind the box border line
-    // endpoints stay exactly ON the border anchors — the arrowhead tip
-    // touches the group/node edge (same as regular node edges); no push
-    // INTO the box, so lines never appear to pierce the shape
+    const src = fromBox ? shapeEdgePoint('process', { x: fromBox.x, y: fromBox.y, width: fromBox.w, height: fromBox.h }, toCenter, 8) : nodeAnchor(edge.from, toCenter);
+    const dst = toBox ? shapeEdgePoint('process', { x: toBox.x, y: toBox.y, width: toBox.w, height: toBox.h }, fromCenter, 8) : nodeAnchor(edge.to, fromCenter);
+    // aggregate edges were a bare straight line which, on vertically-aligned
+    // endpoints, needed an offsetX hack and could hug a group-border. Route
+    // them rectilinearly instead: obstacles are the surrounding node boxes and
+    // every group box EXCEPT the two endpoint groups (the edge may leave/enter
+    // its own group). No offsetX hack — the channel search finds a clear lane.
+    const routeBoxesAgg = [
+      ...layout.nodes
+        .filter((n) => n.id !== edge.from && n.id !== edge.to)
+        .map((n) => ({ x: n.x, y: n.y, w: n.width, h: n.height })),
+      ...[...boxOf.entries()]
+        .filter(([gid]) => gid !== edge.from && gid !== edge.to)
+        .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
+    ];
+    const aggPath = routeRectilinear(src, dst, routeBoxesAgg, [src, dst]);
+    const aggD = aggPath.map((p, k) => `${k === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`).join(' ');
     const label = edge.label;
     let labelEl = '';
     if (label) {
       // keep the label readable: readable 11px font with a white backdrop,
-      // centered on the segment (clamped to the canvas); never shrink to
-      // tiny unreadable sizes even on very short segments
+      // centered on the longest segment (clamped to the canvas); never shrink
+      // to tiny unreadable sizes even on very short segments
       const fontSize = 11;
       const w = label.length * fontSize;
-      const x = Math.max(10 + w / 2, Math.min((src.x + dst.x) / 2, layout.width - 10 - w / 2));
-      const y = (src.y + dst.y) / 2 - 4;
+      const seg = aggPath.reduce<{ len: number; x: number; y: number }>(
+        (best, p, k) => {
+          const nxt = aggPath[k + 1];
+          if (!nxt) return best;
+          const len = Math.hypot(nxt.x - p.x, nxt.y - p.y);
+          return len > best.len ? { len, x: (p.x + nxt.x) / 2, y: (p.y + nxt.y) / 2 } : best;
+        },
+        { len: -1, x: dst.x, y: dst.y },
+      );
+      const x = Math.max(10 + w / 2, Math.min(seg.x, layout.width - 10 - w / 2));
+      const y = seg.y - 4;
       const bgW = w + 8;
       const bgH = fontSize + 6;
       labelEl =
@@ -708,7 +740,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         text(x, y, label, fontSize, '#7c3aed');
     }
     parts.push(
-      `<g class="lgdl-aggregate-edge" data-lgdl-loc="edges[${i}]"><line x1="${src.x}" y1="${src.y}" x2="${dst.x}" y2="${dst.y}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>` +
+      `<g class="lgdl-aggregate-edge" data-lgdl-loc="edges[${i}]"><path d="${aggD}" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#arrowhead-purple)"/>${labelEl}</g>` +
         // hover the aggregate edge -> reveal its two endpoint anchors
         `<g class="lgdl-edge-anchors"><circle cx="${src.x.toFixed(1)}" cy="${src.y.toFixed(1)}" r="3.5" fill="#7c3aed"/><circle cx="${dst.x.toFixed(1)}" cy="${dst.y.toFixed(1)}" r="3.5" fill="#7c3aed"/></g>`,
     );
@@ -778,10 +810,24 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     // around intermediate nodes (order->payment no longer slices through
     // inventory-service). The edge's own endpoints are excluded from obstacle
     // checks so the approach into the source/target is never flagged.
-    const routeBoxes = layout.nodes
-      .filter((n) => n.id !== edge.from && n.id !== edge.to)
-      .map((n) => ({ x: n.x, y: n.y, w: n.width, h: n.height }));
-    const ortho = orthogonalize(trimmed, routeBoxes);
+    // Obstacles = node boxes + EVERY group box EXCEPT the groups that own the
+    // edge's two endpoints (an edge is allowed to leave/enter its own group).
+    const routeBoxes = [
+      ...layout.nodes
+        .filter((n) => n.id !== edge.from && n.id !== edge.to)
+        .map((n) => ({ x: n.x, y: n.y, w: n.width, h: n.height })),
+      ...[...boxOf.entries()]
+        .filter(([gid]) => !(groupsOwning(edge.from)?.has(gid) || groupsOwning(edge.to)?.has(gid)))
+        .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
+    ];
+    let ortho = orthogonalize(trimmed, routeBoxes);
+    // 贴边平行: if some leg still hugs a wall (or crosses a box because the
+    // channel search ignored group boxes), re-route from the border anchors
+    // through a rectilinear channel that is clear of — and distant from — every
+    // obstacle. Keep the orthogonalized result when it already sits well clear.
+    if (pathCrosses(ortho, routeBoxes) || pathClearance(ortho, routeBoxes) < 12) {
+      ortho = routeRectilinear(trimmed[0], trimmed[trimmed.length - 1], routeBoxes, ortho);
+    }
     const d = ortho
       .map((p, i) => `${i === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`)
       .join(' ');
@@ -920,6 +966,124 @@ function orthogonalize(
     out.push({ ...b });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Orthogonal edge router (used when the layout-only polyline hugs a box wall)
+// ---------------------------------------------------------------------------
+// The layout engine emits naive centre-midpoint-centre elbows. After snapping
+// to shape borders + orthogonalize those are usually clean, but a vertical leg
+// can land a few px from a group/node border (the "贴边平行" effect) because
+// (a) group boxes were never obstacles and (b) only the horizontal leg's row
+// was re-channelled. `routeRectilinear` re-routes one edge from its two border
+// anchors through a channel that is clear of — and maximally distant from —
+// every obstacle, so a leg no longer hugs a wall.
+
+/** Does the axis-aligned segment a→b cross any obstacle box? */
+function segmentCrosses(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  boxes: { x: number; y: number; w: number; h: number }[],
+): boolean {
+  if (Math.abs(a.x - b.x) < 0.5) {
+    // vertical: at column a.x, spanning [min(a.y,b.y), max(a.y,b.y)]
+    const lo = Math.min(a.y, b.y);
+    const hi = Math.max(a.y, b.y);
+    return boxes.some((bb) => bb.x < a.x - 2 && bb.x + bb.w > a.x + 2 && bb.y < hi - 2 && bb.y + bb.h > lo + 2);
+  }
+  if (Math.abs(a.y - b.y) < 0.5) {
+    // horizontal: at row a.y, spanning [min(a.x,b.x), max(a.x,b.x)]
+    const lo = Math.min(a.x, b.x);
+    const hi = Math.max(a.x, b.x);
+    return boxes.some((bb) => bb.y < a.y - 2 && bb.y + bb.h > a.y + 2 && bb.x < hi - 2 && bb.x + bb.w > lo + 2);
+  }
+  return true; // a genuine diagonal counts as a crossing (must be rectilinear)
+}
+
+/** Does any consecutive pair in `pts` cross an obstacle box? */
+function pathCrosses(
+  pts: { x: number; y: number }[],
+  boxes: { x: number; y: number; w: number; h: number }[],
+): boolean {
+  for (let i = 0; i < pts.length - 1; i++) if (segmentCrosses(pts[i], pts[i + 1], boxes)) return true;
+  return false;
+}
+
+/**
+ * Smallest clearance (px) of any leg of `pts` from a box WALL. Legs that sit
+ * flush against a wall score ~0; a leg far from every wall scores high. Used
+ * to prefer a route that doesn't hug a component border.
+ */
+function pathClearance(
+  pts: { x: number; y: number }[],
+  boxes: { x: number; y: number; w: number; h: number }[],
+): number {
+  let min = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (Math.abs(a.x - b.x) < 0.5) {
+      const lo = Math.min(a.y, b.y);
+      const hi = Math.max(a.y, b.y);
+      for (const bb of boxes) {
+        if (bb.y < hi - 2 && bb.y + bb.h > lo + 2) {
+          min = Math.min(min, Math.abs(a.x - bb.x), Math.abs(a.x - (bb.x + bb.w)));
+        }
+      }
+    } else if (Math.abs(a.y - b.y) < 0.5) {
+      const lo = Math.min(a.x, b.x);
+      const hi = Math.max(a.x, b.x);
+      for (const bb of boxes) {
+        if (bb.x < hi - 2 && bb.x + bb.w > lo + 2) {
+          min = Math.min(min, Math.abs(a.y - bb.y), Math.abs(a.y - (bb.y + bb.h)));
+        }
+      }
+    } else {
+      return 0; // a diagonal leg is never "far from a wall"
+    }
+  }
+  return min;
+}
+
+/**
+ * Re-route one edge from `src` to `dst` (border anchors) as a rectilinear
+ * polyline that avoids every obstacle box and, among the clear candidates,
+ * picks the one with the most clearance from box walls (fewer bends favoured).
+ * `fallback` is returned when no candidate is fully clear.
+ */
+function routeRectilinear(
+  src: { x: number; y: number },
+  dst: { x: number; y: number },
+  boxes: { x: number; y: number; w: number; h: number }[],
+  fallback: { x: number; y: number }[],
+): { x: number; y: number }[] {
+  const channels: number[] = [];
+  const midX = Math.round((src.x + dst.x) / 2);
+  const midY = Math.round((src.y + dst.y) / 2);
+  for (const c of [midX, src.x, dst.x]) channels.push(c);
+  for (let k = 20; k <= 120; k += 20) channels.push(midX - k, midX + k, src.x - k, src.x + k, dst.x - k, dst.x + k);
+  const rows: number[] = [];
+  for (const c of [midY, src.y, dst.y]) rows.push(c);
+  for (let k = 20; k <= 120; k += 20) rows.push(midY - k, midY + k, src.y - k, src.y + k, dst.y - k, dst.y + k);
+
+  const candidates: { x: number; y: number }[][] = [];
+  candidates.push([src, dst]); // straight (only valid if already aligned — filtered below)
+  candidates.push([src, { x: dst.x, y: src.y }, dst]); // H then V
+  candidates.push([src, { x: src.x, y: dst.y }, dst]); // V then H
+  for (const cx of channels) candidates.push([src, { x: cx, y: src.y }, { x: cx, y: dst.y }, dst]); // H-V-H
+  for (const cy of rows) candidates.push([src, { x: src.x, y: cy }, { x: dst.x, y: cy }, dst]); // V-H-V
+
+  let best = fallback;
+  let bestScore = -Infinity;
+  for (const c of candidates) {
+    if (pathCrosses(c, boxes)) continue; // must be clear of every obstacle
+    const score = pathClearance(c, boxes) + (c.length === 2 ? 500 : c.length === 3 ? 200 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return best;
 }
 
 /**
