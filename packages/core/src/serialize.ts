@@ -49,6 +49,11 @@ export function serializeLgdl(doc: LgdlDocument): string {
   // nodes
   lines.push('nodes:');
   for (const node of doc.nodes) {
+    // Group nodes (kind: 'group') are container boxes, not ordinary nodes.
+    // They serialize via the `groups:` section below (derived from doc.groups),
+    // so the same group is never emitted twice and its `contains` is preserved
+    // on round-trip.
+    if (node.kind === 'group') continue;
     lines.push(`  - id: ${yamlString(node.id)}`);
     if (node.label !== undefined && node.label !== node.id) {
       lines.push(`    label: ${yamlString(node.label)}`);

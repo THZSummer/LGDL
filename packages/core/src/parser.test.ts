@@ -41,7 +41,9 @@ test('parses a valid document', () => {
   assert.equal(result.issues.length, 0);
   assert.equal(result.document.type, 'flowchart');
   assert.equal(result.document.title, '用户登录流程');
-  assert.equal(result.document.nodes.length, 4);
+  // group nodes are nodes too — `frontend` becomes a kind:'group' node, so the
+  // node count now includes it alongside the 4 ordinary nodes
+  assert.equal(result.document.nodes.length, 5);
   assert.equal(result.document.edges.length, 3);
   assert.equal(result.document.groups.length, 1);
   assert.equal(result.document.nodes[0].id, 'start');

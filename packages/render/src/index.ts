@@ -178,9 +178,11 @@ const MIND_FILLS = ['#eff6ff', '#ecfdf5', '#fffbeb', '#faf5ff', '#fce7f3'];
 function computeMindmapInfo(
   doc: LgdlDocument,
 ): Map<string, { branch: string; branchIndex: number; depth: number }> {
+  // group boxes are not mindmap nodes — exclude them from the tree
+  const nodes = doc.nodes.filter((n) => n.kind !== 'group');
   const children = new Map<string, string[]>();
   const inDegree = new Map<string, number>();
-  for (const n of doc.nodes) {
+  for (const n of nodes) {
     children.set(n.id, []);
     inDegree.set(n.id, 0);
   }
@@ -188,7 +190,7 @@ function computeMindmapInfo(
     children.get(e.from)?.push(e.to);
     inDegree.set(e.to, (inDegree.get(e.to) ?? 0) + 1);
   }
-  const rootId = doc.nodes.find((n) => (inDegree.get(n.id) ?? 0) === 0)?.id;
+  const rootId = nodes.find((n) => (inDegree.get(n.id) ?? 0) === 0)?.id;
   if (!rootId) return new Map();
 
   const info = new Map<string, { branch: string; branchIndex: number; depth: number }>();
@@ -215,10 +217,12 @@ function computeMindmapInfo(
  * Returns null unless there is exactly one entry (a single-entry machine).
  */
 function findInitialState(doc: LgdlDocument): string | null {
+  // group boxes are not states — exclude them from the entry-state search
+  const nodes = doc.nodes.filter((n) => n.kind !== 'group');
   const inDegree = new Map<string, number>();
-  for (const n of doc.nodes) inDegree.set(n.id, 0);
+  for (const n of nodes) inDegree.set(n.id, 0);
   for (const e of doc.edges) inDegree.set(e.to, (inDegree.get(e.to) ?? 0) + 1);
-  const entries = doc.nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0);
+  const entries = nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0);
   return entries.length === 1 ? entries[0].id : null;
 }
 
@@ -647,7 +651,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
 
   // aggregate edges (group <-> node / group <-> group) — drawn above the
   // group boxes, below nodes; straight line between the two endpoints
-  const nodeIdSet = new Set(doc.nodes.map((n) => n.id));
+  // group ids (kind:'group' nodes) are NOT ordinary node ids — an edge whose
+  // endpoint is a group id is an aggregate edge, never a regular node edge
+  const nodeIdSet = new Set(doc.nodes.filter((n) => n.kind !== 'group').map((n) => n.id));
   const nodeCenter = (id: string): { x: number; y: number } => {
     const ln = layout.nodes.find((n) => n.id === id);
     return ln ? { x: ln.x + ln.width / 2, y: ln.y + ln.height / 2 } : { x: 0, y: 0 };
@@ -1159,9 +1165,12 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
   const LABEL_W = 220;
   const startOf = (t: LgdlNode): number => (typeof t.attrs?.start === 'number' ? t.attrs.start : 0);
   const durOf = (t: LgdlNode): number => (typeof t.attrs?.duration === 'number' ? t.attrs.duration : 1);
-  const minStart = doc.nodes.reduce((min, t) => Math.min(min, startOf(t)), 0);
-  let maxEnd = doc.nodes.length > 0 ? startOf(doc.nodes[0]) + durOf(doc.nodes[0]) : 1;
-  for (const t of doc.nodes) maxEnd = Math.max(maxEnd, startOf(t) + durOf(t));
+  const minStart = doc.nodes.filter((n) => n.kind !== 'group').reduce((min, t) => Math.min(min, startOf(t)), 0);
+  let maxEnd = 1;
+  for (const t of doc.nodes) {
+    if (t.kind === 'group') continue; // group boxes are sections, not tasks
+    maxEnd = Math.max(maxEnd, startOf(t) + durOf(t));
+  }
   const span = Math.max(maxEnd - minStart, 1);
   const colW = Math.max((layout.width - MARGIN * 2 - LABEL_W) / span, 1);
   const axisX = MARGIN + LABEL_W;

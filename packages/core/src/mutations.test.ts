@@ -104,7 +104,9 @@ test('serialize -> parse roundtrip preserves the document', () => {
   const yaml = serializeLgdl(document);
   const reparsed = parseLgdl(yaml);
   assert.equal(reparsed.valid, true, reparsed.issues.map((i) => i.message).join('; '));
-  assert.equal(reparsed.document.nodes.length, 3);
+  // the parser injects a kind:'group' node for the `groups:` entry, so the
+  // re-parsed node count includes it (a,b,c + group node g1)
+  assert.equal(reparsed.document.nodes.length, 4);
   assert.equal(reparsed.document.edges.length, 1);
   assert.equal(reparsed.document.groups.length, 1);
 });
@@ -118,7 +120,20 @@ test('serialize produces stable output (deterministic)', () => {
 test('serialized output can be re-parsed to identical model', () => {
   const yaml = serializeLgdl(BASE);
   const reparsed = parseLgdl(yaml);
-  assert.deepEqual(reparsed.document, BASE);
+  // The unified model keeps a group as a kind:'group' node in `nodes`, so a
+  // hand-built doc whose group lives only in `groups` gains its group node on
+  // re-parse. Compare the re-parsed model against BASE + that group node
+  // (the parser sets an explicit `attrs: undefined` on the inferred node and
+  // on the recomputed group projection).
+  const expected: typeof BASE = {
+    ...BASE,
+    nodes: [
+      ...BASE.nodes,
+      { id: 'g1', label: 'G1', kind: 'group', contains: ['a'], attrs: undefined },
+    ],
+    groups: BASE.groups.map((g) => ({ ...g, attrs: undefined })),
+  };
+  assert.deepEqual(reparsed.document, expected);
 });
 
 test('attrs nested object parses and roundtrips', () => {

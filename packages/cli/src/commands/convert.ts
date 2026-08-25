@@ -48,6 +48,7 @@ export const convertCommand: LgdlCommand = {
             }
           }
           for (const n of doc.nodes) {
+            if (n.kind === 'group') continue; // group boxes are sections, not tasks
             if (typeof n.attrs?.start !== 'number' || typeof n.attrs?.duration !== 'number') {
               console.error(`⚠ gantt node "${n.id}" lacks start/duration — a placeholder 0/1d is emitted, round-trip will fabricate these attrs`);
             }

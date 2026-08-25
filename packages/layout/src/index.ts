@@ -17,7 +17,7 @@ import dagre from 'dagre';
 // variant does `require('web-worker')` and breaks Vite/ESM bundling). The
 // bundled build is a synchronous wasm UMD that needs no worker.
 import ELK, { type ElkGraph } from 'elkjs/lib/elk.bundled.js';
-import { VIS_SYMBOL, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
+import { VIS_SYMBOL, type DiagramType, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
 import { LAYOUT_ENGINE } from './config.js';
 
 const { graphlib, layout } = dagre;
@@ -97,7 +97,10 @@ export const LARGE_GRAPH_THRESHOLD = 120;
  * drawn by the renderer between group boxes instead.
  */
 function nodeEdges(doc: LgdlDocument): LgdlEdge[] {
-  const ids = new Set(doc.nodes.map((n) => n.id));
+  // group nodes are container boxes, not ordinary nodes — edges whose
+  // endpoint is a group id are aggregate edges (drawn by the renderer between
+  // group boxes) and must never participate in node-node layout
+  const ids = new Set(doc.nodes.filter((n) => n.kind !== 'group').map((n) => n.id));
   return doc.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
 }
 
@@ -125,10 +128,19 @@ export async function layoutDocument(doc: LgdlDocument): Promise<LayoutResult> {
   // Large graphs: skip the expensive layered layout, use O(n) grid.
   // This keeps the editor interactive; layered quality matters for small/medium.
   if (
-    doc.nodes.length > LARGE_GRAPH_THRESHOLD &&
+    doc.nodes.filter((n) => n.kind !== 'group').length > LARGE_GRAPH_THRESHOLD &&
     (doc.type === 'flowchart' || doc.type === 'state' || doc.type === 'er')
   ) {
     return layoutGrid(doc);
+  }
+  // Diagrams with real container groups (flowchart/arch/state/uml-class/er)
+  // use the group-aware two-level layout so group boxes never overlap.
+  // (datastream/mindmap/sequence/gantt keep their own layouts: there groups are
+  // lanes/sections, not stacked containers.)
+  const layeredWithGroups: DiagramType[] = ['flowchart', 'arch', 'state', 'uml-class', 'er'];
+  if (doc.groups.length > 0 && layeredWithGroups.includes(doc.type)) {
+    const rankdir = doc.type === 'uml-class' || doc.type === 'er' ? 'LR' : 'TB';
+    return layoutGrouped(doc, rankdir);
   }
   switch (doc.type) {
     case 'mindmap':
@@ -153,6 +165,9 @@ export async function layoutDocument(doc: LgdlDocument): Promise<LayoutResult> {
 function nodeSizes(doc: LgdlDocument): Map<string, { width: number; height: number }> {
   const sizes = new Map<string, { width: number; height: number }>();
   for (const node of doc.nodes) {
+    // group nodes are container boxes — they get no ordinary node size; the
+    // group boxes are derived by the renderer from their members' positions
+    if (node.kind === 'group') continue;
     let size = NODE_SIZE[node.kind ?? 'process'] ?? NODE_SIZE.process;
     const hasMemberSizing =
       doc.type === 'uml-class' || (doc.type === 'er' && node.members && node.members.length > 0);
@@ -259,7 +274,11 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
     const padX = 40, padY = 50;
     topNodes.push({ id: g.id, width: box.w + padX * 2, height: box.h + padY * 2 });
   }
-  for (const nd of doc.nodes) if (!inGroup(nd.id)) topNodes.push({ id: nd.id, width: sizes.get(nd.id)!.width, height: sizes.get(nd.id)!.height });
+  for (const nd of doc.nodes) {
+    // group nodes are the super-nodes of the loop above — never lay them as
+    // ordinary (unsized) nodes here
+    if (nd.kind !== 'group' && !inGroup(nd.id)) topNodes.push({ id: nd.id, width: sizes.get(nd.id)!.width, height: sizes.get(nd.id)!.height });
+  }
   // collapse node edges to unit level, dedup
   const unitEdges = new Set<string>();
   for (const e of nodeEdgesAll) {
@@ -276,12 +295,26 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
   const tpos = top.pos;
   const finalPos = new Map<string, { x: number; y: number; width: number; height: number }>();
   for (const nd of doc.nodes) {
+    // group nodes have no intra-group layout and no top-level position of
+    // their own (they are represented by the super-node) — skip them entirely
+    if (nd.kind === 'group') continue;
     const gid = groupOf.get(nd.id);
     if (gid && intra.has(gid)) {
       const local = intra.get(gid)!.get(nd.id)!;
       const gp = tpos.get(gid)!;
       const padX = 40, padY = 50;
-      finalPos.set(nd.id, { x: gp.x + padX + (local.x - (groupBox.get(gid)!.w / 2)), y: gp.y + padY + (local.y - (groupBox.get(gid)!.h / 2)), width: local.width, height: local.height });
+      // Normalize the group's local layout to start at 0 (dagre's intra-group
+      // top-left coords are not centered), then place it inside the super-node
+      // region (gp + pad). Without the rebase, subtracting box.w/2 pushes
+      // members to negative coordinates and the group box extends off-canvas.
+      const localMinX = Math.min(...[...intra.get(gid)!.values()].map((p) => p.x));
+      const localMinY = Math.min(...[...intra.get(gid)!.values()].map((p) => p.y));
+      finalPos.set(nd.id, {
+        x: gp.x + padX + (local.x - localMinX),
+        y: gp.y + padY + (local.y - localMinY),
+        width: local.width,
+        height: local.height,
+      });
     } else {
       finalPos.set(nd.id, tpos.get(nd.id)!);
     }
@@ -293,10 +326,12 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
     minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
     maxX = Math.max(maxX, p.x + p.width); maxY = Math.max(maxY, p.y + p.height);
   }
-  const nodes: LayoutNode[] = doc.nodes.map((n) => {
-    const p = finalPos.get(n.id)!;
-    return { id: n.id, x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
-  });
+  const nodes: LayoutNode[] = doc.nodes
+    .filter((nd) => nd.kind !== 'group') // group boxes are derived by the renderer
+    .map((n) => {
+      const p = finalPos.get(n.id)!;
+      return { id: n.id, x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
+    });
 
   // cross-group edges: route between node centers (renderer orthogonalizes).
   const edges: LayoutEdge[] = nodeEdgesAll.map((e) => {
@@ -342,10 +377,12 @@ function layoutHierarchicalDagre(doc: LgdlDocument, rankdir: 'TB' | 'LR'): Layou
 
   layout(g);
 
-  const nodes: LayoutNode[] = doc.nodes.map((node) => {
-    const pos = g.node(node.id);
-    return { id: node.id, x: pos.x - pos.width / 2, y: pos.y - pos.height / 2, width: pos.width, height: pos.height };
-  });
+  const nodes: LayoutNode[] = doc.nodes
+    .filter((node) => node.kind !== 'group') // groups are dagre clusters, not boxes
+    .map((node) => {
+      const pos = g.node(node.id);
+      return { id: node.id, x: pos.x - pos.width / 2, y: pos.y - pos.height / 2, width: pos.width, height: pos.height };
+    });
   const edges: LayoutEdge[] = nodeEdges(doc).map((edge) => {
     const eg = g.edge(edge.from, edge.to);
     const points = (eg?.points ?? []).map((p: { x: number; y: number }) => ({ x: p.x, y: p.y }));
@@ -379,11 +416,13 @@ async function layoutHierarchicalElk(doc: LgdlDocument, rankdir: 'TB' | 'LR'): P
       'elk.spacing.edgeNode': '16',
       'elk.spacing.labelNode': '12',
     },
-    children: doc.nodes.map((n) => ({
-      id: n.id,
-      width: sizes.get(n.id)?.width ?? 160,
-      height: sizes.get(n.id)?.height ?? 56,
-    })),
+    children: doc.nodes
+      .filter((n) => n.kind !== 'group') // group boxes are derived by the renderer
+      .map((n) => ({
+        id: n.id,
+        width: sizes.get(n.id)?.width ?? 160,
+        height: sizes.get(n.id)?.height ?? 56,
+      })),
     edges: nodeEdges(doc).map((e) => ({ id: `${e.from}->${e.to}`, sources: [e.from], targets: [e.to] })),
   };
 
@@ -394,10 +433,12 @@ async function layoutHierarchicalElk(doc: LgdlDocument, rankdir: 'TB' | 'LR'): P
   for (const c of laid.children ?? []) {
     byId.set(c.id, { x: c.x ?? 0, y: c.y ?? 0, width: c.width ?? 160, height: c.height ?? 56 });
   }
-  const nodes: LayoutNode[] = doc.nodes.map((n) => {
-    const p = byId.get(n.id)!;
-    return { id: n.id, x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
-  });
+  const nodes: LayoutNode[] = doc.nodes
+    .filter((n) => n.kind !== 'group') // group boxes are derived by the renderer
+    .map((n) => {
+      const p = byId.get(n.id)!;
+      return { id: n.id, x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
+    });
 
   const edgeById = new Map(laid.edges?.map((e) => [e.id, e]) ?? []);
   const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
@@ -436,6 +477,9 @@ const MIND_LEVEL_SEP = 180; // radial distance between levels
 const MIND_ANGLE_UNIT = (Math.PI / 180) * 14; // radians per leaf
 
 function layoutMindmap(doc: LgdlDocument): LayoutResult {
+  // group boxes are not mindmap nodes — a radial tree has no container
+  // concept, so ignore them entirely
+  const plainNodes = doc.nodes.filter((n) => n.kind !== 'group');
   // mindmap nodes share one height (kind shapes are flowchart concepts and
   // are ignored here) but widen to fit their label text
   const sizeOf = (id: string) => {
@@ -449,7 +493,7 @@ function layoutMindmap(doc: LgdlDocument): LayoutResult {
   // adjacency + in-degree
   const childrenOf = new Map<string, string[]>();
   const inDegree = new Map<string, number>();
-  for (const n of doc.nodes) {
+  for (const n of plainNodes) {
     childrenOf.set(n.id, []);
     inDegree.set(n.id, 0);
   }
@@ -459,7 +503,7 @@ function layoutMindmap(doc: LgdlDocument): LayoutResult {
   }
 
   // root = the node with no incoming edges; fall back to first node
-  let rootId = doc.nodes.find((n) => (inDegree.get(n.id) ?? 0) === 0)?.id ?? doc.nodes[0]?.id;
+  let rootId = plainNodes.find((n) => (inDegree.get(n.id) ?? 0) === 0)?.id ?? plainNodes[0]?.id;
   if (!rootId) return { nodes: [], edges: [], width: 0, height: 0 };
 
   // build tree via BFS (avoid cycles)
@@ -576,7 +620,8 @@ const SEQ_COL_W = 220; // column width per participant
 const SEQ_MSG_GAP = 60; // vertical gap between messages
 
 function layoutSequence(doc: LgdlDocument): LayoutResult {
-  const participants = doc.nodes;
+  // group boxes are not sequence participants — only ordinary nodes get a column
+  const participants = doc.nodes.filter((n) => n.kind !== 'group');
   const messages = nodeEdges(doc);
 
   const width = Math.max(participants.length, 1) * SEQ_COL_W + GRAPH_MARGIN * 2;
@@ -624,16 +669,19 @@ const LANE_W = 260; // lane (column) width
 const LANE_HEADER = 36; // lane header height
 
 function layoutSwimlane(doc: LgdlDocument): LayoutResult {
+  // group boxes are lanes themselves (doc.groups) — they are never stacked as
+  // ordinary nodes inside a lane
+  const plainNodes = doc.nodes.filter((n) => n.kind !== 'group');
   const lanes =
     doc.groups.length > 0
       ? doc.groups
-      : [{ id: '_default', label: '流程', contains: doc.nodes.map((n) => n.id) }];
+      : [{ id: '_default', label: '流程', contains: plainNodes.map((n) => n.id) }];
   const laneOf = new Map<string, string>();
   for (const lane of lanes) {
     for (const nodeId of lane.contains) laneOf.set(nodeId, lane.id);
   }
   // nodes not in any group go to a trailing "其他" lane
-  const unassigned = doc.nodes.filter((n) => !laneOf.has(n.id));
+  const unassigned = plainNodes.filter((n) => !laneOf.has(n.id));
   const effectiveLanes = [...lanes];
   if (unassigned.length > 0) {
     effectiveLanes.push({ id: '_other', label: '其他', contains: unassigned.map((n) => n.id) });
@@ -643,7 +691,7 @@ function layoutSwimlane(doc: LgdlDocument): LayoutResult {
   // stack nodes vertically within each lane (in document order)
   const laneNodes = new Map<string, string[]>();
   for (const lane of effectiveLanes) laneNodes.set(lane.id, []);
-  for (const n of doc.nodes) {
+  for (const n of plainNodes) {
     laneNodes.get(laneOf.get(n.id)!)?.push(n.id);
   }
 
@@ -678,7 +726,7 @@ function layoutSwimlane(doc: LgdlDocument): LayoutResult {
     }
   });
 
-  const nodes: LayoutNode[] = doc.nodes.map((n) => ({ id: n.id, ...nodePos.get(n.id)! }));
+  const nodes: LayoutNode[] = plainNodes.map((n) => ({ id: n.id, ...nodePos.get(n.id)! }));
   const width = GRAPH_MARGIN * 2 + effectiveLanes.length * LANE_W;
   const height = contentTop + maxContent + GRAPH_MARGIN;
 
@@ -721,7 +769,8 @@ const GANTT_HEADER_H = 40; // time axis header
  * are placed with the chosen colW; the renderer re-derives it from width.
  */
 function layoutGantt(doc: LgdlDocument): LayoutResult {
-  const tasks = doc.nodes;
+  // group boxes are gantt sections (doc.groups), not task bars
+  const tasks = doc.nodes.filter((n) => n.kind !== 'group');
   const startOf = (t: LgdlNode): number => (typeof t.attrs?.start === 'number' ? t.attrs.start : 0);
   const durOf = (t: LgdlNode): number => (typeof t.attrs?.duration === 'number' ? t.attrs.duration : 1);
   // normalize negative day offsets (dates before the base) so bars start
@@ -784,12 +833,15 @@ const GRID_COLS = 6; // nodes per row
  * Nodes are placed in document order, wrapped into rows.
  */
 function layoutGrid(doc: LgdlDocument): LayoutResult {
-  const rows = Math.ceil(doc.nodes.length / GRID_COLS);
+  // group boxes are not laid out as ordinary nodes (the renderer derives the
+  // box from its members) — only ordinary nodes occupy grid cells
+  const nodes = doc.nodes.filter((n) => n.kind !== 'group');
+  const rows = Math.ceil(nodes.length / GRID_COLS);
   const width = GRAPH_MARGIN * 2 + GRID_COLS * (GRID_NODE_W + NODE_SEP);
   const height = GRAPH_MARGIN * 2 + rows * (GRID_NODE_H + RANK_SEP);
 
   const nodePos = new Map<string, { x: number; y: number; width: number; height: number }>();
-  doc.nodes.forEach((n, i) => {
+  nodes.forEach((n, i) => {
     const col = i % GRID_COLS;
     const row = Math.floor(i / GRID_COLS);
     nodePos.set(n.id, {
@@ -800,7 +852,7 @@ function layoutGrid(doc: LgdlDocument): LayoutResult {
     });
   });
 
-  const nodes: LayoutNode[] = doc.nodes.map((n) => ({ id: n.id, ...nodePos.get(n.id)! }));
+  const layoutNodes: LayoutNode[] = nodes.map((n) => ({ id: n.id, ...nodePos.get(n.id)! }));
 
   const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
     const a = nodePos.get(e.from)!;
@@ -815,5 +867,5 @@ function layoutGrid(doc: LgdlDocument): LayoutResult {
     };
   });
 
-  return { nodes, edges, width, height };
+  return { nodes: layoutNodes, edges, width, height };
 }

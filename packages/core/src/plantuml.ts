@@ -87,12 +87,14 @@ function toPlantUml(doc: LgdlDocument): string {
     emit(e.to);
   };
 
-  // start from roots (nodes with no incoming edges)
+  // start from roots (nodes with no incoming edges); group boxes are
+  // containers, not activities — skip them
   const hasIncoming = new Set(doc.edges.map((e) => e.to));
-  const roots = doc.nodes.filter((n) => !hasIncoming.has(n.id));
+  const roots = doc.nodes.filter((n) => n.kind !== 'group' && !hasIncoming.has(n.id));
   for (const r of roots) emit(r.id);
   // any leftover nodes (isolated) — emit them too
   for (const n of doc.nodes) {
+    if (n.kind === 'group') continue;
     if (!emitted.has(n.id)) emit(n.id);
   }
 

@@ -163,10 +163,13 @@ function drawBox(g: Grid, x: number, y: number, w: number, h: number, rounded = 
  */
 export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
   void layout;
+  // group boxes are containers drawn around their members (see overlayGroupBoxes),
+  // never ordinary boxes on the rank grid
+  const nodes = doc.nodes.filter((n) => n.kind !== 'group');
   // ---- BFS ranks ----
   const children = new Map<string, string[]>();
   const inDegree = new Map<string, number>();
-  for (const n of doc.nodes) {
+  for (const n of nodes) {
     children.set(n.id, []);
     inDegree.set(n.id, 0);
   }
@@ -174,7 +177,7 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
     children.get(e.from)?.push(e.to);
     inDegree.set(e.to, (inDegree.get(e.to) ?? 0) + 1);
   }
-  const roots = doc.nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0);
+  const roots = nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0);
   const rankOf = new Map<string, number>();
   const queue: string[] = [];
   for (const r of roots) { rankOf.set(r.id, 0); queue.push(r.id); }
@@ -186,10 +189,10 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
       if (next > (rankOf.get(c) ?? -1)) { rankOf.set(c, next); queue.push(c); }
     }
   }
-  for (const n of doc.nodes) if (!rankOf.has(n.id)) rankOf.set(n.id, 0);
+  for (const n of nodes) if (!rankOf.has(n.id)) rankOf.set(n.id, 0);
   const maxRank = Math.max(0, ...rankOf.values());
   const ranks: string[][] = Array.from({ length: maxRank + 1 }, () => []);
-  for (const n of doc.nodes) ranks[rankOf.get(n.id) ?? 0].push(n.id);
+  for (const n of nodes) ranks[rankOf.get(n.id) ?? 0].push(n.id);
 
   // ---- box building ----
   const boxLines = (id: string): { top: string; mid: string; bot: string; w: number } => {
@@ -244,7 +247,7 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
     return cur ?? null;
   };
   const topGroupOf = new Map<string, string>();
-  for (const n of doc.nodes) {
+  for (const n of nodes) {
     const t = topOf(n.id);
     if (t !== null) topGroupOf.set(n.id, t);
   }
@@ -620,7 +623,7 @@ function drawAggregateEdges(
   dx: number,
   dy: number,
 ): void {
-  const nodeIds = new Set(doc.nodes.map((n) => n.id));
+  const nodeIds = new Set(doc.nodes.filter((n) => n.kind !== 'group').map((n) => n.id));
   const boxById = new Map(boxes.map((b) => [b.id, b.box]));
   for (const edge of doc.edges) {
     if (nodeIds.has(edge.from) && nodeIds.has(edge.to)) continue; // node edge

@@ -105,7 +105,9 @@ test('applyOperations: empty sequence is a no-op', () => {
   const r = applyOperations(doc(), []);
   assert.equal(r.failedIndex, -1);
   assert.deepEqual(r.results, []);
-  assert.equal(r.document.nodes.length, 2);
+  // doc() is parseLgdl(BASE) — the `groups:` entry becomes a kind:'group'
+  // node in `nodes`, so the count is a,b + group node g = 3
+  assert.equal(r.document.nodes.length, 3);
 });
 
 test('describeOperation: every variant has a readable label', () => {

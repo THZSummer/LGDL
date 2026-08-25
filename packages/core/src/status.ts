@@ -11,6 +11,9 @@ export function formatStatus(doc: LgdlDocument): string {
   lines.push('');
   lines.push('## nodes');
   for (const n of doc.nodes) {
+    // group nodes are container boxes (drawn from doc.groups) — they belong
+    // to the `## groups` section, not the ordinary node list
+    if (n.kind === 'group') continue;
     lines.push(`  ${n.id}${n.label ? ` (${n.label})` : ''}${n.kind && n.kind !== 'process' ? ` :${n.kind}` : ''}`);
     for (const m of n.members ?? []) {
       const vis = m.visibility ? ` (${m.visibility})` : '';

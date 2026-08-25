@@ -68,7 +68,9 @@ function mermaidFlowchart(doc: LgdlDocument): string {
     lines.push(`    subgraph ${safeId(g.id)}["${label(g.label, g.id)}"]`);
     for (const m of g.contains ?? []) {
       const child = doc.nodes.find((x) => x.id === m);
-      if (child) {
+      // a nested group member is its own subgraph — never emit it as an
+      // ordinary node inside the parent subgraph
+      if (child && child.kind !== 'group') {
         emitNode(child, '        ');
         inSubgraph.add(m);
       }
@@ -76,6 +78,7 @@ function mermaidFlowchart(doc: LgdlDocument): string {
     lines.push('    end');
   }
   for (const n of doc.nodes) {
+    if (n.kind === 'group') continue; // group boxes render as subgraphs above
     if (!inSubgraph.has(n.id)) emitNode(n, '    ');
   }
 
@@ -93,10 +96,13 @@ function mermaidFlowchart(doc: LgdlDocument): string {
 /** Mindmap: root + indented branches. */
 function mermaidMindmap(doc: LgdlDocument): string {
   const lines: string[] = ['mindmap'];
+  // group boxes are not mindmap nodes — exclude them so they are never
+  // dropped as orphan roots (they have no place in a radial tree)
+  const nodes = doc.nodes.filter((n) => n.kind !== 'group');
   // build children map, find roots (no incoming edges)
   const children = new Map<string, string[]>();
   const inDegree = new Map<string, number>();
-  for (const n of doc.nodes) {
+  for (const n of nodes) {
     children.set(n.id, []);
     inDegree.set(n.id, 0);
   }
@@ -106,8 +112,8 @@ function mermaidMindmap(doc: LgdlDocument): string {
   }
   // every zero-in-degree node becomes a root — an orphan component must not
   // be silently dropped, and a bad "first root" must not hide the real tree
-  const roots = doc.nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0).map((n) => n.id);
-  const all = roots.length > 0 ? roots : [doc.nodes[0]?.id].filter(Boolean);
+  const roots = nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0).map((n) => n.id);
+  const all = roots.length > 0 ? roots : [nodes[0]?.id].filter(Boolean);
   if (all.length === 0) return 'mindmap';
 
   // visited guards against cycles (a cycle cannot be a tree; edges inside
@@ -130,7 +136,7 @@ function mermaidMindmap(doc: LgdlDocument): string {
   for (const root of all) walk(root, 1);
   // nodes unreachable from any root (cycles not containing a root, extra
   // components) must not be silently dropped — emit them as extra roots
-  for (const n of doc.nodes) {
+  for (const n of nodes) {
     if (!visited.has(n.id)) walk(n.id, 1);
   }
   return lines.join('\n');
@@ -140,6 +146,7 @@ function mermaidMindmap(doc: LgdlDocument): string {
 function mermaidSequence(doc: LgdlDocument): string {
   const lines: string[] = ['sequenceDiagram'];
   for (const n of doc.nodes) {
+    if (n.kind === 'group') continue; // group boxes are not sequence participants
     // aliases with spaces/quotes/parens must be quoted to stay valid mermaid
     const disp =
       n.label && n.label !== n.id
@@ -162,6 +169,7 @@ function mermaidEr(doc: LgdlDocument): string {
   // mermaid v10+ alias syntax: USERS["用户表"] { — so neither id nor label
   // is ever lost
   for (const n of doc.nodes) {
+    if (n.kind === 'group') continue; // group boxes are not entities
     const alias = n.label && n.label !== n.id ? `["${label(n.label, n.id)}"]` : '';
     lines.push(`    ${safeId(n.id)}${alias} {`);
     for (const m of n.members ?? []) {
@@ -212,11 +220,13 @@ function mermaidEr(doc: LgdlDocument): string {
 /** State diagram. */
 function mermaidState(doc: LgdlDocument): string {
   const lines: string[] = ['stateDiagram-v2'];
-  const byId = new Map(doc.nodes.map((n) => [n.id, n]));
+  // group boxes are not states — build the endpoint map from nodes only
+  const byId = new Map(doc.nodes.filter((n) => n.kind !== 'group').map((n) => [n.id, n]));
   // declare non-terminal states with their label so a round-trip keeps both
   // id and label; terminals stay anonymous [label] (mermaid has no named
   // terminal) and the importer maps them to kind:end nodes
   for (const n of doc.nodes) {
+    if (n.kind === 'group') continue;
     if (n.kind === 'end') {
       // terminals use mermaid's dedicated [*] syntax (a plain "[label]"
       // renders as a normal state box, not a terminal); the label rides in
@@ -262,6 +272,7 @@ function mermaidGantt(doc: LgdlDocument): string {
   const defaultSec: string[] = [];
   const emittedIds = new Set<string>();
   for (const n of doc.nodes) {
+    if (n.kind === 'group') continue; // group boxes are sections, not tasks
     const g = doc.groups.find((gr) => gr.contains.includes(n.id));
     if (g) {
       if (!sections.has(g.id)) sections.set(g.id, []);
@@ -347,6 +358,7 @@ function mermaidClassDiagram(doc: LgdlDocument): string {
   const lines: string[] = ['classDiagram'];
   const SYM: Record<string, string> = { public: '+', private: '-', protected: '#', package: '~' };
   for (const n of doc.nodes) {
+    if (n.kind === 'group') continue; // group boxes are not classes
     // the class id IS the mermaid class name (so rendered diagrams and
     // relationship lines agree); the display label rides in a comment that
     // our importer restores on the way back

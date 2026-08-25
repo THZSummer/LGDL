@@ -1,0 +1,36 @@
+title: 分组即节点（group-as-node）示例
+type: flowchart
+
+nodes:
+  - id: client
+    kind: start
+    label: 客户端
+  - id: auth-svc
+    label: 认证服务
+  - id: order-svc
+    label: 订单服务
+  - id: mysql
+    kind: entity
+    label: MySQL
+  - id: gateway-layer
+    kind: group
+    label: 接入层
+    contains: [client]
+  - id: service-layer
+    kind: group
+    label: 业务层
+    contains: [auth-svc, order-svc]
+  - id: data-layer
+    kind: group
+    label: 数据层
+    contains: [mysql]
+
+edges:
+  - from: client
+    to: auth-svc
+    label: 鉴权
+  - from: auth-svc
+    to: order-svc
+  - from: order-svc
+    to: mysql
+    label: 落库

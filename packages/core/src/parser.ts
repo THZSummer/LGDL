@@ -52,6 +52,37 @@ export function validate(
   result.nodes = doc.nodes ?? [];
   result.edges = doc.edges ?? [];
 
+  // Validate the RAW `groups:` input for duplicates and unknown fields BEFORE
+  // the unification recompute below collapses them into group nodes. The
+  // recompute strips a group entry down to id/label/contains/attrs and dedups
+  // ids, so validating `result.groups` afterwards would silently let a
+  // duplicate group id or a typos field ("containz") pass — that would be
+  // data loss, which LGDL rejects loudly by design.
+  const rawInputGroups = doc.groups ?? [];
+  {
+    const rawGroupIds = new Set<string>();
+    for (const g of rawInputGroups) {
+      if (!g) continue;
+      for (const k of Object.keys(g)) {
+        if (!GROUP_FIELDS.has(k)) {
+          issues.push({
+            severity: 'error',
+            message: `Unknown field "${k}" on group "${g.id ?? ''}" (supported: id, label, contains, attrs)`,
+            location: 'groups',
+          });
+        }
+      }
+      if (g.id && rawGroupIds.has(g.id)) {
+        issues.push({
+          severity: 'error',
+          message: `Duplicate group id: "${g.id}"`,
+          location: 'groups',
+        });
+      }
+      if (g.id) rawGroupIds.add(g.id);
+    }
+  }
+
   // ---- Model unification: group lives as a NODE (kind: 'group') ----
   // `groups` is a derived projection of the group nodes. Two input shapes are
   // accepted and normalized here:

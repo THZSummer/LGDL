@@ -22,7 +22,10 @@ export function listNodeKinds(): string {
 export function queryDocInfo(doc: LgdlDocument): string[] {
   const lines: string[] = [];
   lines.push(`文档：${doc.title ?? '（未命名）'} [${doc.type}]`);
-  lines.push(`规模：${doc.nodes.length} 节点 / ${doc.edges.length} 边 / ${doc.groups.length} 分组`);
+  // group nodes are container boxes (doc.groups), not ordinary nodes — the
+  // "规模" count reports the box count so it is not inflated by group boxes
+  const boxCount = doc.nodes.filter((n) => n.kind !== 'group').length;
+  lines.push(`规模：${boxCount} 节点 / ${doc.edges.length} 边 / ${doc.groups.length} 分组`);
   const usedKinds = new Map<string, number>();
   for (const n of doc.nodes) {
     const k = n.kind ?? 'process';
