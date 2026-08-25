@@ -23,7 +23,7 @@ const MEMBER_VISIBILITIES: readonly string[] = ['public', 'private', 'protected'
 
 // Field allowlists — anything else on a node/edge/group is a typo or a
 // misplaced list item, and must be rejected loudly, never silently ignored.
-const NODE_FIELDS = new Set(['id', 'label', 'kind', 'members', 'attrs']);
+const NODE_FIELDS = new Set(['id', 'label', 'kind', 'members', 'attrs', 'contains']);
 const EDGE_FIELDS = new Set(['from', 'to', 'label', 'cardinalityFrom', 'cardinalityTo', 'attrs']);
 const GROUP_FIELDS = new Set(['id', 'label', 'contains', 'attrs']);
 const DOC_FIELDS = new Set(['title', 'type', 'nodes', 'edges', 'groups', 'meta']);
@@ -51,7 +51,28 @@ export function validate(
   };
   result.nodes = doc.nodes ?? [];
   result.edges = doc.edges ?? [];
-  result.groups = doc.groups ?? [];
+
+  // ---- Model unification: group lives as a NODE (kind: 'group') ----
+  // `groups` is a derived projection of the group nodes. Two input shapes are
+  // accepted and normalized here:
+  //   * legacy `groups:` entries (id/label/contains) are appended as group
+  //     nodes so the model has a single source of truth (node+edge only);
+  //   * any node already carrying `kind: 'group'` stays as-is.
+  // After this, `result.groups` is recomputed from the group nodes so every
+  // consumer that reads `doc.groups` keeps working unchanged.
+  const groupNodeIds = new Set(
+    (result.nodes ?? []).filter((n) => n.kind === 'group').map((n) => n.id),
+  );
+  for (const g of doc.groups ?? []) {
+    if (g && g.id && !groupNodeIds.has(g.id)) {
+      result.nodes.push({ id: g.id, label: g.label, kind: 'group', contains: [...(g.contains ?? [])], attrs: g.attrs });
+      groupNodeIds.add(g.id);
+    }
+  }
+  // recompute `result.groups` as the projection of group nodes
+  result.groups = (result.nodes ?? [])
+    .filter((n) => n.kind === 'group')
+    .map((n) => ({ id: n.id, label: n.label, contains: [...(n.contains ?? [])], attrs: n.attrs as LgdlGroup['attrs'] }));
 
   // type
   if (!DIAGRAM_TYPES.includes(result.type as DiagramType)) {
@@ -218,6 +239,22 @@ export function validate(
         location: `nodes[${i}].label`,
       });
     }
+
+    // `contains` is only valid on kind: 'group' nodes — a container marker.
+    if (node.contains !== undefined && node.kind !== 'group') {
+      issues.push({
+        severity: 'error',
+        message: `"contains" is only valid on kind: 'group' nodes (node "${node.id}" has kind "${node.kind ?? 'process'}")`,
+        location: `nodes[${i}].contains`,
+      });
+    }
+    if (node.contains !== undefined && !Array.isArray(node.contains)) {
+      issues.push({
+        severity: 'error',
+        message: `"contains" on group node "${node.id}" must be a list of member ids`,
+        location: `nodes[${i}].contains`,
+      });
+    }
   });
 
   // collect group ids early so edges may reference groups (aggregate edges)
@@ -229,7 +266,9 @@ export function validate(
   // node/group ids share one namespace — an edge endpoint like "X" would be
   // ambiguous if both a node and a group were named X
   result.nodes.forEach((node, i) => {
-    if (node.id && groupIds.has(node.id)) {
+    // A group node (kind:'group') legitimately owns a group id. Only a
+    // NON-group node may not share a name with a group container.
+    if (node.kind !== 'group' && node.id && groupIds.has(node.id)) {
       issues.push({
         severity: 'error',
         message: `Node id "${node.id}" collides with a group id — ids must be unique across nodes and groups`,
