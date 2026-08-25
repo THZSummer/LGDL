@@ -8,20 +8,12 @@
  * - uml-class / er                -> hierarchical layout (left-right)
  * - gantt / state                 -> see below
  *
- * Hierarchical (layered) layouts are produced by `ELK` (elkjs, wasm) by default,
- * with `dagre` retained as a config-selectable fallback engine (see `config.ts`).
+ * Hierarchical (layered) layouts are produced by the LGDL-native Sugiyama
+ * engine (`layoutLayered`) — NO dagre / elkjs dependency. Only @lgdl/core.
  * Same input always produces the same output (deterministic).
  */
-import dagre from 'dagre';
-// Import the self-contained bundled ELK build (not `main.js`, whose worker
-// variant does `require('web-worker')` and breaks Vite/ESM bundling). The
-// bundled build is a synchronous wasm UMD that needs no worker.
-import ELK, { type ElkGraph } from 'elkjs/lib/elk.bundled.js';
 import { VIS_SYMBOL, type DiagramType, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
-import { LAYOUT_ENGINE } from './config.js';
-
-const { graphlib, layout } = dagre;
-const elk = new ELK();
+import { layoutLayered } from './layered.js';
 
 export interface LayoutNode {
   id: string;
@@ -88,7 +80,7 @@ function textWidth(s: string, fontSize: number): number {
   return w;
 }
 
-/** Above this node count, use the fast grid layout instead of dagre. */
+/** Above this node count, use the fast grid layout instead of the layered layout. */
 export const LARGE_GRAPH_THRESHOLD = 120;
 
 /**
@@ -161,7 +153,7 @@ export async function layoutDocument(doc: LgdlDocument): Promise<LayoutResult> {
 }
 
 /** Node dimensions for a document, per kind + member content (shared by both
- * engines so dagre/elkjs place identically-sized boxes). */
+ * engines place identically-sized boxes). */
 function nodeSizes(doc: LgdlDocument): Map<string, { width: number; height: number }> {
   const sizes = new Map<string, { width: number; height: number }>();
   for (const node of doc.nodes) {
@@ -190,37 +182,27 @@ function nodeSizes(doc: LgdlDocument): Map<string, { width: number; height: numb
 }
 
 /**
- * Minimal dagre run over a flat node/edge set, returning top-left positions.
- * Used by the group-aware layout at both inter-group and intra-group levels.
+ * Layered run over a flat node/edge set, returning top-left positions + canvas.
+ * Uses the LGDL-native `layoutLayered`. Used by the group-aware
+ * layout at both inter-group and intra-group levels.
  */
-function dagreRun(
+function layeredRun(
   nodes: { id: string; width: number; height: number }[],
   edges: { from: string; to: string }[],
   rankdir: 'TB' | 'LR',
 ): { pos: Map<string, { x: number; y: number; width: number; height: number }>; width: number; height: number } {
-  const g = new graphlib.Graph({ multigraph: false, compound: false })
-    .setGraph({ rankdir, marginx: GRAPH_MARGIN, marginy: GRAPH_MARGIN, ranksep: RANK_SEP, nodesep: NODE_SEP })
-    .setDefaultEdgeLabel(() => ({}));
-  for (const n of nodes) g.setNode(n.id, { width: n.width, height: n.height });
-  for (const e of edges) g.setEdge(e.from, e.to, {});
-  layout(g);
-  const pos = new Map<string, { x: number; y: number; width: number; height: number }>();
-  for (const n of nodes) {
-    const p = g.node(n.id);
-    pos.set(n.id, { x: p.x - p.width / 2, y: p.y - p.height / 2, width: n.width, height: n.height });
-  }
-  const gr = g.graph();
-  return { pos, width: gr.width ?? 0, height: gr.height ?? 0 };
+  const r = layoutLayered(nodes, edges, rankdir);
+  return { pos: r.pos, width: r.width, height: r.height };
 }
 
 /**
  * Group-aware hierarchical layout — the fix for overlapping group boxes.
  *
- * ELK/dagre lay ALL nodes flat, so nodes of different groups interleave and the
+ * A one-level layered layout lays ALL nodes flat, so nodes of different groups interleave and the
  * boxes the renderer draws afterwards overlap. This layout instead treats each
  * group as a first-class "super-node":
  *
- *   1. Lay out each group's members with dagre (internal edges) → a local
+ *   1. Lay out each group's members (internal edges) → a local
  *      layout + a group bounding box.
  *   2. Lay out a TOP-level graph whose nodes are the groups (sized to their
  *      bbox + padding + label) plus every ungrouped node; edges are the cross-
@@ -228,7 +210,7 @@ function dagreRun(
  *   3. Offset each group's local layout by its super-node position.
  *
  * Groups never overlap (they are separate top-level nodes with RANK_SEP/NODE_SEP
- * gaps), intra-group nodes cluster, and reading order is preserved (dagre at
+ * gaps), intra-group nodes cluster, and reading order is preserved (layered at
  * both levels). Cross-group edges route between the real member node positions,
  * which the renderer orthogonalizes.
  */
@@ -249,7 +231,7 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
     const members = (g.contains ?? []).filter((m) => sizes.has(m));
     if (members.length === 0) continue;
     const internalEdges = nodeEdgesAll.filter((e) => members.includes(e.from) && members.includes(e.to));
-    const r = dagreRun(
+    const r = layeredRun(
       members.map((m) => ({ id: m, width: sizes.get(m)!.width, height: sizes.get(m)!.height })),
       internalEdges.map((e) => ({ from: e.from, to: e.to })),
       rankdir,
@@ -285,7 +267,7 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
     const ua = unitOf(e.from), ub = unitOf(e.to);
     if (ua !== ub) unitEdges.add(`${ua}\u0000${ub}`);
   }
-  const top = dagreRun(
+  const top = layeredRun(
     topNodes,
     [...unitEdges].map((k) => { const [f, t] = k.split('\u0000'); return { from: f, to: t }; }),
     rankdir,
@@ -303,7 +285,7 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
       const local = intra.get(gid)!.get(nd.id)!;
       const gp = tpos.get(gid)!;
       const padX = 40, padY = 50;
-      // Normalize the group's local layout to start at 0 (dagre's intra-group
+      // Normalize the group's local layout to start at 0 (the intra-group
       // top-left coords are not centered), then place it inside the super-node
       // region (gp + pad). Without the rebase, subtracting box.w/2 pushes
       // members to negative coordinates and the group box extends off-canvas.
@@ -349,115 +331,45 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
 }
 
 
-/** Hierarchical (layered) layout — dispatches to the configured engine. */
-async function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): Promise<LayoutResult> {
-  return LAYOUT_ENGINE === 'elkjs'
-    ? layoutHierarchicalElk(doc, rankdir)
-    : layoutHierarchicalDagre(doc, rankdir);
-}
-
-/** dagre hierarchical layout (retained as the config-selectable fallback). */
-function layoutHierarchicalDagre(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
-  const g = new graphlib.Graph({ multigraph: false, compound: true })
-    .setGraph({
-      rankdir,
-      marginx: GRAPH_MARGIN,
-      marginy: GRAPH_MARGIN,
-      ranksep: RANK_SEP,
-      nodesep: NODE_SEP,
-    })
-    .setDefaultEdgeLabel(() => ({}));
-
-  for (const [id, size] of nodeSizes(doc)) g.setNode(id, { ...size, label: doc.nodes.find((n) => n.id === id)?.label ?? id });
-  for (const group of doc.groups) {
-    g.setNode(group.id, { width: 0, height: 0, label: group.label ?? group.id, cluster: true });
-    for (const childId of group.contains) g.setParent(childId, group.id);
-  }
-  for (const edge of nodeEdges(doc)) g.setEdge(edge.from, edge.to, { label: edge.label ?? '', id: `${edge.from}->${edge.to}` });
-
-  layout(g);
-
-  const nodes: LayoutNode[] = doc.nodes
-    .filter((node) => node.kind !== 'group') // groups are dagre clusters, not boxes
-    .map((node) => {
-      const pos = g.node(node.id);
-      return { id: node.id, x: pos.x - pos.width / 2, y: pos.y - pos.height / 2, width: pos.width, height: pos.height };
-    });
-  const edges: LayoutEdge[] = nodeEdges(doc).map((edge) => {
-    const eg = g.edge(edge.from, edge.to);
-    const points = (eg?.points ?? []).map((p: { x: number; y: number }) => ({ x: p.x, y: p.y }));
-    return { from: edge.from, to: edge.to, points };
-  });
-  const graph = g.graph();
-  return { nodes, edges, width: graph.width ?? 0, height: graph.height ?? 0 };
-}
-
-/**
- * ELK (elkjs) hierarchical layout + orthogonal edge routing.
- *
- * Nodes are placed by `elk.layered`; edges get true orthogonal routes from
- * `elk.edgeRouting: ORTHOGONAL` (each edge has sections with startPoint /
- * endPoint / bendPoints). Groups are NOT passed as ELK containers (their
- * container semantics reject plain edge sections) — nodes are laid out flat and
- * the renderer derives group boxes from node positions, exactly as before.
- * The engine selection lives in `config.ts` (env `LGDL_LAYOUT_ENGINE`).
- */
-async function layoutHierarchicalElk(doc: LgdlDocument, rankdir: 'TB' | 'LR'): Promise<LayoutResult> {
+/** Hierarchical (layered) layout — LGDL-native Sugiyama, no dagre/elkjs. */
+function layoutHierarchical(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
   const sizes = nodeSizes(doc);
-  const direction = rankdir === 'LR' ? 'RIGHT' : 'DOWN';
-  const graph: ElkGraph = {
-    id: 'root',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      'elk.direction': direction,
-      'elk.edgeRouting': 'ORTHOGONAL',
-      'elk.spacing.nodeNode': String(NODE_SEP),
-      'elk.layered.spacing.nodeNodeBetweenLayers': String(RANK_SEP),
-      'elk.spacing.edgeNode': '16',
-      'elk.spacing.labelNode': '12',
-    },
-    children: doc.nodes
-      .filter((n) => n.kind !== 'group') // group boxes are derived by the renderer
-      .map((n) => ({
-        id: n.id,
-        width: sizes.get(n.id)?.width ?? 160,
-        height: sizes.get(n.id)?.height ?? 56,
-      })),
-    edges: nodeEdges(doc).map((e) => ({ id: `${e.from}->${e.to}`, sources: [e.from], targets: [e.to] })),
-  };
+  const flatNodes = doc.nodes.filter((n) => n.kind !== 'group');
+  const lay = layoutLayered(
+    flatNodes.map((n) => ({ id: n.id, width: sizes.get(n.id)?.width ?? 160, height: sizes.get(n.id)?.height ?? 56 })),
+    nodeEdges(doc).map((e) => ({ from: e.from, to: e.to })),
+    rankdir,
+  );
 
-  const laid = await elk.layout(graph);
-
-  // ELK returns top-left coordinates; map back to LayoutNode (top-left too).
-  const byId = new Map<string, { x: number; y: number; width: number; height: number }>();
-  for (const c of laid.children ?? []) {
-    byId.set(c.id, { x: c.x ?? 0, y: c.y ?? 0, width: c.width ?? 160, height: c.height ?? 56 });
-  }
-  const nodes: LayoutNode[] = doc.nodes
-    .filter((n) => n.kind !== 'group') // group boxes are derived by the renderer
-    .map((n) => {
-      const p = byId.get(n.id)!;
-      return { id: n.id, x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
-    });
-
-  const edgeById = new Map(laid.edges?.map((e) => [e.id, e]) ?? []);
-  const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
-    const key = `${e.from}->${e.to}`;
-    const le = edgeById.get(key);
-    // Flatten every section (start -> bends -> end) into one point list.
-    const points: { x: number; y: number }[] = [];
-    if (le && 'sections' in le) {
-      for (const s of le.sections ?? []) {
-        if (s.startPoint) points.push({ x: s.startPoint.x, y: s.startPoint.y });
-        for (const bp of s.bendPoints ?? []) points.push({ x: bp.x, y: bp.y });
-        if (s.endPoint) points.push({ x: s.endPoint.x, y: s.endPoint.y });
-      }
-    }
-    return { from: e.from, to: e.to, points };
+  const nodes: LayoutNode[] = flatNodes.map((n) => {
+    const p = lay.pos.get(n.id)!;
+    return { id: n.id, x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
   });
 
-  return { nodes, edges, width: Math.round(laid.width ?? 0), height: Math.round(laid.height ?? 0) };
+  // Edge polylines from the node centers (renderer orthogonalizes/avoids).
+  const centerOf = (id: string): { x: number; y: number } => {
+    const p = lay.pos.get(id)!;
+    return { x: p.x + p.width / 2, y: p.y + p.height / 2 };
+  };
+  const edges: LayoutEdge[] = nodeEdges(doc).map((e) => {
+    const a = centerOf(e.from);
+    const b = centerOf(e.to);
+    const midX = Math.round((a.x + b.x) / 2);
+    return {
+      from: e.from,
+      to: e.to,
+      points: [
+        { x: Math.round(a.x), y: Math.round(a.y) },
+        { x: midX, y: Math.round(a.y) },
+        { x: midX, y: Math.round(b.y) },
+        { x: Math.round(b.x), y: Math.round(b.y) },
+      ],
+    };
+  });
+
+  return { nodes, edges, width: lay.width, height: lay.height };
 }
+
 
 // ---------------------------------------------------------------------------
 // mindmap: radial tree layout
@@ -829,7 +741,7 @@ const GRID_NODE_H = 44;
 const GRID_COLS = 6; // nodes per row
 
 /**
- * O(n) grid layout — used for large graphs where dagre becomes slow.
+ * O(n) grid layout — used for large graphs where the layered engine becomes slow.
  * Nodes are placed in document order, wrapped into rows.
  */
 function layoutGrid(doc: LgdlDocument): LayoutResult {
