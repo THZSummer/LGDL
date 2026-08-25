@@ -2,6 +2,20 @@
 
 ## Unreleased / 0.6.0（开发中）
 
+**核心模型统一：group 蜕化为特殊 node（group-as-node）**
+
+- 🧩 **模型只有 node + edge**（`packages/core` `types.ts`）：`NodeKind` 加 `'group'`，`LgdlNode` 加
+  `contains` 字段；`LgdlDocument.groups` 改为 `kind:'group'` 节点的**派生投影**（下游读 `doc.groups` 不变）
+- 📝 **DSL 双语**（`parser.ts`）：`groups:`（旧语法，转 group 节点）与 `kind:'group' + contains`
+  （新语法）均接受；对输入 `groups:` 原始条目的重复 id/未知字段做 loud reject（数据完整性不丢）
+- 🗺️ **分组感知分层布局**（`packages/layout` `layoutGrouped`，接入 dispatch）：分组框作为"超节点"两层
+  布局——组间 dagre 排（留 RANK_SEP/NODE_SEP 空隙）、组内 dagre 排——**分组框不再重叠/互相穿插**
+- 🔧 **下游适配**：render/ascii/mermaid/status/queries/plantuml/serialize/cli 全部跳过 `kind:'group'` 节点；
+  render `nodeIdSet` 剔除 group 节点（修复聚合边被误判为普通边而不绘制的 bug）
+- ✅ 验证：全 build 通过，core 314 / render 21 / web 107 全绿；microservices/architecture/ecommerce-flow
+  分组框干净分离
+- 🌱 注意：此改动在开发分支 `feature/group-as-node`，**main 保持 `de2381e` 未动**（避免影响 github.io 部署）
+
 **布局引擎迁移：dagre → elkjs（ELK，可配置回退）**
 
 - 🧭 **分层布局引擎换用 ELK**（`packages/layout`）：默认用 `elkjs`（wasm）`elk.layered` 做分层布局，并开启
