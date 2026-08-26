@@ -201,26 +201,70 @@ function pathHitsOwnBody(
 ): boolean {
   const inBody = (p: { x: number; y: number }, b: { x: number; y: number; width: number; height: number }): boolean =>
     p.x > b.x + 0.5 && p.x < b.x + b.width - 0.5 && p.y > b.y + 0.5 && p.y < b.y + b.height - 0.5;
-  const segInside = (a: { x: number; y: number }, b: { x: number; y: number }, box: { x: number; y: number; width: number; height: number }): boolean => {
-    // does segment a->b travel through the box interior (both ends outside the
-    // box, but the run overlaps it)?
-    const out = (p: { x: number; y: number }) => !(p.x > box.x && p.x < box.x + box.width && p.y > box.y && p.y < box.y + box.height);
-    if (!out(a) || !out(b)) return false;
-    if (Math.abs(a.x - b.x) < 0.5) {
-      const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
-      return box.x < a.x - 2 && box.x + box.width > a.x + 2 && box.y < hi - 2 && box.y + box.height > lo + 2;
-    }
-    if (Math.abs(a.y - b.y) < 0.5) {
-      const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
-      return box.y < a.y - 2 && box.y + box.height > a.y + 2 && box.x < hi - 2 && box.x + box.width > lo + 2;
-    }
-    return false;
-  };
   for (const b of [srcNode, dstNode]) {
     if (!b) continue;
-    for (let i = 0; i < pts.length - 1; i++) if (segInside(pts[i], pts[i + 1], b)) return true;
+    // (a) any INTERIOR point strictly inside the body — e.g. an elbow that
+    //     `orthogonalize` inserts on the node's own centre row after we snap the
+    //     exit to a top/bottom face (app->mq exits app's bottom then orthogonalize
+    //     bends back up through the node at (370,678)). This is never valid.
+    for (let i = 0; i < pts.length; i++) if (inBody(pts[i], b)) return true;
+    // (b) any segment that travels THROUGH the body (both ends outside it)
+    const segInside = (a: { x: number; y: number }, c: { x: number; y: number }): boolean => {
+      const out = (p: { x: number; y: number }) => !(p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height);
+      if (!out(a) || !out(c)) return false;
+      if (Math.abs(a.x - c.x) < 0.5) {
+        const lo = Math.min(a.y, c.y), hi = Math.max(a.y, c.y);
+        return b.x < a.x - 2 && b.x + b.width > a.x + 2 && b.y < hi - 2 && b.y + b.height > lo + 2;
+      }
+      if (Math.abs(a.y - c.y) < 0.5) {
+        const lo = Math.min(a.x, c.x), hi = Math.max(a.x, c.x);
+        return b.y < a.y - 2 && b.y + b.height > a.y + 2 && b.x < hi - 2 && b.x + b.width > lo + 2;
+      }
+      return false;
+    };
+    for (let i = 0; i < pts.length - 1; i++) if (segInside(pts[i], pts[i + 1])) return true;
   }
   return false;
+}
+
+/**
+ * Number of legs in `pts` that run parallel AND coincident (within `tol`) with a
+ * border of the edge's OWN source or target node. This is the "贴边" effect where
+ * an edge exits a node's top/bottom face then runs horizontally along that same
+ * border row (e.g. app->mq leaves app's bottom at y=706 then goes LEFT along the
+ * bottom border). Such a leg is visually glued to the node outline, so it is
+ * worth a large penalty so the alternative face (with a genuine perpendicular
+ * exit) wins the candidate comparison.
+ */
+function pathBorderRides(
+  pts: { x: number; y: number }[],
+  srcNode?: { x: number; y: number; width: number; height: number } | null,
+  dstNode?: { x: number; y: number; width: number; height: number } | null,
+  tol = 4,
+): number {
+  // Weight an exit ride (running along the SOURCE border right after leaving it)
+  // far more than an entry ride (drop alongside the DEST border before entering):
+  // the former is the prominent "贴边" the viewer sees at the top of a node; the
+  // latter is a normal approach into the target.
+  const ridesFor = (b: { x: number; y: number; width: number; height: number }): number => {
+    let n = 0;
+    const close = (v: number, border: number) => Math.abs(v - border) <= tol;
+    const overlapX = (a: { x: number; y: number }, c: { x: number; y: number }) => {
+      const lo = Math.min(a.x, c.x), hi = Math.max(a.x, c.x);
+      return lo < b.x + b.width - 1 && hi > b.x + 1;
+    };
+    const overlapY = (a: { x: number; y: number }, c: { x: number; y: number }) => {
+      const lo = Math.min(a.y, c.y), hi = Math.max(a.y, c.y);
+      return lo < b.y + b.height - 1 && hi > b.y + 1;
+    };
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], c = pts[i + 1];
+      if (Math.abs(a.y - c.y) < 0.5 && overlapX(a, c) && (close(a.y, b.y) || close(a.y, b.y + b.height))) n++;
+      if (Math.abs(a.x - c.x) < 0.5 && overlapY(a, c) && (close(a.x, b.x) || close(a.x, b.x + b.width))) n++;
+    }
+    return n;
+  };
+  return (srcNode ? ridesFor(srcNode) : 0) * 400 + (dstNode ? ridesFor(dstNode) : 0) * 150;
 }
 
 /**
@@ -969,9 +1013,15 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     const candidateB = buildEdgePath(pts, srcNode, dstNode, srcKind, dstKind, 'local', routeBoxes, scoreBoxes);
     const score = (p: { x: number; y: number }[]): number => {
       const ownHit = pathHitsOwnBody(p, srcNode, dstNode) ? -1e6 : 0;
-      const clear = pathClearanceInterior(p, scoreBoxes);
+      // `pathClearanceInterior` is Infinity for a two-point path (no interior legs
+      // to score); clamp so bends / border-ride penalties below actually matter.
+      const clear = Math.min(pathClearanceInterior(p, scoreBoxes), 1000);
       const bends = (p.length - 2) * 20;
-      return ownHit + clear - bends;
+      // A leg riding flush along the edge's OWN node border is the "贴边" defect:
+      // heavily penalize so the perpendicular-exit alternative (local face) wins.
+      // `pathBorderRides` already weights source rides (400) over dest rides (150).
+      const rides = pathBorderRides(p, srcNode, dstNode);
+      return ownHit + clear - bends - rides;
     };
     const ortho = score(candidateB) > score(candidateA) ? candidateB : candidateA;
     const d = ortho
@@ -1233,7 +1283,10 @@ function routeRectilinear(
     // ~0). `scoreBoxes` adds the edge's own source/target + their owning
     // groups, so a leg hugging MY OWN box/group wall gets penalized too (the
     // crossing check above still lets me leave/enter my own entities).
-    const score = pathClearanceInterior(c, scoreBoxes) + (c.length === 2 ? 500 : c.length === 3 ? 200 : 0);
+    // `pathClearanceInterior` is Infinity when no interior leg is scoreable (a
+    // plain 2/3-point elbow) — clamp so a genuinely well-routed long candidate
+    // (finite, positive) can beat a short one that hugs a border.
+    const score = Math.min(pathClearanceInterior(c, scoreBoxes), 1000) + (c.length === 2 ? 50 : c.length === 3 ? 20 : 0);
     if (score > bestScore) {
       bestScore = score;
       best = c;
