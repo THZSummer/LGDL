@@ -163,20 +163,119 @@ function recentreExit(
   box: { x: number; y: number; width: number; height: number },
   anchor: { x: number; y: number },
   toward: { x: number; y: number },
+  fallback: { x: number; y: number },
 ): { x: number; y: number } {
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  const dx = toward.x - cx;
-  const dy = toward.y - cy;
-  // vertical-dominant travel (target meaningfully above/below) -> top/bottom
-  // face, drop along the box's horizontal centre line.
+  let dx = toward.x - cx;
+  let dy = toward.y - cy;
+  if (dx === 0 && dy === 0) {
+    dx = fallback.x - cx;
+    dy = fallback.y - cy;
+  }
+  if (dx === 0 && dy === 0) return anchor;
+  // Exit face follows the edge's true travel direction (the OPPOSITE endpoint's
+  // centre — a robust signal for a straight-ish run, e.g. user->cdn leaves
+  // BOTTOM because cdn is below). Only a meaningfully-off-axis neighbour picks
+  // the side face. This is the default face used by `buildPath`; a self-interior
+  // double-back (mq->worker) is detected later and re-tried with the LOCAL leg.
   if (Math.abs(dy) >= Math.abs(dx) * 0.5) {
     const onTop = dy < 0;
     return { x: cx, y: onTop ? box.y : box.y + box.height };
   }
-  // horizontal-dominant travel -> left/right face, run along the vertical centre.
   const onLeft = dx < 0;
   return { x: onLeft ? box.x : box.x + box.width, y: cy };
+}
+
+/**
+ * True if any INTERIOR point of `pts` lies strictly inside the source or target
+ * node body (or a segment passes through one). The edge may only attach at the
+ * borders of its own endpoints — never run through their interiors. This is the
+ * signal that the chosen exit face is wrong (e.g. mq->worker leaving mq's bottom
+ * then re-entering at the centre row).
+ */
+function pathHitsOwnBody(
+  pts: { x: number; y: number }[],
+  srcNode?: { x: number; y: number; width: number; height: number } | null,
+  dstNode?: { x: number; y: number; width: number; height: number } | null,
+): boolean {
+  const inBody = (p: { x: number; y: number }, b: { x: number; y: number; width: number; height: number }): boolean =>
+    p.x > b.x + 0.5 && p.x < b.x + b.width - 0.5 && p.y > b.y + 0.5 && p.y < b.y + b.height - 0.5;
+  const segInside = (a: { x: number; y: number }, b: { x: number; y: number }, box: { x: number; y: number; width: number; height: number }): boolean => {
+    // does segment a->b travel through the box interior (both ends outside the
+    // box, but the run overlaps it)?
+    const out = (p: { x: number; y: number }) => !(p.x > box.x && p.x < box.x + box.width && p.y > box.y && p.y < box.y + box.height);
+    if (!out(a) || !out(b)) return false;
+    if (Math.abs(a.x - b.x) < 0.5) {
+      const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
+      return box.x < a.x - 2 && box.x + box.width > a.x + 2 && box.y < hi - 2 && box.y + box.height > lo + 2;
+    }
+    if (Math.abs(a.y - b.y) < 0.5) {
+      const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+      return box.y < a.y - 2 && box.y + box.height > a.y + 2 && box.x < hi - 2 && box.x + box.width > lo + 2;
+    }
+    return false;
+  };
+  for (const b of [srcNode, dstNode]) {
+    if (!b) continue;
+    for (let i = 0; i < pts.length - 1; i++) if (segInside(pts[i], pts[i + 1], b)) return true;
+  }
+  return false;
+}
+
+/**
+ * Build a full 90°-orthogonal path for one edge from `rawPts` (the layout's
+ * centre-to-centre polyline), choosing each endpoint's exit face by `mode`:
+ *   - 'centre': face toward the OPPOSITE endpoint's centre (robust for a
+ *     straight-ish run, e.g. user->cdn leaves BOTTOM).
+ *   - 'local':  face toward the incident polyline point (correct when the edge
+ *     genuinely leaves sideways, e.g. mq->worker leaves mq's RIGHT face).
+ * The path is snapped to shape borders, re-centred onto the face midpoint,
+ * cleared of any interior points inside the edge's own endpoints, and routed
+ * orthogonally (rectilinear re-route when a leg hugs a wall or crosses a box).
+ */
+function buildEdgePath(
+  rawPts: { x: number; y: number }[],
+  srcNode: { x: number; y: number; width: number; height: number } | undefined,
+  dstNode: { x: number; y: number; width: number; height: number } | undefined,
+  srcKind: string,
+  dstKind: string,
+  mode: 'centre' | 'local',
+  routeBoxes: { x: number; y: number; w: number; h: number }[],
+  scoreBoxes: { x: number; y: number; w: number; h: number }[],
+): { x: number; y: number }[] {
+  const trimmed = [...rawPts];
+  if (trimmed.length < 2) return trimmed;
+  if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
+  if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
+  const srcC = srcNode ? { x: srcNode.x + srcNode.width / 2, y: srcNode.y + srcNode.height / 2 } : trimmed[1];
+  const dstC = dstNode ? { x: dstNode.x + dstNode.width / 2, y: dstNode.y + dstNode.height / 2 } : trimmed[trimmed.length - 2];
+  if (srcNode) {
+    const toward = mode === 'centre' ? dstC : trimmed[1];
+    trimmed[0] = recentreExit(srcNode, trimmed[0], toward, dstC);
+  }
+  if (dstNode) {
+    const toward = mode === 'centre' ? srcC : trimmed[trimmed.length - 2];
+    trimmed[trimmed.length - 1] = recentreExit(dstNode, trimmed[trimmed.length - 1], toward, srcC);
+  }
+  // Drop any interior point inside the edge's own source/dest node (layout leaves
+  // the node centres in the polyline; after snapping the endpoints those centre
+  // points would make an aligned edge zigzag through both node bodies), then
+  // collapse duplicate points so orthogonalize only sees genuine corners.
+  const inBody = (p: { x: number; y: number }, b: { x: number; y: number; width: number; height: number }): boolean =>
+    p.x > b.x + 0.5 && p.x < b.x + b.width - 0.5 && p.y > b.y + 0.5 && p.y < b.y + b.height - 0.5;
+  for (let i = trimmed.length - 2; i >= 1; i--) {
+    const p = trimmed[i];
+    if ((srcNode && inBody(p, srcNode)) || (dstNode && inBody(p, dstNode))) trimmed.splice(i, 1);
+  }
+  for (let i = trimmed.length - 1; i >= 1; i--) {
+    if (Math.abs(trimmed[i].x - trimmed[i - 1].x) < 0.5 && Math.abs(trimmed[i].y - trimmed[i - 1].y) < 0.5) trimmed.splice(i, 1);
+  }
+  let ortho = orthogonalize(trimmed, routeBoxes);
+  if (pathCrosses(ortho, routeBoxes) || pathClearanceInterior(ortho, scoreBoxes) < 12) {
+    ortho = routeRectilinear(trimmed[0], trimmed[trimmed.length - 1], routeBoxes, ortho, scoreBoxes);
+  }
+  return ortho;
 }
 
 const FILL_BY_KIND: Record<string, string> = {
@@ -835,22 +934,6 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     const dstNode = layout.nodes.find((n) => n.id === edge.to);
     const srcKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.from)?.kind);
     const dstKind = shapeKindFor(doc.nodes.find((n) => n.id === edge.to)?.kind);
-    const trimmed = [...pts];
-    if (trimmed.length >= 2) {
-      if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
-      if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
-      // 贴边平行: a border anchor snaps toward the OTHER endpoint's centre, so
-      // a top/bottom exit can land off-centre and orthogonalize then drops the
-      // vertical leg right under a box's left/right border (e.g. dev-framework
-      // -> Agent drops at x=432, 48px off the node centre, hugging its border).
-      // Re-centre the exit onto the exit face's midpoint so the vertical drop
-      // runs down the node's own centre column instead of hugging a side wall.
-      // Direction = the OPPOSITE endpoint's centre (the true travel vector),
-      // not the polyline's immediate next point (which may be at the same y and
-      // wrongly read as horizontal travel).
-      if (srcNode) trimmed[0] = recentreExit(srcNode, trimmed[0], dstNode ? { x: dstNode.x + dstNode.width / 2, y: dstNode.y + dstNode.height / 2 } : trimmed[1]);
-      if (dstNode) trimmed[trimmed.length - 1] = recentreExit(dstNode, trimmed[trimmed.length - 1], srcNode ? { x: srcNode.x + srcNode.width / 2, y: srcNode.y + srcNode.height / 2 } : trimmed[trimmed.length - 2]);
-    }
     // Bug1/Bug4: force 90° orthogonal routing so diagonal stubs and long
     // slashes become clean rectilinear turns, and route the horizontal runs
     // around intermediate nodes (order->payment no longer slices through
@@ -875,14 +958,22 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       ...layout.nodes.map((n) => ({ x: n.x, y: n.y, w: n.width, h: n.height })),
       ...[...boxOf.entries()].map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
     ];
-    let ortho = orthogonalize(trimmed, routeBoxes);
-    // 贴边平行: if some leg still hugs a wall (or crosses a box because the
-    // channel search ignored group boxes), re-route from the border anchors
-    // through a rectilinear channel that is clear of — and distant from — every
-    // obstacle. Keep the orthogonalized result when it already sits well clear.
-    if (pathCrosses(ortho, routeBoxes) || pathClearanceInterior(ortho, scoreBoxes) < 12) {
-      ortho = routeRectilinear(trimmed[0], trimmed[trimmed.length - 1], routeBoxes, ortho, scoreBoxes);
-    }
+    // 贴边平行 + 走线穿越节点内部: no single exit-face rule is correct for every
+    // edge. The opposite-centre direction is robust for straight runs (user->cdn
+    // leaves BOTTOM), but misreads mq->worker (leaves RIGHT). So build the route
+    // BOTH ways and keep the better one: prefer the one that does NOT pass
+    // through its own endpoints' body, then the one with more wall clearance,
+    // then fewer bends. This eliminates the "double-back through the node" and
+    // "hug a wall" defects without hardcoding a face per edge.
+    const candidateA = buildEdgePath(pts, srcNode, dstNode, srcKind, dstKind, 'centre', routeBoxes, scoreBoxes);
+    const candidateB = buildEdgePath(pts, srcNode, dstNode, srcKind, dstKind, 'local', routeBoxes, scoreBoxes);
+    const score = (p: { x: number; y: number }[]): number => {
+      const ownHit = pathHitsOwnBody(p, srcNode, dstNode) ? -1e6 : 0;
+      const clear = pathClearanceInterior(p, scoreBoxes);
+      const bends = (p.length - 2) * 20;
+      return ownHit + clear - bends;
+    };
+    const ortho = score(candidateB) > score(candidateA) ? candidateB : candidateA;
     const d = ortho
       .map((p, i) => `${i === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`)
       .join(' ');
@@ -935,7 +1026,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     parts.push(
       `<g class="lgdl-edge"${edgeIdx >= 0 ? ` data-lgdl-loc="edges[${edgeIdx}]"` : ''}><path d="${d}" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowhead)"/>${labelEl}</g>` +
         // hover the edge -> reveal the two anchors it connects to
-        `<g class="lgdl-edge-anchors"><circle cx="${trimmed[0].x.toFixed(1)}" cy="${trimmed[0].y.toFixed(1)}" r="3.5" fill="#6b7280"/><circle cx="${trimmed[trimmed.length - 1].x.toFixed(1)}" cy="${trimmed[trimmed.length - 1].y.toFixed(1)}" r="3.5" fill="#6b7280"/></g>`,
+        `<g class="lgdl-edge-anchors"><circle cx="${ortho[0].x.toFixed(1)}" cy="${ortho[0].y.toFixed(1)}" r="3.5" fill="#6b7280"/><circle cx="${ortho[ortho.length - 1].x.toFixed(1)}" cy="${ortho[ortho.length - 1].y.toFixed(1)}" r="3.5" fill="#6b7280"/></g>`,
     );
   }
 
