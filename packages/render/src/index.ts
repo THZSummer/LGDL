@@ -1018,15 +1018,19 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     const candidateB = buildEdgePath(pts, srcNode, dstNode, srcKind, dstKind, 'local', routeBoxes, scoreBoxes);
     const score = (p: { x: number; y: number }[]): number => {
       const ownHit = pathHitsOwnBody(p, srcNode, dstNode) ? -1e6 : 0;
-      // `pathClearanceInterior` is Infinity for a two-point path (no interior legs
-      // to score); clamp so bends / border-ride penalties below actually matter.
-      const clear = Math.min(pathClearanceInterior(p, scoreBoxes), 1000);
-      const bends = (p.length - 2) * 20;
-      // A leg riding flush along the edge's OWN node border is the "贴边" defect:
-      // heavily penalize so the perpendicular-exit alternative (local face) wins.
-      // `pathBorderRides` already weights source rides (400) over dest rides (150).
+      // A path that slices through a THIRD-PARTY node/group is worse than a mild
+      // border ride: penalize it heavily so the border-riding alternative wins
+      // rather than a crossing one.
+      const crossHit = pathCrosses(p, routeBoxes) ? -5e5 : 0;
+      // `pathClearanceInterior` is Infinity for a path with no scoreable interior
+      // leg (a plain 2/3-point elbow), which would let a border-riding path clamp
+      // to 1000 and always win. So: if any leg hugs/rides its OWN node border,
+      // the clearance contribution is forced to 0 (a border-riding leg is, by
+      // definition, ~0px from a wall), so it can't out-score a clean path.
       const rides = pathBorderRides(p, srcNode, dstNode);
-      return ownHit + clear - bends - rides;
+      const clear = rides > 0 ? 0 : Math.min(pathClearanceInterior(p, scoreBoxes), 1000);
+      const bends = (p.length - 2) * 20;
+      return ownHit + crossHit + clear - bends - rides;
     };
     const ortho = score(candidateB) > score(candidateA) ? candidateB : candidateA;
     const d = ortho
@@ -1268,9 +1272,19 @@ function routeRectilinear(
   const midY = Math.round((src.y + dst.y) / 2);
   for (const c of [midX, src.x, dst.x]) channels.push(c);
   for (let k = 20; k <= 120; k += 20) channels.push(midX - k, midX + k, src.x - k, src.x + k, dst.x - k, dst.x + k);
+  // Also expose columns just outside every obstacle's left/right walls so the
+  // route can dodge a blocker that sits in the drop's path (e.g. app->mq would
+  // otherwise keep dropping on a column that slices a third-party node).
+  for (const b of boxes) {
+    channels.push(Math.round(b.x - 12), Math.round(b.x + b.w + 12));
+  }
   const rows: number[] = [];
   for (const c of [midY, src.y, dst.y]) rows.push(c);
   for (let k = 20; k <= 120; k += 20) rows.push(midY - k, midY + k, src.y - k, src.y + k, dst.y - k, dst.y + k);
+  // rows just outside every obstacle's top/bottom walls
+  for (const b of boxes) {
+    rows.push(Math.round(b.y - 12), Math.round(b.y + b.h + 12));
+  }
 
   const candidates: { x: number; y: number }[][] = [];
   candidates.push([src, dst]); // straight (only valid if already aligned — filtered below)
