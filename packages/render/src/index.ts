@@ -316,7 +316,12 @@ function buildEdgePath(
     if (Math.abs(trimmed[i].x - trimmed[i - 1].x) < 0.5 && Math.abs(trimmed[i].y - trimmed[i - 1].y) < 0.5) trimmed.splice(i, 1);
   }
   let ortho = orthogonalize(trimmed, routeBoxes);
-  if (pathCrosses(ortho, routeBoxes) || pathClearanceInterior(ortho, scoreBoxes) < 12) {
+  // Re-route only when the path truly CROSSES an obstacle, or an interior leg
+  // hugs a wall almost flush (< 6px — a real "贴边" glue). A modest 10px gap to
+  // the edge's OWN group wall is fine and must not trigger a reroute, which
+  // would otherwise push the drop onto a worse column (e.g. app->mq dropped at
+  // x=260, a clean 40px clear of mq, was rerouted to ride mq's right wall).
+  if (pathCrosses(ortho, routeBoxes) || pathClearanceInterior(ortho, scoreBoxes) < 6) {
     ortho = routeRectilinear(trimmed[0], trimmed[trimmed.length - 1], routeBoxes, ortho, scoreBoxes);
   }
   return ortho;
