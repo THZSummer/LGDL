@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "tsc src/locate.test.ts src/snap.test.ts src/ai/ops.test.ts src/ai/provider.test.ts src/ai/web-cli.test.ts src/ai/next-actions.test.ts src/ai/help.test.ts --outDir dist-test --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --declaration false --allowImportingTsExtensions --rewriteRelativeImportExtensions && node --test dist-test/*.test.js dist-test/ai/*.test.js",
-    "predev": "npm run build --workspace @lgdl/core --workspace @lgdl/layout --workspace @lgdl/render"
+    "predev": "npm run build --workspace @lgdl/core --workspace @lgdl/layout --workspace @lgdl/router --workspace @lgdl/render"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
