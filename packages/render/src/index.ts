@@ -236,47 +236,16 @@ function pathHitsOwnBody(
  * worth a large penalty so the alternative face (with a genuine perpendicular
  * exit) wins the candidate comparison.
  */
-function pathBorderRides(
-  pts: { x: number; y: number }[],
-  srcNode?: { x: number; y: number; width: number; height: number } | null,
-  dstNode?: { x: number; y: number; width: number; height: number } | null,
-  tol = 4,
-): number {
-  // Weight an exit ride (running along the SOURCE border right after leaving it)
-  // far more than an entry ride (drop alongside the DEST border before entering):
-  // the former is the prominent "贴边" the viewer sees at the top of a node; the
-  // latter is a normal approach into the target.
-  const ridesFor = (b: { x: number; y: number; width: number; height: number }): number => {
-    let n = 0;
-    const close = (v: number, border: number) => Math.abs(v - border) <= tol;
-    const overlapX = (a: { x: number; y: number }, c: { x: number; y: number }) => {
-      const lo = Math.min(a.x, c.x), hi = Math.max(a.x, c.x);
-      return lo < b.x + b.width - 1 && hi > b.x + 1;
-    };
-    const overlapY = (a: { x: number; y: number }, c: { x: number; y: number }) => {
-      const lo = Math.min(a.y, c.y), hi = Math.max(a.y, c.y);
-      return lo < b.y + b.height - 1 && hi > b.y + 1;
-    };
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], c = pts[i + 1];
-      if (Math.abs(a.y - c.y) < 0.5 && overlapX(a, c) && (close(a.y, b.y) || close(a.y, b.y + b.height))) n++;
-      if (Math.abs(a.x - c.x) < 0.5 && overlapY(a, c) && (close(a.x, b.x) || close(a.x, b.x + b.width))) n++;
-    }
-    return n;
-  };
-  return (srcNode ? ridesFor(srcNode) : 0) * 400 + (dstNode ? ridesFor(dstNode) : 0) * 150;
-}
-
 /**
  * Build a full 90°-orthogonal path for one edge from `rawPts` (the layout's
- * centre-to-centre polyline), choosing each endpoint's exit face by `mode`:
- *   - 'centre': face toward the OPPOSITE endpoint's centre (robust for a
- *     straight-ish run, e.g. user->cdn leaves BOTTOM).
- *   - 'local':  face toward the incident polyline point (correct when the edge
- *     genuinely leaves sideways, e.g. mq->worker leaves mq's RIGHT face).
- * The path is snapped to shape borders, re-centred onto the face midpoint,
- * cleared of any interior points inside the edge's own endpoints, and routed
- * orthogonally (rectilinear re-route when a leg hugs a wall or crosses a box).
+ * centre-to-centre polyline).
+ *
+ * The endpoints are snapped to the shape borders and re-centred onto their face
+ * midpoints for both the centre and local direction, giving up to four
+ * src/dst anchor pairs. For each, an A* grid router finds a rectilinear path
+ * that stays `clear` of every third-party box, and the best-quality result is
+ * kept (no own-node pass-through, no third-party crossing, most clearance,
+ * fewest bends). Falls back to orthogonalize when no clear route exists.
  */
 function buildEdgePath(
   rawPts: { x: number; y: number }[],
@@ -284,9 +253,8 @@ function buildEdgePath(
   dstNode: { x: number; y: number; width: number; height: number } | undefined,
   srcKind: string,
   dstKind: string,
-  mode: 'centre' | 'local',
   routeBoxes: { x: number; y: number; w: number; h: number }[],
-  scoreBoxes: { x: number; y: number; w: number; h: number }[],
+  bounds: { w: number; h: number },
 ): { x: number; y: number }[] {
   const trimmed = [...rawPts];
   if (trimmed.length < 2) return trimmed;
@@ -294,37 +262,51 @@ function buildEdgePath(
   if (dstNode) trimmed[trimmed.length - 1] = shapeEdgePoint(dstKind, dstNode, trimmed[trimmed.length - 2]);
   const srcC = srcNode ? { x: srcNode.x + srcNode.width / 2, y: srcNode.y + srcNode.height / 2 } : trimmed[1];
   const dstC = dstNode ? { x: dstNode.x + dstNode.width / 2, y: dstNode.y + dstNode.height / 2 } : trimmed[trimmed.length - 2];
-  if (srcNode) {
-    const toward = mode === 'centre' ? dstC : trimmed[1];
-    trimmed[0] = recentreExit(srcNode, trimmed[0], toward, dstC);
+
+  // Compute exit/entry anchors for both the centre and local direction, then let
+  // the A* router explore. Anchor mapping: [srcMode, dstMode].
+  const anchor = (node: { x: number; y: number; width: number; height: number } | undefined, pos: { x: number; y: number }, toward: { x: number; y: number }, fallback: { x: number; y: number }) =>
+    node ? recentreExit(node, pos, toward, fallback) : pos;
+
+  const anchors: { src: { x: number; y: number }; dst: { x: number; y: number }; label: string }[] = [];
+  if (srcNode && dstNode) {
+    anchors.push({ src: anchor(srcNode, trimmed[0], dstC, trimmed[1]), dst: anchor(dstNode, trimmed[trimmed.length - 1], srcC, trimmed[trimmed.length - 2]), label: 'cc' });
+    anchors.push({ src: anchor(srcNode, trimmed[0], trimmed[1], dstC), dst: anchor(dstNode, trimmed[trimmed.length - 1], trimmed[trimmed.length - 2], srcC), label: 'll' });
+    anchors.push({ src: anchor(srcNode, trimmed[0], dstC, trimmed[1]), dst: anchor(dstNode, trimmed[trimmed.length - 1], trimmed[trimmed.length - 2], srcC), label: 'cl' });
+    anchors.push({ src: anchor(srcNode, trimmed[0], trimmed[1], dstC), dst: anchor(dstNode, trimmed[trimmed.length - 1], srcC, trimmed[trimmed.length - 2]), label: 'lc' });
+  } else {
+    anchors.push({ src: trimmed[0], dst: trimmed[trimmed.length - 1], label: 'xy' });
   }
-  if (dstNode) {
-    const toward = mode === 'centre' ? srcC : trimmed[trimmed.length - 2];
-    trimmed[trimmed.length - 1] = recentreExit(dstNode, trimmed[trimmed.length - 1], toward, srcC);
+
+  const quality = (p: { x: number; y: number }[]): number => {
+    const ownHit = pathHitsOwnBody(p, srcNode, dstNode) ? -1e6 : 0;
+    // A segment slicing through a third-party node/group is the worst defect —
+    // heavily penalize so the router never picks a crossing candidate.
+    const crossHit = pathCrosses(p, routeBoxes) ? -5e5 : 0;
+    const bends = (p.length - 2) * 20;
+    const clearBoxes: { x: number; y: number; w: number; h: number }[] = [...routeBoxes];
+    if (srcNode) clearBoxes.push({ x: srcNode.x, y: srcNode.y, w: srcNode.width, h: srcNode.height });
+    if (dstNode) clearBoxes.push({ x: dstNode.x, y: dstNode.y, w: dstNode.width, h: dstNode.height });
+    const clear = pathClearanceInterior(p, clearBoxes);
+    return ownHit + crossHit + Math.min(clear, 1000) - bends;
+  };
+
+  let best: { x: number; y: number }[] | null = null;
+  let bestScore = -Infinity;
+  for (const a of anchors) {
+    // A* routes clear of third-party boxes (inflated), letting the edge pass
+    // through its own source/target node borders.
+    const routed = routeAStar(a.src, a.dst, routeBoxes, bounds, srcNode, dstNode);
+    if (!routed) continue;
+    if (pathHitsOwnBody(routed, srcNode, dstNode)) continue;
+    const s = quality(routed);
+    if (s > bestScore) { bestScore = s; best = routed; }
   }
-  // Drop any interior point inside the edge's own source/dest node (layout leaves
-  // the node centres in the polyline; after snapping the endpoints those centre
-  // points would make an aligned edge zigzag through both node bodies), then
-  // collapse duplicate points so orthogonalize only sees genuine corners.
-  const inBody = (p: { x: number; y: number }, b: { x: number; y: number; width: number; height: number }): boolean =>
-    p.x > b.x + 0.5 && p.x < b.x + b.width - 0.5 && p.y > b.y + 0.5 && p.y < b.y + b.height - 0.5;
-  for (let i = trimmed.length - 2; i >= 1; i--) {
-    const p = trimmed[i];
-    if ((srcNode && inBody(p, srcNode)) || (dstNode && inBody(p, dstNode))) trimmed.splice(i, 1);
-  }
-  for (let i = trimmed.length - 1; i >= 1; i--) {
-    if (Math.abs(trimmed[i].x - trimmed[i - 1].x) < 0.5 && Math.abs(trimmed[i].y - trimmed[i - 1].y) < 0.5) trimmed.splice(i, 1);
-  }
-  let ortho = orthogonalize(trimmed, routeBoxes);
-  // Re-route only when the path truly CROSSES an obstacle, or an interior leg
-  // hugs a wall almost flush (< 6px — a real "贴边" glue). A modest 10px gap to
-  // the edge's OWN group wall is fine and must not trigger a reroute, which
-  // would otherwise push the drop onto a worse column (e.g. app->mq dropped at
-  // x=260, a clean 40px clear of mq, was rerouted to ride mq's right wall).
-  if (pathCrosses(ortho, routeBoxes) || pathClearanceInterior(ortho, scoreBoxes) < 6) {
-    ortho = routeRectilinear(trimmed[0], trimmed[trimmed.length - 1], routeBoxes, ortho, scoreBoxes);
-  }
-  return ortho;
+  if (best) return best;
+
+  // No A* route found — fall back to the previous orthogonalized heuristic so we
+  // still draw something (edge is degenerate / fully walled in).
+  return orthogonalize(trimmed, routeBoxes);
 }
 
 const FILL_BY_KIND: Record<string, string> = {
@@ -998,41 +980,13 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         .filter(([gid]) => !(groupsOwning(edge.from)?.has(gid) || groupsOwning(edge.to)?.has(gid)))
         .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
     ];
-    // Clearance-scoring set = ALL node/group boxes, INCLUDING the edge's own
-    // endpoints and their owning groups. `pathCrosses` still only checks
-    // `routeBoxes` (so the edge may leave/enter its own entities), but the
-    // channel score also penalizes hugging MY OWN group's wall — that's how a
-    // drop at x=480 (10px from the 核心服务 group wall) gets pushed out.
-    const scoreBoxes = [
-      ...layout.nodes.map((n) => ({ x: n.x, y: n.y, w: n.width, h: n.height })),
-      ...[...boxOf.entries()].map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
-    ];
-    // 贴边平行 + 走线穿越节点内部: no single exit-face rule is correct for every
-    // edge. The opposite-centre direction is robust for straight runs (user->cdn
-    // leaves BOTTOM), but misreads mq->worker (leaves RIGHT). So build the route
-    // BOTH ways and keep the better one: prefer the one that does NOT pass
-    // through its own endpoints' body, then the one with more wall clearance,
-    // then fewer bends. This eliminates the "double-back through the node" and
-    // "hug a wall" defects without hardcoding a face per edge.
-    const candidateA = buildEdgePath(pts, srcNode, dstNode, srcKind, dstKind, 'centre', routeBoxes, scoreBoxes);
-    const candidateB = buildEdgePath(pts, srcNode, dstNode, srcKind, dstKind, 'local', routeBoxes, scoreBoxes);
-    const score = (p: { x: number; y: number }[]): number => {
-      const ownHit = pathHitsOwnBody(p, srcNode, dstNode) ? -1e6 : 0;
-      // A path that slices through a THIRD-PARTY node/group is worse than a mild
-      // border ride: penalize it heavily so the border-riding alternative wins
-      // rather than a crossing one.
-      const crossHit = pathCrosses(p, routeBoxes) ? -5e5 : 0;
-      // `pathClearanceInterior` is Infinity for a path with no scoreable interior
-      // leg (a plain 2/3-point elbow), which would let a border-riding path clamp
-      // to 1000 and always win. So: if any leg hugs/rides its OWN node border,
-      // the clearance contribution is forced to 0 (a border-riding leg is, by
-      // definition, ~0px from a wall), so it can't out-score a clean path.
-      const rides = pathBorderRides(p, srcNode, dstNode);
-      const clear = rides > 0 ? 0 : Math.min(pathClearanceInterior(p, scoreBoxes), 1000);
-      const bends = (p.length - 2) * 20;
-      return ownHit + crossHit + clear - bends - rides;
-    };
-    const ortho = score(candidateB) > score(candidateA) ? candidateB : candidateA;
+    // 贴边平行 + 走线穿越节点内部: use the A* grid router to find a 90°-orthogonal
+    // path that keeps clear of (inflated) third-party boxes and never passes
+    // through its own endpoints' body. The router tries several exit/entry anchor
+    // pairs (centre/local face directions) and keeps the best-quality result, so
+    // an edge leaving a node's bottom doesn't double back through it, and a drop
+    // toward a target rides clear of the target's side wall.
+    const ortho = buildEdgePath(pts, srcNode, dstNode, srcKind, dstKind, routeBoxes, { w: layout.width, h: layout.height });
     const d = ortho
       .map((p, i) => `${i === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`)
       .join(' ');
@@ -1312,6 +1266,233 @@ function routeRectilinear(
     }
   }
   return best;
+}
+
+/**
+ * Grid-search (A*) rectilinear router.
+ *
+ * Builds a uniform grid over the layout and finds the shortest 90°-orthogonal
+ * path from `src` to `dst` that never enters a blocked cell. A cell is blocked
+ * when it lies inside an obstacle box INFLATED by `clear` px — so the resulting
+ * route keeps `clear`px clearance from every wall (no "贴边"). Cells inside the
+ * edge's OWN source/target node are NOT blocked (the edge attaches at their
+ * border), and neither are the owning groups (excluded up front in `obstacles`).
+ *
+ * Returns a dense axis-aligned polyline of grid points, already collapsed to
+ * straight runs (no intermediate points on a straight leg). Returns null when no
+ * clear route exists, so the caller falls back to the rectilinear heuristic.
+ */
+function routeAStar(
+  src: { x: number; y: number },
+  dst: { x: number; y: number },
+  obstacles: { x: number; y: number; w: number; h: number }[],
+  bounds: { w: number; h: number },
+  srcNode?: { x: number; y: number; width: number; height: number } | null,
+  dstNode?: { x: number; y: number; width: number; height: number } | null,
+  clear = 8,
+): { x: number; y: number }[] | null {
+  const M = 6; // grid cells minimum regardless of scale
+  const cell = Math.max(6, Math.floor(clear / 2));
+  const gx = Math.floor(bounds.w / cell) + 1;
+  const gy = Math.floor(bounds.h / cell) + 1;
+  const col = (x: number) => Math.max(0, Math.min(gx - 1, Math.floor(x / cell)));
+  const row = (y: number) => Math.max(0, Math.min(gy - 1, Math.floor(y / cell)));
+
+  // Blocked check: cell centre inside an inflated obstacle, unless that box is
+  // the edge's own source/target node (edge attaches there).
+  const blocked = new Uint8Array(gx * gy);
+  const ownBox = (b: { x: number; y: number; w: number; h: number }): boolean =>
+    !!((srcNode && b.x === srcNode.x && b.y === srcNode.y && b.w === srcNode.width && b.h === srcNode.height) ||
+       (dstNode && b.x === dstNode.x && b.y === dstNode.y && b.w === dstNode.width && b.h === dstNode.height));
+  for (const b of obstacles) {
+    if (ownBox(b)) continue;
+    const ix0 = Math.max(0, col(b.x - clear));
+    const iy0 = Math.max(0, row(b.y - clear));
+    const ix1 = Math.min(gx - 1, col(b.x + b.w + clear));
+    const iy1 = Math.min(gy - 1, row(b.y + b.h + clear));
+    for (let iy = iy0; iy <= iy1; iy++) {
+      for (let ix = ix0; ix <= ix1; ix++) blocked[iy * gx + ix] = 1;
+    }
+  }
+
+  const sxi = col(dst.x), syi = row(dst.y);
+  const srcI = row(src.y) * gx + col(src.x);
+  const dstI = syi * gx + sxi;
+  const idx = (x: number, y: number) => y * gx + x;
+  // un-block cells containing the src/dst anchors + their immediate cell (edge may
+  // start/end anywhere on the node border)
+  const unblockCell = (x: number, y: number) => { blocked[idx(x, y)] = 0; };
+  unblockCell(col(src.x), row(src.y));
+  unblockCell(sxi, syi);
+
+  // A* over 4-neighbour grid
+  const open = new MinHeap();
+  const gScore = new Float64Array(gx * gy).fill(Infinity);
+  const cameFrom = new Int32Array(gx * gy).fill(-1);
+  const hn = (x: number, y: number) => Math.abs(x - sxi) + Math.abs(y - syi);
+  const si = col(src.x), sj = row(src.y);
+  gScore[si + sj * gx] = 0;
+  open.push(hn(si, sj), si + sj * gx);
+  const dx = [1, -1, 0, 0], dy = [0, 0, 1, -1];
+  let found = false;
+  while (!open.isEmpty()) {
+    const cur = open.pop();
+    if (cur === dstI) { found = true; break; }
+    const cx = cur % gx, cy = (cur - cx) / gx;
+    for (let k = 0; k < 4; k++) {
+      const nx = cx + dx[k], ny = cy + dy[k];
+      if (nx < 0 || ny < 0 || nx >= gx || ny >= gy) continue;
+      const ni = idx(nx, ny);
+      if (blocked[ni]) continue;
+      const ng = gScore[cur] + 1;
+      if (ng < gScore[ni]) {
+        gScore[ni] = ng;
+        cameFrom[ni] = cur;
+        open.push(ng + hn(nx, ny), ni);
+      }
+    }
+  }
+  if (!found) return null;
+
+  // Reconstruct cell path
+  const cellPath: number[] = [];
+  let cur = dstI;
+  while (cur !== -1) { cellPath.push(cur); if (cur === srcI) break; cur = cameFrom[cur]; }
+  if (cellPath[cellPath.length - 1] !== srcI) return null;
+  cellPath.reverse();
+
+  // Convert cells to points (cell corners), then simplify.
+  const pts = cellPath.map((ci) => {
+    const cx = ci % gx, cy = (ci - cx) / gx;
+    return { x: cx * cell, y: cy * cell };
+  });
+  pts[0] = src;
+  pts[pts.length - 1] = dst;
+  return collapseGridPath(pts, obstacles, bounds, clear, ownBox);
+}
+
+/**
+ * Simplify a dense axis-aligned grid path. Walking a fine grid yields a
+ * cell-by-cell staircase; each 3-point "staircase elbow" p between a and c can be
+ * replaced by a single L-corner (a, corner) (corner, c) where corner is the
+ * right-angle point that is clear, collapsing many tiny steps into one turn.
+ * Repeat until no further collapses, then strip collinear points.
+ */
+function collapseGridPath(
+  pts: { x: number; y: number }[],
+  boxes: { x: number; y: number; w: number; h: number }[],
+  bounds: { w: number; h: number },
+  clear: number,
+  ownBox: (b: { x: number; y: number; w: number; h: number }) => boolean,
+): { x: number; y: number }[] {
+  if (pts.length <= 2) return pts;
+
+  const segClear = (a: { x: number; y: number }, b: { x: number; y: number }): boolean => {
+    // A collapsed shortcut must not enter the SAME inflated region the grid search
+    // blocked: reject when the segment overlaps [x-clear..x+w+clear]×[y-clear..
+    // y+h+clear] of any obstacle. This keeps the collapse from reintroducing a
+    // leg that hugs a wall while staying consistent with the grid.
+    const m = clear;
+    for (const box of boxes) {
+      if (ownBox(box)) continue;
+      if (Math.abs(a.x - b.x) < 0.5) {
+        const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
+        if (a.x > box.x - m && a.x < box.x + box.w + m && lo < box.y + box.h + m && hi > box.y - m) return false;
+      } else if (Math.abs(a.y - b.y) < 0.5) {
+        const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+        if (a.y > box.y - m && a.y < box.y + box.h + m && lo < box.x + box.w + m && hi > box.x - m) return false;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  let path = pts;
+  for (let pass = 0; pass < 8 && path.length > 2; pass++) {
+    let changed = false;
+    const out: { x: number; y: number }[] = [path[0]];
+    for (let i = 1; i < path.length - 1; i++) {
+      const a = out[out.length - 1];
+      const p = path[i];
+      const c = path[i + 1];
+      // try to bridge a -> c directly with one L-corner (right-angle of a and c)
+      const corner1 = { x: a.x, y: c.y };
+      const corner2 = { x: c.x, y: a.y };
+      let replaced = false;
+      for (const corner of [corner1, corner2]) {
+        if (segClear(a, corner) && segClear(corner, c)) {
+          out.push(corner);
+          changed = true;
+          replaced = true;
+          break;
+        }
+      }
+      if (!replaced) out.push(p);
+    }
+    out.push(path[path.length - 1]);
+    path = collinearCollapse(out);
+    if (!changed) break;
+  }
+  return path;
+}
+
+/**
+ * Collapse a polyline to just its corner points: drop any point that lies on the
+ * straight line between its two neighbours (collinear / redundant / duplicate).
+ */
+function collinearCollapse(pts: { x: number; y: number }[]): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = out[out.length - 1];
+    const c = pts[i];
+    if (a && Math.abs(a.x - c.x) < 0.5 && Math.abs(a.y - c.y) < 0.5) continue; // dup
+    if (out.length >= 2) {
+      const p = out[out.length - 2];
+      const collinear =
+        (Math.abs(p.x - a.x) < 0.5 && Math.abs(a.x - c.x) < 0.5) || // all same x
+        (Math.abs(p.y - a.y) < 0.5 && Math.abs(a.y - c.y) < 0.5); // all same y
+      if (collinear) { out[out.length - 1] = c; continue; }
+    }
+    out.push(c);
+  }
+  return out;
+}
+
+/** Simple binary min-heap keyed by numeric priority for the A* open set. */
+class MinHeap {
+  private p: number[] = [];
+  private v: number[] = [];
+  isEmpty(): boolean { return this.p.length === 0; }
+  push(prio: number, val: number): void {
+    let i = this.p.length;
+    this.p.push(prio); this.v.push(val);
+    while (i > 0) {
+      const par = (i - 1) >> 1;
+      if (this.p[par] <= this.p[i]) break;
+      this.swap(i, par); i = par;
+    }
+  }
+  pop(): number {
+    const top = this.v[0];
+    const lp = this.p.pop()!; const lv = this.v.pop()!;
+    if (this.p.length) {
+      this.p[0] = lp; this.v[0] = lv;
+      let i = 0;
+      for (;;) {
+        const l = i * 2 + 1, r = l + 1; let mn = i;
+        if (l < this.p.length && this.p[l] < this.p[mn]) mn = l;
+        if (r < this.p.length && this.p[r] < this.p[mn]) mn = r;
+        if (mn === i) break;
+        this.swap(i, mn); i = mn;
+      }
+    }
+    return top;
+  }
+  private swap(a: number, b: number): void {
+    [this.p[a], this.p[b]] = [this.p[b], this.p[a]];
+    [this.v[a], this.v[b]] = [this.v[b], this.v[a]];
+  }
 }
 
 /**
