@@ -311,6 +311,17 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
     minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
     maxX = Math.max(maxX, p.x + p.width); maxY = Math.max(maxY, p.y + p.height);
   }
+  // Group boxes are NOT in `finalPos` (their members are). The renderer derives
+  // each group box from its members plus padding, which can extend past the
+  // member extents; a group box that sticks out would be clipped at the canvas
+  // edge (the "group 出画布" defect). So include each group super-node's bbox
+  // (top-level position + its padded size) in the canvas bounds.
+  for (const g of deriveGroups(doc)) {
+    const gp = tpos.get(g.id);
+    if (!gp) continue;
+    minX = Math.min(minX, gp.x); minY = Math.min(minY, gp.y);
+    maxX = Math.max(maxX, gp.x + gp.width); maxY = Math.max(maxY, gp.y + gp.height);
+  }
   const nodes: LayoutNode[] = doc.nodes
     .filter((nd) => nd.kind !== 'group') // group boxes are derived by the renderer
     .map((n) => {
