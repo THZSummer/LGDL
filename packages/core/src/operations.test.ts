@@ -7,6 +7,7 @@ import {
   type LgdlOperation,
 } from './operations.js';
 import { parseLgdl } from './parser.js';
+import { groupNodes } from './groups.js';
 
 const BASE = `title: ops
 type: flowchart
@@ -15,15 +16,15 @@ nodes:
     label: A
   - id: b
     label: B
+  - id: g
+    label: G
+    kind: group
+    contains: [a]
+
 edges:
   - from: a
     to: b
-    label: dep
-groups:
-  - id: g
-    label: G
-    contains: [a]
-`;
+    label: dep`;
 
 function doc() {
   const r = parseLgdl(BASE);
@@ -42,7 +43,7 @@ test('applyOperation: update-node renames and rewrites edges', () => {
   const d = r.document;
   assert.ok(d.nodes.some((n) => n.id === 'a2'));
   assert.ok(d.edges.some((e) => e.from === 'a2' && e.to === 'b'));
-  assert.ok(d.groups.some((g) => g.contains.includes('a2')));
+  assert.ok(groupNodes(d).some((n) => n.contains?.includes('a2')));
 });
 
 test('applyOperation: remove-edge with label picks the parallel edge', () => {
@@ -57,7 +58,7 @@ test('applyOperation: remove-edge with label picks the parallel edge', () => {
 
 test('applyOperation: add-group places members', () => {
   const r = applyOperation(doc(), { op: 'add-group', id: 'g2', label: 'G2', contains: ['b'] });
-  const g = r.document.groups.find((x) => x.id === 'g2');
+  const g = groupNodes(r.document).find((x) => x.id === 'g2');
   assert.ok(g);
   assert.deepEqual(g.contains, ['b']);
 });
@@ -105,7 +106,7 @@ test('applyOperations: empty sequence is a no-op', () => {
   const r = applyOperations(doc(), []);
   assert.equal(r.failedIndex, -1);
   assert.deepEqual(r.results, []);
-  // doc() is parseLgdl(BASE) — the `groups:` entry becomes a kind:'group'
+  // doc() is parseLgdl(BASE) — the `` entry becomes a kind:'group'
   // node in `nodes`, so the count is a,b + group node g = 3
   assert.equal(r.document.nodes.length, 3);
 });

@@ -7,6 +7,7 @@
  * Others (uml-class, arch, datastream) fall back to flowchart-style output.
  */
 import type { LgdlDocument, LgdlNode } from './types.js';
+import { deriveGroups } from './groups.js';
 import { registerConverter } from './converters.js';
 
 /** Escape text for use inside a Mermaid node label (double quotes). */
@@ -29,6 +30,7 @@ function safeId(id: string): string {
 /** Flowchart (also used as fallback for uml-class / arch / datastream). */
 function mermaidFlowchart(doc: LgdlDocument): string {
   const lines: string[] = ['flowchart TD'];
+  const groups = deriveGroups(doc);
 
   const emitNode = (n: LgdlNode, indent: string): void => {
     // start/end render as circles (flowchart convention); decision stays a
@@ -64,7 +66,7 @@ function mermaidFlowchart(doc: LgdlDocument): string {
   // CLI warns about it) so no group, label or aggregate edge is dropped;
   // each group's own node members ride inside its subgraph
   const inSubgraph = new Set<string>();
-  for (const g of doc.groups) {
+  for (const g of groups) {
     lines.push(`    subgraph ${safeId(g.id)}["${label(g.label, g.id)}"]`);
     for (const m of g.contains ?? []) {
       const child = doc.nodes.find((x) => x.id === m);
@@ -261,6 +263,7 @@ function mermaidState(doc: LgdlDocument): string {
 /** Gantt chart: tasks with attrs.start / attrs.duration. */
 function mermaidGantt(doc: LgdlDocument): string {
   const lines: string[] = ['gantt', '    dateFormat YYYY-MM-DD', '    axisFormat %d'];
+  const groups = deriveGroups(doc);
   // carry the epoch so a round-trip with a custom meta.ganttEpoch keeps the
   // exact dates (import reads it back into meta.ganttEpoch)
   const epoch = typeof doc.meta?.ganttEpoch === 'string' ? doc.meta.ganttEpoch : '2026-01-01';
@@ -273,7 +276,7 @@ function mermaidGantt(doc: LgdlDocument): string {
   const emittedIds = new Set<string>();
   for (const n of doc.nodes) {
     if (n.kind === 'group') continue; // group boxes are sections, not tasks
-    const g = doc.groups.find((gr) => gr.contains.includes(n.id));
+    const g = groups.find((gr) => gr.contains.includes(n.id));
     if (g) {
       if (!sections.has(g.id)) sections.set(g.id, []);
       sections.get(g.id)!.push(n.id);
@@ -342,7 +345,7 @@ function mermaidGantt(doc: LgdlDocument): string {
     topoSort(defaultSec).forEach(emitTask);
   }
   for (const [gid, ids] of sections) {
-    const g = doc.groups.find((x) => x.id === gid);
+    const g = groups.find((x) => x.id === gid);
     const secName = label(g?.label, gid);
     // carry the original group id in a comment so a round-trip keeps it
     // (mermaid sections have no id syntax)

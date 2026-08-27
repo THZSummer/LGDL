@@ -21,12 +21,11 @@ import {
 const MEMBER_KINDS: readonly string[] = ['attribute', 'method'];
 const MEMBER_VISIBILITIES: readonly string[] = ['public', 'private', 'protected', 'package'];
 
-// Field allowlists — anything else on a node/edge/group is a typo or a
-// misplaced list item, and must be rejected loudly, never silently ignored.
+// Field allowlists — anything else on a node/edge is a typo or a misplaced list
+// item, and must be rejected loudly, never silently ignored.
 const NODE_FIELDS = new Set(['id', 'label', 'kind', 'members', 'attrs', 'contains']);
 const EDGE_FIELDS = new Set(['from', 'to', 'label', 'cardinalityFrom', 'cardinalityTo', 'attrs']);
-const GROUP_FIELDS = new Set(['id', 'label', 'contains', 'attrs']);
-const DOC_FIELDS = new Set(['title', 'type', 'nodes', 'edges', 'groups', 'meta']);
+const DOC_FIELDS = new Set(['title', 'type', 'nodes', 'edges', 'meta']);
 
 /** Parse an LGDL document from YAML text. */
 export function parseLgdl(source: string): ParseResult {
@@ -46,64 +45,14 @@ export function validate(
     type: 'flowchart',
     nodes: [],
     edges: [],
-    groups: [],
     ...doc,
   };
   result.nodes = doc.nodes ?? [];
   result.edges = doc.edges ?? [];
 
-  // Validate the RAW `groups:` input for duplicates and unknown fields BEFORE
-  // the unification recompute below collapses them into group nodes. The
-  // recompute strips a group entry down to id/label/contains/attrs and dedups
-  // ids, so validating `result.groups` afterwards would silently let a
-  // duplicate group id or a typos field ("containz") pass — that would be
-  // data loss, which LGDL rejects loudly by design.
-  const rawInputGroups = doc.groups ?? [];
-  {
-    const rawGroupIds = new Set<string>();
-    for (const g of rawInputGroups) {
-      if (!g) continue;
-      for (const k of Object.keys(g)) {
-        if (!GROUP_FIELDS.has(k)) {
-          issues.push({
-            severity: 'error',
-            message: `Unknown field "${k}" on group "${g.id ?? ''}" (supported: id, label, contains, attrs)`,
-            location: 'groups',
-          });
-        }
-      }
-      if (g.id && rawGroupIds.has(g.id)) {
-        issues.push({
-          severity: 'error',
-          message: `Duplicate group id: "${g.id}"`,
-          location: 'groups',
-        });
-      }
-      if (g.id) rawGroupIds.add(g.id);
-    }
-  }
-
-  // ---- Model unification: group lives as a NODE (kind: 'group') ----
-  // `groups` is a derived projection of the group nodes. Two input shapes are
-  // accepted and normalized here:
-  //   * legacy `groups:` entries (id/label/contains) are appended as group
-  //     nodes so the model has a single source of truth (node+edge only);
-  //   * any node already carrying `kind: 'group'` stays as-is.
-  // After this, `result.groups` is recomputed from the group nodes so every
-  // consumer that reads `doc.groups` keeps working unchanged.
-  const groupNodeIds = new Set(
-    (result.nodes ?? []).filter((n) => n.kind === 'group').map((n) => n.id),
-  );
-  for (const g of doc.groups ?? []) {
-    if (g && g.id && !groupNodeIds.has(g.id)) {
-      result.nodes.push({ id: g.id, label: g.label, kind: 'group', contains: [...(g.contains ?? [])], attrs: g.attrs });
-      groupNodeIds.add(g.id);
-    }
-  }
-  // recompute `result.groups` as the projection of group nodes
-  result.groups = (result.nodes ?? [])
-    .filter((n) => n.kind === 'group')
-    .map((n) => ({ id: n.id, label: n.label, contains: [...(n.contains ?? [])], attrs: n.attrs as LgdlGroup['attrs'] }));
+  // The model is UNIFIED: a group is a node (`kind === 'group'`). There is no
+  // `groups:` top-level field — the legacy syntax is rejected loudly by the
+  // unknown-document-field check below. `groups` in the input is NOT accepted.
 
   // type
   if (!DIAGRAM_TYPES.includes(result.type as DiagramType)) {
@@ -119,7 +68,7 @@ export function validate(
     if (!DOC_FIELDS.has(k)) {
       issues.push({
         severity: 'error',
-        message: `Unknown document field "${k}" (supported: title, type, nodes, edges, groups, meta)`,
+        message: `Unknown document field "${k}" (supported: title, type, nodes, edges, meta)`,
         location: k,
       });
     }
@@ -288,11 +237,16 @@ export function validate(
     }
   });
 
-  // collect group ids early so edges may reference groups (aggregate edges)
+  // collect group ids early so edges may reference groups (aggregate edges);
+  // a group is a node with kind === 'group'
   const groupIds = new Set<string>();
-  for (const g of result.groups) {
-    if (g.id) groupIds.add(g.id);
+  for (const n of result.nodes) {
+    if (n.kind === 'group') groupIds.add(n.id);
   }
+  // derived group container list (projection of group nodes)
+  const groups = result.nodes
+    .filter((n) => n.kind === 'group')
+    .map((n) => ({ id: n.id, label: n.label, contains: [...(n.contains ?? [])], attrs: n.attrs }));
 
   // node/group ids share one namespace — an edge endpoint like "X" would be
   // ambiguous if both a node and a group were named X
@@ -396,55 +350,47 @@ export function validate(
     }
   });
 
-  // groups: ids unique; contains must reference existing nodes OR groups;
-  // no member (node or group) in two groups; no containment cycles
+  // groups (derived from group nodes): ids unique; contains must reference
+  // existing nodes OR groups; no member (node or group) in two groups; no
+  // containment cycles
   const seenGroupIds = new Set<string>();
-  result.groups.forEach((group, i) => {
-    for (const k of Object.keys(group)) {
-      if (!GROUP_FIELDS.has(k)) {
-        issues.push({
-          severity: 'error',
-          message: `Unknown field "${k}" on group "${group.id ?? ''}" (supported: id, label, contains, attrs)`,
-          location: `groups[${i}].${k}`,
-        });
-      }
-    }
+  groups.forEach((group, i) => {
     if (!group.id || !/^[A-Za-z0-9_-]+$/.test(group.id)) {
       issues.push({
         severity: 'error',
         message: `Group id must be non-empty and contain only letters, digits, underscore, hyphen (got "${group.id}")`,
-        location: `groups[${i}].id`,
+        location: `nodes[${i}].id`,
       });
     } else if (seenGroupIds.has(group.id)) {
       issues.push({
         severity: 'error',
         message: `Duplicate group id: "${group.id}"`,
-        location: `groups[${i}].id`,
+        location: `nodes[${i}].id`,
       });
     }
     seenGroupIds.add(group.id);
   });
 
-  result.groups.forEach((group, i) => {
+  groups.forEach((group, i) => {
     group.contains?.forEach((memberId, ci) => {
       if (!seenIds.has(memberId) && !groupIds.has(memberId)) {
         issues.push({
           severity: 'error',
           message: `Group "${group.id}" contains unknown node or group: "${memberId}"`,
-          location: `groups[${i}].contains[${ci}]`,
+          location: `nodes[${i}].contains[${ci}]`,
         });
       }
     });
   });
 
   const groupMembership = new Map<string, string>();
-  result.groups.forEach((group, gi) => {
+  groups.forEach((group, gi) => {
     group.contains?.forEach((memberId, ci) => {
       if (groupMembership.has(memberId)) {
         issues.push({
           severity: 'error',
           message: `"${memberId}" belongs to both "${groupMembership.get(memberId)}" and "${group.id}"`,
-          location: `groups[${gi}].contains[${ci}]`,
+          location: `nodes[${gi}].contains[${ci}]`,
         });
       }
       groupMembership.set(memberId, group.id);
@@ -453,7 +399,7 @@ export function validate(
 
   // containment cycles: DFS over group -> contained group edges
   const groupAdj = new Map<string, string[]>();
-  for (const g of result.groups) {
+  for (const g of groups) {
     groupAdj.set(g.id, (g.contains ?? []).filter((m) => groupIds.has(m)));
   }
   const visitState = new Map<string, 0 | 1 | 2>(); // 0 unvisited, 1 visiting, 2 done
@@ -476,11 +422,11 @@ export function validate(
   };
   for (const gid of groupIds) visit(gid, []);
   for (const gid of cycleGroups) {
-    const gi = result.groups.findIndex((g) => g.id === gid);
+    const gi = groups.findIndex((g) => g.id === gid);
     issues.push({
       severity: 'error',
       message: `Group containment cycle detected involving group "${gid}"`,
-      location: gi === -1 ? undefined : `groups[${gi}]`,
+      location: gi === -1 ? undefined : `nodes[${gi}]`,
     });
   }
 

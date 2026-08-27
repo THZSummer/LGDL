@@ -51,6 +51,23 @@ nodes:
     label: 监控告警
     kind: note
 
+  - id: gateway-layer
+    label: 接入层
+    kind: group
+    contains: [gateway]
+  - id: service-layer
+    label: 业务层
+    kind: group
+    contains: [auth, user, product, order, inventory, payment, notify, search]
+  - id: infra
+    label: 基础设施
+    kind: group
+    contains: [redis, mysql, mq, es, oss]
+  - id: observability
+    label: 可观测
+    kind: group
+    contains: [monitor]
+
 edges:
   - from: client
     to: gateway
@@ -106,17 +123,3 @@ edges:
   - from: service-layer
     to: infra
     label: 数据访问
-
-groups:
-  - id: gateway-layer
-    label: 接入层
-    contains: [gateway]
-  - id: service-layer
-    label: 业务层
-    contains: [auth, user, product, order, inventory, payment, notify, search]
-  - id: infra
-    label: 基础设施
-    contains: [redis, mysql, mq, es, oss]
-  - id: observability
-    label: 可观测
-    contains: [monitor]

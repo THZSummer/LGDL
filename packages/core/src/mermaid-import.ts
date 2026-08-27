@@ -415,11 +415,15 @@ function importFlowchart(lines: string[], issues: LgdlIssue[]): LgdlDocument {
     });
   }
 
+  // groups are now nodes (kind === 'group'), not a separate document field
+  const allNodes: LgdlNode[] = [...nodes];
+  for (const g of groups) {
+    allNodes.push({ id: g.id, label: g.label, kind: 'group', contains: [...g.contains], attrs: g.attrs });
+  }
   return {
     type: 'flowchart',
-    nodes,
+    nodes: allNodes,
     edges,
-    groups,
   };
 }
 
@@ -517,7 +521,7 @@ function importSequence(lines: string[], issues: LgdlIssue[]): LgdlDocument {
     issues.push({ severity: 'error', message: `Unrecognized Mermaid sequence syntax: "${line}"`, location: 'mermaid' });
   }
 
-  return { type: 'sequence', nodes, edges, groups: [] };
+  return { type: 'sequence', nodes, edges };
 }
 
 /** Mindmap: indented tree -> nodes + edges. */
@@ -601,7 +605,7 @@ function importMindmap(lines: string[], issues: LgdlIssue[]): LgdlDocument {
     stack.push({ id, depth });
   }
 
-  return { type: 'mindmap', nodes, edges, groups: [] };
+  return { type: 'mindmap', nodes, edges };
 }
 
 /** State diagram: A --> B or A --> B: label; terminals as [name]. */
@@ -743,7 +747,7 @@ function importState(lines: string[], issues: LgdlIssue[]): LgdlDocument {
     issues.push({ severity: 'error', message: `Unrecognized Mermaid state syntax: "${line}"`, location: 'mermaid' });
   }
 
-  return { type: 'state', nodes, edges, groups: [] };
+  return { type: 'state', nodes, edges };
 }
 
 /** ER diagram: entities with attributes + relationships. */
@@ -903,7 +907,7 @@ function importEr(lines: string[], issues: LgdlIssue[]): LgdlDocument {
     }
   }
 
-  return { type: 'er', nodes, edges, groups: [] };
+  return { type: 'er', nodes, edges };
 }
 
 /** Common ER data types — used to detect "name type" attribute order. */
@@ -1310,7 +1314,12 @@ function importGantt(lines: string[], issues: LgdlIssue[]): LgdlDocument {
     issues.push({ severity: 'error', message: `line ${li + 1}: Unrecognized Mermaid gantt syntax: "${line}"`, location: 'mermaid' });
   }
 
-  return { type: 'gantt', nodes, edges, groups, meta: { ganttEpoch }, ...(title ? { title } : {}) };
+  // groups are now nodes (kind === 'group'), not a separate document field
+  const allNodes: LgdlNode[] = [...nodes];
+  for (const g of groups) {
+    allNodes.push({ id: g.id, label: g.label, kind: 'group', contains: [...g.contains], attrs: g.attrs });
+  }
+  return { type: 'gantt', nodes: allNodes, edges, meta: { ganttEpoch }, ...(title ? { title } : {}) };
 }
 
 /** Class diagram: classes with members + relationships. */
@@ -1488,7 +1497,7 @@ function importClassDiagram(lines: string[], issues: LgdlIssue[]): LgdlDocument 
     }
     issues.push({ severity: 'warning', message: `line ${li + 1}: unrecognized classDiagram syntax skipped: "${line}"`, location: 'mermaid' });
   }
-  return { type: 'uml-class', nodes, edges, groups: [] };
+  return { type: 'uml-class', nodes, edges };
 }
 
 /** Parse Mermaid text into an LGDL document. */
@@ -1533,7 +1542,7 @@ export function importMermaid(source: string): MermaidImportResult {
       message: `Unsupported Mermaid diagram type: "${trimmed || 'empty'}". Supported: flowchart, sequenceDiagram, classDiagram, mindmap, stateDiagram-v2, erDiagram, gantt`,
       location: 'mermaid',
     });
-    return { document: { type: 'flowchart', nodes: [], edges: [], groups: [] }, issues, valid: false };
+    return { document: { type: 'flowchart', nodes: [], edges: [], }, issues, valid: false };
   }
 
   if (titleComment && !doc.title) {

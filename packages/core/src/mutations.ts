@@ -6,7 +6,8 @@
  * the affected area. Layout stability is handled by the layout engine;
  * here we only mutate the semantic model.
  */
-import type { LgdlAttrs, LgdlDocument, LgdlEdge, LgdlGroup, LgdlMember, LgdlNode, NodeKind } from './types.js';
+import type { LgdlAttrs, LgdlDocument, LgdlEdge, LgdlMember, LgdlNode, NodeKind } from './types.js';
+import { deriveGroups, groupNodes } from './groups.js';
 
 const MEMBER_KINDS = ['attribute', 'method'];
 const MEMBER_VISIBILITIES = ['public', 'private', 'protected', 'package'];
@@ -131,12 +132,15 @@ export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult
   if (members && members.length > 0) summary += ` with ${members.length} member(s)`;
 
   if (group) {
-    document.groups = doc.groups.map((g) =>
-      g.id === group ? { ...g, contains: [...g.contains, id] } : g,
-    );
-    if (!document.groups.some((g) => g.id === group)) {
+    if (!groupNodes(doc).some((n) => n.id === group)) {
       throw new Error(`Group not found: "${group}"`);
     }
+    // place the node into the group by updating the group node's `contains`
+    document.nodes = document.nodes.map((n) =>
+      n.kind === 'group' && n.id === group
+        ? { ...n, contains: [...(n.contains ?? []), id] }
+        : n,
+    );
     summary += ` into group "${group}"`;
   }
 
@@ -151,11 +155,13 @@ export function removeNode(doc: LgdlDocument, id: string): MutationResult {
   const document: LgdlDocument = {
     ...doc,
     // remove the node
-    nodes: doc.nodes.filter((n) => n.id !== id),
+    nodes: doc.nodes
+      .filter((n) => n.id !== id)
+      .map((n) =>
+        n.kind === 'group' ? { ...n, contains: (n.contains ?? []).filter((c) => c !== id) } : n,
+      ),
     // auto-clean edges touching it
     edges: doc.edges.filter((e) => e.from !== id && e.to !== id),
-    // remove it from groups
-    groups: doc.groups.map((g) => ({ ...g, contains: g.contains.filter((c) => c !== id) })),
   };
 
   const removedEdges = doc.edges.filter((e) => e.from === id || e.to === id).length;
@@ -169,7 +175,7 @@ export function addEdge(doc: LgdlDocument, opts: AddEdgeOptions): MutationResult
   const { from, to, label, cardinalityFrom, cardinalityTo, attrs } = opts;
 
   const isNode = (id: string) => doc.nodes.some((n) => n.id === id);
-  const isGroup = (id: string) => doc.groups.some((g) => g.id === id);
+  const isGroup = (id: string) => groupNodes(doc).some((n) => n.id === id);
   if (!isNode(from) && !isGroup(from)) {
     throw new Error(`Source node or group not found: "${from}"`);
   }
@@ -278,17 +284,24 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
   const document: LgdlDocument = {
     ...doc,
     nodes: doc.nodes.map((n) => {
-      if (n.id !== id) return n;
-      let members = n.members;
+      // a group node containing the renamed node gets its membership reference
+      // rewritten (id -> finalId); groups are nodes now, so this rides in the
+      // same `nodes` array rather than a separate `groups` list
+      let cur: LgdlNode = n;
+      if (n.kind === 'group' && (n.contains ?? []).includes(id)) {
+        cur = { ...n, contains: (n.contains ?? []).map((m) => (m === id ? finalId : m)) };
+      }
+      if (cur.id !== id) return cur;
+      let members = cur.members;
       if (memberAdd) members = [...(members ?? []), memberAdd];
       if (memberRemove) members = members?.filter((m) => m.name !== memberRemove) ?? [];
       return {
-        ...n,
+        ...cur,
         ...(rename !== undefined ? { id: finalId } : {}),
         ...(label !== undefined ? { label } : {}),
         ...(kind !== undefined ? { kind } : {}),
         ...(members !== undefined ? { members: members.length > 0 ? members : undefined } : {}),
-        ...(attrs !== undefined ? { attrs: { ...n.attrs, ...attrs } } : {}),
+        ...(attrs !== undefined ? { attrs: { ...cur.attrs, ...attrs } } : {}),
       };
     }),
     // rewrite every reference to the renamed node
@@ -296,10 +309,6 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
       ...e,
       from: e.from === id ? finalId : e.from,
       to: e.to === id ? finalId : e.to,
-    })),
-    groups: doc.groups.map((g) => ({
-      ...g,
-      contains: g.contains.map((m) => (m === id ? finalId : m)),
     })),
   };
 
@@ -315,10 +324,10 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
 
 export function updateEdge(doc: LgdlDocument, opts: UpdateEdgeOptions): MutationResult {
   const { from, to, fromLabel, newFrom, newTo, label, cardinalityFrom, cardinalityTo, attrs } = opts;
-  if (newFrom !== undefined && !doc.nodes.some((n) => n.id === newFrom) && !doc.groups.some((g) => g.id === newFrom)) {
+  if (newFrom !== undefined && !doc.nodes.some((n) => n.id === newFrom)) {
     throw new Error(`New source node or group not found: "${newFrom}"`);
   }
-  if (newTo !== undefined && !doc.nodes.some((n) => n.id === newTo) && !doc.groups.some((g) => g.id === newTo)) {
+  if (newTo !== undefined && !doc.nodes.some((n) => n.id === newTo)) {
     throw new Error(`New target node or group not found: "${newTo}"`);
   }
   let matches = doc.edges.filter(
@@ -373,7 +382,8 @@ export function updateEdge(doc: LgdlDocument, opts: UpdateEdgeOptions): Mutation
 
 export function addGroup(doc: LgdlDocument, opts: AddGroupOptions): MutationResult {
   const { id, label, contains } = opts;
-  if (doc.groups.some((g) => g.id === id)) {
+  const groups = deriveGroups(doc);
+  if (groups.some((g) => g.id === id)) {
     throw new Error(`Group id already exists: "${id}"`);
   }
   if (!/^[A-Za-z0-9_-]+$/.test(id)) {
@@ -383,7 +393,7 @@ export function addGroup(doc: LgdlDocument, opts: AddGroupOptions): MutationResu
   const memberIds = contains ?? [];
   // existing membership map: member id -> owning group id
   const membersOf = new Map<string, string>();
-  for (const g of doc.groups) {
+  for (const g of groups) {
     for (const m of g.contains) {
       if (!membersOf.has(m)) membersOf.set(m, g.id);
     }
@@ -394,7 +404,7 @@ export function addGroup(doc: LgdlDocument, opts: AddGroupOptions): MutationResu
       throw new Error(`Group cannot contain itself: "${id}"`);
     }
     const isNode = doc.nodes.some((n) => n.id === memberId);
-    const isGroup = doc.groups.some((g) => g.id === memberId);
+    const isGroup = groups.some((g) => g.id === memberId);
     if (!isNode && !isGroup) {
       throw new Error(`Group contains unknown node or group: "${memberId}"`);
     }
@@ -403,15 +413,21 @@ export function addGroup(doc: LgdlDocument, opts: AddGroupOptions): MutationResu
     }
   }
 
-  const group: LgdlGroup = { id, label, contains: memberIds };
+  // a group is now a node with `kind: 'group'` carrying its `contains`
+  const groupNode: LgdlNode = {
+    id,
+    kind: 'group',
+    ...(label !== undefined ? { label } : {}),
+    contains: memberIds,
+  };
   return {
-    document: { ...doc, groups: [...doc.groups, group] },
+    document: { ...doc, nodes: [...doc.nodes, groupNode] },
     summary: `added group "${id}"${label ? ` (${label})` : ''}${memberIds.length > 0 ? ` with ${memberIds.length} member(s)` : ''}`,
   };
 }
 
 export function removeGroup(doc: LgdlDocument, id: string): MutationResult {
-  if (!doc.groups.some((g) => g.id === id)) {
+  if (!groupNodes(doc).some((n) => n.id === id)) {
     throw new Error(`Group not found: "${id}"`);
   }
   // remove the group, detach it from any parent group's contains, and
@@ -420,10 +436,12 @@ export function removeGroup(doc: LgdlDocument, id: string): MutationResult {
   return {
     document: {
       ...doc,
+      nodes: doc.nodes
+        .filter((n) => n.id !== id)
+        .map((n) =>
+          n.kind === 'group' ? { ...n, contains: (n.contains ?? []).filter((c) => c !== id) } : n,
+        ),
       edges: doc.edges.filter((e) => e.from !== id && e.to !== id),
-      groups: doc.groups
-        .filter((g) => g.id !== id)
-        .map((g) => ({ ...g, contains: g.contains.filter((c) => c !== id) })),
     },
     summary: `removed group "${id}"${removedEdges > 0 ? ` and ${removedEdges} aggregate edge(s)` : ''}`,
   };
@@ -444,7 +462,7 @@ export interface UpdateGroupOptions {
 
 export function updateGroup(doc: LgdlDocument, opts: UpdateGroupOptions): MutationResult {
   const { id, newId, label, memberAdd, memberRemove, attrs } = opts;
-  const target = doc.groups.find((g) => g.id === id);
+  const target = doc.nodes.find((n) => n.kind === 'group' && n.id === id);
   if (!target) {
     throw new Error(`Group not found: "${id}"`);
   }
@@ -454,7 +472,7 @@ export function updateGroup(doc: LgdlDocument, opts: UpdateGroupOptions): Mutati
     if (!/^[A-Za-z0-9_-]+$/.test(rename)) {
       throw new Error(`Invalid group id: "${rename}" (letters, digits, underscore, hyphen only)`);
     }
-    if (doc.groups.some((g) => g.id === rename)) {
+    if (groupNodes(doc).some((n) => n.id === rename)) {
       throw new Error(`Group id already exists: "${rename}"`);
     }
     if (doc.nodes.some((n) => n.id === rename)) {
@@ -466,15 +484,15 @@ export function updateGroup(doc: LgdlDocument, opts: UpdateGroupOptions): Mutati
       throw new Error(`Group cannot contain itself: "${id}"`);
     }
     const isNode = doc.nodes.some((n) => n.id === memberAdd);
-    const isGroup = doc.groups.some((g) => g.id === memberAdd);
+    const isGroup = groupNodes(doc).some((n) => n.id === memberAdd);
     if (!isNode && !isGroup) {
       throw new Error(`Group contains unknown node or group: "${memberAdd}"`);
     }
-    if (target.contains.includes(memberAdd)) {
+    if ((target.contains ?? []).includes(memberAdd)) {
       throw new Error(`"${memberAdd}" is already in group "${id}"`);
     }
     const membersOf = new Map<string, string>();
-    for (const g of doc.groups) {
+    for (const g of deriveGroups(doc)) {
       for (const m of g.contains) {
         if (!membersOf.has(m)) membersOf.set(m, g.id);
       }
@@ -483,27 +501,32 @@ export function updateGroup(doc: LgdlDocument, opts: UpdateGroupOptions): Mutati
       throw new Error(`"${memberAdd}" already belongs to group "${membersOf.get(memberAdd)}"`);
     }
   }
-  if (memberRemove !== undefined && !target.contains.includes(memberRemove)) {
+  if (memberRemove !== undefined && !(target.contains ?? []).includes(memberRemove)) {
     throw new Error(`Member not found: "${memberRemove}" in group "${id}"`);
   }
   const finalId = newId ?? id;
 
-  let contains = target.contains;
+  let contains = target.contains ?? [];
   if (memberAdd !== undefined) contains = [...contains, memberAdd];
   if (memberRemove !== undefined) contains = contains.filter((m) => m !== memberRemove);
 
   const document: LgdlDocument = {
     ...doc,
-    groups: doc.groups.map((g) =>
-      g.id === id
+    // update the target group node in place; any parent group that contains
+    // the renamed group also gets its membership reference rewritten. Groups
+    // are nodes, so this rides in the same `nodes` array.
+    nodes: doc.nodes.map((n) =>
+      n.kind === 'group' && n.id === id
         ? {
-            ...g,
+            ...n,
             id: finalId,
             ...(label !== undefined ? { label } : {}),
             contains,
-            ...(attrs !== undefined ? { attrs: { ...g.attrs, ...attrs } } : {}),
+            ...(attrs !== undefined ? { attrs: { ...n.attrs, ...attrs } } : {}),
           }
-        : { ...g, contains: g.contains.map((m) => (m === id ? finalId : m)) },
+        : n.kind === 'group'
+          ? { ...n, contains: (n.contains ?? []).map((m) => (m === id ? finalId : m)) }
+          : n,
     ),
     // aggregate edges referencing the group follow the rename
     edges: doc.edges.map((e) => ({

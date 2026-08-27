@@ -24,6 +24,23 @@ nodes:
   - id: mq
     label: 消息队列
 
+  - id: g-client
+    label: 客户端层
+    kind: group
+    contains: [web-client, app-client]
+  - id: g-gateway
+    label: 网关层
+    kind: group
+    contains: [api-gateway]
+  - id: g-service
+    label: 业务服务层
+    kind: group
+    contains: [user-service, product-service, order-service, inventory-service, payment-service]
+  - id: g-data
+    label: 数据层
+    kind: group
+    contains: [mysql-cluster, redis-cache, mq]
+
 edges:
   - from: web-client
     to: api-gateway
@@ -91,17 +108,3 @@ edges:
   - from: payment-service
     to: mq
     label: 异步事件
-
-groups:
-  - id: g-client
-    label: 客户端层
-    contains: [web-client, app-client]
-  - id: g-gateway
-    label: 网关层
-    contains: [api-gateway]
-  - id: g-service
-    label: 业务服务层
-    contains: [user-service, product-service, order-service, inventory-service, payment-service]
-  - id: g-data
-    label: 数据层
-    contains: [mysql-cluster, redis-cache, mq]

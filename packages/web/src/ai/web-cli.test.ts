@@ -220,13 +220,13 @@ nodes:
     label: 开始
   - id: task
     label: 处理
+  - id: g1
+    kind: group
+    label: G
+    contains: [start]
 edges:
   - from: start
     to: task
-groups:
-  - id: g1
-    label: G
-    contains: [start]
 `;
   const parsed = parseLgdl(src);
   assert.ok(parsed.valid);

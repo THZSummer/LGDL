@@ -96,6 +96,15 @@ nodes:
         params: "()"
         visibility: public
 
+  - id: domain
+    label: 领域层
+    kind: group
+    contains: [user, order, cart]
+  - id: infra
+    label: 基础设施
+    kind: group
+    contains: [payment]
+
 edges:
   - from: user
     to: order
@@ -112,11 +121,3 @@ edges:
     label: 关联
     cardinalityFrom: "1"
     cardinalityTo: "1"
-
-groups:
-  - id: domain
-    label: 领域层
-    contains: [user, order, cart]
-  - id: infra
-    label: 基础设施
-    contains: [payment]

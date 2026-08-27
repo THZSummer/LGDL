@@ -42,6 +42,19 @@ nodes:
     label: 已退款
     kind: end
 
+  - id: payment-flow
+    label: 支付阶段
+    kind: group
+    contains: [pending, paying, paid]
+  - id: fulfillment-flow
+    label: 履约阶段
+    kind: group
+    contains: [preparing, shipped, delivering, received]
+  - id: after-sale
+    label: 售后阶段
+    kind: group
+    contains: [refunding]
+
 edges:
   - from: created
     to: pending
@@ -88,14 +101,3 @@ edges:
   - from: refunding
     to: refunded
     label: 退款成功
-
-groups:
-  - id: payment-flow
-    label: 支付阶段
-    contains: [pending, paying, paid]
-  - id: fulfillment-flow
-    label: 履约阶段
-    contains: [preparing, shipped, delivering, received]
-  - id: after-sale
-    label: 售后阶段
-    contains: [refunding]

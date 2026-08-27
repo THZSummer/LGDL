@@ -181,19 +181,15 @@ export interface LgdlMeta {
 
 /** The parsed LGDL document — semantics only, no layout fields.
  *
- * The model is UNIFIED: `groups` is a convenience projection of `nodes` where
- * `kind === 'group'`. The parser derives it from group nodes; consumers that
- * need the group container list may read either `nodes` (unified) or `groups`
- * (derived projection). Nothing else in the model holds a separate group list.
+ * The model is UNIFIED: a group is a node with `kind === 'group'` carrying
+ * `contains`. There is no separate group list on the document; consumers derive
+ * the group container list from `nodes` (e.g. via the `deriveGroups` helper).
  */
 export interface LgdlDocument {
   title?: string;
   type: DiagramType;
   nodes: LgdlNode[];
   edges: LgdlEdge[];
-  /** Convenience projection: the nodes with kind === 'group'. Derive it when
-   * constructing a document from group nodes. */
-  groups: LgdlGroup[];
   meta?: LgdlMeta;
 }
 

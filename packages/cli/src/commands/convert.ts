@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { Command, Option } from 'commander';
 import type { LgdlCommand } from '../registry.js';
 import { loadDocument } from '../shared.js';
-import { convert, listFormats } from '@lgdl/core';
+import { convert, deriveGroups, listFormats } from '@lgdl/core';
 
 export const convertCommand: LgdlCommand = {
   name: 'convert',
@@ -19,12 +19,13 @@ export const convertCommand: LgdlCommand = {
       .option('-o, --output <file>', 'output file (default: stdout)')
       .action((opts: { file: string; as: string; output?: string }) => {
         const doc = loadDocument(opts.file);
+        const groups = deriveGroups(doc);
         const out = convert(doc, opts.as);
         // warn about lossy fallbacks instead of silently degrading semantics
         if (opts.as === 'mermaid' && ['arch', 'datastream'].includes(doc.type)) {
           console.error(`⚠ ${doc.type} -> mermaid falls back to flowchart — members/cardinality are not represented`);
         }
-        if (opts.as === 'mermaid' && doc.groups.some((g) => (g.contains ?? []).some((m) => doc.groups.some((x) => x.id === m)))) {
+        if (opts.as === 'mermaid' && groups.some((g) => (g.contains ?? []).some((m) => groups.some((x) => x.id === m)))) {
           console.error(`⚠ nested groups are flattened in mermaid output — nesting is lost on round-trip`);
         }
         if (opts.as === 'mermaid' && !['er', 'uml-class', 'gantt'].includes(doc.type)) {
@@ -54,11 +55,11 @@ export const convertCommand: LgdlCommand = {
             }
           }
           const sectionOf = new Map<string, string>();
-          for (const g of doc.groups) {
+          for (const g of groups) {
             for (const m of g.contains ?? []) sectionOf.set(m, g.id);
           }
           const groupOrder = new Map<string, number>();
-          doc.groups.forEach((g, i) => groupOrder.set(g.id, i));
+          groups.forEach((g, i) => groupOrder.set(g.id, i));
           // multiple-predecessor tasks: warn once per task
           const multiPred = new Set<string>();
           for (const e of doc.edges) {

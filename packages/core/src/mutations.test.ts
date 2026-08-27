@@ -17,6 +17,7 @@ import {
   convert,
   listFormats,
 } from './index.js';
+import { groupNodes, deriveGroups } from './groups.js';
 
 const BASE: Parameters<typeof addNode>[0] = {
   type: 'flowchart',
@@ -24,16 +25,16 @@ const BASE: Parameters<typeof addNode>[0] = {
   nodes: [
     { id: 'a', label: 'A', kind: 'start' },
     { id: 'b', label: 'B' },
+    { id: 'g1', label: 'G1', kind: 'group', contains: ['a'] },
   ],
   edges: [{ from: 'a', to: 'b', label: 'go' }],
-  groups: [{ id: 'g1', label: 'G1', contains: ['a'] }],
 };
 
 test('addNode appends node and optional group membership', () => {
   const { document, summary } = addNode(BASE, { id: 'c', label: 'C', kind: 'decision', group: 'g1' });
-  assert.equal(document.nodes.length, 3);
-  assert.equal(document.nodes[2].id, 'c');
-  assert.deepEqual(document.groups[0].contains, ['a', 'c']);
+  assert.equal(document.nodes.length, 4);
+  assert.equal(document.nodes[3].id, 'c');
+  assert.deepEqual(groupNodes(document)[0].contains, ['a', 'c']);
   assert.ok(summary.includes('added node "c"'));
 });
 
@@ -47,9 +48,9 @@ test('addNode rejects invalid id chars', () => {
 
 test('removeNode cleans attached edges and group membership', () => {
   const { document } = removeNode(BASE, 'a');
-  assert.equal(document.nodes.length, 1);
+  assert.equal(document.nodes.length, 2);
   assert.equal(document.edges.length, 0); // a->b removed
-  assert.deepEqual(document.groups[0].contains, []); // a removed from g1
+  assert.deepEqual(groupNodes(document)[0].contains, []); // a removed from g1
 });
 
 test('removeNode throws on missing node', () => {
@@ -104,11 +105,11 @@ test('serialize -> parse roundtrip preserves the document', () => {
   const yaml = serializeLgdl(document);
   const reparsed = parseLgdl(yaml);
   assert.equal(reparsed.valid, true, reparsed.issues.map((i) => i.message).join('; '));
-  // the parser injects a kind:'group' node for the `groups:` entry, so the
-  // re-parsed node count includes it (a,b,c + group node g1)
+  // the group is a kind:'group' node now, so the re-parsed node count includes
+  // it (a,b,c + group node g1)
   assert.equal(reparsed.document.nodes.length, 4);
   assert.equal(reparsed.document.edges.length, 1);
-  assert.equal(reparsed.document.groups.length, 1);
+  assert.equal(groupNodes(reparsed.document).length, 1);
 });
 
 test('serialize produces stable output (deterministic)', () => {
@@ -120,19 +121,9 @@ test('serialize produces stable output (deterministic)', () => {
 test('serialized output can be re-parsed to identical model', () => {
   const yaml = serializeLgdl(BASE);
   const reparsed = parseLgdl(yaml);
-  // The unified model keeps a group as a kind:'group' node in `nodes`, so a
-  // hand-built doc whose group lives only in `groups` gains its group node on
-  // re-parse. Compare the re-parsed model against BASE + that group node
-  // (the parser sets an explicit `attrs: undefined` on the inferred node and
-  // on the recomputed group projection).
-  const expected: typeof BASE = {
-    ...BASE,
-    nodes: [
-      ...BASE.nodes,
-      { id: 'g1', label: 'G1', kind: 'group', contains: ['a'], attrs: undefined },
-    ],
-    groups: BASE.groups.map((g) => ({ ...g, attrs: undefined })),
-  };
+  // The model is UNIFIED: a group is a kind:'group' node in `nodes`, so
+  // BASE already carries g1 as a node and the round-trip is identity.
+  const expected: typeof BASE = { ...BASE };
   assert.deepEqual(reparsed.document, expected);
 });
 
@@ -223,8 +214,8 @@ test('updateEdge merges attrs', () => {
 
 test('addGroup creates group with members', () => {
   const { document, summary } = addGroup(BASE, { id: 'g2', label: 'G2', contains: ['b'] });
-  assert.equal(document.groups.length, 2);
-  assert.deepEqual(document.groups[1].contains, ['b']);
+  assert.equal(groupNodes(document).length, 2);
+  assert.deepEqual(groupNodes(document)[1].contains, ['b']);
   assert.ok(summary.includes('added group "g2"'));
 });
 
@@ -235,11 +226,14 @@ test('addGroup rejects unknown member', () => {
 test('addGroup supports nested groups (group id in contains)', () => {
   const doc: Parameters<typeof addNode>[0] = {
     ...BASE,
-    groups: [{ id: 'inner', label: '内层', contains: ['a'] }],
+    nodes: [
+      ...BASE.nodes.filter((n) => n.kind !== 'group'),
+      { id: 'inner', label: '内层', kind: 'group', contains: ['a'] },
+    ],
   };
   const { document, summary } = addGroup(doc, { id: 'outer', label: '外层', contains: ['inner', 'b'] });
-  assert.equal(document.groups.length, 2);
-  assert.deepEqual(document.groups[1].contains, ['inner', 'b']);
+  assert.equal(groupNodes(document).length, 2);
+  assert.deepEqual(groupNodes(document)[1].contains, ['inner', 'b']);
   assert.ok(summary.includes('added group "outer"'));
   // resulting document is valid (nesting is legal)
   const res = parseLgdl(serializeLgdl(document));
@@ -253,10 +247,10 @@ test('addGroup rejects member already in another group', () => {
 test('addGroup rejects a group already nested in another group', () => {
   const doc: Parameters<typeof addNode>[0] = {
     ...BASE,
-    groups: [
-      { id: 'g1', label: 'G1', contains: ['a'] },
-      { id: 'g2', label: 'G2', contains: ['b'] },
-      { id: 'g3', label: 'G3', contains: ['g2'] },
+    nodes: [
+      ...BASE.nodes,
+      { id: 'g2', label: 'G2', kind: 'group', contains: ['b'] },
+      { id: 'g3', label: 'G3', kind: 'group', contains: ['g2'] },
     ],
   };
   assert.throws(() => addGroup(doc, { id: 'g4', contains: ['g2'] }), /already belongs to group "g3"/);
@@ -273,21 +267,22 @@ test('addGroup rejects invalid id chars', () => {
 test('removeGroup detaches it from parent groups (nested)', () => {
   const doc: Parameters<typeof addNode>[0] = {
     ...BASE,
-    groups: [
-      { id: 'inner', contains: ['a'] },
-      { id: 'outer', contains: ['inner', 'b'] },
+    nodes: [
+      ...BASE.nodes.filter((n) => n.kind !== 'group'),
+      { id: 'inner', kind: 'group', contains: ['a'] },
+      { id: 'outer', kind: 'group', contains: ['inner', 'b'] },
     ],
   };
   const { document } = removeGroup(doc, 'inner');
-  assert.equal(document.groups.length, 1);
-  assert.deepEqual(document.groups[0].contains, ['b'], 'outer no longer references removed group');
+  assert.equal(groupNodes(document).length, 1);
+  assert.deepEqual(groupNodes(document)[0].contains, ['b'], 'outer no longer references removed group');
   const res = parseLgdl(serializeLgdl(document));
   assert.equal(res.valid, true, res.issues.map((i) => i.message).join('; '));
 });
 
 test('removeGroup removes group', () => {
   const { document } = removeGroup(BASE, 'g1');
-  assert.equal(document.groups.length, 0);
+  assert.equal(groupNodes(document).length, 0);
 });
 
 test('removeGroup throws on missing', () => {
@@ -302,7 +297,6 @@ test('exportMermaid flowchart', () => {
       { id: 'b', label: '处理' },
     ],
     edges: [{ from: 'a', to: 'b', label: '下一步' }],
-    groups: [],
   };
   const out = exportMermaid(doc);
   assert.ok(out.startsWith('flowchart TD'));
@@ -320,7 +314,6 @@ test('exportMermaid sequence', () => {
       { id: 'srv', label: '服务' },
     ],
     edges: [{ from: 'user', to: 'srv', label: '请求' }],
-    groups: [],
   };
   const out = exportMermaid(doc);
   assert.ok(out.startsWith('sequenceDiagram'));
@@ -340,7 +333,6 @@ test('exportMermaid mindmap', () => {
       { from: 'root', to: 'c1' },
       { from: 'root', to: 'c2' },
     ],
-    groups: [],
   };
   const out = exportMermaid(doc);
   assert.ok(out.startsWith('mindmap'));
@@ -356,7 +348,6 @@ test('exportMermaid state', () => {
       { id: 'b', label: '已完成', kind: 'end' as const },
     ],
     edges: [{ from: 'a', to: 'b', label: '支付' }],
-    groups: [],
   };
   const out = exportMermaid(doc);
   assert.ok(out.startsWith('stateDiagram-v2'));
@@ -371,7 +362,6 @@ test('exportMermaid gantt', () => {
       { id: 't1', label: '开发', attrs: { start: 0, duration: 3 } },
     ],
     edges: [],
-    groups: [],
   };
   const out = exportMermaid(doc);
   assert.ok(out.startsWith('gantt'));
@@ -384,7 +374,6 @@ test('exportMermaid quotes are escaped', () => {
     type: 'flowchart' as const,
     nodes: [{ id: 'a', label: 'say "hi"' }],
     edges: [],
-    groups: [],
   };
   const out = exportMermaid(doc);
   assert.ok(out.includes('say &quot;hi&quot;'));
@@ -468,7 +457,8 @@ test('importMermaid gantt', () => {
 `;
   const r = importMermaid(mermaid);
   assert.equal(r.document.type, 'gantt');
-  assert.equal(r.document.nodes.length, 1);
+  // the `section 任务` becomes a kind:'group' node, so 1 task + 1 group node
+  assert.equal(r.document.nodes.length, 2);
   assert.equal(r.document.nodes[0].attrs?.duration, 3);
 });
 
@@ -481,7 +471,6 @@ test('importMermaid roundtrip: export -> import -> export is stable', () => {
       { id: 'b', label: '处理' },
     ],
     edges: [{ from: 'a', to: 'b', label: '下一步' }],
-    groups: [],
   };
   const m1 = exportMermaid(doc);
   const imported = importMermaid(m1);
@@ -516,7 +505,6 @@ test('convert to plantuml produces activity diagram with if/else fork', () => {
       { from: 'b', to: 'c', label: '通过' },
       { from: 'b', to: 'd', label: '失败' },
     ],
-    groups: [],
   };
   const out = convert(doc, 'plantuml');
   assert.ok(out.startsWith('@startuml'));
@@ -534,7 +522,6 @@ test('convert to json roundtrips structure', () => {
       { id: 'b', label: 'B' },
     ],
     edges: [{ from: 'a', to: 'b', label: 'x' }],
-    groups: [],
   };
   const out = convert(doc, 'json');
   const parsed = JSON.parse(out);
@@ -548,7 +535,6 @@ test('convert unknown format throws with available list', () => {
     type: 'flowchart',
     nodes: [{ id: 'a' }],
     edges: [],
-    groups: [],
   };
   assert.throws(() => convert(doc, 'bogus'), /Unknown output format/);
   const formats = listFormats();
@@ -664,10 +650,10 @@ test('importMermaid rejects unrecognized lines instead of silently dropping them
     end
 `);
   assert.equal(r1.valid, true);
-  assert.equal(r1.document.groups.length, 1);
-  assert.equal(r1.document.groups[0].id, 'one');
-  assert.equal(r1.document.groups[0].label, '组1');
-  assert.deepEqual(r1.document.groups[0].contains, ['a', 'b']);
+  assert.equal(groupNodes(r1.document).length, 1);
+  assert.equal(groupNodes(r1.document)[0].id, 'one');
+  assert.equal(groupNodes(r1.document)[0].label, '组1');
+  assert.deepEqual(groupNodes(r1.document)[0].contains, ['a', 'b']);
 
   // nested subgraphs are rejected loudly
   const r1b = importMermaid(`flowchart TD
@@ -702,7 +688,6 @@ test('importMermaid flowchart roundtrip with decision + labels is stable', () =>
       { from: 'start', to: 'check', label: '进入' },
       { from: 'check', to: 'ok', label: '通过' },
     ],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const imported = importMermaid(m);
@@ -722,7 +707,6 @@ test('addEdge allows a different label on the same pair (ER relations)', () => {
       { id: 'order', label: 'Order', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'order', label: 'places' }],
-    groups: [],
   };
   const r = addEdge(doc, { from: 'user', to: 'order', label: 'manages' });
   assert.equal(r.document.edges.length, 2);
@@ -831,7 +815,6 @@ test('importMermaid round-trip decodes &quot; in labels', () => {
       { id: 'b', label: 'B' },
     ],
     edges: [{ from: 'a', to: 'b', label: '说"好"' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -861,7 +844,6 @@ test('removeEdge with label removes only that parallel edge', () => {
       { from: 'user', to: 'order', label: 'places' },
       { from: 'user', to: 'order', label: 'manages' },
     ],
-    groups: [],
   };
   const r = removeEdge(doc, 'user', 'order', 'places');
   assert.equal(r.document.edges.length, 1);
@@ -880,7 +862,6 @@ test('updateEdge with fromLabel updates only that parallel edge', () => {
       { from: 'user', to: 'order', label: 'places' },
       { from: 'user', to: 'order', label: 'manages' },
     ],
-    groups: [],
   };
   // ambiguous without fromLabel
   assert.throws(() => updateEdge(doc, { from: 'user', to: 'order', label: '发货' }), /--edge-label/);
@@ -925,7 +906,6 @@ test('mindmap round-trip keeps node ids (export -> import)', () => {
       { id: 'child1', label: '子项' },
     ],
     edges: [{ from: 'root', to: 'child1' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -942,7 +922,6 @@ test('flowchart label with brackets/pipes survives convert -> import', () => {
       { id: 'n2', label: 'B' },
     ],
     edges: [{ from: 'n1', to: 'n2', label: '使用[缓存]' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -957,9 +936,9 @@ test('removeGroup auto-cleans aggregate edges', () => {
     nodes: [
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
+      { id: 'g1', label: 'G1', kind: 'group', contains: ['a'] },
     ],
     edges: [{ from: 'g1', to: 'b', label: '整体' }],
-    groups: [{ id: 'g1', label: 'G1', contains: ['a'] }],
   };
   const r = removeGroup(doc, 'g1');
   assert.equal(r.document.edges.length, 0);
@@ -977,7 +956,6 @@ test('ER round-trip preserves 0..1 cardinality and labels with spaces', () => {
       { id: 'order', label: '订单', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'order', label: '下单', cardinalityFrom: '0..1', cardinalityTo: '0..*' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('|o--o{'), `connector wrong:\n${m}`);
@@ -1000,7 +978,6 @@ test('flowchart start/end kinds survive convert -> import (circle shapes)', () =
       { from: 's1', to: 'p1' },
       { from: 'p1', to: 'e1' },
     ],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -1020,7 +997,6 @@ test('state round-trip keeps labels and ids (state "label" as id)', () => {
       { id: 'done', label: '已完成', kind: 'end' },
     ],
     edges: [{ from: 'created', to: 'done', label: '完成' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('state "已创建" as created'), m);
@@ -1074,7 +1050,6 @@ test('mindmap convert with a cycle does not crash and keeps every node', () => {
       { from: 'a', to: 'b' },
       { from: 'b', to: 'a' },
     ],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('a((') && m.includes('b(('), m);
@@ -1089,7 +1064,6 @@ test('mindmap convert keeps orphan components (multiple roots)', () => {
       { id: 'a', label: '分支A' },
     ],
     edges: [{ from: 'root', to: 'a' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('orphan(('), `orphan dropped:\n${m}`);
@@ -1108,7 +1082,6 @@ test('flowchart circle start/end keeps kind via node id (business labels)', () =
       { id: 'end', label: '订单完成', kind: 'end' },
     ],
     edges: [{ from: 'start', to: 'end' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -1132,7 +1105,6 @@ test('state start kind survives convert -> import (initial pseudo-edge)', () => 
       { from: 's0', to: 's1' },
       { from: 's1', to: 's2' },
     ],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('[*] --> s0'), m);
@@ -1158,7 +1130,6 @@ test('ER round-trip does not fabricate types on typeless members', () => {
       },
     ],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('id') && !m.includes('string id'), m);
@@ -1183,7 +1154,6 @@ test('flowchart kind comments survive convert -> import (business labels)', () =
       { from: 's', to: 'mid' },
       { from: 'mid', to: 'e' },
     ],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('%% @lgdl n: kind=note'), m);
@@ -1204,17 +1174,17 @@ test('flowchart groups round-trip via subgraphs (with aggregate edges)', () => {
     nodes: [
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
+      { id: 'g1', label: '组1', kind: 'group', contains: ['a'] },
     ],
     edges: [{ from: 'g1', to: 'b', label: '整体' }],
-    groups: [{ id: 'g1', label: '组1', contains: ['a'] }],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('subgraph g1["组1"]'), m);
   const back = importMermaid(m);
   assert.equal(back.valid, true, back.issues.map((i) => i.message).join('; '));
-  assert.equal(back.document.groups.length, 1);
-  assert.equal(back.document.groups[0].id, 'g1');
-  assert.deepEqual(back.document.groups[0].contains, ['a']);
+  assert.equal(groupNodes(back.document).length, 1);
+  assert.equal(groupNodes(back.document)[0].id, 'g1');
+  assert.deepEqual(groupNodes(back.document)[0].contains, ['a']);
   // the aggregate edge still references the group id
   assert.ok(back.document.edges.some((e) => e.from === 'g1' && e.to === 'b'));
 });
@@ -1252,7 +1222,6 @@ test('removeEdge without label refuses when parallel edges exist', () => {
       { from: 'user', to: 'order', label: 'places' },
       { from: 'user', to: 'order', label: 'manages' },
     ],
-    groups: [],
   };
   assert.throws(() => removeEdge(doc, 'user', 'order'), /--edge-label/);
   // with a label it removes exactly one
@@ -1269,7 +1238,6 @@ test('ER quoted entity names round-trip (labels with parens/spaces)', () => {
       { id: 'u2', label: 'User Account', kind: 'entity' },
     ],
     edges: [{ from: 'u1', to: 'u2', label: '使用' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('u1["订单(在线)"] {'), m);
@@ -1308,7 +1276,7 @@ test('flowchart subgraph label quotes are decoded on import', () => {
     end
 `);
   assert.equal(r.valid, true);
-  assert.equal(r.document.groups[0].label, '他说的"组"');
+  assert.equal(groupNodes(r.document)[0].label, '他说的"组"');
 });
 
 test('gantt title survives round-trip', () => {
@@ -1317,7 +1285,6 @@ test('gantt title survives round-trip', () => {
     title: '产品发布',
     nodes: [{ id: 'a', label: '任务A', attrs: { start: 0, duration: 3 } }],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('title 产品发布'), m);
@@ -1331,13 +1298,12 @@ test('gantt ungrouped tasks do not drift into a group on round-trip', () => {
     type: 'gantt',
     nodes: [{ id: 'a', label: '任务A', attrs: { start: 0, duration: 3 } }],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(!m.includes('section 任务'), m);
   const back = importMermaid(m);
   assert.equal(back.valid, true);
-  assert.equal(back.document.groups.length, 0);
+  assert.equal(groupNodes(back.document).length, 0);
   assert.equal(back.document.nodes.length, 1);
 });
 
@@ -1353,7 +1319,6 @@ test('flowchart shape labels with parens/braces round-trip', () => {
       { from: 'start', to: 'd' },
       { from: 'd', to: 'end' },
     ],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -1368,7 +1333,6 @@ test('gantt milestone duration survives round-trip', () => {
     type: 'gantt',
     nodes: [{ id: 'm1', label: '发布', kind: 'milestone', attrs: { start: 5, duration: 2 } }],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -1391,7 +1355,6 @@ test('ER member with CJK/spaced name round-trips', () => {
       },
     ],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('user["用户&quot;主&quot;表"] {'), m);
@@ -1415,8 +1378,8 @@ test('importMermaid flowchart supports CJK node ids and bare subgraph titles', (
   assert.ok(r.document.nodes.some((n) => n.label === '开始流程'));
   assert.ok(r.document.nodes.some((n) => n.label === '登录页'));
   // bare subgraph title becomes a group with a generated id
-  assert.equal(r.document.groups.length, 1);
-  assert.equal(r.document.groups[0].label, '前端');
+  assert.equal(groupNodes(r.document).length, 1);
+  assert.equal(groupNodes(r.document)[0].label, '前端');
   // edges reference the fallback ids (one real edge; E is a declaration)
   assert.equal(r.document.edges.length, 1);
 });
@@ -1468,7 +1431,6 @@ test('sequence/gantt exports quote aliases and task names with special chars', (
       { id: 'a', label: 'Alice "管理员"' },
     ],
     edges: [{ from: 'u', to: 'a', label: 'hi' }],
-    groups: [],
   };
   const sm = exportMermaid(seq);
   assert.ok(sm.includes('participant a as "Alice &quot;管理员&quot;"'), sm);
@@ -1479,7 +1441,6 @@ test('sequence/gantt exports quote aliases and task names with special chars', (
     type: 'gantt',
     nodes: [{ id: 't1', label: '任务:第一版', attrs: { start: 0, duration: 2 } }],
     edges: [],
-    groups: [],
   };
   const gm = exportMermaid(gt);
   assert.ok(gm.includes('"任务:第一版" : t1'), gm);
@@ -1499,7 +1460,6 @@ test('ER typeless member with spaces round-trips', () => {
       },
     ],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('"user name"'), m);
@@ -1518,7 +1478,6 @@ test('round-trip: quotes in sequence/mindmap/state labels are decoded', () => {
       { id: 's', label: '服务' },
     ],
     edges: [{ from: 'u', to: 's', label: '查询 "订单" : 列表' }],
-    groups: [],
   };
   const seqBack = importMermaid(exportMermaid(seq));
   assert.equal(seqBack.document.edges[0].label, '查询 "订单" : 列表');
@@ -1530,7 +1489,6 @@ test('round-trip: quotes in sequence/mindmap/state labels are decoded', () => {
       { id: 'c', label: '子项' },
     ],
     edges: [{ from: 'root', to: 'c' }],
-    groups: [],
   };
   const mmBack = importMermaid(exportMermaid(mm));
   assert.equal(mmBack.document.nodes.find((n) => n.id === 'root')?.label, '主题"带引号"');
@@ -1542,7 +1500,6 @@ test('round-trip: quotes in sequence/mindmap/state labels are decoded', () => {
       { id: 'b', label: 'B' },
     ],
     edges: [{ from: 'a', to: 'b', label: '结束 "done"' }],
-    groups: [],
   };
   const stBack = importMermaid(exportMermaid(st));
   assert.equal(stBack.document.nodes.find((n) => n.id === 'a')?.label, '开始"标记"');
@@ -1557,8 +1514,8 @@ test('flowchart node referenced before its subgraph still joins the group', () =
     end
 `);
   assert.equal(r.valid, true);
-  assert.equal(r.document.groups.length, 1);
-  assert.deepEqual(r.document.groups[0].contains, ['D']);
+  assert.equal(groupNodes(r.document).length, 1);
+  assert.deepEqual(groupNodes(r.document)[0].contains, ['D']);
 });
 
 test('gantt dependency edges round-trip via after syntax', () => {
@@ -1569,7 +1526,6 @@ test('gantt dependency edges round-trip via after syntax', () => {
       { id: 'a2', label: '测试', attrs: { start: 5, duration: 3 } },
     ],
     edges: [{ from: 'a1', to: 'a2' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('after a1'), m);
@@ -1587,7 +1543,6 @@ test('ER unset cardinality stays unset on round-trip', () => {
       { id: 'o', label: 'Order', kind: 'entity' },
     ],
     edges: [{ from: 'u', to: 'o', label: '使用' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('u -- o'), m);
@@ -1619,7 +1574,6 @@ test('mindmap cycle not containing nodes[0] still emits all nodes', () => {
       { from: 'a', to: 'b' },
       { from: 'b', to: 'a' },
     ],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('x((') && m.includes('a((') && m.includes('b(('), m);
@@ -1633,7 +1587,6 @@ test('ER round-trip keeps ids via alias syntax', () => {
       { id: 'orders', label: '订单表', kind: 'entity' },
     ],
     edges: [{ from: 'users', to: 'orders', label: '拥有' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('users["用户表"] {'), m);
@@ -1665,7 +1618,6 @@ test('gantt after with a gap round-trips (after id <gap>d)', () => {
       { id: 'dev', label: '开发', attrs: { start: 10, duration: 5 } },
     ],
     edges: [{ from: 'design', to: 'dev' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('after design 5d'), m);
@@ -1709,7 +1661,6 @@ test('state terminal [*] round-trips stably with label', () => {
       { id: 's2', label: '已完成', kind: 'end' },
     ],
     edges: [{ from: 's1', to: 's2' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('s1 --> [*]'), m);
@@ -1728,7 +1679,6 @@ test('state round-trip keeps "__start__"-style ids', () => {
       { id: 's1', label: '进行中' },
     ],
     edges: [{ from: '__start__', to: 's1' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -1748,7 +1698,6 @@ test('gantt dependency before its dependency in node order still round-trips', (
       { id: 'design', label: '设计', attrs: { start: 0, duration: 5 } },
     ],
     edges: [{ from: 'design', to: 'build' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.indexOf('design') < m.indexOf('build'), `no topo order:\n${m}`);
@@ -1777,7 +1726,6 @@ test('gantt milestone with after dependency round-trips (kind + clean label)', (
       { id: 'launch', label: '上线发布', kind: 'milestone', attrs: { start: 3, duration: 0 } },
     ],
     edges: [{ from: 'test', to: 'launch' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('milestone 上线发布 : launch, after test'), m);
@@ -1889,12 +1837,10 @@ test('gantt cross-section dependency does not duplicate tasks', () => {
       { id: 'a1', label: '需求分析', attrs: { start: 0, duration: 2 } },
       { id: 'a2', label: '原型设计', attrs: { start: 2, duration: 3 } },
       { id: 'b1', label: '开发', attrs: { start: 5, duration: 3 } },
+      { id: 'secA', label: '设计', kind: 'group', contains: ['a1', 'a2'] },
+      { id: 'secB', label: '开发', kind: 'group', contains: ['b1'] },
     ],
     edges: [{ from: 'a2', to: 'b1' }],
-    groups: [
-      { id: 'secA', label: '设计', contains: ['a1', 'a2'] },
-      { id: 'secB', label: '开发', contains: ['b1'] },
-    ],
   };
   const m = exportMermaid(doc);
   // each task appears exactly once
@@ -1903,7 +1849,8 @@ test('gantt cross-section dependency does not duplicate tasks', () => {
   }
   const back = importMermaid(m);
   assert.equal(back.valid, true, back.issues.map((i) => i.message).join('; '));
-  assert.equal(back.document.nodes.length, 3);
+  assert.equal(back.document.nodes.length, 5); // 3 tasks + 2 section group nodes
+  assert.equal(groupNodes(back.document).length, 2);
 });
 
 test('flowchart node ids with dots and slashes sanitize cleanly', () => {
@@ -1925,7 +1872,6 @@ test('ER 1..* round-trips with directional connectors', () => {
       { id: 'item', label: 'Item', kind: 'entity' },
     ],
     edges: [{ from: 'order', to: 'item', label: '包含', cardinalityFrom: '1', cardinalityTo: '1..*' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('||--|{'), `connector wrong:\n${m}`);
@@ -1958,7 +1904,6 @@ test('ER entity ids with hyphens round-trip (examples/er.lgdl case)', () => {
       { id: 'order', label: '订单', kind: 'entity' },
     ],
     edges: [{ from: 'order', to: 'order-item', label: '包含' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -1989,7 +1934,7 @@ test('gantt attribute-style milestones import without dropping tasks', () => {
     稳定运营 : milestone, after 上线发布, 1d
 `);
   assert.equal(r.valid, true, r.issues.map((i) => i.message).join('; '));
-  assert.equal(r.document.nodes.length, 3, `nodes: ${r.document.nodes.map((n) => n.id).join(', ')}`);
+  assert.equal(r.document.nodes.length, 4, `nodes: ${r.document.nodes.map((n) => n.id).join(', ')}`);
   assert.equal(r.document.edges.length, 2);
   const milestones = r.document.nodes.filter((n) => n.kind === 'milestone');
   assert.equal(milestones.length, 2);
@@ -2003,8 +1948,8 @@ test('subgraph with bare bracket label imports', () => {
     home --> api
 `);
   assert.equal(r.valid, true, r.issues.map((i) => i.message).join('; '));
-  assert.equal(r.document.groups.length, 1);
-  assert.equal(r.document.groups[0].label, 'Frontend');
+  assert.equal(groupNodes(r.document).length, 1);
+  assert.equal(groupNodes(r.document)[0].label, 'Frontend');
 });
 
 test('gantt todayMarker config line is ignored on import', () => {
@@ -2015,7 +1960,7 @@ test('gantt todayMarker config line is ignored on import', () => {
     编码 : coding, 2024-01-01, 5d
 `);
   assert.equal(r.valid, true, r.issues.map((i) => i.message).join('; '));
-  assert.equal(r.document.nodes.length, 1);
+  assert.equal(r.document.nodes.length, 2); // 1 task + the 开发 section group
 });
 
 test('sequence Note/activate drop with warning, diagram still imports', () => {
@@ -2087,7 +2032,6 @@ test('cylinder shapes map to entity kind and round-trip', () => {
     type: 'flowchart',
     nodes: [{ id: 'db', label: '订单表', kind: 'entity' }],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('db[(订单表)]'), m);
@@ -2118,7 +2062,6 @@ test('plantuml decision branches each stop at a shared terminal', () => {
       { from: 'ship', to: 'end' },
       { from: 'buy', to: 'end' },
     ],
-    groups: [],
   };
   const out = convert(doc, 'plantuml');
   const stops = out.split('\n').filter((l) => l.trim() === 'stop').length;
@@ -2151,19 +2094,17 @@ test('nested groups all export as subgraphs (no dropped group or dangling edge)'
       { id: 's', label: '开始', kind: 'start' },
       { id: 'login', label: '登录' },
       { id: 'pay', label: '支付' },
+      { id: 'auth', label: '认证模块', kind: 'group', contains: ['s', 'login'] },
+      { id: 'backend', label: '后端', kind: 'group', contains: ['pay'] },
     ],
     edges: [{ from: 'auth', to: 'backend', label: '整体调用' }],
-    groups: [
-      { id: 'auth', label: '认证模块', contains: ['s', 'login'] },
-      { id: 'backend', label: '后端', contains: ['pay'] },
-    ],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('subgraph auth["认证模块"]'), m);
   assert.ok(m.includes('subgraph backend["后端"]'), m);
   const back = importMermaid(m);
   assert.equal(back.valid, true, back.issues.map((i) => i.message).join('; '));
-  assert.ok(back.document.groups.some((g) => g.id === 'auth' && g.label === '认证模块'));
+  assert.ok(groupNodes(back.document).some((g) => g.id === 'auth' && g.label === '认证模块'));
   assert.ok(back.document.edges.some((e) => e.from === 'auth' && e.to === 'backend'));
 });
 
@@ -2180,7 +2121,6 @@ test('plantuml decision branch directly to a terminal still stops', () => {
       { from: 'check', to: 'end', label: '是' },
       { from: 'check', to: 'end', label: '否' },
     ],
-    groups: [],
   };
   const out = convert(doc, 'plantuml');
   const stops = out.split('\n').filter((l) => l.trim() === 'stop').length;
@@ -2190,15 +2130,17 @@ test('plantuml decision branch directly to a terminal still stops', () => {
 test('gantt section ids round-trip via section-id comment', () => {
   const doc: Parameters<typeof addNode>[0] = {
     type: 'gantt',
-    nodes: [{ id: 't1', label: '任务1', attrs: { start: 0, duration: 2 } }],
+    nodes: [
+      { id: 't1', label: '任务1', attrs: { start: 0, duration: 2 } },
+      { id: 'phase1', label: '阶段一', kind: 'group', contains: ['t1'] },
+    ],
     edges: [],
-    groups: [{ id: 'phase1', label: '阶段一', contains: ['t1'] }],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('%% @lgdl section-id: phase1'), m);
   const back = importMermaid(m);
   assert.equal(back.valid, true);
-  assert.ok(back.document.groups.some((g) => g.id === 'phase1' && g.label === '阶段一'));
+  assert.ok(groupNodes(back.document).some((g) => g.id === 'phase1' && g.label === '阶段一'));
 });
 
 test('mindmap kinds round-trip via comments', () => {
@@ -2210,7 +2152,6 @@ test('mindmap kinds round-trip via comments', () => {
       { id: 'a', label: '分支A', kind: 'decision' },
     ],
     edges: [{ from: 'root', to: 'a' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('%% @lgdl root: kind=start'), m);
@@ -2228,7 +2169,6 @@ test('flowchart title round-trips via comment', () => {
     title: '登录流程',
     nodes: [{ id: 'a', label: 'A' }],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('%% @lgdl title: 登录流程'), m);
@@ -2270,8 +2210,8 @@ test('subgraph with CJK id and bracket title imports with fallback', () => {
     end
 `);
   assert.equal(r.valid, true, r.issues.map((i) => i.message).join('; '));
-  assert.equal(r.document.groups.length, 1);
-  assert.equal(r.document.groups[0].label, '前端层');
+  assert.equal(groupNodes(r.document).length, 1);
+  assert.equal(groupNodes(r.document)[0].label, '前端层');
   assert.ok(r.issues.some((i) => i.severity === 'warning' && i.message.includes('subgraph id')));
 });
 
@@ -2338,7 +2278,6 @@ test('gantt status round-trips both directions', () => {
       { id: 't2', label: '关键任务', attrs: { start: 10, duration: 5, status: 'crit,done' } },
     ],
     edges: [{ from: 't1', to: 't2' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('已完成任务 : done, t1, '), m);
@@ -2430,7 +2369,6 @@ test('uml-class round-trips via classDiagram', () => {
       { id: 'admin', label: 'Admin', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'admin', attrs: { relation: 'inheritance' } }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.startsWith('classDiagram'), m);
@@ -2459,7 +2397,7 @@ test('dotted edge -.-> and no-id gantt task import', () => {
     Task three :2023-01-12, 12d
 `);
   assert.equal(g.valid, true, g.issues.map((i) => i.message).join('; '));
-  assert.equal(g.document.nodes.length, 1);
+  assert.equal(g.document.nodes.length, 2); // 1 task + the S section group
   assert.equal(g.document.nodes[0].label, 'Task three');
 });
 
@@ -2485,7 +2423,6 @@ test('plantuml linear chain: single stop, no trailing activities after stop', ()
       { from: 'a', to: 'b' },
       { from: 'b', to: 'c' },
     ],
-    groups: [],
   };
   const out = convert(doc, 'plantuml');
   const stops = out.split('\n').filter((l) => l.trim() === 'stop').length;
@@ -2513,7 +2450,7 @@ test('gantt weekday config ignored, excludes warns', () => {
     Task1 : t1, 2023-01-02, 10d
 `);
   assert.equal(r.valid, true, r.issues.map((i) => i.message).join('; '));
-  assert.equal(r.document.nodes.length, 1);
+  assert.equal(r.document.nodes.length, 2); // 1 task + the S section group
   assert.ok(r.issues.some((i) => i.severity === 'warning' && i.message.includes('excludes')));
 });
 
@@ -2533,7 +2470,6 @@ test('multiline labels round-trip via <br/>', () => {
     type: 'flowchart',
     nodes: [{ id: 'a', label: '第一行\n第二行' }],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('第一行<br/>第二行'), m);
@@ -2581,15 +2517,15 @@ test('updateNode with newId rewrites edges and group membership', () => {
     nodes: [
       { id: 'task1', label: '任务' },
       { id: 'b', label: 'B' },
+      { id: 'g1', label: 'G1', kind: 'group', contains: ['task1'] },
     ],
     edges: [{ from: 'task1', to: 'b' }],
-    groups: [{ id: 'g1', label: 'G1', contains: ['task1'] }],
   };
   const r = updateNode(doc, { id: 'task1', newId: 'research' });
   assert.ok(r.document.nodes.some((n) => n.id === 'research'));
   assert.ok(!r.document.nodes.some((n) => n.id === 'task1'));
   assert.equal(r.document.edges[0].from, 'research');
-  assert.deepEqual(r.document.groups[0].contains, ['research']);
+  assert.deepEqual(groupNodes(r.document)[0].contains, ['research']);
 });
 
 test('updateEdge rewrites endpoints preserving semantics', () => {
@@ -2601,7 +2537,6 @@ test('updateEdge rewrites endpoints preserving semantics', () => {
       { id: 'c', label: 'C', kind: 'entity' },
     ],
     edges: [{ from: 'a', to: 'b', label: '调用', cardinalityFrom: '1', cardinalityTo: '*', attrs: { weight: 'high' } }],
-    groups: [],
   };
   const r = updateEdge(doc, { from: 'a', to: 'b', newTo: 'c' });
   const e = r.document.edges[0];
@@ -2618,14 +2553,14 @@ test('updateGroup manages members and renames with reference rewrite', () => {
     nodes: [
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
+      { id: 'lane1', label: '泳道', kind: 'group', contains: ['a'] },
     ],
     edges: [{ from: 'lane1', to: 'b', label: '整体' }],
-    groups: [{ id: 'lane1', label: '泳道', contains: ['a'] }],
   };
   const r1 = updateGroup(doc, { id: 'lane1', memberAdd: 'b' });
-  assert.deepEqual(r1.document.groups[0].contains, ['a', 'b']);
+  assert.deepEqual(groupNodes(r1.document)[0].contains, ['a', 'b']);
   const r2 = updateGroup(r1.document, { id: 'lane1', newId: 'lane2' });
-  assert.ok(r2.document.groups.some((g) => g.id === 'lane2'));
+  assert.ok(groupNodes(r2.document).some((g) => g.id === 'lane2'));
   assert.equal(r2.document.edges[0].from, 'lane2');
   assert.throws(() => updateGroup(doc, { id: 'lane1', memberAdd: 'a' }), /already in group/);
 });
@@ -2634,8 +2569,8 @@ test('node and group id collision is rejected', () => {
   const r = parseLgdl(`type: flowchart
 nodes:
   - id: x
-groups:
   - id: x
+    kind: group
     contains: []
 `);
   assert.equal(r.valid, false);
@@ -2659,7 +2594,6 @@ test('classDiagram exports cardinality', () => {
       { id: 'item', label: 'Item', kind: 'entity' },
     ],
     edges: [{ from: 'order', to: 'item', cardinalityFrom: '1', cardinalityTo: '1..*' }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('order "1" -- "1..*" item'), m);
@@ -2673,7 +2607,6 @@ test('classDiagram cardinality round-trips', () => {
       { id: 'order', label: 'Order', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'order', cardinalityFrom: '1', cardinalityTo: '1..*', attrs: { relation: 'association' } }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('user "1" -- "1..*" order'), m);
@@ -2696,7 +2629,6 @@ test('classDiagram bare attribute member round-trips', () => {
       },
     ],
     edges: [],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -2713,7 +2645,6 @@ test('updateEdge clears cardinality with empty string', () => {
       { id: 'b', kind: 'entity' },
     ],
     edges: [{ from: 'a', to: 'b', cardinalityFrom: '1', cardinalityTo: '*' }],
-    groups: [],
   };
   const r = updateEdge(doc, { from: 'a', to: 'b', cardinalityFrom: '', cardinalityTo: '' });
   assert.equal(r.document.edges[0].cardinalityFrom, undefined);
@@ -2746,7 +2677,6 @@ test('uml-class cardinality survives double round-trip', () => {
       { id: 'order', label: 'Order', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'order', cardinalityFrom: '1', cardinalityTo: '1..*', attrs: { relation: 'association' } }],
-    groups: [],
   };
   const once = importMermaid(exportMermaid(doc));
   assert.equal(once.valid, true);
@@ -2765,7 +2695,6 @@ test('classDiagram quoted labels round-trip via class-id comment', () => {
       { id: 'order', label: 'Order', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'order', attrs: { relation: 'dependency' } }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('class user'), m);
@@ -2859,7 +2788,6 @@ test('uml-class round-trip with label != id produces no ghost nodes', () => {
       { id: 'order', label: 'Order', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'order', label: '拥有', attrs: { relation: 'association' } }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   const back = importMermaid(m);
@@ -2938,7 +2866,6 @@ test('removeEdge locates relation-only parallel edges', () => {
       { from: 'a', to: 'b', attrs: { relation: 'association' } },
       { from: 'a', to: 'b', attrs: { relation: 'dependency' } },
     ],
-    groups: [],
   };
   const r = removeEdge(doc, 'a', 'b', 'dependency');
   assert.equal(r.document.edges.length, 1);
@@ -2956,7 +2883,6 @@ test('removeEdge label-first match never deletes a relation-collision edge', () 
       { from: 'a', to: 'b', label: 'dep', attrs: { relation: 'association' } },
       { from: 'a', to: 'b', label: 'assoc', attrs: { relation: 'dep' } },
     ],
-    groups: [],
   };
   // "dep" matches edge 1's label exactly — only that one is removed
   const r = removeEdge(doc, 'a', 'b', 'dep');
@@ -2972,7 +2898,6 @@ test('classDiagram label/id split round-trips via comments', () => {
       { id: 'order', label: '订单', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'order', attrs: { relation: 'association' } }],
-    groups: [],
   };
   const m = exportMermaid(doc);
   assert.ok(m.includes('class user'), m);
@@ -2996,7 +2921,6 @@ test('updateEdge label-first never touches relation-collision edge', () => {
       { from: 'a', to: 'b', label: 'dep', attrs: { relation: 'association' } },
       { from: 'a', to: 'b', label: 'assoc', attrs: { relation: 'dep' } },
     ],
-    groups: [],
   };
   const r = updateEdge(doc, { from: 'a', to: 'b', fromLabel: 'dep', label: 'RENAMED' });
   const labels = r.document.edges.map((e) => e.label);
@@ -3011,7 +2935,6 @@ test('addEdge allows relation-only parallel edges', () => {
       { id: 'b', label: 'B', kind: 'entity' },
     ],
     edges: [{ from: 'a', to: 'b', attrs: { relation: 'association' } }],
-    groups: [],
   };
   const r = addEdge(doc, { from: 'a', to: 'b', attrs: { relation: 'dependency' } });
   assert.equal(r.document.edges.length, 2);
@@ -3023,7 +2946,6 @@ test('updateNode with unchanged new-id still applies other fields', () => {
     type: 'flowchart',
     nodes: [{ id: 'a', label: 'A' }],
     edges: [],
-    groups: [],
   };
   const r = updateNode(doc, { id: 'a', newId: 'a', label: 'A2' });
   assert.equal(r.document.nodes[0].label, 'A2');
@@ -3041,7 +2963,6 @@ test('removeEdge refuses when several edges share the label', () => {
       { from: 'a', to: 'b', label: 'knows', attrs: { relation: 'association' } },
       { from: 'a', to: 'b', label: 'knows', attrs: { relation: 'dependency' } },
     ],
-    groups: [],
   };
   assert.throws(() => removeEdge(doc, 'a', 'b', 'knows'), /share the label/);
 });
@@ -3054,7 +2975,6 @@ test('empty labels stay addressable through serialization', () => {
       { id: 'b', label: 'B' },
     ],
     edges: [{ from: 'a', to: 'b', label: '' }],
-    groups: [],
   };
   const text = serializeLgdl(doc);
   assert.ok(text.includes('label: ""'), text);

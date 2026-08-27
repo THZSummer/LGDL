@@ -53,7 +53,6 @@ export const importCommand: LgdlCommand = {
           // optional keys default like the YAML parser does
           document.nodes ??= [];
           document.edges ??= [];
-          document.groups ??= [];
           // explicit "kind: process" is the default and the serializer omits
           // it — tell the AI so a strict diff does not look like data loss
           const explicitDefault = (document.nodes ?? []).filter((n: { kind?: string }) => n?.kind === 'process').length;

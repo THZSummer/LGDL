@@ -14,7 +14,6 @@ const DOC: LgdlDocument = {
     { from: 'a', to: 'b' },
     { from: 'b', to: 'c' },
   ],
-  groups: [],
 };
 
 test('renderAscii draws boxes with labels', () => {
@@ -56,7 +55,6 @@ test('renderAscii CJK labels stay aligned', () => {
       { id: 'b', label: '输入账号密码' },
     ],
     edges: [{ from: 'a', to: 'b' }],
-    groups: [],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   const lines = out.split('\n');
@@ -87,7 +85,6 @@ test('renderAscii draws fork with branches and multiple arrows', () => {
       { from: 'a', to: 'b', label: '通过' },
       { from: 'a', to: 'c', label: '失败' },
     ],
-    groups: [],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   // horizontal branch between source and targets
@@ -108,7 +105,6 @@ test('renderAscii chain edge label placement', () => {
       { id: 'b', label: '处理' },
     ],
     edges: [{ from: 'a', to: 'b', label: '下一步' }],
-    groups: [],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   assert.ok(out.includes('下一步'), 'chain label present');
@@ -120,9 +116,9 @@ test('renderAscii draws a group box around its members', () => {
     nodes: [
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
+      { id: 'g1', label: '业务域', kind: 'group', contains: ['a', 'b'] },
     ],
     edges: [{ from: 'a', to: 'b' }],
-    groups: [{ id: 'g1', label: '业务域', contains: ['a', 'b'] }],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   assert.ok(out.includes('┌'), 'group box top-left corner');
@@ -140,14 +136,12 @@ test('renderAscii draws nested group boxes (outer encloses inner)', () => {
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
       { id: 'c', label: 'C' },
+      { id: 'inner', label: '内层', kind: 'group', contains: ['a', 'b'] },
+      { id: 'outer', label: '外层', kind: 'group', contains: ['inner', 'c'] },
     ],
     edges: [
       { from: 'a', to: 'b' },
       { from: 'b', to: 'c' },
-    ],
-    groups: [
-      { id: 'inner', label: '内层', contains: ['a', 'b'] },
-      { id: 'outer', label: '外层', contains: ['inner', 'c'] },
     ],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
@@ -166,12 +160,10 @@ test('renderAscii draws an outer group that only contains a subgroup', () => {
     nodes: [
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
+      { id: 'inner', label: '内层', kind: 'group', contains: ['a', 'b'] },
+      { id: 'outer', label: '外层', kind: 'group', contains: ['inner'] },
     ],
     edges: [{ from: 'a', to: 'b' }],
-    groups: [
-      { id: 'inner', label: '内层', contains: ['a', 'b'] },
-      { id: 'outer', label: '外层', contains: ['inner'] },
-    ],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   assert.ok(out.includes('外层'), 'outer group box exists around inner box');
@@ -190,15 +182,13 @@ test('renderAscii separates sibling groups into distinct column bands', () => {
       { id: 'b', label: 'B' },
       { id: 'c', label: 'C' },
       { id: 'd', label: 'D' },
+      { id: 'g1', label: '组一', kind: 'group', contains: ['a', 'b'] },
+      { id: 'g2', label: '组二', kind: 'group', contains: ['c', 'd'] },
     ],
     edges: [
       { from: 'a', to: 'b' },
       { from: 'b', to: 'c' },
       { from: 'c', to: 'd' },
-    ],
-    groups: [
-      { id: 'g1', label: '组一', contains: ['a', 'b'] },
-      { id: 'g2', label: '组二', contains: ['c', 'd'] },
     ],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
@@ -224,12 +214,10 @@ test('renderAscii draws an aggregate edge between groups with an arrow', () => {
     nodes: [
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
+      { id: 'g1', label: '组一', kind: 'group', contains: ['a'] },
+      { id: 'g2', label: '组二', kind: 'group', contains: ['b'] },
     ],
     edges: [{ from: 'g1', to: 'g2', label: '整体' }],
-    groups: [
-      { id: 'g1', label: '组一', contains: ['a'] },
-      { id: 'g2', label: '组二', contains: ['b'] },
-    ],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   assert.ok(out.includes('组一'), 'g1 box');
@@ -251,7 +239,6 @@ test('renderAscii does not truncate long edge labels on single-column chains', (
       { from: 'a', to: 'b', label: '这是一个比较长的边标签' },
       { from: 'b', to: 'c', label: '下一步' },
     ],
-    groups: [],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   // the full label text must appear in the connector rows
@@ -267,7 +254,6 @@ test('renderAscii aligns full-width (CJK) edge labels correctly', () => {
       { id: 'b', label: '结束' },
     ],
     edges: [{ from: 'a', to: 'b', label: '成功通过' }],
-    groups: [],
   };
   const out = renderAscii(doc, { nodes: [], edges: [], width: 0, height: 0 });
   assert.ok(out.includes('成功通过'), `CJK label broken:\n${out}`);

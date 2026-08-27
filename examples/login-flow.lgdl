@@ -18,6 +18,19 @@ nodes:
     label: 登录失败
     kind: end
 
+  - id: auth
+    label: 认证模块
+    kind: group
+    contains: [login]
+  - id: frontend
+    label: 前端层
+    kind: group
+    contains: [start, auth]
+  - id: backend
+    label: 后端层
+    kind: group
+    contains: [verify, ok, fail]
+
 edges:
   - from: start
     to: login
@@ -34,14 +47,3 @@ edges:
   - from: auth
     to: backend
     label: 整体调用
-
-groups:
-  - id: auth
-    label: 认证模块
-    contains: [login]
-  - id: frontend
-    label: 前端层
-    contains: [start, auth]
-  - id: backend
-    label: 后端层
-    contains: [verify, ok, fail]

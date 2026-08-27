@@ -33,6 +33,19 @@ nodes:
     label: 静态资源由 CDN 回源 OSS
     kind: note            # 便签节点（note 类型）
 
+  - id: front
+    label: 接入层
+    kind: group
+    contains: [cdn, nginx]
+  - id: core
+    label: 核心服务
+    kind: group
+    contains: [app]
+  - id: data
+    label: 数据层
+    kind: group
+    contains: [redis, mysql, mq, worker, oss]
+
 edges:
   - from: user
     to: cdn
@@ -65,13 +78,3 @@ edges:
     to: core
     label: 业务入口       # 混合聚合边：节点 → 组
 
-groups:
-  - id: front
-    label: 接入层
-    contains: [cdn, nginx]
-  - id: core
-    label: 核心服务
-    contains: [app]
-  - id: data
-    label: 数据层
-    contains: [redis, mysql, mq, worker, oss]

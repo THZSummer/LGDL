@@ -13,7 +13,7 @@
  * Kōzō Sugiyama) but is implemented here from scratch — NO dagre / elkjs
  * dependency, only @lgdl/core. Same input always outputs the same layout.
  */
-import { VIS_SYMBOL, type DiagramType, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
+import { VIS_SYMBOL, deriveGroups, type DiagramType, type LgdlDocument, type LgdlEdge, type LgdlNode } from '@lgdl/core';
 import { layoutLayered } from './layered.js';
 
 export interface LayoutNode {
@@ -118,6 +118,7 @@ function borderPoint(
 }
 
 export async function layoutDocument(doc: LgdlDocument): Promise<LayoutResult> {
+  const groups = deriveGroups(doc);
   // Large graphs: skip the expensive layered layout, use O(n) grid.
   // This keeps the editor interactive; layered quality matters for small/medium.
   if (
@@ -131,7 +132,7 @@ export async function layoutDocument(doc: LgdlDocument): Promise<LayoutResult> {
   // (datastream/mindmap/sequence/gantt keep their own layouts: there groups are
   // lanes/sections, not stacked containers.)
   const layeredWithGroups: DiagramType[] = ['flowchart', 'arch', 'state', 'uml-class', 'er'];
-  if (doc.groups.length > 0 && layeredWithGroups.includes(doc.type)) {
+  if (groups.length > 0 && layeredWithGroups.includes(doc.type)) {
     const rankdir = doc.type === 'uml-class' || doc.type === 'er' ? 'LR' : 'TB';
     return layoutGrouped(doc, rankdir);
   }
@@ -216,9 +217,10 @@ function layeredRun(
  * which the renderer orthogonalizes.
  */
 function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
+  const groups = deriveGroups(doc);
   const sizes = nodeSizes(doc);
   const groupOf = new Map<string, string>(); // nodeId -> groupId
-  for (const g of doc.groups) for (const m of g.contains ?? []) groupOf.set(m, g.id);
+  for (const g of groups) for (const m of g.contains ?? []) groupOf.set(m, g.id);
 
   const nodeEdgesAll = nodeEdges(doc);
   const inGroup = (id: string) => groupOf.has(id);
@@ -228,7 +230,7 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
   // (which also reserves label/padding via the super-node, not here).
   const intra = new Map<string, Map<string, { x: number; y: number; width: number; height: number }>>();
   const groupBox = new Map<string, { w: number; h: number }>(); // group interior size
-  for (const g of doc.groups) {
+  for (const g of groups) {
     const members = (g.contains ?? []).filter((m) => sizes.has(m));
     if (members.length === 0) continue;
     const internalEdges = nodeEdgesAll.filter((e) => members.includes(e.from) && members.includes(e.to));
@@ -249,8 +251,8 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
   // ---- step 2: top-level layering (groups as super-nodes + ungrouped) -------
   const unitOf = (nodeId: string): string => groupOf.get(nodeId) ?? nodeId; // group aggregates its nodes
   const topNodes: { id: string; width: number; height: number }[] = [];
-  const isGroupId = (id: string) => doc.groups.some((g) => g.id === id);
-  for (const g of doc.groups) {
+  const isGroupId = (id: string) => groups.some((g) => g.id === id);
+  for (const g of groups) {
     const box = groupBox.get(g.id);
     if (!box) continue;
     // super-node sized to the group's interior + padding + a header strip
@@ -582,12 +584,13 @@ const LANE_W = 260; // lane (column) width
 const LANE_HEADER = 36; // lane header height
 
 function layoutSwimlane(doc: LgdlDocument): LayoutResult {
+  const groups = deriveGroups(doc);
   // group boxes are lanes themselves (doc.groups) — they are never stacked as
   // ordinary nodes inside a lane
   const plainNodes = doc.nodes.filter((n) => n.kind !== 'group');
   const lanes =
-    doc.groups.length > 0
-      ? doc.groups
+    groups.length > 0
+      ? groups
       : [{ id: '_default', label: '流程', contains: plainNodes.map((n) => n.id) }];
   const laneOf = new Map<string, string>();
   for (const lane of lanes) {

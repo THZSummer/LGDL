@@ -9,10 +9,9 @@
  *   - "type"                          -> value after "type:"
  *   - "nodes[i]"                      -> the i-th node item's first line
  *   - "nodes[i].id|kind|label"        -> that field's value in node i
- *   - "nodes[i].members[j]"           -> the j-th member item's first line
+ *   - "nodes[i].contains"             -> first value in the inline group-member list
+ *   - "nodes[i].contains[j]"          -> the j-th group member
  *   - "edges[i].from|to|label"        -> that field's value in edge i
- *   - "groups[i].contains"            -> first value in the inline list
- *   - "groups[i].contains[j]"         -> the j-th value in the list
  *   - "line N"                        -> the whole line N
  *   - deep paths (e.g. "nodes[0].members[1].kind") resolve to the nearest
  *     supported prefix ("nodes[0].members[1]")

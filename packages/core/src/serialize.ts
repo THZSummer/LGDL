@@ -46,29 +46,30 @@ export function serializeLgdl(doc: LgdlDocument): string {
   lines.push(`type: ${doc.type}`);
   lines.push('');
 
-  // nodes
+  // nodes — a group is a node kind (`kind: 'group'`) carrying its member ids
+  // in `contains`, so it is emitted here like any other node
   lines.push('nodes:');
   for (const node of doc.nodes) {
-    // Group nodes (kind: 'group') are container boxes, not ordinary nodes.
-    // They serialize via the `groups:` section below (derived from doc.groups),
-    // so the same group is never emitted twice and its `contains` is preserved
-    // on round-trip.
-    if (node.kind === 'group') continue;
     lines.push(`  - id: ${yamlString(node.id)}`);
     if (node.label !== undefined && node.label !== node.id) {
       lines.push(`    label: ${yamlString(node.label)}`);
     }
-    if (node.kind && node.kind !== 'process') {
-      lines.push(`    kind: ${node.kind}`);
-    }
-    if (node.members && node.members.length > 0) {
-      lines.push(`    members:`);
-      for (const m of node.members) {
-        lines.push(`      - kind: ${m.kind}`);
-        lines.push(`        name: ${yamlString(m.name)}`);
-        if (m.visibility !== undefined) lines.push(`        visibility: ${m.visibility}`);
-        if (m.type !== undefined) lines.push(`        type: ${yamlString(m.type)}`);
-        if (m.params !== undefined) lines.push(`        params: ${yamlString(m.params)}`);
+    if (node.kind === 'group') {
+      lines.push(`    kind: group`);
+      lines.push(`    contains: [${(node.contains ?? []).map(yamlString).join(', ')}]`);
+    } else {
+      if (node.kind && node.kind !== 'process') {
+        lines.push(`    kind: ${node.kind}`);
+      }
+      if (node.members && node.members.length > 0) {
+        lines.push(`    members:`);
+        for (const m of node.members) {
+          lines.push(`      - kind: ${m.kind}`);
+          lines.push(`        name: ${yamlString(m.name)}`);
+          if (m.visibility !== undefined) lines.push(`        visibility: ${m.visibility}`);
+          if (m.type !== undefined) lines.push(`        type: ${yamlString(m.type)}`);
+          if (m.params !== undefined) lines.push(`        params: ${yamlString(m.params)}`);
+        }
       }
     }
     if (node.attrs && Object.keys(node.attrs).length > 0) {
@@ -96,23 +97,6 @@ export function serializeLgdl(doc: LgdlDocument): string {
       if (edge.attrs && Object.keys(edge.attrs).length > 0) {
         lines.push(`    attrs:`);
         lines.push(...serializeAttrs(edge.attrs, '      '));
-      }
-    }
-  }
-
-  // groups
-  if (doc.groups.length > 0) {
-    lines.push('');
-    lines.push('groups:');
-    for (const group of doc.groups) {
-      lines.push(`  - id: ${yamlString(group.id)}`);
-      if (group.label !== undefined && group.label !== group.id) {
-        lines.push(`    label: ${yamlString(group.label)}`);
-      }
-      lines.push(`    contains: [${group.contains.map(yamlString).join(', ')}]`);
-      if (group.attrs && Object.keys(group.attrs).length > 0) {
-        lines.push(`    attrs:`);
-        lines.push(...serializeAttrs(group.attrs, '      '));
       }
     }
   }

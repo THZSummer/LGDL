@@ -37,6 +37,19 @@ nodes:
       start: 72
       duration: 20
 
+  - id: req
+    label: 需求
+    kind: group
+    contains: [req-review, ui-design]
+  - id: dev
+    label: 研发
+    kind: group
+    contains: [backend-dev, frontend-dev, qa-test]
+  - id: ops
+    label: 运营
+    kind: group
+    contains: [gray-release, ops-marketing]
+
 edges:
   - from: req-review
     to: ui-design
@@ -59,14 +72,3 @@ edges:
   - from: gray-release
     to: ops-marketing
     label: 依赖
-
-groups:
-  - id: req
-    label: 需求
-    contains: [req-review, ui-design]
-  - id: dev
-    label: 研发
-    contains: [backend-dev, frontend-dev, qa-test]
-  - id: ops
-    label: 运营
-    contains: [gray-release, ops-marketing]

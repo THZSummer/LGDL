@@ -5,7 +5,7 @@
  * Shapes are mapped from node kinds; a theme can be swapped later.
  */
 import type { LgdlDocument, LgdlGroup, LgdlMember, LgdlNode } from '@lgdl/core';
-import { VIS_SYMBOL } from '@lgdl/core';
+import { VIS_SYMBOL, deriveGroups } from '@lgdl/core';
 import type { LayoutResult } from '@lgdl/layout';
 import { routeEdge, shapeEdgePoint, routeRectilinear } from '@lgdl/router';
 
@@ -434,6 +434,8 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
 /** General renderer (flowchart/mindmap/arch/datastream), with optional class-node styling. */
 function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream' | 'er' | 'mindmap' | 'state'): string {
   const parts: string[] = [];
+  // group containers (was doc.groups) — derived from the group nodes
+  const groups = deriveGroups(doc);
   // mindmap: per-branch colors + font hierarchy (root > level 1 > level 2)
   const mindmapInfo = mode === 'mindmap' ? computeMindmapInfo(doc) : null;
   // state: initial pseudo-state (solid dot + arrow) above the entry state
@@ -460,12 +462,12 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   // nested dashed boxes otherwise) so groups and aggregate edges can be drawn
   const boxOf = new Map<string, { x: number; y: number; w: number; h: number }>();
   if (mode === 'datastream') {
-    const lanes = doc.groups.length > 0 ? doc.groups : [{ id: '_default', label: '流程', contains: [] as string[] }];
+    const lanes = groups.length > 0 ? groups : [{ id: '_default', label: '流程', contains: [] as string[] }];
     lanes.forEach((group, i) => {
       boxOf.set(group.id, { x: 40 + i * 260, y: 40, w: 260, h: layout.height - 40 });
     });
   } else {
-    const groupById = new Map(doc.groups.map((g) => [g.id, g]));
+    const groupById = new Map(groups.map((g) => [g.id, g]));
     const computeGroupBox = (group: LgdlGroup): { x: number; y: number; w: number; h: number } | undefined => {
       if (boxOf.has(group.id)) return boxOf.get(group.id);
       const xs: number[] = [];
@@ -503,7 +505,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       boxOf.set(group.id, box);
       return box;
     };
-    for (const g of doc.groups) computeGroupBox(g);
+    for (const g of groups) computeGroupBox(g);
   }
 
   // groups that own a node id (any nesting level). An edge is allowed to leave
@@ -512,7 +514,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     if (!id) return undefined;
     const seen = new Set<string>();
     const collect = (nid: string): void => {
-      for (const g of doc.groups) {
+      for (const g of groups) {
         if (g.contains?.includes(nid) && !seen.has(g.id)) {
           seen.add(g.id);
           collect(g.id); // nested containment
@@ -540,7 +542,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   };
   if (mode === 'datastream') {
     // swimlanes: full-height columns with header
-    doc.groups.forEach((group, i) => {
+    groups.forEach((group, i) => {
       const laneX = 40 + i * 260;
       const fill = GROUP_FILLS[i % GROUP_FILLS.length];
       parts.push(
@@ -553,9 +555,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   } else {
     // draw outer groups first (bottom layer), inner groups on top —
     // otherwise an outer group's opaque fill hides the inner group's border
-    const groupIds = new Set(doc.groups.map((g) => g.id));
+    const groupIds = new Set(groups.map((g) => g.id));
     const parentOf = new Map<string, string>();
-    for (const g of doc.groups) {
+    for (const g of groups) {
       for (const m of g.contains) {
         if (groupIds.has(m) && !parentOf.has(m)) parentOf.set(m, g.id);
       }
@@ -571,14 +573,14 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       }
       return d;
     };
-    const orderedGroups = [...doc.groups].sort((a, b) => depthOf(a.id) - depthOf(b.id));
+    const orderedGroups = [...groups].sort((a, b) => depthOf(a.id) - depthOf(b.id));
     orderedGroups.forEach((group, i) => {
       const box = boxOf.get(group.id);
       if (!box) return;
       const fill = GROUP_FILLS[i % GROUP_FILLS.length];
       // data-lgdl-loc must use the ORIGINAL document index, not the sorted
       // draw order
-      const groupIdx = doc.groups.indexOf(group);
+      const groupIdx = groups.indexOf(group);
       parts.push(
         `<g class="lgdl-group" data-lgdl-loc="groups[${groupIdx}]"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="${fill}" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>` +
           anchorDots(box, '#64748b'),
@@ -973,6 +975,7 @@ interface LayoutNodeLike {
 /** Gantt chart renderer: time axis + task bars + dependency arrows + lanes. */
 function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
   const parts: string[] = [];
+  const groups = deriveGroups(doc);
   parts.push(
     `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/></marker></defs>`,
   );
@@ -999,7 +1002,7 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
   // lane bands (from doc.groups) — drawn behind bars so groups read as
   // swimlanes: a tinted band per group + a header + a bottom separator.
   const laneFills = ['#eff6ff', '#ecfdf5', '#fffbeb', '#faf5ff', '#f8fafc'];
-  doc.groups.forEach((group, gi) => {
+  groups.forEach((group, gi) => {
     const ys: number[] = [];
     const ye: number[] = [];
     for (const m of group.contains ?? []) {

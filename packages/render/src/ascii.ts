@@ -7,6 +7,7 @@
  * CJK characters occupy 2 grid columns (full-width).
  */
 import type { LgdlDocument, LgdlGroup } from '@lgdl/core';
+import { deriveGroups } from '@lgdl/core';
 import type { LayoutResult } from '@lgdl/layout';
 
 /** Visual width of a character: CJK/full-width = 2, ASCII = 1. */
@@ -163,6 +164,7 @@ function drawBox(g: Grid, x: number, y: number, w: number, h: number, rounded = 
  */
 export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
   void layout;
+  const groups = deriveGroups(doc);
   // group boxes are containers drawn around their members (see overlayGroupBoxes),
   // never ordinary boxes on the rank grid
   const nodes = doc.nodes.filter((n) => n.kind !== 'group');
@@ -228,9 +230,9 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
   // Each top-level group gets its own column band so sibling group boxes
   // never overlap; ungrouped nodes share the leftmost band. Nested groups
   // inherit their top-level parent's band.
-  const nodeGap = doc.groups.length > 0 ? 4 : 2;
+  const nodeGap = groups.length > 0 ? 4 : 2;
   const parentOf = new Map<string, string>();
-  for (const g of doc.groups) {
+  for (const g of groups) {
     for (const m of g.contains) {
       if (!parentOf.has(m)) parentOf.set(m, g.id);
     }
@@ -251,7 +253,7 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
     const t = topOf(n.id);
     if (t !== null) topGroupOf.set(n.id, t);
   }
-  const topGroups = doc.groups.filter((g) => !parentOf.has(g.id)).map((g) => g.id);
+  const topGroups = groups.filter((g) => !parentOf.has(g.id)).map((g) => g.id);
   const bandIndexOf = new Map<string, number>();
   topGroups.forEach((gid, i) => bandIndexOf.set(gid, i));
   const bandOf = (id: string): number => {
@@ -449,7 +451,7 @@ export function renderAscii(doc: LgdlDocument, layout: LayoutResult): string {
   }
 
   // ---- groups: draw boxes around members (nested groups supported) ----
-  const finalLines = doc.groups.length > 0 && nodeBoxes.size > 0
+  const finalLines = groups.length > 0 && nodeBoxes.size > 0
     ? overlayGroupBoxes(lines, doc, nodeBoxes)
     : lines.join('\n');
   // tell the reader when the topology is incomplete
@@ -489,7 +491,8 @@ function overlayGroupBoxes(
   doc: LgdlDocument,
   nodeBoxes: Map<string, { left: number; top: number; width: number; height: number }>,
 ): string {
-  const groupById = new Map(doc.groups.map((g) => [g.id, g]));
+  const groups = deriveGroups(doc);
+  const groupById = new Map(groups.map((g) => [g.id, g]));
   const memo = new Map<string, GroupBox | null>();
 
   const compute = (g: LgdlGroup): GroupBox | null => {
@@ -531,7 +534,7 @@ function overlayGroupBoxes(
   };
 
   const boxes: { id: string; label: string; box: GroupBox }[] = [];
-  for (const g of doc.groups) {
+  for (const g of groups) {
     const b = compute(g);
     if (b) boxes.push({ id: g.id, label: g.label ?? g.id, box: b });
   }
@@ -540,8 +543,8 @@ function overlayGroupBoxes(
   // outer boxes first (bottom layer), inner on top — keeps nested borders
   // readable even when a connector crosses multiple borders
   const parentOf = new Map<string, string>();
-  const groupIds = new Set(doc.groups.map((g) => g.id));
-  for (const g of doc.groups) {
+  const groupIds = new Set(groups.map((g) => g.id));
+  for (const g of groups) {
     for (const m of g.contains) {
       if (groupIds.has(m) && !parentOf.has(m)) parentOf.set(m, g.id);
     }

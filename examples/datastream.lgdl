@@ -24,6 +24,15 @@ nodes:
     label: 支付流水
     kind: entity
 
+  - id: app
+    label: 应用层
+    kind: group
+    contains: [web, order-svc, inv-svc, pay-svc]
+  - id: data
+    label: 数据层
+    kind: group
+    contains: [order-db, inv-db, pay-db]
+
 edges:
   - from: web
     to: order-svc
@@ -46,11 +55,3 @@ edges:
   - from: app
     to: data
     label: 整体落库     # 聚合边：应用层 → 数据层（泳道间流向）
-
-groups:
-  - id: app
-    label: 应用层
-    contains: [web, order-svc, inv-svc, pay-svc]
-  - id: data
-    label: 数据层
-    contains: [order-db, inv-db, pay-db]

@@ -18,6 +18,27 @@ nodes:
   - id: redis
     label: Redis缓存
 
+  - id: g-source
+    label: 数据源层
+    kind: group
+    contains: [app, sdk]
+  - id: g-transport
+    label: 传输层
+    kind: group
+    contains: [kafka]
+  - id: g-compute
+    label: 计算层
+    kind: group
+    contains: [flink]
+  - id: g-storage
+    label: 存储层
+    kind: group
+    contains: [clickhouse, redis]
+  - id: g-app
+    label: 应用层
+    kind: group
+    contains: [dashboard, alert]
+
 edges:
   - from: app
     to: sdk
@@ -58,20 +79,3 @@ edges:
   - from: alert
     to: dashboard
     label: 告警推送
-
-groups:
-  - id: g-source
-    label: 数据源层
-    contains: [app, sdk]
-  - id: g-transport
-    label: 传输层
-    contains: [kafka]
-  - id: g-compute
-    label: 计算层
-    contains: [flink]
-  - id: g-storage
-    label: 存储层
-    contains: [clickhouse, redis]
-  - id: g-app
-    label: 应用层
-    contains: [dashboard, alert]

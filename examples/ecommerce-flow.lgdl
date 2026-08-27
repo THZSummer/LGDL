@@ -45,6 +45,23 @@ nodes:
     label: 发起退款
     kind: end
 
+  - id: shopping
+    label: 购物域
+    kind: group
+    contains: [browse, cart]
+  - id: trade
+    label: 交易域
+    kind: group
+    contains: [submit, validate, lock-stock, pay, risk, pay-ok, deduct]
+  - id: fulfillment
+    label: 履约域
+    kind: group
+    contains: [ship, done]
+  - id: after-sale
+    label: 售后域
+    kind: group
+    contains: [refund]
+
 edges:
   - from: browse
     to: cart
@@ -95,17 +112,3 @@ edges:
   - from: fulfillment
     to: after-sale
     label: 售后入口
-
-groups:
-  - id: shopping
-    label: 购物域
-    contains: [browse, cart]
-  - id: trade
-    label: 交易域
-    contains: [submit, validate, lock-stock, pay, risk, pay-ok, deduct]
-  - id: fulfillment
-    label: 履约域
-    contains: [ship, done]
-  - id: after-sale
-    label: 售后域
-    contains: [refund]

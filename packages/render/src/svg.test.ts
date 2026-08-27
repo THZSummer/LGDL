@@ -17,15 +17,13 @@ test('renderSvg draws outer group boxes before inner ones (nested visible)', () 
       { id: 'start', label: '开始' },
       { id: 'login', label: '登录' },
       { id: 'verify', label: '校验' },
+      { id: 'auth', label: '认证模块', kind: 'group', contains: ['login'] },
+      { id: 'frontend', label: '前端层', kind: 'group', contains: ['start', 'auth'] },
+      { id: 'backend', label: '后端层', kind: 'group', contains: ['verify'] },
     ],
     edges: [
       { from: 'start', to: 'login' },
       { from: 'login', to: 'verify' },
-    ],
-    groups: [
-      { id: 'auth', label: '认证模块', contains: ['login'] },
-      { id: 'frontend', label: '前端层', contains: ['start', 'auth'] },
-      { id: 'backend', label: '后端层', contains: ['verify'] },
     ],
   };
   const layout: LayoutResult = {
@@ -51,12 +49,10 @@ test('renderSvg draws aggregate edges between groups', () => {
     nodes: [
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
+      { id: 'g1', label: '组一', kind: 'group', contains: ['a'] },
+      { id: 'g2', label: '组二', kind: 'group', contains: ['b'] },
     ],
     edges: [{ from: 'g1', to: 'g2', label: '整体调用' }],
-    groups: [
-      { id: 'g1', label: '组一', contains: ['a'] },
-      { id: 'g2', label: '组二', contains: ['b'] },
-    ],
   };
   const layout: LayoutResult = {
     nodes: [
@@ -98,7 +94,6 @@ test('renderSvg renders uml-class cards from structured members', () => {
       },
     ],
     edges: [],
-    groups: [],
   };
   const layout: LayoutResult = {
     nodes: [{ id: 'cart', x: 40, y: 40, width: 220, height: 84 }],
@@ -123,7 +118,6 @@ test('renderSvg er mode: relation name at midpoint, multiplicities at endpoints'
       { id: 'order', label: '订单' },
     ],
     edges: [{ from: 'user', to: 'order', label: '拥有', cardinalityFrom: '1', cardinalityTo: '*' }],
-    groups: [],
   };
   const layout: LayoutResult = {
     nodes: [
@@ -151,7 +145,6 @@ test('renderSvg uml-class mode renders explicit multiplicities at endpoints', ()
       { id: 'order', label: 'Order', kind: 'entity' },
     ],
     edges: [{ from: 'user', to: 'order', label: '拥有', cardinalityFrom: '1', cardinalityTo: '*' }],
-    groups: [],
   };
   const layout: LayoutResult = {
     nodes: [
@@ -174,9 +167,9 @@ test('renderSvg emits data-lgdl-loc source mappings on nodes, edges and groups',
     nodes: [
       { id: 'a', label: 'A' },
       { id: 'b', label: 'B' },
+      { id: 'g1', label: '组一', kind: 'group', contains: ['a'] },
     ],
     edges: [{ from: 'a', to: 'b', label: '去' }],
-    groups: [{ id: 'g1', label: '组一', contains: ['a'] }],
   };
   const layout: LayoutResult = {
     nodes: [
@@ -212,7 +205,6 @@ test('renderSvg uml-class member rows carry nodes[i].members[j] mappings', () =>
       },
     ],
     edges: [],
-    groups: [],
   };
   const layout: LayoutResult = {
     nodes: [{ id: 'cart', x: 40, y: 40, width: 220, height: 84 }],

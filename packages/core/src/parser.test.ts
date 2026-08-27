@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseLgdl, validate, serializeLgdl } from './index.js';
+import { groupNodes, deriveGroups } from './groups.js';
 
 const VALID_DOC = `title: 用户登录流程
 type: flowchart
@@ -19,6 +20,11 @@ nodes:
     label: 登录成功
     kind: end
 
+  - id: frontend
+    label: 前端层
+    kind: group
+    contains: [start, login]
+
 edges:
   - from: start
     to: login
@@ -28,11 +34,6 @@ edges:
   - from: verify
     to: ok
     label: 通过
-
-groups:
-  - id: frontend
-    label: 前端层
-    contains: [start, login]
 `;
 
 test('parses a valid document', () => {
@@ -45,10 +46,10 @@ test('parses a valid document', () => {
   // node count now includes it alongside the 4 ordinary nodes
   assert.equal(result.document.nodes.length, 5);
   assert.equal(result.document.edges.length, 3);
-  assert.equal(result.document.groups.length, 1);
+  assert.equal(deriveGroups(result.document).length, 1);
   assert.equal(result.document.nodes[0].id, 'start');
   assert.equal(result.document.nodes[0].kind, 'start');
-  assert.deepEqual(result.document.groups[0].contains, ['start', 'login']);
+  assert.deepEqual(deriveGroups(result.document)[0].contains, ['start', 'login']);
 });
 
 test('rejects duplicate node ids', () => {
@@ -97,7 +98,6 @@ test('validate works on hand-built documents', () => {
     type: 'mindmap',
     nodes: [{ id: 'root', kind: 'start' }],
     edges: [],
-    groups: [],
   });
   assert.equal(result.valid, true);
 });
@@ -106,13 +106,12 @@ test('inline list parsing works', () => {
   const result = parseLgdl(`type: flowchart
 nodes:
   - id: a
-groups:
   - id: g1
-    contains: [a, b]
-`);
+    kind: group
+    contains: [a, b]`);
   // 'b' doesn't exist -> error, but list itself parsed as array
   assert.ok(result.issues.some((i) => i.message.includes('contains unknown node')));
-  assert.equal(result.document.groups[0].contains.length, 2);
+  assert.equal(deriveGroups(result.document)[0].contains.length, 2);
 });
 
 test('numeric node ids stay strings (id is an identifier)', () => {
@@ -122,20 +121,20 @@ nodes:
     label: 数字节点
     kind: entity
   - id: oss
+  - id: g1
+    kind: group
+    contains: [1111, oss]
+
 edges:
   - from: 1111
-    to: oss
-groups:
-  - id: g1
-    contains: [1111, oss]
-`);
+    to: oss`);
   assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
   assert.equal(typeof result.document.nodes[0].id, 'string');
   assert.equal(result.document.nodes[0].id, '1111');
   // edge reference works
   assert.equal(result.document.edges[0].from, '1111');
   // group contains works
-  assert.deepEqual(result.document.groups[0].contains, ['1111', 'oss']);
+  assert.deepEqual(deriveGroups(result.document)[0].contains, ['1111', 'oss']);
 });
 
 test('numeric attrs values stay numbers', () => {
@@ -157,29 +156,29 @@ test('nested groups are valid (group contains another group id)', () => {
 nodes:
   - id: a
   - id: b
-groups:
   - id: inner
     label: 内层
+    kind: group
     contains: [a, b]
   - id: outer
     label: 外层
-    contains: [inner]
-`);
+    kind: group
+    contains: [inner]`);
   assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
   assert.equal(result.issues.length, 0);
-  assert.deepEqual(result.document.groups[1].contains, ['inner']);
+  assert.deepEqual(deriveGroups(result.document)[1].contains, ['inner']);
 });
 
 test('group may reference a group declared later in the list', () => {
   const result = parseLgdl(`type: flowchart
 nodes:
   - id: a
-groups:
   - id: outer
+    kind: group
     contains: [inner]
   - id: inner
-    contains: [a]
-`);
+    kind: group
+    contains: [a]`);
   assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
 });
 
@@ -187,10 +186,9 @@ test('group contains unknown id (neither node nor group) is an error', () => {
   const result = parseLgdl(`type: flowchart
 nodes:
   - id: a
-groups:
   - id: g1
-    contains: [ghost]
-`);
+    kind: group
+    contains: [ghost]`);
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('contains unknown node or group')));
 });
@@ -199,12 +197,12 @@ test('duplicate group id is an error', () => {
   const result = parseLgdl(`type: flowchart
 nodes:
   - id: a
-groups:
   - id: g1
+    kind: group
     contains: [a]
   - id: g1
-    contains: [a]
-`);
+    kind: group
+    contains: [a]`);
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('Duplicate group id')));
 });
@@ -213,10 +211,9 @@ test('group cannot contain itself directly', () => {
   const result = parseLgdl(`type: flowchart
 nodes:
   - id: a
-groups:
   - id: g1
-    contains: [g1, a]
-`);
+    kind: group
+    contains: [g1, a]`);
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('cycle')));
 });
@@ -226,12 +223,12 @@ test('group containment cycle (a -> b -> a) is an error', () => {
 nodes:
   - id: a
   - id: b
-groups:
   - id: g1
+    kind: group
     contains: [g2]
   - id: g2
-    contains: [g1]
-`);
+    kind: group
+    contains: [g1]`);
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('cycle')));
 });
@@ -240,14 +237,15 @@ test('group in two groups is an error', () => {
   const result = parseLgdl(`type: flowchart
 nodes:
   - id: a
-groups:
   - id: g1
+    kind: group
     contains: [g3]
   - id: g2
+    kind: group
     contains: [g3]
   - id: g3
-    contains: [a]
-`);
+    kind: group
+    contains: [a]`);
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('belongs to both')));
 });
@@ -257,18 +255,19 @@ test('inline comments are stripped from values', () => {
 nodes:
   - id: a
   - id: b
-groups:
   - id: g1
     label: 前端层 # 说明文字
-    contains: [a, b]   # 成员列表
+    kind: group
+    contains: [a, b]
+
 edges:
   - from: a
     to: b
     label: 下一步 # 边注释
 `);
   assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
-  assert.equal(result.document.groups[0].label, '前端层');
-  assert.deepEqual(result.document.groups[0].contains, ['a', 'b']);
+  assert.equal(deriveGroups(result.document)[0].label, '前端层');
+  assert.deepEqual(deriveGroups(result.document)[0].contains, ['a', 'b']);
   assert.equal(result.document.edges[0].label, '下一步');
 });
 
@@ -290,16 +289,17 @@ test('edges may reference group ids (aggregate edges)', () => {
 nodes:
   - id: a
   - id: b
+  - id: g1
+    kind: group
+    contains: [a]
+  - id: g2
+    kind: group
+    contains: [b]
+
 edges:
   - from: g1
     to: g2
-    label: 整体调用
-groups:
-  - id: g1
-    contains: [a]
-  - id: g2
-    contains: [b]
-`);
+    label: 整体调用`);
   assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
   assert.equal(result.document.edges[0].from, 'g1');
   assert.equal(result.document.edges[0].to, 'g2');
@@ -310,17 +310,18 @@ test('mixed edges: node -> group and group -> node are valid', () => {
 nodes:
   - id: a
   - id: b
+  - id: g1
+    kind: group
+    contains: [a]
+  - id: g2
+    kind: group
+    contains: [b]
+
 edges:
   - from: a
     to: g2
   - from: g1
-    to: b
-groups:
-  - id: g1
-    contains: [a]
-  - id: g2
-    contains: [b]
-`);
+    to: b`);
   assert.equal(result.valid, true, result.issues.map((i) => i.message).join('; '));
 });
 
@@ -328,13 +329,13 @@ test('edge referencing an id that is neither node nor group is an error', () => 
   const result = parseLgdl(`type: flowchart
 nodes:
   - id: a
+  - id: g1
+    kind: group
+    contains: [a]
+
 edges:
   - from: ghost
-    to: a
-groups:
-  - id: g1
-    contains: [a]
-`);
+    to: a`);
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((i) => i.message.includes('unknown source node or group')));
 });
@@ -659,12 +660,13 @@ edges:
   assert.ok(r1.issues.some((i) => i.message.includes('Unknown field "lable" on edge')));
 
   const r2 = parseLgdl(`type: flowchart
-groups:
-  - id: g
-    containz: [a]
+nodes:
+  - id: a
+    kind: group
+    containz: []
 `);
   assert.equal(r2.valid, false);
-  assert.ok(r2.issues.some((i) => i.message.includes('Unknown field "containz" on group')));
+  assert.ok(r2.issues.some((i) => i.message.includes('Unknown field "containz" on node')));
 
   const r3 = parseLgdl(`type: flowchart
 titel: x

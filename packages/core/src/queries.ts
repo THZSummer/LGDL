@@ -5,6 +5,7 @@
  * 业务逻辑（查询格式化）唯一实现在此，两端各自做输入适配。
  */
 import { NODE_KINDS, NODE_KIND_LABELS, type LgdlDocument } from './types.js';
+import { deriveGroups } from './groups.js';
 import { formatStatus } from './status.js';
 
 /** status：完整图结构文本（AI 读图首选）。 */
@@ -21,11 +22,13 @@ export function listNodeKinds(): string {
 /** 文档概览：类型/规模/kind 分布/meta。 */
 export function queryDocInfo(doc: LgdlDocument): string[] {
   const lines: string[] = [];
+  const groups = deriveGroups(doc);
   lines.push(`文档：${doc.title ?? '（未命名）'} [${doc.type}]`);
-  // group nodes are container boxes (doc.groups), not ordinary nodes — the
-  // "规模" count reports the box count so it is not inflated by group boxes
+  // group nodes are container boxes (derived from group nodes), not ordinary
+  // nodes — the "规模" count reports the box count so it is not inflated by
+  // group boxes
   const boxCount = doc.nodes.filter((n) => n.kind !== 'group').length;
-  lines.push(`规模：${boxCount} 节点 / ${doc.edges.length} 边 / ${doc.groups.length} 分组`);
+  lines.push(`规模：${boxCount} 节点 / ${doc.edges.length} 边 / ${groups.length} 分组`);
   const usedKinds = new Map<string, number>();
   for (const n of doc.nodes) {
     const k = n.kind ?? 'process';
@@ -43,8 +46,10 @@ export function queryNode(doc: LgdlDocument, id: string): string[] | null {
   const lines: string[] = [];
   lines.push(`节点 ${node.id}（${node.label ?? node.id}）:${node.kind ?? 'process'}`);
   // 所属分组
-  const groups = doc.groups.filter((g) => g.contains.includes(id)).map((g) => g.id);
-  if (groups.length > 0) lines.push(`  分组: ${groups.join(', ')}`);
+  const memberGroups = deriveGroups(doc)
+    .filter((g) => g.contains.includes(id))
+    .map((g) => g.id);
+  if (memberGroups.length > 0) lines.push(`  分组: ${memberGroups.join(', ')}`);
   if (node.members && node.members.length > 0) {
     lines.push(`  成员 ${node.members.length} 个:`);
     for (const m of node.members) {
