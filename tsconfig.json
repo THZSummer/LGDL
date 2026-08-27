@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/layout" },
+    { "path": "./packages/router" },
     { "path": "./packages/render" },
     { "path": "./packages/cli" }
   ]

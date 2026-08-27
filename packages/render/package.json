@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "@lgdl/core": "^0.5.0",
-    "@lgdl/layout": "^0.5.0"
+    "@lgdl/layout": "^0.5.0",
+    "@lgdl/router": "^0.5.0"
   },
   "license": "MIT",
   "files": [
