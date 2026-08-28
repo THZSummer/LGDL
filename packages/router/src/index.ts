@@ -425,7 +425,14 @@ export function countCrossingsWithRouted(pts: Pt[], routed: { pts: Pt[] }[]): nu
  */
 export function pathClearanceInterior(pts: Pt[], boxes: Box[]): number {
   let min = Infinity;
-  for (let i = 1; i < pts.length - 2; i++) {
+  // Check every segment EXCEPT the source-leaving first one (i=0). Including the
+  // last segment matters: a 3-point path has no "pure interior" segment, so a
+  // final leg that RUNS ALONG a target box's top/left edge (hugging) would
+  // otherwise be invisible to the clearance metric. Legs that truly ENTER a box
+  // vertically (drop onto the top-center) or horizontally (run to the left-center)
+  // are naturally excluded by the `bb.y < hi-2` / `bb.x < hi-2` tests, so legit
+  // endpoint anchoring is not penalised.
+  for (let i = 1; i < pts.length - 1; i++) {
     const a = pts[i];
     const b = pts[i + 1];
     if (Math.abs(a.x - b.x) < 0.5) {
