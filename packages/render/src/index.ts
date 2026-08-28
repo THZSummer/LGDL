@@ -686,6 +686,20 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     }
     return nodeCenter(id);
   };
+  // Shared label-placement state. Declared BEFORE the aggregate-edge loop so
+  // aggregate labels (group↔node/group) and ordinary node-edge labels avoid
+  // colliding with each other — previously aggregate labels ignored the placed
+  // list, so they could overlap a node-edge label (e.g. 整体落库 vs 更新库存).
+  // Obstacles: every node (padded) and every non-lane group box (so labels
+  // don't sit on a group header or straddle a node).
+  const nodeObstacles: LabelBox[] = layout.nodes
+    .filter((n) => doc.nodes.some((dn) => dn.id === n.id))
+    .map((n) => ({ x: n.x - 2, y: n.y - 2, w: n.width + 4, h: n.height + 4 }));
+  const groupObstacles: LabelBox[] = [...boxOf.entries()]
+    .filter(([, b]) => b.w > 0 && b.h > 0)
+    .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
+  const labelObstacles = [...nodeObstacles, ...groupObstacles];
+  const placedLabels: LabelBox[] = [];
   doc.edges.forEach((edge, i) => {
     if (nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to)) return; // regular node edge
     const fromBox = nodeIdSet.has(edge.from) ? undefined : boxOf.get(edge.from);
@@ -725,17 +739,10 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       // to tiny unreadable sizes even on very short segments
       const fontSize = 11;
       const w = label.length * fontSize;
-      const seg = aggPath.reduce<{ len: number; x: number; y: number }>(
-        (best, p, k) => {
-          const nxt = aggPath[k + 1];
-          if (!nxt) return best;
-          const len = Math.hypot(nxt.x - p.x, nxt.y - p.y);
-          return len > best.len ? { len, x: (p.x + nxt.x) / 2, y: (p.y + nxt.y) / 2 } : best;
-        },
-        { len: -1, x: dst.x, y: dst.y },
-      );
-      const x = Math.max(10 + w / 2, Math.min(seg.x, layout.width - 10 - w / 2));
-      const y = seg.y - 4;
+      // Place via placeLabelBox so the aggregate label (a) avoids nodes/group
+      // boxes and (b) registers into the shared placedLabels list — preventing
+      // overlap with an ordinary node-edge label on the same channel.
+      const { x, y } = placeLabelBox(aggPath, label, labelObstacles, placedLabels);
       const bgW = w + 8;
       const bgH = fontSize + 6;
       labelEl =
@@ -750,20 +757,8 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
   });
 
   // edges (behind nodes)
-  // placed node-edge labels, tracked so dense labels (e.g. state diagrams)
-  // don't collide — conflicts are pushed to alternate rows
-  const placedLabels: LabelBox[] = [];
-  // obstacle boxes: every node (padded) must not be covered by an edge label
-  const nodeObstacles: LabelBox[] = layout.nodes
-    .filter((n) => doc.nodes.some((dn) => dn.id === n.id))
-    .map((n) => ({ x: n.x - 2, y: n.y - 2, w: n.width + 4, h: n.height + 4 }));
-  // also treat group box borders as obstacles so edge labels (e.g. 售后入口 /
-  // 通知履约) don't sit on the group boundary label area and collide with the
-  // group header text. Only non-lane (datastream) groups have a full box here.
-  const groupObstacles: LabelBox[] = [...boxOf.entries()]
-    .filter(([, b]) => b.w > 0 && b.h > 0)
-    .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
-  const labelObstacles = [...nodeObstacles, ...groupObstacles];
+  // node-edge label placement uses the shared placedLabels / labelObstacles
+  // declared above (before the aggregate loop) so labels never collide.
 
   // Bug3: 重复标签冗余 — edges that share the same `from` and same `label`
   // (a fan-out trunk, e.g. api-gateway -> 5 services all labelled 路由转发)
