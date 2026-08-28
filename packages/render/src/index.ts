@@ -886,12 +886,26 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         const toV = edgeDoc?.cardinalityTo;
         const p0 = ortho[0];
         const pn = ortho[ortho.length - 1];
-        const ux = (pn.x - p0.x) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
-        const uy = (pn.y - p0.y) / (Math.hypot(pn.x - p0.x, pn.y - p0.y) || 1);
+        // Use the edge's LOCAL direction at each endpoint (the direction the
+        // polyline actually leaves/enters) instead of the whole-edge straight
+        // line. On bent edges the straight-line direction can point into a
+        // node body or toward another connection, making the multiplicity
+        // float/overlap. Anchoring on the local segment keeps the "1"/"*" snug
+        // on the entity side it truly belongs to.
+        const srcV = ortho.length >= 2
+          ? { x: ortho[1].x - p0.x, y: ortho[1].y - p0.y }
+          : { x: pn.x - p0.x, y: pn.y - p0.y };
+        const srcLen = Math.hypot(srcV.x, srcV.y) || 1;
+        const sUx = srcV.x / srcLen, sUy = srcV.y / srcLen;
+        const dstV = ortho.length >= 2
+          ? { x: pn.x - ortho[ortho.length - 2].x, y: pn.y - ortho[ortho.length - 2].y }
+          : { x: pn.x - p0.x, y: pn.y - p0.y };
+        const dstLen = Math.hypot(dstV.x, dstV.y) || 1;
+        const dUx = dstV.x / dstLen, dUy = dstV.y / dstLen;
         // anchor multiplicities 22px outside the entity borders so small
         // glyphs like "*" stay clearly readable next to the card edges
-        const srcCard = { x: p0.x + ux * 22, y: p0.y + uy * 22 };
-        const dstCard = { x: pn.x - ux * 22, y: pn.y - uy * 22 };
+        const srcCard = { x: p0.x + sUx * 22, y: p0.y + sUy * 22 };
+        const dstCard = { x: pn.x - dUx * 22, y: pn.y - dUy * 22 };
         let relEl = '';
         if (rel) {
           const { x, y } = placeLabelBox(ortho, rel, labelObstacles, placedLabels);
@@ -1063,10 +1077,27 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
     const [a, b] = pts;
     const edgeDoc = doc.edges.find((e) => e.from === edge.from && e.to === edge.to);
     const edgeIdx = edgeDoc ? doc.edges.indexOf(edgeDoc) : -1;
-    // L-shaped connector: from end of source bar, right, then down to target
-    const midX = Math.min(a.x + 20, b.x);
+    // Dependency connector: from the END of the source bar (a) to the START of
+    // the target bar (b). Normally an L (source right-edge → a mid column →
+    // down → target left-edge). But when the target starts exactly where the
+    // source ends (gap ≈ 0, e.g. develop → test where test.start == develop.end)
+    // the L's last segment collapses to 0 length and the arrow floats. In that
+    // case route to the target's x first, then drop straight down so the arrow
+    // lands on the target bar's left edge. Only fall back to a leftward detour
+    // when the target genuinely sits left of the source (unusual).
+    const gap = b.x - a.x;
+    let d: string;
+    if (gap >= 20) {
+      const midX = a.x + 20;
+      d = `M ${a.x},${a.y} L ${midX},${a.y} L ${midX},${b.y} L ${b.x},${b.y}`;
+    } else if (gap >= -4) {
+      d = `M ${a.x},${a.y} L ${b.x},${a.y} L ${b.x},${b.y}`;
+    } else {
+      const midX = Math.min(a.x - 20, b.x);
+      d = `M ${a.x},${a.y} L ${midX},${a.y} L ${midX},${b.y} L ${b.x},${b.y}`;
+    }
     parts.push(
-      `<g class="lgdl-dep"${edgeIdx >= 0 ? ` data-lgdl-loc="edges[${edgeIdx}]"` : ''}><path d="M ${a.x},${a.y} L ${midX},${a.y} L ${midX},${b.y} L ${b.x},${b.y}" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/></g>`,
+      `<g class="lgdl-dep"${edgeIdx >= 0 ? ` data-lgdl-loc="edges[${edgeIdx}]"` : ''}><path d="${d}" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/></g>`,
     );
   }
 
