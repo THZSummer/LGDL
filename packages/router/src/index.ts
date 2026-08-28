@@ -114,8 +114,10 @@ export function routeEdge(opts: {
   dstKind: string;
   obstacles: Box[];
   bounds: { w: number; h: number };
+  /** Already-routed sibling edges (orthogonal polylines), for crossing counting. */
+  routedSegments?: { pts: Pt[] }[];
 }): Pt[] {
-  const { points: rawPts, srcNode, dstNode, srcKind, dstKind, obstacles, bounds } = opts;
+  const { points: rawPts, srcNode, dstNode, srcKind, dstKind, obstacles, bounds, routedSegments } = opts;
   const trimmed = [...rawPts];
   if (trimmed.length < 2) return trimmed;
   if (srcNode) trimmed[0] = shapeEdgePoint(srcKind, srcNode, trimmed[1]);
@@ -144,7 +146,14 @@ export function routeEdge(opts: {
     if (srcNode) clearBoxes.push({ x: srcNode.x, y: srcNode.y, w: srcNode.width, h: srcNode.height });
     if (dstNode) clearBoxes.push({ x: dstNode.x, y: dstNode.y, w: dstNode.width, h: dstNode.height });
     const clear = pathClearanceInterior(p, clearBoxes);
-    return ownHit + crossHit + Math.min(clear, 1000) - bends;
+    // 贴边硬罚：内部走线距任一墙 <10px 视为"贴边"，重罚，确保贴墙解不被选中
+    // （clear 是软评分，量级会被 -bends 抵消；这里是结构性下限）。
+    const hugPenalty = clear < 10 ? -1e5 : 0;
+    // 穿越已布边：真实计数（不再用 boolean flag），每次交叉 -1000。
+    const crossRouted = routedSegments && routedSegments.length
+      ? -countCrossingsWithRouted(p, routedSegments) * 1000
+      : 0;
+    return ownHit + crossHit + hugPenalty + crossRouted + Math.min(clear, 1000) - bends;
   };
 
   let best: Pt[] | null = null;
@@ -372,6 +381,43 @@ export function pathCrosses(pts: Pt[], boxes: Box[]): boolean {
   return false;
 }
 
+/** True if the two axis-aligned segments a→b and c→d cross transversally. */
+function segmentCrossesSegment(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
+  const aVert = Math.abs(a.x - b.x) < 0.5;
+  const cVert = Math.abs(c.x - d.x) < 0.5;
+  // Both vertical or both horizontal → parallel, no transversal crossing.
+  if (aVert === cVert) return false;
+  // Segment a→b is horizontal, c→d is vertical (or the transpose).
+  const [h1, h2] = aVert ? [c, d] : [a, b]; // horizontal segment
+  const [v1, v2] = aVert ? [a, b] : [c, d]; // vertical segment
+  const hy = h1.y;
+  const vx = v1.x;
+  const hLo = Math.min(h1.x, h2.x), hHi = Math.max(h1.x, h2.x);
+  const vLo = Math.min(v1.y, v2.y), vHi = Math.max(v1.y, v2.y);
+  // Strict interior crossing (skip exact endpoint touch to avoid double counts).
+  return vx > hLo + 0.5 && vx < hHi - 0.5 && hy > vLo + 0.5 && hy < vHi - 0.5;
+}
+
+/**
+ * Count how many times `pts` (a routed orthogonal polyline) crosses the already
+ * routed edges in `routed` (each an orthogonal polyline). Used as a structural
+ * cost in `quality` so an edge that threads through many existing edges is
+ * penalised, rather than treating "cross once" and "cross five times" the same.
+ */
+export function countCrossingsWithRouted(pts: Pt[], routed: { pts: Pt[] }[]): number {
+  let count = 0;
+  for (const r of routed) {
+    const rp = r.pts;
+    if (rp.length < 2) continue;
+    for (let i = 0; i < pts.length - 1; i++) {
+      for (let j = 0; j < rp.length - 1; j++) {
+        if (segmentCrossesSegment(pts[i], pts[i + 1], rp[j], rp[j + 1])) count++;
+      }
+    }
+  }
+  return count;
+}
+
 /**
  * Smallest clearance (px) of the INTERIOR legs of `pts` from a box WALL. The
  * first and last legs attach to the source/target shape borders, so they're
@@ -468,9 +514,9 @@ function routeAStar(
   bounds: { w: number; h: number },
   srcNode?: NodeBox | null,
   dstNode?: NodeBox | null,
-  clear = 8,
+  clear = 14,
 ): Pt[] | null {
-  const cell = Math.max(6, Math.floor(clear / 2));
+  const cell = Math.max(7, Math.floor(clear / 2));
   const gx = Math.floor(bounds.w / cell) + 1;
   const gy = Math.floor(bounds.h / cell) + 1;
   const col = (x: number) => Math.max(0, Math.min(gx - 1, Math.floor(x / cell)));
@@ -502,26 +548,37 @@ function routeAStar(
   const open = new MinHeap();
   const gScore = new Float64Array(gx * gy).fill(Infinity);
   const cameFrom = new Int32Array(gx * gy).fill(-1);
+  // Direction into each cell (for bend penalty): 0=start, 1=right,2=left,3=down,4=up.
+  const dirIn = new Int8Array(gx * gy);
   const hn = (x: number, y: number) => Math.abs(x - sxi) + Math.abs(y - syi);
   const si = col(src.x), sj = row(src.y);
   gScore[si + sj * gx] = 0;
   open.push(hn(si, sj), si + sj * gx);
-  const dx = [1, -1, 0, 0], dy = [0, 0, 1, -1];
+  const ddx = [1, -1, 0, 0], ddy = [0, 0, 1, -1];
+  const bendW = 30; // per-turn cost inside A* (prefers straight runs; collapseGridPath removes the stair-step elbows)
   let found = false;
   while (!open.isEmpty()) {
     const cur = open.pop();
     if (cur === dstI) { found = true; break; }
     const cx = cur % gx, cy = (cur - cx) / gx;
+    const curDir = dirIn[cur];
+    const curH = hn(cx, cy);
     for (let k = 0; k < 4; k++) {
-      const nx = cx + dx[k], ny = cy + dy[k];
+      const nx = cx + ddx[k], ny = cy + ddy[k];
       if (nx < 0 || ny < 0 || nx >= gx || ny >= gy) continue;
       const ni = idx(nx, ny);
       if (blocked[ni]) continue;
-      const ng = gScore[cur] + 1;
+      const moveDir = k + 1;
+      const bend = curDir !== 0 && curDir !== moveDir ? bendW : 0;
+      const newH = hn(nx, ny);
+      // 方向惩罚：往目标反方向（绕远）每格加小罚，偏向先行接近目标。
+      const away = newH > curH ? (newH - curH) * 14 : 0;
+      const ng = gScore[cur] + 1 + bend + away;
       if (ng < gScore[ni]) {
         gScore[ni] = ng;
         cameFrom[ni] = cur;
-        open.push(ng + hn(nx, ny), ni);
+        dirIn[ni] = moveDir;
+        open.push(ng + newH, ni);
       }
     }
   }
@@ -534,8 +591,8 @@ function routeAStar(
   cellPath.reverse();
 
   const pts = cellPath.map((ci) => {
-    const cx = ci % gx, cy = (ci - cx) / gx;
-    return { x: cx * cell, y: cy * cell };
+    const ci2 = ci % gx, cy2 = (ci - ci2) / gx;
+    return { x: ci2 * cell, y: cy2 * cell };
   });
   pts[0] = src;
   pts[pts.length - 1] = dst;

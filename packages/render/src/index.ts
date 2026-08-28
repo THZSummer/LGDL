@@ -794,7 +794,35 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     if ((targetCount.get(key) ?? 0) >= 2) mergedGroup.set(key, g);
   }
 
-  for (const edge of layout.edges) {
+  // Edge order: route cross-group edges FIRST so they claim their preferred
+  // straight path before flexible intra-group edges can block them, then
+  // shorter edges first (they need less room to manoeuvre). Keeps the routed
+  // set for transversal-crossing counting so a later edge is penalised for
+  // threading through already-routed edges (was a single boolean flag).
+  const crossGroup = (e: { from: string; to: string }): number => {
+    const gs = groupsOwning(e.from);
+    const gt = groupsOwning(e.to);
+    if (!gs || !gt) return 0;
+    for (const g of gs) if (gt.has(g)) return 0; // same group (or none) → intra
+    return 1; // cross-group
+  };
+  const nodePos = new Map<string, { x: number; y: number }>();
+  for (const n of layout.nodes) nodePos.set(n.id, { x: n.x, y: n.y });
+  const manDist = (id: string, other: string): number => {
+    const a = nodePos.get(id), b = nodePos.get(other);
+    if (!a || !b) return 0;
+    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  };
+  const orderedEdges = [...layout.edges].sort((a, b) => {
+    const cg = crossGroup(b) - crossGroup(a); // cross-group first
+    if (cg !== 0) return cg;
+    const da = a.points.length ? 0 : manDist(a.from, a.to);
+    const db = b.points.length ? 0 : manDist(b.from, b.to);
+    return da - db; // shorter first
+  });
+  const routedEdges: { pts: { x: number; y: number }[] }[] = [];
+
+  for (const edge of orderedEdges) {
     const pts = edge.points.length > 0 ? edge.points : routeDefault(doc, edge.from, edge.to);
     // Snap both endpoints to the REAL shape border (dagre only trims to the
     // bounding rect — diamonds are empty near the rect corners, so lines
@@ -832,7 +860,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       dstKind,
       obstacles: routeBoxes,
       bounds: { w: layout.width, h: layout.height },
+      routedSegments: routedEdges,
     });
+    routedEdges.push({ pts: ortho });
     const d = ortho
       .map((p, i) => `${i === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`)
       .join(' ');
