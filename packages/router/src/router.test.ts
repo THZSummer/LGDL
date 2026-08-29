@@ -59,3 +59,68 @@ test('routeRectilinear avoids a blocker in the drop path', () => {
   const path = routeRectilinear(src, dst, boxes, [src, dst]);
   assert.ok(!pathCrosses(path, boxes), 'rectilinear path avoids the blocker');
 });
+
+test('routeEdge does not slide along its own source edge (diagonal overlap)', () => {
+  // Mirrors the mindmap 部署方案(deploy)→云部署(cloud) case: the target sits
+  // down-left of the source, and the two boxes' x-ranges overlap. The router
+  // must exit from the source's "toward the target" anchor (150°, on the bottom
+  // edge, x≈275.5), NOT from the left face centre (x=244) — which made the first
+  // leg run 90px straight down the source's own left wall (a real hug).
+  const srcNode = { x: 244, y: 262, width: 160, height: 56 };
+  const dstNode = { x: 40, y: 352, width: 160, height: 56 };
+  const ortho = routeEdge({
+    points: [{ x: 324, y: 290 }, { x: 183, y: 352 }],
+    srcNode,
+    dstNode,
+    srcKind: 'process',
+    dstKind: 'process',
+    obstacles: [],
+    bounds: { w: 404, h: 420 },
+  });
+  // Direct geometric assertion (independent of pathHugLength): if the first leg
+  // is vertical, it must NOT run flush against the source's left/right wall.
+  const [a, b] = ortho;
+  const firstIsVertical = Math.abs(a.x - b.x) < 0.5;
+  if (firstIsVertical) {
+    const dLeft = Math.abs(a.x - srcNode.x);
+    const dRight = Math.abs(a.x - (srcNode.x + srcNode.width));
+    assert.ok(
+      Math.min(dLeft, dRight) > 8,
+      `first leg slides along the source side wall (x=${a.x}, dLeft=${dLeft}, dRight=${dRight})`,
+    );
+  }
+  // And the exit point must be the source's bottom-edge anchor (y == bottom),
+  // i.e. the edge leaves downward toward the target, not sideways.
+  assert.ok(Math.abs(a.y - (srcNode.y + srcNode.height)) < 0.6, `src exits at y=${a.y}, not the bottom edge`);
+});
+
+test('routeEdge keeps endpoints on 15°-quantised anchors', () => {
+  // Same diagonal-overlap setup: every endpoint must be one of the 24 15°
+  // shape-border anchors (same set the renderer exposes on hover), never a
+  // re-centred continuous point.
+  const srcNode = { x: 244, y: 262, width: 160, height: 56 };
+  const dstNode = { x: 40, y: 352, width: 160, height: 56 };
+  const ortho = routeEdge({
+    points: [{ x: 324, y: 290 }, { x: 183, y: 352 }],
+    srcNode,
+    dstNode,
+    srcKind: 'process',
+    dstKind: 'process',
+    obstacles: [],
+    bounds: { w: 404, h: 420 },
+  });
+  const anchorsOf = (box: { x: number; y: number; width: number; height: number }): { x: number; y: number }[] => {
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const out: { x: number; y: number }[] = [];
+    for (let k = 0; k < 24; k++) {
+      const th = (k * Math.PI) / 12;
+      out.push(shapeEdgePoint('process', box, { x: cx + Math.cos(th), y: cy + Math.sin(th) }));
+    }
+    return out;
+  };
+  const onAnchor = (p: { x: number; y: number }, set: { x: number; y: number }[]): boolean =>
+    set.some((a) => Math.abs(a.x - p.x) < 0.6 && Math.abs(a.y - p.y) < 0.6);
+  assert.ok(onAnchor(ortho[0], anchorsOf(srcNode)), `src endpoint ${ortho[0].x},${ortho[0].y} off-anchor`);
+  assert.ok(onAnchor(ortho[ortho.length - 1], anchorsOf(dstNode)), `dst endpoint off-anchor`);
+});
