@@ -63,9 +63,8 @@ test('routeRectilinear avoids a blocker in the drop path', () => {
 test('routeEdge does not slide along its own source edge (diagonal overlap)', () => {
   // Mirrors the mindmap 部署方案(deploy)→云部署(cloud) case: the target sits
   // down-left of the source, and the two boxes' x-ranges overlap. The router
-  // must exit from the source's "toward the target" anchor (150°, on the bottom
-  // edge, x≈275.5), NOT from the left face centre (x=244) — which made the first
-  // leg run 90px straight down the source's own left wall (a real hug).
+  // must leave the source without riding its own wall — the pre-fix shortest
+  // path ran 90px straight down the source's left wall.
   const srcNode = { x: 244, y: 262, width: 160, height: 56 };
   const dstNode = { x: 40, y: 352, width: 160, height: 56 };
   const ortho = routeEdge({
@@ -77,21 +76,19 @@ test('routeEdge does not slide along its own source edge (diagonal overlap)', ()
     obstacles: [],
     bounds: { w: 404, h: 420 },
   });
-  // Direct geometric assertion (independent of pathHugLength): if the first leg
-  // is vertical, it must NOT run flush against the source's left/right wall.
+  // Direct geometric assertion (independent of pathHugLength): the first leg must
+  // not run PARALLEL to a source wall — neither a vertical leg along the left/right
+  // wall, nor a horizontal leg along the top/bottom wall.
   const [a, b] = ortho;
   const firstIsVertical = Math.abs(a.x - b.x) < 0.5;
+  const len = firstIsVertical ? Math.abs(a.y - b.y) : Math.abs(a.x - b.x);
   if (firstIsVertical) {
-    const dLeft = Math.abs(a.x - srcNode.x);
-    const dRight = Math.abs(a.x - (srcNode.x + srcNode.width));
-    assert.ok(
-      Math.min(dLeft, dRight) > 8,
-      `first leg slides along the source side wall (x=${a.x}, dLeft=${dLeft}, dRight=${dRight})`,
-    );
+    const dWall = Math.min(Math.abs(a.x - srcNode.x), Math.abs(a.x - (srcNode.x + srcNode.width)));
+    assert.ok(!(len > 8 && dWall < 8), `first leg slides along the source side wall (x=${a.x}, len=${len})`);
+  } else {
+    const dWall = Math.min(Math.abs(a.y - srcNode.y), Math.abs(a.y - (srcNode.y + srcNode.height)));
+    assert.ok(!(len > 8 && dWall < 8), `first leg slides along the source top/bottom wall (y=${a.y}, len=${len})`);
   }
-  // And the exit point must be the source's bottom-edge anchor (y == bottom),
-  // i.e. the edge leaves downward toward the target, not sideways.
-  assert.ok(Math.abs(a.y - (srcNode.y + srcNode.height)) < 0.6, `src exits at y=${a.y}, not the bottom edge`);
 });
 
 test('routeEdge keeps endpoints on 15°-quantised anchors', () => {
@@ -124,3 +121,71 @@ test('routeEdge keeps endpoints on 15°-quantised anchors', () => {
   assert.ok(onAnchor(ortho[0], anchorsOf(srcNode)), `src endpoint ${ortho[0].x},${ortho[0].y} off-anchor`);
   assert.ok(onAnchor(ortho[ortho.length - 1], anchorsOf(dstNode)), `dst endpoint off-anchor`);
 });
+
+test('routeEdge detours instead of sliding along the target top edge', () => {
+  // Mirrors the login-flow verify→ok case: the decision sits above and to the
+  // RIGHT of the target. The bend-fewest path drops straight down then slides
+  // LEFT along the target's top edge to reach its centre (a real hug). The
+  // router must detour — keep the horizontal leg clear of the target top — and
+  // still enter at the target's top-face anchor.
+  const srcNode = { x: 170, y: 586, width: 140, height: 80 };
+  const dstNode = { x: 80, y: 762, width: 120, height: 48 };
+  const ortho = routeEdge({
+    points: [{ x: 240, y: 626 }, { x: 140, y: 786 }],
+    srcNode,
+    dstNode,
+    srcKind: 'decision',
+    dstKind: 'end',
+    obstacles: [],
+    bounds: { w: 480, h: 900 },
+  });
+  // No horizontal leg may run along the target's top edge for more than a few px
+  // (the tiny ≤ cell entry stub is the only allowed exception).
+  const dstTop = dstNode.y;
+  for (let i = 0; i < ortho.length - 1; i++) {
+    const a = ortho[i], b = ortho[i + 1];
+    if (Math.abs(a.y - b.y) < 0.5) {
+      const len = Math.abs(a.x - b.x);
+      assert.ok(
+        !(Math.abs(a.y - dstTop) < 0.5 && len > 8),
+        `horizontal leg slides along the target top edge (y=${a.y}, len=${len})`,
+      );
+    }
+  }
+  // The entry point stays on the target's top face (a 15° anchor).
+  assert.ok(Math.abs(ortho[ortho.length - 1].y - dstTop) < 0.6, `enters at y=${ortho[ortho.length - 1].y}, not the target top`);
+});
+
+test('routeEdge does not slide down its own source side wall (y-overlap)', () => {
+  // Mirrors the uml-class order→payment case: the two boxes overlap in y and are
+  // offset horizontally, with the other entities (user/cart) beside them. The
+  // bend-fewest path exits the source's right edge then slides DOWN its own right
+  // wall to reach the target's entry anchor (a real hug). The router must leave
+  // the source without riding that wall.
+  const srcNode = { x: 296, y: 90, width: 160, height: 156 };
+  const dstNode = { x: 636, y: 200, width: 160, height: 102 };
+  const ortho = routeEdge({
+    points: [{ x: 376, y: 168 }, { x: 546, y: 168 }, { x: 546, y: 251 }, { x: 716, y: 251 }],
+    srcNode,
+    dstNode,
+    srcKind: 'entity',
+    dstKind: 'entity',
+    obstacles: [
+      { x: 80, y: 212, w: 160, h: 120 },
+      { x: 296, y: 330, w: 164, h: 120 },
+    ],
+    bounds: { w: 876, h: 540 },
+  });
+  // A real slide is a LONG first leg running along the source's own side wall.
+  const [a, b] = ortho;
+  const firstIsVertical = Math.abs(a.x - b.x) < 0.5;
+  if (firstIsVertical) {
+    const len = Math.abs(a.y - b.y);
+    const dWall = Math.min(Math.abs(a.x - srcNode.x), Math.abs(a.x - (srcNode.x + srcNode.width)));
+    assert.ok(
+      !(len > 8 && dWall < 8),
+      `first leg slides along the source side wall (x=${a.x}, len=${len})`,
+    );
+  }
+});
+

@@ -626,11 +626,15 @@ function routeAStar(
   const row = (y: number) => Math.max(0, Math.min(gy - 1, Math.floor(y / cell)));
 
   const blocked = new Uint8Array(gx * gy);
-  const ownBox = (b: Box): boolean =>
-    !!((srcNode && b.x === srcNode.x && b.y === srcNode.y && b.w === srcNode.width && b.h === srcNode.height) ||
-       (dstNode && b.x === dstNode.x && b.y === dstNode.y && b.w === dstNode.width && b.h === dstNode.height));
-  for (const b of obstacles) {
-    if (ownBox(b)) continue;
+  const ownBoxes: Box[] = [];
+  if (srcNode) ownBoxes.push({ x: srcNode.x, y: srcNode.y, w: srcNode.width, h: srcNode.height });
+  if (dstNode) ownBoxes.push({ x: dstNode.x, y: dstNode.y, w: dstNode.width, h: dstNode.height });
+  // Block every third-party obstacle AND the endpoint bodies themselves
+  // (inflated by `clear`). Blocking the endpoint bodies is what stops the A*
+  // shortest path from sliding along the source/target side wall — hugging is
+  // the bend-fewest route, so without this every candidate hugs and `quality`
+  // can only pick the least-bad one. The anchor corridors are carved below.
+  for (const b of [...obstacles, ...ownBoxes]) {
     const ix0 = Math.max(0, col(b.x - clear));
     const iy0 = Math.max(0, row(b.y - clear));
     const ix1 = Math.min(gx - 1, col(b.x + b.w + clear));
@@ -647,6 +651,46 @@ function routeAStar(
   const unblockCell = (x: number, y: number) => { blocked[idx(x, y)] = 0; };
   unblockCell(col(src.x), row(src.y));
   unblockCell(sxi, syi);
+  // Carve a short outward corridor at each anchor (from the border toward free
+  // space) so the edge can still leave/enter its own inflated body without riding
+  // the wall. The outward axis is decided by which FACE the anchor sits on (not by
+  // the centre→anchor angle — a bottom-face anchor far left of centre must still
+  // exit DOWN). Corner (arc) anchors open both outward axes. Each arm is a small
+  // rectangle (one cell of perpendicular slack) so the axis-aligned A* can escape.
+  const carveCorridor = (anchor: Pt, box: NodeBox | null | undefined): void => {
+    if (!box) return;
+    const steps = Math.ceil(clear / cell) + 2;
+    const carveH = (dir: number): void => {
+      for (let s = 0; s <= steps; s++) {
+        const bx = anchor.x + dir * s * cell;
+        for (let t = -1; t <= 1; t++) unblockCell(col(bx), row(anchor.y + t * cell));
+      }
+    };
+    const carveV = (dir: number): void => {
+      for (let s = 0; s <= steps; s++) {
+        const by = anchor.y + dir * s * cell;
+        for (let t = -1; t <= 1; t++) unblockCell(col(anchor.x + t * cell), row(by));
+      }
+    };
+    const onLeft = Math.abs(anchor.x - box.x) < 0.6;
+    const onRight = Math.abs(anchor.x - (box.x + box.width)) < 0.6;
+    const onTop = Math.abs(anchor.y - box.y) < 0.6;
+    const onBottom = Math.abs(anchor.y - (box.y + box.height)) < 0.6;
+    if (onLeft) carveH(-1);
+    if (onRight) carveH(1);
+    if (onTop) carveV(-1);
+    if (onBottom) carveV(1);
+    if (!onLeft && !onRight && !onTop && !onBottom) {
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      const dx = anchor.x - cx;
+      const dy = anchor.y - cy;
+      if (Math.abs(dx) > 0.5) carveH(Math.sign(dx) || 1);
+      if (Math.abs(dy) > 0.5) carveV(Math.sign(dy) || 1);
+    }
+  };
+  carveCorridor(src, srcNode);
+  carveCorridor(dst, dstNode);
 
   const open = new MinHeap();
   const gScore = new Float64Array(gx * gy).fill(Infinity);
@@ -699,7 +743,7 @@ function routeAStar(
   });
   pts[0] = src;
   pts[pts.length - 1] = dst;
-  return collapseGridPath(pts, obstacles, bounds, clear, ownBox);
+  return collapseGridPath(pts, obstacles, bounds, clear, ownBoxes);
 }
 
 /**
@@ -712,14 +756,13 @@ function collapseGridPath(
   boxes: Box[],
   bounds: { w: number; h: number },
   clear: number,
-  ownBox: (b: Box) => boolean,
+  ownBoxes: Box[],
 ): Pt[] {
   if (pts.length <= 2) return pts;
 
   const segClear = (a: Pt, b: Pt): boolean => {
     const m = clear;
     for (const box of boxes) {
-      if (ownBox(box)) continue;
       if (Math.abs(a.x - b.x) < 0.5) {
         const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
         if (a.x > box.x - m && a.x < box.x + box.w + m && lo < box.y + box.h + m && hi > box.y - m) return false;
@@ -730,6 +773,13 @@ function collapseGridPath(
         return false;
       }
     }
+    // Endpoint bodies: reject only a genuine PARALLEL wall-hug — a segment that
+    // runs ALONG a wall for more than a short approach. A perpendicular exit/entry
+    // is fine (it doesn't "run along" a wall), and so is the short parallel run the
+    // simplification introduces to snap a cell-quantised corridor back onto the
+    // anchor axis (≤ ~2 cells ≈ 14px). The threshold must stay well below a real
+    // hug (> 40px) so collapsing a clear detour back into a wall slide is blocked.
+    if (ownBoxes.length && pathHugLength([a, b], ownBoxes, m) > 20) return false;
     return true;
   };
 
