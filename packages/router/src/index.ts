@@ -53,13 +53,23 @@ export function recentreExit(
   }
   if (dx === 0 && dy === 0) return anchor;
   // vertical-dominant travel -> top/bottom face, drop along the centre column.
-  if (Math.abs(dy) >= Math.abs(dx) * 0.5) {
+  // Use a pure 45° split (|dy| > |dx|) instead of the old `>= |dx| * 0.5`, which
+  // biased diagonal approaches (~30–45°) toward the vertical face and made edges
+  // enter a node from its top/bottom even when the source sat clearly to its
+  // side — then the horizontal leg had to run along that face (hugging). The
+  // exact 45° boundary keeps a diagonal from being misclassified.
+  if (Math.abs(dy) > Math.abs(dx)) {
     const onTop = dy < 0;
-    return { x: cx, y: onTop ? box.y : box.y + box.height };
+    // Slide the exit/entry point along the face toward the source projection
+    // (clamped to the face) instead of the face centre: entering at the centre
+    // forces a long leg that runs along the target's top/bottom edge.
+    const sx = Math.max(box.x, Math.min(box.x + box.width, toward.x));
+    return { x: sx, y: onTop ? box.y : box.y + box.height };
   }
   // horizontal-dominant travel -> left/right face, run along the centre row.
   const onLeft = dx < 0;
-  return { x: onLeft ? box.x : box.x + box.width, y: cy };
+  const sy = Math.max(box.y, Math.min(box.y + box.height, toward.y));
+  return { x: onLeft ? box.x : box.x + box.width, y: sy };
 }
 
 /**
@@ -134,6 +144,26 @@ export function routeEdge(opts: {
     anchors.push({ src: anchor(srcNode, trimmed[0], trimmed[1], dstC), dst: anchor(dstNode, trimmed[trimmed.length - 1], trimmed[trimmed.length - 2], srcC) });
     anchors.push({ src: anchor(srcNode, trimmed[0], dstC, trimmed[1]), dst: anchor(dstNode, trimmed[trimmed.length - 1], trimmed[trimmed.length - 2], srcC) });
     anchors.push({ src: anchor(srcNode, trimmed[0], trimmed[1], dstC), dst: anchor(dstNode, trimmed[trimmed.length - 1], srcC, trimmed[trimmed.length - 2]) });
+    // Each vertical pair shares the source centre x (projected onto both faces)
+    // so a straight drop is possible when the two boxes' x-ranges overlap; the
+    // horizontal pair shares the source centre y. This avoids the source exiting
+    // at one x while the target is entered at a different x, which forced a leg
+    // to run along the target's edge (hugging) to reconcile the mismatch.
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    const sTop = { x: clamp(srcC.x, srcNode.x, srcNode.x + srcNode.width), y: srcNode.y };
+    const sBot = { x: clamp(srcC.x, srcNode.x, srcNode.x + srcNode.width), y: srcNode.y + srcNode.height };
+    const sLft = { x: srcNode.x, y: clamp(srcC.y, srcNode.y, srcNode.y + srcNode.height) };
+    const sRgt = { x: srcNode.x + srcNode.width, y: clamp(srcC.y, srcNode.y, srcNode.y + srcNode.height) };
+    const dTop = { x: clamp(srcC.x, dstNode.x, dstNode.x + dstNode.width), y: dstNode.y };
+    const dBot = { x: clamp(srcC.x, dstNode.x, dstNode.x + dstNode.width), y: dstNode.y + dstNode.height };
+    const dLft = { x: dstNode.x, y: clamp(srcC.y, dstNode.y, dstNode.y + dstNode.height) };
+    const dRgt = { x: dstNode.x + dstNode.width, y: clamp(srcC.y, dstNode.y, dstNode.y + dstNode.height) };
+    // vertical-axis pairs (src top/bottom ↔ dst bottom/top) when boxes overlap on x
+    anchors.push({ src: sTop, dst: dBot });
+    anchors.push({ src: sBot, dst: dTop });
+    // horizontal-axis pairs when boxes overlap on y
+    anchors.push({ src: sLft, dst: dRgt });
+    anchors.push({ src: sRgt, dst: dLft });
   } else {
     anchors.push({ src: trimmed[0], dst: trimmed[trimmed.length - 1] });
   }
