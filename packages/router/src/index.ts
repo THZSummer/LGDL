@@ -480,14 +480,13 @@ export function countCrossingsWithRouted(pts: Pt[], routed: { pts: Pt[] }[]): nu
  */
 export function pathClearanceInterior(pts: Pt[], boxes: Box[]): number {
   let min = Infinity;
-  // Check every segment EXCEPT the source-leaving first one (i=0). Including the
-  // last segment matters: a 3-point path has no "pure interior" segment, so a
-  // final leg that RUNS ALONG a target box's top/left edge (hugging) would
-  // otherwise be invisible to the clearance metric. Legs that truly ENTER a box
-  // vertically (drop onto the top-center) or horizontally (run to the left-center)
-  // are naturally excluded by the `bb.y < hi-2` / `bb.x < hi-2` tests, so legit
-  // endpoint anchoring is not penalised.
-  for (let i = 1; i < pts.length - 1; i++) {
+  // Check EVERY segment including the first. The first leg can run ALONG the
+  // source's own edge (hugging) when the exit anchor sits at a face centre but
+  // the target lies off to one side — that must count as a hug, not as clear
+  // space. Legs that truly ENTER/LEAVE a box perpendicular to its face live
+  // outside the box and are excluded by the `bb.y < hi-2 && …` overlap tests,
+  // so legitimate endpoint anchoring is not penalised.
+  for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i];
     const b = pts[i + 1];
     if (Math.abs(a.x - b.x) < 0.5) {
@@ -523,7 +522,13 @@ export function pathClearanceInterior(pts: Pt[], boxes: Box[]): number {
  */
 export function pathHugLength(pts: Pt[], boxes: Box[], hugGap = 10): number {
   let len = 0;
-  for (let i = 1; i < pts.length - 1; i++) {
+  // Check EVERY segment including the first. The first leg normally leaves the
+  // source perpendicular to its face (fine), but when the exit anchor sits at a
+  // face centre and the target is off to one side, that first leg can run ALONG
+  // the source's own edge (a 90px slide down its left wall) — which is a real
+  // hug and must be penalised. Perpendicular exit/entry legs live outside the
+  // box and are naturally excluded by the `bb.y < hi-2 && …` overlap tests.
+  for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i];
     const b = pts[i + 1];
     if (Math.abs(a.x - b.x) < 0.5) {

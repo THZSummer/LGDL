@@ -68,10 +68,12 @@ test('renderSvg draws aggregate edges between groups', () => {
   assert.ok(svg.includes('整体调用'), 'aggregate edge label');
   // aggregate edges now route as a rectilinear <path> (no bare straight <line>
   // that can hug a group border). Anchored on the group box boundaries.
-  const m = svg.match(/<path d="M ([\d.]+),([\d.]+) L ([\d.]+),([\d.]+) L ([\d.]+),([\d.]+)"/);
+  const m = svg.match(/<path d="M ([\d.]+),([\d.]+)((?: L [\d.]+,[\d.]+)+)"/);
   assert.ok(m, 'rectilinear path present');
   const y1 = parseFloat(m[2]);
-  const yLast = parseFloat(m[6]);
+  // last coordinate pair of the polyline
+  const last = m[3].match(/([\d.]+),([\d.]+)$/)!;
+  const yLast = parseFloat(last[2]);
   // group boxes pad=20 (+30 header above the top). g1 box: y in [10, 128],
   // g2 box: y in [250, 388]. Source anchors on g1 BOTTOM border (128); target
   // anchors on g2 TOP border (250) — anchors, not pushed into the box.
