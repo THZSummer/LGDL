@@ -135,35 +135,51 @@ export function routeEdge(opts: {
   const srcC = srcNode ? { x: srcNode.x + srcNode.width / 2, y: srcNode.y + srcNode.height / 2 } : trimmed[1];
   const dstC = dstNode ? { x: dstNode.x + dstNode.width / 2, y: dstNode.y + dstNode.height / 2 } : trimmed[trimmed.length - 2];
 
-  const anchor = (node: NodeBox | undefined, pos: Pt, toward: Pt, fallback: Pt): Pt =>
-    node ? recentreExit(node, pos, toward, fallback) : pos;
+  // Endpoints stay EXACTLY on the node's 15°-quantised shape-border anchor
+  // (the same 24 anchors the renderer exposes on hover), never a re-centred
+  // continuous point. `shapeEdgePoint` already snaps a `toward` direction to the
+  // nearest 15° anchor, so we just feed it several `toward` references (the
+  // opposite centre, and the layout polyline's local direction) and let `quality`
+  // pick the best pair. Hugging is then rejected by the clearance penalty in
+  // `quality`, not by moving the endpoint off the anchor grid.
+  const srcPt = (toward: Pt): Pt => (srcNode ? shapeEdgePoint(srcKind, srcNode, toward) : toward);
+  const dstPt = (toward: Pt): Pt => (dstNode ? shapeEdgePoint(dstKind, dstNode, toward) : toward);
 
   const anchors: { src: Pt; dst: Pt }[] = [];
   if (srcNode && dstNode) {
-    anchors.push({ src: anchor(srcNode, trimmed[0], dstC, trimmed[1]), dst: anchor(dstNode, trimmed[trimmed.length - 1], srcC, trimmed[trimmed.length - 2]) });
-    anchors.push({ src: anchor(srcNode, trimmed[0], trimmed[1], dstC), dst: anchor(dstNode, trimmed[trimmed.length - 1], trimmed[trimmed.length - 2], srcC) });
-    anchors.push({ src: anchor(srcNode, trimmed[0], dstC, trimmed[1]), dst: anchor(dstNode, trimmed[trimmed.length - 1], trimmed[trimmed.length - 2], srcC) });
-    anchors.push({ src: anchor(srcNode, trimmed[0], trimmed[1], dstC), dst: anchor(dstNode, trimmed[trimmed.length - 1], srcC, trimmed[trimmed.length - 2]) });
-    // Each vertical pair shares the source centre x (projected onto both faces)
-    // so a straight drop is possible when the two boxes' x-ranges overlap; the
-    // horizontal pair shares the source centre y. This avoids the source exiting
-    // at one x while the target is entered at a different x, which forced a leg
-    // to run along the target's edge (hugging) to reconcile the mismatch.
-    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-    const sTop = { x: clamp(srcC.x, srcNode.x, srcNode.x + srcNode.width), y: srcNode.y };
-    const sBot = { x: clamp(srcC.x, srcNode.x, srcNode.x + srcNode.width), y: srcNode.y + srcNode.height };
-    const sLft = { x: srcNode.x, y: clamp(srcC.y, srcNode.y, srcNode.y + srcNode.height) };
-    const sRgt = { x: srcNode.x + srcNode.width, y: clamp(srcC.y, srcNode.y, srcNode.y + srcNode.height) };
-    const dTop = { x: clamp(srcC.x, dstNode.x, dstNode.x + dstNode.width), y: dstNode.y };
-    const dBot = { x: clamp(srcC.x, dstNode.x, dstNode.x + dstNode.width), y: dstNode.y + dstNode.height };
-    const dLft = { x: dstNode.x, y: clamp(srcC.y, dstNode.y, dstNode.y + dstNode.height) };
-    const dRgt = { x: dstNode.x + dstNode.width, y: clamp(srcC.y, dstNode.y, dstNode.y + dstNode.height) };
-    // vertical-axis pairs (src top/bottom ↔ dst bottom/top) when boxes overlap on x
-    anchors.push({ src: sTop, dst: dBot });
-    anchors.push({ src: sBot, dst: dTop });
-    // horizontal-axis pairs when boxes overlap on y
-    anchors.push({ src: sLft, dst: dRgt });
-    anchors.push({ src: sRgt, dst: dLft });
+    // Diagonal references (opposite centre, layout local direction) snap to the
+    // nearest 15° anchor — good when the two nodes face each other diagonally.
+    anchors.push({ src: srcPt(dstC), dst: dstPt(srcC) });
+    anchors.push({ src: srcPt(trimmed[1]), dst: dstPt(trimmed[trimmed.length - 2]) });
+    anchors.push({ src: srcPt(dstC), dst: dstPt(trimmed[trimmed.length - 2]) });
+    anchors.push({ src: srcPt(trimmed[1]), dst: dstPt(srcC) });
+    // Cardinal face references: snap to the face-centre anchor (0/90/180/270°).
+    // These recover the case where the two boxes overlap along one axis (the
+    // diagonal anchors then force a leg that runs along the target's edge), by
+    // exiting/entering along the free axis. Points far outside the box make
+    // `shapeEdgePoint` quantize cleanly to the cardinal anchor.
+    const UP = (c: Pt): Pt => ({ x: c.x, y: c.y - 100000 });
+    const DN = (c: Pt): Pt => ({ x: c.x, y: c.y + 100000 });
+    const LF = (c: Pt): Pt => ({ x: c.x - 100000, y: c.y });
+    const RT = (c: Pt): Pt => ({ x: c.x + 100000, y: c.y });
+    anchors.push({ src: srcPt(UP(srcC)), dst: dstPt(DN(dstC)) });
+    anchors.push({ src: srcPt(DN(srcC)), dst: dstPt(UP(dstC)) });
+    anchors.push({ src: srcPt(LF(srcC)), dst: dstPt(RT(dstC)) });
+    anchors.push({ src: srcPt(RT(srcC)), dst: dstPt(LF(dstC)) });
+    // Mixed: one endpoint on a cardinal face centre, the other pointing toward
+    // its counterpart. This is what actually removes the hug for an overlapped
+    // axis: e.g. the source leaves its top-centre anchor while the target is
+    // entered at the 15° anchor nearest the source (bottom, but slid toward the
+    // source side) instead of its bottom-centre — so the final leg doesn't run
+    // along the target's bottom edge toward its midpoint.
+    anchors.push({ src: srcPt(UP(srcC)), dst: dstPt(srcC) });
+    anchors.push({ src: srcPt(DN(srcC)), dst: dstPt(srcC) });
+    anchors.push({ src: srcPt(LF(srcC)), dst: dstPt(srcC) });
+    anchors.push({ src: srcPt(RT(srcC)), dst: dstPt(srcC) });
+    anchors.push({ src: srcPt(dstC), dst: dstPt(UP(dstC)) });
+    anchors.push({ src: srcPt(dstC), dst: dstPt(DN(dstC)) });
+    anchors.push({ src: srcPt(dstC), dst: dstPt(LF(dstC)) });
+    anchors.push({ src: srcPt(dstC), dst: dstPt(RT(dstC)) });
   } else {
     anchors.push({ src: trimmed[0], dst: trimmed[trimmed.length - 1] });
   }
@@ -179,11 +195,14 @@ export function routeEdge(opts: {
     // 贴边硬罚：内部走线距任一墙 <10px 视为"贴边"，重罚，确保贴墙解不被选中
     // （clear 是软评分，量级会被 -bends 抵消；这里是结构性下限）。
     const hugPenalty = clear < 10 ? -1e5 : 0;
+    // 贴边长度罚：两条候选都贴边(clearance=0)时，贴得越长越差——让质量能
+    // 在"进入目标侧边(贴 25px)"与"进入目标远端中点(贴 80px)"之间分出高下。
+    const hugLen = pathHugLength(p, clearBoxes);
     // 穿越已布边：真实计数（不再用 boolean flag），每次交叉 -1000。
     const crossRouted = routedSegments && routedSegments.length
       ? -countCrossingsWithRouted(p, routedSegments) * 1000
       : 0;
-    return ownHit + crossHit + hugPenalty + crossRouted + Math.min(clear, 1000) - bends;
+    return ownHit + crossHit + hugPenalty - hugLen * 20 + crossRouted + Math.min(clear, 1000) - bends;
   };
 
   let best: Pt[] | null = null;
@@ -318,7 +337,13 @@ export function roundedRectPoint(
   );
   const ix = cx + ux * tRect;
   const iy = cy + uy * tRect;
-  if (Math.abs(ix - cx) <= a - rx || Math.abs(iy - cy) <= b - rx) {
+  // Straight side only when the ray stays clear of BOTH corner strips. The old
+  // `||` treated a diagonal ray as hitting a straight side whenever one
+  // coordinate was near the centre, so a 150° ray (toward the bottom-left
+  // corner) was returned on the bottom EDGE instead of the corner arc — an
+  // anchor that is not one of the 24 quantised points. `&&` keeps diagonals on
+  // the corner arc, so every anchor is genuinely a 15°-quantised border point.
+  if (Math.abs(ix - cx) <= a - rx && Math.abs(iy - cy) <= b - rx) {
     return { x: ix, y: iy };
   }
   const ccx = cx + Math.sign(ux) * (a - rx);
@@ -486,6 +511,42 @@ export function pathClearanceInterior(pts: Pt[], boxes: Box[]): number {
     }
   }
   return min;
+}
+
+/**
+ * Total length (px) over which `pts` runs PARALLEL and CLOSE (< `hugGap`) to a
+ * box wall. Unlike `pathClearanceInterior` (which returns the closest distance,
+ * so a 25px and an 80px hug both score 0), this measures how far a leg actually
+ * slides along a wall — letting `quality` prefer the anchor whose approach leg
+ * hugs the least (e.g. enter near the source's own side instead of the far
+ * centre).
+ */
+export function pathHugLength(pts: Pt[], boxes: Box[], hugGap = 10): number {
+  let len = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (Math.abs(a.x - b.x) < 0.5) {
+      const lo = Math.min(a.y, b.y);
+      const hi = Math.max(a.y, b.y);
+      for (const bb of boxes) {
+        if (bb.y < hi - 2 && bb.y + bb.h > lo + 2) {
+          const d = Math.min(Math.abs(a.x - bb.x), Math.abs(a.x - (bb.x + bb.w)));
+          if (d < hugGap) len += Math.min(hi, bb.y + bb.h) - Math.max(lo, bb.y);
+        }
+      }
+    } else if (Math.abs(a.y - b.y) < 0.5) {
+      const lo = Math.min(a.x, b.x);
+      const hi = Math.max(a.x, b.x);
+      for (const bb of boxes) {
+        if (bb.x < hi - 2 && bb.x + bb.w > lo + 2) {
+          const d = Math.min(Math.abs(a.y - bb.y), Math.abs(a.y - (bb.y + bb.h)));
+          if (d < hugGap) len += Math.min(hi, bb.x + bb.w) - Math.max(lo, bb.x);
+        }
+      }
+    }
+  }
+  return len;
 }
 
 /**
