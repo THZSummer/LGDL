@@ -1,0 +1,28 @@
+{
+  "feature": "LGDL 业务全景",
+  "featureKey": "specs-tree-business-panorama",
+  "phase": "discovered",
+  "workflow": "0.discovery",
+  "agent": "sddu-discovery",
+  "createdAt": "2026-08-30",
+  "updatedAt": "2026-08-30",
+  "description": "补齐 LGDL 业务全景 Why 层素材：问题定义与产品定位、竞争定位、目标用户与核心场景、语言设计产品哲学、版本演进叙事",
+  "scope": {
+    "in": [
+      "业务全景 Why 层深度访谈",
+      "问题清单与决策动机沉淀（为业务全景文档聚合提供素材）"
+    ],
+    "out": [
+      "技术全景（后续由 @sddu-docs 代码级扫描补齐，独立 Feature）",
+      "存量文档漂移校正（仅记录漂移事实，不修正）"
+    ]
+  },
+  "interviewee": "项目唯一作者兼决策者",
+  "artifacts": [
+    "facts-baseline.md",
+    "interview-guide.md",
+    "discovery.md",
+    "handover-spec-brief.md"
+  ],
+  "notes": "子代理嵌套深度受限，sddu-discovery 直接执行仓库前置扫描。无内置 SDDU 模板（.opencode/plugins/sddu 不存在），按授权自建立项结构。访谈进度：G1 定稿（追问②「设计好的」=语义优先为立项前公理；追问①跳过记空白）；G2 部分完成（Q1 语言纯度理由、Q4 兼容/迁移二维框架已回填；Q2/Q3/Q5/Q6 跳过记空白）；G3 已回填（5/6 作答，Q3 跳过；🚨元发现：9 图类型与 v0.6 路线图系 AI 自主规划/规定，作者标注待审视——「AI 提案→作者把关」协作模式为全景核心事实）；G4 已回填（5/6 作答，Q4 跳过；Q3 语法形态系 AI 默认选择→AI 自主决策清单累积至 3 例；Q6 修正定位：双层消费模型=人类理解/决策+AI 经 CLI 执行）；G5 已回填（4/7 作答，Q1/Q4/Q6 跳过记空白；Q3 记录提问质量反馈——复合设问造成歧义；🚨v0.6 Why 层素材整体降级：作者未审视，不作为全景素材，仅带验证记录的已实施工程事实可作 What 层引用）。收尾两问已提出、答复不阻塞移交。discovery 阶段完成（phase: discovered）。移交说明：编排指令要求的 task tool 嵌套调用 @sddu-spec 失败——Subagent depth limit reached (1)，错误已保留未重试；完整移交简报已落盘 handover-spec-brief.md（含必读输入、硬约束、spec 任务清单、待答收尾两问），下一步=在顶层直接运行 @sddu-spec 并以该简报为任务输入。"
+}
