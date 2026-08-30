@@ -1,0 +1,2 @@
+export { Phase, FeatureStatus, StateV3_0_0, PhaseHistoryEntry, SuspendedInfo, MergedInfo, ChildFeatureInfoV3, VALID_PHASES, VALID_STATUSES, PHASE_ORDER, NEXT_PHASE, IRREVERSIBLE_STATUSES, phaseFlow, validateStateV3, validateStateV3Detailed, shouldRecommendContinue, getNextRecommendedPhase, isStatusReversible, } from './schema-v3.0.0';
+export type { ValidationResult } from './schema-v3.0.0';

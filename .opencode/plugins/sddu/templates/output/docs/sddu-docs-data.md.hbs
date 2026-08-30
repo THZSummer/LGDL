@@ -1,0 +1,62 @@
+# <<model_name>>
+
+> **文档定位**: sddu-docs-data — 数据模型文档 — 表结构、字段、索引、关联关系  
+> **输出文件名**: <<doc_subject>>-data.md
+> **数据来源**: <<source_features>>
+> **创建人**: <<created_by>>
+> **创建时间**: <<created_at>>
+> **版本**: <<version>>
+> **更新人**: <<updated_by>>
+> **更新时间**: <<updated_at>>
+> **更新说明**: <<change_description>>
+
+## 1. 数据模型概述
+
+| 属性 | 值 |
+|------|-----|
+| **模型名称** | <<model_name>> |
+| **对应表名** | `<<table_name>>` |
+| **所属域** | <<domain>> |
+| **存储引擎** | <<storage_engine>> |
+
+## 2. 字段定义
+
+> 该数据模型的完整字段列表。
+
+| 字段名 | 类型 | 约束 | 默认值 | 说明 |
+|--------|------|------|--------|------|
+<<#each fields>>
+| `<<name>>` | <<type>> | <<constraints>> | <<default_value>> | <<description>> |
+<<#else>>
+| — | — | — | — | 当前无字段定义 |
+<</each>>
+
+## 3. 索引
+
+> 该表的关键索引及用途。
+
+| 索引名 | 字段 | 类型 | 用途 |
+|--------|------|:--:|------|
+<<#each indexes>>
+| `<<name>>` | `<<columns>>` | <<index_type>> | <<purpose>> |
+<<#else>>
+| — | — | — | 当前无索引定义 |
+<</each>>
+
+## 4. 关联关系
+
+> 该表与其他数据模型的关联。
+
+| 关联模型 | 关联字段 | 关系类型 | 说明 |
+|---------|---------|:------:|------|
+<<#each references>>
+| **<<target_model>>** | `<<foreign_key>>` | <<relation_type>> | <<description>> |
+<<#else>>
+| — | — | — | 当前无关联关系 |
+<</each>>
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | <<change_description>> | <<generated_at>> | <<created_by>> |

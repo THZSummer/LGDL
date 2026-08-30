@@ -1,0 +1,63 @@
+# <<event_name>>
+
+> **文档定位**: sddu-docs-event — 领域事件文档 — 事件类型、生产者、消费者、触发条件
+> **输出文件名**: <<doc_subject>>-event.md
+> **数据来源**: <<source_features>>
+> **创建人**: <<created_by>>
+> **创建时间**: <<created_at>>
+> **版本**: <<version>>
+> **更新人**: <<updated_by>>
+> **更新时间**: <<updated_at>>
+> **更新说明**: <<change_description>>
+
+## 1. 事件概述
+
+| 属性 | 值 |
+|------|-----|
+| **事件名称** | <<event_name>> |
+| **事件类型** | <<event_type>> |
+| **所属域** | <<domain>> |
+| **生产者** | <<producer>> |
+| **触发条件** | <<trigger_condition>> |
+
+## 2. 事件载荷
+
+> 该事件携带的数据字段。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+<<#each payload>>
+| `<<field>>` | <<type>> | <<description>> |
+<<#else>>
+| — | — | 当前无载荷定义 |
+<</each>>
+
+## 3. 消费者
+
+> 订阅并处理该事件的消费者列表。
+
+| 消费者 | 处理行为 | 幂等性 | 说明 |
+|--------|---------|:--:|------|
+<<#each consumers>>
+| **<<name>>** | <<behavior>> | <<idempotent>> | <<description>> |
+<<#else>>
+| — | — | — | 当前无消费者定义 |
+<</each>>
+
+## 4. 事件流转
+
+> 该事件在整个系统中的传递和处理时序。
+
+| 阶段 | 参与者 | 行为 |
+|:--:|--------|------|
+<<#each event_flow>>
+| <<stage>> | <<participant>> | <<action>> |
+<<#else>>
+| — | — | 当前无流转定义 |
+<</each>>
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | <<change_description>> | <<generated_at>> | <<created_by>> |

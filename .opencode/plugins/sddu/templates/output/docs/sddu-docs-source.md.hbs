@@ -1,0 +1,41 @@
+# <<doc_subject>> — 产物溯源
+
+> **文档定位**: sddu-docs-source — 列出本文档聚合的所有原始产物文件，含文件路径、版本和最后修改时间  
+> **输出文件名**: source.md
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 产物溯源表
+
+> 以下表格列出本文档内容所依赖的全部原始产物文件及其版本信息。
+
+| 原始文件路径 | 版本 | 最后修改时间 | 文件类型 | 说明 |
+|-------------|------|------------|---------|------|
+<<#each sources>>
+| `<<file_path>>` | <<version>> | <<last_modified>> | <<file_type>> | <<description>> |
+<<#else>>
+| — | — | — | — | 本级无原始产物记录 |
+<</each>>
+
+## 2. 溯源统计
+
+> 按文件类型统计所引用的原始产物数量。
+
+| 文件类型 | 数量 |
+|---------|:--:|
+<<#each source_type_stats>>
+| <<type>> | <<count>> |
+<</each>>
+| **合计** | **<<total_source_count>>** |
+
+## 修订记录
+> 记录本文档的版本变更历史
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| <<version，如 v1.0>> | <<change_description，如 初始创建>> | <<generated_at>> | <<created_by，如 SDDU Docs Agent>> |

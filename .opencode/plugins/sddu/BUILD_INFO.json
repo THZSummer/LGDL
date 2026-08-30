@@ -1,0 +1,14 @@
+{
+  "version": "1.1.0",
+  "buildDate": "2026-08-29T16:22:15.592Z",
+  "buildScript": "scripts/package.cjs",
+  "versionType": "sddu",
+  "packageName": "opencode-sddu-plugin",
+  "sourceDirStructure": {
+    "src": false,
+    "agents": true,
+    "skills": true,
+    "packageJson": true,
+    "opencodeJson": true
+  }
+}

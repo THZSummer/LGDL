@@ -1,0 +1,75 @@
+# <<api_name>>
+
+> **文档定位**: sddu-docs-api — API 路由文档 — REST 端点、请求/响应 Schema、状态码  
+> **输出文件名**: <<doc_subject>>-api.md
+> **数据来源**: <<source_features>>
+> **创建人**: <<created_by>>
+> **创建时间**: <<created_at>>
+> **版本**: <<version>>
+> **更新人**: <<updated_by>>
+> **更新时间**: <<updated_at>>
+> **更新说明**: <<change_description>>
+
+## 1. API 概述
+
+| 属性 | 值 |
+|------|-----|
+| **API 名称** | <<api_name>> |
+| **基础路径** | `<<base_path>>` |
+| **所属域** | <<domain>> |
+| **认证方式** | <<auth_method>> |
+
+## 2. REST 端点
+
+> 该 API 提供的全部 REST 端点。
+
+| 方法 | 路径 | 说明 |
+|:----:|------|------|
+<<#each endpoints>>
+| `<<method>>` | `<<path>>` | <<description>> |
+<<#else>>
+| — | — | 当前无端点定义 |
+<</each>>
+
+## 3. 请求/响应 Schema
+
+> 关键端点的请求与响应数据结构。
+
+<<#each schemas>>
+### <<schema_name>>
+
+**请求**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|:--:|------|
+<<#each schema.request>>
+| `<<field>>` | <<type>> | <<required>> | <<description>> |
+<</each>>
+
+**响应**:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+<<#each schema.response>>
+| `<<field>>` | <<type>> | <<description>> |
+<</each>>
+
+<</each>>
+
+## 4. 状态码
+
+> 该 API 返回的 HTTP 状态码及其含义。
+
+| 状态码 | 含义 | 场景 |
+|:------:|------|------|
+<<#each status_codes>>
+| `<<code>>` | <<meaning>> | <<scenario>> |
+<<#else>>
+| — | — | 当前无状态码定义 |
+<</each>>
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | <<change_description>> | <<generated_at>> | <<created_by>> |

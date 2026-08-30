@@ -1,0 +1,67 @@
+# <<doc_subject>> — 第三方集成
+
+> **文档定位**: sddu-docs-integration — 第三方集成文档 — 外部服务、回调、认证方式  
+> **输出文件名**: <<doc_subject>>-integration.md  
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 集成概览
+
+> 记录<<doc_subject>>依赖和提供的外部服务集成关系。
+
+| 属性 | 值 |
+|------|-----|
+| **集成方向** | <<direction，如 出站调用 / 入站暴露 / 双向>> |
+| **协议类型** | <<protocol，如 REST / gRPC / GraphQL / Webhook>> |
+| **通信模式** | <<pattern，如同步 / 异步 / 事件驱动>> |
+
+## 2. 外部服务
+
+| 服务名称 | 提供方 | 用途 | 协议 | 超时 | 重试策略 |
+|---------|-------|------|------|:--:|---------|
+<<#each services>>
+| <<service_name>> | <<provider>> | <<purpose>> | <<protocol>> | <<timeout>> | <<retry_policy>> |
+<<#else>>
+| — | — | — | — | — | 无外部服务依赖 |
+<</each>>
+
+## 3. 端点详情
+
+| 端点 | 方法 | URL 模式 | 认证方式 | 说明 |
+|------|:---:|---------|---------|------|
+<<#each endpoints>>
+| <<endpoint_name>> | <<method>> | <<url>> | <<auth_method>> | <<description>> |
+<<#else>>
+| — | — | — | — | 无暴露端点 |
+<</each>>
+
+## 4. 回调与通知
+
+| 回调 | 触发条件 | URL | 预期响应 | 重试策略 |
+|------|---------|-----|:-----:|---------|
+<<#each callbacks>>
+| <<name>> | <<trigger>> | <<url>> | <<expected_response>> | <<retry>> |
+<<#else>>
+| — | — | — | — | 无回调配置 |
+<</each>>
+
+## 5. 认证方式
+
+| 集成对象 | 认证方式 | 凭证存储 | 轮换策略 |
+|---------|---------|---------|---------|
+<<#each auth_configs>>
+| <<target>> | <<auth_type>> | <<credential_store>> | <<rotation>> |
+<<#else>>
+| — | — | — | 无特殊认证 |
+<</each>>
+
+## 修订记录
+
+| 生成时间 | 变更 Feature | 生成方式 | 修订人 |
+|---------|-------------|:--:|--------|
+| <<generated_at>> | <<changed_features>> | <<full_or_incremental>> | SDDU Docs Agent |

@@ -1,0 +1,77 @@
+# <<doc_subject>> — 部署信息
+
+> **文档定位**: sddu-docs-deploy — 部署信息文档 — 拓扑、资源、CI/CD  
+> **输出文件名**: <<doc_subject>>-deploy.md  
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 部署概览
+
+> 记录<<doc_subject>>的部署拓扑和运行环境要求。
+
+| 属性 | 值 |
+|------|-----|
+| **部署模型** | <<deployment_model，如 单体 / 微服务 / Serverless>> |
+| **目标平台** | <<target_platform，如 Kubernetes / AWS ECS / VPS>> |
+| **实例数量** | <<instance_count>> |
+| **网络区域** | <<network_zone，如 公网 / VPC 内网 / 边缘节点>> |
+
+## 2. 部署拓扑
+
+> 描述服务组件在部署环境中的拓扑关系。
+
+<<#each topologies>>
+### <<topology_name>>
+
+| 组件 | 角色 | 副本数 | 依赖 |
+|------|------|:-----:|------|
+<<#each components>>
+| <<component_name>> | <<role>> | <<replicas>> | <<dependencies>> |
+<</each>>
+
+**组件间通信**:
+<<communication_description>>
+<</each>>
+
+## 3. 资源配置
+
+| 资源类型 | 规格 | 数量 | 说明 |
+|---------|------|:---:|------|
+<<#each resources>>
+| <<resource_type>> | <<specification>> | <<quantity>> | <<description>> |
+<<#else>>
+| — | — | — | 无特殊资源配置 |
+<</each>>
+
+## 4. 环境差异化
+
+| 环境 | 差异化配置 | 说明 |
+|------|----------|------|
+<<#each environments>>
+| <<env_name>> | <<diff_config>> | <<description>> |
+<<#else>>
+| — | — | 所有环境使用相同配置 |
+<</each>>
+
+## 5. CI/CD 流程
+
+> 描述从代码提交到生产部署的 Pipeline 流程。
+
+| 阶段 | 触发条件 | 操作 | 验收标准 |
+|------|---------|------|---------|
+<<#each pipeline_stages>>
+| <<stage_name>> | <<trigger>> | <<actions>> | <<acceptance_criteria>> |
+<<#else>>
+| — | — | — | CI/CD 流程待定义 |
+<</each>>
+
+## 修订记录
+
+| 生成时间 | 变更 Feature | 生成方式 | 修订人 |
+|---------|-------------|:--:|--------|
+| <<generated_at>> | <<changed_features>> | <<full_or_incremental>> | SDDU Docs Agent |

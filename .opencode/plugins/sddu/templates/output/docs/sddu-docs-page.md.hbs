@@ -1,0 +1,68 @@
+# <<page_name>>
+
+> **文档定位**: sddu-docs-page — 前端页面文档 — 路由、组件树、交互流程  
+> **输出文件名**: <<doc_subject>>-page.md
+> **数据来源**: <<source_features>>
+> **创建人**: <<created_by>>
+> **创建时间**: <<created_at>>
+> **版本**: <<version>>
+> **更新人**: <<updated_by>>
+> **更新时间**: <<updated_at>>
+> **更新说明**: <<change_description>>
+
+## 1. 页面概述
+
+| 属性 | 值 |
+|------|-----|
+| **页面名称** | <<page_name>> |
+| **路由路径** | `<<route>>` |
+| **所属域** | <<domain>> |
+| **页面类型** | <<page_type>> |
+
+## 2. 路由信息
+
+> 该页面相关的路由配置。
+
+| 路由参数 | 类型 | 必选 | 说明 |
+|---------|------|:--:|------|
+<<#each route_params>>
+| `<<param>>` | <<type>> | <<required>> | <<description>> |
+<<#else>>
+| — | — | — | 当前无路由参数 |
+<</each>>
+
+## 3. 组件树
+
+> 该页面的组件层级和职责。
+
+```
+<<#each components>>
+<<indent>>├── <<name>>  ← <<responsibility>>
+<</each>>
+```
+
+| 组件 | 职责 | 数据来源 |
+|------|------|---------|
+<<#each components>>
+| **<<name>>** | <<responsibility>> | <<data_source>> |
+<<#else>>
+| — | — | 当前无组件定义 |
+<</each>>
+
+## 4. 交互流程
+
+> 该页面的用户交互路径。
+
+| 步骤 | 触发 | 行为 | 结果 |
+|:--:|------|------|------|
+<<#each interactions>>
+| <<step>> | <<trigger>> | <<behavior>> | <<result>> |
+<<#else>>
+| — | — | — | 当前无交互流程定义 |
+<</each>>
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | <<change_description>> | <<generated_at>> | <<created_by>> |

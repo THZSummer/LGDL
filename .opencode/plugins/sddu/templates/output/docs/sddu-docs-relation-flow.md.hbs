@@ -1,0 +1,36 @@
+# <<doc_subject>> — 数据流
+
+> **文档定位**: sddu-docs-relation-flow — 描述本级组件之间的数据流向，含数据源、数据目标、数据格式和转换规则  
+> **输出文件名**: <<doc_subject>>-dataflow.md
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 数据流总览
+
+> 以下表格列出本级所有组件之间的数据流转关系。
+
+| 数据源 | 数据目标 | 数据格式 | 转换规则 | 触发条件 |
+|--------|---------|---------|---------|---------|
+<<#each data_flows>>
+| **<<source>>** | <<target>> | <<format>> | <<transform>> | <<trigger>> |
+<<#else>>
+| — | — | — | — | 本级无数据流记录 |
+<</each>>
+
+## 2. 数据流概述
+
+> 文字描述本级组件间主要的数据流转路径和关键数据变换逻辑。
+
+<<flow_overview>>
+
+## 修订记录
+> 记录本文档的版本变更历史
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| <<version，如 v1.0>> | <<change_description，如 初始创建>> | <<generated_at>> | <<created_by，如 SDDU Docs Agent>> |

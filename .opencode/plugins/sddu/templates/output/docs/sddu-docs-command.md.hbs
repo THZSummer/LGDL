@@ -1,0 +1,68 @@
+# <<command_name>>
+
+> **文档定位**: sddu-docs-command — 命令列表文档 — 命令名称、参数说明、管道组合
+> **输出文件名**: <<doc_subject>>-command.md
+> **数据来源**: <<source_features>>
+> **创建人**: <<created_by>>
+> **创建时间**: <<created_at>>
+> **版本**: <<version>>
+> **更新人**: <<updated_by>>
+> **更新时间**: <<updated_at>>
+> **更新说明**: <<change_description>>
+
+## 1. 命令概述
+
+| 属性 | 值 |
+|------|-----|
+| **命令名称** | `<<command_name>>` |
+| **所属域** | <<domain>> |
+| **用途** | <<purpose>> |
+| **执行环境** | <<environment>> |
+
+## 2. 参数说明
+
+> 该命令接受的参数列表。
+
+| 参数 | 类型 | 必选 | 默认值 | 说明 |
+|------|------|:--:|--------|------|
+<<#each params>>
+| `<<name>>` | <<type>> | <<required>> | <<default_value>> | <<description>> |
+<<#else>>
+| — | — | — | — | 当前无参数定义 |
+<</each>>
+
+## 3. 管道组合
+
+> 该命令与其他命令的组合使用方式。
+
+| 组合方式 | 上游命令 | 下游命令 | 说明 |
+|---------|---------|---------|------|
+<<#each pipelines>>
+| `<<pattern>>` | `<<upstream>>` | `<<downstream>>` | <<description>> |
+<<#else>>
+| — | — | — | 当前无管道组合定义 |
+<</each>>
+
+## 4. 使用示例
+
+> 该命令的典型使用场景。
+
+```
+<<#each examples>>
+<<example>>
+<</each>>
+```
+
+| # | 场景 | 说明 |
+|---|------|------|
+<<#each examples>>
+| <<seq>> | <<scenario>> | <<description>> |
+<<#else>>
+| — | — | 当前无使用示例 |
+<</each>>
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | <<change_description>> | <<generated_at>> | <<created_by>> |

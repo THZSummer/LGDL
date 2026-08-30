@@ -1,0 +1,36 @@
+# <<doc_subject>> — 关系矩阵
+
+> **文档定位**: sddu-docs-relation-matrix — 描述本级组件间的接口与能力对照关系，以矩阵形式呈现  
+> **输出文件名**: <<doc_subject>>-matrix.md
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 接口/能力对照矩阵
+
+> 以下矩阵表格以行为接口（API/方法/端点），列为组件能力，标注接口与能力的覆盖关系。
+
+| 接口 | <<#each capabilities>><<name>> | <</each>>说明 |
+|------|<<#each capabilities>>:--:| <</each>>------|
+<<#each interfaces>>
+| **<<name>>** |<<#each capabilities>> <<../coverage_of_this_capability>> |<</each>> <<description>> |
+<<#else>>
+| — |<<#each capabilities>> — |<</each>> 本级无接口记录 |
+<</each>>
+
+## 2. 矩阵概述
+
+> 文字描述本级组件间接口与能力的整体覆盖情况和关键交叉点。
+
+<<matrix_overview>>
+
+## 修订记录
+> 记录本文档的版本变更历史
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| <<version，如 v1.0>> | <<change_description，如 初始创建>> | <<generated_at>> | <<created_by，如 SDDU Docs Agent>> |

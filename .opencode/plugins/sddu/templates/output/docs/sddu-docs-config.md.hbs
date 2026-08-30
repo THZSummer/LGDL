@@ -1,0 +1,57 @@
+# <<doc_subject>> — 配置项
+
+> **文档定位**: sddu-docs-config — 配置项文档 — 环境变量、开关、参数说明  
+> **输出文件名**: <<doc_subject>>-config.md  
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 配置概览
+
+> 记录<<doc_subject>>涉及的所有可配置项，包括环境变量、功能开关和运行参数。
+
+| 属性 | 值 |
+|------|-----|
+| **所属服务/模块** | <<component_name>> |
+| **配置管理方式** | <<config_method，如环境变量 / 配置文件 / 配置中心>> |
+| **配置版本** | <<config_version>> |
+
+## 2. 环境变量
+
+| 变量名 | 类型 | 默认值 | 必填 | 说明 |
+|--------|------|:-----:|:--:|------|
+<<#each env_vars>>
+| <<name>> | <<type>> | <<default>> | <<required>> | <<description>> |
+<<#else>>
+| — | — | — | — | 无环境变量 |
+<</each>>
+
+## 3. 功能开关
+
+| 开关名 | 默认状态 | 影响范围 | 说明 |
+|--------|:------:|---------|------|
+<<#each feature_flags>>
+| <<flag_name>> | <<default_state>> | <<scope>> | <<description>> |
+<<#else>>
+| — | — | — | 无功能开关 |
+<</each>>
+
+## 4. 运行参数
+
+| 参数名 | 类型 | 取值范围 | 默认值 | 说明 |
+|--------|------|---------|--------|------|
+<<#each params>>
+| <<param_name>> | <<type>> | <<value_range>> | <<default>> | <<description>> |
+<<#else>>
+| — | — | — | — | 无运行参数 |
+<</each>>
+
+## 修订记录
+
+| 生成时间 | 变更 Feature | 生成方式 | 修订人 |
+|---------|-------------|:--:|--------|
+| <<generated_at>> | <<changed_features>> | <<full_or_incremental>> | SDDU Docs Agent |

@@ -1,0 +1,72 @@
+# <<doc_subject>> — 导出符号表
+
+> **文档定位**: sddu-docs-export — 导出符号表文档 — 类型定义、公共接口、使用示例  
+> **输出文件名**: <<doc_subject>>-export.md
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 导出概览
+
+> 记录<<doc_subject>>对外暴露的所有类型、接口和公共符号。
+
+| 属性 | 值 |
+|------|-----|
+| **导出范围** | <<export_scope，如 公共 API / 内部模块 / SDK>> |
+| **版本策略** | <<versioning，如 语义化版本 / 日期版本>> |
+| **兼容性承诺** | <<compatibility，如 向后兼容 / 无承诺>> |
+
+## 2. 类型定义
+
+| 类型名 | 种类 | 定义 | 说明 |
+|--------|:---:|------|------|
+<<#each types>>
+| <<type_name>> | <<kind，如 interface / type / enum / class>> | <<definition>> | <<description>> |
+<<#else>>
+| — | — | — | 无导出类型 |
+<</each>>
+
+## 3. 公共接口
+
+| 接口名 | 签名 | 描述 | 示例 |
+|--------|------|------|------|
+<<#each apis>>
+| <<api_name>> | <<signature>> | <<description>> | <<usage_example>> |
+<<#else>>
+| — | — | — | 无公共接口 |
+<</each>>
+
+## 4. 枚举与常量
+
+| 名称 | 值 | 说明 |
+|------|-----|------|
+<<#each constants>>
+| <<constant_name>> | <<value>> | <<description>> |
+<<#else>>
+| — | — | 无导出枚举/常量 |
+<</each>>
+
+## 5. 使用示例
+
+> 展示如何导入和使用本模块的导出符号。
+
+<<#each examples>>
+### <<example_title>>
+
+```<<language>>
+<<code_snippet>>
+```
+
+**场景**: <<scenario>>
+**前置条件**: <<prerequisites>>
+<</each>>
+
+## 修订记录
+
+| 生成时间 | 变更 Feature | 生成方式 | 修订人 |
+|---------|-------------|:--:|--------|
+| <<generated_at>> | <<changed_features>> | <<full_or_incremental>> | SDDU Docs Agent |

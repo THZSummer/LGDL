@@ -1,0 +1,55 @@
+# <<command_group_name>>
+
+> **文档定位**: sddu-docs-command-tree — 命令树的完整层级结构
+> **输出文件名**: <<doc_subject>>-command-tree.md
+> **数据来源**: <<source_features>>
+> **创建人**: <<created_by>>
+> **创建时间**: <<created_at>>
+> **版本**: <<version>>
+> **更新人**: <<updated_by>>
+> **更新时间**: <<updated_at>>
+> **更新说明**: <<change_description>>
+
+## 1. 命令组概述
+
+| 属性 | 值 |
+|------|-----|
+| **命令组名称** | `<<command_group_name>>` |
+| **所属域** | <<domain>> |
+| **入口命令** | `<<entry_command>>` |
+| **子命令数量** | <<command_count>> |
+
+## 2. 命令树结构
+
+> 该命令组内的完整层级结构。
+
+```
+<<command_group_name>>
+<<#each commands>>
+<<indent>>├── <<name>>  ← <<description>>
+<<#each subcommands>>
+<<indent>>│   ├── <<name>>  ← <<description>>
+<</each>>
+<</each>>
+```
+
+## 3. 命令清单
+
+> 该命令组内所有命令的平铺列表。
+
+| 命令 | 层级 | 说明 |
+|------|:--:|------|
+<<#each commands>>
+| `<<name>>` | <<level>> | <<description>> |
+<<#each subcommands>>
+| `<<name>>` | <<level>> | <<description>> |
+<</each>>
+<<#else>>
+| — | — | 当前无命令定义 |
+<</each>>
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | <<change_description>> | <<generated_at>> | <<created_by>> |

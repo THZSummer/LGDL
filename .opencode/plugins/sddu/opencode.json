@@ -1,0 +1,87 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-sddu-plugin"],
+  "agent": {
+    "build": {
+      "model": "opencode/deepseek-v4-flash-free"
+    },
+    "plan": {
+      "model": "opencode/deepseek-v4-flash-free"
+    },
+    "general": {
+      "model": "opencode/deepseek-v4-flash-free"
+    },
+    "explore": {
+      "model": "opencode/deepseek-v4-flash-free"
+    },
+    "sddu": {
+      "description": "SDDU Master Coordinator - 智能路由助手",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu.md}"
+    },
+    "sddu-discovery": {
+      "description": "SDDU 需求挖掘专家 (阶段 1/7)",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-discovery.md}"
+    },
+    "sddu-spec": {
+      "description": "SDDU 规范编写专家 (阶段 2/7)",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-spec.md}"
+    },
+    "sddu-plan": {
+      "description": "SDDU 技术规划专家 (阶段 3/7)",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-plan.md}"
+    },
+    "sddu-tasks": {
+      "description": "SDDU 任务分解专家 (阶段 4/7)",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-tasks.md}"
+    },
+    "sddu-build": {
+      "description": "SDDU 任务实现专家 (阶段 5/7)",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-build.md}"
+    },
+    "sddu-review": {
+      "description": "SDDU 代码审查专家 (阶段 6/7)",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-review.md}"
+    },
+    "sddu-validate": {
+      "description": "SDDU 验证专家 (阶段 7/7)",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-validate.md}"
+    },
+    "sddu-roadmap": {
+      "description": "SDDU Roadmap 规划专家 - 多版本路线图规划",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-roadmap.md}"
+    },
+    "sddu-docs": {
+      "description": "SDDU 项目全景文档生成器 - 基于实际产物生成业务设计+技术设计文档",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-docs.md}"
+    },
+    "sddu-fast": {
+      "description": "SDDU 快速模式 - 轻量任务直接解决（无状态、零产物）",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:agents/sddu-fast.md}"
+    }
+  },
+  "permission": {
+    "*": "allow",
+    "read": "allow",
+    "edit": "allow",
+    "bash": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "task": "allow",
+    "skill": "allow",
+    "question": "allow",
+    "webfetch": "allow",
+    "external_directory": "allow"
+  }
+}

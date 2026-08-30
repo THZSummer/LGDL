@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LGDL 四层架构与依赖方向",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/THZSummer/LGDL",
+      "revision": "15e5b6b1d4caf8df75071e45bcddce59b8bed767"
+    },
+    "views": [
+      { "id": "semantics", "label": "语义层", "focus": ["core"], "note": "语言事实的唯一来源，零依赖。" },
+      { "id": "geometry", "label": "几何层", "focus": ["layout", "router"], "note": "纯函数、零 DOM 的布局与布线。" },
+      { "id": "presentation", "label": "呈现与入口", "focus": ["render", "cli", "web"], "note": "渲染器与两个消费入口。" }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [40, 70],
+    "cols": 3,
+    "gapX": 250,
+    "gapY": 44,
+    "cellW": 250,
+    "cellH": 66
+  },
+  "components": [
+    { "id": "cli", "type": "backend", "label": "@lgdl/cli", "sublabel": "+ commander（终端）", "row": 0, "col": 0, "size": [250, 66], "sources": [{ "path": "packages/cli/package.json", "label": "bin: lgdl-cli" }] },
+    { "id": "web", "type": "frontend", "label": "@lgdl/web", "sublabel": "+ React/Vite/CodeMirror/AI", "row": 0, "col": 1, "size": [250, 66], "sources": [{ "path": "packages/web/package.json", "label": "11 个前端依赖" }] },
+    { "id": "render", "type": "backend", "label": "@lgdl/render", "sublabel": "SVG/ASCII 渲染", "row": 1, "col": 1, "size": [250, 66], "sources": [{ "path": "packages/render/src/index.ts", "line": 7, "label": "依赖 core/layout/router" }] },
+    { "id": "router", "type": "backend", "label": "@lgdl/router", "sublabel": "A* 正交布线（零依赖）", "row": 2, "col": 0, "size": [250, 66], "sources": [{ "path": "packages/router/src/index.ts", "line": 1, "label": "纯几何" }] },
+    { "id": "layout", "type": "backend", "label": "@lgdl/layout", "sublabel": "自研 Sugiyama + 专用布局", "row": 2, "col": 2, "size": [250, 66], "sources": [{ "path": "packages/layout/src/index.ts", "line": 16, "label": "零 dagre/elkjs" }] },
+    { "id": "core", "type": "backend", "label": "@lgdl/core", "sublabel": "解析/语义模型/命令注册表（零依赖）", "row": 3, "col": 1, "size": [250, 66], "sources": [{ "path": "packages/core/package.json", "label": "zero dependencies" }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "入口层", "wraps": ["cli", "web"] },
+    { "kind": "region", "label": "呈现层", "wraps": ["render"] },
+    { "kind": "region", "label": "几何层（纯函数、零 DOM）", "wraps": ["router", "layout"] },
+    { "kind": "region", "label": "语义层", "wraps": ["core"] }
+  ],
+  "connections": [
+    { "id": "cli-render", "from": "cli", "to": "render", "label": "render ^0.5.0", "fromSide": "bottom", "toSide": "left" },
+    { "id": "web-render", "from": "web", "to": "render", "label": "render ^0.5.0", "fromSide": "bottom", "toSide": "top", "labelAt": [665, 150] },
+    { "id": "render-router", "from": "render", "to": "router", "label": "router ^0.5.0", "fromSide": "bottom", "toSide": "top" },
+    { "id": "render-layout", "from": "render", "to": "layout", "label": "layout ^0.5.0", "fromSide": "bottom", "toSide": "top" },
+    { "id": "layout-core", "from": "layout", "to": "core", "label": "core ^0.5.0", "fromSide": "bottom", "toSide": "top" },
+    { "id": "web-layout", "from": "web", "to": "layout", "label": "layout ^0.5.0", "variant": "dashed", "fromSide": "right", "toSide": "top" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "分层依赖方向", "items": ["入口层 -> 呈现层 -> 几何层 -> 语义层", "每层只依赖其下层的包，不反向", "render 是流水线末端，同时被 cli 与 web 消费"] },
+    { "dot": "violet", "title": "跨层直连（见 §2.1 依赖表）", "items": ["cli、web 均直接依赖 core（命令注册表/parseLgdl 单一实现）", "web 直接依赖 layout（浏览器内布局，不经过 render 的 CLI 路径）", "router 零包间依赖，从 render 抽出（commit 203a000）"] },
+    { "dot": "slate", "title": "构建体系", "items": ["根 tsconfig 用 project references 串起 core -> layout -> router -> render -> cli", "web 不在其中：Vite 应用，predev 钩子先构建四个依赖包"] }
+  ]
+}

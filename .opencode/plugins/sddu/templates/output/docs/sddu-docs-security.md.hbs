@@ -1,0 +1,78 @@
+# <<doc_subject>> — 安全模型
+
+> **文档定位**: sddu-docs-security — 安全策略文档 — 认证流程、授权矩阵、安全边界  
+> **输出文件名**: <<doc_subject>>-security.md  
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 安全概览
+
+> 记录<<doc_subject>>的认证授权体系和安全策略总览。
+
+| 属性 | 值 |
+|------|-----|
+| **认证方式** | <<auth_methods，如 JWT / OAuth2 / API Key / Session>> |
+| **凭证存储** | <<credential_store，如 内存 / Redis / 数据库>> |
+| **会话管理** | <<session_management，如 无状态 / 有状态>> |
+| **安全等级** | <<security_level，如 公开 / 内部 / 机密>> |
+
+## 2. 认证流程
+
+> 描述用户/服务如何通过身份认证访问系统。
+
+<<#each auth_flows>>
+### <<flow_name>>
+
+| 步骤 | 参与者 | 操作 | 说明 |
+|:---:|--------|------|------|
+<<#each steps>>
+| <<step_number>> | <<participant>> | <<action>> | <<description>> |
+<</each>>
+
+**凭证验证**: <<credential_validation>>
+**会话续期**: <<session_renewal>>
+<</each>>
+
+## 3. 授权矩阵
+
+| 角色 | 资源 | 权限 |
+|------|------|------|
+<<#each roles>>
+| <<role_name>> | <<#each permissions>>**<<resource>>** | <<access_level>>
+<</each>> |
+<<#else>>
+| — | — | 无授权矩阵定义 |
+<</each>>
+
+## 4. 角色定义
+
+| 角色名 | 继承角色 | 描述 | 绑定方式 |
+|--------|:------:|------|---------|
+<<#each role_definitions>>
+| <<role_name>> | <<inherits_from>> | <<description>> | <<binding>> |
+<<#else>>
+| — | — | 无角色定义 |
+<</each>>
+
+## 5. 安全边界
+
+> 描述系统的信任边界和安全防护措施。
+
+| 边界 | 类型 | 防护措施 | 说明 |
+|------|------|---------|------|
+<<#each security_boundaries>>
+| <<boundary_name>> | <<boundary_type，如 网络 / 数据 / 应用>> | <<protection>> | <<description>> |
+<<#else>>
+| — | — | — | 安全边界待定义 |
+<</each>>
+
+## 修订记录
+
+| 生成时间 | 变更 Feature | 生成方式 | 修订人 |
+|---------|-------------|:--:|--------|
+| <<generated_at>> | <<changed_features>> | <<full_or_incremental>> | SDDU Docs Agent |

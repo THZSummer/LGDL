@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "LGDL Web 编译管线（浏览器内）",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1072, 400],
+    "views": [
+      { "id": "compile-path", "label": "编译主链", "focus": ["src", "compile", "parse", "layout", "preview"], "note": "App.tsx compile() 驱动的浏览器内编译循环。" },
+      { "id": "feedback", "label": "反馈与错误", "focus": ["lint", "errors", "preview", "locate"], "note": "lint 诊断、错误面板与点击定位三条反馈路径。" }
+    ]
+  },
+  "stages": [
+    { "label": "编辑器" },
+    { "label": "双路径" },
+    { "label": "解析" },
+    { "label": "布局" },
+    { "label": "渲染预览" }
+  ],
+  "nodes": [
+    { "id": "src", "type": "frontend", "label": "CodeMirror 编辑器源码", "sublabel": "编辑器缓冲区", "stage": 0, "row": 1, "width": 130 },
+    { "id": "lint", "type": "backend", "label": "同步 lint 诊断", "sublabel": "parseLgdl · 红波浪线", "stage": 1, "row": 0, "width": 110 },
+    { "id": "compile", "type": "backend", "label": "async compile()", "sublabel": "App.tsx:520 · 防抖", "stage": 1, "row": 1, "width": 130 },
+    { "id": "errors", "type": "external", "label": "RenderState errors", "sublabel": "错误面板 · 不出图", "stage": 2, "row": 0, "width": 130 },
+    { "id": "parse", "type": "backend", "label": "core: parseLgdl", "sublabel": "解析 + 严格校验", "stage": 2, "row": 1, "width": 130 },
+    { "id": "layout", "type": "backend", "label": "layout: layoutDocument", "sublabel": "异步签名 · 实现同步", "stage": 3, "row": 1, "width": 140 },
+    { "id": "locate", "type": "frontend", "label": "源码行定位", "sublabel": "locate.ts 点击元素", "stage": 4, "row": 0, "width": 120 },
+    { "id": "preview", "type": "frontend", "label": "SVG innerHTML 预览", "sublabel": "ZoomableSvg 缩放", "stage": 4, "row": 1, "width": 130 }
+  ],
+  "flows": [
+    { "id": "src-lint", "from": "src", "to": "lint", "label": "同步 lint", "variant": "default", "fromSide": "top", "toSide": "left", "via": [[100, 157]] },
+    { "id": "src-compile", "from": "src", "to": "compile", "label": "防抖编译", "variant": "emphasis" },
+    { "id": "compile-parse", "from": "compile", "to": "parse", "label": "源码文本", "variant": "default" },
+    { "id": "parse-errors", "from": "parse", "to": "errors", "label": "valid=false", "variant": "dashed", "fromSide": "top", "toSide": "bottom" },
+    { "id": "parse-layout", "from": "parse", "to": "layout", "label": "valid=true", "variant": "emphasis" },
+    { "id": "layout-preview", "from": "layout", "to": "preview", "label": "renderSvg", "variant": "emphasis" },
+    { "id": "preview-locate", "from": "preview", "to": "locate", "label": "data-lgdl-loc", "variant": "dashed", "fromSide": "top", "toSide": "bottom" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "浏览器内同款管线", "items": ["App.tsx compile()：parseLgdl -> layoutDocument -> renderSvg", "与终端共用同一套引擎，不经 cli", "编辑器变更防抖触发（App.tsx:520-547）"] },
+    { "dot": "rose", "title": "双路径反馈", "items": ["同步 parseLgdl 出 lint 诊断：红波浪线 / 跳转", "valid=false 走 RenderState errors：错误面板，不出图", "点击预览元素经 data-lgdl-loc -> locate.ts 定位源码行"] },
+    { "dot": "slate", "title": "异步签名细节", "items": ["layoutDocument 保留 async 签名（elkjs 遗留），实现全同步", "lint 与编译分走两条路径：同步诊断 vs 异步出图", "ZoomableSvg 提供预览缩放"] }
+  ]
+}

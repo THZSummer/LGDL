@@ -1,0 +1,48 @@
+# <<doc_subject>> — ADR 索引
+
+> **文档定位**: sddu-docs-adr-index — 汇总本级所有架构决策记录（ADR），含编号、标题、状态和影响范围  
+> **输出文件名**: adr-index.md
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. ADR 列表
+
+> 以下表格列出本级所有架构决策记录。
+
+| ADR 编号 | 标题 | 状态 | 影响范围 | 决策日期 | 简述 |
+|:--------:|------|:--:|---------|:--:|------|
+<<#each adrs>>
+| **ADR-<<id>>** | <<title>> | <<status>> | <<scope>> | <<date>> | <<summary>> |
+<<#else>>
+| — | — | — | — | — | 本级无 ADR 记录 |
+<</each>>
+
+## 2. ADR 统计
+
+> 按状态分布统计本级 ADR 的整体情况。
+
+| 状态 | 数量 |
+|:--:|:--:|
+| PROPOSED | <<proposed_count>> |
+| ACCEPTED | <<accepted_count>> |
+| DEPRECATED | <<deprecated_count>> |
+| SUPERSEDED | <<superseded_count>> |
+| **合计** | **<<total_adr_count>>** |
+
+## 3. ADR 概述
+
+> 文字描述本级关键 ADR 的整体情况和主要决策方向。
+
+<<adr_overview>>
+
+## 修订记录
+> 记录本文档的版本变更历史
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| <<version，如 v1.0>> | <<change_description，如 初始创建>> | <<generated_at>> | <<created_by，如 SDDU Docs Agent>> |

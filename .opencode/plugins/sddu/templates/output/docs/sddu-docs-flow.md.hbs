@@ -1,0 +1,64 @@
+# <<flow_name>>
+
+> **文档定位**: sddu-docs-flow — 业务流程文档 — 状态机、流转规则、异常路径  
+> **输出文件名**: <<doc_subject>>-flow.md
+> **数据来源**: <<source_features>>
+> **创建人**: <<created_by>>
+> **创建时间**: <<created_at>>
+> **版本**: <<version>>
+> **更新人**: <<updated_by>>
+> **更新时间**: <<updated_at>>
+> **更新说明**: <<change_description>>
+
+## 1. 流程概述
+
+| 属性 | 值 |
+|------|-----|
+| **流程名称** | <<flow_name>> |
+| **所属域** | <<domain>> |
+| **入口条件** | <<entry_condition>> |
+| **出口结果** | <<exit_result>> |
+| **本流程涉及业务对象** | `<<doc_subject>>` |
+| **下游流程** | <<downstream_flows>> |
+
+## 2. 状态机
+
+> 该流程涉及的状态及其流转关系。
+
+| 状态 | 说明 |
+|------|------|
+<<#each states>>
+| **<<state_name>>** | <<description>> |
+<<#else>>
+| — | 当前无状态定义 |
+<</each>>
+
+## 3. 流转规则
+
+> 状态之间的转换规则。
+
+| 起始状态 | 目标状态 | 触发事件 | 前置条件 | 后置动作 |
+|---------|---------|---------|---------|---------|
+<<#each transitions>>
+| **<<from>>** | **<<to>>** | <<event>> | <<precondition>> | <<post_action>> |
+<<#else>>
+| — | — | — | — | 当前无流转规则定义 |
+<</each>>
+
+## 4. 异常路径
+
+> 流程执行过程中可能的异常及处理方式。
+
+| 异常 | 触发条件 | 处理方式 | 恢复策略 |
+|------|---------|---------|---------|
+<<#each exceptions>>
+| **<<exception_name>>** | <<condition>> | <<handler>> | <<recovery>> |
+<<#else>>
+| — | — | — | 当前无异常路径定义 |
+<</each>>
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | <<change_description>> | <<generated_at>> | <<created_by>> |

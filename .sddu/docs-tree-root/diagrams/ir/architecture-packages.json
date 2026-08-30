@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LGDL 6 包依赖与数据流合并视图",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/THZSummer/LGDL",
+      "revision": "15e5b6b1d4caf8df75071e45bcddce59b8bed767"
+    },
+    "views": [
+      { "id": "entries", "label": "消费入口", "focus": ["cli", "web", "scripts"], "note": "终端 CLI、浏览器工作台与示例脚本三条入口。" },
+      { "id": "engine", "label": "引擎链", "focus": ["render", "layout", "router", "core"], "note": "render → layout → core 依赖链，router 承担正交布线。" }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [40, 70],
+    "cols": 4,
+    "gapX": 80,
+    "gapY": 60,
+    "cellW": 172,
+    "cellH": 76
+  },
+  "components": [
+    { "id": "cli", "type": "backend", "label": "@lgdl/cli", "sublabel": "终端 19 命令", "row": 0, "col": 0, "size": [172, 76], "sources": [{ "path": "packages/cli/package.json", "label": "bin: lgdl-cli" }] },
+    { "id": "web", "type": "frontend", "label": "@lgdl/web", "sublabel": "Web 工作台 + AI 助手", "row": 1, "col": 0, "size": [172, 76], "sources": [{ "path": "packages/web/src/App.tsx", "line": 11, "label": "三包编译管线" }] },
+    { "id": "scripts", "type": "backend", "label": "scripts/gen-examples", "sublabel": "生成示例三件套", "row": 2, "col": 0, "size": [172, 76], "sources": [{ "path": "scripts/gen-examples.mjs", "line": 1, "label": "示例生成脚本" }] },
+    { "id": "render", "type": "backend", "label": "@lgdl/render", "sublabel": "SVG/ASCII 渲染", "row": 1, "col": 1, "size": [172, 76], "sources": [{ "path": "packages/render/src/index.ts", "line": 7, "label": "依赖 core/layout/router" }] },
+    { "id": "output", "type": "external", "label": "SVG / PNG / ASCII", "sublabel": "最终输出产物", "row": 2, "col": 1, "size": [172, 76] },
+    { "id": "layout", "type": "backend", "label": "@lgdl/layout", "sublabel": "自研 Sugiyama 布局", "row": 0, "col": 2, "size": [172, 76], "sources": [{ "path": "packages/layout/src/index.ts", "line": 16, "label": "零 dagre/elkjs" }] },
+    { "id": "router", "type": "backend", "label": "@lgdl/router", "sublabel": "A* 正交布线（零依赖）", "row": 2, "col": 2, "size": [172, 76], "sources": [{ "path": "packages/router/src/index.ts", "line": 1, "label": "纯几何，无 DOM" }] },
+    { "id": "core", "type": "backend", "label": "@lgdl/core", "sublabel": "解析/语义模型/命令注册表（零依赖）", "row": 1, "col": 3, "size": [190, 76], "sources": [{ "path": "packages/core/package.json", "label": "zero dependencies" }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "消费入口", "wraps": ["cli", "web", "scripts"] },
+    { "kind": "region", "label": "引擎层", "wraps": ["render", "layout", "router"] }
+  ],
+  "connections": [
+    { "id": "cli-render", "from": "cli", "to": "render", "label": "render ^0.5.0", "fromSide": "right", "toSide": "top" },
+    { "id": "web-render", "from": "web", "to": "render", "label": "render ^0.5.0", "fromSide": "right", "toSide": "left" },
+    { "id": "scripts-render", "from": "scripts", "to": "render", "label": "dist 产物", "fromSide": "right", "toSide": "bottom" },
+    { "id": "render-layout", "from": "render", "to": "layout", "label": "layout ^0.5.0" },
+    { "id": "render-router", "from": "render", "to": "router", "label": "router ^0.5.0" },
+    { "id": "layout-core", "from": "layout", "to": "core", "label": "core ^0.5.0" },
+    { "id": "render-output", "from": "render", "to": "output", "label": "SVG/PNG/ASCII", "variant": "emphasis", "labelAt": [446, 318] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "消费入口", "items": ["cli、web、scripts 三条入口共用同一套引擎", "web 不经过 cli，直接走 parseLgdl → layoutDocument → renderSvg"] },
+    { "dot": "emerald", "title": "引擎链", "items": ["core 是唯一语言事实来源，零依赖", "layout/router 纯几何零依赖，render 只负责画", "render 依赖 layout + router（v0.6 布线抽出，commit 203a000）"] },
+    { "dot": "amber", "title": "完整依赖（package.json 实测）", "items": ["cli 直接依赖 core + render；web 直接依赖 core + layout + render", "scripts 依赖三包 dist 产物；render 也直接依赖 core", "全部 @lgdl/* 包间依赖版本约束 ^0.5.0"] }
+  ]
+}

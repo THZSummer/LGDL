@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "LGDL Web AI 命令管线（AI 改图的唯一通道）",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1080, 490]
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "用户", "sublabel": "对话输入" },
+    { "id": "panel", "type": "frontend", "label": "AiPanel agent 循环", "sublabel": "AiPanel.tsx · MAX_ROUNDS" },
+    { "id": "llm", "type": "external", "label": "LLM（多厂商）", "sublabel": "provider.chat()" },
+    { "id": "ops", "type": "backend", "label": "ops.ts 执行层", "sublabel": "executeSubcommand" },
+    { "id": "core", "type": "backend", "label": "core 注册表 + 变更", "sublabel": "buildOperation · validate" },
+    { "id": "app", "type": "frontend", "label": "App（编辑器/预览）", "sublabel": "onApply · compile()" }
+  ],
+  "segments": [
+    { "from": 150, "to": 230, "label": "指令与规划" },
+    { "from": 238, "to": 342, "label": "工具执行循环" },
+    { "from": 350, "to": 392, "label": "写回与收尾" }
+  ],
+  "messages": [
+    { "id": "user-input", "from": "user", "to": "panel", "y": 160, "label": "输入指令", "variant": "default" },
+    { "id": "chat-call", "from": "panel", "to": "llm", "y": 188, "label": "chat()（system + 消息，含三工具定义）", "variant": "emphasis" },
+    { "id": "tool-calls", "from": "llm", "to": "panel", "y": 216, "label": "文本 + tool_calls（lgdl-web-cli / lgdl-web-op-cli / lgdl-web-fetch）", "variant": "return" },
+    { "id": "exec-call", "from": "panel", "to": "ops", "y": 244, "label": "executeSubcommand(source, subcommand, args)", "variant": "emphasis" },
+    { "id": "apply-gate", "from": "ops", "to": "core", "y": 272, "label": "写命令：buildOperation → applyOperation → validate 门禁 → serializeLgdl", "variant": "emphasis" },
+    { "id": "mut-result", "from": "core", "to": "ops", "y": 300, "label": "MutationResult / 校验错误", "variant": "return" },
+    { "id": "exec-result", "from": "ops", "to": "panel", "y": 328, "label": "CommandExecResult {ok, source, lines}", "variant": "return" },
+    { "id": "on-apply", "from": "panel", "to": "app", "y": 356, "label": "exec.changed → onApply(新源码) → compile()", "variant": "emphasis" },
+    { "id": "next-round", "from": "llm", "to": "panel", "y": 384, "label": "继续调用或收尾（next-actions 推荐胶囊）", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "panel", "from": 155, "to": 388, "type": "frontend" },
+    { "participant": "llm", "from": 185, "to": 388, "type": "external" },
+    { "participant": "ops", "from": 242, "to": 332, "type": "backend" },
+    { "participant": "core", "from": 270, "to": 304, "type": "backend" },
+    { "participant": "app", "from": 354, "to": 360, "type": "frontend" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "唯一的改图通道", "items": ["三工具：lgdl-web-cli / lgdl-web-op-cli / lgdl-web-fetch", "读 → core/queries；写 → buildOperation → applyOperation", "AI 只给意图（subcommand + args），不写文本源码"] },
+    { "dot": "rose", "title": "校验门禁不可绕过", "items": ["写命令产物须过 validate，否则整体拒绝（ops.ts:239-248）", "工具失败即置 failed，追加 user 修正提示（AiPanel.tsx:441-450）", "轮数上限 MAX_ROUNDS = maxRounds ?? 1000（AiPanel.tsx:362）"] },
+    { "dot": "slate", "title": "闭环与可见性", "items": ["exec.changed → onApply(新源码) → compile() 即刻生效", "tool 结果以 role:tool + toolCallId 回传，保持消息顺序", "对话消息 + 页面可见执行过程（next-actions 胶囊）"] }
+  ]
+}

@@ -1,0 +1,36 @@
+# <<doc_subject>> — 依赖关系
+
+> **文档定位**: sddu-docs-relation-deps — 描述本级组件之间的调用依赖关系，含调用方、被调用方、调用类型和依赖方向  
+> **输出文件名**: <<doc_subject>>-deps.md
+> **数据来源**: 聚合自 specs-tree-root/<<feature_list>>  
+> **创建人**: <<created_by，如 SDDU Docs Agent>>  
+> **创建时间**: <<created_at，如 2026-07-05>>  
+> **版本**: <<version，如 v1.0>>  
+> **更新人**: <<updated_by，如 SDDU Docs Agent>>  
+> **更新时间**: <<updated_at，如 2026-07-05>>  
+> **更新说明**: <<change_description，如 初始创建>>
+
+## 1. 依赖关系总览
+
+> 以下表格列出本级所有组件之间的依赖关系，按调用方分组。
+
+| 调用方 | 被调用方 | 调用类型 | 依赖方向 | 说明 |
+|--------|---------|---------|:--:|------|
+<<#each dependencies>>
+| **<<caller>>** | <<callee>> | <<call_type>> | <<direction>> | <<description>> |
+<<#else>>
+| — | — | — | — | 本级无依赖关系记录 |
+<</each>>
+
+## 2. 依赖图概述
+
+> 文字描述本级组件间的主要依赖链路和关键调用路径。
+
+<<dependency_overview>>
+
+## 修订记录
+> 记录本文档的版本变更历史
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| <<version，如 v1.0>> | <<change_description，如 初始创建>> | <<generated_at>> | <<created_by，如 SDDU Docs Agent>> |
