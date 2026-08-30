@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LGDL 双层消费模型：人类决策，AI 操作",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1240, 500]
+  },
+  "components": [
+    { "id": "human", "type": "external", "label": "人类决策者", "sublabel": "理解 → 决策 → 指挥", "pos": [30, 96], "size": [150, 76] },
+    { "id": "opcli", "type": "frontend", "label": "op-cli 协调层", "sublabel": "人与 AI 体系的协调层", "pos": [30, 300], "size": [150, 76] },
+    { "id": "ai", "type": "external", "label": "AI Agent（操作者）", "sublabel": "意图：subcommand + args", "pos": [230, 180], "size": [170, 76] },
+    { "id": "cli", "type": "frontend", "label": "lgdl-cli 终端命令面", "sublabel": "19 命令 · 磁盘 IO", "pos": [470, 90], "size": [170, 66] },
+    { "id": "webcli", "type": "frontend", "label": "lgdl-web-cli Web 助手", "sublabel": "function calling 三工具", "pos": [470, 320], "size": [170, 66] },
+    { "id": "core", "type": "backend", "label": "core 语言引擎", "sublabel": "严格校验 · 命令注册表", "pos": [800, 240], "size": [170, 66] },
+    { "id": "output", "type": "database", "label": "图产物", "sublabel": "SVG · PNG · ASCII", "pos": [1070, 240], "size": [140, 66] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "引擎边界：AI 经命令面间接触达（不直写源码）", "wraps": ["core", "output"] }
+  ],
+  "connections": [
+    { "id": "human-to-ai", "from": "human", "to": "ai", "label": "理解后指挥", "variant": "emphasis", "labelAt": [211, 157] },
+    { "id": "human-to-opcli", "from": "human", "to": "opcli", "label": "可见性 · 参与感", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "route": "orthogonal-v", "labelDx": 8 },
+    { "id": "opcli-to-ai", "from": "opcli", "to": "ai", "label": "协调 AI 操作", "variant": "dashed", "fromSide": "right", "toSide": "left", "via": [[220, 338], [220, 218]], "labelAt": [228, 300] },
+    { "id": "ai-to-cli", "from": "ai", "to": "cli", "label": "工具调用（不写源码）", "variant": "emphasis", "labelAt": [435, 170] },
+    { "id": "ai-to-webcli", "from": "ai", "to": "webcli", "label": "function calling", "variant": "emphasis" },
+    { "id": "cli-to-core", "from": "cli", "to": "core", "label": "render / convert / import", "variant": "emphasis" },
+    { "id": "webcli-to-core", "from": "webcli", "to": "core", "label": "executeSubcommand", "variant": "emphasis" },
+    { "id": "core-to-output", "from": "core", "to": "output", "label": "确定性布局 + 渲染" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "双层角色（G4-Q6）", "items": ["AI 是操作者：直接经 CLI 操作图", "人是决策者与最终消费者：必须理解语义才能有效指挥", "design.md:73 绝对化表述据此修正"] },
+    { "dot": "cyan", "title": "唯一改图通道（G3-Q2）", "items": ["AI 不直写源码——源码只由命令执行产生", "命令面强约束替代自由文本，工具调用只给意图", "掐断「语法变形→难校验→频繁返工」损耗链"] },
+    { "dot": "rose", "title": "可见性协调（G3-Q4）", "items": ["op-cli = 人与 AI 体系的协调层", "人少直接写语法，但必须读得懂语义", "双 CLI 全部为 AI Agent 设计（G3-Q1）"] }
+  ]
+}

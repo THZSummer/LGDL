@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "LGDL 核心业务旅程：从人类意图到图产物",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 500]
+  },
+  "stages": [
+    { "label": "理解与决策" },
+    { "label": "AI 操作" },
+    { "label": "命令面" },
+    { "label": "引擎" },
+    { "label": "产出与验收" }
+  ],
+  "nodes": [
+    { "id": "h-decision", "type": "external", "label": "人类（决策者）", "sublabel": "理解语义 · 指挥", "stage": 0, "row": 1, "width": 130 },
+    { "id": "ai-plan", "type": "backend", "label": "AI 规划工具调用", "sublabel": "subcommand + args", "stage": 1, "row": 1, "width": 130 },
+    { "id": "ai-fix", "type": "backend", "label": "修正重试", "sublabel": "按报错调整", "stage": 1, "row": 0, "width": 100 },
+    { "id": "cli-exec", "type": "frontend", "label": "执行命令", "sublabel": "终端 / Web 双 CLI", "stage": 2, "row": 1, "width": 130 },
+    { "id": "cli-error", "type": "security", "label": "即时报错", "sublabel": "error + 可定位路径", "stage": 3, "row": 0, "width": 120 },
+    { "id": "eng-core", "type": "backend", "label": "校验 · 布局 · 渲染", "sublabel": "error-only · 确定性", "stage": 3, "row": 1, "width": 140 },
+    { "id": "eng-output", "type": "database", "label": "图产物", "sublabel": "SVG · PNG · ASCII", "stage": 4, "row": 1, "width": 110 },
+    { "id": "h-accept", "type": "external", "label": "验收产物", "sublabel": "确认或再指挥", "stage": 4, "row": 0, "width": 110 }
+  ],
+  "flows": [
+    { "id": "decision-to-plan", "from": "h-decision", "to": "ai-plan", "label": "理解后指挥", "variant": "emphasis", "labelAt": [207, 314] },
+    { "id": "plan-to-exec", "from": "ai-plan", "to": "cli-exec", "label": "工具调用（不写源码）", "variant": "emphasis", "route": "straight", "labelAt": [423, 314] },
+    { "id": "exec-to-core", "from": "cli-exec", "to": "eng-core", "label": "结构化命令", "variant": "emphasis" },
+    { "id": "core-to-output", "from": "eng-core", "to": "eng-output", "label": "确定性渲染", "variant": "emphasis" },
+    { "id": "output-to-accept", "from": "eng-output", "to": "h-accept", "label": "成品图" },
+    { "id": "core-to-error", "from": "eng-core", "to": "cli-error", "label": "校验失败", "variant": "security", "fromSide": "top", "toSide": "bottom" },
+    { "id": "error-to-fix", "from": "cli-error", "to": "ai-fix", "label": "错误回传", "variant": "security", "route": "straight", "labelAt": [525, 121] },
+    { "id": "fix-to-exec", "from": "ai-fix", "to": "cli-exec", "label": "修正后重试", "fromSide": "bottom", "toSide": "left", "via": [[315, 230], [450, 230], [450, 271]], "labelAt": [390, 230] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "唯一改图通道（G3-Q2）", "items": ["AI 不直写源码——工具调用只给意图", "命令面强约束替代自由文本", "掐断「语法变形→难校验→返工」损耗链"] },
+    { "dot": "rose", "title": "即时反馈（G4-Q2）", "items": ["违规即报 error + 可定位路径（nodes[3].id）", "无警告级静默降级", "修正循环快速收敛，轮数上限兜底"] },
+    { "dot": "emerald", "title": "人机分工（G4-Q6）", "items": ["人：理解 + 决策 + 验收", "AI：规划 + 执行 + 修正", "op-cli 让 AI 操作全程可见（参与感）"] }
+  ]
+}

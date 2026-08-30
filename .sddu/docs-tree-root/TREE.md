@@ -11,7 +11,8 @@ docs-tree-root/
 ├── docs-overview.md          # LGDL 技术全景 — 全景入口
 ├── source.md          # LGDL 技术全景 — 产物溯源
 ├── diagrams/          # 子目录
-├── 核心引擎/          # 子目录
+├── 业务全景/          # 业务全景 目录
+├── 核心引擎/          # 核心引擎 目录
 └── 系统架构/          # 子目录
 ```
 
