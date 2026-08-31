@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseWebCliCommand, parseWebCliBatch, parseWebFetchCommand, tokenizeCli } from './web-cli.js';
+import { parseWebCliCommand, parseWebCliBatch, tokenizeCli } from './protocol.js';
 import { formatStatus, parseLgdl } from '@lgdl/core';
 
 test('tokenizeCli: splits on whitespace, respects quotes', () => {
@@ -108,30 +108,6 @@ test('parseWebCliBatch: query commands pass through without stopping the batch',
   assert.equal(r.ops.length, 1);
   assert.equal(r.wantsStatus, true);
   assert.equal(r.docId, 'main');
-});
-
-test('parseWebFetchCommand: parses lgdl-web-fetch --path', () => {
-  const r = parseWebFetchCommand('lgdl-web-fetch --path lgdl/web/workbench/README-CLI.md');
-  assert.deepEqual(r, { ok: true, kind: 'fetch', path: 'lgdl/web/workbench/README-CLI.md' });
-  const quoted = parseWebFetchCommand('lgdl-web-fetch --path "lgdl/web/workbench/README-CLI.md"');
-  assert.deepEqual(quoted, { ok: true, kind: 'fetch', path: 'lgdl/web/workbench/README-CLI.md' });
-  const url = parseWebFetchCommand('lgdl-web-fetch --path https://example.com/doc.md');
-  assert.deepEqual(url, { ok: true, kind: 'fetch', path: 'https://example.com/doc.md' });
-});
-
-test('parseWebFetchCommand: rejects missing prefix / missing --path', () => {
-  const noPrefix = parseWebFetchCommand('lgdl-web-cli fetch-doc --path x');
-  assert.equal(noPrefix.ok, false);
-  if (noPrefix.ok === false) assert.match(noPrefix.error, /lgdl-web-fetch/);
-  const noPath = parseWebFetchCommand('lgdl-web-fetch');
-  assert.equal(noPath.ok, false);
-  if (noPath.ok === false) assert.match(noPath.error, /--path/);
-});
-
-test('parseWebFetchCommand: --help returns help without --path', () => {
-  const r = parseWebFetchCommand('lgdl-web-fetch --help');
-  assert.equal(r.ok, true);
-  if (r.ok === true) assert.equal(r.kind, 'help');
 });
 
 test('parseWebCliCommand: top-level --help needs no --doc', () => {

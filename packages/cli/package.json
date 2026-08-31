@@ -11,6 +11,7 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
+    "@lgdl/web-cli-base": "^0.5.0",
     "@lgdl/core": "^0.5.0",
     "@lgdl/render": "^0.5.0",
     "commander": "^12.0.0"

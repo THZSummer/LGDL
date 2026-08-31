@@ -5,9 +5,18 @@
  * - GPT / DeepSeek / Qwen / 火山方舟 / 腾讯混元 走 openai SDK
  *   （OpenAI 兼容端点 + dangerouslyAllowBrowser）
  * - Claude 走 @anthropic-ai/sdk（原生 Messages API）
+ *
+ * （F-13 ① 拆分：WEB_CLI_TOOL → @lgdl/web-cli-base tools.ts；
+ * chat/parseToolArguments/classifyError/ChatTurn/WebCliToolCall/ChatResult
+ * → @lgdl/web-cli-base llm.ts（中性化 LlmConfig，D-012）；
+ * 本文件保留 PROVIDERS / localStorage Key 管理 / WEB_OP_TOOL / WEB_FETCH_TOOL /
+ * testConnection 与注册组装（D-011，F-04 修复点 W-D1 不移动），
+ * chat 为薄包装（保持 chat(settings, turns) 签名，AiPanel 调用点零改动）。）
  */
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
+import { chat as llmChat, WEB_CLI_TOOL } from '@lgdl/web-cli-base';
+import type { ChatTurn, WebCliToolCall, ChatResult } from '@lgdl/web-cli-base';
+
+export type { ChatTurn, WebCliToolCall, ChatResult } from '@lgdl/web-cli-base';
 
 export type ProviderId =
   | 'deepseek'
@@ -193,41 +202,6 @@ export function providerById(id: ProviderId): ProviderConfig {
   return PROVIDERS.find((p) => p.id === id) ?? PROVIDERS[0];
 }
 
-export interface ChatTurn {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
-  /** 工具调用（tool role 时回传结果；assistant role 时携带上一轮调用） */
-  toolCallId?: string;
-  /** assistant 消息携带的上一轮工具调用（OpenAI tool_calls / Claude tool_use） */
-  toolCalls?: { id: string; name: string; arguments: string }[];
-}
-
-/** 一次工具调用（function calling 结构）。 */
-export interface WebCliToolCall {
-  /** 调用 id（反馈 tool 结果时回传） */
-  id: string;
-  /** 工具名：lgdl-web-cli（图内容）/ lgdl-web-op-cli（UI 操作）/ lgdl-web-fetch（web 获取） */
-  name: string;
-  subcommand: string;
-  /** --key value 平面参数（不含 --doc，doc 由执行时上下文决定） */
-  args: Record<string, string>;
-  /** 原始 arguments JSON（保留） */
-  rawArguments: string;
-}
-
-export interface ChatResult {
-  /** chat 文本（markdown 渲染）；无文本时为 '' */
-  content: string;
-  /** lgdl-web-cli 工具调用（图内容操作） */
-  toolCalls: WebCliToolCall[];
-  /** lgdl-web-op-cli 工具调用（UI 操作，与手动点击等效） */
-  opCalls: WebCliToolCall[];
-  /** lgdl-web-fetch 工具调用（基础 web 获取，独立于两个 CLI） */
-  fetchCalls: WebCliToolCall[];
-  /** 使用的模型 */
-  model: string;
-}
-
 /** lgdl-web-op-cli function 定义（UI 操作，与用户手动点击等效）。 */
 export const WEB_OP_TOOL: {
   type: 'function';
@@ -272,49 +246,6 @@ export const WEB_OP_TOOL: {
             'preview-pan: --dx 100 --dy 0; preview-click: --loc nodes[3]; preview-hover: --loc nodes[3] or --loc none to clear; ' +
             'switch-example: --id login-flow; list-examples / list-diagram-types: no args; ' +
             'next-actions: --actions \'[{"label":"增加配色分组","prompt":"给当前图增加配色分组"}]\' (2-4 suggested next steps).',
-          additionalProperties: true,
-        },
-      },
-      required: ['subcommand'],
-    },
-  },
-};
-export const WEB_CLI_TOOL: {
-  type: 'function';
-  function: {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-  };
-} = {
-  type: 'function',
-  function: {
-    name: 'lgdl-web-cli',
-    description:
-      'Execute an lgdl-web-cli command on the current editor document. ' +
-      'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / help. ' +
-      '--doc is implied (always the current document). Args use --key value style, e.g. lgdl-web-cli add-node --id user --label 用户 ' +
-      '(JSON: {"subcommand":"add-node","args":{"id":"user","label":"用户"}}). ' +
-      'NOT SURE about a command or its args? Use subcommand "help" with {"topic":"<cmd>"} — e.g. {"subcommand":"help","args":{"topic":"add-node"}} ' +
-      '(CLI equivalent: lgdl-web-cli add-node --help; top-level: lgdl-web-cli --help). Do not guess.',
-    parameters: {
-      type: 'object',
-      properties: {
-        subcommand: {
-          type: 'string',
-          enum: [
-            'status', 'validate', 'init', 'convert',
-            'add-node', 'remove-node', 'update-node',
-            'add-edge', 'remove-edge', 'update-edge',
-            'add-group', 'remove-group', 'update-group',
-            'doc-info', 'get-node', 'get-edge', 'find-node',
-            'list-node-kinds', 'list-diagram-types',
-            'help',
-          ],
-        },
-        args: {
-          type: 'object',
-          description: 'Command arguments as --key value pairs (keys without the leading dashes, e.g. --id x --label 用户); help subcommand takes {"topic":"<cmd>"} to show a single command\'s usage.',
           additionalProperties: true,
         },
       },
@@ -386,196 +317,52 @@ export async function testConnection(settings: ProviderSettings): Promise<TestRe
 }
 
 /**
- * 调用 LLM（非流式，完整返回）。
+ * 调用 LLM（非流式，完整返回）——薄包装：构造中性 LlmConfig 调新包 chat。
+ * 签名 chat(settings, turns) 保持不变（AiPanel.tsx:390 调用点零改动）。
  * 抛错时 message 已按「key 无效 / 网络不通 / CORS 不允许」归类。
  */
 export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promise<ChatResult> {
   const provider = providerById(settings.providerId);
-  if (!settings.apiKey.trim()) {
-    throw new Error('未配置 API Key — 点击面板右上角 ⚙ 设置 API Provider 与 Key');
-  }
-
-  if (provider.id === 'claude') {
-    const client = new Anthropic({ apiKey: settings.apiKey, dangerouslyAllowBrowser: true });
-    try {
-      const res = await client.messages.create({
-        model: settings.model,
-        max_tokens: 4096,
-        system: turns.find((t) => t.role === 'system')?.content,
-        tools: [
-          {
-            name: WEB_CLI_TOOL.function.name,
-            description: WEB_CLI_TOOL.function.description,
-            input_schema: WEB_CLI_TOOL.function.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
-          },
-          {
-            name: WEB_OP_TOOL.function.name,
-            description: WEB_OP_TOOL.function.description,
-            input_schema: WEB_OP_TOOL.function.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
-          },
-          {
-            name: WEB_FETCH_TOOL.function.name,
-            description: WEB_FETCH_TOOL.function.description,
-            input_schema: WEB_FETCH_TOOL.function.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
-          },
-        ],
-        messages: turns
-          .filter((t) => t.role !== 'system')
-          .map((t) => {
-            if (t.role === 'tool') {
-              return {
-                role: 'user' as const,
-                content: [
-                  {
-                    type: 'tool_result' as const,
-                    tool_use_id: t.toolCallId ?? '',
-                    content: t.content,
-                  },
-                ],
-              };
-            }
-            if (t.role === 'assistant' && t.toolCalls && t.toolCalls.length > 0) {
-              return {
-                role: 'assistant' as const,
-                content: t.content
-                  ? [{ type: 'text' as const, text: t.content }]
-                  : [],
-                tool_use: t.toolCalls.map((tc) => ({
-                  type: 'tool_use' as const,
-                  id: tc.id,
-                  name: tc.name,
-                  input: JSON.parse(tc.arguments),
-                })),
-              };
-            }
-            return { role: t.role === 'assistant' ? 'assistant' : 'user', content: t.content };
-          }),
-      });
-      const text = res.content
-        .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
-        .map((b) => b.text)
-        .join('\n');
-      const allCalls: WebCliToolCall[] = res.content
-        .filter((b): b is Extract<typeof b, { type: 'tool_use' }> => b.type === 'tool_use')
-        .map((b) => parseToolArguments(b.id, b.name, JSON.stringify(b.input)));
-      return {
-        content: text,
-        toolCalls: allCalls.filter((c) => c.name === 'lgdl-web-cli'),
-        opCalls: allCalls.filter((c) => c.name === 'lgdl-web-op-cli'),
-        fetchCalls: allCalls.filter((c) => c.name === 'lgdl-web-fetch'),
-        model: res.model,
-      };
-    } catch (err) {
-      throw classifyError(err, provider);
-    }
-  }
-
-  // OpenAI 兼容端点
-  const baseURL = settings.baseURL || provider.baseURL || undefined;
-  const client = new OpenAI({
-    apiKey: settings.apiKey,
-    baseURL,
-    dangerouslyAllowBrowser: true,
-  });
-  try {
-    const res = await client.chat.completions.create({
+  // 注册组装留 web（D-011）：Claude 3 工具；OpenAI 兼容端点 2 工具（W-D1 现场保留，F-04 修复点不移动，NG-005）
+  const isClaude = provider.id === 'claude';
+  const tools = isClaude
+    ? [
+        {
+          name: WEB_CLI_TOOL.function.name,
+          description: WEB_CLI_TOOL.function.description,
+          parameters: WEB_CLI_TOOL.function.parameters,
+        },
+        {
+          name: WEB_OP_TOOL.function.name,
+          description: WEB_OP_TOOL.function.description,
+          parameters: WEB_OP_TOOL.function.parameters,
+        },
+        {
+          name: WEB_FETCH_TOOL.function.name,
+          description: WEB_FETCH_TOOL.function.description,
+          parameters: WEB_FETCH_TOOL.function.parameters,
+        },
+      ]
+    : [
+        {
+          name: WEB_CLI_TOOL.function.name,
+          description: WEB_CLI_TOOL.function.description,
+          parameters: WEB_CLI_TOOL.function.parameters,
+        },
+        {
+          name: WEB_OP_TOOL.function.name,
+          description: WEB_OP_TOOL.function.description,
+          parameters: WEB_OP_TOOL.function.parameters,
+        },
+      ];
+  return llmChat(
+    {
+      apiKey: settings.apiKey,
       model: settings.model,
-      messages: turns.map((t) => {
-        if (t.role === 'tool') {
-          return {
-            role: 'tool' as const,
-            tool_call_id: t.toolCallId ?? '',
-            content: t.content,
-          };
-        }
-        if (t.role === 'assistant' && t.toolCalls && t.toolCalls.length > 0) {
-          return {
-            role: 'assistant' as const,
-            content: t.content,
-            tool_calls: t.toolCalls.map((tc) => ({
-              id: tc.id,
-              type: 'function' as const,
-              function: { name: tc.name, arguments: tc.arguments },
-            })),
-          };
-        }
-        return { role: t.role === 'system' ? 'system' : (t.role === 'assistant' ? 'assistant' : 'user'), content: t.content };
-      }),
-      tools: [WEB_CLI_TOOL, WEB_OP_TOOL],
-      max_tokens: 4096,
-    });
-    const msg = res.choices[0]?.message;
-    const allCalls: WebCliToolCall[] = (msg?.tool_calls ?? [])
-      .filter(
-        (tc): tc is Extract<typeof tc, { type: 'function' }> =>
-          tc.type === 'function' &&
-          (tc.function.name === 'lgdl-web-cli' ||
-            tc.function.name === 'lgdl-web-op-cli' ||
-            tc.function.name === 'lgdl-web-fetch'),
-      )
-      .map((tc) => parseToolArguments(tc.id, tc.function.name, tc.function.arguments));
-    return {
-      content: msg?.content ?? '',
-      toolCalls: allCalls.filter((c) => c.name === 'lgdl-web-cli'),
-      opCalls: allCalls.filter((c) => c.name === 'lgdl-web-op-cli'),
-      fetchCalls: allCalls.filter((c) => c.name === 'lgdl-web-fetch'),
-      model: res.model ?? settings.model,
-    };
-  } catch (err) {
-    throw classifyError(err, provider);
-  }
-}
-
-/** 解析工具调用 arguments JSON；失败时 args 为空对象（执行时会报缺参）。 */
-export function parseToolArguments(id: string, name: string, raw: string): WebCliToolCall {
-  let subcommand = '';
-  let args: Record<string, string> = {};
-  try {
-    const parsed = JSON.parse(raw) as { subcommand?: unknown; args?: unknown };
-    if (typeof parsed.subcommand === 'string') subcommand = parsed.subcommand;
-    if (parsed.args && typeof parsed.args === 'object') {
-      args = Object.fromEntries(
-        Object.entries(parsed.args as Record<string, unknown>)
-          .filter(([, v]) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')
-          .map(([k, v]) => [k, String(v)]),
-      );
-    }
-  } catch {
-    // 保持 subcommand=''，执行层会报"缺少子命令"
-  }
-  return { id, name, subcommand, args, rawArguments: raw };
-}
-
-/** 把 SDK 错误归类为可读信息（key 无效 / 网络不通 / CORS 不允许 / 端点不对）。 */
-export function classifyError(err: unknown, provider: ProviderConfig): Error {
-  const e = err as { status?: number; message?: string; name?: string };
-  const status = e.status;
-  if (status === 401 || status === 403) {
-    return new Error(`${provider.name} 拒绝了请求（HTTP ${status}）— API Key 可能无效或已过期`);
-  }
-  if (status === 404) {
-    const isVolc = provider.id.startsWith('volc');
-    return new Error(
-      `${provider.name} 请求失败（HTTP 404）— 模型不存在或端点不对。` +
-        (isVolc
-          ? '火山模型分布在「通用 / Coding / Agent Plan」三个套餐端点，请在 ⚙ 设置中改选对应的火山方舟服务商（如 Coding 套餐选「火山方舟 · Coding」）'
-          : `请检查模型名，或在 ⚙ 设置中确认 Base URL 是否正确`),
-    );
-  }
-  if (status && status >= 400 && status < 500) {
-    return new Error(`${provider.name} 请求失败（HTTP ${status}）：${e.message ?? ''}`);
-  }
-  const msg = e.message ?? String(err);
-  // 浏览器直连被 CORS 拦截的典型表现：openai SDK 报 "Connection error"，
-  // fetch 报 "Failed to fetch" / "NetworkError"。厂商预检若不返回
-  // access-control-allow-headers 里的认证头，浏览器会在发送前拦截。
-  if (/connection error|failed to fetch|networkerror|load failed|typeerror/i.test(msg)) {
-    return new Error(
-      `浏览器直连失败（${provider.name}）— 该厂商的 CORS 策略可能不允许浏览器直连` +
-        `（或网络不通）。可尝试：① 在「测试连接」确认；② 换用支持浏览器直连的服务商` +
-        `（如 DeepSeek / OpenAI）；③ 后续版本提供本地代理（lgdl serve）绕开 CORS。` +
-        `原始错误：${msg}`,
-    );
-  }
-  return new Error(`${provider.name} 调用失败：${msg}`);
+      baseURL: settings.baseURL,
+      provider: { id: provider.id, name: provider.name, baseURL: provider.baseURL },
+      tools,
+    },
+    turns,
+  );
 }

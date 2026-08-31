@@ -7,9 +7,11 @@
  *
  * 本文件统一：参数必填校验、no-change 校验、op 构造、attrs/member 解析——
  * 业务逻辑只写一次，两端行为严格一致。
+ *
+ * （自 @lgdl/core commands.ts 迁入，ADR-004：defaultKindFor 注入化为
+ * buildOperation 第 4 参 kindResolver，内置默认 = 现状行为逐字节。）
  */
-import type { LgdlOperation } from './operations.js';
-import type { LgdlMember, LgdlAttrs } from './types.js';
+import type { LgdlOperation, LgdlMember, LgdlAttrs } from '@lgdl/core';
 
 /** 一个命令的参数（--file/--doc 由两端各自处理，不在此列）。 */
 export interface CommandSpec {
@@ -116,15 +118,29 @@ export function assertChangeRequested(spec: CommandSpec, args: Record<string, st
 }
 
 /**
+ * docType → kind 解析器（ADR-004：领域语义由适配层注入，框架提供默认实现）。
+ * 默认实现 = 迁自 core commands.ts defaultKindFor 逻辑逐字节。
+ */
+export type KindResolver = (docType?: string) => string;
+
+const defaultKindFor: KindResolver = (docType?: string): string => {
+  if (docType === 'er' || docType === 'uml-class') return 'entity';
+  if (docType === 'state') return 'state';
+  return 'process';
+};
+
+/**
  * 由参数构造操作（业务逻辑唯一实现）。
  * @param command 子命令名（add-node 等）
  * @param args 已解析的参数（键 = --key 去掉前缀）
  * @param docType 当前文档类型（add-node 默认 kind 用；未知则传 undefined）
+ * @param kindResolver 可选 docType→kind 解析器（未注入 = 默认行为，ADR-004）
  */
 export function buildOperation(
   command: string,
   args: Record<string, string | undefined>,
   docType?: string,
+  kindResolver: KindResolver = defaultKindFor,
 ): LgdlOperation {
   const spec = COMMANDS[command];
   if (!spec) {
@@ -138,7 +154,7 @@ export function buildOperation(
 
   switch (command) {
     case 'add-node': {
-      const kind = args.kind ?? defaultKindFor(docType);
+      const kind = args.kind ?? kindResolver(docType);
       return {
         op: 'add-node',
         id: args.id!,
@@ -217,13 +233,6 @@ export function buildOperation(
     default:
       throw new Error(`未知子命令 "${command}"`);
   }
-}
-
-/** add-node 未显式给 kind 时按图类型取语义角色。 */
-export function defaultKindFor(docType?: string): string {
-  if (docType === 'er' || docType === 'uml-class') return 'entity';
-  if (docType === 'state') return 'state';
-  return 'process';
 }
 
 /**

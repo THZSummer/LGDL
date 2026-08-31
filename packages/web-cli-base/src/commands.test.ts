@@ -7,8 +7,8 @@ import {
   assertChangeRequested,
   parseAttrsSpec,
   parseMemberSpec,
-  defaultKindFor,
 } from './commands.js';
+import { lgdlKindResolver as defaultKindFor } from './adapters/lgdl.js';
 
 test('COMMANDS covers all 9 incremental commands', () => {
   assert.deepEqual(Object.keys(COMMANDS).sort(), [

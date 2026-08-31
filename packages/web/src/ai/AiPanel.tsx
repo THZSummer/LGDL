@@ -2,7 +2,8 @@
 import React, { useCallback, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { executeSubcommand, executeWebFetch } from './ops';
+import { executeSubcommand } from '@lgdl/web-cli-base/lgdl';
+import { executeWebFetch } from './web-fetch';
 import { chat, PROVIDERS, type ChatTurn, type ProviderSettings, type WebCliToolCall } from './provider';
 import { LGDL_SYSTEM_PROMPT } from './prompts';
 import { parseNextActions, type NextAction } from './next-actions';

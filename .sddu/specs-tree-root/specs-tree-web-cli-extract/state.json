@@ -1,0 +1,38 @@
+{
+  "feature": "F-13 ① web-cli 独立包抽取（第一阶段）",
+  "featureKey": "specs-tree-web-cli-extract",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
+  "createdAt": "2026-08-31",
+  "updatedAt": "2026-08-31",
+  "description": "F-13 第一阶段：在 LGDL monorepo 中抽取第 7 个独立包（web-cli 独立化第一步），将与 LGDL 领域解耦的「AI 可调用命令执行框架」底座迁出——core 命令注册表（COMMANDS）+ 执行层（executeSubcommand→buildOperation→applyOperation→validate→serialize）+ function-calling 工具定义（tools schema）；web 侧接线（ops.ts/provider.ts）迁出至新包。原则：纯重构、零新增功能、零语义改动、零破坏（web 107 / core 281 全量回归）。来源：ROADMAP v1.2.0 F-13 ①（作者指令 2026-08-31 提前至 v0.6）。",
+  "scope": {
+    "in": [
+      "monorepo 新增独立包（第 7 个包，与 core/layout/router/render/cli/web 并列）",
+      "core COMMANDS 命令注册表迁入新包",
+      "执行层（executeSubcommand→buildOperation→applyOperation→validate→serialize）迁入新包",
+      "function-calling 工具定义（tools schema）迁入新包",
+      "web 侧接线（ops.ts / provider.ts）迁出至新包",
+      "web 107 / core 281 测试全量回归"
+    ],
+    "out": [
+      "新增任何功能（零新功能，仅位置迁移）",
+      "语义模型改动（零语义改动）",
+      "LGDL 领域逻辑迁出（新包与领域解耦，LGDL 为首个适配场景）",
+      "开源细节决策（许可/命名/仓库/发布管道——属第二步 v1.1，决策待定）"
+    ]
+  },
+  "artifacts": [
+    "discovery.md",
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "review.md",
+    "review-report.md",
+    "validate.md",
+    "validate-report.md"
+  ],
+  "notes": "立项来源：ROADMAP v1.2.0 F-13 ①（作者指令 2026-08-31 提前 v0.8→v0.6）。用户指令：快速调度完成完整 0-6 流程（discovery→spec→plan→tasks→build→review→validate），无需决策、全流程自主执行。原则：仅重构不新增功能。排布：v0.6 收口期第 2 周窗口（紧随 F-04/F-05 之后，纯搬移 + 手动全量回归门禁）。\n\n[discovery 执行摘要 2026-08-31] 已完成现状基线摸底（零访谈，作者指令已闭环）：① 包结构 6 包 + 依赖方向（core 零依赖 ← layout ← render；core ← cli；core ← web）；② 抽取点定位：core COMMANDS 注册表（commands.ts:26-289）+ 执行层（core operations.ts:31-220 + web ops.ts:80-331 管线）+ tools schema（provider.ts:232-358）+ web 接线（web-cli.ts/help.ts）+ cli 引用面（9 个 mutation 命令 + shared/queries/option-hints）；③ 回归门禁核实：web 107（逐文件 8+4+27+20+30+10+8）/ core 281（14+206+9+52）与 ROADMAP 一致；④ 输出抽取边界清单（迁出 Q-001~005 / 留下 Q-006~008 / 随迁 Q-009 / 待决策 Q-010~013）与 10 项风险（R-001 依赖方向死锁、R-002 CLI 引用断裂、R-003 applyOperation 领域强绑定、R-004 ops.ts 13 个领域 API 直调为高优先级）+ 7 项约束（零新功能/零语义改动/零破坏/领域解耦/开源不决策/不阻塞发布/排布顺序）。交付物 discovery.md 已落盘，state.json 更新 phase=discovered。\n\n[spec 执行摘要 2026-08-31] 已完成需求规范（零访谈，作者指令已闭环）：① 产出 spec.md（11 FR 按「新包骨架/底座三件套/web 接线随迁/引用切换」四组 + 7 NFR + 10 EC + 10 项总体验收清单 AC-001~AC-010）；② 四个待决策议题自主结论已写入 §9 作为已定决策记录——D-010 defaultKindFor 参数化/注入（LGDL 适配层提供逐字节一致的默认 resolver）；D-011 WEB_OP_TOOL/WEB_FETCH_TOOL 留 web（仅 WEB_CLI_TOOL 随框架迁入，注册组装留 web 避免与 F-04 叠加）；D-012 localStorage Key 管理留 web（provider.ts 拆分，新包保持环境无关）；D-013 新包→@lgdl/core 单向依赖保类型（core 删导出保持零依赖、无环；不做类型中性化——零语义改动含类型层）；③ 验收标准可验证：测试全绿（web 107/core 281 计数不变）、包结构就位、引用切换完成（cli 13 处 + web UI 3 文件）、无残留（grep 核验）。交付物 spec.md 已落盘，state.json 更新 phase=specified。\n\n[plan 执行摘要 2026-08-31] 已完成技术方案（全自主执行，作者指令已闭环）：① 产出 plan.md——架构设计：新包命名推荐 @lgdl/ai-command-kit（中性，开源名 ai-command-kit，最终命名归 F-13 ②）；包结构（commands/operations/exec/protocol/help/tools/llm + adapters/lgdl.ts 七模块一适配）；依赖方向新包→core 单向、core 零依赖无环；② 关键机制：执行层经 createExecutor(domain) 注入 19 个领域符号（ops.ts:10-30 全量收口）、cli 涉迁实为 9 处（diff 仅包名）、defaultKindFor 第 4 参 kindResolver 注入（内置默认=现状行为）、tools 仅 WEB_CLI_TOOL 迁入、provider/help/ops/web-cli 拆分边界（fetch 留 web 经 handleLine 注入）；③ 迁移序列 M0~M12（纯搬移：骨架→底座三件套→protocol/help→exec→adapter 组装→cli/web 切换→core 收敛→全量回归+手测）；④ 测试策略：计数守恒 388（迁移后新包 82 + web 48 + core 258）；⑤ 风险缓解：R-001~R-010 逐一矩阵 + 补充 R-011（NFR-004 验收口径）/R-012（web 107 口径）/R-013（executeCommands 无运行时消费者）；⑥ 8 项 ADR（ADR-001~008，PROPOSED）；⑦ 工作量评估 ≈6.5 人日（与 ROADMAP Effort 2 一致，第 2 周窗口可行）。基线核实修正：AiPanel/SettingsPanel 实际位于 web/src/ai/；cli 涉迁 import 9 处；ops.ts 直调领域符号 19 个。交付物 plan.md 已落盘，state.json 更新 phase=planned。\n\n[tasks 执行摘要 2026-08-31] 已完成任务排布（全自主执行，作者指令已闭环）：① 产出 tasks.md/tasks.json——将 plan M0~M12 迁移序列分解为 13 个原子任务、10 个执行波次、2 个并行窗口；② 依赖图（DAG）：Wave1 TASK-001(M0 门禁) → Wave2 TASK-002(M1 骨架) → Wave3 并行窗口① TASK-003/004/005(M2/M3/M4 底座三件套) → Wave4 TASK-006(M5 protocol+help，依赖 M2) → Wave5 TASK-007(M6 exec，依赖 M3+M5) → Wave6 TASK-008(M7 适配组装) → Wave7 并行窗口② TASK-009/010(M8/M9 cli+web 切换) → Wave8 TASK-011(M10 core 收敛，EC-001 与 M8 连续原子) → Wave9 TASK-012(M11 全量回归 388 守恒) → Wave10 TASK-013(M12 收口)；③ 关键路径 10 任务（001→002→003→006→007→008→010→011→012→013）≈5.5 人日，总工作量 ≈6.25 人日，第 2 周窗口（09-07~09-11）可承载；④ 复杂度 S×3/M×6/L×4；测试策略全覆盖（计数守恒 388 = 新包 82 + web 48 + core 258 分段核验点 W3/W5/W9）；每任务含 FR/AC/NFR/ADR 映射与可验证验收/验证命令。交付物 tasks.md/tasks.json 已落盘，state.json 更新 phase=tasked。\n\n[build 执行摘要 2026-08-31] TASK-001~013 全部完成，新包 @lgdl/ai-command-kit 就位（7 模块一适配：commands/operations/exec/protocol/help/tools/llm + adapters/lgdl.ts），cli 9 mutation 命令与 web AiPanel 引用切换完成，core 导出面收敛零依赖。计数守恒达成：新包 82 + web 48 + core 258 = 388 全绿（npm test 全仓），全仓 build 0 错误。主要偏差（均已按 plan 未覆盖实际情况调整并如实记录）：① 门禁偏差——TASK-001 检查发现 F-04/F-05 未关闭（W-D1 provider.ts:504 仍缺 WEB_FETCH_TOOL、W-D3 jumpToIssue 无 boolean 返回、R-D2 无修复 commit，均不在 main），按任务指令暂停并经作者确认「授权继续，接受叠加风险」后继续，已记入本摘要；② deploy-pages.yml 原无 router 构建步骤（F-01 未实施），「router 保留」项不适用，仅补新包构建+paths；③ LgdlOperation 类型契约迁至 core/types.ts（D-013 保类型，core 中间态 272，TASK-011 后 258 终态），OperationBatchResult 随新包；④ 新包 dependencies 增 openai/anthropic SDK（llm.ts 迁移必然依赖，非新增功能）；⑤ index 双面导出/lgdlApplier/lgdlDomain/lgdlExecutor 因 core 删导出断链提前组装（TASK-008 内容前移）；⑥ cli 9 命令切换（TASK-009）提前执行以恢复 TASK-004 删 core applyOperation 后的断链；⑦ ops.ts 转过渡转发层后于 TASK-010 删除；⑧ adapters/lgdl.ts 补 executeSubcommand 具名导出供 '@lgdl/ai-command-kit/lgdl' 子路径消费；⑨ web test 脚本文件列表更新提前（删 ops/web-cli 测试，增 web-fetch/lgdl-web）；⑩ AI 面板四条路径核心链路冒烟通过（工具调用/手动文本/web fetch/chat 签名），真实浏览器手测按 EC-008 留 validate 阶段人工复核。v0.7 补 F-06/F-11 专项测试登记已在 ROADMAP.md:147（抽取落定后后置补课），不阻塞 v0.6 发布（EC-009）。\n\n[review 执行摘要 2026-08-31] 已完成审查（策略设计 + 报告执行，build 已完成一并执行）：① review.md 落盘——自主定义 C1~C24 审查清单（规范符合 C1~C11 逐 FR、零语义/零新功能 C12~C15、架构一致性 C16~C22 逐 ADR、代码质量+测试质量 C23~C24）+ B1~B9 build 偏差复核清单；② review-report.md R1 落盘——24 项审查全项执行（通过 22、警告 2、失败 0），结论 ✅ 通过（阻塞 0、改进 4）；③ 零语义改动实证：git diff + 字符串集合对比覆盖六模块（commands 仅 import+kindResolver 注入化、operations 分派 switch 逐行复制、exec 11 分支输出逐字节、protocol 零丢失零新增、help webCliHelp 逐字符、tools WEB_CLI_TOOL 逐字节、llm 错误消息零丢失）；LgdlOperation 契约逐字节保留 core/types.ts（D-013）；④ 测试守恒实证：388 = 新包 82（14+9+22+27+4+6）+ web 48（4+2+4+14+6+10+8）+ core 258（206+52），随迁断言零改动（commands/operations/protocol/help 逐字节，llm 1 例仅夹具中性化）；⑤ 依赖方向与解耦实证：core deps={} 零依赖无环、新包→core 单向、领域值引用收敛 adapters/lgdl.ts 单点；⑥ 引用完整性实证：cli 9 命令切换 diff 仅包名、AiPanel import 切换调用点零改动、grep 无旧路径/旧定义残留；⑦ build 9 项偏差复核：B1 门禁偏差（F-04/F-05 未关闭，W-D1 现场保留，作者已授权）为流程记录非实现缺陷，B2~B9 全部为 plan 未覆盖实际而做的合理调整，无新引入问题；⑧ 4 项改进建议：web 冗余 SDK 依赖（openai/anthropic 已无直接引用）、lgdl-web.ts 注释漂移、spec FR-004 子命令计数 18→20（迁移前后一致非迁移引入）、build.md 产物缺失；⑨ 动态验证项（388 测试执行、AI 面板四条路径手测）按 EC-008 留 validate 阶段（NFR-007/AC-009）。审查证据全部基于实际代码（git diff 基线 + 静态计数 + grep 核验），零臆测。\n\n[validate 执行摘要 2026-08-31] 已完成产物验证（R1，全自主执行，作者指令已闭环）：① 自主定义 V1~V17 验证场景矩阵（validate.md 落盘）——FR 11/11 覆盖、五维度全覆盖（测试覆盖/接口数据/构建/性能边界/漂移检测）；② 动态验证全真实执行：三包测试 388 全绿（新包 82 + web 48 + core 258，fail 0）+ 基线 worktree（tag v0.6-f13-baseline）388 全绿参照——用例计数守恒（零新功能红线实证）；③ 零语义改动五面逐字节实证（基线对比）：help 输出（webCliHelp 7 topics 逐字节一致）、WEB_CLI_TOOL schema（1870 字符逐字节一致，enum 20 项前后一致）、错误消息字符串集合（差异仅 2 条 fetch 消息且按 ADR-007 预期留 web 侧 web-fetch.ts:38,63，非丢失）、CLI mutation 命令 stdout 与落盘文件（add-node/update-node/add-edge/remove-node/status diff 无输出）；④ 静态与构建实证：core 零依赖根、新包→core 单向无环（npm ls）、core 无迁出符号残留、grep 无残留全 0、全仓 build 退出码 0、deploy-pages.yml 含新包构建+paths；⑤ B1~B9 偏差复核与 review 一致（无新引入问题）；⑥ AI 面板：dev server HTTP 200 + headless chromium AiPanel 渲染冒烟通过，完整四条路径真实交互（需 LLM API Key+人工操作）标注人工复核项（EC-008）；⑦ 4 项 review 改进建议确认为非阻塞跟踪项（冗余 SDK/注释漂移/spec 计数 18→20/build.md 缺失）；⑧ 结论：✅ 通过（阻塞 0、漂移 0 严重、388 全绿守恒）。交付物 validate.md + validate-report.md 已落盘，state.json 更新 phase=validated（workflow 7.validate，status=tracked 合规——SDDU 状态机识别 phase=validated+status=tracked 为已完成）。",
+  "status": "tracked"
+}

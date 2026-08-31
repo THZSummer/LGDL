@@ -201,6 +201,67 @@ export interface LgdlIssue {
   location?: string;
 }
 
+/**
+ * One structured incremental edit. JSON-serializable; unknown fields are ignored.
+ *
+ * （迁自 operations.ts 类型定义——D-013：类型契约保留在 core，
+ * 供 @lgdl/web-cli-base 单向依赖保类型；实现随 operations 迁入新包。）
+ */
+export type LgdlOperation =
+  | {
+      op: 'add-node';
+      id: string;
+      label?: string;
+      kind?: NodeKind;
+      group?: string;
+      members?: LgdlMember[];
+      attrs?: LgdlAttrs;
+    }
+  | { op: 'remove-node'; id: string }
+  | {
+      op: 'update-node';
+      id: string;
+      newId?: string;
+      label?: string;
+      kind?: NodeKind;
+      memberAdd?: LgdlMember;
+      memberRemove?: string;
+      attrs?: LgdlAttrs;
+    }
+  | {
+      op: 'add-edge';
+      from: string;
+      to: string;
+      label?: string;
+      cardinalityFrom?: string;
+      cardinalityTo?: string;
+      attrs?: LgdlAttrs;
+    }
+  | { op: 'remove-edge'; from: string; to: string; label?: string }
+  | {
+      op: 'update-edge';
+      from: string;
+      to: string;
+      fromLabel?: string;
+      newFrom?: string;
+      newTo?: string;
+      label?: string;
+      cardinalityFrom?: string;
+      cardinalityTo?: string;
+      attrs?: LgdlAttrs;
+    }
+  | { op: 'add-group'; id: string; label?: string; contains?: string[] }
+  | { op: 'remove-group'; id: string }
+  | {
+      op: 'update-group';
+      id: string;
+      newId?: string;
+      label?: string;
+      memberAdd?: string;
+      memberRemove?: string;
+      attrs?: LgdlAttrs;
+    };
+
 export interface ParseResult {
   document: LgdlDocument;
   issues: LgdlIssue[];

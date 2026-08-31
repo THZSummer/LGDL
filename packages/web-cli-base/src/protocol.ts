@@ -1,23 +1,25 @@
 /**
- * lgdl-web-cli 协议解析器 —— 只供 Web 工作台使用（本包 packages/web）。
+ * lgdl-web-cli 协议解析器（命令文本协议解析骨架）。
+ *
+ * （自 packages/web/src/ai/web-cli.ts:23-289 迁入——纯位置迁移，零语义改动：
+ * buildOperation import 改自新包 commands.ts 注册表（未注入 resolver = 现状行为，
+ * ADR-004）；LgdlOperation 类型自 @lgdl/core（D-013）。
+ * parseWebFetchCommand/ParsedWebFetch（:291-327）不迁入——web fetch 留 web
+ * 侧（ADR-007），本模块不认识 lgdl-web-fetch。）
  *
  * 与终端 `lgdl` CLI（lgdl-cli，packages/cli）完全分离：
  *   - lgdl-cli：commander 解析，--file <path> 操作磁盘文件，只用 @lgdl/core
- *   - lgdl-web-cli（本文件）：--doc <id> 操作编辑器文档，只被 Web 工作台使用
- *
- * 两者共享 @lgdl/core 的命令定义注册表（core/commands.ts：参数校验、op 构造、
- * attrs/member 解析）与执行层（applyOperation/applyOperations），
- * 但对象参数、I/O 后端、交互形态不同，互不解析对方的参数格式。
+ *   - lgdl-web-cli（本文件）：--doc <id> 操作编辑器文档
  *
  * 子命令：add-node / remove-node / update-node / add-edge / remove-edge /
  * update-edge / add-group / remove-group / update-group / status / validate
  * / init / convert / doc-info / get-node / get-edge / find-node
  * / list-node-kinds / list-diagram-types
  *
- * 注意：web 获取（fetch）是独立基础工具 lgdl-web-fetch（见 parseWebFetchCommand），
+ * 注意：web 获取（fetch）是独立基础工具 lgdl-web-fetch（见 web 侧 web-fetch.ts），
  * 不属于 lgdl-web-cli 的子命令——本解析器不认识它。
  */
-import { buildOperation } from '@lgdl/core';
+import { buildOperation } from './commands.js';
 import type { LgdlOperation } from '@lgdl/core';
 
 export type ParsedCommand =
@@ -179,7 +181,7 @@ export function tokenizeCli(line: string): string[] {
 }
 
 /** 把 --key value 序列解析为对象；值支持引号（已在 tokenize 剥掉）。 */
-function parseArgs(args: string[]): Record<string, string> {
+export function parseArgs(args: string[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -286,42 +288,4 @@ export function parseWebCliBatch(text: string): ParsedBatch {
     }
   }
   return { docId, ops, wantsStatus, wantsValidate, wantsInit, initType, wantsConvert, convertTo, wantsHelp, helpTopic, errors };
-}
-
-/**
- * lgdl-web-fetch：独立基础工具（web 获取），**不属于 lgdl-web-cli 子命令**。
- * 与 lgdl-web-cli（图内容操作）/ lgdl-web-op-cli（UI 操作）平级，
- * 是一个平台级能力：获取同源相对路径或完整 URL 的原始文本。
- * 文本格式：`lgdl-web-fetch --path <path>`（如 lgdl/web/workbench/README-CLI.md）。
- */
-export type ParsedWebFetch =
-  | { ok: true; kind: 'fetch'; path: string }
-  | { ok: true; kind: 'help' }
-  | { ok: false; error: string };
-
-export function parseWebFetchCommand(line: string): ParsedWebFetch {
-  const tokens = tokenizeCli(line);
-  if (tokens.length === 0) {
-    return { ok: false, error: '空命令' };
-  }
-  if (tokens[0] !== 'lgdl-web-fetch') {
-    return {
-      ok: false,
-      error: `缺少前缀 "lgdl-web-fetch"（独立基础工具：lgdl-web-fetch --path <path>，如 lgdl/web/workbench/README-CLI.md）`,
-    };
-  }
-  // --help 优先级最高：显示用法，无需 --path
-  if (tokens.includes('--help')) {
-    return { ok: true, kind: 'help' };
-  }
-  try {
-    const args = parseArgs(tokens.slice(1));
-    const path = args.path;
-    if (!path) {
-      return { ok: false, error: '缺少必填参数 --path <path>（lgdl-web-fetch 必须显式传 path，无默认文档；如 --path lgdl/web/workbench/README-CLI.md；--help 查看用法）' };
-    }
-    return { ok: true, kind: 'fetch', path };
-  } catch (err) {
-    return { ok: false, error: (err as Error).message };
-  }
 }

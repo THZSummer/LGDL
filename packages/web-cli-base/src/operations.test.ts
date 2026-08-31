@@ -1,13 +1,35 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  applyOperation,
-  applyOperations,
+  createOperationApplier,
   describeOperation,
   type LgdlOperation,
 } from './operations.js';
-import { parseLgdl } from './parser.js';
-import { groupNodes } from './groups.js';
+import {
+  parseLgdl,
+  groupNodes,
+  addNode,
+  addEdge,
+  removeNode,
+  removeEdge,
+  updateNode,
+  updateEdge,
+  addGroup,
+  removeGroup,
+  updateGroup,
+} from '@lgdl/core';
+
+const { applyOperation, applyOperations } = createOperationApplier({
+  addNode,
+  addEdge,
+  removeNode,
+  removeEdge,
+  updateNode,
+  updateEdge,
+  addGroup,
+  removeGroup,
+  updateGroup,
+});
 
 const BASE = `title: ops
 type: flowchart

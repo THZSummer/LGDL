@@ -25,12 +25,7 @@ export type {
   MutationResult,
 } from './mutations.js';
 export { serializeLgdl } from './serialize.js';
-export {
-  applyOperation,
-  applyOperations,
-  describeOperation,
-} from './operations.js';
-export type { LgdlOperation, OperationBatchResult } from './operations.js';
+export type { LgdlOperation } from './types.js';
 export { formatStatus } from './status.js';
 export {
   queryStatus,
@@ -41,8 +36,6 @@ export {
   findNodes,
 } from './queries.js';
 export { initTemplate, templateForType, supportedTemplateTypes } from './templates.js';
-export { COMMANDS, KNOWN_PARAMS, buildOperation, requireParams, assertChangeRequested, parseAttrsSpec, parseMemberSpec, defaultKindFor } from './commands.js';
-export type { CommandSpec } from './commands.js';
 export { exportMermaid } from './mermaid.js';
 import './plantuml.js'; // registers the plantuml converter (side-effect)
 import './json.js'; // registers the json converter (side-effect)

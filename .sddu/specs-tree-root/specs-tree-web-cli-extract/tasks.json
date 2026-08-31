@@ -1,0 +1,357 @@
+{
+  "meta": {
+    "feature": "F-13 ① web-cli 独立包抽取（第一阶段）",
+    "featureKey": "specs-tree-web-cli-extract",
+    "phase": "tasked",
+    "workflow": "4.tasks",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-08-31",
+    "updatedAt": "2026-08-31",
+    "source": "plan.md M0~M12 迁移序列",
+    "countConservation": {
+      "total": 388,
+      "newPackage": 82,
+      "web": 48,
+      "core": 258
+    }
+  },
+  "criticalPath": [
+    "TASK-001",
+    "TASK-002",
+    "TASK-003",
+    "TASK-006",
+    "TASK-007",
+    "TASK-008",
+    "TASK-010",
+    "TASK-011",
+    "TASK-012",
+    "TASK-013"
+  ],
+  "parallelWindows": [
+    { "window": 1, "wave": 3, "tasks": ["TASK-003", "TASK-004", "TASK-005"], "note": "底座三件套并行迁入" },
+    { "window": 2, "wave": 7, "tasks": ["TASK-009", "TASK-010"], "note": "cli 与 web 引用切换并行" }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "M0 前置门禁与基线快照",
+      "complexity": "S",
+      "wave": 1,
+      "dependencies": [],
+      "effort": 0.25,
+      "fr": ["C-007", "EC-005"],
+      "ac": ["AC-010"],
+      "nfr": ["NFR-001"],
+      "description": "确认 F-04/F-05 已关闭（C-007 排布门禁）；git 基线 tag/commit；运行全仓 npm test 确认 web 107 / core 281 全绿基线快照",
+      "files": [],
+      "acceptance": [
+        "ROADMAP 排布确认 F-04/F-05 已关闭（AC-010/EC-005）",
+        "git 基线 commit/tag 存在",
+        "全仓 npm test 全绿：web 107 / core 281，失败数 = 0"
+      ],
+      "verify": "npm test 2>&1 | tail -20; git log --oneline -1"
+    },
+    {
+      "id": "TASK-002",
+      "name": "M1 新包骨架 + CI 构建补齐",
+      "complexity": "M",
+      "wave": 2,
+      "dependencies": ["TASK-001"],
+      "effort": 0.5,
+      "fr": ["FR-001", "FR-011"],
+      "ac": ["AC-001", "AC-008"],
+      "nfr": ["NFR-006"],
+      "description": "创建 packages/ai-command-kit（package.json/tsconfig/src/index.ts），root workspaces 自动纳入；deploy-pages.yml 补新包构建步骤 + paths 触发，router 构建保留不回退 F-01",
+      "files": [
+        { "op": "NEW", "path": "packages/ai-command-kit/package.json" },
+        { "op": "NEW", "path": "packages/ai-command-kit/tsconfig.json" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/index.ts" },
+        { "op": "MODIFY", "path": ".github/workflows/deploy-pages.yml" }
+      ],
+      "acceptance": [
+        "packages/ 下 7 个包目录；package.json 字段完整（AC-001）",
+        "npm run build 通过且产物含新包",
+        "deploy-pages.yml 含新包构建 + router 步骤仍在（AC-008）"
+      ],
+      "verify": "ls packages/ | wc -l; npm run build 2>&1 | tail -5; grep -n \"ai-command-kit\\|router\" .github/workflows/deploy-pages.yml"
+    },
+    {
+      "id": "TASK-003",
+      "name": "M2 迁底座① commands 注册表",
+      "complexity": "L",
+      "wave": 3,
+      "dependencies": ["TASK-002"],
+      "effort": 0.75,
+      "fr": ["FR-002"],
+      "ac": ["AC-002", "AC-007"],
+      "nfr": [],
+      "adr": ["ADR-004"],
+      "description": "core/src/commands.ts:26-289 迁入新包 commands.ts（defaultKindFor 注入化为 buildOperation 第 4 参 kindResolver，内置默认=现状逻辑逐字节；LgdlOperation/LgdlMember/LgdlAttrs 类型 import 改 @lgdl/core）；commands.test.ts 14 例随迁；core 暂保留导出防断链",
+      "files": [
+        { "op": "NEW", "path": "packages/ai-command-kit/src/commands.ts" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/commands.test.ts" }
+      ],
+      "acceptance": [
+        "新包导出 COMMANDS/KNOWN_PARAMS/buildOperation/requireParams/assertChangeRequested/parseAttrsSpec/parseMemberSpec",
+        "新包 14 例全绿，断言逐字节保持（AC-007）",
+        "注入/未注入 kindResolver 均得现状行为（'add-node' + 'er' → kind 'entity'）",
+        "core 仍全绿（暂留导出不断链）"
+      ],
+      "verify": "cd packages/ai-command-kit && npm test; cd packages/core && npm test"
+    },
+    {
+      "id": "TASK-004",
+      "name": "M3 迁底座② operations 操作协议",
+      "complexity": "M",
+      "wave": 3,
+      "dependencies": ["TASK-002"],
+      "effort": 0.5,
+      "fr": ["FR-003"],
+      "ac": ["AC-002"],
+      "nfr": [],
+      "adr": ["ADR-005"],
+      "description": "core/src/operations.ts:31-220 迁入新包 operations.ts（9 个 mutation 不再 import，改 createOperationApplier(mutations) 注入工厂，分派 switch 逐行复制零改动；类型 import 改 @lgdl/core）；operations.test.ts 9 例随迁；core/src/operations.ts 删除",
+      "files": [
+        { "op": "NEW", "path": "packages/ai-command-kit/src/operations.ts" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/operations.test.ts" },
+        { "op": "DELETE", "path": "packages/core/src/operations.ts" },
+        { "op": "DELETE", "path": "packages/core/src/operations.test.ts" }
+      ],
+      "acceptance": [
+        "新包导出 LgdlOperation/describeOperation/applyOperation/applyOperations/OperationBatchResult/createOperationApplier",
+        "新包 23 例全绿（14+9）；分派语义不变（EC-003）",
+        "core 剩 258 例全绿（281-23 中间态）",
+        "首个失败即停行为保持"
+      ],
+      "verify": "cd packages/ai-command-kit && npm test; cd packages/core && npm test"
+    },
+    {
+      "id": "TASK-005",
+      "name": "M4 迁底座③ tools + llm",
+      "complexity": "L",
+      "wave": 3,
+      "dependencies": ["TASK-002"],
+      "effort": 0.75,
+      "fr": ["FR-004"],
+      "ac": ["AC-002", "AC-007"],
+      "nfr": [],
+      "adr": ["D-011", "D-012"],
+      "description": "provider.ts:282-324 WEB_CLI_TOOL 逐字节迁入 tools.ts；:196-229,392-547（chat 双路径/parseToolArguments/classifyError）迁入 llm.ts（中性化 LlmConfig）；PROVIDERS/localStorage/WEB_OP_TOOL/WEB_FETCH_TOOL/testConnection 留 web；provider.test.ts 6 例随迁 llm.test.ts",
+      "files": [
+        { "op": "NEW", "path": "packages/ai-command-kit/src/tools.ts" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/llm.ts" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/llm.test.ts" },
+        { "op": "MODIFY", "path": "packages/web/src/ai/provider.ts" },
+        { "op": "MODIFY", "path": "packages/web/src/ai/provider.test.ts" }
+      ],
+      "acceptance": [
+        "新包导出 WEB_CLI_TOOL/chat/parseToolArguments/classifyError",
+        "新包 6 例全绿；web provider.test.ts 14 例全绿",
+        "WEB_CLI_TOOL schema 逐字节不变（AC-007）",
+        "WEB_OP_TOOL/WEB_FETCH_TOOL 定义仍在 web/provider.ts（D-011）；localStorage Key 管理留 web（D-012）"
+      ],
+      "verify": "cd packages/ai-command-kit && npm test; cd packages/web && npm test; grep -c \"WEB_OP_TOOL\\|WEB_FETCH_TOOL\" packages/web/src/ai/provider.ts"
+    },
+    {
+      "id": "TASK-006",
+      "name": "M5 迁底座④ protocol + help",
+      "complexity": "L",
+      "wave": 4,
+      "dependencies": ["TASK-003"],
+      "effort": 0.75,
+      "fr": ["FR-005", "FR-006"],
+      "ac": ["AC-002"],
+      "nfr": [],
+      "adr": ["R-009", "EC-010"],
+      "description": "web-cli.ts:23-289 迁入新包 protocol.ts（buildOperation import 改新包 commands.ts，parseWebFetchCommand 留 web）；help.ts:13-209 webCliHelp 面迁入新包 help.ts（COMMANDS import 改新包注册表单一数据源）；web-cli.test.ts 27 例 + help.test.ts 4 例随迁；web 侧新建 web-fetch.ts（parseWebFetchCommand）+ 3 例测试",
+      "files": [
+        { "op": "NEW", "path": "packages/ai-command-kit/src/protocol.ts" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/protocol.test.ts" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/help.ts" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/help.test.ts" },
+        { "op": "NEW", "path": "packages/web/src/ai/web-fetch.ts" },
+        { "op": "NEW", "path": "packages/web/src/ai/web-fetch.test.ts" },
+        { "op": "MODIFY", "path": "packages/web/src/ai/help.ts" },
+        { "op": "DELETE", "path": "packages/web/src/ai/web-cli.test.ts" }
+      ],
+      "acceptance": [
+        "新包导出 tokenizeCli/parseArgs/parseWebCliCommand/webCliHelp",
+        "新包 protocol 27 + help 4 例全绿；解析结果逐字节一致",
+        "web web-fetch.test.ts 3 例全绿；help.test.ts 剩 4 例全绿",
+        "help 输出与迁移前逐字符一致（COMMANDS 动态生成，EC-010）"
+      ],
+      "verify": "cd packages/ai-command-kit && npm test; cd packages/web && npm test"
+    },
+    {
+      "id": "TASK-007",
+      "name": "M6 迁底座⑤ exec 执行骨架",
+      "complexity": "L",
+      "wave": 5,
+      "dependencies": ["TASK-004", "TASK-006"],
+      "effort": 0.75,
+      "fr": ["FR-003", "FR-007"],
+      "ac": ["AC-002"],
+      "nfr": [],
+      "adr": ["ADR-006", "EC-004"],
+      "description": "ops.ts:34-44,80-331,351-376 迁入新包 exec.ts（createExecutor(domain) 注入面收口 19 领域符号，管线逐字节复制，executeCommands 增 handleLine 扩展点）；ops.test.ts 22 例随迁 exec.test.ts；web 侧 web-fetch.ts 增 executeWebFetch + 3 例；新建 lgdl-web.ts（fetch 行处理器）+ 2 例",
+      "files": [
+        { "op": "NEW", "path": "packages/ai-command-kit/src/exec.ts" },
+        { "op": "NEW", "path": "packages/ai-command-kit/src/exec.test.ts" },
+        { "op": "NEW", "path": "packages/web/src/ai/lgdl-web.ts" },
+        { "op": "NEW", "path": "packages/web/src/ai/lgdl-web.test.ts" },
+        { "op": "MODIFY", "path": "packages/web/src/ai/web-fetch.ts" },
+        { "op": "MODIFY", "path": "packages/web/src/ai/web-fetch.test.ts" },
+        { "op": "DELETE", "path": "packages/web/src/ai/ops.test.ts" }
+      ],
+      "acceptance": [
+        "新包导出 createExecutor/CommandExecResult",
+        "新包 exec.test.ts 22 例全绿；web web-fetch 6 例 + lgdl-web 2 例全绿",
+        "执行管线顺序与失败即停行为不变",
+        "新包 exec.ts 无领域符号 import（NFR-004 部分）"
+      ],
+      "verify": "cd packages/ai-command-kit && npm test; cd packages/web && npm test; grep -n \"from '@lgdl/core'\" packages/ai-command-kit/src/exec.ts"
+    },
+    {
+      "id": "TASK-008",
+      "name": "M7 组装 LGDL 适配层",
+      "complexity": "M",
+      "wave": 6,
+      "dependencies": ["TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007"],
+      "effort": 0.5,
+      "fr": ["FR-007"],
+      "ac": ["AC-002"],
+      "nfr": ["NFR-004"],
+      "adr": ["ADR-003", "R-011"],
+      "description": "新建新包 adapters/lgdl.ts（lgdlKindResolver/lgdlBuildOperation/lgdlApplier/lgdlDomain/lgdlExecutor 单点组装）；index.ts 双面导出（框架核心 + LGDL 适配单例，符号名不变）；web provider.ts chat 薄包装（构造 LlmConfig 调新包 chat，保持 chat(settings, turns) 签名）",
+      "files": [
+        { "op": "NEW", "path": "packages/ai-command-kit/src/adapters/lgdl.ts" },
+        { "op": "MODIFY", "path": "packages/ai-command-kit/src/index.ts" },
+        { "op": "MODIFY", "path": "packages/web/src/ai/provider.ts" }
+      ],
+      "acceptance": [
+        "新包 index 导出面与 AC-002 清单一致（框架符号 + lgdlExecutor 单例）",
+        "npm run build 全仓通过；新包 + web 用例全绿",
+        "框架核心零领域引用，LGDL 适配收敛 adapters/ 单点（NFR-004/R-011）",
+        "web provider chat(settings, turns) 签名不变"
+      ],
+      "verify": "npm run build 2>&1 | tail -5; cd packages/ai-command-kit && npm test; cd packages/web && npm test"
+    },
+    {
+      "id": "TASK-009",
+      "name": "M8 切 cli 引用",
+      "complexity": "M",
+      "wave": 7,
+      "dependencies": ["TASK-008"],
+      "effort": 0.25,
+      "fr": ["FR-008"],
+      "ac": ["AC-003"],
+      "nfr": [],
+      "adr": ["R-002"],
+      "description": "cli 9 个 mutation 命令（add/remove/update × node/edge/group）:4 import 从 '@lgdl/core' 切至 '@lgdl/ai-command-kit'（符号名不变调用点零改动）；cli/package.json dependencies 加新包；queries/option-hints/shared/convert/init/import 留 @lgdl/core 零改动",
+      "files": [
+        { "op": "MODIFY", "path": "packages/cli/src/commands/add-node.ts 等 9 个 mutation 命令" },
+        { "op": "MODIFY", "path": "packages/cli/package.json" }
+      ],
+      "acceptance": [
+        "9 个 mutation 命令 import 全部为 '@lgdl/ai-command-kit'（AC-003 grep）",
+        "cli tsc 构建通过；lgdl-cli mutation 命令冒烟行为一致（FR-008）",
+        "queries/option-hints/shared/convert/init/import 零改动"
+      ],
+      "verify": "grep -rn \"from '@lgdl/core'\" packages/cli/src/commands/ | wc -l; cd packages/cli && npm run build; node dist/cli.js add-node --help"
+    },
+    {
+      "id": "TASK-010",
+      "name": "M9 切 web 接线",
+      "complexity": "M",
+      "wave": 7,
+      "dependencies": ["TASK-008"],
+      "effort": 0.5,
+      "fr": ["FR-007"],
+      "ac": ["AC-003"],
+      "nfr": [],
+      "adr": ["EC-006"],
+      "description": "AiPanel.tsx:5 import 切至 '@lgdl/ai-command-kit/lgdl'（executeSubcommand）+ './web-fetch'（executeWebFetch）；删除 ops.ts/web-cli.ts；web/package.json dependencies + test 脚本文件列表更新；App.tsx/SettingsPanel.tsx 不动",
+      "files": [
+        { "op": "MODIFY", "path": "packages/web/src/ai/AiPanel.tsx" },
+        { "op": "MODIFY", "path": "packages/web/package.json" },
+        { "op": "DELETE", "path": "packages/web/src/ai/ops.ts" },
+        { "op": "DELETE", "path": "packages/web/src/ai/web-cli.ts" }
+      ],
+      "acceptance": [
+        "AiPanel.tsx import 目标为新包/lgdl-web（AC-003）；调用点 :390/:430/:435 零改动",
+        "web 构建 + 剩余测试全绿（48 例中间态）",
+        "grep 无 './ops'/'./web-cli' 旧路径残留（EC-006）",
+        "App.tsx/SettingsPanel.tsx 未改动"
+      ],
+      "verify": "grep -rn \"from './ops'\\|from './web-cli'\" packages/web/src/ | wc -l; cd packages/web && npm run build && npm test"
+    },
+    {
+      "id": "TASK-011",
+      "name": "M10 core 导出面收敛",
+      "complexity": "S",
+      "wave": 8,
+      "dependencies": ["TASK-009", "TASK-010"],
+      "effort": 0.25,
+      "fr": ["FR-009"],
+      "ac": ["AC-004"],
+      "nfr": ["NFR-003"],
+      "adr": ["EC-001", "EC-002"],
+      "description": "core/src/index.ts 删除 :28-33（operations 面）与 :44-45（commands 面）迁出导出；删除 core/src/commands.ts、commands.test.ts；core/package.json 零依赖复核；依赖方向核验（新包→core 单向、无环、无反向边）；与 TASK-009 连续原子落地（EC-001）",
+      "files": [
+        { "op": "MODIFY", "path": "packages/core/src/index.ts" },
+        { "op": "DELETE", "path": "packages/core/src/commands.ts" },
+        { "op": "DELETE", "path": "packages/core/src/commands.test.ts" },
+        { "op": "MODIFY", "path": "packages/core/package.json（复核，预期零改动）" }
+      ],
+      "acceptance": [
+        "core/src/index.ts 不再导出迁出符号（AC-004）",
+        "core/package.json 无 dependencies 新增；core 258 例全绿",
+        "依赖方向检查无环、无 core→新包 反向边（NFR-003/EC-002）",
+        "与 M8 连续原子落地（EC-001），无 cli 断裂窗口"
+      ],
+      "verify": "cd packages/core && npm test; grep -n \"dependencies\" packages/core/package.json; npm run build 2>&1 | tail -5; grep -n \"applyOperation\\|buildOperation\\|COMMANDS\" packages/core/src/index.ts | wc -l"
+    },
+    {
+      "id": "TASK-012",
+      "name": "M11 全量回归 + 无残留 + 手测",
+      "complexity": "M",
+      "wave": 9,
+      "dependencies": ["TASK-011"],
+      "effort": 1.0,
+      "fr": ["FR-010"],
+      "ac": ["AC-005", "AC-006", "AC-007"],
+      "nfr": ["NFR-001", "NFR-002", "NFR-005", "NFR-007"],
+      "adr": ["EC-006", "EC-008", "R-012"],
+      "description": "全仓 npm test 388 全绿（新包 82 + web 48 + core 258 守恒门禁）；AC-006 无残留 grep；抽样逐字节比对 help 文本与 WEB_CLI_TOOL schema；AI 面板四条路径手测（chat 文本→markdown/lgdl-web-cli 工具调用/手动文本命令/web fetch）记录；工具名与 prompts.ts 协议描述比对",
+      "files": [],
+      "acceptance": [
+        "全仓测试 388 全绿，失败数 = 0（AC-005/NFR-001）",
+        "AC-006 grep 无残留通过",
+        "抽样 diff：help 文本 / WEB_CLI_TOOL schema 逐字节一致（AC-007/NFR-002）",
+        "AI 面板四条路径手测记录完成（NFR-007/AC-009/EC-008）"
+      ],
+      "verify": "npm test 2>&1 | tail -20; grep -rn 'defaultKindFor\\|WEB_CLI_TOOL\\|executeSubcommand\\|buildOperation' packages/core/src packages/web/src; grep -rn \"from '@lgdl/core'\" packages/cli/src packages/web/src"
+    },
+    {
+      "id": "TASK-013",
+      "name": "M12 收口",
+      "complexity": "S",
+      "wave": 10,
+      "dependencies": ["TASK-012"],
+      "effort": 0.25,
+      "fr": ["AC-010", "EC-009"],
+      "ac": [],
+      "nfr": [],
+      "description": "state.json 更新（build 完成后由 validate 收口 phase=validated）；v0.7 补 F-06/F-11 专项测试（护栏后置补课，ROADMAP.md:147）登记；排布门禁复核（F-04/F-05 关闭后启动、v0.6 窗口内完成）",
+      "files": [
+        { "op": "MODIFY", "path": ".sddu/specs-tree-root/specs-tree-web-cli-extract/state.json" }
+      ],
+      "acceptance": [
+        "state.json phase 流转至 tasked（本步）→ validated（validate 收口）",
+        "ROADMAP v0.7 补课项已登记",
+        "v0.6 发布未被抽取阻塞（EC-009/AC-010）"
+      ],
+      "verify": "cat .sddu/specs-tree-root/specs-tree-web-cli-extract/state.json | grep -E 'phase|status'"
+    }
+  ]
+}

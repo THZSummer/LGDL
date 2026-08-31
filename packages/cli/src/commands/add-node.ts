@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { LgdlCommand } from '../registry.js';
 import { mutate, collect } from '../shared.js';
-import { applyOperation, buildOperation } from '@lgdl/core';
+import { applyOperation, buildOperation } from '@lgdl/web-cli-base';
 
 export const addNodeCommand: LgdlCommand = {
   name: 'add-node',
