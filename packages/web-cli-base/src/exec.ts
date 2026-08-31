@@ -1,28 +1,46 @@
 /**
- * lgdl-web-cli 执行骨架 —— 结构化执行（function calling）与文本解析（手动输入）双入口。
+ * 命令执行骨架 —— 结构化执行（function calling）与文本解析（手动输入）双入口。
  *
  * 通讯协议（表达 vs 执行，由 API 层字段区分）：
  *   - chat 文本 → markdown 渲染（不执行）
- *   - lgdl-web-cli 工具调用（{ subcommand, args }）→ executeSubcommand 执行
- *   - 手动文本命令（lgdl-web-cli <subcommand> --key value）→ 文本解析后同样执行
+ *   - 领域工具调用（{ subcommand, args }）→ executeSubcommand 执行
+ *   - 手动文本命令（<commandPrefix> <subcommand> --key value）→ 文本解析后同样执行
  * 业务逻辑（op 构造、校验）经 DomainApi 注入（ADR-006，EC-004）。
+ *
+ * 机制中性化（F-13 ②）：DomainApi 泛型化为 DomainApi<Op, Doc>（ADR-003），
+ * 领域前缀/批量解析/子命令描述经 ExecutorOptions 注入参数收口（ADR-005）——
+ * 注入等价参数时行为与迁移前逐字节一致（NFR-005）。
  *
  * （自 packages/web/src/ai/ops.ts:34-44,80-331,351-376 迁入——19 个领域符号直调
  * 改为 createExecutor(domain) 注入面，管线分支逐字节复制零改写；
  * executeCommands 增 options.handleLine 扩展点（fetch 行处理器 web 侧注入，ADR-007）；
- * webCliHelp 引用自本包 help.ts。）
+ * webCliHelp 引用自调用方注入的 domain.webCliHelp。）
  */
-import type {
-  LgdlDocument,
-  LgdlOperation,
-  MutationResult,
-  DiagramType,
-  ParseResult,
-  LgdlIssue,
-} from '@lgdl/core';
 import type { OperationBatchResult } from './operations.js';
-import { parseWebCliBatch } from './protocol.js';
+import { createBatchParser } from './protocol.js';
+import type { ParsedBatch } from './protocol.js';
 import type { KindResolver } from './commands.js';
+
+/** 结构化校验问题契约（中性；lgdl-core LgdlIssue 字段超集兼容，ADR-003）。 */
+export interface Issue {
+  severity: 'error' | 'warning';
+  message: string;
+  /** Path-like location, e.g. "nodes[3].id" */
+  location?: string;
+}
+
+/** 解析结果契约（中性；lgdl-core ParseResult 字段超集兼容，ADR-003）。 */
+export interface ParseResult<Doc> {
+  valid: boolean;
+  document: Doc;
+  issues: Issue[];
+}
+
+/** 变更结果契约（中性；lgdl-core MutationResult 字段超集兼容，ADR-003）。 */
+export interface MutationResult<Doc> {
+  document: Doc;
+  summary: string;
+}
 
 export interface CommandExecResult {
   ok: boolean;
@@ -36,31 +54,31 @@ export interface CommandExecResult {
   error?: string;
 }
 
-/** 领域 API 注入面（ADR-006：19 个领域符号全量收口，EC-004）。 */
-export interface DomainApi {
-  parseLgdl: (source: string) => ParseResult;
-  validate: (doc: Partial<LgdlDocument>, issues?: LgdlIssue[]) => ParseResult;
-  serializeLgdl: (doc: LgdlDocument) => string;
-  applyOperation: (doc: LgdlDocument, operation: LgdlOperation) => MutationResult;
-  applyOperations: (doc: LgdlDocument, ops: LgdlOperation[]) => OperationBatchResult;
-  formatStatus: (doc: LgdlDocument) => string;
+/** 领域 API 注入面（ADR-006：19 个领域符号全量收口，泛型化 ADR-003）。 */
+export interface DomainApi<Op, Doc> {
+  parseLgdl: (source: string) => ParseResult<Doc>;
+  validate: (doc: Partial<Doc>, issues?: Issue[]) => ParseResult<Doc>;
+  serializeLgdl: (doc: Doc) => string;
+  applyOperation: (doc: Doc, operation: Op) => MutationResult<Doc>;
+  applyOperations: (doc: Doc, ops: Op[]) => OperationBatchResult<Doc>;
+  formatStatus: (doc: Doc) => string;
   templateForType: (type: string) => string | null;
   supportedTemplateTypes: () => readonly string[];
-  convert: (doc: LgdlDocument, format: string) => string;
+  convert: (doc: Doc, format: string) => string;
   listFormats: () => string[];
   buildOperation: (
     command: string,
     args: Record<string, string | undefined>,
     docType?: string,
     kindResolver?: KindResolver,
-  ) => LgdlOperation;
+  ) => Op;
   listNodeKinds: () => string;
-  queryDocInfo: (doc: LgdlDocument) => string[];
-  queryNode: (doc: LgdlDocument, id: string) => string[] | null;
-  queryEdge: (doc: LgdlDocument, from?: string, to?: string, label?: string) => string[] | null;
-  findNodes: (doc: LgdlDocument, q: string) => string[];
-  DIAGRAM_TYPES: readonly DiagramType[];
-  DIAGRAM_TYPE_LABELS: Record<DiagramType, string>;
+  queryDocInfo: (doc: Doc) => string[];
+  queryNode: (doc: Doc, id: string) => string[] | null;
+  queryEdge: (doc: Doc, from?: string, to?: string, label?: string) => string[] | null;
+  findNodes: (doc: Doc, q: string) => string[];
+  DIAGRAM_TYPES: readonly string[];
+  DIAGRAM_TYPE_LABELS: Record<string, string>;
   webCliHelp: (topic?: string) => string;
 }
 
@@ -71,12 +89,18 @@ export interface LineHandleResult {
   error?: string;
 }
 
-/** 执行器扩展点（ADR-007：web fetch 平台能力留 web，经此处注入）。 */
-export interface ExecutorOptions {
-  /** 行处理器：返回 null 表示该行不由扩展处理（走默认 web-cli 解析）。 */
+/** 执行器扩展点（ADR-005：领域注入 commandPrefix/parseBatch/describeSubcommand）。 */
+export interface ExecutorOptions<Op> {
+  /** 行处理器：返回 null 表示该行不由扩展处理（走默认领域解析）。 */
   handleLine?: (line: string) => LineHandleResult | null | Promise<LineHandleResult | null>;
   /** describeCommandLine 的 fetch 行描述（同步；返回 null 表示非 fetch 行）。 */
   describeFetchLine?: (line: string) => string | null;
+  /** 命令前缀（web-cli 注入 'web-cli'；默认空 = 无前缀识别）——替代现状硬编码。 */
+  commandPrefix?: string;
+  /** 单行批量解析（web-cli 注入 parseWebCliBatch；默认 = 内置 createBatchParser 骨架）。 */
+  parseBatch?: (line: string) => ParsedBatch<Op>;
+  /** 子命令描述（web-cli 注入 describeLgdlSubcommand；默认 = `${sub} ${args}` fallback）。 */
+  describeSubcommand?: (subcommand: string, args: Record<string, string>) => string | null;
 }
 
 export interface Executor {
@@ -98,8 +122,16 @@ export interface Executor {
  * 注入工厂：返回 { executeSubcommand, executeCommands, describeCommandLine }。
  * 管线分支（help 优先 / 只读命令 / 增量命令）逐行复制自 web ops.ts，语义零改动。
  */
-export function createExecutor(domain: DomainApi, options: ExecutorOptions = {}): Executor {
-  /** 结构化执行一次 lgdl-web-cli 调用（function calling 入口）。 */
+export function createExecutor<Op, Doc extends { type: string }>(
+  domain: DomainApi<Op, Doc>,
+  options: ExecutorOptions<Op> = {},
+): Executor {
+  const parseBatch =
+    options.parseBatch ??
+    createBatchParser<Op>(() => ({ kind: 'error', message: '未配置领域命令解析器' }));
+  const prefix = options.commandPrefix ?? '';
+
+  /** 结构化执行一次领域调用（function calling 入口）。 */
   async function executeSubcommand(
     source: string,
     subcommand: string,
@@ -110,7 +142,7 @@ export function createExecutor(domain: DomainApi, options: ExecutorOptions = {})
     let current = source;
     let changed = false;
 
-    // help：查询命令用法（function calling 入口；等价于文本 `lgdl-web-cli help [<子命令>]`）。
+    // help：查询命令用法（function calling 入口；等价于文本 `<prefix> help [<子命令>]`）。
     // 参数 topic 指定子命令；空 = 顶层帮助。--help 优先级最高，不做任何校验。
     if (subcommand === 'help' || subcommand === '--help') {
       lines.push(domain.webCliHelp(args.topic ?? ''));
@@ -118,7 +150,7 @@ export function createExecutor(domain: DomainApi, options: ExecutorOptions = {})
     }
 
     // 只读命令（不改文档）——读多写少：AI 应先用这些了解图，再写。
-    // 业务逻辑在 core/queries.ts 单一实现（lgdl-cli 与 lgdl-web-cli 共享）。
+    // 业务逻辑在领域包单一实现（lgdl-cli 与 web-cli 共享）。
     const parsedDoc = domain.parseLgdl(current);
     const doc = parsedDoc.valid ? parsedDoc.document : null;
     const failDoc = (): CommandExecResult => {
@@ -143,7 +175,7 @@ export function createExecutor(domain: DomainApi, options: ExecutorOptions = {})
       if (!doc) return failDoc();
       const detail = domain.queryNode(doc, args.id ?? '');
       if (!detail) {
-        lines.push(`✖ 节点不存在: ${args.id}（可用 lgdl-web-cli status 查看全部节点）`);
+        lines.push(`✖ 节点不存在: ${args.id}（可用 ${prefix} status 查看全部节点）`);
         return { ok: false, source: current, lines, changed, error: `node not found: ${args.id}` };
       }
       lines.push(...detail);
@@ -235,7 +267,7 @@ export function createExecutor(domain: DomainApi, options: ExecutorOptions = {})
         error: 'source invalid',
       };
     }
-    let op: LgdlOperation;
+    let op: Op;
     try {
       op = domain.buildOperation(subcommand, args, docResult.document.type);
     } catch (err) {
@@ -277,7 +309,7 @@ export function createExecutor(domain: DomainApi, options: ExecutorOptions = {})
 
   /**
    * 解析并执行协议块文本（手动输入兼容）。逐行执行，失败即停。
-   * 每行 `lgdl-web-cli <subcommand> --key value` → executeSubcommand；
+   * 每行 `<prefix> <subcommand> --key value` → executeSubcommand；
    * 支持带 --doc（校验与当前文档一致）或不带（隐式当前文档）。
    */
   async function executeCommands(
@@ -301,7 +333,7 @@ export function createExecutor(domain: DomainApi, options: ExecutorOptions = {})
           continue;
         }
       }
-      const parsedLine = parseWebCliBatch(line);
+      const parsedLine = parseBatch(line);
       if (parsedLine.errors.length > 0) {
         return {
           ok: false,
@@ -325,7 +357,7 @@ export function createExecutor(domain: DomainApi, options: ExecutorOptions = {})
           error: `doc mismatch: ${parsedLine.docId} != ${docId}`,
         };
       }
-      const sub = extractSingleSubcommand(line);
+      const sub = extractSingleSubcommand(line, options.commandPrefix);
       if (!sub) continue;
       const r = await executeSubcommand(current, sub.subcommand, sub.args, docId);
       lines.push(...r.lines);
@@ -346,34 +378,32 @@ export function createExecutor(domain: DomainApi, options: ExecutorOptions = {})
       const fetchDesc = options.describeFetchLine(line);
       if (fetchDesc !== null) return fetchDesc;
     }
-    const parsed = parseWebCliBatch(line);
+    const parsed = parseBatch(line);
     if (parsed.errors.length > 0) return `✖ ${parsed.errors[0].message}`;
     if (parsed.wantsHelp) {
-      return parsed.helpTopic ? `lgdl-web-cli ${parsed.helpTopic} --help — 命令用法` : 'lgdl-web-cli --help — 全部命令';
+      const p = prefix ? `${prefix} ` : '';
+      return parsed.helpTopic ? `${p}${parsed.helpTopic} --help — 命令用法` : `${p}--help — 全部命令`;
     }
-    const sub = extractSingleSubcommand(line);
+    const sub = extractSingleSubcommand(line, options.commandPrefix);
     if (!sub) return line;
-    if (sub.subcommand === 'status') return 'lgdl-web-cli status — 查看当前图结构';
-    if (sub.subcommand === 'validate') return 'lgdl-web-cli validate — 校验当前图语法';
-    if (sub.subcommand === 'init') return 'lgdl-web-cli init — 初始化为默认图';
-    if (sub.subcommand === 'convert') return `lgdl-web-cli convert --to ${sub.args.to} — 导出格式`;
-    if (sub.subcommand === 'doc-info') return 'lgdl-web-cli doc-info — 文档概览';
-    if (sub.subcommand === 'get-node') return `lgdl-web-cli get-node --id ${sub.args.id} — 节点详情`;
-    if (sub.subcommand === 'get-edge') return 'lgdl-web-cli get-edge — 边详情';
-    if (sub.subcommand === 'find-node') return `lgdl-web-cli find-node — 搜索节点（${sub.args.label ?? sub.args.q}）`;
-    if (sub.subcommand === 'list-node-kinds') return 'lgdl-web-cli list-node-kinds — 节点 kind 清单';
-    if (sub.subcommand === 'list-diagram-types') return 'lgdl-web-cli list-diagram-types — 图类型清单';
+    if (options.describeSubcommand) {
+      const desc = options.describeSubcommand(sub.subcommand, sub.args);
+      if (desc !== null) return desc;
+    }
     return `${sub.subcommand} ${Object.values(sub.args).join(' ')}`;
   }
 
   return { executeSubcommand, executeCommands, describeCommandLine };
 }
 
-/** 从单行文本提取 subcommand 与 args（供 executeCommands 委托）。 */
-function extractSingleSubcommand(line: string): { subcommand: string; args: Record<string, string> } | null {
+/** 从单行文本提取 subcommand 与 args（供 executeCommands 委托；commandPrefix 可空 = 无前缀）。 */
+function extractSingleSubcommand(
+  line: string,
+  commandPrefix?: string,
+): { subcommand: string; args: Record<string, string> } | null {
   const tokens = line.split(/\s+/).filter(Boolean);
   let i = 0;
-  if (tokens[0] === 'lgdl-web-cli') i++;
+  if (commandPrefix && tokens[0] === commandPrefix) i++;
   const subcommand = tokens[i];
   if (!subcommand) return null;
   const args: Record<string, string> = {};

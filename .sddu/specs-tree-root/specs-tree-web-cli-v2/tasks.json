@@ -1,0 +1,241 @@
+{
+  "featureKey": "specs-tree-web-cli-v2",
+  "feature": "web-cli V2 抽取与包体系重构",
+  "phase": "tasked",
+  "generatedBy": "sddu-tasks",
+  "generatedAt": "2026-08-31",
+  "version": "v1.0",
+  "source": "plan.md (M0~M11 + ADR-001~009 + 测试守恒 422-425)",
+  "waveCount": 16,
+  "taskCount": 21,
+  "complexity": { "S": 3, "M": 15, "L": 3 },
+  "parallelWindows": [
+    { "id": "A", "wave": 4, "tasks": ["TASK-004", "TASK-005"] },
+    { "id": "B", "wave": 6, "tasks": ["TASK-007", "TASK-009"] },
+    { "id": "C", "wave": 12, "tasks": ["TASK-014", "TASK-015"] },
+    { "id": "D", "wave": 14, "tasks": ["TASK-017", "TASK-018"] },
+    { "id": "E", "wave": 15, "tasks": ["TASK-019", "TASK-020"] }
+  ],
+  "criticalPath": [
+    "TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-006",
+    "TASK-007", "TASK-008", "TASK-010", "TASK-011", "TASK-012",
+    "TASK-013", "TASK-014", "TASK-019"
+  ],
+  "dagDecisions": [
+    "M6 (cli 切换, TASK-011) 提前于 M5 (base 收敛, TASK-012)：base 删 LGDL 面会断 cli 引用，先切换再收敛保证每步可构建",
+    "M2 拆双轨并行（TASK-004 机制泛型化 ∥ TASK-005 llm 去耦）：文件零重叠",
+    "M8/M9 依赖 base 收敛（TASK-012）而非仅泛型化：op-cli 消费纯化后 base 的 HelpArg/HelpEntry（R12）"
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "M0 前置门禁与测试基线快照",
+      "step": "M0",
+      "complexity": "M",
+      "wave": 1,
+      "deps": [],
+      "fr": ["NFR-003", "AC-005"],
+      "summary": "git 基线 tag + 全仓测试基线快照（419 例记录）"
+    },
+    {
+      "id": "TASK-002",
+      "name": "M1-① 目录 git mv + 6 包 name 身份",
+      "step": "M1",
+      "complexity": "M",
+      "wave": 2,
+      "deps": ["TASK-001"],
+      "fr": ["FR-001"],
+      "summary": "git mv 6 目录 + 6 包 name 改 @lgdl/lgdl-*（D-001）"
+    },
+    {
+      "id": "TASK-003",
+      "name": "M1-② 跨包 import 改源 + 根/tsconfig/predev/CI + lock 重建",
+      "step": "M1",
+      "complexity": "M",
+      "wave": 3,
+      "deps": ["TASK-002"],
+      "fr": ["FR-002", "FR-003", "FR-004"],
+      "summary": "~30 处跨包 import + 根/tsconfig/predev/CI + lock 重建 9 条目"
+    },
+    {
+      "id": "TASK-004",
+      "name": "M2-① base 机制泛型化",
+      "step": "M2",
+      "complexity": "L",
+      "wave": 4,
+      "deps": ["TASK-003"],
+      "fr": ["FR-018", "FR-019", "FR-020"],
+      "summary": "DomainApi<Op,Doc> + createOperationApplier 泛型 + createBatchParser/ExecutorOptions 注入参数"
+    },
+    {
+      "id": "TASK-005",
+      "name": "M2-② llm 去耦 + web 消费方同步",
+      "step": "M2",
+      "complexity": "M",
+      "wave": 4,
+      "deps": ["TASK-003"],
+      "fr": ["FR-021", "FR-023"],
+      "summary": "ChatResult 单列表 + chat 删过滤 + provider/AiPanel 消费方同步（EC-004）"
+    },
+    {
+      "id": "TASK-006",
+      "name": "M3-① lgdl-web-cli 包骨架",
+      "step": "M3",
+      "complexity": "S",
+      "wave": 5,
+      "deps": ["TASK-004"],
+      "fr": ["FR-006"],
+      "summary": "lgdl-web-cli package.json/tsconfig/index 占位"
+    },
+    {
+      "id": "TASK-007",
+      "name": "M3-② commands/operations 迁入 + 23 测试",
+      "step": "M3",
+      "complexity": "M",
+      "wave": 6,
+      "deps": ["TASK-006"],
+      "fr": ["FR-007", "FR-008"],
+      "summary": "9 命令注册表 + LgdlOperation 协议/lgdlDispatch 迁入 + 23 测试"
+    },
+    {
+      "id": "TASK-008",
+      "name": "M4-① protocol/help 迁入 + 30 测试",
+      "step": "M4",
+      "complexity": "M",
+      "wave": 7,
+      "deps": ["TASK-007"],
+      "fr": ["FR-010", "FR-011"],
+      "summary": "前缀校验/17 子命令 + webCliHelp 迁入 + 30 测试"
+    },
+    {
+      "id": "TASK-009",
+      "name": "M4-② tools.ts 迁入",
+      "step": "M4",
+      "complexity": "S",
+      "wave": 6,
+      "deps": ["TASK-006"],
+      "fr": ["FR-009"],
+      "summary": "WEB_CLI_TOOL 逐字节迁入 + 1 测试"
+    },
+    {
+      "id": "TASK-010",
+      "name": "M4-③ adapters 组装单点 + exec.test 22",
+      "step": "M4",
+      "complexity": "M",
+      "wave": 8,
+      "deps": ["TASK-008", "TASK-009"],
+      "fr": ["FR-012"],
+      "summary": "lgdlDomain 19 符号组装单点 + lgdlExecutor 注入参数 + 22 测试"
+    },
+    {
+      "id": "TASK-011",
+      "name": "M6 cli 消费方切换",
+      "step": "M6",
+      "complexity": "M",
+      "wave": 9,
+      "deps": ["TASK-010"],
+      "fr": ["FR-013"],
+      "summary": "9 命令 import → lgdl-web-cli + deps + 冒烟（提前于 base 收敛）"
+    },
+    {
+      "id": "TASK-012",
+      "name": "M5-① base 纯化收敛",
+      "step": "M5",
+      "complexity": "L",
+      "wave": 10,
+      "deps": ["TASK-011"],
+      "fr": ["FR-018", "FR-019", "FR-020"],
+      "summary": "删 LGDL 面 + 去 @lgdl/core + 硬编码参数化清零 + 测试收敛"
+    },
+    {
+      "id": "TASK-013",
+      "name": "M5-② web-fetch 归位与中性化",
+      "step": "M5",
+      "complexity": "M",
+      "wave": 11,
+      "deps": ["TASK-012"],
+      "fr": ["FR-022"],
+      "summary": "WEB_FETCH_TOOL/解析/执行/help 迁 base 改名 web-fetch + web 联动"
+    },
+    {
+      "id": "TASK-014",
+      "name": "M7 web 基础接线",
+      "step": "M7",
+      "complexity": "M",
+      "wave": 12,
+      "deps": ["TASK-013"],
+      "fr": ["FR-023"],
+      "summary": "AiPanel/lgdl-web/provider import 新源 + 三工具组装 + fetch 处理器注入"
+    },
+    {
+      "id": "TASK-015",
+      "name": "M8-① op-cli 包骨架 + 源码",
+      "step": "M8",
+      "complexity": "M",
+      "wave": 12,
+      "deps": ["TASK-012"],
+      "fr": ["FR-014", "FR-015", "FR-016", "FR-017"],
+      "summary": "OP_COMMANDS 单一数据源 + WEB_OP_TOOL + webOpHelp + next-actions + OpHandlerRegistry"
+    },
+    {
+      "id": "TASK-016",
+      "name": "M8-② op-cli 测试随迁 + 新增",
+      "step": "M8",
+      "complexity": "M",
+      "wave": 13,
+      "deps": ["TASK-015"],
+      "fr": ["FR-014", "FR-015", "FR-016"],
+      "summary": "随迁 8 例 + 新增 handlers 2-3 例（10-11 例）"
+    },
+    {
+      "id": "TASK-017",
+      "name": "M9-① App opRegistry 注入 + web/help 清理 + test 重列",
+      "step": "M9",
+      "complexity": "L",
+      "wave": 14,
+      "deps": ["TASK-015", "TASK-016"],
+      "fr": ["FR-024", "FR-025"],
+      "summary": "handleWebOp 16 分支 → opRegistry 注入 + web/help 清理 + test 重列"
+    },
+    {
+      "id": "TASK-018",
+      "name": "M9-② provider 三工具新源 + 测试收敛",
+      "step": "M9",
+      "complexity": "M",
+      "wave": 14,
+      "deps": ["TASK-015", "TASK-016"],
+      "fr": ["FR-023"],
+      "summary": "删 WEB_OP_TOOL 定义 → import op-cli + 三工具新源最终核验"
+    },
+    {
+      "id": "TASK-019",
+      "name": "M10-① 全量回归 + 无残留 + 依赖图核验",
+      "step": "M10",
+      "complexity": "M",
+      "wave": 15,
+      "deps": ["TASK-017", "TASK-018"],
+      "fr": ["NFR-003", "NFR-004", "AC-002", "AC-003", "AC-005", "AC-006", "AC-008"],
+      "summary": "守恒 ≥388 + 无残留 grep + 依赖图核验（AC-002~009）"
+    },
+    {
+      "id": "TASK-020",
+      "name": "M10-② AI 面板四路径手测",
+      "step": "M10",
+      "complexity": "M",
+      "wave": 15,
+      "deps": ["TASK-017", "TASK-018"],
+      "fr": ["AC-009"],
+      "summary": "AI 面板 chat/命令/UI 操作/fetch 四路径手测清单"
+    },
+    {
+      "id": "TASK-021",
+      "name": "M11 文档面 P2 收口",
+      "step": "M11",
+      "complexity": "S",
+      "wave": 16,
+      "deps": ["TASK-019"],
+      "fr": ["FR-005", "AC-010"],
+      "summary": "README/cli-guide 新名 + research 加注（FR-005 P2）"
+    }
+  ]
+}

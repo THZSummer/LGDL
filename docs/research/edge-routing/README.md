@@ -1,3 +1,4 @@
+> 📜 历史文档，包名已更名为 @lgdl/lgdl-router（本文档为调研记录，引用旧名 @lgdl/router 属历史上下文）
 # Edge-Routing 调研（竞品边路由算法）
 
 > LGDL 主题调研 · 日期 2026-08-28 · 分支 `feature/group-as-node`

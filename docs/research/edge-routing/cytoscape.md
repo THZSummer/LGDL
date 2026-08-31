@@ -1,3 +1,4 @@
+> 📜 历史文档，包名已更名为 @lgdl/lgdl-router（本文档为调研记录，引用旧名 @lgdl/router 属历史上下文）
 # 竞品深度调研：Cytoscape.js 边路由能力
 
 > 所属主题：[edge-routing](../README.md) · 调研日期 2026-08-28 · 只读调研，未改任何代码。

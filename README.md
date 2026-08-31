@@ -42,10 +42,10 @@
 
 ## 🚀 快速开始 / Quick Start
 
-> 📦 已发布到 npm：`npm install -g @lgdl/cli`
+> 📦 已发布到 npm：`npm install -g @lgdl/lgdl-cli`
 
 ```bash
-npm install -g @lgdl/cli              # 安装 CLI
+npm install -g @lgdl/lgdl-cli              # 安装 CLI
 
 lgdl-cli init --file my-diagram.lgdl      # 初始化空图
 lgdl-cli render --file my-diagram.lgdl -o out.svg   # 渲染（自动布局）

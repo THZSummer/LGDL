@@ -1,10 +1,10 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/core" },
-    { "path": "./packages/layout" },
-    { "path": "./packages/router" },
-    { "path": "./packages/render" },
-    { "path": "./packages/cli" }
+    { "path": "./packages/lgdl-core" },
+    { "path": "./packages/lgdl-layout" },
+    { "path": "./packages/lgdl-router" },
+    { "path": "./packages/lgdl-render" },
+    { "path": "./packages/lgdl-cli" }
   ]
 }

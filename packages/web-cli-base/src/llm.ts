@@ -22,7 +22,7 @@ export interface ChatTurn {
 export interface WebCliToolCall {
   /** 调用 id（反馈 tool 结果时回传） */
   id: string;
-  /** 工具名：lgdl-web-cli（图内容）/ lgdl-web-op-cli（UI 操作）/ lgdl-web-fetch（web 获取） */
+  /** 工具名（由调用方组装注册，消费方按名分发） */
   name: string;
   subcommand: string;
   /** --key value 平面参数（不含 --doc，doc 由执行时上下文决定） */
@@ -34,12 +34,8 @@ export interface WebCliToolCall {
 export interface ChatResult {
   /** chat 文本（markdown 渲染）；无文本时为 '' */
   content: string;
-  /** lgdl-web-cli 工具调用（图内容操作） */
+  /** 全部工具调用（透传，由消费方按工具名分发） */
   toolCalls: WebCliToolCall[];
-  /** lgdl-web-op-cli 工具调用（UI 操作，与手动点击等效） */
-  opCalls: WebCliToolCall[];
-  /** lgdl-web-fetch 工具调用（基础 web 获取，独立于两个 CLI） */
-  fetchCalls: WebCliToolCall[];
   /** 使用的模型 */
   model: string;
 }
@@ -132,9 +128,7 @@ export async function chat(config: LlmConfig, turns: ChatTurn[]): Promise<ChatRe
         .map((b) => parseToolArguments(b.id, b.name, JSON.stringify(b.input)));
       return {
         content: text,
-        toolCalls: allCalls.filter((c) => c.name === 'lgdl-web-cli'),
-        opCalls: allCalls.filter((c) => c.name === 'lgdl-web-op-cli'),
-        fetchCalls: allCalls.filter((c) => c.name === 'lgdl-web-fetch'),
+        toolCalls: allCalls,
         model: res.model,
       };
     } catch (err) {
@@ -182,18 +176,12 @@ export async function chat(config: LlmConfig, turns: ChatTurn[]): Promise<ChatRe
     const msg = res.choices[0]?.message;
     const allCalls: WebCliToolCall[] = (msg?.tool_calls ?? [])
       .filter(
-        (tc): tc is Extract<typeof tc, { type: 'function' }> =>
-          tc.type === 'function' &&
-          (tc.function.name === 'lgdl-web-cli' ||
-            tc.function.name === 'lgdl-web-op-cli' ||
-            tc.function.name === 'lgdl-web-fetch'),
+        (tc): tc is Extract<typeof tc, { type: 'function' }> => tc.type === 'function',
       )
       .map((tc) => parseToolArguments(tc.id, tc.function.name, tc.function.arguments));
     return {
       content: msg?.content ?? '',
-      toolCalls: allCalls.filter((c) => c.name === 'lgdl-web-cli'),
-      opCalls: allCalls.filter((c) => c.name === 'lgdl-web-op-cli'),
-      fetchCalls: allCalls.filter((c) => c.name === 'lgdl-web-fetch'),
+      toolCalls: allCalls,
       model: res.model ?? config.model,
     };
   } catch (err) {
@@ -248,7 +236,7 @@ export function classifyError(err: unknown, provider: LlmProviderInfo): Error {
     return new Error(
       `浏览器直连失败（${provider.name}）— 该厂商的 CORS 策略可能不允许浏览器直连` +
         `（或网络不通）。可尝试：① 在「测试连接」确认；② 换用支持浏览器直连的服务商` +
-        `（如 DeepSeek / OpenAI）；③ 后续版本提供本地代理（lgdl serve）绕开 CORS。` +
+        `（如 DeepSeek / OpenAI）；③ 后续版本提供本地代理服务绕开 CORS。` +
         `原始错误：${msg}`,
     );
   }

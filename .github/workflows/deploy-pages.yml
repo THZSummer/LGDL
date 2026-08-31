@@ -4,10 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'packages/web/**'
-      - 'packages/core/**'
-      - 'packages/layout/**'
-      - 'packages/render/**'
+      - 'packages/lgdl-web/**'
+      - 'packages/lgdl-core/**'
+      - 'packages/lgdl-layout/**'
+      - 'packages/lgdl-render/**'
+      - 'packages/lgdl-web-cli/**'
+      - 'packages/lgdl-web-op-cli/**'
       - 'packages/web-cli-base/**'
   workflow_dispatch:
 
@@ -34,18 +36,18 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Build core, layout, render, web-cli-base packages
-        run: npm run build --workspace @lgdl/core --workspace @lgdl/layout --workspace @lgdl/render --workspace @lgdl/web-cli-base
+      - name: Build core, layout, render, web-cli-base, lgdl-web-cli, lgdl-web-op-cli packages
+        run: npm run build --workspace @lgdl/lgdl-core --workspace @lgdl/lgdl-layout --workspace @lgdl/lgdl-render --workspace @lgdl/web-cli-base --workspace @lgdl/lgdl-web-cli --workspace @lgdl/lgdl-web-op-cli
 
       - name: Build web workbench (Pages base path)
-        run: npm run build --workspace @lgdl/web
+        run: npm run build --workspace @lgdl/lgdl-web
         env:
           GH_PAGES: 'true'
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: packages/web/dist
+          path: packages/lgdl-web/dist
 
   deploy:
     needs: build

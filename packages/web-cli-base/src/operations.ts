@@ -1,78 +1,26 @@
 /**
- * Structured operation layer — the shared "incremental edit protocol" for
- * both the CLI and the Web AI assistant.
+ * Structured operation layer — generic injection dispatcher (mechanism shell).
  *
- * A `LgdlOperation` is a plain JSON-serializable description of ONE
- * incremental edit (add/remove/update a node, edge or group). The CLI
- * commands build these from argv; the Web AI assistant parses them from
- * model output. Both then apply them through the SAME `applyOperation`
+ * F-13 ② 纯化后：LGDL 面（describeOperation / OperationMutations / LgdlOperation
+ * re-export / 9 变体分派）已随迁 web-cli 业务包/src/operations.ts
+ * （lgdlDispatch 定义于该包），本模块仅保留中性泛型注入分派器。
+ *
+ * A `Op` is a plain JSON-serializable description of ONE incremental edit.
+ * The CLI commands build these from argv; the Web AI assistant parses them
+ * from model output. Both then apply them through the SAME `applyOperation`
  * entry point, so every mutation, validation and warning is identical
  * no matter which front end triggered it.
  *
- * This is the single place that maps an operation to its mutation
- * function; adding a new incremental command means adding one op variant
- * here (and its CLI/Web surface), never a second implementation.
- *
- * （自 @lgdl/core operations.ts 迁入，ADR-005：9 个 mutation 不再 import，
- * 改为 createOperationApplier(mutations) 注入工厂，分派 switch 逐行复制零改动。
- * LgdlOperation 类型契约保留在 @lgdl/core（D-013），本模块 re-export。）
+ * The dispatch map (op name → mutation call) is injected by the domain
+ * adapter (web-cli: lgdlDispatch), keeping this module domain-neutral.
  */
-import type {
-  LgdlOperation,
-  LgdlDocument,
-  MutationResult,
-  AddNodeOptions,
-  AddEdgeOptions,
-  UpdateNodeOptions,
-  UpdateEdgeOptions,
-  AddGroupOptions,
-  UpdateGroupOptions,
-} from '@lgdl/core';
+import type { MutationResult } from './exec.js';
 
-export type { LgdlOperation } from '@lgdl/core';
-
-/** Human/AI-readable op label, e.g. `update-node user`. */
-export function describeOperation(op: LgdlOperation): string {
-  switch (op.op) {
-    case 'add-node':
-      return `add-node ${op.id}${op.label ? ` (${op.label})` : ''}`;
-    case 'remove-node':
-      return `remove-node ${op.id}`;
-    case 'update-node':
-      return `update-node ${op.id}`;
-    case 'add-edge':
-      return `add-edge ${op.from} -> ${op.to}${op.label ? ` [${op.label}]` : ''}`;
-    case 'remove-edge':
-      return `remove-edge ${op.from} -> ${op.to}${op.label ? ` [${op.label}]` : ''}`;
-    case 'update-edge':
-      return `update-edge ${op.from} -> ${op.to}`;
-    case 'add-group':
-      return `add-group ${op.id}`;
-    case 'remove-group':
-      return `remove-group ${op.id}`;
-    case 'update-group':
-      return `update-group ${op.id}`;
-  }
-}
-
-/** 领域 mutation 注入面（ADR-005：分派器与 9 个 mutation 解耦，由适配层注入）。 */
-export interface OperationMutations {
-  addNode: (doc: LgdlDocument, opts: AddNodeOptions) => MutationResult;
-  removeNode: (doc: LgdlDocument, id: string) => MutationResult;
-  updateNode: (doc: LgdlDocument, opts: UpdateNodeOptions) => MutationResult;
-  addEdge: (doc: LgdlDocument, opts: AddEdgeOptions) => MutationResult;
-  removeEdge: (doc: LgdlDocument, from: string, to: string, label?: string) => MutationResult;
-  updateEdge: (doc: LgdlDocument, opts: UpdateEdgeOptions) => MutationResult;
-  addGroup: (doc: LgdlDocument, opts: AddGroupOptions) => MutationResult;
-  removeGroup: (doc: LgdlDocument, id: string) => MutationResult;
-  updateGroup: (doc: LgdlDocument, opts: UpdateGroupOptions) => MutationResult;
-}
-
-export interface OperationBatchResult {
+export interface OperationBatchResult<Doc> {
   /** The document after the applied operations (unchanged on failure). */
-  document: LgdlDocument;
+  document: Doc;
   /** Per-op outcomes in order: summaries of applied ops, null for skipped. */
-  results: (MutationResult | null)[];
+  results: (MutationResult<Doc> | null)[];
   /** Index of the first failed operation, or -1 when all succeeded. */
   failedIndex: number;
   /** Error message of the failed operation (when failedIndex !== -1). */
@@ -80,78 +28,21 @@ export interface OperationBatchResult {
 }
 
 /**
- * 注入工厂：返回 { applyOperation, applyOperations } 分派器（ADR-005）。
- * 分派 switch 逐行复制自 core operations.ts，语义零改动（EC-003）。
+ * 注入工厂：返回 { applyOperation, applyOperations } 分派器（ADR-005，泛型化 ADR-004）。
+ * dispatch = op 名称 → mutation 调用映射（9 变体 case 体由领域侧注入，web-cli）。
  */
-export function createOperationApplier(mutations: OperationMutations): {
-  applyOperation: (doc: LgdlDocument, operation: LgdlOperation) => MutationResult;
-  applyOperations: (doc: LgdlDocument, ops: LgdlOperation[]) => OperationBatchResult;
+export function createOperationApplier<Op, Doc>(
+  dispatch: Record<string, (doc: Doc, op: Op) => MutationResult<Doc>>,
+): {
+  applyOperation: (doc: Doc, operation: Op) => MutationResult<Doc>;
+  applyOperations: (doc: Doc, ops: Op[]) => OperationBatchResult<Doc>;
 } {
   /** Apply ONE structured operation to a document. Throws on invalid ops. */
-  function applyOperation(doc: LgdlDocument, operation: LgdlOperation): MutationResult {
-    switch (operation.op) {
-      case 'add-node':
-        return mutations.addNode(doc, {
-          id: operation.id,
-          label: operation.label,
-          kind: operation.kind,
-          group: operation.group,
-          members: operation.members,
-          attrs: operation.attrs,
-        });
-      case 'remove-node':
-        return mutations.removeNode(doc, operation.id);
-      case 'update-node':
-        return mutations.updateNode(doc, {
-          id: operation.id,
-          newId: operation.newId,
-          label: operation.label,
-          kind: operation.kind,
-          memberAdd: operation.memberAdd,
-          memberRemove: operation.memberRemove,
-          attrs: operation.attrs,
-        });
-      case 'add-edge':
-        return mutations.addEdge(doc, {
-          from: operation.from,
-          to: operation.to,
-          label: operation.label,
-          cardinalityFrom: operation.cardinalityFrom,
-          cardinalityTo: operation.cardinalityTo,
-          attrs: operation.attrs,
-        });
-      case 'remove-edge':
-        return mutations.removeEdge(doc, operation.from, operation.to, operation.label);
-      case 'update-edge':
-        return mutations.updateEdge(doc, {
-          from: operation.from,
-          to: operation.to,
-          fromLabel: operation.fromLabel,
-          newFrom: operation.newFrom,
-          newTo: operation.newTo,
-          label: operation.label,
-          cardinalityFrom: operation.cardinalityFrom,
-          cardinalityTo: operation.cardinalityTo,
-          attrs: operation.attrs,
-        });
-      case 'add-group':
-        return mutations.addGroup(doc, {
-          id: operation.id,
-          label: operation.label,
-          contains: operation.contains,
-        });
-      case 'remove-group':
-        return mutations.removeGroup(doc, operation.id);
-      case 'update-group':
-        return mutations.updateGroup(doc, {
-          id: operation.id,
-          newId: operation.newId,
-          label: operation.label,
-          memberAdd: operation.memberAdd,
-          memberRemove: operation.memberRemove,
-          attrs: operation.attrs,
-        });
-    }
+  function applyOperation(doc: Doc, operation: Op): MutationResult<Doc> {
+    const name = (operation as { op?: string }).op;
+    const fn = dispatch[name ?? ''];
+    if (!fn) throw new Error(`未知操作 "${name ?? ''}"`);
+    return fn(doc, operation);
   }
 
   /**
@@ -165,9 +56,9 @@ export function createOperationApplier(mutations: OperationMutations): {
    * the caller's job (CLI re-validates before saving; Web validates before
    * rendering).
    */
-  function applyOperations(doc: LgdlDocument, ops: LgdlOperation[]): OperationBatchResult {
+  function applyOperations(doc: Doc, ops: Op[]): OperationBatchResult<Doc> {
     let current = doc;
-    const results: (MutationResult | null)[] = [];
+    const results: (MutationResult<Doc> | null)[] = [];
     for (let i = 0; i < ops.length; i++) {
       try {
         const r = applyOperation(current, ops[i]);

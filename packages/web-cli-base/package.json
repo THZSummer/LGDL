@@ -1,7 +1,7 @@
 {
   "name": "@lgdl/web-cli-base",
   "version": "0.5.0",
-  "description": "AI-callable command execution framework — command registry, execution pipeline, tools schema, protocol parser and self-documenting help (LGDL as first adapter)",
+  "description": "AI-callable command execution framework — command registry, execution pipeline, tools schema, protocol parser and self-documenting help (domain-neutral, zero LGDL dependency)",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,10 +9,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./lgdl": {
-      "types": "./dist/adapters/lgdl.d.ts",
-      "import": "./dist/adapters/lgdl.js"
     }
   },
   "scripts": {
@@ -21,7 +17,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
-    "@lgdl/core": "^0.5.0",
     "openai": "^7.5.0"
   },
   "devDependencies": {

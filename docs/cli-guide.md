@@ -4,10 +4,10 @@
 
 ## 安装
 
-> 📦 已发布到 npm（`@lgdl/cli`）！
+> 📦 已发布到 npm（`@lgdl/lgdl-cli`）！
 
 ```bash
-npm install -g @lgdl/cli     # 全局安装
+npm install -g @lgdl/lgdl-cli     # 全局安装
 lgdl-cli --help                  # 验证安装
 ```
 

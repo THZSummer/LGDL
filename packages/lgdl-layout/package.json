@@ -1,0 +1,26 @@
+{
+  "name": "@lgdl/lgdl-layout",
+  "version": "0.5.0",
+  "description": "LGDL deterministic layout engine (native Sugiyama, no dagre/elkjs) with incremental local re-layout",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@lgdl/lgdl-core": "^0.5.0"
+  },
+  "devDependencies": {},
+  "license": "MIT",
+  "files": [
+    "dist"
+  ]
+}

@@ -17,6 +17,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@lgdl/cli": "^0.5.0"
+    "@lgdl/lgdl-cli": "^0.5.0"
   }
 }

@@ -1,0 +1,26 @@
+{
+  "name": "@lgdl/lgdl-web-op-cli",
+  "version": "0.5.0",
+  "description": "LGDL web op-cli domain package — UI operation command metadata (OP_COMMANDS single source), WEB_OP_TOOL, webOpHelp, next-actions and the OpHandlerRegistry injection surface (zero React/DOM)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc src/*.test.ts --outDir dist-test --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --declaration false --allowImportingTsExtensions --rewriteRelativeImportExtensions && node --test dist-test/*.test.js"
+  },
+  "dependencies": {
+    "@lgdl/web-cli-base": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0"
+  },
+  "license": "MIT"
+}
