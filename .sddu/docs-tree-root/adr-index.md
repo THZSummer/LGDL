@@ -2,20 +2,21 @@
 
 > **文档定位**: sddu-docs-adr-index — 架构决策记录详表（决策 / 备选方案 / 理由 / 证据锚点）
 > **输出文件名**: adr-index.md
-> **数据来源**: 代码扫描生成（CHANGELOG + git 历史 + 代码证据交叉验证），未经 SDDU 工作流验证
+> **数据来源**: 代码扫描生成（CHANGELOG + git 历史 + 代码证据交叉验证）+ Feature 产物聚合（specs-tree-web-cli-v2 plan.md §7 的 9 条 V2 ADR）
 > **创建人**: sddu-docs Agent
 > **创建时间**: 2026-08-30
-> **版本**: v1.0（基于工作区 `feature/group-as-node` @ `15e5b6b`）
-> **更新说明**: 初始创建（从系统架构/docs-overview.md §2.3 的 8 条 ADR 索引展开）
+> **版本**: v2.0（基于工作区 `feature/group-as-node` @ `d03dca4`；V1 8 条 + V2 9 条）
+> **更新说明**: V2 增量追加——引用 specs-tree-web-cli-v2（phase=validated）plan.md §7 的 9 条 ADR（重命名/抽取/base 纯化泛型化/web-fetch 归位等），状态由 PROPOSED 更新为 ACCEPTED（commit d03dca4 已实施）
 
 ---
 
 ## 0. 说明
 
-- 本文档是根级 `docs-overview.md` §2 导航表声明的 `adr-index.md`，将 [系统架构/docs-overview.md](系统架构/docs-overview.md) §2.3 的 8 条 ADR 索引逐条展开。
+- 本文档是根级 `docs-overview.md` §2 导航表声明的 `adr-index.md`，将 [系统架构/docs-overview.md](系统架构/docs-overview.md) §2.3 的 ADR 索引逐条展开。
 - **证据口径**：每条 ADR 的证据锚点采用「commit hash + 文件:行号」双通道；CHANGELOG 中的数字（如测试数、打包时长）以**当日实测**为准，与实测不符处已标注。
 - **甄别口径**：CHANGELOG.md Unreleased 段仅采信带验证记录的工程事实；规划性描述（语义 diff、CI 自动渲染、SSE 流式等）未纳入任何 ADR。
-- 「证据待补」条目集中在 §3，不编造缺失证据。
+- **V2 口径**：§2.2 的 V2 ADR 引用 specs-tree-web-cli-v2 全套产物（discovery/spec/plan/tasks/review/validate，phase=validated）；plan.md 中标注 PROPOSED，commit `d03dca4` 实施后本表更新为 **ACCEPTED**。「证据待补」条目集中在 §3，不编造缺失证据。
+- **路径口径**：V1 各条（§2.1）的证据锚点文件路径为**决策当时（V2 前）的目录名**（如 `packages/core/`、`packages/web/`），V2 后对应 `packages/lgdl-core/`、`packages/lgdl-web/` 等；锚点指向的 commit 与模块语义不变，属历史记录保留。
 
 ## 1. ADR 速查表
 
@@ -29,6 +30,15 @@
 | ADR-006 | AI 不直接写源码，只走增量命令 | ACCEPTED | web AI、cli | `676cb95` | 完整 |
 | ADR-007 | markdown 协议块升级为原生 function calling | ACCEPTED | web AI | `9fe73bf` / `fff64e8` | 完整 |
 | ADR-008 | 增量编辑协议（AI 永不整图重写） | ACCEPTED | core、cli、web | `1267d13`（协议层沿革） | 完整 |
+| ADR-V2-001 | 6 包重命名执行策略（git mv + 身份先行 + 引用后改 + lock 重建） | **ACCEPTED** | 全仓 | `d03dca4`（实施）；plan §2.3 | 完整 |
+| ADR-V2-002 | 依赖方向：base 零 lgdl 依赖；lgdl-web-cli → base + lgdl-core 单向无环 | **ACCEPTED** | web-cli-base / lgdl-web-cli / lgdl-web-op-cli | `d03dca4`；plan §2.2 | 完整 |
+| ADR-V2-003 | DomainApi<Op,Doc> 泛型化契约：结构化类型兼容，lgdl-core 类型零改动 | **ACCEPTED** | web-cli-base 契约面 | `d03dca4`；plan §2.6-① | 完整 |
+| ADR-V2-004 | createOperationApplier 泛型化回留 base：dispatch 映射注入，9 变体分派随迁 | **ACCEPTED** | web-cli-base / lgdl-web-cli | `d03dca4`；plan §2.6-⑤ | 完整 |
+| ADR-V2-005 | exec 管线参数化注入面：commandPrefix/parseBatch/describeSubcommand + handleLine/describeFetchLine | **ACCEPTED** | web-cli-base exec 管线 | `d03dca4`；plan §2.6-④ | 完整 |
+| ADR-V2-006 | op-cli handler 注入面：OpHandlerRegistry 注册表，包定义协议/web 注入 React 回调 | **ACCEPTED** | lgdl-web-op-cli / lgdl-web | `d03dca4`；plan §2.5 | 完整 |
+| ADR-V2-007 | web-fetch 中性化归位：lgdl-web-fetch → web-fetch，工具/解析/执行/help 归 base | **ACCEPTED** | web-cli-base / lgdl-web | `d03dca4`；plan §2.6-⑦ | 完整 |
+| ADR-V2-008 | op 协议单一数据源：OP_COMMANDS 元数据注册表 → WEB_OP_TOOL 动态生成 | **ACCEPTED** | lgdl-web-op-cli | `d03dca4`；plan §2.5 | 完整 |
+| ADR-V2-009 | 回归门禁口径：守恒 388 + 断言逐字节 + 新增接线测试 | **ACCEPTED** | 全仓测试 | `d03dca4`；plan §4.2 | 完整（420 实测） |
 
 ---
 
@@ -174,6 +184,75 @@
 
 ---
 
+## 2.2 V2 ADR 详表（specs-tree-web-cli-v2，9 条）
+
+> 本节引用 specs-tree-web-cli-v2 全套产物（discovery/spec/plan/tasks/review/validate，phase=validated）。plan.md 中状态为 PROPOSED，commit `d03dca4`（2026-09-01）实施后全部转 **ACCEPTED**。各条决策/备选/理由详见 plan.md §7，本表按实测代码收敛证据锚点。
+
+### ADR-V2-001 6 包重命名执行策略：git mv + 身份先行 + 引用后改 + lock 重建
+
+- **状态**：ACCEPTED（commit d03dca4 已实施）
+- **背景/决策**：D-001 锁死 scoped 命名（@lgdl/lgdl-*，EC-001 不返工）。顺序 = ① `git mv` 目录（保留历史）→ ② 6 包 package.json name 改身份 → ③ 跨包 import 改源（~30 处）→ ④ 根/tsconfig/predev/CI 同步 → ⑤ `npm install` 重建 lock（7→9 workspace 条目）→ ⑥ 文档面。「先改包身份再改引用」：身份先行使 workspace 解析立即指向新目录。
+- **理由/后果**：重命名是纯机械面（git mv + 字符串替换），零语义改动；FR-002/AC-002 grep 零残留为验收；bin `lgdl-cli` 与协议前缀 `lgdl-web-cli`/`lgdl-web-op-cli` 不变。
+- **证据锚点**：commit `d03dca4`（9 包就位 + lock 9 workspace 条目零 extraneous，validate V1 实测）；`ls packages/` = 9 目录；6 包 package.json name 全部 @lgdl/lgdl-*；根 package.json:20 dependencies `@lgdl/lgdl-cli`；validate-report.md V1（AC-001 9 包就位 PASS）。
+
+### ADR-V2-002 依赖方向：base 零 lgdl 依赖；lgdl-web-cli → base + lgdl-core 单向无环
+
+- **状态**：ACCEPTED
+- **背景/决策**：作者裁决①（base 不依赖 lgdl-core）+ 任务书「lgdl-web-cli 依赖 web-cli-base（泛型机制）+ lgdl-core」。web-cli-base 纯化为零 @lgdl/* 依赖的公共框架（deps 仅 @anthropic-ai/sdk + openai）；lgdl-web-cli → {web-cli-base, lgdl-core}；lgdl-web-op-cli → web-cli-base（仅 HelpArg/HelpEntry 类型，零 React/DOM）；cli → {lgdl-web-cli, lgdl-core, lgdl-render}；web → {适配层 ×2, base, 引擎 ×3}。
+- **理由/后果**：依赖图 `lgdl-core ← lgdl-web-cli ← cli/web` 与 `web-cli-base ← 适配包 ← cli/web` 线性无环（NFR-004/AC-006）；R2 核验点（cli → lgdl-web-cli → base/lgdl-core 与 cli → lgdl-core 并存）经 package.json 声明核对通过。
+- **证据锚点**：9 包 package.json dependencies 逐包实测（见 系统架构/包依赖关系-deps.md §1）；AC-006 依赖图核验（review-report C21 / validate V4）。
+
+### ADR-V2-003 DomainApi<Op,Doc> 泛型化契约：结构化类型兼容，lgdl-core 类型零改动
+
+- **状态**：ACCEPTED
+- **背景/决策**：FR-018 要求 DomainApi（原 exec.ts:40-65，19 LGDL 符号）泛型化 + base 去 lgdl-core 依赖；NG-003 要求类型定义零语义改动。base 定义 `DomainApi<Op, Doc>` 机制契约（ParseResult<Doc>/MutationResult<Doc>/OperationBatchResult<Doc> 泛型化，DIAGRAM_TYPES 收窄 readonly string[]）；lgdl-core 具体类型经 TS 结构化类型系统赋给契约（字段超集即可）；具体 DomainApi 实例（lgdlDomain 19 符号）随 adapters 迁 lgdl-web-cli。
+- **理由/后果**：base 零 lgdl 类型引用（FR-018 grep 验收）；类型定义零改动（NG-003）；管线访问字段全在契约内（R10 兜底）；任意领域可实例化（NFR-005）。
+- **证据锚点**：`packages/web-cli-base/src/exec.ts`（DomainApi<Op,Doc> 泛型契约）；`packages/lgdl-web-cli/src/adapters/lgdl.ts`（lgdlDomain 组装，类型参数实例化）；web-cli-base/package.json dependencies 无 @lgdl/*（AC-003/FR-019 零残留 grep）。
+
+### ADR-V2-004 createOperationApplier 泛型化回留 base：dispatch 映射注入，9 变体分派随迁
+
+- **状态**：ACCEPTED
+- **背景/决策**：D-002 决策「泛型化版本回留 base，9 mutations 映射随业务迁」；FR-020 验收「注入相同 mutations 集时分派输出逐字节一致」。base `createOperationApplier<Op, Doc>(dispatch)` 返回 { applyOperation, applyOperations }——分派查找（op 字段判别）+ 失败即停批量循环；9 个 op 变体解构调用随迁 lgdl-web-cli/operations.ts 的 lgdlDispatch。
+- **理由/后果**：机制（注入分派器）留 base、业务（LGDL 协议形状）随迁；零语义改动由「case 体逐行复制 + 注入相同映射输出一致」保证（NFR-005，validate 逐字节比对 1294=1294）。
+- **证据锚点**：`packages/web-cli-base/src/operations.ts`（泛型工厂）；`packages/lgdl-web-cli/src/operations.ts`（lgdlDispatch 9 变体映射）；lgdl-web-cli/operations.test.ts 9 例随迁；validate-report V9（WEB_CLI_TOOL/OP_COMMANDS 逐字节 = 基线）。
+
+### ADR-V2-005 exec 管线参数化注入面：commandPrefix/parseBatch/describeSubcommand + handleLine/describeFetchLine
+
+- **状态**：ACCEPTED
+- **背景/决策**：FR-019 要求 base exec 21 处 'lgdl-web-cli' 硬编码参数化/随迁；D-004 决策 tokenizeCli/parseArgs 留 base、parseWebCliCommand/Batch 路由面随迁。base `ExecutorOptions<Op>` 增 3 注入参数——commandPrefix（替代前缀判断与错误文案内嵌前缀）、parseBatch（单行批量解析）、describeSubcommand（替代 LGDL 描述文案）；保留 handleLine/describeFetchLine；base 默认值 = 无前缀/内置 createBatchParser 骨架。
+- **理由/后果**：base 源码 'lgdl-web-cli' 字符串清零（FR-019 grep 验收）；注入等价参数时行为与迁移前逐字节一致（NFR-005）；lgdl-web-cli/adapters 组装时注入全部参数。
+- **证据锚点**：`packages/web-cli-base/src/exec.ts`（ExecutorOptions 注入参数）；`packages/lgdl-web-cli/src/adapters/lgdl.ts`（lgdlExecutor 组装 options 注入）；AC-003/FR-019 grep 零残留（base/src 无 'lgdl-web-cli' 硬编码，validate V6）。
+
+### ADR-V2-006 op-cli handler 注入面：OpHandlerRegistry 注册表，包定义协议/web 注入 React 回调
+
+- **状态**：ACCEPTED
+- **背景/决策**：FR-016/FR-024（C6）：op-cli 包不含 React 执行体，16 分支（原 App.tsx:943-1055）由 web 注入。lgdl-web-op-cli 定义 `OpHandler = (args) => OpExecResult` + `OpHandlerRegistry`（register/has/execute，未注册子命令返回与现状一致的「✖ 未知操作」文案）；web App.tsx 逐分支复制 16 个实现为注册回调（useMemo 组装）。
+- **理由/后果**：包内纯协议/元数据零 React/DOM（FR-016/NFR-004 grep 验收）；执行行为 1:1 迁移（NFR-002）；handlers.test 3 例包内可测；其他领域可复用注册表注入自有 UI 操作。
+- **证据锚点**：`packages/lgdl-web-op-cli/src/handlers.ts`（OpHandlerRegistry/OpHandler/OpExecResult）；`packages/lgdl-web/src/App.tsx`（opRegistry useMemo 注册 16 回调）；`grep -rniE "react|document\\.|localStorage"` op-cli 零命中（NFR-004）；handlers.test.ts 3 例（lgdl-web-op-cli 实测 11 例全绿）。
+
+### ADR-V2-007 web-fetch 中性化归位：lgdl-web-fetch → web-fetch，工具/解析/执行/help 归 base
+
+- **状态**：ACCEPTED
+- **背景/决策**：作者裁决③ + FR-022：lgdl-web-fetch 是平台级能力，自 web 归 base 并中性化改名（唯一命名例外）。WEB_FETCH_TOOL + parseWebFetchCommand/executeWebFetch + webFetchHelp 迁 base（tools.ts / web-fetch.ts / help.ts）；工具 name 与前缀 `lgdl-web-fetch` → `web-fetch`；web 侧改名联动（lgdl-web.ts / AiPanel.tsx / prompts.ts）。
+- **理由/后果**：base 平台能力补齐（其他领域可复用）；web 应用层与平台能力解耦；改名是命名改动非语义改动（NFR-002 例外声明）；全仓 grep 'lgdl-web-fetch' 零残留（FR-022 验收）。
+- **证据锚点**：`packages/web-cli-base/src/web-fetch.ts` + `tools.ts`（name: 'web-fetch'）；`packages/lgdl-web/src/ai/provider.ts`（WEB_FETCH_TOOL 自 base 导入）；web-fetch.test.ts 6 例随迁（前缀断言改名）；validate V12（web-fetch 改名联动逐字节）。
+
+### ADR-V2-008 op 协议单一数据源：OP_COMMANDS 元数据注册表 → WEB_OP_TOOL 动态生成
+
+- **状态**：ACCEPTED
+- **背景/决策**：FR-016 要求消除「工具定义 + help 元数据」双份并存（原 provider.ts enum vs help.ts entries 不一致：enum 含 help 不含 export、entries 含 export 不含 help）；FR-017 界定 op 协议 = 元数据契约。lgdl-web-op-cli 定义 `OP_COMMANDS: Record<string, OpCommandMeta>`（16 条，含 export 别名）+ `OP_SUBCOMMANDS = Object.keys(OP_COMMANDS)` 为唯一事实源；WEB_OP_TOOL.parameters.enum 由 OP_SUBCOMMANDS 生成（工具 schema 为基准，16 项逐字节复现迁移前）。
+- **理由/后果**：单一数据源闭环（FR-016 验收）；schema 逐字节验收由 tool.test diff 兜底（R13）；不新增文本解析能力（FR-017/NG-004）。
+- **证据锚点**：`packages/lgdl-web-op-cli/src/ops.ts`（OP_COMMANDS 16 条）+ `tool.ts`（WEB_OP_TOOL 动态生成）；tool.test.ts（schema 逐字节 1485=1485）；validate V10（OP_COMMANDS 2085=2085 逐字节）。
+
+### ADR-V2-009 回归门禁口径：守恒 388 + 断言逐字节 + 新增接线测试
+
+- **状态**：ACCEPTED（实测 420 例全绿）
+- **背景/决策**：NFR-003 测试守恒（≥388）；随迁测试断言逐字节保持（NFR-002）。验收口径 = 全仓用例守恒 + 随迁断言输出逐字节一致 + 仅新增接线/元数据测试（op-cli handlers 3 例）；web test 脚本文件列表重列（FR-025）与新包通配符脚本 + dist-test 清理并行。
+- **理由/后果**：validate 阶段按守恒口径验收；零新功能红线（NFR-001）顺带验证。
+- **证据锚点**：全仓实测 **420 例全绿**（lgdl-web-cli 76 + lgdl-web 32 + lgdl-core 258 + lgdl-web-op-cli 11 + web-cli-base 14 + lgdl-router 8 + lgdl-render 21；守恒基准 388 = 82+48+258 口径）；commit d03dca4 记载一致；validate V2-V5 逐项 PASS。
+
+---
+
 ## 3. 证据待补与说明
 
 | # | ADR | 条目 | 说明 | 处理 |
@@ -182,10 +261,11 @@
 | P2 | ADR-001 | CHANGELOG.md:31-45 elkjs 迁移段位于 Unreleased 段内 | 结构放置错位（内容对应 2026-08-23 之前阶段）；事实由 commit `7d7bdab`/`13ae5f5` 佐证 | 不列为证据待补；已在本表与 ADR-001 中标注结构异常 |
 | P3 | ADR-004 | 19 个命令的完整清单 | 由 `packages/cli/src/registry.ts:44-64` 数组项实证（数=19），与 CHANGELOG「19 个命令」一致 | 已实证，无需待补 |
 
-> 说明：8 条 ADR 的证据锚点均已落实到 commit hash 或 文件:行号，无「完全无证据」条目；P1 为唯一未复测项（性能观测）。CHANGELOG.md:15,27 记载「core 314」与实测 281 的差异属测试数漂移（根级 D7），不影响本表 ADR 的决策事实。
+> 说明：V1 8 条 ADR 的证据锚点均已落实到 commit hash 或 文件:行号，无「完全无证据」条目；P1 为唯一未复测项（性能观测）。CHANGELOG.md:15,27 记载「core 314」与实测 258 的差异属测试数漂移（根级 D7），不影响本表 ADR 的决策事实。V2 9 条 ADR（§2.2）引用 specs-tree-web-cli-v2 全套产物，证据锚点均以 commit d03dca4 后的代码实测为准。
 
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建：从系统架构 §2.3 展开 8 条 ADR 详表（决策/备选/理由/证据锚点） | 2026-08-30 | sddu-docs Agent |
+| v2.0 | V2 增量追加：§1 速查表 + §2.2 共 9 条 V2 ADR（重命名执行策略/base 零 lgdl 依赖/DomainApi 泛型化/createOperationApplier 泛型回留/exec 参数化注入/handler 注入面/web-fetch 归位/op 协议单一数据源/回归门禁），引用 specs-tree-web-cli-v2 plan.md §7，状态 PROPOSED → ACCEPTED（commit d03dca4） | 2026-09-01 | sddu-docs Agent |

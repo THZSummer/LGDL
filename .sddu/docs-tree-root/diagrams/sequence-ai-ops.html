@@ -5073,40 +5073,40 @@
         </g>
         </g>
 
-        <g data-edge-from="llm" data-edge-to="panel" data-edge-label="文本 + tool_calls（lgdl-web-cli / lgdl-web-op-cli / lgdl-web-fetch）" data-edge-key="2" data-edge-id="tool-calls">
+        <g data-edge-from="llm" data-edge-to="panel" data-edge-label="文本 + tool_calls（lgdl-web-cli / lgdl-web-op-cli / web-fetch）" data-edge-key="2" data-edge-id="tool-calls">
           <path data-composition-edge-from="llm" data-composition-edge-to="panel" data-composition-edge-id="tool-calls" data-composition-points="459.7,216;305.1,216" d="M 459.7 216 L 305.1 216" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="199.59999999999997" y="196" width="365.6" height="16" rx="3" class="c-mask"/>
-          <text x="382.4" y="206" class="t-muted" font-size="9" text-anchor="middle">文本 + tool_calls（lgdl-web-cli / lgdl-web-op-cli / lgdl-web-fetch）</text>
+          <rect x="212.59999999999997" y="196" width="339.6" height="16" rx="3" class="c-mask"/>
+          <text x="382.4" y="206" class="t-muted" font-size="9" text-anchor="middle">文本 + tool_calls（lgdl-web-cli / lgdl-web-op-cli / web-fetch）</text>
         </g>
         </g>
 
-        <g data-edge-from="panel" data-edge-to="ops" data-edge-label="executeSubcommand(source, subcommand, args)" data-edge-key="3" data-edge-id="exec-call">
-          <path data-composition-edge-from="panel" data-composition-edge-to="ops" data-composition-edge-id="exec-call" data-composition-points="305.1,244;628.3,244" d="M 305.1 244 L 628.3 244" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-edge-from="panel" data-edge-to="exec" data-edge-label="executeSubcommand(source, subcommand, args)" data-edge-key="3" data-edge-id="exec-call">
+          <path data-composition-edge-from="panel" data-composition-edge-to="exec" data-composition-edge-id="exec-call" data-composition-points="305.1,244;628.3,244" d="M 305.1 244 L 628.3 244" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
           <rect x="348.9" y="224" width="235.6" height="16" rx="3" class="c-mask"/>
           <text x="466.7" y="234" class="t-backend" font-size="9" text-anchor="middle">executeSubcommand(source, subcommand, args)</text>
         </g>
         </g>
 
-        <g data-edge-from="ops" data-edge-to="core" data-edge-label="写命令：buildOperation → applyOperation → validate 门禁 → serializeLgdl" data-edge-key="4" data-edge-id="apply-gate">
-          <path data-composition-edge-from="ops" data-composition-edge-to="core" data-composition-edge-id="apply-gate" data-composition-points="642.3,272;796.9,272" d="M 642.3 272 L 796.9 272" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-edge-from="exec" data-edge-to="registry" data-edge-label="写命令：buildOperation → applyOperation → validate 门禁 → serializeLgdl（web-cli-base/exec.ts:294）" data-edge-key="4" data-edge-id="apply-gate">
+          <path data-composition-edge-from="exec" data-composition-edge-to="registry" data-composition-edge-id="apply-gate" data-composition-points="642.3,272;796.9,272" d="M 642.3 272 L 796.9 272" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="528.9999999999999" y="252" width="381.2" height="16" rx="3" class="c-mask"/>
-          <text x="719.5999999999999" y="262" class="t-backend" font-size="9" text-anchor="middle">写命令：buildOperation → applyOperation → validate 门禁 → serializeLgdl</text>
+          <rect x="456.1999999999999" y="252" width="526.8000000000001" height="16" rx="3" class="c-mask"/>
+          <text x="719.5999999999999" y="262" class="t-backend" font-size="9" text-anchor="middle">写命令：buildOperation → applyOperation → validate 门禁 → serializeLgdl（web-cli-base/exec.ts:294）</text>
         </g>
         </g>
 
-        <g data-edge-from="core" data-edge-to="ops" data-edge-label="MutationResult / 校验错误" data-edge-key="5" data-edge-id="mut-result">
-          <path data-composition-edge-from="core" data-composition-edge-to="ops" data-composition-edge-id="mut-result" data-composition-points="796.9,300;642.3,300" d="M 796.9 300 L 642.3 300" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="registry" data-edge-to="exec" data-edge-label="MutationResult / 校验错误" data-edge-key="5" data-edge-id="mut-result">
+          <path data-composition-edge-from="registry" data-composition-edge-to="exec" data-composition-edge-id="mut-result" data-composition-points="796.9,300;642.3,300" d="M 796.9 300 L 642.3 300" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
           <rect x="648.5999999999999" y="280" width="142" height="16" rx="3" class="c-mask"/>
           <text x="719.5999999999999" y="290" class="t-muted" font-size="9" text-anchor="middle">MutationResult / 校验错误</text>
         </g>
         </g>
 
-        <g data-edge-from="ops" data-edge-to="panel" data-edge-label="CommandExecResult {ok, source, lines}" data-edge-key="6" data-edge-id="exec-result">
-          <path data-composition-edge-from="ops" data-composition-edge-to="panel" data-composition-edge-id="exec-result" data-composition-points="628.3,328;305.1,328" d="M 628.3 328 L 305.1 328" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="exec" data-edge-to="panel" data-edge-label="CommandExecResult {ok, source, lines}" data-edge-key="6" data-edge-id="exec-result">
+          <path data-composition-edge-from="exec" data-composition-edge-to="panel" data-composition-edge-id="exec-result" data-composition-points="628.3,328;305.1,328" d="M 628.3 328 L 305.1 328" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
           <rect x="364.5" y="308" width="204.4" height="16" rx="3" class="c-mask"/>
           <text x="466.7" y="318" class="t-muted" font-size="9" text-anchor="middle">CommandExecResult {ok, source, lines}</text>
@@ -5170,8 +5170,8 @@
           <text data-detail="context" x="298.1" y="111" class="t-muted" font-size="7" text-anchor="middle">AiPanel.tsx · MAX_ROUNDS</text>
         </g>
 
-        <g id="node-llm" data-node-id="llm" data-node-label="LLM（多厂商）" tabindex="0" role="button" aria-label="聚焦LLM（多厂商），provider.chat(), 时序参与者" aria-pressed="false" data-node-kind="external" data-node-sublabel="provider.chat()" data-node-context="时序参与者">
-          <title>LLM（多厂商） · provider.chat() · 时序参与者</title>
+        <g id="node-llm" data-node-id="llm" data-node-label="LLM（多厂商）" tabindex="0" role="button" aria-label="聚焦LLM（多厂商），provider.chat() 薄包装, 时序参与者" aria-pressed="false" data-node-kind="external" data-node-sublabel="provider.chat() 薄包装" data-node-context="时序参与者">
+          <title>LLM（多厂商） · provider.chat() 薄包装 · 时序参与者</title>
           <rect x="399.2" y="72" width="135" height="54" rx="6" class="c-mask"/>
           <rect x="399.2" y="72" width="135" height="54" rx="6" class="c-external" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(405.2 78) scale(0.6875)">
@@ -5179,29 +5179,29 @@
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="466.7" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">LLM（多厂商）</text>
-          <text data-detail="context" x="466.7" y="111" class="t-muted" font-size="7" text-anchor="middle">provider.chat()</text>
+          <text data-detail="context" x="466.7" y="111" class="t-muted" font-size="7" text-anchor="middle">provider.chat() 薄包装</text>
         </g>
 
-        <g id="node-ops" data-node-id="ops" data-node-label="ops.ts 执行层" tabindex="0" role="button" aria-label="聚焦ops.ts 执行层，executeSubcommand, 时序参与者" aria-pressed="false" data-node-kind="backend" data-node-sublabel="executeSubcommand" data-node-context="时序参与者">
-          <title>ops.ts 执行层 · executeSubcommand · 时序参与者</title>
+        <g id="node-exec" data-node-id="exec" data-node-label="lgdl-web-cli 执行层" tabindex="0" role="button" aria-label="聚焦lgdl-web-cli 执行层，executeSubcommand, 时序参与者" aria-pressed="false" data-node-kind="backend" data-node-sublabel="executeSubcommand" data-node-context="时序参与者">
+          <title>lgdl-web-cli 执行层 · executeSubcommand · 时序参与者</title>
           <rect x="567.8" y="72" width="135" height="54" rx="6" class="c-mask"/>
           <rect x="567.8" y="72" width="135" height="54" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(573.8 78) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="635.3" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ops.ts 执行层</text>
+          <text data-node-label="" data-detail-anchor="" x="635.3" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">lgdl-web-cli 执行层</text>
           <text data-detail="context" x="635.3" y="111" class="t-muted" font-size="7" text-anchor="middle">executeSubcommand</text>
         </g>
 
-        <g id="node-core" data-node-id="core" data-node-label="core 注册表 + 变更" tabindex="0" role="button" aria-label="聚焦core 注册表 + 变更，buildOperation · validate, 时序参与者" aria-pressed="false" data-node-kind="backend" data-node-sublabel="buildOperation · validate" data-node-context="时序参与者">
-          <title>core 注册表 + 变更 · buildOperation · validate · 时序参与者</title>
+        <g id="node-registry" data-node-id="registry" data-node-label="注册表 + lgdl-core" tabindex="0" role="button" aria-label="聚焦注册表 + lgdl-core，COMMANDS · validate 门禁, 时序参与者" aria-pressed="false" data-node-kind="backend" data-node-sublabel="COMMANDS · validate 门禁" data-node-context="时序参与者">
+          <title>注册表 + lgdl-core · COMMANDS · validate 门禁 · 时序参与者</title>
           <rect x="736.4" y="72" width="135" height="54" rx="6" class="c-mask"/>
           <rect x="736.4" y="72" width="135" height="54" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(742.4 78) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="803.9" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">core 注册表 + 变更</text>
-          <text data-detail="context" x="803.9" y="111" class="t-muted" font-size="7" text-anchor="middle">buildOperation · validate</text>
+          <text data-node-label="" data-detail-anchor="" x="803.9" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">注册表 + lgdl-core</text>
+          <text data-detail="context" x="803.9" y="111" class="t-muted" font-size="7" text-anchor="middle">COMMANDS · validate 门禁</text>
         </g>
 
         <g id="node-app" data-node-id="app" data-node-label="App（编辑器/预览）" tabindex="0" role="button" aria-label="聚焦App（编辑器/预览），onApply · compile(), 时序参与者" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="onApply · compile()" data-node-context="时序参与者">
@@ -5426,8 +5426,8 @@
           <h3>唯一的改图通道</h3>
         </div>
         <ul>
-          <li>&bull; 三工具：lgdl-web-cli / lgdl-web-op-cli / lgdl-web-fetch</li>
-          <li>&bull; 读 → core/queries；写 → buildOperation → applyOperation</li>
+          <li>&bull; 三工具：lgdl-web-cli / lgdl-web-op-cli / web-fetch（V2 中性化改名，自 base）</li>
+          <li>&bull; 读 → lgdl-core/queries；写 → buildOperation → applyOperation</li>
           <li>&bull; AI 只给意图（subcommand + args），不写文本源码</li>
         </ul>
       </div>
@@ -5438,9 +5438,9 @@
           <h3>校验门禁不可绕过</h3>
         </div>
         <ul>
-          <li>&bull; 写命令产物须过 validate，否则整体拒绝（ops.ts:239-248）</li>
-          <li>&bull; 工具失败即置 failed，追加 user 修正提示（AiPanel.tsx:441-450）</li>
-          <li>&bull; 轮数上限 MAX_ROUNDS = maxRounds ?? 1000（AiPanel.tsx:362）</li>
+          <li>&bull; 写命令产物须过 validate，否则整体拒绝（web-cli-base/exec.ts:294-299）</li>
+          <li>&bull; 工具失败即置 failed，追加 user 修正提示（AiPanel.tsx:452）</li>
+          <li>&bull; 轮数上限 MAX_ROUNDS = maxRounds ?? 1000（AiPanel.tsx:363）</li>
         </ul>
       </div>
 

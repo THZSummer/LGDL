@@ -1,12 +1,12 @@
 # 核心引擎 — layout 布局引擎深潜
 
-> **文档定位**: sddu-docs-deepdive-layout — @lgdl/layout 包深潜：自研 Sugiyama 分层、分组感知两层布局、5 种专用布局与降级规则
+> **文档定位**: sddu-docs-deepdive-layout — @lgdl/lgdl-layout 包深潜：自研 Sugiyama 分层、分组感知两层布局、5 种专用布局与降级规则
 > **输出文件名**: layout-布局引擎.md
-> **数据来源**: 代码扫描生成（实读 `packages/layout/src/index.ts` 798 行 + `layered.ts` 260 行 + `packages/layout/package.json`，当日实测）
+> **数据来源**: 代码扫描生成（实读 `packages/lgdl-layout/src/index.ts` 798 行 + `layered.ts` 260 行 + `packages/lgdl-layout/package.json`，当日实测）
 > **创建人**: sddu-docs Agent
 > **创建时间**: 2026-08-30
-> **版本**: v1.0（feature/group-as-node @ `15e5b6b`）
-> **更新说明**: 初始创建（批次 2a 几何层引擎深潜之一）
+> **版本**: v2.0（feature/group-as-node @ `d03dca4`，V2 包名更名）
+> **更新说明**: 初始创建（批次 2a 几何层引擎深潜之一）；V2 增量更新：包名与路径更名（见 §1）
 
 ---
 
@@ -14,12 +14,12 @@
 
 | 属性 | 值 |
 |------|-----|
-| **包名** | `@lgdl/layout`（packages/layout/） |
+| **包名** | `@lgdl/lgdl-layout`（packages/layout/） |
 | **版本** | 0.5.0（package.json:3） |
 | **定位** | 确定性布局引擎：只产出节点的**坐标盒子**（x/y/width/height）与边的**中心到中心粗折线**，不绘制、不走线 |
-| **运行时依赖** | **仅 `@lgdl/core` ^0.5.0**（package.json:19-21 `"dependencies": { "@lgdl/core": "^0.5.0" }`） |
-| **测试** | 无独立测试文件（`packages/layout/src/` 下无 `*.test.*`，当日 `ls` 实测）——布局逻辑被 render/core 测试间接覆盖（根级 G4 缺口） |
-| **被谁消费** | **render 与 web 直接依赖**（render/package.json 依赖 core+layout+router；web/App.tsx:12 `import { layoutDocument } from '@lgdl/layout'`） |
+| **运行时依赖** | **仅 `@lgdl/lgdl-core` ^0.5.0**（package.json:19-21 `"dependencies": { "@lgdl/lgdl-core": "^0.5.0" }`） |
+| **测试** | 无独立测试文件（`packages/lgdl-layout/src/` 下无 `*.test.*`，当日 `ls` 实测）——布局逻辑被 render/core 测试间接覆盖（根级 G4 缺口） |
+| **被谁消费** | **render 与 web 直接依赖**（render/package.json 依赖 lgdl-core+lgdl-layout+lgdl-router；web/App.tsx:12 `import { layoutDocument } from '@lgdl/lgdl-layout'`） |
 | **核心导出** | `layoutDocument`（唯一对外入口，index.ts:120）、类型 `LayoutResult`/`LayoutNode`/`LayoutEdge`（index.ts:19-38） |
 
 **包内文件结构**：
@@ -222,7 +222,7 @@ if (
 
 | # | 位置 | 说明 |
 |---|------|------|
-| L-D1 | packages/layout/package.json:6 description 写「with incremental local re-layout」 | 实读 index.ts/layered.ts 未发现增量局部重布局实现痕迹（布局始终全量重算）——描述与实现不符的候选漂移，建议后续批次核实（本次未 grep 全仓，不作定论） |
+| L-D1 | packages/lgdl-layout/package.json:6 description 写「with incremental local re-layout」 | 实读 index.ts/layered.ts 未发现增量局部重布局实现痕迹（布局始终全量重算）——描述与实现不符的候选漂移，建议后续批次核实（本次未 grep 全仓，不作定论） |
 | L-D2 | 无独立测试文件 | 复用根级 G4：layout 逻辑靠 render/core 测试间接覆盖，布局回归无直接护栏 |
 
 ---

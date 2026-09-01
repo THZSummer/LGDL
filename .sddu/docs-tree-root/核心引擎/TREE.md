@@ -7,11 +7,11 @@
 ```
 核心引擎/
 ├── TREE.md          # 本文件 - 目录导航
-├── core-语义模型.md          # 核心引擎 — core 语义模型深潜
-├── layout-布局引擎.md          # 核心引擎 — layout 布局引擎深潜
-├── render-渲染引擎.md          # 核心引擎 — render 渲染引擎深潜
-├── router-布线引擎.md          # 核心引擎 — router 布线引擎深潜
-└── web-ai助手.md          # 核心引擎 — web AI 助手深潜
+├── core-语义模型.md          # 核心引擎 — core 语义模型深潜（V2：@lgdl/lgdl-core）
+├── layout-布局引擎.md          # 核心引擎 — layout 布局引擎深潜（V2：@lgdl/lgdl-layout）
+├── render-渲染引擎.md          # 核心引擎 — render 渲染引擎深潜（V2：@lgdl/lgdl-render）
+├── router-布线引擎.md          # 核心引擎 — router 布线引擎深潜（V2：@lgdl/lgdl-router）
+└── web-ai助手.md          # 核心引擎 — web AI 助手深潜（V2：@lgdl/lgdl-web + 三层结构）
 ```
 
 ## 文件说明

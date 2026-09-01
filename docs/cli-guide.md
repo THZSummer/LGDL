@@ -14,7 +14,7 @@ lgdl-cli --help                  # 验证安装
 **从源码运行**（开发模式）：
 
 ```bash
-cd packages/cli
+cd packages/lgdl-cli
 npm run build
 node dist/cli.js --help
 ```

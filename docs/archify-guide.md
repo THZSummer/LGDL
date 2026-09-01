@@ -186,7 +186,7 @@ node bin/archify.mjs demo /tmp/archify-demo
 
 ## 与本仓库（LGDL）的关联
 
-LGDL 本身做图表语言与 SVG 渲染（`packages/render`），Archify 的以下思路值得参考：
+LGDL 本身做图表语言与 SVG 渲染（`packages/lgdl-render`），Archify 的以下思路值得参考：
 
 - **确定性渲染**：同一 IR 恒定产出同一成品
 - **交付前门禁 + 结构化诊断**：机器可读规则码 + `supportedFixes`，而非堆栈/自由文本

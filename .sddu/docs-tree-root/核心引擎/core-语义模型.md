@@ -1,12 +1,16 @@
 # 核心引擎 — core 语义模型深潜
 
-> **文档定位**: sddu-docs-deepdive-core — @lgdl/core 包深潜：语言事实来源、手写 YAML 子集解析器、group-as-node 语义模型、增量变更协议、命令注册表与格式转换注册表
+> **文档定位**: sddu-docs-deepdive-core — @lgdl/lgdl-core 包深潜：语言事实来源、手写 YAML 子集解析器、group-as-node 语义模型、增量变更协议、命令注册表与格式转换注册表
 > **输出文件名**: core-语义模型.md
-> **数据来源**: 代码扫描生成（实读 `packages/core/src/` 全部 16 个源文件约 4639 行，当日实测测试 281/281 通过）
+> **数据来源**: 代码扫描生成（实读 `packages/lgdl-core/src/` 全部源文件，当日实测测试 258/258 通过；V2 前基线 281/281）
 > **创建人**: sddu-docs Agent
 > **创建时间**: 2026-08-30
-> **版本**: v1.0（feature/group-as-node @ `15e5b6b`）
-> **更新说明**: 初始创建（批次 2b 语义层引擎深潜之一；承接批次 2a 的 L-D1/R-D1 全仓核实）
+> **版本**: v2.0（feature/group-as-node @ d03dca4，V2 9 包体系）
+> **更新说明**: V2 更新——包名 @lgdl/core → @lgdl/lgdl-core（目录 packages/lgdl-core）；命令注册表（COMMANDS/buildOperation/parseAttrsSpec/parseMemberSpec/defaultKindFor）**迁出至 lgdl-web-cli**（V2 关键变化，见 §5 顶部 V2 注）；测试 281 → 258（V2 纯改名后实测口径）；V2 增量更新：包名与路径更名（见 §1）
+> **创建人**: sddu-docs Agent
+> **创建时间**: 2026-08-30
+> **版本**: v2.0（feature/group-as-node @ `d03dca4`，V2 9 包体系）
+> **更新说明**: 初始创建（批次 2b 语义层引擎深潜之一；承接批次 2a 的 L-D1/R-D1 全仓核实）；V2 增量更新：包名与路径更名（见 §1）
 
 ---
 
@@ -14,16 +18,16 @@
 
 | 属性 | 值 |
 |------|-----|
-| **包名** | `@lgdl/core`（packages/core/） |
+| **包名** | `@lgdl/lgdl-core`（packages/lgdl-core/，V2 由 `@lgdl/core` 更名，git mv 保留历史） |
 | **版本** | 0.5.0（package.json:3） |
-| **定位** | LGDL 语言事实来源：类型定义 + YAML 解析/校验 + 语义模型 + 增量变更 + 命令/格式注册表（package.json:4 `"description": "LGDL parser, model and validation (zero dependencies)"`） |
+| **定位** | LGDL 语言事实来源：类型定义 + YAML 解析/校验 + 语义模型 + 增量变更 + 格式注册表（package.json:4 `"description": "LGDL parser, model and validation (zero dependencies)"`） |
 | **运行时依赖** | **零依赖**（package.json 无 `dependencies` 段，仅 devDependencies: typescript/@types/node）——手写 YAML 子集解析器即是为保持零依赖（parser.ts:4-6 模块头注释） |
-| **被谁消费** | **4 个运行时包**：cli（cli/package.json:14）、layout（layout/package.json:19）、render（render/package.json:20）、web（web/package.json:19） |
-| **测试** | 4 个测试文件（parser/mutations/operations/commands.test.ts），**当日实测 281/281 通过（1365ms）** |
+| **被谁消费** | **5 个包**：lgdl-layout、lgdl-render、lgdl-cli、lgdl-web、lgdl-web-cli（V2 后 cli/layout/render/web 更名 + lgdl-web-cli 新增） |
+| **测试** | 4 个测试文件（parser/mutations/operations/commands.test.ts），**当日实测 258/258 通过**（V2 纯改名后实测；V1 基线 281） |
 
-> ⚠️ **口径修正（相对批次指令）**：任务描述写「被其余 5 包依赖」——实测 **router 零依赖**（router/package.json:18 `"dependencies": {}`，纯几何包，不 import core），因此 core 实际被 **4 包**依赖（cli / layout / render / web）。依赖方向与根级包依赖关系图一致（core 在依赖底端）。
+> ⚠️ **口径修正（相对批次指令）**：任务描述写「被其余 5 包依赖」——实测 **lgdl-router 零依赖**（router/package.json:18 `"dependencies": {}`，纯几何包，不 import core），因此 core 被 **5 包**依赖（V2 后：lgdl-cli / lgdl-layout / lgdl-render / lgdl-web / lgdl-web-cli）。依赖方向与根级包依赖关系图一致（core 在依赖底端）。
 
-**包内文件结构**（16 个源文件，约 4639 行）：
+**包内文件结构**（V2 后 commands.ts 迁出至 lgdl-web-cli，源文件收敛）：
 
 | 文件 | 职责 | 规模 |
 |------|------|------|
@@ -32,13 +36,14 @@
 | `src/groups.ts` | group-as-node 辅助：`groupNodes` / `deriveGroups` 投影 | 33 行 |
 | `src/mutations.ts` | 增量编辑 API（add/remove/update × node/edge/group） | 546 行 |
 | `src/operations.ts` | 结构化操作层：`applyOperation` / `applyOperations`（失败即停） | 220 行 |
-| `src/commands.ts` | 命令注册表（COMMANDS）+ `buildOperation` 门禁（CLI/Web 共享） | 289 行 |
 | `src/queries.ts` / `src/status.ts` | 只读查询与 status 文本（AI 读图） | 104+47 行 |
 | `src/serialize.ts` | 确定性 .lgdl YAML 序列化器（增量工作流 diff 最小化） | 114 行 |
 | `src/converters.ts` | 输出格式转换注册表（register/convert/list） | 31 行 |
 | `src/mermaid.ts` | LGDL → Mermaid 导出（注册 'mermaid'） | 443 行 |
 | `src/mermaid-import.ts` | Mermaid → LGDL 导入（6 方言） | 1553 行 |
 | `src/plantuml.ts` / `src/json.ts` | PlantUML / JSON 导出（侧效应注册） | 106+15 行 |
+
+> **V2 迁出**：`src/commands.ts`（COMMANDS 注册表 + buildOperation 门禁）整体随迁 **@lgdl/lgdl-web-cli**（commands.ts）——机制壳（CommandSpec/KindResolver/requireParams/assertChangeRequested）留 web-cli-base；`defaultKindFor` 注入化为 buildOperation 第 4 参 kindResolver（lgdl-web-cli/adapters/lgdl.ts:44）。lgdl-core 保留解析/校验/变更/序列化/查询/转换，零语义改动。
 | `src/templates.ts` | init 文档骨架模板（按图类型） | 80 行 |
 
 ---
@@ -192,20 +197,22 @@ for (let i = 0; i < ops.length; i++) {
 
 ---
 
-## 5. 命令注册表：19 命令（commands.ts + cli registry + web-cli 子集）
+## 5. 命令注册表：19 命令（V2 后注册表在 lgdl-web-cli）
 
-> ADR-004 锚点：双 CLI 物理分离 + core 命令注册表单一实现。
+> **V2 注**：本节描述的 COMMANDS 注册表在 V2（commit d03dca4）已整体迁至 **@lgdl/lgdl-web-cli/src/commands.ts**（业务层）；web-cli-base 只保留机制壳（CommandSpec/KindResolver/requireParams/assertChangeRequested）。lgdl-core 仍提供解析/变更/查询/序列化领域函数。「core 命令注册表单一实现」决策（ADR-004）在 V2 演进为「**lgdl-web-cli 命令注册表单一实现**」（ADR-V2-002/004：机制留 base、业务随迁）。
 
-**三层结构**（实读确认）：
+> ADR-004 锚点：双 CLI 物理分离 + 命令注册表单一实现（V2 后落点为 lgdl-web-cli）。
+
+**三层结构**（V2 实读确认）：
 
 ```
-core/commands.ts COMMANDS（9 个增量命令的 CommandSpec：参数/必填/changeKeys）
-        ↑ 业务逻辑唯一实现
-        ├── packages/cli/registry.ts（19 命令注册，--file 磁盘文件 + commander argv）
-        └── packages/web/src/ai/web-cli.ts（子集，--doc 编辑器文档 + 文本协议解析）
+lgdl-web-cli/commands.ts COMMANDS（9 个增量命令的 CommandSpec：参数/必填/changeKeys）
+        ↑ 业务逻辑唯一实现（机制壳 CommandSpec/KindResolver 在 web-cli-base）
+        ├── packages/lgdl-cli/src/commands/*.ts（9 个 mutation 命令 import @lgdl/lgdl-web-cli，V2 切换）
+        └── packages/lgdl-web/src/ai/AiPanel.tsx（executeSubcommand 经 @lgdl/lgdl-web-cli/lgdl 消费）
 ```
 
-**19 命令清单**（cli/registry.ts:38-58 数组实读，数 = 19，与 ADR-004 证据 P3 一致）：
+**19 命令清单**（lgdl-cli/registry.ts:38-58 数组实读，数 = 19，与 ADR-004 证据 P3 一致）：
 
 | 类别 | 命令 | 数量 |
 |------|------|-----:|
@@ -214,9 +221,9 @@ core/commands.ts COMMANDS（9 个增量命令的 CommandSpec：参数/必填/cha
 | 格式 | convert / import | 2 |
 | **增量编辑** | add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group | 9 |
 
-**web-cli 子集**（web-cli.ts:84-146 实读）：status / validate / init / convert + **9 个增量命令**（全走 `buildOperation`，web-cli.ts:100-134）+ 6 个只读查询（doc-info/get-node/get-edge/find-node/list-node-kinds/list-diagram-types）。`help.ts:11` 从 core `COMMANDS` 动态生成帮助（命令自文档化，ADR-004 理由之一）。
+**web-cli 子集**（lgdl-web-cli/protocol.ts 实读）：status / validate / init / convert + **9 个增量命令**（全走 `buildOperation`）+ 6 个只读查询（doc-info/get-node/get-edge/find-node/list-node-kinds/list-diagram-types）。`lgdl-web-cli/help.ts` 从本包 `COMMANDS` 动态生成帮助（命令自文档化，ADR-004 理由之一）。
 
-**命令注册表消费链验证**：ops.ts:204-217（Web AI function calling 执行分支）同样走 `core/buildOperation`；help.ts:151-192 增量命令示例从 COMMANDS 注册表取——「业务逻辑只写一次，两端行为严格一致」（commands.ts:8-9）。
+**命令注册表消费链验证**：lgdl-web-cli/adapters/lgdl.ts 组装 lgdlExecutor（Web AI function calling 执行分支）走 `lgdl-web-cli/buildOperation`；lgdl-cli 9 个 mutation 命令 import `@lgdl/lgdl-web-cli`——「业务逻辑只写一次，两端行为严格一致」。
 
 ---
 
@@ -237,9 +244,9 @@ core/commands.ts COMMANDS（9 个增量命令的 CommandSpec：参数/必填/cha
 
 ---
 
-## 7. 测试基线：281 个测试（当日实测复验）
+## 7. 测试基线：258 个测试（V2 实测复验）
 
-**当日实测**：`cd packages/core && npm test` → **281/281 通过（fail 0，1365ms）**。四个测试文件：
+**当日实测**：`cd packages/lgdl-core && npm test` → **258/258 通过（fail 0）**（V1 基线 281——V2 纯改名后 commands.test 随迁 lgdl-web-cli 14 例 + operations.test 9 例，口径变化见 web-ai助手.md §6 守恒表）。四个测试文件：
 
 | 文件 | 规模 | 覆盖主题（实读测试名抽样） |
 |------|-----:|------|
@@ -248,7 +255,7 @@ core/commands.ts COMMANDS（9 个增量命令的 CommandSpec：参数/必填/cha
 | operations.test.ts | 129 行 | applyOperation 九变体、批量失败即停/failedIndex/槽位填充 |
 | commands.test.ts | 120 行 | buildOperation 门禁：必填缺失抛错、no-change 抛错、attrs 无损解析、member 解析 |
 
-> 根级 D7 漂移：CHANGELOG.md:15,27 记载「core 314」——实测 281，差异已在根级漂移清单记录（本档不再重复展开）。
+> 根级 D7 漂移：CHANGELOG.md:15,27 记载「core 314」——实测 258（V1 实测 281），差异已在根级漂移清单记录（本档不再重复展开）。V2 后 commands.test.ts 的 buildOperation 门禁用例随迁 lgdl-web-cli（commands.test.ts 14 例），lgdl-core 保留的 commands.test 计数以实测为准。
 
 ---
 

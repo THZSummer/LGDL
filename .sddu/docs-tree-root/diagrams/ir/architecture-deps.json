@@ -2,51 +2,333 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "LGDL 包依赖关系（package.json 实测）",
+    "title": "LGDL 9 包依赖关系（package.json 实测）",
     "locale": "zh-CN",
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/THZSummer/LGDL",
-      "revision": "15e5b6b1d4caf8df75071e45bcddce59b8bed767"
+      "revision": "d03dca49ba3802df0fd2490b9b9978f121a1c695"
     },
     "views": [
-      { "id": "zero-dep", "label": "零依赖双核", "focus": ["core", "router"], "note": "core 与 router 均零兄弟包依赖。" },
-      { "id": "engine-chain", "label": "引擎依赖链", "focus": ["render", "layout", "router", "core"], "note": "render 依赖三包，layout 只依赖 core。" },
-      { "id": "consumers", "label": "双消费入口", "focus": ["cli", "web"], "note": "cli 与 web 的直连依赖全景。" }
+      {
+        "id": "zero-dep",
+        "label": "零依赖三核",
+        "focus": [
+          "lgdl-core",
+          "lgdl-router",
+          "web-cli-base"
+        ],
+        "note": "lgdl-core / lgdl-router / web-cli-base 均零 @lgdl/* 兄弟包依赖。"
+      },
+      {
+        "id": "adapter",
+        "label": "适配层",
+        "focus": [
+          "lgdl-web-cli",
+          "lgdl-web-op-cli",
+          "web-cli-base",
+          "lgdl-core"
+        ],
+        "note": "两个适配包都建立在纯机制框架 web-cli-base 之上；lgdl-web-cli 另直接依赖 lgdl-core 类型契约。"
+      },
+      {
+        "id": "consumers",
+        "label": "双消费入口",
+        "focus": [
+          "lgdl-cli",
+          "lgdl-web"
+        ],
+        "note": "lgdl-cli 与 lgdl-web 的直连依赖全景（完整清单见包依赖关系-deps.md）。"
+      }
     ]
   },
   "layout": {
     "mode": "grid",
-    "origin": [60, 70],
-    "cols": 3,
-    "gapX": 230,
-    "gapY": 44,
-    "cellW": 250,
-    "cellH": 66
+    "origin": [
+      20,
+      80
+    ],
+    "cols": 4,
+    "gapX": 140,
+    "gapY": 90,
+    "cellW": 200,
+    "cellH": 58
   },
   "components": [
-    { "id": "core", "type": "backend", "label": "@lgdl/core", "sublabel": "零依赖 · 语言事实来源", "row": 0, "col": 1, "size": [250, 66], "sources": [{ "path": "packages/core/package.json", "label": "zero dependencies" }] },
-    { "id": "router", "type": "backend", "label": "@lgdl/router", "sublabel": "零依赖 · 纯几何布线", "row": 1, "col": 0, "size": [250, 66], "sources": [{ "path": "packages/router/package.json", "label": "dependencies: {}" }] },
-    { "id": "layout", "type": "backend", "label": "@lgdl/layout", "sublabel": "仅依赖 core", "row": 1, "col": 2, "size": [250, 66], "sources": [{ "path": "packages/layout/package.json", "label": "仅 core ^0.5.0" }] },
-    { "id": "render", "type": "backend", "label": "@lgdl/render", "sublabel": "依赖 core+layout+router", "row": 2, "col": 1, "size": [250, 66], "sources": [{ "path": "packages/render/src/index.ts", "line": 7, "label": "三包依赖入口" }] },
-    { "id": "cli", "type": "backend", "label": "@lgdl/cli", "sublabel": "commander ^12 · npm 发布", "row": 3, "col": 0, "size": [250, 66], "sources": [{ "path": "packages/cli/package.json", "label": "bin: lgdl-cli" }] },
-    { "id": "web", "type": "frontend", "label": "@lgdl/web", "sublabel": "React 系 · GitHub Pages", "row": 3, "col": 2, "size": [250, 66], "sources": [{ "path": "packages/web/package.json", "label": "11 个前端依赖" }] }
+    {
+      "id": "lgdl-cli",
+      "type": "backend",
+      "label": "@lgdl/lgdl-cli",
+      "sublabel": "commander ^12 · npm 发布",
+      "row": 0,
+      "col": 0,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-cli/package.json",
+          "label": "bin: lgdl-cli"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-web",
+      "type": "frontend",
+      "label": "@lgdl/lgdl-web",
+      "sublabel": "React 系 · GitHub Pages",
+      "row": 0,
+      "col": 3,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-web/package.json",
+          "label": "13 个前端运行时依赖"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-web-cli",
+      "type": "backend",
+      "label": "@lgdl/lgdl-web-cli",
+      "sublabel": "图内容操作适配（9 命令/协议）",
+      "row": 1,
+      "col": 1,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-web-cli/package.json",
+          "label": "NEW · 自 web-cli-base 抽取"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-web-op-cli",
+      "type": "backend",
+      "label": "@lgdl/lgdl-web-op-cli",
+      "sublabel": "UI 操作适配（handler 注入）",
+      "row": 1,
+      "col": 2,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-web-op-cli/package.json",
+          "label": "NEW · 零 React/DOM"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-render",
+      "type": "backend",
+      "label": "@lgdl/lgdl-render",
+      "sublabel": "SVG/ASCII 渲染",
+      "row": 2,
+      "col": 0,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-render/src/index.ts",
+          "line": 7,
+          "label": "三包依赖入口"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-layout",
+      "type": "backend",
+      "label": "@lgdl/lgdl-layout",
+      "sublabel": "自研 Sugiyama 布局",
+      "row": 2,
+      "col": 2,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-layout/package.json",
+          "label": "仅 lgdl-core ^0.5.0"
+        }
+      ]
+    },
+    {
+      "id": "web-cli-base",
+      "type": "backend",
+      "label": "@lgdl/web-cli-base",
+      "sublabel": "纯机制框架（零 @lgdl/* 依赖）",
+      "row": 2,
+      "col": 3,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/web-cli-base/package.json",
+          "label": "deps 仅 openai/anthropic"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-core",
+      "type": "backend",
+      "label": "@lgdl/lgdl-core",
+      "sublabel": "零依赖 · 语言事实来源",
+      "row": 3,
+      "col": 1,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-core/package.json",
+          "label": "zero dependencies"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-router",
+      "type": "backend",
+      "label": "@lgdl/lgdl-router",
+      "sublabel": "零依赖 · 纯几何布线",
+      "row": 3,
+      "col": 3,
+      "size": [
+        200,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-router/package.json",
+          "label": "dependencies: {}"
+        }
+      ]
+    }
   ],
   "boundaries": [],
   "connections": [
-    { "id": "render-core", "from": "render", "to": "core", "label": "core ^0.5.0", "fromSide": "top", "toSide": "bottom", "labelAt": [665, 200] },
-    { "id": "render-layout", "from": "render", "to": "layout", "label": "layout ^0.5.0", "fromSide": "top", "toSide": "left" },
-    { "id": "render-router", "from": "render", "to": "router", "label": "router ^0.5.0", "fromSide": "top", "toSide": "right" },
-    { "id": "layout-core", "from": "layout", "to": "core", "label": "core ^0.5.0", "fromSide": "top", "toSide": "right" },
-    { "id": "cli-render", "from": "cli", "to": "render", "label": "render ^0.5.0", "fromSide": "top", "toSide": "left" },
-    { "id": "cli-core", "from": "cli", "to": "core", "label": "core ^0.5.0", "fromSide": "left", "toSide": "left" },
-    { "id": "web-render", "from": "web", "to": "render", "label": "render ^0.5.0", "fromSide": "top", "toSide": "right" },
-    { "id": "web-layout", "from": "web", "to": "layout", "label": "layout ^0.5.0", "fromSide": "top", "toSide": "bottom", "labelAt": [1166, 320] },
-    { "id": "web-core", "from": "web", "to": "core", "label": "core ^0.5.0", "fromSide": "right", "toSide": "right" }
+    {
+      "id": "cli-webcli",
+      "from": "lgdl-cli",
+      "to": "lgdl-web-cli",
+      "label": "lgdl-web-cli ^0.5.0"
+    },
+    {
+      "id": "web-webcli",
+      "from": "lgdl-web",
+      "to": "lgdl-web-cli",
+      "label": "lgdl-web-cli ^0.5.0"
+    },
+    {
+      "id": "web-opcli",
+      "from": "lgdl-web",
+      "to": "lgdl-web-op-cli",
+      "label": "lgdl-web-op-cli ^0.5.0"
+    },
+    {
+      "id": "webcli-base",
+      "from": "lgdl-web-cli",
+      "to": "web-cli-base",
+      "label": "web-cli-base ^0.5.0",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        820,
+        333
+      ]
+    },
+    {
+      "id": "opcli-base",
+      "from": "lgdl-web-op-cli",
+      "to": "web-cli-base",
+      "label": "web-cli-base ^0.5.0",
+      "labelAt": [
+        960,
+        318
+      ]
+    },
+    {
+      "id": "render-core",
+      "from": "lgdl-render",
+      "to": "lgdl-core",
+      "label": "lgdl-core ^0.5.0"
+    },
+    {
+      "id": "render-layout",
+      "from": "lgdl-render",
+      "to": "lgdl-layout",
+      "label": "lgdl-layout ^0.5.0"
+    },
+    {
+      "id": "render-router",
+      "from": "lgdl-render",
+      "to": "lgdl-router",
+      "label": "lgdl-router ^0.5.0",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          120,
+          600
+        ],
+        [
+          1140,
+          600
+        ]
+      ],
+      "labelAt": [
+        640,
+        593
+      ]
+    },
+    {
+      "id": "layout-core",
+      "from": "lgdl-layout",
+      "to": "lgdl-core",
+      "label": "lgdl-core ^0.5.0"
+    }
   ],
   "cards": [
-    { "dot": "emerald", "title": "依赖不变量（实测）", "items": ["core 不依赖任何兄弟包（语言事实下沉）", "router 不依赖任何兄弟包（纯几何可独立复用）", "layout 不依赖 router / render（布局与走线解耦）"] },
-    { "dot": "cyan", "title": "部署通道", "items": ["@lgdl/cli -> npm（bin: lgdl-cli，v0.5.0 已发布）", "@lgdl/web -> GitHub Pages（deploy-pages.yml）", "全部包间依赖版本约束均为 ^0.5.0"] },
-    { "dot": "amber", "title": "关键调用链（代码证据）", "items": ["render/index.ts:10 引 router routeEdge--v0.6 布线抽出（commit 203a000）", "web 直连 layout：App.tsx compile() 在浏览器内跑同款编译管线", "router 独立 8 条回归测试，可脱离 render 验证绕障"] }
+    {
+      "dot": "emerald",
+      "title": "依赖不变量（实测）",
+      "items": [
+        "web-cli-base 零 @lgdl/* 依赖（类似 Spring 的公共框架，DomainApi<Op,Doc> 泛型化）",
+        "lgdl-core / lgdl-router 零兄弟包依赖",
+        "单向无环：lgdl-core ← lgdl-web-cli ← cli/web 与 web-cli-base ← 适配包 ← cli/web"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "部署通道",
+      "items": [
+        "@lgdl/lgdl-cli -> npm（bin: lgdl-cli，v0.5.0 已发布，@lgdl/cli 更名）",
+        "@lgdl/lgdl-web -> GitHub Pages（deploy-pages.yml）",
+        "全部包间依赖版本约束均为 ^0.5.0"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "关键调用链（代码证据）",
+      "items": [
+        "lgdl-web-cli 另直接依赖 lgdl-core 类型契约（本图未画，见 deps 表）",
+        "web 三工具自新源组装：WEB_CLI_TOOL 自 lgdl-web-cli / WEB_OP_TOOL 自 op-cli / web-fetch 自 base",
+        "lgdl-web-op-cli 的 OpHandlerRegistry 是包定义协议、web 注入 React 回调的执行面"
+      ]
+    }
   ]
 }

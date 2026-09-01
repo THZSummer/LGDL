@@ -1,12 +1,12 @@
 # 核心引擎 — render 渲染引擎深潜
 
-> **文档定位**: sddu-docs-deepdive-render — @lgdl/render 包深潜：SVG/ASCII 双渲染器、形状映射与 15° 锚点系统、标签避让、data-lgdl-loc 源映射、router 消费链
+> **文档定位**: sddu-docs-deepdive-render — @lgdl/lgdl-render 包深潜：SVG/ASCII 双渲染器、形状映射与 15° 锚点系统、标签避让、data-lgdl-loc 源映射、router 消费链
 > **输出文件名**: render-渲染引擎.md
-> **数据来源**: 代码扫描生成（实读 `packages/render/src/index.ts` 1162 行 + `ascii.ts` 805 行 + `svg.test.ts`/`ascii.test.ts` + `packages/render/package.json`，当日实测测试 21/21 通过）
+> **数据来源**: 代码扫描生成（实读 `packages/lgdl-render/src/index.ts` 1162 行 + `ascii.ts` 805 行 + `svg.test.ts`/`ascii.test.ts` + `packages/lgdl-render/package.json`，当日实测测试 21/21 通过）
 > **创建人**: sddu-docs Agent
 > **创建时间**: 2026-08-30
-> **版本**: v1.0（feature/group-as-node @ `15e5b6b`）
-> **更新说明**: 初始创建（批次 2b 呈现层引擎深潜；承接批次 2a 遗留核实 L-D1/R-D1 全仓定论）
+> **版本**: v2.0（feature/group-as-node @ `d03dca4`，V2 包名更名）
+> **更新说明**: 初始创建（批次 2b 呈现层引擎深潜；承接批次 2a 遗留核实 L-D1/R-D1 全仓定论）；V2 增量更新：包名与路径更名（见 §1）
 
 ---
 
@@ -14,7 +14,7 @@
 
 | 属性 | 值 |
 |------|-----|
-| **包名** | `@lgdl/render`（packages/render/） |
+| **包名** | `@lgdl/lgdl-render`（packages/render/） |
 | **版本** | 0.5.0（package.json:3） |
 | **定位** | 把「布局坐标 + 语义文档」渲染为 SVG / ASCII 字符串（package.json:4 description）——**纯函数**：`renderSvg(doc, layout)` / `renderAscii(doc, layout)`，无副作用、无 DOM 依赖 |
 | **运行时依赖** | **core + layout + router 三包**（package.json:19-23）——消费 core 的语义模型、layout 的坐标、router 的走线 |
@@ -132,7 +132,7 @@ for (let k = 0; k < 24; k++) {
 ### 6.1 导入面（render/index.ts:10）
 
 ```ts
-import { routeEdge, shapeEdgePoint, routeRectilinear } from '@lgdl/router';
+import { routeEdge, shapeEdgePoint, routeRectilinear } from '@lgdl/lgdl-router';
 ```
 
 ### 6.2 routeEdge 调用点与参数（render/index.ts:850-860）
@@ -165,7 +165,7 @@ routedEdges.push({ pts: ortho });                // :860
 
 ### 6.5 L-D1 定论（承接，全仓 grep 核实）
 
-**结论：`packages/layout/package.json:4` description「with incremental local re-layout」无任何实现痕迹——漂移确认。** grep 全仓（排除 node_modules/.sddu）：`incremental local re-layout` / `re-layout` / `reLayout` / `relayout` / `incrementalLayout` 仅命中 description 自身，**0 处代码实现**。layout 布局始终全量重算（layoutDocument → layeredRun 全量；layout 文档 §1-§4 实读已证）。描述与实现不符，建议修正 description 或补实现（记录，未修改）。
+**结论：`packages/lgdl-layout/package.json:4` description「with incremental local re-layout」无任何实现痕迹——漂移确认。** grep 全仓（排除 node_modules/.sddu）：`incremental local re-layout` / `re-layout` / `reLayout` / `relayout` / `incrementalLayout` 仅命中 description 自身，**0 处代码实现**。layout 布局始终全量重算（layoutDocument → layeredRun 全量；layout 文档 §1-§4 实读已证）。描述与实现不符，建议修正 description 或补实现（记录，未修改）。
 
 ---
 
@@ -187,7 +187,7 @@ routedEdges.push({ pts: ortho });                // :860
 
 ## 8. 测试基线：21 个测试（当日实测复验）
 
-**当日实测**：`cd packages/render && npm test` → **21/21 通过（fail 0，396ms）**。
+**当日实测**：`cd packages/lgdl-render && npm test` → **21/21 通过（fail 0，396ms）**。
 
 **svg.test.ts（7 条）**：
 
@@ -220,7 +220,7 @@ routedEdges.push({ pts: ortho });                // :860
 |---|------|------|
 | R-D2 | render 发射 `groups[i]` loc ↔ web locate.ts 解析 | **跨包断裂（新发现）**：renderer 发射 `data-lgdl-loc="groups[i]"`（index.ts:549,585,1064），但 web locate.ts 按**顶层 `groups:` 节**解析（locate.ts:67-79 找 `groups:` 行），而 group-as-node 序列化器 serialize.ts **从不输出顶层 `groups:`**（组是 `kind: group` 节点）→ **Web 工作台点击分组盒/泳道无法定位到源码**（locateIssue 返回 null，无跳转）。且 locate.test.ts:24-26 的 SRC fixture 仍是旧版 `groups:` 语法，该路径未被现代模型覆盖（core 文档 §9 C-D2 关联）。建议：locate.ts 支持 group 节点（按 `kind: group` 的节点行解析）或将 group loc 改发射 `nodes[i]` |
 | R-D3 | renderAscii 忽略 LayoutResult（ascii.ts:166 `void layout`） | ASCII 用自己的 rank 网格布局，与 SVG（layout 引擎坐标）几何输入源不同——大图降级/泳道语义下两者结构可能不一致。属设计选择（终端场景拓扑优先），cli render.ts:29 有显式注释，记录 |
-| R-D4 | render/package.json:4 description「LGDL SVG/PNG renderer」 | render 包自身只产 SVG/ASCII 字符串（index.ts:1162 导出面确认）；PNG 由 web 层导出（App.tsx export-png，canvas 下载）——description 中的 PNG 归因不精确，低优先级描述漂移 |
+| R-D4 | lgdl-render/package.json:4 description「LGDL SVG/PNG renderer」 | render 包自身只产 SVG/ASCII 字符串（index.ts:1162 导出面确认）；PNG 由 web 层导出（App.tsx export-png，canvas 下载）——description 中的 PNG 归因不精确，低优先级描述漂移 |
 | R-D5 | routeDefault 兜底（index.ts:935-943） | 返回 `[{0,0},{0,0}]` 零长折线——注释自称「degenerate fallback（dagre 时代的残留）」，正常布局总有 points 不会触发；无测试覆盖该分支，记录 |
 
 ---

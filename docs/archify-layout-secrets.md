@@ -217,8 +217,8 @@ LGDL 与 archify 走同一条「确定性渲染」技术路线（`docs/archify-u
 
 | 维度 | Archify | LGDL 自研 |
 |---|---|---|
-| 布局策略 | 每类型固定常量表 + 纯函数坐标；网格/列/行槽全由 IR 显式指定，无自动布局 | Sugiyama 四阶段自动分层（cycle removal → 最长路径分层 → barycenter 排序 → 坐标），`packages/layout/src/layered.ts:8-21,44-134` |
-| 走线策略 | 确定性候选（桥/狗腿）净空过滤；showcase 禁止交叉，不自动绕障的类型靠门禁逼作者修 | 整图均匀网格 **A\* 搜索**（`routeAStar`，clear=14px 障碍膨胀、bendW=30 转弯罚、方向回退罚），8 组锚点对取质量分最高者，`packages/router/src/index.ts:119-221,613-747` |
+| 布局策略 | 每类型固定常量表 + 纯函数坐标；网格/列/行槽全由 IR 显式指定，无自动布局 | Sugiyama 四阶段自动分层（cycle removal → 最长路径分层 → barycenter 排序 → 坐标），`packages/lgdl-layout/src/layered.ts:8-21,44-134` |
+| 走线策略 | 确定性候选（桥/狗腿）净空过滤；showcase 禁止交叉，不自动绕障的类型靠门禁逼作者修 | 整图均匀网格 **A\* 搜索**（`routeAStar`，clear=14px 障碍膨胀、bendW=30 转弯罚、方向回退罚），8 组锚点对取质量分最高者，`packages/lgdl-router/src/index.ts:119-221,613-747` |
 | 交叉处理 | showcase 把「真交叉 / 共走廊 / 沿边借道」判为 error，由作者手工避让 | `countCrossingsWithRouted` 对每条已布边逐段计数（每次 -1000），路由时即最小化 `index.ts:462-474,202-204` |
 | 贴边处理 | 净空门禁 + 自动端口展开/节奏桥 | `pathHugLength` + 贴边硬罚 -1e5 + 锚点走廊雕刻 `index.ts:523-555,630-693` |
 | 校验时机 | 交付前双层门禁 + 浏览器 4 视口实测 | 编译期 error-only 校验（ADR-005 哲学，`docs/research/edge-routing/lgdl-router-current.md` 有现状对照） |
@@ -269,8 +269,8 @@ LGDL 双全景 8 张图（`.sddu/docs-tree-root/diagrams/` + `业务全景/diagr
 - `bin/archify.mjs:173-196`（checker 诊断与修复映射）`;876-936`（snapshot→render→check）`;1067`（原子 rename）`;1487-1595`（validate）
 
 **LGDL 对照**
-- `packages/layout/src/layered.ts:8-21`（Sugiyama 四阶段）`;108-132`（barycenter）`;209-210`（NODE_SEP/RANK_SEP）
-- `packages/router/src/index.ts:119-221`（routeEdge + quality）`;462-474`（交叉计数）`;523-555`（贴边长度）`;613-747`（A*）`;754-812`（折叠）
+- `packages/lgdl-layout/src/layered.ts:8-21`（Sugiyama 四阶段）`;108-132`（barycenter）`;209-210`（NODE_SEP/RANK_SEP）
+- `packages/lgdl-router/src/index.ts:119-221`（routeEdge + quality）`;462-474`（交叉计数）`;523-555`（贴边长度）`;613-747`（A*）`;754-812`（折叠）
 
 ---
 

@@ -6,8 +6,8 @@
   "visualReview": "pending",
   "artifact": {
     "path": "/home/usb/wks/gits/GitHub/LGDL/.sddu/docs-tree-root/diagrams/dataflow-cli.html",
-    "sha256": "d2e7ddc02f52aa48d17a2380ca48320d99f4f1e60da9d7683ce18376aefb6525",
-    "bytes": 709728
+    "sha256": "a1244c193eb507d44260849555386fc542323fba23b02b7a40473f2bfa254eed",
+    "bytes": 709664
   },
   "state": {
     "detail": "read",

@@ -5,39 +5,202 @@
     "title": "LGDL 终端编译管线（lgdl-cli render）",
     "locale": "zh-CN",
     "quality_profile": "showcase",
-    "viewBox": [1072, 400],
+    "viewBox": [
+      1072,
+      400
+    ],
     "views": [
-      { "id": "main-pipeline", "label": "编译主链", "focus": ["file", "parse", "layout", "render", "svg-out", "ascii-out"], "note": "parseLgdl -> layoutDocument -> renderSvg 三步主链。" },
-      { "id": "error-exit", "label": "错误出口", "focus": ["parse", "stderr"], "note": "error-only 校验失败即终止，不静默降级。" }
+      {
+        "id": "main-pipeline",
+        "label": "编译主链",
+        "focus": [
+          "file",
+          "parse",
+          "layout",
+          "render",
+          "svg-out",
+          "ascii-out"
+        ],
+        "note": "parseLgdl -> layoutDocument -> renderSvg 三步主链。"
+      },
+      {
+        "id": "error-exit",
+        "label": "错误出口",
+        "focus": [
+          "parse",
+          "stderr"
+        ],
+        "note": "error-only 校验失败即终止，不静默降级。"
+      }
     ]
   },
   "stages": [
-    { "label": "源" },
-    { "label": "解析" },
-    { "label": "布局" },
-    { "label": "渲染" },
-    { "label": "输出" }
+    {
+      "label": "源"
+    },
+    {
+      "label": "解析"
+    },
+    {
+      "label": "布局"
+    },
+    {
+      "label": "渲染"
+    },
+    {
+      "label": "输出"
+    }
   ],
   "nodes": [
-    { "id": "file", "type": "external", "label": ".lgdl 文件", "sublabel": "YAML 子集", "stage": 0, "row": 1, "width": 100 },
-    { "id": "stderr", "type": "external", "label": "stderr: 逐条 error", "sublabel": "含 nodes[3].id 式定位", "stage": 1, "row": 0, "width": 150 },
-    { "id": "parse", "type": "backend", "label": "core: parseLgdl", "sublabel": "解析 + 严格校验（error-only）", "stage": 1, "row": 1, "width": 130 },
-    { "id": "layout", "type": "backend", "label": "layout: layoutDocument", "sublabel": "按图类型 dispatch", "stage": 2, "row": 1, "width": 140 },
-    { "id": "render", "type": "backend", "label": "render: renderSvg/renderAscii", "sublabel": "data-lgdl-loc 源映射", "stage": 3, "row": 1, "width": 190 },
-    { "id": "svg-out", "type": "external", "label": "SVG 文本（-o out.svg）", "sublabel": "PNG 由脚本经 resvg 转换", "stage": 4, "row": 0, "width": 170 },
-    { "id": "ascii-out", "type": "external", "label": "ASCII 网格文本", "sublabel": "stdout 输出", "stage": 4, "row": 1, "width": 100 }
+    {
+      "id": "file",
+      "type": "external",
+      "label": ".lgdl 文件",
+      "sublabel": "YAML 子集",
+      "stage": 0,
+      "row": 1,
+      "width": 100
+    },
+    {
+      "id": "stderr",
+      "type": "external",
+      "label": "stderr: 逐条 error",
+      "sublabel": "含 nodes[3].id 式定位",
+      "stage": 1,
+      "row": 0,
+      "width": 150
+    },
+    {
+      "id": "parse",
+      "type": "backend",
+      "label": "lgdl-core",
+      "sublabel": "parseLgdl · 解析 + 严格校验",
+      "stage": 1,
+      "row": 1,
+      "width": 130
+    },
+    {
+      "id": "layout",
+      "type": "backend",
+      "label": "lgdl-layout",
+      "sublabel": "layoutDocument · 类型分派",
+      "stage": 2,
+      "row": 1,
+      "width": 140
+    },
+    {
+      "id": "render",
+      "type": "backend",
+      "label": "lgdl-render",
+      "sublabel": "renderSvg / renderAscii · 源映射",
+      "stage": 3,
+      "row": 1,
+      "width": 190
+    },
+    {
+      "id": "svg-out",
+      "type": "external",
+      "label": "SVG 文本（-o out.svg）",
+      "sublabel": "PNG 由脚本经 resvg 转换",
+      "stage": 4,
+      "row": 0,
+      "width": 170
+    },
+    {
+      "id": "ascii-out",
+      "type": "external",
+      "label": "ASCII 网格文本",
+      "sublabel": "stdout 输出",
+      "stage": 4,
+      "row": 1,
+      "width": 100
+    }
   ],
   "flows": [
-    { "id": "file-parse", "from": "file", "to": "parse", "label": "源码文本", "variant": "emphasis" },
-    { "id": "parse-layout", "from": "parse", "to": "layout", "label": "ParseResult", "variant": "emphasis" },
-    { "id": "parse-stderr", "from": "parse", "to": "stderr", "label": "valid=false", "variant": "dashed", "fromSide": "top", "toSide": "bottom" },
-    { "id": "layout-render", "from": "layout", "to": "render", "label": "LayoutResult", "variant": "emphasis", "labelAt": [626, 220] },
-    { "id": "render-svg", "from": "render", "to": "svg-out", "label": "SVG 文本", "variant": "emphasis", "fromSide": "top", "toSide": "left", "via": [[745, 157]] },
-    { "id": "render-ascii", "from": "render", "to": "ascii-out", "label": "ASCII 文本", "variant": "default" }
+    {
+      "id": "file-parse",
+      "from": "file",
+      "to": "parse",
+      "label": "源码文本",
+      "variant": "emphasis"
+    },
+    {
+      "id": "parse-layout",
+      "from": "parse",
+      "to": "layout",
+      "label": "ParseResult",
+      "variant": "emphasis"
+    },
+    {
+      "id": "parse-stderr",
+      "from": "parse",
+      "to": "stderr",
+      "label": "valid=false",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "layout-render",
+      "from": "layout",
+      "to": "render",
+      "label": "LayoutResult",
+      "variant": "emphasis",
+      "labelAt": [
+        626,
+        220
+      ]
+    },
+    {
+      "id": "render-svg",
+      "from": "render",
+      "to": "svg-out",
+      "label": "SVG 文本",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          745,
+          157
+        ]
+      ]
+    },
+    {
+      "id": "render-ascii",
+      "from": "render",
+      "to": "ascii-out",
+      "label": "ASCII 文本",
+      "variant": "default"
+    }
   ],
   "cards": [
-    { "dot": "emerald", "title": "编译主链（三步）", "items": ["parseLgdl -> layoutDocument -> renderSvg / renderAscii", "终端 / 浏览器 / 示例脚本共用同一套引擎", "触发：lgdl-cli render --file f -o out.svg"] },
-    { "dot": "rose", "title": "error-only 严格校验", "items": ["valid=false 时 render 命令拒绝出图，无警告级静默降级", "错误含可定位路径（如 nodes[3].id）", "契约：ParseResult {document, issues, valid}"] },
-    { "dot": "slate", "title": "输出与源映射", "items": ["契约：LayoutResult {nodes, edges, w, h}", "SVG 内嵌 data-lgdl-loc=\"nodes[i]\"（render/index.ts:411,427）", "PNG 不在管线内：外部脚本经 resvg 转换"] }
+    {
+      "dot": "emerald",
+      "title": "编译主链（三步）",
+      "items": [
+        "parseLgdl -> layoutDocument -> renderSvg / renderAscii",
+        "终端 / 浏览器 / 示例脚本共用同一套引擎",
+        "触发：lgdl-cli render --file f -o out.svg"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "error-only 严格校验",
+      "items": [
+        "valid=false 时 render 命令拒绝出图，无警告级静默降级",
+        "错误含可定位路径（如 nodes[3].id）",
+        "契约：ParseResult {document, issues, valid}"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "输出与源映射",
+      "items": [
+        "契约：LayoutResult {nodes, edges, w, h}",
+        "SVG 内嵌 data-lgdl-loc=\"nodes[i]\"（render/index.ts:411,427）",
+        "PNG 不在管线内：外部脚本经 resvg 转换"
+      ]
+    }
   ]
 }

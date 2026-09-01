@@ -89,9 +89,9 @@ LGDL 的每个概念都有**显性字段**，渲染器从不从文本里猜含�
 - **原生 function calling（三平级工具）**：AI 通过 LLM 原生工具调用操作工作台，文本（表达）与工具（执行）由 API 层明确区分（OpenAI `tool_calls` / Claude `tool_use`）：
   - `lgdl-web-cli`：图内容操作——`status`/`validate`/`init --type`/`convert`、节点/边/分组增删改（9 命令）、只读查询（`doc-info`/`get-node`/`get-edge`/`find-node`/`list-node-kinds`/`list-diagram-types`）；**AI 不直接写 LGDL 源码**——源码只由命令执行产生
   - `lgdl-web-op-cli`：UI 操作——复制源码/导出 SVG-PNG/预览缩放平移重置/点击定位/悬浮高亮/切换示例/**`next-actions` 推荐下一步胶囊**；AI 绘图过程保持页面交互，让用户看得见、有参与感
-  - `lgdl-web-fetch`：基础 web 获取（独立工具，不属任何 CLI，`--path` 必填）
+  - `web-fetch`：基础 web 获取（独立工具，不属任何 CLI，`--path` 必填；V2 由 `lgdl-web-fetch` 中性化改名并归位 web-cli-base）
 - **两层知识（自文档化）**：方法论使用指南 `README-CLI.md` 由系统**会话开始时自动加载**进 system prompt（战略层：三个工具分工、做事流程、陷阱）；具体命令用法一律 **`--help` 按需查询**（战术层：`lgdl-web-cli <cmd> --help` / `help <cmd>`，增量命令参数从 core 命令注册表动态生成，新增命令不用改文档）
-- **双 CLI 分离**：终端 `lgdl-cli`（`--file` 操作磁盘文件）与 Web 协议（lgdl-web-cli，`--doc` 操作编辑器文档）物理分离、场景独立，业务逻辑（命令解析/校验/op 构造）在 core 单一实现；终端 CLI 全部命令同样提供 `--help` 示例
+- **双 CLI 分离**：终端 `lgdl-cli`（`--file` 操作磁盘文件）与 Web 协议（lgdl-web-cli，`--doc` 操作编辑器文档）物理分离、场景独立，业务逻辑（命令解析/校验/op 构造）在 lgdl-web-cli 命令注册表单一实现（机制框架 web-cli-base）；终端 CLI 全部命令同样提供 `--help` 示例
 - **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限，需本地代理（v0.6）
 - 设置面板两步配置：选服务商 + 填 API Key（各服务商 key 独立保存）；「测试连接」一键验证 key / 端点 / CORS
 - agent 循环：每轮 1~3 次工具调用、失败反馈修正、轮数上限可调（默认 1000）；预置快捷操作（语法修复 / 自动优化 / 九种图类型创作等）
@@ -164,11 +164,15 @@ groups:
 ```
 LGDL/
 ├── packages/
-│   ├── core/          # 语言核心：解析、语义模型、校验、格式转换、命令注册表（commands.ts，纯 TS 零依赖）
-│   ├── layout/        # 确定性布局引擎（遵循 Sugiyama 框架的分层：去环/分层/层内排序/坐标分配——算法思想为 1981 Kōzō Sugiyama 提出，实现为自研、零 dagre/elkjs 依赖；含径向树/时序/泳道/甘特专用布局）
-│   ├── render/        # SVG 渲染器（形状、锚点、ASCII 输出）
-│   ├── cli/           # lgdl-cli 终端命令（commander + --file 文件 IO，业务逻辑复用 core/commands.ts）
-│   └── web/           # Web 工作台（React + CodeMirror 6 + lgdl-web-cli 协议 + 自研 SVG 预览）
+│   ├── web-cli-base/      # 纯机制框架（类似 Spring 的公共框架）：命令执行管线、LLM 工具封装、web-fetch 通用工具——零 LGDL 依赖，可复用于任意领域
+│   ├── lgdl-web-cli/      # AI 图内容操作适配：9 个增量命令 + LgdlOperation 协议 + lgdl-web-cli 工具（依赖 web-cli-base + lgdl-core）
+│   ├── lgdl-web-op-cli/   # AI UI 操作适配：OP_COMMANDS 单一数据源 + WEB_OP_TOOL + OpHandlerRegistry 注入面（依赖 web-cli-base，零 React）
+│   ├── lgdl-core/         # 语言核心：解析、语义模型、校验、格式转换（纯 TS 零依赖）
+│   ├── lgdl-layout/       # 确定性布局引擎（遵循 Sugiyama 框架的分层：去环/分层/层内排序/坐标分配——算法思想为 1981 Kōzō Sugiyama 提出，实现为自研、零 dagre/elkjs 依赖；含径向树/时序/泳道/甘特专用布局）
+│   ├── lgdl-render/       # SVG 渲染器（形状、锚点、ASCII 输出）
+│   ├── lgdl-router/       # 正交边布线引擎（A* 网格避障，纯几何零依赖）
+│   ├── lgdl-cli/          # lgdl-cli 终端命令（commander + --file 文件 IO，增量命令业务逻辑复用 lgdl-web-cli 注册表）
+│   └── lgdl-web/          # Web 工作台（React + CodeMirror 6 + lgdl-web-cli/lgdl-web-op-cli 协议 + 自研 SVG 预览）
 ├── docs/              # 设计文档、语言规范、AI 集成指南
 ├── examples/          # 示例 .lgdl 文件
 └── README.md
@@ -183,7 +187,7 @@ LGDL/
 - **确定性**：同样的图（同样的球 + 同样的绳子）→ 铺出来永远是同一张网。AI 改图只改逻辑，不碰坐标，结果可预测、可测试。
 - **语义优先**：布局完全由「球（节点）与绳（关系）的连接结构」决定，而不是任何手工排版命令。LGDL 因此从不描述坐标——只描述逻辑。
 
-`packages/layout` 是这套算法的落点：对**分层图**（flowchart/arch/state/uml-class/er）用**遵循 Sugiyama 框架的分层布局**（去环 → 分层 → 层内排序 → 坐标分配）——该框架由日本学者 **Kōzō Sugiyama 等提出于 1981 年**（《Methods for Visual Understanding of Hierarchical System Structures》），是图可视化领域通用的分层绘制方法；**本项目的分层引擎是该框架的一种自研实现（代码自写，零 dagre/elkjs 依赖）**。对**非分层**（径向树/时序/泳道/甘特）用对应的专用布局。
+`packages/lgdl-layout` 是这套算法的落点：对**分层图**（flowchart/arch/state/uml-class/er）用**遵循 Sugiyama 框架的分层布局**（去环 → 分层 → 层内排序 → 坐标分配）——该框架由日本学者 **Kōzō Sugiyama 等提出于 1981 年**（《Methods for Visual Understanding of Hierarchical System Structures》），是图可视化领域通用的分层绘制方法；**本项目的分层引擎是该框架的一种自研实现（代码自写，零 dagre/elkjs 依赖）**。对**非分层**（径向树/时序/泳道/甘特）用对应的专用布局。
 
 ---
 

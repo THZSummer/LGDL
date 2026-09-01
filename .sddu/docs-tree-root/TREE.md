@@ -21,8 +21,8 @@ docs-tree-root/
 | 文件 | 说明 | 状态 |
 |------|------|------|
 | adr-index.md | LGDL 技术全景 — 架构决策记录（ADR 索引详表） — LGDL 技术全景 — 架构决策记录（ADR 索引详表） | ✅ 存在 |
-| docs-overview.md | LGDL 技术全景 — 全景入口 — ![LGDL 6 包依赖与数据流合并视图](diagrams/architecture-packages.visual-check.1440x900.li... | ✅ 存在 |
-| source.md | LGDL 技术全景 — 产物溯源 — LGDL 技术全景 — 产物溯源 | ✅ 存在 |
+| docs-overview.md | LGDL 技术全景 — 全景入口（v2.0，V2 9 包体系） — ![LGDL 9 包依赖与数据流合并视图](diagrams/architecture-packages.visual-check.1440x900.li... | ✅ 存在 |
+| source.md | LGDL 技术全景 — 产物溯源（v2.0，扫描基准 d03dca4） — LGDL 技术全景 — 产物溯源 | ✅ 存在 |
 
 ## 上级目录
 - [返回上级](../TREE.md)

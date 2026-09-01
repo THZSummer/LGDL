@@ -1,12 +1,12 @@
 # 核心引擎 — router 布线引擎深潜
 
-> **文档定位**: sddu-docs-deepdive-router — @lgdl/router 包深潜：A* 网格搜索、形状边界锚定、质量度量与降级策略
+> **文档定位**: sddu-docs-deepdive-router — @lgdl/lgdl-router 包深潜：A* 网格搜索、形状边界锚定、质量度量与降级策略
 > **输出文件名**: router-布线引擎.md
-> **数据来源**: 代码扫描生成（实读 `packages/router/src/index.ts` 870 行 + `router.test.ts` 191 行 + `packages/router/package.json`，当日实测测试 8/8 通过）
+> **数据来源**: 代码扫描生成（实读 `packages/lgdl-router/src/index.ts` 870 行 + `router.test.ts` 191 行 + `packages/lgdl-router/package.json`，当日实测测试 8/8 通过）
 > **创建人**: sddu-docs Agent
 > **创建时间**: 2026-08-30
-> **版本**: v1.0（feature/group-as-node @ `15e5b6b`）
-> **更新说明**: 初始创建（批次 2a 几何层引擎深潜之二）
+> **版本**: v2.0（feature/group-as-node @ `d03dca4`，V2 包名更名）
+> **更新说明**: 初始创建（批次 2a 几何层引擎深潜之二）；V2 增量更新：包名与路径更名（见 §1）
 
 ---
 
@@ -14,13 +14,13 @@
 
 | 属性 | 值 |
 |------|-----|
-| **包名** | `@lgdl/router`（packages/router/） |
+| **包名** | `@lgdl/lgdl-router`（packages/router/） |
 | **版本** | 0.5.0（package.json:3） |
 | **定位** | 正交边布线引擎：输入「布局折线 + 两端节点盒/形状 kind + 障碍盒集合」，输出「90° 正交、绕开所有第三方盒子的最终折线」（index.ts:1-10 模块头注释） |
 | **运行时依赖** | **`"dependencies": {}`（零依赖，package.json:18 实读确认）**——纯几何，不知 DOM、样式、节点如何绘制（index.ts:4-9） |
 | **测试** | 8 条回归测试（router.test.ts），**当日实测 8/8 通过（381ms）** |
-| **被谁消费** | 仅 render（render/src/index.ts:10 `import { routeEdge, shapeEdgePoint, routeRectilinear } from '@lgdl/router'`） |
-| **来源** | commit `203a000`「refactor(render): 把走线抽到独立的 @lgdl/router 包」——render/index.ts 1858→1103 行；**main 分支（停在 `de2381e`）无此包** |
+| **被谁消费** | 仅 render（render/src/index.ts:10 `import { routeEdge, shapeEdgePoint, routeRectilinear } from '@lgdl/lgdl-router'`） |
+| **来源** | commit `203a000`「refactor(render): 把走线抽到独立的 @lgdl/lgdl-router 包」——render/index.ts 1858→1103 行；**main 分支（停在 `de2381e`）无此包** |
 
 **包内文件结构**：
 
@@ -151,7 +151,7 @@ bends(拐点数)         -20/个
 
 ## 7. 独立成包收益：8 条回归测试独立可跑
 
-**当日实测**：`cd packages/router && npm test` → **8/8 通过**（tests 8, pass 8, fail 0, 381ms）。
+**当日实测**：`cd packages/lgdl-router && npm test` → **8/8 通过**（tests 8, pass 8, fail 0, 381ms）。
 
 | # | 测试（router.test.ts 行号） | 覆盖行为 |
 |---|------|---------|

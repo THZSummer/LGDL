@@ -1,12 +1,12 @@
 # 核心引擎 — web AI 助手深潜
 
-> **文档定位**: sddu-docs-deepdive-web — @lgdl/web 包深潜：Web 工作台 SPA、浏览器内编译管线、CodeMirror 6 编辑器与诊断、data-lgdl-loc 点击定位（R-D2 归因定论）、AI 助手（多厂商接入 / 原生 function calling 三工具 / agent 循环 / 增量执行门禁）
+> **文档定位**: sddu-docs-deepdive-web — @lgdl/lgdl-web 包深潜：Web 工作台 SPA、浏览器内编译管线、CodeMirror 6 编辑器与诊断、data-lgdl-loc 点击定位（R-D2 归因定论）、AI 助手（多厂商接入 / 原生 function calling 三工具 / agent 循环 / 增量执行门禁）；V2 后补充 lgdl-web-cli / lgdl-web-op-cli / web-cli-base 三层结构
 > **输出文件名**: web-ai助手.md
-> **数据来源**: 代码扫描生成（实读 `packages/web/src/` 全部源码：App.tsx 1273 行 + ai/ 8 文件 + locate/snap/examples + core serialize.ts/parser.ts/status.ts 交叉核实，当日实测测试 107/107 通过）
+> **数据来源**: 代码扫描生成（实读 `packages/lgdl-web/src/` 全部源码：App.tsx 1273 行 + ai/ 6 文件 + locate/snap/examples + lgdl-web-cli / lgdl-web-op-cli / web-cli-base 源码 + lgdl-core serialize.ts/parser.ts/status.ts 交叉核实，当日实测测试 32/32 通过；V2 前基线为 107/107）
 > **创建人**: sddu-docs Agent
 > **创建时间**: 2026-08-30
-> **版本**: v1.0（feature/group-as-node @ `15e5b6b`）
-> **更新说明**: 初始创建（批次 2c web AI 助手深潜；承接批次 2b R-D2 归因定论 + R-D4 核实；核心引擎域收官）
+> **版本**: v2.0（feature/group-as-node @ `d03dca4`，V2 9 包体系）
+> **更新说明**: V2 更新——包名 @lgdl/web → @lgdl/lgdl-web（目录 packages/lgdl-web）；AI 执行层迁出：web-cli/ops/next-actions/web-fetch/help 全部迁入新包（lgdl-web-cli / lgdl-web-op-cli / web-cli-base）；测试 107 → 32；新增 §5.6 三层结构
 
 ---
 
@@ -14,30 +14,29 @@
 
 | 属性 | 值 |
 |------|-----|
-| **包名** | `@lgdl/web`（packages/web/） |
+| **包名** | `@lgdl/lgdl-web`（packages/lgdl-web/，V2 由 `@lgdl/web` 更名，git mv 保留历史） |
 | **版本** | 0.5.0（package.json:3） |
 | **定位** | LGDL web workbench — edit .lgdl in the browser, live render（package.json:4） |
 | **发布形态** | `private: true`（package.json:6）——不发布 npm，构建产物部署 GitHub Pages（根级 G1 关联） |
 | **技术栈** | React 18.3 + Vite 5.4 + TypeScript + **CodeMirror 6**（package.json:24-34） |
-| **运行时依赖** | **core + layout + render 三包**（package.json:19-21）——**不依赖 cli**（依赖清单无 @lgdl/cli，双 CLI 物理分离 ADR-004 的 Web 侧印证） |
-| **AI 依赖** | openai ^7.5.0 / @anthropic-ai/sdk ^0.120.0 / react-markdown ^10.1.0 / remark-gfm ^4.0.1（package.json:15,23,26-27） |
-| **测试** | locate / snap / ops / provider / web-cli / next-actions / help 七文件，**当日实测 107/107 通过（1404ms）** |
+| **运行时依赖** | **lgdl-web-cli + lgdl-web-op-cli + web-cli-base + lgdl-core + lgdl-layout + lgdl-render 六包**（V2：三工具自新源组装，不依赖 lgdl-cli——双 CLI 物理分离 ADR-004 的 Web 侧印证） |
+| **AI 依赖** | openai ^7.5.0 / @anthropic-ai/sdk ^0.120.0 / react-markdown ^10.1.0 / remark-gfm ^4.0.1（package.json:15,23,26-27；SDK 直连已收敛——llm.ts 机制在 web-cli-base） |
+| **测试** | locate / snap / provider / lgdl-web 四文件，**当日实测 32/32 通过**（V2 收敛：ops/web-cli/help/next-actions/web-fetch 迁出） |
 
-**包内文件结构**：
+**包内文件结构**（V2 变化：ai/ 目录从 8 文件收敛为 6 文件）：
 
 | 文件 | 职责 | 规模 |
 |------|------|------|
-| `src/App.tsx` | 工作台主界面：编辑器 + 预览 + 编译管线 + AI 面板集成 + SVG/PNG 导出 + lgdl-web-op-cli 执行器 | 1273 行 |
-| `src/ai/AiPanel.tsx` | AI 助手面板：agent 循环、消息渲染（markdown / 命令块 / next-actions 胶囊）、预置提示词 | 572 行 |
-| `src/ai/provider.ts` | 多厂商接入层：8 厂商配置、API Key 管理（localStorage）、三工具 function 定义、chat() 双 SDK 适配、错误归类 | 581 行 |
-| `src/ai/ops.ts` | lgdl-web-cli 执行器：结构化（function calling）与文本解析双入口、executeWebFetch、增量命令门禁链 | 376 行 |
-| `src/ai/web-cli.ts` | lgdl-web-cli 协议解析器（文本形态，--doc 必填，与终端 lgdl-cli 完全分离） | 327 行 |
-| `src/ai/help.ts` | --help 自文档（增量命令参数规格复用 core COMMANDS 注册表，单一数据源） | 322 行 |
-| `src/ai/prompts.ts` | system prompt（表达 vs 执行协议 + 读多写少 + UI 参与 + next-actions 推荐） | 67 行 |
+| `src/App.tsx` | 工作台主界面：编辑器 + 预览 + 编译管线 + AI 面板集成 + SVG/PNG 导出 + opRegistry 注入（V2：handleWebOp 16 分支 → OpHandlerRegistry 注册回调） | 1273 行 |
+| `src/ai/AiPanel.tsx` | AI 助手面板：agent 循环、消息渲染（markdown / 命令块 / next-actions 胶囊）、预置提示词；V2 三工具分发（tc.name 判别 lgdl-web-cli / lgdl-web-op-cli / web-fetch） | 572 行 |
+| `src/ai/provider.ts` | 多厂商接入层：8 厂商配置、API Key 管理（localStorage）、三工具组装（V2：WEB_CLI_TOOL 自 lgdl-web-cli / WEB_OP_TOOL 自 lgdl-web-op-cli / WEB_FETCH_TOOL 自 web-cli-base）、chat() 薄包装（V2：单列表 toolCalls） | 581 行 |
+| `src/ai/lgdl-web.ts` | 接线组装（V2）：lgdlExecutor 自 lgdl-web-cli/lgdl、createExecutor 机制自 web-cli-base、fetch 行处理器（web-fetch 前缀） | 41 行 |
+| `src/ai/prompts.ts` | system prompt（表达 vs 执行协议 + 读多写少 + UI 参与 + next-actions 推荐；V2 改述 web-fetch 中性名） | 67 行 |
 | `src/ai/SettingsPanel.tsx` | API 设置面板（服务商 / Key / 模型 / Base URL / 最大轮数 / 测试连接） | 207 行 |
-| `src/ai/next-actions.ts` | next-actions 推荐解析（label + prompt 胶囊） | 35 行 |
 | `src/locate.ts` | data-lgdl-loc / issue location → 源码字符区间（编辑器跳转） | 202 行 |
 | `src/snap.ts` / `examples.ts` | 示例滑轨吸附纯函数 / 11 个内置示例（单一数据源，examples/ 产物由脚本生成） | — |
+
+> **V2 迁出面**（原 web/ai/ 下文件）：`web-cli.ts`（协议解析）→ lgdl-web-cli/protocol.ts；`ops.ts`（执行层）→ lgdl-web-cli/adapters/lgdl.ts（lgdlExecutor）；`help.ts`（webOpHelp/webFetchHelp）→ lgdl-web-op-cli/help.ts + web-cli-base/help.ts；`next-actions.ts` → lgdl-web-op-cli/next-actions.ts；`web-fetch.ts` → web-cli-base/web-fetch.ts（中性化改名 `web-fetch`）。
 
 ---
 
@@ -160,13 +159,15 @@ serializeLgdl 输出：含顶层 "groups:"？ false；含 "kind: group"？ true
 - **Key 存储**：localStorage `lgdl-ai-settings`（provider.ts:62），**系统不内置任何 key**（:4 注释），per-provider 独立保存、切换互不覆盖（:74-86, 106-122 测试），旧单对象格式自动迁移（:99-111）
 - **连接测试**：`testConnection`（provider.ts:371-386）发最小请求验证 key/端点/CORS；错误归类 `classifyError`（:550-580：401/403 key 无效、404 火山端点提示换套餐、Connection error 提示 CORS/代理）
 
-### 5.2 原生 function calling 三工具（tools 定义）
+### 5.2 原生 function calling 三工具（V2 后自新源组装）
 
-| 工具 | 定义 | 子命令 enum（provider.ts 行号） | 定位 |
+**V2 变化**：三个工具的**定义**迁出 web 包——WEB_CLI_TOOL 在 `@lgdl/lgdl-web-cli`（tools.ts，20 子命令逐字节保留）、WEB_OP_TOOL 在 `@lgdl/lgdl-web-op-cli`（tool.ts，OP_SUBCOMMANDS 动态生成 16 项）、WEB_FETCH_TOOL 在 `@lgdl/web-cli-base`（tools.ts，**中性化改名 `web-fetch`**）。lgdl-web 的 provider.ts 只做**组装**（import 三源 → chat() tools 参数）。
+
+| 工具 | V2 定义源 | 子命令 enum | 定位 |
 |------|------|------|------|
-| **lgdl-web-cli** | provider.ts:282-324 | 20 个：status/validate/init/convert + add/remove/update × node/edge/group + doc-info/get-node/get-edge/find-node/list-node-kinds/list-diagram-types/help | 图内容操作（改文档） |
-| **lgdl-web-op-cli** | provider.ts:232-281 | 16 个：copy-source/toggle-editor/collapse-editor/expand-editor/export-svg/export-png/preview-zoom/preview-pan/preview-reset/preview-click/preview-hover/switch-example/list-examples/list-diagram-types/next-actions/help | UI 操作（与手动点击等效，**无 apply-source——绝不写源码**，:252 描述明示） |
-| **lgdl-web-fetch** | provider.ts:330-358 | 独立基础工具（非 CLI 子命令），--path 必填 | 同源/URL 原始文本获取 |
+| **lgdl-web-cli** | @lgdl/lgdl-web-cli tools.ts | 20 个：status/validate/init/convert + add/remove/update × node/edge/group + doc-info/get-node/get-edge/find-node/list-node-kinds/list-diagram-types/help | 图内容操作（改文档） |
+| **lgdl-web-op-cli** | @lgdl/lgdl-web-op-cli tool.ts | 16 个（OP_SUBCOMMANDS 派生）：copy-source/toggle-editor/collapse-editor/expand-editor/export-svg/export-png/preview-zoom/preview-pan/preview-reset/preview-click/preview-hover/switch-example/list-examples/list-diagram-types/next-actions/help | UI 操作（与手动点击等效，**无 apply-source——绝不写源码**） |
+| **web-fetch** | @lgdl/web-cli-base tools.ts（V2 中性化改名） | 独立基础工具（非 CLI 子命令），--path 必填 | 同源/URL 原始文本获取 |
 
 - OpenAI 兼容端点经 `chat.completions.create` + `tools:`（provider.ts:481-506），Claude 经 Anthropic `messages.create` + `tools:` input_schema（:398-453）
 - 工具参数 `{ subcommand, args }` 平面化（--key value），`parseToolArguments`（:530-547）容错解析（非法 JSON 降级为空对象，执行层报缺参）
@@ -185,46 +186,67 @@ serializeLgdl 输出：含顶层 "groups:"？ false；含 "kind: group"？ true
 | **工具分发** | AiPanel.tsx:413-442 | op-cli → onWebOp（App 执行）；fetch → executeWebFetch；web-cli → executeSubcommand |
 | **写回编辑器** | AiPanel.tsx:436-438 | `exec.changed` → `onApply(exec.source)` → App applyAiSource（App.tsx:907-911：setSource + clear cache）→ 编译管线重跑 |
 
-### 5.4 执行层：ops.ts 增量门禁链（ADR-006/008 技术兜底）
+### 5.4 执行层：lgdl-web-cli 增量门禁链（ADR-006/008 技术兜底，V2 落点）
 
-**AI 无法绕过校验**——结构化执行链（ops.ts:80-253 `executeSubcommand`）：
+**AI 无法绕过校验**——结构化执行链（V2：lgdl-web-cli/adapters/lgdl.ts 组装 lgdlExecutor，机制骨架 web-cli-base/exec.ts）：
 
 ```
-buildOperation(subcommand, args, docType)   ops.ts:217   （core 命令注册表构造 op）
-applyOperation(doc, op)                     ops.ts:229   （core 单一实现）
-validate(r.document)                        ops.ts:239   ★ 门禁：不通过整体拒绝（:240-248）
-serializeLgdl(r.document)                   ops.ts:249   （源码永远由序列化器写出）
+buildOperation(subcommand, args, docType)   lgdl-web-cli/commands.ts   （lgdl-web-cli 注册表构造 op）
+applyOperation(doc, op)                     web-cli-base 泛型工厂 + lgdl-core mutations（V2 泛型化回留 base）
+validate(r.document)                        web-cli-base/exec.ts:294   ★ 门禁：不通过整体拒绝（:294-299）
+serializeLgdl(r.document)                   lgdl-core                  （源码永远由序列化器写出）
 → onApply 写回编辑器 → compile              AiPanel.tsx:436-438
 ```
 
-- **只读命令**（读多写少）：status/validate/doc-info/get-node/get-edge/find-node/list-* 走 core/queries.ts 单一实现（ops.ts:97-171），与终端 lgdl-cli 共享
-- **文本双入口**：`executeCommands`（ops.ts:260-331）逐行解析 `lgdl-web-cli <sub> --doc <id> ...`，失败即停、`--doc` 与当前文档一致性校验（:309-317）
-- **executeWebFetch**（ops.ts:52-71）：--path 必填（缺失即报错，:55），不改文档（changed 恒 false）
-- **help 自文档**：function calling 入口 `subcommand==='help'` 走 webCliHelp（ops.ts:92-95）；文本入口 `--help` 优先级最高（web-cli.ts:58-66，clig.dev 约定）
+- **只读命令**（读多写少）：status/validate/doc-info/get-node/get-edge/find-node/list-* 走 lgdl-core/queries.ts 单一实现（lgdl-web-cli 透传），与终端 lgdl-cli 共享
+- **文本双入口**：`executeCommands` 逐行解析 `lgdl-web-cli <sub> --doc <id> ...`（lgdl-web-cli/exec.test.ts 22 例随迁），失败即停、`--doc` 与当前文档一致性校验
+- **web-fetch**（V2 改名）：`executeWebFetch` 在 web-cli-base/web-fetch.ts——--path 必填（缺失即报错），不改文档（changed 恒 false）
+- **help 自文档**：function calling 入口 `subcommand==='help'` 走 webCliHelp（lgdl-web-cli/help.ts）；文本入口 `--help` 优先级最高（clig.dev 约定）
 
-### 5.5 next-actions 推荐 + markdown 渲染
+### 5.5 next-actions 推荐 + markdown 渲染（V2 后 next-actions 迁 lgdl-web-op-cli）
 
-- **next-actions**（AI 完成任务后推荐下一步）：op-cli `next-actions --actions '[{"label","prompt"}]'`（provider.ts:248-249 描述）→ AiPanel.tsx:414-423 解析 → `parseNextActions`（next-actions.ts:20-35 容错过滤）→ `NextActionsCard` 胶囊（AiPanel.tsx:213-243）→ 点击即把 prompt 作为用户指令发送——**「AI 推荐 → 用户点选 → AI 执行」闭环**；无合理下一步时 AI 不调用（prompts.ts:67）
-- **markdown 渲染**：`ReactMarkdown` + `remarkGfm`（AiPanel.tsx:175-211）：GFM 表格/链接/行内代码；**协议层先行拆分**——chat（markdown 全渲染）与 web-cli（命令块）由消息 type 区分，不靠 markdown 解析猜执行（ADR-007 的 UI 侧呈现）；web-cli 命令块纯展示、**不执行**（执行已由 agent 循环完成，:516-519）
+- **next-actions**（AI 完成任务后推荐下一步）：op-cli `next-actions --actions '[{"label","prompt"}]'` → AiPanel 解析 → `parseNextActions`（**lgdl-web-op-cli/next-actions.ts** 容错过滤）→ `NextActionsCard` 胶囊 → 点击即把 prompt 作为用户指令发送——**「AI 推荐 → 用户点选 → AI 执行」闭环**；无合理下一步时 AI 不调用（prompts.ts:67）
+- **markdown 渲染**：`ReactMarkdown` + `remarkGfm`（AiPanel.tsx:175-211）：GFM 表格/链接/行内代码；**协议层先行拆分**——chat（markdown 全渲染）与 web-cli（命令块）由消息 type 区分，不靠 markdown 解析猜执行（ADR-007 的 UI 侧呈现）；web-cli 命令块纯展示、**不执行**（执行已由 agent 循环完成）
 - **预置提示词**：18 个快捷胶囊（AiPanel.tsx:38-147：语法修复/自动优化/简化/各图类型创作/追加节点/整理分组/转换类型…），点击即发送
+
+### 5.6 V2 三层结构：lgdl-web-cli / lgdl-web-op-cli / web-cli-base（本批补充）
+
+> V2（commit d03dca4）把 web AI 执行体系从「web 包内嵌」重构为「框架层 + 适配层」两层，web 包只剩接线。三层职责与证据：
+
+| 层 | 包 | 职责 | 关键文件（代码证据） |
+|----|-----|------|---------------------|
+| **框架层** | `@lgdl/web-cli-base` | 纯机制：DomainApi<Op,Doc> 泛型契约、createExecutor 管线、createOperationApplier 泛型工厂、createBatchParser 骨架、chat/parseToolArguments/classifyError、web-fetch 通用工具 | exec.ts（DomainApi + ExecutorOptions 注入参数）、operations.ts（泛型工厂）、tools.ts（WEB_FETCH_TOOL 中性名 web-fetch）、web-fetch.ts |
+| **适配层·图内容** | `@lgdl/lgdl-web-cli` | 9 命令注册表（COMMANDS）、LgdlOperation 协议 + lgdlDispatch、WEB_CLI_TOOL（20 子命令）、lgdl-web-cli 协议解析、webCliHelp、lgdlDomain/lgdlExecutor 组装单点 | commands.ts、operations.ts、protocol.ts、tools.ts、help.ts、adapters/lgdl.ts |
+| **适配层·UI 操作** | `@lgdl/lgdl-web-op-cli` | OP_COMMANDS 单一数据源（16 条）→ OP_SUBCOMMANDS → WEB_OP_TOOL 动态生成、webOpHelp、next-actions、**OpHandlerRegistry 注入面**（register/has/execute） | ops.ts、tool.ts、help.ts、next-actions.ts、handlers.ts |
+| **消费接线** | `@lgdl/lgdl-web` | AiPanel 三工具分发（tc.name 判别）、provider.ts 三源组装、App.tsx opRegistry 注册 16 个 React handler 回调（V2：handleWebOp 分支逐行复制为注册回调） | AiPanel.tsx:5,154,394,430、provider.ts:17-20、App.tsx opRegistry |
+
+**执行管线迁移**（V2 关键动作）：web/ai/ops.ts 的执行链（executeSubcommand 全量）随 `adapters/lgdl.ts` 迁入 lgdl-web-cli；机制骨架（createExecutor/validate 门禁）留 web-cli-base 泛型化；web 侧经 `@lgdl/lgdl-web-cli/lgdl` 子路径消费 lgdlExecutor（AiPanel.tsx:5）。**handler 注入面**：lgdl-web-op-cli 定义 `OpHandlerRegistry`（纯协议，零 React/DOM），web App.tsx 用 useMemo 注册 16 个回调（依赖 source/downloadSvg/downloadPng/jumpToIssue/selectExample/applyAiSource），AiPanel 经 onWebOp 转发 registry.execute——「包定义协议、web 注入实现」的职责分离。
+
+**依赖方向**：web-cli-base 零 @lgdl/*（deps 仅 openai/anthropic，FR-018 验收）；lgdl-web-cli → base + lgdl-core；lgdl-web-op-cli → base（仅类型，NFR-004 零 React/DOM grep 通过）；cli 9 mutation 命令 → lgdl-web-cli（R2/EC-002 核验点）。
 
 ---
 
-## 6. 测试基线：107 个测试（当日实测复验）
+## 6. 测试基线：32 个测试（V2 收敛，当日实测复验）
 
-**当日实测**：`cd packages/web && npm test` → **107/107 通过（fail 0，1404ms）**。
+**V1 基线**：`cd packages/web && npm test` → 107/107（locate 10 + snap 8 + ops 27 + provider 20 + web-cli 30 + next-actions 4 + help 8）。
 
-| 文件 | 测试数 | 覆盖 |
-|------|:--:|------|
-| locate.test.ts | 10 | loc 解析（type/nodes/edges/groups/成员/深路径/line N/容错）——**groups 用例基于旧语法 fixture（R-D2 死路径，见 §4.2）** |
-| snap.test.ts | 8 | 示例滑轨吸附纯函数（首/尾/中间/无跳过/钳制） |
-| ops.test.ts | 27 | executeSubcommand/executeCommands 双入口、只读/增量/help/fetch、失败即停、doc 一致性 |
-| provider.test.ts | 20 | 8 厂商配置、per-provider Key 隔离、localStorage 迁移/容错、classifyError、三工具 schema |
-| web-cli.test.ts | 30 | 协议解析（op/status/query/help/fetch、--doc 必填、批处理失败即停、formatStatus） |
-| next-actions.test.ts | 4 | actions JSON 解析容错 |
-| help.test.ts | 8 | 三 CLI --help 自文档输出 |
+**V2 实测**：`cd packages/lgdl-web && npm test` → **32/32 通过（fail 0）**。迁出分布（守恒口径 388 重算）：
 
-> 测试编译脚本（package.json:11）：`tsc` 直编 + `node --test`，无测试框架依赖。
+| 测试面 | V1 位置 | V2 落点 | 数量 |
+|--------|--------|--------|:--:|
+| ops.test（executeSubcommand/executeCommands 双入口、失败即停、doc 一致性） | web/ai/ops.test.ts | → **lgdl-web-cli/exec.test.ts** | 22 |
+| web-cli.test（协议解析） | web/ai/web-cli.test.ts | → **lgdl-web-cli/protocol.test.ts**（26 例）+ web-cli-base（tokenizeCli 1 例） | 27 |
+| provider.test（WEB_OP_TOOL schema） | web/ai/provider.test.ts | → **lgdl-web-op-cli/tool.test.ts** | 1 |
+| provider.test（WEB_FETCH_TOOL） | web/ai/provider.test.ts | → **web-cli-base**（改名 web-fetch） | 1 |
+| ai/help.test（webOpHelp） | web/ai/help.test.ts | → **lgdl-web-op-cli/ops.test.ts** | 3 |
+| ai/help.test（webFetchHelp） | web/ai/help.test.ts | → **web-cli-base/help.test** | 1 |
+| next-actions.test | web/ai/next-actions.test.ts | → **lgdl-web-op-cli/next-actions.test.ts** | 4 |
+| web-fetch.test（前缀断言改名） | web/ai/web-fetch.test.ts | → **web-cli-base/web-fetch.test.ts** | 6 |
+| locate + snap（零改动） | web/ | 留 lgdl-web | 18 |
+| lgdl-web.test（fetch 行路由，前缀改名） | web/ai/lgdl-web.test.ts | 留 lgdl-web | 2 |
+| **lgdl-web 实测合计** | — | locate 10 + snap 8 + provider 12 + lgdl-web 2 | **32** |
+
+> 守恒验证：lgdl-web-cli 76 + lgdl-web-op-cli 11 + web-cli-base 14 + lgdl-web 32 + lgdl-core 258 + lgdl-router 8 + lgdl-render 21 = **420 例全绿（≥388 ✓）**，与 commit d03dca4 记载一致。
 
 ---
 
@@ -232,9 +254,9 @@ serializeLgdl(r.document)                   ops.ts:249   （源码永远由序�
 
 | ADR | 决策 | 代码印证 |
 |-----|------|---------|
-| **ADR-006**（AI 不写源码，只走增量命令） | AI 对图的一切修改只能通过 lgdl-web-cli 增量命令，绝不直接写 LGDL 源码文本；产物必须过 validate 门禁 | prompts.ts:57「**不存在 apply-source 命令——绝不直接写 LGDL 源码**」+ prompts.ts:19-21（不写源码/命令块）；op-cli 工具描述 :252 明示「no apply-source」；ops.ts:239-248 validate 门禁 + serializeLgdl 回写 |
-| **ADR-007**（markdown 协议块升级为原生 function calling） | chat 文本（表达）与工具调用（执行）由 API 字段区分；tool 结果回传、失败反馈修正、轮数上限可调 | provider.ts:481-506（OpenAI tool_calls）/ :398-453（Claude tool_use）；AiPanel.tsx:394 三通道统一执行、:445 tool 角色回传、:441-446 失败修正、:362 MAX_ROUNDS |
-| **ADR-008**（增量编辑协议，AI 永不整图重写） | LgdlOperation 9 种为唯一增量协议；applyOperation 单一实现；源码由序列化器写出 | ops.ts:217-249（buildOperation → applyOperation → validate → serializeLgdl）；web-cli.ts:1-20（协议解析器只供 web，与 lgdl-cli 共享 core 命令注册表）；web-cli.test.ts:17-27（op 结构化断言） |
+| **ADR-006**（AI 不写源码，只走增量命令） | AI 对图的一切修改只能通过 lgdl-web-cli 增量命令，绝不直接写 LGDL 源码文本；产物必须过 validate 门禁 | prompts.ts:57「**不存在 apply-source 命令——绝不直接写 LGDL 源码**」+ prompts.ts:19-21（不写源码/命令块）；op-cli 工具描述明示「no apply-source」；web-cli-base/exec.ts:294-299 validate 门禁 + serializeLgdl 回写（V2 落点） |
+| **ADR-007**（markdown 协议块升级为原生 function calling） | chat 文本（表达）与工具调用（执行）由 API 字段区分；tool 结果回传、失败反馈修正、轮数上限可调 | provider.ts:481-506（OpenAI tool_calls）/ :398-453（Claude tool_use）；AiPanel.tsx:396 单列表 toolCalls 统一执行（V2：ChatResult 单列表）、:452 失败修正、:363 MAX_ROUNDS |
+| **ADR-008**（增量编辑协议，AI 永不整图重写） | LgdlOperation 9 种为唯一增量协议；applyOperation 单一实现；源码由序列化器写出 | lgdl-web-cli/adapters/lgdl.ts（buildOperation → applyOperation → validate → serializeLgdl，V2 落点）；lgdl-web-cli/protocol.ts（协议解析器只供 web）；exec.test.ts 22 例随迁（op 结构化断言） |
 
 ---
 
@@ -251,7 +273,7 @@ serializeLgdl(r.document)                   ops.ts:249   （源码永远由序�
 
 | # | 位置 | 说明 |
 |---|------|------|
-| **W-D1** | provider.ts:504 vs :405-421 | **lgdl-web-fetch 对 OpenAI 兼容端点不可达**：OpenAI 兼容路径 `tools: [WEB_CLI_TOOL, WEB_OP_TOOL]`（:504）**未注册 WEB_FETCH_TOOL**，而响应 filter（:508-515）却允许该名字——模型不会被允许调用它；Claude 路径注册了三个工具（:405-421）。→ lgdl-web-fetch 实际**仅 Claude 可用**；deepseek/qwen/volc/tencent/openai 五个厂商的 AI 无法 fetch。provider.test.ts:245-250 只断言工具定义本身，未覆盖此注册差异。疑为 v0.5 演进（fetch-doc → 独立工具）时 OpenAI 路径漏注册 |
+| **W-D1** | provider.ts:504 vs :405-421 | **web-fetch 对 OpenAI 兼容端点不可达**（V2 沿革，NG-005 明确不修复）：OpenAI 兼容路径 `tools: [WEB_CLI_TOOL, WEB_OP_TOOL]`（:504）**未注册 WEB_FETCH_TOOL**，而响应 filter（:508-515）却允许该名字——模型不会被允许调用它；Claude 路径注册了三个工具（:405-421）。→ web-fetch 实际**仅 Claude 可用**；deepseek/qwen/volc/tencent/openai 五个厂商的 AI 无法 fetch。provider.test.ts:245-250 只断言工具定义本身，未覆盖此注册差异。疑为 v0.5 演进（fetch-doc → 独立工具）时 OpenAI 路径漏注册（V2 保留现场） |
 | **W-D2** | App.tsx:117-120, :166 | **补全词典旧语法残留**：`TOP_KEYS` 仍含 `'groups'`（:117）、`NODE_FIELDS` 含 `'group'` 节点字段（:118）、`GROUP_FIELDS`（:120）与 section 检测支持 `groups:`（:166）——均为 group-as-node 前的旧概念。core 侧实际字段集：DOC_FIELDS = title/type/nodes/edges/meta（parser.ts:28）、NODE_FIELDS = id/label/kind/members/attrs/contains（parser.ts:26）。→ 用户在 Web 编辑器补全出 `groups:` 或 `group:` 会命中 parser 的 Unknown field 错误（error-only，ADR-005 无静默降级，错误可见但体验差）。轻微 UI 残留，与 ADR-002 语义不一致 |
 | **W-D3** | App.tsx:1003-1008 | **preview-click 假成功反馈**（R-D2 的直接放大器）：`jumpToIssue(loc)` 无返回值，locate 失败（null）时 handleWebOp 仍返回「✓ 已定位到 …（编辑器已跳转）」——即使修复 R-D2 的 groups 路径，其他不可定位 loc（如越界索引 `nodes[99]`）也会假成功。建议 jumpToIssue 返回 boolean 并让 handleWebOp 区分反馈 |
 
@@ -262,3 +284,4 @@ serializeLgdl(r.document)                   ops.ts:249   （源码永远由序�
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（批次 2c：web AI 助手深潜 · @lgdl/web；R-D2 归因定论 + R-D4 核实；核心引擎域收官） | 2026-08-30 | sddu-docs Agent |
+| v2.0 | V2 更新：包名 @lgdl/lgdl-web（目录 packages/lgdl-web）；执行层迁出落点（lgdl-web-cli/adapters/lgdl.ts + web-cli-base/exec.ts:294 门禁）；三工具自新源组装 + web-fetch 中性化；新增 §5.6 三层结构（lgdl-web-cli / lgdl-web-op-cli / web-cli-base + handler 注入面）；测试基线 107 → 32（守恒 420 全绿） | 2026-09-01 | sddu-docs Agent |
