@@ -239,44 +239,39 @@ export async function testConnection(settings: ProviderSettings): Promise<TestRe
 }
 
 /**
+ * 三工具同构组装——Claude 与 OpenAI 兼容端点共用（F-04：消除双份组装漂移，
+ * OpenAI 兼容端点补齐 web-fetch，与 Claude 端点对齐；fetch 末尾，避免 tool_choice 优先序变化）。
+ */
+export function buildTools(): { name: string; description: string; parameters: Record<string, unknown> }[] {
+  return [
+    {
+      name: WEB_CLI_TOOL.function.name,
+      description: WEB_CLI_TOOL.function.description,
+      parameters: WEB_CLI_TOOL.function.parameters,
+    },
+    {
+      name: WEB_OP_TOOL.function.name,
+      description: WEB_OP_TOOL.function.description,
+      parameters: WEB_OP_TOOL.function.parameters,
+    },
+    {
+      name: WEB_FETCH_TOOL.function.name,
+      description: WEB_FETCH_TOOL.function.description,
+      parameters: WEB_FETCH_TOOL.function.parameters,
+    },
+  ];
+}
+
+/**
  * 调用 LLM（非流式，完整返回）——薄包装：构造中性 LlmConfig 调新包 chat。
  * 签名 chat(settings, turns) 保持不变（AiPanel.tsx:390 调用点零改动）。
  * 抛错时 message 已按「key 无效 / 网络不通 / CORS 不允许」归类。
  */
 export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promise<ChatResult> {
   const provider = providerById(settings.providerId);
-  // 注册组装留 web（D-011）：Claude 3 工具；OpenAI 兼容端点 2 工具（W-D1 现场保留，F-04 修复点不移动，NG-005）
-  const isClaude = provider.id === 'claude';
-  const tools = isClaude
-    ? [
-        {
-          name: WEB_CLI_TOOL.function.name,
-          description: WEB_CLI_TOOL.function.description,
-          parameters: WEB_CLI_TOOL.function.parameters,
-        },
-        {
-          name: WEB_OP_TOOL.function.name,
-          description: WEB_OP_TOOL.function.description,
-          parameters: WEB_OP_TOOL.function.parameters,
-        },
-        {
-          name: WEB_FETCH_TOOL.function.name,
-          description: WEB_FETCH_TOOL.function.description,
-          parameters: WEB_FETCH_TOOL.function.parameters,
-        },
-      ]
-    : [
-        {
-          name: WEB_CLI_TOOL.function.name,
-          description: WEB_CLI_TOOL.function.description,
-          parameters: WEB_CLI_TOOL.function.parameters,
-        },
-        {
-          name: WEB_OP_TOOL.function.name,
-          description: WEB_OP_TOOL.function.description,
-          parameters: WEB_OP_TOOL.function.parameters,
-        },
-      ];
+  // 三工具统一组装（F-04：OpenAI 兼容端点补齐 WEB_FETCH_TOOL，与 Claude 端点对齐；
+  // 注册组装留 web，D-011；chat 为薄包装，NG-005 边界内小重构）
+  const tools = buildTools();
   return llmChat(
     {
       apiKey: settings.apiKey,

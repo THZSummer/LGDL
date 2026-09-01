@@ -431,6 +431,16 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">${parts.join('')}</svg>`;
 }
 
+/**
+ * F-03: group 节点在 doc.nodes 的文档序索引。
+ * deriveGroups 返回新构造对象（无节点引用）→ 按 id 反查；findIndex >= 0 守卫与
+ * :427 edgeIdx / :595 initIdx 同款模式。合成元素（如 datastream 的 `_default`
+ * 泳道）在 doc.nodes 无对应节点 → 返回 -1 → 调用方不发 loc。
+ */
+function groupNodeIdx(doc: LgdlDocument, group: LgdlGroup): number {
+  return doc.nodes.findIndex((n) => n.kind === 'group' && n.id === group.id);
+}
+
 /** General renderer (flowchart/mindmap/arch/datastream), with optional class-node styling. */
 function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' | 'uml-class' | 'datastream' | 'er' | 'mindmap' | 'state'): string {
   const parts: string[] = [];
@@ -545,8 +555,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     groups.forEach((group, i) => {
       const laneX = 40 + i * 260;
       const fill = GROUP_FILLS[i % GROUP_FILLS.length];
+      // loc uses the group node's document-order index in doc.nodes;
+      // synthesized `_default` lane has no node -> -1 -> no loc (EC-001)
+      const idx = groupNodeIdx(doc, group);
       parts.push(
-        `<g class="lgdl-lane" data-lgdl-loc="groups[${i}]"><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="${fill}" stroke="#e2e8f0"/>` +
+        `<g class="lgdl-lane"${idx >= 0 ? ` data-lgdl-loc="nodes[${idx}]"` : ''}><rect x="${laneX}" y="40" width="260" height="${layout.height - 40}" fill="${fill}" stroke="#e2e8f0"/>` +
           `<rect x="${laneX}" y="40" width="260" height="36" fill="#eef2ff" stroke="#e2e8f0"/>` +
           `${text(laneX + 130, 58, group.label ?? group.id, 13, '#4338ca')}</g>` +
           anchorDots({ x: laneX, y: 40, w: 260, h: layout.height - 40 }, '#64748b'),
@@ -578,11 +591,11 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       const box = boxOf.get(group.id);
       if (!box) return;
       const fill = GROUP_FILLS[i % GROUP_FILLS.length];
-      // data-lgdl-loc must use the ORIGINAL document index, not the sorted
-      // draw order
-      const groupIdx = groups.indexOf(group);
+      // data-lgdl-loc must use the ORIGINAL document index (group node's
+      // position in doc.nodes), not the sorted draw order
+      const idx = groupNodeIdx(doc, group);
       parts.push(
-        `<g class="lgdl-group" data-lgdl-loc="groups[${groupIdx}]"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="${fill}" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>` +
+        `<g class="lgdl-group"${idx >= 0 ? ` data-lgdl-loc="nodes[${idx}]"` : ''}><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8" fill="${fill}" stroke="#d1d5db" stroke-dasharray="6 4"/>${text(box.x + 12, box.y + 18, group.label ?? group.id, 12, '#6b7280', 'start')}</g>` +
           anchorDots(box, '#64748b'),
       );
     });
@@ -1059,9 +1072,11 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
       h: Math.max(...ye) - Math.min(...ys) + 20,
       label: group.label ?? group.id,
     };
+    // loc uses the group node's document-order index in doc.nodes
+    const idx = groupNodeIdx(doc, group);
     // fill + header text + bottom separator (explicit 泳道分隔线)
     parts.push(
-      `<g class="lgdl-gantt-lane" data-lgdl-loc="groups[${gi}]">` +
+      `<g class="lgdl-gantt-lane"${idx >= 0 ? ` data-lgdl-loc="nodes[${idx}]"` : ''}>` +
         `<rect x="${band.x}" y="${band.y}" width="${band.w}" height="${band.h}" fill="${laneFills[gi % laneFills.length]}" stroke="#cbd5e1" stroke-dasharray="4 3"/>` +
         `<rect x="${band.x}" y="${band.y}" width="${band.w}" height="22" fill="${laneFills[gi % laneFills.length]}" stroke="#cbd5e1"/>` +
         `<text x="${band.x + 10}" y="${band.y + 15}" font-family="${FONT_FAMILY}" font-size="12" fill="#475569" text-anchor="start" dominant-baseline="middle">${escapeXml(band.label)}</text>` +

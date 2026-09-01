@@ -187,7 +187,10 @@ test('renderSvg emits data-lgdl-loc source mappings on nodes, edges and groups',
   assert.ok(svg.includes('data-lgdl-loc="nodes[0]"'), 'node a mapped');
   assert.ok(svg.includes('data-lgdl-loc="nodes[1]"'), 'node b mapped');
   assert.ok(svg.includes('data-lgdl-loc="edges[0]"'), 'edge mapped');
-  assert.ok(svg.includes('data-lgdl-loc="groups[0]"'), 'group mapped');
+  // g1 is a `kind: group` node — the 3rd node (document index 2)
+  assert.ok(svg.includes('data-lgdl-loc="nodes[2]"'), 'group node mapped');
+  // no stale references to the removed top-level `groups:` section (NFR-003)
+  assert.ok(!svg.includes('data-lgdl-loc="groups['), 'no stale groups[] loc');
   const locs = [...svg.matchAll(/data-lgdl-loc="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(locs.length >= 4, `loc count: ${locs.length}`);
 });

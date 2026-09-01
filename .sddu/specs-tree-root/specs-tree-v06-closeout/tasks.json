@@ -1,0 +1,139 @@
+{
+  "feature": "specs-tree-v06-closeout",
+  "featureName": "v0.6 收口五件套（F-01~F-05）",
+  "generatedAt": "2026-09-01",
+  "generatedBy": "sddu-tasks",
+  "version": "1.0",
+  "summary": {
+    "totalTasks": 7,
+    "byComplexity": { "S": 1, "M": 6, "L": 0 },
+    "waves": 3,
+    "criticalPath": ["TASK-003", "TASK-004", "TASK-007"]
+  },
+  "waves": {
+    "1": ["TASK-001", "TASK-002", "TASK-003", "TASK-005"],
+    "2": ["TASK-004", "TASK-006"],
+    "3": ["TASK-007"]
+  },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "F-01 deploy-pages.yml 补 lgdl-router（paths + build 顺序）",
+      "complexity": "S",
+      "dependencies": [],
+      "wave": 1,
+      "fr": ["FR-001", "FR-002"],
+      "files": [
+        { "op": "MODIFY", "path": ".github/workflows/deploy-pages.yml" }
+      ],
+      "acceptance": [
+        "yml paths 区块含 packages/lgdl-router/** 条目",
+        "build 命令 workspace 顺序为 layout → router → render（render 之前）",
+        "干净 node_modules 下以修复后命令本地跑通，render 无 TS2307"
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "name": "F-02 新建 ci.yml 测试工作流（单 job 六步）",
+      "complexity": "M",
+      "dependencies": [],
+      "softDependencies": ["TASK-001"],
+      "wave": 1,
+      "fr": ["FR-003", "NFR-004"],
+      "files": [
+        { "op": "NEW", "path": ".github/workflows/ci.yml" }
+      ],
+      "acceptance": [
+        "ci.yml 存在于 .github/workflows/",
+        "步骤链 6 步，build 先于 test 顺序硬约束",
+        "步骤数 >=5 且无逐包嵌套循环",
+        "workflow 首跑全绿，与本地 test --workspaces 一致（420 不降）"
+      ]
+    },
+    {
+      "id": "TASK-003",
+      "name": "F-03-TDD红 locate.test.ts fixture 现代语法化 + svg.test.ts 断言改 + 残留断言（S1+S2）",
+      "complexity": "M",
+      "dependencies": [],
+      "wave": 1,
+      "fr": ["FR-005", "FR-006", "EC-004"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/locate.test.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-render/src/svg.test.ts" }
+      ],
+      "acceptance": [
+        "npm run test --workspace @lgdl/lgdl-web 全绿（S1 locate 侧兼容）",
+        "npm run test --workspace @lgdl/lgdl-render 红（S2 红锚点，renderer 仍发射 groups[0]）",
+        "fixture 现代语法被 parser 接受（parseLgdl 可解析）",
+        "新增断言覆盖 group 节点行定位 nodes[2] + contains 行内列表成员 nodes[2].contains[0]"
+      ]
+    },
+    {
+      "id": "TASK-004",
+      "name": "F-03-TDD绿 renderer 三处 loc 发射改 nodes[i]（S3）",
+      "complexity": "M",
+      "dependencies": ["TASK-003"],
+      "wave": 2,
+      "fr": ["FR-004", "NFR-003", "EC-001", "EC-002"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-render/src/index.ts" }
+      ],
+      "acceptance": [
+        "三处发射均改为 data-lgdl-loc=nodes[idx]，idx 为 doc.nodes 文档序索引",
+        "npm run test --workspace @lgdl/lgdl-render 转绿（红锚点反转）",
+        "输出中无 data-lgdl-loc=groups[ 残留",
+        "svg.test.ts locs.length >= 4 保持成立"
+      ]
+    },
+    {
+      "id": "TASK-005",
+      "name": "F-04 provider.ts 提取 buildTools() + provider.test.ts 补 2 用例",
+      "complexity": "M",
+      "dependencies": [],
+      "wave": 1,
+      "fr": ["FR-008", "FR-009"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/provider.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/provider.test.ts" }
+      ],
+      "acceptance": [
+        "provider.test.ts 新增 2 用例全绿，现有 13 用例不受影响",
+        "OpenAI 兼容分支 tools 含 3 项（WEB_CLI+WEB_OP+WEB_FETCH），fetch 末尾",
+        "7 个 OpenAI 兼容 provider 全部获得 fetch 工具",
+        "web-cli-base llm.test.ts 分发用例全绿（工具数 2→3 回归）"
+      ]
+    },
+    {
+      "id": "TASK-006",
+      "name": "F-05 App.tsx jumpToIssue boolean + preview-click 反馈 + hover 文案",
+      "complexity": "M",
+      "dependencies": [],
+      "batchWith": ["TASK-003", "TASK-004"],
+      "wave": 2,
+      "fr": ["FR-010", "FR-011", "EC-003"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/App.tsx" }
+      ],
+      "acceptance": [
+        "jumpToIssue 签名 (location: string | undefined) => boolean",
+        "preview-click 三态反馈正确（缺失/失败/成功）",
+        "preview-hover 失败文案不含 groups[0]",
+        "npm run build --workspace @lgdl/lgdl-web 通过（调用点零改动编译通过）"
+      ]
+    },
+    {
+      "id": "TASK-007",
+      "name": "全仓回归门禁（build 依赖序 + test --workspaces，420 不降）",
+      "complexity": "M",
+      "dependencies": ["TASK-001", "TASK-002", "TASK-004", "TASK-005", "TASK-006"],
+      "wave": 3,
+      "fr": ["NFR-001", "NFR-002", "NFR-003"],
+      "files": [],
+      "acceptance": [
+        "全仓 test --workspaces 全绿且测试总数 >=420",
+        "web 包 build 通过无类型错误",
+        "svg 残留断言（无 data-lgdl-loc=groups[）通过"
+      ]
+    }
+  ]
+}

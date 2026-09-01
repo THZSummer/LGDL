@@ -465,7 +465,7 @@ const ZoomableSvg = React.forwardRef<PreviewController, {
   }, []);
 
   // left-click an element -> jump to its source location ("nodes[3]",
-  // "edges[1]", "groups[0]", "nodes[0].members[2]"...). Rendered by the
+  // "edges[1]", "nodes[0].members[2]"...). Rendered by the
   // renderer as data-lgdl-loc on every interactive SVG element.
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = (e.target as Element).closest('[data-lgdl-loc]');
@@ -923,17 +923,20 @@ export function App(): React.JSX.Element {
 
 
   // click an issue / preview element -> jump to the location in the editor,
-  // centering the target line vertically and moving the cursor onto it
-  const jumpToIssue = useCallback((location: string | undefined) => {
+  // centering the target line vertically and moving the cursor onto it.
+  // Returns false when the editor is not mounted, the location is missing, or
+  // locateIssue fails (F-05: callers need the real result, no more fake success).
+  const jumpToIssue = useCallback((location: string | undefined): boolean => {
     const view = editorViewRef.current;
-    if (!view || !location) return;
+    if (!view || !location) return false;
     const span = locateIssue(view.state.doc.toString(), location);
-    if (!span) return;
+    if (!span) return false;
     view.dispatch({
       selection: { anchor: span.from },
       effects: EditorView.scrollIntoView(span.from, { y: 'center' }),
     });
     view.focus();
+    return true;
   }, []);
 
   /**
@@ -1009,8 +1012,9 @@ export function App(): React.JSX.Element {
     reg.register('preview-click', (args) => {
       const loc = args.loc;
       if (!loc) return '✖ preview-click 需要 loc 参数（如 nodes[3]）';
-      jumpToIssue(loc);
-      return `✓ 已定位到 ${loc}（编辑器已跳转）`;
+      // 按真实结果反馈（F-05）：locate 失败不再假成功——AI 得到真实信号
+      const ok = jumpToIssue(loc);
+      return ok ? `✓ 已定位到 ${loc}（编辑器已跳转）` : `✖ 未定位到 ${loc}（locate 失败）`;
     });
     reg.register('preview-hover', (args) => {
       const loc = args.loc;
@@ -1021,7 +1025,7 @@ export function App(): React.JSX.Element {
       root.querySelectorAll('.lgdl-hovered').forEach((el) => el.classList.remove('lgdl-hovered'));
       if (loc !== 'none') {
         const target = root.querySelector(`[data-lgdl-loc="${loc}"]`);
-        if (!target) return `✖ 未找到元素 ${loc}（试试 nodes[3] / edges[1] / groups[0]）`;
+        if (!target) return `✖ 未找到元素 ${loc}（试试 nodes[3] / edges[1]）`;
         target.classList.add('lgdl-hovered');
       }
       return loc === 'none' ? '✓ 已取消悬浮' : `✓ 已悬浮 ${loc}（预览中高亮 + 显示锚点）`;
