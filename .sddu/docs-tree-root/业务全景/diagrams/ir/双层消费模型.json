@@ -11,7 +11,7 @@
     { "id": "human", "type": "external", "label": "人类决策者", "sublabel": "理解 → 决策 → 指挥", "pos": [30, 96], "size": [150, 76] },
     { "id": "opcli", "type": "frontend", "label": "op-cli 协调层", "sublabel": "人与 AI 体系的协调层", "pos": [30, 300], "size": [150, 76] },
     { "id": "ai", "type": "external", "label": "AI Agent（操作者）", "sublabel": "意图：subcommand + args", "pos": [230, 180], "size": [170, 76] },
-    { "id": "cli", "type": "frontend", "label": "lgdl-cli 终端命令面", "sublabel": "19 命令 · 磁盘 IO", "pos": [470, 90], "size": [170, 66] },
+    { "id": "cli", "type": "frontend", "label": "lgdl-cli 终端命令面", "sublabel": "16 命令 · 磁盘 IO", "pos": [470, 90], "size": [170, 66] },
     { "id": "webcli", "type": "frontend", "label": "lgdl-web-cli Web 助手", "sublabel": "function calling 三工具", "pos": [470, 320], "size": [170, 66] },
     { "id": "core", "type": "backend", "label": "core 语言引擎", "sublabel": "严格校验 · 命令注册表", "pos": [800, 240], "size": [170, 66] },
     { "id": "output", "type": "database", "label": "图产物", "sublabel": "SVG · PNG · ASCII", "pos": [1070, 240], "size": [140, 66] }

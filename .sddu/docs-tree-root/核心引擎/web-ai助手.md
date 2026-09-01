@@ -216,7 +216,7 @@ serializeLgdl(r.document)                   lgdl-core                  （源码
 | 层 | 包 | 职责 | 关键文件（代码证据） |
 |----|-----|------|---------------------|
 | **框架层** | `@lgdl/web-cli-base` | 纯机制：DomainApi<Op,Doc> 泛型契约、createExecutor 管线、createOperationApplier 泛型工厂、createBatchParser 骨架、chat/parseToolArguments/classifyError、web-fetch 通用工具 | exec.ts（DomainApi + ExecutorOptions 注入参数）、operations.ts（泛型工厂）、tools.ts（WEB_FETCH_TOOL 中性名 web-fetch）、web-fetch.ts |
-| **适配层·图内容** | `@lgdl/lgdl-web-cli` | 9 命令注册表（COMMANDS）、LgdlOperation 协议 + lgdlDispatch、WEB_CLI_TOOL（20 子命令）、lgdl-web-cli 协议解析、webCliHelp、lgdlDomain/lgdlExecutor 组装单点 | commands.ts、operations.ts、protocol.ts、tools.ts、help.ts、adapters/lgdl.ts |
+| **适配层·图内容** | `@lgdl/lgdl-web-cli` | 6 命令注册表（COMMANDS）、LgdlOperation 协议 + lgdlDispatch、WEB_CLI_TOOL（17 子命令）、lgdl-web-cli 协议解析、webCliHelp、lgdlDomain/lgdlExecutor 组装单点 | commands.ts、operations.ts、protocol.ts、tools.ts、help.ts、adapters/lgdl.ts |
 | **适配层·UI 操作** | `@lgdl/lgdl-web-op-cli` | OP_COMMANDS 单一数据源（16 条）→ OP_SUBCOMMANDS → WEB_OP_TOOL 动态生成、webOpHelp、next-actions、**OpHandlerRegistry 注入面**（register/has/execute） | ops.ts、tool.ts、help.ts、next-actions.ts、handlers.ts |
 | **消费接线** | `@lgdl/lgdl-web` | AiPanel 三工具分发（tc.name 判别）、provider.ts 三源组装、App.tsx opRegistry 注册 16 个 React handler 回调（V2：handleWebOp 分支逐行复制为注册回调） | AiPanel.tsx:5,154,394,430、provider.ts:17-20、App.tsx opRegistry |
 

@@ -23,8 +23,6 @@ import type {
   AddEdgeOptions,
   UpdateNodeOptions,
   UpdateEdgeOptions,
-  AddGroupOptions,
-  UpdateGroupOptions,
 } from '@lgdl/lgdl-core';
 import {
   addNode,
@@ -33,9 +31,6 @@ import {
   removeEdge,
   updateNode,
   updateEdge,
-  addGroup,
-  removeGroup,
-  updateGroup,
 } from '@lgdl/lgdl-core';
 
 export type { LgdlOperation } from '@lgdl/lgdl-core';
@@ -55,16 +50,10 @@ export function describeOperation(op: LgdlOperation): string {
       return `remove-edge ${op.from} -> ${op.to}${op.label ? ` [${op.label}]` : ''}`;
     case 'update-edge':
       return `update-edge ${op.from} -> ${op.to}`;
-    case 'add-group':
-      return `add-group ${op.id}`;
-    case 'remove-group':
-      return `remove-group ${op.id}`;
-    case 'update-group':
-      return `update-group ${op.id}`;
   }
 }
 
-/** 领域 mutation 注入面（ADR-005：分派器与 9 个 mutation 解耦，由适配层注入）。 */
+/** 领域 mutation 注入面（ADR-005：分派器与 6 个 mutation 解耦，由适配层注入）。 */
 export interface OperationMutations {
   addNode: (doc: LgdlDocument, opts: AddNodeOptions) => MutationResult;
   removeNode: (doc: LgdlDocument, id: string) => MutationResult;
@@ -72,13 +61,10 @@ export interface OperationMutations {
   addEdge: (doc: LgdlDocument, opts: AddEdgeOptions) => MutationResult;
   removeEdge: (doc: LgdlDocument, from: string, to: string, label?: string) => MutationResult;
   updateEdge: (doc: LgdlDocument, opts: UpdateEdgeOptions) => MutationResult;
-  addGroup: (doc: LgdlDocument, opts: AddGroupOptions) => MutationResult;
-  removeGroup: (doc: LgdlDocument, id: string) => MutationResult;
-  updateGroup: (doc: LgdlDocument, opts: UpdateGroupOptions) => MutationResult;
 }
 
 /**
- * LGDL 9 个 op 变体分派映射（ADR-004：switch case 体逐行复制，零改写）。
+ * LGDL 6 个 op 变体分派映射（ADR-004：switch case 体逐行复制，零改写）。
  * 供 base 泛型工厂 createOperationApplier 注入。
  */
 export const lgdlDispatch: Record<string, (doc: LgdlDocument, op: LgdlOperation) => MutationResult> = {
@@ -90,6 +76,7 @@ export const lgdlDispatch: Record<string, (doc: LgdlDocument, op: LgdlOperation)
       kind: o.kind,
       group: o.group,
       members: o.members,
+      contains: o.contains,
       attrs: o.attrs,
     });
   },
@@ -103,6 +90,8 @@ export const lgdlDispatch: Record<string, (doc: LgdlDocument, op: LgdlOperation)
       kind: o.kind,
       memberAdd: o.memberAdd,
       memberRemove: o.memberRemove,
+      containsAdd: o.containsAdd,
+      containsRemove: o.containsRemove,
       attrs: o.attrs,
     });
   },
@@ -132,26 +121,6 @@ export const lgdlDispatch: Record<string, (doc: LgdlDocument, op: LgdlOperation)
       label: o.label,
       cardinalityFrom: o.cardinalityFrom,
       cardinalityTo: o.cardinalityTo,
-      attrs: o.attrs,
-    });
-  },
-  'add-group': (doc, op) => {
-    const o = op as Extract<LgdlOperation, { op: 'add-group' }>;
-    return addGroup(doc, {
-      id: o.id,
-      label: o.label,
-      contains: o.contains,
-    });
-  },
-  'remove-group': (doc, op) => removeGroup(doc, (op as Extract<LgdlOperation, { op: 'remove-group' }>).id),
-  'update-group': (doc, op) => {
-    const o = op as Extract<LgdlOperation, { op: 'update-group' }>;
-    return updateGroup(doc, {
-      id: o.id,
-      newId: o.newId,
-      label: o.label,
-      memberAdd: o.memberAdd,
-      memberRemove: o.memberRemove,
       attrs: o.attrs,
     });
   },

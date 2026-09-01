@@ -138,7 +138,7 @@ groups:
     contains: [user, order, auth]
 ```
 
-`flowchart` 完整示例见 [examples/](examples/)，节点 `kind` 取值：`start | end | process | decision | entity | note | state | milestone`。
+`flowchart` 完整示例见 [examples/](examples/)，节点 `kind` 取值：`start | end | process | decision | entity | note | state | milestone | group`。
 
 ---
 
@@ -151,7 +151,7 @@ groups:
 | `lgdl-cli status --file <f>` | 输出文本化图结构（AI 可读） |
 | `lgdl-cli add-node / update-node / remove-node` | 增量编辑节点（`--member` / `--member-add` / `--member-remove` 管理类成员） |
 | `lgdl-cli add-edge / update-edge / remove-edge` | 增量编辑边（`--cardinality-from` / `--cardinality-to` 设多重性） |
-| `lgdl-cli add-group / remove-group` | 增量编辑分组 |
+| `lgdl-cli add-node --kind group --contains ...` / `update-node --contains-add/--contains-remove` / `remove-node` | 增量编辑分组（分组即 `kind: group` 节点） |
 | `lgdl-cli convert --file <f> --as mermaid\|plantuml\|json [-o out]` | 导出为其他格式 |
 | `lgdl-cli import --file <f> --from mermaid --output out.lgdl` | 从 Mermaid 导入为 LGDL |
 
@@ -165,7 +165,7 @@ groups:
 LGDL/
 ├── packages/
 │   ├── web-cli-base/      # 纯机制框架（类似 Spring 的公共框架）：命令执行管线、LLM 工具封装、web-fetch 通用工具——零 LGDL 依赖，可复用于任意领域
-│   ├── lgdl-web-cli/      # AI 图内容操作适配：9 个增量命令 + LgdlOperation 协议 + lgdl-web-cli 工具（依赖 web-cli-base + lgdl-core）
+│   ├── lgdl-web-cli/      # AI 图内容操作适配：6 个增量命令 + LgdlOperation 协议 + lgdl-web-cli 工具（依赖 web-cli-base + lgdl-core）
 │   ├── lgdl-web-op-cli/   # AI UI 操作适配：OP_COMMANDS 单一数据源 + WEB_OP_TOOL + OpHandlerRegistry 注入面（依赖 web-cli-base，零 React）
 │   ├── lgdl-core/         # 语言核心：解析、语义模型、校验、格式转换（纯 TS 零依赖）
 │   ├── lgdl-layout/       # 确定性布局引擎（遵循 Sugiyama 框架的分层：去环/分层/层内排序/坐标分配——算法思想为 1981 Kōzō Sugiyama 提出，实现为自研、零 dagre/elkjs 依赖；含径向树/时序/泳道/甘特专用布局）

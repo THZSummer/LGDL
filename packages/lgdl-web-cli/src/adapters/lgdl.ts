@@ -48,7 +48,7 @@ export const lgdlKindResolver: KindResolver = (docType?: string): string => {
   return 'process';
 };
 
-/** LGDL 操作分派器单例（ADR-005：注入 lgdlDispatch 9 变体，分派语义与迁移前一致）。 */
+/** LGDL 操作分派器单例（ADR-005：注入 lgdlDispatch 6 变体，分派语义与迁移前一致）。 */
 export const lgdlApplier: {
   applyOperation: (doc: LgdlDocument, operation: LgdlOperation) => MutationResult<LgdlDocument>;
   applyOperations: (doc: LgdlDocument, ops: LgdlOperation[]) => OperationBatchResult<LgdlDocument>;

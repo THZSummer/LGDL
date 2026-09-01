@@ -89,12 +89,12 @@ lgdl-cli update-node --file my-diagram.lgdl-cli --id login --label "输入新密
 # 删节点（自动清理关联边）
 lgdl-cli remove-node --file my-diagram.lgdl-cli --id login
 
-# 加分组建分组
-lgdl-cli add-group --file my-diagram.lgdl-cli --id frontend --label "前端层" --contains start,login
+# 加分组（分组即 kind:group 节点，--contains 需配合 --kind group）
+lgdl-cli add-node --file my-diagram.lgdl-cli --id frontend --label "前端层" --kind group --contains start,login
 ```
 
-**`kind` 只能使用以下 8 个值**（用别的会报错）：
-`start` `end` `process` `decision` `entity` `note` `state` `milestone`
+**`kind` 可选值**（用别的会报错）：
+`start` `end` `process` `decision` `entity` `note` `state` `milestone` `group`（`group` 用于分组容器节点）
 
 **扩展属性（图专属字段）**用 `--attrs`：
 ```bash
@@ -133,21 +133,19 @@ lgdl-cli render --file my-diagram.lgdl -o my-diagram.svg
 | `lgdl-cli init <file>` | 创建空图 | — |
 | `lgdl-cli status <file>` | 输出文本结构（AI 读图） | — |
 | `lgdl-cli render <file>` | 渲染 SVG | `-o 输出文件` |
-| `lgdl-cli add-node <file>` | 加节点 | `--id` `--label` `--kind` `--group` `--member` `--attrs` |
-| `lgdl-cli remove-node <file>` | 删节点（自动清边） | `--id` |
-| `lgdl-cli update-node <file>` | 改节点 | `--id` `--label` `--kind` `--member-add` `--member-remove` `--attrs` |
+| `lgdl-cli add-node <file>` | 加节点（`--kind group --contains` 建分组） | `--id` `--label` `--kind` `--group` `--contains` `--member` `--attrs` |
+| `lgdl-cli remove-node <file>` | 删节点/分组（自动清边） | `--id` |
+| `lgdl-cli update-node <file>` | 改节点（分组成员用 `--contains-add`/`--contains-remove`） | `--id` `--label` `--kind` `--member-add` `--member-remove` `--contains-add` `--contains-remove` `--attrs` |
 | `lgdl-cli add-edge <file>` | 加边 | `--from` `--to` `--label` `--cardinality-from` `--cardinality-to` `--attrs` |
 | `lgdl-cli update-edge <file>` | 改边 | `--from` `--to` `--label` `--cardinality-from` `--cardinality-to` `--attrs` |
 | `lgdl-cli remove-edge <file>` | 删边 | `--from` `--to` |
-| `lgdl-cli add-group <file>` | 加分组 | `--id` `--label` `--contains` |
-| `lgdl-cli remove-group <file>` | 删分组 | `--id` |
 
 ---
 
 ## 4. 最佳实践（AI 容易犯的错）
 
 1. **不要手写整个 .lgdl 文件**——语法容易错。用 `lgdl-cli init` + 增量命令逐步构建。
-2. **`kind` 只有 8 个合法值**——不确定就先 `lgdl-cli status` 或查上表，别编造（如 `process3`）。
+2. **`kind` 只有 9 个合法值**（含 `group` 分组）——不确定就先 `lgdl-cli status` 或查上表，别编造（如 `process3`）。
 3. **`id` 是标识符**——可以用数字（如 `1111`）但会被当字符串处理；别用空格和特殊符号。
 4. **删节点会连带删边**——`remove-node` 后确认关联边是否需要重建。
 5. **渲染前先确认没有 error**——`lgdl-cli status` 或 `render` 会列出错误，先修再交付。
@@ -178,8 +176,8 @@ lgdl-cli add-edge --file login-flow.lgdl-cli --from login --to verify --label "�
 lgdl-cli add-edge --file login-flow.lgdl-cli --from verify --to ok --label "通过"
 lgdl-cli add-edge --file login-flow.lgdl-cli --from verify --to fail --label "失败"
 
-# 4. 加分组建前端层
-lgdl-cli add-group --file login-flow.lgdl-cli --id frontend --label "前端层" --contains start,login
+# 4. 加分组（前端层）
+lgdl-cli add-node --file login-flow.lgdl-cli --id frontend --label "前端层" --kind group --contains start,login
 
 # 5. 读图确认
 lgdl-cli status --file login-flow.lgdl

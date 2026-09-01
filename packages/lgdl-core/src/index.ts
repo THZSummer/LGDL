@@ -11,17 +11,12 @@ export {
   removeEdge,
   updateNode,
   updateEdge,
-  addGroup,
-  removeGroup,
-  updateGroup,
 } from './mutations.js';
 export type {
   AddNodeOptions,
   AddEdgeOptions,
   UpdateNodeOptions,
   UpdateEdgeOptions,
-  AddGroupOptions,
-  UpdateGroupOptions,
   MutationResult,
 } from './mutations.js';
 export { serializeLgdl } from './serialize.js';

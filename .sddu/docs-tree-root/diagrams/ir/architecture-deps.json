@@ -95,7 +95,7 @@
       "id": "lgdl-web-cli",
       "type": "backend",
       "label": "@lgdl/lgdl-web-cli",
-      "sublabel": "图内容操作适配（9 命令/协议）",
+      "sublabel": "图内容操作适配（6 命令/协议）",
       "row": 1,
       "col": 1,
       "size": [

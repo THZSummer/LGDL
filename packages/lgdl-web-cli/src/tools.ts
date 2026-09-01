@@ -19,7 +19,8 @@ export const WEB_CLI_TOOL: {
     name: 'lgdl-web-cli',
     description:
       'Execute an lgdl-web-cli command on the current editor document. ' +
-      'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / help. ' +
+      'Subcommands: status / validate / init / convert / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / help. ' +
+      'Groups are nodes (kind=group): create a group with add-node --kind group --contains a,b; remove with remove-node; add/remove members with update-node --contains-add / --contains-remove. ' +
       '--doc is implied (always the current document). Args use --key value style, e.g. lgdl-web-cli add-node --id user --label 用户 ' +
       '(JSON: {"subcommand":"add-node","args":{"id":"user","label":"用户"}}). ' +
       'NOT SURE about a command or its args? Use subcommand "help" with {"topic":"<cmd>"} — e.g. {"subcommand":"help","args":{"topic":"add-node"}} ' +
@@ -33,7 +34,6 @@ export const WEB_CLI_TOOL: {
             'status', 'validate', 'init', 'convert',
             'add-node', 'remove-node', 'update-node',
             'add-edge', 'remove-edge', 'update-edge',
-            'add-group', 'remove-group', 'update-group',
             'doc-info', 'get-node', 'get-edge', 'find-node',
             'list-node-kinds', 'list-diagram-types',
             'help',

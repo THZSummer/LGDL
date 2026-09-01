@@ -28,9 +28,9 @@
 | **lgdl-layout** | 库包 | 确定性布局引擎：自研 Sugiyama 分层（`layered.ts`）+ 分组感知两层布局 + 5 种专用布局。仅依赖 lgdl-core | 依赖 lgdl-core；被 lgdl-render 与 lgdl-web 直接依赖 |
 | **lgdl-router** | 库包 | 正交边布线引擎：A* 网格搜索 + 形状边界锚定，纯几何、零依赖、不知 DOM 与样式。⚠️ README 此前未提及（V2 全景已补） | 零包间依赖；被 lgdl-render 依赖（从 render 抽出，commit `203a000`） |
 | **lgdl-render** | 库包 | SVG/ASCII 渲染器：形状映射、锚点系统、标签避让、`data-lgdl-loc` 源映射。依赖 lgdl-core + lgdl-layout + lgdl-router | 流水线末端；同时被 lgdl-cli 与 lgdl-web 消费 |
-| **lgdl-cli** | 应用包 | 终端 `lgdl-cli`：19 个命令（init/render/status/queries/convert/import/9 个增量编辑），commander + `--file` 磁盘 IO。依赖 lgdl-web-cli + lgdl-core + lgdl-render + commander | 发布到 npm 的门面包（V2 由 cli 更名，bin 不变） |
+| **lgdl-cli** | 应用包 | 终端 `lgdl-cli`：16 个命令（init/render/status/queries/convert/import/6 个增量编辑），commander + `--file` 磁盘 IO。依赖 lgdl-web-cli + lgdl-core + lgdl-render + commander | 发布到 npm 的门面包（V2 由 cli 更名，bin 不变） |
 | **lgdl-web** | 应用包（private） | Web 工作台：React 18 + Vite + CodeMirror 6，内嵌与终端同管线的编译循环 + AI 助手（原生 function calling 三工具）。依赖适配层 ×2 + web-cli-base + 引擎 ×3 | 部署到 GitHub Pages 的 SPA（V2 由 web 更名） |
-| **lgdl-web-cli** | 库包（V2 新增） | 图内容操作适配：COMMANDS 9 命令注册表、LgdlOperation 协议、WEB_CLI_TOOL、lgdl-web-cli 协议解析、help 自文档、lgdlDomain/lgdlExecutor 组装单点 | 依赖 web-cli-base（机制）+ lgdl-core（类型）；被 lgdl-cli 与 lgdl-web 消费 |
+| **lgdl-web-cli** | 库包（V2 新增） | 图内容操作适配：COMMANDS 6 命令注册表、LgdlOperation 协议、WEB_CLI_TOOL、lgdl-web-cli 协议解析、help 自文档、lgdlDomain/lgdlExecutor 组装单点 | 依赖 web-cli-base（机制）+ lgdl-core（类型）；被 lgdl-cli 与 lgdl-web 消费 |
 | **lgdl-web-op-cli** | 库包（V2 新增） | UI 操作适配：OP_COMMANDS 单一数据源（16 条）→ WEB_OP_TOOL 动态生成、webOpHelp、next-actions、OpHandlerRegistry 注入面。零 React/DOM | 依赖 web-cli-base（仅类型）；被 lgdl-web 消费 |
 | **web-cli-base** | 库包 | **纯机制框架**：DomainApi<Op,Doc> 泛型契约、createExecutor 管线、createOperationApplier 泛型工厂、协议解析骨架、LLM 工具封装、web-fetch 通用工具。**零 @lgdl/* 依赖**（deps 仅 openai/anthropic SDK） | 被 lgdl-web-cli / lgdl-web-op-cli / lgdl-web 依赖（V2 纯化） |
 

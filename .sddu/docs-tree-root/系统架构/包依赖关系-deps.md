@@ -63,4 +63,4 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建 | 2026-08-30 | sddu-docs Agent |
-| v2.0 | V2 9 包体系：6 包更名 lgdl-*、新增 lgdl-web-cli/lgdl-web-op-cli 依赖边、web-cli-base 零 lgdl 依赖、cli 9 命令切换依赖源 | 2026-09-01 | sddu-docs Agent |
+| v2.0 | V2 9 包体系：6 包更名 lgdl-*、新增 lgdl-web-cli/lgdl-web-op-cli 依赖边、web-cli-base 零 lgdl 依赖、cli 6 命令切换依赖源 | 2026-09-01 | sddu-docs Agent |

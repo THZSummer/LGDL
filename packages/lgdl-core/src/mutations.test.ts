@@ -7,9 +7,6 @@ import {
   removeEdge,
   updateNode,
   updateEdge,
-  addGroup,
-  removeGroup,
-  updateGroup,
   serializeLgdl,
   parseLgdl,
   exportMermaid,
@@ -212,18 +209,20 @@ test('updateEdge merges attrs', () => {
   assert.deepEqual(document.edges[0].attrs, { k: 1, cardinality: '1..1' });
 });
 
-test('addGroup creates group with members', () => {
-  const { document, summary } = addGroup(BASE, { id: 'g2', label: 'G2', contains: ['b'] });
+test('addNode with kind:group creates a group with members', () => {
+  const { document, summary } = addNode(BASE, { id: 'g2', label: 'G2', kind: 'group', contains: ['b'] });
   assert.equal(groupNodes(document).length, 2);
   assert.deepEqual(groupNodes(document)[1].contains, ['b']);
-  assert.ok(summary.includes('added group "g2"'));
+  assert.ok(summary.includes('added node "g2"'));
+  assert.ok(summary.includes(':group'));
+  assert.ok(summary.includes('1 member(s)'));
 });
 
-test('addGroup rejects unknown member', () => {
-  assert.throws(() => addGroup(BASE, { id: 'g2', contains: ['ghost'] }), /unknown node or group/);
+test('addNode rejects unknown member', () => {
+  assert.throws(() => addNode(BASE, { id: 'g2', kind: 'group', contains: ['ghost'] }), /unknown node or group/);
 });
 
-test('addGroup supports nested groups (group id in contains)', () => {
+test('addNode supports nested groups (group id in contains)', () => {
   const doc: Parameters<typeof addNode>[0] = {
     ...BASE,
     nodes: [
@@ -231,20 +230,20 @@ test('addGroup supports nested groups (group id in contains)', () => {
       { id: 'inner', label: '内层', kind: 'group', contains: ['a'] },
     ],
   };
-  const { document, summary } = addGroup(doc, { id: 'outer', label: '外层', contains: ['inner', 'b'] });
+  const { document, summary } = addNode(doc, { id: 'outer', label: '外层', kind: 'group', contains: ['inner', 'b'] });
   assert.equal(groupNodes(document).length, 2);
   assert.deepEqual(groupNodes(document)[1].contains, ['inner', 'b']);
-  assert.ok(summary.includes('added group "outer"'));
+  assert.ok(summary.includes('added node "outer"'));
   // resulting document is valid (nesting is legal)
   const res = parseLgdl(serializeLgdl(document));
   assert.equal(res.valid, true, res.issues.map((i) => i.message).join('; '));
 });
 
-test('addGroup rejects member already in another group', () => {
-  assert.throws(() => addGroup(BASE, { id: 'g2', contains: ['a'] }), /already belongs to group "g1"/);
+test('addNode rejects member already in another group', () => {
+  assert.throws(() => addNode(BASE, { id: 'g2', kind: 'group', contains: ['a'] }), /already belongs to group "g1"/);
 });
 
-test('addGroup rejects a group already nested in another group', () => {
+test('addNode rejects a group already nested in another group', () => {
   const doc: Parameters<typeof addNode>[0] = {
     ...BASE,
     nodes: [
@@ -253,18 +252,18 @@ test('addGroup rejects a group already nested in another group', () => {
       { id: 'g3', label: 'G3', kind: 'group', contains: ['g2'] },
     ],
   };
-  assert.throws(() => addGroup(doc, { id: 'g4', contains: ['g2'] }), /already belongs to group "g3"/);
+  assert.throws(() => addNode(doc, { id: 'g4', kind: 'group', contains: ['g2'] }), /already belongs to group "g3"/);
 });
 
-test('addGroup rejects self-containment', () => {
-  assert.throws(() => addGroup(BASE, { id: 'g2', contains: ['g2'] }), /cannot contain itself/);
+test('addNode rejects self-containment', () => {
+  assert.throws(() => addNode(BASE, { id: 'g2', kind: 'group', contains: ['g2'] }), /cannot contain itself/);
 });
 
-test('addGroup rejects invalid id chars', () => {
-  assert.throws(() => addGroup(BASE, { id: 'bad group!' }), /Invalid group id/);
+test('addNode rejects invalid id chars', () => {
+  assert.throws(() => addNode(BASE, { id: 'bad group!', kind: 'group' }), /Invalid node id/);
 });
 
-test('removeGroup detaches it from parent groups (nested)', () => {
+test('removeNode detaches a group from parent groups (nested)', () => {
   const doc: Parameters<typeof addNode>[0] = {
     ...BASE,
     nodes: [
@@ -273,20 +272,20 @@ test('removeGroup detaches it from parent groups (nested)', () => {
       { id: 'outer', kind: 'group', contains: ['inner', 'b'] },
     ],
   };
-  const { document } = removeGroup(doc, 'inner');
+  const { document } = removeNode(doc, 'inner');
   assert.equal(groupNodes(document).length, 1);
   assert.deepEqual(groupNodes(document)[0].contains, ['b'], 'outer no longer references removed group');
   const res = parseLgdl(serializeLgdl(document));
   assert.equal(res.valid, true, res.issues.map((i) => i.message).join('; '));
 });
 
-test('removeGroup removes group', () => {
-  const { document } = removeGroup(BASE, 'g1');
+test('removeNode removes a group', () => {
+  const { document } = removeNode(BASE, 'g1');
   assert.equal(groupNodes(document).length, 0);
 });
 
-test('removeGroup throws on missing', () => {
-  assert.throws(() => removeGroup(BASE, 'nope'), /not found/);
+test('removeNode throws on missing', () => {
+  assert.throws(() => removeNode(BASE, 'nope'), /Node not found/);
 });
 
 test('exportMermaid flowchart', () => {
@@ -930,7 +929,7 @@ test('flowchart label with brackets/pipes survives convert -> import', () => {
   assert.equal(back.document.edges[0].label, '使用[缓存]');
 });
 
-test('removeGroup auto-cleans aggregate edges', () => {
+test('removeNode auto-cleans aggregate edges of a group', () => {
   const doc: Parameters<typeof addNode>[0] = {
     type: 'flowchart',
     nodes: [
@@ -940,9 +939,9 @@ test('removeGroup auto-cleans aggregate edges', () => {
     ],
     edges: [{ from: 'g1', to: 'b', label: '整体' }],
   };
-  const r = removeGroup(doc, 'g1');
+  const r = removeNode(doc, 'g1');
   assert.equal(r.document.edges.length, 0);
-  assert.ok(r.summary.includes('aggregate edge'));
+  assert.ok(r.summary.includes('attached edge'));
   // result validates
   const res = parseLgdl(serializeLgdl(r.document));
   assert.equal(res.valid, true);
@@ -2547,7 +2546,7 @@ test('updateEdge rewrites endpoints preserving semantics', () => {
   assert.deepEqual(e.attrs, { weight: 'high' });
 });
 
-test('updateGroup manages members and renames with reference rewrite', () => {
+test('updateNode manages group members and renames with reference rewrite', () => {
   const doc: Parameters<typeof addNode>[0] = {
     type: 'flowchart',
     nodes: [
@@ -2557,12 +2556,13 @@ test('updateGroup manages members and renames with reference rewrite', () => {
     ],
     edges: [{ from: 'lane1', to: 'b', label: '整体' }],
   };
-  const r1 = updateGroup(doc, { id: 'lane1', memberAdd: 'b' });
+  const r1 = updateNode(doc, { id: 'lane1', containsAdd: ['b'] });
   assert.deepEqual(groupNodes(r1.document)[0].contains, ['a', 'b']);
-  const r2 = updateGroup(r1.document, { id: 'lane1', newId: 'lane2' });
+  assert.ok(r1.summary.includes('contains+ b'));
+  const r2 = updateNode(r1.document, { id: 'lane1', newId: 'lane2' });
   assert.ok(groupNodes(r2.document).some((g) => g.id === 'lane2'));
   assert.equal(r2.document.edges[0].from, 'lane2');
-  assert.throws(() => updateGroup(doc, { id: 'lane1', memberAdd: 'a' }), /already in group/);
+  assert.throws(() => updateNode(doc, { id: 'lane1', containsAdd: ['a'] }), /already in group/);
 });
 
 test('node and group id collision is rejected', () => {
@@ -2984,4 +2984,140 @@ test('empty labels stay addressable through serialization', () => {
   // and the empty label edge can be addressed
   const r = removeEdge(back.document, 'a', 'b', '');
   assert.equal(r.document.edges.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// 护栏测试（specs-tree-unify-group-cmd：DD-001~003 / EC-001~008 / FR-002 原子性）
+// group 命令合并后，node 命令承载分组操作，以下护栏确保行为不回归。
+// ---------------------------------------------------------------------------
+
+test('DD-002: addNode with contains but no explicit group kind throws with guidance', () => {
+  // kindResolver 默认注入 process —— 不传 kind 时 contains 不得被静默忽略
+  assert.throws(
+    () => addNode(BASE, { id: 'g2', contains: ['b'] }),
+    /kind.*group|group.*kind/,
+  );
+  assert.throws(
+    () => addNode(BASE, { id: 'g2', contains: ['b'] }),
+    /请显式传 --kind group/,
+  );
+});
+
+test('EC-002: addNode with contains and explicit non-group kind throws', () => {
+  assert.throws(
+    () => addNode(BASE, { id: 'g2', kind: 'entity', contains: ['b'] }),
+    /请显式传 --kind group/,
+  );
+  assert.throws(
+    () => addNode(BASE, { id: 'g2', kind: 'state', contains: ['b'] }),
+    /请显式传 --kind group/,
+  );
+});
+
+test('EC-003: updateNode with containsAdd/containsRemove on non-group node throws', () => {
+  assert.throws(
+    () => updateNode(BASE, { id: 'a', containsAdd: ['b'] }),
+    /contains-add\/contains-remove 仅对 kind:'group' 节点有效/,
+  );
+  assert.throws(
+    () => updateNode(BASE, { id: 'a', containsRemove: ['b'] }),
+    /contains-add\/contains-remove 仅对 kind:'group' 节点有效/,
+  );
+});
+
+test('EC-004: updateNode cannot change the kind of a group node (same value is a no-op)', () => {
+  assert.throws(
+    () => updateNode(BASE, { id: 'g1', kind: 'entity' }),
+    /分组节点不允许修改 kind/,
+  );
+  assert.throws(
+    () => updateNode(BASE, { id: 'g1', kind: 'entity' }),
+    /如需删除分组请用 remove-node/,
+  );
+  // 同值 kind:'group' 视为 no-op，不报错，contains 保留
+  const { document } = updateNode(BASE, { id: 'g1', kind: 'group' });
+  assert.deepEqual(groupNodes(document)[0].contains, ['a']);
+});
+
+test('DD-003 reverse: non-group -> group is allowed (existing updateNode behavior)', () => {
+  const { document } = updateNode(BASE, { id: 'b', kind: 'group' });
+  const g = document.nodes.find((n) => n.id === 'b');
+  assert.equal(g?.kind, 'group');
+  assert.equal(g?.contains, undefined, 'no orphan contains introduced');
+});
+
+test('FR-014: containsAdd validation shares the addNode validation set (messages identical)', () => {
+  const doc: Parameters<typeof addNode>[0] = {
+    ...BASE,
+    nodes: [
+      ...BASE.nodes,
+      { id: 'g2', label: 'G2', kind: 'group', contains: ['b'] },
+      { id: 'g3', label: 'G3', kind: 'group', contains: ['g2'] },
+    ],
+  };
+  // 已在目标组 —— update 路径
+  assert.throws(
+    () => updateNode(doc, { id: 'g2', containsAdd: ['b'] }),
+    /"b" is already in group "g2"/,
+  );
+  // 已在其他组 —— add 与 update 路径错误消息一致
+  // （add 创建 g4 并放 g2；update 需 g4 已存在，故用带 g4 的派生 doc）
+  const addErr = (() => {
+    try { addNode(doc, { id: 'g4', kind: 'group', contains: ['g2'] }); } catch (e) { return (e as Error).message; }
+    return '';
+  })();
+  const updDoc: Parameters<typeof addNode>[0] = {
+    ...doc,
+    nodes: [...doc.nodes, { id: 'g4', label: 'G4', kind: 'group' }],
+  };
+  const updErr = (() => {
+    try { updateNode(updDoc, { id: 'g4', containsAdd: ['g2'] }); } catch (e) { return (e as Error).message; }
+    return '';
+  })();
+  assert.ok(addErr.includes('already belongs to group "g3"'), addErr);
+  assert.equal(updErr, addErr, 'add/update paths must reject with identical messages');
+  // 自含 —— update 路径
+  assert.throws(
+    () => updateNode(doc, { id: 'g3', containsAdd: ['g3'] }),
+    /Group cannot contain itself: "g3"/,
+  );
+  // 未知成员 —— update 路径
+  assert.throws(
+    () => updateNode(doc, { id: 'g3', containsAdd: ['ghost'] }),
+    /unknown node or group/,
+  );
+});
+
+test('FR-014: containsRemove of a member not in the group throws', () => {
+  assert.throws(
+    () => updateNode(BASE, { id: 'g1', containsRemove: ['zzz'] }),
+    /Member not found: "zzz" in group "g1"/,
+  );
+});
+
+test('EC-008: containsAdd/containsRemove with empty or whitespace-only ids throws', () => {
+  assert.throws(
+    () => updateNode(BASE, { id: 'g1', containsAdd: [''] }),
+    /成员 id 不能为空/,
+  );
+  assert.throws(
+    () => updateNode(BASE, { id: 'g1', containsAdd: ['  '] }),
+    /成员 id 不能为空/,
+  );
+  assert.throws(
+    () => updateNode(BASE, { id: 'g1', containsRemove: [''] }),
+    /成员 id 不能为空/,
+  );
+});
+
+test('FR-002: contains validation failure leaves the document untouched (atomicity)', () => {
+  for (const bad of [
+    () => addNode(BASE, { id: 'g2', kind: 'group', contains: ['g2'] }), // 自含
+    () => addNode(BASE, { id: 'g2', kind: 'group', contains: ['ghost'] }), // 未知成员
+    () => addNode(BASE, { id: 'g2', kind: 'group', contains: ['a'] }), // 重复归属
+  ]) {
+    assert.throws(bad);
+  }
+  assert.deepEqual(BASE.nodes.map((n) => n.id), ['a', 'b', 'g1'], 'BASE untouched');
+  assert.deepEqual(BASE.edges, [{ from: 'a', to: 'b', label: 'go' }], 'BASE edges untouched');
 });

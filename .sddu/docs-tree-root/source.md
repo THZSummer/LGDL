@@ -53,7 +53,7 @@
 | `packages/lgdl-web/src/App.tsx` | 浏览器内编译管线 + opRegistry 注入（V2）——ADR-V2-006 锚点 |
 | `packages/lgdl-web/src/ai/provider.ts` | 多厂商接入 + 三工具新源组装（V2）——ADR-007/V2-003/007 锚点 |
 | `packages/lgdl-web/src/ai/AiPanel.tsx` | agent 循环（MAX_ROUNDS=1000 :363；失败反馈修正 :452）——ADR-007 锚点 |
-| `packages/lgdl-web-cli/src/commands.ts` | COMMANDS 9 命令注册表 + buildOperation（V2 迁入）——ADR-V2-001/004/008 锚点 |
+| `packages/lgdl-web-cli/src/commands.ts` | COMMANDS 6 命令注册表 + buildOperation（V2 迁入）——ADR-V2-001/004/008 锚点 |
 | `packages/lgdl-web-cli/src/adapters/lgdl.ts` | lgdlDomain/lgdlExecutor 组装单点（V2）——ADR-V2-003/005 锚点 |
 | `packages/lgdl-web-op-cli/src/ops.ts` / `handlers.ts` | OP_COMMANDS 单一数据源 / OpHandlerRegistry 注入面（V2）——ADR-V2-006/008 锚点 |
 | `packages/web-cli-base/src/exec.ts` | DomainApi<Op,Doc> 泛型契约 + validate 门禁（:294）——ADR-V2-003/005 锚点 |
@@ -66,7 +66,7 @@
 |------|------|---------|
 | `CHANGELOG.md` | ADR 决策历史、版本沿革、测试数记载 | D6/D7 + elkjs 段放置错位（见 §4） |
 | `docs/design.md` | 设计原则（增量编辑协议 §2、确定性布局 §3） | D1/D3（elkjs/config.ts 过时） |
-| `docs/cli-guide.md` | CLI 命令清单（19 命令、用法） | 与 registry.ts 实测一致 |
+| `docs/cli-guide.md` | CLI 命令清单（16 命令、用法） | 与 registry.ts 实测一致 |
 | `docs/lgdl-spec.md` | DSL 规范 | D2（groups: 旧语法描述过时） |
 | `README.md` | 门面文档（架构树、布局说明） | D4/D5/D8（5 包 vs 6 包、球链网状表述、v0.4/v0.5 标题错位） |
 | `.sddu/docs-tree-root/` 既有产物 | 根级 docs-overview.md + 系统架构/ 三份（本次对齐口径的基线） | 核心引擎/ 目录为空（已声明未落盘） |

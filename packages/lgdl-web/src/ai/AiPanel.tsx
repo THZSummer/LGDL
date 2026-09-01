@@ -113,13 +113,13 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
     id: 'arch',
     label: '画架构图',
     hint: '生成一张 arch 架构图（用 lgdl-web-cli 命令）',
-    prompt: '请创作一张系统架构图（arch）：分层（接入层/应用层/数据层）用 add-group，节点用 add-node，依赖用 add-edge。用 lgdl-web-cli 命令搭建。',
+    prompt: '请创作一张系统架构图（arch）：分层（接入层/应用层/数据层）用 add-node --kind group，节点用 add-node，依赖用 add-edge。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'datastream',
     label: '画数据流图',
     hint: '生成一张 datastream 数据流图（用 lgdl-web-cli 命令）',
-    prompt: '请创作一张数据流图（datastream）：2-3 个泳道（add-group）、数据节点（entity）、流转边。用 lgdl-web-cli 命令搭建。',
+    prompt: '请创作一张数据流图（datastream）：2-3 个泳道（add-node --kind group）、数据节点（entity）、流转边。用 lgdl-web-cli 命令搭建。',
   },
   {
     id: 'add-node',
@@ -136,8 +136,8 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
   {
     id: 'group',
     label: '整理分组',
-    hint: '用 add-group 给节点归类分层',
-    prompt: '请给当前图设计合理分组（add-group / update-group）：按业务域或层次归类节点。',
+    hint: '用 add-node --kind group 给节点归类分层',
+    prompt: '请给当前图设计合理分组（add-node --kind group --contains / update-node --contains-add）：按业务域或层次归类节点。',
   },
   {
     id: 'convert',

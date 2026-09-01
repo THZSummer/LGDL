@@ -197,7 +197,7 @@ for (let i = 0; i < ops.length; i++) {
 
 ---
 
-## 5. 命令注册表：19 命令（V2 后注册表在 lgdl-web-cli）
+## 5. 命令注册表：16 命令（V2 后注册表在 lgdl-web-cli）
 
 > **V2 注**：本节描述的 COMMANDS 注册表在 V2（commit d03dca4）已整体迁至 **@lgdl/lgdl-web-cli/src/commands.ts**（业务层）；web-cli-base 只保留机制壳（CommandSpec/KindResolver/requireParams/assertChangeRequested）。lgdl-core 仍提供解析/变更/查询/序列化领域函数。「core 命令注册表单一实现」决策（ADR-004）在 V2 演进为「**lgdl-web-cli 命令注册表单一实现**」（ADR-V2-002/004：机制留 base、业务随迁）。
 
@@ -206,24 +206,26 @@ for (let i = 0; i < ops.length; i++) {
 **三层结构**（V2 实读确认）：
 
 ```
-lgdl-web-cli/commands.ts COMMANDS（9 个增量命令的 CommandSpec：参数/必填/changeKeys）
+lgdl-web-cli/commands.ts COMMANDS（6 个增量命令的 CommandSpec：参数/必填/changeKeys）
         ↑ 业务逻辑唯一实现（机制壳 CommandSpec/KindResolver 在 web-cli-base）
-        ├── packages/lgdl-cli/src/commands/*.ts（9 个 mutation 命令 import @lgdl/lgdl-web-cli，V2 切换）
+        ├── packages/lgdl-cli/src/commands/*.ts（6 个 mutation 命令 import @lgdl/lgdl-web-cli，V2 切换）
         └── packages/lgdl-web/src/ai/AiPanel.tsx（executeSubcommand 经 @lgdl/lgdl-web-cli/lgdl 消费）
 ```
 
-**19 命令清单**（lgdl-cli/registry.ts:38-58 数组实读，数 = 19，与 ADR-004 证据 P3 一致）：
+**16 命令清单**（lgdl-cli/registry.ts 数组实读，数 = 16，与 ADR-004 证据 P3 一致）：
 
 | 类别 | 命令 | 数量 |
 |------|------|-----:|
 | 基础 | init / render / status | 3 |
 | 只读查询 | doc-info / list-node-kinds / get-node / get-edge / find-node | 5 |
 | 格式 | convert / import | 2 |
-| **增量编辑** | add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group | 9 |
+| **增量编辑** | add-node / remove-node / update-node / add-edge / remove-edge / update-edge | 6 |
 
-**web-cli 子集**（lgdl-web-cli/protocol.ts 实读）：status / validate / init / convert + **9 个增量命令**（全走 `buildOperation`）+ 6 个只读查询（doc-info/get-node/get-edge/find-node/list-node-kinds/list-diagram-types）。`lgdl-web-cli/help.ts` 从本包 `COMMANDS` 动态生成帮助（命令自文档化，ADR-004 理由之一）。
+> group 命令合并（specs-tree-unify-group-cmd）：分组三命令已并入 node 命令——创建分组 `add-node --kind group --contains a,b`、删除 `remove-node`、改分组成员 `update-node --contains-add/--contains-remove`。
 
-**命令注册表消费链验证**：lgdl-web-cli/adapters/lgdl.ts 组装 lgdlExecutor（Web AI function calling 执行分支）走 `lgdl-web-cli/buildOperation`；lgdl-cli 9 个 mutation 命令 import `@lgdl/lgdl-web-cli`——「业务逻辑只写一次，两端行为严格一致」。
+**web-cli 子集**（lgdl-web-cli/protocol.ts 实读）：status / validate / init / convert + **6 个增量命令**（全走 `buildOperation`）+ 6 个只读查询（doc-info/get-node/get-edge/find-node/list-node-kinds/list-diagram-types）。`lgdl-web-cli/help.ts` 从本包 `COMMANDS` 动态生成帮助（命令自文档化，ADR-004 理由之一）。
+
+**命令注册表消费链验证**：lgdl-web-cli/adapters/lgdl.ts 组装 lgdlExecutor（Web AI function calling 执行分支）走 `lgdl-web-cli/buildOperation`；lgdl-cli 6 个 mutation 命令 import `@lgdl/lgdl-web-cli`——「业务逻辑只写一次，两端行为严格一致」。
 
 ---
 
@@ -263,7 +265,7 @@ lgdl-web-cli/commands.ts COMMANDS（9 个增量命令的 CommandSpec：参数/�
 
 | ADR | 核心决策 | 本档证据落点（实读） | 状态 |
 |-----|---------|---------------------|------|
-| **ADR-004** | 双 CLI 物理分离 + core 命令注册表单一实现 | commands.ts:1-10 模块头（「lgdl-cli 与 lgdl-web-cli 共享的业务逻辑层」）；COMMANDS 注册表 commands.ts:26-90；web-cli.ts:100-134 增量命令全走 buildOperation；cli/registry.ts:38-58 19 命令 | ✅ 与 adr-index.md:104-108 证据锚点一致 |
+| **ADR-004** | 双 CLI 物理分离 + core 命令注册表单一实现 | commands.ts:1-10 模块头（「lgdl-cli 与 lgdl-web-cli 共享的业务逻辑层」）；COMMANDS 注册表 commands.ts:26-90；web-cli.ts:100-134 增量命令全走 buildOperation；cli/registry.ts 16 命令 | ✅ 与 adr-index.md:104-108 证据锚点一致 |
 | **ADR-005** | error-only 严格校验（无静默降级） | parser.ts 42 处 error / 0 处 warning（当日 grep 实测）；allowlist 拒绝未知字段；旧 groups:/newline 成员/编造基数全部 error；mermaid-import 例外（warning 仅存在于导入器） | ✅ 与 adr-index.md:121-122 一致 |
 | **ADR-008** | 增量编辑协议（AI 永不整图重写） | operations.ts:31-84 九变体；applyOperation 单一映射 :111-175；applyOperations 失败即停 :199-220；mutations 结构不变量双保险 | ✅ 与 adr-index.md:169-170 一致 |
 

@@ -10,18 +10,53 @@ import {
 } from './commands.js';
 import { lgdlKindResolver as defaultKindFor } from './adapters/lgdl.js';
 
-test('COMMANDS covers all 9 incremental commands', () => {
+test('COMMANDS covers all 6 incremental commands', () => {
   assert.deepEqual(Object.keys(COMMANDS).sort(), [
     'add-edge',
-    'add-group',
     'add-node',
     'remove-edge',
-    'remove-group',
     'remove-node',
     'update-edge',
-    'update-group',
     'update-node',
   ]);
+});
+
+test('buildOperation: add-node with --contains requires --kind group (DD-002)', () => {
+  const op = buildOperation('add-node', { id: 'g2', kind: 'group', contains: 'a,b' });
+  assert.equal(op.op, 'add-node');
+  if (op.op === 'add-node') {
+    assert.equal(op.kind, 'group');
+    assert.deepEqual(op.contains, ['a', 'b']);
+  }
+  // --contains 不配 --kind group（含 kindResolver 默认）→ loud 报错含 kind 与 group 指引
+  assert.throws(
+    () => buildOperation('add-node', { id: 'g2', contains: 'a' }),
+    /kind.*group|group.*kind/,
+  );
+  assert.throws(
+    () => buildOperation('add-node', { id: 'g2', contains: 'a' }, 'er'),
+    /请显式传 --kind group/,
+  );
+  assert.throws(
+    () => buildOperation('add-node', { id: 'g2', kind: 'entity', contains: 'a' }),
+    /请显式传 --kind group/,
+  );
+});
+
+test('buildOperation: update-node parses --contains-add / --contains-remove (DD-001)', () => {
+  const op = buildOperation('update-node', {
+    id: 'g1',
+    'contains-add': 'b, c',
+    'contains-remove': 'a',
+  });
+  assert.equal(op.op, 'update-node');
+  if (op.op === 'update-node') {
+    assert.deepEqual(op.containsAdd, ['b', 'c']);
+    assert.deepEqual(op.containsRemove, ['a']);
+  }
+  // 空段被过滤（trim + filter(Boolean)，复用旧 contains 解析形态）
+  const op2 = buildOperation('update-node', { id: 'g1', 'contains-add': 'a,,b' });
+  if (op2.op === 'update-node') assert.deepEqual(op2.containsAdd, ['a', 'b']);
 });
 
 test('buildOperation: add-node with default kind by doc type', () => {

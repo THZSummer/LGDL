@@ -22,10 +22,10 @@ export type { CommandSpec, KindResolver } from '@lgdl/web-cli-base';
 export const COMMANDS: Record<string, CommandSpec> = {
   'add-node': {
     name: 'add-node',
-    description: 'add a node',
+    description: 'add a node (kind=group with --contains creates a group)',
     required: ['id'],
     changeKeys: [],
-    optional: ['label', 'kind', 'group', 'member', 'attrs'],
+    optional: ['label', 'kind', 'group', 'member', 'contains', 'attrs'],
   },
   'remove-node': {
     name: 'remove-node',
@@ -36,10 +36,10 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
   'update-node': {
     name: 'update-node',
-    description: 'update a node label/kind/members/attrs',
+    description: 'update a node label/kind/members/attrs/group-members',
     required: ['id'],
-    changeKeys: ['new-id', 'label', 'kind', 'member-add', 'member-remove', 'attrs'],
-    optional: ['new-id', 'label', 'kind', 'member-add', 'member-remove', 'attrs'],
+    changeKeys: ['new-id', 'label', 'kind', 'member-add', 'member-remove', 'contains-add', 'contains-remove', 'attrs'],
+    optional: ['new-id', 'label', 'kind', 'member-add', 'member-remove', 'contains-add', 'contains-remove', 'attrs'],
   },
   'add-edge': {
     name: 'add-edge',
@@ -62,27 +62,6 @@ export const COMMANDS: Record<string, CommandSpec> = {
     changeKeys: ['edge-label', 'new-from', 'new-to', 'label', 'cardinality-from', 'cardinality-to', 'attrs'],
     optional: ['edge-label', 'new-from', 'new-to', 'label', 'cardinality-from', 'cardinality-to', 'attrs'],
   },
-  'add-group': {
-    name: 'add-group',
-    description: 'add a group (lane/partition)',
-    required: ['id'],
-    changeKeys: [],
-    optional: ['label', 'contains'],
-  },
-  'remove-group': {
-    name: 'remove-group',
-    description: 'remove a group',
-    required: ['id'],
-    changeKeys: [],
-    optional: [],
-  },
-  'update-group': {
-    name: 'update-group',
-    description: 'update a group label/members/attrs',
-    required: ['id'],
-    changeKeys: ['new-id', 'label', 'member-add', 'member-remove', 'attrs'],
-    optional: ['new-id', 'label', 'member-add', 'member-remove', 'attrs'],
-  },
 };
 
 /** 已知参数名集合（--file/--doc 由两端处理，但这里也认，避免误报未知参数）。 */
@@ -90,7 +69,7 @@ export const KNOWN_PARAMS = new Set<string>([
   'file', 'doc', 'id', 'label', 'kind', 'group', 'member', 'attrs',
   'from', 'to', 'edge-label', 'new-id', 'new-from', 'new-to',
   'cardinality-from', 'cardinality-to', 'member-add', 'member-remove',
-  'contains', 'type', 'to',
+  'contains', 'contains-add', 'contains-remove', 'type', 'to',
 ]);
 
 /** 校验必填参数；缺失抛错。 */
@@ -143,12 +122,22 @@ export function buildOperation(
   switch (command) {
     case 'add-node': {
       const kind = args.kind ?? kindResolver(docType);
+      if (args.contains !== undefined && kind !== 'group') {
+        // DD-002: `--contains` is only meaningful on group nodes — loud
+        // reject instead of silently dropping the members (kindResolver
+        // defaults to process/entity/state, so omitting --kind would
+        // otherwise create a non-group node and ignore --contains).
+        throw new Error(
+          `--contains 仅对 kind:'group' 节点有效（当前 kind: "${kind}"），请显式传 --kind group`,
+        );
+      }
       return {
         op: 'add-node',
         id: args.id!,
         label: args.label,
         kind: kind as never,
         group: args.group,
+        contains: args.contains?.split(',').map((s) => s.trim()).filter(Boolean),
         // member 支持多个：调用方用换行分隔（每个 member 一行，字段内逗号保留）
         members: args.member !== undefined
           ? args.member.split('\n').map((m) => m.trim()).filter(Boolean).map(parseMemberSpec)
@@ -165,6 +154,9 @@ export function buildOperation(
         newId: args['new-id'],
         label: args.label,
         kind: args.kind as never,
+        // DD-001: group member ids — same split/trim/filter shape as --contains
+        containsAdd: args['contains-add']?.split(',').map((s) => s.trim()).filter(Boolean),
+        containsRemove: args['contains-remove']?.split(',').map((s) => s.trim()).filter(Boolean),
         memberAdd: args['member-add'] ? parseMemberSpec(args['member-add']) : undefined,
         memberRemove: args['member-remove'],
         attrs,
@@ -197,25 +189,6 @@ export function buildOperation(
         label: args.label,
         cardinalityFrom: args['cardinality-from'],
         cardinalityTo: args['cardinality-to'],
-        attrs,
-      };
-    case 'add-group':
-      return {
-        op: 'add-group',
-        id: args.id!,
-        label: args.label,
-        contains: args.contains?.split(',').map((s) => s.trim()).filter(Boolean),
-      };
-    case 'remove-group':
-      return { op: 'remove-group', id: args.id! };
-    case 'update-group':
-      return {
-        op: 'update-group',
-        id: args.id!,
-        newId: args['new-id'],
-        label: args.label,
-        memberAdd: args['member-add'],
-        memberRemove: args['member-remove'],
         attrs,
       };
     default:

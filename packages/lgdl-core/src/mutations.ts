@@ -33,6 +33,53 @@ export function assertMemberShape(member: LgdlMember, context: string): void {
   }
 }
 
+/**
+ * Shared `contains` membership validation (FR-014) — used by both the
+ * add-node path (initial members via `contains`) and the update-node path
+ * (members via `containsAdd`), so both routes reject the same inputs with
+ * the same messages.
+ *
+ * Validation order (kept identical to the legacy group mutation helpers):
+ *   self-containment → unknown member → already-in-target-group → duplicate
+ * ownership (a member already owned by another group, which also covers
+ * nesting conflicts). Throws on the first violation; the caller's document
+ * must stay untouched when this throws (FR-002 atomicity).
+ */
+function validateContainsMembers(
+  doc: LgdlDocument,
+  groupId: string,
+  memberIds: string[],
+  opts?: { alreadyInTarget?: boolean },
+): void {
+  const groups = deriveGroups(doc);
+  // existing membership map: member id -> owning group id
+  const membersOf = new Map<string, string>();
+  for (const g of groups) {
+    for (const m of g.contains) {
+      if (!membersOf.has(m)) membersOf.set(m, g.id);
+    }
+  }
+  for (const memberId of memberIds) {
+    if (memberId === groupId) {
+      throw new Error(`Group cannot contain itself: "${groupId}"`);
+    }
+    const isNode = doc.nodes.some((n) => n.id === memberId);
+    const isGroup = groups.some((g) => g.id === memberId);
+    if (!isNode && !isGroup) {
+      throw new Error(`Group contains unknown node or group: "${memberId}"`);
+    }
+    if (
+      opts?.alreadyInTarget &&
+      (doc.nodes.find((n) => n.id === groupId)?.contains ?? []).includes(memberId)
+    ) {
+      throw new Error(`"${memberId}" is already in group "${groupId}"`);
+    }
+    if (membersOf.has(memberId)) {
+      throw new Error(`"${memberId}" already belongs to group "${membersOf.get(memberId)}"`);
+    }
+  }
+}
+
 export interface AddNodeOptions {
   id: string;
   label?: string;
@@ -41,6 +88,12 @@ export interface AddNodeOptions {
   group?: string;
   /** Structured class members (uml-class entity nodes) */
   members?: LgdlMember[];
+  /**
+   * Initial member ids of a group node — only valid together with
+   * `kind: 'group'` (DD-002: loud reject otherwise). Node ids and/or
+   * existing group ids (nesting).
+   */
+  contains?: string[];
   /** Extension attributes (e.g. gantt start/duration) */
   attrs?: LgdlAttrs;
 }
@@ -68,6 +121,17 @@ export interface UpdateNodeOptions {
   memberAdd?: LgdlMember;
   /** Remove a class member by name */
   memberRemove?: string;
+  /**
+   * Append member ids to a group node's `contains` (id semantics — DD-001).
+   * Only valid on `kind: 'group'` nodes; independent from `memberAdd`
+   * (which keeps its structured class-member semantics).
+   */
+  containsAdd?: string[];
+  /**
+   * Remove member ids from a group node's `contains` (id semantics — DD-001).
+   * Only valid on `kind: 'group'` nodes; independent from `memberRemove`.
+   */
+  containsRemove?: string[];
   /** Replace extension attributes (merge) */
   attrs?: LgdlAttrs;
 }
@@ -91,13 +155,6 @@ export interface UpdateEdgeOptions {
   attrs?: LgdlAttrs;
 }
 
-export interface AddGroupOptions {
-  id: string;
-  label?: string;
-  /** Initial member ids — node ids and/or existing group ids (nesting) */
-  contains?: string[];
-}
-
 /** Result of a mutation: the new document + a human/AI-readable summary. */
 export interface MutationResult {
   document: LgdlDocument;
@@ -105,7 +162,7 @@ export interface MutationResult {
 }
 
 export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult {
-  const { id, label, kind, group, members, attrs } = opts;
+  const { id, label, kind, group, members, contains, attrs } = opts;
 
   if (doc.nodes.some((n) => n.id === id)) {
     throw new Error(`Node id already exists: "${id}"`);
@@ -115,10 +172,26 @@ export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult
   }
   members?.forEach((m, i) => assertMemberShape(m, `member ${i} of node "${id}"`));
 
+  const resolvedKind = kind ?? 'process';
+  if (contains !== undefined && resolvedKind !== 'group') {
+    // DD-002 backstop: `contains` is only meaningful on group nodes. The
+    // command layer enforces this first (buildOperation); this core check
+    // protects direct API callers from silently losing their members (the
+    // node would otherwise be created without `contains` — a silent data
+    // error, since `contains` is ignored on non-group kinds).
+    throw new Error(
+      `--contains 仅对 kind:'group' 节点有效（当前 kind: "${resolvedKind}"），请显式传 --kind group`,
+    );
+  }
+  if (contains !== undefined) {
+    validateContainsMembers(doc, id, contains);
+  }
+
   const node: LgdlNode = {
     id,
     label: label ?? id,
-    kind: kind ?? 'process',
+    kind: resolvedKind,
+    ...(contains !== undefined ? { contains } : {}),
     ...(members !== undefined && members.length > 0 ? { members } : {}),
     ...(attrs !== undefined ? { attrs } : {}),
   };
@@ -130,6 +203,7 @@ export function addNode(doc: LgdlDocument, opts: AddNodeOptions): MutationResult
 
   let summary = `added node "${id}"${label ? ` (${label})` : ''}${kind ? ` :${kind}` : ''}`;
   if (members && members.length > 0) summary += ` with ${members.length} member(s)`;
+  else if (contains && contains.length > 0) summary += ` with ${contains.length} member(s)`;
 
   if (group) {
     if (!groupNodes(doc).some((n) => n.id === group)) {
@@ -257,7 +331,7 @@ export function removeEdge(doc: LgdlDocument, from: string, to: string, label?: 
 }
 
 export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): MutationResult {
-  const { id, newId, label, kind, memberAdd, memberRemove, attrs } = opts;
+  const { id, newId, label, kind, memberAdd, memberRemove, containsAdd, containsRemove, attrs } = opts;
   const target = doc.nodes.find((n) => n.id === id);
   if (!target) {
     throw new Error(`Node not found: "${id}"`);
@@ -272,6 +346,30 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
       throw new Error(`Node id already exists: "${rename}"`);
     }
   }
+  // DD-003: a group node must not change kind — dropping `group` would leave
+  // an orphan `contains` (only meaningful on group nodes). Changing kind to
+  // the same value ('group' -> 'group') is a no-op; the reverse direction
+  // (non-group -> group) keeps the existing updateNode behavior (empty
+  // `contains`, no orphan risk).
+  if (kind !== undefined && target.kind === 'group' && kind !== 'group') {
+    throw new Error(
+      `分组节点不允许修改 kind（节点 "${id}" 为 kind:'group'，改掉会留下无意义的 contains 字段）；如需删除分组请用 remove-node`,
+    );
+  }
+  // DD-001: contains membership operations are only meaningful on group nodes.
+  const hasContainsOp = containsAdd !== undefined || containsRemove !== undefined;
+  if (hasContainsOp && target.kind !== 'group') {
+    throw new Error(
+      `contains-add/contains-remove 仅对 kind:'group' 节点有效（节点 "${id}" 的 kind 为 "${target.kind ?? 'process'}"）`,
+    );
+  }
+  // EC-008: empty / whitespace-only member ids are rejected up front
+  if (
+    (containsAdd?.some((m) => m.trim() === '') ?? false) ||
+    (containsRemove?.some((m) => m.trim() === '') ?? false)
+  ) {
+    throw new Error(`contains-add/contains-remove: 成员 id 不能为空`);
+  }
   if (memberAdd) assertMemberShape(memberAdd, `member "${memberAdd.name ?? ''}" of node "${id}"`);
   if (memberRemove && memberRemove.trim() === '') {
     throw new Error(`memberRemove: name is required`);
@@ -279,7 +377,25 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
   if (memberRemove && !(target.members ?? []).some((m) => m.name === memberRemove)) {
     throw new Error(`Member not found: "${memberRemove}" on node "${id}"`);
   }
+  if (containsAdd !== undefined) {
+    validateContainsMembers(doc, id, containsAdd, { alreadyInTarget: true });
+  }
+  if (containsRemove !== undefined) {
+    for (const memberId of containsRemove) {
+      if (!(target.contains ?? []).includes(memberId)) {
+        throw new Error(`Member not found: "${memberId}" in group "${id}"`);
+      }
+    }
+  }
   const finalId = rename ?? id;
+
+  // DD-001: when both are given, apply adds first, then removes
+  // (same order as the legacy group update helper).
+  let contains = target.contains;
+  if (containsAdd !== undefined) contains = [...(contains ?? []), ...containsAdd];
+  if (containsRemove !== undefined) {
+    contains = (contains ?? []).filter((m) => !containsRemove.includes(m));
+  }
 
   const document: LgdlDocument = {
     ...doc,
@@ -300,6 +416,7 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
         ...(rename !== undefined ? { id: finalId } : {}),
         ...(label !== undefined ? { label } : {}),
         ...(kind !== undefined ? { kind } : {}),
+        ...(containsAdd !== undefined || containsRemove !== undefined ? { contains } : {}),
         ...(members !== undefined ? { members: members.length > 0 ? members : undefined } : {}),
         ...(attrs !== undefined ? { attrs: { ...cur.attrs, ...attrs } } : {}),
       };
@@ -316,6 +433,8 @@ export function updateNode(doc: LgdlDocument, opts: UpdateNodeOptions): Mutation
   if (rename !== undefined) changes.push(`id="${rename}"`);
   if (label !== undefined) changes.push(`label="${label}"`);
   if (kind !== undefined) changes.push(`kind=${kind}`);
+  if (containsAdd !== undefined) changes.push(...containsAdd.map((m) => `contains+ ${m}`));
+  if (containsRemove !== undefined) changes.push(...containsRemove.map((m) => `contains- ${m}`));
   if (memberAdd) changes.push(`member+ ${memberAdd.name}`);
   if (memberRemove) changes.push(`member- ${memberRemove}`);
   if (attrs !== undefined) changes.push(`attrs={${Object.keys(attrs).join(',')}}`);
@@ -378,169 +497,4 @@ export function updateEdge(doc: LgdlDocument, opts: UpdateEdgeOptions): Mutation
   if (cardinalityTo !== undefined) changes.push(`cardinalityTo=${cardinalityTo}`);
   if (attrs !== undefined) changes.push(`attrs={${Object.keys(attrs).join(',')}}`);
   return { document, summary: `updated edge ${from} -> ${to} (${changes.join(', ')})` };
-}
-
-export function addGroup(doc: LgdlDocument, opts: AddGroupOptions): MutationResult {
-  const { id, label, contains } = opts;
-  const groups = deriveGroups(doc);
-  if (groups.some((g) => g.id === id)) {
-    throw new Error(`Group id already exists: "${id}"`);
-  }
-  if (!/^[A-Za-z0-9_-]+$/.test(id)) {
-    throw new Error(`Invalid group id: "${id}" (letters, digits, underscore, hyphen only)`);
-  }
-
-  const memberIds = contains ?? [];
-  // existing membership map: member id -> owning group id
-  const membersOf = new Map<string, string>();
-  for (const g of groups) {
-    for (const m of g.contains) {
-      if (!membersOf.has(m)) membersOf.set(m, g.id);
-    }
-  }
-
-  for (const memberId of memberIds) {
-    if (memberId === id) {
-      throw new Error(`Group cannot contain itself: "${id}"`);
-    }
-    const isNode = doc.nodes.some((n) => n.id === memberId);
-    const isGroup = groups.some((g) => g.id === memberId);
-    if (!isNode && !isGroup) {
-      throw new Error(`Group contains unknown node or group: "${memberId}"`);
-    }
-    if (membersOf.has(memberId)) {
-      throw new Error(`"${memberId}" already belongs to group "${membersOf.get(memberId)}"`);
-    }
-  }
-
-  // a group is now a node with `kind: 'group'` carrying its `contains`
-  const groupNode: LgdlNode = {
-    id,
-    kind: 'group',
-    ...(label !== undefined ? { label } : {}),
-    contains: memberIds,
-  };
-  return {
-    document: { ...doc, nodes: [...doc.nodes, groupNode] },
-    summary: `added group "${id}"${label ? ` (${label})` : ''}${memberIds.length > 0 ? ` with ${memberIds.length} member(s)` : ''}`,
-  };
-}
-
-export function removeGroup(doc: LgdlDocument, id: string): MutationResult {
-  if (!groupNodes(doc).some((n) => n.id === id)) {
-    throw new Error(`Group not found: "${id}"`);
-  }
-  // remove the group, detach it from any parent group's contains, and
-  // auto-clean aggregate edges touching it (same behavior as removeNode)
-  const removedEdges = doc.edges.filter((e) => e.from === id || e.to === id).length;
-  return {
-    document: {
-      ...doc,
-      nodes: doc.nodes
-        .filter((n) => n.id !== id)
-        .map((n) =>
-          n.kind === 'group' ? { ...n, contains: (n.contains ?? []).filter((c) => c !== id) } : n,
-        ),
-      edges: doc.edges.filter((e) => e.from !== id && e.to !== id),
-    },
-    summary: `removed group "${id}"${removedEdges > 0 ? ` and ${removedEdges} aggregate edge(s)` : ''}`,
-  };
-}
-
-export interface UpdateGroupOptions {
-  id: string;
-  /** Rename the group — aggregate edges and parent contains are rewritten */
-  newId?: string;
-  label?: string;
-  /** Append a member (node or nested group id) */
-  memberAdd?: string;
-  /** Remove a member by id */
-  memberRemove?: string;
-  /** Merge extension attributes */
-  attrs?: LgdlAttrs;
-}
-
-export function updateGroup(doc: LgdlDocument, opts: UpdateGroupOptions): MutationResult {
-  const { id, newId, label, memberAdd, memberRemove, attrs } = opts;
-  const target = doc.nodes.find((n) => n.kind === 'group' && n.id === id);
-  if (!target) {
-    throw new Error(`Group not found: "${id}"`);
-  }
-  // renaming to the current id is a no-op — other fields still update
-  const rename = newId !== undefined && newId !== id ? newId : undefined;
-  if (rename !== undefined) {
-    if (!/^[A-Za-z0-9_-]+$/.test(rename)) {
-      throw new Error(`Invalid group id: "${rename}" (letters, digits, underscore, hyphen only)`);
-    }
-    if (groupNodes(doc).some((n) => n.id === rename)) {
-      throw new Error(`Group id already exists: "${rename}"`);
-    }
-    if (doc.nodes.some((n) => n.id === rename)) {
-      throw new Error(`Node id already exists: "${rename}" — ids must be unique across nodes and groups`);
-    }
-  }
-  if (memberAdd !== undefined) {
-    if (memberAdd === id) {
-      throw new Error(`Group cannot contain itself: "${id}"`);
-    }
-    const isNode = doc.nodes.some((n) => n.id === memberAdd);
-    const isGroup = groupNodes(doc).some((n) => n.id === memberAdd);
-    if (!isNode && !isGroup) {
-      throw new Error(`Group contains unknown node or group: "${memberAdd}"`);
-    }
-    if ((target.contains ?? []).includes(memberAdd)) {
-      throw new Error(`"${memberAdd}" is already in group "${id}"`);
-    }
-    const membersOf = new Map<string, string>();
-    for (const g of deriveGroups(doc)) {
-      for (const m of g.contains) {
-        if (!membersOf.has(m)) membersOf.set(m, g.id);
-      }
-    }
-    if (membersOf.has(memberAdd)) {
-      throw new Error(`"${memberAdd}" already belongs to group "${membersOf.get(memberAdd)}"`);
-    }
-  }
-  if (memberRemove !== undefined && !(target.contains ?? []).includes(memberRemove)) {
-    throw new Error(`Member not found: "${memberRemove}" in group "${id}"`);
-  }
-  const finalId = newId ?? id;
-
-  let contains = target.contains ?? [];
-  if (memberAdd !== undefined) contains = [...contains, memberAdd];
-  if (memberRemove !== undefined) contains = contains.filter((m) => m !== memberRemove);
-
-  const document: LgdlDocument = {
-    ...doc,
-    // update the target group node in place; any parent group that contains
-    // the renamed group also gets its membership reference rewritten. Groups
-    // are nodes, so this rides in the same `nodes` array.
-    nodes: doc.nodes.map((n) =>
-      n.kind === 'group' && n.id === id
-        ? {
-            ...n,
-            id: finalId,
-            ...(label !== undefined ? { label } : {}),
-            contains,
-            ...(attrs !== undefined ? { attrs: { ...n.attrs, ...attrs } } : {}),
-          }
-        : n.kind === 'group'
-          ? { ...n, contains: (n.contains ?? []).map((m) => (m === id ? finalId : m)) }
-          : n,
-    ),
-    // aggregate edges referencing the group follow the rename
-    edges: doc.edges.map((e) => ({
-      ...e,
-      from: e.from === id ? finalId : e.from,
-      to: e.to === id ? finalId : e.to,
-    })),
-  };
-
-  const changes: string[] = [];
-  if (rename !== undefined) changes.push(`id="${rename}"`);
-  if (label !== undefined) changes.push(`label="${label}"`);
-  if (memberAdd !== undefined) changes.push(`member+ ${memberAdd}`);
-  if (memberRemove !== undefined) changes.push(`member- ${memberRemove}`);
-  if (attrs !== undefined) changes.push(`attrs={${Object.keys(attrs).join(',')}}`);
-  return { document, summary: `updated group "${id}" (${changes.join(', ')})` };
 }

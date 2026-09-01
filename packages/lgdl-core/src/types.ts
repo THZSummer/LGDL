@@ -215,6 +215,11 @@ export type LgdlOperation =
       kind?: NodeKind;
       group?: string;
       members?: LgdlMember[];
+      /**
+       * Initial member ids of a group node — only valid together with
+       * `kind: 'group'` (DD-002: loud reject otherwise).
+       */
+      contains?: string[];
       attrs?: LgdlAttrs;
     }
   | { op: 'remove-node'; id: string }
@@ -226,6 +231,10 @@ export type LgdlOperation =
       kind?: NodeKind;
       memberAdd?: LgdlMember;
       memberRemove?: string;
+      /** Append member ids to a group node's `contains` (DD-001, id semantics) */
+      containsAdd?: string[];
+      /** Remove member ids from a group node's `contains` (DD-001, id semantics) */
+      containsRemove?: string[];
       attrs?: LgdlAttrs;
     }
   | {
@@ -248,17 +257,6 @@ export type LgdlOperation =
       label?: string;
       cardinalityFrom?: string;
       cardinalityTo?: string;
-      attrs?: LgdlAttrs;
-    }
-  | { op: 'add-group'; id: string; label?: string; contains?: string[] }
-  | { op: 'remove-group'; id: string }
-  | {
-      op: 'update-group';
-      id: string;
-      newId?: string;
-      label?: string;
-      memberAdd?: string;
-      memberRemove?: string;
       attrs?: LgdlAttrs;
     };
 

@@ -1,0 +1,263 @@
+{
+  "feature": "specs-tree-unify-group-cmd",
+  "featureName": "group 命令合并（命令层语义统一）",
+  "phase": "tasked",
+  "createdAt": "2026-09-01",
+  "updatedAt": "2026-09-01",
+  "taskCount": 9,
+  "waveCount": 7,
+  "complexity": { "S": 0, "M": 6, "L": 3 },
+  "criticalPath": [
+    "TASK-001",
+    "TASK-002",
+    "TASK-004",
+    "TASK-005",
+    "TASK-006",
+    "TASK-007",
+    "TASK-008"
+  ],
+  "dependencyGraph": {
+    "TASK-001": [],
+    "TASK-002": ["TASK-001"],
+    "TASK-003": ["TASK-001"],
+    "TASK-004": ["TASK-001", "TASK-002", "TASK-003"],
+    "TASK-005": ["TASK-001", "TASK-002", "TASK-003", "TASK-004"],
+    "TASK-006": ["TASK-002"],
+    "TASK-007": ["TASK-006"],
+    "TASK-008": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007"],
+    "TASK-009": ["TASK-006"]
+  },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "lgdl-core mutations/types/index 收敛（DD-001~003 + 逻辑并入 + 符号删除）",
+      "complexity": "L",
+      "dependsOn": [],
+      "wave": 1,
+      "fr": ["FR-001", "FR-002", "FR-003", "FR-004", "FR-011", "FR-012", "FR-013", "FR-014", "FR-015"],
+      "dd": ["DD-001", "DD-002", "DD-003"],
+      "ec": ["EC-001", "EC-002", "EC-003", "EC-004", "EC-005", "EC-007", "EC-008", "EC-010"],
+      "ac": ["AC-02", "AC-04"],
+      "description": "addGroup/removeGroup/updateGroup 逻辑并入 addNode/removeNode/updateNode：AddNodeOptions+contains、updateNode+containsAdd/containsRemove（id 语义）、DD-002/DD-003 护栏、共享 contains 校验 helper、删 4 符号（addGroup/removeGroup/updateGroup/UpdateGroupOptions）；types.ts LgdlOperation 9→6；index.ts 删 4 处导出。summary/错误消息按 plan §6.2 口径表（解读 A）。",
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-core/src/mutations.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-core/src/types.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-core/src/index.ts" }
+      ],
+      "acceptance": [
+        "addNode(kind:'group', contains) 与旧 addGroup 对全部合法/非法输入行为等价（结果文档/summary/错误消息）",
+        "四类 contains 校验（自含/未知成员/重复归属/嵌套冲突）错误消息与旧 addGroup 一致且原子不变",
+        "addNode contains 不配 group kind → 抛错含 kind 与 group 指引（DD-002 核心层兜底）",
+        "updateNode containsAdd/containsRemove id 语义：已在组/其他组/不在组校验、同时传先 add 后 remove、summary 记 contains+/contains-",
+        "updateNode 对非 group 传 contains 操作 → 抛错（FR-015）；对 group 改 kind → 抛错（EC-004）；同值 no-op；反向允许",
+        "containsAdd/containsRemove 空串/纯空白 id → 抛错（EC-008）",
+        "types.ts 无三 op 变体（9→6）；index.ts 无 4 处导出；非测试文件 grep 无 addGroup(/removeGroup(/updateGroup( 残留"
+      ],
+      "verify": "cd packages/lgdl-core && npx tsc --noEmit  # src 非测试文件全绿（mutations.test.ts 报错属 TASK-005 批次中间态）\ngrep -rn \"addGroup\\|removeGroup\\|updateGroup\" packages/lgdl-core/src --include=\"*.ts\" | grep -v \"\\.test\\.ts\"  # 预期零输出"
+    },
+    {
+      "id": "TASK-002",
+      "name": "lgdl-web-cli 命令定义面收缩（commands/protocol/help/tools/adapters）",
+      "complexity": "L",
+      "dependsOn": ["TASK-001"],
+      "wave": 2,
+      "fr": ["FR-001", "FR-003", "FR-004", "FR-005", "FR-007", "FR-008", "FR-021"],
+      "dd": ["DD-001", "DD-002"],
+      "ec": ["EC-001", "EC-002"],
+      "ac": ["AC-01", "AC-03", "AC-07"],
+      "description": "删三 CommandSpec（commands.ts:65-85）；add-node optional+contains、update-node optional/changeKeys+contains-add/contains-remove；KNOWN_PARAMS 补 2 key（R-011）；buildOperation 删三 case、add-node case 解析 contains+DD-002 校验、update-node case 解析 contains-add/remove；protocol.ts 删三 case+头注释+loud reject 主落点（:143 提示列表改写）；help.ts INCR_EXAMPLES/INCR_SUMMARIES/PARAM_DESC 同步；tools.ts enum 删三；adapters/lgdl.ts 注释口径。",
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/commands.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/protocol.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/help.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/tools.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/adapters/lgdl.ts" }
+      ],
+      "acceptance": [
+        "COMMANDS 无三命令；KNOWN_PARAMS 含 contains-add/contains-remove",
+        "parseWebCliCommand 传三命令名 → 抛错含改用指引（add-node --kind group --contains / remove-node / update-node）",
+        "buildOperation add-node：--kind group --contains a,b → contains:['a','b']；不配 group kind → 抛错含 kind 与 group",
+        "buildOperation update-node：--contains-add/--contains-remove 解析（trim+filter(Boolean)）",
+        "help 输出 add-node 示例含 --contains；顶层列表无三命令；PARAM_DESC 含新参数说明",
+        "tools.ts subcommand enum 与 description 无三命令；src 非测试文件 grep 零残留"
+      ],
+      "verify": "cd packages/lgdl-web-cli && npx tsc --noEmit  # operations.ts 断裂由 TASK-003 修复；测试文件由 TASK-005 迁移\ngrep -rn \"add-group\\|remove-group\\|update-group\" packages/lgdl-web-cli/src --include=\"*.ts\" | grep -v \"\\.test\\.ts\"  # 预期零输出"
+    },
+    {
+      "id": "TASK-003",
+      "name": "lgdl-web-cli 分派面收缩（operations.ts）",
+      "complexity": "M",
+      "dependsOn": ["TASK-001"],
+      "wave": 2,
+      "fr": ["FR-009"],
+      "dd": [],
+      "ec": [],
+      "ac": ["AC-04"],
+      "description": "describeOperation 删三 case（:58-63）；OperationMutations 删三成员（:75-77）；lgdlDispatch 删三分派（:138-157）；add-node 分派透传 contains；update-node 分派透传 containsAdd/containsRemove；import 删三函数与三 Options 类型。",
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/operations.ts" }
+      ],
+      "acceptance": [
+        "lgdlDispatch 对 add-node op 的 contains 透传生效（kind:'group' 建组）",
+        "lgdlDispatch 对 update-node op 的 containsAdd/containsRemove 透传生效",
+        "describeOperation 对 6 变体均返回 readable label（9→6）",
+        "operations.ts 无 addGroup/removeGroup/updateGroup/AddGroupOptions/UpdateGroupOptions 引用",
+        "与 TASK-002 合并验收：lgdl-web-cli src 非测试文件 tsc 全绿"
+      ],
+      "verify": "cd packages/lgdl-web-cli && npx tsc --noEmit  # 与 TASK-002 同批验收\ngrep -rn \"addGroup\\|removeGroup\\|updateGroup\\|AddGroupOptions\\|UpdateGroupOptions\" packages/lgdl-web-cli/src --include=\"*.ts\" | grep -v \"\\.test\\.ts\"  # 预期零输出"
+    },
+    {
+      "id": "TASK-004",
+      "name": "lgdl-cli 终端命令面收缩（registry + 3 文件删除 + 2 命令补 option）",
+      "complexity": "M",
+      "dependsOn": ["TASK-001", "TASK-002", "TASK-003"],
+      "wave": 3,
+      "fr": ["FR-006"],
+      "dd": [],
+      "ec": [],
+      "ac": ["AC-01", "AC-03"],
+      "description": "registry.ts 删三 import 与三数组项（19→16 命令）；删除 commands/add-group.ts、remove-group.ts、update-group.ts 三文件；add-node.ts 加 --contains option+透传；update-node.ts 加 --contains-add/--contains-remove option+透传。cli 侧 loud reject 采纳 commander 默认 unknown command。",
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-cli/src/registry.ts" },
+        { "op": "DELETE", "path": "packages/lgdl-cli/src/commands/add-group.ts" },
+        { "op": "DELETE", "path": "packages/lgdl-cli/src/commands/remove-group.ts" },
+        { "op": "DELETE", "path": "packages/lgdl-cli/src/commands/update-group.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-cli/src/commands/add-node.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-cli/src/commands/update-node.ts" }
+      ],
+      "acceptance": [
+        "lgdl-cli add-group --help / remove-group x / update-group --id g 均报 unknown command",
+        "registry.ts 无三命令 import 与数组项；命令计数 19 → 16",
+        "commands/ 目录下三 group 文件已删除",
+        "lgdl-cli add-node --kind group --contains a,b 终端入口可用",
+        "lgdl-cli update-node --contains-add b / --contains-remove a 终端入口可用",
+        "packages/lgdl-cli tsc 全绿"
+      ],
+      "verify": "cd packages/lgdl-cli && npx tsc --noEmit\nls packages/lgdl-cli/src/commands/ | grep -E \"add-group|remove-group|update-group\"  # 预期零输出\ngrep -rn \"add-group\\|remove-group\\|update-group\" packages/lgdl-cli/src  # 预期零输出"
+    },
+    {
+      "id": "TASK-005",
+      "name": "测试迁移（15 项等价迁移 + 9 项新增护栏测试）",
+      "complexity": "L",
+      "dependsOn": ["TASK-001", "TASK-002", "TASK-003", "TASK-004"],
+      "wave": 4,
+      "fr": ["FR-016", "FR-017", "FR-018"],
+      "dd": ["DD-001", "DD-002", "DD-003"],
+      "ec": ["EC-001", "EC-002", "EC-003", "EC-004", "EC-008"],
+      "ac": ["AC-02", "AC-05"],
+      "description": "mutations.test.ts 12 用例等价迁移（import 删三符号；addGroup 5→addNode kind:'group' contains；removeGroup 4→removeNode；updateGroup 1 拆三段→updateNode containsAdd/containsRemove+newId；断言按 §6.2 口径表调整）+ 新增 9 项护栏（EC-001/002/003/004/008、DD-003 反向、FR-014 一致性、containsRemove 不在组、FR-002 原子性）；commands.test.ts COMMANDS 9→6 断言 + contains 解析断言（R-011）；operations.test.ts 2 用例迁移（add-group→add-node kind:'group'、describeOperation 9→6）。",
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-core/src/mutations.test.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/commands.test.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/operations.test.ts" }
+      ],
+      "acceptance": [
+        "迁移矩阵 15 项逐项对应无缺项（FR-018 测试守恒，迁移前后矩阵可映射）",
+        "9 项新增护栏测试全部独立断言通过",
+        "mutations.test.ts / commands.test.ts / operations.test.ts 三文件 npm test 全绿",
+        "断言调整点符合 §6.2 口径表：Node not found / attached edge(s) / added node \"g2\" :group / contains+ b / contains- a",
+        "三包测试文件 grep 无 addGroup(/removeGroup(/updateGroup( 调用残留"
+      ],
+      "verify": "cd packages/lgdl-core && npm test\ncd ../lgdl-web-cli && npm test\ngrep -rn \"addGroup(\\|removeGroup(\\|updateGroup(\" packages/lgdl-core/src packages/lgdl-web-cli/src --include=\"*.test.ts\"  # 预期零输出"
+    },
+    {
+      "id": "TASK-006",
+      "name": "AI 提示面同步（prompts.ts + AiPanel.tsx）",
+      "complexity": "M",
+      "dependsOn": ["TASK-002"],
+      "wave": 5,
+      "fr": ["FR-019"],
+      "dd": [],
+      "ec": [],
+      "ac": ["AC-01", "AC-03"],
+      "description": "prompts.ts:48 增量命令清单 9 → 6（删三 group 命令）；AiPanel.tsx 4 处 prompt 文案改 node 命令形态（:116/:122 → 用 add-node --kind group；:139 hint；:140 prompt 含 add-node --kind group --contains / update-node --contains-add）——「整理分组」快捷动作保留。",
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/prompts.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/AiPanel.tsx" }
+      ],
+      "acceptance": [
+        "prompts.ts 增量命令清单恰为 6 命令",
+        "AiPanel.tsx 4 处（:116/:122/:139/:140）无三 group 命令残留；「整理分组」动作保留且为 node 命令形态",
+        "grep packages/lgdl-web/src 无 add-group/remove-group/update-group 残留（R-002 缓解）",
+        "packages/lgdl-web tsc 全绿"
+      ],
+      "verify": "grep -rn \"add-group\\|remove-group\\|update-group\" packages/lgdl-web/src  # 预期零输出\ncd packages/lgdl-web && npx tsc --noEmit"
+    },
+    {
+      "id": "TASK-007",
+      "name": "用户文档同步（README / cli-guide / ai-agent-guide / v0.5-web-ai）",
+      "complexity": "M",
+      "dependsOn": ["TASK-006"],
+      "wave": 6,
+      "fr": ["FR-020", "FR-021"],
+      "dd": [],
+      "ec": [],
+      "ac": ["AC-01", "AC-07"],
+      "description": "README.md:154 命令表行改 node 等价形态、:168 '9 个增量命令'→'6 个增量命令'；docs/cli-guide.md:46-47 速查表 + :197-216 详细章节改写；docs/ai-agent-guide.md:93/:142-143/:182 改写；docs/v0.5-web-ai.md:155 命令集表改写；降级项 README-CLI.md grep 确认后再动。NG-005 历史产物（examples/CHANGELOG/reviews/ROADMAP/specs-tree-web-cli）不改。",
+      "files": [
+        { "op": "MODIFY", "path": "README.md" },
+        { "op": "MODIFY", "path": "docs/cli-guide.md" },
+        { "op": "MODIFY", "path": "docs/ai-agent-guide.md" },
+        { "op": "MODIFY", "path": "docs/v0.5-web-ai.md" },
+        { "op": "MODIFY", "path": "lgdl-web/public/**/README-CLI.md（降级项：grep 确认存在 group 引用才动）" }
+      ],
+      "acceptance": [
+        "grep README.md 与 docs/ 无 add-group/remove-group/update-group 命令引用（NG-005 例外清单核对）",
+        "文档口径统一：16 命令 / 6 个增量命令（AC-07）",
+        "速查表/详细章节/示例均为 node 命令等价形态",
+        "git diff 核对未误改 NG-005 历史产物"
+      ],
+      "verify": "grep -rn \"add-group\\|remove-group\\|update-group\" README.md docs/ | grep -v -E \"examples/|README-CLI|CHANGELOG|reviews-2026-08-24|ROADMAP|specs-tree-web-cli\"  # 预期零输出\ngrep -rn \"6 个增量命令\\|16 命令\" README.md docs/  # 抽查口径"
+    },
+    {
+      "id": "TASK-008",
+      "name": "验证门禁（回归总闸：tsc 全绿 + test 守恒 + grep 零残留 + git diff 零语义模型改动）",
+      "complexity": "M",
+      "dependsOn": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007"],
+      "wave": 7,
+      "fr": [],
+      "dd": [],
+      "ec": [],
+      "ac": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-07"],
+      "description": "最终回归验证总闸，逐项执行 AC-01~07：四包 tsc --noEmit 全绿（NFR-006）；四包 npm test 全绿 + 15 项迁移矩阵对比 + 测试守恒（NFR-005）；grep 零残留（AC-01，NG-005 例外清单核对）；git diff 语义模型文件零改动（NFR-001/AC-06）；三入口 loud reject 复核（AC-03）；文档口径 16/6 抽查（AC-07）。",
+      "files": [],
+      "acceptance": [
+        "四包 tsc --noEmit 全部通过（AC-04）",
+        "四包 npm test 全部通过；迁移矩阵 15 项无缺项；测试总数不减少（AC-05）",
+        "grep -r \"add-group|remove-group|update-group\" 在 packages(8 包)+docs+README 零残留（NG-005 例外核对通过）（AC-01）",
+        "git diff --name-only 无 parser/serialize/layout/render/LgdlDocument/LgdlNode/LgdlMember 文件（AC-06）",
+        "三入口 loud reject 复核通过（AC-03）；文档口径 16/6 抽查通过（AC-07）"
+      ],
+      "verify": "cd packages/lgdl-core && npm test && npx tsc --noEmit\ncd ../lgdl-web-cli && npm test && npx tsc --noEmit\ncd ../lgdl-cli && npm test && npx tsc --noEmit\ncd ../lgdl-web && npm test && npx tsc --noEmit\ngrep -rn \"add-group\\|remove-group\\|update-group\" packages/ docs/ README.md | grep -v -E \"examples/|README-CLI|CHANGELOG|reviews-2026-08-24|ROADMAP|specs-tree-web-cli\"  # 预期零输出\ngit diff --name-only | grep -E \"parser|serialize|layout|render\"  # 预期零输出（语义模型零改动）"
+    },
+    {
+      "id": "TASK-009",
+      "name": "docs-tree-root 全景联动（外部 @sddu-docs，触发 + 验收）",
+      "complexity": "M",
+      "dependsOn": ["TASK-006"],
+      "wave": 6,
+      "fr": [],
+      "dd": [],
+      "ec": [],
+      "ac": ["AC-07"],
+      "description": "触发 @sddu-docs 对 .sddu/docs-tree-root/ 联动更新（plan §5.5 清单 8+ 文件）：核心引擎/core-语义模型.md、核心引擎/web-ai助手.md、docs-overview.md、source.md、系统架构/docs-overview.md、系统架构/包依赖关系-deps.md、adr-index.md、diagrams/ 系列（architecture-layers/packages/deps 的 .json/.html/.visual-check.json）——命令计数 19→16、9 增量→6 增量。本任务为触发+验收，实际落盘归 @sddu-docs（NG-004 边界）。",
+      "files": [
+        { "op": "MODIFY", "path": ".sddu/docs-tree-root/核心引擎/core-语义模型.md" },
+        { "op": "MODIFY", "path": ".sddu/docs-tree-root/核心引擎/web-ai助手.md" },
+        { "op": "MODIFY", "path": ".sddu/docs-tree-root/docs-overview.md" },
+        { "op": "MODIFY", "path": ".sddu/docs-tree-root/source.md" },
+        { "op": "MODIFY", "path": ".sddu/docs-tree-root/系统架构/docs-overview.md" },
+        { "op": "MODIFY", "path": ".sddu/docs-tree-root/系统架构/包依赖关系-deps.md" },
+        { "op": "MODIFY", "path": ".sddu/docs-tree-root/adr-index.md" },
+        { "op": "MODIFY", "path": ".sddu/docs-tree-root/diagrams/architecture-{layers,packages,deps}.{json,html,visual-check.json}" }
+      ],
+      "acceptance": [
+        "联动后 .sddu/docs-tree-root/ 全仓 grep 无「19 命令 / 9 命令 / 9 个增量命令」旧计数残留（新口径 16/6）",
+        "diagrams/ 系列 json/html/visual-check.json 计数同步",
+        "adr-index.md 落地 ADR-001~003 引用（如 docs 侧决定汇入）",
+        "本 feature 目录未落盘 docs-tree-root（NG-004 边界保持）"
+      ],
+      "verify": "grep -rn \"19 命令\\|9 命令\\|9 个增量命令\" .sddu/docs-tree-root/  # 联动后预期零输出"
+    }
+  ]
+}

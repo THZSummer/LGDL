@@ -54,8 +54,8 @@ test('applyOperation: remove-edge with label picks the parallel edge', () => {
   assert.equal(r.document.edges[0].label, 'other');
 });
 
-test('applyOperation: add-group places members', () => {
-  const r = applyOperation(doc(), { op: 'add-group', id: 'g2', label: 'G2', contains: ['b'] });
+test('applyOperation: add-node with kind:group places members', () => {
+  const r = applyOperation(doc(), { op: 'add-node', id: 'g2', label: 'G2', kind: 'group', contains: ['b'] });
   const g = groupNodes(r.document).find((x) => x.id === 'g2');
   assert.ok(g);
   assert.deepEqual(g.contains, ['b']);
@@ -117,11 +117,8 @@ test('describeOperation: every variant has a readable label', () => {
     { op: 'add-edge', from: 'a', to: 'b' },
     { op: 'remove-edge', from: 'a', to: 'b' },
     { op: 'update-edge', from: 'a', to: 'b' },
-    { op: 'add-group', id: 'g' },
-    { op: 'remove-group', id: 'g' },
-    { op: 'update-group', id: 'g' },
   ];
   for (const op of ops) {
-    assert.match(describeOperation(op), /^(add|remove|update)-(node|edge|group)/);
+    assert.match(describeOperation(op), /^(add|remove|update)-(node|edge)/);
   }
 });

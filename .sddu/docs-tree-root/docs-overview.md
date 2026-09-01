@@ -114,7 +114,7 @@
 | 层 | 包 | 定位 |
 |----|-----|------|
 | **框架层** | `@lgdl/web-cli-base` | **纯机制框架**（类似 Spring 的公共框架）：DomainApi<Op,Doc> 泛型化契约、createExecutor 管线、createOperationApplier 泛型工厂、协议解析骨架、LLM 工具封装、web-fetch 通用工具（中性名）。**零 @lgdl/* 依赖**（deps 仅 openai/anthropic SDK），与 LGDL 业务解耦，任意领域可实例化 |
-| **适配层** | `@lgdl/lgdl-web-cli` | **图内容操作适配**：9 个增量命令注册表（COMMANDS）、LgdlOperation 协议、lgdl-web-cli 工具定义（20 子命令 enum）、协议解析（lgdl-web-cli 前缀）、help 自文档、lgdlDomain/lgdlExecutor 组装单点。依赖 base（机制）+ lgdl-core（类型契约） |
+| **适配层** | `@lgdl/lgdl-web-cli` | **图内容操作适配**：6 个增量命令注册表（COMMANDS）、LgdlOperation 协议、lgdl-web-cli 工具定义（17 子命令 enum）、协议解析（lgdl-web-cli 前缀）、help 自文档、lgdlDomain/lgdlExecutor 组装单点。依赖 base（机制）+ lgdl-core（类型契约） |
 | | `@lgdl/lgdl-web-op-cli` | **UI 操作适配**：OP_COMMANDS 元数据单一数据源（16 条）→ WEB_OP_TOOL 动态生成、webOpHelp、next-actions 解析、**OpHandlerRegistry 注入面**（包定义协议/分发，web 注入 React 回调；零 React/DOM）。依赖 base（仅 HelpArg/HelpEntry 类型） |
 | **语言层** | `@lgdl/lgdl-core` / `@lgdl/lgdl-layout` / `@lgdl/lgdl-router` / `@lgdl/lgdl-render` / `@lgdl/lgdl-cli` / `@lgdl/lgdl-web` | V2 统一更名（6 包加 lgdl- 前缀，git mv 保留历史，零语义改动）：语言核心（零依赖）/ 布局引擎 / 布线引擎（零依赖）/ SVG·ASCII 渲染 / 终端 CLI（bin lgdl-cli 不变）/ Web 工作台（private，不发布） |
 

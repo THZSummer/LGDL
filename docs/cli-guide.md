@@ -43,8 +43,8 @@ lgdl-cli --version    # 查看版本
 | `lgdl-cli add-edge --file <file>` | 加边（增量，支持 cardinality/attrs） | ⭐⭐⭐ |
 | `lgdl-cli update-edge --file <file>` | 改边 label/cardinality/attrs | ⭐⭐ |
 | `lgdl-cli remove-edge --file <file>` | 删边 | ⭐⭐ |
-| `lgdl-cli add-group --file <file>` | 加分组（泳道/分区） | ⭐⭐ |
-| `lgdl-cli remove-group --file <file>` | 删分组 | ⭐ |
+| `lgdl-cli add-node --file <file> --kind group --contains ...` | 加分组（泳道/分区，分组即 kind:group 节点） | ⭐⭐ |
+| `lgdl-cli remove-node --file <file>` | 删分组（分组即节点，remove-node 通用） | ⭐ |
 
 ---
 
@@ -129,7 +129,7 @@ lgdl-cli add-node --file my-diagram.lgdl-cli --id register --group frontend
 lgdl-cli add-node --file my-diagram.lgdl-cli --id dev --label "开发" --attrs start=6 --attrs duration=8
 ```
 
-`--kind` 可选值：`start` `end` `process` `decision` `entity` `note` `state` `milestone`（默认 `process`）
+`--kind` 可选值：`start` `end` `process` `decision` `entity` `note` `state` `milestone` `group`（默认 `process`；`group` 为分组容器节点，配合 `--contains` 使用）
 
 **`--member` 结构化类成员**（可重复，仅 uml-class / er 的 `kind: entity`）：逗号分隔的 `key=value`，字段 `kind`（attribute|method，必填）、`name`（必填）、`visibility`（public|private|protected|package）、`type`、`params`（仅 method）：
 
@@ -194,25 +194,26 @@ lgdl-cli remove-edge --file my-diagram.lgdl-cli --from verify --to fail
 # ✓ removed edge verify -> fail
 ```
 
-#### `lgdl-cli add-group --file <file> --id <id> [--label <label>] [--contains <ids>]`
+#### `lgdl-cli add-node --file <file> --id <id> --kind group [--label <label>] [--contains <ids>]`
 
 ```bash
-# 创建分组（泳道/分区），可指定初始成员（node id 或嵌套 group id）
-lgdl-cli add-group --file my-diagram.lgdl-cli --id frontend --label "前端层" --contains start,login
-# ✓ added group "frontend" (前端层) with 2 member(s)
+# 创建分组（泳道/分区）——分组即 kind:group 节点，可指定初始成员（node id 或嵌套 group id）
+lgdl-cli add-node --file my-diagram.lgdl-cli --id frontend --label "前端层" --kind group --contains start,login
+# ✓ added node "frontend" (前端层) :group with 2 member(s)
 
 # 嵌套分组：把已有分组作为成员
-lgdl-cli add-group --file my-diagram.lgdl-cli --id frontend --label "前端层" --contains auth
-# ✓ added group "frontend" (前端层) with 1 member(s)
+lgdl-cli add-node --file my-diagram.lgdl-cli --id frontend --label "前端层" --kind group --contains auth
+# ✓ added node "frontend" (前端层) :group with 1 member(s)
 ```
 
-> `--contains` 接受 node id 和 group id（嵌套）。一个 node/group 只能属于一个分组；不能直接或间接包含自身。
+> `--contains` 接受 node id 和 group id（嵌套），仅 `--kind group` 有效（不传 `--kind group` 会报错，要求显式声明）。一个 node/group 只能属于一个分组；不能直接或间接包含自身。
 
-#### `lgdl-cli remove-group --file <file> --id <id>`
+#### `lgdl-cli remove-node --file <file> --id <id>`
 
 ```bash
-lgdl-cli remove-group --file my-diagram.lgdl-cli --id frontend
-# ✓ removed group "frontend"
+# 删除分组（分组即节点，remove-node 通用；父组 contains 自动摘除）
+lgdl-cli remove-node --file my-diagram.lgdl-cli --id frontend
+# ✓ removed node "frontend"
 ```
 
 ⚠️ 删除分组不会删除其中的节点，节点只是脱离分组。

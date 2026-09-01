@@ -33,7 +33,9 @@ const PARAM_DESC: Record<string, string> = {
   'cardinality-to': '终点基数（1/*/0..1/0..*/1..*）',
   'member-add': '新增成员（kind=,name=）',
   'member-remove': '移除成员（成员名）',
-  contains: '分组包含的 id 列表（逗号分隔）',
+  contains: '分组包含的 id 列表（逗号分隔；仅 kind:group 节点有效）',
+  'contains-add': '新增分组成员 id（逗号分隔；仅 kind:group 节点有效）',
+  'contains-remove': '移除分组成员 id（逗号分隔；仅 kind:group 节点有效）',
   type: '图类型（init：flowchart/mindmap/uml-class/arch/datastream/sequence/er/state/gantt）',
   q: '搜索关键词（find-node）',
 };
@@ -110,28 +112,22 @@ const WEB_CLI_EXTRA: Record<string, HelpEntry> = {
 
 /** 增量命令示例（参数从 COMMANDS 注册表取，示例在此补充）。 */
 const INCR_EXAMPLES: Record<string, string> = {
-  'add-node': 'lgdl-web-cli add-node --doc main --id user --label 用户 --kind entity',
+  'add-node': 'lgdl-web-cli add-node --doc main --id g1 --label 业务域 --kind group --contains a,b',
   'remove-node': 'lgdl-web-cli remove-node --doc main --id user',
-  'update-node': 'lgdl-web-cli update-node --doc main --id user --label 新名 --attrs role=admin',
+  'update-node': 'lgdl-web-cli update-node --doc main --id g1 --label 新域 --contains-add c --contains-remove a',
   'add-edge': 'lgdl-web-cli add-edge --doc main --from a --to b --label 依赖',
   'remove-edge': 'lgdl-web-cli remove-edge --doc main --from a --to b',
   'update-edge': 'lgdl-web-cli update-edge --doc main --from a --to b --label 新标签',
-  'add-group': 'lgdl-web-cli add-group --doc main --id g1 --label 业务域 --contains a,b',
-  'remove-group': 'lgdl-web-cli remove-group --doc main --id g1',
-  'update-group': 'lgdl-web-cli update-group --doc main --id g1 --label 新域 --member-add c',
 };
 
 /** 增量命令中文摘要（覆盖 COMMANDS 的英文 description）。 */
 const INCR_SUMMARIES: Record<string, string> = {
-  'add-node': '添加节点',
+  'add-node': '添加节点（--kind group --contains 创建分组）',
   'remove-node': '删除节点（自动清理关联边）',
-  'update-node': '修改节点（label/kind/成员/attrs）',
+  'update-node': '修改节点（label/kind/成员/分组成员/attrs）',
   'add-edge': '添加边',
   'remove-edge': '删除边',
   'update-edge': '修改边（label/端点/基数/attrs）',
-  'add-group': '添加分组（泳道/分区）',
-  'remove-group': '删除分组',
-  'update-group': '修改分组（label/成员/attrs）',
 };
 
 function webCliEntryFor(cmd: string): HelpEntry | undefined {

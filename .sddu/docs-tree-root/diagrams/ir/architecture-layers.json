@@ -62,7 +62,7 @@
       "id": "lgdl-cli",
       "type": "backend",
       "label": "@lgdl/lgdl-cli",
-      "sublabel": "终端入口 · 19 命令",
+      "sublabel": "终端入口 · 16 命令",
       "row": 0,
       "col": 0,
       "size": [
@@ -181,7 +181,7 @@
       "sources": [
         {
           "path": "packages/lgdl-web-cli/package.json",
-          "label": "NEW · 9 命令/协议"
+          "label": "NEW · 6 命令/协议"
         }
       ]
     },

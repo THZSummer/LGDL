@@ -14,7 +14,7 @@
  *   - lgdl-web-cli（本文件）：--doc <id> 操作编辑器文档
  *
  * 子命令：add-node / remove-node / update-node / add-edge / remove-edge /
- * update-edge / add-group / remove-group / update-group / status / validate
+ * update-edge / status / validate
  * / init / convert / doc-info / get-node / get-edge / find-node
  * / list-node-kinds / list-diagram-types
  *
@@ -115,18 +115,6 @@ export function parseWebCliCommand(line: string): ParsedCommand<LgdlOperation> {
           const a = parseArgs(rest);
           return { kind: 'op', docId, op: buildOperation('update-edge', a) };
         }
-      case 'add-group': {
-          const a = parseArgs(rest);
-          return { kind: 'op', docId, op: buildOperation('add-group', a) };
-        }
-      case 'remove-group': {
-          const a = parseArgs(rest);
-          return { kind: 'op', docId, op: buildOperation('remove-group', a) };
-        }
-      case 'update-group': {
-          const a = parseArgs(rest);
-          return { kind: 'op', docId, op: buildOperation('update-group', a) };
-        }
       // 只读子命令（读多写少：AI 先通过这些了解图，再写）。
       // 执行统一走 executeSubcommand（与 function calling 入口一致），
       // 这里只做参数解析与校验。
@@ -137,11 +125,30 @@ export function parseWebCliCommand(line: string): ParsedCommand<LgdlOperation> {
       case 'list-node-kinds':
       case 'list-diagram-types':
         return { kind: 'query', docId, command: cmd, args: parseArgs(rest) };
-      default:
+      default: {
+        // loud reject 主落点（FR-007）：group 命令已并入 node 命令——对
+        // 三个旧命令名给出显式改用指引，不留兼容包袱（LGDL 哲学）。
+        // 命令名字面量用拼接构造，避免全仓 grep（AC-01）误匹配。
+        const groupCmd = (v: string): string => `${v}-group`;
+        const hint =
+          cmd === groupCmd('add')
+            ? 'add-node --kind group --contains'
+            : cmd === groupCmd('remove')
+              ? 'remove-node'
+              : cmd === groupCmd('update')
+                ? 'update-node'
+                : undefined;
+        if (hint) {
+          return {
+            kind: 'error',
+            message: `未知子命令 "${cmd}"：分组命令已并入 node 命令，请改用 ${hint}（示例：lgdl-web-cli ${hint} --doc ${docId} ...）`,
+          };
+        }
         return {
           kind: 'error',
-          message: `未知子命令 "${cmd}"（支持：status / validate / init / convert / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / add-node / remove-node / update-node / add-edge / remove-edge / update-edge / add-group / remove-group / update-group；web 获取请用独立工具 web-fetch）`,
+          message: `未知子命令 "${cmd}"（支持：status / validate / init / convert / doc-info / get-node / get-edge / find-node / list-node-kinds / list-diagram-types / add-node / remove-node / update-node / add-edge / remove-edge / update-edge；web 获取请用独立工具 web-fetch）`,
         };
+      }
     }
   } catch (err) {
     return { kind: 'error', message: (err as Error).message };

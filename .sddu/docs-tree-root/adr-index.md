@@ -111,9 +111,9 @@
   - **共享注册表 + 物理分离入口**（选择）：业务逻辑只写一次，两端行为严格一致。
 - **理由**：CLI 入口文件极薄（`cli.ts:34` 一句 `registerAll`）；web-cli 协议解析器只供 web 包使用（边界物理化）；命令自文档化 `--help` 从注册表动态生成（新增命令不用改文档）；两端消费同一 `buildOperation`，增量命令行为严格一致。
 - **证据锚点**：
-  - `packages/core/src/commands.ts:1-17` — 模块头注释：「lgdl-cli 与 lgdl-web-cli 共享的业务逻辑层」；`:27-93` `COMMANDS` 注册表（13 条 CommandSpec，含 9 个增量命令）。
+  - `packages/core/src/commands.ts:1-17` — 模块头注释：「lgdl-cli 与 lgdl-web-cli 共享的业务逻辑层」；`:27-93` `COMMANDS` 注册表（6 条 CommandSpec，即 6 个增量命令）。
   - `packages/web/src/ai/web-cli.ts:1-20` — 模块头注释：协议解析器只供 Web；与 lgdl-cli 完全分离（互不解析对方参数格式）。
-  - `packages/cli/src/cli.ts:34` — `registerAll(program)`（入口仅做 argv 适配与错误美化）；`packages/cli/src/registry.ts:44-64` — 注册 19 个命令（实测：init/render/status/6 个查询/convert/import + 9 增量）。
+  - `packages/cli/src/cli.ts:34` — `registerAll(program)`（入口仅做 argv 适配与错误美化）；`packages/cli/src/registry.ts` — 注册 16 个命令（实测：init/render/status/5 个查询/convert/import + 6 增量；group 命令已并入 node 命令）。
   - commit `1267d13` — 命令业务逻辑抽到 core/commands.ts（两端共用）；commit `0ce6644` — lgdl-cli 与 lgdl-web-cli 彻底分离；commit `c3b4032` — web-cli.ts 移入 web 包（边界物理化）；commit `c232bd9` — 入口前缀区分（终端 lgdl-cli / Web lgdl-web-cli）。
   - CHANGELOG.md:72（v0.5.0「双 CLI 分离」）、:82（命令自文档化 --help 由 COMMANDS 动态生成）。
 
@@ -168,8 +168,8 @@
 ### ADR-008 增量编辑协议（AI 永不整图重写）
 
 - **状态**：ACCEPTED
-- **影响范围**：core（operations 层）、cli（9 个增量命令）、web AI（lgdl-web-cli 工具）
-- **决策**：定义结构化 `LgdlOperation`（add/remove/update × node/edge/group 共 9 种，JSON 可序列化）作为**唯一增量编辑协议**；`applyOperation`/`applyOperations` 为单一实现（批量失败即停）；CLI 9 个增量命令与 Web AI 共用同一入口——**AI 永不整图重写**。
+- **影响范围**：core（operations 层）、cli（6 个增量命令）、web AI（lgdl-web-cli 工具）
+- **决策**：定义结构化 `LgdlOperation`（add/remove/update × node/edge 共 6 种，JSON 可序列化）作为**唯一增量编辑协议**；`applyOperation`/`applyOperations` 为单一实现（批量失败即停）；CLI 6 个增量命令与 Web AI 共用同一入口——**AI 永不整图重写**。分组语义由 node 命令承载（add-node --kind group --contains / update-node --contains-add / remove-node，specs-tree-unify-group-cmd 合并后）。
 - **备选方案**：
   - **整图重写**：大图 token 成本高、容易引入无意改动、变更不可追溯 → 否决（docs/design.md §2「AI 的每次修改必须是增量操作，而不是整图重写」）。
   - **CLI 与 Web 各自实现增量**：行为漂移风险（与 ADR-004 同理）→ 否决。
@@ -177,7 +177,7 @@
 - **理由**：一次修改一个原子操作，失败即停可精确报告第几个 op 失败（`failedIndex`）；mutation 校验、no-change 校验与 warning 在 CLI/Web 两端严格一致；源码永远由序列化器写出（可追溯）。
 - **证据锚点**：
   - `packages/core/src/operations.ts:1-18` — 模块头注释（shared incremental edit protocol，两端同一 applyOperation 入口）；`:195-220` — `applyOperations` 失败即停（`failedIndex` + 填充 null 槽位）。
-  - `packages/core/src/commands.ts:27-93` — `COMMANDS` 注册表中 9 个增量命令的 CommandSpec（add/remove/update × node/edge/group）。
+  - `packages/core/src/commands.ts:27-93` — `COMMANDS` 注册表中 6 个增量命令的 CommandSpec（add/remove/update × node/edge）。
   - commit `1267d13` — 命令业务逻辑抽到 core/commands.ts（增量协议单一数据源）。
   - `docs/design.md:17-29`（§2 增量编辑协议：add/remove/update + 确定性重排「语义不变则输出不变」）。
   - CHANGELOG.md:64（v0.5.0「共享操作层：结构化增量操作协议 9 种 + applyOperation/applyOperations 批量、失败即停」）。

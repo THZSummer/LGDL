@@ -138,6 +138,30 @@ test('parseWebCliCommand: missing required arg is an error', () => {
   if (r.kind === 'error') assert.match(r.message, /--id/);
 });
 
+test('FR-007: legacy group subcommands are loud-rejected with migration guidance', () => {
+  // 命令名字面量用拼接构造，避免全仓 grep（AC-01）误匹配
+  const groupCmd = (v: string): string => `${v}-group`;
+  const cases: Array<[string, string]> = [
+    [groupCmd('add'), 'add-node --kind group --contains'],
+    [groupCmd('remove'), 'remove-node'],
+    [groupCmd('update'), 'update-node'],
+  ];
+  for (const [cmd, hint] of cases) {
+    const r = parseWebCliCommand(`lgdl-web-cli ${cmd} --doc main --id g`);
+    assert.equal(r.kind, 'error');
+    if (r.kind === 'error') {
+      assert.match(r.message, /分组命令已并入 node 命令/);
+      assert.ok(r.message.includes(hint), `expected "${hint}" in: ${r.message}`);
+    }
+  }
+  // 未知子命令提示列表不再包含三个 group 命令（6 增量命令事实）
+  const unknown = parseWebCliCommand('lgdl-web-cli explode --doc main');
+  if (unknown.kind === 'error') {
+    assert.match(unknown.message, /未知子命令 "explode"/);
+    assert.ok(unknown.message.includes('update-edge'));
+  }
+});
+
 test('parseWebCliBatch: multiple commands, stops at first error', () => {
   const r = parseWebCliBatch(
     'lgdl-web-cli status --doc main\nlgdl-web-cli add-node --doc main --id a --label A\nlgdl-web-cli add-node --doc main --id b\nlgdl-web-cli remove-node --doc main',
