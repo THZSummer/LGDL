@@ -3,6 +3,7 @@
 > 研究任务产物 · 只读源码分析 + LGDL 双全景 8 张图实测观察
 > 源码根：`.opencode/skills/archify/archify/`（下文路径均相对该目录）
 > 日期：2026-08-31
+> v1.1 增补（2026-09-02）：第二次实战验证（V2 全景重绘 6 图，9 包体系 @ d03dca4）——10 项论断逐条回验，详见 §10
 > 标注约定：`[文件:行号]` 为源码证据；无法直接证实、属观察推断的内容以「◆ 观察推断」标出。
 
 ---
@@ -61,7 +62,7 @@
 - **28px 相邻消息行下限**：校验对「共享水平空间的相邻消息」要求 `Δy ≥ 28`，否则报错 `render-sequence.mjs:241-256`。
 - 消息 y 必须落在可读时间轴内：`lifelineTop + 18 ≤ y ≤ lifelineBottom - 18`；时间轴净高 `< 120` 直接报错 `render-sequence.mjs:152-154,178-180`。
 - 消息跨度 ≥ 60px、参与者盒宽 86px 放不下标签会拒绝（`render-sequence.mjs:156-159,181-184`）。
-- **viewBox 比例 ≤0.39**：`docs/archify-usage-report.md:61` 记录的实测经验值。源码里没有字面的 0.39 常量，它是「首屏 + 可读性」门禁的**涌现约束**：① 成品 checker 按 930px 可读宽估算投影字号（`desktop-readability.mjs:1-5`），7px sublabel 投影到 6.03px 是极限通过（`check-render-output.mjs:625`）；② visual-check 在 1440×900 起验 containment。LGDL 实测的 sequence 图最终 viewBox `[1080,490]`（比例 0.454）四档全部通过，说明 0.39 是迭代期更保守的预算值。**◆ 观察推断**：0.39 的来源与「首屏不溢出」的垂直预算（900px 视口 − 固定 chrome ≈ 322px 后，`(900-322)*W/1274` 对 W=1080 恰好给出 H≤490）一致，但该精确值不是源码常量。
+- **viewBox 比例 ≤0.39**：`docs/research/archify/archify-usage-report.md:61` 记录的实测经验值。源码里没有字面的 0.39 常量，它是「首屏 + 可读性」门禁的**涌现约束**：① 成品 checker 按 930px 可读宽估算投影字号（`desktop-readability.mjs:1-5`），7px sublabel 投影到 6.03px 是极限通过（`check-render-output.mjs:625`）；② visual-check 在 1440×900 起验 containment。LGDL 实测的 sequence 图最终 viewBox `[1080,490]`（比例 0.454）四档全部通过，说明 0.39 是迭代期更保守的预算值。**◆ 观察推断**：0.39 的来源与「首屏不溢出」的垂直预算（900px 视口 − 固定 chrome ≈ 322px 后，`(900-322)*W/1274` 对 W=1080 恰好给出 H≤490）一致，但该精确值不是源码常量。
 
 ### 2.3 dataflow：泳道（阶段列）+ 行槽
 
@@ -200,7 +201,7 @@ composition 汇总：showcase 下 crossings/corridors/rhythm/labelClearance/desk
 
 ## 5. 稳定性/确定性的工程保障
 
-1. **纯函数编译**：布局几何全部是无随机、无时钟的纯函数；renderers 里的 `Math.random` / `Date.now` 检索结果为零（唯一例外在 `output-path.mjs:166` 的临时目录后缀与 `brand-marks.mjs` 的品牌抓取超时，均不进入 SVG 内容）。同一 IR → 同一字节（`SKILL.md` 与 `docs/archify-guide.md` 均以此为核心卖点）。
+1. **纯函数编译**：布局几何全部是无随机、无时钟的纯函数；renderers 里的 `Math.random` / `Date.now` 检索结果为零（唯一例外在 `output-path.mjs:166` 的临时目录后缀与 `brand-marks.mjs` 的品牌抓取超时，均不进入 SVG 内容）。同一 IR → 同一字节（`SKILL.md` 与 `docs/research/archify/archify-guide.md` 均以此为核心卖点）。
 2. **固定迭代上限**：boundary 标题 32 轮不收敛即报错而非无限抖动 `render-architecture.mjs:288-313`；段标签最多 4 次上移 `render-sequence.mjs:345-348`；`pathCache` 保证每条边只算一次、顺序无关 `render-architecture.mjs:919,936-958`。
 3. **compare 的 canonical 化**：base/head 两侧先过校验、再按 canonical 顺序重排集合后才渲染，保证「格式化的输入重写」不改变产物哈希 `archify.mjs:574-579,606-610`。
 4. **原子交付防半成品**：
@@ -213,7 +214,7 @@ composition 汇总：showcase 下 crossings/corridors/rhythm/labelClearance/desk
 
 ## 6. 与 LGDL 的互鉴
 
-LGDL 与 archify 走同一条「确定性渲染」技术路线（`docs/archify-usage-report.md:94-97`），但布局/走线机制完全不同：
+LGDL 与 archify 走同一条「确定性渲染」技术路线（`docs/research/archify/archify-usage-report.md:94-97`），但布局/走线机制完全不同：
 
 | 维度 | Archify | LGDL 自研 |
 |---|---|---|
@@ -227,7 +228,7 @@ LGDL 与 archify 走同一条「确定性渲染」技术路线（`docs/archify-u
 1. **4 视口视觉检查收据**：`visual-check` 的「containment + 投影字号 + 双主题截图 + 永不改成品」是 archify 最值得移植的能力——LGDL 目前无浏览器实测闭环，可在 Web 工作台或 CI 中加同等收据（含 `visualReview:"pending"` 的诚实边界）。
 2. **净空验证即门禁**：archify 把「边穿节点 / 标签压线 / 沿框借道 / 微段」做成**提交前错误**而非运行时尽量绕——LGDL router 的 A* 已内置绕障，可再补一层「路由后净空审计」，把软评分漏网的解在交付前拦截。
 3. **readability 度量**：`projectedNodeTextPx`（930px 可读宽模型 + 6px 投影下限）是简单但有效的防溢出公式，LGDL 的 render 可对「缩放后的字号下限」做同款预算。
-4. **结构化 supportedFixes**：archify 每个诊断都带机器可读修复建议，LGDL CLI 的报错可对照升级（`docs/archify-usage-report.md:103` 已有同款结论）。
+4. **结构化 supportedFixes**：archify 每个诊断都带机器可读修复建议，LGDL CLI 的报错可对照升级（`docs/research/archify/archify-usage-report.md:103` 已有同款结论）。
 5. **确定性候选序而非全局优化**：archify 用「固定顺序候选 + 首个净空者」获得 O(n) 确定性；LGDL A* 靠 heap 优先序确定性也不错，但可给候选生成加同样的「可复现种子/稳定 tie-break」并留测试断言。
 
 **LGDL 反哺 archify 的点（对称观察）**：Sugiyama 自动分层 + A* 真实绕障说明「自动布局也能确定」；archify 若未来要支持大图，可借鉴 LGDL 的 `layoutGrouped`（group 作 super-node）与 RANK_SEP=96 的层间通道预算（`docs/research/edge-routing/lgdl-router-current.md:62-69`）。
@@ -239,7 +240,7 @@ LGDL 与 archify 走同一条「确定性渲染」技术路线（`docs/archify-u
 LGDL 双全景 8 张图（`.sddu/docs-tree-root/diagrams/` + `业务全景/diagrams/`）全部通过 showcase 9/9 检查 + 4 视口 visual-check（收据 status=pass、readabilityOk=true、投影最小字号 7–9px）。哪些机制真正起了作用：
 
 1. **architecture 网格 + boundary 标题排版**：3 张网格图用 `row` 表达层次（architecture-layers 的 cli/web→render→router/layout→core 四行）；`双层消费模型` 走自由坐标。boundary 标题的可读性迭代在 `architecture-deps`（含「零依赖 · 语言事实来源」上下文子标签）上实测投影 8.71px，远超 6px 门槛。
-2. **workflow 列网格是真约束**：`colXs=[88,220,300,430,500,625]` 的 70px 列距（col3→4）对 92px 节点重叠 22px、80px 列距（col1→2）重叠 12px——安全列链仅剩约 3-4 列。**◆ 观察推断**：「3-4 列仅 70px 间距」是 LGDL 迭代时对该约束的实测概括（与 `docs/archify-usage-report.md:64` 记录一致），数字可由源码复算。
+2. **workflow 列网格是真约束**：`colXs=[88,220,300,430,500,625]` 的 70px 列距（col3→4）对 92px 节点重叠 22px、80px 列距（col1→2）重叠 12px——安全列链仅剩约 3-4 列。**◆ 观察推断**：「3-4 列仅 70px 间距」是 LGDL 迭代时对该约束的实测概括（与 `docs/research/archify/archify-usage-report.md:64` 记录一致），数字可由源码复算。
 3. **sequence 行距压缩**：最终 9 条消息 y 以**严格 28px 等差**（160→384）排布 `sequence-ai-ops.json` 实测值；这正是 28px 相邻消息门禁的产物（原 12 条消息被压到 9 条，余量入卡片，`usage-report.md:62`）。`column_fit:"spread"` 在 1080 宽下把 6 个参与者铺满画布（86px → 约 135px 盒宽）。
 4. **workflow→dataflow 改型的约束触发**：`核心业务旅程` 原为 workflow，固定列网格 + 纵向泳道预算反复冲突（usage-report.md:64 记录「两轮修复未果后调整」）；改 dataflow 后（5 stage × 2 row，viewBox `[1080,500]`）一次通过——实证了「两轮聚焦修复上限」规则与 dataflow 泳道+行槽布局的宽容度。
 5. **visual-check 的 4 视口收据**：8 张图全部满足 `scrollW ≤ innerW && scrollH ≤ innerH` 且 dock 间隙 ≥10px；双主题 PNG + contact-sheet + JSON 落盘。这是「Agent 无法人工目检」场景下的质量兜底（usage-report.md:54,127）。
@@ -276,8 +277,51 @@ LGDL 双全景 8 张图（`.sddu/docs-tree-root/diagrams/` + `业务全景/diagr
 
 ## 9. 标注为「推断」的内容汇总
 
-1. **sequence viewBox 比例 ≤0.39**（第 2.2 节）：`docs/archify-usage-report.md:61` 记录的实测经验值；源码中无 0.39 字面常量。可验证的底层机制是 930px 可读宽模型 + 6px 投影下限 + 4 视口 containment；最终图以 0.454 通过，故 0.39 属更保守的迭代预算（推断其源于首屏垂直预算公式，未直接证实）。
+1. **sequence viewBox 比例 ≤0.39**（第 2.2 节）：`docs/research/archify/archify-usage-report.md:61` 记录的实测经验值；源码中无 0.39 字面常量。可验证的底层机制是 930px 可读宽模型 + 6px 投影下限 + 4 视口 containment；最终图以 0.454 通过，故 0.39 属更保守的迭代预算（推断其源于首屏垂直预算公式，未直接证实）。
 2. **workflow「3-4 列仅 70px 间距」的概括措辞**（第 2.4、7 节）：70px 列距与 92px 节点重叠的复算有源码证据（`render-workflow.mjs:54-55`），但「3-4 列」「反复触发布局冲突」是对迭代过程的观察概括。
 3. **architecture「层次/泳道/放射布局模式」**（第 2.1 节）：schema 仅支持 `mode:"grid"` 与自由坐标；「层次」由网格行实现属对 LGDL 用法的观察推断，非独立算法。
 4. **首屏 chrome 高度约 322px、0.454 约束公式**（第 2.2 节）：由 sequence 收据的 scrollHeight=900、diagramWidth=1274 反推，未逐行追查 template.html 的完整盒模型。
 5. **「安全列链仅 3-4 列」**（第 2.4 节）：由 colXs 间距与 nodeW 92 重叠复算推得，非源码注释。
+
+---
+
+## 10. 第二次实战验证（V2 全景重绘，2026-09-02）
+
+### 10.1 验证方式
+V2 重绘技术全景 6 张图（9 包体系，SRC 溯源 d03dca4）；6 张 IR 用当前 skill 重渲染并与 git HEAD 交付 HTML 做 sha256 对照；validate --quality showcase 重跑；visual-check 收据复核。
+
+### 10.2 逐条回验表（10 项）
+| # | v1.0 论断 | 第二次实测 | 结论 |
+|---|---|---|---|
+| 1 | 确定性：同一 IR 恒产出同一成品 | 6/6 IR 重渲染 sha256 与交付 HTML **逐字节一致**（跨会话复现）；validate showcase 6/6 通过 | ✅ |
+| 2 | architecture 网格默认常量 | DEFAULT_GRID 与 §2.1 逐字一致；V2 三图全部显式覆盖（deps/packages：origin[20,80]/gapX140/cellW200；layers：cols3/gapX160/cellH44），默认值实命中 0 次；公式复算无误 | ✅ |
+| 3 | 层次=网格行 | layers 三层全用 row（语言层 row0-3 / 适配层 row4 / 框架层 row5）；boundary 2 个，框架层裸行无包裹 | ✅ |
+| 4 | sequence 28px 行距 | 9 消息 y=160→384 严格 28px 等差；column_fit:"spread"；viewBox[1080,490] 与第一次完全相同 | ✅ |
+| 5 | dataflow 泳道常量 | rowYs=[128,242,356,470,584]/colGap215 逐字一致；V2 两图 stage0-4/row0-1 全在范围 | ✅ |
+| 6 | visual-check 收据 | 6 张 pass；最小投影字号 6.54–7.99px（v1.0 经验带 7-9px 被下探）；3 张 architecture 收据曾与成品脱钩（见 10.3-2） | ⚠️ 修正 |
+| 7 | SRC 源码证据 | 3 张 architecture IR meta.repository.revision=d03dca4、referenceCount:9、blob 链接 pin；sequence/dataflow 无（合理） | ✅ |
+| 8 | 9 项走线门禁 | 6/6 errors=0 warnings=0、composition=pass | ✅ |
+| 9 | workflow 约束紧 | V2 沿用规避：architecture×3 + sequence×1 + dataflow×2，workflow×0 | ✅ |
+| 10 | viewBox 安全区 | sequence 0.454（与第一次同）、dataflow 0.373、architecture 0.508-0.545；0.37-0.55 无溢出 | ✅ |
+
+### 10.3 口径修正与新发现
+**修正 2 项**：
+1. **收据-成品脱钩**：deliver 可覆盖成品而不自动更新 visual-check 收据——收据仅证明「运行时刻」的成品状态。本次 3 张 architecture 图收据早于最终交付（sha 不一致）。启示：重交付后必须重跑 visual-check，证据链才完整。
+2. **投影字号经验带**：v1.0 记录 7-9px；第二次下探至 6.54px（architecture-packages，1440 视口）——内容密度（9 包 vs 6 包）直接挤压字号，距 6px 门槛仅 0.54px。
+
+**新发现 4 项**：
+1. **--repo-root 前置门禁**：architecture IR 声明 meta.repository 后，validate/deliver/visual-check 不带 --repo-root 直接报 repository-evidence/root-required error；sequence/dataflow 不接受该 flag（类型间行为不一致）。
+2. **收据时效性**（同修正 1）。
+3. **新布局形态**：architecture-layers 用 cols=3（非默认 4）+ 6 行 + 2 boundary 的「非全包裹」层次表达——boundary 是可选强调而非结构必需。
+4. **字号密度挤压**：大图设计时投影字号预算要先算（930px 模型），不是事后靠 checker 发现。
+
+### 10.4 总结论
+v1.0 秘诀经受住第二次实战检验——8/10 直接印证、2/10 修正口径、0 推翻。确定性获得字节级实证（最强验证）；「workflow→dataflow 改型」教训在第二次被主动规避（workflow 0 张）。
+
+---
+
+## 11. 修订记录
+| 版本 | 变更说明 | 日期 |
+|---|---|---|
+| v1.0 | 初始创建：源码分析 + 第一次 8 图实测（LGDL 双全景） | 2026-08-31 |
+| v1.1 | 增补第二次实战验证（V2 9 包 6 图）：10 项论断回验（8 印证/2 修正/0 推翻）、字节级确定性实证、口径修正 2 项（收据时效性/字号经验带）、新发现 4 项（--repo-root 门禁/收据时效/非全包裹布局/密度挤压） | 2026-09-02 |

@@ -2,6 +2,7 @@
 
 > 报告人：sddu-docs Agent，经 SDDU 协调器整理
 > 日期：2026-08-31
+> v1.2 增补（2026-09-02）：第二次实战（V2 全景重绘 6 图，9 包体系）+ 使用痛点与改进建议，详见 §九、§十
 
 ## 一、使用概况
 
@@ -11,7 +12,7 @@
 | 项目 | LGDL 双全景（业务全景 + 技术全景） |
 | 图总数 | **8 张** |
 | 交付结果 | 全部通过 archify 门禁并交付（8/8） |
-| 使用方式 | Agent 会话内生成 Typed JSON IR → 校验 → 编译 HTML（流程详见 docs/archify-guide.md） |
+| 使用方式 | Agent 会话内生成 Typed JSON IR → 校验 → 编译 HTML（流程详见 docs/research/archify/archify-guide.md） |
 
 ### 图片清单
 
@@ -39,7 +40,7 @@
 
 ### 1. IR 生成
 
-Agent 先读取 `.opencode/skills/archify/SKILL.md` 与 `docs/archify-guide.md`，按各图类型的 schema 手写 Typed JSON IR。源文件保留在 `diagrams/ir/`（技术全景与业务全景各一套目录），可复现、可增量修改。
+Agent 先读取 `.opencode/skills/archify/SKILL.md` 与 `docs/research/archify/archify-guide.md`，按各图类型的 schema 手写 Typed JSON IR。源文件保留在 `diagrams/ir/`（技术全景与业务全景各一套目录），可复现、可增量修改。
 
 ### 2. 校验门禁
 
@@ -134,9 +135,44 @@ Agent 先读取 `.opencode/skills/archify/SKILL.md` 与 `docs/archify-guide.md`�
 4. 为常见图提供更薄的 IR 模板（降低手写成本）
 5. 探索 PNG 截图质量与交互 HTML 的自动双交付集成
 
-## 九、修订记录表
+## 九、第二次实战体验（V2 全景重绘，2026-09-01）
+
+**概况**：V2 重构后全景更新，重绘技术全景 6 张图（9 包体系，SRC 溯源 d03dca4）：architecture ×3（deps/packages/layers）+ sequence ×1（ai-ops）+ dataflow ×2（cli/web）。全部通过 showcase 校验（9 项检查 0 errors 0 warnings）+ visual-check 4 视口（status=pass、readabilityOk=true）。
+
+**核心实证**（对 v1.0 结论的回验）：
+1. **确定性获得字节级实证**：6 张 IR 用当前 skill 重渲染，sha256 与 git HEAD 交付 HTML 逐字节一致（跨会话复现）——v1.0「同一 IR 恒产出同一成品」从设计声明变成实测事实
+2. **sequence 28px 行距**：9 消息 y=160→384 严格等差，viewBox[1080,490] 与第一次完全相同
+3. **workflow 教训被主动规避**：第二次 0 张 workflow（第一条教训已内化，两条管线继续 dataflow）
+4. **布局常量**：dataflow 泳道常量逐字一致；architecture 默认网格常量实测命中 0 次（V2 三图全部显式覆盖——手排布局的进一步证据）
+5. 详见《archify-layout-secrets.md》§10（10 项论断回验：8 印证 / 2 修正 / 0 推翻）
+
+## 十、使用痛点与改进建议（两轮实战汇总）
+
+**痛点清单（按痛感排序）**：
+
+1. **workflow 类型实际不可用**：固定列网格 colXs 硬编码（70px 列距对 92px 节点宽必然重叠 22px），安全列链仅 3-4 列——第一次实战被迫改型 dataflow，第二次主动规避。5 种类型实际只有 4 种可用，文档无警告
+2. **「确定性」的代价 = 手排布局**：默认网格常量实测命中 0 次，每个节点 row/col/pos 全手指定——「半自动网格」体感更像「手排 + 机械校验」；与 LGDL「语义进来、布局全自动」哲学相比是另一极端；缺少「自动起步布局 + 微调」中间形态
+3. **约束后置发现，返工成本高**：投影字号 6.54px 逼近 6px 门槛（距 0.54px）只有交付时 checker 才发现；sequence 12 条消息被 28px 行距压到 9 条；无类型预检/推荐机制，选错类型试错成本全在用户侧
+4. **收据-成品脱钩**：deliver 覆盖成品后 visual-check 收据不自动更新——第二次 3 张 architecture 图收据即陈旧证据；三段式流程（validate→deliver→visual-check）靠手动串联，漏最后一步无提醒
+5. **类型间行为不一致**：architecture 有 meta.repository 即强制 --repo-root，sequence/dataflow 不接受该 flag——同一工具各类型各一套脾气
+6. **IR 手写与上下文成本**：写 IR 前要读 SKILL.md + guide.md + 类型 schema（上下文税）；Typed JSON 比声明式文本啰嗦，图规模上去后 IR 膨胀；「两轮聚焦修复」无 CLI 硬计数，靠纪律自律
+7. **体积与文件面**：单 HTML ~700KB；每图 sidecar 一大把（双主题 PNG × 多视口 + contact-sheet + JSON）
+8. **验收仍需人工**：visualReview 永远 pending——自动化只出证据不出结论，无人值守差最后一公里
+
+**一句话根因**：archify 用「把所有决策前置给作者 + 把所有违规后置给门禁」换来确定性和优雅——省掉的是渲染器的智能，转嫁的是使用者的劳动。
+
+**改进建议（6 条）**：
+1. workflow 列网格自适应（colXs 按节点数/宽度推导），否则文档标注该类型限制
+2. 自动起步布局：IR 提供 layout.mode:"auto" 起点，作者只微调（LGDL Sugiyama 证明自动布局也能确定）
+3. 事前预算 lint：validate 时预估投影字号/行距/首屏占用，把事后返工变事前提醒
+4. deliver 后自动重跑 visual-check（或收据打「成品已变」标记）
+5. 跨类型迁移辅助（workflow→dataflow 类改型给 IR 转换提示）
+6. 统一 CLI 体验（--repo-root 类类型差异统一口径）
+
+## 十一、修订记录表
 
 | 版本 | 变更说明 | 日期 | 报告人 |
 |---|---|---|---|
 | v1.0 | 初始创建：LGDL 双全景项目 8 张图实测体验 | 2026-08-31 | sddu-docs Agent |
 | v1.1 | 新增「五、与 LGDL 自身对比」章节，后续章节编号顺延 | 2026-08-31 | sddu-docs Agent |
+| v1.2 | 增补第二次实战体验（V2 9 包 6 图 + 字节级确定性实证）+ 使用痛点清单（8 条）与改进建议（6 条） | 2026-09-02 | sddu-docs Agent |
