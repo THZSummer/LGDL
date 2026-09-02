@@ -1,0 +1,166 @@
+{
+  "featureKey": "specs-tree-render-gate",
+  "feature": "渲染产物门禁（几何审计 + 确定性哈希快照）",
+  "phase": "tasked",
+  "generatedBy": "sddu-tasks",
+  "generatedAt": "2026-09-02",
+  "version": "v1.0",
+  "source": "plan.md（23 项文件变更 + §6.1 G1~G5 审计架构 + §6.2/§6.3 矩阵与快照 + §7 B 档文档设计表 + §8 快照建档流程 + §10 NFR 验收映射）+ ADR-001~004",
+  "waveCount": 4,
+  "taskCount": 13,
+  "complexity": { "S": 1, "M": 10, "L": 2 },
+  "expectedNewTests": 57,
+  "expectedTotalTests": 494,
+  "baseline": {
+    "repoTestCount": 437,
+    "renderTestCount": 21,
+    "renderDistSha256": "2ec5c0a573124d1b918a4e0db5c70c85cfe2b9a0b51761b3c25180b7310550e3",
+    "goldenCount": 11
+  },
+  "parallelWindows": [
+    { "id": "A", "wave": 1, "tasks": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005"] },
+    { "id": "B", "wave": 2, "tasks": ["TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010", "TASK-011"] }
+  ],
+  "criticalPath": ["TASK-001", "TASK-011", "TASK-012", "TASK-013"],
+  "dagDecisions": [
+    "helper 先行（Wave1）：geometry-audit / examples-sources / matrix-docs-b / render-harness / tsconfig 五任务零依赖零文件重叠，audit(L) 与矩阵、快照、自测的依赖唯一汇聚点",
+    "Wave2 六测试文件零重叠（geometry-audit.test / degraded-paths / matrix-a / snapshot / kind-coverage / matrix-b 各占一文件）→ 全并行；audit 自测与退化仅依赖 TASK-001 可最先启动",
+    "matrix-b.test.ts 拆两任务（TASK-011 B1~B5 → TASK-012 B6~B11）同文件顺序追加：TASK-012 依赖 TASK-011，禁止同波次并行触碰该文件",
+    "快照首建（TASK-009 env 写门）与矩阵任务无硬依赖，但建议先于 011/012 完成以便 A 档语义交叉验证；资产保持 plan/ADR-003 的 11 组上限",
+    "微决策 1：plan §6.2 snapshot compareOne 不落地为 *.test.ts 导出——B3/B4a/B4b/B9 语义锁以双渲染字节一致 + 元素级断言承载（避免 node --test 跨测试文件 import 重复注册副作用；扩展 manifest ids 需 EC-008 审批）",
+    "微决策 2：B7/B9 若实测现真红走 EC-001 降级记录，不修引擎不放宽审计（plan §9 R-005/R-011）",
+    "NFR-001 旁路零业务 diff 由 TASK-002（build 后 dist hash == 2ec5c0a5…）与 TASK-013（终验）双点把关"
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "test-support/geometry-audit.ts（G1~G5 + SVG 轻量解析 + AUDIT_TOL）",
+      "step": "test-support",
+      "complexity": "L",
+      "wave": 1,
+      "deps": [],
+      "fr": ["FR-005", "ADR-004", "D-003"],
+      "summary": "审计核心 helper：Violation/ViolationKind/AUDIT_TOL 类型与常量 + 轻量 SVG 解析器 + G1~G5 五类判定（独立实现，不 import router/render 运行函数）"
+    },
+    {
+      "id": "TASK-002",
+      "name": "render tsconfig exclude 追加 src/test-support",
+      "step": "tsconfig",
+      "complexity": "S",
+      "wave": 1,
+      "deps": [],
+      "fr": ["FR-011", "ADR-001", "NFR-001"],
+      "summary": "tsconfig.json exclude 追加一行，保证 build dist 零变化（dist/index.js hash == 2ec5c0a5… 基线）"
+    },
+    {
+      "id": "TASK-003",
+      "name": "test-support/examples-sources.ts（A 档 11 源受管镜像）",
+      "step": "test-support",
+      "complexity": "M",
+      "wave": 1,
+      "deps": [],
+      "fr": ["FR-002", "FR-008", "ADR-002"],
+      "summary": "从 lgdl-web/src/examples.ts 逐字复制 11 EXAMPLES source 为 render 包内闭合镜像（DO NOT EDIT 头注 + 同步规程）"
+    },
+    {
+      "id": "TASK-004",
+      "name": "test-support/matrix-docs-b.ts（B 档 B1~B10+B11 DSL 注册表）",
+      "step": "test-support",
+      "complexity": "M",
+      "wave": 1,
+      "deps": [],
+      "fr": ["FR-003", "FR-004", "NFR-006"],
+      "summary": "B1~B10(+B11) 合法 DSL 文本注册表 + meta（type/qRefs/intent/semanticLock），注释头可追溯，按 plan §7 表逐行设计"
+    },
+    {
+      "id": "TASK-005",
+      "name": "test-support/render-harness.ts（全链路统一基座）",
+      "step": "test-support",
+      "complexity": "M",
+      "wave": 1,
+      "deps": [],
+      "fr": ["FR-001", "FR-002"],
+      "summary": "renderDoc(source,id?) = parse 断言 valid → layoutDocument → renderSvg 返回 {doc,layout,svg} + 模块级渲染缓存"
+    },
+    {
+      "id": "TASK-006",
+      "name": "geometry-audit.test.ts（审计自测 ≥10 正反例）",
+      "step": "self-test",
+      "complexity": "M",
+      "wave": 2,
+      "deps": ["TASK-001"],
+      "fr": ["FR-006", "ADR-004"],
+      "summary": "五类各 ≥1 违规必报 + ≥1 健康不报（G1 NaN / G2 45° 斜段 / G3 穿第三方节点 / G4 edge label 压框 / G5 越 viewBox·泳道），合成 (doc,layout,svg) 直接驱动 audit"
+    },
+    {
+      "id": "TASK-007",
+      "name": "degraded-paths.test.ts（退化/兜底 3 场景）",
+      "step": "degraded",
+      "complexity": "M",
+      "wave": 2,
+      "deps": ["TASK-001"],
+      "fr": ["FR-007", "EC-005", "D-005"],
+      "summary": "合成 fixture 驱动 renderSvg：routeDefault 零长 / A* 无解→orthogonalize / routeRectilinear fallback，断言不抛 + 无 NaN/斜段/越界（唯一 fixture 例外，记录开放 #5）"
+    },
+    {
+      "id": "TASK-008",
+      "name": "matrix-a.test.ts（FR-001 自举 + A 档 11 例全链路）",
+      "step": "matrix-a",
+      "complexity": "M",
+      "wave": 2,
+      "deps": ["TASK-001", "TASK-003", "TASK-005"],
+      "fr": ["FR-001", "FR-002", "E1"],
+      "summary": "12 条 test()：最小 2 节点 1 边基座自举 + 11 例真实 DSL → renderDoc → auditGeometry 0 违例（快照比对归 TASK-009，职责分离）"
+    },
+    {
+      "id": "TASK-009",
+      "name": "snapshot.test.ts + golden 首建（11 svg + manifest）",
+      "step": "snapshot",
+      "complexity": "M",
+      "wave": 2,
+      "deps": ["TASK-003", "TASK-005"],
+      "fr": ["FR-008", "FR-009", "FR-010", "ADR-003"],
+      "summary": "字节+sha256 双校验 + manifest 完整性 + env 更新门（写后自断言）；LGDL_UPDATE_SNAPSHOTS=1 一次性首建 11 组资产并自证 0 diff"
+    },
+    {
+      "id": "TASK-010",
+      "name": "kind-coverage.test.ts（kind 覆盖核对表动态断言 9 格）",
+      "step": "kind-coverage",
+      "complexity": "M",
+      "wave": 2,
+      "deps": ["TASK-001", "TASK-003", "TASK-004", "TASK-005"],
+      "fr": ["FR-004", "D-001"],
+      "summary": "渲染核对文档做元素级真实绘制断言 9 格：pill/process/decision 菱形/entity A 弧/note 折角/state 回退/milestone 菱形·回退/group contains/无 kind 回退"
+    },
+    {
+      "id": "TASK-011",
+      "name": "matrix-b.test.ts ①（B1~B5 语义断言 + 审计 0 违例）",
+      "step": "matrix-b",
+      "complexity": "L",
+      "wave": 2,
+      "deps": ["TASK-001", "TASK-004", "TASK-005"],
+      "fr": ["FR-003", "FR-004", "EC-004", "Q-004", "Q-005", "Q-012", "Q-013"],
+      "summary": "B1 全 kind 混排形状出现性 + B2 折叠（无 polygon/圆柱 path + members 定位）+ B3/B4a/B4b 语义锁（participant/dep 计数 + 双渲染一致）"
+    },
+    {
+      "id": "TASK-012",
+      "name": "matrix-b.test.ts ②（B6~B10 + B11 env 门追加）",
+      "step": "matrix-b",
+      "complexity": "M",
+      "wave": 3,
+      "deps": ["TASK-011"],
+      "fr": ["FR-003", "Q-006", "Q-007", "Q-008", "Q-009", "Q-011"],
+      "summary": "同文件追加：B6 扇出 label 合并 1 次 + B7 gantt 依赖三型·负日期 + B8 er 基数 22px 外置 + B9 _other lane=2 现状锁 + B10 无 initial + B11 P2 skip"
+    },
+    {
+      "id": "TASK-013",
+      "name": "总回归 + CI 验证 + 守恒 ≥437 + NFR 验收",
+      "step": "ci-regression",
+      "complexity": "M",
+      "wave": 4,
+      "deps": ["TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010", "TASK-011", "TASK-012"],
+      "fr": ["FR-011", "FR-012", "NFR-001", "NFR-002", "NFR-003", "NFR-004", "NFR-005", "NFR-006"],
+      "summary": "收口：render + workspaces 全绿、守恒 ≥437（预计 ≈494）、dist hash 不变、ci.yml/package.json 零 diff、时长 ≤60s、NFR-003 注入实测"
+    }
+  ]
+}

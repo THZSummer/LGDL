@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "ids": [
+    "architecture",
+    "microservices",
+    "datastream",
+    "er",
+    "gantt",
+    "login-flow",
+    "ecommerce-flow",
+    "mindmap",
+    "sequence",
+    "state",
+    "uml-class"
+  ],
+  "files": {
+    "architecture": "b9d6396a391ef370653628023e50e4f0cab30f9d95a59fbeae88d4f6dc6348d5",
+    "microservices": "5b3ad7ee0169d35a4fe9a05083cbd3d9fe43c0c694ea698fa79c3868640c9e79",
+    "datastream": "9761396f5f4065ef788431ab6e5669bbd5c290891314d5f803fd67102e69d286",
+    "er": "2e6b8d4718998e74908ee061abddd3e63c6ab0c8adbc6e5e0d07cc5a066be52f",
+    "gantt": "12267139af515e973752bc260b8ec5c6c4f804b2845a2a88727aa21b36e48cd1",
+    "login-flow": "567be35cc5020cb4c738b8b17940e8499941488051b0db344bd62f5a264cd404",
+    "ecommerce-flow": "347f85b6e9b8ee5730b9daead6f5243a131f00d5c9f3efce96e257070d073ab4",
+    "mindmap": "dac70d5e6f3eb5c88c5c0cd282e2024261754776a7de92128d0b48ad9f56b984",
+    "sequence": "d55b3d4240e0aab0c10af2711ec025a7b84b22029837e3ed8f344ce17ab87e32",
+    "state": "7929be131a720afab7b1171c8b0db98df56afeeab53e005b4c2873e6fc06778f",
+    "uml-class": "2f854a4f07d2f29a6129e86e9d40a5f6907d583319b6659a043429f630bba59a"
+  }
+}
