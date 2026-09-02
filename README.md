@@ -6,7 +6,7 @@
 
 **LGDL is a semantic-first diagram description language built for AI agents.** It describes only the *logic* of a diagram (nodes, relations, hierarchy) — never the *layout* (coordinates, styles). Layout is handled automatically by a deterministic engine, so AI edits change only the logic, never the layout.
 
-> **v0.5.0（2026-08-23）已定型** · 语义模型、9 种图渲染、Web 工作台、**AI 助手（命令模式）**、CLI 全部稳定
+> **v0.6.0（2026-09-02）已定型** · 语义模型、9 种图渲染、Web 工作台、**AI 助手（命令模式）**、CLI 全部稳定
 
 ---
 

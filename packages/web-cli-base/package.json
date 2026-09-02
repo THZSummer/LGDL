@@ -1,6 +1,6 @@
 {
   "name": "@lgdl/web-cli-base",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "AI-callable command execution framework — command registry, execution pipeline, tools schema, protocol parser and self-documenting help (domain-neutral, zero LGDL dependency)",
   "type": "module",
   "main": "dist/index.js",

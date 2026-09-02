@@ -1,6 +1,6 @@
 {
   "name": "@lgdl/lgdl-router",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "LGDL orthogonal edge router (A* grid + shape-border anchoring), pure geometry, no rendering",
   "type": "module",
   "main": "dist/index.js",

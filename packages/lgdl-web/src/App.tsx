@@ -951,90 +951,90 @@ export function App(): React.JSX.Element {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       });
-      return '✓ 源码已复制到剪贴板';
+      return { ok: true, output: '✓ 源码已复制到剪贴板' };
     });
     reg.register('toggle-editor', () => {
       setAiCollapsed((c) => !c);
-      return '✓ 编辑器已切换收缩状态';
+      return { ok: true, output: '✓ 编辑器已切换收缩状态' };
     });
     reg.register('collapse-editor', () => {
       setAiCollapsed(true);
-      return '✓ 编辑器已收缩';
+      return { ok: true, output: '✓ 编辑器已收缩' };
     });
     reg.register('expand-editor', () => {
       setAiCollapsed(false);
       setSplitRatio(0.4);
-      return '✓ 编辑器已展开（40%）';
+      return { ok: true, output: '✓ 编辑器已展开（40%）' };
     });
     reg.register('export-svg', () => {
       downloadSvg();
-      return '✓ 已导出 SVG';
+      return { ok: true, output: '✓ 已导出 SVG' };
     });
     reg.register('export-png', () => {
       downloadPng();
-      return '✓ 已导出 PNG';
+      return { ok: true, output: '✓ 已导出 PNG' };
     });
     reg.register('export', (args) => {
       // 别名：AI 可能用 export + format=svg/png
       const fmt = args.format ?? '';
       if (fmt === 'png') {
         downloadPng();
-        return '✓ 已导出 PNG';
+        return { ok: true, output: '✓ 已导出 PNG' };
       }
       downloadSvg();
-      return '✓ 已导出 SVG';
+      return { ok: true, output: '✓ 已导出 SVG' };
     });
     reg.register('preview-zoom', (args) => {
       const c = previewRef.current;
-      if (!c) return '✖ 预览未就绪';
+      if (!c) return { ok: false, output: '✖ 预览未就绪' };
       const factor = args.factor !== undefined ? parseFloat(args.factor) : NaN;
       if (!Number.isNaN(factor) && factor > 0) {
         c.zoomBy(factor, args.anchorX !== undefined ? parseFloat(args.anchorX) : undefined, args.anchorY !== undefined ? parseFloat(args.anchorY) : undefined);
-        return `✓ 已缩放 ${Math.round(c.getScale() * 100)}%`;
+        return { ok: true, output: `✓ 已缩放 ${Math.round(c.getScale() * 100)}%` };
       }
       const dir = args.direction === '1' || args.direction === 'in' ? 1 : -1;
       const delta = args.delta !== undefined ? Math.max(50, Math.min(800, parseFloat(args.delta))) : 200;
       c.wheelZoom(dir as 1 | -1, delta, args.anchorX !== undefined ? parseFloat(args.anchorX) : undefined, args.anchorY !== undefined ? parseFloat(args.anchorY) : undefined);
-      return `✓ 已滚轮缩放，当前 ${Math.round(c.getScale() * 100)}%`;
+      return { ok: true, output: `✓ 已滚轮缩放，当前 ${Math.round(c.getScale() * 100)}%` };
     });
     reg.register('preview-pan', (args) => {
       const c = previewRef.current;
-      if (!c) return '✖ 预览未就绪';
+      if (!c) return { ok: false, output: '✖ 预览未就绪' };
       c.panBy(parseFloat(args.dx ?? '0') || 0, parseFloat(args.dy ?? '0') || 0);
-      return `✓ 已平移 (${args.dx ?? 0}, ${args.dy ?? 0})`;
+      return { ok: true, output: `✓ 已平移 (${args.dx ?? 0}, ${args.dy ?? 0})` };
     });
     reg.register('preview-reset', () => {
       const c = previewRef.current;
-      if (!c) return '✖ 预览未就绪';
+      if (!c) return { ok: false, output: '✖ 预览未就绪' };
       c.resetView();
-      return '✓ 预览已重置为整图适配';
+      return { ok: true, output: '✓ 预览已重置为整图适配' };
     });
     reg.register('preview-click', (args) => {
       const loc = args.loc;
-      if (!loc) return '✖ preview-click 需要 loc 参数（如 nodes[3]）';
+      if (!loc) return { ok: false, output: '✖ preview-click 需要 loc 参数（如 nodes[3]）' };
       // 按真实结果反馈（F-05）：locate 失败不再假成功——AI 得到真实信号
       const ok = jumpToIssue(loc);
-      return ok ? `✓ 已定位到 ${loc}（编辑器已跳转）` : `✖ 未定位到 ${loc}（locate 失败）`;
+      return ok ? { ok: true, output: `✓ 已定位到 ${loc}（编辑器已跳转）` } : { ok: false, output: `✖ 未定位到 ${loc}（locate 失败）` };
     });
     reg.register('preview-hover', (args) => {
       const loc = args.loc;
-      if (!loc) return '✖ preview-hover 需要 loc 参数（如 nodes[3]）';
+      if (!loc) return { ok: false, output: '✖ preview-hover 需要 loc 参数（如 nodes[3]）' };
       // 清除上一处悬浮，给目标元素加 .lgdl-hovered（等效鼠标悬浮：显示锚点 + 高亮）
       const root = document.querySelector('.preview-canvas .svg-inner');
-      if (!root) return '✖ 预览未就绪';
+      if (!root) return { ok: false, output: '✖ 预览未就绪' };
       root.querySelectorAll('.lgdl-hovered').forEach((el) => el.classList.remove('lgdl-hovered'));
       if (loc !== 'none') {
         const target = root.querySelector(`[data-lgdl-loc="${loc}"]`);
-        if (!target) return `✖ 未找到元素 ${loc}（试试 nodes[3] / edges[1]）`;
+        if (!target) return { ok: false, output: `✖ 未找到元素 ${loc}（试试 nodes[3] / edges[1]）` };
         target.classList.add('lgdl-hovered');
       }
-      return loc === 'none' ? '✓ 已取消悬浮' : `✓ 已悬浮 ${loc}（预览中高亮 + 显示锚点）`;
+      return { ok: true, output: loc === 'none' ? '✓ 已取消悬浮' : `✓ 已悬浮 ${loc}（预览中高亮 + 显示锚点）` };
     });
     reg.register('switch-example', (args) => {
       const ex = EXAMPLES.find((e) => e.id === args.id);
-      if (!ex) return `✖ 示例不存在: ${args.id}`;
+      if (!ex) return { ok: false, output: `✖ 示例不存在: ${args.id}` };
       selectExample(ex);
-      return `✓ 已切换到示例 ${ex.label}`;
+      return { ok: true, output: `✓ 已切换到示例 ${ex.label}` };
     });
     reg.register('list-examples', () => {
       // 列出工作台全部示例图（id、标签、类型、节点/边数）
@@ -1045,20 +1045,20 @@ export function App(): React.JSX.Element {
         const edges = parsed.valid ? parsed.document.edges.length : 0;
         return `${ex.id}\t${ex.label}\ttype=${type}\tnodes=${nodes}\tedges=${edges}`;
       });
-      return `工作台示例图清单（${EXAMPLES.length} 个）：\n${rows.join('\n')}`;
+      return { ok: true, output: `工作台示例图清单（${EXAMPLES.length} 个）：\n${rows.join('\n')}` };
     });
     reg.register('list-diagram-types', () => {
       // 从 core 单一数据源动态读取（DIAGRAM_TYPES + 中文标签）
       const list = CORE_DIAGRAM_TYPES.map((t) => `${t}（${DIAGRAM_TYPE_LABELS[t]}）`).join(' / ');
-      return `支持的图类型（${CORE_DIAGRAM_TYPES.length} 种）：${list}`;
+      return { ok: true, output: `支持的图类型（${CORE_DIAGRAM_TYPES.length} 种）：${list}` };
     });
     reg.register('next-actions', () => {
       // 正常流程由聊天面板（AiPanel）拦截处理（胶囊卡片），此处仅防御兜底
-      return '✖ next-actions 由聊天面板处理（推荐动作以胶囊卡片展示），此处不执行';
+      return { ok: false, output: '✖ next-actions 由聊天面板处理（推荐动作以胶囊卡片展示），此处不执行' };
     });
     reg.register('help', (args) => {
       // --help 自文档：查看 UI 操作用法（topic 空 = 顶层）
-      return webOpHelp(args.topic);
+      return { ok: true, output: webOpHelp(args.topic) };
     });
     return reg;
   }, [source, downloadSvg, downloadPng, jumpToIssue, selectExample, applyAiSource]);

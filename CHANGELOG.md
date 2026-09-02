@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased / 0.6.0（开发中）
+## 0.6.0 (2026-09-02)
 
 **布局引擎彻底自研：遵循 Sugiyama 框架，零 dagre/elkjs 依赖**
 
@@ -55,6 +55,26 @@
 - 📊 **甘特图自适应时间刻度 + 泳道**（`packages/layout` + `packages/render` `renderGantt`）：按跨度自适应 `colW`（长项目不再爆宽成 1600×183 扁条），时间轴按「nice stride」抽稀刻度（D0/D10/D20…），并绘制 `doc.groups` 泳道背景/分隔线
 - 🔁 **扇出重复标签合并**（`packages/render`）：同 `from`+同标签发往多目标的边，标签在源端只标一次（如「路由转发」5 次 → 1 次），分支只画线不重复标注
 - 🔤 **混排文本节点标签重叠修复**（`packages/render`）：节点 `<g>` 不再携带 `fill`/`stroke`（resvg 会把父 `<g>` 的 fill 继承进内部 `<text>`，导致「拉丁+中文」混排如 `Redis缓存` 重叠）；`fill`/`stroke` 移到 `NodeShape.body` 的形状元素上——所有图类型的混排节点标签恢复清晰
+
+**web-cli 独立化与 9 包体系（F-13 ① + V2 重构）**
+
+- 🧩 **框架层与适配层分离**：新增 `@lgdl/web-cli-base`（AI 可调用命令执行框架，纯机制零 LGDL 依赖——命令执行管线、DomainApi<Op,Doc> 泛型化契约、LLM 工具封装、web-fetch 通用工具）；LGDL 作为首个适配场景
+- 📦 **新增两个适配包**：`@lgdl/lgdl-web-cli`（图内容操作：9 增量命令 + LgdlOperation 协议 + WEB_CLI_TOOL 工具 + 协议解析 + help）与 `@lgdl/lgdl-web-op-cli`（UI 操作：OP_COMMANDS 单一数据源 + WEB_OP_TOOL + handler 注入面，零 React 依赖）
+- 🏷️ **6 包重命名加 lgdl 前缀**：core/layout/render/router/cli/web → lgdl-core/lgdl-layout/lgdl-render/lgdl-router/lgdl-cli/lgdl-web（monorepo 9 包）
+- ✅ 验证：测试守恒 420 例全绿（迁移零语义改动，逐字节一致）
+
+**v0.6 发布前置收口（F-01~F-05）**
+
+- 🔧 **CI 补齐**：deploy-pages.yml 补 lgdl-router 构建（干净依赖下零 TS2307）；新增 ci.yml 测试工作流（npm ci → build 依赖序 → test）
+- 🐛 **分组/泳道定位跨包断裂修复**：renderer 三处发射 `groups[i]` → `nodes[i]`（group-as-node 语义统一），分组盒/泳道点击定位恢复
+- 🐛 **web-fetch 注册补齐**：OpenAI 兼容端点 tools 数组补 web-fetch（buildTools 统一组装）
+- 🐛 **preview-click 假成功修复**：jumpToIssue 返回 boolean，定位失败如实反馈
+
+**group 命令合并（命令层语义统一）**
+
+- 🧩 **彻底贯彻「group 就是 node」**：add-group/remove-group/update-group 三命令合并进 node 命令——`add-node --kind group --contains a,b` 取代 add-group；`update-node --contains-add/--contains-remove` 取代 update-group 成员操作；lgdl-cli 命令 19 → 16
+- 🗑️ **loud reject**：group 命令移除后报错提示改用 node 命令；LgdlOperation 9 → 6 变体
+- ✅ 验证：测试守恒（core 267 / web-cli 79 / web 35 全绿）；语义模型零改动
 
 ## 0.5.0 (2026-08-23)
 

@@ -1,6 +1,6 @@
 {
   "name": "lgdl",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Logical Graph Description Language: semantic-first diagram language for AI agents",
   "private": true,
   "type": "module",
@@ -17,6 +17,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@lgdl/lgdl-cli": "^0.5.0"
+    "@lgdl/lgdl-cli": "^0.6.0"
   }
 }
