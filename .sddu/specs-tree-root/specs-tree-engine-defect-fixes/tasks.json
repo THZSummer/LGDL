@@ -1,0 +1,350 @@
+{
+  "feature": "specs-tree-engine-defect-fixes",
+  "phase": "tasked",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
+  "createdAt": "2026-09-02",
+  "updatedAt": "2026-09-02",
+  "source": {
+    "spec": ".sddu/specs-tree-root/specs-tree-engine-defect-fixes/spec.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-engine-defect-fixes/plan.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-engine-defect-fixes/discovery.md"
+  },
+  "summary": {
+    "totalTasks": 15,
+    "byComplexity": { "S": 4, "M": 8, "L": 3 },
+    "totalWaves": 6,
+    "criticalPathLength": 11,
+    "commits": ["M1", "M2", "M3", "M4", "M5-收编", "M5-快照"]
+  },
+  "waves": {
+    "1": { "label": "M0 基线", "tasks": ["TASK-001"], "strategy": "单任务：全仓 503 绿基线 + git clean 记录，先于一切代码改动" },
+    "2": { "label": "M1 router 桶 R1 + render RD.1", "tasks": ["TASK-002", "TASK-003", "TASK-004", "TASK-005"], "strategy": "串行为主；TASK-003/004 在 002 后可部分并行（异函数区间，同文件建议同 session）；TASK-005 detick+验证门收口，创建 M1 commit（含 render RD.1）；中间态 matrix 红属预期，degraded/audit-helper/svg/kind-coverage 保持绿；snapshot 红不重建" },
+    "3": { "label": "M2/M3 renderer 桶（并行窗口）", "tasks": ["TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010"], "strategy": "M2（RP.3）与 M3（RD.2/RP.1/RP.2）内部可部分并行，均落 lgdl-render/src/index.ts，跨 session 需按函数区间隔离；TASK-010 收口后分别提交 M2、M3 commit" },
+    "4": { "label": "M4 layout 桶 LL", "tasks": ["TASK-011", "TASK-012"], "strategy": "串行：011 修 layered.ts（不单独 commit），012 写 B12 + stash 取证修复前红 + er/uml audit 0 关键回归 + TB 零变化，M4 commit（修复+B12 同批，EC-010）" },
+    "5": { "label": "M5 收编批 T6", "tasks": ["TASK-013", "TASK-014"], "strategy": "串行：013 KNOWN 清空+断言 0 违例+专项断言+一致性测试 → 收编 commit；014 LGDL_UPDATE_SNAPSHOTS=1 重建+逐张审阅 → 快照独立 commit（ADR-003）" },
+    "6": { "label": "M6 验证交接", "tasks": ["TASK-015"], "strategy": "全量终验：守恒 >=505 / 门禁归零 / 29 项映射核对 / 证据归档，交接 validate" }
+  },
+  "dependencyEdges": [
+    ["TASK-001", "TASK-002"],
+    ["TASK-002", "TASK-003"],
+    ["TASK-002", "TASK-004"],
+    ["TASK-003", "TASK-005"],
+    ["TASK-004", "TASK-005"],
+    ["TASK-005", "TASK-006"],
+    ["TASK-005", "TASK-007"],
+    ["TASK-005", "TASK-008"],
+    ["TASK-005", "TASK-009"],
+    ["TASK-006", "TASK-010"],
+    ["TASK-007", "TASK-010"],
+    ["TASK-008", "TASK-010"],
+    ["TASK-009", "TASK-010"],
+    ["TASK-010", "TASK-011"],
+    ["TASK-011", "TASK-012"],
+    ["TASK-012", "TASK-013"],
+    ["TASK-013", "TASK-014"],
+    ["TASK-013", "TASK-015"],
+    ["TASK-014", "TASK-015"]
+  ],
+  "criticalPath": ["TASK-001", "TASK-002", "TASK-003", "TASK-005", "TASK-006", "TASK-010", "TASK-011", "TASK-012", "TASK-013", "TASK-014", "TASK-015"],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "M0 全仓基线记录",
+      "summary": "跑通全仓测试确认 503 绿基线 + git clean，为 M6 守恒门禁锚定 test( 计数基准",
+      "complexity": "S",
+      "dependsOn": [],
+      "wave": 1,
+      "migrationStep": "M0",
+      "fr": ["FR-013", "NFR-003"],
+      "files": [],
+      "acceptance": [
+        "npm test 全绿且测试计数 >= 503（记录 N0）",
+        "git status 除 .sddu feature 目录外无改动",
+        "基线计数 N0 已记录供 TASK-013 守恒核对"
+      ],
+      "verify": ["npm test", "git status --short"]
+    },
+    {
+      "id": "TASK-002",
+      "name": "M1-① R1.6 RIDE_TOL_PX 导出 + R1.1 snapPt 锚点数值稳定化",
+      "summary": "导出 RIDE_TOL_PX=0.5 并新增 snapPt 稳定化锚点，先置消除 5e-14 浮点噪声对判定边界的放大",
+      "complexity": "S",
+      "dependsOn": ["TASK-001"],
+      "wave": 2,
+      "migrationStep": "M1",
+      "fr": ["EC-005", "EC-006", "FR-001", "FR-002", "FR-009"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-router/src/index.ts" }],
+      "acceptance": [
+        "lgdl-router 编译通过；RIDE_TOL_PX 从包导出且值=0.5",
+        "router.test.ts 全绿（纯稳定化行为不变）",
+        "冒烟：entity 顶弧锚点 snap 后为精确框边坐标"
+      ],
+      "verify": ["npm test -w @lgdl/lgdl-router"]
+    },
+    {
+      "id": "TASK-003",
+      "name": "M1-② R1.2 segInside 交集判据重写 + R1.3 collapse 自身框穿越拒绝 + 容差收敛",
+      "summary": "segInside 重写为段-框内部交集判据；collapse segClear 增自身框穿越拒绝 + 平行贴墙容差 20px→RIDE_TOL_PX",
+      "complexity": "M",
+      "dependsOn": ["TASK-002"],
+      "wave": 2,
+      "migrationStep": "M1",
+      "fr": ["FR-001", "FR-002", "FR-009"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-router/src/index.ts" }],
+      "acceptance": [
+        "router.test.ts 全绿；degraded 场景 1/2 语义保持",
+        "合成几何冒烟：routeEdge 输出不再竖穿 src 自身框内部",
+        "collapse 不塌缩出沿自身框 >0.5px 平行段或横穿 own box 全程候选"
+      ],
+      "verify": ["npm test -w @lgdl/lgdl-router"]
+    },
+    {
+      "id": "TASK-004",
+      "name": "M1-③ R1.5 ride 全集硬拒（router）+ RD.1 render 调用点 ride 全集",
+      "summary": "router 增 segRideOnAnyBox 接入 routeRectilinear 候选过滤与 routeEdge quality；render 聚合/普通边调用点同步传 ride 全集",
+      "complexity": "M",
+      "dependsOn": ["TASK-002"],
+      "wave": 2,
+      "migrationStep": "M1",
+      "fr": ["FR-008", "FR-002"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-router/src/index.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-render/src/index.ts" }
+      ],
+      "acceptance": [
+        "router.test.ts 全绿；degraded 直驱缺省参数语义保持",
+        "lgdl-render 编译通过（RD.1 调用点匹配新签名）",
+        "冒烟：不再产出沿 owning 组底边 >0.5px 共线段"
+      ],
+      "verify": ["npm test -w @lgdl/lgdl-router", "npm run build -w @lgdl/lgdl-render"]
+    },
+    {
+      "id": "TASK-005",
+      "name": "M1-④ R1.4 detickPath 输出 pass + M1 波次验证门 + M1 commit",
+      "summary": "detickPath 做末段垂直化+中间段 bump（fallback/orthogonalize 也 ride-safe），跑 M1 全量验证门并创建 M1 commit",
+      "complexity": "L",
+      "dependsOn": ["TASK-002", "TASK-003", "TASK-004"],
+      "wave": 2,
+      "migrationStep": "M1",
+      "fr": ["FR-009", "FR-001", "FR-002", "NFR-005"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-router/src/index.ts" }],
+      "acceptance": [
+        "degraded-paths 场景 1~3 全绿（fallback/orthogonalize 不抛/有限/正交）",
+        "geometry-audit.test / svg.test / kind-coverage.test 全绿",
+        "matrix 核对：M1/M2 router 面 KNOWN 消失（uml-class infra98、architecture edges[10]x2、B5 out120、13 项末端微借道）且无新违例；断言红属预期不掩盖",
+        "snapshot 红属预期，不重建",
+        "M1 commit 存在（router R1 + render RD.1 同 commit）"
+      ],
+      "verify": [
+        "npm test -w @lgdl/lgdl-router",
+        "npm test -w @lgdl/lgdl-render",
+        "git add packages/lgdl-router/src/index.ts packages/lgdl-render/src/index.ts && git commit"
+      ]
+    },
+    {
+      "id": "TASK-006",
+      "name": "M2 RP.3 renderGantt dep gap∈[-4,20) 三段式垂直进面",
+      "summary": "重写 renderGantt 依赖边 gap≈0 分支为缘间空隙中列/回穿 clear 列垂直进面，消除骑目标条左缘 16px",
+      "complexity": "M",
+      "dependsOn": ["TASK-005"],
+      "wave": 3,
+      "migrationStep": "M2",
+      "fr": ["FR-010", "EC-008"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-render/src/index.ts" }],
+      "acceptance": [
+        "matrix-a gantt G6x4 KNOWN 消失（edges[0..3] 0 actual）",
+        "matrix-b B4b edges[0]、B7 edges[1]/[2] G6 KNOWN 消失",
+        "B7 三型断言绿；依赖边正交不穿中间条；gap>=20 与目标在左分支不动"
+      ],
+      "verify": ["npm test -w @lgdl/lgdl-render"]
+    },
+    {
+      "id": "TASK-007",
+      "name": "M3-① RD.2 基数面法线外置 faceNormalOf",
+      "summary": "新增 faceNormalOf 按锚点最近面取外法线，基数 22px 外推与折线局部方向解耦，防基数回落框内",
+      "complexity": "M",
+      "dependsOn": ["TASK-005"],
+      "wave": 3,
+      "migrationStep": "M3",
+      "fr": ["FR-001", "FR-002", "EC-009"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-render/src/index.ts" }],
+      "acceptance": [
+        "er/uml-class G4 KNOWN 消失（0 actual，含 M1 自愈回归确认）",
+        "B8 基数全枚举回归绿（EC-009 防误判面）",
+        "基数文本 bbox 完全落在实体框外"
+      ],
+      "verify": ["npm test -w @lgdl/lgdl-render"]
+    },
+    {
+      "id": "TASK-008",
+      "name": "M3-② RP.1 placeLabelBox 画布约束 + clamp 兜底",
+      "summary": "placeLabelBox 增画布参数，isFree/候选/回退/兜底全链约束 bbox 落画布内，消除 state label 越界 4px",
+      "complexity": "M",
+      "dependsOn": ["TASK-005"],
+      "wave": 3,
+      "migrationStep": "M3",
+      "fr": ["FR-003", "EC-007"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-render/src/index.ts" }],
+      "acceptance": [
+        "state G5 KNOWN 消失（edges[5] label 右缘 <= 720+1）",
+        "B5/B6 聚合 label 0 违例、bg rect 不出画布（R-010 clamp 不产生新 G4）",
+        "普通边 label 定位不劣化（A 档其余文档 0 违例）"
+      ],
+      "verify": ["npm test -w @lgdl/lgdl-render"]
+    },
+    {
+      "id": "TASK-009",
+      "name": "M3-③ RP.2 gantt 窄条文本近右缘回退 + textWidthEst",
+      "summary": "新增 textWidthEst 估宽，renderGantt 外置窄条文本近右缘回退条左侧/里程碑上方，消除 gantt G5 越界 5.4px",
+      "complexity": "M",
+      "dependsOn": ["TASK-005"],
+      "wave": 3,
+      "migrationStep": "M3",
+      "fr": ["FR-004", "EC-007"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-render/src/index.ts" }],
+      "acceptance": [
+        "gantt G5 nodes[4] KNOWN 消失（launch 文本右缘 <= 1060+1）",
+        "文本语义 `${start}d +${dur}d` 不变",
+        "dur=0 milestone（条宽 20）同机制覆盖（B4b/B7 回归绿）"
+      ],
+      "verify": ["npm test -w @lgdl/lgdl-render"]
+    },
+    {
+      "id": "TASK-010",
+      "name": "M2+M3 波次验证门 + M2/M3 独立 commit",
+      "summary": "波次收口验证 M2/M3 目标 KNOWN 全消失且无新违例，按迁移步分别提交 M2、M3 commit",
+      "complexity": "S",
+      "dependsOn": ["TASK-006", "TASK-007", "TASK-008", "TASK-009"],
+      "wave": 3,
+      "migrationStep": "M2/M3",
+      "fr": ["NFR-001", "NFR-004", "NFR-005", "NFR-007"],
+      "files": [],
+      "acceptance": [
+        "M2/M3 目标 KNOWN 全部 0 actual，无未知 type/docRef",
+        "B8/B5/B6/B7、degraded、geometry-audit/svg/kind-coverage 全绿",
+        "snapshot 红属预期未重建",
+        "M2、M3 两个独立 commit 存在"
+      ],
+      "verify": ["npm test -w @lgdl/lgdl-render", "git log --oneline -4"]
+    },
+    {
+      "id": "TASK-011",
+      "name": "M4-① LL.1 秩轴尺寸按 rankdir 取维度 + LL.2 LR 画布宽兜底",
+      "summary": "layered.ts LR 秩轴步进量改用 rankMaxW + LR 画布宽按节点实际右缘兜底，宽>高卡片不重叠不溢出",
+      "complexity": "M",
+      "dependsOn": ["TASK-010"],
+      "wave": 4,
+      "migrationStep": "M4",
+      "fr": ["FR-005", "FR-006"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-layout/src/layered.ts" }],
+      "acceptance": [
+        "lgdl-layout 编译+测试绿",
+        "TB 行为零变化（坐标/断言语义不变）",
+        "合成 LR 4x160x48 卡链冒烟：相邻 rank 不相交、画布宽 >= 末卡右缘+MARGIN"
+      ],
+      "verify": ["npm run build -w @lgdl/lgdl-layout && npm test -w @lgdl/lgdl-layout"]
+    },
+    {
+      "id": "TASK-012",
+      "name": "M4-② LL.3 B12 回归档 + M4 验证门 + M4 commit",
+      "summary": "新增 B12 LR 宽卡片档（两两不相交+不溢出+audit 0），更新 B2 注释，stash 取证修复前红，跑 er/uml audit 0 关键回归后同批 commit",
+      "complexity": "M",
+      "dependsOn": ["TASK-011"],
+      "wave": 4,
+      "migrationStep": "M4",
+      "fr": ["FR-007", "EC-010"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-render/src/test-support/matrix-docs-b.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-render/src/matrix-b.test.ts" }
+      ],
+      "acceptance": [
+        "B12 用例绿：audit 0 + 两两 bbox 不相交 + 不溢出（matrix-b test( +1）",
+        "B2 单 rank 形态绿 + intent 注释更新引用 B12",
+        "er/uml-class A 档 audit 0（LR 漂移后重算仍 0）；TB 无新增 diff",
+        "修复前红证据记录（stash layered.ts 时 B12 红 → 恢复绿）",
+        "M4 commit 存在（layered.ts + matrix-docs-b + matrix-b 同批）"
+      ],
+      "verify": [
+        "npm test -w @lgdl/lgdl-render",
+        "git stash push packages/lgdl-layout/src/layered.ts && npm test -w @lgdl/lgdl-render",
+        "git stash pop && npm test -w @lgdl/lgdl-render",
+        "git add packages/lgdl-layout/src/layered.ts packages/lgdl-render/src/test-support/matrix-docs-b.ts packages/lgdl-render/src/matrix-b.test.ts && git commit"
+      ]
+    },
+    {
+      "id": "TASK-013",
+      "name": "M5-① 收编批：KNOWN 29 项清空 + 断言 0 违例 + 专项断言 + 一致性测试",
+      "summary": "同批清空 KNOWN_A(22)+KNOWN_B(7) 收编断言为 0 违例，落 er/uml 专项断言与 RIDE_TOL_PX 一致性断言，全量绿后独立 commit",
+      "complexity": "L",
+      "dependsOn": ["TASK-012"],
+      "wave": 5,
+      "migrationStep": "M5",
+      "fr": ["FR-011", "FR-001", "EC-006", "FR-013", "NFR-003"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-render/src/matrix-a.test.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-render/src/matrix-b.test.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-render/src/geometry-audit.test.ts" }
+      ],
+      "acceptance": [
+        "29 项 KNOWN 全清无残留（matrix-a 22 + matrix-b 7 核对）",
+        "matrix-a 11 档 + matrix-b 各档 audit 断言 = 0 违例（clean）+ 头注释更新",
+        "er/uml 专项断言绿（edges 无穿 from/to 框内部段）",
+        "一致性断言绿：AUDIT_TOL.edgeRideTolPx === RIDE_TOL_PX === 0.5",
+        "全仓 npm test 全绿；test( 计数 >= 505；git diff 无既有 *.test.ts 删除行/断言弱化",
+        "收编 commit 存在且不含 golden 快照变更"
+      ],
+      "verify": [
+        "npm test",
+        "npm test -w @lgdl/lgdl-render",
+        "git diff --stat",
+        "git add packages/lgdl-render/src/matrix-a.test.ts packages/lgdl-render/src/matrix-b.test.ts packages/lgdl-render/src/geometry-audit.test.ts && git commit"
+      ]
+    },
+    {
+      "id": "TASK-014",
+      "name": "M5-② 快照显式重建 + 逐张 diff 审阅 + 独立 commit",
+      "summary": "LGDL_UPDATE_SNAPSHOTS=1 显式重建 11 svg + sha256 manifest，逐张审阅（结构性变化停下审查），独立 commit",
+      "complexity": "L",
+      "dependsOn": ["TASK-013"],
+      "wave": 5,
+      "migrationStep": "M5",
+      "fr": ["FR-012", "EC-002", "NFR-002"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-render/test-assets/golden/*.svg" },
+        { "op": "MODIFY", "path": "packages/lgdl-render/test-assets/golden/manifest.json" }
+      ],
+      "acceptance": [
+        "重建后 npm test 全绿（snapshot 0 diff + sha256 manifest 自证）",
+        "diff 审阅记录：坐标/文本/走线变化有意；无未解释结构变化",
+        "普通模式重跑不写盘（sha 不变）",
+        "快照独立 commit 与收编 commit 分离可追溯"
+      ],
+      "verify": [
+        "LGDL_UPDATE_SNAPSHOTS=1 npm test -w @lgdl/lgdl-render",
+        "git diff packages/lgdl-render/test-assets/golden/",
+        "npm test -w @lgdl/lgdl-render",
+        "git add packages/lgdl-render/test-assets/golden && git commit"
+      ]
+    },
+    {
+      "id": "TASK-015",
+      "name": "M6 验证交接",
+      "summary": "全量终验：门禁归零、守恒 >=505、29 项清空映射核对无幽灵清空、B12 红证据与快照审阅记录齐备，交接 validate",
+      "complexity": "S",
+      "dependsOn": ["TASK-013", "TASK-014"],
+      "wave": 6,
+      "migrationStep": "M6",
+      "fr": ["NFR-001", "NFR-002", "NFR-003", "NFR-004", "NFR-005", "NFR-006", "NFR-007", "NFR-008", "EC-010", "FR-013"],
+      "files": [],
+      "acceptance": [
+        "npm test 全绿且 test( 计数 >= 505",
+        "matrix-a/b + snapshot 全量 0 违例；KNOWN 无残留",
+        "29 项清空映射逐项核对完成（2/1/1/5/13/7）无遗漏无幽灵清空",
+        "B12 修复前红证据、快照 diff 审阅记录齐备",
+        "交接摘要生成（修复桶 ↔ 清空项 ↔ commit 可追溯）"
+      ],
+      "verify": ["npm test", "git log --oneline -8"]
+    }
+  ]
+}
