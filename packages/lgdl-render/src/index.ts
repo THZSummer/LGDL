@@ -1114,10 +1114,26 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
     if (gap >= 20) {
       const midX = a.x + 20;
       d = `M ${a.x},${a.y} L ${midX},${a.y} L ${midX},${b.y} L ${b.x},${b.y}`;
+    } else if (gap >= 8) {
+      // RP.3/M3 (Q-008): gap∈[8,20) —— 缘间空隙中列（不贴源右缘/目标左缘），
+      // 垂直列 cx = a.x + gap/2 距两缘 ≥4px > 0.5px 判定余量 → 不命中 G6。
+      const cx = a.x + gap / 2;
+      d = `M ${a.x},${a.y} L ${cx},${a.y} L ${cx},${b.y} L ${b.x},${b.y}`;
     } else if (gap >= -4) {
-      d = `M ${a.x},${a.y} L ${b.x},${a.y} L ${b.x},${b.y}`;
+      // RP.3/M3 (Q-008): gap≈0（两缘相接，原单 L 骑目标条左缘 16px）——垂直列取
+      // 回穿源右缘 clear 列 cx = a.x - clear（clear=10 > 0.5px 余量充足）→ 三段：
+      // 末段水平从 cx 垂直进 b.x（与目标左缘垂直，不共线）；回穿源条的短段属 dep
+      // 自身端点 from（G3 豁免）且 dep 绘制在 bar 之下（被源条覆盖，不可见）。
+      const clear = 10;
+      const cx = a.x - clear;
+      d = `M ${a.x},${a.y} L ${cx},${a.y} L ${cx},${b.y} L ${b.x},${b.y}`;
     } else {
-      const midX = Math.min(a.x - 20, b.x);
+      // 「目标在左」绕行分支：原 midX = min(a.x-20, b.x)——目标远离源左侧
+      // （b.x ≤ a.x-20）时 drop 列 = b.x 恰骑目标左缘 16px（KNOWN B7 edges[2]）。
+      // 改为 min(a.x-20, b.x-clear)：drop 列左移至 b.x-clear（距目标左缘 clear，
+      // >0.5px 余量），末段水平向右垂直进 b.x（不共线不贴边）。
+      const clear = 10;
+      const midX = Math.min(a.x - 20, b.x - clear);
       d = `M ${a.x},${a.y} L ${midX},${a.y} L ${midX},${b.y} L ${b.x},${b.y}`;
     }
     parts.push(
