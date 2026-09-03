@@ -31,6 +31,25 @@ export interface Box {
 }
 
 /**
+ * 贴边判定容差（px）：与 render test-support `geometry-audit.ts`
+ * `AUDIT_TOL.edgeRideTolPx` 同源（EC-006 / ADR-003）。段与框边线距离
+ * < RIDE_TOL_PX 视为共线；重合 > 0.5px 即判「贴边借道」。两处常量的
+ * 一致性由 render 包 `geometry-audit.test.ts` 的一致性断言锁定。
+ */
+export const RIDE_TOL_PX = 0.5;
+
+/** 端点坐标数值稳定化：消除 5e-14 级浮点噪声（entity 顶弧/角弧解析解）对
+ *  segInside/ride/detick 边界判定的放大（EC-005 / R-006）。 */
+export function snapPt(v: number): number {
+  return Math.round(v * 1e6) / 1e6;
+}
+
+/** Point-level snap (both coordinates) — endpoint anchors only. */
+function snap(p: Pt): Pt {
+  return { x: snapPt(p.x), y: snapPt(p.y) };
+}
+
+/**
  * Re-centre an exit anchor onto the midpoint of the face the edge actually
  * leaves from. `anchor` is already ON the border (from `shapeEdgePoint`); the
  * exit face is chosen from the edge's TRAVEL direction (toward the target), not
@@ -87,16 +106,28 @@ function pathHitsOwnBody(
   for (const b of [srcNode, dstNode]) {
     if (!b) continue;
     for (let i = 0; i < pts.length; i++) if (inBody(pts[i], b)) return true;
+    // D-001-A-2 / R1.2: 「段与框内部交集」判据（替代旧的"两端都严格在框外才查"）。
+    // 旧判据要求 out(a) && out(c)，锚点 snap 后贴框边（y=box.y）→ 起点不在"严格框外"
+    // → 短路漏判"起于边界、穿体而过"的 L 捷径。新判据：轴对齐段的中轴落入框体内部
+    // 带（距两壁 > 0.5px）且 y/x 扫掠与框体有 > 0.5px 内部交集 → 段真正穿过框体内部。
+    // 锚点贴边（y=box.y）时水平段伸入框内即产生正交集 → 正确捕获竖穿自身框。
+    // 合法的垂直进上/下面（段完全在框外、交集 0）不受影响。
     const segInside = (a: Pt, c: Pt): boolean => {
-      const out = (p: Pt) => !(p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height);
-      if (!out(a) || !out(c)) return false;
       if (Math.abs(a.x - c.x) < 0.5) {
-        const lo = Math.min(a.y, c.y), hi = Math.max(a.y, c.y);
-        return b.x < a.x - 2 && b.x + b.width > a.x + 2 && b.y < hi - 2 && b.y + b.height > lo + 2;
+        // 垂直段：x 落在框内壁带，y 扫掠与框体有 >0.5px 内部交集
+        const lo = Math.min(a.y, c.y);
+        const hi = Math.max(a.y, c.y);
+        if (!(a.x > b.x + 0.5 && a.x < b.x + b.width - 0.5)) return false;
+        const overlap = Math.min(hi, b.y + b.height) - Math.max(lo, b.y);
+        return overlap > 0.5;
       }
       if (Math.abs(a.y - c.y) < 0.5) {
-        const lo = Math.min(a.x, c.x), hi = Math.max(a.x, c.x);
-        return b.y < a.y - 2 && b.y + b.height > a.y + 2 && b.x < hi - 2 && b.x + b.width > lo + 2;
+        // 水平段：y 落在框内壁带，x 扫掠与框体有 >0.5px 内部交集
+        const lo = Math.min(a.x, c.x);
+        const hi = Math.max(a.x, c.x);
+        if (!(a.y > b.y + 0.5 && a.y < b.y + b.height - 0.5)) return false;
+        const overlap = Math.min(hi, b.x + b.width) - Math.max(lo, b.x);
+        return overlap > 0.5;
       }
       return false;
     };
@@ -126,6 +157,13 @@ export function routeEdge(opts: {
   bounds: { w: number; h: number };
   /** Already-routed sibling edges (orthogonal polylines), for crossing counting. */
   routedSegments?: { pts: Pt[] }[];
+  /**
+   * 贴边判定全集（ADR-001 / RD.1）：与 auditG6 障碍集同构（全部节点 + 全部容器，
+   * 含端点框与 owning 组框）。quality 的 hugPenalty/hugLen 用它判定贴边，使「沿
+   * owning 组/端点框边滑行」不再零成本。缺省 = clearBoxes（obstacles + 端点框，
+   * 向后兼容 degraded-paths 直驱）。仅影响贴边惩罚，不影响可达性。
+   */
+  rideBoxes?: Box[];
 }): Pt[] {
   const { points: rawPts, srcNode, dstNode, srcKind, dstKind, obstacles, bounds, routedSegments } = opts;
   const trimmed = [...rawPts];
@@ -142,8 +180,8 @@ export function routeEdge(opts: {
   // opposite centre, and the layout polyline's local direction) and let `quality`
   // pick the best pair. Hugging is then rejected by the clearance penalty in
   // `quality`, not by moving the endpoint off the anchor grid.
-  const srcPt = (toward: Pt): Pt => (srcNode ? shapeEdgePoint(srcKind, srcNode, toward) : toward);
-  const dstPt = (toward: Pt): Pt => (dstNode ? shapeEdgePoint(dstKind, dstNode, toward) : toward);
+  const srcPt = (toward: Pt): Pt => (srcNode ? snap(snap(shapeEdgePoint(srcKind, srcNode, toward))) : toward);
+  const dstPt = (toward: Pt): Pt => (dstNode ? snap(snap(shapeEdgePoint(dstKind, dstNode, toward))) : toward);
 
   const anchors: { src: Pt; dst: Pt }[] = [];
   if (srcNode && dstNode) {
@@ -191,13 +229,15 @@ export function routeEdge(opts: {
     const clearBoxes: Box[] = [...obstacles];
     if (srcNode) clearBoxes.push({ x: srcNode.x, y: srcNode.y, w: srcNode.width, h: srcNode.height });
     if (dstNode) clearBoxes.push({ x: dstNode.x, y: dstNode.y, w: dstNode.width, h: dstNode.height });
-    const clear = pathClearanceInterior(p, clearBoxes);
+    // R1.5/ADR-001: 贴边判定用 ride 全集（默认 = clearBoxes，向后兼容）。
+    const rideBoxes: Box[] = opts.rideBoxes ?? clearBoxes;
+    const clear = pathClearanceInterior(p, rideBoxes);
     // 贴边硬罚：内部走线距任一墙 <10px 视为"贴边"，重罚，确保贴墙解不被选中
     // （clear 是软评分，量级会被 -bends 抵消；这里是结构性下限）。
     const hugPenalty = clear < 10 ? -1e5 : 0;
     // 贴边长度罚：两条候选都贴边(clearance=0)时，贴得越长越差——让质量能
     // 在"进入目标侧边(贴 25px)"与"进入目标远端中点(贴 80px)"之间分出高下。
-    const hugLen = pathHugLength(p, clearBoxes);
+    const hugLen = pathHugLength(p, rideBoxes);
     // 穿越已布边：真实计数（不再用 boolean flag），每次交叉 -1000。
     const crossRouted = routedSegments && routedSegments.length
       ? -countCrossingsWithRouted(p, routedSegments) * 1000
@@ -214,10 +254,15 @@ export function routeEdge(opts: {
     const s = quality(routed);
     if (s > bestScore) { bestScore = s; best = routed; }
   }
-  if (best) return best;
+  // R1.4/ADR-002: 输出 detick——末段/贴边段垂直化，A* 解与 orthogonalize 兜底都过。
+  const rideBoxesForDetick = opts.rideBoxes ?? [...obstacles,
+    ...(srcNode ? [{ x: srcNode.x, y: srcNode.y, w: srcNode.width, h: srcNode.height }] : []),
+    ...(dstNode ? [{ x: dstNode.x, y: dstNode.y, w: dstNode.width, h: dstNode.height }] : []),
+  ];
+  if (best) return detickPath(best, rideBoxesForDetick, srcNode, dstNode, obstacles);
 
   // No A* route found — fall back to the orthogonalize heuristic.
-  return orthogonalize(trimmed, obstacles);
+  return detickPath(orthogonalize(trimmed, obstacles), rideBoxesForDetick, srcNode, dstNode, obstacles);
 }
 
 // ---------------------------------------------------------------------------
@@ -555,6 +600,154 @@ export function pathHugLength(pts: Pt[], boxes: Box[], hugGap = 10): number {
 }
 
 /**
+ * True if the axis-aligned segment a→b "rides on" any box edge: it is
+ * collinear with a box top/bottom (horizontal) or left/right (vertical) edge
+ * line within `RIDE_TOL_PX` AND overlaps that edge by >0.5px. This is the
+ * geometric twin of the render audit `segRideOnBox` (G6 沿框边借道) — same
+ * tolerance + overlap semantics, so the router rejects exactly what the gate
+ * flags. Vertical entry into an anchor face (segment perpendicular to the
+ * edge, point overlap ≈ 0) is naturally legal.
+ */
+export function segRideOnAnyBox(a: Pt, b: Pt, boxes: Box[]): boolean {
+  const dx = Math.abs(a.x - b.x);
+  const dy = Math.abs(a.y - b.y);
+  if (dx < 0.5 && dy < 0.5) return false; // 零长段
+  if (dx > 0.5 && dy > 0.5) return false; // 斜段归 G2，不判借道
+  for (const bb of boxes) {
+    if (dy < 0.5) {
+      const x0 = Math.min(a.x, b.x);
+      const x1 = Math.max(a.x, b.x);
+      const overlap = Math.min(x1, bb.x + bb.w) - Math.max(x0, bb.x);
+      if (overlap > 0.5) {
+        if (Math.abs(a.y - bb.y) < RIDE_TOL_PX) return true;
+        if (Math.abs(a.y - (bb.y + bb.h)) < RIDE_TOL_PX) return true;
+      }
+    } else {
+      const y0 = Math.min(a.y, b.y);
+      const y1 = Math.max(a.y, b.y);
+      const overlap = Math.min(y1, bb.y + bb.h) - Math.max(y0, bb.y);
+      if (overlap > 0.5) {
+        if (Math.abs(a.x - bb.x) < RIDE_TOL_PX) return true;
+        if (Math.abs(a.x - (bb.x + bb.w)) < RIDE_TOL_PX) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Any consecutive pair of `pts` rides on a box edge (see segRideOnAnyBox). */
+export function pathRidesAnyBox(pts: Pt[], boxes: Box[]): boolean {
+  if (boxes.length === 0) return false;
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (segRideOnAnyBox(pts[i], pts[i + 1], boxes)) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// R1.4/ADR-002: output detick pass — perpendicular re-entry at anchors + bump
+// ---------------------------------------------------------------------------
+// A* / routeRectilinear 输出可能带 1~16px「末端微借道」：入/出段沿自身框或任何
+// ride 框边线滑行（网格 cell 量化列差、corridor snap-back 残留）。detick 把这类
+// 段的相邻折点移到锚点面法向坐标上（或整体 bump 出框边一段距离），使入/出段与
+// 面严格垂直——垂直段与框边线重合≈0，天然不命中 G6。修正后复验不穿第三方/不穿
+// 自身框，通不过则保留原路径并记录（R-008：不静默劣化）。
+
+/** Detick 单条水平/垂直段：返回修正后的折线；无法安全修正返回 null（保留原状）。 */
+function detickSegment(
+  pts: Pt[],
+  segIdx: number,
+  avoid: Box[],
+  srcNode?: NodeBox | null,
+  dstNode?: NodeBox | null,
+): Pt[] | null {
+  const n = pts.length;
+  const a = pts[segIdx];
+  const b = pts[segIdx + 1];
+  const horizontal = Math.abs(a.y - b.y) < 0.5;
+  const dx = Math.abs(a.x - b.x);
+  const dy = Math.abs(a.y - b.y);
+  if ((horizontal ? dx : dy) < 0.51) return null; // 零长/斜段不经此
+  // 找出被贴的框边线（水平段 → 上/下边；垂直段 → 左/右边）
+  const shift = horizontal ? a.y : a.x;
+  let hitBox: { x: number; y: number; w: number; h: number } | null = null;
+  let off = 0; // 外推方向（沿法向离开框）
+  for (const box of avoid) {
+    if (horizontal) {
+      const top = box.y;
+      const bottom = box.y + box.h;
+      if (Math.abs(shift - top) < RIDE_TOL_PX) { hitBox = box; off = -1; break; }
+      if (Math.abs(shift - bottom) < RIDE_TOL_PX) { hitBox = box; off = 1; break; }
+    } else {
+      const left = box.x;
+      const right = box.x + box.w;
+      if (Math.abs(shift - left) < RIDE_TOL_PX) { hitBox = box; off = -1; break; }
+      if (Math.abs(shift - right) < RIDE_TOL_PX) { hitBox = box; off = 1; break; }
+    }
+  }
+  if (!hitBox) return null;
+  // 该段与框边线共线且重合 >0.5px（G6 同源判据）才需要 detick
+  if (!segRideOnAnyBox(a, b, [hitBox])) return null;
+
+  // bump 距离：1px 已 > RIDE_TOL_PX(0.5)，取 4px 稳离并避免引起可感视觉偏移
+  const bump = 4;
+  // 外推后的平行线坐标（水平段 y、垂直段 x）
+  const s2 = shift + off * bump;
+  const l = horizontal ? { x: a.x, y: s2 } : { x: s2, y: a.y };
+  const r = horizontal ? { x: b.x, y: s2 } : { x: s2, y: b.y };
+
+  // 端点锚点保护：贴边段若为首段（a=锚点）或末段（b=锚点），锚点坐标不可动。
+  // 用「锚点 → 法向外推折点 → 贴边段另一端点」三段替换，锚点保留原位。
+  let candidate: Pt[];
+  if (segIdx === 0) {
+    // a 是路径起点锚点（在框边上）：a → l → r → 原 b 之后的点
+    candidate = [a, l, r, ...pts.slice(2)];
+  } else if (segIdx === n - 2) {
+    // b 是路径终点锚点：a 之前的点 → l → r → b
+    candidate = [...pts.slice(0, n - 2), l, r, b];
+  } else {
+    // 中间段：两侧邻段分别垂直于本段（正交折线），外推后自然对接
+    candidate = [...pts.slice(0, segIdx), l, r, ...pts.slice(segIdx + 2)];
+  }
+  candidate = candidate.map((p) => ({ x: p.x, y: p.y }));
+  if (pathCrosses(candidate, avoid)) return null;
+  if (pathHitsOwnBody(candidate, srcNode, dstNode)) return null;
+  return collinearCollapse(candidate);
+}
+
+/**
+ * 输出级 detick pass（R1.4/ADR-002）。routeEdge / routeRectilinear 出口统一调用：
+ * 迭代修正贴 rideBox 边线（共线 <RIDE_TOL_PX 且重合 >0.5px）的段，直到 0 贴边或
+ * 无法继续安全修正（R-008：保留原路径不静默劣化）。`avoid` = 避障 boxes（第三方），
+ * 缺省 = rideBoxes（routeRectilinear 无独立避障语义时）。
+ */
+export function detickPath(
+  pts: Pt[],
+  rideBoxes: Box[],
+  srcNode?: NodeBox | null,
+  dstNode?: NodeBox | null,
+  avoid?: Box[],
+): Pt[] {
+  if (pts.length < 2) return pts;
+  let out = pts;
+  const avoidBoxes = avoid ?? rideBoxes;
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false;
+    for (let i = 0; i < out.length - 1; i++) {
+      if (segRideOnAnyBox(out[i], out[i + 1], rideBoxes)) {
+        const fixed = detickSegment(out, i, avoidBoxes, srcNode, dstNode);
+        if (!fixed) break; // 无法安全修正 → 保留原状
+        out = fixed;
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) break;
+  }
+  return out;
+}
+
+/**
  * Re-route one edge from `src` to `dst` (border anchors) as a rectilinear
  * polyline that avoids every obstacle box, picking the clear candidate with the
  * most clearance from box walls. `fallback` is returned when no candidate is
@@ -566,7 +759,11 @@ export function routeRectilinear(
   boxes: Box[],
   fallback: Pt[],
   scoreBoxes: Box[] = boxes,
+  rideBoxes: Box[] = scoreBoxes,
 ): Pt[] {
+  // R1.1/EC-005: 入口锚点数值稳定化（消除 5e-14 级浮点噪声对贴边判定的放大）。
+  src = snap(src);
+  dst = snap(dst);
   const channels: number[] = [];
   const midX = Math.round((src.x + dst.x) / 2);
   const midY = Math.round((src.y + dst.y) / 2);
@@ -593,13 +790,18 @@ export function routeRectilinear(
   let bestScore = -Infinity;
   for (const c of candidates) {
     if (pathCrosses(c, boxes)) continue;
+    // R1.5/ADR-001: 贴边净空硬拒——候选任一轴对齐段与 ride 全集（含端点组/owning
+    // 组，与 auditG6 障碍集同构）某框边线共线且重合 >0.5px → 弃（堵死沿被排除
+    // 框边滑行的零成本通道）。
+    if (pathRidesAnyBox(c, rideBoxes)) continue;
     const score = Math.min(pathClearanceInterior(c, scoreBoxes), 1000) + (c.length === 2 ? 50 : c.length === 3 ? 20 : 0);
     if (score > bestScore) {
       bestScore = score;
       best = c;
     }
   }
-  return best;
+  // R1.4/ADR-002: 输出 detick——fallback/候选贴边段统一垂直化修正（不穿第三方）。
+  return detickPath(best, rideBoxes, undefined, undefined, boxes);
 }
 
 /**
@@ -773,13 +975,35 @@ function collapseGridPath(
         return false;
       }
     }
-    // Endpoint bodies: reject only a genuine PARALLEL wall-hug — a segment that
-    // runs ALONG a wall for more than a short approach. A perpendicular exit/entry
-    // is fine (it doesn't "run along" a wall), and so is the short parallel run the
-    // simplification introduces to snap a cell-quantised corridor back onto the
-    // anchor axis (≤ ~2 cells ≈ 14px). The threshold must stay well below a real
-    // hug (> 40px) so collapsing a clear detour back into a wall slide is blocked.
-    if (ownBoxes.length && pathHugLength([a, b], ownBoxes, m) > 20) return false;
+    // Endpoint bodies: (a) genuine interior crossing (D-001-A-1) — block the L
+    // shortcut that pierces the source's own box; (b) parallel wall-hug tolerance
+    // retained at legacy 20px for corridor snap-back inside collapse (detick pass
+    // cleans the final output; R1.4/ADR-002). Perpendicular exit/entry is fine.
+    if (ownBoxes.length) {
+      for (const ob of ownBoxes) {
+        if (Math.abs(a.x - b.x) < 0.5) {
+          const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
+          const xIn = a.x > ob.x + 0.5 && a.x < ob.x + ob.w - 0.5;
+          if (xIn && Math.min(hi, ob.y + ob.h) - Math.max(lo, ob.y) > 0.5) return false;
+        } else if (Math.abs(a.y - b.y) < 0.5) {
+          const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+          const yIn = a.y > ob.y + 0.5 && a.y < ob.y + ob.h - 0.5;
+          if (yIn && Math.min(hi, ob.x + ob.w) - Math.max(lo, ob.x) > 0.5) return false;
+        } else {
+          return false;
+        }
+      }
+      // R1.3/ADR-002 三段防线：
+      //   (a) 自身框内部穿越拒绝（上方循环）；
+      //   (b) G6 同源贴墙拒绝：候选段与自身框边线共线（<RIDE_TOL_PX）且重合
+      //       >0.5px 即拒（audit segRideOnBox 同构，>0.5px 沿墙输出不允许）；
+      //   (c) 近墙长段守卫（保留 legacy pathHugLength>20，hugGap=clear）：拒绝把
+      //       "距自身墙 <clear px、长 >20px" 的走廊段塌出——若无此防线，A* 净空
+      //       走廊会被 collapse 直接压到贴源框底部 ~10px 的平行长段（er/uml 关系
+      //       label 的理想落点随之下移贴框 → 新 G4）。
+      if (segRideOnAnyBox(a, b, ownBoxes)) return false;
+      if (pathHugLength([a, b], ownBoxes, m) > 20) return false;
+    }
     return true;
   };
 

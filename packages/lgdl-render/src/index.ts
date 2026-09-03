@@ -713,6 +713,13 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
     .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
   const labelObstacles = [...nodeObstacles, ...groupObstacles];
   const placedLabels: LabelBox[] = [];
+  // RD.1/ADR-001: G6 ride 全集 = 全部节点 + 全部容器框（含端点节点/端点组与
+  // owning 组——与 auditG6 :961-972 障碍集同构）。贴边判定用它，避障 boxes 仍用
+  // 排除端点/owning 的集合（可达性不变，仅 ride 判定用全集）。
+  const rideBoxesAll: { x: number; y: number; w: number; h: number }[] = [
+    ...layout.nodes.map((n) => ({ x: n.x, y: n.y, w: n.width, h: n.height })),
+    ...[...boxOf.entries()].map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
+  ];
   doc.edges.forEach((edge, i) => {
     if (nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to)) return; // regular node edge
     const fromBox = nodeIdSet.has(edge.from) ? undefined : boxOf.get(edge.from);
@@ -742,7 +749,9 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         .filter(([gid]) => gid !== edge.from && gid !== edge.to)
         .map(([, b]) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
     ];
-    const aggPath = routeRectilinear(src, dst, routeBoxesAgg, [src, dst]);
+    // RD.1: routeRectilinear 增加 ride 全集参数（第 6 参）——避障仍用 routeBoxesAgg
+    //（可达性不变），ride 判定用 rideBoxesAll（含端点组，与 auditG6 同构）。
+    const aggPath = routeRectilinear(src, dst, routeBoxesAgg, [src, dst], routeBoxesAgg, rideBoxesAll);
     const aggD = aggPath.map((p, k) => `${k === 0 ? 'M' : 'L'} ${Math.round(p.x)},${Math.round(p.y)}`).join(' ');
     const label = edge.label;
     let labelEl = '';
