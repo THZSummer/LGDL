@@ -19,6 +19,8 @@
  *       lane rect 底框 → G5 泳道检查降级画布（audit 0 反证无越界））
  *   B10a/B10b（Q-011 state 多入口/纯环 → 无 <g class="lgdl-initial">）
  *   B11（P2，Q-001 大图 >120 grid；LGDL_MATRIX_B11=1 启用，默认 skip）
+ *   B12（D-003-3，Q-005/B2-LR 偏差：LR 多 rank 宽>高短卡片链回归——audit 0 +
+ *        两两 bbox 不相交 + 全节点不溢出显式断言，FR-005~007）
  *
  * G6 沿框边借道（2026-09-03 新增检查项，engine 贴边走线另 Feature 修复）使
  * B1/B4b/B5/B7/B9 现已知 G6 缺口 → 按 KNOWN_B 记录（EC-001 同款：记录不上报
@@ -290,4 +292,44 @@ test('B10b state 纯环: 无 lgdl-initial + 审计 0', async () => {
 test('B11 flowchart 130 节点 grid: 审计 0 违例（P2，LGDL_MATRIX_B11=1 启用）', { skip: !process.env.LGDL_MATRIX_B11 }, async () => {
   const t = await renderClean('B11');
   assert.equal(t.doc.nodes.filter((n) => n.kind !== 'group').length, 130, 'B11 130 节点（>120 grid 分支）');
+});
+
+// ---------------------------------------------------------------------------
+// B12 LR 宽卡片链回归（D-003-3 / Q-005 / B2-LR 偏差，FR-005~007）
+// ---------------------------------------------------------------------------
+
+/** 两个 bbox 的重叠 px（任一轴不相交则为 0） */
+function overlapPx(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+): number {
+  const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const oy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return Math.max(0, ox) * Math.max(0, oy);
+}
+
+test('B12 uml-class LR 宽卡链: 两两 bbox 不相交 + 全节点不溢出 + 审计 0（修复前红证据 EC-010）', async () => {
+  const t = await renderClean('B12');
+  const { layout } = t;
+  // 相邻 rank 卡片 bbox 互不重叠（显式两两断言——重叠本身非 G1~G6，FR-007-① 不可省）
+  for (let i = 0; i < layout.nodes.length; i++) {
+    for (let j = i + 1; j < layout.nodes.length; j++) {
+      assert.equal(
+        overlapPx(layout.nodes[i], layout.nodes[j]),
+        0,
+        `B12 节点 ${layout.nodes[i].id} × ${layout.nodes[j].id} bbox 应不相交（修复前重叠 16px×48）`,
+      );
+    }
+  }
+  // 全部节点 x+width ≤ layout.width（不溢出画布——修复前画布 560 < 末卡右缘 632）
+  for (const n of layout.nodes) {
+    assert.ok(
+      n.x + n.width <= layout.width,
+      `B12 节点 ${n.id} 右缘 ${n.x + n.width} ≤ 画布宽 ${layout.width}（修复前右溢 72px）`,
+    );
+    assert.ok(n.x >= 0 && n.y >= 0, `B12 节点 ${n.id} 左上坐标非负`);
+  }
+  // LR 宽>高形态确认（卡片 160×48 宽>高，与 Q-005 实证一致）
+  const wide = layout.nodes.every((n) => n.width > n.height);
+  assert.ok(wide, 'B12 全部卡片宽>高（160×48，宽卡形态）');
 });

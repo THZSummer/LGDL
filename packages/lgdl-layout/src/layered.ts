@@ -197,12 +197,16 @@ export function layoutLayered(
   // 4. coordinate assignment
   // node width/height helper
   const sizeOf = new Map(nodes.map((n) => [n.id, { w: n.width, h: n.height }]));
-  // per-rank panel: use max node height per rank for row spacing
+  // per-rank panel: rankMaxH = 该秩 max 节点高度（TB 秩轴推进与交叉轴参照）；
+  // rankMaxW = 该秩 max 节点宽度（LR 秩轴推进用，D-003-1/LL.1）。
   const rankMaxH: number[] = Array.from({ length: maxRank + 1 }, () => 0);
+  const rankMaxW: number[] = Array.from({ length: maxRank + 1 }, () => 0);
   for (const r of layers) {
     for (const id of r) {
       const s = sizeOf.get(id)!;
-      rankMaxH[rank.get(id) ?? 0] = Math.max(rankMaxH[rank.get(id) ?? 0], s.h);
+      const rk = rank.get(id) ?? 0;
+      rankMaxH[rk] = Math.max(rankMaxH[rk], s.h);
+      rankMaxW[rk] = Math.max(rankMaxW[rk], s.w);
     }
   }
 
@@ -210,15 +214,17 @@ export function layoutLayered(
   const RANK_SEP = 96;
   const pos = new Map<string, { x: number; y: number; width: number; height: number }>();
 
-  // Y is base-driven by rank for TB; for LR we compute an analog in X and swap.
-  // We compute in a "rank row" space then map to TB/LR.
-  const rowY: number[] = []; // top of each rank
-  let yCursor = GRAPH_MARGIN;
+  // 秩轴（rank 推进方向）起点：TB 为 y、LR 为 x（D-003-1/LL.1）。步进量按
+  // rankdir 取维度——LR 必须用 rankMaxW（秩 max 节点宽度），否则宽>高卡片链
+  // 相邻 rank 重叠（B2-LR / Q-005 实证：160×48 卡按 rankMaxH 步进仅 144 < 160）。
+  const axisStart: number[] = []; // 每秩起始坐标（TB: y / LR: x）
+  let axisCursor = GRAPH_MARGIN;
   for (let r = 0; r <= maxRank; r++) {
-    rowY.push(yCursor);
-    yCursor += rankMaxH[r] + RANK_SEP;
+    axisStart.push(axisCursor);
+    const step = rankdir === 'LR' ? rankMaxW[r] : rankMaxH[r];
+    axisCursor += step + RANK_SEP;
   }
-  const totalRankH = rowY[maxRank] + rankMaxH[maxRank];
+  const totalRankExtent = axisStart[maxRank] + (rankdir === 'LR' ? rankMaxW[maxRank] : rankMaxH[maxRank]);
 
   // X: each layer centered on midline
   const layerWidths: number[] = layers.map((lay) => {
@@ -238,23 +244,27 @@ export function layoutLayered(
     let xCursor = GRAPH_MARGIN + (maxLayerW - layW) / 2;
     for (const id of lay) {
       const s = sizeOf.get(id)!;
-      const y = rowY[r];
+      const axis = axisStart[r];
       const x = xCursor;
       xCursor += s.w + NODE_SEP;
       if (rankdir === 'LR') {
-        pos.set(id, { x: y, y: x, width: s.w, height: s.h });
+        pos.set(id, { x: axis, y: x, width: s.w, height: s.h });
       } else {
-        pos.set(id, { x, y, width: s.w, height: s.h });
+        pos.set(id, { x, y: axis, width: s.w, height: s.h });
       }
     }
   }
 
   // canvas size
   if (rankdir === 'LR') {
-    // x axis = rank spacing; y axis = layer width
+    // 秩轴 x = rankMaxW 推进（axisStart）；交叉轴 y = layer width。
+    // LL.2/D-003-2: LR 画布宽 = max over nodes(x + width) + GRAPH_MARGIN
+    //（镜像 TB 分支 maxNodeRight 兜底）——不再按末秩高度估算（宽卡片链右缘
+    // 不再溢出，B2-LR / Q-005 实证：旧 totalRankH+MARGIN 画布 560 < 末卡右缘 632）。
     const canvasH = maxLayerW + GRAPH_MARGIN * 2;
-    return { pos, width: totalRankH + GRAPH_MARGIN, height: Math.max(canvasH, GRAPH_MARGIN * 2) };
+    const maxNodeRight = Math.max(...[...pos.values()].map((p) => p.x + p.width));
+    return { pos, width: Math.max(maxNodeRight + GRAPH_MARGIN, totalRankExtent + GRAPH_MARGIN), height: Math.max(canvasH, GRAPH_MARGIN * 2) };
   }
   const maxNodeRight = Math.max(...[...pos.values()].map((p) => p.x + p.width));
-  return { pos, width: Math.max(maxNodeRight + GRAPH_MARGIN, canvasW), height: totalRankH + GRAPH_MARGIN };
+  return { pos, width: Math.max(maxNodeRight + GRAPH_MARGIN, canvasW), height: totalRankExtent + GRAPH_MARGIN };
 }

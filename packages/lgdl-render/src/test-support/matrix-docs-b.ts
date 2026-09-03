@@ -8,10 +8,11 @@
  *     不判六类违例，以「渲染不炸 + 审计（KNOWN_B 已知集或 0）+ 双渲染字节一致 +
  *     元素级断言」锁现状；
  *   - B11 为 P2 大图（Q-001），meta.optional=true + LGDL_MATRIX_B11 env 启用。
+ *   - B12 为 LR 宽>高卡片链回归档（D-003-3 / Q-005 / B2-LR 偏差，meta 见该条 intent）。
  *   - 审计断言统一在 matrix-b.test.ts KNOWN_B 处理：G6 沿框边借道新增后
  *     B1/B4b/B5/B7/B9 为已知 G6 缺口（EC-001 同款记录，engine 贴边走线另 Feature 修复）。
  *
- * 注册表文档 id 集合：B1~B10（B4 拆 a/b、B10 拆 a/b 子用例）+ B11，共 13 条。
+ * 注册表文档 id 集合：B1~B10（B4 拆 a/b、B10 拆 a/b 子用例）+ B11 + B12，共 14 条。
  * 单测文件名 matrix-b.test.ts 与之配对；等价类归属（E1~E6）见各条 intent。
  */
 export interface BDocMeta {
@@ -117,7 +118,8 @@ edges:
       '（无菱形/折角/圆柱专属形状）；entity 带 members 全字段（attribute+method、visibility/type/params），' +
       '成员行以 nodes[i].members[j] 定位。⚠️ 引擎实证（2026-09-02）：LR 无 group 文档中宽>高的短卡片' +
       '（process/decision/note 高 48 宽 160）与相邻 rank 重叠并撑破画布（layered.ts LR 画布按 last-rank 高度估算）——' +
-      '故本文档取**单 rank 纵排**（零边）验证折叠语义（build 偏差记录 B2-LR）。',
+      '故本文档取**单 rank 纵排**（零边）验证折叠语义。偏差 B2-LR 已由 **B12 档**（LR 多 rank 宽>高卡片链）' +
+      '覆盖回归（2026-09-02 修复：rankMaxW 步进 + maxNodeRight 画布兜底），本文档维持单 rank 纵排验证形态。',
     source: `title: B2 uml-class 折叠混排（单列）
 type: uml-class
 
@@ -643,5 +645,38 @@ edges:
       'P2（spec 开放问题 #8 / plan 裁量）：默认 skip，LGDL_MATRIX_B11=1 才执行，不计常规时长预算。',
     optional: true,
     source: buildBigChainSource(),
+  },
+  {
+    id: 'B12',
+    type: 'uml-class',
+    title: 'B12 LR 多 rank 宽>高短卡片链回归档（D-003-3，Q-005 / B2-LR 偏差）',
+    qRefs: ['Q-005'],
+    intent:
+      'D-003-3/B2-LR 回归档：暴露 layered.ts LR 方向「秩轴步距按节点高度 rankMaxH + LR 画布宽' +
+      '按末秩高度估算」缺陷（Q-005 实证：4 张 160×48 宽>高无成员卡链 a→b→c→d 相邻 rank 重叠' +
+      '16px×48、画布 560 < 末卡右缘 632 溢出 72px → G5）。修复（rankMaxW 步进 + maxNodeRight 画布兜底）' +
+      '后 0 违例；测试侧显式断言两两 bbox 不相交 + 全部节点 x+width ≤ layout.width（重叠/溢出非 G1~G6，' +
+      '显式断言不可省，FR-007-①）。修复前红（EC-010）：git stash layered.ts 后 B12 断言红（G5 溢出）。',
+    source: `title: B12 LR 宽卡片链回归档
+type: uml-class
+
+nodes:
+  - id: a
+    label: CardA
+  - id: b
+    label: CardB
+  - id: c
+    label: CardC
+  - id: d
+    label: CardD
+
+edges:
+  - from: a
+    to: b
+  - from: b
+    to: c
+  - from: c
+    to: d
+`,
   },
 ];
