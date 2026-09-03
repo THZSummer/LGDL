@@ -243,10 +243,20 @@ interface LabelBox {
   h: number;
 }
 
+/**
+ * 文本估宽（EC-007/ADR-004 沿用 renderer 既有口径——audit `estimateTextWidth` 镜像）：
+ * CJK 全宽 1.0×fs、Latin ≈0.62×fs。placeLabelBox 画布越界检测与 renderGantt 窄条
+ * 回退共用，避免两处维护不同估宽造成口径漂移。
+ */
+function textWidthEst(text: string, fontSize: number): number {
+  let w = 0;
+  for (const ch of text) w += (ch.codePointAt(0) ?? 0) > 0x2e80 ? fontSize : fontSize * 0.62;
+  return w;
+}
+
 function labelBoxAt(x: number, y: number, label: string): LabelBox {
   // 12px edge-label font; CJK ~12px, Latin ~0.62x (mirrors textWidth)
-  let w = 0;
-  for (const ch of label) w += (ch.codePointAt(0) ?? 0) > 0x2e80 ? 12 : 12 * 0.62;
+  const w = textWidthEst(label, 12);
   return { x: x - w / 2, y: y - 8, w, h: 16 };
 }
 
@@ -277,15 +287,27 @@ function longestSegmentMid(pts: { x: number; y: number }[]): { x: number; y: num
  * (nearest the ideal) that sits in clear space. This spreads the labels of
  * dense bundles (e.g. many services -> one data node) across different
  * segments instead of piling them all on the shared descent channel.
- * Never drops the label: if no spot is clear, falls back to the ideal.
+ * Never drops the label: if no spot is clear, falls back to a canvas-clamped
+ * spot near the ideal (RP.1/D-002: 画布边界约束 + clamp 兜底——auditG5 必 0）。
  */
 function placeLabelBox(
   pts: { x: number; y: number }[],
   label: string,
   obstacles: LabelBox[],
   placed: LabelBox[],
+  canvasW: number,
+  canvasH: number,
 ): { x: number; y: number } {
+  // 画布内约束（RP.1/D-002）：估宽 bbox 完整落在画布内——右/下缘 ≤ 画布宽/高
+  // （audit canvasPadPx=1 同款容忍），左/上缘 ≥ 0。越界候选在 isFree 阶段剔除，
+  // 候选/回退自然落到合法位置。
+  const canvasPad = 1;
+  const onCanvas = (p: { x: number; y: number }) => {
+    const box = labelBoxAt(p.x, p.y, label);
+    return box.x >= 0 && box.y >= 0 && box.x + box.w <= canvasW + canvasPad && box.y + box.h <= canvasH + canvasPad;
+  };
   const isFree = (p: { x: number; y: number }) => {
+    if (!onCanvas(p)) return false;
     const box = labelBoxAt(p.x, p.y, label);
     if (obstacles.some((o) => boxesOverlap(box, o))) return false;
     if (placed.some((o) => boxesOverlap(box, o))) return false;
@@ -331,8 +353,16 @@ function placeLabelBox(
       return p;
     }
   }
-  placed.push(labelBoxAt(ideal.x, idealY, label));
-  return { x: ideal.x, y: idealY };
+  // RP.1/R-010 clamp 兜底：任何候选都不 free（dense 边束）——clamp 到画布内
+  // （优先保持 y 居中，x 夹取），保证 auditG5 画布越界必 0（仍记录已放置避免
+  // 后续同点堆叠）。
+  const halfW = textWidthEst(label, 12) / 2;
+  const clamped = {
+    x: Math.max(halfW, Math.min(ideal.x, canvasW - halfW)),
+    y: Math.max(8, Math.min(idealY, canvasH - 8)),
+  };
+  placed.push(labelBoxAt(clamped.x, clamped.y, label));
+  return clamped;
 }
 
 /** Render an LGDL document + layout into an SVG string. */
@@ -439,6 +469,30 @@ function renderSequence(doc: LgdlDocument, layout: LayoutResult): string {
  */
 function groupNodeIdx(doc: LgdlDocument, group: LgdlGroup): number {
   return doc.nodes.findIndex((n) => n.kind === 'group' && n.id === group.id);
+}
+
+/**
+ * D-001-B / RD.2: 锚点所在面的外法线（基数/标签外置用）。
+ *
+ * 旧实现沿折线端点局部方向外推 22px——路由滑入/穿体时局部方向可能指向实体框内，
+ * 使基数落回框内（er/uml G4 实证）。本函数按「锚点距 4 边最近」判面（容差覆盖
+ * roundedRect 角弧 r=6 与 entity 顶弧 r=10 的弧点），返回远离框体的外法线：
+ * 上(0,-1)/下(0,1)/左(-1,0)/右(1,0)。基数外置方向由此与路由质量解耦——
+ * 即使路由再出滑入/穿体，基数也沿最近面外法线外推，不会落回框内。
+ */
+function faceNormalOf(
+  box: { x: number; y: number; width: number; height: number },
+  anchor: { x: number; y: number },
+): { x: number; y: number } {
+  const top = Math.abs(anchor.y - box.y);
+  const bottom = Math.abs(anchor.y - (box.y + box.height));
+  const left = Math.abs(anchor.x - box.x);
+  const right = Math.abs(anchor.x - (box.x + box.width));
+  const min = Math.min(top, bottom, left, right);
+  if (min === bottom) return { x: 0, y: 1 };
+  if (min === left) return { x: -1, y: 0 };
+  if (min === right) return { x: 1, y: 0 };
+  return { x: 0, y: -1 }; // 顶边（含 tie 倾向顶/上）
 }
 
 /** General renderer (flowchart/mindmap/arch/datastream), with optional class-node styling. */
@@ -762,13 +816,18 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
       const fontSize = 11;
       const w = label.length * fontSize;
       // Place via placeLabelBox so the aggregate label (a) avoids nodes/group
-      // boxes and (b) registers into the shared placedLabels list — preventing
-      // overlap with an ordinary node-edge label on the same channel.
-      const { x, y } = placeLabelBox(aggPath, label, labelObstacles, placedLabels);
+      // boxes, (b) registers into the shared placedLabels list — preventing
+      // overlap with an ordinary node-edge label on the same channel, and
+      // (c) 受画布边界约束（RP.1：label 与 bg rect 均不出画布）。
+      const { x, y } = placeLabelBox(aggPath, label, labelObstacles, placedLabels, layout.width, layout.height);
       const bgW = w + 8;
       const bgH = fontSize + 6;
+      // bg rect 级 clamp：placeLabelBox 已保证 label bbox 在画布内，但 bg 比
+      // label 宽 4px/高 2px——此处把 bg 夹回画布（label 居中仍贴近原位置）。
+      const bgX = Math.max(0, Math.min(x - bgW / 2, layout.width - bgW));
+      const bgY = Math.max(0, Math.min(y - bgH / 2, layout.height - bgH));
       labelEl =
-        `<rect x="${(x - bgW / 2).toFixed(1)}" y="${(y - bgH / 2).toFixed(1)}" width="${bgW}" height="${bgH}" rx="3" fill="#ffffff" opacity="0.9"/>` +
+        `<rect x="${bgX.toFixed(1)}" y="${bgY.toFixed(1)}" width="${bgW}" height="${bgH}" rx="3" fill="#ffffff" opacity="0.9"/>` +
         text(x, y, label, fontSize, '#7c3aed');
     }
     parts.push(
@@ -908,12 +967,12 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
         const toV = edgeDoc?.cardinalityTo;
         const p0 = ortho[0];
         const pn = ortho[ortho.length - 1];
-        // Use the edge's LOCAL direction at each endpoint (the direction the
-        // polyline actually leaves/enters) instead of the whole-edge straight
-        // line. On bent edges the straight-line direction can point into a
-        // node body or toward another connection, making the multiplicity
-        // float/overlap. Anchoring on the local segment keeps the "1"/"*" snug
-        // on the entity side it truly belongs to.
+        // RD.2/D-001-B: 基数外置改沿「锚点所在面外法线」推进 22px，与折线端点
+        // 局部方向解耦——路由滑入/穿体时局部方向可能指向实体框内使基数落回框内
+        // （er/uml G4 实证）；面法线永远朝远离框体方向，基数必然外置。
+        const srcN = srcNode ? faceNormalOf(srcNode, p0) : null;
+        const dstN = dstNode ? faceNormalOf(dstNode, pn) : null;
+        // 兜底（无节点框可判面，理论不达）：退回局部方向外推，保证有输出
         const srcV = ortho.length >= 2
           ? { x: ortho[1].x - p0.x, y: ortho[1].y - p0.y }
           : { x: pn.x - p0.x, y: pn.y - p0.y };
@@ -924,13 +983,15 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
           : { x: pn.x - p0.x, y: pn.y - p0.y };
         const dstLen = Math.hypot(dstV.x, dstV.y) || 1;
         const dUx = dstV.x / dstLen, dUy = dstV.y / dstLen;
-        // anchor multiplicities 22px outside the entity borders so small
-        // glyphs like "*" stay clearly readable next to the card edges
-        const srcCard = { x: p0.x + sUx * 22, y: p0.y + sUy * 22 };
-        const dstCard = { x: pn.x - dUx * 22, y: pn.y - dUy * 22 };
+        const srcCard = srcN
+          ? { x: p0.x + srcN.x * 22, y: p0.y + srcN.y * 22 }
+          : { x: p0.x + sUx * 22, y: p0.y + sUy * 22 };
+        const dstCard = dstN
+          ? { x: pn.x + dstN.x * 22, y: pn.y + dstN.y * 22 }
+          : { x: pn.x - dUx * 22, y: pn.y - dUy * 22 };
         let relEl = '';
         if (rel) {
-          const { x, y } = placeLabelBox(ortho, rel, labelObstacles, placedLabels);
+          const { x, y } = placeLabelBox(ortho, rel, labelObstacles, placedLabels, layout.width, layout.height);
           relEl = text(x, y, rel, 12, '#6b7280');
         }
         labelEl =
@@ -938,7 +999,7 @@ function renderGeneral(doc: LgdlDocument, layout: LayoutResult, mode: 'default' 
           (fromV !== undefined ? text(srcCard.x, srcCard.y - 6, fromV, 12, '#b45309') : '') +
           (toV !== undefined ? text(dstCard.x, dstCard.y - 6, toV, 12, '#b45309') : '');
       } else {
-        const { x, y } = placeLabelBox(ortho, label ?? '', labelObstacles, placedLabels);
+        const { x, y } = placeLabelBox(ortho, label ?? '', labelObstacles, placedLabels, layout.width, layout.height);
         labelEl = text(x, y, label ?? '', 12, '#6b7280');
       }
       }
@@ -1152,12 +1213,27 @@ function renderGantt(doc: LgdlDocument, layout: LayoutResult): string {
     const cy = node.y + node.height / 2;
     // left label: fixed column (aligned across rows), not glued to the bar
     parts.push(text(labelColX, cy, label, 12, '#374151', 'end'));
-    // bar; narrow bars get their time text outside (right) instead of clipped
+    // bar; narrow bars get their time text outside (right) instead of clipped.
+    // RP.2/D-002（ADR-004-②）：近右缘窄条外置文本估宽后若越画布右缘 → 回退
+    // （milestone 钻石上方居中 / bar 条左侧 end 对齐）——文本语义不变（NG-005）。
     const timeText = `${start}d +${dur}d`;
     const inside = node.width >= 64;
-    const barText = inside
-      ? text(node.x + node.width / 2, cy, timeText, 11, '#ffffff')
-      : text(node.x + node.width + 6, cy, timeText, 10, '#2563eb', 'start');
+    let barText: string;
+    if (inside) {
+      barText = text(node.x + node.width / 2, cy, timeText, 11, '#ffffff');
+    } else {
+      const outsideX = node.x + node.width + 6;
+      const outsideW = textWidthEst(timeText, 10);
+      if (outsideX + outsideW <= layout.width) {
+        barText = text(outsideX, cy, timeText, 10, '#2563eb', 'start');
+      } else if (lgdlNode?.kind === 'milestone') {
+        // 里程碑钻石上方居中（右侧无空间时向上放，画布内且有 16px 行距余量）
+        barText = text(node.x + node.width / 2, cy - 13, timeText, 10, '#7c3aed');
+      } else {
+        // 普通窄条：回退为条左侧 end 对齐（条与 label 列间通常有充足空白）
+        barText = text(node.x - 6, cy, timeText, 10, '#2563eb', 'end');
+      }
+    }
     if (lgdlNode?.kind === 'milestone') {
       // milestones render as a diamond marker, visually distinct from bars
       const cx = node.x + node.width / 2;
