@@ -1,8 +1,8 @@
 /**
  * matrix-b.test.ts — B 档等价类合成文档（FR-003，plan §7 表；NFR-006）。
  *
- * 每条 B 档 = MATRIX_DOCS_B[i].source → renderDoc → auditGeometry（KNOWN_B 已知
- * 缺口集或 0 违例）+ 文档专属语义断言（折叠 / 语义锁 / 元素存在性）。等价类归属
+ * 每条 B 档 = MATRIX_DOCS_B[i].source → renderDoc → auditGeometry（0 违例 clean）
+ * + 文档专属语义断言（折叠 / 语义锁 / 元素存在性）。等价类归属
  * （E1~E6）见各条文件头注释与 registry intent（matrix-docs-b.ts）。B 档文档设计
  * 按 plan §7 表逐行：
  *
@@ -22,9 +22,10 @@
  *   B12（D-003-3，Q-005/B2-LR 偏差：LR 多 rank 宽>高短卡片链回归——audit 0 +
  *        两两 bbox 不相交 + 全节点不溢出显式断言，FR-005~007）
  *
- * G6 沿框边借道（2026-09-03 新增检查项，engine 贴边走线另 Feature 修复）使
- * B1/B4b/B5/B7/B9 现已知 G6 缺口 → 按 KNOWN_B 记录（EC-001 同款：记录不上报
- * 放宽，引擎修复后 KNOWN_B 列表会红提示收编回 clean 组）。
+ * 引擎缺陷修复收编（2026-09-02 specs-tree-engine-defect-fixes，M1~M4 落地）：
+ * 原 G6 沿框边借道已知缺口（B1/B4b/B5/B7/B9——router 贴边硬拒 + detick、
+ * renderGantt 三段式垂直进面）全部归零 → KNOWN_B 已全清，断言收编为 **0 违例
+ * （clean）**。
  *
  * 语义锁（B3/B4a/B4b/B9）：静默忽略/漏画不判六类违例（EC-004/EC-003），现状锁定 =
  * 二次渲染字节一致（引擎确定性 A-002）+ 元素级断言（tasks 微决策 1，不扩 manifest）。
@@ -40,44 +41,9 @@ function meta(id: string): BDocMeta {
   return MATRIX_DOCS_B.find((d) => d.id === id)!;
 }
 
-/** B 档已知缺口期望（EC-001 记录，语义同 matrix-a KNOWN_A；见文件头 G6 说明） */
-interface KnownViolation {
-  type: Violation['type'];
-  docRef: string;
-  textIncludes: string;
-}
-
-const KNOWN_B: Record<string, KnownViolation[]> = {
-  B1: [
-    { type: 'G6', docRef: 'edges[3]', textIncludes: '沿 n3 框上边借道' },
-    { type: 'G6', docRef: 'edges[4]', textIncludes: '沿 n4 框上边借道' },
-  ],
-  B4b: [{ type: 'G6', docRef: 'edges[0]', textIncludes: '沿 t3 框左边借道' }],
-  B5: [{ type: 'G6', docRef: 'edges[2]', textIncludes: '沿 out 框下边借道' }],
-  B7: [
-    { type: 'G6', docRef: 'edges[1]', textIncludes: '沿 t2 框左边借道' },
-    { type: 'G6', docRef: 'edges[2]', textIncludes: '沿 t3 框左边借道' },
-  ],
-  B9: [{ type: 'G6', docRef: 'edges[1]', textIncludes: '沿 svc 框右边借道' }],
-};
-
-/** B 档审计断言：KNOWN_B 已知集一一配对；无记录档 = 0 违例 */
+/** B 档审计断言：全部档 0 违例（KNOWN_B 已清空，引擎修复后 clean） */
 function assertAuditKnown(id: string, violations: Violation[]): void {
-  const known = KNOWN_B[id] ?? [];
-  if (known.length === 0) {
-    assert.deepEqual(violations, [], `B 档 ${id} 应 0 违例: ${JSON.stringify(violations)}`);
-    return;
-  }
-  assert.equal(violations.length, known.length, `B 档 ${id} 违例数应=${known.length}（已知 G6 集），实际=${JSON.stringify(violations)}`);
-  const used = new Set<number>();
-  for (const exp of known) {
-    const idx = violations.findIndex((v, i) => {
-      if (used.has(i)) return false;
-      return v.type === exp.type && v.docRef === exp.docRef && `${v.element} | ${v.detail}`.includes(exp.textIncludes);
-    });
-    assert.ok(idx >= 0, `B 档 ${id} 应含已知违例 ${exp.type}@${exp.docRef} ~ "${exp.textIncludes}": ${JSON.stringify(violations)}`);
-    used.add(idx);
-  }
+  assert.deepEqual(violations, [], `B 档 ${id} 应 0 违例（引擎修复后 clean）: ${JSON.stringify(violations)}`);
 }
 
 function countOf(svg: string, re: RegExp): number {
@@ -90,7 +56,7 @@ function nodeBlock(svg: string, idx: number): string | undefined {
   return re.exec(svg)?.[1];
 }
 
-/** 渲染 + 审计（KNOWN_B 已知集或 0 违例） */
+/** 渲染 + 审计（0 违例 clean） */
 async function renderClean(id: string): Promise<Awaited<ReturnType<typeof renderDoc>>> {
   const b = meta(id);
   const t = await renderDoc(b.source, `mb-${id}`);
@@ -110,7 +76,7 @@ async function assertDoubleRenderStable(id: string, t: Awaited<ReturnType<typeof
 // B1 全 kind 混排（E2）
 // ---------------------------------------------------------------------------
 
-test('B1 flowchart 全 kind 混排: 形状真实出现 + 双向边两向均渲染 + 审计=已知 G6 集', async () => {
+test('B1 flowchart 全 kind 混排: 形状真实出现 + 双向边两向均渲染 + 审计 0', async () => {
   const t = await renderClean('B1');
   const { doc, svg } = t;
   const defsEnd = svg.indexOf('</defs>');
@@ -175,7 +141,7 @@ test('B4a sequence + group: participant=3（group 不产生参与者头）+ 审�
   await assertDoubleRenderStable('B4a', t);
 });
 
-test('B4b gantt + group 分区: lgdl-dep=任务依赖数（group→task 不成 dep）+ 审计=已知 G6 + 双渲染一致', async () => {
+test('B4b gantt + group 分区: lgdl-dep=任务依赖数（group→task 不成 dep）+ 审计 0 + 双渲染一致', async () => {
   const t = await renderClean('B4b');
   // 文档任务级依赖 1 条（t2→t3）；group→task 聚合边不成 dep
   assert.equal(countOf(t.svg, /<g class="lgdl-dep"/g), 1, 'B4b dep 数 = 任务依赖数');
@@ -187,7 +153,7 @@ test('B4b gantt + group 分区: lgdl-dep=任务依赖数（group→task 不成 d
 // B5 聚合边 g→n（Q-005）
 // ---------------------------------------------------------------------------
 
-test('B5 聚合边 g→n: 正交 M/L path + label 白底 rect + 审计=已知 G6（g1→out 贴 out 下边 120px）', async () => {
+test('B5 聚合边 g→n: 正交 M/L path + label 白底 rect + 审计 0', async () => {
   const t = await renderClean('B5');
   const m = /<g class="lgdl-aggregate-edge"[^>]*><path d="([^"]*)"/.exec(t.svg);
   assert.ok(m, 'B5 aggregate-edge path 存在');
@@ -210,7 +176,7 @@ test('B6 扇出合并: 同 label 渲染 1 次 + 异 label 各 1 次 + 审计 0',
 // B7 gantt 负日期 + 依赖三型（Q-008 / D4 / U-2）
 // ---------------------------------------------------------------------------
 
-test('B7 gantt: 负日期条不从轴外起 + 三型依赖全正交 + 审计=已知 G6 集', async () => {
+test('B7 gantt: 负日期条不从轴外起 + 三型依赖全正交 + 审计 0', async () => {
   const t = await renderClean('B7');
   const { svg } = t;
   // t0（start=-3，归一后 day0）条 x=260 = 轴起点（不出轴外/不为负）
@@ -254,8 +220,8 @@ test('B8 er: 基数 1/0..1/0..*/1..* 双向渲染 + 22px 外置不压框（G4 0�
 // B9 datastream `_other` 混合态（Q-009 / EC-003）
 // ---------------------------------------------------------------------------
 
-test('B9 datastream `_other`: lane rect=2（无底框现状锁）+ `_other` 列画布降级 + 审计=已知 G6 + 双渲染一致', async () => {
-  const t = await renderClean('B9'); // 审计 = KNOWN_B 已知 G6（svc 右边缘末端微借道 4px）
+test('B9 datastream `_other`: lane rect=2（无底框现状锁）+ `_other` 列画布降级 + 审计 0 + 双渲染一致', async () => {
+  const t = await renderClean('B9'); // 审计 0（svc 末端微借道已 detick 消除）
   const { doc, layout, svg } = t;
   assert.equal(countOf(svg, /<g class="lgdl-lane"/g), 2, 'B9 真实组泳道 lane rect = 2（`_other` 合成列无底框，开放 #7）');
   // `_other` 列节点（legacy/report）位于所有 lane rect 之外（无 lane 覆盖）

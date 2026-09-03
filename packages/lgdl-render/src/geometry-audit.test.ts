@@ -14,6 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { auditGeometry, AUDIT_TOL, type Violation } from './test-support/geometry-audit.js';
+import { RIDE_TOL_PX } from '@lgdl/lgdl-router';
 import type { LgdlDocument } from '@lgdl/lgdl-core';
 import type { LayoutResult } from '@lgdl/lgdl-layout';
 
@@ -383,4 +384,12 @@ test('AUDIT_TOL 常量与 D-003 表逐字一致', () => {
   assert.equal(AUDIT_TOL.groupHeaderH, 30);
   assert.equal(AUDIT_TOL.groupPad, 20);
   assert.equal(AUDIT_TOL.edgeRideTolPx, 0.5);
+});
+
+test('EC-006/ADR-003: audit edgeRideTolPx 与 router RIDE_TOL_PX 同源一致（=0.5）', () => {
+  // 引擎 router 贴边判定与门禁 G6 判定共用同一 0.5px 口径——漂移会在构建期红。
+  // lgdl-render devDeps 已含 @lgdl/lgdl-router（degraded-paths 同款 import 先例），
+  // 无反向包依赖（router 不 import render test-support）。
+  assert.equal(AUDIT_TOL.edgeRideTolPx, RIDE_TOL_PX, 'edgeRideTolPx 与 RIDE_TOL_PX 应一致');
+  assert.equal(RIDE_TOL_PX, 0.5, 'RIDE_TOL_PX 值 = 0.5');
 });
