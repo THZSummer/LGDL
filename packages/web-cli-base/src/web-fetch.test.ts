@@ -50,10 +50,13 @@ test('executeWebFetch: un-fetchable path reports failure', async () => {
 
 test('WEB_FETCH_TOOL: exposes web-fetch as an independent base tool', () => {
   assert.equal(WEB_FETCH_TOOL.function.name, 'web-fetch');
-  const props = WEB_FETCH_TOOL.function.parameters.properties as Record<string, unknown>;
-  assert.ok(props.path);
+  const top = WEB_FETCH_TOOL.function.parameters.properties as Record<string, unknown>;
+  assert.ok(top.args, 'parameters should nest fields under an args object');
+  const argsObj = top.args as { properties?: Record<string, unknown>; required?: string[] };
+  assert.ok(argsObj.properties?.path);
+  assert.ok(argsObj.required?.includes('path'));
   const required = (WEB_FETCH_TOOL.function.parameters as { required?: string[] }).required;
-  assert.ok(required?.includes('path'));
+  assert.ok(required?.includes('args'));
 });
 
 test('webFetchHelp: shows required --path', () => {

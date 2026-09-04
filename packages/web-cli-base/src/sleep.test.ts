@@ -58,10 +58,14 @@ test('executeSleep: waits and reports ok', async () => {
 
 test('SLEEP_TOOL: exposes sleep as an independent base tool', () => {
   assert.equal(SLEEP_TOOL.function.name, 'sleep');
-  const props = SLEEP_TOOL.function.parameters.properties as Record<string, unknown>;
-  assert.ok(props.ms);
-  assert.ok(props.seconds);
-  assert.ok(SLEEP_TOOL.function.description.includes('--ms 5000'));
+  const top = SLEEP_TOOL.function.parameters.properties as Record<string, unknown>;
+  assert.ok(top.args, 'parameters should nest fields under an args object');
+  const props = (top.args as { properties?: Record<string, unknown> }).properties;
+  assert.ok(props);
+  assert.ok(props?.ms);
+  assert.ok(props?.seconds);
+  assert.deepEqual(SLEEP_TOOL.function.parameters.required, ['args']);
+  assert.ok(SLEEP_TOOL.function.description.includes('args.ms'));
 });
 
 test('webSleepHelp: shows ms/seconds usage', () => {

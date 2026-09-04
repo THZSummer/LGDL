@@ -22,18 +22,26 @@ export const WEB_FETCH_TOOL: {
     description:
       'Fetch a web resource (same-origin relative path or full URL) and return its raw text. ' +
       'Base platform capability, independent of the diagram CLI tools. ' +
-      'The path argument is REQUIRED — there is NO default path; omitting it fails with "missing --path". ' +
-      'Example: web-fetch --path lgdl/web/workbench/README-CLI.md (read the workbench skill guide).',
+      'Arguments go in the args object; args.path is REQUIRED — there is NO default path; ' +
+      'omitting it fails with "missing --path". ' +
+      'Example: {"args":{"path":"lgdl/web/workbench/README-CLI.md"}} (read the workbench skill guide).',
     parameters: {
       type: 'object',
       properties: {
-        path: {
-          type: 'string',
-          description:
-            'URL or same-origin relative path to fetch, e.g. "lgdl/web/workbench/README-CLI.md" or "https://example.com/doc.md".',
+        args: {
+          type: 'object',
+          description: 'Arguments to the fetch. --path is REQUIRED — no default path.',
+          properties: {
+            path: {
+              type: 'string',
+              description:
+                'URL or same-origin relative path to fetch, e.g. "lgdl/web/workbench/README-CLI.md" or "https://example.com/doc.md".',
+            },
+          },
+          required: ['path'],
         },
       },
-      required: ['path'],
+      required: ['args'],
     },
   },
 };
@@ -49,13 +57,21 @@ export const SLEEP_TOOL: {
     description:
       'Wait for a given duration before continuing — a generic timing primitive, independent of any CLI. ' +
       'Use it to introduce a delay between operations (e.g. page-fullscreen on → sleep → page-fullscreen off). ' +
-      'Exactly one of ms or seconds is REQUIRED; omitting both fails. Example: sleep --ms 5000',
+      'Arguments go in the args object; exactly one of args.ms or args.seconds is REQUIRED; omitting both fails. ' +
+      'Example: {"args":{"ms":"5000"}}',
     parameters: {
       type: 'object',
       properties: {
-        ms: { type: 'string', description: 'Duration to wait in milliseconds, e.g. "5000".' },
-        seconds: { type: 'string', description: 'Alternative: duration to wait in seconds.' },
+        args: {
+          type: 'object',
+          description: 'Arguments. Exactly one of ms or seconds is REQUIRED (omitting both errors).',
+          properties: {
+            ms: { type: 'string', description: 'Duration to wait in milliseconds, e.g. "5000".' },
+            seconds: { type: 'string', description: 'Alternative: duration to wait in seconds.' },
+          },
+        },
       },
+      required: ['args'],
     },
   },
 };
@@ -71,12 +87,19 @@ export const WEB_CLI_HELP_TOOL: {
     description:
       'Discover the full set of CLI tools and their top-level commands (the tool "catalog"). ' +
       'Call with NO argument to list every available tool (name + one-line purpose); ' +
-      "call with a tool name to see that tool's detail/help. " +
-      'Example: web-cli-help → list all tools; web-cli-help lgdl-web-cli → that tool\'s subcommands.',
+      "call with an args object {\"tool\":\"<name>\"} to see that tool's detail/help. " +
+      'Example: {"args":{}} → list all tools; {"args":{"tool":"lgdl-web-cli"}} → that tool\'s subcommands.',
     parameters: {
       type: 'object',
       properties: {
-        tool: { type: 'string', description: 'Optional: show detail/help for this specific tool name.' },
+        args: {
+          type: 'object',
+          description:
+            'Optional arguments. Omit to list ALL tools; provide {tool} to see one tool\'s detail.',
+          properties: {
+            tool: { type: 'string', description: 'Show detail/help for this specific tool name.' },
+          },
+        },
       },
     },
   },

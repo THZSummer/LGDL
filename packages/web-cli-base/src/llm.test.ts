@@ -32,6 +32,21 @@ test('parseToolArguments: parses subcommand and args', () => {
   assert.deepEqual(tc.args, { id: 'user', label: '用户', kind: 'entity' });
 });
 
+test('parseToolArguments: args-nested web-fetch ({args:{path}})', () => {
+  const tc = parseToolArguments('c', 'web-fetch', '{"args":{"path":"a.md"}}');
+  assert.equal(tc.args.path, 'a.md');
+});
+
+test('parseToolArguments: args-nested sleep with string ms', () => {
+  const tc = parseToolArguments('c', 'sleep', '{"args":{"ms":"5000"}}');
+  assert.equal(tc.args.ms, '5000');
+});
+
+test('parseToolArguments: args-nested sleep with number ms is stringified', () => {
+  const tc = parseToolArguments('c', 'sleep', '{"args":{"ms":5000}}');
+  assert.equal(tc.args.ms, '5000');
+});
+
 test('parseToolArguments: tolerates malformed JSON', () => {
   const tc = parseToolArguments('call_2', 'web-cli', 'not json');
   assert.equal(tc.subcommand, '');
