@@ -595,6 +595,7 @@ export function App(): React.JSX.Element {
   const [lastGood, setLastGood] = useState<RenderState | null>(null);
   const [maskDismissed, setMaskDismissed] = useState(false);
   const [zoomScale, setZoomScale] = useState<number | null>(null);
+  const [previewImmersive, setPreviewImmersive] = useState(false); // 预览沉浸：只留预览内容（隐藏顶栏/左栏/状态栏/错误列表）
   // ---- 左栏上下分栏（编辑器 / AI 助手）----
   const [splitRatio, setSplitRatio] = useState(0.4); // 编辑器占左栏高度比例
   const [aiCollapsed, setAiCollapsed] = useState(false); // true = 编辑器收缩（仅剩标题栏）
@@ -947,6 +948,36 @@ export function App(): React.JSX.Element {
     return true;
   }, []);
 
+  /** 整页浏览器全屏切换（Fullscreen API：整个工作台占满系统屏幕）。 */
+  const toggleBrowserFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      void document.documentElement.requestFullscreen();
+    }
+  }, []);
+
+  /** 预览沉浸模式切换（隐藏顶栏+左栏+预览状态栏+错误列表，只留纯预览内容）。 */
+  const togglePreviewImmersive = useCallback(() => {
+    setPreviewImmersive((v) => !v);
+  }, []);
+
+  // 全局快捷键：沉浸中 Esc 退出；F 切换整页浏览器全屏（输入框聚焦时不触发）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && previewImmersive) {
+        setPreviewImmersive(false);
+      } else if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // 输入框聚焦时不触发
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || (t as HTMLElement).isContentEditable)) return;
+        toggleBrowserFullscreen();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [previewImmersive, toggleBrowserFullscreen]);
+
   /**
    * lgdl-web-op-cli 执行器注册表（F-13 ②：handleWebOp 16 分支 → opRegistry 注入，
    * ADR-006——包定义协议/分发，本文件注入 React 执行回调）。
@@ -1017,6 +1048,10 @@ export function App(): React.JSX.Element {
       c.resetView();
       return { ok: true, output: '✓ 预览已重置为整图适配' };
     });
+    reg.register('preview-fullscreen', () => {
+      togglePreviewImmersive();
+      return { ok: true, output: '✓ 预览全屏已切换' };
+    });
     reg.register('preview-click', (args) => {
       const loc = args.loc;
       if (!loc) return { ok: false, output: '✖ preview-click 需要 loc 参数（如 nodes[3]）' };
@@ -1069,7 +1104,7 @@ export function App(): React.JSX.Element {
       return { ok: true, output: webOpHelp(args.topic) };
     });
     return reg;
-  }, [source, downloadSvg, downloadPng, jumpToIssue, selectExample, applyAiSource]);
+  }, [source, downloadSvg, downloadPng, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive]);
 
   /** lgdl-web-op-cli 分发（AiPanel onWebOp）：经注册表执行，返回结果文本。 */
   const handleWebOp = useCallback((subcommand: string, args: Record<string, string>): string => {
@@ -1077,7 +1112,7 @@ export function App(): React.JSX.Element {
   }, [opRegistry]);
 
   return (
-    <div className="app">
+    <div className={`app${previewImmersive ? ' immersive' : ''}`}>
       <header className="app-header">
         <div className="brand">
           <span className="brand-mark">LGDL</span>
@@ -1104,6 +1139,14 @@ export function App(): React.JSX.Element {
           </div>
           <span className="switcher-pointer" aria-hidden="true" />
         </div>
+        <button
+          className="pane-icon-btn header-fullscreen-btn"
+          onClick={toggleBrowserFullscreen}
+          title="整页全屏（F）"
+          aria-label="整页全屏"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m14-5h3a2 2 0 0 1 2 2v3m0 10v3a2 2 0 0 1-2 2h-3m-10 0H5a2 2 0 0 1-2-2v-3"/></svg>
+        </button>
       </header>
 
       <main className="workspace">
@@ -1219,6 +1262,18 @@ export function App(): React.JSX.Element {
               <button className="pane-btn" onClick={downloadPng} disabled={hasErrors || !state.svg}>
                 导出 PNG
               </button>
+              <button
+                className="pane-icon-btn preview-fullscreen-btn"
+                onClick={togglePreviewImmersive}
+                title={previewImmersive ? '退出预览全屏（Esc）' : '预览全屏（沉浸）'}
+                aria-label={previewImmersive ? '退出预览全屏' : '预览全屏'}
+              >
+                {previewImmersive ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m14-5h3a2 2 0 0 1 2 2v3m0 10v3a2 2 0 0 1-2 2h-3m-10 0H5a2 2 0 0 1-2-2v-3"/></svg>
+                )}
+              </button>
             </div>
           </div>
           <div className="preview-body">
@@ -1284,6 +1339,16 @@ export function App(): React.JSX.Element {
             </span>
             <span>左键点击元素定位源码 · 滚轮中央缩放 · 边缘滚轮平移</span>
           </div>
+          {previewImmersive && (
+            <button
+              className="immersive-exit"
+              onClick={togglePreviewImmersive}
+              title="退出预览全屏（Esc）"
+              aria-label="退出预览全屏"
+            >
+              ✕ 退出
+            </button>
+          )}
         </section>
       </main>
       {aiSettingsOpen && (

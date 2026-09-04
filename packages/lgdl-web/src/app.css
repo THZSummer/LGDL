@@ -238,6 +238,11 @@ body,
   color: #334155;
 }
 
+/* 整页全屏按钮：header 为 flex，margin-left:auto 靠右对齐到 header 末尾 */
+.header-fullscreen-btn {
+  margin-left: auto;
+}
+
 /* workspace */
 .workspace {
   display: flex;
@@ -1409,4 +1414,36 @@ body,
 .issue-warning {
   color: #d97706;
   background: #fffbeb;
+}
+
+/* ---------- 整页全屏 / 预览沉浸模式（纯 UI，不影响数据语义） ---------- */
+/* immersive-exit 悬浮按钮的 absolute 定位锚点（preview-pane 原本无 position） */
+.preview-pane {
+  position: relative;
+}
+
+/* 预览沉浸模式：只留纯预览内容占满窗口 */
+.app.immersive .app-header { display: none; }
+.app.immersive .editor-pane { display: none; }
+.app.immersive .preview-statusbar { display: none; }
+.app.immersive .issue-list { display: none; }
+.app.immersive .preview-pane .pane-title { display: none; } /* 预览标题栏也隐藏 → 真正纯内容 */
+
+.immersive-exit {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.9);
+  color: #374151;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.immersive-exit:hover {
+  background: #fff;
+  border-color: #d1d5db;
 }

@@ -23,6 +23,7 @@ export const WEB_OP_TOOL: {
       'Perform a UI operation on the web workbench, equivalent to the user clicking the button manually. ' +
       'Subcommands: copy-source / toggle-editor / collapse-editor / expand-editor / export-svg / export-png / ' +
       'preview-zoom (--factor, or --direction + --delta, --anchorX, --anchorY) / preview-pan (--dx, --dy) / preview-reset / ' +
+      'preview-fullscreen (toggle immersive preview-only mode: hides editor/AI/statusbar; Esc or click ✕ to exit) / ' +
       'preview-click (--loc, e.g. "nodes[3]") / preview-hover (--loc) / switch-example (--id) / list-examples / list-diagram-types / ' +
       'next-actions (--actions = JSON string array of {label, prompt}; shows clickable suggestion chips in the chat, ' +
       'each chip sends its prompt to the AI when clicked) / help (--topic to show one operation\'s usage). ' +
@@ -42,7 +43,7 @@ export const WEB_OP_TOOL: {
             'Operation arguments as --key value pairs (keys without leading dashes), e.g. ' +
             'preview-zoom: --factor 1.2 or --direction 1 --delta 200; ' +
             'preview-pan: --dx 100 --dy 0; preview-click: --loc nodes[3]; preview-hover: --loc nodes[3] or --loc none to clear; ' +
-            'switch-example: --id ecommerce-flow; list-examples / list-diagram-types: no args; ' +
+            'switch-example: --id ecommerce-flow; preview-fullscreen / list-examples / list-diagram-types: no args; ' +
             'next-actions: --actions \'[{"label":"增加配色分组","prompt":"给当前图增加配色分组"}]\' (2-4 suggested next steps).',
           additionalProperties: true,
         },
