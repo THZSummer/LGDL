@@ -275,7 +275,6 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
  */
 const ZOOM_EDGE = 64; // px band near each viewport edge where wheel = pan
 const ZOOM_MAX = 8;
-const ZOOM_MIN = 0.5; // 最小缩放固定 50%——不再允许缩到整图适配比例以下
 
 /** 预览的命令式控制接口（供 lgdl-web-op-cli 驱动，与手动操作等效）。 */
 export interface PreviewController {
@@ -334,13 +333,20 @@ const ZoomableSvg = React.forwardRef<PreviewController, {
     svgEl.setAttribute('height', String(Math.max(1, Math.round(heightRef.current * scale))));
   };
 
+  /** 当前图的 FitView 适配比例（与 resetView 同公式，手动缩放下限 = 它的一半）。 */
+  const computeFitScale = (): number => {
+    const host = hostRef.current;
+    if (!host) return 0.5;
+    const rect = host.getBoundingClientRect();
+    return Math.max(0.1, Math.min(1, (rect.width - 24) / widthRef.current, (rect.height - 24) / heightRef.current));
+  };
+
   const resetView = () => {
     const host = hostRef.current;
     if (!host) return;
-    const rect = host.getBoundingClientRect();
     // 默认 FitView：大图适配进视口，小图按 1:1 显示（允许 < 50%，
     // 如超长图 40%——初始整图可见优先）
-    const scale = Math.max(0.1, Math.min(1, (rect.width - 24) / width, (rect.height - 24) / height));
+    const scale = computeFitScale();
     scaleRef.current = scale;
     applySize(scale);
     host.scrollLeft = 0;
@@ -355,7 +361,8 @@ const ZoomableSvg = React.forwardRef<PreviewController, {
       if (!host) return;
       const rect = host.getBoundingClientRect();
       const cur = scaleRef.current;
-      const next = Math.min(ZOOM_MAX, Math.max(Math.min(cur, ZOOM_MIN), cur * factor));
+      // 手动缩放下限 = 当前 FitView 比例的一半（保证总能缩回完整展示）
+      const next = Math.min(ZOOM_MAX, Math.max(Math.min(cur, computeFitScale() / 2), cur * factor));
       const k = next / cur;
       const mx = anchorX ?? rect.width / 2;
       const my = anchorY ?? rect.height / 2;
@@ -377,7 +384,7 @@ const ZoomableSvg = React.forwardRef<PreviewController, {
       const cur = scaleRef.current;
       const next = Math.min(
         ZOOM_MAX,
-        Math.max(Math.min(cur, ZOOM_MIN), cur * Math.exp(-direction * delta * 0.0015)),
+        Math.max(Math.min(cur, computeFitScale() / 2), cur * Math.exp(-direction * delta * 0.0015)),
       );
       const k = next / cur;
       const sx = host.scrollLeft;
@@ -441,12 +448,13 @@ const ZoomableSvg = React.forwardRef<PreviewController, {
       }
 
       // ---- center: zoom anchored at the cursor (industry-standard math) ----
-      // 缩放下限固定 50%（ZOOM_MIN）。若当前已低于下限（初始 FitView 的
-      // 大图整图适配，如 40%），缩小保持当前值而不是反向放大。
+      // 手动缩放下限 = 当前 FitView 比例的一半（保证总能缩回完整展示）。
+      // 若当前已低于下限（初始 FitView 的大图整图适配，如 40%），缩小保持
+      // 当前值而不是反向放大。
       const cur = scaleRef.current;
       const next = Math.min(
         ZOOM_MAX,
-        Math.max(Math.min(cur, ZOOM_MIN), cur * Math.exp(-e.deltaY * 0.0015)),
+        Math.max(Math.min(cur, computeFitScale() / 2), cur * Math.exp(-e.deltaY * 0.0015)),
       );
       const k = next / cur;
       const sx = host.scrollLeft;
