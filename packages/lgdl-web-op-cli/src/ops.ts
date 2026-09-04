@@ -70,7 +70,8 @@ export const OP_COMMANDS: Record<string, HelpEntry> = {
     example: 'lgdl-web-op-cli next-actions --actions \'[{"label":"增加配色分组","prompt":"给当前图增加配色分组"}]\'',
     note: '只影响聊天 UI，不改图。',
   },
-  'preview-fullscreen': { summary: '切换预览全屏（沉浸：只显示预览内容，隐藏编辑器/AI/状态栏）', example: 'lgdl-web-op-cli preview-fullscreen' },
+  'preview-fullscreen': { summary: '预览沉浸模式（--state on 进入 / off 退出 / 无参 toggle），Esc 退出', example: 'lgdl-web-op-cli preview-fullscreen --state off' },
+  'page-fullscreen': { summary: '整页浏览器全屏（--state on 进入 / off 退出 / 无参 toggle），Esc 退出', example: 'lgdl-web-op-cli page-fullscreen --state off' },
 };
 
 /**

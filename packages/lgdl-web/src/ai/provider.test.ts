@@ -186,16 +186,16 @@ test('browserDirect flags: deepseek/qwen/tencent/openai/claude direct, volc bloc
   assert.equal(providerById('volc-plan').browserDirect, false);
 });
 
-test('F-04: buildTools exposes all three tools in stable order', () => {
+test('F-04: buildTools exposes all five tools in stable order', () => {
   const tools = buildTools();
-  assert.deepEqual(tools.map((t) => t.name), ['lgdl-web-cli', 'lgdl-web-op-cli', 'web-fetch']);
+  assert.deepEqual(tools.map((t) => t.name), ['lgdl-web-cli', 'lgdl-web-op-cli', 'web-fetch', 'sleep', 'web-cli-help']);
   for (const t of tools) {
     assert.ok(t.description, `${t.name} has a description`);
     assert.ok(t.parameters, `${t.name} has parameters`);
   }
 });
 
-test('F-04: OpenAI-compatible endpoints share the three-tool set (claude parity)', () => {
+test('F-04: OpenAI-compatible endpoints share the five-tool set (claude parity)', () => {
   const nonClaude = PROVIDERS.filter((p) => p.id !== 'claude');
   assert.equal(nonClaude.length, 7); // openai/deepseek/qwen/tencent/volc/volc-coding/volc-plan
   for (const p of nonClaude) assert.ok(p.baseURL, `${p.id} is OpenAI-compatible`);

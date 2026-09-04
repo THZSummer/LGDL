@@ -3,9 +3,10 @@ import React, { useCallback, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { executeSubcommand } from '@lgdl/lgdl-web-cli/lgdl';
-import { executeWebFetch } from '@lgdl/web-cli-base';
+import { executeWebFetch, executeSleep, parseSleepCommand } from '@lgdl/web-cli-base';
 import { chat, PROVIDERS, type ChatTurn, type ProviderSettings, type WebCliToolCall } from './provider';
 import { LGDL_SYSTEM_PROMPT } from './prompts';
+import { createWebCliHelpAggregator } from './help-aggregator.js';
 import { parseNextActions, type NextAction } from '@lgdl/lgdl-web-op-cli';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -151,7 +152,16 @@ let nextId = 1;
 
 /** 把 toolCall 的 args 构造成命令行文本（--key value，值带引号）。 */
 function toolCallToCommand(tc: WebCliToolCall): string {
-  const prefix = tc.name === 'lgdl-web-op-cli' ? 'lgdl-web-op-cli' : tc.name === 'web-fetch' ? 'web-fetch' : 'lgdl-web-cli';
+  const prefix =
+    tc.name === 'lgdl-web-op-cli'
+      ? 'lgdl-web-op-cli'
+      : tc.name === 'web-fetch'
+        ? 'web-fetch'
+        : tc.name === 'sleep'
+          ? 'sleep'
+          : tc.name === 'web-cli-help'
+            ? 'web-cli-help'
+            : 'lgdl-web-cli';
   const parts = tc.subcommand ? [`${prefix} ${tc.subcommand}`] : [prefix];
   for (const [k, v] of Object.entries(tc.args)) {
     parts.push(`--${k} ${/[\s"]/.test(v) ? `"${v}"` : v}`);
@@ -432,6 +442,41 @@ export function AiPanel({
                 const exec = await executeWebFetch(tc.args.path ?? '');
                 output = exec.lines.join('\n') || '(无输出)';
                 if (!exec.ok) failed = true;
+              } else if (tc.name === 'sleep') {
+                // 通用时序等待原语（独立工具，不改文档）：复用 parseSleepCommand 解析 ms
+                const argMs =
+                  tc.args.ms !== undefined && tc.args.ms !== ''
+                    ? tc.args.ms
+                    : tc.args.seconds
+                      ? String(Number(tc.args.seconds) * 1000)
+                      : '';
+                if (argMs === '') {
+                  // 缺参友好提示（避免拼出 `sleep --ms ` 空值触发"参数 --ms 缺少值"的机器错误）
+                  output = '✖ sleep 需要一个时长参数：sleep --ms <毫秒> 或 --seconds <秒>，如 sleep --ms 5000';
+                  failed = true;
+                } else {
+                  const pc = parseSleepCommand(`sleep --ms ${argMs}`);
+                  if (!pc.ok) {
+                    output = pc.error;
+                    failed = true;
+                  } else if (pc.kind !== 'sleep') {
+                    output = '(无输入)';
+                    failed = true;
+                  } else {
+                    const exec = await executeSleep(pc.ms);
+                    output = exec.lines.join('\n') || '(无输出)';
+                    if (!exec.ok) failed = true;
+                  }
+                }
+              } else if (tc.name === 'web-cli-help') {
+                // 顶层工具发现（HelpAggregator 动态聚合）：无参列出全部工具一览，
+                // 带 tool 输出该工具详情/帮助（工具注册在场景方 help-aggregator）
+                const tool = tc.args.tool ?? '';
+                const agg = createWebCliHelpAggregator();
+                output = tool
+                  ? agg.getTool(tool) ?? `✖ 未知工具 "${tool}"（web-cli-help 列出全部可用工具）`
+                  : agg.listAll();
+                if (!tool) failed = false;
               } else {
                 // 图内容操作：结构化执行（不走文本解析，无 --doc 要求）
                 const exec = await executeSubcommand(sourceNow, tc.subcommand, tc.args, docIdRef.current);

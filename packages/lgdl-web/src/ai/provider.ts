@@ -14,7 +14,7 @@
  * （F-04 修复点 W-D1 不移动），chat 为薄包装（保持 chat(settings, turns) 签名，
  * AiPanel 调用点零改动）。）
  */
-import { chat as llmChat, WEB_FETCH_TOOL } from '@lgdl/web-cli-base';
+import { chat as llmChat, WEB_FETCH_TOOL, SLEEP_TOOL, WEB_CLI_HELP_TOOL } from '@lgdl/web-cli-base';
 import type { ChatTurn, WebCliToolCall, ChatResult } from '@lgdl/web-cli-base';
 import { WEB_CLI_TOOL } from '@lgdl/lgdl-web-cli';
 import { WEB_OP_TOOL } from '@lgdl/lgdl-web-op-cli';
@@ -239,8 +239,10 @@ export async function testConnection(settings: ProviderSettings): Promise<TestRe
 }
 
 /**
- * 三工具同构组装——Claude 与 OpenAI 兼容端点共用（F-04：消除双份组装漂移，
- * OpenAI 兼容端点补齐 web-fetch，与 Claude 端点对齐；fetch 末尾，避免 tool_choice 优先序变化）。
+ * 五工具同构组装——Claude 与 OpenAI 兼容端点共用（F-04：消除双份组装漂移，
+ * OpenAI 兼容端点补齐 web-fetch，与 Claude 端点对齐；web-fetch/sleep/web-cli-help
+ * 置末，避免 tool_choice 优先序变化——sleep 紧随 web-fetch，同为平台基础工具；
+ * web-cli-help 为顶层工具发现入口（HelpAggregator 一览），置于末位不影响业务工具优先序）。
  */
 export function buildTools(): { name: string; description: string; parameters: Record<string, unknown> }[] {
   return [
@@ -258,6 +260,16 @@ export function buildTools(): { name: string; description: string; parameters: R
       name: WEB_FETCH_TOOL.function.name,
       description: WEB_FETCH_TOOL.function.description,
       parameters: WEB_FETCH_TOOL.function.parameters,
+    },
+    {
+      name: SLEEP_TOOL.function.name,
+      description: SLEEP_TOOL.function.description,
+      parameters: SLEEP_TOOL.function.parameters,
+    },
+    {
+      name: WEB_CLI_HELP_TOOL.function.name,
+      description: WEB_CLI_HELP_TOOL.function.description,
+      parameters: WEB_CLI_HELP_TOOL.function.parameters,
     },
   ];
 }

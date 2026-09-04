@@ -35,3 +35,18 @@ export function webFetchHelp(): string {
     '说明：获取资源原文返回给调用方；不改文档。',
   ].join('\n');
 }
+
+/** sleep 帮助（单命令工具，通用时序原语，与 web-fetch 同级中性工具）。 */
+export function webSleepHelp(): string {
+  return [
+    'sleep —— 通用时序等待（独立工具，不属于任何 CLI）',
+    '用法：sleep --ms <毫秒> 或 sleep --seconds <秒>',
+    '',
+    '参数：',
+    '  --ms <毫秒>      等待毫秒数（与 seconds 二选一）',
+    '  --seconds <秒>   等待秒数（与 ms 二选一）',
+    '',
+    '示例：sleep --ms 5000',
+    '说明：暂停指定时长，用于命令间的时序控制；上限 10 分钟。',
+  ].join('\n');
+}

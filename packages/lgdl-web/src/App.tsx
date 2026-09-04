@@ -1048,9 +1048,21 @@ export function App(): React.JSX.Element {
       c.resetView();
       return { ok: true, output: '✓ 预览已重置为整图适配' };
     });
-    reg.register('preview-fullscreen', () => {
-      togglePreviewImmersive();
-      return { ok: true, output: '✓ 预览全屏已切换' };
+    reg.register('preview-fullscreen', (args) => {
+      // --state on: 进入沉浸; --state off: 退出; 无参: toggle（向后兼容）。
+      // 反馈文案按目标状态输出：React setState 异步生效，切换后立刻读闭包里的
+      // previewImmersive 仍是旧值，会报出「刚进入却提示已退出」的误导结果。
+      const target = args.state === 'on' ? true : args.state === 'off' ? false : !previewImmersive;
+      if (target !== previewImmersive) togglePreviewImmersive();
+      return { ok: true, output: `✓ 预览全屏已${target ? '开启' : '退出'}` };
+    });
+    reg.register('page-fullscreen', (args) => {
+      const isFull = !!document.fullscreenElement;
+      // 同上：Fullscreen API 异步生效，切换后立即读 fullscreenElement 仍是旧值，
+      // 故先算目标状态、再决定是否切换，反馈文案与目标状态一致。
+      const target = args.state === 'on' ? true : args.state === 'off' ? false : !isFull;
+      if (target !== isFull) toggleBrowserFullscreen();
+      return { ok: true, output: `✓ 整页全屏已${target ? '开启' : '退出'}` };
     });
     reg.register('preview-click', (args) => {
       const loc = args.loc;
@@ -1104,7 +1116,7 @@ export function App(): React.JSX.Element {
       return { ok: true, output: webOpHelp(args.topic) };
     });
     return reg;
-  }, [source, downloadSvg, downloadPng, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive]);
+  }, [source, previewImmersive, downloadSvg, downloadPng, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive, toggleBrowserFullscreen]);
 
   /** lgdl-web-op-cli 分发（AiPanel onWebOp）：经注册表执行，返回结果文本。 */
   const handleWebOp = useCallback((subcommand: string, args: Record<string, string>): string => {

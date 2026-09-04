@@ -83,7 +83,7 @@ LGDL 的每个概念都有**显性字段**，渲染器从不从文本里猜含�
   - `lgdl-web-cli`：图内容操作——`status`/`validate`/`init --type`/`convert`、节点/边/分组增删改（9 命令）、只读查询（`doc-info`/`get-node`/`get-edge`/`find-node`/`list-node-kinds`/`list-diagram-types`）；**AI 不直接写 LGDL 源码**——源码只由命令执行产生
   - `lgdl-web-op-cli`：UI 操作——复制源码/导出 SVG-PNG/预览缩放平移重置/点击定位/悬浮高亮/切换示例/**`next-actions` 推荐下一步胶囊**；AI 绘图过程保持页面交互，让用户看得见、有参与感
   - `web-fetch`：基础 web 获取（独立工具，不属任何 CLI，`--path` 必填；V2 由 `lgdl-web-fetch` 中性化改名并归位 web-cli-base）
-- **两层知识（自文档化）**：方法论使用指南 `README-CLI.md` 由系统**会话开始时自动加载**进 system prompt（战略层：三个工具分工、做事流程、陷阱）；具体命令用法一律 **`--help` 按需查询**（战术层：`lgdl-web-cli <cmd> --help` / `help <cmd>`，增量命令参数从 core 命令注册表动态生成，新增命令不用改文档）
+- **两层知识（自文档化）**：方法论使用指南 `README-CLI.md` 由系统**会话开始时自动加载**进 system prompt（战略层：四个工具分工、做事流程、陷阱）；具体命令用法一律 **`--help` 按需查询**（战术层：`lgdl-web-cli <cmd> --help` / `help <cmd>`，增量命令参数从 core 命令注册表动态生成，新增命令不用改文档）
 - **双 CLI 分离**：终端 `lgdl-cli`（`--file` 操作磁盘文件）与 Web 协议（lgdl-web-cli，`--doc` 操作编辑器文档）物理分离、场景独立，业务逻辑（命令解析/校验/op 构造）在 lgdl-web-cli 命令注册表单一实现（机制框架 web-cli-base）；终端 CLI 全部命令同样提供 `--help` 示例
 - **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限，需本地代理（v0.6）
 - 设置面板两步配置：选服务商 + 填 API Key（各服务商 key 独立保存）；「测试连接」一键验证 key / 端点 / CORS
