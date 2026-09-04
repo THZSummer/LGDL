@@ -305,6 +305,42 @@ function layoutGrouped(doc: LgdlDocument, rankdir: 'TB' | 'LR'): LayoutResult {
     }
   }
 
+  // Nested-container frame top keep-on-canvas（组 ⊃ 组时外层组框顶按 renderer
+  // computeGroupBox 同款递归 = min(member 顶) − 50，可能越出画布顶：顶层组框经
+  // super-node 计入了画布 bounds，嵌套组框（contains 只含组、无成员 super-node）
+  // 未计入。此处按 renderer 同构递归求全部组框顶，若有 < 0 → 整体下移补足，
+  // 使嵌套外框顶部不越画布（G5）。仅在存在嵌套组且确实越界时生效，零影响其它图。
+  const nestedTopShift = (): number => {
+    const groupsAll = deriveGroups(doc);
+    if (groupsAll.length === 0) return 0;
+    const gById = new Map(groupsAll.map((g) => [g.id, g]));
+    const frameTopOf = (gid: string, seen: Set<string>): number | undefined => {
+      if (seen.has(gid)) return undefined;
+      seen.add(gid);
+      const g = gById.get(gid);
+      if (!g) return undefined;
+      const tops: number[] = [];
+      for (const m of g.contains ?? []) {
+        const p = finalPos.get(m);
+        if (p) { tops.push(p.y); continue; }
+        const sub = frameTopOf(m, seen);
+        if (sub !== undefined) tops.push(sub);
+      }
+      // renderer box: y = min(ys) − pad(20) − 标题(30)
+      return tops.length === 0 ? undefined : Math.min(...tops) - 50;
+    };
+    let deficit = 0;
+    for (const g of groupsAll) {
+      const top = frameTopOf(g.id, new Set());
+      if (top !== undefined && top < 0) deficit = Math.max(deficit, Math.ceil(-top));
+    }
+    return deficit;
+  };
+  const topShift = nestedTopShift();
+  if (topShift > 0) {
+    for (const p of finalPos.values()) p.y += topShift;
+  }
+
   // canvas spans all final node positions (guaranteed non-overlapping groups)
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const p of finalPos.values()) {

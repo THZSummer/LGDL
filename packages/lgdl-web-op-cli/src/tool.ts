@@ -42,7 +42,7 @@ export const WEB_OP_TOOL: {
             'Operation arguments as --key value pairs (keys without leading dashes), e.g. ' +
             'preview-zoom: --factor 1.2 or --direction 1 --delta 200; ' +
             'preview-pan: --dx 100 --dy 0; preview-click: --loc nodes[3]; preview-hover: --loc nodes[3] or --loc none to clear; ' +
-            'switch-example: --id login-flow; list-examples / list-diagram-types: no args; ' +
+            'switch-example: --id ecommerce-flow; list-examples / list-diagram-types: no args; ' +
             'next-actions: --actions \'[{"label":"增加配色分组","prompt":"给当前图增加配色分组"}]\' (2-4 suggested next steps).',
           additionalProperties: true,
         },

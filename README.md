@@ -16,27 +16,20 @@
 
 一种 LGDL 语言，九种图——全部由 `lgdl-cli render` 自动布局生成，无任何手工排版：
 
-| flowchart 流程图 | flowchart 实战 | mindmap 思维导图 |
+| flowchart 流程图 | mindmap 思维导图 | sequence 时序图 |
 |---|---|---|
-| <p align="center"><img src="examples/login-flow.png" width="280"/><br/>[📄 源码](examples/login-flow.lgdl)</p> | <p align="center"><img src="examples/ecommerce-flow.png" width="280"/><br/>[📄 源码](examples/ecommerce-flow.lgdl)</p> | <p align="center"><img src="examples/mindmap.png" width="280"/><br/>[📄 源码](examples/mindmap.lgdl)</p> |
+| <p align="center"><img src="examples/ecommerce-flow.png" width="280"/><br/>[📄 源码](examples/ecommerce-flow.lgdl)</p> | <p align="center"><img src="examples/mindmap.png" width="280"/><br/>[📄 源码](examples/mindmap.lgdl)</p> | <p align="center"><img src="examples/sequence.png" width="280"/><br/>[📄 源码](examples/sequence.lgdl)</p> |
 
-| sequence 时序图 | uml-class 类图 | arch 架构图 |
+| uml-class 类图 | arch 架构图 | datastream 数据流 |
 |---|---|---|
-| <p align="center"><img src="examples/sequence.png" width="280"/><br/>[📄 源码](examples/sequence.lgdl)</p> | <p align="center"><img src="examples/uml-class.png" width="280"/><br/>[📄 源码](examples/uml-class.lgdl)</p> | <p align="center"><img src="examples/architecture.png" width="280"/><br/>[📄 源码](examples/architecture.lgdl)</p> |
+| <p align="center"><img src="examples/uml-class.png" width="280"/><br/>[📄 源码](examples/uml-class.lgdl)</p> | <p align="center"><img src="examples/architecture.png" width="280"/><br/>[📄 源码](examples/architecture.lgdl)</p> | <p align="center"><img src="examples/datastream.png" width="280"/><br/>[📄 源码](examples/datastream.lgdl)</p> |
 
-| arch 实战：微服务 | datastream 数据流 | er ER 图 |
+| er ER 图 | state 状态机 | gantt 甘特图 |
 |---|---|---|
-| <p align="center"><img src="examples/microservices.png" width="280"/><br/>[📄 源码](examples/microservices.lgdl)</p> | <p align="center"><img src="examples/datastream.png" width="280"/><br/>[📄 源码](examples/datastream.lgdl)</p> | <p align="center"><img src="examples/er.png" width="280"/><br/>[📄 源码](examples/er.lgdl)</p> |
-
-| state 状态机 | gantt 甘特图 | |
-|---|---|---|
-| <p align="center"><img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.lgdl)</p> | <p align="center"><img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.lgdl)</p> | |
+| <p align="center"><img src="examples/er.png" width="280"/><br/>[📄 源码](examples/er.lgdl)</p> | <p align="center"><img src="examples/state.png" width="280"/><br/>[📄 源码](examples/state.lgdl)</p> | <p align="center"><img src="examples/gantt.png" width="280"/><br/>[📄 源码](examples/gantt.lgdl)</p> |
 
 > 🤖 **AI 全流程演练**：9 种图类型的 AI 工程师实战（pi 仅用 `lgdl-cli` 命令生成）+ 视觉模型评审
-> 见 [docs/reviews-2026-08-24/ai-vision-review.md](docs/reviews-2026-08-24/ai-vision-review.md)，示例三件套（`.lgdl`/`.svg`/`.png`）在
-> `examples/flowchart-auth`、`examples/mindmap-product`、`examples/sequence-order`、
-> `examples/uml-class-order`、`examples/arch-ecommerce`、`examples/datastream-log`、
-> `examples/er-orders`、`examples/state-order`、`examples/gantt-saas-roadmap`。
+> 见 [docs/reviews-2026-08-24/ai-vision-review.md](docs/reviews-2026-08-24/ai-vision-review.md)，评审期间的历史示例三件套已被整合为上面 9 张官方示例。
 
 ---
 

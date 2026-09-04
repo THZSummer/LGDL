@@ -6,14 +6,14 @@
  *
  * | kind                  | 核对文档（id）                              | 断言                                  |
  * |-----------------------|---------------------------------------------|---------------------------------------|
- * | start/end 药丸         | login-flow/architecture/state/B1           | rect rx = node.width/2                |
+ * | start/end 药丸         | ecommerce-flow/architecture/state/B1       | rect rx = node.width/2                |
  * | process               | architecture / B1                           | rect rx=6                             |
- * | decision 菱形          | login-flow / B1                            | polygon 4 顶点 = node bbox 四边中点    |
+ * | decision 菱形          | ecommerce-flow / B1                        | polygon 4 顶点 = node bbox 四边中点    |
  * | entity 圆柱            | er、architecture（A 弧）/ B1/B8             | path d 含 A 圆弧；er members 行文本    |
- * | note 折角              | architecture、microservices / B1/B8        | path d 含折角 L x+w-12 / x+w,y+12     |
+ * | note 折角              | architecture / B1/B8                       | path d 含折角 L x+w-12 / x+w,y+12     |
  * | state（回退 process）  | state / B1                                 | <rect> 且无 polygon/path（SHAPES 无键）|
  * | milestone              | gantt / B1                                 | gantt：gantt-milestone polygon 菱形；非 gantt 回退 rect |
- * | group（容器/泳道/带）   | architecture、login-flow(2 层嵌套)、datastream、B4b | g rect 存在 + contains 成员在框内（login-flow 外含内） |
+ * | group（容器/泳道/带）   | architecture、ecommerce-flow(2 层嵌套)、datastream、B4b | g rect 存在 + contains 成员在框内（ecommerce-flow 外含内） |
  * | 无 kind（回退 process）| mindmap / B1                               | rect rx=6（shapeKindFor kind??process）|
  */
 import { test } from 'node:test';
@@ -50,9 +50,9 @@ function approx(a: number, b: number, tol = 0.51): boolean {
 // ---- start/end（药丸） -----------------------------------------------------
 
 test('kind 覆盖: start/end 药丸 rect rx=width/2 真实绘制', async () => {
-  const lf = await example('login-flow');
-  const startNode = layoutNode(lf, 'start');
-  const block = blocksOf(lf.svg, 'lgdl-node').find((b) => b.idx === String(lf.doc.nodes.findIndex((n) => n.id === 'start')))!;
+  const ec = await example('ecommerce-flow');
+  const startNode = layoutNode(ec, 'browse');
+  const block = blocksOf(ec.svg, 'lgdl-node').find((b) => b.idx === String(ec.doc.nodes.findIndex((n) => n.id === 'browse')))!;
   const rx = Number(firstAttr(block.inner, 'rect', 'rx'));
   assert.equal(rx, startNode.width / 2, `start rx=${rx} 应= w/2=${startNode.width / 2}`);
 
@@ -80,10 +80,10 @@ test('kind 覆盖: process 圆角矩形 rx=6', async () => {
 // ---- decision（菱形） ------------------------------------------------------
 
 test('kind 覆盖: decision 菱形 polygon 四顶点 = node bbox 四边中点', async () => {
-  const lf = await example('login-flow');
-  const vNode = layoutNode(lf, 'verify');
-  const vIdx = lf.doc.nodes.findIndex((n) => n.id === 'verify');
-  const block = blocksOf(lf.svg, 'lgdl-node').find((b) => b.idx === String(vIdx))!;
+  const ec = await example('ecommerce-flow');
+  const vNode = layoutNode(ec, 'validate');
+  const vIdx = ec.doc.nodes.findIndex((n) => n.id === 'validate');
+  const block = blocksOf(ec.svg, 'lgdl-node').find((b) => b.idx === String(vIdx))!;
   const ptsRaw = firstAttr(block.inner, 'polygon', 'points')!;
   const pts = ptsRaw.split(/[\s,]+/).map(Number);
   assert.equal(pts.length, 8, 'polygon 4 顶点 = 8 个数值');
@@ -106,7 +106,10 @@ test('kind 覆盖: entity 圆柱 path A 圆弧 + er members 行文本', async ()
   const er = await example('er');
   const userIdx = er.doc.nodes.findIndex((n) => n.id === 'user');
   const ub = blocksOf(er.svg, 'lgdl-node').find((b) => b.idx === String(userIdx))!;
-  assert.ok(ub.inner.includes('>id</text>') && ub.inner.includes('>name</text>') && ub.inner.includes('>email</text>'), 'er entity members 行文本存在');
+  assert.ok(
+    ub.inner.includes('>id: bigint</text>') && ub.inner.includes('>name: varchar</text>') && ub.inner.includes('>email: varchar</text>'),
+    'er entity members 行文本存在（typed：name: type）',
+  );
 });
 
 // ---- note（折角） ----------------------------------------------------------
@@ -164,25 +167,25 @@ test('kind 覆盖: milestone 非 gantt（B1 flowchart）回退 process rect', as
 
 // ---- group（容器/泳道/带） ------------------------------------------------
 
-test('kind 覆盖: group 容器框真实绘制（architecture 3 组 + login-flow 2 层嵌套外含内）', async () => {
+test('kind 覆盖: group 容器框真实绘制（architecture 3 组 + ecommerce-flow 2 层嵌套外含内）', async () => {
   const arch = await example('architecture');
   const archGroups = blocksOf(arch.svg, 'lgdl-group');
   assert.equal(archGroups.length, 3, 'architecture 3 个 group box');
   for (const g of archGroups) {
     assert.ok(/<rect[^>]*\/>/.test(g.inner), `group loc nodes[${g.idx}] 含容器 rect`);
   }
-  const lf = await example('login-flow');
-  const lfGroups = blocksOf(lf.svg, 'lgdl-group');
-  assert.equal(lfGroups.length, 3, 'login-flow 3 组（含嵌套 auth）');
+  const ec = await example('ecommerce-flow');
+  const ecGroups = blocksOf(ec.svg, 'lgdl-group');
+  assert.equal(ecGroups.length, 5, 'ecommerce-flow 5 组（含 2 层嵌套 platform ⊃ shopping）');
   const rectOf = (g: { inner: string }): { x: number; y: number; w: number; h: number } => {
     const r = /<rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.-]+)" height="([\d.-]+)"/.exec(g.inner)!;
     return { x: +r[1], y: +r[2], w: +r[3], h: +r[4] };
   };
-  const outer = rectOf(lfGroups.find((g) => g.idx === String(lf.doc.nodes.findIndex((n) => n.id === 'frontend')))!);
-  const inner = rectOf(lfGroups.find((g) => g.idx === String(lf.doc.nodes.findIndex((n) => n.id === 'auth')))!);
+  const outer = rectOf(ecGroups.find((g) => g.idx === String(ec.doc.nodes.findIndex((n) => n.id === 'platform')))!);
+  const inner = rectOf(ecGroups.find((g) => g.idx === String(ec.doc.nodes.findIndex((n) => n.id === 'shopping')))!);
   assert.ok(
     outer.x < inner.x && outer.y < inner.y && outer.x + outer.w > inner.x + inner.w && outer.y + outer.h > inner.y + inner.h,
-    `frontend 外框 (${outer.x},${outer.y},${outer.w}x${outer.h}) 应完整含 auth 内框 (${inner.x},${inner.y},${inner.w}x${inner.h})`,
+    `platform 外框 (${outer.x},${outer.y},${outer.w}x${outer.h}) 应完整含 shopping 内框 (${inner.x},${inner.y},${inner.w}x${inner.h})`,
   );
 });
 

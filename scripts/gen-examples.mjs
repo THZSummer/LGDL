@@ -1,6 +1,6 @@
 /**
  * Generate examples/ artifacts from the single source of truth:
- * packages/web/src/examples.ts
+ * packages/lgdl-web/src/examples.ts
  *
  * Produces: examples/<id>.lgdl (source), examples/<id>.svg (rendered),
  * examples/<id>.png (bitmap, requires @resvg/resvg-js).
@@ -12,12 +12,12 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseLgdl } from '../packages/core/dist/index.js';
-import { layoutDocument } from '../packages/layout/dist/index.js';
-import { renderSvg } from '../packages/render/dist/index.js';
+import { parseLgdl } from '../packages/lgdl-core/dist/index.js';
+import { layoutDocument } from '../packages/lgdl-layout/dist/index.js';
+import { renderSvg } from '../packages/lgdl-render/dist/index.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const ts = readFileSync(join(root, 'packages/web/src/examples.ts'), 'utf8');
+const ts = readFileSync(join(root, 'packages/lgdl-web/src/examples.ts'), 'utf8');
 const outDir = join(root, 'examples');
 mkdirSync(outDir, { recursive: true });
 

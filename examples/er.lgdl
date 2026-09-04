@@ -8,54 +8,98 @@ nodes:
     members:
       - kind: attribute
         name: id
+        type: bigint
       - kind: attribute
         name: name
+        type: varchar
       - kind: attribute
         name: email
+        type: varchar
   - id: order
     label: 订单
     kind: entity
     members:
       - kind: attribute
         name: id
+        type: bigint
       - kind: attribute
         name: userId
+        type: bigint
       - kind: attribute
         name: amount
+        type: decimal
   - id: product
     label: 商品
     kind: entity
     members:
       - kind: attribute
         name: id
+        type: bigint
       - kind: attribute
         name: name
+        type: varchar
       - kind: attribute
         name: price
+        type: decimal
   - id: order-item
     label: 订单项
     kind: entity
     members:
       - kind: attribute
         name: id
+        type: bigint
       - kind: attribute
         name: orderId
+        type: bigint
       - kind: attribute
         name: productId
+        type: bigint
+      - kind: attribute
+        name: quantity
+        type: int
+  - id: promotion
+    label: 促销
+    kind: entity
+    members:
+      - kind: attribute
+        name: id
+        type: bigint
+      - kind: attribute
+        name: name
+        type: varchar
+      - kind: attribute
+        name: discount
+        type: decimal
+  - id: amount-note
+    label: 订单金额为下单时各订单项 quantity×price 之和快照
+    kind: note
 
 edges:
   - from: user
     to: order
     label: 拥有
     cardinalityFrom: "1"
-    cardinalityTo: "*"
+    cardinalityTo: "0..*"
   - from: order
     to: order-item
     label: 包含
     cardinalityFrom: "1"
-    cardinalityTo: "*"
+    cardinalityTo: "1..*"
   - from: product
     to: order-item
-    label: 关联
-    cardinalityFrom: "1"
+    label: 被选购
+    cardinalityFrom: "0..*"
+    cardinalityTo: "1"
+  - from: order
+    to: promotion
+    label: 使用
+    cardinalityFrom: "0..1"
+    cardinalityTo: "0..*"
+  - from: promotion
+    to: product
+    label: 覆盖
+    cardinalityFrom: "*"
     cardinalityTo: "*"
+  - from: amount-note
+    to: order
+    label: 约束

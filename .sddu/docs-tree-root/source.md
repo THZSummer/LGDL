@@ -58,7 +58,7 @@
 | `packages/lgdl-web-op-cli/src/ops.ts` / `handlers.ts` | OP_COMMANDS 单一数据源 / OpHandlerRegistry 注入面（V2）——ADR-V2-006/008 锚点 |
 | `packages/web-cli-base/src/exec.ts` | DomainApi<Op,Doc> 泛型契约 + validate 门禁（:294）——ADR-V2-003/005 锚点 |
 | `packages/web-cli-base/src/web-fetch.ts` | web-fetch 中性化工具（V2 归位）——ADR-V2-007 锚点 |
-| `packages/lgdl-web/src/examples.ts` | 11 个内置示例单一来源（gen-examples.mjs 的输入） |
+| `packages/lgdl-web/src/examples.ts` | 9 个内置示例单一来源（gen-examples.mjs 的输入） |
 
 ### 1.3 存量文档（只读引用，可能存在漂移）
 

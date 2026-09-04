@@ -34,7 +34,7 @@
 | `src/ai/prompts.ts` | system prompt（表达 vs 执行协议 + 读多写少 + UI 参与 + next-actions 推荐；V2 改述 web-fetch 中性名） | 67 行 |
 | `src/ai/SettingsPanel.tsx` | API 设置面板（服务商 / Key / 模型 / Base URL / 最大轮数 / 测试连接） | 207 行 |
 | `src/locate.ts` | data-lgdl-loc / issue location → 源码字符区间（编辑器跳转） | 202 行 |
-| `src/snap.ts` / `examples.ts` | 示例滑轨吸附纯函数 / 11 个内置示例（单一数据源，examples/ 产物由脚本生成） | — |
+| `src/snap.ts` / `examples.ts` | 示例滑轨吸附纯函数 / 9 个内置示例（单一数据源，examples/ 产物由脚本生成） | — |
 
 > **V2 迁出面**（原 web/ai/ 下文件）：`web-cli.ts`（协议解析）→ lgdl-web-cli/protocol.ts；`ops.ts`（执行层）→ lgdl-web-cli/adapters/lgdl.ts（lgdlExecutor）；`help.ts`（webOpHelp/webFetchHelp）→ lgdl-web-op-cli/help.ts + web-cli-base/help.ts；`next-actions.ts` → lgdl-web-op-cli/next-actions.ts；`web-fetch.ts` → web-cli-base/web-fetch.ts（中性化改名 `web-fetch`）。
 

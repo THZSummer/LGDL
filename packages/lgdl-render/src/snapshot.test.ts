@@ -1,14 +1,14 @@
 /**
  * snapshot.test.ts — examples golden 快照字节回归（FR-008/009/010，ADR-003）。
  *
- * 对象集 = EXAMPLES_SOURCES 11 源（受管镜像，ADR-002）；基线 = 当前引擎重渲染
+ * 对象集 = EXAMPLES_SOURCES 9 源（受管镜像，ADR-002）；基线 = 当前引擎重渲染
  * 字节（D-002，不采用漂移 7/11 的磁盘 .svg）。双校验：
  *   1. 渲染串 === test-assets/golden/{id}.svg 文件字节
  *   2. sha256(渲染串) === manifest.files[id]（node:crypto）
- * manifest 完整性：ids 长度 11 / files 键集齐无多余 / version === 1 / 无时间戳字段。
+ * manifest 完整性：ids 长度 9 / files 键集齐无多余 / version === 1 / 无时间戳字段。
  *
- * 更新门（FR-009/ADR-003）：仅 LGDL_UPDATE_SNAPSHOTS=1 时执行写路径（重写 11 svg
- * + manifest 后立即由下方 11 条断言自证一致——写坏即红）；普通模式代码不存在任何
+ * 更新门（FR-009/ADR-003）：仅 LGDL_UPDATE_SNAPSHOTS=1 时执行写路径（重写 9 svg
+ * + manifest 后立即由下方 9 条断言自证一致——写坏即红）；普通模式代码不存在任何
  * 写盘分支 → CI/日常 `npm test` 不可能静默更新基线。
  * 资产读取路径 new URL('../test-assets/golden/', import.meta.url)——编译产物位于
  * 包根 dist-test/，'..' 回到包根（不依赖 cwd）。
@@ -38,7 +38,7 @@ function readManifest(): Manifest {
   return JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Manifest;
 }
 
-/** 渲染 11 例 → {id → svg}（快照与矩阵共用模块级缓存，同 id 只渲一次） */
+/** 渲染 9 例 → {id → svg}（快照与矩阵共用模块级缓存，同 id 只渲一次） */
 async function renderAll(): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   for (const ex of EXAMPLES_SOURCES) {
@@ -66,11 +66,11 @@ before(async () => {
   }
 });
 
-test('snapshot manifest 完整性: 11 ids / files 键集齐无多余 / version=1 / 无时间戳', () => {
+test('snapshot manifest 完整性: 9 ids / files 键集齐无多余 / version=1 / 无时间戳', () => {
   assert.ok(existsSync(MANIFEST_PATH), 'manifest.json 存在（缺失 → 先 LGDL_UPDATE_SNAPSHOTS=1 建档）');
   const manifest = readManifest();
   assert.equal(manifest.version, 1);
-  assert.equal(manifest.ids.length, 11, `ids 长度 11，实际 ${manifest.ids.length}`);
+  assert.equal(manifest.ids.length, 9, `ids 长度 9，实际 ${manifest.ids.length}`);
   assert.deepEqual(
     [...manifest.ids].sort(),
     EXAMPLES_SOURCES.map((e) => e.id).sort(),

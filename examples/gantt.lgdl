@@ -20,18 +20,30 @@ nodes:
     attrs:
       start: 6
       duration: 8
+  - id: doc
+    label: 文档编写
+    kind: process
+    attrs:
+      start: 10
+      duration: 2
   - id: test
     label: 测试验收
     kind: process
     attrs:
       start: 14
       duration: 4
+  - id: retro
+    label: 发布复盘
+    kind: process
+    attrs:
+      start: 38
+      duration: 4
   - id: launch
     label: 上线发布
     kind: milestone
     attrs:
       start: 18
-      duration: 1
+      duration: 0
 
 edges:
   - from: research
@@ -42,3 +54,7 @@ edges:
     to: test
   - from: test
     to: launch
+  - from: test
+    to: doc
+  - from: test
+    to: retro

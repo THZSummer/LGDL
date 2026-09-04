@@ -61,6 +61,10 @@ nodes:
     label: 售后域
     kind: group
     contains: [refund]
+  - id: platform
+    label: 电商平台
+    kind: group
+    contains: [shopping]
 
 edges:
   - from: browse

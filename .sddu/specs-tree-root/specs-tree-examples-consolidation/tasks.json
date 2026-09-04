@@ -1,0 +1,231 @@
+{
+  "schema": "sddu-tasks.v1",
+  "feature": "specs-tree-examples-consolidation",
+  "featureName": "示例图整合（9 类型各一张全特性）",
+  "phase": "tasked",
+  "createdAt": "2026-09-03",
+  "version": "v1.0",
+  "sourceDocs": {
+    "spec": ".sddu/specs-tree-root/specs-tree-examples-consolidation/spec.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-examples-consolidation/plan.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-examples-consolidation/discovery.md"
+  },
+  "summary": {
+    "taskCount": 10,
+    "waveCount": 6,
+    "byComplexity": { "S": 3, "M": 6, "L": 1 },
+    "byWave": {
+      "Wave 1": ["TASK-001", "TASK-002"],
+      "Wave 2": ["TASK-003"],
+      "Wave 3": ["TASK-004", "TASK-005", "TASK-006"],
+      "Wave 4": ["TASK-007"],
+      "Wave 5": ["TASK-008", "TASK-009"],
+      "Wave 6": ["TASK-010"]
+    }
+  },
+  "dependencyGraph": {
+    "nodes": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010"],
+    "edges": [
+      ["TASK-001", "TASK-003"],
+      ["TASK-003", "TASK-004"],
+      ["TASK-003", "TASK-005"],
+      ["TASK-003", "TASK-006"],
+      ["TASK-001", "TASK-008"],
+      ["TASK-002", "TASK-008"],
+      ["TASK-007", "TASK-008"],
+      ["TASK-003", "TASK-009"],
+      ["TASK-004", "TASK-009"],
+      ["TASK-005", "TASK-009"],
+      ["TASK-006", "TASK-009"],
+      ["TASK-007", "TASK-010"],
+      ["TASK-008", "TASK-010"],
+      ["TASK-009", "TASK-010"]
+    ]
+  },
+  "criticalPath": ["TASK-001", "TASK-003", "TASK-005", "TASK-009", "TASK-010"],
+  "criticalPathNote": "主链 001→003→(004‖005‖006)→009→010 为关键路径（5 任务/跨 6 波）；002→008 与 007→008 为并行侧链，Wave 5 汇入验收，不阻塞主链。",
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "examples.ts 内容面 11→9（删 microservices/login-flow 2 条目 + er/gantt/ecommerce-flow 3 例 source 终态改写）",
+      "summary": "单一事实源主体变更：删 2 重复例，er（5 实体 typed + note + 6 边基数五值，edges[0]=user→order 守序）/ gantt（launch duration=0 + doc/retro 2 节点 + 依赖三型 6 边）/ ecommerce-flow（platform 外组 contains 4 域，2 层嵌套）按 plan §2.3.2~§2.3.4 终态 DSL 改写；保留 6 例 source 逐字零改动。",
+      "complexity": "L",
+      "wave": 1,
+      "dependsOn": [],
+      "fr": ["FR-001", "FR-002", "FR-003", "FR-004", "FR-005"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-web/src/examples.ts" }],
+      "acceptance": [
+        "EXAMPLES.length===9，id 序=architecture/datastream/er/gantt/ecommerce-flow/mindmap/sequence/state/uml-class，无 microservices/login-flow，EXAMPLES[0].id==='architecture'",
+        "er source 含 promotion 实体、5 实体 members 全部带 type、amount-note(kind note)、6 边且 edges[0]=user→order、基数 token 全集 {1,0..1,0..*,1..*,*} 出现",
+        "gantt source：launch attrs.duration===0；doc/retro 节点存在；gap≈0 链 4 边 target.start=source.end、test→doc 目标在左(10<18)、test→retro gap≥20(38−18=20)",
+        "ecommerce-flow source 含 platform 组(contains 4 域)，业务节点 14/边 17/group 5",
+        "git diff 审阅：变更仅限 5 条目，6 保留例零字符变化",
+        "9/9 source parseLgdl valid"
+      ],
+      "verify": "node --input-type=module 脚本：正则提取 9 条 source → parseLgdl 校验 valid + id 序比对（见 tasks.md）"
+    },
+    {
+      "id": "TASK-002",
+      "title": "脚本包路径修复（gen-examples.mjs 4 处 + render-one.mjs 3 处）",
+      "summary": "修复 V2 9 包重命名后断裂的产物生成链路：旧 packages/core|layout|render/web 路径 → lgdl-core|lgdl-layout|lgdl-render|lgdl-web 现路径；其余逻辑零改动（PNG 容错保留）。",
+      "complexity": "S",
+      "wave": 1,
+      "dependsOn": [],
+      "fr": ["FR-007"],
+      "files": [
+        { "op": "MODIFY", "path": "scripts/gen-examples.mjs" },
+        { "op": "MODIFY", "path": "scripts/render-one.mjs" }
+      ],
+      "acceptance": [
+        "gen-examples.mjs :3 注释与 :20 读路径 → lgdl-web/src/examples.ts；:15-17 三处 import → lgdl-core/lgdl-layout/lgdl-render",
+        "render-one.mjs :12-14 三处 import → lgdl-* 前缀",
+        "全仓无残留旧路径（packages/core|layout|render/dist、packages/web/src）",
+        "链路冒烟：对 /tmp 副本渲染旧 .lgdl 成功产出 svg（不改动仓库产物）"
+      ],
+      "verify": "grep 旧路径无匹配 && cp examples/er.lgdl /tmp/... && node scripts/render-one.mjs /tmp/smoke-er.lgdl"
+    },
+    {
+      "id": "TASK-003",
+      "title": "examples-sources.ts 镜像同步 11→9（逐字 + 头注释）",
+      "summary": "ADR-002 受管镜像与 examples.ts 终态对齐：删 microservices/login-flow 2 条目，er/gantt/ecommerce-flow 3 条 source 逐字同步，头注释 '11 source'→'9 source'；禁止 import web。",
+      "complexity": "M",
+      "wave": 2,
+      "dependsOn": ["TASK-001"],
+      "fr": ["FR-009"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-render/src/test-support/examples-sources.ts" }],
+      "acceptance": [
+        "镜像 9 条与 examples.ts 9 条（id、source 字符串）逐字一致（脚本比对）",
+        "条目序与 examples.ts 一致；头注释为 9 source",
+        "lgdl-render build:test 编译通过"
+      ],
+      "verify": "cd packages/lgdl-render && npm run build:test && node 比对脚本（正则抓取两文件 id→source，断言 9/9 逐字相等 + 序一致）"
+    },
+    {
+      "id": "TASK-004",
+      "title": "kind-coverage.test.ts 断言换档（login-flow→ecommerce-flow）+ er typed 适配",
+      "summary": "删除例断言语义等价迁移：start/end 药丸 login-flow'start'→ecommerce-flow'browse'、decision 'verify'→'validate'、嵌套组 frontend/auth→platform/shopping（rect 3→5）、er members 行文本 '>id</text>'→'>id: bigint</text>' 等、文件头核对表引用同步；gantt milestone 菱形断言不改动。",
+      "complexity": "M",
+      "wave": 3,
+      "dependsOn": ["TASK-003"],
+      "fr": ["FR-012"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-render/src/kind-coverage.test.ts" }],
+      "acceptance": [
+        "git diff 每处 login-flow→ecommerce-flow 迁移显式可见，无静默删断言/弱化",
+        "单独运行 kind-coverage.test.js 全绿（含 gantt milestone 菱形断言原样通过）",
+        "文件头核对表无 login-flow/microservices 残留"
+      ],
+      "verify": "cd packages/lgdl-render && npm run build:test && node --test dist-test/kind-coverage.test.js"
+    },
+    {
+      "id": "TASK-005",
+      "title": "snapshot.test.ts 计数断言 11→9",
+      "summary": "快照 manifest 完整性断言与文案联动：:73 ids.length 11→9，头注释/test 名 '11 源/长度 11/重写 11/渲染 11 例/11 ids'→9；更新门与双校验循环不改动（本任务静态验收，运行时绿色在 TASK-009）。",
+      "complexity": "S",
+      "wave": 3,
+      "dependsOn": ["TASK-003"],
+      "fr": ["FR-010"],
+      "files": [{ "op": "MODIFY", "path": "packages/lgdl-render/src/snapshot.test.ts" }],
+      "acceptance": [
+        ":73 ids.length 断言为 9；全文件无残留 '11' 计数断言/文案",
+        "build:test 编译通过（运行时绿色留 TASK-009 重建后自证）"
+      ],
+      "verify": "grep 'ids.length, 11|11 源|重写 11|渲染 11 例|11 ids' 无匹配 && npm run build:test"
+    },
+    {
+      "id": "TASK-006",
+      "title": "matrix-a / matrix-b 零改动复核（只读验证）",
+      "summary": "零文件改动运行验证：matrix-a 遍历自动 9 条 audit 0 违例 + er edges[0]/uml-class edges[1] 专项穿体断言 + matrix-b B10 A 档 state 对照组（:249-251）在增强内容下保持成立；git diff 无两文件任何改动。",
+      "complexity": "S",
+      "wave": 3,
+      "dependsOn": ["TASK-003"],
+      "fr": ["FR-013"],
+      "files": [
+        { "op": "KEEP", "path": "packages/lgdl-render/src/matrix-a.test.ts" },
+        { "op": "KEEP", "path": "packages/lgdl-render/src/matrix-b.test.ts" }
+      ],
+      "acceptance": [
+        "matrix-a 9 条全绿（audit 0 违例 + 2 专项断言）",
+        "matrix-b 全绿（A 档 state 对照组 + B 档 fixture）",
+        "git status 无 matrix-a/matrix-b 改动"
+      ],
+      "verify": "cd packages/lgdl-render && npm run build:test && node --test dist-test/matrix-a.test.js dist-test/matrix-b.test.js && git status --short src/matrix-a.test.ts src/matrix-b.test.ts"
+    },
+    {
+      "id": "TASK-007",
+      "title": "examples/ 磁盘删 12 组三件套（10 孤儿 + microservices/login-flow）",
+      "summary": "删除 10 孤儿（arch-ecommerce/datastream-log/er-orders/flowchart-auth/gantt-saas-roadmap/group-node-demo/mindmap-product/sequence-order/state-order/uml-class-order）+ microservices + login-flow 的 .lgdl/.svg/.png 共 36 文件；先删后生成（TASK-008）。",
+      "complexity": "M",
+      "wave": 4,
+      "dependsOn": [],
+      "fr": ["FR-006"],
+      "files": [
+        { "op": "DELETE", "path": "examples/{arch-ecommerce,datastream-log,er-orders,flowchart-auth,gantt-saas-roadmap,group-node-demo,mindmap-product,sequence-order,state-order,uml-class-order,microservices,login-flow}.{lgdl,svg,png} (36 files)" }
+      ],
+      "acceptance": [
+        "ls examples/*.lgdl 恰 9 个且 id 集=9 保留集",
+        ".svg/.png 各恰 9 个；无 12 删除组任何残留文件"
+      ],
+      "verify": "ls examples/*.lgdl|wc -l === 9 && ls examples/*.svg|wc -l === 9 && ls examples/*.png|wc -l === 9 && for 循环断言 12 组文件不存在"
+    },
+    {
+      "id": "TASK-008",
+      "title": "磁盘重生成 9 组三件套（dist 构建 → gen-examples → 双向比对）",
+      "summary": "npm run build（dist 前置）后运行修复后的 gen-examples.mjs 重生成 9 组 .lgdl/.svg/.png；磁盘 9 .lgdl 与 examples.ts 逐字一致 9/9（EC-006：解析失败退出码非 0 不静默跳过）；非增强 6 组 .svg 以当前引擎渲染字节为准（修正历史磁盘漂移）。",
+      "complexity": "M",
+      "wave": 5,
+      "dependsOn": ["TASK-001", "TASK-002", "TASK-007"],
+      "fr": ["FR-008"],
+      "files": [
+        { "op": "MODIFY", "path": "examples/{architecture,datastream,er,gantt,ecommerce-flow,mindmap,sequence,state,uml-class}.{lgdl,svg,png} (regenerated)" }
+      ],
+      "acceptance": [
+        "脚本退出码 0；磁盘 9 .lgdl 与 examples.ts source 逐字一致 9/9",
+        "ls .lgdl/.svg === 9；.png 存在或明确跳过记录",
+        "examples/ 文件集合与 EXAMPLES id 集完全相等"
+      ],
+      "verify": "npm run build --workspaces && node scripts/gen-examples.mjs && 逐字比对脚本（磁盘 .lgdl ↔ examples.ts source）"
+    },
+    {
+      "id": "TASK-009",
+      "title": "golden 快照重建 + git diff 审阅（5 判据）",
+      "summary": "删 login-flow.svg/microservices.svg 后以 LGDL_UPDATE_SNAPSHOTS=1 显式重建 9 组 svg + manifest（ids 9）；按 plan §4.2 五判据 diff 审阅：变更集上界 / golden 目录（3 变更+2 删除+6 零 diff 自证）/ manifest 语义 / 三变更 svg 内容核验 / 重建后回归双校验全绿。",
+      "complexity": "M",
+      "wave": 5,
+      "dependsOn": ["TASK-003", "TASK-004", "TASK-005", "TASK-006"],
+      "fr": ["FR-011"],
+      "files": [
+        { "op": "DELETE", "path": "packages/lgdl-render/test-assets/golden/login-flow.svg" },
+        { "op": "DELETE", "path": "packages/lgdl-render/test-assets/golden/microservices.svg" },
+        { "op": "MODIFY", "path": "packages/lgdl-render/test-assets/golden/{er,gantt,ecommerce-flow}.svg (rebuild)" },
+        { "op": "MODIFY", "path": "packages/lgdl-render/test-assets/golden/manifest.json (ids 9)" },
+        { "op": "KEEP", "path": "packages/lgdl-render/test-assets/golden/{architecture,datastream,mindmap,sequence,state,uml-class}.svg (0 diff)" }
+      ],
+      "acceptance": [
+        "manifest ids.length===9 且与镜像 9 集一致（顺序同）、files 键齐、version=1、无时间戳",
+        "六 svg git diff 0 输出（确定性自证）；login-flow/microservices.svg 已删除",
+        "er.svg 含 promotion 卡片+note 折角+typed 行文本+基数 0..1/0..*/1..*/* 锚点；gantt.svg launch 菱形 '18d +0d'+任务行 7+依赖箭头 6；ecommerce-flow.svg lgdl-group rect 5 且 platform 含 4 内框",
+        "普通模式（无 env）复跑 snapshot 9 条双校验全绿（无静默写盘）",
+        "git 变更文件 ⊆ plan §5 影响表（无 scope.out 越界）"
+      ],
+      "verify": "rm 2 旧 svg && cd packages/lgdl-render && LGDL_UPDATE_SNAPSHOTS=1 npm test && npm test && git diff --stat test-assets/golden/ && git diff test-assets/golden/er.svg（判据 4 核验）"
+    },
+    {
+      "id": "TASK-010",
+      "title": "全仓验收（四面一致 + 测试守恒 + 引擎零 diff）",
+      "summary": "总验收：全仓 npm run test --workspaces 绿；examples.ts/镜像/磁盘/golden 四面对齐 9 集；9 id×9 type 一一映射类型集不变；git diff 逐一对应 FR-009~FR-013（无断言删除/弱化/清单外测试改动）；引擎 4 包 src 业务文件与 README/docs/op-cli 零 diff。",
+      "complexity": "M",
+      "wave": 6,
+      "dependsOn": ["TASK-007", "TASK-008", "TASK-009"],
+      "fr": ["FR-014"],
+      "files": [{ "op": "KEEP", "path": "全仓验收（零代码写入）" }],
+      "acceptance": [
+        "npm run test --workspaces 全仓绿",
+        "四面脚本比对：web↔镜像 9/9、web↔磁盘 .lgdl 9/9、golden manifest ids=镜像 id 集",
+        "9 例 type 集合恰为 {arch,datastream,er,gantt,flowchart,mindmap,sequence,state,uml-class}",
+        "git 变更文件 ⊆ {examples.ts, examples-sources.ts, kind-coverage.test.ts, snapshot.test.ts, gen-examples.mjs, render-one.mjs, examples/(9×3), golden/(9 svg+manifest)}",
+        "引擎 4 包 src 业务文件 + dist + README/docs/op-cli 零 diff（scope.out 无越界）"
+      ],
+      "verify": "npm run test --workspaces && git status --short && git diff --stat && 四面一致比对脚本"
+    }
+  ]
+}

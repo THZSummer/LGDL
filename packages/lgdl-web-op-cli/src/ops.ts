@@ -54,7 +54,7 @@ export const OP_COMMANDS: Record<string, HelpEntry> = {
   'switch-example': {
     summary: '切换工作台示例图',
     args: [{ key: 'id', desc: '示例 id（list-examples 可查）', required: true }],
-    example: 'lgdl-web-op-cli switch-example --id login-flow',
+    example: 'lgdl-web-op-cli switch-example --id ecommerce-flow',
   },
   'list-examples': { summary: '列出工作台全部示例图（id/标签/类型/规模）', example: 'lgdl-web-op-cli list-examples' },
   'list-diagram-types': { summary: '列出全部图类型（core 单一数据源）', example: 'lgdl-web-op-cli list-diagram-types' },
