@@ -202,8 +202,8 @@ LGDL/
 | **v0.2** | ✅ 增量编辑协议 + 9 种图类型渲染 |
 | **v0.3** | ✅ attrs 扩展属性 + ER/状态机/甘特图 + Mermaid/PlantUML/JSON 转换 |
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
-| **v0.5** | ✅ Web AI 助手（原生 function calling 三工具：lgdl-web-cli 图内容 / lgdl-web-op-cli UI 操作含 next-actions / lgdl-web-fetch；命令自文档化 --help；方法论指南系统自动加载；多厂商接入 + 连接测试；双 CLI 分离 + 命令注册表复用；agent 循环）+ 图即代码规划（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出优化、Mermaid 导入增强）→ v0.6 |
-| **v0.6** | ⏳ 图即代码（语义 diff/评审、CI 自动渲染、`set-type` 命令、增量命令 attrs 删除、status 输出 attrs 与格式优化、Agent 集成提示词模板、Mermaid 导入增强）；AI 增强（图解释 / 评审 / 选区操作、流式输出 SSE、本地代理 `lgdl-cli serve` 绕 CORS）；模块化：子图引用、参数化模板；渲染与性能（大图优化、布局打磨）；state 显性 `initial` 字段 |
+| **v0.5** | ✅ Web AI 助手（原生 function calling 三工具：lgdl-web-cli 图内容 / lgdl-web-op-cli UI 操作含 next-actions / lgdl-web-fetch；命令自文档化 --help；方法论指南系统自动加载；多厂商接入 + 连接测试；双 CLI 分离 + 命令注册表复用；agent 循环） |
+| **v0.6** | ✅ 语义模型统一 + web-cli 体系重构：自研 Sugiyama 分层布局（零 dagre/elkjs，分组感知两层布局）；group-as-node（group 蜕化为 `kind:'group'` 节点）；AI 实战与视觉评审闭环 + 渲染 Bug 修复（正交绕障布线/标签避让/甘特自适应刻度/扇出标签合并/混排文本）；web-cli 独立化（monorepo 9 包：web-cli-base 纯机制框架 + lgdl-web-cli/lgdl-web-op-cli 适配层，语言 6 包加 lgdl 前缀）；发布收口（CI/router 构建补全、分组定位跨包断裂修复、web-fetch 注册、preview-click 假成功修复）；group 命令合并；渲染门禁（G1~G6 几何审计 + golden 快照确定性回归） |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。
 
