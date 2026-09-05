@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "visual-check",
+  "status": "fail",
+  "visualReview": "pending",
+  "artifact": {
+    "path": "/home/usb/wks/gits/GitHub/LGDL/.sddu/docs-tree-root/diagrams/cli-architecture.html",
+    "sha256": "c9a77e693f150deea12a3d7f113cb0f3fcbaa887ecd9bdfc93e7ef265ecaa22e",
+    "bytes": 715227
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "available",
+    "executable": "/snap/bin/chromium"
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/visual-check-runtime",
+      "severity": "error",
+      "message": "visual-check could not complete its Chrome inspection.",
+      "subject": {
+        "artifact": "/home/usb/wks/gits/GitHub/LGDL/.sddu/docs-tree-root/diagrams/cli-architecture.html"
+      },
+      "evidence": {
+        "reason": "Target.getTargets: timed out after 15000ms"
+      },
+      "supportedFixes": [
+        "resolve the reported Chrome inspection error, then rerun visual-check"
+      ]
+    }
+  ],
+  "containment": {
+    "status": "fail",
+    "viewports": []
+  },
+  "readability": {
+    "status": "fail",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": []
+  },
+  "viewerChrome": {
+    "status": "fail",
+    "viewports": []
+  },
+  "captures": {
+    "status": "fail",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "receipt": "cli-architecture.visual-check.json",
+    "contactSheet": "cli-architecture.visual-check.html"
+  },
+  "error": "Target.getTargets: timed out after 15000ms"
+}

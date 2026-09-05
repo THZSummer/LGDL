@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "LGDL Web CLI 生命周期：加载 → 执行 → 返回",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1080, 500]
+  },
+  "participants": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "用户"
+    },
+    {
+      "id": "panel",
+      "type": "frontend",
+      "label": "AiPanel",
+      "sublabel": "AiPanel · events/hooks"
+    },
+    {
+      "id": "runner",
+      "type": "backend",
+      "label": "AgentRunner",
+      "sublabel": "runner.ts · 中性循环"
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "LLM",
+      "sublabel": "provider.chat · 5 schema"
+    },
+    {
+      "id": "router",
+      "type": "backend",
+      "label": "CommandRouter",
+      "sublabel": "router.ts · DelayGate"
+    },
+    {
+      "id": "exec",
+      "type": "backend",
+      "label": "业务执行器",
+      "sublabel": "web-cli · op-cli · 内建3"
+    },
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "App / 编辑器",
+      "sublabel": "onApply · compile"
+    }
+  ],
+  "segments": [
+    { "from": 172, "to": 202, "label": "加载装配" },
+    { "from": 258, "to": 316, "label": "执行循环" },
+    { "from": 358, "to": 428, "label": "返回写回" }
+  ],
+  "messages": [
+    { "id": "run-agent", "from": "panel", "to": "runner", "y": 160, "label": "runAgent({system, events, hooks}) → run.run()", "variant": "default" },
+    { "id": "chat-first", "from": "runner", "to": "llm", "y": 188, "label": "chat(turns, router.deriveTools() · 5 schema)", "variant": "default" },
+    { "id": "tool-calls", "from": "llm", "to": "runner", "y": 216, "label": "文本 + toolCalls[]（toolCallId）", "variant": "default" },
+    { "id": "dispatch", "from": "runner", "to": "router", "y": 244, "label": "dispatch({tool, args}, {docId, source}) → DelayGate", "variant": "emphasis" },
+    { "id": "executor-call", "from": "router", "to": "exec", "y": 272, "label": "executor({subcommand, args}, ctx)", "variant": "emphasis" },
+    { "id": "tool-result", "from": "exec", "to": "router", "y": 300, "label": "ToolResult {ok, output, changed, source, error}", "variant": "return" },
+    { "id": "backfill", "from": "router", "to": "runner", "y": 328, "label": "ToolResult 按 toolCallId 回填 role:tool", "variant": "return" },
+    { "id": "events", "from": "runner", "to": "panel", "y": 356, "label": "onToolOutput / onCommandLine / onFailAggregate", "variant": "return" },
+    { "id": "on-apply", "from": "runner", "to": "app", "y": 384, "label": "onToolDone → changed → onApply(source)（R-009 推进）", "variant": "emphasis" },
+    { "id": "next-round", "from": "runner", "to": "llm", "y": 412, "label": "turns 回填 → 下一轮 chat（循环）", "variant": "return" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "唯一组装点",
+      "items": [
+        "session.ts：delayMs=600 全局间隔 + 注册 2 业务工具（lgdl-web-cli / lgdl-web-op-cli）",
+        "内建 3 自动注册：web-fetch / sleep（delayMs:0 免除前置间隔）/ web-cli-help（listed:false）",
+        "deriveTools 顺序 = [业务×2, web-fetch, sleep, web-cli-help]（共 5 schema）"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "机制边界",
+      "items": [
+        "base 零 LGDL / 零 React import（NFR-001/008），无业务包时自足可用",
+        "未注册工具名 → ok:false 显式 ✖ 报错（不等待、不落入任何执行器）",
+        "executor 抛异常 → 转 ok:false 稳定文案，异常明细仅 error 字段（EC-012）"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "返回闭环",
+      "items": [
+        "ToolResult 按 toolCallId 回填 role:tool turn，驱动下一轮 chat（中性循环）",
+        "onToolDone → changed → onApply(source) 写回编辑器；run-local source 同轮推进（R-009）",
+        "任一工具 !ok → 结果全回填后 push 纠正 user turn 重试一次（失败聚合）"
+      ]
+    }
+  ]
+}

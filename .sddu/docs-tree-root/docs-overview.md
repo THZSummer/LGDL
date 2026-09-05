@@ -4,15 +4,15 @@
 > **输出文件名**: docs-overview.md
 > **数据来源**: 技术全景 = 代码扫描生成（用户指令触发）+ Feature 产物聚合（specs-tree-web-cli-v2 全套产物，2026-09-01 增量更新）。业务全景 = Feature 产物聚合（specs-tree-business-panorama discovery 阶段，2026-08-30 增量追加）
 > **创建时间**: 2026-08-30
-> **版本**: v2.0（基于工作区 `feature/group-as-node` @ `d03dca4`，2026-09-01；V2 重构 9 包体系）
-> **生成方式**: 全量构建（代码级扫描，模式②）+ 增量追加（业务域，模式①）+ 增量更新（V2 9 包体系，模式②实测 + 模式①聚合 specs-tree-web-cli-v2）
+> **版本**: v2.0（基于工作区 `feature/group-as-node` @ `d03dca4`，2026-09-01；V2 重构 9 包体系）；2026-09-05 引用链增量更新（a35b750 + cli-panorama v3.0，见修订记录）
+> **生成方式**: 全量构建（代码级扫描，模式②）+ 增量追加（业务域，模式①）+ 增量更新（V2 9 包体系，模式②实测 + 模式①聚合 specs-tree-web-cli-v2）+ 增量更新（2026-09-05 CLI 引用链同步，模式②实测）
 
 ---
 
 ## ⚠️ 扫描口径声明
 
-- 扫描基准为**当前工作区**（分支 `feature/group-as-node`，HEAD `d03dca4`，2026-09-01 V2 重构入库）。`main` 分支停在 `de2381e`，**不含** v0.6 改动（无 router 包、无 group-as-node、非 9 包体系）——两者差异已在各文档中标注。
-- 测试数字、语法行为、依赖清单均为**当日实测**结果，非文档转述（全仓 420 例全绿，见 §3.3）。
+- 扫描基准为**当前工作区**（分支 `feature/group-as-node`，HEAD `d03dca4`，2026-09-01 V2 重构入库；2026-09-05 CLI 引用链增量更新基于 HEAD `a35b750` + 后续 c7d2bd8 文档提交）。`main` 分支停在 `de2381e`，**不含** v0.6 改动（无 router 包、无 group-as-node、非 9 包体系）——两者差异已在各文档中标注。
+- 测试数字、语法行为、依赖清单均为**当日实测**结果，非文档转述（全仓 583 例，其中 582 通过 + 1 skip，见 §3.3）。
 - CHANGELOG.md Unreleased 段中**仅采信带验证记录的工程事实**；规划性描述（语义 diff、CI 自动渲染、SSE 等）标注「待审视」，未纳入全景。
 - V2 重构（commit `d03dca4`）的架构决策引用 specs-tree-web-cli-v2（discovery/spec/plan/tasks/review/validate 全套，phase=validated）的 9 条 ADR，见 adr-index.md §2（V2 段）。
 
@@ -33,7 +33,7 @@
 
 | 组件 | 类型 | 描述 | 关系说明 |
 |------|------|------|---------|
-| **系统架构/** | 域目录 | 9 包 monorepo 依赖关系、端到端数据流、三层包体系（语言层/适配层/框架层）、部署拓扑 | 全景的「骨架」视图 |
+| **系统架构/** | 域目录 | 9 包 monorepo 依赖关系、端到端数据流、三层包体系（语言层/适配层/框架层）、部署拓扑、**CLI 架构体系全景（双 CLI，详见域内 cli-panorama）** | 全景的「骨架」视图 |
 | **核心引擎/** | 域目录 | 四大引擎深潜：core 语义模型、layout 布局、router 布线、render 渲染、web AI 助手（含 V2 三层结构：lgdl-web-cli / lgdl-web-op-cli / web-cli-base） | 全景的「器官」视图，技术含量最高 |
 | **业务全景/** | 域目录 | 业务定位（16 条有效 Why）、双层消费模型、核心场景与流程、空白与待确认（含 v0.6 置信度降级） | 全景的「价值」视图（Why 层，聚合自 specs-tree-business-panorama discovery 产物） |
 | **语言参考/** | 域目录 | 类型集中清单：图类型（9）/ 节点 kind（9）/ 成员级类型 / 边结构，三清单合一，带源码证据与漂移标注 | 全景的「类型字典」视图（单一事实源收敛） |
@@ -61,21 +61,21 @@
 > **[打开交互图：LGDL 9 包依赖与数据流合并视图](diagrams/architecture-packages.html)**
 > 自包含 HTML（Archify 编译，IR 源文件 `diagrams/ir/architecture-packages.json`），支持亮/暗主题切换、平移缩放、聚焦与上下游依赖追踪。
 
-### 3.3 质量基线（2026-09-01 实测）
+### 3.3 质量基线（2026-09-05 实测）
 
 | 包 | 测试数 | 通过 | 失败 | 说明 |
 |----|-------:|-----:|-----:|------|
-| lgdl-core | 258 | 258 | 0 | parser 严格校验 / mutations / operations / commands 四测试文件（V2 纯改名） |
-| lgdl-web-cli | 76 | 76 | 0 | V2 新包：commands/operations/protocol/help/exec/tools 随迁 76 例 |
-| lgdl-web | 32 | 32 | 0 | locate / snap / provider / lgdl-web 四测试文件（V2 收敛，107→32：ops/web-cli/help/next-actions/web-fetch 迁出） |
-| lgdl-render | 21 | 21 | 0 | svg 渲染 + ascii 渲染 |
-| web-cli-base | 14 | 14 | 0 | V2 纯化：protocol 1 + llm 5 + web-fetch 8 例收敛 |
-| lgdl-web-op-cli | 11 | 11 | 0 | V2 新包：tool 1 + ops 3 + next-actions 4 + handlers 3 |
+| lgdl-core | 267 | 267 | 0 | parser 严格校验 / mutations / operations / commands 四测试文件（V2 258 → a35b750 267） |
+| lgdl-web-cli | 84 | 84 | 0 | 命令语义层：commands/operations/protocol/help/exec/tools 随迁 + 扩测（V2 76 → a35b750 84） |
+| lgdl-web | 41 | 41 | 0 | locate / snap / provider / session 测试（a35b750 session.ts 新增后 V2 32 → 41） |
+| lgdl-render | 95 | 94 | 0 | svg + ascii 渲染 + 逐元素映射回归（94 通过 + 1 skip） |
+| web-cli-base | 73 | 73 | 0 | a35b750 机制层扩测：CommandRouter / AgentRunner / DelayGate / sleep / llm / web-fetch（V2 14 → 73） |
+| lgdl-web-op-cli | 15 | 15 | 0 | tool 派生 + ops 3 + next-actions 4 + handlers + fullscreen 新增（V2 11 → 15） |
 | lgdl-router | 8 | 8 | 0 | routeEdge 绕障与贴边回归 |
 | lgdl-layout / lgdl-cli | 0 | — | — | 无独立测试文件（layout 逻辑被 render/core 测试间接覆盖；cli 依赖端到端使用） |
 
-> **合计 420 例全绿（守恒基线 ≥388 ✓）**，与 commit d03dca4 记载一致。
-> ⚠️ CHANGELOG.md:15 记载「core 314」，实测 258——差异已记入根级漂移清单（D7 沿革）。
+> **合计 583 例（582 通过 + 1 skip；守恒基线 ≥388 ✓）**，2026-09-05 实测（工作区 a35b750，与 cli-panorama v3.0 数字口径一致）。
+> ⚠️ CHANGELOG.md:15 记载「core 314」，实测 267（V2 258 → a35b750 267）——差异已记入根级漂移清单（D7 沿革）。
 
 ### 3.4 已知漂移与缺口（仅记录，未修改任何存量文档）
 
@@ -89,7 +89,7 @@
 | ~~D4~~ | ~~README.md:164-175~~ | ~~架构树列 5 包~~ | ✅ **已解决（2026-09-01）**：README 架构树已更新为 9 包（commit d03dca4 后由本次全景更新同步） |
 | D5 | README.md:177-186 | 「球链网状算法」物理张弛隐喻 | 实现是确定性 Sugiyama 分层，无物理仿真（同节后半段自述 Sugiyama，节内表述自相矛盾） |
 | D6 | CHANGELOG.md:21-22 | 「DSL 双语：groups: 与 kind:'group' 均接受」 | 当前代码**拒绝**旧语法——该描述是开发中间态，已过时 |
-| D7 | CHANGELOG.md:15,27 | core 314 个测试 | 实测 258（V2 纯改名后计数，原 281 亦为 drift） |
+| D7 | CHANGELOG.md:15,27 | core 314 个测试 | 实测 267（a35b750 后计数；V2 纯改名 258，原 281 亦为 drift） |
 | D8 | README.md:57 | 「v0.4.0 核心特性」标题 | 其 §5 内容为 v0.5 特性（Web AI 助手） |
 
 **遗留缺口**：
@@ -157,3 +157,4 @@ lgdl-core（零依赖）          web-cli-base（零 @lgdl/*，纯机制）
 | 2026-08-30 | 增量追加业务全景域（specs-tree-business-panorama discovery 产物聚合，HEAD 9855e7e） | 增量追加 | sddu-docs Agent |
 | 2026-08-30 | 增量追加语言参考域（类型参考，三清单合一，实读 types.ts 等；新增漂移 T-D1：design.md:79 kind 8 种 vs 源码 9 种） | 增量追加 | sddu-docs Agent |
 | 2026-09-01 | **V2 9 包体系增量更新**（HEAD 15e5b6b → d03dca4；6 包 → 9 包：重命名 lgdl-* + 新增 lgdl-web-cli/lgdl-web-op-cli + web-cli-base 纯化；质量基线实测 420 例；9 包体系章节；D4 漂移解决；G1 沿革标注；6 张图重绘） | 增量更新（模式②实测 + 模式①聚合 specs-tree-web-cli-v2） | sddu-docs Agent |
+| 2026-09-05 | **CLI 引用链增量更新**（HEAD d03dca4 → a35b750 + c7d2bd8 文档提交；系统架构/CLI-架构全景-cli-panorama.md v3.0 + 两张 Archify 附图）：§2 系统架构域描述补「CLI 架构体系全景（双 CLI）」；§3.3 质量基线实测 420 → 583（582 通过 + 1 skip；core 267 / lgdl-web-cli 84 / op-cli 15 / lgdl-web 41 / render 94+1skip / web-cli-base 73 / router 8；D7 同步 258 → 267）；扫描口径注记刷新 | 增量更新（模式②实测 + 引用链同步） | sddu-docs Agent |

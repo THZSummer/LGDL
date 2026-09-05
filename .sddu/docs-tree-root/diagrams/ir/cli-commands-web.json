@@ -1,0 +1,773 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "web-cli 体系全部命令（38 = 3 内建 + 17 + 18 子命令）",
+    "locale": "zh-CN",
+    "quality_profile": "standard",
+    "repository": {
+      "url": "https://github.com/THZSummer/LGDL",
+      "revision": "c7d2bd81f1f6afb7c08ca00fce146054e9757bed"
+    }
+  },
+  "components": [
+    {
+      "id": "lgdl-web",
+      "type": "frontend",
+      "label": "lgdl-web",
+      "pos": [
+        569,
+        16
+      ],
+      "size": [
+        300,
+        62
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-web/src/ai/session.ts",
+          "line": 54,
+          "label": "唯一组装点"
+        }
+      ]
+    },
+    {
+      "id": "pkg-lgdl-web-cli",
+      "type": "backend",
+      "label": "lgdl-web-cli",
+      "pos": [
+        204,
+        200
+      ],
+      "size": [
+        360,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-web-cli/src/tools.ts",
+          "line": 33,
+          "label": "17 子命令 enum"
+        }
+      ]
+    },
+    {
+      "id": "pkg-lgdl-web-op-cli",
+      "type": "backend",
+      "label": "lgdl-web-op-cli",
+      "pos": [
+        834,
+        200
+      ],
+      "size": [
+        360,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-web-op-cli/src/ops.ts",
+          "line": 11,
+          "label": "OP_COMMANDS 18 条"
+        }
+      ]
+    },
+    {
+      "id": "pkg-web-cli-base",
+      "type": "backend",
+      "label": "web-cli-base",
+      "pos": [
+        539,
+        548
+      ],
+      "size": [
+        360,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/web-cli-base/src/router.ts",
+          "line": 89,
+          "label": "BUILTIN_ORDER"
+        }
+      ]
+    },
+    {
+      "id": "base-web-fetch",
+      "type": "backend",
+      "label": "web-fetch",
+      "pos": [
+        505,
+        626
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "base-sleep",
+      "type": "backend",
+      "label": "sleep",
+      "pos": [
+        655,
+        626
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "base-web-cli-help",
+      "type": "backend",
+      "label": "web-cli-help",
+      "pos": [
+        805,
+        626
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-status",
+      "type": "backend",
+      "label": "status",
+      "pos": [
+        170,
+        268
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-validate",
+      "type": "backend",
+      "label": "validate",
+      "pos": [
+        320,
+        268
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-init",
+      "type": "backend",
+      "label": "init",
+      "pos": [
+        470,
+        268
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-convert",
+      "type": "backend",
+      "label": "convert",
+      "pos": [
+        170,
+        310
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-add-node",
+      "type": "backend",
+      "label": "add-node",
+      "pos": [
+        320,
+        310
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-remove-node",
+      "type": "backend",
+      "label": "remove-node",
+      "pos": [
+        470,
+        310
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-update-node",
+      "type": "backend",
+      "label": "update-node",
+      "pos": [
+        170,
+        352
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-add-edge",
+      "type": "backend",
+      "label": "add-edge",
+      "pos": [
+        320,
+        352
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-remove-edge",
+      "type": "backend",
+      "label": "remove-edge",
+      "pos": [
+        470,
+        352
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-update-edge",
+      "type": "backend",
+      "label": "update-edge",
+      "pos": [
+        170,
+        394
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-doc-info",
+      "type": "backend",
+      "label": "doc-info",
+      "pos": [
+        320,
+        394
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-get-node",
+      "type": "backend",
+      "label": "get-node",
+      "pos": [
+        470,
+        394
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-get-edge",
+      "type": "backend",
+      "label": "get-edge",
+      "pos": [
+        170,
+        436
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-find-node",
+      "type": "backend",
+      "label": "find-node",
+      "pos": [
+        320,
+        436
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-list-node-kinds",
+      "type": "backend",
+      "label": "list-node-kinds",
+      "pos": [
+        470,
+        436
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-list-diagram-types",
+      "type": "backend",
+      "label": "list-diagram-types",
+      "pos": [
+        170,
+        478
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "wc-help",
+      "type": "backend",
+      "label": "help",
+      "pos": [
+        320,
+        478
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-copy-source",
+      "type": "backend",
+      "label": "copy-source",
+      "pos": [
+        800,
+        268
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-toggle-editor",
+      "type": "backend",
+      "label": "toggle-editor",
+      "pos": [
+        950,
+        268
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-collapse-editor",
+      "type": "backend",
+      "label": "collapse-editor",
+      "pos": [
+        1100,
+        268
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-expand-editor",
+      "type": "backend",
+      "label": "expand-editor",
+      "pos": [
+        800,
+        310
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-export-svg",
+      "type": "backend",
+      "label": "export-svg",
+      "pos": [
+        950,
+        310
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-export-png",
+      "type": "backend",
+      "label": "export-png",
+      "pos": [
+        1100,
+        310
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-preview-zoom",
+      "type": "backend",
+      "label": "preview-zoom",
+      "pos": [
+        800,
+        352
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-preview-pan",
+      "type": "backend",
+      "label": "preview-pan",
+      "pos": [
+        950,
+        352
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-preview-reset",
+      "type": "backend",
+      "label": "preview-reset",
+      "pos": [
+        1100,
+        352
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-preview-click",
+      "type": "backend",
+      "label": "preview-click",
+      "pos": [
+        800,
+        394
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-preview-hover",
+      "type": "backend",
+      "label": "preview-hover",
+      "pos": [
+        950,
+        394
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-switch-example",
+      "type": "backend",
+      "label": "switch-example",
+      "pos": [
+        1100,
+        394
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-list-examples",
+      "type": "backend",
+      "label": "list-examples",
+      "pos": [
+        800,
+        436
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-list-diagram-types",
+      "type": "backend",
+      "label": "list-diagram-types",
+      "pos": [
+        950,
+        436
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-next-actions",
+      "type": "backend",
+      "label": "next-actions",
+      "pos": [
+        1100,
+        436
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-preview-fullscreen",
+      "type": "backend",
+      "label": "preview-fullscreen",
+      "pos": [
+        800,
+        478
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-page-fullscreen",
+      "type": "backend",
+      "label": "page-fullscreen",
+      "pos": [
+        950,
+        478
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "op-help",
+      "type": "backend",
+      "label": "help",
+      "pos": [
+        1100,
+        478
+      ],
+      "size": [
+        128,
+        34
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "lgdl-web-cli · 图内容语义 · 17 子命令",
+      "wraps": [
+        "pkg-lgdl-web-cli",
+        "wc-status",
+        "wc-validate",
+        "wc-init",
+        "wc-convert",
+        "wc-add-node",
+        "wc-remove-node",
+        "wc-update-node",
+        "wc-add-edge",
+        "wc-remove-edge",
+        "wc-update-edge",
+        "wc-doc-info",
+        "wc-get-node",
+        "wc-get-edge",
+        "wc-find-node",
+        "wc-list-node-kinds",
+        "wc-list-diagram-types",
+        "wc-help"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "lgdl-web-op-cli · UI 操作 · 18 子命令",
+      "wraps": [
+        "pkg-lgdl-web-op-cli",
+        "op-copy-source",
+        "op-toggle-editor",
+        "op-collapse-editor",
+        "op-expand-editor",
+        "op-export-svg",
+        "op-export-png",
+        "op-preview-zoom",
+        "op-preview-pan",
+        "op-preview-reset",
+        "op-preview-click",
+        "op-preview-hover",
+        "op-switch-example",
+        "op-list-examples",
+        "op-list-diagram-types",
+        "op-next-actions",
+        "op-preview-fullscreen",
+        "op-page-fullscreen",
+        "op-help"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "web-cli-base · 机制内建 · 3 工具",
+      "wraps": [
+        "pkg-web-cli-base",
+        "base-web-fetch",
+        "base-sleep",
+        "base-web-cli-help"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "id": "e-web-webcli",
+      "from": "lgdl-web",
+      "to": "pkg-lgdl-web-cli",
+      "label": "register 业务工具",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          384,
+          47
+        ]
+      ]
+    },
+    {
+      "id": "e-web-opcli",
+      "from": "lgdl-web",
+      "to": "pkg-lgdl-web-op-cli",
+      "label": "注入 handler",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          1014,
+          47
+        ]
+      ]
+    },
+    {
+      "id": "e-web-base",
+      "from": "lgdl-web",
+      "to": "pkg-web-cli-base",
+      "label": "router + runner 装配",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        719,
+        250
+      ],
+      "via": [
+        [
+          719,
+          110
+        ]
+      ]
+    },
+    {
+      "id": "e-webcli-base",
+      "from": "pkg-lgdl-web-cli",
+      "to": "pkg-web-cli-base",
+      "label": "泛型 DomainApi 机制",
+      "fromSide": "left",
+      "toSide": "left",
+      "labelAt": [
+        320,
+        570
+      ],
+      "via": [
+        [
+          120,
+          229
+        ],
+        [
+          120,
+          577
+        ]
+      ]
+    },
+    {
+      "id": "e-opcli-base",
+      "from": "pkg-lgdl-web-op-cli",
+      "to": "pkg-web-cli-base",
+      "label": "仅类型依赖",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right",
+      "labelAt": [
+        1060,
+        570
+      ],
+      "via": [
+        [
+          1260,
+          229
+        ],
+        [
+          1260,
+          577
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "38 命令 = 3 + 17 + 18",
+      "items": [
+        "base 内建 3：web-fetch / sleep / web-cli-help",
+        "lgdl-web-cli 17 子命令（含 6 增量 spec）",
+        "lgdl-web-op-cli 18 子命令（OP_SUBCOMMANDS）"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "双 CLI 共享 · 6 增量命令",
+      "items": [
+        "add/remove/update × node/edge 双端同名存在",
+        "参数规格单一来源：commands.ts COMMANDS spec"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "web-cli 体系分层依赖",
+      "items": [
+        "lgdl-web → 2 业务工具 + base 装配",
+        "web-cli/op-cli → base；完整 9 边见 cli-architecture"
+      ]
+    }
+  ]
+}

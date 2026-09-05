@@ -4,8 +4,8 @@
 > **输出文件名**: docs-overview.md
 > **数据来源**: 代码扫描生成（用户指令触发）；素材为 packages/*/package.json、tsconfig.json、根配置、.github/workflows、scripts/
 > **创建时间**: 2026-08-30
-> **版本**: v2.0（feature/group-as-node @ d03dca4，V2 9 包体系）
-> **生成方式**: 全量构建 + V2 增量更新
+> **版本**: v2.0（feature/group-as-node @ d03dca4，V2 9 包体系）；2026-09-05 引用链增量更新（a35b750 + CLI 架构全景 v3.0，见 §3）
+> **生成方式**: 全量构建 + V2 增量更新 + 2026-09-05 引用链增量更新
 
 ---
 
@@ -31,7 +31,7 @@
 | **lgdl-cli** | 应用包 | 终端 `lgdl-cli`：16 个命令（init/render/status/queries/convert/import/6 个增量编辑），commander + `--file` 磁盘 IO。依赖 lgdl-web-cli + lgdl-core + lgdl-render + commander | 发布到 npm 的门面包（V2 由 cli 更名，bin 不变） |
 | **lgdl-web** | 应用包（private） | Web 工作台：React 18 + Vite + CodeMirror 6，内嵌与终端同管线的编译循环 + AI 助手（原生 function calling 三工具）。依赖适配层 ×2 + web-cli-base + 引擎 ×3 | 部署到 GitHub Pages 的 SPA（V2 由 web 更名） |
 | **lgdl-web-cli** | 库包（V2 新增） | 图内容操作适配：COMMANDS 6 命令注册表、LgdlOperation 协议、WEB_CLI_TOOL、lgdl-web-cli 协议解析、help 自文档、lgdlDomain/lgdlExecutor 组装单点 | 依赖 web-cli-base（机制）+ lgdl-core（类型）；被 lgdl-cli 与 lgdl-web 消费 |
-| **lgdl-web-op-cli** | 库包（V2 新增） | UI 操作适配：OP_COMMANDS 单一数据源（16 条）→ WEB_OP_TOOL 动态生成、webOpHelp、next-actions、OpHandlerRegistry 注入面。零 React/DOM | 依赖 web-cli-base（仅类型）；被 lgdl-web 消费 |
+| **lgdl-web-op-cli** | 库包（V2 新增） | UI 操作适配：OP_COMMANDS 单一数据源（18 条）→ WEB_OP_TOOL 动态生成、webOpHelp、next-actions、OpHandlerRegistry 注入面。零 React/DOM | 依赖 web-cli-base（仅类型）；被 lgdl-web 消费 |
 | **web-cli-base** | 库包 | **纯机制框架**：DomainApi<Op,Doc> 泛型契约、createExecutor 管线、createOperationApplier 泛型工厂、协议解析骨架、LLM 工具封装、web-fetch 通用工具。**零 @lgdl/* 依赖**（deps 仅 openai/anthropic SDK） | 被 lgdl-web-cli / lgdl-web-op-cli / lgdl-web 依赖（V2 纯化） |
 
 ### 1.3 子组件分类
@@ -114,9 +114,34 @@ README 架构树（commit d03dca4 前的版本）只列 5-6 包。从代码澄�
 
 > ⚠️ G1 缺口（沿革）：workflow 的 build 步骤**仍不含 packages/lgdl-router 与 packages/lgdl-cli**（V2 已补 lgdl-web-cli/lgdl-web-op-cli/web-cli-base）。CI 裸机上 lgdl-render 构建依赖 lgdl-router 的 dist 产物（NodeNext 解析 node_modules/@lgdl/lgdl-router），缺 router 将构建失败。仅记录，未修改。
 
+---
+
+## 3. CLI 架构引用链（2026-09-05 增量）
+
+### 3.1 子组件文档导航
+
+| 子组件文档 | 定位 | 版本 | 说明 |
+|-----------|------|------|------|
+| **[CLI-架构全景-cli-panorama.md](CLI-架构全景-cli-panorama.md)** | CLI 架构体系全景（代码级） | v3.0（扫描基准 a35b750） | **双 CLI 体系全景**（web-cli 体系 + 原生 lgdl-cli）：7 包 CLI 角色、三套注册机制、生命周期五段、边界分析、P0~P3 架构建议。配套 Archify 交互图：[cli-architecture](../diagrams/cli-architecture.html)（架构总览）+ [cli-lifecycle](../diagrams/cli-lifecycle.html)（生命周期） |
+
+### 3.2 a35b750 后架构变化注记
+
+HEAD `a35b750`（refactor(web-cli-base): CommandRouter 路由下沉 + AgentRunner 上收 + 全局 delay + 注册收敛，2026-09-05）后，CLI 体系架构较本文件 V2 扫描基准（d03dca4）的变化如下——**详情源为 [CLI-架构全景-cli-panorama.md](CLI-架构全景-cli-panorama.md)**，本文件仅登记引用链，不展开技术细节：
+
+| 变化点 | 位置 | 变更内容 |
+|--------|------|---------|
+| web-cli-base 新增机制三件套 | web-cli-base/src | CommandRouter（路由+delay gate+deriveTools）/ AgentRunner（AI 循环上收）/ DelayGate（命令间最小间隔） |
+| lgdl-web 新增唯一组装点 | lgdl-web/src/ai/session.ts | createCommandRouter({delayMs:600}) + register 2 业务工具 + runAgent 装配（:54-91） |
+| provider buildTools 删除 | lgdl-web/src/ai/provider.ts | 工具 schema 派生改为 router.deriveTools()（:14-15,240-256） |
+| lgdl-web-op-cli OP_COMMANDS **16 → 18 条** | ops.ts | 新增 preview-fullscreen / page-fullscreen（本文件 §1.2 已同步为 18 条） |
+| App op handler **16 → 19 个** | App.tsx | opRegistry.register 由 16 增至 19（新增 preview-fullscreen / page-fullscreen + help 显式注册） |
+
+> 全仓质量基线同步刷新：420 → **583**（2026-09-05 实测），见根级 [docs-overview.md](../docs-overview.md) §3.3。
+
 ## 修订记录
 
 | 生成时间 | 变更 Feature | 生成方式 | 修订人 |
 |---------|-------------|:--:|--------|
 | 2026-08-30 | 代码级扫描全量生成 | 全量构建 | sddu-docs Agent |
 | 2026-09-01 | V2 增量更新：6 包 → 9 包（lgdl-* 更名 + 适配层 ×2 + web-cli-base 纯化），子组件表/依赖表/分层图/部署拓扑全面刷新 | 增量更新 | sddu-docs Agent |
+| 2026-09-05 | CLI 引用链增量更新（HEAD a35b750 + cli-panorama v3.0）：新增 §3 子组件文档导航（cli-panorama + 两张 Archify 附图）+ a35b750 架构变化注记；lgdl-web-op-cli 描述 16 条 → 18 条；头部版本/生成方式注记刷新 | 增量更新 | sddu-docs Agent |

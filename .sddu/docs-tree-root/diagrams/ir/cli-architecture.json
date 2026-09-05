@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LGDL CLI 体系架构（双 CLI）",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/THZSummer/LGDL",
+      "revision": "c7d2bd81f1f6afb7c08ca00fce146054e9757bed"
+    }
+  },
+  "components": [
+    {
+      "id": "lgdl-web",
+      "type": "frontend",
+      "label": "lgdl-web",
+      "sublabel": "应用入口 · session/AiPanel/provider",
+      "pos": [140, 90],
+      "size": [400, 64],
+      "sources": [
+        { "path": "packages/lgdl-web/src/ai/session.ts", "label": "唯一组装点" }
+      ]
+    },
+    {
+      "id": "lgdl-web-op-cli",
+      "type": "backend",
+      "label": "lgdl-web-op-cli",
+      "sublabel": "UI 操作语义 · 18 OP_COMMANDS",
+      "pos": [80, 340],
+      "size": [240, 64],
+      "sources": [
+        { "path": "packages/lgdl-web-op-cli/src/tool.ts", "label": "handler 注入" }
+      ]
+    },
+    {
+      "id": "lgdl-web-cli",
+      "type": "backend",
+      "label": "lgdl-web-cli",
+      "sublabel": "图内容语义 · 6 spec · 17 子命令",
+      "pos": [400, 340],
+      "size": [240, 64],
+      "sources": [
+        { "path": "packages/lgdl-web-cli/src/tool-entry.ts", "label": "工具入口" }
+      ]
+    },
+    {
+      "id": "web-cli-base",
+      "type": "backend",
+      "label": "web-cli-base",
+      "sublabel": "纯机制 · CommandRouter/AgentRunner/DelayGate",
+      "pos": [240, 650],
+      "size": [240, 64],
+      "sources": [
+        { "path": "packages/web-cli-base/src/router.ts", "label": "CommandRouter" }
+      ]
+    },
+    {
+      "id": "lgdl-cli",
+      "type": "external",
+      "label": "lgdl-cli",
+      "sublabel": "终端应用 · commander 16 命令",
+      "pos": [880, 200],
+      "size": [240, 64],
+      "sources": [
+        { "path": "packages/lgdl-cli/src/cli.ts", "label": "commander 组装" }
+      ]
+    },
+    {
+      "id": "lgdl-core",
+      "type": "database",
+      "label": "lgdl-core",
+      "sublabel": "语义底座 · parse/validate/mutation",
+      "pos": [700, 520],
+      "size": [240, 64],
+      "sources": [
+        { "path": "packages/lgdl-core/src/index.ts", "label": "语言事实来源" }
+      ]
+    },
+    {
+      "id": "lgdl-render",
+      "type": "backend",
+      "label": "lgdl-render",
+      "sublabel": "渲染导出 · renderSvg/Ascii",
+      "pos": [1000, 520],
+      "size": [240, 64],
+      "sources": [
+        { "path": "packages/lgdl-render/src/index.ts", "label": "导出入口" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "web-cli 体系",
+      "wraps": ["lgdl-web", "lgdl-web-cli", "lgdl-web-op-cli", "web-cli-base"],
+      "pad": 40
+    },
+    {
+      "kind": "region",
+      "label": "原生 CLI",
+      "wraps": ["lgdl-cli"],
+      "pad": 40
+    },
+    {
+      "kind": "region",
+      "label": "共享底座",
+      "wraps": ["lgdl-core", "lgdl-render"],
+      "pad": 40
+    }
+  ],
+  "connections": [
+    {
+      "id": "web-to-webcli",
+      "from": "lgdl-web",
+      "to": "lgdl-web-cli",
+      "label": "register 业务工具",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "web-to-opcli",
+      "from": "lgdl-web",
+      "to": "lgdl-web-op-cli",
+      "label": "注入 handler",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "web-to-base",
+      "from": "lgdl-web",
+      "to": "web-cli-base",
+      "label": "router + runner 装配",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [350, 418]
+    },
+    {
+      "id": "opcli-to-base",
+      "from": "lgdl-web-op-cli",
+      "to": "web-cli-base",
+      "label": "仅类型依赖",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "webcli-to-base",
+      "from": "lgdl-web-cli",
+      "to": "web-cli-base",
+      "label": "泛型 DomainApi 机制",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "webcli-to-core",
+      "from": "lgdl-web-cli",
+      "to": "lgdl-core",
+      "label": "类型契约",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "cli-to-webcli",
+      "from": "lgdl-cli",
+      "to": "lgdl-web-cli",
+      "label": "共享 build/apply 语义",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "top",
+      "labelAt": [700, 222]
+    },
+    {
+      "id": "cli-to-core",
+      "from": "lgdl-cli",
+      "to": "lgdl-core",
+      "label": "只读查询 / convert",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "cli-to-render",
+      "from": "lgdl-cli",
+      "to": "lgdl-render",
+      "label": "render 导出",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "双 CLI 共享语义",
+      "items": [
+        "lgdl-cli 与 lgdl-web-cli 共用 COMMANDS 参数规格 + buildOperation/applyOperation",
+        "各做各的输入 / 输出适配"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "web-cli 唯一组装点",
+      "items": [
+        "session.ts delayMs=600 + 2 业务工具注册 + 3 内建自动注册",
+        "5 工具顺序 = [业务×2, web-fetch, sleep, web-cli-help]"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "范围边界",
+      "items": [
+        "lgdl-layout / lgdl-router 属 LGDL 渲染管线，不进 CLI 架构",
+        "详见系统全景 docs-overview"
+      ]
+    }
+  ]
+}

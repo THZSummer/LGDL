@@ -1,0 +1,409 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "lgdl-cli 终端全部命令（16 · commander）",
+    "locale": "zh-CN",
+    "quality_profile": "standard",
+    "repository": {
+      "url": "https://github.com/THZSummer/LGDL",
+      "revision": "c7d2bd81f1f6afb7c08ca00fce146054e9757bed"
+    }
+  },
+  "components": [
+    {
+      "id": "pkg-lgdl-cli",
+      "type": "external",
+      "label": "lgdl-cli",
+      "pos": [
+        224,
+        280
+      ],
+      "size": [
+        380,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-cli/src/registry.ts",
+          "line": 35,
+          "label": "COMMANDS 16 命令"
+        }
+      ]
+    },
+    {
+      "id": "pkg-lgdl-web-cli",
+      "type": "backend",
+      "label": "lgdl-web-cli",
+      "pos": [
+        760,
+        90
+      ],
+      "size": [
+        320,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-web-cli/src/commands.ts",
+          "line": 22,
+          "label": "6 增量 spec"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-core",
+      "type": "database",
+      "label": "lgdl-core",
+      "pos": [
+        760,
+        280
+      ],
+      "size": [
+        280,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-core/src/index.ts",
+          "line": 4,
+          "label": "语言事实来源"
+        }
+      ]
+    },
+    {
+      "id": "lgdl-render",
+      "type": "backend",
+      "label": "lgdl-render",
+      "pos": [
+        760,
+        420
+      ],
+      "size": [
+        280,
+        58
+      ],
+      "sources": [
+        {
+          "path": "packages/lgdl-render/src/index.ts",
+          "line": 369,
+          "label": "导出入口"
+        }
+      ]
+    },
+    {
+      "id": "cli-init",
+      "type": "backend",
+      "label": "init",
+      "pos": [
+        140,
+        346
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-render",
+      "type": "backend",
+      "label": "render",
+      "pos": [
+        280,
+        346
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-status",
+      "type": "backend",
+      "label": "status",
+      "pos": [
+        420,
+        346
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-doc-info",
+      "type": "backend",
+      "label": "doc-info",
+      "pos": [
+        560,
+        346
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-list-node-kinds",
+      "type": "backend",
+      "label": "list-node-kinds",
+      "pos": [
+        140,
+        398
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-get-node",
+      "type": "backend",
+      "label": "get-node",
+      "pos": [
+        280,
+        398
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-get-edge",
+      "type": "backend",
+      "label": "get-edge",
+      "pos": [
+        420,
+        398
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-find-node",
+      "type": "backend",
+      "label": "find-node",
+      "pos": [
+        560,
+        398
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-convert",
+      "type": "backend",
+      "label": "convert",
+      "pos": [
+        140,
+        450
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-import",
+      "type": "backend",
+      "label": "import",
+      "pos": [
+        280,
+        450
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-add-node",
+      "type": "backend",
+      "label": "add-node",
+      "pos": [
+        420,
+        450
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-remove-node",
+      "type": "backend",
+      "label": "remove-node",
+      "pos": [
+        560,
+        450
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-update-node",
+      "type": "backend",
+      "label": "update-node",
+      "pos": [
+        140,
+        502
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-add-edge",
+      "type": "backend",
+      "label": "add-edge",
+      "pos": [
+        280,
+        502
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-update-edge",
+      "type": "backend",
+      "label": "update-edge",
+      "pos": [
+        420,
+        502
+      ],
+      "size": [
+        128,
+        34
+      ]
+    },
+    {
+      "id": "cli-remove-edge",
+      "type": "backend",
+      "label": "remove-edge",
+      "pos": [
+        560,
+        502
+      ],
+      "size": [
+        128,
+        34
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "lgdl-cli · 终端命令 · 16（commander · 文件 I/O）",
+      "wraps": [
+        "pkg-lgdl-cli",
+        "cli-init",
+        "cli-render",
+        "cli-status",
+        "cli-doc-info",
+        "cli-list-node-kinds",
+        "cli-get-node",
+        "cli-get-edge",
+        "cli-find-node",
+        "cli-convert",
+        "cli-import",
+        "cli-add-node",
+        "cli-remove-node",
+        "cli-update-node",
+        "cli-add-edge",
+        "cli-update-edge",
+        "cli-remove-edge"
+      ],
+      "pad": 26
+    }
+  ],
+  "connections": [
+    {
+      "id": "e-cli-webcli",
+      "from": "pkg-lgdl-cli",
+      "to": "pkg-lgdl-web-cli",
+      "label": "共享 build/apply 语义",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          414,
+          160
+        ],
+        [
+          920,
+          160
+        ]
+      ]
+    },
+    {
+      "id": "e-cli-core",
+      "from": "pkg-lgdl-cli",
+      "to": "lgdl-core",
+      "label": "只读查询 / convert",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-cli-render",
+      "from": "pkg-lgdl-cli",
+      "to": "lgdl-render",
+      "label": "render 导出",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          710,
+          309
+        ],
+        [
+          710,
+          380
+        ],
+        [
+          900,
+          380
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "lgdl-cli 终端 16 命令",
+      "items": [
+        "注册形态：16 个 LgdlCommand 模块入 COMMANDS 数组 → registerAll 挂到 commander",
+        "操作对象 --file 磁盘文件；输出 console.log（区别于 web --doc 文档 id）",
+        "web-cli 体系 38 命令另见 cli-commands-web 图"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "共享语义 · 6 增量命令",
+      "items": [
+        "add-node / remove-node / update-node / add-edge / update-edge / remove-edge",
+        "增量命令经 lgdl-web-cli buildOperation/applyOperation（同名双端）",
+        "参数规格单一来源：lgdl-web-cli commands.ts COMMANDS spec"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "终端路径依赖",
+      "items": [
+        "lgdl-cli → lgdl-web-cli：共享 build/apply 语义（强调边）",
+        "lgdl-cli → lgdl-core：只读查询 / convert / import",
+        "lgdl-cli → lgdl-render：render 命令导出 SVG/PNG/ASCII"
+      ]
+    }
+  ]
+}
