@@ -906,6 +906,17 @@ export function App(): React.JSX.Element {
     img.src = url;
   }, [state.svg, state.width, state.height, exampleId]);
 
+  /** 导出当前源码为 .lgdl 文件（浏览器下载）。 */
+  const downloadSource = useCallback(() => {
+    const blob = new Blob([source], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exampleId}.lgdl`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [source, exampleId]);
+
   const copySource = useCallback(() => {
     navigator.clipboard.writeText(source).then(() => {
       setCopied(true);
@@ -1019,6 +1030,10 @@ export function App(): React.JSX.Element {
       downloadPng();
       return { ok: true, output: '✓ 已导出 PNG' };
     });
+    reg.register('export-source', () => {
+      downloadSource();
+      return { ok: true, output: '✓ 已导出源码为 .lgdl 文件' };
+    });
     reg.register('export', (args) => {
       // 别名：AI 可能用 export + format=svg/png
       const fmt = args.format ?? '';
@@ -1122,7 +1137,7 @@ export function App(): React.JSX.Element {
       return { ok: true, output: webOpHelp(args.topic) };
     });
     return reg;
-  }, [source, previewImmersive, downloadSvg, downloadPng, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive, toggleBrowserFullscreen]);
+  }, [source, previewImmersive, downloadSvg, downloadPng, downloadSource, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive, toggleBrowserFullscreen]);
 
   /**
    * AI 会话单一组装点（FR-022/AC-007）：唯一 CommandRouter 实例（base 内建
@@ -1232,8 +1247,27 @@ export function App(): React.JSX.Element {
                     </svg>
                   )}
                 </button>
-                <button className="pane-btn" onClick={copySource} title="复制源码到剪贴板">
+                <button
+                  className="pane-btn"
+                  onClick={(e) => {
+                    // 阻止冒泡到 .pane-title-clickable 的收起/展开 toggle（与上方折叠按钮一致）
+                    e.stopPropagation();
+                    copySource();
+                  }}
+                  title="复制源码到剪贴板"
+                >
                   {copied ? '✓ 已复制' : '复制源码'}
+                </button>
+                <button
+                  className="pane-btn"
+                  onClick={(e) => {
+                    // 阻止冒泡到 .pane-title-clickable 的收起/展开 toggle（与复制/折叠按钮一致）
+                    e.stopPropagation();
+                    downloadSource();
+                  }}
+                  title="导出源码为 .lgdl 文件"
+                >
+                  导出源码
                 </button>
               </span>
             </div>
