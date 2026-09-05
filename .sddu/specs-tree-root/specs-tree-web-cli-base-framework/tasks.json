@@ -1,0 +1,323 @@
+{
+  "meta": {
+    "feature": "web-cli-base 框架化：CommandRouter 路由下沉 + domain-neutral 能力归属",
+    "featureKey": "specs-tree-web-cli-base-framework",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-05",
+    "version": "1.0.0",
+    "sourcePlan": "plan.md v1.0",
+    "sourceSpec": "spec.md v1.0",
+    "taskCount": 13,
+    "waveCount": 9,
+    "complexity": { "S": 2, "M": 8, "L": 3 },
+    "note": "机器可读任务清单，与 tasks.md 一一对应；复杂度按 tasks.md §3 口径（TASK-002/003/006 边界已注明）"
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-001", "TASK-002", "TASK-003"], "strategy": "并行：base delay / sleep fc / 中性化（互不依赖）" },
+    { "wave": 2, "tasks": ["TASK-004"], "strategy": "串行：router 依赖 Wave1 产物" },
+    { "wave": 3, "tasks": ["TASK-005"], "strategy": "串行：runner 依赖 router 类型契约" },
+    { "wave": 4, "tasks": ["TASK-006"], "strategy": "串行：base index 导出面" },
+    { "wave": 5, "tasks": ["TASK-007", "TASK-008", "TASK-009"], "strategy": "并行：两业务包 tool-entry + provider 改造" },
+    { "wave": 6, "tasks": ["TASK-010"], "strategy": "串行：session 单一组装点" },
+    { "wave": 7, "tasks": ["TASK-011"], "strategy": "串行：AiPanel/App 收敛（原子提交）" },
+    { "wave": 8, "tasks": ["TASK-012"], "strategy": "串行：删除面" },
+    { "wave": 9, "tasks": ["TASK-013"], "strategy": "收尾：全仓门禁" }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "base delay 模块（DelayGate + Clock 契约）",
+      "module": "packages/web-cli-base",
+      "complexity": "M",
+      "wave": 1,
+      "dependencies": [],
+      "fr": ["FR-013", "FR-014", "FR-015", "FR-016", "FR-017"],
+      "ec": ["EC-005", "EC-009"],
+      "ac": ["AC-005"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/delay.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/delay.test.ts" }
+      ],
+      "acceptance": [
+        "delay.ts 零 LGDL 依赖",
+        "DelayGate 命令间最小间隔/首分发不等待/补齐语义",
+        "非法值钳制 [0,5000] + 一次警告 (EC-009)",
+        "stats + onDelay 观测 (FR-017)",
+        "delay.test.ts fake clock 覆盖 EC-005/FR-016/FR-017"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+    },
+    {
+      "id": "TASK-002",
+      "title": "base sleep fc 接入（executeSleepFromArgs）",
+      "module": "packages/web-cli-base",
+      "complexity": "M",
+      "wave": 1,
+      "dependencies": [],
+      "fr": ["FR-009"],
+      "ec": ["EC-011"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/sleep.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/sleep.test.ts" }
+      ],
+      "acceptance": [
+        "executeSleepFromArgs：ms/seconds 归一 + 缺参友好文案 + clamp 10min 保留",
+        "原 parseSleepCommand/executeSleep 零回归",
+        "函数形态可被 router 内建注册直接引用"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+    },
+    {
+      "id": "TASK-003",
+      "title": "base 文案中性化（tools.ts / help.ts）",
+      "module": "packages/web-cli-base",
+      "complexity": "S",
+      "wave": 1,
+      "dependencies": [],
+      "fr": ["FR-012"],
+      "ac": ["AC-012"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/tools.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/help.ts" }
+      ],
+      "acceptance": [
+        "README-CLI / lgdl/web/workbench 示例换中性示例（tools.ts:27,38 / help.ts:34）",
+        "schema 结构零改动",
+        "grep 无 lgdl/web/workbench、README-CLI 残留（help-aggregator tip 除外）",
+        "base 既有测试全绿"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base && grep -rn \"README-CLI\\|lgdl/web/workbench\" packages/web-cli-base/src/ || echo CLEAN"
+    },
+    {
+      "id": "TASK-004",
+      "title": "base CommandRouter 模块（router.ts + router.test.ts）",
+      "module": "packages/web-cli-base",
+      "complexity": "L",
+      "wave": 2,
+      "dependencies": ["TASK-001", "TASK-002", "TASK-003"],
+      "fr": ["FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-007", "FR-010", "FR-013", "FR-014", "FR-015", "FR-016", "FR-020", "FR-021"],
+      "ec": ["EC-001", "EC-003", "EC-004", "EC-010", "EC-012"],
+      "ac": ["AC-001", "AC-003", "AC-004", "AC-006"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/router.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/router.test.ts" }
+      ],
+      "acceptance": [
+        "register 重复名抛错 EC-003；has/names 可用",
+        "dispatch：未注册名显式错误 FR-003/EC-001；执行器异常转 ok:false EC-012",
+        "deriveTools 顺序=[业务(注册序)]+[内建置末] FR-005/AC-006；幂等",
+        "deriveCommand 前缀派生+引号规则；未知名 null FR-007",
+        "listHelp/helpFor 注册即得 FR-010；web-cli-help listed:false EC-010",
+        "3 内建自动注册 FR-020/AC-001（fetch/sleep/help 冒烟）",
+        "delay gate 接线 FR-013/016；零 react/LGDL import"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+    },
+    {
+      "id": "TASK-005",
+      "title": "base AgentRunner 模块（runner.ts + runner.test.ts）",
+      "module": "packages/web-cli-base",
+      "complexity": "L",
+      "wave": 3,
+      "dependencies": ["TASK-004"],
+      "fr": ["FR-006"],
+      "ec": ["EC-006", "EC-007", "EC-008"],
+      "ac": ["AC-011"],
+      "nfr": ["NFR-008"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/runner.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/runner.test.ts" }
+      ],
+      "acceptance": [
+        "runner.ts 无 react import（静态断言）",
+        "turns 维护/回填 toolCallId/MAX_ROUNDS 超限/失败聚合纠正 user turn/多 toolCalls 逐条/stop/LLM 错误重试一次",
+        "事件面完整（onAssistantText/onCommandLine/onToolOutput/onRoundLimit/onEmptyReply/onLLMError/onFailAggregate/onFinish）",
+        "hooks.intercept + onToolDone 可注入",
+        "runner.test.ts 事件序列断言"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+    },
+    {
+      "id": "TASK-006",
+      "title": "base index.ts 导出面扩展",
+      "module": "packages/web-cli-base",
+      "complexity": "S",
+      "wave": 4,
+      "dependencies": ["TASK-004", "TASK-005"],
+      "fr": ["FR-001"],
+      "nfr": ["NFR-007"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/index.ts" }
+      ],
+      "acceptance": [
+        "导出 router/delay/runner 类型与工厂",
+        "help-aggregator 导出暂留（TASK-012 再移除）",
+        "base tsc 零错误"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+    },
+    {
+      "id": "TASK-007",
+      "title": "lgdl-web-cli 工具注册（tool-entry.ts）",
+      "module": "packages/lgdl-web-cli",
+      "complexity": "M",
+      "wave": 5,
+      "dependencies": ["TASK-006"],
+      "fr": ["FR-018"],
+      "ac": ["AC-002"],
+      "files": [
+        { "op": "NEW", "path": "packages/lgdl-web-cli/src/tool-entry.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web-cli/src/index.ts" },
+        { "op": "NEW", "path": "packages/lgdl-web-cli/src/tool-entry.test.ts" }
+      ],
+      "acceptance": [
+        "createLgdlWebCliTool(): ToolEntry（schema=WEB_CLI_TOOL 逐字节）",
+        "executor 映射 executeSubcommand，changed/source 语义等价",
+        "C 档零改动（adapters/lgdl.ts 等不动）",
+        "tool-entry.test.ts schema + executor 断言",
+        "lgdl-web-cli build + test 全绿"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run build --workspace @lgdl/lgdl-web-cli && npm run test --workspace @lgdl/lgdl-web-cli"
+    },
+    {
+      "id": "TASK-008",
+      "title": "lgdl-web-op-cli 工具注册（tool-entry.ts）",
+      "module": "packages/lgdl-web-op-cli",
+      "complexity": "M",
+      "wave": 5,
+      "dependencies": ["TASK-006"],
+      "fr": ["FR-019"],
+      "ac": ["AC-002"],
+      "files": [
+        { "op": "NEW", "path": "packages/lgdl-web-op-cli/src/tool-entry.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web-op-cli/src/index.ts" },
+        { "op": "NEW", "path": "packages/lgdl-web-op-cli/src/tool-entry.test.ts" }
+      ],
+      "acceptance": [
+        "createOpCliToolEntry(registry): ToolEntry（schema=WEB_OP_TOOL）",
+        "executor 映射 registry.execute；未注册子命令 ok:false",
+        "next-actions 语义由场景拦截承接",
+        "C 档零改动（ops/handlers/next-actions 等不动）",
+        "op-cli build + test 全绿"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run build --workspace @lgdl/lgdl-web-op-cli && npm run test --workspace @lgdl/lgdl-web-op-cli"
+    },
+    {
+      "id": "TASK-009",
+      "title": "lgdl-web provider chat 改造",
+      "module": "packages/lgdl-web",
+      "complexity": "M",
+      "wave": 5,
+      "dependencies": ["TASK-006"],
+      "fr": ["FR-008"],
+      "ac": ["AC-006"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/provider.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/provider.test.ts" }
+      ],
+      "acceptance": [
+        "删 buildTools()（:247-275）与相关 import",
+        "chat(settings, turns, tools?) 可选 tools 参数",
+        "testConnection 调用零改动",
+        "provider.test.ts 删 :189-196 顺序用例，其余绿"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base --workspace @lgdl/lgdl-web-cli --workspace @lgdl/lgdl-web-op-cli && npm run test --workspace @lgdl/lgdl-web"
+    },
+    {
+      "id": "TASK-010",
+      "title": "lgdl-web session 单一组装点（session.ts + session.test.ts）",
+      "module": "packages/lgdl-web",
+      "complexity": "M",
+      "wave": 6,
+      "dependencies": ["TASK-007", "TASK-008", "TASK-009"],
+      "fr": ["FR-008", "FR-015", "FR-022"],
+      "ac": ["AC-005", "AC-006", "AC-007"],
+      "files": [
+        { "op": "NEW", "path": "packages/lgdl-web/src/ai/session.ts" },
+        { "op": "NEW", "path": "packages/lgdl-web/src/ai/session.test.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/package.json" }
+      ],
+      "acceptance": [
+        "createAiSession(deps)：router delayMs=600 + 注册 2 业务工具 + runner 装配",
+        "session.ts 零 React import",
+        "派生顺序断言承接 provider.test.ts:191（AC-006）",
+        "delay 600 配置生效（AC-005）",
+        "web-fetch dispatch 2 例承接 lgdl-web.test.ts（D-005）",
+        "package.json test 列表含 session.test.ts"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base --workspace @lgdl/lgdl-web-cli --workspace @lgdl/lgdl-web-op-cli && npm run test --workspace @lgdl/lgdl-web"
+    },
+    {
+      "id": "TASK-011",
+      "title": "lgdl-web AiPanel/App 场景收敛",
+      "module": "packages/lgdl-web",
+      "complexity": "L",
+      "wave": 7,
+      "dependencies": ["TASK-010"],
+      "fr": ["FR-007", "FR-019", "FR-023"],
+      "ac": ["AC-004", "AC-007"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/AiPanel.tsx" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/App.tsx" }
+      ],
+      "acceptance": [
+        "AiPanel 删 toolCallToCommand/五分支分发/sleep 特判/help 聚合/相关 import",
+        "AiPanel 经 session.runAgent 驱动（events→appendMessage、hooks→next-actions/onApply）",
+        "App 建 session（useMemo）+ 删 handleWebOp/onWebOp prop + 19 handler 注入 op 工具执行器",
+        "grep 零残留：opRegistry 直连/toolCallToCommand 兜底/sleep 特判/场景 help 注册",
+        "渲染保留面不变（web-cli 块/胶囊卡片/tool 结果/消息流）",
+        "vite build + tsc --noEmit 零错误"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base --workspace @lgdl/lgdl-web-cli --workspace @lgdl/lgdl-web-op-cli && npm run build --workspace @lgdl/lgdl-web && npx tsc --noEmit -p packages/lgdl-web/tsconfig.json"
+    },
+    {
+      "id": "TASK-012",
+      "title": "删除面（base + lgdl-web）",
+      "module": "packages/lgdl-web + packages/web-cli-base",
+      "complexity": "M",
+      "wave": 8,
+      "dependencies": ["TASK-010", "TASK-011"],
+      "fr": ["FR-010", "FR-011"],
+      "ac": ["AC-007", "AC-012"],
+      "nfr": ["NFR-003"],
+      "files": [
+        { "op": "DELETE", "path": "packages/web-cli-base/src/help-aggregator.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/index.ts" },
+        { "op": "DELETE", "path": "packages/lgdl-web/src/ai/help-aggregator.ts" },
+        { "op": "DELETE", "path": "packages/lgdl-web/src/ai/lgdl-web.ts" },
+        { "op": "DELETE", "path": "packages/lgdl-web/src/ai/lgdl-web.test.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/package.json" }
+      ],
+      "acceptance": [
+        "base + lgdl-web help-aggregator 双删除，router help 派生取代",
+        "lgdl-web.ts 死接线删除（fetch 行处理器职责已明确归属）",
+        "lgdl-web.test.ts 删除（2 例已迁 session.test.ts）",
+        "package.json test 列表重列",
+        "全仓 grep 零残留"
+      ],
+      "verify": "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/lgdl-web && grep -rn \"HelpAggregator\\|createHelpAggregator\\|lgdl-web.test\" packages/*/src/ || echo CLEAN"
+    },
+    {
+      "id": "TASK-013",
+      "title": "全仓门禁 + grep 零残留断言",
+      "module": "全仓（9 包）",
+      "complexity": "M",
+      "wave": 9,
+      "dependencies": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010", "TASK-011", "TASK-012"],
+      "fr": [],
+      "ac": ["AC-001", "AC-002", "AC-003", "AC-004", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-011", "AC-012"],
+      "nfr": ["NFR-001", "NFR-002", "NFR-003", "NFR-005", "NFR-007", "NFR-008"],
+      "files": [],
+      "acceptance": [
+        "全仓 9 包测试全绿（AC-009）",
+        "全仓 tsc/vite build 零错误（AC-010）",
+        "grep 断言清单零命中（NFR-003/AC-007）",
+        "base 零 LGDL 残留 + 新模块无 react import（AC-011/012）",
+        "D-005 增删依据记录完整"
+      ],
+      "verify": "npm run build && npm test"
+    }
+  ]
+}

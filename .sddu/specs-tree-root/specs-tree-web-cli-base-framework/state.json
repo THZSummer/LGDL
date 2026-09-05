@@ -1,0 +1,37 @@
+{
+  "feature": "web-cli-base 框架化：CommandRouter 路由下沉 + domain-neutral 能力归属（AI-CLI 的 bash）",
+  "featureKey": "specs-tree-web-cli-base-framework",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
+  "createdAt": "2026-09-05",
+  "updatedAt": "2026-09-05",
+  "description": "把 web-cli-base 从「机制零件 + 碎片工具」升级为完整自足的 AI-CLI 环境（用户 bash 类比）。核心：① web-cli-base 补 CommandRouter（bash 的 shell 解释器路由/分发：{tool,args}→executor），路由能力下沉 base，不再由 lgdl-web 手写 tc.name 分发；② 连带落地全局 delay（统一路由入口挂通用等待/节流机制）；③ 非 LGDL 特有的场景能力一律归 web-cli-base 复用（避免重复造轮子），lgdl-web 只留 LGDL 特有；④ 内置命令（web-fetch/sleep/web-cli-help）自动注册，业务命令（lgdl-web-cli/lgdl-web-op-cli）通过注册注入。目标：任何项目装 web-cli-base 即可搭 AI-CLI，无业务包耦合。用户决策：新 Feature 立项纳入 ROADMAP；连带落地全局 delay；完全不兼容（内测阶段，无历史债，允许破坏性重构）；非 LGDL 特有场景一律回归 base 复用。",
+  "scope": {
+    "in": [
+      "web-cli-base 新增 CommandRouter（通用路由/分发器：register/dispatch）",
+      "全局 delay 机制（命令执行前通用等待/节流）挂入路由",
+      "domain-neutral 能力从 lgdl-web 等下沉到 web-cli-base（复用面识别与迁移）",
+      "内置命令自动注册（web-fetch/sleep/web-cli-help），lgdl-web-cli/lgdl-web-op-cli 改为注册执行器",
+      "lgdl-web 分发改为走 base CommandRouter"
+    ],
+    "out": [
+      "LGDL 特有语义改动（core/layout/render/router 语言引擎）",
+      "开源决策（v1.1 范畴）",
+      "业务功能新增（纯框架/路由重构）"
+    ]
+  },
+  "artifacts": [
+    "discovery.md",
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "build.md",
+    "review.md",
+    "review-report.md",
+    "validate.md",
+    "validate-report.md"
+  ],
+  "notes": "Review 执行摘要（2026-09-05，产物 review.md v1.0 + review-report.md v1.0）：C1~C28 清单 + O1~O6 口径复核；R1 结果 28 PASS / 0 WARN / 0 FAIL / 阻塞 0 / 改进 4（IMP-1 空 tools 数组发远端建议 validate 前处理、IMP-2 runner per-tool 异常设防、IMP-3 spec FR-014 措辞对齐、IMP-4 NaN 告警文案）；结论 ⚠️ 有条件通过（规范符合率 100%，可进入 validate）。动态面移交 validate：AC-008 AI 实战闭环 + AC-005 delay 校准 + testConnection 实测。Build 执行摘要（2026-09-05，产物 build.md v1.0）：13/13 任务按 9 波次全绿。base 新增 delay.ts（Clock/DelayGate/clamp，fake clock 专项 10 例）/ router.ts（CommandRouter+ToolEntry 契约+3 内建自动注册+派生+delay gate，专项 13 例）/ runner.ts（AgentRunner 中性循环+events8+hooks2，零 react，专项 12 例）+ sleep fc 接入（executeSleepFromArgs/normalizeSleepArgs）+ 中性化收尾（tools/help/web-fetch 文案+fixture）；双业务包 tool-entry（lgdl-web-cli 整体注册 / op-cli OpHandlerRegistry 顶层角色移交 CommandRouter，executor 内部机制保留）；lgdl-web provider 删 buildTools+chat tools 可选参、session.ts 单一组装点（delay 600+注册 2 业务工具）、AiPanel/App 同批收敛（分发/特判/聚合面删除→runner/session 驱动）、删除面 4 文件（base+场景 help-aggregator ×2 / lgdl-web.ts / lgdl-web.test.ts）。门禁：全仓 build+test 0 失败（web-cli-base 71 / lgdl-web-cli 84 / op-cli 15 / lgdl-web 41 / core 267 / render 95[1 env-skip 既有] / router 8）；4 包 tsc --noEmit 零错误；grep 零残留 CLEAN。D-005 增删承接：provider buildTools 顺序断言→router.test+session.test 派生顺序；lgdl-web.test 2 例→session.test web-fetch dispatch；sleep.test 增补 EC-011 专项。实现口径 6 项记录于 build.md §5（DelayGate 参考时刻=执行起点以满足 FR-014 max 验收、runner user/deriveCommand 契约落点、TASK-003 中性化扩至 web-fetch.ts、router delayMs/warnings 只读面、session ref 间接、D-005 承接）。\n立项来源：作者对话 2026-09-05（web-cli-base 定位讨论，bash 类比）。作者决策：①新 Feature 立项纳入 ROADMAP；②连带落地全局 delay；③完全不兼容（内测阶段，无历史债）；④非 LGDL 特有场景一律归 web-cli-base 复用，lgdl-web 只留 LGDL 特有。前置：v0.6 V2（specs-tree-web-cli-v2）已完成，9 包体系 + web-cli-base 纯机制框架已存在。\nDiscovery 执行摘要（2026-09-05，只读盘点，产物 discovery.md v1.0）：①路由现状——5 工具分发 = AiPanel.tsx:421-489 的 tc.name if/else（lgdl-web-op-cli→App opRegistry 986-1119 / web-fetch→executeWebFetch / sleep→特判 445-470 / web-cli-help→场景聚合器每次重建 475 / else 默认→lgdl-web-cli lgdlExecutor）；同名路由知识在 buildTools(provider.ts:247-275) + toolCallToCommand(AiPanel:154-170) + dispatch + help 聚合 4 处重复维护，未知工具名静默兜底 lgdl-web-cli；②domain-neutral 识别——B 档候选上收 base：工具分发/agent 循环(AiPanel:383-524)/schema 组装/help 场景聚合/名→前缀映射/sleep function-calling 接入；C 档 LGDL 特有不动：图语义(lgdl-web-cli 9 命令/17 子命令)/UI 操作(OP_COMMANDS+App 16 handler)/语言引擎/场景内容(prompts/PRESET/README/provider 应用态)；③delay——现仅显式 sleep(base sleep.ts,上限 10min)，无隐式机制；全局 delay 挂 CommandRouter 统一分发入口（决策②），与 sleep 叠加关系/默认值/作用域待裁决(O-002)；④注册碎片化——四种注册面并存(lgdlDomain+createExecutor / OpHandlerRegistry / buildTools 静态数组 / HelpAggregator 场景注册)，op-cli 机制与 CommandRouter 重复风险(O-004)；⑤遗留观察——exec.ts:145-257 硬编码命令族=单领域文档管线非任意命令路由(Q-003 路由下沉根因)；ai/lgdl-web.ts 仅测试消费+陈旧注释(Q-007)；base 文案 LGDL 残留 tools.ts:27/help-aggregator.ts:28(Q-012)。问题清单 Q-001~Q-012 + 开放点 O-001~O-006（O-003 范围线/agent 循环是否上收、O-002 delay 语义、O-005 测试守恒是否豁免）留 spec 裁决。无待答阻塞项；建议以 Q-001/Q-002/Q-005 为主干进入 spec。\nSpec 执行摘要（2026-09-05，产物 spec.md v1.0）：①24 FR 分五组——RTR 5（统一注册模型/统一分发契约/未知工具显式报错/注册表自举/schema 派生顺序契约）+ UPL 7（中性 agent runner 上收/前缀派生/schema 收集下沉/sleep 原生接入/help 注册即得/死接线收敛/base 文案中性化）+ DLY 5（统一挂点/最小间隔不叠加/配置默认值/单工具免除/sleep 保留分工）+ REG 4（lgdl-web-cli 整体注册/op-cli 注册接入/内建自动注册/唯一工具名集合）+ IN 3（单一路径组装/AiPanel 分发面删除/AI 闭环行为等价）；②8 NFR（domain-neutral 零 LGDL 依赖/依赖方向/破坏性重构边界/单一数据源/测试门禁/性能/类型构建/runner 无 React）+ 12 EC + 12 验收项 AC-001~012；③O-001~O-006 自主闭环：D-001 CommandRouter=顶层工具级路由、createExecutor 保留为 lgdl-web-cli 工具内部执行器不做全泛化；D-002 delay=路由层命令间最小间隔（首个不等待、与显式 sleep 不叠加），base 默认 0、lgdl-web 场景默认 600ms 上限钳制 5000ms，不分类、单工具可声明免除，静默生效+时钟注入观测；D-003 agent 循环上收 base（纯逻辑+事件/回调，无 React import），React 渲染与 LGDL 回调（onApply/onWebOp/next-actions）留 lgdl-web；D-004 OpHandlerRegistry 顶层角色被 CommandRouter 承接，op-cli 整体注册为一工具，App 16 handler 注入收敛为工具执行器组装；D-005 D-3 下放弃只增不删测试守恒，门禁=行为级等价/更优覆盖+全仓全绿+新机制专项；D-006 base 文案中性化随 Feature 收尾，场景引导由 guideDoc/system prompt 承担，不引入描述覆盖新注册面；④后置开放移交 plan/validate：delay 默认值实战校准、op-cli 子命令分发表形态、文本协议路径归属核验、provider 应用态留 lgdl-web。5 工具名保持现状(A-001)。无待答阻塞项；建议以 RTR 主干进入 plan。\nValidate 执行摘要（2026-09-05，产物 validate.md v1.0 + validate-report.md v1.0）：V1~V12 全维度验证执行——全仓 npm test 9 包 582 pass / 0 fail / 1 skip（render env-gate 既有；base 71→73 因 IMP-2 增补 2 例）；4 包 tsc --noEmit 零错误 + lgdl-web vite build 退出码 0；专项抽核 router.test 18 / delay.test 10 / runner.test 13 / sleep.test 15 / session.test 9 / tool-entry（cli 5 + op 4）/ provider.test 13 全绿；自主脚本 4 个（fake clock DelayGate 20 断言 / deriveTools 顺序+注册表四链 25 / session.runAgent 闭环冒烟 17 / IMP-1 wire mock 5）全部通过。Review 改进项处理：IMP-1（llm.ts 空 tools 省略 wire 字段，mock 端点动态断言两协议路径）/ IMP-2（runner per-tool 异常设防 + 2 例专项）/ IMP-4（router NaN/Infinity 静默不告警）已处理且门禁不破；IMP-3（spec FR-014 措辞对齐）记录遗留移交收口。真实 AI 闭环（AC-008）与 testConnection 厂商端点实测需浏览器+API Key，移交收口人工清单（⏭️）。结论 ⚠️ 有条件通过：FR 24/24、NFR 8/8、构建 0、漂移 0、阻塞 0，可关闭。",
+  "status": "tracked"
+}

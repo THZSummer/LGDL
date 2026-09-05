@@ -1,12 +1,13 @@
 # LGDL 版本 Roadmap
 
-> **文档版本**: 1.4.0
+> **文档版本**: 1.5.0
 > **创建日期**: 2026-08-31
 > **状态**: 规划中（v0.6 开发中收口期制定）
 > **规划基准**: 工作区 `feature/group-as-node` @ `0610458`（2026-08-31）；素材扫描基准 `.sddu/docs-tree-root/` @ `15e5b6b`（2026-08-30）；v1.4.0 素材基准增补：`docs/research/archify/lessons-for-lgdl.md` v1.1（2026-09-02，作者指令转正，见下方 v1.4.0 素材增补）
 > **规划专家**: sddu-roadmap（独立辅助 Agent，不触发任何 phase）
 > **素材甄别规则**: 严格执行《业务全景/空白与待确认.md》§3/§5 —— v0.6 仅采信带验证记录的已实施工程事实（What 层）；规划性描述一律标注「AI 提案待审视」，不得作为既定事实写入未来版本。
 > **v1.4.0 素材增补（2026-09-02）**: 作者指令将 `docs/research/archify/lessons-for-lgdl.md` v1.1（素材源：archify-layout-secrets.md v1.1 + archify-usage-report.md v1.2）的**借鉴/规避清单转正**为规划依据——该报告原为 AI 提案，经作者裁决转正后**不再属待审视池**；其中门禁/收据类建议按报告 §2.4 结论落位「引擎开发阶段回归护栏」（非用户使用阶段运行时拦截）。本版新增 Feature 的来源统一标注「**作者指令 2026-09-02 转正，依据 lessons-for-lgdl.md v1.1**」。
+> **v1.5.0 素材增补（2026-09-05）**: 登记已完成 Feature **F-23 web-cli-base 框架化**（specs-tree-web-cli-base-framework）——**作者对话 2026-09-05 立项**（web-cli-base 定位讨论，bash 类比），SDDU 全流程（discovery → spec → plan → tasks → build → review → validate）完成（phase=validated / status=tracked）；事实以该 Feature 目录下 build.md / review-report.md / validate-report.md（均 2026-09-05）为准（What 层已实施工程验证，可作规划承诺，素材甄别规则 2）。
 
 ---
 
@@ -23,7 +24,7 @@ LGDL 是一门面向 AI Agent 的**语义优先**图表描述语言：语义交�
 | 版本 | 主题 | 时间 | 状态 | 核心内容 |
 |------|------|------|------|----------|
 | **v0.5.0** | Web AI 助手 | 2026-08-23 | ✅ 已发布 | 原生 function calling 三工具、双 CLI 分离 + core 命令注册表、多厂商接入、next-actions、命令自文档化 |
-| **v0.6.0** | 语义模型统一（收口） | 2026-09 上旬 | ⏳ 开发中（收口期） | ✅ 已实施：自研 Sugiyama 布局（零 dagre/elkjs）、group-as-node、分组感知两层布局、AI 实战与视觉评审闭环、评审 Bug 修复；🔧 收口：发布前置五件套（F-01~F-05，G1/G2/R-D2/W-D3/W-D1）+ **F-13 ① web-cli 独立包抽取**（作者指令提前至 v0.6，2026-08-31，见 §二 v0.6） |
+| **v0.6.0** | 语义模型统一（收口） | 2026-09 上旬 | ⏳ 开发中（收口期） | ✅ 已实施：自研 Sugiyama 布局（零 dagre/elkjs）、group-as-node、分组感知两层布局、AI 实战与视觉评审闭环、评审 Bug 修复；🔧 收口：发布前置五件套（F-01~F-05，G1/G2/R-D2/W-D3/W-D1）+ **F-13 ① web-cli 独立包抽取**（作者指令提前至 v0.6，2026-08-31，见 §二 v0.6）；✅ **F-23 web-cli-base 框架化**（作者对话 2026-09-05 立项 → SDDU 全流程 validated 完成，见 §二 v0.6） |
 | **v0.7.0** | 工程质量与文档对齐（含 archify 借鉴：验收闭环机械化） | 2026-09 中下旬 | 📋 规划 | CI 强化（layout/cli/router 测试补齐）、文档零漂移（D1-D8/T-D1/L-D1/R-D4 等全量对齐）、遗留清理（G6/W-D2/R-D1）；**+ archify 借鉴批次 F-15~F-22**（作者指令 2026-09-02 转正：几何审计/字号预算/golden 哈希回归/类型矩阵/结构化诊断/原子交付/视觉收据/溯源元数据——引擎开发阶段回归护栏，见 §二 v0.7） |
 | **v0.8.0** | AI 增强与生态（审视后立项） | 2026-10 | 📋 规划 | 作者审视「AI 提案待审视池」后逐项立项；业务叙事补全（竞争定位 4 处空白等）；视觉评审遗留清单（F-13 ① 已按作者指令提前至 v0.6，见 §二 v0.6，v0.8 不再承载） |
 | **v1.0.0** | 语义稳定首发 | 2026-11 目标 | 📋 规划 | 发布门槛：CI 全绿 + 文档零漂移 + 待审视池冻结 + 语义模型无破坏性变更 |
@@ -148,6 +149,23 @@ v0.6 引入（或暴露）的缺陷必须在 v0.6 发布前关闭——**带着�
 
 **护栏依赖调整说明**：原规划 F-13 ① 依赖 v0.7 测试护栏（F-06/F-11）先行——提前至 v0.6 后该依赖**不再成立**，调整为：①v0.6 内已有 F-02（CI 测试工作流）作基础护栏；②抽取时执行**手动全量回归门禁**（web 107 / core 281 + AI 实战闭环手测）；③抽取落定后 v0.7 立即补 F-06/F-11 专项测试（护栏后置补课，见 §四/§六 风险 9）。
 
+#### ✅ F-23 web-cli-base 框架化（作者对话 2026-09-05 立项，SDDU 全流程完成）
+
+**立项来源**：作者对话 2026-09-05（web-cli-base 定位讨论，**bash 类比**——web-cli-base 应像 bash：完整自足的 AI-CLI 环境〔shell 路由 + 内建命令 + 可注册业务命令〕，而非「机制零件 + 碎片工具」集合）。上游 = **specs-tree-web-cli-v2**（v0.6 V2，F-13 ① 抽取线，✅ 已完成：9 包体系 + web-cli-base 纯机制化零 lgdl 依赖，420 测试全绿）；本 Feature 为其后的**框架化进阶**（补齐 bash 缺失的 shell 路由层）。Feature 产物目录：`.sddu/specs-tree-root/specs-tree-web-cli-base-framework/`。
+
+**作者决策（2026-09-05，四项）**：①新 Feature 立项并纳入 ROADMAP（本小节即登记）；②连带落地全局 delay（统一路由入口挂最小间隔）；③完全不兼容（内测阶段、无历史债，允许破坏性重构）；④核心原则——非 LGDL 特有场景能力一律归 web-cli-base 复用，lgdl-web 只留 LGDL 特有。
+
+**落地内容（五项，2026-09-05 完成）**：
+- **CommandRouter 路由下沉（base/router.ts）**：ToolEntry 统一注册条目（schema / 执行器 / 文本前缀 / help / 顺序 / delay 单点登记）→ dispatch / deriveTools / deriveCommand / listHelp / helpFor / **未知工具显式报错**（`✖ 未注册工具 "x"`，去静默兜底）——路由知识从 lgdl-web 散落 4 处（schema 组装 / 前缀映射 / 分发 if/else / help 聚合）收敛进注册表单一数据源。
+- **全局 delay（base/delay.ts）**：DelayGate 挂 CommandRouter **统一分发入口**（命令间最小间隔 = max(delayMs, 执行耗时)，首分发不等待）；base 中性默认 0 / lgdl-web 场景 600ms / 钳制 [0,5000] + 一次警告；sleep 以 delayMs:0 显式免除、不双重叠加（EC-005）。
+- **domain-neutral 接线面上收 base**：AgentRunner 中性 agent 循环（runner.ts，events 8 + hooks 2，**零 react import**）；schema 收集 / help 注册即得 / 文本前缀派生 / 文案中性化（base 零 LGDL 残留）——任何项目装 web-cli-base 即得完整 AI-CLI，无业务包耦合。
+- **注册收敛**：lgdl-web-cli / lgdl-web-op-cli 各 tool-entry.ts **整体注册为工具**（C 档语义零改动）；op-cli OpHandlerRegistry 顶层角色移交 CommandRouter（executor 内部机制保留）；web-fetch / sleep / web-cli-help 3 内建命令自动注册（业务注册序在前、内建固定置末）。
+- **lgdl-web 场景收敛**：session.ts **单一组装点**（delayMs=600 + 注册 2 业务工具 + runAgent 装配）；AiPanel 分发/特判/聚合面删除（改经 runner/session 驱动）；provider buildTools 手写数组删除 → router.deriveTools() 派生；**删除面 4 文件**（base + 场景 help-aggregator ×2 / lgdl-web.ts / lgdl-web.test.ts；D-005 增删有据、测试承接等价）。
+
+**验证记录（validate-report.md v1.0 + review-report.md v1.0，2026-09-05）**：全仓 9 包 `npm test` **582 pass / 0 fail / 1 skip**（render env-gate 为既有门控；web-cli-base 71→**73** / lgdl-web-cli 84 / lgdl-web-op-cli 15 / lgdl-web 41 / core 267 / render 95 / router 8）；4 包 `tsc --noEmit` 零错误 + lgdl-web vite build 退出码 0；grep 13 组零残留 **CLEAN**；自主脚本 4 个共 67 断言全过（DelayGate 验收式 20 / deriveTools 顺序等价旧 provider.test:191 + 四链 25 / runner 机械闭环 17 / IMP-1 wire 5）；Review R1 **28 PASS / 0 WARN / 0 FAIL / 阻塞 0**（改进 4：IMP-1/2/4 已于 validate 处理，IMP-3 记遗留）；结论 ⚠️ 有条件通过、门禁指标全达标。**遗留（非阻塞，移交整体收口）**：① IMP-3 spec FR-014/EC-005 措辞对齐（「完成时刻」→「执行起点」，实现已满足验收公式，仅文档文字）；② AC-008 真实 AI 实战闭环 + testConnection 各厂商实测（需浏览器 + API Key，机械面已由脚本承接）。
+
+**下游关联**：本 Feature 的统一注册/路由模型是 **F-14 web-cli-plugin（v1.1 线）** 协议发现机制的「可能前置雏形」（spec A-002 标注：仅关联、不承诺、不预设立场）；同时为 v1.1 线其他消费端铺平「base 装即自足」基础。
+
 ### v0.7.0（2026-09 中下旬，约 4 周）📋 规划
 
 **主题：工程质量与文档对齐**——把「代码是干净的、文档是干净的、回归是有护栏的」确立为工程基线。
@@ -232,7 +250,7 @@ v0.6 引入（或暴露）的缺陷必须在 v0.6 发布前关闭——**带着�
 
 ### 3.1 候选清单总表
 
-**编号规则**：P0 = 发布阻塞/公理冲突级；P1 = 用户可感知缺陷或质量基线；P2 = 清理/文档补全类。**F-13 为作者新增的架构演进规划**（非缺陷/非质量基线，2026-08-31 作者指令）：①按 **P1 等价管理**（作者指令纳入 v0.6 收口期承诺，2026-08-31 提前，接受与收口五件套同批排布）；②仍门槛式、不排期。建议版本见行内标注。**F-14 为作者新增的产品演进规划**（web-cli-plugin 浏览器插件，2026-09-01 作者指令，非审视池项）：按 **P1 等价管理**（作者指令，承诺进入 v1.1 开源线）；门槛式、不排期；技术细节（协议发现机制/插件架构）不预设立场，留给未来立项。建议版本见行内标注。**F-15~F-22 为作者指令转正的借鉴/规避批量**（2026-09-02，依据 lessons-for-lgdl.md v1.1，AI 提案但**作者已裁决转正，不再属待审视池**，来源标注「作者指令 2026-09-02 转正」）：覆盖该报告 §3 的 P1-1/P1-2/P1-3/P2-4/P2-5/P2-6/P3-7 与 §4.3/4.5 护栏动作；按 **P1/P2 分级管理**（见各行动优先级列）；**全部落 v0.7 工程质量主题**——门禁/收据类按报告 §2.4 结论定位为「引擎开发阶段的回归护栏」（造引擎者的回归资产，非用户使用阶段的运行时拦截）；RICE 如实评、不因转正虚抬（见 §3.2 批次注记）。建议版本见行内标注。
+**编号规则**：P0 = 发布阻塞/公理冲突级；P1 = 用户可感知缺陷或质量基线；P2 = 清理/文档补全类。**F-13 为作者新增的架构演进规划**（非缺陷/非质量基线，2026-08-31 作者指令）：①按 **P1 等价管理**（作者指令纳入 v0.6 收口期承诺，2026-08-31 提前，接受与收口五件套同批排布）；②仍门槛式、不排期。建议版本见行内标注。**F-14 为作者新增的产品演进规划**（web-cli-plugin 浏览器插件，2026-09-01 作者指令，非审视池项）：按 **P1 等价管理**（作者指令，承诺进入 v1.1 开源线）；门槛式、不排期；技术细节（协议发现机制/插件架构）不预设立场，留给未来立项。建议版本见行内标注。**F-15~F-22 为作者指令转正的借鉴/规避批量**（2026-09-02，依据 lessons-for-lgdl.md v1.1，AI 提案但**作者已裁决转正，不再属待审视池**，来源标注「作者指令 2026-09-02 转正」）：覆盖该报告 §3 的 P1-1/P1-2/P1-3/P2-4/P2-5/P2-6/P3-7 与 §4.3/4.5 护栏动作；按 **P1/P2 分级管理**（见各行动优先级列）；**全部落 v0.7 工程质量主题**——门禁/收据类按报告 §2.4 结论定位为「引擎开发阶段的回归护栏」（造引擎者的回归资产，非用户使用阶段的运行时拦截）；RICE 如实评、不因转正虚抬（见 §3.2 批次注记）。建议版本见行内标注。**F-23 为已完成 Feature 的登记行**（specs-tree-web-cli-base-framework，web-cli-base 框架化，2026-09-05）：来源 = **作者对话 2026-09-05 立项**（web-cli-base 定位讨论，bash 类比）+ **SDDU 全流程完成（discovery → spec → plan → tasks → build → review → validate，phase=validated / status=tracked）**；按 **架构演进 P1 等价管理**（同 F-13 先例：作者指令立项，非缺陷/非质量基线）——已实施完成，非待排期候选；事实依据 = Feature 目录过程产物（build.md / review-report.md / validate-report.md，What 层已实施工程验证），按素材甄别规则 2 可作规划承诺。建议版本见行内标注。
 
 | # | Feature | 来源 | 优先级 | 建议版本 | 预估影响面 | 状态 |
 |---|---------|------|:--:|------|-----------|------|
@@ -258,6 +276,7 @@ v0.6 引入（或暴露）的缺陷必须在 v0.6 发布前关闭——**带着�
 | F-20 | 原子交付：新增共享 atomicWrite（tmp 同目录 + rename），render 与全部 mutation 命令共用；对「目标已存在时覆盖仍原子」做单测 | **作者指令 2026-09-02 转正，依据 lessons-for-lgdl.md v1.1 §3 P2-6（:180-188）** | **P2** | v0.7（替换后全量回归走 F-02 CI 护栏） | CLI render/mutation 写路径（.lgdl 是 AI 高频操作唯一事实源；半成品会被下一次 op 读到） | 📋 规划 |
 | F-21 | 视觉验收闭环（开发期评审机械化）：①轻量几何收据——对 examples 全量记录几何收据 JSON（画布尺寸/溢出/最小字号预算，字段来自 F-15/F-16，**绑成品 hash**，schemaVersion + `visualReview:"pending"` 诚实边界，成品变更自动 stale）②浏览器收据——CI 无头渲染关键示例 4 视口截图 + JSON（与审视池 P-02「CI 自动渲染」合并评估） | **作者指令 2026-09-02 转正，依据 lessons-for-lgdl.md v1.1 §3 P2-4（:153-165）+ §4.4 绑 hash（:222-227）** | **P2** | v0.7（①确定；②容量门槛式，依赖无头浏览器基建、需作者确认投入） | examples 全量渲染的机械化回归收据（引擎开发期门禁，非用户运行时检查） | 📋 规划 |
 | F-22 | 溯源元数据：render 在 SVG 头写 `<!-- lgdl-cli <version> · source <file> sha256 <hash> · layout <type> -->`（XML 注释/metadata）；render 测试断言头含版本与源 hash；**不设门禁、只做溯源** | **作者指令 2026-09-02 转正，依据 lessons-for-lgdl.md v1.1 §3 P3-7（:190-198）** | **P2** | v0.7（与 F-17 共享成品 sha256 口径） | 脱离源码的 SVG 自证「哪版语义渲染」（溯源叙事一致性） | 📋 规划 |
+| F-23 | web-cli-base 框架化：CommandRouter 路由下沉 + domain-neutral 能力归属（**AI-CLI 的 bash**）——① CommandRouter 下沉 base（router.ts：ToolEntry 统一注册条目 / dispatch / deriveTools / deriveCommand / listHelp / 未知工具显式报错，路由知识从 lgdl-web 散落 4 处收进注册表单一数据源）；② 全局 delay（delay.ts DelayGate 挂统一分发入口；base 默认 0 / lgdl-web 场景 600ms / 钳制 5000；sleep 以 delayMs:0 免除不叠加）；③ domain-neutral 接线面上收 base（runner.ts AgentRunner 中性 agent 循环，零 react；schema 派生 / help 注册即得 / 前缀派生 / 文案中性化）；④ 注册收敛（lgdl-web-cli / lgdl-web-op-cli 各 tool-entry.ts 整体注册为工具；op-cli OpHandlerRegistry 顶层角色移交 CommandRouter；web-fetch/sleep/web-cli-help 3 内建自动注册）；⑤ lgdl-web 场景收敛（session.ts 单一组装点 delayMs=600；AiPanel 分发/特判面删除；provider buildTools 由 deriveTools 派生；删除面 4 文件）。上游 = specs-tree-web-cli-v2（F-13 ① 线，v0.6 V2 ✅）；成果：全仓 582 测试 0 失败（base 71→73 / lgdl-web-cli 84 / op-cli 15 / lgdl-web 41）+ 4 包 tsc 零错误 + grep 零残留 CLEAN | **作者对话 2026-09-05 立项（bash 类比）+ SDDU 全流程完成（validated）** | **P1（作者指令，架构演进，同 F-13 先例）** | ✅ v0.6 收口期完成（2026-09-05） | web-cli-base / lgdl-web-cli / lgdl-web-op-cli / lgdl-web（四包） | ✅ 已完成 |
 
 **不立 Feature 的项**（说明处理方式）：
 - **C-D1**（「core 被 5 包依赖」口径）：描述精度修正，已在 core 深潜文档内修正完毕，无需 Feature。
@@ -480,6 +499,7 @@ v0.7 archify 借鉴批次（F-15~F-22，作者指令 2026-09-02 转正）──�
 | v0.6 工程事实 | 自研 Sugiyama 布局、group-as-node、分组感知布局、评审闭环、评审 Bug 修复——全部带测试/commit 验证 | CHANGELOG v0.6 段（What 层）+ 全景当日实测 |
 | 质量基线 | core 281 / render 21 / router 8 / web 107 全绿（2026-08-30 实测） | docs-overview §3.3 |
 | archify 借鉴转正 | lessons-for-lgdl.md v1.1 的借鉴/规避清单经作者指令转正（2026-09-02，AI 提案 → 作者裁决转正，非审视池项）；门禁落位修正：门禁/收据类建议属**引擎开发阶段**回归资产（§2.4——确定性下用户改不了输出，失败只有引擎开发者能重新输出），非用户使用阶段运行时拦截 | 作者指令 2026-09-02 + lessons-for-lgdl.md v1.1 §2.4（:90-105） |
+| F-23 立项与全流程工程验证 | specs-tree-web-cli-base-framework（web-cli-base 框架化：CommandRouter 路由下沉 + domain-neutral 能力归属）经**作者对话 2026-09-05 立项**（bash 类比；决策 ①立项纳入 ROADMAP / ②连带落地全局 delay / ③完全不兼容〔内测无历史债〕/ ④非 LGDL 特有一律归 base 复用）+ **SDDU 全流程完成**（phase=validated / status=tracked）：全仓 582 测试 0 失败、4 包 tsc 零错误、grep 零残留 CLEAN——What 层已实施工程验证（素材甄别规则 2），可作规划承诺 | 作者对话 2026-09-05 + specs-tree-web-cli-base-framework/ build.md · review-report.md · validate-report.md（2026-09-05） |
 
 ### 8.2 AI 提案待审视（未获作者论证，引用时必标注）
 
@@ -492,7 +512,7 @@ v0.7 archify 借鉴批次（F-15~F-22，作者指令 2026-09-02 转正）──�
 
 ### 8.3 本 Roadmap 中的分层使用说明
 
-- **已确认事实 → 规划承诺**：v0.6 收口五件套（F-01~F-05）+ **F-13 ①**（作者指令立项并提前至 v0.6，2026-08-31）、v0.7 对齐与护栏（F-06~F-11）、v0.8 业务叙事（F-12）均基于作者确认的工程事实、哲学公理推导与作者直接指令，可排期。**v1.4.0 增补**：v0.7 archify 借鉴批次（**F-15~F-22**）基于作者指令转正（2026-09-02，依据 lessons-for-lgdl.md v1.1，AI 提案但已裁决转正）——不再属待审视池，可排期（门禁/收据类按 §2.4 落位引擎开发阶段回归护栏）。
+- **已确认事实 → 规划承诺**：v0.6 收口五件套（F-01~F-05）+ **F-13 ①**（作者指令立项并提前至 v0.6，2026-08-31）、v0.7 对齐与护栏（F-06~F-11）、v0.8 业务叙事（F-12）均基于作者确认的工程事实、哲学公理推导与作者直接指令，可排期。**v1.4.0 增补**：v0.7 archify 借鉴批次（**F-15~F-22**）基于作者指令转正（2026-09-02，依据 lessons-for-lgdl.md v1.1，AI 提案但已裁决转正）——不再属待审视池，可排期（门禁/收据类按 §2.4 落位引擎开发阶段回归护栏）。**v1.5.0 增补**：**F-23**（web-cli-base 框架化，specs-tree-web-cli-base-framework）系**作者对话 2026-09-05 立项 + SDDU 全流程（validated）完成的已实施项**——事实依据为 Feature 目录过程产物（build.md / review-report.md / validate-report.md 的 What 层验证记录：582 测试 0 失败、4 包 tsc 零错误、grep CLEAN），本版作为规划承诺登记（✅ v0.6 收口期完成，2026-09-05；见 §二 v0.6 / §3.1 F-23 行 / §8.1）。
 - **AI 提案 → 待审视池**：§五 P-01~P-11 全部标注「待审视」，v0.8 候选项必须经作者审视会裁决后才可转正。
 - **P-04（serve 代理）特例标注**：README 与 provider.ts 双证据承诺但作者未审视——本 Roadmap 不把它写入 v0.6 承诺，但提示作者在 v0.6 发布说明中显式表态，避免「发布即失信」。
 
@@ -507,3 +527,4 @@ v0.7 archify 借鉴批次（F-15~F-22，作者指令 2026-09-02 转正）──�
 | v1.2.0 | 增量更新：F-13 第一步优先级提升 v0.8 → v0.6（作者指令，2026-08-31）——§3.1 F-13 行 P2→P1、建议版本 v0.6（①）、来源补「作者指令提前至 v0.6」；§二 v0.6 新增 F-13 ① 小节（与收口五件套排布 + 2 周时间表 + 护栏依赖调整）、v0.8 段落移除 F-13 ①、v1.0/v1.1 引用联动；§3.2 F-13 行重评（Effort 4→2 / Impact 5→6 / Confidence 0.6→0.7，RICE 2.3→6.3）与注记更新；§四 F-13 ① 护栏依赖调整（v0.7 先行 → v0.6 内 F-02 兜底 + 手动全量回归 + v0.7 补课）；§六 风险 6/9 应对更新；执行摘要版本总览表/本周优先事项/Top 5 注记/里程碑/资源分析/下一步行动联动 | 2026-08-31 | sddu-roadmap Agent |
 | v1.3.0 | 增量更新：新增 F-14 web-cli-plugin 浏览器插件规划（**作者规划 2026-09-01，非审视池项**）——§3.1 候选清单新增 F-14 行 + 编号规则补注；§3.2 RICE 新增 F-14 行（Reach 5 / Impact 7 / Confidence 0.5 / Effort 5，RICE 3.5，未入 Top 5）+ 版本归属论证注记（v0.7 主题冲突 / v0.8 审视池前提不符 + 开源前半标准重做风险 / v1.1 同线并行论证）；§二 v1.1 主题扩展「开源线 + 生态消费端」、新增 F-14 规划小节（定位 / 隐含协议发现机制 / 依赖 / 与 F-13 ② 排布 / 门槛）、v0.8 段落补「F-14 不入本版」注；执行摘要版本总览表 v1.1 行 + 关键 Milestones v1.1 行联动；§四 依赖图新增 F-14 块 + 技术共享补 F-14 与 F-13 ② 共享开源线生态基建；§六 风险新增 11~14（协议发现标准缺失 / LLM 直接操作网页安全合规 / 跨域与扩展平台限制 / 与开源线节奏耦合）+ 资源需求分析补 F-14 产能说明；文档版本 1.2.0 → 1.3.0 | 2026-09-01 | sddu-roadmap Agent |
 | v1.4.0 | 增量更新：作者指令（2026-09-02）将 `docs/research/archify/lessons-for-lgdl.md` v1.1 借鉴/规避清单**转正**纳入规划（AI 提案 → 作者裁决转正，非审视池项，来源标注「作者指令 2026-09-02 转正，依据 lessons-for-lgdl.md v1.1」；**门禁落位修正**：门禁/收据类按 §2.4 落位引擎开发阶段回归护栏，非用户侧运行时门禁）——§3.1 新增 F-15~F-22 共 8 条（P1-1 几何审计 / P1-2 字号预算 / P1-3 golden 哈希回归 / §4.3+4.5 类型与 per-type 行为矩阵 / P2-5 结构化诊断 / P2-6 原子交付 / P2-4 视觉验收闭环 / P3-7 溯源元数据）+ 编号规则补注 + 「不立 Feature 的项」补 4 条护栏动作（§4.1 / §4.2 文档面 / §4.4 / §4.6）；§3.2 RICE 新增 8 行（最高 F-20 27.0、次高 F-17 19.2，均低于 Top 5 门槛 31.5，**Top 5 不变**）+ 批次注记（转正不虚抬 RICE；v0.7 落位系主题契合 + 作者指令语义权重，同 F-13/F-14 先例）；§二 v0.7 表新增 8 行 + archify 批次排布小节（门禁落位说明、与 F-06/F-11/F-08 载体关系、组 A/组 B 执行顺序、容量复核）；执行摘要版本总览 v0.7 行 + Top 5 注记联动；§四 依赖图新增批次块 + 技术共享补 5 条；§六 风险新增 15~18（v0.7 范围膨胀 / 浏览器基建成本 / 哈希快照维护成本 / 收据脱钩——绑成品 hash 已定）+ 资源需求补批次产能说明；§8.1 增补 archify 借鉴转正行 + §8.3 规划承诺口径联动；头部 v1.4.0 素材增补；文档版本 1.3.0 → 1.4.0 | 2026-09-02 | sddu-roadmap Agent |
+| v1.5.0 | 增量更新：登记已完成 Feature **F-23 web-cli-base 框架化**（specs-tree-web-cli-base-framework；**作者对话 2026-09-05 立项**，bash 类比 + SDDU 全流程完成 validated）——§3.1 候选清单新增 F-23 行（来源「作者对话 2026-09-05 立项 + SDDU 全流程完成（validated）」，优先级 P1 架构演进同 F-13 先例，建议版本「✅ v0.6 收口期完成（2026-09-05）」，影响面四包 base/lgdl-web-cli/lgdl-web-op-cli/lgdl-web，状态 ✅ 已完成）+ 编号规则补注；§二 v0.6 新增 F-23 落地小节（紧随 F-13 ①：作者决策 ①~④ + 五项落地〔router 下沉 / 全局 delay / runner 上收 / 注册收敛 / 场景收敛〕+ 验证记录〔582 测试 0 失败、4 包 tsc、grep CLEAN〕+ 遗留 2 项移交收口 + F-14 下游关联）；执行摘要版本总览 v0.6.0 行联动；§8.1 作者已确认事实表增补 F-23 立项与全流程工程验证行 + §8.3 规划承诺口径联动（作者指令 + 已实施工程验证 What 层，素材甄别规则 2）；头部 v1.5.0 素材增补；文档版本 1.4.0 → 1.5.0 | 2026-09-05 | sddu-roadmap Agent |
