@@ -21,7 +21,7 @@ export const WEB_OP_TOOL: {
     name: 'lgdl-web-op-cli',
     description:
       'Perform a UI operation on the web workbench, equivalent to the user clicking the button manually. ' +
-      'Subcommands: copy-source / toggle-editor / collapse-editor / expand-editor / export-svg / export-png / ' +
+      'Subcommands: copy-source / toggle-editor / collapse-editor / expand-editor / export-svg / export-png / export-source / ' +
       'preview-zoom (--factor, or --direction + --delta, --anchorX, --anchorY) / preview-pan (--dx, --dy) / preview-reset / ' +
       'preview-fullscreen (preview immersive mode: --state on to enter / --state off to exit / no arg toggles; hides editor/AI/statusbar; Esc or click ✕ to exit) / ' +
       'page-fullscreen (full-page browser fullscreen via the Fullscreen API: --state on to enter / --state off to exit / no arg toggles; the whole workbench fills the system screen; Esc exits; layout unchanged) / ' +
