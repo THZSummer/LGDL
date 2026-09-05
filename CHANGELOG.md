@@ -2,6 +2,13 @@
 
 ## 0.6.0 (2026-09-02)
 
+**发布说明（v0.6.0）**
+
+- ⚠️ **本版本不含**（如实标注，AI 提案待审视、未兑现）：
+  - `lgdl-cli serve` 本地代理（README v0.5 §5 与 provider.ts 头注释曾承诺 v0.6 提供——**未实现**，后续版本待作者审视）
+  - 语义 diff / CI 自动渲染 / SSE 流式输出（AI 提案待审视，不在本版本）
+- 📌 语义模型无破坏性变更（error-only 校验、group-as-node 统一、增量协议稳定）
+
 **布局引擎彻底自研：遵循 Sugiyama 框架，零 dagre/elkjs 依赖**
 
 - 🧭 **自研分层布局**（`packages/layout/src/layered.ts`）：遵循 **Sugiyama 框架**（杉山框架，日本学者
@@ -12,19 +19,19 @@
   `config.ts`（原 dagre/elkjs 双引擎切换）与 `types/elkjs.d.ts`
 - 📦 **零第三方依赖**：`packages/layout` 依赖只留 `@lgdl/core`，`package-lock` 清空
   dagre/elkjs/@types/dagre；web 打包时间约 20s → 6s（去掉 1.6MB elkjs wasm）
-- ✅ 验证：全 build 通过，core 314 / render 21 / web 107 全绿；9 种图（TB/LR/含环 state）逐类型无回归
+- ✅ 验证：全 build 通过，core 267 / render 21 / web 107 全绿；9 种图（TB/LR/含环 state）逐类型无回归
 
 **核心模型统一：group 蜕化为特殊 node（group-as-node）**
 
 - 🧩 **模型只有 node + edge**（`packages/core` `types.ts`）：`NodeKind` 加 `'group'`，`LgdlNode` 加
   `contains` 字段；`LgdlDocument.groups` 改为 `kind:'group'` 节点的**派生投影**（下游读 `doc.groups` 不变）
-- 📝 **DSL 双语**（`parser.ts`）：`groups:`（旧语法，转 group 节点）与 `kind:'group' + contains`
-  （新语法）均接受；对输入 `groups:` 原始条目的重复 id/未知字段做 loud reject（数据完整性不丢）
+- 📝 **DSL 语法单源**（`parser.ts`）：分组只接受 `kind:'group' + contains`（新语法，group-as-node）；
+  `groups:` 顶层旧语法**不再接受**——解析即 **loud reject**（unknown document field 报错，不再转 group 节点）
 - 🗺️ **分组感知分层布局**（`packages/layout` `layoutGrouped`，接入 dispatch）：分组框作为"超节点"两层
   布局——组间/组内均用自研分层引擎排（留 RANK_SEP/NODE_SEP 空隙）——**分组框不再重叠/互相穿插**
 - 🔧 **下游适配**：render/ascii/mermaid/status/queries/plantuml/serialize/cli 全部跳过 `kind:'group'` 节点；
   render `nodeIdSet` 剔除 group 节点（修复聚合边被误判为普通边而不绘制的 bug）
-- ✅ 验证：全 build 通过，core 314 / render 21 / web 107 全绿；microservices/architecture/ecommerce-flow
+- ✅ 验证：全 build 通过，core 267 / render 21 / web 107 全绿；microservices/architecture/ecommerce-flow
   分组框干净分离
 - 🌱 注意：此改动在开发分支 `feature/group-as-node`，**main 保持 `de2381e` 未动**（避免影响 github.io 部署）
 
@@ -75,6 +82,15 @@
 - 🧩 **彻底贯彻「group 就是 node」**：add-group/remove-group/update-group 三命令合并进 node 命令——`add-node --kind group --contains a,b` 取代 add-group；`update-node --contains-add/--contains-remove` 取代 update-group 成员操作；lgdl-cli 命令 19 → 16
 - 🗑️ **loud reject**：group 命令移除后报错提示改用 node 命令；LgdlOperation 9 → 6 变体
 - ✅ 验证：测试守恒（core 267 / web-cli 79 / web 35 全绿）；语义模型零改动
+
+**web-cli-base 框架化（F-23，CommandRouter 路由下沉 + 全局 delay）**
+
+- 🧩 **CommandRouter 路由下沉**（`web-cli-base/src/router.ts`）：统一注册/分发——`ToolEntry{name/summary/schema/prefix/executor/help/delayMs/listed}` 单一注册条目；`dispatch` 统一分发（未注册工具名 → 显式 `✖ 未注册工具` 报错，不再静默兜底）；`deriveTools` 派生 LLM 可见 5 工具 schema；`deriveCommand` 文本命令前缀派生；`listHelp/helpFor` 帮助注册即得——路由知识从 lgdl-web 散落 4 处（schema 组装/前缀映射/分发 if-else/help 聚合）下沉 base
+- 🤖 **AgentRunner 上收**（`web-cli-base/src/runner.ts`）：中性 AI-tool-workflow 循环上收 base（turns 维护/单消息多 toolCalls 逐条/toolCallId 回填/失败聚合纠正/LLM 错误重试 1 次/可停止），**零 React 依赖**，8 事件 + 2 hooks 与场景解耦
+- ⏱️ **DelayGate 全局 delay**（`web-cli-base/src/delay.ts`）：CommandRouter 统一分发入口挂「命令间最小间隔」（首个不等待、间隔=max(delayMs,执行耗时)）；base 默认 0 / lgdl-web 场景 600ms（钳制 5000）；`sleep` 条目 `delayMs:0` 免除不叠加；时钟注入 + stats/onDelay 可观测
+- 🔌 **注册收敛**：3 内建自动注册（`web-fetch`/`sleep`/`web-cli-help`，后者 `listed:false`）；`lgdl-web-cli`/`lgdl-web-op-cli` 各 `tool-entry.ts` 整体注册为 1 个 ToolEntry；op-cli `OpHandlerRegistry` 顶层路由角色移交 CommandRouter（降级为执行器内部机制）；`lgdl-web/src/ai/session.ts` 唯一组装点（delayMs=600）
+- 🧹 **lgdl-web 收敛**：`provider` `buildTools` 删除（schema 派生 = `router.deriveTools()`）；AiPanel 四处分发面（toolCallToCommand/五分支/sleep 特判/help 聚合）删除；`help-aggregator`×2 / `lgdl-web.ts` / `lgdl-web.test.ts` 删除
+- ✅ 验证：5 工具统一路由 `[lgdl-web-cli, lgdl-web-op-cli, web-fetch, sleep, web-cli-help]`；全仓 **583 测试全绿**（base 71→73 / lgdl-web-cli 84 / op-cli 15 / lgdl-web 41）；4 包 tsc 零错误；grep 零 LGDL/React 残留
 
 ## 0.5.0 (2026-08-23)
 
