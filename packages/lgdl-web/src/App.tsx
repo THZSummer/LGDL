@@ -16,6 +16,7 @@ import { computeSnap } from './snap';
 import { EXAMPLES, type Example } from './examples';
 import { AiPanel } from './ai/AiPanel';
 import { SettingsPanel } from './ai/SettingsPanel';
+import { createAiSession } from './ai/session';
 import { loadSettings, saveSettings, type ProviderSettings } from './ai/provider';
 import { webOpHelp, createOpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
 import webPkg from '../package.json';
@@ -928,6 +929,9 @@ export function App(): React.JSX.Element {
     setAiSettings(s);
     saveSettings(s);
   }, []);
+  // 会话读取最新 settings/source 用 ref 间接（避免每次变更重建 session/router）
+  const aiSettingsRef = useRef(aiSettings);
+  aiSettingsRef.current = aiSettings;
 
 
 
@@ -979,8 +983,10 @@ export function App(): React.JSX.Element {
   }, [previewImmersive, toggleBrowserFullscreen]);
 
   /**
-   * lgdl-web-op-cli 执行器注册表（F-13 ②：handleWebOp 16 分支 → opRegistry 注入，
-   * ADR-006——包定义协议/分发，本文件注入 React 执行回调）。
+   * lgdl-web-op-cli 执行器注册表（F-13 ②/ADR-006——包定义协议/分发，本文件
+   * 注入 React 执行回调）。D-004 后顶层分发角色移交 CommandRouter：本注册表
+   * 收敛为该工具执行器的内部机制，经 createOpCliToolEntry 注入 session 的
+   * router——消费方（AiPanel）不再直连 opRegistry.execute。
    * 返回操作结果文本（供 AI 反馈）；未知子命令文案由 registry 未注册分支复现。
    */
   const opRegistry = useMemo(() => {
@@ -1118,10 +1124,24 @@ export function App(): React.JSX.Element {
     return reg;
   }, [source, previewImmersive, downloadSvg, downloadPng, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive, toggleBrowserFullscreen]);
 
-  /** lgdl-web-op-cli 分发（AiPanel onWebOp）：经注册表执行，返回结果文本。 */
-  const handleWebOp = useCallback((subcommand: string, args: Record<string, string>): string => {
-    return opRegistry.execute(subcommand, args).output;
-  }, [opRegistry]);
+  /**
+   * AI 会话单一组装点（FR-022/AC-007）：唯一 CommandRouter 实例（base 内建
+   * 自动注册 + lgdl-web-cli/lgdl-web-op-cli 注册 + delay 600ms）+ AgentRunner
+   * 装配。opRegistry（16 handler 注入）经 createOpCliToolEntry 收敛为该工具
+   * 执行器的内部注入（D-004）；getSource 读 sourceRef（最新编辑器源码），
+   * onApply=applyAiSource 写回。opRegistry 依赖 source → 会话随其重建。
+   */
+  const aiSession = useMemo(
+    () =>
+      createAiSession({
+        docId: 'main',
+        getSource: () => sourceRef.current,
+        onApply: applyAiSource,
+        opRegistry,
+        settings: () => aiSettingsRef.current,
+      }),
+    [applyAiSource, opRegistry],
+  );
 
   return (
     <div className={`app${previewImmersive ? ' immersive' : ''}`}>
@@ -1259,7 +1279,7 @@ export function App(): React.JSX.Element {
               </span>
             </div>
             <div className="ai-body">
-              <AiPanel onApply={applyAiSource} onWebOp={handleWebOp} currentSource={source} settings={aiSettings} onSaveSettings={saveAiSettings} />
+              <AiPanel onApply={applyAiSource} session={aiSession} currentSource={source} settings={aiSettings} onSaveSettings={saveAiSettings} />
             </div>
           </section>
         </section>

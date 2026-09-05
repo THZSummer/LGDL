@@ -10,7 +10,8 @@
  *   - lgdlExecutor：createExecutor(lgdlDomain, options) 执行器单例（注入
  *     commandPrefix='lgdl-web-cli'/parseBatch=本包 parseWebCliBatch/
  *     describeSubcommand=describeLgdlSubcommand，ADR-005；无 handleLine——
- *     fetch 行处理器由 web 侧 lgdl-web.ts 注入，ADR-007）
+ *     function-calling 架构下 web-fetch 是 base 独立内建工具，文本管线扩展点
+ *     （exec.ts handleLine）作为 base 中性机制保留给未来文本管线场景）
  *
  * 框架核心（base commands/operations/exec/protocol/help/tools/llm）零领域引用；
  * LGDL 语义收敛于本单点（NFR-004 / R-011）。
@@ -102,14 +103,14 @@ const describeLgdlSubcommand = (
   return `${subcommand} ${Object.values(args).join(' ')}`;
 };
 
-/** LGDL 执行器单例（AiPanel 经 '@lgdl/lgdl-web-cli/lgdl' 消费 executeSubcommand）。 */
+/** LGDL 执行器单例（tool-entry 工具条目 executor 内部消费 executeSubcommand）。 */
 export const lgdlExecutor = createExecutor<LgdlOperation, LgdlDocument>(lgdlDomain, {
   commandPrefix: 'lgdl-web-cli',
   parseBatch: parseWebCliBatch,
   describeSubcommand: describeLgdlSubcommand,
 });
 
-/** 适配单例具名导出（AiPanel 调用点零改动：executeSubcommand 符号名不变）。 */
+/** 适配单例具名导出（工具条目/包内测试消费；executeSubcommand 符号名稳定）。 */
 export const executeSubcommand = lgdlExecutor.executeSubcommand;
 export const executeCommands = lgdlExecutor.executeCommands;
 export const describeCommandLine = lgdlExecutor.describeCommandLine;

@@ -76,17 +76,24 @@ export async function chat(config: LlmConfig, turns: ChatTurn[]): Promise<ChatRe
   }
 
   if (provider.id === 'claude') {
-    const client = new Anthropic({ apiKey: config.apiKey, dangerouslyAllowBrowser: true });
+    const client = new Anthropic({
+      apiKey: config.apiKey,
+      dangerouslyAllowBrowser: true,
+      ...(config.baseURL ? { baseURL: config.baseURL } : {}),
+    });
     try {
+      const toolDefs = config.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
+      }));
       const res = await client.messages.create({
         model: config.model,
         max_tokens: 4096,
         system: turns.find((t) => t.role === 'system')?.content,
-        tools: config.tools.map((t) => ({
-          name: t.name,
-          description: t.description,
-          input_schema: t.parameters as { type: 'object'; properties: Record<string, unknown>; required?: string[] },
-        })),
+        // tools 为空时省略字段（IMP-1）：testConnection 等零 schema 请求不发 `tools: []`，
+        // 规避个别网关对空 tools 数组的兼容问题——与「零 schema 请求」文档意图（R-011）一致
+        ...(toolDefs.length > 0 ? { tools: toolDefs } : {}),
         messages: turns
           .filter((t) => t.role !== 'system')
           .map((t) => {
@@ -144,6 +151,10 @@ export async function chat(config: LlmConfig, turns: ChatTurn[]): Promise<ChatRe
     dangerouslyAllowBrowser: true,
   });
   try {
+    const toolDefs = config.tools.map((t) => ({
+      type: 'function' as const,
+      function: { name: t.name, description: t.description, parameters: t.parameters },
+    }));
     const res = await client.chat.completions.create({
       model: config.model,
       messages: turns.map((t) => {
@@ -167,10 +178,9 @@ export async function chat(config: LlmConfig, turns: ChatTurn[]): Promise<ChatRe
         }
         return { role: t.role === 'system' ? 'system' : (t.role === 'assistant' ? 'assistant' : 'user'), content: t.content };
       }),
-      tools: config.tools.map((t) => ({
-        type: 'function' as const,
-        function: { name: t.name, description: t.description, parameters: t.parameters },
-      })),
+      // tools 为空时省略字段（IMP-1）：testConnection 等零 schema 请求不发 `tools: []`，
+      // 规避个别 OpenAI 兼容网关对空 tools 数组的兼容问题——与「零 schema 请求」意图（R-011）一致
+      ...(toolDefs.length > 0 ? { tools: toolDefs } : {}),
       max_tokens: 4096,
     });
     const msg = res.choices[0]?.message;

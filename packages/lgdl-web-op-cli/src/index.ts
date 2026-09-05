@@ -7,6 +7,7 @@
  */
 export { OP_COMMANDS, OP_SUBCOMMANDS } from './ops.js';
 export { WEB_OP_TOOL } from './tool.js';
+export { createOpCliToolEntry } from './tool-entry.js';
 export { webOpHelp } from './help.js';
 export type { HelpEntry } from './help.js';
 export { parseNextActions } from './next-actions.js';

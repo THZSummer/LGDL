@@ -5,10 +5,10 @@ import { WEB_FETCH_TOOL } from './tools.js';
 import { webFetchHelp } from './help.js';
 
 test('parseWebFetchCommand: parses web-fetch --path', () => {
-  const r = parseWebFetchCommand('web-fetch --path lgdl/web/workbench/README-CLI.md');
-  assert.deepEqual(r, { ok: true, kind: 'fetch', path: 'lgdl/web/workbench/README-CLI.md' });
-  const quoted = parseWebFetchCommand('web-fetch --path "lgdl/web/workbench/README-CLI.md"');
-  assert.deepEqual(quoted, { ok: true, kind: 'fetch', path: 'lgdl/web/workbench/README-CLI.md' });
+  const r = parseWebFetchCommand('web-fetch --path guide.md');
+  assert.deepEqual(r, { ok: true, kind: 'fetch', path: 'guide.md' });
+  const quoted = parseWebFetchCommand('web-fetch --path "guide.md"');
+  assert.deepEqual(quoted, { ok: true, kind: 'fetch', path: 'guide.md' });
   const url = parseWebFetchCommand('web-fetch --path https://example.com/doc.md');
   assert.deepEqual(url, { ok: true, kind: 'fetch', path: 'https://example.com/doc.md' });
 });
@@ -43,7 +43,7 @@ test('executeWebFetch: missing path is an error', async () => {
 
 test('executeWebFetch: un-fetchable path reports failure', async () => {
   // node 环境相对路径无法解析为 URL → 走失败分支
-  const r = await executeWebFetch('lgdl/web/workbench/README-CLI.md');
+  const r = await executeWebFetch('guide.md');
   assert.equal(r.ok, false);
   assert.ok(r.lines.some((l) => l.includes('✖')));
 });

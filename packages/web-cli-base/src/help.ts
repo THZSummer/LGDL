@@ -31,7 +31,7 @@ export function webFetchHelp(): string {
     '参数：',
     '  必填 --path <path>  同源相对路径或完整 URL（无默认值，省略报错）',
     '',
-    '示例：web-fetch --path lgdl/web/workbench/README-CLI.md',
+    '示例：web-fetch --path guide.md',
     '说明：获取资源原文返回给调用方；不改文档。',
   ].join('\n');
 }

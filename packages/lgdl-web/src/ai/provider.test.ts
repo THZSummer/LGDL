@@ -8,7 +8,6 @@ import {
   saveSettings,
   loadProviderSettings,
   saveProviderInputs,
-  buildTools,
   type ProviderSettings,
 } from './provider.js';
 
@@ -186,20 +185,15 @@ test('browserDirect flags: deepseek/qwen/tencent/openai/claude direct, volc bloc
   assert.equal(providerById('volc-plan').browserDirect, false);
 });
 
-test('F-04: buildTools exposes all five tools in stable order', () => {
-  const tools = buildTools();
-  assert.deepEqual(tools.map((t) => t.name), ['lgdl-web-cli', 'lgdl-web-op-cli', 'web-fetch', 'sleep', 'web-cli-help']);
-  for (const t of tools) {
-    assert.ok(t.description, `${t.name} has a description`);
-    assert.ok(t.parameters, `${t.name} has parameters`);
-  }
-});
+// D-005 记录：buildTools 顺序断言（旧 :189-196）已删除——schema 派生顺序契约
+// （[lgdl-web-cli, lgdl-web-op-cli, web-fetch, sleep, web-cli-help]）由
+// base router.test（deriveTools 顺序）+ lgdl-web session.test（派生顺序）承接。
 
 test('F-04: OpenAI-compatible endpoints share the five-tool set (claude parity)', () => {
   const nonClaude = PROVIDERS.filter((p) => p.id !== 'claude');
   assert.equal(nonClaude.length, 7); // openai/deepseek/qwen/tencent/volc/volc-coding/volc-plan
   for (const p of nonClaude) assert.ok(p.baseURL, `${p.id} is OpenAI-compatible`);
-  // 工具集一致由 chat() 统一走 buildTools() 的结构保证（代码审查点：chat 内仅一处组装）
+  // 工具集一致由 session 统一经 router.deriveTools() 供给（单一数据源），chat 不再内建组装
 });
 
 

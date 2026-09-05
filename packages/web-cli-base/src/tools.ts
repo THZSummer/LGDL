@@ -1,10 +1,11 @@
 /**
  * function-calling 工具定义（tools schema，F-13 ② 纯化后）。
  *
- * WEB_CLI_TOOL → web-cli 业务包（LGDL 业务工具随业务包）；
- * WEB_FETCH_TOOL 中性化改名 web-fetch 归位本包（ADR-007，平台级能力）；
- * SLEEP_TOOL（通用时序等待）与 web-fetch 同级，同为本包中性平台工具；
- * WEB_CLI_HELP_TOOL（web-cli-help 顶层工具发现，配合 HelpAggregator 一览机制）。
+ * 本文件仅含 3 个 base 内建中性工具 schema：
+ *   - WEB_FETCH_TOOL（web-fetch：平台级 web 获取，中性名 ADR-007）
+ *   - SLEEP_TOOL（sleep：通用时序等待，与 web-fetch 同级中性平台工具）
+ *   - WEB_CLI_HELP_TOOL（web-cli-help：顶层工具发现，一览/详情由 CommandRouter 派生）
+ * （lgdl-web-cli / lgdl-web-op-cli 业务工具 schema 随各自业务包，见其 tools.ts/tool.ts。）
  */
 
 /** web-fetch function 定义（平台级基础工具，中性名）。 */
@@ -24,7 +25,7 @@ export const WEB_FETCH_TOOL: {
       'Base platform capability, independent of the diagram CLI tools. ' +
       'Arguments go in the args object; args.path is REQUIRED — there is NO default path; ' +
       'omitting it fails with "missing --path". ' +
-      'Example: {"args":{"path":"lgdl/web/workbench/README-CLI.md"}} (read the workbench skill guide).',
+      'Example: {"args":{"path":"guide.md"}} (read a local guide file).',
     parameters: {
       type: 'object',
       properties: {
@@ -35,7 +36,7 @@ export const WEB_FETCH_TOOL: {
             path: {
               type: 'string',
               description:
-                'URL or same-origin relative path to fetch, e.g. "lgdl/web/workbench/README-CLI.md" or "https://example.com/doc.md".',
+                'URL or same-origin relative path to fetch, e.g. "guide.md" or "https://example.com/doc.md".',
             },
           },
           required: ['path'],
@@ -88,7 +89,7 @@ export const WEB_CLI_HELP_TOOL: {
       'Discover the full set of CLI tools and their top-level commands (the tool "catalog"). ' +
       'Call with NO argument to list every available tool (name + one-line purpose); ' +
       "call with an args object {\"tool\":\"<name>\"} to see that tool's detail/help. " +
-      'Example: {"args":{}} → list all tools; {"args":{"tool":"lgdl-web-cli"}} → that tool\'s subcommands.',
+      'Example: {"args":{}} → list all tools; {"args":{"tool":"my-cli"}} → that tool\'s subcommands.',
     parameters: {
       type: 'object',
       properties: {

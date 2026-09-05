@@ -10,14 +10,12 @@
  * WEB_OP_TOOL → @lgdl/lgdl-web-op-cli tool.ts；WEB_FETCH_TOOL → @lgdl/web-cli-base
  * tools.ts（中性化改名 web-fetch）；chat/parseToolArguments/classifyError/
  * ChatTurn/WebCliToolCall/ChatResult → @lgdl/web-cli-base llm.ts（中性化 LlmConfig）；
- * 本文件保留 PROVIDERS / localStorage Key 管理 / testConnection 与三工具注册组装
- * （F-04 修复点 W-D1 不移动），chat 为薄包装（保持 chat(settings, turns) 签名，
- * AiPanel 调用点零改动）。）
+ * 本文件保留 PROVIDERS / localStorage Key 管理 / testConnection（F-04 修复点
+ * W-D1 不移动）；chat 为薄包装——schema 由调用方（session：router.deriveTools()）
+ * 经可选 tools 参数供给（FR-008），不再内建 5 元手写数组（buildTools 已删除）。）
  */
-import { chat as llmChat, WEB_FETCH_TOOL, SLEEP_TOOL, WEB_CLI_HELP_TOOL } from '@lgdl/web-cli-base';
-import type { ChatTurn, WebCliToolCall, ChatResult } from '@lgdl/web-cli-base';
-import { WEB_CLI_TOOL } from '@lgdl/lgdl-web-cli';
-import { WEB_OP_TOOL } from '@lgdl/lgdl-web-op-cli';
+import { chat as llmChat } from '@lgdl/web-cli-base';
+import type { ChatTurn, LlmToolDef, ChatResult } from '@lgdl/web-cli-base';
 
 export type { ChatTurn, WebCliToolCall, ChatResult } from '@lgdl/web-cli-base';
 
@@ -205,11 +203,6 @@ export function providerById(id: ProviderId): ProviderConfig {
   return PROVIDERS.find((p) => p.id === id) ?? PROVIDERS[0];
 }
 
-/**
- * WEB_OP_TOOL / WEB_FETCH_TOOL：F-13 ② 已分别归位
- * @lgdl/lgdl-web-op-cli / @lgdl/web-cli-base，本文件仅组装引用（三工具分发，FR-023）。
- */
-
 export interface TestResult {
   ok: boolean;
   message: string;
@@ -239,58 +232,24 @@ export async function testConnection(settings: ProviderSettings): Promise<TestRe
 }
 
 /**
- * 五工具同构组装——Claude 与 OpenAI 兼容端点共用（F-04：消除双份组装漂移，
- * OpenAI 兼容端点补齐 web-fetch，与 Claude 端点对齐；web-fetch/sleep/web-cli-help
- * 置末，避免 tool_choice 优先序变化——sleep 紧随 web-fetch，同为平台基础工具；
- * web-cli-help 为顶层工具发现入口（HelpAggregator 一览），置于末位不影响业务工具优先序）。
- */
-export function buildTools(): { name: string; description: string; parameters: Record<string, unknown> }[] {
-  return [
-    {
-      name: WEB_CLI_TOOL.function.name,
-      description: WEB_CLI_TOOL.function.description,
-      parameters: WEB_CLI_TOOL.function.parameters,
-    },
-    {
-      name: WEB_OP_TOOL.function.name,
-      description: WEB_OP_TOOL.function.description,
-      parameters: WEB_OP_TOOL.function.parameters,
-    },
-    {
-      name: WEB_FETCH_TOOL.function.name,
-      description: WEB_FETCH_TOOL.function.description,
-      parameters: WEB_FETCH_TOOL.function.parameters,
-    },
-    {
-      name: SLEEP_TOOL.function.name,
-      description: SLEEP_TOOL.function.description,
-      parameters: SLEEP_TOOL.function.parameters,
-    },
-    {
-      name: WEB_CLI_HELP_TOOL.function.name,
-      description: WEB_CLI_HELP_TOOL.function.description,
-      parameters: WEB_CLI_HELP_TOOL.function.parameters,
-    },
-  ];
-}
-
-/**
  * 调用 LLM（非流式，完整返回）——薄包装：构造中性 LlmConfig 调新包 chat。
- * 签名 chat(settings, turns) 保持不变（AiPanel.tsx:390 调用点零改动）。
+ * tools 为可选：由调用方（session：router.deriveTools()）供给 schema（FR-008）；
+ * 缺省不带 tools（testConnection 等零 schema 请求，R-011）。
  * 抛错时 message 已按「key 无效 / 网络不通 / CORS 不允许」归类。
  */
-export async function chat(settings: ProviderSettings, turns: ChatTurn[]): Promise<ChatResult> {
+export async function chat(
+  settings: ProviderSettings,
+  turns: ChatTurn[],
+  tools?: LlmToolDef[],
+): Promise<ChatResult> {
   const provider = providerById(settings.providerId);
-  // 三工具统一组装（F-04：OpenAI 兼容端点补齐 WEB_FETCH_TOOL，与 Claude 端点对齐；
-  // 注册组装留 web，D-011；chat 为薄包装，NG-005 边界内小重构）
-  const tools = buildTools();
   return llmChat(
     {
       apiKey: settings.apiKey,
       model: settings.model,
       baseURL: settings.baseURL,
       provider: { id: provider.id, name: provider.name, baseURL: provider.baseURL },
-      tools,
+      tools: tools ?? [],
     },
     turns,
   );

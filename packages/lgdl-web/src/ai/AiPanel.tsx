@@ -2,12 +2,10 @@
 import React, { useCallback, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { executeSubcommand } from '@lgdl/lgdl-web-cli/lgdl';
-import { executeWebFetch, executeSleep, parseSleepCommand } from '@lgdl/web-cli-base';
-import { chat, PROVIDERS, type ChatTurn, type ProviderSettings, type WebCliToolCall } from './provider';
+import { PROVIDERS, type ProviderSettings } from './provider';
 import { LGDL_SYSTEM_PROMPT } from './prompts';
-import { createWebCliHelpAggregator } from './help-aggregator.js';
 import { parseNextActions, type NextAction } from '@lgdl/lgdl-web-op-cli';
+import type { AiSession } from './session';
 import { SettingsPanel } from './SettingsPanel';
 
 export interface ChatMessage {
@@ -150,25 +148,6 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
 
 let nextId = 1;
 
-/** 把 toolCall 的 args 构造成命令行文本（--key value，值带引号）。 */
-function toolCallToCommand(tc: WebCliToolCall): string {
-  const prefix =
-    tc.name === 'lgdl-web-op-cli'
-      ? 'lgdl-web-op-cli'
-      : tc.name === 'web-fetch'
-        ? 'web-fetch'
-        : tc.name === 'sleep'
-          ? 'sleep'
-          : tc.name === 'web-cli-help'
-            ? 'web-cli-help'
-            : 'lgdl-web-cli';
-  const parts = tc.subcommand ? [`${prefix} ${tc.subcommand}`] : [prefix];
-  for (const [k, v] of Object.entries(tc.args)) {
-    parts.push(`--${k} ${/[\s"]/.test(v) ? `"${v}"` : v}`);
-  }
-  return parts.join(' ');
-}
-
 /**
  * 消息渲染：协议层先行拆分，chat 与 web-cli 明确分流。
  *
@@ -255,18 +234,15 @@ function NextActionsCard({
 
 export function AiPanel({
   onApply,
-  onWebOp,
+  session,
   currentSource = '',
-  docId = 'main',
   settings,
   onSaveSettings,
 }: {
   onApply: ApplySource;
-  /** lgdl-web-op-cli 执行器（UI 操作，返回结果文本给 AI 反馈） */
-  onWebOp: (subcommand: string, args: Record<string, string>) => string;
+  /** AI 会话（App 持有单一组装点：router + 业务工具 + delay 600；本组件注入渲染/交互事件） */
+  session: AiSession;
   currentSource?: string;
-  /** 当前文档 id（web-cli 的 --doc 必填，未来多标签/多文档时扩展） */
-  docId?: string;
   settings: ProviderSettings;
   onSaveSettings: (s: ProviderSettings) => void;
 }) {
@@ -285,8 +261,6 @@ export function AiPanel({
   const idRef = useRef(nextId);
   const currentSourceRef = useRef(currentSource);
   currentSourceRef.current = currentSource;
-  const docIdRef = useRef(docId);
-  docIdRef.current = docId;
   const presetTrackRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -368,164 +342,71 @@ export function AiPanel({
         return;
       }
 
-      // ---- agent 循环：像终端一样逐步执行（轮数上限来自设置，默认 1000，
-      // 防死循环用；正常任务几乎不会触达，真死循环时用户在设置里调小）----
-      const MAX_ROUNDS = settingsRef.current.maxRounds ?? 1000;
-      // 会话消息序列：system + user 指令 + (assistant 回复+toolCalls + tool 结果)...
-      const turns: ChatTurn[] = [
-        { role: 'user', content: message },
-      ];
-      const failCount = { current: 0 };
-      let sourceNow = currentSourceRef.current;
-      // 触发使用指南加载（缓存幂等；step 里 await 保证已就绪）
-      ensureGuideDoc();
+      // 触发使用指南加载（缓存幂等；system() 里 await 保证已就绪）
+      void ensureGuideDoc();
 
-      const step = async (round: number) => {
-        if (round > MAX_ROUNDS) {
-          appendMessage('assistant', `⚠ 已达到 ${MAX_ROUNDS} 轮上限（可在 ⚙ 设置中调整），自动停止。`);
-          setPending(false);
-          return;
-        }
-        // 使用指南已由系统自动加载：随 system 一并提供（战略层知识），
-        // AI 无需（也不应）再调 web-fetch 获取该方法论文档
-        await ensureGuideDoc();
-        const guideDoc = guideDocRef.current;
-        const sysContent = guideDoc
-          ? `${LGDL_SYSTEM_PROMPT}\n\n## 使用指南（系统已自动加载，供参考）\n\n${guideDoc}`
-          : LGDL_SYSTEM_PROMPT;
-        // 组装本轮 LLM 输入：system + 历史；tool 结果保持 tool 角色
-        // （provider.chat 会映射为 OpenAI tool / Claude tool_result）
-        const sys = { role: 'system' as const, content: sysContent };
-        const msgs: ChatTurn[] = turns.filter((t) => t.role !== 'system');
-        try {
-          const res = await chat(s, [sys, ...msgs]);
-          const reply = res.content.trim();
-
-          // web-cli（图操作）+ web-op（UI 操作）+ web-fetch（web 获取）→ 统一执行
-          // （F-13 ② 单列表契约：llm.ts 不再分桶，全部工具调用透传于此按名分发）
-          const allCalls = res.toolCalls;
-          if (allCalls.length > 0) {
-            if (reply) {
-              appendMessage('assistant', reply);
+      // ---- agent 循环已上收 web-cli-base AgentRunner（FR-006/D-003）：
+      // 本组件只注入 system 组装（LGDL_SYSTEM_PROMPT + guideDoc）、渲染事件
+      // （events → appendMessage）与 LGDL 特有处理点（hooks：next-actions 拦截
+      // + onApply 编辑器写回）；工具分发/命令文本/schema 供给全部经 session 的
+      // router（唯一组装点）派生，本组件无 tc.name 分发/前缀/sleep/help 聚合面。
+      const run = session.runAgent({
+        user: message,
+        system: async () => {
+          // 使用指南已由系统自动加载：随 system 一并提供（战略层知识），
+          // AI 无需（也不应）再调 web-fetch 获取该方法论文档
+          await ensureGuideDoc();
+          const guideDoc = guideDocRef.current;
+          return guideDoc
+            ? `${LGDL_SYSTEM_PROMPT}\n\n## 使用指南（系统已自动加载，供参考）\n\n${guideDoc}`
+            : LGDL_SYSTEM_PROMPT;
+        },
+        maxRounds: s.maxRounds ?? 1000,
+        events: {
+          // assistant 新增文本 → chat 消息（markdown）
+          onAssistantText: (t) => appendMessage('assistant', t),
+          // 工具命令文本 → web-cli 命令块消息（已由 runner 自动执行，结果在紧随的 tool 消息里）
+          onCommandLine: (c) => appendMessage('assistant', c, 'web-cli'),
+          // 工具输出 → tool 消息
+          onToolOutput: (o) => appendMessage('tool', o),
+          // 轮次上限（可在 ⚙ 设置中调整）
+          onRoundLimit: (max) => appendMessage('assistant', `⚠ 已达到 ${max} 轮上限（可在 ⚙ 设置中调整），自动停止。`),
+          // 空内容提示
+          onEmptyReply: () => appendMessage('assistant', '⚠ AI 返回了空内容，请重试或换一个模型。'),
+          // LLM 调用失败：首次展示并重试，连续失败提示停止
+          onLLMError: (msg, willRetry) => {
+            appendMessage('assistant', `✖ ${msg}`);
+            if (!willRetry) {
+              appendMessage('assistant', '⚠ LLM 连续调用失败，已停止（可稍后重试或检查 API 设置）。');
             }
-            // 一个 assistant 消息携带全部 toolCalls（OpenAI/Claude 要求
-            // tool 结果紧跟带 tool_calls 的 assistant 消息，中间不能插消息）
-            const toolCallsMeta = allCalls.map((tc) => ({
-              id: tc.id,
-              name: tc.name,
-              arguments: tc.rawArguments,
-            }));
-            turns.push({ role: 'assistant', content: reply, toolCalls: toolCallsMeta });
-
-            let failed = false;
-            for (const tc of allCalls) {
-              const commandLine = toolCallToCommand(tc);
-              appendMessage('assistant', commandLine, 'web-cli');
-              let output: string;
-              if (tc.name === 'lgdl-web-op-cli') {
-                if (tc.subcommand === 'next-actions') {
-                  // 推荐下一步：解析 actions，以胶囊卡片消息放入聊天框（UI 交互，App 不参与）
-                  const actions = parseNextActions(tc.args.actions ?? '');
-                  if (actions.length === 0) {
-                    output = '✖ next-actions 需要 actions 参数（JSON 数组：[{"label":"...","prompt":"..."}]）';
-                    failed = true;
-                  } else {
-                    appendMessage('assistant', '', 'next-actions', actions);
-                    output = `✓ 已展示 ${actions.length} 个推荐动作（点击胶囊即发送）`;
-                  }
-                } else {
-                  // UI 操作（与手动点击等效），由 App 执行
-                  output = onWebOp(tc.subcommand, tc.args);
-                }
-              } else if (tc.name === 'web-fetch') {
-                // 基础 web 获取（独立工具，不改文档）
-                const exec = await executeWebFetch(tc.args.path ?? '');
-                output = exec.lines.join('\n') || '(无输出)';
-                if (!exec.ok) failed = true;
-              } else if (tc.name === 'sleep') {
-                // 通用时序等待原语（独立工具，不改文档）：复用 parseSleepCommand 解析 ms
-                const argMs =
-                  tc.args.ms !== undefined && tc.args.ms !== ''
-                    ? tc.args.ms
-                    : tc.args.seconds
-                      ? String(Number(tc.args.seconds) * 1000)
-                      : '';
-                if (argMs === '') {
-                  // 缺参友好提示（避免拼出 `sleep --ms ` 空值触发"参数 --ms 缺少值"的机器错误）
-                  output = '✖ sleep 需要一个时长参数：sleep --ms <毫秒> 或 --seconds <秒>，如 sleep --ms 5000';
-                  failed = true;
-                } else {
-                  const pc = parseSleepCommand(`sleep --ms ${argMs}`);
-                  if (!pc.ok) {
-                    output = pc.error;
-                    failed = true;
-                  } else if (pc.kind !== 'sleep') {
-                    output = '(无输入)';
-                    failed = true;
-                  } else {
-                    const exec = await executeSleep(pc.ms);
-                    output = exec.lines.join('\n') || '(无输出)';
-                    if (!exec.ok) failed = true;
-                  }
-                }
-              } else if (tc.name === 'web-cli-help') {
-                // 顶层工具发现（HelpAggregator 动态聚合）：无参列出全部工具一览，
-                // 带 tool 输出该工具详情/帮助（工具注册在场景方 help-aggregator）
-                const tool = tc.args.tool ?? '';
-                const agg = createWebCliHelpAggregator();
-                output = tool
-                  ? agg.getTool(tool) ?? `✖ 未知工具 "${tool}"（web-cli-help 列出全部可用工具）`
-                  : agg.listAll();
-                if (!tool) failed = false;
-              } else {
-                // 图内容操作：结构化执行（不走文本解析，无 --doc 要求）
-                const exec = await executeSubcommand(sourceNow, tc.subcommand, tc.args, docIdRef.current);
-                if (exec.changed) {
-                  onApply(exec.source);
-                  sourceNow = exec.source;
-                }
-                output = exec.lines.join('\n') || '(无输出)';
-                if (!exec.ok) failed = true;
+          },
+          // 失败聚合提示（runner 已内部 push 纠正 user turn）
+          onFailAggregate: () => appendMessage('assistant', '部分命令执行失败，请根据上面的错误修正后继续。'),
+          // 本轮结束 → 解除 pending
+          onFinish: () => setPending(false),
+        },
+        hooks: {
+          // lgdl-web-op-cli next-actions → 胶囊卡片消息（UI 交互，App 不参与）
+          intercept: (tc) => {
+            if (tc.name === 'lgdl-web-op-cli' && tc.subcommand === 'next-actions') {
+              const actions = parseNextActions(tc.args.actions ?? '');
+              if (actions.length === 0) {
+                return { ok: false, output: '✖ next-actions 需要 actions 参数（JSON 数组：[{"label":"...","prompt":"..."}]）' };
               }
-              appendMessage('tool', output);
-              // tool 结果反馈（紧跟 assistant tool_calls，含 toolCallId）
-              turns.push({ role: 'tool', content: output, toolCallId: tc.id });
+              appendMessage('assistant', '', 'next-actions', actions);
+              return { ok: true, output: `✓ 已展示 ${actions.length} 个推荐动作（点击胶囊即发送）` };
             }
-            if (failed) {
-              // 失败提示在所有 tool 结果之后（不插在 assistant/tool 之间）
-              appendMessage('assistant', '部分命令执行失败，请根据上面的错误修正后继续。');
-              turns.push({ role: 'user', content: '上一条命令执行失败，请查看错误并修正命令后重试。' });
-            }
-            await step(round + 1);
-            return;
-          }
-
-          // 无 tool_calls：chat 表达
-          if (reply) {
-            appendMessage('assistant', reply);
-            turns.push({ role: 'assistant', content: reply });
-          } else {
-            appendMessage('assistant', '⚠ AI 返回了空内容，请重试或换一个模型。');
-          }
-          setPending(false);
-        } catch (err) {
-          // LLM 调用失败（网络/API 错误）：展示并反馈给 AI 重试一次，连续失败则停
-          const msg = (err as Error).message;
-          appendMessage('assistant', `✖ ${msg}`);
-          if (failCount.current >= 1) {
-            appendMessage('assistant', '⚠ LLM 连续调用失败，已停止（可稍后重试或检查 API 设置）。');
-            setPending(false);
-            return;
-          }
-          failCount.current += 1;
-          turns.push({ role: 'user', content: `上一步调用出错：${msg}。请修正后重试（如果问题与图无关请直接总结收尾）。` });
-          await step(round + 1);
-        }
-      };
-
-      step(1);
+            return null;
+          },
+          // 文档变更类工具完成 → 写回编辑器（session 内部已推进 run-local source）
+          onToolDone: (_tc, result) => {
+            if (result.changed && typeof result.source === 'string') onApply(result.source);
+          },
+        },
+      });
+      void run.run();
     },
-    [input, pending, appendMessage, onApply, onWebOp, ensureGuideDoc],
+    [input, pending, appendMessage, onApply, session, ensureGuideDoc],
   );
 
   /** 点击预置提示词胶囊：把指令（含当前源码上下文）直接发给 AI。 */

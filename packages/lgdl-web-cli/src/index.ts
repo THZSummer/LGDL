@@ -24,6 +24,7 @@ export type { CommandSpec, KindResolver } from './commands.js';
 export { describeOperation, lgdlDispatch } from './operations.js';
 export type { OperationMutations } from './operations.js';
 export { WEB_CLI_TOOL } from './tools.js';
+export { createLgdlWebCliTool } from './tool-entry.js';
 export { parseWebCliCommand, parseWebCliBatch } from './protocol.js';
 export { webCliHelp } from './help.js';
 export type { LgdlOperation } from '@lgdl/lgdl-core';
