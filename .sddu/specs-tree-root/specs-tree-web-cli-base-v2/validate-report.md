@@ -6,22 +6,22 @@
 > **创建人**: SDDU Validate Agent
 > **创建时间**: 2026-09-06
 > **验证轮次**: R1
-> **版本**: v1.0
+> **版本**: v1.1
 > **更新人**: SDDU Validate Agent
 > **更新时间**: 2026-09-06
-> **更新说明**: 初始创建 — 依据 validate.md V1~V17 场景矩阵逐项真实执行（全仓测试 / 4 包 tsc / vite build / 自主脚本 6 个 / grep 门禁 / headless chromium 冒烟），记录实测数据与证据；Review 改进 IMP-1/2/3/5 前置处理 + 动态验证（IMP-4 记遗留 + V15 发现 DB 名中性化顺手修复）；结论 ⚠️ 有条件通过（全部门禁指标达标；真实浏览器面 2 项移交收口人工清单）
+> **更新说明**: v1.1 — V13 真实浏览器冒烟补跑（chromium headless + CDP 自动化实跑九项，见 §3 V13 行与 §5 脚本表）：①IDB/OPFS 真持久 ②session/goal/jobs 跨页恢复 + interrupted ③Notification/clipboard 授权（CDP grant）④dom-* 真实宿主 DOM ⑤eval 真实 worker（js + wasm + untrusted）⑥ask UI 等效弹层交互 ⑦web-search 未配置禁用态 ⑧多标签共享读 + 写冲突 ⑨secure context 全部实跑通过；**补发现并修复 1 项真实浏览器缺陷**（platform.ts clipboardSeam 解构方法丢 this → Illegal invocation，node 面未暴露）；遗留收敛为 3 项人工（真实 AI 闭环需 API Key / lgdl-web React AskDialog·SettingsPanel 集成手测 / 真实系统通知展示）
 
 ## 1. 验证概要
 
 | 维度 | 数值 |
 |------|:--:|
 | 验证项总数 | 17（V1~V17） |
-| 通过 | 15（V1~V3 / V5~V12 全绿、V14 EC 核对、V15 grep、V16 性能、V17 机械面） |
-| 部分通过（含 ⏭️ 移交面） | 2（V4 F-23 真实闭环补跑 ⏭️ 移交人工清单；V13 真实浏览器冒烟 —— headless 基础加载 ✅ + 真 IDB/授权/worker/多标签 ⏭️ 移交人工清单） |
+| 通过 | 16（V1~V3 / V5~V12 全绿、V13 真实浏览器冒烟 8 组实跑通过、V14 EC 核对、V15 grep、V16 性能、V17 机械面） |
+| 部分通过（含 ⏭️ 移交面） | 1（V4 F-23 真实 AI 闭环补跑 ⏭️ 移交人工清单 —— 需浏览器交互 + 厂商 API Key） |
 | 失败 | 0 |
 | 阻塞问题 | 0 |
-| Review 改进处理 | IMP-1 ✅ 修复 / IMP-2 ✅ 修复 / IMP-3 ✅ 修复 / IMP-5 ✅ 修复 / IMP-4 ⏭️ 遗留（附实现建议）；validate 额外顺手修复 1 项（storage-idb DB 名 LGDL 前缀中性化，NFR-001） |
-| 验证脚本 | 6 个（ADR-003，/tmp/sddu-validate-specs-tree-web-cli-base-v2-20260906/），共 37 断言全过 |
+| Review 改进处理 | IMP-1 ✅ 修复 / IMP-2 ✅ 修复 / IMP-3 ✅ 修复 / IMP-5 ✅ 修复 / IMP-4 ⏭️ 遗留（附实现建议）；validate 额外顺手修复 2 项（storage-idb DB 名 LGDL 前缀中性化 NFR-001 / platform.ts clipboardSeam Illegal invocation 真实浏览器缺陷 FR-009） |
+| 验证脚本 | 7 个 + 宿主页 2 个（ADR-003，/tmp/sddu-validate-specs-tree-web-cli-base-v2-20260906/），断言全过 |
 
 ## 2. Review 改进项前置处理（IMP-1~5 + validate 发现项）
 
@@ -35,6 +35,7 @@
 | IMP-4 | dom 工具级 risk:'ui' 覆盖 read-state/snapshot 只读子命令（AI 流畅度损耗，C29） | 低 | ⏭️ **遗留**（非低成本缺陷修复）：按子命令分级需 ①base permission 规则支持 subcommand 维度匹配 或 ②场景注入按 subcommand 裁决的 dsh 策略对象 —— 均触及权限模型/场景安全策略的产品级决策，validate 阶段不改安全默认取向（保守 deny/ask 优先符合 spec FR-006「最终矩阵场景可覆盖」）。**实现建议**（后续处理）：App.tsx aiPolicy 增 `strategies`：read-state/snapshot 子命令返回 allow、其余走规则集（permission.ts:208-294 策略对象先于/后于规则集按 EC-014 语义裁决）。影响面：仅 lgdl-web 场景 AI 流畅度，非安全错误 |
 | IMP-5 | exec-remote/worker-session 远程执行结果未带 untrusted 标记（C33/C17） | 低（P2 未注册） | ✅ **修复**：exec-remote 成功路径补 `trust: { source:'exec-remote://<cmd>', fetchedAt, level:'untrusted' }`（FR-010 列「远程执行结果」）；p2-exec.test 增 trust 断言。worker-session **显式差异声明**：其输出为可信代码（worker 会话内执行，同 eval-js trusted 计算面）非网络/外部来源，不适用 untrusted——记录于 help 边界（无 trust 元数据为声明项，非缺陷） |
 | V15-发现 | storage-idb.ts 缺省 IndexedDB 库名 `'lgdl-web-cli-base'` 含 LGDL 前缀（base 中性纯度 NFR-001/AC-010 轻度偏差） | 低 | ✅ **顺手修复**：缺省 dbName `'lgdl-web-cli-base'` → `'web-cli-base'`（v2 未发布无存量迁移顾虑；App.tsx 无参调用自动跟随）。base 205 pass + tsc 零错误 |
+| V13-发现 | platform.ts clipboardSeam 解构 `navigator.clipboard.writeText/readText` 丢 this 绑定 → 真实浏览器调用抛 `Illegal invocation`（FR-009 授权/可用性转译链下：工具报错而非可用；node 面 fake 未暴露，V13 真实浏览器 clipboard 实跑首轮捕获） | 低（真实浏览器面） | ✅ **顺手修复**：改为成员调用 `clip.readText()/clip.writeText(text)`（保 this 绑定）。修复后 V13 clipboard write→read **roundtrip-ok**；base 205 pass + tsc 零错误零回归 |
 
 ## 3. 逐项验证结果（V1~V17）
 
@@ -52,13 +53,13 @@
 | V10 | FR-022~028/EC-003/009 DOM+EXE 执行计算域 | dom-tools 7 + p2-web-tools 7 + p2-exec 5 + eval-tools 10 | 逐子命令/间谍拦截/转译/状态跨调用/沙箱 | dom-tools 7 例（read-state/click/hover 等子命令 + 写操作 deny 策略拦截 ops 未被调用间谍断言 + 无 op-cli React handler 依赖经 env.dom 注入）；ask-user 三型契约（session.test bindAskUser + ask-user.test）；notify/clipboard 授权三路（granted/denied/unsupported + NotAllowedError 转译，p2-web-tools 7 例）；eval-tools 10 例（js 纯计算 + 副作用拦截 + untrusted 拒 + **wasm 实例化/调用 + untrusted 拒（IMP-1 新增）** + worker 桩全链）；exec-remote 未配置禁用 + 代理声明 + trust（p2-exec 5 例）；worker-session 状态跨调用 + 崩溃重建（EC-009）+ 无 PTY 声明 | ✅ |
 | V11 | FR-029~035/EC-008/013/015/AC-006 TSK+SES 任务/会话域（跨会话/IDB/Worker 生命周期） | task-state.test 16 例真实执行 | todo/goal/jobs/session/context 全生命周期 + 冲突/interrupted | task-state.test 16 例全绿：todo 随会话 CRUD + 恢复清单仍在；goal 持久→重开可查 + 双实例并发写冲突标记（EC-013）+ rev 冲突；jobs submit→jobId 即时返回（EC-015 delayMs:0）+ status/result/log/cancel/retry + interrupted→可查可重试（EC-008）+ 终态不被覆盖；subagent 嵌套 runner 委派回收 + 失败 ok:false 主会话不中断（EC-009）+ 白名单；session 持久→恢复 turns 等价 + 冲突标记；context 压缩后体量下降 + 原始存档可检索 + context-compact 审计 | ✅ |
 | V12 | FR-036~042/EC-012/AC-007/012 EXT+LGDL 扩展/接入面 | mcp-client 5 + skill-loader 段 + session.test 15 + provider.test 17 | 加载/门禁/试点全链/key 零泄露/矩阵 | mcp-client 5 例（initialize/tools/list/call 全链 mock HTTP + EC-012 端点不可达该源降级其余不受影响 + allowed-tools 过滤 + 审计 source）；skill-loader 3 例（frontmatter 解析/提示注入/越权注册被拒）；session.test 15 例（矩阵派生顺序 FULL_NAMES 21 工具 + ask 桥三路 + web-search 条件开/关 EC-006 + P1 域工具可达 + todo 落 session store + eval-js/subagent 禁用态 + bindPermissionAsk/AskUser）；provider.test 17 例（webSearch BYOK 读写 + 旧键零回归）；key 零泄漏：grep apiKey 仅 provider.ts/SettingsPanel 存储与输入，无 schema/help/log | ✅ |
-| V13 | FR-045/AC-006/NFR-006/008 真实浏览器冒烟面 | lgdl-web vite preview + headless chromium dump-dom；IDB/授权/worker/多标签人工清单 | 页面真实渲染 + 浏览器面逐项记录 | **基础加载冒烟 ✅**：preview HTTP 200 + chromium headless 渲染成功（DOM 含 app-header/ai-panel/editor-pane/pane-actions 等真实 UI 结构，React 挂载无崩溃）；**真实验证 ⏭️ 移交人工清单**：真 IDB/OPFS 刷新持久、Notification/clipboard 授权两路、dom-* 真 DOM 交互、eval 真 worker、ask 弹层手测、web-search 配 key 真实端点、多标签冲突（chromium headless 非交互无法覆盖；node 注入桩面 V8~V12 已全绿承接逻辑） | ⚠️ 部分（基础面 ✅ / 真实验证 ⏭️） |
+| V13 | FR-045/AC-006/NFR-006/008 真实浏览器冒烟面（validate.md 组 E 九项） | 自主实跑：自建同源宿主页（v13site/index.html + harness.mjs import base dist 真实模块）+ chromium headless（`.pw-browsers/chromium-1234`）+ CDP 驱动（v13-cdp.mjs：多 target/权限授予/点击编排）；九项逐项断言 | 九项各自真实行为与 spec 语义一致 | **8 组全部实跑通过**（详见下方九项明细）：① IDB/OPFS 真持久 write(rev1)→跨页 read 回读 `v13-ida` 一致 + OPFS 写 rev1 ✅；② session turns 跨页恢复等价 + goal 跨会话可查 + jobs interrupted 落库可查（`markJobsInterrupted` 等效 beforeunload）✅；③ Notification **CDP grant 后 granted + show ok**、clipboard **write→read roundtrip-ok**（修复 Illegal invocation 后）✅；④ dom-* 真实宿主 DOM：read-state 输出 url/title、click `#v13-btn` → `#v13-out` 变 `CLICKED-BY-DOM-TOOL`、snapshot 含 marker ✅；⑤ eval **真实 Worker**（blob 协议执行器）：`2**10`→`1024`、字符串拼接→`v13-worker`、`document.title` 访问被结构性收窄（worker 无 DOM 面 blocked）、untrusted 默认拒（EC-007）、**eval-wasm 真实 worker 内 WebAssembly.instantiate**（最小合法空模块 → exports 枚举 ok）✅；⑥ ask UI：policy ask 命中 → 场景等效 DOM 弹层出现 → 点击 Allow → storage 写入成功（`✓ 已写入 "ask/ok.txt"`）✅；⑦ web-search 无 key 环境 → **未配置禁用态 + 配置指引**实测（真实端点 ⏭️ 需 key）；⑧ **多标签**（两 target 同时同 origin）：tabA 建 goal-2 → tabB 共享读可见 + stale `expectedRev:0` → `conflict:true`（EC-013「期望 rev=0 实际=1」）+ last-write 更新成功 ✅；⑨ secure context：`isSecureContext:true`（localhost）+ `navigator.storage.estimate` 真实配额（usage 74045 / quota 4295041341）✅ | ✅（8 组实跑通过；⑦ 真实端点 ⏭️ 需 key） |
 | V14 | EC-001~015 全量验收映射交叉核对 | grep 15 项 EC 在 base/lgdl-web 测试的断言锚点 + validate.md §4.3 映射对照 | 15 EC 每项 ≥1 承接场景 | **15/15 承接成立**：EC-001 router / EC-002 permission+router+session / EC-003 platform+dom+p2-web / EC-004 storage-tools+router / EC-005 delay+router+storage-tools / EC-006 web-search+p2-exec+session+assembly / EC-007 eval-tools / EC-008 task-state / EC-009 task-state+p2-exec+delay+router / EC-010 router / EC-011 search+web-fetch+sleep / EC-012 mcp-client+router+runner / EC-013 task-state+storage-tools / EC-014 permission / EC-015 task-state —— 无未承接项 | ✅ |
 | V15 | NG-001~009/AC-003/010/NFR-001/002/010 生态位纪律「不做」边界 grep | 自主脚本 v15（生产面精确 grep 15 项） | 全 CLEAN（注释/边界声明为允许面） | **15/15 通过**：OS 工具名注册形态零命中；child_process/node:fs/net/dgram 生产零引用；stdio 仅注释声明；base 零 @lgdl/react import、零 .tsx；lgdl 业务名生产引用零（dom help NG-002 边界文案/exec 中性契约注释/tools 注释 = 允许面记录）；PermissionGate 引用仅 router/permission/index；AskDialog/React 组件标识符零（permission.ts:102 注释为允许面）；dom 同源/exec-remote 代理/eval 非 OS 沙箱/mcp stdio 不可承载/jobs 无常驻 5 组边界声明齐备；依赖零新增（@anthropic-ai/sdk,openai 仅既有）；**顺手修复**：storage-idb 库名 `lgdl-web-cli-base`→`web-cli-base` 中性化（NFR-001） | ✅ |
 | V16 | NFR-004/005/AC-011 schema 预算/性能/单一数据源 | 自主脚本 v16（真实 base dist）6 断言 | 千级派生受控/切片体积/零开销/四链 | **6/6 通过**：deriveTools(1000 条目) 实测 **1.8ms**（<500ms 阈值，同步索引）；分组切片体积精确（alpha 30/beta 20）；命名空间切片 + setNamespaceOrder 次序生效；enabledTools 白名单收缩派生 + dispatch ✖ 已禁用（EC-001）；**无 policy dispatch 实测 0.2ms 零开销**（gate 不装 NFR-005）；注册一处 → schema/help/dispatch/前缀四链可见（NFR-004） | ✅ |
 | V17 | FR-046/AC-007/008 v2 叠加行为等价/声明改进（机械面） | 自主脚本 v17：真实 createAiSession（dist-test 编译产物）runAgent + 本地 mock OpenAI 兼容端点 3 场景 | 闭环事件流 + wire v2 schema + ask allow/deny 自愈 | **3/3 通过**：A) v2 矩阵工具 doc-read（文档态 FR-044）runAgent 闭环——事件 cmd→tool→finish、tool 输出含图文档内容、**wire tools=20**（>F-23 5 工具证明矩阵生效）、第 2 轮 tool 结果按 toolCallId 回填；B) ask 命中（pattern storage）→ onAsk allow 恰 1 次 → 工具放行会话继续；C) ask deny →「权限被拒」回填 + AI 自愈（纠正轮继续）+ onFinish 必达（EC-002/FR-007）；**⏭️ 子面**：真实 LLM（浏览器 + API Key + 消息流人工对比）移交收口（同 V4） | ✅（机械面）/ ⏭️（真实面移交） |
 
-> **⏭️ 标注说明**：V4/V13/V17 真实浏览器面（F-23 AC-008 真实 AI 闭环补跑、真 IDB/OPFS 刷新持久、Notification/clipboard 授权两路、dom-* 真 DOM 交互、eval 真 worker、ask UI 弹层手测、web-search 真实端点、多标签冲突）需真实浏览器交互 + 厂商 API Key + 用户手势授权——本环境仅有 headless chromium（非交互），机械面/注入桩面已由 V5~V12/V16/V17 承接，真实面按 F-23 validate-report 同口径移交收口人工清单（步骤见 §6）。
+> **⏭️ 标注说明（V13 补跑后收敛）**：V13 真实浏览器冒烟八组已自动化实跑通过（chromium headless + CDP，见本行）；仍移交人工的浏览器面：① **V4/F-23 AC-008 真实 AI 闭环补跑**（需浏览器 + 厂商 API Key + 消息流人工对比）② V13 第⑦项 **web-search 真实端点**（需配置 key 的搜索服务）③ **lgdl-web React 集成面手测**（AskDialog/SettingsPanel 弹层呈现、会话恢复入口 chip、真实系统通知展示 —— ⑥ 已验证 base ask 契约 + 场景等效弹层交互，React 组件渲染层需人工点验）④ headless 无法覆盖的**用户手势授权真实弹窗**（浏览器原生权限 UI）。其余（真 IDB/OPFS/dom/worker/多标签/授权行为/secure context）已由 V13 实跑闭环。
 
 ## 4. 验证详细信息
 
@@ -92,7 +93,7 @@
 | NFR-003 | 安全基线 | V7 + V15（旁路 grep 零 + 审计面） | ✅ | 已覆盖 |
 | NFR-004 | 单一数据源 | V16（四链可见） | ✅ | 已覆盖 |
 | NFR-005 | 性能/上下文预算 | V16（千级派生 1.8ms / 分组切片 / 零开销 0.2ms）+ V9（截断） | ✅ | 已覆盖 |
-| NFR-006 | 双轨测试门禁 | V1（724 pass 基线守恒）+ V13（headless 冒烟）+ 专项清单 | ✅（真实验证面 ⏭️） | 已覆盖 |
+| NFR-006 | 双轨测试门禁 | V1（724 pass 基线守恒）+ V13（真实浏览器八组实跑 v1.1）+ 专项清单 | ✅ | 已覆盖 |
 | NFR-007 | 类型与构建完整性 | V2（4 包 tsc + vite + base 独立） | ✅ | 已覆盖 |
 | NFR-008 | 浏览器兼容/安全上下文 | V13 + V15（CSP/connect-src 约束文档化于 eval/mcp help） | ✅（Chromium 加载面；Firefox 声明待 P-04） | 已覆盖 |
 | NFR-009 | 可观测性 | V7（audit 四类）+ V11（context-compact 审计） | ✅ | 已覆盖 |
@@ -100,7 +101,7 @@
 
 **边界情况（EC）— 15/15（V14 交叉核对 + 专项断言）**：EC-001~015 每项测试锚点齐备，与 validate.md §4.3 承接映射一致，无未承接项（详见 V14 实测）。
 
-**总体验收（AC）— 12/12 承接**：AC-001（V2/V15）/ AC-002（V8~V12 九域）/ AC-003（V15）/ AC-004（V6/V7/V17B/C）/ AC-005（V5/V3）/ AC-006（V11 全链 + V13 ⏭️ 真实验证）/ AC-007（V12 + V17 机械面）/ AC-008（V17 机械面 + V4 ⏭️ 补跑）/ AC-009（V1/V2）/ AC-010（V15）/ AC-011（V16）/ AC-012（V12 skill+MCP 全链）——真实浏览器面 2 项（AC-006 真持久/AC-008 真实闭环）移交收口。
+**总体验收（AC）— 12/12 承接**：AC-001（V2/V15）/ AC-002（V8~V12 九域）/ AC-003（V15）/ AC-004（V6/V7/V17B/C + V13⑥ ask 实跑）/ AC-005（V5/V3）/ AC-006（V11 全链 + **V13①/②/⑧ 真实浏览器持久·恢复·多标签实跑**）/ AC-007（V12 + V17 机械面 + V13⑥/⑦）/ AC-008（V17 机械面 + V4 ⏭️ 补跑需 API Key）/ AC-009（V1/V2）/ AC-010（V15）/ AC-011（V16）/ AC-012（V12 skill+MCP 全链）——真实 AI 闭环 1 项（AC-008 真实 LLM）移交收口。
 
 ### 4.2 接口数据
 
@@ -129,6 +130,7 @@
 | `npm run build --workspace @lgdl/web-cli-base`（tsc→dist，IMP 修复 + DB 名修复后重建） | 0 | dist 更新（下游 lgdl-web 消费） | ✅ |
 | `npm run build --workspace @lgdl/lgdl-web`（vite） | 0 | ✓ built in 9.79s（chunk 体积为既有提示非错误） | ✅ |
 | lgdl-web vite preview + headless chromium | 0 | HTTP 200 + React UI 真实渲染（app-header/ai-panel/editor-pane） | ✅ |
+| V13 CDP 实跑（chromium headless + 自建宿主页） | 0 | 九项冒烟 8 组通过（详见 V13 行 + 脚本表） | ✅ |
 
 ### 4.4 性能边界
 
@@ -150,6 +152,7 @@
 | 规格漂移（spec 被修改） | spec.md 内容核对（validate 阶段未修改） | ✅ 无 |
 | OS 生态位越界 | V15 grep 15 项（工具名/子进程/fs/socket/stdio/PTY 零命中） | ✅ 无 |
 | 中性纯度越界 | V15（@lgdl/react import 零/.tsx 零）+ **storage-idb DB 名中性化修复** | ✅ 无（修复 1 项） |
+| 浏览器面可用性缺陷 | V13 实跑（platform clipboardSeam 解构丢 this → Illegal invocation） | ✅ 已修复（成员调用；roundtrip-ok，修复 1 项） |
 | 策略旁路 | V15（PermissionGate 引用仅 router/permission/index） | ✅ 无 |
 | 场景/UI 上收 | V15（base 无 AskDialog/React 组件） | ✅ 无 |
 | 依赖越界 | V15（零新增运行时依赖） | ✅ 无 |
@@ -166,7 +169,9 @@
 | v17-mech-closed-loop.mjs | lgdl-web 真实 createAiSession.runAgent + mock LLM 端点 3 场景（矩阵闭环 wire tools=20 / ask allow / ask deny 自愈） | V17 | 0 | pass=3 fail=0（场景 A/B/C 全过） |
 | v15-ecodiscipline-grep.mjs | 生态位纪律「不做」边界 + 中性纯度 grep 门禁（15 项生产面精确检查 + 允许面人工裁决） | V15 | 0 | pass=15 fail=0 |
 | diag-llm.mjs / diag-llm2.mjs | 诊断脚本（定位 runAgent LLM 调用契约——system 为函数/outcome 枚举），非断言脚本，供 v17 修正依据 | V17 辅助 | 0 | 定位 runner system 函数契约与 RunOutcome 枚举 |
-| （EC 核验 + headless 冒烟） | V14 EC-001~15 测试锚点 grep；V13 vite preview + chromium dump-dom | V14/V13 | 0 | EC 15/15 承接；UI 渲染 DOM 结构命中 |
+| （EC 核验 + headless 冒烟） | V14 EC-001~15 测试锚点 grep；V13 vite preview + chromium dump-dom（基础加载冒烟，v1.0） | V14/V13 | 0 | EC 15/15 承接；UI 渲染 DOM 结构命中 |
+| v13-cdp.mjs（V13 补跑 v1.1） | chromium headless + CDP 多 target 驱动：静态伺服 dist/harness → 权限授予（notifications/clipboardReadWrite）→ 页 1 write phase（IDB/OPFS/session/goal/jobs 落库 + goal-2 创建）→ 页 2 readback/interact/eval/ask/web-search/multi-tab conflict → 逐项断言汇总 | V13 | 0 | 8 组判定全 ✅（证据见 V13 行）；首轮捕获 platform clipboardSeam Illegal invocation → 修复后 roundtrip-ok |
+| v13site/harness.mjs + index.html（V13 补跑宿主） | 浏览器端逻辑（import base dist 真实模块：createIdbStorage/createOpfsStorage/createSessionStore/createGoalStore/JobStore·markJobsInterrupted/browserEnv/dom/eval(blob Worker)/storage-tool/router/web-search）+ 测试 DOM（#v13-btn/#v13-out/#v13-ask-wrap 等效 ask UI） | V13 | 0 | 真实浏览器环境执行载体（Worker/IndexedDB/OPFS/Notification/clipboard 全真实） |
 
 > 脚本迭代说明：v17 首轮 2 次断言失败均因**脚本自身**对 runner 契约理解偏差（system 为函数非字符串、RunOutcome 枚举为 'completed' 非 'ok'），经 diag 脚本定位后修正——非产品缺陷；修正后 3/3。v16 f 项首轮因单工具 listHelp 不分节（≥2 组才分节）断言过严，补注册第二组工具后 6/6——非产品缺陷。
 
@@ -178,7 +183,7 @@
 
 ## 7. 结论
 
-**结论**: ⚠️ 有条件通过（全部可执行门禁指标达标；真实浏览器面 2 项 + IMP-4 遗留移交收口）
+**结论**: ⚠️ 有条件通过（全部可执行门禁指标达标，含 V13 真实浏览器八组实跑；AC-008 真实 AI 闭环 + lgdl-web React 集成手测 + IMP-4 遗留移交收口）
 
 **指标达标矩阵**：
 
@@ -189,7 +194,7 @@
 | EC 覆盖 | 15/15 有承接 | 15/15（V14 交叉核对） | ✅ |
 | 构建退出码 | 0 | 0（tsc ×4 + vite + base 独立 + 全仓 test） | ✅ |
 | 阻塞问题数 | 0 | 0 | ✅ |
-| 漂移项 | 0（严重） | 0（grep 15/15；DB 名中性化顺手修复 1 项；允许面记录） | ✅ |
+| 漂移项 | 0（严重） | 0（grep 15/15；顺手修复 2 项：storage-idb DB 名中性化 + platform clipboard Illegal invocation；允许面记录） | ✅ |
 | Review 改进 | IMP-1/2 强制修复 | IMP-1/2/3/5 修复 + 回归全绿（base 205/lgdl-web 51）；IMP-4 遗留 | ✅（IMP-4 遗留非阻塞） |
 
 **理由**：
@@ -199,17 +204,20 @@
 - **权限门禁端到端**：裁决矩阵/间谍断言/ask 三路 + 超时 deny/EC-014 deny 优先/allowed-tools/untrusted/审计四类 + 无旁路 grep——真实 createAiSession.runAgent 机械闭环 3 场景（wire tools=20、ask allow 放行、deny 自愈 + onFinish 必达）（V6/V7/V17）。
 - **性能/预算**：千级派生 1.8ms、无 policy 零开销 0.2ms、分组/启用集体积收缩可控、截断护栏生效（V16）。
 - **生态位纪律**：grep 15/15——OS 工具形态/子进程/fs/socket/stdio/PTY 生产零命中、base 零 LGDL/react 依赖、无 UI 上收、边界声明 5 组齐备；**顺手修复 storage-idb DB 名中性化**（V15）。
+- **真实浏览器冒烟（V13 补跑）**：chromium headless + CDP 实跑 validate.md 组 E——真 IDB/OPFS 跨页持久、session/goal/jobs 恢复 + interrupted、Notification（CDP grant）/clipboard（roundtrip）授权、dom-* 真实 DOM 操作、eval 真实 Worker（js 纯计算 1024 + 结构性无 DOM 面 + untrusted 拒 + wasm 实例化）、ask 等效弹层交互、web-search 未配置禁用态、多标签共享读 + EC-013 冲突标记、secure context/真实配额——八组全通过；**顺手修复 platform clipboardSeam Illegal invocation**（node 面未暴露的真实浏览器缺陷，FR-009 可用性）。
 - **Review 改进**：IMP-1（eval-wasm untrusted 闸门 + 新增用例）、IMP-2（lgdl-web IDB 载体注入 + fallback）、IMP-3（audit ask 死类型移除）、IMP-5（exec-remote trust 标记）已处理且门禁不破；IMP-4 记录遗留（附实现建议，非安全缺陷）。
 
 **遗留（非阻塞，移交整体收口人工清单）**：
 1. **V4/F-23 AC-008 真实 AI 闭环补跑（FR-045 前置人工基线）+ V17 真实 LLM 面**：需浏览器 UI + 厂商 API Key 凭证。步骤：浏览器打开 lgdl-web → ⚙ 配置 Provider（BYOK）→ 依次验证 ① F-23 原 5 工具路径（lgdl-web-cli/op-cli/web-fetch/sleep/help）消息流基线 ② v2 叠加路径（storage 写读/dom-* 写经 ask/session 恢复入口/web-search 配 key 后）③ testConnection 真实端点 ④ 记录与 V17 机械面事件序一致 → 结果记回 validate-report（R2）或收口记录。
-2. **V13 真实浏览器交互面**：真 IDB/OPFS 刷新持久（storage write → 刷新 → read 回读；session/goal/jobs 跨刷新恢复）、Notification/clipboard 授权两路、dom-* 真 DOM 交互、eval 真 worker、AskDialog 弹层手测、web-search 真实端点、多标签 goal/session 写冲突标记——headless 非交互无法覆盖，需人工浏览器操作（chromium 现行版，P-04 Firefox 声明兼容待裁）。
-3. **IMP-4**：dom 只读子命令（read-state/snapshot）与写子命令的 risk 分级——建议 lgdl-web aiPolicy 增 strategies（按 subcommand 放行只读）或后续 base permission 支持 subcommand 维度规则；影响 AI 流畅度非安全。
-4. **IMP-5 附注（声明项）**：worker-session 输出为可信代码计算面（同 eval-js trusted 语义），不携带 untrusted 标记——已记录为显式差异声明（FR-046 无未声明差异）。
-5. **storage-idb DB 名中性化**（`lgdl-web-cli-base`→`web-cli-base`）：若此前已有浏览器端写入数据需重新生成（v2 未发布无迁移顾虑；发布前清理旧库即可）。
+2. **lgdl-web React 集成面手测**（V13 已实跑 base 能力与 ask 等效弹层；React 组件渲染层需人工点验）：AskDialog 弹层在真实 AiPanel 触发呈现与 allow/deny/remember、SettingsPanel web-search BYOK 配置 UI、会话恢复入口 chip、dom-* 写经场景 aiPolicy ui-ask 的完整链路、真实系统通知展示（headless 仅验证 granted 下 show 不抛，不真实弹通知）。
+3. **V13 第⑦项 web-search 真实端点**：需配置 key 的搜索服务端点——本环境无 key，已实跑「未配置禁用态 + 配置指引」语义；配 key 后全链（真实搜索返回结果 + untrusted 标记）待人工。
+4. **IMP-4**：dom 只读子命令（read-state/snapshot）与写子命令的 risk 分级——建议 lgdl-web aiPolicy 增 strategies（按 subcommand 放行只读）或后续 base permission 支持 subcommand 维度规则；影响 AI 流畅度非安全。
+5. **IMP-5 附注（声明项）**：worker-session 输出为可信代码计算面（同 eval-js trusted 语义），不携带 untrusted 标记——已记录为显式差异声明（FR-046 无未声明差异）。
+6. **storage-idb DB 名中性化**（`lgdl-web-cli-base`→`web-cli-base`）与 **platform clipboard 成员调用修复**：若此前已有浏览器端写入数据需重新生成（v2 未发布无迁移顾虑；发布前清理旧库即可）。
 
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.1 | V13 真实浏览器冒烟补跑：chromium headless + CDP 自动化（v13-cdp.mjs + v13site 宿主页）实跑 validate.md 组 E 九项——① IDB/OPFS 跨页持久 ② session/goal/jobs 恢复 + interrupted ③ Notification/CDP-grant + clipboard roundtrip ④ dom-* 真实 DOM（read-state/click/snapshot）⑤ eval 真实 Worker（js 纯计算 1024 + 无 DOM 面 blocked + untrusted 拒 + wasm instantiate）⑥ ask 等效弹层交互 ⑦ web-search 未配置禁用态（真实端点需 key ⏭️）⑧ 多标签共享读 + EC-013 冲突标记 ⑨ secure context/真实配额 **全部实跑通过**；补发现修复 platform.ts clipboardSeam Illegal invocation（真实浏览器缺陷）；V13 判定 ⚠️ 部分 → ✅（八组实跑 + ⑦ 语义面）；遗留收敛 3 项人工（AC-008 真实闭环需 key / lgdl-web React 集成手测 / web-search 真实端点）；门禁重核 base 205 pass + tsc 0 零回归 | 2026-09-06 | SDDU Validate Agent |
 | v1.0 | 初始创建：R1 轮验证——V1~V17 全维度真实执行（全仓 724 pass/0 fail + 4 包 tsc + vite build；专项文件 158 例 + session/provider 32 例全绿；自主脚本 6 个 37 断言全过 + 诊断 2 个；V15 grep 15/15 + V14 EC 15/15；headless chromium UI 加载冒烟）。Review IMP-1/2/3/5 前置修复 + 动态确认（base 204→205、IMP-4 记遗留）；validate 顺手修复 storage-idb DB 名中性化。结论 ⚠️ 有条件通过（门禁全达标；遗留 5 项：V4/V17 真实闭环、V13 真实浏览器交互、IMP-4、IMP-5 worker-session 声明项、DB 名旧库清理） | 2026-09-06 | SDDU Validate Agent |
