@@ -39,6 +39,7 @@
  *   dragDrop         from 收 dragstart/dragend、to 收 dragover/drop；目标不处理 → 可读提示（EC-007）
  *   focusEl/blurEl   可聚焦元素 focus 后 activeElement 断言；不可聚焦 → 可读错误；blur 后失焦
  *   typeText         lgdl-web React 受控 input 键入后值变更 + onChange（NFR-004）；原生 input 同效；
+ *                    受控字段（值 tracker）首次键入走 set-value 全量提交基元（D1 修复，onChange 必达）；
  *                    contenteditable 插入生效；回读不一致 → 「事件已派发但值可能未同步」提示（EC-006）
  *   pressKey         keydown/keyup 监听断言（键码/修饰符）；Enter 提交语义由表单监听断言
  *   setText/setAttr/removeAttr/setStyle 写入后回读一致；非法属性名可读错误
@@ -461,7 +462,17 @@ function formOf(el: Element): HTMLFormElement | null {
   return (el as HTMLInputElement).form ?? null;
 }
 
-/** native value setter（React 受控兼容基元，ADR-004）。 */
+/** native value setter（React 受控兼容基元，ADR-004）。
+ *
+ * D1 根因修复（FR-022/NFR-004，validate-report v3 §6 遗留 1）：构造器判定用 `typeof Ctor === 'function'`
+ * —— `HTMLInputElement`/`HTMLTextAreaElement` 是**构造函数（function）**，旧的 `typeof Ctor === 'object'`
+ * 在真实浏览器恒为 false → 原生原型 setter 分支从未执行，静默落到 `el.value = value` 直赋。直赋会命中
+ * React 受控字段**实例级 value setter**（inputValueTracking 覆盖），该 setter 同步更新 React 值 tracker
+ * （currentValue）→ React 认为值是自己写的 → 后续 input 事件判定「无变化」→ onChange 不触发、state 不提交
+ * （D1：DOM 值已变、React 未提交）。走**原型 native setter**（desc.set.call）则绕过实例 setter/tracker，
+ * React 在 input 事件时看到 DOM 值 ≠ tracker → 正常派发 onChange（真实浏览器 chromium + lgdl-web React 18
+ * 实证：受控字段首次合成键入即提交）。
+ */
 function setNativeValue(el: Element, value: string): void {
   const tag = el.tagName;
   if (tag === 'SELECT') {
@@ -470,11 +481,10 @@ function setNativeValue(el: Element, value: string): void {
   }
   if (tag === 'INPUT' || tag === 'TEXTAREA') {
     const g = globalThis as Record<string, unknown>;
-    const Ctor = g[tag === 'INPUT' ? 'HTMLInputElement' : 'HTMLTextAreaElement'] as
-      | { prototype: object }
-      | undefined;
-    if (typeof Ctor === 'object' && Ctor !== null && Ctor.prototype) {
-      const desc = Object.getOwnPropertyDescriptor(Ctor.prototype, 'value');
+    const Ctor = g[tag === 'INPUT' ? 'HTMLInputElement' : 'HTMLTextAreaElement'];
+    const proto = (Ctor as { prototype?: object } | undefined)?.prototype;
+    if (typeof Ctor === 'function' && proto) {
+      const desc = Object.getOwnPropertyDescriptor(proto, 'value');
       if (desc && typeof desc.set === 'function') {
         desc.set.call(el, value);
         return;
@@ -513,6 +523,35 @@ function isFocusable(el: Element): boolean {
   if (!isVisible(el)) return false;
   if (typeof el.matches !== 'function') return false;
   return el.matches(FOCUSABLE_SELECTOR);
+}
+
+/**
+ * React 受控/值跟踪输入检测（D1 修复，FR-022/NFR-004）。
+ *
+ * React DOM 为它管理的 input/textarea 在实例上安装值 tracker `_valueTracker`
+ * （getValue/setValue 语义：native setter 直赋绕过该 tracker，React 即认为值被外部改动），
+ * 并在宿主节点挂内部 fiber props（React 17+/18 = `__reactProps$*`；React 16 =
+ * `__reactEventHandlers$*`，key 后缀随机，受控字段 props 含 value）。
+ *
+ * 命中信号 = 框架持有受控值恢复语义：typeText 的逐字符 native setter + input 序列在**首次**
+ * 合成键入会被 React 判定为外部改值 → onChange 不触发、state 未提交、重渲染回滚（D1）。
+ * 此类字段应走与 setValue 同构的全量 set-value 基元路径（单次 setter + input/change）。
+ * 非 React / 无 tracker 页面返回 false → type 保持 v2 逐字符行为零回归。
+ */
+function hasReactValueTracker(el: Element): boolean {
+  const node = el as Element & { _valueTracker?: unknown };
+  const tracker = node._valueTracker as { getValue?: () => unknown } | undefined;
+  if (tracker && typeof tracker.getValue === 'function') return true;
+  const anyNode = el as Element & Record<string, unknown>;
+  for (const k of Object.keys(anyNode)) {
+    if (!k.startsWith('__reactProps$') && !k.startsWith('__reactEventHandlers$')) continue;
+    const props = anyNode[k];
+    if (props && typeof props === 'object') {
+      const rec = props as Record<string, unknown>;
+      if (Object.prototype.hasOwnProperty.call(rec, 'value') && rec.value != null) return true;
+    }
+  }
+  return false;
 }
 
 // ==================== CSS 路径建议（find detail，FR-013） ====================
@@ -1392,7 +1431,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       );
     },
 
-    // ---------- #11 typeText（FR-022/ADR-004：字符级 + native setter = React 受控兼容） ----------
+    // ---------- #11 typeText（FR-022/ADR-004：字符级 native setter + 受控值 tracker 全量 set-value 提交 D1） ----------
 
     async typeText(selector: string, text: string, typeOpts?: { clear?: boolean }) {
       const cap = 'type';
@@ -1442,13 +1481,9 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       }
       const isTextArea = tag === 'TEXTAREA';
       const displayText = text.length > 60 ? `${text.slice(0, 60)}…（${text.length} 字符）` : text;
-      if (typeOpts?.clear === true) {
-        setNativeValue(el, '');
-        fireBubbling(el, 'input');
-      }
-      let cur = readControlValue(el);
-      const chars = Array.from(text);
-      for (const ch of chars) {
+      // 逐字符事件预构建（过滤不可键入字符，语义与 v2 一致）：供 v2 逐字符路径与受控全量路径共用
+      const typed: Array<{ ch: string; init: KeyboardEventInit }> = [];
+      for (const ch of Array.from(text)) {
         if (ch === '\r') continue;
         if (!isTextArea && ch === '\n') continue;
         const key = ch === '\n' ? 'Enter' : ch;
@@ -1459,24 +1494,61 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
             : ch === '\n'
               ? 'Enter'
               : '';
-        const kInit: KeyboardEventInit = { key, code, bubbles: true, cancelable: true, view: win ?? undefined };
-        el.dispatchEvent(new KeyboardEvent('keydown', kInit));
-        cur += ch;
+        typed.push({ ch, init: { key, code, bubbles: true, cancelable: true, view: win ?? undefined } });
+      }
+      // D1 修复（FR-022/NFR-004，validate-report v3 §6 遗留 1）：
+      // 真实浏览器根因 = setNativeValue 构造器判定 bug（见其上注释）：直赋命中 React 实例级 value setter
+      // → 值 tracker 被更新 → React 认为值是自己写的 → input 事件不触发 onChange。修复后受控字段走
+      // **与 set-value 同构的全量提交基元**（单次原型 native setter + 单次 input/change = React
+      // onChange/state 提交必达，chromium + lgdl-web React 18 首交互实证）；字符级 keydown/keyup 事件
+      // 作为**非受控路径的附加语义**保留在下方 v2 逐字符路径，受控路径不派发（受控单发提交 + 可读说明，
+      // EC-006；需要键盘语义时用 press/真实键入，NG-007）。
+      if (hasReactValueTracker(el)) {
+        const base = typeOpts?.clear === true ? '' : readControlValue(el);
+        const finalValue = base + typed.map((t) => t.ch).join('');
+        setNativeValue(el, finalValue);
+        fireBubbling(el, 'input');
+        fireBubbling(el, 'change');
+        const final = readControlValue(el);
+        if (final !== finalValue) {
+          return errResult(
+            `✖ type 已派发（单次 input/change 全量提交）但回读不一致（EC-006：期望 ${finalValue.length} 字符，实际 ${final.length}；受控字段值可能被宿主还原，不静默成功）`,
+            'value not synced',
+          );
+        }
+        // EC-006：如实说明提交方式（全量 set-value 基元 + 单次 commit 事件；字符级键盘事件不派发；
+        // isTrusted 局限见 NOTE），不静默声称逐字符成功；valueSynced=true = DOM 已写入且单发 commit 事件已派发
+        // （React state 回执由宿主 onChange 承接，NFR-004 单发提交必达）。
+        const typedResult: PlatformDomOpResult & { valueSynced?: boolean } = {
+          ok: true,
+          output: `✓ 已键入 "${displayText}" 到 "${selector}"（${typed.length} 字符；受控字段 → set-value 全量提交基元：单次 native setter + input/change，React onChange/state 提交 NFR-004（D1 修复）；字符级键盘事件保留给非受控路径，未派发）${multiMatchNote(f.count)}${SYNTHETIC_EVENT_NOTE}`,
+          valueSynced: true,
+        };
+        return typedResult;
+      }
+      if (typeOpts?.clear === true) {
+        setNativeValue(el, '');
+        fireBubbling(el, 'input');
+      }
+      let cur = readControlValue(el);
+      for (const t of typed) {
+        el.dispatchEvent(new KeyboardEvent('keydown', t.init));
+        cur += t.ch;
         setNativeValue(el, cur);
         fireBubbling(el, 'input');
-        el.dispatchEvent(new KeyboardEvent('keyup', kInit));
+        el.dispatchEvent(new KeyboardEvent('keyup', t.init));
       }
       fireBubbling(el, 'change');
       const final = readControlValue(el);
       const expected = typeOpts?.clear === true ? text : cur;
       if (final !== expected) {
         return errResult(
-          `✖ type 已派发（${chars.length} 字符 keydown/input/keyup + change）但回读不一致（EC-006：期望 ${expected.length} 字符，实际 ${final.length}；事件已派发但值可能未同步，不静默成功）`,
+          `✖ type 已派发（${typed.length} 字符 keydown/input/keyup + change）但回读不一致（EC-006：期望 ${expected.length} 字符，实际 ${final.length}；事件已派发但值可能未同步，不静默成功）`,
           'value not synced',
         );
       }
       return okResult(
-        `✓ 已键入 "${displayText}" 到 "${selector}"（${chars.length} 字符；字符级 keydown/input/keyup + change；React 受控经 native setter，NFR-004）${multiMatchNote(f.count)}${SYNTHETIC_EVENT_NOTE}`,
+        `✓ 已键入 "${displayText}" 到 "${selector}"（${typed.length} 字符；字符级 keydown/input/keyup + change；React 受控经 native setter，NFR-004）${multiMatchNote(f.count)}${SYNTHETIC_EVENT_NOTE}`,
       );
     },
 

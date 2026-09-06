@@ -1166,6 +1166,104 @@ test('platform-dom: typeText 值被锁 → EC-006 回读不一致提示（不静
   assertErr(r, /回读不一致|值可能未同步/);
 });
 
+// ==================== D1 修复（FR-022/NFR-004）：React 受控字段首次键入 = set-value 全量提交 ====================
+// node 面说明：shim 无法跑真实 React（无 HTMLTextAreaElement 构造器 → setNativeValue 走直赋回退）；
+// 本用例模拟 React 受控字段的宿主痕迹（实例 _valueTracker + getValue/setValue）与受控 onChange 单发提交契约，
+// 断言修复后的**路由决策与事件形态**（单次 input/change 携带全量值）。真实 React 提交面由 chromium +
+// lgdl-web 冒烟实证（D1 根因 = setNativeValue 构造器判定 `typeof Ctor === 'object'` 恒假 → 真实浏览器
+// 直赋命中 React 实例级 setter 更新 tracker → onChange 被抑制；改 'function' 后原型 native setter 生效，
+// 受控字段首次键入即提交）。
+
+test('platform-dom: typeText 受控字段（值 tracker）首次键入 clear → 单发 input/change 全量提交（D1 修复）', async () => {
+  const { ops, loc } = buildHarness((d) => {
+    const inp = new ShimElement('input');
+    inp.setAttribute('id', 'ct');
+    d.body.appendChild(inp);
+  });
+  const inp = loc('#ct');
+  // React 受控字段宿主痕迹：_valueTracker（getValue/setValue 跟踪「React 已知值」）
+  const tracker = { current: '', getValue: () => tracker.current, setValue: (v: string) => { tracker.current = v; } };
+  Object.defineProperty(inp, '_valueTracker', { configurable: true, value: tracker });
+  const seq: string[] = [];
+  const seenInputs: string[] = [];
+  inp.addEventListener('keydown', (ev) => seq.push(`kd:${(ev as FakeKeyboardEvent).key}`));
+  inp.addEventListener('keyup', (ev) => seq.push(`ku:${(ev as FakeKeyboardEvent).key}`));
+  inp.addEventListener('input', () => {
+    seq.push('input');
+    seenInputs.push(inp.value); // 模拟 React onChange 读取 e.target.value
+  });
+  inp.addEventListener('change', () => seq.push('change'));
+  const r = await ops.typeText('#ct', 'hi', { clear: true });
+  assertOk(r);
+  assert.equal(inp.value, 'hi');
+  // D1 核心：受控字段首次键入 = 与 set-value 同构的单发 input 携带全量值（React onChange 一次提交）；
+  // 字符级键盘事件在受控路径不派发（受控单发提交 + EC-006 可读说明；node 面只验路由与事件形态，
+  // 真实 React 提交由 chromium + lgdl-web 实证——根因在 setNativeValue 构造器判定，见其注释）
+  assert.deepEqual(seenInputs, ['hi'], '受控路径应单发 input 且携带全量提交值（React onChange 一次提交）');
+  assert.deepEqual(seq, ['input', 'change'], '受控路径仅单发 input + change（无字符级 keydown/keyup）');
+  const typedR = r as PlatformDomOpResult & { valueSynced?: boolean };
+  assert.equal(typedR.valueSynced, true, '受控路径应回 valueSynced=true（EC-006 可读说明）');
+  assert.match(r.output, /受控字段 → set-value 全量提交基元/);
+  assert.match(r.output, /字符级键盘事件保留给非受控路径/);
+});
+
+test('platform-dom: typeText 受控字段（值 tracker）追加键入 → 既有值+键入 单发全量提交（D1 修复）', async () => {
+  const { ops, loc } = buildHarness((d) => {
+    const inp = new ShimElement('textarea');
+    inp.setAttribute('id', 'ct2');
+    d.body.appendChild(inp);
+  });
+  const inp = loc('#ct2') as ShimElement & { value: string };
+  inp.value = 'ab'; // 受控已提交值
+  const tracker = { current: 'ab', getValue: () => tracker.current, setValue: (v: string) => { tracker.current = v; } };
+  Object.defineProperty(inp, '_valueTracker', { configurable: true, value: tracker });
+  let inputs = 0;
+  let changes = 0;
+  const seenInputs: string[] = [];
+  inp.addEventListener('input', () => {
+    inputs++;
+    seenInputs.push(inp.value);
+  });
+  inp.addEventListener('change', () => changes++);
+  const r = await ops.typeText('#ct2', 'cd');
+  assertOk(r);
+  assert.equal(inp.value, 'abcd');
+  assert.equal(inputs, 1, '受控路径追加也应单发 input（无逐字符中间提交）');
+  assert.equal(changes, 1);
+  assert.deepEqual(seenInputs, ['abcd']);
+  const typedR = r as PlatformDomOpResult & { valueSynced?: boolean };
+  assert.equal(typedR.valueSynced, true);
+});
+
+test('platform-dom: typeText 无 React 值 tracker 信号 → v2 逐字符路径零回归（D1 守卫）', async () => {
+  const { ops, loc } = buildHarness((d) => {
+    for (const id of ['g1', 'g2']) {
+      const inp = new ShimElement('input');
+      inp.setAttribute('id', id);
+      d.body.appendChild(inp);
+    }
+  });
+  const inp1 = loc('#g1');
+  const inp2 = loc('#g2');
+  // 伪 tracker 无 getValue 函数 → 不判为 React 值 tracker
+  Object.defineProperty(inp1, '_valueTracker', { configurable: true, value: { foo: 1 } });
+  // React 风格内部 props key 但无受控 value（或 value=undefined）→ 不判为受控
+  Object.defineProperty(inp2, '__reactProps$abc123', { configurable: true, enumerable: true, value: { onChange: () => {}, value: undefined } });
+  for (const inp of [inp1, inp2]) {
+    const seq: string[] = [];
+    inp.addEventListener('keydown', (ev) => seq.push(`kd:${(ev as FakeKeyboardEvent).key}`));
+    inp.addEventListener('input', () => seq.push('input'));
+    inp.addEventListener('keyup', (ev) => seq.push(`ku:${(ev as FakeKeyboardEvent).key}`));
+    inp.addEventListener('change', () => seq.push('change'));
+    const r = await ops.typeText(`#${inp.id}`, 'ab');
+    assertOk(r);
+    assert.equal(inp.value, 'ab');
+    assert.deepEqual(seq, ['kd:a', 'input', 'ku:a', 'kd:b', 'input', 'ku:b', 'change'], `#${inp.id} 应保持 v2 逐字符序列`);
+    const typedR = r as PlatformDomOpResult & { valueSynced?: boolean };
+    assert.equal(typedR.valueSynced, undefined, '非受控路径不回 valueSynced（保持 v2 结果面）');
+  }
+});
+
 // ==================== 写入族（set-text/attr/style/value/fill/add/remove + 回读校验） ====================
 
 test('platform-dom: setText textContent 覆盖 + 回读（FR-031）', async () => {
