@@ -7,7 +7,7 @@ import { LGDL_SYSTEM_PROMPT } from './prompts';
 import { parseNextActions, type NextAction } from '@lgdl/lgdl-web-op-cli';
 import type { AiSession } from './session';
 import { SettingsPanel } from './SettingsPanel';
-import { AskDialog } from './AskDialog';
+import { AskDialog, buildPermissionAskEntry } from './AskDialog';
 import type { AskDialogEntry } from './AskDialog';
 import type { AskQuestion, AskResolution, AskUserQuestion } from '@lgdl/web-cli-base';
 
@@ -278,7 +278,9 @@ export function AiPanel({
     const permHandler = (q: AskQuestion) =>
       new Promise<AskResolution>((resolve) => {
         permResolveRef.current = resolve;
-        setAskEntry({ kind: 'permission', tool: q.tool, reason: q.reason });
+        // v3（FR-044）：经 buildPermissionAskEntry 呈现子命令/risk + page-eval 代码摘要 +
+        // 敏感字段写入确认文案（数据源 = base AskQuestion 完整面）
+        setAskEntry(buildPermissionAskEntry(q));
       });
     session.bindPermissionAsk(permHandler);
     onPermissionHandlerChange?.(permHandler);

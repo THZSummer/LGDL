@@ -122,3 +122,51 @@ export { McpClient, createMcpClient, connectMcpSource } from './mcp-client.js';
 export type { McpClientOptions, McpJsonRpc, McpToolInfo, ConnectMcpSourceOptions, ConnectMcpResult } from './mcp-client.js';
 export { createEvalWasmToolEntry, executeEvalWasm, createWorkerWasmExecutor, evalWasmHelp } from './eval-tools.js';
 export type { WasmExecutor, WasmArgs } from './eval-tools.js';
+// ================= v3 P1 导出面收口（TASK-009；NFR-006：新能力类型/工厂全量可达；既有导出零删除） =================
+// v3 P1 定位/敏感纯逻辑域（FR-015/ADR-007 + FR-024/ADR-004；零 LGDL 依赖）
+export { parseLocator, locatorSyntaxHelp, LOCATOR_SYNTAX_GUIDE, LOCATOR_MULTI_MATCH_NOTE } from './locator.js';
+export type { LocatorQuery, CssLocatorQuery, TextLocatorQuery, LocatorQueryType, TextMatchMode, LocatorParseOptions, LocatorParseResult, LocatorErrorKind } from './locator.js';
+export { sensitiveFieldMatch, isSensitiveField, maskValue, sensitiveWriteDecision, SENSITIVE_READ_NOTE, SENSITIVE_WRITE_NOTE } from './sensitive.js';
+export type { FieldIdentity, SensitiveRule, SensitiveKind, SensitiveMatch, SensitiveWriteDecision } from './sensitive.js';
+// v3 P1 PlatformDomOps additive 扩展面类型（FR-002/003；新能力类型全部从包根可达，消费端/测试 fake 类型齐全）
+export type {
+  PlatformDomOps, PlatformDomOpResult, PlatformDomState, PlatformClickOptions,
+  PlatformInteractivesOptions, PlatformReadElementFields, PlatformReadElementOptions,
+  PlatformFindElementsOptions, PlatformStructurePart, PlatformReadStructureOptions,
+  PlatformSnapshotStructuredOptions, PlatformTypeTextOptions, PlatformPressKeyOptions,
+  PlatformSetStyleOptions, PlatformFillField, PlatformFillFormOptions, PlatformInsertPosition,
+  PlatformAddElementOptions, PlatformWaitKind, PlatformWaitCondition, PlatformWaitForOptions,
+  PlatformEvaluateOptions, PlatformExtractKind, PlatformExtractDataOptions, PlatformScreenshotOptions,
+} from './platform.js';
+// v3 P1 浏览器面真实 DOM ops（TASK-004：4 桩补真 + ~25 新能力；FR-003/ADR-008）
+export { createBrowserDomOps } from './platform-dom.js';
+export type { DomOpsScope } from './platform-dom.js';
+// v3 P1 wait 条件等待（FR-025/ADR-005；独立单动词工具 risk:'read'）
+export { createWaitToolEntry, executeWaitTool, parseWaitArgs, waitHelp, WAIT_KINDS, WAIT_MODE_DEFAULT, WAIT_TIMEOUT_DEFAULT_MS, WAIT_TIMEOUT_MAX_MS, WAIT_INTERVAL_DEFAULT_MS } from './wait-tools.js';
+export type { ParsedWaitArgs, WaitConditionSource, WaitFailure } from './wait-tools.js';
+// v3 P1 page-eval 页面 evaluate（FR-008/037/045/ADR-002；最高档 evaluate 门禁）
+export { createPageEvalToolEntry, executePageEval, pageEvalHelp, summarizeCode, recordPageEvalAudit, PAGE_EVAL_DEFAULTS } from './page-eval.js';
+export type { PageEvalDecision, PageEvalAuditInfo } from './page-eval.js';
+// v3 P1 采集缓冲 CollectBuffer（FR-042/ADR-006；session 内存态护栏/trust）
+export {
+  createCollectBuffer, maskCollectRow, maskCollectRows, collectFields,
+  COLLECT_DEFAULT_MAX_ITEMS_PER_APPEND, COLLECT_DEFAULT_MAX_TOTAL_ROWS, COLLECT_DEFAULT_MIN_INTERVAL_MS, COLLECT_DEFAULT_DEDUPE,
+} from './collect.js';
+export type { CollectRow, CollectTrust, CollectMeta, CollectEntryStats, CollectEntry, CollectBufferStats, CollectBufferOptions, CollectAppendOk, CollectAppendBlock, CollectAppendResult, CollectRateCheck, CollectBuffer } from './collect.js';
+// v3 P1 extract/export 采集工具（FR-038~041/ADR-006；共享 buffer + xlsx 注入扩展点）
+export {
+  createCollectToolEntries, createExtractToolEntry, createExportToolEntry,
+  executeExtractTool, executeExportTool, parseExtractedOutput, extractHelp, exportHelp,
+  csvEscapeCell, cellText, serializeRowsText, serializeRowsJson, serializeRowsCsv,
+  resolveExportFormat, defaultExportFilename,
+  COLLECT_EXTRACT_KINDS, COLLECT_EXPORT_FORMATS, EXPORT_DEGRADE_PREVIEW_MAX,
+} from './collect-tools.js';
+export type { CollectExtractKind, ExtractArgs, CollectExportFormat, XlsxSerializer, ExportArgs, CollectExportMeta } from './collect-tools.js';
+// ================= v3 P2 chrome 导出收口（TASK-011；NFR-006：TASK-010 产物类型/工厂全量可达；既有导出零删除） =================
+// v3 P2 chrome 浏览器外壳工具（FR-026~028/ADR-003；TASK-010 chrome-tools.ts —— print/back/forward/reload/screenshot 5 子命令 + subcommandRisks + dataUrl 下载链输出策略）
+export {
+  createChromeToolEntry, executeChromeTool, chromeHelp,
+  CHROME_SUBCOMMANDS, SCREENSHOT_DATAURL_HEAD_BUDGET,
+  parsePngSizeFromDataUrl, summarizeScreenshotData, screenshotFilename,
+} from './chrome-tools.js';
+export type { ChromeSubcommand, ScreenshotDataSummary } from './chrome-tools.js';

@@ -544,3 +544,182 @@ test('router v2: 重复注册同命名空间同名抛错（EC-010 沿 EC-003）�
   const r2 = createCommandRouter();
   assert.throws(() => r2.register({ ...makeTool('web-fetch') }), /已注册/);
 });
+
+// ================= v3（ADR-001/FR-005/FR-008/NFR-008）：subcommandRisks effectiveRisk + evaluate fail-closed =================
+
+/** 审计事件取 subcommand 字段（AuditEvent 宽松面；v3 NFR-008 子命令字段在事件对象上）。 */
+function subOf(ev: { type: string; subcommand?: string }): string | undefined {
+  return ev.subcommand;
+}
+
+test('router v3: dispatch 传 effectiveRisk — 子命令级 risk 命中/回退/缺省（规则+缺省取向共用，FR-005/ADR-001）', async () => {
+  const audit = createMemoryAudit();
+  const asked: string[] = [];
+  const router = createCommandRouter({
+    builtins: false,
+    audit,
+    policy: {
+      riskDefaults: { read: 'allow', ui: 'ask', write: 'ask' },
+      onAsk: async (q) => {
+        asked.push(q.subcommand ?? '');
+        return { action: 'allow' };
+      },
+    },
+  });
+  const ran: string[] = [];
+  router.register({
+    name: 'dom',
+    risk: 'ui',
+    // 'read-state'/'set-text' 声明子命令级 risk；'click' 未声明 → 回退 entry.risk 'ui'
+    subcommandRisks: { 'read-state': 'read', 'set-text': 'write' },
+    schema: { name: 'dom', description: '', parameters: {} },
+    executor: async (t) => {
+      ran.push(t.subcommand);
+      return { ok: true, output: 'dom:ok' };
+    },
+  });
+  // ① 命中 read → 缺省 allow 免 ask（IMP-4 修复机制侧：只读免 ask）
+  assert.equal((await router.dispatch(tc('dom', {}, 'read-state'))).ok, true);
+  // ② 命中 write → 缺省 ask → onAsk allow 放行
+  assert.equal((await router.dispatch(tc('dom', {}, 'set-text'))).ok, true);
+  // ③ 子命令未声明 → 回退 entry.risk 'ui' → 缺省 ask → onAsk allow 放行
+  assert.equal((await router.dispatch(tc('dom', {}, 'click'))).ok, true);
+  // 只读子命令不触发 ask；写/UI 子命令触发（缺省取向共用 effectiveRisk）
+  assert.deepEqual(asked, ['set-text', 'click']);
+  assert.deepEqual(ran, ['read-state', 'set-text', 'click']);
+  // permission 审计逐条含对应 subcommand（NFR-008）
+  const perms = audit.events.filter((e) => e.type === 'permission');
+  assert.equal(perms.length, 3);
+  assert.deepEqual(perms.map((e) => subOf(e)), ['read-state', 'set-text', 'click']);
+});
+
+test('router v3: 无 subcommandRisks 工具 — effectiveRisk 回退 entry.risk，行为与 v2 逐字节一致（AC-001/FR-001）', async () => {
+  // 有门禁面：v2 直传 e.risk 语义保持（任意子命令均按工具级 risk 裁决）
+  const audit = createMemoryAudit();
+  const router = createCommandRouter({
+    builtins: false,
+    audit,
+    policy: { riskDefaults: { read: 'allow', write: 'deny' }, onAsk: async () => ({ action: 'allow' }) },
+  });
+  router.register({
+    name: 'legacy',
+    risk: 'write',
+    schema: { name: 'legacy', description: '', parameters: {} },
+    executor: async (t) => ({ ok: true, output: `legacy:${t.subcommand}` }),
+  });
+  const d = await router.dispatch(tc('legacy', {}, 'whatever'));
+  assert.equal(d.ok, false);
+  assert.equal(d.error, 'permission denied');
+  assert.match(d.output, /命中缺省 deny 取向/);
+  const d2 = await router.dispatch(tc('legacy', {}, ''));
+  assert.equal(d2.ok, false); // 无子命令同样按工具级 risk 拒绝（v2 一致）
+  assert.equal(audit.events.filter((e) => e.type === 'permission').length, 2);
+  // 派生顺序零变化（F-23 顺序契约）
+  router.register({ name: 'plain', schema: { name: 'plain', description: '', parameters: {} }, executor: async () => ({ ok: true, output: 'p' }) });
+  assert.deepEqual(router.deriveTools().map((x) => x.name), ['legacy', 'plain']);
+  // 无门禁装配面（v2 缺省路径）：无 subcommandRisks 工具照常执行
+  const bare = createCommandRouter({ builtins: false });
+  let bareExec = 0;
+  bare.register({
+    name: 'bare',
+    risk: 'ui',
+    schema: { name: 'bare', description: '', parameters: {} },
+    executor: async () => {
+      bareExec += 1;
+      return { ok: true, output: 'bare-ok' };
+    },
+  });
+  assert.equal((await bare.dispatch(tc('bare', {}, 'click'))).ok, true);
+  assert.equal(bareExec, 1);
+});
+
+test('router v3: effectiveRisk=evaluate 且 policyGate 未装配 → fail-closed deny，执行器不被调用（FR-008/ADR-002）', async () => {
+  const audit = createMemoryAudit();
+  const router = createCommandRouter({ builtins: false, audit });
+  let executed = 0;
+  router.register({
+    name: 'page-eval',
+    risk: 'evaluate',
+    schema: { name: 'page-eval', description: '', parameters: {} },
+    executor: async () => {
+      executed += 1;
+      return { ok: true, output: 'ran' };
+    },
+  });
+  const d = await router.dispatch(tc('page-eval', { code: '1+1' }));
+  assert.equal(d.ok, false);
+  assert.equal(d.error, 'permission denied (evaluate fail-closed)');
+  assert.match(d.output, /evaluate 风险档调用被拒绝/);
+  assert.match(d.output, /需场景策略显式开启 \+ 门禁装配/);
+  assert.equal(executed, 0); // 间谍断言：执行器未被调用
+  // fail-closed deny 亦入审计（决策来源 = fail-closed）
+  const perm = audit.events.find((e) => e.type === 'permission');
+  assert.ok(perm && perm.decision === 'deny');
+  assert.equal(perm.by, 'fail-closed');
+  assert.equal(subOf(perm), '');
+});
+
+test('router v3: subcommandRisks 内 evaluate 档子命令 — 无门禁 fail-closed；同工具其余子命令不受影响（FR-005/008）', async () => {
+  const router = createCommandRouter({ builtins: false });
+  let executed = 0;
+  router.register({
+    name: 'script',
+    risk: 'ui',
+    subcommandRisks: { 'run-code': 'evaluate' },
+    schema: { name: 'script', description: '', parameters: {} },
+    executor: async () => {
+      executed += 1;
+      return { ok: true, output: 's' };
+    },
+  });
+  const ev = await router.dispatch(tc('script', {}, 'run-code'));
+  assert.equal(ev.ok, false);
+  assert.match(ev.output, /门禁装配/);
+  assert.equal(executed, 0);
+  // 非 evaluate 子命令（回退 entry.risk 'ui'）：无门禁 = v2 直接执行
+  assert.equal((await router.dispatch(tc('script', {}, 'normal'))).ok, true);
+  assert.equal(executed, 1);
+});
+
+test('router v3: evaluate 档 + policyGate 已装配 → 经 gate 裁决，无规则命中走缺省 deny（defaultActionForRisk）', async () => {
+  const router = createCommandRouter({ builtins: false, policy: { rules: [{ risk: 'read', action: 'allow' }] } });
+  let executed = 0;
+  router.register({
+    name: 'page-eval',
+    risk: 'evaluate',
+    schema: { name: 'page-eval', description: '', parameters: {} },
+    executor: async () => {
+      executed += 1;
+      return { ok: true, output: 'ran' };
+    },
+  });
+  const d = await router.dispatch(tc('page-eval'));
+  assert.equal(d.ok, false);
+  assert.equal(d.error, 'permission denied');
+  assert.match(d.output, /命中缺省 deny 取向/);
+  assert.equal(executed, 0);
+});
+
+test('router v3: permission/tool-call 审计事件含 subcommand 字段（NFR-008）', async () => {
+  const audit = createMemoryAudit();
+  const router = createCommandRouter({
+    builtins: false,
+    audit,
+    policy: { riskDefaults: { read: 'allow', ui: 'ask' }, onAsk: async () => ({ action: 'allow' }) },
+  });
+  router.register({
+    name: 'tool',
+    risk: 'ui',
+    subcommandRisks: { go: 'read' },
+    schema: { name: 'tool', description: '', parameters: {} },
+    executor: async (t) => ({ ok: true, output: `tool:${t.subcommand}` }),
+  });
+  await router.dispatch(tc('tool', {}, 'go')); // read → allow，直接执行
+  await router.dispatch(tc('tool', {}, 'act')); // 回退 ui → ask → allow → 执行
+  const perms = audit.events.filter((e) => e.type === 'permission');
+  assert.equal(perms.length, 2);
+  assert.deepEqual(perms.map((e) => subOf(e)), ['go', 'act']);
+  const calls = audit.events.filter((e) => e.type === 'tool-call');
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map((e) => subOf(e)), ['go', 'act']);
+});

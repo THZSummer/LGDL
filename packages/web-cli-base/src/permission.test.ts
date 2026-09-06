@@ -190,3 +190,80 @@ test('permission: globMatch（* / ? / 精确）', () => {
   assert.equal(globMatch('skill2.search', 'skill.*'), false);
   assert.equal(globMatch('skillx', 'skill?'), true);
 });
+
+// ================= v3（FR-005/006/008，ADR-001/002）：ToolRisk 'evaluate' + PolicyRule.subcommand =================
+
+test('permission v3: defaultActionForRisk("evaluate") = deny — 最高档缺省不静默 allow（FR-008/ADR-002）', () => {
+  assert.equal(defaultActionForRisk('evaluate'), 'deny');
+  // 既有档位缺省取向零变化（FR-001 additive）
+  assert.equal(defaultActionForRisk('read'), 'allow');
+  assert.equal(defaultActionForRisk(undefined), 'allow');
+  assert.equal(defaultActionForRisk('write'), 'ask');
+  assert.equal(defaultActionForRisk('external'), 'ask');
+  assert.equal(defaultActionForRisk('ui'), 'ask');
+  assert.equal(defaultActionForRisk('state'), 'ask');
+});
+
+test('permission v3: evaluate 档缺省 deny — 空配置/只含 read 放行规则均不静默放行（FR-008）', async () => {
+  const empty = createPermissionGate();
+  const d = await empty.check({ tool: 'page-eval', subcommand: '', risk: 'evaluate' });
+  assert.equal(d.action, 'deny');
+  assert.match(d.reason, /权限被拒：命中缺省 deny 取向/);
+  assert.equal(d.by, 'default');
+  // 只含 read 放行规则的 gate：evaluate 未命中规则 → 仍走缺省 deny
+  const readOnly = createPermissionGate({ rules: [{ risk: 'read', action: 'allow' }] });
+  const d2 = await readOnly.check({ tool: 'page-eval', subcommand: '', risk: 'evaluate' });
+  assert.equal(d2.action, 'deny');
+});
+
+test('permission v3: PolicyRule.subcommand glob — 命中/未命中/缺省不限（FR-006/ADR-001）', async () => {
+  const allowAsk = { onAsk: async () => ({ action: 'allow' as const }) };
+  // 命中：子命令级 glob 规则（risk + subcommand 双面限定）
+  const gate = createPermissionGate({
+    rules: [{ pattern: 'dom', risk: 'write', subcommand: 'set-*', action: 'deny', note: '写子命令禁' }],
+  });
+  const hit = await gate.check({ tool: 'dom', subcommand: 'set-text', risk: 'write' });
+  assert.equal(hit.action, 'deny');
+  assert.match(hit.reason, /命中规则 action=deny（写子命令禁）/);
+  // 未命中：subcommand 不匹配 → deny 规则不生效 → 缺省 ask（write 敏感面）经桥放行
+  const miss = await gate.check({ tool: 'dom', subcommand: 'click', risk: 'write' }, allowAsk);
+  assert.equal(miss.action, 'allow');
+  assert.equal(miss.by, 'ask'); // 证明走缺省 ask 而非规则 deny
+  // '?' 单字符 glob
+  const qGate = createPermissionGate({ rules: [{ pattern: 'dom', subcommand: 'r?ad', action: 'allow' }] });
+  assert.equal((await qGate.check({ tool: 'dom', subcommand: 'read', risk: 'read' })).action, 'allow');
+  const qMiss = await qGate.check({ tool: 'dom', subcommand: 'write', risk: 'write' }, allowAsk);
+  assert.equal(qMiss.by, 'ask'); // 'write' 不匹配 'r?ad' → 规则未命中
+  // 规则未声明 subcommand → 任意子命令/无子命令均生效（缺省不限，v2 行为零变化）
+  const plain = createPermissionGate({ rules: [{ pattern: 'dom', risk: 'ui', action: 'ask' }] });
+  const withSub = await plain.check({ tool: 'dom', subcommand: 'click', risk: 'ui' }, allowAsk);
+  assert.equal(withSub.action, 'allow');
+  assert.equal(withSub.by, 'ask');
+  const noSub = await plain.check({ tool: 'dom', subcommand: '', risk: 'ui' }, allowAsk);
+  assert.equal(noSub.action, 'allow');
+});
+
+test('permission v3: 子命令级与工具级规则并存 — EC-013 deny 优先（v2 EC-014 语义沿）', async () => {
+  // 子命令级 allow + 工具级 deny 同时命中 → deny（EC-013）
+  const gate = createPermissionGate({
+    rules: [
+      { pattern: 'dom', risk: 'write', subcommand: 'set-text', action: 'allow', note: '子命令放行' },
+      { pattern: 'dom', action: 'deny', note: '工具级禁' },
+    ],
+  });
+  const d = await gate.check({ tool: 'dom', subcommand: 'set-text', risk: 'write' });
+  assert.equal(d.action, 'deny');
+  assert.match(d.reason, /命中规则 action=deny（工具级禁）/);
+  // 反向：工具级 allow + 子命令级 deny → deny
+  const gate2 = createPermissionGate({
+    rules: [
+      { pattern: 'dom', action: 'allow' },
+      { pattern: 'dom', subcommand: 'reload', action: 'deny', note: '重载禁' },
+    ],
+  });
+  const d2 = await gate2.check({ tool: 'dom', subcommand: 'reload' });
+  assert.equal(d2.action, 'deny');
+  assert.match(d2.reason, /（重载禁）/);
+  // 非 deny 子命令 → 工具级 allow 放行（子命令级 deny 不误伤）
+  assert.equal((await gate2.check({ tool: 'dom', subcommand: 'read-state' })).action, 'allow');
+});

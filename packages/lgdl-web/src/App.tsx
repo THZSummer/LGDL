@@ -16,7 +16,7 @@ import { computeSnap } from './snap';
 import { EXAMPLES, type Example } from './examples';
 import { AiPanel } from './ai/AiPanel';
 import { SettingsPanel } from './ai/SettingsPanel';
-import { createAiSession } from './ai/session';
+import { createAiSession, LGDL_DEFAULT_POLICY_RULES } from './ai/session';
 import { loadSettings, saveSettings, type ProviderSettings } from './ai/provider';
 import { createIdbStorage, type AskQuestion, type AskResolution, type StorageBackend } from '@lgdl/web-cli-base';
 import { webOpHelp, createOpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
@@ -945,12 +945,21 @@ export function App(): React.JSX.Element {
   const aiSettingsRef = useRef(aiSettings);
   aiSettingsRef.current = aiSettings;
 
-  // ---- v2（FR-041/AC-004）：权限 ask 桥 —— AskDialog 裁决由 AiPanel 注册到本 ref，
-  // policy.onAsk 委托该桥（未注册 → deny fail-closed）；dom-* 写（risk:ui）经 PRM ask。
+  // ---- v2（FR-041/AC-004）+ v3（FR-005~007/045，TASK-009）+ v3 P2（TASK-011）：权限 ask 桥 —— AskDialog
+  // 裁决由 AiPanel 注册到本 ref，policy.onAsk 委托该桥（未注册 → deny fail-closed）。
+  // v3 子命令级策略：rules 共用 session 导出 LGDL_DEFAULT_POLICY_RULES（IMP-4 修复生效点
+  // —— dom 只读子命令显式 allow 免 ask + 既有 risk:'ui' ask 规则保持 + evaluate 缺省 deny）。
+  // v3 P2（TASK-011，P2-b 第二段扩展，串行于 TASK-009）：同一常量增 chrome back/forward
+  // **前置** allow 规则（置于既有 risk:'ui' ask 之前 = 命中 allow 免 ask —— 会话内导航不触发
+  // ask，EC-009；reload/screenshot 写类不入规则 → 缺省 ask）+ clipboard 读写显式 ask 规则
+  // （读=敏感面/写=写入，FR-030）。规则明细/覆盖语义见 session.ts 常量文档。
+  // ★ 行为 diff 声明（R-007/D-005）：本 aiPolicy 变更 = TASK-009 IMP-4 修复唯一有意变更 +
+  // TASK-011 chrome/clipboard 规则增补（chrome 为 v3 新工具不构成 v2 回归；clipboard 显式
+  // ask 与既有 risk:'ui' 裁决一致无新增回归面）；其余工具裁决语义与 v2 逐字节一致。
   const permAskTarget = useRef<((q: AskQuestion) => Promise<AskResolution>) | null>(null);
   const aiPolicy = useMemo<import('@lgdl/web-cli-base').RouterPolicy>(
     () => ({
-      rules: [{ risk: 'ui', action: 'ask', note: 'UI 副作用需用户确认（dom-* 写经 PRM）' }],
+      rules: LGDL_DEFAULT_POLICY_RULES,
       onAsk: (q: AskQuestion) =>
         permAskTarget.current ? permAskTarget.current(q) : Promise.resolve({ action: 'deny' }),
     }),

@@ -17,6 +17,21 @@
  *   5. web-search 条件注册：provider 应用态 webSearch（BYOK）→ env.search 注入；
  *      未配置 → env.search 缺省 → 工具报禁用态 + 配置指引（EC-006）
  *
+ *  v3 组装点扩展（TASK-009，plan P1-c）：默认注册矩阵增 wait/extract/export（共享
+ *  session 内存 CollectBuffer，ADR-006）+ page-eval（登记禁用缺省，FR-043/045）；
+ *  env.dom.ops = createBrowserDomOps() 浏览器面真实现装配（4 桩消失落地，FR-003）；
+ *  场景默认子命令级策略常量 LGDL_DEFAULT_POLICY_RULES（App aiPolicy + session.test
+ *  共用；IMP-4 修复生效点，FR-007/045）。
+ *
+ *  v3 组装点扩展第二段（TASK-011，plan P2-b，串行于 TASK-009）：默认注册矩阵增量
+ *  chrome（TASK-010 产物，5 子命令；back/forward 会话内导航免 ask = EC-009 场景规则
+ *  面，reload/screenshot 写类缺省 ask）+ save（FR-029：save/download 两路径，export
+ *  落盘链同源）+ notify（FR-030：默认开，授权失败转译）+ clipboard（FR-030：读=敏感
+ *  ask/写=ask 经 LGDL_DEFAULT_POLICY_RULES 子命令级规则表达 —— v2 既有工厂仅接线
+ *  零逻辑改动，红线：clipboard/notify/save-file 不改）；LGDL_DEFAULT_POLICY_RULES
+ *  常量同步增 chrome back/forward allow 前置规则（规则序：置于既有 risk:'ui' ask 前
+ *  = 命中 allow 免 ask）+ clipboard 读写显式 ask 规则；page-eval 保持禁用缺省不动。
+ *
  * LGDL 特有回调不在此组装：onApply 编辑器写回 / next-actions 拦截 / 渲染事件
  * 由场景（App/AiPanel）经 runAgent(init) 的 system/events/hooks 注入（D-003）——
  * 本文件零 React import（可纯 node 测试）。
@@ -25,6 +40,7 @@ import {
   createCommandRouter,
   createAgentRunner,
   browserEnv,
+  createBrowserDomOps,
   createMemoryStorage,
   createSessionStore,
   createP0DomainTools,
@@ -36,6 +52,14 @@ import {
   createJobsToolEntry,
   createEvalJsToolEntry,
   createSubagentToolEntry,
+  createCollectBuffer,
+  createCollectToolEntries,
+  createWaitToolEntry,
+  createPageEvalToolEntry,
+  createChromeToolEntry,
+  createSaveFileToolEntry,
+  createNotifyToolEntry,
+  createClipboardToolEntry,
   createGoalStore,
   JobStore,
   type AgentRunnerOptions,
@@ -47,6 +71,7 @@ import {
   type CommandRouter,
   type GoalStore,
   type PlatformEnv,
+  type PolicyRule,
   type RouterPolicy,
   type SessionStore,
   type StorageBackend,
@@ -149,6 +174,58 @@ function createWebSearchClient(endpoint: string, apiKey: string | undefined, fet
   };
 }
 
+/**
+ * lgdl-web 场景默认子命令级权限规则（FR-007/045，ADR-001；IMP-4 修复生效点）。
+ *
+ * 行为 diff 声明（R-007/D-005，TASK-009 唯一有意变更 = IMP-4 修复）：v2 lgdl-web
+ * aiPolicy 单规则 `{risk:'ui', action:'ask'}` 在 dom 为工具级 risk:'ui'（v2 dom-tools）
+ * 时会把 read-state/snapshot 等只读子命令也锁进 ask（v2 IMP-4 遗留）。v3 dom 条目已声明
+ * subcommandRisks（read 组 → 'read'，TASK-005），本常量把「只读免 ask / UI 写默认 ask /
+ * evaluate 缺省 deny」落为场景显式子命令级策略：
+ *   1. dom 只读 6 子命令显式 allow（免 ask = IMP-4 修复验收 AC-009）；
+ *   2. 既有 `{risk:'ui', action:'ask'}` 保持（只锁 UI 副作用子命令，有效面 = click/hover/…）；
+ *      写组（risk:'write'）无规则命中 → 缺省 ask（defaultActionForRisk，FR-005）；
+ *   3. evaluate 最高档缺省 deny（FR-008/045：page-eval 默认禁用 + 本规则 = 场景启用后的
+ *      兜底门禁 —— 不静默 allow，场景显式规则/riskDefaults 才可覆盖，且不可低于 ask）。
+ * 既有注册序/非 dom 工具（doc-edit/web-search 等）裁决结果与 v2 逐字节一致（FR-001）。
+ *
+ * TASK-011（P2-b）增补（行为 diff 范围声明）：chrome 为 v3 新工具（v2 无此工具 → 不构成
+ * v2 行为回归），其 back/forward 子命令 subcommandRisks='ui'，若无下方前置 allow 规则将
+ * 被既有 `{risk:'ui', action:'ask'}` 命中 → 每次会话内导航都 ask；本常量把 EC-009「会话内
+ * 导航不触发 ask」落为 **前置** allow 规则（规则序敏感：必须置于 risk:'ui' ask 规则之前，
+ * 命中 allow 免 ask，见 PermissionGate 顺序首个 + deny 优先语义）。reload/screenshot
+ * （subcommandRisks='write'，破坏性/落盘副作用）不在此放行 → 缺省 ask。clipboard 读写显式
+ * ask 规则为 FR-030「读=敏感 ask/写=ask」的子命令级表达（clipboard entry.risk='ui' 本已命中
+ * 既有 ask 规则，显式规则把语义固化到子命令级单一数据源、防未来 risk 档位调整漂移 —— 行为
+ * 与 v2 既有 `{risk:'ui',action:'ask'}` 对 clipboard 的裁决一致，无新增回归面）。
+ *
+ * App.tsx aiPolicy.rules 与 session.test 场景断言共用本常量（单一数据源，防漂移）：
+ * App.tsx 含 app.css 无法被 node 测试编译引入（D-005：App aiPolicy 变更由 session.test
+ * 场景断言 + validate AI 闭环承接）。
+ */
+export const LGDL_DEFAULT_POLICY_RULES: PolicyRule[] = [
+  // IMP-4 修复生效点：dom 只读子命令显式放行（免 ask）
+  { pattern: 'dom', subcommand: 'read-state', action: 'allow', note: '只读：页面状态读取免 ask（IMP-4 修复）' },
+  { pattern: 'dom', subcommand: 'snapshot', action: 'allow', note: '只读：页面快照免 ask（IMP-4 修复）' },
+  { pattern: 'dom', subcommand: 'interactives', action: 'allow', note: '只读：可交互清单免 ask（IMP-4 修复）' },
+  { pattern: 'dom', subcommand: 'read-element', action: 'allow', note: '只读：元素读取免 ask（IMP-4 修复）' },
+  { pattern: 'dom', subcommand: 'find', action: 'allow', note: '只读：元素查询免 ask（IMP-4 修复）' },
+  { pattern: 'dom', subcommand: 'structure', action: 'allow', note: '只读：结构读取免 ask（IMP-4 修复）' },
+  // v3 P2（TASK-011/EC-009/ADR-001）：chrome back/forward = 会话内 history 导航（不中断
+  // AI 会话上下文）→ 前置 allow 免 ask（置于既有 risk:'ui' ask 规则之前 = 规则序生效面；
+  // reload 破坏性刷新/screenshot 落盘副作用不在此放行 → 缺省 ask，FR-027/028）
+  { pattern: 'chrome', subcommand: 'back', action: 'allow', note: '会话内历史后退导航免 ask（EC-009）' },
+  { pattern: 'chrome', subcommand: 'forward', action: 'allow', note: '会话内历史前进导航免 ask（EC-009）' },
+  // v3 P2（TASK-011/FR-030）：clipboard 读写显式 ask（读=敏感面 / 写=写入，经子命令级规则
+  // 表达 —— 不修改 clipboard.ts；effectiveRisk 沿 entry.risk='ui'，与下方既有 ask 规则裁决一致）
+  { pattern: 'clipboard', subcommand: 'read', action: 'ask', note: '读=敏感面：剪贴板内容读取需确认（FR-030）' },
+  { pattern: 'clipboard', subcommand: 'write', action: 'ask', note: '写=剪贴板写入需确认（FR-030）' },
+  // v2 既有规则保持：UI 副作用（effectiveRisk 'ui'：click/hover/scroll/zoom/fullscreen/dblclick/contextmenu/long-press/drag/focus/blur/press）默认 ask
+  { risk: 'ui', action: 'ask', note: 'UI 副作用需用户确认（dom-* 写经 PRM）' },
+  // FR-008/045：evaluate 最高档缺省 deny（page-eval 默认禁用 + 启用兜底门禁）
+  { risk: 'evaluate', action: 'deny', note: 'page-eval 最高档门禁：缺省 deny（FR-008/045）' },
+];
+
 /** 创建 AI 会话（单一组装点：router + 业务/P0·P1 域注册 + delay + 权限/审计 + runner 装配）。 */
 export function createAiSession(deps: AiSessionDeps): AiSession {
   // 全局 delay 场景默认 600ms（FR-015；>5000 非法值由 router 钳制 EC-009）
@@ -162,6 +239,17 @@ export function createAiSession(deps: AiSessionDeps): AiSession {
 
   // env 绑定：browserEnv() 为底，场景/测试经 deps.env 覆盖具体缝（§2.3.5-2）
   const env: PlatformEnv = { ...browserEnv(), ...(deps.env ?? {}) };
+  // v3（TASK-009/FR-003/ADR-008）：env.dom.ops = createBrowserDomOps() 显式装配 ——
+  // 浏览器面真实 PlatformDomOps（4 桩 NotFoundError 补真 + ~25 新能力，TASK-004 产物
+  // 接线；lgdl-web 真实运行时调用即用 = 4 桩消失落地）。deps.env.dom.ops 注入覆盖缝
+  // 保留（测试 fake ops / 场景替换优先，不做整缝覆盖）。
+  if (!deps.env?.dom?.ops) {
+    env.dom = {
+      ...(env.dom ?? {}),
+      state: env.dom?.state ?? { snapshot: async () => ({ unavailable: true }) },
+      ops: createBrowserDomOps(),
+    };
+  }
   // services：会话/目标/job 载体（浏览器建议注入 IDB；缺省 memory 降级 EC-005）
   const backend = deps.backend ?? createMemoryStorage();
   const store = deps.sessionStore ?? createSessionStore(backend);
@@ -186,6 +274,36 @@ export function createAiSession(deps: AiSessionDeps): AiSession {
     { ...createSubagentToolEntry({ router, chat: async (turns, system, tools) => chat(deps.settings(), [{ role: 'system', content: system }, ...turns], tools) }), enabled: false as const },
   ];
   for (const entry of p1Entries) router.register(entry);
+
+  // v3 P1 默认注册矩阵扩展（TASK-009/FR-043，plan P1-c）：wait/extract/export/page-eval。
+  // dom（27 子命令）已在上方注册不动；wait（risk:'read' 免 ask）+ extract/export 共享
+  // session 内存 CollectBuffer（extract 增量采集 → export 导出即落盘，ADR-006/P-04 不落
+  // IDB）；page-eval 按矩阵登记为禁用（FR-043/045：evaluate 最高档默认关，场景策略显式
+  // 开启 + App aiPolicy evaluate deny 兜底）。仅追加注册不改 assembly（红线）。
+  const collectBuffer = createCollectBuffer();
+  const v3Collect = createCollectToolEntries(env, collectBuffer);
+  const v3Entries = [
+    createWaitToolEntry(env),
+    v3Collect.extract,
+    v3Collect.export,
+    { ...createPageEvalToolEntry(env), enabled: false as const },
+  ];
+  for (const entry of v3Entries) router.register(entry);
+
+  // v3 P2 默认注册矩阵增量（TASK-011/plan P2-b，FR-026~030；第二段顺序扩展，串行于
+  // TASK-009 —— v2 既有注册序保持）：chrome（TASK-010 产物，5 子命令；back/forward 免
+  // ask 场景规则面 = LGDL_DEFAULT_POLICY_RULES 前置 allow，reload/screenshot 写类缺省
+  // ask，EC-009）+ save（v2 工厂，FR-029：save/download 两路径；export 落盘链同源）+ notify
+  // （v2 工厂，FR-030：默认开，授权失败转译）+ clipboard（v2 工厂，FR-030：读=敏感 ask/
+  // 写=ask 经 LGDL_DEFAULT_POLICY_RULES 子命令级规则表达）。**仅接线零逻辑改动**（红线：
+  // clipboard/notify/save-file 逻辑零改动，grep 断言）；追加注册不改 assembly（红线）。
+  const p2Entries = [
+    createChromeToolEntry(env),
+    createSaveFileToolEntry(env),
+    createNotifyToolEntry(env),
+    createClipboardToolEntry(env),
+  ];
+  for (const entry of p2Entries) router.register(entry);
 
   // ask 桥（FR-007）：AiPanel/AskDialog 场景注册；policy.onAsk 委托（未注册 → deny fail-closed）
   const askBridge: { permission: ((q: AskQuestion) => Promise<AskResolution>) | null; user: AskResponder | null } = {

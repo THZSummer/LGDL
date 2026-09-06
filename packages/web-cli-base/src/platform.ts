@@ -16,6 +16,7 @@
  * 浏览器全局一律以结构化子集方式读取（base 不含 DOM lib，NFR-002 零额外依赖）。
  */
 import type { AskResponder } from './ask-user.js';
+import { createBrowserDomOps } from './platform-dom.js';
 
 /** 浏览器存储配额面（navigator.storage）。 */
 export interface PlatformStorageQuota {
@@ -72,22 +73,257 @@ export interface PlatformDomState {
   snapshot(): Promise<Record<string, unknown>>;
 }
 
-/** DOM 操作结果（dom-* 子命令统一返回面）。 */
+/** DOM 操作结果（dom-* 子命令统一返回面）。
+ *
+ *  v3 additive（ADR-008/FR-002）：`dataUrl?` 为可选追加字段 —— 截图大 payload 独立
+ *  载体（PNG dataURL），**不进 output 大文本**（上下文预算 P-03/FR-028/ADR-003）；
+ *  无截图的既有 op 不返回该字段（v2 零变化）。
+ */
 export interface PlatformDomOpResult {
   ok: boolean;
   output: string;
   error?: string;
+  /** 截图载体（PNG dataURL；chrome screenshot FR-028）。缺省 undefined = 无截图 payload。 */
+  dataUrl?: string;
+}
+
+// ---------- v3 P1：PlatformDomOps additive 扩展类型面（ADR-008/FR-002，TASK-003） ----------
+// 全部为纯数据形态（base 不含 DOM lib，NFR-002：元素/文档一律以 selector 定位串表达，
+// 不引用 Element 等 DOM 类型）；定位串统一为 v3 定位语法面（css:/裸 CSS/text=/text*=，
+// FR-015，locator.ts 解析）。字段注释标注「对应 FR / dom 子命令或工具」供实现/审查对照。
+
+/** click 坐标/偏移选项（FR-020，dom click 升级；缺省 = selector-only 既有语义 v2 零回归）。 */
+export interface PlatformClickOptions {
+  /** 元素内偏移 X（相对目标元素左上角，经 FR-012 几何读取；与 x/y 互斥）。 */
+  offsetX?: number;
+  /** 元素内偏移 Y（相对目标元素左上角；与 x/y 互斥）。 */
+  offsetY?: number;
+  /** 视口坐标 X（elementFromPoint 解析目标；与 offsetX/offsetY 互斥）。 */
+  x?: number;
+  /** 视口坐标 Y（elementFromPoint 解析目标）。 */
+  y?: number;
+}
+
+/** interactives 选项（FR-011，dom interactives 子命令）。 */
+export interface PlatformInteractivesOptions {
+  /** 交互类型过滤：button / a[href] / input / select / textarea / [contenteditable] 等。 */
+  type?: string;
+  /** 状态过滤：disabled / checked / selected / readonly / visible 等。 */
+  state?: string;
+  /** 文本包含过滤（标签文本/可访问名 aria-label·title·关联文本）。 */
+  text?: string;
+  /** 分页偏移（从第几条条目开始返回）。 */
+  offset?: number;
+  /** 分页条数（本次返回条数上限）。 */
+  limit?: number;
+  /** 清单预算上限（默认 200 条，I-08/S-08；超限 → 截断标记 + 总数元信息）。 */
+  maxItems?: number;
+}
+
+/** readElement 读取面选择（FR-012，dom read-element 子命令）。 */
+export interface PlatformReadElementFields {
+  /** 属性读取：true=全部属性；string[]=指定属性名（缺省不读）。 */
+  attributes?: boolean | string[];
+  /** 文本读取（textContent）。 */
+  text?: boolean;
+  /** computed style 读取：true=全部可读属性；string[]=指定 CSS 属性名。 */
+  styles?: boolean | string[];
+  /** classList 读取。 */
+  classList?: boolean;
+  /** 几何读取（getBoundingClientRect / 可见性 / 滚动位）。 */
+  geometry?: boolean;
+  /** 交互状态读取（disabled/checked/selected/expanded/required）。 */
+  state?: boolean;
+  /** 表单值读取（input.value / select 选中 / textarea.value；敏感字段脱敏 FR-024）。 */
+  value?: boolean;
+}
+
+/** readElement 选项（FR-012，dom read-element；单元素首匹配）。 */
+export interface PlatformReadElementOptions {
+  /** 目标（定位语法面 css:/裸 CSS/text=/text*=，FR-015；首匹配）。 */
+  selector: string;
+  /** 读取面组合（缺省 = 实现默认读取面）。 */
+  fields?: PlatformReadElementFields;
+}
+
+/** findElements 选项（FR-013，dom find 子命令：存在性/数量/摘要查询）。 */
+export interface PlatformFindElementsOptions {
+  /** 定位语法面（css:/裸 CSS/text=/text*=，FR-015）。 */
+  selector: string;
+  /** 摘要返回条数上限（超限截断标记；缺省 = 实现预算默认）。 */
+  limit?: number;
+  /** true = 附稳定索引/唯一化建议选择器（供后续 click/read 精确定位，EC-002 提示语义）。 */
+  detail?: boolean;
+}
+
+/** structure 读取部分（FR-014，dom structure 子命令）。 */
+export type PlatformStructurePart = 'children' | 'outerHTML' | 'links' | 'images' | 'headings' | 'forms';
+
+/** readStructure 选项（FR-014，dom structure；元素级/页级）。 */
+export interface PlatformReadStructureOptions {
+  /** 目标元素（缺省 = 页面级/文档根）。 */
+  selector?: string;
+  /** 读取部分：children=子节点概览；outerHTML=目标结构序列化；
+   *  links/images/headings/forms=页面集合（链接 href/图片 src/标题层级/表单控件清单）。 */
+  parts?: PlatformStructurePart[];
+  /** true = 整页序列化（documentElement.outerHTML，预算护栏）。 */
+  serialize?: boolean;
+  /** 输出预算字符上限（默认 20000，超限截断标记 + 元信息，NFR-003/EC-010）。 */
+  maxLength?: number;
+}
+
+/** snapshotStructured 选项（FR-010/S-08，dom snapshot 结构化段 + 分页；纯文本态由既有 snapshot 承载）。 */
+export interface PlatformSnapshotStructuredOptions {
+  /** 结构化段分页偏移（续读语义）。 */
+  offset?: number;
+  /** 分页条数。 */
+  limit?: number;
+  /** 预算字符上限（默认 20000 保持 v2 兼容，可配；超限截断标记/总长/续读提示）。 */
+  maxLength?: number;
+  /** 结构化段选择：interactives=可交互元素段；headings=标题结构段（缺省 = 实现默认段集）。 */
+  sections?: Array<'interactives' | 'headings'>;
+}
+
+/** typeText 选项（FR-022/ADR-004，dom type 子命令；字符级事件序列 + React 受控兼容 native setter）。 */
+export interface PlatformTypeTextOptions {
+  /** 键入前清空目标既有值（缺省 false：在现有值上键入/替换选区，由实现定）。 */
+  clear?: boolean;
+}
+
+/** pressKey 选项（FR-023，dom press 子命令）。 */
+export interface PlatformPressKeyOptions {
+  /** 目标：先 focus 的 selector（缺省 = 当前聚焦元素；组合键派发 keydown→keyup 序列）。 */
+  selector?: string;
+}
+
+/** setStyle 选项（FR-033，dom set-style 子命令）。 */
+export interface PlatformSetStyleOptions {
+  /** 覆盖式样式（style.cssText 整段覆盖；与 properties 互斥）。 */
+  cssText?: string;
+  /** 增量式单属性写入（style[name]=value；与 cssText 互斥）。 */
+  properties?: Record<string, string>;
+  /** classList 操作（add/remove/toggle）。 */
+  classAction?: 'add' | 'remove' | 'toggle';
+  /** classAction 目标类名。 */
+  className?: string;
+}
+
+/** fillForm 单字段项（FR-035，dom fill 子命令）。 */
+export interface PlatformFillField {
+  /** 控件 selector（定位语法面 FR-015）。 */
+  selector: string;
+  /** 写入值：text/number/email/textarea = 字符串；
+   *  select = option value（byLabel=true 时按 option label 匹配）；
+   *  checkbox/radio = 按勾选目标处理（非空值即勾选，FR-035）。 */
+  value: string;
+  /** true = select 按 option label 匹配（缺省按 option value 匹配）。 */
+  byLabel?: boolean;
+}
+
+/** fillForm 选项（FR-035，dom fill：多字段类型化填写 + 可选提交）。 */
+export interface PlatformFillFormOptions {
+  /** 多字段填写表（按序逐字段执行 + 回读校验，EC-006）。 */
+  fields: PlatformFillField[];
+  /** 填写后提交整个表单（requestSubmit/隐式提交；缺省不提交）。 */
+  submit?: boolean;
+}
+
+/** addElement 插入位置（FR-036，dom add 子命令）。 */
+export type PlatformInsertPosition = 'append' | 'prepend' | 'before' | 'after';
+
+/** addElement 选项（FR-036，dom add 子命令）。 */
+export interface PlatformAddElementOptions {
+  /** 新元素标签（div/button/input/…）。 */
+  tag: string;
+  /** 文本内容（textContent；缺省无文本）。 */
+  text?: string;
+  /** 属性集合（data-*、aria-*、class、href 等均可）。 */
+  attrs?: Record<string, string>;
+  /** 插入位置：append/prepend = 目标 selector 子树尾/首；before/after = 目标 selector 兄弟前/后。 */
+  position: { mode: PlatformInsertPosition; selector: string };
+}
+
+/** waitFor 条件类型（FR-025，wait 工具）。 */
+export type PlatformWaitKind = 'element' | 'visible' | 'interactable' | 'gone' | 'text';
+
+/** waitFor 单条件（FR-025/ADR-005）。 */
+export interface PlatformWaitCondition {
+  /** element=selector 匹配存在；visible=可见（几何非零 + 非 display:none）；
+   *  interactable=可见且非 disabled；gone=消失/不存在；text=文本出现（text= 语法面 O-011）。 */
+  kind: PlatformWaitKind;
+  /** 目标定位（element/visible/interactable/gone 用；text= 语法面 FR-015）。 */
+  selector?: string;
+  /** 文本条件（kind=text）：text=精确文本 / text*=包含文本。 */
+  text?: string;
+}
+
+/** waitFor 选项（FR-025，wait 工具 ops 面；MutationObserver 优先 + 轮询降级 + 统一超时含最后状态）。 */
+export interface PlatformWaitForOptions {
+  /** 等待条件（多条件语义见 mode）。 */
+  conditions: PlatformWaitCondition[];
+  /** any=任一命中即返回 / all=全部命中（缺省 any）。 */
+  mode?: 'any' | 'all';
+  /** 超时 ms（默认可配；上限 30s 钳制）。 */
+  timeout?: number;
+  /** 轮询降级间隔 ms（默认 200；observer 通道不受此限，NFR-007 无空转）。 */
+  interval?: number;
+}
+
+/** evaluate 选项（FR-037/ADR-002，page-eval 工具 ops 面；宿主页同源 F12 console 等效）。 */
+export interface PlatformEvaluateOptions {
+  /** 执行形态：expression=求值表达式（返回序列化结果）/ script=语句序列（缺省 expression）。 */
+  as?: 'expression' | 'script';
+  /** 执行预算 ms（异步超时中止；同步死循环不可中断 = 平台硬约束，P-01 工程公开于工具帮助面）。 */
+  timeoutMs?: number;
+  /** 结果预算字符上限（超限截断标记，FR-037/EC-004）。 */
+  maxLength?: number;
+}
+
+/** extractData 抽取形态（FR-038，extract 工具）。 */
+export type PlatformExtractKind = 'table' | 'list' | 'links' | 'images' | 'meta';
+
+/** extractData 选项（FR-038/042，extract 工具 ops 面；结果携带来源上下文由工具层封装）。 */
+export interface PlatformExtractDataOptions {
+  /** 抽取形态：table=表格行×列 JSON；list=列表/卡片（+fields 字段映射）；
+   *  links=链接集合；images=图片集合；meta=页面元数据（title/meta）。 */
+  kind: PlatformExtractKind;
+  /** 目标容器 selector（table/list/links/images；meta 忽略；定位语法面 FR-015）。 */
+  selector?: string;
+  /** list 字段映射：{字段名: 相对 list 项的定位 selector/text=}（kind=list 用）。 */
+  fields?: Record<string, string>;
+  /** 单次抽取条数上限（默认 200；超限截断标记 + 已采保留，FR-042/EC-011）。 */
+  maxItems?: number;
+}
+
+/** screenshot 选项（FR-028/ADR-003，chrome screenshot 工具 ops 面）。 */
+export interface PlatformScreenshotOptions {
+  /** 截图范围：viewport=视口级（缺省）；element=selector 目标元素级近似；
+   *  fullpage=整页级 → 实现返回「不支持 + F-14/CDP 归属」说明（FR-028 out）。 */
+  mode?: 'viewport' | 'element' | 'fullpage';
+  /** mode=element 时的目标 selector（定位语法面）。 */
+  selector?: string;
+  /** 输出目标宽（可选；缺省 = 视口/元素实际尺寸）。 */
+  width?: number;
+  /** 输出目标高（可选）。 */
+  height?: number;
 }
 
 /**
  * DOM 操作面（dom-tools 子命令族执行依赖，P1 additive；无 op-cli React handler 依赖）。
  * 执行目标 = 宿主应用自身同源页面（NG-003：第三方/跨域 = F-14 边界）。
+ *
+ * v3 additive 契约（ADR-008/FR-002/FR-020）：既有 7 方法（readState~snapshot）签名零改动
+ * （click 仅追加**可选** opts?，selector-only 旧调用方零回归）；#1~#25 全部新能力方法
+ * **可选**（`?`）——nodeEnv 不预置（缺省 undefined）→ 未注入面调用由 dom executor 返回
+ * 「该能力在当前环境未注入」可读错误（dom-tools.ts:32-38 语义），平台既有代码零编译破坏。
+ * 真实浏览器实现由 platform-dom.ts `createBrowserDomOps()` 装配（TASK-004，4 桩补真）。
+ * 方法名 ↔ dom 子命令/工具映射见各方法 JSDoc。
  */
 export interface PlatformDomOps {
-  /** 读宿主页状态（URL/title/关键区域）。 */
+  /** 读宿主页状态（URL/title/关键区域；v3 多字段升级在浏览器实现内完成，FR-009）。 */
   readState(): Promise<PlatformDomOpResult>;
-  /** 点击元素（CSS 选择器）。 */
-  click(selector: string): Promise<PlatformDomOpResult>;
+  /** 点击元素（CSS 选择器；v3 可选坐标/偏移点击 opts，FR-020）。 */
+  click(selector: string, opts?: PlatformClickOptions): Promise<PlatformDomOpResult>;
   /** 悬停元素。 */
   hover(selector: string): Promise<PlatformDomOpResult>;
   /** 滚动：element（选择器）或页面，dx/dy 像素。 */
@@ -98,6 +334,65 @@ export interface PlatformDomOps {
   fullscreen(on: boolean): Promise<PlatformDomOpResult>;
   /** DOM 快照（HTML/文本形态由实现决定；输出进上下文预算受控）。 */
   snapshot(): Promise<PlatformDomOpResult>;
+
+  // ---- v3 P1 新能力（全部可选，缺省 undefined；FR-002/ADR-008）----
+
+  /** #1 可交互元素清单（dom interactives 子命令，FR-011；password 只出类型不出值 FR-024）。 */
+  interactives?(opts?: PlatformInteractivesOptions): Promise<PlatformDomOpResult>;
+  /** #2 单元素多面读取（dom read-element 子命令，FR-012）。 */
+  readElement?(opts: PlatformReadElementOptions): Promise<PlatformDomOpResult>;
+  /** #3 元素定位查询（dom find 子命令，FR-013；0 匹配 = ok:true + 计数非错误，EC-001）。 */
+  findElements?(opts: PlatformFindElementsOptions): Promise<PlatformDomOpResult>;
+  /** #4 结构/HTML 读取（dom structure 子命令，FR-014）。 */
+  readStructure?(opts: PlatformReadStructureOptions): Promise<PlatformDomOpResult>;
+  /** #5 结构化快照 + 分页（dom snapshot 结构化段，FR-010/S-08）。 */
+  snapshotStructured?(opts?: PlatformSnapshotStructuredOptions): Promise<PlatformDomOpResult>;
+  /** #6 双击事件序列（dom dblclick 子命令，FR-018）。 */
+  dblclick?(selector: string): Promise<PlatformDomOpResult>;
+  /** #7 右键 contextmenu 事件（dom contextmenu 子命令，FR-018）。 */
+  contextmenu?(selector: string): Promise<PlatformDomOpResult>;
+  /** #8 长按（dom long-press 子命令，FR-019；ms 可配，缺省 500）。 */
+  longPress?(selector: string, ms: number): Promise<PlatformDomOpResult>;
+  /** #9 HTML5 拖放（dom drag 子命令，FR-019；目标不处理合成事件 → 可读提示 EC-007）。 */
+  dragDrop?(from: string, to: string): Promise<PlatformDomOpResult>;
+  /** #10 focus（dom focus 子命令，FR-021；可聚焦性判定，不可聚焦 → 可读错误）。 */
+  focusEl?(selector: string): Promise<PlatformDomOpResult>;
+  /** #10 blur（dom blur 子命令，FR-021）。 */
+  blurEl?(selector: string): Promise<PlatformDomOpResult>;
+  /** #11 文本键入（dom type 子命令，FR-022；字符级事件 + React 受控 native setter 基元 ADR-004）。 */
+  typeText?(selector: string, text: string, opts?: PlatformTypeTextOptions): Promise<PlatformDomOpResult>;
+  /** #12 组合键派发（dom press 子命令，FR-023；combo 如 "ctrl+Enter"/"Enter"/"Tab"）。 */
+  pressKey?(combo: string, opts?: PlatformPressKeyOptions): Promise<PlatformDomOpResult>;
+  /** #13 设元素文本（dom set-text 子命令，FR-031；textContent 覆盖语义 + 回读校验）。 */
+  setText?(selector: string, text: string): Promise<PlatformDomOpResult>;
+  /** #14 设元素属性（dom set-attr 子命令，FR-032；value 缺省 = 布尔属性形态 setAttribute(name,'')）。 */
+  setAttr?(selector: string, name: string, value?: string): Promise<PlatformDomOpResult>;
+  /** #14 移除元素属性（dom remove-attr 子命令，FR-032）。 */
+  removeAttr?(selector: string, name: string): Promise<PlatformDomOpResult>;
+  /** #15 元素样式写入（dom set-style 子命令，FR-033；cssText 覆盖 / 单属性增量 / classList 操作）。 */
+  setStyle?(selector: string, opts: PlatformSetStyleOptions): Promise<PlatformDomOpResult>;
+  /** #16 表单值设值（dom set-value 子命令，FR-034；native setter + input/change = React 受控基元）。 */
+  setValue?(selector: string, value: string): Promise<PlatformDomOpResult>;
+  /** #17 表单类型化填写（dom fill 子命令，FR-035；file input 显式不可用 NG-004）。 */
+  fillForm?(plan: PlatformFillFormOptions): Promise<PlatformDomOpResult>;
+  /** #18 创建插入元素（dom add 子命令，FR-036）。 */
+  addElement?(opts: PlatformAddElementOptions): Promise<PlatformDomOpResult>;
+  /** #18 删除元素（dom remove 子命令，FR-036）。 */
+  removeElement?(selector: string): Promise<PlatformDomOpResult>;
+  /** #19 条件等待（wait 工具 ops 面，FR-025/ADR-005；超时返回含最后观察状态，不中断会话）。 */
+  waitFor?(opts: PlatformWaitForOptions): Promise<PlatformDomOpResult>;
+  /** #20 宿主页 evaluate（page-eval 工具 ops 面，FR-037；F12 console 等效同源执行）。 */
+  evaluate?(code: string, opts?: PlatformEvaluateOptions): Promise<PlatformDomOpResult>;
+  /** #21 声明式结构化抽取（extract 工具 ops 面，FR-038）。 */
+  extractData?(opts: PlatformExtractDataOptions): Promise<PlatformDomOpResult>;
+  /** #22 触发打印（chrome print 子命令，FR-026；打印对话框用户侧确认）。 */
+  printPage?(): Promise<PlatformDomOpResult>;
+  /** #23 会话历史导航（chrome back/forward 子命令，FR-027；delta=-1 后退 / +1 前进）。 */
+  historyNav?(delta: number): Promise<PlatformDomOpResult>;
+  /** #24 刷新（chrome reload 子命令，FR-027；破坏性 → 门禁默认 ask，EC-009）。 */
+  reloadPage?(): Promise<PlatformDomOpResult>;
+  /** #25 截图（chrome screenshot 子命令，FR-028/ADR-003；dataUrl 载体回填 PlatformDomOpResult.dataUrl）。 */
+  screenshot?(opts: PlatformScreenshotOptions): Promise<PlatformDomOpResult>;
 }
 
 export interface PlatformDom {
@@ -441,42 +736,8 @@ export function browserEnv(): PlatformEnv {
     body?: unknown;
   }>('document');
 
-  /** 最小 DOM 操作实现（尽力而为；真实浏览器面 validate 冒烟承接）。 */
-  const domOps: PlatformDomOps = {
-    async readState() {
-      const doc = domDoc;
-      const w = win();
-      if (!doc) throw namedError('NotFoundError', 'document 不可用');
-      return { ok: true, output: `url: ${w?.location?.href ?? ''}\ntitle: ${w?.document?.title ?? ''}` };
-    },
-    async click(selector: string) {
-      const doc = domDoc;
-      if (!doc?.querySelector) throw namedError('NotFoundError', 'document.querySelector 不可用');
-      const el = doc.querySelector(selector) as { click?: () => void } | null;
-      if (!el) return { ok: false, output: `✖ 未找到元素 "${selector}"（宿主页同源 DOM）`, error: 'element not found' };
-      if (typeof el.click !== 'function') return { ok: false, output: `✖ 元素 "${selector}" 不可点击`, error: 'not clickable' };
-      el.click();
-      return { ok: true, output: `✓ 已点击 "${selector}"` };
-    },
-    async hover() {
-      // 最小实现：真实 hover 事件派发在浏览器冒烟面承接（Node 面桩注入为主）
-      throw namedError('NotFoundError', 'hover 真实事件派发由浏览器面冒烟承接（本实现为最小桩）');
-    },
-    async scroll() {
-      throw namedError('NotFoundError', 'scroll 真实滚动由浏览器面冒烟承接（本实现为最小桩）');
-    },
-    async zoom() {
-      throw namedError('NotFoundError', 'zoom 由浏览器面冒烟承接');
-    },
-    async fullscreen() {
-      throw namedError('NotFoundError', 'fullscreen 由浏览器面冒烟承接（需用户手势授权）');
-    },
-    async snapshot() {
-      const doc = domDoc as { body?: { innerText?: string } } | undefined;
-      if (!doc?.body?.innerText) throw namedError('NotFoundError', 'document.body.innerText 不可用');
-      return { ok: true, output: doc.body.innerText.slice(0, 20000) };
-    },
-  };
+  /** 浏览器面真实 PlatformDomOps（TASK-004：4 桩补真 + ~25 新能力；DOM 触碰收敛 platform-dom.ts）。 */
+  const domOps: PlatformDomOps = createBrowserDomOps();
 
   return {
     kind: 'browser',

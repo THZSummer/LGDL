@@ -14,21 +14,32 @@
  *   → ask 命中：分发挂起，等场景 onAsk 裁决（FR-007）；取消/超时 → deny + reason
  *
  * 默认取向：只读（read/未声明）→ allow；敏感面（write/external/ui/state）→ ask；
+ * evaluate（v3 最高档，FR-008/ADR-002）→ deny（无策略/规则不得静默 allow）；
  * 「危险=deny」由场景经规则/riskDefaults 显式声明（默认安全：deny 优先 EC-014）。
+ *
+ * v3（ADR-001，FR-005/006/008）：PolicyRule 增 subcommand 过滤面（glob，与既有
+ * pattern/group/namespace/risk 正交）；ToolRisk 增 'evaluate' 最高档（default deny +
+ * 无策略 fail-closed 由 router 层承接）。仅追加类型面/规则匹配面，无既有声明时行为
+ * 与 v2 逐字节一致（FR-001 additive）。
  *
  * 本文件零 LGDL/react import（NFR-001）；无策略配置时 check() 零额外开销（NFR-005）。
  */
 import type { Clock } from './delay.js';
 
-/** 工具敏感面分类（ToolEntry.risk 声明；供 PRM 默认取向参考，非裁决本身）。 */
-export type ToolRisk = 'read' | 'write' | 'external' | 'ui' | 'state';
+/**
+ * 工具敏感面分类（ToolEntry.risk 声明；供 PRM 默认取向参考，非裁决本身）。
+ * 'evaluate' = v3 最高档（FR-008/ADR-002）：宿主页同源代码执行（page-eval），
+ * 缺省 deny + 无策略 fail-closed，仅场景显式规则/riskDefaults 可放行。
+ */
+export type ToolRisk = 'read' | 'write' | 'external' | 'ui' | 'state' | 'evaluate';
 
 /** 权限裁决三态。 */
 export type PolicyAction = 'allow' | 'ask' | 'deny';
 
 /**
- * 三元组规则（opencode 骨架生态位）：{pattern/group/namespace/risk 匹配 → action}。
+ * 三元组规则（opencode 骨架生态位）：{pattern/group/namespace/risk/subcommand → action}。
  * 任一过滤面缺省 = 不限制；全部过滤面缺省 = 全局规则（匹配一切）。
+ * v3（FR-006/ADR-001）：subcommand 过滤面与既有面正交，缺省不限。
  */
 export interface PolicyRule {
   /** 匹配目标全限定名（glob：* 任意串、? 单字符）；缺省不限。 */
@@ -37,8 +48,10 @@ export interface PolicyRule {
   group?: string;
   /** 按命名空间匹配（如 'skill'）；缺省不限。 */
   namespace?: string;
-  /** 按敏感面匹配（risk 字段）；缺省不限。 */
+  /** 按敏感面匹配（risk 字段；对工具级/子命令级 effectiveRisk 同源生效）；缺省不限。 */
   risk?: ToolRisk;
+  /** v3：按子命令匹配（glob：* 任意串、? 单字符；与 pattern/group/namespace/risk 正交）；缺省不限。 */
+  subcommand?: string;
   action: PolicyAction;
   /** 规则说明（审计/ask 呈现）。 */
   note?: string;
@@ -51,6 +64,8 @@ export interface RuleCheckContext {
   namespace?: string;
   group?: string;
   risk?: ToolRisk;
+  /** v3：子命令（subcommand 级规则过滤；无子命令调用 = '' 或缺省）。 */
+  subcommand?: string;
 }
 
 /** dsh 可插拔策略对象（部署方注入；如 read-before-edit）。 */
@@ -147,8 +162,12 @@ export interface PolicyConfig {
   askTimeoutMs?: number;
 }
 
-/** 缺省取向：只读 allow / 敏感 ask / 危险 deny（后两者经 config.riskDefaults 声明）。 */
+/**
+ * 缺省取向：只读 allow / 敏感 ask / 危险 deny（后两者经 config.riskDefaults 声明）。
+ * v3（FR-008/ADR-002）：'evaluate' = 最高档 → deny（无策略/规则时绝不静默 allow）。
+ */
 export function defaultActionForRisk(risk?: ToolRisk): PolicyAction {
+  if (risk === 'evaluate') return 'deny';
   return risk && risk !== 'read' ? 'ask' : 'allow';
 }
 
@@ -192,12 +211,13 @@ export class PermissionGate {
     );
   }
 
-  /** 规则是否命中输入（pattern/group/namespace/risk 任一限定匹配即命中）。 */
+  /** 规则是否命中输入（pattern/group/namespace/risk/subcommand 任一限定匹配即命中）。 */
   ruleMatches(rule: PolicyRule, input: RuleCheckContext): boolean {
     if (rule.pattern !== undefined && !globMatch(input.tool, rule.pattern)) return false;
     if (rule.group !== undefined && rule.group !== input.group) return false;
     if (rule.namespace !== undefined && rule.namespace !== input.namespace) return false;
     if (rule.risk !== undefined && rule.risk !== input.risk) return false;
+    if (rule.subcommand !== undefined && !globMatch(input.subcommand ?? '', rule.subcommand)) return false;
     return true;
   }
 

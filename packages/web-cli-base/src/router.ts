@@ -12,6 +12,9 @@
  *   2 enabled 检查 → 已禁用显式错误（EC-001「已禁用」文案互异）
  *   3 ★ PermissionGate.check（框架级；deny → 「权限被拒」，执行器不被调用，
  *     不产生 delay 等待；ask 经 onAsk 桥消化，取消/超时 → deny，FR-005/007）
+ *     v3（ADR-001/FR-005）：传入 risk = effectiveRisk（subcommandRisks?.[subcommand]
+ *     ?? entry.risk；缺省回退 = v2 行为逐字节一致）；evaluate 档且 policyGate 未装配
+ *     → 直接 deny fail-closed（FR-008/ADR-002）；permission/tool-call 审计含 subcommand
  *   4 delay gate（既有钳制语义保持）
  *   5 executor（零改动）→ 异常转 ok:false + 稳定文案（EC-012）
  *   + PostToolUse 审计（audit sink：tc/decision/result/duration/trust，FR-009）
@@ -81,8 +84,15 @@ export interface ToolEntry {
   namespace?: string;
   /** 工具开关声明（缺省 true；FR-004；另有路由级 enabledTools 白名单）。 */
   enabled?: boolean;
-  /** 敏感面分类提示（'read'|'write'|'external'|'ui'|'state'；供 PRM 默认取向参考）。 */
+  /** 敏感面分类提示（'read'|'write'|'external'|'ui'|'state'|'evaluate'；供 PRM 默认取向参考）。 */
   risk?: ToolRisk;
+  /**
+   * v3（FR-005/ADR-001）：子命令级 risk 声明（子命令 → risk）。
+   * 缺省回退 entry.risk（无 subcommandRisks 时行为与 v2 逐字节一致，FR-001 零回归）。
+   * dispatch 计算 effectiveRisk = subcommandRisks?.[subcommand] ?? entry.risk，
+   * 规则匹配与缺省取向共用该值（只读子命令落 'read' → 缺省 allow 免 ask = IMP-4 修复）。
+   */
+  subcommandRisks?: Record<string, ToolRisk>;
 }
 
 /** 统一分发执行契约（FR-002）——对 {tool, args}，不绑 React。 */
@@ -528,13 +538,16 @@ export class CommandRouter {
     }
     const callCtx = ctx ?? {};
     // 3 权限门禁（FR-005：与 delay gate 同层、先于执行器；deny 短路不产生 delay）
+    // v3（ADR-001/FR-005）：effectiveRisk = subcommandRisks?.[subcommand] ?? entry.risk，
+    // 规则匹配（risk 过滤面）与缺省取向共用同一 effectiveRisk。
+    const effectiveRisk = e.subcommandRisks?.[tc.subcommand] ?? e.risk;
     if (this.policyGate) {
       const decision = await this.policyGate.check(
         {
           tool: fqn,
           namespace: e.namespace,
           group: e.group,
-          risk: e.risk,
+          risk: effectiveRisk,
           subcommand: tc.subcommand,
           args: tc.args,
           ctx: callCtx as Record<string, unknown>,
@@ -545,6 +558,7 @@ export class CommandRouter {
         type: 'permission',
         ts: Date.now(),
         tool: fqn,
+        subcommand: tc.subcommand,
         decision: decision.action,
         reason: decision.reason,
         by: decision.by,
@@ -553,6 +567,21 @@ export class CommandRouter {
       if (decision.action === 'deny') {
         return { ok: false, output: decision.reason, error: 'permission denied' };
       }
+    } else if (effectiveRisk === 'evaluate') {
+      // v3 fail-closed（FR-008/ADR-002）：evaluate 最高档且 policyGate 未装配 → 直接 deny
+      // （无策略宿主绝不静默执行；page-eval 需场景策略显式开启 + 门禁装配），执行器不被调用
+      const reason = `✖ 工具 "${fqn}" 的 evaluate 风险档调用被拒绝：page-eval 需场景策略显式开启 + 门禁装配`;
+      this.recordAudit({
+        type: 'permission',
+        ts: Date.now(),
+        tool: fqn,
+        subcommand: tc.subcommand,
+        decision: 'deny',
+        reason,
+        by: 'fail-closed',
+        detail: 'effectiveRisk=evaluate 且 policyGate 未装配（无策略宿主 fail-closed，FR-008）',
+      });
+      return { ok: false, output: reason, error: 'permission denied (evaluate fail-closed)' };
     }
     // 4 delay gate（既有；effDelay 钳制语义保持）
     const effDelay = e.delayMs ?? this.delayMs;
@@ -565,6 +594,7 @@ export class CommandRouter {
         type: 'tool-call',
         ts: Date.now(),
         tool: fqn,
+        subcommand: tc.subcommand,
         ok: result.ok,
         durationMs: Date.now() - t0,
         outputChars: result.output.length,
@@ -577,6 +607,7 @@ export class CommandRouter {
         type: 'tool-call',
         ts: Date.now(),
         tool: fqn,
+        subcommand: tc.subcommand,
         ok: false,
         durationMs: Date.now() - t0,
         detail,
@@ -600,6 +631,8 @@ export class CommandRouter {
     decision?: string;
     reason?: string;
     by?: string;
+    /** v3（NFR-008）：子命令（permission/tool-call 裁决与调用均带子命令，供回放）。 */
+    subcommand?: string;
     ok?: boolean;
     durationMs?: number;
     outputChars?: number;
