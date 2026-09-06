@@ -1,0 +1,39 @@
+{
+  "feature": "web-cli-base v2：面向浏览器生态位的 agent 能力完备化（浏览器原生工具集 + 增强/进阶层机制）",
+  "featureKey": "specs-tree-web-cli-base-v2",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
+  "createdAt": "2026-09-06",
+  "updatedAt": "2026-09-06",
+  "phaseNote": "Validate R1（2026-09-06，phase=validated）：结论 ⚠️ 有条件通过 —— V1~V17 全维度真实执行：全仓 724 pass/0 fail/1 skip（F-23 基线 582→724 只增不减）；4 包 tsc + vite build + base 独立构建 0；专项文件 158 例（permission 13/router 30/audit 7/platform 5/assembly 4/storage-tools 8/settings 5/doc 8/search 6/web-fetch 13/web-search 5/save 4/task-state 16/eval 10/dom 7/mcp 5/p2-exec 5/p2-web-tools 7）+ lgdl-web session.test 15/provider.test 17 全绿；自主脚本 6 个 37 断言全过（V3 additive 7 / V16 schema 预算 6 含千级派生 1.8ms·零开销 0.2ms / V17 机械闭环 3 含 wire tools=20·ask allow/deny 自愈 / V15 生态位 grep 15/15）+ V14 EC 15/15 承接核验；headless chromium UI 加载冒烟成功。Review 改进：IMP-1（eval-wasm untrusted 闸门）/IMP-2（lgdl-web IDB 载体注入+memory fallback）/IMP-3（audit ask 死类型）/IMP-5（exec-remote trust 标记）已修复且门禁不破（base 204→205）；IMP-4（dom 只读子命令 risk 分级）记遗留附实现建议。validate 顺手修复：storage-idb 缺省 DB 名 lgdl-web-cli-base→web-cli-base（NFR-001 中性纯度）。遗留移交收口人工清单 5 项：V4/F-23 AC-008 真实 AI 闭环补跑（需浏览器+API Key）、V13 真实浏览器交互面（真 IDB/OPFS/授权/DOM/worker/多标签）、IMP-4、worker-session trust 差异声明（记录在案）、DB 名旧库清理（未发布无迁移）。工作流 7 阶段完成，Feature 状态 completed。",
+  "description": "把 web-cli-base 从「围绕 LGDL 图文档场景的 5 工具 AI-CLI」补齐为面向 web 浏览器环境的完整自足 agent 框架。核心设计公理（作者裁决 2026-09-06）：不照搬面向操作系统的工具集（read/write/edit/bash/grep/glob 是 OS/文件系统生态位语义），而是面向浏览器原生组成（DOM/存储/Web API/Worker/fetch/Permissions）做生态位对应设计。上游背景：F-23（specs-tree-web-cli-base-framework，phase=validated）已交付框架机制层（CommandRouter/AgentRunner/DelayGate + 5 工具），8 项通用工具与增强/进阶层能力尚未实现。前置输入：docs/research/agent-capabilities/（2026-09-06 调研，10 框架能力矩阵 + MVP/增强/进阶分层）。",
+  "scope": {
+    "in": [
+      "九域能力工具集（作者裁决首批全做）：内容/文档域、存储域、检索域、网络域、DOM/UI 自动化域、执行/计算域、任务/状态域、扩展生态位（skill/MCP）、会话/上下文域",
+      "浏览器原生工具按生态位对应设计（DOM 操作、OPFS/IndexedDB 存储、fetch/WebSocket 网络、Web Worker 计算、Permissions 权限等），不照搬 OS 工具语义",
+      "权限门禁三者组合：opencode 三元组骨架 + dsh 可插拔策略 + WorkBuddy 技能级 allowed-tools",
+      "在 F-23 架构（CommandRouter/AgentRunner/DelayGate）之上扩展能力"
+    ],
+    "out": [
+      "操作系统生态位能力（真 bash/PTY、本地文件树路径读写、原始 socket/DNS、stdio MCP、apt/npm 运行时安装、常驻守护、git 仓库）——高内聚守职责边界，不做非己生态位，需要时代理给未来 os-cli-base",
+      "LGDL 语言引擎语义（lgdl-core/layout/render/router）",
+      "开源决策（v1.1 范畴）"
+    ]
+  },
+  "artifacts": [
+    "discovery.md",
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "tasks.json"
+  ],
+  "notes": "作者裁决（2026-09-06 discovery 开放点）：O-008 版本落点=最近的独立版本（原 v0.7 内容后移）；O-001 首批九域全做；O-002 不可承载面=高内聚守职责边界，代理给 OS agent（未来 os-cli-base 单独做）；O-003 权限门禁=三者组合。剩余开放点 O-004（任务/状态宿主 IndexedDB 程度与后台作业生命周期）、O-005（subagent 子会话/workflow 编排是否 v2 与多形态内核同批）、O-006（skill 目录机制/MCP Streamable HTTP 试点/注册表命名空间）、O-007（lgdl-web 接入面：新工具默认开关、web-search key 来源、配置 UI 归属）转入 spec 阶段裁决。discovery.md v1.1 已按 D-5 生态位公理重做（v1.0 照搬 OS 工具框架已废弃）。 Spec 执行摘要（2026-09-06，产物 spec.md v1.0）：以 D-5 生态位公理 + 作者 O-001~O-003/O-008 裁决（A-01~A-04）为红线输入，discovery Q-001~Q-013/§3.3 映射表/§3.4 九域/§3.5 不可承载面/§3.6 衔接点为基座编写需求规范。①46 FR 十三组——REG 4（目录分组/命名空间/运行时动态注册/开关模型）+ PRM 6（框架级 PreToolUse 策略挂点/裁决语义/ask 契约/allowed-tools/浏览器授权失败转译/untrusted 可信标记）+ DOC 2（doc-read/doc-edit 内容对象读写，非文件路径）+ STR 3（storage 持久卷/quota/settings 骨架）+ SRC 2（search-content/list-resources 内容集检索）+ NET 4（web-fetch 升级+untrusted/web-search 场景注入端点/save/download/ws·SSE P2）+ DOM 4（通用 dom-* 宿主页同源/ask-user/notify/clipboard）+ EXE 3（eval-js·wasm/exec-remote 代理桥/worker 持久上下文）+ TSK 5（todo 会话级/goal 跨会话/jobs 句柄+interrupted/subagent 子会话/workflow 后置）+ SES 2（session 持久化恢复/context 压缩）+ EXT 3（skill 目录/MCP HTTP 试点/扩展治理）+ LGDL 4（默认注册矩阵/web-search key/ask·配置 UI/settings 上收复议）+ BSL 4（F-23 契约 additive 保持/世界模型文档态→状态态扩展/真实浏览器闭环补跑/行为等价声明）。②10 NFR（中性纯度/依赖方向/安全基线/单一数据源/性能与上下文预算/双轨测试门禁/类型构建/浏览器兼容）+ 15 EC + 12 AC。③O-004~O-007 以建议态（S-01~S-09）写入对应 FR 并整理访谈问题清单（I-01~I-09）供作者拍板（§9.2/§9.3）；§9.4 波次拆分建议（波1 P0 横切四柱 REG/PRM/SES/LGDL+BSL，波2 P1 域工具主体，波3 P2 增强试点）。④九域全覆盖 + 不可承载面显式 out（NG-001~009，代理原则）+ F-23 衔接以「ToolEntry additive + 既有挂点同层 + session 组装点扩展 + 世界模型扩展」四路径落地。无待答阻塞项；建议作者对 I-01~I-09 逐项确认/调整后冻结 spec v1.1，随后进入 plan。 Spec 开放点裁决（2026-09-06）：I-01~I-09 全部采纳建议默认 S-01~S-09，spec v1.1 冻结（todo 随会话/goal·jobs 落 IndexedDB；跨会话仅刷新恢复+多标签冲突标记；后台作业页面存活期+interrupted+Notification；subagent 入 v2、workflow 后置；多形态内核留 v1.1/F-14；skill 内置打包+运行时接口预留+用户导入可选；MCP Streamable HTTP 试点 P2 纳入；lgdl-web 默认注册矩阵+web-search BYOK；配置 UI 留场景+settings 骨架入 base）。版本落点：最近的独立版本（原 v0.7 内容后移），需同步 ROADMAP 登记。 Plan 执行摘要（2026-09-06，产物 plan.md v1.0）：基于 spec v1.0（S-01~S-09 已裁）+ discovery v1.1 + F-23 产物 + 代码实测（9 项基线核实）。①架构：机制层（router v2 注册表/PermissionGate/audit/platform/assembly）+ 域工具层 9 域平铺模块（DOC/STR/SRC/NET/DOM/EXE/TSK/SES/EXT），全部经 PlatformEnv 注入浏览器能力（node 桩双轨可测），lgdl-web 组装点扩展（矩阵/env/ask 桥/services/BYOK）。②F-23 扩展接口：ToolEntry additive 字段（group/namespace/enabled/risk，缺省兼容 FR-043）；PermissionGate 插 router.dispatch（查条目/启用态后、delay gate 前，deny 短路不等待、执行器零改动、PostToolUse 审计）；动态源 register opts（source/allowedTools）三链一致派生 + 全限定名 ns.name 键。③方案对比六主题（注册表形态/权限挂点/存储载体/eval 沙箱/MCP 实现/web-fetch 升级）各 2-3 案 + 推荐理由。④文件影响面 base MODIFY 5/NEW 33 / lgdl-web MODIFY 5/NEW 1（含测试平铺 src 根兼容通配）。⑤风险 R-001~R-012 + 波次交接（P0/P1/P2 模块×FR/AC 锚点）。⑥ADR-001~008（注册表 v2 单 router 索引/权限门禁 router 层/OPFS+IDB 双载体+StorageBackend/eval worker 沙箱/MCP 轻量客户端/会话恢复 runner 零改动/UI 归属+BYOK）。⑦技术开放点 P-01~P-05（冒烟工具链/MCP 实现/HTML→MD 清洗/浏览器基线/矩阵 UI）待作者确认默认即冻结。 Plan 开放点裁决（2026-09-06）：P-01~P-05 全部采纳推荐默认，plan v1.0 冻结（浏览器冒烟维持 node 注入桩+validate 真实浏览器双轨零新增依赖；MCP base 内置轻量 fetch+SSE 客户端；web-fetch HTML→MD 内置最小转换器；兼容基线 Chromium 验证+Firefox 声明；lgdl-web web-search key 配置 UI v2 内 SettingsPanel 最小面）。 Tasks 执行摘要（2026-09-06，产物 tasks.md/tasks.json v1.0）：基于 plan §8 交接表拆分 15 原子任务 / 9 执行波次（P0×7 / P1×5 / P2×2 / GATE×1）。F-23 红线落地：runner 主体零改动、ToolEntry additive、测试守恒 D-005。lgdl-web session.ts 顺序扩展两阶段（TASK-007 P0 子集矩阵 → TASK-012 P1 扩域）；P2 试点 TASK-013/014 独立可裁。下游：@sddu-build TASK-001 起步。",
+  "status": "tracked",
+  "files": {
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-base-v2/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-base-v2/validate-report.md",
+    "review": ".sddu/specs-tree-root/specs-tree-web-cli-base-v2/review.md",
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-base-v2/review-report.md"
+  }
+}
