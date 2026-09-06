@@ -30,6 +30,9 @@ export function SettingsPanel({
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  // v2（FR-040 BYOK）：web-search 端点/Key 配置位（未配置 → web-search 工具禁用态 + 配置指引 EC-006）
+  const [wsEndpoint, setWsEndpoint] = useState(settings.webSearch?.endpoint ?? '');
+  const [wsApiKey, setWsApiKey] = useState(settings.webSearch?.apiKey ?? '');
 
   const provider = PROVIDERS.find((p) => p.id === providerId) ?? PROVIDERS[0];
 
@@ -63,6 +66,10 @@ export function SettingsPanel({
       model: model.trim() || defaultModelFor(providerId),
       baseURL: baseURL.trim() || (provider.baseURL ?? undefined),
       maxRounds: Math.max(1, Math.round(maxRounds) || 1000),
+      // v2 BYOK：端点与 Key 都填才落位；任一缺省 = 未配置（web-search 禁用态）
+      ...(wsEndpoint.trim() && wsApiKey.trim()
+        ? { webSearch: { endpoint: wsEndpoint.trim(), apiKey: wsApiKey.trim() } }
+        : {}),
     });
     setSaved(true);
     setTimeout(onClose, 600);
@@ -183,6 +190,37 @@ export function SettingsPanel({
         {testResult && (
           <div className={`ai-settings-test ${testResult.ok ? 'ok' : 'fail'}`}>{testResult.message}</div>
         )}
+
+        {/* v2（FR-040 BYOK）：web-search 配置区 —— 端点/Key 场景注入位；未配置禁用 + 指引 EC-006 */}
+        <div className="ai-settings-section">
+          <div className="ai-settings-subtitle">
+            <span>③ 联网搜索（web-search，可选）</span>
+            <span className="ai-settings-hint">
+              base 零内置端点/Key —— 填入后 web-search 自动可用；Key 仅存本机浏览器（不进 schema/help/日志）
+            </span>
+          </div>
+          <label className="ai-settings-field">
+            <span className="ai-settings-label">搜索端点 URL</span>
+            <input
+              type="text"
+              value={wsEndpoint}
+              onChange={(e) => setWsEndpoint(e.target.value)}
+              placeholder="https://your-search-service.example/api/search"
+              spellCheck={false}
+            />
+            <span className="ai-settings-hint">POST {`{"query":"…"}`} → {`{"results":[{title,snippet,url}]}`}</span>
+          </label>
+          <label className="ai-settings-field">
+            <span className="ai-settings-label">API Key（Bearer）</span>
+            <input
+              type="password"
+              value={wsApiKey}
+              onChange={(e) => setWsApiKey(e.target.value)}
+              placeholder="留空 = 不启用 web-search"
+              spellCheck={false}
+            />
+          </label>
+        </div>
 
         <div className="ai-settings-actions">
           <button

@@ -8,6 +8,7 @@ import {
   saveSettings,
   loadProviderSettings,
   saveProviderInputs,
+  saveWebSearch,
   type ProviderSettings,
 } from './provider.js';
 
@@ -197,3 +198,61 @@ test('F-04: OpenAI-compatible endpoints share the five-tool set (claude parity)'
 });
 
 
+
+// ================= v2：webSearch BYOK 配置位（FR-040；key 只存 storage 位） =================
+
+test('webSearch: 未配置缺省为 undefined（loadSettings）', () => {
+  withStorage({}, () => {
+    const s = loadSettings();
+    assert.equal(s.webSearch, undefined);
+  });
+});
+
+test('webSearch: saveSettings 读写 round-trip；仅存端点+key 完整时生效', () => {
+  withStorage({}, () => {
+    const saved: ProviderSettings = {
+      providerId: 'deepseek',
+      apiKey: 'sk',
+      model: 'm',
+      webSearch: { endpoint: 'https://search.example.com/api', apiKey: 'ws-key-123' },
+    };
+    saveSettings(saved);
+    const loaded = loadSettings();
+    assert.deepEqual(loaded.webSearch, { endpoint: 'https://search.example.com/api', apiKey: 'ws-key-123' });
+    // 其他 provider 字段不受影响
+    assert.equal(loaded.providerId, 'deepseek');
+    // 端点/key 任一缺失 → 不落位（缺省禁用语义 EC-006）
+    saveSettings({ ...saved, webSearch: { endpoint: '', apiKey: 'k' } });
+    assert.equal(loadSettings().webSearch, undefined);
+  });
+});
+
+test('webSearch: saveWebSearch 专用 setter（不动 provider 键/激活态）', () => {
+  withStorage({}, () => {
+    saveSettings({ providerId: 'deepseek', apiKey: 'sk-ds', model: 'm' });
+    saveWebSearch({ endpoint: 'https://s.example.com', apiKey: 'key' });
+    assert.deepEqual(loadSettings().webSearch, { endpoint: 'https://s.example.com', apiKey: 'key' });
+    assert.equal(loadSettings().providerId, 'deepseek'); // 激活态未被改动
+    // 清空
+    saveWebSearch(undefined);
+    assert.equal(loadSettings().webSearch, undefined);
+    assert.equal(loadProviderSettings('deepseek').apiKey, 'sk-ds');
+  });
+});
+test('webSearch: 既有 localStorage 读写零回归（旧格式无 webSearch 字段）', () => {
+  withStorage(
+    {
+      'lgdl-ai-settings': JSON.stringify({ providerId: 'qwen', apiKey: 'sk-old', model: 'qwen-max' }),
+    },
+    () => {
+      const s = loadSettings();
+      assert.equal(s.providerId, 'qwen');
+      assert.equal(s.apiKey, 'sk-old');
+      assert.equal(s.webSearch, undefined);
+      // 保存后 webSearch 缺省不产生字段噪音（load 仍为 undefined，provider 键保持）
+      saveSettings({ providerId: 'qwen', apiKey: 'sk-old', model: 'qwen-max' });
+      assert.equal(loadSettings().webSearch, undefined);
+      assert.equal(loadProviderSettings('qwen').apiKey, 'sk-old');
+    },
+  );
+});

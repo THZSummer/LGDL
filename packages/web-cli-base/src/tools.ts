@@ -25,18 +25,35 @@ export const WEB_FETCH_TOOL: {
       'Base platform capability, independent of the diagram CLI tools. ' +
       'Arguments go in the args object; args.path is REQUIRED — there is NO default path; ' +
       'omitting it fails with "missing --path". ' +
+      'Optional guards: clean (HTML→Markdown, default off), maxBytes (output cap, default 512KB), ' +
+      'timeoutMs (request timeout, default 20000). ' +
       'Example: {"args":{"path":"guide.md"}} (read a local guide file).',
     parameters: {
       type: 'object',
       properties: {
         args: {
           type: 'object',
-          description: 'Arguments to the fetch. --path is REQUIRED — no default path.',
+          description:
+            'Arguments to the fetch. --path is REQUIRED — no default path. ' +
+            '--clean true converts HTML to Markdown; --maxBytes truncates oversized output.',
           properties: {
             path: {
               type: 'string',
               description:
                 'URL or same-origin relative path to fetch, e.g. "guide.md" or "https://example.com/doc.md".',
+            },
+            clean: {
+              type: 'string',
+              description:
+                'Optional "true" to convert HTML to Markdown before returning (default "false" = raw text).',
+            },
+            maxBytes: {
+              type: 'string',
+              description: 'Optional output size cap in bytes (default 524288). Oversized output is truncated with a note.',
+            },
+            timeoutMs: {
+              type: 'string',
+              description: 'Optional request timeout in ms (default 20000; "0" disables).',
             },
           },
           required: ['path'],

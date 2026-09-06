@@ -67,6 +67,12 @@ export interface ProviderSettings {
   baseURL?: string;
   /** agent 循环最大执行轮数（默认 1000） */
   maxRounds?: number;
+  /**
+   * web-search 场景配置位（FR-040，BYOK）：搜索端点 + API Key。
+   * key 只作为配置存储位 —— 不进 schema/help/日志；未配置时 web-search 工具
+   * 呈禁用态 + 配置指引（EC-006）。
+   */
+  webSearch?: { endpoint: string; apiKey: string };
 }
 
 const STORAGE_KEY = 'lgdl-ai-settings';
@@ -93,6 +99,8 @@ interface StoredSettings {
   providers: Partial<Record<ProviderId, PerProviderState>>;
   /** agent 循环最大执行轮数（默认 1000；防死循环，用户可在设置里调整） */
   maxRounds?: number;
+  /** web-search 场景配置位（FR-040 BYOK；存储顶层，非 per-provider）。 */
+  webSearch?: { endpoint: string; apiKey: string };
 }
 
 /** agent 循环默认轮数上限（几乎不限；真死循环时用户在设置里调小）。 */
@@ -126,6 +134,7 @@ function readStore(): StoredSettings {
         typeof parsed.maxRounds === 'number' && parsed.maxRounds > 0
           ? parsed.maxRounds
           : DEFAULT_MAX_ROUNDS,
+      webSearch: parsed.webSearch && parsed.webSearch.endpoint && parsed.webSearch.apiKey ? parsed.webSearch : undefined,
     };
   } catch {
     return { ...EMPTY_STORE, providers: {} };
@@ -147,10 +156,12 @@ export function loadSettings(): ProviderSettings {
     model: state?.model?.trim() ? state.model : provider.defaultModel,
     baseURL: state?.baseURL?.trim() ? state.baseURL : undefined,
     maxRounds: store.maxRounds ?? DEFAULT_MAX_ROUNDS,
+    // 缺省不落 webSearch 键（未配置 = undefined；F-23 既有 round-trip 断言零回归）
+    ...(store.webSearch ? { webSearch: store.webSearch } : {}),
   };
 }
 
-/** 保存当前 provider 的设置（不影响其他 provider 的 key/模型）。 */
+/** 保存当前 provider 的设置（不影响其他 provider 的 key/模型；webSearch 为全局位）。 */
 export function saveSettings(s: ProviderSettings): void {
   const store = readStore();
   store.active = s.providerId;
@@ -160,6 +171,14 @@ export function saveSettings(s: ProviderSettings): void {
     baseURL: s.baseURL || undefined,
   };
   store.maxRounds = s.maxRounds && s.maxRounds > 0 ? s.maxRounds : DEFAULT_MAX_ROUNDS;
+  store.webSearch = s.webSearch && s.webSearch.endpoint && s.webSearch.apiKey ? s.webSearch : undefined;
+  writeStore(store);
+}
+
+/** 仅更新 webSearch 配置位（不清动 provider 键/激活态；FR-040 SettingsPanel 专用）。 */
+export function saveWebSearch(webSearch: { endpoint: string; apiKey: string } | undefined): void {
+  const store = readStore();
+  store.webSearch = webSearch && webSearch.endpoint && webSearch.apiKey ? webSearch : undefined;
   writeStore(store);
 }
 

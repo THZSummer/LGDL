@@ -7,6 +7,9 @@ import { LGDL_SYSTEM_PROMPT } from './prompts';
 import { parseNextActions, type NextAction } from '@lgdl/lgdl-web-op-cli';
 import type { AiSession } from './session';
 import { SettingsPanel } from './SettingsPanel';
+import { AskDialog } from './AskDialog';
+import type { AskDialogEntry } from './AskDialog';
+import type { AskQuestion, AskResolution, AskUserQuestion } from '@lgdl/web-cli-base';
 
 export interface ChatMessage {
   id: number;
@@ -238,6 +241,7 @@ export function AiPanel({
   currentSource = '',
   settings,
   onSaveSettings,
+  onPermissionHandlerChange,
 }: {
   onApply: ApplySource;
   /** AI 会话（App 持有单一组装点：router + 业务工具 + delay 600；本组件注入渲染/交互事件） */
@@ -245,6 +249,8 @@ export function AiPanel({
   currentSource?: string;
   settings: ProviderSettings;
   onSaveSettings: (s: ProviderSettings) => void;
+  /** v2：权限 ask 桥注册回调（App 侧 policy.onAsk → 本组件 AskDialog 裁决；FR-041） */
+  onPermissionHandlerChange?: (fn: ((q: AskQuestion) => Promise<AskResolution>) | null) => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -257,6 +263,9 @@ export function AiPanel({
   ]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
+  const [askEntry, setAskEntry] = useState<AskDialogEntry | null>(null);
+  const permResolveRef = useRef<((r: AskResolution) => void) | null>(null);
+  const userResolveRef = useRef<((r: { ok: boolean; value?: string; canceled?: boolean }) => void) | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(nextId);
   const currentSourceRef = useRef(currentSource);
@@ -264,6 +273,29 @@ export function AiPanel({
   const presetTrackRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  // v2：ask 双入口桥（FR-007 权限 ask / FR-023 ask-user）→ AskDialog 呈现；挂起期间 runner await 不推进
+  React.useEffect(() => {
+    const permHandler = (q: AskQuestion) =>
+      new Promise<AskResolution>((resolve) => {
+        permResolveRef.current = resolve;
+        setAskEntry({ kind: 'permission', tool: q.tool, reason: q.reason });
+      });
+    session.bindPermissionAsk(permHandler);
+    onPermissionHandlerChange?.(permHandler);
+    session.bindAskUser((question: AskUserQuestion) => {
+      const kindOf = question.kind === 'choice' ? 'choice' : question.kind === 'confirm' ? 'confirm' : 'text';
+      return new Promise<{ ok: boolean; value?: string; canceled?: boolean }>((resolve) => {
+        userResolveRef.current = resolve;
+        setAskEntry({ kind: 'user', kindOf, prompt: question.prompt, options: question.options });
+      });
+    });
+    return () => {
+      session.bindPermissionAsk(null);
+      session.bindAskUser(null);
+      onPermissionHandlerChange?.(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
   // 使用指南（README-CLI.md）：会话开始时由系统自动加载一次并注入 system，
   // 不依赖 AI 调 web-fetch（模型可能漏传 --path 导致加载失败）。
   const guideDocRef = useRef<string | null>(null);
@@ -431,8 +463,9 @@ export function AiPanel({
   );
 
   return (
-    <div className="ai-panel">
-      <div className="ai-messages" ref={listRef}>
+    <>
+      <div className="ai-panel">
+        <div className="ai-messages" ref={listRef}>
         {messages.map((msg) => (
           <div key={msg.id} className={`ai-msg ai-msg-${msg.role}${msg.type === 'web-cli' ? ' ai-msg-webcli' : ''}`}>
             <div className="ai-msg-bubble">
@@ -495,6 +528,25 @@ export function AiPanel({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+      <AskDialog
+        entry={askEntry}
+        onPermissionDecision={(action, remember) => {
+          permResolveRef.current?.({ action, remember });
+          permResolveRef.current = null;
+          setAskEntry(null);
+        }}
+        onUserAnswer={(value) => {
+          userResolveRef.current?.({ ok: true, value });
+          userResolveRef.current = null;
+          setAskEntry(null);
+        }}
+        onUserCancel={() => {
+          userResolveRef.current?.({ ok: false, canceled: true });
+          userResolveRef.current = null;
+          setAskEntry(null);
+        }}
+      />
+    </>
   );
 }

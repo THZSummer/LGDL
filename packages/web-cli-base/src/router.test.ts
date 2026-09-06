@@ -4,6 +4,7 @@ import { createCommandRouter } from './router.js';
 import type { ToolEntry } from './router.js';
 import type { Clock } from './delay.js';
 import type { WebCliToolCall } from './llm.js';
+import { createMemoryAudit } from './audit.js';
 
 /** 记账型 fake clock（同步记账 + 手动推进，零真实等待）。 */
 function makeFakeClock() {
@@ -303,4 +304,243 @@ test('router: illegal delayMs config clamps + warns once (EC-009)', () => {
   } finally {
     console.warn = origWarn;
   }
+});
+
+// ================= v2 注册表（FR-001~004/038/043，additive；F-23 既有用例零回归） =================
+
+test('router v2: ToolEntry 追加字段缺省 = 旧行为逐字节一致（FR-043 additive）', () => {
+  const router = createCommandRouter();
+  router.register(makeTool('biz-1')).register(makeTool('biz-2'));
+  // 未声明 namespace/group/enabled/risk 的条目派生顺序与 F-23 完全一致
+  assert.deepEqual(router.deriveTools().map((t) => t.name), ['biz-1', 'biz-2', 'web-fetch', 'sleep', 'web-cli-help']);
+  assert.deepEqual(router.names(), ['biz-1', 'biz-2', 'web-fetch', 'sleep', 'web-cli-help']);
+});
+
+test('router v2: 命名空间共存 — 注册键=全限定名，schema/dispatch/help 三链一致（FR-002）', async () => {
+  const router = createCommandRouter({ builtins: false });
+  const mkNs = (name: string, ns: string | undefined, out: string): ToolEntry => ({
+    name,
+    ...(ns ? { namespace: ns } : {}),
+    schema: { name, description: `${name} description`, parameters: {} },
+    executor: async () => ({ ok: true, output: out }),
+  });
+  router.register(mkNs('search', 'skill', 'skill-search-exec'));
+  router.register(mkNs('search', undefined, 'top-search-exec')); // 同基名不同 ns 共存
+  // 派生顺序：命名空间首次注册序（skill 先注册 → skill 组先）
+  assert.deepEqual(router.names(), ['skill.search', 'search']);
+  // 三链 1 schema（schema function name 语义 = 全限定名）
+  assert.deepEqual(router.deriveTools().map((t) => t.name), ['skill.search', 'search']);
+  // 三链 2 dispatch（按全限定名分别派发到各自执行器）
+  const viaNs = await router.dispatch(tc('skill.search'));
+  assert.equal(viaNs.ok, true);
+  assert.equal(viaNs.output, 'skill-search-exec');
+  const viaTop = await router.dispatch(tc('search'));
+  assert.equal(viaTop.output, 'top-search-exec');
+  // 三链 3 help 查询键（全限定名）
+  assert.ok(router.helpFor('skill.search')?.includes('skill.search ——'));
+  assert.ok(router.helpFor('search')?.includes('search ——'));
+  // 文本前缀 = 全限定名（可逆解析回 {namespace, name}）
+  assert.equal(router.deriveCommand(tc('skill.search', { q: 'x' }, 'query')), 'skill.search query --q x');
+});
+
+test('router v2: 动态源注册/卸载 — 全流程入审计 + 卸载三链即时消失（FR-003/FR-038）', async () => {
+  const audit = createMemoryAudit();
+  const router = createCommandRouter({ builtins: false, audit });
+  router.register({ ...makeTool('greet'), namespace: 'skill' }, { source: 'skill:hello' });
+  // 注册审计
+  const reg = audit.events.find((e) => e.type === 'extension-register');
+  assert.ok(reg);
+  assert.equal(reg.source, 'skill:hello');
+  assert.equal(reg.name, 'skill.greet');
+  assert.ok(reg.tool === 'skill.greet');
+  // 注册即得：schema/help/dispatch
+  assert.deepEqual(router.deriveTools().map((t) => t.name), ['skill.greet']);
+  assert.ok(router.listHelp().includes('skill.greet'));
+  const r = await router.dispatch(tc('skill.greet'));
+  assert.equal(r.ok, true);
+  // 卸载 → 三链即时消失 + 卸载审计
+  assert.equal(router.unregister('skill.greet'), true);
+  const unreg = audit.events.find((e) => e.type === 'extension-unregister');
+  assert.ok(unreg && unreg.source === 'skill:hello');
+  assert.deepEqual(router.names(), []);
+  assert.equal(router.has('skill.greet'), false);
+  assert.equal(router.helpFor('skill.greet'), null);
+  const after = await router.dispatch(tc('skill.greet'));
+  assert.equal(after.ok, false);
+  assert.match(after.output, /未注册工具 "skill\.greet"/);
+});
+
+test('router v2: query 过滤（命名空间/组/名/启用态，FR-003）', () => {
+  const router = createCommandRouter({ builtins: false });
+  router.register({ ...makeTool('read'), namespace: 'doc', group: 'doc' });
+  router.register({ ...makeTool('edit'), namespace: 'doc', group: 'doc', risk: 'write', enabled: false });
+  router.register({ ...makeTool('fetch'), namespace: 'net', group: 'net' });
+  assert.deepEqual(router.query({ namespace: 'doc' }).map((e) => e.name), ['read', 'edit']);
+  assert.deepEqual(router.query({ group: 'net' }).map((e) => e.name), ['fetch']);
+  assert.deepEqual(router.query({ name: 'r*' }).map((e) => e.name), ['read']);
+  assert.deepEqual(router.query({ name: '*h' }).map((e) => e.name), ['fetch']);
+  assert.deepEqual(router.query({ name: '*e*' }).map((e) => e.name), ['read', 'edit', 'fetch']);
+  assert.deepEqual(router.query({ enabled: false }).map((e) => e.name), ['edit']);
+  assert.deepEqual(router.query({ namespace: 'doc', enabled: true }).map((e) => e.name), ['read']);
+});
+
+test('router v2: 命名空间次序可配置（FR-002 setNamespaceOrder）', () => {
+  const router = createCommandRouter({ builtins: false });
+  router.register(makeTool('alpha')); // '' 先
+  router.register({ ...makeTool('beta'), namespace: 'skill' });
+  router.register(makeTool('gamma')); // '' 组内第二
+  assert.deepEqual(router.names(), ['alpha', 'gamma', 'skill.beta']); // 缺省首次注册序
+  router.setNamespaceOrder(['skill', '']);
+  assert.deepEqual(router.names(), ['skill.beta', 'alpha', 'gamma']);
+  router.setNamespaceOrder(['']);
+  assert.deepEqual(router.names(), ['alpha', 'gamma', 'skill.beta']);
+});
+
+test('router v2: 开关模型 — 声明 enabled:false 三链断言（FR-004/EC-001）', async () => {
+  const router = createCommandRouter();
+  router.register({ ...makeTool('readonly'), risk: 'read' });
+  router.register({ ...makeTool('writeonly'), enabled: false, risk: 'write' });
+  // 链 1 schema 派生不含禁用工具
+  assert.deepEqual(router.deriveTools().map((t) => t.name), ['readonly', 'web-fetch', 'sleep', 'web-cli-help']);
+  assert.ok(!router.deriveTools().some((t) => t.name === 'writeonly'));
+  assert.ok(router.deriveTools().some((t) => t.name === 'readonly'));
+  // 链 2 help 一览标注「已禁用」
+  const list = router.listHelp();
+  assert.ok(list.includes('writeonly：writeonly description（已禁用）'));
+  assert.ok(!list.includes('readonly：readonly description（已禁用）'));
+  // 链 3 dispatch 显式「已禁用」错误（EC-001 文案互异于「未注册」）
+  const d = await router.dispatch(tc('writeonly'));
+  assert.equal(d.ok, false);
+  assert.match(d.output, /已禁用/);
+  assert.doesNotMatch(d.output, /未注册|权限被拒/);
+});
+
+test('router v2: enabledTools 白名单 — schema 不含、派发报禁用（FR-004）', async () => {
+  const router = createCommandRouter({ builtins: false });
+  router.register(makeTool('keep')).register(makeTool('drop'));
+  router.enabledTools(['keep']);
+  assert.deepEqual(router.deriveTools().map((t) => t.name), ['keep']);
+  const dropped = await router.dispatch(tc('drop'));
+  assert.equal(dropped.ok, false);
+  assert.match(dropped.output, /已禁用/);
+  assert.equal((await router.dispatch(tc('keep'))).ok, true);
+  router.enableAllTools();
+  assert.deepEqual(router.deriveTools().map((t) => t.name), ['keep', 'drop']);
+});
+
+test('router v2: dispatch 权限门禁 — deny 短路（执行器未被调用 + 无 delay 等待 + 文案互异）', async () => {
+  const fake = makeFakeClock();
+  const audit = createMemoryAudit();
+  let executed = 0;
+  const router = createCommandRouter({
+    delayMs: 600,
+    clock: fake.clock,
+    builtins: false,
+    audit,
+    policy: { rules: [{ pattern: 'secret.*', action: 'deny', note: '涉密' }] },
+  });
+  router.register({
+    name: 'peek',
+    namespace: 'secret',
+    schema: { name: 'peek', description: 'x', parameters: {} },
+    executor: async () => {
+      executed += 1;
+      return { ok: true, output: 'peeked' };
+    },
+  });
+  router.register(makeTool('open'));
+  const denied = await router.dispatch(tc('secret.peek'));
+  assert.equal(denied.ok, false);
+  assert.equal(denied.error, 'permission denied');
+  assert.match(denied.output, /权限被拒/);
+  assert.doesNotMatch(denied.output, /未注册|已禁用/);
+  assert.equal(executed, 0); // 执行器未被调用（间谍断言 FR-005）
+  // deny 短路：不产生 delay 等待；仅后续 enabled 命令产生间隔补齐
+  await router.dispatch(tc('open')); // 首命令不等待
+  await router.dispatch(tc('open')); // 距上一命令起点 0 < 600 → 补齐 600
+  assert.deepEqual(fake.waits, [600]); // deny 未产生额外等待
+  // 权限裁决入审计
+  const perm = audit.events.find((e) => e.type === 'permission');
+  assert.ok(perm && perm.decision === 'deny');
+  assert.equal(perm.tool, 'secret.peek');
+});
+
+test('router v2: dispatch ask 桥 — allow 放行 / deny 拦截 + audit（FR-007）', async () => {
+  const audit = createMemoryAudit();
+  const mk = (outcome: 'allow' | 'deny') =>
+    createCommandRouter({
+      builtins: false,
+      audit,
+      policy: {
+        rules: [{ risk: 'write', action: 'ask' }],
+        onAsk: async () => ({ action: outcome }),
+      },
+    });
+  const allowRouter = mk('allow');
+  let allowExec = 0;
+  allowRouter.register({ name: 'w', risk: 'write', schema: { name: 'w', description: '', parameters: {} }, executor: async () => { allowExec += 1; return { ok: true, output: 'done' }; } });
+  const allowed = await allowRouter.dispatch(tc('w'));
+  assert.equal(allowed.ok, true);
+  assert.equal(allowExec, 1);
+
+  const denyRouter = mk('deny');
+  let denyExec = 0;
+  denyRouter.register({ name: 'w', risk: 'write', schema: { name: 'w', description: '', parameters: {} }, executor: async () => { denyExec += 1; return { ok: true, output: 'done' }; } });
+  const denied = await denyRouter.dispatch(tc('w'));
+  assert.equal(denied.ok, false);
+  assert.match(denied.output, /权限被拒/);
+  assert.equal(denyExec, 0);
+  // 权限事件两笔均入审计
+  const perms = audit.events.filter((e) => e.type === 'permission');
+  assert.equal(perms.length, 2);
+  assert.equal(perms[0].decision, 'allow');
+  assert.equal(perms[1].decision, 'deny');
+});
+
+test('router v2: PostToolUse 审计 — 成功/异常均记录 tool-call 事件（NFR-009）', async () => {
+  const audit = createMemoryAudit();
+  const router = createCommandRouter({ builtins: false, audit });
+  router.register({ name: 'ok-tool', schema: { name: 'ok-tool', description: '', parameters: {} }, executor: async () => ({ ok: true, output: 'hi'.repeat(20), trust: { source: 'x', fetchedAt: 0, level: 'untrusted' } }) });
+  router.register({ name: 'boom', schema: { name: 'boom', description: '', parameters: {} }, executor: async () => { throw new Error('kaboom'); } });
+  await router.dispatch(tc('ok-tool'));
+  await router.dispatch(tc('boom'));
+  const calls = audit.events.filter((e) => e.type === 'tool-call');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].ok, true);
+  assert.equal(calls[0].outputChars, 40);
+  assert.equal(calls[0].trust?.level, 'untrusted');
+  assert.ok(typeof calls[0].durationMs === 'number');
+  assert.equal(calls[1].ok, false);
+  assert.match(calls[1].detail ?? '', /kaboom/);
+});
+
+test('router v2: listHelp 按组分节（≥2 组插组头；单组保持旧文本）（FR-001）', () => {
+  const router = createCommandRouter();
+  router.register({ ...makeTool('lgdl-web-cli', { summary: '图内容操作' }) }); // 缺省组
+  const single = router.listHelp();
+  assert.ok(!single.includes('[general]')); // 单组不插头 → 旧文本逐字节
+  router.register({ ...makeTool('doc-read', { summary: '读内容对象' }), group: 'doc' });
+  router.register({ ...makeTool('storage-list', { summary: '列卷条目' }), group: 'storage' });
+  const grouped = router.listHelp();
+  assert.ok(grouped.includes('[doc]'));
+  assert.ok(grouped.includes('[storage]'));
+  assert.ok(grouped.indexOf('[doc]') < grouped.indexOf('doc-read'));
+  assert.ok(grouped.indexOf('doc-read') < grouped.indexOf('storage-list'));
+  // 组内注册序保持
+  router.register({ ...makeTool('doc-edit', { summary: '改内容对象' }), group: 'doc' });
+  const grouped2 = router.listHelp();
+  assert.ok(grouped2.indexOf('doc-read') < grouped2.indexOf('doc-edit'));
+});
+
+test('router v2: 重复注册同命名空间同名抛错（EC-010 沿 EC-003）；命名空间纪律', () => {
+  const router = createCommandRouter({ builtins: false });
+  router.register({ ...makeTool('dup'), namespace: 'skill' });
+  assert.throws(() => router.register({ ...makeTool('dup'), namespace: 'skill' }), /已注册/);
+  // 同基名不同 ns 允许
+  router.register({ ...makeTool('dup'), namespace: 'mcp' });
+  // ns-less 名称含 "." 未声明 namespace → 拒绝（EC-010 命名空间纪律）
+  assert.throws(() => router.register(makeTool('a.b')), /namespace/);
+  // ns-less 与内建同名仍拒绝
+  const r2 = createCommandRouter();
+  assert.throws(() => r2.register({ ...makeTool('web-fetch') }), /已注册/);
 });

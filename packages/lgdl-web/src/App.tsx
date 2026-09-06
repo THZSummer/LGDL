@@ -18,6 +18,7 @@ import { AiPanel } from './ai/AiPanel';
 import { SettingsPanel } from './ai/SettingsPanel';
 import { createAiSession } from './ai/session';
 import { loadSettings, saveSettings, type ProviderSettings } from './ai/provider';
+import { createIdbStorage, type AskQuestion, type AskResolution, type StorageBackend } from '@lgdl/web-cli-base';
 import { webOpHelp, createOpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
 import webPkg from '../package.json';
 import './app.css';
@@ -944,6 +945,21 @@ export function App(): React.JSX.Element {
   const aiSettingsRef = useRef(aiSettings);
   aiSettingsRef.current = aiSettings;
 
+  // ---- v2（FR-041/AC-004）：权限 ask 桥 —— AskDialog 裁决由 AiPanel 注册到本 ref，
+  // policy.onAsk 委托该桥（未注册 → deny fail-closed）；dom-* 写（risk:ui）经 PRM ask。
+  const permAskTarget = useRef<((q: AskQuestion) => Promise<AskResolution>) | null>(null);
+  const aiPolicy = useMemo<import('@lgdl/web-cli-base').RouterPolicy>(
+    () => ({
+      rules: [{ risk: 'ui', action: 'ask', note: 'UI 副作用需用户确认（dom-* 写经 PRM）' }],
+      onAsk: (q: AskQuestion) =>
+        permAskTarget.current ? permAskTarget.current(q) : Promise.resolve({ action: 'deny' }),
+    }),
+    [],
+  );
+
+  // ---- v2（FR-034）：会话恢复入口 —— 有已持久化会话时给出提示（恢复入口 UI 归场景）----
+  const [restorable, setRestorable] = useState<string[]>([]);
+
 
 
   // click an issue / preview element -> jump to the location in the editor,
@@ -1140,6 +1156,29 @@ export function App(): React.JSX.Element {
   }, [source, previewImmersive, downloadSvg, downloadPng, downloadSource, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive, toggleBrowserFullscreen]);
 
   /**
+   * v2 IMP-2（FR-034/AC-006，review C44/C39）：会话/goal/jobs 的 **IDB 持久载体**——
+   * createIdbStorage() 异步打开 IndexedDB（origin 级），成功后注入 createAiSession
+   * （session store / goal / jobs 落库 → 刷新可恢复 + 跨会话目标）。打开失败
+   * （隐私模式/浏览器不支持，EC-005）→ 保持 undefined → createAiSession 缺省
+   * memory 降级（本次会话不持久，console 明示）。
+   */
+  const [persistBackend, setPersistBackend] = useState<StorageBackend | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    createIdbStorage()
+      .then((b) => {
+        if (alive) setPersistBackend(b);
+      })
+      .catch((err) => {
+        // EC-005：降级 memory（createAiSession 缺省）并明示「本次会话不持久」
+        console.info('[lgdl-web] IndexedDB 不可用，会话/goal/jobs 降级内存态（刷新即失）：', err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
    * AI 会话单一组装点（FR-022/AC-007）：唯一 CommandRouter 实例（base 内建
    * 自动注册 + lgdl-web-cli/lgdl-web-op-cli 注册 + delay 600ms）+ AgentRunner
    * 装配。opRegistry（16 handler 注入）经 createOpCliToolEntry 收敛为该工具
@@ -1154,9 +1193,29 @@ export function App(): React.JSX.Element {
         onApply: applyAiSource,
         opRegistry,
         settings: () => aiSettingsRef.current,
+        // v2：dom-* 写经 PRM（ui ask）；AskDialog 经 onPermissionHandlerChange 桥接入
+        policy: aiPolicy,
+        // v2 IMP-2：IDB 持久载体（undefined → createAiSession 缺省 memory 降级 EC-005）
+        backend: persistBackend,
       }),
-    [applyAiSource, opRegistry],
+    [applyAiSource, opRegistry, aiPolicy, persistBackend],
   );
+
+  // v2（FR-034/AC-007）：会话恢复候选（session store 有持久记录 → 提示恢复入口）
+  useEffect(() => {
+    let alive = true;
+    aiSession.services.session
+      .list()
+      .then((ids) => {
+        if (alive) setRestorable(ids);
+      })
+      .catch(() => {
+        if (alive) setRestorable([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [aiSession]);
 
   return (
     <div className={`app${previewImmersive ? ' immersive' : ''}`}>
@@ -1313,7 +1372,26 @@ export function App(): React.JSX.Element {
               </span>
             </div>
             <div className="ai-body">
-              <AiPanel onApply={applyAiSource} session={aiSession} currentSource={source} settings={aiSettings} onSaveSettings={saveAiSettings} />
+              {restorable.length > 0 && (
+                <button
+                  type="button"
+                  className="ai-restore-chip"
+                  title="已持久化的会话可经 session 工具查询/恢复（FR-034）"
+                  onClick={() => setRestorable([])}
+                >
+                  ↺ {restorable.length} 个会话可恢复（session status/query 查看）
+                </button>
+              )}
+              <AiPanel
+                onApply={applyAiSource}
+                session={aiSession}
+                currentSource={source}
+                settings={aiSettings}
+                onSaveSettings={saveAiSettings}
+                onPermissionHandlerChange={(fn) => {
+                  permAskTarget.current = fn;
+                }}
+              />
             </div>
           </section>
         </section>
