@@ -331,15 +331,16 @@ export function browserEnv(): PlatformEnv {
   const clipboardSeam: PlatformClipboard = {
     async readText() {
       const n = nav();
-      const read = n?.clipboard?.readText;
-      if (!read) throw namedError('NotFoundError', 'navigator.clipboard.readText 不可用（需安全上下文）');
-      return read();
+      const clip = n?.clipboard;
+      // 成员调用保 this 绑定（真实浏览器 navigator.clipboard 方法需原对象调用，IMP：解构调用抛 Illegal invocation）
+      if (!clip?.readText) throw namedError('NotFoundError', 'navigator.clipboard.readText 不可用（需安全上下文）');
+      return clip.readText();
     },
     async writeText(text: string) {
       const n = nav();
-      const write = n?.clipboard?.writeText;
-      if (!write) throw namedError('NotFoundError', 'navigator.clipboard.writeText 不可用（需安全上下文）');
-      await write(text);
+      const clip = n?.clipboard;
+      if (!clip?.writeText) throw namedError('NotFoundError', 'navigator.clipboard.writeText 不可用（需安全上下文）');
+      await clip.writeText(text);
     },
   };
 
