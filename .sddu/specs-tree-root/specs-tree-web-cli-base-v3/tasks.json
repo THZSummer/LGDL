@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "feature": "web-cli-base v3：AI 操作浏览器的完整工具集（以人类操作浏览器场景为纲的全面查缺补漏）",
+    "featureKey": "specs-tree-web-cli-base-v3",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-06",
+    "version": "1.0.0",
+    "sourcePlan": "plan.md v1.0（§2.6 波次先序 + §4.4 交接表 + §5 文件影响面：base 8 MODIFY/15 NEW + lgdl-web 4 MODIFY = 27 项变更）",
+    "sourceSpec": "spec.md v1.1（45 FR 九组 + 8 NFR + 14 EC + 12 AC，冻结）",
+    "taskCount": 12,
+    "waveCount": 7,
+    "complexity": {
+      "S": 0,
+      "M": 6,
+      "L": 6
+    },
+    "planWave": {
+      "P0": [
+        "TASK-001"
+      ],
+      "P1": [
+        "TASK-002",
+        "TASK-003",
+        "TASK-004",
+        "TASK-005",
+        "TASK-006",
+        "TASK-007",
+        "TASK-008",
+        "TASK-009"
+      ],
+      "P2": [
+        "TASK-010",
+        "TASK-011",
+        "TASK-012"
+      ]
+    },
+    "note": "机器可读任务清单，与 tasks.md 一一对应。12 任务 = plan §4.4 交接行按依赖与文件所有权整合：机制层（permission+router）合 1 任务；纯逻辑 locator+sensitive 合 1 任务；platform.ts 类型层与 platform-dom 实现拆 2 任务（TASK-003→TASK-004 串行，避免类型未就绪即实现的双向依赖）；同域 collect+collect-tools 合 1 任务；lgdl-web 组装分两阶段（TASK-009 P1 矩阵 → TASK-011 P2 接线，session.ts/App.tsx/AskDialog.tsx 顺序扩展非并行）；chrome 独立 P2 任务（TASK-010，代码面与 P1-b 无耦合可提前并行）；TASK-012 收口门禁 + validate 冒烟/基线移交。红线：additive 契约（ToolEntry.subcommandRisks/ToolRisk 'evaluate'/PlatformDomOps 可选方法，TASK-001/003）；先机制后域（TASK-005/007/008 依赖 TASK-001）；AC-001 v2 零回归 = 每步门禁（§4.1 检查点 ①~④）+ TASK-012 收口专项（⑤）；测试守恒（v2 用例零删除，session.test 派生断言改写有据 D-005）；零新增运行时依赖；8 ADR 内嵌 plan §7 不单独落盘（v2 先例）。"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "tasks": [
+        "TASK-001"
+      ],
+      "strategy": "串行（P0 机制层）：permission+router 子命令级 risk + evaluate 最高档门禁，无外部依赖；先机制后域"
+    },
+    {
+      "wave": 2,
+      "tasks": [
+        "TASK-002",
+        "TASK-003"
+      ],
+      "strategy": "并行（P1-a）：纯逻辑 locator+sensitive / platform.ts PlatformDomOps 类型扩展；互不依赖，均无 P0 依赖（按阶段序置 Wave 2）"
+    },
+    {
+      "wave": 3,
+      "tasks": [
+        "TASK-004",
+        "TASK-005",
+        "TASK-006",
+        "TASK-007",
+        "TASK-008"
+      ],
+      "strategy": "并行（P1-b 域实现五路）：platform-dom 真实现 / dom 7→27 / wait / page-eval / collect+collect-tools；各持独立文件互不阻塞，依赖 Wave 1/2 产物"
+    },
+    {
+      "wave": 4,
+      "tasks": [
+        "TASK-009"
+      ],
+      "strategy": "串行（P1-c 场景收口）：base index P1 导出 + lgdl-web session/App/AskDialog（session.ts 第一段扩展，IMP-4 修复生效点）"
+    },
+    {
+      "wave": 5,
+      "tasks": [
+        "TASK-010"
+      ],
+      "strategy": "串行（P2-a）：chrome 工具（print/back/forward/reload/screenshot）；代码面与 P1-b 无耦合可提前并行，缺省按 plan 阶段序"
+    },
+    {
+      "wave": 6,
+      "tasks": [
+        "TASK-011"
+      ],
+      "strategy": "串行（P2-b 接线收口）：session.ts 第二段扩展（chrome/save/notify/clipboard 入矩阵）+ App chrome 规则 + AskDialog 尾项 + index chrome 导出"
+    },
+    {
+      "wave": 7,
+      "tasks": [
+        "TASK-012"
+      ],
+      "strategy": "收尾门禁（GATE）：全仓 build/test + grep 断言零残留 + AC-001 收口核验 + V13 冒烟清单/v2 收口基线移交 validate"
+    }
+  ]
+}

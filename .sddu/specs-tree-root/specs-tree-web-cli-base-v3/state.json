@@ -1,0 +1,43 @@
+{
+  "feature": "web-cli-base v3：AI 操作浏览器的完整工具集（以人类操作浏览器场景为纲的全面查缺补漏）",
+  "featureKey": "specs-tree-web-cli-base-v3",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
+  "createdAt": "2026-09-06",
+  "updatedAt": "2026-09-07",
+  "description": "web-cli-base 下一迭代。核心定位（作者指令 2026-09-06）：OS agent = AI 帮人类操作操作系统，web-cli-base = AI 帮人类操作浏览器；人类日常操作浏览器的完整场景理论上都应有对应工具给 AI（看/点/拖/存/截图/书签/改 DOM/爬取采集/导出数据），凡人类靠 F12 或爬虫做的 web-cli-base 也应提供等价工具。查缺补漏发现：v2 DOM 面半残（hover/scroll/zoom/fullscreen 4 转译桩 + 只读无元素级），写入/键盘/wait/evaluate/采集/chrome 场景整段缺环，缺口约 34 项 + 工厂未接线 4 项 + 不可承载 2 类。",
+  "scope": {
+    "in": [
+      "五层全谱一次补齐（作者裁决 O-001，约 34 项）：感知层（结构化 DOM 读取/元素级属性·文本·样式·几何）、交互层（click/hover/scroll/zoom/fullscreen 补真 + 长按/双击/右键/拖放/focus/键盘 type·press）、chrome 操作（截图/打印/刷新导航/保存）、读写层（改文字/表单填写/增删元素/改值/页面 evaluate）、采集层（结构化抽取/自动翻页/导出 text·json·excel）",
+      "子命令级权限 risk（作者裁决 O-009，修复 v2 IMP-4：只读免 ask、写/敏感走 ask/deny）",
+      "独立 evaluate 工具 + 最高门禁（作者裁决 O-002：risk 最高档 + untrusted 拒执行）"
+    ],
+    "out": [
+      "OS 生态位（系统级截图/真 shell 等）→ 未来 os-cli-base",
+      "跨域/第三方站点 DOM → F-14 插件线",
+      "书签/标签页/窗口（页面不可承载）→ 扩展宿主/F-14"
+    ]
+  },
+  "artifacts": [
+    "discovery.md",
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "tasks.json",
+    "build.md",
+    "review.md",
+    "review-report.md",
+    "validate.md",
+    "validate-report.md"
+  ],
+  "files": {
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-base-v3/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-base-v3/validate-report.md",
+    "review": ".sddu/specs-tree-root/specs-tree-web-cli-base-v3/review.md",
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-base-v3/review-report.md"
+  },
+  "notes": "作者裁决（2026-09-06）：O-001 五层全谱一次补齐；O-010 v3 与 v2 同属 v0.7（v0.7 内第二个 Feature 同批发布）；O-002 独立 evaluate 工具 + 最高门禁；O-009 子命令级 risk。spec.md v1.0 已产出（45 FR 九组 + 8 NFR + 14 EC + 12 AC）；O-003~O-008/O-011/O-012 以建议态 S-01~S-08 写入 + 访谈清单 I-01~I-08 待作者拍板；author 确认后升 v1.1 冻结。Spec 开放点裁决（2026-09-06）：I-01~I-08 全部采纳建议默认 S-01~S-08，spec v1.1 冻结（v2 四桩真实实现归 v3 补齐；截图元素/视口近似+整页 out 降级出口；打印触发对话框+back/forward 入+reload 默认 ask+书签标签页 out；type/press 合成事件+React 受控 native setter+敏感字段读脱敏写 ask；采集独立 extract+翻页不工具化+text/json/csv+真 xlsx out；save/notify/clipboard 随 v3 入默认矩阵；定位语法 CSS 基线+text=，role=/xpath 经其他路；快照文本兼容+结构化可选+分页+预算可配）。plan.md v1.0 产出（2026-09-06，sddu-plan）：45 FR → 模块/方法映射；dom 7→27 子命令 + chrome/wait/page-eval/extract/export 五新工具；subcommandRisks + ToolRisk evaluate（default deny/无策略 fail-closed）+ PolicyRule.subcommand；PlatformDomOps ~25 可选方法 additive + platform-dom.ts 浏览器面真实实现（4 桩补真）；locator/sensitive/collect/wait/chrome/page-eval 新模块；8 ADR（PROPOSED，正文内嵌 plan §7）；P-01~P-04 技术开放点（推荐默认已写入）；波次任务交接 §4.4。Plan 开放点裁决（2026-09-06）：P-01~P-04 全部采纳推荐默认（page-eval 同步死循环同 realm 无法中断，EC-004 接受公开+门禁/预算收敛降级实现；最高档以扩展 ToolRisk 枚举 'evaluate' 表达 default deny+fail-closed；截图默认自动触发下载链+返回摘要 dataURL 不进上下文；CollectBuffer 生命周期=session 内存态刷新即失、落 IDB out 归 F-14），plan v1.0 冻结。tasks.md v1.0 产出（2026-09-06，sddu-tasks）：12 任务 / 7 执行波次（P0=1 机制层 / P1=8 五层主体 / P2=3 接线收口）；机制层先行、纯逻辑/类型层并行、域实现五路并行（platform-dom/dom/wait/page-eval/collect）、lgdl-web session.ts 两阶段顺序扩展（TASK-009→TASK-011）；AC-001 v2 零回归 = 每步门禁 + TASK-012 收口专项（tasks.md §4.1 检查点 ①~⑤）；D-005 测试守恒记录 tasks.md §4.3；TASK-012 移交 validate 冒烟清单（V13 方法扩展）与 v2 收口 3 项基线关联（FR-004 待基线不阻塞）。TASK-009 build（2026-09-07）：base index P1 导出收口 + lgdl-web 场景接入（session/App/AskDialog/AiPanel 连接器）——IMP-4 修复生效点闭环。 TASK-012 build（2026-09-07，sddu-build）：全仓门禁 GATE 收口（build.md v1.9 §11+§12）—— 9 包 build 零错误 + 全仓 test 895 pass/1 skip/0 fail（base 369 + lgdl-web 58 增量零回归，v2 提交基线 205/51 全保留零删除）+ lgdl-web vite/tsc + base 独立构建零错误；grep 5 项零残留；D-005 守恒核验 AC-001 收口；validate 移交清单（冒烟 7 面 + v2 收口 3 项基线关联表「待基线」）落盘 build.md 附录。phase=builded，12/12 任务 completed，下一步 @sddu-review。Validated R1（2026-09-07，sddu-validate）：review R1 ✅ passed → chromium headless + CDP 真实浏览器冒烟实跑 S1~S7 —— Phase A（siteA fixtures）115 断言 115/115 全绿、Phase B（真实 lgdl-web React 受控表单）10 断言 9/10、Phase C（授权 deny 两路 + history back/forward + reload）全过；下载 7 文件内容核验（csv RFC4180 转义 / json trust=untrusted / png）；全仓回归 898 pass/1 skip/0 fail + base tsc 372/372 + lgdl-web vite 0。补发现 2 项真实浏览器缺陷：D2（contenteditable 光标处插入误报 value-not-synced）已顺手修复（platform-dom.ts + dist 重建，零回归）；D1（type 首次合成键入 React 受控字段 onChange 未同步，set-value/fill 不受影响）如实记录修复建议移交（FR-022/NFR-004 ⚠️ 部分，非阻塞）。结论 ⚠️ 有条件通过（validate-report.md v1.0）；v2 收口 3 项基线（真实 AI 闭环 AC-008 / lgdl-web React 手测 / web-search 真实端点）标注「待基线」不阻塞；v0.7 同批发布登记归 sddu-roadmap。validate.md v1.0 + validate-report.md v1.0 落盘，state.json files.validate/validationReport 已注册。",
+  "status": "tracked",
+  "buildProgress": "TASK-012 全仓门禁 GATE ✅ completed（2026-09-07 sddu-build，build.md v1.9 §11+§12 记录）：全仓 build（9 包 tsc/vite）零错误 + 全仓 test 895 pass / 1 skip（预存 B11 env-gated）/ 0 fail（web-cli-base 369/369 = v2 提交基线 205 零删除零降级 + 164 新增/增补；lgdl-web 58/58 = v2 基线 51 + 7 净增；lgdl-core 267 / lgdl-render 94+1skip / lgdl-router 8 / lgdl-web-cli 84 / lgdl-web-op-cli 15 与 v2 逐字节一致；lgdl-cli/lgdl-layout dist 无测试产物 = v2 同口径）；构建门禁 lgdl-web vite + 显式 tsc --noEmit 零错误 + base 独立构建零错误（NFR-006）；grep 断言 5 项零残留（G1 base 零 lgdl/react/业务 import / G2 base 零 UI 代码（NG-008） / G3 零策略旁路（写/evaluate 仅经 router.dispatch → PermissionGate.check deny 先于执行器，NFR-002/AC-007） / G4 4 转译桩文案零残留（AC-003，platform-dom hover:817/scroll:830/zoom:889/fullscreen:918 真实现） / G5 xlsx/截图零第三方依赖（package.json git diff 零变更））；D-005 测试守恒核验通过（v2 23 base + 4 lgdl-web 测试文件零删除、既有测试文件删除行 = 0、session.test -14 行全为 import/注释头改写非用例、2 标题矩阵改写有据 §4.3）—— AC-001 收口确认；validate 移交清单落盘 build.md（§11.5 冒烟 7 面 S1~S7：platform-dom 31 ops 逐 ops ≥1 真实用例 / lgdl-web React 受控表单 type·fill·set-value / SPA wait / 截图尺寸 / chrome 授权两路 / 采集端到端 / evaluate 门禁；§11.6 v2 收口 3 项基线关联表 = 真实 AI 闭环 AC-008 / lgdl-web React 集成手测 / web-search 真实端点 → 标注「待基线」不阻塞，FR-004/O-010 v0.7 同批登记 validate 承接）；游离产物清理 1 件（src/locator.js 直接 tsc 残留）在案。累计 completed：TASK-001~012 全部 12/12 → 下一步 @sddu-review specs-tree-web-cli-base-v3"
+}
