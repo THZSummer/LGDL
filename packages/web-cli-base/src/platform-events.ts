@@ -691,9 +691,13 @@ interface DialogHost {
   prompt?: unknown;
 }
 
+/** 跨域 iframe 不可 override 归属说明（review 改进 #9 / validate 观察-2：FR-025/EC-009 同款措辞）。 */
+const CROSS_ORIGIN_IFRAME_REASON =
+  '跨域 iframe window 属性能见面受限（SOP，不跨源 hook）—— 归属 content script(all_frames)/CDP = F-14 扩展宿主（FR-025/EC-009）';
+
 /**
  * 对话框 override 控制器（同 realm window.alert/confirm/prompt 替换 + 同源 iframe 尽力 hook；
- * 跨域 iframe 不可 hook → 不跨 SOP，归属说明 EC-009）。捕获事件（type + 文本脱敏摘要
+ * 跨域 iframe 不可 hook → 归属说明 EC-009）。捕获事件（type + 文本脱敏摘要
  * DIALOG_TEXT_POLICY）入 EventBus（kind=dialog）并按 dialog-policy 策略应答（不阻塞页面 EC-005）。
  */
 function createDialogOverrideController(bus: EventBus, win: WinLike | null, doc: DocLike | null): PlatformEventSources['dialogOverride'] {
@@ -718,7 +722,15 @@ function createDialogOverrideController(bus: EventBus, win: WinLike | null, doc:
     if (hookedHosts.has(host)) {
       return { ok: false, reason: '重复安装：该 window 已存在对话框 override（卸载后可重装，NFR-004 冲突可读）' };
     }
-    if (typeof host.alert !== 'function' && typeof host.confirm !== 'function' && typeof host.prompt !== 'function') {
+    let hookable = false;
+    try {
+      hookable =
+        typeof host.alert === 'function' || typeof host.confirm === 'function' || typeof host.prompt === 'function';
+    } catch {
+      // 跨域 WindowProxy 属性能见面受限（读 alert 抛 SecurityError）→ 不 throw 打断 install（review 改进 #9）
+      return { ok: false, reason: CROSS_ORIGIN_IFRAME_REASON };
+    }
+    if (!hookable) {
       return { ok: false, reason: '宿主无 alert/confirm/prompt（无法 hook）' };
     }
     const originals: { alert?: unknown; confirm?: unknown; prompt?: unknown } = {
@@ -741,41 +753,59 @@ function createDialogOverrideController(bus: EventBus, win: WinLike | null, doc:
     return { ok: true };
   };
 
-  const collectIframeHosts = (): DialogHost[] => {
-    if (!doc) return [];
+  /**
+   * 收集 iframe window 宿主并识别跨域 iframe（review 改进 #9 / validate 观察-2）。
+   * 跨域 iframe 的 contentWindow 属性能见面受限（SOP）：读取 alert/confirm/prompt 抛
+   * SecurityError → 不 push 为宿主、计入 crossOrigin（install 归属说明 FR-025/EC-009），
+   * 不再静默丢弃或在 hook 期以 SecurityError 打断 install。
+   */
+  const collectIframeHosts = (): { hosts: DialogHost[]; crossOrigin: number } => {
+    if (!doc) return { hosts: [], crossOrigin: 0 };
     const anyDoc = doc as unknown as { querySelectorAll?: (sel: string) => unknown };
-    if (typeof anyDoc.querySelectorAll !== 'function') return [];
+    if (typeof anyDoc.querySelectorAll !== 'function') return { hosts: [], crossOrigin: 0 };
     let frames: unknown;
     try {
       frames = anyDoc.querySelectorAll('iframe');
     } catch {
-      return [];
+      return { hosts: [], crossOrigin: 0 };
     }
     const hosts: DialogHost[] = [];
+    let crossOrigin = 0;
     const list: unknown[] = typeof (frames as { length?: number })?.length === 'number' ? Array.from(frames as ArrayLike<unknown>) : [];
     for (const f of list) {
       try {
         const cw = (f as { contentWindow?: unknown }).contentWindow;
-        if (cw && typeof cw === 'object') hosts.push(cw as DialogHost);
+        if (!cw || typeof cw !== 'object') continue; // 无内容窗口（未加载/分离）→ 跳过（非跨域）
+        void (cw as DialogHost).alert; // 跨域 WindowProxy 读 alert 抛 SecurityError → 下方 catch
+        hosts.push(cw as DialogHost);
       } catch {
-        // 跨域 iframe contentWindow 访问抛 SecurityError → 归属（不跨 SOP，EC-009）
+        // 跨域 iframe（contentWindow 访问或其属性能见面受限抛 SecurityError）→ 不跨 SOP hook（EC-009）
+        crossOrigin += 1;
       }
     }
-    return hosts;
+    return { hosts, crossOrigin };
   };
 
   return {
     async install() {
-      const hosts: DialogHost[] = [win as unknown as DialogHost, ...collectIframeHosts()].filter((h): h is DialogHost => Boolean(h));
-      if (hosts.length === 0) return { ok: false, error: '✖ 对话框 override 安装失败：无 window 宿主（仅浏览器场景可用）' };
+      const { hosts, crossOrigin } = collectIframeHosts();
+      const candidates: DialogHost[] = [win as unknown as DialogHost, ...hosts].filter((h): h is DialogHost => Boolean(h));
+      if (candidates.length === 0) return { ok: false, error: '✖ 对话框 override 安装失败：无 window 宿主（仅浏览器场景可用）' };
       const installed: DialogHost[] = [];
       const conflicts: string[] = [];
-      for (const h of hosts) {
+      for (const h of candidates) {
         const r = hookHost(h);
         if (r.ok) installed.push(h);
         else conflicts.push(r.reason ?? 'unknown');
       }
       if (installed.length === 0) {
+        // 区分「不可 hook 原因」：重复安装冲突最精确 → 优先原样返回；其余全拒且页面含跨域
+        // iframe（其自身有原生对话框、仅 SOP 不可达）→ 归属说明，而非「宿主无 alert/confirm/prompt」误导文案
+        const dup = conflicts.find((c) => c.startsWith('重复安装'));
+        if (dup) return { ok: false, error: `✖ 对话框 override 安装失败：${dup}` };
+        if (crossOrigin > 0) {
+          return { ok: false, error: `✖ 对话框 override 安装失败：页面含跨域 iframe × ${crossOrigin}，其 JS 对话框不可 override —— ${CROSS_ORIGIN_IFRAME_REASON}` };
+        }
         return { ok: false, error: `✖ 对话框 override 安装失败：${conflicts[0] ?? '宿主不可 hook'}` };
       }
       return { ok: true };

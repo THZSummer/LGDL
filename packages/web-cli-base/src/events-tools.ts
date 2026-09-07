@@ -229,7 +229,10 @@ export async function executeEventsTool(
         const lines = shown.map((e) => {
           const text = e.text !== undefined ? ` · text=${truncateForContext(e.text)}` : '';
           const metaBits = summarizeMeta(e.meta, e.kind);
-          return `  [${e.seq}] ${e.ts} ${e.kind} ${e.type ?? ''}${e.target ? ` @${e.target}` : ''}${text}${metaBits}${e.count !== undefined && e.count > 1 ? ` · count=${e.count}` : ''}${e.source ? ` · src=${e.source}` : ''}${e.truncated ? ' · [截断]' : ''}`;
+          // 来源去重（C 缺陷）：dom 观察源事件同带顶层 source 与 meta.source —— metaBits 已由
+          // summarizeMeta 输出 meta.source（src=），此处仅在 meta 未含 source 时才补顶层 e.source，
+          // 保证同一来源只打印一次 src=（其余 kind 仅 meta.source → 语义不变，单次输出）。
+          return `  [${e.seq}] ${e.ts} ${e.kind} ${e.type ?? ''}${e.target ? ` @${e.target}` : ''}${text}${metaBits}${e.count !== undefined && e.count > 1 ? ` · count=${e.count}` : ''}${e.source && typeof e.meta?.source !== 'string' ? ` · src=${e.source}` : ''}${e.truncated ? ' · [截断]' : ''}`;
         });
         const moreNote =
           total > shown.length

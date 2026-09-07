@@ -21,6 +21,17 @@ export type NetSubcommand = 'rule-add' | 'list' | 'remove' | 'intercept-on' | 'i
 
 export const NET_SUBCOMMANDS: NetSubcommand[] = ['rule-add', 'list', 'remove', 'intercept-on', 'intercept-off', 'status'];
 
+/**
+ * 动作 op 白名单（FR-018 注册期校验；与下方 applyAction switch 实际支持全集一一对应，
+ * 单一数据源 —— 拒注册/JSON 格式提示/运行期兜底共用，防与帮助文案漂移）。
+ */
+export const NET_ACTION_OPS = [
+  'addHeader', 'setHeader', 'removeHeader',
+  'addQuery', 'setQuery', 'removeQuery',
+  'setBodyField', 'removeBodyField',
+] as const;
+export type NetActionOp = (typeof NET_ACTION_OPS)[number];
+
 // ---------- 纯规则引擎（node 可测：URL 命中 + 动作序列） ----------
 
 export interface NetRequestLike {
@@ -100,8 +111,11 @@ function applyAction(act: PlatformNetAction, out: NetApplyResult): { skipped?: s
       out.body = r;
       return {};
     }
+    default:
+      // 运行期兜底（工具面注册期已白名单拒，FR-018）：未知 op 不假装生效 —— 跳过并说明（NG-007）
+      // act 已被类型收窄为 never（运行时 JSON 数据可越界）→ 经 unknown 读 op 原文
+      return { skipped: `未知动作 op "${String((act as unknown as { op?: unknown }).op)}" 未应用（合法 op：${NET_ACTION_OPS.join('/')}）` };
   }
-  return {};
 }
 
 function setQuery(url: string, name: string, value: string, overwrite: boolean): string {
@@ -202,11 +216,26 @@ export async function executeNetTool(env: PlatformEnv, subcommand: string, args:
         if (!Array.isArray(parsed)) throw new Error('非数组');
         actions = parsed as PlatformNetAction[];
       } catch {
-        return { ok: false, output: '✖ net rule-add --actions 需为 JSON 数组：[{"op":"addHeader","name":"x","value":"y"},...]（op: addHeader/setHeader/removeHeader/addQuery/setQuery/removeQuery/setBodyField/removeBodyField）' };
+        return { ok: false, output: `✖ net rule-add --actions 需为 JSON 数组：[{"op":"addHeader","name":"x","value":"y"},...]（op: ${NET_ACTION_OPS.join('/')}）` };
       }
       if (actions.length === 0) return { ok: false, output: '✖ net rule-add --actions 不能为空' };
-      const bad = actions.filter((a) => !a.op || typeof a.name !== 'string');
-      if (bad.length > 0) return { ok: false, output: '✖ net rule-add --actions 含非法项（缺 op/name）' };
+      // 注册期白名单校验（validate 观察-1/FR-018 边界诚实）：op ∈ 实现支持全集 + name 为 string；
+      // 未知/非法 op（如 fakeResponse）拒注册并列出合法值 —— 不「注册 ok + 运行期静默无动作」（NG-007）
+      const bad = actions.filter(
+        (a): boolean =>
+          !a ||
+          typeof a !== 'object' ||
+          typeof (a as { name?: unknown }).name !== 'string' ||
+          !NET_ACTION_OPS.includes((a as { op?: unknown }).op as NetActionOp),
+      );
+      if (bad.length > 0) {
+        const badOp = String((bad[0] as { op?: unknown } | null | undefined)?.op ?? '（缺 op）');
+        return {
+          ok: false,
+          output: `✖ net rule-add --actions 含非法动作项：每项须 {"op": "<合法 op>", "name": "<string>", "value"?}，op ∈ ${NET_ACTION_OPS.join('/')}（收到 op="${badOp}" → 拒注册；不假装生效，FR-018/NG-007）`,
+          error: 'invalid net action op',
+        };
+      }
       const id = args.id?.trim() || `rule-${Date.now().toString(36)}`;
       const rule: PlatformNetRuleSpec = { id, urlPattern: url, actions, trusted: true };
       const r = await ctrl.setRules([...(await ctrl.rules()), rule]);

@@ -188,6 +188,27 @@ test('events: pull 网络事件摘要呈现脱敏 URL + method/status（FR-012/A
   assert.ok(!r.output.includes('SECRETTOK'), '网络事件摘要不泄漏 URL 查询串明文（脱敏后输出）');
 });
 
+test('events: pull 来源去重 —— dom 观察源事件同带顶层 source 与 meta.source 时输出只含单个 src=（回归）', async () => {
+  const { hub, ingest } = makeFakeHub();
+  const sub = await executeEventsTool(hub, 'subscribe', { kind: 'dom', type: 'click' });
+  const subId = /sub-\d+/.exec(sub.output)?.[0];
+  assert.ok(subId);
+  await executeEventsTool(hub, 'switch', { on: 'true' });
+  // 模拟 platform-events dom 观察源（:222）：meta.source 与顶层 source 携带同一来源标记
+  ingest({ kind: 'dom', type: 'click', target: '应用服务', meta: { source: 'page' }, source: 'page' });
+  const r = await executeEventsTool(hub, 'pull', { subId });
+  assert.equal(r.ok, true);
+  assert.match(r.output, /@应用服务/);
+  assert.match(r.output, /src=page/);
+  const srcHits = (r.output.match(/src=/g) ?? []).length;
+  assert.equal(srcHits, 1, `pull 输出 src= 只允许一次（实际 ${srcHits} 次）：\n${r.output}`);
+  // meta-only source（lifecycle/console/network 等形态）语义不变 —— 仍单次输出
+  ingest({ kind: 'dom', type: 'click', target: 'meta-only', meta: { source: 'synthetic' } });
+  const r2 = await executeEventsTool(hub, 'pull', { subId });
+  assert.match(r2.output, /src=synthetic/);
+  assert.equal((r2.output.match(/src=/g) ?? []).length, 1, 'meta-only source 形态仍单次输出');
+});
+
 // ---- pull-sensitive（trusted + ask 双闸；审计入账） ----
 
 test('events: pull-sensitive —— untrusted 缺省拒 + 需 --trusted true；放行后明细返回（FR-006）', async () => {

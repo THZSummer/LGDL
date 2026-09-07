@@ -340,3 +340,69 @@ test('platform-events: netIntercept 开启 + trusted 规则 → fetch 发出前�
   const deny = await hub.sources.netIntercept.setRules([{ id: 'bad', urlPattern: '*', actions: [], trusted: false }]);
   assert.equal(deny.ok, false);
 });
+
+// ================= dialogOverride 跨域 iframe 归属（review 改进 #9 / validate 观察-2） =================
+
+function makeDialogWin(hasDialogs = true): Record<string, unknown> {
+  const win: Record<string, unknown> = {};
+  if (hasDialogs) {
+    win.alert = (): void => {};
+    win.confirm = (): boolean => true; // 测试假原生：默认确认
+    win.prompt = (): string => 'native';
+  }
+  return win;
+}
+
+/** 带 iframe 清单的 document shim（dialogOverride 消费 querySelectorAll('iframe') 面）。 */
+function framesDoc(frames: unknown[]): unknown {
+  return { querySelectorAll: (sel: string): unknown => (sel === 'iframe' ? frames : []) };
+}
+
+/** 跨域 iframe contentWindow 模拟：属性能见面受限（读任意属性抛 SecurityError，SOP）。 */
+function crossOriginWindow(): unknown {
+  return new Proxy({}, { get: (): never => { throw new Error('SecurityError: cross-origin frame'); } });
+}
+
+test('platform-events: dialogOverride install —— 含跨域 iframe 不崩：同源宿主照常 hook（不跨 SOP，FR-016/EC-009）', async () => {
+  const topWin = makeDialogWin();
+  const sameOriginWin = makeDialogWin();
+  const xo = { contentWindow: crossOriginWindow() };
+  const frames = [xo, { contentWindow: sameOriginWin }];
+  const hub = createBrowserEventHub({ window: topWin, document: framesDoc(frames) });
+
+  const r = await hub.sources.dialogOverride.install();
+  assert.equal(r.ok, true, '同源宿主可 hook → 跨域 iframe 存在不崩、不阻断安装（旧实现 SecurityError 打断 install）');
+  assert.equal(await hub.sources.dialogOverride.installed(), true);
+  // 顶层 + 同源 iframe 均被 hook（hook 后缺省保守：confirm → false，区别于假原生 true）
+  assert.equal((topWin.confirm as (m?: unknown) => boolean)('继续?'), false, '顶层 window 已 hook（缺省保守 dismiss）');
+  assert.equal((sameOriginWin.confirm as (m?: unknown) => boolean)('继续?'), false, '同源 iframe window 已 hook');
+  assert.throws(() => void (xo.contentWindow as { alert: unknown }).alert, '跨域 iframe 属性能见面保持受限（未被假 hook，SOP 不跨源）');
+  // 重复安装（页面仍含跨域 iframe）→ 「重复安装」冲突优先返回（最精确），不落入归属文案
+  const dup = await hub.sources.dialogOverride.install();
+  assert.equal(dup.ok, false);
+  assert.match(dup.error ?? '', /重复安装/);
+  // 卸载还原顶层/同源
+  await hub.sources.dialogOverride.uninstall();
+  assert.equal(await hub.sources.dialogOverride.installed(), false);
+  assert.equal((topWin.confirm as (m?: unknown) => boolean)('原生?'), true, '卸载还原原生行为');
+});
+
+test('platform-events: dialogOverride install —— 跨域 iframe 不可 override → 归属说明文案（区分「宿主无对话框」，review 改进 #9）', async () => {
+  // 宿主无对话框面 + 页面仅有跨域 iframe → 归属文案而非「宿主无 alert/confirm/prompt」误导
+  const topWin = makeDialogWin(false);
+  const hub = createBrowserEventHub({ window: topWin, document: framesDoc([{ contentWindow: crossOriginWindow() }]) });
+  const r = await hub.sources.dialogOverride.install();
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? '', /跨域 iframe/, '点名跨域 iframe 原因');
+  assert.match(r.error ?? '', /content script|CDP|F-14/, '归属说明（FR-025/EC-009 同款措辞）');
+  assert.ok(!(r.error ?? '').includes('宿主无 alert'), '不落入「宿主无 alert/confirm/prompt」误导文案');
+  assert.equal(await hub.sources.dialogOverride.installed(), false, '未部分安装');
+});
+
+test('platform-events: dialogOverride install —— 真无对话框宿主且无 iframe → 原「宿主无 alert/confirm/prompt」文案保持（零回归）', async () => {
+  const topWin = makeDialogWin(false);
+  const hub = createBrowserEventHub({ window: topWin, document: {} });
+  const r = await hub.sources.dialogOverride.install();
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? '', /宿主无 alert\/confirm\/prompt/, '真正宿主无对话框路径文案不变');
+});

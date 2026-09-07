@@ -3,7 +3,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyNetRules, netRuleMatches, executeNetTool, createNetToolEntry, NET_SUBCOMMANDS } from './net-tools.js';
+import { applyNetRules, netRuleMatches, executeNetTool, createNetToolEntry, NET_SUBCOMMANDS, NET_ACTION_OPS } from './net-tools.js';
 import type { PlatformNetRuleSpec } from './platform.js';
 import type { PlatformEnv } from './platform.js';
 import { createMemoryAudit } from './audit.js';
@@ -137,6 +137,52 @@ test('net: env.events 未注入 → 可读错误；未知子命令可读', async
   const r = await executeNetTool(env, 'rule-add', { trusted: 'true' });
   assert.equal(r.ok, false);
   assert.match(r.output, /不可用/);
+});
+
+test('net: rule-add 未知/非法 op 拒注册（白名单 + 可读错误列出合法值，不假装生效 FR-018/NG-007）', async () => {
+  const fh = fakeHub();
+  const env = { kind: 'browser' as const, fetch: (async () => new Response()) as typeof fetch, events: fh.hub };
+  const ruleAdd = (actions: string) => executeNetTool(env, 'rule-add', { url: 'https://a.com/*', actions, trusted: 'true' }, { services: { audit: createMemoryAudit() } });
+
+  // 未知 op（fakeResponse = 响应伪造类 out 面）→ 拒注册 + 列出合法 op + 零规则写入
+  const unknown = await ruleAdd('[{"op":"fakeResponse","name":"x","value":"1"}]');
+  assert.equal(unknown.ok, false);
+  assert.match(unknown.output, /fakeResponse/, '错误点名词');
+  assert.match(unknown.output, /addHeader/, '列出合法 op 值');
+  assert.equal(fh.getRules().length, 0, '未知 op 拒注册后无规则写入（不再 ok + 运行期静默无动作）');
+
+  // 缺 op / 缺 name / 非对象项 仍拒（含 null 项不崩、可读拒）
+  const noOp = await ruleAdd('[{"name":"x","value":"1"}]');
+  assert.equal(noOp.ok, false);
+  assert.match(noOp.output, /非法动作项/);
+  const noName = await ruleAdd('[{"op":"addHeader","value":"1"}]');
+  assert.equal(noName.ok, false);
+  const nullItem = await ruleAdd('[null]');
+  assert.equal(nullItem.ok, false);
+  assert.match(nullItem.output, /非法动作项/);
+  assert.equal(fh.getRules().length, 0);
+});
+
+test('net: NET_ACTION_OPS 白名单 = applyAction 支持全集（8 op，防漂移）+ 引擎面未知 op 不静默', () => {
+  assert.deepEqual(
+    [...NET_ACTION_OPS],
+    ['addHeader', 'setHeader', 'removeHeader', 'addQuery', 'setQuery', 'removeQuery', 'setBodyField', 'removeBodyField'],
+    '白名单与 applyAction/类型面全集一致（additive：任何合法 op 不得被误拒）',
+  );
+  // 合法 op 全量注册路径逐一通过（白名单不误伤既有合法路径）
+  const out = applyNetRules(
+    NET_ACTION_OPS.map((op, i) =>
+      trustedRule(`r${i}`, '*', [{ op, name: `k${i}`, value: '1' }]),
+    ),
+    { url: 'https://a.com/x?q=1', method: 'GET', headers: { 'k0': 'old', 'k1': 'old', 'k2': 'old' } },
+  );
+  assert.equal(out.hits.length, NET_ACTION_OPS.length, '8 个合法 op 全量应用命中');
+
+  // 运行期兜底：未知 op 若绕过注册面直达引擎 → 跳过并说明（不再静默无动作，NG-007）
+  const rogue = applyNetRules([trustedRule('rX', '*', [{ op: 'fakeResponse' as never, name: 'x' }])], { url: 'https://a.com/x', method: 'GET', headers: {} });
+  assert.equal(rogue.skipped.length, 1);
+  assert.match(rogue.skipped[0], /未知动作 op "fakeResponse"/);
+  assert.match(rogue.skipped[0], /addHeader/, '兜底说明也列出合法 op');
 });
 
 test('net: 经 router 派发 —— entry write + LGDL deny 矩阵 → 无规则放行时 deny（fail-closed，FR-018）', async () => {
