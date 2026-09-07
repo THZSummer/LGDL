@@ -1067,6 +1067,70 @@ body,
   color: #92400e;
 }
 
+/* ---------- SettingsPanel ③ 联网搜索能力面板（v2 改造） ---------- */
+.ai-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 4px;
+}
+
+.ai-settings-subtitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.ai-settings-subtitle .ai-settings-hint {
+  font-weight: 400;
+  flex-shrink: 1;
+  text-align: right;
+}
+
+.ai-settings-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ai-settings-toggle-row input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #4f46e5;
+  cursor: pointer;
+}
+
+.ai-settings-toggle-row span {
+  font-weight: 500;
+}
+
+.ai-settings-disabled-note {
+  display: block;
+  line-height: 1.6;
+}
+
+.ai-settings-disabled-note b {
+  color: #475569;
+}
+
+.ai-settings-ws-test {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
 /* 火山端点快捷按钮 */
 .ai-settings-endpoints {
   display: flex;

@@ -7,6 +7,9 @@ import {
   loadProviderSettings,
   saveProviderInputs as saveProviderInputsFn,
   testConnection,
+  testWebSearch,
+  WEB_SEARCH_PRESETS,
+  webSearchPresetById,
   type ProviderId,
   type ProviderSettings,
 } from './provider';
@@ -30,11 +33,18 @@ export function SettingsPanel({
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  // v2（FR-040 BYOK）：web-search 端点/Key 配置位（未配置 → web-search 工具禁用态 + 配置指引 EC-006）
+  // v2（FR-040 BYOK）：web-search 配置位 —— 显式「启用」开关 + 服务预设 + 测试（端点/Key 自备）
+  const [wsEnabled, setWsEnabled] = useState(
+    () => Boolean(settings.webSearch?.endpoint && settings.webSearch?.apiKey),
+  );
+  const [wsPresetId, setWsPresetId] = useState(() => WEB_SEARCH_PRESETS[0]?.id ?? 'generic');
   const [wsEndpoint, setWsEndpoint] = useState(settings.webSearch?.endpoint ?? '');
   const [wsApiKey, setWsApiKey] = useState(settings.webSearch?.apiKey ?? '');
+  const [wsTesting, setWsTesting] = useState(false);
+  const [wsTestResult, setWsTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const provider = PROVIDERS.find((p) => p.id === providerId) ?? PROVIDERS[0];
+  const wsPreset = webSearchPresetById(wsPresetId);
 
   const switchProvider = (id: ProviderId) => {
     // 先把当前 provider 的输入即时保存（不切换 active，仅存 key/模型）
@@ -66,8 +76,9 @@ export function SettingsPanel({
       model: model.trim() || defaultModelFor(providerId),
       baseURL: baseURL.trim() || (provider.baseURL ?? undefined),
       maxRounds: Math.max(1, Math.round(maxRounds) || 1000),
-      // v2 BYOK：端点与 Key 都填才落位；任一缺省 = 未配置（web-search 禁用态）
-      ...(wsEndpoint.trim() && wsApiKey.trim()
+      // v2 web-search：仅「启用开关 + 端点与 Key 都填」才落 webSearch；任一缺省 = 不配置
+      // （保存后 store 清掉旧值 → web-search 禁用态，EC-006）
+      ...(wsEnabled && wsEndpoint.trim() && wsApiKey.trim()
         ? { webSearch: { endpoint: wsEndpoint.trim(), apiKey: wsApiKey.trim() } }
         : {}),
     });
@@ -86,6 +97,15 @@ export function SettingsPanel({
     });
     setTestResult({ ok: r.ok, message: r.message });
     setTesting(false);
+  };
+
+  /** ③ 测试搜索：POST {query:'ping',count:1}，验证端点可达 + 响应形态（不落存储）。 */
+  const runWsTest = async () => {
+    setWsTesting(true);
+    setWsTestResult(null);
+    const r = await testWebSearch(wsEndpoint, wsApiKey);
+    setWsTestResult({ ok: r.ok, message: r.message });
+    setWsTesting(false);
   };
   return (
     <div className="ai-settings-mask" onClick={onClose}>
@@ -191,35 +211,116 @@ export function SettingsPanel({
           <div className={`ai-settings-test ${testResult.ok ? 'ok' : 'fail'}`}>{testResult.message}</div>
         )}
 
-        {/* v2（FR-040 BYOK）：web-search 配置区 —— 端点/Key 场景注入位；未配置禁用 + 指引 EC-006 */}
+        {/* v2 SettingsPanel ③：联网搜索能力面板（可扩展 / 可配置 / 可用）。
+            预设下拉数据源 WEB_SEARCH_PRESETS（provider.ts，预留豆包/火山扩展位）；
+            端点/Key 均 BYOK 自备 —— base 零内置端点、零内置 Key（NFR-002）。 */}
         <div className="ai-settings-section">
           <div className="ai-settings-subtitle">
             <span>③ 联网搜索（web-search，可选）</span>
             <span className="ai-settings-hint">
-              base 零内置端点/Key —— 填入后 web-search 自动可用；Key 仅存本机浏览器（不进 schema/help/日志）
+              base 零内置端点/Key（NFR-002）—— 端点与 Key 均由你提供；Key 仅存本机浏览器（不进 schema/help/日志）
             </span>
           </div>
-          <label className="ai-settings-field">
-            <span className="ai-settings-label">搜索端点 URL</span>
+
+          <label className="ai-settings-toggle-row">
             <input
-              type="text"
-              value={wsEndpoint}
-              onChange={(e) => setWsEndpoint(e.target.value)}
-              placeholder="https://your-search-service.example/api/search"
-              spellCheck={false}
+              type="checkbox"
+              checked={wsEnabled}
+              onChange={(e) => {
+                setWsEnabled(e.target.checked);
+                setWsTestResult(null);
+              }}
             />
-            <span className="ai-settings-hint">POST {`{"query":"…"}`} → {`{"results":[{title,snippet,url}]}`}</span>
+            <span>启用联网搜索</span>
           </label>
-          <label className="ai-settings-field">
-            <span className="ai-settings-label">API Key（Bearer）</span>
-            <input
-              type="password"
-              value={wsApiKey}
-              onChange={(e) => setWsApiKey(e.target.value)}
-              placeholder="留空 = 不启用 web-search"
-              spellCheck={false}
-            />
-          </label>
+
+          {!wsEnabled ? (
+            <span className="ai-settings-hint ai-settings-disabled-note">
+              未启用时 web-search 对 AI 呈<b>禁用态</b>（不注入该工具，EC-006）。启用方式：勾选上方开关
+              → 选服务预设 → 填端点 URL 与 API Key → 保存。
+            </span>
+          ) : (
+            <>
+              <label className="ai-settings-field">
+                <span className="ai-settings-label">搜索服务预设</span>
+                <select
+                  value={wsPresetId}
+                  onChange={(e) => {
+                    setWsPresetId(e.target.value);
+                    setWsTestResult(null);
+                  }}
+                >
+                  {WEB_SEARCH_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="ai-settings-hint">
+                  {wsPreset.hint}（下拉为可扩展结构，未来豆包/火山等预置将在此追加）
+                </span>
+              </label>
+
+              <label className="ai-settings-field">
+                <span className="ai-settings-label">端点 URL</span>
+                <input
+                  type="text"
+                  value={wsEndpoint}
+                  onChange={(e) => setWsEndpoint(e.target.value)}
+                  placeholder={wsPreset.demoEndpoint}
+                  spellCheck={false}
+                />
+                <span className="ai-settings-hint">
+                  请粘贴你的真实端点（placeholder 仅为演示）。POST 契约：发送{' '}
+                  {`{"query":"…","count":1}`} → 响应 {`{"results":[{title,snippet,url}]}`}
+                  ，兼容 data.results / items
+                </span>
+              </label>
+
+              <label className="ai-settings-field">
+                <span className="ai-settings-label">API Key（Bearer）</span>
+                <input
+                  type="password"
+                  value={wsApiKey}
+                  onChange={(e) => setWsApiKey(e.target.value)}
+                  placeholder="粘贴搜索服务 API Key"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+
+              {wsEndpoint.trim() && wsApiKey.trim() ? (
+                <span className="ai-settings-hint">
+                  保存后 web-search 将随 AI 会话启用；Key 仅存本机 localStorage，不上传任何服务器
+                </span>
+              ) : (
+                <span className="ai-settings-warn">
+                  ⚠ 端点与 Key 需同时填写并保存才会启用 web-search；缺任一项 = 未配置（保存后仍为禁用态，EC-006）
+                </span>
+              )}
+
+              <div className="ai-settings-ws-test">
+                <button
+                  type="button"
+                  className="ai-settings-btn ai-settings-test-btn"
+                  onClick={runWsTest}
+                  disabled={wsTesting || !wsEndpoint.trim()}
+                  title={
+                    wsEndpoint.trim()
+                      ? '向该端点发一个最小请求（POST {query:"ping",count:1}），验证可达性与响应形态'
+                      : '请先填写搜索端点 URL'
+                  }
+                >
+                  {wsTesting ? '测试中…' : '测试搜索'}
+                </button>
+                {wsTestResult && (
+                  <div className={`ai-settings-test ${wsTestResult.ok ? 'ok' : 'fail'}`}>
+                    {wsTestResult.message}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="ai-settings-actions">

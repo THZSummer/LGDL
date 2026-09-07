@@ -182,6 +182,36 @@ export function saveWebSearch(webSearch: { endpoint: string; apiKey: string } | 
   writeStore(store);
 }
 
+/** 搜索服务预设（SettingsPanel ③ 下拉数据源；v2 SettingsPanel 改造）。 */
+export interface WebSearchPreset {
+  id: string;
+  name: string;
+  /** 仅作输入框 placeholder 的演示端点（example.* 域名，非真实内置端点）。 */
+  demoEndpoint: string;
+  hint: string;
+}
+
+/**
+ * 搜索服务预设列表 —— **可扩展结构（预留扩展位）**：
+ * 未来接入豆包 / 火山等预置搜索服务时，在此数组追加条目即可，SettingsPanel ③
+ * 下拉自动渲染，无需改面板代码。红线（NFR-002）：预置项只描述「形态」，
+ * 仅含名称与 demo 占位端点，**绝不内置任何真实端点 / Key**。
+ */
+export const WEB_SEARCH_PRESETS: WebSearchPreset[] = [
+  {
+    id: 'generic',
+    name: '通用搜索端点',
+    demoEndpoint: 'https://your-search-service.example/api/search',
+    hint: 'BYOK：任意自备的 POST 兼容端点（按 {query,count} → {results/data.results/items} 契约调用）',
+  },
+  // 预留扩展位：未来豆包/火山等预置搜索在此追加（仅 name/demo/hint，零内置端点与 Key，NFR-002）
+];
+
+/** 按下拉 id 取预设；未知 id 回退首项（generic）。 */
+export function webSearchPresetById(id: string): WebSearchPreset {
+  return WEB_SEARCH_PRESETS.find((p) => p.id === id) ?? WEB_SEARCH_PRESETS[0];
+}
+
 /** 读取指定 provider 已保存的 key/模型（用于切换服务商时回填，无则默认）。 */
 export function loadProviderSettings(providerId: ProviderId): ProviderSettings {
   const store = readStore();
@@ -245,6 +275,66 @@ export async function testConnection(settings: ProviderSettings): Promise<TestRe
       [{ role: 'user', content: 'ping' }],
     );
     return { ok: true, message: `✓ ${provider.name} 连接正常（模型 ${settings.model || provider.defaultModel}）`, elapsedMs: Date.now() - t0 };
+  } catch (err) {
+    return { ok: false, message: `✖ ${(err as Error).message}`, elapsedMs: Date.now() - t0 };
+  }
+}
+
+/**
+ * web-search 端点连通性测试（SettingsPanel ③ 「测试搜索」按钮专用）。
+ * 与 session.createWebSearchClient 同契约：POST {query,count} → 宽容解析
+ * results / data.results / items；仅验证可达性与响应形态，不落任何存储。
+ * apiKey 可省略（消费端宽容）；任何本地/网络异常 → ok=false 可读信息。
+ */
+export async function testWebSearch(
+  endpoint: string,
+  apiKey?: string,
+): Promise<TestResult> {
+  const ep = endpoint.trim();
+  if (!ep) return { ok: false, message: '未填写搜索端点 URL', elapsedMs: 0 };
+  const t0 = Date.now();
+  try {
+    const res = await fetch(ep, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(apiKey && apiKey.trim() ? { authorization: `Bearer ${apiKey.trim()}` } : {}),
+      },
+      body: JSON.stringify({ query: 'ping', count: 1 }),
+    });
+    if (!res.ok) {
+      return { ok: false, message: `✖ 搜索端点 HTTP ${res.status}`, elapsedMs: Date.now() - t0 };
+    }
+    const data = (await res.json()) as {
+      results?: Array<{ title?: string; snippet?: string; url?: string }>;
+      data?: { results?: Array<{ title?: string; snippet?: string; url?: string }> };
+      items?: Array<{ title?: string; snippet?: string; description?: string; url?: string; link?: string }>;
+      error?: string;
+    };
+    if (data.error) {
+      return { ok: false, message: `✖ 搜索端点返回错误：${data.error}`, elapsedMs: Date.now() - t0 };
+    }
+    const list =
+      (Array.isArray(data.results) && data.results) ||
+      (Array.isArray(data.data?.results) && data.data!.results) ||
+      (Array.isArray(data.items) && data.items) ||
+      null;
+    const n = list ? list.length : 0;
+    const shape = Array.isArray(data.results)
+      ? 'results'
+      : Array.isArray(data.data?.results)
+        ? 'data.results'
+        : Array.isArray(data.items)
+          ? 'items'
+          : null;
+    return {
+      ok: true,
+      message:
+        shape !== null
+          ? `✓ 搜索端点可达：HTTP ${res.status}，返回 ${n} 条（${shape} 形态）`
+          : `✓ 搜索端点可达：HTTP ${res.status}（响应非 {results/data.results/items}，消费端按空结果处理）`,
+      elapsedMs: Date.now() - t0,
+    };
   } catch (err) {
     return { ok: false, message: `✖ ${(err as Error).message}`, elapsedMs: Date.now() - t0 };
   }

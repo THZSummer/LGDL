@@ -9,6 +9,9 @@ import {
   loadProviderSettings,
   saveProviderInputs,
   saveWebSearch,
+  testWebSearch,
+  WEB_SEARCH_PRESETS,
+  webSearchPresetById,
   type ProviderSettings,
 } from './provider.js';
 
@@ -255,4 +258,119 @@ test('webSearch: 既有 localStorage 读写零回归（旧格式无 webSearch �
       assert.equal(loadProviderSettings('qwen').apiKey, 'sk-old');
     },
   );
+});
+
+// ============ v2 SettingsPanel ③：服务预设（可扩展、零内置端点/Key）+ 测试搜索 ============
+
+test('web-search preset: 预设列表当前仅「通用」一项，可扩展结构且零内置端点/Key（NFR-002）', () => {
+  assert.deepEqual(
+    WEB_SEARCH_PRESETS.map((p) => p.id),
+    ['generic'],
+  );
+  assert.equal(WEB_SEARCH_PRESETS[0].name, '通用搜索端点');
+  // demo 端点仅为 placeholder 演示（example.*），不构成真实内置端点
+  assert.match(WEB_SEARCH_PRESETS[0].demoEndpoint, /^https:\/\/your-search-service\.example\//);
+  // 结构上不存在 endpoint/apiKey 字段 —— 预置项永不夹带真实端点/Key
+  for (const p of WEB_SEARCH_PRESETS) {
+    assert.ok(!('endpoint' in p), `${p.id} 不得内置 endpoint`);
+    assert.ok(!('apiKey' in p), `${p.id} 不得内置 apiKey`);
+  }
+  // 未知 id 回退首项
+  assert.equal(webSearchPresetById('generic').id, 'generic');
+  assert.equal(webSearchPresetById('future-doubao').id, 'generic');
+});
+
+/** 临时替换 globalThis.fetch（与 withStorage 同模式；浏览器/Node 均可用）。 */
+async function withFetch(
+  stub: (input: string, init?: RequestInit) => Promise<unknown>,
+  fn: () => Promise<void>,
+) {
+  const orig = (globalThis as Record<string, unknown>).fetch;
+  (globalThis as Record<string, unknown>).fetch = stub;
+  try {
+    await fn();
+  } finally {
+    if (orig === undefined) delete (globalThis as Record<string, unknown>).fetch;
+    else (globalThis as Record<string, unknown>).fetch = orig;
+  }
+}
+
+test('testWebSearch: POST {query,count:1} + Bearer 头；宽容解析 results 成功', async () => {
+  let captured: RequestInit | undefined;
+  await withFetch(
+    async (input, init) => {
+      captured = init;
+      assert.equal(input, 'https://search.example.com/api');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ results: [{ title: 't', snippet: 's', url: 'https://e.com' }] }),
+      };
+    },
+    async () => {
+      const r = await testWebSearch(' https://search.example.com/api ', 'ws-key-1');
+      assert.equal(r.ok, true, r.message);
+      assert.match(r.message, /返回 1 条（results 形态）/);
+      assert.ok(r.elapsedMs >= 0);
+      const body = JSON.parse(String(captured?.body));
+      assert.deepEqual(body, { query: 'ping', count: 1 });
+      const headers = captured?.headers as Record<string, string>;
+      assert.equal(headers['content-type'], 'application/json');
+      assert.equal(headers.authorization, 'Bearer ws-key-1');
+    },
+  );
+});
+
+test('testWebSearch: 宽容 data.results / items / 空数组形态；apiKey 可省略', async () => {
+  for (const payload of [
+    { data: { results: [{ title: 'a' }] } },
+    { items: [{ title: 'b', link: 'https://b.com' }] },
+    { results: [] },
+    {},
+  ]) {
+    await withFetch(
+      async () => ({ ok: true, status: 200, json: async () => payload }),
+      async () => {
+        const r = await testWebSearch('https://search.example.com/api');
+        assert.equal(r.ok, true, JSON.stringify(payload));
+        assert.match(r.message, /HTTP 200/);
+      },
+    );
+  }
+});
+
+test('testWebSearch: HTTP 错误 / 响应 error 字段 / 网络异常 / 空端点 → 可读失败', async () => {
+  // HTTP 非 2xx
+  await withFetch(
+    async () => ({ ok: false, status: 401, json: async () => ({}) }),
+    async () => {
+      const r = await testWebSearch('https://search.example.com/api', 'k');
+      assert.equal(r.ok, false);
+      assert.match(r.message, /HTTP 401/);
+    },
+  );
+  // 响应带 error 字段
+  await withFetch(
+    async () => ({ ok: true, status: 200, json: async () => ({ error: 'limit exceeded' }) }),
+    async () => {
+      const r = await testWebSearch('https://search.example.com/api', 'k');
+      assert.equal(r.ok, false);
+      assert.match(r.message, /limit exceeded/);
+    },
+  );
+  // 网络异常（fetch 抛错）
+  await withFetch(
+    async () => {
+      throw new TypeError('Failed to fetch');
+    },
+    async () => {
+      const r = await testWebSearch('https://search.example.com/api', 'k');
+      assert.equal(r.ok, false);
+      assert.match(r.message, /Failed to fetch/);
+    },
+  );
+  // 空端点：不发请求直接失败
+  const r0 = await testWebSearch('  ', 'k');
+  assert.equal(r0.ok, false);
+  assert.match(r0.message, /未填写搜索端点/);
 });
