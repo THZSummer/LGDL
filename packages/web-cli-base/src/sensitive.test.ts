@@ -14,6 +14,21 @@ import {
   type FieldIdentity,
   type SensitiveMatch,
 } from './sensitive.js';
+import {
+  redactUrlQuery,
+  isSensitiveHeader,
+  maskHeaderValue,
+  maskTextPayload,
+  maskByMode,
+  SENSITIVE_URL_PARAM_NAMES,
+  SENSITIVE_HEADER_NAMES,
+  TYPING_PAYLOAD_POLICY,
+  CONSOLE_TEXT_POLICY,
+  DIALOG_TEXT_POLICY,
+  RICH_CLIPBOARD_TEXT_POLICY,
+  SENSITIVE_V4_NOTE,
+  type TextMaskPolicy,
+} from './sensitive.js';
 
 function hit(field: FieldIdentity): SensitiveMatch | null {
   return sensitiveFieldMatch(field);
@@ -213,4 +228,119 @@ test('sensitive: read/write notes encode FR-024 policy wording', () => {
   assert.match(SENSITIVE_WRITE_NOTE, /ask/);
   assert.match(SENSITIVE_WRITE_NOTE, /trusted/);
   assert.match(SENSITIVE_WRITE_NOTE, /FR-024/);
+});
+
+// ================= v4 FR-006 脱敏函数族（ADR-006/TASK-002） =================
+
+// ---- redactUrlQuery（URL 查询串 token/key/sign 掩码） ----
+
+test('sensitive v4: redactUrlQuery 掩码 token/key/sign 参数，非敏感参数不受影响（FR-006/EC-003）', () => {
+  const cases: Array<[string, string]> = [
+    ['https://a.com/x?token=SECRET123&name=alice', 'https://a.com/x?token=•••&name=alice'],
+    ['/api?api_key=k123&page=2&sign=abc', '/api?api_key=•••&page=2&sign=•••'],
+    ['https://a.com/p?key=xyz&q=hi#sec', 'https://a.com/p?key=•••&q=hi#sec'],
+  ];
+  for (const [input, expected] of cases) {
+    const out = redactUrlQuery(input);
+    assert.equal(out, expected);
+    assert.ok(!out.includes('SECRET123') && !out.includes('k123') && !out.includes('xyz'), `no plaintext in ${out}`);
+  }
+});
+
+test('sensitive v4: redactUrlQuery 无查询串/无敏感参数原样返回（不误伤）', () => {
+  assert.equal(redactUrlQuery('https://a.com/path'), 'https://a.com/path');
+  assert.equal(redactUrlQuery('https://a.com/p?q=hello&page=2'), 'https://a.com/p?q=hello&page=2');
+  assert.equal(redactUrlQuery(''), '');
+  assert.ok(SENSITIVE_URL_PARAM_NAMES.includes('token'));
+  assert.ok(SENSITIVE_URL_PARAM_NAMES.includes('sign'));
+});
+
+// ---- isSensitiveHeader + maskHeaderValue ----
+
+test('sensitive v4: isSensitiveHeader 命中 authorization/cookie/x-api-key/proxy-authorization', () => {
+  for (const name of ['authorization', 'cookie', 'x-api-key', 'proxy-authorization', 'Authorization', 'COOKIE']) {
+    assert.equal(isSensitiveHeader(name), true, `expected sensitive: ${name}`);
+  }
+  for (const name of ['content-type', 'accept', 'user-agent', 'x-request-id']) {
+    assert.equal(isSensitiveHeader(name), false, `expected non-sensitive: ${name}`);
+  }
+  assert.ok(SENSITIVE_HEADER_NAMES.includes('authorization'));
+  assert.ok(SENSITIVE_HEADER_NAMES.includes('cookie'));
+  assert.ok(SENSITIVE_HEADER_NAMES.includes('x-api-key'));
+  assert.ok(SENSITIVE_HEADER_NAMES.includes('proxy-authorization'));
+});
+
+test('sensitive v4: maskHeaderValue 掩码/长度占位/类型替代三态，不含明文；非敏感头原样', () => {
+  const secret = 'Bearer eyJhbGciOiJIUzI1NiJ9';
+  const masked = maskHeaderValue('authorization', secret);
+  assert.ok(!masked.includes('eyJhbGci'), 'no plaintext');
+  assert.match(masked, /•/);
+  const len = maskHeaderValue('cookie', secret, { mode: 'length' });
+  assert.match(len, /位/);
+  const typ = maskHeaderValue('x-api-key', secret, { mode: 'type' });
+  assert.ok(!typ.includes('eyJhbGci'));
+  assert.equal(maskHeaderValue('content-type', 'application/json'), 'application/json');
+});
+
+// ---- maskTextPayload（key=value / Bearer / token: 启发式，三态） ----
+
+test('sensitive v4: maskTextPayload key=value / token: 敏感键掩码，非敏感键不动', () => {
+  const out = maskTextPayload('user=alice&password=hunter2&token=abc123&mode=fast');
+  assert.ok(!out.includes('hunter2') && !out.includes('abc123'));
+  assert.ok(out.includes('user=alice') && out.includes('mode=fast'));
+  assert.match(out, /password=•••/);
+  assert.match(out, /token=•••/);
+  const colon = maskTextPayload('token: xyz-789');
+  assert.ok(!colon.includes('xyz-789'));
+});
+
+test('sensitive v4: maskTextPayload Bearer 掩码 + 大小写不敏感', () => {
+  const out = maskTextPayload('Authorization: Bearer AAA.BBB.CCC done');
+  assert.ok(!out.includes('AAA.BBB.CCC'));
+  assert.match(out, /Bearer •••/);
+  const lower = maskTextPayload('bearer token123');
+  assert.ok(!lower.includes('token123'));
+});
+
+test('sensitive v4: maskTextPayload JSON 键值 + 三态 + 幂等（不重复掩码）', () => {
+  const json = '{"token":"SECRET","name":"alice","password":"pw1"}';
+  const out = maskTextPayload(json);
+  assert.ok(!out.includes('SECRET') && !out.includes('pw1'));
+  assert.ok(out.includes('"name":"alice"'));
+  // 幂等：对已掩码结果再跑一次不改变
+  assert.equal(maskTextPayload(out), out);
+  const len = maskTextPayload('password=123456', { mode: 'length' });
+  assert.match(len, /位/);
+  const typ = maskTextPayload('password=123456', { mode: 'type' });
+  assert.ok(!typ.includes('123456'));
+});
+
+test('sensitive v4: 普通文本（无敏感形态）原样返回', () => {
+  const text = 'hello world, this is a normal sentence with spaces';
+  assert.equal(maskTextPayload(text), text);
+});
+
+// ---- 键入负载策略 / 文本面策略常量 ----
+
+test('sensitive v4: 键入负载策略不含明文值回显（key 名 + 修饰键布尔，FR-006）', () => {
+  assert.equal(TYPING_PAYLOAD_POLICY.keyName, true);
+  assert.equal(TYPING_PAYLOAD_POLICY.modifiers, true);
+  assert.equal(TYPING_PAYLOAD_POLICY.plaintextValue, false);
+  assert.equal(TYPING_PAYLOAD_POLICY.plaintextFieldValue, false);
+});
+
+test('sensitive v4: console/对话框/富剪贴板文本脱敏策略常量存在且缺省保守', () => {
+  for (const p of [CONSOLE_TEXT_POLICY, DIALOG_TEXT_POLICY, RICH_CLIPBOARD_TEXT_POLICY] as TextMaskPolicy[]) {
+    assert.equal(p.mode, 'mask');
+  }
+  assert.match(SENSITIVE_V4_NOTE, /FR-006/);
+});
+
+// ---- maskByMode 三态（沿 v3 maskValue） ----
+
+test('sensitive v4: maskByMode mask/length/type 三态无明文', () => {
+  const v = 'S3cr3t!';
+  assert.ok(!maskByMode(v, 'mask').includes(v));
+  assert.match(maskByMode(v, 'length'), /位/);
+  assert.ok(!maskByMode(v, 'type').includes(v));
 });

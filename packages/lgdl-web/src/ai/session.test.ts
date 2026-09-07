@@ -5,7 +5,7 @@ import type { AiSessionDeps, RunAgentInit } from './session.js';
 import { createOpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
 import type { OpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
 import type { ProviderSettings } from './provider.js';
-import { PermissionGate, createMemoryAudit } from '@lgdl/web-cli-base';
+import { PermissionGate, createMemoryAudit, eventsHelp, cookieHelp, dialogHelp } from '@lgdl/web-cli-base';
 import type { AskQuestion, ChatResult, PlatformDomOps, PlatformFilePicker, PlatformWaitForOptions, ToolResult, WebCliToolCall } from '@lgdl/web-cli-base';
 
 const SRC = `title: t
@@ -78,15 +78,20 @@ const FULL_NAMES = [
   'chrome', // chrome 5 子命令（back/forward 场景 allow 免 ask / reload·screenshot 写 ask）
   'save', // FR-029：save/download 两路径（写 ask；export 落盘链同源）
   'notify', // FR-030：默认开（授权失败转译）
-  'clipboard', // FR-030：读=敏感 ask / 写=ask（App 子命令级规则表达）
+  'clipboard', // FR-030：读=敏感 ask / 写=ask（App 子命令级规则表达；v4 富子命令随条目默认开）
+  // v4（TASK-011/FR-028：events 观察默认开；cookie/dialog 写面默认关 = 禁用态登记）
+  'events', // v4 事件订阅/观察通道（观察只读子面 allow 免 ask；pull-sensitive write 档）
+  'cookie', // v4 登记为禁用（写面默认关：场景策略显式开启 + LGDL deny 规则兜底，FR-020/030）
+  'dialog', // v4 登记为禁用（override 默认关：场景显式开启 + ask，FR-016/030）
+  'net', // v4 登记为禁用（拦截 P2 默认关：LGDL deny + 显式开启，FR-018/030）
   // 内建
   'web-fetch',
   'sleep',
   'web-cli-help',
 ];
 
-/** 禁用条目 = schema 派生剔除集（eval-js/subagent 显式装载 + page-eval 缺省禁用）。 */
-const DISABLED_NAMES = new Set(['eval-js', 'subagent', 'page-eval']);
+/** 禁用条目 = schema 派生剔除集（eval-js/subagent 显式装载 + page-eval/cookie/dialog 缺省禁用）。 */
+const DISABLED_NAMES = new Set(['eval-js', 'subagent', 'page-eval', 'cookie', 'dialog', 'net']);
 
 /** schema 派生 = 全名 − 禁用条目。 */
 const DERIVE_NAMES = FULL_NAMES.filter((n) => !DISABLED_NAMES.has(n));
@@ -161,9 +166,10 @@ test('session: lgdl-web-op-cli entry forwards the injected registry handlers (FR
 test('session: help listing is registration-derived and grouped (FR-010/FR-001)', async () => {
   const session = createAiSession(makeDeps());
   const list = session.router.listHelp();
-  // web-cli-help 不自列 → 30 - 1 = 29（v3 P1 增 wait/extract/export/page-eval，TASK-009；
-  // v3 P2 增 chrome/save/notify/clipboard，TASK-011）
-  assert.ok(list.includes('可用工具（29 个）：'));
+  // web-cli-help 不自列 → 34 - 1 = 33（v3 P1 增 wait/extract/export/page-eval，TASK-009；
+  // v3 P2 增 chrome/save/notify/clipboard，TASK-011；v4 增 events/cookie/dialog，TASK-011 ——
+  // cookie/dialog 登记为禁用态仍列示（已禁用标注），D-005 续记）
+  assert.ok(list.includes('可用工具（33 个）：'));
   assert.ok(list.includes('lgdl-web-cli：图内容操作'));
   assert.ok(list.includes('lgdl-web-op-cli：UI 操作'));
   assert.ok(list.includes('storage：'));
@@ -183,6 +189,9 @@ test('session: help listing is registration-derived and grouped (FR-010/FR-001)'
   // v3 P2（TASK-011）：chrome/net 组头（save group net / chrome group chrome）
   assert.ok(list.includes('[chrome]'));
   assert.ok(list.includes('[net]'));
+  // v4（TASK-011）：observe 组头（events）+ cookie/dialog 禁用标注
+  assert.ok(list.includes('[observe]'));
+  assert.ok(list.includes('cookie：') || list.includes('cookie（'));
 });
 
 // ================= v2 组装点扩展（FR-039~042/044） =================
@@ -606,4 +615,72 @@ test('session: FR-041 矩阵链路断言 — export .xlsx 入参 → 不支持 +
   assert.match(c.output, /已导出 buffer "xl" → 数据\.csv/);
   assert.equal(saved.length, 1);
   assert.equal(saved[0].suggestedName, '数据.csv');
+});
+
+// ================= v4（TASK-011/FR-028/030/EC-004；D-005 矩阵续记） =================
+
+test('session v4: 矩阵 —— events 默认开（schema 含）+ cookie/dialog 默认关（schema 不含/派发禁用可读）', async () => {
+  const session = createAiSession(makeDeps());
+  const names = session.router.deriveTools().map((t) => t.name);
+  assert.ok(names.includes('events'), 'events 观察默认开');
+  assert.ok(!names.includes('cookie'), 'cookie 写面默认关 → schema 不含（FR-028）');
+  assert.ok(!names.includes('dialog'), 'dialog override 默认关 → schema 不含');
+  // 派发禁用可读（v2 FR-004 语义沿）
+  const dispatchCookie = await session.router.dispatch(tc('cookie', {}, 'read'), {});
+  assert.equal(dispatchCookie.ok, false);
+  assert.match(dispatchCookie.output, /禁用/);
+  const dispatchDialog = await session.router.dispatch(tc('dialog', {}, 'status'), {});
+  assert.equal(dispatchDialog.ok, false);
+  assert.match(dispatchDialog.output, /禁用/);
+});
+
+test('session v4: LGDL_DEFAULT_POLICY_RULES —— cookie write/delete deny、events 观察只读 allow、dialog override-install ask（fail-closed deny 无桥）', async () => {
+  const rules = LGDL_DEFAULT_POLICY_RULES;
+  const gate = new PermissionGate({ rules });
+  // events 观察只读子面 allow（免 ask）
+  const sub = await gate.check({ tool: 'events', subcommand: 'subscribe', risk: 'read' });
+  assert.equal(sub.action, 'allow', '观察只读子面免 ask（FR-028/IMP-4 沿）');
+  // cookie write deny
+  const cw = await gate.check({ tool: 'cookie', subcommand: 'write', risk: 'write' });
+  assert.equal(cw.action, 'deny', 'cookie 写缺省 deny（FR-030）');
+  const cd = await gate.check({ tool: 'cookie', subcommand: 'delete', risk: 'write' });
+  assert.equal(cd.action, 'deny');
+  const cdetail = await gate.check({ tool: 'cookie', subcommand: 'read-detail', risk: 'write' });
+  assert.equal(cdetail.action, 'deny');
+  // read 掩码面仍允许
+  const cr = await gate.check({ tool: 'cookie', subcommand: 'read', risk: 'read' });
+  assert.equal(cr.action, 'allow');
+  // dialog override-install ask（缺省）→ 无桥消化为 deny（fail-closed，FR-016：deny 后不安装）
+  const di = await gate.check({ tool: 'dialog', subcommand: 'override-install', risk: 'write' });
+  assert.equal(di.action, 'deny', 'ask 无桥 → deny fail-closed');
+  assert.match(di.reason, /需确认|ask/);
+  // 有 onAsk 桥 allow → 放行（ask 裁决面生效）
+  const diAllow = await gate.check({ tool: 'dialog', subcommand: 'override-install', risk: 'write' }, { onAsk: async () => ({ action: 'allow' as const }) });
+  assert.equal(diAllow.action, 'allow', '场景 ask 裁决 allow 放行（FR-016 语义）');
+  // net 整工具 deny（FR-018/030，TASK-012 启用位）
+  const net = await gate.check({ tool: 'net', subcommand: 'rule-add', risk: 'write' });
+  assert.equal(net.action, 'deny');
+});
+
+test('session v4: 默认关工具 help 标注（cookie/dialog 已禁用）+ 工具 help 面（dom observe 别名 + 归属表）', () => {
+  const session = createAiSession(makeDeps());
+  const h = session.router.listHelp();
+  assert.ok(h.includes('cookie'), 'cookie help 行存在（已禁用标注）');
+  assert.ok(h.includes('events'), 'events help 行存在');
+  assert.match(eventsHelp(), /dom observe（FR-009）= events subscribe --kind dom/);
+  assert.match(eventsHelp(), /归属/);
+  assert.match(cookieHelp(), /chrome.cookies/);
+  assert.match(dialogHelp(), /归属/);
+});
+
+test('session v4: dom touch（tap/swipe/pinch）场景默认关 —— LGDL 规则 deny 生效（FR-028/FR-024，TASK-013 G-01 PASS）', async () => {
+  const rules = LGDL_DEFAULT_POLICY_RULES;
+  const gate = new PermissionGate({ rules });
+  for (const sub of ['tap', 'swipe', 'pinch']) {
+    const d = await gate.check({ tool: 'dom', subcommand: sub, risk: 'ui' });
+    assert.equal(d.action, 'deny', `dom ${sub} 场景默认关（deny）`);
+  }
+  // 其余 ui 子命令（click）仍走既有 ask（经 onAsk 桥 allow 生效，不受 touch deny 影响）
+  const click = await gate.check({ tool: 'dom', subcommand: 'click', risk: 'ui' }, { onAsk: async () => ({ action: 'allow' as const }) });
+  assert.equal(click.action, 'allow');
 });

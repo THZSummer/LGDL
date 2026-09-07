@@ -92,6 +92,40 @@ function authPathNote(tool: string, subcommand: string | undefined): string | un
     // FR-030：写 = 允许后 AI 写入系统剪贴板（可在其他应用粘贴）
     return '授权路径提示（剪贴板写入）：允许后 AI 将指定文本写入系统剪贴板（后续可在其他应用粘贴）（FR-030）。';
   }
+  // ---- v4（TASK-011/FR-029/030：新写面 ask 文案 + 规则摘要） ----
+  if (tool === 'cookie' && (subcommand === 'write' || subcommand === 'delete')) {
+    // FR-020/030：cookie 写/删 = 凭据面写操作 —— 场景缺省 deny；显式放行后同源 cookie 变更 + 回读断言 + 审计（名掩码）
+    return (
+      '授权路径提示（cookie ' + (subcommand === 'write' ? '写入' : '删除') + '）：场景缺省 deny（FR-030）。' +
+      '允许后将对同源（非 HttpOnly）cookie 执行' + (subcommand === 'write' ? '写入（写后回读断言）' : '删除（删后回读断言）') + '，审计仅记名掩码+域+动作（值明文不进审计/日志）。' +
+      'Secure 仅 HTTPS 可写、HttpOnly 不可写（EC-007）；HttpOnly/跨域/域级管理不支持（chrome.cookies 归属，FR-025）。'
+    );
+  }
+  if (tool === 'cookie' && subcommand === 'read-detail') {
+    return '授权路径提示（cookie 明细细）：允许后同源 cookie 值明文明细将进入 AI 上下文（trusted + ask，FR-006/019）。read 的掩码摘要面不受影响。';
+  }
+  if (tool === 'dialog' && subcommand === 'override-install') {
+    return (
+      '授权路径提示（对话框 override 安装）：允许后页面 JS 的 alert/confirm/prompt 调用不再弹原生模态框 —— ' +
+      '由本工具捕获并「按策略应答」（缺省保守：confirm/prompt 无匹配规则返回否定值，页面不被阻塞 EC-005）。' +
+      '破坏性文案（删除/覆盖/清除/提交类）无 trusted accept 规则永不自动确认（EC-006）；卸载可逆还原。'
+    );
+  }
+  if (tool === 'dialog' && subcommand === 'policy-add') {
+    return '授权路径提示（自动应答策略注册）：允许后对话框自动应答策略生效（缺省保守 + 破坏性 deny-accept 护栏 FR-017）。策略文本需 trusted 声明；prompt 自动输入值仅 trusted 规则生效。';
+  }
+  if (tool === 'net') {
+    return '授权路径提示（网络拦截）：整工具 P2 门禁缺省 deny（FR-018/030）。允许后拦截规则（URL 模式 → 增改 header/查询参数/请求体）在宿主自身 fetch/XHR 发出前生效；命中全量审计（URL 脱敏，无明文）。响应伪造/缓存篡改/先网络栈不支持（webRequest/DNR/CDP 归属）。';
+  }
+  if (tool === 'events' && subcommand === 'pull-sensitive') {
+    return '授权路径提示（事件敏感明细细）：允许后事件明细细将进入 AI 上下文（trusted + ask，FR-006）。普通观察摘要经 events pull 可见，明细细仅本通道。';
+  }
+  if (tool === 'clipboard' && (subcommand === 'write-html' || subcommand === 'write-image')) {
+    return '授权路径提示（剪贴板富写）：允许后 AI 将富文本/图片写入系统剪贴板（ClipboardItem text/html+image/png+text/plain 并存，FR-021）；被拒/非安全上下文 → 可读转译（EC-008）。';
+  }
+  if (tool === 'clipboard' && subcommand === 'paste-read') {
+    return '授权路径提示（粘贴读）：读取为敏感面 —— 允许后最近一次用户主动粘贴的富内容（已脱敏摘要 + 文件项元数据）进入 AI 上下文（FR-022/FR-006）；无用户粘贴捕获 → 不支持说明（NG-012）。';
+  }
   return undefined;
 }
 

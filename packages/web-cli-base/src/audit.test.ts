@@ -76,3 +76,60 @@ test('audit: createAudit 工厂默认 memory / console 选项', () => {
   const c = createAudit({ sink: 'console' });
   assert.equal(typeof c.record, 'function');
 });
+
+// ================= v4 FR-007 审计事件面扩展（TASK-002：字段无明文） =================
+
+test('audit v4: 订阅生命周期事件（subscribe/unsubscribe）字段 = subId/subKind/sensitive/计数', () => {
+  const sink = createMemoryAudit();
+  sink.record({ type: 'subscribe', ts: 1, tool: 'events', subId: 'sub-1', subKind: 'console', sensitive: true, detail: '订阅 console 观察（sensitive）' });
+  sink.record({ type: 'unsubscribe', ts: 2, tool: 'events', subId: 'sub-1', subKind: 'console', count: 42 });
+  assert.equal(sink.events[0].type, 'subscribe');
+  assert.equal(sink.events[0].subId, 'sub-1');
+  assert.equal(sink.events[0].subKind, 'console');
+  assert.equal(sink.events[0].sensitive, true);
+  assert.equal(sink.events[1].type, 'unsubscribe');
+  assert.equal(sink.events[1].count, 42);
+});
+
+test('audit v4: 事件投递摘要事件（event-delivery-summary）字段 = subId/subKind/count/计数 detail（负载形状无事件文本/meta）', () => {
+  const sink = createMemoryAudit();
+  sink.record({ type: 'event-delivery-summary', ts: 1, tool: 'events', subId: 'sub-1', subKind: 'dom', count: 7, detail: '投递 7 · 丢弃 1 · 缓冲 200' });
+  const ev = sink.events[0];
+  assert.equal(ev.type, 'event-delivery-summary');
+  assert.equal(ev.count, 7);
+  assert.equal(ev.subId, 'sub-1');
+  assert.equal(ev.subKind, 'dom');
+  assert.equal(ev.detail, '投递 7 · 丢弃 1 · 缓冲 200');
+  // 形状契约：投递摘要审计只承载计数语义 —— 不得携带事件负载字段（事件明文绝不进审计，FR-007/NFR-008）
+  assert.equal('text' in ev, false, '无事件文本负载字段');
+  assert.equal('meta' in ev, false, '无事件 meta 负载字段');
+  assert.equal('target' in ev, false, '无事件 target 负载字段');
+});
+
+test('audit v4: dialog/cookie/net-intercept 事件面（动作/归类无明文值）', () => {
+  const sink = createMemoryAudit();
+  sink.record({ type: 'dialog', ts: 1, tool: 'dialog', domain: 'confirm', decision: 'dismiss', detail: '缺省保守应答（无匹配规则）' });
+  sink.record({ type: 'cookie', ts: 2, tool: 'cookie', action: 'write', domain: '.example.com', decision: 'deny', detail: 'cookie 名已掩码（长度 5）' });
+  sink.record({ type: 'net-intercept', ts: 3, tool: 'net', action: 'addHeader', decision: 'allow', count: 1, detail: 'URL 脱敏摘要命中规则 r1' });
+  assert.equal(sink.events[0].domain, 'confirm');
+  assert.equal(sink.events[0].decision, 'dismiss');
+  assert.equal(sink.events[0].detail, '缺省保守应答（无匹配规则）');
+  assert.equal(sink.events[1].action, 'write');
+  assert.equal(sink.events[1].domain, '.example.com');
+  assert.equal(sink.events[1].detail, 'cookie 名已掩码（长度 5）');
+  assert.equal(sink.events[2].action, 'addHeader');
+  assert.equal(sink.events[2].count, 1);
+  assert.equal(sink.events[2].detail, 'URL 脱敏摘要命中规则 r1');
+  // 形状契约：写面审计只承载动作/归类/掩码摘要位 —— 不得携带 cookie 值/URL/头名等明文负载字段
+  assert.equal('value' in sink.events[1], false, 'cookie 审计无值明文字段');
+  assert.equal('url' in sink.events[2], false, 'net 审计无 URL 明文字段');
+  assert.equal('text' in sink.events[0], false, 'dialog 审计无消息文本字段');
+});
+
+test('audit v4: AuditEventType 联合扩展编译可达（订阅/投递/对话框/cookie/拦截全部可记录）', () => {
+  const types = ['subscribe', 'unsubscribe', 'event-delivery-summary', 'dialog', 'cookie', 'net-intercept'] as const;
+  for (const t of types) {
+    const ev: AuditEvent = { type: t, ts: 0 };
+    assert.equal(ev.type, t);
+  }
+});

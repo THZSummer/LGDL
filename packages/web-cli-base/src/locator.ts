@@ -80,6 +80,11 @@ export type LocatorParseResult =
 export const LOCATOR_MULTI_MATCH_NOTE =
   '定位匹配到多个元素时，操作类子命令按「首元素 + 结果提示」语义执行；如需精确定位，可先用 dom find（FR-013）确认匹配集与唯一化建议后再操作。';
 
+/** v4 穿透定位说明（FR-023/ADR-011；解析层不变 —— 穿透在 DOM 侧 resolver，主文档 CSS 命中照旧）。 */
+export const LOCATOR_PENETRATION_NOTE =
+  '穿透（v4/FR-023）：主文档未命中时自动递归走查 open shadowRoot 与同源 iframe contentDocument（SOP 内；深度护栏 ≤4 层）；' +
+  '命中结果带 via:"shadow"/"iframe" 标注。closed shadow/跨域 iframe 不可穿透 → 「不支持 + content script(all_frames)/CDP 归属」（FR-025）。';
+
 /** 定位语法帮助（错误指引 / dom·wait·extract 工具 help 共用的事实源）。 */
 export const LOCATOR_SYNTAX_GUIDE = [
   '支持：CSS 选择器（裸串，v2 基线，如 "#submit" / ".btn-primary" / "button[type=submit]"）',
@@ -89,6 +94,7 @@ export const LOCATOR_SYNTAX_GUIDE = [
   'text=/text*= 可配：trim（缺省开，裁剪首尾空白）/ case（区分大小写，缺省关）——经解析选项传入',
   '不支持：role= （可访问角色/名称经 dom interactives FR-011 清单获取后再定位）',
   '      | xpath= （xpath 语义在宿主页经 page-eval FR-037 表达）——两者绝不静默当 CSS 解析（EC-002）',
+  LOCATOR_PENETRATION_NOTE,
   LOCATOR_MULTI_MATCH_NOTE,
 ].join('\n');
 

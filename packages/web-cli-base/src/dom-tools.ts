@@ -50,6 +50,7 @@ import type {
   PlatformSetStyleOptions,
   PlatformSnapshotStructuredOptions,
   PlatformStructurePart,
+  PlatformTouchOptions,
   PlatformTypeTextOptions,
 } from './platform.js';
 import { translateCapabilityError } from './platform.js';
@@ -86,14 +87,19 @@ export type DomSubcommand =
   | 'set-value'
   | 'fill'
   | 'add'
-  | 'remove';
+  | 'remove'
+  // v4 TCH（TASK-013/FR-024，尾部追加：G-01 验证门 PASS）
+  | 'tap'
+  | 'swipe'
+  | 'pinch';
 
-/** 27 子命令注册序（既有 7 头部不漂移 = AC-001 检查点③红线）。 */
+/** 30 子命令注册序（既有 27 头部不漂移 = AC-001 检查点③红线；tap/swipe/pinch 仅尾部）。 */
 const SUBCOMMANDS: DomSubcommand[] = [
   'read-state', 'click', 'hover', 'scroll', 'zoom', 'fullscreen', 'snapshot',
   'interactives', 'read-element', 'find', 'structure',
   'dblclick', 'contextmenu', 'long-press', 'drag', 'focus', 'blur', 'type', 'press',
   'set-text', 'set-attr', 'remove-attr', 'set-style', 'set-value', 'fill', 'add', 'remove',
+  'tap', 'swipe', 'pinch',
 ];
 
 // ---------- 参数解析小工具（executor 面；EC-002 可读错误 + 指引） ----------
@@ -564,6 +570,29 @@ export async function executeDomTool(ops: PlatformDomOps | undefined, subcommand
         r = await ops.removeElement(sel);
         break;
       }
+      // ---- v4 touch（TASK-013/FR-024/ADR-010：G-01 验证门 PASS 分支；尾部追加，既有 27 头部序零漂移） ----
+      case 'tap':
+      case 'swipe':
+      case 'pinch': {
+        const kind = opName as 'tap' | 'swipe' | 'pinch';
+        const target = args.selector?.trim() ? { selector: args.selector.trim() } : args.x !== undefined && args.y !== undefined ? { x: intOf(args.x), y: intOf(args.y) } : {};
+        if (!args.selector?.trim() && (target.x === undefined || target.y === undefined)) {
+          return { ok: false, output: `✖ dom ${kind} 需 --selector <CSS 选择器> 或 --x/--y 视口坐标` };
+        }
+        const opts: PlatformTouchOptions = {
+          kind,
+          ...target,
+          ...(args.toX !== undefined && /^-?\d+$/.test(args.toX) ? { toX: Number(args.toX) } : {}),
+          ...(args.toY !== undefined && /^-?\d+$/.test(args.toY) ? { toY: Number(args.toY) } : {}),
+          ...(args.dx !== undefined && /^-?\d+$/.test(args.dx) ? { dx: Number(args.dx) } : {}),
+          ...(args.dy !== undefined && /^-?\d+$/.test(args.dy) ? { dy: Number(args.dy) } : {}),
+          ...(args.durationMs !== undefined && /^\d+$/.test(args.durationMs) ? { durationMs: Number(args.durationMs) } : {}),
+          ...(args.delta !== undefined && /^-?\d+$/.test(args.delta) ? { delta: Number(args.delta) } : {}),
+        };
+        if (typeof ops.touchDispatch !== 'function') return opMissing('touchDispatch');
+        r = await ops.touchDispatch(opts);
+        break;
+      }
     }
     return r.ok ? { ok: true, output: r.output } : { ok: false, output: r.output, error: r.error };
   } catch (err) {
@@ -573,10 +602,15 @@ export async function executeDomTool(ops: PlatformDomOps | undefined, subcommand
   }
 }
 
+/** 整数坐标解析（touch 坐标；非法返回 NaN 由调用方兜底报缺参）。 */
+function intOf(v: string): number | undefined {
+  return /^-?\d+$/.test(v) ? Number(v) : undefined;
+}
+
 // ---------- ToolEntry 工厂 ----------
 
 const DOM_DESC =
-  'dom：宿主页同源 DOM 操作子命令族（27 子命令；仅宿主应用自身页面，第三方/跨域 = F-14 插件边界 NG-002/NG-003）。' +
+  'dom：宿主页同源 DOM 操作子命令族（30 子命令；仅宿主应用自身页面，第三方/跨域 = F-14 插件边界 NG-002/NG-003）。' +
   ' 分组与子命令：' +
   ' [read 只读·免 ask] read-state（页面状态）/ snapshot（纯文本快照；--structured true 转结构化段 + 分页）/ interactives（可交互元素清单）/ read-element --selector（元素多面读取）/ find --selector（匹配计数/摘要）/ structure（结构/HTML/链接·图片·标题·表单集合）；' +
   ' [ui 交互·默认 ask] click --selector / hover --selector / scroll [--selector] [--dx --dy] / zoom --percent / fullscreen --on true|false / dblclick / contextmenu / long-press [--ms] / drag --from --to / focus / blur / press --key；' +
@@ -591,7 +625,7 @@ const DOM_SCHEMA = {
     subcommand: {
       type: 'string',
       enum: SUBCOMMANDS,
-      description: 'dom 子命令（27：read-state/click/hover/scroll/zoom/fullscreen/snapshot/interactives/read-element/find/structure/dblclick/contextmenu/long-press/drag/focus/blur/type/press/set-text/set-attr/remove-attr/set-style/set-value/fill/add/remove）。',
+      description: 'dom 子命令（30：...27 既有 + tap/swipe/pinch 合成 touch（v4/P2 门禁））。',
     },
     args: {
       type: 'object',
@@ -653,7 +687,7 @@ const DOM_SCHEMA = {
 
 export function domHelp(): string {
   return [
-    'dom —— 宿主页同源 DOM 自动化（浏览器最独特生态位；27 子命令）',
+    'dom —— 宿主页同源 DOM 自动化（浏览器最独特生态位；30 子命令：v2 7 + v3 20 + v4 touch 3）',
     '用法：dom <read-state|click|hover|scroll|zoom|fullscreen|snapshot|interactives|read-element|find|structure|dblclick|contextmenu|long-press|drag|focus|blur|type|press|set-text|set-attr|remove-attr|set-style|set-value|fill|add|remove> [--参数 ...]',
     '',
     'risk 分级（FR-005，修复 IMP-4）：',
@@ -690,7 +724,10 @@ export function domHelp(): string {
     '安全：写类子命令（UI 副作用/写入）受权限门禁 PRM 约束（risk:ui/write → 默认 ask）；只读子命令免 ask（FR-005/IMP-4 修复）。机制先例 lgdl-web-op-cli 的 LGDL 形态不动（NG-006）。',
     '敏感字段（FR-024）：password/凭据类字段读侧回显脱敏（占位/长度/类型代替，无明文）；写侧默认 ask + 需场景 trusted 声明；审计不回显敏感值。',
     '合成事件局限（NG-007）：DOM 事件派发均为非 isTrusted 合成事件 —— 对依赖可信事件的框架绑定不承诺生效；只承诺标准事件序列 + React 受控兼容路径（native setter + input/change）。',
+    '合成 touch（v4/FR-024，P2 验证门 G-01 已过）：dom tap/swipe/pinch —— TouchEvent 构造序列（touchstart→touchmove×n→touchend），isTrusted=false；不承诺惯性/手势识别被目标接受（NG-007 同族）；目标不处理合成事件 → 页面行为不变（page-eval 备用）。场景默认关（LGDL deny 规则；TASK-013/014）。',
+
     'CSP/授权：DOM 能力受浏览器授权约束，失败按可读错误转译（FR-009）；CSP 缺失 unsafe-eval 时 evaluate 类能力受限（本工具无 evaluate，见 page-eval 工具）。',
+    '归属表（FR-025/ADR-012）：以下需扩展能力 → 统一「不支持 + 归属」转译（不静默降级）：多标签/窗口、下载管理、整页截图、HttpOnly/跨域 cookie、DevTools 全局面网络、跨导航持久订阅、closed shadow、跨域 iframe、浏览器原生对话框、真受信输入、权限模拟、file 真路径注入 —— 归属 F-14 扩展宿主/CDP（ext-attribution.ts，FR-026 契约预留）',
   ].join('\n');
 }
 
@@ -698,7 +735,7 @@ export function domHelp(): string {
 export function createDomToolEntry(env: PlatformEnv): ToolEntry {
   return {
     name: 'dom',
-    summary: '宿主页同源 DOM 操作子命令族（27：read/感知 + ui/交互 + write/写入；只读免 ask）',
+    summary: '宿主页同源 DOM 操作子命令族（30：read/感知 + ui/交互 + write/写入 + v4 touch；只读免 ask）',
     schema: { name: 'dom', description: DOM_DESC, parameters: DOM_SCHEMA as unknown as Record<string, unknown> },
     risk: 'ui',
     group: 'ui',
@@ -731,6 +768,10 @@ export function createDomToolEntry(env: PlatformEnv): ToolEntry {
       fill: 'write',
       add: 'write',
       remove: 'write',
+      // v4 TCH（TASK-013/FR-024：合成 touch = UI 副作用面，默认 ask；场景默认关经 LGDL deny 规则）
+      tap: 'ui',
+      swipe: 'ui',
+      pinch: 'ui',
     },
     executor: async (tc) => executeDomTool(env.dom?.ops, tc.subcommand, tc.args),
     help: domHelp,

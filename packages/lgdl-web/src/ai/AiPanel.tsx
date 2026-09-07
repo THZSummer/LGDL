@@ -1,5 +1,5 @@
 // AI 助手面板：消息列表 + 预置提示词滑轨 + 输入框 + lgdl-web-cli 命令块「执行」
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { PROVIDERS, type ProviderSettings } from './provider';
@@ -231,6 +231,43 @@ function NextActionsCard({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** v4（TASK-011/FR-029）：事件通道摘要行（会话轮询 hub.status —— 只见计数/水位，不撑爆上下文 NFR-003）。 */
+function EventsStatusLine({ session }: { session: AiSession }) {
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const tick = async (): Promise<void> => {
+      try {
+        const s = await session.eventsSnapshot?.();
+        if (!alive) return;
+        if (!s) {
+          setText(null);
+          return;
+        }
+        const parts = [`订阅 ${s.subscriptionCount}/${s.budgets.maxSubscriptions}`, `缓冲 ${s.totalBuffered}`];
+        parts.push(s.enabled ? '通道 ON' : '通道 OFF（默认关）');
+        const auto = s.subscriptions.filter((x) => x.autoPaused);
+        if (auto.length > 0) parts.push(`⚠ ${auto.length} 订阅自动暂停（可 resume）`);
+        setText(parts.join(' · '));
+      } catch {
+        // 快照失败静默（非关键 UI）
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 4000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [session]);
+  if (text === null) return null;
+  return (
+    <div className="ai-events-line" title="事件通道状态（events status 数据源；摘要/计数不整段进上下文，NFR-003）">
+      事件通道：{text}
     </div>
   );
 }
@@ -497,6 +534,7 @@ export function AiPanel({
           </div>
         )}
       </div>
+      <EventsStatusLine session={session} />
       <div className="ai-preset-bar" aria-label="预置操作">
         <span className="ai-preset-label">快捷操作</span>
         <div className="ai-preset-track" ref={presetTrackRef}>

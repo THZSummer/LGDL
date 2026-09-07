@@ -25,7 +25,14 @@ export type AuditEventType =
   | 'tool-call'
   | 'extension-register'
   | 'extension-unregister'
-  | 'context-compact';
+  | 'context-compact'
+  // v4（FR-007/NFR-008，TASK-002）：订阅生命周期 / 事件投递摘要 / 对话框 / cookie / 网络拦截
+  | 'subscribe'
+  | 'unsubscribe'
+  | 'event-delivery-summary'
+  | 'dialog'
+  | 'cookie'
+  | 'net-intercept';
 
 /** 审计事件（宽松字段：按事件类型取用相关位）。 */
 export interface AuditEvent {
@@ -59,6 +66,19 @@ export interface AuditEvent {
   afterTurns?: number;
   /** 自由说明。 */
   detail?: string;
+  // ---- v4 事件面扩展字段（FR-007/NFR-008，TASK-002：字段均不含敏感明文） ----
+  /** 事件订阅 id（subscribe/unsubscribe/event-delivery-summary）。 */
+  subId?: string;
+  /** 事件 kind 或订阅观察源（dom/lifecycle/console/network/paste/dialog）。 */
+  subKind?: string;
+  /** 是否敏感订阅（subscribe --sensitive）。 */
+  sensitive?: boolean;
+  /** 计数（投递/丢弃/命中次数等）。 */
+  count?: number;
+  /** 操作动作（cookie: read/write/delete；net-intercept: addHeader/setHeader/...；dialog: accept/dismiss）。 */
+  action?: string;
+  /** cookie 域 / 对话框类型（alert/confirm/prompt）等非明文归类位。 */
+  domain?: string;
 }
 
 /** 审计接收器契约。 */

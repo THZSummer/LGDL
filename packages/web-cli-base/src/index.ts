@@ -170,3 +170,54 @@ export {
   parsePngSizeFromDataUrl, summarizeScreenshotData, screenshotFilename,
 } from './chrome-tools.js';
 export type { ChromeSubcommand, ScreenshotDataSummary } from './chrome-tools.js';
+// ================= v4 导出收口（TASK-011；NFR-006：新能力类型/工厂/纯逻辑全量可达；既有导出零删除） =================
+// v4 EVT 事件通道纯机制（FR-008~015/ADR-002~005）
+export { createEventBus, EventBus, DEFAULT_BUDGETS, JITTER_EVENT_TYPES, isJitterType } from './event-bus.js';
+export type {
+  BusEventKind, BusEventSource, BusEvent, IngestEvent, BusSubscriptionFilter, SubscribeBusOptions,
+  BusSubSummary, EventSubscribeResult, EventOpOutcome, EventPullResult, ChannelStatus,
+  EventBusOptions, EventBusAuditEvent, EventBusAuditHook,
+} from './event-bus.js';
+// v4 浏览器面事件观察工厂（FR-003/008~015；platform.ts browserEnv 已装配 env.events）
+export { createBrowserEventHub } from './platform-events.js';
+export type { BrowserEventScope } from './platform-events.js';
+// v4 events/cookie/dialog 工具工厂（lgdl-web session 矩阵消费）
+export { createEventsToolEntry, executeEventsTool, eventsHelp, EVENTS_SUBCOMMANDS, OBSERVE_KINDS } from './events-tools.js';
+export type { EventsSubcommand } from './events-tools.js';
+export { createCookieToolEntry, executeCookieTool, cookieHelp, COOKIE_SUBCOMMANDS } from './cookie-tools.js';
+export type { CookieSubcommand } from './cookie-tools.js';
+export { createDialogToolEntry, executeDialogTool, dialogHelp, DIALOG_SUBCOMMANDS } from './dialog-tools.js';
+export type { DialogSubcommand } from './dialog-tools.js';
+export { createNetToolEntry, executeNetTool, netHelp, NET_SUBCOMMANDS, applyNetRules, netRuleMatches, netHitAudit } from './net-tools.js';
+export type { NetSubcommand, NetRequestLike, NetApplyResult } from './net-tools.js';
+export {
+  resolveDialogAction, isDestructiveText, DESTRUCTIVE_PATTERNS, DIALOG_POLICY_NOTE,
+} from './dialog-policy.js';
+export type { DialogType, DialogAction, DialogContext, DialogDecision } from './dialog-policy.js';
+// v4 平台缝类型面（PlatformEventHub/PlatformRichClipboard/PlatformDomOps cookie/touch 扩展）
+export type {
+  PlatformObserveKind, PlatformEventFilter, PlatformSubscribeOptions, PlatformSubResult, PlatformSubSummary,
+  PlatformPullResult, PlatformChannelStatus, PlatformEventOpOutcome, PlatformBudgetOptions, PlatformBusEvent,
+  PlatformObserveSourceController, PlatformEventSources, PlatformEventHub, PlatformRichClipboard,
+  PlatformPasteCaptureItem, PlatformDialogRuleSpec, PlatformDialogOverrideController,
+  PlatformNetAction, PlatformNetRuleSpec, PlatformNetInterceptController,
+  PlatformCookieItem, PlatformCookieReadOptions, PlatformCookieWriteOptions, PlatformCookieDeleteOptions,
+  PlatformTouchKind, PlatformTouchOptions,
+} from './platform.js';
+// v4 FR-006 脱敏函数族 + FR-007 audit 事件面（audit 类型经既有导出自动扩展）
+export {
+  redactUrlQuery, isSensitiveHeader, maskHeaderValue, maskTextPayload, maskByMode,
+  SENSITIVE_URL_PARAM_NAMES, SENSITIVE_HEADER_NAMES, DEFAULT_TEXT_MASK_POLICY,
+  TYPING_PAYLOAD_POLICY, CONSOLE_TEXT_POLICY, DIALOG_TEXT_POLICY, RICH_CLIPBOARD_TEXT_POLICY,
+  SENSITIVE_V4_NOTE,
+} from './sensitive.js';
+export type { TextMaskMode, TextMaskPolicy } from './sensitive.js';
+// v4 富剪贴板子命令（FR-021/022）
+export { executeClipboardRich, CLIPBOARD_RICH_SUBCOMMANDS } from './clipboard.js';
+export type { ClipboardRichSubcommand } from './clipboard.js';
+// v4 EXT 归属/契约预留（FR-025~027/ADR-012；纯文档面）
+export { ATTRIBUTION_MAP, unsupportedAttribution, attributionHelpLines, EXT_DISCIPLINE_NOTE } from './ext-attribution.js';
+export type { AttributionEntry } from './ext-attribution.js';
+// v4 穿透定位护栏（FR-023/ADR-011）
+export { PENETRATION_MAX_DEPTH, parseCookieString } from './platform-dom.js';
+export type { PenetrationVia } from './platform-dom.js';

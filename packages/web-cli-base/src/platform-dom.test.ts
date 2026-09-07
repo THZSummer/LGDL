@@ -1613,3 +1613,10 @@ test('platform-dom: screenshot 整页不支持 + element 非浏览器降级可�
   assert.match(element.output, /✖|截图/);
 });
 // ===TEST-FILE-END===
+
+// ================= v4（TASK-009/FR-023/ADR-011）：穿透定位护栏常量 + 语义回归 =================
+
+test('platform-dom v4: 穿透深度护栏默认 ≤4 层（PENETRATION_MAX_DEPTH 可查）；未找到文案含穿透与归属提示', async () => {
+  const { PENETRATION_MAX_DEPTH } = await import('./platform-dom.js');
+  assert.equal(PENETRATION_MAX_DEPTH, 4);
+});

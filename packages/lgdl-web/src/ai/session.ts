@@ -60,6 +60,10 @@ import {
   createSaveFileToolEntry,
   createNotifyToolEntry,
   createClipboardToolEntry,
+  createEventsToolEntry,
+  createCookieToolEntry,
+  createDialogToolEntry,
+  createNetToolEntry,
   createGoalStore,
   JobStore,
   type AgentRunnerOptions,
@@ -137,6 +141,8 @@ export interface AiSession {
   bindAskUser(responder: AskResponder | null): void;
   /** 启动一次 agent run（每个用户指令一次；返回可 stop 的 AgentRun）。 */
   runAgent(init: RunAgentInit): AgentRun;
+  /** v4（TASK-011/FR-029）：事件通道状态快照（AiPanel 事件摘要区数据源；无注入 → null）。 */
+  eventsSnapshot?(): Promise<import('@lgdl/web-cli-base').PlatformChannelStatus | null>;
 }
 
 /** 默认 web-search 客户端：POST {query} → {results:[{title,snippet,url}]}（宽容解析；场景注入端点）。 */
@@ -220,6 +226,32 @@ export const LGDL_DEFAULT_POLICY_RULES: PolicyRule[] = [
   // 表达 —— 不修改 clipboard.ts；effectiveRisk 沿 entry.risk='ui'，与下方既有 ask 规则裁决一致）
   { pattern: 'clipboard', subcommand: 'read', action: 'ask', note: '读=敏感面：剪贴板内容读取需确认（FR-030）' },
   { pattern: 'clipboard', subcommand: 'write', action: 'ask', note: '写=剪贴板写入需确认（FR-030）' },
+  // v4（TASK-011/FR-028/030，additive 尾接）：events 观察只读子面 allow（免 ask，IMP-4 语义沿）
+  // —— 订阅/清单/状态/pull 为只读观察面。注（改进 #4/C36）：PermissionGate 按 pattern+subcommand
+  //    匹配、无 args 粒度 —— 本 subscribe allow 对 --sensitive true 订阅同样生效（注册同样免 ask）；
+  //    敏感语义由三重保守兜底承接：① 订阅全程入审计标记（auditSubscribe sensitive 位）② 明文细仍受
+  //    pull-sensitive write 档 + trusted 双闸门禁 ③ 真实浏览器内置观察源零明文供给（FR-006）。故
+  //    注释不再声称「--sensitive 订阅不在此放行」——放行面含 sensitive，但无明文泄漏面；pull-sensitive
+  //    （write）子命令不在此 allow 组，缺省 ask/deny 门禁不变。
+  { pattern: 'events', subcommand: 'subscribe', action: 'allow', note: '观察只读：事件订阅注册免 ask（FR-028/IMP-4 沿；--sensitive 订阅经审计标记，明细细受 pull-sensitive write 档）' },
+  { pattern: 'events', subcommand: 'list', action: 'allow', note: '观察只读：订阅清单免 ask' },
+  { pattern: 'events', subcommand: 'status', action: 'allow', note: '观察只读：通道状态免 ask' },
+  { pattern: 'events', subcommand: 'pull', action: 'allow', note: '观察只读：增量拉取免 ask（摘要+计数；明细细经 pull-sensitive write 档）' },
+  // v4：cookie 写/删/明细细 = 场景缺省 deny（写面不可静默 allow，FR-020/030；场景显式规则才放行）
+  { pattern: 'cookie', subcommand: 'write', action: 'deny', note: 'cookie 写缺省 deny（场景显式规则才可放行，FR-030）' },
+  { pattern: 'cookie', subcommand: 'delete', action: 'deny', note: 'cookie 删缺省 deny（FR-030）' },
+  { pattern: 'cookie', subcommand: 'read-detail', action: 'deny', note: 'cookie 明细细缺省 deny（FR-006/030；read 掩码面不受影响）' },
+  // v4：dialog override 安装 = ask（FR-016：deny 后不安装）；策略注册 ask（FR-017 护栏语义在 dialog-policy）
+  { pattern: 'dialog', subcommand: 'override-install', action: 'ask', note: 'override 安装需确认（FR-016）' },
+  { pattern: 'dialog', subcommand: 'policy-add', action: 'ask', note: '自动应答策略注册需确认（FR-017）' },
+  { pattern: 'dialog', subcommand: 'uninstall', action: 'ask', note: 'override 卸载需确认' },
+  // v4 预留：net（TASK-012）整工具缺省 deny（拦截写面，FR-018/030）
+  { pattern: 'net', action: 'deny', note: '网络拦截整工具缺省 deny（P2 门禁，FR-018/030；TASK-012 启用）' },
+  // v4（TASK-013/FR-024/ADR-010，G-01 PASS）：dom 合成 touch（tap/swipe/pinch）场景默认关 ——
+  // P2 门禁语义：派发默认 deny，场景显式 allow 规则才可用（FR-028「dom touch P2 默认关」）
+  { pattern: 'dom', subcommand: 'tap', action: 'deny', note: '合成 touch tap 场景默认关（P2 门禁，TASK-013）' },
+  { pattern: 'dom', subcommand: 'swipe', action: 'deny', note: '合成 touch swipe 场景默认关（P2 门禁，TASK-013）' },
+  { pattern: 'dom', subcommand: 'pinch', action: 'deny', note: '合成 touch pinch 场景默认关（P2 门禁，TASK-013）' },
   // v2 既有规则保持：UI 副作用（effectiveRisk 'ui'：click/hover/scroll/zoom/fullscreen/dblclick/contextmenu/long-press/drag/focus/blur/press）默认 ask
   { risk: 'ui', action: 'ask', note: 'UI 副作用需用户确认（dom-* 写经 PRM）' },
   // FR-008/045：evaluate 最高档缺省 deny（page-eval 默认禁用 + 启用兜底门禁）
@@ -295,8 +327,9 @@ export function createAiSession(deps: AiSessionDeps): AiSession {
   // ask 场景规则面 = LGDL_DEFAULT_POLICY_RULES 前置 allow，reload/screenshot 写类缺省
   // ask，EC-009）+ save（v2 工厂，FR-029：save/download 两路径；export 落盘链同源）+ notify
   // （v2 工厂，FR-030：默认开，授权失败转译）+ clipboard（v2 工厂，FR-030：读=敏感 ask/
-  // 写=ask 经 LGDL_DEFAULT_POLICY_RULES 子命令级规则表达）。**仅接线零逻辑改动**（红线：
-  // clipboard/notify/save-file 逻辑零改动，grep 断言）；追加注册不改 assembly（红线）。
+  // 写=ask 经 LGDL_DEFAULT_POLICY_RULES 子命令级规则表达；v4 富子命令 write-html/write-image/
+  // paste-read 经 clipboardRich 缝/events pasteCapture 槽，随本条目默认开）。**仅接线零逻辑改动**
+  // （红线：clipboard/notify/save-file 逻辑零改动，grep 断言）；追加注册不改 assembly（红线）。
   const p2Entries = [
     createChromeToolEntry(env),
     createSaveFileToolEntry(env),
@@ -304,6 +337,21 @@ export function createAiSession(deps: AiSessionDeps): AiSession {
     createClipboardToolEntry(env),
   ];
   for (const entry of p2Entries) router.register(entry);
+
+  // v4 默认注册矩阵增量（TASK-011，plan §3.9/FR-028/030，additive 块 —— v2/v3 既有注册序
+  // 零漂移，仅尾部追加）：events（事件订阅/观察通道）默认开 —— 观察只读子面免 ask 经
+  // LGDL_DEFAULT_POLICY_RULES 前置 allow（IMP-4 语义沿）；cookie（写面）与 dialog
+  // （override 安装/自动应答）默认关 —— 场景策略显式开启 + PRM 兜底（FR-005/017/020）；
+  // clipboard 富子命令默认开（随既有 clipboard 条目）；net/touch 注册行由 TASK-012/013
+  // （P2 验证门）各自追加 —— 默认关 + LGDL deny/ask 策略行（本块预留位）。
+  const v4Entries = [
+    createEventsToolEntry(env),
+    { ...createCookieToolEntry(env), enabled: false as const },
+    { ...createDialogToolEntry(env), enabled: false as const },
+    { ...createNetToolEntry(env), enabled: false as const }, // net（TASK-012 PASS：P2 门禁默认关）
+    // touch/dom（TASK-013：合成 touch 尾部子命令 + LGDL deny 默认关，见 LGDL_DEFAULT_POLICY_RULES）
+  ];
+  for (const entry of v4Entries) router.register(entry);
 
   // ask 桥（FR-007）：AiPanel/AskDialog 场景注册；policy.onAsk 委托（未注册 → deny fail-closed）
   const askBridge: { permission: ((q: AskQuestion) => Promise<AskResolution>) | null; user: AskResponder | null } = {
@@ -320,6 +368,11 @@ export function createAiSession(deps: AiSessionDeps): AiSession {
     },
     bindAskUser(responder) {
       askBridge.user = responder;
+    },
+    async eventsSnapshot() {
+      const hub = env.events;
+      if (!hub) return null;
+      return hub.status();
     },
     runAgent(init: RunAgentInit): AgentRun {
       // 每轮取最新 provider 应用态：web-search 条件注入（FR-040：配 key 后可用；未配置禁用 EC-006）

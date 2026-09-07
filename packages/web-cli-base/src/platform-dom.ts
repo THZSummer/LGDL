@@ -60,6 +60,10 @@ import {
 import type {
   PlatformAddElementOptions,
   PlatformClickOptions,
+  PlatformCookieDeleteOptions,
+  PlatformCookieItem,
+  PlatformCookieReadOptions,
+  PlatformCookieWriteOptions,
   PlatformDomOpResult,
   PlatformDomOps,
   PlatformEvaluateOptions,
@@ -73,6 +77,7 @@ import type {
   PlatformScreenshotOptions,
   PlatformSetStyleOptions,
   PlatformSnapshotStructuredOptions,
+  PlatformTouchOptions,
   PlatformWaitForOptions,
 } from './platform.js';
 import { parseLocator } from './locator.js';
@@ -148,15 +153,43 @@ const FOCUSABLE_SELECTOR = [
 const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
 
 /** 合成事件局限说明（NG-007/EC-007）。 */
-const SYNTHETIC_EVENT_NOTE =
-  '（合成事件 isTrusted=false：对依赖可信事件的绑定不承诺生效；目标未处理时可在宿主页用 page-eval（FR-037）派发备用路径）';
+const SYNTHETIC_EVENT_NOTE = '（合成事件 isTrusted=false：对依赖可信事件的绑定不承诺生效；目标未处理时可在宿主页用 page-eval（FR-037）派发备用路径）';
 /** 敏感字段读侧说明（FR-024）。 */
 const SENSITIVE_VALUE_NOTE = '（敏感字段值已脱敏：只显示类型/长度/占位，不回显明文，FR-024/EC-005）';
+
+// ---- v4（TASK-004/FR-015）：合成派发 synthetic 标志（platform-events domObserve 消费） ----
+// additive：既有派发路径零行为变化（仅包裹时置标志并在同步派发后复位）。
+let syntheticDispatchFlag = false;
+
+/** v4：当前是否处于平台合成派发中（domObserve 事件负载 source:"synthetic" 判定，FR-015）。 */
+export function isSyntheticDispatch(): boolean {
+  return syntheticDispatchFlag;
+}
+
+/** v4：以 synthetic 标志包裹一次合成派发（派发后自动复位；页面真实事件不经此路径 → 缺省 page）。 */
+export function withSyntheticDispatch<T>(fn: () => T): T {
+  syntheticDispatchFlag = true;
+  try {
+    return fn();
+  } finally {
+    syntheticDispatchFlag = false;
+  }
+}
+
+/** 合成派发辅助：派发期间置 synthetic 标志（捕获期观察源读取区分来源，FR-015）。 */
+function dispatchSynth(target: { dispatchEvent(ev: unknown): unknown }, ev: unknown): unknown {
+  return withSyntheticDispatch(() => target.dispatchEvent(ev));
+}
 
 function multiMatchNote(count: number): string {
   return count > 1
     ? `\n提示：定位匹配 ${count} 个元素，按首元素执行（多匹配语义 EC-002；可先 dom find 精确化）`
     : '';
+}
+
+/** v4 穿透命中标注（FR-023/ADR-011：via shadow/iframe，AI 可读）。 */
+function viaNote(f: { via?: PenetrationVia }): string {
+  return f.via ? `（穿透定位 via:${f.via}，FR-023/ADR-011）` : '';
 }
 
 // ==================== 结果与预算基元 ====================
@@ -343,20 +376,85 @@ function resolveLocator(selector: string, root: ParentNode): ResolvedElements {
   return resolveQueryIn(root, parsed.query);
 }
 
-function firstOf(
+// ==================== v4 shadow/iframe 穿透定位（TASK-009，FR-023/ADR-011） ====================
+
+/** 穿透深度护栏默认值（≤4 层，防深递归拖垮 NFR-007；ADR-011）。 */
+export const PENETRATION_MAX_DEPTH = 4;
+
+/** 穿透命中来源标注（AI 可读，FR-023）。 */
+export type PenetrationVia = 'shadow' | 'iframe';
+
+interface DeepHit {
+  els: Element[];
+  via?: PenetrationVia;
+}
+
+/**
+ * 树内递归定位：主文档 CSS/text= 命中 → 照旧（零回归）；未命中 → 递归走查 open
+ * shadowRoot → 同源 iframe contentDocument（SOP 内，SecurityError 捕获）；深度护栏
+ * ≤ maxDepth。closed shadow（shadowRoot=null）/跨域 iframe → 不跨 SOP、不命中（归属转译
+ * 面在调用方 not-found 文案提示）。主文档命中路径逐字节不变（AC-001）。
+ */
+function resolveDeepIn(root: ParentNode, query: LocatorQuery, depth: number, maxDepth: number): DeepHit {
+  const direct = resolveQueryIn(root, query);
+  if (isOk(direct) && direct.elements.length > 0) return { els: direct.elements };
+  if (depth >= maxDepth) return { els: [] };
+  let hosts: Element[] = [];
+  try {
+    hosts = Array.from(root.querySelectorAll('*'));
+  } catch {
+    return { els: [] };
+  }
+  const shadowHosts = hosts.filter((el) => (el as Element & { shadowRoot?: ParentNode | null }).shadowRoot !== null && (el as Element & { shadowRoot?: ParentNode | null }).shadowRoot !== undefined);
+  for (const h of shadowHosts) {
+    const sr = (h as Element & { shadowRoot?: ParentNode }).shadowRoot as ParentNode;
+    const hit = resolveDeepIn(sr, query, depth + 1, maxDepth);
+    if (hit.els.length > 0) return { els: hit.els, via: 'shadow' };
+  }
+  for (const f of hosts) {
+    if (f.tagName !== 'IFRAME') continue;
+    let cd: ParentNode | null = null;
+    try {
+      cd = (f as HTMLIFrameElement).contentDocument;
+    } catch {
+      // 跨域 iframe contentDocument 访问抛 SecurityError → 不跨 SOP（归属转译，EC-009）
+      continue;
+    }
+    if (!cd) continue;
+    const hit = resolveDeepIn(cd, query, depth + 1, maxDepth);
+    if (hit.els.length > 0) return { els: hit.els, via: 'iframe' };
+  }
+  return { els: [] };
+}
+
+/** firstOf 增强：主文档未命中时经穿透（open shadow + 同源 iframe）继续定位（FR-023）。 */
+function firstOfDeep(
   selector: string,
   root: ParentNode,
-): { ok: true; el: Element; count: number } | { ok: false; output: string; error: string } {
-  const r = resolveLocator(selector, root);
-  if (isErr(r)) return r;
-  if (r.elements.length === 0) {
+): { ok: true; el: Element; count: number; via?: PenetrationVia } | { ok: false; output: string; error: string } {
+  const parsed = parseLocator(selector);
+  if (isErr(parsed)) {
     return {
       ok: false,
-      output: `✖ 未找到元素 "${selector}"（宿主页同源 DOM；可先 dom find 确认，EC-001）`,
-      error: 'element not found',
+      output: `✖ 定位语法错误：${parsed.error}${LOCATOR_ERROR_TAIL}`,
+      error: parsed.kind === 'unsupported' ? 'unsupported locator' : 'invalid locator',
     };
   }
-  return { ok: true, el: r.elements[0], count: r.elements.length };
+  const direct = resolveQueryIn(root, parsed.query);
+  if (isOk(direct) && direct.elements.length > 0) {
+    return { ok: true, el: direct.elements[0], count: direct.elements.length };
+  }
+  const deep = resolveDeepIn(root, parsed.query, 0, PENETRATION_MAX_DEPTH);
+  if (deep.els.length > 0) {
+    return { ok: true, el: deep.els[0], count: deep.els.length, via: deep.via };
+  }
+  return {
+    ok: false,
+    output:
+      `✖ 未找到元素 "${selector}"（主文档 + open shadow + 同源 iframe 穿透已查（深度护栏 ${PENETRATION_MAX_DEPTH}，FR-023/ADR-011）；` +
+      'closed shadow/跨域 iframe 不可穿透 → 归属 content script(all_frames)/CDP = F-14 扩展宿主（FR-025）。可先 dom find 确认，EC-001）',
+    error: 'element not found',
+  };
 }
 
 // ==================== 合成事件基元（NG-007 工程公开） ====================
@@ -380,13 +478,13 @@ function mouseInit(el: Element, win: Window | null, extra: MouseEventInit = {}):
 }
 
 function dispatchMouse(el: Element, win: Window | null, type: string, extra: Record<string, unknown> = {}): void {
-  el.dispatchEvent(new MouseEvent(type, mouseInit(el, win, extra)));
+  dispatchSynth(el, new MouseEvent(type, mouseInit(el, win, extra)));
 }
 
 /** hover 真实序列（FR-016）。 */
 function dispatchHoverSequence(el: Element, win: Window | null): void {
   const ev = (type: string, bubbles: boolean): void => {
-    el.dispatchEvent(new MouseEvent(type, { ...mouseInit(el, win), bubbles, cancelable: true }));
+    dispatchSynth(el, new MouseEvent(type, { ...mouseInit(el, win), bubbles, cancelable: true }));
   };
   ev('pointerover', true);
   ev('pointerenter', false);
@@ -398,12 +496,12 @@ function dispatchHoverSequence(el: Element, win: Window | null): void {
 
 /** dblclick 序列（FR-018）。 */
 function dispatchDblclickSequence(el: Element, win: Window | null): void {
-  el.dispatchEvent(new MouseEvent('mousedown', mouseInit(el, win, { detail: 1 })));
-  el.dispatchEvent(new MouseEvent('mouseup', mouseInit(el, win, { detail: 1 })));
-  el.dispatchEvent(new MouseEvent('mousedown', mouseInit(el, win, { detail: 2 })));
-  el.dispatchEvent(new MouseEvent('mouseup', mouseInit(el, win, { detail: 2 })));
-  el.dispatchEvent(new MouseEvent('click', mouseInit(el, win, { detail: 2 })));
-  el.dispatchEvent(new MouseEvent('dblclick', mouseInit(el, win, { detail: 2 })));
+  dispatchSynth(el, new MouseEvent('mousedown', mouseInit(el, win, { detail: 1 })));
+  dispatchSynth(el, new MouseEvent('mouseup', mouseInit(el, win, { detail: 1 })));
+  dispatchSynth(el, new MouseEvent('mousedown', mouseInit(el, win, { detail: 2 })));
+  dispatchSynth(el, new MouseEvent('mouseup', mouseInit(el, win, { detail: 2 })));
+  dispatchSynth(el, new MouseEvent('click', mouseInit(el, win, { detail: 2 })));
+  dispatchSynth(el, new MouseEvent('dblclick', mouseInit(el, win, { detail: 2 })));
 }
 
 // ==================== 表单值基元（ADR-004：native setter + input/change） ====================
@@ -497,17 +595,17 @@ function setNativeValue(el: Element, value: string): void {
 }
 
 function fireBubbling(el: Element, type: string): void {
-  el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+  dispatchSynth(el, new Event(type, { bubbles: true, cancelable: true }));
 }
 
 function focusEl(el: Element): void {
   const anyEl = el as HTMLElement;
-  if (typeof anyEl.focus === 'function') anyEl.focus();
+  if (typeof anyEl.focus === 'function') withSyntheticDispatch(() => anyEl.focus());
 }
 
 function blurEl(el: Element): void {
   const anyEl = el as HTMLElement;
-  if (typeof anyEl.blur === 'function') anyEl.blur();
+  if (typeof anyEl.blur === 'function') withSyntheticDispatch(() => anyEl.blur());
 }
 
 /** 写文本控件：focus → native setter → input → change（FR-034/ADR-004）。 */
@@ -822,9 +920,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
         }
         focusEl(target);
         const fire = (type: string): void => {
-          target!.dispatchEvent(
-            new MouseEvent(type, { bubbles: true, cancelable: true, view: win, clientX: x, clientY: y }),
-          );
+          dispatchSynth(target!, new MouseEvent(type, { bubbles: true, cancelable: true, view: win, clientX: x, clientY: y }));
         };
         fire('mousedown');
         fire('mouseup');
@@ -835,7 +931,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const offX = toInt(opts?.offsetX);
       const offY = toInt(opts?.offsetY);
       if (offX !== undefined || offY !== undefined) {
-        const f = firstOf(selector, doc);
+        const f = firstOfDeep(selector, doc);
         if (isErr(f)) return errResult(f.output, f.error);
         const c = centerPoint(f.el);
         const rect = visibleRect(f.el);
@@ -843,33 +939,31 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
         const clickY = Math.round(offY !== undefined && rect ? c.y - rect.height / 2 + offY : c.y);
         focusEl(f.el);
         const fire = (type: string): void => {
-          f.el.dispatchEvent(
-            new MouseEvent(type, { bubbles: true, cancelable: true, view: win, clientX: clickX, clientY: clickY }),
-          );
+          dispatchSynth(f.el, new MouseEvent(type, { bubbles: true, cancelable: true, view: win, clientX: clickX, clientY: clickY }));
         };
         fire('mousedown');
         fire('mouseup');
         fire('click');
         return okResult(
-          `✓ 已点击 "${selector}" 偏移 (${offX ?? 0}, ${offY ?? 0})（视口 ${clickX},${clickY}）${multiMatchNote(f.count)}`,
+          `✓ 已点击 "${selector}" 偏移 (${offX ?? 0}, ${offY ?? 0})（视口 ${clickX},${clickY}）${multiMatchNote(f.count)}${viaNote(f)}`,
         );
       }
       // selector-only = v2 语义零回归（el.click()）
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const anyEl = f.el as Element & { click?: () => void };
       if (typeof anyEl.click !== 'function') {
         return errResult(`✖ 元素 "${selector}" 不可点击（无 click 方法）`, 'not clickable');
       }
-      anyEl.click();
-      return okResult(`✓ 已点击 "${selector}"${multiMatchNote(f.count)}`);
+      withSyntheticDispatch(() => anyEl.click?.());
+      return okResult(`✓ 已点击 "${selector}"${multiMatchNote(f.count)}${viaNote(f)}`);
     },
 
     async hover(selector: string) {
       const cap = 'DOM 悬停';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       // 桩补真（FR-016）：pointer/mouse 事件序列
       dispatchHoverSequence(f.el, view().win);
@@ -912,7 +1006,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
         return okResult(`✓ 已滚动页面 (${ddx}, ${ddy})：位置 (${beforeX}, ${beforeY}) → (${afterX}, ${afterY})`);
       }
       // 元素级滚动（scrollBy/scrollTop 语义）
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const se = f.el as Element & {
         scrollTop?: number;
@@ -1056,7 +1150,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'read-element';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(opts.selector, doc);
+      const f = firstOfDeep(opts.selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const el = f.el;
       const fields = opts.fields ?? {};
@@ -1067,6 +1161,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const lines: string[] = [];
       lines.push(`tag: ${describeTag(el)}`);
       lines.push(`count: ${f.count}（多匹配按首元素，EC-002）`);
+      if ('via' in f && f.via) lines.push(`via: ${f.via}（穿透定位命中 —— shadow/同源 iframe，FR-023/ADR-011）`);
       if (want('attributes')) {
         const sel = fields.attributes;
         if (sel === true) {
@@ -1211,7 +1306,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       let targetLabel = 'documentElement（页级）';
       let targetNote = '';
       if (opts.selector) {
-        const f = firstOf(opts.selector, doc);
+        const f = firstOfDeep(opts.selector, doc);
         if (isErr(f)) return errResult(f.output, f.error);
         target = f.el;
         targetLabel = `"${opts.selector}"`;
@@ -1322,7 +1417,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'dblclick';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       focusEl(f.el);
       dispatchDblclickSequence(f.el, view().win);
@@ -1335,7 +1430,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'contextmenu';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       focusEl(f.el);
       dispatchMouse(f.el, view().win, 'contextmenu', { button: 2 });
@@ -1348,7 +1443,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'long-press';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const holdMs = Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10000) : LONG_PRESS_DEFAULT_MS;
       const c = centerPoint(f.el);
@@ -1362,10 +1457,10 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
         pointerId: 1,
         isPrimary: true,
       };
-      f.el.dispatchEvent(new PointerEvent('pointerdown', pInit));
+      dispatchSynth(f.el, new PointerEvent('pointerdown', pInit));
       dispatchMouse(f.el, view().win, 'mousedown', { button: 0 });
       await new Promise((r) => setTimeout(r, holdMs));
-      f.el.dispatchEvent(new PointerEvent('pointerup', pInit));
+      dispatchSynth(f.el, new PointerEvent('pointerup', pInit));
       dispatchMouse(f.el, view().win, 'mouseup', { button: 0 });
       dispatchMouse(f.el, view().win, 'click', { button: 0 });
       return okResult(
@@ -1379,9 +1474,9 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'drag';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const sf = firstOf(from, doc);
+      const sf = firstOfDeep(from, doc);
       if (isErr(sf)) return errResult(sf.output, sf.error);
-      const tf = firstOf(to, doc);
+      const tf = firstOfDeep(to, doc);
       if (isErr(tf)) return errResult(tf.output, tf.error);
       let dt: DataTransfer | undefined;
       try {
@@ -1392,7 +1487,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const dragEvent = (type: string, el: Element): void => {
         const init: DragEventInit = { bubbles: true, cancelable: true, view: view().win ?? undefined };
         if (dt) init.dataTransfer = dt;
-        el.dispatchEvent(new DragEvent(type, init));
+        dispatchSynth(el, new DragEvent(type, init));
       };
       dragEvent('dragstart', sf.el);
       dragEvent('dragenter', tf.el);
@@ -1411,7 +1506,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'focus';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       if (!isFocusable(f.el)) {
         return errResult(`✖ 元素 "${selector}"（${describeTag(f.el)}）不可聚焦（disabled/不可见/非可聚焦标签，EC-001）`, 'not focusable');
@@ -1430,7 +1525,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'blur';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const wasActive = doc.activeElement === f.el || (doc.activeElement !== null && f.el.contains(doc.activeElement));
       blurEl(f.el);
@@ -1447,7 +1542,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'type';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const el = f.el;
       const tag = el.tagName;
@@ -1542,11 +1637,11 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       }
       let cur = readControlValue(el);
       for (const t of typed) {
-        el.dispatchEvent(new KeyboardEvent('keydown', t.init));
+        dispatchSynth(el, new KeyboardEvent('keydown', t.init));
         cur += t.ch;
         setNativeValue(el, cur);
         fireBubbling(el, 'input');
-        el.dispatchEvent(new KeyboardEvent('keyup', t.init));
+        dispatchSynth(el, new KeyboardEvent('keyup', t.init));
       }
       fireBubbling(el, 'change');
       const final = readControlValue(el);
@@ -1632,7 +1727,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       // 目标：显式 selector → focus；缺省 = 当前 activeElement（body 兜底）
       let target: Element | null = doc.activeElement;
       if (keyOpts?.selector) {
-        const f = firstOf(keyOpts.selector, doc);
+        const f = firstOfDeep(keyOpts.selector, doc);
         if (isErr(f)) return errResult(f.output, f.error);
         if (!isFocusable(f.el)) {
           return errResult(`✖ press 目标 "${keyOpts.selector}" 不可聚焦`, 'not focusable');
@@ -1653,8 +1748,8 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
         cancelable: true,
         view: view().win ?? undefined,
       };
-      target.dispatchEvent(new KeyboardEvent('keydown', init));
-      target.dispatchEvent(new KeyboardEvent('keyup', init));
+      dispatchSynth(target, new KeyboardEvent('keydown', init));
+      dispatchSynth(target, new KeyboardEvent('keyup', init));
       const mods = `${ctrl ? 'ctrl+' : ''}${alt ? 'alt+' : ''}${shift ? 'shift+' : ''}${meta ? 'meta+' : ''}`;
       const dest = describeTag(target);
       const extra =
@@ -1672,7 +1767,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'set-text';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const el = f.el;
       if (isFormControl(el)) {
@@ -1702,7 +1797,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       if (!name || !/^[^\s"'<>/=\x00-\x1f]+$/.test(name)) {
         return errResult(`✖ 非法属性名 "${name ?? ''}"（不可含空白/引号/尖括号/等号/控制字符）`, 'invalid attribute name');
       }
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       // value 缺省 = 布尔属性形态 setAttribute(name, '')（TASK-003 签名契约）
       f.el.setAttribute(name, value ?? '');
@@ -1719,7 +1814,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
       if (!name) return errResult('✖ remove-attr 缺少属性名', 'missing attr name');
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const existed = f.el.hasAttribute(name);
       f.el.removeAttribute(name);
@@ -1742,7 +1837,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       if (!cssText && !props && !classAction) {
         return errResult('✖ set-style 需要 cssText / properties / classAction 之一', 'missing style input');
       }
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const el = f.el as HTMLElement;
       const notes: string[] = [];
@@ -1792,7 +1887,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'set-value';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const el = f.el;
       const tag = el.tagName;
@@ -1834,7 +1929,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       let lastForm: HTMLFormElement | null = null;
       for (let i = 0; i < plan.fields.length; i++) {
         const field = plan.fields[i];
-        const f = firstOf(field.selector, doc);
+        const f = firstOfDeep(field.selector, doc);
         if (isErr(f)) {
           notes.push(`字段 #${i}（"${field.selector}"）：${f.error}`);
           continue;
@@ -1931,7 +2026,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       }
       const target = addOpts.position?.selector;
       if (!target) return errResult('✖ add 缺少插入位置 selector（position.selector）', 'missing position');
-      const f = firstOf(target, doc);
+      const f = firstOfDeep(target, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       let el: Element;
       try {
@@ -1969,7 +2064,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       const cap = 'remove';
       const doc = view().doc;
       if (!doc) return noDocResult(cap);
-      const f = firstOf(selector, doc);
+      const f = firstOfDeep(selector, doc);
       if (isErr(f)) return errResult(f.output, f.error);
       const parent = f.el.parentElement;
       const desc = describeTag(f.el);
@@ -2131,7 +2226,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
       // scope：meta 忽略 selector；其余 kind 支持容器定位（定位失败/未找到 → 可读错误）
       let scope: ParentNode = doc;
       if (xOpts.selector && kind !== 'meta') {
-        const f = firstOf(xOpts.selector, doc);
+        const f = firstOfDeep(xOpts.selector, doc);
         if (isErr(f)) return errResult(f.output, f.error);
         scope = f.el;
       }
@@ -2315,7 +2410,7 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
         if (!shotOpts.selector) {
           return errResult('✖ screenshot mode=element 需要 selector', 'missing selector');
         }
-        const f = firstOf(shotOpts.selector, doc);
+        const f = firstOfDeep(shotOpts.selector, doc);
         if (isErr(f)) return errResult(f.output, f.error);
         source = f.el;
         const rect = source.getBoundingClientRect();
@@ -2354,7 +2449,220 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
         '近似度声明（ADR-003）：外部图片/CSS 变量/滚动态不保真；dataURL 已放独立字段，下载/落盘由 chrome screenshot 工具层处理。';
       return okResult(summary, result.dataUrl);
     },
+
+    // ---- v4 cookie ops（TASK-007/ADR-009，FR-019/020：同源非 HttpOnly document.cookie 可达面） ----
+
+    async cookieRead(readOpts?: PlatformCookieReadOptions) {
+      const cap = 'cookie 读取';
+      const d = view().doc;
+      if (!d) return noDocResult(cap);
+      const raw = (d as unknown as { cookie?: string }).cookie;
+      if (raw === undefined) return errResult(`✖ ${cap}不可用：document.cookie 不可达（非 http/https 上下文？）`, 'cookie unavailable');
+      const items = parseCookieString(raw);
+      if (items.length === 0) return okResult('（当前无同源可读 cookie —— 均为 HttpOnly 或未设置）');
+      const includeValue = readOpts?.includeValue === true;
+      const lines = items.map((it) => {
+        const valueBit = includeValue ? it.value : maskValue(it.value, 'cookie');
+        return `  ${it.name}=${valueBit}${it.size !== undefined ? `（${it.size} B）` : ''}`;
+      });
+      const maskedNote = includeValue ? '' : '（值缺省掩码 —— 明细经 cookie read-detail + trusted + ask，FR-006）';
+      return okResult(`cookie 清单（${items.length}，同源非 HttpOnly document.cookie 可达面）：\n${lines.join('\n')}\n${maskedNote}`);
+    },
+
+    async cookieWrite(writeOpts: PlatformCookieWriteOptions) {
+      const cap = 'cookie 写入';
+      const v = view();
+      const d = v.doc;
+      if (!d) return noDocResult(cap);
+      const name = (writeOpts.name ?? '').trim();
+      const value = writeOpts.value ?? '';
+      if (name === '' || /[;=\s]/.test(name)) {
+        return errResult('✖ cookie 写入 name 非法（不能为空或含 ; = 空白）', 'invalid cookie name');
+      }
+      if (/[;]/.test(value)) {
+        return errResult('✖ cookie 写入 value 不能含分号（;）—— 需编码后写入', 'invalid cookie value');
+      }
+      // EC-007 受限标志位分类转译：Secure 仅 HTTPS（或 localhost 视为安全上下文）
+      if (writeOpts.secure === true) {
+        const proto = v.win?.location?.protocol ?? '';
+        const host = v.win?.location?.hostname ?? '';
+        const isSecure = proto === 'https:' || host === 'localhost' || host === '127.0.0.1';
+        if (!isSecure) {
+          return errResult('✖ cookie 写入受限：Secure cookie 仅在 HTTPS（或 localhost）页面可写（EC-007 分类转译）', 'secure cookie requires https');
+        }
+      }
+      const parts = [`${name}=${encodeURIComponent(value)}`, 'path=' + (writeOpts.path?.trim() || '/')];
+      if (writeOpts.domain?.trim()) parts.push(`domain=${writeOpts.domain.trim()}`);
+      if (writeOpts.secure === true) parts.push('Secure');
+      if (writeOpts.sameSite) parts.push(`SameSite=${writeOpts.sameSite}`);
+      if (writeOpts.maxAge !== undefined && Number.isFinite(writeOpts.maxAge)) parts.push(`max-age=${Math.max(0, Math.floor(writeOpts.maxAge))}`);
+      (d as unknown as { cookie: string }).cookie = parts.join('; ');
+      // 写后回读断言（v3 fill 写后回读同构，EC-006 不静默成功）
+      const after = readCookieByName((d as unknown as { cookie?: string }).cookie ?? '', name);
+      if (after === null) {
+        return errResult('✖ cookie 写入回读为空 —— 写入可能被浏览器拒绝（HttpOnly/域路径受限等，EC-007）；值未确认生效', 'cookie write readback empty');
+      }
+      return okResult(`✓ cookie 已写入：${name}（同源非 HttpOnly 面；写后回读一致，${encodeURIComponent(value) === after ? '值一致' : '值回读匹配'}）`);
+    },
+
+    async cookieDelete(deleteOpts: PlatformCookieDeleteOptions) {
+      const cap = 'cookie 删除';
+      const v = view();
+      const d = v.doc;
+      if (!d) return noDocResult(cap);
+      const name = (deleteOpts.name ?? '').trim();
+      if (name === '') return errResult('✖ cookie 删除缺少 name', 'invalid cookie name');
+      const parts = [`${name}=`, 'path=' + (deleteOpts.path?.trim() || '/'), 'max-age=0', 'expires=Thu, 01 Jan 1970 00:00:00 GMT'];
+      if (deleteOpts.domain?.trim()) parts.push(`domain=${deleteOpts.domain.trim()}`);
+      (d as unknown as { cookie: string }).cookie = parts.join('; ');
+      const after = readCookieByName((d as unknown as { cookie?: string }).cookie ?? '', name);
+      if (after !== null) {
+        return errResult('✖ cookie 删除回读仍存在 —— 删除可能被浏览器拒绝（HttpOnly/路径不匹配等，EC-007）', 'cookie delete readback failed');
+      }
+      return okResult(`✓ cookie 已删除：${name}（删后回读为空）`);
+    },
+
+    // ---- v4 touchDispatch（TASK-013/ADR-010，FR-024：G-01 验证门 PASS —— 合成 TouchEvent 构造派发经真实 chromium 验证） ----
+
+    async touchDispatch(touchOpts: PlatformTouchOptions) {
+      const cap = '合成 touch 派发';
+      const v = view();
+      const doc = v.doc;
+      const win = v.win;
+      if (!doc || !win) return noDocResult(cap);
+      const kind = touchOpts.kind;
+      if (kind !== 'tap' && kind !== 'swipe' && kind !== 'pinch') {
+        return errResult(`✖ touchDispatch kind 需为 tap/swipe/pinch（收到 "${kind}"）`, 'invalid touch kind');
+      }
+      // G-01 实测依赖（桌面 chromium 可构造）：宿主缺 Touch/TouchEvent → 可读降级 + CDP 归属（NG-007）
+      const anyWin = win as unknown as { Touch?: unknown; TouchEvent?: unknown; document?: Document };
+      if (typeof anyWin.Touch !== 'function' || typeof anyWin.TouchEvent !== 'function') {
+        return errResult(
+          `✖ ${cap}不可用：宿主无 Touch/TouchEvent 构造器（桌面非触屏环境可能缺失）。` +
+            '真受信触控/跨环境派发 → CDP Input.dispatchTouchEvent 归属（FR-025；合成事件 isTrusted=false 局限 NG-007/FR-015）',
+          'touch constructor unavailable',
+        );
+      }
+      // 目标解析：selector 首匹配（含穿透）或视口坐标 elementFromPoint
+      let el: Element | null = null;
+      let cx = 0;
+      let cy = 0;
+      if (touchOpts.selector) {
+        const f = firstOfDeep(touchOpts.selector, doc);
+        if (isErr(f)) return errResult(f.output, f.error);
+        el = f.el;
+        const c = centerPoint(f.el);
+        cx = c.x;
+        cy = c.y;
+      } else if (touchOpts.x !== undefined && touchOpts.y !== undefined) {
+        const anyDoc = doc as unknown as { elementFromPoint?: (x: number, y: number) => Element | null };
+        const hit = typeof anyDoc.elementFromPoint === 'function' ? anyDoc.elementFromPoint(touchOpts.x, touchOpts.y) : null;
+        if (!hit) return errResult(`✖ 坐标 (${touchOpts.x}, ${touchOpts.y}) 处无元素`, 'no element at point');
+        el = hit;
+        cx = touchOpts.x;
+        cy = touchOpts.y;
+      } else {
+        return errResult(`✖ ${cap} 需 --selector 或 --x/--y 坐标定位`, 'missing target');
+      }
+      if (!el) return errResult('✖ 目标元素不可达', 'no target element');
+
+      const TouchCtor = anyWin.Touch as unknown as new (init: { identifier: number; target: unknown; clientX: number; clientY: number }) => unknown;
+      const TouchEventCtor = anyWin.TouchEvent as unknown as new (
+        type: string,
+        init: { touches: unknown[]; targetTouches: unknown[]; changedTouches: unknown[]; bubbles: boolean; cancelable: boolean },
+      ) => unknown;
+      const mkTouch = (id: number, x: number, y: number): unknown => new TouchCtor({ identifier: id, target: el, clientX: Math.round(x), clientY: Math.round(y) });
+      const fireTouch = (type: string, touches: unknown[]): void => {
+        dispatchSynth(
+          el,
+          new TouchEventCtor(type, { touches, targetTouches: touches, changedTouches: touches, bubbles: true, cancelable: true }),
+        );
+      };
+      const steps = touchOpts.kind === 'tap' ? 1 : Math.max(2, Math.min(20, Math.round((touchOpts.durationMs ?? 300) / 40)));
+      const stepDelay = (touchOpts.durationMs ?? 300) / steps;
+
+      const doTap = (): void => {
+        const t = mkTouch(1, cx, cy);
+        fireTouch('touchstart', [t]);
+        fireTouch('touchend', []);
+      };
+      const doSwipe = async (): Promise<void> => {
+        let toX = touchOpts.toX;
+        let toY = touchOpts.toY;
+        if (toX === undefined && touchOpts.dx !== undefined) toX = cx + touchOpts.dx;
+        if (toY === undefined && touchOpts.dy !== undefined) toY = cy + touchOpts.dy;
+        if (toX === undefined || toY === undefined) throw new Error('swipe 需 --toX/--toY 或 --dx/--dy');
+        const t0 = mkTouch(1, cx, cy);
+        fireTouch('touchstart', [t0]);
+        for (let i = 1; i <= steps; i++) {
+          const px = cx + ((toX - cx) * i) / steps;
+          const py = cy + ((toY - cy) * i) / steps;
+          fireTouch('touchmove', [mkTouch(1, px, py)]);
+          if (i < steps) await new Promise((r) => setTimeout(r, stepDelay));
+        }
+        fireTouch('touchend', []);
+      };
+      const doPinch = async (): Promise<void> => {
+        const delta = touchOpts.delta ?? -30;
+        const base = 40;
+        const t1a = mkTouch(1, cx - base, cy);
+        const t2a = mkTouch(2, cx + base, cy);
+        fireTouch('touchstart', [t1a, t2a]);
+        for (let i = 1; i <= steps; i++) {
+          const d = base + (delta * i) / steps;
+          const t1 = mkTouch(1, cx - Math.max(0, d), cy);
+          const t2 = mkTouch(2, cx + Math.max(0, d), cy);
+          fireTouch('touchmove', [t1, t2]);
+          if (i < steps) await new Promise((r) => setTimeout(r, stepDelay));
+        }
+        fireTouch('touchend', []);
+      };
+      try {
+        if (kind === 'tap') doTap();
+        else if (kind === 'swipe') await doSwipe();
+        else await doPinch();
+      } catch (err) {
+        return capErr(err, cap);
+      }
+      const posLabel = touchOpts.selector ? `"${touchOpts.selector}"` : `(${cx}, ${cy})`;
+      const kindLabel = kind === 'tap' ? '轻点' : kind === 'swipe' ? '滑动' : '捏合';
+      return okResult(
+        `✓ 已派发合成 touch ${kindLabel}（${kind}）到 ${posLabel}：touchstart → touchmove×${kind === 'tap' ? 0 : steps} → touchend（isTrusted=false；${SYNTHETIC_EVENT_NOTE}；目标未处理合成事件时页面行为不变，可用 page-eval 备用路径）`,
+      );
+    },
   };
+}
+
+// ==================== v4 cookie 解析辅助（TASK-007/ADR-009，FR-019：document.cookie 可达面） ====================
+
+/** cookie 串 → 结构化项（document.cookie 可达面 = 同源非 HttpOnly；name=value 无分号内容）。 */
+export function parseCookieString(raw: string): PlatformCookieItem[] {
+  const items: PlatformCookieItem[] = [];
+  if (!raw) return items;
+  for (const pair of raw.split(';')) {
+    const idx = pair.indexOf('=');
+    if (idx < 0) continue;
+    const name = pair.slice(0, idx).trim();
+    const value = pair.slice(idx + 1).trim();
+    if (name === '') continue;
+    items.push({ name, value: safeDecode(value), size: value.length });
+  }
+  return items;
+}
+
+/** name 查值（写/删后回读断言）。 */
+function readCookieByName(raw: string, name: string): string | null {
+  const it = parseCookieString(raw).find((c) => c.name === name);
+  return it ? it.value : null;
+}
+
+/** cookie value 解码（encodeURIComponent 写入面回读；解码失败原样返回）。 */
+function safeDecode(v: string): string {
+  try {
+    return decodeURIComponent(v);
+  } catch {
+    return v;
+  }
 }
 
 // ==================== evaluate 结果序列化（FR-037：JSON 可解析或文本 + 预算截断） ====================

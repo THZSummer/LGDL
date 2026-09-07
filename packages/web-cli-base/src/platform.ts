@@ -17,6 +17,17 @@
  */
 import type { AskResponder } from './ask-user.js';
 import { createBrowserDomOps } from './platform-dom.js';
+import { createBrowserEventHub } from './platform-events.js';
+// v4（TASK-003/EVT）：事件通道纯逻辑类型借用（单一数据源 —— 值域/结果形态以 event-bus.ts 为准）
+import type {
+  BusEvent,
+  BusEventKind,
+  BusSubscriptionFilter,
+  ChannelStatus,
+  EventOpOutcome,
+  EventPullResult,
+  EventSubscribeResult,
+} from './event-bus.js';
 
 /** 浏览器存储配额面（navigator.storage）。 */
 export interface PlatformStorageQuota {
@@ -308,6 +319,70 @@ export interface PlatformScreenshotOptions {
   height?: number;
 }
 
+// ---- v4 cookie/touch ops 选项类型面（TASK-003，ADR-009/010；纯数据形态零 DOM 引用） ----
+
+/** cookie 清单单项（同源 document.cookie 可达面解析；HttpOnly/跨域不可见）。 */
+export interface PlatformCookieItem {
+  name: string;
+  /** 缺省掩码（maskValue 语义）；includeValue=true 才明文（工具面 trusted+ask 门禁）。 */
+  value: string;
+  domain?: string;
+  path?: string;
+  /** 有效期（可达子集；Session = 会话级）。 */
+  expires?: string;
+  secure?: boolean;
+  size?: number;
+}
+
+/** cookie 读选项（FR-019）。 */
+export interface PlatformCookieReadOptions {
+  /** true = 返回明文明细值（仅经工具面 read-detail trusted+ask 后传入）；缺省 false = 掩码。 */
+  includeValue?: boolean;
+}
+
+/** cookie 写选项（FR-020；同源非 HttpOnly 面；Secure 仅 HTTPS/HttpOnly 不可写 → ops 面分类转译）。 */
+export interface PlatformCookieWriteOptions {
+  name: string;
+  value: string;
+  path?: string;
+  domain?: string;
+  /** Secure 标志（仅 HTTPS 页面可写 → 非 HTTPS 返回可读转译 EC-007）。 */
+  secure?: boolean;
+  /** 有效期秒（缺省 = 会话 cookie）。 */
+  maxAge?: number;
+  sameSite?: 'Lax' | 'Strict' | 'None';
+}
+
+/** cookie 删选项（FR-020；写后回读断言）。 */
+export interface PlatformCookieDeleteOptions {
+  name: string;
+  path?: string;
+  domain?: string;
+}
+
+/** 合成 touch 手势 kind（FR-024/ADR-010：tap/swipe/pinch）。 */
+export type PlatformTouchKind = 'tap' | 'swipe' | 'pinch';
+
+/** 合成 touch 派发选项（FR-024；TouchEvent 构造序列 touchstart→touchmove×n→touchend）。 */
+export interface PlatformTouchOptions {
+  kind: PlatformTouchKind;
+  /** 目标定位（定位语法面；tap 目标 / swipe 起点 / pinch 中心）。 */
+  selector?: string;
+  /** 视口坐标定位（与 selector 二选一）。 */
+  x?: number;
+  y?: number;
+  /** swipe 终点坐标（与 dx/dy 二选一）。 */
+  toX?: number;
+  toY?: number;
+  /** swipe 位移（与 toX/toY 二选一）。 */
+  dx?: number;
+  dy?: number;
+  /** 手势时长 ms（缺省 = 实现默认）。 */
+  durationMs?: number;
+  /** pinch 距离变化（像素；正 = 放大，负 = 缩小）。 */
+  delta?: number;
+}
+
 /**
  * DOM 操作面（dom-tools 子命令族执行依赖，P1 additive；无 op-cli React handler 依赖）。
  * 执行目标 = 宿主应用自身同源页面（NG-003：第三方/跨域 = F-14 边界）。
@@ -393,6 +468,15 @@ export interface PlatformDomOps {
   reloadPage?(): Promise<PlatformDomOpResult>;
   /** #25 截图（chrome screenshot 子命令，FR-028/ADR-003；dataUrl 载体回填 PlatformDomOpResult.dataUrl）。 */
   screenshot?(opts: PlatformScreenshotOptions): Promise<PlatformDomOpResult>;
+  // ---- v4（TASK-003/ADR-009/ADR-010，FR-019/020/024）：全部可选，缺省 undefined ----
+  /** #26 同源非 HttpOnly cookie 读（document.cookie 可达面解析；值缺省掩码，FR-019）。 */
+  cookieRead?(opts?: PlatformCookieReadOptions): Promise<PlatformDomOpResult>;
+  /** #27 同源 cookie 写（document.cookie 写面；write risk ask 门禁在工具面，FR-020）。 */
+  cookieWrite?(opts: PlatformCookieWriteOptions): Promise<PlatformDomOpResult>;
+  /** #28 同源 cookie 删（写后回读断言在 ops 面，FR-020）。 */
+  cookieDelete?(opts: PlatformCookieDeleteOptions): Promise<PlatformDomOpResult>;
+  /** #29 合成 touch 派发（TCH P2 验证门 G-01；isTrusted=false + 局限公开，FR-024）。 */
+  touchDispatch?(opts: PlatformTouchOptions): Promise<PlatformDomOpResult>;
 }
 
 export interface PlatformDom {
@@ -401,6 +485,191 @@ export interface PlatformDom {
   state: PlatformDomState;
   /** P1：dom-* 子命令操作面（node 面 = 转译桩；浏览器面 = 最小 document 实现）。 */
   ops?: PlatformDomOps;
+}
+
+// ---------- v4 事件/观察通道缝类型面（TASK-003，plan §2.3；纯类型 + 可选缝声明，缺省 undefined） ----------
+// 装配（真实现）归 TASK-004（env.events）/ TASK-008（env.clipboardRich）；本任务只落类型面。
+// 类型值域/结果形态与 event-bus.ts（纯逻辑 Hub）单一数据源对齐；浏览器面 platform-events.ts
+// 以 EventBus 包装为 async 面（PlatformEventHub）。
+
+/** 观察源 kind（dom/lifecycle/console/network/paste/dialog；FR-008~022）。 */
+export type PlatformObserveKind = BusEventKind;
+
+/** 订阅级过滤器（ADR-005：事件类型 ∩ selector 目标 ∩ URL 模式 ∩ level；glob 沿既有语义）。 */
+export type PlatformEventFilter = BusSubscriptionFilter;
+
+/** 订阅注册选项（FR-008）。 */
+export interface PlatformSubscribeOptions {
+  kind: PlatformObserveKind;
+  filter?: PlatformEventFilter;
+  /** 订阅级预算覆盖（缺省 = 通道默认 DEFAULT_BUDGETS）。 */
+  budget?: { bufferLimit?: number; autoPauseAt?: number };
+  /** 声明观察敏感面（console/键入等）→ 全程入审计 + 明细进 pull-sensitive 通道。 */
+  sensitive?: boolean;
+  /** 订阅描述标签（list/审计展示；可选）。 */
+  label?: string;
+}
+
+/** 订阅注册结果（subId 唯一）。 */
+export type PlatformSubResult = EventSubscribeResult;
+
+/** 订阅清单项（list/status）。 */
+export type PlatformSubSummary = {
+  subId: string;
+  kind: PlatformObserveKind;
+  filterLabel: string;
+  sensitive: boolean;
+  label?: string;
+  paused: boolean;
+  autoPaused: boolean;
+  bufferSize: number;
+  bufferLimit: number;
+  dropped: number;
+  delivered: number;
+  lastId: number;
+};
+
+/** 拉取结果（全量/增量；摘要+计数进上下文，明细经 pullSensitive）。 */
+export type PlatformPullResult = EventPullResult;
+
+/** 通道状态（status；订阅清单 + 预算水位 + 自动退订提示）。 */
+export type PlatformChannelStatus = ChannelStatus;
+
+/** 通道级/订阅级操作结果。 */
+export type PlatformEventOpOutcome = EventOpOutcome;
+
+/** 预算调整选项（每订阅；全通道调整 v4 未开放 → 需 subId）。 */
+export interface PlatformBudgetOptions {
+  subId: string;
+  bufferLimit?: number;
+  autoPauseAt?: number;
+}
+
+/** 统一事件面（拉取返回的不可变事件；seq/ts/kind/type/target/text(masked)/meta）。 */
+export type PlatformBusEvent = BusEvent;
+
+/** 观察源子控制器（各自默认关：首个订阅/规则时惰性安装 patch，NFR-007）。 */
+export interface PlatformObserveSourceController {
+  /** 该观察源当前是否已安装（≥1 活跃订阅/规则）。 */
+  active(): Promise<boolean>;
+  /** pasteCapture 读槽（FR-022）：最近一次用户主动粘贴富内容捕获；无手势/未捕获 = undefined。 */
+  lastCapture?(): PlatformPasteCaptureItem | undefined;
+}
+
+/** 对话框应答策略规则（FR-017/ADR-007；pattern 文本/URL glob；text = prompt 应答文本 trusted-only）。 */
+export interface PlatformDialogRuleSpec {
+  /** alert/confirm/prompt。 */
+  type: 'alert' | 'confirm' | 'prompt';
+  /** 对话框文本/URL glob 匹配（缺省不限）。 */
+  pattern?: string;
+  /** accept=确认 / dismiss=否定 / promptText=自动输入（仅 trusted）。 */
+  action: 'accept' | 'dismiss' | 'promptText';
+  /** promptText 应答文本（仅 trusted 规则显式提供）。 */
+  text?: string;
+  /** trusted 声明（untrusted 缺省拒 —— 门禁由工具面执行）。 */
+  trusted?: boolean;
+}
+
+/** 对话框 override 子控制器（FR-016/017；install = write risk ask 由工具面承接）。 */
+export interface PlatformDialogOverrideController {
+  /** 以当前规则表安装（替换同 realm window.alert/confirm/prompt）。 */
+  install(): Promise<PlatformEventOpOutcome>;
+  /** 卸载还原（可逆；回归断言）。 */
+  uninstall(): Promise<PlatformEventOpOutcome>;
+  /** 当前是否已安装。 */
+  installed(): Promise<boolean>;
+  /** 增规则（policy-add；untrusted 拒由工具面）。 */
+  addRule(rule: PlatformDialogRuleSpec): Promise<PlatformEventOpOutcome>;
+  /** 规则清单（返回副本；text 字段缺省掩码展示由工具面）。 */
+  listRules(): PlatformDialogRuleSpec[];
+  /** 按索引删规则（policy-remove）。 */
+  removeRule(index: number): Promise<PlatformEventOpOutcome>;
+}
+
+/** 网络拦截动作（FR-018；发出前增改 header/查询参数/请求体字段）。 */
+export type PlatformNetAction =
+  | { op: 'addHeader' | 'setHeader' | 'removeHeader'; name: string; value?: string }
+  | { op: 'addQuery' | 'setQuery' | 'removeQuery'; name: string; value?: string }
+  | { op: 'setBodyField' | 'removeBodyField'; name: string; value?: string };
+
+/** 拦截规则（P2 缺省 deny；trusted 由工具面门禁声明）。 */
+export interface PlatformNetRuleSpec {
+  id: string;
+  /** URL glob 模式。 */
+  urlPattern: string;
+  actions: PlatformNetAction[];
+  trusted: boolean;
+}
+
+/** 网络拦截子控制器（P2/FR-018；规则注册需 trusted+ask，工具面承接）。 */
+export interface PlatformNetInterceptController {
+  /** 拦截开关（on=true 惰性安装共享 instrumentation）。 */
+  setIntercept(on: boolean): Promise<PlatformEventOpOutcome>;
+  /** 规则集替换（全量）。 */
+  setRules(rules: PlatformNetRuleSpec[]): Promise<PlatformEventOpOutcome>;
+  /** 当前规则清单。 */
+  rules(): Promise<PlatformNetRuleSpec[]>;
+  /** 拦截状态（开关 + 规则数；无规则零开销）。 */
+  status(): Promise<{ on: boolean; ruleCount: number }>;
+}
+
+/** 观察/拦截/override 子控制器集合（hub.sources；各自默认关惰性安装）。 */
+export interface PlatformEventSources {
+  domObserve: PlatformObserveSourceController;
+  lifecycle: PlatformObserveSourceController;
+  console: PlatformObserveSourceController;
+  network: PlatformObserveSourceController;
+  pasteCapture: PlatformObserveSourceController;
+  dialogOverride: PlatformDialogOverrideController;
+  netIntercept: PlatformNetInterceptController;
+}
+
+/**
+ * 事件通道唯一入口缝（env.events？；FR-008~015，plan §2.3）。
+ * 缺省 undefined → 事件通道不可用转译（EC-011）；浏览器面 browserEnv() 装配
+ * createBrowserEventHub()（构造零副作用，观察源惰性安装 = 默认关零常驻 NFR-007）。
+ */
+export interface PlatformEventHub {
+  /** 注册订阅 → 唯一 subId（并发上限 8；超限拒注册 + 可读错误）。 */
+  subscribe(opts: PlatformSubscribeOptions): Promise<PlatformSubResult>;
+  /** 退订（随文档导航销毁的失效订阅 → 可读错误不中断，EC-001）。 */
+  unsubscribe(subId: string): Promise<PlatformEventOpOutcome>;
+  /** 订阅清单（id/kind/过滤摘要/已收计数/缓冲水位/开关）。 */
+  list(): Promise<PlatformSubSummary[]>;
+  /** 暂停订阅（事件不入缓冲）。 */
+  pause(subId: string): Promise<PlatformEventOpOutcome>;
+  /** 恢复订阅（含自动暂停恢复；新预算周期）。 */
+  resume(subId: string): Promise<PlatformEventOpOutcome>;
+  /** 清空订阅缓冲（游标保持）。 */
+  clear(subId: string): Promise<PlatformEventOpOutcome>;
+  /** 拉取（全量或 lastId 增量；本地游标 = 已拉最大 seq，AC-002 无重复无遗漏）。 */
+  pull(subId: string, opts?: { lastId?: number; max?: number }): Promise<PlatformPullResult>;
+  /** 敏感明细拉取（仅敏感订阅；trusted+ask 门禁由 events pull-sensitive 工具承接）。 */
+  pullSensitive(subId: string, seq: number): Promise<{ ok: boolean; detail?: string; error?: string }>;
+  /** 通道状态（全局开关/订阅数/预算水位/自动退订提示）。 */
+  status(): Promise<PlatformChannelStatus>;
+  /** 订阅级预算调整。 */
+  setBudget(opts: PlatformBudgetOptions): Promise<PlatformEventOpOutcome>;
+  /** 全局通道开关（默认关 = 无订阅零常驻；开启后事件才入缓冲）。 */
+  switch(on: boolean): Promise<PlatformEventOpOutcome>;
+  /** 观察/拦截/override 子控制器（各自默认关，首个订阅/规则时惰性安装）。 */
+  sources: PlatformEventSources;
+}
+
+/** 富剪贴板写缝（FR-021；navigator.clipboard.write + ClipboardItem 三类型并存；与文本缝互不覆盖）。 */
+export interface PlatformRichClipboard {
+  writeItem(opts: { textHtml?: string; textPlain?: string; imagePng?: Blob }): Promise<void>;
+}
+
+/** 富剪贴板捕获槽项（paste 事件 clipboardData；用户主动粘贴才触发 FR-022）。 */
+export interface PlatformPasteCaptureItem {
+  textHtml?: string;
+  textPlain?: string;
+  /** 图片项（PNG Blob；尺寸字节由工具面转译）。 */
+  imagePng?: Blob;
+  /** 文件项元数据（name/type/size；内容不预读 —— save/export 链按需落盘）。 */
+  files?: Array<{ name: string; type: string; size: number }>;
+  ts: number;
 }
 
 /** 网络搜索结果条目（web-search 工具结果面）。 */
@@ -452,6 +721,11 @@ export interface PlatformEnv {
   stream?: unknown;
   /** 远程执行代理桥（exec-remote，P2）；scene 配置后注入。 */
   remoteExec?: unknown;
+  // ---- v4（TASK-003）：新可选缝 —— 缺省 undefined → 通道不可用转译（EC-011） ----
+  /** 事件 push/订阅通道唯一入口（FR-008~015；nodeEnv 不预置；browserEnv 装配归 TASK-004）。 */
+  events?: PlatformEventHub;
+  /** 富剪贴板写缝（FR-021；nodeEnv 不预置；browserEnv 装配归 TASK-008）。 */
+  clipboardRich?: PlatformRichClipboard;
   /** 自由扩展位（供未来域使用，避免破坏性类型变更）。 */
   [k: string]: unknown;
 }
@@ -609,7 +883,7 @@ function browserGlobal<T>(key: string): T | undefined {
 /** 真实浏览器 PlatformEnv（能力按需惰性取用；缺失 → 调用时转译）。 */
 export function browserEnv(): PlatformEnv {
   const nav = (): {
-    clipboard?: { readText?: () => Promise<string>; writeText?: (t: string) => Promise<void> };
+    clipboard?: { readText?: () => Promise<string>; writeText?: (t: string) => Promise<void>; write?: (items: unknown[]) => Promise<void> };
     permissions?: { query?: (d: { name: string }) => Promise<{ state: string }> };
     storage?: PlatformStorageQuota;
   } | undefined => browserGlobal('navigator');
@@ -636,6 +910,24 @@ export function browserEnv(): PlatformEnv {
       const clip = n?.clipboard;
       if (!clip?.writeText) throw namedError('NotFoundError', 'navigator.clipboard.writeText 不可用（需安全上下文）');
       await clip.writeText(text);
+    },
+  };
+
+  /** v4 富剪贴板写缝（FR-021/ADR-009：ClipboardItem text/html+image/png+text/plain 并存；与文本缝互不覆盖）。 */
+  const clipboardRichSeam: PlatformRichClipboard = {
+    async writeItem(opts) {
+      const n = nav();
+      const clip = n?.clipboard;
+      const Ctor = browserGlobal<{ new (items: Record<string, Blob>): unknown }>('ClipboardItem');
+      if (!clip?.write || typeof Ctor !== 'function') {
+        throw namedError('NotFoundError', 'navigator.clipboard.write + ClipboardItem 不可用（需安全上下文 + Chromium 系）');
+      }
+      const types: Record<string, Blob> = {};
+      if (opts.textHtml !== undefined) types['text/html'] = new Blob([opts.textHtml], { type: 'text/html' });
+      if (opts.textPlain !== undefined) types['text/plain'] = new Blob([opts.textPlain], { type: 'text/plain' });
+      if (opts.imagePng !== undefined) types['image/png'] = opts.imagePng;
+      if (Object.keys(types).length === 0) throw namedError('NotFoundError', 'writeItem 无任何内容类型');
+      await clip.write([new Ctor(types)]);
     },
   };
 
@@ -738,10 +1030,13 @@ export function browserEnv(): PlatformEnv {
 
   /** 浏览器面真实 PlatformDomOps（TASK-004：4 桩补真 + ~25 新能力；DOM 触碰收敛 platform-dom.ts）。 */
   const domOps: PlatformDomOps = createBrowserDomOps();
+  /** v4（TASK-004/EVT）：事件 push/订阅通道浏览器真实现（构造零副作用 —— 观察源惰性安装）。 */
+  const eventsHub = createBrowserEventHub();
 
   return {
     kind: 'browser',
     fetch: globalThis.fetch.bind(globalThis),
+    events: eventsHub,
     storage: storageSeam,
     kv: {
       get: (k: string) => {
@@ -775,6 +1070,7 @@ export function browserEnv(): PlatformEnv {
       },
     },
     clipboard: clipboardSeam,
+    clipboardRich: clipboardRichSeam,
     notify: notifySeam,
     filePicker: filePickerSeam,
     workerFactory: {

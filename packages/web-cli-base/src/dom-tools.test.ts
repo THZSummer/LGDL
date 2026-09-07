@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDomToolEntry, domHelp } from './dom-tools.js';
+import { createDomToolEntry, domHelp, executeDomTool } from './dom-tools.js';
 import type { PlatformDomOps, PlatformEnv } from './platform.js';
 import { nodeEnv } from './platform.js';
 import { createAskUserToolEntry, askUserHelp as askUserHelpText } from './ask-user.js';
@@ -202,7 +202,7 @@ test('ask-user: 应答器未注入 → 配置指引（与 PRM ask 语义区分�
 
 // ================= v3（TASK-005）：dom 7→27 子命令族扩展 =================
 
-/** 全量 27 子命令注入桩（记录入参供逐条断言；v3 新能力面 = makeOps 的 7 方法超集）。 */
+/** 全量 30 子命令注入桩（记录入参供逐条断言；v3 新能力面 = makeOps 的 7 方法超集；v4 touch 追加）。 */
 function makeOpsV3(seen: Record<string, unknown> = {}): PlatformDomOps {
   return {
     readState: async () => {
@@ -320,17 +320,22 @@ function makeOpsV3(seen: Record<string, unknown> = {}): PlatformDomOps {
       seen.remove = sel;
       return okOut('✓ 元素已删');
     },
+    touchDispatch: async (opts) => {
+      seen.touch = opts;
+      return okOut('✓ 合成 touch 已派发');
+    },
   };
 }
 
-test('dom: v3 元数据面 —— 27 子命令（既有 7 顺序保持）+ schema enum 同步 + subcommandRisks 分组 + entry.risk 回退面零变化', async () => {
+test('dom: v3+v4 元数据面 —— 30 子命令（既有 7 顺序保持；v4 tap/swipe/pinch 尾部）+ schema enum 同步 + subcommandRisks 分组 + entry.risk 回退面零变化', async () => {
   const { ops } = makeOps();
   const entry = createDomToolEntry(domEnv(ops));
   const schema = entry.schema.parameters as { properties: { subcommand: { enum: string[] } } };
   const subs = schema.properties.subcommand.enum;
-  assert.equal(subs.length, 27);
-  // 红线（AC-001 检查点③）：既有 7 头部不漂移
+  assert.equal(subs.length, 30);
+  // 红线（AC-001 检查点③）：既有 27 头部不漂移（v4 只尾部追加 tap/swipe/pinch）
   assert.deepEqual(subs.slice(0, 7), ['read-state', 'click', 'hover', 'scroll', 'zoom', 'fullscreen', 'snapshot']);
+  assert.deepEqual(subs.slice(27), ['tap', 'swipe', 'pinch']);
   // 元数据回退面 = v2（risk/group 零变化）
   assert.equal(entry.risk, 'ui');
   assert.equal(entry.group, 'ui');
@@ -343,7 +348,8 @@ test('dom: v3 元数据面 —— 27 子命令（既有 7 顺序保持）+ schem
   for (const s of ['type', 'set-text', 'set-attr', 'remove-attr', 'set-style', 'set-value', 'fill', 'add', 'remove']) {
     assert.equal(sr[s], 'write', `${s} 应标 write`);
   }
-  assert.equal(Object.keys(sr).length, 27, 'subcommandRisks 覆盖全部 27 子命令，无遗漏');
+  for (const s of ['tap', 'swipe', 'pinch']) assert.equal(sr[s], 'ui', `${s} 应标 ui（合成 touch = UI 副作用面，默认 ask；场景默认关经 LGDL deny）`);
+  assert.equal(Object.keys(sr).length, 30, 'subcommandRisks 覆盖全部 30 子命令，无遗漏');
   // 帮助面：risk 分级 / 合成事件局限（NG-007）/ 同源边界（NG-002/003）/ 敏感字段策略（FR-024）
   const help = domHelp();
   assert.match(help, /risk 分级/);
@@ -625,3 +631,31 @@ test('dom: dispatch 级子命令 risk —— write deny 规则命中即拒且执
   assert.equal(seen['read-state'], true);
 });
 
+
+// ================= v4（TASK-013/FR-024/ADR-010）：合成 touch 尾部子命令（G-01 PASS 分支） =================
+
+test('dom v4: tap/swipe/pinch 注入桩透传 —— 参数解析到 ops.touchDispatch（selector/坐标/toX/dx/时长/delta）', async () => {
+  const seen: Record<string, unknown> = {};
+  const ops = makeOpsV3(seen);
+  const entry = createDomToolEntry(domEnv(ops));
+  // tap selector
+  const tap = await executeDomTool(ops, 'tap', { selector: '#btn' });
+  assert.equal(tap.ok, true);
+  assert.deepEqual(seen.touch, { kind: 'tap', selector: '#btn' });
+  // swipe 坐标 + toX/dy
+  const swipe = await executeDomTool(ops, 'swipe', { x: '10', y: '20', toX: '200', dy: '50', durationMs: '400' });
+  assert.equal(swipe.ok, true);
+  assert.deepEqual(seen.touch, { kind: 'swipe', x: 10, y: 20, toX: 200, dy: 50, durationMs: 400 });
+  // pinch delta
+  const pinch = await executeDomTool(ops, 'pinch', { selector: '#area', delta: '-40' });
+  assert.equal(pinch.ok, true);
+  assert.deepEqual(seen.touch, { kind: 'pinch', selector: '#area', delta: -40 });
+  // 缺参可读错误 + 未知子命令
+  assert.equal((await executeDomTool(ops, 'tap', {})).ok, false);
+  assert.equal((await executeDomTool(ops, 'fly', {})).ok, false);
+  // touchDispatch 未注入 → opMissing 可读
+  const bare = makeOps();
+  const r = await executeDomTool(bare.ops, 'tap', { selector: '#a' });
+  assert.equal(r.ok, false);
+  assert.match(r.output, /未注入/);
+});

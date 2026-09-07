@@ -218,3 +218,15 @@ test('locator: syntax guide documents css/text=/text*=/unsupported/multi-match',
   assert.match(guide, /xpath=/);
   assert.ok(guide.includes(LOCATOR_MULTI_MATCH_NOTE));
 });
+
+// ---- v4（TASK-009/FR-023/ADR-011）：帮助面含穿透说明，解析层语义零改动 ----
+
+test('locator v4: 语法帮助含 shadow/同源 iframe 穿透说明（解析层不变）', () => {
+  const h = locatorSyntaxHelp();
+  assert.match(h, /shadow/);
+  assert.match(h, /iframe/);
+  assert.match(h, /深度护栏/);
+  assert.match(h, /via/);
+  // 既有 CSS/text= 语义回归：主文档 CSS 裸串解析不受影响
+  assert.deepEqual(parseLocator('#a'), { ok: true, query: { type: 'css', css: '#a', raw: '#a' } });
+});

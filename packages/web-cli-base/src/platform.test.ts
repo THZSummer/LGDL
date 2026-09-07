@@ -90,3 +90,72 @@ test('platform: capabilityGuidance 五类指引文案互异', () => {
   assert.equal(new Set(texts).size, texts.length); // 全部互异
   for (const t of texts) assert.ok(t.includes('通知'));
 });
+
+// ================= v4 新缝类型面/可选方法缺省断言（TASK-003，FR-002/EC-011/ADR-002/009） =================
+
+test('platform v4: nodeEnv 不预置 events/clipboardRich（可选缝缺省 undefined → 通道不可用转译面 EC-011）', () => {
+  const env = nodeEnv();
+  assert.equal(env.events, undefined, 'node 面不预置事件通道缝');
+  assert.equal(env.clipboardRich, undefined, 'node 面不预置富剪贴板缝');
+});
+
+test('platform v4: PlatformDomOps 新可选方法（cookieRead/cookieWrite/cookieDelete/touchDispatch）node 面缺省 undefined', () => {
+  const env = nodeEnv();
+  const ops = env.dom?.ops;
+  assert.ok(ops);
+  assert.equal(ops?.cookieRead, undefined);
+  assert.equal(ops?.cookieWrite, undefined);
+  assert.equal(ops?.cookieDelete, undefined);
+  assert.equal(ops?.touchDispatch, undefined);
+  // 既有 7 + v3 能力仍可注入（零回归：缺省面不破坏既有方法）
+  assert.equal(typeof ops?.readState, 'function');
+  assert.equal(typeof ops?.screenshot, 'undefined'); // v3 新方法 node 面仍缺省（与 v3 一致）
+});
+
+test('platform v4: 未注入面调用 events 通道 → 可读错误不中断（工具层转译；env.events undefined 不抛）', async () => {
+  const env = nodeEnv();
+  // 直接经缝调用 = undefined（调用方 = events 工具 executor 负责可读转译）
+  assert.equal(env.events, undefined);
+  // 注入 fake hub 面形态可编译（消费端类型齐全：subscribe/pull/status/switch/sources）
+  const fake: NonNullable<typeof env.events> = {
+    subscribe: async () => ({ ok: true, subId: 'sub-1' }),
+    unsubscribe: async () => ({ ok: true }),
+    list: async () => [],
+    pause: async () => ({ ok: true }),
+    resume: async () => ({ ok: true }),
+    clear: async () => ({ ok: true }),
+    pull: async () => ({ ok: true, events: [], lastId: 0, dropped: 0, delivered: 0, bufferSize: 0, autoPaused: false }),
+    pullSensitive: async () => ({ ok: false, error: 'x' }),
+    status: async () => ({ enabled: false, subscriptionCount: 0, totalBuffered: 0, disabledDropped: 0, rateDropped: 0, budgets: { bufferLimit: 200 } as never, subscriptions: [] }),
+    setBudget: async () => ({ ok: true }),
+    switch: async () => ({ ok: true }),
+    sources: {
+      domObserve: { active: async () => false },
+      lifecycle: { active: async () => false },
+      console: { active: async () => false },
+      network: { active: async () => false },
+      pasteCapture: { active: async () => false },
+      dialogOverride: { install: async () => ({ ok: true }), uninstall: async () => ({ ok: true }), installed: async () => false, addRule: async () => ({ ok: true }), listRules: () => [], removeRule: async () => ({ ok: true }) },
+      netIntercept: { setIntercept: async () => ({ ok: true }), setRules: async () => ({ ok: true }), rules: async () => [], status: async () => ({ on: false, ruleCount: 0 }) },
+    },
+  };
+  const sub = await fake.subscribe({ kind: 'dom' });
+  assert.equal(sub.ok, true);
+  const pull = await fake.pull('sub-1', { lastId: 0 });
+  assert.equal(pull.ok, true);
+});
+
+// ================= v4 TASK-004：browserEnv 装配 env.events（惰性零常驻） =================
+
+test('platform v4: browserEnv 装配 events 缝（构造零副作用 —— 无订阅 status 空态 + 默认关）', async () => {
+  const { browserEnv } = await import('./platform.js');
+  const env = browserEnv();
+  assert.ok(env.events, 'browserEnv 装配 env.events');
+  const st = await env.events?.status();
+  assert.ok(st);
+  assert.equal(st?.enabled, false, '全局通道默认关（NFR-007）');
+  assert.equal(st?.subscriptionCount, 0);
+  // 子控制器存在（占位/增量任务装配面）
+  assert.equal(typeof env.events?.sources.dialogOverride.install, 'function');
+  assert.equal(typeof env.events?.sources.netIntercept.status, 'function');
+});
