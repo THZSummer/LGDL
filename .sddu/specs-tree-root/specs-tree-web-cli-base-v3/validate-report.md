@@ -9,7 +9,7 @@
 > **版本**: v1.0
 > **更新人**: SDDU Validate Agent
 > **更新时间**: 2026-09-07
-> **更新说明**: R1 — chromium headless + CDP 真实浏览器冒烟实跑（siteA fixtures 宿主页 115 断言全绿 + 真实 lgdl-web React 页 10 断言 9 过 1 缺陷 + probe 页授权 deny/history/reload）；**补发现 2 项真实浏览器缺陷并修复 1 项**（D2 contenteditable caret 插入误报 value-not-synced → 顺手修复 + base 372/372 回归；D1 type 首次合成键入 React 受控字段 onChange 未同步 → 记录修复建议移交，不阻塞）；全仓回归 898 pass/1 skip/0 fail + base tsc + lgdl-web vite 构建零错误；v2 收口 3 项基线登记「待基线」
+> **更新说明**: R1 — chromium headless + CDP 真实浏览器冒烟实跑（siteA fixtures 宿主页 115 断言全绿 + 真实 lgdl-web React 页 10 断言 9 过 1 缺陷 + probe 页授权 deny/history/reload）；**补发现 2 项真实浏览器缺陷并修复 1 项**（D2 contenteditable caret 插入误报 value-not-synced → 顺手修复 + base 372/372 回归；D1 type 首次合成键入 React 受控字段 onChange 未同步 → 记录修复建议移交，不阻塞）；全仓回归 898 pass/1 skip/0 fail + base tsc + lgdl-web vite 构建零错误；v2 收口 3 项基线登记「待基线」；R2 补记：D1 缺陷已修复（platform-dom.ts typeText `setNativeValue` 构造器判定 bug + React 受控字段全量提交基元，base 375 pass + 真实浏览器 Phase B 11/11 全绿）；AC-008 真实 AI 闭环用真实 DeepSeek（deepseek-chat）驱动 dom 工具实跑闭合（6/6 断言：read-state→set-value→click→read-element，`#input` ""→"hello-v3" 值变更，runAgent completed）
 
 ## 1. 验证概要
 
@@ -47,7 +47,7 @@
 |------|----------|--------|---------|
 | FR-003 | browserEnv 真实实现补全（4 桩 + 新能力） | V2（S1 逐 ops 真实用例） | ✅ hover/scroll/zoom 真值 + 桩错误消失；fullscreen 授权路径转译（真手势 ⏭️） |
 | FR-009~014 | PER 感知层（read-state/snapshot/interactives/read-element/find/structure） | V2 | ✅ 多字段/脱敏/分页/预算/0 匹配非错误 全绿 |
-| FR-016~023 | INT 交互层（hover/scroll/zoom/fullscreen/dblclick/contextmenu/long-press/drag/focus/blur/type/press） | V2 + V3 | ✅ ops 面 20 断言全绿；**FR-022 type React 受控真实闭环 ⚠️ D1**（值变更 ✅ / onChange 首交互 ❌） |
+| FR-016~023 | INT 交互层（hover/scroll/zoom/fullscreen/dblclick/contextmenu/long-press/drag/focus/blur/type/press） | V2 + V3 | ✅ ops 面 20 断言全绿；**FR-022 type React 受控真实闭环 ✅ D1 已修复**（值变更 ✅ / onChange 首交互 ✅ 提交） |
 | FR-024 | 敏感字段策略 | V2（readElement-mask/interactives-pwNoLeak） | ✅ 值不回显（无明文）；写侧门禁由 FR-005/007 node 面承接 |
 | FR-025 | wait 条件等待 | V4 | ✅ SPA 动态/消失/文本/all/超时最后状态 |
 | FR-026~030 | CHR chrome 层（print/back/forward/reload/screenshot/save/notify/clipboard） | V2/V5/V6/Phase C | ✅ print 调用可达、back/forward URL 变化、reload 后页面存活+恢复提示、截图落盘尺寸、clipboard roundtrip+读 ask、notify 两路、save download 落盘（FSA picker 手势 ⏭️） |
@@ -64,20 +64,20 @@
 | NFR-001 | 零 LGDL/react/依赖（新增面） | review G1~G5 零残留；validate 改动零新增 import/依赖（tsc 通过） | ✅ |
 | NFR-002 | 安全基线（无旁路/untrusted/敏感/最高档） | V8 gate e2e + V2 门禁 + V6 读 ask deny | ✅ |
 | NFR-003 | 预算与 schema 膨胀 | V2 预算截断标记（snapshotStructured maxLength 120→已截断+120）、分页续读；deriveTools 体积 node 承接 | ✅ |
-| NFR-004 | 事件真实性/React 受控兼容（type/fill/set-value 必达） | V3：fill/set-value ✅ 值变更+onChange；**type 首交互 onChange 未同步（D1）→ ⚠️ 部分**（帮助面含 isTrusted 局限声明 NG-007） | ⚠️ 部分 |
+| NFR-004 | 事件真实性/React 受控兼容（type/fill/set-value 必达） | V3：fill/set-value ✅ 值变更+onChange；**type 首交互 onChange 生效（D1 已修复，真实闭环验证）✅**（帮助面含 isTrusted 局限声明 NG-007） | ✅ |
 | NFR-005 | 测试门禁双轨 | V1 全仓 898/1skip/0fail + base 372/372 + 本报告真实浏览器冒烟 7 面记录 | ✅ |
 | NFR-006 | 类型与构建完整性 | base tsc 0 + lgdl-web vite 0（本报告实测） | ✅ |
 | NFR-007 | 性能（wait observer/预算护栏/无策略零开销） | S3 真实命中（MutationObserver）；预算截断；dispatch 零开销 node（v2 口径延续）；无数值型并发指标（同 v2 声明） | ✅ |
 | NFR-008 | 审计（子命令/evaluate 摘要/写操作） | V8 audit（decision=run+codeChars+code= 摘要、permission deny by=fail-closed、deny 入审计） | ✅ |
 
-**AC 12/12 承接**：AC-001（V1）/ AC-002（V2）/ AC-003（V2+V3，D1 部分）/ AC-004（V4）/ AC-005（V5+V6）/ AC-006（V2+V3）/ AC-007（V8）/ AC-008（V7，真实 AI 闭环前置基线 ⏭️ 收口①）/ AC-009（V2 gate + node）/ AC-010（V1 + V2~V8）/ AC-011（review G + 本报告核验）/ AC-012（V2 预算 + 截图 dataURL 不进上下文 V5）。
+**AC 12/12 承接**：AC-001（V1）/ AC-002（V2）/ AC-003（V2+V3，D1 修复后 type 受控闭环全绿）/ AC-004（V4）/ AC-005（V5+V6）/ AC-006（V2+V3）/ AC-007（V8）/ AC-008（V7 + 收口① 真实 DeepSeek 驱动 dom 工具闭环已闭合 ✅）/ AC-009（V2 gate + node）/ AC-010（V1 + V2~V8）/ AC-011（review G + 本报告核验）/ AC-012（V2 预算 + 截图 dataURL 不进上下文 V5）。
 
 ### 3.2 接口数据（真实浏览器面）
 
 | 检查项 | 调用方式 | 预期 | 实测 | 一致？ |
 |--------|---------|------|------|:--:|
 | read-state 字段 | ops.readState（siteA） | url/title + ≥2 新增 | url/title/readyState/origin/referrer/viewport 全出 | ✅ |
-| type 到 lgdl-web React textarea | ops.typeText('.ai-input') | 值变更 + onChange | 值变更 ✅；onChange 首交互 ❌（D1） | ❌（D1） |
+| type 到 lgdl-web React textarea | ops.typeText('.ai-input') | 值变更 + onChange | 值变更 + onChange 均 ✅（D1 修复后首交互即提交） | ✅ |
 | set-value/fill 到 React textarea | ops.setValue/fillForm | 值变更 + onChange | 'gamma'/'delta' 均提交（send 键 enabled） | ✅ |
 | SettingsPanel select + apiKey | ops.setValue（真实 React select/password input） | 值变更 + onChange | deepseek→qwen select 值已切换；apiKey 已提交（值不回显） | ✅ |
 | clipboard roundtrip | CDP grant → seam/tool | write→read 一致 | 'v3-s5-clip'/'v3-s5-tool' roundtrip 一致 | ✅ |
@@ -122,7 +122,7 @@
 
 | v2 收口项 | v3 关联验收面 | 本报告状态 | 标注 |
 |------|--------------|-----------|------|
-| ① 真实 AI 闭环 AC-008（需厂商 API Key + 交互式浏览器） | FR-022/023/034/035/037 真实闭环值变更断言 | 机械面已实跑（S1/S2/V8 值变更+DOM 变更断言）；消息流编排 + 值变更人工对比待人工 | ⏳ **待基线**（不阻塞） |
+| ① 真实 AI 闭环 AC-008（需厂商 API Key + 交互式浏览器） | FR-022/023/034/035/037 真实闭环值变更断言 | 真实 DeepSeek（deepseek-chat）驱动 dom 工具闭环实跑：6/6 断言（read-state→set-value→click→read-element：set-value 后 #input=hello-v3、click 后 #result=submitted=hello-v3、runAgent completed；脚本 /tmp/sddu-ac008-real-ai-loop/） | ✅ **已闭合** |
 | ② lgdl-web React 集成面手测（AskDialog/SettingsPanel 弹层呈现、会话恢复 chip、真实系统通知） | FR-044 ask/授权 UI 呈现扩展 | SettingsPanel select/apiKey 值变更已机械实跑（V3）；AskDialog 弹层呈现/会话恢复 chip/真实通知 = 人工点验 | ⏳ **待基线**（不阻塞；v3 与 v2 同批 v0.7 登记） |
 | ③ web-search 真实端点（需配置 key） | v3 采集/评估类外部数据面 untrusted 语义对照 | untrusted 语义面由 S6/S7 实跑承接（trust=untrusted/拒执行） | ⏳ **待基线**（不阻塞） |
 
@@ -143,36 +143,36 @@
 
 | # | 位置 | 问题 | 对应 Vx | 修复建议 |
 |---|------|------|:--:|---------|
-| — | — | 无（0 阻塞：门禁全达标 + 真实浏览器 125 断言 124 通过 / 1 失败（D1）+ 构建零错误 + 漂移零严重项） | — | — |
+| — | — | 无（0 阻塞：门禁全达标 + 真实浏览器断言全绿（Phase A 115/115 + Phase B 11/11）+ 构建零错误 + 漂移零严重项；D1 已修复、AC-008 真实 AI 闭环已闭合，剩余仅 lgdl-web React 集成面手测 + web-search 端点（需用户配置搜索端点）待基线） | — | — |
 
 ## 6. 结论
 
-**结论**: ⚠️ 有条件通过（全部可执行门禁指标达标；D1 缺陷 + v2 收口 3 项「待基线」非阻塞移交）
+**结论**: ⚠️ 有条件通过（全部可执行门禁指标达标；D1 已修复、AC-008 真实 AI 闭环已闭合；剩余仅 lgdl-web React 集成手测 + web-search 端点 2 项人工/配置基线非阻塞移交）
 
 **指标达标矩阵**：
 
 | 指标 | 要求 | 实测 | 达标？ |
 |------|------|------|:--:|
-| FR 测试覆盖 | 100%（入范围口径） | 45/45（node 面 + 浏览器冒烟双轨；FR-022 真实闭环 type 子面 = D1 缺陷标注） | ✅（FR-022 子面部分，见下） |
-| NFR 测试覆盖 | ≥80% | 8/8（NFR-004 部分：type 首交互 onChange = D1） | ✅（NFR-004 ⚠️ 部分） |
+| FR 测试覆盖 | 100%（入范围口径） | 45/45（node 面 + 浏览器冒烟双轨；FR-022 type React 受控真实闭环 D1 已修复，Phase B 11/11 全绿） | ✅ |
+| NFR 测试覆盖 | ≥80% | 8/8（NFR-004 type 首交互 onChange D1 已修复，首交互即提交） | ✅ |
 | 构建退出码 | 0 | 0（base tsc 372/372 + lgdl vite + 全仓 898/1skip/0fail） | ✅ |
 | 阻塞问题数 | 0 | 0 | ✅ |
 | 漂移项（严重） | 0 | 0（validate 顺手修复 D2 1 处并回归；规格零漂移） | ✅ |
 
 **理由**：
 - **真实浏览器 7 面冒烟（V13 方法扩展）**：S1 platform-dom 35 ops/27 子命令 70 断言全绿（4 桩真值 + 全谱交互 + 写后回读 + 脱敏 + 门禁）；S3 wait SPA 动态 5 断言全绿；S4 截图尺寸精确 + fullpage out；S5 clipboard/notify/save 授权两路 + 读 ask gate；S6 采集端到端含翻页累计/护栏/trust/csv 转义/提示注入护栏 14 断言全绿 + 下载文件内容核验；S7 evaluate 门禁四道 14 断言全绿（untrusted/fail-closed/ask allow·deny/预算/审计摘要）。
-- **lgdl-web React 受控闭环（NFR-004）**：真实应用页实跑——set-value/fill 值变更 + onChange 提交 ✅（send 键 enabled 实证）；SettingsPanel select/apiKey 受控值变更 ✅；**type 首次合成键入 onChange 未同步（D1）**：DOM 值变更但 React state 未提交（send 键保持 disabled，重渲染回滚），warm-up（任一次已提交交互）后恢复；set-value/fill 基元不受影响 → FR-022/NFR-004 type 子面判定 ⚠️ 部分。
+- **lgdl-web React 受控闭环（NFR-004）**：真实应用页实跑——set-value/fill/type 值变更 + onChange 提交均 ✅（send 键 enabled 实证）；SettingsPanel select/apiKey 受控值变更 ✅。D1（type 首次合成键入 React state 未提交，DOM 值已变、重渲染回滚）已修复：platform-dom.ts typeText `setNativeValue` 构造器判定 bug（typeof Ctor==='object' 恒 false 致原型 setter 未走）→ 真实浏览器走原型 native setter 绕开 React 实例 tracker；受控字段（hasReactValueTracker）采用与 set-value 同构的全量提交基元 + valueSynced 标志（EC-006 不静默声称逐字符成功）；非受控/原生/textarea/contenteditable 保持逐字符零回归 → base 375 pass + Phase B 11/11 全绿（type 首交互即提交），FR-022/NFR-004 type 子面判定 ✅。
 - **全仓回归 + 构建**：898 pass/1 skip（render env-gate）/0 fail；base tsc 372/372（含 D2 修复后）；lgdl-web vite 0。
 - **顺手修复 2 类**：D2（contenteditable 光标处插入误报 → 代码修复 + 回归零破坏）；其余首轮 8 项失败均为 harness/fixture 断言修正（非产品缺陷）。
-- **v2 收口 3 项基线（FR-004）**：真实 AI 闭环 / lgdl-web React 集成手测 / web-search 真实端点 → 全部标注「⏳ 待基线」不阻塞；v3 与 v2 同批 v0.7（O-010）登记由 sddu-roadmap 承接。
+- **v2 收口 3 项基线（FR-004）**：真实 AI 闭环 AC-008 已闭合 ✅（真实 DeepSeek（deepseek-chat）驱动 dom 工具闭环实跑 6/6 断言，脚本 /tmp/sddu-ac008-real-ai-loop/）；lgdl-web React 集成手测 / web-search 真实端点 仍标注「⏳ 待基线」不阻塞（web-search 需用户配置搜索端点）；v3 与 v2 同批 v0.7（O-010）登记由 sddu-roadmap 承接。
 
 **遗留（非阻塞，移交修复/人工清单）**：
-1. **D1 缺陷（建议下轮修复或作者裁决）**：`dom type` 对 React 受控字段的**首次**合成键入不触发 onChange（DOM 值已变、React state 未提交、重渲染回滚）。复现：chromium headless → lgdl-web `.ai-input`（受控 textarea，state=''）→ `ops.typeText('.ai-input','hello',{clear:true})` → 值='hello' 但 send 键 disabled（state 未提交）；先手动 commit 一次后 typeText 正常。影响 FR-022/NFR-004 type 受控路径真实闭环。建议排查方向：逐字符 keydown→native setter→input 序列在 React 值 tracker 的时序（对照 probe2~13 诊断：单发 set-value 基元与手动原生 setter+input+change 均正常）；候选修复 = 受控场景优先使用 set-value 全量基元（type 字符级事件作为非受控附加语义）并如实返回可读说明（EC-006 不静默声称成功），或按 O-006 裁决降级记录。
-2. **人类授权交互待手测**：fullscreen 进入/退出（S1 已断言授权路径转译）、真实 save File System Access picker（S5 已跑 download 链成功 + FSA 拒绝转译）、真实系统通知展示（S5 已跑 granted show 不抛 + denied 降级）。
-3. **v2 收口 3 项（FR-004）**：真实 AI 闭环 AC-008（需 API Key）、lgdl-web React 集成面手测（AskDialog 弹层呈现/会话恢复 chip/真实通知，v2 收口②）、web-search 真实端点（需 key）——均「待基线」登记，v0.7 同批发布前由人工基线闭合。
+1. **人类授权交互待手测**：fullscreen 进入/退出（S1 已断言授权路径转译）、真实 save File System Access picker（S5 已跑 download 链成功 + FSA 拒绝转译）、真实系统通知展示（S5 已跑 granted show 不抛 + denied 降级）。
+2. **v2 收口（FR-004）**：真实 AI 闭环 AC-008 已闭合 ✅（真实 DeepSeek（deepseek-chat）驱动 dom 工具实跑 6/6 断言，脚本 /tmp/sddu-ac008-real-ai-loop/）；lgdl-web React 集成手测 + web-search 端点 仍 ⏳ 待基线（web-search 需用户配置搜索端点，DeepSeek key 不适用）——v0.7 同批发布前由人工/配置基线闭合。
 
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | R1 初始创建：chromium headless + CDP 真实浏览器冒烟（V13 方法扩展）实跑 S1~S7 + 回归/构建 + 漂移；补发现修复 D2（contenteditable 误报）+ 记录 D1（type 首次 React 受控 onChange 未同步，非阻塞移交）；v2 收口 3 项待基线登记 | 2026-09-07 | SDDU Validate Agent |
+| v1.1 | R2 补记：D1 缺陷已修复（platform-dom.ts typeText `setNativeValue` 构造器判定 bug + React 受控字段全量提交基元，base 375 pass + 真实浏览器 Phase B 11/11 全绿）；AC-008 真实 AI 闭环用真实 DeepSeek（deepseek-chat）驱动 dom 工具实跑闭合（6/6 断言：read-state→set-value→click→read-element，`#input` ""→"hello-v3" 值变更，runAgent completed） | 2026-09-07 | SDDU Validate Agent |
