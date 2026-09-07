@@ -2,11 +2,11 @@
 
 > **文档定位**: sddu-docs-adr-index — 架构决策记录详表（决策 / 备选方案 / 理由 / 证据锚点）
 > **输出文件名**: adr-index.md
-> **数据来源**: 代码扫描生成（CHANGELOG + git 历史 + 代码证据交叉验证）+ Feature 产物聚合（specs-tree-web-cli-v2 plan.md §7 的 9 条 V2 ADR）
+> **数据来源**: 代码扫描生成（CHANGELOG + git 历史 + 代码证据交叉验证）+ Feature 产物聚合（specs-tree-web-cli-v2 plan.md §7 的 9 条 V2 ADR + specs-tree-web-cli-base-v4 plan.md §8 的 12 条 V4 ADR）
 > **创建人**: sddu-docs Agent
 > **创建时间**: 2026-08-30
-> **版本**: v2.0（基于工作区 `feature/group-as-node` @ `d03dca4`；V1 8 条 + V2 9 条）
-> **更新说明**: V2 增量追加——引用 specs-tree-web-cli-v2（phase=validated）plan.md §7 的 9 条 ADR（重命名/抽取/base 纯化泛型化/web-fetch 归位等），状态由 PROPOSED 更新为 ACCEPTED（commit d03dca4 已实施）
+> **版本**: v3.0（基于工作区 d03dca4；V1 8 条 + V2 9 条 + V4 12 条）
+> **更新说明**: V2 增量追加——引用 specs-tree-web-cli-v2（phase=validated）plan.md §7 的 9 条 ADR（重命名/抽取/base 纯化泛型化/web-fetch 归位等），状态由 PROPOSED 更新为 ACCEPTED（commit d03dca4 已实施）；V4 增量追加（2026-09-08）——引用 specs-tree-web-cli-base-v4 plan.md §8 的 12 条 ADR（载体判据/事件 push 通道/预算/对话框 override/网络 instrumentation/EXT 契约预留等），validate-report v1.0 实测后全部落定 ACCEPTED（ADR-V4-010 经 G-01 PASS）
 
 ---
 
@@ -17,6 +17,7 @@
 - **甄别口径**：CHANGELOG.md Unreleased 段仅采信带验证记录的工程事实；规划性描述（语义 diff、CI 自动渲染、SSE 流式等）未纳入任何 ADR。
 - **V2 口径**：§2.2 的 V2 ADR 引用 specs-tree-web-cli-v2 全套产物（discovery/spec/plan/tasks/review/validate，phase=validated）；plan.md 中标注 PROPOSED，commit `d03dca4` 实施后本表更新为 **ACCEPTED**。「证据待补」条目集中在 §3，不编造缺失证据。
 - **路径口径**：V1 各条（§2.1）的证据锚点文件路径为**决策当时（V2 前）的目录名**（如 `packages/core/`、`packages/web/`），V2 后对应 `packages/lgdl-core/`、`packages/lgdl-web/` 等；锚点指向的 commit 与模块语义不变，属历史记录保留。
+- **V4 口径**：§2.3 的 V4 ADR 引用 specs-tree-web-cli-base-v4 全套产物（phase 以 validate-report v1.0 结论为准——state.json 滞后 builded，见根级 §5.3）；plan.md 中标注 PROPOSED/ACCEPTED，validate 实测（2026-09-08，分支 `feature/web-cli-base-v2`，未合入 main）后全部落定 ACCEPTED；ADR-V4-010 原 PROPOSED（验证门前置），G-01 验证门 PASS 后转 ACCEPTED。锚点证据以 validate-report v1.0 的 V1~V17 实测为准。
 
 ## 1. ADR 速查表
 
@@ -39,6 +40,18 @@
 | ADR-V2-007 | web-fetch 中性化归位：lgdl-web-fetch → web-fetch，工具/解析/执行/help 归 base | **ACCEPTED** | web-cli-base / lgdl-web | `d03dca4`；plan §2.6-⑦ | 完整 |
 | ADR-V2-008 | op 协议单一数据源：OP_COMMANDS 元数据注册表 → WEB_OP_TOOL 动态生成 | **ACCEPTED** | lgdl-web-op-cli | `d03dca4`；plan §2.5 | 完整 |
 | ADR-V2-009 | 回归门禁口径：守恒 388 + 断言逐字节 + 新增接线测试 | **ACCEPTED** | 全仓测试 | `d03dca4`；plan §4.2 | 完整（420 实测） |
+| ADR-V4-001 | v4 范围判定标准 = 载体判据（页内可达全落地 / 需扩展只契约预留） | **ACCEPTED** | web-cli-base v4 全部能力线 | v4 plan §8（分支 feature/web-cli-base-v2）；validate V2/V12 | 完整（validate-report v1.0） |
+| ADR-V4-002 | 事件 push 通道 = 文档级 EventBus + env.events 可选缝（同步捕获 + lastId 增量拉取；订阅随文档销毁） | **ACCEPTED** | web-cli-base event-bus.ts / env.events / platform-events.ts | v4 plan §2.3/ADR-002 | 完整（V3/V4/V5 实测） |
+| ADR-V4-003 | 事件去重/顺序/合并（全局单调 seq + 每订阅游标 + 抖动合并窗口 + 最旧丢弃计数） | **ACCEPTED** | web-cli-base event-bus.ts | v4 plan §2.3/ADR-003 | 完整（V3/V7） |
+| ADR-V4-004 | 事件通道预算默认值口径（O-011-α：DEFAULT_BUDGETS + sensitiveDetailLimit） | **ACCEPTED** | web-cli-base 预算常量 | v4 plan §4.3/ADR-004 | 完整（V3 逐项断言） |
+| ADR-V4-005 | 事件负载字段与过滤语法 + dom observe 落位（events subscribe --kind dom） | **ACCEPTED** | web-cli-base events 工具 / dom observe | v4 plan §3.1/ADR-005 | 完整（V4 22/22） |
+| ADR-V4-006 | 敏感字段模型扩展至 v4 新对象（cookie/URL·header·body/键入/console·对话框/富剪贴板） | **ACCEPTED** | web-cli-base sensitive.ts | v4 plan §3.9/ADR-006 | 完整（V4/V6/V9/V10） |
+| ADR-V4-007 | 对话框 override：同 realm 捕获 + 缺省保守应答 + 破坏性 deny-accept 护栏 | **ACCEPTED** | web-cli-base platform-events.ts dialog 面 | v4 plan §3.2/ADR-007 | 完整（V8 18/18） |
+| ADR-V4-008 | 网络观察/拦截 = 同 realm fetch/XHR 单点共享 instrumentation（观察 P1/拦截 P2 deny；AI 自请求默认不可见） | **ACCEPTED** | web-cli-base platform-events.ts networkPatch | v4 plan §3.3/ADR-008 | 完整（V6/V15，真实浏览器实证） |
+| ADR-V4-009 | cookie 与富剪贴板/粘贴页内面实现与门禁（同源非 HttpOnly 掩码缺省 + ClipboardItem 富写 + paste 事件读） | **ACCEPTED** | web-cli-base cookie/clipboard 面 | v4 plan §3.4/3.5/ADR-009 | 完整（V9 19/19 + V10 14/14） |
+| ADR-V4-010 | 合成 touch = P2 最小浏览器验证门（失败降级 out + CDP 归属） | **ACCEPTED（G-01 PASS）** | dom tap/swipe/pinch | v4 plan §3.7/ADR-010 | 完整（V14 8/8 + G-01 复核 PASS） |
+| ADR-V4-011 | shadow/iframe 穿透定位 = 共享 resolver 增强（open shadow + 同源 iframe + 深度护栏；closed/跨域归属） | **ACCEPTED** | web-cli-base dom 定位面 | v4 plan §3.6/ADR-011 | 完整（V11 11/11） |
+| ADR-V4-012 | EXT 统一转译面 + 契约预留 + F-14 关系纪律（纯文档面，零扩展工程零依赖） | **ACCEPTED** | ext-attribution.ts ATTRIBUTION_MAP | v4 plan §3.8/ADR-012 | 完整（V12 17/17） |
 
 ---
 
@@ -253,6 +266,29 @@
 
 ---
 
+## 2.3 V4 ADR 详表（specs-tree-web-cli-base-v4，12 条）
+
+> 本节引用 specs-tree-web-cli-base-v4 全套产物（discovery/spec/plan/tasks/build/review/validate，validate-report v1.0 2026-09-08 结论 ⚠️ 有条件通过 0 阻塞）。plan.md §8 中标注状态（ADR-010 为 PROPOSED），validate 实测后全部落定（ADR-010 经 G-01 验证门 PASS 转 ACCEPTED）。代码在分支 `feature/web-cli-base-v2`（未合入 main）。完整决策/背景见 plan.md §8，实测锚点以 validate-report v1.0 为准。**聚合全景见 [核心引擎/web-cli-base浏览器Agent谱系.md](核心引擎/web-cli-base浏览器Agent谱系.md)**。
+
+**§8 决策汇总（12 条）**：
+
+| ADR | 决策内容 | 状态 | 实测锚点（validate-report v1.0） |
+|-----|---------|:--:|------|
+| **V4-001** | v4 范围判定标准 = 载体判据：页内可达（不依赖浏览器扩展）全落地 / 需扩展只契约预留 + 不支持转译；C-05/C-11 保持作者显式裁决 out | ACCEPTED | V2（grep 零命中）/ V12（归属逐项 17/17） |
+| **V4-002** | 事件 push 通道 = 文档级 EventBus + env.events 可选缝：同步捕获、lastId 增量拉取、订阅随文档销毁（跨导航失效语义，无自动续接 NG-009） | ACCEPTED | V3（node 11/11）/ V4（浏览器 22/22）/ V5（生命周期 13/13） |
+| **V4-003** | 去重/顺序/合并：hub 全局单调 seq + 每订阅游标 lastId；抖动类（scroll/resize/mousemove/mouseover）合并窗口 800ms 可配 → count 计数事件 | ACCEPTED | V3（合并 count=5 窗口断言）/ V7（洪峰 13/13） |
+| **V4-004** | 事件通道预算默认值（O-011-α 口径表 + sensitiveDetailLimit=200）；上下文只见摘要、自动暂停、全局关零常驻 | ACCEPTED | V3（DEFAULT_BUDGETS 逐项断言）/ V7（autoPause 归零恢复） |
+| **V4-005** | 统一事件面 `{seq,ts,kind,type?,target?,text?,meta?}` + 过滤语法（类型∩selector∩URL 模式∩level）；dom observe 经 events subscribe --kind dom 落位 | ACCEPTED | V4（source page/synthetic、键入脱敏）/ V6 |
+| **V4-006** | FR-006 敏感模型扩展到 v4 新对象：redactUrlQuery/maskHeaderValue/maskTextPayload 纯函数族 + 键入负载无明文 + console/对话框脱敏可配 | ACCEPTED | V4/V6/V9/V10 负向断言（明文零进出）|
+| **V4-007** | 对话框 override：同 realm 捕获（引用替换可逆 uninstall）+ 缺省保守应答（confirm→false/prompt→null）+ 破坏性 deny-accept 护栏 | ACCEPTED | V8（18/18：install deny 不装/allow 可逆/三类型事件/审计）|
+| **V4-008** | 网络观察/拦截 = 同 realm fetch/XHR 单点共享 instrumentation：惰性安装（首订阅/首规则）、AI 自请求默认不可见（env.fetch 早期绑定，公开差异）| ACCEPTED | V6（AI 自请求零事件实证）/ V15（拦截改写 15/15 + G-02）|
+| **V4-009** | cookie（同源非 HttpOnly 掩码缺省 + read-detail trusted+ask 明文）与富剪贴板/粘贴页内面（ClipboardItem 富写 + paste 捕获 + 无手势说明）| ACCEPTED | V9（19/19 cookie roundtrip 三路）/ V10（14/14 富剪贴板保真）|
+| **V4-010** | 合成 touch = P2 最小浏览器验证门：失败降级 out + CDP Input.dispatchTouchEvent 归属说明（plan 标注 PROPOSED → G-01 PASS 落定）| ACCEPTED | V14（8/8 + G-01 独立复核 PASS）|
+| **V4-011** | shadow/iframe 穿透定位 = 共享 resolver 增强：open shadow + 同源 iframe via 标注 + 深度护栏 4 层；closed shadow/跨域 iframe → F-14/content script 归属 | ACCEPTED | V11（11/11：2 层嵌套/iframe onclick 0→1/6 层护栏/跨域归属）|
+| **V4-012** | EXT 纪律：ATTRIBUTION_MAP 12 能力纯常量六字段（仅 F-14 立项继承，非承诺）；零扩展工程痕迹（grep 零命中）、零依赖（package.json diff=0）、ROADMAP F-14 行不变 | ACCEPTED | V12（17/17 + V2 grep 交叉）|
+
+---
+
 ## 3. 证据待补与说明
 
 | # | ADR | 条目 | 说明 | 处理 |
@@ -269,3 +305,4 @@
 |------|---------|------|--------|
 | v1.0 | 初始创建：从系统架构 §2.3 展开 8 条 ADR 详表（决策/备选/理由/证据锚点） | 2026-08-30 | sddu-docs Agent |
 | v2.0 | V2 增量追加：§1 速查表 + §2.2 共 9 条 V2 ADR（重命名执行策略/base 零 lgdl 依赖/DomainApi 泛型化/createOperationApplier 泛型回留/exec 参数化注入/handler 注入面/web-fetch 归位/op 协议单一数据源/回归门禁），引用 specs-tree-web-cli-v2 plan.md §7，状态 PROPOSED → ACCEPTED（commit d03dca4） | 2026-09-01 | sddu-docs Agent |
+| v3.0 | V4 增量追加：§1 速查表补 ADR-V4-001~012 + §2.3 详表（12 条：载体判据/事件 push 通道 EventBus+env.events/seq·游标·合并窗口/预算默认值/负载字段与过滤/敏感模型扩展/对话框 override 护栏/网络共享 instrumentation/富剪贴板页内面/合成 touch 验证门/shadow·iframe 穿透/EXT 契约预留），引用 specs-tree-web-cli-base-v4 plan.md §8 + validate-report v1.0 实测锚点 | 2026-09-08 | sddu-docs Agent |

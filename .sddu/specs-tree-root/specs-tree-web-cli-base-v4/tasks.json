@@ -1,0 +1,534 @@
+{
+  "meta": {
+    "feature": "web-cli-base v4：浏览器外壳纵深与事件流——事件 push/缓冲/订阅通道 + 页内可达切面快赢 + 扩展线分界与契约预留",
+    "featureKey": "specs-tree-web-cli-base-v4",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-08",
+    "version": "1.0.0",
+    "sourcePlan": "plan.md v1.0（§3.0 FR 落位总表 + §5.4 波次交接 + §6 文件影响 + §9 任务切分建议 TB-A~TB-O + 12 ADR 内嵌 §8）",
+    "sourceSpec": "spec.md v1.0（30 FR 十一组 + 8 NFR + 12 EC + 10 AC，冻结）",
+    "taskCount": 14,
+    "waveCount": 9,
+    "complexity": {
+      "S": 0,
+      "M": 8,
+      "L": 6
+    },
+    "planWave": {
+      "P0": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005"],
+      "P1": ["TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010", "TASK-011"],
+      "P2": ["TASK-012", "TASK-013", "TASK-014"]
+    },
+    "note": "机器可读任务清单，与 tasks.md 一一对应。14 任务 = plan §9 TB-A~TB-O 按「文件所有权 + 依赖拓扑 + 波次门禁」整合：TB-D+TB-F 合并为 TASK-004（platform-events.ts 单文件所有权，观察源一次成文，D-001）；TB-L 三文件（session/AiPanel/AskDialog + base index）合并为 TASK-011（FR-028/029/030 场景单点收口，v3 TASK-009 先例）；P0 串行主轴 TASK-001→003→004/005（event-bus → platform 缝类型 → 浏览器观察源工厂 + events 工具）；P1 五路并行 006~010（dialog/cookie/clipboard/resolver/EXT attribution）→ 011 场景收口；P2 = 012（NET 拦截 G-02 验证门）/013（TCH 合成 touch G-01 验证门）各自内嵌降级出口（验证失败 → out 记录分支，零实现或降级 FR-026 契约预留）；TASK-014 = 红线校验（AC-001：dom 27 头部注册序 + v3 全工具零回归 + base 零依赖/零扩展痕迹/明文 grep）+ 终收口 GATE（全仓 build/test + V13 冒烟清单扩展 + validate 移交 + ROADMAP v0.7 同批登记）。红线纪律：additive 零回归每步门禁（§4.1 检查点 ①~④）、既有工具零推式副作用、预算常量单一数据源 DEFAULT_BUDGETS（TASK-001，工具层不硬编码）、platform-events/platform-dom/platform/session 四文件跨波次串行所有权（§4.3）、EXT 组纯文档面零扩展工程（TASK-010）、测试守恒 D-005（既有测试零删除零降级）。类型分布：实施 12 + 文档/契约预留 1（010）+ 验证门 2（012/013 内嵌降级出口）。任务执行建议：按 Wave 顺序逐个执行；波内并行组仅代表无依赖可换序，⚠️ 同文件任务（010 接线 MODIFY 005~008 已建工具 help；012/013 同追加 session.ts）须串行执行。"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "tasks": ["TASK-001", "TASK-002"],
+      "strategy": "并行组 ①（P0-a）：event-bus Hub 纯逻辑 / sensitive+audit 纯逻辑；均无依赖、文件不相交"
+    },
+    {
+      "wave": 2,
+      "tasks": ["TASK-003"],
+      "strategy": "串行（P0-b）：platform.ts 缝类型面（依赖 TASK-001 类型语义），全缺省编译零破坏"
+    },
+    {
+      "wave": 3,
+      "tasks": ["TASK-004", "TASK-005"],
+      "strategy": "并行组 ②（P0-c）：004 platform-events.ts 观察源工厂 + browserEnv 装配（dep 001/002/003）；005 events 工具（dep 003，可 fake hub 注入面先行）——建议先 004 后 005 便于真 hub 联调"
+    },
+    {
+      "wave": 4,
+      "tasks": ["TASK-006", "TASK-007"],
+      "strategy": "并行组 ③（P1-a）：006 dialog（dep 002/003/004）；007 cookie（dep 002/003）；文件不相交"
+    },
+    {
+      "wave": 5,
+      "tasks": ["TASK-008", "TASK-009"],
+      "strategy": "并行组 ④（P1-b）：008 clipboardRich（dep 003/004）；009 SHD resolver（无依赖）；platform-dom.ts 由 007(W4) 先改、009(W5) 后改，跨波次串行安全"
+    },
+    {
+      "wave": 6,
+      "tasks": ["TASK-010"],
+      "strategy": "串行（P1-c）：EXT attribution 接线（dep 005~008 工具就绪；⚠️ 接线 MODIFY 已建工具 help/executor，必须串行）"
+    },
+    {
+      "wave": 7,
+      "tasks": ["TASK-011"],
+      "strategy": "串行（P1-d 场景收口）：lgdl-web session 矩阵 + 策略 + AiPanel/AskDialog + base index 导出（dep 004~010）"
+    },
+    {
+      "wave": 8,
+      "tasks": ["TASK-012", "TASK-013"],
+      "strategy": "并行组 ⑤（P2）：NET 拦截（G-02）/ TCH 合成 touch（G-01）两路验证门任务；⚠️ 均追加 session.ts 行 → 建议按 012→013 顺序执行避免并改冲突"
+    },
+    {
+      "wave": 9,
+      "tasks": ["TASK-014"],
+      "strategy": "终收口 GATE：红线校验（AC-001 专项）+ 全仓门禁 + V13 冒烟清单扩展 + validate/ROADMAP 移交（dep 全部）"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "event-bus.ts 事件总线核心（纯逻辑，预算常量单一数据源）",
+      "tb": "TB-A",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": [],
+      "planWave": "P0",
+      "wave": 1,
+      "fr": ["FR-008", "FR-013", "FR-014"],
+      "nfr": ["NFR-007"],
+      "ec": ["EC-002", "EC-012"],
+      "adr": ["ADR-002", "ADR-003", "ADR-004"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/event-bus.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/event-bus.test.ts" }
+      ],
+      "acceptance": [
+        "DEFAULT_BUDGETS 常量集中声明（缓冲 200/上限 1000、累计 2000 自动暂停、并发 8、速率 200 条/s、合并窗口 800ms、摘要 N=10、负载 4KB）——单一数据源供单测断言，工具层不硬编码",
+        "订阅生命周期 subscribe/unsubscribe/pause/resume/clear 语义正确；多订阅并发互不干扰",
+        "缓冲满最旧丢弃 + dropped 计数准确；单事件超 4KB 截断 + truncated 标记",
+        "pull {lastId} 增量无重复无遗漏（本地游标 = 已拉最大 seq）",
+        "抖动类（scroll/resize/mousemove/mouseover）合并窗口单条 count 事件；非抖动类不合并",
+        "全局单调 seq + 事件入缓冲即冻结（不可变负载）",
+        "全局开关默认关 = 零常驻开销（NFR-007）",
+        "审计钩子窄接口外发（subId/kind/计数，无明文；不直接 import audit 类型新值，类型收口归 TASK-002）",
+        "base build + 新增单测全绿；既有测试零删除零降级（AC-001 每步门禁）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "name": "sensitive 脱敏函数族扩展 + audit 审计事件面扩展",
+      "tb": "TB-C",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": [],
+      "planWave": "P0",
+      "wave": 1,
+      "fr": ["FR-006", "FR-007"],
+      "nfr": ["NFR-002", "NFR-008"],
+      "ec": ["EC-003"],
+      "adr": ["ADR-006"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/sensitive.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/sensitive.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/audit.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/audit.test.ts" }
+      ],
+      "acceptance": [
+        "redactUrlQuery：URL 查询串 token/key/sign 参数掩码位存在，非敏感参数不受影响",
+        "isSensitiveHeader（authorization/cookie/x-api-key/proxy-authorization）+ maskHeaderValue 掩码/长度占位",
+        "maskTextPayload：key=value/Bearer/token: 启发式掩码命中（三态沿 v3 maskValue）",
+        "键入负载策略不含明文值回显（key 名 + 修饰键布尔）",
+        "console/对话框/富剪贴板文本可配脱敏策略常量（缺省保守）",
+        "audit.ts AuditEventType 扩展（subscribe/unsubscribe/event-delivery-summary/dialog/cookie/net-intercept）+ 字段断言无明文",
+        "v3 sensitive/audit 既有用例零回归；base build + test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-003",
+      "name": "platform.ts 新缝类型面 + PlatformDomOps 可选方法 + 未注入转译",
+      "tb": "TB-B",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": ["TASK-001"],
+      "planWave": "P0",
+      "wave": 2,
+      "fr": ["FR-001", "FR-002", "FR-005"],
+      "nfr": ["NFR-006"],
+      "ec": ["EC-011"],
+      "adr": ["ADR-002", "ADR-009"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform.test.ts" }
+      ],
+      "acceptance": [
+        "PlatformEnv 增 events?/clipboardRich? 可选缝；PlatformDomOps 增 cookieRead?/cookieWrite?/cookieDelete?/touchDispatch?（#26~#29）全部缺省 undefined",
+        "全部新缝/方法缺省时既有平台代码编译零错误（FR-001/002 缺省兼容）",
+        "nodeEnv 不预置 events/clipboardRich；未注入调用可读错误不中断（EC-011）",
+        "PlatformEventHub 接口签名对齐 plan §2.3（subscribe/unsubscribe/list/pause/resume/clear/pull/pullSensitive/status/setBudget/switch/sources）",
+        "类型面 JSDoc 对齐 plan；PlatformObserveKind 枚举 dom/lifecycle/console/network/paste/dialog",
+        "platform.test.ts 增补缺省/未注入断言；既有用例零回归；base build + test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-004",
+      "name": "platform-events.ts 观察源工厂 + browserEnv 装配 env.events（dom/lifecycle/console/network）",
+      "tb": "TB-D+TB-F",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": ["TASK-001", "TASK-002", "TASK-003"],
+      "planWave": "P0",
+      "wave": 3,
+      "fr": ["FR-003", "FR-009", "FR-010", "FR-011", "FR-012", "FR-015"],
+      "nfr": ["NFR-004", "NFR-007"],
+      "ec": ["EC-001", "EC-011"],
+      "adr": ["ADR-002", "ADR-003", "ADR-005", "ADR-008"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/platform-events.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/platform-events.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform-dom.ts" }
+      ],
+      "acceptance": [
+        "createBrowserEventHub 构造零副作用；首个订阅/规则才惰性安装（默认关零常驻 NFR-007）",
+        "domObserve 捕获期委托挂载/卸载随订阅生命周期；负载 type/target 摘要/ts/seq；键入敏感面无明文值",
+        "lifecycle：hashchange/popstate/visibilitychange/pagehide 命中；整页导航后 list 空态 + 失效提示可查（EC-001）",
+        "consolePatch：捕获 level+脱敏摘要；原输出仍到 DevTools；末退订还原",
+        "networkPatch 观察：fetch/XHR 事件命中 method/URL/status/耗时；URL token 掩码；AI 自请求默认不可见（ADR-008）",
+        "synthetic 标志：合成派发 source:'synthetic' vs 页面 'page' 可区分（FR-015）",
+        "零扩展 API：实现面 grep chrome.runtime/tabs/downloads = 0",
+        "node 注入面单测全绿 + 真实浏览器最小冒烟记录（dom/lifecycle/console/network ≥1）；base build + test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base",
+        "真实浏览器最小冒烟（chromium）：订阅真实事件命中记录，validate 承接扩展清单"
+      ]
+    },
+    {
+      "id": "TASK-005",
+      "name": "events-tools.ts 事件订阅/拉取工具",
+      "tb": "TB-E",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": ["TASK-003"],
+      "planWave": "P0",
+      "wave": 3,
+      "fr": ["FR-008", "FR-009", "FR-010", "FR-011", "FR-012", "FR-013", "FR-014", "FR-015", "FR-005", "FR-007"],
+      "nfr": ["NFR-003"],
+      "ec": ["EC-011", "EC-012"],
+      "adr": ["ADR-005"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/events-tools.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/events-tools.test.ts" }
+      ],
+      "acceptance": [
+        "11 子命令 subscribe/list/unsubscribe/pause/resume/clear/pull/pull-sensitive/status/budget/switch executor/schema/help 全就绪",
+        "subcommandRisks 对齐 plan §3.1（subscribe/list/status/pull='read'；unsubscribe/pause/resume/clear/budget/switch='state' 缺省 ask；pull-sensitive='write' + trusted）",
+        "无注入面（env.events undefined）→ 通道不可用可读转译不中断（EC-011）",
+        "node 注入面（fake hub）全绿：注册/退订/暂停/恢复/清空/增量拉取/status/budget/switch",
+        "订阅过滤：类型 ∩ selector（css:/text=）∩ URL 模式 ∩ level 命中/未命中单测",
+        "事件负载统一面 {seq,ts,kind,type,target,text(masked),meta}；context 只见摘要+计数（NFR-003）",
+        "--sensitive 订阅全程入审计 + 明细走 pull-sensitive（trusted+ask 决策入审计）",
+        "help 含 dom observe 别名 + 局限声明；base build + test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-006",
+      "name": "对话框 override + 应答策略（dialog-policy + dialog-tools）",
+      "tb": "TB-G",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": ["TASK-002", "TASK-003", "TASK-004"],
+      "planWave": "P1",
+      "wave": 4,
+      "fr": ["FR-016", "FR-017", "FR-005", "FR-006", "FR-007"],
+      "nfr": ["NFR-004"],
+      "ec": ["EC-005", "EC-006", "EC-010"],
+      "adr": ["ADR-007"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/dialog-policy.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/dialog-policy.test.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/dialog-tools.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/dialog-tools.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform-events.ts" }
+      ],
+      "acceptance": [
+        "dialog-policy 纯逻辑单测：缺省保守三路（alert 记录即返回 / confirm·prompt 无匹配 dismiss）/ trusted accept 放行 / 破坏性 deny-accept（EC-006）/ prompt 仅 trusted 输入",
+        "dialog 工具 6 子命令（override-install/uninstall/policy-add/list/remove/status）就绪",
+        "override-install write risk 缺省 ask；deny 后不安装；安装入审计",
+        "真实浏览器 alert/confirm/prompt 捕获 + 文本脱敏；卸载恢复原生；重复安装冲突可读（NFR-004）",
+        "policy-add untrusted 拒 + 需 --trusted true 可读错误；命中与应答入事件通道 + 审计",
+        "原生对话框入参 → 不支持归属位（EC-010，接线归 TASK-010）",
+        "base build + test 全绿；v2/v3 既有用例零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-007",
+      "name": "cookie 读/写/删（同源非 HttpOnly）+ cookie-tools",
+      "tb": "TB-H",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": ["TASK-002", "TASK-003"],
+      "planWave": "P1",
+      "wave": 4,
+      "fr": ["FR-019", "FR-020", "FR-005", "FR-006", "FR-007"],
+      "nfr": ["NFR-002"],
+      "ec": ["EC-003", "EC-007", "EC-009"],
+      "adr": ["ADR-009"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform-dom.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/cookie-tools.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/cookie-tools.test.ts" }
+      ],
+      "acceptance": [
+        "cookieRead 解析输出名/值缺省掩码/域/路径/有效期可达子集",
+        "read-detail：risk 'write' + trusted + ask 才返回明细；决策入审计",
+        "cookieWrite/cookieDelete 写后回读断言；write risk 缺省 ask、deny 后值不变；untrusted 值拒写可读错误",
+        "受限标志位分类转译（Secure 仅 HTTPS / HttpOnly 不可写，EC-007）",
+        "HttpOnly 读/跨域/域级批量 → 不支持 + 归属 chrome.cookies（占位与 TASK-010 接线一致性断言）",
+        "审计无明文（名掩码+域+动作）；base build + test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-008",
+      "name": "剪贴板富内容写 + paste 事件读（clipboardRich 缝 + clipboard 富子命令）",
+      "tb": "TB-I",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": ["TASK-003", "TASK-004"],
+      "planWave": "P1",
+      "wave": 5,
+      "fr": ["FR-021", "FR-022", "FR-005", "FR-006"],
+      "nfr": ["NFR-004"],
+      "ec": ["EC-008"],
+      "adr": ["ADR-009"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/clipboard.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform-events.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/clipboard.test.ts" }
+      ],
+      "acceptance": [
+        "clipboardRich 富写缝（ClipboardItem text/html/image/png/text/plain 并存）；与既有文本缝互不覆盖",
+        "write-html/write-image：真实浏览器富写 roundtrip（保真/字节断言）；授权失败两路转译（EC-008）",
+        "paste-read：真实用户粘贴富内容可读；无手势读 → 不支持说明（NG-012）",
+        "读 = ask + 脱敏；既有文本 read/write 用例零回归",
+        "pasteCapture 源惰性挂载/卸载；base build + test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-009",
+      "name": "shadow/iframe 穿透定位（共享 resolver 增强 + locator 帮助面）",
+      "tb": "TB-J",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": [],
+      "planWave": "P1",
+      "wave": 5,
+      "fr": ["FR-023"],
+      "nfr": ["NFR-007"],
+      "ec": ["EC-009"],
+      "adr": ["ADR-011"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform-dom.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/locator.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform-dom.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/locator.test.ts" }
+      ],
+      "acceptance": [
+        "open shadow 内部元素经穿透 selector 命中（read-element/click ≥1）+ via:'shadow' 标注",
+        "同源 iframe contentDocument 内元素命中（via:'iframe'）",
+        "深度护栏默认 ≤4 层触发可读提示",
+        "closed shadow/跨域 iframe → 不支持 + 归属（EC-009，接线归 TASK-010）",
+        "既有 CSS/text= 定位用例零回归（解析层零改动）",
+        "base build + test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-010",
+      "name": "EXT「不支持 + 归属」统一转译面 + 契约预留（ext-attribution）",
+      "tb": "TB-K",
+      "complexity": "M",
+      "type": "docs-contract",
+      "dependsOn": ["TASK-005", "TASK-006", "TASK-007", "TASK-008"],
+      "planWave": "P1",
+      "wave": 6,
+      "fr": ["FR-025", "FR-026", "FR-027"],
+      "nfr": ["NFR-001", "NFR-002"],
+      "ec": [],
+      "adr": ["ADR-001", "ADR-012"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/ext-attribution.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/ext-attribution.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/events-tools.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/dialog-tools.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/cookie-tools.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/clipboard.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/dom-tools.ts" }
+      ],
+      "acceptance": [
+        "ATTRIBUTION_MAP 覆盖 spec §2.5 🔴 列全部能力（归属 + 扩展 API/CDP 域 + 契约预留建议字段）",
+        "unsupportedAttribution 统一文案与 v3 chrome-tools 整页截图先例同构；out 面逐项转译断言 ≥1",
+        "各工具 help 归属表接线 + 006/007 归属占位收敛一致性断言",
+        "契约预留类型占位不参与 deriveTools（schema 体积零变化）",
+        "grep 零扩展工程痕迹（chrome.runtime/tabs/downloads/webRequest/manifest/@types/chrome）+ package.json devDep 零新增",
+        "base build + test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base",
+        "git diff packages/web-cli-base/package.json 零变更；grep -rn \"chrome\\.runtime|chrome\\.tabs|chrome\\.downloads|webRequest|manifest\" packages/web-cli-base/src 零命中"
+      ]
+    },
+    {
+      "id": "TASK-011",
+      "name": "lgdl-web 场景接入（session 矩阵 + 策略 + 事件/订阅 UI + base index 导出收口）",
+      "tb": "TB-L",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": ["TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010"],
+      "planWave": "P1",
+      "wave": 7,
+      "fr": ["FR-028", "FR-029", "FR-030"],
+      "nfr": ["NFR-006"],
+      "ec": ["EC-004"],
+      "adr": [],
+      "files": [
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/session.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/AiPanel.tsx" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/AskDialog.tsx" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/session.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/index.ts" }
+      ],
+      "acceptance": [
+        "session.ts v4 注册块置于既有块后追加（顺序断言零漂移）；net/touch 追加位注释预留",
+        "矩阵单测：启用集 → 派生 schema 一致；默认关工具 schema 不含 + help 标注 + 派发禁用可读（FR-028）",
+        "LGDL_DEFAULT_POLICY_RULES：cookie write/delete deny、dialog accept deny、override-install ask、观察只读 allow 生效（FR-030/EC-004）",
+        "AI 闭环 ask → 弹层呈现 + allow/deny/超时三路（FR-029/AC-009）",
+        "事件摘要区呈现不撑爆上下文（预算断言）；base 零 UI（grep）",
+        "base index v4 导出收口 + 既有导出零删除（NFR-006）",
+        "lgdl-web + base build/test 全绿；v2/v3 既有用例零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/lgdl-web && npm run test --workspace @lgdl/lgdl-web",
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-012",
+      "name": "网络拦截（net-tools + networkPatch 拦截引擎）— P2 门禁 + G-02 验证门",
+      "tb": "TB-M",
+      "complexity": "L",
+      "type": "verify-gate-implement",
+      "dependsOn": ["TASK-004", "TASK-011"],
+      "planWave": "P2",
+      "wave": 8,
+      "fr": ["FR-018", "FR-005", "FR-007"],
+      "nfr": ["NFR-002"],
+      "ec": ["EC-004", "EC-009"],
+      "adr": ["ADR-008"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-base/src/net-tools.ts" },
+        { "op": "NEW", "path": "packages/web-cli-base/src/net-tools.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform-events.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/session.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/session.test.ts" }
+      ],
+      "acceptance": [
+        "规则引擎 node 单测：URL 模式命中/未命中；增改 header/查询参数/请求体动作断言",
+        "G-02 真实浏览器 fetch 改写验证（header/参数）→ 通过记录；失败 → out 记录完成（降级 FR-026 契约预留 + 归属说明，零拦截实现残留）",
+        "门禁：未 trusted 规则 deny + 可读错误（EC-004）；net 工具 P2 缺省 deny；矩阵默认关",
+        "拦截命中全量审计（规则 id + URL 脱敏 + 动作，无明文）；无规则零开销零改写",
+        "响应伪造/缓存篡改/先网络栈/跨 realm → 不支持 + 归属 webRequest/DNR/CDP",
+        "观察与拦截共享 instrumentation 互不干扰；base + lgdl-web build/test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base",
+        "npm run build --workspace @lgdl/lgdl-web && npm run test --workspace @lgdl/lgdl-web",
+        "G-02：真实 chromium 最小改写验证（validate 冒烟清单承接记录）"
+      ],
+      "degradationExit": {
+        "gate": "G-02 真实 chromium fetch 改写验证",
+        "pass": "实现拦截引擎 + net 工具（P2 deny + trusted + 审计）",
+        "fail": "FR-018 拦截面降级 out 记录（→ FR-026 契约预留 + webRequest/DNR/CDP 归属说明）；net 工具不注册拦截面；不静默降级、不假装生效"
+      }
+    },
+    {
+      "id": "TASK-013",
+      "name": "合成 touch 派发（dom tap/swipe/pinch）— G-01 验证门",
+      "tb": "TB-N",
+      "complexity": "M",
+      "type": "verify-gate-implement",
+      "dependsOn": ["TASK-011"],
+      "planWave": "P2",
+      "wave": 8,
+      "fr": ["FR-024"],
+      "nfr": [],
+      "ec": ["EC-007"],
+      "adr": ["ADR-010"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/platform-dom.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/dom-tools.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-base/src/dom-tools.test.ts" },
+        { "op": "MODIFY", "path": "packages/lgdl-web/src/ai/session.ts" }
+      ],
+      "acceptance": [
+        "G-01 真实 chromium 合成 touch 验证（tap/swipe/pinch ≥1 命中 touch 监听页）先行，结果记录",
+        "PASS：dom 既有 27 头部注册序不漂移 + tap/swipe/pinch 尾部追加；touchDispatch 序列断言",
+        "PASS：目标不处理合成事件可读提示（v3 EC-007 沿）；help 局限声明（isTrusted=false）",
+        "PASS：session.ts touch 默认关行生效",
+        "FAIL：out 记录完成（FR-024 降级 + CDP Input.dispatchTouchEvent 归属），零实现残留（grep 无 tap/swipe/pinch）",
+        "base + lgdl-web build/test 全绿（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-base && npm run test --workspace @lgdl/web-cli-base",
+        "npm run build --workspace @lgdl/lgdl-web && npm run test --workspace @lgdl/lgdl-web",
+        "G-01：真实 chromium 最小 touch 验证（validate 冒烟清单承接记录）"
+      ],
+      "degradationExit": {
+        "gate": "G-01 真实 chromium 最小验证：合成 TouchEvent 可构造派发且 touch 监听页收到 tap/swipe/pinch 各 ≥1",
+        "pass": "platform-dom touchDispatch + dom tap/swipe/pinch 尾部子命令 + session 默认关行",
+        "fail": "FR-024 降级 out 记录（→ CDP Input.dispatchTouchEvent 归属说明）；零实现（不写 ops/子命令/session 行）"
+      }
+    },
+    {
+      "id": "TASK-014",
+      "name": "红线校验 + 终收口 GATE（AC-001 零回归专项 + 纯度/依赖 + 冒烟清单 + validate 移交）",
+      "tb": "TB-O",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010", "TASK-011", "TASK-012", "TASK-013"],
+      "planWave": "P2",
+      "wave": 9,
+      "fr": ["FR-001", "FR-003", "FR-004"],
+      "nfr": ["NFR-001", "NFR-002", "NFR-003", "NFR-005", "NFR-006", "NFR-007", "NFR-008"],
+      "ec": [],
+      "adr": [],
+      "files": [
+        { "op": "MODIFY", "path": ".sddu/specs-tree-root/ROADMAP.md" },
+        { "op": "MODIFY", "path": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/state.json" }
+      ],
+      "acceptance": [
+        "dom 27 头部注册序零漂移 + v3 全工具行为专项全绿 + deriveTools 顺序断言不漂移（AC-001）",
+        "grep：既有工具无新增 emit/订阅副作用零命中；base 零 lgdl/react import；package.json 零新增依赖（含 devDep）；零扩展工程痕迹（AC-008）",
+        "明文 grep：cookie/URL token/键入/console·对话框/富剪贴板明文零命中（FR-006/007）",
+        "全仓 build（9 包 tsc/vite）零错误 + 全仓 test 全绿（D-005 测试守恒：既有测试零删除）",
+        "G-01/G-02 结果归档（通过 or out 记录）写入 state notes/validate 移交",
+        "validate 移交清单：v4 冒烟面 + v2/v3 收口基线关联表（FR-004 待基线不阻塞）",
+        "ROADMAP.md：v4 与 v2/v3 v0.7 同批发布登记 + F-14 契约预留继承基线（FR-004/027）"
+      ],
+      "verify": [
+        "npm run build && npm test",
+        "红线 grep 断言逐项见 tasks.md TASK-014 验收清单；测试守恒 diff 核对"
+      ]
+    }
+  ]
+}

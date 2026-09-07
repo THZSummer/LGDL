@@ -2,11 +2,11 @@
 
 > **文档定位**: sddu-docs-source — 技术全景聚合的全部原始素材清单（文件 + 实测动作），保证每份产物可追溯
 > **输出文件名**: source.md
-> **数据来源**: 代码扫描生成（本次扫描动作实录）+ Feature 产物聚合（specs-tree-web-cli-v2 全套，V2 更新）
+> **数据来源**: 代码扫描生成（本次扫描动作实录）+ Feature 产物聚合（specs-tree-web-cli-v2 全套，V2 更新 + specs-tree-web-cli-base-{framework,v2,v3,v4} 四代，V3 更新）
 > **创建人**: sddu-docs Agent
 > **创建时间**: 2026-08-30
-> **版本**: v2.0（基于工作区 `feature/group-as-node` @ `d03dca4`，HEAD `d03dca49ba3802df0fd2490b9b9978f121a1c695`）
-> **更新说明**: V2 增量更新——扫描基准 HEAD 15e5b6b → d03dca4；包路径 6 包 → 9 包（lgdl-* 更名 + 新包）；测试实测数字刷新（420 全绿）；素材清单补 lgdl-web-cli / lgdl-web-op-cli / web-cli-base
+> **版本**: v3.0（V2：工作区 `feature/group-as-node` @ `d03dca4`；V3：工作区 `feature/web-cli-base-v2`，web-cli-base 谱系聚合 2026-09-08）
+> **更新说明**: V2 增量更新——扫描基准 HEAD 15e5b6b → d03dca4；包路径 6 包 → 9 包（lgdl-* 更名 + 新包）；测试实测数字刷新（420 全绿）；素材清单补 lgdl-web-cli / lgdl-web-op-cli / web-cli-base。V3 增量更新（2026-09-08）——素材清单补 web-cli-base 浏览器 Agent 谱系四 Feature 产物（framework/v2/v3/v4 的 state.json + spec/plan/review/validate 报告）
 
 ---
 
@@ -116,7 +116,9 @@
 | **系统架构/包依赖关系-deps.md** | §1.1 各包 package.json + import 语句 grep（`lgdl-render/index.ts:10` router import、`lgdl-layout/index.ts:16` core import、`lgdl-web-cli/adapters/lgdl.ts` 组装）+ `lgdl-router.test.ts`（测试隔离证据）+ commit `203a000`/`d03dca4` |
 | **系统架构/端到端数据流-dataflow.md** | `lgdl-cli/commands/render.ts` + `lgdl-cli/shared.ts`（校验门禁）+ `lgdl-web/App.tsx`（compile）+ `lgdl-web-cli/adapters/lgdl.ts` + `web-cli-base/exec.ts:294`（门禁）+ `AiPanel.tsx:363,452` + `scripts/gen-examples.mjs`（示例管线） |
 | **diagrams/ 6 张图（V2 重绘）** | ① architecture-packages（9 包依赖+数据流合并）← §1.1 包声明 + import 关系；② architecture-layers（三层包体系）← 语言层/适配层/框架层分层；③ architecture-deps（9 包依赖）← 同源；④ dataflow-cli（终端管线）← render.ts/shared.ts；⑤ dataflow-web（Web 管线）← App.tsx；⑥ sequence-ai-ops（AI 命令管线）← lgdl-web-cli 执行层/AiPanel/provider.ts。渲染源：各 `.html` 由 archify 编译，IR 源文件 `diagrams/ir/*.json`（V2 全部重绘并通过 showcase 校验 + visual-check） |
-| **adr-index.md** | CHANGELOG.md + §2.1 commit 清单 + §1.2 源码锚点（V1 8 条 + V2 9 条，V2 引用 specs-tree-web-cli-v2 plan.md §7） |
+| **adr-index.md** | CHANGELOG.md + §2.1 commit 清单 + §1.2 源码锚点（V1 8 条 + V2 9 条，V2 引用 specs-tree-web-cli-v2 plan.md §7；V4 12 条引用 specs-tree-web-cli-base-v4 plan.md §8 + validate-report v1.0 实测锚点） |
+| **核心引擎/web-cli-base浏览器Agent谱系.md**（2026-09-08 新建） | specs-tree-web-cli-base-{framework,v2,v3,v4} 四目录的 state.json（phase/版本/updatedAt）+ spec.md（FR/NFR 规模）+ review-report.md + validate-report.md（验证基线/结论）+ ROADMAP.md（版本位/同批登记）——Feature 产物聚合（模式①），未做代码级扫描 |
+| **docs-overview.md**（根级 §5，2026-09-08 增量） | 同上（谱系一览表 + v4 核心结论 + 版本脉络 + 异常标注），聚合 framework/v2/v3/v4 产物 |
 | **source.md** | 本表全部动作与文件清单的实录 |
 
 ## 4. 甄别声明
@@ -134,3 +136,4 @@
 |------|---------|------|--------|
 | v1.0 | 初始创建：素材清单 + 实测动作 + 产物溯源映射 + 甄别声明 | 2026-08-30 | sddu-docs Agent |
 | v2.0 | V2 增量更新：扫描基准 d03dca4；素材清单 9 包路径刷新；实测动作 M1~M13（420 例全绿）；commit 清单补 36bff65/5ea98f3/d03dca4；产物映射补 V2 重绘 6 图 | 2026-09-01 | sddu-docs Agent |
+| v3.0 | V3 增量更新（2026-09-08）：素材清单补 web-cli-base 浏览器 Agent 谱系四 Feature 产物（framework/v2/v3/v4 全套过程产物 + ROADMAP 版本登记）；产物映射补核心引擎/web-cli-base浏览器Agent谱系.md 与根级 docs-overview §5 | 2026-09-08 | sddu-docs Agent |

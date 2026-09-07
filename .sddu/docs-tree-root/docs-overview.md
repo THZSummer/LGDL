@@ -2,16 +2,17 @@
 
 > **文档定位**: sddu-docs-overview — 本级全景入口
 > **输出文件名**: docs-overview.md
-> **数据来源**: 技术全景 = 代码扫描生成（用户指令触发）+ Feature 产物聚合（specs-tree-web-cli-v2 全套产物，2026-09-01 增量更新）。业务全景 = Feature 产物聚合（specs-tree-business-panorama discovery 阶段，2026-08-30 增量追加）
+> **数据来源**: 技术全景 = 代码扫描生成（用户指令触发）+ Feature 产物聚合（specs-tree-web-cli-v2 全套产物，2026-09-01 增量更新）。业务全景 = Feature 产物聚合（specs-tree-business-panorama discovery 阶段，2026-08-30 增量追加）。web-cli-base 谱系 = Feature 产物聚合（framework/v2/v3/v4 四代，2026-09-08 增量追加，见 §5）
 > **创建时间**: 2026-08-30
-> **版本**: v2.0（基于工作区 `feature/group-as-node` @ `d03dca4`，2026-09-01；V2 重构 9 包体系）；2026-09-05 引用链增量更新（a35b750 + cli-panorama v3.0，见修订记录）
-> **生成方式**: 全量构建（代码级扫描，模式②）+ 增量追加（业务域，模式①）+ 增量更新（V2 9 包体系，模式②实测 + 模式①聚合 specs-tree-web-cli-v2）+ 增量更新（2026-09-05 CLI 引用链同步，模式②实测）
+> **版本**: v2.0（基于工作区 `feature/group-as-node` @ `d03dca4`，2026-09-01；V2 重构 9 包体系）；2026-09-05 引用链增量更新（a35b750 + cli-panorama v3.0，见修订记录）；2026-09-08 web-cli-base 谱系增量更新（工作区 `feature/web-cli-base-v2`，v0.7 三 Feature 同批，见修订记录）
+> **生成方式**: 全量构建（代码级扫描，模式②）+ 增量追加（业务域，模式①）+ 增量更新（V2 9 包体系，模式②实测 + 模式①聚合 specs-tree-web-cli-v2）+ 增量更新（2026-09-05 CLI 引用链同步，模式②实测）+ 增量更新（2026-09-08 web-cli-base 浏览器 Agent 谱系，模式①聚合 framework/v2/v3/v4）
 
 ---
 
 ## ⚠️ 扫描口径声明
 
 - 扫描基准为**当前工作区**（分支 `feature/group-as-node`，HEAD `d03dca4`，2026-09-01 V2 重构入库；2026-09-05 CLI 引用链增量更新基于 HEAD `a35b750` + 后续 c7d2bd8 文档提交）。`main` 分支停在 `de2381e`，**不含** v0.6 改动（无 router 包、无 group-as-node、非 9 包体系）——两者差异已在各文档中标注。
+- **2026-09-08 沿革注**：本次增量聚合（web-cli-base 谱系，§5）运行于工作区 `feature/web-cli-base-v2`（HEAD ecf82f5，v0.7 三 Feature 叠加分支，**未合入 main**）。§3.3 质量基线（583 @ a35b750）为 v0.6.0 发布态旧基准；v2/v3/v4 的 724/898/1007 数字出自 Feature validate-report（分支实测），非本次代码级实测——引用时按 §5 口径区分，勿与 §3.3 混读。
 - 测试数字、语法行为、依赖清单均为**当日实测**结果，非文档转述（全仓 583 例，其中 582 通过 + 1 skip，见 §3.3）。
 - CHANGELOG.md Unreleased 段中**仅采信带验证记录的工程事实**；规划性描述（语义 diff、CI 自动渲染、SSE 等）标注「待审视」，未纳入全景。
 - V2 重构（commit `d03dca4`）的架构决策引用 specs-tree-web-cli-v2（discovery/spec/plan/tasks/review/validate 全套，phase=validated）的 9 条 ADR，见 adr-index.md §2（V2 段）。
@@ -34,7 +35,7 @@
 | 组件 | 类型 | 描述 | 关系说明 |
 |------|------|------|---------|
 | **系统架构/** | 域目录 | 9 包 monorepo 依赖关系、端到端数据流、三层包体系（语言层/适配层/框架层）、部署拓扑、**CLI 架构体系全景（双 CLI，详见域内 cli-panorama）** | 全景的「骨架」视图 |
-| **核心引擎/** | 域目录 | 四大引擎深潜：core 语义模型、layout 布局、router 布线、render 渲染、web AI 助手（含 V2 三层结构：lgdl-web-cli / lgdl-web-op-cli / web-cli-base） | 全景的「器官」视图，技术含量最高 |
+| **核心引擎/** | 域目录 | 四大引擎深潜：core 语义模型、layout 布局、router 布线、render 渲染、web AI 助手（含 V2 三层结构：lgdl-web-cli / lgdl-web-op-cli / web-cli-base）；**web-cli-base 浏览器 Agent 谱系（F-23 → v2 → v3 → v4，详见域内 web-cli-base浏览器Agent谱系.md）** | 全景的「器官」视图，技术含量最高 |
 | **业务全景/** | 域目录 | 业务定位（16 条有效 Why）、双层消费模型、核心场景与流程、空白与待确认（含 v0.6 置信度降级） | 全景的「价值」视图（Why 层，聚合自 specs-tree-business-panorama discovery 产物） |
 | **语言参考/** | 域目录 | 类型集中清单：图类型（9）/ 节点 kind（9）/ 成员级类型 / 边结构，三清单合一，带源码证据与漂移标注 | 全景的「类型字典」视图（单一事实源收敛） |
 | **adr-index.md** | ADR 索引 | 从 CHANGELOG + git 历史 + 代码证据提炼的 8 条架构决策 + V2 9 条 ADR（specs-tree-web-cli-v2 plan.md §7） | 决策「为什么」视图 |
@@ -149,6 +150,35 @@ lgdl-core（零依赖）          web-cli-base（零 @lgdl/*，纯机制）
 
 ---
 
+## 5. Feature 谱系聚合：web-cli-base 浏览器 Agent 四代演进（2026-09-08 增量追加）
+
+> 数据来源：Feature 产物聚合（模式①），聚合 `.sddu/specs-tree-root/` 下 specs-tree-web-cli-base-{framework,v2,v3,v4} 四目录的 discovery/spec/plan/tasks/review/validate 全套产物 + ROADMAP v1.9.0/v1.10.0 版本登记。详情见 [核心引擎/web-cli-base浏览器Agent谱系.md](核心引擎/web-cli-base浏览器Agent谱系.md)。
+
+### 5.1 谱系一览（阶段状态 / 版本脉络 / ROADMAP 关联）
+
+| 迭代 | Feature 目录 | 版本位 | phase | 主题 | 验证基线 |
+|------|-------------|--------|:--:|------|---------|
+| F-23 | specs-tree-web-cli-base-framework | v0.6.0（✅ 已发布 2026-09-05） | validated | 框架化：CommandRouter/AgentRunner/DelayGate + 注册收敛 | 全仓 582 pass |
+| v2 | specs-tree-web-cli-base-v2 | v0.7.0 同批① | validated | 九域浏览器原生工具集 + 权限门禁三者组合 | 全仓 724 pass |
+| v3 | specs-tree-web-cli-base-v3 | v0.7.0 同批② | validated | AI 操作浏览器完整工具集（五层全谱 + 子命令级 risk） | 全仓 898 pass |
+| **v4** | **specs-tree-web-cli-base-v4** | v0.7.0 同批③ | **validated（state.json 滞后 builded，见 §5.3）** | **浏览器外壳纵深与事件流：push/订阅通道 + 页内可达切面 + 扩展线契约预留** | **全仓 1007 pass** |
+
+**v4 核心结论（validate-report v1.0，2026-09-08）**：V1~V17 全 ✅、FR 30/30 · NFR 8/8 · EC 12/12 · AC 10/10、全仓 **1007 pass / 1 skip / 0 fail**（base 473 + lgdl-web 66）、chromium headless 真实浏览器冒烟 **148 断言 0 失败**、G-01 合成 touch + G-02 网络拦截改写验证门双 **PASS**、**真实 DeepSeek AI 闭环 11/11 闭合（FR-004 收口①）**；v3 全工具重跑零回归（PhaseA 115/115 + PhaseB 11/11）。范围裁决 =「是否依赖浏览器扩展」——页内可达全实现、依赖扩展只契约预留（EXT ATTRIBUTION_MAP 12 能力六字段，F-14 继承基线）；0 阻塞，2 项低风险观察 + 2 项人工/配置待基线（沿 v0.7 收口登记）。
+
+### 5.2 版本脉络要点
+
+- v0.6.0 已发布：web-cli-base 框架化（F-23）随包发布（CHANGELOG 已收尾）。
+- **v0.7.0 = web-cli-base v2（F-25）+ v3 + v4（F-26）三 Feature 同批**（作者裁决 O-008/O-010/O-012），代码同分支 `feature/web-cli-base-v2` 叠加开发，**未合入 main / 未发布**，收口发布由作者执行（时间不承诺）。
+- v2/v3/v4 验证基线与 main 的 v0.6.0 基线（583）口径不同：582 → 724 → 898 → 1007 为分支实测，全仓只增不删（additive 红线）。
+- ROADMAP 状态：F-25/F-26 均登记于 v0.7 同批（ROADMAP v1.10.0，F-26 登记至 build 阶段）；v4 validate 完成后 state.json / ROADMAP 回填由持有方执行（见 §5.3）。
+
+### 5.3 异常标注（本次增量发现）
+
+- **v4 state.json 滞后**：`specs-tree-web-cli-base-v4/state.json` 仍为 phase=builded、artifacts/files 仅登记至 build.md；但 review-report（37✅+5⚠️→0 阻塞）/ validate-report（V1~V17 全 ✅）已落盘。**判定 = 验证已完成，state 回填滞后**；本全景不改写任何 state.json，v4 阶段以 validate-report 实物为准标注 validated，建议协调者触发 v4 收口（state 回填 + ROADMAP 同步）。
+- **分支口径**：v2/v3/v4 全部质量数字为 `feature/web-cli-base-v2` 分支实测（当前工作区 HEAD ecf82f5），与 main 发布态不同。
+
+---
+
 ## 修订记录
 
 | 生成时间 | 变更 Feature | 生成方式 | 修订人 |
@@ -158,3 +188,4 @@ lgdl-core（零依赖）          web-cli-base（零 @lgdl/*，纯机制）
 | 2026-08-30 | 增量追加语言参考域（类型参考，三清单合一，实读 types.ts 等；新增漂移 T-D1：design.md:79 kind 8 种 vs 源码 9 种） | 增量追加 | sddu-docs Agent |
 | 2026-09-01 | **V2 9 包体系增量更新**（HEAD 15e5b6b → d03dca4；6 包 → 9 包：重命名 lgdl-* + 新增 lgdl-web-cli/lgdl-web-op-cli + web-cli-base 纯化；质量基线实测 420 例；9 包体系章节；D4 漂移解决；G1 沿革标注；6 张图重绘） | 增量更新（模式②实测 + 模式①聚合 specs-tree-web-cli-v2） | sddu-docs Agent |
 | 2026-09-05 | **CLI 引用链增量更新**（HEAD d03dca4 → a35b750 + c7d2bd8 文档提交；系统架构/CLI-架构全景-cli-panorama.md v3.0 + 两张 Archify 附图）：§2 系统架构域描述补「CLI 架构体系全景（双 CLI）」；§3.3 质量基线实测 420 → 583（582 通过 + 1 skip；core 267 / lgdl-web-cli 84 / op-cli 15 / lgdl-web 41 / render 94+1skip / web-cli-base 73 / router 8；D7 同步 258 → 267）；扫描口径注记刷新 | 增量更新（模式②实测 + 引用链同步） | sddu-docs Agent |
+| 2026-09-08 | **web-cli-base 浏览器 Agent 谱系增量追加**（Feature 产物聚合模式①）：新建核心引擎/web-cli-base浏览器Agent谱系.md（聚合 specs-tree-web-cli-base-framework F-23 → v2 F-25 → v3 → v4 F-26 四代；重点纳入 v4——事件 push/订阅通道、页内可达切面、载体分层裁决「是否依赖扩展」、EXT 契约预留 F-14 继承线、validate 1007 pass 全绿）；根级新增 §5 Feature 谱系聚合章节 + §5.3 异常标注（v4 state.json 滞后 builded，validate-report 实物为准）；adr-index.md 追加 v4 12 条 ADR | 增量更新（模式①聚合） | sddu-docs Agent |

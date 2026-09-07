@@ -1,0 +1,53 @@
+{
+  "feature": "web-cli-base v4：浏览器外壳纵深与事件流（11 项缺口整体排查 + 「网页内可达 vs 浏览器扩展」实现载体分层）",
+  "featureKey": "specs-tree-web-cli-base-v4",
+  "name": "web-cli-base v4：浏览器外壳纵深与事件流（事件观察流/多标签/对话框/网络层/上传/cookie/富剪贴板/touch/shadow·iframe/下载/权限模拟 11 项排查 + 扩展载体分层）",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
+  "depth": 1,
+  "childrens": [],
+  "createdAt": "2026-09-07",
+  "updatedAt": "2026-09-08",
+  "description": "web-cli-base 下一迭代。核心定位（作者指令 2026-09-07）：对整体排查出的 11 项能力缺口（事件监听/观察流、多标签/窗口、对话框处理、网络层观察/拦截、文件上传、cookie 读写/删除、剪贴板富内容/文件粘贴、touch 手势、Shadow DOM/iframe 穿透、下载管理、权限模拟）全部纳入 v4 梳理输入范围。核心分界命题：①P1 推送面缺失——当前架构 request→response 无 push/订阅通道，事件观察流整体不可表达；②P2 载体分界——标签/窗口/下载/整页截图/DevTools 级网络拦截等浏览器外壳能力网页 JS 不可达，未来可能经浏览器扩展实现。v4 discovery 关键产出 = 实现载体分层（🟢 网页内可达 1 项 C-07 / 🔴 需浏览器扩展 2 项 C-02/C-10 / 🟡 分层体 6 项 C-01/C-03/C-04/C-06/C-08/C-09 / 🟠 待定 2 项 C-05/C-11）+ 扩展架构线线索（与 PlatformEnv 缝关系、与 F-14/v1.1 边界、NG-002 防抢跑、MV3 平台约束、additive 契约影响）。v3 已判 out 项（NG-003 标签·窗口·下载/NG-004 file input/整页截图 FR-028）为 v4「解冻候选」，须作者 O-006 显式裁决。",
+  "scope": {
+    "in": [
+      "11 项候选能力整体排查的问题挖掘（每项：用户真实场景/痛点，非功能清单）",
+      "实现载体分层：网页内可达（🟢）/需浏览器扩展（🔴）/分层体（🟡）/待定（🟠）——按切面而非能力划分（浏览器能力边界在对象归属：宿主自身对象页内可达、浏览器外壳/跨 realm/先网络栈对象须扩展）",
+      "浏览器扩展架构线梳理：形态线索（PlatformEnv 缝关系/页内↔扩展桥）、与 F-14/v1.1 边界、对 v2/v3 契约影响（additive 纪律 + NG-003/NG-004 解冻为语义变更须显式裁决）",
+      "待澄清问题清单 O-001~O-012（范围波次/推送通道/载体分层/扩展线引入/F-14 关系/解冻范围/跨导航会话/安全模型/合成事件边界/依赖约束/推送预算/版本时序）"
+    ],
+    "out": [
+      "OS 生态位（系统级截图/真 shell 等）→ 未来 os-cli-base（NG-001 延续）",
+      "F-14 产品线内容不抢跑（跨域站点 DOM 自动化/协议发现机制，NG-002 延续，v1.1 开源线）",
+      "LGDL 特有语义（C 档）不动（NG-006）；worker 沙箱语义不混入（NG-010）",
+      "spec 功能需求/技术方案/任务排布（本阶段只挖问题与分界，不越界）"
+    ]
+  },
+  "artifacts": [
+    "discovery.md",
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "tasks.json",
+    "build.md",
+    "review.md",
+    "review-report.md",
+    "validate.md",
+    "validate-report.md"
+  ],
+  "files": {
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/discovery.md",
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/spec.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/tasks.json",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/build.md",
+    "review": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/review.md",
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/review-report.md",
+    "validation": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-base-v4/validate-report.md"
+  },
+  "notes": "spec 阶段完成（2026-09-07，sddu-spec）：作者三裁 → O-001/O-004 范围策略（页内快赢先行 + 扩展线只做「分界声明 + 调用契约预留」，v4 落地 = 网页内可达能力含分层体页内切面）、O-002 push 通道必做（事件 push/缓冲/订阅通道 + dom observe + 生命周期 hook + 网络/console 观察）、O-012 v0.7 同批叠加（v0.7 内第三个 Feature，基线 feature/web-cli-base-v2）——spec.md v1.0 已产出（30 FR 十一组 BSL4/PRM3/EVT8/DIA2/NET1/CK2/CLP2/SHD1/TCH1/EXT3/LGDL3 + 8 NFR + 12 EC + 10 AC）；O-003/O-005~O-011 以建议态 S-01~S-10 写入（O-006 NG-003/NG-004/整页截图保持 out 只契约预留；O-008 安全模型写面分级+untrusted+审计+脱敏；O-011 push 预算去重/过滤/预算/开关）；残留确认项（O-003-α/O-005/O-007/O-009/O-011-α）+ 访谈问题 I-01~I-04 供作者核签；discovery.md v1.1 裁决记录回填（O-001/O-002/O-004/O-012 标记已裁决）；默认单 Feature + P0/P1/P2 三波（§9.5），下一步 @sddu-plan specs-tree-web-cli-base-v4。plan.md v1.0 产出（2026-09-07，sddu-plan）：作者四裁核签为硬约束（裁决 1 = v4 范围判定标准「是否依赖浏览器扩展」统一替换 spec §2.5 枚举、C-05/C-11 保持 out 例外；裁决 2 = NET P2 门禁 in deny；裁决 3 = TCH 最小浏览器验证门；裁决 4 = C-11 权限模拟 out）→ 30 FR 落位总表（§3.0，FR→工具/子命令/模块：events 工具承载 EVT 全部订阅/拉取语义（dom observe = events subscribe --kind dom，P-04 落位）、dialog/cookie/net 新工具、clipboard 富子命令、dom touch P2、SHD 共享 resolver 穿透、EXT attribution 文档面）；push 通道架构 = event-bus.ts 纯逻辑 Hub + PlatformEnv 新可选缝 env.events（PlatformEventHub）+ platform-events.ts 浏览器真实现（观察/override/patch 收敛面扩展，惰性安装零常驻）——同步捕获 + lastId 增量拉取 + 订阅随文档销毁（NG-009 语义天然）；预算默认值口径表（P-03/O-011-α：每订阅 200/累计 2000/并发 8/速率 200 条 s/合并 800ms/摘要 N10/负载 4KB）；12 ADR（ACCEPTED 10 + PROPOSED 2 = ADR-010 touch 验证门，正文内嵌 plan §8）；技术开放点 P-01~P-06 全部采纳默认决策；方案对比 3 主题（Hub+env.events 缝 / 拉取式投递 / fetch·XHR 单点共享 instrumentation）；任务切分建议 15 块交 sddu-tasks（§9，不产 tasks.json）；文件影响 base 新增 7 文件（event-bus/platform-events/events-tools/dialog-tools/dialog-policy/net-tools/cookie-tools/ext-attribution）修改 10+ + lgdl-web 3 文件；零新增依赖（NFR-001/002）。下一步 @sddu-tasks specs-tree-web-cli-base-v4。tasks.md v1.0 + tasks.json v1.0 产出（2026-09-08，sddu-tasks）：plan §9 TB-A~TB-O → 14 原子任务 / 9 执行波次（D-001 整合记录 tasks.md §4.4）——TB-D+TB-F 合并为 TASK-004（platform-events.ts 单文件所有权，dom/lifecycle/console/network 观察源一次成文）；TB-L 三文件合并为 TASK-011（FR-028/029/030 场景收口 + base index 导出，v3 TASK-009 先例）。P0 串行主轴 TASK-001(event-bus Hub+预算常量单一数据源)→003(platform.ts 缝类型)→004(观察源工厂+browserEnv 装配)/005(events 工具, fake hub 先行)；P1 五路并行 006(dialog)/007(cookie)/008(clipboardRich)/009(SHD resolver)/010(EXT attribution 接线) + 011 场景收口；P2 = 012(NET 拦截 G-02 验证门)/013(TCH 合成 touch G-01 验证门) 各内嵌降级出口（验证失败 → out 记录分支：012 降级 FR-026 契约预留 + webRequest/DNR/CDP 归属、013 降级 CDP Input.dispatchTouchEvent 零实现）+ 014 红线校验终收口 GATE（AC-001：dom 27 头部注册序 + v3 全工具零回归 + base 零依赖/零扩展痕迹/明文 grep + 全仓 build/test + V13 冒烟清单 + validate 移交 + ROADMAP v0.7 同批登记）。红线纪律：每步门禁 AC-001（tasks.md §4.1 ①~④）+ 既有工具零推式副作用 + 测试守恒 D-005 + 四文件跨波次串行所有权（platform-events/platform-dom/platform/session，§4.3）+ EXT 组纯文档面零扩展工程（TASK-010）。复杂度 L×6 / M×8 / S×0；类型分布 = 实施 12 + 文档/契约预留 1（010）+ 验证门 2（012/013）。下一步 @sddu-build TASK-001 开始实现第一个任务。 | build 阶段完成（2026-09-08，sddu-build）：14 任务 / 9 波次全量实现，web-cli-base 471 + lgdl-web 66 等全仓测试零失败、全仓 build 零错误；零新增依赖（package.json 零 diff）、base 零 lgdl/react import、零扩展工程实现痕迹（仅契约文案字符串）、dom 27 头部注册序不漂移（30 = 27 + tap/swipe/pinch 尾部）。关键产物：事件 push 通道（event-bus.ts DEFAULT_BUDGETS 单一数据源 + env.events PlatformEventHub + platform-events.ts 观察源 dom/lifecycle/console/network/paste/dialog + events 工具 11 子命令）；dialog override 与策略（dialog-policy/tools）；cookie 读写删（platform-dom ops + cookie-tools，掩码缺省 + read-detail/write/delete trusted+ask）；富剪贴板 write-html/write-image/paste-read（clipboardRich 缝 + pasteCapture）；shadow/同源 iframe 穿透 resolver（深度护栏 4 + via 标注）；EXT 契约预留（ext-attribution ATTRIBUTION_MAP 12 能力）；lgdl-web 场景收口（session v4 矩阵 events 默认开 / cookie·dialog·net 默认关 + LGDL 策略 + AiPanel 事件摘要 + AskDialog 文案 + base index v4 导出）。P2 验证门（真实 headless chromium CDP 实测）：**G-01 合成 touch = PASS**（tap/swipe/pinch 监听各 ≥1 命中 → 实现 touchDispatch + dom tap/swipe/pinch + LGDL deny 默认关）；**G-02 网络拦截改写 = PASS**（同 realm fetch 改写 header/查询参数到达 echo 服务器 → 实现 net 拦截引擎 + net 工具 + platform-events 共享 instrumentation）；SHD 穿透冒烟 PASS（open shadow + 同源 iframe 命中）。移交 validate（冒烟清单）：浏览器订阅端到端 AC-002 / 生命周期 AC-003 / console·网络观察 AC-004 / 对话框三路 AC-006 / cookie roundtrip（掩码+trusted 明细）/ 富剪贴板 roundtrip + paste / 穿透定位 / G-01 touch / G-02 拦截 / 整页 reload 失效语义；v2/v3 收口基线关联表 FR-004「待基线」不阻塞；real chromium harness 位于 /tmp/opencode/cdp-run.mjs（文档化，非仓库交付）。下一步 @sddu-review specs-tree-web-cli-base-v4。 validate 阶段完成（2026-09-08，sddu-validate）：validate-report R1——V1~V17 全✅、FR 30/30、NFR 8/8、全仓 1007 pass/1 skip/0 fail、G-01/G-02 PASS、真实 DeepSeek AI 闭环 11/11、结论 ⚠️ 有条件通过（2 低风险改进 + 2 人工/配置待基线非阻塞）。",
+  "status": "tracked"
+}
