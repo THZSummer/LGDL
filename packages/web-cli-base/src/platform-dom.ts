@@ -107,7 +107,7 @@ const WAIT_DEFAULT_INTERVAL_MS = 200;
 const LONG_PRESS_DEFAULT_MS = 500;
 const EVALUATE_DEFAULT_TIMEOUT_MS = 5000;
 const SCREENSHOT_LOAD_TIMEOUT_MS = 3000;
-const READ_ELEMENT_STYLES_TEXT_MAX = 800; // read-element --styles true computed cssText 截断上限（C34 改进：截断带标记）
+const READ_ELEMENT_STYLES_TEXT_MAX = 800; // read-element --styles true computed styles 全量拼装截断上限（C34 改进：截断带标记；Chrome getComputedStyle().cssText 恒空 → 按属性索引遍历拼装）
 
 // nodeType 数值常量（避免依赖 Node/NodeFilter 常量对象，兼容 shim）
 const NT_ELEMENT = 1;
@@ -1108,7 +1108,17 @@ export function createBrowserDomOps(scope?: DomOpsScope): PlatformDomOps {
         const sel = fields.styles;
         const cs = doc.defaultView && typeof doc.defaultView.getComputedStyle === 'function' ? doc.defaultView.getComputedStyle(el) : null;
         if (sel === true) {
-          const css = cs?.cssText ?? '';
+          // Chrome 的 getComputedStyle(el).cssText 恒为空字符串（cssText 只有 inline el.style.cssText
+          // 有值）→ 原实现 --styles true 恒"不可读/空"。改为遍历 computed style 属性索引拼全量。
+          const props: string[] = [];
+          if (cs) {
+            for (let i = 0; i < cs.length; i++) {
+              const p = cs.item(i);
+              const v = cs.getPropertyValue(p);
+              if (v) props.push(`${p}: ${v}`);
+            }
+          }
+          const css = props.join('; ');
           const head = css.slice(0, READ_ELEMENT_STYLES_TEXT_MAX);
           const truncNote = css.length > READ_ELEMENT_STYLES_TEXT_MAX
             ? `…（styles 已截断：全量 ${css.length} 字符）`

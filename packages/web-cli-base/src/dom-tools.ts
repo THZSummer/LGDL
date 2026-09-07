@@ -620,7 +620,7 @@ const DOM_SCHEMA = {
         maxItems: { type: 'string', description: 'interactives 清单预算上限（默认 200 条）。' },
         // ---- read-element（FR-012） ----
         attributes: { type: 'string', description: 'read-element 读属性："true"=全部；逗号分隔属性名=指定。' },
-        styles: { type: 'string', description: 'read-element 读 computed style："true"=全部可读；逗号分隔 CSS 属性名=指定。' },
+        styles: { type: 'string', description: 'read-element 读 computed style："true"=全部可读；逗号分隔 CSS 属性名=指定。想知道元素颜色/背景/字体/字号 → --styles color/background/font-size/font-weight 或 --styles true（全部）。' },
         classList: { type: 'string', description: 'read-element 读 classList 开关 "true"。' },
         geometry: { type: 'string', description: 'read-element 读几何（rect/可见性/滚动位）开关 "true"。' },
         value: { type: 'string', description: 'read-element 读表单值开关 "true"（敏感字段脱敏 FR-024）；set-value/set-attr/set-style 的写入值。' },
@@ -667,6 +667,8 @@ export function domHelp(): string {
     '  snapshot    纯文本 DOM 快照（v2 兼容）；--structured true 输出结构化段（interactives/headings）并支持 --offset/--limit 分页续读、--maxLength 预算（默认 20000，超限截断标记）',
     '  interactives 可交互元素清单（--type/--state/--text 过滤 + --offset/--limit 分页 + --maxItems 预算；password 只出类型不出值 FR-024）',
     '  read-element --selector 单元素多面读取（--attributes/--text/--styles/--classList/--geometry/--state/--value 面可选组合）',
+    '    颜色示例：dom read-element --selector \'<元素>\' --styles color（--styles true = 读全量 computed style，超预算截断带标记）',
+    '    read 域区分：页面元素视觉样式用 dom read-element --styles；图文档内容/结构用 lgdl-web-cli。',
     '  find --selector  元素定位查询（匹配数/摘要/--limit；0 匹配 = ok + 计数非错误 EC-001；--detail 附唯一化建议）',
     '  structure  [--selector] [--parts children|outerHTML|links|images|headings|forms] [--serialize true] [--maxLength]',
     '  click --selector [--offsetX --offsetY | --x --y]（selector-only 旧调用零回归 FR-020）',

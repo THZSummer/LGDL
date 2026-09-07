@@ -600,7 +600,7 @@ class ShimDocument extends ShimElement {
   querySelector(selector: string): ShimElement | null {
     return queryAll(this, selector)[0] ?? null;
   }
-  get defaultView(): { getComputedStyle: (el: ShimElement) => { cssText: string; getPropertyValue: (p: string) => string } } | null {
+  get defaultView(): { getComputedStyle: (el: ShimElement) => { cssText: string; length: number; item: (index: number) => string; getPropertyValue: (p: string) => string } } | null {
     return null;
   }
   elementFromPoint(_x: number, _y: number): ShimElement | null {
@@ -931,41 +931,85 @@ test('platform-dom: readElement --attributes 敏感控件 value 属性占位不�
   assert.match(qV.output, /value="search-term"/);
 });
 
-test('platform-dom: readElement --styles true cssText 截断带标记（C34 改进；≤800 无标记）', async () => {
-  const longCss = Array.from({ length: 50 }, (_, i) => `--x${i}: v${i}; color: rgb(${i % 256}, 0, 0);`).join(' ');
-  assert.ok(longCss.length > 800, 'fixture cssText 应超 800 字符预算');
+test('platform-dom: readElement --styles true 属性遍历拼装 + 预算截断带标记（C34 语义保持；≤800 无标记）', async () => {
+  // Chrome：getComputedStyle(el).cssText 恒空 —— 全量面须按属性索引遍历拼装（cssText 不可依赖）
+  const pairs: Array<[string, string]> = Array.from({ length: 60 }, (_, i) => [
+    `--v${i}`,
+    `gradient ${i} stop ${'x'.repeat(24)} rgb(${i % 256}, 0, 0)`,
+  ]);
+  const longCss = pairs.map(([p, v]) => `${p}: ${v}`).join('; ');
+  assert.ok(longCss.length > 800, 'fixture computed 全量拼装应超 800 字符预算');
+  const mkComputed = (list: Array<[string, string]>) => ({
+    cssText: '', // Chrome：getComputedStyle(el).cssText 恒空
+    length: list.length,
+    item: (i: number) => list[i][0],
+    getPropertyValue: (p: string) => list.find(([n]) => n === p)?.[1] ?? '',
+  });
   const { ops } = buildHarness((d) => {
     const box = new ShimElement('div');
     box.setAttribute('id', 'styled');
-    box.setComputed(longCss, {});
+    box.setComputed('', {});
     d.body.appendChild(box);
     Object.defineProperty(d, 'defaultView', {
       configurable: true,
-      value: { getComputedStyle: () => ({ cssText: longCss, getPropertyValue: () => '' }) },
+      value: { getComputedStyle: () => mkComputed(pairs) },
     });
   });
   const r = await ops.readElement({ selector: '#styled', fields: { styles: true } });
   assertOk(r);
   assert.match(r.output, /styles\(computed\):/);
+  assert.doesNotMatch(r.output, /（不可读\/空）/); // 遍历真实属性 → 全量可读
   assert.match(r.output, /…（styles 已截断：全量 \d+ 字符）/);
   assert.match(r.output, new RegExp(`全量 ${longCss.length} 字符`));
-  assert.doesNotMatch(r.output, /--x49: v49/); // 尾部内容确实被截断
-  // 未超预算（≤800）的 cssText：原文展示、无截断标记
-  const shortCss = 'color: red; font-size: 12px;';
+  assert.doesNotMatch(r.output, /--v59/); // 尾部内容确实被截断
+  // 未超预算（≤800）的全量拼装：原文展示、无截断标记
   const { ops: ops2 } = buildHarness((d) => {
     const box = new ShimElement('div');
     box.setAttribute('id', 'short');
-    box.setComputed(shortCss, {});
+    box.setComputed('', {});
     d.body.appendChild(box);
     Object.defineProperty(d, 'defaultView', {
       configurable: true,
-      value: { getComputedStyle: () => ({ cssText: shortCss, getPropertyValue: () => '' }) },
+      value: {
+        getComputedStyle: () => mkComputed([['color', 'red'], ['font-size', '12px']]),
+      },
     });
   });
   const s = await ops2.readElement({ selector: '#short', fields: { styles: true } });
   assertOk(s);
-  assert.match(s.output, /styles\(computed\): color: red; font-size: 12px;/);
+  assert.match(s.output, /styles\(computed\): color: red; font-size: 12px$/);
   assert.doesNotMatch(s.output, /已截断/);
+});
+
+test('platform-dom: readElement --styles true cssText 恒空但属性可遍历 → 返回真实全量属性（C34 bug 修复回归）', async () => {
+  // 回归场景：Chrome getComputedStyle(el).cssText 恒为空字符串，但属性索引（length/item）可遍历、
+  // getPropertyValue 可读 —— 修复前此分支恒输出"（不可读/空）"
+  const { ops } = buildHarness((d) => {
+    const box = new ShimElement('div');
+    box.setAttribute('id', 'vis');
+    box.setComputed('', {});
+    d.body.appendChild(box);
+    Object.defineProperty(d, 'defaultView', {
+      configurable: true,
+      value: {
+        getComputedStyle: () => ({
+          cssText: '',
+          length: 4,
+          item: (i: number) => ['color', 'background-color', 'font-size', '--custom'][i],
+          getPropertyValue: (p: string) =>
+            p === 'color' ? 'rgb(255, 0, 0)' : p === 'background-color' ? 'rgb(0, 0, 255)' : p === 'font-size' ? '16px' : p === '--custom' ? 'branded' : '',
+        }),
+      },
+    });
+  });
+  const r = await ops.readElement({ selector: '#vis', fields: { styles: true } });
+  assertOk(r);
+  assert.match(
+    r.output,
+    /styles\(computed\): color: rgb\(255, 0, 0\); background-color: rgb\(0, 0, 255\); font-size: 16px; --custom: branded/,
+  );
+  assert.doesNotMatch(r.output, /（不可读\/空）/); // 真实全量属性而非占位
+  assert.doesNotMatch(r.output, /已截断/);
 });
 
 test('platform-dom: findElements 计数 + detail 建议 + 0 匹配 ok:true（FR-013/EC-001）', async () => {

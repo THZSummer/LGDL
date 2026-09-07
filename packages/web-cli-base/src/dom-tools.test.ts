@@ -351,6 +351,15 @@ test('dom: v3 元数据面 —— 27 子命令（既有 7 顺序保持）+ schem
   assert.match(help, /NG-007/);
   assert.match(help, /NG-002/);
   assert.match(help, /敏感字段/);
+  // C34 使用引导：schema styles 描述 + help read-element 行均含颜色示例（--styles 指定/--styles true 全量）
+  const domSchema = entry.schema.parameters as {
+    properties: { subcommand: { enum: string[] }; args: { properties: { styles?: { description?: string } } } };
+  };
+  assert.match(
+    domSchema.properties.args.properties.styles?.description ?? '',
+    /想知道元素颜色\/背景\/字体\/字号 → --styles color\/background\/font-size\/font-weight 或 --styles true（全部）/,
+  );
+  assert.match(help, /dom read-element --selector '<元素>' --styles color/);
 });
 
 test('dom: v3 新增 20 子命令注入桩逐条 —— 参数解析/透传（PER4 + INT8 + WR8；click 坐标 + snapshot 结构化段升级面）', async () => {
