@@ -5,6 +5,7 @@ import {
   classifyCapabilityError,
   translateCapabilityError,
   capabilityGuidance,
+  dataUrlToBlob,
 } from './platform.js';
 
 function errWithName(name: string, message: string): Error {
@@ -158,4 +159,47 @@ test('platform v4: browserEnv 装配 events 缝（构造零副作用 —— 无�
   // 子控制器存在（占位/增量任务装配面）
   assert.equal(typeof env.events?.sources.dialogOverride.install, 'function');
   assert.equal(typeof env.events?.sources.netIntercept.status, 'function');
+});
+
+// ================= dataUrlToBlob：download/save 缝 dataURL 解码（截图 .png 落盘 bug 修复） =================
+
+/** PNG 外观字节夹具（签名 + IHDR chunk；无需合法 IDAT/CRC —— 仅断言解码字节面）。 */
+const pngLikeBytes = (): Uint8Array => {
+  const b: number[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  b.push(0, 0, 0, 13);
+  for (const ch of 'IHDR') b.push(ch.charCodeAt(0));
+  b.push(0, 0, 0, 2, 0, 0, 0, 3, 8, 2, 0, 0, 0, 0, 0, 0, 0); // 2×3 png + CRC 占位
+  return Uint8Array.from(b);
+};
+
+test('platform: dataUrlToBlob 识别 base64 dataURL → 二进制 Blob（MIME=前缀、内容含真实字节、不含 `data:` 字面文本）', async () => {
+  const bytes = pngLikeBytes();
+  const b64 = Buffer.from(bytes).toString('base64');
+  const blob = dataUrlToBlob(`data:image/png;base64,${b64}`);
+  assert.ok(blob, '匹配 dataURL → 非空 Blob');
+  assert.equal(blob.type, 'image/png', 'MIME 取 dataURL 前缀');
+  assert.equal(blob.size, bytes.length, '字节数 = base64 解码长度');
+  const got = new Uint8Array(await blob.arrayBuffer());
+  assert.deepEqual(got, bytes, '二进制内容 = 原 PNG 字节（不含 dataURL 前缀文本）');
+});
+
+test('platform: dataUrlToBlob base64 缺省 MIME → image/png（dataURL 无 mediatype 前缀）', async () => {
+  const blob = dataUrlToBlob(`data:;base64,${Buffer.from([1, 2, 3]).toString('base64')}`);
+  assert.equal(blob.type, 'image/png', '缺省 MIME = image/png（截图载体语义）');
+  assert.equal(blob.size, 3);
+});
+
+test('platform: dataUrlToBlob 识别非 base64（percent-encoded）dataURL → 解码文本 Blob', async () => {
+  const blob = dataUrlToBlob('data:text/plain,Hello%20World%21');
+  assert.equal(blob.type, 'text/plain', 'MIME 取 dataURL 前缀');
+  assert.equal(await blob.text(), 'Hello World!', 'percent-encoded 经 decodeURIComponent 还原');
+});
+
+test('platform: dataUrlToBlob 纯文本 → text/plain Blob 原样（v2 既有行为，additive 零回归）', async () => {
+  const blob = dataUrlToBlob('普通文本内容 hello,world');
+  assert.equal(blob.type, 'text/plain');
+  assert.equal(await blob.text(), '普通文本内容 hello,world', '文本原样不截断不编码');
+  // 空串 / 仅 data: 前缀（无 body）也走纯文本面
+  assert.equal((await dataUrlToBlob('').text()), '');
+  assert.equal(dataUrlToBlob('data:').type, 'text/plain');
 });

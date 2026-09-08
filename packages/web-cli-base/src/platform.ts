@@ -865,6 +865,33 @@ export function nodeEnv(overrides: Partial<PlatformEnv> = {}): PlatformEnv {
   return { ...base, ...overrides };
 }
 
+// ---------- dataURL → Blob 解码（filePicker download/save 缝共享；截图 PNG 载体 FR-028/ADR-003） ----------
+
+/**
+ * dataURL → Blob 解码（纯函数；BlobCtor/atobFn 可注入便于单测/环境差异）。
+ *
+ * 识别 `data:[mediatype][;base64],<body>`（chrome screenshot 等二进制载体，ADR-003）：
+ *   - `;base64` 形态 → atob → 逐字节 Uint8Array → Blob（MIME 取前缀，缺省 image/png）；
+ *   - 非 base64（percent-encoded）形态 → decodeURIComponent → Blob（MIME 同前缀规则）；
+ * 其余（纯文本）→ `text/plain` Blob 原样 —— 维持 v2 既有 download/save 行为（additive 零回归）。
+ */
+export function dataUrlToBlob(
+  dataUrl: string,
+  BlobCtor: typeof Blob = Blob,
+  atobFn: (encoded: string) => string = atob,
+): Blob {
+  const m = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(dataUrl.trim());
+  if (!m) return new BlobCtor([dataUrl], { type: 'text/plain' });
+  const type = m[1] ?? 'image/png';
+  if (m[2]) {
+    const raw = atobFn(m[3]);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i) & 0xff;
+    return new BlobCtor([bytes as unknown as BlobPart], { type });
+  }
+  return new BlobCtor([decodeURIComponent(m[3])], { type });
+}
+
 // ---------- browserEnv：真实浏览器适配器（lgdl-web session 注入） ----------
 
 /** 浏览器授权失败错误构造（保持 name 以走 classify）。 */
@@ -981,7 +1008,9 @@ export function browserEnv(): PlatformEnv {
             suggestedName: opts.suggestedName,
           });
           const writable = await handle.createWritable();
-          await writable.write(opts.data);
+          // dataURL（截图/图片类）→ 先解码为二进制 Blob 再写，避免把 `data:...` 前缀文本落盘（与 download 链一致）
+          const data = typeof opts.data === 'string' ? dataUrlToBlob(opts.data) : opts.data;
+          await writable.write(data);
           await writable.close();
           return { ok: true };
         } catch (err) {
@@ -995,12 +1024,14 @@ export function browserEnv(): PlatformEnv {
       return { ok: true };
     },
     async download(opts) {
-      const blob = typeof opts.data === 'string' ? new Blob([opts.data], { type: 'text/plain' }) : opts.data;
+      // dataURL string → 解码为二进制 Blob（.png 不再落 `data:...` 字面文本）；纯文本仍 text/plain 原样
+      const blob = typeof opts.data === 'string' ? dataUrlToBlob(opts.data) : opts.data;
       const url = URL.createObjectURL(blob);
       try {
         downloadAnchor(opts.filename, url);
       } finally {
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        // 延迟回收：截图等大 Blob 下载更稳（5s 覆盖浏览器接管下载窗口）
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       }
     },
   };
