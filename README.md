@@ -6,7 +6,7 @@
 
 **LGDL is a semantic-first diagram description language built for AI agents.** It describes only the *logic* of a diagram (nodes, relations, hierarchy) — never the *layout* (coordinates, styles). Layout is handled automatically by a deterministic engine, so AI edits change only the logic, never the layout.
 
-> **v0.6.0（2026-09-02）已定型** · 语义模型、9 种图渲染、Web 工作台、**AI 助手（命令模式）**、CLI 全部稳定
+> **v0.7.0（2026-09-10）已定型** · 语义模型、9 种图渲染、Web 工作台、**AI 助手（命令模式）**、CLI 全部稳定 · **web-cli-base：面向浏览器生态位的 AI-CLI 框架**（九域工具集 + 权限门禁 + 事件订阅通道）
 
 ---
 
@@ -47,7 +47,7 @@ lgdl-cli status --file my-diagram.lgdl    # 输出文本化图结构 ← AI 读�
 
 ---
 
-## ✨ v0.4.0 核心特性
+## ✨ 核心特性
 
 ### 1. 语义模型：显性字段，零猜测
 
@@ -85,9 +85,16 @@ LGDL 的每个概念都有**显性字段**，渲染器从不从文本里猜含�
   - `web-fetch`：基础 web 获取（独立工具，不属任何 CLI，`--path` 必填；V2 由 `lgdl-web-fetch` 中性化改名并归位 web-cli-base）
 - **两层知识（自文档化）**：方法论使用指南 `README-CLI.md` 由系统**会话开始时自动加载**进 system prompt（战略层：四个工具分工、做事流程、陷阱）；具体命令用法一律 **`--help` 按需查询**（战术层：`lgdl-web-cli <cmd> --help` / `help <cmd>`，增量命令参数从 core 命令注册表动态生成，新增命令不用改文档）
 - **双 CLI 分离**：终端 `lgdl-cli`（`--file` 操作磁盘文件）与 Web 协议（lgdl-web-cli，`--doc` 操作编辑器文档）物理分离、场景独立，业务逻辑（命令解析/校验/op 构造）在 lgdl-web-cli 命令注册表单一实现（机制框架 web-cli-base）；终端 CLI 全部命令同样提供 `--help` 示例
-- **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限，需本地代理（v0.6）
+- **多厂商接入**：DeepSeek / Qwen / 腾讯混元 / OpenAI / Claude 浏览器直连可用；火山方舟（通用 / Coding / Agent Plan）CORS 受限、浏览器直连不可用——本地代理 `lgdl-cli serve` **尚未实现**（v0.6 发布说明已如实标注，待作者审视）
 - 设置面板两步配置：选服务商 + 填 API Key（各服务商 key 独立保存）；「测试连接」一键验证 key / 端点 / CORS
 - agent 循环：每轮 1~3 次工具调用、失败反馈修正、轮数上限可调（默认 1000）；预置快捷操作（语法修复 / 自动优化 / 九种图类型创作等）
+
+### 6. web-cli-base：浏览器生态位 AI-CLI 框架（v0.7）
+
+- **定位**：面向浏览器生态位设计工具集——不照搬 OS 的 `read/write/bash`，而是对应浏览器原生组成（DOM / 存储 / Web API / Worker / fetch / Permissions）；OS 生态位能力显式不做、代理给未来 os-cli-base
+- **九域浏览器原生工具集**：内容文档 / 存储 / 检索 / 网络 / DOM·UI 自动化 / 执行计算 / 任务状态 / 扩展生态位（skill·MCP）/ 会话上下文；**权限门禁三者组合**（opencode 三元组 + 可插拔策略 + 技能级 `allowed-tools`）
+- **AI 操作浏览器完整工具集**（v3）：五层全谱——感知（结构化 DOM 读取 / 元素级属性·文本·样式·几何）、交互（click/hover/scroll/zoom/fullscreen + 长按/双击/右键/拖放/键盘）、chrome（截图/打印/刷新导航/保存）、读写（改文字/表单/增删元素/页面 evaluate）、采集（结构化抽取/自动翻页/导出 text·json·csv）；子命令级 risk + `evaluate` 最高门禁
+- **浏览器外壳纵深与事件流**（v4）：事件 push/订阅通道（`event-bus` + `env.events` + `events` 工具）+ 页内快切面（dialog override / cookie 读写 / 富剪贴板 / shadow·同源 iframe 穿透 / 合成 touch / 网络拦截改写）+ EXT「不支持 + 归属」契约预留
 
 ---
 
@@ -157,8 +164,8 @@ groups:
 ```
 LGDL/
 ├── packages/
-│   ├── web-cli-base/      # 纯机制框架（类似 Spring 的公共框架）：命令执行管线、LLM 工具封装、web-fetch 通用工具——零 LGDL 依赖，可复用于任意领域
-│   ├── lgdl-web-cli/      # AI 图内容操作适配：6 个增量命令 + LgdlOperation 协议 + lgdl-web-cli 工具（依赖 web-cli-base + lgdl-core）
+│   ├── web-cli-base/      # 浏览器生态位 AI-CLI 框架（bash 类比）：CommandRouter 路由 / AgentRunner 中性循环 / DelayGate 全局 delay + 九域浏览器原生工具集 + 权限门禁三者组合 + 事件订阅通道——零 LGDL/react 依赖，可复用于任意 web 领域
+│   ├── lgdl-web-cli/      # AI 图内容操作适配：9 个增量命令 + LgdlOperation 协议 + lgdl-web-cli 工具（依赖 web-cli-base + lgdl-core）
 │   ├── lgdl-web-op-cli/   # AI UI 操作适配：OP_COMMANDS 单一数据源 + WEB_OP_TOOL + OpHandlerRegistry 注入面（依赖 web-cli-base，零 React）
 │   ├── lgdl-core/         # 语言核心：解析、语义模型、校验、格式转换（纯 TS 零依赖）
 │   ├── lgdl-layout/       # 确定性布局引擎（遵循 Sugiyama 框架的分层：去环/分层/层内排序/坐标分配——算法思想为 1981 Kōzō Sugiyama 提出，实现为自研、零 dagre/elkjs 依赖；含径向树/时序/泳道/甘特专用布局）
@@ -171,7 +178,7 @@ LGDL/
 └── README.md
 ```
 
-### 🔗 布局算法：球链网状算法
+### 🔗 布局算法：确定性分层布局（Sugiyama 框架）
 
 > 一个直观的物理想象：**每个 `node` 是一颗小球，每条 `edge` 是一段绳子**。所有小球通过绳子彼此相连，形成一张「球链网」。布局就是给这张网找一个物体（球链网自带的物理张弛 / 受力平衡态），把它「铺」上去，让所有小球在绳子的拉扯下**达到均匀分布的状态**——即自适应地摊开、不重叠、可读。
 
@@ -204,6 +211,7 @@ LGDL/
 | **v0.4** | ✅ 聚合边 + `members` + `cardinalityFrom/To` + 严格校验（去旧写法）+ 锚点系统 + Web 工作台（预览定位/滑动切换/缩放） |
 | **v0.5** | ✅ Web AI 助手（原生 function calling 三工具：lgdl-web-cli 图内容 / lgdl-web-op-cli UI 操作含 next-actions / lgdl-web-fetch；命令自文档化 --help；方法论指南系统自动加载；多厂商接入 + 连接测试；双 CLI 分离 + 命令注册表复用；agent 循环） |
 | **v0.6** | ✅ 语义模型统一 + web-cli 体系重构：自研 Sugiyama 分层布局（零 dagre/elkjs，分组感知两层布局）；group-as-node（group 蜕化为 `kind:'group'` 节点）；AI 实战与视觉评审闭环 + 渲染 Bug 修复（正交绕障布线/标签避让/甘特自适应刻度/扇出标签合并/混排文本）；web-cli 独立化（monorepo 9 包：web-cli-base 纯机制框架 + lgdl-web-cli/lgdl-web-op-cli 适配层，语言 6 包加 lgdl 前缀）；发布收口（CI/router 构建补全、分组定位跨包断裂修复、web-fetch 注册、preview-click 假成功修复）；group 命令合并；渲染门禁（G1~G6 几何审计 + golden 快照确定性回归） |
+| **v0.7** | ✅ web-cli-base 面向浏览器生态位的 agent 能力完备化：九域浏览器原生工具集 + 权限门禁三者组合（opencode 三元组 + 可插拔策略 + 技能级 allowed-tools）；AI 操作浏览器完整工具集（五层全谱 + 子命令级 risk + evaluate 最高门禁）；浏览器外壳纵深与事件流（事件 push/订阅通道 + dialog/cookie/富剪贴板/shadow·iframe 穿透/合成 touch/网络拦截 + EXT 归属契约预留）；全仓 1017 测试全绿 |
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)。
 
