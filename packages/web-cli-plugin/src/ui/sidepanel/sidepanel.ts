@@ -7,6 +7,7 @@
  */
 import { createInitialState, reduce, resolveConfirm, type SidepanelState } from './chat-state.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
+import { requestOriginPermission } from '../../platform/extension-env.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -87,13 +88,17 @@ function wire(): void {
   $('authorize').addEventListener('click', () => {
     const origin = state.activeOrigin;
     if (!origin) return;
-    void send(makeMessage('authorize', { origin })).then(() => {
+    void (async () => {
+      // Request the optional host permission inside the user gesture (IMP-4 /
+      // FR-006); best-effort — OriginStore authorization is the authoritative gate.
+      const granted = await requestOriginPermission(origin);
+      await send(makeMessage('authorize', { origin }));
       dispatch({ type: 'state', authorized: true });
       dispatch({
         type: 'notice',
-        text: `已授权 ${origin}（知情同意：自动化操作存在账号风控 / 条款冲突 / 数据外泄风险）`,
+        text: `已授权 ${origin}（知情同意：自动化操作存在账号风控 / 条款冲突 / 数据外泄风险）${granted ? '' : '；站点访问权限未授予，将回退到 activeTab 临时授权'}`,
       });
-    });
+    })();
   });
 
   $('revoke').addEventListener('click', () => {

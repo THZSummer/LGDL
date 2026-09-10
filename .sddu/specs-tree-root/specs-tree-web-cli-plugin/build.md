@@ -4,10 +4,10 @@
 > **前置依赖**: tasks.md v1.0（16 任务 / 9 波次）、plan.md v1.0（12 ADR + §6 文件影响）、spec.md v1.1（46 FR / 10 NFR / 16 EC / 12 AC）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-11
-> **版本**: v1.0
+> **版本**: v1.1
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-11
-> **更新说明**: 初始创建。本轮实现 **P0 最小可用集 TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子）；P1/P2（TASK-012~016）不在本轮。未 git 提交。
+> **更新说明**: v1.1 = R1 审查修复轮。修复 2 个阻塞（BLK-1 安全红线 / BLK-2 多轮会话）+ 6 项高价值改进（FR-025 发现审计 / FR-008 转译接线 / TASK-010 补测 / optional_host_permissions 申请 / maxRounds 传参 / GATE-011 表述收敛）。web-cli-base 零改动红线保持；未 git 提交。
 
 ## 1. 构建概要
 
@@ -118,9 +118,9 @@
 |----|:----:|------|
 | **G-MV3** | **PASS** | `chromium --headless=new --load-extension=dist` → CDP `/json` 出现 `service_worker` target；SW 内探针：manifest.name=`web-cli plugin`、mv=3、storage.local 往返、sidePanel/scripting 可达、**0 uncaught exception** |
 | **G-KEY** | **PASS** | SW 内带 `Authorization` fetch 火山 `ark.cn-beijing.volces.com/api/v3/chat/completions` → **HTTP 401**（非 CORS/网络失败）→ 扩展特权 fetch 绕过页面 CORS 预检，火山 3 端点可直连；降级分支保留（EC-009） |
-| **GATE-011 通用性** | **PASS** | 非 LGDL fixture 真实浏览器闭环：`link[rel=web-cli]` 解析 → `web-cli:probe` 得 tools → `notes-add` ok/trust=external → `notes-list` 确认写入 |
-| **GATE-011 红线 grep** | **PASS** | 见 §5 |
-| **GATE-011 上游零回归** | **PASS** | `web-cli-base` 483 测试全绿；`lgdl-web` 66 全绿；base 零改动 |
+| **GATE-011 通用性** | **PASS（收敛口径）** | 非 LGDL fixture **页面级 CDP** 闭环：`link[rel=web-cli]` 解析 → `web-cli:probe` 得 tools → `notes-add` ok/trust=external → `notes-list` 确认写入；**node 级**新增 `packages/lgdl-web/src/web-cli-host/web-cli-host.test.ts`（9 用例：declaration/router/bridge probe·invoke·写回校验·隔离·异常）。**未**经「插件 content-script→background→host→RPC」全链浏览器验证（记为遗留 R8，validate 人工面 H0/H6） |
+| **GATE-011 红线 grep** | **PASS** | 见 §5.2（R1 复跑：10 项 0 命中） |
+| **GATE-011 上游零回归** | **PASS** | `web-cli-base` 483 测试全绿（零改动）；`lgdl-web` 66→75（新增 9，既有零删除零降级） |
 
 **降级/未达成项（如实标注）**：
 - content script **浏览器级注入实测未做**（headless 无法构造 `activeTab` 用户手势）→ 由 node 单测 + 冒烟清单人工面 H0 覆盖；**不标注为已通过**。
@@ -135,11 +135,11 @@
 | `@lgdl/lgdl-core` | 267 pass / 0 fail |
 | `@lgdl/lgdl-render` | 94 pass / 0 fail（1 skip） |
 | `@lgdl/lgdl-router` | 8 pass / 0 fail |
-| `@lgdl/lgdl-web` | 66 pass / 0 fail |
+| `@lgdl/lgdl-web` | **75 pass / 0 fail**（R1 +9：web-cli-host 单测；既有 66 零删除零降级） |
 | `@lgdl/lgdl-web-cli` | 84 pass / 0 fail |
 | `@lgdl/lgdl-web-op-cli` | 15 pass / 0 fail |
 | `@lgdl/web-cli-base` | **483 pass / 0 fail**（零回归，D-005） |
-| `@lgdl/web-cli-plugin` | **54 pass / 0 fail**（新增） |
+| `@lgdl/web-cli-plugin` | **68 pass / 0 fail**（R1 +14：BLK-1×3 / chat-session×6 / discovery-audit×1 / extension-env×2 / unsupported×2） |
 | 全仓 | `npm run build` PASS；`npm test` 0 fail |
 
 ### 5.2 红线 grep
@@ -169,6 +169,14 @@
 | D-006 | **devDep 引入（作者授权）** | `esbuild ^0.21.5`（content IIFE 打包；MV3 content script 不支持 ESM）+ `@types/chrome ^0.2.9`（类型）；仅 devDep，零运行时新增；`package-lock.json` 已同步 | ADR-009 落地；运行时依赖仍仅 base |
 | D-007 | **base LLM SDK 打包** | base 根导出含 `openai`/`@anthropic-ai/sdk`，后者含 node-only 动态 import；`build.mjs` 用 node: stub 插件将 `node:*` 置空（浏览器不执行路径），bundle 成功（background ~923KB） | 构建可行性；无运行时副作用 |
 | D-008 | **S2/S3 策略为插件注入，不复制 base 机制** | 三策略经 `RouterPolicy.strategies` 注入上游 `PermissionGate`；插件不修改 `permission.ts`/`router.ts` | NFR-005 additive |
+| D-009 | **BLK-1 修复：effectiveRisk 插件自决（不采信站点 riskHint）** | `declared-tools.ts` 新增 `SAFE_READ_VERBS` + `isSafeReadOnlyTool`；`effectiveRisk` = 白名单命中→`read`；否则站点声明了结构（riskHint 或 subcommands）→`write`（ask）、完全不可分类→`undefined`（S3 deny）。站点自报 `riskHint` 仅用于「是否声明了结构」的 presence 判定，**返回值绝不等于 riskHint**。plan §2.5/spike §1.2 语义落地 | 关闭 C28/C36 静默 allow 路径 |
+| D-010 | **platform/extension-env.ts 死代码清理（IMP-1）** | 删除无消费者的 `extensionEnv()`/`chromeFetch()`/`createChromeSyncKv()`/`SyncKvHandle`（PlatformEnv 远程 DOM 缝为波2预留，P0 无消费方）；新增 `originPermissionPattern`/`requestOriginPermission`/`hasOriginPermission`（IMP-4）。波2 需要 PlatformEnv 时按 plan §2.4 重建 | 删除 > 保留死代码；不改变 P0 行为 |
+| D-011 | **FR-008 转译接线落在 background（不在 content bundle）** | `capabilityFailure` 接入 `service-worker.ts` `invokeSite` 失败路径；`page-bridge.ts` 保持轻量可读超时文案——若在 content script 引 `unsupported.ts` 会把整个 base 打进 content bundle（实测 25.1KB→913KB），故显式不接线 content 面 | 保留 FR-008 可读转译 + 控制注入体积 |
+| D-012 | **BLK-2 会话连续性 = 会话历史前缀（AgentRunner 单次语义不变）** | 上游 `AgentRunner` 的 `run()` 单次终结，无法原地复用实例；新增 `chat-session.ts`（历史保留/裁剪/快照）+ `chat-runner.ts`（每次 runner 调用前缀历史、结束后 commit）。历史落 `chrome.storage.session`（EC-013），导航/换 origin 清空（EC-011/ADR-012） | FR-017 多轮达成；不 fork base |
+| D-013 | **会话历史裁剪口径** | 上限 40 turn，裁剪后首条强制为 `user`，保证 tool 结果必有 assistant `toolCalls` 父消息（合法 LLM 消息序列） | 防 session 存储无界增长 |
+| D-014 | **FR-025 发现环节审计** | 新增 `security/discovery-audit.ts`，`discover` 成功/失败分支均 `recordPlugin({type:'descriptor-read', origin, trust, ok, detail})`（含 channel/integrity/tools/protocol） | 关闭 C26/C37 审计缺口 |
+| D-015 | **IMP-4 host permission 申请** | `requestOriginPermission` 在 side panel 用户手势路径（主）+ background authorize handler（兜底）调用；失败可读降级到 activeTab，OriginStore 仍是权威门禁；http origin 不在 `optional_host_permissions` 声明内 → 回退 activeTab | 权限按需申请，最小化 |
+| D-016 | **BLK-1 附带：声明了 subcommands 的工具归 `write`（ask）而非 deny** | LGDL 站点工具（`lgdl-web-cli`/`lgdl-web-op-cli`）无 `riskHint`，严格「无 hint→deny」会使 FR-018/FR-041 完全不可用（旧实现亦然）。按 review BLK-1 建议②「其余默认 ask」，`effectiveRisk` 对有 subcommands 声明的非白名单工具返回 `write`（强制确认），仍**无静默 allow**；完全不可分类（无 hint 无 subcommands）才 deny | 恢复 FR-018 可用性；安全语义不降级 |
 
 ## 7. 遗留与风险
 
@@ -180,6 +188,9 @@
 | R4 | UI 操作（FR-019）/事件消费（FR-021）未接入 | P1 TASK-013；P0 最小集按 plan §5.3 裁剪（tasks F-6 已标注 AC-009 UI 操作部分由 P1 补齐） | 下轮实现 |
 | R5 | `lgdl-web/src/ai/*` 保留 | TASK-016 在 Gate-D 达标后摘除；本轮零改动（测试守恒 D-005） | 保持 |
 | R6 | 火山 G-KEY 结论基于「扩展 fetch 可达」 | 未用真实 key 验证业务成功；`browserDirect` 标记与降级分支保留 | validate 可选真实 key 复核 |
+| R7 | 用户问答 `askUser` 缝未接入（IMP-3） | 权限 ask 经 `confirm.ts` 桥已可用；「任务内澄清 ask-user」需 side panel 问答 UI（choice/confirm/text），归 P1（review IMP-3 允许显式标注归 P1） | P1 TASK-013 或后续补齐 |
+| R8 | 插件全链浏览器验证未做（IMP-9） | GATE-011 为「页面级 CDP + node 级」；content-script→background→host→RPC 全链未经真实浏览器验证（headless 无法构造 activeTab 手势，见 D-005） | validate 按 `docs/smoke-checklist.md` 人工面 H0/H6 执行 |
+| R9 | 未修的 review 改进项 | IMP-6（discovery fetch 落 content vs plan §3.2 background 特权 fetch）、IMP-7（transport.channel 未动态绑定，P0 仅默认通道）、IMP-8（插件 vs 内置助手双工具面冲突用例）、IMP-10（`docs/gate-d.md`/`protocol.md` 未产出）、IMP-12（FR-037/038 spec P0 vs plan 波3 优先级不一致） | 归 P1/P2 或 validate 前按需处理 |
 
 ## 8. 下一步
 
@@ -188,8 +199,65 @@
 | 全部 P0 任务已完成 | 运行 `@sddu-review specs-tree-web-cli-plugin` 开始审查 |
 | 继续 P1 | 实现 TASK-012~015（协议文档 / UI 操作+事件 / 风控+合规迁移调试文档 / 可选 DOM 工具面） |
 
+## 9. 审查修复记录（R1）
+
+> 输入：`review-report.md` v1.0（2 阻塞 + 12 改进）。本轮修复 2 阻塞 + 6 高价值改进；其余改进项如实保留（见 R9）。
+
+### 9.1 阻塞修复
+
+| # | 位置（修复后） | 修复内容 | 证据（file:line） | 新增测试 |
+|---|------|---------|------|------|
+| **BLK-1** | `src/tools/declared-tools.ts:69-119` | `effectiveRisk` 改为插件自决：`SAFE_READ_VERBS` id 白名单命中→`read`；否则声明了结构（riskHint/subcommands）→`write`（ask）、完全不可分类→`undefined`（S3 deny）。返回值**绝不等同站点 `riskHint`**（仅用 presence 区分 ask/deny） | `declared-tools.ts:111-114` `if (isSafeReadOnlyTool(decl)) return 'read'; const declared = ...; return declared ? 'write' : undefined;`；`isSafeReadOnlyTool` L89-93 | `test/host.test.ts` 新增 3 用例（自报 read 的危险工具 → 不静默 allow / 仅确认后执行 / 白名单按 id 判定） |
+| **BLK-2** | `src/background/chat-session.ts`（新）+ `src/background/chat-runner.ts`（新）+ `src/background/service-worker.ts:169-218` | 新增会话历史（保留/裁剪/快照/恢复）；`runChatTurn` 每次 runner 调用前缀历史、结束后 commit；历史落 `chrome.storage.session`（EC-013）；导航/换 origin 清空（EC-011/ADR-012）；`maxRounds` 从 settings 传入 runner | `service-worker.ts:194-197`（session/system/maxRounds）；`chat-runner.ts:49-60`；`chat-session.ts:66-84` | `test/chat-session.test.ts` 6 用例（二轮携带首轮上下文 / 导航清空 / maxRounds / 裁剪边界 / 快照恢复） |
+
+### 9.2 高价值改进
+
+| # | 位置 | 修复内容 | 证据 | 测试 |
+|---|------|---------|------|------|
+| FR-025 | `src/security/discovery-audit.ts`（新）+ `service-worker.ts` discover 分支 | 发现/声明读取成功/失败均入审计（origin/channel/trust/integrity/tools/protocol） | `discovery-audit.ts:19-46`；`service-worker.ts` `case 'discover'` 两分支 `audit.recordPlugin(...)` | `test/security.test.ts` 新增 1 用例 |
+| FR-008 | `src/platform/unsupported.ts` + `service-worker.ts:75-82` | `capabilityFailure` 接入站点 RPC 失败路径；`ATTRIBUTION_MAP` 经 `unsupported.ts` 可达并有转译断言；删除无消费者的 PlatformEnv 工厂（D-010） | `service-worker.ts:77-82`；`unsupported.ts:23-35` | `test/unsupported.test.ts` 2 用例（转译可读 + ATTRIBUTION_MAP 查询/帮助面） |
+| TASK-010 | `packages/lgdl-web/src/web-cli-host/web-cli-host.test.ts`（新） | web-cli-host 3 模块补 node 单测（declaration / router dispatch / bridge probe·invoke·写回校验·隔离·异常） | 测试文件 9 用例 | lgdl-web 66→75 |
+| IMP-4 | `src/platform/extension-env.ts:61-113` + `sidepanel.ts` authorize + `service-worker.ts` authorize | `chrome.permissions.request({origins:[origin+'/*']})` 在用户手势路径（主）+ background（兜底）调用；失败可读降级 activeTab | `extension-env.ts:78-113` | `test/extension-env.test.ts` 2 用例（pattern 归一化 / 无 chrome 降级不抛） |
+| maxRounds | `service-worker.ts:197` | `maxRounds: settings.maxRounds` 传入 runner | 同 BLK-2 | `chat-session.test.ts` maxRounds 用例 |
+| GATE-011 | `build.md §4` | 表述收敛为「页面级 CDP + node 级」；全链浏览器验证记为 R8 遗留（不冒充全链 PASS） | §4 GATE-011 行 | — |
+
+### 9.3 R1 复跑门禁
+
+| 门禁 | 命令 | 结果 |
+|------|------|------|
+| 全仓构建 | `npm run build` | **PASS**（plugin: background 930.9KB / content 25.1KB / sidepanel 8.2KB / options 893.9KB） |
+| 全仓测试 | `npm test` | **PASS，0 fail**（base 483 / lgdl-web 75 / plugin 68 / core 267 / render 94+1skip / web-cli 84 / op-cli 15 / router 8） |
+| 插件类型检查 | `npm run typecheck --workspace @lgdl/web-cli-plugin` | **PASS**（`tsc --noEmit` 0 error） |
+| G-MV3 复检 | `chromium --headless=new --load-extension=dist` + CDP | **PASS**（`service_worker` target `chrome-extension://mekg…/background.js`；SW 内 `getManifest()` → name=`web-cli plugin`、mv=3、permissions=`[activeTab,scripting,storage,sidePanel]`；chrome.log 仅 dbus/AppArmor 环境噪声，无扩展 JS 错误） |
+| 红线 grep | 见 §5.2 + BLK-1 专项 | **0 命中**（`silentAllow` 0；`.executor(` 直调 0；content window 全局 0；`@lgdl/lgdl-web` 私有依赖 0；`effectiveRisk` 无 `return decl.riskHint`）；唯一 grep 命中为 `unsupported.ts` 注释里的 `catch {}` 字样（非代码） |
+| base 零改动 | `git status --porcelain packages/web-cli-base` | **空**（NFR-005 红线保持） |
+| 上游测试守恒 | lgdl-web 既有 66 用例全保留（+9 新增） | **零删除零降级** |
+
+### 9.4 R1 文件变更清单
+
+| 操作 | 文件 |
+|------|------|
+| NEW | `packages/web-cli-plugin/src/background/chat-session.ts` |
+| NEW | `packages/web-cli-plugin/src/background/chat-runner.ts` |
+| NEW | `packages/web-cli-plugin/src/security/discovery-audit.ts` |
+| NEW | `packages/web-cli-plugin/test/chat-session.test.ts` |
+| NEW | `packages/web-cli-plugin/test/extension-env.test.ts` |
+| NEW | `packages/web-cli-plugin/test/unsupported.test.ts` |
+| NEW | `packages/lgdl-web/src/web-cli-host/web-cli-host.test.ts` |
+| MODIFY | `packages/web-cli-plugin/src/tools/declared-tools.ts`（BLK-1） |
+| MODIFY | `packages/web-cli-plugin/src/security/policy.ts`（注释：risk 为插件复核值） |
+| MODIFY | `packages/web-cli-plugin/src/background/service-worker.ts`（BLK-2 / FR-025 / FR-008 / IMP-4 / maxRounds） |
+| MODIFY | `packages/web-cli-plugin/src/platform/extension-env.ts`（D-010 删死代码 + IMP-4） |
+| MODIFY | `packages/web-cli-plugin/src/content/page-bridge.ts`（仅注释，保持轻量） |
+| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts`（手势路径申请 host permission） |
+| MODIFY | `packages/web-cli-plugin/test/host.test.ts`（BLK-1 负向用例） |
+| MODIFY | `packages/web-cli-plugin/test/security.test.ts`（FR-025 用例） |
+| MODIFY | `packages/lgdl-web/package.json`（test 脚本纳入 web-cli-host 测试；既有测试零删除） |
+| MODIFY | `.sddu/.../build.md`、`.sddu/.../state.json` |
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建：P0 最小可用集 TASK-001~011 构建报告（含门禁结果、红线 grep、D-001~D-008 决策、遗留风险） | 2026-09-11 | SDDU Build Agent |
+| v1.1 | R1 审查修复轮：BLK-1（安全红线）/BLK-2（多轮会话）+ 6 高价值改进（FR-025/FR-008/TASK-010/IMP-4/maxRounds/GATE-011 表述）；D-009~D-015；插件 54→68、lgdl-web 66→75；全仓 0 fail | 2026-09-11 | SDDU Build Agent |

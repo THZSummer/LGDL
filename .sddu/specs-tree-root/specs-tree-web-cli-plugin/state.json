@@ -2,9 +2,9 @@
   "feature": "web-cli-plugin：浏览器插件（v0.8 主题，F-14 由 v1.1 提前至 v0.8，作者裁决 2026-09-10）",
   "featureKey": "specs-tree-web-cli-plugin",
   "name": "web-cli-plugin：独立于 LGDL 的浏览器插件——可作用于 LGDL 的 Web 页面、替代现有内置 AI 助手；配置 LLM key 后借助打开的网站的 web-cli 完成业务（隐含新基础设施 = web-cli 协议发现/声明机制）",
-  "phase": "reviewed",
-  "workflow": "6.review",
-  "agent": "sddu-review",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 1,
   "childrens": [],
   "createdAt": "2026-09-10",
@@ -51,6 +51,7 @@
   "status": "tracked",
   "buildProgress": {
     "round": "P0 最小可用集（TASK-001~TASK-011；波0 门槛 + 波1 四根柱子）",
+    "fixRound": "R1（review-report v1.0：2 阻塞 + 6 高价值改进已修；见 build.md §9）",
     "completedTasks": [
       "TASK-001",
       "TASK-002",
@@ -65,17 +66,17 @@
       "TASK-011"
     ],
     "gates": {
-      "G-MV3": "PASS（chromium --headless=new --load-extension + CDP service_worker target 可达；SW 内 API 探针全通过、0 uncaught exception）",
+      "G-MV3": "PASS（chromium --headless=new --load-extension + CDP service_worker target 可达；SW 内 getManifest name=web-cli plugin / mv=3 / 权限最小；0 扩展 JS 错误。R1 复检）",
       "G-KEY": "PASS（扩展 background fetch 火山端点返回 HTTP 401，非 CORS/网络失败 → 火山 3 端点可直连；8 厂商在插件形态全可用；降级分支保留）",
-      "GATE-011": "PASS（非 LGDL fixture 端到端 + 红线 grep 零命中 + 上游 web-cli-base 483 测试零回归）"
+      "GATE-011": "PASS（收敛口径：非 LGDL fixture 页面级 CDP 闭环 + node 级 web-cli-host 单测 9 用例 + 红线 grep 零命中 + 上游 web-cli-base 483 零回归；插件全链浏览器验证记为遗留 R8，不冒充全链 PASS）"
     },
     "buildTest": {
       "fullBuild": "PASS（npm run build 全仓）",
       "fullTest": "PASS（npm test 全仓 0 fail）",
       "packages": {
         "@lgdl/web-cli-base": "483 pass / 0 fail",
-        "@lgdl/lgdl-web": "66 pass / 0 fail",
-        "@lgdl/web-cli-plugin": "54 pass / 0 fail（新增）",
+        "@lgdl/lgdl-web": "75 pass / 0 fail（R1 +9 web-cli-host；既有 66 零删除零降级）",
+        "@lgdl/web-cli-plugin": "68 pass / 0 fail（R1 +14）",
         "@lgdl/lgdl-core": "267 pass",
         "@lgdl/lgdl-render": "94 pass（1 skip）",
         "@lgdl/lgdl-web-cli": "84 pass",
@@ -103,12 +104,23 @@
       "D-002：静态声明文件实际落 public/.well-known/web-cli.json（plan §6），index.html 链接用相对 href=\".well-known/web-cli.json\"（plan §3.6 字面写 href=\"web-cli.json\"，与文件位置不一致）。",
       "D-003：运行时握手 io 由 content script postMessage 提供（未用 chrome.scripting world:MAIN 注入探测片段）——content script postMessage 直达页面世界即可完成 probe/descriptor，避免额外注入与权限面。",
       "D-004：S3 fail-closed 策略仅对 site 命名空间且 risk 非法/缺失时 deny，保留 read→riskDefaults allow（否则 S3 会误杀 read 缺省放行）。",
-      "D-005：content script 浏览器级注入实测未做（headless 无法构造 activeTab 用户手势），如实标注为未做，由 node 单测 + 冒烟清单人工面覆盖。"
+      "D-005：content script 浏览器级注入实测未做（headless 无法构造 activeTab 用户手势），如实标注为未做，由 node 单测 + 冒烟清单人工面覆盖。",
+      "D-009（R1）：BLK-1 修复——effectiveRisk 改为插件自决（id 白名单命中→read；否则声明了结构 riskHint/subcommands→write/ask、完全不可分类→undefined/S3 deny），返回值绝不等同站点 riskHint（仅用 presence 区分 ask/deny），关闭静默 allow 路径。",
+      "D-010（R1）：IMP-1——删除 extension-env.ts 无消费者的 extensionEnv()/chromeFetch()/createChromeSyncKv()/SyncKvHandle（PlatformEnv 远程 DOM 缝波2 无消费方）；新增 originPermissionPattern/requestOriginPermission/hasOriginPermission（IMP-4）。",
+      "D-011（R1）：IMP-1——capabilityFailure 接入 background invokeSite 失败路径；content script 不引 unsupported.ts（避免把整个 base 打进 content bundle，实测 25.1KB→913KB）。",
+      "D-012（R1）：BLK-2 修复——新增 chat-session.ts + chat-runner.ts，会话历史前缀 + 结束 commit；AgentRunner 单次语义不变、不 fork base。",
+      "D-013（R1）：会话历史上限 40 turn，裁剪后首条强制为 user（保证 tool 结果有 assistant toolCalls 父消息）。",
+      "D-014（R1）：FR-025——新增 security/discovery-audit.ts，discover 成功/失败均入审计（channel/integrity/tools/protocol/trust）。",
+      "D-015（R1）：IMP-4——requestOriginPermission 在 side panel 用户手势路径（主）+ background authorize（兜底）调用；失败可读降级 activeTab，OriginStore 仍为权威门禁。",
+      "D-016（R1）：BLK-1 附带——声明了 subcommands 的非白名单工具（如 lgdl-web-cli/op-cli）归 write/ask（review 建议②），恢复 FR-018 可用性且仍无静默 allow；完全不可分类才 deny。"
     ],
     "notDone": [
       "TASK-012~TASK-016（P1/P2，不属本轮 P0 范围）",
       "docs/protocol.md / migration.md / dev.md / gate-d.md / release.md（P1/P2）",
-      "lgdl-web/src/ai/* 摘除（TASK-016，Gate-D 达标后）"
+      "lgdl-web/src/ai/* 摘除（TASK-016，Gate-D 达标后）",
+      "R7（R1）：用户问答 askUser 缝未接入（IMP-3）——权限 ask 已可用，任务内澄清 ask-user 需 side panel 问答 UI，归 P1",
+      "R8（R1）：插件 content-script→background→host→RPC 全链浏览器验证未做（IMP-9）——GATE-011 收敛为「页面级 CDP + node 级」，validate 人工面 H0/H6 补",
+      "R9（R1）：未修改进项 IMP-6/IMP-7/IMP-8/IMP-10/IMP-12（discovery fetch 落点、transport.channel 动态绑定、双工具面冲突用例、docs/gate-d、FR-037/038 优先级不一致）"
     ],
     "notes": "本轮 build 仅实现 P0 最小可用集 TASK-001~011；未 git 提交（由上层统一提交）。"
   }

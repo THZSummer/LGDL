@@ -11,6 +11,11 @@
  *                                    unknown/missing risk → deny (fail-closed)
  *   S3 FailClosedStrategy          — site tool + invalid/unknown risk → deny
  *
+ * `input.risk` is the **plugin-recomputed** effective risk (see
+ * `tools/declared-tools.ts`), never the site's self-reported `riskHint`. The
+ * read→allow default therefore only applies to ids on the plugin read-only
+ * whitelist (BLK-1 / O-010 / NFR-001).
+ *
  * riskDefaults: read→allow; write/external/ui/state→ask; evaluate→deny
  * (never below confirmation; FR-026).
  *

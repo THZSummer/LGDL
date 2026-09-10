@@ -5,6 +5,8 @@ import { createStorageAuditSink } from '../src/security/audit-sink.js';
 import { createConfirmBridge, buildOperationSummary } from '../src/security/confirm.js';
 import { createOriginStore, normalizeOrigin, type PluginKv } from '../src/security/origin-store.js';
 import { createPluginPolicyConfig } from '../src/security/policy.js';
+import { discoveryAuditEvent } from '../src/security/discovery-audit.js';
+import { parseDescriptor } from '../src/protocol/descriptor.js';
 import { summarizeArgs } from '../src/security/redact.js';
 
 function memoryKv(): PluginKv {
@@ -142,4 +144,28 @@ test('redact: summarizeArgs masks sensitive keys', () => {
   const out = summarizeArgs({ password: 'hunter2', note: 'plain' });
   assert.equal(out.includes('hunter2'), false);
   assert.match(out, /note=plain/);
+});
+
+test('discovery-audit: discovery/descriptor-read is auditable (FR-025)', () => {
+  const unsupported = discoveryAuditEvent('https://a.test', undefined, 5);
+  assert.equal(unsupported.type, 'descriptor-read');
+  assert.equal(unsupported.ok, false);
+  assert.equal(unsupported.origin, 'https://a.test');
+
+  const parsed = parseDescriptor(
+    {
+      protocolVersion: '1.0',
+      tools: [{ id: 'notes-list', summary: 'List notes', riskHint: 'read' }],
+      transport: { kind: 'page-message', channel: 'web-cli' },
+    },
+    { origin: 'https://a.test', channel: 'html-link', integrityVerified: true, trust: 'untrusted' },
+  );
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  const ev = discoveryAuditEvent('https://a.test', parsed.descriptor, 6);
+  assert.equal(ev.ok, true);
+  assert.equal(ev.trust, 'untrusted');
+  assert.match(ev.detail ?? '', /channel=html-link/);
+  assert.match(ev.detail ?? '', /integrity=verified/);
+  assert.match(ev.detail ?? '', /tools=1/);
 });

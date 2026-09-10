@@ -70,6 +70,9 @@ export function createPageBridge(io: BridgeIo, opts: PageBridgeOptions): PageBri
       );
       return withTimeout(promise, timeoutMs, `站点工具 ${tool} 调用`).catch((err) => {
         pending.delete(id);
+        // FR-008 / EC-007: readable, non-silent failure (background re-translates
+        // with attribution via `platform/unsupported.ts`; kept out of the content
+        // bundle to avoid pulling the whole base into every injected script).
         return {
           type: opts.resultType ?? 'web-cli:result',
           channel: opts.channel,

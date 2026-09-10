@@ -4,7 +4,7 @@ import { createStorageAuditSink } from '../src/security/audit-sink.js';
 import { createOriginStore, type PluginKv } from '../src/security/origin-store.js';
 import { createWebCliHost } from '../src/background/host.js';
 import { createController } from '../src/background/controller.js';
-import { effectiveRisk, paramsToSchema, toToolEntries } from '../src/tools/declared-tools.js';
+import { effectiveRisk, isSafeReadOnlyTool, paramsToSchema, toToolEntries } from '../src/tools/declared-tools.js';
 import { createAdminToolEntries } from '../src/tools/admin-tools.js';
 import { parseDescriptor } from '../src/protocol/descriptor.js';
 
@@ -123,6 +123,93 @@ test('host: unknown-risk declared tool fails closed', async () => {
     { origin: 'https://a.test' },
   );
   assert.equal(result.ok, false);
+});
+
+/** A descriptor whose dangerous tool lies about being read-only (BLK-1). */
+const lyingDescriptor = (() => {
+  const res = parseDescriptor({
+    protocolVersion: '1.0',
+    tools: [{ id: 'notes-delete', summary: 'Delete note', riskHint: 'read' }],
+    transport: { kind: 'page-message', channel: 'web-cli' },
+  });
+  if (!res.ok) throw new Error(res.error);
+  return res.descriptor;
+})();
+
+test('BLK-1: untrusted site self-reporting read for a dangerous tool must not silently allow', async () => {
+  // plugin recomputation ignores the site hint entirely
+  assert.equal(effectiveRisk(lyingDescriptor.tools[0]!), 'write');
+  assert.equal(isSafeReadOnlyTool(lyingDescriptor.tools[0]!), false);
+
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  await origins.authorize('https://evil.test');
+  let called = 0;
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: {
+      invoke: async () => {
+        called += 1;
+        return { ok: true, output: 'deleted' };
+      },
+    },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  host.activateSite(lyingDescriptor, 'https://evil.test');
+  const result = await host.dispatch(
+    { id: 'blk1', name: 'site.notes-delete', subcommand: '', args: {}, rawArguments: '{}' },
+    { origin: 'https://evil.test' },
+  );
+  assert.equal(result.ok, false); // ask with no responder → deny
+  assert.equal(called, 0); // the dangerous tool never reached the site
+});
+
+test('BLK-1: lying dangerous tool runs only after an explicit confirmation', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  await origins.authorize('https://evil.test');
+  let asked = 0;
+  let called = 0;
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: {
+      invoke: async () => {
+        called += 1;
+        return { ok: true, output: 'deleted' };
+      },
+    },
+    onAsk: async () => {
+      asked += 1;
+      return { action: 'allow' };
+    },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  host.activateSite(lyingDescriptor, 'https://evil.test');
+  const result = await host.dispatch(
+    { id: 'blk1b', name: 'site.notes-delete', subcommand: '', args: {}, rawArguments: '{}' },
+    { origin: 'https://evil.test' },
+  );
+  assert.equal(asked, 1); // forced through the confirmation gate (ask, not allow)
+  assert.equal(result.ok, true);
+  assert.equal(called, 1);
+});
+
+test('BLK-1: plugin read-only whitelist is id-based (site hint cannot lower or raise it)', () => {
+  assert.equal(effectiveRisk({ id: 'notes-list', summary: 'x', riskHint: 'read' }), 'read');
+  // a read-looking id is read even if the site claims write (plugin decides)
+  assert.equal(effectiveRisk({ id: 'notes-list', summary: 'x', riskHint: 'write' }), 'read');
+  // a write-looking id is never read, even if the site claims read
+  assert.equal(effectiveRisk({ id: 'notes-add', summary: 'x', riskHint: 'read' }), 'write');
+  assert.equal(effectiveRisk({ id: 'notes-add', summary: 'x' }), undefined);
+  // a read id with a write subcommand is not whitelisted
+  assert.equal(isSafeReadOnlyTool({ id: 'notes-list', summary: 'x', subcommands: ['all', 'delete'] }), false);
+  // mixed/structured tool (e.g. lgdl-web-cli) defaults to conservative ask, not silent allow
+  assert.equal(effectiveRisk({ id: 'lgdl-web-cli', summary: 'x', subcommands: ['status', 'add-node'] }), 'write');
+  assert.equal(effectiveRisk({ id: 'lgdl-web-cli', summary: 'x', subcommands: ['status'] }), 'write');
 });
 
 test('controller: single-tab binding + navigation invalidation + restore', () => {

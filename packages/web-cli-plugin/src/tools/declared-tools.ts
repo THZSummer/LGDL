@@ -1,12 +1,17 @@
 /**
- * Declared site tools → `ToolEntry` (FR-011 / FR-017, ADR-003).
+ * Declared site tools → `ToolEntry` (FR-011 / FR-017 / FR-027, ADR-003).
  *
  * `descriptor.tools` becomes plugin tools in the `site` namespace; the executor
- * is the postMessage RPC to the page world. The site's `riskHint` is advisory
- * only — the plugin recomputes the effective risk and fails closed when unknown.
+ * is the postMessage RPC to the page world.
+ *
+ * SECURITY (O-010 / NFR-001, BLK-1): the site's `riskHint` is advisory only and
+ * is **never** the decision basis. The plugin recomputes the effective risk from
+ * its own read-only id whitelist; anything else is forced to a danger tier (ask)
+ * or fails closed (deny). A malicious site can therefore no longer self-report
+ * `riskHint:'read'` to get a dangerous tool silently allowed.
  */
 import type { ToolEntry, ToolResult, ToolRisk } from '@lgdl/web-cli-base';
-import { isToolRisk, type WebCliDescriptor, type WebCliToolDecl } from '../protocol/descriptor.js';
+import type { WebCliDescriptor, WebCliToolDecl } from '../protocol/descriptor.js';
 
 export const SITE_NAMESPACE = 'site';
 
@@ -47,11 +52,65 @@ export function paramsToSchema(decl: WebCliToolDecl): Record<string, unknown> {
 }
 
 /**
- * Recompute the effective risk from the (advisory) site hint.
- * Unknown/missing hint → undefined, which the S2/S3 strategies deny (fail-closed).
+ * Read-only verbs the plugin itself trusts for the read→allow default.
+ * This is a **generic id whitelist** (not per-site hardcoding, FR-010).
+ */
+export const SAFE_READ_VERBS: ReadonlySet<string> = new Set([
+  'list',
+  'status',
+  'read',
+  'get',
+  'show',
+  'info',
+  'query',
+  'search',
+  'help',
+  'describe',
+  'inspect',
+  'view',
+  'find',
+  'count',
+  'stat',
+]);
+
+function lastIdSegment(id: string): string {
+  const parts = id
+    .toLowerCase()
+    .split(/[._:/-]+/)
+    .filter(Boolean);
+  return parts.length ? (parts[parts.length - 1] as string) : '';
+}
+
+/**
+ * Plugin-side classification of a declared tool as read-only: the last id
+ * segment must be a known read verb and every declared subcommand must be too.
+ * The site's `riskHint` is deliberately ignored here.
+ */
+export function isSafeReadOnlyTool(decl: WebCliToolDecl): boolean {
+  if (!SAFE_READ_VERBS.has(lastIdSegment(decl.id))) return false;
+  const subs = decl.subcommands ?? [];
+  return subs.every((s) => SAFE_READ_VERBS.has(s.toLowerCase().trim()));
+}
+
+/**
+ * Recompute the effective risk (plugin-side, fail-closed; FR-026/FR-027).
+ *
+ * The site's `riskHint` is advisory only and is **never** the decision basis
+ * (plan §2.5 / spike §1.2). The plugin decides:
+ *
+ *   - id matches the plugin read-only whitelist → `read` (read default allow)
+ *   - otherwise, the site declared *some* structure we can act on (a risk hint
+ *     or a subcommand list) → `write` (danger tier → ask; never silent allow)
+ *   - otherwise (opaque tool: no hint, no subcommands) → `undefined`
+ *     (unknown → S3 deny, fail-closed)
+ *
+ * BLK-1: a site self-reporting `riskHint:'read'` for a write/dangerous tool now
+ * yields `write` (ask), so the `read→allow` path can no longer be abused.
  */
 export function effectiveRisk(decl: WebCliToolDecl): ToolRisk | undefined {
-  return isToolRisk(decl.riskHint) ? decl.riskHint : undefined;
+  if (isSafeReadOnlyTool(decl)) return 'read';
+  const declared = decl.riskHint !== undefined || (decl.subcommands?.length ?? 0) > 0;
+  return declared ? 'write' : undefined;
 }
 
 /** Build a readable help text for a declared site tool. */
