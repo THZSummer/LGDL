@@ -1,0 +1,41 @@
+{
+  "feature": "web-cli-plugin：浏览器插件（v0.8 主题，F-14 由 v1.1 提前至 v0.8，作者裁决 2026-09-10）",
+  "featureKey": "specs-tree-web-cli-plugin",
+  "name": "web-cli-plugin：独立于 LGDL 的浏览器插件——可作用于 LGDL 的 Web 页面、替代现有内置 AI 助手；配置 LLM key 后借助打开的网站的 web-cli 完成业务（隐含新基础设施 = web-cli 协议发现/声明机制）",
+  "phase": "discovered",
+  "workflow": "0.discovery",
+  "agent": "sddu-discovery",
+  "depth": 1,
+  "childrens": [],
+  "createdAt": "2026-09-10",
+  "updatedAt": "2026-09-10",
+  "description": "v0.8 主题「浏览器插件孵化」的问题挖掘（discovery，工作流起点）。立项来源 = 作者 2026-09-01 规划 F-14（web-cli-plugin：配置大模型 key 后借助打开的网站的 web-cli 完成业务）+ 作者 2026-09-10 版本位裁决与定位补充（独立于 LGDL 的插件、可作用于 LGDL 的 Web 页面、替代现有内置 AI 助手）——ROADMAP v1.12.0 将 F-14 由 v1.1 提前至 v0.8 作该版主题（原 v0.8 工程质量→v0.9、原 v0.9 AI 增强→v0.10、v1.1 仅 F-13 ② 开源）。关键事实输入：①现有内置 AI 助手（packages/lgdl-web/src/ai/，session.ts 单一组装点 + AiPanel + provider.ts 多厂商 BYOK）被锁在宿主页同源（v4 discovery D-3/NG-002），且火山方舟三端点 browserDirect=false（CORS，serve 代理未实现，ROADMAP:16）；②浏览器外壳 12 项能力页内不可达（ext-attribution.ts ATTRIBUTION_MAP，v4 只做「不支持+归属」转译）；③web-cli 协议发现/声明机制当前不存在（全仓 0 命中，protocol.ts 仅为 CLI 命令解析）——F-14 隐含新基础设施；④当前全仓零扩展工程痕迹（MV3/manifest 0 命中）。核心问题 8 项（Q-001 替代语义未界定 / Q-002 同源锁死无法操作外部站点 / Q-003 CORS 限缩 BYOK 可用厂商 / Q-004 外壳 12 项不可达 / Q-005 无站点级协议发现机制 / Q-006 协议信任边界未定义 / Q-007 MV3 载体与页内 web-cli-base 关系未定义 / Q-008 LLM 驱动网页执行的安全合规边界未定义）+ 次要 7 项（Q-009~Q-015）+ 潜在 5 项（Q-016~Q-020）；假设 A-001~A-007、风险 R-001~R-008（R-001 安全合规=ROADMAP 风险 12 🔴 高 / R-002 MV3 平台约束=风险 13 / R-003 协议标准缺失=风险 11）；开放点 O-001~O-016 + 建议默认 S-001~S-016 + 待作者确认清单（P0=O-001/O-002/O-003/O-008/O-009/O-010）。用户画像含诚实边界标注（除作者外均为推导角色、无原话/无数据）。下一步 @sddu-spec web-cli-plugin（须先裁决 P0 开放点）。",
+  "scope": {
+    "in": [
+      "问题挖掘：为什么用插件替代内置 AI 助手（内置助手同源/CORS/外壳能力受限的代码事实）",
+      "「独立于 LGDL」的准确边界（插件与 LGDL 仓库/协议/工作台的关系；通用消费端 vs 先服务 LGDL Web 页；与 F-13 ② 解耦）",
+      "协议发现/声明机制的问题本质澄清（网站如何声明支持 web-cli、暴露哪些工具、如何被发现）——不做方案设计",
+      "载体与权限边界：MV3 content script 隔离 / CSP / 跨域 / 权限最小化；页内可达 vs 扩展宿主；与页内 web-cli-base 的关系",
+      "安全与合规（ROADMAP 风险 12 🔴 高）：用户授权模型 / 敏感操作二次确认 / 可审计性 / 协议信任模型 / 越权·外泄·风控·站点条款",
+      "大模型 key 管理（复用 LGDL 多厂商 BYOK 先例 vs 插件独立配置）与存量配置迁移",
+      "用户与场景（LGDL 工作台用户 / 任意站点用户 / 站点开发者 / 站点合规方）+ 与现有「AI 助手（命令模式）」体验的差异",
+      "v0.8 首版范围（最小可用 vs 完整）与明确不做清单",
+      "开放点 O-001~O-016 / 建议默认 S-001~S-016 / 待作者确认清单"
+    ],
+    "out": [
+      "功能需求清单（FR/NFR/EC/AC）→ spec 职责",
+      "技术方案（协议格式 / 插件架构选型 / 权限模型设计 / 替代方案对比）→ plan 职责",
+      "代码实现 / 扩展工程（manifest/桥/调试链路）→ 本阶段零实现",
+      "F-13 ② 开源决策（许可/命名/仓库名/发布管道）→ v1.1 线",
+      "OS 生态位能力（os-cli-base，v4 NG-001 延续）"
+    ]
+  },
+  "artifacts": [
+    "discovery.md"
+  ],
+  "files": {
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin/discovery.md"
+  },
+  "notes": "discovery 阶段完成（2026-09-10，sddu-discovery）：产出 discovery.md v1.0（§0 立项来源与 ROADMAP 版本位事实 + §1 问题定义 + §2 用户画像（诚实边界：除作者外均为推导角色、无原话/无数据）+ §3 问题清单 Q-001~Q-020（核心 8/次要 7/潜在 5，逐条 file:line 事实依据）+ §4 竞品事实（Playwright/CDP/chrome.* 扩展 API/browser-use；浏览器 AI 助手类扩展标注「待调研」）+ §5 假设 A-001~A-007 与风险 R-001~R-008 + §6 下一步建议 + §7 开放点 O-001~O-016 / 建议默认 S-001~S-016 / 待作者确认清单（P0=O-001/O-002/O-003/O-008/O-009/O-010）+ §8 spec 交接要点）。关键事实锚点：内置助手同源锁死（v4 discovery D-3/NG-002；session.ts:273-284）、火山方舟 CORS browserDirect=false 且 serve 代理未实现（provider.ts:42-56；ROADMAP:16）、浏览器外壳 12 项 ATTRIBUTION_MAP（ext-attribution.ts:39-136）、协议发现机制不存在（全仓 0 命中；protocol.ts:11 仅为 CLI 解析）、零扩展工程痕迹（MV3/manifest grep 0）。**未做**：未 git 提交、未写 spec/plan、未设计协议格式或插件架构（作者明确「技术细节不预设立场」，ROADMAP:17/:212-214）。**待作者裁决 P0 开放点后**方可进入 spec：O-001 替代语义 / O-002 首版站点范围 / O-003 协议机制问题本质 / O-008 授权模型 / O-009 安全边界 / O-010 协议信任模型。上游基线提醒：v0.7（v2+v3+v4）在 feature/web-cli-base-v2 分支未合入 main/未发布（R-006）。下一步 @sddu-spec specs-tree-web-cli-plugin。",
+  "status": "tracked"
+}
