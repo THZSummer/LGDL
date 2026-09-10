@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web-cli plugin</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font: 13px/1.5 system-ui, sans-serif; margin: 0; padding: 8px; }
+      #status { font-weight: 600; padding: 4px 0; }
+      #notice { background: #fef3c7; color: #92400e; padding: 6px; border-radius: 4px; margin: 4px 0; display: none; }
+      #log { height: 45vh; overflow: auto; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; margin: 6px 0; white-space: pre-wrap; }
+      .entry-error { color: #dc2626; }
+      .entry-tool { color: #475569; }
+      #confirm { border: 1px solid #f59e0b; background: #fffbeb; border-radius: 4px; padding: 6px; margin: 6px 0; display: none; }
+      .row { display: flex; gap: 6px; align-items: center; }
+      #composer { display: flex; gap: 6px; margin-top: 6px; }
+      #input { flex: 1; }
+      .muted { color: #64748b; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div id="status">无活跃站点</div>
+    <div id="notice"></div>
+    <div class="row">
+      <button id="authorize" type="button">授权当前站点</button>
+      <button id="revoke" type="button">撤销授权</button>
+      <button id="audit" type="button">查看审计</button>
+      <span id="audit-count" class="muted">审计 0 条</span>
+    </div>
+    <div id="log" aria-label="会话记录"></div>
+    <div id="confirm">
+      <div>敏感操作需二次确认：</div>
+      <div id="confirm-summary"></div>
+      <div class="row">
+        <button id="confirm-allow" type="button">允许</button>
+        <button id="confirm-deny" type="button">拒绝</button>
+        <span class="muted">超时/取消 = 拒绝</span>
+      </div>
+    </div>
+    <form id="composer">
+      <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />
+      <button id="send" type="submit">发送</button>
+    </form>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web-cli plugin — 设置</title>
+    <style>
+      body { font: 13px/1.6 system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; }
+      label { display: block; margin-top: 12px; font-weight: 600; }
+      input, select { width: 100%; padding: 6px; box-sizing: border-box; }
+      .row { display: flex; gap: 8px; margin-top: 16px; }
+      .muted { color: #64748b; font-size: 12px; }
+      section { border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>web-cli plugin 设置</h1>
+    <form id="form">
+      <label for="provider">LLM 厂商（8 厂商 BYOK）</label>
+      <select id="provider"></select>
+      <div id="hint" class="muted"></div>
+
+      <label for="apiKey">API Key</label>
+      <input id="apiKey" type="password" placeholder="仅写入扩展存储，不回显明文" autocomplete="off" />
+
+      <label for="model">模型</label>
+      <input id="model" type="text" />
+
+      <label for="baseURL">自定义 Base URL（可选）</label>
+      <input id="baseURL" type="text" placeholder="留空使用厂商默认" />
+
+      <label for="maxRounds">最大执行轮数</label>
+      <input id="maxRounds" type="number" min="1" />
+
+      <div class="row">
+        <button type="submit">保存</button>
+        <button type="button" id="clear">清除本插件全部配置</button>
+      </div>
+      <div id="saved" class="muted"></div>
+    </form>
+
+    <section>
+      <h2>迁移指引（不自动迁移）</h2>
+      <p class="muted">
+        本插件独立配置 LLM，<strong>不读取也不写入</strong>内置助手的本地设置（浏览器页面存储）。
+        请按上方表单手动重配厂商、Key、模型（对照内置助手设置项）。首版不提供自动迁移。
+      </p>
+    </section>
+
+    <section>
+      <h2>合规与能力边界</h2>
+      <p class="muted">
+        站点自动化存在账号风控、条款冲突与数据外泄风险；使用前请确认目标站点条款允许自动化。
+        详见插件仓库 <code>docs/compliance.md</code>（不适用清单）与 <code>docs/protocol.md</code>（协议说明）。
+      </p>
+    </section>
+
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "protocolVersion": "1.0",
+  "siteName": "LGDL Web Workbench",
+  "tools": [
+    {
+      "id": "lgdl-web-cli",
+      "summary": "图内容操作（读 status/查询，写 增删改节点边分组）",
+      "subcommands": [
+        "status", "validate", "init", "convert",
+        "add-node", "remove-node", "update-node",
+        "add-edge", "remove-edge", "update-edge",
+        "doc-info", "get-node", "get-edge", "find-node",
+        "list-node-kinds", "list-diagram-types",
+        "help"
+      ],
+      "riskHint": "write"
+    },
+    {
+      "id": "lgdl-web-op-cli",
+      "summary": "UI 操作（复制/导出/缩放/定位/全屏/推荐下一步）",
+      "subcommands": [
+        "copy-source", "toggle-editor", "collapse-editor", "expand-editor",
+        "export-svg", "export-png", "export-source",
+        "preview-zoom", "preview-pan", "preview-reset", "preview-fullscreen",
+        "page-fullscreen", "preview-click", "preview-hover",
+        "switch-example", "list-examples", "list-diagram-types", "next-actions",
+        "help"
+      ],
+      "riskHint": "ui"
+    }
+  ],
+  "transport": {
+    "kind": "page-message",
+    "channel": "web-cli"
+  }
+}

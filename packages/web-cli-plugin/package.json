@@ -1,0 +1,21 @@
+{
+  "name": "@lgdl/web-cli-plugin",
+  "version": "0.8.0",
+  "description": "web-cli browser extension (MV3) — generic web-cli consumer for any site that declares the web-cli protocol; LGDL is one instance site",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc test/*.test.ts --outDir dist-test --module nodenext --moduleResolution nodenext --target es2022 --strict --esModuleInterop --skipLibCheck --declaration false --allowImportingTsExtensions --rewriteRelativeImportExtensions && node --test dist-test/test/*.test.js"
+  },
+  "dependencies": {
+    "@lgdl/web-cli-base": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.2.9",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.5.0"
+  }
+}

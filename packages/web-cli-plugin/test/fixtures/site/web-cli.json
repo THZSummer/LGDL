@@ -1,0 +1,26 @@
+{
+  "protocolVersion": "1.0",
+  "siteName": "Fixture Notes (non-LGDL)",
+  "tools": [
+    {
+      "id": "notes-list",
+      "summary": "List all notes in the fixture site (read-only).",
+      "params": {
+        "limit": { "type": "number", "desc": "Max notes to return", "required": false }
+      },
+      "riskHint": "read"
+    },
+    {
+      "id": "notes-add",
+      "summary": "Add a note to the fixture site (write).",
+      "params": {
+        "text": { "type": "string", "desc": "Note body", "required": true }
+      },
+      "riskHint": "write"
+    }
+  ],
+  "transport": {
+    "kind": "page-message",
+    "channel": "web-cli"
+  }
+}

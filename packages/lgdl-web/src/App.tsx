@@ -17,6 +17,9 @@ import { EXAMPLES, type Example } from './examples';
 import { AiPanel } from './ai/AiPanel';
 import { SettingsPanel } from './ai/SettingsPanel';
 import { createAiSession, LGDL_DEFAULT_POLICY_RULES } from './ai/session';
+import { createWebCliHostRouter } from './web-cli-host/host-router';
+import { startWebCliBridge } from './web-cli-host/bridge';
+import { buildDeclaration } from './web-cli-host/declaration';
 import { loadSettings, saveSettings, type ProviderSettings } from './ai/provider';
 import { createIdbStorage, type AskQuestion, type AskResolution, type StorageBackend } from '@lgdl/web-cli-base';
 import { webOpHelp, createOpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
@@ -1163,6 +1166,27 @@ export function App(): React.JSX.Element {
     });
     return reg;
   }, [source, previewImmersive, downloadSvg, downloadPng, downloadSource, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive, toggleBrowserFullscreen]);
+
+  /**
+   * web-cli 站点协议暴露点（TASK-010/FR-041/FR-042，ADR-004）：
+   * 复用保留的 web-cli-base 机制层 + 领域工具注册（lgdl-web-cli / lgdl-web-op-cli），
+   * 对外经 postMessage RPC 暴露 + 运行时握手声明。写回经 bridge 的 parseLgdl 校验 +
+   * onApply（applyAiSource），不直连 React 内部状态。
+   * ⚠️ 内置助手 ai/ 本任务不摘除（摘除归 TASK-016）；过渡期双份并存由 TASK-011 检测。
+   */
+  useEffect(() => {
+    const host = createWebCliHostRouter({
+      docId: 'main',
+      getSource: () => sourceRef.current,
+      opRegistry,
+    });
+    const bridge = startWebCliBridge({
+      router: host,
+      descriptor: () => buildDeclaration(host.router),
+      onApply: applyAiSource,
+    });
+    return () => bridge.dispose();
+  }, [opRegistry, applyAiSource]);
 
   /**
    * v2 IMP-2（FR-034/AC-006，review C44/C39）：会话/goal/jobs 的 **IDB 持久载体**——

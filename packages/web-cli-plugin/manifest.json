@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "web-cli plugin",
+  "version": "0.8.0",
+  "description": "Generic web-cli consumer: connect any site that declares the web-cli protocol (LGDL workbench is one instance site). BYOK LLM, per-origin authorization, explicit confirmation for sensitive actions, full audit.",
+  "minimum_chrome_version": "114",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "sidePanel"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
+  ],
+  "host_permissions": [
+    "https://api.deepseek.com/*",
+    "https://dashscope.aliyuncs.com/*",
+    "https://ark.cn-beijing.volces.com/*",
+    "https://api.hunyuan.cloud.tencent.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*"
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "web-cli plugin"
+  }
+}
