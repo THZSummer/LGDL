@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.7.0 (2026-09-10，分支态 — 待作者合入 + 发布)
+
+**发布说明（v0.7.0，分支态记录）**
+
+- ⚠️ **本版本尚未发布**：代码在分支 `feature/web-cli-base-v2`，待作者完成真实浏览器冒烟收口 → 合入 main → 打标签 + npm 发布（发布时间不承诺）。本段为分支态收口记录，非正式发布声明。
+- 📌 语义模型无破坏性变更（error-only 校验、group-as-node 统一、增量协议稳定；F-23 additive 契约保持）
+- 🧪 全仓测试 **1017 pass / 0 fail / 1 skip**（唯一 skip 为 lgdl-render 既有 B11 env-gate）；9 包构建零错误
+
+**F-25 web-cli-base 面向浏览器生态位的 agent 能力完备化（specs-tree-web-cli-base-v2）**
+
+- 🧭 **方向公理**（作者裁决 2026-09-06）：面向浏览器生态位设计工具集——不照搬 OS 的 read/write/bash，而是对应 DOM / 存储 / Web API / Worker / fetch / Permissions；OS 生态位能力显式不做、代理给未来 os-cli-base（NG-001~009）
+- 📦 **46 FR 十三组**：横切四柱（REG 注册表 v2 / PRM 权限门禁 / SES 会话 / LGDL+BSL 接线契约）+ 九域浏览器原生工具集（DOC 内容文档 / STR 存储 / SRC 检索 / NET 网络 / DOM·UI 自动化 / EXE 执行计算 / TSK 任务状态 / EXT 扩展生态位 / 会话上下文）
+- 🔐 **权限门禁三者组合**：opencode 三元组骨架 + dsh 可插拔策略 + WorkBuddy 技能级 allowed-tools（PermissionGate 裁决管线 + AuditSink 审计 + 浏览器授权失败转译）
+- ✅ 全仓 724 pass / 0 fail / 1 skip（F-23 基线 582 → 724）；Review 49 PASS / 0 FAIL；validate ⚠️ 有条件通过
+
+**web-cli-base v3：AI 操作浏览器完整工具集（specs-tree-web-cli-base-v3）**
+
+- 🖱️ **五层全谱一次补齐**（约 34 项）：感知层（结构化 DOM 读取 / 元素级属性·文本·样式·几何）、交互层（click/hover/scroll/zoom/fullscreen + 长按/双击/右键/拖放/focus/键盘 type·press）、chrome 操作（截图/打印/刷新导航/保存）、读写层（改文字/表单填写/增删元素/改值/页面 evaluate）、采集层（结构化抽取/自动翻页/导出 text·json·csv）
+- 🔐 **子命令级权限 risk**（只读免 ask、写/敏感走 ask/deny）+ 独立 evaluate 工具最高门禁（untrusted 默认拒 + fail-closed）
+- ✅ 全仓 898 pass / 0 fail / 1 skip；真实浏览器冒烟 Phase A 115/115 + Phase B 11/11；AC-008 真实 DeepSeek 闭环闭合
+
+**F-26 web-cli-base 浏览器外壳纵深与事件流（specs-tree-web-cli-base-v4）**
+
+- 📡 **事件 push/订阅通道**：event-bus.ts 纯逻辑 Hub + PlatformEnv 新可选缝 `env.events` + platform-events.ts 浏览器真实现（观察/override/patch 收敛，惰性安装零常驻）；`events` 工具 11 子命令；同步捕获 + lastId 增量拉取 + 预算/合并/丢弃/自动暂停
+- 🪟 **页内快赢切面**：dialog override（三路 + 破坏性护栏）/ cookie 读写（掩码/明细细双通道 + 三路门禁）/ 富剪贴板（html·png roundtrip + paste 捕获）/ shadow·同源 iframe 穿透（via 标注 + 深度护栏）/ 合成 touch（G-01 PASS）/ 网络拦截改写（G-02 PASS）
+- 🧭 **EXT 统一转译面与契约预留**（ext-attribution.ts）：12 项需扩展能力「不支持 + 归属」转译（F-14 继承基线，非承诺）
+- ✅ 全仓 1007 pass / 0 fail / 1 skip；真实浏览器冒烟 148 断言 0 失败；G-01/G-02 独立复核 PASS；真实 DeepSeek AI 闭环 11/11
+
+**分支态收口修复**
+
+- 🐛 **截图下载链 dataURL 未解码致 `.png` 损坏**：`chrome screenshot` 下载的 PNG 内容实为 dataURL 字面文本；新增 `dataUrlToBlob` 识别 `data:...;base64` 并解码为二进制 Blob（download + save 双路径统一）
+- 🐛 **v4 两项低风险改进**：net `rule-add` 未知 op 注册期拒注册（`NET_ACTION_OPS` 白名单，不假装生效）；跨域 iframe dialog override 归属文案区分（不再落入「宿主无对话框」误导）
+
+**待基线（非阻塞，移交作者人工/配置）**
+
+- lgdl-web React 集成面 UI 点验（AskDialog 弹层 / 事件摘要区 / 会话恢复 chip / 真实系统通知）
+- web-search 真实端点（需配置 key）
+- 人类授权真实手势（fullscreen / File System Access picker / 真实系统通知）
+
 ## 0.6.0 (2026-09-02)
 
 **发布说明（v0.6.0）**
