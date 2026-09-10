@@ -1,0 +1,1254 @@
+{
+  "meta": {
+    "feature": "web-cli-plugin（浏览器插件，v0.8 主题「浏览器插件孵化」）",
+    "featureKey": "specs-tree-web-cli-plugin",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-11",
+    "version": "1.0.0",
+    "sourcePlan": "plan.md v1.0（12 ADR 内嵌 §8 + §3.0 FR 落位总表 + §5.3 波次与最小可用裁剪 + §5.5 波次任务交接 + §6 文件影响 + §9 任务切分建议 TB-0A~TB-R）",
+    "sourceSpec": "spec.md v1.1（46 FR 十组 + 10 NFR + 16 EC + 12 AC，作者核签冻结）",
+    "sourceDiscovery": "discovery.md v1.1（Q-001~Q-020 / A-001~A-007 / R-001~R-008 / O-001~O-016）",
+    "taskCount": 16,
+    "coreTaskCount": 15,
+    "optionalTaskCount": 1,
+    "waveCount": 9,
+    "complexity": {
+      "S": 0,
+      "M": 9,
+      "L": 7
+    },
+    "planWave": {
+      "波0": [
+        "TASK-001",
+        "TASK-002"
+      ],
+      "波1-P0": [
+        "TASK-003",
+        "TASK-004",
+        "TASK-005",
+        "TASK-006",
+        "TASK-007",
+        "TASK-008",
+        "TASK-009",
+        "TASK-010",
+        "TASK-011"
+      ],
+      "波2-P1": [
+        "TASK-012",
+        "TASK-013",
+        "TASK-014",
+        "TASK-015"
+      ],
+      "波3-P2": [
+        "TASK-016"
+      ]
+    },
+    "p0MinimalSet": [
+      "TASK-001",
+      "TASK-002",
+      "TASK-003",
+      "TASK-004",
+      "TASK-005",
+      "TASK-006",
+      "TASK-007",
+      "TASK-008",
+      "TASK-009",
+      "TASK-010",
+      "TASK-011"
+    ],
+    "note": "机器可读任务清单，与 tasks.md 一一对应。16 任务 = plan §9 TB-0A~TB-R（22 块，含 plan 标注「可选」的 TB-Q）按「文件所有权 + 依赖拓扑 + 波次门禁」整合（D-001 类决策）：TB-0A+0D→TASK-001；TB-0B+0C→TASK-002；TB-A→003；TB-B+C→004；TB-D→005；TB-E+F→006（service-worker.ts/messaging.ts 单文件所有权链 A→E→F，合并规避同文件跨任务并行冲突）；TB-G→007；TB-H→008；TB-I→009；TB-J→010；TB-K+L→011（收口=通用性验证+红线 grep+零回归）；TB-M→012；TB-N→013；TB-O+P→014；TB-Q→015（可选可顺延）；TB-R→016。P0 最小可用必做集 = TASK-001~TASK-011（波0 门槛 + 波1 四根柱子）。D-005 测试守恒 + AC-001 每步门禁：上游既有测试零删除零降级（唯一例外 = TASK-016 Gate-D 达标后按 O-001 裁决删除 lgdl-web/src/ai/* 及对应测试条目）。plan 未覆盖依赖/冲突 8 项（F-1~F-8）见 tasks.md §4.5，含：TB-A/B/G 并行但新包骨架为编译前提的软依赖（F-1）；波0 spike 结论文件落点未列（F-2）；冒烟清单文件未列（F-3）；ai/* 删除须同步 lgdl-web test script（F-4）；TB-R 内 D-6 回退预案自引用顺序（F-5）；P0 柱4 不含 FR-019 故 P0 不能完整满足 AC-009（F-6）；S-013/S-016 待核签（F-7）；devDep 待作者确认（F-8）。文件所有权（§4.3）：service-worker/messaging A→E→F/I；manifest A→H；App.tsx J 挂载→R 摘除；lgdl-web/src/ai/* 仅 R 删除；extension-env 006→015；version/discovery 004→012；policy 005→014；page-bridge 008→013；sidepanel 009→014；compliance 002→014；fixtures/site 002→011。类型分布：实施 13 + 文档/契约预留 2 + 验证门/spike 2（001=MV3+G-KEY、011=通用性+收口，各内嵌降级出口）。"
+  },
+  "waves": [
+    {
+      "wave": 0,
+      "planWave": "波0",
+      "tasks": [
+        "TASK-001",
+        "TASK-002"
+      ],
+      "strategy": "并行组 ①（波0 门槛）：TASK-001 MV3+G-KEY 验证门 / TASK-002 协议本质+试点+矩阵+合规；无依赖、均非产品交付；TASK-001 结论驱动后续降级出口"
+    },
+    {
+      "wave": 1,
+      "planWave": "波1",
+      "tasks": [
+        "TASK-003"
+      ],
+      "strategy": "串行（P0 骨架）：包骨架为后续所有任务编译/测试前提（含 plan 未显式标注的软依赖 F-1）"
+    },
+    {
+      "wave": 2,
+      "planWave": "波1",
+      "tasks": [
+        "TASK-004",
+        "TASK-007"
+      ],
+      "strategy": "并行组 ②（P0 基座）：均依赖 TASK-003；文件不相交（protocol/discovery | llm/ui-options）"
+    },
+    {
+      "wave": 3,
+      "planWave": "波1",
+      "tasks": [
+        "TASK-005"
+      ],
+      "strategy": "串行（P0 门禁）：安全层依赖 TASK-004（策略引用声明工具语义）"
+    },
+    {
+      "wave": 4,
+      "planWave": "波1",
+      "tasks": [
+        "TASK-006",
+        "TASK-008"
+      ],
+      "strategy": "并行组 ③（P0 控制面/数据面）：006 dep 003/004/005；008 dep 003/004；文件不相交（background+platform+tools | content）"
+    },
+    {
+      "wave": 5,
+      "planWave": "波1",
+      "tasks": [
+        "TASK-009",
+        "TASK-010"
+      ],
+      "strategy": "并行组 ④（P0 UI/实例站点）：009 dep 006；010 dep 004/008；文件不相交（plugin ui/sidepanel | lgdl-web web-cli-host）"
+    },
+    {
+      "wave": 6,
+      "planWave": "波1末",
+      "tasks": [
+        "TASK-011"
+      ],
+      "strategy": "收口 GATE（依赖波1 全部）：通用性端到端 + 双份工具面冲突检测 + 红线 grep + base 零回归 + 冒烟清单 + validate 移交"
+    },
+    {
+      "wave": 7,
+      "planWave": "波2",
+      "tasks": [
+        "TASK-012",
+        "TASK-013",
+        "TASK-014",
+        "TASK-015"
+      ],
+      "strategy": "并行组 ⑤（P1）：⚠️ 同文件追加按 004→012 / 005→014 / 008→013 / 009→014 / 010→013 串行；TASK-015 可选可整块顺延"
+    },
+    {
+      "wave": 8,
+      "planWave": "波3",
+      "tasks": [
+        "TASK-016"
+      ],
+      "strategy": "P2 终收口：Gate-D D-1~D-7 严格前置，未达标不下线；任务内先回退预案（D-6）再下线"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "波0 平台与端点验证门（MV3 最小验证 + G-KEY）",
+      "tb": "TB-0A + TB-0D",
+      "complexity": "M",
+      "type": "validation-gate",
+      "dependsOn": [],
+      "planWave": "波0",
+      "wave": 0,
+      "fr": [
+        "FR-009",
+        "FR-034",
+        "FR-045"
+      ],
+      "nfr": [
+        "NFR-002",
+        "NFR-004",
+        "NFR-006"
+      ],
+      "ec": [
+        "EC-006",
+        "EC-007",
+        "EC-009"
+      ],
+      "adr": [
+        "ADR-002",
+        "ADR-006",
+        "ADR-011"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin/spike-mv3-gkey.md"
+        }
+      ],
+      "acceptance": [
+        "MV3 六项验证逐项结论（隔离/CSP/跨域/权限/无头加载/G-KEY），每项含 PASS/FAIL/降级 + 证据，无「未测」项（FR-009/AC-002）",
+        "content script 隔离结论：isolated world 可达面 + 不污染页面全局断言可行（FR-007 前置）",
+        "CSP 结论：站点 CSP 对 content/MAIN 注入的阻断面与可行注入路径（EC-006）",
+        "跨域结论：background fetch 对 host_permissions 端点的可达性 + 不可达时如实转译口径（EC-007/FR-008）",
+        "无头加载结论：--headless=new --load-extension + CDP service_worker target 可达性；不可行 → 降级出口（headful/xvfb / Playwright launchPersistentContext）（ADR-006/R-006）",
+        "G-KEY 结论：火山 3 端点直连 PASS → 8 厂商全可用；FAIL → 降级出口（本地代理提示 + 可读转译「不可直连」，EC-009），不静默失败（FR-034/ADR-011）",
+        "失败项触发范围裁剪建议（FR-009/034 降级结论驱动波1 范围）",
+        "结论表逐项有值，供 TASK-011 收口与 validate 引用"
+      ],
+      "verify": [
+        "grep -cE \"PASS|FAIL|降级\" .sddu/specs-tree-root/specs-tree-web-cli-plugin/spike-mv3-gkey.md",
+        "# chrome --headless=new --load-extension=<dist> --remote-debugging-port=9222 → curl http://127.0.0.1:9222/json 核对 service_worker target"
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "name": "波0 协议本质澄清 + 最小试点启动 + 能力矩阵 + 合规评估",
+      "tb": "TB-0B + TB-0C",
+      "complexity": "M",
+      "type": "doc-prep",
+      "dependsOn": [],
+      "planWave": "波0",
+      "wave": 0,
+      "fr": [
+        "FR-010",
+        "FR-011",
+        "FR-016",
+        "FR-022",
+        "FR-030"
+      ],
+      "nfr": [
+        "NFR-006",
+        "NFR-008",
+        "NFR-010"
+      ],
+      "ec": [
+        "EC-001"
+      ],
+      "adr": [
+        "ADR-001"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/capability-matrix.md"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/compliance.md"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/fixtures/site/"
+        },
+        {
+          "op": "NEW",
+          "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin/spike-protocol-pilot.md"
+        }
+      ],
+      "acceptance": [
+        "协议三层最小语义澄清（发现/声明/执行），仅语义不固化格式（O-003/FR-010/011/NG-002）",
+        "能力矩阵：内置助手全部工具逐项归属四态（对齐/替代/不适用/后置）+ 标注下线最小能力集（FR-022/AC-004；供 Gate-D D-1）",
+        "矩阵条目数与内置助手工具数核对无遗漏",
+        "fixture 站点：静态声明 + RPC 监听端最小实现，非 LGDL、无 LGDL 私有依赖（FR-016/043 前置）",
+        "试点记录：≥2 站点（LGDL 页 + 非 LGDL fixture）路径与预期闭环（FR-016/AC-003）",
+        "合规评估：试点站点逐项条款结论（可用/受限/禁用）+ 依据可追溯（FR-030/AC-006）",
+        "文档可读（NFR-008）；合规结论变更可审计（NFR-010）"
+      ],
+      "verify": [
+        "ls packages/web-cli-plugin/docs/capability-matrix.md packages/web-cli-plugin/docs/compliance.md packages/web-cli-plugin/test/fixtures/site/",
+        "ls .sddu/specs-tree-root/specs-tree-web-cli-plugin/spike-protocol-pilot.md"
+      ]
+    },
+    {
+      "id": "TASK-003",
+      "name": "插件工程骨架（monorepo 独立包，可加载 dist/）",
+      "tb": "TB-A",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": [],
+      "planWave": "波1",
+      "wave": 1,
+      "fr": [
+        "FR-001",
+        "FR-003",
+        "FR-005",
+        "FR-006"
+      ],
+      "nfr": [
+        "NFR-002",
+        "NFR-005",
+        "NFR-009"
+      ],
+      "ec": [],
+      "adr": [
+        "ADR-002",
+        "ADR-009"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/package.json"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/tsconfig.json"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/manifest.json"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/build.mjs"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/background/service-worker.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/background/messaging.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/content/content-script.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/options/index.html"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/options/options.ts"
+        }
+      ],
+      "acceptance": [
+        "package.json：name=@lgdl/web-cli-plugin、private、运行时依赖仅 @lgdl/web-cli-base ^0.7.0（零新增运行时依赖）；devDep esbuild + @types/chrome 单列并注释待作者确认（ADR-009）",
+        "manifest.json：MV3；background.service_worker type module；permissions 仅 activeTab/scripting/storage/sidePanel（无宽泛 tabs）；optional_host_permissions https://*/*；host_permissions 仅厂商端点；side_panel.default_path；options_page；无静态全站 content_scripts（FR-006/NFR-002）",
+        "目标浏览器与最低版本显式声明（Chromium ≥ 114；低于门槛可读降级提示）（NFR-004）",
+        "tsconfig ES2022/strict；build.mjs esbuild 产出 background ESM / content IIFE / sidepanel+options HTML + manifest 拷贝",
+        "npm run build --workspace @lgdl/web-cli-plugin 成功产出 dist/manifest.json + 三面入口产物",
+        "三面空入口可编译；base 包零改动（NFR-005）",
+        "权限清单与功能逐项对应可核验（AC-002/NFR-002）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin",
+        "node -e \"const m=require('./packages/web-cli-plugin/dist/manifest.json'); if(m.manifest_version!==3) throw new Error('not mv3'); if(m.permissions.includes('tabs')) throw new Error('tabs too broad'); if(!m.optional_host_permissions) throw new Error('missing optional_host_permissions'); console.log('manifest ok')\""
+      ]
+    },
+    {
+      "id": "TASK-004",
+      "name": "协议与发现层（descriptor/version/trust/rpc + discovery 三通道三态）",
+      "tb": "TB-B + TB-C",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": [
+        "TASK-003"
+      ],
+      "planWave": "波1",
+      "wave": 2,
+      "fr": [
+        "FR-010",
+        "FR-011",
+        "FR-012",
+        "FR-013",
+        "FR-014"
+      ],
+      "nfr": [
+        "NFR-006",
+        "NFR-009"
+      ],
+      "ec": [
+        "EC-001",
+        "EC-002",
+        "EC-014"
+      ],
+      "adr": [
+        "ADR-001",
+        "ADR-007"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/protocol/descriptor.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/protocol/version.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/protocol/trust.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/protocol/rpc.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/discovery/discovery.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/discovery/static-declaration.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/discovery/runtime-handshake.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/protocol.test.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/discovery.test.ts"
+        }
+      ],
+      "acceptance": [
+        "descriptor schema：字段（protocolVersion/tools[]/transport/integrity/source）校验 + 归一化；非法声明可读拒绝不崩溃（FR-011/014）",
+        "version：协商正确；未知/不兼容版本 → 拒绝或降级 + 可读提示（EC-014/FR-013）",
+        "trust：默认 untrusted；integrity sha256 校验；无声明 → integrityVerified:false 保守；source 溯源（FR-012/EC-002）",
+        "rpc：web-cli:invoke/web-cli:result 契约往返；超时/错误可读（FR-011）",
+        "discovery 三通道依序 + 三态（支持/不支持/未知）判定正确；≥3 失败降级场景可读（FR-010/014/EC-001）",
+        "static-declaration：相对 href 解析为绝对 URL（/LGDL/ 子路径兼容断言）",
+        "runtime-handshake：MAIN-world 注入探测 + 3s 超时分支可测（fake 消息桩）",
+        "零 LGDL 私有格式耦合（grep 断言，FR-015/NFR-009 前置）；无逐站点硬编码",
+        "node 单测全绿（protocol.test.ts/discovery.test.ts）；上游零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "! grep -rniE \"lgdl\" packages/web-cli-plugin/src/protocol packages/web-cli-plugin/src/discovery"
+      ]
+    },
+    {
+      "id": "TASK-005",
+      "name": "安全层（授权/门禁/二次确认/审计/脱敏）",
+      "tb": "TB-D",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": [
+        "TASK-004"
+      ],
+      "planWave": "波1",
+      "wave": 3,
+      "fr": [
+        "FR-023",
+        "FR-024",
+        "FR-025",
+        "FR-026",
+        "FR-027",
+        "FR-028"
+      ],
+      "nfr": [
+        "NFR-001",
+        "NFR-003"
+      ],
+      "ec": [
+        "EC-002",
+        "EC-003",
+        "EC-004",
+        "EC-005",
+        "EC-015"
+      ],
+      "adr": [
+        "ADR-003",
+        "ADR-005"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/security/origin-store.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/security/policy.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/security/confirm.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/security/audit-sink.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/security/redact.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/security.test.ts"
+        }
+      ],
+      "acceptance": [
+        "origin-store：per-origin 授权/信任 CRUD 正确；授权与信任分离；变更入审计（FR-023/FR-012）",
+        "policy 三策略裁决表全绿：S1 未授权 → deny；S2 untrusted 危险档位 → ask、未知档位 → deny（fail-closed）；S3 无匹配 → deny；deny 优先（FR-027/NFR-001）",
+        "riskDefaults：read→allow / 写面→ask / evaluate→deny；不可放宽至静默（FR-026）",
+        "confirm：onAsk 桥 + 操作摘要可读；超时/取消 = 拒绝（EC-005/FR-024）",
+        "audit-sink：环形缓冲 + 事件面（origin-authorize/revoke/descriptor-read/confirm/llm-config）+ 可回放/导出（FR-025/NFR-003）",
+        "redact：import 复用 base sensitive.ts（零复制分叉）；敏感明文零进上下文/日志/审计（FR-028/EC-015/NFR-001）",
+        "无旁路：grep 无直接 executor 调用入口，所有执行经 dispatch；无静默 allow（NFR-001）",
+        "结果按 trust:'external' 处理，不将页面输出解释为指令（R-009）",
+        "node 单测（裁决表/fail-closed/deny 优先/脱敏/超时）+ 上游零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "! grep -rn \"silentAllow\\|allowSilently\" packages/web-cli-plugin/src"
+      ]
+    },
+    {
+      "id": "TASK-006",
+      "name": "宿主与工具层（background 控制面 + extension-env + 工具注册）",
+      "tb": "TB-E + TB-F",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": [
+        "TASK-003",
+        "TASK-004",
+        "TASK-005"
+      ],
+      "planWave": "波1",
+      "wave": 4,
+      "fr": [
+        "FR-005",
+        "FR-008",
+        "FR-011",
+        "FR-017",
+        "FR-023"
+      ],
+      "nfr": [
+        "NFR-001",
+        "NFR-005"
+      ],
+      "ec": [
+        "EC-011",
+        "EC-013"
+      ],
+      "adr": [
+        "ADR-002",
+        "ADR-003",
+        "ADR-012"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/background/host.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/background/controller.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/background/service-worker.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/background/messaging.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/platform/extension-env.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/platform/unsupported.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/tools/declared-tools.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/tools/admin-tools.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/host.test.ts"
+        }
+      ],
+      "acceptance": [
+        "host：CommandRouter + AgentRunner（base import 消费，零复制分叉）+ 工具注册（site + admin）（FR-017/NFR-005）",
+        "controller：活跃标签绑定（单标签 S-011）；导航失效明示 + 需重新授权/重连，不静默续接（EC-011/FR-017）",
+        "service-worker：消息路由 + SW 生命周期保活 + chrome.storage.session/local 恢复（EC-013/R-011）",
+        "messaging：跨面消息协议完整（background↔content↔sidepanel）",
+        "extension-env：PlatformEnv 实现（扩展 fetch / storage kv / 远程缝）；未注入能力可读转译（EC-007）",
+        "unsupported：复用 ATTRIBUTION_MAP 统一「不支持+归属」；无静默 catch 吞错（grep 断言，FR-008）",
+        "declared-tools：descriptor.tools → ToolEntry（namespace='site'/schema/risk/executor=RPC）；help/schema 可读（FR-011）",
+        "admin-tools：6 管理工具（origin-authorize/revoke/list、descriptor-show、audit-export、llm-config）",
+        "门禁单一权威点在 background，页面不可绕过；所有执行经 dispatch（NFR-001）",
+        "build/test；上游零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "! grep -rnE \"catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}\" packages/web-cli-plugin/src"
+      ]
+    },
+    {
+      "id": "TASK-007",
+      "name": "KEY 层 + options（8 厂商表 + key 隔离 + 设置/迁移指引）",
+      "tb": "TB-G",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": [
+        "TASK-003"
+      ],
+      "planWave": "波1",
+      "wave": 2,
+      "fr": [
+        "FR-033",
+        "FR-034",
+        "FR-035",
+        "FR-036"
+      ],
+      "nfr": [
+        "NFR-009"
+      ],
+      "ec": [
+        "EC-009"
+      ],
+      "adr": [
+        "ADR-005",
+        "ADR-011"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/llm/providers.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/llm/key-store.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/options/index.html"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/options/options.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/llm.test.ts"
+        }
+      ],
+      "acceptance": [
+        "providers：8 厂商表（deepseek/qwen/volc/volc-coding/volc-plan/tencent/openai/claude）与 base provider.ts 语义对齐；browserDirect 标记保留（FR-034 前置）",
+        "key-store：chrome.storage.local（不用 sync）；key 仅 background 持有（FR-033/035）",
+        "options：LLM 配置 / 迁移指引 / 合规清单入口可用；key 零明文回显（FR-033/NFR-008）",
+        "不读写内置助手 lgdl-ai-settings/localStorage（grep 断言，S-015/FR-036）",
+        "key 不进页面上下文/日志/审计（FR-035/EC-015）",
+        "迁移指引存在：不自动迁移 + 手动重配（FR-036/S-015；详细迁移文档归 TASK-014）",
+        "build/test；上游零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "! grep -rn \"lgdl-ai-settings\" packages/web-cli-plugin/src",
+        "! grep -rn \"localStorage\" packages/web-cli-plugin/src/llm"
+      ]
+    },
+    {
+      "id": "TASK-008",
+      "name": "content script 数据面（isolated world + page-bridge RPC）",
+      "tb": "TB-H",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": [
+        "TASK-003",
+        "TASK-004"
+      ],
+      "planWave": "波1",
+      "wave": 4,
+      "fr": [
+        "FR-005",
+        "FR-007",
+        "FR-011"
+      ],
+      "nfr": [
+        "NFR-002"
+      ],
+      "ec": [
+        "EC-006"
+      ],
+      "adr": [
+        "ADR-001",
+        "ADR-004"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/content/content-script.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/content/page-bridge.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/manifest.json"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/content.test.ts"
+        }
+      ],
+      "acceptance": [
+        "isolated world：不挂页面 window 全局、不修改原型链、对宿主页关键路径零常驻开销（FR-007/NFR-002；grep 断言）",
+        "page-bridge：web-cli:invoke/web-cli:result RPC 桥往返正确（FR-011）",
+        "经 chrome.scripting 按 origin 动态注入，无静态全站 content_scripts（FR-006）",
+        "manifest 变更与 TASK-003 权限面兼容，未扩大权限（NFR-002）",
+        "与页面脚本冲突可读提示（EC-006/FR-008）",
+        "build/test；上游零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "! grep -rnE \"(window|globalThis)\\.[A-Za-z_]+\\s*=\" packages/web-cli-plugin/src/content"
+      ]
+    },
+    {
+      "id": "TASK-009",
+      "name": "side panel（会话/授权/二次确认/审计查看）",
+      "tb": "TB-I",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": [
+        "TASK-006"
+      ],
+      "planWave": "波1",
+      "wave": 5,
+      "fr": [
+        "FR-017",
+        "FR-024",
+        "FR-025"
+      ],
+      "nfr": [
+        "NFR-003",
+        "NFR-008"
+      ],
+      "ec": [
+        "EC-005",
+        "EC-011"
+      ],
+      "adr": [
+        "ADR-002",
+        "ADR-012"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/sidepanel.test.ts"
+        }
+      ],
+      "acceptance": [
+        "多轮对话渲染 + 工具调用展示；askUser 缝接 side panel（FR-017）",
+        "授权弹层：per-origin 授权交互可用（知情同意风险提示文案由 TASK-014 补强）",
+        "二次确认：操作摘要可读；超时/取消 = 拒绝（EC-005/FR-024）",
+        "审计查看/导出可用（FR-025/NFR-003）",
+        "关键状态可见（已授权/活跃操作/审计）；导航失效提示（NFR-008/EC-011）",
+        "不注入宿主页（FR-007）",
+        "build/test；人工面交互列入 TASK-011 冒烟清单"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-010",
+      "name": "LGDL 站点协议暴露点（web-cli-host + 静态声明 + App 挂载）",
+      "tb": "TB-J",
+      "complexity": "L",
+      "type": "implement",
+      "dependsOn": [
+        "TASK-004",
+        "TASK-008"
+      ],
+      "planWave": "波1",
+      "wave": 5,
+      "fr": [
+        "FR-018",
+        "FR-020",
+        "FR-041",
+        "FR-042"
+      ],
+      "nfr": [
+        "NFR-009"
+      ],
+      "ec": [
+        "EC-012"
+      ],
+      "adr": [
+        "ADR-004"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/lgdl-web/src/web-cli-host/host-router.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/lgdl-web/src/web-cli-host/bridge.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/lgdl-web/src/web-cli-host/declaration.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/lgdl-web/public/.well-known/web-cli.json"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/lgdl-web/index.html"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/lgdl-web/src/App.tsx"
+        }
+      ],
+      "acceptance": [
+        "host-router：复用保留 base CommandRouter + 领域工具注册（lgdl-web-cli + op-cli）；移除助手专属（runner/provider/system prompt）（FR-041/对象区分）",
+        "bridge：web-cli:invoke → router.dispatch → web-cli:result 往返；apply 写回通道（parseLgdl 校验 + onApply，无 React 内部状态直连）（FR-020/042）",
+        "declaration + .well-known/web-cli.json + index.html link（相对路径兼容 base='/LGDL/'）（FR-041）",
+        "App.tsx 挂载 web-cli-host；内置助手 ai/ 本任务不删改（摘除归 TASK-016，EC-012）",
+        "图内容命令（lgdl-web-cli 9 命令）经 RPC 可达（FR-018）",
+        "lgdl-web build/test 全绿；LGDL 既有功能零回归（AC-009）；base 零改动",
+        "无 LGDL 私有接口依赖暴露给插件侧（插件零 LGDL 私有依赖）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/lgdl-web && npm run test --workspace @lgdl/lgdl-web",
+        "ls packages/lgdl-web/public/.well-known/web-cli.json",
+        "grep -n 'rel=\"web-cli\"' packages/lgdl-web/index.html"
+      ]
+    },
+    {
+      "id": "TASK-011",
+      "name": "波1 收口 GATE + 通用性验证（红线 grep + 零回归 + 冒烟清单）",
+      "tb": "TB-K + TB-L",
+      "complexity": "L",
+      "type": "validation-gate",
+      "dependsOn": [
+        "TASK-001",
+        "TASK-002",
+        "TASK-003",
+        "TASK-004",
+        "TASK-005",
+        "TASK-006",
+        "TASK-007",
+        "TASK-008",
+        "TASK-009",
+        "TASK-010"
+      ],
+      "planWave": "波1末",
+      "wave": 6,
+      "fr": [
+        "FR-002",
+        "FR-004",
+        "FR-016",
+        "FR-043"
+      ],
+      "nfr": [
+        "NFR-001",
+        "NFR-005",
+        "NFR-006"
+      ],
+      "ec": [
+        "EC-012",
+        "EC-015"
+      ],
+      "adr": [
+        "ADR-004",
+        "ADR-009",
+        "ADR-010"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/fixtures/site/"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/e2e.generality.test.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/smoke-checklist.md"
+        },
+        {
+          "op": "MODIFY",
+          "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin/state.json"
+        }
+      ],
+      "acceptance": [
+        "fixture 站点端到端全链通过：发现 → 声明 → 授权 → 工具面组装 → 执行 → 审计（不依赖 LGDL 私有接口，FR-043/AC-010）",
+        "双份工具面冲突检测：无双重执行 / 无重复注册（EC-012/FR-004）",
+        "grep ①：插件 src/ 无 base 源码副本/分叉（FR-002/NFR-005）",
+        "grep ②：插件依赖图谱零 @lgdl/lgdl-web 私有包（FR-003/NFR-009）",
+        "grep ③：discovery/policy 无 lgdl 特化分支（FR-043）",
+        "grep ④：无旁路（所有执行经 dispatch，无直接 executor 入口）；无静默 allow（NFR-001）",
+        "grep ⑤：敏感明文零命中（cookie/URL token/键入/console·对话框/LLM key）（EC-015/NFR-001）",
+        "D-005 测试守恒：base 全量既有测试零删除零降级；npm run test --workspace @lgdl/web-cli-base 全绿（NFR-005）",
+        "冒烟清单：机械面（扩展加载/SW target/content 注入/fixture 三态/授权三路/untrusted fail-closed/RPC 往返/审计落库/导航失效）+ 人工面（side panel 多轮/授权弹层/二次确认/审计查看）逐项可执行",
+        "validate 移交清单（含 TASK-001 波0 结论 + G-KEY 结论 + 降级出口记录）"
+      ],
+      "verify": [
+        "npm run test --workspace @lgdl/web-cli-base",
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "! grep -rn \"@lgdl/lgdl-web\" packages/web-cli-plugin/src",
+        "! grep -rniE \"lgdl\" packages/web-cli-plugin/src/discovery packages/web-cli-plugin/src/security/policy.ts"
+      ]
+    },
+    {
+      "id": "TASK-012",
+      "name": "协议完善（版本协商 + 站点中立协议文档 + 失败降级补强）",
+      "tb": "TB-M",
+      "complexity": "M",
+      "type": "implement-doc",
+      "dependsOn": [
+        "TASK-004"
+      ],
+      "planWave": "波2",
+      "wave": 7,
+      "fr": [
+        "FR-013",
+        "FR-014",
+        "FR-015"
+      ],
+      "nfr": [
+        "NFR-009"
+      ],
+      "ec": [
+        "EC-001",
+        "EC-014"
+      ],
+      "adr": [
+        "ADR-001",
+        "ADR-007"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/protocol/version.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/discovery/discovery.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/protocol.md"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/protocol.test.ts"
+        }
+      ],
+      "acceptance": [
+        "版本协商补强：未知/不兼容 → 拒绝或降级 + 可读提示 + 入审计（EC-014/FR-013）",
+        "docs/protocol.md：descriptor schema / RPC / 发现 / 信任 / 版本齐全；零 LGDL 私有格式（grep 断言）；留标准化接口（FR-015/ADR-007）",
+        "失败降级 ≥3 场景可读态补强（无声明/声明无效/版本不匹配）（FR-014/EC-001）",
+        "build/test 全绿；上游零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "! grep -rniE \"lgdl\" packages/web-cli-plugin/docs/protocol.md"
+      ]
+    },
+    {
+      "id": "TASK-013",
+      "name": "UI 操作 + 事件消费（op-cli RPC + 事件桥）",
+      "tb": "TB-N",
+      "complexity": "M",
+      "type": "implement",
+      "dependsOn": [
+        "TASK-008",
+        "TASK-010"
+      ],
+      "planWave": "波2",
+      "wave": 7,
+      "fr": [
+        "FR-019",
+        "FR-021"
+      ],
+      "nfr": [
+        "NFR-007"
+      ],
+      "ec": [],
+      "adr": [
+        "ADR-004"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/lgdl-web/src/web-cli-host/bridge.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/content/page-bridge.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/content.test.ts"
+        }
+      ],
+      "acceptance": [
+        "UI 操作：site:lgdl-web-op-cli 经 RPC 执行，经门禁裁决（FR-019）",
+        "事件消费：content script 事件桥（页内 env.events hub 代理）→ background 事件通道（FR-021）",
+        "上下文预算沿用上游截断/摘要口径（NFR-007）",
+        "build/test（plugin + lgdl-web）；上游零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "npm run build --workspace @lgdl/lgdl-web && npm run test --workspace @lgdl/lgdl-web"
+      ]
+    },
+    {
+      "id": "TASK-014",
+      "name": "风控护栏 + 合规/迁移/调试文档（P1 收口）",
+      "tb": "TB-O + TB-P",
+      "complexity": "L",
+      "type": "implement-doc",
+      "dependsOn": [
+        "TASK-005",
+        "TASK-009"
+      ],
+      "planWave": "波2",
+      "wave": 7,
+      "fr": [
+        "FR-029",
+        "FR-031",
+        "FR-032",
+        "FR-036",
+        "FR-037",
+        "FR-039",
+        "FR-040",
+        "FR-044",
+        "FR-045"
+      ],
+      "nfr": [
+        "NFR-003",
+        "NFR-008",
+        "NFR-010"
+      ],
+      "ec": [
+        "EC-010",
+        "EC-016"
+      ],
+      "adr": [
+        "ADR-006",
+        "ADR-008"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/security/policy.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/docs/compliance.md"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/migration.md"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/dev.md"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/gate-d.md"
+        }
+      ],
+      "acceptance": [
+        "风控：per-origin 频率限制（令牌桶，可配）+ 可中断（stop）+ 可暂停（EC-010/FR-029）",
+        "知情同意：授权流程风险提示（账号风控/条款冲突/数据外泄面）+ 能力边界，文案可读（FR-031/NFR-008）",
+        "docs/compliance.md 不适用清单（明确禁止自动化的站点类型/操作类型）（FR-032）",
+        "docs/migration.md：不自动迁移 + 手动重配指引 + 差异清单（FR-036/039/S-015）",
+        "过渡期双份维护控制：起止条件 + 收敛计划（终止时点）（FR-040）",
+        "docs/dev.md：本地 unpacked 加载 + 热重载可行路径（FR-044）",
+        "冒烟方法论：无头/自动化可行性结论 + 机械面/人工面分离（FR-045/ADR-006）",
+        "docs/gate-d.md：D-1~D-7 条件清单逐条可验收（FR-037）",
+        "build/test 全绿；上游零回归（AC-001）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin",
+        "ls packages/web-cli-plugin/docs/migration.md packages/web-cli-plugin/docs/dev.md packages/web-cli-plugin/docs/gate-d.md",
+        "grep -c \"D-[1-7]\" packages/web-cli-plugin/docs/gate-d.md"
+      ]
+    },
+    {
+      "id": "TASK-015",
+      "name": "（可选）通用 DOM 工具面（dom-agent + extensionEnv 远程 dom 缝）",
+      "tb": "TB-Q",
+      "complexity": "M",
+      "type": "implement-optional",
+      "dependsOn": [
+        "TASK-006",
+        "TASK-008"
+      ],
+      "planWave": "波2",
+      "wave": 7,
+      "fr": [],
+      "nfr": [
+        "NFR-002",
+        "NFR-007"
+      ],
+      "ec": [
+        "EC-007"
+      ],
+      "adr": [
+        "ADR-002"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/content/dom-agent.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/platform/extension-env.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/dom-agent.test.ts"
+        }
+      ],
+      "acceptance": [
+        "PlatformDomOps 远程代理（content script 执行页面 DOM 操作）可用（NFR-007 延伸）",
+        "extensionEnv 远程 dom 缝装配；未注入/不可达 → 可读转译（FR-008）",
+        "默认关/零常驻开销（NFR-002/007）",
+        "build/test 全绿；上游零回归（AC-001）",
+        "可后置声明：不属 P0/P1 必做集；容量不足可整块顺延，不阻塞核心验收"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-016",
+      "name": "发布渠道 + Gate-D 下线执行（P2，严格前置）",
+      "tb": "TB-R",
+      "complexity": "L",
+      "type": "implement-doc",
+      "dependsOn": [
+        "TASK-001",
+        "TASK-002",
+        "TASK-003",
+        "TASK-004",
+        "TASK-005",
+        "TASK-006",
+        "TASK-007",
+        "TASK-008",
+        "TASK-009",
+        "TASK-010",
+        "TASK-011",
+        "TASK-012",
+        "TASK-013",
+        "TASK-014",
+        "TASK-015"
+      ],
+      "planWave": "波3",
+      "wave": 8,
+      "fr": [
+        "FR-037",
+        "FR-038",
+        "FR-040",
+        "FR-046"
+      ],
+      "nfr": [
+        "NFR-004"
+      ],
+      "ec": [
+        "EC-016"
+      ],
+      "adr": [
+        "ADR-006",
+        "ADR-008"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/release.md"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/lgdl-web/src/App.tsx"
+        },
+        {
+          "op": "DELETE",
+          "path": "packages/lgdl-web/src/ai/AiPanel.tsx"
+        },
+        {
+          "op": "DELETE",
+          "path": "packages/lgdl-web/src/ai/AskDialog.tsx"
+        },
+        {
+          "op": "DELETE",
+          "path": "packages/lgdl-web/src/ai/SettingsPanel.tsx"
+        },
+        {
+          "op": "DELETE",
+          "path": "packages/lgdl-web/src/ai/prompts.ts"
+        },
+        {
+          "op": "DELETE",
+          "path": "packages/lgdl-web/src/ai/provider.ts"
+        },
+        {
+          "op": "DELETE",
+          "path": "packages/lgdl-web/src/ai/session.ts"
+        },
+        {
+          "op": "DELETE",
+          "path": "packages/lgdl-web/src/ai/provider.test.ts"
+        },
+        {
+          "op": "DELETE",
+          "path": "packages/lgdl-web/src/ai/session.test.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/lgdl-web/package.json"
+        },
+        {
+          "op": "MODIFY",
+          "path": ".sddu/specs-tree-root/ROADMAP.md"
+        },
+        {
+          "op": "MODIFY",
+          "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin/state.json"
+        }
+      ],
+      "acceptance": [
+        "docs/release.md：本地 unpacked + 自托管/未打包分发；分发物/版本管理；商店后续（FR-046/S-016）",
+        "Gate-D 前置检查逐条记录 D-1~D-7；未达门槛 → 不下线（EC-016/FR-037）",
+        "下线执行：App.tsx 摘除 AiPanel/SettingsPanel/createAiSession；ai/* 移除；保留 base 机制层 + web-cli-host（FR-038/对象区分）",
+        "回退预案：单提交可 git revert + VITE_AI_ASSISTANT_FALLBACK 默认 off + 显式终止时点（FR-038/040）",
+        "不静默进入无 AI 可用状态（EC-016）",
+        "lgdl-web/package.json test script 同步（删除已删测试文件条目）；npm run test --workspace @lgdl/lgdl-web 全绿",
+        "ROADMAP v0.8/F-14 登记",
+        "全仓 npm run build && npm test 全绿；上游（base）零回归（AC-001）",
+        "执行顺序：先回退预案（D-6）→ 再下线（子步骤串行）"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/lgdl-web && npm run test --workspace @lgdl/lgdl-web",
+        "test ! -d packages/lgdl-web/src/ai || echo 'ai/ 未移除（Gate-D 未达标或未执行）'",
+        "npm run build && npm test"
+      ]
+    }
+  ]
+}
