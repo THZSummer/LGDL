@@ -5,11 +5,12 @@
 > **前置依赖**: `review.md`、`spec.md`（46 FR / 10 NFR / 16 EC / 12 AC）、`plan.md`（12 ADR）、`tasks.md`（16 任务 + §4.5 F-1~F-8）、`build.md`（D-001~D-008）
 > **创建人**: SDDU Review Agent
 > **创建时间**: 2026-09-11
-> **审查轮次**: R1
-> **版本**: v1.0
+> **审查轮次**: R1（§1~§6）+ R2 复审（§7）
+> **版本**: v2.0
 > **更新人**: SDDU Review Agent
 > **更新时间**: 2026-09-11
-> **更新说明**: 初始创建。审查范围 = P0 最小可用集 TASK-001~011；独立复跑 build/test/红线 grep/chromium headless 加载 + CDP SW 探针/G-KEY 可达性。P1/P2（TASK-012~016）不在本轮。
+> **更新说明**: v2.0 = R2 复审：核验 R1 的 2 阻塞（BLK-1 安全红线 / BLK-2 多轮会话）与 6 项改进的修复落地，独立复跑全仓门禁 + G-MV3/G-KEY。**最终结论 ⚠️ 有条件通过（无阻塞）**。R1 记录（§1~§6，❌ 不通过）保留为历史轮次。
+> **R1 范围**: P0 最小可用集 TASK-001~011；独立复跑 build/test/红线 grep/chromium headless 加载 + CDP SW 探针/G-KEY 可达性。P1/P2（TASK-012~016）不在本轮。
 
 ## 1. 审查概要
 
@@ -151,9 +152,11 @@
 | IMP-11 | `packages/lgdl-web/src/web-cli-host/{host-router,bridge,declaration}.ts` | TASK-010 新增 L 级模块零测试（bridge 的 `handle` 已留测试缝却未用）。 | C56 | 为 `startWebCliBridge.handle`（probe/invoke/写回校验）与 `buildDeclaration` 补 node 单测（注入 fake window）。 |
 | IMP-12 | `spec.md:228-229`（FR-037/038 P0）vs `plan.md:553`（波3/P2） | spec 标 P0、plan 归波3/P2 的优先级不一致，tasks §4.5 F 列表未标注；F-6 仅覆盖 AC-009/FR-019。 | C50 | 在 tasks/plan 补注 FR-037/038 的波次降级理由，或将 Gate-D 条件清单文档纳入 P0 门槛。 |
 
-## 6. 结论
+## 6. R1 结论（历史轮次，已被 §7 R2 复审取代）
 
-**结论**: ❌ 不通过
+> ⚠️ 本节为 R1 原始结论（当时 2 阻塞未修）。**最终结论见 §7.5：⚠️ 有条件通过（0 阻塞）。**
+
+**结论**: ❌ 不通过（R1）
 
 | 指标 | 结果 |
 |------|------|
@@ -170,8 +173,106 @@
 
 此外有 16 项警告（12 条改进建议），其中 FR-025 发现环节审计缺失、FR-008 ATTRIBUTION_MAP 未接线、TASK-010 模块零测试为优先修复项。上述修复均为局部改动，不涉及架构返工；修复并补测后可复审。
 
+## 7. R2 复审（2026-09-11）
+
+> **复审范围**：核验 R1 的 2 个阻塞 + 6 项声称已修的高价值改进是否真实落地；独立复跑全仓门禁与 G-MV3/G-KEY。
+> **复审基线**：HEAD = `4e263d2 fix(web-cli-plugin): 修复 review 阻塞 BLK-1/BLK-2 + 6 项改进`；工作区 clean。
+> **方法论**：静态分析（file:line + 测试锚点）+ 独立复跑（不引用 build 声明）+ 残余风险实证。
+
+### 7.1 R1 阻塞复验
+
+#### BLK-1（安全红线：站点自报 `riskHint` 作裁决依据）→ ✅ PASS（核心修复有效）
+
+| 复验点 | 结果 | 证据 |
+|--------|:--:|------|
+| ① 无 `return decl.riskHint` 类模式 | ✅ | `grep -rnE "return[[:space:]]+[A-Za-z_.]*riskHint" src/` **0 命中**；`riskHint` 仅出现在 `declared-tools.ts:112` 的 presence 判定 `decl.riskHint !== undefined`（不取其值）与 `descriptor.ts` 解析/回显 |
+| ② 负向用例（untrusted 站点自报 read 的写工具不得静默 allow） | ✅ | `test/host.test.ts:139-167`：`notes-delete` + `riskHint:'read'` → `effectiveRisk='write'`、`isSafeReadOnlyTool=false`、无确认 dispatch → `ok:false` 且 **RPC 未调用（called=0）**；`host.test.ts:169-199`：显式确认后 `asked=1` 才执行；`host.test.ts:201-213`：白名单按 id 判定，站点 hint 不可升/降 |
+| ③ 白名单语义可否被恶意命名绕过 | ⚠️ **可绕过（实测）** | 独立实证（编译产物 `dist-test/src/tools/declared-tools.js`）：`purge-list`→read/allow、`delete-all-list`→read/allow、`wipe-get`→read/allow。即：**恶意站点把破坏性工具命名为 `*-list` 即可在「已授权 untrusted origin」上静默放行** |
+
+**BLK-1 判定：PASS（R1 红线已关闭）**。原缺陷（站点自报 `riskHint` 直接作为门禁裁决依据）已被根除——`effectiveRisk` 完全由插件自决（白名单→read；声明了结构→write/ask；不可分类→undefined/S3 deny），返回值与站点 hint 解耦。`policy.ts:84-99` 的 `input.risk` 经 base `router.ts:543`（`subcommandRisks?.[subcommand] ?? entry.risk`）取自插件重算值，链路闭合。
+
+**残余风险 R-BLK1a（严重度：中；判定：非阻塞，须跟踪）**：id 白名单启发式可被恶意命名绕过（`purge-list`/`delete-all-list`/`wipe-get` 实测归 read）。**不判阻塞的理由**：① R1 自身的修复建议②即「建立插件侧安全工具 id 白名单」，本修复正是该方案；② FR-026 明确「只读/幂等操作可缺省放行」，纯 fail-closed（一律 ask）会与该验收项冲突；③ 站点 RPC 语义本由站点控制，任何基于 id/名称的分类都固有可绕过；④ 触发前提是用户已对恶意 origin 显式授权（S1 仍生效）。**建议（release 前或 P1 处理）**：增加破坏性动词 denylist（`delete/purge/drop/remove/reset/clear/wipe/exec/run/install/uninstall/apply/update/set/create`）覆盖白名单；或在 untrusted origin 上仅对 `*-list/status/read` 等窄集放行、其余一律 ask。已纳入 §7.4 遗留清单。
+
+#### BLK-2（多轮会话 / FR-017）→ ✅ PASS（核心达成）
+
+| 复验点 | 结果 | 证据 |
+|--------|:--:|------|
+| 多轮上下文真实保持 | ✅ | `chat-runner.ts:36-54`（`session.prefix(turns)` 前缀历史 + run 后 `session.commit(current)`）；`test/chat-session.test.ts:36-56` 断言第二 LLM 调用看到 `['first','reply 1','second']`（user1→assistant1→user2）；`service-worker.ts:194-217` 经 `s.chatSession` 单例 + `finally` 持久化 |
+| 历史落 `chrome.storage.session` | ✅ | `service-worker.ts:169-175` `persistChatHistory` → `sessionKv`（`createChromeSessionKv`）；启动恢复 `service-worker.ts:146-153`（EC-013） |
+| 导航 / 换 origin 清空 | ✅ | `service-worker.ts:347-360` `onUpdated` → `markNavigated` + `resetChatSession`；`service-worker.ts:287`（discover 换 origin）+ `:337`（action 点击换 origin）→ reset；测试 `chat-session.test.ts:58-74`（EC-011） |
+| 裁剪边界 | ✅ | `chat-session.ts:16,46-51` `MAX_SESSION_TURNS=40`，裁剪后首条强制为 `user`（保证 tool 结果有 assistant toolCalls 父消息）；测试 `chat-session.test.ts:25-34` |
+| `maxRounds` 传入并生效 | ✅ | `service-worker.ts:197` `maxRounds: settings.maxRounds` → `chat-runner.ts:50` → base `runner.ts:89,123`；测试 `chat-session.test.ts:76-92` |
+| 与 ADR-012（单标签绑定）一致 | ✅ | `controller.ts` 单标签 + `markNavigated` 失效；会话随导航清空，无静默续接 |
+
+**BLK-2 判定：PASS**。`AgentRunner` 单次语义未 fork（additive），会话连续性由 background 历史前缀达成，满足 FR-017「多轮对话/会话状态保持」与 EC-011/EC-013。
+
+**残余 R7（非阻塞，R1 已允许）**：任务内用户问答 `askUser` 缝仍未接入（权限 ask 经 `confirm.ts` 已可用）。R1 的 IMP-3 明确给出替代口径「或显式标注『用户问答 ask 归 P1』」，build 已如实标注为 R7/P1。故不构成 BLK-2 未达成。
+
+### 7.2 R1 高价值改进复验（6 项）
+
+| # | 改进项 | 结果 | 证据（file:line + 测试锚点） |
+|---|--------|:--:|------|
+| 1 | FR-025 发现/声明读取入审计 | ✅ PASS | 新增 `src/security/discovery-audit.ts:15-41`；`service-worker.ts:280`（supported）/`:284`（unsupported）双分支 `audit.recordPlugin(...)`；测试 `test/security.test.ts:149-176`（ok/trust/channel/integrity/tools） |
+| 2 | FR-008 转译接线（`unsupported.ts`/`ATTRIBUTION_MAP` 不再死代码） | ✅ PASS | `service-worker.ts:22,82` `capabilityFailure(err, …)` 接入 `invokeSite` 失败路径（可读转译 + 归属）；测试 `test/unsupported.test.ts:11-35`（2 用例）。注：`unsupportedCapability/isAttributed/attributionHelpLines` 仍仅测试引用（次要，非阻塞） |
+| 3 | TASK-010 `web-cli-host` 补测 | ✅ PASS | 新增 `packages/lgdl-web/src/web-cli-host/web-cli-host.test.ts`（184 行 / 9 用例：declaration、router 图读、UI op、bridge probe/invoke/写回校验×2/隔离/异常）；lgdl-web 66→**75 pass / 0 fail** |
+| 4 | `optional_host_permissions` 实际申请 | ✅ PASS | `manifest.json:17-19` 声明 `https://*/*`；`extension-env.ts:66-101` `originPermissionPattern/requestOriginPermission/hasOriginPermission`；`sidepanel.ts` 授权点击（用户手势，主）+ `service-worker.ts:255`（兜底）；测试 `test/extension-env.test.ts:5-26` |
+| 5 | `maxRounds` 传参 | ✅ PASS | `service-worker.ts:197` → `chat-runner.ts:50` → base runner；测试 `test/chat-session.test.ts:76-92`（`onRoundLimit=[1]`） |
+| 6 | GATE-011 表述收敛 | ✅ PASS | `build.md:121` 明确「非 LGDL fixture **页面级 CDP** + **node 级**」，并声明「**未**经插件 content-script→background→host→RPC 全链浏览器验证（记为 R8）」，不再冒充全链 PASS；`state.json` GATE-011 同步收敛 |
+
+**改进复验结论：6/6 真实落地，无「声称已修但未生效」**。
+
+### 7.3 R2 独立复跑（本审查实测，不引用 build 声明）
+
+| 门禁 | 命令 | 实测结果 |
+|------|------|---------|
+| 全仓构建 | `npm run build` | ✅ PASS（插件 dist：background 931KB / content 25.1KB / sidepanel 8.2KB / options 893.9KB） |
+| 全仓测试 | `npm test` | ✅ **0 fail**：core 267 / render 94（1 skip）/ router 8 / **lgdl-web 75** / web-cli-cli 84 / op-cli 15 / **base 483** / **plugin 68** |
+| 插件类型检查 | `npm run typecheck --workspace @lgdl/web-cli-plugin`（`tsc --noEmit`） | ✅ PASS（0 error） |
+| 红线 grep | 独立复跑 | ✅ 0 命中：`return …riskHint` 0；`silentAllow/allowSilently` 0；`.executor(` 直调 0；`src/content` window/globalThis 全局赋值 0；plugin src 无 `@lgdl/lgdl-web`/`lgdl-web-cli`/`op-cli`/`lgdl-core` 私有依赖 |
+| base 零改动 | `git status --porcelain packages/web-cli-base` | ✅ 空；`git show --name-only 4e263d2` 未触及 base |
+| G-MV3 | `/snap/bin/chromium --headless=new --load-extension=dist` + CDP SW 探针 | ✅ PASS：`service_worker` target 可达（`chrome-extension://mekg…/background.js`）；SW 内 `manifest.name=web-cli plugin`、`mv=3`、`permissions=[activeTab,scripting,storage,sidePanel]`、`optional_host_permissions=["https://*/*"]`、`storage.local` 往返 true、`sidePanel`/`scripting`=object、uncaught=0 |
+| G-KEY | SW 内带 Authorization fetch 火山端点 | ✅ PASS（`HTTP 401`，非 CORS/网络失败） |
+
+> 如实记录：G-MV3 首次探针出现一次瞬态 `Uncaught`（SW 未就绪/时序），同一产物重跑干净 PASS；上表为最终复跑结果。
+> 未复跑：GATE-011 的「非 LGDL fixture 页面级 CDP」闭环（R2 未重跑该 fixture；其 node 级部分已由 lgdl-web 75 pass 覆盖），全链浏览器验证仍为 R8 遗留。
+
+### 7.4 剩余遗留清单（非阻塞）
+
+| # | 遗留 | 严重度 | 归属 | 说明 |
+|---|------|:--:|------|------|
+| R-BLK1a | id 白名单可被恶意命名绕过（`purge-list` 等 → read/allow） | 中 | P1 / release 前 | 建议破坏性动词 denylist 覆盖白名单（§7.1） |
+| R7 | 任务内 `askUser` 问答缝未接入 | 低 | P1（TASK-013） | R1 IMP-3 已允许显式归 P1；权限 ask 已可用 |
+| R8 | 插件 content-script→background→host→RPC 全链浏览器验证未做 | 中 | validate 人工面 H0/H6 | headless 无法构造 activeTab 手势（D-005） |
+| R9 | IMP-6 discovery fetch 落 content（vs plan §3.2 background 特权 fetch） | 低 | P1/P2 | 已可读降级，不静默 |
+| R9 | IMP-7 `transport.channel` 未动态绑定（P0 仅默认通道） | 低 | P1/P2 | 建议协议文档记录 |
+| R9 | IMP-8 「插件 vs 内置助手」双工具面冲突用例缺失 | 低 | P1（过渡期） | 仅插件侧重复注册已测 |
+| R9 | IMP-10 `docs/gate-d.md`/`protocol.md` 未产出；`options/index.html:54` 引用不存在的 `docs/protocol.md` | 低 | P1（TASK-014） | 文案指向待修 |
+| R9 | IMP-12 FR-037/038 spec P0 与 plan 波3/P2 优先级不一致未在 tasks §4.5 标注 | 低 | P1/P2 | 建议补注降级理由 |
+| — | `requestOriginPermission` 双调用（sidepanel + background）：background 无用户手势大概率返回 false，使 OriginStore note 记「未授予」与 sidepanel 提示不一致 | 低 | P1 | 仅注记/文案不一致，门禁以 OriginStore 为准 |
+| — | `unsupported.ts` 的 `unsupportedCapability/isAttributed/attributionHelpLines` 仅测试引用 | 低 | P1/P2 | 次要；主转译路径已接线 |
+
+### 7.5 R2 结论
+
+**结论：⚠️ 有条件通过（Conditional Pass）**
+
+| 指标 | 结果 |
+|------|------|
+| R1 阻塞（BLK-1/BLK-2） | **2/2 已修复**（核心红线关闭；BLK-2 多轮达成） |
+| R1 高价值改进 | **6/6 真实落地** |
+| R2 新增阻塞 | **0** |
+| 独立复跑 | 构建 / 全仓 0 fail / tsc / 红线 grep / base 零改动 / G-MV3 / G-KEY 全 PASS |
+| 剩余遗留 | 10 项（1 中安全加固 + 1 中全链验证 + 8 低），均非阻塞 |
+| 可进入 validate | **是**（阻塞清零；遗留项由 validate 人工面 / P1 承载） |
+
+**判定理由**：R1 的两条阻塞均已从根因修复并经负向用例与独立复跑验证——BLK-1 的「站点自报 `riskHint` 作裁决依据」红线已根除，BLK-2 的跨消息会话历史已由 `chat-session`/`chat-runner` 落地并覆盖导航清空/裁剪/`maxRounds`。6 项声称已修的改进逐项有 file:line 与测试锚点，无虚报。全仓 0 fail、上游 base 483 零回归、base 零改动、G-MV3/G-KEY 独立复现 PASS。
+
+**未判 ✅ 通过的原因**（按审查标准「改进项 < 5」）：仍有 10 项非阻塞遗留，其中 **R-BLK1a（id 白名单可被恶意命名绕过 → 破坏性工具可静默放行）为安全加固项**，虽不阻塞 validate，但应在面向真实 untrusted 站点发布前处置。故给「有条件通过」而非「通过」，条件即 §7.4 遗留清单（尤其 R-BLK1a 与 R8）。
+
+**遗留条件**：① validate 阶段按 `docs/smoke-checklist.md` 人工面 H0/H6 补全链浏览器验证（R8）；② release 前为 `effectiveRisk` 增加破坏性动词 denylist（R-BLK1a）；③ P1 补齐 `askUser`（R7）与 R9 五项。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v2.0 | R2 复审：BLK-1/BLK-2 复验 PASS + 6 项改进 6/6 落地 + 独立复跑（全仓 0 fail / tsc / 红线 grep / base 零改动 / G-MV3 / G-KEY）+ 残余 R-BLK1a 实证；**最终结论 ⚠️ 有条件通过（0 阻塞，可进入 validate）** | 2026-09-11 | SDDU Review Agent |
 | v1.0 | 初始创建：P0 审查报告（C1~C56 逐项结果；独立复跑 build/test/typecheck/红线 grep/headless+CDP/G-KEY；2 阻塞 + 12 改进） | 2026-09-11 | SDDU Review Agent |
