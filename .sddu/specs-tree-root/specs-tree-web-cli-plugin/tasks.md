@@ -766,6 +766,7 @@ npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl
 | **执行波次** | Wave 8（plan 波3） |
 | **对应 FR** | FR-046/038/037（+ FR-040 收敛；NFR-004） |
 | **TB 映射** | TB-R（plan §9） |
+| **状态** | ✅ completed（2026-09-12；Gate-D D-1~D-7 达标 + 下线执行；权威状态见 `state.json` → `buildProgress.completedTasks`，执行记录见 `build.md §12`） |
 | **风险** | R-008（下线回退风险）—— 未达门槛**不下线**（EC-016）；单提交可 revert；**S-016（O-016）待作者核签** |
 
 **输入**: plan §3.8（下线执行/回退）+ §3.9（发布渠道）+ ADR-006/008 + spec FR-037/038/046/040 + EC-016 + S-016

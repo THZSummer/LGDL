@@ -1,10 +1,11 @@
 /**
  * 8-provider BYOK table (FR-034, ADR-011).
  *
- * Independent implementation aligned with the built-in assistant's
- * `packages/lgdl-web/src/ai/provider.ts` semantics (the plugin must not import
- * any LGDL private package). `browserDirect` is preserved as a "needs
- * verification" marker for the volcano endpoints (G-KEY gate).
+ * Independent implementation aligned with the built-in assistant's provider
+ * semantics (the plugin must not import any LGDL private package; the former
+ * assistant source has been retired by TASK-016 — see capability-matrix.md).
+ * `browserDirect` is preserved as a "needs verification" marker for the volcano
+ * endpoints (G-KEY gate).
  */
 import { chat as baseChat, type ChatResult, type ChatTurn, type LlmToolDef } from '@lgdl/web-cli-base';
 

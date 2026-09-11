@@ -445,6 +445,92 @@
 - 人工 UX 项（授权弹窗/真实 LLM/LGDL 真实页等）与 SW 内存采样未做，已列清单。
 - `spec.md` 本轮修改（v1.2）仅补注 FR-037/038 归属与修订记录，需求语义零变更；这是应遗留 R9-12 的显式要求（用户指令优先于「不修改规范」通则）。
 
+## 12. P2 终收口轮（R4：TASK-016 发布渠道 + Gate-D 内置助手下线执行）
+
+> 执行顺序遵循任务要求：**步骤 0 Gate-D 前置评估 → 步骤 1 回退预案 → 步骤 2 下线执行 → 步骤 3 发布渠道 → 步骤 4 文档/登记联动**。未 git 提交（由上层统一提交）。
+
+### 12.1 步骤 0：Gate-D 逐条评估（D-1~D-7）
+
+| 条件 | 判定 | 证据 |
+|------|------|------|
+| D-1 能力对齐矩阵达标 | **PASS** | `docs/capability-matrix.md` §2：最小能力集 8/8 均由 P0（6）+ P1/TASK-013（2）实现承载；§1 矩阵 34 项逐项归属，无「后置/不适用」落在最小集内 |
+| D-2 安全基线全达标 | **PASS** | 插件测试 112 pass / 0 fail（security/host/content/sidepanel）；`grep -rn "silentAllow\|allowSilently" src` = 0；`grep -rnE "\.executor\(" src` = 0（全经 dispatch）；审计覆盖发现/授权/确认/执行（`test/security.test.ts`） |
+| D-3 LGDL 端到端闭环 | **PASS（自动化面）/ ⏳ 人工面 H6 待执行（已文档化非阻塞）** | lgdl-web 测试 31 pass（web-cli-host 12：声明/dispatch/写回校验/onApply 恰好一次/隔离/事件代理）；`npm run test:e2e` 场景 B（LGDL Workbench 真实 dist）PASS（发现→授权→`site.lgdl-web-cli` 读→审计 7 事件）；人工面 H6（真实页写回 + 零回归）属 `docs/smoke-checklist.md` §2 已文档化非阻塞人工项，未记为 PASS |
+| D-4 通用站点端到端 | **PASS** | `test/e2e.generality.test.ts` 全绿；`npm run test:e2e` 场景 A（非 LGDL fixture）PASS（发现→声明→授权→写确认门禁→再现→审计 11 事件）；冲突检测无重复注册 |
+| D-5 存量迁移路径可用 | **PASS** | `docs/migration.md` 含不自动迁移/差异清单/手动重配/习惯对照；插件 `src/` 无 `lgdl-ai-settings`（0 命中）、`src/llm` 无 `localStorage`（0 命中）；`test/llm.test.ts` AC-007 通过 |
+| D-6 回退预案就绪 | **PASS** | `docs/migration.md` §5.4；flag 落地 `lgdl-web/src/fallback-flag.ts`（仅 `'on'` 启用，默认 off）+ `src/vite-env.d.ts`；无 `.env*` 设值；主回退 = 单提交 `git revert`；C-4 显式移除时点 |
+| D-7 过渡期收敛计划 | **PASS** | `docs/migration.md` §5.1 起止/关闭时点 + §5.3 C-1~C-5（含执行状态）+ §5.5 下线执行记录 |
+
+**判定**：D-1~D-7 达标（D-3 人工面 H6 为已文档化非阻塞人工项，依 TASK-016 指令口径不阻塞）→ 执行下线。记录同步写入 `docs/gate-d.md §2`。
+
+### 12.2 步骤 1：回退预案（先于下线）
+
+- **主预案**：下线为**单一提交/单一工作树**，可 `git revert` 恢复（前一版本保留 `ai/` 全量）。本仓库未 git 提交，回退单位 = 上层提交的下线提交。
+- **开关**：新增 `packages/lgdl-web/src/fallback-flag.ts`（`AI_ASSISTANT_FALLBACK_ENABLED = import.meta.env.VITE_AI_ASSISTANT_FALLBACK === 'on'`，**默认 off**）+ `src/vite-env.d.ts` 类型声明；消费点 = AI 区域迁移告知（on 时额外显示回退路径）。**语义边界**：因同提交删除 `ai/*`，flag 不在本构建恢复旧面板，恢复须 `git revert`（D-032）。
+- **显式终止时点**：`docs/migration.md` §5.3 C-4（下线后下一版本移除 flag）与 C-5（关闭过渡期）。
+- **不静默（EC-016）**：App.tsx AI 区域静态迁移告知（提供插件安装/授权步骤 + 迁移/回退文档指引），无 `AiPanel` 时不留空白。
+
+### 12.3 步骤 2：下线执行清单
+
+| 操作 | 对象 | 说明 |
+|------|------|------|
+| DELETE | `packages/lgdl-web/src/ai/AiPanel.tsx` | 助手面板 |
+| DELETE | `packages/lgdl-web/src/ai/AskDialog.tsx` | 授权 ask 桥 UI |
+| DELETE | `packages/lgdl-web/src/ai/SettingsPanel.tsx` | 页内 BYOK 设置面板 |
+| DELETE | `packages/lgdl-web/src/ai/prompts.ts` | system prompt |
+| DELETE | `packages/lgdl-web/src/ai/provider.ts` | 助手 provider/设置持久化 |
+| DELETE | `packages/lgdl-web/src/ai/session.ts` | `createAiSession` 组装点 |
+| DELETE | `packages/lgdl-web/src/ai/provider.test.ts` | 删除（21 用例） |
+| DELETE | `packages/lgdl-web/src/ai/session.test.ts` | 删除（26 用例） |
+| — | `src/ai/` 目录 | 删除后不存在（`test ! -d` 通过） |
+| MODIFY | `packages/lgdl-web/src/App.tsx` | 移除 5 条助手 import（AiPanel/SettingsPanel/createAiSession+LGDL_DEFAULT_POLICY_RULES/loadSettings+ProviderSettings/createIdbStorage+AskQuestion/AskResolution/StorageBackend）；移除 `aiSettings`/`aiSettingsOpen`/`saveAiSettings`/`aiSettingsRef`/`permAskTarget`/`aiPolicy`/`restorable`/`persistBackend`/`aiSession` 及其 effects；`applyAiSource` → `applySource`；AI 区域改为静态迁移告知；移除 SettingsPanel 模态；**保留** `web-cli-host` 挂载 + base 机制层 + 编辑器折叠/op-cli 工具面 |
+| MODIFY | `packages/lgdl-web/package.json` | test script 移除 `src/ai/provider.test.ts`、`src/ai/session.test.ts` 及 `dist-test/ai/*.test.js` |
+| MODIFY | `packages/lgdl-web/src/web-cli-host/web-cli-host.test.ts` | 移除 3 条助手 import；EC-012 双工具面用例 1:1 改写为「下线后单工具面不变量」（计数 12 不变，见 D-031） |
+| NEW | `packages/lgdl-web/src/fallback-flag.ts` + `src/vite-env.d.ts` | 回退开关 + 类型 |
+| MODIFY | `packages/lgdl-web/src/app.css` | 新增 `.ai-migrated-*` 迁移告知样式；遗留设置面板 CSS 注释中性化（D-033/D-034） |
+| — | `packages/web-cli-base/**` | **零改动**（`git status` 空） |
+| — | `packages/lgdl-web/src/web-cli-host/**` | **保留**（替代载体） |
+
+### 12.4 步骤 3：发布渠道（FR-046）
+
+新建 `packages/web-cli-plugin/docs/release.md`：首版渠道 = 本地 unpacked + 自托管/未打包分发；`dist/` 分发物构成与构建核对；版本管理（版本号来源/版本位约定/可重复构建/R8 偏差仅测试副本）；商店发布后续（S-016）；引用 dev/smoke/migration/compliance/protocol。
+
+### 12.5 步骤 4：文档/登记联动
+
+- `docs/gate-d.md`：§2 填入 D-1~D-7 实际验收记录（v1.1）；`docs/migration.md`：§1.1 不静默提示 / §5.1 终止与关闭时点 / §5.3 C-1~C-5 执行状态 / §5.4 flag 落地与语义边界 / §5.5 下线执行记录（v1.1）；`docs/capability-matrix.md`：最小能力集 8/8 复核 + 下线状态（v1.1）。
+- `.sddu/specs-tree-root/ROADMAP.md`：v1.14.0 素材增补（P1/P2 全量实现 + TASK-016 下线执行 + 发布渠道就绪）；版本总览表/落地进展/里程碑/依赖树/修订记录联动。
+- `state.json`：`buildProgress.completedTasks` += TASK-016；round/fixRound/buildTest/GATE-016/artifacts/deviations/notDone/notes 更新；phase=builded / workflow=6.review。
+
+### 12.6 全仓门禁 + 红线 grep（本轮复跑）
+
+- `npm run build` 全仓 **PASS**（含 lgdl-web vite build + 插件 esbuild dist）。
+- `npm test` 全仓 **0 fail**：`lgdl-core 267` / `lgdl-render 94+1skip` / `lgdl-router 8` / **`lgdl-web 31`** / `lgdl-web-cli 84` / `lgdl-web-op-cli 15` / **`web-cli-base 483`（零回归）** / **`web-cli-plugin 112`**。
+- 插件 `tsc --noEmit` **0 error**；`npm run test:e2e --workspace @lgdl/web-cli-plugin` **PASS**（场景 A fixture / 场景 B LGDL Workbench 真实 dist）。
+- **lgdl-web 删除前后计数对照**：78 → 31（-47）。逐文件：`locate.test.ts 11`（不变）/ `snap.test.ts 8`（不变）/ `web-cli-host.test.ts 12`（EC-012 用例改写，计数不变）/ `ai/provider.test.ts 21`（删）/ `ai/session.test.ts 26`（删）= 删除 47。**除 `src/ai/*` 外无其他测试删除或降级**（D-005 守恒：明确例外 = 下线后 EC-012 用例语义改写，1:1 保留计数）。
+- `test ! -d packages/lgdl-web/src/ai` **通过**（无「ai/ 未移除」输出）。
+- `git status packages/web-cli-base` **空**（base 零改动）。
+- 红线 grep（`AiPanel|SettingsPanel|createAiSession|src/ai/`）：**下线目标与活代码零残留**——`lgdl-web/src/App.tsx`、`package.json`、`web-cli-host/**`、`web-cli-plugin/src/**` 均 0 命中。剩余命中均为**历史/文档**：`web-cli-base/src/**`（5 文件迁移溯源注释，**红线不改**）、`lgdl-web-cli/src/{help,protocol}.ts`（旧路径迁移注释）、`web-cli-plugin/docs/{capability-matrix,migration}.md`（下线记录文档）。如实披露，未冒充全仓 0 命中。
+- 安全红线复跑：`silentAllow` 0 命中、`.executor(` 0 命中、插件 `lgdl-ai-settings` 0 命中、`src/llm` `localStorage` 0 命中。
+
+### 12.7 新增决策（D-030~D-035）
+
+| # | 决策 | 说明 |
+|---|------|------|
+| **D-030** | Gate-D 判定口径 | D-1~D-7 达标；D-3 拆「自动化面 PASS + 人工面 H6 已文档化非阻塞」，按 TASK-016 指令口径执行下线，未把 H6 记为 PASS |
+| **D-031** | EC-012 用例改写 | 助手删除后双工具面前提消失；`web-cli-host.test.ts` EC-012 改写为下线后单工具面不变量（1:1，计数 12 不变），非删除非降级 |
+| **D-032** | `VITE_AI_ASSISTANT_FALLBACK` 落地 | `src/fallback-flag.ts` + `src/vite-env.d.ts`，默认 off；语义边界=不恢复旧面板，恢复须 `git revert`；锚定 C-4 |
+| **D-033** | 不静默（EC-016） | AI 区域改为静态迁移告知卡片（`.ai-migrated-*`），不改布局结构 |
+| **D-034** | 注释级红线清理 | 清理 `web-cli-plugin/src/llm/providers.ts` 旧路径交叉引用 + `lgdl-web-op-cli/src/handlers.ts` stale AiPanel 注释；`web-cli-base`/`lgdl-web-cli` 历史溯源注释依红线不改 |
+| **D-035** | plan 字面张力消解 | plan §3.8「flag 启用旧面板」与删除 `ai/*` 冲突；以「主回退=revert、flag=里程碑锚点」消解，未改 spec/plan |
+
+### 12.8 未完成/偏差如实标注
+
+- **Gate-D D-3 人工面 H6**未执行（真实浏览器交互无法自动化，已文档化非阻塞）；自动化面已 PASS。
+- **C-4/C-5 过渡期关闭**未做（下线后下一版本：移除 flag + 文档归档 + 遗留 CSS 清理）。
+- **商店发布（S-016）**未做（FR-046 已定义渠道，商店为后续）。
+- 剩余红线 grep 命中均为 `web-cli-base`（红线）与 `lgdl-web-cli` 历史溯源注释及下线文档，已如实披露（D-034）。
+- 本仓库**未 git 提交**（由上层统一提交）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -453,3 +539,4 @@
 | v1.1 | R1 审查修复轮：BLK-1（安全红线）/BLK-2（多轮会话）+ 6 高价值改进（FR-025/FR-008/TASK-010/IMP-4/maxRounds/GATE-011 表述）；D-009~D-015；插件 54→68、lgdl-web 66→75；全仓 0 fail | 2026-09-11 | SDDU Build Agent |
 | v1.2 | P1 实施轮：TASK-012~015（协议完善/UI 操作+事件桥/风控+文档/可选 DOM 工具面）；D-017~D-020；插件 68→89、lgdl-web 75→77；全仓 0 fail；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.3 | 遗留清账轮（§11）：R-BLK1a/R7/R8/R9-6/7/8/10/12 + minors×2 + EC-008/009/012 + AC-004/007/011 + NFR-007；D-021~D-029；插件 89→112、lgdl-web 77→78、base 483 零回归；R8 E2E 固化并 PASS（唯一偏差披露）；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.4 | P2 终收口轮（§12）：TASK-016 发布渠道 `docs/release.md` + Gate-D D-1~D-7 评估 + 内置助手下线执行（`ai/*` 移除 + App.tsx 摘除，保留 base 机制层 + web-cli-host）+ 回退预案（单提交 revert + `VITE_AI_ASSISTANT_FALLBACK` 默认 off）+ EC-016 不静默迁移告知；D-030~D-035；lgdl-web 78→31（删除 47 = provider 21 + session 26，EC-012 用例 1:1 改写）、base 483 零回归、插件 112、E2E A/B PASS；未 git 提交 | 2026-09-12 | SDDU Build Agent |

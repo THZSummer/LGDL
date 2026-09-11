@@ -73,17 +73,19 @@
 | 通过标准 | 收敛计划有明确时点；不承诺长期双份并存 |
 | 关联 | FR-040 / R-007 |
 
-## 2. 验收记录（模板）
+## 2. 验收记录（TASK-016 执行，2026-09-12）
 
 | 条件 | 结论（PASS/FAIL/降级） | 证据（file:line / 命令输出） | 验收时间 |
 |------|:---------------------:|------------------------------|----------|
-| D-1 | | | |
-| D-2 | | | |
-| D-3 | | | |
-| D-4 | | | |
-| D-5 | | | |
-| D-6 | | | |
-| D-7 | | | |
+| D-1 | **PASS** | `docs/capability-matrix.md` §2：最小能力集 8/8 均由 P0（6）+ P1/TASK-013（2）承载，无「后置/不适用」落在最小集内；`npm run test --workspace @lgdl/web-cli-plugin` = 112 pass / 0 fail | 2026-09-12 |
+| D-2 | **PASS** | `npm run test --workspace @lgdl/web-cli-plugin` = 112 pass / 0 fail（security/host/content/sidepanel 用例）；红线 grep：`silentAllow|allowSilently` 0 命中、`\.executor\(` 0 命中（全部经 dispatch）；审计覆盖发现/授权/确认/执行/版本（`test/security.test.ts`） | 2026-09-12 |
+| D-3 | **PASS（自动化面）/ ⏳ 人工面 H6 待执行（已文档化非阻塞）** | `npm run test --workspace @lgdl/lgdl-web` = 31 pass / 0 fail（web-cli-host 12：声明/dispatch/写回校验/onApply 恰好一次/隔离/事件代理）；`npm run test:e2e` 场景 B（LGDL Workbench 真实 dist）全链 PASS：发现→授权→`site.lgdl-web-cli` 读→审计 7 事件。人工面 H6（真实页写回 + 既有功能零回归）见 `docs/smoke-checklist.md` §2，为已文档化非阻塞人工项 | 2026-09-12 |
+| D-4 | **PASS** | `test/e2e.generality.test.ts` 全绿 + `npm run test:e2e` 场景 A（非 LGDL fixture）全链 PASS（发现→声明→授权→写确认门禁→再现→审计 11 事件）；冲突检测：`host.test.ts` re-activation 不重复注册 | 2026-09-12 |
+| D-5 | **PASS** | `packages/web-cli-plugin/docs/migration.md` 存在且含不自动迁移原则/差异清单/手动重配指引/使用习惯对照；grep 断言：插件 `src/` 无 `lgdl-ai-settings`（0 命中）、`src/llm` 无 `localStorage`（0 命中），`test/llm.test.ts` AC-007 用例通过 | 2026-09-12 |
+| D-6 | **PASS** | `docs/migration.md` §5.4；flag 落地 `packages/lgdl-web/src/fallback-flag.ts`（`=== 'on'`，默认 off）+ `src/vite-env.d.ts`；无 `.env*` 设值（默认 off）；主回退 = 单提交 `git revert`；C-4 显式移除时点 | 2026-09-12 |
+| D-7 | **PASS** | `docs/migration.md` §5.1 起止/关闭时点 + §5.3 收敛计划 C-1~C-5（含执行状态）+ §5.5 下线执行记录；不承诺长期双份并存 | 2026-09-12 |
+
+> **判定**：D-1~D-7 达标（D-3 人工面 H6 为已文档化非阻塞人工项，依 TASK-016 指令口径不阻塞）。**执行下线**（2026-09-12）。详见 `build.md §12` 与 `docs/migration.md §5.5`。
 
 > 全部 PASS 方可执行 TASK-016 下线；任一 FAIL/降级 → **不下线**（内置助手保留）。
 
@@ -98,3 +100,4 @@
 | 版本 | 说明 |
 |------|------|
 | 1.0 | 首版：D-1~D-7 逐条可验收 + 验收记录模板 + 未达门槛处置。 |
+| 1.1 | TASK-016（2026-09-12）：§2 填入实际验收记录（D-1~D-7；D-3 自动化面 PASS + 人工面 H6 已文档化非阻塞）+ 判定与下线执行锚点。 |

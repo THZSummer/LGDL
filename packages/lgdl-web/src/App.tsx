@@ -14,14 +14,10 @@ import { renderSvg } from '@lgdl/lgdl-render';
 import { locateIssue, type DocSpan } from './locate';
 import { computeSnap } from './snap';
 import { EXAMPLES, type Example } from './examples';
-import { AiPanel } from './ai/AiPanel';
-import { SettingsPanel } from './ai/SettingsPanel';
-import { createAiSession, LGDL_DEFAULT_POLICY_RULES } from './ai/session';
 import { createWebCliHostRouter } from './web-cli-host/host-router';
 import { startWebCliBridge } from './web-cli-host/bridge';
 import { buildDeclaration } from './web-cli-host/declaration';
-import { loadSettings, saveSettings, type ProviderSettings } from './ai/provider';
-import { createIdbStorage, type AskQuestion, type AskResolution, type StorageBackend } from '@lgdl/web-cli-base';
+import { AI_ASSISTANT_FALLBACK_ENABLED } from './fallback-flag';
 import { webOpHelp, createOpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
 import webPkg from '../package.json';
 import './app.css';
@@ -928,51 +924,21 @@ export function App(): React.JSX.Element {
     });
   }, [source]);
 
-  /** AI 输出的 LGDL 应用到编辑器（已在 AiPanel 内通过 parseLgdl 校验）。 */
-  const applyAiSource = useCallback((lgdl: string) => {
+  /**
+   * 站点协议写回：经 web-cli-host bridge 的 `onApply` 应用到编辑器
+   * （bridge 内已做 parseLgdl 校验；TASK-016 后不再有页内 AI 面板消费方）。
+   */
+  const applySource = useCallback((lgdl: string) => {
     setSource(lgdl);
     setDebouncedSource(lgdl);
     compileCache.clear();
   }, []);
 
-
-
-  // ---- AI 设置（服务商 / Key / 模型）----
-  const [aiSettings, setAiSettings] = useState<ProviderSettings>(() => loadSettings());
-  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
-  const saveAiSettings = useCallback((s: ProviderSettings) => {
-    setAiSettings(s);
-    saveSettings(s);
-  }, []);
-  // 会话读取最新 settings/source 用 ref 间接（避免每次变更重建 session/router）
-  const aiSettingsRef = useRef(aiSettings);
-  aiSettingsRef.current = aiSettings;
-
-  // ---- v2（FR-041/AC-004）+ v3（FR-005~007/045，TASK-009）+ v3 P2（TASK-011）：权限 ask 桥 —— AskDialog
-  // 裁决由 AiPanel 注册到本 ref，policy.onAsk 委托该桥（未注册 → deny fail-closed）。
-  // v3 子命令级策略：rules 共用 session 导出 LGDL_DEFAULT_POLICY_RULES（IMP-4 修复生效点
-  // —— dom 只读子命令显式 allow 免 ask + 既有 risk:'ui' ask 规则保持 + evaluate 缺省 deny）。
-  // v3 P2（TASK-011，P2-b 第二段扩展，串行于 TASK-009）：同一常量增 chrome back/forward
-  // **前置** allow 规则（置于既有 risk:'ui' ask 之前 = 命中 allow 免 ask —— 会话内导航不触发
-  // ask，EC-009；reload/screenshot 写类不入规则 → 缺省 ask）+ clipboard 读写显式 ask 规则
-  // （读=敏感面/写=写入，FR-030）。规则明细/覆盖语义见 session.ts 常量文档。
-  // ★ 行为 diff 声明（R-007/D-005）：本 aiPolicy 变更 = TASK-009 IMP-4 修复唯一有意变更 +
-  // TASK-011 chrome/clipboard 规则增补（chrome 为 v3 新工具不构成 v2 回归；clipboard 显式
-  // ask 与既有 risk:'ui' 裁决一致无新增回归面）；其余工具裁决语义与 v2 逐字节一致。
-  const permAskTarget = useRef<((q: AskQuestion) => Promise<AskResolution>) | null>(null);
-  const aiPolicy = useMemo<import('@lgdl/web-cli-base').RouterPolicy>(
-    () => ({
-      rules: LGDL_DEFAULT_POLICY_RULES,
-      onAsk: (q: AskQuestion) =>
-        permAskTarget.current ? permAskTarget.current(q) : Promise.resolve({ action: 'deny' }),
-    }),
-    [],
-  );
-
-  // ---- v2（FR-034）：会话恢复入口 —— 有已持久化会话时给出提示（恢复入口 UI 归场景）----
-  const [restorable, setRestorable] = useState<string[]>([]);
-
-
+  // ---- TASK-016（FR-038）：内置 AI 助手已下线 ----
+  // 页内 AI 会话 / 设置 / 授权 ask 桥（原内置助手面板与其会话组装点）随助手源码目录
+  // 一并移除；AI 能力由独立 web-cli 插件承载。保留：base 机制层
+  // （web-cli-host 经 CommandRouter）与编辑器/预览/op-cli 工具面。用户可感知的迁移与回退
+  // 提示在下方 AI 区域静态渲染（EC-016 不静默）。
 
   // click an issue / preview element -> jump to the location in the editor,
   // centering the target line vertically and moving the cursor onto it.
@@ -1025,7 +991,7 @@ export function App(): React.JSX.Element {
    * lgdl-web-op-cli 执行器注册表（F-13 ②/ADR-006——包定义协议/分发，本文件
    * 注入 React 执行回调）。D-004 后顶层分发角色移交 CommandRouter：本注册表
    * 收敛为该工具执行器的内部机制，经 createOpCliToolEntry 注入 session 的
-   * router——消费方（AiPanel）不再直连 opRegistry.execute。
+   * router——消费方（原页内面板）不再直连 opRegistry.execute。
    * 返回操作结果文本（供 AI 反馈）；未知子命令文案由 registry 未注册分支复现。
    */
   const opRegistry = useMemo(() => {
@@ -1157,22 +1123,22 @@ export function App(): React.JSX.Element {
       return { ok: true, output: `支持的图类型（${CORE_DIAGRAM_TYPES.length} 种）：${list}` };
     });
     reg.register('next-actions', () => {
-      // 正常流程由聊天面板（AiPanel）拦截处理（胶囊卡片），此处仅防御兜底
-      return { ok: false, output: '✖ next-actions 由聊天面板处理（推荐动作以胶囊卡片展示），此处不执行' };
+      // 推荐动作由消费端（原页内面板 / 现 web-cli 插件）拦截处理，此处仅防御兜底
+      return { ok: false, output: '✖ next-actions 由消费端处理（推荐动作以胶囊卡片展示），此处不执行' };
     });
     reg.register('help', (args) => {
       // --help 自文档：查看 UI 操作用法（topic 空 = 顶层）
       return { ok: true, output: webOpHelp(args.topic) };
     });
     return reg;
-  }, [source, previewImmersive, downloadSvg, downloadPng, downloadSource, jumpToIssue, selectExample, applyAiSource, togglePreviewImmersive, toggleBrowserFullscreen]);
+  }, [source, previewImmersive, downloadSvg, downloadPng, downloadSource, jumpToIssue, selectExample, applySource, togglePreviewImmersive, toggleBrowserFullscreen]);
 
   /**
-   * web-cli 站点协议暴露点（TASK-010/FR-041/FR-042，ADR-004）：
+   * 站点协议暴露点（TASK-010/FR-041/FR-042，ADR-004；TASK-016 后为页内唯一工具面）：
    * 复用保留的 web-cli-base 机制层 + 领域工具注册（lgdl-web-cli / lgdl-web-op-cli），
    * 对外经 postMessage RPC 暴露 + 运行时握手声明。写回经 bridge 的 parseLgdl 校验 +
-   * onApply（applyAiSource），不直连 React 内部状态。
-   * ⚠️ 内置助手 ai/ 本任务不摘除（摘除归 TASK-016）；过渡期双份并存由 TASK-011 检测。
+   * onApply（applySource），不直连 React 内部状态。
+   * 对象区分：内置 AI 助手层（助手源码目录）已于 TASK-016 下线；本暴露点（机制层）保留。
    */
   useEffect(() => {
     const host = createWebCliHostRouter({
@@ -1183,72 +1149,10 @@ export function App(): React.JSX.Element {
     const bridge = startWebCliBridge({
       router: host,
       descriptor: () => buildDeclaration(host.router),
-      onApply: applyAiSource,
+      onApply: applySource,
     });
     return () => bridge.dispose();
-  }, [opRegistry, applyAiSource]);
-
-  /**
-   * v2 IMP-2（FR-034/AC-006，review C44/C39）：会话/goal/jobs 的 **IDB 持久载体**——
-   * createIdbStorage() 异步打开 IndexedDB（origin 级），成功后注入 createAiSession
-   * （session store / goal / jobs 落库 → 刷新可恢复 + 跨会话目标）。打开失败
-   * （隐私模式/浏览器不支持，EC-005）→ 保持 undefined → createAiSession 缺省
-   * memory 降级（本次会话不持久，console 明示）。
-   */
-  const [persistBackend, setPersistBackend] = useState<StorageBackend | undefined>(undefined);
-  useEffect(() => {
-    let alive = true;
-    createIdbStorage()
-      .then((b) => {
-        if (alive) setPersistBackend(b);
-      })
-      .catch((err) => {
-        // EC-005：降级 memory（createAiSession 缺省）并明示「本次会话不持久」
-        console.info('[lgdl-web] IndexedDB 不可用，会话/goal/jobs 降级内存态（刷新即失）：', err instanceof Error ? err.message : String(err));
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  /**
-   * AI 会话单一组装点（FR-022/AC-007）：唯一 CommandRouter 实例（base 内建
-   * 自动注册 + lgdl-web-cli/lgdl-web-op-cli 注册 + delay 600ms）+ AgentRunner
-   * 装配。opRegistry（16 handler 注入）经 createOpCliToolEntry 收敛为该工具
-   * 执行器的内部注入（D-004）；getSource 读 sourceRef（最新编辑器源码），
-   * onApply=applyAiSource 写回。opRegistry 依赖 source → 会话随其重建。
-   */
-  const aiSession = useMemo(
-    () =>
-      createAiSession({
-        docId: 'main',
-        getSource: () => sourceRef.current,
-        onApply: applyAiSource,
-        opRegistry,
-        settings: () => aiSettingsRef.current,
-        // v2：dom-* 写经 PRM（ui ask）；AskDialog 经 onPermissionHandlerChange 桥接入
-        policy: aiPolicy,
-        // v2 IMP-2：IDB 持久载体（undefined → createAiSession 缺省 memory 降级 EC-005）
-        backend: persistBackend,
-      }),
-    [applyAiSource, opRegistry, aiPolicy, persistBackend],
-  );
-
-  // v2（FR-034/AC-007）：会话恢复候选（session store 有持久记录 → 提示恢复入口）
-  useEffect(() => {
-    let alive = true;
-    aiSession.services.session
-      .list()
-      .then((ids) => {
-        if (alive) setRestorable(ids);
-      })
-      .catch(() => {
-        if (alive) setRestorable([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [aiSession]);
+  }, [opRegistry, applySource]);
 
   return (
     <div className={`app${previewImmersive ? ' immersive' : ''}`}>
@@ -1389,42 +1293,34 @@ export function App(): React.JSX.Element {
 
           <section className="ai-region">
             <div className="pane-title">
-              <span>AI 助手 <span className="pane-hint">对话生成 / 修改图</span></span>
-              <span className="pane-actions">
-                <button
-                  className="pane-icon-btn"
-                  title="API 设置（服务商 / Key / 模型）"
-                  aria-label="API 设置"
-                  onClick={() => setAiSettingsOpen(true)}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                  </svg>
-                </button>
-              </span>
+              <span>AI 助手 <span className="pane-hint">已迁移至 web-cli 浏览器插件</span></span>
             </div>
             <div className="ai-body">
-              {restorable.length > 0 && (
-                <button
-                  type="button"
-                  className="ai-restore-chip"
-                  title="已持久化的会话可经 session 工具查询/恢复（FR-034）"
-                  onClick={() => setRestorable([])}
-                >
-                  ↺ {restorable.length} 个会话可恢复（session status/query 查看）
-                </button>
-              )}
-              <AiPanel
-                onApply={applyAiSource}
-                session={aiSession}
-                currentSource={source}
-                settings={aiSettings}
-                onSaveSettings={saveAiSettings}
-                onPermissionHandlerChange={(fn) => {
-                  permAskTarget.current = fn;
-                }}
-              />
+              <div className="ai-migrated-notice">
+                <div className="ai-migrated-title">AI 能力已迁移至浏览器插件</div>
+                <p className="ai-migrated-text">
+                  内置 AI 助手已于 v0.8 下线（FR-038）。AI 对话 / 工具调用 / 编辑器写回现由独立浏览器插件
+                  <strong> web-cli plugin </strong>提供，经本站点的 web-cli 协议暴露点（web-cli-host）驱动。
+                </p>
+                <ol className="ai-migrated-steps">
+                  <li>构建插件：<code>npm run build --workspace @lgdl/web-cli-plugin</code></li>
+                  <li>
+                    打开 <code>chrome://extensions</code> → 开启「开发者模式」→「加载已解压的扩展程序」→ 选择{' '}
+                    <code>packages/web-cli-plugin/dist</code>
+                  </li>
+                  <li>在插件 options 页配置 LLM 厂商与 Key（旧配置不自动迁移，需手动重配）</li>
+                  <li>打开本站点 → 点击扩展图标 → 在 side panel 授权当前站点后即可对话</li>
+                </ol>
+                <p className="ai-migrated-hint">
+                  迁移指引与回退预案见 <code>packages/web-cli-plugin/docs/migration.md</code>；编辑器与预览功能不受影响。
+                </p>
+                {AI_ASSISTANT_FALLBACK_ENABLED && (
+                  <p className="ai-migrated-fallback">
+                    回退模式已启用（<code>VITE_AI_ASSISTANT_FALLBACK=on</code>）：本构建不恢复旧面板；如需恢复内置助手，
+                    请对下线提交执行 <code>git revert</code> 回到保留内置助手源码目录的版本。
+                  </p>
+                )}
+              </div>
             </div>
           </section>
         </section>
@@ -1528,9 +1424,6 @@ export function App(): React.JSX.Element {
           )}
         </section>
       </main>
-      {aiSettingsOpen && (
-        <SettingsPanel settings={aiSettings} onSave={saveAiSettings} onClose={() => setAiSettingsOpen(false)} />
-      )}
     </div>
   );
 }

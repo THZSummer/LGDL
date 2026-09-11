@@ -25,7 +25,7 @@ specs-tree-web-cli-plugin/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-web-cli-plugin（web-cli-plugin，v0.8） — 构建报告：specs-tree-web-cli-plugin（web-cli-plugin，v0.8） | ✅ 存在 |
+| build.md | 构建报告：specs-tree-web-cli-plugin（web-cli-plugin，v0.8） — 新建 `packages/web-cli-plugin/docs/release.md`：首版渠道 = 本地 unpacked + 自托管/未打包分发；`... | ✅ 存在 |
 | discovery.md | 问题挖掘报告：web-cli-plugin（浏览器插件） — 1. **优先消费问题清单**：§3 的 Q-001~Q-020 是 spec 的问题输入；核心 8 项（Q-001~Q-008）应作为 spec 范围界... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin（web-cli-plugin：独立于 LGDL 的浏览器插件——v0.8 主题「浏览器插件孵化」） — 1. 前置检查：逐条验收 Gate-D 并记录（未达门槛 → **不下线**，EC-016）。 | ✅ 存在 |
 | review.md | 审查策略：specs-tree-web-cli-plugin（web-cli-plugin，v0.8 · P0 最小可用集） — 审查策略：specs-tree-web-cli-plugin（web-cli-plugin，v0.8 · P0 最小可用集） | ✅ 存在 |
