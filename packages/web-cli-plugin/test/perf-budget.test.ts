@@ -3,7 +3,7 @@
  *
  * The spec originally left NFR-007 unquantified; this test pins verifiable
  * budgets so the suite fails if a regression breaks them. Measured values are
- * recorded in `docs/dev.md` §9 and `build.md §11` (D-028).
+ * recorded in `docs/dev.md` §8 and `build.md §11` (D-028).
  *
  * Thresholds:
  *  - content script bundle (IIFE, on-demand injected) ≤ 64 KB — a small injected
