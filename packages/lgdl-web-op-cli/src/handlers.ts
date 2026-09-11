@@ -24,7 +24,7 @@ export class OpHandlerRegistry {
     this.handlers.set(subcommand, handler);
   }
 
-  /** 校验子命令是否已注册（next-actions 由 AiPanel 拦截时用于判别）。 */
+  /** 校验子命令是否已注册（next-actions 由消费端拦截时用于判别）。 */
   has(subcommand: string): boolean {
     return this.handlers.has(subcommand);
   }
