@@ -7,7 +7,7 @@
  */
 import type { AskQuestion, AskResolution } from '@lgdl/web-cli-base';
 import type { PluginAuditSink } from './audit-sink.js';
-import { maskArgValue, summarizeArgs } from './redact.js';
+import { summarizeArgs } from './redact.js';
 
 export interface ConfirmContext {
   origin?: string;
@@ -31,12 +31,6 @@ export function buildOperationSummary(req: ConfirmContext): string {
 }
 
 /** Mask a question's args for audit (never store plaintext). */
-export function summarizeQuestion(question: AskQuestion): string {
-  const args = question.args ?? {};
-  const masked = Object.fromEntries(Object.entries(args).map(([k, v]) => [k, maskArgValue(k, v)]));
-  return summarizeArgs(masked);
-}
-
 export interface ConfirmBridgeOptions {
   /** Side-panel responder; absent → deny. */
   ask?: (question: AskQuestion) => Promise<AskResolution>;

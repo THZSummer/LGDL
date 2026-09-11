@@ -138,12 +138,12 @@ export function parseInvoke(data: unknown): WebCliInvokeMessage | null {
   };
 }
 
-export function parseResult(data: unknown): WebCliResultMessage | null {
+export function parseResult(data: unknown, resultType: string = DEFAULT_RESULT_TYPE): WebCliResultMessage | null {
   if (!isRecord(data)) return null;
-  if (data.type !== DEFAULT_RESULT_TYPE) return null;
+  if (data.type !== resultType) return null;
   if (typeof data.channel !== 'string' || typeof data.id !== 'string') return null;
   return {
-    type: DEFAULT_RESULT_TYPE,
+    type: resultType,
     channel: data.channel,
     id: data.id,
     ok: data.ok === true,
@@ -153,13 +153,6 @@ export function parseResult(data: unknown): WebCliResultMessage | null {
     ...(typeof data.error === 'string' ? { error: data.error } : {}),
     trust: 'external',
   };
-}
-
-export function parseProbe(data: unknown): WebCliProbeMessage | null {
-  if (!isRecord(data)) return null;
-  if (data.type !== WEB_CLI_PROBE_TYPE) return null;
-  if (typeof data.channel !== 'string' || typeof data.id !== 'string') return null;
-  return { type: WEB_CLI_PROBE_TYPE, channel: data.channel, id: data.id };
 }
 
 export function parseDescriptorMessage(data: unknown): WebCliDescriptorMessage | null {

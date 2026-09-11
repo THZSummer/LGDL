@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 import {
   ATTRIBUTION_MAP,
   attributionHelpLines,
-  capabilityFailure,
-  isAttributed,
-  unsupportedCapability,
-} from '../src/platform/unsupported.js';
+  unsupportedAttribution,
+} from '@lgdl/web-cli-base';
+import { capabilityFailure } from '../src/platform/unsupported.js';
 
 test('unsupported: capabilityFailure translates an unreachable capability readably (FR-008)', () => {
   const err = new Error('permission denied');
@@ -20,12 +19,12 @@ test('unsupported: capabilityFailure translates an unreachable capability readab
   assert.match(generic.output, /不可用/);
 });
 
-test('unsupported: ATTRIBUTION_MAP is wired and queryable (FR-008 / FR-025)', () => {
-  assert.equal(isAttributed('multi-tab-window'), true);
-  assert.equal(isAttributed('not-a-capability'), false);
+test('unsupported: upstream capability attribution is wired and queryable (FR-008 / FR-025)', () => {
+  assert.equal(Object.prototype.hasOwnProperty.call(ATTRIBUTION_MAP, 'multi-tab-window'), true);
+  assert.equal(Object.prototype.hasOwnProperty.call(ATTRIBUTION_MAP, 'not-a-capability'), false);
   assert.equal(Object.keys(ATTRIBUTION_MAP).length > 0, true);
 
-  const u = unsupportedCapability('multi-tab-window');
+  const u = unsupportedAttribution('multi-tab-window');
   assert.match(u.output, /不支持/);
   assert.match(u.output, /F-14/);
   assert.match(u.error, /multi-tab-window/);

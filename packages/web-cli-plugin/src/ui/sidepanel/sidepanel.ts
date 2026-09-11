@@ -5,7 +5,7 @@
  * per-origin authorization, second-confirmation prompt and audit view. All state
  * transitions go through the pure reducer in `chat-state.ts`.
  */
-import { createInitialState, reduce, resolveConfirm, type SidepanelState } from './chat-state.js';
+import { createInitialState, reduce, resolveAsk, resolveConfirm, type SidepanelState } from './chat-state.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
 import { requestOriginPermission } from '../../platform/extension-env.js';
 
@@ -72,7 +72,43 @@ function render(): void {
   } else {
     confirmBox.style.display = 'none';
   }
+
+  renderAsk();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
+}
+
+/** Render the task-internal clarification prompt (FR-017 / R7). */
+function renderAsk(): void {
+  const box = $('ask');
+  const options = $('ask-options');
+  options.textContent = '';
+  if (!state.ask) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = 'block';
+  $('ask-prompt').textContent = state.ask.prompt;
+  const choices =
+    state.ask.kind === 'choice'
+      ? (state.ask.options ?? [])
+      : state.ask.kind === 'confirm'
+        ? ['是', '否']
+        : [];
+  for (const choice of choices) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = choice;
+    btn.addEventListener('click', () => submitAsk(choice, false));
+    options.appendChild(btn);
+  }
+  ($('ask-input') as HTMLInputElement).style.display = state.ask.kind === 'text' ? '' : 'none';
+}
+
+/** Send the user's answer back to the background and clear the prompt (R7). */
+function submitAsk(value: string | undefined, canceled: boolean): void {
+  const res = resolveAsk(state, value, canceled);
+  if (res) void send(makeMessage('ask-user-response', { ...res }));
+  dispatch({ type: 'ask-resolved' });
 }
 
 function dispatch(action: Parameters<typeof reduce>[1]): void {
@@ -183,7 +219,7 @@ function wire(): void {
       // Request the optional host permission inside the user gesture (IMP-4 /
       // FR-006); best-effort — OriginStore authorization is the authoritative gate.
       const granted = await requestOriginPermission(origin);
-      await send(makeMessage('authorize', { origin }));
+      await send(makeMessage('authorize', { origin, hostPermissionGranted: granted }));
       dispatch({ type: 'state', authorized: true });
       dispatch({
         type: 'notice',
@@ -195,7 +231,13 @@ function wire(): void {
   $('revoke').addEventListener('click', () => {
     const origin = state.activeOrigin;
     if (!origin) return;
-    void send(makeMessage('revoke', { origin })).then(() => dispatch({ type: 'state', authorized: false }));
+    void send<{ revoked: boolean; hostPermissionRemoved: boolean }>(makeMessage('revoke', { origin })).then((res) => {
+      dispatch({ type: 'state', authorized: false });
+      dispatch({
+        type: 'notice',
+        text: `已撤销 ${origin} 的授权${res.data?.hostPermissionRemoved ? '（站点访问权限已移除）' : ''}；相关能力已禁用，可随时重新授权。`,
+      });
+    });
   });
 
   $('confirm-allow').addEventListener('click', () => {
@@ -217,6 +259,15 @@ function wire(): void {
     });
   });
 
+  $('ask-submit').addEventListener('click', () => submitAsk(($('ask-input') as HTMLInputElement).value, false));
+  $('ask-cancel').addEventListener('click', () => submitAsk(undefined, true));
+  $('ask-input').addEventListener('keydown', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') {
+      e.preventDefault();
+      submitAsk(($('ask-input') as HTMLInputElement).value, false);
+    }
+  });
+
   chrome.runtime.onMessage.addListener((raw) => {
     const msg = raw as PluginMessage;
     if (msg.kind === 'chat-result') {
@@ -235,6 +286,20 @@ function wire(): void {
         requestId: String(msg.requestId ?? ''),
         summary: `${question?.tool ?? '工具'}：${question?.reason ?? '敏感操作'}`,
         ...(question?.risk ? { risk: question.risk } : {}),
+      });
+      return undefined;
+    }
+    if (msg.kind === 'ask-user-request') {
+      // FR-017 / R7: task-internal clarification question → Q&A UI.
+      const question = msg.question as { kind?: string; prompt?: string; options?: string[]; default?: string } | undefined;
+      const kind = question?.kind === 'choice' || question?.kind === 'confirm' ? question.kind : 'text';
+      dispatch({
+        type: 'ask',
+        requestId: String(msg.requestId ?? ''),
+        kind,
+        prompt: question?.prompt ?? '（无问题文本）',
+        ...(Array.isArray(question?.options) ? { options: question.options } : {}),
+        ...(question?.default ? { default: question.default } : {}),
       });
       return undefined;
     }

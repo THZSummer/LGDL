@@ -10,6 +10,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PlatformEventHub, ToolResult, WebCliToolCall } from '@lgdl/web-cli-base';
 import { createOpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
+import { createAiSession } from '../ai/session.js';
+import type { AiSessionDeps } from '../ai/session.js';
+import type { ProviderSettings } from '../ai/provider.js';
 import { buildDeclaration, WEB_CLI_CHANNEL, WEB_CLI_PROTOCOL_VERSION } from './declaration.js';
 import { createWebCliHostRouter } from './host-router.js';
 import {
@@ -232,4 +235,56 @@ test('web-cli-host bridge: proxies env.events with a bounded summary (FR-021)', 
   assert.equal(reply.data?.events?.length, 10);
   assert.match(reply.data?.note ?? '', /上下文预算截断/);
   bridge.dispose();
+});
+
+/**
+ * EC-012 / FR-004 — transition-period coexistence of the two tool faces.
+ *
+ * The built-in assistant (`createAiSession`) and the plugin protocol exposure
+ * (`createWebCliHostRouter`) are deliberately independent routers that share the
+ * same domain tool NAMES but never a registry. This test pins: no duplicate
+ * registration, no double execution of one RPC, and readable name separation
+ * (plugin tools are namespaced `site.*`, assistant tools are plain).
+ */
+test('EC-012 dual tool face: assistant + host routers coexist without double execution', async () => {
+  const opRegistry = createOpHandlerRegistry();
+  const settings: ProviderSettings = { providerId: 'deepseek', apiKey: 'k', model: 'm' };
+  const deps: AiSessionDeps = {
+    docId: 'doc-1',
+    getSource: () => SRC,
+    onApply: () => {},
+    opRegistry,
+    settings: () => settings,
+  };
+  const assistant = createAiSession(deps);
+
+  let sourceReads = 0;
+  const host = createWebCliHostRouter({
+    docId: 'doc-1',
+    getSource: () => {
+      sourceReads += 1;
+      return SRC;
+    },
+    opRegistry,
+  });
+
+  // Two independent routers: no shared registry, hence no double registration.
+  assert.notEqual(assistant.router, host.router);
+
+  const assistantNames = assistant.router.query().map((e) => e.name);
+  const hostNames = host.router.query().map((e) => e.name);
+  for (const name of ['lgdl-web-cli', 'lgdl-web-op-cli']) {
+    assert.equal(assistantNames.filter((n) => n === name).length, 1, `${name} registered once (assistant)`);
+    assert.equal(hostNames.filter((n) => n === name).length, 1, `${name} registered once (host)`);
+  }
+
+  // The plugin face is namespaced (`site.*`), so the two faces never collide on
+  // a tool name; the page-side host router only carries the plain domain tools.
+  assert.equal(hostNames.some((n) => n.startsWith('site.')), false);
+  assert.equal(assistantNames.some((n) => n.startsWith('site.')), false);
+
+  // One dispatch through the host router executes the domain tool exactly once.
+  const result = await host.dispatch({ id: 'x1', name: 'lgdl-web-cli', subcommand: 'status', args: {}, rawArguments: '{}' });
+  assert.equal(result.ok, true);
+  assert.equal(sourceReads, 1);
 });

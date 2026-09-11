@@ -148,6 +148,13 @@ export interface PageEventBridge {
 export interface PageBridge {
   invoke(tool: string, subcommand: string, args?: Record<string, string>): Promise<WebCliResultMessage>;
   handshake(timeoutMs?: number): Promise<HandshakeResult>;
+  /**
+   * Bind the descriptor-declared transport dynamically (R9-7). Discovery runs on
+   * the default channel; once a declaration is adopted, the content script calls
+   * this so invoke/event/handshake messages use `transport.channel` (and the
+   * optional `invokeType`/`resultType`) instead of the hardcoded defaults.
+   */
+  bindTransport(transport: { channel?: string; invokeType?: string; resultType?: string }): void;
   /** Site event hub proxy (FR-021); no listener is installed until requested. */
   events: PageEventBridge;
   dispose(): void;
@@ -156,12 +163,17 @@ export interface PageBridge {
 export function createPageBridge(io: BridgeIo, opts: PageBridgeOptions): PageBridge {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_INVOKE_TIMEOUT_MS;
   const eventTimeoutMs = opts.eventTimeoutMs ?? timeoutMs;
+  // R9-7: transport is mutable so the descriptor-declared channel/types can be
+  // bound after discovery (defaults until then, so handshake still works).
+  let channel = opts.channel;
+  let invokeType = opts.invokeType;
+  let resultType = opts.resultType ?? 'web-cli:result';
   const pending = new Map<string, (msg: WebCliResultMessage) => void>();
   const pendingEvents = new Map<string, (msg: WebCliEventResultMessage) => void>();
 
   const unsubscribe = io.subscribe((data) => {
     const ev = parseEventResult(data);
-    if (ev && ev.channel === opts.channel) {
+    if (ev && ev.channel === channel) {
       const resolve = pendingEvents.get(ev.id);
       if (resolve) {
         pendingEvents.delete(ev.id);
@@ -170,13 +182,13 @@ export function createPageBridge(io: BridgeIo, opts: PageBridgeOptions): PageBri
       return;
     }
     const notify = parseEventNotify(data);
-    if (notify && notify.channel === opts.channel) {
+    if (notify && notify.channel === channel) {
       opts.onEvent?.(notify);
       return;
     }
-    const msg = parseResult(data);
+    const msg = parseResult(data, resultType);
     if (!msg) return;
-    if (msg.channel !== opts.channel) return;
+    if (msg.channel !== channel) return;
     const resolve = pending.get(msg.id);
     if (resolve) {
       pending.delete(msg.id);
@@ -189,14 +201,14 @@ export function createPageBridge(io: BridgeIo, opts: PageBridgeOptions): PageBri
     const promise = new Promise<WebCliEventResultMessage>((resolve) => {
       pendingEvents.set(id, resolve);
     });
-    io.post(buildEventRequest({ channel: opts.channel, id, op, params }));
+    io.post(buildEventRequest({ channel, id, op, params }));
     return withTimeout(promise, timeout, `站点事件通道 ${op} 调用`).catch((err) => {
       pendingEvents.delete(id);
       // FR-008 / EC-007: readable, non-silent failure; the background re-translates
       // with attribution (kept out of the content bundle to avoid pulling base in).
       return {
         type: WEB_CLI_EVENT_RESULT_TYPE,
-        channel: opts.channel,
+        channel,
         id,
         ok: false,
         error: `事件通道不可达：${err instanceof Error ? err.message : String(err)}`,
@@ -234,12 +246,12 @@ export function createPageBridge(io: BridgeIo, opts: PageBridgeOptions): PageBri
       });
       io.post(
         buildInvoke({
-          channel: opts.channel,
+          channel,
           id,
           tool,
           subcommand,
           args,
-          ...(opts.invokeType ? { invokeType: opts.invokeType } : {}),
+          ...(invokeType ? { invokeType } : {}),
         }),
       );
       return withTimeout(promise, timeoutMs, `站点工具 ${tool} 调用`).catch((err) => {
@@ -248,8 +260,8 @@ export function createPageBridge(io: BridgeIo, opts: PageBridgeOptions): PageBri
         // with attribution via `platform/unsupported.ts`; kept out of the content
         // bundle to avoid pulling the whole base into every injected script).
         return {
-          type: opts.resultType ?? 'web-cli:result',
-          channel: opts.channel,
+          type: resultType,
+          channel,
           id,
           ok: false,
           output: `✖ ${err instanceof Error ? err.message : String(err)}`,
@@ -259,10 +271,15 @@ export function createPageBridge(io: BridgeIo, opts: PageBridgeOptions): PageBri
     },
     handshake(handshakeTimeoutMs) {
       return runtimeHandshake({
-        channel: opts.channel,
+        channel,
         io: { send: (message) => io.post(message), subscribe: io.subscribe },
         ...(handshakeTimeoutMs !== undefined ? { timeoutMs: handshakeTimeoutMs } : {}),
       });
+    },
+    bindTransport(transport) {
+      if (typeof transport.channel === 'string' && transport.channel.trim()) channel = transport.channel.trim();
+      if (typeof transport.invokeType === 'string' && transport.invokeType) invokeType = transport.invokeType;
+      if (typeof transport.resultType === 'string' && transport.resultType) resultType = transport.resultType;
     },
     events,
     dispose() {

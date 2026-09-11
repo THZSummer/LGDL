@@ -5,6 +5,15 @@
  * the isolated world, and acts as the data plane: protocol discovery + page RPC.
  * It never attaches globals to `window`, never modifies prototypes, and holds no
  * keys / makes no authorization decisions.
+ *
+ * Discovery fetch placement (R9-6 / D-021): channels ① (well-known) and ②
+ * (html-link) are fetched from the content script using the page's own network
+ * context. This is a deliberate P0 decision over plan §3.2's "background
+ * privileged fetch": the optional host permission is requested only on explicit
+ * authorization (FR-006), so a background fetch would be unavailable at first
+ * discovery and would fail-closed on every fresh origin. Fetch failures degrade
+ * readably (never silent) via `discover()`; a background privileged fetch is a
+ * wave-2 optimization once the host permission is held.
  */
 import { discover, type DiscoveryFetchResult } from '../discovery/discovery.js';
 import { parseHtmlDeclaration } from '../discovery/static-declaration.js';
@@ -61,7 +70,12 @@ async function runDiscovery(): Promise<void> {
     failure: result.failure,
     reason: result.reason,
   };
-  if (result.state === 'supported' && result.descriptor) payload.descriptor = result.descriptor;
+  if (result.state === 'supported' && result.descriptor) {
+    payload.descriptor = result.descriptor;
+    // R9-7: bind the descriptor-declared transport channel/types for subsequent
+    // invoke/event/handshake messages (defaults are used until discovery).
+    bridge.bindTransport(result.descriptor.transport);
+  }
   // EC-014 / FR-013: carry the version negotiation outcome so the background can
   // audit unknown / incompatible versions (never a silent accept).
   if (result.version) payload.version = result.version;

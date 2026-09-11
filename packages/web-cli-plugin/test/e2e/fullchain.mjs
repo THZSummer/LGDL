@@ -1,0 +1,443 @@
+/**
+ * R8 — real-browser full-chain E2E harness (content → background → host → RPC).
+ *
+ * Runs the **real built `dist/`** in headless Chromium via CDP and drives the
+ * full chain with a mock LLM. Two scenarios:
+ *
+ *   A. generic non-LGDL fixture site (AC-010) — read / write+confirm / re-read.
+ *   B. LGDL Workbench real build (AC-009) — `site.lgdl-web-cli status` read.
+ *
+ * Chain: real content.js → background discovery (real host) → authorize →
+ * chat tool_call → router policy → host dispatch → postMessage RPC → page
+ * bridge → result → session; writes go through the real confirmation gate
+ * (auto-allowed by the driving extension page here).
+ *
+ * ── SINGLE DOCUMENTED DEVIATION ──────────────────────────────────────────────
+ * The manifest copy loaded by this harness appends the local fixture/LGDL/LLM
+ * origins to `host_permissions` (the dist JS is byte-identical to the release
+ * build). This is required because `chrome.permissions.request` for
+ * `optional_host_permissions` needs a real user gesture + native prompt, which
+ * headless cannot synthesize (validate V9b). Everything else — background.js,
+ * content.js, sidepanel.js — is the real product. This harness therefore proves
+ * the **mechanism** full chain, NOT the gesture-driven permission UX; the latter
+ * stays a documented manual item (`docs/smoke-checklist.md` H0/H2/H6/H8/H10).
+ *
+ * Usage: `npm run test:e2e --workspace @lgdl/web-cli-plugin`
+ * Exit code 0 = PASS; non-zero = FAIL (with a readable reason).
+ */
+import { createServer } from 'node:http';
+import { cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, extname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const repoRoot = resolve(root, '..', '..');
+const dist = resolve(root, 'dist');
+const fixtureDir = resolve(root, 'test', 'fixtures', 'site');
+const lgdlDist = resolve(root, '..', 'lgdl-web', 'dist');
+const CHROME = process.env.CHROME_BIN || resolve(repoRoot, '.pw-browsers', 'chromium-1234', 'chrome-linux64', 'chrome');
+
+const MIME = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json',
+};
+
+// ── mock LLM (OpenAI-compatible, non-streaming) ──────────────────────────────
+
+function mockResponse(body) {
+  const messages = Array.isArray(body?.messages) ? body.messages : [];
+  // A trailing tool result means the runner fed the tool output back → finish.
+  const last = messages[messages.length - 1];
+  if (last?.role === 'tool') return completion({ content: `完成：${last.content}` });
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  const userText = typeof lastUser?.content === 'string' ? lastUser.content : '';
+  if (/lgdl/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_lgdl', name: 'site.lgdl-web-cli', subcommand: 'status', args: {} }] });
+  }
+  if (/add|添加|写入/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_add', name: 'site.notes-add', args: { text: 'from-e2e' } }] });
+  }
+  return completion({ toolCalls: [{ id: 'call_list', name: 'site.notes-list', args: {} }] });
+}
+
+function completion({ content = null, toolCalls } = {}) {
+  const message = { role: 'assistant', content };
+  if (toolCalls) {
+    message.tool_calls = toolCalls.map((tc) => ({
+      id: tc.id,
+      type: 'function',
+      function: { name: tc.name, arguments: JSON.stringify({ subcommand: tc.subcommand ?? '', args: tc.args ?? {} }) },
+    }));
+  }
+  return {
+    id: 'chatcmpl-e2e',
+    object: 'chat.completion',
+    created: 0,
+    model: 'e2e-mock',
+    choices: [{ index: 0, message, finish_reason: toolCalls ? 'tool_calls' : 'stop' }],
+  };
+}
+
+function handleLlm(req, res) {
+  let raw = '';
+  req.on('data', (c) => (raw += c));
+  req.on('end', () => {
+    let body = {};
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      /* tolerate */
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(mockResponse(body)));
+  });
+}
+
+// ── servers ──────────────────────────────────────────────────────────────────
+
+async function listen(handler) {
+  const server = createServer(handler);
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  return { server, origin: `http://127.0.0.1:${port}` };
+}
+
+async function startFixtureServer() {
+  const [indexHtml, declaration, rpcJs] = await Promise.all([
+    readFile(join(fixtureDir, 'index.html'), 'utf8'),
+    readFile(join(fixtureDir, 'web-cli.json'), 'utf8'),
+    readFile(join(fixtureDir, 'rpc.js'), 'utf8'),
+  ]);
+  return listen((req, res) => {
+    if (req.method === 'POST' && req.url === '/v1/chat/completions') return handleLlm(req, res);
+    const map = { '/': indexHtml, '/index.html': indexHtml, '/web-cli.json': declaration, '/rpc.js': rpcJs };
+    const body = map[req.url?.split('?')[0] ?? ''];
+    if (body === undefined) {
+      res.writeHead(404);
+      res.end('not found');
+      return;
+    }
+    const type = req.url.endsWith('.js') ? 'text/javascript' : req.url.endsWith('.json') ? 'application/json' : 'text/html';
+    res.writeHead(200, { 'content-type': `${type}; charset=utf-8` });
+    res.end(body);
+  });
+}
+
+/** Generic static server for the built LGDL Workbench (SPA fallback to index.html). */
+async function startLgdlServer() {
+  return listen(async (req, res) => {
+    if (req.method === 'POST' && req.url === '/v1/chat/completions') return handleLlm(req, res);
+    const urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
+    const file = resolve(lgdlDist, rel);
+    try {
+      if ((await stat(file)).isFile()) {
+        res.writeHead(200, { 'content-type': `${MIME[extname(file)] ?? 'application/octet-stream'}; charset=utf-8` });
+        createReadStream(file).pipe(res);
+        return;
+      }
+    } catch {
+      /* fall through to SPA index */
+    }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(await readFile(join(lgdlDist, 'index.html')));
+  });
+}
+
+// ── CDP client (raw WebSocket; Node ≥ 22 global WebSocket) ──
+
+async function connectCdp(wsUrl) {
+  const ws = new WebSocket(wsUrl);
+  await new Promise((res, rej) => {
+    ws.addEventListener('open', res, { once: true });
+    ws.addEventListener('error', rej, { once: true });
+  });
+  let seq = 0;
+  const pending = new Map();
+  ws.addEventListener('message', (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.id && pending.has(msg.id)) {
+      const { resolve: res, reject: rej } = pending.get(msg.id);
+      pending.delete(msg.id);
+      if (msg.error) rej(new Error(JSON.stringify(msg.error)));
+      else res(msg.result);
+    }
+  });
+  return {
+    send(method, params = {}) {
+      return new Promise((res, rej) => {
+        const id = ++seq;
+        pending.set(id, { resolve: res, reject: rej });
+        ws.send(JSON.stringify({ id, method, params }));
+      });
+    },
+    close() {
+      ws.close();
+    },
+  };
+}
+
+async function evaluate(cdp, expression, timeoutMs = 30000) {
+  const res = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  if (res.exceptionDetails) throw new Error(`evaluate failed: ${res.exceptionDetails.text}`);
+  return res.result?.value;
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function findTarget(list, predicate) {
+  return list.find(predicate);
+}
+
+// ── assertions ──
+
+const failures = [];
+function check(cond, label) {
+  if (cond) console.log(`  ✔ ${label}`);
+  else {
+    console.log(`  ✖ ${label}`);
+    failures.push(label);
+  }
+}
+
+// ── one scenario ──
+// scenario = { name, origin, path, tools, expect } ; drives read → write → read for fixture,
+// or a single lgdl read for the LGDL build.
+async function runScenario({ name, origin, path, expectTool, chatSteps }) {
+  console.log(`\n▶ scenario ${name} (${origin}${path})`);
+  const work = await mkdtemp(join(tmpdir(), 'web-cli-e2e-'));
+  const profile = join(work, 'profile');
+  const extDir = EXT_DIR;
+  const debugPort = 9000 + Math.floor(Math.random() * 900);
+  const chrome = spawn(
+    CHROME,
+    [
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      `--user-data-dir=${profile}`,
+      `--disable-extensions-except=${extDir}`,
+      `--load-extension=${extDir}`,
+      `--remote-debugging-port=${debugPort}`,
+      'about:blank',
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  let chromeLog = '';
+  chrome.stdout.on('data', (d) => (chromeLog += d));
+  chrome.stderr.on('data', (d) => (chromeLog += d));
+  const cdpBase = `http://127.0.0.1:${debugPort}`;
+  let swCdp;
+  let optionsCdp;
+  try {
+    // find our extension service worker (Chrome starts built-in ones too)
+    let found = false;
+    for (let i = 0; i < 120 && !found; i += 1) {
+      let list = [];
+      try {
+        list = await (await fetch(`${cdpBase}/json/list`)).json();
+      } catch {
+        /* not ready */
+      }
+      for (const t of list) {
+        if (t.type !== 'service_worker' || !t.url.startsWith('chrome-extension://')) continue;
+        try {
+          const probe = await connectCdp(t.webSocketDebuggerUrl);
+          await probe.send('Runtime.enable');
+          if ((await evaluate(probe, `chrome.runtime.getManifest().name`)) === 'web-cli plugin') {
+            swCdp = probe;
+            found = true;
+            break;
+          }
+          probe.close();
+        } catch {
+          /* not ours / not ready */
+        }
+      }
+      if (!found) await sleep(250);
+    }
+    if (!found) throw new Error('no "web-cli plugin" service_worker target found');
+    await swCdp.send('Runtime.enable');
+
+    // configure the mock LLM to this scenario's origin
+    await evaluate(
+      swCdp,
+      `(async () => {
+        await chrome.storage.local.set({ 'web-cli:web-cli:llm': {
+          active: 'deepseek',
+          providers: { deepseek: { apiKey: 'e2e-key', model: 'e2e-mock', baseURL: '${origin}/v1' } },
+          maxRounds: 5,
+        }});
+        return true;
+      })()`,
+    );
+
+    // open the page + inject the real content script
+    await evaluate(
+      swCdp,
+      `(async () => {
+        const tab = await chrome.tabs.create({ url: '${origin}${path}' });
+        await new Promise((r) => setTimeout(r, 2500));
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+        return tab.id;
+      })()`,
+    );
+
+    // open the options page as the driving extension context
+    await evaluate(swCdp, `chrome.tabs.create({ url: chrome.runtime.getURL('options.html') }).then((t) => t.id)`);
+    let optionsTarget;
+    for (let i = 0; i < 60 && !optionsTarget; i += 1) {
+      optionsTarget = findTarget(await (await fetch(`${cdpBase}/json/list`)).json(), (t) => t.type === 'page' && t.url.includes('options.html'));
+      if (!optionsTarget) await sleep(150);
+    }
+    if (!optionsTarget) throw new Error('options page target not found');
+    optionsCdp = await connectCdp(optionsTarget.webSocketDebuggerUrl);
+    await optionsCdp.send('Runtime.enable');
+    await evaluate(
+      optionsCdp,
+      `(() => {
+        window.__msgs = [];
+        chrome.runtime.onMessage.addListener((m) => {
+          window.__msgs.push(m);
+          if (m && m.kind === 'confirm-request') {
+            chrome.runtime.sendMessage({ kind: 'confirm-response', requestId: m.requestId, allow: true }).catch(() => {});
+          }
+          return undefined;
+        });
+        return true;
+      })()`,
+    );
+
+    // discovery → site tools assembled
+    const state = await evaluate(
+      optionsCdp,
+      `(async () => {
+        for (let i = 0; i < 60; i++) {
+          const res = await chrome.runtime.sendMessage({ kind: 'state' });
+          const tools = res?.data?.tools ?? [];
+          if (tools.includes('${expectTool}')) return res.data;
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        return null;
+      })()`,
+    );
+    check(state !== null, `${name}: discovered site + assembled ${expectTool}`);
+    check((state?.active?.origin ?? '') === origin, `${name}: active origin bound`);
+
+    const auth = await evaluate(optionsCdp, `chrome.runtime.sendMessage({ kind: 'authorize', origin: '${origin}', hostPermissionGranted: true })`);
+    check(auth?.ok === true, `${name}: per-origin authorization succeeds`);
+
+    for (const step of chatSteps) {
+      const msgs = await evaluate(
+        optionsCdp,
+        `(async () => {
+          window.__msgs.length = 0;
+          await chrome.runtime.sendMessage({ kind: 'chat', user: ${JSON.stringify(step.user)} });
+          for (let i = 0; i < 240; i++) {
+            if (window.__msgs.some((m) => m.kind === 'chat-result' && m.variant === 'done')) break;
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          return window.__msgs.map((m) => ({ kind: m.kind, variant: m.variant, text: m.text }));
+        })()`,
+        30000,
+      );
+      const text = msgs.map((m) => m.text ?? '').join('\n');
+      if (process.env.E2E_DEBUG) console.log(`DEBUG ${name} "${step.user}":`, JSON.stringify(msgs));
+      check(step.test(text), `${name}: ${step.label}`);
+    }
+
+    const audit = await evaluate(optionsCdp, `chrome.runtime.sendMessage({ kind: 'audit-export' })`);
+    const events = Array.isArray(audit?.data) ? audit.data : [];
+    check(events.length > 0, `${name}: audit trail recorded (${events.length} events)`);
+  } catch (err) {
+    failures.push(`${name} harness error: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`✖ ${name} harness error:`, err);
+  } finally {
+    swCdp?.close();
+    optionsCdp?.close();
+    chrome.kill('SIGKILL');
+    await rm(work, { recursive: true, force: true }).catch(() => {});
+    if (failures.length && chromeLog && process.env.E2E_DEBUG) console.error(chromeLog.slice(-1500));
+  }
+}
+
+let EXT_DIR = '';
+
+async function main() {
+  const fixture = await startFixtureServer();
+  const lgdl = await startLgdlServer();
+  console.log(`▶ fixture+LLM server: ${fixture.origin}`);
+  console.log(`▶ LGDL+LLM server:    ${lgdl.origin}`);
+
+  const work = await mkdtemp(join(tmpdir(), 'web-cli-e2e-ext-'));
+  EXT_DIR = join(work, 'ext');
+  await cp(dist, EXT_DIR, { recursive: true });
+
+  // SINGLE DEVIATION: append local origins to host_permissions (dist JS untouched).
+  const manifest = JSON.parse(await readFile(join(EXT_DIR, 'manifest.json'), 'utf8'));
+  manifest.host_permissions = [
+    ...manifest.host_permissions,
+    `${fixture.origin}/*`,
+    `${lgdl.origin}/*`,
+  ];
+  await writeFile(join(EXT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  console.log(`▶ extension copy (deviation: host_permissions += ${fixture.origin}/*, ${lgdl.origin}/*)`);
+  console.log(`▶ chrome: ${CHROME}`);
+
+  try {
+    await runScenario({
+      name: 'A/fixture(non-LGDL)',
+      origin: fixture.origin,
+      path: '/',
+      expectTool: 'site.notes-list',
+      chatSteps: [
+        { user: 'list notes', label: 'read full chain returned page data (welcome)', test: (t) => /welcome/.test(t) },
+        { user: 'add a note now', label: 'write ran through the confirmation gate', test: (t) => /note added|from-e2e/.test(t) },
+        { user: 'list notes', label: 'second read observes the persisted write', test: (t) => /from-e2e/.test(t) },
+      ],
+    });
+
+    if (await stat(lgdlDist).then(() => true).catch(() => false)) {
+      await runScenario({
+        name: 'B/LGDL Workbench',
+        origin: lgdl.origin,
+        path: '/',
+        expectTool: 'site.lgdl-web-cli',
+        chatSteps: [
+          { user: 'lgdl status', label: 'LGDL graph read full chain returned nodes', test: (t) => /nodes/.test(t) },
+        ],
+      });
+    } else {
+      console.log('⚠ packages/lgdl-web/dist not built — skipping AC-009 scenario (run root build first)');
+    }
+  } finally {
+    fixture.server.close();
+    lgdl.server.close();
+    await rm(work, { recursive: true, force: true }).catch(() => {});
+  }
+
+  console.log('');
+  if (failures.length) {
+    console.error(`R8 E2E FAILED (${failures.length}):`);
+    for (const f of failures) console.error(`  - ${f}`);
+    process.exit(1);
+  }
+  console.log('R8 E2E PASS — real dist full chain: fixture (AC-010) + LGDL Workbench (AC-009)');
+  console.log('deviation: host_permissions pre-granted for local origins (gesture-driven permission UX = manual)');
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

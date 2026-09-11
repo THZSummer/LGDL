@@ -26,6 +26,12 @@
 | M15 | 审计落库 | `plugin.audit-export` / `audit-sink` 测试 | 事件面齐全 | ✅ PASS（node 面） |
 | M16 | 导航失效语义 | `controller.markNavigated()` 测试 | invalidated=true + 需重授权 | ✅ PASS（node 面） |
 | M17 | 通用性端到端 | `test/e2e.generality.test.ts`（fixture） | 全链通过 | ✅ PASS |
+| M18 | 风控暂停/中止可读阻断 | `test/host.test.ts` risk guard 用例（stop/pause → 不执行，resume 恢复） | 阻断可读、不静默 | ✅ PASS（node 面，P1） |
+| M19 | 事件桥 + 上下文预算截断 | `test/content.test.ts`（subscribe/pull/notify）+ `test/sidepanel` 事件 | 预算摘要 + 可读截断 | ✅ PASS（node 面，P1） |
+| M20 | 通用 DOM 工具面（默认关） | `test/dom-agent.test.ts` | 默认不装配、失败可读 | ✅ PASS（node 面，P1 可选） |
+| M21 | 任务内 ask-user 问答桥 | `test/ask-bridge.test.ts` + `test/sidepanel.test.ts` + `test/host.test.ts` | 提问→作答→回填；超时/取消可读 | ✅ PASS（node 面，P1/R7） |
+| M22 | `transport.channel` 动态绑定 | `test/content.test.ts` + `test/protocol.test.ts` | 声明通道绑定后 invoke/结果按新通道 | ✅ PASS（node 面，P1/R9-7） |
+| M23 | 破坏性动词 denylist | `test/host.test.ts` R-BLK1a 用例（5 例伪装） | 不得 read→allow | ✅ PASS（node 面，P1/R-BLK1a） |
 
 ## 2. 人工面（真实浏览器交互）
 
@@ -39,6 +45,9 @@
 | H5 | 导航失效提示 | 授权后整页刷新 | 明示「会话失效，需重新授权/重连」，不静默续接 |
 | H6 | LGDL 页端到端 | 在 LGDL 工作台加载插件 → 授权 → 经 RPC 执行图内容命令 + 写回 | 编辑器内容更新；既有功能零回归 |
 | H7 | 真实 LLM 闭环（可选） | 配置 BYOK key → 发指令 | 会话正常；火山端点可用（G-KEY PASS） |
+| H8 | 风控暂停/中止控件 | side panel「暂停自动化 / 恢复 / 中止」 | 状态可读；暂停/中止后站点调用被阻断；恢复后可继续 |
+| H9 | 事件订阅 + 预算截断 | side panel 触发事件订阅 → pull | 事件增量 + 「上下文预算截断」可读提示 |
+| H10 | 任务内 ask-user 问答 | LLM 触发 `ask-user` → side panel 呈现 → 作答/取消 | 回答回填到工具输出；取消可读 |
 
 ## 3. 降级出口
 
@@ -47,6 +56,7 @@
 | `--headless=new --load-extension` 不可用 | headful + xvfb / Playwright `launchPersistentContext({args:['--load-extension=…']})` |
 | 仍不可用 | 仅 node 注入面单测 + 本清单人工面，记入 validate |
 | content script 注入需手势 | 由人工面 H0 覆盖（headless 自动化无法构造真实手势） |
+| 真实产物全链（R8） | **已固化为 `npm run test:e2e`（`test/e2e/fullchain.mjs`）**：真实 dist + CDP headless，唯一偏差 = manifest 副本追加本地 origin 到 `host_permissions`（JS 字节与发布一致）。其余手势/权限弹窗/真实 LLM 仍归人工面（见 `docs/dev.md` §7.4） |
 
 ## 4. validate 移交清单
 
@@ -54,5 +64,8 @@
 - TASK-002 试点结论：`spike-protocol-pilot.md`（协议三层 + ≥2 站点）
 - 能力矩阵：`docs/capability-matrix.md`（最小能力集 6/8 P0 + 2/8 P1）
 - 合规评估：`docs/compliance.md`
+- 协议说明：`docs/protocol.md`
+- 迁移指引：`docs/migration.md`
+- 开发调试 + 冒烟方法论：`docs/dev.md`
 - 红线 grep 结果：见 build 报告 §红线
 - 全仓 `npm run build` + `npm test` 结果：见 build 报告 §门禁

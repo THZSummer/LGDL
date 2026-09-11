@@ -97,8 +97,66 @@ npm test                                             # 全仓
 2. 机械面：`chromium --headless=new --disable-extensions-except=dist --load-extension=dist --remote-debugging-port=<p> about:blank` + CDP 脚本
 3. 人工面：按 `docs/smoke-checklist.md` §2 逐项
 
-## 8. 变更记录
+### 7.4 真实产物全链 E2E（R8，自动化可重复）
+
+```bash
+npm run build --workspace @lgdl/web-cli-plugin   # 先构建（脚本读取真实 dist/）
+npm run test:e2e --workspace @lgdl/web-cli-plugin
+```
+
+`test/e2e/fullchain.mjs` 用 CDP 驱动 headless Chromium，加载**真实 `dist/` 字节**并打通
+`content→background→host→RPC` 全链，两个场景：
+- **A. 非 LGDL fixture（AC-010）**：发现 → 授权 → mock LLM 工具调用 → 真实 host 门禁/风险策略 →
+  站点 postMessage RPC → 页面执行 → 二次确认门禁 → 结果回填 → 多轮会话 → 审计导出。
+- **B. LGDL Workbench 真实构建（AC-009）**：加载 `packages/lgdl-web/dist` 真实产物 → 运行时握手
+  发现 `site.lgdl-web-cli` → 授权 → `lgdl-web-cli status` 读全链返回图内容 → 审计。
+
+**唯一偏差（单条，明示）**：脚本把本地 fixture/LGDL/LLM origin（`http://127.0.0.1:<port>/*`）
+追加进 `host_permissions`（dist 的 JS 与发布产物字节一致，仅 manifest 副本追加）。原因：
+`optional_host_permissions` 的 `chrome.permissions.request` 需要真实用户手势 + 原生权限弹窗，
+headless 无法合成（validate V9b 实证）。因此本脚本证明的是**机制全链**，而非手势驱动的权限
+UX。**不得**把它表述为「无偏差真实产物全链 PASS」。
+
+**剩余人工 UX 项**（无法自动化，随 `smoke-checklist.md` §2）：H0 content 注入手势、
+H2 授权弹层与 `permissions.request` 原生弹窗、H4 审计 UI、H6 LGDL 真实页端到端、
+H8 风控控件、H9 事件订阅 UI、H10 ask-user 问答 UI、H7 真实 LLM 闭环。
+
+## 8. 性能与上下文预算（NFR-007）
+
+> spec 原 NFR-007 未给量化阈值；本节定义**可验证阈值**并记录实测（回归护栏见 `test/perf-budget.test.ts`，决策 D-028）。
+
+### 8.1 量化阈值
+
+| 维度 | 阈值 | 落点 / 机制 |
+|------|------|-------------|
+| content script 注入体积 | `content.js` ≤ **64 KB**（IIFE，按需注入；无静态 `content_scripts`，空闲零开销） | `build.mjs` 产物；`test/perf-budget.test.ts`（有 dist 时断言） |
+| background SW 体积 | `background.js` ≤ **1.2 MB**（含 base 全量工具面 + LLM SDK 浏览器分支） | 构建产物（仅记录，不设硬断言） |
+| 事件上下文摘要 | 每次 pull ≤ **10** 条（`EVENT_CONTEXT_SUMMARY_N`），带可读截断提示 | `content/page-bridge.ts`；`content.test.ts` |
+| 单事件负载 | ≤ **4096 字符**（base `DEFAULT_BUDGETS.payloadBudgetChars`，超限截断 + `truncated`） | `@lgdl/web-cli-base` 事件总线 |
+| 全通道事件速率 | ≤ **200 条/s**（base 护栏，超限丢弃计数） | base `event-bus.ts` |
+| 会话历史上限 | ≤ **40 turn**（`MAX_SESSION_TURNS`，裁剪后首条强制 user） | `background/chat-session.ts`；`chat-session.test.ts` |
+| 审计环形缓冲 | ≤ **500** 事件（`DEFAULT_AUDIT_CAPACITY`，溢出计数不静默丢） | `security/audit-sink.ts` |
+| 风控令牌桶 | 每 origin **60** 容量 / **6** token·s⁻¹（可配） | `security/policy.ts` `createRiskGuard` |
+| RPC / 握手超时 | invoke **30s** / probe **3s**（超时可读失败，不挂起） | `protocol/rpc.ts` |
+| 消息往返时延（node 机制面） | 50 次已授权读派发 < **250 ms**（≤5 ms/call） | `test/perf-budget.test.ts` |
+
+### 8.2 实测（2026-09-12，本机）
+
+| 对象 | 实测 | 阈值 | 判定 |
+|------|------|------|:--:|
+| `dist/content.js` | **33.9 KB**（34,711 B） | ≤ 64 KB | ✅ |
+| `dist/sidepanel.js` | **15.1 KB** | — | ✅ |
+| `dist/background.js` | **968,442 B**（≈945.7 KB） | ≤ 1.2 MB | ✅ |
+| `dist/options.js` | **893.9 KB** | — | 记录 |
+| 50 次已授权读派发 | ~0.9 ms/call（200 次 180.9 ms；含 setup） | < 5 ms/call | ✅ |
+| 500 turn 提交后快照 | 40 turn / JSON < 64 KB | ≤ 40 turn | ✅ |
+| 会话历史上限 | 40 | 40 | ✅ |
+
+> **口径说明**：宿主页卡顿面主要由「按需注入 + 无静态 content_scripts + 事件默认零常驻监听」控制；扩展 SW 内存无法在 node 面直接测量，以上体积/时延为可重复的代理指标。真实浏览器内存采样属人工面残余项（见 `smoke-checklist.md` §2）。
+
+## 9. 变更记录
 
 | 版本 | 说明 |
 |------|------|
 | 1.0 | 首版：构建 / unpacked 加载 / 调试 / 热重载 / 冒烟方法论（无头可行性结论 + 机械面/人工面分离）。 |
+| 1.1 | 补 §8 性能与上下文预算（NFR-007 量化阈值 + 实测，D-028）；冒烟清单新增 P1 机械面 M18~M23 与人工面 H8~H10 引用。 |

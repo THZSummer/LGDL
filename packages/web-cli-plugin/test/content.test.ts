@@ -49,6 +49,26 @@ test('page-bridge: invoke round trip with the page world', async () => {
   bridge.dispose();
 });
 
+test('page-bridge: transport.channel/invokeType/resultType bind dynamically after discovery (R9-7)', async () => {
+  const sent: Array<{ channel?: string; type?: string }> = [];
+  const { io } = bridgeIoWithPage((message) => {
+    const m = message as { type?: string; channel?: string; id?: string };
+    if (m.type !== 'custom:invoke') return undefined;
+    sent.push({ channel: m.channel, type: m.type });
+    return { type: 'custom:result', channel: m.channel, id: m.id, ok: true, output: 'bound' };
+  });
+  const bridge = createPageBridge(io, { channel: 'web-cli' });
+  // Discovery handshake still uses the default channel before binding.
+  assert.equal((await bridge.handshake(5)).ok, false);
+  bridge.bindTransport({ channel: 'custom', invokeType: 'custom:invoke', resultType: 'custom:result' });
+  const res = await bridge.invoke('notes-list', '', {});
+  assert.equal(res.ok, true);
+  assert.equal(res.output, 'bound');
+  assert.equal(res.channel, 'custom');
+  assert.deepEqual(sent, [{ channel: 'custom', type: 'custom:invoke' }]);
+  bridge.dispose();
+});
+
 test('page-bridge: timeout yields a readable failure (no throw)', async () => {
   const io: BridgeIo = { post: () => {}, subscribe: () => () => {} };
   const bridge = createPageBridge(io, { channel: 'web-cli', timeoutMs: 5 });

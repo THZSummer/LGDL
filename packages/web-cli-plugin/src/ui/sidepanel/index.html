@@ -13,6 +13,7 @@
       .entry-error { color: #dc2626; }
       .entry-tool { color: #475569; }
       #confirm { border: 1px solid #f59e0b; background: #fffbeb; border-radius: 4px; padding: 6px; margin: 6px 0; display: none; }
+      #ask { border: 1px solid #38bdf8; background: #f0f9ff; border-radius: 4px; padding: 6px; margin: 6px 0; display: none; }
       .row { display: flex; gap: 6px; align-items: center; }
       #composer { display: flex; gap: 6px; margin-top: 6px; }
       #input { flex: 1; }
@@ -37,6 +38,17 @@
         <button id="confirm-deny" type="button">拒绝</button>
         <span class="muted">超时/取消 = 拒绝</span>
       </div>
+    </div>
+    <div id="ask">
+      <div class="muted">AI 任务内澄清提问（与权限确认不同）：</div>
+      <div id="ask-prompt"></div>
+      <div id="ask-options" class="row"></div>
+      <div class="row">
+        <input id="ask-input" type="text" placeholder="输入回答…" autocomplete="off" />
+        <button id="ask-submit" type="button">回答</button>
+        <button id="ask-cancel" type="button">取消</button>
+      </div>
+      <span class="muted">取消 = 回答被取消（不代填默认值）</span>
     </div>
     <form id="composer">
       <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />

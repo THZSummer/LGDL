@@ -21,6 +21,7 @@ export interface AuditKv {
 export type PluginAuditEventType =
   | 'origin-authorize'
   | 'origin-revoke'
+  | 'host-permission'
   | 'descriptor-read'
   | 'protocol-version'
   | 'confirm'

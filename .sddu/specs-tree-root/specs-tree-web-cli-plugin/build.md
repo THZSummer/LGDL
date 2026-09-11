@@ -338,6 +338,113 @@
 | — | R-BLK1a（id 白名单可被 `purge-list` 类命名绕过） | 本轮未加破坏性动词 denylist（不属 TASK-012~015 acceptance） | release 前 |
 | — | 风控暂停/中止控件未纳入冒烟清单 | sidepanel 动态控件已在代码面就绪，未更新 `smoke-checklist.md` 人工面条目 | 下次文档同步 |
 
+## 11. 遗留清账轮（R3：R8 / R-BLK1a / R7 / R9 / minors / EC / AC / NFR-007）
+
+> **输入**: `validate-report.md` §5 遗留移交清单（11 项）+ `review-report.md` §7（R2 遗留 10 项）。
+> **范围**: 只清账、不新增功能。**未 git 提交**（由上层统一提交）。`web-cli-base/**` 零改动。
+
+### 11.1 遗留闭合表
+
+| 遗留 | 严重度 | 结论 | 证据（file:line / 命令） |
+|------|:--:|:--:|------|
+| **R-BLK1a** 破坏性动词绕过 | 中·安全 | **已修复** | `src/tools/declared-tools.ts:89`（DESTRUCTIVE_VERBS）/`:175`（hasDestructiveVerb 逐段+子命令）/`:188`（isSafeReadOnlyTool 前置）；负向用例 `test/host.test.ts` R-BLK1a×4：validate 复现 5 例（purge-list/delete-all-list/wipe-get/drop-show/reset-status）全部 `≠read`；无确认 → deny 且 executor 未调用；有确认 → ask→allow |
+| **R7** 任务内 askUser 未接线 | 低·功能 | **已修复** | `src/background/ask-bridge.ts:37`（deliver/timeout/settle，失败/超时可读取消）；`src/background/host.ts:84`（注册 base ask-user）；`service-worker.ts:111,124,393`（请求/应答桥）；`src/ui/sidepanel/chat-state.ts:144`（resolveAsk）+ sidepanel 问答 UI；`docs/capability-matrix.md` 第 17 行已与实现一致 |
+| **R9-6** discovery fetch 落点 | 低 | **已决策并落实** | 选 content script 页面源 fetch（D-021）；`src/content/content-script.ts` 头部说明 + `docs/protocol.md §2` 落点说明；保持 discover() 可读降级（transient/absent/invalid） |
+| **R9-7** transport.channel 动态绑定 | 低 | **已修复** | `src/content/page-bridge.ts:157,279`（bindTransport）；`src/content/content-script.ts:77`（发现成功后绑定）；`src/protocol/rpc.ts`（parseResult 支持声明 resultType）；`docs/protocol.md §6`；用例 `test/content.test.ts`、`test/protocol.test.ts` |
+| **R9-8 / EC-012** 双工具面冲突用例 | 低 | **已修复** | `packages/lgdl-web/src/web-cli-host/web-cli-host.test.ts` 新增「assistant + host routers 共存」：无共享注册表 / 无重复注册 / 单次 RPC 仅执行一次 / `site.*` 与内置助手工具名不冲突（lgdl-web 77→78） |
+| **R9-10** 文档引用一致性 | 低 | **已修复并回归** | `docs/protocol.md`/`gate-d.md`/`migration.md`/`dev.md` 均存在；`options/index.html:54-55` 引用 compliance/protocol/migration；`test/docs.test.ts`×3 断言文件存在 + options/smoke/capability-matrix 交叉引用无悬空 |
+| **R9-12** FR-037/038 优先级不一致 | 低 | **已修复** | `spec.md` v1.1→v1.2：FR-037 归 P1（`docs/gate-d.md`，TASK-014）、FR-038 归 P2/波3；§5.8 增归属说明；修订记录 v1.2 |
+| **minors** requestOriginPermission 双调用 | 低 | **已修复** | 双调用收敛（D-022）：side panel 手势内申请并上报 `hostPermissionGranted`（`sidepanel.ts`），background 读取上报值/回退 `hasOriginPermission`（`service-worker.ts:280`），Revoke 时 `removeOriginPermission` + 审计 `host-permission`（`:288-299`） |
+| **minors** 死代码清理 | 低 | **已修复** | `unsupported.ts` 移除测试专属 re-export（D-023，保留 `capabilityFailure`）；`host.activeOrigin` 接入 `descriptor-show`（`service-worker.ts:141-149`）；`controller.clear` 接入 `chrome.tabs.onRemoved`（`service-worker.ts:480`）；另清零引用导出（PLUGIN_ADMIN_NAMESPACE/parseProbe/redactText/redactRecord/summarizeQuestion）；`normalizeDescriptor`/`defaultSource`/`isVersionUnusable` 接入 discovery 路径 |
+| **minors** smoke-checklist 同步 | 低 | **已修复** | `docs/smoke-checklist.md` 新增 M18~M23（风控/事件桥/dom-agent/ask-user/动态通道/denylist）与 H8~H10 |
+| **EC-008** 权限撤销流 | — | **已补齐** | `removeOriginPermission`（`extension-env.ts`）+ revoke 流 + `permissions.onRemoved` 审计（`service-worker.ts:428`）；用例 `test/extension-env.test.ts`「EC-008 revoke → 移除 → false → 重新申请」；授权（OriginStore）不受影响 |
+| **EC-009** 逐厂商 CORS 结论 | — | **已补齐** | `docs/compliance.md §7` 8 厂商逐项直连结论（SW 扩展源不受页面 CORS；volc 3 端点 G-KEY 401 实测同 host）；用例 `test/llm.test.ts` 断言 8 厂商端点 host 均被 manifest `host_permissions` 覆盖 |
+| **EC-012** 完整承接 | — | **已补齐** | 同上 R9-8（含页面 host router 单实例/无双重执行） |
+| **AC-004** partial | — | **可达部分补齐** | ask 三路（权限确认 + 任务内 ask-user）齐备；事件桥/矩阵已更新；等价性以 node + e2e 承接 |
+| **AC-007** partial | — | **可达部分补齐** | 逐厂商结论（EC-009）+ 独立配置 + `test/llm.test.ts` 断言 key-store 不触碰 `lgdl-ai-settings`/localStorage；迁移指引 `docs/migration.md` |
+| **AC-011** partial | — | **可达部分补齐** | `docs/dev.md`（unpacked 调试 + 冒烟方法论 + R8 E2E）；`test/docs.test.ts` 断言文档存在/引用；发布渠道（FR-046）仍归 P2 |
+| **AC-009 / AC-010（=R8）** | 中 | **自动化可重复（如实）** | 见 §11.4：真实产物 CDP headless 全链 PASS ×2 场景（非 LGDL fixture = AC-010；LGDL Workbench 真实构建 = AC-009）+ 唯一偏差披露；剩余人工 UX 清单已文档化 |
+| **NFR-007** | — | **已定义阈值并实测** | 见 §11.5；`docs/dev.md §8` + `test/perf-budget.test.ts`×4 |
+
+**未完成（如实）**：TASK-016（`docs/release.md` 发布渠道 + FR-038 下线执行，P2/Gate-D 前置）；LGDL 站点 `env.events` App 装配；真实浏览器人工 UX 项（H0/H2/H4/H6/H7/H8/H9/H10）；扩展 SW 真实内存采样。
+
+### 11.2 新增/修改测试清单
+
+| 文件 | 变更 | 用例数 |
+|------|------|:--:|
+| `test/host.test.ts` | +R-BLK1a×4、+ask-user×2 | +6 |
+| `test/ask-bridge.test.ts` | 新增（deliver/settle/timeout/delivery-fail/unknown） | +4 |
+| `test/sidepanel.test.ts` | +ask-user 状态/解析 | +1 |
+| `test/content.test.ts` | +动态 transport 绑定 | +1 |
+| `test/protocol.test.ts` | +声明 resultType 解析 | +1 |
+| `test/extension-env.test.ts` | +EC-008 撤销流（并扩 no-chrome 断言 removeOriginPermission） | +1 |
+| `test/llm.test.ts` | +EC-009 逐厂商覆盖、+AC-007 key-store 隔离 | +2 |
+| `test/perf-budget.test.ts` | 新增（NFR-007 预算/会话/派发/产物体积） | +4 |
+| `test/docs.test.ts` | 新增（R9-10/AC-011 文档存在与引用） | +3 |
+| `packages/lgdl-web/src/web-cli-host/web-cli-host.test.ts` | +EC-012 双工具面 | +1 |
+| `test/e2e/fullchain.mjs` | 新增 R8 全链脚本（`npm run test:e2e`，非 node:test） | 9 断言 |
+
+> 既有测试零删除零降级：base 483 不变；lgdl-web 66→75→77→**78**（仅增）；plugin 68→89→**112**（仅增）。`test/unsupported.test.ts` 改为直接断言上游 base 归属契约（断言集合不变，非降级）。
+
+### 11.3 全仓门禁 + 红线 grep（本轮复跑）
+
+| 门禁 | 结果 |
+|------|------|
+| `npm run build` | PASS（plugin dist：background 968442B / content 34711B / sidepanel 15512B / options 915305B） |
+| `npm test` | **0 fail**：core 267 / render 94(+1 skip) / router 8 / lgdl-web **78** / web-cli 84 / op-cli 15 / base **483** / plugin **112** |
+| 插件 `tsc --noEmit` | PASS（0 error） |
+| `npm run test:e2e` | **PASS**（真实 dist CDP headless 全链；见 §11.4） |
+| `git status packages/web-cli-base` | 空（零改动） |
+| 红线 grep | 0 命中：silentAllow/`return …riskHint` / `.executor(` 直调 / content `(window\|globalThis).*=` / 私有依赖 `@lgdl/(lgdl-web\|web-cli\|op-cli\|core…)` / `lgdl-ai-settings` / 空 catch（代码行）；插件运行时依赖仅 `@lgdl/web-cli-base ^0.7.0` |
+| 无引用导出（新增检查） | 0 个「全仓（src+test+lgdl-web）零引用」导出；本轮已清 8 个（见 §11.1 minors）；剩余 `assembleExtensionDom/createDomAgent/buildResult/buildDescriptorMessage/parseInvoke/isWebCliMessage` 为协议页侧/契约/DOM 缝的测试参照面，均被 `test/` 引用（非零引用） |
+
+### 11.4 R8 结论（真实产物全链）
+
+- **真做到**：`test/e2e/fullchain.mjs`（`npm run test:e2e`）加载**真实 `dist/` 字节**（background.js/content.js 与发布一致），CDP 驱动 headless Chromium，打通 **content→background→host→RPC** 全链，两个场景均 **PASS**：
+  - **A. 非 LGDL fixture（AC-010）**：发现上报 → 授权 → mock LLM 工具调用 → 真实 host 门禁/风险策略 → 站点 `postMessage` RPC → 页面执行 → 二次确认门禁 → 结果回填 → 多轮会话 → 审计导出（读回 `welcome` / 写经确认放行 / 二次读观察到 `from-e2e`）。
+  - **B. LGDL Workbench 真实构建（AC-009）**：加载 `packages/lgdl-web/dist` 真实产物 → 运行时握手发现 `site.lgdl-web-cli` → 授权 → `lgdl-web-cli status` 读全链返回图内容（`nodes`）→ 审计。
+- **唯一偏差（明示）**：manifest 副本的 `host_permissions` 追加本地 fixture/LLM origin（`http://127.0.0.1:<port>/*`）；dist 的 JS 字节与发布产物一致。原因：`optional_host_permissions` 的 `chrome.permissions.request` 需真实用户手势 + 原生权限弹窗，headless 无法合成（validate V9b 实证）。**不冒充「无偏差真实产物全链 PASS」**。
+- **剩余人工 UX 项（已文档化）**：`docs/dev.md §7.4` + `docs/smoke-checklist.md §2`（H0/H2/H4/H6/H7/H8/H9/H10）。
+- 顺带修复（additive）：content 上报 discover 时由 background 依 `sender.tab.id` 绑定会话（对按需注入路径更稳健；action-click 路径不变）——`service-worker.ts` discover 分支。
+
+### 11.5 NFR-007 阈值定义与实测
+
+| 维度 | 阈值 | 实测（2026-09-12） | 判定 |
+|------|------|------|:--:|
+| `content.js` 注入体积 | ≤ 64 KB | 33.9 KB（34711 B） | ✅ |
+| `background.js` | ≤ 1.2 MB | 968442 B | ✅ |
+| 事件上下文摘要 | ≤ 10 条/次 | 10（`EVENT_CONTEXT_SUMMARY_N`） | ✅ |
+| 单事件负载 | ≤ 4096 字符 | base `DEFAULT_BUDGETS.payloadBudgetChars` | ✅ |
+| 事件速率 | ≤ 200 条/s | base `event-bus` 护栏 | ✅ |
+| 会话历史 | ≤ 40 turn | 500 turn 提交后快照 = 40，首条 user | ✅ |
+| 审计缓冲 | ≤ 500 | `DEFAULT_AUDIT_CAPACITY` | ✅ |
+| 风控令牌桶 | 60 / 6·s⁻¹ | `createRiskGuard` 默认 | ✅ |
+| RPC / 握手超时 | 30s / 3s | `protocol/rpc.ts` | ✅ |
+| 50 次已授权读派发 | < 250 ms | ~0.9 ms/call（200 次 180.9 ms） | ✅ |
+
+> 回归护栏：`test/perf-budget.test.ts`；文档：`docs/dev.md §8`。扩展 SW 真实内存采样归人工面。
+
+### 11.6 新增决策（D-021~D-029）
+
+| # | 决策 | 说明 |
+|---|------|------|
+| **D-021** | R9-6 discovery fetch 落点 | ①② 由 content script 页面源 fetch（无 host 权限即可发现，失败可读降级）；plan §3.2 后台特权 fetch 留 wave-2（持权限后） |
+| **D-022** | requestOriginPermission 收敛 + revoke 移除权限 | side panel 手势内申请并上报；background 读上报/回退 `hasOriginPermission`；revoke 调 `removeOriginPermission` + 审计 |
+| **D-023** | unsupported.ts 死导出清理 | 移除测试专属 re-export/wrapper，保留 `capabilityFailure`；测试改断言上游 base 契约（等价） |
+| **D-024** | R-BLK1a denylist | 破坏性动词逐段+子命令判定；命中不得 read→allow（write/ask 或 undefined/deny） |
+| **D-025** | R7 askUser 接线 | base ask-user 工具 + `ask-bridge` + sidepanel Q&A + messaging 两 kind |
+| **D-026** | R9-7 动态通道绑定 | `bindTransport` + discovery 后按 descriptor.transport 绑定 + parseResult 支持声明 resultType |
+| **D-027** | R9-8/EC-012 | lgdl-web 双工具面共存用例（无共享注册表/无双重执行/命名空间不冲突） |
+| **D-028** | NFR-007 量化 | 阈值定义 + `test/perf-budget.test.ts` + `docs/dev.md §8` |
+| **D-029** | R8 E2E 固化 | `test/e2e/fullchain.mjs` + `npm run test:e2e`；唯一偏差披露，不冒充无偏差 |
+
+### 11.7 未完成/偏差如实标注
+
+- **FR-038 下线执行**未做（P2/波3 独立里程碑；EC-016 未达不下线）；`lgdl-web/src/ai/*` 仍在（TASK-016 才删）。
+- **负偏差**：R8 为带唯一偏差的机制全链，非无偏差真实产物；**无把 harness 当真实产物 PASS**。
+- 人工 UX 项（授权弹窗/真实 LLM/LGDL 真实页等）与 SW 内存采样未做，已列清单。
+- `spec.md` 本轮修改（v1.2）仅补注 FR-037/038 归属与修订记录，需求语义零变更；这是应遗留 R9-12 的显式要求（用户指令优先于「不修改规范」通则）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -345,3 +452,4 @@
 | v1.0 | 初始创建：P0 最小可用集 TASK-001~011 构建报告（含门禁结果、红线 grep、D-001~D-008 决策、遗留风险） | 2026-09-11 | SDDU Build Agent |
 | v1.1 | R1 审查修复轮：BLK-1（安全红线）/BLK-2（多轮会话）+ 6 高价值改进（FR-025/FR-008/TASK-010/IMP-4/maxRounds/GATE-011 表述）；D-009~D-015；插件 54→68、lgdl-web 66→75；全仓 0 fail | 2026-09-11 | SDDU Build Agent |
 | v1.2 | P1 实施轮：TASK-012~015（协议完善/UI 操作+事件桥/风控+文档/可选 DOM 工具面）；D-017~D-020；插件 68→89、lgdl-web 75→77；全仓 0 fail；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.3 | 遗留清账轮（§11）：R-BLK1a/R7/R8/R9-6/7/8/10/12 + minors×2 + EC-008/009/012 + AC-004/007/011 + NFR-007；D-021~D-029；插件 89→112、lgdl-web 77→78、base 483 零回归；R8 E2E 固化并 PASS（唯一偏差披露）；未 git 提交 | 2026-09-12 | SDDU Build Agent |

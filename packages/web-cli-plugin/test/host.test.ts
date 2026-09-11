@@ -4,7 +4,7 @@ import { createStorageAuditSink } from '../src/security/audit-sink.js';
 import { createOriginStore, type PluginKv } from '../src/security/origin-store.js';
 import { createWebCliHost } from '../src/background/host.js';
 import { createController } from '../src/background/controller.js';
-import { effectiveRisk, isSafeReadOnlyTool, paramsToSchema, toToolEntries } from '../src/tools/declared-tools.js';
+import { effectiveRisk, hasDestructiveVerb, isSafeReadOnlyTool, paramsToSchema, toToolEntries } from '../src/tools/declared-tools.js';
 import { createAdminToolEntries } from '../src/tools/admin-tools.js';
 import { parseDescriptor } from '../src/protocol/descriptor.js';
 
@@ -243,6 +243,141 @@ test('BLK-1: plugin read-only whitelist is id-based (site hint cannot lower or r
   // mixed/structured tool (e.g. lgdl-web-cli) defaults to conservative ask, not silent allow
   assert.equal(effectiveRisk({ id: 'lgdl-web-cli', summary: 'x', subcommands: ['status', 'add-node'] }), 'write');
   assert.equal(effectiveRisk({ id: 'lgdl-web-cli', summary: 'x', subcommands: ['status'] }), 'write');
+});
+
+// ---------- R-BLK1a: destructive-verb denylist (fail-closed) ----------
+
+/** Descriptor with destructive tools disguised by a trailing read verb (R-BLK1a). */
+const disguisedDescriptor = (() => {
+  const res = parseDescriptor({
+    protocolVersion: '1.0',
+    tools: [
+      { id: 'purge-list', summary: 'Purge everything' },
+      { id: 'delete-all-list', summary: 'Delete all' },
+      { id: 'wipe-get', summary: 'Wipe' },
+      { id: 'drop-show', summary: 'Drop' },
+      { id: 'reset-status', summary: 'Reset', subcommands: ['status'] },
+    ],
+    transport: { kind: 'page-message', channel: 'web-cli' },
+  });
+  if (!res.ok) throw new Error(res.error);
+  return res.descriptor;
+})();
+
+test('R-BLK1a: destructive verbs disguised with a read suffix are never read→allow', () => {
+  const byId = new Map(disguisedDescriptor.tools.map((t) => [t.id, t]));
+  // The five validate-reproduced bypasses must no longer be classified read.
+  for (const id of ['purge-list', 'delete-all-list', 'wipe-get', 'drop-show', 'reset-status']) {
+    const tool = byId.get(id)!;
+    assert.equal(isSafeReadOnlyTool(tool), false, `${id} must not be read-only`);
+    assert.notEqual(effectiveRisk(tool), 'read', `${id} must not be read`);
+    assert.equal(hasDestructiveVerb(tool), true, `${id} must be flagged destructive`);
+  }
+  // opaque destructive tools fail closed (deny via S3), structured ones ask.
+  assert.equal(effectiveRisk(byId.get('purge-list')!), undefined);
+  assert.equal(effectiveRisk(byId.get('reset-status')!), 'write');
+});
+
+test('R-BLK1a: disguised destructive tool is denied without confirmation (executor not called)', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  await origins.authorize('https://evil.test');
+  let called = 0;
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: {
+      invoke: async () => {
+        called += 1;
+        return { ok: true, output: 'purged' };
+      },
+    },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  host.activateSite(disguisedDescriptor, 'https://evil.test');
+  const result = await host.dispatch(
+    { id: 'blk1a', name: 'site.purge-list', subcommand: '', args: {}, rawArguments: '{}' },
+    { origin: 'https://evil.test' },
+  );
+  assert.equal(result.ok, false);
+  assert.equal(called, 0);
+});
+
+test('R-BLK1a: structured destructive tool only runs after explicit confirmation (ask, not allow)', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  await origins.authorize('https://evil.test');
+  let asked = 0;
+  let called = 0;
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: {
+      invoke: async () => {
+        called += 1;
+        return { ok: true, output: 'reset' };
+      },
+    },
+    onAsk: async () => {
+      asked += 1;
+      return { action: 'allow' };
+    },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  host.activateSite(disguisedDescriptor, 'https://evil.test');
+  const result = await host.dispatch(
+    { id: 'blk1a2', name: 'site.reset-status', subcommand: 'status', args: {}, rawArguments: '{}' },
+    { origin: 'https://evil.test' },
+  );
+  assert.equal(asked, 1); // forced through confirmation
+  assert.equal(result.ok, true);
+  assert.equal(called, 1);
+});
+
+test('R-BLK1a: legitimate read tools stay read→allow (no over-blocking)', () => {
+  assert.equal(effectiveRisk({ id: 'notes-list', summary: 'x' }), 'read');
+  assert.equal(effectiveRisk({ id: 'report-status', summary: 'x' }), 'read');
+  assert.equal(effectiveRisk({ id: 'user.info', summary: 'x' }), 'read');
+  assert.equal(effectiveRisk({ id: 'search-items', summary: 'x', subcommands: ['query'] }), 'write'); // last segment not a read verb → ask
+  assert.equal(effectiveRisk({ id: 'notes-search', summary: 'x', subcommands: ['query'] }), 'read');
+});
+
+test('host: task-internal ask-user is registered and answers via the injected responder (FR-017 / R7)', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: { invoke: async () => ({ ok: true, output: 'ok' }) },
+    askUser: async (q) => ({ ok: true, value: `echo:${q.prompt}` }),
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  assert.equal(host.deriveTools().some((t) => t.name === 'ask-user'), true);
+  const res = await host.dispatch(
+    { id: 'ask1', name: 'ask-user', subcommand: '', args: { prompt: '继续吗？', kind: 'text' }, rawArguments: '{}' },
+  );
+  assert.equal(res.ok, true);
+  assert.match(res.output, /echo:继续吗？/);
+});
+
+test('host: ask-user without a responder is a readable disabled tool (never silent)', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: { invoke: async () => ({ ok: true, output: 'ok' }) },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  const res = await host.dispatch(
+    { id: 'ask2', name: 'ask-user', subcommand: '', args: { prompt: 'x' }, rawArguments: '{}' },
+  );
+  assert.equal(res.ok, false);
+  assert.match(res.output, /未注入|应答器/);
 });
 
 test('controller: single-tab binding + navigation invalidation + restore', () => {

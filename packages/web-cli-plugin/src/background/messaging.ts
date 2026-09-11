@@ -21,6 +21,8 @@ export type PluginMessageKind =
   | 'audit-export'
   | 'confirm-request'
   | 'confirm-response'
+  | 'ask-user-request'
+  | 'ask-user-response'
   | 'risk-control'
   | 'llm-config';
 
@@ -53,6 +55,8 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'audit-export',
   'confirm-request',
   'confirm-response',
+  'ask-user-request',
+  'ask-user-response',
   'risk-control',
   'llm-config',
 ]);

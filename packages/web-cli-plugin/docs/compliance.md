@@ -97,6 +97,25 @@
 - 评估结论变更须记录依据与时间，并可通过插件审计导出（`plugin.audit-export`）追溯；
 - 站点可用性结论与 FR-030/032 一致；不适用清单用户可见（options 页入口）。
 
+## 7. LLM 厂商端点直连结论（FR-034 / EC-009）
+
+> 插件在 **background service worker** 发起 LLM 请求；扩展以自身 origin 访问 `host_permissions` 覆盖的端点，**不受宿主页面 CORS 预检约束**（与页内内置助手的浏览器直连口径不同）。逐厂商结论如下：
+
+| 厂商 | 端点 host | 承载 | 直连结论 | 依据 / 证据 |
+|------|-------------------|------|:--:|------|
+| DeepSeek | `api.deepseek.com` | OpenAI 兼容 | **可直连** | manifest `host_permissions` 覆盖；SW 扩展源 fetch 无页面 CORS |
+| Qwen 通义千问 | `dashscope.aliyuncs.com` | OpenAI 兼容 | **可直连** | 同上 |
+| 火山方舟 · 通用 | `ark.cn-beijing.volces.com` | OpenAI 兼容 v3 | **可直连（已实测可达）** | G-KEY：SW 内带 Authorization fetch 返回 **HTTP 401**（非 CORS/网络失败）；`browserDirect:false` 为页内助手时代的保守标记 |
+| 火山方舟 · Coding | `ark.cn-beijing.volces.com` | OpenAI 兼容 coding/v3 | **可直连（同 host 实测）** | 同上（共享 host；G-KEY 覆盖） |
+| 火山方舟 · Agent Plan | `ark.cn-beijing.volces.com` | OpenAI 兼容 plan/v3 | **可直连（同 host 实测）** | 同上 |
+| 腾讯混元 | `api.hunyuan.cloud.tencent.com` | OpenAI 兼容 | **可直连** | manifest `host_permissions` 覆盖 |
+| OpenAI | `api.openai.com` | OpenAI 兼容 | **可直连** | manifest `host_permissions` 覆盖 |
+| Claude | `api.anthropic.com` | Anthropic Messages（native） | **可直连** | manifest `host_permissions` 覆盖；native 分支由 base `chat` 处理 |
+
+- **受限/失败处置**：任何厂商端点不可达（网络/密钥/额度/CORS 意外）→ 会话内可读错误 + 厂商处置指引，**不静默失败、不中断会话**（EC-009）；`classifyError` 对 401/403/429/网络分别给出可读原因。
+- **回退**：若未来浏览器收紧扩展 fetch 或端点要求页面侧代理，`browserDirect:false` 分支保留可读降级出口（不假装生效）。
+- **逐厂商断言**：`test/llm.test.ts` 断言 8 厂商端点 host 均被 manifest `host_permissions` 覆盖（结构化回归）；volc 三端点共享同一 host（G-KEY 实测）。
+
 ---
 
 **评估时间**: 2026-09-11 ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点或站点条款变更时

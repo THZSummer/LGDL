@@ -20,6 +20,15 @@ export interface ConfirmState {
   risk?: string;
 }
 
+/** Task-internal clarification question awaiting a user answer (FR-017 / R7). */
+export interface AskState {
+  requestId: string;
+  kind: 'choice' | 'confirm' | 'text';
+  prompt: string;
+  options?: string[];
+  default?: string;
+}
+
 export interface SidepanelState {
   entries: ChatEntry[];
   nextId: number;
@@ -29,6 +38,7 @@ export interface SidepanelState {
   authorized: boolean;
   invalidated: boolean;
   confirm: ConfirmState | null;
+  ask: AskState | null;
   auditCount: number;
   notice?: string;
 }
@@ -43,6 +53,8 @@ export type SidepanelAction =
   | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; authorized?: boolean; invalidated?: boolean }
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
   | { type: 'confirm-resolved'; allow: boolean }
+  | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
+  | { type: 'ask-resolved' }
   | { type: 'audit-count'; count: number }
   | { type: 'notice'; text: string };
 
@@ -54,6 +66,7 @@ export function createInitialState(): SidepanelState {
     authorized: false,
     invalidated: false,
     confirm: null,
+    ask: null,
     auditCount: 0,
   };
 }
@@ -92,6 +105,19 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
       return { ...state, confirm: { requestId: action.requestId, summary: action.summary, ...(action.risk ? { risk: action.risk } : {}) } };
     case 'confirm-resolved':
       return { ...state, confirm: null };
+    case 'ask':
+      return {
+        ...state,
+        ask: {
+          requestId: action.requestId,
+          kind: action.kind,
+          prompt: action.prompt,
+          ...(action.options ? { options: action.options } : {}),
+          ...(action.default ? { default: action.default } : {}),
+        },
+      };
+    case 'ask-resolved':
+      return { ...state, ask: null };
     case 'audit-count':
       return { ...state, auditCount: action.count };
     case 'notice':
@@ -108,4 +134,20 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
 export function resolveConfirm(state: SidepanelState, allow: boolean): { requestId: string; allow: boolean } | null {
   if (!state.confirm) return null;
   return { requestId: state.confirm.requestId, allow };
+}
+
+/**
+ * Resolve a pending task-internal question (FR-017 / R7). Cancel / empty answer
+ * yields `canceled` (the tool reports the user canceled) — never a silent value.
+ * Returns the message payload to send back to the background, or null.
+ */
+export function resolveAsk(
+  state: SidepanelState,
+  value: string | undefined,
+  canceled: boolean,
+): { requestId: string; value?: string; canceled: boolean } | null {
+  if (!state.ask) return null;
+  const trimmed = value?.trim();
+  if (canceled || !trimmed) return { requestId: state.ask.requestId, canceled: true };
+  return { requestId: state.ask.requestId, value: trimmed, canceled: false };
 }

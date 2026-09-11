@@ -26,7 +26,6 @@ import { isToolRisk } from '../protocol/descriptor.js';
 import type { TrustState } from './origin-store.js';
 
 export const PLUGIN_SITE_NAMESPACE = 'site';
-export const PLUGIN_ADMIN_NAMESPACE = 'plugin';
 
 /** Risk → default action table (plugin policy; FR-026). */
 export const PLUGIN_RISK_DEFAULTS: Partial<Record<ToolRisk, PolicyAction>> = {

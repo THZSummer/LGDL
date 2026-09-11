@@ -14,8 +14,8 @@ import {
   type WebCliDescriptor,
   type WebCliDescriptorChannel,
 } from '../protocol/descriptor.js';
-import { negotiateVersion, type VersionNegotiation } from '../protocol/version.js';
-import { resolveTrust, verifyIntegrity, type TrustView } from '../protocol/trust.js';
+import { negotiateVersion, isVersionUnusable, type VersionNegotiation } from '../protocol/version.js';
+import { defaultSource, resolveTrust, verifyIntegrity, type TrustView } from '../protocol/trust.js';
 import { wellKnownUrl } from './static-declaration.js';
 
 export type DiscoveryState = 'supported' | 'unsupported' | 'unknown';
@@ -87,16 +87,14 @@ async function finalize(
   // FR-013 / EC-014: unknown or incompatible versions are rejected or degraded
   // with a readable notice; they are never silently accepted.
   const version = negotiateVersion(descriptor.protocolVersion);
-  if (version.action === 'reject') {
+  if (isVersionUnusable(version)) {
     return { ok: false, kind: 'invalid', reason: version.reason, version, failureKind: 'version-mismatch' };
   }
 
   const integrity = await verifyIntegrity(descriptor, rawText);
   const trustState = await resolveTrust(origin, trust);
   descriptor.source = {
-    origin,
-    channel,
-    fetchedAt: now(),
+    ...defaultSource(origin, channel, now()),
     integrityVerified: integrity.integrityVerified,
     trust: trustState,
   };

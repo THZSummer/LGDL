@@ -7,7 +7,9 @@
  * Every execution goes through `router.dispatch` (no bypass path).
  */
 import {
+  createAskUserToolEntry,
   createCommandRouter,
+  type AskResponder,
   type CommandRouter,
   type LlmToolDef,
   type RouterPolicy,
@@ -28,6 +30,8 @@ export interface WebCliHostOptions {
   rpc: SiteRpc;
   currentOrigin?: () => string | undefined;
   onAsk?: RouterPolicy['onAsk'];
+  /** Task-internal clarification responder (FR-017 / R7); absent → readable disabled tool. */
+  askUser?: AskResponder;
   descriptorShow: (origin: string) => Promise<string>;
   llmConfig: () => Promise<string>;
 }
@@ -73,6 +77,11 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
   })) {
     router.register(entry);
   }
+
+  // Task-internal clarification tool (FR-017 / R7). Always registered so the
+  // capability face is explicit; without a responder it returns a readable
+  // disabled message (never a silent no-op).
+  router.register(createAskUserToolEntry(opts.askUser ? { askUser: opts.askUser } : {}));
 
   const riskGuard = createRiskGuard();
 

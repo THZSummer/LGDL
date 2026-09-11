@@ -42,6 +42,8 @@
 | `transient` | 网络/超时等暂时失败 | 「web-cli 发现未完成（可能暂时不可达，可重试）：…」 |
 
 > 发现过程没有任何逐站点硬编码白名单；`unsupported` / `unknown` 绝不误报为 `supported`。
+>
+> **消费端落点（R9-6 / D-021）**：本插件 P0 由 **content script 以页面源**执行通道 ①/② 的 `fetch`（③ 为页面世界 `postMessage` 握手）。选择页面源而非后台特权 fetch 的理由：可选 host 权限按 FR-006 在用户显式授权时才申请，首次发现时尚不可用，后台 fetch 会持续 fail-closed；页面源 fetch 在无额外权限下即可完成发现，失败一律经可读降级（`transient`/`absent`/`invalid`）暴露。后台特权 fetch 作为 wave-2 优化（持有 host 权限后）。
 
 ## 3. 声明（Descriptor schema）
 
@@ -151,6 +153,8 @@
 - **结果信任**：页面返回内容一律标记 `trust: "external"`，按外部内容处理——**不作为指令执行**；进模型上下文前经脱敏与截断。
 - **写回**：`changed: true` 且带 `source` 的结果由消费端侧（站点桥）做校验后应用；校验失败则拒绝写回并返回可读错误。
 - **失败可读**：站点未实现 RPC / 通道无响应 / 抛错 → 可读失败 + 归属说明，不假装生效。
+
+**通道动态绑定（R9-7）**：发现阶段（probe/descriptor）固定使用默认通道 `web-cli` 完成握手；一旦采用某份声明，消费端即以该声明的 `transport.channel` / `transport.invokeType` / `transport.resultType` 绑定后续 `invoke` 与事件消息（不同站点可用不同通道命名空间，互不串扰）。响应按当前绑定通道 + `id` 关联；未声明 `invokeType`/`resultType` 时回退默认 `web-cli:invoke` / `web-cli:result`。映射关系为：`transport.channel` → 消息 `channel` 字段；`transport.invokeType` → 请求消息 `type`；`transport.resultType` → 期望的响应消息 `type`。
 
 ### 6.1 事件通道（可选扩展）
 

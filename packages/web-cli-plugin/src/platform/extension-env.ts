@@ -103,6 +103,22 @@ export async function hasOriginPermission(origin: string): Promise<boolean> {
   }
 }
 
+/**
+ * Remove the optional host permission for an origin (EC-008 / FR-006). Used by
+ * the revoke flow so a user-initiated revocation also drops the granted host
+ * permission (readable, best-effort — never throws).
+ */
+export async function removeOriginPermission(origin: string): Promise<boolean> {
+  const pattern = originPermissionPattern(origin);
+  if (!pattern) return false;
+  try {
+    return (await chrome.permissions.remove({ origins: [pattern] })) === true;
+  } catch (err) {
+    console.warn('[web-cli-plugin] host permission remove failed:', err);
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Remote DOM seam (TASK-015 / FR-008 / EC-007)
 // ---------------------------------------------------------------------------

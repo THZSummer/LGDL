@@ -139,6 +139,15 @@ test('rpc: invoke/result round trip and trust marking', () => {
   assert.equal(isWebCliMessage({ type: 'other' }), false);
 });
 
+test('rpc: parseResult honors a descriptor-declared resultType (R9-7)', () => {
+  const custom = { type: 'custom:result', channel: 'custom', id: '1', ok: true, output: 'done' };
+  assert.equal(parseResult(custom), null); // default resultType does not match
+  const parsed = parseResult(custom, 'custom:result');
+  assert.equal(parsed?.ok, true);
+  assert.equal(parsed?.type, 'custom:result');
+  assert.equal(parsed?.channel, 'custom');
+});
+
 test('rpc: probe/descriptor message parsing', () => {
   const probe = buildProbe('web-cli', 'p1');
   assert.equal(isWebCliMessage(probe), true);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createInitialState, reduce, resolveConfirm } from '../src/ui/sidepanel/chat-state.js';
+import { createInitialState, reduce, resolveAsk, resolveConfirm } from '../src/ui/sidepanel/chat-state.js';
 import { CAPABILITY_BOUNDARY, CONSENT_RISKS, consentSummary } from '../src/ui/sidepanel/sidepanel.js';
 
 test('sidepanel state: appends entries in order and tracks pending', () => {
@@ -38,6 +38,20 @@ test('sidepanel confirm: pending confirm resolves to allow/deny', () => {
 test('sidepanel confirm: timeout/cancel (no pending confirm) yields nothing to send = deny semantics', () => {
   const s = createInitialState();
   assert.equal(resolveConfirm(s, true), null);
+});
+
+test('sidepanel ask-user: pending question resolves with answer or cancel (FR-017 / R7)', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'ask', requestId: 'a1', kind: 'choice', prompt: '继续吗？', options: ['是', '否'] });
+  assert.equal(s.ask?.requestId, 'a1');
+  assert.deepEqual(s.ask?.options, ['是', '否']);
+  assert.deepEqual(resolveAsk(s, '是', false), { requestId: 'a1', value: '是', canceled: false });
+  // cancel / empty answer → canceled (never a silent default)
+  assert.deepEqual(resolveAsk(s, undefined, true), { requestId: 'a1', canceled: true });
+  assert.deepEqual(resolveAsk(s, '   ', false), { requestId: 'a1', canceled: true });
+  s = reduce(s, { type: 'ask-resolved' });
+  assert.equal(s.ask, null);
+  assert.equal(resolveAsk(s, 'x', false), null);
 });
 
 test('sidepanel consent: informed-consent risks and capability boundary are readable (FR-031/NFR-008)', () => {

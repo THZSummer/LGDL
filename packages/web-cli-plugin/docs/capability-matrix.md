@@ -25,7 +25,7 @@
 | 14 | `search-content` | 页内内容检索 | 站点声明工具按需（非插件内建） | 不适用 | — | 否 |
 | 15 | `list-resources` | 资源清单 | 同上 | 不适用 | — | 否 |
 | 16 | `dom` | 页面 DOM 操作 | （可选）通用 DOM 工具面 `content/dom-agent` | 后置 | P1 可选 (TASK-015) | 否 |
-| 17 | `ask-user` | 任务内澄清提问 | side panel `askUser` 缝（`env.askUser`） | 对齐 | P0 | 是 |
+| 17 | `ask-user` | 任务内澄清提问 | 已接线：base `ask-user` 工具 + `background/ask-bridge.ts` → side panel Q&A（`ask-user-request`/`ask-user-response`） | 对齐 | P0 | 是 |
 | 18 | `todo` | 任务清单 | 宿主 agent 循环内（非独立工具） | 不适用 | — | 否 |
 | 19 | `goal` | 目标跟踪 | 同上 | 不适用 | — | 否 |
 | 20 | `jobs` | 后台任务 | 同上 | 不适用 | — | 否 |
@@ -50,7 +50,7 @@
 
 以下 8 项为「插件替代内置助手」的**最小能力集**，全部由 P0/P1 覆盖：
 
-1. 多轮会话 + 工具调用 + `ask`（FR-017）—— `background/host.ts` + side panel（P0）
+1. 多轮会话 + 工具调用 + `ask`（FR-017）—— `background/host.ts` + side panel（P0）；任务内 `ask-user` 经 `background/ask-bridge.ts` 接入 side panel 问答 UI（R7 已闭合）
 2. LGDL 图内容操作 `lgdl-web-cli`（FR-018）—— `site.lgdl-web-cli` RPC（P0）
 3. LGDL UI 操作 `lgdl-web-op-cli`（FR-019）—— `site.lgdl-web-op-cli` RPC（P1 TASK-013）
 4. 编辑器写回 `onApply` 等价（FR-020）—— bridge `apply`（P0）
@@ -72,3 +72,6 @@
 - Gate-D 条件清单：`docs/gate-d.md`（TASK-014 产出，P1）
 - 合规评估：`docs/compliance.md`
 - 冒烟清单：`docs/smoke-checklist.md`
+- 协议说明（站点中立）：`docs/protocol.md`
+- 迁移指引（不自动迁移）：`docs/migration.md`
+- 开发与调试 + 冒烟方法论：`docs/dev.md`

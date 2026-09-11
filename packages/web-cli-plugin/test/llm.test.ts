@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { DEFAULT_MAX_ROUNDS, PROVIDERS, providerById } from '../src/llm/providers.js';
 import { createKeyStore, type KeyKv } from '../src/llm/key-store.js';
 
@@ -61,4 +62,29 @@ test('key-store: default model falls back to provider default', async () => {
   await store.save({ providerId: 'claude', apiKey: 'k', model: '' });
   const loaded = await store.load();
   assert.equal(loaded.model, providerById('claude').defaultModel);
+});
+
+test('AC-007: key store never touches the built-in assistant storage (no auto-migration)', () => {
+  const src = readFileSync(new URL('../../src/llm/key-store.ts', import.meta.url), 'utf8');
+  assert.equal(/lgdl-ai-settings|localStorage|sessionStorage/.test(src), false);
+});
+
+test('EC-009: every provider endpoint is covered by a manifest host permission (extension SW direct)', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../../manifest.json', import.meta.url), 'utf8')) as {
+    host_permissions: string[];
+  };
+  // Claude uses the native Messages API (baseURL null) → default Anthropic host.
+  const claudeHost = 'api.anthropic.com';
+  const covered = PROVIDERS.map((p) => {
+    const host = p.baseURL ? new URL(p.baseURL).host : claudeHost;
+    return { id: p.id, host, ok: manifest.host_permissions.includes(`https://${host}/*`) };
+  });
+  assert.deepEqual(
+    covered.filter((c) => !c.ok),
+    [],
+    `uncovered provider hosts: ${covered.filter((c) => !c.ok).map((c) => c.id).join(', ')}`,
+  );
+  // Volcano's three endpoints are the G-KEY-verified direct cases (browserDirect=false marker).
+  const volcHosts = PROVIDERS.filter((p) => p.id.startsWith('volc')).map((p) => new URL(p.baseURL!).host);
+  assert.deepEqual([...new Set(volcHosts)], ['ark.cn-beijing.volces.com']);
 });

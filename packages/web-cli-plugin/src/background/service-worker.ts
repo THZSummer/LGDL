@@ -10,6 +10,7 @@
  */
 import type { ChatTurn, ToolResult } from '@lgdl/web-cli-base';
 import type { WebCliDescriptor } from '../protocol/descriptor.js';
+import { normalizeDescriptor } from '../protocol/descriptor.js';
 import { createStorageAuditSink, type PluginAuditSink } from '../security/audit-sink.js';
 import { createConfirmBridge } from '../security/confirm.js';
 import { createOriginStore, type OriginStore } from '../security/origin-store.js';
@@ -18,11 +19,13 @@ import type { VersionNegotiation } from '../protocol/version.js';
 import {
   createChromeAsyncKv,
   createChromeSessionKv,
-  requestOriginPermission,
+  hasOriginPermission,
+  removeOriginPermission,
 } from '../platform/extension-env.js';
 import { capabilityFailure } from '../platform/unsupported.js';
 import { createController, type WebCliController } from './controller.js';
 import { createWebCliHost, type WebCliHost } from './host.js';
+import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
 import { runChatTurn } from './chat-runner.js';
 import {
@@ -53,6 +56,8 @@ interface Singletons {
   keys: ReturnType<typeof createKeyStore>;
   /** Retained multi-turn conversation (FR-017 / ADR-012). */
   chatSession: ChatSession;
+  /** Task-internal clarification bridge (FR-017 / R7). */
+  askBridge: AskBridge;
 }
 
 let singletons: Singletons | null = null;
@@ -101,11 +106,22 @@ async function init(): Promise<Singletons> {
     const controller = createController();
     const keys = createKeyStore(kv);
 
+    // FR-017 / R7: task-internal `askUser` questions are delivered to the side
+    // panel; a failed delivery / timeout resolves as canceled (fail-closed).
+    const askBridge = createAskBridge({
+      requestId,
+      deliver: (rid, question) =>
+        chrome.runtime
+          .sendMessage(makeMessage('ask-user-request', { requestId: rid, question }))
+          .then(() => undefined),
+    });
+
     const host = createWebCliHost({
       origins,
       audit,
       rpc: { invoke: (req) => invokeSite(req.origin, req.tool, req.subcommand, req.args) },
       currentOrigin: () => controller.get()?.origin,
+      askUser: askBridge.askUser,
       onAsk: createConfirmBridge({
         currentOrigin: () => controller.get()?.origin,
         audit,
@@ -122,8 +138,9 @@ async function init(): Promise<Singletons> {
       }),
       descriptorShow: async (origin) => {
         const active = host.activeDescriptor();
-        const target = origin || controller.get()?.origin || '';
-        if (!active || (target && controller.get()?.origin !== target)) {
+        const activeOrigin = host.activeOrigin();
+        const target = origin || controller.get()?.origin || activeOrigin || '';
+        if (!active || (target && activeOrigin !== target)) {
           return `（无 ${target || '当前站点'} 的声明缓存）`;
         }
         return JSON.stringify(active, null, 2);
@@ -153,7 +170,7 @@ async function init(): Promise<Singletons> {
       console.warn('[web-cli-plugin] chat history restore failed:', err);
     }
 
-    singletons = { kv, sessionKv, audit, origins, controller, host, keys, chatSession };
+    singletons = { kv, sessionKv, audit, origins, controller, host, keys, chatSession, askBridge };
     return singletons;
   })();
   return initPromise;
@@ -233,7 +250,7 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
   }
 }
 
-async function handleMessage(message: PluginMessage): Promise<PluginResponse> {
+async function handleMessage(message: PluginMessage, sender?: chrome.runtime.MessageSender): Promise<PluginResponse> {
   const s = await init();
   switch (message.kind) {
     case 'ping':
@@ -250,19 +267,36 @@ async function handleMessage(message: PluginMessage): Promise<PluginResponse> {
     case 'authorize': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
       if (!origin) return errorResponse('authorize 需要 origin');
-      // IMP-4 / FR-006: request the optional host permission alongside the
-      // explicit origin authorization (best-effort; the OriginStore remains the
-      // authoritative gate). Failure is readable, never silent.
-      const granted = await requestOriginPermission(origin);
+      // IMP-4 / FR-006: the **side panel** requests the optional host permission
+      // inside the user gesture and reports the outcome; the background has no
+      // gesture, so it only records the reported/re-checked state (no duplicate
+      // request). The OriginStore remains the authoritative gate (D-015/D-022).
+      const reported = message.hostPermissionGranted;
+      const granted = typeof reported === 'boolean' ? reported : await hasOriginPermission(origin);
       const rec = await s.origins.authorize(origin, {
-        note: `用户显式授权；host permission ${granted ? '已授予' : '未授予（以 activeTab 兜底）'}`,
+        note: `用户显式授权；站点访问权限 ${granted ? '已授予' : '未授予（回退 activeTab 临时授权）'}`,
       });
       return okResponse({ ...rec, hostPermissionGranted: granted });
     }
     case 'revoke': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
       if (!origin) return errorResponse('revoke 需要 origin');
-      return okResponse({ revoked: await s.origins.revoke(origin) });
+      // EC-008 / FR-006: user-initiated revocation also drops the optional host
+      // permission (best-effort, readable). The plugin keeps working via
+      // activeTab / page-source discovery — authorization loss never silently
+      // disables unrelated capabilities.
+      const hostPermissionRemoved = await removeOriginPermission(origin);
+      const revoked = await s.origins.revoke(origin);
+      if (hostPermissionRemoved) {
+        s.audit.recordPlugin({
+          type: 'host-permission',
+          ts: Date.now(),
+          origin,
+          decision: 'revoked',
+          reason: '用户撤销授权：可选站点权限已移除，回退 activeTab / 页面源发现',
+        });
+      }
+      return okResponse({ revoked, hostPermissionRemoved });
     }
     case 'set-trust': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
@@ -274,6 +308,17 @@ async function handleMessage(message: PluginMessage): Promise<PluginResponse> {
       const origin = typeof message.origin === 'string' ? message.origin : s.controller.get()?.origin ?? '';
       const descriptor = message.descriptor as WebCliDescriptor | undefined;
       if (!origin) return errorResponse('discover 需要 origin');
+      // ADR-012: a content script reporting discovery from a tab binds that tab
+      // when no session is active (robust to on-demand injection paths that do
+      // not go through the action-click handler). Additive; the action click
+      // path is unchanged.
+      const senderTabId = sender?.tab?.id;
+      if (senderTabId !== undefined) {
+        const cur = s.controller.get();
+        if (!cur || cur.tabId !== senderTabId || cur.origin !== origin) {
+          s.controller.bindTab(senderTabId, origin);
+        }
+      }
       const prevOrigin = s.controller.get()?.origin;
       // EC-014 / FR-013: audit version negotiation (unknown / incompatible →
       // reject or degrade, always readable, never silent).
@@ -282,9 +327,12 @@ async function handleMessage(message: PluginMessage): Promise<PluginResponse> {
         s.audit.recordPlugin(versionAuditEvent(origin, version));
       }
       if (descriptor) {
-        s.controller.setDiscovery('supported', descriptor);
-        s.host.activateSite(descriptor, origin);
-        s.audit.recordPlugin(discoveryAuditEvent(origin, descriptor));
+        // Deterministic normalization (trimmed ids / stable ordering) before the
+        // declaration is cached and its tools registered.
+        const normalized = normalizeDescriptor(descriptor);
+        s.controller.setDiscovery('supported', normalized);
+        s.host.activateSite(normalized, origin);
+        s.audit.recordPlugin(discoveryAuditEvent(origin, normalized));
       } else {
         s.controller.setDiscovery('unsupported');
         s.host.deactivateSite();
@@ -342,14 +390,26 @@ async function handleMessage(message: PluginMessage): Promise<PluginResponse> {
       confirmResponder = null;
       return okResponse({ settled: true });
     }
+    case 'ask-user-response': {
+      // FR-017 / R7: side-panel answer to a task-internal clarification question.
+      const rid = typeof message.requestId === 'string' ? message.requestId : '';
+      const canceled = message.canceled === true;
+      const value = typeof message.value === 'string' ? message.value : undefined;
+      const settled = s.askBridge.settle(rid, {
+        ok: !canceled && value !== undefined,
+        ...(value !== undefined ? { value } : {}),
+        ...(canceled ? { canceled: true } : {}),
+      });
+      return settled ? okResponse({ settled: true }) : errorResponse(`无待回答的 ask-user 请求：${rid}`);
+    }
     default:
       return errorResponse(`未知消息类型：${message.kind}`);
   }
 }
 
-chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   if (!isPluginMessage(raw)) return undefined;
-  void handleMessage(raw).then(
+  void handleMessage(raw, sender).then(
     (res) => sendResponse(res),
     (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
   );
@@ -360,6 +420,24 @@ chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((err) => {
     console.warn('[web-cli-plugin] sidePanel behavior setup failed:', err);
   });
+});
+
+// EC-008 / FR-006: an externally revoked optional host permission (browser
+// extension page) is audited readably. The OriginStore authorization and the
+// page-source discovery path are unaffected (no silent capability loss).
+chrome.permissions.onRemoved.addListener((permissions) => {
+  void (async () => {
+    const s = await init();
+    for (const pattern of permissions.origins ?? []) {
+      s.audit.recordPlugin({
+        type: 'host-permission',
+        ts: Date.now(),
+        origin: pattern.replace(/\/\*$/, ''),
+        decision: 'revoked',
+        reason: '浏览器/用户撤销站点权限（授权保留，回退 activeTab / 页面源发现）',
+      });
+    }
+  })();
 });
 
 chrome.action.onClicked.addListener((tab) => {
@@ -391,6 +469,20 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
       s.controller.markNavigated();
       s.host.deactivateSite();
       // EC-011: whole-page navigation invalidates the conversation (no silent continuation).
+      await resetChatSession(s);
+      await persistSession(s);
+    }
+  })();
+});
+
+// ADR-012 / EC-011: closing the bound tab clears the single-tab session so a
+// stale tabId can never be reused for a different page.
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void (async () => {
+    const s = await init();
+    if (s.controller.get()?.tabId === tabId) {
+      s.controller.clear();
+      s.host.deactivateSite();
       await resetChatSession(s);
       await persistSession(s);
     }

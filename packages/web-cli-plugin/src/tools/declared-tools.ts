@@ -4,11 +4,14 @@
  * `descriptor.tools` becomes plugin tools in the `site` namespace; the executor
  * is the postMessage RPC to the page world.
  *
- * SECURITY (O-010 / NFR-001, BLK-1): the site's `riskHint` is advisory only and
- * is **never** the decision basis. The plugin recomputes the effective risk from
- * its own read-only id whitelist; anything else is forced to a danger tier (ask)
- * or fails closed (deny). A malicious site can therefore no longer self-report
- * `riskHint:'read'` to get a dangerous tool silently allowed.
+ * SECURITY (O-010 / NFR-001, BLK-1 / R-BLK1a): the site's `riskHint` is advisory
+ * only and is **never** the decision basis. The plugin recomputes the effective
+ * risk from its own read-only id whitelist **minus a destructive-verb denylist**
+ * (`delete/purge/wipe/drop/reset/clear/remove/rm/truncate/destroy/uninstall/
+ * revoke/exec/...`); anything else is forced to a danger tier (ask) or fails
+ * closed (deny). A malicious site can therefore no longer self-report
+ * `riskHint:'read'`, nor name a destructive tool `*-list`/`*-get`/`*-show`, to
+ * get a dangerous tool silently allowed.
  */
 import type { ToolEntry, ToolResult, ToolRisk } from '@lgdl/web-cli-base';
 import type { WebCliDescriptor, WebCliToolDecl } from '../protocol/descriptor.js';
@@ -73,20 +76,116 @@ export const SAFE_READ_VERBS: ReadonlySet<string> = new Set([
   'stat',
 ]);
 
-function lastIdSegment(id: string): string {
-  const parts = id
+/**
+ * Destructive / state-mutating verbs that must **never** be classified as
+ * read→allow (R-BLK1a, fail-closed). This is the *negative* half of the id
+ * heuristic: a malicious site can otherwise name a destructive tool `*-list`
+ * (e.g. `purge-list`, `delete-all-list`, `wipe-get`, `drop-show`,
+ * `reset-status`) and ride the read whitelist.
+ *
+ * The denylist takes precedence over {@link SAFE_READ_VERBS} and is checked on
+ * **every** id segment and subcommand — not just the trailing one.
+ */
+export const DESTRUCTIVE_VERBS: ReadonlySet<string> = new Set([
+  // destruction / deletion
+  'delete',
+  'del',
+  'purge',
+  'wipe',
+  'erase',
+  'drop',
+  'remove',
+  'rm',
+  'unlink',
+  'truncate',
+  'destroy',
+  'discard',
+  'clear',
+  'reset',
+  'flush',
+  // install / privilege / control
+  'install',
+  'uninstall',
+  'revoke',
+  'grant',
+  'deny',
+  'reject',
+  'override',
+  'exec',
+  'execute',
+  'run',
+  'eval',
+  'evaluate',
+  'spawn',
+  'kill',
+  'terminate',
+  'halt',
+  'shutdown',
+  'reboot',
+  'restart',
+  'abort',
+  'force',
+  // mutation
+  'write',
+  'edit',
+  'modify',
+  'update',
+  'patch',
+  'set',
+  'put',
+  'post',
+  'create',
+  'add',
+  'insert',
+  'append',
+  'push',
+  'upload',
+  'submit',
+  'send',
+  'apply',
+  'commit',
+  'merge',
+  'move',
+  'rename',
+  'migrate',
+  'import',
+  'export',
+  'download',
+  'save',
+  'sync',
+  'restore',
+]);
+
+function idSegments(id: string): string[] {
+  return id
     .toLowerCase()
     .split(/[._:/-]+/)
     .filter(Boolean);
+}
+
+function lastIdSegment(id: string): string {
+  const parts = idSegments(id);
   return parts.length ? (parts[parts.length - 1] as string) : '';
 }
 
 /**
- * Plugin-side classification of a declared tool as read-only: the last id
- * segment must be a known read verb and every declared subcommand must be too.
+ * Whether the tool id or any declared subcommand carries a destructive verb
+ * (R-BLK1a). Any hit forces the tool out of the read→allow path.
+ */
+export function hasDestructiveVerb(decl: WebCliToolDecl): boolean {
+  if (idSegments(decl.id).some((s) => DESTRUCTIVE_VERBS.has(s))) return true;
+  const subs = decl.subcommands ?? [];
+  return subs.some((s) => DESTRUCTIVE_VERBS.has(s.toLowerCase().trim()));
+}
+
+/**
+ * Plugin-side classification of a declared tool as read-only: no id segment or
+ * subcommand may carry a destructive verb (R-BLK1a), the last id segment must be
+ * a known read verb, and every declared subcommand must be a read verb too.
  * The site's `riskHint` is deliberately ignored here.
  */
 export function isSafeReadOnlyTool(decl: WebCliToolDecl): boolean {
+  if (hasDestructiveVerb(decl)) return false;
   if (!SAFE_READ_VERBS.has(lastIdSegment(decl.id))) return false;
   const subs = decl.subcommands ?? [];
   return subs.every((s) => SAFE_READ_VERBS.has(s.toLowerCase().trim()));
