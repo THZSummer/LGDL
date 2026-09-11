@@ -13,7 +13,8 @@ import type { WebCliDescriptor } from '../protocol/descriptor.js';
 import { createStorageAuditSink, type PluginAuditSink } from '../security/audit-sink.js';
 import { createConfirmBridge } from '../security/confirm.js';
 import { createOriginStore, type OriginStore } from '../security/origin-store.js';
-import { discoveryAuditEvent } from '../security/discovery-audit.js';
+import { discoveryAuditEvent, versionAuditEvent } from '../security/discovery-audit.js';
+import type { VersionNegotiation } from '../protocol/version.js';
 import {
   createChromeAsyncKv,
   createChromeSessionKv,
@@ -274,6 +275,12 @@ async function handleMessage(message: PluginMessage): Promise<PluginResponse> {
       const descriptor = message.descriptor as WebCliDescriptor | undefined;
       if (!origin) return errorResponse('discover 需要 origin');
       const prevOrigin = s.controller.get()?.origin;
+      // EC-014 / FR-013: audit version negotiation (unknown / incompatible →
+      // reject or degrade, always readable, never silent).
+      const version = message.version as VersionNegotiation | undefined;
+      if (version && typeof version.action === 'string' && typeof version.declared === 'string') {
+        s.audit.recordPlugin(versionAuditEvent(origin, version));
+      }
       if (descriptor) {
         s.controller.setDiscovery('supported', descriptor);
         s.host.activateSite(descriptor, origin);
@@ -288,11 +295,42 @@ async function handleMessage(message: PluginMessage): Promise<PluginResponse> {
       await persistSession(s);
       return okResponse({ origin, tools: s.host.registeredSiteTools() });
     }
+    case 'site-event': {
+      // FR-021: background event channel → content script → page `env.events` hub.
+      const session = s.controller.get();
+      const tabId = session?.tabId;
+      if (tabId === undefined) return errorResponse('无活跃标签，无法访问站点事件通道（请先打开并授权站点）');
+      try {
+        const res = (await chrome.tabs.sendMessage(
+          tabId,
+          makeMessage('site-event', { op: message.op, params: message.params }),
+        )) as PluginResponse | undefined;
+        return res ?? errorResponse('站点未响应事件通道请求');
+      } catch (err) {
+        return errorResponse(`站点事件通道不可达：${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    case 'site-event-push':
+      // Page-world event push forwarded by the content script; fan out to other
+      // extension contexts (side panel) best-effort — never throws, no loop
+      // (Chrome does not deliver runtime.sendMessage back to the sender).
+      void chrome.runtime.sendMessage(makeMessage('site-event-push', { channel: message.channel, subId: message.subId, events: message.events })).catch(() => {});
+      return okResponse({ forwarded: true });
     case 'chat': {
       const user = typeof message.user === 'string' ? message.user : '';
       if (!user.trim()) return errorResponse('chat 需要 user');
       void runChat(s, user);
       return okResponse({ started: true });
+    }
+    case 'risk-control': {
+      // FR-029 / EC-010: user interrupt (stop) / pause / resume of automation.
+      const action = typeof message.action === 'string' ? message.action : 'status';
+      const reason = typeof message.reason === 'string' ? message.reason : undefined;
+      if (action === 'pause') s.host.pauseRisk(reason ?? '用户暂停');
+      else if (action === 'resume') s.host.resumeRisk();
+      else if (action === 'stop') s.host.stopRisk(reason ?? '用户中止');
+      else if (action !== 'status') return errorResponse(`未知的风控操作：${action}`);
+      return okResponse(s.host.riskGuard.status());
     }
     case 'audit-export':
       return okResponse(await s.audit.exportEvents());

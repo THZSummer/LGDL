@@ -15,6 +15,29 @@ const $ = <T extends HTMLElement>(id: string): T => {
   return el as T;
 };
 
+/**
+ * Informed consent (FR-031 / NFR-008): the risks of operating a site on the
+ * user's behalf, plus what the plugin can and cannot do. Kept as plain-language
+ * strings so they are readable (and testable) without a browser.
+ */
+export const CONSENT_RISKS: readonly string[] = [
+  '账号风控：自动化高频操作可能触发目标站点的验证码、限流或临时封禁。',
+  '条款冲突：部分站点条款明确禁止自动化操作；请在使用前确认目标站点的使用条款。',
+  '数据外泄面：站点返回内容按外部内容处理，不进日志/审计明文，但授权即表示你接受该站点的数据访问范围。',
+];
+
+export const CAPABILITY_BOUNDARY: readonly string[] = [
+  '仅能操作你显式授权的来源，且该站点需声明 web-cli 协议。',
+  '写/外部/状态/UI 等危险档位必须经二次确认；不可分类的调用一律拒绝（fail-closed）。',
+  '站点自报的风险提示不作为放行依据；本插件不提供绕过门禁的直执行入口。',
+  '不自动迁移内置助手配置；密钥仅保存在扩展本地存储，不回显明文。',
+];
+
+/** One-line consent summary used before the first authorization (FR-031). */
+export function consentSummary(): string {
+  return `知情同意：${CONSENT_RISKS.join(' ')}`;
+}
+
 let state: SidepanelState = createInitialState();
 
 function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
@@ -57,6 +80,74 @@ function dispatch(action: Parameters<typeof reduce>[1]): void {
   render();
 }
 
+interface RiskStatusPayload {
+  paused?: boolean;
+  stopped?: boolean;
+  reason?: string;
+}
+
+/** Render the informed-consent block + risk controls (FR-031 / FR-029). */
+function renderConsent(): void {
+  const section = document.createElement('section');
+  section.id = 'consent';
+  const title = document.createElement('h2');
+  title.textContent = '知情同意与能力边界';
+  section.appendChild(title);
+
+  const riskTitle = document.createElement('p');
+  riskTitle.textContent = '风险提示';
+  section.appendChild(riskTitle);
+  const risks = document.createElement('ul');
+  for (const r of CONSENT_RISKS) {
+    const li = document.createElement('li');
+    li.textContent = r;
+    risks.appendChild(li);
+  }
+  section.appendChild(risks);
+
+  const capTitle = document.createElement('p');
+  capTitle.textContent = '能力边界';
+  section.appendChild(capTitle);
+  const caps = document.createElement('ul');
+  for (const c of CAPABILITY_BOUNDARY) {
+    const li = document.createElement('li');
+    li.textContent = c;
+    caps.appendChild(li);
+  }
+  section.appendChild(caps);
+
+  const controls = document.createElement('div');
+  controls.className = 'row';
+  const make = (id: string, label: string) => {
+    const b = document.createElement('button');
+    b.id = id;
+    b.type = 'button';
+    b.textContent = label;
+    return b;
+  };
+  const pauseBtn = make('risk-pause', '暂停自动化');
+  const resumeBtn = make('risk-resume', '恢复');
+  const stopBtn = make('risk-stop', '中止');
+  controls.append(pauseBtn, resumeBtn, stopBtn);
+  section.appendChild(controls);
+
+  const status = document.createElement('div');
+  status.id = 'risk-status';
+  status.className = 'muted';
+  section.appendChild(status);
+  document.body.appendChild(section);
+
+  const refresh = (d?: RiskStatusPayload) => {
+    status.textContent = `风控状态：${d?.stopped ? '已中止' : d?.paused ? '已暂停' : '运行中'}${d?.reason ? `（${d.reason}）` : ''}`;
+  };
+  const control = (action: string, reason?: string) =>
+    void send<RiskStatusPayload>(makeMessage('risk-control', { action, ...(reason ? { reason } : {}) })).then((res) => refresh(res.data));
+  pauseBtn.addEventListener('click', () => control('pause', '用户在侧栏暂停'));
+  resumeBtn.addEventListener('click', () => control('resume'));
+  stopBtn.addEventListener('click', () => control('stop', '用户在侧栏中止'));
+  void send<RiskStatusPayload>(makeMessage('risk-control', { action: 'status' })).then((res) => refresh(res.data));
+}
+
 interface StatePayload {
   active: { origin: string; discoveryState: string; invalidated: boolean } | null;
   tools: string[];
@@ -96,7 +187,7 @@ function wire(): void {
       dispatch({ type: 'state', authorized: true });
       dispatch({
         type: 'notice',
-        text: `已授权 ${origin}（知情同意：自动化操作存在账号风控 / 条款冲突 / 数据外泄风险）${granted ? '' : '；站点访问权限未授予，将回退到 activeTab 临时授权'}`,
+        text: `已授权 ${origin}。${consentSummary()}${granted ? '' : '；站点访问权限未授予，将回退到 activeTab 临时授权'}`,
       });
     })();
   });
@@ -151,6 +242,11 @@ function wire(): void {
   });
 }
 
-wire();
-render();
-void refreshState();
+// Only bootstrap in a real extension page; guarded so the module (and its
+// consent/boundary text) stays importable in node tests.
+if (typeof document !== 'undefined' && typeof chrome !== 'undefined') {
+  wire();
+  renderConsent();
+  render();
+  void refreshState();
+}

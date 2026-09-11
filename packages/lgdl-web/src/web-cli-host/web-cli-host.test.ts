@@ -8,13 +8,15 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { ToolResult, WebCliToolCall } from '@lgdl/web-cli-base';
+import type { PlatformEventHub, ToolResult, WebCliToolCall } from '@lgdl/web-cli-base';
 import { createOpHandlerRegistry } from '@lgdl/lgdl-web-op-cli';
 import { buildDeclaration, WEB_CLI_CHANNEL, WEB_CLI_PROTOCOL_VERSION } from './declaration.js';
 import { createWebCliHostRouter } from './host-router.js';
 import {
   startWebCliBridge,
   WEB_CLI_DESCRIPTOR,
+  WEB_CLI_EVENT,
+  WEB_CLI_EVENT_RESULT,
   WEB_CLI_INVOKE,
   WEB_CLI_PROBE,
   WEB_CLI_RESULT,
@@ -180,5 +182,54 @@ test('web-cli-host bridge: dispatcher exception becomes a readable failed result
   const reply = posted[0] as { ok: boolean; output: string };
   assert.equal(reply.ok, false);
   assert.match(reply.output, /boom/);
+  bridge.dispose();
+});
+
+test('web-cli-host bridge: unregistered tool fails readably before dispatch (FR-019/FR-014)', async () => {
+  const { posted, win } = fakeWindow();
+  const router = makeRouter();
+  let called = false;
+  const bridge = startWebCliBridge({
+    router: {
+      router: router.router,
+      dispatch: async () => {
+        called = true;
+        return { ok: true, output: 'should not run' };
+      },
+    } as unknown as WebCliBridgeDeps['router'],
+    descriptor: () => buildDeclaration(router.router),
+    onApply: () => {},
+    target: win as unknown as Window,
+  });
+  await bridge.handle({ type: WEB_CLI_INVOKE, channel: WEB_CLI_CHANNEL, id: 'u1', tool: 'ghost-tool', subcommand: '', args: {} });
+  const reply = posted[0] as { ok: boolean; output: string };
+  assert.equal(reply.ok, false);
+  assert.match(reply.output, /未注册工具/);
+  assert.equal(called, false);
+  bridge.dispose();
+});
+
+test('web-cli-host bridge: proxies env.events with a bounded summary (FR-021)', async () => {
+  const { posted, win } = fakeWindow();
+  const events = Array.from({ length: 14 }, (_, i) => ({ seq: i + 1, ts: 0, kind: 'dom' as const }));
+  const hub = {
+    subscribe: async () => ({ ok: true, subId: 's1' }),
+    unsubscribe: async () => ({ ok: true }),
+    pull: async () => ({ ok: true, events, lastId: 14, dropped: 0, delivered: 14, bufferSize: 0, autoPaused: false }),
+    status: async () => ({ enabled: false, subscriptionCount: 0, totalBuffered: 0, disabledDropped: 0, rateDropped: 0, subscriptions: [] }),
+  } as unknown as PlatformEventHub;
+  const bridge = startWebCliBridge({
+    router: makeRouter() as unknown as WebCliBridgeDeps['router'],
+    descriptor: () => ({}),
+    onApply: () => {},
+    target: win as unknown as Window,
+    events: hub,
+  });
+  await bridge.handle({ type: WEB_CLI_EVENT, channel: WEB_CLI_CHANNEL, id: 'ev1', op: 'pull', params: { subId: 's1' } });
+  const reply = posted[0] as { type: string; ok: boolean; data?: { events?: unknown[]; note?: string } };
+  assert.equal(reply.type, WEB_CLI_EVENT_RESULT);
+  assert.equal(reply.ok, true);
+  assert.equal(reply.data?.events?.length, 10);
+  assert.match(reply.data?.note ?? '', /上下文预算截断/);
   bridge.dispose();
 });

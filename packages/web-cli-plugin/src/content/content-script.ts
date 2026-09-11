@@ -9,7 +9,7 @@
 import { discover, type DiscoveryFetchResult } from '../discovery/discovery.js';
 import { parseHtmlDeclaration } from '../discovery/static-declaration.js';
 import { errorResponse, isPluginMessage, makeMessage, okResponse } from '../background/messaging.js';
-import { createPageBridge, type BridgeIo } from './page-bridge.js';
+import { createPageBridge, type BridgeIo, type WebCliEventOp } from './page-bridge.js';
 
 const CHANNEL = 'web-cli';
 
@@ -27,7 +27,16 @@ const io: BridgeIo = {
   },
 };
 
-const bridge = createPageBridge(io, { channel: CHANNEL });
+const bridge = createPageBridge(io, {
+  channel: CHANNEL,
+  // FR-021: page-world event pushes are forwarded to the background event
+  // channel. Best-effort: a missing background receiver must not break the page.
+  onEvent: (message) => {
+    void chrome.runtime
+      .sendMessage(makeMessage('site-event-push', { channel: message.channel, subId: message.subId, events: message.events }))
+      .catch(() => {});
+  },
+});
 
 async function fetchText(url: string): Promise<DiscoveryFetchResult> {
   try {
@@ -46,8 +55,16 @@ async function runDiscovery(): Promise<void> {
     readHtmlHref: async () => parseHtmlDeclaration(document.documentElement.outerHTML, location.href),
     handshake: () => bridge.handshake(),
   });
-  const payload: Record<string, unknown> = { origin: location.origin, state: result.state };
+  const payload: Record<string, unknown> = {
+    origin: location.origin,
+    state: result.state,
+    failure: result.failure,
+    reason: result.reason,
+  };
   if (result.state === 'supported' && result.descriptor) payload.descriptor = result.descriptor;
+  // EC-014 / FR-013: carry the version negotiation outcome so the background can
+  // audit unknown / incompatible versions (never a silent accept).
+  if (result.version) payload.version = result.version;
   try {
     await chrome.runtime.sendMessage(makeMessage('discover', payload));
   } catch (err) {
@@ -62,6 +79,16 @@ chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const subcommand = typeof raw.subcommand === 'string' ? raw.subcommand : '';
     const args = (raw.args && typeof raw.args === 'object' ? raw.args : {}) as Record<string, string>;
     void bridge.invoke(tool, subcommand, args).then(
+      (result) => sendResponse(okResponse(result)),
+      (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
+    );
+    return true;
+  }
+  if (raw.kind === 'site-event') {
+    // FR-021: proxy the page-world `env.events` hub for the background.
+    const op = (typeof raw.op === 'string' ? raw.op : 'status') as WebCliEventOp;
+    const params = (raw.params && typeof raw.params === 'object' ? raw.params : {}) as Record<string, unknown>;
+    void bridge.events.request(op, params).then(
       (result) => sendResponse(okResponse(result)),
       (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
     );

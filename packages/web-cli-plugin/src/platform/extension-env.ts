@@ -13,6 +13,9 @@
  * factory is intentionally deferred to wave 2 (no P0 consumer; see build D-010).
  */
 
+import type { PlatformDom } from '@lgdl/web-cli-base';
+import { createRemoteDomOps, type DomAgentTransport } from '../content/dom-agent.js';
+
 /** Async KV backed by `chrome.storage.local` (used by security stores). */
 export interface AsyncKv {
   get<T = unknown>(key: string): Promise<T | undefined>;
@@ -98,4 +101,39 @@ export async function hasOriginPermission(origin: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Remote DOM seam (TASK-015 / FR-008 / EC-007)
+// ---------------------------------------------------------------------------
+
+export interface ExtensionDomAssembly {
+  /** Whether the remote DOM seam is assembled (default off). */
+  enabled: boolean;
+  /** Platform DOM seam when enabled. */
+  dom?: PlatformDom;
+  /** Readable reason when the seam is not assembled (FR-008 / EC-007). */
+  reason?: string;
+}
+
+/**
+ * Assemble the extension-side remote DOM seam from an injected content-script
+ * transport. Default off: with no transport, nothing is created and a readable
+ * reason is returned (never a silent no-op).
+ */
+export function assembleExtensionDom(transport?: DomAgentTransport): ExtensionDomAssembly {
+  if (!transport) {
+    return {
+      enabled: false,
+      reason: '远程 DOM 缝未装配：未注入 content script DOM 通道（通用 DOM 工具面默认关，零常驻开销）',
+    };
+  }
+  const ops = createRemoteDomOps(transport);
+  const dom: PlatformDom = {
+    state: {
+      snapshot: async () => ops.snapshot() as unknown as Record<string, unknown>,
+    },
+    ops,
+  };
+  return { enabled: true, dom };
 }

@@ -8,7 +8,9 @@ import {
   parseDescriptorJson,
   parseToolDecl,
 } from '../src/protocol/descriptor.js';
-import { negotiateVersion } from '../src/protocol/version.js';
+import { isVersionUnusable, negotiateVersion } from '../src/protocol/version.js';
+import { discover, type DiscoveryDeps } from '../src/discovery/discovery.js';
+import { versionAuditEvent } from '../src/security/discovery-audit.js';
 import { defaultSource, resolveTrust, sha256Hex, verifyIntegrity } from '../src/protocol/trust.js';
 import {
   buildInvoke,
@@ -151,4 +153,114 @@ test('rpc: withTimeout rejects readably and nextRequestId is unique', async () =
     /超时/,
   );
   assert.notEqual(nextRequestId('r'), nextRequestId('r'));
+});
+
+// ---------- TASK-012: version negotiation hardening (FR-013 / EC-014) ----------
+
+test('version: every outcome carries a readable notice and usability flag', () => {
+  const accept = negotiateVersion('1.0');
+  assert.equal(accept.action, 'accept');
+  assert.match(accept.notice, /兼容/);
+  assert.equal(isVersionUnusable(accept), false);
+
+  const degrade = negotiateVersion('1.4');
+  assert.equal(degrade.action, 'degrade');
+  assert.match(degrade.notice, /较新|降级/);
+  assert.equal(isVersionUnusable(degrade), false);
+
+  const reject = negotiateVersion('2.0');
+  assert.equal(reject.action, 'reject');
+  assert.match(reject.notice, /不兼容/);
+  assert.equal(isVersionUnusable(reject), true);
+
+  const invalid = negotiateVersion('not-a-version');
+  assert.equal(invalid.action, 'reject');
+  assert.match(invalid.notice, /无效/);
+  assert.equal(isVersionUnusable(invalid), true);
+});
+
+test('version: version negotiation is auditable (EC-014 / FR-013)', () => {
+  const reject = versionAuditEvent('https://demo.test', negotiateVersion('2.0'), 42);
+  assert.equal(reject.type, 'protocol-version');
+  assert.equal(reject.origin, 'https://demo.test');
+  assert.equal(reject.ok, false);
+  assert.equal(reject.ts, 42);
+  assert.match(reject.detail ?? '', /action=reject/);
+  assert.match(reject.detail ?? '', /declared=2\.0/);
+
+  const degrade = versionAuditEvent('https://demo.test', negotiateVersion('1.4'));
+  assert.equal(degrade.ok, true);
+  assert.match(degrade.detail ?? '', /action=degrade/);
+});
+
+// ---------- TASK-012: discovery failure degradation ≥3 scenarios (FR-014 / EC-001) ----------
+
+const discoveryDescriptor = {
+  protocolVersion: '1.0',
+  tools: [{ id: 'notes-list', summary: 'List notes', riskHint: 'read' }],
+  transport: { kind: 'page-message', channel: 'web-cli' },
+};
+
+function discoveryDeps(overrides: Partial<DiscoveryDeps> = {}): DiscoveryDeps {
+  return {
+    origin: 'https://demo.test',
+    fetchText: async () => ({ ok: false, status: 404 }),
+    readHtmlHref: async () => null,
+    handshake: async () => ({ ok: false, error: 'no reply' }),
+    ...overrides,
+  };
+}
+
+test('discovery: no declaration → unsupported with no-declaration failure (EC-001)', async () => {
+  const res = await discover(discoveryDeps());
+  assert.equal(res.state, 'unsupported');
+  assert.equal(res.failure.kind, 'no-declaration');
+  assert.match(res.failure.message, /未声明支持/);
+});
+
+test('discovery: invalid declaration → unknown with invalid-declaration failure', async () => {
+  const res = await discover(
+    discoveryDeps({
+      fetchText: async () => ({ ok: true, status: 200, text: '{broken json' }),
+    }),
+  );
+  assert.equal(res.state, 'unknown');
+  assert.equal(res.failure.kind, 'invalid-declaration');
+  assert.match(res.failure.message, /声明无效/);
+});
+
+test('discovery: version mismatch → unknown with version-mismatch failure + negotiation', async () => {
+  const res = await discover(
+    discoveryDeps({
+      fetchText: async () => ({ ok: true, status: 200, text: JSON.stringify({ ...discoveryDescriptor, protocolVersion: '2.0' }) }),
+    }),
+  );
+  assert.equal(res.state, 'unknown');
+  assert.equal(res.failure.kind, 'version-mismatch');
+  assert.equal(res.version?.action, 'reject');
+  assert.match(res.failure.message, /版本不兼容/);
+});
+
+test('discovery: transient failure → unknown (retryable, not a false unsupported)', async () => {
+  const res = await discover(
+    discoveryDeps({
+      fetchText: async () => ({ ok: false, error: 'network down' }),
+      readHtmlHref: async () => {
+        throw new Error('dom error');
+      },
+    }),
+  );
+  assert.equal(res.state, 'unknown');
+  assert.equal(res.failure.kind, 'transient');
+});
+
+test('discovery: supported result carries a reused version negotiation (accept)', async () => {
+  const res = await discover(
+    discoveryDeps({
+      fetchText: async () => ({ ok: true, status: 200, text: JSON.stringify(discoveryDescriptor) }),
+    }),
+  );
+  assert.equal(res.state, 'supported');
+  assert.equal(res.failure.kind, 'none');
+  assert.equal(res.version?.action, 'accept');
 });

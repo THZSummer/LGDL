@@ -7,14 +7,18 @@
  */
 import { WEB_CLI_PROTOCOL_VERSION } from './descriptor.js';
 
+export type VersionAction = 'accept' | 'degrade' | 'reject';
+
 export interface VersionNegotiation {
   ok: boolean;
   /** accept = fully compatible; degrade = usable with newer-minor features ignored; reject = incompatible. */
-  action: 'accept' | 'degrade' | 'reject';
+  action: VersionAction;
   declared: string;
   supported: string;
   /** Human-readable reason (always present). */
   reason: string;
+  /** Readable one-line notice for UI / audit consumers (FR-013 / NFR-008). */
+  notice: string;
 }
 
 interface ParsedVersion {
@@ -42,28 +46,42 @@ export function negotiateVersion(
   const d = parseVersion(declared);
   const s = parseVersion(supported);
   if (!d) {
-    return { ok: false, action: 'reject', declared, supported, reason: `站点协议版本 "${declared}" 不是合法版本号（应为 major.minor）` };
+    const reason = `站点协议版本 "${declared}" 不是合法版本号（应为 major.minor）`;
+    return { ok: false, action: 'reject', declared, supported, reason, notice: `协议版本无效：${reason}（已拒绝该声明，站点功能不可用）` };
   }
   if (!s) {
-    return { ok: false, action: 'reject', declared, supported, reason: `插件支持的协议版本 "${supported}" 配置非法` };
+    const reason = `插件支持的协议版本 "${supported}" 配置非法`;
+    return { ok: false, action: 'reject', declared, supported, reason, notice: `协议版本配置错误：${reason}` };
   }
   if (d.major !== s.major) {
+    const reason = `站点协议主版本 ${d.major} 与插件支持的主版本 ${s.major} 不兼容，已拒绝该声明`;
     return {
       ok: false,
       action: 'reject',
       declared,
       supported,
-      reason: `站点协议主版本 ${d.major} 与插件支持的主版本 ${s.major} 不兼容，已拒绝该声明`,
+      reason,
+      notice: `协议版本不兼容：${reason}（如需支持请升级插件；站点功能已停用，不会静默降级执行）`,
     };
   }
   if (d.minor > s.minor) {
+    const reason = `站点协议版本 ${declared} 高于插件支持的 ${supported}，降级使用（忽略未知的新增能力）`;
     return {
       ok: true,
       action: 'degrade',
       declared,
       supported,
-      reason: `站点协议版本 ${declared} 高于插件支持的 ${supported}，降级使用（忽略未知的新增能力）`,
+      reason,
+      notice: `协议版本较新：${reason}`,
     };
   }
-  return { ok: true, action: 'accept', declared, supported, reason: `协议版本 ${declared} 兼容` };
+  return { ok: true, action: 'accept', declared, supported, reason: `协议版本 ${declared} 兼容`, notice: `协议版本 ${declared} 兼容（已接受）` };
+}
+
+/**
+ * Whether a negotiation means the declaration must not be used at all
+ * (invalid or incompatible version). `degrade` is still usable.
+ */
+export function isVersionUnusable(n: VersionNegotiation): boolean {
+  return n.action === 'reject';
 }

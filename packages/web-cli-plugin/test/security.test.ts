@@ -4,7 +4,7 @@ import { PermissionGate } from '@lgdl/web-cli-base';
 import { createStorageAuditSink } from '../src/security/audit-sink.js';
 import { createConfirmBridge, buildOperationSummary } from '../src/security/confirm.js';
 import { createOriginStore, normalizeOrigin, type PluginKv } from '../src/security/origin-store.js';
-import { createPluginPolicyConfig } from '../src/security/policy.js';
+import { createPluginPolicyConfig, createRiskGuard } from '../src/security/policy.js';
 import { discoveryAuditEvent } from '../src/security/discovery-audit.js';
 import { parseDescriptor } from '../src/protocol/descriptor.js';
 import { summarizeArgs } from '../src/security/redact.js';
@@ -144,6 +144,41 @@ test('redact: summarizeArgs masks sensitive keys', () => {
   const out = summarizeArgs({ password: 'hunter2', note: 'plain' });
   assert.equal(out.includes('hunter2'), false);
   assert.match(out, /note=plain/);
+});
+
+test('risk-guard: per-origin token bucket throttles readably and is configurable (FR-029/EC-010)', () => {
+  let t = 0;
+  const guard = createRiskGuard({ capacity: 2, refillPerSec: 1, now: () => t });
+  assert.equal(guard.check('https://a.test').action, 'allow');
+  assert.equal(guard.check('https://a.test').action, 'allow');
+  const blocked = guard.check('https://a.test');
+  assert.equal(blocked.action, 'throttle');
+  assert.match(blocked.reason, /频率超限/);
+  assert.ok((blocked.retryAfterMs ?? 0) > 0);
+  // buckets are per-origin (a different origin is unaffected)
+  assert.equal(guard.check('https://b.test').action, 'allow');
+  // refill after 1s
+  t = 1000;
+  assert.equal(guard.check('https://a.test').action, 'allow');
+});
+
+test('risk-guard: pause / stop block readably and resume / reset recover (FR-029)', () => {
+  const guard = createRiskGuard({ capacity: 5, refillPerSec: 5, now: () => 0 });
+  guard.pause('测试暂停');
+  const paused = guard.check('https://a.test');
+  assert.equal(paused.action, 'paused');
+  assert.match(paused.reason, /暂停/);
+  guard.resume();
+  assert.equal(guard.check('https://a.test').action, 'allow');
+
+  guard.stop('测试中止');
+  const stopped = guard.check('https://a.test');
+  assert.equal(stopped.action, 'stopped');
+  assert.match(stopped.reason, /中止/);
+  assert.equal(guard.isStopped(), true);
+  guard.reset();
+  assert.equal(guard.isStopped(), false);
+  assert.equal(guard.check('https://a.test').action, 'allow');
 });
 
 test('discovery-audit: discovery/descriptor-read is auditable (FR-025)', () => {

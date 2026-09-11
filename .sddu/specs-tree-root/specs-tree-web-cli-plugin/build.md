@@ -4,10 +4,10 @@
 > **前置依赖**: tasks.md v1.0（16 任务 / 9 波次）、plan.md v1.0（12 ADR + §6 文件影响）、spec.md v1.1（46 FR / 10 NFR / 16 EC / 12 AC）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-11
-> **版本**: v1.1
+> **版本**: v1.2
 > **更新人**: SDDU Build Agent
-> **更新时间**: 2026-09-11
-> **更新说明**: v1.1 = R1 审查修复轮。修复 2 个阻塞（BLK-1 安全红线 / BLK-2 多轮会话）+ 6 项高价值改进（FR-025 发现审计 / FR-008 转译接线 / TASK-010 补测 / optional_host_permissions 申请 / maxRounds 传参 / GATE-011 表述收敛）。web-cli-base 零改动红线保持；未 git 提交。
+> **更新时间**: 2026-09-12
+> **更新说明**: v1.2 = P1 实施轮（TASK-012~015）：协议版本协商可读化 + 入审计（EC-014）、`docs/protocol.md` 站点中立文档（FR-015）、发现失败四类可读降级（FR-014/EC-001）；UI 操作经门禁 RPC（FR-019）+ 事件桥（FR-021）；风控令牌桶 + 暂停/中止（FR-029/EC-010）+ 知情同意（FR-031）+ 不适用清单（FR-032）+ 迁移/调试/Gate-D 文档（FR-036/037/039/040/044/045）；可选通用 DOM 工具面（TASK-015）。web-cli-base 零改动红线保持；未 git 提交。
 
 ## 1. 构建概要
 
@@ -255,9 +255,93 @@
 | MODIFY | `packages/lgdl-web/package.json`（test 脚本纳入 web-cli-host 测试；既有测试零删除） |
 | MODIFY | `.sddu/.../build.md`、`.sddu/.../state.json` |
 
+## 10. P1 实施记录（R2：TASK-012~015）
+
+> 输入：`tasks.json` TASK-012~015（acceptance/verify 硬验收）+ `review-report.md` §7.4 遗留（R7/R9-10）+ `validate-report.md` §5 移交清单。分支 `feature/web-cli-plugin`；**未 git 提交**；`web-cli-base/**` 零改动。
+
+### 10.1 任务完成清单
+
+| 任务 | 名称 | 状态 | 主要落点 | 对应 FR/EC |
+|------|------|:--:|------|------|
+| TASK-012 | 协议完善（版本协商 + 站点中立协议文档 + 失败降级） | ✅ completed | `src/protocol/version.ts`、`src/discovery/discovery.ts`、`docs/protocol.md`、`test/protocol.test.ts`、`src/ui/options/index.html:54` | FR-013/014/015、EC-001/014 |
+| TASK-013 | UI 操作 + 事件消费 | ✅ completed | `lgdl-web/src/web-cli-host/bridge.ts`、`plugin/src/content/page-bridge.ts`、`test/content.test.ts`、`lgdl-web/.../web-cli-host.test.ts` | FR-019/021、NFR-007 |
+| TASK-014 | 风控护栏 + 合规/迁移/调试文档（P1 收口） | ✅ completed | `src/security/policy.ts`、`src/ui/sidepanel/sidepanel.ts`、`docs/compliance.md`、`docs/migration.md`、`docs/dev.md`、`docs/gate-d.md` | FR-029/031/032/036/037/039/040/044/045、EC-010/016 |
+| TASK-015（可选） | 通用 DOM 工具面 | ✅ completed | `src/content/dom-agent.ts`、`src/platform/extension-env.ts`、`test/dom-agent.test.ts` | FR-008、EC-007、NFR-002/007 |
+
+### 10.2 文件变更
+
+| 操作 | 文件 | 任务 | 说明 |
+|:--:|------|:--:|------|
+| NEW | `packages/web-cli-plugin/docs/protocol.md` | 012 | 站点中立协议文档（descriptor/RPC/发现/信任/版本/事件/安全边界/标准化预留）；零私有格式耦合（grep 0 命中） |
+| MODIFY | `src/protocol/version.ts` | 012 | `VersionNegotiation` 增 `notice`（可读提示）；导出 `isVersionUnusable`；accept/degrade/reject/非法四态均有可读文案 |
+| MODIFY | `src/discovery/discovery.ts` | 012 | 新增 `failure.kind`（no-declaration / invalid-declaration / version-mismatch / transient）+ `failure.message`；`DiscoveryResult.version` 透出版本协商；成功态 `failure.kind='none'` |
+| MODIFY | `src/security/audit-sink.ts` | 012 | 新增插件审计事件类型 `protocol-version` |
+| MODIFY | `src/security/discovery-audit.ts` | 012 | 新增 `versionAuditEvent`（EC-014 入审计） |
+| MODIFY | `src/content/content-script.ts` | 012/013 | discover 上报补 `failure/reason/version`；新增 `site-event` 路由 + 事件 push 转 background |
+| MODIFY | `src/background/service-worker.ts` | 012/013/014 | discover 分支记录 `versionAuditEvent`；新增 `site-event`（转发 content）/`site-event-push`（fan-out）/`risk-control`（暂停/恢复/中止） |
+| MODIFY | `src/ui/options/index.html:54` | 012 | 修正文档引用：指向现已存在的 `docs/compliance.md` / `docs/protocol.md` / `docs/migration.md`（闭合 R9-10） |
+| MODIFY | `test/protocol.test.ts` | 012 | +7 用例（版本可读提示/审计 + 发现四类失败 + 成功态版本） |
+| MODIFY | `packages/lgdl-web/src/web-cli-host/bridge.ts` | 013 | UI 操作经同一保留 router/op registry 执行（FR-019）；未注册工具可读拒绝；新增 `web-cli:event` 事件通道（懒装配 browser event hub，默认关） |
+| MODIFY | `packages/web-cli-plugin/src/content/page-bridge.ts` | 013 | 新增事件桥 `events.{subscribe,pull,unsubscribe,status}` + `onEvent` push 下沉；pull 结果按上下文预算截断（NFR-007，含可读 note） |
+| MODIFY | `test/content.test.ts` | 013 | +4 用例（事件代理/预算截断/notify 下沉/FR-019 门禁后 RPC） |
+| MODIFY | `packages/lgdl-web/src/web-cli-host/web-cli-host.test.ts` | 013 | +2 用例（未注册工具可读失败 / 事件通道预算摘要） |
+| MODIFY | `src/security/policy.ts` | 014 | 新增 `RiskGuard`（per-origin 令牌桶，可配 capacity/refillPerSec）+ pause/resume/stop/reset + 可读 block reason |
+| MODIFY | `src/background/host.ts` | 014 | `site.*` dispatch 前置 `riskGuard.check`（可读 block，不静默）；暴露 `riskGuard/pauseRisk/resumeRisk/stopRisk` |
+| MODIFY | `src/background/messaging.ts` | 013/014 | 新增消息种类 `site-event`/`site-event-push`/`risk-control` |
+| MODIFY | `src/ui/sidepanel/sidepanel.ts` | 014 | 导出 `CONSENT_RISKS`/`CAPABILITY_BOUNDARY`/`consentSummary`；动态渲染知情同意区块 + 暂停/恢复/中止控件（不改 index.html）；模块底部加 `document/chrome` 守卫以支持 node 导入 |
+| MODIFY | `test/security.test.ts` | 014 | +2 用例（令牌桶/可配/按 origin 独立；pause/stop/resume/reset） |
+| MODIFY | `test/host.test.ts` | 014 | +1 用例（stop/pause 阻断可读、resume 恢复） |
+| MODIFY | `test/sidepanel.test.ts` | 014 | +1 用例（知情同意/能力边界文案可读） |
+| MODIFY | `docs/compliance.md` | 014 | §4 不适用清单补强：站点类型 S-1~S-7 / 操作类型 O-1~O-10 + 处置原则（FR-032） |
+| NEW | `packages/web-cli-plugin/docs/migration.md` | 014 | 不自动迁移原则 + 差异清单 + 手动重配指引 + 过渡期双份维护控制（起止条件/收敛计划 C-1~C-5/终止时点/回退预案）（FR-036/039/040/S-015） |
+| NEW | `packages/web-cli-plugin/docs/dev.md` | 014 | 本地 unpacked 加载 + 调试 + 热重载 + 冒烟方法论（无头可行性结论 + 机械面/人工面分离）（FR-044/045/ADR-006） |
+| NEW | `packages/web-cli-plugin/docs/gate-d.md` | 014 | D-1~D-7 逐条可验收 + 验收记录模板 + 未达门槛处置（FR-037/EC-016）；`grep -c "D-[1-7]"`=17 |
+| NEW | `packages/web-cli-plugin/src/content/dom-agent.ts` | 015 | `PlatformDomOps` 远程代理（transport 注入）+ 不可达可读转译 + 默认关 |
+| MODIFY | `src/platform/extension-env.ts` | 015 | `assembleExtensionDom`：远程 DOM 缝装配；未注入 → `enabled:false` + 可读 reason |
+| NEW | `packages/web-cli-plugin/test/dom-agent.test.ts` | 015 | +6 用例（必需/可选 op 代理、不可达转译、默认关、装配、稳定形状） |
+
+### 10.3 验收对齐（tasks.json verify）
+
+| 任务 | verify 命令 | 结果 |
+|------|-------------|------|
+| 012 | `npm run build && npm run test --workspace @lgdl/web-cli-plugin` | PASS（89 pass / 0 fail） |
+| 012 | `! grep -rniE "lgdl" docs/protocol.md` | PASS（0 命中） |
+| 013 | plugin + lgdl-web build/test | PASS（plugin 89 / lgdl-web 77，均 0 fail） |
+| 014 | `ls docs/migration.md docs/dev.md docs/gate-d.md` | PASS（三文件存在） |
+| 014 | `grep -c "D-[1-7]" docs/gate-d.md` | PASS（=17） |
+| 015 | `npm run build && npm run test --workspace @lgdl/web-cli-plugin` | PASS |
+
+### 10.4 全仓门禁 + 红线 grep（本轮复跑）
+
+| 门禁 | 结果 |
+|------|------|
+| `npm run build` | PASS（plugin dist：background 936.5KB / content 33.4KB / sidepanel 12.2KB / options 893.9KB） |
+| `npm test` | **0 fail**：core 267 / render 94(+1 skip) / router 8 / lgdl-web **77** / web-cli 84 / op-cli 15 / base **483** / plugin **89** |
+| 插件 `tsc --noEmit` | PASS（0 error） |
+| 红线 grep | 10 项 0 命中（私有依赖 / `.executor(` 直调 / content window 全局 / base 零改动 / protocol.md lgdl / silentAllow / ai-settings / llm localStorage / 空 catch / 运行时依赖仅 base） |
+
+### 10.5 新增决策（D-017~D-020）
+
+| # | 决策 | 说明 | 影响 |
+|---|------|------|------|
+| **D-017** | TASK-012「入审计」越出名义文件清单 | EC-014 要求版本协商「入审计」，但 TASK-012 名义文件仅 version/discovery/docs/test。实现新增 `protocol-version` 审计事件类型（audit-sink）+ `versionAuditEvent`（discovery-audit）+ content 上报 version + service-worker 记录，构成最小闭合链 | additive；不改 base；审计可追溯 |
+| **D-018** | TASK-013 事件桥需扩展跨面消息 | FR-021「页内 env.events 代理 → background 事件通道」需在 messaging/content-script/service-worker 增加 `site-event`（请求代理）与 `site-event-push`（push 下沉）；`page-bridge.ts` 承载桥机制与上下文预算截断 | additive；默认关（订阅后才装配观察源） |
+| **D-019** | TASK-014 风控护栏的 enforcement 落点 | `RiskGuard` 定义在 policy.ts，但真正生效需在 `host.dispatch` 对 `site.*` 前置检查；同时新增 `risk-control` 消息 + sidepanel 动态暂停/恢复/中止控件（不改 index.html）以达成 FR-029「用户可随时中止」 | additive；默认容量 60 / 补充 6·s⁻¹，可配；阻断可读不静默 |
+| **D-020** | TASK-015 extension-env 装配远程 DOM 缝的依赖方向 | `platform/extension-env.ts` 值导入 `content/dom-agent.ts`（跨面 import）；dom-agent 仅 `import type` base，故 background bundle 未引入 base 新代码（936.5KB，+5.5KB 为 guard/dom-agent/消息面）；content bundle 33.4KB（+8.3KB 为事件桥，非 base） | 默认关；无消费者时 `enabled:false` + 可读 reason |
+
+### 10.6 遗留（非阻塞，如实）
+
+| # | 项 | 说明 | 归属 |
+|---|----|------|------|
+| — | LGDL 站点 `env.events` 事件 hub 未在 App 装配 | `bridge.ts` 已支持 `web-cli:event` 并默认懒建 browser event hub；App 未显式注入（无 UI 消费者）。站点事件通道 node 面已验证，真实浏览器事件闭环仍属人工面 | validate 人工面 |
+| — | 任务内 `askUser`（R7）未接线 | 权限 ask 已可用；用户问答 ask 仍归后续（review §7.4 R7） | P1/后续 |
+| — | R-BLK1a（id 白名单可被 `purge-list` 类命名绕过） | 本轮未加破坏性动词 denylist（不属 TASK-012~015 acceptance） | release 前 |
+| — | 风控暂停/中止控件未纳入冒烟清单 | sidepanel 动态控件已在代码面就绪，未更新 `smoke-checklist.md` 人工面条目 | 下次文档同步 |
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建：P0 最小可用集 TASK-001~011 构建报告（含门禁结果、红线 grep、D-001~D-008 决策、遗留风险） | 2026-09-11 | SDDU Build Agent |
 | v1.1 | R1 审查修复轮：BLK-1（安全红线）/BLK-2（多轮会话）+ 6 高价值改进（FR-025/FR-008/TASK-010/IMP-4/maxRounds/GATE-011 表述）；D-009~D-015；插件 54→68、lgdl-web 66→75；全仓 0 fail | 2026-09-11 | SDDU Build Agent |
+| v1.2 | P1 实施轮：TASK-012~015（协议完善/UI 操作+事件桥/风控+文档/可选 DOM 工具面）；D-017~D-020；插件 68→89、lgdl-web 75→77；全仓 0 fail；未 git 提交 | 2026-09-12 | SDDU Build Agent |

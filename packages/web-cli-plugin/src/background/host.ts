@@ -18,7 +18,7 @@ import {
 import type { WebCliDescriptor } from '../protocol/descriptor.js';
 import type { PluginAuditSink } from '../security/audit-sink.js';
 import type { OriginStore } from '../security/origin-store.js';
-import { createPluginPolicyConfig } from '../security/policy.js';
+import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../security/policy.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
 import { SITE_NAMESPACE, toToolEntries, type SiteRpc } from '../tools/declared-tools.js';
 
@@ -43,6 +43,11 @@ export interface WebCliHost {
   dispatch(tc: WebCliToolCall, ctx?: ToolContext): Promise<ToolResult>;
   deriveTools(): LlmToolDef[];
   registeredSiteTools(): string[];
+  /** Risk guard (FR-029): per-origin rate limit + user pause/interrupt. */
+  riskGuard: RiskGuard;
+  pauseRisk(reason?: string): void;
+  resumeRisk(): void;
+  stopRisk(reason?: string): void;
 }
 
 export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
@@ -68,6 +73,8 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
   })) {
     router.register(entry);
   }
+
+  const riskGuard = createRiskGuard();
 
   let siteFqns: string[] = [];
   let siteDescriptor: WebCliDescriptor | undefined;
@@ -98,6 +105,15 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
       return siteDescriptor;
     },
     dispatch(tc, ctx) {
+      // FR-029 / EC-010: site executions pass the risk guard first (per-origin
+      // rate limit + pause/stop). Blocks are readable, never silent.
+      if (tc.name.startsWith(`${SITE_NAMESPACE}.`)) {
+        const origin = typeof ctx?.origin === 'string' && ctx.origin ? ctx.origin : opts.currentOrigin?.();
+        const risk = riskGuard.check(origin);
+        if (risk.action !== 'allow') {
+          return Promise.resolve({ ok: false, output: `✖ ${risk.reason}`, error: `risk-${risk.action}` });
+        }
+      }
       return router.dispatch(tc, ctx);
     },
     deriveTools() {
@@ -105,6 +121,16 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     },
     registeredSiteTools() {
       return [...siteFqns];
+    },
+    riskGuard,
+    pauseRisk(reason) {
+      riskGuard.pause(reason);
+    },
+    resumeRisk() {
+      riskGuard.resume();
+    },
+    stopRisk(reason) {
+      riskGuard.stop(reason);
     },
   };
 }

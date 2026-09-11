@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createInitialState, reduce, resolveConfirm } from '../src/ui/sidepanel/chat-state.js';
+import { CAPABILITY_BOUNDARY, CONSENT_RISKS, consentSummary } from '../src/ui/sidepanel/sidepanel.js';
 
 test('sidepanel state: appends entries in order and tracks pending', () => {
   let s = createInitialState();
@@ -37,4 +38,20 @@ test('sidepanel confirm: pending confirm resolves to allow/deny', () => {
 test('sidepanel confirm: timeout/cancel (no pending confirm) yields nothing to send = deny semantics', () => {
   const s = createInitialState();
   assert.equal(resolveConfirm(s, true), null);
+});
+
+test('sidepanel consent: informed-consent risks and capability boundary are readable (FR-031/NFR-008)', () => {
+  const risks = CONSENT_RISKS.join('\n');
+  assert.match(risks, /账号风控/);
+  assert.match(risks, /条款/);
+  assert.match(risks, /数据外泄/);
+
+  const boundary = CAPABILITY_BOUNDARY.join('\n');
+  assert.match(boundary, /授权/);
+  assert.match(boundary, /二次确认/);
+  assert.match(boundary, /fail-closed|拒绝/);
+
+  const summary = consentSummary();
+  assert.match(summary, /知情同意/);
+  assert.match(summary, /账号风控/);
 });

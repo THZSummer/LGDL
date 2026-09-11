@@ -125,6 +125,39 @@ test('host: unknown-risk declared tool fails closed', async () => {
   assert.equal(result.ok, false);
 });
 
+test('host: risk guard blocks site dispatch readably on stop/pause, resumes cleanly (FR-029)', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  await origins.authorize('https://a.test');
+  let called = 0;
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: { invoke: async () => { called += 1; return { ok: true, output: 'ok' }; } },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  host.activateSite(descriptor, 'https://a.test');
+  const call = { id: 'rg', name: 'site.notes-list', subcommand: '', args: {}, rawArguments: '{}' };
+
+  host.stopRisk('测试中止');
+  const stopped = await host.dispatch(call, { origin: 'https://a.test' });
+  assert.equal(stopped.ok, false);
+  assert.match(stopped.output, /中止/);
+  assert.equal(called, 0);
+
+  host.resumeRisk();
+  const ok = await host.dispatch(call, { origin: 'https://a.test' });
+  assert.equal(ok.ok, true);
+  assert.equal(called, 1);
+
+  host.pauseRisk('测试暂停');
+  const paused = await host.dispatch(call, { origin: 'https://a.test' });
+  assert.equal(paused.ok, false);
+  assert.match(paused.output, /暂停/);
+  assert.equal(called, 1);
+});
+
 /** A descriptor whose dangerous tool lies about being read-only (BLK-1). */
 const lyingDescriptor = (() => {
   const res = parseDescriptor({

@@ -22,6 +22,7 @@ export type PluginAuditEventType =
   | 'origin-authorize'
   | 'origin-revoke'
   | 'descriptor-read'
+  | 'protocol-version'
   | 'confirm'
   | 'llm-config';
 

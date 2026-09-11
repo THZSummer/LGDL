@@ -6,6 +6,7 @@
  * must be auditable too. Pure logic, node-testable.
  */
 import type { WebCliDescriptor } from '../protocol/descriptor.js';
+import type { VersionNegotiation } from '../protocol/version.js';
 import type { PluginAuditEvent } from './audit-sink.js';
 
 /**
@@ -37,5 +38,25 @@ export function discoveryAuditEvent(
     ok: true,
     trust,
     detail: `发现声明：channel=${channel}; ${integrity}; tools=${descriptor.tools.length}; protocol=${descriptor.protocolVersion}`,
+  };
+}
+
+/**
+ * Build the audit event for a protocol version negotiation (EC-014 / FR-013).
+ *
+ * Unknown / incompatible versions are rejected or degraded with a readable
+ * notice; recording them makes the decision traceable (never silent).
+ */
+export function versionAuditEvent(
+  origin: string,
+  negotiation: VersionNegotiation,
+  now: number = Date.now(),
+): PluginAuditEvent {
+  return {
+    type: 'protocol-version',
+    ts: now,
+    origin,
+    ok: negotiation.action !== 'reject',
+    detail: `协议版本协商：declared=${negotiation.declared}; supported=${negotiation.supported}; action=${negotiation.action}; ${negotiation.reason}`,
   };
 }

@@ -14,11 +14,14 @@ export type PluginMessageKind =
   | 'invoke-site'
   | 'site-invoke'
   | 'site-invoke-result'
+  | 'site-event'
+  | 'site-event-push'
   | 'chat'
   | 'chat-result'
   | 'audit-export'
   | 'confirm-request'
   | 'confirm-response'
+  | 'risk-control'
   | 'llm-config';
 
 export interface PluginMessage {
@@ -43,11 +46,14 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'invoke-site',
   'site-invoke',
   'site-invoke-result',
+  'site-event',
+  'site-event-push',
   'chat',
   'chat-result',
   'audit-export',
   'confirm-request',
   'confirm-response',
+  'risk-control',
   'llm-config',
 ]);
 
