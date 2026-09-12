@@ -1,0 +1,447 @@
+{
+  "provenance": {
+    "branch": "main",
+    "commit": "2ddc92299ad10cfe0ea2b65403243a45ce7fb041",
+    "sessionMatrix": "packages/lgdl-web/src/ai/session.ts",
+    "extractedAt": "2026-09-12T11:31:10.338Z",
+    "extractor": "packages/web-cli-plugin/test/parity/extract-baseline-catalog.mjs",
+    "note": "ORIGINAL built-in assistant tool catalog (pre-FR-038 teardown). Machine-enumerated from the session.ts registration matrix + real factory schemas. Enforced by test/parity.test.ts."
+  },
+  "toolCount": 34,
+  "tools": [
+    {
+      "name": "lgdl-web-cli",
+      "subcommands": [
+        "status",
+        "validate",
+        "init",
+        "convert",
+        "add-node",
+        "remove-node",
+        "update-node",
+        "add-edge",
+        "remove-edge",
+        "update-edge",
+        "doc-info",
+        "get-node",
+        "get-edge",
+        "find-node",
+        "list-node-kinds",
+        "list-diagram-types",
+        "help"
+      ],
+      "risk": null,
+      "group": "general",
+      "enabled": true,
+      "source": "packages/lgdl-web-cli/src/tools.ts:19"
+    },
+    {
+      "name": "lgdl-web-op-cli",
+      "subcommands": [
+        "copy-source",
+        "toggle-editor",
+        "collapse-editor",
+        "expand-editor",
+        "export-svg",
+        "export-png",
+        "export-source",
+        "preview-zoom",
+        "preview-pan",
+        "preview-reset",
+        "preview-click",
+        "preview-hover",
+        "switch-example",
+        "list-examples",
+        "list-diagram-types",
+        "next-actions",
+        "preview-fullscreen",
+        "page-fullscreen",
+        "help"
+      ],
+      "risk": null,
+      "group": "general",
+      "enabled": true,
+      "source": "packages/lgdl-web-op-cli/src/tool.ts:21"
+    },
+    {
+      "name": "storage",
+      "subcommands": [
+        "list",
+        "read",
+        "write",
+        "remove"
+      ],
+      "risk": "write",
+      "group": "storage",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/assembly.ts:53"
+    },
+    {
+      "name": "storage-quota",
+      "subcommands": [
+        "estimate",
+        "persist"
+      ],
+      "risk": null,
+      "group": "storage",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/assembly.ts:54"
+    },
+    {
+      "name": "settings",
+      "subcommands": [
+        "get",
+        "set",
+        "list",
+        "remove"
+      ],
+      "risk": "state",
+      "group": "settings",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/assembly.ts:55"
+    },
+    {
+      "name": "doc-read",
+      "subcommands": [],
+      "risk": "read",
+      "group": "doc",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/assembly.ts:56"
+    },
+    {
+      "name": "doc-edit",
+      "subcommands": [
+        "str_replace",
+        "insert",
+        "create"
+      ],
+      "risk": "write",
+      "group": "doc",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/assembly.ts:57"
+    },
+    {
+      "name": "session",
+      "subcommands": [
+        "persist",
+        "status",
+        "query",
+        "list",
+        "add-checkpoint"
+      ],
+      "risk": "state",
+      "group": "session",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/assembly.ts:58"
+    },
+    {
+      "name": "context",
+      "subcommands": [
+        "compact"
+      ],
+      "risk": "state",
+      "group": "session",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/assembly.ts:59"
+    },
+    {
+      "name": "web-search",
+      "subcommands": [],
+      "risk": "external",
+      "group": "net",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/assembly.ts:60"
+    },
+    {
+      "name": "search-content",
+      "subcommands": [],
+      "risk": "read",
+      "group": "search",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/search-tools.ts:234"
+    },
+    {
+      "name": "list-resources",
+      "subcommands": [],
+      "risk": "read",
+      "group": "search",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/search-tools.ts:256"
+    },
+    {
+      "name": "dom",
+      "subcommands": [
+        "read-state",
+        "click",
+        "hover",
+        "scroll",
+        "zoom",
+        "fullscreen",
+        "snapshot",
+        "interactives",
+        "read-element",
+        "find",
+        "structure",
+        "dblclick",
+        "contextmenu",
+        "long-press",
+        "drag",
+        "focus",
+        "blur",
+        "type",
+        "press",
+        "set-text",
+        "set-attr",
+        "remove-attr",
+        "set-style",
+        "set-value",
+        "fill",
+        "add",
+        "remove",
+        "tap",
+        "swipe",
+        "pinch"
+      ],
+      "risk": "ui",
+      "group": "ui",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/dom-tools.ts:737"
+    },
+    {
+      "name": "ask-user",
+      "subcommands": [],
+      "risk": "read",
+      "group": "ui",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/ask-user.ts:123"
+    },
+    {
+      "name": "todo",
+      "subcommands": [
+        "add",
+        "list",
+        "mark-done",
+        "update",
+        "remove"
+      ],
+      "risk": "state",
+      "group": "task",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/todo.ts:202"
+    },
+    {
+      "name": "goal",
+      "subcommands": [
+        "create",
+        "get",
+        "update",
+        "archive",
+        "list"
+      ],
+      "risk": "state",
+      "group": "task",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/goal.ts:222"
+    },
+    {
+      "name": "jobs",
+      "subcommands": [
+        "submit",
+        "status",
+        "result",
+        "log",
+        "cancel",
+        "retry",
+        "list"
+      ],
+      "risk": "state",
+      "group": "task",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/jobs.ts:303"
+    },
+    {
+      "name": "eval-js",
+      "subcommands": [],
+      "risk": "write",
+      "group": "exec",
+      "enabled": false,
+      "source": "packages/web-cli-base/src/eval-tools.ts:218"
+    },
+    {
+      "name": "subagent",
+      "subcommands": [],
+      "risk": "write",
+      "group": "task",
+      "enabled": false,
+      "source": "packages/web-cli-base/src/subagent.ts:125"
+    },
+    {
+      "name": "wait",
+      "subcommands": [],
+      "risk": "read",
+      "group": "ui",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/wait-tools.ts:384"
+    },
+    {
+      "name": "extract",
+      "subcommands": [],
+      "risk": "read",
+      "group": "collect",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/collect-tools.ts:614"
+    },
+    {
+      "name": "export",
+      "subcommands": [],
+      "risk": "write",
+      "group": "collect",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/collect-tools.ts:637"
+    },
+    {
+      "name": "page-eval",
+      "subcommands": [],
+      "risk": "evaluate",
+      "group": "exec",
+      "enabled": false,
+      "source": "packages/web-cli-base/src/page-eval.ts:223"
+    },
+    {
+      "name": "chrome",
+      "subcommands": [
+        "print",
+        "back",
+        "forward",
+        "reload",
+        "screenshot"
+      ],
+      "risk": "ui",
+      "group": "chrome",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/chrome-tools.ts:404"
+    },
+    {
+      "name": "save",
+      "subcommands": [
+        "save",
+        "download"
+      ],
+      "risk": "write",
+      "group": "net",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/save-file.ts:85"
+    },
+    {
+      "name": "notify",
+      "subcommands": [
+        "send"
+      ],
+      "risk": "ui",
+      "group": "ui",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/notify.ts:82"
+    },
+    {
+      "name": "clipboard",
+      "subcommands": [
+        "read",
+        "write",
+        "write-html",
+        "write-image",
+        "paste-read"
+      ],
+      "risk": "ui",
+      "group": "ui",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/clipboard.ts:168"
+    },
+    {
+      "name": "events",
+      "subcommands": [
+        "subscribe",
+        "unsubscribe",
+        "list",
+        "pause",
+        "resume",
+        "clear",
+        "pull",
+        "pull-sensitive",
+        "status",
+        "budget",
+        "switch"
+      ],
+      "risk": "read",
+      "group": "observe",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/events-tools.ts:442"
+    },
+    {
+      "name": "cookie",
+      "subcommands": [
+        "read",
+        "read-detail",
+        "write",
+        "delete"
+      ],
+      "risk": "read",
+      "group": "cookie",
+      "enabled": false,
+      "source": "packages/web-cli-base/src/cookie-tools.ts:193"
+    },
+    {
+      "name": "dialog",
+      "subcommands": [
+        "override-install",
+        "uninstall",
+        "policy-add",
+        "list",
+        "remove",
+        "status"
+      ],
+      "risk": "read",
+      "group": "dialog",
+      "enabled": false,
+      "source": "packages/web-cli-base/src/dialog-tools.ts:194"
+    },
+    {
+      "name": "net",
+      "subcommands": [
+        "rule-add",
+        "list",
+        "remove",
+        "intercept-on",
+        "intercept-off",
+        "status"
+      ],
+      "risk": "write",
+      "group": "net",
+      "enabled": false,
+      "source": "packages/web-cli-base/src/net-tools.ts:326"
+    },
+    {
+      "name": "web-fetch",
+      "subcommands": [],
+      "risk": null,
+      "group": "general",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/tools.ts:22"
+    },
+    {
+      "name": "sleep",
+      "subcommands": [],
+      "risk": null,
+      "group": "general",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/tools.ts:74"
+    },
+    {
+      "name": "web-cli-help",
+      "subcommands": [],
+      "risk": null,
+      "group": "general",
+      "enabled": true,
+      "source": "packages/web-cli-base/src/tools.ts:104"
+    }
+  ]
+}

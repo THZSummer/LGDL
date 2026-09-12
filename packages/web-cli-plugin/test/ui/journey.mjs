@@ -208,6 +208,8 @@ async function waitFor(cdp, expression, tries = 100, gapMs = 200) {
 
 // ── hermetic mock OpenAI endpoint ────────────────────────────────────────────
 function startMockLlm() {
+  /** TASK-028: count only real model POSTs so cache-hit / zero-request paths are provable. */
+  let posts = 0;
   const server = createServer((req, res) => {
     if (process.env.UI_DEBUG) console.log(`  [mock] ${req.method} ${req.url}`);
     const cors = {
@@ -226,6 +228,7 @@ function startMockLlm() {
       return;
     }
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
+      posts += 1;
       let raw = '';
       req.on('data', (c) => (raw += c));
       req.on('end', () => {
@@ -255,7 +258,9 @@ function startMockLlm() {
     res.end('not found');
   });
   return new Promise((resolveListen) => {
-    server.listen(0, '127.0.0.1', () => resolveListen({ server, origin: `http://127.0.0.1:${server.address().port}` }));
+    server.listen(0, '127.0.0.1', () =>
+      resolveListen({ server, origin: `http://127.0.0.1:${server.address().port}`, count: () => posts }),
+    );
   });
 }
 
@@ -477,6 +482,7 @@ async function main() {
     const sp = await connectCdp(spTarget.webSocketDebuggerUrl);
     await sp.send('Runtime.enable');
     await sp.send('Log.enable');
+    await sp.send('Page.enable');
     sp.on('Runtime.exceptionThrown', (p) => spExceptions.push(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text));
     sp.on('Runtime.consoleAPICalled', (p) => {
       if (p.type === 'error') spConsoleErrors.push(p.args.map((a) => a.value ?? a.description ?? a.type).join(' '));
@@ -484,6 +490,47 @@ async function main() {
     sp.on('Log.entryAdded', (p) => {
       if (p.entry.level === 'error') spConsoleErrors.push(p.entry.text);
     });
+
+    // TASK-028: install a probe BEFORE the panel script runs. It counts (a)
+    // `llm-test` messages sent by the panel and (b) transitions of the result
+    // area into the "正在…" state. Both are used to prove render/polling never
+    // re-trigger the auto test. Also snapshot the mock POST count: the options
+    // test above already filled the 60s cache, so this panel load must be a
+    // cache hit (zero new real requests).
+    await sp.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `(() => {
+        const probe = { sendMessage: 0, starts: 0, spyInstalled: false };
+        window.__llmProbe = probe;
+        try {
+          const rt = chrome && chrome.runtime;
+          if (rt && typeof rt.sendMessage === 'function') {
+            const orig = rt.sendMessage.bind(rt);
+            const wrapper = function (...args) {
+              try { if (args[0] && args[0].kind === 'llm-test') probe.sendMessage += 1; } catch (e) {}
+              return orig.apply(rt, args);
+            };
+            rt.sendMessage = wrapper;
+            probe.spyInstalled = rt.sendMessage === wrapper;
+          }
+        } catch (e) { probe.spyError = String(e); }
+        let lastStart = false;
+        const scan = () => {
+          const out = document.getElementById('llm-test-result');
+          const t = out ? (out.textContent || '') : '';
+          const isStart = /^\\s*正在/.test(t);
+          if (isStart && !lastStart) probe.starts += 1;
+          lastStart = isStart;
+        };
+        const attach = () => {
+          try {
+            new MutationObserver(scan).observe(document.documentElement || document, { childList: true, characterData: true, subtree: true });
+          } catch (e) { probe.observerError = String(e); }
+        };
+        if (document.documentElement) attach();
+        else document.addEventListener('DOMContentLoaded', attach, { once: true });
+      })();`,
+    });
+    const postsBeforePanel = mock.count();
     await sp.send('Page.reload', { ignoreCache: true });
     await sleep(1200);
 
@@ -512,17 +559,115 @@ async function main() {
     check(site.rebind === true, '#11f 「重新绑定当前标签页」按钮存在');
     check(site.sendDisabled === true && /发送已禁用/.test(site.sendReason), '#11g 发送禁用原因在输入框附近可见', site.sendReason);
 
-    // 9. panel-side test connection (reuses `llm-test` with the stored config)
-    await realClick(sp, '#llm-test');
-    const spTestText = await waitFor(
+    // 9. TASK-028: no standalone「测试连接」button — the panel AUTO-tests on load
+    // using the stored config (reusing the existing `llm-test` message).
+    const testSurfaces = await evaluate(
       sp,
-      `(() => { const t = document.getElementById('llm-test-result').textContent; return t && !t.includes('正在') ? t : ''; })()`,
+      `(() => ({
+        button: document.getElementById('llm-test'),
+        result: !!document.getElementById('llm-test-result'),
+      }))()`,
+    );
+    check(testSurfaces.button === null, '#12 侧栏不存在独立「测试连接」按钮（按钮已移除）', JSON.stringify(testSurfaces));
+    check(testSurfaces.result === true, '#12b 侧栏保留 #llm-test-result 状态区');
+
+    const autoText = await waitFor(
+      sp,
+      `(() => {
+        const t = document.getElementById('llm-test-result').textContent;
+        return t && !/^\\s*正在/.test(t) ? t : '';
+      })()`,
       150,
       200,
     );
-    check(Boolean(spTestText), '#12 侧栏「测试连接」可点并产生可读结果');
-    check(/连接正常/.test(spTestText ?? ''), '#12b 侧栏连接本地 mock 端点成功', spTestText);
-    check(/ms/.test(spTestText ?? ''), '#12c 侧栏成功结果含延迟 ms', spTestText);
+    check(Boolean(autoText), '#12c 面板加载后自动出现测试结果（无需点击）', autoText ?? 'no auto result');
+    check(
+      /^✓ .+ 连接正常（模型 .+，\d+ ms，最小 ping 请求）$/.test(autoText ?? ''),
+      '#12d 自动测试成功态文案格式 = ✓ <厂商> 连接正常（模型 <model>，<n> ms，最小 ping 请求）',
+      autoText,
+    );
+    const autoClass = await evaluate(sp, `document.getElementById('llm-test-result').className`);
+    check(/ok/.test(autoClass ?? ''), '#12e 成功态使用 ok 样式（绿色）', String(autoClass));
+
+    // TASK-028 C: same config as the options test ⇒ 60s cache hit ⇒ NO new ping.
+    check(
+      mock.count() === postsBeforePanel,
+      '#12f 缓存命中：面板自动测试不发真实请求（mock 计数不变）',
+      `${postsBeforePanel} → ${mock.count()}`,
+    );
+
+    // TASK-028 C: repeated render / message append / focus-poll must NOT re-trigger.
+    const probeBefore = await evaluate(sp, `window.__llmProbe || null`);
+    check(
+      probeBefore?.spyInstalled === true && (probeBefore?.sendMessage ?? 0) >= 1,
+      '#12g 探针已观测到面板自动测试（sendMessage 计数 ≥1，非空验证）',
+      JSON.stringify(probeBefore),
+    );
+    await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'assistant', text: 'render-probe-1' }).catch(() => {})`);
+    await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'system', text: 'render-probe-2' }).catch(() => {})`);
+    await evaluate(
+      sp,
+      `(() => { window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange')); return true; })()`,
+    );
+    await sleep(800);
+    const probeAfter = await evaluate(sp, `window.__llmProbe || null`);
+    check(
+      probeAfter?.sendMessage === probeBefore?.sendMessage,
+      '#12h 重复 render / 消息追加 / 焦点轮询不重复触发自动测试（llm-test 计数不变）',
+      JSON.stringify({ before: probeBefore, after: probeAfter }),
+    );
+    check(
+      mock.count() === postsBeforePanel,
+      '#12i 重复 render 期间 mock 请求计数不变',
+      `${postsBeforePanel} → ${mock.count()}`,
+    );
+
+    // TASK-028 C: a config change invalidates the fingerprint → next load re-tests for real.
+    const postsBeforeChange = mock.count();
+    await evaluate(
+      sw,
+      `chrome.storage.local.get('web-cli:web-cli:llm').then((d) => {
+        const cfg = d['web-cli:web-cli:llm'];
+        cfg.providers.openai.model = 'journey-mock-2';
+        return chrome.storage.local.set({ 'web-cli:web-cli:llm': cfg });
+      })`,
+    );
+    await sp.send('Page.reload', { ignoreCache: true });
+    const changedText = await waitFor(
+      sp,
+      `(() => { const t = document.getElementById('llm-test-result').textContent; return /journey-mock-2/.test(t) ? t : ''; })()`,
+      120,
+      200,
+    );
+    check(/journey-mock-2/.test(changedText ?? ''), '#12j 配置（模型）变更后自动重测并回显新模型', changedText);
+    check(
+      mock.count() === postsBeforeChange + 1,
+      '#12k 配置变更使缓存失效 → 发一次真实 ping（mock 计数 +1）',
+      `${postsBeforeChange} → ${mock.count()}`,
+    );
+
+    // TASK-028 B: unconfigured ⇒ readable prompt AND zero requests.
+    await evaluate(
+      sw,
+      `chrome.storage.local.get('web-cli:web-cli:llm').then((d) => { globalThis.__llmBackup = d['web-cli:web-cli:llm']; return chrome.storage.local.remove('web-cli:web-cli:llm'); })`,
+    );
+    const postsBeforeUnconfigured = mock.count();
+    await sp.send('Page.reload', { ignoreCache: true });
+    const noKeyText = await waitFor(
+      sp,
+      `(() => { const t = document.getElementById('llm-test-result').textContent; return /warning|⚠/.test(t) ? t : ''; })()`,
+      120,
+      200,
+    );
+    check(/⚠ .*(API Key|未填写)/.test(noKeyText ?? ''), '#12l 未配置时显示可读提示（⚠ …API Key）', noKeyText);
+    await sleep(600);
+    check(
+      mock.count() === postsBeforeUnconfigured,
+      '#12m 未配置不发任何请求（mock 计数不变）',
+      `${postsBeforeUnconfigured} → ${mock.count()}`,
+    );
+    // restore the config for the remaining journey steps
+    await evaluate(sw, `chrome.storage.local.set({ 'web-cli:web-cli:llm': globalThis.__llmBackup }).then(() => true)`);
 
     // 9b. TASK-022: mock LLM Markdown reply → real `chat-result` seam → real render.
     // (The full background chat pipeline needs a bound+authorized site, which this
@@ -879,7 +1024,7 @@ async function main() {
     if (pageConsoleErrors.length) console.error('console errors:', pageConsoleErrors);
     process.exit(1);
   }
-  console.log(`UI journey PASS — ${passes} assertions: 全新 profile 真实 dist，真实键入+点击：保存→读回→回显→测试连接`);
+  console.log(`UI journey PASS — ${passes} assertions: 全新 profile 真实 dist，真实键入+点击：保存→读回→回显→测试连接（侧栏加载自动测 + 60s TTL 缓存）`);
 }
 
 main().catch((err) => {

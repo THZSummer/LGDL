@@ -23,6 +23,7 @@ import type { PluginAuditSink } from '../security/audit-sink.js';
 import type { OriginStore } from '../security/origin-store.js';
 import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../security/policy.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
+import { createBrowserToolEntries, type BrowserToolOptions } from '../tools/browser-tools.js';
 import { createTabsToolEntry, TABS_TOOL_NAME, type TabsToolDeps } from '../tools/tabs-tools.js';
 import {
   createWebFetchToolEntry,
@@ -60,6 +61,14 @@ export interface WebCliHostOptions {
    * unchanged (node tests / hosts that do not own `chrome.permissions`).
    */
   webFetch?: WebFetchToolDeps;
+  /**
+   * FR-051 / TASK-029: base-derived browser capability tools (`dom` / `chrome` /
+   * `wait` / `extract` / `export` / `save` / `events` / `web-search`). Omitted →
+   * none are registered (node tests / hosts without a browser env). Each family
+   * is gated on its seam being present, so a missing seam simply omits the tool
+   * rather than registering a dead one.
+   */
+  browserTools?: BrowserToolOptions;
 }
 
 export interface WebCliHost {
@@ -121,6 +130,13 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
   // capability face is explicit; without a responder it returns a readable
   // disabled message (never a silent no-op).
   router.register(createAskUserToolEntry(opts.askUser ? { askUser: opts.askUser } : {}));
+
+  // FR-051: base-derived browser tools (dom/chrome/wait/extract/export/save/
+  // events/web-search). Registered flat (no namespace) so the LLM function names
+  // stay in `^[a-zA-Z0-9_-]+$`; each family only appears when its env seam exists.
+  if (opts.browserTools) {
+    for (const entry of createBrowserToolEntries(opts.browserTools)) router.register(entry);
+  }
 
   const riskGuard = createRiskGuard();
 

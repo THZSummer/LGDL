@@ -608,6 +608,20 @@ async function phase1(mock) {
     );
     await ext.send('Page.reload', { ignoreCache: true });
     await sleep(1000);
+    // TASK-028: the side panel auto-tests on load (no standalone button) and shows
+    // the readable status — this reload happens after the mock LLM config is stored.
+    const spAutoTest = await waitFor(
+      ext,
+      `(() => {
+        const t = document.getElementById('llm-test-result')?.textContent ?? '';
+        return /^✓ .+ 连接正常（模型 binding-mock，\\d+ ms，最小 ping 请求）$/.test(t) ? t : '';
+      })()`,
+      120,
+      200,
+    );
+    check(Boolean(spAutoTest), '#6-1 侧栏加载即自动测试当前模型配置（mock LLM 最小 ping）并显示可读状态', spAutoTest ?? 'no auto status');
+    const spTestBtnAbsent = await evaluate(ext, `document.getElementById('llm-test') === null`);
+    check(spTestBtnAbsent === true, '#6-2 侧栏不存在独立「测试连接」按钮（按钮已移除）', String(spTestBtnAbsent));
     await realClick(ext, '#input');
     await typeText(ext, '11111');
     const typed = await evaluate(ext, `document.getElementById('input').value`);

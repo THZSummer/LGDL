@@ -23,6 +23,7 @@ import {
   removeOriginPermission,
 } from '../platform/extension-env.js';
 import { capabilityFailure } from '../platform/unsupported.js';
+import { createExtensionBrowserEnv } from '../platform/browser-env.js';
 import { createController, type WebCliController } from './controller.js';
 import { buildStateMessage, projectActiveTab, type SessionView } from './state-message.js';
 import { buildDiagMessage } from './diag-message.js';
@@ -54,6 +55,7 @@ import { providerChat, providerById } from '../llm/providers.js';
 import { createKeyStore } from '../llm/key-store.js';
 import { toLlmStatusSummary } from '../llm/status.js';
 import { testLlmConnection } from '../llm/test-connection.js';
+import { createTestConnectionCache, llmConfigFingerprint } from '../llm/test-cache.js';
 
 const SESSION_STATE_KEY = 'session-state';
 /** TASK-019: SW 本次启动时间（诊断面板「SW 连通性」详情）。 */
@@ -92,6 +94,11 @@ interface Singletons {
   askBridge: AskBridge;
   /** FR-049 privacy switch: whether the plugin-level `tabs` tool is exposed. */
   tabsSetting: TabsSettingStore;
+  /**
+   * TASK-028: in-memory TTL cache for `llm-test` results (60s, keyed by a
+   * non-reversible config fingerprint). Never persisted / logged / audited.
+   */
+  testCache: ReturnType<typeof createTestConnectionCache>;
 }
 
 let singletons: Singletons | null = null;
@@ -274,6 +281,8 @@ async function init(): Promise<Singletons> {
     // registered (it never appears in `deriveTools()`).
     const tabsSetting = createTabsSettingStore(kv);
     await tabsSetting.load();
+    // TASK-028: in-memory-only test-result cache (never persisted).
+    const testCache = createTestConnectionCache();
     // decision ① / FR-047: `chrome.scripting` declarative-injection adapter.
     const contentScripts: ContentScriptsApi = {
       registerContentScripts: (scripts) => chrome.scripting.registerContentScripts(scripts),
@@ -297,6 +306,60 @@ async function init(): Promise<Singletons> {
       rpc: { invoke: (req) => invokeSite(req.origin, req.tool, req.subcommand, req.args) },
       currentOrigin: () => controller.get()?.origin,
       askUser: askBridge.askUser,
+      // FR-051 / TASK-029: base-derived browser tools (dom/chrome/wait/extract/
+      // export/save/events/web-search). The DOM seam is a remote proxy into the
+      // bound tab's content script (`createBrowserDomOps`); file persistence uses
+      // the page-context anchor download chain. No new permission.
+      browserTools: {
+        env: createExtensionBrowserEnv({
+          currentTabId: () => controller.get()?.tabId,
+          sendDomOp: async (tabId, method, args) => {
+            try {
+              const res = (await chrome.tabs.sendMessage(
+                tabId,
+                makeMessage('dom-op', { requestId: requestId('dom'), method, args }),
+              )) as PluginResponse<import('@lgdl/web-cli-base').PlatformDomOpResult> | undefined;
+              if (!res) return { ok: false, output: '✖ 站点未响应 DOM 操作（content script 未注入或页面已导航）', error: 'dom-no-response' };
+              if (!res.ok || !res.data) return { ok: false, output: `✖ ${res.error ?? 'DOM 操作失败'}`, error: res.error ?? 'dom-error' };
+              return res.data;
+            } catch (err) {
+              return {
+                ok: false,
+                output: `✖ DOM 操作不可达：${err instanceof Error ? err.message : String(err)}（请先绑定并授权站点）`,
+                error: 'dom-unreachable',
+              };
+            }
+          },
+          sendFileSave: async (tabId, filename, data) => {
+            try {
+              const res = (await chrome.tabs.sendMessage(
+                tabId,
+                makeMessage('file-save', { requestId: requestId('save'), filename, data }),
+              )) as PluginResponse<{ ok: boolean; error?: string }> | undefined;
+              if (!res) return { ok: false, error: '站点未响应文件保存（content script 未注入）' };
+              if (!res.ok || !res.data) return { ok: false, error: res.error ?? '文件保存失败' };
+              return res.data;
+            } catch (err) {
+              return { ok: false, error: err instanceof Error ? err.message : String(err) };
+            }
+          },
+          eventRequest: async (op, params) => {
+            const tabId = controller.get()?.tabId;
+            if (tabId === undefined) return { ok: false, error: '无活跃标签页，无法访问站点事件通道（请先绑定并授权站点）' };
+            try {
+              const res = (await chrome.tabs.sendMessage(
+                tabId,
+                makeMessage('site-event', { op, params }),
+              )) as PluginResponse<{ ok: boolean; data?: unknown; error?: string }> | undefined;
+              if (!res) return { ok: false, error: '站点未响应事件通道请求' };
+              if (!res.ok || !res.data) return { ok: false, error: res.error ?? '站点事件通道请求失败' };
+              return res.data;
+            } catch (err) {
+              return { ok: false, error: err instanceof Error ? err.message : String(err) };
+            }
+          },
+        }),
+      },
       onAsk: createConfirmBridge({
         currentOrigin: () => controller.get()?.origin,
         audit,
@@ -417,6 +480,7 @@ async function init(): Promise<Singletons> {
       contentScripts,
       askBridge,
       tabsSetting,
+      testCache,
     };
     return singletons;
   })();
@@ -1109,6 +1173,15 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         if (!model) model = stored.model;
         if (baseURL === undefined) baseURL = stored.baseURL;
       }
+      // TASK-028: a 60s TTL cache keyed by a non-reversible config fingerprint
+      // (provider + model + baseURL + key). The side panel auto-tests once per
+      // load, so this stops repeated re-tests within the TTL while a config
+      // change (or TTL expiry) invalidates the slot and re-runs a real ping.
+      // The fingerprint / key are compared in memory only — never persisted,
+      // logged or audited.
+      const fingerprint = llmConfigFingerprint({ providerId, model, baseURL, apiKey });
+      const cached = s.testCache.get(fingerprint);
+      if (cached) return okResponse(cached);
       const result = await testLlmConnection(
         {
           providerId,
@@ -1118,6 +1191,7 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         },
         providerChat,
       );
+      s.testCache.set(fingerprint, result);
       return okResponse(result);
     }
     case 'diag': {

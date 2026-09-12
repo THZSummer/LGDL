@@ -1,0 +1,143 @@
+{
+  "provenance": {
+    "purpose": "Explicit, reviewed disposition for every baseline tool not directly provided under the same name. Enforced by test/parity.test.ts — a missing entry fails the gate.",
+    "baseline": "test/parity/baseline-catalog.json",
+    "updatedAt": "2026-09-12",
+    "taxonomy": {
+      "mapped": "provided by the plugin under a different tool id (e.g. site-declared `site_*`)",
+      "not-applicable": "page-host application internals / host-agent loops that are out of scope for a generic cross-site browser extension consumer",
+      "delegated": "the page/site remains the owner; the plugin neither reimplements nor exposes it",
+      "pending-permission": "implementable, but requires a NEW extension permission — reported, NOT implemented this round",
+      "baseline-disabled": "the original assistant registered it as disabled; not part of the exposed command surface then or now"
+    }
+  },
+  "waivers": {
+    "lgdl-web-cli": {
+      "status": "mapped",
+      "providedAs": "site_lgdl-web-cli",
+      "reason": "LGDL graph content tool is provided as a site-declared tool via the page RPC (17 subcommands), not a plugin built-in.",
+      "basis": "spec.md FR-011 / FR-018; plan.md ADR-003"
+    },
+    "lgdl-web-op-cli": {
+      "status": "mapped",
+      "providedAs": "site_lgdl-web-op-cli",
+      "reason": "LGDL UI operations are provided as a site-declared tool via the page RPC (19 subcommands).",
+      "basis": "spec.md FR-011 / FR-019; plan.md ADR-003"
+    },
+    "storage": {
+      "status": "not-applicable",
+      "reason": "Page-host application KV storage is the site's own concern; the plugin uses chrome.storage internally and intentionally never exposes it to the LLM.",
+      "basis": "spec.md FR-022 (O-002 通用消费端定位); docs/capability-matrix.md #6"
+    },
+    "storage-quota": {
+      "status": "not-applicable",
+      "reason": "Same as storage — page-host storage quota probing is out of scope for the extension consumer.",
+      "basis": "spec.md FR-022; docs/capability-matrix.md #7"
+    },
+    "settings": {
+      "status": "delegated",
+      "reason": "Plugin configuration lives in the extension options page + key-store; there is no page-level settings tool to mirror.",
+      "basis": "spec.md FR-033/FR-035; docs/capability-matrix.md #8"
+    },
+    "doc-read": {
+      "status": "mapped",
+      "providedAs": "site_lgdl-web-cli",
+      "reason": "Document reading is a site-declared capability (get-node/doc-info) in the generic model, not an extension built-in.",
+      "basis": "spec.md FR-011 / FR-018; plan.md ADR-003"
+    },
+    "doc-edit": {
+      "status": "mapped",
+      "providedAs": "site_lgdl-web-cli",
+      "reason": "Editor write-back is the site's apply/onApply path exposed via the declared tool surface (FR-020), not a plugin built-in.",
+      "basis": "spec.md FR-020; plan.md ADR-003"
+    },
+    "session": {
+      "status": "not-applicable",
+      "reason": "The page-host session store is replaced by the plugin's own multi-session store (per-origin/group) — see session-store.ts; it is not an LLM tool.",
+      "basis": "spec.md FR-017 / FR-048; plan.md ADR-012/ADR-014"
+    },
+    "context": {
+      "status": "not-applicable",
+      "reason": "Context budget/compaction is a host-agent loop concern handled by the upstream truncation path, not an exposed browser tool.",
+      "basis": "spec.md NFR-007; docs/capability-matrix.md #12"
+    },
+    "search-content": {
+      "status": "not-applicable",
+      "reason": "In-page content search is a site-declared capability; the generic consumer has no page-index to search.",
+      "basis": "spec.md FR-022 (O-002); docs/capability-matrix.md #14"
+    },
+    "list-resources": {
+      "status": "not-applicable",
+      "reason": "Resource listing is a site-declared capability with no generic extension equivalent.",
+      "basis": "spec.md FR-022 (O-002); docs/capability-matrix.md #15"
+    },
+    "todo": {
+      "status": "not-applicable",
+      "reason": "Host-agent task list — a single-turn host-loop concern, not a browser capability the extension should expose.",
+      "basis": "spec.md FR-022; docs/capability-matrix.md #18"
+    },
+    "goal": {
+      "status": "not-applicable",
+      "reason": "Host-agent goal tracking — a host-loop concern, not a browser capability.",
+      "basis": "spec.md FR-022; docs/capability-matrix.md #19"
+    },
+    "jobs": {
+      "status": "not-applicable",
+      "reason": "Host-agent background jobs — a host-loop concern, not a browser capability.",
+      "basis": "spec.md FR-022; docs/capability-matrix.md #20"
+    },
+    "notify": {
+      "status": "pending-permission",
+      "permission": "notifications",
+      "pending": true,
+      "reason": "chrome.notifications requires the `notifications` permission, which is not in the manifest. Per the no-silent-permission-expansion red line this round, it is reported only — NOT implemented.",
+      "basis": "spec.md FR-006 / FR-022; task constraint 权限纪律"
+    },
+    "clipboard": {
+      "status": "pending-permission",
+      "permission": "clipboardRead (read) / clipboardWrite (write)",
+      "pending": true,
+      "reason": "Background clipboard access needs clipboardRead/clipboardWrite; the extension currently holds neither. Reported only — NOT implemented.",
+      "basis": "spec.md FR-006 / FR-028; task constraint 权限纪律"
+    },
+    "eval-js": {
+      "status": "baseline-disabled",
+      "reason": "The original assistant registered eval-js as disabled (enabled:false); it was never part of the exposed command list. The plugin likewise does not offer arbitrary worker JS eval.",
+      "basis": "baseline-catalog.json (enabled:false); spec.md FR-027 fail-closed"
+    },
+    "subagent": {
+      "status": "baseline-disabled",
+      "reason": "Registered disabled in the baseline (single-session P0); not part of the exposed command list.",
+      "basis": "baseline-catalog.json (enabled:false); docs/capability-matrix.md #22"
+    },
+    "page-eval": {
+      "status": "baseline-disabled",
+      "reason": "Registered disabled in the baseline (evaluate highest tier); the plugin keeps the evaluate tier absent/fail-closed.",
+      "basis": "baseline-catalog.json (enabled:false); spec.md FR-027"
+    },
+    "cookie": {
+      "status": "baseline-disabled",
+      "reason": "Registered disabled in the baseline (site-owned cookies); the plugin does not touch cross-origin cookies.",
+      "basis": "baseline-catalog.json (enabled:false); docs/capability-matrix.md #32"
+    },
+    "dialog": {
+      "status": "baseline-disabled",
+      "reason": "Registered disabled in the baseline (native dialog override is a page-world capability); not exposed.",
+      "basis": "baseline-catalog.json (enabled:false); docs/capability-matrix.md #33"
+    },
+    "net": {
+      "status": "baseline-disabled",
+      "reason": "Registered disabled in the baseline (network interception); exposing it would need webRequest/DNR and is out of scope.",
+      "basis": "baseline-catalog.json (enabled:false); docs/capability-matrix.md #34"
+    }
+  },
+  "pluginExtras": {
+    "admin_origin-authorize": { "reason": "Plugin management tool — per-origin authorization.", "basis": "spec.md FR-023; plan.md ADR-003" },
+    "admin_origin-revoke": { "reason": "Plugin management tool — revoke per-origin authorization.", "basis": "spec.md FR-023" },
+    "admin_origin-list": { "reason": "Plugin management tool — list authorized origins.", "basis": "spec.md FR-023" },
+    "admin_descriptor-show": { "reason": "Plugin management tool — inspect the active site declaration.", "basis": "spec.md FR-011 / FR-022" },
+    "admin_audit-export": { "reason": "Plugin management tool — export the audit trail.", "basis": "spec.md FR-025" },
+    "admin_llm-config": { "reason": "Plugin management tool — masked LLM configuration.", "basis": "spec.md FR-033 / FR-035" },
+    "tabs": { "reason": "Plugin-level tab management tool (list/switch/open; no close).", "basis": "spec.md FR-049" }
+  }
+}

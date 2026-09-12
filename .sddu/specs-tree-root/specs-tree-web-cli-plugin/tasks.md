@@ -1258,15 +1258,55 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 
 ---
 
+### TASK-028: 侧栏自动测试当前模型配置（移除独立「测试连接」按钮 + 60s TTL 缓存）（作者要求，v0.9 增补）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（UI/行为调整） |
+| **前置依赖** | TASK-027（post-validate additive） |
+| **执行波次** | Wave 20（v0.9 增补） |
+| **对应 FR** | FR-018（测试连接可见性）/ FR-033/FR-035（key 零明文）/ NFR-008 |
+| **ADR** | —（非 plan TB，作者原话：按钮放设置里即可，侧栏加载自动测并展示状态） |
+| **TB 映射** | — |
+
+**描述**: (1) 移除侧栏 `src/ui/sidepanel/index.html` 的 `#llm-test` 独立按钮及其点击处理（options 页「测试连接」按钮保留不动）；(2) 侧栏引导阶段**自动触发一次** `llm-test`（复用既有消息与 `test-connection.ts` 逻辑，**不新增请求路径**），结果自动渲染到 `#llm-test-result`，文案与 options 一致（成功 = `✓ <厂商> 连接正常（模型 <model>，<n> ms，最小 ping 请求）`；失败 = 既有分类可读原因；未配置 = `⚠ …API Key` 类提示且**零请求**）；(3) 防抖：仅面板加载触发一次，`render()`/消息追加/状态轮询/窗口 focus 一律不重复触发（模块级一次性守卫）；(4) background 新增 `src/llm/test-cache.ts` 短期缓存（TTL 60s，key = 厂商+模型+Base URL+Key 的不可逆哈希；**仅内存**比较，不落盘/日志/审计）：命中 → 直接返回原结果（含原耗时 ms，`cached:true`）不发真实请求；配置变更或 TTL 过期 → 失效重测。
+
+**涉及文件**: NEW `src/llm/test-cache.ts`、`test/test-cache.test.ts`；MODIFY `src/background/service-worker.ts`（`testCache` 单例 + `llm-test` 命中缓存/回填）、`src/llm/test-connection.ts`（`TestConnectionResult.cached?` additive）、`src/ui/sidepanel/{index.html,sidepanel.ts}`、`test/sidepanel-view.test.ts`、`test/ui/{journey.mjs,binding.mjs}`、`docs/dev.md`。
+
+**验收标准**: 侧栏无独立「测试连接」按钮；options 页按钮保留；面板加载自动出现测试结果且格式为 `✓ <厂商> 连接正常（模型 <model>，<n> ms，最小 ping 请求）`；未配置零请求 + 可读提示；重复 render/消息追加/焦点轮询不重复触发（探针 `llm-test` 计数不变）；同配置 60s 内缓存命中（mock 计数不变）；配置变更/TTL 过期重测（mock +1）；单测覆盖缓存命中/指纹变化/TTL 过期/未配置零请求/失败分类透传；`test:ui` 新增 #12~#12m；`test:binding` 新增 #6-1/#6-2；红线 grep：无明文 key、无静默失败；base 零改动、无新依赖、无新权限、manifest 零 diff；全仓 0 fail + base 483 零回归。
+
+---
+
+### TASK-029: 工具面基线对账门禁 + 浏览器能力补齐（dom / chrome screenshot 等）（作者实测缺陷修复，v1.7 增补）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **类型** | 🛠 实施（机制门禁 + 能力补齐） |
+| **前置依赖** | TASK-028（post-validate additive） |
+| **执行波次** | Wave 21（v1.7 增补） |
+| **对应 FR** | FR-051（工具面基线对账 + 浏览器能力补齐）/ FR-022 / FR-006 / FR-026/027（风险档不放宽）/ NFR-002（权限最小化） |
+| **ADR** | ADR-016（工具面基线对账门禁 + 浏览器能力远程代理） |
+| **TB 映射** | —（非 plan TB，作者实测「dom 操作 / 浏览器截图等命令全部丢失」驱动） |
+
+**描述**: 根因 = 既有测试只断言插件**内部行为**，`docs/capability-matrix.md` 是**手写、无执行**表格 → 工具面静默漂移。本轮：(1) **只读基线对照**——在临时目录克隆 `main`（不改本仓 `.git`、不碰 main），从 `packages/lgdl-web/src/ai/session.ts` 注册矩阵 + 真实工厂 schema **机器枚举**原内置助手工具目录（34 工具 / 142 子命令），固化为 `test/parity/baseline-catalog.json`（带 provenance：main SHA + 提取脚本 + 时间），并提供可重跑提取脚本 `test/parity/extract-baseline-catalog.mjs`（含「session.ts 出现未登记工厂即失败」防漂移守卫）；(2) **机器化对账门禁** `test/parity.test.ts`——插件 `deriveTools()` 必须覆盖基线每一项：**同名实现**（子命令级）或 **显式豁免**（`test/parity/waivers.json`：状态/理由/依据/`providedAs`/`permission`+`pending`），否则失败；门禁**双向**（插件新增未登记的面向 LLM 的工具也失败）；门禁**自测**证明能抓「丢掉 dom/chrome」与「新增未登记工具」；(3) **补齐无需新权限的浏览器能力**——content 隔离世界用 base `createBrowserDomOps()` 提供真实 DOM 能力，background 经 `dom-op` 消息远程代理，注册 base `dom`（30 子命令）/`chrome`（print/back/forward/reload/**screenshot**）/`wait`/`extract`/`export`/`save` 条目；`events` 经既有 content 事件桥（subscribe/pull/unsubscribe/status；其余可读「暂不支持」）；`web-search` 未配置端点时可读禁用态；截图/导出/保存落盘走**页面上下文 anchor 下载链**（`file-save` 消息），**不新增 `downloads` 权限**；(4) **风险档不放宽**（沿用 base `risk`/`subcommandRisks`，走 `router.dispatch`，可读失败，入审计）；(5) **权限纪律**——需新权限者（`notify`→`notifications`、`clipboard`→`clipboardRead/Write`）**只报告不实施**，登记「待批准权限」表；(6) `docs/capability-matrix.md` 重写为**以基线为准的机器校验对账表**，`docs/dev.md` 新增 §13「能力对账与豁免流程」。
+
+**涉及文件**: NEW `test/parity/{baseline-catalog.json,waivers.json,extract-baseline-catalog.mjs}`、`test/parity.test.ts`、`test/browser-tools.test.ts`、`src/tools/browser-tools.ts`、`src/tools/remote-events.ts`、`src/platform/browser-env.ts`；MODIFY `src/background/{host.ts,messaging.ts,service-worker.ts}`、`src/content/content-script.ts`、`test/e2e/fullchain.mjs`、`docs/{capability-matrix.md,dev.md}`。
+
+**验收标准**: 基线目录带 provenance（40-hex main SHA + 提取脚本 + 时间）+ 工具数自洽；`test/parity.test.ts` 双向 + 子命令级断言全绿且**自测**能抓两类漂移；插件工具面含 `dom`（≥30 子命令，含 read-state/snapshot/click/find/fill）与 `chrome`（含 screenshot）及 `events`/`extract`/`export`/`save`/`wait`/`web-search`；`test/browser-tools.test.ts` 覆盖 dispatch/风险档/无确认拒绝/可读失败；`test:e2e` 真机跑通 `dom read-state`、`dom click`、`chrome screenshot`；豁免均有理由+依据、待批准权限逐项列明；红线 grep：**base 零改动**、**manifest 零 diff（无新权限）**、**无新依赖**（package.json/lock 零 diff）、无明文 key、无静默失败；`tsc` 0 error、插件 `npm test` 336 pass / 0 fail、`test:ui` 97、`test:hardening` 22、`test:binding` 83、`test:e2e` A/B PASS、全仓 0 fail + base 483 零回归。
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③）+ 1 v0.9 缺陷修复增补（TASK-027 `web-fetch` 权限边界预校验 + 失败可见，用户实测 CORS 驱动） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③）+ 3 v0.9 增补（TASK-027 `web-fetch` 权限边界预校验 + 失败可见，用户实测 CORS 驱动 / TASK-028 侧栏自动测试当前模型配置 + 移除独立按钮 + 60s TTL 缓存，作者要求 / TASK-029 工具面基线对账门禁 + 浏览器能力补齐，作者实测 dom·浏览器截图丢失驱动） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022）+ 1 增补（027） |
-| L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023）+ 3 v0.9（024/025/026） |
-| 执行波次 | 20（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补 + Wave 19 TASK-027 v0.9 缺陷修复） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022）+ 2 增补（027/028） |
+| L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023）+ 3 v0.9（024/025/026）+ 1 增补（029） |
+| 执行波次 | 22（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补 + Wave 19 TASK-027 v0.9 缺陷修复 + Wave 20 TASK-028 v0.9 增补 + Wave 21 TASK-029 工具面对账+浏览器能力补齐） |
 | plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021/022（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
@@ -1381,3 +1421,5 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 | v1.7 | 追加 **TASK-024 自动探测**（FR-047/ADR-014）与 **TASK-025 多会话**（FR-048/ADR-013）（v0.9 增补，非 plan TB，作者 2026-09-12 两项架构级决策驱动）。任务汇总/波次计入增补轮（Wave 16/17，均 L 级）；自动探测 = 声明式注入（`registerContentScripts`+`persistAcrossSessions`）+ 自上报 `hello`/`whoami` 免点图标绑定 + 启动对账，权限零新增；多会话 = `sessionId=origin`/`group:<id>` + 每会话独立历史 + 上限 20 LRU + 分组可逆（≠授权）+ 切换取消待决交互。对应 spec v1.4 / plan v1.1；`test:ui` 70→79（#16a~#16i）、`test:binding` 44→58（阶段 2 #A0~#A7）、插件 229→262。 | 2026-09-12 | SDDU Build Agent |
 | v1.8 | 追加 **TASK-026 标签页管理工具 `tabs`**（FR-049/ADR-015，v0.9 权限扩张增补，非 plan TB，作者 2026-09-12 决策③驱动）。任务汇总/波次计入增补轮（Wave 18，L 级）；`manifest.permissions` 新增 **`tabs`**（唯一新增；接受安装警告「读取您的浏览记录」）；插件级工具仅 **list/switch/open（无 close）**，risk 档 list=read/switch=ui/open=write（open 需确认，摘要含目标 URL）；`list` 默认去 query/fragment（`--full` 显式）；非 http(s) scheme 可读拒绝；无站点绑定亦可用；options 隐私开关关闭即从 LLM 工具面移除。对应 spec v1.5 / plan v1.2；`test:binding` 58→（新增真实 `tabs list`/`tabs switch` 断言，保留既有断言）。 | 2026-09-12 | SDDU Build Agent |
 | v1.9 | 追加 **TASK-027 `web-fetch` 权限边界预校验 + 失败可见**（FR-050/EC-023，v0.9 缺陷修复增补，非 plan TB，用户实测 `chrome://extensions` CORS 报错「插件加载报错」驱动）。任务汇总/波次计入增补轮（Wave 19，M 级）；根因 = base 内建 `web-fetch` 在扩展 SW 直接对未授权域名 fetch 必然 CORS；修复 = 插件侧受控 seam（未授权域名零请求 + 可读拒绝 + 授权指引；相对路径解析绑定 origin；非 http(s) 拒绝；同源优先页面上下文）+ 失败在侧栏可见（`.entry-error`）；**base 零改动 / 无新权限 / 无新依赖 / 无 `<all_urls>`**。对应 spec v1.6；新增 `test/web-fetch-tool.test.ts`；`test:binding` 新增 #0h/#1d/#7f~#7k（保留既有 73 断言）；`test:ui` 新增 #15v/#15w。 | 2026-09-12 | SDDU Build Agent |
+| v2.0 | 追加 **TASK-028 侧栏自动测试当前模型配置**（作者要求，v0.9 增补，非 plan TB）。任务汇总/波次计入增补轮（Wave 20，M 级）；移除侧栏独立「测试连接」按钮（options 页保留）；面板加载**自动**复用既有 `llm-test` 在 `#llm-test-result` 展示可读状态（不新增请求路径、仅加载触发一次、render/轮询不重复）；background 新增 60s TTL **内存**缓存（`src/llm/test-cache.ts`，指纹 = 厂商+模型+Base URL+Key 的不可逆哈希，仅内存比较、不落盘/日志/审计）；未配置零请求。**base 零改动 / 无新依赖 / 无新权限 / manifest 零 diff**；新增 `test/test-cache.test.ts`（6 用例）；`test:ui` 87→97（#12~#12m）、`test:binding` 81→83（#6-1/#6-2）、插件 309→315。 | 2026-09-12 | SDDU Build Agent |
+| v2.1 | 追加 **TASK-029 工具面基线对账门禁 + 浏览器能力补齐**（FR-051 / ADR-016，v1.7 增补，非 plan TB，作者实测「dom 操作 / 浏览器截图等命令全部丢失」驱动）。任务汇总/波次计入增补轮（Wave 21，L 级）；根因 = 测试只断言内部行为 + `capability-matrix.md` 手写无执行 → 静默漂移；修复 = ① 只读克隆 main 机器枚举 34 工具基线目录（`test/parity/baseline-catalog.json` + 提取脚本 + provenance）② 双向子命令级门禁 `test/parity.test.ts` + 豁免登记 `waivers.json` ③ content 隔离世界 `createBrowserDomOps()` + background 远程代理，补齐 `dom`/`chrome`（含 screenshot）/`wait`/`extract`/`export`/`save`/`events`/`web-search` ④ 页面上下文 anchor 下载链替代 `downloads` 权限 ⑤ 待批准权限（`notify`/`clipboard`）只报告不实施。**base 零改动 / 无新依赖 / 无新权限 / manifest 零 diff**；新增 `test/parity.test.ts`（8）+ `test/browser-tools.test.ts`（13），`test:e2e` 新增 dom/chrome 三条真机断言；插件 315→336，全仓 0 fail（base 483 零回归）。 | 2026-09-12 | SDDU Build Agent |

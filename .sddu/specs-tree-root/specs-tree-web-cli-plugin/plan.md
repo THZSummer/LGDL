@@ -977,6 +977,34 @@ ACCEPTED（作者 2026-09-12 决策③：**同意新增 `tabs` 权限**，接受
 
 ---
 
+### ADR-016: 工具面基线对账门禁 + 浏览器能力远程代理（v1.7 / FR-051）
+
+## 状态
+ACCEPTED（作者 2026-09-12 实测缺陷修复要求：工具清单不得再丢失）
+
+## 背景
+作者实测发现插件只暴露 10 个工具，原内置助手的 **DOM 操作 / 浏览器截图** 等命令全部丢失。既有测试全绿却没抓到，因为测试只断言插件**内部行为**，而 `docs/capability-matrix.md` 是**手写、无执行**的表格 → 基线 ↔ 插件工具面静默漂移。必须补「机器化对账门禁」根治，并把无需新权限的浏览器能力接回 LLM 工具面。
+
+## 决策
+1. **基线固化为机器可读夹具**：从 `main` 的 `packages/lgdl-web/src/ai/session.ts` 注册矩阵 + 真实工厂 schema，机器提取 34 工具 / 142 子命令为 `test/parity/baseline-catalog.json`（带 provenance：main SHA + 提取脚本 + 时间）；提取脚本 `test/parity/extract-baseline-catalog.mjs` 可对临时 main 克隆重跑，且含「session.ts 出现未登记工厂即失败」的防漂移守卫。
+2. **双向、子命令级对账门禁** `test/parity.test.ts`：基线每一项必须**同名提供**（逐子命令核对）或**显式豁免**（`test/parity/waivers.json`：状态/理由/依据；`mapped` 给 `providedAs`；`pending-permission` 给 `permission` + `pending:true`），否则失败；插件新增的面向 LLM 的工具必须在 `pluginExtras` 登记，否则失败；门禁**自测**能抓「丢掉 dom/chrome」与「新增未登记工具」两类漂移；失败信息列出缺失项 + 修复指引。
+3. **浏览器能力统一走 content 隔离世界 + background 远程代理**：content script 用 base `createBrowserDomOps()` 提供真实 DOM 能力；background 经 `dom-op` 消息做 `PlatformDomOps` 远程代理，注册 base `dom`/`chrome`/`wait`/`extract`/`export`/`save` 条目；`chrome screenshot`/`export`/`save` 的落盘走**页面上下文 anchor 下载链**（`file-save` 消息），避免 `downloads` 权限。
+4. **events 复用既有 content 事件桥**：`createRemoteEventHub` 把 base `events` 的 subscribe/pull/unsubscribe/status 映射到既有 `site-event` 桥；其余子命令返回可读「暂不支持」（不假装成功）。
+5. **风险档不放宽**：直接采用 base 条目的 `risk`/`subcommandRisks`，执行走 `router.dispatch`（保留 PRM 门禁 + router 审计）。
+6. **权限纪律**：需要新权限（`notifications`/`clipboardRead`/`clipboardWrite`/`downloads`/`<all_urls>`）的能力一律**只报告不实施**，登记矩阵「待批准权限」表。本轮**零新权限**。
+
+## 被否决方案与理由
+- **A. 继续手工维护矩阵**（否决）：正是本轮漂移根因，无执行 = 必然再漂。
+- **B. 在 widget 层硬编码「原助手的工具名清单」**（否决）：手写清单本身会漂；必须从基线代码机器枚举。
+- **C. 用 `chrome.tabs.captureVisibleTab` 做截图**（否决为本轮实现）：与基线 `chrome screenshot`（foreignObject+canvas 近似截图，支持元素级）语义不同；复用 base 工厂才能保证「同名同子命令同风险档」的对账。
+- **D. 为落盘新增 `downloads` 权限**（否决）：页面上下文 anchor 下载链已可落盘，无需扩权。
+- **E. 实现 `notify`/`clipboard`**（本轮否决：需新权限）：列入「待批准权限」，作者批准前不实施。
+
+## 后果
+工具面漂移从此被机器门禁拦截；`dom`（30 子命令）/`chrome`（含 screenshot）/`events`/`extract`/`export`/`save`/`wait`/`web-search` 重回 LLM 工具面且**零新权限、零新依赖、base 零改动**；代价 = content bundle 因内联 base DOM 实现变大（约 1.0MB，可接受）；`events` 运行时仅 4 个桥操作可用，其余可读「暂不支持」并如实披露。
+
+---
+
 ## 9. 任务切分建议（sddu-tasks 输入；tasks.json/tasks.md 由 sddu-tasks 产出）
 > 可并行原子任务块划分建议（含依赖提示），不替代 sddu-tasks 的依赖拓扑/验收细化。
 
@@ -1018,3 +1046,4 @@ ACCEPTED（作者 2026-09-12 决策③：**同意新增 `tabs` 权限**，接受
 | v1.0 | 初始创建：以 spec.md v1.1（46 FR 十组 + 10 NFR + 16 EC + 12 AC）+ discovery.md v1.1（Q/A/R/O）+ 作者裁决（O-001 代码下线 / O-002 通用任意站点优先 / O-003 不预设形态但 plan 给方案 / O-008/O-009/O-010 安全红线 / O-006↔O-001 对象区分；S-004/S-005/S-007/S-011/S-015 核签冻结）为红线输入；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议机制（站点中立描述符 schema + 双通道发现 + postMessage RPC 执行）、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、权限模型映射（三 PolicyStrategy + riskDefaults + fail-closed + onAsk 二次确认）、对象区分下的桥接与 Gate-D 下线执行/回退设计、存储载体（chrome.storage.local + session，key 隔离）；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）+ 波次与裁剪；方案对比 3 主题（宿主形态 / 发现载体 / 衔接方式）× 3 方案 + 推荐；技术开放点 P-01~P-06 全部采纳推荐默认并落 ADR；12 ADR（ACCEPTED 7 / PROPOSED 5，正文内嵌 §8）；文件影响面（新增独立包 ~35 文件 + LGDL 暴露点 + 下线面；零运行时新依赖，devDep `esbuild`+`@types/chrome` 单列待作者确认）；风险 11 项 + 缓解；任务切分建议 TB-0A~TB-R（§9，tasks 产出归 sddu-tasks） | 2026-09-11 | SDDU Plan Agent |
 | v1.1 | **v0.9 增补（作者 2026-09-12 两项架构级决策）**：追加 **ADR-013 多会话模型 = 按 origin 自动共享 + 可选会话组**（sessionId 派生 `origin` / `group:<id>`；每会话独立 40-turn 有界历史；LRU 上限 20 + 可读披露；分组 ≠ 授权）与 **ADR-014 自动探测 = 声明式注入 + 自上报自动握手**（`registerContentScripts` + `persistAcrossSessions`；启动/安装/权限变更对账；`hello`/`whoami` 免手势免 `tabs` 绑定；未授权站点静默降级）；两 ADR 均含**被否决方案与理由**（单会话 / 每标签会话 / 全局会话 / 仅 origin；全站静态注入 `<all_urls>` / 保持点图标 / 申请 `tabs` / 仅 onUpdated）。§6 文件影响补 `session-store.ts` / `content-script-registry.ts`。对应 spec v1.4 FR-047/048 + EC-017~020；未改既有 ADR/FR 语义，fail-closed 不变 | 2026-09-12 | SDDU Build Agent |
 | v1.2 | **v0.9 增补（作者 2026-09-12 决策③：同意权限扩张）**：追加 **ADR-015 标签页管理 = 新增 `tabs` 权限 + 插件级工具 `tabs`（list/switch/open，无 close）**（risk 档 list=read/switch=ui/open=write；隐私默认去 query/fragment；非 http(s) 拒绝；无站点绑定亦可用；options 可关闭并从工具面移除）；含**被否决方案与理由**（不加权限仅已授权站点 / 拆成多个独立工具 / 提供 close / 走 origin 授权门禁）。§6 文件影响补 `tabs-tools.ts` / `tabs-setting.ts`。对应 spec v1.5 FR-049 + EC-021/022；未改既有 ADR/FR 的安全语义（fail-closed、deny 优先不变） | 2026-09-12 | SDDU Build Agent |
+| v1.3 | **工具面丢失缺陷修复**：追加 **ADR-016 工具面基线对账门禁 + 浏览器能力远程代理**——基线目录机器化夹具（`test/parity/baseline-catalog.json` + 提取脚本 + provenance）、双向子命令级门禁（`test/parity.test.ts` + `waivers.json`）、base `dom`/`chrome`/`wait`/`extract`/`export`/`save`/`events`/`web-search` 经 content 隔离世界 + background 远程代理接回工具面、页面上下文 anchor 下载链替代 `downloads` 权限；含被否决方案（手工矩阵 / 硬编码清单 / captureVisibleTab / 扩 `downloads` / 本轮实现 notify·clipboard）。对应 spec v1.7 FR-051；**零新权限 / 零新依赖 / base 零改动 / 风险档不放宽** | 2026-09-12 | SDDU Build Agent |

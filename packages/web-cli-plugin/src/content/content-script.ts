@@ -19,8 +19,36 @@ import { discover, type DiscoveryFetchResult } from '../discovery/discovery.js';
 import { parseHtmlDeclaration } from '../discovery/static-declaration.js';
 import { errorResponse, isPluginMessage, makeMessage, okResponse } from '../background/messaging.js';
 import { createPageBridge, type BridgeIo, type WebCliEventOp } from './page-bridge.js';
+import { createBrowserDomOps, type PlatformDomOpResult } from '@lgdl/web-cli-base';
 
 const CHANNEL = 'web-cli';
+
+/**
+ * FR-051 / TASK-029: the generic DOM tool face runs here, in the page's isolated
+ * world (the only place with real DOM access). `createBrowserDomOps()` is the
+ * base browser implementation; the background hosts a remote proxy of it, so the
+ * `dom` / `chrome` / `wait` / `extract` tools work on any authorized site
+ * without a page-world `env.dom` implementation.
+ */
+const browserDomOps = createBrowserDomOps();
+
+/** Anchor-download persistence (no `downloads` permission needed). */
+const MAX_DOWNLOAD_BYTES = 12 * 1024 * 1024;
+
+function triggerAnchorDownload(filename: string, data: string | Blob): void {
+  const url = typeof data === 'string' ? data : URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'download';
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    a.remove();
+    if (typeof data !== 'string') URL.revokeObjectURL(url);
+  }, 0);
+}
 
 const io: BridgeIo = {
   post(message) {
@@ -143,6 +171,42 @@ chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       (result) => sendResponse(okResponse(result)),
       (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
     );
+    return true;
+  }
+  if (raw.kind === 'dom-op') {
+    // FR-051 / TASK-029: remote proxy target for the background `env.dom.ops`
+    // (dom/chrome/wait/extract). Args arrive as an array matching the base ops
+    // signature; unknown methods return a readable refusal (never throw).
+    const method = typeof raw.method === 'string' ? raw.method : '';
+    const args = Array.isArray(raw.args) ? raw.args : [];
+    const table = browserDomOps as unknown as Record<string, ((...a: unknown[]) => Promise<PlatformDomOpResult>) | undefined>;
+    const fn = method ? table[method] : undefined;
+    if (typeof fn !== 'function') {
+      sendResponse(okResponse({ ok: false, output: `✖ DOM 操作 "${method}" 在当前页面不可用`, error: 'dom-op-unsupported' }));
+      return true;
+    }
+    void Promise.resolve(fn.apply(browserDomOps, args)).then(
+      (result) => sendResponse(okResponse(result)),
+      (err) => sendResponse(okResponse({ ok: false, output: `✖ DOM 操作 "${method}" 失败：${err instanceof Error ? err.message : String(err)}`, error: 'dom-op-failed' })),
+    );
+    return true;
+  }
+  if (raw.kind === 'file-save') {
+    // FR-051: page-context anchor download (no `downloads` permission). A size
+    // guard keeps a runaway payload from being pushed through the message bus.
+    const filename = typeof raw.filename === 'string' ? raw.filename : 'download';
+    const data = raw.data as string | Blob;
+    const size = typeof data === 'string' ? data.length : typeof data === 'object' && data !== null && 'size' in data ? (data as Blob).size : 0;
+    if (size > MAX_DOWNLOAD_BYTES) {
+      sendResponse(okResponse({ ok: false, error: `文件过大（${size} B > ${MAX_DOWNLOAD_BYTES} B 上限），已拒绝以免阻塞页面` }));
+      return true;
+    }
+    try {
+      triggerAnchorDownload(filename, data);
+      sendResponse(okResponse({ ok: true }));
+    } catch (err) {
+      sendResponse(okResponse({ ok: false, error: err instanceof Error ? err.message : String(err) }));
+    }
     return true;
   }
   if (raw.kind === 'reprobe') {

@@ -506,7 +506,7 @@ test('D-064: onboarding states the icon click is the ONLY bind trigger', () => {
   assert.equal(view.currentStep, 2, 'configured → next action is step 2 (open a site)');
 });
 
-test('TASK-020 B/D: sidepanel exposes site-hint / rebind / llm-test surfaces', () => {
+test('TASK-020 B/D + TASK-028: sidepanel exposes site-hint / rebind / auto-test surfaces', () => {
   const html = read('../../src/ui/sidepanel/index.html');
   assert.match(html, /id="site-hint"/);
   assert.match(html, /id="site-hint-title"/);
@@ -515,16 +515,22 @@ test('TASK-020 B/D: sidepanel exposes site-hint / rebind / llm-test surfaces', (
   assert.match(html, /id="rebind"/);
   assert.match(html, /重新绑定当前标签页/);
   assert.match(html, /id="send-reason"/);
-  assert.match(html, /id="llm-test"/);
+  // TASK-028: the standalone「测试连接」button is gone; the result area remains.
+  assert.equal(html.includes('id="llm-test"'), false, 'sidepanel 不得再有独立 #llm-test 按钮');
   assert.match(html, /id="llm-test-result"/);
 
   const src = read('../../src/ui/sidepanel/sidepanel.ts');
   assert.match(src, /renderSiteHint\(\)/);
   assert.match(src, /renderSendReason\(\)/);
   assert.match(src, /makeMessage\('rebind'\)/);
+  // auto-test reuses the existing `llm-test` message (no new request path)
   assert.match(src, /makeMessage\('llm-test'/);
-  // env guard disables the panel-side rebind / test entries outside the extension
-  assert.match(src, /'rebind', 'llm-test'/);
+  assert.match(src, /autoTestConnectionOnce/);
+  // exactly one auto trigger (bootstrap), never from render / polling
+  assert.equal((src.match(/^\s*autoTestConnectionOnce\(\);/gm) ?? []).length, 1);
+  // env guard disables the panel actions outside the extension; no llm-test entry
+  assert.match(src, /'rebind'\]/);
+  assert.equal(/for \(const id of \[[^\]]*'llm-test'/.test(src), false);
 
   assert.match(read('../../src/background/messaging.ts'), /'rebind'/);
 });

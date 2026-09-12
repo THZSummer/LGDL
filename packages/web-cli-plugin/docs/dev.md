@@ -192,7 +192,7 @@ npm run build --workspace @lgdl/web-cli-plugin   # 前置：脚本读取真实 d
 npm run test:ui --workspace @lgdl/web-cli-plugin
 ```
 
-覆盖的旅程与断言（67 项，失败即非零退出并打印页面异常 / console error）：
+覆盖的旅程与断言（97 项，失败即非零退出并打印页面异常 / console error）：
 
 1. 全新 profile 加载真实 dist，`web-cli plugin` service worker 可达；
 2. 真实打开 `chrome-extension://<id>/options.html`，无 load 期异常；
@@ -207,7 +207,11 @@ npm run test:ui --workspace @lgdl/web-cli-plugin
    可读成功结果（含延迟 `ms`）；
 10. 侧栏（`sidepanel.html`）LLM 行含 `Key ✅`；无活跃站点时显示**具体原因 + 下一步动作**与
     「重新绑定当前标签页」按钮，发送禁用原因在输入框旁可见；
-11. 侧栏「测试连接」真实点击 → 复用 `llm-test`（读取已保存配置）→ 可读成功结果（含 `ms`）；
+11. **侧栏自动测试（TASK-028，#12~#12m）**：侧栏**不存在**独立「测试连接」按钮；面板加载后
+    **自动**出现测试结果（成功态格式 `✓ <厂商> 连接正常（模型 <model>，<n> ms，最小 ping 请求）` +
+    `ok` 样式）；同配置 60s 内为缓存命中（mock 计数不变）；重复 render / 消息追加 / 焦点轮询**不重复触发**
+    （探针 `llm-test` 计数不变）；配置（模型）变更使缓存失效 → 发一次真实 ping（mock +1）；
+    未配置时显示 `⚠ …API Key` 可读提示且**零请求**；
 12. options 页与侧栏页各 0 未捕获异常、0 console error；
 13. **三区布局门禁（TASK-023，#15a~#15q）**：固定 400×900 视口 → `#log` 为 flex 填充（非 45vh）、
     稳态高度占比 >45vh、composer 贴底（未被 consent 挤压）、文档级无水平溢出、三区结构 + 「回到底部」入口；
@@ -305,7 +309,8 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 切到未授权/受限标签页 | 「已切换标签页：当前标签页尚未授权/未注入…」 | 在目标站点授权一次（之后自动），或点插件图标 |
 | 上一条指令仍在处理 | 「发送已禁用：上一条指令仍在处理中」 | 等当前轮结束 |
 
-侧栏顶部同时提供「**测试连接**」（无需打开 options，复用已保存配置），结果在侧栏内可读展示。
+侧栏顶部不再单独放「测试连接」按钮（TASK-028）：面板**加载时自动**用已保存配置跑一次最小 ping，
+结果在侧栏 `#llm-test-result` 可读展示（详见 §10.10）。
 
 ### 10.6 「为什么以前一定要点插件图标？现在还要吗？」（绑定逻辑）
 
@@ -405,6 +410,30 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 
 **为什么不是「插件加载报错」**：CORS 是**运行期**的网络策略拦截（请求已发但响应被浏览器拒绝），不是 manifest/SW 注册/语法等**加载期**错误。`test:binding` 阶段 0 另行断言 SW 已注册、可响应消息、且无未捕获异常/语法/SW 注册/manifest 加载错误（#0h），把「加载错误」与「运行期 CORS」如实分开。
 
+### 10.10 侧栏加载自动测试当前模型配置 + 60s TTL 缓存（TASK-028）
+
+作者要求：**「测试连接」只放在设置里即可**，侧栏不再单独放按钮；侧栏**每次加载自动**测试当前
+选择的模型配置并展示状态，例如：
+
+```
+✓ DeepSeek 连接正常（模型 deepseek-flash，1181 ms，最小 ping 请求）
+```
+
+- **触发点（唯一）**：`sidepanel.ts` 引导阶段调用一次 `autoTestConnectionOnce()`；`render()` / 消息追加 /
+  状态轮询（含窗口 `focus` / `visibilitychange`）**都不会**再触发它（模块级一次性守卫 + 静态钉住
+  `void autoTestConnectionOnce()` 只有一处）。
+- **复用既有链路**：仍走 `llm-test` 消息 → background `testLlmConnection` → 最小 `ping` 请求；
+  **不新增请求路径**。key 只在 background 请求内使用，绝不回显/落日志/进审计。
+- **未配置零请求**：无 API Key 时 `testLlmConnection` 直接返回 `no-key` 可读提示（`⚠ …API Key`），
+  **不发任何网络请求**（`test:ui` 用 mock 计数断言不变）。
+- **60s TTL 缓存（background）**：`src/llm/test-cache.ts` 提供**内存单槽**缓存，key = 配置指纹
+  （厂商 + 模型 + Base URL + **Key 的不可逆 FNV-1a 哈希**）；命中且未过期 → 直接返回**原结果**
+  （含原耗时 ms，`cached:true`）**不再发真实请求**；指纹变化（厂商/模型/Key 任一变更）或 TTL 过期
+  → 失效并重新测试。指纹与 key **只在内存比较**，绝不落盘 / 日志 / 审计。
+- **实测证据**：`test:ui`（#12f 缓存命中 mock 计数不变；#12h 重复 render 探针计数不变；
+  #12k 配置变更 mock +1；#12m 未配置零请求）、`test:binding`（#6-1 真站点 + 真扩展加载即出现状态）。
+- **成本说明**：自动测试会在缓存未命中时产生一次最小 ping 请求（成本极小）；TTL 用于避免频繁重测。
+
 ## 11. 侧栏对话界面布局（TASK-023 整体重做）
 
 > 用户实测反馈：插件侧栏的对话体验比「做插件之前原本的 AI 助手」明显更差。本轮**先 `git show` 读回原
@@ -416,7 +445,8 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ```
 ┌─ #panel-top     （flex:0 0 auto，不滚动）
 │   状态行：站点 origin · 发现 · 授权 · 信任 ＋ LLM 状态
-│   主操作：配置模型/设置 · 测试连接 · 授权当前站点 · 〈更多 ▾〉（撤销/重绑/审计/计数）
+│   主操作：配置模型/设置 · 授权当前站点 · 〈更多 ▾〉（撤销/重绑/审计/计数）
+│   自动测试状态：#llm-test-result（加载即自动跑一次最小 ping，见 §10.10）
 ├─ #panel-main    （flex:1 1 auto，min-height:0）
 │   #log          （唯一滚动区：消息列表）
 │   #scroll-bottom（浮动：仅上滚时出现）
@@ -513,7 +543,65 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **实现位置**：`src/tools/tabs-tools.ts`（工具与纯逻辑）、`src/background/tabs-setting.ts`（开关存储）、`service-worker.ts` `createTabsDeps`（真实 `chrome.tabs` 调用 + 复用绑定链）、`host.ts` `setTabsEnabled`。
 - **回归门禁**：`test/tabs-tools.test.ts`（子命令/risk/scheme/去 query/开关/审计）、`test/tabs-wiring.test.ts`（静态接线/权限面/无 close）、`test/ui/binding.mjs` 阶段 1 新增真实 `tabs list`/`tabs switch`（断言会话随之切换）、`test:ui` 开关与 `tabs` 结果呈现。
 
-## 13. 变更记录
+## 13. 能力对账与豁免流程（FR-051 / TASK-029）
+
+### 13.1 为什么需要「机器化对账门禁」
+
+2026-09 作者实测发现：插件 `web-cli-help` 只列出 10 个工具，而原内置助手的**完整命令面（DOM 操作、浏览器截图等）全部丢失**。既有测试之所以没抓到，是因为它们只断言**插件自身内部行为**（单测 / UI / 绑定），而 `docs/capability-matrix.md` 是**手写表格、无任何测试执行** → 基线 ↔ 插件的工具面静默漂移。
+
+根治办法：把「基线工具面 ↔ 插件工具面」变成**可执行门禁**。
+
+### 13.2 门禁组成
+
+| 组件 | 作用 |
+|------|------|
+| `test/parity/baseline-catalog.json` | 机器可读的**基线工具目录**（34 工具 / 142 子命令），带 provenance（main SHA + 提取脚本 + 时间） |
+| `test/parity/extract-baseline-catalog.mjs` | 可重跑的**提取脚本**（读 `main` 的 `packages/lgdl-web/src/ai/session.ts` 注册矩阵 + 真实工厂 schema；含「新工厂未登记即失败」防漂移守卫） |
+| `test/parity/waivers.json` | 逐项**豁免登记**（理由 + 依据 spec/FR/ADR + 是否待实施 + 待批准权限）；另含 `pluginExtras`（插件新增的面向 LLM 的工具，必须登记） |
+| `test/parity.test.ts` | 门禁本体：**双向**断言 + 子命令级核对 + 失败可读（直接列出缺失项与修复指引） |
+
+### 13.3 如何复现基线目录（只读，永不碰 main）
+
+```bash
+TS=$(date +%s)
+git clone --branch main --single-branch /path/to/LGDL /tmp/lgdl-baseline-$TS
+node packages/web-cli-plugin/test/parity/extract-baseline-catalog.mjs \
+  --baseline /tmp/lgdl-baseline-$TS \
+  --out packages/web-cli-plugin/test/parity/baseline-catalog.json
+```
+
+> 克隆为独立临时目录，只读；不 checkout/commit/push main，也不改动本仓工作区。
+
+### 13.4 新增工具的流程
+
+1. 在 `src/tools/*.ts` 实现（`group` + 扁平合法名 `^[a-zA-Z0-9_-]+$` + risk 档 + 走 `router.dispatch` + 可读失败 + 入审计）。
+2. 在 `host.ts` 接线并让它在 `deriveTools()` 中可达。
+3. **若它不是基线同名工具** → 在 `test/parity/waivers.json` 的 `pluginExtras` 登记（理由 + 依据），否则 `test/parity.test.ts` 失败（防未登记的工具）。
+4. 为它写单测；涉及浏览器能力的补 `test:e2e` 真机断言。
+
+### 13.5 登记豁免的流程
+
+基线工具**本轮不实现**时，在 `test/parity/waivers.json` 的 `waivers` 加一条，字段必须齐全：
+
+| 字段 | 含义 |
+|------|------|
+| `status` | `mapped` / `not-applicable` / `delegated` / `pending-permission` / `baseline-disabled` |
+| `reason` | 可读理由（面向上级/用户） |
+| `basis` | 依据（spec FR / plan ADR / 基线 enabled 位） |
+| `providedAs` | `mapped` 时：插件中实际承载该能力的工具名（如 `site_lgdl-web-cli`） |
+| `permission` + `pending:true` | `pending-permission` 时：需要什么权限、本轮**只报告不实施** |
+
+删除/变更基线工具时，过期豁免会因 `test/parity.test.ts` 的「无过期豁免」断言失败，必须同步复核。
+
+### 13.6 本轮补齐的浏览器能力（FR-051）
+
+`dom`（30 子命令）、`chrome`（print/back/forward/reload/**screenshot**）、`wait`、`extract`、`export`、`save`、`events`（经既有 content 事件桥，subscribe/pull/unsubscribe/status 真实可用，其余可读「暂不支持」）、`web-search`（未配置端点时可读禁用态）已接入 `deriveTools()`。实现方式：content script 用 base `createBrowserDomOps()` 在**页面隔离世界**提供真实 DOM 能力，background 经 `dom-op` 消息做远程代理；截图/导出落盘走**页面上下文 anchor 下载链**（无需 `downloads` 权限）。
+
+- 风险档沿用 base（未放宽）：`dom` 只读子命令 `read`（免确认）、UI 子命令 `ui`（确认）、`chrome reload/screenshot` `write`（确认）。
+- **无新权限**：复用 `activeTab` / `scripting` / `tabs`；未新增 `downloads` / `notifications` / `clipboardWrite` 等。
+- 真机验证：`test:e2e` 新增 `dom read-state`、`dom click`、`chrome screenshot` 三条真实页面全链断言。
+
+## 14. 变更记录
 
 | 版本 | 说明 |
 |------|------|
@@ -529,4 +617,6 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | 1.9 | TASK-023（用户实测第七轮，整体 UI/UX 重做）：先读回原 AI 助手（git 历史）作设计基准；侧栏改**三区 flex 全高**（`#log` 去 `45vh` 改 flex 填充、composer 为末元素贴底、8 按钮收为「主操作 + 〈更多〉`<details>`」）；消息改角色气泡（user indigo 右对齐 / assistant Markdown / tool **可折叠卡片** / system·error 醒目 / command 紧凑块 / thinking 三点 / 「回到底部」跟随策略）；明暗适配 tokens；零新依赖、无框架、无 `innerHTML`、MV3 CSP 合规。补 §11；`test:ui` 50→67（#15a~#15q）、`test:binding` 38→41（#6h~#6j 用户气泡）、插件 209→222、全仓 0 fail（base 483 零回归）。**流式如实未实现（base 无增量能力，原助手亦无）**。 |
 | 2.0 | **v0.9 增补（FR-047/048 / ADR-013/014）**：①自动探测——`authorize` 后声明式注入 + 自上报自动握手（免点图标）+ 启动对账；未授权站点静默降级；权限面零新增。②多会话——`session-store.ts` 按 origin/会话组派生会话键，每会话独立 40-turn 有界历史，上限 20 + LRU 可读披露；切换标签页/会话自动 adopt 并回显（不串台）；切换时待决 confirm/ask 明确取消（EC-019）。补 §3/§3.1/§10.5/§10.6 与 §12；`test:ui` 70→79（#16a~#16i）、`test:binding` 44→58（阶段 2 #A0~#A7）、插件 229→262、全仓 0 fail（base 483 零回归）、`test:hardening` 22、`test:e2e` A/B PASS；无 `<all_urls>`/无 `tabs`/无新依赖/base 零改动。 |
 | 2.1 | **FR-049（作者决策③ 2026-09-12）**：新增 `tabs` 权限与插件级标签页管理工具 `tabs`（list/switch/open，**不含 close**）；list 隐私默认去 query/fragment（`--full` 显式）；switch 复用绑定链并切会话；open 仅 http(s)；options 新增隐私开关（关闭即从工具面移除）；补 §12.4 + 更新 §3.1/§12.1 权限纪律；`tabs-tools.test.ts` / `tabs-wiring.test.ts` + `test:binding` 新增真实 `tabs list`/`tabs switch`。 |
+| 2.2 | **TASK-028（作者要求）**：移除侧栏独立「测试连接」按钮（options 页保留）；侧栏**每次加载自动**测试当前模型配置并在 `#llm-test-result` 展示可读状态（复用既有 `llm-test`，不新增请求路径）；background 新增 60s TTL **内存**缓存（`src/llm/test-cache.ts`，指纹 = 厂商+模型+Base URL+Key 的不可逆哈希，仅内存比较、不落盘/日志/审计）——命中直接返回原结果（含原耗时）不发请求，配置变更/TTL 过期即失效；未配置零请求。补 §10.10 + 更新 §9/§10.5/§11.1；`test:ui` 87→97（#12~#12m）、`test:binding` 81→83（#6-1/#6-2）、新增 `test-cache.test.ts`（6 用例）；插件 309→315。 |
+| 2.3 | **TASK-029 / FR-051（作者实测：DOM 操作 / 浏览器截图等命令全部丢失）**：建立**机器化基线对账门禁**（`test/parity/`：baseline-catalog.json + extract 脚本 + waivers.json + parity.test.ts，双向 + 子命令级）；按基线补齐**无新权限**的浏览器能力 `dom` / `chrome`（含 screenshot）/ `wait` / `extract` / `export` / `save` / `events` / `web-search`（content 隔离世界真实现 DOM + background 远程代理 + 页面上下文 anchor 下载链）；补 §13；新增 `test/parity.test.ts`（8）+ `test/browser-tools.test.ts`（13），`test:e2e` 新增 dom/chrome 三条真机断言；插件 315→336，全仓 0 fail（base 483 零回归）、无新权限/依赖、base 零改动。 |
 

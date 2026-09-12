@@ -49,6 +49,12 @@ export interface TestConnectionResult {
   elapsedMs: number;
   /** 已识别的 HTTP 状态码（若可判定）。 */
   status?: number;
+  /**
+   * TASK-028: true when this result came from the background's short-lived
+   * cache (a fresh test was NOT sent). The message/elapsedMs are the original
+   * ping's values; only the cache layer sets this flag.
+   */
+  cached?: boolean;
 }
 
 export const DEFAULT_TEST_TIMEOUT_MS = 15000;

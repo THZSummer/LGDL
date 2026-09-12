@@ -61,6 +61,16 @@ function mockResponse(body) {
   if (last?.role === 'tool') return completion({ content: `完成：${last.content}` });
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   const userText = typeof lastUser?.content === 'string' ? lastUser.content : '';
+  // FR-051 / TASK-029: real-page browser capability tools (dom / chrome).
+  if (/domread|读页面/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_dom_read', name: 'dom', subcommand: 'read-state', args: {} }] });
+  }
+  if (/domclick/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_dom_click', name: 'dom', subcommand: 'click', args: { selector: '#notes' } }] });
+  }
+  if (/shot|截图/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_shot', name: 'chrome', subcommand: 'screenshot', args: { mode: 'viewport' } }] });
+  }
   if (/lgdl/i.test(userText)) {
     return completion({ toolCalls: [{ id: 'call_lgdl', name: 'site_lgdl-web-cli', subcommand: 'status', args: {} }] });
   }
@@ -405,6 +415,10 @@ async function main() {
         { user: 'list notes', label: 'read full chain returned page data (welcome)', test: (t) => /welcome/.test(t) },
         { user: 'add a note now', label: 'write ran through the confirmation gate', test: (t) => /note added|from-e2e/.test(t) },
         { user: 'list notes', label: 'second read observes the persisted write', test: (t) => /from-e2e/.test(t) },
+        // FR-051 / TASK-029 — the two author-named missing capabilities, on a real page:
+        { user: 'domread', label: 'dom read-state ran on the real page DOM (was missing)', test: (t) => /url:|Fixture Notes/.test(t) },
+        { user: 'domclick now', label: 'dom click ran through the confirmation gate', test: (t) => /click|✓/.test(t) },
+        { user: 'take a screenshot', label: 'chrome screenshot persisted via page download chain (was missing)', test: (t) => /chrome screenshot/.test(t) },
       ],
     });
 

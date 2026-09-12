@@ -2026,6 +2026,122 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **base 行为保持**：base `web-fetch` 仍允许 `data:`/相对路径等（`web-fetch.test.ts` 零回归）；非 http(s) 拒绝只发生在**插件受控层**，base 零改动。
 - **`test:binding` 的 mock 分支**：通过 user 文本标记（`__WEBFETCH_UNAUTH__` / `__WEBFETCH_SAME__`）驱动真实工具调用，非真实模型决策；工具执行、网络、SW 控制台均为真实。
 
+## 26. 侧栏自动测试当前模型配置（作者要求；TASK-028，Wave 20）
+
+> 作者原话：「测试连接按钮放到：设置里面已经有了就可以了，外面不用单独放置：测试连接按钮，每次加载插件，自动去测试当前选择的模型配置，展示 `✓ DeepSeek 连接正常（模型 deepseek-flash，1181 ms，最小 ping 请求）` 这个状态就可以了」。
+
+### 26.1 改动清单
+
+| # | 文件 | 改动 |
+|---|------|------|
+| 1 | `src/ui/sidepanel/index.html` | 移除 `#llm-test` 独立按钮（保留 `#llm-test-result` 状态区；options 页 `#test` 不变） |
+| 2 | `src/ui/sidepanel/sidepanel.ts` | 删除按钮点击处理；新增 `runPanelTest({auto})` + `autoTestConnectionOnce()`（模块级一次性守卫）；仅引导阶段调用一次；`focus`/`visibilitychange` 只刷新 LLM 摘要、不重测；`applyEnvGuard` 列表去掉 `'llm-test'` |
+| 3 | `src/llm/test-cache.ts`（NEW） | `llmConfigFingerprint()`（厂商+模型+Base URL+Key 的不可逆 FNV-1a，trim 归一）+ `createTestConnectionCache(ttl=60s, now)` 内存单槽；命中返回 `{...result, cached:true}`（保留原 message/elapsedMs） |
+| 4 | `src/llm/test-connection.ts` | `TestConnectionResult.cached?: boolean`（additive，仅缓存层设置） |
+| 5 | `src/background/service-worker.ts` | 单例 `testCache`；`llm-test` 处理：算指纹 → 命中直接返回（不发请求）→ 否则真实 ping 后回填 |
+
+### 26.2 缓存与防抖实测证据（`test:ui`，真实 dist + fresh profile + CDP）
+
+| 断言 | 观测 | 结论 |
+|------|------|------|
+| `#12` | `document.getElementById('llm-test') === null` | 侧栏无独立按钮 |
+| `#12c/#12d/#12e` | `✓ OpenAI GPT 连接正常（模型 journey-mock，**N** ms，最小 ping 请求）` + class 含 `ok` | 加载即自动出现成功态 |
+| `#12f` | options 测试已填充缓存 → mock POST 计数 `1 → 1` | **同配置 TTL 内缓存命中，不发真实请求** |
+| `#12g` | 探针 `{"sendMessage":1,"spyInstalled":true}` | 自动测试确实发了 1 次 `llm-test`（非空验证） |
+| `#12h/#12i` | 追加 2 条消息 + 触发 `focus`/`visibilitychange` 后 `sendMessage` 仍 =1、mock 仍 =1 | **重复 render/消息追加/焦点轮询不重复触发** |
+| `#12j/#12k` | 模型改 `journey-mock-2` → 重载 → 回显新模型；mock `1 → 2` | **配置变更 → 指纹失效 → 重测一次** |
+| `#12l/#12m` | 清空 LLM 配置 → 回显 `⚠ …API Key`；mock `2 → 2` | **未配置零请求 + 可读提示** |
+
+`test:binding`（真实 `http://localhost:5173` + 真实扩展 + mock LLM）：`#6-1` 侧栏加载即自动测试并显示 `✓ … 连接正常（模型 binding-mock，N ms，最小 ping 请求）`；`#6-2` 侧栏无独立按钮。
+
+`npm test` 新增 `test/test-cache.test.ts`（6 用例）：指纹确定性/随厂商·模型·Base URL·Key 变化/不含 key 明文；命中返回原 message+elapsedMs 且零请求；指纹变化失效重测；TTL 边界（`TTL-1` 命中、`TTL` 过期重测）；未配置 `no-key` 零请求；失败分类（401→invalid-key）透传缓存。
+
+### 26.3 门禁结果
+
+- 插件 `npm test`：**315 pass / 0 fail**（309→315，+6）。
+- `tsc --noEmit`：**0 error**。
+- `test:ui`：**97 断言 PASS**（87→97；移除旧 #12/#12b/#12c 点击断言，新增 #12~#12m）。
+- `test:binding`：**83 断言 PASS**（81→83；#6-1/#6-2）。
+- `test:hardening`：**22 断言 PASS**；`test:e2e`：**A/B PASS**。
+- 全仓 `npm run build` 退出码 0；`npm test` **0 fail**（plugin 315 / base **483 零回归** / lgdl-core 267 / lgdl-render 94+1skip / lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / lgdl-cli 0 / lgdl-layout 0）。
+- 红线：**base 零改动**、**manifest 零 diff**、**package.json 零 diff（无新依赖）**；新增文本无明文 key、无静默失败（失败均回显可读原因）。
+
+### 26.4 新增决策（D-112~D-116）
+
+- **D-112（入口分层：设置只保留 options，侧栏只做自动状态）**：按作者要求移除侧栏独立「测试连接」按钮，options 页 `#test` 原样保留。侧栏改为「加载即自动测 + 只读状态」，不再要求用户点击。
+- **D-113（自动测试只在面板加载触发一次）**：`autoTestConnectionOnce()` 由引导阶段唯一调用（模块级 `autoTestStarted` 守卫），`render()` / 消息追加 / 状态轮询 / `focus` / `visibilitychange` **一律不触发**。**被否决**：放在 `render()` 或 `refreshLlmStatus()`（会随每次渲染/轮询刷屏重测，违反「不刷屏式重测」与作者预期）。
+- **D-114（缓存放 background 单例，而非侧栏）**：缓存 = SW 内存单槽 + 配置指纹（厂商+模型+Base URL+Key 的不可逆哈希），跨「options 测试 → 侧栏自动测试」共享，且**只存内存**（不落 `chrome.storage` / session / 磁盘，不进日志/审计）。**被否决**：侧栏 `localStorage`/`sessionStorage` 缓存（指纹会落盘、多个面板页不共享、违反 key 派生串不落盘红线）。
+- **D-115（命中返回原结果，不伪造新耗时）**：缓存命中直接返回原 `message`（含原 `elapsedMs`）并标记 `cached:true`，不重新计时、不假装成功。TTL = 60s（作者建议值）。
+- **D-116（复用既有 `llm-test`，不新增请求路径）**：自动测试仍走既有消息与 `test-connection.ts` 逻辑；未配置在 `testLlmConnection` 内 `no-key` 短路，**零网络请求**。key 只在 background 请求内使用，绝不回显/落日志/审计。
+
+### 26.5 未完成 / 降级（如实）
+
+- **自动测试的触发时机限定为「面板加载」**：面板保持打开期间在 options 改配置并返回时，只刷新 LLM 摘要行，**不会**在面板内重测（D-113）；重新加载面板即按新指纹重测。这是对「不重复触发」要求的直接取舍。
+- **`test:ui` 的「不重复触发」探针依赖 `Page.addScriptToEvaluateOnNewDocument` 注入**（包装 `chrome.runtime.sendMessage` 计数，`spyInstalled:true` 已实测）；若未来 Chrome 变更该注入语义，需回退为纯 mock 计数证据。
+- 系统 Chrome/Edge 未单独重测（门禁均在 `.pw-browsers` Chromium `--headless=new`）。
+
+## 27. 工具面基线对账门禁 + 浏览器能力补齐（FR-051 / ADR-016；TASK-029，Wave 21）
+
+### 27.1 根因（作者机制问题：「为什么这种问题测试不出来」）
+
+作者实测：`web-cli-help` 只列 10 个工具，原内置助手的 **DOM 操作 / 浏览器截图** 等命令全部丢失。**为什么既有测试抓不到**：
+
+- 既有 `npm test`（315 用例）、`test:ui`、`test:binding`、`test:e2e` 断言的都是**插件自身内部行为**（控制器、门禁、绑定链路、UI 渲染），**没有任何测试把「原内置助手的工具面」当作被测对象**；
+- `docs/capability-matrix.md` 是**手写表格**，既不被测试 import，也没有任何脚本校验 → 文档写「后置/不适用」与实际工具面可以无限期不一致，即**静默漂移**；
+- 该缺陷**不依赖浏览器渲染**，纯属「夹具缺失 + 无对账断言」，因此任何 UI/E2E 都测不出来。
+
+**本轮机制修复**：把基线工具面变成**机器可读夹具 + 双向对账门禁**，让 `npm test` 直接拦截漂移。
+
+### 27.2 实现（file:line 对照）
+
+| 组成 | 位置 | 说明 |
+|------|------|------|
+| 基线目录（夹具） | `test/parity/baseline-catalog.json` | 34 工具 / 142 子命令 + provenance（`main@2ddc92299ad10cfe0ea2b65403243a45ce7fb041`、提取脚本、时间） |
+| 提取脚本（可重跑） | `test/parity/extract-baseline-catalog.mjs` | 读 main 的 `packages/lgdl-web/src/ai/session.ts` 注册矩阵 + 真实工厂 schema；**未登记工厂即失败**的防漂移守卫；`--baseline <临时克隆>` |
+| 豁免登记 | `test/parity/waivers.json` | 逐项状态/理由/依据；`mapped.providedAs`；`pending-permission.permission+pending:true`；`pluginExtras`（插件新增工具） |
+| 对账门禁 | `test/parity.test.ts` | 双向 + 子命令级 + `findCoverageGaps()` 可自测；失败列出缺失项与修复路径 |
+| 浏览器工具工厂 | `src/tools/browser-tools.ts:60` `createBrowserToolEntries` | 按 `env` seam 注册 base `dom`/`chrome`/`wait`/`extract`/`export`/`save`/`events`/`web-search` |
+| 扩展浏览器 env | `src/platform/browser-env.ts:40` `createExtensionBrowserEnv` | `dom.ops` = 远程代理；`filePicker` = 页面上下文下载链；`events` = 远端 hub |
+| DOM 远程代理（content） | `src/content/content-script.ts:33` + `:176` `dom-op` | 隔离世界 `createBrowserDomOps()` 真实现；未知操作可读拒绝 |
+| 页面下载链 | `src/content/content-script.ts:194` `file-save` | anchor 下载 + 12MB 体积护栏（**无 `downloads` 权限**） |
+| 远程事件 hub | `src/tools/remote-events.ts:55` `createRemoteEventHub` | 映射既有 `site-event` 桥（subscribe/pull/unsubscribe/status）；其余可读「暂不支持」 |
+| host 接线 | `src/background/host.ts:71` + `:137` | `browserTools` 选项 → 注册 base 条目 |
+| SW 接线 | `src/background/service-worker.ts:313` | 真实 deps（dom-op / file-save / site-event 转发） |
+| 消息类型 | `src/background/messaging.ts:47` | 新增 `dom-op` / `file-save` |
+| 单测 | `test/browser-tools.test.ts`（13） | dispatch/风险档/无确认拒绝/可读失败/无标签页降级 |
+| 真机 E2E | `test/e2e/fullchain.mjs` | mock LLM 发 `dom read-state` / `dom click` / `chrome screenshot` tool_call → 真实页面全链 |
+| 文档 | `docs/capability-matrix.md`（重写）/ `docs/dev.md` §13 | 基线对账表 + 对账/豁免流程 |
+
+### 27.3 门禁结果（本轮复跑，原文摘录）
+
+- 插件 `npm test`：**336 pass / 0 fail**（315→336，+8 parity +13 browser-tools）。
+- `tsc --noEmit`：**0 error**；插件 `build` 退出码 0（content.js 1.0MB / background.js 1.2MB）。
+- `test:e2e`：**PASS**（真实 dist + headless Chromium；新增三条真机断言全部通过）：
+  - `✔ A/fixture: dom read-state ran on the real page DOM (was missing)`
+  - `✔ A/fixture: dom click ran through the confirmation gate`
+  - `✔ A/fixture: chrome screenshot persisted via page download chain (was missing)`
+- `test:ui`：**97 断言 PASS**；`test:hardening`：**22 断言 PASS**；`test:binding`：**83 断言 PASS**——其真实 LLM tools 清单（21 个）已含 `dom, chrome, wait, extract, export, save, events, web-search`。
+- 全仓 `npm run build` 退出码 0；`npm test` **EXIT=0 / 0 fail**（plugin 336 / base **483 零回归** / lgdl-core 267 / lgdl-render 94+1skip / lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / lgdl-cli 0 / lgdl-layout 0）。
+- 红线 grep：`git diff packages/web-cli-base` **空**、`git diff packages/web-cli-plugin/manifest.json` **空（无新权限）**、`git diff .opencode/opencode.json` **空**、`git diff '**/package.json' package-lock.json` **空（无新依赖）**、无明文 key。
+
+### 27.4 新增决策（D-117~D-122）
+
+- **D-117（对账门禁机器化，不手工维护清单）**：基线目录必须由脚本从 main 代码提取，禁止手输工具/子命令；提取脚本对 `session.ts` 新工厂做覆盖守卫。**被否决**：继续手写 `capability-matrix.md`（本轮漂移根因）。
+- **D-118（门禁双向 + 子命令级 + 可自测）**：既防「基线有、插件无」，也防「插件新增未登记工具」；断言到子命令（`chrome screenshot`、`dom read-state` 等），并提供 `findCoverageGaps()` 自测证明能抓两类漂移。**被否决**：只断言工具名（会漏掉「工具在但子命令缺失」）。
+- **D-119（浏览器能力走 content 隔离世界远程代理，而非 background 直做）**：base `PlatformDomOps` 必须在有 DOM 的世界运行；content script 隔离世界复用 base `createBrowserDomOps()`，background 只做 `dom-op` 代理。**被否决**：在 background 用 `chrome.scripting.executeScript` 逐操作实现（重复实现、与 base 契约漂移）。
+- **D-120（截图/导出/保存用页面上下文 anchor 下载链，不新增 `downloads`）**：`filePicker.download/save` 经 `file-save` 消息在页面上下文 `a[download]`；12MB 护栏。**被否决**：新增 `downloads` 权限（违反本轮权限纪律，且可无权限实现）。
+- **D-121（`events` 复用既有桥，缺的如实说）**：`createRemoteEventHub` 只映射 `subscribe/pull/unsubscribe/status`；`pause/resume/clear/budget/switch/pull-sensitive` 返回可读「暂不支持」，**不假装成功**。**被否决**：为凑 11 子命令造假成功或扩页面协议。
+- **D-122（需新权限者只报告不实施）**：`notify`（`notifications`）/`clipboard`（`clipboardRead`/`Write`）列入「待批准权限」表，作者批准前不实现、不申请。**被否决**：顺手把 `notify`/`clipboard` 做了（违反本轮权限纪律）。
+
+### 27.5 未完成 / 未复现 / 降级（如实，不粉饰）
+
+- **`events` 运行时仅 4 个桥操作可用**（subscribe/pull/unsubscribe/status）+ 本地 `list`；其余 6 个子命令返回可读「暂不支持」。工具面（11 子命令）已按基线对齐，但**运行时能力是部分的**——如实披露，不视为完全对齐。
+- **`notify` / `clipboard` 未实施**：需新权限（`notifications` / `clipboardRead`·`clipboardWrite`），本轮**只报告不实施**（见上报「待批准权限」）。
+- **`web-search` 默认禁用态**：无搜索端点配置入口，工具在工具面可达但执行返回可读「未配置」指引；启用需配置端点 + 该域 host 权限（本轮未做配置 UI）。
+- **content bundle 体积增长**（约 1.0MB，内联 base DOM 实现）：未做 tree-shaking/分包优化；可接受但作为后续优化项。
+- **`chrome screenshot` 用 base 近似截图**（foreignObject+canvas），非 `captureVisibleTab` 原生视口截图；与基线语义一致（同名同子命令），元素级可用、整页级不支持（归属 CDP）。
+- 仅在 `.pw-browsers` Chromium `--headless=new` 实测；系统 Chrome/Edge 未单独复验。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2049,3 +2165,5 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v1.16 | **v0.9 增补：自动探测 + 多会话**（§23，作者 2026-09-12 两项架构级决策；TASK-024/025）：①**自动探测（FR-047/ADR-014）**——新增 `src/background/content-script-registry.ts`（`registerContentScripts` + `persistAcrossSessions` + 启动/安装/权限变更对账，补齐缺失·清理已撤销·失败可读）；`authorize` 授权即注册、`revoke` 即注销；content script 主动 `hello` + 应答 `whoami` → **免点图标自动绑定**（无 `tab.url`、无 `tabs`、无手势）；未授权站点静默降级保留点图标回退。②**多会话（FR-048/ADR-013）**——新增 `src/background/session-store.ts`（`sessionId=origin` / `group:<id>`；每会话独立 40-turn 有界历史；上限 20 + LRU 可读披露；分组加入/移出/删除可逆且**分组≠授权**）；`chat-session` 增 `boundHistory` 复用；`controller`/`state-message`/`sidepanel`/`options` additive 接线；切换会话取消待决 confirm/ask（EC-019）。**真实环境免点图标实证**：`test:binding` 新增阶段 2 `#A0~#A7`（authorize→真实 `chrome.scripting` 注册→reload 触发 hello→自动绑定 origin+supported+工具面；whoami 切页重绑；未授权静默降级）。门禁：插件 229→**262**（+33，5 个新测试文件）、`tsc` 0 error、`test:ui` 70→**79**（#16a~#16i 会话切换器/历史隔离双向/分组≠授权）、`test:binding` 44→**58**、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；base/`package.json`/`.opencode/opencode.json` 零改动、**无新依赖**、**无 `tabs`**、**无 `<all_urls>`**、无静态 `content_scripts`、无 innerHTML/明文/私有依赖；spec v1.4（FR-047/048 + EC-017~020）/plan v1.1（ADR-013/014）/docs dev·compliance·capability-matrix（漂移修正 D-100）同步；D-091~D-100；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.17 | **v0.9 增补：标签页管理工具 + `tabs` 权限扩张**（§24，作者 2026-09-12 决策③；TASK-026）：新增 `src/tools/tabs-tools.ts`（插件级工具 `tabs`，list/switch/open，**明确不做 close**；risk list=read/switch=ui/open=write；`list` 默认去 query/fragment、`--full` 显式；非 http(s) scheme 可读拒绝；每子命令入审计）+ `src/background/tabs-setting.ts`（隐私开关，默认开）；`manifest.permissions` **唯一新增 `tabs`**（接受安装警告「读取您的浏览记录」）；`host.setTabsEnabled` 关闭即从 `deriveTools()` 移除（`enabled` 语义）；`switch` 复用 `bindTab` 绑定链并切到该 origin 会话；options 页隐私开关 + 披露文案；docs compliance §9 / release §5 / capability-matrix 第 27 行+§3.2 / dev §12.4。门禁：插件 262→**292**（+30，2 新测试文件）、`tsc` 0 error、`test:ui` 79→**85**（#17a~#17e 开关 + #15u tabs 卡片）、`test:binding` 58→**73**（真实 `tabs list`/`--full`/`tabs switch`→会话切换，工具面 12→13）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；base/`package.json`/`.opencode/opencode.json` 零改动、**无新依赖**、无 `<all_urls>`、无静态注入；三处旧「无 tabs」断言语义按决策③更新为精确权限集合（非降级）；未 git 提交。 |
 | v1.18 | **v0.9 缺陷修复：`web-fetch` CORS 预校验 + 失败可见**（§25，TASK-027，用户实测「插件加载报错」驱动）：根因 = base 内建 `web-fetch`（`web-fetch.ts:138/143`）在扩展 SW 内对未授权域名直接 `globalThis.fetch`，必然被 CORS 拦截（`chrome://extensions` 出现错误条目），且失败只进 LLM 上下文。修复（**base 零改动**）：新增 `src/tools/web-fetch-tool.ts` 受控 seam（相对路径解析绑定 origin / 绝对 http(s) 经 `chrome.permissions.contains` / **未授权 → 零请求 + 可读拒绝 + 两条授权指引** / 非 http(s) scheme 可读拒绝 / 同源优先页面上下文）；`host.ts` 传 `builtins:['sleep','web-cli-help']` 后注册受控同名条目**替换** base 内建（分发仍走 `router.dispatch`，门禁/审计不旁路）；`service-worker.ts` 注入真实 deps + system prompt 要求报告工具失败；`content-script.ts` 新增 `fetchSameOriginText` 同源读取；`chat-state.ts` 失败 tool 条目 `kind:'error'`（侧栏可见错误色）。门禁：插件 292→**309**（+17）、`tsc` 0 error、`test:ui` 85→**87**（#15v/#15w）、`test:binding` 73→**81**（#0h/#1d/#7f~#7k；**未授权域名零请求 + 无 CORS 条目 + 同源页面上下文真实读取**，保留既有断言）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；**manifest 零 diff**（无新权限/无 `<all_urls>`）、无新依赖、`.opencode/opencode.json` 零改动；D 项核实：**无真实加载错误**（SW 可达 + ping 往返 + 0 未捕获异常），CORS 属运行期；D-107~D-111；未 git 提交。 |
+| v1.19 | **侧栏自动测试当前模型配置**（§26，TASK-028，作者要求）：移除侧栏独立「测试连接」按钮（options 页保留）；面板加载**自动**复用既有 `llm-test` 在 `#llm-test-result` 展示可读状态（**不新增请求路径**、仅加载触发一次、`render()`/消息追加/`focus`/`visibilitychange` 均不重复触发）；`background` 新增 **60s TTL 内存单槽缓存** `src/llm/test-cache.ts`（指纹 = 厂商+模型+Base URL+Key 的不可逆 FNV-1a；**仅内存比较，不落盘/日志/审计**）——命中直接返回原结果（含原耗时 ms，`cached:true`）不发请求，配置变更/TTL 过期失效重测；未配置 `no-key` 零请求。门禁：插件 309→**315**（+6 `test-cache.test.ts`）、`tsc` 0 error、`test:ui` 87→**97**（#12~#12m：无按钮/自动成功态格式/缓存命中 mock 计数不变/重复 render 探针不变/配置变更 mock+1/未配置零请求）、`test:binding` 81→**83**（#6-1 真站点加载即出现状态 / #6-2 无按钮）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限**；docs dev §10.10 + §9/§10.5/§11.1 + tasks TASK-028 同步；D-112~D-116；未 git 提交。 |
+| v1.20 | **工具面基线对账门禁 + 浏览器能力补齐**（§27，TASK-029，FR-051/ADR-016，作者实测「DOM 操作 / 浏览器截图等命令全部丢失」驱动）：根因 = 既有测试只断言插件内部行为、`capability-matrix.md` 手写无执行 → 工具面静默漂移。修复：①**只读**临时克隆 main（不碰 main/不改本仓 .git）→ 机器枚举原助手工具目录（`main@2ddc9229`，34 工具/142 子命令）固化为 `test/parity/baseline-catalog.json`（provenance + 可重跑提取脚本 `extract-baseline-catalog.mjs`，含新工厂守卫）；②`test/parity.test.ts` **双向 + 子命令级**对账门禁（同名实现 / `waivers.json` 显式豁免（理由+依据+`providedAs`/`permission`）/ 否则失败；防插件新增未登记工具；`findCoverageGaps()` 自测能抓两类漂移）；③补齐**无新权限**的浏览器能力——content 隔离世界 `createBrowserDomOps()` + background `dom-op` 远程代理，注册 base `dom`(30)/`chrome`(print/back/forward/reload/**screenshot**)/`wait`/`extract`/`export`/`save`/`events`(经既有事件桥)/`web-search`；截图/导出/保存走页面上下文 anchor 下载链（**不新增 `downloads`**）；④风险档沿用 base（不放宽，走 `router.dispatch`）；⑤**待批准权限**（`notify`→`notifications`、`clipboard`→`clipboardRead/Write`）只报告不实施；⑥`docs/capability-matrix.md` 重写为机器校验的基线对账表 + `docs/dev.md` §13 对账/豁免流程。门禁：插件 315→**336**、`tsc` 0 error、`test:ui` **97**、`test:hardening` **22**、`test:binding` **83**（真实 LLM tools 清单 21 个已含 dom/chrome/wait/extract/export/save/events/web-search）、`test:e2e` **PASS**（新增 `dom read-state`/`dom click`/`chrome screenshot` 三条真机断言）、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-117~D-122；未 git 提交。 |

@@ -679,16 +679,17 @@ async function groupAction(payload: Record<string, unknown>): Promise<void> {
   }
 }
 
-/** TASK-020 任务 D: run the connectivity test from the panel (stored config). */
-async function handlePanelTest(): Promise<void> {
-  const btn = $('llm-test') as HTMLButtonElement;
+/**
+ * TASK-020 任务 D / TASK-028: run the connectivity test from the panel using the
+ * stored config (reuses the `llm-test` message; the plaintext key never leaves
+ * the background). The standalone「测试连接」button was removed — the panel now
+ * auto-tests once on load (see {@link autoTestConnectionOnce}) and renders the
+ * readable result into `#llm-test-result`.
+ */
+async function runPanelTest(options: { auto?: boolean } = {}): Promise<void> {
   const out = $('llm-test-result');
-  if (btn.disabled) return;
-  btn.disabled = true;
-  const label = btn.textContent;
-  btn.textContent = '测试中…';
   out.className = 'muted';
-  out.textContent = '正在发送最小 ping 请求…';
+  out.textContent = options.auto ? '正在自动测试当前模型配置…' : '正在发送最小 ping 请求…';
   try {
     const res = await send<TestConnectionResult>(
       makeMessage('llm-test', llmSummary?.providerId ? { providerId: llmSummary.providerId } : {}),
@@ -703,10 +704,21 @@ async function handlePanelTest(): Promise<void> {
   } catch (err) {
     out.className = 'warn';
     out.textContent = `✖ 测试连接失败：${err instanceof Error ? err.message : String(err)}`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = label || '测试连接';
   }
+}
+
+/**
+ * TASK-028: auto-test exactly ONCE per panel load. Deliberately NOT called from
+ * `render()` / message handlers / status polling — only the bootstrap calls it,
+ * and the module-level guard makes a duplicate bootstrap a no-op. The
+ * background's 60s TTL cache is the second line of defence (repeat loads within
+ * the TTL reuse the cached result without a real request).
+ */
+let autoTestStarted = false;
+function autoTestConnectionOnce(): void {
+  if (autoTestStarted) return;
+  autoTestStarted = true;
+  void runPanelTest({ auto: true });
 }
 
 /** TASK-020 任务 B: rebind the current tab from the panel (readable failure). */
@@ -737,9 +749,6 @@ function wire(): void {
   $('open-options').addEventListener('click', () => {
     openSettingsPage(chrome.runtime);
   });
-
-  // TASK-020 任务 D: panel-side connectivity test (reuses the `llm-test` message).
-  $('llm-test').addEventListener('click', () => void handlePanelTest());
 
   // TASK-020 任务 B: explicit rebind escape hatch for「无活跃站点」.
   $('rebind').addEventListener('click', () => void rebindCurrentTab());
@@ -957,7 +966,7 @@ function applyEnvGuard(env: EnvGuardResult): void {
   banner.textContent = env.banner;
   banner.style.display = env.inExtension ? 'none' : 'block';
   if (env.inExtension) return;
-  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-options', 'discovery-retry', 'rebind', 'llm-test']) {
+  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-options', 'discovery-retry', 'rebind']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) el.disabled = true;
   }
@@ -977,8 +986,12 @@ if (typeof document !== 'undefined') {
     render();
     void refreshState();
     void refreshLlmStatus();
+    // TASK-028: auto-test the current model config once per panel load and render
+    // the readable status (no standalone「测试连接」button anymore).
+    autoTestConnectionOnce();
     // F-2: refresh the summary when the panel regains focus (e.g. after the
-    // user saved settings on the options page).
+    // user saved settings on the options page). NB: this is a status refresh
+    // only — it must NOT re-trigger the connectivity test (TASK-028).
     window.addEventListener('focus', () => void refreshLlmStatus());
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void refreshLlmStatus();

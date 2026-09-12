@@ -41,7 +41,11 @@ export type PluginMessageKind =
   // author decision ③ / FR-049: tab-tool privacy toggle (options page).
   | 'tabs-setting'
   // FR-050 / EC-023: same-origin page-context read for the controlled web-fetch seam.
-  | 'fetch-text';
+  | 'fetch-text'
+  // FR-051 / TASK-029: base-derived browser tool seams (dom/chrome/wait/extract,
+  // and the page-context download chain for save/export/screenshot persistence).
+  | 'dom-op'
+  | 'file-save';
 
 export interface PluginMessage {
   kind: PluginMessageKind;
@@ -89,6 +93,8 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'session-changed',
   'tabs-setting',
   'fetch-text',
+  'dom-op',
+  'file-save',
 ]);
 
 export function makeMessage(kind: PluginMessageKind, payload: Record<string, unknown> = {}): PluginMessage {
