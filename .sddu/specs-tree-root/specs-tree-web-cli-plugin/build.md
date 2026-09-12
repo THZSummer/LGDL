@@ -531,6 +531,121 @@
 - 剩余红线 grep 命中均为 `web-cli-base`（红线）与 `lgdl-web-cli` 历史溯源注释及下线文档，已如实披露（D-034）。
 - 本仓库**未 git 提交**（由上层统一提交）。
 
+## 13. UI 修复记录（TASK-017：首次截图式 UI 审查 F-1~F-9）
+
+> 触发：P2 结束后对插件做首次**截图式 UI 审查**（`/tmp/ui-audit/` A~E 截图 + `report.json` + `audit.mjs`）。本轮只做 UI/UX 修复，**不改 base、不引入 UI 框架/新运行时依赖、不 git 提交**。证据脚本 `/tmp/ui-audit/measure.mjs`（audit.mjs 基础上增加溢出实测）。
+
+### 13.1 第一步：先量化（实测数字，用数据说话）
+
+复跑审计脚本，对 `sidepanel.html` / `options.html` 实测 `document.documentElement.scrollWidth` vs `clientWidth`、遍历 `getBoundingClientRect().width > innerWidth` 的元素、以及 `scrollWidth > clientWidth` 的文本元素。
+
+| 页面 | innerWidth | doc scrollWidth/clientWidth（前） | 水平溢出 | 超宽元素 | 疑似「裁切」文本 |
+|------|:--:|:--:|:--:|:--:|:--:|
+| A options 900 | 900 | 900 / 900 | 否 | 0 | 0 |
+| C options 900 | 900 | 900 / 900 | 否 | 0 | 0 |
+| E options 400 | 400 | 400 / 400 | 否 | 0 | 0 |
+| B sidepanel 400 | 400 | 385 / 385 | 否 | 0 | 0 |
+| B sidepanel 320 | 320 | 305 / 305 | 否 | 0 | 0 |
+| D sidepanel 400 | 400 | 385 / 385 | 否 | 0 | 0 |
+
+**结论（重要）**：截图中「知情同意」区块文字右侧被裁切是**截图观感，不是真溢出**——`#consent` 的 `scrollWidth === clientWidth`（400px 视口下均为 369；320px 下均为 289），无任何元素宽度 > 视口，无 `scrollWidth > clientWidth` 的文本元素。真实观感成因 = `ul` 默认只有左缩进、无右留白，CJK 文本换行后贴边（且 CJK 标点可悬挂），看起来像被切。F-7 因此按「防御性排版 + 右留白」修复，而非修一个不存在的溢出。
+
+### 13.2 F-1~F-9 逐项结果
+
+| # | 需求 | 状态 | 证据（file:line） |
+|---|------|:--:|------|
+| **F-1** | side panel 明确「配置模型 / 设置」入口（调 `openOptionsPage`），位于顶部状态区 | ✅ | `src/ui/sidepanel/index.html:50-53`（`#open-options` 于 `#status` 下）；`sidepanel.ts:290-293`；纯缝 `view-model.ts:139` |
+| **F-2** | 显示 LLM 状态：未配置（醒目 + 一键去配置）/ 已配置（厂商 · 模型）；background 只回摘要 | ✅ | 新消息 `messaging.ts:28,63` + `service-worker.ts:388-390`；摘要投影 `src/llm/status.ts:31`（丢弃 `apiKeyMasked`）；渲染 `sidepanel.ts:106-115` + `view-model.ts:28-42`；回归：`test/sidepanel-view.test.ts`（summary 无 key / 三态） |
+| **F-3** | 首次使用分步引导，状态驱动（未配置只强调第 1 步；已配置未授权强调授权） | ✅ | `view-model.ts:45-84`（5 步 + `current`=首个未完成 + `configured&&authorized` 隐藏）；`sidepanel.ts:117-140`；测试覆盖四态 |
+| **F-4** | 知情同意默认折叠、置于底部、文案零删改；风险控件不藏 | ✅ | `sidepanel.ts:207-243`（`<details>` + `CONSENT_DEFAULT_OPEN=false`）；控件在 `section.appendChild(details)` 之后保持可见；`view-model.ts:127-129`；测试断言 `<details>` 且无 `.open=true` |
+| **F-5** | `#log` 空态显示占位文案 | ✅ | `sidepanel.ts:64-68` + `view-model.ts:119-122`；`index.html:26-29`（`.empty` 收缩居中）；测试断言文案 |
+| **F-6** | 无 `activeOrigin` 时「撤销授权」disabled；复核 authorize/send/revoke 一致性 | ✅ | `view-model.ts:104-115`（revoke=有 origin 且已授权；send=pending 或无 origin）；`sidepanel.ts:82-85`；composer 同步守卫 `sidepanel.ts:300`（防 Enter 绕过 disabled）；测试覆盖 4 组 |
+| **F-7** | 修水平溢出（如存在）+ 防御性样式；窄宽度无横向滚动/文字不裁切 | ✅（实测无溢出，按防御性修复） | `index.html:9,37,40`（`box-sizing`/`overflow-wrap:anywhere`/`#input{flex:1;min-width:0}`/`details` `min-width:0`）；**after 实测全页 0 溢出 / 0 超宽 / 0 截断** |
+| **F-8** | options：如何使用 + 本页如何打开 + 未配置醒目提示 + 保存后清空 Key + maxRounds 说明 + 400px 不破版 | ✅ | `src/ui/options/index.html:27-39`（如何使用/本页如何打开）、`:41`（`#key-warning`）、`:59-61`（`#maxRounds-hint`）；`options.ts:32-36`（`setKeyWarning`）、`:74-77`（保存后清空 Key）；after E 实测 `apiKeyValueAfterSave === ''` |
+| **F-9** | 默认模型 ID 核验（可能臆造） | ⚠️ 待核（**未改动**，见 §13.3） | `src/llm/providers.ts:39-46` 与原始实现 100% 一致 |
+
+### 13.3 F-9 核验结论：与原始实现 100% 一致，但真实性待核（未改动）
+
+核验方法 = 用 git 历史恢复被 TASK-016 删除的原始实现 `git show 762d3a6^:packages/lgdl-web/src/ai/provider.ts`，与 `src/llm/providers.ts` 逐项比对（脚本解析 `{ id, name, defaultModel }`）：
+
+| 字段 | 原实现（762d3a6^） | 插件现值 | 一致？ | 依据 |
+|------|------|------|:--:|------|
+| deepseek.defaultModel | `deepseek-v4-flash` | `deepseek-v4-flash` | ✅ | `git show 762d3a6^:.../provider.ts` |
+| qwen.defaultModel | `qwen-plus` | `qwen-plus` | ✅ | 同上 |
+| volc.defaultModel | `doubao-seed-1-6-250615` | `doubao-seed-1-6-250615` | ✅ | 同上 |
+| volc-coding.defaultModel | `deepseek-v4-flash` | `deepseek-v4-flash` | ✅ | 同上 |
+| volc-plan.defaultModel | `ark-code-latest` | `ark-code-latest` | ✅ | 同上 |
+| tencent.defaultModel | `hunyuan-turbo` | `hunyuan-turbo` | ✅ | 同上 |
+| openai.defaultModel | `gpt-4o-mini` | `gpt-4o-mini` | ✅ | 同上 |
+| claude.defaultModel | `claude-3-5-haiku-latest` | `claude-3-5-haiku-latest` | ✅ | 同上 |
+
+**结论**：插件默认模型 **不是 TASK-016 臆造的**，而是逐字继承自原始实现（TASK-016 仅改了 provider.ts 的文档注释，`git show 762d3a6 -- src/llm/providers.ts` 实证；`defaultModel` 一字未动）。按本轮指令「若无法确证 → 如实标注为待核，不要乱改」，**未修改任何模型 ID**。
+
+**遗留疑点（如实标注）**：`deepseek-v4-flash` 本身对公网 DeepSeek API 的真实性无法在本地确证——该 ID 由提交 `5a77a6c`（2026-08-23）把原 `deepseek-chat` 改为 `deepseek-v4-flash` 引入，而同日（2026-09-12）提交 `e9506ac` 又把 `.opencode/opencode.json` 里同名的 agent 模型改为 `deepseek-flash`。两者命名域不同（opencode agent provider vs. `api.deepseek.com`），**不能据此断言插件值错误**；标注为**待作者核签/联网核实**后再定，未擅自改动。`volc-coding` 用 `deepseek-v4-flash` 与原实现一致（火山 Coding 端点语义）。
+
+### 13.4 测试与回归
+
+- **新增测试**：`test/sidepanel-view.test.ts`（12 用例）——llm-status 摘要不泄露 key、三态视图、messaging `llm-status` kind、onboarding 状态驱动四态、按钮禁用语义四组、空态文案、折叠默认收起、`openSettingsPage` 调用、sidepanel/options 静态 UI 面与源码断言。
+- **既有测试零删除零降级**：插件 112 → **124**（+12，全为新增文件）；base **483 零回归**；lgdl-web 31；core 267；render 94+1skip；router 8；web-cli 84；op-cli 15。
+- **全仓**：`npm run build` 退出码 0；`npm test` 全仓 **0 fail**（合计 1106 pass / 1 skip）。
+- **插件**：`tsc --noEmit` 0 error；`npm run test:e2e`（真实 dist 全链）场景 A/B **PASS**。
+- **红线**：`packages/web-cli-base/**` `git status` 空；插件 `dependencies` 仍仅 `@lgdl/web-cli-base`、devDeps 不变；src 内 `react|vue|svelte|jquery|tailwind|jsdom` 0 命中；`src/ui/sidepanel/**` 无 `apiKey` 引用（摘要路径零明文）。
+- **重截回归**（同脚本、同视口，输出 `/tmp/ui-audit/after/`）：水平溢出前后均无，但 after 额外达成 **0 超宽元素 / 0 截断文本**（前：E 因 CJK 标点悬挂有 1 处 3px `#saved` scrollWidth 差，after 加右留白后归零）；E 保存后 `apiKeyValueAfterSave` 前 `sk-test-xxxx` → 后 `''`。
+
+### 13.5 新增决策（D-036~D-042）
+
+| # | 决策 | 说明 |
+|---|------|------|
+| **D-036** | UI 修复「先量化」口径 | 实测确认截图右侧裁切为观感（`scrollWidth===clientWidth`，无超宽元素），非真溢出；F-7 按防御性排版（`box-sizing`/`overflow-wrap`/`min-width:0`/右留白）修复并新增 after 实测回归，不宣称修复了不存在的溢出来源。 |
+| **D-037** | `llm-status` 只回摘要 | 新增零依赖模块 `src/llm/status.ts`：`toLlmStatusSummary` 只投影 `configured/providerId/providerName/model`，丢弃 `apiKeyMasked`；sidepanel 不 import key-store/providers，避免把 LLM SDK 打进侧栏 bundle（`sidepanel.js` 15.1→20.9KB 纯为新增 UI 逻辑）。 |
+| **D-038** | 设置入口 | sidepanel 顶部 `#open-options` 调 `chrome.runtime.openOptionsPage()`（未配置时文案变「去配置模型」并醒目）；抽出 `openSettingsPage(api)` 可测缝。 |
+| **D-039** | 引导/空态 | `buildOnboarding` 5 步状态驱动（`current`=首个未完成；`configured&&authorized` 隐藏）；`#log` 空态用 `LOG_EMPTY_TEXT` 占位并收缩高度，不再是一大块空白。 |
+| **D-040** | 知情同意折叠 | 改 `<details>` 默认收起（`CONSENT_DEFAULT_OPEN=false`），置于面板底部；`CONSENT_RISKS`/`CAPABILITY_BOUNDARY` 文案零删改（既有断言仍通过）；风控控件留在折叠外。 |
+| **D-041** | 按钮禁用语义统一 | `buttonStates`：authorize=有 origin 且未授权；revoke=有 origin 且已授权（F-6 修静默无效）；send=pending 或无 origin；composer 提交路径同守卫（Enter 不绕过 disabled）。 |
+| **D-042** | F-9 不改模型 ID | 与原始实现逐项一致（无臆造），但 `deepseek-v4-flash` 真实性本地无法确证 → 如实标注待核，不擅自改（见 §13.3）。 |
+| **D-043** | 日志空态 flex 不泄漏（post-validate 复核） | `#log.empty` 由 `display:flex` 改门控为 `#log.empty:not(:has(> *))`：仅当 `#log` 无条目元素时居中；有条目（即便 `.empty` 类陈旧）恒为普通块布局逐行堆叠。最小 CSS 改动、零 JS 改动，保留 `height:45vh; overflow:auto` 与 `white-space:pre-wrap`。详见 §13.7。 |
+
+### 13.6 未完成 / 偏差如实标注
+
+- **F-9 未改动**：`deepseek`/`volc-coding` 的 `deepseek-v4-flash` 真实性未确证（本地无联网核验手段），按指令标注待核，未改。这是本轮唯一「未修」项，并非遗漏。
+- **人工面 UI 验证**：真实浏览器中的点击「配置模型」（`openOptionsPage` 真实打开）、授权弹层、真实 LLM 闭环仍属人工面（headless 无手势/权限弹窗），本轮以 CDP 截图 + 单测覆盖可达部分。
+- **可见性刷新**：LLM 状态在侧栏 `focus`/`visibilitychange` 时刷新；不监听 `chrome.storage.onChanged`（避免额外监听面），用户若在设置页保存后未切回焦点，状态下次刷新更新。
+- 本轮**未 git 提交**（由上层统一提交）。
+
+### 13.7 D-043：日志空态 flex 复核与修复（post-validate 回归复核，2026-09-12）
+
+**复核对象**：TASK-017 后对 `/tmp/ui-audit/after/D-sidepanel-expanded.png` 的疑似回归——`#log` 三条日志（`user:`/`tool:`/`error:`）横向并排，而修复前（`/tmp/ui-audit/before/D-sidepanel-expanded.png`）逐行堆叠。
+
+**先量化（headless Chromium 151.0.7922.34 + 真实 `dist`，复用 `/tmp/ui-audit/measure.mjs` 的 D 态构造方式；探针 `/tmp/ui-audit/check-log.mjs`，原始数据 `/tmp/ui-audit/log-probe-pre.json`）**：
+
+| 场景 | `#log.className` | `display` | 子元素 rects（`y` / `x`） | 判定 |
+|------|------------------|-----------|--------------------------|------|
+| 空态（`render()` 加 `.empty` + 占位文案） | `empty` | `flex`（`align-items:center`/`justify-content:center`，高 64px） | 无元素子节点 | 居中占位成立 |
+| D 态（原脚本方式：`textContent=''` 后直接 append 3 个 div，**未动 `.empty` 类**） | `empty`（陈旧） | `flex`，`flex-direction:row`，`flex-wrap:nowrap` | `y=280.5` ×3；`x=15 / 133.13 / 264.25` | **横向并排复现**（符合「y 相同、x 递增」判据） |
+| 对照（真实 `render()` 路径：先 `classList.remove('empty')` 再 append） | `''` | `block` | `y=275 / 294.5 / 314`；`x=15` ×3 | 逐行堆叠（生产路径本就正确） |
+
+**根因**：`#log.empty { display:flex }` 使 `#log` 成为 flex 容器；审计脚本直接注入子节点、未同步移除 `.empty` 类，旧规则即把 3 条目排成一行。生产 `render()` 会在追加条目前 `classList.remove('empty')`，故真实用户流程不横向；但「空态布局模式泄漏到非空内容」是**真实存在的脆弱耦合**——任何绕过 `render()` 的追加（脚本/未来代码）都会误伤，审计截图也因此失真。
+
+**修复（最小改动，仅 CSS；`src/ui/sidepanel/index.html`）**：
+- `#log.empty { … display:flex … }` → `#log.empty:not(:has(> *)) { … }`（`index.html:26-33`）。
+- 语义：仅当 `.empty` 存在**且**无元素子节点时启用居中；有条目时（无论类状态）`#log` 回归普通块布局，条目各占一行。
+- `#log { height:45vh; overflow:auto }`、`white-space:pre-wrap`、空态文案（`LOG_EMPTY_TEXT`）与 `render()` 均**未改**；零新依赖、`packages/web-cli-base/**` 零改动。
+- `:has()` 自 Chrome 105 支持，manifest `minimum_chrome_version` 为 114，安全。
+
+**复测（修复后重跑同一探针，`/tmp/ui-audit/log-probe-post.json`）**：
+
+| 场景 | `display` | 子元素 rects（`y` / `x`） | 结论 |
+|------|-----------|--------------------------|------|
+| 空态 | `flex`，高 64px | 无 | 居中占位保留 |
+| D 态 @400（陈旧 `.empty` + 3 条目） | `block` | `y=275 / 294.5 / 314`；`x=15`；高 360px（=45vh） | **y 递增 → 已逐行堆叠**；无水平溢出 |
+| D 态 @320（陈旧 `.empty` + 3 条目） | `block` | `y=383 / 402.5 / 422`；`x=15` | **y 递增**；`documentElement` 无水平溢出 |
+
+**新截图**：`/tmp/ui-audit/after2/B-sidepanel-empty.png`（空态）、`/tmp/ui-audit/after2/D-sidepanel-expanded.png`（D 态，已堆叠）、`/tmp/ui-audit/after2/D2-sidepanel-expanded-narrow-320.png`（320 窄屏）。
+
+**测试/门禁**：新增静态回归断言 `test/sidepanel-view.test.ts`「empty-log centering is gated on #log having no entry elements (D-043)」（测试先行：修复前 124 pass / 1 fail，修复后通过）。插件 **125 pass / 0 fail**、`tsc --noEmit` 0 error；全仓 `npm test` **0 fail**（base **483 零回归**：core 267 / render 94+1skip / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / base 483 / plugin 125）。
+
+**偏差/未做如实标注**：本轮仅修复上述 CSS 耦合；D 态为审计脚本构造态（生产 `render()` 路径修复前后均正确），故判定为「审计可见的潜在回归」而非生产已发生回归，两处数据均已如实给出。未重跑 E2E（本轮仅 CSS + 静态断言，未触碰运行时逻辑）；未 git 提交。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -540,3 +655,5 @@
 | v1.2 | P1 实施轮：TASK-012~015（协议完善/UI 操作+事件桥/风控+文档/可选 DOM 工具面）；D-017~D-020；插件 68→89、lgdl-web 75→77；全仓 0 fail；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.3 | 遗留清账轮（§11）：R-BLK1a/R7/R8/R9-6/7/8/10/12 + minors×2 + EC-008/009/012 + AC-004/007/011 + NFR-007；D-021~D-029；插件 89→112、lgdl-web 77→78、base 483 零回归；R8 E2E 固化并 PASS（唯一偏差披露）；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.4 | P2 终收口轮（§12）：TASK-016 发布渠道 `docs/release.md` + Gate-D D-1~D-7 评估 + 内置助手下线执行（`ai/*` 移除 + App.tsx 摘除，保留 base 机制层 + web-cli-host）+ 回退预案（单提交 revert + `VITE_AI_ASSISTANT_FALLBACK` 默认 off）+ EC-016 不静默迁移告知；D-030~D-035；lgdl-web 78→31（删除 47 = provider 21 + session 26，EC-012 用例 1:1 改写）、base 483 零回归、插件 112、E2E A/B PASS；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.5 | UI 修复轮（§13，TASK-017）：首次截图式 UI 审查 F-1~F-9——先量化确认无真实水平溢出；sidepanel 增设置入口/LLM 状态摘要（`llm-status` 零明文）/状态驱动引导/日志空态/知情同意默认折叠/按钮禁用语义；options 增使用说明/未配置提示/保存后清空 Key/maxRounds 说明；F-9 模型 ID 与原始实现 100% 一致（待核未改）；D-036~D-042；插件 112→124（+12，base 483 零回归，全仓 1106 pass/1 skip 0 fail），E2E A/B PASS，重截前后实测 0 溢出/0 超宽/0 截断；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.6 | post-validate 回归复核（§13.7）：量化复现「D 态日志横向并排」为审计脚本未同步 `.empty` 类 + `#log.empty{display:flex}` 泄漏所致（生产 `render()` 路径本就逐行）；最小 CSS 修复 `#log.empty:not(:has(> *))`（零 JS 改动，保留 `height:45vh`/`pre-wrap`/空态居中）；复测 @400/@320 子元素 y 递增、无水平溢出；新增静态断言（测试先行），插件 124→**125**、base 483 零回归、全仓 0 fail；D-043；未 git 提交 | 2026-09-12 | SDDU Build Agent |

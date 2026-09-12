@@ -37,6 +37,7 @@
 | TASK-014 | O+P | 风控护栏 + 合规/迁移/调试文档 | 🛠📄 | L | 005/009 | 波2 | Wave 7 | 频率限制/可中断/可暂停 + 知情同意/不适用清单 + 迁移/过渡期 + 调试/冒烟/Gate-D 文档 |
 | TASK-015 | Q | （可选）通用 DOM 工具面 | 🛠 | M | 006/008 | 波2 | Wave 7 | `content/dom-agent` + extensionEnv 远程 dom 缝（**可后置，容量不足整块顺延**） |
 | TASK-016 | R | 发布渠道 + Gate-D 下线执行 | 🛠📄 | L | 全部 + Gate-D | 波3 | Wave 8 | `docs/release.md` + Gate-D 前置检查 + 摘除 AI 助手层 + 回退预案 + ROADMAP 登记 |
+| TASK-017 | — | UI/UX 修复（首次截图式审查 F-1~F-9） | 🛠 | M | TASK-016（post-validate additive） | 波3+ | Wave 9 | 侧栏设置入口/LLM 状态/首次引导/日志空态/知情同意折叠/按钮禁用；options 使用说明与未配置提示；F-9 模型 ID 核验 |
 
 ### 1.2 依赖拓扑（串行主轴 + 并行组）
 
@@ -809,16 +810,62 @@ npm run build && npm test
 
 ---
 
+### TASK-017: UI/UX 修复（首次截图式审查 F-1~F-9，post-validate additive）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（UI/UX；**不改 base、不引入 UI 框架/新依赖**） |
+| **前置依赖** | TASK-016（post-validate 增补轮，不改已冻结 spec/plan） |
+| **执行波次** | Wave 9（validate 之后 additive） |
+| **对应 FR** | FR-017/031（UI 可用性）/ FR-033/035（key 状态呈现，零明文）/ FR-029（风控控件可见） |
+| **TB 映射** | 无（审查发现驱动的增补轮，非 plan TB） |
+| **状态** | ✅ completed（2026-09-12；权威状态见 `state.json` → `buildProgress.completedTasks`；执行记录见 `build.md §13`） |
+| **风险** | 低（纯前端；base 零改动；F-9 模型 ID 待核未改） |
+
+**描述**: 基于首次截图式 UI 审查（`/tmp/ui-audit/` A~E + `report.json`）的发现做 UI/UX 修复。**先量化**（scrollWidth/clientWidth + 超宽元素遍历）→ 确认无真实水平溢出（截图「裁切」为 CJK 贴边观感）→ F-1~F-9 修复：侧栏设置入口 `openOptionsPage`、LLM 状态摘要消息 `llm-status`（零明文）、状态驱动首次使用引导、日志空态、知情同意 `<details>` 默认折叠、按钮禁用语义、options 使用说明/未配置提示/保存后清空 Key/maxRounds 说明；F-9 用 git 历史原始实现逐项核验模型 ID。
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/index.html`、`sidepanel.ts` |
+| NEW | `packages/web-cli-plugin/src/ui/sidepanel/view-model.ts` |
+| NEW | `packages/web-cli-plugin/src/llm/status.ts` |
+| MODIFY | `packages/web-cli-plugin/src/background/messaging.ts`、`service-worker.ts` |
+| MODIFY | `packages/web-cli-plugin/src/ui/options/index.html`、`options.ts` |
+| NEW | `packages/web-cli-plugin/test/sidepanel-view.test.ts` |
+| MODIFY | `packages/web-cli-plugin/docs/dev.md`；`.sddu/.../build.md`、`state.json` |
+| — | `packages/web-cli-base/**` **零改动** |
+
+**验收标准**:
+- [x] 第一步实测数字记录（doc scrollWidth/clientWidth、超宽元素清单、结论）
+- [x] F-1~F-8 已修（证据 file:line + 前后截图对比）
+- [x] F-9 核验：与 `762d3a6^` 原始实现逐项 100% 一致 → 非臆造、未改；`deepseek-v4-flash` 真实性待核（如实标注）
+- [x] 既有测试零删除零降级（插件 112→124，base 483 零回归）
+- [x] 全仓 `npm run build` + `npm test` 0 fail；插件 `tsc --noEmit` 0 error；E2E A/B PASS
+- [x] 重截回归 `/tmp/ui-audit/after/`（0 溢出 / 0 超宽 / 0 截断）
+- [x] 红线：base 零改动、零新增运行时依赖、无 UI 框架
+
+**验证命令**:
+```bash
+npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin
+npm run typecheck --workspace @lgdl/web-cli-plugin
+npm run build && npm test
+```
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 1 post-validate 增补（TASK-017 UI 修复，审查发现驱动） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 1 增补（017） |
 | L 级 (复杂) | 7（004/005/006/010/011/014/016） |
-| 执行波次 | 9（Wave 0~8） |
-| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016 |
+| 执行波次 | 10（Wave 0~8 + Wave 9 post-validate 增补 TASK-017） |
+| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
 | 文档/契约预留任务 | 2（002；012/014 的文档面） |
@@ -923,3 +970,4 @@ npm run build && npm test
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（plan §9 TB-0A~TB-R 22 块 → 16 原子任务 / 9 波次（Wave 0~8）：波0 门槛 TASK-001〔0A+0D〕/002〔0B+0C〕；波1 P0 四柱 TASK-003~011〔TB-B+C→004、TB-E+F→006、TB-K+L→011 合并〕；波2 P1 TASK-012~015〔TB-O+P→014；TB-Q 可选〕；波3 P2 TASK-016〔TB-R，Gate-D 严格前置〕。P0 最小可用必做集 = TASK-001~011。D-001 类整合记录见 §4.4；D-005 测试守恒 + AC-001 每步门禁见 §4.1；plan 未覆盖依赖/冲突 8 项见 §4.5） | 2026-09-11 | SDDU Tasks Agent |
+| v1.1 | 追加 TASK-017（post-validate 增补，非 plan TB）：首次截图式 UI 审查 F-1~F-9 修复（侧栏设置入口/LLM 状态摘要/状态驱动引导/日志空态/知情同意折叠/按钮禁用语义；options 使用说明与未配置提示；F-9 模型 ID 核验）。任务汇总计入增补轮。 | 2026-09-12 | SDDU Build Agent |

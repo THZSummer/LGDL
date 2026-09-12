@@ -39,6 +39,7 @@ import {
 } from './messaging.js';
 import { providerChat, providerById } from '../llm/providers.js';
 import { createKeyStore } from '../llm/key-store.js';
+import { toLlmStatusSummary } from '../llm/status.js';
 
 const SESSION_STATE_KEY = 'session-state';
 const SYSTEM_PROMPT =
@@ -384,6 +385,9 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       return okResponse(await s.audit.exportEvents());
     case 'llm-config':
       return okResponse(await s.keys.maskedConfig());
+    case 'llm-status':
+      // F-2: side panel gets a non-sensitive summary only (never the API key).
+      return okResponse(toLlmStatusSummary(await s.keys.maskedConfig()));
     case 'confirm-response': {
       const rid = typeof message.requestId === 'string' ? message.requestId : '';
       confirmResponder?.(rid, message.allow === true);

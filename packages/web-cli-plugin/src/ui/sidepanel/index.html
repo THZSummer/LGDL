@@ -6,22 +6,57 @@
     <title>web-cli plugin</title>
     <style>
       :root { color-scheme: light dark; }
-      body { font: 13px/1.5 system-ui, sans-serif; margin: 0; padding: 8px; }
+      *, *::before, *::after { box-sizing: border-box; }
+      body { font: 13px/1.5 system-ui, sans-serif; margin: 0; padding: 8px; overflow-wrap: anywhere; }
       #status { font-weight: 600; padding: 4px 0; }
+      .topbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 2px 0 6px; }
+      #llm-status { min-width: 0; }
+      #llm-status.warn { color: #b45309; font-weight: 600; }
+      #open-options.primary { font-weight: 600; }
+      #onboarding {
+        border: 1px solid #93c5fd; background: #eff6ff; border-radius: 4px;
+        padding: 6px 8px; margin: 4px 0; display: none;
+      }
+      #onboarding ol { margin: 4px 0 0; padding-inline-start: 20px; }
+      #onboarding li { margin: 2px 0; }
+      #onboarding li.current { font-weight: 600; }
+      #onboarding li.done { color: #64748b; }
       #notice { background: #fef3c7; color: #92400e; padding: 6px; border-radius: 4px; margin: 4px 0; display: none; }
       #log { height: 45vh; overflow: auto; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; margin: 6px 0; white-space: pre-wrap; }
+      /* F-5 / D-043: the empty-state centering must apply *only* when #log has no
+         rendered entry elements. Gating on :not(:has(> *)) means a stale or
+         out-of-sync `.empty` class (e.g. audit scripts injecting children
+         directly) can no longer turn real entries into a horizontal flex row —
+         non-empty logs always stay in normal block flow, one entry per line. */
+      #log.empty:not(:has(> *)) {
+        height: auto; min-height: 64px; display: flex; align-items: center; justify-content: center;
+        text-align: center; color: #64748b; background: #f8fafc;
+      }
       .entry-error { color: #dc2626; }
       .entry-tool { color: #475569; }
       #confirm { border: 1px solid #f59e0b; background: #fffbeb; border-radius: 4px; padding: 6px; margin: 6px 0; display: none; }
+      #confirm-summary, #ask-prompt { overflow-wrap: anywhere; }
       #ask { border: 1px solid #38bdf8; background: #f0f9ff; border-radius: 4px; padding: 6px; margin: 6px 0; display: none; }
-      .row { display: flex; gap: 6px; align-items: center; }
+      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
       #composer { display: flex; gap: 6px; margin-top: 6px; }
-      #input { flex: 1; }
+      #input { flex: 1; min-width: 0; }
+      #send { flex: 0 0 auto; }
+      #consent { border-top: 1px solid #cbd5e1; margin-top: 10px; padding-top: 6px; }
+      #consent details { min-width: 0; }
+      #consent summary { cursor: pointer; font-weight: 600; }
+      #consent h3 { font-size: 13px; margin: 8px 0 2px; }
+      #consent ul { margin: 2px 0; padding-inline-start: 20px; }
+      #consent li { margin: 2px 0; }
       .muted { color: #64748b; font-size: 12px; }
     </style>
   </head>
   <body>
     <div id="status">无活跃站点</div>
+    <div class="topbar" id="topbar">
+      <button id="open-options" type="button">配置模型 / 设置</button>
+      <span id="llm-status" class="muted">LLM：检测中…</span>
+    </div>
+    <div id="onboarding"></div>
     <div id="notice"></div>
     <div class="row">
       <button id="authorize" type="button">授权当前站点</button>

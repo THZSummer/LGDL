@@ -6,6 +6,17 @@
  * transitions go through the pure reducer in `chat-state.ts`.
  */
 import { createInitialState, reduce, resolveAsk, resolveConfirm, type SidepanelState } from './chat-state.js';
+import {
+  CONSENT_DEFAULT_OPEN,
+  CONSENT_SUMMARY_TEXT,
+  LOG_EMPTY_TEXT,
+  buildOnboarding,
+  buttonStates,
+  isLogEmpty,
+  llmStatusView,
+  openSettingsPage,
+} from './view-model.js';
+import type { LlmStatusSummary } from '../../llm/status.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
 import { requestOriginPermission } from '../../platform/extension-env.js';
 
@@ -39,6 +50,9 @@ export function consentSummary(): string {
 }
 
 let state: SidepanelState = createInitialState();
+/** Last background `llm-status` summary; null until the round-trip completes. */
+let llmSummary: LlmStatusSummary | null = null;
+let llmLoaded = false;
 
 function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
   return chrome.runtime.sendMessage(message) as Promise<PluginResponse<T>>;
@@ -47,19 +61,28 @@ function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
 function render(): void {
   const log = $('log');
   log.textContent = '';
-  for (const entry of state.entries) {
-    const div = document.createElement('div');
-    div.className = `entry entry-${entry.role}${entry.kind === 'error' ? ' entry-error' : ''}`;
-    div.textContent = `${entry.role}: ${entry.text}`;
-    log.appendChild(div);
+  if (isLogEmpty(state.entries.length)) {
+    // F-5: never a large blank box — a readable placeholder instead.
+    log.classList.add('empty');
+    log.textContent = LOG_EMPTY_TEXT;
+  } else {
+    log.classList.remove('empty');
+    for (const entry of state.entries) {
+      const div = document.createElement('div');
+      div.className = `entry entry-${entry.role}${entry.kind === 'error' ? ' entry-error' : ''}`;
+      div.textContent = `${entry.role}: ${entry.text}`;
+      log.appendChild(div);
+    }
+    log.scrollTop = log.scrollHeight;
   }
-  log.scrollTop = log.scrollHeight;
 
   $('status').textContent = state.activeOrigin
     ? `站点 ${state.activeOrigin} · 发现=${state.discoveryState ?? '未知'} · ${state.authorized ? '已授权' : '未授权'}`
     : '无活跃站点';
-  ($('authorize') as HTMLButtonElement).disabled = !state.activeOrigin || state.authorized;
-  ($('send') as HTMLButtonElement).disabled = state.pending;
+  const buttons = buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending });
+  ($('authorize') as HTMLButtonElement).disabled = buttons.authorizeDisabled;
+  ($('revoke') as HTMLButtonElement).disabled = buttons.revokeDisabled;
+  ($('send') as HTMLButtonElement).disabled = buttons.sendDisabled;
 
   const notice = $('notice');
   notice.textContent = state.notice ?? '';
@@ -73,8 +96,62 @@ function render(): void {
     confirmBox.style.display = 'none';
   }
 
+  renderLlmStatus();
+  renderOnboarding();
   renderAsk();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
+}
+
+/** F-2: render the non-sensitive LLM configuration status + settings CTA. */
+function renderLlmStatus(): void {
+  const el = $('llm-status');
+  const btn = $('open-options') as HTMLButtonElement;
+  const view = llmStatusView(llmLoaded ? llmSummary : null);
+  el.textContent = view.label;
+  el.className = view.warn ? 'warn' : 'muted';
+  btn.textContent = view.settingsLabel;
+  btn.classList.toggle('primary', view.warn);
+}
+
+/** F-3: state-driven first-run guidance (only the next action is emphasized). */
+function renderOnboarding(): void {
+  const box = $('onboarding');
+  box.textContent = '';
+  const view = buildOnboarding({
+    configured: llmLoaded && Boolean(llmSummary?.configured),
+    hasOrigin: Boolean(state.activeOrigin),
+    discovered: state.discoveryState !== undefined,
+    authorized: state.authorized,
+    hasConversation: state.entries.length > 0,
+  });
+  box.style.display = view.visible ? 'block' : 'none';
+  if (!view.visible) return;
+
+  const title = document.createElement('div');
+  title.className = 'onboarding-title';
+  title.textContent = '首次使用（按序完成）';
+  box.appendChild(title);
+
+  const list = document.createElement('ol');
+  for (const step of view.steps) {
+    const li = document.createElement('li');
+    li.className = `onboarding-step${step.current ? ' current' : ''}${step.done ? ' done' : ''}`;
+    li.textContent = `${step.done ? '✓ ' : step.current ? '▶ ' : ''}${step.text}`;
+    list.appendChild(li);
+  }
+  box.appendChild(list);
+}
+
+/** F-2: fetch the non-sensitive LLM summary from the background (never the key). */
+async function refreshLlmStatus(): Promise<void> {
+  try {
+    const res = await send<LlmStatusSummary>(makeMessage('llm-status'));
+    llmSummary = res.ok && res.data ? res.data : null;
+  } catch {
+    llmSummary = null;
+  }
+  llmLoaded = true;
+  render();
 }
 
 /** Render the task-internal clarification prompt (FR-017 / R7). */
@@ -126,32 +203,40 @@ interface RiskStatusPayload {
 function renderConsent(): void {
   const section = document.createElement('section');
   section.id = 'consent';
-  const title = document.createElement('h2');
-  title.textContent = '知情同意与能力边界';
-  section.appendChild(title);
+
+  // F-4: the long consent/boundary text is collapsed by default, but every
+  // string is preserved verbatim (CONSENT_RISKS / CAPABILITY_BOUNDARY).
+  const details = document.createElement('details');
+  details.id = 'consent-details';
+  details.open = CONSENT_DEFAULT_OPEN;
+  const summary = document.createElement('summary');
+  summary.textContent = CONSENT_SUMMARY_TEXT;
+  details.appendChild(summary);
 
   const riskTitle = document.createElement('p');
   riskTitle.textContent = '风险提示';
-  section.appendChild(riskTitle);
+  details.appendChild(riskTitle);
   const risks = document.createElement('ul');
   for (const r of CONSENT_RISKS) {
     const li = document.createElement('li');
     li.textContent = r;
     risks.appendChild(li);
   }
-  section.appendChild(risks);
+  details.appendChild(risks);
 
   const capTitle = document.createElement('p');
   capTitle.textContent = '能力边界';
-  section.appendChild(capTitle);
+  details.appendChild(capTitle);
   const caps = document.createElement('ul');
   for (const c of CAPABILITY_BOUNDARY) {
     const li = document.createElement('li');
     li.textContent = c;
     caps.appendChild(li);
   }
-  section.appendChild(caps);
+  details.appendChild(caps);
+  section.appendChild(details);
 
+  // F-4: the risk controls are actionable — keep them outside the disclosure.
   const controls = document.createElement('div');
   controls.className = 'row';
   const make = (id: string, label: string) => {
@@ -202,11 +287,17 @@ async function refreshState(): Promise<void> {
 }
 
 function wire(): void {
+  // F-1: explicit settings entry in the panel's top status area.
+  $('open-options').addEventListener('click', () => {
+    openSettingsPage(chrome.runtime);
+  });
+
   $('composer').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('input') as HTMLInputElement;
     const text = input.value.trim();
     if (!text) return;
+    if (buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending }).sendDisabled) return;
     input.value = '';
     dispatch({ type: 'user', text });
     void send(makeMessage('chat', { user: text }));
@@ -314,4 +405,11 @@ if (typeof document !== 'undefined' && typeof chrome !== 'undefined') {
   renderConsent();
   render();
   void refreshState();
+  void refreshLlmStatus();
+  // F-2: refresh the summary when the panel regains focus (e.g. after the
+  // user saved settings on the options page).
+  window.addEventListener('focus', () => void refreshLlmStatus());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void refreshLlmStatus();
+  });
 }

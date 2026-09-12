@@ -5,16 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>web-cli plugin — 设置</title>
     <style>
-      body { font: 13px/1.6 system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; }
+      *, *::before, *::after { box-sizing: border-box; }
+      body { font: 13px/1.6 system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; overflow-wrap: anywhere; }
       label { display: block; margin-top: 12px; font-weight: 600; }
       input, select { width: 100%; padding: 6px; box-sizing: border-box; }
-      .row { display: flex; gap: 8px; margin-top: 16px; }
+      .row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
       .muted { color: #64748b; font-size: 12px; }
+      #saved { padding-right: 4px; }
+      .warning {
+        border: 1px solid #f59e0b; background: #fffbeb; color: #92400e;
+        border-radius: 4px; padding: 8px; margin: 12px 0; display: none;
+      }
+      .warning.show { display: block; }
       section { border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 12px; }
+      ol { margin: 4px 0; padding-inline-start: 20px; }
+      code { overflow-wrap: anywhere; }
     </style>
   </head>
   <body>
     <h1>web-cli plugin 设置</h1>
+
+    <section id="howto" style="border-top: none; margin-top: 8px; padding-top: 0">
+      <h2>如何使用</h2>
+      <ol>
+        <li>在本页配置 LLM 厂商与 API Key（BYOK，仅存扩展本地）。</li>
+        <li>打开目标站点标签页，点击浏览器工具栏的插件图标打开侧栏。</li>
+        <li>在侧栏「授权当前站点」，然后输入指令开始对话。</li>
+      </ol>
+      <p class="muted">
+        <strong>本页如何打开</strong>：侧栏顶部「配置模型 / 设置」按钮；
+        或 <code>chrome://extensions</code> → 本插件「详情」→「扩展程序选项」。
+      </p>
+    </section>
+
+    <div id="key-warning" class="warning" role="status"></div>
+
     <form id="form">
       <label for="provider">LLM 厂商（8 厂商 BYOK）</label>
       <select id="provider"></select>
@@ -31,6 +56,9 @@
 
       <label for="maxRounds">最大执行轮数</label>
       <input id="maxRounds" type="number" min="1" />
+      <div id="maxRounds-hint" class="muted">
+        默认 1000：单次任务中 agent 工具调用的最大轮数（防死循环）。一般无需修改；调小可更早中断。
+      </div>
 
       <div class="row">
         <button type="submit">保存</button>

@@ -29,6 +29,14 @@ function fillProviders(selected: string): void {
   }
 }
 
+function setKeyWarning(configured: boolean): void {
+  const box = $('key-warning');
+  box.textContent = configured
+    ? ''
+    : '⚠ 尚未配置 API Key：插件无法调用 LLM。请在下方选择厂商、填入 API Key 并保存。';
+  box.classList.toggle('show', !configured);
+}
+
 async function refresh(): Promise<void> {
   const cfg = await store.load();
   fillProviders(cfg.providerId);
@@ -39,6 +47,7 @@ async function refresh(): Promise<void> {
   const provider = providerById(cfg.providerId);
   $('hint').textContent = `${provider.hint}${provider.browserDirect ? '' : '；⚠ 该厂商浏览器直连受限，若不可用请使用本地代理（首版未实现，将给出可读转译）'}`;
   $('saved').textContent = cfg.apiKey ? '已保存 Key（掩码显示，不回显明文）' : '未配置 Key';
+  setKeyWarning(cfg.apiKey.length > 0);
 }
 
 function wire(): void {
@@ -62,7 +71,10 @@ function wire(): void {
         baseURL: ($('baseURL') as HTMLInputElement).value,
         maxRounds: Number(($('maxRounds') as HTMLInputElement).value) || DEFAULT_MAX_ROUNDS,
       });
+      // F-8: never leave the typed secret in the DOM after a successful save.
+      ($('apiKey') as HTMLInputElement).value = '';
       $('saved').textContent = '✓ 已保存到扩展存储（chrome.storage.local，页面脚本不可读）';
+      setKeyWarning(typed.length > 0 || existing.apiKey.length > 0);
     })();
   });
 
