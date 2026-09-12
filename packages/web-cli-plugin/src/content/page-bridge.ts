@@ -45,7 +45,32 @@ export const WEB_CLI_EVENT_NOTIFY_TYPE = 'web-cli:event-notify';
  */
 export const EVENT_CONTEXT_SUMMARY_N = 10;
 
-export type WebCliEventOp = 'subscribe' | 'pull' | 'unsubscribe' | 'status';
+/**
+ * Event-bridge operations (D3): the full hub surface the base `events` tool can
+ * drive, minus `list` (tracked locally from subscribe replies — the bridge has
+ * no page `list` op). `subscribe`/`pull`/`unsubscribe`/`status` pre-existed;
+ * `pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive` are forwarded too
+ * so the base subcommand semantics run against the page hub instead of a
+ * plugin-side hardcoded refusal. A page that does not implement an op answers
+ * readably (never a silent no-op) and the plugin surfaces that answer verbatim.
+ */
+export type WebCliEventOp =
+  | 'subscribe'
+  | 'unsubscribe'
+  | 'pull'
+  | 'pull-sensitive'
+  | 'status'
+  | 'pause'
+  | 'resume'
+  | 'clear'
+  | 'budget'
+  | 'switch';
+
+/** Every forwarded event op (schema/help single source). */
+export const WEB_CLI_EVENT_OPS: WebCliEventOp[] = [
+  'subscribe', 'unsubscribe', 'pull', 'pull-sensitive', 'status',
+  'pause', 'resume', 'clear', 'budget', 'switch',
+];
 
 export interface WebCliEventRequestMessage {
   type: string;
@@ -143,6 +168,18 @@ export interface PageEventBridge {
   pull(subId: string, opts?: { lastId?: number; max?: number }, timeoutMs?: number): Promise<WebCliEventResultMessage>;
   unsubscribe(subId: string, timeoutMs?: number): Promise<WebCliEventResultMessage>;
   status(timeoutMs?: number): Promise<WebCliEventResultMessage>;
+  /** D3: subscription buffer control + channel ops forwarded to the page hub. */
+  pause(subId: string, timeoutMs?: number): Promise<WebCliEventResultMessage>;
+  resume(subId: string, timeoutMs?: number): Promise<WebCliEventResultMessage>;
+  clear(subId: string, timeoutMs?: number): Promise<WebCliEventResultMessage>;
+  setBudget(params: { subId: string; bufferLimit?: number; autoPauseAt?: number }, timeoutMs?: number): Promise<WebCliEventResultMessage>;
+  switch(on: boolean, timeoutMs?: number): Promise<WebCliEventResultMessage>;
+  /**
+   * D3: sensitive-detail pull. The base `events` executor enforces the
+   * untrusted双闸 (`--trusted true`) + `risk='write'` ask *before* this call, so
+   * the bridge forwards only an already-gated request; it never relaxes the gate.
+   */
+  pullSensitive(subId: string, seq: number, timeoutMs?: number): Promise<WebCliEventResultMessage>;
 }
 
 export interface PageBridge {
@@ -236,6 +273,14 @@ export function createPageBridge(io: BridgeIo, opts: PageBridgeOptions): PageBri
     },
     unsubscribe: (subId, timeout) => eventRequest('unsubscribe', { subId }, timeout),
     status: (timeout) => eventRequest('status', {}, timeout),
+    // D3: forward the remaining hub ops (no plugin-side hardcoded refusal). A page
+    // that does not implement an op returns its own readable reason, surfaced verbatim.
+    pause: (subId, timeout) => eventRequest('pause', { subId }, timeout),
+    resume: (subId, timeout) => eventRequest('resume', { subId }, timeout),
+    clear: (subId, timeout) => eventRequest('clear', { subId }, timeout),
+    setBudget: (params, timeout) => eventRequest('budget', { ...params }, timeout),
+    switch: (on, timeout) => eventRequest('switch', { on }, timeout),
+    pullSensitive: (subId, seq, timeout) => eventRequest('pull-sensitive', { subId, seq }, timeout),
   };
 
   return {

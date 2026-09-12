@@ -1,15 +1,28 @@
 /**
  * Remote event hub — background proxy over the content event bridge (FR-051).
  *
- * The page-world `env.events` hub is reached through the existing content-script
- * event bridge (`site-event` → page `env.events`). That bridge exposes four ops
- * (`subscribe` / `pull` / `unsubscribe` / `status`); the remaining hub methods
- * (`pause` / `resume` / `clear` / `budget` / `switch` / `pull-sensitive`) return
- * a readable「页面事件桥暂不支持」outcome rather than pretending to succeed.
+ * The page-world `env.events` hub is reached through the content-script event
+ * bridge (`site-event` → page `env.events`). D3 extends the proxied op set from
+ * the original four (`subscribe` / `pull` / `unsubscribe` / `status`) to the full
+ * base `events` hub surface the tool can drive (minus `list`, tracked locally):
  *
- * Subscription summaries are tracked locally from successful `subscribe` replies
- * so the events tool's `unsubscribe` / `list` paths work without a page `list`
- * op. No new permission is required.
+ *   pause / resume / clear / budget / switch / pull-sensitive
+ *
+ * Each op is forwarded verbatim to the page hub and its reply is surfaced
+ * as-is — there is **no plugin-side hardcoded refusal** and no pretending: a page
+ * that does not implement an op answers readably and that answer reaches the tool
+ * result unchanged. Subscription summaries are tracked locally from successful
+ * replies (and refreshed from `status`) so the events tool's `unsubscribe` /
+ * `list` paths work without a page `list` op.
+ *
+ * Risk discipline (base zero-change): the base `createEventsToolEntry` owns the
+ * risk tiers and the `pull-sensitive` untrusted双闸 — `pull-sensitive` stays
+ * `risk='write'` + explicit `--trusted true` + ask, evaluated in base *before*
+ * `pullSensitive()` is ever called. This proxy never widens that gate; when the
+ * page supplies no sensitive detail it returns a specific reason (the bundled
+ * browser observe sources supply zero plaintext, FR-006) instead of fabricating.
+ *
+ * No new permission is required.
  */
 import type {
   PlatformChannelStatus,
@@ -22,6 +35,7 @@ import type {
   PlatformSubSummary,
   PlatformSubscribeOptions,
 } from '@lgdl/web-cli-base';
+import type { WebCliEventOp } from '../content/page-bridge.js';
 
 /** One bridge reply (content event bridge envelope). */
 export interface EventBridgeReply {
@@ -31,7 +45,7 @@ export interface EventBridgeReply {
 }
 
 export interface RemoteEventHubDeps {
-  request(op: 'subscribe' | 'pull' | 'unsubscribe' | 'status', params: Record<string, unknown>): Promise<EventBridgeReply>;
+  request(op: WebCliEventOp, params: Record<string, unknown>): Promise<EventBridgeReply>;
 }
 
 interface Tracked {
@@ -40,17 +54,35 @@ interface Tracked {
   sensitive: boolean;
   delivered: number;
   lastId: number;
+  paused: boolean;
+  autoPaused: boolean;
+  bufferSize: number;
+  bufferLimit: number;
+  dropped: number;
+  filterLabel: string;
 }
 
-function unsupported(what: string): PlatformEventOpOutcome {
-  return {
-    ok: false,
-    error: `✖ events ${what} 当前不可用：本插件的页面事件桥仅支持 subscribe/pull/unsubscribe/status（复用现有 content 事件桥），其余操作需页面侧扩展。`,
-  };
+/**
+ * D3 honest reason for `pull-sensitive` when the page supplies no retained
+ * plaintext detail. It names what is missing page-side and reaffirms the gate
+ * is untouched — never a generic refusal.
+ */
+export const SENSITIVE_DETAIL_UNAVAILABLE =
+  '✖ events pull-sensitive 无敏感明细可取：页面观察源未提供敏感明文明细' +
+  '（base FR-006 保守：真实浏览器内置观察源当前零明文供给；本插件不缓存任何明细）。' +
+  '门禁未放宽：--trusted true 显式声明 + risk write + ask 由 base 执行器在转发前判定。';
+
+/** Source label attached to any sensitive detail the page does supply. */
+export function sensitiveSourceLabel(subId: string, seq: number): string {
+  return `【敏感来源：页面事件桥 sensitiveDetail（subId=${subId} seq=${seq}）；经 --trusted true + risk write 门禁放行；插件侧零缓存 / 零审计明文】`;
 }
 
 const controller = { active: async () => false };
 const sources = new Proxy({} as PlatformEventSources, { get: () => controller });
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 export function createRemoteEventHub(deps: RemoteEventHubDeps): PlatformEventHub {
   const tracked = new Map<string, Tracked>();
@@ -80,17 +112,72 @@ export function createRemoteEventHub(deps: RemoteEventHubDeps): PlatformEventHub
     [...tracked.entries()].map(([subId, t]) => ({
       subId,
       kind: t.kind,
-      filterLabel: '',
+      filterLabel: t.filterLabel,
       sensitive: t.sensitive,
       ...(t.label ? { label: t.label } : {}),
-      paused: false,
-      autoPaused: false,
-      bufferSize: 0,
-      bufferLimit: 0,
-      dropped: 0,
+      paused: t.paused,
+      autoPaused: t.autoPaused,
+      bufferSize: t.bufferSize,
+      bufferLimit: t.bufferLimit,
+      dropped: t.dropped,
       delivered: t.delivered,
       lastId: t.lastId,
     }));
+
+  /** Refresh local tracking from a page `status` reply (page is authoritative). */
+  const syncStatus = (st: PlatformChannelStatus): void => {
+    if (!Array.isArray(st.subscriptions)) return;
+    for (const s of st.subscriptions) {
+      if (!s || typeof s.subId !== 'string') continue;
+      tracked.set(s.subId, {
+        kind: s.kind,
+        ...(s.label ? { label: s.label } : {}),
+        sensitive: s.sensitive === true,
+        delivered: typeof s.delivered === 'number' ? s.delivered : 0,
+        lastId: typeof s.lastId === 'number' ? s.lastId : 0,
+        paused: s.paused === true,
+        autoPaused: s.autoPaused === true,
+        bufferSize: typeof s.bufferSize === 'number' ? s.bufferSize : 0,
+        bufferLimit: typeof s.bufferLimit === 'number' ? s.bufferLimit : 0,
+        dropped: typeof s.dropped === 'number' ? s.dropped : 0,
+        filterLabel: typeof s.filterLabel === 'string' ? s.filterLabel : '',
+      });
+    }
+  };
+
+  /** Best-effort page status read (used by `list`/`status` for authoritative data). */
+  const readStatus = async (): Promise<PlatformChannelStatus | undefined> => {
+    const r = await deps.request('status', {});
+    if (!r.ok || !isRecord(r.data)) return undefined;
+    return r.data as unknown as PlatformChannelStatus;
+  };
+
+  /**
+   * Forward one control op and update local tracking on success. The page reply
+   * is the source of truth; failures surface the page's own readable reason.
+   */
+  const forwardOp = async (
+    op: Extract<WebCliEventOp, 'pause' | 'resume' | 'clear' | 'switch'>,
+    params: Record<string, unknown>,
+    subId?: string,
+  ): Promise<PlatformEventOpOutcome> => {
+    const r = await deps.request(op, params);
+    if (!r.ok) return { ok: false, error: r.error ?? `页面事件桥 ${op} 失败` };
+    const data = isRecord(r.data) ? r.data : undefined;
+    if (data && data.ok === false) return { ok: false, error: typeof data.error === 'string' ? data.error : `页面事件桥 ${op} 失败` };
+    if (subId !== undefined) {
+      const t = tracked.get(subId);
+      if (t) {
+        if (op === 'pause') t.paused = true;
+        else if (op === 'resume') {
+          t.paused = false;
+          t.autoPaused = false;
+          t.delivered = 0; // base resume resets the cumulative budget cycle (FR-014)
+        } else if (op === 'clear') t.bufferSize = 0;
+      }
+    }
+    return { ok: true };
+  };
 
   return {
     async subscribe(opts: PlatformSubscribeOptions): Promise<PlatformSubResult> {
@@ -104,6 +191,12 @@ export function createRemoteEventHub(deps: RemoteEventHubDeps): PlatformEventHub
         sensitive: opts.sensitive === true,
         delivered: 0,
         lastId: 0,
+        paused: false,
+        autoPaused: false,
+        bufferSize: 0,
+        bufferLimit: opts.budget?.bufferLimit ?? 0,
+        dropped: 0,
+        filterLabel: '',
       });
       return { ok: true, subId: data.subId };
     },
@@ -113,16 +206,23 @@ export function createRemoteEventHub(deps: RemoteEventHubDeps): PlatformEventHub
       return r.ok ? { ok: true } : { ok: false, error: r.error ?? '页面事件桥退订失败' };
     },
     async list(): Promise<PlatformSubSummary[]> {
+      // Prefer the page's authoritative summaries (reflects pause / budget /
+      // auto-pause); fall back to local tracking when the page cannot answer.
+      const st = await readStatus();
+      if (st?.subscriptions && st.subscriptions.length > 0) {
+        syncStatus(st);
+        return st.subscriptions;
+      }
       return listImpl();
     },
-    async pause(): Promise<PlatformEventOpOutcome> {
-      return unsupported('pause');
+    async pause(subId: string): Promise<PlatformEventOpOutcome> {
+      return forwardOp('pause', { subId }, subId);
     },
-    async resume(): Promise<PlatformEventOpOutcome> {
-      return unsupported('resume');
+    async resume(subId: string): Promise<PlatformEventOpOutcome> {
+      return forwardOp('resume', { subId }, subId);
     },
-    async clear(): Promise<PlatformEventOpOutcome> {
-      return unsupported('clear');
+    async clear(subId: string): Promise<PlatformEventOpOutcome> {
+      return forwardOp('clear', { subId }, subId);
     },
     async pull(subId: string, opts?: { lastId?: number; max?: number }): Promise<PlatformPullResult> {
       const r = await deps.request('pull', { subId, ...(opts ?? {}) });
@@ -133,26 +233,47 @@ export function createRemoteEventHub(deps: RemoteEventHubDeps): PlatformEventHub
       if (t) {
         if (typeof data.lastId === 'number') t.lastId = data.lastId;
         if (typeof data.delivered === 'number') t.delivered = data.delivered;
+        if (typeof data.dropped === 'number') t.dropped = data.dropped;
+        if (typeof data.bufferSize === 'number') t.bufferSize = data.bufferSize;
+        if (typeof data.autoPaused === 'boolean') t.autoPaused = data.autoPaused;
       }
       return data;
     },
-    async pullSensitive(): Promise<{ ok: boolean; detail?: string; error?: string }> {
-      return {
-        ok: false,
-        error:
-          '✖ events pull-sensitive 当前不可用：本插件的页面事件桥仅支持 subscribe/pull/unsubscribe/status（复用现有 content 事件桥），敏感明细需页面侧扩展。',
-      };
+    async pullSensitive(subId: string, seq: number): Promise<{ ok: boolean; detail?: string; error?: string }> {
+      // NOTE: base's executor has already enforced `--trusted true` + `risk='write'`
+      // + ask before this runs. Forwarding cannot widen that gate.
+      const r = await deps.request('pull-sensitive', { subId, seq });
+      if (!r.ok) return { ok: false, error: r.error ?? SENSITIVE_DETAIL_UNAVAILABLE };
+      const data = isRecord(r.data) ? r.data : undefined;
+      if (!data || data.ok !== true || typeof data.detail !== 'string' || data.detail === '') {
+        return { ok: false, error: (data && typeof data.error === 'string' && data.error) || SENSITIVE_DETAIL_UNAVAILABLE };
+      }
+      return { ok: true, detail: `${sensitiveSourceLabel(subId, seq)}\n${data.detail}` };
     },
     async status(): Promise<PlatformChannelStatus> {
-      const r = await deps.request('status', {});
-      const data = r.ok ? (r.data as PlatformChannelStatus | undefined) : undefined;
-      return data && typeof data === 'object' ? data : { ...emptyStatus, enabled: r.ok, subscriptions: await listImpl() };
+      const st = await readStatus();
+      if (st) {
+        syncStatus(st);
+        return st;
+      }
+      return { ...emptyStatus, subscriptions: await listImpl() };
     },
-    async setBudget(): Promise<PlatformEventOpOutcome> {
-      return unsupported('budget');
+    async setBudget(opts): Promise<PlatformEventOpOutcome> {
+      const params: Record<string, unknown> = { subId: opts.subId };
+      if (opts.bufferLimit !== undefined) params.bufferLimit = opts.bufferLimit;
+      if (opts.autoPauseAt !== undefined) params.autoPauseAt = opts.autoPauseAt;
+      const r = await deps.request('budget', params);
+      if (!r.ok) return { ok: false, error: r.error ?? '页面事件桥预算调整失败' };
+      const data = isRecord(r.data) ? r.data : undefined;
+      if (data && data.ok === false) return { ok: false, error: typeof data.error === 'string' ? data.error : '页面事件桥预算调整失败' };
+      const t = tracked.get(opts.subId);
+      if (t) {
+        if (typeof opts.bufferLimit === 'number') t.bufferLimit = opts.bufferLimit;
+      }
+      return { ok: true };
     },
-    async switch(): Promise<PlatformEventOpOutcome> {
-      return unsupported('switch');
+    async switch(on: boolean): Promise<PlatformEventOpOutcome> {
+      return forwardOp('switch', { on });
     },
     sources,
   };

@@ -255,7 +255,10 @@ chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     return true;
   }
   if (raw.kind === 'site-event') {
-    // FR-021: proxy the page-world `env.events` hub for the background.
+    // FR-021 / D3: proxy the page-world `env.events` hub for the background.
+    // The op is forwarded verbatim (subscribe/pull/unsubscribe/status +
+    // pause/resume/clear/budget/switch/pull-sensitive); the page hub decides
+    // support and answers readably — the content script makes no decision.
     const op = (typeof raw.op === 'string' ? raw.op : 'status') as WebCliEventOp;
     const params = (raw.params && typeof raw.params === 'object' ? raw.params : {}) as Record<string, unknown>;
     void bridge.events.request(op, params).then(

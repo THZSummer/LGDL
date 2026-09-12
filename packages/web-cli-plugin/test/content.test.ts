@@ -165,6 +165,29 @@ test('page-bridge: event pull is capped to the context summary budget with a rea
   bridge.dispose();
 });
 
+test('page-bridge: forwards the D3 event control ops verbatim (pause/resume/clear/budget/switch/pull-sensitive)', async () => {
+  const seen: Array<{ op?: string; params?: Record<string, unknown> }> = [];
+  const { io } = bridgeIoWithPage((message) => {
+    const m = message as { type?: string; op?: string; id?: string; params?: Record<string, unknown> };
+    if (m.type !== 'web-cli:event') return undefined;
+    seen.push({ op: m.op, params: m.params });
+    return { type: 'web-cli:event-result', channel: 'web-cli', id: m.id, ok: true, data: { ok: true } };
+  });
+  const bridge = createPageBridge(io, { channel: 'web-cli' });
+  await bridge.events.pause('s1');
+  await bridge.events.resume('s1');
+  await bridge.events.clear('s1');
+  await bridge.events.setBudget({ subId: 's1', bufferLimit: 5, autoPauseAt: 20 });
+  await bridge.events.switch(true);
+  await bridge.events.pullSensitive('s1', 7);
+  assert.deepEqual(seen.map((s) => s.op), ['pause', 'resume', 'clear', 'budget', 'switch', 'pull-sensitive']);
+  assert.deepEqual(seen[0]?.params, { subId: 's1' });
+  assert.deepEqual(seen[3]?.params, { subId: 's1', bufferLimit: 5, autoPauseAt: 20 });
+  assert.deepEqual(seen[4]?.params, { on: true });
+  assert.deepEqual(seen[5]?.params, { subId: 's1', seq: 7 });
+  bridge.dispose();
+});
+
 test('page-bridge: forwards unsolicited event notifications to the background sink (FR-021)', async () => {
   const received: Array<{ subId: string; events: unknown[] }> = [];
   const { io, subscribers } = bridgeIoWithPage(() => undefined);

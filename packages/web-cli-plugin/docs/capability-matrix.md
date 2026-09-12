@@ -42,7 +42,7 @@
 | 25 | `save` | 2 | **base `save`**（页面上下文 anchor 下载链） | **已提供** | FR-051 |
 | 26 | `notify` | 1 | 需 `notifications` 权限 | **待批准权限** | FR-006；本任务权限纪律 |
 | 27 | `clipboard` | 5 | 需 `clipboardRead`/`clipboardWrite` 权限 | **待批准权限** | FR-006 / FR-028 |
-| 28 | `events` | 11 | **base `events`**；经既有 content 事件桥（subscribe/pull/unsubscribe/status 真实可用；list 本地；其余子命令返回可读「暂不支持」） | **已提供（运行时部分）** | FR-051 / FR-021 |
+| 28 | `events` | 11 | **base `events`**；经既有 content 事件桥（subscribe/unsubscribe/pull/status/list + **pause/resume/clear/budget/switch/pull-sensitive** 全量转发，D3） | **已提供（运行时完整）** | FR-051 / FR-021 / D-151 |
 | 29 | `cookie` | 4 | 不提供（原助手 `enabled:false`） | 基线禁用 | 基线 enabled:false |
 | 30 | `dialog` | 6 | 不提供（原助手 `enabled:false`） | 基线禁用 | 基线 enabled:false |
 | 31 | `net` | 6 | 不提供（原助手 `enabled:false`） | 基线禁用 | 基线 enabled:false |
@@ -76,6 +76,14 @@
 ## 4. 最小能力集（Gate-D D-1 基线）
 
 原「下线内置助手最小能力集」8 项仍全部有承载：P0 覆盖会话/ask、图内容、写回、BYOK、会话持久、工具发现；P1 覆盖 UI 操作、事件消费。见 `docs/gate-d.md`。FR-051 之后，浏览器外壳/DOM 采集能力（`dom`/`chrome`/`extract`/`export`/`save`/`wait`/`events`/`web-search`）也纳入插件工具面。
+
+### 4.1 `events` 运行时（TASK-036 / D3，2026-09-13）
+
+工具面 11 子命令的**运行时已完整对齐**：`subscribe`/`unsubscribe`/`pull`/`status`/`list` 之外，`pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive` 现经 content 事件桥**逐字转发**到页面 `env.events` hub（无插件侧 hardcoded「暂不支持」；页面不支持时页面自己的**具体原因**原样透出）。
+
+- risk 档沿用 base 单一来源，未放宽：`pull-sensitive` = `write`（`--trusted true` + ask，未声明时不转发）；控制类 = `state`（缺省 ask）。
+- `pull-sensitive` 无保留明细时给出**特定原因**（真实浏览器内置观察源零明文供给，FR-006）；插件侧零缓存 / 零审计明文，不使用宽松路径绕过门禁。
+- **站点侧契约**：这些 op 是事件通道协议的一部分，站点页面桥需实现（LGDL 页面桥可直接复用 base `createBrowserEventHub()`，其 hub 已实现全部 op）。参考实现见夹具 `test/fixtures/site/rpc.js`。
 
 ## 5. 引用
 

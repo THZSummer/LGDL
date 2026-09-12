@@ -183,12 +183,19 @@ test('browser tools: events subscribe dispatches to the content event bridge', a
   assert.ok(eventOps.includes('status'));
 });
 
-test('browser tools: events pause is honestly reported unsupported (no fake success)', async () => {
-  const { host } = buildHarness();
+test('browser tools: events pause is state-tier (ask) and is not forwarded when denied (D3)', async () => {
+  const { host, eventOps } = buildHarness();
   // pause is a `state` tier → ask → denied without responder; assert the tier is
-  // at least not silently allowed, and the hub method is honest.
-  const res = await host.dispatch(call('events', 'pause', { target: 'sub-1' }));
+  // at least not silently allowed, and the bridge op is never sent.
+  const res = await host.dispatch(call('events', 'pause', { subId: 'sub-1' }));
   assert.equal(res.ok, false);
+  assert.equal(eventOps.includes('pause'), false, 'denied pause must not reach the page bridge');
+
+  // With the ask allowed, the op is really forwarded (no plugin-side refusal).
+  const allowed = buildHarness({ onAsk: async () => ({ action: 'allow' }) });
+  const ok = await allowed.host.dispatch(call('events', 'pause', { subId: 'sub-1' }));
+  assert.equal(ok.ok, true);
+  assert.ok(allowed.eventOps.includes('pause'));
 });
 
 test('extension browser env: no bound tab yields a readable refusal (no throw)', async () => {

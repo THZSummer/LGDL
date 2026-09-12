@@ -72,6 +72,37 @@ function mockResponse(body) {
   if (last?.role === 'tool') return completion({ content: `完成：${last.content}` });
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   const userText = typeof lastUser?.content === 'string' ? lastUser.content : '';
+  // D3: events runtime completion — the 6 previously-refused subcommands.
+  if (/events subscribe|订阅事件/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_sub', name: 'events', subcommand: 'subscribe', args: { kind: 'dom', label: 'e2e' } }] });
+  }
+  if (/events switch on|开启事件/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_on', name: 'events', subcommand: 'switch', args: { on: 'true' } }] });
+  }
+  if (/events pause|暂停事件/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_pause', name: 'events', subcommand: 'pause', args: { subId: 'sub-1' } }] });
+  }
+  if (/events resume|恢复事件/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_resume', name: 'events', subcommand: 'resume', args: { subId: 'sub-1' } }] });
+  }
+  if (/events clear|清空事件/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_clear', name: 'events', subcommand: 'clear', args: { subId: 'sub-1' } }] });
+  }
+  if (/events budget|事件预算/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_budget', name: 'events', subcommand: 'budget', args: { subId: 'sub-1', bufferLimit: '5' } }] });
+  }
+  if (/events unsubscribe|退订事件/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_unsub', name: 'events', subcommand: 'unsubscribe', args: { subId: 'sub-1' } }] });
+  }
+  if (/events sensitive no trust|敏感明细未声明/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_sens_notrust', name: 'events', subcommand: 'pull-sensitive', args: { subId: 'sub-1', seq: '1' } }] });
+  }
+  if (/events sensitive detail|敏感明细读取/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_sens', name: 'events', subcommand: 'pull-sensitive', args: { subId: 'sub-1', seq: '1', trusted: 'true' } }] });
+  }
+  if (/events pull|拉取事件/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_ev_pull', name: 'events', subcommand: 'pull', args: { subId: 'sub-1' } }] });
+  }
   // FR-051 / TASK-029: real-page browser capability tools (dom / chrome).
   if (/domread|读页面/i.test(userText)) {
     return completion({ toolCalls: [{ id: 'call_dom_read', name: 'dom', subcommand: 'read-state', args: {} }] });
@@ -535,6 +566,36 @@ async function main() {
           pre: ({ swCdp }) => evaluate(swCdp, `chrome.tabs.query({ url: chrome.runtime.getURL('options.html') }).then((tabs) => tabs[0] && chrome.tabs.update(tabs[0].id, { active: true })).then(() => true)`),
           test: (t) => /近似（canvas，原因：/.test(t) && /captureVisibleTab/.test(t),
         },
+        // D3 — events runtime completion: the 6 previously-refused subcommands
+        // (`pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`). The
+        // fixture page implements the full hub op set; the plugin proxy must
+        // forward rather than hardcode a refusal, and pause/clear must be
+        // observable through a subsequent pull.
+        { user: 'events subscribe dom', label: 'events subscribe registers a real page subscription (D3)', test: (t) => /事件订阅已注册：sub-1/.test(t) },
+        { user: 'events switch on', label: 'events switch opens the global channel (D3)', test: (t) => /事件通道已开启/.test(t) },
+        {
+          user: 'events pull one',
+          label: 'events pull returns a real increment once the channel is on (D3)',
+          pre: () => sleep(1200),
+          test: (t) => /events pull（sub-1/.test(t) && /增量 ([1-9]\d*) 条/.test(t) && /游标 [1-9]\d*/.test(t),
+        },
+        { user: 'events pause one', label: 'events pause is forwarded to the page hub (D3)', test: (t) => /已暂停 sub-1/.test(t) },
+        { user: 'events clear one', label: 'events clear empties the page buffer (D3)', test: (t) => /已清空缓冲 sub-1/.test(t) },
+        { user: 'events pull two', label: 'pause stops delivery and clear emptied the buffer → increment 0 (D3)', test: (t) => /增量 0 条/.test(t) },
+        { user: 'events resume one', label: 'events resume is forwarded to the page hub (D3)', test: (t) => /已恢复 sub-1/.test(t) },
+        {
+          user: 'events pull three',
+          label: 'resume resumes real delivery (D3)',
+          pre: () => sleep(900),
+          test: (t) => /增量 ([1-9]\d*) 条/.test(t),
+        },
+        { user: 'events budget one', label: 'events budget applies a subscription buffer limit (D3)', test: (t) => /bufferLimit=5/.test(t) },
+        { user: 'events pause two', label: 'events pause again before the second clear (D3)', test: (t) => /已暂停 sub-1/.test(t) },
+        { user: 'events clear two', label: 'events clear again (D3)', test: (t) => /已清空缓冲 sub-1/.test(t) },
+        { user: 'events pull four', label: 'pause + clear → no buffered increment (D3)', test: (t) => /增量 0 条/.test(t) },
+        { user: 'events sensitive no trust', label: 'pull-sensitive refuses without --trusted (base gate, no downgrade) (D3)', test: (t) => /须显式声明 --trusted true/.test(t) },
+        { user: 'events sensitive detail', label: 'pull-sensitive with --trusted forwards and the page reports no plaintext detail honestly (D3)', test: (t) => /无保留明细/.test(t) || /无敏感明细可取/.test(t) },
+        { user: 'events unsubscribe one', label: 'events unsubscribe tears the subscription down (D3)', test: (t) => /已退订 sub-1/.test(t) },
         // D6 — native tab-level history is attempted first; when the environment's
         // native API cannot run, the page-context history fallback is labeled
         // readably with the concrete native failure reason (never silent).

@@ -764,7 +764,34 @@ router.dispatch → PermissionGate.check
 - `test:hardening`（22→24）：未声明协议文案改为自动重试（无手动入口）+ unknown 终态文案可读。
 - `test:binding`（104→114，新增阶段 3）：本地延迟就绪站点（前 3 次 `/.well-known/web-cli.json` 返回 503）→ 失败后自动进入退避重试（`nextDelayMs ≥ 500`）→ 站点就绪后**零点击**自动 `supported` + 工具面装配；阶段内 0 未捕获异常。
 
-## 16. 变更记录
+## 16. events 运行时补齐（TASK-036 / D3）
+
+`events` 工具面早在 TASK-029 就与基线对齐（11 子命令），但**运行时只有 4 个桥操作可用**：`subscribe` / `pull` / `unsubscribe` / `status`（`list` 本地跟踪），其余 6 个子命令（`pause` / `resume` / `clear` / `budget` / `switch` / `pull-sensitive`）一律返回可读「暂不支持」。本轮补齐运行时 —— **base 零改动、零新权限、manifest 零 diff、无新依赖**。
+
+### 16.1 机制（把事件桥 op 集补全并逐字转发）
+
+- 插件 content 事件桥 `src/content/page-bridge.ts`：`WebCliEventOp` 由 4 扩到 10（新增 `pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`），`PageEventBridge` 补对应方法（`pause()`/`resume()`/`clear()`/`setBudget()`/`switch()`/`pullSensitive()`）。
+- `src/tools/remote-events.ts`：远程 hub 不再有 hardcoded refusal —— 6 个方法全部**逐字转发**页面 `env.events` hub；页面不支持某 op 时，页面自己的**具体原因**原样进入工具结果（绝不假装成功）。
+- 订阅摘要以页面 `status` 为准（`list`/`status` 刷新本地跟踪），因此 `pause`/`budget`/自动暂停状态在清单里如实呈现。
+- `src/content/content-script.ts` 的 `site-event` 分支对 op 逐字转发，不做任何决策。
+
+### 16.2 risk 档与 pull-sensitive 门禁（不放宽）
+
+- risk 仍由 base `createEventsToolEntry` 单一来源：`subscribe`/`list`/`status`/`pull` = `read`；`unsubscribe`/`pause`/`resume`/`clear`/`budget`/`switch` = `state`（缺省 ask）；`pull-sensitive` = `write`（**未降档**）。插件不重声明、不放宽。
+- `pull-sensitive` 的 untrusted 双闸（须显式 `--trusted true`）由 base 执行器在**转发前**判定；未声明 trusted 时请求**不会到达页面桥**。放行后页面若无保留明细，返回**具体原因**（如「无保留明细」）；页面完全无响应时插件给出 FR-006 的特定原因（真实浏览器内置观察源零明文供给 + 插件零缓存 + 门禁未放宽），绝不泛泛「暂不支持」。
+- 审计：插件侧对明细**零缓存 / 零明文**；base 的 `pull-sensitive` 决策记录不含明文。
+
+### 16.3 页面侧契约（站点方）
+
+上述 op 属**站点事件通道协议**的一部分：站点页面桥需实现（LGDL Workbench 页面桥可直接复用 base `createBrowserEventHub()`，其 hub 已实现全部 op）。插件测试夹具 `test/fixtures/site/rpc.js` 提供**无依赖参考实现**（含合成观察源），`test:e2e` 用它证明真机全链。
+
+### 16.4 回归门禁
+
+- `test/remote-events.test.ts`（9）：注入式有状态桥逐条验证 pause 停投递 / resume 复投 / clear 清空 / budget 生效 / switch 切通道；页面不支持时**具体原因**原样透出；risk 档未放宽；`pull-sensitive` 未 trusted 不转发、trusted 转发并标注敏感来源、deny 不转发、无明细给出特定原因。
+- `test/content.test.ts`：`page-bridge` 逐字转发 6 个新 op（参数形状断言）。
+- `test:e2e`（真实 dist + 真实 Chromium）：夹具页实现完整 hub → 真机断言 subscribe / switch / pull（增量 > 0）/ pause+clear→pull（增量 0）/ resume→pull（增量 > 0）/ budget / pull-sensitive 门禁 / 无明细原因 / unsubscribe。
+
+## 17. 变更记录
 
 | 版本 | 说明 |
 |------|------|
@@ -787,3 +814,4 @@ router.dispatch → PermissionGate.check
 | 2.6 | **TASK-034 / D1+D4（用户实测第九轮）**：`chrome screenshot` 在插件宿主下优先走 `chrome.tabs.captureVisibleTab` **真实像素**（`mode=element` 经 `dom-op` 取 rect + SW `OffscreenCanvas` 裁剪），未授权/受限/失败时**回退** page-context 近似路径并**如实标注实际路径与原因**（绝不谎称真实）；插件侧 `Proxy` 包装 `env.dom.ops` 仅覆盖 `screenshot`（`waitFor`/`extractData` 全透传，`wait`/`extract`/`export` 不被摘除）；`chrome` 工具 `description`/`help` 在插件层修正页内时代的「书签…= 不可承载」绝对表述（base 零改动）。补 §13.7 + compliance §11；`test/real-screenshot.test.ts`（16）+ browser-tools D4/透传断言；`test:e2e` 新增「captureVisibleTab 返回 Promise + 真实 PNG」与「真实/回退路径标注」断言。插件 389→405，全仓 0 fail（base 483 零回归）、**base 零改动 / manifest 零 diff / 无新依赖 / 无明文 key / 无静默失败**。 |
 | 2.7 | **TASK-035 / D2+D6（用户要求）**：`chrome screenshot --mode fullpage` 在插件侧实现**滚动分屏 `captureVisibleTab` 拼接**（`ceil(h/vh)` 屏；SW `OffscreenCanvas` 合成）——**遵守 2 次/秒速率限制**（`MIN_CAPTURE_INTERVAL_MS=500` + 命中限流按 `[700,1500]ms` 有界退避重试）、**有上限**（≤20 屏 / ≤40MP，超出**捕获前**可读拒绝并给出已捕获范围）、**始终恢复原滚动位置**（恢复失败如实披露）；成功输出必含 `像素路径：真实像素（captureVisibleTab ×N 屏拼接）` + 明确局限声明（fixed/sticky 每屏重复、懒加载/动画状态可能不一致，**绝不宣称完整/无损**）；`chrome back/forward` 同一包装层优先**原生** `chrome.tabs.goBack/goForward`（失败可读回退页面 `history` 并标注实际路径，离开绑定 origin 会如实说明）。因 base 执行器对 fullpage 先行短路，fullpage 命令与输出/下载策略由插件层 `chrome-host.ts` 接管（复用 base 已导出的 `summarizeScreenshotData`/`screenshotFilename`/`translateCapabilityError`）。补 §13.8 + compliance §11；新增 `test/fullpage-screenshot.test.ts`（20）、`test/real-screenshot.test.ts`/`test/browser-tools.test.ts` 加强透传与文案断言；`test:e2e` 新增整页拼接真机断言（≥2 屏 + 尺寸 > 单屏 + 局限可见 + 滚动已恢复）与 back/forward 原生优先 + 回退标注断言（headless `tabs.goBack` 非功能已披露）。插件 405→425，全仓 0 fail（base 483 零回归）、**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**。 |
 
+| 2.8 | **TASK-036 / D3（补齐 events 运行时 6 子命令）**：`events` 工具面已对齐基线（11 子命令）但运行时仅 4 桥操作可用；本轮把 content 事件桥 op 集由 4 扩到 10（`pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`）并**逐字转发**页面 `env.events` hub —— 删除插件侧 hardcoded「暂不支持」，页面不支持时其**具体原因**原样透出（绝不假装成功）；订阅摘要以页面 `status` 为准。risk 仍由 base 单一来源（`pull-sensitive` = `write` **未降档**；控制类 = `state`），`pull-sensitive` 未 `--trusted true` 时**不转发**、无保留明细返回**特定原因**（FR-006 零明文 + 插件零缓存），审计零明文。站点页面桥需实现这些 op（LGDL 页面桥可复用 base `createBrowserEventHub()`）；夹具 `test/fixtures/site/rpc.js` 提供参考实现。新增 `test/remote-events.test.ts`（9）；补 §16；`test:e2e` 新增 13 条真机断言（pause/resume/clear/budget/switch + pull-sensitive 门禁 + 无明细原因）；插件 425→435、`tsc --noEmit` 0 error、`test:ui` 136、`test:hardening` 24、`test:binding` 125、`test:e2e` PASS、全仓 build+test 0 fail（base 483 零回归）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**。 |

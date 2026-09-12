@@ -16,6 +16,7 @@
 import type { PlatformEnv, PlatformDomOpResult } from '@lgdl/web-cli-base';
 import { createRemoteDomOps, type DomAgentTransport } from '../content/dom-agent.js';
 import { createRemoteEventHub, type EventBridgeReply } from '../tools/remote-events.js';
+import type { WebCliEventOp } from '../content/page-bridge.js';
 import { createRealScreenshotOps, SCREENSHOT_PATH_META, type RealScreenshotDeps, type ScreenshotPathMeta } from './real-screenshot.js';
 
 export interface BrowserEnvDeps {
@@ -27,9 +28,11 @@ export interface BrowserEnvDeps {
   sendFileSave(tabId: number, filename: string, data: string | Blob): Promise<{ ok: boolean; error?: string }>;
   /**
    * Forward one event-bridge op to the bound tab's content script. Omitted → no
-   * `events` tool is registered (transport unavailable).
+   * `events` tool is registered (transport unavailable). The op set is the full
+   * hub surface the base tool can drive (D3: pause/resume/clear/budget/switch/
+   * pull-sensitive included).
    */
-  eventRequest?(op: 'subscribe' | 'pull' | 'unsubscribe' | 'status', params: Record<string, unknown>): Promise<EventBridgeReply>;
+  eventRequest?(op: WebCliEventOp, params: Record<string, unknown>): Promise<EventBridgeReply>;
   /**
    * D1: real-pixel screenshot provider deps. Omitted → base approximate path
    * only (this keeps the node-test / non-extension assembly unchanged).

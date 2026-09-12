@@ -2401,6 +2401,41 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **整页上限为硬拒绝**：>20 屏或 >40MP 直接可读拒绝（不自动降采样/分段多次抓取）。
 - **e2e 的 `<all_urls>` 为测试副本偏差**（沿用 TASK-034 披露）；产品 manifest 未改，真实手势链仍属人工面。
 
+## 34. events 补齐运行时 6 子命令（TASK-036 / D3 / Wave 28）
+
+### 34.1 问题
+
+`events` 工具面在 TASK-029（§27）已按基线对齐 **11 子命令**，但**运行时只有 4 个桥操作真实可用**：`subscribe`/`pull`/`unsubscribe`/`status`（`list` 本地跟踪）；其余 6 个（`pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`）在 `src/tools/remote-events.ts` 里一律返回可读「页面事件桥暂不支持」。这是**唯一「工具面已对齐、运行时未对齐」**的缺口，且不需要任何新权限。
+
+### 34.2 实现（插件侧补齐；base 零改动 / manifest 零 diff / 零新依赖 / 零新权限）
+
+- **事件桥 op 集补全**（`src/content/page-bridge.ts`）：`WebCliEventOp` 由 4 扩到 10（新增 `pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`），`PageEventBridge` 补 `pause()`/`resume()`/`clear()`/`setBudget()`/`switch()`/`pullSensitive()`，均经同一 `web-cli:event` 请求/响应通道。
+- **逐字转发，杜绝 hardcoded 拒绝**（`src/tools/remote-events.ts`）：6 个 hub 方法全部把 op 转发给页面 `env.events` hub；页面不支持某 op 时，**页面自己的具体原因**原样进入工具结果（不假装成功、不泛泛「暂不支持」）。订阅摘要以页面 `status` 为准（`list`/`status` 刷新本地跟踪），`pause`/`budget`/自动暂停在清单里如实呈现。
+- **content script**（`src/content/content-script.ts`）：`site-event` 分支对 op 逐字转发（类型面扩展后无需行为改动）。
+- **接线**（`src/platform/browser-env.ts` / `service-worker.ts`）：`eventRequest(op, params)` 的 op 类型随桥扩到 10，转发路径不变。
+
+### 34.3 新增决策（D-151~D-155）
+
+- **D-151（扩事件通道 op 集而非在插件侧伪造状态）**：`pause`/`resume`/`clear`/`budget`/`switch` 都是**页面订阅缓冲/通道状态**，只能由页面 hub 真实承载；插件逐字转发。**被否决**：在 background 维护一份本地缓冲并本地实现这些 op（会与页面 pull 的真实缓冲分叉 → 事实上的假成功）；也为凑 11 子命令写死「成功」。
+- **D-152（页面不支持 → 透出页面具体原因，不兜底泛化）**：页面回 `{ok:false,error}` 时原样作为工具失败原因（含其可用 op 列表）；仅当页面**完全无明细数据**时用插件 FR-006 特定原因。**被否决**：把任何失败统一改写成插件侧「暂不支持」（丢失真实的缺什么/为什么）。
+- **D-153（pull-sensitive 只转发、不改门禁）**：`pull-sensitive` 的 `risk='write'` + `--trusted true` + ask 全在 base `createEventsToolEntry`/执行器里，转发发生在其**之后**；插件不重声明、不放宽。页面无保留明细时返回特定原因（真实浏览器内置观察源零明文供给，FR-006），插件侧**零缓存 / 零审计明文**；有明细时在 detail 前标注敏感来源。**被否决**：为「能返回点东西」而放宽 trusted/ask；把明细写审计/日志。
+- **D-154（站点页面桥契约 + 无依赖参考实现）**：这些 op 属站点事件通道协议；LGDL Workbench 页面桥可直接复用 base `createBrowserEventHub()`（其 hub 已实现全部 op）。夹具 `test/fixtures/site/rpc.js` 提供**无依赖参考实现 + 合成观察源**，供真机 e2e。**被否决**：在插件 content 隔离世界自建 hub（会丢失页面 console/network 观察，属回归）。
+- **D-155（真机断言落在 test:e2e 的夹具站点，而非 binding 的真实 LGDL）**：真实 LGDL 页面桥当前仅实现 4 op（其扩展属站点侧另一轮），故「补齐 op 的真机行为」以夹具站点在 `test:e2e`（真实 dist + 真实 Chromium）证明；binding 的真实 LLM tools 清单不回归。
+
+### 34.4 门禁与验证（本轮复跑原文摘录）
+
+- `npx tsc --noEmit`：**0 error**。
+- 插件 `npm test`：**435 pass / 0 fail**（新增 `test/remote-events.test.ts` 9 用例 + `test/content.test.ts` 新 op 转发用例；`test/browser-tools.test.ts` pause 用例改为「state 档 + 放行后真实转发」）。
+- `npm run test:ui`：**136 PASS**；`npm run test:hardening`：**24 PASS**；`npm run test:binding`：**125 PASS**（真实 LLM tools 21 个不回归）。
+- `npm run test:e2e`：**R8 E2E PASS**（场景 A 新增 13 条 D3 真机断言：`events subscribe`→`switch`→`pull`（增量>0）→`pause`+`clear`→`pull`（增量 0）→`resume`→`pull`（增量>0）→`budget`→`pull-sensitive` 未 trusted 拒绝 / trusted 转发无明细具体原因 → `unsubscribe`；场景 B 不回归）。
+- 全仓 `npm run build` + `npm run test`：**0 fail**（base **483 零回归**；插件 435）；`test:binding`/`test:ui`/`test:hardening`/`test:e2e` 全绿。
+- **红线核验**：`git diff --stat -- packages/web-cli-base packages/web-cli-plugin/manifest.json packages/web-cli-plugin/package.json package-lock.json .opencode/opencode.json` **为空**；无新依赖、无 `<all_urls>`、无静态 `content_scripts`、无明文 key、无静默失败。
+
+### 34.5 未完成 / 降级（如实）
+
+- **真实 LGDL Workbench 页面桥仍只实现 4 个 op**（`packages/lgdl-web/src/web-cli-host/bridge.ts`）：本轮按任务范围只改**插件侧**（base 零改动、提交限 `packages/web-cli-plugin/` 与 `.sddu/`），未改站点包；因此在**真实 LGDL 站点**上，6 个新 op 会透出页面桥自己的可读拒绝（「不支持的事件通道操作 …（可用：subscribe/pull/unsubscribe/status）」），**在符合新 op 契约的站点/夹具上则真实可用**。站点侧复用 base `createBrowserEventHub()` 即可补齐（属站点侧后续轮）。
+- **`pull-sensitive` 在真实浏览器内置观察源下恒无明细**（base FR-006 保守，零明文供给）：通道已实现且门禁未放宽，但真实站点通常只会得到「无保留明细」的特定原因，属数据面事实而非实现缺失。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2432,3 +2467,4 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v1.24 | **设置面板改为侧栏内视图（移除 `openOptionsPage` 主入口，零跳转）**（§31，TASK-033，Wave 25，用户诉求「不建议跳到 `chrome-extension://…/options.html`…建议直接在拓展当前页面展示」驱动）：`index.html` 新增 `#settings-view` + `#open-settings`/`#settings-back`，同文档显隐切换（**不重建 DOM**，`view-switch.ts` 捕获/恢复 `#log.scrollTop` 与 `#input` 草稿，聊天消息/滚动/草稿全保留）；**不再把 `openOptionsPage()` 作为设置入口**（侧栏/`view-model.ts` 零调用路径，页面内计数归零 + target 数不变双重佐证）；设置逻辑抽共享模块 `src/ui/settings/`（`view.ts` 纯映射 + `ops.ts` 既有消息通道/ key-store，依赖注入、node 可测 + `panel.ts` 面板渲染 + `diagnostics.ts` 迁入共用 + `styles.ts` 共享样式），options 兜底页改为静态薄壳**复用同一逻辑**（功能不退化，静态 DOM 零回归）；覆盖 LLM 配置（含测试连接/清除）/按站点自动授权（当前 origin 读写 + 列表）/标签页管理/会话分组/环境自检/合规与迁移（折叠），窄屏纵向堆叠无横向滚动；顺带修复 TASK-032 探针推送覆盖「已授权」回执（`chat-state.ts` 仅在失效 false→true 跃迁提示；binding #4b/#4c FAIL→PASS）。门禁：新增 `test/settings.test.ts`（15）+ `test/sidepanel.test.ts` 失效跃迁断言、插件 373→**389**、`tsc` 0 error、`test:ui` 121→**136**（#33a~#33o，既有断言零删除）、`test:binding` 114→**125**（#33B1~#33B11，保留既有）、`test:hardening` **24**、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（`options_page` 保留）/ 无新依赖 / 无新权限 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-136~D-140；docs dev §3.1.1·§3.2·§4·§11.1 + release §2·§5.2·§7 同步；未 git 提交（由上层统一提交）。 |
 | v1.25 | **chrome screenshot 走真实像素 + 修正 chrome help 过时表述**（§32，TASK-034 / D1+D4，Wave 26，用户实测第九轮）：插件侧新增 `src/platform/real-screenshot.ts`（`Proxy` 只覆盖 `env.dom.ops.screenshot`，base 零改动）：已授权 http(s) origin → `chrome.tabs.captureVisibleTab` **真实像素**（element 经 `dom-op` 取 rect + SW `OffscreenCanvas` 裁剪）；未授权/受限/失败 → **回退** base 近似路径并**如实标注**「真实像素（captureVisibleTab）」/「近似（canvas，原因：…）」（绝不谎称真实）；`fullpage` 仍「不支持」（D2 单独一轮）。`src/tools/chrome-host.ts` 在插件层包装 chrome 条目的 `description`/`help`，删除页内时代的「书签…= 不可承载」绝对表述（指向 `tabs`/宿主层能力）。**透传纪律**：`waitFor`/`extractData` 与 base 同引用 → `wait`/`extract`/`export` 不被摘除。**实测**：MV3 SW 下 `captureVisibleTab` 返回 Promise；该 API 需 `activeTab` 或 `<all_urls>`（仅 host 权限不足），插件已声明 `activeTab`（图标手势授予）→ **零新权限 / manifest 零 diff**。门禁：新增 `test/real-screenshot.test.ts`（16）+ browser-tools D4/透传断言、插件 **405 pass/0 fail**、`tsc --noEmit` 0 error、`test:e2e` **PASS**（含真实 PNG + 两条路径标注断言；临时 dist `<all_urls>` 偏差已披露）、`test:ui` **136**、`test:hardening` **24**、`test:binding` **125**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无明文 key / 无静默失败**；docs dev §13.7 + compliance §11 同步；未 git 提交（由上层统一提交）。 |
 | v1.26 | **整页截图（D2）+ 原生 back/forward（D6）**（§33，TASK-035，Wave 27，用户要求「D2 滚动分屏 captureVisibleTab 拼接（节流/上限/恢复滚动/诚实标注 fixed-sticky 重复）+ D6 原生 tabs.goBack/goForward（失败可读回退并标注路径）」）：同一包装层（`real-screenshot.ts` 透传 `Proxy`）新增覆盖 `historyNav`；因 base 执行器对 fullpage **先行短路**，fullpage 命令与输出/下载策略由 `chrome-host.ts` 接管（复用 base 已导出 `summarizeScreenshotData`/`screenshotFilename`/`translateCapabilityError`）：`ceil(h/vh)` 屏滚动 + `captureVisibleTab` + SW `OffscreenCanvas` 拼接；**遵守 2 次/秒**（500ms 节流 + `[700,1500]ms` 有界退避重试）、**上限**（≤20 屏 / ≤40MP，捕获前可读拒绝 + 已捕获范围）、**始终恢复滚动**（失败如实披露）；成功输出必含 `像素路径：真实像素（captureVisibleTab ×N 屏拼接）` + `FULLPAGE_LIMITATION_NOTICE`（fixed/sticky 每屏重复·懒加载·动画/轮播不一致，**非「完整/无损」**）。D6 优先原生 `chrome.tabs.goBack/goForward`（失败回退页面 `history` 并标注路径；离开绑定 origin 明确说明授权/会话影响）。新增 `test/fullpage-screenshot.test.ts`（20）+ real-screenshot/browser-tools 断言加强；插件 405→**425**、`tsc --noEmit` 0 error、`test:e2e` **PASS**（整页 ≥2 屏拼接 + 尺寸 > 单屏 + 局限可见 + 滚动已恢复；back/forward 原生优先 + 回退标注 + `history.length≥2` 佐证）、`test:ui` **136**、`test:hardening` **24**、`test:binding` **125**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；D-146~D-150；docs dev §13.8 + compliance §11 同步；**headless `tabs.goBack` 非功能偏差已披露**（原生成功由单测注入覆盖）。 |
+| v2.7 | **events 补齐运行时 6 子命令**（§34，TASK-036 / D3 / Wave 28，作者指出「工具面已对齐基线但运行时只有 4 个可用」）：`src/content/page-bridge.ts` 事件桥 op 集 4→10（+`pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`）；`src/tools/remote-events.ts` **删除 hardcoded 拒绝**，6 方法全部逐字转发页面 `env.events` hub，页面不支持时其**具体原因**原样透出；订阅摘要以页面 `status` 为准；`browser-env.ts`/`content-script.ts` 类型面随桥扩展。risk 仍由 base 单一来源、**未放宽**（`pull-sensitive`=`write`，未 `--trusted true` 不转发；控制类=`state`）；`pull-sensitive` 无明细给出 FR-006 **特定原因**、插件零缓存/零审计明文，有明细标注敏感来源。站点页面桥需实现这些 op（LGDL 可复用 base `createBrowserEventHub()`）；夹具 `test/fixtures/site/rpc.js` 提供无依赖参考实现。新增 `test/remote-events.test.ts`（9）+ `test/content.test.ts` 新 op 转发断言；`test:e2e` 新增 13 条真机断言（subscribe/switch/pull/ pause+clear→pull=0/resume→pull>0/budget/pull-sensitive 门禁/无明细原因/unsubscribe）。门禁：插件 425→**435 pass / 0 fail**、`tsc --noEmit` 0 error、`test:ui` **136**、`test:hardening` **24**、`test:binding` **125**、`test:e2e` **PASS**、全仓 build+test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；docs dev §16 + capability-matrix §4.1 + tasks TASK-036 同步；**真实 LGDL 页面桥仅实现 4 op（站点侧另一轮），本轮已如实披露**；D-151~D-155。 |
