@@ -5,7 +5,6 @@
  * background, and are never echoed in plaintext. The plugin does NOT read or
  * write the built-in assistant's page-storage settings (no auto migration).
  */
-import { maskValue } from '../security/redact.js';
 import { PROVIDERS, providerById, DEFAULT_MAX_ROUNDS, type ProviderId } from './providers.js';
 
 /** Async KV backend (structurally compatible with the security stores). */
@@ -29,8 +28,7 @@ export interface MaskedLlmConfig {
   model: string;
   baseURL?: string;
   maxRounds: number;
-  /** Always masked — the plaintext key is never returned outside the background. */
-  apiKeyMasked: string;
+  /** True when a key is stored — the only key-derived information exposed. */
   hasKey: boolean;
   browserDirect: boolean;
 }
@@ -127,7 +125,6 @@ export function createKeyStore(kv: KeyKv): KeyStore {
         model: state?.model?.trim() ? state.model : provider.defaultModel,
         ...(state?.baseURL?.trim() ? { baseURL: state.baseURL } : {}),
         maxRounds: store.maxRounds ?? DEFAULT_MAX_ROUNDS,
-        apiKeyMasked: apiKey ? maskValue(apiKey, 'API Key') : '',
         hasKey: apiKey.length > 0,
         browserDirect: provider.browserDirect,
       };

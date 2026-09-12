@@ -410,14 +410,14 @@ test('declared-tools: schema, effective risk, namespaced entries', () => {
   assert.equal(entries[0].schema.name, 'site.notes-list');
 });
 
-test('admin-tools: origin management + audit export + masked llm config', async () => {
+test('admin-tools: origin management + audit export + non-sensitive llm config (W3)', async () => {
   const audit = createStorageAuditSink(memoryKv());
   const origins = createOriginStore(memoryKv(), { audit });
   const entries = createAdminToolEntries({
     origins,
     audit,
     descriptorShow: async () => '{"siteName":"demo"}',
-    llmConfig: async () => '{"apiKeyMasked":"sk-•"}',
+    llmConfig: async () => '{"configured":true,"providerId":"deepseek","providerName":"DeepSeek","model":"deepseek-chat"}',
   });
   const byName = new Map(entries.map((e) => [e.name, e]));
   const authorize = byName.get('origin-authorize');
@@ -433,5 +433,6 @@ test('admin-tools: origin management + audit export + masked llm config', async 
   assert.match(exported.output, /审计记录/);
 
   const cfg = await byName.get('llm-config')!.executor({ subcommand: '', args: {} }, {});
-  assert.match(cfg.output, /apiKeyMasked/);
+  assert.match(cfg.output, /configured/);
+  assert.equal(/apiKeyMasked|sk-|•/.test(cfg.output), false, 'W3: llm-config output carries no key-derived string');
 });

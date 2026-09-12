@@ -16,7 +16,9 @@ import {
   isLogEmpty,
   llmStatusView,
   openSettingsPage,
+  stateActionFromPayload,
 } from '../src/ui/sidepanel/view-model.js';
+import { createInitialState, reduce } from '../src/ui/sidepanel/chat-state.js';
 import { toLlmStatusSummary, type MaskedLlmLike } from '../src/llm/status.js';
 import { isPluginMessage, makeMessage } from '../src/background/messaging.js';
 
@@ -144,6 +146,67 @@ test('settings entry: openSettingsPage calls openOptionsPage (and no-ops safely)
   assert.equal(openSettingsPage(undefined), false);
   assert.equal(openSettingsPage({} as { openOptionsPage(): unknown }), false);
   assert.equal(called, 1);
+});
+
+// ── W1: persisted authorization survives a side-panel reload ───────────────
+
+test('state payload → action: authorized is synced for the bound origin (W1)', () => {
+  const authorized = stateActionFromPayload({
+    active: { origin: 'https://a.test', discoveryState: 'supported', invalidated: false },
+    tools: [],
+    authorized: true,
+  });
+  assert.equal(authorized.origin, 'https://a.test');
+  assert.equal(authorized.authorized, true);
+  assert.equal(authorized.invalidated, false);
+
+  const unauthorized = stateActionFromPayload({
+    active: { origin: 'https://a.test', discoveryState: 'supported', invalidated: false },
+    tools: [],
+    authorized: false,
+  });
+  assert.equal(unauthorized.authorized, false);
+
+  // no bound origin → never authorized, regardless of the transport bit
+  const noOrigin = stateActionFromPayload({ active: null, tools: [], authorized: true });
+  assert.equal(noOrigin.origin, undefined);
+  assert.equal(noOrigin.authorized, false);
+
+  // a missing bit must not be treated as authorized
+  const missing = stateActionFromPayload({
+    active: { origin: 'https://a.test', invalidated: true },
+    tools: [],
+  });
+  assert.equal(missing.authorized, false);
+  assert.equal(missing.invalidated, true);
+});
+
+test('reload of an already-authorized origin keeps authorize disabled / revoke enabled (W1)', () => {
+  const action = stateActionFromPayload({
+    active: { origin: 'https://a.test', discoveryState: 'supported', invalidated: false },
+    tools: ['site.notes-list'],
+    authorized: true,
+  });
+  let s = createInitialState();
+  s = reduce(s, action);
+  const b = buttonStates({ activeOrigin: s.activeOrigin, authorized: s.authorized, pending: s.pending });
+  assert.equal(s.authorized, true);
+  assert.equal(b.authorizeDisabled, true, 'already authorized → authorize must stay disabled after reload');
+  assert.equal(b.revokeDisabled, false, 'already authorized → revoke must be enabled after reload');
+  assert.equal(b.sendDisabled, false);
+});
+
+// ── W3: llm-config exposes no key-derived string ──────────────────────────
+
+test('service-worker llm-config returns the non-sensitive summary only (W3)', () => {
+  const src = read('../../src/background/service-worker.ts');
+  // The old raw `maskedConfig()` passthrough (which carried apiKeyMasked) is gone.
+  assert.equal(
+    /case 'llm-config':\s*return okResponse\(await s\.keys\.maskedConfig\(\)\)/.test(src),
+    false,
+    'llm-config must not return the raw masked config',
+  );
+  assert.match(src, /toLlmStatusSummary\(await s\.keys\.maskedConfig\(\)\)/);
 });
 
 // ── Static surface (shipped HTML/source) ──────────────────────────────────

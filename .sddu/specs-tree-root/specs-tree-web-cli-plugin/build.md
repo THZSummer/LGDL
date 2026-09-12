@@ -604,6 +604,8 @@
 | **D-041** | 按钮禁用语义统一 | `buttonStates`：authorize=有 origin 且未授权；revoke=有 origin 且已授权（F-6 修静默无效）；send=pending 或无 origin；composer 提交路径同守卫（Enter 不绕过 disabled）。 |
 | **D-042** | F-9 不改模型 ID | 与原始实现逐项一致（无臆造），但 `deepseek-v4-flash` 真实性本地无法确证 → 如实标注待核，不擅自改（见 §13.3）。 |
 | **D-043** | 日志空态 flex 不泄漏（post-validate 复核） | `#log.empty` 由 `display:flex` 改门控为 `#log.empty:not(:has(> *))`：仅当 `#log` 无条目元素时居中；有条目（即便 `.empty` 类陈旧）恒为普通块布局逐行堆叠。最小 CSS 改动、零 JS 改动，保留 `height:45vh; overflow:auto` 与 `white-space:pre-wrap`。详见 §13.7。 |
+| **D-044** | `state` 回传授权位（R4-W1） | `service-worker.ts` 的 `state` 处理改用零依赖投影 `src/background/state-message.ts` `buildStateMessage`：除 `active`/`tools` 外补回当前 origin 的 `authorized`（`OriginStore.isAuthorized`；无 origin 恒 false）。侧栏 `refreshState()` 经纯函数 `stateActionFromPayload`（`view-model.ts`）同步 `authorized`，不再仅在点击时 dispatch。既有 `active`/`invalidated` 语义不变。详见 §13.8。 |
+| **D-045** | `llm-config` 零 key 派生串（R4-W3） | `llm-config` 消息与 `plugin.llm-config` 管理工具统一经 `toLlmStatusSummary` 只回 `{configured, providerId, providerName, model}`；`key-store.maskedConfig()` 移除 `apiKeyMasked` 字段与 `maskValue` 用法（无任何展示依赖）。详见 §13.8。 |
 
 ### 13.6 未完成 / 偏差如实标注
 
@@ -646,6 +648,42 @@
 
 **偏差/未做如实标注**：本轮仅修复上述 CSS 耦合；D 态为审计脚本构造态（生产 `render()` 路径修复前后均正确），故判定为「审计可见的潜在回归」而非生产已发生回归，两处数据均已如实给出。未重跑 E2E（本轮仅 CSS + 静态断言，未触碰运行时逻辑）；未 git 提交。
 
+### 13.8 R4 低危改进修复（W1 授权位跨重载 + W3 `llm-config` 收敛，2026-09-12）
+
+> 触发：review R4 §9.7 的 W1/W3（均低危非阻塞）。本轮只收敛暴露面与修真实可用性问题，**不改 base、不动 `.opencode/opencode.json`、无新增依赖、不 git 提交**。
+
+**W1 — 已授权态不跨 reload（真实可用性问题，优先）**
+
+- 现象：侧栏点「授权当前站点」后关闭/重开（或 SW 重启），`state` 只回 `active/invalidated/tools`，侧栏回落「未授权」且「授权当前站点」又可点，与 OriginStore 已持久授权不一致。
+- 修复：
+  - `src/background/state-message.ts`（新增，零依赖投影）：`buildStateMessage({active,tools,isAuthorized})` 补回 `authorized`（`active ? await isAuthorized(active.origin) : false`）。
+  - `src/background/service-worker.ts:259-275`：`state` 处理改用该投影（`isAuthorized: (origin) => s.origins.isAuthorized(origin)`）。
+  - `src/ui/sidepanel/view-model.ts:117-151`：新增纯映射 `stateActionFromPayload`（有 origin 才取 `authorized===true`；无 origin 恒 false；缺省位不视为已授权）。
+  - `src/ui/sidepanel/sidepanel.ts`：`refreshState()` 从「点击时 dispatch」改为刷新即 `dispatch(stateActionFromPayload(res.data))`。
+  - 语义保持：无 origin → `authorized=false`；`active`/`invalidated` 行为不变。
+
+**W1 实测（headless Chromium 151 + CDP，真实 `dist/`，探针 `/tmp/w1-verify/audit.mjs`，日志 `/tmp/w1-verify/audit.log`）**：
+
+| 步骤 | `#status` 文本 | authorize.disabled | revoke.disabled | 判定 |
+|------|----------------|:--:|:--:|:--:|
+| 授权前（真实发现已绑定 origin） | `站点 http://127.0.0.1:39849 · 发现=supported · 未授权` | `false` | `true` | ✅ |
+| 真实 `authorize` 后 background `state.authorized` | `true` | — | — | ✅ |
+| **`Page.reload` 重载真实 `sidepanel.html` 后** | `站点 http://127.0.0.1:39849 · 发现=supported · 已授权` | `true` | `false` | ✅ 修复前会回落未授权 |
+
+- 截图：`/tmp/w1-verify/sidepanel-before-authorize.png`（未授权，授权按钮可点）、`/tmp/w1-verify/sidepanel-after-reload.png`（重载后已授权，授权按钮禁用 / 撤销启用）。探针 11 断言全通过（`exit=0`）。
+
+**W3 — `llm-config` 回传掩码串收敛**
+
+- 修复：`llm-config` 消息（`service-worker.ts`）与 `plugin.llm-config` 管理工具的 `llmConfig` 依赖（`service-worker.ts`）统一经 `toLlmStatusSummary`，只回 `{configured, providerId, providerName, model}`；`src/llm/key-store.ts` 的 `MaskedLlmConfig`/`maskedConfig()` 移除 `apiKeyMasked` 字段与 `maskValue` 用法（grep 确认无任何展示消费方：options/sidepanel 均未使用）。
+- **W3 实测**（同一 CDP 探针，真实 background 消息往返）：`llm-config` 返回 `{"configured":false,"providerId":"deepseek","providerName":"DeepSeek","model":"deepseek-v4-flash"}`，keys 恰为 `["configured","model","providerId","providerName"]`，不含 `apiKeyMasked`、不含 `•`/`sk-` 片段。`dist/*.js|html` grep `apiKeyMasked` **0 命中**。
+
+**测试与门禁**：
+
+- 新增 `test/state-message.test.ts`（4 用例：已授权 / 未授权 / 无 origin 不查询 store / 读绑定 origin）；`test/sidepanel-view.test.ts` +3（payload→action 四态、重载后 authorize disabled/revoke enabled、`llm-config` 源码只走摘要投影）；`test/llm.test.ts` 与 `test/host.test.ts` 同步调整（**零删除零降级**，改为更强的「无 key 派生串」断言）。
+- 插件 **125 → 132 pass / 0 fail**（+7）；`tsc --noEmit` 0 error；全仓 `npm run build` 退出码 0、`npm test` **0 fail**（base **483 零回归**：core 267 / render 94+1skip / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / base 483 / plugin 132）。
+- 红线：`packages/web-cli-base/**` 零改动；`dependencies` 仍仅 `@lgdl/web-cli-base`；`.opencode/opencode.json` 零改动；`src/ui/sidepanel/**` 无 `apiKey` 引用；`src/**` 无 `apiKeyMasked` 值（仅 `status.ts` 文档注释说明丢弃）；`dist` 无 `apiKeyMasked`。
+- E2E 复跑：`npm run test:e2e` 场景 A（7 断言）+ 场景 B（4 断言）**PASS**（真实 dist 全链；唯一偏差 `host_permissions` 预授予本地 origin，同前，非本轮引入）；未 git 提交。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -657,3 +695,4 @@
 | v1.4 | P2 终收口轮（§12）：TASK-016 发布渠道 `docs/release.md` + Gate-D D-1~D-7 评估 + 内置助手下线执行（`ai/*` 移除 + App.tsx 摘除，保留 base 机制层 + web-cli-host）+ 回退预案（单提交 revert + `VITE_AI_ASSISTANT_FALLBACK` 默认 off）+ EC-016 不静默迁移告知；D-030~D-035；lgdl-web 78→31（删除 47 = provider 21 + session 26，EC-012 用例 1:1 改写）、base 483 零回归、插件 112、E2E A/B PASS；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.5 | UI 修复轮（§13，TASK-017）：首次截图式 UI 审查 F-1~F-9——先量化确认无真实水平溢出；sidepanel 增设置入口/LLM 状态摘要（`llm-status` 零明文）/状态驱动引导/日志空态/知情同意默认折叠/按钮禁用语义；options 增使用说明/未配置提示/保存后清空 Key/maxRounds 说明；F-9 模型 ID 与原始实现 100% 一致（待核未改）；D-036~D-042；插件 112→124（+12，base 483 零回归，全仓 1106 pass/1 skip 0 fail），E2E A/B PASS，重截前后实测 0 溢出/0 超宽/0 截断；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.6 | post-validate 回归复核（§13.7）：量化复现「D 态日志横向并排」为审计脚本未同步 `.empty` 类 + `#log.empty{display:flex}` 泄漏所致（生产 `render()` 路径本就逐行）；最小 CSS 修复 `#log.empty:not(:has(> *))`（零 JS 改动，保留 `height:45vh`/`pre-wrap`/空态居中）；复测 @400/@320 子元素 y 递增、无水平溢出；新增静态断言（测试先行），插件 124→**125**、base 483 零回归、全仓 0 fail；D-043；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.7 | R4 低危改进（§13.8）：W1 `state` 补回授权位（新增 `state-message.ts` + `stateActionFromPayload`，刷新即同步 `authorized`；CDP 实测「未授权→授权→重载→已授权」+ 按钮态，截图 `/tmp/w1-verify/`）；W3 `llm-config` 收敛到非敏感摘要（移除 `apiKeyMasked`/`maskValue`，消息+管理工具统一 `toLlmStatusSummary`）；D-044/D-045；插件 125→**132**（+7）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、E2E 场景 A/B PASS、base 与 `.opencode/opencode.json` 零改动、无新依赖；未 git 提交 | 2026-09-12 | SDDU Build Agent |

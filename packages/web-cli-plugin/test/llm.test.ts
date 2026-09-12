@@ -44,7 +44,9 @@ test('key-store: per-provider persistence + masked config (no plaintext echo)', 
   const masked = await store.maskedConfig();
   assert.equal(masked.hasKey, true);
   assert.equal(JSON.stringify(masked).includes('sk-secret-value'), false);
-  assert.match(masked.apiKeyMasked, /•/);
+  // W3: no key-derived string (not even a mask) is produced any more.
+  assert.equal('apiKeyMasked' in masked, false);
+  assert.equal(JSON.stringify(masked).includes('•'), false);
 
   // switching provider does not clobber the other provider's key
   await store.save({ providerId: 'deepseek', apiKey: 'ds-key', model: 'deepseek-v4-flash' });

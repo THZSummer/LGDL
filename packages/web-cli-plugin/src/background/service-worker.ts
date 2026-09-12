@@ -24,6 +24,7 @@ import {
 } from '../platform/extension-env.js';
 import { capabilityFailure } from '../platform/unsupported.js';
 import { createController, type WebCliController } from './controller.js';
+import { buildStateMessage } from './state-message.js';
 import { createWebCliHost, type WebCliHost } from './host.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
@@ -146,10 +147,7 @@ async function init(): Promise<Singletons> {
         }
         return JSON.stringify(active, null, 2);
       },
-      llmConfig: async () => {
-        const cfg = await keys.maskedConfig();
-        return JSON.stringify(cfg, null, 2);
-      },
+      llmConfig: async () => JSON.stringify(toLlmStatusSummary(await keys.maskedConfig()), null, 2),
     });
 
     // restore runtime session (EC-013)
@@ -258,12 +256,17 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       return okResponse('pong');
     case 'state': {
       const session = s.controller.get();
-      return okResponse({
-        active: session
-          ? { tabId: session.tabId, origin: session.origin, discoveryState: session.discoveryState, invalidated: session.invalidated }
-          : null,
-        tools: s.host.deriveTools().map((t) => t.name),
-      });
+      // W1: report the bound origin's persisted authorization so a side-panel
+      // reload / SW restart never falls back to a false "未授权" (no origin → false).
+      return okResponse(
+        await buildStateMessage({
+          active: session
+            ? { tabId: session.tabId, origin: session.origin, discoveryState: session.discoveryState, invalidated: session.invalidated }
+            : null,
+          tools: s.host.deriveTools().map((t) => t.name),
+          isAuthorized: (origin) => s.origins.isAuthorized(origin),
+        }),
+      );
     }
     case 'authorize': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
@@ -384,7 +387,9 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
     case 'audit-export':
       return okResponse(await s.audit.exportEvents());
     case 'llm-config':
-      return okResponse(await s.keys.maskedConfig());
+      // W3: no key-derived string (not even a mask) leaves the background — the
+      // non-sensitive summary is the only shape ever returned to a caller.
+      return okResponse(toLlmStatusSummary(await s.keys.maskedConfig()));
     case 'llm-status':
       // F-2: side panel gets a non-sensitive summary only (never the API key).
       return okResponse(toLlmStatusSummary(await s.keys.maskedConfig()));

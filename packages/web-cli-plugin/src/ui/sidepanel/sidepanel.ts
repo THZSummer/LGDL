@@ -15,6 +15,8 @@ import {
   isLogEmpty,
   llmStatusView,
   openSettingsPage,
+  stateActionFromPayload,
+  type StateMessageView,
 } from './view-model.js';
 import type { LlmStatusSummary } from '../../llm/status.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
@@ -269,21 +271,12 @@ function renderConsent(): void {
   void send<RiskStatusPayload>(makeMessage('risk-control', { action: 'status' })).then((res) => refresh(res.data));
 }
 
-interface StatePayload {
-  active: { origin: string; discoveryState: string; invalidated: boolean } | null;
-  tools: string[];
-}
-
 async function refreshState(): Promise<void> {
-  const res = await send<StatePayload>(makeMessage('state'));
+  const res = await send<StateMessageView>(makeMessage('state'));
   if (!res.ok || !res.data) return;
-  const active = res.data.active;
-  dispatch({
-    type: 'state',
-    ...(active?.origin ? { origin: active.origin } : {}),
-    ...(active?.discoveryState ? { discoveryState: active.discoveryState as SidepanelState['discoveryState'] } : {}),
-    invalidated: active?.invalidated ?? false,
-  });
+  // W1: sync the persisted authorization too — otherwise a reload/reopen shows
+  // a false "未授权" and the authorize button becomes clickable again.
+  dispatch(stateActionFromPayload(res.data));
 }
 
 function wire(): void {

@@ -7,6 +7,7 @@
  * a browser or a new dependency.
  */
 import type { LlmStatusSummary } from '../../llm/status.js';
+import type { SidepanelState } from './chat-state.js';
 
 // ── F-2: LLM configuration status ─────────────────────────────────────────
 
@@ -114,8 +115,41 @@ export function buttonStates(input: SidepanelButtonInput): SidepanelButtonState 
   };
 }
 
-// ── F-5: empty-log state ──────────────────────────────────────────────────
+// ── W1: `state` message → reducer action ──────────────────────────────────
+//
+// The background `state` reply carries the bound origin's persisted
+// authorization. Mapping it here (rather than inline in `refreshState`) keeps
+// the reload-safety contract unit-testable without a browser.
 
+/** Structural shape of the background `state` reply consumed by the panel. */
+export interface StateMessageView {
+  active: { origin: string; discoveryState?: string; invalidated: boolean } | null;
+  tools?: string[];
+  authorized?: boolean;
+}
+
+export interface StateActionView {
+  type: 'state';
+  origin?: string;
+  discoveryState?: SidepanelState['discoveryState'];
+  invalidated: boolean;
+  authorized: boolean;
+}
+
+export function stateActionFromPayload(payload: StateMessageView): StateActionView {
+  const active = payload.active;
+  const hasOrigin = Boolean(active?.origin);
+  return {
+    type: 'state',
+    ...(hasOrigin ? { origin: active!.origin } : {}),
+    ...(active?.discoveryState ? { discoveryState: active.discoveryState as SidepanelState['discoveryState'] } : {}),
+    invalidated: active?.invalidated ?? false,
+    // W1: sync the persisted authorization; without a bound origin it is false.
+    authorized: hasOrigin && payload.authorized === true,
+  };
+}
+
+// ── F-5: empty-log state ──────────────────────────────────────────────────
 export const LOG_EMPTY_TEXT = '还没有对话。先在上方配置模型，然后打开目标站点并授权。';
 
 export function isLogEmpty(entryCount: number): boolean {

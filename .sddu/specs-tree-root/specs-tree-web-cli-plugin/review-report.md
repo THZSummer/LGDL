@@ -5,11 +5,11 @@
 > **前置依赖**: `review.md`、`spec.md`（46 FR / 10 NFR / 16 EC / 12 AC）、`plan.md`（12 ADR）、`tasks.md`（16 任务 + §4.5 F-1~F-8）、`build.md`（D-001~D-008）
 > **创建人**: SDDU Review Agent
 > **创建时间**: 2026-09-11
-> **审查轮次**: R1（§1~§6）+ R2 复审（§7）+ R3 全量复审（§8）
-> **版本**: v3.0
+> **审查轮次**: R1（§1~§6）+ R2 复审（§7）+ R3 全量复审（§8）+ R4 UI 复审（§9）
+> **版本**: v4.0
 > **更新人**: SDDU Review Agent
 > **更新时间**: 2026-09-12
-> **更新说明**: v3.0 = R3 全量复审：核验 P1（TASK-012~015）+ 遗留清账（R-BLK1a/R7/R8/R9/minors/EC/AC/NFR-007）+ P2（TASK-016 发布渠道 + Gate-D 内置助手下线）的闭合真实性，独立复跑全仓门禁 + E2E + 自写 R-BLK1a 复现脚本。**最终结论 ✅ 通过（0 阻塞，可进入 validate）**。R1/R2 记录（§1~§7）保留为历史轮次。
+> **更新说明**: v4.0 = R4 UI 复审（TASK-017 F-1~F-9 + D-043）：**自建 headless Chromium + CDP 探针独立截图/实测**（不引用 build 证据），逐项核验 UI 真实可见可用 + 代码质量/规范符合 + 诚实性 + 独立复跑门禁。**最终结论 ✅ 通过（0 阻塞）**。R1~R3 记录（§1~§8）保留为历史轮次。
 > **R1 范围**: P0 最小可用集 TASK-001~011；独立复跑 build/test/红线 grep/chromium headless 加载 + CDP SW 探针/G-KEY 可达性。
 > **R2 范围**: R1 的 2 阻塞 + 6 项高价值改进复验。
 > **R3 范围**: P0+P1+P2 全量（16/16 任务）+ R2 §7.4 遗留 10 项 + validate R1 移交 11 项清账；基线 HEAD `d98eaaf`（分支 feature/web-cli-plugin）。
@@ -393,10 +393,107 @@
 
 **遗留条件（validate 阶段）**：① 执行 `docs/smoke-checklist.md §2` 人工面 H0/H2/H4/H6/H7/H8/H9/H10（真实浏览器手势/权限弹窗/真实 LLM/LGDL 真实页/风控与事件 UI）；② 后续里程碑 C-4/C-5 过渡期关闭与 S-016 商店发布。上述均属 validate/未来里程碑，不阻塞进入 validate。
 
+## 9. R4 UI 复审（2026-09-12，TASK-017 F-1~F-9 + D-043）
+
+> **复审范围**：TASK-017「UI/UX 修复轮」新增/改动产物（`src/llm/status.ts`、`src/ui/sidepanel/{view-model.ts,sidepanel.ts,index.html}`、`src/ui/options/{index.html,options.ts}`、`src/background/{messaging.ts,service-worker.ts}`、`test/sidepanel-view.test.ts`）+ D-043 日志布局门控。
+> **复审基线**：HEAD = `abece95`（分支 `feature/web-cli-plugin`）；工作区 clean（仅本审查 `dist/` 重建，源零改动）。
+> **方法论（本轮核心 = 独立 UI 真实性验证）**：**不引用 build 截图**——自建 CDP 探针（`/tmp/review-r4/audit.mjs` + `audit2.mjs`），装载**真实 `dist/` 字节**到 `.pw-browsers/chromium-1234`（Chrome for Testing 151）headless：
+> ① `sidepanel.html` 注入 `chrome.runtime.sendMessage` 桩（可构造任意状态）→ 观察**真实已发布 sidepanel.js** 的 DOM 输出；
+> ② `options.html` 走**真实 background**（保存 Key→消息往返）；
+> ③ 日志条目经 **background→`chrome.runtime.sendMessage`→sidepanel 真实 `onMessage` 监听器**注入，而非直接改 DOM（除 D-043 的「陈旧 `.empty`」构造态外）。
+> 截图与实测数据产物：`/tmp/review-r4/{options-400-unconfigured,options-400-configured,options-320,sidepanel-400-unconfigured,sidepanel-400-rich,sidepanel-400-consent-expanded,options-default-900,sp-configured-no-origin-400,sp-origin-narrow-320}.png`、`audit.json`、`audit2.json`。
+
+### 9.1 F-1~F-9 逐项复验（本审查实测数字）
+
+| # | 需求 | 判定 | 本审查实测证据（截图 + 数字） |
+|---|------|:--:|------|
+| **F-1** | 设置入口真实调用 `openOptionsPage` | ✅ PASS | 桩计数 `before=0 → after=1`（点击 `#open-options` 后）；未配置态按钮文案=「去配置模型」且 `.primary`，配置态=「设置」（`sp-unconfigured`/`sp-configured` 实测） |
+| **F-2** | LLM 状态零明文 | ✅ PASS | 真实 background `llm-status` 返回体 keys **恰为 `[configured,providerId,providerName,model]`**，`JSON` 不含 `SECRET`；对照 `llm-config` 含 `apiKeyMasked`（值为「API Key：值已脱敏 · 22 位 · ••••」——**掩码非明文**）；UI 仅显示「LLM：火山方舟 · 通用 · doubao-seed-1-6-250615」；`dist/sidepanel.js`（21,452 B）grep `api.deepseek.com`/`apiKeyMasked` **均 0**（未打包 LLM SDK） |
+| **F-3** | 引导状态驱动（三种态 current 步不同） | ✅ PASS（附遗留见 W1） | 未配置→第 1 步 `▶`；已配置未打开站点→第 1 步 `✓`/第 2 步 `▶`；已配置+发现未授权→第 1~3 步 `✓`/第 4 步 `▶`；已授权→ `#onboarding display:none`（隐藏）。四态实测 classes 见 `audit.json` |
+| **F-4** | 合规区块默认折叠、文案零删改 | ✅ PASS | `#consent-details.open === false`；折叠内 7 条文本与源码 `CONSENT_RISKS`(3)+`CAPABILITY_BOUNDARY`(4) **逐字一致**（`audit2.json.s1consent.riskItems`）；风控控件在 `<details>` 外 |
+| **F-5** | 日志空态占位 + 条目逐行堆叠 | ✅ PASS | 空态：`#log` class=`empty`、`display:flex`、`height:64px`、文案「还没有对话。先在上方配置模型…」；有条目（真实 `render()` 路径）：`display:block`，子元素 `y=239.5 / 259 / 278.5`（递增）、`x=15`（恒定） |
+| **F-6** | 禁用态与状态一致 | ✅ PASS | 无 origin：authorize/revoke/send **全 disabled**；有 origin 未授权：authorize=false、revoke=**true**(disabled)、send=false；已授权：authorize=true、revoke=false、send=false —— 与 `buttonStates` 三态完全一致 |
+| **F-7** | 溢出防御 | ✅ PASS | 400px 视口：`docScrollWidth=docClientWidth=400`（sidepanel）/385（options）；320px：320/320、305/305；全页 `overWide=[]`、`clipped=[]`（0 超宽 / 0 文字裁切） |
+| **F-8** | options 改进 | ✅ PASS | 「如何使用」「本页如何打开」渲染存在；未配置时 `#key-warning` `display:block` + 醒目文案；`#maxRounds-hint` =「默认 1000：…」；保存后 `#apiKey.value === ''` 且 warning 隐藏（`audit2.json.o400save`）；400/320 无破版（见 F-7） |
+| **F-9** | 默认模型 ID 未擅改、与原始一致 | ⚠️ WARN（未改动，真实性仍待核） | 与 `762d3a6^:packages/lgdl-web/src/ai/provider.ts` 逐项比对：8 厂商 `id/name/baseURL/defaultModel` **完全一致**；`git show 762d3a6 -- …/providers.ts` 仅改文档注释，`defaultModel|id:|name:|baseURL:` **零改动**。故「非臆造、未擅改、与原始实现一致」成立；但 `deepseek-v4-flash` 对公网 DeepSeek API 的真实性本地仍无法确证，build 如实标注待核——见 W2 |
+
+### 9.2 D-043 日志布局门控复验 → ✅ PASS
+
+**build 声称**：「生产 `render()` 路径本就正确，仅审计口径复现」。**核验成立**：
+- `sidepanel.ts:62-75`：`render()` 在 `isLogEmpty` 为真时 `classList.add('empty')`；**非空分支先 `classList.remove('empty')` 再 append** → 生产路径正确。
+- 本审查实测（`audit.json.d043`）：空态 `#log.className='empty'`、`display:flex`（居中）；**陈旧 `.empty` + 3 个注入子元素** → `display:block`，子元素 `y=314 / 333.5 / 353`（递增）、`x=15`（恒定）→ **不再横向并排**。
+- CSS 门控 `#log.empty:not(:has(> *))` 已在源与 `dist/sidepanel.html` **双处确认**；`:has()` 自 Chrome 105 支持，manifest `minimum_chrome_version=114` 安全。
+- 结论：D-043 为**真实存在的脆弱耦合**的最小 CSS 修复，零 JS 改动，生产行为未回归。
+
+### 9.3 代码质量与规范符合性
+
+| 项 | 判定 | 证据 |
+|---|:--:|------|
+| `view-model.ts` 纯函数/可测 | ✅ | 源码 **0 处 `document`/`window`**；`llmStatusView`/`buildOnboarding`/`buttonStates`/`openSettingsPage` 全为可测纯逻辑 |
+| `sidepanel.ts` 内联逻辑 | ✅（可接受） | 仅保留 DOM 装配（`renderConsent`/`renderAsk`）与事件接线；状态判定已下沉 `view-model.ts`/`chat-state.ts` |
+| `llm-status` 最小暴露面 | ✅ | handler 仅 `toLlmStatusSummary(await s.keys.maskedConfig())`，丢弃 `apiKeyMasked/apiKey`；无门禁绕过（只读非敏感摘要，不触发站点操作，无需确认/风控） |
+| 新增运行时依赖 | ✅ 无 | `dependencies` 仍仅 `{"@lgdl/web-cli-base":"^0.7.0"}` |
+| `web-cli-base` 零改动 | ✅ | `git status --porcelain packages/web-cli-base` 空；分支上 base **零提交** |
+| 静态 UI 断言真实性 | ✅ | `test/sidepanel-view.test.ts` **13 个 test / 64 处 `assert.`**（非空跑；含负向 `assert.equal(…includes('secret'), false)`、`details.open=false`、D-043 选择器断言） |
+
+### 9.4 诚实性与遗留核验
+
+- **无「声称已修但界面无变化」**：F-1~F-8 全部经本审查独立截图/DOM 实测确认可见可用（§9.1）。
+- **F-9 未擅改**：成立（§9.1）。
+- **D-043 说法成立**（§9.2）。
+- **人工面如实标注**：`openOptionsPage` 真实打开设置页（headless 无手势）、授权弹层、真实 LLM 闭环仍归人工面——build §13.6 已如实声明，本审查不冒充已验。
+
+### 9.5 独立复跑门禁（本审查实测，不引用 build 声明）
+
+| 门禁 | 命令 | 实测结果 |
+|------|------|---------|
+| 插件构建 | `npm run build --workspace @lgdl/web-cli-plugin` | ✅ 退出码 0（sidepanel.js 20.9 KB / background 947.0 KB / content 34.1 KB / options 894.3 KB） |
+| 插件测试 | `npm run test --workspace @lgdl/web-cli-plugin` | ✅ **125 pass / 0 fail** |
+| 插件类型检查 | `npm run typecheck --workspace @lgdl/web-cli-plugin` | ✅ `tsc --noEmit` 0 error |
+| 全仓构建 | `npm run build` | ✅ 退出码 0 |
+| 全仓测试 | `npm test` | ✅ **0 fail**：core 267 / render 94(+1skip) / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / **base 483（零回归）** / **plugin 125** |
+| E2E | `npm run test:e2e --workspace @lgdl/web-cli-plugin` | ✅ **PASS**（场景 A 7 断言 + 场景 B 4 断言；真实 dist；唯一偏差 host_permissions 已披露） |
+| 红线 grep（10 项） | 独立复跑 | ✅ 0 命中：`.executor(` 直调 0 / `silentAllow` 0 / 插件 src LGDL 私有依赖 0 / UI 框架依赖 0 / `src/ui/sidepanel` `apiKey` 0 / 空 catch 0 / `return …riskHint` 0 / `src/llm` `localStorage` 0 / `lgdl-ai-settings` 0 / 运行时依赖仅 base |
+| base 零改动 | `git status` + `git log merge-base..HEAD -- packages/web-cli-base` | ✅ 工作区空 + 分支零 base 提交 |
+
+### 9.6 漂移核验
+
+| 对象 | 判定 | 证据 |
+|------|:--:|------|
+| `spec.md` / `plan.md` / `tasks.json` | ✅ 零改动 | `git diff e9506ac abece95 --`（三者）为空 |
+| `tasks.md` 追加 TASK-017 | ✅ 合规（增补登记） | 仅新增 TASK-017 段（状态 ✅ completed，权威状态在 `state.json`）+ 汇总/修订记录；未改既有任务与验收标准。与 TASK-016 同属 post-validate 增补机制 |
+| 改动面 | ✅ 无越界 | `abece95` 仅触及插件 src/test/docs + `.sddu` 报告文件；未触 `packages/web-cli-base`、未触其他包 |
+
+### 9.7 R4 改进项（均非阻塞，< 5 门槛）
+
+| # | 项 | 严重度 | 建议 |
+|---|----|:--:|------|
+| W1 | **F-3/F-6 已授权态不跨重载**：background `state` 消息（`service-worker.ts:259-267`）不返回授权位，`refreshState()` 不派发 `authorized`；已授权 origin 重开侧栏会显示「未授权」+ 引导第 4 步 + revoke disabled。这是**TASK-017 前已存在**的行为，但新引导放大了可见性 | 低（非阻塞；无安全影响，重授权幂等） | `state` 返回 `authorized: await s.origins.isAuthorized(origin)`（或由背景在 `discover` 后随 `site-event` 推送），并补「重载后已授权态」用例 |
+| W2 | **F-9 `deepseek-v4-flash` 真实性未确证**（build 已如实标注待核、未改） | 低（诚实遗留） | 作者联网核签 `api.deepseek.com` 模型名（公网公开命名为 `deepseek-chat`/`deepseek-reasoner`）；确证前保持不擅自改 |
+| W3 | `llm-config` 消息（旧）仍向任意扩展上下文返回 `apiKeyMasked`（**掩码非明文**），侧栏已改用最小化的 `llm-status` | 低 | 若无消费方则移除/收敛 `llm-config`，或在契约文档标注其掩码边界 |
+
+### 9.8 R4 结论
+
+**结论：✅ 通过（0 阻塞）**
+
+| 指标 | 结果 |
+|------|------|
+| F-1~F-8 UI 真实性 | **8/8 独立截图 + DOM 实测 PASS**（非引用 build） |
+| F-9 诚实性 | ✅ 未擅改 + 与原始实现逐项一致；真实性仍待核（如实，W2） |
+| D-043 | ✅ 门控成立、生产路径本就正确、修复有效 |
+| 独立复跑 | build / 全仓 0 fail（base 483 零回归）/ plugin 125 / tsc 0 / E2E A·B / 红线 10 项 / base 零改动 —— **全 PASS** |
+| 漂移 | ✅ spec/plan/tasks.json 零改动；tasks.md 增补合规 |
+| 新增阻塞 | **0** |
+| 新增改进项 | **3**（W1~W3，均低，< 5 门槛） |
+| 可进入 validate | 是（本轮为 post-validate additive，不阻塞既有 validated 结论） |
+
+**判定理由**：TASK-017 的 8 项 UI 修复全部经**本审查自建 CDP 探针**独立证实为界面真实可见可用——设置入口真实调用 `openOptionsPage`（计数 0→1）、`llm-status` 真实返回体恰为 4 个非敏感字段且侧栏 bundle 零 LLM SDK/零明文、引导四态 current 步各不相同、合规文案 7 条与源码逐字一致且默认折叠、空态占位与条目逐行堆叠、禁用态三态与 `buttonStates` 完全一致、400/320 全页零溢出零超宽零裁切、options 使用说明/未配置提示/保存清空 Key/maxRounds 说明真实生效。D-043 的「脆弱耦合 + 生产路径本就正确」说法经源码与实测双证成立。F-9 未擅改成立、真实性如实待核。全仓独立复跑 0 fail、base 483 零回归、红线全 0、无漂移。剩余 3 项均为低severity非阻塞改进（其中 W1 为前轮既存行为被新引导放大的可见性提示）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v4.0 | R4 UI 复审（TASK-017 F-1~F-9 + D-043）：自建 headless Chromium/CDP 探针独立截图 + 实测（不引用 build 证据）；逐项核验 UI 真实可见可用、代码质量/规范符合、诚实性、独立复跑 build/test(125+483)/tsc/E2E/红线；**结论 ✅ 通过（0 阻塞，3 低危改进）** | 2026-09-12 | SDDU Review Agent |
 | v3.0 | R3 全量复审：P1（TASK-012~015）+ 遗留清账（R-BLK1a/R7/R8/R9/minors/EC/AC/NFR-007）+ P2（TASK-016）逐项核验；独立复跑全仓 build/test/tsc/E2E/红线 grep + 自写 R-BLK1a 复现脚本；**最终结论 ✅ 通过（0 阻塞，可进入 validate）** | 2026-09-12 | SDDU Review Agent |
 | v2.0 | R2 复审：BLK-1/BLK-2 复验 PASS + 6 项改进 6/6 落地 + 独立复跑（全仓 0 fail / tsc / 红线 grep / base 零改动 / G-MV3 / G-KEY）+ 残余 R-BLK1a 实证；**最终结论 ⚠️ 有条件通过（0 阻塞，可进入 validate）** | 2026-09-11 | SDDU Review Agent |
 | v1.0 | 初始创建：P0 审查报告（C1~C56 逐项结果；独立复跑 build/test/typecheck/红线 grep/headless+CDP/G-KEY；2 阻塞 + 12 改进） | 2026-09-11 | SDDU Review Agent |
