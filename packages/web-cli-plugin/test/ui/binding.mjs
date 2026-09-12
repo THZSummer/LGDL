@@ -494,6 +494,28 @@ async function phase1(mock) {
     const errors = await evaluate(ext, `[...document.querySelectorAll('.entry-error')].map((e) => e.textContent).join(' | ')`);
     check(!errors, '#6b 对话过程无错误条目', errors);
 
+    // ── #6h TASK-023: the real user message renders as a distinguished bubble ──
+    const userBubble = await evaluate(
+      ext,
+      `(() => {
+        const row = document.querySelector('.entry.msg-user');
+        const bubble = row ? row.querySelector('.msg-content') : null;
+        if (!row || !bubble) return JSON.stringify({ present: false });
+        const cs = getComputedStyle(bubble);
+        return JSON.stringify({
+          present: true,
+          text: bubble.textContent,
+          bg: cs.backgroundColor,
+          align: getComputedStyle(row).justifyContent,
+          radius: cs.borderBottomRightRadius,
+        });
+      })()`,
+    );
+    const ub = JSON.parse(userBubble);
+    check(ub.present === true && ub.text === '11111', '#6h 真实用户消息渲染为独立用户气泡', userBubble);
+    check(ub.bg === 'rgb(79, 70, 229)', '#6i 用户气泡为用户色（indigo，明显区分于助手）', ub.bg);
+    check(ub.align === 'flex-end', '#6j 用户气泡右对齐（与助手左对齐区分）', ub.align);
+
     // ── #6c 直接复现本次事故：捕获真实发给 LLM 的 tools 数组并断言名字合法 ──
     const lastReq = llmRequests[llmRequests.length - 1];
     const sentTools = (lastReq?.tools ?? []).map((t) => t?.function?.name).filter((n) => typeof n === 'string');

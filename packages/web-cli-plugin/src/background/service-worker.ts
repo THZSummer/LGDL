@@ -31,7 +31,7 @@ import { createWebCliHost, type WebCliHost } from './host.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
 import { runChatTurn } from './chat-runner.js';
-import { llmErrorEvent } from './chat-events.js';
+import { commandEvent, llmErrorEvent, toolResultEvent } from './chat-events.js';
 import {
   errorResponse,
   isPluginMessage,
@@ -282,6 +282,11 @@ async function runChat(s: Singletons, user: string): Promise<void> {
   try {
     const settings = await s.keys.load();
     const provider = providerById(settings.providerId);
+    // TASK-023: pair each tool's start (onCommandLine) with its result
+    // (hooks.onToolDone, fired immediately before onToolOutput) so the side
+    // panel can render a tool card with name + status + duration.
+    let toolStartedAt = 0;
+    let lastTool: { name: string; ok: boolean; ms: number } | null = null;
     await runChatTurn(user, {
       session: s.chatSession,
       system: SYSTEM_PROMPT,
@@ -296,10 +301,29 @@ async function runChat(s: Singletons, user: string): Promise<void> {
       deriveCommand: (tc) => s.host.router.deriveCommand(tc),
       events: {
         onAssistantText: (text) => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'assistant', text })).catch(() => {}),
-        onToolOutput: (text) => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'tool', text })).catch(() => {}),
+        onCommandLine: (text) => {
+          toolStartedAt = Date.now();
+          void chrome.runtime.sendMessage(makeMessage('chat-result', { ...commandEvent(text) })).catch(() => {});
+        },
+        onToolOutput: (text) => {
+          const meta = lastTool;
+          lastTool = null;
+          void chrome.runtime
+            .sendMessage(makeMessage('chat-result', { ...toolResultEvent(meta?.name, meta?.ok, meta?.ms, text) }))
+            .catch(() => {});
+        },
         onLLMError: (message, willRetry) =>
           void chrome.runtime.sendMessage(makeMessage('chat-result', { ...llmErrorEvent(message, willRetry) })).catch(() => {}),
         onFinish: () => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'done' })).catch(() => {}),
+      },
+      hooks: {
+        onToolDone: (tc, result) => {
+          lastTool = {
+            name: tc.name,
+            ok: result.ok,
+            ms: Math.max(0, Date.now() - (toolStartedAt || Date.now())),
+          };
+        },
       },
     });
     void provider.name;
@@ -373,6 +397,8 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
           : null,
         tools: s.host.deriveTools().map((t) => t.name),
         isAuthorized: (origin) => s.origins.isAuthorized(origin),
+        // TASK-023: trust is a separate read-only display concern (FR-012).
+        trustOf: (origin) => s.origins.trustOf(origin),
         tab: await activeTabProjection(),
       });
       // D-064: carry (and consume) the one-shot readable notice.

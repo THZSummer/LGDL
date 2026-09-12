@@ -125,20 +125,24 @@ test('empty log: placeholder text is provided and only used when there are no en
   assert.match(LOG_EMPTY_TEXT, /配置模型/);
 });
 
-test('empty-log centering is gated on #log having no entry elements (D-043)', () => {
+test('empty-log centering is gated on #log having no entry elements (D-043 / TASK-023)', () => {
   const html = read('../../src/ui/sidepanel/index.html');
   // The empty-state flex centering must not leak onto real entries when the
   // `.empty` class is stale (e.g. audit scripts inject children directly).
   assert.match(html, /#log\.empty:not\(:has\(> \*\)\)/);
-  // Base log keeps its fixed height + scroll + pre-wrap semantics.
-  assert.match(html, /#log \{ height: 45vh; overflow: auto;/);
+  // TASK-023: the fixed `45vh` height is replaced by a flex-fill message zone.
+  assert.equal(/height: 45vh/.test(html), false, 'the 45vh hardcoded log height must be gone (TASK-023)');
+  assert.match(html, /#panel-main \{ position: relative; flex: 1 1 auto; min-height: 0;/);
+  assert.match(html, /#log \{[\s\S]*?flex: 1 1 auto;[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/);
+  // text wrapping / long-word safety is preserved
   assert.match(html, /white-space: pre-wrap;/);
+  assert.match(html, /overflow-wrap: anywhere;/);
 });
 
 test('TASK-022: message blocks + safe Markdown are wired (static surface)', () => {
   const html = read('../../src/ui/sidepanel/index.html');
-  assert.match(html, /\.msg-content \{ padding: 4px 8px; min-width: 0; overflow-wrap: anywhere;/);
-  assert.match(html, /\.content-assistant \{ white-space: normal;/);
+  assert.match(html, /\.msg-content \{[\s\S]*?min-width: 0;[\s\S]*?overflow-wrap: anywhere;/);
+  assert.match(html, /\.content-assistant \{ white-space: normal; \}/);
   assert.match(html, /\.content-tool, \.content-system \{/);
   assert.match(html, /\.msg-content pre \{[\s\S]*?overflow-x: auto;/);
   assert.match(html, /\.msg-content table \{[\s\S]*?overflow-x: auto;/);
@@ -238,7 +242,7 @@ test('sidepanel UI surface: settings entry, llm status, onboarding are present',
   // F-7 defensive layout
   assert.match(html, /box-sizing: border-box/);
   assert.match(html, /overflow-wrap: anywhere/);
-  assert.match(html, /#input \{ flex: 1; min-width: 0; \}/);
+  assert.match(html, /#input \{[\s\S]*?flex: 1; min-width: 0;/);
 });
 
 test('sidepanel source: consent uses <details> collapsed by default; no non-default open', () => {
@@ -543,3 +547,71 @@ test('TASK-020 A: options exposes a saved-key state marker + saved placeholder',
   assert.equal(/已保存：[\s\S]{0,80}apiKey/.test(src), false);
 });
 
+
+// ── TASK-023: three-zone layout contract + trust projection ────────────────
+
+test('TASK-023 layout: three zones (top / scrolling messages / fixed bottom)', () => {
+  const html = read('../../src/ui/sidepanel/index.html');
+  // zone order in the document
+  const top = html.indexOf('id="panel-top"');
+  const main = html.indexOf('id="panel-main"');
+  const bottom = html.indexOf('id="panel-bottom"');
+  assert.ok(top > 0 && main > top && bottom > main, 'top → main → bottom zone order');
+  // no zone may scroll the whole document; only #log scrolls
+  assert.match(html, /body \{[\s\S]*?display: flex;[\s\S]*?overflow: hidden;/);
+  // composer is the last child of the bottom zone (nothing wedges below it)
+  const bottomChunk = html.slice(bottom, html.indexOf('<script'));
+  assert.ok(
+    bottomChunk.lastIndexOf('id="composer"') > bottomChunk.lastIndexOf('id="consent-slot"'),
+    'consent sits above the composer; the composer is last',
+  );
+  assert.match(html, /id="scroll-bottom"/);
+  // the composer itself is flex-shrink:0 (bottom zone is not scrolled)
+  assert.match(html, /#panel-bottom \{[\s\S]*?flex: 0 0 auto;/);
+});
+
+test('TASK-023 messages: role bubbles + collapsible tool card styles exist', () => {
+  const html = read('../../src/ui/sidepanel/index.html');
+  assert.match(html, /\.msg-user \.msg-content \{[\s\S]*?background: var\(--user-bg\);/);
+  assert.match(html, /\.msg-assistant \.msg-content \{[\s\S]*?background: var\(--assistant-bg\);/);
+  assert.match(html, /\.msg-system \.msg-content \{/);
+  assert.match(html, /\.entry-error \.msg-content \{/);
+  assert.match(html, /\.tool-card \{/);
+  assert.match(html, /\.tool-card-body \{[\s\S]*?white-space: pre;[\s\S]*?overflow: auto;/);
+  assert.match(html, /\.tool-card\[open\] > \.tool-card-head/);
+  assert.match(html, /\.cmd \{/);
+  // dark-mode parity: a prefers-color-scheme block overrides the tokens
+  assert.match(html, /@media \(prefers-color-scheme: dark\)/);
+  assert.match(html, /color-scheme: light dark/);
+
+  const ts = read('../../src/ui/sidepanel/sidepanel.ts');
+  assert.match(ts, /createElement\('details'\)/);
+  assert.match(ts, /className = 'tool-card'/);
+  assert.match(ts, /addEventListener\('toggle'/);
+  assert.match(ts, /renderThinking\(\)/);
+  assert.match(ts, /isAtBottom\(/);
+});
+
+test('TASK-023 state projection: trust follows the bound origin, never a false trusted', () => {
+  const trusted = stateActionFromPayload({
+    active: { origin: 'https://a.test', discoveryState: 'supported', invalidated: false },
+    tools: [],
+    authorized: true,
+    trust: 'trusted',
+  });
+  assert.equal(trusted.trust, 'trusted');
+
+  const untrusted = stateActionFromPayload({
+    active: { origin: 'https://a.test', invalidated: false },
+    tools: [],
+    authorized: true,
+    trust: 'untrusted',
+  });
+  assert.equal(untrusted.trust, 'untrusted');
+
+  // no trust field / no origin → untrusted (conservative)
+  const missing = stateActionFromPayload({ active: { origin: 'https://a.test', invalidated: false }, tools: [] });
+  assert.equal(missing.trust, 'untrusted');
+  const noOrigin = stateActionFromPayload({ active: null, tools: [], trust: 'trusted' });
+  assert.equal(noOrigin.trust, 'untrusted');
+});

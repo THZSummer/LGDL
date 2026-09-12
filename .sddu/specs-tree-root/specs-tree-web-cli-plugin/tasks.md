@@ -42,6 +42,8 @@
 | TASK-019 | — | 三成因加固 + 环境自检诊断 + 真实验证（用户实测反馈第二轮） | 🛠📄 | M | TASK-018（post-validate additive） | 波3+ | Wave 11 | 非扩展上下文守卫 + 站点未声明三态说明/reprobe + 诊断面板/构建戳 + `test:hardening` |
 | TASK-020 | — | 保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见（用户实测反馈第三轮） | 🛠 | M | TASK-019（post-validate additive） | 波3+ | Wave 12 | Key 框已保存态标记/placeholder/成功色高亮；无活跃站点三态原因 + 「重新绑定当前标签页」+ 发送禁用原因；侧栏 Key 状态 + 侧栏测试连接；`test:ui` 25→41 |
 | TASK-021 | — | 工具名非法字符修复（`site_*`/`admin_*`）+ B 重试重复错误 + C 未授权门禁核实（用户实测第五轮） | 🛠 | M | TASK-020（post-validate additive） | 波3+ | Wave 13 | 扁平无点工具名 + 确定性去重 + 策略判据 `group` + RPC 保真；`willRetry` 区分；`test:binding` 捕获真实 tools 断言合法 |
+| TASK-022 | — | 侧栏消息 Markdown 渲染 + 消息样式（用户实测第六轮） | 🛠 | M | TASK-021（post-validate additive） | 波3+ | Wave 14 | 零依赖安全 Markdown（不解析 HTML / 白名单标签 / 链接仅 http(s)）+ 角色分组块 + 样式；`markdown.test.ts` 12 用例；`test:ui` 41→50 |
+| TASK-023 | — | 侧栏整体 UI/UX 重做（用户实测第七轮；设计基准=原内置 AI 助手） | 🛠 | L | TASK-022（post-validate additive） | 波3+ | Wave 15 | 先读回 git 历史原 `AiPanel.tsx`/`app.css` 作基准；三区 flex 全高（去 45vh、composer 贴底、8 按钮收 `<details>`）；角色气泡 + 可折叠工具卡片 + 滚动跟随 + 明暗适配；真实 dist+CDP 前后量化；`test:ui` 50→67、`test:binding` 38→41、插件 209→222 |
 
 ### 1.2 依赖拓扑（串行主轴 + 并行组）
 
@@ -1119,15 +1121,78 @@ npm run build && npm test
 
 ---
 
+### TASK-023: 侧栏整体 UI/UX 重做（用户实测第七轮，post-validate additive）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L（重写布局 + 消息呈现 + background 事件增强；**不改 base、不引入新依赖**） |
+| **类型** | 🛠 实施（三区 flex 全高 + 角色气泡 + 可折叠工具卡片 + 滚动跟随 + 明暗适配） |
+| **前置依赖** | TASK-022（post-validate 增补轮，不改已冻结 spec/plan） |
+| **执行波次** | Wave 15（TASK-022 之后 additive） |
+| **对应 FR** | FR-017/024/025（多轮对话渲染 + 工具调用展示 + 可读）；NFR-008（可读）；安全（不可信输入零 XSS） |
+| **TB 映射** | 无（用户实测反馈驱动的增补轮，非 plan TB） |
+| **状态** | ✅ completed（2026-09-12；权威状态见 `state.json`；执行记录见 `build.md §20` + `docs/dev.md §11`；D-079~D-086） |
+| **风险** | 低（base 零改动、零新依赖、零 `innerHTML`、MV3 CSP 合规）；流式与首用态偏小如实标注 |
+
+**描述**: 用户实测反馈「插件侧栏对话体验比做插件之前原本的 AI 助手明显更差」，要求整体重做而非继续打补丁。
+① **先读回原内置 AI 助手**（TASK-016 已移除，仍在 git 历史：`git show 762d3a6^:packages/lgdl-web/src/ai/AiPanel.tsx` +
+`app.css` 的 `.ai-*`）提取布局/消息/工具呈现/流式/输入区/排版权威，形成「参照项 → 对齐情况」逐条表。② **布局**：
+三区 flex 全高（顶部状态+主操作 / 中部唯一滚动的消息区 / 底部固定 composer），删除 `#log { height: 45vh }` 硬编码，
+8 个按钮收为「主操作 + `<details>更多`」，`#consent` 折叠条移到 composer 之前使 **composer 成为末元素贴底**。
+③ **消息**：user 气泡 / assistant Markdown 气泡 / **tool 可折叠卡片**（工具名+状态+耗时+首行摘要；长输出默认折叠、
+正文等宽横向滚动、开合态记忆）/ system·error 醒目 / command 紧凑块 / thinking 指示 / 「回到底部」跟随策略。
+④ **工具卡片元数据**：base `onToolOutput` 仅文本 → background 配对 `onCommandLine` + `hooks.onToolDone(tc,result)`，
+`chat-runner` additive 透传 hooks。⑤ 明暗适配（CSS 变量 + `prefers-color-scheme`）。⑥ 真实 dist + CDP 前后量化 + 截图。
+**诚实边界**：base 无流式（`chat` 单次返回），未实现 token 流式，不假装；首用态消息区 31.5% 系引导占位的真实权衡。
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| MODIFY（重写） | `packages/web-cli-plugin/src/ui/sidepanel/index.html` |
+| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts`、`src/ui/sidepanel/chat-state.ts`、`src/ui/sidepanel/view-model.ts` |
+| MODIFY | `packages/web-cli-plugin/src/background/chat-events.ts`、`src/background/chat-runner.ts`、`src/background/service-worker.ts`、`src/background/state-message.ts` |
+| MODIFY | `packages/web-cli-plugin/test/ui/journey.mjs`、`test/ui/binding.mjs`、`test/sidepanel.test.ts`、`test/sidepanel-view.test.ts`、`test/chat-events.test.ts`、`test/chat-session.test.ts`、`test/state-message.test.ts` |
+| MODIFY | `packages/web-cli-plugin/docs/dev.md`（§11 + 变更记录）；`.sddu/.../build.md`、`tasks.md`、`state.json` |
+| — | `packages/web-cli-base/**` **零改动**；各 `package.json` **零改动**；无新依赖、无框架、无 CDN、无 `innerHTML` |
+
+**验收标准**:
+- [x] A：`html,body{height:100%}` + `body` flex column；`#log` 为 `flex:1 1 auto; min-height:0; overflow-y:auto`（**无 45vh**）；顶部/底部区不滚动
+- [x] A：composer 为底部区末元素（`#consent` 折叠条在其前），有内容时 **composer 贴底**（实测 gap 8px = padding；旧布局 -64px 被挤出视口）
+- [x] A：次要操作（撤销/重绑/审计/计数）收进 `<details>`；窄侧栏 320px 自适应无水平溢出
+- [x] B：user/assistant/tool/system/command 分角色呈现；assistant 复用 TASK-022 安全 Markdown；保留 `.entry`/`.entry-<role>`/`.entry-error`
+- [x] B：**tool 为可折叠卡片**（标题=工具名+状态+耗时 + 首行摘要；长输出默认折叠、真实点击可展开；正文等宽横向滚动）
+- [x] B：流式——**如实未实现**（base 无增量能力；原助手亦无），以 thinking 指示承接，未假装
+- [x] B：滚动策略——仅在底部或刚发送时跟随；上滚显示「回到底部」入口
+- [x] C：空态/禁用态/加载态/错误态均有明确视觉；既有 ID/功能（授权/撤销/重绑/审计/暂停恢复中止/知情同意/首用引导/环境守卫/诊断）全保留
+- [x] D：截图证据 `/tmp/ui-redesign/{before,after}/` + 布局量化对照（`#log` 45.0%→65.5% 稳态、composer -64px→+8px、flex-grow 0→1、工具卡片 0→2、水平溢出 0）
+- [x] D：`test:ui` **67** 断言（#15a~#15q：flex 填充/composer 贴底/工具卡片折叠展开/恶意 HTML 安全/无水平溢出）；`test:binding` **41**（#6h~#6j 真实用户气泡 indigo 右对齐）
+- [x] D：插件 **222** pass / 0 fail、`tsc` 0 error、`test:hardening` 22 / `test:e2e` A/B / `test:binding` 41 全 PASS；全仓 build+test 0 fail、base **483 零回归**
+- [x] D：红线：base/`package.json` 零改动、无新依赖、无 `innerHTML`、MV3 CSP 合规、未 git 提交
+
+**验证命令**:
+```bash
+npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin
+npm run typecheck --workspace @lgdl/web-cli-plugin
+npm run test:ui --workspace @lgdl/web-cli-plugin
+npm run test:hardening --workspace @lgdl/web-cli-plugin
+npm run test:e2e --workspace @lgdl/web-cli-plugin
+npm run test:binding --workspace @lgdl/web-cli-plugin
+npm run build && npm test
+node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图（真实 dist + CDP）
+```
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 6 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式，审查与实测反馈驱动） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动） |
 | S 级 (简单) | 0 |
 | M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022） |
-| L 级 (复杂) | 7（004/005/006/010/011/014/016） |
-| 执行波次 | 15（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 post-validate 增补） |
+| L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023） |
+| 执行波次 | 16（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 post-validate 增补） |
 | plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021/022（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
@@ -1238,3 +1303,4 @@ npm run build && npm test
 | v1.3 | 追加 TASK-020（保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见；post-validate 增补，非 plan TB，用户实测反馈第三轮驱动）。任务汇总/波次计入增补轮（Wave 12）；`test:ui` 25→41 断言、插件 173→183。 | 2026-09-12 | SDDU Build Agent |
 | v1.4 | 追加 TASK-021（工具名非法字符修复 + 附带疑点 B/C 查清；post-validate 增补，非 plan TB，用户实测第五轮 `400 Invalid 'tools[0].function.name'` 驱动）。任务汇总/波次计入增补轮（Wave 13）；站点 `site_*`/管理 `admin_*` 扁平命名 + `group` 判据 + `willRetry` 区分；`test:binding` 捕获真实 tools 断言合法（38 断言）；插件 191→196。 | 2026-09-12 | SDDU Build Agent |
 | v1.5 | 追加 TASK-022（侧栏消息 Markdown 渲染 + 消息样式；post-validate 增补，非 plan TB，用户实测第六轮「模型回复显示为纯文本」驱动）。任务汇总/波次计入增补轮（Wave 14）；零依赖安全 Markdown（不解析 HTML / 白名单标签 / 链接仅 http(s)）+ 角色分组块 + 样式；新增 `markdown.test.ts` 12 用例、`test:ui` 41→50；插件 196→209。 | 2026-09-12 | SDDU Build Agent |
+| v1.6 | 追加 TASK-023（侧栏整体 UI/UX 重做；post-validate 增补，非 plan TB，用户实测第七轮「对话体验差于原内置 AI 助手」驱动）。先读回 git 历史原 AI 助手作设计基准；任务汇总/波次计入增补轮（Wave 15，L 级）；三区 flex 全高/去 45vh/composer 贴底/可折叠工具卡片/滚动跟随/明暗适配；真实 dist+CDP 前后量化 + 截图；`test:ui` 50→67、`test:binding` 38→41、插件 209→222。 | 2026-09-12 | SDDU Build Agent |

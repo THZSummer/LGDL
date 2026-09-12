@@ -5,186 +5,546 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>web-cli plugin</title>
     <style>
-      :root { color-scheme: light dark; }
+      /* ─────────────────────────────────────────────────────────────────────
+         TASK-023 UI/UX redesign — three-zone flex layout, design tokens,
+         light/dark parity. Design reference: the original built-in LGDL AI
+         assistant (packages/lgdl-web/src/ai/AiPanel.tsx + app.css, retired by
+         TASK-016, read back from git history):
+           .ai-panel   → flex column, min-height:0
+           .ai-messages→ flex:1; min-height:0; overflow-y:auto
+           .ai-msg-*   → role bubbles (indigo user / slate assistant / amber system)
+           .ai-msg-tool→ dark monospace terminal block
+           .ai-input-bar → flex-shrink:0 at the bottom
+         This file re-expresses those proven decisions without React.
+         ───────────────────────────────────────────────────────────────────── */
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --bg-subtle: #f6f8fb;
+        --bg-elevated: #ffffff;
+        --text: #1e293b;
+        --text-muted: #64748b;
+        --border: #e5e9f0;
+        --border-strong: #cbd5e1;
+        --accent: #4f46e5;
+        --accent-hover: #4338ca;
+        --accent-weak: #eef2ff;
+        --accent-text: #4338ca;
+        --user-bg: #4f46e5;
+        --user-text: #ffffff;
+        --assistant-bg: #f1f5f9;
+        --assistant-text: #334155;
+        --tool-bg: #0f172a;
+        --tool-text: #cbd5e1;
+        --warn-bg: #fffbeb;
+        --warn-border: #fde68a;
+        --warn-text: #92400e;
+        --danger-bg: #fef2f2;
+        --danger-border: #fecaca;
+        --danger-text: #991b1b;
+        --ok: #15803d;
+        --ok-bg: rgba(21, 128, 61, 0.12);
+        --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        --focus: 0 0 0 2px rgba(79, 70, 229, 0.35);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1120;
+          --bg-subtle: #0f172a;
+          --bg-elevated: #101a30;
+          --text: #e2e8f0;
+          --text-muted: #94a3b8;
+          --border: #1e293b;
+          --border-strong: #334155;
+          --accent: #818cf8;
+          --accent-hover: #a5b4fc;
+          --accent-weak: #1e1b4b;
+          --accent-text: #c7d2fe;
+          --assistant-bg: #1e293b;
+          --assistant-text: #cbd5e1;
+          --warn-bg: #3b2f10;
+          --warn-border: #78500f;
+          --warn-text: #fcd34d;
+          --danger-bg: #3f1414;
+          --danger-border: #7f1d1d;
+          --danger-text: #fca5a5;
+          --ok: #4ade80;
+          --ok-bg: rgba(74, 222, 128, 0.14);
+          --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+      }
+
       *, *::before, *::after { box-sizing: border-box; }
-      body { font: 13px/1.5 system-ui, sans-serif; margin: 0; padding: 8px; overflow-wrap: anywhere; }
-      #status { font-weight: 600; padding: 4px 0; }
-      .topbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 2px 0 6px; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        overflow: hidden;
+        overflow-wrap: anywhere;
+      }
+
+      /* ── shared controls ─────────────────────────────────────────────── */
+      button {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 10px;
+        cursor: pointer;
+        max-width: 100%;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button:focus-visible, summary:focus-visible, input:focus-visible { outline: none; box-shadow: var(--focus); }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+      button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      .muted { color: var(--text-muted); font-size: 11.5px; }
+
+      /* ── zone 1: top (fixed, non-scrolling) ──────────────────────────── */
+      #panel-top {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 10px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+        min-width: 0;
+      }
+      .status-bar { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; min-width: 0; }
+      #status { font-weight: 600; font-size: 12px; min-width: 0; }
       #llm-status { min-width: 0; }
-      #llm-status.warn { color: #b45309; font-weight: 600; }
-      #open-options.primary { font-weight: 600; }
-      #llm-test { font-weight: 600; }
-      #llm-test-result { margin: 2px 0 4px; }
-      #llm-test-result.ok { color: #15803d; }
-      #llm-test-result.warn { color: #b45309; font-weight: 600; }
+      #llm-status.warn { color: var(--warn-text); font-weight: 600; }
+      .toolbar { min-width: 0; }
+      #llm-test-result { margin: 0; }
+      #llm-test-result.ok { color: var(--ok); }
+      #llm-test-result.warn { color: var(--warn-text); font-weight: 600; }
+
+      /* secondary actions live in a <details> (no more 8 buttons above chat) */
+      .more { position: relative; }
+      .more > summary {
+        list-style: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        user-select: none;
+        padding: 5px 10px;
+        font-size: 12px;
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+      }
+      .more > summary::-webkit-details-marker { display: none; }
+      .more > summary::after { content: "▾"; font-size: 10px; color: var(--text-muted); }
+      .more[open] > summary { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      .more-menu {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        margin-top: 6px;
+        padding: 8px;
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+      }
+
+      /* ── zone 2: message list (flex fill, the only scroller) ─────────── */
+      #panel-main { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; }
+      #log {
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 10px;
+        background: var(--bg-subtle);
+      }
+      /* D-043: centering applies *only* when #log has no rendered entry elements. */
+      #log.empty:not(:has(> *)) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: var(--text-muted);
+        white-space: pre-wrap;
+        font-size: 12px;
+        line-height: 1.7;
+        padding: 24px;
+      }
+
+      /* ── messages ────────────────────────────────────────────────────── */
+      .entry { display: flex; min-width: 0; }
+      .msg { min-width: 0; }
+      .msg-user { justify-content: flex-end; }
+      .msg-assistant, .msg-system, .msg-tool, .msg-command { justify-content: flex-start; }
+      .msg-content {
+        max-width: 92%;
+        min-width: 0;
+        padding: 8px 11px;
+        border-radius: var(--radius);
+        font-size: 13px;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+      .msg-user .msg-content {
+        background: var(--user-bg);
+        color: var(--user-text);
+        border-bottom-right-radius: 3px;
+        white-space: pre-wrap;
+      }
+      .msg-assistant .msg-content {
+        background: var(--assistant-bg);
+        color: var(--assistant-text);
+        border-bottom-left-radius: 3px;
+        box-shadow: var(--shadow);
+      }
+      .msg-system .msg-content {
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        border: 1px solid var(--warn-border);
+        border-bottom-left-radius: 3px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .entry-error .msg-content { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-border); }
+      /* tool entry with no name (e.g. a retry notice) → compact dashed notice */
+      .msg-notice {
+        max-width: 96%;
+        min-width: 0;
+        padding: 6px 10px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--bg-elevated);
+        color: var(--text-muted);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+      /* assistant command line (what the agent is about to run) */
+      .cmd {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+        max-width: 96%;
+        min-width: 0;
+        padding: 4px 8px;
+        background: var(--accent-weak);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--accent-text);
+      }
+      .cmd-prompt { flex: 0 0 auto; font-weight: 700; }
+      .cmd-text { min-width: 0; white-space: pre-wrap; word-break: break-all; }
+
+      /* ── collapsible tool card (the key fix: no more whole-document dump) ─ */
+      .tool-card {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+      }
+      .tool-card-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+        user-select: none;
+        list-style: none;
+        font-size: 12px;
+      }
+      .tool-card-head::-webkit-details-marker { display: none; }
+      .tool-card-head::before { content: "▸"; font-size: 10px; color: var(--text-muted); flex: 0 0 auto; }
+      .tool-card[open] > .tool-card-head::before { content: "▾"; }
+      .tool-name { font-family: var(--mono); font-weight: 600; min-width: 0; }
+      .tool-status { flex: 0 0 auto; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+      .tool-status.ok { background: var(--ok-bg); color: var(--ok); }
+      .tool-status.fail { background: var(--danger-bg); color: var(--danger-text); }
+      .tool-status.unknown { background: var(--bg-subtle); color: var(--text-muted); }
+      .tool-ms { flex: 0 0 auto; color: var(--text-muted); font-size: 11px; }
+      .tool-preview {
+        flex: 1 1 100%;
+        min-width: 0;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tool-card[open] > .tool-card-head .tool-preview { display: none; }
+      .tool-card-body {
+        margin: 0;
+        padding: 8px 10px;
+        background: var(--tool-bg);
+        color: var(--tool-text);
+        border-top: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        line-height: 1.55;
+        white-space: pre;
+        max-height: 320px;
+        overflow: auto;
+      }
+
+      /* thinking indicator (base has no token streaming; this is the honest
+         substitute while a non-streaming LLM call is in flight) */
+      .msg-thinking .msg-content.thinking { display: inline-flex; gap: 4px; align-items: center; padding: 12px 14px; }
+      .thinking-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: blink 1.2s infinite ease-in-out; }
+      .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+      .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes blink { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
+
+      /* "back to bottom" — only while the user has scrolled away */
+      #scroll-bottom {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        display: none;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.22);
+        z-index: 5;
+      }
+      #scroll-bottom.show { display: inline-flex; }
+      #scroll-bottom:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+
+      /* ── zone 3: bottom (fixed, non-scrolling) — composer is last ─────── */
+      #panel-bottom {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 10px;
+        background: var(--bg-elevated);
+        border-top: 1px solid var(--border);
+        min-width: 0;
+      }
+      .strips { display: flex; flex-direction: column; gap: 6px; max-height: 34vh; overflow-y: auto; min-width: 0; }
+      #env-guard {
+        display: none; border: 2px solid #dc2626; background: var(--danger-bg); color: var(--danger-text);
+        border-radius: var(--radius-sm); padding: 8px; font-weight: 600;
+      }
       #site-hint {
-        display: none; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e;
-        border-radius: 4px; padding: 6px 8px; margin: 4px 0;
+        display: none; border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
+        border-radius: var(--radius-sm); padding: 6px 9px;
       }
       #site-hint .sh-title { font-weight: 600; }
-      #site-hint .sh-detail { margin: 3px 0; font-size: 12px; }
+      #site-hint .sh-detail { margin: 3px 0; font-size: 12px; line-height: 1.55; }
       #site-hint .sh-action { font-size: 12px; font-weight: 600; }
-      #send-reason { margin-top: 4px; color: #b45309; }
       #onboarding {
-        border: 1px solid #93c5fd; background: #eff6ff; border-radius: 4px;
-        padding: 6px 8px; margin: 4px 0; display: none;
+        display: none; border: 1px solid var(--border-strong); background: var(--bg-subtle);
+        border-radius: var(--radius-sm); padding: 6px 9px; font-size: 12px;
       }
-      #onboarding ol { margin: 4px 0 0; padding-inline-start: 20px; }
-      #onboarding li { margin: 2px 0; }
-      #onboarding li.current { font-weight: 600; }
-      #onboarding li.done { color: #64748b; }
-      #notice { background: #fef3c7; color: #92400e; padding: 6px; border-radius: 4px; margin: 4px 0; display: none; }
-      #env-guard {
-        display: none; border: 2px solid #dc2626; background: #fef2f2; color: #991b1b;
-        border-radius: 6px; padding: 8px; margin: 4px 0; font-weight: 600;
+      #onboarding .onboarding-title { font-weight: 600; }
+      #onboarding ol { margin: 4px 0 0; padding-inline-start: 18px; }
+      #onboarding li { margin: 1px 0; }
+      #onboarding li.current { font-weight: 600; color: var(--accent-text); }
+      #onboarding li.done { color: var(--text-muted); }
+      #discovery-notice {
+        display: none; border: 1px solid var(--border-strong); background: var(--bg-subtle);
+        border-radius: var(--radius-sm); padding: 6px 9px;
       }
-      #discovery-notice { display: none; border: 1px solid #94a3b8; background: #f1f5f9; border-radius: 4px; padding: 6px 8px; margin: 4px 0; }
       #discovery-notice .dn-title { font-weight: 600; }
-      #discovery-notice .dn-detail { margin: 4px 0; color: #475569; font-size: 12px; }
+      #discovery-notice .dn-detail { margin: 4px 0; color: var(--text-muted); font-size: 12px; }
       #discovery-notice .dn-retry { display: none; }
-      #log { height: 45vh; overflow: auto; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; margin: 6px 0; white-space: pre-wrap; }
-      /* F-5 / D-043: the empty-state centering must apply *only* when #log has no
-         rendered entry elements. Gating on :not(:has(> *)) means a stale or
-         out-of-sync `.empty` class (e.g. audit scripts injecting children
-         directly) can no longer turn real entries into a horizontal flex row —
-         non-empty logs always stay in normal block flow, one entry per line. */
-      #log.empty:not(:has(> *)) {
-        height: auto; min-height: 64px; display: flex; align-items: center; justify-content: center;
-        text-align: center; color: #64748b; background: #f8fafc;
+      #notice {
+        display: none; background: var(--warn-bg); color: var(--warn-text);
+        border: 1px solid var(--warn-border); border-radius: var(--radius-sm); padding: 6px 9px; font-size: 12px;
       }
-      .entry-error { color: #dc2626; }
-      .entry-tool { color: #475569; }
-      #confirm { border: 1px solid #f59e0b; background: #fffbeb; border-radius: 4px; padding: 6px; margin: 6px 0; display: none; }
+      #confirm {
+        display: none; border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
+        border-radius: var(--radius-sm); padding: 8px 9px;
+      }
       #confirm-summary, #ask-prompt { overflow-wrap: anywhere; }
-      #ask { border: 1px solid #38bdf8; background: #f0f9ff; border-radius: 4px; padding: 6px; margin: 6px 0; display: none; }
-      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-      #composer { display: flex; gap: 6px; margin-top: 6px; }
-      #input { flex: 1; min-width: 0; }
-      #send { flex: 0 0 auto; }
-      #consent { border-top: 1px solid #cbd5e1; margin-top: 10px; padding-top: 6px; }
-      #consent details { min-width: 0; }
-      #consent summary { cursor: pointer; font-weight: 600; }
-      #consent h3 { font-size: 13px; margin: 8px 0 2px; }
-      #consent ul { margin: 2px 0; padding-inline-start: 20px; }
-      #consent li { margin: 2px 0; }
-      .muted { color: #64748b; font-size: 12px; }
-      /* ── TASK-022: message blocks + safe Markdown ───────────────────────── */
-      /* One grouped block per message: role label + body, distinguished by a
-         left colour bar. `.entry-*` classes are kept for existing selectors. */
-      .msg {
-        margin: 8px 0; min-width: 0; border-radius: 4px;
-        border-left: 3px solid #cbd5e1; background: #f8fafc;
+      #ask {
+        display: none; border: 1px solid var(--border-strong); background: var(--bg-subtle);
+        border-radius: var(--radius-sm); padding: 8px 9px;
       }
-      .msg:first-child { margin-top: 0; }
-      .msg:last-child { margin-bottom: 0; }
-      .msg-role { padding: 2px 8px; font-size: 11px; color: #64748b; background: rgba(148, 163, 184, 0.12); }
-      .msg-content { padding: 4px 8px; min-width: 0; overflow-wrap: anywhere; }
+      #send-reason { margin: 0; color: var(--warn-text); font-size: 11.5px; }
+      #composer { display: flex; gap: 6px; align-items: center; min-width: 0; }
+      #input {
+        flex: 1; min-width: 0;
+        font: inherit;
+        padding: 8px 10px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+      }
+      #input::placeholder { color: var(--text-muted); }
+      #input:disabled { background: var(--bg-subtle); color: var(--text-muted); }
+      #send {
+        flex: 0 0 auto;
+        padding: 7px 14px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+        border-radius: var(--radius-sm);
+      }
+      #send:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+
+      /* informed consent: a one-line disclosure above the composer so nothing
+         is ever wedged between the input and the bottom of the panel */
+      #consent { border-top: 1px solid var(--border); padding-top: 4px; }
+      #consent > details > summary { cursor: pointer; font-weight: 600; font-size: 12px; color: var(--text-muted); }
+      #consent h3, #consent p { font-size: 12px; margin: 6px 0 2px; }
+      #consent ul { margin: 2px 0; padding-inline-start: 18px; font-size: 12px; }
+      #consent li { margin: 1px 0; }
+      #consent .row { margin-top: 6px; }
+      #risk-status { font-size: 11.5px; }
+
+      /* ── safe Markdown body (TASK-022, restyled for bubbles) ─────────── */
       .content-user { white-space: pre-wrap; }
-      /* Assistant bodies are Markdown; reset the container's pre-wrap so block
-         elements and inline text flow normally (GFM tables/lists/pre handle
-         their own whitespace). */
       .content-assistant { white-space: normal; }
-      /* Tool/system output is raw CLI/document text: keep whitespace + tabs. */
       .content-tool, .content-system {
         white-space: pre-wrap; font-size: 12px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        font-family: var(--mono);
       }
-      .msg-user { border-left-color: #38bdf8; }
-      .msg-assistant { border-left-color: #818cf8; }
-      .msg-tool { border-left-color: #94a3b8; }
-      .msg-system { border-left-color: #f59e0b; }
-      .entry-error .msg-role { color: #b91c1c; }
-      /* Markdown blocks: tighten margins and never let content widen the panel. */
       .msg-content > :first-child { margin-top: 0; }
       .msg-content > :last-child { margin-bottom: 0; }
       .msg-content h1, .msg-content h2, .msg-content h3,
-      .msg-content h4, .msg-content h5, .msg-content h6 { margin: 6px 0 3px; line-height: 1.3; }
-      .msg-content h1 { font-size: 16px; }
-      .msg-content h2 { font-size: 15px; }
-      .msg-content h3, .msg-content h4, .msg-content h5, .msg-content h6 { font-size: 14px; }
+      .msg-content h4, .msg-content h5, .msg-content h6 { margin: 8px 0 4px; line-height: 1.3; }
+      .msg-content h1 { font-size: 15px; }
+      .msg-content h2 { font-size: 14px; }
+      .msg-content h3, .msg-content h4, .msg-content h5, .msg-content h6 { font-size: 13px; }
       .msg-content p { margin: 4px 0; }
       .msg-content ul, .msg-content ol { margin: 4px 0; padding-inline-start: 20px; }
       .msg-content li { margin: 1px 0; }
       .msg-content blockquote {
-        margin: 4px 0; padding: 2px 8px; color: #475569;
-        border-left: 3px solid #cbd5e1; background: rgba(148, 163, 184, 0.08);
+        margin: 4px 0; padding: 2px 8px; color: var(--text-muted);
+        border-left: 3px solid var(--border-strong); background: var(--bg-subtle);
       }
-      .msg-content hr { border: 0; border-top: 1px solid #cbd5e1; margin: 6px 0; }
+      .msg-content hr { border: 0; border-top: 1px solid var(--border); margin: 6px 0; }
       .msg-content code {
         padding: 1px 4px; border-radius: 3px; font-size: 12px;
-        background: rgba(100, 116, 139, 0.14);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        background: rgba(100, 116, 139, 0.16);
+        font-family: var(--mono);
       }
-      /* Code blocks + tables scroll inside their own box, never the panel. */
+      /* code blocks + tables scroll inside their own box, never the panel */
       .msg-content pre {
-        margin: 4px 0; padding: 6px 8px; border-radius: 4px;
-        background: #0f172a; color: #e2e8f0;
+        margin: 6px 0; padding: 7px 9px; border-radius: var(--radius-sm);
+        background: var(--tool-bg); color: var(--tool-text);
         max-width: 100%; overflow-x: auto;
       }
       .msg-content pre code { padding: 0; background: none; color: inherit; }
       .msg-content table {
         display: block; width: max-content; max-width: 100%;
-        margin: 4px 0; overflow-x: auto; border-collapse: collapse;
+        margin: 6px 0; overflow-x: auto; border-collapse: collapse;
       }
-      .msg-content th, .msg-content td { border: 1px solid #cbd5e1; padding: 2px 6px; text-align: left; }
-      .msg-content thead th { background: rgba(148, 163, 184, 0.14); }
-      .msg-content a { color: #2563eb; }
+      .msg-content th, .msg-content td { border: 1px solid var(--border-strong); padding: 2px 6px; text-align: left; }
+      .msg-content thead th { background: rgba(148, 163, 184, 0.16); }
+      .msg-content a { color: var(--accent-text); }
+
+      @media (max-width: 380px) {
+        .msg-content { max-width: 100%; }
+        #panel-top, #panel-bottom { padding: 6px 8px; }
+        #log { padding: 10px 8px; }
+      }
     </style>
   </head>
   <body>
-    <div id="env-guard" role="alert"></div>
-    <div id="status">无活跃站点</div>
-    <div class="topbar" id="topbar">
-      <button id="open-options" type="button">配置模型 / 设置</button>
-      <span id="llm-status" class="muted">LLM：检测中…</span>
-      <button id="llm-test" type="button">测试连接</button>
-    </div>
-    <div id="llm-test-result" class="muted" role="status" aria-live="polite"></div>
-    <div id="site-hint" role="status" aria-live="polite">
-      <div class="sh-title" id="site-hint-title"></div>
-      <div class="sh-detail" id="site-hint-detail"></div>
-      <div class="sh-action" id="site-hint-action"></div>
-    </div>
-    <div id="onboarding"></div>
-    <div id="discovery-notice" role="status" aria-live="polite">
-      <div class="dn-title" id="discovery-title"></div>
-      <div class="dn-detail" id="discovery-detail"></div>
-      <button id="discovery-retry" class="dn-retry" type="button">重新探测</button>
-    </div>
-    <div id="notice"></div>
-    <div class="row">
-      <button id="authorize" type="button">授权当前站点</button>
-      <button id="revoke" type="button">撤销授权</button>
-      <button id="rebind" type="button">重新绑定当前标签页</button>
-      <button id="audit" type="button">查看审计</button>
-      <span id="audit-count" class="muted">审计 0 条</span>
-    </div>
-    <div id="log" aria-label="会话记录"></div>
-    <div id="confirm">
-      <div>敏感操作需二次确认：</div>
-      <div id="confirm-summary"></div>
-      <div class="row">
-        <button id="confirm-allow" type="button">允许</button>
-        <button id="confirm-deny" type="button">拒绝</button>
-        <span class="muted">超时/取消 = 拒绝</span>
+    <!-- ── zone 1: status + primary actions (never scrolls) ── -->
+    <header id="panel-top">
+      <div class="status-bar">
+        <span id="status">无活跃站点</span>
+        <span id="llm-status" class="muted">LLM：检测中…</span>
       </div>
-    </div>
-    <div id="ask">
-      <div class="muted">AI 任务内澄清提问（与权限确认不同）：</div>
-      <div id="ask-prompt"></div>
-      <div id="ask-options" class="row"></div>
-      <div class="row">
-        <input id="ask-input" type="text" placeholder="输入回答…" autocomplete="off" />
-        <button id="ask-submit" type="button">回答</button>
-        <button id="ask-cancel" type="button">取消</button>
+      <div class="toolbar row" id="topbar">
+        <button id="open-options" class="primary" type="button">配置模型 / 设置</button>
+        <button id="llm-test" type="button">测试连接</button>
+        <button id="authorize" type="button">授权当前站点</button>
+        <details class="more" id="more-actions">
+          <summary>更多</summary>
+          <div class="more-menu">
+            <button id="revoke" type="button">撤销授权</button>
+            <button id="rebind" type="button">重新绑定当前标签页</button>
+            <button id="audit" type="button">查看审计</button>
+            <span id="audit-count" class="muted">审计 0 条</span>
+          </div>
+        </details>
       </div>
-      <span class="muted">取消 = 回答被取消（不代填默认值）</span>
+      <div id="llm-test-result" class="muted" role="status" aria-live="polite"></div>
+    </header>
+
+    <!-- ── zone 2: message list (flex fill, the only scroller) ── -->
+    <div id="panel-main">
+      <div id="log" aria-label="会话记录"></div>
+      <button id="scroll-bottom" type="button" title="新消息在下方">回到底部 ↓</button>
     </div>
-    <form id="composer">
-      <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />
-      <button id="send" type="submit">发送</button>
-    </form>
-    <div id="send-reason" class="muted" role="status" aria-live="polite"></div>
+
+    <!-- ── zone 3: hints + composer (never scrolls; composer is last) ── -->
+    <div id="panel-bottom">
+      <div class="strips">
+        <div id="env-guard" role="alert"></div>
+        <div id="site-hint" role="status" aria-live="polite">
+          <div class="sh-title" id="site-hint-title"></div>
+          <div class="sh-detail" id="site-hint-detail"></div>
+          <div class="sh-action" id="site-hint-action"></div>
+        </div>
+        <div id="onboarding"></div>
+        <div id="discovery-notice" role="status" aria-live="polite">
+          <div class="dn-title" id="discovery-title"></div>
+          <div class="dn-detail" id="discovery-detail"></div>
+          <button id="discovery-retry" class="dn-retry" type="button">重新探测</button>
+        </div>
+        <div id="notice" role="status" aria-live="polite"></div>
+      </div>
+      <div id="confirm">
+        <div>敏感操作需二次确认：</div>
+        <div id="confirm-summary"></div>
+        <div class="row">
+          <button id="confirm-allow" type="button">允许</button>
+          <button id="confirm-deny" type="button">拒绝</button>
+          <span class="muted">超时/取消 = 拒绝</span>
+        </div>
+      </div>
+      <div id="ask">
+        <div class="muted">AI 任务内澄清提问（与权限确认不同）：</div>
+        <div id="ask-prompt"></div>
+        <div id="ask-options" class="row"></div>
+        <div class="row">
+          <input id="ask-input" type="text" placeholder="输入回答…" autocomplete="off" />
+          <button id="ask-submit" type="button">回答</button>
+          <button id="ask-cancel" type="button">取消</button>
+        </div>
+        <span class="muted">取消 = 回答被取消（不代填默认值）</span>
+      </div>
+      <div id="send-reason" class="muted" role="status" aria-live="polite"></div>
+      <div id="consent-slot"></div>
+      <form id="composer">
+        <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />
+        <button id="send" type="submit">发送</button>
+      </form>
+    </div>
     <script src="sidepanel.js"></script>
   </body>
 </html>

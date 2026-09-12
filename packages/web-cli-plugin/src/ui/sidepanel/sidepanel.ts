@@ -35,7 +35,7 @@ const $ = <T extends HTMLElement>(id: string): T => {
   return el as T;
 };
 
-/** TASK-022: human-readable role label rendered above each message body. */
+/** TASK-022: human-readable role label (kept for tests/legacy selectors). */
 const ROLE_LABEL: Record<ChatRole, string> = {
   user: '你',
   assistant: '助手',
@@ -43,30 +43,142 @@ const ROLE_LABEL: Record<ChatRole, string> = {
   system: '系统',
 };
 
+// TASK-023: tool-card collapse thresholds + per-entry remembered open state.
+// Long output (whole documents, CLI dumps) starts collapsed; short output is
+// expanded. Remembers explicit user toggles so a re-render (any state dispatch
+// rebuilds the list) does not reset them.
+const TOOL_LONG_CHARS = 480;
+const TOOL_LONG_LINES = 10;
+const TOOL_PREVIEW_MAX = 110;
+const toolOpenState = new Map<number, boolean>();
+
+/** First non-empty line, trimmed + truncated, for the collapsed card summary. */
+function firstLine(text: string): string {
+  const line = text.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? '';
+  return line.length > TOOL_PREVIEW_MAX ? `${line.slice(0, TOOL_PREVIEW_MAX)}…` : line;
+}
+
+/** A command line the agent is about to run (compact monospace, not a bubble). */
+function renderCommand(entry: SidepanelState['entries'][number]): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'cmd';
+  const prompt = document.createElement('span');
+  prompt.className = 'cmd-prompt';
+  prompt.textContent = '›';
+  const code = document.createElement('code');
+  code.className = 'cmd-text';
+  code.textContent = entry.text;
+  wrap.append(prompt, code);
+  return wrap;
+}
+
+/** Collapsible tool card: header = tool name + status + duration (+ preview). */
+function renderToolCard(entry: SidepanelState['entries'][number]): HTMLElement {
+  const details = document.createElement('details');
+  details.className = 'tool-card';
+  const lineCount = entry.text.split('\n').length;
+  const isLong = entry.text.length > TOOL_LONG_CHARS || lineCount > TOOL_LONG_LINES;
+  const remembered = toolOpenState.get(entry.id);
+  details.open = remembered ?? !isLong;
+
+  const summary = document.createElement('summary');
+  summary.className = 'tool-card-head';
+
+  const name = document.createElement('span');
+  name.className = 'tool-name';
+  name.textContent = entry.tool ?? '工具';
+
+  const status = document.createElement('span');
+  status.className = `tool-status ${entry.ok === false ? 'fail' : entry.ok === true ? 'ok' : 'unknown'}`;
+  status.textContent = entry.ok === false ? '✖ 失败' : entry.ok === true ? '✓ 成功' : '完成';
+
+  summary.append(name, status);
+  if (typeof entry.ms === 'number') {
+    const ms = document.createElement('span');
+    ms.className = 'tool-ms';
+    ms.textContent = `${entry.ms} ms`;
+    summary.appendChild(ms);
+  }
+  const preview = firstLine(entry.text);
+  if (preview) {
+    const p = document.createElement('span');
+    p.className = 'tool-preview';
+    p.textContent = preview;
+    summary.appendChild(p);
+  }
+
+  const body = document.createElement('pre');
+  body.className = 'tool-card-body';
+  body.textContent = entry.text;
+
+  details.append(summary, body);
+  details.addEventListener('toggle', () => toolOpenState.set(entry.id, details.open));
+  return details;
+}
+
+/** Thinking indicator shown while a (non-streaming) LLM call is in flight. */
+function renderThinking(): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'entry entry-assistant msg msg-assistant msg-thinking';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-content content-assistant thinking';
+  bubble.setAttribute('role', 'status');
+  bubble.setAttribute('aria-label', '助手正在处理…');
+  for (let i = 0; i < 3; i += 1) {
+    const dot = document.createElement('span');
+    dot.className = 'thinking-dot';
+    bubble.appendChild(dot);
+  }
+  block.appendChild(bubble);
+  return block;
+}
+
 /**
- * TASK-022: render one chat entry as a grouped message block. The assistant's
- * body goes through the safe Markdown renderer; every other role keeps its text
- * verbatim (tool/system output is often raw CLI/whole-document text).
+ * TASK-022/TASK-023: render one chat entry as a role-distinguished block.
+ *
+ * - user      → right-aligned indigo bubble (verbatim text)
+ * - assistant → left-aligned slate bubble (safe Markdown)
+ * - tool      → collapsible tool card when the background supplied a name,
+ *               otherwise a compact dashed notice (e.g. LLM retry notice)
+ * - system    → amber bubble; `kind==='error'` gets the red `.entry-error` style
+ * - command   → compact monospace command line
+ *
+ * Legacy `.entry` / `.entry-<role>` / `.entry-error` selectors are preserved for
+ * existing gates (zero regression).
  */
 function renderEntry(entry: SidepanelState['entries'][number]): HTMLElement {
   const block = document.createElement('div');
-  // Keep the legacy `entry-<role>`/`entry-error` classes (existing gates select
-  // them) and add the TASK-022 `msg-<role>` presentation classes.
-  block.className = `entry entry-${entry.role} msg msg-${entry.role}${entry.kind === 'error' ? ' entry-error' : ''}`;
+  const errCls = entry.kind === 'error' ? ' entry-error' : '';
 
-  const label = document.createElement('div');
-  label.className = 'msg-role';
-  label.textContent = ROLE_LABEL[entry.role];
-
-  const content = document.createElement('div');
-  content.className = `msg-content content-${entry.role}`;
-  if (entry.role === 'assistant') {
-    content.appendChild(renderMarkdown(entry.text, document));
-  } else {
-    content.textContent = entry.text;
+  if (entry.role === 'tool' && entry.tool) {
+    block.className = `entry entry-${entry.role} msg msg-${entry.role}${errCls}`;
+    block.appendChild(renderToolCard(entry));
+    return block;
+  }
+  if (entry.kind === 'command') {
+    block.className = `entry entry-${entry.role} msg msg-${entry.role} msg-command${errCls}`;
+    block.appendChild(renderCommand(entry));
+    return block;
+  }
+  if (entry.role === 'tool') {
+    block.className = `entry entry-${entry.role} msg msg-${entry.role}${errCls}`;
+    const notice = document.createElement('div');
+    notice.className = 'msg-notice content-tool';
+    notice.textContent = entry.text;
+    block.appendChild(notice);
+    return block;
   }
 
-  block.append(label, content);
+  block.className = `entry entry-${entry.role} msg msg-${entry.role}${errCls}`;
+  const bubble = document.createElement('div');
+  bubble.className = `msg-content content-${entry.role}`;
+  bubble.setAttribute('aria-label', ROLE_LABEL[entry.role]);
+  if (entry.role === 'assistant') {
+    bubble.appendChild(renderMarkdown(entry.text, document));
+  } else {
+    bubble.textContent = entry.text;
+  }
+  block.appendChild(bubble);
   return block;
 }
 
@@ -101,6 +213,24 @@ let llmLoaded = false;
 let activeTab: ActiveTabView | null = null;
 /** Last discovery failure reason (populated by 「重新探测」) for a readable notice. */
 let discoveryReason: string | undefined;
+/**
+ * TASK-023: the user just acted (sent a message) — follow the new content even
+ * if they had scrolled up. Reset after the next render.
+ */
+let forceFollow = false;
+
+/** True when the message list is scrolled to (near) the bottom. */
+function isAtBottom(el: HTMLElement): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= 24;
+}
+
+/** Show the "back to bottom" affordance only while scrolled away. */
+function updateScrollHint(): void {
+  const log = document.getElementById('log');
+  const btn = document.getElementById('scroll-bottom');
+  if (!log || !btn) return;
+  btn.classList.toggle('show', !isAtBottom(log));
+}
 
 function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
   return chrome.runtime.sendMessage(message) as Promise<PluginResponse<T>>;
@@ -108,8 +238,14 @@ function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
 
 function render(): void {
   const log = $('log');
+  // TASK-023 scroll policy: rebuild the list but never yank the viewport. When
+  // the user is already at the bottom (or just acted) follow the new content;
+  // otherwise keep their scroll position and offer「回到底部」.
+  const follow = forceFollow || isAtBottom(log);
+  forceFollow = false;
+  const prevTop = log.scrollTop;
   log.textContent = '';
-  if (isLogEmpty(state.entries.length)) {
+  if (isLogEmpty(state.entries.length) && !state.pending) {
     // F-5: never a large blank box — a readable placeholder instead.
     log.classList.add('empty');
     log.textContent = LOG_EMPTY_TEXT;
@@ -118,11 +254,14 @@ function render(): void {
     for (const entry of state.entries) {
       log.appendChild(renderEntry(entry));
     }
-    log.scrollTop = log.scrollHeight;
+    if (state.pending) log.appendChild(renderThinking());
+    if (follow) log.scrollTop = log.scrollHeight;
+    else log.scrollTop = prevTop;
   }
+  updateScrollHint();
 
   $('status').textContent = state.activeOrigin
-    ? `站点 ${state.activeOrigin} · 发现=${state.discoveryState ?? '未知'} · ${state.authorized ? '已授权' : '未授权'}`
+    ? `站点 ${state.activeOrigin} · 发现=${state.discoveryState ?? '未知'} · ${state.authorized ? '已授权' : '未授权'} · 信任=${state.trust === 'trusted' ? 'trusted' : 'untrusted'}`
     : '无活跃站点';
   const buttons = buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending });
   ($('authorize') as HTMLButtonElement).disabled = buttons.authorizeDisabled;
@@ -343,7 +482,11 @@ function renderConsent(): void {
   status.id = 'risk-status';
   status.className = 'muted';
   section.appendChild(status);
-  document.body.appendChild(section);
+  // TASK-023: the consent disclosure lives in the bottom zone *above* the
+  // composer (the composer must be the last element so nothing pushes it off the
+  // bottom of the panel). `#consent-slot` is reserved for exactly this.
+  const slot = document.getElementById('consent-slot');
+  (slot ?? document.body).appendChild(section);
 
   const refresh = (d?: RiskStatusPayload) => {
     status.textContent = `风控状态：${d?.stopped ? '已中止' : d?.paused ? '已暂停' : '运行中'}${d?.reason ? `（${d.reason}）` : ''}`;
@@ -443,8 +586,17 @@ function wire(): void {
     if (!text) return;
     if (buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending }).sendDisabled) return;
     input.value = '';
+    forceFollow = true;
     dispatch({ type: 'user', text });
     void send(makeMessage('chat', { user: text }));
+  });
+
+  // TASK-023: keep the「回到底部」affordance in sync with the user's scroll.
+  $('log').addEventListener('scroll', () => updateScrollHint(), { passive: true });
+  $('scroll-bottom').addEventListener('click', () => {
+    const log = $('log');
+    log.scrollTop = log.scrollHeight;
+    updateScrollHint();
   });
 
   $('authorize').addEventListener('click', () => {
@@ -544,7 +696,16 @@ function wire(): void {
       const text = typeof msg.text === 'string' ? msg.text : '';
       const variant = typeof msg.variant === 'string' ? msg.variant : 'assistant';
       if (variant === 'error') dispatch({ type: 'error', text });
-      else if (variant === 'tool') dispatch({ type: 'tool', text });
+      else if (variant === 'tool') {
+        // TASK-023: carry the tool-card metadata when the background observed it.
+        dispatch({
+          type: 'tool',
+          text,
+          ...(typeof msg.tool === 'string' ? { tool: msg.tool } : {}),
+          ...(typeof msg.ok === 'boolean' ? { ok: msg.ok } : {}),
+          ...(typeof msg.ms === 'number' ? { ms: msg.ms } : {}),
+        });
+      } else if (variant === 'command') dispatch({ type: 'command', text });
       else if (variant === 'done') dispatch({ type: 'pending', value: false });
       else if (text) dispatch({ type: 'assistant', text });
       return undefined;

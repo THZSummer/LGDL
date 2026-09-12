@@ -101,6 +101,12 @@ export interface StateMessagePayload {
    * authorized" — always `false` when there is no bound origin.
    */
   authorized: boolean;
+  /**
+   * TASK-023: trust of the bound origin (`trusted`/`untrusted`). Trust and
+   * authorization are separate concerns (FR-012); the panel only displays it.
+   * Always `untrusted` when there is no bound origin.
+   */
+  trust: 'trusted' | 'untrusted';
   /** Non-sensitive active-tab projection (TASK-020 任务 B). */
   tab?: ActiveTabView | null;
 }
@@ -109,10 +115,13 @@ export async function buildStateMessage(input: {
   active: ActiveSessionView | null;
   tools: string[];
   isAuthorized: (origin: string) => Promise<boolean>;
+  /** TASK-023: optional trust lookup; absent → `untrusted` for every origin. */
+  trustOf?: (origin: string) => Promise<'trusted' | 'untrusted'>;
   tab?: ActiveTabView | null;
 }): Promise<StateMessagePayload> {
   const { active, tools, isAuthorized } = input;
   const authorized = active ? await isAuthorized(active.origin) : false;
-  return { active, tools, authorized, tab: input.tab ?? null };
+  const trust = active && input.trustOf ? await input.trustOf(active.origin) : 'untrusted';
+  return { active, tools, authorized, trust: trust === 'trusted' ? 'trusted' : 'untrusted', tab: input.tab ?? null };
 }
 

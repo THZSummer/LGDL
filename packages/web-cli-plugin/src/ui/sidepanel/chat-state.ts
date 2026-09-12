@@ -12,6 +12,14 @@ export interface ChatEntry {
   role: ChatRole;
   text: string;
   kind: ChatKind;
+  /**
+   * TASK-023: tool-card metadata (only for `role: 'tool'` entries emitted by the
+   * background with a tool name). `tool` drives the card header; `ok`/`ms` are
+   * the status + duration. Absent for legacy/notice tool entries.
+   */
+  tool?: string;
+  ok?: boolean;
+  ms?: number;
 }
 
 export interface ConfirmState {
@@ -38,6 +46,8 @@ export interface SidepanelState {
   /** Readable discovery failure reason (TASK-019 任务 B). */
   discoveryReason?: string;
   authorized: boolean;
+  /** TASK-023: per-origin trust (read-only display; display defaults to untrusted). */
+  trust?: 'trusted' | 'untrusted';
   invalidated: boolean;
   confirm: ConfirmState | null;
   ask: AskState | null;
@@ -48,11 +58,11 @@ export interface SidepanelState {
 export type SidepanelAction =
   | { type: 'user'; text: string }
   | { type: 'assistant'; text: string }
-  | { type: 'tool'; text: string }
+  | { type: 'tool'; text: string; tool?: string; ok?: boolean; ms?: number }
   | { type: 'command'; text: string }
   | { type: 'error'; text: string }
   | { type: 'pending'; value: boolean }
-  | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; authorized?: boolean; invalidated?: boolean }
+  | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; authorized?: boolean; trust?: SidepanelState['trust']; invalidated?: boolean }
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
   | { type: 'confirm-resolved'; allow: boolean }
   | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
@@ -73,8 +83,22 @@ export function createInitialState(): SidepanelState {
   };
 }
 
-function append(state: SidepanelState, role: ChatRole, text: string, kind: ChatKind): SidepanelState {
-  const entry: ChatEntry = { id: state.nextId, role, text, kind };
+function append(
+  state: SidepanelState,
+  role: ChatRole,
+  text: string,
+  kind: ChatKind,
+  meta?: { tool?: string; ok?: boolean; ms?: number },
+): SidepanelState {
+  const entry: ChatEntry = {
+    id: state.nextId,
+    role,
+    text,
+    kind,
+    ...(meta?.tool !== undefined ? { tool: meta.tool } : {}),
+    ...(meta?.ok !== undefined ? { ok: meta.ok } : {}),
+    ...(meta?.ms !== undefined ? { ms: meta.ms } : {}),
+  };
   return { ...state, entries: [...state.entries, entry], nextId: state.nextId + 1 };
 }
 
@@ -85,7 +109,11 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
     case 'assistant':
       return append(state, 'assistant', action.text, 'text');
     case 'tool':
-      return append(state, 'tool', action.text, 'tool');
+      return append(state, 'tool', action.text, 'tool', {
+        ...(action.tool !== undefined ? { tool: action.tool } : {}),
+        ...(action.ok !== undefined ? { ok: action.ok } : {}),
+        ...(action.ms !== undefined ? { ms: action.ms } : {}),
+      });
     case 'command':
       return append(state, 'assistant', action.text, 'command');
     case 'error':
@@ -99,6 +127,7 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
         ...(action.discoveryState !== undefined ? { discoveryState: action.discoveryState } : {}),
         ...(action.discoveryReason !== undefined ? { discoveryReason: action.discoveryReason } : {}),
         ...(action.authorized !== undefined ? { authorized: action.authorized } : {}),
+        ...(action.trust !== undefined ? { trust: action.trust } : {}),
         ...(action.invalidated !== undefined ? { invalidated: action.invalidated } : {}),
         ...(action.invalidated
           ? { notice: '页面已导航：会话上下文失效，请重新授权/重连（不静默续接）' }

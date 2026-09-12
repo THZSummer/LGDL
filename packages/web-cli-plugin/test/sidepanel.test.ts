@@ -69,3 +69,46 @@ test('sidepanel consent: informed-consent risks and capability boundary are read
   assert.match(summary, /知情同意/);
   assert.match(summary, /账号风控/);
 });
+
+// ── TASK-023: tool-card metadata / command entries / trust ──────────────────
+
+test('TASK-023: tool actions carry name/status/duration into the entry', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'tool', text: '{"nodes":[]}', tool: 'site_notes-list', ok: true, ms: 318 });
+  const tool = s.entries[0];
+  assert.equal(tool.role, 'tool');
+  assert.equal(tool.kind, 'tool');
+  assert.equal(tool.tool, 'site_notes-list');
+  assert.equal(tool.ok, true);
+  assert.equal(tool.ms, 318);
+});
+
+test('TASK-023: tool metadata is optional (legacy/notice tool entries stay valid)', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'tool', text: '⚠ 重试中…' });
+  const tool = s.entries[0];
+  assert.equal(tool.role, 'tool');
+  assert.equal('tool' in tool, false);
+  assert.equal('ok' in tool, false);
+  assert.equal('ms' in tool, false);
+});
+
+test('TASK-023: command entries render as assistant/command (not a chat bubble)', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'command', text: 'site_notes-list --doc main' });
+  const cmd = s.entries[0];
+  assert.equal(cmd.role, 'assistant');
+  assert.equal(cmd.kind, 'command');
+  assert.equal(cmd.text, 'site_notes-list --doc main');
+});
+
+test('TASK-023: trust is tracked through the state action', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'state', origin: 'https://a.test', authorized: true, trust: 'trusted' });
+  assert.equal(s.trust, 'trusted');
+  s = reduce(s, { type: 'state', trust: 'untrusted' });
+  assert.equal(s.trust, 'untrusted');
+  // a state update without trust must not silently flip the previous value
+  s = reduce(s, { type: 'state', authorized: false });
+  assert.equal(s.trust, 'untrusted');
+});

@@ -279,6 +279,8 @@ export interface StateMessageView {
   active: { origin: string; discoveryState?: string; discoveryReason?: string; invalidated: boolean } | null;
   tools?: string[];
   authorized?: boolean;
+  /** TASK-023: per-origin trust of the bound origin (`trusted`/`untrusted`). */
+  trust?: string;
   /** Non-sensitive active-tab projection (TASK-020 任务 B). */
   tab?: ActiveTabView | null;
   /** One-shot readable notice from the background (D-064: icon binding / tab switch). */
@@ -292,6 +294,7 @@ export interface StateActionView {
   discoveryReason?: string;
   invalidated: boolean;
   authorized: boolean;
+  trust?: SidepanelState['trust'];
 }
 
 export function stateActionFromPayload(payload: StateMessageView): StateActionView {
@@ -305,6 +308,8 @@ export function stateActionFromPayload(payload: StateMessageView): StateActionVi
     invalidated: active?.invalidated ?? false,
     // W1: sync the persisted authorization; without a bound origin it is false.
     authorized: hasOrigin && payload.authorized === true,
+    // TASK-023: only a bound origin can be trusted; anything else is untrusted.
+    trust: hasOrigin && payload.trust === 'trusted' ? 'trusted' : 'untrusted',
   };
 }
 

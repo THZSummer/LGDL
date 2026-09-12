@@ -188,7 +188,7 @@ npm run build --workspace @lgdl/web-cli-plugin   # 前置：脚本读取真实 d
 npm run test:ui --workspace @lgdl/web-cli-plugin
 ```
 
-覆盖的旅程与断言（41 项，失败即非零退出并打印页面异常 / console error）：
+覆盖的旅程与断言（67 项，失败即非零退出并打印页面异常 / console error）：
 
 1. 全新 profile 加载真实 dist，`web-cli plugin` service worker 可达；
 2. 真实打开 `chrome-extension://<id>/options.html`，无 load 期异常；
@@ -204,7 +204,11 @@ npm run test:ui --workspace @lgdl/web-cli-plugin
 10. 侧栏（`sidepanel.html`）LLM 行含 `Key ✅`；无活跃站点时显示**具体原因 + 下一步动作**与
     「重新绑定当前标签页」按钮，发送禁用原因在输入框旁可见；
 11. 侧栏「测试连接」真实点击 → 复用 `llm-test`（读取已保存配置）→ 可读成功结果（含 `ms`）；
-12. options 页与侧栏页各 0 未捕获异常、0 console error。
+12. options 页与侧栏页各 0 未捕获异常、0 console error；
+13. **三区布局门禁（TASK-023，#15a~#15q）**：固定 400×900 视口 → `#log` 为 flex 填充（非 45vh）、
+    稳态高度占比 >45vh、composer 贴底（未被 consent 挤压）、文档级无水平溢出、三区结构 + 「回到底部」入口；
+    注入长工具结果 → 工具卡片（标题=名+状态+耗时、长输出默认折叠、正文等宽+横向滚动、卡片内恶意 HTML 仍为文本）、
+    命令块 `.cmd`、错误 system 气泡；真实点击摘要卡片展开；上滚显示「回到底部」/ 贴底隐藏；320px 窄栏零水平溢出。
 
 > **hermetic mock**：脚本内置一个仅监听 `127.0.0.1` 的 mock OpenAI 端点（回 `? CORS` + PNA 头），
 > 因此无需联网、可重复。`dist/` 字节未被修改（与 R8 的「manifest 副本追加 host_permissions」偏差不同）。
@@ -356,7 +360,68 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 
 **回归门禁**：`test/markdown.test.ts`（12 用例：XSS / 链接 scheme / 表格 / 代码块 / 列表 / 标题 / 行内 / 未闭合语法 / 纯解析 / 无 HTML 注入 API）；`test/sidepanel-view.test.ts` 静态钉住集成与样式；`npm run test:ui` 新增 **#14a~#14i**（mock LLM 返回含恶意 HTML 的 Markdown → 经真实 `chat-result` 渲染 → 断言真实 `h1`/`strong`/`table`/`pre>code`、无 `script`/`img`、恶意内容为文本、无水平溢出）。
 
-## 11. 变更记录
+## 11. 侧栏对话界面布局（TASK-023 整体重做）
+
+> 用户实测反馈：插件侧栏的对话体验比「做插件之前原本的 AI 助手」明显更差。本轮**先 `git show` 读回原
+> AI 助手**（`762d3a6^:packages/lgdl-web/src/ai/AiPanel.tsx` + `app.css`，TASK-016 已移除）作设计基准，
+> 再整体重做侧栏布局与消息呈现，非继续打补丁。
+
+### 11.1 三区 flex 全高布局
+
+```
+┌─ #panel-top     （flex:0 0 auto，不滚动）
+│   状态行：站点 origin · 发现 · 授权 · 信任 ＋ LLM 状态
+│   主操作：配置模型/设置 · 测试连接 · 授权当前站点 · 〈更多 ▾〉（撤销/重绑/审计/计数）
+├─ #panel-main    （flex:1 1 auto，min-height:0）
+│   #log          （唯一滚动区：消息列表）
+│   #scroll-bottom（浮动：仅上滚时出现）
+└─ #panel-bottom  （flex:0 0 auto，不滚动）
+    提示条（cap 34vh 内滚）：env-guard / site-hint / onboarding / discovery-notice / notice
+    交互卡：confirm / ask ；#send-reason ；#consent（折叠条，标题常显）
+    #composer（input + 发送）——**最后一个元素**，因此永远贴底
+```
+
+- 关键点：旧 `#log { height: 45vh }` 硬编码已删除，改为 `flex: 1 1 auto; min-height: 0`。旧布局 composer
+  之后还压着 `#consent`，内容一多 **composer 被挤出视口**；现在 `#consent` 折叠条移到 composer 之前，
+  composer 为末元素。
+- 次要操作收进 `<details id="more-actions">`，不再 8 个按钮横铺在对话上方。
+- 全部既有元素 ID 与 `.entry`/`.entry-<role>`/`.entry-error` 选择器保留（测试门禁零回归）。
+- 明暗适配：CSS 变量 + `@media (prefers-color-scheme: dark)`；`color-scheme: light dark`。
+
+### 11.2 消息呈现
+
+- **user**：右对齐 indigo 气泡；**assistant**：左对齐气泡 + 安全 Markdown（§10.8）；
+  **tool**：**可折叠卡片**（标题=工具名 + 状态 + 耗时，折叠时附首行摘要；正文深色等宽、可展开、横向滚动；
+  长输出默认折叠、短输出默认展开，用户开合态跨重渲染记忆）；无工具名的 tool 条目（如 LLM 重试提示）降级为
+  紧凑虚线提示；**system/error**：醒目气泡；**command**：紧凑等宽命令行；处理中显示三点动画。
+- 工具卡片的 name/status/duration 由 background 配对 `onCommandLine`（记开始）与 `hooks.onToolDone(tc,result)`
+  （工具身份 + ok）得到；base `onToolOutput` 只带文本，未观察到的字段一律省略不伪造。
+- **滚动策略**：仅当用户已在底部（阈值 24px）或刚发送时自动跟随；上滚不强制跳，显示「回到底部」。
+- **流式**：base `chat()` 为单次返回、`AgentRunner.onAssistantText` 每整条回复触发一次，**无增量能力**，
+  故未实现 token 流式（原 AI 助手同样没有）；以 thinking 指示承接等待态，不假装已实现。
+
+### 11.3 量化对照（真实 dist + CDP，视口 400×900）
+
+| 指标 | before（旧） | after（新） |
+|------|------|------|
+| `#log` 计算 `flex-grow` | 0 | 1 |
+| `#log` 高度（有内容） | 405px = 45.0%（`45vh` 硬编码） | 589px = **65.5%**（稳态） |
+| composer 底边 − 视口底 | **−64px（被挤出视口）** | +8px（= 面板 padding，贴底） |
+| 工具卡片 / 可折叠 | 0（整块倾倒） | 2；长输出折叠、点击展开 |
+| 水平溢出（400 / 320px） | 0 / —（纵向溢出） | 0 / 0 |
+
+证据脚本 `/tmp/ui-redesign/shot.mjs`；截图 `/tmp/ui-redesign/{before,after}/`。
+
+### 11.4 回归门禁
+
+- `test/ui/journey.mjs` 新增 **#15a~#15q**（50→67 断言）：flex 填充 / 高度占比 / composer 贴底 / 三区 /
+  工具卡片折叠展开 / 卡片内零 XSS / 命令块 / 错误气泡 / 无水平溢出 / 回到底部 / 320px 窄栏。
+- `test/ui/binding.mjs` 新增 **#6h~#6j**（38→41）：真实绑定站点对话中，用户消息渲染为 indigo 右对齐气泡。
+- `test/sidepanel.test.ts`（reducer 工具元数据/命令/trust）与 `test/sidepanel-view.test.ts`（三区静态契约、
+  工具卡片样式、trust 投影）新增静态断言；`test/chat-events.test.ts` 增 command/tool 事件形状。
+- 纯 node 门禁 `npm test`（插件 222）、`tsc --noEmit`、`test:hardening`（22）、`test:e2e`、`test:binding`（41）。
+
+## 12. 变更记录
 
 | 版本 | 说明 |
 |------|------|
@@ -369,4 +434,5 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 1.6 | 站点绑定链路缺陷修复（用户实测：配置正常、站点正确却恒「无活跃站点」）：根因 = `setPanelBehavior({openPanelOnActionClick:true})` 吞掉 `action.onClicked` 使绑定成死代码 + 无 `tabs`/host 权限时 `tab.url` 为 `undefined` 被误报成「没有可读取的地址」。改为 `openPanelOnActionClick:false` + 点击处理内 `bindTab` 后同手势 `sidePanel.open`；`optional_host_permissions` 补 `http://*/*`、`minimum_chrome_version` 114→116；新增 `tabs.onActivated` 标签页切换失效提示；错误文案改为指向「点插件图标」；补 §10.6 与 §3/§3.1/§3.2/§10.5；新增 `npm run test:binding`（真站点全链 33 断言）。 |
 | 1.7 | 工具名非法字符缺陷修复（用户实测：`400 Invalid 'tools[0].function.name'`）：站点/管理工具改为扁平无点 `site_*` / `admin_*`（`namespace:''`，`group` 不变），策略链判据改 `group==='site'`；RPC 仍用原始 id；碰撞确定性加后缀并审计；`AgentRunner` 重试导致的重复错误改为「重试提示 + 单条 error」。补 §10.7；`test:binding` 扩展为捕获真实 LLM `tools` 并断言合法。 |
 | 1.8 | TASK-022（用户实测第六轮）：侧栏消息从纯文本改为「角色标签 + 内容区」分组块；assistant 走**零依赖、无 HTML 解析**的安全 Markdown 渲染（标题/列表/引用/行内/围栏代码/GFM 表格/仅 http(s) 链接），tool/system 保持等宽 `pre-wrap`，user 纯文本；新增 `src/ui/sidepanel/markdown.ts` + `test/markdown.test.ts`（12 用例），`test:ui` 41→50 断言（#14a~#14i），补 §10.8。 |
+| 1.9 | TASK-023（用户实测第七轮，整体 UI/UX 重做）：先读回原 AI 助手（git 历史）作设计基准；侧栏改**三区 flex 全高**（`#log` 去 `45vh` 改 flex 填充、composer 为末元素贴底、8 按钮收为「主操作 + 〈更多〉`<details>`」）；消息改角色气泡（user indigo 右对齐 / assistant Markdown / tool **可折叠卡片** / system·error 醒目 / command 紧凑块 / thinking 三点 / 「回到底部」跟随策略）；明暗适配 tokens；零新依赖、无框架、无 `innerHTML`、MV3 CSP 合规。补 §11；`test:ui` 50→67（#15a~#15q）、`test:binding` 38→41（#6h~#6j 用户气泡）、插件 209→222、全仓 0 fail（base 483 零回归）。**流式如实未实现（base 无增量能力，原助手亦无）**。 |
 

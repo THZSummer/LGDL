@@ -94,3 +94,61 @@ test('chat-runner: maxRounds from settings is enforced (EC-013)', async () => {
 test('chat-session: storage key is session-scoped and stable', () => {
   assert.equal(CHAT_HISTORY_KEY, 'chat-history');
 });
+
+// ── TASK-023: hooks are forwarded so the panel can name/status/duration tools ─
+
+test('chat-runner (TASK-023): forwards hooks.onToolDone with the tool identity', async () => {
+  const done: Array<{ name: string; ok: boolean }> = [];
+  const outputs: string[] = [];
+  let round = 0;
+  const deps: ChatTurnDeps = {
+    session: createChatSession(),
+    system: 'sys',
+    chat: async () => {
+      round += 1;
+      if (round === 1) {
+        return {
+          content: '',
+          toolCalls: [{ id: 't1', name: 'site_notes-list', subcommand: '', args: {}, rawArguments: '{}' }],
+          model: 'test',
+        };
+      }
+      return { content: 'done', toolCalls: [], model: 'test' };
+    },
+    dispatch: async () => ({ ok: true, output: 'listed 2 notes' }),
+    events: { onToolOutput: (t) => outputs.push(t) },
+    hooks: {
+      onToolDone: (tc, result) => {
+        done.push({ name: tc.name, ok: result.ok });
+      },
+    },
+  };
+  await runChatTurn('go', deps);
+  assert.deepEqual(done, [{ name: 'site_notes-list', ok: true }]);
+  assert.deepEqual(outputs, ['listed 2 notes']);
+});
+
+test('chat-runner (TASK-023): onToolDone fires before onToolOutput (pairing contract)', async () => {
+  const order: string[] = [];
+  let round = 0;
+  const deps: ChatTurnDeps = {
+    session: createChatSession(),
+    system: 'sys',
+    chat: async () => {
+      round += 1;
+      if (round === 1) {
+        return {
+          content: '',
+          toolCalls: [{ id: 't1', name: 'site_x', subcommand: '', args: {}, rawArguments: '{}' }],
+          model: 'test',
+        };
+      }
+      return { content: 'done', toolCalls: [], model: 'test' };
+    },
+    dispatch: async () => ({ ok: false, output: 'boom' }),
+    events: { onCommandLine: () => order.push('command'), onToolOutput: () => order.push('output') },
+    hooks: { onToolDone: () => { order.push('done'); } },
+  };
+  await runChatTurn('go', deps);
+  assert.deepEqual(order, ['command', 'done', 'output'], 'the background pairs done→output to build the card');
+});

@@ -48,6 +48,44 @@ test('W1 state: no bound origin → authorized=false and never queries the store
   assert.equal(queried, 0, 'no origin → do not touch the OriginStore');
 });
 
+// ── TASK-023: trust is a separate, read-only projection ────────────────────
+
+test('TASK-023 state: trust of the bound origin is projected (untrusted default)', async () => {
+  const trusted = await buildStateMessage({
+    active: ACTIVE,
+    tools: [],
+    isAuthorized: async () => true,
+    trustOf: async () => 'trusted',
+  });
+  assert.equal(trusted.trust, 'trusted');
+
+  const untrusted = await buildStateMessage({
+    active: ACTIVE,
+    tools: [],
+    isAuthorized: async () => true,
+    trustOf: async () => 'untrusted',
+  });
+  assert.equal(untrusted.trust, 'untrusted');
+
+  // no trust lookup injected → conservative untrusted, never a false "trusted"
+  const noLookup = await buildStateMessage({ active: ACTIVE, tools: [], isAuthorized: async () => true });
+  assert.equal(noLookup.trust, 'untrusted');
+
+  // no bound origin → untrusted regardless of any lookup
+  let trustQueried = 0;
+  const noOrigin = await buildStateMessage({
+    active: null,
+    tools: [],
+    isAuthorized: async () => false,
+    trustOf: async () => {
+      trustQueried += 1;
+      return 'trusted';
+    },
+  });
+  assert.equal(noOrigin.trust, 'untrusted');
+  assert.equal(trustQueried, 0, 'no origin → do not query trust');
+});
+
 test('W1 state: the authorization bit is read for the *bound* origin', async () => {
   const seen: string[] = [];
   await buildStateMessage({

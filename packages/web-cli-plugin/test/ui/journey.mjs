@@ -536,6 +536,116 @@ async function main() {
     check(mdView.literalBold === false && mdView.literalPipe === false, '#14h 无残留字面 Markdown 标记', mdRaw);
     check(mdView.overflow === true, '#14i 侧栏仍无水平溢出（scrollWidth === clientWidth）', `${mdView.scrollWidth}/${mdView.clientWidth}`);
 
+    // ── #15 TASK-023: three-zone layout + message bubbles + tool card ──────
+    // Pin a deterministic side-panel viewport (400×900) for the layout metrics.
+    await sp.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });
+    await sleep(300);
+    const layout = await evaluate(sp, `(() => {
+      const log = document.getElementById('log');
+      const composer = document.getElementById('composer');
+      const de = document.documentElement;
+      const cr = composer.getBoundingClientRect();
+      return {
+        logFlexGrow: getComputedStyle(log).flexGrow,
+        logHeightPct: Math.round((log.getBoundingClientRect().height / window.innerHeight) * 1000) / 10,
+        composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
+        docOverflowX: de.scrollWidth - de.clientWidth,
+        hasTop: !!document.getElementById('panel-top'),
+        hasBottom: !!document.getElementById('panel-bottom'),
+        hasScrollBottom: !!document.getElementById('scroll-bottom'),
+      };
+    })()`);
+    check(layout.logFlexGrow === '1', '#15a 消息区为 flex 填充（非 45vh 硬编码）', JSON.stringify(layout));
+    check(layout.composerGapToBottom >= 0 && layout.composerGapToBottom <= 12, '#15c composer 贴底（未被 consent 等挤压）', `${layout.composerGapToBottom}px`);
+    check(layout.docOverflowX === 0, '#15d 文档级无水平溢出', `${layout.docOverflowX}`);
+    check(layout.hasTop && layout.hasBottom && layout.hasScrollBottom, '#15e 三区结构 + 回到底部入口存在', JSON.stringify(layout));
+
+    // #15b: steady-state (first-run strips hidden) the message zone takes the
+    // flexible majority — measured with the strips hidden because this hermetic
+    // journey has no bound/authorized site, so guidance strips are visible.
+    const opPct = await evaluate(
+      sp,
+      `(() => {
+        const ids = ['site-hint','onboarding','discovery-notice'];
+        const prev = ids.map((id) => { const el = document.getElementById(id); const p = el ? el.style.display : ''; if (el) el.style.display = 'none'; return p; });
+        const pct = Math.round((document.getElementById('log').getBoundingClientRect().height / window.innerHeight) * 1000) / 10;
+        ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });
+        return pct;
+      })()`,
+    );
+    check(opPct > 45, '#15b 稳态消息区高度占比 > 45vh（实测 %）', `${opPct}%`);
+
+    // inject a long tool result (with hostile HTML), a command line and an error
+    const longTool = JSON.stringify(
+      { doc: 'main', note: '<img src=x onerror=alert(9)>', rows: Array.from({ length: 30 }, (_, i) => ({ i, v: `row-${i}` })) },
+      null,
+      2,
+    );
+    await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'command', text: 'site_notes-list --doc main' }).catch(() => {})`);
+    await sleep(120);
+    await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'tool', tool: 'site_notes-list', ok: true, ms: 123, text: ${JSON.stringify(longTool)} }).catch(() => {})`);
+    await sleep(120);
+    await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'error', text: '模拟错误：写入门禁拒绝' }).catch(() => {})`);
+    await sleep(400);
+
+    const toolView = await waitFor(
+      sp,
+      `(() => {
+        const c = document.querySelector('.tool-card');
+        if (!c) return '';
+        const head = c.querySelector('.tool-card-head');
+        const body = c.querySelector('.tool-card-body');
+        return JSON.stringify({
+          cards: document.querySelectorAll('.tool-card').length,
+          name: c.querySelector('.tool-name')?.textContent,
+          status: c.querySelector('.tool-status')?.textContent,
+          ms: c.querySelector('.tool-ms')?.textContent,
+          preview: c.querySelector('.tool-preview')?.textContent ?? '',
+          openBefore: c.open,
+          bodyMonospace: /monospace|Menlo|Consolas/.test(getComputedStyle(body).fontFamily),
+          bodyOverflowX: getComputedStyle(body).overflowX,
+          imgs: c.querySelectorAll('img').length,
+          maliciousAsText: body.textContent.includes('<img src=x onerror=alert(9)>'),
+          hasCommand: !!document.querySelector('.cmd .cmd-text'),
+          commandText: document.querySelector('.cmd .cmd-text')?.textContent ?? '',
+          hasError: !!document.querySelector('.entry-error.msg-system'),
+          logOverflowX: document.getElementById('log').scrollWidth - document.getElementById('log').clientWidth,
+        });
+      })()`,
+      60,
+      200,
+    );
+    const tv = toolView ? JSON.parse(toolView) : {};
+    check((tv.cards ?? 0) >= 1, '#15f 工具结果渲染为工具卡片（非整块倾倒）', toolView);
+    check(tv.name === 'site_notes-list' && tv.status === '✓ 成功' && tv.ms === '123 ms', '#15g 卡片标题=工具名+状态+耗时', toolView);
+    check(Boolean(tv.preview), '#15h 折叠时显示首行摘要', tv.preview);
+    check(tv.openBefore === false, '#15i 长输出默认折叠', JSON.stringify(tv));
+    check(tv.bodyMonospace === true && tv.bodyOverflowX === 'auto', '#15j 卡片正文等宽 + 横向滚动', JSON.stringify(tv));
+    check(tv.imgs === 0 && tv.maliciousAsText === true, '#15k 工具卡片内恶意 HTML 仍为纯文本（零 XSS）', toolView);
+    check(tv.hasCommand === true && tv.commandText.includes('site_notes-list'), '#15l 命令行走独立紧凑样式（.cmd）', tv.commandText);
+    check(tv.hasError === true, '#15m 错误态为醒目 system 气泡（.entry-error.msg-system）');
+    check(tv.logOverflowX === 0, '#15n 注入工具卡片后仍无水平溢出', `${tv.logOverflowX}`);
+
+    // real click the summary → card expands (collapsible/expandable)
+    await realClick(sp, '.tool-card .tool-card-head');
+    const expanded = await waitFor(sp, `(() => { const c = document.querySelector('.tool-card'); return c ? String(c.open) : ''; })()`, 20, 100);
+    check(expanded === 'true', '#15o 真实点击摘要后工具卡片展开', expanded);
+
+    // #15p scroll policy:「回到底部」appears when scrolled away, hidden at bottom
+    const scrollHint = await evaluate(
+      sp,
+      `(() => { const log = document.getElementById('log'); log.scrollTop = 0; log.dispatchEvent(new Event('scroll')); const away = document.getElementById('scroll-bottom').classList.contains('show'); log.scrollTop = log.scrollHeight; log.dispatchEvent(new Event('scroll')); const bottom = document.getElementById('scroll-bottom').classList.contains('show'); return JSON.stringify({ away, bottom }); })()`,
+    );
+    const sh = JSON.parse(scrollHint);
+    check(sh.away === true && sh.bottom === false, '#15p 上滚显示「回到底部」、贴底隐藏', scrollHint);
+
+    // #15q narrow side panel (320px) → still no horizontal overflow
+    await sp.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: false });
+    await sleep(300);
+    const narrow = await evaluate(sp, `(() => ({ doc: document.documentElement.scrollWidth - document.documentElement.clientWidth, log: document.getElementById('log').scrollWidth - document.getElementById('log').clientWidth, composerW: Math.round(document.getElementById('composer').getBoundingClientRect().width) }))()`);
+    check(narrow.doc === 0 && narrow.log === 0, '#15q 320px 窄侧栏无水平溢出', JSON.stringify(narrow));
+    await sp.send('Emulation.clearDeviceMetricsOverride');
+
     check(spExceptions.length === 0, '#13 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#13b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 

@@ -1351,6 +1351,155 @@ front-matter、脚注、HTML 块、转义反引号外的复杂嵌套强调——
 - 未支持完整 GFM（见 §19.2 不支持清单）；未做语法高亮（无新依赖，代码块仅等宽 + 横向滚动）。
 - 真实第三方厂商端到端仍属人工面 H7，不冒充。
 
+## 20. 侧栏整体 UI/UX 重做（TASK-023，用户实测第七轮）
+
+> 用户反馈：**插件侧栏的对话体验比「做插件之前原本的 AI 助手」明显更差**；要求整体重做（非继续打补丁），
+> 设计基准 = 原 LGDL 内置 AI 助手（TASK-016 已移除，仍在 git 历史）。本轮**先读回原始实现**再重做。
+
+### 20.1 现状诊断（主 Agent 已核对，采信）
+
+`src/ui/sidepanel/index.html` 原为「功能优先堆叠」，一列 `#env-guard → #status → .topbar（8 按钮横铺）
+→ #llm-test-result → #site-hint → #onboarding → #discovery-notice → #notice → 8 按钮行 → #log → #confirm
+→ #ask → #composer → #send-reason → #consent`。核心缺陷（**实测复现，非推测**）：
+
+- `#log { height: 45vh }` 硬编码（旧 `index.html:45`）：对话区恒为视口 45%，上下被控件挤压。
+- composer 不在底部固定：`#consent` 压在其后；**内容一多 composer 被挤出视口**——before 实测
+  `composerGapToViewportBottom = -64px`（视口 900px，composer 底边在 964px，见 §20.4）。
+- 工具结果整块倾倒：无气泡/分组/卡片/折叠；整份图文档 JSON 占满消息区。
+- 无 pending 指示、无滚动跟随策略、无明暗适配（固定浅色）。
+
+### 20.2 设计参照（必须执行）——原 AI 助手 → 本插件对齐表
+
+参照取自 `git show 762d3a6^:packages/lgdl-web/src/ai/AiPanel.tsx` 与同提交 `packages/lgdl-web/src/app.css`
+（`git ls-tree -r --name-only 762d3a6^ -- packages/lgdl-web/src/ai` 列出 8 个文件，AiPanel/SettingsPanel/AskDialog/
+prompts/provider/session + 2 测试）；**只读参照，未拷贝任何 LGDL 私有代码**（插件零依赖红线）。
+
+| # | 参照项（原 AI 助手） | 来源 | 本插件对齐 | 结论 |
+|:--:|------|------|------|------|
+| 1 | `.ai-messages { flex:1; min-height:0; overflow-y:auto }` 可滚动消息列 | app.css:362 | `#log { flex:1 1 auto; min-height:0; overflow-y:auto }`（index.html:166） | 已对齐 |
+| 2 | `.ai-input-bar { flex-shrink:0 }` 输入区固定底部 | app.css:832 | `#panel-bottom { flex:0 0 auto }` + `#composer` 为末元素（index.html:340/505/542） | 已对齐（并修正「composer 后有 consent」） |
+| 3 | 用户气泡：indigo 底 / 白字 / 右对齐 / 右下小圆角 | app.css:394 | `.msg-user .msg-content` + `.msg-user{justify-content:flex-end}`（index.html:198/205） | 已对齐 |
+| 4 | 助手气泡：slate 底 / 左对齐 / 左下小圆角 | app.css:400 | `.msg-assistant .msg-content`（index.html:211） | 已对齐 |
+| 5 | 系统气泡：amber 底 / 边框 | app.css:406 | `.msg-system .msg-content`（index.html:219） | 已对齐 |
+| 6 | 工具输出：深色终端 `pre` / 等宽 / 横向滚动 | app.css:418/430 | `.tool-card-body`（深色等宽 + `white-space:pre` + `overflow:auto`）（index.html:297） | 已对齐（**并升级为可折叠卡片**） |
+| 7 | web-cli 命令块（紫底等宽） | app.css:437 | `.cmd`（index.html:242） | 已对齐 |
+| 8 | 思考中三点动画 | app.css:691-714 | `renderThinking()`（sidepanel.ts:120）+ `@keyframes blink`（index.html:311） | 已对齐 |
+| 9 | AI 推荐下一步胶囊（next-actions） | AiPanel NextActionsCard | 未移植 | 不适用：`next-actions` 是 LGDL `lgdl-web-op-cli` 的领域子命令，随内置助手（TASK-016）一并下线；通用插件协议无此面 |
+| 10 | 预置提示词滑轨（PRESET_PROMPTS ×19） | AiPanel | 未移植 | 不适用：全部为 LGDL 领域提示词（画图/改图），通用站点插件不可内置 |
+| 11 | 事件通道摘要行（EventsStatusLine 轮询） | AiPanel | 未移植 | 部分/不适用：插件经 `events` 工具暴露通道，无面板摘要行；非本轮 UI 重做目标 |
+| 12 | Markdown 渲染（react-markdown + remark-gfm） | AiPanel MarkdownBody | 零依赖安全 Markdown（TASK-022 `markdown.ts`，本轮复用） | 已对齐（子集；无图片/任务列表/脚注） |
+| 13 | AskDialog 模态裁决（权限 ask / ask-user） | AskDialog.tsx | 内联 `#confirm`/`#ask` 卡片（既有，本轮仅改排版） | 部分：能力在，形态为内联卡片而非模态遮罩（侧栏空间约束下的有意选择） |
+| 14 | 无角色标签，靠气泡区分 | app.css:372-406 | 移除旧 `.msg-role` 文本标签；user/assistant 靠对齐+配色区分，保留 `aria-label` | 已对齐 |
+| 15 | 新消息无条件滚底 | AiPanel `scrollToBottom` effect | 仅「用户已在底部或刚发送」时跟随；上滚不强制跳 + 「回到底部」入口 | **优于参照** |
+| 16 | 无 token 流式（`onAssistantText` 每整条回复一次） | runner.ts:144/190 | 同样无流式；以 thinking 三点指示代替 | **与参照持平**（非本轮退步，见 §20.7） |
+
+### 20.3 布局改动逐项（file:line 前后对照）
+
+| 项 | 前 | 后 |
+|------|------|------|
+| 文档高度/滚动 | `body { margin:0; padding:8px; overflow-wrap:anywhere }`（页面整体滚动） | `html,body{height:100%}` + `body{display:flex;flex-direction:column;overflow:hidden}`（index.html:72-83） |
+| 顶部区 | 无分区；8 按钮横铺（旧 `.row`） | `#panel-top{flex:0 0 auto}`：状态行 + 主操作（配置/测试/授权）+ `<details id="more-actions">`（撤销/重绑/审计/计数）（index.html:115/476） |
+| 中部消息区 | `#log{height:45vh;overflow:auto}`（旧:45） | `#panel-main{flex:1 1 auto;min-height:0}` + `#log{flex:1 1 auto;min-height:0;overflow-y:auto}`（index.html:165-166） |
+| 底部区 | composer 后压 `#send-reason`+`#consent`，会溢出 | `#panel-bottom{flex:0 0 auto}`：strips(max-height:34vh 内滚) → `#confirm` → `#ask` → `#send-reason` → `#consent-slot` → `#composer`（**composer 为末元素**）（index.html:340/505-546） |
+| 回到底部 | 无 | `#scroll-bottom` 绝对定位浮标（index.html:320/501），随滚动显隐（sidepanel.ts:228） |
+| 明暗适配 | 固定浅色（`#fffbeb`/`#f8fafc`…） | CSS 变量 + `@media (prefers-color-scheme: dark)` 覆盖（index.html:53）；`color-scheme:light dark` |
+| 消息呈现 | 单行 `role: text`（TASK-022 前）/ 分组块无气泡 | 角色气泡 + 可折叠工具卡片 + 命令行 + 错误醒目（sidepanel.ts:149） |
+
+### 20.4 前后量化对照（真实 dist + CDP，视口 400×900）
+
+证据脚本：`/tmp/ui-redesign/shot.mjs`（真实 `packages/web-cli-plugin/dist` + `.pw-browsers` Chromium，CDP
+`Emulation.setDeviceMetricsOverride` + `Page.captureScreenshot`，经真实 `chat-result` 接缝注入固定对话）。
+
+| 指标 | before（旧） | after（新） | 判定 |
+|------|------|------|------|
+| `#log` 计算 `flex-grow` | `0` | `1` | ✅ 改为 flex 填充 |
+| `#log` 高度（有内容） | 405px = **45.0%** 视口（`height:45vh` 硬编码） | 589px = **65.5%** 视口（稳态，隐藏首用条） | ✅ |
+| composer 底边 / 视口底（有内容） | 964px / 900px → **-64px（被挤出视口）** | 892px / 900px → +8px（=面板 padding，贴底） | ✅ 关键修复 |
+| 消息区可视行数 | 20 | 28（稳态） | ✅ |
+| `#log` 水平溢出 `scrollWidth-clientWidth` | 0 | 0 | ✅ 保持 |
+| 文档级水平溢出（400 / 320px） | 0（但纵向溢出） | 0 / 0 | ✅ |
+| 工具卡片数量 / 可否折叠 | 0（整块倾倒） | 2；长输出 `open=false` + 摘要，真实点击后 `open=true` | ✅ |
+| 恶意 HTML（工具卡片内 `<img onerror>`） | 不适用（纯文本） | `img` 节点 0，原文以文本呈现 | ✅ 零 XSS |
+
+截图（各 4 张）：`/tmp/ui-redesign/before/{01-empty,02-populated}.png`；
+`/tmp/ui-redesign/after/{01-empty,02-populated,03-operational,04-operational-320}.png`。
+（before 仅 2 态：旧布局在窄/稳态无独立呈现价值；after 增 320px 窄栏与稳态。）
+
+### 20.5 实现（file:line）
+
+- **布局/设计令牌**：`src/ui/sidepanel/index.html`（重写；三区 flex + tokens + dark mode；全部既有 ID 保留）。
+- **消息渲染**：`src/ui/sidepanel/sidepanel.ts`
+  - `renderEntry`（:149）角色分流；`renderToolCard`（:76）折叠卡片（标题=工具名+状态+耗时+首行摘要）；
+    `renderCommand`（:62）命令块；`renderThinking`（:120）三点指示。
+  - 折叠阈值 `TOOL_LONG_CHARS=480 / TOOL_LONG_LINES=10`（:50）；`toolOpenState` Map 记住用户展开态，
+    规避「每次 state 派发整表重建导致折叠态丢失」。
+  - 滚动策略 `isAtBottom`（:223）/`updateScrollHint`（:228）/`render`（:239）跟随逻辑；`forceFollow`（:220/589）发送即跟随。
+  - `chat-result` 处理扩为 `tool`（带 `tool/ok/ms`）与 `command` 变体（:699/:708）。
+  - `renderConsent` 挂载点由 `document.body` 改为 `#consent-slot`（:488），保证 composer 为末元素。
+- **工具卡片元数据来源**：base `onToolOutput(text)` 只带文本；本轮以
+  `events.onCommandLine`（记开始）+ `hooks.onToolDone(tc,result)`（工具身份 + ok）在 background 配对，
+  由 `toolResultEvent()`（`src/background/chat-events.ts`）下发 name/ok/ms。
+  `src/background/chat-runner.ts` 新增 `hooks` 透传（additive，base 零改动）。
+  发射点：`src/background/service-worker.ts:304/311/320`。
+- **状态面 additive**：`SidepanelState.trust` + `state` 动作（`chat-state.ts`）；`buildStateMessage` 增
+  `trustOf`（`state-message.ts`）→ `service-worker.ts` 传 `s.origins.trustOf`；`#status` 显示
+  `origin · 发现 · 授权 · 信任`（sidepanel.ts:265）。零明文、只读。
+
+### 20.6 门禁结果（本轮复跑，原文摘录）
+
+- 插件 `npm test`：**222 pass / 0 fail**（209→222，+13：chat-events +3 / chat-runner hooks +2 /
+  state-message trust +1 / sidepanel reducer +4 / sidepanel-view 布局与 trust +3）。
+- 插件 `tsc --noEmit`：**0 error**。
+- `npm run test:ui`：**67 断言 PASS**（50→67；新增 `#15a~#15q`：flex 填充/占比/composer 贴底/三区/工具卡片
+  折叠展开/卡片内零 XSS/命令块/错误气泡/无水平溢出/回到底部/320px 窄栏）。
+- `npm run test:hardening`：**22 断言 PASS**。
+- `npm run test:e2e`：**PASS**（场景 A fixture AC-010 + B LGDL Workbench AC-009；唯一偏差仍为本地
+  host_permissions 预授权）。
+- `npm run test:binding`：**41 断言 PASS**（38→41；新增 `#6h/#6i/#6j`：真实用户气泡存在 + indigo 用户色
+  `rgb(79,70,229)` + 右对齐 `flex-end`）。
+- 全仓 `npm run build`：**退出码 0**；全仓 `npm test`：**0 fail**
+  （plugin 222 / base 483〔零回归〕/ lgdl-core 267 / lgdl-render 94+1skip / lgdl-web 31 / lgdl-web-cli 84 /
+  lgdl-web-op-cli 15 / lgdl-router 8 / lgdl-cli 0 / lgdl-layout 0）。
+- 红线：**base 零改动**（`git status packages/web-cli-base` 空）；**无新依赖**（`package.json` 无 diff）；
+  **无 `innerHTML` 式渲染**；**MV3 CSP 合规**（内联 `<style>`/外链 `sidepanel.js`，无 CDN/框架）；既有 ID/选择器全保留。
+
+### 20.7 未完成 / 降级（如实，不粉饰）
+
+- **流式输出：未实现（真实技术限制）**。base `chat()` 为 `Promise<ChatResult>` 单次返回、`AgentRunner`
+  的 `onAssistantText` 每整条回复触发一次（`runner.ts:144/190`），无增量回调/SSE 选项；插件亦未自造 provider 流式。
+  **原 AI 助手同样无流式**（同 base 单发语义）——故这是与参照持平，不是本轮退步，但确实未达「有流式」的理想。以
+  thinking 三点指示 + 贴底跟随改善等待观感。**未假装已实现**。
+- 首用态（未配置/未授权、引导条可见）消息区实测 31.5% < 45vh：因 `#site-hint`/`#onboarding`（5 步）现居底部区，
+  首次使用场景下引导占位较大；**稳态（引导收起）65.5%**。这是「引导可见时对话区偏小」的真实权衡，非硬编码回归。
+- 未移植 next-actions 胶囊 / 预置提示词滑轨（参照 #9/#10）：领域特定，随内置助手下线，不适用于通用插件。
+- 未移植 AskDialog 模态遮罩：沿用内联 `#confirm`/`#ask` 卡片（能力完整，形态不同）。
+- 无语法高亮、无完整 GFM（同 TASK-022 边界）。
+- 系统 Google Chrome / Microsoft Edge 未重测（本轮 UI 门禁仅在 `.pw-browsers` Chromium）。
+- before 截图仅 2 态；before「稳态」高度按 `height:45vh` 恒等式推得 45%（硬编码，与内容无关），已在 §20.4 标注。
+
+### 20.8 新增决策（D-079~D-086）
+
+- **D-079（三区 flex 取代 45vh；composer 必须为末元素）**：`html,body{height:100%}` + `body{display:flex;
+  flex-direction:column;overflow:hidden}`；`#log` 改为 `flex:1;min-height:0`。与用户清单的一处**有意偏差**：
+  用户列表把 `#consent` 置于 composer 之后，但本轮把 `#consent`（折叠条、标题常显）移到 composer **之前**
+  （`#consent-slot`），否则「composer 贴底」与「consent 常显」互斥（正是原缺陷成因）。语义/文案零删改。
+- **D-080（工具卡片元数据来源）**：base `events.onToolOutput` 仅文本，无法支撑「工具名+状态+耗时」标题。以
+  background 侧配对（`onCommandLine` 记开始 + `hooks.onToolDone(tc,result)` 取身份/ok）组装，经
+  `toolResultEvent()` additive 下发；`chat-runner` 增 `hooks` 透传。**不改 base**，未观察到的字段省略不伪造。
+- **D-081（折叠阈值 + 折叠态记忆）**：长输出（>480 字符或 >10 行）默认折叠、短输出默认展开；因 `render()` 每次
+  整表重建，`toolOpenState` Map 记住用户显式开合，防重渲染丢态。
+- **D-082（无流式，如实声明）**：见 §20.7；不引入 provider 流式改造（超出「UI 重做」范围且有回归风险），
+  以 thinking 指示承接等待态。
+- **D-083（滚动策略）**：仅当用户已在底部（阈值 24px）或刚发送时自动跟随；否则保留滚动位置并提供
+  `#scroll-bottom`。优于参照的无条件滚底。
+- **D-084（trust 只读投影）**：`buildStateMessage` 增 `trustOf`（additive，缺省 untrusted）、`SidepanelState.trust`
+  + `stateActionFromPayload` 映射；无 origin/无 lookup 恒 `untrusted`，杜绝假「trusted」。零明文。
+- **D-085（明暗适配）**：CSS 变量 + `@media (prefers-color-scheme: dark)`；原固定浅色在多处（工具卡深底除外）
+  在暗色下刺眼，本轮统一。
+- **D-086（零回归红线）**：全部既有元素 ID 与 `.entry`/`.entry-<role>`/`.entry-error`/`.msg-content`/`#log.empty:not(:has(> *))`
+  选择器保留；仅**有意更新 3 条静态 CSS 断言**（`height:45vh` 契约已废止、`.msg-content` padding、
+  `#input` 多行格式）——这是重做的必然结果，非测试降级。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -1369,3 +1518,4 @@ front-matter、脚注、HTML 块、转义反引号外的复杂嵌套强调——
 | v1.11 | 站点绑定链路缺陷修复（§17，用户实测第四轮）：代码级根因 ① `openPanelOnActionClick:true` 吞掉 `action.onClicked` 使绑定成死代码 + ② 无 `tabs`/host 权限时 `tab.url===undefined` 被误报「没有可读取的地址」；修复：显式置 `openPanelOnActionClick:false` + `onClicked` 先同步 `sidePanel.open` 再 `bindTab`（open 失败可读降级不撤销绑定）、`optional_host_permissions` 补 `http://*/*`、`minimum_chrome_version` 114→116、新增 `tabs.onActivated` 切换失效提示（只比 tabId 不读 url）、`addressUnreadable` 分类 + 文案统一指向「点插件图标（唯一触发点）」；新增 `npm run test:binding`（`test/ui/binding.mjs`，真实 dist + 真实 `http://localhost:5173` lgdl-web + mock LLM，**33 断言**跑通绑定→注入→发现→授权→发送可用→11111 对话 6 步）+ `test/binding-wiring.test.ts`；D-064~D-068；插件 183→**191**（+8）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41 PASS、`test:hardening` 22 PASS、E2E A/B PASS、无 `<all_urls>`/无新增 `tabs` 权限/无新依赖/base 与根 `package.json` 零改动；图标点击真实手势与原生权限弹窗仍属人工面（headless 不可能，已在脚本披露）；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.12 | 工具名非法字符缺陷修复（§18，用户实测第五轮）：根因 = base `deriveTools` 把含命名空间的 fqn 当 LLM 工具名，而 `site.<id>` / `plugin.<name>` 含 `.` → DeepSeek `400 Invalid 'tools[0].function.name'`；修复（base 零改动）：站点 `site_<sanitized>`、管理 `admin_<name>`（`namespace:''`，`group` 不变）、`sanitizeToolName`/`allocateSiteToolNames`（确定性去重 `_2`/`_3`… + 审计）、策略判据 `namespace==='site'`→`group==='site'`（未放宽）、RPC 仍用原始 `decl.id`；附带查清 B「同错误两次」= base `AgentRunner` 重试一次（用 `willRetry` 改为「重试提示 + 单条 error」）与 C「未授权」= 授权只门禁执行（声明可见，fail-closed 执行已断言，未改语义）；`test:binding` 扩展为**捕获真实发给 LLM 的 12 个 tools 并断言全部匹配 `^[a-zA-Z0-9_-]+$`**（38 断言）；D-069~D-073；插件 191→**196**（+5）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41 / `test:hardening` 22 / E2E A/B / `test:binding` 38 全 PASS、base 与 package.json 零改动、无新依赖、无明文 key、未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.13 | 侧栏消息 Markdown 渲染与消息样式（§19，TASK-022，用户实测第六轮）：根因 = `sidepanel.ts` 每条消息仅 `textContent = \`${role}: ${text}\`` 纯文本；新增零依赖 `ui/sidepanel/markdown.ts`（解析/建 DOM 分离；**不解析 HTML**，只用白名单标签 + `createTextNode`，链接仅 http/https，其余降级文本，`javascript:`/`data:` 不可能成为 `a.href`）；消息改角色分组块（assistant Markdown / tool+system 等宽 pre-wrap / user 纯文本），CSS 加角色色条 + `pre`/`table` 横向滚动 + `overflow-wrap:anywhere` 且保留 `#log` 空态/pre-wrap/滚底/`.entry-*` 选择器；新增 `test/markdown.test.ts`（12 用例）+ `test/ui/journey.mjs` #14a~#14i；D-074~D-078；插件 196→**209**（+13）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41→**50** / `test:hardening` 22 / E2E A/B / `test:binding` 38 全 PASS、base 与 package.json 零改动、无新依赖、无明文 key、未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.14 | 侧栏整体 UI/UX 重做（§20，TASK-023，用户实测第七轮）：先 `git show 762d3a6^:packages/lgdl-web/src/ai/AiPanel.tsx` + `app.css` **读回原 AI 助手**作设计基准（§20.2 逐条「参照→对齐」表，16 项：12 对齐 / 2 不适用 / 1 部分 / 1 优于参照）；核心修复=三区 flex 全高（`html,body{height:100%}`+`body{display:flex;flex-direction:column}`），`#log` 去 `45vh` 硬编码改 `flex:1;min-height:0`，composer 为底部区**末元素**（`#consent` 折叠条移到 composer 之前），8 按钮收为「3 主操作 + `<details>更多`」；消息改角色气泡（user indigo 右对齐 / assistant Markdown 气泡 / tool **可折叠卡片**（工具名+状态+耗时+首行摘要，长输出默认折叠）/ system·error 醒目 / command 紧凑块 / thinking 三点 / `#scroll-bottom` 跟随策略）；明暗适配 tokens；**零新依赖/无框架/无 innerHTML/MV3 CSP 合规**；前后量化对照（真实 dist+CDP，400×900）：`#log` 45.0%→**65.5%**（稳态）且 flex-grow 0→1、composer 底边 **-64px（被挤出视口）→ +8px 贴底**、工具卡片 0→2 可折叠、320px 零水平溢出；截图 `/tmp/ui-redesign/{before,after}/`；`test:ui` 50→**67**（#15a~#15q）、`test:binding` 38→**41**（真实用户气泡 #6h~#6j）、插件 209→**222**、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:hardening` 22 / E2E A/B 全 PASS、base 与 package.json 零改动；**流式如实未实现（base 无增量能力，原助手亦无），首用态 31.5% 真实权衡**已披露；D-079~D-086；未 git 提交 | 2026-09-12 | SDDU Build Agent |

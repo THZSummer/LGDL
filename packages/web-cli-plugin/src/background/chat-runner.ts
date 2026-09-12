@@ -9,6 +9,7 @@
 import {
   createAgentRunner,
   type AgentRunnerEvents,
+  type AgentRunnerHooks,
   type ChatResult,
   type ChatTurn,
   type ToolResult,
@@ -27,6 +28,13 @@ export interface ChatTurnDeps {
   /** Round cap from user settings (EC-013 long-loop protection). */
   maxRounds?: number;
   events?: AgentRunnerEvents;
+  /**
+   * TASK-023: scenario hooks forwarded upstream. The side panel needs the tool
+   * name + ok status per call to render a tool card; `onToolOutput` only carries
+   * the output text, so `hooks.onToolDone(tc, result)` is the only place that
+   * observes the tool identity (base contract, `runner.ts`).
+   */
+  hooks?: AgentRunnerHooks;
 }
 
 /**
@@ -49,6 +57,7 @@ export async function runChatTurn(user: string, deps: ChatTurnDeps): Promise<voi
     ...(deps.deriveCommand ? { deriveCommand: deps.deriveCommand } : {}),
     ...(deps.maxRounds !== undefined ? { maxRounds: deps.maxRounds } : {}),
     ...(deps.events ? { events: deps.events } : {}),
+    ...(deps.hooks ? { hooks: deps.hooks } : {}),
   });
   await runner.run();
   if (current.length) deps.session.commit(current);
