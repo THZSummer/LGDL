@@ -11,6 +11,7 @@
 import type { ChatTurn, ToolResult } from '@lgdl/web-cli-base';
 import type { WebCliDescriptor } from '../protocol/descriptor.js';
 import { normalizeDescriptor } from '../protocol/descriptor.js';
+import { createAutoProbe, type AutoProbe, type ProbeOutcome } from '../discovery/auto-probe.js';
 import { createStorageAuditSink, type PluginAuditSink } from '../security/audit-sink.js';
 import { createConfirmBridge } from '../security/confirm.js';
 import { createAutoAuthStore, type AutoAuthStore } from '../security/auto-authorize.js';
@@ -103,6 +104,11 @@ interface Singletons {
    * non-reversible config fingerprint). Never persisted / logged / audited.
    */
   testCache: ReturnType<typeof createTestConnectionCache>;
+  /**
+   * TASK-032: automatic discovery-probe coordinator (bounded backoff, per-origin
+   * dedupe). Replaces the side panel's manual「重新探测」button.
+   */
+  autoProbe: AutoProbe;
 }
 
 let singletons: Singletons | null = null;
@@ -434,6 +440,66 @@ async function init(): Promise<Singletons> {
       },
     });
 
+    // TASK-032: automatic discovery probing. Driven by panel-open / tab-switch /
+    // navigation-complete / content-script `hello` (see the triggers below). The
+    // coordinator dedupes per origin and retries with a bounded 500ms→15s backoff.
+    // An unauthorized origin is skipped → still **ZERO injection** (auto-probe ≠
+    // auto-authorize; the OriginStore remains the only execution gate).
+    const autoProbe = createAutoProbe({
+      probe: async (origin, tabId): Promise<ProbeOutcome> => {
+        if (!(await origins.isAuthorized(origin))) {
+          return {
+            state: 'unknown',
+            blocked: true,
+            reason: '该站点尚未授权：插件不会注入探测脚本；请点击「授权当前站点」，授权后将自动探测。',
+          };
+        }
+        const injected = await ensureContentScript(tabId);
+        if (!injected) {
+          return {
+            state: 'unknown',
+            failureKind: 'transient',
+            reason: '页面脚本尚未就绪（页面可能仍在加载或属受限页面），将自动重试。',
+          };
+        }
+        try {
+          const res = (await chrome.tabs.sendMessage(tabId, makeMessage('reprobe'))) as
+            | PluginResponse<{ state?: string; failure?: { kind?: string; message?: string }; reason?: string }>
+            | undefined;
+          if (!res) {
+            return { state: 'unknown', failureKind: 'transient', reason: '站点未响应探测请求（内容脚本可能尚未接管页面），将自动重试。' };
+          }
+          if (!res.ok || !res.data) {
+            return { state: 'unknown', failureKind: 'transient', reason: `探测暂不可达：${res.error ?? '站点无响应'}，将自动重试。` };
+          }
+          const state =
+            res.data.state === 'supported' || res.data.state === 'unsupported' || res.data.state === 'unknown'
+              ? res.data.state
+              : 'unknown';
+          return {
+            state,
+            ...(res.data.failure?.kind ? { failureKind: res.data.failure.kind } : {}),
+            ...(res.data.failure?.message || res.data.reason
+              ? { reason: res.data.failure?.message ?? res.data.reason }
+              : {}),
+          };
+        } catch (err) {
+          return {
+            state: 'unknown',
+            failureKind: 'transient',
+            reason: `探测暂不可达：${err instanceof Error ? err.message : String(err)}，将自动重试。`,
+          };
+        }
+      },
+      setTimer: (fn, ms) => setTimeout(fn, ms),
+      clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+      onStatus: () => {
+        // Push the fresh projection to any open panel so the「正在自动探测…（第 N
+        // 次重试）」copy updates without polling. No receiver → silent no-op.
+        void chrome.runtime.sendMessage(makeMessage('probe-changed')).catch(() => {});
+      },
+    });
+
     // restore runtime session (EC-013)
     try {
       const snap = await sessionKv.get<{ tabId?: number; origin?: string; sessionId?: string; invalidated?: boolean; updatedAt?: number }>(SESSION_STATE_KEY);
@@ -492,6 +558,7 @@ async function init(): Promise<Singletons> {
       askBridge,
       tabsSetting,
       testCache,
+      autoProbe,
     };
     return singletons;
   })();
@@ -504,6 +571,18 @@ async function persistSession(s: Singletons): Promise<void> {
   } catch (err) {
     console.warn('[web-cli-plugin] session persist failed:', err);
   }
+}
+
+/**
+ * TASK-032: make the automatic probe follow the bound origin (idempotent). Called
+ * from the panel-presence port and the `state` reply, i.e. only while a panel is
+ * actually attached — never a background-wide poll.
+ */
+function focusBoundProbe(s: Singletons): void {
+  const bound = s.controller.get();
+  if (!bound) return;
+  s.autoProbe.setFocused(true);
+  s.autoProbe.ensure(bound.origin, bound.tabId);
 }
 
 async function persistChatHistory(s: Singletons, sessionId: string | null = s.currentSessionId): Promise<void> {
@@ -647,9 +726,11 @@ function tabFollowDeps(s: Singletons): FollowTabDeps {
     isAuthorized: (origin) => s.origins.isAuthorized(origin),
     ensureContentScript: (tabId) => ensureContentScript(tabId),
     kickDiscovery: (tabId) => {
-      // Force a fresh discovery on an already-injected page; the script's own
-      // bootstrap covers the freshly-injected case. Fire-and-forget, never throws.
-      void chrome.tabs.sendMessage(tabId, makeMessage('reprobe')).catch(() => {});
+      // TASK-032: a tab switch / completed navigation is a fresh probe signal.
+      // The coordinator dedupes per origin and retries readably — the old
+      // fire-and-forget `reprobe` is now owned by the automatic probe.
+      const cur = s.controller.get();
+      if (cur && cur.tabId === tabId) s.autoProbe.kick(cur.origin, tabId);
     },
     markStale: () => s.controller.markStale(),
     persist: () => persistSession(s),
@@ -866,6 +947,10 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       return okResponse('pong');
     case 'state': {
       const session = s.controller.get();
+      // TASK-032: a `state` request only ever comes from an attached panel → the
+      // automatic probe runs for the bound origin (idempotent; never resets a live
+      // backoff). No manual「重新探测」is required.
+      if (session) focusBoundProbe(s);
       // W1: report the bound origin's persisted authorization so a side-panel
       // reload / SW restart never falls back to a false "未授权" (no origin → false).
       // decision ② / FR-048: also project the current multi-session (label/origins).
@@ -898,6 +983,8 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         autoAuthOf: (origin) => s.autoAuth.get(origin),
         tab: await activeTabProjection(),
         session: sessionView,
+        // TASK-032: automatic-probe projection for the bound origin.
+        ...(session ? { probe: s.autoProbe.status() } : {}),
       });
       // D-064: carry (and consume) the one-shot readable notice.
       return okResponse({ ...payload, panelNotice: takePanelNotice() });
@@ -940,6 +1027,10 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
           reason: '未获得持久站点权限（回退 activeTab）：无法声明式注入，仍可点击插件图标按需注入',
         };
       }
+      // TASK-032: authorization is a fresh probe signal — the site can now be
+      // injected + probed automatically (no manual「重新探测」). Only for the bound tab.
+      const bound = s.controller.get();
+      if (bound && bound.origin === origin) s.autoProbe.kick(origin, bound.tabId);
       return okResponse({ ...rec, hostPermissionGranted: granted, contentScript });
     }
     case 'revoke': {
@@ -954,6 +1045,8 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const contentScript = await unregisterSiteContentScript(s.contentScripts, origin);
       const hostPermissionRemoved = await removeOriginPermission(origin);
       const revoked = await s.origins.revoke(origin);
+      // TASK-032: revoking the bound origin stops the automatic probe immediately.
+      if (s.controller.get()?.origin === origin) s.autoProbe.stop();
       if (hostPermissionRemoved) {
         s.audit.recordPlugin({
           type: 'host-permission',
@@ -999,6 +1092,9 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         s.descriptors.set(origin, normalized);
         s.host.activateSite(normalized, origin);
         s.audit.recordPlugin(discoveryAuditEvent(origin, normalized));
+        // TASK-032: the content script's own discovery is an out-of-band result —
+        // record it so the automatic probe stops retrying within the same origin.
+        s.autoProbe.note(origin, { state: 'supported' });
       } else {
         // TASK-019 任务 B: honour the content script's reported three-state result
         // (`unsupported` = definitively not declared; `unknown` = present-but-
@@ -1011,10 +1107,17 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
             ? reported
             : 'unsupported';
         const reason = typeof message.reason === 'string' && message.reason.trim() ? message.reason.trim() : undefined;
+        const failure = message.failure as { kind?: string; message?: string } | undefined;
         s.controller.setDiscovery(state, undefined, reason);
         s.descriptors.delete(origin);
         s.host.deactivateSite();
         s.audit.recordPlugin(discoveryAuditEvent(origin, undefined));
+        // TASK-032: mirror the reported failure so the panel copy is immediate.
+        s.autoProbe.note(origin, {
+          state,
+          ...(failure?.kind ? { failureKind: failure.kind } : {}),
+          ...(reason || failure?.message ? { reason: reason ?? failure?.message } : {}),
+        });
       }
       await persistSession(s);
       return okResponse({ origin, tools: s.host.registeredSiteTools() });
@@ -1029,8 +1132,12 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const senderTabId = sender?.tab?.id;
       if (!origin || senderTabId === undefined) return okResponse({ bound: false });
       const cur = s.controller.get();
-      if (cur && cur.tabId === senderTabId && cur.origin === origin) return okResponse({ bound: true, origin });
-      await bindOrigin(s, senderTabId, origin);
+      if (!(cur && cur.tabId === senderTabId && cur.origin === origin)) {
+        await bindOrigin(s, senderTabId, origin);
+      }
+      // TASK-032: a content-script (re)connect is a fresh probe signal: reset the
+      // backoff and probe now (deduped while one is already in flight).
+      s.autoProbe.kick(origin, senderTabId);
       return okResponse({ bound: true, origin });
     }
     case 'sessions': {
@@ -1350,6 +1457,27 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   return true; // async response
 });
 
+// TASK-032: panel-presence tracking. The automatic probe only retries while a
+// panel is attached (bounded; never a background-wide poll). Closing the panel
+// disconnects the port → retries stop; reopening re-probes automatically.
+let panelClients = 0;
+chrome.runtime.onConnect.addListener((port) => {
+  if (port?.name !== 'web-cli-panel') return;
+  panelClients += 1;
+  void (async () => {
+    const s = await init();
+    focusBoundProbe(s);
+  })();
+  port.onDisconnect.addListener(() => {
+    panelClients = Math.max(0, panelClients - 1);
+    if (panelClients > 0) return;
+    void (async () => {
+      const s = await init();
+      s.autoProbe.setFocused(false);
+    })();
+  });
+});
+
 // D-064: disable the "click toggles the panel" behavior so `action.onClicked`
 // fires and the icon click can *bind* the tab. Applied on every SW start (not
 // only onInstalled) so a stale profile upgraded from ≤0.8 is repaired too.
@@ -1411,8 +1539,8 @@ chrome.action.onClicked.addListener((tab) => {
     const bound = await bindTab(s, tabId, tab.url);
     panelNotice = bound.ok
       ? bound.injected
-        ? `✓ 已绑定站点 ${bound.origin}，正在发现 web-cli 声明。`
-        : `已绑定 ${bound.origin}，但页面脚本注入失败（页面可能受限或尚未加载完成）；请刷新页面后在「重新探测」。`
+        ? `✓ 已绑定站点 ${bound.origin}，正在自动探测 web-cli 声明。`
+        : `已绑定 ${bound.origin}，页面脚本暂不可用（页面可能仍在加载或受限）；刷新页面或切换标签页后插件会自动重试探测。`
       : `当前标签页不可绑定：${bound.reason}。请在目标站点标签页点击插件图标。`;
     await opening;
   })();
@@ -1465,6 +1593,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     if (s.controller.get()?.tabId === tabId) {
       s.controller.clear();
       s.host.deactivateSite();
+      s.autoProbe.stop();
       await persistSession(s);
     }
   })();

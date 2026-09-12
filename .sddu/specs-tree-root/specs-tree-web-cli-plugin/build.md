@@ -2231,6 +2231,41 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **新建标签页的 `loading` 与 `onActivated` 存在事件顺序竞争**：若 `onActivated` 先绑定、随后同 tab 的 `loading` 到达，会短暂 `markNavigated` 失效，`complete` 再按 URL 重新绑定（最终态正确，测试以 `invalidated===false` 收敛等待）。未改 `loading` 语义以免回归 EC-011。
 - **面板对 `session-changed` 的监听是 TASK-025 既有能力**：本轮未新增面板监听，仅补齐 URL 驱动路径使该推送在「新域名 tab」场景真正被触发；test:ui #16j 以「未重开面板」实证。
 
+## 30. 探测改为全自动（移除手动「重新探测」；TASK-032 / Wave 24）
+
+> 用户诉求（原话）：「web-cli 探测未完成（未知状态）… 可点「重新探测」重试… 改成自动探测吧，逻辑上不需要用户手动探测；快速改造」。
+
+### 30.1 问题
+侧栏在 `unknown` 时显示「未知状态 + 重新探测」手动按钮（`index.html#discovery-retry` + `sidepanel.ts` 的 `makeMessage('reprobe')` 点击处理 + `view-model.discoveryNotice().canRetry/retryLabel`）。用户必须先理解一个内部状态并点击，才会重新探测——与「发现站点应当是自动的」矛盾。
+
+### 30.2 修复
+- **新增** `src/discovery/auto-probe.ts`（纯逻辑、依赖注入 `probe` + 定时器，node 可测）：按 origin 去重（`inFlight` 不重复发起）、有界退避 `500ms→1s→2s→4s→8s→15s 封顶`、成功 / origin 变更 / 面板关闭 / 撤销停止重试、暂时性 vs 终态分类。
+- **触发点全部接上**：面板打开（`state` → `focusBoundProbe`）/ `tabs.onActivated` / `tabs.onUpdated(complete)`（经 `session-follow` 的 `kickDiscovery`）/ content script `hello` / `authorize` / 失败后内部定时器。
+- **面板关注（不常驻轮询）**：侧栏 `chrome.runtime.connect({name:'web-cli-panel'})`；SW `onConnect` 计数，面板全部关闭 → `setFocused(false)` 停重试。
+- **状态投影**：`state` 携带 `probe`（`phase/attempts/retries/lastReason/lastClass/lastKind/nextDelayMs`）；`probe-changed` 推送让面板即时刷新。
+- **文案**：暂时性 →「正在自动探测…（第 N 次重试）」+ 原因；终态 → 精确指出缺 `/.well-known/web-cli.json` / 声明无效 / 「协议版本不匹配：站点 vX，插件支持 vY」，并说明「站点修复/刷新/切换标签页自动重试 + 每 15 秒低频软重试」，**不再要求用户点重试**。
+- **移除**：侧栏 `#discovery-retry` 按钮与 `.dn-retry` 样式、点击处理、`canRetry/retryLabel`、`discoveryReason` 本地变量；`reprobe` 消息保留为**内部通道**（auto-probe / kickDiscovery 使用），侧栏不再发送。
+- **不回归**：自动探测 ≠ 自动授权（未授权 → `blocked`，**零注入**）；FR-047/048 免点图标自动发现不变；探测失败不报错刷屏。
+
+### 30.3 新增决策（D-132~D-135）
+- **D-132（探测协调器抽成纯模块 `discovery/auto-probe.ts`，mock 定时器单测）**：退避序列 / 去重 / 停止条件 / 分类可被完整钉住，不依赖浏览器与真实时间。**被否决**：把定时器逻辑直接写进 `service-worker.ts`（不可单测、易漂移）。
+- **D-133（面板关注用 port 计数，而非后台无条件轮询）**：满足「仅在'有面板关注该 origin'或'该 origin 为当前绑定'时重试」「面板关闭 → 停止重试」。**被否决**：后台无条件定时探测（违反低功耗约束）。
+- **D-134（`reprobe` 通道保留为内部通道，仅移除 UI 入口）**：content script 已有处理与自上报；复用避免改动数据面，风险最小。**被否决**：删除 `reprobe`（需重构 content-script 发现入口，范围外）。
+- **D-135（暂时性与终态共用同一有界退避，文案区分）**：满足「终态也保留低频 15s 软重试」且序列唯一、易测。**被否决**：终态立即 15s、暂时性另用一套（两套序列，测试面翻倍）。
+
+### 30.4 门禁与验证
+- 新增 `test/auto-probe.test.ts`（13 用例）：退避序列 `500/1s/2s/4s/8s→15s` 封顶 / 成功即停 / origin 变更即停并丢弃在途结果 / 并发去重 / 暂时性 vs 终态分类 / 未授权（`blocked`）零重试 / `stop()` 取消定时器 / 面板关闭停止重试 / 出界成功上报即停 / 空目标 no-op。
+- `test:ui` 119→**121**（#11b 无手动「重新探测」按钮 / #11c 说明不含手动重试文案）。
+- `test:hardening` 22→**24**（B#3e 无手动按钮 / B#3f 自动重试说明 / B#5b 无手动入口 / B#6/B#6b 失败文案含自动重试、全程无手动入口）。
+- `test:binding` 104→**114**（阶段 3 `AP#1~AP#8`+`AP#4b`：本地延迟就绪站点前 3 次 503 → 失败自动进入退避（`retries≥1`、`nextDelayMs≥500`）→ 站点就绪后**零点击**自动 `supported` + 工具面装配 + 0 未捕获异常）。
+- 插件 360→**373**、`tsc --noEmit` 0 error、`test:e2e` **A/B PASS**、全仓 `npm run build` + `npm test` **0 fail**（base **483 零回归**）。
+- **base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**。
+
+### 30.5 未完成 / 降级（如实）
+- **终态仍未做「降频到 15s 之前不快速重试」的区分**：暂时性与终态共用同一序列（前 5 次 500ms~8s 快速重试），终态在前几秒会有几次无效探测；有界（封顶 15s）且不打扰用户，属设计权衡（D-135）。
+- **面板连接为 tab 内打开的 `sidepanel.html` 时同样计数**：`test:ui`/`test:binding` 以扩展页 tab 打开侧栏，port 行为与真实 `chrome.sidePanel` 一致（同名 port），已由阶段 3 实证。
+- **`reprobe` 内部通道仍可被扩展内其它上下文触发**：未做权限收紧（扩展内消息面本就受 `isPluginMessage` 白名单约束）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2258,3 +2293,4 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v1.21 | **按 origin 自动授权（读/写多选）**（§28，TASK-030，FR-052/ADR-017，作者要求）：新增 `security/auto-authorize.ts`（按 origin 持久化 `{read 默认 true, write 默认 false}`，`web-cli:auto-auth`，内存缓存即时生效，`set`/`clear` 入审计；`clear` = 读写都关）；在 `host.ts` 的 `onAsk` 接缝**前置判定**（**不改 `riskDefaults`/S1·S2·S3/denyPriority**）——策略链先裁决，仅当最终为 `ask` 时命中「对应 tier 已开启且非破坏性 read/write」→ 直接 allow；`evaluate`/未知 risk → 直接 deny（hardDeny）；**4 条硬底线**（未授权 S1 deny / 未知 risk S3 deny / evaluate deny / 破坏性写 ask）+ `ui·state·external` 不提供开关。新增 `isDestructiveInvocation`（id + 被调用子命令按 `[._:/-]` 切段比对 `DESTRUCTIVE_VERBS`，抓 `add-node`/`remove-node`；既有 `hasDestructiveVerb` 未改）。审计独立类型 `auto-authorize`（allow/deny/enabled/disabled，与人工 `confirm` 可辨）。UI：侧栏两个复选框 + 常驻标记 `⚡ 自动授权：读/写`（点击一键关闭）+ 常显硬底线文案；options 按站点管理列表。门禁：插件 336→**349**（+13 `test/auto-authorize.test.ts`）、`tsc` 0 error、`test:ui` 97→**113**（#18a~#18p）、`test:binding` 83→**96**（#19a~#19l：真实站点「开启写自动→非破坏性 `status` 免确认直接执行」「破坏性 `remove-node` 仍弹确认」「关闭→立即恢复确认」）、`test:hardening` **22**、`test:e2e` **PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-123~D-127；未 git 提交。 |
 | v1.20 | **工具面基线对账门禁 + 浏览器能力补齐**（§27，TASK-029，FR-051/ADR-016，作者实测「DOM 操作 / 浏览器截图等命令全部丢失」驱动）：根因 = 既有测试只断言插件内部行为、`capability-matrix.md` 手写无执行 → 工具面静默漂移。修复：①**只读**临时克隆 main（不碰 main/不改本仓 .git）→ 机器枚举原助手工具目录（`main@2ddc9229`，34 工具/142 子命令）固化为 `test/parity/baseline-catalog.json`（provenance + 可重跑提取脚本 `extract-baseline-catalog.mjs`，含新工厂守卫）；②`test/parity.test.ts` **双向 + 子命令级**对账门禁（同名实现 / `waivers.json` 显式豁免（理由+依据+`providedAs`/`permission`）/ 否则失败；防插件新增未登记工具；`findCoverageGaps()` 自测能抓两类漂移）；③补齐**无新权限**的浏览器能力——content 隔离世界 `createBrowserDomOps()` + background `dom-op` 远程代理，注册 base `dom`(30)/`chrome`(print/back/forward/reload/**screenshot**)/`wait`/`extract`/`export`/`save`/`events`(经既有事件桥)/`web-search`；截图/导出/保存走页面上下文 anchor 下载链（**不新增 `downloads`**）；④风险档沿用 base（不放宽，走 `router.dispatch`）；⑤**待批准权限**（`notify`→`notifications`、`clipboard`→`clipboardRead/Write`）只报告不实施；⑥`docs/capability-matrix.md` 重写为机器校验的基线对账表 + `docs/dev.md` §13 对账/豁免流程。门禁：插件 315→**336**、`tsc` 0 error、`test:ui` **97**、`test:hardening` **22**、`test:binding` **83**（真实 LLM tools 清单 21 个已含 dom/chrome/wait/extract/export/save/events/web-search）、`test:e2e` **PASS**（新增 `dom read-state`/`dom click`/`chrome screenshot` 三条真机断言）、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-117~D-122；未 git 提交。 |
 | v1.22 | **切 tab 按 `tab.url` 驱动会话跟随**（§29，TASK-031，Wave 23，用户实测「切到新域名 TAB 不会自动新建会话，旧 TAB 可以；重开插件才识别当前域名」驱动）：根因 = `onActivated` 的 `if (!session) return;` + 仅靠 content-script `whoami` 握手（新域名未授权→不注入→握手必失败）→ `markStale` 死路。修复 = 新增 `src/background/session-follow.ts` `followActiveTab`（URL 驱动：未授权新域名**仍切换/新建会话 + `session-changed` 推送面板 + 零注入**；已授权顺带 `ensureContentScript` + `reprobe` 发现；同 origin 复用同一会话；受限页不建会话、保留既有可读降级；`whoami` 仅作 URL 不可读回退），`onUpdated(complete)` 同路径，`loading` 的 EC-011 失效语义不变；移除本地 `tabOrigin` 副本。门禁：新增 `test/session-follow.test.ts`（10）、`test:ui` 113→**119**（#16j~#16o）、`test:binding` 96→**104**（#20a~#20f + #A6/A6b/A6c，保留既有）、`tsc` 0 error、`test:hardening` **22**、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；D-128~D-131；未 git 提交（由上层统一提交）。 |
+| v1.23 | **探测改为全自动（移除手动「重新探测」）**（§30，TASK-032，Wave 24，用户要求「逻辑上不需要用户手动探测；快速改造」驱动）：移除侧栏 `#discovery-retry` 手动按钮与点击处理；新增 `src/discovery/auto-probe.ts`（按 origin 去重 + 有界退避 `500ms→1s→2s→4s→8s→15s 封顶` + 成功/origin 变更/面板关闭/撤销停止 + 暂时性/终态分类，纯逻辑 mock 定时器可测）；触发点 = 面板打开(`state`→`focusBoundProbe`) / `tabs.onActivated` / `tabs.onUpdated(complete)` / content `hello` / `authorize` / 失败后定时器；面板经 `chrome.runtime.connect('web-cli-panel')` 让后台感知「有面板关注」，全部关闭即停重试（无后台常驻轮询）；`state` 携带 `probe` 投影 + `probe-changed` 推送；暂时性文案「正在自动探测…（第 N 次重试）」+ 原因，终态精确指出缺 `/.well-known/web-cli.json` / 声明无效 / 版本不匹配并说明自动重试，**不再要求用户点重试**；`reprobe` 保留为内部通道（D-132~D-135）。门禁：新增 `test/auto-probe.test.ts`（13）、`test:ui` 119→**121**、`test:hardening` 22→**24**、`test:binding` 104→**114**（阶段 3 延迟就绪 + 退避 + 零点击自动 ready）、插件 360→**373**、`tsc` 0 error、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；docs dev §15 / protocol §2.1 同步；未 git 提交（由上层统一提交）。 |

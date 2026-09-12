@@ -9,6 +9,7 @@
  * Kept dependency-free (a plain async projection) so it is node-testable.
  */
 import type { AutoAuthSettings } from '../security/auto-authorize.js';
+import type { AutoProbeStatus } from '../discovery/auto-probe.js';
 
 export interface ActiveSessionView {
   tabId: number;
@@ -119,6 +120,13 @@ export interface StateMessagePayload {
    * (and reflect an immediate off). Absent when no origin / no lookup supplied.
    */
   autoAuth?: AutoAuthSettings;
+  /**
+   * TASK-032: automatic discovery-probe projection for the bound origin. Carries
+   * the retry count / latest reason / temporary-vs-terminal class so the panel can
+   * render「正在自动探测…（第 N 次重试）」without ever exposing an internal phase
+   * name or asking the user to click a manual retry button.
+   */
+  probe?: AutoProbeStatus | null;
 }
 
 /** decision ② / FR-048: non-sensitive multi-session projection for the panel. */
@@ -139,6 +147,8 @@ export async function buildStateMessage(input: {
   session?: SessionView | null;
   /** FR-052: optional auto-authorization lookup for the bound origin. */
   autoAuthOf?: (origin: string) => AutoAuthSettings;
+  /** TASK-032: optional automatic-probe projection for the bound origin. */
+  probe?: AutoProbeStatus | null;
 }): Promise<StateMessagePayload> {
   const { active, tools, isAuthorized } = input;
   const authorized = active ? await isAuthorized(active.origin) : false;
@@ -152,6 +162,7 @@ export async function buildStateMessage(input: {
     tab: input.tab ?? null,
     session: input.session ?? null,
     ...(autoAuth ? { autoAuth } : {}),
+    ...(input.probe ? { probe: input.probe } : {}),
   };
 }
 

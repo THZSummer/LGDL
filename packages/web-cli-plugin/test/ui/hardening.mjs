@@ -5,7 +5,8 @@
  *     - A1（修复前 dist 快照，若存在 `/tmp/prefix-dist`）→ 记录旧行为原始观测；
  *     - A2（当前 dist）→ 断言阻断横幅出现 + 保存/测试/清除禁用 + 输入说明 + 诊断 ❌。
  *  B. **站点未声明 web-cli 协议**：本地普通站点（无声明）→ 真实 content 注入 →
- *     侧栏 `#discovery-notice` 出现「设计如此，非故障」说明 + 「重新探测」入口。
+ *     侧栏 `#discovery-notice` 出现「设计如此，非故障」说明 + 自动重试说明
+ *     （TASK-032：已移除手动「重新探测」入口）。
  *  C. **旧版扩展未重载（构建 stamp 不一致）**：加载真实 dist → 重新 build（不点
  *     chrome://extensions「重新加载」）→ 刷新 options → 断言诊断给出「页面/SW 构建
  *     不一致 + 重新加载」；随后 `chrome.runtime.reload()` → 断言恢复一致。
@@ -332,12 +333,13 @@ async function phaseB() {
       return undefined;
     };
     const readNotice = (sp) =>
-      evaluate(sp, `(() => { const n=document.getElementById('discovery-notice'); return {
+      evaluate(sp, `(() => { const n=document.getElementById('discovery-notice'); const detail=document.getElementById('discovery-detail').textContent; return {
         status: document.getElementById('status').textContent,
         shown: getComputedStyle(n).display !== 'none',
         title: document.getElementById('discovery-title').textContent,
-        detail: document.getElementById('discovery-detail').textContent,
-        retryShown: getComputedStyle(document.getElementById('discovery-retry')).display !== 'none',
+        detail,
+        retryAbsent: document.getElementById('discovery-retry') === null,
+        autoRetry: /自动重试/.test(detail),
       }; })()`);
 
     // B1: definitively no declaration → 'unsupported'
@@ -345,33 +347,37 @@ async function phaseB() {
     check(Boolean(tabId), 'B#1 打开普通站点 tab');
     const sp1 = await openSidepanel('unsupported');
     check(Boolean(sp1), 'B#2 background 发现态 = unsupported（侧栏可见）');
-    const notice1 = sp1 ? await readNotice(sp1) : { shown: false, title: '', detail: '', retryShown: false, status: '' };
+    const notice1 = sp1 ? await readNotice(sp1) : { shown: false, title: '', detail: '', retryAbsent: false, autoRetry: false, status: '' };
     check(notice1.shown === true, 'B#3 未声明协议时出现显式说明块');
     check(/未声明/.test(notice1.title), 'B#3b 标题明确指出「未声明 web-cli 协议」', notice1.title);
     check(/设计如此/.test(notice1.detail) && /不是故障/.test(notice1.detail), 'B#3c 说明「设计如此，非故障」', notice1.detail);
     check(/LGDL/.test(notice1.detail), 'B#3d 说明可用站点示例（LGDL 工作台）');
-    check(notice1.retryShown === false, 'B#3e unsupported 不显示（无意义的）重新探测');
+    // TASK-032: the manual「重新探测」button is gone; the copy explains auto-retry.
+    check(notice1.retryAbsent === true, 'B#3e 不存在手动「重新探测」按钮（改为全自动探测）');
+    check(notice1.autoRetry === true, 'B#3f 说明会自动重试（无需手动操作）', notice1.detail);
     observe(`B#3 说明文案：${notice1.title} —— ${notice1.detail}`);
     if (sp1) sp1.close();
 
-    // B2: present-but-invalid declaration → 'unknown' with readable reason + retry
+    // B2: present-but-invalid declaration → 'unknown' (terminal) with readable reason + auto-retry
     plain.state.mode = 'invalid';
     await bindPlainTab();
     const sp2 = await openSidepanel('unknown');
     check(Boolean(sp2), 'B#4 background 发现态 = unknown（侧栏可见）');
-    const notice2 = sp2 ? await readNotice(sp2) : { shown: false, title: '', detail: '', retryShown: false, status: '' };
-    check(notice2.shown === true && /探测未完成|未知/.test(notice2.title), 'B#5 探测失败/未完成时出现显式说明块', notice2.title);
-    check(notice2.retryShown === true, 'B#5b 提供「重新探测」入口');
+    const notice2 = sp2 ? await readNotice(sp2) : { shown: false, title: '', detail: '', retryAbsent: false, autoRetry: false, status: '' };
+    check(notice2.shown === true && /声明|自动探测|自动重试/.test(notice2.title), 'B#5 探测失败/未完成时出现显式说明块', notice2.title);
+    check(notice2.retryAbsent === true, 'B#5b 不提供手动「重新探测」入口（自动重试）');
     observe(`B#5 未知态说明：${notice2.title} —— ${notice2.detail}`);
-    // real click the retry entry → round trip through background → content script
+    // TASK-032: no click — the panel keeps the readable auto-retry copy and the
+    // background retries on its bounded schedule (proven at the node level in
+    // test/auto-probe.test.ts + test:binding 阶段 3).
     if (sp2) {
-      await realClick(sp2, '#discovery-retry');
-      const retried = await waitFor(sp2, `(() => { const t=document.getElementById('notice').textContent; return t.includes('探测') || t.includes('就绪') ? t : ''; })()`, 60, 250);
-      observe(`B#6 点击「重新探测」后 #notice="${retried}"`);
-      check(Boolean(retried), 'B#6 重新探测真实往返并给出可读回执');
+      check(notice2.autoRetry === true, 'B#6 探测失败文案说明「自动重试」（无需点击）', notice2.detail);
+      const stillNoButton = await evaluate(sp2, `document.getElementById('discovery-retry') === null`);
+      check(stillNoButton === true, 'B#6b 全程不存在手动探测入口');
       sp2.close();
     } else {
-      check(false, 'B#6 重新探测真实往返并给出可读回执（无侧栏可点）');
+      check(false, 'B#6 探测失败文案说明「自动重试」（无侧栏可读）');
+      check(false, 'B#6b 全程不存在手动探测入口（无侧栏可读）');
     }
     sw.close();
   } finally {

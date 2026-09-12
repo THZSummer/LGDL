@@ -666,7 +666,54 @@ router.dispatch → PermissionGate.check
 - `test:ui`（113）：侧栏复选框默认值/常驻标记/一键关闭/持久化 + 硬底线文案；options 管理列表。
 - `test:binding`（96）：真实站点上「开启写自动 → 非破坏性写档免确认直接执行」「破坏性 `remove-node` 仍弹确认」「关闭 → 立即恢复确认」。
 
-## 15. 变更记录
+## 15. 全自动探测与有界退避重试（TASK-032）
+
+旧行为：`unknown`（探测未完成 / 失败）时侧栏显示「未知状态 + 重新探测」**手动按钮**，用户必须先点一下才会重新探测。这与「发现站点」应当是自动的相矛盾。本版改为**全自动探测**，移除手动入口。
+
+### 15.1 触发时机（全部幂等、按 origin 去重）
+
+| # | 触发 | 代码位置 | 语义 |
+|---|------|----------|------|
+| 1 | 面板打开 / 绑定站点 | `state` 消息处理 → `focusBoundProbe()` | 面板 `state` 请求即「面板关注该 origin」 |
+| 2 | 切 tab 到该 origin | `tabs.onActivated` → `session-follow` → `kickDiscovery` | 新信号，重置退避立即探测 |
+| 3 | 导航完成 | `tabs.onUpdated(complete)` → 同路径 | 同上 |
+| 4 | content script `hello` / host 重连 | `hello` 消息处理 | 同上 |
+| 5 | 失败后自动重试 | `auto-probe` 内部定时器 | 有界退避 |
+| 6 | 授权 | `authorize` 消息处理 | 授权后才可注入，授权即探测 |
+
+同一 origin 的探测**进行中去重**（`inFlight` 不重复发起），不会并发风暴。
+
+### 15.2 退避策略（有界）
+
+失败 → 自动重试，退避 `500ms → 1s → 2s → 4s → 8s`，之后**封顶 15s 稳态**继续（`src/discovery/auto-probe.ts`：`BACKOFF_MS` / `BACKOFF_CAP_MS` / `delayForRetry()`）。
+
+- **成功** → 立即停止重试，进入 `ready`。
+- **origin 变更** → 丢弃旧 origin 的在途结果，旧重试作废。
+- **面板关闭** → 端口断开，`setFocused(false)` 停止重试（**不做后台常驻轮询**）。
+- **站点撤销** → `autoProbe.stop()` 忘记目标并取消定时器。
+- 仅在「有面板关注该 origin」或「该 origin 为当前绑定」时重试。
+
+### 15.3 暂时性 vs 终态（可读且可执行）
+
+- **暂时性**（页面未就绪 / content script 未响应 / host 未接入 / 网络不可达）→ 文案 `正在自动探测…（第 N 次重试）` + 最近原因，**继续自动重试**。
+- **终态**（缺少 `/.well-known/web-cli.json` / 声明 JSON 无效 / **协议版本不匹配**）→ 文案精确指出问题与站点侧需修什么，并说明「站点修复 / 刷新 / 切换标签页会自动重试，插件也会每 15 秒低频软重试」，**不再要求用户点重试**。
+- 内部状态机术语（原始 `phase` 名）**不**直接展示给用户。
+
+### 15.4 边界（不回归）
+
+- 自动探测 **≠** 自动授权：未授权站点 `auto-probe` 直接 `blocked`，**零注入**、不执行站点工具。
+- 已授权站点免点图标自动发现（FR-047/048）不变。
+- 探测失败**不报错刷屏**：可读降级 + 静默有界重试。
+- 无新权限、无新依赖、`base` 零改动、`manifest.json` 零改动。
+
+### 15.5 回归门禁
+
+- `test/auto-probe.test.ts`（13 用例）：退避序列 `500/1s/2s/4s/8s→15s` 封顶 / 成功即停 / origin 变更即停并丢弃在途结果 / 并发去重 / 暂时性 vs 终态分类 / 未授权零重试 / `stop` 取消定时器 / 面板关闭停止重试 / 出界成功上报即停。
+- `test:ui`（119→121）：无手动「重新探测」按钮 + 探测说明不含手动重试文案。
+- `test:hardening`（22→24）：未声明协议文案改为自动重试（无手动入口）+ unknown 终态文案可读。
+- `test:binding`（104→114，新增阶段 3）：本地延迟就绪站点（前 3 次 `/.well-known/web-cli.json` 返回 503）→ 失败后自动进入退避重试（`nextDelayMs ≥ 500`）→ 站点就绪后**零点击**自动 `supported` + 工具面装配；阶段内 0 未捕获异常。
+
+## 16. 变更记录
 
 | 版本 | 说明 |
 |------|------|
@@ -685,4 +732,5 @@ router.dispatch → PermissionGate.check
 | 2.2 | **TASK-028（作者要求）**：移除侧栏独立「测试连接」按钮（options 页保留）；侧栏**每次加载自动**测试当前模型配置并在 `#llm-test-result` 展示可读状态（复用既有 `llm-test`，不新增请求路径）；background 新增 60s TTL **内存**缓存（`src/llm/test-cache.ts`，指纹 = 厂商+模型+Base URL+Key 的不可逆哈希，仅内存比较、不落盘/日志/审计）——命中直接返回原结果（含原耗时）不发请求，配置变更/TTL 过期即失效；未配置零请求。补 §10.10 + 更新 §9/§10.5/§11.1；`test:ui` 87→97（#12~#12m）、`test:binding` 81→83（#6-1/#6-2）、新增 `test-cache.test.ts`（6 用例）；插件 309→315。 |
 | 2.3 | **TASK-029 / FR-051（作者实测：DOM 操作 / 浏览器截图等命令全部丢失）**：建立**机器化对账门禁**（`test/parity/`：baseline-catalog.json + extract 脚本 + waivers.json + parity.test.ts，双向 + 子命令级）；按基线补齐**无新权限**的浏览器能力 `dom` / `chrome`（含 screenshot）/ `wait` / `extract` / `export` / `save` / `events` / `web-search`（content 隔离世界真实现 DOM + background 远程代理 + 页面上下文 anchor 下载链）；补 §13；新增 `test/parity.test.ts`（8）+ `test/browser-tools.test.ts`（13），`test:e2e` 新增 dom/chrome 三条真机断言；插件 315→336，全仓 0 fail（base 483 零回归）、无新权限/依赖、base 零改动。 |
 | 2.4 | **FR-052 / ADR-017（作者要求：自动授权多选）**：新增按 origin 的「读操作自动 / 写操作自动」设置（`security/auto-authorize.ts`，存 `web-cli:auto-auth`，读默认开/写默认关，即时生效）；在 host `onAsk` 接缝**前置判定**——对应档位开启且非破坏性 read/write → 直接 allow（审计类型 `auto-authorize`/`reason: 自动授权（用户设置）`），不放宽 `riskDefaults`；`evaluate`（fail-closed 直接 deny）/ 未授权 origin（S1 deny）/ 未知 risk（S3 deny）/ 破坏性操作（`isDestructiveInvocation` 子命令分段判定）/ `ui·state·external` 仍保持确认或拒绝；侧栏新增复选框 + 常驻标记 + 一键关闭 + 硬底线常显文案，options 页新增按站点管理列表。补 §14 + §10（compliance）；新增 `test/auto-authorize.test.ts`（13）；`test:ui` 97→113、`test:binding` 83→96；插件 336→349，全仓 0 fail（base 483 零回归）、无新权限/依赖、manifest 零 diff、base 零改动。 |
+| 2.5 | **TASK-032（用户要求：探测改为全自动，逻辑上不需要用户手动探测）**：移除侧栏「重新探测」按钮；新增 `src/discovery/auto-probe.ts`（按 origin 去重 + 有界退避 500ms→1s→2s→4s→8s→15s 封顶 + 成功/origin 变更/面板关闭/撤销停止 + 暂时性/终态分类）；触发点 = 面板打开(`state`) / `tabs.onActivated` / `tabs.onUpdated(complete)` / content `hello` / 授权 / 失败重试；面板通过 `chrome.runtime.connect('web-cli-panel')` 让后台感知「有面板关注」，关闭即停重试（无后台常驻轮询）。补 §15；新增 `test/auto-probe.test.ts`（13）；`test:ui` 119→121、`test:hardening` 22→24、`test:binding` 104→114（阶段 3 延迟就绪 + 退避 + 零点击自动 ready）；插件 360→373，全仓 0 fail（base 483 零回归）、**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限**。 |
 

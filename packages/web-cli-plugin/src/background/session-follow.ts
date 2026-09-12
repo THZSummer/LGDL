@@ -129,7 +129,7 @@ export async function followActiveTab(
       deps.notice(`已自动识别站点 ${origin}（无需点击图标），已切换到对应会话。`);
     } else {
       deps.notice(
-        `已切换到 ${origin} 的会话，但页面脚本注入失败（页面可能受限或尚未加载完成）；请刷新页面后点「重新探测」。`,
+        `已切换到 ${origin} 的会话，但页面脚本注入失败（页面可能受限或尚未加载完成）；刷新页面或切换标签页后插件会自动重试探测。`,
       );
     }
   } else {

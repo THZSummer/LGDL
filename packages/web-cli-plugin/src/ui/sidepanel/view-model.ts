@@ -59,27 +59,66 @@ export function llmStatusView(summary: LlmStatusSummary | null | undefined): Llm
 // 讲清楚「不是故障」。本纯函数把既有三态（supported/unsupported/unknown）映射为
 // 明确说明；不新增任何状态。
 
-export type DiscoveryNoticeKind = 'not-declared' | 'probe-failed' | 'none';
+export type DiscoveryNoticeKind = 'not-declared' | 'probe-temporary' | 'probe-terminal' | 'none';
+
+/**
+ * TASK-032: the background's automatic-probe projection. The side panel only
+ * renders it — it never triggers a probe itself (no manual「重新探测」button).
+ */
+export interface ProbeView {
+  phase?: 'idle' | 'probing' | 'waiting' | 'ready' | 'blocked';
+  attempts?: number;
+  retries?: number;
+  lastReason?: string;
+  lastClass?: 'temporary' | 'terminal';
+  lastKind?: string;
+  nextDelayMs?: number;
+}
 
 export interface DiscoveryNoticeView {
   visible: boolean;
   kind: DiscoveryNoticeKind;
   title: string;
   detail: string;
-  /** 未知/探测失败时提供「重新探测」入口。 */
-  canRetry: boolean;
-  retryLabel: string;
+  /**
+   * TASK-032: a probe failure is always retried automatically (bounded backoff);
+   * the UI never asks the user to click a「重新探测」button.
+   */
+  autoRetry: boolean;
+}
+
+const AUTO_RETRY_LINE = '插件会自动重试——站点修复/刷新页面/切换标签页时立即重试，否则每 15 秒低频软重试，无需手动操作。';
+
+/** Precise, actionable terminal title (never an internal state-machine name). */
+function terminalTitle(kind: string | undefined): string {
+  if (kind === 'version-mismatch') return '协议版本不匹配';
+  if (kind === 'invalid-declaration') return '站点声明存在但无效';
+  if (kind === 'no-declaration') return '当前站点未声明 web-cli 协议';
+  return '站点声明存在问题';
+}
+
+/** Fallback classification when the background did not attach a probe status. */
+function classifyFromReason(reason: string): 'temporary' | 'terminal' {
+  return /版本|声明无效|声明存在但无效|未声明|不兼容|无效/.test(reason) ? 'terminal' : 'temporary';
 }
 
 /**
- * Map the existing `discoveryState` to an explicit, non-misleading explanation.
+ * Map the existing `discoveryState` (+ the automatic-probe projection) to an
+ * explicit, non-misleading explanation.
  * - `supported` / undefined (not probed yet) → no notice (never a false claim).
- * - `unsupported` → design-not-a-bug explanation + how to verify.
- * - `unknown` (probe failed / not finished) → readable reason + retry entry.
+ * - `unsupported` → design-not-a-bug explanation + how to verify + auto-retry.
+ * - `unknown` temporary →「正在自动探测…（第 N 次重试）」+ latest reason.
+ * - `unknown` terminal → precise problem + what the site must fix + auto-retry.
  */
-export function discoveryNotice(discoveryState: string | undefined | null, reason?: string): DiscoveryNoticeView {
-  const hidden: DiscoveryNoticeView = { visible: false, kind: 'none', title: '', detail: '', canRetry: false, retryLabel: '' };
+export function discoveryNotice(
+  discoveryState: string | undefined | null,
+  reason?: string,
+  probe?: ProbeView | null,
+): DiscoveryNoticeView {
+  const hidden: DiscoveryNoticeView = { visible: false, kind: 'none', title: '', detail: '', autoRetry: true };
   if (discoveryState === 'supported' || discoveryState === undefined || discoveryState === null) return hidden;
+
+  const trimmed = reason && reason.trim() ? reason.trim() : '';
 
   if (discoveryState === 'unsupported') {
     return {
@@ -88,23 +127,32 @@ export function discoveryNotice(discoveryState: string | undefined | null, reaso
       title: '当前站点未声明 web-cli 协议',
       detail:
         '本插件无法操作它——这是设计如此，不是故障。可在 LGDL 工作台等声明了协议的站点使用。' +
-        '如何验证：在该站点查看 <link rel="web-cli"> / 访问 /.well-known/web-cli.json；无声明即属正常。',
-      canRetry: false,
-      retryLabel: '',
+        '如何验证：在该站点查看 <link rel="web-cli"> / 访问 /.well-known/web-cli.json；无声明即属正常。' +
+        (trimmed ? `（最近探测：${trimmed}）` : '') +
+        AUTO_RETRY_LINE,
+      autoRetry: true,
     };
   }
 
-  // 'unknown'（或任何未预期值）→ 探测未完成 / 失败，给可读原因与重试入口。
-  const detail = reason && reason.trim()
-    ? reason.trim()
-    : '站点暂时不可达、声明无效或协议版本不匹配。可点「重新探测」重试；若仍失败，请确认站点已正确声明 web-cli 协议。';
+  const cls = probe?.lastClass ?? (trimmed ? classifyFromReason(trimmed) : 'temporary');
+  if (cls === 'terminal') {
+    const kind = probe?.lastKind;
+    return {
+      visible: true,
+      kind: 'probe-terminal',
+      title: terminalTitle(kind),
+      detail: `${trimmed || '站点声明的问题需要站点侧修复。'}站点侧修复后，刷新页面或切换标签页会自动重试。${AUTO_RETRY_LINE}`,
+      autoRetry: true,
+    };
+  }
+
+  const retryNo = probe?.retries ?? 0;
   return {
     visible: true,
-    kind: 'probe-failed',
-    title: 'web-cli 探测未完成（未知状态）',
-    detail,
-    canRetry: true,
-    retryLabel: '重新探测',
+    kind: 'probe-temporary',
+    title: retryNo > 0 ? `正在自动探测…（第 ${retryNo} 次重试）` : '正在自动探测…',
+    detail: `${trimmed || '站点或页面尚未就绪（内容脚本未响应 / 网络暂不可达）。'}${AUTO_RETRY_LINE}`,
+    autoRetry: true,
   };
 }
 
@@ -290,6 +338,8 @@ export interface StateMessageView {
   session?: SessionSummaryView | null;
   /** FR-052 / ADR-017: bound origin's read/write auto-authorization switches. */
   autoAuth?: AutoAuthSettings;
+  /** TASK-032: automatic discovery-probe projection (retry count / reason). */
+  probe?: ProbeView | null;
 }
 
 // ── decision ② / FR-048: multi-session switcher view ─────────────────────────
@@ -355,6 +405,8 @@ export interface StateActionView {
   authorized: boolean;
   trust?: SidepanelState['trust'];
   autoAuth?: AutoAuthSettings;
+  /** TASK-032: automatic-probe projection (never a manual retry trigger). */
+  probe?: ProbeView;
 }
 
 export function stateActionFromPayload(payload: StateMessageView): StateActionView {
@@ -372,6 +424,7 @@ export function stateActionFromPayload(payload: StateMessageView): StateActionVi
     trust: hasOrigin && payload.trust === 'trusted' ? 'trusted' : 'untrusted',
     // FR-052: auto-authorization is per bound origin; never carry another's.
     ...(hasOrigin && payload.autoAuth ? { autoAuth: payload.autoAuth } : {}),
+    ...(hasOrigin && payload.probe ? { probe: payload.probe } : {}),
   };
 }
 

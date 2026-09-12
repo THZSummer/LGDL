@@ -1318,15 +1318,35 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 
 ---
 
+### TASK-032: 探测改为全自动（移除手动「重新探测」+ 有界退避重试 + 暂时性/终态可读说明）（用户要求，v1.9 增补）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（体验改造） |
+| **前置依赖** | TASK-031（会话跟随）/ TASK-024（自动探测）/ TASK-019（三态说明） |
+| **执行波次** | Wave 24（v1.9 增补） |
+| **对应 FR** | FR-047（自动探测）/ FR-014（可读失败分类）/ EC-001（不误报）/ EC-011（导航不回归） |
+| **ADR** | ADR-013/014（复用并发去重与自动探测语义，无新增） |
+| **TB 映射** | —（非 plan TB，用户要求「逻辑上不需要用户手动探测」驱动） |
+
+**描述**: 旧侧栏在 `unknown` 时显示「未知状态 + 重新探测」手动按钮，用户必须先点才会重新探测——与「发现应是自动的」矛盾。改造为**全自动探测**：新增纯逻辑协调器 `src/discovery/auto-probe.ts`（依赖注入 `probe` + 定时器，node mock 可测）：①**触发点全接**——面板打开（`state` → `focusBoundProbe`）/ `tabs.onActivated` / `tabs.onUpdated(complete)`（经 `session-follow` 的 `kickDiscovery`）/ content script `hello` / `authorize` / 失败后内部定时器；②**同一 origin 去重**（`inFlight` 不重复发起，避免并发风暴）；③**有界退避** `500ms→1s→2s→4s→8s`，之后封顶 **15s** 稳态；④**停止条件**：成功 / origin 变更 / 面板关闭 / 站点被撤销；⑤**面板关注用 port**（`chrome.runtime.connect('web-cli-panel')` + SW `onConnect` 计数），全部关闭即停重试，**无后台常驻轮询**；⑥`state` 携带 `probe` 投影 + `probe-changed` 推送让面板即时刷新；⑦**状态区分暂时性/终态**并给可读可执行说明——暂时性「正在自动探测…（第 N 次重试）」+ 最近原因，终态精确指出缺 `/.well-known/web-cli.json` / 声明无效 / 「协议版本不匹配：站点 vX，插件支持 vY」并说明站点修复/刷新/切 tab 自动重试 + 每 15 秒低频软重试，**不再要求用户点重试**、不暴露原始 `phase` 名。移除侧栏 `#discovery-retry` 按钮/样式/点击处理/`canRetry`/`retryLabel`；`reprobe` 消息保留为内部通道。**不回归**：自动探测 ≠ 自动授权（未授权 `blocked`，零注入）；FR-047/048 免点图标自动发现不变；失败不报错刷屏；**无新权限 / 无新依赖 / base 零改动 / manifest 零改动**。
+
+**涉及文件**: NEW `src/discovery/auto-probe.ts`、`test/auto-probe.test.ts`；MODIFY `src/background/service-worker.ts`（协调器 + 触发点 + port + `state.probe`）、`src/background/messaging.ts`（`probe-changed`）、`src/background/state-message.ts`（`probe`）、`src/background/session-follow.ts`（文案去手动重试）、`src/ui/sidepanel/view-model.ts`（`discoveryNotice` 暂时/终态 + `ProbeView`）、`src/ui/sidepanel/chat-state.ts`、`src/ui/sidepanel/sidepanel.ts`、`src/ui/sidepanel/index.html`；`test/sidepanel-view.test.ts`、`test/ui/journey.mjs`、`test/ui/hardening.mjs`、`test/ui/binding.mjs`（阶段 3）；`docs/dev.md`（§15）、`docs/protocol.md`（§2.1）。
+
+**验收标准**: `test/auto-probe.test.ts` 覆盖退避序列（500/1s/2s/4s/8s→15s 封顶）/ 成功即停 / origin 变更即停并丢弃在途结果 / 并发去重 / 暂时性 vs 终态分类 / 未授权零重试 / `stop` 取消定时器 / 面板关闭停重试全绿；`test:ui` 更新为自动探测断言（无手动按钮、说明不含手动重试），总数只增不减；`test:hardening` 断言无手动入口 + 自动重试文案（总数只增不减）；`test:binding` 真站点加「延迟就绪」场景（前 3 次 503 → 失败自动退避 → 零点击最终 `supported` + 工具面），保留既有断言；`test:e2e` 不回归；`tsc --noEmit` 0 error；插件 `npm test` 373 pass / 0 fail、全仓 `npm run build` + `npm test` 0 fail（base **483 零回归**）；红线：base 零改动、manifest 零改动、无新依赖、无明文 key、无静默失败。
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③）+ 3 v0.9 增补（TASK-027 `web-fetch` 权限边界预校验 + 失败可见，用户实测 CORS 驱动 / TASK-028 侧栏自动测试当前模型配置 + 移除独立按钮 + 60s TTL 缓存，作者要求 / TASK-029 工具面基线对账门禁 + 浏览器能力补齐，作者实测 dom·浏览器截图丢失驱动）+ 1 v1.8 缺陷修复增补（TASK-031 切 tab 按 `tab.url` 驱动会话跟随，用户实测「新域名 tab 不自动建会话」驱动；TASK-030 见 build.md §28） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③）+ 3 v0.9 增补（TASK-027 `web-fetch` 权限边界预校验 + 失败可见，用户实测 CORS 驱动 / TASK-028 侧栏自动测试当前模型配置 + 移除独立按钮 + 60s TTL 缓存，作者要求 / TASK-029 工具面基线对账门禁 + 浏览器能力补齐，作者实测 dom·浏览器截图丢失驱动）+ 1 v1.8 缺陷修复增补（TASK-031 切 tab 按 `tab.url` 驱动会话跟随，用户实测「新域名 tab 不自动建会话」驱动；TASK-030 见 build.md §28）+ 1 v1.9 体验改造增补（TASK-032 探测改为全自动，用户要求「逻辑上不需要用户手动探测」驱动） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022）+ 2 增补（027/028）+ 1 缺陷修复（031） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022）+ 2 增补（027/028）+ 1 缺陷修复（031）+ 1 体验改造（032） |
 | L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023）+ 3 v0.9（024/025/026）+ 1 增补（029） |
-| 执行波次 | 23（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补 + Wave 19 TASK-027 v0.9 缺陷修复 + Wave 20 TASK-028 v0.9 增补 + Wave 21 TASK-029 工具面对账+浏览器能力补齐 + Wave 22 TASK-030 自动授权 + Wave 23 TASK-031 切 tab 会话跟随缺陷修复） |
+| 执行波次 | 24（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补 + Wave 19 TASK-027 v0.9 缺陷修复 + Wave 20 TASK-028 v0.9 增补 + Wave 21 TASK-029 工具面对账+浏览器能力补齐 + Wave 22 TASK-030 自动授权 + Wave 23 TASK-031 切 tab 会话跟随缺陷修复 + Wave 24 TASK-032 探测全自动改造） |
 | plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021/022（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
@@ -1444,3 +1464,4 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 | v2.0 | 追加 **TASK-028 侧栏自动测试当前模型配置**（作者要求，v0.9 增补，非 plan TB）。任务汇总/波次计入增补轮（Wave 20，M 级）；移除侧栏独立「测试连接」按钮（options 页保留）；面板加载**自动**复用既有 `llm-test` 在 `#llm-test-result` 展示可读状态（不新增请求路径、仅加载触发一次、render/轮询不重复）；background 新增 60s TTL **内存**缓存（`src/llm/test-cache.ts`，指纹 = 厂商+模型+Base URL+Key 的不可逆哈希，仅内存比较、不落盘/日志/审计）；未配置零请求。**base 零改动 / 无新依赖 / 无新权限 / manifest 零 diff**；新增 `test/test-cache.test.ts`（6 用例）；`test:ui` 87→97（#12~#12m）、`test:binding` 81→83（#6-1/#6-2）、插件 309→315。 | 2026-09-12 | SDDU Build Agent |
 | v2.1 | 追加 **TASK-029 工具面基线对账门禁 + 浏览器能力补齐**（FR-051 / ADR-016，v1.7 增补，非 plan TB，作者实测「dom 操作 / 浏览器截图等命令全部丢失」驱动）。任务汇总/波次计入增补轮（Wave 21，L 级）；根因 = 测试只断言内部行为 + `capability-matrix.md` 手写无执行 → 静默漂移；修复 = ① 只读克隆 main 机器枚举 34 工具基线目录（`test/parity/baseline-catalog.json` + 提取脚本 + provenance）② 双向子命令级门禁 `test/parity.test.ts` + 豁免登记 `waivers.json` ③ content 隔离世界 `createBrowserDomOps()` + background 远程代理，补齐 `dom`/`chrome`（含 screenshot）/`wait`/`extract`/`export`/`save`/`events`/`web-search` ④ 页面上下文 anchor 下载链替代 `downloads` 权限 ⑤ 待批准权限（`notify`/`clipboard`）只报告不实施。**base 零改动 / 无新依赖 / 无新权限 / manifest 零 diff**；新增 `test/parity.test.ts`（8）+ `test/browser-tools.test.ts`（13），`test:e2e` 新增 dom/chrome 三条真机断言；插件 315→336，全仓 0 fail（base 483 零回归）。 | 2026-09-12 | SDDU Build Agent |
 | v2.2 | 追加 **TASK-031 切 tab 按 `tab.url` 驱动会话跟随**（FR-047/048，v1.8 缺陷修复增补，非 plan TB，用户实测「切到新域名 TAB 不会自动新建会话，旧 TAB 可以；重开插件才识别当前域名」驱动）。任务汇总/波次计入增补轮（Wave 23，M 级）；根因 = `onActivated` 的 `if (!session) return;` + 仅靠 `whoami` 握手（新域名未授权→不注入→握手必失败）→ `markStale` 死路；修复 = 新增 `src/background/session-follow.ts` `followActiveTab`（URL 驱动：未授权新域名**仍建/切会话+推送面板+零注入**；已授权顺带注入+发现；同 origin 复用会话；受限页不建会话、保留既有降级；`whoami` 仅作 URL 不可读回退）+ `onUpdated(complete)` 同路径；**base 零改动 / manifest 零改动 / 无新依赖 / 无新权限**；新增 `test/session-follow.test.ts`（10）、`test:ui` #16j~#16o（113→119）、`test:binding` #20a~#20f + #A6/A6b/A6c（96→104，保留既有），插件 349→360。 | 2026-09-12 | SDDU Build Agent |
+| v2.3 | 追加 **TASK-032 探测改为全自动**（FR-047/FR-014，v1.9 体验改造增补，非 plan TB，用户要求「逻辑上不需要用户手动探测」驱动）。任务汇总/波次计入增补轮（Wave 24，M 级）；新增 `src/discovery/auto-probe.ts`（按 origin 去重 + 有界退避 500ms→15s 封顶 + 成功/origin 变更/面板关闭/撤销停止 + 暂时性/终态分类）；触发点 = 面板打开(`state`) / `onActivated` / `onUpdated(complete)` / content `hello` / 授权 / 失败重试；面板 port 计数使「有面板关注」才重试（无后台常驻轮询）；`state.probe` + `probe-changed` 投影；文案暂时性「正在自动探测…（第 N 次重试）」、终态精确可执行且不再要求点重试；移除侧栏手动「重新探测」按钮/样式/处理；`reprobe` 保留内部通道；**base 零改动 / manifest 零改动 / 无新依赖 / 无新权限**；新增 `test/auto-probe.test.ts`（13）、`test:ui` 119→121、`test:hardening` 22→24、`test:binding` 104→114（阶段 3 延迟就绪），插件 360→373，全仓 0 fail（base 483 零回归）。 | 2026-09-12 | SDDU Build Agent |

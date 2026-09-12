@@ -336,13 +336,13 @@ test('env-guard (TASK-019 A): options + sidepanel block outside the extension', 
 
 // ── TASK-019 任务 B: 站点未声明协议的显式说明 ───────────────────────────────
 
-test('discovery notice (TASK-019 B): three states, never a false claim', () => {
+test('discovery notice (TASK-032): readable states + fully automatic probing (no manual retry)', () => {
   // supported / not-yet-probed → hidden (does not shout when it works)
   assert.equal(discoveryNotice('supported').visible, false);
   assert.equal(discoveryNotice(undefined).visible, false);
   assert.equal(discoveryNotice(null).visible, false);
 
-  // unsupported → design-not-a-bug explanation + how to verify, no retry
+  // unsupported → design-not-a-bug explanation + how to verify, auto-retried
   const undeclared = discoveryNotice('unsupported');
   assert.equal(undeclared.visible, true);
   assert.equal(undeclared.kind, 'not-declared');
@@ -351,19 +351,40 @@ test('discovery notice (TASK-019 B): three states, never a false claim', () => {
   assert.match(undeclared.detail, /不是故障/);
   assert.match(undeclared.detail, /LGDL/);
   assert.match(undeclared.detail, /\.well-known\/web-cli\.json|link/);
-  assert.equal(undeclared.canRetry, false);
+  assert.match(undeclared.detail, /自动重试/);
+  assert.equal(undeclared.autoRetry, true);
 
-  // unknown → readable reason + retry entry
-  const failed = discoveryNotice('unknown', '声明文件获取失败：HTTP 500');
-  assert.equal(failed.visible, true);
-  assert.equal(failed.kind, 'probe-failed');
-  assert.match(failed.detail, /HTTP 500/);
-  assert.equal(failed.canRetry, true);
-  assert.equal(failed.retryLabel, '重新探测');
+  // unknown + temporary →「正在自动探测…（第 N 次重试）」+ latest reason
+  const temporary = discoveryNotice('unknown', '声明文件获取失败：HTTP 500', { lastClass: 'temporary', retries: 3 });
+  assert.equal(temporary.visible, true);
+  assert.equal(temporary.kind, 'probe-temporary');
+  assert.match(temporary.title, /正在自动探测/);
+  assert.match(temporary.title, /第 3 次重试/);
+  assert.match(temporary.detail, /HTTP 500/);
+  assert.equal(temporary.autoRetry, true);
+  assert.equal(/重新探测/.test(`${temporary.title}${temporary.detail}`), false, 'no manual retry copy');
 
-  // unknown without a reason still yields a readable default (not blank)
+  // unknown + terminal → precise, actionable problem (no "click retry")
+  const version = discoveryNotice('unknown', '站点协议版本不匹配：站点 v2.0，插件支持 v1.0', {
+    lastClass: 'terminal',
+    lastKind: 'version-mismatch',
+  });
+  assert.equal(version.kind, 'probe-terminal');
+  assert.match(version.title, /版本不匹配/);
+  assert.match(version.detail, /自动重试/);
+  assert.equal(/重新探测/.test(`${version.title}${version.detail}`), false);
+
+  const invalid = discoveryNotice('unknown', '站点声明存在但无效：JSON 解析失败', { lastClass: 'terminal', lastKind: 'invalid-declaration' });
+  assert.equal(invalid.kind, 'probe-terminal');
+  assert.match(invalid.title, /声明/);
+  assert.match(invalid.detail, /自动重试|15 秒/);
+
+  // unknown without a status still classifies from the readable reason (not blank)
   const generic = discoveryNotice('unknown');
   assert.ok(generic.detail.length > 10);
+  // version text alone (no probe status) must classify as terminal, never as「探测未完成」
+  const inferred = discoveryNotice('unknown', '协议版本不匹配：站点 v2.0');
+  assert.equal(inferred.kind, 'probe-terminal');
 });
 
 test('discovery notice payload (TASK-019 B): discoveryReason survives the state projection', () => {
@@ -388,19 +409,23 @@ test('discovery notice payload (TASK-019 B): discoveryReason survives the state 
   assert.match(sw, /discoveryReason/);
 });
 
-test('discovery notice wiring (TASK-019 B): sidepanel exposes the notice + reprobe entry', () => {
+test('discovery notice wiring (TASK-032): automatic probe, no manual retry entry', () => {
   const html = read('../../src/ui/sidepanel/index.html');
   assert.match(html, /id="discovery-notice"/);
   assert.match(html, /id="discovery-title"/);
   assert.match(html, /id="discovery-detail"/);
-  assert.match(html, /id="discovery-retry"/);
+  // TASK-032: the manual「重新探测」button is gone — the user must never need it.
+  assert.equal(html.includes('id="discovery-retry"'), false, '手动「重新探测」按钮必须移除');
+  assert.equal(html.includes('重新探测'), false, '不再有手动重试文案');
 
   const src = read('../../src/ui/sidepanel/sidepanel.ts');
   assert.match(src, /renderDiscoveryNotice\(\)/);
-  assert.match(src, /makeMessage\('reprobe'\)/);
+  assert.match(src, /msg\.kind === 'probe-changed'/);
+  assert.equal(/makeMessage\('reprobe'\)/.test(src), false, '侧栏不再发送手动 reprobe');
 
   const messaging = read('../../src/background/messaging.ts');
   assert.match(messaging, /'reprobe'/);
+  assert.match(messaging, /'probe-changed'/);
   assert.match(messaging, /'diag'/);
 });
 

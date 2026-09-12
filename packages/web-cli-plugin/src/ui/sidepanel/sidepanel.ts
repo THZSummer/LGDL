@@ -216,13 +216,13 @@ export function consentSummary(): string {
 }
 
 let state: SidepanelState = createInitialState();
+/** TASK-032: retained panel-presence port (auto-disconnects when the panel closes). */
+let panelPort: ReturnType<typeof chrome.runtime.connect> | null = null;
 /** Last background `llm-status` summary; null until the round-trip completes. */
 let llmSummary: LlmStatusSummary | null = null;
 let llmLoaded = false;
 /** Last non-sensitive active-tab projection (TASK-020 任务 B). */
 let activeTab: ActiveTabView | null = null;
-/** Last discovery failure reason (populated by 「重新探测」) for a readable notice. */
-let discoveryReason: string | undefined;
 /** decision ② / FR-048: current session id + switcher data. */
 let sessionId: string | null = null;
 let sessions: SessionSummaryView[] = [];
@@ -457,19 +457,19 @@ function renderOnboarding(): void {
   box.appendChild(list);
 }
 
-/** TASK-019 任务 B: explain the three discovery states honestly (never misleading). */
+/**
+ * TASK-032: explain the discovery state honestly. Probing is **fully automatic**
+ * (panel open / tab switch / navigation / hello + bounded backoff retry), so this
+ * renderer never exposes a manual「重新探测」entry — it only shows the readable
+ * status / reason, including「正在自动探测…（第 N 次重试）」for temporary failures.
+ */
 function renderDiscoveryNotice(): void {
   const box = $('discovery-notice');
-  const view = discoveryNotice(state.activeOrigin ? state.discoveryState : undefined, state.discoveryReason ?? discoveryReason);
+  const view = discoveryNotice(state.activeOrigin ? state.discoveryState : undefined, state.discoveryReason, state.probe);
   box.style.display = view.visible ? 'block' : 'none';
   if (!view.visible) return;
   $('discovery-title').textContent = view.title;
   $('discovery-detail').textContent = view.detail;
-  const retry = $('discovery-retry') as HTMLButtonElement;
-  // NB: the stylesheet defaults `.dn-retry` to `display:none`; clearing the inline
-  // style (`''`) would fall back to that default, so set an explicit value.
-  retry.style.display = view.canRetry ? 'inline-block' : 'none';
-  retry.textContent = view.retryLabel || '重新探测';
 }
 
 /** F-2: fetch the non-sensitive LLM summary from the background (never the key). */
@@ -984,37 +984,6 @@ function wire(): void {
     });
   });
 
-  // TASK-019 任务 B: explicit re-probe entry for the unknown/failed state.
-  $('discovery-retry').addEventListener('click', () => {
-    void (async () => {
-      const btn = $('discovery-retry') as HTMLButtonElement;
-      btn.disabled = true;
-      btn.textContent = '探测中…';
-      try {
-        const res = await send<{ state?: string; reason?: string }>(makeMessage('reprobe'));
-        if (res.ok && res.data) {
-          const s = res.data.state;
-          if (s === 'supported') {
-            discoveryReason = undefined;
-            dispatch({ type: 'notice', text: '✓ 已探测到 web-cli 声明，工具面可用。' });
-          } else {
-            discoveryReason = res.data.reason;
-            dispatch({ type: 'notice', text: `仍未就绪：${res.data.reason ?? '未知原因'}` });
-          }
-        } else {
-          dispatch({ type: 'notice', text: `✖ 重新探测失败：${res.error ?? '后台无响应'}` });
-        }
-      } catch (err) {
-        dispatch({ type: 'notice', text: `✖ 重新探测失败：${err instanceof Error ? err.message : String(err)}` });
-      } finally {
-        await refreshState();
-        btn.disabled = false;
-        btn.textContent = '重新探测';
-        renderDiscoveryNotice();
-      }
-    })();
-  });
-
   $('ask-submit').addEventListener('click', () => submitAsk(($('ask-input') as HTMLInputElement).value, false));
   $('ask-cancel').addEventListener('click', () => submitAsk(undefined, true));
   $('ask-input').addEventListener('keydown', (e) => {
@@ -1068,6 +1037,13 @@ function wire(): void {
       });
       return undefined;
     }
+    if (msg.kind === 'probe-changed') {
+      // TASK-032: the background's automatic probe advanced (probing / retry N /
+      // ready) → re-read state and re-render. This replaces the removed manual
+      //「重新探测」button; it never triggers a probe itself.
+      void refreshState();
+      return undefined;
+    }
     if (msg.kind === 'session-changed') {
       // decision ② / FR-048: the background moved to another session (tab switch /
       // auto-bind) → re-read state + replace the conversation with that session's.
@@ -1085,7 +1061,7 @@ function applyEnvGuard(env: EnvGuardResult): void {
   banner.textContent = env.banner;
   banner.style.display = env.inExtension ? 'none' : 'block';
   if (env.inExtension) return;
-  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-options', 'discovery-retry', 'rebind']) {
+  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-options', 'rebind']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) el.disabled = true;
   }
@@ -1100,6 +1076,10 @@ if (typeof document !== 'undefined') {
   const env = detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined);
   applyEnvGuard(env);
   if (env.inExtension) {
+    // TASK-032: keep a port open so the background knows a panel is attached and
+    // only retries the automatic probe while it is (bounded; no background poll).
+    // The port auto-disconnects on panel close → retries stop.
+    panelPort = chrome.runtime.connect({ name: 'web-cli-panel' });
     wire();
     renderConsent();
     render();

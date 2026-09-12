@@ -1152,6 +1152,120 @@ async function phase2(mock) {
   }
 }
 
+// ── phase 3: TASK-032 automatic probe + bounded backoff (delayed readiness) ───
+/**
+ * A local site whose `/.well-known/web-cli.json` returns 503 for the first
+ * `failures` requests and only then serves a valid descriptor. Proves the
+ * discovery probe is **fully automatic**: the panel never clicks anything, the
+ * background retries with a bounded backoff, and the tool surface appears once
+ * the site becomes ready.
+ */
+function startDelayedSite(failures) {
+  let remaining = failures;
+  const descriptor = {
+    protocolVersion: '1.0',
+    tools: [{ id: 'delayed-status', summary: 'delayed status', riskHint: 'read' }],
+    transport: { kind: 'page-message', channel: 'web-cli' },
+  };
+  const server = createServer((req, res) => {
+    if (req.url.startsWith('/.well-known/web-cli.json')) {
+      if (remaining > 0) {
+        remaining -= 1;
+        res.writeHead(503, { 'content-type': 'text/plain' });
+        res.end('not ready');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(descriptor));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<!doctype html><html><head><title>delayed</title></head><body><h1>delayed site</h1></body></html>');
+  });
+  return new Promise((resolveListen) => {
+    server.listen(0, '127.0.0.1', () => resolveListen({ server, origin: `http://127.0.0.1:${server.address().port}` }));
+  });
+}
+
+async function phaseAutoProbe() {
+  console.log('\n▶ 阶段 3：自动探测 + 有界退避重试（延迟就绪；全程无需点击）');
+  const delayed = await startDelayedSite(3);
+  const work = await mkdtemp(join(tmpdir(), 'web-cli-autoprobe-'));
+  const extDir = join(work, 'ext');
+  await cp(dist, extDir, { recursive: true });
+  const manifest = JSON.parse(await readFile(join(extDir, 'manifest.json'), 'utf8'));
+  manifest.host_permissions = [...manifest.host_permissions, 'http://127.0.0.1/*'];
+  await writeFile(join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  observe('阶段 3 临时 dist：host_permissions += http://127.0.0.1/*（JS 字节未改；headless 无原生弹窗）');
+
+  const { work: chromeWork, chrome, base, sw } = await launchChrome(extDir, 'autoprobe');
+  try {
+    check(Boolean(sw), 'AP#1 service worker 可达');
+    if (!sw) throw new Error('no sw');
+
+    // Pre-authorize the delayed origin (no click): the OriginStore reads storage on
+    // every access, so this is byte-for-byte the persisted state the authorize path writes.
+    const norm = delayed.origin.toLowerCase();
+    await evaluate(
+      sw,
+      `chrome.storage.local.set({ ${JSON.stringify('web-cli:web-cli:origins')}: { ${JSON.stringify(norm)}: { origin: ${JSON.stringify(norm)}, authorized: true, trust: 'untrusted', authorizedAt: Date.now(), updatedAt: Date.now() } } }).then(() => true)`,
+    );
+
+    const tabId = await evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(delayed.origin)} }).then((t) => t.id)`, 20000);
+    check(Boolean(tabId), 'AP#2 打开延迟就绪站点标签页');
+
+    const extId = await evaluate(sw, `chrome.runtime.id`);
+    await evaluate(sw, `chrome.tabs.create({ url: 'chrome-extension://${extId}/sidepanel.html' }).then((t) => t.id)`);
+    const spTarget = await findTarget(base, (t) => t.type === 'page' && t.url.includes('sidepanel.html'));
+    check(Boolean(spTarget), 'AP#3 侧栏打开（面板关注该 origin）');
+    if (!spTarget) throw new Error('no sidepanel target');
+    const sp = await connectCdp(spTarget.webSocketDebuggerUrl);
+    await sp.send('Runtime.enable');
+    const spExceptions = [];
+    sp.on('Runtime.exceptionThrown', (p) => spExceptions.push(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text));
+
+    // The manual「重新探测」entry must not exist at all.
+    const retryAbsent = await evaluate(sp, `document.getElementById('discovery-retry') === null`);
+    check(retryAbsent === true, 'AP#4 侧栏不存在手动「重新探测」按钮（用户无需手动探测）');
+    const manualTextAbsent = await evaluate(sp, `!document.getElementById('discovery-notice').textContent.includes('重新探测')`);
+    check(manualTextAbsent === true, 'AP#4b 探测说明文案不含「重新探测」');
+
+    // Failure → automatic backoff retry, observed via the real state projection.
+    const retrying = await waitFor(
+      sp,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'state' }); const p = r && r.data && r.data.probe; return p && p.retries >= 1 && p.lastClass === 'temporary' ? JSON.stringify(p) : ''; })()`,
+      150,
+      250,
+    );
+    check(Boolean(retrying), 'AP#5 探测失败后自动进入退避重试（零点击）', String(retrying));
+    const rp = retrying ? JSON.parse(retrying) : {};
+    check(typeof rp.nextDelayMs === 'number' && rp.nextDelayMs >= 500, 'AP#5b 退避为有界序列（500ms 起，封顶 15s）', JSON.stringify(rp));
+
+    // Site heals → automatic success, still with zero clicks.
+    const ready = await waitFor(
+      sp,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'state' }); const d = r && r.data; return d && d.active && d.active.discoveryState === 'supported' ? JSON.stringify({ active: d.active, tools: d.tools }) : ''; })()`,
+      180,
+      250,
+    );
+    check(Boolean(ready), 'AP#6 站点延迟就绪后自动探测到 supported（全程零点击）', String(ready).slice(0, 160));
+    const rr = ready ? JSON.parse(ready) : { tools: [] };
+    check((rr.tools ?? []).includes('site_delayed-status'), 'AP#7 延迟就绪后站点工具面自动装配', JSON.stringify(rr.tools));
+    check(spExceptions.length === 0, 'AP#8 自动探测全程侧栏 0 未捕获异常', spExceptions.join(' | '));
+
+    sp.close();
+    sw.close();
+  } catch (err) {
+    failures.push(`阶段 3 harness error: ${err instanceof Error ? err.message : String(err)}`);
+    console.error('✖ 阶段 3 harness error:', err);
+  } finally {
+    chrome.kill('SIGKILL');
+    delayed.server.close();
+    await rm(chromeWork, { recursive: true, force: true }).catch(() => {});
+    await rm(work, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function main() {
   if (!(await stat(dist).then(() => true).catch(() => false))) {
     console.error(`✖ dist/ 不存在：先运行 npm run build --workspace @lgdl/web-cli-plugin（期望 ${dist}）`);
@@ -1175,6 +1289,7 @@ async function main() {
     await phase0();
     await phase1(mock);
     await phase2(mock);
+    await phaseAutoProbe();
   } finally {
     mock.server.close();
     unauth.server.close();
@@ -1190,7 +1305,7 @@ async function main() {
     for (const f of failures) console.error(`  - ${f}`);
     process.exit(1);
   }
-  console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）+ 阶段 2 自动探测（授权后免点图标自动绑定）+ FR-049 标签页工具（真实 tabs list --full/默认 与 tabs switch → 会话随之切换）+ FR-050 web-fetch 预校验（未授权域名零请求 + 可读拒绝；同源经页面上下文真实读取；SW ping 往返 + 无加载/CORS 错误）`);
+  console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）+ 阶段 2 自动探测（授权后免点图标自动绑定）+ FR-049 标签页工具（真实 tabs list --full/默认 与 tabs switch → 会话随之切换）+ FR-050 web-fetch 预校验（未授权域名零请求 + 可读拒绝；同源经页面上下文真实读取；SW ping 往返 + 无加载/CORS 错误）+ TASK-032 自动探测（延迟就绪 + 有界退避重试，全程零点击，无手动「重新探测」按钮）`);
 }
 
 main().catch((err) => {

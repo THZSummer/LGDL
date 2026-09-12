@@ -553,6 +553,24 @@ async function main() {
       if (p.entry.level === 'error') spConsoleErrors.push(p.entry.text);
     });
 
+    // TASK-032: probing is fully automatic — the manual「重新探测」entry is gone.
+    const autoProbe = await waitFor(
+      sp,
+      `(() => {
+        const n = document.getElementById('discovery-notice');
+        if (!n) return '';
+        return JSON.stringify({
+          retryAbsent: document.getElementById('discovery-retry') === null,
+          noManualText: !n.textContent.includes('重新探测'),
+        });
+      })()`,
+      60,
+      200,
+    );
+    const apView = autoProbe ? JSON.parse(autoProbe) : {};
+    check(apView.retryAbsent === true, '#11b 侧栏无手动「重新探测」按钮（TASK-032 全自动探测）', String(autoProbe));
+    check(apView.noManualText === true, '#11c 探测说明不再提示手动重试（改为自动重试）', String(autoProbe));
+
     // TASK-028: install a probe BEFORE the panel script runs. It counts (a)
     // `llm-test` messages sent by the panel and (b) transitions of the result
     // area into the "正在…" state. Both are used to prove render/polling never

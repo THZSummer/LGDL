@@ -28,6 +28,8 @@ export type PluginMessageKind =
   | 'llm-status'
   | 'llm-test'
   | 'reprobe'
+  // TASK-032: automatic discovery-probe status push (background → side panel).
+  | 'probe-changed'
   | 'rebind'
   | 'diag'
   // decision ① / FR-047 (auto detection): content script self-report + background query.
@@ -85,6 +87,7 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'llm-status',
   'llm-test',
   'reprobe',
+  'probe-changed',
   'rebind',
   'diag',
   'hello',

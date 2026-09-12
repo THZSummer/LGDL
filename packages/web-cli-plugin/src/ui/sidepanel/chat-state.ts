@@ -7,6 +7,17 @@
 export type ChatRole = 'user' | 'assistant' | 'tool' | 'system';
 export type ChatKind = 'text' | 'command' | 'tool' | 'error';
 
+/** TASK-032: automatic discovery-probe projection (structural; no runtime import). */
+export interface ProbeState {
+  phase?: 'idle' | 'probing' | 'waiting' | 'ready' | 'blocked';
+  attempts?: number;
+  retries?: number;
+  lastReason?: string;
+  lastClass?: 'temporary' | 'terminal';
+  lastKind?: string;
+  nextDelayMs?: number;
+}
+
 export interface ChatEntry {
   id: number;
   role: ChatRole;
@@ -45,6 +56,8 @@ export interface SidepanelState {
   discoveryState?: 'supported' | 'unsupported' | 'unknown';
   /** Readable discovery failure reason (TASK-019 任务 B). */
   discoveryReason?: string;
+  /** TASK-032: automatic discovery-probe status (retry count / class / reason). */
+  probe?: ProbeState;
   authorized: boolean;
   /** TASK-023: per-origin trust (read-only display; display defaults to untrusted). */
   trust?: 'trusted' | 'untrusted';
@@ -64,7 +77,7 @@ export type SidepanelAction =
   | { type: 'command'; text: string }
   | { type: 'error'; text: string }
   | { type: 'pending'; value: boolean }
-  | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; authorized?: boolean; trust?: SidepanelState['trust']; autoAuth?: { read: boolean; write: boolean }; invalidated?: boolean }
+  | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; probe?: ProbeState; authorized?: boolean; trust?: SidepanelState['trust']; autoAuth?: { read: boolean; write: boolean }; invalidated?: boolean }
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
   | { type: 'confirm-resolved'; allow: boolean }
   | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
@@ -136,6 +149,7 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
         ...(action.origin !== undefined ? { activeOrigin: action.origin } : {}),
         ...(action.discoveryState !== undefined ? { discoveryState: action.discoveryState } : {}),
         ...(action.discoveryReason !== undefined ? { discoveryReason: action.discoveryReason } : {}),
+        ...(action.probe !== undefined ? { probe: action.probe } : {}),
         ...(action.authorized !== undefined ? { authorized: action.authorized } : {}),
         ...(action.trust !== undefined ? { trust: action.trust } : {}),
         ...(action.autoAuth !== undefined ? { autoAuth: action.autoAuth } : {}),
