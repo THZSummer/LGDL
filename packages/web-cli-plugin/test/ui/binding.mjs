@@ -516,6 +516,43 @@ async function phase1(mock) {
     check(ub.bg === 'rgb(79, 70, 229)', '#6i 用户气泡为用户色（indigo，明显区分于助手）', ub.bg);
     check(ub.align === 'flex-end', '#6j 用户气泡右对齐（与助手左对齐区分）', ub.align);
 
+    // ── #6k~#6l scroll-follow regression: a user send is unconditional ────────
+    // Push a long reply into the real panel so the message list is scrollable.
+    const longMsg = ['# 撑高消息区', '', ...Array.from({ length: 80 }, (_, i) => `- 第 ${i} 行`)].join('\n');
+    await evaluate(
+      sw,
+      `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'assistant', text: ${JSON.stringify(longMsg)} }).catch(() => {})`,
+    );
+    await sleep(400);
+    const away = await evaluate(
+      ext,
+      `(() => {
+        const log = document.getElementById('log');
+        log.scrollTop = 0; log.dispatchEvent(new Event('scroll'));
+        return JSON.stringify({
+          scrollable: log.scrollHeight > log.clientHeight + 100,
+          shown: document.getElementById('scroll-bottom').classList.contains('show'),
+        });
+      })()`,
+    );
+    const aw = JSON.parse(away);
+    check(aw.scrollable === true, '#6k 消息区可滚动（长回复已撑高）', away);
+    check(aw.shown === true, '#6k2 上滚后「回到底部」入口出现', away);
+    await realClick(ext, '#input');
+    await typeText(ext, '22222');
+    await realClick(ext, '#send');
+    const pinned = await waitFor(
+      ext,
+      `(() => {
+        const log = document.getElementById('log');
+        const d = Math.round(log.scrollHeight - log.scrollTop - log.clientHeight);
+        return d <= 48 && !document.getElementById('scroll-bottom').classList.contains('show') ? String(d) : '';
+      })()`,
+      60,
+      100,
+    );
+    check(pinned !== undefined, '#6l 用户发送后无条件滚到底（无需手动点「回到底部」）', `residual=${pinned}`);
+
     // ── #6c 直接复现本次事故：捕获真实发给 LLM 的 tools 数组并断言名字合法 ──
     const lastReq = llmRequests[llmRequests.length - 1];
     const sentTools = (lastReq?.tools ?? []).map((t) => t?.function?.name).filter((n) => typeof n === 'string');

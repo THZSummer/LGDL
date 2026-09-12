@@ -7,6 +7,7 @@
  */
 import { createInitialState, reduce, resolveAsk, resolveConfirm, type ChatRole, type SidepanelState } from './chat-state.js';
 import { renderMarkdown } from './markdown.js';
+import { createScrollFollow, isNearBottom, type ScrollMetrics } from './scroll-policy.js';
 import {
   CONSENT_DEFAULT_OPEN,
   CONSENT_SUMMARY_TEXT,
@@ -214,14 +215,28 @@ let activeTab: ActiveTabView | null = null;
 /** Last discovery failure reason (populated by 「重新探测」) for a readable notice. */
 let discoveryReason: string | undefined;
 /**
- * TASK-023: the user just acted (sent a message) — follow the new content even
- * if they had scrolled up. Reset after the next render.
+ * Scroll-follow policy (regression fix). The user's own send is unconditional;
+ * appended assistant/tool/thinking content follows only while the live viewport
+ * is anchored near the bottom (generous 48px threshold). The anchor is refreshed
+ * from real `scroll` events and post-layout re-measurements — never from a stale
+ * pre-append read (`scroll-policy.ts` documents the full rationale).
  */
-let forceFollow = false;
+const scrollFollow = createScrollFollow();
+
+/** Live scroll metrics of the message list (measured from the real DOM). */
+function metricsOf(el: HTMLElement): ScrollMetrics {
+  return { scrollHeight: el.scrollHeight, scrollTop: el.scrollTop, clientHeight: el.clientHeight };
+}
+
+/** Re-read the message list and refresh the follow anchor from live layout. */
+function syncScrollAnchor(el?: HTMLElement | null): void {
+  const log = el ?? document.getElementById('log');
+  if (log) scrollFollow.observe(metricsOf(log));
+}
 
 /** True when the message list is scrolled to (near) the bottom. */
 function isAtBottom(el: HTMLElement): boolean {
-  return el.scrollHeight - el.scrollTop - el.clientHeight <= 24;
+  return isNearBottom(metricsOf(el));
 }
 
 /** Show the "back to bottom" affordance only while scrolled away. */
@@ -232,17 +247,41 @@ function updateScrollHint(): void {
   btn.classList.toggle('show', !isAtBottom(log));
 }
 
+/**
+ * Pin the list to its true bottom *after* layout. A single synchronous
+ * `scrollTop = scrollHeight` can land short when the newly appended content
+ * (markdown tables, fonts, a collapsed tool card) reflows one frame later, so we
+ * pin again on the next frame — but only while the viewport is still anchored,
+ * so a real user scroll-up between frames always wins (never fight the user).
+ */
+function followToBottom(log: HTMLElement): void {
+  const pin = () => {
+    log.scrollTop = log.scrollHeight;
+  };
+  if (typeof requestAnimationFrame !== 'function') {
+    pin();
+    syncScrollAnchor(log);
+    return;
+  }
+  requestAnimationFrame(() => {
+    pin();
+    requestAnimationFrame(() => {
+      if (isAtBottom(log)) pin();
+      syncScrollAnchor(log);
+    });
+  });
+}
+
 function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
   return chrome.runtime.sendMessage(message) as Promise<PluginResponse<T>>;
 }
 
 function render(): void {
   const log = $('log');
-  // TASK-023 scroll policy: rebuild the list but never yank the viewport. When
-  // the user is already at the bottom (or just acted) follow the new content;
-  // otherwise keep their scroll position and offer「回到底部」.
-  const follow = forceFollow || isAtBottom(log);
-  forceFollow = false;
+  // Regression fix: the follow decision comes from the live anchor maintained by
+  // `scroll` events (post-layout), not from a `scrollTop`/`scrollHeight` read
+  // taken before the append. The user's own send forces a follow one-shot.
+  const follow = scrollFollow.shouldFollow();
   const prevTop = log.scrollTop;
   log.textContent = '';
   if (isLogEmpty(state.entries.length) && !state.pending) {
@@ -255,9 +294,12 @@ function render(): void {
       log.appendChild(renderEntry(entry));
     }
     if (state.pending) log.appendChild(renderThinking());
-    if (follow) log.scrollTop = log.scrollHeight;
+    if (follow) followToBottom(log);
+    // Not following: clearing the list reset scrollTop to 0, so restore the
+    // user's reading position (they explicitly scrolled away — never yank them).
     else log.scrollTop = prevTop;
   }
+  syncScrollAnchor(log);
   updateScrollHint();
 
   $('status').textContent = state.activeOrigin
@@ -586,16 +628,27 @@ function wire(): void {
     if (!text) return;
     if (buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending }).sendDisabled) return;
     input.value = '';
-    forceFollow = true;
+    // Explicit user intent: the next render must pin to the newest message even
+    // if the user had scrolled up before sending.
+    scrollFollow.userSent();
     dispatch({ type: 'user', text });
     void send(makeMessage('chat', { user: text }));
   });
 
-  // TASK-023: keep the「回到底部」affordance in sync with the user's scroll.
-  $('log').addEventListener('scroll', () => updateScrollHint(), { passive: true });
+  // TASK-023: keep the「回到底部」affordance + follow anchor in sync with the
+  // user's real scroll position (post-layout metrics, not stale pre-append reads).
+  $('log').addEventListener(
+    'scroll',
+    () => {
+      syncScrollAnchor();
+      updateScrollHint();
+    },
+    { passive: true },
+  );
   $('scroll-bottom').addEventListener('click', () => {
     const log = $('log');
     log.scrollTop = log.scrollHeight;
+    scrollFollow.returnedToBottom();
     updateScrollHint();
   });
 

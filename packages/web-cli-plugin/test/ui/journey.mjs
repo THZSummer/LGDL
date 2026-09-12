@@ -639,6 +639,49 @@ async function main() {
     const sh = JSON.parse(scrollHint);
     check(sh.away === true && sh.bottom === false, '#15p 上滚显示「回到底部」、贴底隐藏', scrollHint);
 
+    // ── #15r~#15t scroll-follow regression: appended content must follow while
+    // the user is at the bottom, and must never steal an explicit scroll-up. ──
+    const longReply = ['# 长回复（撑高消息区）', '', ...Array.from({ length: 80 }, (_, i) => `- 第 ${i} 行内容`)].join('\n');
+    const longReply2 = ['## 第二条长回复', '', ...Array.from({ length: 80 }, (_, i) => `- 追加行 ${i}`)].join('\n');
+
+    // #15r: at the bottom → a long appended assistant reply keeps us pinned.
+    await evaluate(
+      sp,
+      `(() => { const log = document.getElementById('log'); log.scrollTop = log.scrollHeight; log.dispatchEvent(new Event('scroll')); return log.scrollTop; })()`,
+    );
+    await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'assistant', text: ${JSON.stringify(longReply)} }).catch(() => {})`);
+    const followed = await waitFor(
+      sp,
+      `(() => {
+        const log = document.getElementById('log');
+        const d = Math.round(log.scrollHeight - log.scrollTop - log.clientHeight);
+        return d <= 48 && !document.getElementById('scroll-bottom').classList.contains('show')
+          ? JSON.stringify({ residual: d, shown: false })
+          : '';
+      })()`,
+      40,
+      100,
+    );
+    check(Boolean(followed), '#15r 已在底部时追加长回复 → 自动跟随到底（残差 ≤48px，入口隐藏）', followed ?? 'no-follow');
+
+    // #15s/#15t: explicit scroll-up wins — appended content must not yank the view.
+    await evaluate(
+      sp,
+      `(() => { const log = document.getElementById('log'); log.scrollTop = 0; log.dispatchEvent(new Event('scroll')); return log.scrollTop; })()`,
+    );
+    await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'assistant', text: ${JSON.stringify(longReply2)} }).catch(() => {})`);
+    await sleep(500);
+    const stayed = await evaluate(
+      sp,
+      `(() => {
+        const log = document.getElementById('log');
+        return JSON.stringify({ scrollTop: Math.round(log.scrollTop), shown: document.getElementById('scroll-bottom').classList.contains('show') });
+      })()`,
+    );
+    const sv = JSON.parse(stayed);
+    check(sv.scrollTop <= 60, '#15s 已上滚时追加消息不抢滚动（scrollTop 仍在顶部附近）', stayed);
+    check(sv.shown === true, '#15t 已上滚时显示「回到底部」入口', stayed);
+
     // #15q narrow side panel (320px) → still no horizontal overflow
     await sp.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: false });
     await sleep(300);

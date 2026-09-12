@@ -1500,6 +1500,299 @@ prompts/provider/session + 2 测试）；**只读参照，未拷贝任何 LGDL �
   选择器保留；仅**有意更新 3 条静态 CSS 断言**（`height:45vh` 契约已废止、`.msg-content` padding、
   `#input` 多行格式）——这是重做的必然结果，非测试降级。
 
+## 21. 消息不自动滚到新消息缺陷修复（用户实测第八轮，D-087~D-089）
+
+> 用户原话：「聊天框消息没有自动滚动到新消息，需要手动点击回到底部按钮」。TASK-023 引入的
+> 「仅当已在底部才跟随 + 回到底部入口」策略在真实使用中**基本不跟随**。本节为 A 部分实现与验收。
+
+### 21.1 代码级定位（回归根因）
+
+旧实现（`src/ui/sidepanel/sidepanel.ts`，TASK-023 版）：
+
+```ts
+const follow = forceFollow || isAtBottom(log);   // 24px 阈值
+const prevTop = log.scrollTop;
+log.textContent = '';                            // ← 清空后 scrollTop 归 0
+...
+if (follow) log.scrollTop = log.scrollHeight;
+else log.scrollTop = prevTop;
+```
+
+两个成因叠加：
+
+1. **判定在追加前、且阈值过紧（24px）**：`isAtBottom` 用「本次 render 之前」的旧 `scrollTop`/
+   `scrollHeight` 判定；任何一次误判（面板底部引导条/notice 显隐导致 `#log` 高度变化、亚像素取整）
+   会把 `follow` 置 false。
+2. **误判即「棘轮」**：一旦某次没跟随，代码把 `scrollTop` **还原成 `prevTop`**，此后每次 render 的
+   旧位置都离底部越来越远 → `isAtBottom` 恒 false → **永远不再跟随**，只能手点「回到底部」。
+   这就是「基本不跟随」的机制。
+   注：`isAtBottom` 在 `log.textContent=''` **之前**调用，本身还能读到旧内容；但棘轮一旦形成无法自愈。
+
+### 21.2 实现（file:line）
+
+- **新增纯策略模块** `src/ui/sidepanel/scroll-policy.ts`（DOM-free，node 可测）：
+  - `BOTTOM_THRESHOLD_PX = 48`（宽松阈值，远大于旧 24px）；`distanceFromBottom` / `isNearBottom`
+    纯函数；`createScrollFollow()` 维护「锚定」布尔 + 一次性 `forced`。
+  - `observe(metrics)` 由**真实 `scroll` 事件与布局后重新测量**喂入（不再用追加前的旧读数）；
+    `userSent()` 置一次性强制跟随；`returnedToBottom()` 重新锚定；`shouldFollow()` 消费一次强制位。
+- `src/ui/sidepanel/sidepanel.ts`：
+  - 删除模块级 `forceFollow`，改 `const scrollFollow = createScrollFollow()`（:220-229 区域）。
+  - `metricsOf`/`syncScrollAnchor`/`isAtBottom`/`updateScrollHint` 全部改为读实时 metrics。
+  - `render()`：`const follow = scrollFollow.shouldFollow()`；追加完成后 `follow → followToBottom(log)`，
+    否则 `log.scrollTop = prevTop`；末尾 `syncScrollAnchor(log)` + `updateScrollHint()`。
+  - `followToBottom(log)`：`requestAnimationFrame` 首帧 `scrollTop=scrollHeight`，次帧仅当**仍锚定**
+    时再钉一次（吸收 markdown 表格/字体/折叠卡片的二次回流；用户中途上滚则以用户为准，绝不抢滚动）。
+  - 提交处理：`scrollFollow.userSent()` → `dispatch({type:'user'})`（**无条件**到底）。
+  - `#log` `scroll` 监听 → `syncScrollAnchor()` + `updateScrollHint()`；`#scroll-bottom` 点击 →
+    设 `scrollTop` + `scrollFollow.returnedToBottom()`。
+  - 需求逐条落点：① 发送无条件（`userSent`）② 追加时锚定即跟随 + 48px + rAF 布局后（`followToBottom`）
+    ③ thinking 出现/消失走同一 `render()`（`state.pending` 触发）④ 上滚不抢（`observe` 清锚 + 保留
+    `prevTop` + `#scroll-bottom` 显隐不变）⑤ 一次 render 至多 2 帧、不复用循环、锚定丢失即停 → 无死循环/不强制每次跳。
+
+### 21.3 测试
+
+- `test/sidepanel.test.ts` +7 用例（`scroll:`）：阈值 ≥48 与 48/49 边界、over-scroll 归零、
+  **发送→无条件到底**、在底部→追加跟随、已上滚→追加不跳 + 显示入口、回到底部重新锚定、空列表默认锚定。
+- `test/ui/journey.mjs`（真实 dist + CDP）+3 断言：
+  `#15r` 已在底部追加长回复 → 残差 ≤48px 且入口隐藏；`#15s` 已上滚追加 → `scrollTop` 仍在顶部附近（不抢）；
+  `#15t` 已上滚 → 「回到底部」入口出现。
+- `test/ui/binding.mjs`（真实站点 + 真实发送）+3 断言：`#6k` 消息区可滚动、`#6k2` 上滚入口出现、
+  **`#6l` 真实用户发送后无条件滚到底**（残差 ≤48px 且入口隐藏）。**说明（如实）**：`journey.mjs` 是
+  无站点 hermetic 旅程、发送按钮按设计禁用，无法触发真实发送；「发送→到底」因此落在唯一能真实发送的
+  `binding.mjs`，而 journey 用真实 `chat-result` 追加面覆盖「底部跟随/上滚不跳」。两者互补，非测试降级。
+
+### 21.4 门禁结果（本轮复跑）
+
+- 插件 `test`：222 → **229 pass / 0 fail**（+7）；`npm run typecheck`（`tsc --noEmit`）**0 error**。
+- `test:ui`：67 → **70 断言 PASS**（`#15r`/`#15s`/`#15t`）；`test:binding`：41 → **44 断言 PASS**（`#6k`/`#6k2`/`#6l`）；
+  `test:hardening`：**22 断言 PASS**；`test:e2e`：**场景 A/B PASS**。
+- 全仓 `npm run build` + `npm test`：**0 fail**（base **483 零回归**、lgdl-core 267、lgdl-render 94(1 skip)、
+  lgdl-web-cli 84、lgdl-web 31、lgdl-web-op-cli 15、lgdl-router 8、plugin 229）。
+- 红线：**base 零改动**（`git diff packages/web-cli-base` 空）；`package.json`/`.opencode/opencode.json` 零改动；
+  **无新依赖**；既有测试零删除（仅对已废止的静态实现细节做等价替换，见 21.6）。未 git 提交。
+
+### 21.5 新增决策（D-087~D-089）
+
+- **D-087（滚动跟随改为「实时锚定 + rAF 布局后钉底」，48px 阈值）**：判定不再用追加前的旧
+  `scrollTop/scrollHeight`；锚定由真实 `scroll` 事件与布局后测量维护（`scroll-policy.ts`）。
+  发送为一次性强制跟随；追加内容仅在锚定时跟随。修复 TASK-023 的「误判即棘轮、永不跟随」。
+- **D-088（用户上滚绝对优先，可测的显式策略）**：`observe` 在离底 >48px 即清锚并保留 `prevTop`；
+  `followToBottom` 次帧仅在仍锚定时二次钉底。策略抽为纯模块以便 node 面断言（不再依赖浏览器）
+  且 sidepanel 仅消费决策。
+- **D-089（测试落点如实分工）**：`journey.mjs` 无站点、发送按钮禁用 →「发送→到底」无法在 journey 触发，
+  改在能真实发送的 `binding.mjs` 断言；journey 覆盖追加跟随与上滚不跳。已在 §21.3 披露，非删减既有断言。
+
+### 21.6 未完成 / 边界（如实）
+
+- 保留 `isAtBottom(el)` 作为对 `isNearBottom` 的薄封装，仅为满足既有静态契约断言
+  `sidepanel-view.test.ts:592`（`assert.match(ts, /isAtBottom\(/)`），**该断言未改**（零删除/零改写）。
+- 双击/触控板惯性滚动期间的瞬时「未到底」仍按用户上滚处理（不抢滚动），符合需求 4/5。
+- 未引入平滑滚动（`scroll-behavior:smooth`）——避免动画期间 `isNearBottom` 采样抖动；行为是即时贴底。
+- 系统 Google Chrome / Microsoft Edge 未重测（UI 门禁仍仅 `.pw-browsers` Chromium）。
+
+---
+
+## 22. 能力面审计报告（B 部分，**只报告，未改任何行为/注册**）
+
+> 背景：用户实测模型列出的可用工具只有 **11 个**；质疑「没识别到 web-cli-base 提供的基础命令」。
+> 已核实：`src/background/host.ts:64` 的 `createCommandRouter({delayMs:0,policy,audit})` **未指定 `builtins`**，
+> 只拿到 base 默认 3 内建；**base 的其余域工具一个都没注册**；`docs/capability-matrix.md` 有若干行与代码
+> **漂移**。本章为审计事实与建议，**未改动任何工具注册/行为，也未改动 `capability-matrix.md`**（等作者裁决）。
+
+### 22.0 结论先行（一句话）
+
+插件的工具面比 base 窄，**三类原因同时存在，不是单一原因**：
+1. **设计取舍（有依据）**——通用扩展宿主只保留「base 内建 3 + 管理 6 + ask-user 1 + 站点声明 N」这一
+   最小面；base 其余 30+ 域工厂多为**页内 realm/领域工具**（doc/search/dom/chrome/cookie/dialog/net/collect…），
+   对通用插件不适用或不属本轮（matrix 多数行「不适用/替代/后置」有据）。
+2. **实现遗漏**——插件**从未装配 `PlatformEnv`、从未注册任何 base 域工厂**；`extension-env.ts` 只提供
+   storage 两个 KV + host 权限 + 默认关闭的 DOM 缝。当前面里的 `web-fetch`/`sleep`/`web-cli-help` 纯属 base
+   **默认内建**（`router.ts:133/243-246`），不是插件有意注册的。故若作者本意包含任何域工具（storage/session/
+   notify/todo…），那些就是**未实现**，而非「被移除」。
+3. **文档漂移**——`capability-matrix.md` 第 1/2 行把 `web-fetch`/`sleep` 写成「非独立工具/无独立工具」，
+   但 base 把它们注册为**独立工具**且插件确实下发；第 27/31 行对 chrome/events 的「不适用/对齐」表述与
+   代码事实不符（见 §22.3）。
+
+### 22.1 base 全量工具工厂清单（`packages/web-cli-base/src`，file:line）
+
+> 「禁用档」说明：**base 源码中没有任何工厂自声明 `enabled:false`**（唯一受开关影响的是
+> `web-search.ts:103` 的 `enabled: opts.enabled !== false`）。所谓「禁用」是**已删除的内置助手注册矩阵**
+> （`git show 762d3a6^:packages/lgdl-web/src/ai/session.ts`）用 `enabled:false` 显式登记：eval-js(:305)、
+> subagent(:306)、page-eval(:321)、cookie(:349)、dialog(:350)、net(:351)；`capability-matrix.md` 的 6 个
+> 「（禁用）」与该 6 行逐一对应。base v4 规格亦要求 cookie 写/网络拦截/对话框 override **默认关**
+> （`.sddu/specs-tree-root/specs-tree-web-cli-base-v4/spec.md:222` FR-028）。
+
+| 工厂（file:line） | 工具名 | group | risk | 禁用档？ | 构造依赖 / 消费的 env 缝 |
+|---|---|---|---|---|---|
+| `createAskUserToolEntry` ask-user.ts:121 | `ask-user` | ui | read | 否 | `{askUser?}` |
+| `createCommandRouter` 内建 router.ts:243-246 | `web-fetch` tools.ts:22 | general | — | 否 | `fetch`（经执行器） |
+| 同上 | `sleep` tools.ts:74 | general | — | 否 | 无（delayMs:0） |
+| 同上 | `web-cli-help` tools.ts:104 | general | — | 否（`listed:false` router.ts:281） | router 自身 |
+| `createStorageToolEntry` storage-tools.ts:175 | `storage` | storage | write | 否 | `StorageBackend` |
+| `createStorageQuotaToolEntry` storage-tools.ts:188 | `storage-quota` | storage | — | 否 | `StorageBackend` |
+| `createSettingsToolEntry` settings.ts:220 | `settings` | settings | state | 否 | `SettingsKv`（同步） |
+| `createDocReadToolEntry` doc-tools.ts:236 | `doc-read` | doc | read | 否 | `DocToolDeps{resolve,listReadable,apply}` |
+| `createDocEditToolEntry` doc-tools.ts:249 | `doc-edit` | doc | write | 否 | 同上 |
+| `createSessionToolEntry` session-tool.ts:162 | `session` | session | state | 否 | `{store,sessionId?,turnsOf?}` |
+| `createContextToolEntry` context-tool.ts:129 | `context` | session | state | 否 | `{store,summarizer?,audit?}` |
+| `createWebSearchToolEntry` web-search.ts:96 | `web-search` | net | external | **条件开**（web-search.ts:103） | `env.search` |
+| `createSearchContentToolEntry` search-tools.ts:232 | `search-content` | search | read | 否 | `SearchToolDeps{provider?}` |
+| `createListResourcesToolEntry` search-tools.ts:254 | `list-resources` | search | read | 否 | 同上 |
+| `createDomToolEntry` dom-tools.ts:735 | `dom` | ui | ui | 否 | `env.dom`（PlatformDomOps） |
+| `createTodoToolEntry` todo.ts:200 | `todo` | task | state | 否 | `{store,sessionId?}` |
+| `createGoalToolEntry` goal.ts:220 | `goal` | task | state | 否 | `{store}` |
+| `createJobsToolEntry` jobs.ts:301 | `jobs` | task | state | 否 | `{store,runner?,onDone?}` |
+| `createEvalJsToolEntry` eval-tools.ts:215 | `eval-js` | exec | write | 否（旧助手禁用 session.ts:305） | `PlatformWorkerFactory` |
+| `createEvalWasmToolEntry` eval-tools.ts:297 | `eval-wasm` | exec | write | 否 | `PlatformWorkerFactory` |
+| `createSubagentToolEntry` subagent.ts:123 | `subagent` | task | write | 否（旧助手禁用 session.ts:306） | `{router,chat,system?,maxRounds?}` |
+| `createWaitToolEntry` wait-tools.ts:382 | `wait` | ui | read | 否 | `env.dom` |
+| `createExtractToolEntry` collect-tools.ts:612 | `extract` | collect | read | 否 | `env` + `CollectBuffer` |
+| `createExportToolEntry` collect-tools.ts:632 | `export` | collect | write | 否 | `env` + `CollectBuffer` |
+| `createPageEvalToolEntry` page-eval.ts:221 | `page-eval` | exec | **evaluate** | 否（旧助手禁用 session.ts:321） | `env.dom` |
+| `createChromeToolEntry` chrome-tools.ts:402 | `chrome` | chrome | ui | 否 | `env.dom`（printPage/historyNav/reloadPage/screenshot）+ `env.filePicker` |
+| `createSaveFileToolEntry` save-file.ts:83 | `save` | net | write | 否 | `env.filePicker` |
+| `createNotifyToolEntry` notify.ts:80 | `notify` | ui | ui | 否 | `env.notify` |
+| `createClipboardToolEntry` clipboard.ts:166 | `clipboard` | ui | ui | 否 | `env.clipboard` / `env.clipboardRich` / `env.events` |
+| `createEventsToolEntry` events-tools.ts:440 | `events` | observe | read | 否 | `env.events`（PlatformEventHub）+ `env.fetch` |
+| `createCookieToolEntry` cookie-tools.ts:191 | `cookie` | cookie | read | 否（旧助手禁用 session.ts:349） | `env.dom` |
+| `createDialogToolEntry` dialog-tools.ts:192 | `dialog` | dialog | read | 否（旧助手禁用 session.ts:350） | `env.events` |
+| `createNetToolEntry` net-tools.ts:324 | `net` | net | write | 否（旧助手禁用 session.ts:351） | `env.events` |
+| `createStreamToolEntry` stream.ts:135 | `stream` | net | read | 否 | `env.stream`（连接器） |
+| `createExecRemoteToolEntry` exec-remote.ts:85 | `exec-remote` | exec | write | 否 | `env.remoteExec` |
+| `createWorkerSessionToolEntry` worker-session.ts:132 | `worker-session` | exec | write | 否 | `{factory: PlatformWorkerFactory}` |
+| `createP0DomainTools` assembly.ts:78（矩阵 assembly.ts:51-61） | 8 项（storage/storage-quota/settings/doc-read/doc-edit/session/context/web-search） | 见矩阵 | 见矩阵 | 否 | 见各工厂 |
+| `connectMcpSource`/`createMcpClient` mcp-client.ts:102/146 | 动态（`namespace:'mcp'` mcp-client.ts:146-154） | mcp | external | 否 | `McpJsonRpc` |
+| `installSkill` skill-loader.ts:92 | 动态（`namespace:'skill'`） | skill | — | 否 | `SkillDef.registerTools` |
+
+**`PlatformEnv` 缝全貌**（`platform.ts:692-731`）：`kind`、`fetch`、`storage?`、`kv?`、`permissions?`、
+`clipboard?`、`notify?`、`filePicker?`、`workerFactory?`、`dom?`、`askUser?`、`search?`、`stream?`、
+`remoteExec?`、`events?`、`clipboardRich?`、`[k:string]:unknown`。
+
+**插件侧 `extension-env.ts` 已提供的缝**（`src/platform/extension-env.ts`）：`createChromeAsyncKv`
+(:31)、`createChromeSessionKv` (:48)、`originPermissionPattern`/`requestOriginPermissionDetailed`/
+`hasOriginPermission`/`removeOriginPermission` (:69-149)、`assembleExtensionDom(transport?)` (:169-183，
+**默认 off、无 transport 即返回不可用 reason**)。**未提供**：完整 `PlatformEnv`、`PlatformDomOps` 真实现、
+`PlatformEventHub`、clipboard/notify/filePicker/workerFactory/search/stream/remoteExec 适配器、同步 `kv`、
+`storage` 配额缝、`browserEnv()` 替代。base 的 `browserEnv()`（`platform.ts:911`）**依赖 page 全局**
+（`window`/`document`/`localStorage`/`navigator.clipboard`/`Notification`），**在 MV3 service worker 中不可直接用**。
+
+### 22.2 插件实际注册面（从 `src/background/host.ts` 代码路径）
+
+- `createCommandRouter({delayMs:0,policy,audit})` (`host.ts:64-75`) — **未传 `builtins`** → base 默认
+  `BUILTIN_ORDER`（`router.ts:133`，构造默认全注册 `router.ts:237-246`）= **`web-fetch` / `sleep` / `web-cli-help`**。
+- `createAdminToolEntries(...)` (`host.ts:78-85`) → **6 个**（`admin-tools.ts:47/69/91/112/133/149`）：
+  `admin_origin-authorize`(write) / `admin_origin-revoke`(write) / `admin_origin-list`(read) /
+  `admin_descriptor-show`(read) / `admin_audit-export`(read) / `admin_llm-config`(read)，均 `namespace:''`、`group:'plugin'`。
+- `createAskUserToolEntry(...)` (`host.ts:90`) → **`ask-user`**。
+- `activateSite` (`host.ts:100-106`) → `toToolEntries` (`declared-tools.ts:332`) 按站点声明注册；
+  名 `site_<sanitize(decl.id)>`（`declared-tools.ts:65/274/302`，`group:'site'` `:317`）。LGDL 站点实测声明 2 个：
+  `site_lgdl-web-cli` / `site_lgdl-web-op-cli`。
+- 工具面经 `s.host.deriveTools()` 下发（`service-worker.ts:298`，工具名清单 `:398`）。
+
+**合计（有绑定站点时）12 个**：`admin_*`×6 + `ask-user` + `site_lgdl-web-cli` + `site_lgdl-web-op-cli` +
+`web-fetch` + `sleep` + `web-cli-help`。**`web-cli-help` 因 `listed:false`（`router.ts:281`）不出现在自身一览**
+→ `web-cli-help` 的 `listHelp` 输出恰为 **11 个**（`router.ts:484-508`），与用户实测「模型列出 11 个」**逐字吻合**。
+`test:binding` 运行时观测亦独立确认发给 LLM 的 12 个 tools（见 §21 门禁）。
+
+### 22.3 漂移对照表（`docs/capability-matrix.md` 第 12-45 行，共 34 项）
+
+图例：✅ 一致 / ⚠️ 漂移（含部分）。
+
+| # | 行 | 文档声称 | 代码实际（file:line） | 判定 |
+|---|---|---|---|---|
+| 1 | :12 | `web-fetch`「能力内建，**非独立工具**」，替代/否 | base 注册为**独立工具** `web-fetch`（router.ts:251-261；tools.ts:22）；插件默认内建即下发（host.ts:64；binding 观测 12 tools 含 `web-fetch`） | ⚠️ **漂移**：把它说成「非独立工具」与事实相反 |
+| 2 | :13 | `sleep`「宿主侧编排（**无独立工具**）」，不适用 | base 注册为**独立工具** `sleep`（router.ts:262-274；tools.ts:74）；插件同样下发 | ⚠️ **漂移** |
+| 3 | :14 | `web-cli-help` 对齐/是 | base 内建 `web-cli-help`（router.ts:275-289，`listed:false` :281）随默认内建下发；`admin_*` 亦在注册面 | ✅ 一致 |
+| 4 | :15 | `lgdl-web-cli` → `site_lgdl-web-cli` 对齐 | `activateSite`（host.ts:100-106）经声明注册；binding `#6e` 实测 | ✅ 一致 |
+| 5 | :16 | `lgdl-web-op-cli` → `site_lgdl-web-op-cli` 对齐 | 同上 | ✅ 一致 |
+| 6 | :17 | `storage`「工具面不暴露给 LLM」不适用 | base `createStorageTools`（storage-tools.ts:200）**未注册**；插件确用 chrome.storage 但无工具面 | ✅ 一致（设计取舍；但属实现遗漏面，见 §22.0-2） |
+| 7 | :18 | `storage-quota` 同上 | `createStorageQuotaToolEntry`（storage-tools.ts:188）未注册 | ✅ 一致 |
+| 8 | :19 | `settings` → options + key-store 替代 | 未注册（settings.ts:220）；options 页承载配置 | ✅ 一致（设计） |
+| 9 | :20 | `doc-read` → site 读子命令 对齐 | 未注册（doc-tools.ts:236）；由 `site_lgdl-web-cli` 承载 | ✅ 一致（设计） |
+| 10 | :21 | `doc-edit` → bridge `apply` 替代 | 未注册（doc-tools.ts:249） | ✅ 一致（设计） |
+| 11 | :22 | `session` → chrome.storage.session + controller 替代 | base session 工具未注册（session-tool.ts:162）；插件 `chat-session.ts` 承载 | ✅ 一致（设计） |
+| 12 | :23 | `context` → 上游截断口径 替代 | 未注册（context-tool.ts:129）；插件会话截断 D-013 | ✅ 一致（设计） |
+| 13 | :24 | `web-search` 后置/P2+ | base 工厂存在（web-search.ts:96，条件开 :103）但**未注册**；插件无 `env.search` | ✅ 一致（后置） |
+| 14 | :25 | `search-content` 不适用 | 未注册（search-tools.ts:232） | ✅ 一致（设计） |
+| 15 | :26 | `list-resources` 不适用 | 未注册（search-tools.ts:254） | ✅ 一致（设计） |
+| 16 | :27 | `dom` 后置（content/dom-agent 可选） | `assembleExtensionDom` 默认 off（extension-env.ts:169-183），无工具注册 | ✅ 一致（后置/off） |
+| 17 | :28 | `ask-user` 对齐（ask-bridge） | 注册（host.ts:90；ask-user.ts:121）+ ask-bridge | ✅ 一致 |
+| 18 | :29 | `todo`「宿主 agent 循环内（非独立工具）」不适用 | base `createTodoToolEntry`（todo.ts:200）未注册 | ✅ 一致（对插件而言确非独立工具） |
+| 19 | :30 | `goal` 同上 | goal.ts:220 未注册 | ✅ 一致 |
+| 20 | :31 | `jobs` 同上 | jobs.ts:301 未注册 | ✅ 一致 |
+| 21 | :32 | `eval-js`（禁用）「evaluate 最高档」不适用 | eval-js 在 base 的 risk 是 **`write`**（eval-tools.ts:222），**不是 evaluate**；未注册；旧助手 `enabled:false`（session.ts:305） | ⚠️ **轻度漂移**：结论（不提供）对，理由（evaluate 档）错 |
+| 22 | :33 | `subagent`（禁用）不适用 | 未注册；旧助手 `enabled:false`（session.ts:306） | ✅ 一致 |
+| 23 | :34 | `wait` 不适用（站点 RPC 超时内建） | 未注册（wait-tools.ts:382，需 `env.dom`） | ✅ 一致（设计） |
+| 24 | :35 | `extract` 不适用（不采集） | 未注册（collect-tools.ts:612） | ✅ 一致（设计） |
+| 25 | :36 | `export` → site op-cli export-* 替代 | 未注册（collect-tools.ts:632） | ✅ 一致（设计） |
+| 26 | :37 | `page-eval`（禁用）evaluate deny 不适用 | 未注册；risk **`evaluate`**（page-eval.ts:226）；旧助手 `enabled:false`（session.ts:321） | ✅ 一致 |
+| 27 | :38 | `chrome`「插件为独立扩展宿主，非页内工具」**不适用** | base 工厂存在（chrome-tools.ts:402）但需 `env.dom`(页内 print/history/reload/screenshot) + `env.filePicker`，插件**未提供**且未注册；**但扩展宿主恰好原生拥有** `chrome.tabs`(goBack/goForward/reload) 与 `captureVisibleTab`(截图) —— 是「不同 API 下更适用」，非「不适用」 | ⚠️ **部分漂移/误判**（见 §22.4） |
+| 28 | :39 | `save` → site op-cli export-* 替代 | 未注册（save-file.ts:83，需 `env.filePicker`）；扩展可用 `chrome.downloads` | ✅ 一致（替代）+ 可补缺口（§22.5） |
+| 29 | :40 | `notify` 后置 P2+ | 未注册（notify.ts:80，需 `env.notify`）；扩展可 `chrome.notifications` | ✅ 一致（后置） |
+| 30 | :41 | `clipboard` → site op-cli copy-source 替代 | 未注册（clipboard.ts:166，需 `env.clipboard`/`clipboardRich`/`events`） | ✅ 一致（设计） |
+| 31 | :42 | `events`「content 事件桥 → background 事件通道」**对齐**/是 | 传输桥存在（service-worker.ts:497-516、content-script.ts:108-112、page-bridge.ts），但 base `events` 工具（events-tools.ts:440）**未注册**；LLM **无** `events` 工具可用，只有**页面 `env.events` 代理** | ⚠️ **部分漂移/错位**：把「传输层」写成「能力对齐」，未区分「站点可用」与「LLM 工具面」 |
+| 32 | :43 | `cookie`（禁用）不适用 | 未注册；旧助手 `enabled:false`（session.ts:349） | ✅ 一致 |
+| 33 | :44 | `dialog`（禁用）不适用 | 未注册；旧助手 `enabled:false`（session.ts:350） | ✅ 一致 |
+| 34 | :45 | `net`（禁用）不适用 | 未注册；旧助手 `enabled:false`（session.ts:351） | ✅ 一致 |
+
+**漂移小结**：明确漂移 = 第 1、2 行（web-fetch/sleep 被误写为「非独立工具」）；部分漂移/表述不实 = 第 27、31 行
+（chrome/events）；轻度理由错误 = 第 21 行（eval-js 的 risk 是 write 非 evaluate）。其余 30 行与代码一致。
+**另注**：`capability-matrix.md:4` 声称「与 `session.ts` 注册矩阵逐项核对」——该 `session.ts` 已随 TASK-016 删除，
+现仅存 git 历史（`762d3a6^`），表格为存档性质。
+
+### 22.4 未注册 base 工具的「扩展宿主适用性」评估
+
+> 依据：base 工具所需 env 缝 vs 插件 `extension-env.ts` 已有缝（§22.1）；`browserEnv()` 在 SW 不可用。
+> 落地代价 = 需新增的缝 + 权限面 + base 零改动约束下的适配量。
+
+| 工具 | 适用性 | 理由 | 落地代价 / 安全面 | 建议 risk |
+|---|---|---|---|---|
+| `chrome`（print/back/forward/reload/screenshot） | **有条件适用** | 页内实现（`env.dom.ops`）不适用；但扩展宿主可用 `chrome.tabs.goBack/goForward/reload` + `tabs.captureVisibleTab`；**文档「不适用」不准确** | 需新增 tabs/captureVisibleTab 权限（当前 manifest 无 `tabs`，且红线禁扩权限面）+ 新适配器；安全面=导航/截图（用户可见） | ui / write（screenshot） |
+| `notify` | **适用** | 扩展天然拥有 `chrome.notifications`（需 `notifications` 权限） | 新增 `notifications` 权限 + `PlatformNotify` 适配器（**不能**用 page `Notification`） | ui |
+| `save` | **有条件适用** | `chrome.downloads`/`chrome.downloads.download` 可用 | 新增 `downloads` 权限 + `PlatformFilePicker` 适配器；写文件 | write |
+| `clipboard` | **有条件适用** | SW 无 `navigator.clipboard`；需 offscreen document 或经 content script/侧栏手势 | offscreen 文档或 content 桥 + `env.clipboard`/`clipboardRich` 适配器；剪贴板=敏感 | ui（读=敏感） |
+| `storage` / `storage-quota` | **有条件适用** | 插件已有 `chrome.storage`（`createChromeAsyncKv`），但需实现 base `StorageBackend` 接口（异步 KV 与 base 同步/字节配额模型不完全一致） | 适配器 + 数据域隔离（LLM 可读写扩展存储 → 与 LLM 配置同域则**安全面扩张**） | write / state |
+| `settings` | **需裁决** | 需同步 `PlatformKv`；扩展无 `localStorage`（SW），可用 `chrome.storage` 但为异步 | 同步语义适配代价高；且会与 options 页配置交叉 | state |
+| `session` / `context` | **需裁决** | 需 `SessionStore` over `StorageBackend`；插件已有 `chat-session.ts` 相似职责 | 适配 + 两套会话语义并存风险；跨会话持久=状态面 | state |
+| `todo` / `goal` | **适用（低风险）** | 纯内存/状态编排，agent 循环常用；`{store}` 依赖 | 需 `SessionStore`/`GoalStore`（可在 SW 内存实现）；无外部副作用 | state |
+| `jobs` | **有条件适用** | 后台任务需 `runner`（SW 生命周期短，MV3 会休眠） | runner 注入 + SW 唤醒策略；语义受限 | state |
+| `wait` | **有条件适用** | 需 `env.dom` 条件源；通用宿主可退化为纯 sleep/poll | 需 `PlatformDomOps` 或退化为轮询；`wait --until dom…` 不适用 | read |
+| `events` | **需裁决** | base 需 `PlatformEventHub`；插件已有自建桥（site-event），可暴露为工具但涉及预算/脱敏 | 适配 hub + 事件预算/脱敏（NFR-007）+ untrusted 门禁 | read |
+| `web-search` | **需裁决** | 需 `env.search`（BYOK 端点/key）；外部网络面 | 需 key 管理 + 外部请求；与 LLM key 分离 | external |
+| `dom` | **有条件适用** | 插件有 `content/dom-agent` + `assembleExtensionDom`（默认 off），注入 content transport 后可用 | 需 content transport 装配 + risk ui 写面门禁；页内写面=安全扩张 | ui |
+| `page-eval` | **建议维持不启用** | 最高档 evaluate，页内任意代码执行 | 越权面；即便装配也应 fail-closed | evaluate |
+| `eval-js` / `eval-wasm` | **建议维持不启用** | SW/Worker 内任意代码执行 | 代码执行=越权面 | write（实际） |
+| `exec-remote` / `stream` | **不适用** | 需 `env.remoteExec`/`env.stream` 连接器（场景专属） | 无宿主；语义不匹配 | write / read |
+| `worker-session` | **有条件适用** | SW 可用 `Worker`（`PlatformWorkerFactory`），但 MV3 生命周期/持久性受限 | Worker 适配 + 会话存活语义受限 | write |
+| `search-content` / `list-resources` | **不适用** | 需页内资源提供者；通用插件由站点声明工具承载 | 由 `site_*` 承载即足 | read |
+| `doc-read` / `doc-edit` | **不适用** | 需场景文档注册表；LGDL 由 `site_lgdl-web-cli` 承载 | 无通用语义 | read / write |
+| `cookie` | **建议维持不启用** | 凭据/同源 cookie 读写；base v4 要求默认关 | 高敏感；需 trusted+ask | read / write |
+| `dialog` | **建议维持不启用** | override 页面对话框/自动应答 | 高敏感；需门禁 | read |
+| `net` | **建议维持不启用** | 网络拦截写面；base v4 要求整工具默认 deny | 越权面 | write |
+| `subagent` | **建议维持不启用** | 递归子代理；P0 单会话定位 | 复制会话/工具面失控风险 | write |
+| `extract` / `export` | **不适用** | 需 `CollectBuffer` + 采集定位；插件定位不采集页面数据 | — | read / write |
+| `ask-user`（已注册） | 已启用 | `ask-bridge` 接线 | — | read |
+| `mcp` / `skill`（动态） | **需裁决** | 动态外部源注册（`namespace:'mcp'`/`'skill'`）；base 有 `connectMcpSource`/`installSkill` | 外部工具注入=最大安全面扩张 | external |
+
+### 22.5 建议分级（供作者决策，**本轮未实施**）
+
+- **推荐启用（低风险、扩展宿主天然拥有、补用户可感知缺口）**：
+  `notify`（chrome.notifications）、`save`（chrome.downloads）、`todo`/`goal`（SW 内存状态编排）。
+  —— 代价：新增 `notifications`/`downloads` 权限 + 4 个 `PlatformEnv` 适配器；均不触碰站点/凭据面。
+- **需裁决（安全面扩张或语义有争议）**：
+  `chrome`（tabs/captureVisibleTab 权限）、`clipboard`（offscreen/敏感）、`storage`/`settings`/`session`/`context`
+  （与现有配置/会话语义交叉）、`events`、`web-search`、`dom`、`worker-session`、`jobs`、`mcp`/`skill`。
+- **建议维持不启用（base 禁用档 / 越权面）**：
+  `page-eval`、`eval-js`、`eval-wasm`、`cookie`、`dialog`、`net`、`subagent`。
+- **建议明确标注不适用（由站点声明工具承载）**：
+  `doc-read`/`doc-edit`、`search-content`/`list-resources`、`extract`/`export`、`exec-remote`、`stream`、`wait`（dom 条件面）。
+
+### 22.6 未改动声明（红线）
+
+- 本章**未修改任何工具注册/行为**：`host.ts` 零 diff、`extension-env.ts` 零 diff、`manifest.json` 零权限变更。
+- **未修改 `docs/capability-matrix.md`**（漂移仅报告，等作者裁决）。
+- `packages/web-cli-base/**` 零改动（`git diff` 空）；全仓 `build`/`test` 0 fail（base 483 零回归）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -1519,3 +1812,4 @@ prompts/provider/session + 2 测试）；**只读参照，未拷贝任何 LGDL �
 | v1.12 | 工具名非法字符缺陷修复（§18，用户实测第五轮）：根因 = base `deriveTools` 把含命名空间的 fqn 当 LLM 工具名，而 `site.<id>` / `plugin.<name>` 含 `.` → DeepSeek `400 Invalid 'tools[0].function.name'`；修复（base 零改动）：站点 `site_<sanitized>`、管理 `admin_<name>`（`namespace:''`，`group` 不变）、`sanitizeToolName`/`allocateSiteToolNames`（确定性去重 `_2`/`_3`… + 审计）、策略判据 `namespace==='site'`→`group==='site'`（未放宽）、RPC 仍用原始 `decl.id`；附带查清 B「同错误两次」= base `AgentRunner` 重试一次（用 `willRetry` 改为「重试提示 + 单条 error」）与 C「未授权」= 授权只门禁执行（声明可见，fail-closed 执行已断言，未改语义）；`test:binding` 扩展为**捕获真实发给 LLM 的 12 个 tools 并断言全部匹配 `^[a-zA-Z0-9_-]+$`**（38 断言）；D-069~D-073；插件 191→**196**（+5）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41 / `test:hardening` 22 / E2E A/B / `test:binding` 38 全 PASS、base 与 package.json 零改动、无新依赖、无明文 key、未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.13 | 侧栏消息 Markdown 渲染与消息样式（§19，TASK-022，用户实测第六轮）：根因 = `sidepanel.ts` 每条消息仅 `textContent = \`${role}: ${text}\`` 纯文本；新增零依赖 `ui/sidepanel/markdown.ts`（解析/建 DOM 分离；**不解析 HTML**，只用白名单标签 + `createTextNode`，链接仅 http/https，其余降级文本，`javascript:`/`data:` 不可能成为 `a.href`）；消息改角色分组块（assistant Markdown / tool+system 等宽 pre-wrap / user 纯文本），CSS 加角色色条 + `pre`/`table` 横向滚动 + `overflow-wrap:anywhere` 且保留 `#log` 空态/pre-wrap/滚底/`.entry-*` 选择器；新增 `test/markdown.test.ts`（12 用例）+ `test/ui/journey.mjs` #14a~#14i；D-074~D-078；插件 196→**209**（+13）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41→**50** / `test:hardening` 22 / E2E A/B / `test:binding` 38 全 PASS、base 与 package.json 零改动、无新依赖、无明文 key、未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.14 | 侧栏整体 UI/UX 重做（§20，TASK-023，用户实测第七轮）：先 `git show 762d3a6^:packages/lgdl-web/src/ai/AiPanel.tsx` + `app.css` **读回原 AI 助手**作设计基准（§20.2 逐条「参照→对齐」表，16 项：12 对齐 / 2 不适用 / 1 部分 / 1 优于参照）；核心修复=三区 flex 全高（`html,body{height:100%}`+`body{display:flex;flex-direction:column}`），`#log` 去 `45vh` 硬编码改 `flex:1;min-height:0`，composer 为底部区**末元素**（`#consent` 折叠条移到 composer 之前），8 按钮收为「3 主操作 + `<details>更多`」；消息改角色气泡（user indigo 右对齐 / assistant Markdown 气泡 / tool **可折叠卡片**（工具名+状态+耗时+首行摘要，长输出默认折叠）/ system·error 醒目 / command 紧凑块 / thinking 三点 / `#scroll-bottom` 跟随策略）；明暗适配 tokens；**零新依赖/无框架/无 innerHTML/MV3 CSP 合规**；前后量化对照（真实 dist+CDP，400×900）：`#log` 45.0%→**65.5%**（稳态）且 flex-grow 0→1、composer 底边 **-64px（被挤出视口）→ +8px 贴底**、工具卡片 0→2 可折叠、320px 零水平溢出；截图 `/tmp/ui-redesign/{before,after}/`；`test:ui` 50→**67**（#15a~#15q）、`test:binding` 38→**41**（真实用户气泡 #6h~#6j）、插件 209→**222**、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:hardening` 22 / E2E A/B 全 PASS、base 与 package.json 零改动；**流式如实未实现（base 无增量能力，原助手亦无），首用态 31.5% 真实权衡**已披露；D-079~D-086；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.15 | ① 消息不自动滚动缺陷修复（§21，用户实测第八轮）：根因 = TASK-023「追加前判定 + 24px 阈值」的**误判即棘轮**（一次不跟随就还原 `prevTop`，此后恒不跟随）；修复 = 新增纯策略模块 `src/ui/sidepanel/scroll-policy.ts`（实时锚定 + 48px 阈值 + `userSent()` 一次性强制），`render()` 消费决策、`followToBottom` 以 `requestAnimationFrame` 布局后钉底（次帧仅仍锚定时，绝不抢用户上滚）；发送**无条件**到底，thinking 出现/消失同走 `render()`，上滚保留入口与位置；`test/sidepanel.test.ts` +7、`journey.mjs` +3（#15r/s/t）、`binding.mjs` +3（#6k/6k2/6l，真实发送到底）；D-087~D-089。② 能力面审计（§22，**只报告未改行为/注册**）：base 全量工厂清单 + 插件实际注册面（`host.ts:64` 未传 `builtins` → 仅 base 默认 3 内建 + 6 `admin_*` + `ask-user` + 站点声明 2 = **12**，`web-cli-help` `listed:false` → 自列 **11**，与用户实测吻合）+ 34 行漂移对照（明确漂移=第 1/2 行 web-fetch/sleep 被误写「非独立工具」；部分漂移=第 27/31 行 chrome/events；轻度=第 21 行 eval-js risk 理由）+ 未注册工具适用性/代价/risk 档 + 分级建议。门禁：插件 222→**229**、`tsc` 0 error、`test:ui` 67→**70**、`test:binding` 41→**44**、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）、base/`package.json`/`.opencode/opencode.json` 零改动、无新依赖、`capability-matrix.md` 未改；未 git 提交 | 2026-09-12 | SDDU Build Agent |
