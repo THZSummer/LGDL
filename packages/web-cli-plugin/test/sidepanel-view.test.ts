@@ -187,7 +187,7 @@ test('state payload → action: authorized is synced for the bound origin (W1)',
 test('reload of an already-authorized origin keeps authorize disabled / revoke enabled (W1)', () => {
   const action = stateActionFromPayload({
     active: { origin: 'https://a.test', discoveryState: 'supported', invalidated: false },
-    tools: ['site.notes-list'],
+    tools: ['site_notes-list'],
     authorized: true,
   });
   let s = createInitialState();

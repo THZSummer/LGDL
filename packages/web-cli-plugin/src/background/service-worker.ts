@@ -31,6 +31,7 @@ import { createWebCliHost, type WebCliHost } from './host.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
 import { runChatTurn } from './chat-runner.js';
+import { llmErrorEvent } from './chat-events.js';
 import {
   errorResponse,
   isPluginMessage,
@@ -50,7 +51,8 @@ const SESSION_STATE_KEY = 'session-state';
 const SW_STARTED_AT = Date.now();
 const SYSTEM_PROMPT =
   'You are the web-cli plugin assistant. Use the available tools to operate on the ' +
-  'currently authorized website. Tools in the "site." namespace run in the page via RPC. ' +
+  'currently authorized website. Tools named "site_*" are declared by the site ' +
+  'and run in the page via RPC (the original site id is preserved for dispatch). ' +
   'Always respect authorization and confirmation prompts. Never reveal secrets.';
 
 interface Singletons {
@@ -295,7 +297,8 @@ async function runChat(s: Singletons, user: string): Promise<void> {
       events: {
         onAssistantText: (text) => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'assistant', text })).catch(() => {}),
         onToolOutput: (text) => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'tool', text })).catch(() => {}),
-        onLLMError: (message) => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'error', text: message })).catch(() => {}),
+        onLLMError: (message, willRetry) =>
+          void chrome.runtime.sendMessage(makeMessage('chat-result', { ...llmErrorEvent(message, willRetry) })).catch(() => {}),
         onFinish: () => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'done' })).catch(() => {}),
       },
     });

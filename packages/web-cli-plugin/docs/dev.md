@@ -67,7 +67,7 @@ npm run build
 | content script | 宿主页 DevTools Console（isolated world 日志可见）；Sources → Content scripts |
 | side panel | 右键 side panel → 「检查」 |
 | options 页 | 右键扩展图标 → 「选项」→ DevTools |
-| 审计 | side panel「查看审计」或 `plugin.audit-export`（零明文） |
+| 审计 | side panel「查看审计」或 `admin_audit-export`（零明文） |
 | 站点 RPC | 页面世界 Console 观察 `web-cli:invoke` / `web-cli:result` / `web-cli:event` postMessage |
 
 日志约定：失败一律可读（中文），不静默；不可达能力经归属转译输出。
@@ -132,7 +132,7 @@ npm run test:e2e --workspace @lgdl/web-cli-plugin
 - **A. 非 LGDL fixture（AC-010）**：发现 → 授权 → mock LLM 工具调用 → 真实 host 门禁/风险策略 →
   站点 postMessage RPC → 页面执行 → 二次确认门禁 → 结果回填 → 多轮会话 → 审计导出。
 - **B. LGDL Workbench 真实构建（AC-009）**：加载 `packages/lgdl-web/dist` 真实产物 → 运行时握手
-  发现 `site.lgdl-web-cli` → 授权 → `lgdl-web-cli status` 读全链返回图内容 → 审计。
+  发现 `site_lgdl-web-cli` → 授权 → `lgdl-web-cli status` 读全链返回图内容 → 审计。
 
 **唯一偏差（单条，明示）**：脚本把本地 fixture/LGDL/LLM origin（`http://127.0.0.1:<port>/*`）
 追加进 `host_permissions`（dist 的 JS 与发布产物字节一致，仅 manifest 副本追加）。原因：
@@ -309,7 +309,24 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 
 排查顺序：① 在目标站点标签页点插件图标；② 看侧栏顶部是否出现站点 origin（不再是「无活跃站点」）；③ 点「授权当前站点」；④ 发送按钮应变为可用。仍不行时用 options 页「环境自检 / 诊断」（构建戳 / SW 连通性 / 活跃站点）反馈。
 
-> 机械面实证：`npm run test:binding`（`test/ui/binding.mjs`）用**真实 dist + 真实 `http://localhost:5173` 的 lgdl-web + mock LLM** 跑通「绑定 → 注入 → 发现 supported → 授权（http host permission 路径）→ 发送可用 → 输入 11111 对话」6 步；图标点击不可脚本触发与 headless 无原生权限弹窗两处偏差已在该脚本头部如实披露。
+> 机械面实证：`npm run test:binding`（`test/ui/binding.mjs`）用**真实 dist + 真实 `http://localhost:5173` 的 lgdl-web + mock LLM** 跑通「绑定 → 注入 → 发现 supported → 授权（http host permission 路径）→ 发送可用 → 输入 11111 对话」6 步；图标点击不可脚本触发与 headless 无原生权限弹窗两处偏差已在该脚本头部如实披露。该门禁现已**捕获真实发给 LLM 的 `tools` 数组并断言每个 `name` 匹配 `^[a-zA-Z0-9_-]+$`**（见 §10.7）。
+
+### 10.7 「发消息报 HTTP 400：Invalid 'tools[0].function.name'（工具名非法字符）」
+
+**现象**：侧栏发送任意消息后报 `400 ... string does not match pattern '^[a-zA-Z0-9_-]+$'`（同一条可能显示两次，原因见下）。
+
+**根因**：上游 `CommandRouter` 把 LLM 工具名派生为 `namespace ? namespace + '.' + name : name`（`fqNameOf`）。旧插件把站点工具注册在 `site` 命名空间，于是工具名变成 `site.lgdl-web-cli`、管理工具变成 `plugin.origin-authorize`——**含 `.`，不匹配 OpenAI/DeepSeek 的 function-name 约束**，请求在发送前（或服务端校验）即 400。
+
+**修复（插件侧，base 零改动）**：
+- 所有注册进 `CommandRouter` 的工具名改为**扁平、无点**：站点工具 `site_<sanitizedId>`、管理工具 `admin_<name>`；实现为 `namespace: ''` + 合法 `name`，**help 分组 `group` 保持不变**（`site` / `plugin`）。
+- `sanitizedId` = 原始 `decl.id` 中非 `[A-Za-z0-9_-]` 字符替换为 `_`、折叠连续 `_`、去掉首尾 `_`（`declared-tools.ts:sanitizeToolName`）。
+- **RPC 保真**：`executor` 内仍用**原始 `decl.id`** 调 `rpc.invoke`；站点按自己的 id 派发，无感知。help 同时展示扁平名与原始 id。
+- **碰撞**：两个 `decl.id` sanitize 后同名时确定性加 `_2`/`_3` … 后缀（`allocateSiteToolNames`），并写入审计（`descriptor-read` detail 含「工具名去重」），绝不静默覆盖。
+- **策略链同步**：`security/policy.ts` 的 S1/S2/S3 由 `namespace === 'site'` 改为**等价可靠判据 `group === 'site'`**（`PLUGIN_SITE_GROUP`）；站点工具仍走插件自决 risk + fail-closed，未放宽。
+
+**为什么错误显示两次**：base `AgentRunner` 对 LLM 调用失败会**自动重试一次**（`runner.ts handleLlmError`），两次都触发 `onLLMError`；旧插件把两次都转发成 `variant:'error'`，故侧栏出现两条完全相同的 `system:` 错误。插件现用 `willRetry` 区分：首次是可读的「正在自动重试一次…」提示，仅最终失败才是 `error`（`chat-events.ts:llmErrorEvent`）。retry 本身是 base 既有设计，未改动 base。
+
+**回归门禁**：`test/host.test.ts`「LLM function names…强制门禁」断言 `host.deriveTools()` 的**每一个** name 匹配 `^[a-zA-Z0-9_-]+$`（含站点/管理/内建），并覆盖 sanitize/去重/原始 id 保真；`npm run test:binding` 在真站点下捕获发给 LLM 的真实 `tools` 并断言合法（本次事故直接复现）。
 
 ## 11. 变更记录
 
@@ -322,4 +339,5 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 1.4 | TASK-019：补 §10 诊断与常见问题（非扩展上下文守卫 / 站点未声明协议说明 / 未重载扩展构建不一致）+ 「配置保存不了怎么办 / 站点用不了是正常的 / 改了代码要重新加载扩展」三问；新增 `npm run test:hardening` 实证探针。 |
 | 1.5 | TASK-020（用户实测反馈第三轮）：修复「保存成功却像失败」（保存后不再把 Key 框显示为空框——改 placeholder + `#key-state`=Key ✅ 已写入 + 成功色/高亮 + 摘要），侧栏 LLM 行补 `Key ✅/⚠未配置`；「无活跃站点」拆成具体原因 + 下一步动作并新增「重新绑定当前标签页」按钮，发送禁用原因就近可见；侧栏新增「测试连接」（复用 `llm-test`，读取已保存配置）；补 §10.4/§10.5 两问；`test:ui` 25→41 断言。 |
 | 1.6 | 站点绑定链路缺陷修复（用户实测：配置正常、站点正确却恒「无活跃站点」）：根因 = `setPanelBehavior({openPanelOnActionClick:true})` 吞掉 `action.onClicked` 使绑定成死代码 + 无 `tabs`/host 权限时 `tab.url` 为 `undefined` 被误报成「没有可读取的地址」。改为 `openPanelOnActionClick:false` + 点击处理内 `bindTab` 后同手势 `sidePanel.open`；`optional_host_permissions` 补 `http://*/*`、`minimum_chrome_version` 114→116；新增 `tabs.onActivated` 标签页切换失效提示；错误文案改为指向「点插件图标」；补 §10.6 与 §3/§3.1/§3.2/§10.5；新增 `npm run test:binding`（真站点全链 33 断言）。 |
+| 1.7 | 工具名非法字符缺陷修复（用户实测：`400 Invalid 'tools[0].function.name'`）：站点/管理工具改为扁平无点 `site_*` / `admin_*`（`namespace:''`，`group` 不变），策略链判据改 `group==='site'`；RPC 仍用原始 id；碰撞确定性加后缀并审计；`AgentRunner` 重试导致的重复错误改为「重试提示 + 单条 error」。补 §10.7；`test:binding` 扩展为捕获真实 LLM `tools` 并断言合法。 |
 

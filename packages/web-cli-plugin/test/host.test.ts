@@ -4,7 +4,7 @@ import { createStorageAuditSink } from '../src/security/audit-sink.js';
 import { createOriginStore, type PluginKv } from '../src/security/origin-store.js';
 import { createWebCliHost } from '../src/background/host.js';
 import { createController } from '../src/background/controller.js';
-import { effectiveRisk, hasDestructiveVerb, isSafeReadOnlyTool, paramsToSchema, toToolEntries } from '../src/tools/declared-tools.js';
+import { allocateSiteToolNames, effectiveRisk, hasDestructiveVerb, isSafeReadOnlyTool, paramsToSchema, sanitizeToolName, toToolEntries, toToolEntry } from '../src/tools/declared-tools.js';
 import { createAdminToolEntries } from '../src/tools/admin-tools.js';
 import { parseDescriptor } from '../src/protocol/descriptor.js';
 
@@ -48,11 +48,11 @@ test('host: admin tools registered; site tools activate/deactivate', async () =>
     llmConfig: async () => '{}',
   });
   const names = host.deriveTools().map((t) => t.name);
-  assert.equal(names.filter((n) => n.startsWith('plugin.')).length, 6);
-  assert.equal(names.includes('plugin.origin-authorize'), true);
+  assert.equal(names.filter((n) => n.startsWith('admin_')).length, 6);
+  assert.equal(names.includes('admin_origin-authorize'), true);
 
   host.activateSite(descriptor, 'https://a.test');
-  assert.deepEqual(host.registeredSiteTools(), ['site.notes-list', 'site.notes-add', 'site.mystery']);
+  assert.deepEqual(host.registeredSiteTools(), ['site_notes-list', 'site_notes-add', 'site_mystery']);
   host.deactivateSite();
   assert.deepEqual(host.registeredSiteTools(), []);
 });
@@ -77,7 +77,7 @@ test('host: authorized read tool dispatches through RPC', async () => {
   });
   host.activateSite(descriptor, 'https://a.test');
   const result = await host.dispatch(
-    { id: '1', name: 'site.notes-list', subcommand: '', args: {}, rawArguments: '{}' },
+    { id: '1', name: 'site_notes-list', subcommand: '', args: {}, rawArguments: '{}' },
     { origin: 'https://a.test' },
   );
   assert.equal(result.ok, true);
@@ -98,7 +98,7 @@ test('host: untrusted write tool without confirmation is denied (executor not ca
   });
   host.activateSite(descriptor, 'https://a.test');
   const result = await host.dispatch(
-    { id: '2', name: 'site.notes-add', subcommand: '', args: { text: 'x' }, rawArguments: '{}' },
+    { id: '2', name: 'site_notes-add', subcommand: '', args: { text: 'x' }, rawArguments: '{}' },
     { origin: 'https://a.test' },
   );
   assert.equal(result.ok, false);
@@ -119,7 +119,7 @@ test('host: unknown-risk declared tool fails closed', async () => {
   });
   host.activateSite(descriptor, 'https://a.test');
   const result = await host.dispatch(
-    { id: '3', name: 'site.mystery', subcommand: '', args: {}, rawArguments: '{}' },
+    { id: '3', name: 'site_mystery', subcommand: '', args: {}, rawArguments: '{}' },
     { origin: 'https://a.test' },
   );
   assert.equal(result.ok, false);
@@ -138,7 +138,7 @@ test('host: risk guard blocks site dispatch readably on stop/pause, resumes clea
     llmConfig: async () => '{}',
   });
   host.activateSite(descriptor, 'https://a.test');
-  const call = { id: 'rg', name: 'site.notes-list', subcommand: '', args: {}, rawArguments: '{}' };
+  const call = { id: 'rg', name: 'site_notes-list', subcommand: '', args: {}, rawArguments: '{}' };
 
   host.stopRisk('测试中止');
   const stopped = await host.dispatch(call, { origin: 'https://a.test' });
@@ -192,7 +192,7 @@ test('BLK-1: untrusted site self-reporting read for a dangerous tool must not si
   });
   host.activateSite(lyingDescriptor, 'https://evil.test');
   const result = await host.dispatch(
-    { id: 'blk1', name: 'site.notes-delete', subcommand: '', args: {}, rawArguments: '{}' },
+    { id: 'blk1', name: 'site_notes-delete', subcommand: '', args: {}, rawArguments: '{}' },
     { origin: 'https://evil.test' },
   );
   assert.equal(result.ok, false); // ask with no responder → deny
@@ -223,7 +223,7 @@ test('BLK-1: lying dangerous tool runs only after an explicit confirmation', asy
   });
   host.activateSite(lyingDescriptor, 'https://evil.test');
   const result = await host.dispatch(
-    { id: 'blk1b', name: 'site.notes-delete', subcommand: '', args: {}, rawArguments: '{}' },
+    { id: 'blk1b', name: 'site_notes-delete', subcommand: '', args: {}, rawArguments: '{}' },
     { origin: 'https://evil.test' },
   );
   assert.equal(asked, 1); // forced through the confirmation gate (ask, not allow)
@@ -297,7 +297,7 @@ test('R-BLK1a: disguised destructive tool is denied without confirmation (execut
   });
   host.activateSite(disguisedDescriptor, 'https://evil.test');
   const result = await host.dispatch(
-    { id: 'blk1a', name: 'site.purge-list', subcommand: '', args: {}, rawArguments: '{}' },
+    { id: 'blk1a', name: 'site_purge-list', subcommand: '', args: {}, rawArguments: '{}' },
     { origin: 'https://evil.test' },
   );
   assert.equal(result.ok, false);
@@ -328,7 +328,7 @@ test('R-BLK1a: structured destructive tool only runs after explicit confirmation
   });
   host.activateSite(disguisedDescriptor, 'https://evil.test');
   const result = await host.dispatch(
-    { id: 'blk1a2', name: 'site.reset-status', subcommand: 'status', args: {}, rawArguments: '{}' },
+    { id: 'blk1a2', name: 'site_reset-status', subcommand: 'status', args: {}, rawArguments: '{}' },
     { origin: 'https://evil.test' },
   );
   assert.equal(asked, 1); // forced through confirmation
@@ -406,8 +406,137 @@ test('declared-tools: schema, effective risk, namespaced entries', () => {
   assert.equal(effectiveRisk({ id: 'x', summary: 'X', riskHint: 'write' }), 'write');
   assert.equal(effectiveRisk({ id: 'x', summary: 'X' }), undefined);
   const entries = toToolEntries(descriptor, 'https://a.test', { invoke: async () => ({ ok: true, output: '' }) });
-  assert.equal(entries[0].namespace, 'site');
-  assert.equal(entries[0].schema.name, 'site.notes-list');
+  // Flat, dot-free registration (LLM function-name safe); group keeps help/policy.
+  assert.equal(entries[0].namespace, '');
+  assert.equal(entries[0].name, 'site_notes-list');
+  assert.equal(entries[0].group, 'site');
+  assert.equal(entries[0].schema.name, 'site_notes-list');
+});
+
+test('LLM function names: every derived name matches ^[a-zA-Z0-9_-]+$ (hard gate)', () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: { invoke: async () => ({ ok: true, output: 'ok' }) },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  const pattern = /^[a-zA-Z0-9_-]+$/;
+  // admin + ask-user + base builtins (no site yet)
+  for (const t of host.deriveTools()) assert.match(t.name, pattern, `base/admin tool "${t.name}" is illegal`);
+
+  // Declared ids deliberately include dots and a sanitize collision. NB: the
+  // descriptor parser already restricts declared ids to `[A-Za-z0-9_.-]`, so the
+  // real-world dot (`graph.read` → `site_graph_read`) and hyphen cases are what
+  // matter; `sanitizeToolName` is additionally hardened for arbitrary input.
+  const tricky = parseDescriptor({
+    protocolVersion: '1.0',
+    tools: [
+      { id: 'lgdl-web-cli', summary: 'hyphen id' },
+      { id: 'lgdl-web-cli.graph.read', summary: 'dotted id' },
+      { id: 'graph.read', summary: 'collides with next after sanitize' },
+      { id: 'graph_read', summary: 'sanitize collision' },
+      { id: 'a.b', summary: 'single dot' },
+      { id: 'weird.id', summary: 'dot' },
+    ],
+    transport: { kind: 'page-message', channel: 'web-cli' },
+  });
+  if (!tricky.ok) throw new Error(tricky.error);
+  host.activateSite(tricky.descriptor, 'https://a.test');
+
+  const names = host.deriveTools().map((t) => t.name);
+  for (const n of names) assert.match(n, pattern, `site tool "${n}" is illegal`);
+  assert.deepEqual(host.registeredSiteTools(), [
+    'site_lgdl-web-cli',
+    'site_lgdl-web-cli_graph_read',
+    'site_graph_read',
+    'site_graph_read_2',
+    'site_a_b',
+    'site_weird_id',
+  ]);
+
+  // Deterministic sanitize/dedupe mapping.
+  const assignments = allocateSiteToolNames(tricky.descriptor.tools);
+  assert.deepEqual(assignments.map((a) => [a.id, a.name, a.deduped]), [
+    ['lgdl-web-cli', 'site_lgdl-web-cli', false],
+    ['lgdl-web-cli.graph.read', 'site_lgdl-web-cli_graph_read', false],
+    ['graph.read', 'site_graph_read', false],
+    ['graph_read', 'site_graph_read_2', true],
+    ['a.b', 'site_a_b', false],
+    ['weird.id', 'site_weird_id', false],
+  ]);
+  assert.equal(sanitizeToolName('.::..'), 'tool');
+  assert.equal(sanitizeToolName('a..b'), 'a_b');
+
+  // Collision is disclosed in the audit trail (never silent).
+  assert.equal(audit.events.some((e) => e.type === 'descriptor-read' && /去重/.test(e.detail ?? '')), true);
+});
+
+test('RPC fidelity: the flattened name dispatches the ORIGINAL declared id', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  await origins.authorize('https://a.test');
+  const seen: string[] = [];
+  const decl = parseDescriptor({
+    protocolVersion: '1.0',
+    tools: [{ id: 'graph.read', summary: 'dotted', riskHint: 'read' }],
+    transport: { kind: 'page-message', channel: 'web-cli' },
+  });
+  if (!decl.ok) throw new Error(decl.error);
+  const entry = toToolEntry(decl.descriptor.tools[0]!, 'https://a.test', {
+    invoke: async (req) => {
+      seen.push(req.tool);
+      return { ok: true, output: 'ok' };
+    },
+  });
+  assert.equal(entry.name, 'site_graph_read');
+  // help shows both the flat name and the original id.
+  assert.match(entry.help?.() ?? '', /site_graph_read/);
+  assert.match(entry.help?.() ?? '', /graph\.read/);
+
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: { invoke: async (req) => { seen.push(req.tool); return { ok: true, output: 'ok' }; } },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  host.activateSite(decl.descriptor, 'https://a.test');
+  const res = await host.dispatch({ id: 'x', name: 'site_graph_read', subcommand: '', args: {}, rawArguments: '{}' }, { origin: 'https://a.test' });
+  assert.equal(res.ok, true);
+  assert.deepEqual(seen, ['graph.read']);
+});
+
+test('compliance: unauthorized site tool is declared but NOT executable (fail-closed, readable)', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const origins = createOriginStore(memoryKv(), { audit });
+  // Deliberately NOT authorized.
+  let called = 0;
+  const host = createWebCliHost({
+    origins,
+    audit,
+    rpc: { invoke: async () => { called += 1; return { ok: true, output: 'ok' }; } },
+    descriptorShow: async () => '{}',
+    llmConfig: async () => '{}',
+  });
+  host.activateSite(descriptor, 'https://a.test');
+
+  // Declaration: the site tool face IS assembled for the LLM even when the
+  // origin is unauthorized — authorization gates **execution**, not declaration
+  // (FR-023 / EC-004). This is the existing design; the capability face is
+  // visible but every call is fail-closed below.
+  assert.equal(host.deriveTools().map((t) => t.name).includes('site_notes-list'), true);
+
+  const res = await host.dispatch(
+    { id: 'u1', name: 'site_notes-list', subcommand: '', args: {}, rawArguments: '{}' },
+    { origin: 'https://a.test' },
+  );
+  assert.equal(res.ok, false);
+  assert.equal(called, 0, 'executor/RPC must never run for an unauthorized origin');
+  assert.match(res.output, /权限被拒|未授权|S1/);
+  assert.equal(audit.events.some((e) => e.type === 'permission' && e.decision === 'deny'), true);
 });
 
 test('admin-tools: origin management + audit export + non-sensitive llm config (W3)', async () => {
@@ -420,19 +549,19 @@ test('admin-tools: origin management + audit export + non-sensitive llm config (
     llmConfig: async () => '{"configured":true,"providerId":"deepseek","providerName":"DeepSeek","model":"deepseek-chat"}',
   });
   const byName = new Map(entries.map((e) => [e.name, e]));
-  const authorize = byName.get('origin-authorize');
+  const authorize = byName.get('admin_origin-authorize');
   assert.ok(authorize);
   const res = await authorize!.executor({ subcommand: '', args: { origin: 'https://b.test' } }, {});
   assert.equal(res.ok, true);
   assert.equal(await origins.isAuthorized('https://b.test'), true);
 
-  const list = await byName.get('origin-list')!.executor({ subcommand: '', args: {} }, {});
+  const list = await byName.get('admin_origin-list')!.executor({ subcommand: '', args: {} }, {});
   assert.match(list.output, /https:\/\/b\.test/);
 
-  const exported = await byName.get('audit-export')!.executor({ subcommand: '', args: {} }, {});
+  const exported = await byName.get('admin_audit-export')!.executor({ subcommand: '', args: {} }, {});
   assert.match(exported.output, /审计记录/);
 
-  const cfg = await byName.get('llm-config')!.executor({ subcommand: '', args: {} }, {});
+  const cfg = await byName.get('admin_llm-config')!.executor({ subcommand: '', args: {} }, {});
   assert.match(cfg.output, /configured/);
   assert.equal(/apiKeyMasked|sk-|•/.test(cfg.output), false, 'W3: llm-config output carries no key-derived string');
 });

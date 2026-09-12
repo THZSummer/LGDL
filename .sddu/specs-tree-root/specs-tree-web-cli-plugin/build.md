@@ -1149,6 +1149,119 @@ Chromium 无扩展加载 `file://…/options.html`，设置 `#apiKey` 后**真�
 - 站点使用**已在 `:5173` 运行**的 lgdl-web（本仓真实 dev/preview 服务）；无运行服务时脚本用 `vite preview` 起本仓
   `lgdl-web/dist`，未跑 `vite dev`（避免 predev 全量构建的不确定性）。
 
+## 18. 工具名非法字符缺陷修复（用户实测第五轮，D-069~D-073）
+
+### 18.1 根因（代码级，已确认，base 红线不可改）
+
+- `packages/web-cli-base/src/router.ts:180-182` `fqNameOf(entry)` = `namespace ? namespace + '.' + name : name`；
+  `router.ts:451-454` `deriveTools()` 把 **fqn 直接作为 LLM 工具名**（`return { name: fqn, ... }`）。
+- 旧插件 `declared-tools.ts`：`name: decl.id` + `namespace: 'site'` → LLM 名 = `site.<decl.id>`
+  （真实 LGDL 站点 = `site.lgdl-web-cli` / `site.lgdl-web-op-cli`）；`admin-tools.ts`：
+  `namespace: 'plugin'` → `plugin.<name>`。**均含 `.`**。
+- DeepSeek/OpenAI 的 function name 约束为 `^[a-zA-Z0-9_-]+$`，含 `.` 直接 HTTP 400
+  （用户原文：`400 Invalid 'tools[0].function.name': string does not match pattern ...`）。
+
+### 18.2 修复逐项（file:line 前后对照）
+
+| 位置 | 前 | 后 |
+|------|----|----|
+| `tools/declared-tools.ts:37` | （无） | `sanitizeToolName()`：非 `[A-Za-z0-9_-]` → `_`，折叠连续 `_`，去首尾 `_`，空→`tool` |
+| `tools/declared-tools.ts:61` | （无） | `allocateSiteToolNames()`：确定性碰撞分配（`_2`/`_3`…，不静默覆盖） |
+| `tools/declared-tools.ts:300-330` | `name: decl.id` / `namespace: SITE_NAMESPACE` / `schema.name: site.<id>` / `group:'site'` | `name: site_<sanitized>` / `namespace: ''` / `schema.name` 同名 / `group: SITE_GROUP('site')`；`executor` 仍用**原始 `decl.id`** 调 `rpc.invoke`（RPC 保真） |
+| `tools/declared-tools.ts:273` | `site.${decl.id} —— …` | `site_<sanitized> —— …` + 「站点原始工具 id：…（执行仍按原始 id…派发）」 |
+| `tools/admin-tools.ts:18-20,47-149` | `name:'origin-authorize'` + `namespace:'plugin'` → `plugin.origin-authorize` | `name: admin_<name>` + `namespace:''` → `admin_origin-authorize` 等 6 个；`group: ADMIN_GROUP('plugin')` 不变 |
+| `security/policy.ts:40,77,91,108` | `input.namespace !== 'site'` 判据 | `input.group !== PLUGIN_SITE_GROUP('site')`（等价可靠判据；执行门禁语义逐条不变，未放宽） |
+| `background/host.ts:29,105,110-119,138` | `siteFqns.push(site.${entry.name})` / `tc.name.startsWith('site.')` | `siteFqns.push(fqNameOf(entry))` / `isSiteToolName(tc.name)`（`site_` 前缀）；碰撞写 `descriptor-read` 审计 detail「工具名去重：…」 |
+| `background/service-worker.ts:54` | `Tools in the "site." namespace …` | `Tools named "site_*" are declared by the site … (original id preserved)` |
+| `docs/`（dev/capability-matrix/gate-d/smoke-checklist/compliance/migration） | `site.lgdl-web-cli` / `plugin.audit-export` / `plugin.*` / `site:*` | `site_lgdl-web-cli` / `admin_audit-export` / `admin_*` / `site_*` |
+
+**碰撞与 RPC 保真策略**：`decl.id` 仅用于 ① 页面 RPC（`executor` 闭包捕获原始 `decl.id`）② 插件自决
+risk 启发式（`idSegments`/`isSafeReadOnlyTool`，未改）。发给 LLM/路由注册的名字是扁平 `site_<sanitized>`；
+`allocateSiteToolNames` 按描述符顺序确定性分配，命中去重者记 `deduped:true` 并入审计、help 同时展示原始 id。
+
+### 18.3 真站点 tools 捕获实证（`npm run test:binding`，38 断言 PASS）
+
+`test/ui/binding.mjs` 的 mock LLM 现**捕获每个请求体的 `tools`**，在真实
+`http://localhost:5173` lgdl-web + 输入 `11111` 一轮对话后断言。实测发给 LLM 的 12 个工具名（原文）：
+
+```
+admin_origin-authorize, admin_origin-revoke, admin_origin-list,
+admin_descriptor-show, admin_audit-export, admin_llm-config,
+ask-user, site_lgdl-web-cli, site_lgdl-web-op-cli,
+web-fetch, sleep, web-cli-help
+```
+
+- `#6d` 全部匹配 `^[a-zA-Z0-9_-]+$` ✔（非法项空集）
+- `#6e` 站点工具以 `site_lgdl-web-cli` 出现 ✔；`#6f` 管理工具以 `admin_*` 出现 ✔；`#6g` 零点号 ✔
+- 同轮 `#6b` 对话过程**无错误条目** ✔（`400` 直接复现门禁）
+
+### 18.4 附带疑点 B/C 结论 + 证据
+
+**B「同一 400 出现两次」= base `AgentRunner` 的「失败重试一次」，非用户发两次、非重复渲染。**
+- 证据：`web-cli-base/src/runner.ts:107-119` `handleLlmError`：首次失败 `failCount 0→1` → 调
+  `events.onLLMError(msg, true)` 并 push 纠错 user turn 后**重试**；第二次失败 → `events.onLLMError(msg, false)` 停止。
+- 旧插件 `service-worker.ts` 的 `onLLMError: (message) => …{variant:'error', text:message}` **丢弃 `willRetry`**，
+  两次都发 `error`，侧栏两条 `system:` 完全相同（侧栏逐条 append，非重渲染）。
+- 修复（additive，**base 未改**）：新增 `background/chat-events.ts:25 llmErrorEvent(message, willRetry)`——
+  首次→`variant:'tool'`「⚠ LLM 调用失败，正在自动重试一次…（原因）」；最终→`variant:'error'`。重试本身是 base 既有设计。
+
+**C「未授权」（首次引导第 4 步未完成）下的门禁 = 符合既有设计：授权只门禁「执行」，不门禁「声明」。**
+- **执行 fail-closed**：`host.dispatch(site_notes-list)`（未授权）→ `ok:false`，输出 `权限被拒：策略 S1-origin-authorization 拒绝`，
+  `rpc.invoke` **零调用**，审计记 `permission/deny`（断言：`test/host.test.ts`「compliance: unauthorized site tool is declared but NOT executable」）。
+- **声明可见**：`host.activateSite` 无条件注册工具，未授权时 `deriveTools()` 仍含 `site_*`（能力面进入 LLM tools 列表）。
+- **为何「未授权还能发消息」**：侧栏发送按钮只要求**存在活跃站点**（`view-model.ts:267 sendDisabled = pending || !hasOrigin`），
+  与 `authorized` 无关——对话/LLM 调用本身不受站点授权门禁，只有**站点工具执行**受门禁。故用户所见「未授权仍可发消息并触发
+  LLM 调用」属既有设计，且其 `nihao` 在工具执行前就因非法工具名被厂商 400 拦下（本次 §18.1 根因）。
+- spec FR-023 只要求「未授权 origin 一律**拒执行**」，未禁止声明或对话；故**未改语义**。
+- 影响与建议（未擅自改）：未授权时站点工具的 schema/summary 仍会随请求发给 LLM（**能力面披露**，非执行漏洞；
+  且这些声明本就公开在站点 `/.well-known/web-cli.json`）。若后续要求「未授权不暴露工具面」，可在
+  `host.deriveTools()` 按 origin 授权态过滤、并同步收紧 `sendDisabled`——这会改变现有 FR-016 的
+  「发现→声明→工具面组装」时序与对话可用性，须经 spec/ADR 裁决，本轮不擅自更改。
+
+### 18.5 新增/调整测试
+
+- `test/host.test.ts` 新增 3：**LLM function names 强制门禁**（`host.deriveTools()` 每个 name 匹配
+  `^[a-zA-Z0-9_-]+$`，含站点/管理/内建；覆盖 sanitize/去重/原始 id 保真/碰撞审计）、**RPC 保真**
+  （`site_graph_read` 派发 `graph.read`；help 双展示）、**未授权声明可见+执行 fail-closed**。
+- `test/security.test.ts` 新增 1：`site_*` 但 `group!=='site'` 不误入站点策略；既有 S1/S2/S3 用例改传 `group`。
+- `test/chat-events.test.ts` 新增 1：重试→notice、最终→唯一 error。
+- 既有 `host/e2e.generality/perf-budget/content/state-message/sidepanel-view/chat-session` 用例改扁平名。
+- `test/e2e/fullchain.mjs` mock 工具名改 `site_*`（A/B 场景）。
+- `test/ui/binding.mjs` +5 断言：捕获真实 `tools` + 合法性 + `site_*`/`admin_*`/零点号。
+
+### 18.6 门禁（本轮复跑）
+
+| 门禁 | 结果 |
+|------|------|
+| `tsc --noEmit`（插件） | 0 error |
+| `npm test`（插件） | **196 pass / 0 fail**（191→196，+5） |
+| `test:ui` | PASS 41 断言 |
+| `test:hardening` | PASS 22 断言 |
+| `test:e2e` | PASS 场景 A/B |
+| `test:binding`（真站点全链） | **PASS 38 断言**（含真实 `tools` 合法性硬门禁） |
+| 全仓 `build` + `test` | **0 fail**；**base 483 零回归**（core 267 / render 94+1skip / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / base 483 / plugin 196） |
+| 红线 | **base 零改动**（`git diff -- packages/web-cli-base` 空）、**无新依赖**（package.json 零 diff）、无新增权限、无明文 key、**未 git 提交** |
+
+### 18.7 新增决策（D-069~D-073）
+
+- **D-069（扁平工具名）**：所有发给 LLM 的插件工具名必须匹配 `^[a-zA-Z0-9_-]+$`；站点工具 =
+  `site_<sanitizedId>`、管理工具 = `admin_<name>`，注册用 `namespace: ''`（避免 `fqNameOf` 拼点），
+  **help 分组 `group` 不变**（`site`/`plugin`）。依据 = base `fqNameOf`/`deriveTools` 把 fqn 当 LLM 名。
+- **D-070（RPC 保真）**：注册名可扁平化，**执行仍按站点原始 `decl.id`**（executor 闭包捕获）；站点侧零改动。
+- **D-071（确定性碰撞分配 + 审计）**：`allocateSiteToolNames` 对 sanitize 同名者按描述符顺序加 `_2`/`_3`…，
+  help 展示原始 id，`descriptor-read` 审计记「工具名去重」，**绝不静默覆盖**（base 重复注册会抛错）。
+- **D-072（策略判据等价替换）**：站点策略由 `namespace==='site'` 改为 `group==='site'`（`PLUGIN_SITE_GROUP`）；
+  risk/subcommandRisks/fail-closed 语义逐条不变，未放宽。
+- **D-073（重试与错误的可读区分）**：base 重试语义不改；插件用 runner 提供的 `willRetry` 把可重试失败呈现为
+  提示、仅最终失败呈现为 `error`（消除同一错误显示两次），并顺带修正「首次失败即提前清 pending」。
+
+### 18.8 未完成 / 未复现（如实）
+
+- 未在**真实 DeepSeek/OpenAI** 端点复跑（`test:binding`/`test:e2e` 用本地 mock；mock 不校验 function-name 约束，
+  故另以「捕获 tools + 正则断言合法」直接复现本次事故的判定面）。真实厂商端到端仍属人工面 H7。
+- `sanitizeToolName` 对 `:`/`/` 等字符的替换属**纵深防御**：站点描述符解析器（`protocol/descriptor.ts:100`）
+  本就只接受 `[A-Za-z0-9_.-]`，实际触发的是 `.`（如 `graph.read`）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -1165,3 +1278,4 @@ Chromium 无扩展加载 `file://…/options.html`，设置 `#apiKey` 后**真�
 | v1.9 | TASK-019（§15）：三成因加固——① `src/platform/env-guard.ts` 非扩展上下文守卫（options/sidepanel 阻断横幅 + 保存/测试/清除禁用 + 输入说明；`file://` 修复前/后对照实证）；② `discover` 尊重上报三态 + 持久化可读 `reason` + `reprobe` 重试入口，侧栏三态显式说明（未声明 = 设计如此非故障；未知 = 可读原因 + 重新探测）；③ `diag` 消息 + 「环境自检/诊断」六项 + 一键复制（零明文，`sanitizeDiagText` 纵深脱敏）+ `__BUILD_STAMP__` 构建戳与「未重载」不一致提示；新增 `test:hardening` 实证探针（A/B/C，22 断言 PASS）；D-053~D-058；插件 146→**173**（+27）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` PASS（Chrome-for-Testing 151 + 系统 snap Chromium 152）、E2E A/B PASS、base/根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖；**「填 Key 没法保存」仍未能复现根因，如实标注**；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.10 | TASK-020（§16，用户实测反馈第三轮）：修复两个**真实 UX 缺陷**——① 保存成功却像失败（TASK-017 F-8 清空 Key 框无标记）→ 保存后 placeholder=「已保存（不回显）…」+ `#key-state`=「Key ✅ 已写入（不回显）」+ 成功块/高亮/摘要；②「无活跃站点」无解释无出路 → 三态具体原因 + 「重新绑定当前标签页」(`rebind` 消息) + 发送禁用原因就近可见；侧栏 LLM 行补 `Key ✅/⚠未配置`（零明文）；侧栏新增「测试连接」（复用 `llm-test`，stored 回退，key 不回传/不落日志审计），options 测试按钮视觉突出紧邻保存；`test:ui` 25→**41** 断言（含侧栏 0 异常）；D-059~D-063；插件 173→**183**（+10）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:hardening` 22 断言 PASS、E2E A/B PASS、base/根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖；真实第三方厂商直连仍属人工面 H7 不冒充；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.11 | 站点绑定链路缺陷修复（§17，用户实测第四轮）：代码级根因 ① `openPanelOnActionClick:true` 吞掉 `action.onClicked` 使绑定成死代码 + ② 无 `tabs`/host 权限时 `tab.url===undefined` 被误报「没有可读取的地址」；修复：显式置 `openPanelOnActionClick:false` + `onClicked` 先同步 `sidePanel.open` 再 `bindTab`（open 失败可读降级不撤销绑定）、`optional_host_permissions` 补 `http://*/*`、`minimum_chrome_version` 114→116、新增 `tabs.onActivated` 切换失效提示（只比 tabId 不读 url）、`addressUnreadable` 分类 + 文案统一指向「点插件图标（唯一触发点）」；新增 `npm run test:binding`（`test/ui/binding.mjs`，真实 dist + 真实 `http://localhost:5173` lgdl-web + mock LLM，**33 断言**跑通绑定→注入→发现→授权→发送可用→11111 对话 6 步）+ `test/binding-wiring.test.ts`；D-064~D-068；插件 183→**191**（+8）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41 PASS、`test:hardening` 22 PASS、E2E A/B PASS、无 `<all_urls>`/无新增 `tabs` 权限/无新依赖/base 与根 `package.json` 零改动；图标点击真实手势与原生权限弹窗仍属人工面（headless 不可能，已在脚本披露）；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.12 | 工具名非法字符缺陷修复（§18，用户实测第五轮）：根因 = base `deriveTools` 把含命名空间的 fqn 当 LLM 工具名，而 `site.<id>` / `plugin.<name>` 含 `.` → DeepSeek `400 Invalid 'tools[0].function.name'`；修复（base 零改动）：站点 `site_<sanitized>`、管理 `admin_<name>`（`namespace:''`，`group` 不变）、`sanitizeToolName`/`allocateSiteToolNames`（确定性去重 `_2`/`_3`… + 审计）、策略判据 `namespace==='site'`→`group==='site'`（未放宽）、RPC 仍用原始 `decl.id`；附带查清 B「同错误两次」= base `AgentRunner` 重试一次（用 `willRetry` 改为「重试提示 + 单条 error」）与 C「未授权」= 授权只门禁执行（声明可见，fail-closed 执行已断言，未改语义）；`test:binding` 扩展为**捕获真实发给 LLM 的 12 个 tools 并断言全部匹配 `^[a-zA-Z0-9_-]+$`**（38 断言）；D-069~D-073；插件 191→**196**（+5）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41 / `test:hardening` 22 / E2E A/B / `test:binding` 38 全 PASS、base 与 package.json 零改动、无新依赖、无明文 key、未 git 提交 | 2026-09-12 | SDDU Build Agent |

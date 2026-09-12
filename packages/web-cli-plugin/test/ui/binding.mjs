@@ -149,6 +149,8 @@ async function typeText(cdp, text) {
 }
 
 // ── mock LLM (OpenAI-compatible, non-streaming) ──────────────────────────────
+/** Every request body seen by the mock, so the test can inspect the real `tools`. */
+const llmRequests = [];
 function startMockLlm() {
   const server = createServer((req, res) => {
     const cors = {
@@ -169,6 +171,8 @@ function startMockLlm() {
         let user = '';
         try {
           const body = JSON.parse(raw);
+          // Capture the actual tools array the plugin sent (name legality gate).
+          llmRequests.push({ tools: Array.isArray(body.tools) ? body.tools : [], messages: body.messages ?? [] });
           const lastUser = [...(body.messages ?? [])].reverse().find((m) => m.role === 'user');
           user = typeof lastUser?.content === 'string' ? lastUser.content : '';
         } catch {
@@ -432,7 +436,7 @@ async function phase1(mock) {
     check(Boolean(state), '#3d discovery 走到 supported（well-known / html-link / handshake）', String(state).slice(0, 160));
     const parsed = state ? JSON.parse(state) : { tools: [] };
     check(parsed.active?.origin === SITE_ORIGIN, '#3e 活跃站点 origin 正确', JSON.stringify(parsed.active));
-    check((parsed.tools ?? []).includes('site.lgdl-web-cli'), '#3f 站点工具面已装配（site.lgdl-web-cli）', JSON.stringify(parsed.tools));
+    check((parsed.tools ?? []).includes('site_lgdl-web-cli'), '#3f 站点工具面已装配（site_lgdl-web-cli）', JSON.stringify(parsed.tools));
 
     // bring the panel to the front + reload so it re-reads state for this origin
     // #9 (onActivated): activating the panel tab is itself "switching away" from
@@ -489,6 +493,17 @@ async function phase1(mock) {
     check(Boolean(reply), '#6 输入 11111 跑通一轮对话（mock LLM 真实往返）', reply);
     const errors = await evaluate(ext, `[...document.querySelectorAll('.entry-error')].map((e) => e.textContent).join(' | ')`);
     check(!errors, '#6b 对话过程无错误条目', errors);
+
+    // ── #6c 直接复现本次事故：捕获真实发给 LLM 的 tools 数组并断言名字合法 ──
+    const lastReq = llmRequests[llmRequests.length - 1];
+    const sentTools = (lastReq?.tools ?? []).map((t) => t?.function?.name).filter((n) => typeof n === 'string');
+    observe(`发给 LLM 的 tools（${sentTools.length} 个）：${sentTools.join(', ')}`);
+    check(sentTools.length > 0, '#6c 捕获到真实发给 LLM 的 tools 数组', JSON.stringify(sentTools));
+    const ILLEGAL = sentTools.filter((n) => !/^[a-zA-Z0-9_-]+$/.test(n));
+    check(ILLEGAL.length === 0, '#6d 全部 tools 名字匹配 ^[a-zA-Z0-9_-]+$（本次 400 事故硬门禁）', JSON.stringify(ILLEGAL));
+    check(sentTools.includes('site_lgdl-web-cli'), '#6e 站点工具以扁平合法名出现（site_lgdl-web-cli）', JSON.stringify(sentTools));
+    check(sentTools.some((n) => n.startsWith('admin_')), '#6f 管理工具以扁平合法名出现（admin_*）', JSON.stringify(sentTools));
+    check(sentTools.every((n) => !n.includes('.')), '#6g 发给 LLM 的工具名零点号', JSON.stringify(sentTools.filter((n) => n.includes('.'))));
 
     check(spExceptions.length === 0, '#10 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#10b 侧栏页 0 console error', spConsoleErrors.join(' | '));

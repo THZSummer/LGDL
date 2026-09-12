@@ -11,13 +11,13 @@
 |---|-------------|------|---------|:----:|:----:|:--:|
 | 1 | `web-fetch` | 基础 web 获取 | 插件 background 经 `host_permissions` fetch（能力内建，非独立工具） | 替代 | P0 | 否 |
 | 2 | `sleep` | 时序等待 | 宿主侧编排（无独立工具） | 不适用 | — | 否 |
-| 3 | `web-cli-help` | 工具发现/自文档 | `CommandRouter.listHelp/helpFor` + `plugin.*` 管理工具 + side panel 状态 | 对齐 | P0 | 是 |
-| 4 | `lgdl-web-cli` | 图内容操作（17 子命令/9 增量） | 站点声明工具 `site.lgdl-web-cli` 经页面 RPC 执行（LGDL `web-cli-host` 暴露） | 对齐 | P0 | **是** |
-| 5 | `lgdl-web-op-cli` | UI 操作 | 站点声明工具 `site.lgdl-web-op-cli` 经页面 RPC 执行 | 对齐 | P1 (TASK-013) | 是 |
+| 3 | `web-cli-help` | 工具发现/自文档 | `CommandRouter.listHelp/helpFor` + `admin_*` 管理工具 + side panel 状态 | 对齐 | P0 | 是 |
+| 4 | `lgdl-web-cli` | 图内容操作（17 子命令/9 增量） | 站点声明工具 `site_lgdl-web-cli` 经页面 RPC 执行（LGDL `web-cli-host` 暴露） | 对齐 | P0 | **是** |
+| 5 | `lgdl-web-op-cli` | UI 操作 | 站点声明工具 `site_lgdl-web-op-cli` 经页面 RPC 执行 | 对齐 | P1 (TASK-013) | 是 |
 | 6 | `storage` | 域内 KV 存储 | 插件自身 `chrome.storage`（工具面不暴露给 LLM） | 不适用 | — | 否 |
 | 7 | `storage-quota` | 存储配额查询 | 同上 | 不适用 | — | 否 |
 | 8 | `settings` | 页内设置 | options 页 + `llm/key-store`（独立配置） | 替代 | P0 | 是 |
-| 9 | `doc-read` | 文档读取 | `site.lgdl-web-cli` 读子命令经 RPC（页面 `getSource`） | 对齐 | P0 | 是 |
+| 9 | `doc-read` | 文档读取 | `site_lgdl-web-cli` 读子命令经 RPC（页面 `getSource`） | 对齐 | P0 | 是 |
 | 10 | `doc-edit` | 文档编辑 | 写回经 bridge `apply`（parseLgdl 校验 + onApply），不直连 React 状态 | 替代 | P0 | **是** |
 | 11 | `session` | 会话持久/恢复 | 插件会话状态（`chrome.storage.session` + controller 快照） | 替代 | P0 | 是 |
 | 12 | `context` | 上下文压缩/预算 | 沿用上游截断/摘要口径（NFR-007） | 替代 | P0 | 否 |
@@ -51,20 +51,20 @@
 以下 8 项为「插件替代内置助手」的**最小能力集**，全部由 P0/P1 覆盖：
 
 1. 多轮会话 + 工具调用 + `ask`（FR-017）—— `background/host.ts` + side panel（P0）；任务内 `ask-user` 经 `background/ask-bridge.ts` 接入 side panel 问答 UI（R7 已闭合）
-2. LGDL 图内容操作 `lgdl-web-cli`（FR-018）—— `site.lgdl-web-cli` RPC（P0）
-3. LGDL UI 操作 `lgdl-web-op-cli`（FR-019）—— `site.lgdl-web-op-cli` RPC（P1 TASK-013）
+2. LGDL 图内容操作 `lgdl-web-cli`（FR-018）—— `site_lgdl-web-cli` RPC（P0）
+3. LGDL UI 操作 `lgdl-web-op-cli`（FR-019）—— `site_lgdl-web-op-cli` RPC（P1 TASK-013）
 4. 编辑器写回 `onApply` 等价（FR-020）—— bridge `apply`（P0）
 5. 事件/观察消费（FR-021）—— content 事件桥（P1 TASK-013）
 6. 页内设置/BYOK（FR-033/034/035）—— options + key-store（P0）
 7. 会话持久/恢复（FR-017）—— controller + storage.session（P0）
-8. 工具发现/自文档（FR-017）—— router help + `plugin.*`（P0）
+8. 工具发现/自文档（FR-017）—— router help + `admin_*`（P0）
 
 **结论**：最小能力集中 **6/8 在 P0 覆盖，2/8 在 P1（TASK-013）覆盖**（P1 已实施完成）。P0 最小可用集（TASK-001~011）已满足「插件可用 + 安全基线 + 通用站点闭环 + LGDL 图内容/写回」，UI 操作与事件消费为 P1 增量（与 plan §5.3 裁剪一致，见 tasks.md F-6）。**TASK-016 下线前复核：8/8 项均有已实施实现承载（Gate-D D-1 PASS）。**
 
 ## 3. 差异显式说明（FR-042 等价性）
 
 - **机制差异（非功能差异）**：内置助手在页内直接调用领域工具；插件经 postMessage RPC 由页面 `web-cli-host` 执行。结果语义一致（同输入同结果），执行路径不同（可审计、可授权）。
-- **UI 操作**：P1 TASK-013 已补齐（`site.lgdl-web-op-cli` 经 RPC + 门禁裁决）；内置助手已随 TASK-016 下线，由插件承载。
+- **UI 操作**：P1 TASK-013 已补齐（`site_lgdl-web-op-cli` 经 RPC + 门禁裁决）；内置助手已随 TASK-016 下线，由插件承载。
 - **不适用项**：属页内宿主专属能力或插件定位外（不采集页面数据、不做浏览器外壳工具），不构成能力缺口。
 
 ## 4. 引用

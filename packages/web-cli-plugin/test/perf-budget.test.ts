@@ -85,7 +85,7 @@ test('NFR-007: sequential authorized read dispatches stay within the per-call bu
     llmConfig: async () => '{}',
   });
   host.activateSite(parsed.descriptor, 'https://perf.test');
-  const call = { id: 'p', name: 'site.notes-list', subcommand: '', args: {}, rawArguments: '{}' };
+  const call = { id: 'p', name: 'site_notes-list', subcommand: '', args: {}, rawArguments: '{}' };
   // Stay below the default 60-token per-origin bucket so this measures latency,
   // not throttling.
   const calls = 50;

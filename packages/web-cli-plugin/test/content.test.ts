@@ -179,7 +179,7 @@ test('page-bridge: forwards unsolicited event notifications to the background si
 
 // ---------- TASK-013: UI op gated before RPC (FR-019) ----------
 
-test('FR-019: site:lgdl-web-op-cli is recomputed as a danger tier and gated before RPC', async () => {
+test('FR-019: site_lgdl-web-op-cli is recomputed as a danger tier and gated before RPC', async () => {
   const uiDecl = {
     id: 'lgdl-web-op-cli',
     summary: 'UI 操作（复制/导出/缩放/定位/全屏）',
@@ -213,7 +213,7 @@ test('FR-019: site:lgdl-web-op-cli is recomputed as a danger tier and gated befo
   assert.equal(entry.risk, 'write');
 
   const gate = new PermissionGate(createPluginPolicyConfig({ isAuthorized: () => true, trustOf: () => 'untrusted' }));
-  const call = { tool: 'site.lgdl-web-op-cli', namespace: 'site', risk: entry.risk, subcommand: 'copy-source', args: {}, ctx: { origin: 'https://demo.test' } };
+  const call = { tool: 'site_lgdl-web-op-cli', group: 'site', risk: entry.risk, subcommand: 'copy-source', args: {}, ctx: { origin: 'https://demo.test' } };
 
   // Unauthorized-by-confirmation path: deny → the RPC is never dispatched.
   const denied = await gate.check(call, { onAsk: () => ({ action: 'deny' as const }) });

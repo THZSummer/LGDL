@@ -81,7 +81,7 @@ test('chat-runner: maxRounds from settings is enforced (EC-013)', async () => {
     maxRounds: 1,
     chat: async () => ({
       content: '',
-      toolCalls: [{ id: 't1', name: 'site.notes-list', subcommand: '', args: {}, rawArguments: '{}' }],
+      toolCalls: [{ id: 't1', name: 'site_notes-list', subcommand: '', args: {}, rawArguments: '{}' }],
       model: 'test',
     }),
     dispatch: async () => ({ ok: true, output: 'ok' }),

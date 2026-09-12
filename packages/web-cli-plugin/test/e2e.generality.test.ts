@@ -73,14 +73,14 @@ test('generality: non-LGDL fixture discovery → authorization → tool assembly
   });
   host.activateSite(parsed.descriptor, ORIGIN);
   const names = host.deriveTools().map((t) => t.name);
-  assert.equal(names.includes('site.notes-list'), true);
-  assert.equal(names.includes('site.notes-add'), true);
+  assert.equal(names.includes('site_notes-list'), true);
+  assert.equal(names.includes('site_notes-add'), true);
 
-  const read = await host.dispatch({ id: 'r1', name: 'site.notes-list', subcommand: '', args: {}, rawArguments: '{}' }, { origin: ORIGIN });
+  const read = await host.dispatch({ id: 'r1', name: 'site_notes-list', subcommand: '', args: {}, rawArguments: '{}' }, { origin: ORIGIN });
   assert.equal(read.ok, true);
   assert.match(read.output, /welcome/);
 
-  const writeDenied = await host.dispatch({ id: 'r2', name: 'site.notes-add', subcommand: '', args: { text: 'x' }, rawArguments: '{}' }, { origin: ORIGIN });
+  const writeDenied = await host.dispatch({ id: 'r2', name: 'site_notes-add', subcommand: '', args: { text: 'x' }, rawArguments: '{}' }, { origin: ORIGIN });
   assert.equal(writeDenied.ok, false); // untrusted write requires confirmation
 
   assert.deepEqual(calls, ['notes-list']); // denied write never reached the site
@@ -108,7 +108,7 @@ test('generality: confirmation allows the untrusted write and audit records it',
   if (!parsed.ok) throw new Error(parsed.error);
   host.activateSite(parsed.descriptor, ORIGIN);
 
-  const write = await host.dispatch({ id: 'r3', name: 'site.notes-add', subcommand: '', args: { text: 'hello' }, rawArguments: '{}' }, { origin: ORIGIN });
+  const write = await host.dispatch({ id: 'r3', name: 'site_notes-add', subcommand: '', args: { text: 'hello' }, rawArguments: '{}' }, { origin: ORIGIN });
   assert.equal(write.ok, true);
   assert.deepEqual(calls, ['notes-add']);
   assert.equal(audit.events.some((e) => e.type === 'permission' && e.decision === 'allow'), true);
@@ -128,7 +128,7 @@ test('generality: unauthorized origin is rejected before any site call', async (
   const parsed = parseDescriptorJson(readFileSync(fixtureUrl, 'utf8'), { origin: ORIGIN, channel: 'html-link' });
   if (!parsed.ok) throw new Error(parsed.error);
   host.activateSite(parsed.descriptor, ORIGIN);
-  const res = await host.dispatch({ id: 'r4', name: 'site.notes-list', subcommand: '', args: {}, rawArguments: '{}' }, { origin: ORIGIN });
+  const res = await host.dispatch({ id: 'r4', name: 'site_notes-list', subcommand: '', args: {}, rawArguments: '{}' }, { origin: ORIGIN });
   assert.equal(res.ok, false);
   assert.deepEqual(calls, []);
 });
@@ -149,7 +149,7 @@ test('conflict detection: re-activation does not duplicate tool registration', a
 
   host.activateSite(parsed.descriptor, ORIGIN);
   host.activateSite(parsed.descriptor, ORIGIN);
-  assert.deepEqual(host.registeredSiteTools(), ['site.notes-list', 'site.notes-add']);
+  assert.deepEqual(host.registeredSiteTools(), ['site_notes-list', 'site_notes-add']);
 
   // direct duplicate registration is refused by the upstream router (no double execution)
   assert.throws(() => host.router.register(host.router.query()[0]));

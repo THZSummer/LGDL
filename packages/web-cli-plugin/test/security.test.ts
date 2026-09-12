@@ -53,7 +53,7 @@ test('policy S1: unauthorized site origin is denied', async () => {
   const gate = new PermissionGate(
     createPluginPolicyConfig({ isAuthorized: () => false, trustOf: () => 'untrusted' }),
   );
-  const decision = await gate.check({ tool: 'site.notes-list', namespace: 'site', risk: 'read', subcommand: '', args: {}, ctx: { origin: 'https://a.test' } });
+  const decision = await gate.check({ tool: 'site_notes-list', group: 'site', risk: 'read', subcommand: '', args: {}, ctx: { origin: 'https://a.test' } });
   assert.equal(decision.action, 'deny');
   assert.match(decision.by ?? '', /S1/);
 });
@@ -67,21 +67,21 @@ test('policy S2/S3: untrusted dangerous → ask; read → allow; unknown → den
     return { action: 'allow' as const };
   };
 
-  const write = await gate.check({ tool: 'site.notes-add', namespace: 'site', risk: 'write', subcommand: '', args: {}, ctx: { origin: 'https://a.test' } }, { onAsk });
+  const write = await gate.check({ tool: 'site_notes-add', group: 'site', risk: 'write', subcommand: '', args: {}, ctx: { origin: 'https://a.test' } }, { onAsk });
   assert.equal(write.action, 'allow');
   assert.equal(asked, 1);
 
-  const read = await gate.check({ tool: 'site.notes-list', namespace: 'site', risk: 'read', subcommand: '', args: {}, ctx: { origin: 'https://a.test' } });
+  const read = await gate.check({ tool: 'site_notes-list', group: 'site', risk: 'read', subcommand: '', args: {}, ctx: { origin: 'https://a.test' } });
   assert.equal(read.action, 'allow');
 
-  const unknown = await gate.check({ tool: 'site.mystery', namespace: 'site', risk: undefined, subcommand: '', args: {}, ctx: { origin: 'https://a.test' } });
+  const unknown = await gate.check({ tool: 'site_mystery', group: 'site', risk: undefined, subcommand: '', args: {}, ctx: { origin: 'https://a.test' } });
   assert.equal(unknown.action, 'deny');
 });
 
 test('policy: trusted declaration skips S2 ask (falls to riskDefaults)', async () => {
   const gate = new PermissionGate(createPluginPolicyConfig({ isAuthorized: () => true, trustOf: () => 'trusted' }));
   let asked = 0;
-  const decision = await gate.check({ tool: 'site.notes-add', namespace: 'site', risk: 'write', subcommand: '', args: {}, ctx: { origin: 'https://a.test' } }, {
+  const decision = await gate.check({ tool: 'site_notes-add', group: 'site', risk: 'write', subcommand: '', args: {}, ctx: { origin: 'https://a.test' } }, {
     onAsk: () => {
       asked += 1;
       return { action: 'deny' };
@@ -93,25 +93,34 @@ test('policy: trusted declaration skips S2 ask (falls to riskDefaults)', async (
 
 test('policy: plugin management tools bypass site strategies (read default allow)', async () => {
   const gate = new PermissionGate(createPluginPolicyConfig({ isAuthorized: () => false, trustOf: () => 'untrusted' }));
-  const decision = await gate.check({ tool: 'plugin.origin-list', namespace: 'plugin', risk: 'read', subcommand: '', args: {}, ctx: {} });
+  const decision = await gate.check({ tool: 'admin_origin-list', group: 'plugin', risk: 'read', subcommand: '', args: {}, ctx: {} });
+  assert.equal(decision.action, 'allow');
+});
+
+test('policy: a site-named tool without the site group is NOT treated as a site tool', async () => {
+  // Guards the reliable判据: only `group === 'site'` enters S1/S2/S3. A tool that
+  // merely looks like `site_*` but is registered under another group must not be
+  // able to dodge (or be forced through) the site strategies.
+  const gate = new PermissionGate(createPluginPolicyConfig({ isAuthorized: () => false, trustOf: () => 'untrusted' }));
+  const decision = await gate.check({ tool: 'site_lookalike', group: 'plugin', risk: 'read', subcommand: '', args: {}, ctx: {} });
   assert.equal(decision.action, 'allow');
 });
 
 test('confirm: summary masks sensitive args and missing responder denies', async () => {
-  const summary = buildOperationSummary({ origin: 'https://a.test', tool: 'site.x', subcommand: 'add', args: { token: 'secret-value', text: 'ok' }, risk: 'write', reason: '需要确认' });
+  const summary = buildOperationSummary({ origin: 'https://a.test', tool: 'site_x', subcommand: 'add', args: { token: 'secret-value', text: 'ok' }, risk: 'write', reason: '需要确认' });
   assert.match(summary, /token=.*•/);
   assert.equal(summary.includes('secret-value'), false);
 
   const audit = createStorageAuditSink(memoryKv());
   const denyBridge = createConfirmBridge({ audit });
-  assert.deepEqual(await denyBridge({ tool: 'site.x', reason: 'r' }), { action: 'deny' });
+  assert.deepEqual(await denyBridge({ tool: 'site_x', reason: 'r' }), { action: 'deny' });
   assert.equal(audit.events.some((e) => e.type === 'confirm' && e.decision === 'deny'), true);
 
   const allowBridge = createConfirmBridge({ ask: async () => ({ action: 'allow' }), audit });
-  assert.deepEqual(await allowBridge({ tool: 'site.x', reason: 'r' }), { action: 'allow' });
+  assert.deepEqual(await allowBridge({ tool: 'site_x', reason: 'r' }), { action: 'allow' });
 
   const throwing = createConfirmBridge({ ask: async () => { throw new Error('boom'); }, audit });
-  assert.deepEqual(await throwing({ tool: 'site.x', reason: 'r' }), { action: 'deny' });
+  assert.deepEqual(await throwing({ tool: 'site_x', reason: 'r' }), { action: 'deny' });
 });
 
 test('audit-sink: ring buffer, dropped counter, export and reload', async () => {
@@ -134,7 +143,7 @@ test('audit-sink: ring buffer, dropped counter, export and reload', async () => 
 
 test('audit-sink: masks plaintext args (zero plaintext)', () => {
   const sink = createStorageAuditSink(memoryKv());
-  sink.recordPlugin({ type: 'permission', ts: 1, tool: 'site.x', args: { apiKey: 'sk-super-secret' } });
+  sink.recordPlugin({ type: 'permission', ts: 1, tool: 'site_x', args: { apiKey: 'sk-super-secret' } });
   const ev = sink.events[0] as unknown as { argsSummary?: string };
   assert.match(ev.argsSummary ?? '', /apiKey=.*•/);
   assert.equal(JSON.stringify(sink.events).includes('sk-super-secret'), false);

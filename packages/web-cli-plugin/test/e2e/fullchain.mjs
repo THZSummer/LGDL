@@ -5,7 +5,7 @@
  * full chain with a mock LLM. Two scenarios:
  *
  *   A. generic non-LGDL fixture site (AC-010) — read / write+confirm / re-read.
- *   B. LGDL Workbench real build (AC-009) — `site.lgdl-web-cli status` read.
+ *   B. LGDL Workbench real build (AC-009) — `site_lgdl-web-cli status` read.
  *
  * Chain: real content.js → background discovery (real host) → authorize →
  * chat tool_call → router policy → host dispatch → postMessage RPC → page
@@ -62,12 +62,12 @@ function mockResponse(body) {
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   const userText = typeof lastUser?.content === 'string' ? lastUser.content : '';
   if (/lgdl/i.test(userText)) {
-    return completion({ toolCalls: [{ id: 'call_lgdl', name: 'site.lgdl-web-cli', subcommand: 'status', args: {} }] });
+    return completion({ toolCalls: [{ id: 'call_lgdl', name: 'site_lgdl-web-cli', subcommand: 'status', args: {} }] });
   }
   if (/add|添加|写入/i.test(userText)) {
-    return completion({ toolCalls: [{ id: 'call_add', name: 'site.notes-add', args: { text: 'from-e2e' } }] });
+    return completion({ toolCalls: [{ id: 'call_add', name: 'site_notes-add', args: { text: 'from-e2e' } }] });
   }
-  return completion({ toolCalls: [{ id: 'call_list', name: 'site.notes-list', args: {} }] });
+  return completion({ toolCalls: [{ id: 'call_list', name: 'site_notes-list', args: {} }] });
 }
 
 function completion({ content = null, toolCalls } = {}) {
@@ -400,7 +400,7 @@ async function main() {
       name: 'A/fixture(non-LGDL)',
       origin: fixture.origin,
       path: '/',
-      expectTool: 'site.notes-list',
+      expectTool: 'site_notes-list',
       chatSteps: [
         { user: 'list notes', label: 'read full chain returned page data (welcome)', test: (t) => /welcome/.test(t) },
         { user: 'add a note now', label: 'write ran through the confirmation gate', test: (t) => /note added|from-e2e/.test(t) },
@@ -413,7 +413,7 @@ async function main() {
         name: 'B/LGDL Workbench',
         origin: lgdl.origin,
         path: '/',
-        expectTool: 'site.lgdl-web-cli',
+        expectTool: 'site_lgdl-web-cli',
         chatSteps: [
           { user: 'lgdl status', label: 'LGDL graph read full chain returned nodes', test: (t) => /nodes/.test(t) },
         ],

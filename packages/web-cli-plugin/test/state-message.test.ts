@@ -15,12 +15,12 @@ const ACTIVE = { tabId: 7, origin: 'https://a.test', discoveryState: 'supported'
 test('W1 state: authorized origin reports authorized=true (and keeps active/tools)', async () => {
   const payload = await buildStateMessage({
     active: ACTIVE,
-    tools: ['site.notes-list'],
+    tools: ['site_notes-list'],
     isAuthorized: async (origin) => origin === 'https://a.test',
   });
   assert.equal(payload.authorized, true);
   assert.deepEqual(payload.active, ACTIVE);
-  assert.deepEqual(payload.tools, ['site.notes-list']);
+  assert.deepEqual(payload.tools, ['site_notes-list']);
 });
 
 test('W1 state: known-but-unauthorized origin reports authorized=false', async () => {

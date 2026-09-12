@@ -16,7 +16,64 @@
 import type { ToolEntry, ToolResult, ToolRisk } from '@lgdl/web-cli-base';
 import type { WebCliDescriptor, WebCliToolDecl } from '../protocol/descriptor.js';
 
-export const SITE_NAMESPACE = 'site';
+/** Help-group key for declared site tools (`group: 'site'`; registration is flat). */
+export const SITE_GROUP = 'site';
+
+/**
+ * Flat registration prefix for site tools. The upstream `CommandRouter` builds
+ * the LLM function name as `namespace ? namespace + '.' + name : name`
+ * (`fqNameOf`), and OpenAI/DeepSeek reject function names that do not match
+ * `^[a-zA-Z0-9_-]+$`. A declared id (the parser allows `[A-Za-z0-9_.-]`, so a
+ * `.` is the practical case) must therefore be flattened into a dot-free name;
+ * the original id is preserved for the page RPC.
+ */
+export const SITE_TOOL_PREFIX = 'site_';
+
+/**
+ * Flatten a site-declared tool id into the LLM-safe character set
+ * (`^[a-zA-Z0-9_-]+$`): every other run of characters becomes a single `_`,
+ * leading/trailing `_` are trimmed, and an empty result degrades to `tool`.
+ */
+export function sanitizeToolName(raw: string): string {
+  const replaced = raw.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const collapsed = replaced.replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  return collapsed || 'tool';
+}
+
+/** One deterministic site-tool name assignment. */
+export interface SiteToolNameAssignment {
+  /** Original declared id (used unchanged for the RPC and the read-only risk heuristic). */
+  id: string;
+  /** Flat, LLM-safe registered name (`site_<sanitized>`). */
+  name: string;
+  /** True when a deterministic numeric suffix was needed to avoid a collision. */
+  deduped: boolean;
+}
+
+/**
+ * Deterministically assign flat, collision-free names to a descriptor's tools.
+ *
+ * Two distinct declared ids can sanitize to the same string (e.g.
+ * `graph.read` and `graph_read`); the upstream router throws on a duplicate
+ * registration, so a deterministic `_2`, `_3` … suffix is appended instead of
+ * silently overwriting. Order is the descriptor order, so the result is stable.
+ */
+export function allocateSiteToolNames(decls: WebCliToolDecl[]): SiteToolNameAssignment[] {
+  const used = new Set<string>();
+  const assignments: SiteToolNameAssignment[] = [];
+  for (const decl of decls) {
+    const base = `${SITE_TOOL_PREFIX}${sanitizeToolName(decl.id)}`;
+    let name = base;
+    let n = 2;
+    while (used.has(name)) {
+      name = `${base}_${n}`;
+      n += 1;
+    }
+    used.add(name);
+    assignments.push({ id: decl.id, name, deduped: name !== base });
+  }
+  return assignments;
+}
 
 export interface SiteRpcRequest {
   origin: string;
@@ -213,8 +270,13 @@ export function effectiveRisk(decl: WebCliToolDecl): ToolRisk | undefined {
 }
 
 /** Build a readable help text for a declared site tool. */
-export function declaredToolHelp(decl: WebCliToolDecl, origin: string): string {
-  const lines = [`site.${decl.id} —— ${decl.summary}`, `来源站点：${origin}（站点声明，默认 untrusted）`];
+export function declaredToolHelp(decl: WebCliToolDecl, origin: string, assignedName?: string): string {
+  const name = assignedName ?? `${SITE_TOOL_PREFIX}${sanitizeToolName(decl.id)}`;
+  const lines = [`${name} —— ${decl.summary}`, `来源站点：${origin}（站点声明，默认 untrusted）`];
+  // Display the original declared id whenever it differs from the flattened LLM
+  // name, so the collision/sanitize mapping stays auditable and RPC fidelity is
+  // explicit (the executor always dispatches the original id).
+  if (name !== decl.id) lines.push(`站点原始工具 id：${decl.id}（执行仍按原始 id 经 postMessage RPC 派发）`);
   if (decl.params && Object.keys(decl.params).length) {
     lines.push('参数：');
     for (const [k, p] of Object.entries(decl.params)) {
@@ -226,25 +288,34 @@ export function declaredToolHelp(decl: WebCliToolDecl, origin: string): string {
   return lines.join('\n');
 }
 
-/** Convert one declared tool into a plugin `ToolEntry`. */
-export function toToolEntry(decl: WebCliToolDecl, origin: string, rpc: SiteRpc): ToolEntry {
+/**
+ * Convert one declared tool into a plugin `ToolEntry`.
+ *
+ * `assignedName` (from {@link allocateSiteToolNames}) is the flat, LLM-safe
+ * registered name. Registration is `namespace: ''` (so `fqNameOf` never inserts
+ * a `.`) while `group: 'site'` keeps the help grouping and the plugin policy's
+ * site-tool判据. The executor always dispatches the **original** `decl.id`
+ * (RPC fidelity — the site routes by its own id).
+ */
+export function toToolEntry(decl: WebCliToolDecl, origin: string, rpc: SiteRpc, assignedName?: string): ToolEntry {
   const risk = effectiveRisk(decl);
+  const legalName = assignedName ?? `${SITE_TOOL_PREFIX}${sanitizeToolName(decl.id)}`;
   const subcommandRisks = decl.subcommands?.length && risk
     ? Object.fromEntries(decl.subcommands.map((s) => [s, risk])) as Record<string, ToolRisk>
     : undefined;
   return {
-    name: decl.id,
-    namespace: SITE_NAMESPACE,
+    name: legalName,
+    namespace: '',
     summary: decl.summary,
     schema: {
-      name: `${SITE_NAMESPACE}.${decl.id}`,
+      name: legalName,
       description: decl.summary,
       parameters: paramsToSchema(decl),
     },
     ...(risk ? { risk } : {}),
     ...(subcommandRisks ? { subcommandRisks } : {}),
-    group: 'site',
-    help: () => declaredToolHelp(decl, origin),
+    group: SITE_GROUP,
+    help: () => declaredToolHelp(decl, origin, legalName),
     executor: async (tc, ctx) => {
       const targetOrigin = typeof ctx?.origin === 'string' && ctx.origin ? ctx.origin : origin;
       return rpc.invoke({
@@ -257,7 +328,8 @@ export function toToolEntry(decl: WebCliToolDecl, origin: string, rpc: SiteRpc):
   };
 }
 
-/** Convert all declared tools in a descriptor. */
+/** Convert all declared tools in a descriptor (deterministic collision-free names). */
 export function toToolEntries(descriptor: WebCliDescriptor, origin: string, rpc: SiteRpc): ToolEntry[] {
-  return descriptor.tools.map((t) => toToolEntry(t, origin, rpc));
+  const names = allocateSiteToolNames(descriptor.tools);
+  return descriptor.tools.map((t, i) => toToolEntry(t, origin, rpc, names[i]?.name));
 }

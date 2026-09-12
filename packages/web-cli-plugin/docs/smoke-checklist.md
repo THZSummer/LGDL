@@ -23,7 +23,7 @@
 | M12 | untrusted 危险档位 fail-closed | 未确认 write → deny；未知 risk → deny | 不执行 | ✅ PASS（node 面） |
 | M13 | 无旁路 | `grep -rnE "\.executor\(" src` | 0 直接调用 | ✅ PASS |
 | M14 | 敏感明文零命中 | 审计/确认摘要脱敏断言 | 无明文 | ✅ PASS |
-| M15 | 审计落库 | `plugin.audit-export` / `audit-sink` 测试 | 事件面齐全 | ✅ PASS（node 面） |
+| M15 | 审计落库 | `admin_audit-export` / `audit-sink` 测试 | 事件面齐全 | ✅ PASS（node 面） |
 | M16 | 导航失效语义 | `controller.markNavigated()` 测试 | invalidated=true + 需重授权 | ✅ PASS（node 面） |
 | M17 | 通用性端到端 | `test/e2e.generality.test.ts`（fixture） | 全链通过 | ✅ PASS |
 | M18 | 风控暂停/中止可读阻断 | `test/host.test.ts` risk guard 用例（stop/pause → 不执行，resume 恢复） | 阻断可读、不静默 | ✅ PASS（node 面，P1） |
@@ -47,7 +47,7 @@
 | H0 | content script 注入 | 打开站点 → 点击扩展图标（用户手势）→ 检查页面无全局污染、控制台无错误 | 注入成功、宿主页零回归 |
 | H1 | side panel 多轮对话 | 打开 side panel → 输入指令 → 观察多轮 assistant/tool 渲染 | 多轮 + 工具调用可见 |
 | H2 | 授权弹层 | 点击「授权当前站点」 | 授权生效、状态可见、风险提示可读 |
-| H3 | 二次确认 | 触发 untrusted write（如 `site.lgdl-web-cli` 写命令） | 弹出确认摘要；允许→执行；拒绝/超时→不执行 |
+| H3 | 二次确认 | 触发 untrusted write（如 `site_lgdl-web-cli` 写命令） | 弹出确认摘要；允许→执行；拒绝/超时→不执行 |
 | H4 | 审计查看 | 点击「查看审计」 | 事件列表/计数可见、零明文 |
 | H5 | 导航失效提示 | 授权后整页刷新 | 明示「会话失效，需重新授权/重连」，不静默续接 |
 | H6 | LGDL 页端到端 | 在 LGDL 工作台加载插件 → 授权 → 经 RPC 执行图内容命令 + 写回 | 编辑器内容更新；既有功能零回归 |

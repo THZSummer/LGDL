@@ -41,6 +41,7 @@
 | TASK-018 | — | options 保存链路加固 + 「测试连接」+ UI 旅程门禁（用户实测反馈） | 🛠 | M | TASK-017（post-validate additive） | 波3+ | Wave 10 | 真复现（首次保存是否失败）+ 保存 try/catch 可读失败/空 Key 明确提示/摘要回显；新增测试连接（background 最小真实请求 + 可读分类）；`npm run test:ui` 常驻真实点击旅程 |
 | TASK-019 | — | 三成因加固 + 环境自检诊断 + 真实验证（用户实测反馈第二轮） | 🛠📄 | M | TASK-018（post-validate additive） | 波3+ | Wave 11 | 非扩展上下文守卫 + 站点未声明三态说明/reprobe + 诊断面板/构建戳 + `test:hardening` |
 | TASK-020 | — | 保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见（用户实测反馈第三轮） | 🛠 | M | TASK-019（post-validate additive） | 波3+ | Wave 12 | Key 框已保存态标记/placeholder/成功色高亮；无活跃站点三态原因 + 「重新绑定当前标签页」+ 发送禁用原因；侧栏 Key 状态 + 侧栏测试连接；`test:ui` 25→41 |
+| TASK-021 | — | 工具名非法字符修复（`site_*`/`admin_*`）+ B 重试重复错误 + C 未授权门禁核实（用户实测第五轮） | 🛠 | M | TASK-020（post-validate additive） | 波3+ | Wave 13 | 扁平无点工具名 + 确定性去重 + 策略判据 `group` + RPC 保真；`willRetry` 区分；`test:binding` 捕获真实 tools 断言合法 |
 
 ### 1.2 依赖拓扑（串行主轴 + 并行组）
 
@@ -1005,16 +1006,73 @@ npm run build && npm test
 
 ---
 
+### TASK-021: 工具名非法字符修复 + 附带疑点查清（用户实测第五轮，post-validate additive）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（工具命名/策略判据/错误呈现 + 真站点门禁；**不改 base、不引入新依赖**） |
+| **前置依赖** | TASK-020（post-validate 增补轮，不改已冻结 spec/plan） |
+| **执行波次** | Wave 13（TASK-020 之后 additive） |
+| **对应 FR** | FR-011/017（声明→工具面组装）/ FR-023（未授权拒执行）/ FR-025（可审计）/ NFR-001（fail-closed）/ NFR-008（可读） |
+| **TB 映射** | 无（用户实测反馈驱动的增补轮，非 plan TB） |
+| **状态** | ✅ completed（2026-09-12；权威状态见 `state.json`；执行记录见 `build.md §18`；D-069~D-073） |
+| **风险** | 低（base 零改动；真实厂商端到端仍属人工面 H7，不冒充） |
+
+**描述**: 用户真机（真实 Chrome + 真实 `http://localhost:5173` lgdl-web）发消息报
+`400 Invalid 'tools[0].function.name': string does not match pattern '^[a-zA-Z0-9_-]+$'`，且同一条出现两次。① 工具名修复：
+站点工具注册为扁平 `site_<sanitizedId>`、管理工具 `admin_<name>`（`namespace:''`，`group` 不变），RPC 仍用原始
+`decl.id`；sanitize 同名时确定性加 `_2`/`_3`… 并入 help/审计，不静默覆盖；`security/policy.ts` 判据由
+`namespace==='site'` 改为等价 `group==='site'`（未放宽）。② 附带疑点 B：查明「两次」= base `AgentRunner` 重试一次，
+插件用 `willRetry` 改为「重试提示 + 单条 error」。③ 附带疑点 C：核实授权只门禁执行（声明可见、执行 fail-closed），
+如实报告未擅改语义。④ `test:binding` 扩展为**捕获真实发给 LLM 的 tools 并断言全部合法**。
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| MODIFY | `packages/web-cli-plugin/src/tools/declared-tools.ts`、`src/tools/admin-tools.ts` |
+| MODIFY | `packages/web-cli-plugin/src/security/policy.ts`、`src/background/host.ts`、`src/background/service-worker.ts` |
+| NEW | `packages/web-cli-plugin/src/background/chat-events.ts` |
+| MODIFY | `packages/web-cli-plugin/test/host.test.ts`、`security.test.ts`、`content.test.ts`、`e2e.generality.test.ts`、`perf-budget.test.ts`、`state-message.test.ts`、`sidepanel-view.test.ts`、`chat-session.test.ts`、`test/e2e/fullchain.mjs`、`test/ui/binding.mjs` |
+| NEW | `packages/web-cli-plugin/test/chat-events.test.ts` |
+| MODIFY | `packages/web-cli-plugin/docs/dev.md`（§10.7）、`capability-matrix.md`、`gate-d.md`、`smoke-checklist.md`、`compliance.md`、`migration.md`；`.sddu/.../build.md`、`tasks.md`、`state.json` |
+| — | `packages/web-cli-base/**` **零改动**；各 `package.json` **零改动** |
+
+**验收标准**:
+- [x] A：`host.deriveTools()` 的**每一个** name 匹配 `^[a-zA-Z0-9_-]+$`（站点 `site_*` + 管理 `admin_*` + base 内建 `web-fetch`/`sleep`/`web-cli-help` + `ask-user`）
+- [x] A：`executor` 仍用原始 `decl.id` 调 RPC（断言 `site_graph_read` → `graph.read`）；help 同时展示扁平名与原始 id
+- [x] A：sanitize 同名确定性加 `_2`/`_3`…（`graph.read`/`graph_read` 用例）+ `descriptor-read` 审计可读；不静默覆盖
+- [x] A：策略判据 `group==='site'`，S1/S2/S3 与 `subcommandRisks` 语义逐条不变（未放宽）；站点工具仍 fail-closed
+- [x] B：同一条 LLM 错误不再产生两条 `system:` error——`willRetry` 区分（重试提示 + 最终 error）；base 未改
+- [x] C：未授权站点工具执行被拒（`ok:false` 可读 + RPC 零调用 + 审计 deny），声明可见（如实报告，未擅改语义）
+- [x] D：`test:binding` 真站点捕获真实 `tools`（12 个）并断言全部合法/零点号（38 断言 PASS）
+- [x] D：插件 **196** pass / 0 fail、`tsc` 0 error、`test:ui` 41 / `test:hardening` 22 / `test:e2e` A/B 全 PASS
+- [x] D：全仓 `build`+`test` 0 fail、base **483 零回归**；红线：base/package.json 零改动、无新依赖、无明文 key、未 git 提交
+
+**验证命令**:
+```bash
+npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin
+npm run typecheck --workspace @lgdl/web-cli-plugin
+npm run test:ui --workspace @lgdl/web-cli-plugin
+npm run test:hardening --workspace @lgdl/web-cli-plugin
+npm run test:e2e --workspace @lgdl/web-cli-plugin
+npm run test:binding --workspace @lgdl/web-cli-plugin
+npm run build && npm test
+```
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 4 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见，审查与实测反馈驱动） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 5 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清，审查与实测反馈驱动） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 4 增补（017/018/019/020） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 5 增补（017/018/019/020/021） |
 | L 级 (复杂) | 7（004/005/006/010/011/014/016） |
-| 执行波次 | 13（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 post-validate 增补） |
-| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020（非 plan TB） |
+| 执行波次 | 14（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 post-validate 增补） |
+| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
 | 文档/契约预留任务 | 2（002；012/014 的文档面） |
@@ -1122,3 +1180,4 @@ npm run build && npm test
 | v1.1 | 追加 TASK-017（post-validate 增补，非 plan TB）：首次截图式 UI 审查 F-1~F-9 修复（侧栏设置入口/LLM 状态摘要/状态驱动引导/日志空态/知情同意折叠/按钮禁用语义；options 使用说明与未配置提示；F-9 模型 ID 核验）。任务汇总计入增补轮。 | 2026-09-12 | SDDU Build Agent |
 | v1.2 | 追加 TASK-018（options 保存链路加固 + 「测试连接」+ UI 旅程门禁）与 TASK-019（三成因加固 + 环境自检诊断 + 真实验证；post-validate 增补，非 plan TB，用户实测反馈驱动）。任务汇总/波次计入增补轮（Wave 10/11）。 | 2026-09-12 | SDDU Build Agent |
 | v1.3 | 追加 TASK-020（保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见；post-validate 增补，非 plan TB，用户实测反馈第三轮驱动）。任务汇总/波次计入增补轮（Wave 12）；`test:ui` 25→41 断言、插件 173→183。 | 2026-09-12 | SDDU Build Agent |
+| v1.4 | 追加 TASK-021（工具名非法字符修复 + 附带疑点 B/C 查清；post-validate 增补，非 plan TB，用户实测第五轮 `400 Invalid 'tools[0].function.name'` 驱动）。任务汇总/波次计入增补轮（Wave 13）；站点 `site_*`/管理 `admin_*` 扁平命名 + `group` 判据 + `willRetry` 区分；`test:binding` 捕获真实 tools 断言合法（38 断言）；插件 191→196。 | 2026-09-12 | SDDU Build Agent |

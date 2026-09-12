@@ -25,7 +25,19 @@ import type { PolicyAction, PolicyConfig, PolicyStrategy, RouterPolicy, ToolRisk
 import { isToolRisk } from '../protocol/descriptor.js';
 import type { TrustState } from './origin-store.js';
 
-export const PLUGIN_SITE_NAMESPACE = 'site';
+/**
+ * Help-group key that marks a plugin-registered **site** tool.
+ *
+ * Prior to the flat-naming fix, site tools were registered in the `site`
+ * namespace and these strategies keyed off `input.namespace === 'site'`. The
+ * namespace had to be dropped (a `.`-free LLM function name requires
+ * `namespace: ''`), so the equivalent, reliable判据 is the registration
+ * `group: 'site'` (set only by `declared-tools.ts`; admin tools use
+ * `group: 'plugin'`, base builtins have no group). Execution gating is
+ * unchanged — site tools still go through the plugin-recomputed risk +
+ * fail-closed strategies below.
+ */
+export const PLUGIN_SITE_GROUP = 'site';
 
 /** Risk → default action table (plugin policy; FR-026). */
 export const PLUGIN_RISK_DEFAULTS: Partial<Record<ToolRisk, PolicyAction>> = {
@@ -62,7 +74,7 @@ export function createS1OriginAuthorizationStrategy(deps: PolicyDeps): PolicyStr
   return {
     name: 'S1-origin-authorization',
     async check(input): Promise<PolicyAction | null> {
-      if (input.namespace !== PLUGIN_SITE_NAMESPACE) return null;
+      if (input.group !== PLUGIN_SITE_GROUP) return null;
       const origin = originFromContext(input.ctx as Record<string, unknown>, deps);
       if (!origin) return 'deny';
       const authorized = await deps.isAuthorized(origin);
@@ -76,7 +88,7 @@ export function createS2UntrustedDeclaredStrategy(deps: PolicyDeps): PolicyStrat
   return {
     name: 'S2-untrusted-declared',
     async check(input): Promise<PolicyAction | null> {
-      if (input.namespace !== PLUGIN_SITE_NAMESPACE) return null;
+      if (input.group !== PLUGIN_SITE_GROUP) return null;
       const origin = originFromContext(input.ctx as Record<string, unknown>, deps);
       const trust: TrustState = origin ? await deps.trustOf(origin) : 'untrusted';
       if (trust === 'trusted') return null;
@@ -93,7 +105,7 @@ export function createS3FailClosedStrategy(): PolicyStrategy {
   return {
     name: 'S3-fail-closed',
     check(input): PolicyAction | null {
-      if (input.namespace !== PLUGIN_SITE_NAMESPACE) return null;
+      if (input.group !== PLUGIN_SITE_GROUP) return null;
       const risk = (input as StrategyInput).risk;
       if (risk === undefined || !isToolRisk(risk)) return 'deny';
       return null;

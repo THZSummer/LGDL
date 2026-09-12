@@ -31,7 +31,7 @@
 | LLM 配置 | 页面 `localStorage`（`lgdl-ai-settings`） | `chrome.storage.local`（插件独立） | **需手动重配**厂商 / Key / 模型 / Base URL |
 | Key 隔离 | 页面上下文可读 | 仅 background 读取，页面不可读 | 安全性提升；需重新录入 Key |
 | 授权模型 | 页面内隐式（同源） | per-origin 显式授权 + 二次确认 | 首次使用需授权目标站点 |
-| 工具面 | 内置助手工具（页内直连） | 站点声明工具（`site:*`，经 RPC + 门禁） | 能力对照见 `docs/capability-matrix.md` |
+| 工具面 | 内置助手工具（页内直连） | 站点声明工具（`site_*`，经 RPC + 门禁） | 能力对照见 `docs/capability-matrix.md` |
 | 站点范围 | 仅 LGDL 页内 | 任意声明 web-cli 协议的站点 | 能力扩展（通用消费端） |
 | 审计 | 无统一审计面 | 全量审计（授权/确认/发现/执行），零明文 | 新增可查看/导出能力 |
 | 风控护栏 | 无 | per-origin 频率限制 + 暂停/中止 | 默认启用；用户可暂停/中止 |

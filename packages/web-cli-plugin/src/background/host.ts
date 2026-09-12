@@ -9,6 +9,7 @@
 import {
   createAskUserToolEntry,
   createCommandRouter,
+  fqNameOf,
   type AskResponder,
   type CommandRouter,
   type LlmToolDef,
@@ -22,7 +23,12 @@ import type { PluginAuditSink } from '../security/audit-sink.js';
 import type { OriginStore } from '../security/origin-store.js';
 import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../security/policy.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
-import { SITE_NAMESPACE, toToolEntries, type SiteRpc } from '../tools/declared-tools.js';
+import { SITE_TOOL_PREFIX, allocateSiteToolNames, toToolEntries, type SiteRpc } from '../tools/declared-tools.js';
+
+/** Whether a dispatch target is a declared site tool (flat `site_*` name). */
+export function isSiteToolName(name: string): boolean {
+  return name.startsWith(SITE_TOOL_PREFIX);
+}
 
 export interface WebCliHostOptions {
   origins: OriginStore;
@@ -96,7 +102,20 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
       const entries = toToolEntries(descriptor, origin, opts.rpc);
       for (const entry of entries) {
         router.register(entry);
-        siteFqns.push(`${SITE_NAMESPACE}.${entry.name}`);
+        siteFqns.push(fqNameOf(entry));
+      }
+      // Deterministic collision disclosure (FR-025 auditability): when two
+      // declared ids flatten to the same LLM-safe name, the second gets a `_N`
+      // suffix. Record it readably — never silent.
+      const assignments = allocateSiteToolNames(descriptor.tools);
+      const deduped = assignments.filter((a) => a.deduped);
+      if (deduped.length) {
+        opts.audit.recordPlugin({
+          type: 'descriptor-read',
+          ts: Date.now(),
+          origin,
+          detail: `工具名去重：${deduped.map((a) => `${a.id} → ${a.name}`).join('；')}`,
+        });
       }
       siteDescriptor = descriptor;
       siteOrigin = origin;
@@ -116,7 +135,7 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     dispatch(tc, ctx) {
       // FR-029 / EC-010: site executions pass the risk guard first (per-origin
       // rate limit + pause/stop). Blocks are readable, never silent.
-      if (tc.name.startsWith(`${SITE_NAMESPACE}.`)) {
+      if (isSiteToolName(tc.name)) {
         const origin = typeof ctx?.origin === 'string' && ctx.origin ? ctx.origin : opts.currentOrigin?.();
         const risk = riskGuard.check(origin);
         if (risk.action !== 'allow') {
