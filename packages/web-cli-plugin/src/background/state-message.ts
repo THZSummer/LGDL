@@ -109,6 +109,16 @@ export interface StateMessagePayload {
   trust: 'trusted' | 'untrusted';
   /** Non-sensitive active-tab projection (TASK-020 任务 B). */
   tab?: ActiveTabView | null;
+  /** decision ② / FR-048: the current multi-session projection (null when unbound). */
+  session?: SessionView | null;
+}
+
+/** decision ② / FR-048: non-sensitive multi-session projection for the panel. */
+export interface SessionView {
+  sessionId: string;
+  label: string;
+  origins: string[];
+  authorized: boolean;
 }
 
 export async function buildStateMessage(input: {
@@ -118,10 +128,18 @@ export async function buildStateMessage(input: {
   /** TASK-023: optional trust lookup; absent → `untrusted` for every origin. */
   trustOf?: (origin: string) => Promise<'trusted' | 'untrusted'>;
   tab?: ActiveTabView | null;
+  session?: SessionView | null;
 }): Promise<StateMessagePayload> {
   const { active, tools, isAuthorized } = input;
   const authorized = active ? await isAuthorized(active.origin) : false;
   const trust = active && input.trustOf ? await input.trustOf(active.origin) : 'untrusted';
-  return { active, tools, authorized, trust: trust === 'trusted' ? 'trusted' : 'untrusted', tab: input.tab ?? null };
+  return {
+    active,
+    tools,
+    authorized,
+    trust: trust === 'trusted' ? 'trusted' : 'untrusted',
+    tab: input.tab ?? null,
+    session: input.session ?? null,
+  };
 }
 

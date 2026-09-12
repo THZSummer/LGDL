@@ -68,6 +68,12 @@ export type SidepanelAction =
   | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
   | { type: 'ask-resolved' }
   | { type: 'audit-count'; count: number }
+  /**
+   * decision ② / FR-048: replace the whole entry list with a (re)loaded session
+   * history — used when switching sessions / after the background reports a
+   * session change. Never mixes with the previous session's entries (no串台).
+   */
+  | { type: 'history'; entries: Array<{ role: ChatRole; text: string }> }
   | { type: 'notice'; text: string };
 
 export function createInitialState(): SidepanelState {
@@ -152,6 +158,14 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
       return { ...state, ask: null };
     case 'audit-count':
       return { ...state, auditCount: action.count };
+    case 'history': {
+      // decision ②: a session switch replaces the conversation wholesale. Tool
+      // results are re-shown as plain tool notices (no invented card metadata).
+      const entries: ChatEntry[] = action.entries
+        .filter((e) => e.text.length > 0)
+        .map((e, i) => ({ id: i + 1, role: e.role, text: e.text, kind: e.role === 'tool' ? 'tool' : 'text' }));
+      return { ...state, entries, nextId: entries.length + 1, pending: false };
+    }
     case 'notice':
       return { ...state, notice: action.text };
     default:

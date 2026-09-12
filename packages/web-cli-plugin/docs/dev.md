@@ -31,8 +31,9 @@ npm run build
 1. 构建（见 §2）。
 2. 打开 `chrome://extensions` → 打开右上角「开发者模式」。
 3. 点击「加载已解压的扩展程序」→ 选择 `packages/web-cli-plugin/dist/`。
-4. 打开目标站点 → **点击工具栏插件图标**（用户手势；这是绑定的唯一触发点）→ 插件绑定当前标签页并**自动打开 side panel** → 授权当前站点。
-5. 若需站点事件通道：在 side panel 触发事件订阅后才会安装观察源（默认关 / 零常驻）。
+4. 打开目标站点 → **首次**点击工具栏插件图标打开侧栏（或点图标直接绑定）→ 在侧栏点「授权当前站点」（浏览器弹一次站点权限框）。
+5. **授权之后无需再点图标**：该站点每次页面加载都会自动注入、自动绑定（见 §12）；切换标签页也会自动识别并切到对应会话。
+6. 若需站点事件通道：在 side panel 触发事件订阅后才会安装观察源（默认关 / 零常驻）。
 
 > 首次授权会请求该 origin 的可选 host 权限（manifest `optional_host_permissions` 同时覆盖 `http://*/*` 与 `https://*/*`，本地 `http://localhost:5173` 开发站也能被持久授权）；拒绝则回退 `activeTab`（仍可用，但后台特权 fetch 能力受限）。
 > 自动打开侧栏依赖 `chrome.sidePanel.open`（Chrome 116+，`minimum_chrome_version` 已提到 116）；若该调用失败，绑定仍然成功，面板会给出「请手动点图标打开侧栏」的可读提示。
@@ -43,9 +44,12 @@ npm run build
 
 1. **配置模型**：侧栏顶部「配置模型 / 设置」按钮 → options 页选择厂商、填入 API Key 并保存（BYOK，仅存 `chrome.storage.local`，不回显明文）。
 2. **打开目标站点**：打开声明了 web-cli 协议的站点标签页（本仓库的 LGDL Web 即一个实例站点）。
-3. **点击插件图标**：这是**绑定的唯一触发点**。点击时 Chrome 才会把该标签页的地址交给插件（无需 `tabs` 权限）；插件绑定并发现当前站点，然后自动打开侧栏。
-4. **授权当前站点**：在侧栏点击「授权当前站点」，确认知情同意与可选站点权限。
-5. **输入指令**：在底部输入框发送，开始对话。
+3. **首次绑定该站点**：点击插件图标 —— 点击时 Chrome 才会把该标签页地址交给插件（无需 `tabs` 权限）；插件绑定并发现当前站点，然后自动打开侧栏。
+4. **授权当前站点（每个站点只需一次）**：在侧栏点击「授权当前站点」，确认知情同意与可选站点权限（浏览器弹一次权限框）。
+5. **之后全自动**：该站点获得持久权限后，插件会注册**声明式注入**（`chrome.scripting.registerContentScripts`），此后该站点每次页面加载都自动注入、自动绑定，**不需要再点图标**；切换标签页自动切到该站点对应会话。
+6. **输入指令**：在底部输入框发送，开始对话。
+
+> **一句话**：**每个站点首次需授权一次（浏览器弹权限框），之后注入/握手/绑定全自动**。未授权站点仍需点图标（或先在侧栏授权），点图标路径始终保留为回退。
 
 侧栏顶部会显示当前 LLM 状态（`未配置` / `厂商 · 模型`）；未配置时按钮变为「去配置模型」并以醒目提示引导。状态来自 background 的 `llm-status` 消息，只返回 `{configured, providerId, providerName, model}` 摘要，**绝不回传 API Key 明文**。
 
@@ -297,23 +301,27 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 已打开 http(s) 站点但尚未绑定（已点图标但扩展刚重载等） | 「当前站点尚未绑定（https://…）」 | 点工具栏插件图标，或点「**重新绑定当前标签页**」 |
 | 没有可用标签页 | 「没有可用标签页」 | 打开目标站点标签页后再点插件图标 |
 | 已在目标站点但发现态非 `supported` | 由 `#discovery-notice` 说明（未声明 = 设计如此非故障；未知 = 可读原因 + 「重新探测」） | 按提示「重新探测」或换到声明了协议的站点 |
-| 切到别的标签页 | 「已切换标签页：原绑定站点已标记失效…」 | 回到目标站点标签页点插件图标重新绑定 |
+| 切到别的标签页（该站点已授权） | 无提示——自动握手识别并切到该站点对应会话 | 无需操作 |
+| 切到未授权/受限标签页 | 「已切换标签页：当前标签页尚未授权/未注入…」 | 在目标站点授权一次（之后自动），或点插件图标 |
 | 上一条指令仍在处理 | 「发送已禁用：上一条指令仍在处理中」 | 等当前轮结束 |
 
 侧栏顶部同时提供「**测试连接**」（无需打开 options，复用已保存配置），结果在侧栏内可读展示。
 
-### 10.6 「为什么一定要点插件图标？」（绑定逻辑）
+### 10.6 「为什么以前一定要点插件图标？现在还要吗？」（绑定逻辑）
 
-这是最容易踩、也最容易被误判为「插件坏了」的一步，所以单独说明：
+**结论（v0.9 起）：每个站点首次授权一次，之后注入/握手/绑定全自动**；只有**未授权**站点仍需点图标（点图标路径永久保留为回退）。
 
 - **Chrome 只在「用户手势」里把标签页地址交给扩展。** manifest **没有**（也不应该有）`tabs` 权限；`host_permissions` 只覆盖 6 个 LLM 域名。因此在**点击插件图标之前**，`chrome.tabs.query(...).url` 对任何普通网页都是 `undefined`——包括正常的 `http://localhost:5173`。旧文案把它写成「当前标签页没有可读取的地址」，让人以为页面有问题；实际含义是「**你还没在目标站点点插件图标**」。
-- **点击插件图标 = 绑定的唯一触发点。** `chrome.action.onClicked(tab)` 的回调参数 `tab.url` 在手势下必定可读（不依赖 `tabs` 权限）。处理函数用 `tabUrl → bindTab()` 绑定该标签页并注入 content script；随后 `ensureContentScript` 触发发现（well-known / html-link / handshake）。
+- **首次授权 = 声明式注入的开关。** 在侧栏点「授权当前站点」且浏览器授予该站点权限后，background 调 `chrome.scripting.registerContentScripts({ matches:['<origin>/*'], js:['content.js'], persistAcrossSessions:true })`。此后该 origin **每次页面加载自动注入** content script，无需点图标。
+- **自动握手 = 免手势绑定。** content script 加载后主动上报自身 `location.origin`（`hello` 消息）；`tabs.onActivated` 切换标签页时 background 发 `whoami`，content script 回 origin → 自动绑定该标签页并 adopt 其会话。**不读 `tab.url`、不需要 `tabs` 权限、不需要手势。**
+- **未授权站点静默降级。** 未授权 origin 不注册、不注入；握手失败时**静默**返回「未绑定」并给可读提示（不刷错误日志、不弹错），点图标路径仍可用。
+- **启动对账。** SW 启动 / `onInstalled` / `permissions.onAdded|onRemoved` 时读 `getRegisteredContentScripts()` 与「已授权 + 已获权限」集合对账：**补齐缺失、清理已撤销**；失败写入审计与日志（可读）。
 - **为什么以前点了图标也不绑定？** 旧实现调用了 `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`。Chrome 语义：**该开关开启时 `chrome.action.onClicked` 不会触发**——于是点图标只开面板、绑定逻辑（在 `onClicked` 里）成了死代码。现在改为显式 `openPanelOnActionClick: false`，并由点击处理函数在**同一手势内**调用 `chrome.sidePanel.open({ tabId })`。
-- **切换标签页会标记失效（不静默保留后台绑定）。** `chrome.tabs.onActivated` 在绑定标签页被切走时把会话标记为 stale 并提示「已切换标签页…请点插件图标重新绑定」。没有 `tabs` 权限时 `onActivated` 拿不到新标签页地址，所以这里**只比较 tabId、绝不读 url、绝不因此报错**。
+- **切换标签页会自动重绑（已授权站点）。** `tabs.onActivated` 先做 `whoami` 握手：成功 → 自动绑定并切到对应会话（不弹提示）；失败（未授权/受限）→ 标记 stale 并给可读提示，绝不因此报错。
 
-排查顺序：① 在目标站点标签页点插件图标；② 看侧栏顶部是否出现站点 origin（不再是「无活跃站点」）；③ 点「授权当前站点」；④ 发送按钮应变为可用。仍不行时用 options 页「环境自检 / 诊断」（构建戳 / SW 连通性 / 活跃站点）反馈。
+排查顺序：① 未授权站点先在目标标签页点插件图标；② 看侧栏顶部是否出现站点 origin（不再是「无活跃站点」）；③ 点「授权当前站点」（每个站点一次）；④ 之后刷新页面/切标签页应**自动**绑定（无需再点图标）；⑤ 发送按钮应变为可用。仍不行时用 options 页「环境自检 / 诊断」反馈。
 
-> 机械面实证：`npm run test:binding`（`test/ui/binding.mjs`）用**真实 dist + 真实 `http://localhost:5173` 的 lgdl-web + mock LLM** 跑通「绑定 → 注入 → 发现 supported → 授权（http host permission 路径）→ 发送可用 → 输入 11111 对话」6 步；图标点击不可脚本触发与 headless 无原生权限弹窗两处偏差已在该脚本头部如实披露。该门禁现已**捕获真实发给 LLM 的 `tools` 数组并断言每个 `name` 匹配 `^[a-zA-Z0-9_-]+$`**（见 §10.7）。
+> 机械面实证：`npm run test:binding`（`test/ui/binding.mjs`）阶段 1 用**真实 dist + 真实 `http://localhost:5173` 的 lgdl-web + mock LLM** 跑通「绑定 → 注入 → 发现 supported → 授权（http host permission 路径）→ 发送可用 → 输入 11111 对话」6 步；**阶段 2 专证自动探测**：authorize → `chrome.scripting` 真实注册 → **reload 页面触发 hello 自上报 → 免点图标自动绑定 `origin` + discovery supported + 工具面装配**（#A0~#A7），并验证 whoami 切标签页重绑与未授权站点静默降级。图标点击不可脚本触发与 headless 无原生权限弹窗两处偏差已在该脚本头部如实披露。该门禁同时**捕获真实发给 LLM 的 `tools` 数组并断言每个 `name` 匹配 `^[a-zA-Z0-9_-]+$`**（见 §10.7）。
 
 ### 10.7 「发消息报 HTTP 400：Invalid 'tools[0].function.name'（工具名非法字符）」
 
@@ -421,7 +429,39 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
   工具卡片样式、trust 投影）新增静态断言；`test/chat-events.test.ts` 增 command/tool 事件形状。
 - 纯 node 门禁 `npm test`（插件 222）、`tsc --noEmit`、`test:hardening`（22）、`test:e2e`、`test:binding`（41）。
 
-## 12. 变更记录
+## 12. 自动探测与多会话（v0.9 增补）
+
+> 作者 2026-09-12 两项架构级决策：①**自动探测**（首次授权一次，之后全自动，不引入全站静态注入）；②**多会话**（默认按域名自动共享，可手动并入会话组）。对应 spec FR-047/048、plan ADR-013/014。**不新增任何权限、不新增 LLM 工具**。
+
+### 12.1 自动探测（FR-047 / ADR-014）
+
+| 环节 | 实现 | 位置 |
+|------|------|------|
+| 声明式注入 | `authorize` 且 `hostPermissionGranted=true` → `registerContentScripts({ id:'wcliSite_<hash>', matches:['<origin>/*'], js:['content.js'], runAt:'document_idle', persistAcrossSessions:true })` | `background/content-script-registry.ts`；`service-worker.ts` case `authorize` |
+| 启动对账 | SW 启动 / `onInstalled` / `permissions.onAdded·onRemoved` → 读注册表与「已授权+已获权限」集合对账，**补齐缺失·清理已撤销**；失败审计+日志 | `service-worker.ts` `reconcileContentScripts()` |
+| 自上报握手 | content script 加载后 `hello{origin}`；切标签页 background 发 `whoami`，content 回 `origin` | `content/content-script.ts`；`service-worker.ts` case `hello` / `autoBindFromTab` |
+| 未授权降级 | 未授权 origin 不注册不注入；握手失败**静默**返回未绑定 + 可读提示，保留点图标回退 | `service-worker.ts` `chrome.tabs.onActivated` |
+| 撤销 | `revoke` → `unregisterContentScripts`(best-effort) + 可读回执；随后 `permissions.onRemoved` 再对账 | `service-worker.ts` case `revoke` |
+
+**权限纪律**：manifest `permissions` 仍为 `activeTab/scripting/storage/sidePanel`；`optional_host_permissions` 仍为 `http://*/*`+`https://*/*`；`host_permissions` 仍为 6 个 LLM 域名；**无静态 `content_scripts`、无 `tabs`、无全站匹配**。
+
+### 12.2 多会话（FR-048 / ADR-013）
+
+- **会话键派生**：默认 `sessionId = origin`；origin 属于某会话组 G 时 `sessionId = group:<G.groupId>`（纯函数 `sessionIdForOrigin`）。同域名标签页恒映射同一会话 → 共享同一份历史；不同域名天然隔离。
+- **存储**：`background/session-store.ts` → `chrome.storage.local['web-cli:session-store']`，结构 `{ groups[], sessions[{ sessionId, origins[], history[], createdAt, lastActiveAt, title? }] }`；历史从对话提交时 `setHistory(currentSessionId, …)` 写入，切换会话 `chatSession.restore(historyOf(sessionId))`。历史边界沿用既有 40 turn（`boundHistory`）。
+- **上限与回收**：默认 20 会话，超出按 LRU 淘汰最不活跃者并**可读披露**（侧栏 notice）。
+- **分组**：侧栏「更多」→ 会话区（新建分组 / 把当前域名并入 / 切换会话）；options 页「会话分组」可移出域名 / 删除分组。**分组只共享对话，不代表互相授权**（每 origin 仍单独授权；风控按 origin）。
+- **切换标签页**：`onActivated` → 自动握手 → adopt 该 origin 对应会话 → 广播 `session-changed` → 面板 `sessions` 重读并回显历史（不串台）。
+- **待决交互**：切换会话时若有待决 `confirm`/`ask-user` → `cancelPendingConfirm()` + `askBridge.cancelAll()`（=拒绝/取消，fail-closed）+ 可读提示（EC-019），不静默挂起。
+
+### 12.3 回归门禁
+
+- `npm test`：新增 `test/session-store.test.ts`（键派生/隔离/分组/上限 LRU/有界历史/持久化）、`test/content-script-registry.test.ts`（注册/对账/失败可读）、`test/auto-session-wiring.test.ts`（静态钉住自动探测/会话切换处置/权限纪律）、`test/session-view.test.ts`、`test/session-actions.test.ts`。
+- `npm run test:binding`：阶段 2（#A0~#A7）真站点证明**免点图标自动绑定**（authorize→真实 `registerContentScripts`→reload 触发 hello→自动绑定+supported+工具面；whoami 切页重绑；未授权静默降级）。
+- `npm run test:ui`：新增 **#16a~#16i**（会话标记/切换器/历史隔离双向/分组控件/「分组≠授权」文案）。
+- `npm run test:hardening`（22）/`npm run test:e2e`（A/B）复跑 PASS。
+
+## 13. 变更记录
 
 | 版本 | 说明 |
 |------|------|
@@ -435,4 +475,5 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 1.7 | 工具名非法字符缺陷修复（用户实测：`400 Invalid 'tools[0].function.name'`）：站点/管理工具改为扁平无点 `site_*` / `admin_*`（`namespace:''`，`group` 不变），策略链判据改 `group==='site'`；RPC 仍用原始 id；碰撞确定性加后缀并审计；`AgentRunner` 重试导致的重复错误改为「重试提示 + 单条 error」。补 §10.7；`test:binding` 扩展为捕获真实 LLM `tools` 并断言合法。 |
 | 1.8 | TASK-022（用户实测第六轮）：侧栏消息从纯文本改为「角色标签 + 内容区」分组块；assistant 走**零依赖、无 HTML 解析**的安全 Markdown 渲染（标题/列表/引用/行内/围栏代码/GFM 表格/仅 http(s) 链接），tool/system 保持等宽 `pre-wrap`，user 纯文本；新增 `src/ui/sidepanel/markdown.ts` + `test/markdown.test.ts`（12 用例），`test:ui` 41→50 断言（#14a~#14i），补 §10.8。 |
 | 1.9 | TASK-023（用户实测第七轮，整体 UI/UX 重做）：先读回原 AI 助手（git 历史）作设计基准；侧栏改**三区 flex 全高**（`#log` 去 `45vh` 改 flex 填充、composer 为末元素贴底、8 按钮收为「主操作 + 〈更多〉`<details>`」）；消息改角色气泡（user indigo 右对齐 / assistant Markdown / tool **可折叠卡片** / system·error 醒目 / command 紧凑块 / thinking 三点 / 「回到底部」跟随策略）；明暗适配 tokens；零新依赖、无框架、无 `innerHTML`、MV3 CSP 合规。补 §11；`test:ui` 50→67（#15a~#15q）、`test:binding` 38→41（#6h~#6j 用户气泡）、插件 209→222、全仓 0 fail（base 483 零回归）。**流式如实未实现（base 无增量能力，原助手亦无）**。 |
+| 2.0 | **v0.9 增补（FR-047/048 / ADR-013/014）**：①自动探测——`authorize` 后声明式注入 + 自上报自动握手（免点图标）+ 启动对账；未授权站点静默降级；权限面零新增。②多会话——`session-store.ts` 按 origin/会话组派生会话键，每会话独立 40-turn 有界历史，上限 20 + LRU 可读披露；切换标签页/会话自动 adopt 并回显（不串台）；切换时待决 confirm/ask 明确取消（EC-019）。补 §3/§3.1/§10.5/§10.6 与 §12；`test:ui` 70→79（#16a~#16i）、`test:binding` 44→58（阶段 2 #A0~#A7）、插件 229→262、全仓 0 fail（base 483 零回归）、`test:hardening` 22、`test:e2e` A/B PASS；无 `<all_urls>`/无 `tabs`/无新依赖/base 零改动。 |
 

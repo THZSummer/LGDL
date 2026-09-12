@@ -9,8 +9,8 @@
 
 | # | 内置助手工具 | 能力 | 插件对应 | 状态 | 波次 | 最小能力集 |
 |---|-------------|------|---------|:----:|:----:|:--:|
-| 1 | `web-fetch` | 基础 web 获取 | 插件 background 经 `host_permissions` fetch（能力内建，非独立工具） | 替代 | P0 | 否 |
-| 2 | `sleep` | 时序等待 | 宿主侧编排（无独立工具） | 不适用 | — | 否 |
+| 1 | `web-fetch` | 基础 web 获取 | **base 独立内建工具** `web-fetch`（`router.ts` 默认内建），插件随默认内建下发（`host.ts` 未传 `builtins`） | 对齐 | P0 | 否 |
+| 2 | `sleep` | 时序等待 | **base 独立内建工具** `sleep`（`router.ts` 默认内建），插件同样下发 | 对齐 | P0 | 否 |
 | 3 | `web-cli-help` | 工具发现/自文档 | `CommandRouter.listHelp/helpFor` + `admin_*` 管理工具 + side panel 状态 | 对齐 | P0 | 是 |
 | 4 | `lgdl-web-cli` | 图内容操作（17 子命令/9 增量） | 站点声明工具 `site_lgdl-web-cli` 经页面 RPC 执行（LGDL `web-cli-host` 暴露） | 对齐 | P0 | **是** |
 | 5 | `lgdl-web-op-cli` | UI 操作 | 站点声明工具 `site_lgdl-web-op-cli` 经页面 RPC 执行 | 对齐 | P1 (TASK-013) | 是 |
@@ -29,22 +29,24 @@
 | 18 | `todo` | 任务清单 | 宿主 agent 循环内（非独立工具） | 不适用 | — | 否 |
 | 19 | `goal` | 目标跟踪 | 同上 | 不适用 | — | 否 |
 | 20 | `jobs` | 后台任务 | 同上 | 不适用 | — | 否 |
-| 21 | `eval-js`（禁用） | Worker JS 执行 | 不提供（evaluate 最高档，插件 fail-closed） | 不适用 | — | 否 |
+| 21 | `eval-js`（禁用） | Worker JS 执行 | 不提供（插件 fail-closed；base risk 实为 `write`，非 evaluate） | 不适用 | — | 否 |
 | 22 | `subagent`（禁用） | 子代理 | 不提供（P0 单会话） | 不适用 | — | 否 |
 | 23 | `wait` | 条件等待 | 站点 RPC 超时/重试内建 | 不适用 | — | 否 |
 | 24 | `extract` | 增量采集 | 插件不采集页面数据（O-002 通用消费端定位） | 不适用 | — | 否 |
 | 25 | `export` | 采集导出 | 站点侧能力（如 op-cli `export-*`）经 RPC | 替代 | P1 | 否 |
 | 26 | `page-eval`（禁用） | 页面求值（最高档） | 不提供（evaluate 档缺省 deny，fail-closed） | 不适用 | — | 否 |
-| 27 | `chrome` | 浏览器外壳（print/back/forward/reload/screenshot） | 插件为独立扩展宿主，非页内工具 | 不适用 | — | 否 |
-| 28 | `save` | 文件落盘 | 站点侧 op-cli `export-*` 经 RPC | 替代 | P1 | 否 |
-| 29 | `notify` | 系统通知 | 扩展可后续扩展（非 P0） | 后置 | P2+ | 否 |
+| 27 | `chrome` | 浏览器外壳（print/back/forward/reload/screenshot） | base 工厂需页内 `env.dom`/`env.filePicker`（插件未提供、未注册）；**但扩展宿主原生拥有** `chrome.tabs` 导航与 `captureVisibleTab` 截图——属「不同 API 下更适用」，非「不适用」 | 后置（可裁决） | P2+ | 否 |
+| 28 | `save` | 文件落盘 | 站点侧 op-cli `export-*` 经 RPC；扩展侧可用 `chrome.downloads`（后置） | 替代 | P1 | 否 |
+| 29 | `notify` | 系统通知 | 扩展可后续扩展（`chrome.notifications`；非 P0） | 后置 | P2+ | 否 |
 | 30 | `clipboard` | 剪贴板读写 | 站点侧 op-cli `copy-source` 经 RPC | 替代 | P1 | 否 |
-| 31 | `events` | 事件订阅/观察 | content script 事件桥 → background 事件通道 | 对齐 | P1 (TASK-013) | 是 |
+| 31 | `events` | 事件订阅/观察 | content script 事件桥 → background 事件通道（**传输层既有**）；base `events` **工具**未注册 → LLM 工具面尚无 `events`（站点 `env.events` 代理可用） | 部分对齐/后置 | P1 | 否 |
 | 32 | `cookie`（禁用） | Cookie 读写 | 站点主权的站点侧能力（插件不越权） | 不适用 | — | 否 |
 | 33 | `dialog`（禁用） | 页面对话框 | 同上 | 不适用 | — | 否 |
 | 34 | `net`（禁用） | 网络拦截 | 不提供（P2 门禁；越权面） | 不适用 | — | 否 |
 
-> 合计 **34 项**（与 `session.ts` 注册矩阵逐项核对，无遗漏条目）。
+> 合计 **34 项**（对照 **TASK-016 下线前**的 `lgdl-web/src/ai/session.ts` 注册矩阵逐项核对，无遗漏条目；该文件已随 FR-038 下线、仅存 git 历史 `762d3a6^`，本表为存档对照）。
+>
+> **文档漂移修正（2026-09-12，闭环 build.md §22 审计）**：第 1/2 行原写 `web-fetch`/`sleep`「非独立工具/无独立工具」与代码事实相反——base 将二者注册为**独立内建工具**并随插件下发，已改为「对齐」。第 21 行 `eval-js` 原写「evaluate 最高档」——base 实际 risk 为 `write`，已更正理由（结论「不提供」不变）。第 27 行 `chrome` 原写「不适用」——扩展宿主原生拥有 `chrome.tabs` 导航/截图能力，改为「后置（可裁决）」。第 31 行 `events` 原把「传输桥」写成「能力对齐/是」——区分「站点事件通道可用」与「LLM 工具面无 `events` 工具」，改为「部分对齐/后置」。
 
 ## 2. 下线最小能力集（Gate-D D-1 基线）
 
@@ -66,6 +68,11 @@
 - **机制差异（非功能差异）**：内置助手在页内直接调用领域工具；插件经 postMessage RPC 由页面 `web-cli-host` 执行。结果语义一致（同输入同结果），执行路径不同（可审计、可授权）。
 - **UI 操作**：P1 TASK-013 已补齐（`site_lgdl-web-op-cli` 经 RPC + 门禁裁决）；内置助手已随 TASK-016 下线，由插件承载。
 - **不适用项**：属页内宿主专属能力或插件定位外（不采集页面数据、不做浏览器外壳工具），不构成能力缺口。
+
+### 3.1 v0.9 增补（FR-047/048）对能力面的影响
+
+- **不新增任何 LLM 工具**：自动探测（FR-047）与多会话（FR-048）分别是**注入/绑定链路**与**会话管理**，不改变 `deriveTools()` 的工具面（仍为 base 内建 3 + `admin_*` + `ask-user` + 站点声明 N）。
+- 会话从「全局单份」改为「按 origin / 会话组」，`session` 能力项（第 11 行）由「controller + storage.session」升级为「`session-store.ts` 按会话键持久化 + LRU 上限」；历史隔离更严格（不同 origin 不串台），不降级。
 
 ## 4. 引用
 

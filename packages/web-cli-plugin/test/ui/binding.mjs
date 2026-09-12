@@ -580,6 +580,162 @@ async function phase1(mock) {
   }
 }
 
+/**
+ * Phase 2 — decision ① / FR-047 real auto-detection proof.
+ *
+ * The user requirement: after the **one-time** per-site authorization the plugin
+ * must bind automatically (no more icon clicks). This phase proves it on the real
+ * site with a fresh Chrome:
+ *   1. baseline: no declarative registration exists;
+ *   2. `authorize` (hostPermissionGranted=true) registers a declarative content
+ *      script for `${SITE_ORIGIN}/*` via `chrome.scripting.registerContentScripts`;
+ *   3. **reload the site tab** → the injected content script self-reports `hello`
+ *      → the background auto-binds `active.origin === SITE_ORIGIN` and completes
+ *      discovery — with **no rebind and no icon click** (proved by #A4: the initial
+ *      state is captured *before* any rebind call is made);
+ *   4. tab switching re-binds via the `whoami` handshake;
+ *   5. an unauthorized origin degrades **silently** to the readable "unbound"
+ *      state (no exception, readable notice).
+ *
+ * Disclosure ①/② from phase 0 still apply (no scriptable icon click; headless has
+ * no native permission prompt → the temp manifest pre-grants the host permission,
+ * dist JS byte-identical).
+ */
+async function phase2() {
+  console.log(`\n▶ 阶段 2：自动探测（授权后免点图标自动绑定）`);
+  const work = await mkdtemp(join(tmpdir(), 'web-cli-binding-auto-'));
+  const extDir = join(work, 'ext');
+  await cp(dist, extDir, { recursive: true });
+  const manifest = JSON.parse(await readFile(join(extDir, 'manifest.json'), 'utf8'));
+  manifest.host_permissions = [...manifest.host_permissions, SITE_PATTERN];
+  await writeFile(join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+  const { work: chromeWork, chrome, base, sw, log } = await launchChrome(extDir, 'auto');
+  try {
+    check(Boolean(sw), '#A0 service worker 可达');
+    if (!sw) throw new Error('no sw');
+
+    const extId = await evaluate(sw, `chrome.runtime.id`);
+    const siteTabId = await evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(SITE_ORIGIN)} }).then((t) => t.id)`, 20000);
+    await sleep(2000);
+    const spTabId = await evaluate(sw, `chrome.tabs.create({ url: 'chrome-extension://${extId}/sidepanel.html' }).then((t) => t.id)`);
+    const spTarget = await findTarget(base, (t) => t.type === 'page' && t.url.includes('sidepanel.html'));
+    if (!spTarget) throw new Error('sidepanel target not found');
+    const ext = await connectCdp(spTarget.webSocketDebuggerUrl);
+    await ext.send('Runtime.enable');
+    await ext.send('Log.enable');
+    const extExceptions = [];
+    ext.on('Runtime.exceptionThrown', (p) => extExceptions.push(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text));
+
+    // #A1 baseline: no declarative site script before authorization.
+    const before = await evaluate(
+      sw,
+      `chrome.scripting.getRegisteredContentScripts().then((list) => list.filter((s) => String(s.id).startsWith('wcliSite_')).length)`,
+    );
+    check(before === 0, '#A1 授权前无声明式注入注册（基线）', String(before));
+
+    // #A2 authorize → declarative registration (the ONE-TIME gate).
+    const authRes = await evaluate(
+      ext,
+      `chrome.runtime.sendMessage({ kind: 'authorize', origin: ${JSON.stringify(SITE_ORIGIN)}, hostPermissionGranted: true }).then((r) => JSON.stringify(r)).catch((e) => 'ERR:' + String(e))`,
+    );
+    const auth = JSON.parse(authRes);
+    check(auth.ok === true, '#A2 authorize 成功', authRes);
+    check(auth.data?.contentScript?.ok === true, '#A2b authorize 回执含声明式注入注册成功', JSON.stringify(auth.data?.contentScript));
+    check(auth.data?.contentScript?.pattern === SITE_PATTERN, `#A2c 注册匹配式 = ${SITE_PATTERN}`, JSON.stringify(auth.data?.contentScript));
+
+    const registered = await evaluate(
+      sw,
+      `chrome.scripting.getRegisteredContentScripts().then((list) => JSON.stringify(list.filter((s) => String(s.id).startsWith('wcliSite_')).map((s) => ({ id: s.id, matches: s.matches, runAt: s.runAt, persist: s.persistAcrossSessions }))))`,
+    );
+    const regs = JSON.parse(registered);
+    check(regs.length === 1 && regs[0].matches.includes(SITE_PATTERN), '#A3 chrome.scripting 已注册声明式注入（真实 API）', registered);
+    check(regs[0]?.persist === true && regs[0]?.runAt === 'document_idle', '#A3b persistAcrossSessions=true + document_idle', registered);
+
+    // #A4 THE KEY PROOF: reload the site tab → auto-inject → hello → auto-bind.
+    // No `rebind` message and no icon click are issued anywhere in this phase.
+    await evaluate(sw, `chrome.tabs.reload(${siteTabId}).then(() => true)`);
+    const autoState = await waitFor(
+      ext,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const d = r && r.data;
+        if (d && d.active && d.active.origin === ${JSON.stringify(SITE_ORIGIN)} && d.active.invalidated === false) {
+          return JSON.stringify({ origin: d.active.origin, discovery: d.active.discoveryState, tools: d.tools });
+        }
+        return '';
+      })()`,
+      100,
+      250,
+    );
+    check(Boolean(autoState), '#A4 免点图标自动绑定：页面加载后 content script 自上报 hello 并自动绑定', autoState ?? 'no auto-bind');
+    const as = autoState ? JSON.parse(autoState) : { tools: [] };
+    check(as.origin === SITE_ORIGIN, `#A4b 自动绑定 origin = ${SITE_ORIGIN}（未调用 rebind / 未点图标）`, String(as.origin));
+
+    // #A4c/#A4d: discovery completes asynchronously right after the auto-bind
+    // (hello binds first, then the content script's own `discover` report lands).
+    const autoDiscover = await waitFor(
+      ext,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const d = r && r.data;
+        return d && d.active && d.active.discoveryState === 'supported'
+          ? JSON.stringify({ discovery: d.active.discoveryState, tools: d.tools }) : '';
+      })()`,
+      80,
+      250,
+    );
+    const ad = autoDiscover ? JSON.parse(autoDiscover) : { tools: [] };
+    check(Boolean(autoDiscover), '#A4c 自动绑定后 discovery 达到 supported', autoDiscover ?? 'not-supported');
+    check((ad.tools ?? []).includes('site_lgdl-web-cli'), '#A4d 站点工具面随自动绑定装配', JSON.stringify(ad.tools));
+
+    // #A5 tab-switch re-bind via the `whoami` handshake (no tabs permission).
+    await evaluate(sw, `chrome.tabs.update(${spTabId}, { active: true }).then(() => true)`);
+    await sleep(600);
+    await evaluate(sw, `chrome.tabs.update(${siteTabId}, { active: true }).then(() => true)`);
+    const switched = await waitFor(
+      ext,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const d = r && r.data;
+        return d && d.active && d.active.origin === ${JSON.stringify(SITE_ORIGIN)} && d.active.invalidated === false
+          ? JSON.stringify({ origin: d.active.origin, invalidated: d.active.invalidated }) : '';
+      })()`,
+      60,
+      250,
+    );
+    check(Boolean(switched), '#A5 切走再切回站点标签页 → whoami 握手自动重新绑定', switched ?? 'no rebind');
+
+    // #A6 unauthorized origin degrades silently to a readable "unbound" state.
+    const stranger = await evaluate(sw, `chrome.tabs.create({ url: 'http://127.0.0.1:1/' }).then((t) => t.id).catch(() => -1)`);
+    if (stranger !== -1) {
+      await evaluate(sw, `chrome.tabs.update(${stranger}, { active: true }).then(() => true)`);
+      await sleep(700);
+      const degraded = await evaluate(
+        ext,
+        `chrome.runtime.sendMessage({ kind: 'state' }).then((r) => JSON.stringify({ invalidated: r.data.active ? r.data.active.invalidated : null, notice: r.data.panelNotice }))`,
+      );
+      const dg = JSON.parse(degraded);
+      check(dg.invalidated === true || dg.invalidated === null, '#A6 未授权标签页 → 静默降级（不抛错）', degraded);
+      observe(`#A6 未授权标签页 state = ${degraded}（未在注册表中 → content script 不注入 → autoBind 静默返回 false）`);
+    } else {
+      observe('#A6 跳过：无法创建未授权标签页（headless 环境限制）');
+    }
+    check(extExceptions.length === 0, '#A7 自动探测全程侧栏 0 未捕获异常', extExceptions.join(' | '));
+
+    ext.close();
+    sw.close();
+  } catch (err) {
+    failures.push(`阶段 2 harness error: ${err instanceof Error ? err.message : String(err)}`);
+    console.error('✖ 阶段 2 harness error:', err);
+    if (process.env.BINDING_DEBUG) console.error(log().slice(-3000));
+  } finally {
+    chrome.kill('SIGKILL');
+    await rm(chromeWork, { recursive: true, force: true }).catch(() => {});
+    await rm(work, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function main() {
   if (!(await stat(dist).then(() => true).catch(() => false))) {
     console.error(`✖ dist/ 不存在：先运行 npm run build --workspace @lgdl/web-cli-plugin（期望 ${dist}）`);
@@ -599,6 +755,7 @@ async function main() {
   try {
     await phase0();
     await phase1(mock);
+    await phase2();
   } finally {
     mock.server.close();
     if (site.proc) site.proc.kill('SIGKILL');
@@ -613,7 +770,7 @@ async function main() {
     for (const f of failures) console.error(`  - ${f}`);
     process.exit(1);
   }
-  console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）`);
+  console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）+ 阶段 2 自动探测（授权后免点图标自动绑定）`);
 }
 
 main().catch((err) => {

@@ -24,12 +24,19 @@ import {
 } from '../platform/extension-env.js';
 import { capabilityFailure } from '../platform/unsupported.js';
 import { createController, type WebCliController } from './controller.js';
-import { buildStateMessage, projectActiveTab } from './state-message.js';
+import { buildStateMessage, projectActiveTab, type SessionView } from './state-message.js';
 import { buildDiagMessage } from './diag-message.js';
 import { BUILD_STAMP } from '../build-info.js';
 import { createWebCliHost, type WebCliHost } from './host.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
+import { createSessionStore, projectHistory, sessionLabel, type SessionStore } from './session-store.js';
+import {
+  reconcileSiteContentScripts,
+  registerSiteContentScript,
+  unregisterSiteContentScript,
+  type ContentScriptsApi,
+} from './content-script-registry.js';
 import { runChatTurn } from './chat-runner.js';
 import { commandEvent, llmErrorEvent, toolResultEvent } from './chat-events.js';
 import {
@@ -63,8 +70,16 @@ interface Singletons {
   controller: WebCliController;
   host: WebCliHost;
   keys: ReturnType<typeof createKeyStore>;
-  /** Retained multi-turn conversation (FR-017 / ADR-012). */
+  /** Retained multi-turn conversation of the **current** session (FR-017 / ADR-012). */
   chatSession: ChatSession;
+  /** decision ② / FR-048: per-origin (or per-group) sessions + conversation histories. */
+  sessions: SessionStore;
+  /** decision ① / FR-047: descriptor cache per origin (re-activate on session switch). */
+  descriptors: Map<string, WebCliDescriptor>;
+  /** The session currently bound to `chatSession` (null before the first bind). */
+  currentSessionId: string | null;
+  /** decision ①: `chrome.scripting` declarative-injection adapter. */
+  contentScripts: ContentScriptsApi;
   /** Task-internal clarification bridge (FR-017 / R7). */
   askBridge: AskBridge;
 }
@@ -72,6 +87,8 @@ interface Singletons {
 let singletons: Singletons | null = null;
 let initPromise: Promise<Singletons> | null = null;
 let confirmResponder: ((requestId: string, allow: boolean) => void) | null = null;
+/** decision ②/FR-048: track the pending confirmation so a session switch can cancel it. */
+let pendingConfirmId: string | null = null;
 let chatBusy = false;
 
 /**
@@ -87,9 +104,9 @@ function takePanelNotice(): string | null {
 }
 
 /**
- * Binding path shared by the toolbar-icon click and the panel「重新绑定」:
- * inject the content script, bind the controller, reset the conversation on an
- * origin switch. Never throws; a readable reason is returned on failure.
+ * Binding path shared by the toolbar-icon click, the panel「重新绑定」and the
+ * automatic handshake (decision ①/②). Resolves the origin's session (per-origin
+ * or group), switches to it, and never throws; a readable reason on failure.
  */
 async function bindTab(
   s: Singletons,
@@ -99,11 +116,69 @@ async function bindTab(
   const origin = tabOrigin(url);
   if (!origin) return { ok: false, reason: projectActiveTab({ url }).reason ?? '不是可注入的 http(s) 站点' };
   const injected = await ensureContentScript(tabId);
-  const prevOrigin = s.controller.get()?.origin;
-  s.controller.bindTab(tabId, origin);
-  if (prevOrigin && prevOrigin !== origin) await resetChatSession(s);
-  await persistSession(s);
+  await bindOrigin(s, tabId, origin);
   return { ok: true, origin, injected };
+}
+
+/**
+ * Bind an already-known origin to a tab and adopt its session. Used by the icon
+ * click (URL from the gesture) and the automatic handshake (origin self-reported
+ * by the content script via `hello` / `whoami`).
+ */
+async function bindOrigin(s: Singletons, tabId: number, origin: string): Promise<void> {
+  const { session, evicted } = await s.sessions.activate(origin);
+  s.controller.bindTab(tabId, origin, session.sessionId);
+  await switchSession(s, session.sessionId);
+  if (evicted.length > 0) {
+    // decision ② / FR-048: cap eviction is always disclosed, never silent.
+    panelNotice = `会话数超过上限，已按最近最少使用淘汰：${evicted.join('、')}（历史随之释放）`;
+  }
+}
+
+/**
+ * decision ② / FR-048: adopt a session without changing the bound tab. Cancels any
+ * pending confirm/ask **readably** (never silently hangs), restores that session's
+ * conversation, re-activates the site tools for the bound origin, and notifies the
+ * panel.
+ */
+async function switchSession(s: Singletons, sessionId: string): Promise<void> {
+  if (s.currentSessionId !== sessionId) {
+    const canceled: string[] = [];
+    const asks = s.askBridge.pendingCount();
+    if (asks > 0) s.askBridge.cancelAll();
+    if (cancelPendingConfirm()) canceled.push('权限二次确认');
+    if (asks > 0) canceled.push(`${asks} 个任务内提问`);
+    if (canceled.length > 0) {
+      // decision ②/FR-048 + EC-019: pending interactions are resolved as
+      // deny/cancel with a readable reason — not left hanging on the old session.
+      panelNotice = `已切换会话：待决的${canceled.join('、')}已按「拒绝/取消」处理（不静默挂起）。`;
+    }
+  }
+  s.currentSessionId = sessionId;
+  s.controller.setSessionId(sessionId);
+  s.chatSession.restore(s.sessions.historyOf(sessionId));
+  await s.sessions.touch(sessionId);
+  // Re-activate the site tools for the bound origin from the descriptor cache so
+  // a session switch never leaves a mismatched tool surface.
+  const origin = s.controller.get()?.origin;
+  const cached = origin ? s.descriptors.get(origin) : undefined;
+  if (origin && cached) s.host.activateSite(cached, origin);
+  else s.host.deactivateSite();
+  await persistSession(s);
+  // Notify the panel to re-read the current session (history回显).
+  void chrome.runtime.sendMessage(makeMessage('session-changed', { sessionId })).catch(() => {});
+}
+
+/** Cancel a pending PRM confirmation as deny (fail-closed; EC-005). */
+function cancelPendingConfirm(): boolean {
+  if (pendingConfirmId && confirmResponder) {
+    const id = pendingConfirmId;
+    confirmResponder(id, false);
+    confirmResponder = null;
+    pendingConfirmId = null;
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -181,6 +256,15 @@ async function init(): Promise<Singletons> {
     const origins = createOriginStore(kv, { audit });
     const controller = createController();
     const keys = createKeyStore(kv);
+    // decision ② / FR-048: multi-session store (per-origin default, optional groups).
+    const sessions = createSessionStore(kv);
+    await sessions.load();
+    // decision ① / FR-047: `chrome.scripting` declarative-injection adapter.
+    const contentScripts: ContentScriptsApi = {
+      registerContentScripts: (scripts) => chrome.scripting.registerContentScripts(scripts),
+      unregisterContentScripts: (filter) => chrome.scripting.unregisterContentScripts(filter),
+      getRegisteredContentScripts: (filter) => chrome.scripting.getRegisteredContentScripts(filter),
+    };
 
     // FR-017 / R7: task-internal `askUser` questions are delivered to the side
     // panel; a failed delivery / timeout resolves as canceled (fail-closed).
@@ -204,10 +288,15 @@ async function init(): Promise<Singletons> {
         ask: (question) =>
           new Promise((resolve) => {
             const rid = requestId('confirm');
+            pendingConfirmId = rid;
             confirmResponder = (id, allow) => {
-              if (id === rid) resolve({ action: allow ? 'allow' : 'deny' });
+              if (id === rid) {
+                pendingConfirmId = null;
+                resolve({ action: allow ? 'allow' : 'deny' });
+              }
             };
             void chrome.runtime.sendMessage(makeMessage('confirm-request', { requestId: rid, question })).catch(() => {
+              pendingConfirmId = null;
               resolve({ action: 'deny' });
             });
           }),
@@ -226,24 +315,60 @@ async function init(): Promise<Singletons> {
 
     // restore runtime session (EC-013)
     try {
-      const snap = await sessionKv.get<{ tabId?: number; origin?: string; invalidated?: boolean; updatedAt?: number }>(SESSION_STATE_KEY);
+      const snap = await sessionKv.get<{ tabId?: number; origin?: string; sessionId?: string; invalidated?: boolean; updatedAt?: number }>(SESSION_STATE_KEY);
       if (snap && snap.tabId !== undefined && snap.origin) {
-        controller.restore({ tabId: snap.tabId, origin: snap.origin, invalidated: snap.invalidated ?? false, updatedAt: snap.updatedAt ?? Date.now() });
+        controller.restore({
+          tabId: snap.tabId,
+          origin: snap.origin,
+          ...(snap.sessionId ? { sessionId: snap.sessionId } : {}),
+          invalidated: snap.invalidated ?? false,
+          updatedAt: snap.updatedAt ?? Date.now(),
+        });
       }
     } catch (err) {
       console.warn('[web-cli-plugin] session restore failed:', err);
     }
 
-    // restore multi-turn conversation (EC-013); cleared on navigation (EC-011)
+    // decision ② / FR-048: restore the current session's conversation from the
+    // multi-session store. A legacy single-history snapshot (CHAT_HISTORY_KEY) is
+    // migrated once into the bound origin's session so upgrades lose nothing.
     const chatSession = createChatSession();
+    let currentSessionId: string | null = controller.get()?.sessionId ?? null;
     try {
-      const hist = await sessionKv.get<ChatTurn[]>(CHAT_HISTORY_KEY);
-      if (Array.isArray(hist)) chatSession.restore(hist);
+      if (currentSessionId && controller.get()) {
+        const origin = controller.get()!.origin;
+        const restored = await sessions.activate(origin);
+        currentSessionId = restored.session.sessionId;
+        controller.setSessionId(currentSessionId);
+        chatSession.restore(sessions.historyOf(currentSessionId));
+      }
+      if (chatSession.size() === 0 && controller.get()) {
+        const legacy = await sessionKv.get<ChatTurn[]>(CHAT_HISTORY_KEY);
+        if (Array.isArray(legacy) && legacy.length > 0) {
+          chatSession.restore(legacy);
+          currentSessionId = controller.get()!.sessionId;
+          await sessions.setHistory(currentSessionId, chatSession.snapshot());
+        }
+      }
     } catch (err) {
       console.warn('[web-cli-plugin] chat history restore failed:', err);
     }
 
-    singletons = { kv, sessionKv, audit, origins, controller, host, keys, chatSession, askBridge };
+    singletons = {
+      kv,
+      sessionKv,
+      audit,
+      origins,
+      controller,
+      host,
+      keys,
+      chatSession,
+      sessions,
+      descriptors: new Map(),
+      currentSessionId,
+      contentScripts,
+      askBridge,
+    };
     return singletons;
   })();
   return initPromise;
@@ -257,15 +382,18 @@ async function persistSession(s: Singletons): Promise<void> {
   }
 }
 
-async function persistChatHistory(s: Singletons): Promise<void> {
+async function persistChatHistory(s: Singletons, sessionId: string | null = s.currentSessionId): Promise<void> {
+  if (!sessionId) return;
   try {
-    await s.sessionKv.set(CHAT_HISTORY_KEY, s.chatSession.snapshot());
+    // decision ② / FR-048: the conversation is persisted **per session**, so
+    // origins never cross-contaminate and a return to a session回显 its own history.
+    await s.sessions.setHistory(sessionId, s.chatSession.snapshot());
   } catch (err) {
     console.warn('[web-cli-plugin] chat history persist failed:', err);
   }
 }
 
-/** Clear the session conversation (navigation / origin switch; EC-011). */
+/** Clear the current session conversation (navigation; EC-011). */
 async function resetChatSession(s: Singletons): Promise<void> {
   s.chatSession.clear();
   await persistChatHistory(s);
@@ -279,6 +407,9 @@ async function runChat(s: Singletons, user: string): Promise<void> {
     return;
   }
   chatBusy = true;
+  // decision ② / FR-048: pin the run to the session it started in, so a session
+  // switch mid-run can never misattribute the completed turns.
+  const sessionIdAtStart = s.currentSessionId;
   try {
     const settings = await s.keys.load();
     const provider = providerById(settings.providerId);
@@ -329,7 +460,7 @@ async function runChat(s: Singletons, user: string): Promise<void> {
     void provider.name;
   } finally {
     chatBusy = false;
-    await persistChatHistory(s);
+    await persistChatHistory(s, sessionIdAtStart);
   }
 }
 
@@ -376,6 +507,89 @@ function tabOrigin(url: string | undefined): string | null {
   return null;
 }
 
+/**
+ * decision ① / FR-047: ask a tab to identify itself via the content-script
+ * `whoami` handshake and auto-bind it. Returns false when the tab has no
+ * (authorized) content script — a **silent lookup miss**, not an error.
+ */
+async function autoBindFromTab(s: Singletons, tabId: number): Promise<boolean> {
+  try {
+    const res = (await chrome.tabs.sendMessage(tabId, makeMessage('whoami'))) as PluginResponse<{ origin?: string }> | undefined;
+    const origin = res?.ok && typeof res.data?.origin === 'string' ? res.data.origin : '';
+    if (!origin) return false;
+    const cur = s.controller.get();
+    if (cur && cur.tabId === tabId && cur.origin === origin) return false;
+    await bindOrigin(s, tabId, origin);
+    panelNotice = `已自动识别站点 ${origin}（无需点击图标），已切换到对应会话。`;
+    return true;
+  } catch {
+    // Not injected / unauthorized / restricted tab → readable "unbound" fallback
+    // is handled by the caller; never log an error (would spam on every switch).
+    return false;
+  }
+}
+
+/**
+ * decision ② / FR-048: best-effort locate a tab hosting `origin` via the same
+ * `whoami` handshake (no `tabs` permission / `tab.url`). Per-tab misses are silent.
+ */
+async function findTabForOrigin(origin: string): Promise<number | undefined> {
+  let tabs: chrome.tabs.Tab[] = [];
+  try {
+    tabs = await chrome.tabs.query({});
+  } catch {
+    return undefined;
+  }
+  const want = origin.trim().toLowerCase();
+  for (const tab of tabs) {
+    if (tab.id === undefined) continue;
+    try {
+      const res = (await chrome.tabs.sendMessage(tab.id, makeMessage('whoami'))) as PluginResponse<{ origin?: string }> | undefined;
+      if (res?.ok && typeof res.data?.origin === 'string' && res.data.origin.toLowerCase() === want) return tab.id;
+    } catch {
+      /* not injected / unauthorized — silent miss */
+    }
+  }
+  return undefined;
+}
+
+/**
+ * decision ① / FR-047: startup reconciliation. Read the desired set (authorized
+ * **and** host-permission-granted origins) and reconcile against the registered
+ * declarative scripts — **补齐缺失、清理已撤销**. All failures are audited +
+ * logged readably (never silent).
+ */
+async function reconcileContentScripts(s: Singletons): Promise<void> {
+  const desired: string[] = [];
+  try {
+    for (const rec of await s.origins.list()) {
+      if (!rec.authorized) continue;
+      if (await hasOriginPermission(rec.origin)) desired.push(rec.origin);
+    }
+  } catch (err) {
+    const reason = `读取已授权站点失败：${err instanceof Error ? err.message : String(err)}`;
+    console.warn('[web-cli-plugin] content-script reconcile failed:', reason);
+    return;
+  }
+  const report = await reconcileSiteContentScripts(s.contentScripts, desired);
+  for (const origin of report.registered) {
+    s.audit.recordPlugin({ type: 'host-permission', ts: Date.now(), origin, decision: 'granted', reason: '启动对账：补齐缺失的声明式注入' });
+  }
+  for (const origin of report.removed) {
+    s.audit.recordPlugin({ type: 'host-permission', ts: Date.now(), origin, decision: 'revoked', reason: '启动对账：清理已撤销的声明式注入' });
+  }
+  for (const f of report.failures) {
+    console.warn(`[web-cli-plugin] content-script reconcile ${f.action} ${f.origin} failed: ${f.reason}`);
+    s.audit.recordPlugin({
+      type: 'host-permission',
+      ts: Date.now(),
+      origin: f.origin,
+      decision: f.action === 'register' ? 'granted' : 'revoked',
+      reason: `声明式注入对账失败：${f.reason}`,
+    });
+  }
+}
+
 async function handleMessage(message: PluginMessage, sender?: chrome.runtime.MessageSender): Promise<PluginResponse> {
   const s = await init();
   switch (message.kind) {
@@ -385,6 +599,18 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const session = s.controller.get();
       // W1: report the bound origin's persisted authorization so a side-panel
       // reload / SW restart never falls back to a false "未授权" (no origin → false).
+      // decision ② / FR-048: also project the current multi-session (label/origins).
+      const sessionView: SessionView | null = session
+        ? await (async () => {
+            const rec = s.sessions.find(session.sessionId) ?? (await s.sessions.activate(session.origin)).session;
+            return {
+              sessionId: rec.sessionId,
+              label: sessionLabel(rec),
+              origins: [...rec.origins],
+              authorized: await s.origins.isAuthorized(session.origin),
+            };
+          })()
+        : null;
       const payload = await buildStateMessage({
         active: session
           ? {
@@ -400,6 +626,7 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         // TASK-023: trust is a separate read-only display concern (FR-012).
         trustOf: (origin) => s.origins.trustOf(origin),
         tab: await activeTabProjection(),
+        session: sessionView,
       });
       // D-064: carry (and consume) the one-shot readable notice.
       return okResponse({ ...payload, panelNotice: takePanelNotice() });
@@ -416,7 +643,33 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const rec = await s.origins.authorize(origin, {
         note: `用户显式授权；站点访问权限 ${granted ? '已授予' : '未授予（回退 activeTab 临时授权）'}`,
       });
-      return okResponse({ ...rec, hostPermissionGranted: granted });
+      // decision ① / FR-047: authorization is the ONE-TIME gate. Once the host
+      // permission is actually granted we register the declarative content script
+      // so every later navigation of this origin auto-loads and auto-binds — no
+      // icon click. Registration failure is readably surfaced (never silent) and
+      // does not undo the authorization (activeTab fallback still works).
+      let contentScript:
+        | { ok: boolean; id?: string; pattern?: string; reason?: string; alreadyRegistered?: boolean }
+        | undefined;
+      if (granted) {
+        contentScript = await registerSiteContentScript(s.contentScripts, origin);
+        if (!contentScript.ok) {
+          console.warn('[web-cli-plugin] declarative content script register failed:', contentScript.reason);
+          s.audit.recordPlugin({
+            type: 'host-permission',
+            ts: Date.now(),
+            origin,
+            decision: 'granted',
+            reason: `授权成功但声明式注入注册失败：${contentScript.reason ?? '未知原因'}`,
+          });
+        }
+      } else {
+        contentScript = {
+          ok: false,
+          reason: '未获得持久站点权限（回退 activeTab）：无法声明式注入，仍可点击插件图标按需注入',
+        };
+      }
+      return okResponse({ ...rec, hostPermissionGranted: granted, contentScript });
     }
     case 'revoke': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
@@ -425,6 +678,9 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // permission (best-effort, readable). The plugin keeps working via
       // activeTab / page-source discovery — authorization loss never silently
       // disables unrelated capabilities.
+      // decision ① / FR-047: unregister the declarative content script (best-effort,
+      // readable回执) so a revoked origin stops auto-injecting.
+      const contentScript = await unregisterSiteContentScript(s.contentScripts, origin);
       const hostPermissionRemoved = await removeOriginPermission(origin);
       const revoked = await s.origins.revoke(origin);
       if (hostPermissionRemoved) {
@@ -436,7 +692,7 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
           reason: '用户撤销授权：可选站点权限已移除，回退 activeTab / 页面源发现',
         });
       }
-      return okResponse({ revoked, hostPermissionRemoved });
+      return okResponse({ revoked, hostPermissionRemoved, contentScript });
     }
     case 'set-trust': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
@@ -448,18 +704,16 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const origin = typeof message.origin === 'string' ? message.origin : s.controller.get()?.origin ?? '';
       const descriptor = message.descriptor as WebCliDescriptor | undefined;
       if (!origin) return errorResponse('discover 需要 origin');
-      // ADR-012: a content script reporting discovery from a tab binds that tab
-      // when no session is active (robust to on-demand injection paths that do
-      // not go through the action-click handler). Additive; the action click
-      // path is unchanged.
+      // ADR-012 + decision ②: a content script reporting discovery from a tab
+      // binds that tab and adopts the origin's session when it differs. Additive;
+      // the action-click path is unchanged.
       const senderTabId = sender?.tab?.id;
       if (senderTabId !== undefined) {
         const cur = s.controller.get();
         if (!cur || cur.tabId !== senderTabId || cur.origin !== origin) {
-          s.controller.bindTab(senderTabId, origin);
+          await bindOrigin(s, senderTabId, origin);
         }
       }
-      const prevOrigin = s.controller.get()?.origin;
       // EC-014 / FR-013: audit version negotiation (unknown / incompatible →
       // reject or degrade, always readable, never silent).
       const version = message.version as VersionNegotiation | undefined;
@@ -471,6 +725,7 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         // declaration is cached and its tools registered.
         const normalized = normalizeDescriptor(descriptor);
         s.controller.setDiscovery('supported', normalized);
+        s.descriptors.set(origin, normalized);
         s.host.activateSite(normalized, origin);
         s.audit.recordPlugin(discoveryAuditEvent(origin, normalized));
       } else {
@@ -486,13 +741,115 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
             : 'unsupported';
         const reason = typeof message.reason === 'string' && message.reason.trim() ? message.reason.trim() : undefined;
         s.controller.setDiscovery(state, undefined, reason);
+        s.descriptors.delete(origin);
         s.host.deactivateSite();
         s.audit.recordPlugin(discoveryAuditEvent(origin, undefined));
       }
-      // ADR-012: switching origin starts a fresh conversation (no silent carry-over).
-      if (prevOrigin && prevOrigin !== origin) await resetChatSession(s);
       await persistSession(s);
       return okResponse({ origin, tools: s.host.registeredSiteTools() });
+    }
+    case 'hello': {
+      // decision ① / FR-047: proactive auto-handshake. Under declarative injection
+      // the content script announces `location.origin` on load; the background
+      // binds the sender tab automatically — no `tab.url`, no `tabs` permission,
+      // no user gesture. Auto-detection is NOT auto-authorization: execution is
+      // still gated by `OriginStore` (fail-closed), unchanged.
+      const origin = typeof message.origin === 'string' ? message.origin : '';
+      const senderTabId = sender?.tab?.id;
+      if (!origin || senderTabId === undefined) return okResponse({ bound: false });
+      const cur = s.controller.get();
+      if (cur && cur.tabId === senderTabId && cur.origin === origin) return okResponse({ bound: true, origin });
+      await bindOrigin(s, senderTabId, origin);
+      return okResponse({ bound: true, origin });
+    }
+    case 'sessions': {
+      // decision ② / FR-048: the panel's session switcher view. Re-read storage so
+      // external writes (options page / another context) are reflected. The current
+      // session's conversation is returned for回显 (never another session's).
+      await s.sessions.load();
+      const current = s.currentSessionId;
+      return okResponse({
+        currentSessionId: current,
+        sessions: s.sessions.list().map((rec) => ({
+          sessionId: rec.sessionId,
+          label: sessionLabel(rec),
+          origins: [...rec.origins],
+          lastActiveAt: rec.lastActiveAt,
+          grouped: rec.sessionId.startsWith('group:'),
+        })),
+        groups: s.sessions.groups(),
+        history: current ? projectHistory(s.sessions.historyOf(current)) : [],
+      });
+    }
+    case 'session-switch': {
+      // decision ② / FR-048: user-selected session. Best-effort focus the tab that
+      // hosts the session's origin (found via the same `whoami` handshake — no
+      // `tabs` permission needed); the logical switch always succeeds.
+      const sessionId = typeof message.sessionId === 'string' ? message.sessionId : '';
+      if (!sessionId) return errorResponse('session-switch 需要 sessionId');
+      await s.sessions.load();
+      const target = s.sessions.find(sessionId);
+      if (!target) return errorResponse(`会话不存在：${sessionId}`);
+      const origin = target.origins[0];
+      if (origin) {
+        const tabId = await findTabForOrigin(origin);
+        if (tabId !== undefined) {
+          try {
+            await chrome.tabs.update(tabId, { active: true });
+          } catch {
+            /* readable no-op: focus is best-effort */
+          }
+        }
+      }
+      await switchSession(s, sessionId);
+      return okResponse({
+        sessionId,
+        history: projectHistory(s.sessions.historyOf(sessionId)),
+      });
+    }
+    case 'session-group': {
+      // decision ② / FR-048: group management (create / add origin / remove / delete).
+      // Grouping is a **conversation-sharing** configuration, never an authorization
+      // (per-origin `OriginStore` unchanged; must be stated in the UI copy).
+      await s.sessions.load();
+      const action = typeof message.action === 'string' ? message.action : '';
+      const origin = typeof message.origin === 'string' ? message.origin : '';
+      const groupId = typeof message.groupId === 'string' ? message.groupId : '';
+      const name = typeof message.name === 'string' ? message.name : '';
+      let detail: Record<string, unknown> = {};
+      if (action === 'create') {
+        if (!name.trim()) return errorResponse('新建分组需要名称');
+        detail = { group: await s.sessions.createGroup(name) };
+      } else if (action === 'add') {
+        if (!groupId || !origin) return errorResponse('加入分组需要 groupId 与 origin');
+        const res = await s.sessions.addOriginToGroup(groupId, origin);
+        detail = { group: res.group, sessionId: res.session.sessionId, evicted: res.evicted };
+        if (res.session.sessionId === s.currentSessionId) await switchSession(s, res.session.sessionId);
+      } else if (action === 'remove') {
+        if (!origin) return errorResponse('移出分组需要 origin');
+        detail = await s.sessions.removeOrigin(origin);
+        // The removed origin resolves back to its own session.
+        const sid = s.sessions.sessionIdForOrigin(origin);
+        if (s.controller.get()?.origin === origin && sid !== s.currentSessionId) await switchSession(s, sid);
+      } else if (action === 'delete') {
+        if (!groupId) return errorResponse('删除分组需要 groupId');
+        detail = await s.sessions.deleteGroup(groupId);
+      } else {
+        return errorResponse(`未知的分组操作：${action}`);
+      }
+      await s.sessions.load();
+      return okResponse({
+        ...detail,
+        currentSessionId: s.currentSessionId,
+        sessions: s.sessions.list().map((rec) => ({
+          sessionId: rec.sessionId,
+          label: sessionLabel(rec),
+          origins: [...rec.origins],
+          lastActiveAt: rec.lastActiveAt,
+          grouped: rec.sessionId.startsWith('group:'),
+        })),
+        groups: s.sessions.groups(),
+      });
     }
     case 'site-event': {
       // FR-021: background event channel → content script → page `env.events` hub.
@@ -642,6 +999,7 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const rid = typeof message.requestId === 'string' ? message.requestId : '';
       confirmResponder?.(rid, message.allow === true);
       confirmResponder = null;
+      pendingConfirmId = null;
       return okResponse({ settled: true });
     }
     case 'ask-user-response': {
@@ -678,6 +1036,7 @@ void configureSidePanelBehavior();
 // EC-008 / FR-006: an externally revoked optional host permission (browser
 // extension page) is audited readably. The OriginStore authorization and the
 // page-source discovery path are unaffected (no silent capability loss).
+// decision ① / FR-047: also reconcile so the declarative registration is cleaned.
 chrome.permissions.onRemoved.addListener((permissions) => {
   void (async () => {
     const s = await init();
@@ -690,10 +1049,32 @@ chrome.permissions.onRemoved.addListener((permissions) => {
         reason: '浏览器/用户撤销站点权限（授权保留，回退 activeTab / 页面源发现）',
       });
     }
+    await reconcileContentScripts(s);
   })();
 });
 
-// D-064: the toolbar icon click is the ONE bind trigger.
+// decision ① / FR-047: an externally granted optional host permission (e.g. via
+// the browser's site-access UI) is reconciled into a declarative registration.
+chrome.permissions.onAdded.addListener((permissions) => {
+  void (async () => {
+    if (!(permissions.origins ?? []).length) return;
+    const s = await init();
+    await reconcileContentScripts(s);
+  })();
+});
+
+// decision ① / FR-047: install/update triggers a full reconciliation so an
+// upgraded profile (authorized before this build) immediately gets automatic
+// injection — no icon click needed after the one-time authorization.
+chrome.runtime.onInstalled.addListener(() => {
+  void (async () => {
+    const s = await init();
+    await reconcileContentScripts(s);
+  })();
+});
+
+// D-064: the toolbar icon click remains a bind trigger (for sites the user has
+// not authorized yet). decision ① keeps this path unchanged.
 //
 // ① `chrome.sidePanel.open` must run synchronously inside this gesture, so it is
 //    kicked off (not awaited) before any other async work.
@@ -715,10 +1096,12 @@ chrome.action.onClicked.addListener((tab) => {
   })();
 });
 
-// D-065: switching away from the bound tab marks the session stale (readable
-// prompt) instead of silently keeping a background binding. Without the `tabs`
-// permission `onActivated` cannot read the new tab's URL, so only the tabId is
-// compared — that must never throw.
+// decision ① / FR-047: tab switch tries the automatic handshake first. If the
+// newly active tab has our content script (declaratively injected → the site was
+// authorized once), it reports its origin and we auto-bind + adopt its session —
+// no icon click, no `tabs` permission. If not (unauthorized / restricted), it
+// degrades **silently** to the existing readable "unbound" prompt (never an error
+// log, never a misleading failure).
 chrome.tabs.onActivated.addListener((activeInfo) => {
   void (async () => {
     const s = await init();
@@ -726,9 +1109,12 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
     if (!session) return;
     // The bound tab is active again → nothing to do.
     if (session.tabId === activeInfo.tabId) return;
+    if (await autoBindFromTab(s, activeInfo.tabId)) return;
     if (session.invalidated) return;
     s.controller.markStale();
-    panelNotice = '已切换标签页：原绑定站点已标记失效。请在新标签页点击浏览器工具栏的插件图标重新绑定。';
+    panelNotice =
+      '已切换标签页：当前标签页尚未授权/未注入，原绑定站点已标记失效。请在目标站点标签页点击插件工具栏图标' +
+      '（或先在侧栏「授权当前站点」，之后该站点将自动注入、无需再点图标）。';
     await persistSession(s);
   })();
 });
@@ -740,6 +1126,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     const session = s.controller.get();
     if (session && session.tabId === tabId) {
       s.controller.markNavigated();
+      s.descriptors.delete(session.origin);
       s.host.deactivateSite();
       // EC-011: whole-page navigation invalidates the conversation (no silent continuation).
       await resetChatSession(s);
@@ -748,18 +1135,23 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   })();
 });
 
-// ADR-012 / EC-011: closing the bound tab clears the single-tab session so a
-// stale tabId can never be reused for a different page.
+// ADR-012 / EC-011: closing the bound tab clears the active binding so a stale
+// tabId can never be reused for a different page. decision ②: the **session**
+// (and its conversation history) is domain-scoped and is retained; both are
+// recoverable when the origin is opened again.
 chrome.tabs.onRemoved.addListener((tabId) => {
   void (async () => {
     const s = await init();
     if (s.controller.get()?.tabId === tabId) {
       s.controller.clear();
       s.host.deactivateSite();
-      await resetChatSession(s);
       await persistSession(s);
     }
   })();
 });
 
-void init();
+void (async () => {
+  const s = await init();
+  // decision ① / FR-047: startup reconciliation (补齐缺失 / 清理已撤销).
+  await reconcileContentScripts(s);
+})();

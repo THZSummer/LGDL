@@ -50,6 +50,15 @@ function trim(turns: ChatTurn[]): ChatTurn[] {
   return turns.slice(start).map(copyTurn);
 }
 
+/**
+ * Bound a raw history to `MAX_SESSION_TURNS`, starting at a `user` turn. Exported
+ * so the multi-session store (`session-store.ts`) reuses the exact same trimming
+ * contract instead of duplicating it (D-013 test preservation).
+ */
+export function boundHistory(turns: ChatTurn[]): ChatTurn[] {
+  return trim(turns);
+}
+
 export function createChatSession(initial: ChatTurn[] = []): ChatSession {
   let history: ChatTurn[] = trim(initial);
   return {

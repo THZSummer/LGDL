@@ -689,6 +689,84 @@ async function main() {
     check(narrow.doc === 0 && narrow.log === 0, '#15q 320px 窄侧栏无水平溢出', JSON.stringify(narrow));
     await sp.send('Emulation.clearDeviceMetricsOverride');
 
+    // ── #16 decision ② / FR-048: multi-session switcher + history isolation ──
+    // Seed two sessions with distinct histories directly into the extension store;
+    // the background `sessions` reply re-reads storage so the switcher sees them.
+    // This is a *hermetic* isolation proof: switching must回显 exactly one history.
+    const sessionStoreKey = 'web-cli:session-store';
+    await evaluate(
+      sw,
+      `chrome.storage.local.set({ ${JSON.stringify(sessionStoreKey)}: {
+        groups: [],
+        sessions: [
+          { sessionId: 'https://alpha.test', origins: ['https://alpha.test'], history: [
+              { role: 'user', content: 'ALPHA-ONLY-QUESTION' },
+              { role: 'assistant', content: 'alpha-reply' } ], createdAt: 1, lastActiveAt: 200 },
+          { sessionId: 'https://beta.test', origins: ['https://beta.test'], history: [
+              { role: 'user', content: 'BETA-ONLY-QUESTION' },
+              { role: 'assistant', content: 'beta-reply' } ], createdAt: 1, lastActiveAt: 100 }
+        ] } }).then(() => true)`,
+    );
+    await sp.send('Page.reload', { ignoreCache: true });
+    await sleep(1200);
+
+    const sessionLabelInit = await waitFor(
+      sp,
+      `(() => { const t = document.getElementById('session-label')?.textContent ?? ''; return /^会话：/.test(t) ? t : ''; })()`,
+      40,
+      200,
+    );
+    check(Boolean(sessionLabelInit), '#16a 侧栏顶部显示当前会话标记', sessionLabelInit);
+
+    // open the「更多」details so the switcher is visible/clickable
+    await evaluate(sp, `(() => { const d = document.getElementById('more-actions'); if (d) d.open = true; return true; })()`);
+    await sleep(200);
+    const sessionListRaw = await waitFor(
+      sp,
+      `(() => {
+        const items = [...document.querySelectorAll('#session-list .session-item')];
+        if (items.length < 2) return '';
+        return JSON.stringify({ count: items.length, labels: items.map((i) => i.textContent), ids: items.map((i) => i.dataset.sessionId) });
+      })()`,
+      40,
+      200,
+    );
+    const sl = sessionListRaw ? JSON.parse(sessionListRaw) : { count: 0, labels: [], ids: [] };
+    check(sl.count >= 2, '#16b 会话切换器列出两个独立会话（不同域名各自独立）', sessionListRaw);
+    check(sl.ids.includes('https://alpha.test') && sl.ids.includes('https://beta.test'), '#16c 会话以域名为键（alpha/beta）', JSON.stringify(sl.ids));
+
+    // switch to beta → the panel must show beta's history and NOT alpha's (no串台)
+    await realClick(sp, '#session-list .session-item[data-session-id="https://beta.test"]');
+    const betaView = await waitFor(
+      sp,
+      `(() => { const t = document.getElementById('log').textContent; return t.includes('BETA-ONLY') ? JSON.stringify({ hasBeta: true, hasAlpha: t.includes('ALPHA-ONLY'), label: document.getElementById('session-label').textContent }) : ''; })()`,
+      60,
+      200,
+    );
+    const bv = betaView ? JSON.parse(betaView) : {};
+    check(bv.hasBeta === true, '#16d 切换到 beta 会话后回显 beta 的历史', betaView);
+    check(bv.hasAlpha === false, '#16e beta 会话不显示 alpha 的历史（不串台）', betaView);
+    check(/beta\.test/.test(bv.label ?? ''), '#16f 顶部当前会话标记同步为 beta', String(bv.label));
+
+    // switch back to alpha → the reverse must hold
+    await realClick(sp, '#session-list .session-item[data-session-id="https://alpha.test"]');
+    const alphaView = await waitFor(
+      sp,
+      `(() => { const t = document.getElementById('log').textContent; return t.includes('ALPHA-ONLY') ? JSON.stringify({ hasAlpha: true, hasBeta: t.includes('BETA-ONLY') }) : ''; })()`,
+      60,
+      200,
+    );
+    const av = alphaView ? JSON.parse(alphaView) : {};
+    check(av.hasAlpha === true && av.hasBeta === false, '#16g 切回 alpha 会话后仅回显 alpha 历史（隔离双向成立）', alphaView);
+
+    // group management is exposed and readable (group ≠ authorization)
+    const groupBox = await evaluate(
+      sp,
+      `(() => ({ hasName: !!document.getElementById('group-name'), hasCreate: !!document.getElementById('group-create'), hasSelect: !!document.getElementById('group-select'), hasAdd: !!document.getElementById('group-add'), copy: document.getElementById('session-box')?.textContent ?? '' }))()`,
+    );
+    check(groupBox.hasName && groupBox.hasCreate && groupBox.hasSelect && groupBox.hasAdd, '#16h 侧栏提供分组管理控件', JSON.stringify(groupBox));
+    check(/不代表互相授权/.test(groupBox.copy), '#16i 分组文案明确「分组不等于授权」', String(groupBox.copy).slice(0, 80));
+
     check(spExceptions.length === 0, '#13 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#13b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 

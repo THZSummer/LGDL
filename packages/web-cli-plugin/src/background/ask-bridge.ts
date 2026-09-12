@@ -30,6 +30,12 @@ export interface AskBridge {
   settle(requestId: string, answer: AskUserAnswer): boolean;
   /** Number of questions still awaiting an answer. */
   pendingCount(): number;
+  /**
+   * decision ②/FR-048: cancel every pending question (a session switch must not
+   * leave a question silently hanging on the previous session). Each resolves as
+   * `canceled` (fail-closed). Returns how many were canceled.
+   */
+  cancelAll(): number;
 }
 
 const DEFAULT_ASK_TIMEOUT_MS = 60000;
@@ -68,5 +74,11 @@ export function createAskBridge(opts: AskBridgeOptions): AskBridge {
       return true;
     },
     pendingCount: () => pending.size,
+    cancelAll() {
+      const resolvers = [...pending.values()];
+      pending.clear();
+      for (const resolve of resolvers) resolve({ ok: false, canceled: true });
+      return resolvers.length;
+    },
   };
 }

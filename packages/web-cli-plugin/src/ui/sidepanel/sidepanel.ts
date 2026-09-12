@@ -15,12 +15,18 @@ import {
   activeSiteNotice,
   buildOnboarding,
   buttonStates,
+  currentSessionLabel,
   discoveryNotice,
+  historyEntries,
   isLogEmpty,
   llmStatusView,
   openSettingsPage,
   sendDisabledReason,
+  sortSessions,
   stateActionFromPayload,
+  type SessionGroupView,
+  type SessionSummaryView,
+  type SessionsMessageView,
   type StateMessageView,
 } from './view-model.js';
 import type { LlmStatusSummary } from '../../llm/status.js';
@@ -214,6 +220,10 @@ let llmLoaded = false;
 let activeTab: ActiveTabView | null = null;
 /** Last discovery failure reason (populated by 「重新探测」) for a readable notice. */
 let discoveryReason: string | undefined;
+/** decision ② / FR-048: current session id + switcher data. */
+let sessionId: string | null = null;
+let sessions: SessionSummaryView[] = [];
+let groups: SessionGroupView[] = [];
 /**
  * Scroll-follow policy (regression fix). The user's own send is unconditional;
  * appended assistant/tool/thinking content follows only while the live viewport
@@ -329,7 +339,55 @@ function render(): void {
   renderOnboarding();
   renderDiscoveryNotice();
   renderAsk();
+  renderSession();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
+}
+
+/**
+ * decision ② / FR-048: render the current session label and the switcher (list of
+ * sessions + group controls). The list is built from the background `sessions`
+ * reply, so it always reflects the authoritative origin→session mapping.
+ */
+function renderSession(): void {
+  const label = document.getElementById('session-label');
+  if (label) label.textContent = currentSessionLabel(sessions.find((s) => s.sessionId === sessionId) ?? null);
+
+  const list = document.getElementById('session-list');
+  if (list) {
+    list.textContent = '';
+    if (sessions.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'muted';
+      empty.textContent = '暂无会话：打开并授权一个站点后，同域名的标签页会自动共用同一会话。';
+      list.appendChild(empty);
+    } else {
+      for (const s of sortSessions(sessions, sessionId)) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `session-item${s.sessionId === sessionId ? ' current' : ''}`;
+        btn.dataset.sessionId = s.sessionId;
+        btn.textContent = `${s.sessionId === sessionId ? '● ' : ''}${s.label} · ${(s.origins ?? []).join('，')}`;
+        list.appendChild(btn);
+      }
+    }
+  }
+
+  const sel = document.getElementById('group-select') as HTMLSelectElement | null;
+  if (sel) {
+    const prev = sel.value;
+    sel.textContent = '';
+    for (const g of groups) {
+      const opt = document.createElement('option');
+      opt.value = g.groupId;
+      opt.textContent = `${g.name}（${g.origins.length} 个域名）`;
+      sel.appendChild(opt);
+    }
+    if (groups.some((g) => g.groupId === prev)) sel.value = prev;
+  }
+  const addBtn = document.getElementById('group-add') as HTMLButtonElement | null;
+  if (addBtn) addBtn.disabled = !state.activeOrigin || groups.length === 0;
+  const createBtn = document.getElementById('group-create') as HTMLButtonElement | null;
+  if (createBtn) createBtn.disabled = false;
 }
 
 /** F-2: render the non-sensitive LLM configuration status + settings CTA. */
@@ -546,14 +604,79 @@ async function refreshState(): Promise<void> {
   if (!res.ok || !res.data) return;
   // TASK-020 任务 B: keep the last active-tab projection for the site hint.
   activeTab = res.data.tab ?? null;
+  // decision ② / FR-048: when the background moved us to a different session
+  // (tab switch / auto-bind), reload that session's history so the panel never
+  // shows the previous session's conversation (no串台).
+  const incoming = res.data.session?.sessionId ?? null;
+  const changed = incoming !== null && incoming !== sessionId;
+  if (incoming) sessionId = incoming;
   // W1: sync the persisted authorization too — otherwise a reload/reopen shows
   // a false "未授权" and the authorize button becomes clickable again.
   dispatch(stateActionFromPayload(res.data));
+  await refreshSessions(changed);
   // D-064: surface the background's one-shot readable notice last (an icon-click
   // binding result / "switched tab" prompt must win over the generic navigation
   // notice the state reducer may have set).
   const notice = typeof res.data.panelNotice === 'string' ? res.data.panelNotice.trim() : '';
   if (notice) dispatch({ type: 'notice', text: notice });
+}
+
+/**
+ * decision ② / FR-048: fetch the session switcher data. `applyHistory` replaces
+ * the conversation when the active session changed (or on explicit switch).
+ */
+async function refreshSessions(applyHistory: boolean): Promise<void> {
+  try {
+    const res = await send<SessionsMessageView>(makeMessage('sessions'));
+    if (!res.ok || !res.data) return;
+    sessions = res.data.sessions ?? [];
+    groups = res.data.groups ?? [];
+    const incoming = res.data.currentSessionId ?? null;
+    const changed = incoming !== null && incoming !== sessionId;
+    if (incoming) sessionId = incoming;
+    if (applyHistory || changed) {
+      dispatch({ type: 'history', entries: historyEntries(res.data.history) });
+    } else {
+      render();
+    }
+  } catch (err) {
+    dispatch({ type: 'notice', text: `✖ 读取会话列表失败：${err instanceof Error ? err.message : String(err)}` });
+  }
+}
+
+/** decision ② / FR-048: switch to a session chosen in the switcher. */
+async function switchToSession(target: string): Promise<void> {
+  if (!target || target === sessionId) return;
+  try {
+    const res = await send<{ sessionId?: string; history?: Array<{ role: string; text: string }> }>(
+      makeMessage('session-switch', { sessionId: target }),
+    );
+    if (!res.ok || !res.data) {
+      dispatch({ type: 'notice', text: `✖ 切换会话失败：${res.error ?? '后台无响应'}` });
+      return;
+    }
+    sessionId = res.data.sessionId ?? target;
+    dispatch({ type: 'history', entries: historyEntries(res.data.history) });
+    dispatch({ type: 'notice', text: `已切换到会话：${sessions.find((s) => s.sessionId === sessionId)?.label ?? sessionId}` });
+    await refreshSessions(false);
+  } catch (err) {
+    dispatch({ type: 'notice', text: `✖ 切换会话失败：${err instanceof Error ? err.message : String(err)}` });
+  }
+}
+
+/** decision ② / FR-048: group management from the panel (create / merge current origin). */
+async function groupAction(payload: Record<string, unknown>): Promise<void> {
+  try {
+    const res = await send<{ groups?: SessionGroupView[] }>(makeMessage('session-group', payload));
+    if (!res.ok) {
+      dispatch({ type: 'notice', text: `✖ 分组操作失败：${res.error ?? '后台无响应'}` });
+      return;
+    }
+    await refreshState();
+    dispatch({ type: 'notice', text: '✓ 分组配置已更新（分组只共享对话，不代表互相授权）。' });
+  } catch (err) {
+    dispatch({ type: 'notice', text: `✖ 分组操作失败：${err instanceof Error ? err.message : String(err)}` });
+  }
 }
 
 /** TASK-020 任务 D: run the connectivity test from the panel (stored config). */
@@ -620,6 +743,36 @@ function wire(): void {
 
   // TASK-020 任务 B: explicit rebind escape hatch for「无活跃站点」.
   $('rebind').addEventListener('click', () => void rebindCurrentTab());
+
+  // decision ② / FR-048: session switcher (click a session to switch) + groups.
+  $('session-list').addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('button[data-session-id]') as HTMLButtonElement | null;
+    const target = btn?.dataset.sessionId;
+    if (target) void switchToSession(target);
+  });
+  $('group-create').addEventListener('click', () => {
+    const input = $('group-name') as HTMLInputElement;
+    const name = input.value.trim();
+    if (!name) {
+      dispatch({ type: 'notice', text: '✖ 请先填写分组名称。' });
+      return;
+    }
+    input.value = '';
+    void groupAction({ action: 'create', name });
+  });
+  $('group-add').addEventListener('click', () => {
+    const origin = state.activeOrigin;
+    if (!origin) {
+      dispatch({ type: 'notice', text: '✖ 当前没有活跃站点，无法并入分组。' });
+      return;
+    }
+    const groupId = ($('group-select') as HTMLSelectElement).value;
+    if (!groupId) {
+      dispatch({ type: 'notice', text: '✖ 请先新建并选择一个分组。' });
+      return;
+    }
+    void groupAction({ action: 'add', groupId, origin });
+  });
 
   $('composer').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -785,6 +938,13 @@ function wire(): void {
         ...(Array.isArray(question?.options) ? { options: question.options } : {}),
         ...(question?.default ? { default: question.default } : {}),
       });
+      return undefined;
+    }
+    if (msg.kind === 'session-changed') {
+      // decision ② / FR-048: the background moved to another session (tab switch /
+      // auto-bind) → re-read state + replace the conversation with that session's.
+      sessionId = null;
+      void refreshState();
       return undefined;
     }
     return undefined;

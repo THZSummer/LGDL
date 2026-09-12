@@ -1,13 +1,13 @@
 # 构建报告：specs-tree-web-cli-plugin（web-cli-plugin，v0.8）
 
 > **文档定位**: SDDU 构建报告 — 记录全部任务的文件变更和实现结果，作为 review 阶段的输入
-> **前置依赖**: tasks.md v1.0（16 任务 / 9 波次）、plan.md v1.0（12 ADR + §6 文件影响）、spec.md v1.1（46 FR / 10 NFR / 16 EC / 12 AC）
+> **前置依赖**: tasks.md v1.7（25 任务 / 18 波次）、plan.md v1.1（14 ADR〔ADR-013/014 为 v0.9 增补〕+ §6 文件影响）、spec.md v1.4（48 FR / 10 NFR / 20 EC / 12 AC）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-11
-> **版本**: v1.2
+> **版本**: v1.16
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-12
-> **更新说明**: v1.2 = P1 实施轮（TASK-012~015）：协议版本协商可读化 + 入审计（EC-014）、`docs/protocol.md` 站点中立文档（FR-015）、发现失败四类可读降级（FR-014/EC-001）；UI 操作经门禁 RPC（FR-019）+ 事件桥（FR-021）；风控令牌桶 + 暂停/中止（FR-029/EC-010）+ 知情同意（FR-031）+ 不适用清单（FR-032）+ 迁移/调试/Gate-D 文档（FR-036/037/039/040/044/045）；可选通用 DOM 工具面（TASK-015）。web-cli-base 零改动红线保持；未 git 提交。
+> **更新说明**: v1.16 = v0.9 架构级增补（TASK-024/025，作者 2026-09-12 决策①②）：自动探测（声明式注入 + 自上报握手，免点图标，无 `<all_urls>`/静态注入/新增 `tabs`）+ 多会话（按 origin 自动共享 + 可选会话组 + LRU + 不串台）；详见 §23。此前 v1.2~v1.15 见修订记录。
 
 ## 1. 构建概要
 
@@ -1793,6 +1793,91 @@ else log.scrollTop = prevTop;
 - **未修改 `docs/capability-matrix.md`**（漂移仅报告，等作者裁决）。
 - `packages/web-cli-base/**` 零改动（`git diff` 空）；全仓 `build`/`test` 0 fail（base 483 零回归）。
 
+## 23. v0.9 增补：自动探测 + 多会话（作者 2026-09-12 两项架构级决策；TASK-024/025）
+
+> 作者拍板：①**自动探测**采用方案 A —— 站点**首次授权一次**，之后注入/握手/绑定**全自动**（不引入全站静态注入/`<all_urls>`）；②**多会话**默认**按域名（origin）自动共享**（同域名所有标签页共用一会话，不同域名各自独立）+ 支持**手动并入同一会话组**；③`tabs` 权限本轮**不做**。本节为 build 产物与验收证据；实现文件：`src/background/session-store.ts`（新）、`src/background/content-script-registry.ts`（新）及既有 background/content/UI 的 additive 接线。
+
+### 23.1 自动探测：声明式注入 + 自上报自动握手（FR-047 / ADR-014）
+
+| 环节 | 实现（file:line） |
+|------|------------------|
+| 声明式注入注册/注销/对账 | `src/background/content-script-registry.ts`：`siteContentScriptId`(:53) / `registerSiteContentScript`(:91) / `unregisterSiteContentScript`(:113) / `reconcileSiteContentScripts`(:135)（`matches:[origin/*]`、`runAt:'document_idle'`、`persistAcrossSessions:true`） |
+| 授权即注册 | `src/background/service-worker.ts:634` case `authorize` → `registerSiteContentScript(s.contentScripts, origin)`(:655)；回执含 `contentScript{ok,id,pattern}` |
+| 撤销即注销 | `service-worker.ts:674` case `revoke` → `unregisterSiteContentScript(...)`(:683) |
+| 启动对账 | `service-worker.ts:562` `reconcileContentScripts()`；触发点 = SW 启动（文件末尾 IIFE）、`permissions.onAdded`(:1058)、`permissions.onRemoved`、`onInstalled`(:1069)；补齐缺失/清理已撤销，失败**审计+日志可读** |
+| 自上报握手 | content script 加载后发 `hello{origin}`（`src/content/content-script.ts:144-146`）；并响应 `whoami`（:128）回 `location.origin` |
+| 免手势自动绑定 | `service-worker.ts:515` `autoBindFromTab()`（`tabs.sendMessage(whoami)` → origin → `bindOrigin`）；`:751` case `hello` 绑定 sender tab；`tabs.onActivated` 先 `autoBindFromTab`(:1112) |
+| 未授权静默降级 | `tabs.onActivated` 握手失败 → 不 log error、返回 false → 回退既有 `markStale` + 可读提示；`action.onClicked` 路径**不变**（保留回退） |
+
+**真实环境免点图标实测证据（`npm run test:binding` 阶段 2，#A0~#A7）**：
+1. `#A1` 授权前 `chrome.scripting.getRegisteredContentScripts()` 中 `wcliSite_*` 计数 = **0**（基线）。
+2. `#A2/#A2b/#A2c` 从侧栏发 `authorize`（`hostPermissionGranted:true`）→ 回执 `contentScript.ok=true`、`pattern=http://localhost:5173/*`。
+3. `#A3/#A3b` SW 内真实 `chrome.scripting` 读取：注册表含 1 条 `wcliSite_*`，`matches=['http://localhost:5173/*']`、`persistAcrossSessions=true`、`runAt='document_idle'`。
+4. `#A4/#A4b` **reload 站点标签页**（本阶段**从未调用 `rebind`、从未点图标**）→ content script 声明式注入 → 自上报 `hello` → `state.active.origin==='http://localhost:5173'` 且 `invalidated=false`。
+5. `#A4c/#A4d` discovery 异步达到 `supported`，工具面装配 `site_lgdl-web-cli`。
+6. `#A5` 切走到扩展页再切回站点标签页 → `whoami` 握手自动重绑（`active.origin` 正确、`invalidated=false`）。
+7. `#A6` 未授权标签页（未在注册表 → 不注入 → `autoBindFromTab` 静默返回 false）→ `markStale`，`notice="…当前标签页尚未授权/未注入…"`，**无异常**（观测如实记录）。
+8. `#A7` 阶段 2 侧栏 0 未捕获异常。
+
+**权限纪律实测**：`manifest.json` `permissions=[activeTab,scripting,storage,sidePanel]`；`tabs∈permissions === false`；`host_permissions+optional_host_permissions` 无 `<all_urls>`/`*://*/*`；`content_scripts` 字段不存在（静态注入为零）。`src/**` 内 `<all_urls>` 字面 0 命中（注释亦已改为中文描述）。
+
+### 23.2 多会话：按 origin 自动共享 + 可选会话组（FR-048 / ADR-013）
+
+- **会话键派生**：`src/background/session-store.ts:63` `sessionIdForOrigin(origin, groups)` → 默认 `origin`，命中分组则 `group:<groupId>`；`:28` `MAX_SESSIONS=20`。
+- **每会话独立历史**：`createSessionStore`(:120) 持久化 `chrome.storage.local['web-cli:session-store']`；`setHistory/historyOf/clearHistory`；历史用 `chat-session.ts:58` `boundHistory`（40 turn、首条 user）——**复用既有截断语义，不新造**。
+- **分组**：`addOriginToGroup`(:235)/`removeOrigin`(:250)/`deleteGroup`(:265)——移出后 origin 回到自己的独立会话（原历史保留，可逆）；删除分组释放分组会话。
+- **上限 LRU**：`enforceCap` 淘汰最不活跃会话并返回 `evicted[]`；SW `bindOrigin`(:128) 将淘汰写入可读 `panelNotice`（不静默丢数据）。
+- **切换会话**：SW `switchSession`(:144) = 取消待决交互（见 23.3）→ `controller.setSessionId` → `chatSession.restore(historyOf(sessionId))` → 按 origin 从描述符缓存 `activateSite` → 广播 `session-changed`。消息面：`sessions`(:765)/`session-switch`(:784)/`session-group`(:810)。
+- **切换标签页自动 adopt 会话**：`bindOrigin` 解析 origin 会话→ `switchSession`；`state` 消息增 `session` 投影（`state-message.ts:113/131`，只回 sessionId/label/origins/authorized，无 URL/title）。
+- **不串台**：`session-store.test.ts`「each origin gets its own session with an isolated history」+「same origin re-activates the same session」；`test:ui` #16d/#16e/#16g 真实点击切换后 `#log` 仅含目标会话历史（alpha/beta 双向）。
+
+**会话隔离/上限/待决处理证据**：
+- **隔离**：`test/session-store.test.ts` 断言 A/B 两 origin 历史互不影响、清理 A 不动 B；`test:ui` 通过真实 `chrome.storage.local` 播种两会话 → 点击切换 → `#log` 只回显目标历史（`#16d` beta 有、alpha 无；`#16g` 反向）。
+- **上限 LRU**：`test/session-store.test.ts` 以 `maxSessions:3` 激活 4 origin → `evicted===['https://b.test']`（最冷）、当前会话受保护、最新会话保留。
+- **待决处理**：`test/session-actions.test.ts` `ask-bridge cancelAll` 断言两个待决提问 → 取消计数 2、均 resolve `{ok:false,canceled:true}`、再次取消为 0；`test/auto-session-wiring.test.ts` 静态钉住 `switchSession` 调 `askBridge.cancelAll()` + `cancelPendingConfirm()`。
+
+### 23.3 与既有机制的交互（明确且不静默）
+
+- **切换会话取消待决交互（EC-019）**：`service-worker.ts:144` `switchSession` 内 `askBridge.cancelAll()` + `cancelPendingConfirm()`(:173)；`confirmResponder` 现配 `pendingConfirmId` 追踪，取消即按 deny；可读 `panelNotice`。
+- **工具面随会话一致**：`switchSession` 从 `descriptors: Map<origin, WebCliDescriptor>` 重新 `activateSite`（无缓存则 `deactivateSite`，由 content script 自动上报重新发现）。导航时 `descriptors.delete(origin)`。
+- **授权仍 per-origin**：`OriginStore` 与风控 `riskGuard` 零改动；会话组不互相授权（UI 文案 + `test:ui` #16i 断言）。
+- **行为变更（如实）**：`tabs.onRemoved` 不再清空对话历史（会话改为域名域、跨标签页保留）；导航 `tabs.onUpdated(loading)` 仍按 EC-011 清空**当前会话**历史。此变更与「多会话/历史保留」目标一致，已在 §23.6 诚实标注。
+
+### 23.4 门禁结果（本轮复跑，原文摘录）
+
+- 插件 `npm test`：**262 pass / 0 fail**（229→262，+33：session-store 11 / content-script-registry 7 / session-actions 6 / session-view 5 / auto-session-wiring 6〔其中 2 合并计〕）。
+- 插件 `npx tsc --noEmit`：**0 error**。
+- `npm run test:ui`：**79 断言 PASS**（70→79；新增 `#16a~#16i`：会话标记/切换器/历史隔离双向/分组控件/「分组≠授权」文案）。
+- `npm run test:binding`：**58 断言 PASS**（44→58；新增阶段 2 `#A0~#A7`，14 断言：声明式注入注册 + 免点图标自动绑定 + discovery supported + 工具面 + whoami 切页重绑 + 未授权静默降级 + 0 异常）。
+- `npm run test:hardening`：**22 断言 PASS**。
+- `npm run test:e2e`：**PASS**（场景 A fixture AC-010 + 场景 B LGDL Workbench AC-009；唯一偏差仍为本地 host_permissions 预授权）。
+- 全仓 `npm run build`：**退出码 0**；全仓 `npm test`：**0 fail**（plugin 262 / base **483 零回归** / lgdl-core 267 / lgdl-render 94+1skip / lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / lgdl-cli 0 / lgdl-layout 0）。
+- 红线：**base 零改动**（`git status packages/web-cli-base` 空）；**无新依赖**（`package.json` 零 diff）；**无 `tabs` 权限**、**无 `<all_urls>`**、**无静态 `content_scripts`**；`src/**` 无 `innerHTML`、无空 catch、无明文 key、无 `@lgdl/lgdl-web` 私有依赖；NFR-007 `content.js` 35,615 B ≤ 64 KB。
+- 构建戳：`2026-09-12T09:45:16.759Z`。
+
+### 23.5 新增决策（D-091~D-100）
+
+- **D-091（自动探测选型 = 声明式注入 + 自上报，不扩权限）**：以 `chrome.scripting.registerContentScripts`（`persistAcrossSessions:true`）在**授权后**逐 origin 注册；由 content script 主动 `hello`/应答 `whoami` 完成绑定。**否决**：全站静态注入/`<all_urls>`（权限扩张）、申请 `tabs`（宽泛权限）、仅靠 `onUpdated`+URL（同样需权限且 SPA 边界复杂）。零新增权限达成「授权一次、之后全自动」。
+- **D-092（启动对账对「已授权+已获权限」集合，而非 `permissions.getAll()` 全集）**：避免把 6 个 LLM `host_permissions` 误注册成站点注入；`desired = origins.list().filter(authorized) ∩ hasOriginPermission`，`managed` 仅取 `wcliSite_` 前缀（不动第三方脚本）。
+- **D-093（确定性脚本 id + 从中注回 origin）**：id = `wcliSite_<FNV-1a(origin)>`（稳定、合法 `[A-Za-z0-9_]`）；对账时用注册项的 `matches` 反解 origin，无需额外持久映射。
+- **D-094（未授权 tab 握手失败静默降级，不刷错误日志）**：`autoBindFromTab` catch 仅返回 false；`tabs.onActivated` 回退既有 `markStale` + 可读提示。**否决**：`console.warn` 每次切页（会刷屏，用户已明确要求不得）。
+- **D-095（会话键派生为纯函数，默认 origin/分组 group:<id>）**：`sessionIdForOrigin` 单点定义「同域名共享 / 不同域名独立」；分组只改映射、不改授权。
+- **D-096（分组不迁移/不删除成员历史——可逆）**：加入分组只改映射，成员原独立会话保留；移出即映回原会话（历史不丢）。**否决**：合并时把历史搬迁/删除（复杂且可能静默丢数据）。
+- **D-097（切换会话取消待决 confirm/ask 为 fail-closed）**：`cancelPendingConfirm`（deny）+ `askBridge.cancelAll`（canceled）+ 可读提示（EC-019）；`chat-runner` 运行时按 `sessionIdAtStart` 落库，防止切换中串会话。
+- **D-098（`tabs.onRemoved` 不再清空会话历史）**：会话改为**域名域**后，关闭某标签页不应销毁该域名会话（跨标签页保留）。导航 `onUpdated(loading)` 仍按 EC-011 清空当前会话。属**行为变更**，如实记录。此为本轮对 EC-011「关闭标签页清会话」旧语义的**有意调整**，与多会话目标一致。
+- **D-099（首用引导/文档口径更新）**：`docs/dev.md` §3/§3.1/§10.6 + §12 明确「每个站点首次需授权一次（浏览器弹权限框），之后全自动；未授权站点仍需点图标」；options 页补充会话分组说明与「分组≠授权」。
+- **D-100（能力矩阵漂移修正闭环）**：修正 `docs/capability-matrix.md` 第 1/2 行（web-fetch/sleep 实为 base 独立内建工具）、第 21 行（eval-js risk 实为 `write`）、第 27 行（chrome 扩展宿主原生更适用）、第 31 行（events 区分传输层与工具面）；新增 §3.1 说明 v0.9 增补**不新增任何 LLM 工具**。
+
+### 23.6 未完成 / 未复现 / 降级（如实，不粉饰）
+
+- **`tabs` 权限本轮不做**（作者决策③）：`close` 等标签页操作**未实现**；本轮只 list/switch/open（switch 经 `whoami` 扫描 + `tabs.update({active:true})`，其本身不需 `tabs` 权限）。
+- **真实 Chrome 行为边界（headless 不可覆盖）**：本机门禁均在 `.pw-browsers` Chromium `--headless=new` 下；`chrome.action.onClicked` 无法脚本触发（沿用既有披露，用同一 `bindTab`/`rebind` 等价路径 + `binding-wiring` 静态钉住）；headless 无原生权限弹窗（阶段 2 用临时 dist **预授权** `host_permissions`，dist JS 字节未改，仅 manifest 副本偏差）。**声明式注入在真实 Chrome（非 headless）下的行为**由同一 `chrome.scripting` 真实 API 断言覆盖（#A3），但**系统 Chrome/Edge 未单独重测**。
+- **未授权站点自动探测的「多标签全局扫描」成本**：`findTabForOrigin` 在 `session-switch` 时对所有标签页发 `whoami`（逐 tab catch 静默）；标签页极多时有一定消息开销，未做上限/缓存优化（当前可接受）。
+- **待决交互取消的时序**：若 `confirm`/`ask` 恰在切换瞬间完成，取消为 best-effort（不应答即 deny；已应答则不重复）。已由 fail-closed 语义兜底，未做更强的一致性事务。
+- **会话分组的 UI 自动化覆盖有限**：`test:ui` 断言分组**控件与文案**存在，未在 headless 下真实新建分组并验证跨 origin 共享（需多站点；已在 node 面用 `session-store.test.ts` 完整覆盖分组/隔离/LRU）。options 页分组管理同样以 node 面为主、UI 面为静态控件断言。
+- **`session-store.load()` 每次 `sessions` 请求重读存储**：为让 options/侧栏跨上下文变更即时可见；频率受限于用户交互，未做去抖/缓存。
+- **`capability-matrix.md` 其余 30 行未逐行重核**：本轮仅修正审计已确认的漂移（第 1/2/21/27/31 行）+ 补 §3.1；其余行沿用 TASK-016 存档口径。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -1813,3 +1898,4 @@ else log.scrollTop = prevTop;
 | v1.13 | 侧栏消息 Markdown 渲染与消息样式（§19，TASK-022，用户实测第六轮）：根因 = `sidepanel.ts` 每条消息仅 `textContent = \`${role}: ${text}\`` 纯文本；新增零依赖 `ui/sidepanel/markdown.ts`（解析/建 DOM 分离；**不解析 HTML**，只用白名单标签 + `createTextNode`，链接仅 http/https，其余降级文本，`javascript:`/`data:` 不可能成为 `a.href`）；消息改角色分组块（assistant Markdown / tool+system 等宽 pre-wrap / user 纯文本），CSS 加角色色条 + `pre`/`table` 横向滚动 + `overflow-wrap:anywhere` 且保留 `#log` 空态/pre-wrap/滚底/`.entry-*` 选择器；新增 `test/markdown.test.ts`（12 用例）+ `test/ui/journey.mjs` #14a~#14i；D-074~D-078；插件 196→**209**（+13）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41→**50** / `test:hardening` 22 / E2E A/B / `test:binding` 38 全 PASS、base 与 package.json 零改动、无新依赖、无明文 key、未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.14 | 侧栏整体 UI/UX 重做（§20，TASK-023，用户实测第七轮）：先 `git show 762d3a6^:packages/lgdl-web/src/ai/AiPanel.tsx` + `app.css` **读回原 AI 助手**作设计基准（§20.2 逐条「参照→对齐」表，16 项：12 对齐 / 2 不适用 / 1 部分 / 1 优于参照）；核心修复=三区 flex 全高（`html,body{height:100%}`+`body{display:flex;flex-direction:column}`），`#log` 去 `45vh` 硬编码改 `flex:1;min-height:0`，composer 为底部区**末元素**（`#consent` 折叠条移到 composer 之前），8 按钮收为「3 主操作 + `<details>更多`」；消息改角色气泡（user indigo 右对齐 / assistant Markdown 气泡 / tool **可折叠卡片**（工具名+状态+耗时+首行摘要，长输出默认折叠）/ system·error 醒目 / command 紧凑块 / thinking 三点 / `#scroll-bottom` 跟随策略）；明暗适配 tokens；**零新依赖/无框架/无 innerHTML/MV3 CSP 合规**；前后量化对照（真实 dist+CDP，400×900）：`#log` 45.0%→**65.5%**（稳态）且 flex-grow 0→1、composer 底边 **-64px（被挤出视口）→ +8px 贴底**、工具卡片 0→2 可折叠、320px 零水平溢出；截图 `/tmp/ui-redesign/{before,after}/`；`test:ui` 50→**67**（#15a~#15q）、`test:binding` 38→**41**（真实用户气泡 #6h~#6j）、插件 209→**222**、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:hardening` 22 / E2E A/B 全 PASS、base 与 package.json 零改动；**流式如实未实现（base 无增量能力，原助手亦无），首用态 31.5% 真实权衡**已披露；D-079~D-086；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.15 | ① 消息不自动滚动缺陷修复（§21，用户实测第八轮）：根因 = TASK-023「追加前判定 + 24px 阈值」的**误判即棘轮**（一次不跟随就还原 `prevTop`，此后恒不跟随）；修复 = 新增纯策略模块 `src/ui/sidepanel/scroll-policy.ts`（实时锚定 + 48px 阈值 + `userSent()` 一次性强制），`render()` 消费决策、`followToBottom` 以 `requestAnimationFrame` 布局后钉底（次帧仅仍锚定时，绝不抢用户上滚）；发送**无条件**到底，thinking 出现/消失同走 `render()`，上滚保留入口与位置；`test/sidepanel.test.ts` +7、`journey.mjs` +3（#15r/s/t）、`binding.mjs` +3（#6k/6k2/6l，真实发送到底）；D-087~D-089。② 能力面审计（§22，**只报告未改行为/注册**）：base 全量工厂清单 + 插件实际注册面（`host.ts:64` 未传 `builtins` → 仅 base 默认 3 内建 + 6 `admin_*` + `ask-user` + 站点声明 2 = **12**，`web-cli-help` `listed:false` → 自列 **11**，与用户实测吻合）+ 34 行漂移对照（明确漂移=第 1/2 行 web-fetch/sleep 被误写「非独立工具」；部分漂移=第 27/31 行 chrome/events；轻度=第 21 行 eval-js risk 理由）+ 未注册工具适用性/代价/risk 档 + 分级建议。门禁：插件 222→**229**、`tsc` 0 error、`test:ui` 67→**70**、`test:binding` 41→**44**、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）、base/`package.json`/`.opencode/opencode.json` 零改动、无新依赖、`capability-matrix.md` 未改；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.16 | **v0.9 增补：自动探测 + 多会话**（§23，作者 2026-09-12 两项架构级决策；TASK-024/025）：①**自动探测（FR-047/ADR-014）**——新增 `src/background/content-script-registry.ts`（`registerContentScripts` + `persistAcrossSessions` + 启动/安装/权限变更对账，补齐缺失·清理已撤销·失败可读）；`authorize` 授权即注册、`revoke` 即注销；content script 主动 `hello` + 应答 `whoami` → **免点图标自动绑定**（无 `tab.url`、无 `tabs`、无手势）；未授权站点静默降级保留点图标回退。②**多会话（FR-048/ADR-013）**——新增 `src/background/session-store.ts`（`sessionId=origin` / `group:<id>`；每会话独立 40-turn 有界历史；上限 20 + LRU 可读披露；分组加入/移出/删除可逆且**分组≠授权**）；`chat-session` 增 `boundHistory` 复用；`controller`/`state-message`/`sidepanel`/`options` additive 接线；切换会话取消待决 confirm/ask（EC-019）。**真实环境免点图标实证**：`test:binding` 新增阶段 2 `#A0~#A7`（authorize→真实 `chrome.scripting` 注册→reload 触发 hello→自动绑定 origin+supported+工具面；whoami 切页重绑；未授权静默降级）。门禁：插件 229→**262**（+33，5 个新测试文件）、`tsc` 0 error、`test:ui` 70→**79**（#16a~#16i 会话切换器/历史隔离双向/分组≠授权）、`test:binding` 44→**58**、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；base/`package.json`/`.opencode/opencode.json` 零改动、**无新依赖**、**无 `tabs`**、**无 `<all_urls>`**、无静态 `content_scripts`、无 innerHTML/明文/私有依赖；spec v1.4（FR-047/048 + EC-017~020）/plan v1.1（ADR-013/014）/docs dev·compliance·capability-matrix（漂移修正 D-100）同步；D-091~D-100；未 git 提交 | 2026-09-12 | SDDU Build Agent |

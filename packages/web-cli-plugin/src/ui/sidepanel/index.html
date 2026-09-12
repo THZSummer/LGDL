@@ -160,6 +160,20 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
       }
+      /* decision ② / FR-048: session switcher */
+      #session-box { width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+      #session-box .row { width: 100%; }
+      #session-list.session-list {
+        display: flex; flex-direction: column; gap: 4px;
+        width: 100%; min-width: 0; max-height: 180px; overflow-y: auto;
+      }
+      #session-list .session-item {
+        width: 100%; text-align: left; font-size: 12px;
+        white-space: normal; overflow-wrap: anywhere;
+      }
+      #session-list .session-item.current { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); font-weight: 600; }
+      #group-name { flex: 1 1 auto; min-width: 0; }
+      #group-select { flex: 1 1 auto; min-width: 0; }
 
       /* ── zone 2: message list (flex fill, the only scroller) ─────────── */
       #panel-main { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; }
@@ -477,6 +491,7 @@
       <div class="status-bar">
         <span id="status">无活跃站点</span>
         <span id="llm-status" class="muted">LLM：检测中…</span>
+        <span id="session-label" class="muted">会话：（无活跃站点）</span>
       </div>
       <div class="toolbar row" id="topbar">
         <button id="open-options" class="primary" type="button">配置模型 / 设置</button>
@@ -489,6 +504,19 @@
             <button id="rebind" type="button">重新绑定当前标签页</button>
             <button id="audit" type="button">查看审计</button>
             <span id="audit-count" class="muted">审计 0 条</span>
+            <div id="session-box">
+              <div class="muted">会话：同域名共用同一会话；不同域名各自独立。</div>
+              <div id="session-list" class="session-list" role="listbox" aria-label="会话切换"></div>
+              <div class="row">
+                <input id="group-name" type="text" placeholder="新建分组名" autocomplete="off" />
+                <button id="group-create" type="button">新建分组</button>
+              </div>
+              <div class="row">
+                <select id="group-select" aria-label="选择分组"></select>
+                <button id="group-add" type="button">把当前域名并入</button>
+              </div>
+              <div class="muted">分组只共享对话历史，<strong>不代表互相授权</strong>；每个站点仍需单独授权。</div>
+            </div>
           </div>
         </details>
       </div>

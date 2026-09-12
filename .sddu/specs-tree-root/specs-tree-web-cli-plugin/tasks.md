@@ -1182,17 +1182,53 @@ npm run build && npm test
 node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图（真实 dist + CDP）
 ```
 
+### TASK-024: 自动探测（首次授权后声明式注入 + 自上报自动握手）（v0.9 增补，作者决策①）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **类型** | 🛠 实施 |
+| **前置依赖** | TASK-023（post-validate additive） |
+| **执行波次** | Wave 16（v0.9 增补） |
+| **对应 FR** | FR-047（+ EC-017/EC-020；NFR-002/004） |
+| **ADR** | plan ADR-014 |
+| **TB 映射** | —（非 plan TB，作者 2026-09-12 架构决策①） |
+
+**描述**: (1) 新增 `src/background/content-script-registry.ts`（纯逻辑 + 注入 `chrome.scripting` API）：`siteContentScriptId`（确定性 FNV-1a id）、`registerSiteContentScript`、`unregisterSiteContentScript`、`reconcileSiteContentScripts`（补齐缺失/清理已撤销/失败可读）；(2) `authorize` 且 `hostPermissionGranted=true` → 注册声明式注入（`matches:[origin/*]`、`runAt:'document_idle'`、`persistAcrossSessions:true`）；`revoke` → 注销；(3) SW 启动 / `onInstalled` / `permissions.onAdded·onRemoved` → 对账（desired = 已授权 ∩ 已获权限；managed 仅 `wcliSite_` 前缀）；(4) content script 加载后 `hello{origin}` 自上报 + 应答 `whoami`；background `autoBindFromTab` 免 `tab.url` 免 `tabs` 免手势自动绑定；`tabs.onActivated` 先握手、失败静默降级为可读未绑定（保留 `action.onClicked` 回退）。**不引入 `<all_urls>`/静态注入、不新增 `tabs`**。
+
+**涉及文件**: NEW `src/background/content-script-registry.ts`；MODIFY `service-worker.ts`（authorize/revoke 注册注销 + 对账 + `hello` + `onActivated` 握手）、`content/content-script.ts`（`hello`/`whoami`）、`messaging.ts`；NEW `test/content-script-registry.test.ts`、`test/auto-session-wiring.test.ts`（与 TASK-025 共用）；MODIFY `test/ui/binding.mjs`（阶段 2 #A0~#A7）、`docs/dev.md`、`docs/compliance.md`。
+
+**验收标准**: 授权后注册含 origin 且 `persistAcrossSessions:true`（#A1~#A3b）；**免点图标自动绑定**（reload→hello→origin 正确 + supported + 工具面，#A4~#A4d）；whoami 切页重绑（#A5）；未授权静默降级 0 异常（#A6/#A7）；对账补齐/清理/失败可读；权限面零新增；全仓 0 fail + base 零回归。
+
+### TASK-025: 多会话（按 origin 自动共享 + 可选会话组）（v0.9 增补，作者决策②）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **类型** | 🛠 实施 |
+| **前置依赖** | TASK-023（post-validate additive） |
+| **执行波次** | Wave 17（v0.9 增补） |
+| **对应 FR** | FR-048（+ EC-018/EC-019；NFR-008/001） |
+| **ADR** | plan ADR-013 |
+| **TB 映射** | —（非 plan TB，作者 2026-09-12 架构决策②） |
+
+**描述**: (1) 新增 `src/background/session-store.ts`（纯逻辑 + 注入存储）：`sessionIdForOrigin`（默认 `origin` / 分组 `group:<id>`）、每会话独立历史（复用 `chat-session.boundHistory` 40 turn）、`MAX_SESSIONS=20` + LRU（可读披露 `evicted[]`）、分组 CRUD（加入/移出/删除，可逆、分组≠授权）；(2) `service-worker` 集成：`bindOrigin`/`switchSession`（取消待决 confirm/ask + `chatSession.restore(historyOf)` + 描述符缓存 `activateSite` + 广播 `session-changed`）、`sessions`/`session-switch`/`session-group` 消息、`state.session` 投影、`runChat` 按 `sessionIdAtStart` 落库；(3) `chat-session` 增 `boundHistory`；`controller` 增 `sessionId`/`setSessionId`；(4) 侧栏会话切换器 + 当前会话标记 + 分组控件；options 页分组管理。
+
+**涉及文件**: NEW `src/background/session-store.ts`、`test/session-store.test.ts`、`test/session-view.test.ts`、`test/session-actions.test.ts`；MODIFY `chat-session.ts`、`controller.ts`、`state-message.ts`、`service-worker.ts`、`ask-bridge.ts`、`messaging.ts`、`ui/sidepanel/{index.html,sidepanel.ts,chat-state.ts,view-model.ts}`、`ui/options/{index.html,options.ts}`、`test/ui/journey.mjs`（#16a~#16i）、`docs/dev.md`、`docs/compliance.md`。
+
+**验收标准**: 会话键派生正确；同 origin 共会话、不同 origin 不串台（node + `test:ui` #16d/#16e/#16g）；分组可逆；上限 LRU 可读；切换会话取消待决 confirm/ask（fail-closed）；侧栏会话显示/切换/分组控件 + 「分组≠授权」文案；全仓 0 fail + base 零回归。
+
 ---
 
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②） |
 | S 级 (简单) | 0 |
 | M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022） |
-| L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023） |
-| 执行波次 | 16（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 post-validate 增补） |
+| L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023）+ 2 v0.9（024/025） |
+| 执行波次 | 18（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 v0.9 增补） |
 | plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021/022（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
@@ -1304,3 +1340,4 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 | v1.4 | 追加 TASK-021（工具名非法字符修复 + 附带疑点 B/C 查清；post-validate 增补，非 plan TB，用户实测第五轮 `400 Invalid 'tools[0].function.name'` 驱动）。任务汇总/波次计入增补轮（Wave 13）；站点 `site_*`/管理 `admin_*` 扁平命名 + `group` 判据 + `willRetry` 区分；`test:binding` 捕获真实 tools 断言合法（38 断言）；插件 191→196。 | 2026-09-12 | SDDU Build Agent |
 | v1.5 | 追加 TASK-022（侧栏消息 Markdown 渲染 + 消息样式；post-validate 增补，非 plan TB，用户实测第六轮「模型回复显示为纯文本」驱动）。任务汇总/波次计入增补轮（Wave 14）；零依赖安全 Markdown（不解析 HTML / 白名单标签 / 链接仅 http(s)）+ 角色分组块 + 样式；新增 `markdown.test.ts` 12 用例、`test:ui` 41→50；插件 196→209。 | 2026-09-12 | SDDU Build Agent |
 | v1.6 | 追加 TASK-023（侧栏整体 UI/UX 重做；post-validate 增补，非 plan TB，用户实测第七轮「对话体验差于原内置 AI 助手」驱动）。先读回 git 历史原 AI 助手作设计基准；任务汇总/波次计入增补轮（Wave 15，L 级）；三区 flex 全高/去 45vh/composer 贴底/可折叠工具卡片/滚动跟随/明暗适配；真实 dist+CDP 前后量化 + 截图；`test:ui` 50→67、`test:binding` 38→41、插件 209→222。 | 2026-09-12 | SDDU Build Agent |
+| v1.7 | 追加 **TASK-024 自动探测**（FR-047/ADR-014）与 **TASK-025 多会话**（FR-048/ADR-013）（v0.9 增补，非 plan TB，作者 2026-09-12 两项架构级决策驱动）。任务汇总/波次计入增补轮（Wave 16/17，均 L 级）；自动探测 = 声明式注入（`registerContentScripts`+`persistAcrossSessions`）+ 自上报 `hello`/`whoami` 免点图标绑定 + 启动对账，权限零新增；多会话 = `sessionId=origin`/`group:<id>` + 每会话独立历史 + 上限 20 LRU + 分组可逆（≠授权）+ 切换取消待决交互。对应 spec v1.4 / plan v1.1；`test:ui` 70→79（#16a~#16i）、`test:binding` 44→58（阶段 2 #A0~#A7）、插件 229→262。 | 2026-09-12 | SDDU Build Agent |

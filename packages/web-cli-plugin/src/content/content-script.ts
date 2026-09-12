@@ -125,7 +125,22 @@ chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     );
     return true;
   }
+  if (raw.kind === 'whoami') {
+    // decision ① / FR-047: the background asks a tab who it is on tab switch.
+    // Answering with our own `location.origin` lets it auto-bind without
+    // `tabs` permission / `tab.url` / a user gesture.
+    sendResponse(okResponse({ origin: location.origin }));
+    return true;
+  }
   return undefined;
 });
 
 void runDiscovery();
+
+// decision ① / FR-047: proactive auto-handshake. Under declarative injection the
+// content script loads automatically after the first authorization, so it
+// announces itself; the background binds this tab immediately (no icon click).
+// Best-effort: a missing background receiver must never break the page.
+void chrome.runtime
+  .sendMessage(makeMessage('hello', { origin: location.origin }))
+  .catch(() => {});

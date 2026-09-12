@@ -12,6 +12,11 @@ import type { WebCliDescriptor } from '../protocol/descriptor.js';
 export interface ActiveSession {
   tabId: number;
   origin: string;
+  /**
+   * decision ② / FR-048: the multi-session id this origin resolves to (default
+   * `origin`, or `group:<id>` when the origin is merged into a session group).
+   */
+  sessionId: string;
   discoveryState: DiscoveryState;
   descriptor?: WebCliDescriptor;
   /** Readable discovery failure reason (TASK-019 任务 B; never a silent unknown). */
@@ -24,6 +29,7 @@ export interface ActiveSession {
 export interface ControllerSnapshot {
   tabId?: number;
   origin?: string;
+  sessionId?: string;
   discoveryState?: DiscoveryState;
   discoveryReason?: string;
   invalidated: boolean;
@@ -31,9 +37,11 @@ export interface ControllerSnapshot {
 }
 
 export interface WebCliController {
-  bindTab(tabId: number, origin: string): ActiveSession;
+  bindTab(tabId: number, origin: string, sessionId?: string): ActiveSession;
   get(): ActiveSession | null;
   setDiscovery(state: DiscoveryState, descriptor?: WebCliDescriptor, reason?: string): void;
+  /** decision ②: re-point the active session id (session switch / group change). */
+  setSessionId(sessionId: string): void;
   /** Mark the current session invalid after whole-page navigation (EC-011). */
   markNavigated(): void;
   /**
@@ -55,8 +63,15 @@ export function createController(opts: { now?: () => number } = {}): WebCliContr
   let session: ActiveSession | null = null;
 
   return {
-    bindTab(tabId, origin) {
-      session = { tabId, origin, discoveryState: 'unknown', invalidated: false, updatedAt: now() };
+    bindTab(tabId, origin, sessionId) {
+      session = {
+        tabId,
+        origin,
+        sessionId: sessionId ?? origin,
+        discoveryState: 'unknown',
+        invalidated: false,
+        updatedAt: now(),
+      };
       return session;
     },
     get() {
@@ -73,6 +88,10 @@ export function createController(opts: { now?: () => number } = {}): WebCliContr
         updatedAt: now(),
       };
       if (!reason) delete session.discoveryReason;
+    },
+    setSessionId(sessionId) {
+      if (!session) return;
+      session = { ...session, sessionId, updatedAt: now() };
     },
     markNavigated() {
       if (!session) return;
@@ -95,6 +114,7 @@ export function createController(opts: { now?: () => number } = {}): WebCliContr
           ? {
               tabId: session.tabId,
               origin: session.origin,
+              sessionId: session.sessionId,
               discoveryState: session.discoveryState,
               ...(session.discoveryReason ? { discoveryReason: session.discoveryReason } : {}),
             }
@@ -108,6 +128,7 @@ export function createController(opts: { now?: () => number } = {}): WebCliContr
       session = {
         tabId: snapshot.tabId,
         origin: snapshot.origin,
+        sessionId: snapshot.sessionId ?? snapshot.origin,
         discoveryState: snapshot.discoveryState ?? 'unknown',
         ...(snapshot.discoveryReason ? { discoveryReason: snapshot.discoveryReason } : {}),
         invalidated: snapshot.invalidated,

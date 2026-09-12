@@ -29,7 +29,15 @@ export type PluginMessageKind =
   | 'llm-test'
   | 'reprobe'
   | 'rebind'
-  | 'diag';
+  | 'diag'
+  // decision ① / FR-047 (auto detection): content script self-report + background query.
+  | 'hello'
+  | 'whoami'
+  // decision ② / FR-048 (multi-session): list / switch / group management.
+  | 'sessions'
+  | 'session-switch'
+  | 'session-group'
+  | 'session-changed';
 
 export interface PluginMessage {
   kind: PluginMessageKind;
@@ -69,6 +77,12 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'reprobe',
   'rebind',
   'diag',
+  'hello',
+  'whoami',
+  'sessions',
+  'session-switch',
+  'session-group',
+  'session-changed',
 ]);
 
 export function makeMessage(kind: PluginMessageKind, payload: Record<string, unknown> = {}): PluginMessage {

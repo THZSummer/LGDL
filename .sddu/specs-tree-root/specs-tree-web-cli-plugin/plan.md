@@ -4,10 +4,10 @@
 > **前置依赖**: spec.md v1.1（46 FR 十组 + 10 NFR + 16 EC + 12 AC，已冻结）+ discovery.md v1.1（20 问题 Q-001~Q-020 / 假设 A-001~A-007 / 风险 R-001~R-008 / 开放点 O-001~O-016 + §7.3 作者裁决记录）+ 作者裁决硬约束（O-001 代码下线 / O-002 通用任意站点优先 / O-003 不预设方案形态但 plan 必须给方案 / O-008 授权模型 / O-009 安全边界 / O-010 协议信任 / O-006↔O-001 对象区分；P1 五项 S-004/S-005/S-007/S-011/S-015 已核签冻结）+ 上游资产事实（`packages/web-cli-base` v0.7.0 已发布稳定基线：CommandRouter/AgentRunner/DelayGate + 九域工具集 + PermissionGate/audit/sensitive + event-bus + `platform.ts` PlatformEnv 缝 + `ext-attribution.ts` ATTRIBUTION_MAP 契约预留；`packages/lgdl-web/src/ai/` 内置助手下线对象；`packages/lgdl-web-cli` / `lgdl-web-op-cli` 领域适配层）
 > **创建人**: SDDU Plan Agent
 > **创建时间**: 2026-09-11
-> **版本**: v1.0
-> **更新人**: SDDU Plan Agent
-> **更新时间**: 2026-09-11
-> **更新说明**: 初始创建——承接 spec §9.7 六项技术开放点（P-01 协议发现/声明格式 / P-02 插件架构 / P-03 权限模型实现 / P-04 与页内 web-cli-base 衔接 / P-05 扩展存储与 key / P-06 无头加载扩展冒烟），逐项给出选型 + 备选对比 + ADR；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议描述符 schema、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、per-origin 授权与 PermissionGate 映射、对象区分下的桥接与下线执行/回退设计；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）；12 个 ADR（ACCEPTED 7 / PROPOSED 5）；文件影响面（新增独立包 + LGDL 页桥接暴露点 + 下线面）；风险与缓解；任务切分建议交 sddu-tasks。
+> **版本**: v1.1
+> **更新人**: SDDU Build Agent
+> **更新时间**: 2026-09-12
+> **更新说明**: v1.1（v0.9 增补）：承接 spec v1.4 FR-047/048 + EC-017~020（作者 2026-09-12 两项架构级决策），追加 **ADR-013 多会话模型（按 origin 自动共享 + 可选会话组）** 与 **ADR-014 自动探测（声明式注入 + 自上报自动握手，非全站静态注入/`<all_urls>`）**，均含被否决方案与理由；§6 文件影响补 `background/session-store.ts` + `background/content-script-registry.ts`；既有 12 ADR 与 FR 语义零变更（fail-closed 不变）。v1.0 初始创建——承接 spec §9.7 六项技术开放点（P-01 协议发现/声明格式 / P-02 插件架构 / P-03 权限模型实现 / P-04 与页内 web-cli-base 衔接 / P-05 扩展存储与 key / P-06 无头加载扩展冒烟），逐项给出选型 + 备选对比 + ADR；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议描述符 schema、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、per-origin 授权与 PermissionGate 映射、对象区分下的桥接与下线执行/回退设计；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）；12 个 ADR（ACCEPTED 7 / PROPOSED 5）；文件影响面（新增独立包 + LGDL 页桥接暴露点 + 下线面）；风险与缓解；任务切分建议交 sddu-tasks。
 
 ## 1. 前置检查
 > 启动技术规划前必须验证的前置条件
@@ -584,6 +584,8 @@ export interface WebCliDescriptorSource {
 | NEW | `packages/web-cli-plugin/build.mjs` | esbuild 打包（background ESM / content IIFE / sidepanel+options HTML）+ manifest/静态资源拷贝 |
 | NEW | `packages/web-cli-plugin/src/background/service-worker.ts` | SW 入口：消息路由 + 生命周期 |
 | NEW | `packages/web-cli-plugin/src/background/controller.ts` | WebCliController：活跃标签绑定 + 会话状态 |
+| NEW | `packages/web-cli-plugin/src/background/session-store.ts` | **（v0.9 增补 / ADR-013）** 多会话仓库：origin/group 会话键派生 + 每会话历史 + 分组 + LRU 上限（纯逻辑，注入存储） |
+| NEW | `packages/web-cli-plugin/src/background/content-script-registry.ts` | **（v0.9 增补 / ADR-014）** 声明式注入注册/注销/对账（`registerContentScripts` + `persistAcrossSessions`，注入 `chrome.scripting` API） |
 | NEW | `packages/web-cli-plugin/src/background/host.ts` | CommandRouter + AgentRunner 宿主 + 工具注册 |
 | NEW | `packages/web-cli-plugin/src/background/messaging.ts` | 跨面消息协议（background↔content↔sidepanel） |
 | NEW | `packages/web-cli-plugin/src/protocol/descriptor.ts` | WebCliDescriptor schema + 校验 + 归一化 |
@@ -676,6 +678,8 @@ export interface WebCliDescriptorSource {
 | ADR-010 | 范围可裁剪与波次纪律（P0 四柱；通用站点优先于 LGDL 特化）（R-004） | ACCEPTED |
 | ADR-011 | LLM key 与厂商 CORS 处置 = background fetch + host_permissions 验证门 G-KEY（FR-034） | PROPOSED |
 | ADR-012 | 单标签绑定与会话生命周期（活跃标签 + 导航失效明示 + 存储恢复）（S-011/EC-011/013） | ACCEPTED |
+| ADR-013 | 多会话模型 = **按 origin 自动共享 + 可选会话组**（sessionId=origin / group:<id>；每会话独立历史；LRU 上限）（v0.9 增补/FR-048） | ACCEPTED（作者 2026-09-12 决策②） |
+| ADR-014 | 自动探测 = **声明式注入（`registerContentScripts`）+ content script 自上报自动握手**，非全站静态注入/`<all_urls>`（v0.9 增补/FR-047） | ACCEPTED（作者 2026-09-12 决策①） |
 
 ### ADR-001: 协议机制 = 站点中立描述符 + 双通道发现 + postMessage RPC 执行契约（P-01）
 
@@ -894,6 +898,54 @@ ACCEPTED（S-011 已核签冻结）
 ## 后果
 首版上下文模型明确、可测；导航失效不误当 bug（帮助面/提示）；崩溃/更新会话可恢复或明示丢失。
 
+### ADR-013: 多会话模型 = 按 origin 自动共享 + 可选会话组（v0.9 增补 / FR-048）
+
+## 状态
+ACCEPTED（作者 2026-09-12 架构决策②：默认按域名自动共享会话，并支持手动把多个域名并入同一会话组）
+
+## 背景
+ADR-012 首版为「单标签绑定 + **单份**对话历史」（`chat-session.ts` 单实例、`controller` 单快照）。真实使用中用户会同时打开多个站点标签页，单会话导致：切走再切回丢失上下文、不同站点历史互相覆盖、「切标签页」被误当故障。需要多会话，同时不破坏 per-origin 授权与 fail-closed。
+
+## 决策
+1. **会话键派生（纯函数）**：默认 `sessionId = origin`；若该 origin 被配置进某会话组 G，则 `sessionId = 'group:' + G.groupId`。同一 origin 恒定映射同一会话 → 同域名所有标签页天然共享同一份历史；不同 origin 天然隔离。
+2. **每会话独立历史**：新增 `background/session-store.ts`（纯逻辑 + 注入存储），持久化到 `chrome.storage.local`：`{ sessionId, origins[], history[], createdAt, lastActiveAt, title? }`；历史沿用既有 40 turn 有界裁剪（`boundHistory`，首条强制 `user`），**不新造第二套截断语义**。`service-worker.ts` 的 `chatSession` 变为「当前会话的历史视图」，切换会话即 `restore(historyOf(sessionId))`，提交回写 `setHistory(currentSessionId, …)`。
+3. **可选会话组**：origin → groupId 映射持久化；支持新建/加入/移出/删除（侧栏 + options 页）。**分组只共享对话，绝不等于互相授权**——per-origin `OriginStore` 与风控 `riskGuard` 按 origin 不变。
+4. **上限与回收**：会话数上限 20，超出按 LRU 淘汰最不活跃者并**可读披露**被淘汰会话（不静默丢数据）。
+5. **切换标签页/会话**：`tabs.onActivated` → 先自动握手（见 ADR-014）绑定新标签页并 adopt 其会话；面板经 `sessions` / `session-switch` / `session-changed` 同步并回显该会话历史。切换时若有待决 `confirm`/`ask-user` → 明确取消 + 可读提示（EC-019）。
+
+## 被否决方案与理由
+- **A. 维持单会话**（否决）：与「多站点知识工作者」主场景冲突；用户实测「切标签页」即失容，属体验硬伤。
+- **B. 每标签页一个会话**（否决）：用户预期「同域名多个标签页 = 同一任务上下文」；每标签页独立会割裂同一站点的连续操作，且标签页关闭即丢会话。
+- **C. 全局单会话 + 手动切换**（否决）：不同站点历史混在一起，存在**串台**与敏感数据混流风险；与「per-origin 隔离」的安全直觉不一致。
+- **D. 只按 origin、不做分组**（部分否决）：覆盖 80% 场景但无法满足「多域名同属一个业务、想共用一个对话」的需求（作者明确要求可手动并入）；故保留为默认行为、分组作为显式可选增强。
+
+## 后果
+多站点会话上下文清晰、可测（键派生/隔离/上限纯逻辑单测）；授权与风控语义零变化；代价 = 新增一个存储面与会话切换 UI，需在切换时显式处置待决交互（已落 EC-019）。
+
+### ADR-014: 自动探测 = 声明式注入 + 自上报自动握手（v0.9 增补 / FR-047）
+
+## 状态
+ACCEPTED（作者 2026-09-12 架构决策①：站点首次授权一次，之后注入/握手/绑定全自动；不引入 `<all_urls>`）
+
+## 背景
+ADR-002/012 首版注入为「`chrome.scripting.executeScript` 按需注入」，且绑定唯一触发点是**用户点击插件图标**（`action.onClicked` 手势内才拿得到 `tab.url`）。真实使用中这被反复误判为「插件坏了」（配置正常却恒「无活跃站点」）；且每次导航后都需再点图标，不符合「授权一次、长期可用」的预期。
+
+## 决策
+1. **声明式注入（授权即生效）**：`authorize` 成功且获得站点权限后，`chrome.scripting.registerContentScripts([{ id: <确定性 id>, matches:[origin/*], js:['content.js'], runAt:'document_idle', persistAcrossSessions:true }])`。之后该 origin 每次页面加载自动注入——**无需点图标**。
+2. **启动对账**：SW 启动 / `onInstalled` / `permissions.onAdded|onRemoved` 时读 `getRegisteredContentScripts()` 与「已授权 + 已获权限」集合对账 → **补齐缺失、清理已撤销**；任何失败**可读**（审计 + 日志），不静默。
+3. **自动握手与自动绑定（免点图标）**：content script 加载后主动上报 `location.origin`（`hello`）；标签页切换时 background 发送 `whoami` 由 content script 回 origin → 自动绑定该 tab 并 adopt 其会话。**不读 `tab.url`、不需要 `tabs` 权限、不需要手势**。
+4. **未授权站点静默降级**：未授权 origin 不注册、不注入；握手失败静默返回「未绑定」并可读提示，保留「点图标」回退（`action.onClicked` 路径不变）。
+5. **fail-closed 不变**：自动探测 ≠ 自动授权；执行仍受 `OriginStore` 门禁（S1/S2/S3）与二次确认约束。
+
+## 被否决方案与理由
+- **A. 全站静态注入（manifest `content_scripts` + `<all_urls>`）**（否决）：权限面显著扩大（违反 FR-006/NFR-002 权限最小化），且对未授权站点也注入（违背 per-origin 显式授权语义）。
+- **B. 保持「必须点图标」**（否决）：用户实测核心痛点；与「授权一次、长期可用」的预期冲突。
+- **C. 申请 `tabs` 权限以读 `tab.url` 后自动绑定**（否决）：`tabs` 是宽泛权限（可读所有标签页 URL/title），违背最小权限红线；`whoami` 自上报以零新增权限达成同一目标。
+- **D. 仅靠 `tabs.onUpdated` + 页面 URL 判断**（否决）：同样需要 `tabs`/host 权限才拿得到 URL，且 SPA/重定向边界复杂；自上报由页面侧驱动，天然可靠。
+
+## 后果
+「每个站点首次授权一次、之后全自动」成立且无权限扩张；权限面零新增（`scripting` 已在 manifest）；代价 = 新增 `content-script-registry.ts` 对账面与 `hello`/`whoami` 消息，需在 SW 生命周期各入口做对账（已实现）。
+
 ---
 
 ## 9. 任务切分建议（sddu-tasks 输入；tasks.json/tasks.md 由 sddu-tasks 产出）
@@ -935,3 +987,4 @@ ACCEPTED（S-011 已核签冻结）
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建：以 spec.md v1.1（46 FR 十组 + 10 NFR + 16 EC + 12 AC）+ discovery.md v1.1（Q/A/R/O）+ 作者裁决（O-001 代码下线 / O-002 通用任意站点优先 / O-003 不预设形态但 plan 给方案 / O-008/O-009/O-010 安全红线 / O-006↔O-001 对象区分；S-004/S-005/S-007/S-011/S-015 核签冻结）为红线输入；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议机制（站点中立描述符 schema + 双通道发现 + postMessage RPC 执行）、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、权限模型映射（三 PolicyStrategy + riskDefaults + fail-closed + onAsk 二次确认）、对象区分下的桥接与 Gate-D 下线执行/回退设计、存储载体（chrome.storage.local + session，key 隔离）；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）+ 波次与裁剪；方案对比 3 主题（宿主形态 / 发现载体 / 衔接方式）× 3 方案 + 推荐；技术开放点 P-01~P-06 全部采纳推荐默认并落 ADR；12 ADR（ACCEPTED 7 / PROPOSED 5，正文内嵌 §8）；文件影响面（新增独立包 ~35 文件 + LGDL 暴露点 + 下线面；零运行时新依赖，devDep `esbuild`+`@types/chrome` 单列待作者确认）；风险 11 项 + 缓解；任务切分建议 TB-0A~TB-R（§9，tasks 产出归 sddu-tasks） | 2026-09-11 | SDDU Plan Agent |
+| v1.1 | **v0.9 增补（作者 2026-09-12 两项架构级决策）**：追加 **ADR-013 多会话模型 = 按 origin 自动共享 + 可选会话组**（sessionId 派生 `origin` / `group:<id>`；每会话独立 40-turn 有界历史；LRU 上限 20 + 可读披露；分组 ≠ 授权）与 **ADR-014 自动探测 = 声明式注入 + 自上报自动握手**（`registerContentScripts` + `persistAcrossSessions`；启动/安装/权限变更对账；`hello`/`whoami` 免手势免 `tabs` 绑定；未授权站点静默降级）；两 ADR 均含**被否决方案与理由**（单会话 / 每标签会话 / 全局会话 / 仅 origin；全站静态注入 `<all_urls>` / 保持点图标 / 申请 `tabs` / 仅 onUpdated）。§6 文件影响补 `session-store.ts` / `content-script-registry.ts`。对应 spec v1.4 FR-047/048 + EC-017~020；未改既有 ADR/FR 语义，fail-closed 不变 | 2026-09-12 | SDDU Build Agent |

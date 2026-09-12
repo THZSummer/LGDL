@@ -285,6 +285,62 @@ export interface StateMessageView {
   tab?: ActiveTabView | null;
   /** One-shot readable notice from the background (D-064: icon binding / tab switch). */
   panelNotice?: string | null;
+  /** decision ② / FR-048: current multi-session projection (null when unbound). */
+  session?: SessionSummaryView | null;
+}
+
+// ── decision ② / FR-048: multi-session switcher view ─────────────────────────
+
+export interface SessionSummaryView {
+  sessionId: string;
+  label: string;
+  origins?: string[];
+  lastActiveAt?: number;
+  grouped?: boolean;
+}
+
+export interface SessionGroupView {
+  groupId: string;
+  name: string;
+  origins: string[];
+}
+
+/** Structural shape of the background `sessions` reply. */
+export interface SessionsMessageView {
+  currentSessionId?: string | null;
+  sessions?: SessionSummaryView[];
+  groups?: SessionGroupView[];
+  history?: Array<{ role: string; text: string }>;
+}
+
+/** Top-status label for the current session (readable even when unbound). */
+export function currentSessionLabel(session: SessionSummaryView | null | undefined): string {
+  if (!session) return '会话：（无活跃站点）';
+  return `会话：${session.label}`;
+}
+
+/** Sort sessions most-recently-active first; current session pinned first. */
+export function sortSessions(
+  sessions: readonly SessionSummaryView[] | undefined,
+  currentSessionId: string | null | undefined,
+): SessionSummaryView[] {
+  const list = [...(sessions ?? [])];
+  list.sort((a, b) => {
+    if (a.sessionId === currentSessionId) return -1;
+    if (b.sessionId === currentSessionId) return 1;
+    return (b.lastActiveAt ?? 0) - (a.lastActiveAt ?? 0);
+  });
+  return list;
+}
+
+/** Map a background history projection to reducer entries (role whitelist). */
+export function historyEntries(
+  history: readonly { role: string; text: string }[] | undefined,
+): Array<{ role: 'user' | 'assistant' | 'tool' | 'system'; text: string }> {
+  const allowed = new Set(['user', 'assistant', 'tool', 'system']);
+  return (history ?? [])
+    .filter((h) => allowed.has(h.role) && typeof h.text === 'string' && h.text.length > 0)
+    .map((h) => ({ role: h.role as 'user' | 'assistant' | 'tool' | 'system', text: h.text }));
 }
 
 export interface StateActionView {

@@ -69,6 +69,17 @@ let envGuard: EnvGuardResult = detectExtensionEnv(
 /** Last diagnostics report (for the one-click copy). */
 let lastDiag: DiagReport | null = null;
 
+// decision ② / FR-048: session-group management (create / add origin / remove / delete).
+interface SessionGroupView {
+  groupId: string;
+  name: string;
+  origins: string[];
+}
+interface SessionsReply {
+  currentSessionId?: string | null;
+  groups?: SessionGroupView[];
+}
+
 type MessageKind = 'ok' | 'warn' | 'err' | '';
 
 function errMessage(err: unknown): string {
@@ -406,7 +417,120 @@ async function copyDiagnostics(): Promise<void> {
   }, 2000);
 }
 
+// ── decision ② / FR-048: 会话分组管理 ───────────────────────────────────────
+
+function renderGroups(groups: SessionGroupView[]): void {
+  const box = $('group-list');
+  box.textContent = '';
+  if (groups.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'muted';
+    empty.textContent = '尚无分组（默认每个域名独立一个会话）。';
+    box.appendChild(empty);
+  }
+  for (const g of groups) {
+    const row = document.createElement('div');
+    row.className = 'group-row';
+    const strong = document.createElement('strong');
+    strong.textContent = `${g.name}（${g.origins.length} 个域名）`;
+    row.appendChild(strong);
+    const origins = document.createElement('div');
+    origins.className = 'muted';
+    origins.textContent = g.origins.length ? g.origins.join('，') : '（暂无域名）';
+    row.appendChild(origins);
+
+    const actions = document.createElement('div');
+    actions.className = 'row';
+    for (const origin of g.origins) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = `移出 ${origin}`;
+      b.addEventListener('click', () => void groupOp({ action: 'remove', origin }));
+      actions.appendChild(b);
+    }
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = '删除分组';
+    del.addEventListener('click', () => void groupOp({ action: 'delete', groupId: g.groupId }));
+    actions.appendChild(del);
+    row.appendChild(actions);
+    box.appendChild(row);
+  }
+
+  const sel = $('group-target') as HTMLSelectElement;
+  const prev = sel.value;
+  sel.textContent = '';
+  for (const g of groups) {
+    const opt = document.createElement('option');
+    opt.value = g.groupId;
+    opt.textContent = g.name;
+    sel.appendChild(opt);
+  }
+  if (groups.some((g) => g.groupId === prev)) sel.value = prev;
+}
+
+async function refreshGroups(): Promise<void> {
+  const status = $('sessions-status');
+  if (!envGuard.inExtension) {
+    status.textContent = '非扩展环境：无法读取会话分组。';
+    return;
+  }
+  try {
+    const res = (await chrome.runtime.sendMessage(makeMessage('sessions'))) as PluginResponse<SessionsReply> | undefined;
+    if (!res?.ok || !res.data) {
+      status.textContent = `✖ 读取会话失败：${res?.error ?? '后台无响应'}`;
+      return;
+    }
+    renderGroups(res.data.groups ?? []);
+    status.textContent = `当前会话：${res.data.currentSessionId ?? '（无活跃站点）'} · 分组 ${res.data.groups?.length ?? 0} 个`;
+  } catch (err) {
+    status.textContent = `✖ 读取会话失败：${errMessage(err)}`;
+  }
+}
+
+async function groupOp(payload: Record<string, unknown>): Promise<void> {
+  const status = $('sessions-status');
+  try {
+    const res = (await chrome.runtime.sendMessage(makeMessage('session-group', payload))) as
+      | PluginResponse<{ groups?: SessionGroupView[] }>
+      | undefined;
+    if (!res?.ok) {
+      status.textContent = `✖ 分组操作失败：${res?.error ?? '后台无响应'}`;
+      return;
+    }
+    renderGroups(res.data?.groups ?? []);
+    await refreshGroups();
+  } catch (err) {
+    status.textContent = `✖ 分组操作失败：${errMessage(err)}`;
+  }
+}
+
 function wire(): void {
+  // decision ② / FR-048: 会话分组管理。
+  $('new-group').addEventListener('click', () => {
+    const input = $('new-group-name') as HTMLInputElement;
+    const name = input.value.trim();
+    if (!name) {
+      $('sessions-status').textContent = '✖ 请先填写分组名称。';
+      return;
+    }
+    input.value = '';
+    void groupOp({ action: 'create', name });
+  });
+  $('group-join').addEventListener('click', () => {
+    const origin = ($('group-origin') as HTMLInputElement).value.trim();
+    const groupId = ($('group-target') as HTMLSelectElement).value;
+    if (!origin) {
+      $('sessions-status').textContent = '✖ 请填写要加入分组的域名/来源。';
+      return;
+    }
+    if (!groupId) {
+      $('sessions-status').textContent = '✖ 请先新建一个分组。';
+      return;
+    }
+    void groupOp({ action: 'add', groupId, origin });
+  });
+
   $('provider').addEventListener('change', () => {
     const id = ($('provider') as HTMLSelectElement).value;
     const provider = providerById(id);
@@ -462,6 +586,8 @@ function wire(): void {
 wire();
 applyEnvGuard();
 void refresh();
+// decision ② / FR-048: load session-group state alongside the LLM config.
+void refreshGroups();
 // TASK-019 任务 C: run the self-check on load so the page immediately shows why
 // "保存不了 / 功能不能用" (never a silent blank). Also re-runnable via「运行自检」.
 void runDiagnostics()

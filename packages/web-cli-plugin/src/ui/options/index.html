@@ -102,6 +102,26 @@
       </p>
     </form>
 
+    <section id="sessions">
+      <h2>会话分组（可选）</h2>
+      <p class="muted">
+        默认<strong>每个域名独立一个会话</strong>（同域名的标签页共用同一份对话历史）。
+        可把多个域名并入同一「会话组」以<strong>共享对话</strong>。
+        <strong>分组只共享对话，不代表互相授权</strong>——每个站点仍需单独授权，执行仍受门禁。
+      </p>
+      <div class="row">
+        <input id="new-group-name" type="text" placeholder="新建分组名" autocomplete="off" />
+        <button type="button" id="new-group">新建分组</button>
+      </div>
+      <div id="group-list"></div>
+      <div class="row">
+        <input id="group-origin" type="text" placeholder="域名/来源，如 https://example.com" autocomplete="off" />
+        <select id="group-target" aria-label="目标分组"></select>
+        <button type="button" id="group-join">加入所选分组</button>
+      </div>
+      <div id="sessions-status" class="muted" role="status" aria-live="polite">会话分组：尚未读取。</div>
+    </section>
+
     <section id="diagnostics">
       <h2>环境自检 / 诊断</h2>
       <p class="muted">
