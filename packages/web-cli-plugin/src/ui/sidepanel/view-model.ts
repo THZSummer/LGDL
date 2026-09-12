@@ -35,7 +35,7 @@ export interface LlmStatusView {
  */
 export function llmStatusView(summary: LlmStatusSummary | null | undefined): LlmStatusView {
   if (summary === null || summary === undefined) {
-    return { configured: false, label: 'LLM：检测中…', warn: false, settingsLabel: '配置模型 / 设置' };
+    return { configured: false, label: 'LLM：检测中…', warn: false, settingsLabel: '⚙ 设置' };
   }
   if (!summary.configured) {
     const provider = (summary.providerName || summary.providerId || '未知厂商').trim();
@@ -44,12 +44,12 @@ export function llmStatusView(summary: LlmStatusSummary | null | undefined): Llm
       configured: false,
       label: `LLM：${provider} · ${model} · Key ⚠未配置`,
       warn: true,
-      settingsLabel: '去配置模型',
+      settingsLabel: '⚙ 去配置模型',
     };
   }
   const provider = (summary.providerName || summary.providerId || '未知厂商').trim();
   const model = (summary.model || '默认模型').trim();
-  return { configured: true, label: `LLM：${provider} · ${model} · Key ✅`, warn: false, settingsLabel: '设置' };
+  return { configured: true, label: `LLM：${provider} · ${model} · Key ✅`, warn: false, settingsLabel: '⚙ 设置' };
 }
 
 // ── TASK-019 任务 B: 「站点未声明协议」显式说明（不误导、不新增状态机） ──────
@@ -266,7 +266,7 @@ export interface OnboardingView {
 }
 
 const ONBOARDING_TEXTS: readonly string[] = [
-  '配置模型：点击上方「配置模型 / 设置」，选择厂商并填入 API Key',
+  '配置模型：点击上方「⚙ 设置」，在当前面板内选择厂商并填入 API Key',
   '打开目标站点：在标签页中打开声明了 web-cli 协议的站点',
   '点击浏览器工具栏的插件图标（这是绑定的唯一触发点）：插件会绑定并发现当前站点，然后自动打开侧栏',
   '点击下方「授权当前站点」，确认知情同意与站点权限',
@@ -453,16 +453,10 @@ export function isLogEmpty(entryCount: number): boolean {
 export const CONSENT_DEFAULT_OPEN = false;
 export const CONSENT_SUMMARY_TEXT = '知情同意与能力边界';
 
-// ── F-1: settings entry wiring seam (unit-testable) ───────────────────────
+// ── F-1 / TASK-033: settings entry is now an in-panel view switch ─────────
+//
+// The side panel no longer uses the options-page opening API — the
+// settings entry toggles an in-panel settings view (see `sidepanel.ts` +
+// `src/ui/settings/`). `options.html` remains available as a fallback page
+// (Chrome「扩展详细信息 → 扩展程序选项」), but it is never the settings entry.
 
-/** Minimal structural shape of `chrome.runtime` needed to open options. */
-export interface OpenOptionsApi {
-  openOptionsPage(): unknown;
-}
-
-/** Open the extension options page (no-op when the API is unavailable). */
-export function openSettingsPage(api: OpenOptionsApi | undefined): boolean {
-  if (!api || typeof api.openOptionsPage !== 'function') return false;
-  void api.openOptionsPage();
-  return true;
-}

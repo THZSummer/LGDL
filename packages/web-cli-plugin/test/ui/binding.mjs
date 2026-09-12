@@ -651,6 +651,98 @@ async function phase1(mock) {
     check(Boolean(spAutoTest), '#6-1 侧栏加载即自动测试当前模型配置（mock LLM 最小 ping）并显示可读状态', spAutoTest ?? 'no auto status');
     const spTestBtnAbsent = await evaluate(ext, `document.getElementById('llm-test') === null`);
     check(spTestBtnAbsent === true, '#6-2 侧栏不存在独立「测试连接」按钮（按钮已移除）', String(spTestBtnAbsent));
+
+    // ── TASK-033: the panel settings view does everything IN the panel ────────
+    // (real dist + real extension: config read / test connection / auto-auth,
+    //  with zero tab switches and zero options.html navigation)
+    const listPages = async () =>
+      (await fetch(`${base}/json/list`).then((r) => r.json()).catch(() => [])).filter((t) => t.type === 'page');
+    const pagesBefore = (await listPages()).length;
+    const optsBefore = (await listPages()).filter((t) => t.url.includes('options.html')).length;
+    await evaluate(
+      ext,
+      `(() => {
+        window.__ooCalled = 0;
+        try {
+          const orig = chrome.runtime.openOptionsPage.bind(chrome.runtime);
+          chrome.runtime.openOptionsPage = (...a) => { window.__ooCalled += 1; return orig(...a); };
+          window.__ooWrapped = true;
+        } catch { window.__ooWrapped = false; }
+        return window.__ooWrapped;
+      })()`,
+    );
+    await realClick(ext, '#open-settings');
+    const settingsView = await waitFor(
+      ext,
+      `(() => {
+        const v = document.getElementById('settings-view');
+        const provider = document.getElementById('settings-provider');
+        const model = document.getElementById('settings-model');
+        if (!v || !v.classList.contains('show') || !provider || !model) return '';
+        const sections = ['settings-llm','settings-auto-auth','settings-tabs','settings-sessions','settings-diagnostics','settings-compliance','settings-migration'];
+        return JSON.stringify({
+          url: location.href,
+          chatHidden: getComputedStyle(document.getElementById('panel-main')).display === 'none',
+          sections: sections.every((id) => !!document.getElementById(id)),
+          provider: provider.value,
+          providerOptions: provider.options.length,
+          model: model.value,
+          keyState: document.getElementById('settings-key-state').textContent,
+        });
+      })()`,
+      60,
+      200,
+    );
+    const svp = settingsView ? JSON.parse(settingsView) : {};
+    check(Boolean(settingsView), '#33B1 面板内设置视图真实渲染（真实 dist + 真实扩展，零跳转）', settingsView ?? 'no settings view');
+    check(svp.chatHidden === true && /sidepanel\.html/.test(svp.url ?? ''), '#33B2 设置视图在同一面板内（聊天区仅隐藏；URL 仍 sidepanel.html）', String(svp.url));
+    check(svp.sections === true, '#33B3 设置视图覆盖全部分区', settingsView);
+    check(svp.providerOptions === 8 && svp.provider === 'openai' && svp.model === 'binding-mock', '#33B4 面板设置读取到已存配置（厂商/模型/8 选项）', JSON.stringify({ provider: svp.provider, model: svp.model }));
+    check(/已写入/.test(svp.keyState ?? ''), '#33B5 面板设置显示 Key 已存状态（零明文）', String(svp.keyState));
+
+    await realClick(ext, '#settings-test');
+    const panelTest = await waitFor(
+      ext,
+      `(() => { const t = document.getElementById('settings-test-result').textContent; return t && !/正在/.test(t) ? t : ''; })()`,
+      150,
+      200,
+    );
+    check(/连接正常|测试连接失败/.test(panelTest ?? ''), '#33B6 面板设置内「测试连接」可用并回显可读结果（mock LLM）', String(panelTest).slice(0, 160));
+
+    // auto-authorization checkbox, in the panel, through the existing channel
+    await evaluate(ext, `(() => { const el = document.getElementById('settings-auto-write'); if (el) el.scrollIntoView({ block: 'center' }); return !!el; })()`);
+    await sleep(200);
+    await realClick(ext, '#settings-auto-write');
+    const aaWriteOn = await waitFor(
+      ext,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'auto-auth', action: 'get' }); const rec = (r.data.origins || []).find((x) => x.origin === 'http://localhost:5173'); return rec && rec.write === true ? JSON.stringify(rec) : ''; })()`,
+      40,
+      150,
+    );
+    check(Boolean(aaWriteOn), '#33B7 面板设置内勾选「写操作自动」经既有 auto-auth 通道即时持久化', aaWriteOn ?? '');
+    await evaluate(ext, `document.getElementById('settings-auto-write').click()`);
+    const aaWriteOff = await waitFor(
+      ext,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'auto-auth', action: 'get' }); const rec = (r.data.origins || []).find((x) => x.origin === 'http://localhost:5173'); return rec && rec.write === false ? 'off' : ''; })()`,
+      40,
+      150,
+    );
+    check(aaWriteOff === 'off', '#33B8 面板设置内取消勾选立即关闭（持久化恢复）', String(aaWriteOff));
+
+    await realClick(ext, '#settings-back');
+    const backToChat = await waitFor(
+      ext,
+      `(() => { const v = document.getElementById('settings-view'); return v && !v.classList.contains('show') && getComputedStyle(document.getElementById('panel-main')).display !== 'none' ? 'chat' : ''; })()`,
+      40,
+      200,
+    );
+    check(backToChat === 'chat', '#33B9 「← 返回对话」回到聊天视图', String(backToChat));
+    const ooCalled = await evaluate(ext, `window.__ooCalled`);
+    const pagesAfter = (await listPages()).length;
+    const optsAfter = (await listPages()).filter((t) => t.url.includes('options.html')).length;
+    check(ooCalled === 0, '#33B10 面板设置入口零 openOptionsPage 调用（页面内计数=0）', String(ooCalled));
+    check(pagesAfter === pagesBefore && optsAfter === optsBefore, '#33B11 面板设置全程零标签页跳转（page/options target 数不变）', `${pagesBefore}→${pagesAfter} / ${optsBefore}→${optsAfter}`);
+
     await realClick(ext, '#input');
     await typeText(ext, '11111');
     const typed = await evaluate(ext, `document.getElementById('input').value`);
@@ -792,7 +884,16 @@ async function phase1(mock) {
     const otherTabId = await evaluate(sw, `chrome.tabs.create({ url: 'http://127.0.0.1:1/' }).then((t) => t.id).catch(() => -1)`);
     check(otherTabId !== -1, '#8 打开第二个 origin 标签页（用于证明会话切换）', String(otherTabId));
     await evaluate(sw, `chrome.tabs.update(${otherTabId}, { active: true }).then(() => true)`);
-    await sleep(500);
+    // D-136 (TASK-033 harness robustness): a freshly created tab can still be
+    // `loading` with an EMPTY `tab.url`, and binding legitimately refuses that
+    // (address unreadable). Wait until Chrome exposes the address before rebinding
+    // so this step proves the session switch rather than racing the loader.
+    await waitFor(
+      sw,
+      `chrome.tabs.query({ active: true, currentWindow: true }).then((ts) => (ts[0] && typeof ts[0].url === 'string' && ts[0].url.length > 0 ? 'readable' : ''))`,
+      60,
+      250,
+    );
     const rebound = await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'rebind' }).then((r) => JSON.stringify(r)).catch((e) => 'ERR:' + String(e))`);
     const rb = JSON.parse(rebound);
     check(rb.ok === true && rb.data?.origin === 'http://127.0.0.1:1', '#8b 预先绑定第二个 origin（当前会话切换为它）', rebound);

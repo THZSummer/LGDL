@@ -30,7 +30,10 @@ test('FR-049: options page exposes the privacy toggle and talks to the backgroun
   assert.match(html, /不含 close/);
   assert.match(html, /--full/);
   const opts = read('../../src/ui/options/options.ts');
-  assert.match(opts, /makeMessage\('tabs-setting'/);
+  // TASK-033: the request itself lives in the shared ops module (panel parity);
+  // the options page still wires the toggle and delegates to it.
+  assert.match(opts, /from '\.\.\/settings\/ops\.js'/);
+  assert.match(read('../../src/ui/settings/ops.ts'), /makeMessage\('tabs-setting'/);
   assert.match(opts, /\$\('tabs-enabled'\)\.addEventListener\('change'/);
 });
 

@@ -25,32 +25,34 @@ import {
 import { shortBuildStamp } from '../../build-info.js';
 import { createKeyStore, type LlmSettings } from '../../llm/key-store.js';
 import { PROVIDERS, providerById, DEFAULT_MAX_ROUNDS } from '../../llm/providers.js';
-import { makeMessage, type PluginResponse } from '../../background/messaging.js';
-import type { TestConnectionResult } from '../../llm/test-connection.js';
-import type { LlmStatusSummary } from '../../llm/status.js';
-import type { DiagMessagePayload } from '../../background/diag-message.js';
 import {
-  buildReport,
   diagStatusIcon,
-  extensionItem,
-  llmItem,
-  originsItem,
   renderDiagText,
   sanitizeDiagText,
-  storageItem,
   summarizeReport,
-  swItem,
-  versionItem,
-  type DiagItem,
   type DiagReport,
-  type DiagStatus,
-} from './diagnostics.js';
+} from '../settings/diagnostics.js';
+import {
+  API_KEY_PLACEHOLDER_EMPTY,
+  API_KEY_PLACEHOLDER_SAVED,
+  AUTO_AUTH_EMPTY_TEXT,
+  apiKeyPlaceholder,
+  autoAuthListStatus,
+  autoAuthRows,
+  groupListView,
+  keyStateView,
+  keyWarningText,
+  providerHint as sharedProviderHint,
+  savedSummaryView,
+  tabsSettingStatus,
+  type AutoAuthRecordView,
+  type SessionGroupView,
+} from '../settings/view.js';
+import { createSettingsOps, transportFromRuntime } from '../settings/ops.js';
 
-// TASK-020 任务 A: a successful save must never look like an empty/failed field.
-// The input is cleared (never re-echo the secret) but the placeholder + a
-// dedicated `#key-state` marker make the "already saved" state unmistakable.
-export const API_KEY_PLACEHOLDER_EMPTY = '仅写入扩展存储，不回显明文';
-export const API_KEY_PLACEHOLDER_SAVED = '已保存（不回显）；如需更换请重新输入';
+// TASK-033: the key placeholders now live in the shared settings module so the
+// side panel and this fallback page cannot diverge. Re-exported for compatibility.
+export { API_KEY_PLACEHOLDER_EMPTY, API_KEY_PLACEHOLDER_SAVED };
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -69,27 +71,38 @@ let envGuard: EnvGuardResult = detectExtensionEnv(
 /** Last diagnostics report (for the one-click copy). */
 let lastDiag: DiagReport | null = null;
 
-// decision ② / FR-048: session-group management (create / add origin / remove / delete).
-interface SessionGroupView {
-  groupId: string;
-  name: string;
-  origins: string[];
-}
-interface SessionsReply {
-  currentSessionId?: string | null;
-  groups?: SessionGroupView[];
-}
+// TASK-033: all settings actions run through the shared ops implementation so
+// this fallback page and the side-panel settings view cannot drift.
+const settingsOps = createSettingsOps({
+  env: envGuard,
+  transport: transportFromRuntime(
+    (typeof chrome !== 'undefined' ? chrome.runtime : { sendMessage: async () => ({ ok: false, error: '非扩展环境' }) }) as never,
+  ),
+  store,
+  buildStamp: shortBuildStamp(),
+  manifestVersion: manifestVersionSafe,
+  probeStorage: async () => {
+    const kv = createChromeAsyncKv('web-cli-diag');
+    const token = { at: Date.now() };
+    await kv.set('probe', token);
+    const back = await kv.get<{ at?: number }>('probe');
+    await kv.remove('probe');
+    return back && typeof back.at === 'number'
+      ? { status: 'ok' as const, detail: '写入测试键 → 读回一致 → 已清理' }
+      : { status: 'warn' as const, detail: '写入测试键后读回为空或结构不符（存储可能不可用）' };
+  },
+});
 
+// decision ② / FR-048: session-group management (create / add origin / remove / delete).
 type MessageKind = 'ok' | 'warn' | 'err' | '';
 
 function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Readable hint for a provider, including the browser-direct limitation note. */
+/** Readable hint for a provider (shared with the side-panel settings view). */
 function providerHint(id: string): string {
-  const provider = providerById(id);
-  return `${provider.hint}${provider.browserDirect ? '' : '；⚠ 该厂商浏览器直连受限（G-KEY），可在「测试连接」查看可读原因'}`;
+  return sharedProviderHint(id);
 }
 
 function setMessage(el: HTMLElement, kind: MessageKind, text: string): void {
@@ -106,7 +119,7 @@ const setTestResult = (kind: MessageKind, text: string): void => setMessage($('t
 
 /** TASK-020 任务 A: the API-key placeholder reflects the saved/empty state. */
 function setApiKeyPlaceholder(hasKey: boolean): void {
-  ($('apiKey') as HTMLInputElement).placeholder = hasKey ? API_KEY_PLACEHOLDER_SAVED : API_KEY_PLACEHOLDER_EMPTY;
+  ($('apiKey') as HTMLInputElement).placeholder = apiKeyPlaceholder(hasKey);
 }
 
 /**
@@ -115,9 +128,10 @@ function setApiKeyPlaceholder(hasKey: boolean): void {
  */
 function renderKeyState(hasKey: boolean): void {
   const el = $('key-state');
+  const view = keyStateView(hasKey);
   el.classList.remove('ok', 'warn');
-  el.classList.add(hasKey ? 'ok' : 'warn');
-  el.textContent = hasKey ? 'Key ✅ 已写入（不回显）' : '⚠ 未配置 Key —— 保存后仍无法调用 LLM';
+  el.classList.add(view.kind);
+  el.textContent = view.text;
 }
 
 /** TASK-020 任务 A: make the success receipt visually unmistakable. */
@@ -146,17 +160,14 @@ function fillProviders(selected: string): void {
 
 function setKeyWarning(configured: boolean): void {
   const box = $('key-warning');
-  box.textContent = configured
-    ? ''
-    : '⚠ 尚未配置 API Key：插件无法调用 LLM。请在下方选择厂商、填入 API Key 并保存。';
+  box.textContent = keyWarningText(configured);
   box.classList.toggle('show', !configured);
 }
 
 /** Echo the stored config as a non-sensitive summary (never the key itself). */
 function renderSavedSummary(cfg: LlmSettings): void {
-  const provider = providerById(cfg.providerId);
-  const keyState = cfg.apiKey ? 'Key ✅' : 'Key ⚠未配置';
-  setSaved(cfg.apiKey ? '' : 'warn', `当前配置：${provider.name} · ${cfg.model} · ${keyState}`);
+  const view = savedSummaryView(cfg);
+  setSaved(view.kind, view.text);
 }
 
 /** TASK-019 任务 A: blocking banner + disabled actions when not in an extension. */
@@ -213,24 +224,22 @@ async function handleSave(): Promise<void> {
   setBusy(true);
   try {
     const providerId = ($('provider') as HTMLSelectElement).value;
-    const provider = providerById(providerId);
-    const existing = await store.loadProvider(provider.id);
-    const typed = ($('apiKey') as HTMLInputElement).value;
-    const key = typed.trim() || existing.apiKey;
-    if (!key) {
-      setKeyWarning(false);
-      renderKeyState(false);
-      setSaved('warn', `⚠ 未保存：未填写 ${provider.name} 的 API Key，且该厂商尚无已保存的 Key。请填入 Key 后重试。`);
+    // TASK-033: persistence + validation live in the shared settings ops.
+    const res = await settingsOps.saveLlm({
+      providerId,
+      apiKey: ($('apiKey') as HTMLInputElement).value,
+      model: ($('model') as HTMLInputElement).value,
+      baseURL: ($('baseURL') as HTMLInputElement).value,
+      maxRounds: ($('maxRounds') as HTMLInputElement).value,
+    });
+    if (!res.ok) {
+      if (res.kind === 'warn') {
+        setKeyWarning(false);
+        renderKeyState(false);
+      }
+      setSaved(res.kind || 'err', res.text);
       return;
     }
-    const model = ($('model') as HTMLInputElement).value.trim() || provider.defaultModel;
-    await store.save({
-      providerId: provider.id,
-      apiKey: key,
-      model,
-      baseURL: ($('baseURL') as HTMLInputElement).value,
-      maxRounds: Number(($('maxRounds') as HTMLInputElement).value) || DEFAULT_MAX_ROUNDS,
-    });
     // F-8: never leave the typed secret in the DOM after a successful save.
     ($('apiKey') as HTMLInputElement).value = '';
     // TASK-020 任务 A: an empty box must read as "saved (not echoed)", not "空/失败".
@@ -238,7 +247,7 @@ async function handleSave(): Promise<void> {
     renderKeyState(true);
     setKeyWarning(true);
     setTestResult('', '');
-    setSaved('ok', `✓ 已保存：${provider.name} · ${model} · Key ✅ 已写入（chrome.storage.local，不回显）`);
+    setSaved('ok', res.text);
     highlightSaved();
   } catch (err) {
     setSaved('err', `✖ 保存失败：${errMessage(err)}`);
@@ -250,6 +259,7 @@ async function handleSave(): Promise<void> {
 /**
  * 「测试连接」：用当前表单值（含尚未保存的 Key）经 background 发一次最小真实
  * 请求，渲染可读结果。key 只作为 background 请求参数，不落日志/审计。
+ * TASK-033: the request/classification is shared with the side-panel settings view.
  */
 async function handleTest(): Promise<void> {
   const btn = $('test') as HTMLButtonElement;
@@ -262,25 +272,14 @@ async function handleTest(): Promise<void> {
   btn.disabled = true;
   btn.textContent = '测试中…';
   try {
-    const typed = ($('apiKey') as HTMLInputElement).value.trim();
-    const stored = await store.loadProvider(provider.id);
-    const apiKey = typed || stored.apiKey;
-    const model = ($('model') as HTMLInputElement).value.trim() || provider.defaultModel;
-    const baseURL = ($('baseURL') as HTMLInputElement).value.trim();
-    if (!apiKey) {
-      setTestResult('warn', `⚠ 请先填写 ${provider.name} 的 API Key 再测试连接。`);
-      return;
-    }
     setTestResult('', `正在向 ${provider.name} 发送最小 ping 请求…`);
-    const res = (await chrome.runtime.sendMessage(
-      makeMessage('llm-test', { providerId: provider.id, apiKey, model, baseURL }),
-    )) as PluginResponse<TestConnectionResult> | undefined;
-    if (!res?.ok || !res.data) {
-      setTestResult('err', `✖ 测试连接失败：${res?.error ?? '后台无响应'}`);
-      return;
-    }
-    const data = res.data;
-    setTestResult(data.ok ? 'ok' : 'err', data.message);
+    const res = await settingsOps.testConnection({
+      providerId,
+      apiKey: ($('apiKey') as HTMLInputElement).value,
+      model: ($('model') as HTMLInputElement).value,
+      baseURL: ($('baseURL') as HTMLInputElement).value,
+    });
+    setTestResult(res.kind === 'warn' ? 'warn' : res.ok ? 'ok' : 'err', res.text);
   } catch (err) {
     setTestResult('err', `✖ 测试连接失败：${errMessage(err)}`);
   } finally {
@@ -299,71 +298,9 @@ function manifestVersionSafe(): string {
   }
 }
 
-async function sendDiag<T>(kind: 'diag' | 'llm-status'): Promise<PluginResponse<T> | undefined> {
-  try {
-    return (await chrome.runtime.sendMessage(makeMessage(kind))) as PluginResponse<T> | undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Collect the six checks with real runtime calls; every failure is readable. */
+/** Collect the six checks via the shared settings ops (identical in the panel). */
 async function runDiagnostics(): Promise<DiagReport> {
-  const items: DiagItem[] = [extensionItem(envGuard.inExtension, envGuard.reasons)];
-
-  // 3. storage.local read/write probe (only meaningful in an extension context).
-  let storageStatus: DiagStatus = 'fail';
-  let storageDetail = '非扩展环境：chrome.storage.local 不可用';
-  if (envGuard.inExtension) {
-    try {
-      const kv = createChromeAsyncKv('web-cli-diag');
-      const token = { at: Date.now() };
-      await kv.set('probe', token);
-      const back = await kv.get<{ at?: number }>('probe');
-      await kv.remove('probe');
-      if (back && typeof back.at === 'number') {
-        storageStatus = 'ok';
-        storageDetail = '写入测试键 → 读回一致 → 已清理';
-      } else {
-        storageDetail = '写入测试键后读回为空或结构不符（存储可能不可用）';
-      }
-    } catch (err) {
-      storageDetail = `存储读写异常：${errMessage(err)}`;
-    }
-  }
-  items.push(storageItem(storageStatus, storageDetail));
-
-  // 4. SW connectivity + 2. version/build + 5. origins (single `diag` round trip).
-  let diagData: DiagMessagePayload | undefined;
-  let swStatus: DiagStatus = 'fail';
-  let swDetail = '非扩展环境：无法连接 background service worker';
-  if (envGuard.inExtension) {
-    const t0 = Date.now();
-    const res = await sendDiag<DiagMessagePayload>('diag');
-    const elapsed = Date.now() - t0;
-    if (res?.ok && res.data) {
-      diagData = res.data;
-      swStatus = 'ok';
-      swDetail =
-        `往返 ${elapsed} ms · SW 版本 v${res.data.version} · SW 启动于 ` +
-        `${new Date(res.data.swStartedAt).toLocaleString()}`;
-    } else {
-      swDetail = `background 未返回有效诊断（${res?.error ?? '无响应'}）`;
-    }
-  }
-  items.push(swItem(swStatus, swDetail));
-  items.push(versionItem(manifestVersionSafe(), diagData?.version ?? null, shortBuildStamp(), diagData?.buildStamp ?? null));
-  items.push(originsItem(diagData?.authorizedOrigins ?? [], diagData?.activeOrigin ?? null));
-
-  // 6. configured provider / model (non-sensitive summary; never the key).
-  let llm: LlmStatusSummary | null = null;
-  if (envGuard.inExtension) {
-    const res = await sendDiag<LlmStatusSummary>('llm-status');
-    if (res?.ok && res.data) llm = res.data;
-  }
-  items.push(llmItem(Boolean(llm?.configured), llm?.providerName ?? '', llm?.model ?? ''));
-
-  return buildReport(items, Date.now());
+  return settingsOps.runDiagnostics();
 }
 
 function renderDiag(report: DiagReport): void {
@@ -422,7 +359,9 @@ async function copyDiagnostics(): Promise<void> {
 function renderGroups(groups: SessionGroupView[]): void {
   const box = $('group-list');
   box.textContent = '';
-  if (groups.length === 0) {
+  // TASK-033: the row model comes from the shared view helper (panel parity).
+  const view = groupListView(groups);
+  if (view.empty) {
     const empty = document.createElement('div');
     empty.className = 'muted';
     empty.textContent = '尚无分组（默认每个域名独立一个会话）。';
@@ -475,51 +414,32 @@ async function refreshGroups(): Promise<void> {
     status.textContent = '非扩展环境：无法读取会话分组。';
     return;
   }
-  try {
-    const res = (await chrome.runtime.sendMessage(makeMessage('sessions'))) as PluginResponse<SessionsReply> | undefined;
-    if (!res?.ok || !res.data) {
-      status.textContent = `✖ 读取会话失败：${res?.error ?? '后台无响应'}`;
-      return;
-    }
-    renderGroups(res.data.groups ?? []);
-    status.textContent = `当前会话：${res.data.currentSessionId ?? '（无活跃站点）'} · 分组 ${res.data.groups?.length ?? 0} 个`;
-  } catch (err) {
-    status.textContent = `✖ 读取会话失败：${errMessage(err)}`;
+  const res = await settingsOps.loadSessions();
+  if (!res.ok || !res.data) {
+    status.textContent = res.text;
+    return;
   }
+  renderGroups(res.data.groups);
+  status.textContent = `${res.text} · 分组 ${res.data.groups.length} 个`;
 }
 
 async function groupOp(payload: Record<string, unknown>): Promise<void> {
   const status = $('sessions-status');
-  try {
-    const res = (await chrome.runtime.sendMessage(makeMessage('session-group', payload))) as
-      | PluginResponse<{ groups?: SessionGroupView[] }>
-      | undefined;
-    if (!res?.ok) {
-      status.textContent = `✖ 分组操作失败：${res?.error ?? '后台无响应'}`;
-      return;
-    }
-    renderGroups(res.data?.groups ?? []);
-    await refreshGroups();
-  } catch (err) {
-    status.textContent = `✖ 分组操作失败：${errMessage(err)}`;
+  const res = await settingsOps.groupAction(payload);
+  if (!res.ok) {
+    status.textContent = res.text;
+    return;
   }
+  renderGroups(res.data ?? []);
+  await refreshGroups();
 }
 
 // ── author decision ③ / FR-049: 标签页管理隐私开关 ─────────────────────────
 
 function renderTabsSetting(enabled: boolean, tools?: string[]): void {
   ($('tabs-enabled') as HTMLInputElement).checked = enabled;
-  const status = $('tabs-setting-status');
-  const hasTool = !tools || tools.includes('tabs');
-  if (enabled) {
-    status.textContent = hasTool
-      ? '已开启：LLM 工具面包含 tabs（list / switch / open；不含 close）。'
-      : '已开启：tabs 应已进入 LLM 工具面（若未显示，请重新加载扩展）。';
-  } else {
-    status.textContent = hasTool
-      ? '⚠ 已关闭但工具面仍含 tabs：请重新加载扩展后重试（这是异常，不静默）。'
-      : '已关闭：tabs 已从 LLM 工具面移除（助手无法查看/切换标签页）。';
-  }
+  // TASK-033: readable status text comes from the shared view helper.
+  $('tabs-setting-status').textContent = tabsSettingStatus(enabled, tools);
 }
 
 async function refreshTabsSetting(): Promise<void> {
@@ -528,59 +448,41 @@ async function refreshTabsSetting(): Promise<void> {
     status.textContent = '非扩展环境：无法读取标签页管理开关。';
     return;
   }
-  try {
-    const res = (await chrome.runtime.sendMessage(makeMessage('tabs-setting', { action: 'get' }))) as
-      | PluginResponse<{ enabled?: boolean; tools?: string[] }>
-      | undefined;
-    if (!res?.ok || !res.data) {
-      status.textContent = `✖ 读取标签页管理开关失败：${res?.error ?? '后台无响应'}`;
-      return;
-    }
-    renderTabsSetting(res.data.enabled !== false, res.data.tools);
-  } catch (err) {
-    status.textContent = `✖ 读取标签页管理开关失败：${errMessage(err)}`;
+  const res = await settingsOps.loadTabsSetting();
+  if (!res.data) {
+    status.textContent = res.text;
+    return;
   }
+  renderTabsSetting(res.data.enabled, res.data.tools);
 }
 
 async function setTabsSetting(enabled: boolean): Promise<void> {
   const status = $('tabs-setting-status');
-  try {
-    const res = (await chrome.runtime.sendMessage(makeMessage('tabs-setting', { action: 'set', enabled }))) as
-      | PluginResponse<{ enabled?: boolean; tools?: string[] }>
-      | undefined;
-    if (!res?.ok || !res.data) {
-      status.textContent = `✖ 保存标签页管理开关失败：${res?.error ?? '后台无响应'}`;
-      // Re-read the authoritative state so the checkbox never lies.
-      await refreshTabsSetting();
-      return;
-    }
-    renderTabsSetting(res.data.enabled !== false, res.data.tools);
-  } catch (err) {
-    status.textContent = `✖ 保存标签页管理开关失败：${errMessage(err)}`;
+  const res = await settingsOps.setTabsSetting(enabled);
+  if (!res.data) {
+    status.textContent = res.text;
+    // Re-read the authoritative state so the checkbox never lies.
     await refreshTabsSetting();
+    return;
   }
+  renderTabsSetting(res.data.enabled, res.data.tools);
 }
 
 // ── FR-052 / ADR-017: 按 origin 自动授权管理 ────────────────────────────────
 
-interface AutoAuthRecordView {
-  origin: string;
-  read: boolean;
-  write: boolean;
-  updatedAt: number;
-}
-
 function renderAutoAuthList(records: AutoAuthRecordView[]): void {
   const box = $('auto-auth-list');
   box.textContent = '';
-  if (records.length === 0) {
+  // TASK-033: normalization comes from the shared view helper (panel parity).
+  const rows = autoAuthRows(records);
+  if (rows.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'muted';
-    empty.textContent = '暂无站点开启自动授权（侧栏「知情同意与能力边界」区可为当前站点开启）。';
+    empty.textContent = AUTO_AUTH_EMPTY_TEXT;
     box.appendChild(empty);
     return;
   }
-  for (const rec of records) {
+  for (const rec of rows) {
     const row = document.createElement('div');
     row.className = 'auto-auth-row';
     const label = document.createElement('strong');
@@ -618,57 +520,37 @@ async function refreshAutoAuth(): Promise<void> {
     status.textContent = '非扩展环境：无法读取自动授权设置。';
     return;
   }
-  try {
-    const res = (await chrome.runtime.sendMessage(makeMessage('auto-auth', { action: 'get' }))) as
-      | PluginResponse<{ origins?: AutoAuthRecordView[] }>
-      | undefined;
-    if (!res?.ok || !res.data) {
-      status.textContent = `✖ 读取自动授权失败：${res?.error ?? '后台无响应'}`;
-      return;
-    }
-    renderAutoAuthList(res.data.origins ?? []);
-    status.textContent = `自动授权：${res.data.origins?.length ?? 0} 个站点有显式设置（写操作自动不含破坏性操作；evaluate 档与未授权站点永不自动放行）。`;
-  } catch (err) {
-    status.textContent = `✖ 读取自动授权失败：${errMessage(err)}`;
+  const res = await settingsOps.loadAutoAuth();
+  if (!res.data) {
+    status.textContent = res.text;
+    return;
   }
+  renderAutoAuthList(res.data);
+  status.textContent = autoAuthListStatus(res.data.length);
 }
 
 async function setAutoAuthSetting(origin: string, tier: 'read' | 'write', enabled: boolean): Promise<void> {
   const status = $('auto-auth-status');
-  try {
-    const res = (await chrome.runtime.sendMessage(makeMessage('auto-auth', { action: 'set', origin, tier, enabled }))) as
-      | PluginResponse<{ origins?: AutoAuthRecordView[] }>
-      | undefined;
-    if (!res?.ok || !res.data) {
-      status.textContent = `✖ 保存自动授权失败：${res?.error ?? '后台无响应'}`;
-      await refreshAutoAuth();
-      return;
-    }
-    renderAutoAuthList(res.data.origins ?? []);
-    status.textContent = `已${enabled ? '开启' : '关闭'} ${origin} 的「${tier === 'read' ? '读操作自动' : '写操作自动'}」；立即生效。`;
-  } catch (err) {
-    status.textContent = `✖ 保存自动授权失败：${errMessage(err)}`;
+  const res = await settingsOps.setAutoAuth(origin, tier, enabled);
+  if (!res.data) {
+    status.textContent = res.text;
     await refreshAutoAuth();
+    return;
   }
+  renderAutoAuthList(res.data);
+  status.textContent = res.text;
 }
 
 async function clearAutoAuthSetting(origin: string): Promise<void> {
   const status = $('auto-auth-status');
-  try {
-    const res = (await chrome.runtime.sendMessage(makeMessage('auto-auth', { action: 'clear', origin }))) as
-      | PluginResponse<{ origins?: AutoAuthRecordView[] }>
-      | undefined;
-    if (!res?.ok || !res.data) {
-      status.textContent = `✖ 关闭自动授权失败：${res?.error ?? '后台无响应'}`;
-      await refreshAutoAuth();
-      return;
-    }
-    renderAutoAuthList(res.data.origins ?? []);
-    status.textContent = `已关闭 ${origin} 的自动授权（读/写都关）。`;
-  } catch (err) {
-    status.textContent = `✖ 关闭自动授权失败：${errMessage(err)}`;
+  const res = await settingsOps.clearAutoAuth(origin);
+  if (!res.data) {
+    status.textContent = res.text;
     await refreshAutoAuth();
+    return;
   }
+  renderAutoAuthList(res.data);
+  status.textContent = res.text;
 }
 
 function wire(): void {
@@ -741,15 +623,16 @@ function wire(): void {
         setSaved('err', `✖ 清除失败：${envGuard.banner}`);
         return;
       }
-      try {
-        await store.clear();
-        setKeyWarning(false);
-        setTestResult('', '');
-        await refresh();
-        setSaved('', '已清除本插件全部配置（含已保存的 API Key）。');
-      } catch (err) {
-        setSaved('err', `✖ 清除失败：${errMessage(err)}`);
+      // TASK-033: shared clear implementation (panel parity, same store).
+      const res = await settingsOps.clearLlm();
+      if (!res.ok) {
+        setSaved('err', res.text);
+        return;
       }
+      setKeyWarning(false);
+      setTestResult('', '');
+      await refresh();
+      setSaved('', res.text);
     })();
   });
 }

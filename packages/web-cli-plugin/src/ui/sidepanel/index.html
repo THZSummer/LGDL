@@ -486,10 +486,39 @@
       .msg-content thead th { background: rgba(148, 163, 184, 0.16); }
       .msg-content a { color: var(--accent-text); }
 
+      /* ── TASK-033: in-panel settings view (zero navigation) ──────────── */
+      #settings-view {
+        display: none;
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: var(--bg);
+      }
+      #settings-view.show { display: block; }
+      body.settings-open #panel-top,
+      body.settings-open #panel-main,
+      body.settings-open #panel-bottom { display: none; }
+      #settings-header {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+      }
+      #settings-header .sh-title { font-weight: 600; font-size: 13px; }
+      #settings-root { padding: 10px; min-width: 0; }
+
       @media (max-width: 380px) {
         .msg-content { max-width: 100%; }
         #panel-top, #panel-bottom { padding: 6px 8px; }
         #log { padding: 10px 8px; }
+        #settings-root { padding: 8px; }
       }
     </style>
   </head>
@@ -502,7 +531,7 @@
         <span id="session-label" class="muted">会话：（无活跃站点）</span>
       </div>
       <div class="toolbar row" id="topbar">
-        <button id="open-options" class="primary" type="button">配置模型 / 设置</button>
+        <button id="open-settings" class="primary" type="button">⚙ 设置</button>
         <button id="authorize" type="button">授权当前站点</button>
         <details class="more" id="more-actions">
           <summary>更多</summary>
@@ -579,6 +608,17 @@
         <button id="send" type="submit">发送</button>
       </form>
     </div>
+
+    <!-- ── TASK-033: in-panel settings view (same document, zero navigation).
+         The chat zones above are only hidden, never rebuilt, so messages /
+         scroll position / composer draft survive a round-trip. ── -->
+    <section id="settings-view" aria-label="设置">
+      <div id="settings-header">
+        <button id="settings-back" type="button">← 返回对话</button>
+        <span class="sh-title">设置</span>
+      </div>
+      <div id="settings-root"></div>
+    </section>
     <script src="sidepanel.js"></script>
   </body>
 </html>

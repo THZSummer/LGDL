@@ -22,7 +22,6 @@ import {
   historyEntries,
   isLogEmpty,
   llmStatusView,
-  openSettingsPage,
   sendDisabledReason,
   sortSessions,
   stateActionFromPayload,
@@ -31,13 +30,18 @@ import {
   type SessionsMessageView,
   type StateMessageView,
 } from './view-model.js';
+import { createSettingsOps, transportFromRuntime } from '../settings/ops.js';
+import { mountSettingsPanel, type SettingsPanelHandle } from '../settings/panel.js';
+import { createViewSwitch } from '../settings/view-switch.js';
 import { AUTO_AUTH_HARD_LINES, type AutoAuthSettings } from '../../security/auto-authorize.js';
 import type { LlmStatusSummary } from '../../llm/status.js';
 import type { ActiveTabView } from '../../background/state-message.js';
 import type { TestConnectionResult } from '../../llm/test-connection.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
-import { requestOriginPermissionDetailed } from '../../platform/extension-env.js';
+import { requestOriginPermissionDetailed, createChromeAsyncKv } from '../../platform/extension-env.js';
 import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
+import { createKeyStore } from '../../llm/key-store.js';
+import { shortBuildStamp } from '../../build-info.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -236,6 +240,76 @@ let groups: SessionGroupView[] = [];
  */
 const scrollFollow = createScrollFollow();
 
+// ── TASK-033: in-panel settings view (no navigation away from the panel) ────
+/** Settings controller, mounted lazily on first open (keeps panel load light). */
+let settingsHandle: SettingsPanelHandle | null = null;
+/** Chat ⇄ settings view switch; captures/restores scroll position + draft. */
+const settingsViewSwitch = createViewSwitch({
+  open: () => {
+    document.body.classList.add('settings-open');
+    document.getElementById('settings-view')?.classList.add('show');
+  },
+  close: () => {
+    document.body.classList.remove('settings-open');
+    document.getElementById('settings-view')?.classList.remove('show');
+    // Re-measure the list after it becomes visible again and keep the anchor
+    // honest, so the next appended message follows correctly.
+    syncScrollAnchor(document.getElementById('log'));
+  },
+  getScrollTop: () => document.getElementById('log')?.scrollTop ?? 0,
+  setScrollTop: (value) => {
+    const log = document.getElementById('log');
+    if (log) log.scrollTop = value;
+  },
+  getDraft: () => (document.getElementById('input') as HTMLInputElement | null)?.value ?? '',
+  setDraft: (value) => {
+    const input = document.getElementById('input') as HTMLInputElement | null;
+    if (input) input.value = value;
+  },
+});
+
+/** Mount the shared settings controller once, then refresh it on every open. */
+async function openSettingsView(): Promise<void> {
+  const root = document.getElementById('settings-root');
+  if (!root) return;
+  if (!settingsHandle) {
+    settingsHandle = mountSettingsPanel({
+      root,
+      doc: document,
+      env: detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined),
+      ops: createSettingsOps({
+        env: detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined),
+        transport: transportFromRuntime(chrome.runtime as unknown as { sendMessage(message: unknown): Promise<unknown> }),
+        store: createKeyStore(createChromeAsyncKv('web-cli')),
+        buildStamp: shortBuildStamp(),
+        manifestVersion: () => {
+          try {
+            return chrome.runtime.getManifest().version;
+          } catch {
+            return 'unknown';
+          }
+        },
+        probeStorage: async () => {
+          const kv = createChromeAsyncKv('web-cli-diag');
+          const token = { at: Date.now() };
+          await kv.set('probe', token);
+          const back = await kv.get<{ at?: number }>('probe');
+          await kv.remove('probe');
+          return back && typeof back.at === 'number'
+            ? { status: 'ok' as const, detail: '写入测试键 → 读回一致 → 已清理' }
+            : { status: 'warn' as const, detail: '写入测试键后读回为空或结构不符（存储可能不可用）' };
+        },
+      }),
+      getActiveOrigin: () => state.activeOrigin,
+      onNotice: (text) => dispatch({ type: 'notice', text }),
+      onLlmChanged: () => void refreshLlmStatus(),
+    });
+  }
+  settingsHandle.setActiveOrigin(state.activeOrigin);
+  settingsViewSwitch.showSettings();
+  await settingsHandle.refresh();
+}
+
 /** Live scroll metrics of the message list (measured from the real DOM). */
 function metricsOf(el: HTMLElement): ScrollMetrics {
   return { scrollHeight: el.scrollHeight, scrollTop: el.scrollTop, clientHeight: el.clientHeight };
@@ -394,10 +468,10 @@ function renderSession(): void {
   if (createBtn) createBtn.disabled = false;
 }
 
-/** F-2: render the non-sensitive LLM configuration status + settings CTA. */
+/** F-2 / TASK-033: render the LLM configuration status + in-panel settings entry. */
 function renderLlmStatus(): void {
   const el = $('llm-status');
-  const btn = $('open-options') as HTMLButtonElement;
+  const btn = $('open-settings') as HTMLButtonElement;
   const view = llmStatusView(llmLoaded ? llmSummary : null);
   el.textContent = view.label;
   el.className = view.warn ? 'warn' : 'muted';
@@ -732,6 +806,9 @@ async function refreshState(): Promise<void> {
   // W1: sync the persisted authorization too — otherwise a reload/reopen shows
   // a false "未授权" and the authorize button becomes clickable again.
   dispatch(stateActionFromPayload(res.data));
+  // TASK-033: keep the settings view's origin-scoped auto-authorization in sync
+  // (the chat view's own controls are rendered from the same state).
+  settingsHandle?.setActiveOrigin(state.activeOrigin);
   await refreshSessions(changed);
   // D-064: surface the background's one-shot readable notice last (an icon-click
   // binding result / "switched tab" prompt must win over the generic navigation
@@ -864,9 +941,13 @@ async function rebindCurrentTab(): Promise<void> {
 }
 
 function wire(): void {
-  // F-1: explicit settings entry in the panel's top status area.
-  $('open-options').addEventListener('click', () => {
-    openSettingsPage(chrome.runtime);
+  // TASK-033: the settings entry opens an in-panel view in the SAME document.
+  // It never opens the options page and never opens a new tab.
+  $('open-settings').addEventListener('click', () => {
+    void openSettingsView();
+  });
+  $('settings-back').addEventListener('click', () => {
+    settingsViewSwitch.showChat();
   });
 
   // TASK-020 任务 B: explicit rebind escape hatch for「无活跃站点」.
@@ -1061,7 +1142,7 @@ function applyEnvGuard(env: EnvGuardResult): void {
   banner.textContent = env.banner;
   banner.style.display = env.inExtension ? 'none' : 'block';
   if (env.inExtension) return;
-  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-options', 'rebind']) {
+  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-settings', 'rebind']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) el.disabled = true;
   }

@@ -31,6 +31,21 @@ test('sidepanel state: navigation shows an explicit invalidation notice (EC-011)
   assert.match(s.notice ?? '', /导航/);
 });
 
+test('TASK-033: a repeated invalidated refresh does not clobber a newer notice', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'state', origin: 'https://a.test', invalidated: true });
+  assert.match(s.notice ?? '', /导航/);
+  // The user acts (authorize receipt) …
+  s = reduce(s, { type: 'notice', text: '已授权 https://a.test' });
+  // … then the automatic probe push refreshes state with the SAME invalidated bit.
+  s = reduce(s, { type: 'state', origin: 'https://a.test', invalidated: true });
+  assert.equal(s.notice, '已授权 https://a.test', 'stale invalidation must not overwrite the receipt');
+  // A genuine false→true transition still announces it.
+  s = reduce(s, { type: 'state', invalidated: false });
+  s = reduce(s, { type: 'state', invalidated: true });
+  assert.match(s.notice ?? '', /导航/);
+});
+
 test('sidepanel confirm: pending confirm resolves to allow/deny', () => {
   let s = createInitialState();
   s = reduce(s, { type: 'confirm', requestId: 'r1', summary: 'site.x write', risk: 'write' });

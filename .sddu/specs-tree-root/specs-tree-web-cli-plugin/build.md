@@ -2266,6 +2266,49 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **面板连接为 tab 内打开的 `sidepanel.html` 时同样计数**：`test:ui`/`test:binding` 以扩展页 tab 打开侧栏，port 行为与真实 `chrome.sidePanel` 一致（同名 port），已由阶段 3 实证。
 - **`reprobe` 内部通道仍可被扩展内其它上下文触发**：未做权限收紧（扩展内消息面本就受 `isPluginMessage` 白名单约束）。
 
+## 31. 设置面板改为侧栏内视图（TASK-033 / Wave 25）
+
+> 用户诉求（原话）：「改造下设置面板，不建议跳到浏览器的拓展的地址地面去：`chrome-extension://…/options.html`，用户体验很不好，**无法很方便回去**，建议**直接在拓展的当前的页面直接做展示**」。
+
+### 31.1 问题
+侧栏顶部「配置模型 / 设置」→ `openOptionsPage()` → **新标签页** `options.html`。用户离开面板后要「回去」得手动切标签页/重开侧栏，体验断裂；设置逻辑在 `options.ts` 与侧栏各自的 DOM 里各写一份，存在漂移风险。
+
+### 31.2 修复
+- **面板内设置视图（主路径，零跳转）**：`index.html` 新增 `#settings-view`（同文档），顶部按钮改为 `#open-settings`（「⚙ 设置」）→ 仅切换 `body.settings-open` + `#settings-view.show` 显隐；设置视图内 `#settings-back`（「← 返回对话」）返回。**不再调用 `openOptionsPage()`；不打开新标签页、不导航离开面板**。
+- **聊天状态保留**：切换只隐藏 `#panel-top/#panel-main/#panel-bottom`，**不重建 DOM**；`src/ui/settings/view-switch.ts`（纯逻辑、可单测）在进入设置时捕获 `#log.scrollTop` 与 `#input` 草稿，返回时显式恢复。
+- **共享模块（消除两套实现）**：新增 `src/ui/settings/`——
+  - `view.ts`：纯视图模型（Key 状态/占位符、厂商选项/提示、tabs 状态文案、自动授权列表规范化、会话分组模型、分区清单、设置入口文案）；
+  - `ops.ts`：全部设置操作（`llm-test`/`tabs-setting`/`auto-auth`/`sessions`/`session-group`/`diag`/`llm-status` + key-store），依赖注入、可 node 单测；
+  - `panel.ts`：面板内设置视图渲染（`settings-*` 前缀 id）；
+  - `diagnostics.ts`（由 `ui/options/` 迁入）：自检纯逻辑，两侧共用；
+  - `styles.ts`：共享样式（注入一次）。
+- **配置覆盖面（等价迁移，窄屏纵向堆叠）**：LLM 配置（厂商/Key 掩码与已存状态/模型/Base URL/maxRounds/保存/测试连接/结果/清除）、自动授权（当前 origin 读/写 + 已有显式设置站点列表可关闭）、标签页管理（隐私开关）、会话分组（列表/新建/并入）、环境自检（运行/结果/复制）、合规与迁移（`<details>` 折叠）。
+- **文案同步**：首次引导第 1 步与 LLM 状态按钮改为「⚙ 设置（面板内）」；`view-model.ts` 移除 `openSettingsPage` 接缝。
+- **兜底页保留、功能不退化**：`options.html` 仍可由 `chrome://extensions → 扩展程序选项` 打开（宽屏/排障友好）；其 LLM 保存/测试、tabs、自动授权、会话分组、诊断全部改为调用同一 `ops.ts`/`view.ts`，静态 HTML 仅作薄壳渲染。
+- **工程顺带修复（TASK-032 遗留的真实缺陷）**：`authorize` 触发的自动探测 `probe-changed` 推送会 `refreshState`，其 `invalidated=true` 把「已授权」回执覆盖为「页面已导航…」——`chat-state.ts` 改为**仅在 `invalidated` 的 false→true 跃迁**写入该通知，重复刷新不再覆盖更新的用户操作回执（真实站点 `test:binding` #4b/#4c 由 FAIL 转 PASS 佐证）。
+
+### 31.3 新增决策（D-136~D-140）
+- **D-136（设置逻辑抽 `src/ui/settings/` 共享模块，面板与 options 兜底页共用）**：`view.ts`（纯映射）+ `ops.ts`（消息协议 + key-store，依赖注入）为唯一实现，options.ts 退化为「静态 DOM + 共享逻辑」。**被否决**：把面板设置视图写成第二份独立实现（必然漂移，正是用户担心的「两套」）。
+- **D-137（视图切换只切显隐，不重建 DOM；scroll/草稿显式捕获恢复）**：满足「保留已渲染消息、滚动位置、输入草稿」。**被否决**：切换时 `render()` 重建聊天（会丢滚动与草稿，且破坏既有滚动跟随策略）。
+- **D-138（options.html 保留为**功能完整**的兜底页，而非纯空壳）**：其静态 DOM 被 `test:ui`/`test:hardening` 大量既有断言锚定；保持静态结构 + 复用共享逻辑，既零回归又真正消除分叉。**取舍如实披露**：这是 B 节允许的「退为 options 薄壳复用同一消息协议与渲染函数」路径；未把它重写成完全由 `panel.ts` 渲染的空壳（成本/风险高、收益低）。
+- **D-139（面板设置视图用 `settings-*` 前缀 id）**：与聊天视图既有控件（`#auto-auth`/`#auto-read`/`#group-name` 等）同文档共存，避免 `getElementById` 取到错误的重复 id。
+- **D-140（只在失效跃迁时提示，重复刷新不覆盖新通知；binding 新标签页 url 就绪后再 rebind）**：前者修复 TASK-032 探针推送覆盖用户回执的真实缺陷；后者修复 `#8b` 对「新建标签页 `url` 仍在 `loading` 时为空」的竞态（等待地址可读后再绑定，断言不变）。
+
+### 31.4 门禁与验证
+- 新增 `test/settings.test.ts`（15 用例）：共享 view 纯函数 / `SETTINGS_SECTIONS` 覆盖 6+1 分区且 panel 渲染对应 id / 设置写入读取走既有通道（`llm-test`/`tabs-setting`/`auto-auth`/`sessions`/`session-group` 种类集合精确断言）/ 越界环境可读失败 / 诊断零明文 / **无 `openOptionsPage` 调用路径** / 协议未新增 `settings` 通道 / `options_page` 保留。
+- 新增 `test/sidepanel.test.ts`：失效跃迁通知不被重复刷新覆盖。
+- `test:ui` 121→**136**（#33a~#33o：同页渲染设置视图 / URL 仍 `sidepanel.html` / 6+1 分区 / 8 厂商 / 保存+测试连接 / **`openOptionsPage` 计数=0** / **page target 数不变** / 聊天消息+草稿保留 / 返回后文本与滚动位置保留）。既有断言零删除。
+- `test:binding` 114→**125**（#33B1~#33B11：真实 dist + 真实扩展内读取已存配置 / 面板内测试连接（mock LLM）/ 面板内自动授权勾选即时持久化并恢复 / 返回聊天 / `openOptionsPage` 计数=0 / 全程零标签页跳转；#4b/#4c 由修复后转 PASS，既有断言保留）。
+- `test:hardening` **24 PASS**、`test:e2e` **A/B PASS**、`test/parity.test.ts` 不回归。
+- 插件 373→**389**（+16）、`tsc --noEmit` 0 error、全仓 `npm run build` + `npm test` **0 fail**（base **483 零回归**）。
+- **base 零改动 / manifest 零 diff（`options_page` 保留；无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**。
+
+### 31.5 未完成 / 降级（如实）
+- **options.html 非「纯空壳」**：保留其静态 HTML（D-138），逻辑已共享；未把整页重写为 `panel.ts` 渲染。功能不退化，且既有 options 断言零删除。
+- **面板内设置视图为惰性挂载**：首次点开才构建 DOM（避免面板启动开销）；分区数据在每次打开时刷新。
+- **设置视图与聊天视图同时存在于 DOM**（显隐切换），内存占用极小；未做虚拟化（面板本就单页轻量）。
+- **`#8b` 竞态属测试脚手架健壮性修复**（等待新建标签页地址可读），非产品行为变更。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2294,3 +2337,4 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v1.20 | **工具面基线对账门禁 + 浏览器能力补齐**（§27，TASK-029，FR-051/ADR-016，作者实测「DOM 操作 / 浏览器截图等命令全部丢失」驱动）：根因 = 既有测试只断言插件内部行为、`capability-matrix.md` 手写无执行 → 工具面静默漂移。修复：①**只读**临时克隆 main（不碰 main/不改本仓 .git）→ 机器枚举原助手工具目录（`main@2ddc9229`，34 工具/142 子命令）固化为 `test/parity/baseline-catalog.json`（provenance + 可重跑提取脚本 `extract-baseline-catalog.mjs`，含新工厂守卫）；②`test/parity.test.ts` **双向 + 子命令级**对账门禁（同名实现 / `waivers.json` 显式豁免（理由+依据+`providedAs`/`permission`）/ 否则失败；防插件新增未登记工具；`findCoverageGaps()` 自测能抓两类漂移）；③补齐**无新权限**的浏览器能力——content 隔离世界 `createBrowserDomOps()` + background `dom-op` 远程代理，注册 base `dom`(30)/`chrome`(print/back/forward/reload/**screenshot**)/`wait`/`extract`/`export`/`save`/`events`(经既有事件桥)/`web-search`；截图/导出/保存走页面上下文 anchor 下载链（**不新增 `downloads`**）；④风险档沿用 base（不放宽，走 `router.dispatch`）；⑤**待批准权限**（`notify`→`notifications`、`clipboard`→`clipboardRead/Write`）只报告不实施；⑥`docs/capability-matrix.md` 重写为机器校验的基线对账表 + `docs/dev.md` §13 对账/豁免流程。门禁：插件 315→**336**、`tsc` 0 error、`test:ui` **97**、`test:hardening` **22**、`test:binding` **83**（真实 LLM tools 清单 21 个已含 dom/chrome/wait/extract/export/save/events/web-search）、`test:e2e` **PASS**（新增 `dom read-state`/`dom click`/`chrome screenshot` 三条真机断言）、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-117~D-122；未 git 提交。 |
 | v1.22 | **切 tab 按 `tab.url` 驱动会话跟随**（§29，TASK-031，Wave 23，用户实测「切到新域名 TAB 不会自动新建会话，旧 TAB 可以；重开插件才识别当前域名」驱动）：根因 = `onActivated` 的 `if (!session) return;` + 仅靠 content-script `whoami` 握手（新域名未授权→不注入→握手必失败）→ `markStale` 死路。修复 = 新增 `src/background/session-follow.ts` `followActiveTab`（URL 驱动：未授权新域名**仍切换/新建会话 + `session-changed` 推送面板 + 零注入**；已授权顺带 `ensureContentScript` + `reprobe` 发现；同 origin 复用同一会话；受限页不建会话、保留既有可读降级；`whoami` 仅作 URL 不可读回退），`onUpdated(complete)` 同路径，`loading` 的 EC-011 失效语义不变；移除本地 `tabOrigin` 副本。门禁：新增 `test/session-follow.test.ts`（10）、`test:ui` 113→**119**（#16j~#16o）、`test:binding` 96→**104**（#20a~#20f + #A6/A6b/A6c，保留既有）、`tsc` 0 error、`test:hardening` **22**、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；D-128~D-131；未 git 提交（由上层统一提交）。 |
 | v1.23 | **探测改为全自动（移除手动「重新探测」）**（§30，TASK-032，Wave 24，用户要求「逻辑上不需要用户手动探测；快速改造」驱动）：移除侧栏 `#discovery-retry` 手动按钮与点击处理；新增 `src/discovery/auto-probe.ts`（按 origin 去重 + 有界退避 `500ms→1s→2s→4s→8s→15s 封顶` + 成功/origin 变更/面板关闭/撤销停止 + 暂时性/终态分类，纯逻辑 mock 定时器可测）；触发点 = 面板打开(`state`→`focusBoundProbe`) / `tabs.onActivated` / `tabs.onUpdated(complete)` / content `hello` / `authorize` / 失败后定时器；面板经 `chrome.runtime.connect('web-cli-panel')` 让后台感知「有面板关注」，全部关闭即停重试（无后台常驻轮询）；`state` 携带 `probe` 投影 + `probe-changed` 推送；暂时性文案「正在自动探测…（第 N 次重试）」+ 原因，终态精确指出缺 `/.well-known/web-cli.json` / 声明无效 / 版本不匹配并说明自动重试，**不再要求用户点重试**；`reprobe` 保留为内部通道（D-132~D-135）。门禁：新增 `test/auto-probe.test.ts`（13）、`test:ui` 119→**121**、`test:hardening` 22→**24**、`test:binding` 104→**114**（阶段 3 延迟就绪 + 退避 + 零点击自动 ready）、插件 360→**373**、`tsc` 0 error、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；docs dev §15 / protocol §2.1 同步；未 git 提交（由上层统一提交）。 |
+| v1.24 | **设置面板改为侧栏内视图（移除 `openOptionsPage` 主入口，零跳转）**（§31，TASK-033，Wave 25，用户诉求「不建议跳到 `chrome-extension://…/options.html`…建议直接在拓展当前页面展示」驱动）：`index.html` 新增 `#settings-view` + `#open-settings`/`#settings-back`，同文档显隐切换（**不重建 DOM**，`view-switch.ts` 捕获/恢复 `#log.scrollTop` 与 `#input` 草稿，聊天消息/滚动/草稿全保留）；**不再把 `openOptionsPage()` 作为设置入口**（侧栏/`view-model.ts` 零调用路径，页面内计数归零 + target 数不变双重佐证）；设置逻辑抽共享模块 `src/ui/settings/`（`view.ts` 纯映射 + `ops.ts` 既有消息通道/ key-store，依赖注入、node 可测 + `panel.ts` 面板渲染 + `diagnostics.ts` 迁入共用 + `styles.ts` 共享样式），options 兜底页改为静态薄壳**复用同一逻辑**（功能不退化，静态 DOM 零回归）；覆盖 LLM 配置（含测试连接/清除）/按站点自动授权（当前 origin 读写 + 列表）/标签页管理/会话分组/环境自检/合规与迁移（折叠），窄屏纵向堆叠无横向滚动；顺带修复 TASK-032 探针推送覆盖「已授权」回执（`chat-state.ts` 仅在失效 false→true 跃迁提示；binding #4b/#4c FAIL→PASS）。门禁：新增 `test/settings.test.ts`（15）+ `test/sidepanel.test.ts` 失效跃迁断言、插件 373→**389**、`tsc` 0 error、`test:ui` 121→**136**（#33a~#33o，既有断言零删除）、`test:binding` 114→**125**（#33B1~#33B11，保留既有）、`test:hardening` **24**、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（`options_page` 保留）/ 无新依赖 / 无新权限 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-136~D-140；docs dev §3.1.1·§3.2·§4·§11.1 + release §2·§5.2·§7 同步；未 git 提交（由上层统一提交）。 |

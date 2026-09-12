@@ -17,7 +17,7 @@ import {
   summarizeReport,
   swItem,
   versionItem,
-} from '../src/ui/options/diagnostics.js';
+} from '../src/ui/settings/diagnostics.js';
 
 test('diag icons: ok/warn/fail map to ✅/⚠/❌', () => {
   assert.equal(diagStatusIcon('ok'), '✅');

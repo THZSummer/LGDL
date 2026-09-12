@@ -993,6 +993,113 @@ async function main() {
     check(narrow.doc === 0 && narrow.log === 0, '#15q 320px 窄侧栏无水平溢出', JSON.stringify(narrow));
     await sp.send('Emulation.clearDeviceMetricsOverride');
 
+    // ── TASK-033: in-panel settings view — zero navigation, chat state kept ──
+    const listPageTargets = async () =>
+      (await fetch(`${base}/json/list`).then((r) => r.json()).catch(() => [])).filter((t) => t.type === 'page');
+    const targetsBefore = (await listPageTargets()).length;
+    const optionsTargetsBefore = (await listPageTargets()).filter((t) => t.url.includes('options.html')).length;
+
+    // Seed a draft + a mid-list reading position so the round-trip is observable.
+    const beforeSwitch = JSON.parse(
+      await evaluate(
+        sp,
+        `(() => {
+          const log = document.getElementById('log');
+          log.scrollTop = Math.max(0, Math.round(log.scrollHeight / 3));
+          log.dispatchEvent(new Event('scroll'));
+          const i = document.getElementById('input');
+          i.value = 'draft-preserve-033';
+          return JSON.stringify({ draft: i.value, scrollTop: Math.round(log.scrollTop), textLen: log.textContent.length });
+        })()`,
+      ),
+    );
+
+    // Prove the entry never delegates to the options page API.
+    await evaluate(
+      sp,
+      `(() => {
+        window.__ooCalled = 0;
+        try {
+          const orig = chrome.runtime.openOptionsPage.bind(chrome.runtime);
+          chrome.runtime.openOptionsPage = (...a) => { window.__ooCalled += 1; return orig(...a); };
+          window.__ooWrapped = true;
+        } catch { window.__ooWrapped = false; }
+        return window.__ooWrapped;
+      })()`,
+    );
+
+    await realClick(sp, '#open-settings');
+    const settingsShown = await waitFor(
+      sp,
+      `(() => {
+        const v = document.getElementById('settings-view');
+        const root = document.getElementById('settings-root');
+        const provider = document.getElementById('settings-provider');
+        if (!v || !v.classList.contains('show') || !root || !provider) return '';
+        const sections = ['settings-llm','settings-auto-auth','settings-tabs','settings-sessions','settings-diagnostics','settings-compliance','settings-migration'];
+        return JSON.stringify({
+          shown: true,
+          url: location.href,
+          chatHidden: getComputedStyle(document.getElementById('panel-main')).display === 'none',
+          sections: sections.every((id) => !!document.getElementById(id)),
+          providerOptions: provider.options.length,
+          hasSave: !!document.getElementById('settings-save'),
+          hasTest: !!document.getElementById('settings-test'),
+        });
+      })()`,
+      40,
+      200,
+    );
+    const sv2 = settingsShown ? JSON.parse(settingsShown) : {};
+    check(sv2.shown === true && sv2.chatHidden === true, '#33a 点「⚙ 设置」在同一面板内渲染设置视图（聊天区仅隐藏）', settingsShown ?? 'no settings view');
+    check(/sidepanel\.html/.test(sv2.url ?? '') && !/options\.html/.test(sv2.url ?? ''), '#33b 面板 URL 仍是 sidepanel.html（未导航离开）', String(sv2.url));
+    check(sv2.sections === true, '#33c 设置视图覆盖全部 6+1 分区（LLM/自动授权/tabs/会话/诊断/合规/迁移）', settingsShown);
+    check(sv2.providerOptions === 8, '#33d 面板内 LLM 厂商选择含 8 个选项', String(sv2.providerOptions));
+    check(sv2.hasSave === true && sv2.hasTest === true, '#33e 面板内提供保存 + 测试连接按钮', settingsShown);
+
+    const preservedWhileOpen = JSON.parse(
+      await evaluate(sp, `(() => { const log=document.getElementById('log'); const i=document.getElementById('input'); return JSON.stringify({ draft:i.value, hasMessage: log.textContent.length > 0 }); })()`),
+    );
+    check(
+      preservedWhileOpen.draft === 'draft-preserve-033' && preservedWhileOpen.hasMessage === true,
+      '#33f 切到设置视图时已渲染消息与输入草稿仍在（未重建 DOM）',
+      JSON.stringify(preservedWhileOpen),
+    );
+
+    const ooCalled = await evaluate(sp, `window.__ooCalled`);
+    const targetsAfter = (await listPageTargets()).length;
+    const optionsTargetsAfter = (await listPageTargets()).filter((t) => t.url.includes('options.html')).length;
+    check(ooCalled === 0, '#33g 设置入口零 openOptionsPage 调用（页面内计数=0）', String(ooCalled));
+    check(targetsAfter === targetsBefore, '#33h 设置入口未打开任何新标签页（page target 数不变）', `${targetsBefore} → ${targetsAfter}`);
+    check(optionsTargetsAfter === optionsTargetsBefore, '#33i 设置入口未打开/切换任何 options.html 标签页（零跳转；#2 已开的排障页保持不变）', `${optionsTargetsBefore} → ${optionsTargetsAfter}`);
+
+    // Panel save + test connection, through the existing channels.
+    await realClick(sp, '#settings-save');
+    const savedMsg = await waitFor(sp, `(() => { const t = document.getElementById('settings-saved').textContent; return /已保存/.test(t) ? t : ''; })()`, 60, 150);
+    check(Boolean(savedMsg), '#33j 面板内保存可用（走既有 key-store 通道，可读回执）', savedMsg ?? '');
+    await realClick(sp, '#settings-test');
+    const testMsg = await waitFor(sp, `(() => { const t = document.getElementById('settings-test-result').textContent; return t && !/正在/.test(t) ? t : ''; })()`, 150, 200);
+    check(/连接正常|测试连接失败/.test(testMsg ?? ''), '#33k 面板内「测试连接」可用并回显可读结果', String(testMsg).slice(0, 160));
+
+    await realClick(sp, '#settings-back');
+    const backState = await waitFor(
+      sp,
+      `(() => {
+        const v = document.getElementById('settings-view');
+        const log = document.getElementById('log');
+        const i = document.getElementById('input');
+        if (!v || v.classList.contains('show')) return '';
+        return JSON.stringify({ chatShown: getComputedStyle(document.getElementById('panel-main')).display !== 'none', draft: i.value, textLen: log.textContent.length, scrollTop: Math.round(log.scrollTop) });
+      })()`,
+      40,
+      200,
+    );
+    const bs = backState ? JSON.parse(backState) : {};
+    check(bs.chatShown === true, '#33l 点「← 返回对话」回到聊天视图', backState ?? '');
+    check(bs.draft === 'draft-preserve-033', '#33m 返回后输入框草稿仍在', String(bs.draft));
+    check((bs.textLen ?? -1) === beforeSwitch.textLen, '#33n 返回后已渲染消息文本不变（未重建 DOM）', `${beforeSwitch.textLen} → ${bs.textLen}`);
+    check(Math.abs((bs.scrollTop ?? -1) - beforeSwitch.scrollTop) <= 2, '#33o 返回后消息滚动位置被保留', `${beforeSwitch.scrollTop} → ${bs.scrollTop}`);
+
     // ── #16 decision ② / FR-048: multi-session switcher + history isolation ──
     // Seed two sessions with distinct histories directly into the extension store;
     // the background `sessions` reply re-reads storage so the switcher sees them.

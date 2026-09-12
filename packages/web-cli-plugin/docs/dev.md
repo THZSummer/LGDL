@@ -42,7 +42,7 @@ npm run build
 
 侧栏的首次使用引导是**状态驱动**的（未配置模型时只强调第 1 步；已配置未授权时强调授权），推荐顺序：
 
-1. **配置模型**：侧栏顶部「配置模型 / 设置」按钮 → options 页选择厂商、填入 API Key 并保存（BYOK，仅存 `chrome.storage.local`，不回显明文）。
+1. **配置模型**：侧栏顶部「⚙ 设置」按钮 → **在当前面板内**打开设置视图（不跳转、不开新标签页），选择厂商、填入 API Key 并保存（BYOK，仅存 `chrome.storage.local`，不回显明文）。设置视图内的「← 返回对话」回到聊天，消息/滚动位置/输入草稿都保留。
 2. **打开目标站点**：打开声明了 web-cli 协议的站点标签页（本仓库的 LGDL Web 即一个实例站点）。
 3. **首次绑定该站点**：点击插件图标 —— 点击处理在**同一用户手势**内绑定并打开侧栏。本版已获作者同意的 `tabs` 权限（见 §12.4），后台也能直接读取当前标签页 URL，但**点图标路径仍是未授权站点的主要绑定触发点**（自动探测仅对已授权站点生效）。
 4. **授权当前站点（每个站点只需一次）**：在侧栏点击「授权当前站点」，确认知情同意与可选站点权限（浏览器弹一次权限框）。
@@ -51,14 +51,29 @@ npm run build
 
 > **一句话**：**每个站点首次需授权一次（浏览器弹权限框），之后注入/握手/绑定全自动**。未授权站点仍需点图标（或先在侧栏授权），点图标路径始终保留为回退。
 
-侧栏顶部会显示当前 LLM 状态（`未配置` / `厂商 · 模型`）；未配置时按钮变为「去配置模型」并以醒目提示引导。状态来自 background 的 `llm-status` 消息，只返回 `{configured, providerId, providerName, model}` 摘要，**绝不回传 API Key 明文**。
+侧栏顶部会显示当前 LLM 状态（`未配置` / `厂商 · 模型`）；未配置时按钮变为「⚙ 去配置模型」并以醒目提示引导。状态来自 background 的 `llm-status` 消息，只返回 `{configured, providerId, providerName, model}` 摘要，**绝不回传 API Key 明文**。
+
+### 3.1.1 面板内设置视图（TASK-033）
+
+设置是**面板内的视图**，与聊天视图同文档、仅切换显隐（`body.settings-open` + `#settings-view.show`），因此：
+
+- **零跳转**：不再把 `chrome.runtime.openOptionsPage()` 作为设置入口；不打开新标签页、不导航离开面板。
+- **聊天状态保留**：切换只隐藏 `#panel-top/#panel-main/#panel-bottom`，不重建 DOM；`view-switch.ts` 显式保存/恢复 `#log.scrollTop` 与 `#input` 草稿。
+- **窄屏可用**：设置视图纵向堆叠，`overflow-x: hidden`，320px 宽无横向滚动。
+- **单一实现**：所有设置逻辑/请求集中在共享模块 `src/ui/settings/`：
+  - `view.ts`：纯视图模型（Key 状态/占位符、厂商选项、tabs 状态文案、自动授权列表、分组模型、分区清单）。
+  - `ops.ts`：所有写/读操作（`llm-test` / `tabs-setting` / `auto-auth` / `sessions` / `session-group` / `diag` / `llm-status`）+ key-store，依赖注入、node 可测。**不新增权限、不新增消息通道**。
+  - `panel.ts`：面板内设置视图渲染（`settings-*` 前缀 id，与聊天视图控件不冲突）。
+  - `diagnostics.ts`：自检纯逻辑（由 `options` 页与面板共用）。
+  - `styles.ts`：共享样式（注入一次）。
+- **兜底**：`options.html` 保留（Chrome「扩展详细信息 → 扩展程序选项」仍可用；宽屏/排障友好），其 LLM/自动授权/tabs/会话/诊断逻辑全部改为调用同一 `ops.ts`/`view.ts`，属于**薄壳**（静态 HTML + 共享逻辑），不再有分叉实现。
 
 ### 3.2 面板 / 设置页导航
 
 | 目标 | 入口 |
 |------|------|
 | 侧栏（会话/授权/确认/审计/风控） | **点击工具栏插件图标**：点击处理函数先绑定当前标签页、再 `chrome.sidePanel.open({tabId})` 在同一手势内打开侧栏（**不是** `openPanelOnActionClick`——那个开关会吞掉 `action.onClicked`，导致只开面板、从不绑定） |
-| 设置页（LLM 配置 / 迁移 / 合规） | 侧栏顶部「配置模型 / 设置」按钮 → `chrome.runtime.openOptionsPage()`；或 `chrome://extensions` → 插件「详情」→「扩展程序选项」 |
+| 设置（LLM 配置 / 自动授权 / tabs / 会话组 / 自检 / 迁移 / 合规） | **侧栏顶部「⚙ 设置」→ 面板内设置视图**（同文档切换，零跳转；「← 返回对话」返回）。`options.html` 保留为兜底：`chrome://extensions` → 插件「详情」→「扩展程序选项」 |
 | 审计 | 侧栏「查看审计」（零明文导出） |
 | 风控（暂停/恢复/中止） | 侧栏底部（**不**在知情同意折叠区，保持可操作） |
 | 知情同意与能力边界全文 | 侧栏底部「▶ 知情同意与能力边界」折叠区（默认收起，文本零删改） |
@@ -243,7 +258,7 @@ npm run test:ui --workspace @lgdl/web-cli-plugin
 
 排查顺序：
 
-1. 打开方式对不对？必须走 `chrome://extensions` → 本插件 → 「扩展程序选项」，或侧栏顶部「配置模型 / 设置」。
+1. 打开方式对不对？设置首选侧栏顶部「⚙ 设置」（面板内视图，零跳转）；也可走 `chrome://extensions` → 本插件 → 「扩展程序选项」（兜底页）。
 2. options 页「环境自检 / 诊断」逐项看：「扩展上下文」是否 ❌；「chrome.storage.local 读写实测」是否 ✅。
 3. 保存时若出现 `✖ 保存失败：…`，那是**可读失败**（不会静默）——复制诊断信息反馈即可。
 4. 「测试连接」能区分 401 / 403 / 404 / CORS·网络 / 超时；火山端点直连受限会**如实**说明（G-KEY），不是保存问题。
@@ -445,7 +460,7 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ```
 ┌─ #panel-top     （flex:0 0 auto，不滚动）
 │   状态行：站点 origin · 发现 · 授权 · 信任 ＋ LLM 状态
-│   主操作：配置模型/设置 · 授权当前站点 · 〈更多 ▾〉（撤销/重绑/审计/计数）
+│   主操作：⚙ 设置 · 授权当前站点 · 〈更多 ▾〉（撤销/重绑/审计/计数）
 │   自动测试状态：#llm-test-result（加载即自动跑一次最小 ping，见 §10.10）
 ├─ #panel-main    （flex:1 1 auto，min-height:0）
 │   #log          （唯一滚动区：消息列表）

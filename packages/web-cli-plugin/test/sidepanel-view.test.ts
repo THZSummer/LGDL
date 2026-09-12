@@ -17,7 +17,6 @@ import {
   discoveryNotice,
   isLogEmpty,
   llmStatusView,
-  openSettingsPage,
   sendDisabledReason,
   stateActionFromPayload,
 } from '../src/ui/sidepanel/view-model.js';
@@ -160,15 +159,24 @@ test('consent disclosure is collapsed by default while keeping the title text', 
   assert.equal(CONSENT_SUMMARY_TEXT, '知情同意与能力边界');
 });
 
-// ── F-1: settings entry ───────────────────────────────────────────────────
+// ── F-1: settings entry (TASK-033: in-panel view, never options.html) ──────
 
-test('settings entry: openSettingsPage calls openOptionsPage (and no-ops safely)', () => {
-  let called = 0;
-  assert.equal(openSettingsPage({ openOptionsPage: () => { called += 1; } }), true);
-  assert.equal(called, 1);
-  assert.equal(openSettingsPage(undefined), false);
-  assert.equal(openSettingsPage({} as { openOptionsPage(): unknown }), false);
-  assert.equal(called, 1);
+test('TASK-033 settings entry: no openOptionsPage call path anywhere in the panel', () => {
+  const spSrc = read('../../src/ui/sidepanel/sidepanel.ts');
+  const vmSrc = read('../../src/ui/sidepanel/view-model.ts');
+  // The old navigation seam is gone: no openOptionsPage / openSettingsPage use.
+  assert.equal(/openOptionsPage/.test(spSrc), false, 'sidepanel must not call openOptionsPage');
+  assert.equal(/openOptionsPage/.test(vmSrc), false, 'view-model must not expose openOptionsPage');
+  assert.equal(/openSettingsPage/.test(spSrc), false, 'sidepanel must not use the removed seam');
+  // The settings entry opens the in-panel view; 返回对话 closes it.
+  assert.match(spSrc, /openSettingsView\(\)/);
+  assert.match(spSrc, /settingsViewSwitch\.showChat\(\)/);
+  assert.match(spSrc, /mountSettingsPanel\(/);
+  const spHtml = read('../../src/ui/sidepanel/index.html');
+  assert.match(spHtml, /id="settings-root"/);
+  assert.match(spHtml, /id="settings-view"/);
+  assert.match(spHtml, /id="open-settings"/);
+  assert.match(spHtml, /id="settings-back"/);
 });
 
 // ── W1: persisted authorization survives a side-panel reload ───────────────
@@ -236,9 +244,11 @@ test('service-worker llm-config returns the non-sensitive summary only (W3)', ()
 
 test('sidepanel UI surface: settings entry, llm status, onboarding are present', () => {
   const html = read('../../src/ui/sidepanel/index.html');
-  assert.match(html, /id="open-options"/);
+  assert.match(html, /id="open-settings"/);
   assert.match(html, /id="llm-status"/);
   assert.match(html, /id="onboarding"/);
+  // TASK-033: no settings entry navigates away from the panel.
+  assert.equal(html.includes('id="open-options"'), false);
   // F-7 defensive layout
   assert.match(html, /box-sizing: border-box/);
   assert.match(html, /overflow-wrap: anywhere/);
@@ -252,8 +262,9 @@ test('sidepanel source: consent uses <details> collapsed by default; no non-defa
   assert.equal(/details\.open = true/.test(src), false);
   // F-4: risk controls stay outside the disclosure (visible/actionable).
   assert.match(src, /section\.appendChild\(details\)/);
-  // F-1 wiring
-  assert.match(src, /openSettingsPage\(chrome\.runtime\)/);
+  // F-1 wiring (TASK-033: in-panel settings view; never openOptionsPage)
+  assert.match(src, /openSettingsView\(\)/);
+  assert.equal(/openSettingsPage\(chrome\.runtime\)/.test(src), false);
   // F-5 wiring
   assert.match(src, /LOG_EMPTY_TEXT/);
 });
@@ -294,12 +305,13 @@ test('options source (TASK-018): save/test wrapped in try-catch with readable fa
   // readable failure text (never a silent void)
   assert.match(src, /保存失败/);
   assert.match(src, /测试连接失败/);
-  assert.match(src, /未保存：未填写/);
   assert.match(src, /async function handleSave/);
   assert.match(src, /async function handleTest/);
-  // the save summary must echo provider · model · key state
+  // TASK-033: validation + summary are shared with the side-panel settings view.
+  const ops = read('../../src/ui/settings/ops.ts');
+  assert.match(ops, /未保存：未填写/);
+  assert.match(ops, /Key ✅/);
   assert.match(src, /renderSavedSummary/);
-  assert.match(src, /Key ✅/);
   // the plaintext key is cleared after a successful save
   assert.match(src, /\(\$\('apiKey'\) as HTMLInputElement\)\.value = '';/);
   // the save/test flows are error-handled (readable, not a silent void)
@@ -560,16 +572,21 @@ test('TASK-020 B/D + TASK-028: sidepanel exposes site-hint / rebind / auto-test 
   assert.match(read('../../src/background/messaging.ts'), /'rebind'/);
 });
 
-test('TASK-020 A: options exposes a saved-key state marker + saved placeholder', () => {
+test('TASK-020 A / TASK-033: shared saved-key state marker + saved placeholder', () => {
   const html = read('../../src/ui/options/index.html');
   assert.match(html, /id="key-state"/);
   assert.match(html, /id="test" class="test-primary"/);
 
+  // TASK-033: the marker/placeholder copy lives in the SHARED settings module so
+  // the panel and the options page cannot diverge; options.ts delegates to it.
+  const shared = read('../../src/ui/settings/view.ts');
+  assert.match(shared, /API_KEY_PLACEHOLDER_SAVED = '已保存（不回显）；如需更换请重新输入'/);
+  assert.match(shared, /Key ✅ 已写入（不回显）/);
+  assert.match(shared, /⚠ 未配置 Key —— 保存后仍无法调用 LLM/);
+
   const src = read('../../src/ui/options/options.ts');
-  assert.match(src, /API_KEY_PLACEHOLDER_SAVED = '已保存（不回显）；如需更换请重新输入'/);
+  assert.match(src, /keyStateView\(/);
   assert.match(src, /renderKeyState\(true\)/);
-  assert.match(src, /Key ✅ 已写入（不回显）/);
-  assert.match(src, /⚠ 未配置 Key —— 保存后仍无法调用 LLM/);
   assert.match(src, /setApiKeyPlaceholder\(true\)/);
   assert.match(src, /highlightSaved\(\)/);
   // a successful save still clears the input (F-8) — the marker makes it non-ambiguous

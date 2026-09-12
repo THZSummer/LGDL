@@ -154,7 +154,11 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
         ...(action.trust !== undefined ? { trust: action.trust } : {}),
         ...(action.autoAuth !== undefined ? { autoAuth: action.autoAuth } : {}),
         ...(action.invalidated !== undefined ? { invalidated: action.invalidated } : {}),
-        ...(action.invalidated
+        // TASK-033: announce invalidation only on the false→true TRANSITION.
+        // A repeated `state` refresh with `invalidated:true` (e.g. the automatic
+        // probe push after authorizing) must not clobber a newer user-action
+        // notice such as the「已授权」receipt.
+        ...(!state.invalidated && action.invalidated
           ? { notice: '页面已导航：会话上下文失效，请重新授权/重连（不静默续接）' }
           : {}),
       };
