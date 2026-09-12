@@ -639,6 +639,23 @@ node packages/web-cli-plugin/test/parity/extract-baseline-catalog.mjs \
 - **无新权限**：复用 `activeTab` / `scripting` / `tabs`；未新增 `downloads` / `notifications` / `clipboardWrite` 等。
 - 真机验证：`test:e2e` 新增 `dom read-state`、`dom click`、`chrome screenshot` 三条真实页面全链断言。
 
+### 13.7 浏览器截图的两条像素路径（TASK-034 / D1；文案修正 D4）
+
+`chrome screenshot` 在插件（扩展宿主）下由**插件侧提供者**包装 `env.dom.ops.screenshot`（`src/platform/real-screenshot.ts`，**base 零改动**），按运行时可判定性选择两条路径，并在输出里**如实标注实际走的路径**（绝不谎称真实）：
+
+| 条件 | 路径 | 输出标注 |
+|------|------|----------|
+| 绑定站点为 http(s) 且已授权（`chrome.permissions.contains` 命中 optional host 权限）且 `captureVisibleTab` 成功 | **真实像素** `chrome.tabs.captureVisibleTab(windowId, { format: 'png' })`；`mode=element` 再经 `dom-op` 通道取目标元素 rect，在 SW 用 `OffscreenCanvas`/`createImageBitmap` 裁剪 | `像素路径：真实像素（captureVisibleTab）`（element 附 `+ SW 元素裁剪`） |
+| 未授权 origin / 受限页（`chrome://`、`file://` 等）/ 无绑定标签页 / `captureVisibleTab` 失败（含速率限制）/ 元素几何读取或裁剪失败 | 回退 base 既有 `foreignObject+canvas` 近似路径 | `像素路径：近似（canvas，原因：<具体原因>）` |
+
+- **装配点**：`src/platform/browser-env.ts` `createRealScreenshotOps()` 用 `Proxy` 仅覆盖 `screenshot`；`src/tools/chrome-host.ts` 在 base 执行器返回后追加路径标注；`service-worker.ts` 注入 `captureVisibleTab`（promise 形式）、host 权限判定（`hasOriginPermission`）与元素 rect 读取（`dom-op` 的插件侧 `wcliScreenshotRect`，复用 base `readElement` 的定位语法）。
+- **权限（实测）**：`captureVisibleTab` 需要 `activeTab` 或 `<all_urls>`——**仅 host 权限不足**（`test:e2e` 探针在无 `<all_urls>`、无手势时被该 API 明确拒绝）。插件已声明 `activeTab`，真实使用中由用户点击插件图标（手势）授予；**零新权限 / manifest 零 diff**。host 权限是本提供者的「目标站点已授权」资格闸门，不等价于 capture 权限——因此即便通过闸门，capture 仍可能因 `activeTab` 未授予/速率限制而失败，届时**回退并标注原因**。
+- **透传纪律**：包装只覆盖 `screenshot`，`waitFor`/`extractData` 等全部透传；`wait`/`extract`/`export` 不会因包装被静默摘除（`test/real-screenshot.test.ts` 断言 `ops.waitFor === base.waitFor` 等）。
+- **契约不变**：仍返回 `PlatformDomOpResult{ok,output,dataUrl}`；输出摘要 / 自动下载链 / `--include-dataurl` / dataURL 不进上下文（P-03/ADR-003）全部保持（base `deliverScreenshot` 继续生效）。
+- **`mode=fullpage` 仍返回「不支持」**（D2 单独一轮）。
+- **文案修正（D4）**：`chrome` 工具条目的 `schema.description`/`help` 在**插件层**包装（`src/tools/chrome-host.ts`），删除页内上下文时代的「书签/标签页·窗口/跨域导航/下载历史 = 不可承载 out」绝对表述，改为「本工具只承载宿主页会话内子集；标签页见 `tabs` 工具；书签/下载等由插件按 origin 授权后的宿主层能力承载」；base 原文中仍然正确的部分保留。
+- 真机验证：`test:e2e` 断言 `captureVisibleTab` 在该 MV3 SW 返回 Promise 且得到真实 PNG（fixture `15886` 字符 / LGDL `113770` 字符 dataURL），并断言真实路径标注、以及「目标标签页不可见 → 近似（canvas，原因：…）」回退标注可见；`test/browser-tools.test.ts` 静态断言插件暴露的 chrome `description`/`help` **不再包含**「不可承载」。
+
 ## 14. 自动授权（按站点读/写；FR-052 / ADR-017）
 
 ### 14.1 如何工作（在 `onAsk` 接缝前置判定，不放宽 `riskDefaults`）
@@ -748,4 +765,5 @@ router.dispatch → PermissionGate.check
 | 2.3 | **TASK-029 / FR-051（作者实测：DOM 操作 / 浏览器截图等命令全部丢失）**：建立**机器化对账门禁**（`test/parity/`：baseline-catalog.json + extract 脚本 + waivers.json + parity.test.ts，双向 + 子命令级）；按基线补齐**无新权限**的浏览器能力 `dom` / `chrome`（含 screenshot）/ `wait` / `extract` / `export` / `save` / `events` / `web-search`（content 隔离世界真实现 DOM + background 远程代理 + 页面上下文 anchor 下载链）；补 §13；新增 `test/parity.test.ts`（8）+ `test/browser-tools.test.ts`（13），`test:e2e` 新增 dom/chrome 三条真机断言；插件 315→336，全仓 0 fail（base 483 零回归）、无新权限/依赖、base 零改动。 |
 | 2.4 | **FR-052 / ADR-017（作者要求：自动授权多选）**：新增按 origin 的「读操作自动 / 写操作自动」设置（`security/auto-authorize.ts`，存 `web-cli:auto-auth`，读默认开/写默认关，即时生效）；在 host `onAsk` 接缝**前置判定**——对应档位开启且非破坏性 read/write → 直接 allow（审计类型 `auto-authorize`/`reason: 自动授权（用户设置）`），不放宽 `riskDefaults`；`evaluate`（fail-closed 直接 deny）/ 未授权 origin（S1 deny）/ 未知 risk（S3 deny）/ 破坏性操作（`isDestructiveInvocation` 子命令分段判定）/ `ui·state·external` 仍保持确认或拒绝；侧栏新增复选框 + 常驻标记 + 一键关闭 + 硬底线常显文案，options 页新增按站点管理列表。补 §14 + §10（compliance）；新增 `test/auto-authorize.test.ts`（13）；`test:ui` 97→113、`test:binding` 83→96；插件 336→349，全仓 0 fail（base 483 零回归）、无新权限/依赖、manifest 零 diff、base 零改动。 |
 | 2.5 | **TASK-032（用户要求：探测改为全自动，逻辑上不需要用户手动探测）**：移除侧栏「重新探测」按钮；新增 `src/discovery/auto-probe.ts`（按 origin 去重 + 有界退避 500ms→1s→2s→4s→8s→15s 封顶 + 成功/origin 变更/面板关闭/撤销停止 + 暂时性/终态分类）；触发点 = 面板打开(`state`) / `tabs.onActivated` / `tabs.onUpdated(complete)` / content `hello` / 授权 / 失败重试；面板通过 `chrome.runtime.connect('web-cli-panel')` 让后台感知「有面板关注」，关闭即停重试（无后台常驻轮询）。补 §15；新增 `test/auto-probe.test.ts`（13）；`test:ui` 119→121、`test:hardening` 22→24、`test:binding` 104→114（阶段 3 延迟就绪 + 退避 + 零点击自动 ready）；插件 360→373，全仓 0 fail（base 483 零回归）、**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限**。 |
+| 2.6 | **TASK-034 / D1+D4（用户实测第九轮）**：`chrome screenshot` 在插件宿主下优先走 `chrome.tabs.captureVisibleTab` **真实像素**（`mode=element` 经 `dom-op` 取 rect + SW `OffscreenCanvas` 裁剪），未授权/受限/失败时**回退** page-context 近似路径并**如实标注实际路径与原因**（绝不谎称真实）；插件侧 `Proxy` 包装 `env.dom.ops` 仅覆盖 `screenshot`（`waitFor`/`extractData` 全透传，`wait`/`extract`/`export` 不被摘除）；`chrome` 工具 `description`/`help` 在插件层修正页内时代的「书签…= 不可承载」绝对表述（base 零改动）。补 §13.7 + compliance §11；`test/real-screenshot.test.ts`（16）+ browser-tools D4/透传断言；`test:e2e` 新增「captureVisibleTab 返回 Promise + 真实 PNG」与「真实/回退路径标注」断言。插件 389→405，全仓 0 fail（base 483 零回归）、**base 零改动 / manifest 零 diff / 无新依赖 / 无明文 key / 无静默失败**。 |
 

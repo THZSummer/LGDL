@@ -2309,6 +2309,50 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **设置视图与聊天视图同时存在于 DOM**（显隐切换），内存占用极小；未做虚拟化（面板本就单页轻量）。
 - **`#8b` 竞态属测试脚手架健壮性修复**（等待新建标签页地址可读），非产品行为变更。
 
+## 32. chrome screenshot 走真实像素（`captureVisibleTab`，插件侧提供者）+ 修正 chrome help 过时绝对表述（TASK-034 / Wave 26）
+
+> 用户诉求（原话）：「base 的 `chrome` 工具是页内上下文时代的产物，`screenshot` 走 `env.dom.ops.screenshot` 的 `foreignObject+canvas` **近似**实现（外部图片/CSS 变量/滚动态不保真）。插件现在是**扩展宿主** → `chrome.tabs.captureVisibleTab` 可得**真实像素**。已授权 origin 已持有 host 权限 → **零新权限**。**红线**：`packages/web-cli-base/**` 零改动；真实截图必须在**插件侧**提供，文案修正必须在**插件层包装**。」
+
+### 32.1 问题
+- `packages/web-cli-base/src/chrome-tools.ts:394-397` 的 `help` 仍写「书签/标签页·窗口/跨域导航/下载历史 = **不可承载 out（NG-002/NG-003）**」——这是**页内上下文**时代的结论，在插件（扩展宿主）里已过时且误导，导致助手对用户宣称「书签做不到」。
+- `screenshot` 走页内 `createBrowserDomOps()` 的 `foreignObject+canvas` 近似路径，不保真；插件已具备扩展宿主能力可得真实像素。
+
+### 32.2 修复（base 零改动 / manifest 零 diff）
+- **真实截图提供者（插件侧）**：新增 `src/platform/real-screenshot.ts` `createRealScreenshotOps(base, deps)`——用 `Proxy` **只覆盖 `screenshot`**：`mode=viewport` → `chrome.tabs.captureVisibleTab(windowId, {format:'png'})`；`mode=element` → 先经 `dom-op` 通道（插件侧 `wcliScreenshotRect`，复用 base `readElement` 定位语法）取目标元素 rect，再在 SW 用 `OffscreenCanvas`/`createImageBitmap` 裁剪；`mode=fullpage` **仍交给 base 返回「不支持」**（D2 单独一轮）。
+- **装配点**：`src/platform/browser-env.ts` 在 `createExtensionBrowserEnv` 中把 `realScreenshot` deps 注入并提供者包装 `env.dom.ops`（同时把 per-env 路径记录 `meta` 非枚举挂到 `env`）；`src/background/service-worker.ts` 注入 `captureVisibleTab`（promise 形式 + `tab.active` 前置校验）、`hasOriginPermission` 判定与元素 rect 读取。
+- **路径判定与**如实标注**（绝不谎称真实）**：已授权 http(s) origin + capture 成功 → 真实路径；未授权 / 受限页（非 http(s)）/ 无绑定标签页 / capture 失败（含速率限制 `MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND`）/ 元素几何或裁剪失败 → **回退** base 既有近似路径。`src/tools/chrome-host.ts` 在 base 执行器返回后追加 `像素路径：真实像素（captureVisibleTab…）` 或 `像素路径：近似（canvas，原因：<具体原因>）`；真实路径同时改写 base 输出中的「近似」旧措辞。
+- **契约不变**：仍返回 `PlatformDomOpResult{ok,output,dataUrl}`；输出摘要 / 自动下载链 / `--include-dataurl` / dataURL 不进上下文（P-03/ADR-003）全部保持（base `deliverScreenshot` 继续生效，插件只提供 `dataUrl`）。
+- **透传纪律（关键陷阱）**：`browser-tools.ts` 用 `ops?.waitFor`/`ops?.extractData` 判定 `wait`/`extract`/`export` 注册；包装用 `Proxy` 只覆盖 `screenshot`，其余方法与属性可见性**全透传**（测试断言 `ops.waitFor === base.waitFor` 等），**不静默摘掉**这些工具。
+- **文案修正（D4，插件层包装）**：`src/tools/chrome-host.ts` `wrapChromeEntryForHost()` 包装 `chrome` 条目的 `schema.description`/`help`：删除「…= 不可承载 out（NG-002/NG-003）」绝对表述，改写为「本工具只承载宿主页会话内的子集；书签 / 标签页·窗口 / 下载 / 跨域导航不是本工具的职责 —— 标签页见 `tabs` 工具；书签/下载等由插件按 origin 授权后的宿主层能力承载」，并声明 `screenshot` 两条路径；base 原文中仍然正确的部分保留。
+
+### 32.3 新增决策（D-141~D-145）
+- **D-141（真实像素提供者在插件侧，`Proxy` 只覆盖 `screenshot`，base 零改动）**：`createRealScreenshotOps()` 包装 `env.dom.ops`，其余方法全透传。**被否决**：改 base `chrome-tools.ts`/`platform-dom.ts`（违反红线）；用对象展开重建 ops（会丢失 `waitFor`/`extractData` 懒代理 → 静默摘掉 `wait`/`extract`/`export`）。
+- **D-142（两条路径 + 如实标注，绝不谎称真实）**：真实 `captureVisibleTab` vs 近似 `canvas`；每条路径都在工具输出中显式标注，近似路径附**具体原因**。**被否决**：失败静默回退（用户无法区分数据来源）；直接返回 `ok:false`（丢失近似数据与下载链）。
+- **D-143（`captureVisibleTab` 权限与 Promise 实测；零新权限）**：`test:e2e` 实测 —— 该 API 在 MV3 SW 返回 **Promise**；且**需要 `activeTab` 或 `<all_urls>`，仅站点 host 权限不足**。插件已声明 `activeTab`（真实使用中由点击插件图标的手势授予），**零新权限 / manifest 零 diff**；host 权限仅作「目标站点已授权」资格闸门，capture 仍可能失败 → 走 D-142 回退。**e2e 偏差如实披露**：headless 无法合成 activeTab 手势，故 e2e 临时 dist 副本追加 `<all_urls>`（JS 字节与产品 manifest 零改动）。
+- **D-144（元素裁剪：`dom-op` 取 rect + SW `OffscreenCanvas`）**：元素 rect 经既有 `dom-op` 通道（插件侧 `wcliScreenshotRect`，内部复用 base `readElement` 以继承完整定位语法）取回 JSON（含 `dpr`/viewport）；SW 按 `bitmap.width / viewportWidth` 求 `scale` 后裁剪；元素不在视口内/裁剪区为空 → 回退（D-142）。`fullpage` 明确**留给 D2**，本轮不实现。
+- **D-145（chrome 文案修正只在插件层包装）**：不改 base 源；`wrapChromeEntryForHost` 覆盖插件暴露条目的 `description`/`help`，删除「不可承载」绝对表述并指向 `tabs` / 宿主层能力；静态断言钉住插件暴露文案**不再包含**「不可承载」。**被否决**：改 base 文案（红线）；仅在系统提示词里解释（工具面文案仍误导）。
+
+### 32.4 门禁与验证（本轮复跑原文摘录）
+- 新增 `test/real-screenshot.test.ts`（16）：已授权→真实（base 近似零调用）/ 未授权→回退+标注原因 / 受限页（非 http(s)）→捕获前拒绝 / 无标签页→回退 / capture 失败（`MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND`）→回退 / element→rect+crop / rect 失败→回退 / crop 失败→回退 / fullpage→交给 base 不标注 / **透传断言**（`waitFor`/`extractData` 与 base 同引用）/ `annotateScreenshotPath` 改写「近似」/ `isCapturableOrigin` / env 集成（wait/extract/export 仍注册）。
+- `test/browser-tools.test.ts`：新增 D4 断言（插件暴露 chrome `description`/`help` **不含「不可承载」**、含 `书签` 与 `tabs` 指引、help 含真实像素路径）+ 透传后 `wait`/`extract`/`export` 仍在。
+- 插件 `npm test`：**405 pass / 0 fail**（389→405，+16）。
+- 插件 `tsc --noEmit`：**0 error**；`npm run build`：成功（dist）。
+- `test:e2e`（真 dist + 真 Chromium + CDP）：**PASS**。新增断言原文：
+  - `✔ captureVisibleTab returns a Promise in this MV3 SW ({"isPromise":true,"ok":true,"len":15886})`
+  - `✔ captureVisibleTab yields a real PNG dataURL (...len:15886)`（LGDL 场景 `len:113770`）
+  - `✔ chrome screenshot used REAL pixels (captureVisibleTab) via the page download chain`
+  - `✔ screenshot honestly falls back to canvas + reason when the target tab is not visible`
+  - 偏差：临时 dist 副本 `host_permissions += <all_urls>`（headless 无 activeTab 手势 / 无 `<all_urls>` 时 API 明确拒绝）；dist JS 字节与产品 manifest 零改动。
+- `test:ui` **136 PASS**、`test:hardening` **24 PASS**、`test:binding` **125 PASS**、`test/parity.test.ts` 不回归。
+- 全仓 `npm run build` + `npm test`：**0 fail**（base **483 零回归**；各 workspace：267/95(1 skip)/8/31/84/15/483/405）。
+- **红线核验**：`git diff --stat -- packages/web-cli-base packages/web-cli-plugin/manifest.json packages/web-cli-plugin/package.json .opencode/opencode.json` **为空**；无新增依赖；无 `<all_urls>`（产品 manifest）；无明文 key；无静默失败（回退必带原因）。
+
+### 32.5 未完成 / 降级（如实）
+- **`mode=fullpage` 真实整页截图未实现**（本轮明确交给 base 返回「不支持」；D2 单独一轮做）。
+- **`captureVisibleTab` 依赖 `activeTab` 手势**：真实使用中由用户点击插件图标授予；若用户经其他入口打开侧栏（无手势）或 capture 触发速率限制，则回退近似并标注原因——这是 API 语义决定，非本实现取舍。
+- **e2e 的 `<all_urls>` 为测试副本偏差**（已披露）；产品 manifest 未改、仍需真实手势，故「点击图标后真实截图」的端到端手势链属人工面（同 H0）。
+- **元素裁剪在 SW**：大图裁剪受 SW 内存/CPU 影响，未做分块/降采样；元素不在视口内时回退近似（不自动滚动后捕获）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2338,3 +2382,4 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v1.22 | **切 tab 按 `tab.url` 驱动会话跟随**（§29，TASK-031，Wave 23，用户实测「切到新域名 TAB 不会自动新建会话，旧 TAB 可以；重开插件才识别当前域名」驱动）：根因 = `onActivated` 的 `if (!session) return;` + 仅靠 content-script `whoami` 握手（新域名未授权→不注入→握手必失败）→ `markStale` 死路。修复 = 新增 `src/background/session-follow.ts` `followActiveTab`（URL 驱动：未授权新域名**仍切换/新建会话 + `session-changed` 推送面板 + 零注入**；已授权顺带 `ensureContentScript` + `reprobe` 发现；同 origin 复用同一会话；受限页不建会话、保留既有可读降级；`whoami` 仅作 URL 不可读回退），`onUpdated(complete)` 同路径，`loading` 的 EC-011 失效语义不变；移除本地 `tabOrigin` 副本。门禁：新增 `test/session-follow.test.ts`（10）、`test:ui` 113→**119**（#16j~#16o）、`test:binding` 96→**104**（#20a~#20f + #A6/A6b/A6c，保留既有）、`tsc` 0 error、`test:hardening` **22**、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；D-128~D-131；未 git 提交（由上层统一提交）。 |
 | v1.23 | **探测改为全自动（移除手动「重新探测」）**（§30，TASK-032，Wave 24，用户要求「逻辑上不需要用户手动探测；快速改造」驱动）：移除侧栏 `#discovery-retry` 手动按钮与点击处理；新增 `src/discovery/auto-probe.ts`（按 origin 去重 + 有界退避 `500ms→1s→2s→4s→8s→15s 封顶` + 成功/origin 变更/面板关闭/撤销停止 + 暂时性/终态分类，纯逻辑 mock 定时器可测）；触发点 = 面板打开(`state`→`focusBoundProbe`) / `tabs.onActivated` / `tabs.onUpdated(complete)` / content `hello` / `authorize` / 失败后定时器；面板经 `chrome.runtime.connect('web-cli-panel')` 让后台感知「有面板关注」，全部关闭即停重试（无后台常驻轮询）；`state` 携带 `probe` 投影 + `probe-changed` 推送；暂时性文案「正在自动探测…（第 N 次重试）」+ 原因，终态精确指出缺 `/.well-known/web-cli.json` / 声明无效 / 版本不匹配并说明自动重试，**不再要求用户点重试**；`reprobe` 保留为内部通道（D-132~D-135）。门禁：新增 `test/auto-probe.test.ts`（13）、`test:ui` 119→**121**、`test:hardening` 22→**24**、`test:binding` 104→**114**（阶段 3 延迟就绪 + 退避 + 零点击自动 ready）、插件 360→**373**、`tsc` 0 error、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；docs dev §15 / protocol §2.1 同步；未 git 提交（由上层统一提交）。 |
 | v1.24 | **设置面板改为侧栏内视图（移除 `openOptionsPage` 主入口，零跳转）**（§31，TASK-033，Wave 25，用户诉求「不建议跳到 `chrome-extension://…/options.html`…建议直接在拓展当前页面展示」驱动）：`index.html` 新增 `#settings-view` + `#open-settings`/`#settings-back`，同文档显隐切换（**不重建 DOM**，`view-switch.ts` 捕获/恢复 `#log.scrollTop` 与 `#input` 草稿，聊天消息/滚动/草稿全保留）；**不再把 `openOptionsPage()` 作为设置入口**（侧栏/`view-model.ts` 零调用路径，页面内计数归零 + target 数不变双重佐证）；设置逻辑抽共享模块 `src/ui/settings/`（`view.ts` 纯映射 + `ops.ts` 既有消息通道/ key-store，依赖注入、node 可测 + `panel.ts` 面板渲染 + `diagnostics.ts` 迁入共用 + `styles.ts` 共享样式），options 兜底页改为静态薄壳**复用同一逻辑**（功能不退化，静态 DOM 零回归）；覆盖 LLM 配置（含测试连接/清除）/按站点自动授权（当前 origin 读写 + 列表）/标签页管理/会话分组/环境自检/合规与迁移（折叠），窄屏纵向堆叠无横向滚动；顺带修复 TASK-032 探针推送覆盖「已授权」回执（`chat-state.ts` 仅在失效 false→true 跃迁提示；binding #4b/#4c FAIL→PASS）。门禁：新增 `test/settings.test.ts`（15）+ `test/sidepanel.test.ts` 失效跃迁断言、插件 373→**389**、`tsc` 0 error、`test:ui` 121→**136**（#33a~#33o，既有断言零删除）、`test:binding` 114→**125**（#33B1~#33B11，保留既有）、`test:hardening` **24**、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（`options_page` 保留）/ 无新依赖 / 无新权限 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-136~D-140；docs dev §3.1.1·§3.2·§4·§11.1 + release §2·§5.2·§7 同步；未 git 提交（由上层统一提交）。 |
+| v1.25 | **chrome screenshot 走真实像素 + 修正 chrome help 过时表述**（§32，TASK-034 / D1+D4，Wave 26，用户实测第九轮）：插件侧新增 `src/platform/real-screenshot.ts`（`Proxy` 只覆盖 `env.dom.ops.screenshot`，base 零改动）：已授权 http(s) origin → `chrome.tabs.captureVisibleTab` **真实像素**（element 经 `dom-op` 取 rect + SW `OffscreenCanvas` 裁剪）；未授权/受限/失败 → **回退** base 近似路径并**如实标注**「真实像素（captureVisibleTab）」/「近似（canvas，原因：…）」（绝不谎称真实）；`fullpage` 仍「不支持」（D2 单独一轮）。`src/tools/chrome-host.ts` 在插件层包装 chrome 条目的 `description`/`help`，删除页内时代的「书签…= 不可承载」绝对表述（指向 `tabs`/宿主层能力）。**透传纪律**：`waitFor`/`extractData` 与 base 同引用 → `wait`/`extract`/`export` 不被摘除。**实测**：MV3 SW 下 `captureVisibleTab` 返回 Promise；该 API 需 `activeTab` 或 `<all_urls>`（仅 host 权限不足），插件已声明 `activeTab`（图标手势授予）→ **零新权限 / manifest 零 diff**。门禁：新增 `test/real-screenshot.test.ts`（16）+ browser-tools D4/透传断言、插件 **405 pass/0 fail**、`tsc --noEmit` 0 error、`test:e2e` **PASS**（含真实 PNG + 两条路径标注断言；临时 dist `<all_urls>` 偏差已披露）、`test:ui` **136**、`test:hardening` **24**、`test:binding` **125**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无明文 key / 无静默失败**；docs dev §13.7 + compliance §11 同步；未 git 提交（由上层统一提交）。 |

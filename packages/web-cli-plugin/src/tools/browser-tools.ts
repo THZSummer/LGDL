@@ -28,6 +28,7 @@ import {
   type PlatformEnv,
   type ToolEntry,
 } from '@lgdl/web-cli-base';
+import { wrapChromeEntryForHost } from './chrome-host.js';
 
 export interface BrowserToolOptions {
   /** Browser seams (dom.ops / filePicker / events / search). */
@@ -64,7 +65,9 @@ export function createBrowserToolEntries(opts: BrowserToolOptions): ToolEntry[] 
   const entries: ToolEntry[] = [];
 
   if (ops && !off.dom) entries.push(createDomToolEntry(env));
-  if (ops && !off.chrome) entries.push(createChromeToolEntry(env));
+  // D1/D4: wrap the plugin-exposed chrome entry (honest screenshot path note +
+  // host-era boundary copy). base source is untouched.
+  if (ops && !off.chrome) entries.push(wrapChromeEntryForHost(createChromeToolEntry(env), env));
   if (ops?.waitFor && !off.wait) entries.push(createWaitToolEntry(env));
   if (ops?.extractData && !off.collect) {
     const buffer = createCollectBuffer();

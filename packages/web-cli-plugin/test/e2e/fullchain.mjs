@@ -12,15 +12,18 @@
  * bridge → result → session; writes go through the real confirmation gate
  * (auto-allowed by the driving extension page here).
  *
- * ── SINGLE DOCUMENTED DEVIATION ──────────────────────────────────────────────
- * The manifest copy loaded by this harness appends the local fixture/LGDL/LLM
+ * ── DOCUMENTED DEVIATIONS (test copy only) ───────────────────────────────────
+ * The manifest copy loaded by this harness (a) appends the local fixture/LGDL/LLM
  * origins to `host_permissions` (the dist JS is byte-identical to the release
- * build). This is required because `chrome.permissions.request` for
- * `optional_host_permissions` needs a real user gesture + native prompt, which
- * headless cannot synthesize (validate V9b). Everything else — background.js,
- * content.js, sidepanel.js — is the real product. This harness therefore proves
- * the **mechanism** full chain, NOT the gesture-driven permission UX; the latter
- * stays a documented manual item (`docs/smoke-checklist.md` H0/H2/H6/H8/H10).
+ * build) because `chrome.permissions.request` for `optional_host_permissions`
+ * needs a real user gesture + native prompt, which headless cannot synthesize
+ * (validate V9b), and (b) adds `<all_urls>` because `chrome.tabs.captureVisibleTab`
+ * (D1 real pixels) requires `activeTab` OR `<all_urls>` — the product ships
+ * `activeTab` (granted by the real toolbar-icon click, also un-synthesizable) and
+ * MUST NOT ship `<all_urls>`. Everything else — background.js, content.js,
+ * sidepanel.js — is the real product. This harness therefore proves the
+ * **mechanism** full chain, NOT the gesture-driven permission UX; the latter stays
+ * a documented manual item (`docs/smoke-checklist.md` H0/H2/H6/H8/H10).
  *
  * Usage: `npm run test:e2e --workspace @lgdl/web-cli-plugin`
  * Exit code 0 = PASS; non-zero = FAIL (with a readable reason).
@@ -294,7 +297,7 @@ async function runScenario({ name, origin, path, expectTool, chatSteps }) {
     );
 
     // open the page + inject the real content script
-    await evaluate(
+    const pageTabId = await evaluate(
       swCdp,
       `(async () => {
         const tab = await chrome.tabs.create({ url: '${origin}${path}' });
@@ -329,6 +332,28 @@ async function runScenario({ name, origin, path, expectTool, chatSteps }) {
       })()`,
     );
 
+    // D1: make the bound page tab the visible one so `captureVisibleTab` targets
+    // the real page (the driving options tab would otherwise be the visible one).
+    await evaluate(swCdp, `chrome.tabs.update(${pageTabId}, { active: true }).then(() => true)`);
+    // D1 evidence: confirm the MV3 SW promise form of captureVisibleTab and that
+    // it yields a real PNG (not a stub). This is the documented实测结论.
+    const capProbe = await evaluate(
+      swCdp,
+      `(async () => {
+        const tab = await chrome.tabs.get(${pageTabId});
+        const form = chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+        const isPromise = !!(form && typeof form.then === 'function');
+        try {
+          const dataUrl = await form;
+          return { isPromise, ok: typeof dataUrl === 'string' && dataUrl.startsWith('data:image/'), len: dataUrl.length };
+        } catch (err) {
+          return { isPromise, ok: false, err: err && err.message ? err.message : String(err) };
+        }
+      })()`,
+    );
+    check(capProbe?.isPromise === true, `captureVisibleTab returns a Promise in this MV3 SW (${JSON.stringify(capProbe)})`);
+    check(capProbe?.ok === true && (capProbe?.len ?? 0) > 1000, `captureVisibleTab yields a real PNG dataURL (${JSON.stringify(capProbe)})`);
+
     // discovery → site tools assembled
     const state = await evaluate(
       optionsCdp,
@@ -349,6 +374,7 @@ async function runScenario({ name, origin, path, expectTool, chatSteps }) {
     check(auth?.ok === true, `${name}: per-origin authorization succeeds`);
 
     for (const step of chatSteps) {
+      if (step.pre) await step.pre({ swCdp, optionsCdp, pageTabId });
       const msgs = await evaluate(
         optionsCdp,
         `(async () => {
@@ -394,15 +420,24 @@ async function main() {
   EXT_DIR = join(work, 'ext');
   await cp(dist, EXT_DIR, { recursive: true });
 
-  // SINGLE DEVIATION: append local origins to host_permissions (dist JS untouched).
+  // DEVIATIONS (test copy only; the dist JS and the product manifest are unchanged):
+  //  1. append local origins to host_permissions — `chrome.permissions.request`
+  //     for `optional_host_permissions` needs a real user gesture + native prompt,
+  //     which headless cannot synthesize (validate V9b).
+  //  2. add `<all_urls>` — `chrome.tabs.captureVisibleTab` (D1 real pixels)
+  //     explicitly requires `activeTab` OR `<all_urls>`; the product ships
+  //     `activeTab` (granted by the real toolbar-icon click, which headless cannot
+  //     synthesize either) and MUST NOT ship `<all_urls>`, so the harness grants it
+  //     here to exercise the real-pixel path end to end.
   const manifest = JSON.parse(await readFile(join(EXT_DIR, 'manifest.json'), 'utf8'));
   manifest.host_permissions = [
     ...manifest.host_permissions,
+    '<all_urls>',
     `${fixture.origin}/*`,
     `${lgdl.origin}/*`,
   ];
   await writeFile(join(EXT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2));
-  console.log(`▶ extension copy (deviation: host_permissions += ${fixture.origin}/*, ${lgdl.origin}/*)`);
+  console.log(`▶ extension copy (deviations: host_permissions += <all_urls>, ${fixture.origin}/*, ${lgdl.origin}/*)`);
   console.log(`▶ chrome: ${CHROME}`);
 
   try {
@@ -418,7 +453,13 @@ async function main() {
         // FR-051 / TASK-029 — the two author-named missing capabilities, on a real page:
         { user: 'domread', label: 'dom read-state ran on the real page DOM (was missing)', test: (t) => /url:|Fixture Notes/.test(t) },
         { user: 'domclick now', label: 'dom click ran through the confirmation gate', test: (t) => /click|✓/.test(t) },
-        { user: 'take a screenshot', label: 'chrome screenshot persisted via page download chain (was missing)', test: (t) => /chrome screenshot/.test(t) },
+        { user: 'take a screenshot', label: 'chrome screenshot used REAL pixels (captureVisibleTab) via the page download chain', test: (t) => /chrome screenshot/.test(t) && /真实像素（captureVisibleTab）/.test(t) && !/近似（canvas/.test(t) },
+        {
+          user: 'take a screenshot again',
+          label: 'screenshot honestly falls back to canvas + reason when the target tab is not visible',
+          pre: ({ swCdp }) => evaluate(swCdp, `chrome.tabs.query({ url: chrome.runtime.getURL('options.html') }).then((tabs) => tabs[0] && chrome.tabs.update(tabs[0].id, { active: true })).then(() => true)`),
+          test: (t) => /近似（canvas，原因：/.test(t) && /captureVisibleTab/.test(t),
+        },
       ],
     });
 
@@ -448,7 +489,7 @@ async function main() {
     process.exit(1);
   }
   console.log('R8 E2E PASS — real dist full chain: fixture (AC-010) + LGDL Workbench (AC-009)');
-  console.log('deviation: host_permissions pre-granted for local origins (gesture-driven permission UX = manual)');
+  console.log('deviations: host_permissions pre-granted for local origins + <all_urls> (gesture-driven permission UX = manual)');
 }
 
 main().catch((err) => {

@@ -50,6 +50,45 @@ function triggerAnchorDownload(filename: string, data: string | Blob): void {
   }, 0);
 }
 
+/**
+ * D1: structured element geometry for the host-side real-pixel element crop.
+ *
+ * The background cannot read the DOM, so element-crop screenshots ask the page
+ * (already-authorized content script) for the target's `getBoundingClientRect`
+ * plus the device pixel ratio / viewport size. Reuses the base `readElement` op
+ * so the full locator syntax (`css:` / bare CSS / `text=` / `text*=`) is honored;
+ * the geometry is returned as JSON so the SW can crop without text parsing.
+ */
+async function screenshotTargetRect(selector: string): Promise<PlatformDomOpResult> {
+  const wanted = (selector ?? '').trim();
+  if (!wanted) return { ok: false, output: '✖ element 截图缺少 selector', error: 'missing-selector' };
+  const table = browserDomOps as unknown as Record<string, ((...a: unknown[]) => Promise<PlatformDomOpResult>) | undefined>;
+  const readElement = table.readElement;
+  if (typeof readElement !== 'function') {
+    return { ok: false, output: '✖ 当前页面不支持元素几何读取（readElement 缺省）', error: 'read-element-unsupported' };
+  }
+  let probe: PlatformDomOpResult;
+  try {
+    probe = await readElement.call(browserDomOps, { selector: wanted, fields: { geometry: true } });
+  } catch (err) {
+    return { ok: false, output: `✖ 元素几何读取失败：${err instanceof Error ? err.message : String(err)}`, error: 'geometry-failed' };
+  }
+  if (!probe.ok) return probe;
+  const m = /rect\{x:(-?\d+),y:(-?\d+),w:(\d+),h:(\d+)\}[\s\S]*?inViewport:(\w+)/.exec(probe.output);
+  if (!m) return { ok: false, output: '✖ 元素几何输出无法解析（页面可能已变化）', error: 'geometry-unparsable' };
+  const payload = {
+    x: Number(m[1]),
+    y: Number(m[2]),
+    width: Number(m[3]),
+    height: Number(m[4]),
+    dpr: window.devicePixelRatio || 1,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    inViewport: m[5] !== 'false',
+  };
+  return { ok: true, output: JSON.stringify(payload) };
+}
+
 const io: BridgeIo = {
   post(message) {
     window.postMessage(message, '*');
@@ -179,6 +218,15 @@ chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     // signature; unknown methods return a readable refusal (never throw).
     const method = typeof raw.method === 'string' ? raw.method : '';
     const args = Array.isArray(raw.args) ? raw.args : [];
+    // D1: plugin-specific geometry op (not part of the base ops table) for the
+    // host-side real-pixel element crop.
+    if (method === 'wcliScreenshotRect') {
+      void screenshotTargetRect(String(args[0] ?? '')).then(
+        (result) => sendResponse(okResponse(result)),
+        (err) => sendResponse(okResponse({ ok: false, output: `✖ 元素几何读取失败：${err instanceof Error ? err.message : String(err)}`, error: 'geometry-failed' })),
+      );
+      return true;
+    }
     const table = browserDomOps as unknown as Record<string, ((...a: unknown[]) => Promise<PlatformDomOpResult>) | undefined>;
     const fn = method ? table[method] : undefined;
     if (typeof fn !== 'function') {

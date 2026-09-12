@@ -16,6 +16,7 @@
 import type { PlatformEnv, PlatformDomOpResult } from '@lgdl/web-cli-base';
 import { createRemoteDomOps, type DomAgentTransport } from '../content/dom-agent.js';
 import { createRemoteEventHub, type EventBridgeReply } from '../tools/remote-events.js';
+import { createRealScreenshotOps, SCREENSHOT_PATH_META, type RealScreenshotDeps, type ScreenshotPathMeta } from './real-screenshot.js';
 
 export interface BrowserEnvDeps {
   /** Current bound tab id, or undefined when nothing is bound. */
@@ -29,6 +30,11 @@ export interface BrowserEnvDeps {
    * `events` tool is registered (transport unavailable).
    */
   eventRequest?(op: 'subscribe' | 'pull' | 'unsubscribe' | 'status', params: Record<string, unknown>): Promise<EventBridgeReply>;
+  /**
+   * D1: real-pixel screenshot provider deps. Omitted → base approximate path
+   * only (this keeps the node-test / non-extension assembly unchanged).
+   */
+  realScreenshot?: Omit<RealScreenshotDeps, 'meta'>;
 }
 
 const NO_TAB: PlatformDomOpResult = {
@@ -47,7 +53,13 @@ export function createExtensionBrowserEnv(deps: BrowserEnvDeps): PlatformEnv {
     },
   };
 
-  return {
+  const baseOps = createRemoteDomOps(transport);
+  // D1: override only `screenshot` with the real-pixel provider (transparent
+  // Proxy — every other op stays visible so wait/extract/export keep registering).
+  const meta: ScreenshotPathMeta = { kind: 'approx', decided: false };
+  const ops = deps.realScreenshot ? createRealScreenshotOps(baseOps, { ...deps.realScreenshot, meta }) : baseOps;
+
+  const env: PlatformEnv = {
     kind: 'browser',
     fetch: globalThis.fetch.bind(globalThis),
     ...(deps.eventRequest
@@ -55,7 +67,7 @@ export function createExtensionBrowserEnv(deps: BrowserEnvDeps): PlatformEnv {
       : {}),
     dom: {
       state: { snapshot: async () => ({ unavailable: true }) },
-      ops: createRemoteDomOps(transport),
+      ops,
     },
     filePicker: {
       async save(opts) {
@@ -71,4 +83,8 @@ export function createExtensionBrowserEnv(deps: BrowserEnvDeps): PlatformEnv {
       },
     },
   };
+  // Attach the per-env path record non-enumerably so the chrome-tool wrapper can
+  // honestly annotate the result after the base executor returns.
+  Object.defineProperty(env, SCREENSHOT_PATH_META, { value: meta, enumerable: false, configurable: true });
+  return env;
 }

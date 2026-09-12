@@ -222,3 +222,32 @@ test('extension browser env: forwards ops to the bound tab', async () => {
   assert.equal(res.ok, true);
   assert.deepEqual(seen, ['7:snapshot']);
 });
+
+// ── D4: plugin-layer copy fix (page-context era「不可承载」must not reach the LLM) ──
+
+test('host chrome tool: description/help drop the outdated absolute boundary claim and point at plugin host capabilities', () => {
+  const { host } = buildHarness();
+  const chrome = host.deriveTools().find((t) => t.name === 'chrome');
+  assert.ok(chrome, 'chrome tool must be on the surface');
+  assert.ok(
+    !chrome.description.includes('不可承载'),
+    `chrome description still carries the page-context absolute claim: ${chrome.description}`,
+  );
+  assert.match(chrome.description, /书签/, 'the boundary must still mention bookmarks (as a host-layer capability)');
+  assert.match(chrome.description, /tabs/, 'the boundary must point the assistant at the tabs tool');
+  const help = host.router.helpFor('chrome');
+  assert.ok(help, 'chrome help must render');
+  assert.ok(!help.includes('不可承载'), 'chrome help must not carry the page-context absolute claim');
+  assert.match(help, /插件宿主层/, 'help must state the corrected host-layer boundary');
+  assert.match(help, /真实像素（captureVisibleTab）/, 'help must name the real-pixel path');
+});
+
+// ── D1 transparency: wait/extract/export must stay registered through the ops wrapper ──
+
+test('host chrome tool: wrapping ops for the screenshot provider does not remove wait/extract/export', () => {
+  const { host } = buildHarness();
+  const names = host.deriveTools().map((t) => t.name);
+  for (const n of ['wait', 'extract', 'export', 'chrome', 'dom']) {
+    assert.ok(names.includes(n), `wrapping removed tool: ${n}`);
+  }
+});

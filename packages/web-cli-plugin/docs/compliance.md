@@ -201,4 +201,19 @@
 
 ---
 
-**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权边界调整时
+## 11. 真实像素截图（`captureVisibleTab`）不扩张权限（TASK-034 / D1，2026-09-13）
+
+`chrome screenshot` 在插件（扩展宿主）下优先走 `chrome.tabs.captureVisibleTab` 获取**真实像素**（替代页内 `foreignObject+canvas` 近似），并在输出中**如实标注实际走的路径**（真实 / 近似 + 原因）。
+
+| 事项 | 结论 | 依据 |
+|------|------|------|
+| 是否新增权限 | **否**：`manifest.json` 零 diff（仍 `activeTab/scripting/storage/sidePanel/tabs`），无 `<all_urls>` | `manifest.json` 核验 |
+| `captureVisibleTab` 的权限要求 | 需要 `activeTab` 或 `<all_urls>`（**实测：仅站点 host 权限不足**）；插件已声明 `activeTab`，真实使用中由用户点击插件图标（手势）授予 | `test:e2e` 探针：无 `<all_urls>`、无手势时该 API 明确拒绝 |
+| 何时才走真实像素 | 绑定站点为 http(s) 且已授权（optional host 权限命中 `chrome.permissions.contains`）；否则**回退**既有页面上下文近似路径并**如实标注原因**（绝不谎称真实） | `src/platform/real-screenshot.ts` + `test/real-screenshot.test.ts` |
+| 捕获范围 | 仅当前**可见**标签页的可见区域（用户当前所看）；`tab.active !== true` 时前置拒绝，不读取不可见/后台标签页内容 | `chrome.tabs.captureVisibleTab` 语义 + `service-worker.ts` 活动标签校验 |
+| 数据落点 | 与既有截图一致：dataURL **不进 LLM 上下文**（P-03/ADR-003）；落盘走页面上下文 anchor 下载链（无需 `downloads` 权限） | `docs/dev.md` §13.7 |
+| 失败 / 速率限制 | 可读降级为本工具输出中的「近似（canvas，原因：…）」标注，不静默、不吞错 | `annotateScreenshotPath` |
+
+---
+
+**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图像素路径调整时

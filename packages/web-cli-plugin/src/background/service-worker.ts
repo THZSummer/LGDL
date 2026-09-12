@@ -26,6 +26,7 @@ import {
 } from '../platform/extension-env.js';
 import { capabilityFailure } from '../platform/unsupported.js';
 import { createExtensionBrowserEnv } from '../platform/browser-env.js';
+import type { ElementRect, ElementRectReply } from '../platform/real-screenshot.js';
 import { createController, type WebCliController } from './controller.js';
 import { buildStateMessage, projectActiveTab, type SessionView } from './state-message.js';
 import { buildDiagMessage } from './diag-message.js';
@@ -128,6 +129,61 @@ function takePanelNotice(): string | null {
   const notice = panelNotice;
   panelNotice = null;
   return notice;
+}
+
+/**
+ * D1: promise-aware `chrome.tabs.captureVisibleTab`. Chrome 116 (MV3) resolves
+ * the promise form, so a callback is also passed defensively and whichever form
+ * settles first wins (`lastError` is handled readably — never swallowed). The
+ * rate limit (`MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND`) surfaces as a rejected
+ * promise → the provider degrades to the canvas path with a readable reason.
+ */
+function captureVisibleTabAsync(windowId: number | undefined): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const settle = (fn: () => void): void => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+    try {
+      const maybe = (chrome.tabs.captureVisibleTab as unknown as (
+        w: number | undefined,
+        o: { format: 'png' },
+        cb: (dataUrl: string) => void,
+      ) => Promise<string> | undefined)(windowId, { format: 'png' }, (dataUrl) => {
+        const lastError = chrome.runtime.lastError;
+        if (lastError) settle(() => reject(new Error(lastError.message ?? 'captureVisibleTab 失败')));
+        else settle(() => resolve(dataUrl));
+      });
+      if (maybe && typeof (maybe as Promise<string>).then === 'function') {
+        (maybe as Promise<string>).then(
+          (value) => settle(() => resolve(value)),
+          (err) => settle(() => reject(err instanceof Error ? err : new Error(String(err)))),
+        );
+      }
+    } catch (err) {
+      settle(() => reject(err instanceof Error ? err : new Error(String(err))));
+    }
+  });
+}
+
+/** D1: read the target element's bounding rect via the page `dom-op` channel. */
+async function readElementRectViaPage(tabId: number, selector: string): Promise<ElementRectReply> {
+  try {
+    const res = (await chrome.tabs.sendMessage(
+      tabId,
+      makeMessage('dom-op', { requestId: requestId('rect'), method: 'wcliScreenshotRect', args: [selector] }),
+    )) as PluginResponse<import('@lgdl/web-cli-base').PlatformDomOpResult> | undefined;
+    if (!res) return { ok: false, reason: '内容脚本未响应元素几何读取' };
+    if (!res.ok || !res.data) return { ok: false, reason: res.error ?? '元素几何读取失败' };
+    if (!res.data.ok) return { ok: false, reason: res.data.output.replace(/^✖\s*/, '') };
+    const parsed = JSON.parse(res.data.output) as ElementRect & { inViewport?: boolean };
+    if (parsed.inViewport === false) return { ok: false, reason: '目标元素不在可见视口内' };
+    return { ok: true, rect: parsed };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /**
@@ -358,6 +414,25 @@ async function init(): Promise<Singletons> {
             } catch (err) {
               return { ok: false, error: err instanceof Error ? err.message : String(err) };
             }
+          },
+          // D1: real-pixel screenshot provider (base zero-change). The host
+          // permission gate is the already-authorized origin's optional host
+          // permission — **zero new permission**; failures degrade honestly.
+          realScreenshot: {
+            target: () => {
+              const session = controller.get();
+              if (!session) return undefined;
+              return { tabId: session.tabId, origin: session.origin };
+            },
+            hasHostPermission: (origin) => hasOriginPermission(origin),
+            capture: async (tabId) => {
+              const tab = await chrome.tabs.get(tabId);
+              if (tab.active !== true) {
+                throw new Error('目标标签页不是当前窗口的活动标签页（captureVisibleTab 只能捕获可见标签页）');
+              }
+              return captureVisibleTabAsync(tab.windowId);
+            },
+            elementRect: (tabId, selector) => readElementRectViaPage(tabId, selector),
           },
           eventRequest: async (op, params) => {
             const tabId = controller.get()?.tabId;
