@@ -1310,6 +1310,38 @@ async function main() {
     const newStatusProbe = await evaluate(sp, `(() => { const t = document.getElementById('status')?.textContent ?? ''; return t.includes(${JSON.stringify(newOrigin)}) ? 'followed' : t; })()`);
     check(newStatusProbe === 'followed', '#16o 面板未落入「未授权即失效」死路（会话已跟随）', String(newStatusProbe));
 
+    // ── author reversal (2026-09-13): the side-panel confirmation flow must
+    // render a `tabs close` ask — including the concrete target (title +
+    // query/fragment-stripped URL) and the irreversibility warning — and must
+    // resolve on user decision. The enriched reason is exactly what the
+    // background's confirm bridge produces (title + stripped URL + 不可逆). ──
+    await evaluate(
+      sw,
+      `chrome.runtime.sendMessage({ kind: 'confirm-request', requestId: 'journey-close-1', question: { tool: 'tabs', subcommand: 'close', risk: 'write', args: { id: '7' }, reason: '默认风险档位 write 需要确认；目标标签页 [7] Doomed — https://a.test/page；⚠ 关闭标签页不可逆；若它是当前侧栏所在页面，侧栏也会一并关闭' } }).catch(() => {})`,
+    );
+    const closeConfirm = await waitFor(
+      sp,
+      `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary')?.textContent ?? ''; return c && getComputedStyle(c).display !== 'none' && /tabs/.test(s) && /不可逆/.test(s) ? s : ''; })()`,
+      60,
+      200,
+    );
+    check(Boolean(closeConfirm), '#16p 面板内 close 二次确认弹出且摘要含「不可逆」提示', closeConfirm ?? 'no confirm');
+    check(/Doomed/.test(closeConfirm ?? '') && /https:\/\/a\.test\/page/.test(closeConfirm ?? ''), '#16q close 确认摘要显示目标标题 + 去 query/fragment 的 URL', closeConfirm ?? '');
+    check(!/SECRET|token=/.test(closeConfirm ?? ''), '#16r close 确认摘要不含 query/fragment（零明文）', closeConfirm ?? '');
+    const closeButtons = await evaluate(
+      sp,
+      `(() => { const a = document.getElementById('confirm-allow'); const d = document.getElementById('confirm-deny'); return JSON.stringify({ a: a ? a.getBoundingClientRect().width > 0 : false, d: d ? d.getBoundingClientRect().width > 0 : false }); })()`,
+    );
+    check(JSON.parse(closeButtons).a === true && JSON.parse(closeButtons).d === true, '#16s close 确认提供允许/拒绝两个可点击动作', closeButtons);
+    await realClick(sp, '#confirm-deny');
+    const closeDismissed = await waitFor(
+      sp,
+      `(() => { const c = document.getElementById('confirm'); return c && getComputedStyle(c).display === 'none' ? 'hidden' : ''; })()`,
+      40,
+      150,
+    );
+    check(closeDismissed === 'hidden', '#16t 拒绝后 close 确认框关闭（用户决定即结算）', String(closeDismissed));
+
     check(spExceptions.length === 0, '#13 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#13b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 

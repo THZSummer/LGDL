@@ -45,6 +45,7 @@ import { createSessionStore, projectHistory, sessionLabel, type SessionStore } f
 import { followActiveTab, tabOrigin, type FollowTabDeps } from './session-follow.js';
 import { createTabsSettingStore, type TabsSettingStore } from './tabs-setting.js';
 import type { TabsToolDeps } from '../tools/tabs-tools.js';
+import { TABS_TOOL_NAME, parseTabRef, redactTabTitle, redactTabUrl, resolveTabTarget, type TabRecord } from '../tools/tabs-tools.js';
 import {
   reconcileSiteContentScripts,
   registerSiteContentScript,
@@ -427,6 +428,20 @@ async function init(): Promise<Singletons> {
           .then(() => undefined),
     });
 
+    // FR-049 (author decision ③ + 2026-09-13 reversal): the plugin-level `tabs`
+    // deps are built once and shared between the tool registration and the
+    // confirmation bridge's `describe` seam (so a `tabs close` ask shows the exact
+    // target tab title + query/fragment-stripped URL + irreversibility note).
+    const tabsDeps: TabsToolDeps = createTabsDeps({
+      getSingletons: () => {
+        if (!singletons) throw new Error('后台尚未初始化完成，请稍后重试');
+        return singletons;
+      },
+      origins,
+      sessions,
+      audit,
+    });
+
     const host = createWebCliHost({
       origins,
       audit,
@@ -519,6 +534,19 @@ async function init(): Promise<Singletons> {
       onAsk: createConfirmBridge({
         currentOrigin: () => controller.get()?.origin,
         audit,
+        // Author reversal (2026-09-13): name the exact tab in the confirmation
+        // summary for `tabs` mutating ops (title + stripped URL; `close` also gets
+        // the irreversibility + side-panel warning). Best-effort: a resolution
+        // failure simply omits the extra detail (the ask still happens).
+        describe: async (question) => {
+          if (question.tool !== TABS_TOOL_NAME || !question.subcommand) return undefined;
+          if (!tabsDeps.describeTarget) return undefined;
+          try {
+            return await tabsDeps.describeTarget(question.args ?? {}, question.subcommand);
+          } catch {
+            return undefined;
+          }
+        },
         ask: (question) =>
           new Promise((resolve) => {
             const rid = requestId('confirm');
@@ -546,15 +574,7 @@ async function init(): Promise<Singletons> {
       },
       llmConfig: async () => JSON.stringify(toLlmStatusSummary(await keys.maskedConfig()), null, 2),
       // FR-049: plugin-level tab tool (available with no site bound/authorized).
-      tabs: createTabsDeps({
-        getSingletons: () => {
-          if (!singletons) throw new Error('后台尚未初始化完成，请稍后重试');
-          return singletons;
-        },
-        origins,
-        sessions,
-        audit,
-      }),
+      tabs: tabsDeps,
       tabsEnabled: tabsSetting.get(),
       // FR-050 / EC-023: controlled `web-fetch` seam. The pre-flight gate checks
       // the host permission BEFORE fetching (uncovered origins → zero request +
@@ -927,14 +947,18 @@ async function findTabForOrigin(origin: string): Promise<number | undefined> {
 }
 
 /**
- * FR-049 (author decision ③): the plugin-level `tabs` tool deps.
+ * FR-049 (author decision ③ + author reversal 2026-09-13): the plugin-level
+ * `tabs` tool deps.
  *
  * `switch` reuses the existing bind chain (`bindTab` = origin from URL →
  * `ensureContentScript` → `bindOrigin` → session switch) so switching a tab
  * adopts that origin's session exactly like an automatic handshake. `open`
  * creates the tab then best-effort adopts the session; the injected content
- * script's `hello` completes discovery once the page loads. All failures return
- * a readable receipt (never silent). `close` is intentionally not implemented.
+ * script's `hello` completes discovery once the page loads. The 2026-09-13
+ * reversal adds single-tab `mute`/`pin`/`move` and `close` (the later is
+ * irreversible, one tab at a time — the tool layer rejects `--all`/ambiguous
+ * matches before these deps are ever called). All failures return a readable
+ * receipt (never silent).
  */
 function createTabsDeps(deps: {
   getSingletons: () => Singletons;
@@ -942,21 +966,26 @@ function createTabsDeps(deps: {
   sessions: SessionStore;
   audit: PluginAuditSink;
 }): TabsToolDeps {
+  const readTabs = async (): Promise<TabRecord[]> => {
+    const tabs = await chrome.tabs.query({});
+    const out: TabRecord[] = [];
+    for (const t of tabs) {
+      if (t.id === undefined) continue;
+      out.push({
+        id: t.id,
+        ...(t.title ? { title: t.title } : {}),
+        ...(t.url ? { url: t.url } : {}),
+        active: t.active === true,
+        muted: t.mutedInfo?.muted === true,
+        pinned: t.pinned === true,
+        ...(t.windowId !== undefined ? { windowId: t.windowId } : {}),
+      });
+    }
+    return out;
+  };
+
   return {
-    listTabs: async () => {
-      const tabs = await chrome.tabs.query({});
-      const out = [];
-      for (const t of tabs) {
-        if (t.id === undefined) continue;
-        out.push({
-          id: t.id,
-          ...(t.title ? { title: t.title } : {}),
-          ...(t.url ? { url: t.url } : {}),
-          active: t.active === true,
-        });
-      }
-      return out;
-    },
+    listTabs: readTabs,
     isAuthorized: (origin) => deps.origins.isAuthorized(origin),
     sessionIdForOrigin: (origin) => deps.sessions.sessionIdForOrigin(origin),
     switchToTab: async (tab) => {
@@ -1038,6 +1067,109 @@ function createTabsDeps(deps: {
         ...(sessionId ? { sessionId } : {}),
         ...(tabId !== undefined ? { tabId } : {}),
       };
+    },
+    // ── author reversal (2026-09-13): single-tab write ops ────────────────────
+    muteTab: async (tab, muted) => {
+      try {
+        await chrome.tabs.update(tab.id, { muted });
+      } catch (err) {
+        return {
+          ok: false,
+          output: `✖ 无法${muted ? '静音' : '取消静音'}标签页 [${tab.id}]：${err instanceof Error ? err.message : String(err)}`,
+          error: 'tabs-mute-failed',
+          tabId: tab.id,
+        };
+      }
+      return {
+        ok: true,
+        output: `✓ 已${muted ? '静音' : '取消静音'}标签页 [${tab.id}] ${redactTabTitle(tab.title)} — ${redactTabUrl(tab.url, false)}`,
+        tabId: tab.id,
+      };
+    },
+    pinTab: async (tab, pinned) => {
+      try {
+        await chrome.tabs.update(tab.id, { pinned });
+      } catch (err) {
+        return {
+          ok: false,
+          output: `✖ 无法${pinned ? '固定' : '取消固定'}标签页 [${tab.id}]：${err instanceof Error ? err.message : String(err)}`,
+          error: 'tabs-pin-failed',
+          tabId: tab.id,
+        };
+      }
+      return {
+        ok: true,
+        output: `✓ 已${pinned ? '固定' : '取消固定'}标签页 [${tab.id}] ${redactTabTitle(tab.title)} — ${redactTabUrl(tab.url, false)}`,
+        tabId: tab.id,
+      };
+    },
+    moveTab: async (tab, dest) => {
+      let moved: chrome.tabs.Tab | undefined;
+      try {
+        // `MoveProperties.index` is required by the typings; -1 is Chrome's own
+        // documented default (append to the end of the target window).
+        const props: chrome.tabs.MoveProperties = {
+          index: dest.index !== undefined ? dest.index : -1,
+          ...(dest.windowId !== undefined ? { windowId: dest.windowId } : {}),
+        };
+        moved = await chrome.tabs.move(tab.id, props);
+      } catch (err) {
+        return {
+          ok: false,
+          output: `✖ 无法移动标签页 [${tab.id}]：${err instanceof Error ? err.message : String(err)}`,
+          error: 'tabs-move-failed',
+          tabId: tab.id,
+        };
+      }
+      const where = [
+        dest.windowId !== undefined ? `窗口=${dest.windowId}` : '',
+        dest.index !== undefined ? `位置=${dest.index}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      return {
+        ok: true,
+        output: `✓ 已移动标签页 [${tab.id}] ${redactTabTitle(tab.title)} — ${redactTabUrl(tab.url, false)}（${where || '目标位置'}${moved && moved.index !== undefined ? `，实际位置=${moved.index}` : ''}）`,
+        tabId: tab.id,
+      };
+    },
+    closeTab: async (tab) => {
+      try {
+        await chrome.tabs.remove(tab.id);
+      } catch (err) {
+        return {
+          ok: false,
+          output: `✖ 无法关闭标签页 [${tab.id}]：${err instanceof Error ? err.message : String(err)}`,
+          error: 'tabs-close-failed',
+          tabId: tab.id,
+        };
+      }
+      return {
+        ok: true,
+        output: `✓ 已关闭标签页 [${tab.id}] ${redactTabTitle(tab.title)} — ${redactTabUrl(tab.url, false)}（不可逆）`,
+        tabId: tab.id,
+      };
+    },
+    describeTarget: async (args, subcommand) => {
+      const ref = parseTabRef(args, subcommand);
+      if (ref.error) return undefined;
+      const rows = await readTabs();
+      // Never guess among multiple matches in the confirmation summary either:
+      // for a mutating op an ambiguous target is resolved as "no detail" (the
+      // tool's own ambiguity refusal is what the user will actually see).
+      const resolved = resolveTabTarget(rows, ref, false);
+      if (!resolved.target) return undefined;
+      const t = resolved.target;
+      const label = `目标标签页 [${t.id}] ${redactTabTitle(t.title)} — ${redactTabUrl(t.url, false)}`;
+      if (subcommand === 'close') {
+        return `${label}；⚠ 关闭标签页不可逆；若它是当前侧栏所在页面，侧栏也会一并关闭`;
+      }
+      if (subcommand === 'move') {
+        return `${label}；将移动该标签页的位置/所在窗口`;
+      }
+      if (subcommand === 'mute') return `${label}；将改变该标签页的静音状态`;
+      if (subcommand === 'pin') return `${label}；将改变该标签页的固定状态`;
+      return label;
     },
     audit: deps.audit,
   };

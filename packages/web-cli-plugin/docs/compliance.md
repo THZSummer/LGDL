@@ -142,18 +142,20 @@
 | 切换会话待决交互 | 待决 `confirm`/`ask-user` 明确取消（=拒绝/取消，fail-closed）+ 可读提示 | EC-019 |
 | 明文 | 会话历史沿用脱敏口径；LLM key 仍仅 background 持有，不进会话/日志/审计 | FR-028/035/NFR-001 |
 
-## 9. 权限扩张披露：`tabs` 权限与标签页管理工具（FR-049，作者决策③ 2026-09-12）
+## 9. 权限扩张披露：`tabs` 权限与标签页管理工具（FR-049，作者决策③ 2026-09-12；v1.5 作者裁决反转 2026-09-13 放开 close）
 
-> 作者**明确同意**新增 `tabs` 权限（接受 Chrome 安装/更新时的「读取您的浏览记录」提示），用于**插件级**标签页管理工具 `tabs`（`list` / `switch` / `open`；**明确不做 `close`**）。本轮是既有权限面的**唯一一次扩张**，必须向用户显式披露。
+> 作者**明确同意**新增 `tabs` 权限（接受 Chrome 安装/更新时的「读取您的浏览记录」提示），用于**插件级**标签页管理工具 `tabs`。本轮是既有权限面的**唯一一次扩张**，必须向用户显式披露。
+>
+> **⚠ 作者裁决反转（2026-09-13）**：作者明确**撤销**初版「**明确不做 `close`**」的约束——「标签页读写」包含 close，**完全放开 `close`**，并补齐单标签页写操作 `mute`/`pin`/`move`。这是作者**显式撤销此前约束**导致的**需求变更**，**不是测试降级**；**未新增任何权限**（`chrome.tabs.remove/update/move` 在既有 `tabs` 权限下可用，`manifest.json` 零 diff），安全门禁**未放宽**（close 恒 `write`→`ask`、单标签页、确认摘要 + 审计，见 §9.4）。
 
 ### 9.1 用途与边界
 
 | 事项 | 结论 | 依据 |
 |------|------|------|
-| 新增权限 | **仅 `tabs`**：`permissions` 由 `activeTab/scripting/storage/sidePanel` 变为 `activeTab/scripting/storage/sidePanel/tabs` | `manifest.json` 核验（无其他新增） |
-| 用途 | 读取**当前打开标签页**的 id/标题/URL；激活指定标签页；打开新的 http(s) 标签页 | `tools/tabs-tools.ts` + `service-worker.ts` `createTabsDeps` |
-| 明确不做 | **不关闭标签页**（无 `close` 子命令）；不读取**浏览历史**（`tabs` 权限只覆盖已打开标签页，不覆盖 `history`）；不注入/不读取未授权站点的页面内容（沿用 per-origin 授权与声明式注入边界） | `tabs-tools.ts`（无 close）/ `content-script-registry.ts` |
-| scheme 边界 | `open` **仅接受 http(s)**；`javascript:`/`data:`/`file:`/`chrome:`/`about:` 等一律**可读拒绝**（不静默） | `tabs-tools.ts` `createTabsToolEntry` case `open` |
+| 新增权限 | **仅 `tabs`**：`permissions` 由 `activeTab/scripting/storage/sidePanel` 变为 `activeTab/scripting/storage/sidePanel/tabs`（v1.5 反转**未再新增**任何权限） | `manifest.json` 核验（无其他新增） |
+| 用途 | 读取**当前打开标签页**的 id/标题/URL；激活/打开标签页；静音/固定/移动**单个**标签页；**关闭单个**标签页（`close`，2026-09-13 放开） | `tools/tabs-tools.ts` + `service-worker.ts` `createTabsDeps` |
+| 明确不做 | **不读取浏览历史**（`tabs` 权限只覆盖已打开标签页，不覆盖 `history`）；**不注入/不读取未授权站点的页面内容**（沿用 per-origin 授权与声明式注入边界）；**不批量关闭**（`close` 一次只关一个，`--all` 可读拒绝）；**不在未确认时关闭**（`write`→`ask`，摘要可见目标与不可逆提示） | `tabs-tools.ts` / `content-script-registry.ts` |
+| scheme 边界 | `open` **仅接受 http(s)**；`javascript:`/`data:`/`file:`/`chrome:`/`about:` 等一律**可读拒绝**（不静默）。`switch`/`mute`/`pin`/`move`/`close` 目标为受限页同样**可读拒绝** | `tabs-tools.ts` `createTabsToolEntry` |
 | 与全站权限的区别 | 仍**无** `<all_urls>` / `*://*/*`；仍**无**静态 `content_scripts` | `manifest.json` 核验 |
 | **不可关闭性** | `tabs` 是 manifest **静态权限**：扩展页「站点访问权限」能撤销的是 host 权限；要彻底移除 `tabs` 只能**停用/卸载**扩展。因此插件提供**应用内隐私开关**（options 页「允许助手查看/切换标签页（默认开）」），关闭后 `tabs` 立即从 LLM 工具面移除 | `background/tabs-setting.ts` + `host.setTabsEnabled` |
 
@@ -161,16 +163,32 @@
 
 新增 `tabs` 后，Chrome 在安装/更新该扩展时的权限提示会出现**「读取您的浏览记录」**（Chrome 对 `tabs` 权限的通用措辞）。插件向用户的如实说明：
 
-> 该提示是浏览器对 `tabs` 权限的**统一措辞**。本插件用它来**列出/切换/打开当前打开的标签页**（助手工具 `tabs`），**不读取、不导出您的浏览历史**。若您不接受该权限，请不要安装/更新；安装后也可在 options 页把「允许助手查看/切换标签页」关掉，`tabs` 会从助手工具面移除（但权限本身需停用/卸载扩展才能移除）。
+> 该提示是浏览器对 `tabs` 权限的**统一措辞**。本插件用它来**列出/切换/打开当前打开的标签页**，以及**静音/固定/移动/关闭单个标签页**（助手工具 `tabs`；`close` 于 2026-09-13 经作者裁决放开，恒需二次确认、一次只关一个），**不读取、不导出您的浏览历史**。若您不接受该权限，请不要安装/更新；安装后也可在 options 页把「允许助手查看/切换标签页」关掉，`tabs` 会从助手工具面移除（但权限本身需停用/卸载扩展才能移除）。
 
 ### 9.3 隐私影响：标签页标题与 URL 会进入 LLM 上下文
 
 | 影响 | 说明 | 缓解 |
 |------|------|------|
-| 标题 + URL 进入上下文 | `tabs list` 的**工具结果**（含每个标签页的标题、URL、授权态、会话）会被送回 LLM 作为上下文 | **默认只返回 `origin + path`**，去掉 query 与 fragment（用户查询串/令牌不进入上下文）；输出显式标注「隐私默认」 |
+| 标题 + URL 进入上下文 | `tabs list` 的**工具结果**（含每个标签页的标题、URL、授权态、会话）会被送回 LLM 作为上下文 | **默认只返回 `origin + path`**，去掉 query 与 fragment（用户查询串/令牌不进入上下文）；输出显式标注「隐私默认」。**URL 型标题**（无 `<title>` 页浏览器回退为完整 URL）同样由 `redactTabTitle()` 去 query/fragment |
 | 完整 URL 需显式开启 | 仅当显式传 `--full true` 才返回含 query/fragment 的完整 URL | 输出与本文档均披露该影响；单元测试断言默认输出不含 query 串 |
-| 主动切页/开页 | `switch`（`ui` 档）与 `open`（`write` 档）执行前经**二次确认**；`open` 的确认摘要包含目标 URL | `PLUGIN_RISK_DEFAULTS`（ui/write→ask） |
+| 主动切页/开页/改页/关页 | `switch`（`ui`）与 `open`/`mute`/`pin`/`move`/`close`（`write`）执行前经**二次确认**；`open` 的确认摘要含目标 URL；`close` 的确认摘要含目标**标题 + 去 query/fragment 的 URL** 与**不可逆+侧栏自关**提示 | `PLUGIN_RISK_DEFAULTS`（ui/write→ask）+ `ConfirmBridgeOptions.describe`；`tabs` 为 `group:'plugin'`，不纳入自动授权放行 |
+| 审计 | 每个子命令写 `type:'tabs'` 审计 | **零明文**：URL 恒去 query/fragment（`redactTabUrl`），URL 型标题去参（`redactTabTitle`） |
 | 关闭开关 | options 页关闭「允许助手查看/切换标签页」后，`tabs` 从 `deriveTools()` 移除并拒绝派发 | `host.setTabsEnabled(false)` + `tabs-setting` 消息 |
+
+### 9.4 v1.5 反转：`close` 放开的知情同意与 fail-safe（FR-049/FR-053 / 作者裁决 2026-09-13）
+
+> 作者 2026-09-13 明确撤销初版「明确不做 close」的约束，**完全放开 `close`**（并补齐 `mute`/`pin`/`move`）。这是**需求变更**，不是安全基线放宽；`close` 仍是**破坏性、不可逆**动作，插件以下列方式收敛风险并如实告知用户：
+
+| 处置 | 行为 | 依据 |
+|------|------|------|
+| 风险档 | `close` 恒为 `write` → 默认 `ask`（`subcommandRisks`，**不降档、不放宽**）；`tabs` 为 `group:'plugin'`，**不纳入**「写操作自动」等自动放行 | `tabs-tools.ts` + `security/policy.ts` |
+| 单标签页 | `--id` 或 `--match` 二选一；携带 `--all`/批量意图 → **可读拒绝**（`tabs-batch-rejected`） | `tabs-tools.ts` `resolveSingleTarget` |
+| 歧义不猜 | `--match` 命中 ≥2 个 → **可读拒绝并列出候选**（不自动关当前激活页） | `resolveTabTarget(..., preferActive=false)` |
+| 确认摘要 | ask 前经 `describe` 显示「目标标签页 [id] **标题** — **去 query/fragment 的 URL**」+「**关闭不可逆；若它是当前侧栏所在页面，侧栏也会一并关闭**」 | `security/confirm.ts` `describe` + `service-worker.ts` `describeTarget` |
+| 可读拒绝 | 受限页（`chrome://` 等）/未知 `--id` → 可读拒绝，不静默 | `tabs-tools.ts` |
+| 审计 | 每子命令入审计，**零明文**（URL 与 URL 型标题均去 query/fragment） | `service-worker.ts` `createTabsDeps` + `redactTabUrl`/`redactTabTitle` |
+
+**未新增权限**：`chrome.tabs.remove/update/move` 在既有 `tabs` 权限下可用，`manifest.json` 零 diff、base 零改动、无新依赖。
 
 ## 10. v1.8 增补：自动授权（按站点读/写）的知情同意与边界（FR-052 / ADR-017）
 
@@ -219,4 +237,4 @@
 
 ---
 
-**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图像素路径调整时
+**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13） ｜ **作者裁决反转（2026-09-13）**：§9 更新——`tabs` 放开 `close` 并补齐 `mute`/`pin`/`move`（**需求变更**，零新权限、`manifest.json` 零 diff；安全处置见 §9.4） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图像素路径调整时

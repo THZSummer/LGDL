@@ -37,6 +37,18 @@ export interface ConfirmBridgeOptions {
   currentOrigin?: () => string | undefined;
   audit?: PluginAuditSink;
   now?: () => number;
+  /**
+   * Optional pre-ask enricher: returns a readable「本次将作用于……」
+   * detail (title + query/fragment-stripped URL, irreversibility note, …) that is
+   * appended to the question's reason **before** the user sees/decides it.
+   *
+   * Author reversal (2026-09-13): `tabs close` uses this so the confirmation
+   * summary names the exact tab being closed and states that closing is
+   * irreversible. A failure here must never block the fail-closed ask path — the
+   * enricher is best-effort and any throw is swallowed (the plain summary is
+   * still shown).
+   */
+  describe?: (question: AskQuestion) => Promise<string | undefined> | string | undefined;
 }
 
 /**
@@ -47,20 +59,32 @@ export function createConfirmBridge(opts: ConfirmBridgeOptions): (question: AskQ
   const now = opts.now ?? (() => Date.now());
   return async (question: AskQuestion): Promise<AskResolution> => {
     const origin = opts.currentOrigin?.();
+    // Author reversal (2026-09-13): enrich the question with the concrete target
+    // (title + redacted URL + irreversibility) before it is shown. Best-effort:
+    // a describe failure must not weaken fail-closed semantics.
+    let shown: AskQuestion = question;
+    if (opts.describe) {
+      try {
+        const extra = await opts.describe(question);
+        if (extra) shown = { ...question, reason: `${question.reason}；${extra}` };
+      } catch {
+        /* keep the plain question; the ask still happens */
+      }
+    }
     const summary = buildOperationSummary({
       origin,
-      tool: question.tool,
-      subcommand: question.subcommand,
-      args: question.args,
-      risk: question.risk,
-      reason: question.reason,
+      tool: shown.tool,
+      subcommand: shown.subcommand,
+      args: shown.args,
+      risk: shown.risk,
+      reason: shown.reason,
     });
     opts.audit?.recordPlugin({
       type: 'confirm',
       ts: now(),
-      tool: question.tool,
-      subcommand: question.subcommand,
-      risk: question.risk,
+      tool: shown.tool,
+      subcommand: shown.subcommand,
+      risk: shown.risk,
       origin,
       decision: 'ask',
       reason: summary,
@@ -69,7 +93,7 @@ export function createConfirmBridge(opts: ConfirmBridgeOptions): (question: AskQ
       opts.audit?.recordPlugin({
         type: 'confirm',
         ts: now(),
-        tool: question.tool,
+        tool: shown.tool,
         decision: 'deny',
         origin,
         detail: '无二次确认应答器（side panel 未连接），按 deny 处理',
@@ -77,12 +101,12 @@ export function createConfirmBridge(opts: ConfirmBridgeOptions): (question: AskQ
       return { action: 'deny' };
     }
     try {
-      const resolution = await opts.ask(question);
+      const resolution = await opts.ask(shown);
       const action = resolution?.action === 'allow' ? 'allow' : 'deny';
       opts.audit?.recordPlugin({
         type: 'confirm',
         ts: now(),
-        tool: question.tool,
+        tool: shown.tool,
         decision: action,
         origin,
         detail: action === 'allow' ? '用户确认放行' : '用户取消/拒绝',
@@ -92,7 +116,7 @@ export function createConfirmBridge(opts: ConfirmBridgeOptions): (question: AskQ
       opts.audit?.recordPlugin({
         type: 'confirm',
         ts: now(),
-        tool: question.tool,
+        tool: shown.tool,
         decision: 'deny',
         origin,
         detail: `确认桥异常，按 deny 处理：${err instanceof Error ? err.message : String(err)}`,

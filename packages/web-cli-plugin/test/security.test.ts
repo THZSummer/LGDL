@@ -123,6 +123,45 @@ test('confirm: summary masks sensitive args and missing responder denies', async
   assert.deepEqual(await throwing({ tool: 'site_x', reason: 'r' }), { action: 'deny' });
 });
 
+test('confirm: describe enriches the ask summary with the concrete target (author reversal close)', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const seen: string[] = [];
+  const bridge = createConfirmBridge({
+    audit,
+    describe: (q) =>
+      q.tool === 'tabs' && q.subcommand === 'close'
+        ? '目标标签页 [7] Doomed — https://a.test/page；⚠ 关闭标签页不可逆；若它是当前侧栏所在页面，侧栏也会一并关闭'
+        : undefined,
+    ask: async (q) => {
+      seen.push(q.reason);
+      return { action: 'allow' };
+    },
+  });
+  const res = await bridge({ tool: 'tabs', subcommand: 'close', risk: 'write', args: { id: '7' }, reason: '默认风险档位 write 需要确认' });
+  assert.deepEqual(res, { action: 'allow' });
+  assert.equal(seen.length, 1);
+  assert.match(seen[0], /\[7\] Doomed/);
+  assert.match(seen[0], /https:\/\/a\.test\/page/);
+  assert.match(seen[0], /不可逆/);
+  // The enrichment is audited alongside the ask (not lost).
+  const askAudit = audit.events.find((e) => e.type === 'confirm' && e.decision === 'ask');
+  assert.match(String(askAudit?.reason), /不可逆/);
+});
+
+test('confirm: a throwing describe never blocks the fail-closed ask path', async () => {
+  const audit = createStorageAuditSink(memoryKv());
+  const bridge = createConfirmBridge({
+    audit,
+    describe: () => {
+      throw new Error('describe boom');
+    },
+    ask: async () => ({ action: 'allow' }),
+  });
+  assert.deepEqual(await bridge({ tool: 'tabs', subcommand: 'close', risk: 'write', args: { id: '7' }, reason: 'r' }), {
+    action: 'allow',
+  });
+});
+
 test('audit-sink: ring buffer, dropped counter, export and reload', async () => {
   const kv = memoryKv();
   const sink = createStorageAuditSink(kv, { capacity: 3, now: () => 1 });

@@ -282,6 +282,39 @@ function startMockLlm() {
               content: '',
               tool_calls: [{ id: 'call_site_destr', type: 'function', function: { name: 'site_lgdl-web-cli', arguments: JSON.stringify({ subcommand: 'remove-node', args: { id: 'n1' } }) } }],
             };
+          } else if (!lastIsTool && user.includes('__TABS_CLOSE_ALL__')) {
+            // Author reversal (2026-09-13): batch close must be refused readably.
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_tabs_close_all', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'close', args: { all: 'true' } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__TABS_MUTE__')) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_tabs_mute', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'mute', args: { match: 'disposable-mute', muted: 'true' } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__TABS_PIN__')) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_tabs_pin', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'pin', args: { match: 'disposable-pin', pinned: 'true' } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__TABS_MOVE__')) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_tabs_move', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'move', args: { match: 'disposable-move', index: '0' } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__TABS_CLOSE__')) {
+            // A disposable self-created tab carries a secret query: close must
+            // show the stripped URL in the confirm summary and never the secret.
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_tabs_close', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'close', args: { match: 'disposable-close' } }) } }],
+            };
           } else {
             message = { role: 'assistant', content: `收到 ${user}（binding mock）` };
           }
@@ -931,6 +964,106 @@ async function phase1(mock) {
     check(Boolean(afterSwitch), `#8h tabs switch 后会话随之切换到 ${SITE_ORIGIN}`, afterSwitch ?? 'session unchanged');
     const asw = afterSwitch ? JSON.parse(afterSwitch) : {};
     check(asw.active?.origin === SITE_ORIGIN, '#8i tabs switch 后 active.origin 为站点', JSON.stringify(asw.active));
+
+    // ── author reversal (2026-09-13): real `tabs mute` / `pin` / `move` / `close`
+    // through the real chat loop + confirm UI. Every target is a SELF-CREATED,
+    // NON-ACTIVE tab (never the user's / the panel's tab), so mutating or closing
+    // it cannot disturb the bound site or the side panel. `close` also proves the
+    // confirm summary names the tab (title + stripped URL) and warns 不可逆. ────
+    const unauthOrigin = new URL(UNAUTH_URL).origin;
+    const mkDisposable = async (path) =>
+      evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(`${unauthOrigin}${path}`)}, active: false }).then((t) => t.id)`);
+    const muteTabId = await mkDisposable('/disposable-mute?x=1');
+    const pinTabId = await mkDisposable('/disposable-pin?x=1');
+    const moveTabId = await mkDisposable('/disposable-move?x=1');
+    const closeTabId = await mkDisposable('/disposable-close?secretmarker=CLOSESECRET#frag');
+    check([muteTabId, pinTabId, moveTabId, closeTabId].every((id) => typeof id === 'number' && id > 0), '#7m 已创建 4 个自建非激活标签页（互不干扰，可安全改动/关闭）', JSON.stringify([muteTabId, pinTabId, moveTabId, closeTabId]));
+    await sleep(600);
+
+    // (1) real mute
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_MUTE__' }).then(() => true)`);
+    const muteConfirm = await waitFor(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /disposable-mute/.test(s) ? s : ''; })()`,
+      80,
+      150,
+    );
+    check(Boolean(muteConfirm) && /目标标签页/.test(muteConfirm ?? ''), '#7m2 tabs mute（write 档）触发二次确认且摘要含具体目标', muteConfirm ?? 'no confirm');
+    await realClick(ext, '#confirm-allow');
+    check(Boolean(await waitForToolResult('已静音')), '#7m3 真实调用 tabs mute（用户确认后执行）');
+    const mutedNow = await evaluate(sw, `chrome.tabs.get(${muteTabId}).then((t) => Boolean(t.mutedInfo && t.mutedInfo.muted === true)).catch(() => false)`);
+    check(mutedNow === true, '#7m4 chrome.tabs 真实静音状态生效（mutedInfo.muted=true）', String(mutedNow));
+    await sleep(900);
+
+    // (2) real move (BEFORE pin: Chrome refuses to move a tab before a pinned tab)
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_MOVE__' }).then(() => true)`);
+    await waitFor(ext, `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /disposable-move/.test(s) ? 'shown' : ''; })()`, 80, 150);
+    await realClick(ext, '#confirm-allow');
+    check(Boolean(await waitForToolResult('已移动')), '#7o 真实调用 tabs move（用户确认后执行）');
+    const movedIndex = await evaluate(sw, `chrome.tabs.get(${moveTabId}).then((t) => t.index).catch(() => -1)`);
+    check(movedIndex === 0, '#7o2 chrome.tabs 真实位置变更生效（index=0）', String(movedIndex));
+    await sleep(900);
+
+    // (3) real pin
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_PIN__' }).then(() => true)`);
+    await waitFor(ext, `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /disposable-pin/.test(s) ? 'shown' : ''; })()`, 80, 150);
+    await realClick(ext, '#confirm-allow');
+    check(Boolean(await waitForToolResult('已固定')), '#7n 真实调用 tabs pin（用户确认后执行）');
+    const pinnedNow = await evaluate(sw, `chrome.tabs.get(${pinTabId}).then((t) => t.pinned === true).catch(() => false)`);
+    check(pinnedNow === true, '#7n2 chrome.tabs 真实固定状态生效（pinned=true）', String(pinnedNow));
+    await sleep(900);
+
+    // (4) real close — the confirmation MUST name the tab + stripped URL + 不可逆
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_CLOSE__' }).then(() => true)`);
+    const closeConfirm = await waitFor(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /disposable-close/.test(s) ? s : ''; })()`,
+      80,
+      150,
+    );
+    check(Boolean(closeConfirm) && /不可逆/.test(closeConfirm ?? ''), '#7p close 确认摘要含「不可逆」提示', closeConfirm ?? 'no confirm');
+    check(/disposable-close/.test(closeConfirm ?? '') && /127\.0\.0\.1/.test(closeConfirm ?? ''), '#7p2 close 摘要显示被测标签页的标题/去参 URL', closeConfirm ?? '');
+    check(!/CLOSESECRET|secretmarker/.test(closeConfirm ?? ''), '#7p3 close 摘要不含 query/fragment（零明文）', closeConfirm ?? '');
+    await realClick(ext, '#confirm-allow');
+    check(Boolean(await waitForToolResult('已关闭')), '#7q 真实调用 tabs close（用户确认后执行，单个标签页）');
+    const closeGone = await evaluate(sw, `chrome.tabs.get(${closeTabId}).then(() => false).catch(() => true)`);
+    check(closeGone === true, '#7q2 被关闭的目标标签页确实消失（chrome.tabs.get 失败）', String(closeGone));
+    const tabsAudit = await evaluate(
+      ext,
+      `chrome.runtime.sendMessage({ kind: 'audit-export' }).then((r) => JSON.stringify((r.data || []).filter((e) => e.type === 'tabs' && e.subcommand === 'close')))`,
+    );
+    check(/不可逆/.test(tabsAudit ?? ''), '#7r close 写入可读审计（含不可逆说明）', (tabsAudit ?? '').slice(0, 240));
+    check(!/CLOSESECRET|secretmarker/.test(tabsAudit ?? ''), '#7r2 close 审计零明文（URL 已去 query/fragment）', (tabsAudit ?? '').slice(0, 240));
+    await sleep(900);
+
+    // (5) batch close is refused readably (never closes anything)
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_CLOSE_ALL__' }).then(() => true)`);
+    await waitFor(ext, `(() => { const c = document.getElementById('confirm'); return c && getComputedStyle(c).display !== 'none' ? 'shown' : ''; })()`, 80, 150);
+    await realClick(ext, '#confirm-allow');
+    const batchRefusal = await waitForToolResult('禁止批量');
+    check(Boolean(batchRefusal), '#7s close --all 被可读拒绝（禁止批量关闭）', (batchRefusal ?? '').slice(0, 200));
+    check((batchRefusal ?? '').includes('禁止批量'), '#7s2 拒绝文案明确说明「禁止批量」', (batchRefusal ?? '').slice(0, 200));
+    await sleep(900);
+
+    // cleanup self-created disposable tabs (mute/pin/move; close already gone)
+    await evaluate(sw, `chrome.tabs.remove([${muteTabId}, ${pinTabId}, ${moveTabId}]).catch(() => true)`);
+    await sleep(400);
+
+    // The D-128 URL-driven follower rebinds on ANY tab's `onUpdated(complete)`, so
+    // creating the disposable tabs above (a different, unauthorized origin) moved
+    // the active session to it. Re-activate + rebind the real site tab so the
+    // downstream assertions keep their original baseline (a harness restore, not a
+    // behaviour change).
+    await evaluate(sw, `chrome.tabs.update(${siteTabId}, { active: true }).then(() => true)`);
+    await sleep(300);
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'rebind' }).then(() => true)`);
+    const restored = await waitFor(
+      ext,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'state' }); return r?.data?.active?.origin === ${JSON.stringify(SITE_ORIGIN)} ? 'ok' : ''; })()`,
+      80,
+      150,
+    );
+    check(restored === 'ok', '#7t 清理自建标签页后已将绑定还原到站点（后续断言基线不变）', String(restored));
 
     // ── FR-052 / ADR-017: real auto-authorization (write on/off + destructive) ──
     // Reload the panel so it reflects the current (site) origin + default switches.

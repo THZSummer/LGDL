@@ -221,7 +221,7 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   tabsSection.appendChild(
     h(doc, 'p', {
       class: 'wc-note',
-      text: '开启后 LLM 工具面包含 tabs（list / switch / open；不含 close）。list 默认只返回 origin+path（去掉 query/fragment）；switch/open 属敏感档位需二次确认。关闭后 tabs 立即从工具面移除。',
+      text: '开启后 LLM 工具面包含 tabs（list / switch / open / mute / pin / move / close）。list 默认只返回 origin+path（去掉 query/fragment）；switch/open/mute/pin/move/close 属敏感档位需二次确认（close 一次只关一个，摘要显示目标标题与去参数 URL，并提示不可逆）。关闭后 tabs 立即从工具面移除。',
     }),
   );
   const tabsStatus = h(doc, 'div', { id: 'settings-tabs-setting-status', class: 'wc-muted' });

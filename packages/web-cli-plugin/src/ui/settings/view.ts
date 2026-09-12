@@ -85,7 +85,7 @@ export function tabsSettingStatus(enabled: boolean, tools?: string[]): string {
   const hasTool = !tools || tools.includes('tabs');
   if (enabled) {
     return hasTool
-      ? '已开启：LLM 工具面包含 tabs（list / switch / open；不含 close）。'
+      ? '已开启：LLM 工具面包含 tabs（list / switch / open / mute / pin / move / close）。'
       : '已开启：tabs 应已进入 LLM 工具面（若未显示，请重新加载扩展）。';
   }
   return hasTool

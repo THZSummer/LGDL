@@ -136,9 +136,10 @@
         允许助手查看/切换标签页（默认开）
       </label>
       <p class="muted">
-        开启后，LLM 工具面包含 <code>tabs</code>（list / switch / open；<strong>不含 close，明确不关闭标签页</strong>）。
+        开启后，LLM 工具面包含 <code>tabs</code>（list / switch / open / mute / pin / move / <strong>close</strong>）。
         <code>list</code> 默认只返回 <strong>origin + path</strong>（去掉 query 与 fragment），避免把您的查询串带入模型上下文；
-        仅当显式传 <code>--full</code> 才返回完整 URL。<code>switch</code>/<code>open</code> 属敏感档位，执行前需二次确认（<code>open</code> 的确认摘要会显示目标 URL）。
+        仅当显式传 <code>--full</code> 才返回完整 URL。<code>switch</code>/<code>open</code>/<code>mute</code>/<code>pin</code>/<code>move</code>/<code>close</code> 属敏感档位，执行前需二次确认。
+        <code>close</code> 默认风险档 <code>write</code>（需确认），<strong>一次只关一个</strong>（禁止批量），确认摘要会显示目标标签页标题与<strong>去掉 query/fragment 的 URL</strong>，并提示<strong>关闭不可逆</strong>（若目标是当前侧栏所在页面，侧栏也会一并关闭）。
         关闭后 <code>tabs</code> 会立即从 LLM 工具面移除（不会静默保留）。
       </p>
       <div id="tabs-setting-status" class="muted" role="status" aria-live="polite">标签页管理：尚未读取。</div>

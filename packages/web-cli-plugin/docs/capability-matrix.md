@@ -71,7 +71,7 @@
 | `admin_descriptor-show` | 查看当前声明 | FR-011 / FR-022 |
 | `admin_audit-export` | 导出审计 | FR-025 |
 | `admin_llm-config` | 掩码 LLM 配置 | FR-033 / FR-035 |
-| `tabs` | 标签页 list/switch/open（不含 close） | FR-049 |
+| `tabs` | 标签页 list/switch/open/mute/pin/move/close（close 于 2026-09-13 作者反转放开；write→ask、单标签页、摘要含标题+去参 URL+不可逆）。仅列出/切换无需站点授权；改页/关页走 policy | FR-049/FR-053 |
 
 ## 4. 最小能力集（Gate-D D-1 基线）
 

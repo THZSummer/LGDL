@@ -138,6 +138,6 @@
     "admin_descriptor-show": { "reason": "Plugin management tool — inspect the active site declaration.", "basis": "spec.md FR-011 / FR-022" },
     "admin_audit-export": { "reason": "Plugin management tool — export the audit trail.", "basis": "spec.md FR-025" },
     "admin_llm-config": { "reason": "Plugin management tool — masked LLM configuration.", "basis": "spec.md FR-033 / FR-035" },
-    "tabs": { "reason": "Plugin-level tab management tool (list/switch/open; no close).", "basis": "spec.md FR-049" }
+    "tabs": { "reason": "Plugin-level tab management tool (list/switch/open/mute/pin/move/close; close opened by author reversal 2026-09-13 — write→ask, single-tab, no batch).", "basis": "spec.md FR-049 / FR-053" }
   }
 }

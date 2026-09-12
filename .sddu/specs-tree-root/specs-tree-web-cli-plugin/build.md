@@ -2436,6 +2436,62 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **真实 LGDL Workbench 页面桥仍只实现 4 个 op**（`packages/lgdl-web/src/web-cli-host/bridge.ts`）：本轮按任务范围只改**插件侧**（base 零改动、提交限 `packages/web-cli-plugin/` 与 `.sddu/`），未改站点包；因此在**真实 LGDL 站点**上，6 个新 op 会透出页面桥自己的可读拒绝（「不支持的事件通道操作 …（可用：subscribe/pull/unsubscribe/status）」），**在符合新 op 契约的站点/夹具上则真实可用**。站点侧复用 base `createBrowserEventHub()` 即可补齐（属站点侧后续轮）。
 - **`pull-sensitive` 在真实浏览器内置观察源下恒无明细**（base FR-006 保守，零明文供给）：通道已实现且门禁未放宽，但真实站点通常只会得到「无保留明细」的特定原因，属数据面事实而非实现缺失。
 
+## 35. 标签页工具补齐 mute/pin/move + 放开 close（TASK-037 / D5 / Wave 29）
+
+### 35.1 问题 / 权威反转（作者裁决 2026-09-13，需求变更）
+
+`tabs` 工具自 TASK-026 起只有 `list`/`switch`/`open`，源码（`src/tools/tabs-tools.ts`）与 `docs/dev.md` §12.4、`docs/compliance.md` §9、spec FR-049 均明确写「**`close` 是刻意不做的**」。**作者 2026-09-13 明确裁决反转**：「标签页读写」包含 close，「**完全放开 close**」，并补齐单标签页写操作 `mute`/`pin`/`move`。
+
+这是作者**显式撤销此前约束**导致的**需求变更（requirement change）**，**不是测试降级**：
+- 更新需求表述（`spec.md` FR-049 修订 + 新增 **FR-053** 变更记录 + **EC-026**）（§5.11/§7，spec v1.9）。
+- 记录 ADR 级理由与安全处置（`plan.md` **ADR-015 修订**：状态/决策/被否决方案 C 作废/后果 + 新增「安全处置」章节，plan v1.5）。
+- 删除文档中的矛盾陈述（`docs/dev.md` §12.4、`docs/compliance.md` §9、`docs/capability-matrix.md`、`docs/release.md` 均改为「close 已放开 + fail-safe」；历史修订行标注「已由本轮作废」）。
+- 断言无 close 的测试**替换**（非删除）为「close 存在 + write→ask + 确认/审计/单标签页」语义，断言总数只增不减（见 §35.4）。
+- **零新权限**：`chrome.tabs.remove/update/move` 在既有 `tabs` 权限下可用，`manifest.json` **零 diff**、base **零改动**、无新依赖。
+
+### 35.2 实现（`packages/web-cli-plugin/`，base 零改动 / manifest 零 diff / 零新权限 / 零新依赖）
+
+| 文件 | 改动 |
+|------|------|
+| `src/tools/tabs-tools.ts` | 子命令 3→7：`list`/`switch`/`open`/`mute`/`pin`/`move`/`close`（`TABS_SUBCOMMANDS:63`）；`TABS_SUBCOMMAND_RISKS` 新增 `mute/pin/move/close = 'write'`（`close:78`，**不放宽**）；`parseBoolArg`（`--muted`/`--pinned true|false`）、`parseNonNegativeIntArg`（`--index`/`--window`）、`parseTabRef(args, sub)`（`--id`/`--match` 二选一）；`resolveTabTarget(rows, ref, preferActive)`（`switch` 偏好激活页；**改页/关页传 false → 歧义不猜、列候选**）；`resolveSingleTarget`（`388`）统一**禁批量**（`--all` → `tabs-batch-rejected`，`397-398`）、目标解析、受限页可读拒绝；`redactTabTitle`（`190`，URL 型标题去 query/fragment）；`formatTabList`/`tabsToolHelp`/schema（含 subcommand `enum`）更新 |
+| `src/background/service-worker.ts` | `createTabsDeps` 新增 `muteTab`（`1072`，`chrome.tabs.update({muted})`）、`pinTab`（`chrome.tabs.update({pinned})`）、`moveTab`（`1106`，`chrome.tabs.move`；typings 要求 `index`，未给时用 Chrome 默认 `-1`）、`closeTab`（`1136`，`chrome.tabs.remove`）、`describeTarget`（`1153`，ask 前按 `--id`/`--match` 解析「目标标签页 [id] 标题 — 去参 URL」；close 追加「⚠ 关闭标签页不可逆；若它是当前侧栏所在页面，侧栏也会一并关闭」`1165`）；`readTabs` 补 `muted`/`pinned`/`windowId`；`tabsDeps` 上提为共享实例并接线 `describe` |
+| `src/security/confirm.ts` | `ConfirmBridgeOptions.describe?`（`51`）：ask 前 enrich 示人 `reason`（best-effort，异常吞掉不阻断 fail-closed ask） |
+| `src/ui/options/index.html` / `src/ui/settings/{panel,view}.ts` | 文案更新：列出 close + 「一次只关一个 / 摘要含标题与去参 URL / 不可逆」 |
+| `test/tabs-tools.test.ts` / `test/tabs-wiring.test.ts` / `test/security.test.ts` / `test/ui/{binding,journey}.mjs` | 见 §35.4 |
+
+**close 的安全语义（严格 fail-safe）**：① risk 恒 `write`→默认 `ask`（`subcommandRisks` + `PLUGIN_RISK_DEFAULTS.write='ask'`；`tabs` 为 `group:'plugin'`，`decideAutoAuthorization` 对其返回 allow:false，不纳入自动授权）；② **一次只关一个**（`--all`/批量 → 可读拒绝）；③ `--match` 歧义**不猜**（≥2 命中 → 可读拒绝 + 候选列表，不自动关激活页）；④ 确认摘要含目标**标题 + 去 query/fragment 的 URL** + **不可逆**提示；⑤ 受限页（`chrome://`）/未知 `--id` → 可读拒绝，不静默；⑥ 每子命令审计（`type:'tabs'`，零明文：URL 与 URL 型标题均去参）。
+
+### 35.3 新增决策（D-156~D-160）
+
+- **D-156（权威反转按「需求变更」处置，不是测试降级）**：作者 2026-09-13 显式撤销「明确不做 close」约束 → 同步更新 spec（FR-049/FR-053 + EC-026）、plan（ADR-015 修订 + 安全处置）、dev/compliance/capability-matrix/release 并删除矛盾陈述；旧「无 close」断言**替换**为「close 存在 + write→ask + 确认/审计/单标签页」（断言总数只增不减）。**被否决**：只改代码不改文档（留下矛盾陈述）；直接删掉旧断言（断言数下降，无法证明行为仍受控）。
+- **D-157（close 风险档恒 write→ask，不放宽）**：沿用 `subcommandRisks`（`close:'write'`）与 `PLUGIN_RISK_DEFAULTS.write='ask'`；`mute`/`pin`/`move` 同为 `write`→`ask`。**被否决**：把 close 降为 `ui` 或引入「关闭自动放行」。
+- **D-158（一次只关一个 + 歧义不猜）**：close 复用 `parseTabRef` 二选一，`--all`/批量意图可读拒绝；`--match` 命中 ≥2 个**拒绝并列出候选**（`resolveTabTarget(..., preferActive=false)`），绝不自动挑当前激活页。**被否决**：允许 `--all` 批量关闭；沿用 `switch` 的「偏好激活页」解析（会误关）。
+- **D-159（确认摘要经 `describe` 接缝 enrich，且不阻断 ask）**：在 `createConfirmBridge` 加 `describe` 钩子，ask 前把「目标标题 + 去参 URL + close 不可逆/侧栏自关」并入示人摘要；解析/异常失败仅省略附加信息，**不影响 fail-closed 确认**。**被否决**：只在 `open` 摘要显示 URL 而 close 不显示目标（用户无法在确认前核对将关闭哪一页）；在工具执行器里显示（执行发生在确认之后，无意义）。
+- **D-160（URL 型标题也去参，保护隐私默认）**：浏览器对无 `<title>` 页会用完整 URL 作 tab 标题（Chrome 甚至省略 scheme，如 `127.0.0.1:port/page?token=…`）；新增 `redactTabTitle` 对 URL 型标题投影为 origin+path，应用于 `list` 视图、工具输出与 `describe` 摘要，避免 query/fragment 从标题泄漏。**被否决**：只脱敏 URL 字段（标题泄漏，binding 实测复现 `secretmarker=CLOSESECRET`）。
+
+### 35.4 门禁与验证（本轮复跑原文摘录）
+
+**被替换的「无 close」断言清单（替换，非删除）**：
+- `test/tabs-tools.test.ts`：原 `tabs: no close subcommand exists (help + unknown-subcommand reply are explicit)` → 替换为 `tabs: close exists with write→ask risk + single-tab + irreversibility copy`；原「风险 map 不含 close」的 deepEqual → 扩展为 7 子命令（含 close:'write'）；原「unknown subcommand（no close）」用例改用真正未知子命令并断言支持集**含 close**。
+- `test/tabs-wiring.test.ts`：原 `FR-049: no close implementation exists anywhere in the tabs surface` → 替换为 `FR-049: close is implemented with write→ask risk, single-tab + irreversibility guards`；options 文案断言由「含『不含 close』」→「**不含**陈旧 no-close 文案 + 含 close/不可逆/一次只关一个」。
+- `docs`（dev §12.4 / compliance §9 / capability-matrix / release）中「明确不做 close / 不含 close」表述全部替换；历史修订行加「已由本轮作废」注记。
+
+**本轮门禁（原文）**：
+- `npm run typecheck --workspace @lgdl/web-cli-plugin`（`tsc --noEmit`）：**0 error**。
+- `npm test --workspace @lgdl/web-cli-plugin`：**tests 452 / pass 452 / fail 0**（上一轮 435，**+17**）。
+- `npm run test:ui`（journey）：**PASS — 141 assertions**（上一轮 136，**+5**：`#16p~#16t` 面板内 close 确认：不可逆可见 / 标题+去参 URL / 零明文 / 允许·拒绝可点 / 拒绝结算）。
+- `npm run test:hardening`：**PASS — 24 assertions**（不变）。
+- `npm run test:binding`：**PASS — 143 assertions**（上一轮 125，**+18**）：`#7m~#7t` 真实 `mute`/`pin`/`move`/`close`（自建**非激活**标签页，绝不关用户的/承载面板的标签页）+ 真实 `mutedInfo.muted`/`pinned`/`index` 断言 + close 确认摘要含「不可逆」与去参 URL（无 `CLOSESECRET`）+ 审计零明文 + `close --all` 可读拒绝（`禁止批量`）+ 清理后绑定还原站点；**既有 125 断言保留**。
+- `npm run test:e2e`：**PASS**（R8 full chain，A/B 场景）。
+- 全仓 `npm run build` + `npm test`：**0 fail**；`@lgdl/web-cli-base` **483 pass / 0 fail（零回归）**。
+- 红线核验：`git status` 对 `packages/web-cli-base`、`packages/web-cli-plugin/manifest.json`、`.opencode/opencode.json` 均**零改动**；无 `<all_urls>`/`*://*/*`/静态 `content_scripts`；无新依赖；无明文 key。
+
+### 35.5 未完成 / 降级（如实）
+
+- **`move --window` 的真实跨窗口移动未在 `test:binding` 中实证**（headless 单窗口）：单测覆盖 `windowId` 透传与入参校验，binding 实证同窗口 `--index 0`。跨窗口移动属「插件天然可达」但本机 headless 无法多窗口合成，未冒充已测。
+- **`describe` 摘要的标题若为非 URL 的普通文本则原样显示**（不做泛化脱敏）：这是隐私与可读性的权衡（D-160 只对 URL 型标题去参），如页面标题本身含敏感串则由站点/页面负责，未做额外猜测式截断。
+- **`onUpdated(complete)` 会对任意后台标签页执行 `followActiveTab`**（D-128 既有行为）：本轮 binding 在创建测试用非激活标签页后会显式「重新激活站点标签页 + rebind」还原基线（`#7t`），未改动该后台语义（超出本轮范围，如实标注）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2468,3 +2524,4 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v1.25 | **chrome screenshot 走真实像素 + 修正 chrome help 过时表述**（§32，TASK-034 / D1+D4，Wave 26，用户实测第九轮）：插件侧新增 `src/platform/real-screenshot.ts`（`Proxy` 只覆盖 `env.dom.ops.screenshot`，base 零改动）：已授权 http(s) origin → `chrome.tabs.captureVisibleTab` **真实像素**（element 经 `dom-op` 取 rect + SW `OffscreenCanvas` 裁剪）；未授权/受限/失败 → **回退** base 近似路径并**如实标注**「真实像素（captureVisibleTab）」/「近似（canvas，原因：…）」（绝不谎称真实）；`fullpage` 仍「不支持」（D2 单独一轮）。`src/tools/chrome-host.ts` 在插件层包装 chrome 条目的 `description`/`help`，删除页内时代的「书签…= 不可承载」绝对表述（指向 `tabs`/宿主层能力）。**透传纪律**：`waitFor`/`extractData` 与 base 同引用 → `wait`/`extract`/`export` 不被摘除。**实测**：MV3 SW 下 `captureVisibleTab` 返回 Promise；该 API 需 `activeTab` 或 `<all_urls>`（仅 host 权限不足），插件已声明 `activeTab`（图标手势授予）→ **零新权限 / manifest 零 diff**。门禁：新增 `test/real-screenshot.test.ts`（16）+ browser-tools D4/透传断言、插件 **405 pass/0 fail**、`tsc --noEmit` 0 error、`test:e2e` **PASS**（含真实 PNG + 两条路径标注断言；临时 dist `<all_urls>` 偏差已披露）、`test:ui` **136**、`test:hardening` **24**、`test:binding` **125**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无明文 key / 无静默失败**；docs dev §13.7 + compliance §11 同步；未 git 提交（由上层统一提交）。 |
 | v1.26 | **整页截图（D2）+ 原生 back/forward（D6）**（§33，TASK-035，Wave 27，用户要求「D2 滚动分屏 captureVisibleTab 拼接（节流/上限/恢复滚动/诚实标注 fixed-sticky 重复）+ D6 原生 tabs.goBack/goForward（失败可读回退并标注路径）」）：同一包装层（`real-screenshot.ts` 透传 `Proxy`）新增覆盖 `historyNav`；因 base 执行器对 fullpage **先行短路**，fullpage 命令与输出/下载策略由 `chrome-host.ts` 接管（复用 base 已导出 `summarizeScreenshotData`/`screenshotFilename`/`translateCapabilityError`）：`ceil(h/vh)` 屏滚动 + `captureVisibleTab` + SW `OffscreenCanvas` 拼接；**遵守 2 次/秒**（500ms 节流 + `[700,1500]ms` 有界退避重试）、**上限**（≤20 屏 / ≤40MP，捕获前可读拒绝 + 已捕获范围）、**始终恢复滚动**（失败如实披露）；成功输出必含 `像素路径：真实像素（captureVisibleTab ×N 屏拼接）` + `FULLPAGE_LIMITATION_NOTICE`（fixed/sticky 每屏重复·懒加载·动画/轮播不一致，**非「完整/无损」**）。D6 优先原生 `chrome.tabs.goBack/goForward`（失败回退页面 `history` 并标注路径；离开绑定 origin 明确说明授权/会话影响）。新增 `test/fullpage-screenshot.test.ts`（20）+ real-screenshot/browser-tools 断言加强；插件 405→**425**、`tsc --noEmit` 0 error、`test:e2e` **PASS**（整页 ≥2 屏拼接 + 尺寸 > 单屏 + 局限可见 + 滚动已恢复；back/forward 原生优先 + 回退标注 + `history.length≥2` 佐证）、`test:ui` **136**、`test:hardening` **24**、`test:binding` **125**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；D-146~D-150；docs dev §13.8 + compliance §11 同步；**headless `tabs.goBack` 非功能偏差已披露**（原生成功由单测注入覆盖）。 |
 | v2.7 | **events 补齐运行时 6 子命令**（§34，TASK-036 / D3 / Wave 28，作者指出「工具面已对齐基线但运行时只有 4 个可用」）：`src/content/page-bridge.ts` 事件桥 op 集 4→10（+`pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`）；`src/tools/remote-events.ts` **删除 hardcoded 拒绝**，6 方法全部逐字转发页面 `env.events` hub，页面不支持时其**具体原因**原样透出；订阅摘要以页面 `status` 为准；`browser-env.ts`/`content-script.ts` 类型面随桥扩展。risk 仍由 base 单一来源、**未放宽**（`pull-sensitive`=`write`，未 `--trusted true` 不转发；控制类=`state`）；`pull-sensitive` 无明细给出 FR-006 **特定原因**、插件零缓存/零审计明文，有明细标注敏感来源。站点页面桥需实现这些 op（LGDL 可复用 base `createBrowserEventHub()`）；夹具 `test/fixtures/site/rpc.js` 提供无依赖参考实现。新增 `test/remote-events.test.ts`（9）+ `test/content.test.ts` 新 op 转发断言；`test:e2e` 新增 13 条真机断言（subscribe/switch/pull/ pause+clear→pull=0/resume→pull>0/budget/pull-sensitive 门禁/无明细原因/unsubscribe）。门禁：插件 425→**435 pass / 0 fail**、`tsc --noEmit` 0 error、`test:ui` **136**、`test:hardening` **24**、`test:binding` **125**、`test:e2e` **PASS**、全仓 build+test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；docs dev §16 + capability-matrix §4.1 + tasks TASK-036 同步；**真实 LGDL 页面桥仅实现 4 op（站点侧另一轮），本轮已如实披露**；D-151~D-155。 |
+| v2.8 | **标签页工具补齐 mute/pin/move + 放开 close（作者裁决反转 FR-049）**（§35，TASK-037 / D5，Wave 29，作者 2026-09-13 明确撤销「明确不做 close」约束驱动——「标签页读写」包含 close、「完全放开 close」，属**需求变更**非测试降级）：`src/tools/tabs-tools.ts` 子命令 3→7（+`mute`/`pin`/`move`/`close`），`subcommandRisks` 全部 `write`→默认 `ask`（close 恒 `write`，**不放宽**；`tabs` 为 `group:'plugin'` 不纳入自动授权）；`resolveSingleTarget` 禁批量（`--all`→可读拒绝）、`resolveTabTarget(..., preferActive=false)` 歧义不猜；`redactTabTitle` URL 型标题去 query/fragment；`service-worker.ts` `createTabsDeps` 新增 `muteTab`/`pinTab`/`moveTab`/`closeTab`/`describeTarget`（真实 `chrome.tabs.update/move/remove`）；`security/confirm.ts` 新增 `describe` 接缝（ask 前并入「目标标题 + 去参 URL +（close）不可逆/侧栏自关」，best-effort 不阻断 fail-closed）；旧「无 close」断言**替换**为「close 存在 + write→ask + 单标签页 + 不可逆」（断言总数只增不减）；spec v1.9（FR-049/FR-053 + EC-026）/plan v1.5（ADR-015 修订 + 安全处置）/dev §12.4·§2.9 / compliance §9.4 / capability-matrix / release 同步（删除矛盾陈述）。**零新权限**（`chrome.tabs.remove/update/move` 无需新权限）、`manifest.json` 零 diff、base 零改动、无新依赖。门禁：插件 435→**452 pass / 0 fail**、`tsc --noEmit` 0 error、`test:ui` 136→**141**、`test:binding` 125→**143**（真实 mute/pin/move/close + 审计零明文 + `--all` 拒绝 + 基线还原）、`test:hardening` **24**、`test:e2e` **PASS**、全仓 build+test **0 fail**（base **483 零回归**）；**无明文 key / 无静默失败**；D-156~D-160。 |
