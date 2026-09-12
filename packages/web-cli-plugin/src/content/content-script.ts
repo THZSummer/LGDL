@@ -57,7 +57,13 @@ async function fetchText(url: string): Promise<DiscoveryFetchResult> {
   }
 }
 
-async function runDiscovery(): Promise<void> {
+/**
+ * Run discovery and return the report payload (TASK-019 任务 B: also reused by
+ * the side panel's explicit 「重新探测」 entry). Always reports to the background
+ * so the controller/state stay authoritative; the payload is returned so a
+ * `reprobe` sender can render the fresh reason without a second round trip.
+ */
+async function runDiscovery(): Promise<Record<string, unknown>> {
   const result = await discover({
     origin: location.origin,
     fetchText,
@@ -84,6 +90,7 @@ async function runDiscovery(): Promise<void> {
   } catch (err) {
     console.warn('[web-cli-plugin] discovery report failed:', err);
   }
+  return payload;
 }
 
 chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
@@ -103,6 +110,16 @@ chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const op = (typeof raw.op === 'string' ? raw.op : 'status') as WebCliEventOp;
     const params = (raw.params && typeof raw.params === 'object' ? raw.params : {}) as Record<string, unknown>;
     void bridge.events.request(op, params).then(
+      (result) => sendResponse(okResponse(result)),
+      (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
+    );
+    return true;
+  }
+  if (raw.kind === 'reprobe') {
+    // TASK-019 任务 B: an explicit re-probe requested by the side panel. Re-runs
+    // discovery, reports the fresh result to the background, and returns it so
+    // the panel can render the readable reason immediately.
+    void runDiscovery().then(
       (result) => sendResponse(okResponse(result)),
       (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
     );

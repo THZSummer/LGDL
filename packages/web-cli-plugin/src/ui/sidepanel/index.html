@@ -22,6 +22,14 @@
       #onboarding li.current { font-weight: 600; }
       #onboarding li.done { color: #64748b; }
       #notice { background: #fef3c7; color: #92400e; padding: 6px; border-radius: 4px; margin: 4px 0; display: none; }
+      #env-guard {
+        display: none; border: 2px solid #dc2626; background: #fef2f2; color: #991b1b;
+        border-radius: 6px; padding: 8px; margin: 4px 0; font-weight: 600;
+      }
+      #discovery-notice { display: none; border: 1px solid #94a3b8; background: #f1f5f9; border-radius: 4px; padding: 6px 8px; margin: 4px 0; }
+      #discovery-notice .dn-title { font-weight: 600; }
+      #discovery-notice .dn-detail { margin: 4px 0; color: #475569; font-size: 12px; }
+      #discovery-notice .dn-retry { display: none; }
       #log { height: 45vh; overflow: auto; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; margin: 6px 0; white-space: pre-wrap; }
       /* F-5 / D-043: the empty-state centering must apply *only* when #log has no
          rendered entry elements. Gating on :not(:has(> *)) means a stale or
@@ -51,12 +59,18 @@
     </style>
   </head>
   <body>
+    <div id="env-guard" role="alert"></div>
     <div id="status">无活跃站点</div>
     <div class="topbar" id="topbar">
       <button id="open-options" type="button">配置模型 / 设置</button>
       <span id="llm-status" class="muted">LLM：检测中…</span>
     </div>
     <div id="onboarding"></div>
+    <div id="discovery-notice" role="status" aria-live="polite">
+      <div class="dn-title" id="discovery-title"></div>
+      <div class="dn-detail" id="discovery-detail"></div>
+      <button id="discovery-retry" class="dn-retry" type="button">重新探测</button>
+    </div>
     <div id="notice"></div>
     <div class="row">
       <button id="authorize" type="button">授权当前站点</button>

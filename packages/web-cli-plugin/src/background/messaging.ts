@@ -25,7 +25,10 @@ export type PluginMessageKind =
   | 'ask-user-response'
   | 'risk-control'
   | 'llm-config'
-  | 'llm-status';
+  | 'llm-status'
+  | 'llm-test'
+  | 'reprobe'
+  | 'diag';
 
 export interface PluginMessage {
   kind: PluginMessageKind;
@@ -61,6 +64,9 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'risk-control',
   'llm-config',
   'llm-status',
+  'llm-test',
+  'reprobe',
+  'diag',
 ]);
 
 export function makeMessage(kind: PluginMessageKind, payload: Record<string, unknown> = {}): PluginMessage {

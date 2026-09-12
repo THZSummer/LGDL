@@ -32,6 +32,11 @@
 | M21 | 任务内 ask-user 问答桥 | `test/ask-bridge.test.ts` + `test/sidepanel.test.ts` + `test/host.test.ts` | 提问→作答→回填；超时/取消可读 | ✅ PASS（node 面，P1/R7） |
 | M22 | `transport.channel` 动态绑定 | `test/content.test.ts` + `test/protocol.test.ts` | 声明通道绑定后 invoke/结果按新通道 | ✅ PASS（node 面，P1/R9-7） |
 | M23 | 破坏性动词 denylist | `test/host.test.ts` R-BLK1a 用例（5 例伪装） | 不得 read→allow | ✅ PASS（node 面，P1/R-BLK1a） |
+| M24 | **options 真实点击旅程** | `npm run test:ui`（`test/ui/journey.mjs`：全新 profile + 真实 dist + CDP 真实键入/点击） | 保存→读回 storage→刷新回显→测试连接 可读结果；0 异常 | ✅ PASS（25 断言，TASK-018） |
+| M25 | **非扩展上下文守卫** | `npm run test:hardening`（A 场景：`file://.../options.html`）+ `test/env-guard.test.ts` | 横幅出现、保存/测试/清除禁用、诊断 ❌ 可读 | ✅ PASS（TASK-019） |
+| M26 | **站点未声明协议说明** | `npm run test:hardening`（B 场景：普通站点；`unsupported`/`unknown` 两态）+ `test/sidepanel-view.test.ts` | 「设计如此，非故障」说明；unknown 有可读原因 + 「重新探测」 | ✅ PASS（TASK-019） |
+| M27 | **环境自检 / 诊断面板** | `test/diagnostics.test.ts` + `test/ui/hardening.mjs`；一键复制文本 | 六项 ✅⚠❌ + 零明文（`sanitizeDiagText` 兜底） | ✅ PASS（TASK-019） |
+| M28 | **旧扩展未重载可见** | `npm run test:hardening`（C 场景：build 后仅刷新 options，不点「重新加载」） | 诊断提示「页面/background 构建不一致 + 重新加载」 | ✅ PASS（TASK-019） |
 
 ## 2. 人工面（真实浏览器交互）
 
@@ -44,7 +49,7 @@
 | H4 | 审计查看 | 点击「查看审计」 | 事件列表/计数可见、零明文 |
 | H5 | 导航失效提示 | 授权后整页刷新 | 明示「会话失效，需重新授权/重连」，不静默续接 |
 | H6 | LGDL 页端到端 | 在 LGDL 工作台加载插件 → 授权 → 经 RPC 执行图内容命令 + 写回 | 编辑器内容更新；既有功能零回归 |
-| H7 | 真实 LLM 闭环（可选） | 配置 BYOK key → 发指令 | 会话正常；火山端点可用（G-KEY PASS） |
+| H7 | 真实 LLM 闭环（可选） | 配置 BYOK key → 在 options 点「测试连接」→ 发指令 | 测试连接给出可读结果（成功含 ms / 失败分类）；会话正常；火山端点可用（G-KEY PASS） |
 | H8 | 风控暂停/中止控件 | side panel「暂停自动化 / 恢复 / 中止」 | 状态可读；暂停/中止后站点调用被阻断；恢复后可继续 |
 | H9 | 事件订阅 + 预算截断 | side panel 触发事件订阅 → pull | 事件增量 + 「上下文预算截断」可读提示 |
 | H10 | 任务内 ask-user 问答 | LLM 触发 `ask-user` → side panel 呈现 → 作答/取消 | 回答回填到工具输出；取消可读 |
@@ -57,6 +62,8 @@
 | 仍不可用 | 仅 node 注入面单测 + 本清单人工面，记入 validate |
 | content script 注入需手势 | 由人工面 H0 覆盖（headless 自动化无法构造真实手势） |
 | 真实产物全链（R8） | **已固化为 `npm run test:e2e`（`test/e2e/fullchain.mjs`）**：真实 dist + CDP headless，唯一偏差 = manifest 副本追加本地 origin 到 `host_permissions`（JS 字节与发布一致）。其余手势/权限弹窗/真实 LLM 仍归人工面（见 `docs/dev.md` §7.4） |
+| options 真实点击旅程（TASK-018） | **已固化为 `npm run test:ui`（`test/ui/journey.mjs`）**：全新 profile + 真实 dist（字节未改）+ CDP 真实键入/点击（`Input.dispatchKeyEvent`/`Input.dispatchMouseEvent`）+ 本地 hermetic mock LLM，覆盖保存/读回/回显/测试连接（见 `docs/dev.md` §9） |
+| 加固实证（TASK-019） | **已固化为 `npm run test:hardening`（`test/ui/hardening.mjs`）**：A 非扩展 `file://` 守卫（修复前/后对照）、B 未声明协议说明（`unsupported`/`unknown`）、C 旧扩展未重载构建不一致；B 的临时 dist 副本会把本地 origin 追加进 manifest `host_permissions`（headless 无 activeTab 手势）。见 `docs/dev.md` §10 |
 
 ## 4. validate 移交清单
 

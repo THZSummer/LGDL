@@ -38,6 +38,7 @@
 | TASK-015 | Q | （可选）通用 DOM 工具面 | 🛠 | M | 006/008 | 波2 | Wave 7 | `content/dom-agent` + extensionEnv 远程 dom 缝（**可后置，容量不足整块顺延**） |
 | TASK-016 | R | 发布渠道 + Gate-D 下线执行 | 🛠📄 | L | 全部 + Gate-D | 波3 | Wave 8 | `docs/release.md` + Gate-D 前置检查 + 摘除 AI 助手层 + 回退预案 + ROADMAP 登记 |
 | TASK-017 | — | UI/UX 修复（首次截图式审查 F-1~F-9） | 🛠 | M | TASK-016（post-validate additive） | 波3+ | Wave 9 | 侧栏设置入口/LLM 状态/首次引导/日志空态/知情同意折叠/按钮禁用；options 使用说明与未配置提示；F-9 模型 ID 核验 |
+| TASK-018 | — | options 保存链路加固 + 「测试连接」+ UI 旅程门禁（用户实测反馈） | 🛠 | M | TASK-017（post-validate additive） | 波3+ | Wave 10 | 真复现（首次保存是否失败）+ 保存 try/catch 可读失败/空 Key 明确提示/摘要回显；新增测试连接（background 最小真实请求 + 可读分类）；`npm run test:ui` 常驻真实点击旅程 |
 
 ### 1.2 依赖拓扑（串行主轴 + 并行组）
 
@@ -856,16 +857,113 @@ npm run build && npm test
 
 ---
 
+### TASK-018: options 保存链路加固 + 「测试连接」+ UI 旅程门禁（用户实测反馈，post-validate additive）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（options/background + 真实浏览器旅程门禁；**不改 base、不引入新依赖**） |
+| **前置依赖** | TASK-017（post-validate 增补轮，不改已冻结 spec/plan） |
+| **执行波次** | Wave 10（validate 之后 additive） |
+| **对应 FR** | FR-033/034/035（BYOK 配置持久化）/ FR-044（可调试）/ NFR-008（可读失败，不静默） |
+| **TB 映射** | 无（用户实测反馈驱动的增补轮，非 plan TB） |
+| **状态** | ✅ completed（2026-09-12；权威状态见 `state.json`；执行记录见 `build.md §14`） |
+| **风险** | 低（保存链路缺陷未复现——真复现结论如实记录；新增均为 additive） |
+
+**描述**: 用户实测反馈「填模型 key 没法保存 / 很多功能不能用 / 没有测试连接」。**先真复现**（全新 user-data-dir + 真实 `dist/` + CDP 真实键入/点击）→ 结论：当前树首次保存**不失败**（`loadProvider` 恒返回对象，非 undefined；`existing.apiKey` 非 TypeError）；但 options submit 无 try/catch → 任何异常都会**静默失败**（与症状同类）。据此：保存链路加 try/catch 可读失败、空 Key 明确提示（不再假装成功）、保存后清空 Key + 刷新警告 + 回显配置摘要；新增「测试连接」按钮（background 用当前表单值发最小真实 ping，可读分类 401/403/404/CORS·网络/超时，火山直连受限如实呈现）；新增 `npm run test:ui` 真实点击旅程作为常驻门禁。
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| NEW | `packages/web-cli-plugin/src/llm/test-connection.ts` |
+| MODIFY | `packages/web-cli-plugin/src/background/messaging.ts`、`service-worker.ts` |
+| MODIFY | `packages/web-cli-plugin/src/ui/options/index.html`、`options.ts` |
+| NEW | `packages/web-cli-plugin/test/test-connection.test.ts` |
+| MODIFY | `packages/web-cli-plugin/test/sidepanel-view.test.ts` |
+| NEW | `packages/web-cli-plugin/test/ui/journey.mjs` |
+| MODIFY | `packages/web-cli-plugin/package.json`（+`test:ui`）、`docs/dev.md`、`docs/smoke-checklist.md`；`.sddu/.../build.md`、`tasks.md`、`state.json` |
+| — | `packages/web-cli-base/**` **零改动** |
+
+**验收标准**:
+- [x] 阶段 1 真复现：首次保存**不失败**（`loadProvider` 返回对象，file:line 证据；SW 读回 storage 成功）；可疑点 `existing.apiKey` 非 undefined → 假设不成立，如实记录
+- [x] 保存链路 try/catch 可读失败（`handleSave`）；空 Key 首次保存明确提示、不假装成功
+- [x] 保存成功后清空 `#apiKey`、刷新警告态、回显「厂商 · 模型 · Key ✅」
+- [x] 「测试连接」：background 最小真实请求（复用 base `chat`，不新造轮子）、可读分类（成功含 ms / 401 / 403 / 404 / CORS·网络 / 超时 / 火火直连受限）、key 不进日志/审计
+- [x] 新增 `npm run test:ui`（`test/ui/journey.mjs`）：全新 profile + 真实 dist + CDP 真实键入/点击，保存→读回→回显→测试连接，25 断言；失败非零退出
+- [x] 既有测试零删除零降级（插件 132→146，base 483 零回归）；`tsc --noEmit` 0 error；E2E A/B PASS
+- [x] 全仓 `npm run build` + `npm test` 0 fail
+- [x] 红线：base 零改动、零新增依赖、key 无明文进日志/审计、`.opencode/opencode.json` 零改动
+
+**验证命令**:
+```bash
+npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin
+npm run typecheck --workspace @lgdl/web-cli-plugin
+npm run test:ui --workspace @lgdl/web-cli-plugin
+npm run test:e2e --workspace @lgdl/web-cli-plugin
+npm run build && npm test
+```
+
+---
+
+### TASK-019: 三成因加固 + 环境自检诊断 + 真实验证（用户实测反馈第二轮，post-validate additive）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（env-guard / discovery 三态 / 诊断面板 + background 消息；**不改 base、不引入新依赖**） |
+| **前置依赖** | TASK-018（post-validate 增补轮，不改已冻结 spec/plan） |
+| **执行波次** | Wave 11（validate / TASK-018 之后 additive） |
+| **对应 FR** | FR-010/014（发现三态 + 失败降级）/ FR-033/035（BYOK 配置，零明文）/ FR-044（可调试）/ NFR-008（可读失败，不静默） |
+| **TB 映射** | 无（用户实测反馈驱动的增补轮，非 plan TB） |
+| **状态** | ✅ completed（2026-09-12；权威状态见 `state.json`；执行记录见 `build.md §15`） |
+| **风险** | 低（保存失败第二轮仍未复现——如实记录；新增均为 additive） |
+
+**描述**: 用户实测「填模型 key 没法保存 / 很多功能不能用」，上一轮已在全新 profile + 真实键入/点击下**未复现保存失败**。本轮按**最可能的三个成因**加固：(A) 非扩展上下文守卫——把 `dist/options.html` 当普通页面打开时 `chrome.storage` 不存在；入口环境检测 + 阻断横幅 + 保存/测试/清除禁用 + 输入说明；(B) 站点未声明 web-cli 协议时给出显式说明（设计如此非故障；未知态给可读原因 + 「重新探测」），并修正 background `discover` 把 `unknown` 吞成 `unsupported` 的语义缺口；(C) options「环境自检 / 诊断」六项 + 一键复制（零明文）+ 构建戳「未重载」提示；(D) 多浏览器 + 场景实证（`test:hardening`）。
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| NEW | `packages/web-cli-plugin/src/platform/env-guard.ts`、`src/ui/options/diagnostics.ts`、`src/background/diag-message.ts`、`src/build-info.ts` |
+| MODIFY | `packages/web-cli-plugin/src/ui/options/options.ts`、`src/ui/options/index.html`；`src/ui/sidepanel/sidepanel.ts`、`view-model.ts`、`chat-state.ts`、`index.html`；`src/background/messaging.ts`、`service-worker.ts`、`controller.ts`、`state-message.ts`；`src/content/content-script.ts`；`build.mjs`、`package.json`（+`test:hardening`） |
+| NEW | `packages/web-cli-plugin/test/env-guard.test.ts`、`test/diagnostics.test.ts`、`test/diag-message.test.ts`、`test/controller.test.ts`、`test/ui/hardening.mjs` |
+| MODIFY | `packages/web-cli-plugin/test/sidepanel-view.test.ts`、`docs/dev.md`（§10 FAQ）、`docs/smoke-checklist.md`（M25~M28）；`.sddu/.../build.md`、`tasks.md`、`state.json` |
+| — | `packages/web-cli-base/**` **零改动** |
+
+**验收标准**:
+- [x] A：options/sidepanel 入口环境检测；非扩展上下文显示阻断横幅、保存/测试/清除禁用、输入框说明；单测覆盖 `chrome` 缺省/部分缺省
+- [x] A：`file://…/dist/options.html` 真实验证——修复前原始观测（底层 TypeError，非完全静默）+ 修复后横幅/禁用/诊断 ❌
+- [x] B：三态文案（未声明 = 设计如此非故障；未知 = 可读原因 + 重试）；与既有 `discoveryState` 语义一致、不新增状态机
+- [x] B：修正 background `discover` 尊重上报三态 + 持久化 `reason`；`reprobe` 真实往返可读回执
+- [x] C：诊断六项（上下文/版本构建/storage 读写/SW 连通/origin/模型）✅⚠❌ + 一键复制（零明文，`sanitizeDiagText` 兜底）
+- [x] D：`test:hardening` A/B/C 22 断言 PASS；`test:ui` 在 `.pw-browsers` 151 与系统 snap Chromium 152 各 25 断言 PASS；旧扩展未重载诊断提示实测
+- [x] 既有测试零删除零降级（插件 146→173，base 483 零回归）；`tsc --noEmit` 0 error；`test:e2e` A/B PASS
+- [x] 全仓 `npm run build` + `npm test` 0 fail
+- [x] 红线：base 零改动、根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖、key 无明文进日志/审计/诊断
+
+**验证命令**:
+```bash
+npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin
+npm run typecheck --workspace @lgdl/web-cli-plugin
+npm run test:ui --workspace @lgdl/web-cli-plugin
+npm run test:e2e --workspace @lgdl/web-cli-plugin
+npm run test:hardening --workspace @lgdl/web-cli-plugin
+npm run build && npm test
+```
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 1 post-validate 增补（TASK-017 UI 修复，审查发现驱动） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 3 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断，审查与实测反馈驱动） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 1 增补（017） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 3 增补（017/018/019） |
 | L 级 (复杂) | 7（004/005/006/010/011/014/016） |
-| 执行波次 | 10（Wave 0~8 + Wave 9 post-validate 增补 TASK-017） |
-| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017（非 plan TB） |
+| 执行波次 | 12（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 post-validate 增补） |
+| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
 | 文档/契约预留任务 | 2（002；012/014 的文档面） |
@@ -971,3 +1069,4 @@ npm run build && npm test
 |------|---------|------|--------|
 | v1.0 | 初始创建（plan §9 TB-0A~TB-R 22 块 → 16 原子任务 / 9 波次（Wave 0~8）：波0 门槛 TASK-001〔0A+0D〕/002〔0B+0C〕；波1 P0 四柱 TASK-003~011〔TB-B+C→004、TB-E+F→006、TB-K+L→011 合并〕；波2 P1 TASK-012~015〔TB-O+P→014；TB-Q 可选〕；波3 P2 TASK-016〔TB-R，Gate-D 严格前置〕。P0 最小可用必做集 = TASK-001~011。D-001 类整合记录见 §4.4；D-005 测试守恒 + AC-001 每步门禁见 §4.1；plan 未覆盖依赖/冲突 8 项见 §4.5） | 2026-09-11 | SDDU Tasks Agent |
 | v1.1 | 追加 TASK-017（post-validate 增补，非 plan TB）：首次截图式 UI 审查 F-1~F-9 修复（侧栏设置入口/LLM 状态摘要/状态驱动引导/日志空态/知情同意折叠/按钮禁用语义；options 使用说明与未配置提示；F-9 模型 ID 核验）。任务汇总计入增补轮。 | 2026-09-12 | SDDU Build Agent |
+| v1.2 | 追加 TASK-018（options 保存链路加固 + 「测试连接」+ UI 旅程门禁）与 TASK-019（三成因加固 + 环境自检诊断 + 真实验证；post-validate 增补，非 plan TB，用户实测反馈驱动）。任务汇总/波次计入增补轮（Wave 10/11）。 | 2026-09-12 | SDDU Build Agent |

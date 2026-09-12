@@ -9,7 +9,9 @@
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsc test/*.test.ts --outDir dist-test --module nodenext --moduleResolution nodenext --target es2022 --strict --esModuleInterop --skipLibCheck --declaration false --allowImportingTsExtensions --rewriteRelativeImportExtensions && node --test dist-test/test/*.test.js",
-    "test:e2e": "node test/e2e/fullchain.mjs"
+    "test:e2e": "node test/e2e/fullchain.mjs",
+    "test:ui": "node test/ui/journey.mjs",
+    "test:hardening": "node test/ui/hardening.mjs"
   },
   "dependencies": {
     "@lgdl/web-cli-base": "^0.7.0"

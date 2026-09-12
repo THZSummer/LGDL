@@ -38,6 +38,62 @@ export function llmStatusView(summary: LlmStatusSummary | null | undefined): Llm
   return { configured: true, label: `LLM：${provider} · ${model}`, warn: false, settingsLabel: '设置' };
 }
 
+// ── TASK-019 任务 B: 「站点未声明协议」显式说明（不误导、不新增状态机） ──────
+//
+// 用户实测「很多功能不能用」最可能的解释：在**未声明 web-cli 协议的普通站点**
+// （如 google.com）上试。这是设计如此，但旧 UI 只显示 `发现=unsupported`，没有
+// 讲清楚「不是故障」。本纯函数把既有三态（supported/unsupported/unknown）映射为
+// 明确说明；不新增任何状态。
+
+export type DiscoveryNoticeKind = 'not-declared' | 'probe-failed' | 'none';
+
+export interface DiscoveryNoticeView {
+  visible: boolean;
+  kind: DiscoveryNoticeKind;
+  title: string;
+  detail: string;
+  /** 未知/探测失败时提供「重新探测」入口。 */
+  canRetry: boolean;
+  retryLabel: string;
+}
+
+/**
+ * Map the existing `discoveryState` to an explicit, non-misleading explanation.
+ * - `supported` / undefined (not probed yet) → no notice (never a false claim).
+ * - `unsupported` → design-not-a-bug explanation + how to verify.
+ * - `unknown` (probe failed / not finished) → readable reason + retry entry.
+ */
+export function discoveryNotice(discoveryState: string | undefined | null, reason?: string): DiscoveryNoticeView {
+  const hidden: DiscoveryNoticeView = { visible: false, kind: 'none', title: '', detail: '', canRetry: false, retryLabel: '' };
+  if (discoveryState === 'supported' || discoveryState === undefined || discoveryState === null) return hidden;
+
+  if (discoveryState === 'unsupported') {
+    return {
+      visible: true,
+      kind: 'not-declared',
+      title: '当前站点未声明 web-cli 协议',
+      detail:
+        '本插件无法操作它——这是设计如此，不是故障。可在 LGDL 工作台等声明了协议的站点使用。' +
+        '如何验证：在该站点查看 <link rel="web-cli"> / 访问 /.well-known/web-cli.json；无声明即属正常。',
+      canRetry: false,
+      retryLabel: '',
+    };
+  }
+
+  // 'unknown'（或任何未预期值）→ 探测未完成 / 失败，给可读原因与重试入口。
+  const detail = reason && reason.trim()
+    ? reason.trim()
+    : '站点暂时不可达、声明无效或协议版本不匹配。可点「重新探测」重试；若仍失败，请确认站点已正确声明 web-cli 协议。';
+  return {
+    visible: true,
+    kind: 'probe-failed',
+    title: 'web-cli 探测未完成（未知状态）',
+    detail,
+    canRetry: true,
+    retryLabel: '重新探测',
+  };
+}
+
 // ── F-3: first-run onboarding (state-driven) ──────────────────────────────
 
 export interface OnboardingInput {
@@ -123,7 +179,7 @@ export function buttonStates(input: SidepanelButtonInput): SidepanelButtonState 
 
 /** Structural shape of the background `state` reply consumed by the panel. */
 export interface StateMessageView {
-  active: { origin: string; discoveryState?: string; invalidated: boolean } | null;
+  active: { origin: string; discoveryState?: string; discoveryReason?: string; invalidated: boolean } | null;
   tools?: string[];
   authorized?: boolean;
 }
@@ -132,6 +188,7 @@ export interface StateActionView {
   type: 'state';
   origin?: string;
   discoveryState?: SidepanelState['discoveryState'];
+  discoveryReason?: string;
   invalidated: boolean;
   authorized: boolean;
 }
@@ -143,6 +200,7 @@ export function stateActionFromPayload(payload: StateMessageView): StateActionVi
     type: 'state',
     ...(hasOrigin ? { origin: active!.origin } : {}),
     ...(active?.discoveryState ? { discoveryState: active.discoveryState as SidepanelState['discoveryState'] } : {}),
+    ...(active?.discoveryReason ? { discoveryReason: active.discoveryReason } : {}),
     invalidated: active?.invalidated ?? false,
     // W1: sync the persisted authorization; without a bound origin it is false.
     authorized: hasOrigin && payload.authorized === true,

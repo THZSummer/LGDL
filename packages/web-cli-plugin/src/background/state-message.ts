@@ -12,6 +12,8 @@ export interface ActiveSessionView {
   tabId: number;
   origin: string;
   discoveryState?: string;
+  /** Readable discovery failure reason (TASK-019 任务 B). */
+  discoveryReason?: string;
   invalidated: boolean;
 }
 

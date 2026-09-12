@@ -12,6 +12,7 @@ import {
   LOG_EMPTY_TEXT,
   buildOnboarding,
   buttonStates,
+  discoveryNotice,
   isLogEmpty,
   llmStatusView,
   openSettingsPage,
@@ -21,6 +22,7 @@ import {
 import type { LlmStatusSummary } from '../../llm/status.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
 import { requestOriginPermission } from '../../platform/extension-env.js';
+import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -55,6 +57,8 @@ let state: SidepanelState = createInitialState();
 /** Last background `llm-status` summary; null until the round-trip completes. */
 let llmSummary: LlmStatusSummary | null = null;
 let llmLoaded = false;
+/** Last discovery failure reason (populated by 「重新探测」) for a readable notice. */
+let discoveryReason: string | undefined;
 
 function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
   return chrome.runtime.sendMessage(message) as Promise<PluginResponse<T>>;
@@ -100,6 +104,7 @@ function render(): void {
 
   renderLlmStatus();
   renderOnboarding();
+  renderDiscoveryNotice();
   renderAsk();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
 }
@@ -142,6 +147,21 @@ function renderOnboarding(): void {
     list.appendChild(li);
   }
   box.appendChild(list);
+}
+
+/** TASK-019 任务 B: explain the three discovery states honestly (never misleading). */
+function renderDiscoveryNotice(): void {
+  const box = $('discovery-notice');
+  const view = discoveryNotice(state.activeOrigin ? state.discoveryState : undefined, state.discoveryReason ?? discoveryReason);
+  box.style.display = view.visible ? 'block' : 'none';
+  if (!view.visible) return;
+  $('discovery-title').textContent = view.title;
+  $('discovery-detail').textContent = view.detail;
+  const retry = $('discovery-retry') as HTMLButtonElement;
+  // NB: the stylesheet defaults `.dn-retry` to `display:none`; clearing the inline
+  // style (`''`) would fall back to that default, so set an explicit value.
+  retry.style.display = view.canRetry ? 'inline-block' : 'none';
+  retry.textContent = view.retryLabel || '重新探测';
 }
 
 /** F-2: fetch the non-sensitive LLM summary from the background (never the key). */
@@ -343,6 +363,37 @@ function wire(): void {
     });
   });
 
+  // TASK-019 任务 B: explicit re-probe entry for the unknown/failed state.
+  $('discovery-retry').addEventListener('click', () => {
+    void (async () => {
+      const btn = $('discovery-retry') as HTMLButtonElement;
+      btn.disabled = true;
+      btn.textContent = '探测中…';
+      try {
+        const res = await send<{ state?: string; reason?: string }>(makeMessage('reprobe'));
+        if (res.ok && res.data) {
+          const s = res.data.state;
+          if (s === 'supported') {
+            discoveryReason = undefined;
+            dispatch({ type: 'notice', text: '✓ 已探测到 web-cli 声明，工具面可用。' });
+          } else {
+            discoveryReason = res.data.reason;
+            dispatch({ type: 'notice', text: `仍未就绪：${res.data.reason ?? '未知原因'}` });
+          }
+        } else {
+          dispatch({ type: 'notice', text: `✖ 重新探测失败：${res.error ?? '后台无响应'}` });
+        }
+      } catch (err) {
+        dispatch({ type: 'notice', text: `✖ 重新探测失败：${err instanceof Error ? err.message : String(err)}` });
+      } finally {
+        await refreshState();
+        btn.disabled = false;
+        btn.textContent = '重新探测';
+        renderDiscoveryNotice();
+      }
+    })();
+  });
+
   $('ask-submit').addEventListener('click', () => submitAsk(($('ask-input') as HTMLInputElement).value, false));
   $('ask-cancel').addEventListener('click', () => submitAsk(undefined, true));
   $('ask-input').addEventListener('keydown', (e) => {
@@ -391,18 +442,37 @@ function wire(): void {
   });
 }
 
+/** TASK-019 任务 A: blocking banner + disabled actions when not in an extension. */
+function applyEnvGuard(env: EnvGuardResult): void {
+  const banner = $('env-guard');
+  banner.textContent = env.banner;
+  banner.style.display = env.inExtension ? 'none' : 'block';
+  if (env.inExtension) return;
+  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-options', 'discovery-retry']) {
+    const el = document.getElementById(id) as HTMLButtonElement | null;
+    if (el) el.disabled = true;
+  }
+  ($('input') as HTMLInputElement).disabled = true;
+}
+
 // Only bootstrap in a real extension page; guarded so the module (and its
-// consent/boundary text) stays importable in node tests.
-if (typeof document !== 'undefined' && typeof chrome !== 'undefined') {
-  wire();
-  renderConsent();
-  render();
-  void refreshState();
-  void refreshLlmStatus();
-  // F-2: refresh the summary when the panel regains focus (e.g. after the
-  // user saved settings on the options page).
-  window.addEventListener('focus', () => void refreshLlmStatus());
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void refreshLlmStatus();
-  });
+// consent/boundary text) stays importable in node tests. On a non-extension page
+// (e.g. `file://.../sidepanel.html`) we still render the blocking banner instead
+// of silently failing on the first `chrome.runtime` access.
+if (typeof document !== 'undefined') {
+  const env = detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined);
+  applyEnvGuard(env);
+  if (env.inExtension) {
+    wire();
+    renderConsent();
+    render();
+    void refreshState();
+    void refreshLlmStatus();
+    // F-2: refresh the summary when the panel regains focus (e.g. after the
+    // user saved settings on the options page).
+    window.addEventListener('focus', () => void refreshLlmStatus());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void refreshLlmStatus();
+    });
+  }
 }

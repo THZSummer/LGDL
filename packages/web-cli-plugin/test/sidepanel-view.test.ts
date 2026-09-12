@@ -13,6 +13,7 @@ import {
   LOG_EMPTY_TEXT,
   buildOnboarding,
   buttonStates,
+  discoveryNotice,
   isLogEmpty,
   llmStatusView,
   openSettingsPage,
@@ -250,3 +251,153 @@ test('options source: clears the API key input after save and toggles the warnin
   assert.match(src, /\(\$\('apiKey'\) as HTMLInputElement\)\.value = '';/);
   assert.match(src, /setKeyWarning/);
 });
+
+// ── TASK-018: options save hardening + 「测试连接」 ─────────────────────────
+
+test('messaging: llm-test is a recognised kind', () => {
+  assert.equal(isPluginMessage(makeMessage('llm-test')), true);
+  assert.equal(isPluginMessage({ kind: 'llm-test' }), true);
+});
+
+test('options UI surface (TASK-018): save / test-connection buttons + result area', () => {
+  const html = read('../../src/ui/options/index.html');
+  assert.match(html, /id="save"/);
+  assert.match(html, /id="test"/);
+  assert.match(html, /id="test-result"/);
+  assert.match(html, /测试连接/);
+});
+
+test('options source (TASK-018): save/test wrapped in try-catch with readable failures', () => {
+  const src = read('../../src/ui/options/options.ts');
+  // readable failure text (never a silent void)
+  assert.match(src, /保存失败/);
+  assert.match(src, /测试连接失败/);
+  assert.match(src, /未保存：未填写/);
+  assert.match(src, /async function handleSave/);
+  assert.match(src, /async function handleTest/);
+  // the save summary must echo provider · model · key state
+  assert.match(src, /renderSavedSummary/);
+  assert.match(src, /Key ✅/);
+  // the plaintext key is cleared after a successful save
+  assert.match(src, /\(\$\('apiKey'\) as HTMLInputElement\)\.value = '';/);
+  // the save/test flows are error-handled (readable, not a silent void)
+  assert.match(src, /catch \(err\)[\s\S]*?setSaved\('err'/);
+});
+
+test('service-worker (TASK-018): llm-test runs a real minimal request and never audits the key', () => {
+  const src = read('../../src/background/service-worker.ts');
+  assert.match(src, /case 'llm-test'/);
+  assert.match(src, /testLlmConnection\(/);
+  // key is only passed as a request param — no audit.record / console.log with key
+  assert.equal(/llm-test[\s\S]{0,400}audit\.record/.test(src), false);
+});
+
+// ── TASK-019 任务 A: 非扩展上下文守卫 ──────────────────────────────────────
+
+test('env-guard (TASK-019 A): options + sidepanel block outside the extension', () => {
+  const optHtml = read('../../src/ui/options/index.html');
+  assert.match(optHtml, /id="env-guard"/);
+  assert.match(optHtml, /id="env-guard-note"/);
+
+  const optSrc = read('../../src/ui/options/options.ts');
+  assert.match(optSrc, /detectExtensionEnv/);
+  assert.match(optSrc, /applyEnvGuard/);
+  assert.match(optSrc, /envGuardButtonState/);
+
+  const spHtml = read('../../src/ui/sidepanel/index.html');
+  assert.match(spHtml, /id="env-guard"/);
+
+  const spSrc = read('../../src/ui/sidepanel/sidepanel.ts');
+  assert.match(spSrc, /detectExtensionEnv/);
+  assert.match(spSrc, /applyEnvGuard/);
+});
+
+// ── TASK-019 任务 B: 站点未声明协议的显式说明 ───────────────────────────────
+
+test('discovery notice (TASK-019 B): three states, never a false claim', () => {
+  // supported / not-yet-probed → hidden (does not shout when it works)
+  assert.equal(discoveryNotice('supported').visible, false);
+  assert.equal(discoveryNotice(undefined).visible, false);
+  assert.equal(discoveryNotice(null).visible, false);
+
+  // unsupported → design-not-a-bug explanation + how to verify, no retry
+  const undeclared = discoveryNotice('unsupported');
+  assert.equal(undeclared.visible, true);
+  assert.equal(undeclared.kind, 'not-declared');
+  assert.match(undeclared.title, /未声明/);
+  assert.match(undeclared.detail, /设计如此/);
+  assert.match(undeclared.detail, /不是故障/);
+  assert.match(undeclared.detail, /LGDL/);
+  assert.match(undeclared.detail, /\.well-known\/web-cli\.json|link/);
+  assert.equal(undeclared.canRetry, false);
+
+  // unknown → readable reason + retry entry
+  const failed = discoveryNotice('unknown', '声明文件获取失败：HTTP 500');
+  assert.equal(failed.visible, true);
+  assert.equal(failed.kind, 'probe-failed');
+  assert.match(failed.detail, /HTTP 500/);
+  assert.equal(failed.canRetry, true);
+  assert.equal(failed.retryLabel, '重新探测');
+
+  // unknown without a reason still yields a readable default (not blank)
+  const generic = discoveryNotice('unknown');
+  assert.ok(generic.detail.length > 10);
+});
+
+test('discovery notice payload (TASK-019 B): discoveryReason survives the state projection', () => {
+  const action = stateActionFromPayload({
+    active: { origin: 'https://a.test', discoveryState: 'unknown', discoveryReason: '声明文件获取失败：HTTP 500', invalidated: false },
+    tools: [],
+    authorized: false,
+  });
+  assert.equal(action.discoveryState, 'unknown');
+  assert.equal(action.discoveryReason, '声明文件获取失败：HTTP 500');
+
+  let s = createInitialState();
+  s = reduce(s, action);
+  assert.equal(s.discoveryReason, '声明文件获取失败：HTTP 500');
+  const notice = discoveryNotice(s.discoveryState, s.discoveryReason);
+  assert.match(notice.detail, /HTTP 500/);
+
+  // background honours the reported three-state + reason (not "descriptor → supported else unsupported")
+  const sw = read('../../src/background/service-worker.ts');
+  assert.match(sw, /reported === 'unknown'/);
+  assert.match(sw, /setDiscovery\(state, undefined, reason\)/);
+  assert.match(sw, /discoveryReason/);
+});
+
+test('discovery notice wiring (TASK-019 B): sidepanel exposes the notice + reprobe entry', () => {
+  const html = read('../../src/ui/sidepanel/index.html');
+  assert.match(html, /id="discovery-notice"/);
+  assert.match(html, /id="discovery-title"/);
+  assert.match(html, /id="discovery-detail"/);
+  assert.match(html, /id="discovery-retry"/);
+
+  const src = read('../../src/ui/sidepanel/sidepanel.ts');
+  assert.match(src, /renderDiscoveryNotice\(\)/);
+  assert.match(src, /makeMessage\('reprobe'\)/);
+
+  const messaging = read('../../src/background/messaging.ts');
+  assert.match(messaging, /'reprobe'/);
+  assert.match(messaging, /'diag'/);
+});
+
+// ── TASK-019 任务 C: 环境自检 / 诊断面板 ────────────────────────────────────
+
+test('diagnostics UI (TASK-019 C): options exposes the self-check panel + copy', () => {
+  const html = read('../../src/ui/options/index.html');
+  assert.match(html, /id="diagnostics"/);
+  assert.match(html, /id="diag-output"/);
+  assert.match(html, /id="diag-run"/);
+  assert.match(html, /id="diag-copy"/);
+  assert.match(html, /环境自检/);
+
+  const src = read('../../src/ui/options/options.ts');
+  assert.match(src, /runDiagnostics/);
+  assert.match(src, /renderDiag/);
+  assert.match(src, /copyDiagnostics/);
+  assert.match(src, /renderDiagText/);
+  // the diagnostics path never prints/echoes a key
+  assert.equal(/console\.(log|warn|error)\([^)]*apiKey/.test(src), false);
+});
+

@@ -17,13 +17,30 @@
         border-radius: 4px; padding: 8px; margin: 12px 0; display: none;
       }
       .warning.show { display: block; }
+      .msg-ok { color: #15803d; }
+      .msg-warn { color: #92400e; }
+      .msg-err { color: #b91c1c; }
+      #test-result { margin-top: 6px; }
       section { border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 12px; }
       ol { margin: 4px 0; padding-inline-start: 20px; }
       code { overflow-wrap: anywhere; }
+      .env-guard {
+        display: none; border: 2px solid #dc2626; background: #fef2f2; color: #991b1b;
+        border-radius: 6px; padding: 10px 12px; margin: 12px 0; font-weight: 600;
+      }
+      .env-guard-note { display: none; color: #b91c1c; font-size: 12px; margin: 6px 0; }
+      #diag-output { margin: 8px 0; padding: 8px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc; font-size: 12px; white-space: pre-wrap; }
+      .diag-row { margin: 2px 0; }
+      .diag-ok { color: #15803d; }
+      .diag-warn { color: #92400e; }
+      .diag-fail { color: #b91c1c; font-weight: 600; }
+      .diag-summary { margin-top: 6px; font-weight: 600; }
     </style>
   </head>
   <body>
     <h1>web-cli plugin 设置</h1>
+
+    <div id="env-guard" class="env-guard" role="alert"></div>
 
     <section id="howto" style="border-top: none; margin-top: 8px; padding-top: 0">
       <h2>如何使用</h2>
@@ -41,6 +58,8 @@
     <div id="key-warning" class="warning" role="status"></div>
 
     <form id="form">
+      <div id="env-guard-note" class="env-guard-note" role="note"></div>
+
       <label for="provider">LLM 厂商（8 厂商 BYOK）</label>
       <select id="provider"></select>
       <div id="hint" class="muted"></div>
@@ -61,11 +80,31 @@
       </div>
 
       <div class="row">
-        <button type="submit">保存</button>
+        <button type="submit" id="save">保存</button>
+        <button type="button" id="test">测试连接</button>
         <button type="button" id="clear">清除本插件全部配置</button>
       </div>
       <div id="saved" class="muted"></div>
+      <div id="test-result" class="muted" role="status" aria-live="polite"></div>
+      <p class="muted">
+        「测试连接」用**当前表单值**（含尚未保存的 Key）向所选厂商发一次最小 ping 请求，
+        验证 Key / 端点 / 网络是否可用；结果只显示在下方，不写入任何日志或审计。
+      </p>
     </form>
+
+    <section id="diagnostics">
+      <h2>环境自检 / 诊断</h2>
+      <p class="muted">
+        逐项检测：扩展上下文、扩展版本/构建、<code>chrome.storage.local</code> 读写实测、
+        后台（service worker）连通性与往返耗时、已授权 origin / 当前活跃站点、已配置厂商与模型
+        （零明文）。<strong>保存不了 / 功能不能用时先看这里</strong>，并「复制诊断信息」反馈。
+      </p>
+      <div id="diag-output" role="status" aria-live="polite">未运行。点击下方「运行自检」。</div>
+      <div class="row">
+        <button type="button" id="diag-run">运行自检</button>
+        <button type="button" id="diag-copy" disabled>复制诊断信息</button>
+      </div>
+    </section>
 
     <section>
       <h2>迁移指引（不自动迁移）</h2>

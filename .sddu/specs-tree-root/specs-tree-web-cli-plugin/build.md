@@ -684,6 +684,255 @@
 - 红线：`packages/web-cli-base/**` 零改动；`dependencies` 仍仅 `@lgdl/web-cli-base`；`.opencode/opencode.json` 零改动；`src/ui/sidepanel/**` 无 `apiKey` 引用；`src/**` 无 `apiKeyMasked` 值（仅 `status.ts` 文档注释说明丢弃）；`dist` 无 `apiKeyMasked`。
 - E2E 复跑：`npm run test:e2e` 场景 A（7 断言）+ 场景 B（4 断言）**PASS**（真实 dist 全链；唯一偏差 `host_permissions` 预授予本地 origin，同前，非本轮引入）；未 git 提交。
 
+## 14. options 保存链路加固 + 「测试连接」+ UI 旅程门禁（TASK-018，用户实测反馈）
+
+> 触发：用户实测反馈「填模型 key 没法保存 / 很多功能不能用 / 没有测试连接（内置助手原有）」。
+> 本轮**先真复现再修复**；未复现的假设如实记录，不制造根因。
+
+### 14.1 阶段 1：真复现（结论与原始证据）
+
+**方法**：全新 `--user-data-dir`（模拟首次安装）+ 真实 `dist/`（`npm run build` 后）+ CDP
+`Input.dispatchKeyEvent` / `Input.dispatchMouseEvent` 做真实键入与点击；从 SW 上下文
+`chrome.storage.local.get(null)` 读回。脚本 `/tmp/opencode/repro.mjs`（未入库）。
+
+**首次保存路径**（原样证据）：
+
+| 步骤 | 观测 | 判定 |
+|------|------|:--:|
+| 初始加载 | `provider=deepseek`、`model=deepseek-v4-flash`、`apiKey=''`、`#key-warning` 显示 | ✅ |
+| 真实键入后 | `apiKey='sk-first-save-test-123456'`、`model='deepseek-chat'`（无装饰） | ✅ |
+| **真实点击「保存」** | `#saved='✓ 已保存到扩展存储（chrome.storage.local，页面脚本不可读）'`、`#apiKey` 清空、`#key-warning` 消失 | ✅ **保存成功** |
+| SW 读回 storage | `web-cli:web-cli:llm = { active:'deepseek', maxRounds:1000, providers:{ deepseek:{ apiKey:'sk-first-save-test-123456', model:'deepseek-chat' } } }` | ✅ 真落库 |
+| 刷新 options | `provider=deepseek`、`model=deepseek-chat`、`#saved='已保存 Key（掩码显示，不回显明文）'`、警告消失 | ✅ 回显 |
+| 再存一次（已存在路径） | 新 Key `sk-second-save-test-999` **覆盖成功** | ✅ |
+| 页面异常 / console error | `exceptions=[]`、`console errors/warnings=[]` | ✅ |
+| API 探针 | `chrome.storage.session` / `chrome.sidePanel` / `chrome.permissions` 均可用 | ✅ |
+
+**可疑点核对（任务指定）**：`src/ui/options/options.ts` 的 `const existing = await store.loadProvider(...)`
+之后使用 `existing.apiKey`。核对 `src/llm/key-store.ts:97-107`：`loadProvider` **恒返回对象**
+（`apiKey: state?.apiKey ?? ''`），无既有配置时返回 `apiKey:''`，**不是 `undefined`**。`test/llm.test.ts:58-59`
+亦断言 `(await store.loadProvider('openai')).apiKey === ''` 通过。→ **「TypeError 静默失败」假设不成立**。
+
+**其他「不能用」项核查**：真实 background + 真实 sidepanel（CDP）实测——`llm-status` 回
+`{configured:true, providerId, providerName, model}`；sidepanel DOM 无缺失元素、0 异常；带假 Key 发指令
+得到**可读** `DeepSeek 拒绝了请求（HTTP 401）— API Key 可能无效或已过期`。→ 未复现 sidepanel/状态/会话的
+具体故障；`#test`（测试连接）确认**确实缺失**。
+
+**根因清单**：
+
+| # | 现象 | 证据（file:line / 原始报错） | 判定 |
+|---|------|------------------------------|------|
+| R1 | 用户称「填 Key 没法保存」 | 上述首次/二次保存均成功、storage 真落库；`key-store.ts:97-107` 恒返回对象 | **未复现**（当前树）；可疑 TypeError 假设不成立 |
+| R2 | 「没反应」类静默失败风险 | `options.ts` 原 submit 为 `void (async () => {…})()`，**无 try/catch** → 任何异常都被吞掉、无反馈 | **真实潜在缺陷**（与症状同类）→ 已修 |
+| R3 | 未填 Key 时点保存 | 原逻辑 `apiKey: typed || existing.apiKey` 可写入空串并显示「✓ 已保存」→ 误导 | **真实缺陷** → 已修 |
+| R4 | 没有「测试连接」 | options 页无该按钮；`test-connection` 能力在 base/内置助手里有（`web-cli-base/src/llm.ts`、`lgdl-web/dist-test/ai/provider.js`） | **真实缺失** → 已新增 |
+
+### 14.2 阶段 2：修复逐项（位置 + 证据）
+
+| 项 | 位置 | 说明 |
+|----|------|------|
+| 保存链路可读失败 | `src/ui/options/options.ts` `handleSave()` try/catch | 失败 → `#saved='✖ 保存失败：<message>'`；不再静默 |
+| 空 Key 明确提示 | `handleSave()` `if (!key)` | `⚠ 未保存：未填写 <厂商> 的 API Key…`，不写空串、不显示成功 |
+| 保存后清空 + 警告 + 摘要 | `handleSave()` / `renderSavedSummary()` | 清空 `#apiKey`、`setKeyWarning(true)`、`✓ 已保存：<厂商> · <模型> · Key ✅` |
+| 厂商切换模型跟随 + 提示一致 | `wire()` change handler + `providerHint()` | 切换即 `provider.defaultModel`；提示带 G-KEY 直连说明 |
+| 清除按钮可读失败 | `clear` handler try/catch | 失败可读 |
+| `refresh()` 异常不再吞 | `refresh()` try/catch | 读配置失败显示可读错误 |
+| 「测试连接」按钮 | `src/ui/options/index.html` `#save`/`#test`/`#test-result` | 真实按钮 + 结果区（aria-live） |
+| 测试连接消息 | `src/background/messaging.ts`（+`llm-test` kind）；`service-worker.ts` `case 'llm-test'` | 用**当前表单值**（含未保存 Key）发最小真实请求 |
+| 测试连接逻辑 | `src/llm/test-connection.ts`（新） | 注入 `providerChat`；no-key/401/403/404/CORS·网络/超时分类；成功含 ms；**结果对象不含 Key** |
+
+### 14.3 「测试连接」设计 + 单测 + 真实跑一次
+
+- **复用而非新造**：background 调用 `providerChat`（→ `@lgdl/web-cli-base` `chat`）发
+  `[{role:'user',content:'ping'}]` + **零 schema tools**（base 已对空 tools 省略字段，规避兼容问题）。
+- **key 边界**：明文 Key 仅作为 background 请求参数；**不进 logs、不进审计**（红线 grep：`src/llm/test-connection.ts` 无 `console.`/`audit`；`apiKey` 不与非 `console.`/`audit` 组合）。
+- **火山口径**：`browserDirect=false` 且 HTTP 401 → `direct-restricted`，文案明确「端点已知需 G-KEY 验证（浏览器直连受限）……或改用支持浏览器直连的厂商」，**不假装成功**。
+- **单测**（`test/test-connection.test.ts`，10 用例，全注入 chat 桩、无网络）：成功含 ms + 无 Key 泄漏 / 空 Key 短路（0 次请求）/ 401→invalid-key / 火山 401→direct-restricted / 403→forbidden / 404→model-not-found / CORS·网络→network / 超时→timeout（不挂起）/ 无结果变体含明文 Key / `extractStatus`。
+- **真实跑一次**（UI 旅程内，本地 hermetic mock OpenAI 端点）：结果原文
+  `✓ OpenAI GPT 连接正常（模型 journey-mock，<N> ms，最小 ping 请求）`；失败分支真实原文见 14.1（火山/401/CORS/超时由单测覆盖）。
+
+### 14.4 新 UI 旅程测试（`npm run test:ui`）
+
+- 脚本：`test/ui/journey.mjs`（Node 原生 CDP，零新依赖）；脚本：`package.json` `"test:ui": "node test/ui/journey.mjs"`。
+- **25 断言**：全新 profile 真实 dist → 真实键盘切厂商 → 真实键入 Key/模型/BaseURL → 真实点击保存
+  → SW 读回 storage（active/apiKey/model/baseURL）→ 刷新回显摘要 → 真实点击测试连接 → 本地 mock 成功含 ms → 0 异常 / 0 console error。
+- **hermetic**：内置仅监听 `127.0.0.1` 的 mock OpenAI 端点（CORS + Private-Network-Access + 回显预检头）；
+  `dist/` 字节**未修改**（区别于 R8 的 manifest `host_permissions` 偏差）。
+- **CDP 真实键入坑（记录）**：`windowsVirtualKeyCode` 不能取 `codePointAt`（`.`=46=VK_DELETE 会被
+  当作删除键；`/`=47 亦然），改为 `text` 驱动、不传 VK 码。
+- 运行输出：`UI journey PASS — 25 assertions: 全新 profile 真实 dist，真实键入+点击：保存→读回→回显→测试连接`。
+- 文档：`docs/dev.md` §9（新增）+ `docs/smoke-checklist.md` M24 / §3。
+
+### 14.5 全仓门禁 + 红线
+
+| 门禁 | 结果 |
+|------|------|
+| `npm run build --workspace @lgdl/web-cli-plugin` | ✅ |
+| 插件 `npm run test` | ✅ **146 pass / 0 fail**（132→146，+14：test-connection 10 + 静态回归 4） |
+| 插件 `tsc --noEmit` | ✅ 0 error |
+| `npm run test:ui` | ✅ 25 断言 PASS |
+| `npm run test:e2e` | ✅ 场景 A（7）+ B（4）PASS，真实 dist 全链 |
+| 全仓 `npm run build` | ✅ 退出码 0 |
+| 全仓 `npm test` | ✅ **0 fail**：core 267 / render 94+1skip / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / **base 483 零回归** / plugin 146 |
+| 红线 grep | ✅ base 零改动；`dependencies` 仍仅 `@lgdl/web-cli-base`（仅 +`test:ui` script，lock 未动）；`src` 无 `apiKey` 进 console/audit；`dist` grep `apiKeyMasked` 0；`.opencode/opencode.json` 零改动 |
+
+### 14.6 新增决策（D-046~D-052）
+
+- **D-046（真复现结论）**：用户「填 Key 没法保存」**未复现**——真实首启保存成功且 storage 真落库，
+  `key-store.ts:97-107` `loadProvider` 恒返回对象（非 undefined），任务书可疑的 `existing.apiKey` TypeError
+  **不成立**。如实记录，不制造根因；不以「已修复」冒充。
+- **D-047（静默失败防御）**：即便具体 TypeError 未复现，options 原 `void (async)` 无 catch 仍是
+  **真实潜在缺陷**（同类症状）→ `handleSave`/`handleTest`/`refresh`/clear 全部 try/catch + 可读文案；
+  **不改** `key-store` 语义（保存仍为 per-provider 持久化、active 指针、默认模型回退）。
+- **D-048（测试连接落点）**：测试连接在 **background** 执行（`llm-test` 消息 + `src/llm/test-connection.ts`
+  注入 `providerChat`），复用 base `chat`，零 fork；key 只作请求参数，不入日志/审计。options 侧只发当前
+  表单值并渲染结果（页面脚本不落库）。
+- **D-049（失败分类口径）**：no-key / invalid-key(401) / direct-restricted(火山 401) / forbidden(403) /
+  model-not-found(404) / network(CORS·不可达) / timeout / error；成功含延迟 ms。火山端点直连受限**如实呈现**
+  并给可操作建议，绝不假装成功。
+- **D-050（UI 旅程 hermetic 口径）**：`test/ui/journey.mjs` 用 `127.0.0.1` 本地 mock + CORS/PNA 头实现
+  无网可重复；**dist 字节不改**（不沿用 R8 的 manifest `host_permissions` 偏差）。CDP 真实键入不传
+  `windowsVirtualKeyCode`（避免 `.`=46=VK_DELETE 误删等假象）。
+- **D-051（消息 additive）**：`PluginMessageKind`/`KIND_SET` 新增 `llm-test`；既有 kind、既有 handler 行为不变。
+- **D-052（未复现项如实标注）**：「很多功能不能用」未定位到具体故障——sidepanel LLM 状态、首次引导、
+  会话 401 可读转译、`chrome.storage.session/sidePanel` 可用性均实测正常；如实记录，未编造缺失能力。
+
+### 14.7 未修复 / 未复现（如实）
+
+- 用户所述「很多功能不能用」：**未复现**具体故障（未观察到崩溃/缺失元素/静默错误）；仅补了「测试连接」这一确切缺失项。
+- 「填 Key 没法保存」：**未复现**（当前树）；已按同类静默失败做防御性加固（见 R2/R3）。
+- 真实 `chrome://extensions` 错误列表：headless 下该页面不可 CDP 访问，改以 SW/options/sidepanel 的
+  `Runtime.exceptionThrown` + `Log.entryAdded` 替代取证（均为 0）。
+- 真实第三方厂商连通（含火山直连）仍属人工面 H7；本轮 UI 旅程用 hermetic mock，不冒充真实厂商直连。
+
+## 15. 三成因加固 + 环境自检诊断 + 真实验证（TASK-019，用户实测反馈第二轮）
+
+> 触发：用户实测「填模型 key 没法保存 / 很多功能不能用」；上一轮（TASK-018）在**全新 profile + 真实键入/点击**下
+> **未能复现保存失败**（保存成功、storage 真落库）。本轮按**最可能的三个成因**做加固，使问题**要么消失、要么一眼可见**：
+> ① 用户把 `dist/options.html` 当普通页面打开（非扩展上下文，`chrome.storage` 不存在）；
+> ② 在未声明 web-cli 协议的普通站点上试用（设计如此，UI 未讲清）；
+> ③ 用户无法自诊断。**未复现的根因不编造**，如实记录（§15.8）。
+
+### 15.1 三成因与加固落点
+
+| 成因 | 假设 | 加固 | 落点 |
+|------|------|------|------|
+| ① 非扩展上下文 | `file://`/非扩展页打开 options，`chrome.storage` 不存在 → 保存静默失效 | 入口环境检测 + 阻断横幅 + 按钮禁用 + 输入说明 | `src/platform/env-guard.ts`（纯逻辑）、`options.ts`、`sidepanel.ts`、两个 `index.html` |
+| ② 站点未声明协议 | 普通站点「什么都不能用」= 设计如此，旧 UI 只显示 `发现=unsupported` | 三态显式说明（未声明 = 非故障；未知 = 可读原因 + 重试） | `view-model.ts:discoveryNotice`、`sidepanel.ts`、`index.html`、background `discover`/`reprobe` |
+| ③ 无法自诊断 | 用户看不到「为什么」 | 「环境自检 / 诊断」六项 + 一键复制（零明文） | `src/ui/options/diagnostics.ts`、`src/background/diag-message.ts`、`options.ts`、`index.html` |
+| （附带）旧扩展未重载 | 改了代码只 build 不「重新加载」 | 构建戳注入 + 页面/SW 构建不一致提示 | `src/build-info.ts`、`build.mjs`（esbuild define）、诊断面板 |
+
+### 15.2 阶段 1：任务 A 的非扩展上下文**修复前实证**
+
+**方法**：把上一轮（TASK-018）构建的 `dist/` 快照到 `/tmp/prefix-dist` 作为「修复前」；用 `.pw-browsers`
+Chromium 无扩展加载 `file://…/options.html`，设置 `#apiKey` 后**真实点击「保存」**。
+
+| 场景 | 观测（原始） | 判定 |
+|------|--------------|------|
+| 修复前初始 | `hasSave=true`、**无 `#env-guard` 元素**、`chrome=object`、`chrome.runtime.id=(none)`、`chrome.storage.local=(none)` | 页面可开，但无任何「你不在扩展里」提示 |
+| 修复前点击保存 | `#saved="✖ 保存失败：Cannot read properties of undefined (reading 'local')"`，`#apiKey` 仍为输入值 | **非完全静默**（TASK-018 的 try/catch 已让其可读），但报错与「为什么」无关，按钮仍可点、无环境结论 |
+| 修复后（当前 dist） | 阻断横幅出现（文案见下）、`save/test/clear` **禁用**、输入框旁说明出现、诊断面板 `❌ 扩展上下文 …` | ✅ 一眼可见 |
+
+修复后横幅原文：
+> ⚠ 当前不在扩展环境（chrome.storage 不可用），配置无法保存。请通过 chrome://extensions → 本扩展 → 「扩展程序选项」打开本页，或从侧栏「配置模型」进入。
+
+> **诚实口径**：任务书假设的「保存**静默**失效」（点击无反应/无落库）在 `file://` 场景**未能复现**——上一轮已把
+> `handleSave` 包进 try/catch，故表现为**底层 TypeError 文案**而非无反应。本轮的增量价值是把「底层错误」升级为
+> **明确的扩展环境结论 + 阻断式禁用**，避免用户误以为「保存功能坏了」。
+
+### 15.3 阶段 2：任务 B 的站点未声明协议说明
+
+- **纯函数** `discoveryNotice(discoveryState, reason?)`（`view-model.ts`）：`supported`/未探测 → 不显示（不误报）；
+  `unsupported` → 「当前站点未声明 web-cli 协议…设计如此，不是故障…可在 LGDL 工作台等声明了协议的站点使用」+
+  验证方法；`unknown` → 可读原因 + 「重新探测」入口。**复用既有三态，不新增状态机**。
+- **语义修正（真实缺陷）**：原 background `discover` 处理**只看 `descriptor` 有无**，把 content script 上报的
+  `unknown`（声明无效/版本不匹配/暂时不可达）一律吞成 `unsupported`，导致侧栏永远无法给出「探测失败原因 + 重试」。
+  现改为**尊重上报三态**并把 `reason` 持久化（`controller.discoveryReason` → `state` 消息 → 侧栏）。见 D-054。
+- **重试入口（additive）**：侧栏「重新探测」→ 背景 `reprobe` → `ensureContentScript` → content script 重跑
+  `discover()` 并回报；实测往返可读回执。见 D-055。
+
+### 15.4 阶段 3：任务 C 的环境自检 / 诊断面板
+
+- **六项检测**（每次 ✅/⚠/❌ + 详情）：① 扩展上下文（`chrome.runtime.id`/`chrome.storage.local`）；② 扩展版本/构建
+  （manifest version + build stamp + SW 上报，含不一致提示）；③ `chrome.storage.local` 读写实测（写测试键→读回→删）；
+  ④ background 连通性（`diag` 往返 + 耗时 + SW 启动时间）；⑤ 已授权 origin / 活跃站点（`OriginStore.list` 投影）；
+  ⑥ 已配置厂商·模型（`llm-status` 非敏感摘要）。
+- **一键复制**：`renderDiagText` 生成文本，`sanitizeDiagText` 兜底脱敏 `sk-*`/`ark-*`/Bearer/`apiKey=` 形态；
+  数据来源本身零明文（`llm-status` 只回 4 个非敏感字段）。见 D-056。
+- **构建戳**：`build.mjs` 经 esbuild `define` 注入 `__BUILD_STAMP__`（每次构建 ISO 时间戳，`src/build-info.ts` 读取；
+  node 下 `typeof` 守卫回退 `dev`）。见 D-057。
+
+### 15.5 阶段 4：真实验证（多环境）
+
+`test/ui/hardening.mjs`（`npm run test:hardening`）用真实浏览器 + CDP 复跑三场景，**22 断言 PASS**：
+
+| 场景 | 结果 |
+|------|------|
+| A 非扩展上下文（`file://` prefix vs 当前 dist） | ✅ 横幅 / 禁用 / 输入说明 / 诊断 ❌（修复前观测已记录，见 §15.2） |
+| B 未声明协议（本地普通站点；`unsupported` + `unknown` 两态，含「重新探测」真实往返） | ✅ 说明块 / 非故障文案 / 可读原因 / 重试回执 |
+| C 旧扩展未重载（build 后仅刷新 options，不点「重新加载」） | ✅ 诊断报「页面构建 X 与 background 构建 Y 不一致——…重新加载」 |
+
+多浏览器 `test:ui`（任务 D 要求）：
+
+| 浏览器 | 版本 | `test:ui` 结果 |
+|--------|------|:--:|
+| `.pw-browsers` chrome-for-testing | Google Chrome for Testing 151.0.7922.34 | ✅ 25 断言 PASS |
+| 系统 Chromium（snap） | Chromium 152.0.7977.64 | ✅ 25 断言 PASS |
+| 系统 Google Chrome | **未安装**（`google-chrome*` 不存在） | — 未测 |
+| Microsoft Edge | **未安装**（无 `microsoft-edge*`） | — 未测 |
+
+> C#4（`chrome.runtime.reload()` 后恢复一致）属**可选复验**（`HARDENING_C4=1`）：headless 下 `runtime.reload()`
+> 会令目标半死/hang，默认跳过；核心可操作结论由 C#3（不一致提示）承载，未把「未验证」写成 PASS。
+
+### 15.6 全仓门禁 + 红线（本轮复跑）
+
+| 门禁 | 结果 |
+|------|------|
+| 插件 `npm run build` | ✅ 退出码 0（build 末行打印 build stamp） |
+| 插件 `npm run test` | ✅ **173 pass / 0 fail**（146→173，+27：env-guard 7 + diagnostics 11 + diag-message 2 + controller 3 + 静态/投影 4） |
+| 插件 `tsc --noEmit` | ✅ 0 error |
+| `npm run test:ui` | ✅ 25 断言 PASS（.pw-browsers 151；系统 snap Chromium 152 亦 PASS） |
+| `npm run test:e2e` | ✅ 场景 A（7）+ B（4）PASS，真实 dist 全链 |
+| `npm run test:hardening` | ✅ 22 断言 PASS（A/B/C） |
+| 全仓 `npm run build` | ✅ 退出码 0 |
+| 全仓 `npm test` | ✅ **0 fail**：core 267 / render 94+1skip / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / **base 483 零回归** / plugin 173 |
+| 红线 grep | ✅ `packages/web-cli-base/**` 零改动；根 `package.json` 零改动；`.opencode/opencode.json` 零改动；`dependencies` 仍仅 `@lgdl/web-cli-base`（无新依赖，仅 +`test:hardening` script）；`src` 无 `apiKey` 进 console/audit；无空 catch；`dist` grep `apiKeyMasked` 0 |
+
+### 15.7 新增决策（D-053~D-058）
+
+- **D-053（任务 A 非扩展守卫）**：新增零依赖纯模块 `src/platform/env-guard.ts`：按**能力**（`runtime.id` +
+  `storage.local.get/set`）判定扩展上下文，产出横幅文案、逐项原因与「保存/测试/清除」禁用语义。options/sidepanel
+  入口应用；非扩展环境下 options 不调用真实 storage（避免底层异常），诊断照跑并显示 ❌。实证：修复前为底层
+  TypeError 文案（非完全静默），修复后为明确环境结论 + 阻断；**不编造「静默失效」根因**。
+- **D-054（`discover` 尊重上报三态 + 持久化原因）**：background `discover` 由「descriptor 有无」改为**尊重
+  content script 上报的 `state`**（`supported`/`unsupported`/`unknown`）并持久化可读 `reason`
+  （`controller.ActiveSession.discoveryReason` → `state` 消息 `active.discoveryReason` → 侧栏 notice）。修正原
+  「unknown 被吞成 unsupported」的语义缺口（任务 B 的「可读原因」前提）。消息字段 additive，旧字段语义不变。
+- **D-055（`reprobe` additive）**：新增 `PluginMessageKind: 'reprobe'`：侧栏「重新探测」→ background
+  `ensureContentScript` + `tabs.sendMessage('reprobe')` → content script 重跑 discovery 并回报；往返可读，
+  失败（无活跃站点 / 受限页面 / 无响应）均给出可读错误。既有 kind/handler 行为不变。
+- **D-056（诊断面板 + 零明文）**：新增 `src/ui/options/diagnostics.ts`（纯逻辑：图标/汇总/复制文本/脱敏）与
+  `src/background/diag-message.ts`（`diag` 消息投影：版本/构建/SW 启动/活跃站点/已授权 origin，零 key）。
+  六项检测 + 一键复制；`sanitizeDiagText` 对 `sk-*`/`ark-*`/Bearer/`apiKey=` 兜底脱敏（纵深防御）。数据来源
+  `llm-status` 只回 4 个非敏感字段。
+- **D-057（构建戳与「未重载」可见）**：`build.mjs` 以 esbuild `define` 注入 `__BUILD_STAMP__`（构建 ISO 时间戳），
+  `src/build-info.ts` 读取（node 回退 `dev`）；诊断「扩展版本/构建」比对页面构建戳与 SW 上报构建戳，不一致即提示
+  「多半是改了代码只刷新了页面、没点『重新加载』」——把「旧扩展未重载」变成可操作结论。
+- **D-058（实证探针与偏差披露）**：新增 `test:hardening`（`test/ui/hardening.mjs`）A/B/C 场景常驻可复现；B 的
+  临时 dist 副本会把本地 origin 追加进 manifest `host_permissions`（headless 无法合成 activeTab 手势），JS 字节不改，
+  **偏差如实披露**；C#4 为 headless 可选（`HARDENING_C4=1`），默认跳过且不记为 PASS。
+
+### 15.8 未复现 / 未完成（如实）
+
+- 「填 Key 没法保存」：**仍未在可复现环境下复现保存失败**（全新 profile + 真实键入/点击 + storage 真落库，与
+  TASK-018 一致）。本轮只做**非扩展上下文防守**（成因①）并在 `file://` 下给出「修复前底层报错 → 修复后明确横幅 +
+  禁用」的对照实证；**并未声称找到了保存失败的根因**。
+- 「很多功能不能用」：**未定位到具体功能故障**；按成因②解释为「未声明协议的站点上设计如此」并给出显式说明。
+- C#4（`chrome.runtime.reload()` 后构建恢复一致）：headless 下未稳定验证（默认跳过）；**不以未验证充通过**。
+- 系统 Google Chrome / Microsoft Edge：**本机未安装**，未测；仅 `.pw-browsers` Chrome-for-Testing 151 与系统
+  snap Chromium 152 各跑 `test:ui` 均 25 断言 PASS。
+- 真实第三方厂商连通（含火山 G-KEY 直连）仍属人工面 H7，本轮不冒充。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -696,3 +945,5 @@
 | v1.5 | UI 修复轮（§13，TASK-017）：首次截图式 UI 审查 F-1~F-9——先量化确认无真实水平溢出；sidepanel 增设置入口/LLM 状态摘要（`llm-status` 零明文）/状态驱动引导/日志空态/知情同意默认折叠/按钮禁用语义；options 增使用说明/未配置提示/保存后清空 Key/maxRounds 说明；F-9 模型 ID 与原始实现 100% 一致（待核未改）；D-036~D-042；插件 112→124（+12，base 483 零回归，全仓 1106 pass/1 skip 0 fail），E2E A/B PASS，重截前后实测 0 溢出/0 超宽/0 截断；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.6 | post-validate 回归复核（§13.7）：量化复现「D 态日志横向并排」为审计脚本未同步 `.empty` 类 + `#log.empty{display:flex}` 泄漏所致（生产 `render()` 路径本就逐行）；最小 CSS 修复 `#log.empty:not(:has(> *))`（零 JS 改动，保留 `height:45vh`/`pre-wrap`/空态居中）；复测 @400/@320 子元素 y 递增、无水平溢出；新增静态断言（测试先行），插件 124→**125**、base 483 零回归、全仓 0 fail；D-043；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.7 | R4 低危改进（§13.8）：W1 `state` 补回授权位（新增 `state-message.ts` + `stateActionFromPayload`，刷新即同步 `authorized`；CDP 实测「未授权→授权→重载→已授权」+ 按钮态，截图 `/tmp/w1-verify/`）；W3 `llm-config` 收敛到非敏感摘要（移除 `apiKeyMasked`/`maskValue`，消息+管理工具统一 `toLlmStatusSummary`）；D-044/D-045；插件 125→**132**（+7）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、E2E 场景 A/B PASS、base 与 `.opencode/opencode.json` 零改动、无新依赖；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.8 | TASK-018（§14）：用户实测反馈——**先真复现**（全新 profile + 真实 dist + CDP 真实键入/点击）：首次/二次保存均成功、storage 真落库，`loadProvider` 恒返回对象（非 undefined）→ 可疑 TypeError **假设不成立**，如实记录；据此做静默失败防御（保存/测试/刷新全部 try/catch 可读失败、空 Key 明确提示不假装成功、保存后清空 Key+摘要回显）+ 新增「测试连接」（background `llm-test` + `src/llm/test-connection.ts`，复用 base `chat`，可读分类 401/403/404/CORS/超时，火山直连受限如实呈现，key 不入日志/审计）+ 新增 `npm run test:ui`（`test/ui/journey.mjs`，全新 profile + 真实 dist + 真实点击，25 断言）常驻门禁；D-046~D-052；插件 132→**146**（+14）、base 483 零回归、全仓 0 fail、`test:ui` PASS、E2E A/B PASS、base/`.opencode/opencode.json` 零改动、零新增依赖；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.9 | TASK-019（§15）：三成因加固——① `src/platform/env-guard.ts` 非扩展上下文守卫（options/sidepanel 阻断横幅 + 保存/测试/清除禁用 + 输入说明；`file://` 修复前/后对照实证）；② `discover` 尊重上报三态 + 持久化可读 `reason` + `reprobe` 重试入口，侧栏三态显式说明（未声明 = 设计如此非故障；未知 = 可读原因 + 重新探测）；③ `diag` 消息 + 「环境自检/诊断」六项 + 一键复制（零明文，`sanitizeDiagText` 纵深脱敏）+ `__BUILD_STAMP__` 构建戳与「未重载」不一致提示；新增 `test:hardening` 实证探针（A/B/C，22 断言 PASS）；D-053~D-058；插件 146→**173**（+27）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` PASS（Chrome-for-Testing 151 + 系统 snap Chromium 152）、E2E A/B PASS、base/根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖；**「填 Key 没法保存」仍未能复现根因，如实标注**；未 git 提交 | 2026-09-12 | SDDU Build Agent |

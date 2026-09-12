@@ -29,13 +29,17 @@ const nodeStubPlugin = {
   },
 };
 
+/** Build stamp (TASK-019): one timestamp per build, injected into every bundle
+ *  so the diagnostics panel can prove which build a context is actually running. */
+const BUILD_STAMP = new Date().toISOString();
+
 const common = {
   bundle: true,
   platform: 'browser',
   target: 'chrome114',
   logLevel: 'info',
   plugins: [nodeStubPlugin],
-  define: { 'process.env.NODE_ENV': '"production"' },
+  define: { 'process.env.NODE_ENV': '"production"', __BUILD_STAMP__: JSON.stringify(BUILD_STAMP) },
 };
 
 async function main() {
@@ -74,7 +78,7 @@ async function main() {
   await copyFile(resolve(root, 'src/ui/sidepanel/index.html'), resolve(dist, 'sidepanel.html'));
   await copyFile(resolve(root, 'src/ui/options/index.html'), resolve(dist, 'options.html'));
 
-  console.log('[web-cli-plugin] build complete → dist/');
+  console.log(`[web-cli-plugin] build complete → dist/ (build stamp ${BUILD_STAMP})`);
 }
 
 main().catch((err) => {

@@ -14,6 +14,8 @@ export interface ActiveSession {
   origin: string;
   discoveryState: DiscoveryState;
   descriptor?: WebCliDescriptor;
+  /** Readable discovery failure reason (TASK-019 任务 B; never a silent unknown). */
+  discoveryReason?: string;
   /** True after navigation: context invalid, re-authorization/reconnect required. */
   invalidated: boolean;
   updatedAt: number;
@@ -23,6 +25,7 @@ export interface ControllerSnapshot {
   tabId?: number;
   origin?: string;
   discoveryState?: DiscoveryState;
+  discoveryReason?: string;
   invalidated: boolean;
   updatedAt: number;
 }
@@ -30,7 +33,7 @@ export interface ControllerSnapshot {
 export interface WebCliController {
   bindTab(tabId: number, origin: string): ActiveSession;
   get(): ActiveSession | null;
-  setDiscovery(state: DiscoveryState, descriptor?: WebCliDescriptor): void;
+  setDiscovery(state: DiscoveryState, descriptor?: WebCliDescriptor, reason?: string): void;
   /** Mark the current session invalid after whole-page navigation (EC-011). */
   markNavigated(): void;
   clear(): void;
@@ -50,27 +53,37 @@ export function createController(opts: { now?: () => number } = {}): WebCliContr
     get() {
       return session;
     },
-    setDiscovery(state, descriptor) {
+    setDiscovery(state, descriptor, reason) {
       if (!session) return;
       session = {
         ...session,
         discoveryState: state,
         ...(descriptor ? { descriptor } : {}),
+        ...(reason ? { discoveryReason: reason } : {}),
         invalidated: false,
         updatedAt: now(),
       };
+      if (!reason) delete session.discoveryReason;
     },
     markNavigated() {
       if (!session) return;
       session = { ...session, invalidated: true, discoveryState: 'unknown', updatedAt: now() };
       delete session.descriptor;
+      delete session.discoveryReason;
     },
     clear() {
       session = null;
     },
     snapshot() {
       return {
-        ...(session ? { tabId: session.tabId, origin: session.origin, discoveryState: session.discoveryState } : {}),
+        ...(session
+          ? {
+              tabId: session.tabId,
+              origin: session.origin,
+              discoveryState: session.discoveryState,
+              ...(session.discoveryReason ? { discoveryReason: session.discoveryReason } : {}),
+            }
+          : {}),
         invalidated: session?.invalidated ?? false,
         updatedAt: now(),
       };
@@ -81,6 +94,7 @@ export function createController(opts: { now?: () => number } = {}): WebCliContr
         tabId: snapshot.tabId,
         origin: snapshot.origin,
         discoveryState: snapshot.discoveryState ?? 'unknown',
+        ...(snapshot.discoveryReason ? { discoveryReason: snapshot.discoveryReason } : {}),
         invalidated: snapshot.invalidated,
         updatedAt: snapshot.updatedAt,
       };

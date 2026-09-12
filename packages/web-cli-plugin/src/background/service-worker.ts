@@ -25,6 +25,8 @@ import {
 import { capabilityFailure } from '../platform/unsupported.js';
 import { createController, type WebCliController } from './controller.js';
 import { buildStateMessage } from './state-message.js';
+import { buildDiagMessage } from './diag-message.js';
+import { BUILD_STAMP } from '../build-info.js';
 import { createWebCliHost, type WebCliHost } from './host.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
@@ -41,8 +43,11 @@ import {
 import { providerChat, providerById } from '../llm/providers.js';
 import { createKeyStore } from '../llm/key-store.js';
 import { toLlmStatusSummary } from '../llm/status.js';
+import { testLlmConnection } from '../llm/test-connection.js';
 
 const SESSION_STATE_KEY = 'session-state';
+/** TASK-019: SW 本次启动时间（诊断面板「SW 连通性」详情）。 */
+const SW_STARTED_AT = Date.now();
 const SYSTEM_PROMPT =
   'You are the web-cli plugin assistant. Use the available tools to operate on the ' +
   'currently authorized website. Tools in the "site." namespace run in the page via RPC. ' +
@@ -261,7 +266,13 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       return okResponse(
         await buildStateMessage({
           active: session
-            ? { tabId: session.tabId, origin: session.origin, discoveryState: session.discoveryState, invalidated: session.invalidated }
+            ? {
+                tabId: session.tabId,
+                origin: session.origin,
+                discoveryState: session.discoveryState,
+                ...(session.discoveryReason ? { discoveryReason: session.discoveryReason } : {}),
+                invalidated: session.invalidated,
+              }
             : null,
           tools: s.host.deriveTools().map((t) => t.name),
           isAuthorized: (origin) => s.origins.isAuthorized(origin),
@@ -338,7 +349,18 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         s.host.activateSite(normalized, origin);
         s.audit.recordPlugin(discoveryAuditEvent(origin, normalized));
       } else {
-        s.controller.setDiscovery('unsupported');
+        // TASK-019 任务 B: honour the content script's reported three-state result
+        // (`unsupported` = definitively not declared; `unknown` = present-but-
+        // invalid / version mismatch / transient). Previously any non-supported
+        // report collapsed to `unsupported`, so the panel could never explain a
+        // failed probe. The readable reason is persisted for the panel notice.
+        const reported = message.state;
+        const state =
+          reported === 'unknown' || reported === 'unsupported' || reported === 'supported'
+            ? reported
+            : 'unsupported';
+        const reason = typeof message.reason === 'string' && message.reason.trim() ? message.reason.trim() : undefined;
+        s.controller.setDiscovery(state, undefined, reason);
         s.host.deactivateSite();
         s.audit.recordPlugin(discoveryAuditEvent(origin, undefined));
       }
@@ -393,6 +415,61 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
     case 'llm-status':
       // F-2: side panel gets a non-sensitive summary only (never the API key).
       return okResponse(toLlmStatusSummary(await s.keys.maskedConfig()));
+    case 'llm-test': {
+      // User-requested connectivity test: one minimal real request using the
+      // CURRENT form values (an unsaved key is allowed so the user can verify
+      // before saving). The plaintext key never leaves this background request
+      // and is never written to logs or the audit trail; only the readable,
+      // status-classified result is returned.
+      const result = await testLlmConnection(
+        {
+          providerId: typeof message.providerId === 'string' ? message.providerId : '',
+          apiKey: typeof message.apiKey === 'string' ? message.apiKey : '',
+          ...(typeof message.model === 'string' ? { model: message.model } : {}),
+          ...(typeof message.baseURL === 'string' ? { baseURL: message.baseURL } : {}),
+        },
+        providerChat,
+      );
+      return okResponse(result);
+    }
+    case 'diag': {
+      // TASK-019 任务 C: options-page diagnostics. Returns only non-sensitive
+      // fields (SW version/build, active origin, authorized origin list) — never
+      // the API key. `options` owns manifest/build-stamp; the SW authoritative
+      // view is returned here for cross-context comparison.
+      const session = s.controller.get();
+      return okResponse(
+        await buildDiagMessage({
+          version: chrome.runtime.getManifest().version,
+          buildStamp: BUILD_STAMP,
+          swStartedAt: SW_STARTED_AT,
+          activeOrigin: session?.origin ?? null,
+          discoveryState: session?.discoveryState ?? null,
+          listOrigins: () => s.origins.list(),
+        }),
+      );
+    }
+    case 'reprobe': {
+      // TASK-019 任务 B: explicit re-probe of the bound site (side panel
+      // 「重新探测」). Re-injects the content script when needed and asks it to
+      // re-run discovery; the fresh result is reported to the background via the
+      // normal `discover` message (controller/state stay authoritative) and
+      // returned to the caller for immediate rendering. Readable failure.
+      const tabId = s.controller.get()?.tabId;
+      if (tabId === undefined) {
+        return errorResponse('无活跃站点，无法重新探测（请先打开目标站点并点击插件图标绑定）');
+      }
+      const injected = await ensureContentScript(tabId);
+      if (!injected) {
+        return errorResponse('无法在目标页面注入探测脚本（可能是 chrome:// / 扩展商店等受限页面）');
+      }
+      try {
+        const res = (await chrome.tabs.sendMessage(tabId, makeMessage('reprobe'))) as PluginResponse | undefined;
+        return res ?? errorResponse('站点未响应重新探测请求（页面可能已导航）');
+      } catch (err) {
+        return errorResponse(`重新探测失败：${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     case 'confirm-response': {
       const rid = typeof message.requestId === 'string' ? message.requestId : '';
       confirmResponder?.(rid, message.allow === true);

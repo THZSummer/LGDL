@@ -35,6 +35,8 @@ export interface SidepanelState {
   pending: boolean;
   activeOrigin?: string;
   discoveryState?: 'supported' | 'unsupported' | 'unknown';
+  /** Readable discovery failure reason (TASK-019 任务 B). */
+  discoveryReason?: string;
   authorized: boolean;
   invalidated: boolean;
   confirm: ConfirmState | null;
@@ -50,7 +52,7 @@ export type SidepanelAction =
   | { type: 'command'; text: string }
   | { type: 'error'; text: string }
   | { type: 'pending'; value: boolean }
-  | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; authorized?: boolean; invalidated?: boolean }
+  | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; authorized?: boolean; invalidated?: boolean }
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
   | { type: 'confirm-resolved'; allow: boolean }
   | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
@@ -95,6 +97,7 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
         ...state,
         ...(action.origin !== undefined ? { activeOrigin: action.origin } : {}),
         ...(action.discoveryState !== undefined ? { discoveryState: action.discoveryState } : {}),
+        ...(action.discoveryReason !== undefined ? { discoveryReason: action.discoveryReason } : {}),
         ...(action.authorized !== undefined ? { authorized: action.authorized } : {}),
         ...(action.invalidated !== undefined ? { invalidated: action.invalidated } : {}),
         ...(action.invalidated
