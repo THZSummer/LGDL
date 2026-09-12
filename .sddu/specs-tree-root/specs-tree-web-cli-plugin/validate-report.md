@@ -500,9 +500,156 @@
 
 ---
 
+## R3 验证（2026-09-12，TASK-017 UI 修复轮 + D-043 / D-044 / D-045）
+
+> **范围**：`TASK-017`（F-1 设置入口 / F-2 LLM 状态零明文 / F-3 状态驱动引导 / F-4 合规折叠 / F-5 日志空态 / F-6 禁用语义 / F-7 无溢出 / F-8 options 改进 / F-9 待核）+ `D-043`（`#log.empty:not(:has(> *))` 布局门控）+ `D-044`（W1 `state` 补授权位，授权态跨 reload/SW 重启）+ `D-045`（W3 `llm-config` 去 `apiKeyMasked`）+ 全量回归。
+> **基线**：HEAD = `445d775`（分支 `feature/web-cli-plugin`）；工作区 clean。
+> **方法**：**独立动手复跑**（不引用 build/review 声明）——本 Agent 自写 CDP 探针（`ui-probe.mjs` / `w1-probe.mjs` / `w1b-probe.mjs` / `gate-probe.mjs`），装载**真实 `dist` 字节**到 Chrome for Testing 151（headless）并**自行截图**；脚本与截图存 `/tmp/sddu-validate-web-cli-plugin-r3-20260912-120220/`。
+> **唯一偏差（本次披露）**：W1 端到端与 `npm run test:e2e` 使用**manifest 副本** `host_permissions += 本地 origin`（headless 无法构造 `permissions.request` 手势）；`dist` 的 **JS 字节与发布产物逐字节一致**。纯 UI 探针（F-1~F-8/D-043）使用**未改动的真实 `dist`**（无偏差）。
+
+### R3-1. 验证概要
+
+| 维度 | 数值 |
+|------|:--:|
+| 验证场景 | 14（V-R3-1 ~ V-R3-14，五维度全覆盖） |
+| 通过 | 14 |
+| 失败 | 0 |
+| 无法执行 | 0（真实手势/权限弹窗/真实 LLM 仍为**人工面**，单独列于 R3-12，非场景失败） |
+| 阻塞问题 | **0** |
+| 本轮自写脚本 | 5 个（+ 启动 recon 1 个） |
+| 独立截图 | 12 张 |
+
+### R3-2. V 清单（逐项实测）
+
+| # | 验证对象 | 步骤 | 预期 | 实测 | 判定 |
+|---|---------|------|------|------|:--:|
+| V-R3-1 | 全仓构建 | `npm run build` | 退出码 0 + 插件四入口 | 退出码 0（51.6s）；`background 947.3kb / content 34.1kb / sidepanel 21.2kb / options 893.8kb` + manifest/2×html | ✅ |
+| V-R3-2 | 全仓测试（回归） | `npm test` | 0 fail；base 483；plugin 132 | 退出码 0；**1114 pass / 0 fail / 1 skip**：core 267 · render 94(+1skip) · router 8 · **lgdl-web 31** · web-cli 84 · op-cli 15 · **base 483** · **plugin 132** | ✅ |
+| V-R3-3 | 插件类型检查 | `tsc --noEmit` | 0 error | 退出码 0，0 error | ✅ |
+| V-R3-4 | F-1 设置入口 | 真实 dist + `openOptionsPage` 桩计数 | 点击真实调用 | 5/5 场景 `before=0 → after=1`；未配置文案「去配置模型」+`.primary`、已配置「设置」 | ✅ |
+| V-R3-5 | F-2 LLM 状态零明文 | 真实 background 往返 + DOM | keys 不含 apiKey/掩码 | `llm-status` 与 `llm-config` 返回体 keys **恰为 `[configured,model,providerId,providerName]`**；`statusHasSecret=false`/`configHasSecret=false`/`configHasBullet=false`；DOM 仅「LLM：火山方舟 · 通用 · doubao-seed-1-6-250615」 | ✅ |
+| V-R3-6 | F-3 状态驱动引导 | 真实 dist 四态 | current 步动态不同 | S1 未配置→第1步 `▶`；S2 已配置无 origin→第1步 `✓`/第2步 `▶`；S3 origin 未授权→第1~3步 `✓`/第4步 `▶`；S4 已授权→`#onboarding display:none` | ✅ |
+| V-R3-7 | F-4 合规折叠 | 真实 dist DOM + 源码逐字比对 | 默认收起 + 文案零删改 | `#consent-details.open=false`；7 条 li（3 风险 + 4 边界）与源码 `CONSENT_RISKS`/`CAPABILITY_BOUNDARY` **逐字 100% 一致**；风控控件在 `<details>` 外（`riskControlsOutsideDetails=true`） | ✅ |
+| V-R3-8 | F-5 空态 + D-043 | 真实 dist + 真实 `onMessage` 注入 | 空态占位 + 逐行 | 空态 `class=empty`/`display:flex`/`height:64px`/占位文案；经**真实 sidepanel onMessage 监听器**注入 3 条后 `class=''`/`display:block`/子元素 `y=106.5→126→145.5` 递增、`x=15` 恒定；**陈旧 `.empty`+子元素**→`display:block`（门控生效）；清空后→`flex` | ✅ |
+| V-R3-9 | F-6 禁用语义矩阵 | 真实 dist 三态 | 与 `buttonStates` 一致 | 无 origin：authorize/revoke/send **全 disabled**；origin 未授权：authorize 可用、revoke disabled、send 可用；已授权：authorize disabled、revoke 可用、send 可用 | ✅ |
+| V-R3-10 | F-7 无溢出 | 400/320 视口实测 | `scrollWidth===clientWidth`、无超宽 | sidepanel @400 `400/400`、@320 `320/320`；options @400 `385/385`；**overWide=[] / clipped=[]**（0 超宽 / 0 截断） | ✅ |
+| V-R3-11 | F-8 options 改进 | 真实 background + 真实表单 | 说明/提示/清 Key | 「如何使用」「本页如何打开」渲染；`#maxRounds-hint`=「默认 1000：…」；未配置 `#key-warning display:block`；保存后 `#apiKey.value===''` 且 warning `display:none` | ✅ |
+| V-R3-12 | W1 授权态跨 reload | 真实发现→真实 authorize→reload 侧栏 | 重载后仍「已授权」 | 发现时 `authorized=false` → `authorize` 回 `authorized:true`（trust=untrusted）→ 侧栏「已授权」/authorize disabled/revoke enabled；**`Page.reload` 后仍「已授权」**（修复前会回落未授权） | ✅ |
+| V-R3-13 | W1 跨 SW 重启（EC-013） | browser CDP `Target.closeTarget` 杀 SW → 消息唤醒 | 授权保持 | `closedTarget success:true` → 唤醒后新 SW `active.origin` 恢复、`authorized:true`；真实侧栏「已授权」/authorize disabled/revoke enabled | ✅ |
+| V-R3-14 | W3 `llm-config` 收敛 | 真实 background（已存 key） | 无 key 派生串 | 返回 keys 恰 4 个；无 `apiKeyMasked`、无 `SECRET`、无 `•`；`dist/*.js` grep `apiKeyMasked` **0**；`sidepanel.js` grep `apiKey` **0** | ✅ |
+
+### R3-3. 门禁（独立复跑）
+
+| 门禁 | 命令/探针 | 实测 |
+|------|----------|------|
+| G-MV3 | 自写 `gate-probe.mjs`（真实 dist + CDP） | ✅ PASS：SW target `chrome-extension://mekg…/background.js` 可达；`name=web-cli plugin`、`mv=3`、`minimum_chrome_version=114`、`background.type=module`；permissions=`[activeTab,scripting,storage,sidePanel]`（无 tabs/cookies/history）；`optional_host_permissions=["https://*/*"]`；**无静态 `content_scripts`**；`storage`/`sidePanel`/`scripting`=object；storage 往返 true；扩展异常 0 |
+| G-KEY | 同探针扩展上下文带 Authorization fetch 火山端点 | ✅ PASS：`reached:true`、**HTTP 401**（非 CORS/网络失败） |
+| R8 E2E | `npm run test:e2e --workspace @lgdl/web-cli-plugin` | ✅ **PASS**（exit 0）：场景 A fixture（AC-010）7 断言 + 场景 B LGDL Workbench（AC-009）4 断言全 ✔；**唯一偏差仍在输出中明示**（`extension copy (deviation: host_permissions += …)`），未冒充无偏差 |
+
+### R3-4. 红线 / 依赖纪律（独立复跑）
+
+| 检查 | 命令 | 结果 |
+|------|------|:--:|
+| base 零改动 | `git status --porcelain packages/web-cli-base` | ✅ 空 |
+| base 分支零提交 | `git log merge-base..HEAD -- packages/web-cli-base` | ✅ 0 条 |
+| 无旁路 `.executor(` 直调 | grep `packages/web-cli-plugin/src` | ✅ 0 |
+| 无静默 allow | grep `silentAllow\|allowSilently` | ✅ 0 |
+| `riskHint` 不作裁决依据 | grep `return\s+.*riskHint` | ✅ 0 |
+| 无 UI 框架 | grep `react\|vue\|svelte\|jquery\|tailwind\|jsdom` in `src` | ✅ 0（`dist` 内 6 处 `react` 均为内置 LLM SDK 的 `react-native` 错误文案，非框架依赖） |
+| 侧栏渲染路径无 apiKey | grep `apiKey` in `src/ui/sidepanel` | ✅ 0 |
+| 无新增运行时依赖 | `package.json` / 根 `package.json` | ✅ 插件 `dependencies` 仍仅 `{"@lgdl/web-cli-base":"^0.7.0"}`；根 `package.json` 相对 merge-base `2ddc922` **零改动**；UI/W1/W3 提交**未触碰**任何 `package.json`/`package-lock.json` |
+| `apiKeyMasked` | grep in `src` / `dist` | ✅ src 仅 1 处（`status.ts` 文档注释说明丢弃，非值）；dist **0** |
+| git 无污染 | `git status --porcelain` | ✅ 空（验证全程未改仓库/未提交） |
+
+### R3-5. 漂移检测
+
+| 类型 | 检测 | 结果 |
+|------|------|:--:|
+| spec / plan / tasks.json | `git show --name-only abece95 445d775`（UI/W1W3 提交） | ✅ **零改动**（两提交均未触及） |
+| tasks.md | 同上 | ✅ TASK-017 **增补合规**：仅新增 TASK-017 段（状态 ✅ completed）+ 汇总行/修订记录；既有任务与验收标准未改（删除行 4 行均为汇总统计行） |
+| 孤立代码 | 本轮无新增未引用导出（`llm/status.ts`、`state-message.ts` 均被 service-worker/sidepanel 消费） | ✅ |
+| 需求缺失 | 本轮为 additive，无删除；既有 46 FR / 10 NFR / 16 EC / 12 AC 承接未破坏 | ✅ |
+
+### R3-6. 诚实性核验（F-9）
+
+- `providers.ts` 在本轮（`abece95`/`445d775`）**零改动**；`deepseek` 与 `volc-coding` 的 `defaultModel` 仍为 `deepseek-v4-flash`（源码 `providers.ts:39,42`）。
+- `build.md §13.3/§13.6` 与 `D-042` 仍将其标注为**待作者核签/联网核实**，未擅自修改。
+- 未发现「声称已修但界面无变化」：F-1~F-8 均经本 Agent 独立 DOM 实测 + 截图确认可见可用（R3-2、R3-7）。
+
+### R3-7. FR / NFR / EC / AC 回归计数
+
+| 指标 | 基线（R2） | R3 回归判定 |
+|------|:--:|:--:|
+| FR | 46/46 | ✅ 未破坏（无删除、无降级；W1 强化 FR-017/EC-013、W3 强化 FR-033/035 零明文） |
+| NFR | 10/10 | ✅ 未破坏（NFR-001 无静默 allow 复检 0；NFR-006 测试 132 全绿） |
+| EC | 16/16 | ✅ 未破坏（EC-013 SW 重启授权保持**本轮实测**；EC-008 授权/撤销语义不变） |
+| AC | 12/12 | ✅ 未破坏（AC-009/010 E2E 复跑 PASS） |
+| 测试删除 | — | ✅ 本轮 UI/W1/W3 提交**零删除**（`git show --diff-filter=D` 空）；plugin 125→132（+7）全为新增 |
+
+### R3-8. 验证脚本执行记录（ADR-003）
+
+> 脚本/截图存放：`/tmp/sddu-validate-web-cli-plugin-r3-20260912-120220/`（仓库零污染）。
+
+| 脚本 | 用途 | 对应场景 | 退出码 | 关键输出 |
+|------|------|:--:|:--:|---------|
+| `01-build.log` | 全仓构建 | V-R3-1 | 0 | 插件 dist 四入口；51.6s |
+| `02-test.log` | 全仓测试 | V-R3-2 | 0 | 1114 pass / 0 fail / 1 skip |
+| `03-typecheck.log` | 插件 tsc | V-R3-3 | 0 | 0 error |
+| `ui-probe.mjs` | 真实 dist UI 复核（stub 状态驱动 + 真实 background options） | V-R3-4~11、F-2/W3 | 0 | 5 场景 + options 实测；`ui-probe.json` |
+| `w1-probe.mjs` | W1 真实授权→reload（manifest 副本偏差） | V-R3-12 | 0 | 授权→重载仍「已授权」；`w1-probe.json` |
+| `w1b-probe.mjs` | W1 跨 SW 重启（`Target.closeTarget`） | V-R3-13 | 0 | 重启后 `authorized:true`；`w1b-probe.json` |
+| `gate-probe.mjs` | G-MV3 + G-KEY（真实 dist CDP） | R3-3 | 0 | G-MV3 PASS；G-KEY 401 |
+| `14-e2e.log` | R8 真实 dist 全链 E2E | R3-3 | 0 | A 7 + B 4 断言 PASS；偏差明示 |
+| `smoke.mjs` | Chrome/SW 启动 recon | — | 0 | Chrome 151 + 插件 SW 可达 |
+
+**独立截图（本 Agent 自行截取）**：
+
+- `r3-sidepanel-S1-unconfigured-400.png`（未配置：引导第1步 `▶`、`#log` 空态）
+- `r3-sidepanel-S2-configured-no-origin-400.png`（已配置：第2步 `▶`）
+- `r3-sidepanel-S3-origin-unauthorized-400.png`（未授权：第4步 `▶`、authorize 可用）
+- `r3-sidepanel-S4-origin-authorized-400.png`（已授权：引导隐藏、revoke 可用）
+- `r3-sidepanel-S5-narrow-320-unconfigured-320.png`（320 窄屏）
+- `r3-sidepanel-rich-authorized-400.png`（日志逐行）
+- `r3-options-unconfigured-900.png` / `r3-options-saved-900.png` / `r3-options-narrow-400.png`
+- `r3-w1-after-authorize.png` / `r3-w1-after-reload.png` / `r3-w1-after-sw-restart.png`
+
+### R3-9. 遗留终态（人工面，判定是否阻塞）
+
+| 项 | 状态 | 阻塞 v0.8？ |
+|----|:--:|:--:|
+| H0 content 注入手势 / H2 授权弹层 / H4 审计 UI / H6 LGDL 真实页端到端 / H7 真实 LLM / H8 风控控件 / H9 事件订阅 / H10 ask-user 真实 UI | ⏳ 仍待人工（`docs/smoke-checklist.md §2` 保留） | **不阻塞**（spec FR-045 机械/人工分离；自动面已覆盖机制） |
+| 扩展 SW 真实内存采样 | ⏳ 人工面 | 不阻塞（NFR-007 代理指标已实测） |
+| F-9 `deepseek-v4-flash` 真实性 | ⏳ 待作者联网核签（未擅自改） | 不阻塞（诚实遗留） |
+| C-4/C-5 过渡期关闭 · S-016 商店发布 | ⏳ 后续里程碑 | 不阻塞 |
+
+### R3-10. 阻塞与结论
+
+**阻塞问题：0。**
+
+**结论：✅ 通过（Pass）**
+
+| 指标 | 要求 | 实测 | 达标？ |
+|------|------|------|:--:|
+| TASK-017 F-1~F-8 UI 真实性 | 全部可见可用 | **8/8 独立 DOM 实测 + 截图 PASS** | ✅ |
+| D-043 布局门控 | 有条目恒逐行 | 空态 flex / 非空 block / 陈旧 `.empty`+子元素 block（y 递增） | ✅ |
+| D-044 W1 授权态跨 reload/SW 重启 | 保持「已授权」 | reload 与 `Target.closeTarget` SW 重启后均「已授权」 | ✅ |
+| D-045 W3 暴露面收敛 | 无 key 派生串 | keys 恰 4；dist `apiKeyMasked`=0 | ✅ |
+| 全量回归 | 46/10/16/12 不破坏 | 未破坏；全仓 1114 pass / 0 fail / base 483 零回归 / plugin 132 | ✅ |
+| 构建/门禁 | 全绿 | build/test/tsc/E2E/G-MV3/G-KEY 全 PASS | ✅ |
+| 红线/依赖 | base 零改动 / 无新依赖 | 全 0；插件 deps 仅 base；根 package.json 未改 | ✅ |
+| 漂移 | spec/plan/tasks.json 零改动 | 零改动；tasks.md 增补合规 | ✅ |
+| 阻塞 | 0 | **0** | ✅ |
+
+**判定理由**：TASK-017 的 8 项 UI 修复与 D-043~D-045 经**本 Agent 独立动手复跑**（自写 5 个 CDP 探针 + 自截 12 张图）全部证实——设置入口真实调用 `openOptionsPage`（桩计数 0→1）；`llm-status`/`llm-config` **真实 background** 返回体 keys 恰为 4 个非敏感字段、无任何 key 派生串（dist grep `apiKeyMasked` 0、`sidepanel.js` grep `apiKey` 0）；引导四态 current 步动态不同；合规折叠默认收起且 7 条文案与源码**逐字一致**、风控控件可操作；空态占位 + 条目逐行（y 递增），D-043 门控经「陈旧 `.empty`+子元素」对抗态实证；禁用语义三态与 `buttonStates` 一致；400/320 视口 0 溢出/0 超宽/0 截断；options 说明/未配置提示/保存清空 Key 真实生效。**W1 端到端**：真实发现→真实 `authorize`→重载侧栏仍「已授权」、authorize disabled / revoke enabled；`Target.closeTarget` 杀 SW 后唤醒，授权位仍保持（EC-013）。**W3 端到端**：真实 background `llm-config` 无 key 派生串。全仓 1114 tests **0 fail**、base 483 零回归、`tsc` 0 error、E2E 场景 A/B PASS（唯一偏差明示）、G-MV3/G-KEY 独立复现 PASS、base 与根依赖零改动、spec/plan/tasks.json 零漂移。F-9 仍如实标注待核且确未擅改。
+
+**残余移交（非阻塞）**：`docs/smoke-checklist.md §2` 人工面 H0/H2/H4/H6/H7/H8/H9/H10 与后续里程碑 C-4/C-5、S-016、SW 真实内存采样——由 spec/review 显式文档化，**不阻塞 v0.8 完成判定**。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v2.1 | **R3 验证**（TASK-017 UI 修复轮 + D-043~D-045）：自写 5 个 CDP 探针 + 自截 12 张图（真实 dist 字节）独立复核 F-1~F-8/D-043 + W1 授权态跨 reload/SW 重启 + W3 `llm-config` 零 key；独立复跑 build/test(1114 pass/0 fail, base 483 零回归, plugin 132)/tsc/E2E/G-MV3/G-KEY/红线/漂移；**结论 ✅ 通过（0 阻塞）** | 2026-09-12 | SDDU Validate Agent |
 | v2.0 | **R2 全量验证**：P0 回归 + P1 + P2 + 遗留清账；46 FR / 10 NFR / 16 EC / 12 AC 全量承接（100%）；独立复跑 build/test/tsc/E2E/G-MV3/G-KEY/红线 grep + 自写 R-BLK1a 复现 + NFR-007 实测 + revert 可性实测；**结论 ✅ 通过（0 阻塞）** | 2026-09-12 | SDDU Validate Agent |
 | v1.0 | 初始创建：P0 最小可用集独立验证（V1~V13；全仓 0 fail / 安全 10/10 / 协议 8/8 / 红线 12/12 / G-MV3·G-KEY PASS / 受控全链 PASS / V9b 真实产物无法执行）；**结论 ⚠️ 有条件通过（0 阻塞）** | 2026-09-11 | SDDU Validate Agent |
