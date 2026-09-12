@@ -652,9 +652,28 @@ node packages/web-cli-plugin/test/parity/extract-baseline-catalog.mjs \
 - **权限（实测）**：`captureVisibleTab` 需要 `activeTab` 或 `<all_urls>`——**仅 host 权限不足**（`test:e2e` 探针在无 `<all_urls>`、无手势时被该 API 明确拒绝）。插件已声明 `activeTab`，真实使用中由用户点击插件图标（手势）授予；**零新权限 / manifest 零 diff**。host 权限是本提供者的「目标站点已授权」资格闸门，不等价于 capture 权限——因此即便通过闸门，capture 仍可能因 `activeTab` 未授予/速率限制而失败，届时**回退并标注原因**。
 - **透传纪律**：包装只覆盖 `screenshot`，`waitFor`/`extractData` 等全部透传；`wait`/`extract`/`export` 不会因包装被静默摘除（`test/real-screenshot.test.ts` 断言 `ops.waitFor === base.waitFor` 等）。
 - **契约不变**：仍返回 `PlatformDomOpResult{ok,output,dataUrl}`；输出摘要 / 自动下载链 / `--include-dataurl` / dataURL 不进上下文（P-03/ADR-003）全部保持（base `deliverScreenshot` 继续生效）。
-- **`mode=fullpage` 仍返回「不支持」**（D2 单独一轮）。
+- **`mode=fullpage`** → 见 §13.8（D2：滚动分屏 `captureVisibleTab` 拼接；拼接为近似并声明局限）。
 - **文案修正（D4）**：`chrome` 工具条目的 `schema.description`/`help` 在**插件层**包装（`src/tools/chrome-host.ts`），删除页内上下文时代的「书签/标签页·窗口/跨域导航/下载历史 = 不可承载 out」绝对表述，改为「本工具只承载宿主页会话内子集；标签页见 `tabs` 工具；书签/下载等由插件按 origin 授权后的宿主层能力承载」；base 原文中仍然正确的部分保留。
 - 真机验证：`test:e2e` 断言 `captureVisibleTab` 在该 MV3 SW 返回 Promise 且得到真实 PNG（fixture `15886` 字符 / LGDL `113770` 字符 dataURL），并断言真实路径标注、以及「目标标签页不可见 → 近似（canvas，原因：…）」回退标注可见；`test/browser-tools.test.ts` 静态断言插件暴露的 chrome `description`/`help` **不再包含**「不可承载」。
+
+### 13.8 整页截图（D2）与原生 back/forward（D6）（base 零改动）
+
+**D2 整页截图**（`mode=fullpage`）全部在插件侧实现，**base 源码零改动**：
+
+- **装配点**：`src/platform/real-screenshot.ts` 的 `createRealScreenshotOps()`（透传 `Proxy`，仅覆盖 `screenshot`/`historyNav`）；`src/tools/chrome-host.ts` 的 `wrapChromeEntryForHost()` —— base 执行器在 `chrome-tools.ts` 对 `fullpage` **先行短路**（不调用 `ops.screenshot`），故由插件层接管 fullpage 命令：调 `ops.screenshot({mode:'fullpage'})` → 拼接 → 复用 base **已导出**的 `summarizeScreenshotData`/`screenshotFilename`/`translateCapabilityError` 走同一套输出/下载策略（`env.filePicker.download`、`{尺寸/字节/文件名}` 摘要、`--include-dataurl` 预算内头段、dataURL 不进上下文）。
+- **页面几何/滚动通道**：`content-script.ts` 新增插件专用 `dom-op` 方法 `wcliFullpageMetrics`（文档/视口/滚动位置/dpr）与 `wcliScrollTo`（`window.scrollTo` + 双 `requestAnimationFrame` 沉降，250ms 有界兜底）；`service-worker.ts` 经既有 `dom-op` 通道读取，**不新增权限**。
+- **拼接算法**（`captureFullpageViaScreens()`）：屏数 = `ceil(scrollHeight / viewportHeight)`；逐屏滚动到 `min(i*vh, scrollHeight-vh)` → 按**实际沉降位置** `y` 逐屏 `captureVisibleTab` → SW `OffscreenCanvas`/`createImageBitmap` 按设备像素 `y*dpr` 合成 PNG（末屏裁剪到画布剩余高度）。
+- **节流 / 退避**：遵守 Chrome 硬限 `MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND = 2` → 相邻捕获**起始**间隔 ≥ `MIN_CAPTURE_INTERVAL_MS = 500`；命中速率限制（`MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND`/quota，`isCaptureRateLimitError`）时按 `CAPTURE_RATE_LIMIT_BACKOFFS_MS = [700, 1500]` **有界重试**，不因一屏瞬时限流放弃整页。
+- **上限（不得无界抓取）**：屏数 > `MAX_FULLPAGE_SCREENS = 20`，或设备像素 > `MAX_FULLPAGE_PIXELS = 40_000_000` → **捕获前**可读拒绝，并给出已捕获范围（`0 屏（未开始捕获）`）。
+- **恢复滚动**：无论成功/失败/超限（捕获后）均 `finally` 式恢复原 `scrollX/scrollY`；恢复失败**如实披露**（输出含「⚠ 原滚动位置恢复失败」）。
+- **诚实标注（硬要求）**：成功输出必含 `像素路径：真实像素（captureVisibleTab ×N 屏拼接）` + `FULLPAGE_LIMITATION_NOTICE`：整页拼接为**近似**，`position:fixed`/sticky 元素会在每屏重复、懒加载内容可能未加载、动画/轮播状态可能不一致 —— **绝不宣称「完整/无损整页」**。失败/超限（无 activeTab / 受限页 / 未授权 / 超上限 / 几何/捕获/拼接失败）→ 可读拒绝并给出原因与已捕获范围，**零静默**（不返回不完整图像）。
+
+**D6 原生 back/forward**（同一包装层，risk 沿用 base=`ui` 不放宽）：
+
+- 优先 `chrome.tabs.goBack(tabId)` / `chrome.tabs.goForward(tabId)`（**标签页级**历史，跨导航可靠），输出标注 `历史路径：原生（tabs.goBack/goForward）`。
+- 不可用/失败（无宿主 seam / 无绑定标签页 / 受限页 / 无历史）→ 回退 base 页面 `history.back/forward`，输出标注 `历史路径：页面 history（回退，原因：<具体原因>）`。
+- **语义差异如实说明**：原生 back/forward 可能**离开绑定 origin** —— 输出版本会说明「已离开绑定 origin X → Y；原 origin 的会话/授权不适用于新站点；导航后插件重新探测，已授权自动绑定、未授权需点图标」，**不静默把会话带到别的站点**；新地址不可读时也明确提示需在面板确认。
+- **真机偏差（已披露）**：headless Chrome for Testing 151 的 `chrome.tabs.goBack/goForward` 即便在 `history.length=2` 的真实历史下仍拒绝「Cannot find a next page in history」；故 `test:e2e` 证明「原生优先 + 失败可读回退标注」，**原生成功**由 `test/fullpage-screenshot.test.ts`（注入 host-nav seam）确定性覆盖。
 
 ## 14. 自动授权（按站点读/写；FR-052 / ADR-017）
 
@@ -766,4 +785,5 @@ router.dispatch → PermissionGate.check
 | 2.4 | **FR-052 / ADR-017（作者要求：自动授权多选）**：新增按 origin 的「读操作自动 / 写操作自动」设置（`security/auto-authorize.ts`，存 `web-cli:auto-auth`，读默认开/写默认关，即时生效）；在 host `onAsk` 接缝**前置判定**——对应档位开启且非破坏性 read/write → 直接 allow（审计类型 `auto-authorize`/`reason: 自动授权（用户设置）`），不放宽 `riskDefaults`；`evaluate`（fail-closed 直接 deny）/ 未授权 origin（S1 deny）/ 未知 risk（S3 deny）/ 破坏性操作（`isDestructiveInvocation` 子命令分段判定）/ `ui·state·external` 仍保持确认或拒绝；侧栏新增复选框 + 常驻标记 + 一键关闭 + 硬底线常显文案，options 页新增按站点管理列表。补 §14 + §10（compliance）；新增 `test/auto-authorize.test.ts`（13）；`test:ui` 97→113、`test:binding` 83→96；插件 336→349，全仓 0 fail（base 483 零回归）、无新权限/依赖、manifest 零 diff、base 零改动。 |
 | 2.5 | **TASK-032（用户要求：探测改为全自动，逻辑上不需要用户手动探测）**：移除侧栏「重新探测」按钮；新增 `src/discovery/auto-probe.ts`（按 origin 去重 + 有界退避 500ms→1s→2s→4s→8s→15s 封顶 + 成功/origin 变更/面板关闭/撤销停止 + 暂时性/终态分类）；触发点 = 面板打开(`state`) / `tabs.onActivated` / `tabs.onUpdated(complete)` / content `hello` / 授权 / 失败重试；面板通过 `chrome.runtime.connect('web-cli-panel')` 让后台感知「有面板关注」，关闭即停重试（无后台常驻轮询）。补 §15；新增 `test/auto-probe.test.ts`（13）；`test:ui` 119→121、`test:hardening` 22→24、`test:binding` 104→114（阶段 3 延迟就绪 + 退避 + 零点击自动 ready）；插件 360→373，全仓 0 fail（base 483 零回归）、**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限**。 |
 | 2.6 | **TASK-034 / D1+D4（用户实测第九轮）**：`chrome screenshot` 在插件宿主下优先走 `chrome.tabs.captureVisibleTab` **真实像素**（`mode=element` 经 `dom-op` 取 rect + SW `OffscreenCanvas` 裁剪），未授权/受限/失败时**回退** page-context 近似路径并**如实标注实际路径与原因**（绝不谎称真实）；插件侧 `Proxy` 包装 `env.dom.ops` 仅覆盖 `screenshot`（`waitFor`/`extractData` 全透传，`wait`/`extract`/`export` 不被摘除）；`chrome` 工具 `description`/`help` 在插件层修正页内时代的「书签…= 不可承载」绝对表述（base 零改动）。补 §13.7 + compliance §11；`test/real-screenshot.test.ts`（16）+ browser-tools D4/透传断言；`test:e2e` 新增「captureVisibleTab 返回 Promise + 真实 PNG」与「真实/回退路径标注」断言。插件 389→405，全仓 0 fail（base 483 零回归）、**base 零改动 / manifest 零 diff / 无新依赖 / 无明文 key / 无静默失败**。 |
+| 2.7 | **TASK-035 / D2+D6（用户要求）**：`chrome screenshot --mode fullpage` 在插件侧实现**滚动分屏 `captureVisibleTab` 拼接**（`ceil(h/vh)` 屏；SW `OffscreenCanvas` 合成）——**遵守 2 次/秒速率限制**（`MIN_CAPTURE_INTERVAL_MS=500` + 命中限流按 `[700,1500]ms` 有界退避重试）、**有上限**（≤20 屏 / ≤40MP，超出**捕获前**可读拒绝并给出已捕获范围）、**始终恢复原滚动位置**（恢复失败如实披露）；成功输出必含 `像素路径：真实像素（captureVisibleTab ×N 屏拼接）` + 明确局限声明（fixed/sticky 每屏重复、懒加载/动画状态可能不一致，**绝不宣称完整/无损**）；`chrome back/forward` 同一包装层优先**原生** `chrome.tabs.goBack/goForward`（失败可读回退页面 `history` 并标注实际路径，离开绑定 origin 会如实说明）。因 base 执行器对 fullpage 先行短路，fullpage 命令与输出/下载策略由插件层 `chrome-host.ts` 接管（复用 base 已导出的 `summarizeScreenshotData`/`screenshotFilename`/`translateCapabilityError`）。补 §13.8 + compliance §11；新增 `test/fullpage-screenshot.test.ts`（20）、`test/real-screenshot.test.ts`/`test/browser-tools.test.ts` 加强透传与文案断言；`test:e2e` 新增整页拼接真机断言（≥2 屏 + 尺寸 > 单屏 + 局限可见 + 滚动已恢复）与 back/forward 原生优先 + 回退标注断言（headless `tabs.goBack` 非功能已披露）。插件 405→425，全仓 0 fail（base 483 零回归）、**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**。 |
 

@@ -213,7 +213,10 @@
 | 捕获范围 | 仅当前**可见**标签页的可见区域（用户当前所看）；`tab.active !== true` 时前置拒绝，不读取不可见/后台标签页内容 | `chrome.tabs.captureVisibleTab` 语义 + `service-worker.ts` 活动标签校验 |
 | 数据落点 | 与既有截图一致：dataURL **不进 LLM 上下文**（P-03/ADR-003）；落盘走页面上下文 anchor 下载链（无需 `downloads` 权限） | `docs/dev.md` §13.7 |
 | 失败 / 速率限制 | 可读降级为本工具输出中的「近似（canvas，原因：…）」标注，不静默、不吞错 | `annotateScreenshotPath` |
+| 整页截图（D2，2026-09-13） | 仍**零新权限**：整页 = 对同一可见标签页**逐屏滚动 + `captureVisibleTab`** 后拼接；受 Chrome 2 次/秒硬限（500ms 节流 + 有界退避）、≤20 屏 / ≤40MP 上限；捕获前后**恢复原滚动位置**；输出**声明为近似**（fixed/sticky 每屏重复、懒加载/动画状态可能不一致），**不宣称完整/无损**；失败/超限可读拒绝并给出已捕获范围 | `src/platform/real-screenshot.ts` §D2 + `docs/dev.md` §13.8 + `test/fullpage-screenshot.test.ts` |
+| 整页的数据落点 | 与单屏一致：拼接 PNG dataURL 不进 LLM 上下文；落盘走页面上下文 anchor 下载链（无需 `downloads`） | `chrome-host.ts` `deliverFullpageScreenshot` |
+| 原生 back/forward（D6，2026-09-13） | 仍**零新权限**；优先 `chrome.tabs.goBack/goForward`（标签页级历史，可能**离开绑定 origin**）——离开时输出明确说明「原 origin 的会话/授权不适用于新站点、导航后重新探测、未授权需点图标」，**不静默把会话带到别的站点**；原生不可用时回退页面 `history` 并标注实际路径 | `src/platform/real-screenshot.ts` §D6 + `docs/dev.md` §13.8 + `test/fullpage-screenshot.test.ts` |
 
 ---
 
-**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图像素路径调整时
+**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图像素路径调整时

@@ -235,11 +235,24 @@ test('host chrome tool: description/help drop the outdated absolute boundary cla
   );
   assert.match(chrome.description, /书签/, 'the boundary must still mention bookmarks (as a host-layer capability)');
   assert.match(chrome.description, /tabs/, 'the boundary must point the assistant at the tabs tool');
+  assert.match(chrome.description, /整页级 = 滚动分屏 captureVisibleTab 拼接/, 'fullpage is now a host-layer stitch, not out');
+  assert.ok(!chrome.description.includes('整页级 out'), 'the base「整页级 out」claim must not reach the LLM');
   const help = host.router.helpFor('chrome');
   assert.ok(help, 'chrome help must render');
   assert.ok(!help.includes('不可承载'), 'chrome help must not carry the page-context absolute claim');
   assert.match(help, /插件宿主层/, 'help must state the corrected host-layer boundary');
   assert.match(help, /真实像素（captureVisibleTab）/, 'help must name the real-pixel path');
+  assert.match(help, /--mode fullpage → 插件宿主/, 'help must describe the fullpage stitch (not「不支持」)');
+  assert.match(help, /tabs\.goBack\/goForward/, 'help must name the native history path');
+  assert.ok(!help.includes('--mode fullpage → 不支持'), 'help must not claim fullpage is unsupported');
+
+  // D2: the schema parameter description is patched too (LLM sees the corrected mode).
+  const modeDesc = (
+    (chrome.parameters as unknown as { properties?: { args?: { properties?: Record<string, { description?: string }> } } })
+      ?.properties?.args?.properties?.mode?.description ?? ''
+  );
+  assert.match(modeDesc, /拼接/, `schema mode description must describe the stitch: ${modeDesc}`);
+  assert.ok(!modeDesc.includes('不支持'), 'schema mode description must not say fullpage is unsupported');
 });
 
 // ── D1 transparency: wait/extract/export must stay registered through the ops wrapper ──

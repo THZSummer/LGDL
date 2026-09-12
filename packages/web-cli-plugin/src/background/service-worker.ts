@@ -26,7 +26,14 @@ import {
 } from '../platform/extension-env.js';
 import { capabilityFailure } from '../platform/unsupported.js';
 import { createExtensionBrowserEnv } from '../platform/browser-env.js';
-import type { ElementRect, ElementRectReply } from '../platform/real-screenshot.js';
+import type {
+  ElementRect,
+  ElementRectReply,
+  FullpageMetrics,
+  FullpageMetricsReply,
+  HostHistoryNavResult,
+  ScrollToReply,
+} from '../platform/real-screenshot.js';
 import { createController, type WebCliController } from './controller.js';
 import { buildStateMessage, projectActiveTab, type SessionView } from './state-message.js';
 import { buildDiagMessage } from './diag-message.js';
@@ -181,6 +188,56 @@ async function readElementRectViaPage(tabId: number, selector: string): Promise<
     const parsed = JSON.parse(res.data.output) as ElementRect & { inViewport?: boolean };
     if (parsed.inViewport === false) return { ok: false, reason: '目标元素不在可见视口内' };
     return { ok: true, rect: parsed };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** D2: read the fullpage document/viewport/scroll metrics via the page `dom-op` channel. */
+async function fullpageMetricsViaPage(tabId: number): Promise<FullpageMetricsReply> {
+  try {
+    const res = (await chrome.tabs.sendMessage(
+      tabId,
+      makeMessage('dom-op', { requestId: requestId('fpmetrics'), method: 'wcliFullpageMetrics', args: [] }),
+    )) as PluginResponse<import('@lgdl/web-cli-base').PlatformDomOpResult> | undefined;
+    if (!res) return { ok: false, reason: '内容脚本未响应整页几何读取' };
+    if (!res.ok || !res.data) return { ok: false, reason: res.error ?? '整页几何读取失败' };
+    if (!res.data.ok) return { ok: false, reason: res.data.output.replace(/^✖\s*/, '') };
+    return { ok: true, metrics: JSON.parse(res.data.output) as FullpageMetrics };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** D2: scroll the page and return the settled position via the page `dom-op` channel. */
+async function scrollToViaPage(tabId: number, x: number, y: number): Promise<ScrollToReply> {
+  try {
+    const res = (await chrome.tabs.sendMessage(
+      tabId,
+      makeMessage('dom-op', { requestId: requestId('fpscroll'), method: 'wcliScrollTo', args: [x, y] }),
+    )) as PluginResponse<import('@lgdl/web-cli-base').PlatformDomOpResult> | undefined;
+    if (!res) return { ok: false, reason: '内容脚本未响应页面滚动' };
+    if (!res.ok || !res.data) return { ok: false, reason: res.error ?? '页面滚动失败' };
+    if (!res.data.ok) return { ok: false, reason: res.data.output.replace(/^✖\s*/, '') };
+    const parsed = JSON.parse(res.data.output) as { scrollX: number; scrollY: number };
+    return { ok: true, scrollX: parsed.scrollX, scrollY: parsed.scrollY };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * D6: native tab-level history navigation. `chrome.tabs.goBack/goForward` is
+ * reliable across real navigations (unlike the page-context `history.back/forward`,
+ * which only works inside an SPA route). Failures (no history / restricted page /
+ * API error) are returned readably so the ops wrapper can fall back honestly.
+ */
+async function hostHistoryNavViaTabs(delta: number, tabId: number): Promise<HostHistoryNavResult> {
+  try {
+    if (delta < 0) await chrome.tabs.goBack(tabId);
+    else await chrome.tabs.goForward(tabId);
+    const after = await chrome.tabs.get(tabId);
+    return { ok: true, originAfter: tabOrigin(after.url) ?? undefined, urlAfter: after.url };
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   }
@@ -433,6 +490,14 @@ async function init(): Promise<Singletons> {
               return captureVisibleTabAsync(tab.windowId);
             },
             elementRect: (tabId, selector) => readElementRectViaPage(tabId, selector),
+            // D2: fullpage scroll-stitch seams (geometry/scroll via the page
+            // `dom-op` channel; default SW OffscreenCanvas compositor + 2/s throttle).
+            fullpageMetrics: (tabId) => fullpageMetricsViaPage(tabId),
+            scrollTo: (tabId, x, y) => scrollToViaPage(tabId, x, y),
+            // D6: native tab-level back/forward (chrome.tabs.goBack/goForward);
+            // failures (no history / restricted) fall back to page history in the
+            // ops wrapper with an honest path label.
+            hostHistoryNav: (delta, tabId) => hostHistoryNavViaTabs(delta, tabId),
           },
           eventRequest: async (op, params) => {
             const tabId = controller.get()?.tabId;

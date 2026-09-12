@@ -89,6 +89,58 @@ async function screenshotTargetRect(selector: string): Promise<PlatformDomOpResu
   return { ok: true, output: JSON.stringify(payload) };
 }
 
+/**
+ * D2: document / viewport / scroll metrics for the host-side fullpage stitch.
+ * The background cannot read the DOM, so the page reports the document size plus
+ * the current scroll position and device pixel ratio (JSON so the SW parses no text).
+ */
+async function fullpageMetrics(): Promise<PlatformDomOpResult> {
+  const se = document.scrollingElement ?? document.documentElement;
+  const doc = document.documentElement;
+  const payload = {
+    scrollWidth: Math.max(se?.scrollWidth ?? 0, doc?.scrollWidth ?? 0, window.innerWidth),
+    scrollHeight: Math.max(se?.scrollHeight ?? 0, doc?.scrollHeight ?? 0, window.innerHeight),
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+    dpr: window.devicePixelRatio || 1,
+  };
+  return { ok: true, output: JSON.stringify(payload) };
+}
+
+/**
+ * D2: scroll the page to (x, y) and settle before the next `captureVisibleTab`.
+ * Settling waits two rAFs (repaint) with a bounded timeout fallback so a throttled
+ * frame loop cannot hang the capture. Returns the **actual** settled position so
+ * the stitcher draws each screen at its real offset (never an assumed one).
+ */
+async function scrollToAndSettle(x: unknown, y: unknown): Promise<PlatformDomOpResult> {
+  const tx = Number.isFinite(Number(x)) ? Number(x) : 0;
+  const ty = Number.isFinite(Number(y)) ? Number(y) : 0;
+  try {
+    window.scrollTo(tx, ty);
+  } catch (err) {
+    return { ok: false, output: `✖ 页面滚动失败：${err instanceof Error ? err.message : String(err)}`, error: 'scroll-failed' };
+  }
+  await new Promise<void>((resolve) => {
+    let done = false;
+    const finish = (): void => {
+      if (!done) {
+        done = true;
+        resolve();
+      }
+    };
+    try {
+      requestAnimationFrame(() => requestAnimationFrame(finish));
+    } catch {
+      finish();
+    }
+    setTimeout(finish, 250);
+  });
+  return { ok: true, output: JSON.stringify({ scrollX: window.scrollX, scrollY: window.scrollY }) };
+}
+
 const io: BridgeIo = {
   post(message) {
     window.postMessage(message, '*');
@@ -224,6 +276,21 @@ chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       void screenshotTargetRect(String(args[0] ?? '')).then(
         (result) => sendResponse(okResponse(result)),
         (err) => sendResponse(okResponse({ ok: false, output: `✖ 元素几何读取失败：${err instanceof Error ? err.message : String(err)}`, error: 'geometry-failed' })),
+      );
+      return true;
+    }
+    // D2: plugin-specific fullpage geometry / scroll ops (not part of the base ops table).
+    if (method === 'wcliFullpageMetrics') {
+      void fullpageMetrics().then(
+        (result) => sendResponse(okResponse(result)),
+        (err) => sendResponse(okResponse({ ok: false, output: `✖ 整页几何读取失败：${err instanceof Error ? err.message : String(err)}`, error: 'fullpage-metrics-failed' })),
+      );
+      return true;
+    }
+    if (method === 'wcliScrollTo') {
+      void scrollToAndSettle(args[0], args[1]).then(
+        (result) => sendResponse(okResponse(result)),
+        (err) => sendResponse(okResponse({ ok: false, output: `✖ 页面滚动失败：${err instanceof Error ? err.message : String(err)}`, error: 'scroll-failed' })),
       );
       return true;
     }

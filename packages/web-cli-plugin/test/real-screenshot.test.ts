@@ -182,14 +182,41 @@ test('real screenshot: crop failure falls back rather than returning a truncated
   assert.match(d.meta.reason ?? '', /裁剪区域为空/);
 });
 
-test('real screenshot: fullpage stays with the base (no path annotation, D2 later)', async () => {
+test('real screenshot: fullpage without scroll-stitch seams is refused readably (D2 provider owns it, base untouched)', async () => {
   const base = fakeBaseOps();
   const d = deps();
   const ops = createRealScreenshotOps(base.ops, d);
   const res = await ops.screenshot!({ mode: 'fullpage' });
-  assert.equal(res.dataUrl, APPROX_DATAURL);
-  assert.equal(d.meta.decided, false);
-  assert.equal(annotateScreenshotPath(res.output, d.meta), res.output);
+  assert.equal(res.ok, false);
+  assert.equal(base.baseShots, 0, 'fullpage must not fall through to the base「不支持」executor path');
+  assert.equal(d.meta.kind, 'approx');
+  assert.equal(d.meta.fullpageAttempt, true);
+  assert.match(res.output, /整页拼接不可用/);
+  assert.match(d.meta.reason ?? '', /未注入整页几何\/滚动通道/);
+});
+
+test('real screenshot: `historyNav` is overridden by the host wrapper but every other op stays identical & visible', async () => {
+  const base = fakeBaseOps();
+  const baseOps = base.ops as unknown as Record<string, unknown> & { historyNav?: unknown };
+  baseOps.historyNav = async () => ({ ok: true, output: 'base history' });
+  baseOps.printPage = async () => ({ ok: true, output: 'base print' });
+  baseOps.reloadPage = async () => ({ ok: true, output: 'base reload' });
+  const d = deps({ hostHistoryNav: async () => ({ ok: true, originAfter: 'https://example.com' }) });
+  const ops = createRealScreenshotOps(base.ops, d);
+  assert.notEqual(ops.screenshot, base.ops.screenshot);
+  assert.notEqual(ops.historyNav, baseOps.historyNav, 'D6 must override historyNav');
+  assert.equal(ops.printPage, baseOps.printPage, 'printPage must stay identical');
+  assert.equal(ops.reloadPage, baseOps.reloadPage, 'reloadPage must stay identical');
+  assert.equal(ops.waitFor, base.ops.waitFor);
+  assert.equal(ops.extractData, base.ops.extractData);
+  const res = await ops.historyNav!(-1);
+  assert.equal(res.ok, true);
+  assert.match(res.output, /历史路径：原生（tabs\.goBack）/);
+});
+
+test('real screenshot: fullpage meta reset helper keeps the annotated「近似」wording for the approx path', () => {
+  const labeled = annotateScreenshotPath('base✓', { kind: 'approx', decided: true, reason: 'x' });
+  assert.match(labeled, /像素路径：近似（canvas，原因：x）/);
 });
 
 test('real screenshot: TRANSPARENCY — only screenshot is overridden; every other op stays identical & visible', async () => {
@@ -258,4 +285,50 @@ test('extension env: without realScreenshot deps the base path is used unchanged
   });
   const res = await env.dom!.ops!.screenshot!({ mode: 'viewport' });
   assert.equal(res.dataUrl, APPROX_DATAURL);
+});
+
+test('extension env: fullpage is delivered through the host wrapper with the honest limitation label + native back/forward', async () => {
+  const saves: string[] = [];
+  const env = createExtensionBrowserEnv({
+    currentTabId: () => 7,
+    sendDomOp: async () => ({ ok: true, output: 'ok' }),
+    sendFileSave: async (_tabId, filename) => {
+      saves.push(filename);
+      return { ok: true };
+    },
+    realScreenshot: {
+      target: () => ({ tabId: 7, origin: 'https://example.com' }),
+      hasHostPermission: async () => true,
+      capture: async () => 'data:image/png;base64,QUJD',
+      elementRect: async () => ({ ok: false, reason: 'n/a' }),
+      fullpageMetrics: async () => ({
+        ok: true,
+        metrics: { scrollWidth: 800, scrollHeight: 2000, viewportWidth: 800, viewportHeight: 600, scrollX: 0, scrollY: 0, dpr: 1 },
+      }),
+      scrollTo: async (_tabId, _x, y) => ({ ok: true, scrollX: 0, scrollY: y }),
+      stitch: async () => 'data:image/png;base64,U1RJVA==',
+      sleep: async () => {},
+      now: () => 0,
+      hostHistoryNav: async () => ({ ok: true, originAfter: 'https://example.com' }),
+    },
+  });
+  const chrome = createBrowserToolEntries({ env }).find((e) => e.name === 'chrome');
+  assert.ok(chrome, 'chrome entry must exist');
+
+  const shot = await chrome!.executor(
+    { id: 't', name: 'chrome', subcommand: 'screenshot', args: { mode: 'fullpage' } } as never,
+    {} as never,
+  );
+  assert.equal(shot.ok, true);
+  assert.match(shot.output, /整页拼接截图完成/);
+  assert.match(shot.output, /像素路径：真实像素（captureVisibleTab ×4 屏拼接）/);
+  assert.match(shot.output, /position:fixed \/ sticky 元素会在每屏重复出现/);
+  assert.ok(saves.some((f) => f.includes('screenshot-fullpage')), 'the stitched image must go through the download chain');
+
+  const back = await chrome!.executor(
+    { id: 't', name: 'chrome', subcommand: 'back', args: {} } as never,
+    {} as never,
+  );
+  assert.equal(back.ok, true);
+  assert.match(back.output, /历史路径：原生（tabs\.goBack）/);
 });

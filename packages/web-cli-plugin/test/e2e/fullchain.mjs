@@ -25,6 +25,14 @@
  * **mechanism** full chain, NOT the gesture-driven permission UX; the latter stays
  * a documented manual item (`docs/smoke-checklist.md` H0/H2/H6/H8/H10).
  *
+ * A second (D6) deviation: headless Chrome for Testing 151's
+ * `chrome.tabs.goBack/goForward` rejects「Cannot find a next page in history」even
+ * when the tab really has ≥2 history entries (verified by probing
+ * `history.length`). The D6 e2e therefore proves the **native path is attempted
+ * first** (the readable fallback carries the native API failure reason) and that
+ * the fallback is labeled; a *successful* native navigation is covered by
+ * `test/fullpage-screenshot.test.ts` with an injected host-nav seam.
+ *
  * Usage: `npm run test:e2e --workspace @lgdl/web-cli-plugin`
  * Exit code 0 = PASS; non-zero = FAIL (with a readable reason).
  */
@@ -70,6 +78,16 @@ function mockResponse(body) {
   }
   if (/domclick/i.test(userText)) {
     return completion({ toolCalls: [{ id: 'call_dom_click', name: 'dom', subcommand: 'click', args: { selector: '#notes' } }] });
+  }
+  // D2/D6: fullpage stitch + native back/forward (placed BEFORE the generic shot branch).
+  if (/fullpage|整页/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_fullpage', name: 'chrome', subcommand: 'screenshot', args: { mode: 'fullpage' } }] });
+  }
+  if (/go forward|前进/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_fwd', name: 'chrome', subcommand: 'forward', args: {} }] });
+  }
+  if (/go back|后退/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_back', name: 'chrome', subcommand: 'back', args: {} }] });
   }
   if (/shot|截图/i.test(userText)) {
     return completion({ toolCalls: [{ id: 'call_shot', name: 'chrome', subcommand: 'screenshot', args: { mode: 'viewport' } }] });
@@ -391,6 +409,7 @@ async function runScenario({ name, origin, path, expectTool, chatSteps }) {
       const text = msgs.map((m) => m.text ?? '').join('\n');
       if (process.env.E2E_DEBUG) console.log(`DEBUG ${name} "${step.user}":`, JSON.stringify(msgs));
       check(step.test(text), `${name}: ${step.label}`);
+      if (step.post) await step.post({ swCdp, optionsCdp, pageTabId, text });
     }
 
     const audit = await evaluate(optionsCdp, `chrome.runtime.sendMessage({ kind: 'audit-export' })`);
@@ -441,6 +460,10 @@ async function main() {
   console.log(`▶ chrome: ${CHROME}`);
 
   try {
+    // D2 shared state: a tall page is injected before the fullpage step; the post
+    // hook proves the original scroll position was restored.
+    const fpState = { viewportHeight: 0, originalScrollY: -1, restoredScrollY: -1, historyLength: 0 };
+    const scrollProbe = `(async () => { const r = await chrome.scripting.executeScript({ target: { tabId: __TAB__ }, func: () => ({ y: window.scrollY, h: window.innerHeight }) }); return r[0].result; })()`;
     await runScenario({
       name: 'A/fixture(non-LGDL)',
       origin: fixture.origin,
@@ -454,11 +477,106 @@ async function main() {
         { user: 'domread', label: 'dom read-state ran on the real page DOM (was missing)', test: (t) => /url:|Fixture Notes/.test(t) },
         { user: 'domclick now', label: 'dom click ran through the confirmation gate', test: (t) => /click|✓/.test(t) },
         { user: 'take a screenshot', label: 'chrome screenshot used REAL pixels (captureVisibleTab) via the page download chain', test: (t) => /chrome screenshot/.test(t) && /真实像素（captureVisibleTab）/.test(t) && !/近似（canvas/.test(t) },
+        // D2 — real fullpage scroll-stitch on a ≥2-screen page.
+        {
+          user: 'take a fullpage shot',
+          label: 'fullpage stitched ≥2 screens with captureVisibleTab and declared the approximation limits',
+          pre: async ({ swCdp, pageTabId }) => {
+            await evaluate(
+              swCdp,
+              `(async () => {
+                await chrome.scripting.executeScript({ target: { tabId: ${pageTabId} }, func: () => {
+                  document.body.style.minHeight = '4200px';
+                  for (let i = 0; i < 60; i += 1) {
+                    const p = document.createElement('p');
+                    p.textContent = 'fullpage-line-' + i + ' ' + 'x'.repeat(60);
+                    document.body.appendChild(p);
+                  }
+                  window.scrollTo(0, 0);
+                } });
+                await chrome.tabs.update(${pageTabId}, { active: true });
+                return true;
+              })()`,
+            );
+            const probe = await evaluate(swCdp, scrollProbe.replace('__TAB__', String(pageTabId)));
+            fpState.viewportHeight = Number(probe?.h ?? 0);
+            fpState.originalScrollY = Number(probe?.y ?? 0);
+            return true;
+          },
+          test: (t) => {
+            const m = /像素路径：真实像素（captureVisibleTab ×(\d+) 屏拼接）/.exec(t);
+            const screens = m ? Number(m[1]) : 0;
+            const dims = /尺寸: (\d+)×(\d+)px/.exec(t);
+            const height = dims ? Number(dims[2]) : 0;
+            const multi = screens >= 2;
+            const taller = fpState.viewportHeight > 0 && height > fpState.viewportHeight;
+            return (
+              /chrome screenshot/.test(t) &&
+              /整页拼接截图完成/.test(t) &&
+              multi &&
+              taller &&
+              /position:fixed \/ sticky 元素会在每屏重复出现/.test(t) &&
+              /滚动位置：已恢复（未把页面留在底部）/.test(t) &&
+              /非「完整\/无损」整页/.test(t)
+            );
+          },
+          post: async ({ swCdp, pageTabId }) => {
+            const probe = await evaluate(swCdp, scrollProbe.replace('__TAB__', String(pageTabId)));
+            fpState.restoredScrollY = Number(probe?.y ?? -1);
+            check(
+              fpState.restoredScrollY === fpState.originalScrollY,
+              `A/fixture(non-LGDL): fullpage restored the original scroll position (${fpState.originalScrollY} → ${fpState.restoredScrollY})`,
+            );
+          },
+        },
         {
           user: 'take a screenshot again',
           label: 'screenshot honestly falls back to canvas + reason when the target tab is not visible',
           pre: ({ swCdp }) => evaluate(swCdp, `chrome.tabs.query({ url: chrome.runtime.getURL('options.html') }).then((tabs) => tabs[0] && chrome.tabs.update(tabs[0].id, { active: true })).then(() => true)`),
           test: (t) => /近似（canvas，原因：/.test(t) && /captureVisibleTab/.test(t),
+        },
+        // D6 — native tab-level history is attempted first; when the environment's
+        // native API cannot run, the page-context history fallback is labeled
+        // readably with the concrete native failure reason (never silent).
+        {
+          user: 'go forward',
+          label: 'back/forward prefers native tabs.goForward and labels the readable fallback with its reason',
+          test: (t) => /历史路径：页面 history（回退，原因：Cannot find a next page in history\.）/.test(t),
+        },
+        {
+          user: 'go back',
+          label: 'back/forward attempts native tabs.goBack with real history (headless fallback labeled; see deviation)',
+          pre: async ({ swCdp, pageTabId }) => {
+            // Seed real cross-document history so the native path has a target.
+            await evaluate(swCdp, `chrome.tabs.update(${pageTabId}, { active: true }).then(() => true)`);
+            await sleep(300);
+            await evaluate(swCdp, `chrome.tabs.update(${pageTabId}, { url: '${fixture.origin}/' }).then(() => true)`);
+            await sleep(1200);
+            await evaluate(
+              swCdp,
+              `chrome.scripting.executeScript({ target: { tabId: ${pageTabId} }, func: (u) => { location.href = u; }, args: ['${fixture.origin}/index.html'] }).then(() => true)`,
+            );
+            await sleep(1500);
+            const lenRes = await evaluate(
+              swCdp,
+              `chrome.scripting.executeScript({ target: { tabId: ${pageTabId} }, func: () => history.length }).then((r) => r[0].result)`,
+            );
+            fpState.historyLength = Number(lenRes ?? 0);
+            return true;
+          },
+          test: (t) =>
+            // Native is attempted first. In headless Chrome for Testing 151 the
+            // `chrome.tabs.goBack/goForward` API rejects even with real history
+            // (history.length=2) — a documented headless deviation — so the honest
+            // fallback label carrying the native failure reason is the observable
+            // evidence that the native path was preferred.
+            /历史路径：页面 history（回退，原因：Cannot find a next page in history\.）/.test(t),
+          post: async () => {
+            check(
+              fpState.historyLength >= 2,
+              `A/fixture(non-LGDL): native back was attempted with ≥2 real history entries (history.length=${fpState.historyLength}) — the fallback is the headless tabs API, not missing history`,
+            );
+          },
         },
       ],
     });
@@ -490,6 +608,9 @@ async function main() {
   }
   console.log('R8 E2E PASS — real dist full chain: fixture (AC-010) + LGDL Workbench (AC-009)');
   console.log('deviations: host_permissions pre-granted for local origins + <all_urls> (gesture-driven permission UX = manual)');
+  console.log(
+    'deviation (D6): headless Chrome for Testing 151 chrome.tabs.goBack/goForward rejects「Cannot find a next page in history」even with real history (history.length=2) — the e2e proves native is attempted first + the readable fallback; native success is covered by test/fullpage-screenshot.test.ts (injected host nav)',
+  );
 }
 
 main().catch((err) => {
