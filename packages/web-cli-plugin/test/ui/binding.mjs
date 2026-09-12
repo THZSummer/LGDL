@@ -169,6 +169,27 @@ async function waitForToolResult(substr, tries = 150, gapMs = 100) {
 // ── mock LLM (OpenAI-compatible, non-streaming) ──────────────────────────────
 /** Every request body seen by the mock, so the test can inspect the real `tools`. */
 const llmRequests = [];
+
+/**
+ * FR-050 / EC-023: a REAL local origin that is deliberately **not** covered by
+ * the extension's host_permissions — the "unauthorized domain". If the fixed
+ * extension ever sends the request (instead of refusing up-front), this server
+ * records the hit (CORS blocks the *response*, not the request), so a non-empty
+ * `unauthHits` is hard proof the pre-flight gate failed.
+ */
+const unauthHits = [];
+let UNAUTH_URL = '';
+function startUnauthTarget() {
+  const server = createServer((req, res) => {
+    unauthHits.push(req.url || '/');
+    res.writeHead(200, { 'access-control-allow-origin': '*' });
+    res.end('SECRET-UNAUTH-BODY');
+  });
+  return new Promise((resolveListen) => {
+    server.listen(0, '127.0.0.1', () => resolveListen({ server, origin: `http://127.0.0.1:${server.address().port}` }));
+  });
+}
+
 function startMockLlm() {
   const server = createServer((req, res) => {
     const cors = {
@@ -217,6 +238,20 @@ function startMockLlm() {
               role: 'assistant',
               content: '',
               tool_calls: [{ id: 'call_tabs_switch', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'switch', args: { match: 'localhost:5173' } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__WEBFETCH_UNAUTH__')) {
+            // FR-050: ask the real web-fetch to read an UNauthorized origin.
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_wf_unauth', type: 'function', function: { name: 'web-fetch', arguments: JSON.stringify({ args: { path: UNAUTH_URL } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__WEBFETCH_SAME__')) {
+            // FR-050 (C): same-origin read of the bound site (page-context path).
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_wf_same', type: 'function', function: { name: 'web-fetch', arguments: JSON.stringify({ args: { path: '.well-known/web-cli.json' } }) } }],
             };
           } else {
             message = { role: 'assistant', content: `收到 ${user}（binding mock）` };
@@ -336,6 +371,25 @@ async function phase0() {
     check(Boolean(sw), '#0 service worker 加载且可达');
     if (!sw) return;
 
+    // FR-050 (D): verify there is no REAL extension LOAD error (SW registration /
+    // manifest / syntax). Capture the SW's console errors + uncaught exceptions
+    // while the extension starts up, then report truthfully.
+    await sw.send('Runtime.enable');
+    await sw.send('Log.enable');
+    const swErrors = [];
+    sw.on('Runtime.exceptionThrown', (p) => swErrors.push(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text ?? 'exception'));
+    sw.on('Runtime.consoleAPICalled', (p) => {
+      if (p.type === 'error') swErrors.push(p.args.map((a) => a.value ?? a.description ?? a.type).join(' '));
+    });
+    sw.on('Log.entryAdded', (p) => {
+      if (p.entry.level === 'error') swErrors.push(p.entry.text);
+    });
+    await sleep(800);
+    const loadErrors = swErrors.filter((e) => /Uncaught|SyntaxError|Failed to load|Manifest|Service worker registration/i.test(e));
+    check(loadErrors.length === 0, '#0h 无扩展加载错误（未捕获异常 / 语法 / SW 注册 / manifest 错误）', loadErrors.join(' | '));
+    if (swErrors.length) observe(`#0i SW 启动期错误/异常观测（如实记录，可能含运行期而非加载期）：${swErrors.join(' | ')}`);
+    else observe('#0i SW 启动期 0 错误/异常');
+
     const runtime = await evaluate(
       sw,
       `(async () => {
@@ -426,6 +480,19 @@ async function phase1(mock) {
     check(Boolean(sw), '#1 service worker 可达');
     if (!sw) throw new Error('no sw');
 
+    // FR-050 (D): capture SW console/errors so the web-fetch step can prove no
+    // CORS entry is produced after the fix (and so any real load error is visible).
+    await sw.send('Runtime.enable');
+    await sw.send('Log.enable');
+    const swConsoleErrors = [];
+    sw.on('Runtime.exceptionThrown', (p) => swConsoleErrors.push(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text ?? 'exception'));
+    sw.on('Runtime.consoleAPICalled', (p) => {
+      if (p.type === 'error') swConsoleErrors.push(p.args.map((a) => a.value ?? a.description ?? a.type).join(' '));
+    });
+    sw.on('Log.entryAdded', (p) => {
+      if (p.entry.level === 'error') swConsoleErrors.push(p.entry.text);
+    });
+
     const siteTabId = await evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(SITE_ORIGIN)} }).then((t) => t.id)`, 20000);
     await sleep(2500);
     const extId = await evaluate(sw, `chrome.runtime.id`);
@@ -445,6 +512,11 @@ async function phase1(mock) {
     ext.on('Log.entryAdded', (p) => {
       if (p.entry.level === 'error') spConsoleErrors.push(p.entry.text);
     });
+
+    // FR-050 (D): a real message round-trip proves the SW is registered and the
+    // router is live (not merely that a CDP target exists).
+    const pong = await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'ping' }).then((r) => (r && r.ok ? 'pong' : 'no-pong')).catch((e) => 'ERR:' + String(e))`);
+    check(pong === 'pong', '#1d SW 已注册并响应消息（真实 ping 往返）', String(pong));
 
     // #3 the site really declares web-cli (well-known + html link)
     const siteTarget = await findTarget(base, (t) => t.type === 'page' && t.url.startsWith(SITE_ORIGIN));
@@ -642,6 +714,32 @@ async function phase1(mock) {
     const listFullResult = await waitForToolResult('--full 模式');
     check(Boolean(listFullResult), '#7d tabs list --full 显式返回完整 URL', (listFullResult ?? '').slice(0, 200));
     check((listFullResult ?? '').includes('TOPSECRET'), '#7e --full 模式下 query 可见（显式选项，已披露）', (listFullResult ?? '').slice(0, 300));
+
+    // ── FR-050 / EC-023: web-fetch pre-flight gate (real extension + real network) ──
+    // The mock LLM asks the real web-fetch to read a REAL local origin that is NOT
+    // in host_permissions. The fixed seam must refuse readably and send ZERO
+    // requests (the target server records any hit → hard evidence).
+    const wfErrStart = swConsoleErrors.length;
+    const unauthBefore = unauthHits.length;
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__WEBFETCH_UNAUTH__' }).then(() => true)`);
+    // NB: a distinctive substring — `未授权` alone also appears in the earlier
+    // tabs-list output, which would make the wait return before this call runs.
+    const wfRefusal = await waitForToolResult('web-fetch 拒绝访问');
+    check(Boolean(wfRefusal), '#7f 未授权域名 web-fetch 返回可读拒绝（非裸 CORS 文本）', (wfRefusal ?? '').slice(0, 260));
+    check(/授权当前站点/.test(wfRefusal ?? '') && /tabs open/.test(wfRefusal ?? ''), '#7g 拒绝文案含两条可执行授权指引', (wfRefusal ?? '').slice(0, 260));
+    check(unauthHits.length === unauthBefore, '#7h 未授权域名零请求（真实本地目标服务器未收到任何命中）', JSON.stringify(unauthHits.slice(unauthBefore)));
+    const wfCorsErrors = swConsoleErrors.slice(wfErrStart).filter((e) => /CORS|Access to fetch|blocked by CORS/i.test(e));
+    check(wfCorsErrors.length === 0, '#7i 修复后未产生 CORS 错误条目（SW 控制台/错误列表）', wfCorsErrors.join(' | '));
+
+    // Let the previous turn fully finish (a new `chat` while busy is rejected).
+    await sleep(900);
+
+    // FR-050 (C): same-origin relative read truly works via the page context.
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__WEBFETCH_SAME__' }).then(() => true)`);
+    const sameRead = await waitForToolResult('protocolVersion');
+    check(Boolean(sameRead), '#7j 同源相对路径经页面上下文真实读取成功（绑定站点自身资源）', (sameRead ?? '').slice(0, 200));
+    check(/LGDL Web Workbench|protocolVersion/.test(sameRead ?? ''), '#7k 同源读取内容为站点真实声明（非空/非占位）', (sameRead ?? '').slice(0, 200));
+    await sleep(900);
 
     // Close the leak tab so `switch --match localhost:5173` is unambiguous.
     await evaluate(sw, `chrome.tabs.remove(${leakTabId}).then(() => true)`);
@@ -873,8 +971,11 @@ async function main() {
   }
   const site = await ensureSite();
   const mock = await startMockLlm();
+  const unauth = await startUnauthTarget();
+  UNAUTH_URL = `${unauth.origin}/secret`;
   console.log(`▶ site:   ${site.origin}`);
   console.log(`▶ mock:   ${mock.origin}`);
+  console.log(`▶ 未授权域名目标服务器（不在 host_permissions）: ${unauth.origin}`);
   console.log(`▶ chrome: ${CHROME}`);
   console.log(`▶ dist:   ${dist}`);
 
@@ -884,6 +985,7 @@ async function main() {
     await phase2();
   } finally {
     mock.server.close();
+    unauth.server.close();
     if (site.proc) site.proc.kill('SIGKILL');
   }
 
@@ -896,7 +998,7 @@ async function main() {
     for (const f of failures) console.error(`  - ${f}`);
     process.exit(1);
   }
-  console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）+ 阶段 2 自动探测（授权后免点图标自动绑定）+ FR-049 标签页工具（真实 tabs list --full/默认 与 tabs switch → 会话随之切换）`);
+  console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）+ 阶段 2 自动探测（授权后免点图标自动绑定）+ FR-049 标签页工具（真实 tabs list --full/默认 与 tabs switch → 会话随之切换）+ FR-050 web-fetch 预校验（未授权域名零请求 + 可读拒绝；同源经页面上下文真实读取；SW ping 往返 + 无加载/CORS 错误）`);
 }
 
 main().catch((err) => {

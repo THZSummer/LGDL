@@ -62,7 +62,13 @@ const SYSTEM_PROMPT =
   'You are the web-cli plugin assistant. Use the available tools to operate on the ' +
   'currently authorized website. Tools named "site_*" are declared by the site ' +
   'and run in the page via RPC (the original site id is preserved for dispatch). ' +
-  'Always respect authorization and confirmation prompts. Never reveal secrets.';
+  'Always respect authorization and confirmation prompts. Never reveal secrets. ' +
+  'When a tool call FAILS you MUST report it to the user explicitly in your reply ' +
+  '(which tool failed and the readable reason) — never gloss over a failure or say ' +
+  'there is nothing to report. If the failure reason says the target origin is not ' +
+  'authorized (web-fetch refuses instead of sending a CORS-blocked request), tell ' +
+  'the user to click the extension icon on that site tab and choose「授权当前站点」' +
+  '(or use tabs open) and then retry.';
 
 interface Singletons {
   kv: ReturnType<typeof createChromeAsyncKv>;
@@ -331,6 +337,28 @@ async function init(): Promise<Singletons> {
         audit,
       }),
       tabsEnabled: tabsSetting.get(),
+      // FR-050 / EC-023: controlled `web-fetch` seam. The pre-flight gate checks
+      // the host permission BEFORE fetching (uncovered origins → zero request +
+      // readable refusal); same-origin reads prefer the bound tab's page context.
+      webFetch: {
+        currentOrigin: () => controller.get()?.origin,
+        hasHostPermission: (origin) => hasOriginPermission(origin),
+        fetchImpl: globalThis.fetch.bind(globalThis),
+        fetchViaPage: async (url) => {
+          const tabId = controller.get()?.tabId;
+          if (tabId === undefined) return { ok: false, error: '当前无绑定标签页，无法走页面上下文读取' };
+          try {
+            const res = (await chrome.tabs.sendMessage(tabId, makeMessage('fetch-text', { url }))) as
+              | PluginResponse<{ ok: boolean; status?: number; text?: string; error?: string }>
+              | undefined;
+            if (!res) return { ok: false, error: '站点未响应（content script 未注入或页面已导航）' };
+            if (!res.ok || !res.data) return { ok: false, error: res.error ?? '页面上下文读取失败' };
+            return res.data;
+          } catch (err) {
+            return { ok: false, error: err instanceof Error ? err.message : String(err) };
+          }
+        },
+      },
     });
 
     // restore runtime session (EC-013)

@@ -58,6 +58,36 @@ async function fetchText(url: string): Promise<DiscoveryFetchResult> {
 }
 
 /**
+ * FR-050 / EC-023: same-origin page-context read for the controlled `web-fetch`
+ * seam. The content script runs with the page's own origin, so this fetch is a
+ * same-origin request (no extension CORS). Cross-origin URLs are refused readably
+ * — the extension host fetch (host permission) is the only cross-origin path.
+ */
+async function fetchSameOriginText(
+  url: string,
+): Promise<{ ok: boolean; status?: number; text?: string; error?: string }> {
+  let target: URL;
+  try {
+    target = new URL(url);
+  } catch {
+    return { ok: false, error: `URL 无法解析：${url}` };
+  }
+  if (target.origin !== location.origin) {
+    return {
+      ok: false,
+      error: `跨源拒绝：页面上下文仅能读取当前站点同源资源（${location.origin}），收到 ${target.origin}`,
+    };
+  }
+  try {
+    const res = await fetch(target.toString(), { credentials: 'omit', cache: 'no-store' });
+    const text = await res.text();
+    return res.ok ? { ok: true, status: res.status, text } : { ok: false, status: res.status, text, error: `HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
  * Run discovery and return the report payload (TASK-019 任务 B: also reused by
  * the side panel's explicit 「重新探测」 entry). Always reports to the background
  * so the controller/state stay authoritative; the payload is returned so a
@@ -130,6 +160,16 @@ chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     // Answering with our own `location.origin` lets it auto-bind without
     // `tabs` permission / `tab.url` / a user gesture.
     sendResponse(okResponse({ origin: location.origin }));
+    return true;
+  }
+  if (raw.kind === 'fetch-text') {
+    // FR-050 / EC-023: same-origin read served by the page context (the controlled
+    // web-fetch seam prefers this transport for the bound origin's own resources).
+    const url = typeof raw.url === 'string' ? raw.url : '';
+    void fetchSameOriginText(url).then(
+      (result) => sendResponse(okResponse(result)),
+      (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
+    );
     return true;
   }
   return undefined;

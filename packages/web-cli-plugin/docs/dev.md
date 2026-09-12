@@ -368,6 +368,43 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 
 **回归门禁**：`test/markdown.test.ts`（12 用例：XSS / 链接 scheme / 表格 / 代码块 / 列表 / 标题 / 行内 / 未闭合语法 / 纯解析 / 无 HTML 注入 API）；`test/sidepanel-view.test.ts` 静态钉住集成与样式；`npm run test:ui` 新增 **#14a~#14i**（mock LLM 返回含恶意 HTML 的 Markdown → 经真实 `chat-result` 渲染 → 断言真实 `h1`/`strong`/`table`/`pre>code`、无 `script`/`img`、恶意内容为文本、无水平溢出）。
 
+### 10.9 「为什么 web-fetch 报 CORS？如何正确使用」（FR-050 / EC-023）
+
+**现象**：在 `chrome://extensions` 的错误列表里出现
+
+```
+Access to fetch at 'https://www.baidu.com/' from origin
+'chrome-extension://<扩展 id>' has been blocked by CORS policy:
+No 'Access-Control-Allow-Origin' header is present on the requested resource.
+```
+
+同时助手的回复像「没有任何通知，往前走吧」——工具失败既没成为可见提示，也没有可读原因。
+
+**根因（代码级）**：base 的 `web-fetch`（`packages/web-cli-base/src/web-fetch.ts:138,143`）在 **MV3 service worker** 里直接 `globalThis.fetch`。扩展页面本身是一个源（`chrome-extension://<id>`），对任何**不在 `manifest.host_permissions`** 的站点都是跨源请求 → Chrome 必然 CORS 拦截；而且请求一旦发出，浏览器网络栈就会把该 CORS 错误写进 `chrome://extensions`，与代码是否 `catch` 无关。旧实现还把失败只作为 tool 结果塞进 LLM 上下文，侧栏没有把它当错误事件呈现。
+
+**现在（受控预校验，先判断再请求）**：插件侧用 `src/tools/web-fetch-tool.ts` 的同名受控工具**替换** base 内建（`host.ts` 传 `builtins: ['sleep','web-cli-help']` 后注册受控条目；`service-worker.ts` 注入真实依赖）。执行前先做预校验：
+
+| `--path` 形态 | 判定 | 行为 |
+|---------------|------|------|
+| 相对路径（如 `guide.md`） | 用**当前绑定站点 origin** 解析为绝对 URL；该 origin 需有 host 权限 | 有 → 读；无 → **不发请求**，可读拒绝 + 指引 |
+| 绝对 `http(s)` URL | `chrome.permissions.contains({origins:[origin+'/*']})` | 覆盖 → 读；未覆盖 → **不发请求**，可读拒绝 + 指引 |
+| `file:`/`data:`/`javascript:`/`chrome:`/`about:` 等 | scheme 白名单 | 可读拒绝，不发请求 |
+
+因此**未授权域名零请求**，`chrome://extensions` 不再出现该 CORS 错误条目（`test:binding` #7h/#7i 用真实本地目标服务器 + 真实 SW 控制台取证）。拒绝文案包含原因（未授权域名 + 扩展跨源限制）与两条可执行指引：① 在该站点标签页点插件图标 →「授权当前站点」→ 重试；② 用 `tabs open` 打开该站点并授权，再由站点工具/页面上下文读取。
+
+**同源读取真正可用（C）**：相对路径 / 同源资源在**已授权**时优先走**页面上下文**——后台经 `fetch-text` 消息请求绑定标签页的 content script（`content/content-script.ts` 的 `fetchSameOriginText`，页面自身同源 `fetch`），把结果包成一个 `Response` 交回 base executor，因此 HTML→Markdown 清洗 / 大小护栏 / untrusted 标记仍由 base 单一实现（零重复）。页面上下文不可用时回退到宿主 fetch（此时 host 权限已授予，不会 CORS）。
+
+**失败可见（B）**：失败的工具结果在侧栏渲染为**红色错误条目**（`chat-state.ts` 对 `ok:false` 的 tool 条目使用 `kind:'error'` → `.entry-error` + `.tool-status.fail`「✖ 失败」），不再只进 LLM 上下文；system prompt 明确要求「工具失败必须向用户报告，不得一带而过」，并在未授权域名场景给出授权指引。
+
+**如何使用（正确姿势）**：
+
+- 读**当前绑定站点自己的资源** → 用同源相对路径：`web-fetch --path guide.md`（先绑定并授权该站点）。
+- 读**其他域名** → 先在该站点标签页点插件图标并「授权当前站点」，再传完整 `https://…` URL。
+- 只是想在那个站点页面上做事 → 用 `tabs open --url https://…` 打开并授权，让站点工具/页面上下文去读。
+- 不要指望对**未授权域名**发 `web-fetch` 成功——会被明确拒绝（这是设计，不是故障）。
+
+**为什么不是「插件加载报错」**：CORS 是**运行期**的网络策略拦截（请求已发但响应被浏览器拒绝），不是 manifest/SW 注册/语法等**加载期**错误。`test:binding` 阶段 0 另行断言 SW 已注册、可响应消息、且无未捕获异常/语法/SW 注册/manifest 加载错误（#0h），把「加载错误」与「运行期 CORS」如实分开。
+
 ## 11. 侧栏对话界面布局（TASK-023 整体重做）
 
 > 用户实测反馈：插件侧栏的对话体验比「做插件之前原本的 AI 助手」明显更差。本轮**先 `git show` 读回原

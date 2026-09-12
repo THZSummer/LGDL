@@ -1954,6 +1954,78 @@ else log.scrollTop = prevTop;
 - **`list` 的 `--full` 会主动把完整 URL（含 query）送入 LLM 上下文**：这是显式选项，已披露，未做二次确认（作者要求的确认面是 `open` 的写入档；`list` 档位为 read）。如需对 `--full` 也加确认，属后续增强，本轮未做。
 - **审计与 UI 的 `tabs` 计数**：`test:binding` 观测到工具面由 12 → **13**（新增 `tabs`）；既有测试中三处「无 tabs 权限」红线段言按作者决策③**更新为「已批准权限集合」**（`test/auto-session-wiring.test.ts`、`test/binding-wiring.test.ts`、`test/extension-env.test.ts`），属**决策驱动的断言语义更新**，非删除/降级（断言仍存在且更严：`deepEqual` 精确集合 + 无 `<all_urls>`）。
 
+## 25. v0.9 缺陷修复：`web-fetch` CORS 预校验 + 失败可见（用户实测“插件加载报错”；TASK-027）
+
+### 25.1 现状诊断（用户真机证据 + 代码级根因）
+
+用户 `chrome://extensions` 错误列表原文：
+
+```
+Access to fetch at 'https://www.baidu.com/' from origin
+'chrome-extension://faacmhkbceminaegdjdbodfgimjjohoh' has been blocked by CORS policy:
+No 'Access-Control-Allow-Origin' header is present on the requested resource.
+```
+
+同时侧栏助手回复「这里没有任何通知，往前走吧」——工具失败既没成为可见提示，模型也没告知用户。
+
+根因（代码级，已核对）：
+
+- base `packages/web-cli-base/src/web-fetch.ts:138` `const fetcher = opts.fetchImpl ?? globalThis.fetch.bind(globalThis)`；`:143` `fetcher(path, …)`——**在扩展 service worker 里直接 fetch**。
+- 扩展页面是独立源（`chrome-extension://<id>`）；`manifest.host_permissions` 只有 6 个 LLM 端点，`https://www.baidu.com/` 不在其中 → 必然 CORS。
+- `web-fetch` 因 base `BUILTIN_ORDER` 默认注册（`router.ts:243-246`），插件 `host.ts` 未传 `builtins` → 对 LLM 可见且可调用。
+- 该工具**实际只在「已授予 host 权限的 origin」与 6 个 LLM 端点上可用**；对任意站点不可用。
+- 失败的 `✖` 文案只进 tool 结果（LLM 上下文），侧栏未把它当错误事件呈现；system prompt 也没要求模型必须报告工具失败。
+
+### 25.2 实现（file:line 对照）
+
+| 项 | 位置 | 说明 |
+|----|------|------|
+| 受控 seam（URL/权限预校验） | NEW `src/tools/web-fetch-tool.ts:77` `resolveWebFetchTarget`、`:150` `untrustedOriginGuidance`、`:219` `createWebFetchToolEntry`、`:230` `hasHostPermission(target.origin)` | 相对路径→绑定 origin；绝对 http(s)→权限判定；**未覆盖 → 不发请求 + 可读拒绝 + 两条指引**；非 http(s) scheme → 可读拒绝 |
+| 替换 base 同名内建 | `src/background/host.ts:98` `builtins: ['sleep','web-cli-help']` + `:146` 注册受控条目 | 排除 base `web-fetch` 内建、注册同名受控 business 条目（无重复注册；`web-cli-help`/`sleep` 不变），所有分发仍走 `router.dispatch`（门禁/审计不旁路） |
+| 真实依赖注入 | `src/background/service-worker.ts:343-360` `webFetch` deps（`currentOrigin`/`hasOriginPermission`/`fetchImpl`/`fetchViaPage`） | 未传 seam 的宿主（node 单测）仍回退 base 内建 |
+| 同源页面上下文（C） | `src/content/content-script.ts:66` `fetchSameOriginText`、`:165` `fetch-text` 分支；`web-fetch-tool.ts:183` `buildPageFetch` | 同源优先由 content script 用页面自身 origin fetch，结果包成 `Response` 交回 base executor → HTML→MD/护栏/untrusted 标记**零重复** |
+| 失败可见（B） | `src/ui/sidepanel/chat-state.ts:120` 失败 tool 条目 `kind:'error'`（`.entry-error` + `.tool-status.fail`「✖ 失败」） | 失败不再只进 LLM 上下文 |
+| system prompt | `src/background/service-worker.ts:61-69` | 工具失败必须向用户明确报告；未授权域名给授权指引 |
+| 消息协议 | `src/background/messaging.ts` 新增 `fetch-text` kind | 后台↔content 的同源读取消息 |
+
+### 25.3 门禁结果（本轮复跑，原文摘录）
+
+- 插件 `npm test`：**309 pass / 0 fail**（292→309，+17：`test/web-fetch-tool.test.ts` 15 + `test/sidepanel-view.test.ts` +2）。
+- 插件 `npx tsc --noEmit`：**0 error**。
+- `npm run test:ui`：**87 断言 PASS**（85→87，+2：`#15v` 失败工具「✖ 失败」卡片可见 / `#15w` 失败条目 `.entry-error` 错误色）。
+- `npm run test:binding`：**81 断言 PASS**（保留既有 73 + 新增 8：`#0h` 无扩展加载错误 / `#1d` SW ping 往返 / `#7f` 未授权可读拒绝 / `#7g` 拒绝含两条授权指引 / `#7h` **未授权域名零请求（真实本地目标服务器零命中）** / `#7i` 无 CORS 错误条目 / `#7j` 同源相对路径经页面上下文真实读取 / `#7k` 读取内容为站点真实声明）。
+- `npm run test:hardening`：**22 断言 PASS**。
+- `npm run test:e2e`：**PASS**（场景 A fixture AC-010 + 场景 B LGDL Workbench AC-009）。
+- 全仓 `npm run build`：**退出码 0**；全仓 `npm test`：**0 fail**（plugin 309 / base **483 零回归** / lgdl-core 267 / lgdl-render 94+1skip / lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / lgdl-cli 0 / lgdl-layout 0）。
+- 红线：**base 零改动**（`git status packages/web-cli-base` 空）；**无新依赖**（`package.json` 零 diff）；**manifest 零 diff**（权限面不变，仍无 `<all_urls>`/`*://*/*`、无静态 `content_scripts`）；**`.opencode/opencode.json` 零改动**；无明文 key；无静默失败。
+- 构建戳：`2026-09-12T10:49:41.615Z`（最终全仓 build）。
+
+### 25.4 D 项核实结论：「插件加载报错」是否真有加载错误
+
+- **结论：不存在与 `web-fetch` 相关的真实“加载错误”。** 用户看到的 CORS 是**运行期**网络策略拦截（请求已发出但响应被浏览器拒绝），不是 manifest/SW 注册/语法等**加载期**错误。
+- 证据（`test/ui/binding.mjs` 阶段 0，真实 `dist` + fresh profile）：
+  - `#0`：service worker 加载且可达（存在 `service_worker` CDP target 且可求值 manifest）。
+  - `#0h`：SW 启动期未捕获异常 / `SyntaxError` / `Failed to load` / `Service worker registration` / `Manifest` 错误 = **0**（原文 `#0i SW 启动期 0 错误/异常`）。
+  - `#1d`：SW 对真实 `ping` 消息往返返回 `pong`（注册与消息路由均正常）。
+- 修复后触发一次未授权域名 `web-fetch`：`#7h` 真实本地目标服务器**零命中**（未发请求）；`#7i` SW 控制台/错误列表**无任何 CORS 条目**（`Access to fetch` / `blocked by CORS` = 0）。
+- 如实说明：本机未通过 DOM 直接读取 `chrome://extensions` 内部页错误列表（该页为 shadow DOM 内部实现），以「真实目标服务器零命中 + SW 控制台零 CORS 条目 + 同源读取成功」作为**等价且更强**的取证；未掩盖任何观测到的真实加载错误（本轮观测为 0）。
+
+### 25.5 新增决策（D-107~D-111）
+
+- **D-107（先判定再请求，绝不发注定被 CORS 拦的请求）**：根因是「先 fetch 再被浏览器拦」，而请求一旦发出，浏览器网络栈就会写 `chrome://extensions` CORS 条目（与是否 catch 无关）。修复选择**预校验前置**：未授权域名**零请求**，从源头消除错误列表条目（EC-023）。**被否决**：捕获 CORS 后翻译文案（错误列表条目仍然产生，且仍可能被拦截）。
+- **D-108（受控 seam 替换 base 同名内建，而非 host 旁路）**：通过 `createCommandRouter({ builtins:['sleep','web-cli-help'] })` 排除 base `web-fetch` 内建，再以插件 business 条目注册**同名**受控工具；`dispatch/deriveTools/deriveCommand/help` 全部仍走 `router.dispatch`，权限门禁与审计不旁路（对比：在 `host.dispatch` 里拦截会绕过 gate/audit，已否决）。**base 零改动**（红线）。
+- **D-109（A 的零请求边界优先于 C 的页面上下文）**：同源读取走页面上下文（C）**仅在目标 origin 已获 host 权限时启用**；相对路径的绑定 origin 无 host 权限时仍严格按 A **不发请求**、可读拒绝。这样「未授权域名零请求」的可验证边界不被 C 破坏；若未来要在 activeTab-only 下读站点自身同源资源，属需另行裁定的增强，本轮不做。
+- **D-110（失败可见 = 错误条目 + system prompt 强制报告）**：失败 tool 结果在侧栏标记为 `kind:'error'`（复用既有 `.entry-error`/`.tool-status.fail` 错误色），并在 system prompt 明确「工具失败必须向用户报告；未授权域名给授权指引」。LLM 收到的是**可读失败原因**（受控 seam 文案），而非裸 CORS 文本。
+- **D-111（“加载错误”与“运行期 CORS”如实分离）**：以阶段 0 的 SW 注册/消息往返/零未捕获异常断言证明无加载错误；并把该结论与运行期 CORS 分开陈述（25.4），不把运行期错误说成加载错误，也不掩盖任何真实加载错误。
+
+### 25.6 未完成 / 未复现 / 降级（如实，不粉饰）
+
+- **真机浏览器范围**：门禁均在 `.pw-browsers` Chromium `--headless=new` 下（fresh profile + 真实 `dist`）；**系统 Chrome/Edge 未单独重测**。`chrome://extensions` 内部页错误列表未用 DOM 直读（见 25.4 等价取证）。
+- **`host_permissions` 未变**：仍只有 6 个 LLM 端点（`manifest.json` 零 diff）；因此对任意未授权站点 `web-fetch` 仍**不可用**——这是显式边界（可读拒绝 + 指引），不是故障。
+- **C 的适用范围**：同源页面上下文仅在「绑定站点 + 已获 host 权限」时启用；未覆盖 activeTab-only（无 host 权限）时的同源页面读取（D-109，遵循 A 的零请求红线）。
+- **base 行为保持**：base `web-fetch` 仍允许 `data:`/相对路径等（`web-fetch.test.ts` 零回归）；非 http(s) 拒绝只发生在**插件受控层**，base 零改动。
+- **`test:binding` 的 mock 分支**：通过 user 文本标记（`__WEBFETCH_UNAUTH__` / `__WEBFETCH_SAME__`）驱动真实工具调用，非真实模型决策；工具执行、网络、SW 控制台均为真实。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -1976,3 +2048,4 @@ else log.scrollTop = prevTop;
 | v1.15 | ① 消息不自动滚动缺陷修复（§21，用户实测第八轮）：根因 = TASK-023「追加前判定 + 24px 阈值」的**误判即棘轮**（一次不跟随就还原 `prevTop`，此后恒不跟随）；修复 = 新增纯策略模块 `src/ui/sidepanel/scroll-policy.ts`（实时锚定 + 48px 阈值 + `userSent()` 一次性强制），`render()` 消费决策、`followToBottom` 以 `requestAnimationFrame` 布局后钉底（次帧仅仍锚定时，绝不抢用户上滚）；发送**无条件**到底，thinking 出现/消失同走 `render()`，上滚保留入口与位置；`test/sidepanel.test.ts` +7、`journey.mjs` +3（#15r/s/t）、`binding.mjs` +3（#6k/6k2/6l，真实发送到底）；D-087~D-089。② 能力面审计（§22，**只报告未改行为/注册**）：base 全量工厂清单 + 插件实际注册面（`host.ts:64` 未传 `builtins` → 仅 base 默认 3 内建 + 6 `admin_*` + `ask-user` + 站点声明 2 = **12**，`web-cli-help` `listed:false` → 自列 **11**，与用户实测吻合）+ 34 行漂移对照（明确漂移=第 1/2 行 web-fetch/sleep 被误写「非独立工具」；部分漂移=第 27/31 行 chrome/events；轻度=第 21 行 eval-js risk 理由）+ 未注册工具适用性/代价/risk 档 + 分级建议。门禁：插件 222→**229**、`tsc` 0 error、`test:ui` 67→**70**、`test:binding` 41→**44**、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）、base/`package.json`/`.opencode/opencode.json` 零改动、无新依赖、`capability-matrix.md` 未改；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.16 | **v0.9 增补：自动探测 + 多会话**（§23，作者 2026-09-12 两项架构级决策；TASK-024/025）：①**自动探测（FR-047/ADR-014）**——新增 `src/background/content-script-registry.ts`（`registerContentScripts` + `persistAcrossSessions` + 启动/安装/权限变更对账，补齐缺失·清理已撤销·失败可读）；`authorize` 授权即注册、`revoke` 即注销；content script 主动 `hello` + 应答 `whoami` → **免点图标自动绑定**（无 `tab.url`、无 `tabs`、无手势）；未授权站点静默降级保留点图标回退。②**多会话（FR-048/ADR-013）**——新增 `src/background/session-store.ts`（`sessionId=origin` / `group:<id>`；每会话独立 40-turn 有界历史；上限 20 + LRU 可读披露；分组加入/移出/删除可逆且**分组≠授权**）；`chat-session` 增 `boundHistory` 复用；`controller`/`state-message`/`sidepanel`/`options` additive 接线；切换会话取消待决 confirm/ask（EC-019）。**真实环境免点图标实证**：`test:binding` 新增阶段 2 `#A0~#A7`（authorize→真实 `chrome.scripting` 注册→reload 触发 hello→自动绑定 origin+supported+工具面；whoami 切页重绑；未授权静默降级）。门禁：插件 229→**262**（+33，5 个新测试文件）、`tsc` 0 error、`test:ui` 70→**79**（#16a~#16i 会话切换器/历史隔离双向/分组≠授权）、`test:binding` 44→**58**、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；base/`package.json`/`.opencode/opencode.json` 零改动、**无新依赖**、**无 `tabs`**、**无 `<all_urls>`**、无静态 `content_scripts`、无 innerHTML/明文/私有依赖；spec v1.4（FR-047/048 + EC-017~020）/plan v1.1（ADR-013/014）/docs dev·compliance·capability-matrix（漂移修正 D-100）同步；D-091~D-100；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.17 | **v0.9 增补：标签页管理工具 + `tabs` 权限扩张**（§24，作者 2026-09-12 决策③；TASK-026）：新增 `src/tools/tabs-tools.ts`（插件级工具 `tabs`，list/switch/open，**明确不做 close**；risk list=read/switch=ui/open=write；`list` 默认去 query/fragment、`--full` 显式；非 http(s) scheme 可读拒绝；每子命令入审计）+ `src/background/tabs-setting.ts`（隐私开关，默认开）；`manifest.permissions` **唯一新增 `tabs`**（接受安装警告「读取您的浏览记录」）；`host.setTabsEnabled` 关闭即从 `deriveTools()` 移除（`enabled` 语义）；`switch` 复用 `bindTab` 绑定链并切到该 origin 会话；options 页隐私开关 + 披露文案；docs compliance §9 / release §5 / capability-matrix 第 27 行+§3.2 / dev §12.4。门禁：插件 262→**292**（+30，2 新测试文件）、`tsc` 0 error、`test:ui` 79→**85**（#17a~#17e 开关 + #15u tabs 卡片）、`test:binding` 58→**73**（真实 `tabs list`/`--full`/`tabs switch`→会话切换，工具面 12→13）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；base/`package.json`/`.opencode/opencode.json` 零改动、**无新依赖**、无 `<all_urls>`、无静态注入；三处旧「无 tabs」断言语义按决策③更新为精确权限集合（非降级）；未 git 提交。 |
+| v1.18 | **v0.9 缺陷修复：`web-fetch` CORS 预校验 + 失败可见**（§25，TASK-027，用户实测「插件加载报错」驱动）：根因 = base 内建 `web-fetch`（`web-fetch.ts:138/143`）在扩展 SW 内对未授权域名直接 `globalThis.fetch`，必然被 CORS 拦截（`chrome://extensions` 出现错误条目），且失败只进 LLM 上下文。修复（**base 零改动**）：新增 `src/tools/web-fetch-tool.ts` 受控 seam（相对路径解析绑定 origin / 绝对 http(s) 经 `chrome.permissions.contains` / **未授权 → 零请求 + 可读拒绝 + 两条授权指引** / 非 http(s) scheme 可读拒绝 / 同源优先页面上下文）；`host.ts` 传 `builtins:['sleep','web-cli-help']` 后注册受控同名条目**替换** base 内建（分发仍走 `router.dispatch`，门禁/审计不旁路）；`service-worker.ts` 注入真实 deps + system prompt 要求报告工具失败；`content-script.ts` 新增 `fetchSameOriginText` 同源读取；`chat-state.ts` 失败 tool 条目 `kind:'error'`（侧栏可见错误色）。门禁：插件 292→**309**（+17）、`tsc` 0 error、`test:ui` 85→**87**（#15v/#15w）、`test:binding` 73→**81**（#0h/#1d/#7f~#7k；**未授权域名零请求 + 无 CORS 条目 + 同源页面上下文真实读取**，保留既有断言）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；**manifest 零 diff**（无新权限/无 `<all_urls>`）、无新依赖、`.opencode/opencode.json` 零改动；D 项核实：**无真实加载错误**（SW 可达 + ping 往返 + 0 未捕获异常），CORS 属运行期；D-107~D-111；未 git 提交。 |

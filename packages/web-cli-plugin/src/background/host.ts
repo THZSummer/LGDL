@@ -24,6 +24,10 @@ import type { OriginStore } from '../security/origin-store.js';
 import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../security/policy.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
 import { createTabsToolEntry, TABS_TOOL_NAME, type TabsToolDeps } from '../tools/tabs-tools.js';
+import {
+  createWebFetchToolEntry,
+  type WebFetchToolDeps,
+} from '../tools/web-fetch-tool.js';
 import { SITE_TOOL_PREFIX, allocateSiteToolNames, toToolEntries, type SiteRpc } from '../tools/declared-tools.js';
 
 /** Whether a dispatch target is a declared site tool (flat `site_*` name). */
@@ -49,6 +53,13 @@ export interface WebCliHostOptions {
   tabs?: TabsToolDeps;
   /** Initial tab-tool toggle (privacy switch; default true when `tabs` is provided). */
   tabsEnabled?: boolean;
+  /**
+   * FR-050 / EC-023: plugin-side controlled `web-fetch` seam. When provided, the
+   * base builtin `web-fetch` is **not** registered as a builtin; this controlled
+   * entry takes its place (same name/schema). Omitted → the base builtin is used
+   * unchanged (node tests / hosts that do not own `chrome.permissions`).
+   */
+  webFetch?: WebFetchToolDeps;
 }
 
 export interface WebCliHost {
@@ -81,6 +92,10 @@ export interface WebCliHost {
 export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
   const router = createCommandRouter({
     delayMs: 0,
+    // FR-050: when the plugin owns a controlled `web-fetch` seam, keep the base
+    // builtin out of the registry so the controlled entry below is the ONLY
+    // registration for that name (CommandRouter rejects duplicate names).
+    ...(opts.webFetch ? { builtins: ['sleep', 'web-cli-help'] as const } : {}),
     policy: createPluginPolicyConfig(
       {
         isAuthorized: (origin) => opts.origins.isAuthorized(origin),
@@ -124,6 +139,20 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     tabsRegistered = false;
   };
   if (opts.tabs && opts.tabsEnabled !== false) registerTabs();
+
+  // FR-050 / EC-023: controlled `web-fetch` seam (replaces the base builtin when
+  // the host owns the permission checker). Registered as a plugin-level tool so
+  // the pre-flight gate runs before any fetch is attempted.
+  if (opts.webFetch) {
+    router.register(
+      createWebFetchToolEntry({
+        ...opts.webFetch,
+        currentOrigin:
+          opts.webFetch.currentOrigin ??
+          (() => opts.currentOrigin?.()),
+      }),
+    );
+  }
 
   let siteFqns: string[] = [];
   let siteDescriptor: WebCliDescriptor | undefined;

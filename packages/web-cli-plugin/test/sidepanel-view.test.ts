@@ -615,3 +615,23 @@ test('TASK-023 state projection: trust follows the bound origin, never a false t
   const noOrigin = stateActionFromPayload({ active: null, tools: [], trust: 'trusted' });
   assert.equal(noOrigin.trust, 'untrusted');
 });
+
+// ── FR-050 / EC-023: a failed tool is a VISIBLE error entry, not only LLM context ──
+
+test('FR-050: a failed tool result is marked kind=error (error styling), a success is not', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'tool', tool: 'web-fetch', ok: false, ms: 3, text: '✖ web-fetch 拒绝访问 https://www.baidu.com：该域名未授权给本插件。' });
+  s = reduce(s, { type: 'tool', tool: 'admin_origin-list', ok: true, ms: 1, text: 'ok' });
+  assert.equal(s.entries.length, 2);
+  assert.equal(s.entries[0].kind, 'error', 'failed tool entry must carry the error kind (visible error style)');
+  assert.equal(s.entries[0].role, 'tool');
+  assert.equal(s.entries[0].tool, 'web-fetch');
+  assert.equal(s.entries[1].kind, 'tool', 'successful tool entry keeps the normal tool kind');
+});
+
+test('FR-050: the side panel renders failed tool cards with the error class + fail status', () => {
+  const ts = read('../../src/ui/sidepanel/sidepanel.ts');
+  // errCls is derived from kind==='error' and applied to the tool-card wrapper.
+  assert.match(ts, /entry\.kind === 'error' \? ' entry-error' : ''/);
+  assert.match(ts, /entry\.ok === false \? 'fail'/);
+});

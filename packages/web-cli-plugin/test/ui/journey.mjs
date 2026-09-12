@@ -684,6 +684,32 @@ async function main() {
     );
     check(Boolean(tabsCard), '#15u FR-049 tabs 工具结果渲染为工具卡片（含隐私默认说明）', tabsCard ?? '');
 
+    // FR-050 / EC-023: a FAILED tool must be a VISIBLE error entry (never only in
+    // the LLM context). The real web-fetch seam refuses unauthorized origins; the
+    // panel marks the failed tool card with the error kind/class.
+    await evaluate(
+      sw,
+      `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'tool', tool: 'web-fetch', ok: false, ms: 7, text: '✖ web-fetch 拒绝访问 https://www.baidu.com：该域名未授权给本插件。' }).catch(() => {})`,
+    );
+    const failedCard = await waitFor(
+      sp,
+      `(() => {
+        const c = [...document.querySelectorAll('.tool-card')].find((x) => x.querySelector('.tool-name')?.textContent === 'web-fetch');
+        if (!c) return '';
+        const entry = c.closest('.entry');
+        return JSON.stringify({
+          status: c.querySelector('.tool-status')?.textContent,
+          failClass: c.querySelector('.tool-status')?.classList.contains('fail'),
+          entryError: !!entry && entry.classList.contains('entry-error'),
+        });
+      })()`,
+      40,
+      120,
+    );
+    const fc = failedCard ? JSON.parse(failedCard) : {};
+    check(fc.status === '✖ 失败' && fc.failClass === true, '#15v 失败工具渲染为「✖ 失败」卡片（可见条目）', failedCard ?? '');
+    check(fc.entryError === true, '#15w 失败工具条目带错误色（.entry-error）', failedCard ?? '');
+
     // #15p scroll policy:「回到底部」appears when scrolled away, hidden at bottom
     const scrollHint = await evaluate(
       sp,

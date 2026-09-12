@@ -1238,15 +1238,35 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 
 ---
 
+### TASK-027: `web-fetch` 权限边界预校验 + 失败可见（用户实测 CORS 缺陷修复，v0.9 增补）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（缺陷修复） |
+| **前置依赖** | TASK-026（post-validate additive） |
+| **执行波次** | Wave 19（v0.9 增补） |
+| **对应 FR** | FR-050（+ EC-023；NFR-001/002/008） |
+| **ADR** | —（非 plan TB，用户实测“插件加载报错”核查驱动） |
+| **TB 映射** | — |
+
+**描述**: 用户实测 `chrome://extensions` 出现 CORS 错误（`Access to fetch … chrome-extension://… blocked by CORS`）且助手回「没有任何通知」——根因 = base 内建 `web-fetch` 在扩展 SW 里对**未授权域名**直接 `globalThis.fetch`（`web-fetch.ts:138/143`）必然被 CORS 拦截，且失败只进 LLM 上下文。(1) 新增 `src/tools/web-fetch-tool.ts`：受控 `web-fetch` 缝——相对路径解析到**绑定 origin**、绝对 http(s) 经 `hasHostPermission`（`chrome.permissions.contains`）判定；**未授权 → 不发请求 + 可读拒绝 + 授权指引**；非 http(s) scheme 可读拒绝；同源优先走页面上下文（`fetchViaPage`，包成 `Response` 交回 base executor，清洗/护栏零重复）。(2) `host.ts` 接受 `webFetch` deps，传 `builtins:['sleep','web-cli-help']` 后注册受控条目（**替换** base 同名内建，无重复注册）。(3) `service-worker.ts` 注入真实 deps（`currentOrigin`/`hasOriginPermission`/`fetchImpl`/`fetchViaPage`），并把 `fetch-text` 消息转发给绑定标签页；`content-script.ts` 新增 `fetchSameOriginText` 同源读取。(4) 失败可见：`chat-state.ts` 对 `ok:false` 的 tool 条目用 `kind:'error'`（侧栏红色 `.entry-error` + `.tool-status.fail`「✖ 失败」）；system prompt 增补“工具失败必须向用户报告 + 未授权域名给授权指引”。(5) `messaging.ts` 新增 `fetch-text` kind。(6) docs：`capability-matrix.md` 修正 web-fetch 行真实边界；`dev.md` 新增 §10.9「为什么 web-fetch 报 CORS / 如何正确使用」；spec FR-050/EC-023。
+
+**涉及文件**: NEW `src/tools/web-fetch-tool.ts`、`test/web-fetch-tool.test.ts`；MODIFY `src/background/{host.ts,service-worker.ts,messaging.ts}`、`src/content/content-script.ts`、`src/ui/sidepanel/chat-state.ts`、`test/sidepanel-view.test.ts`、`test/ui/{journey.mjs,binding.mjs}`、`docs/{capability-matrix,dev}.md`；**`packages/web-cli-base/**` 零改动**。
+
+**验收标准**: 单测——未授权 URL → 可读拒绝且注入 fetch **零调用**；已授权 origin → 允许；相对路径解析到绑定 origin；非 http(s) 拒绝；失败 → 侧栏错误事件；`test:binding`——真实扩展触发未授权域名 `web-fetch` → 真实目标服务器**零命中** + 可读拒绝，`chrome://extensions`/SW 控制台**无 CORS 条目**；同源相对路径经页面上下文**真实读取成功**；SW ping 往返 + 无加载错误；`test:ui`——失败工具在侧栏可见（「✖ 失败」+ `.entry-error`）；红线 grep：base 零改动 · 无新依赖 · 无新权限 · 无 `<all_urls>`/`*://*/*` · 无明文 key · 无静默失败；全仓 0 fail + base 483 零回归。
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③）+ 1 v0.9 缺陷修复增补（TASK-027 `web-fetch` 权限边界预校验 + 失败可见，用户实测 CORS 驱动） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022）+ 1 增补（027） |
 | L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023）+ 3 v0.9（024/025/026） |
-| 执行波次 | 19（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补） |
+| 执行波次 | 20（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补 + Wave 19 TASK-027 v0.9 缺陷修复） |
 | plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021/022（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
@@ -1360,3 +1380,4 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 | v1.6 | 追加 TASK-023（侧栏整体 UI/UX 重做；post-validate 增补，非 plan TB，用户实测第七轮「对话体验差于原内置 AI 助手」驱动）。先读回 git 历史原 AI 助手作设计基准；任务汇总/波次计入增补轮（Wave 15，L 级）；三区 flex 全高/去 45vh/composer 贴底/可折叠工具卡片/滚动跟随/明暗适配；真实 dist+CDP 前后量化 + 截图；`test:ui` 50→67、`test:binding` 38→41、插件 209→222。 | 2026-09-12 | SDDU Build Agent |
 | v1.7 | 追加 **TASK-024 自动探测**（FR-047/ADR-014）与 **TASK-025 多会话**（FR-048/ADR-013）（v0.9 增补，非 plan TB，作者 2026-09-12 两项架构级决策驱动）。任务汇总/波次计入增补轮（Wave 16/17，均 L 级）；自动探测 = 声明式注入（`registerContentScripts`+`persistAcrossSessions`）+ 自上报 `hello`/`whoami` 免点图标绑定 + 启动对账，权限零新增；多会话 = `sessionId=origin`/`group:<id>` + 每会话独立历史 + 上限 20 LRU + 分组可逆（≠授权）+ 切换取消待决交互。对应 spec v1.4 / plan v1.1；`test:ui` 70→79（#16a~#16i）、`test:binding` 44→58（阶段 2 #A0~#A7）、插件 229→262。 | 2026-09-12 | SDDU Build Agent |
 | v1.8 | 追加 **TASK-026 标签页管理工具 `tabs`**（FR-049/ADR-015，v0.9 权限扩张增补，非 plan TB，作者 2026-09-12 决策③驱动）。任务汇总/波次计入增补轮（Wave 18，L 级）；`manifest.permissions` 新增 **`tabs`**（唯一新增；接受安装警告「读取您的浏览记录」）；插件级工具仅 **list/switch/open（无 close）**，risk 档 list=read/switch=ui/open=write（open 需确认，摘要含目标 URL）；`list` 默认去 query/fragment（`--full` 显式）；非 http(s) scheme 可读拒绝；无站点绑定亦可用；options 隐私开关关闭即从 LLM 工具面移除。对应 spec v1.5 / plan v1.2；`test:binding` 58→（新增真实 `tabs list`/`tabs switch` 断言，保留既有断言）。 | 2026-09-12 | SDDU Build Agent |
+| v1.9 | 追加 **TASK-027 `web-fetch` 权限边界预校验 + 失败可见**（FR-050/EC-023，v0.9 缺陷修复增补，非 plan TB，用户实测 `chrome://extensions` CORS 报错「插件加载报错」驱动）。任务汇总/波次计入增补轮（Wave 19，M 级）；根因 = base 内建 `web-fetch` 在扩展 SW 直接对未授权域名 fetch 必然 CORS；修复 = 插件侧受控 seam（未授权域名零请求 + 可读拒绝 + 授权指引；相对路径解析绑定 origin；非 http(s) 拒绝；同源优先页面上下文）+ 失败在侧栏可见（`.entry-error`）；**base 零改动 / 无新权限 / 无新依赖 / 无 `<all_urls>`**。对应 spec v1.6；新增 `test/web-fetch-tool.test.ts`；`test:binding` 新增 #0h/#1d/#7f~#7k（保留既有 73 断言）；`test:ui` 新增 #15v/#15w。 | 2026-09-12 | SDDU Build Agent |

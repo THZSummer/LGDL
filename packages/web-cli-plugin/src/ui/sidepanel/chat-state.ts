@@ -115,7 +115,9 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
     case 'assistant':
       return append(state, 'assistant', action.text, 'text');
     case 'tool':
-      return append(state, 'tool', action.text, 'tool', {
+      // FR-050 / EC-023: a FAILED tool card is rendered with the error style
+      // (`.entry-error`) so a failure is a visible entry, never only LLM context.
+      return append(state, 'tool', action.text, action.ok === false ? 'error' : 'tool', {
         ...(action.tool !== undefined ? { tool: action.tool } : {}),
         ...(action.ok !== undefined ? { ok: action.ok } : {}),
         ...(action.ms !== undefined ? { ms: action.ms } : {}),
