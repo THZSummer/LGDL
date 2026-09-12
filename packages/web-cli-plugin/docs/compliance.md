@@ -172,6 +172,33 @@
 | 主动切页/开页 | `switch`（`ui` 档）与 `open`（`write` 档）执行前经**二次确认**；`open` 的确认摘要包含目标 URL | `PLUGIN_RISK_DEFAULTS`（ui/write→ask） |
 | 关闭开关 | options 页关闭「允许助手查看/切换标签页」后，`tabs` 从 `deriveTools()` 移除并拒绝派发 | `host.setTabsEnabled(false)` + `tabs-setting` 消息 |
 
+## 10. v1.8 增补：自动授权（按站点读/写）的知情同意与边界（FR-052 / ADR-017）
+
+> 用户可为**单个站点 origin** 勾选「读操作自动」/「写操作自动」；勾选后，**对应档位**的操作不再弹出人工二次确认。这是对既有「敏感操作强制二次确认」（FR-024）的**用户显式、按站点、可即时关闭**的收敛——**不是**降低安全基线：以下硬底线**永不**被自动授权绕过。
+
+### 10.1 硬底线清单（UI 常显 + 本节 + `docs/dev.md` §14 三处一致）
+
+| # | 硬底线 | 行为 | 实现位置 |
+|---|--------|------|----------|
+| 1 | **未授权 origin** | 仍 `deny`（S1；授权与自动授权是独立维度，自动授权 ≠ 自动授权站点） | `security/policy.ts` S1（deny 不经过 ask） |
+| 2 | **未知/缺失/非法 risk** | 仍 `deny`（S3，fail-closed） | `security/policy.ts` S3 |
+| 3 | **`evaluate` 档** | 仍 `deny`（设计硬底线，永不放行，甚至不经确认 UI） | `security/auto-authorize.ts` `decideAutoAuthorization`（`hardDeny`） |
+| 4 | **破坏性操作** | 仍 `ask`（删除/清空/重置/安装/uninstall/exec… 由插件 denylist 判定，**不纳入**「写操作自动」） | `tools/declared-tools.ts` `isDestructiveInvocation` + `DESTRUCTIVE_VERBS` |
+| 5 | **`ui`/`state`/`external` 档** | 本轮**不提供**自动开关（保持 `ask`） | `decideAutoAuthorization`（仅 read/write 两个 tier） |
+
+### 10.2 知情同意要点（需随 UI 文案一并呈现）
+
+- **默认值**：读操作自动**默认开**（与既有只读免确认一致）；写操作自动**默认关**（用户显式开启）。
+- **按站点、非全局**：设置以 origin 为键，A 站点开启不影响 B 站点；切换站点即读取该站点的设置。
+- **可即时关闭**：关闭后下一次调用立即恢复人工确认；侧栏提供常驻可见标记「⚡ 自动授权：读/写」与**一键关闭**。
+- **写自动不含破坏性操作**：即便开启「写操作自动」，破坏性调用（`delete/purge/wipe/drop/reset/remove/install/uninstall/exec/...` 的 id/子命令段）仍需人工确认。
+- **`evaluate` 与未授权站点永不自动放行**。
+- **审计可辨**：因自动授权放行的操作写入独立类型 `auto-authorize` 的审计记录（含 origin/tool/tier/`decision: allow`/`reason: 自动授权（用户设置）`），**不会**与人工「用户确认放行」混淆；设置的开/关变更同样入审计。
+
+### 10.3 与「危险档位二次确认」的关系
+
+自动授权只在 `onAsk` 接缝**前置**裁决：策略链（S1/S2/S3）与 `denyPriority` 不变——`deny` 从不进入 `ask`，因此不可能被自动授权放行。自动授权只把「本会 `ask` 且非破坏性的 read/write」收敛为 `allow` 并留痕。
+
 ---
 
-**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理边界调整时
+**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权边界调整时

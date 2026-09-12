@@ -601,7 +601,49 @@ node packages/web-cli-plugin/test/parity/extract-baseline-catalog.mjs \
 - **无新权限**：复用 `activeTab` / `scripting` / `tabs`；未新增 `downloads` / `notifications` / `clipboardWrite` 等。
 - 真机验证：`test:e2e` 新增 `dom read-state`、`dom click`、`chrome screenshot` 三条真实页面全链断言。
 
-## 14. 变更记录
+## 14. 自动授权（按站点读/写；FR-052 / ADR-017）
+
+### 14.1 如何工作（在 `onAsk` 接缝前置判定，不放宽 `riskDefaults`）
+
+```
+router.dispatch → PermissionGate.check
+  ① allowed-tools → ② 规则集 → ③ 策略链 S1/S2/S3 → ④ riskDefaults
+  → 若最终 action = ask → ⑤ onAsk 接缝
+        ├─ 自动授权前置判定（host.ts autoOnAsk）
+        │    origin + tier 已开启 且 非破坏性 read/write → 直接 allow（审计 auto-authorize）
+        │    evaluate / 未知 risk → 直接 deny（硬底线，硬编码在 decideAutoAuthorization）
+        │    其它（未开启 / 破坏性 / ui·state·external）→ 落到人工确认
+        └─ createConfirmBridge → 侧栏二次确认（超时/取消 = deny）
+```
+
+- **设置模型**：`security/auto-authorize.ts` 的 `createAutoAuthStore`，按 origin 持久化 `{ read: boolean（默认 true）, write: boolean（默认 false） }`（存储键 `web-cli:auto-auth`，经 `chrome.storage.local`）。`isEnabled(origin, tier)` 同步读内存缓存，故开关**即时生效**。
+- **破坏性判定**：`tools/declared-tools.ts` `isDestructiveInvocation(decl, subcommand)` —— 把工具 id 与**被调用子命令**都按 `[._:/-]` 切段后逐段比对 `DESTRUCTIVE_VERBS`（能抓住 `add-node` / `remove-node` 这类连字符子命令）。host 在 `activateSite` 时建立「扁平工具名 → 声明」映射，判定**来自插件真值，绝不猜测**；映射缺失（未知工具）一律按破坏性处理（fail-closed）。
+- **红线不变**：S1（未授权）/ S3（未知 risk）在策略链即 `deny`，不产生 `ask`；`evaluate` 档由 `decideAutoAuthorization` 直接 `hardDeny`。`base` 零改动。
+
+### 14.2 如何审计（可辨，不与人工确认混淆）
+
+审计事件类型 `auto-authorize`（在 `security/audit-sink.ts` 的 `PluginAuditEventType` 中独立登记）：
+
+| 事件 | decision | 关键字段 | 含义 |
+|------|----------|----------|------|
+| 因自动授权放行 | `allow` | `origin`、`tool`、`subcommand`、`risk`、`reason`（含「自动授权（用户设置）」） | 未经人工二次确认，被用户设置收敛为放行 |
+| 硬底线拦截 | `deny` | `risk`（evaluate/未知）、`reason` | 自动授权前置判定直接拒绝 |
+| 设置变更 | `enabled` / `disabled` | `origin`、`risk`（tier）、`reason` | 用户开启/关闭/一键关闭自动授权 |
+
+侧栏「查看审计」/ `audit-export` 消息可导出全部记录；人工确认仍是类型 `confirm`、`detail: 用户确认放行`。`test/auto-authorize.test.ts` 断言「放行写入 `auto-authorize`/`allow`」「破坏性调用不产生 `auto-authorize`/`allow`」。
+
+### 14.3 UI 位置
+
+- **侧栏**「知情同意与能力边界」区：两个复选框（读/写）+ 常驻标记 `#auto-auth-badge`（开启时显示 `⚡ 自动授权：读` / `读+写`，点击一键关闭）+ 常显硬底线文案 `#auto-auth-note`。控件作用于**当前站点 origin**，无活跃站点时禁用。
+- **options 页**「自动授权（按站点）」区：列出已显式设置的 origin 及其读/写状态，可逐项开关或整体关闭；文案同样常显硬底线。
+
+### 14.4 回归门禁
+
+- `test/auto-authorize.test.ts`（13 用例）：4 条硬底线（破坏性仍 ask、evaluate 仍 deny、未授权仍 deny、未知 risk 仍 deny）+ read 零回归 + 按 origin 隔离/持久化 + 即时关闭 + 审计可辨。
+- `test:ui`（113）：侧栏复选框默认值/常驻标记/一键关闭/持久化 + 硬底线文案；options 管理列表。
+- `test:binding`（96）：真实站点上「开启写自动 → 非破坏性写档免确认直接执行」「破坏性 `remove-node` 仍弹确认」「关闭 → 立即恢复确认」。
+
+## 15. 变更记录
 
 | 版本 | 说明 |
 |------|------|
@@ -618,5 +660,6 @@ node packages/web-cli-plugin/test/parity/extract-baseline-catalog.mjs \
 | 2.0 | **v0.9 增补（FR-047/048 / ADR-013/014）**：①自动探测——`authorize` 后声明式注入 + 自上报自动握手（免点图标）+ 启动对账；未授权站点静默降级；权限面零新增。②多会话——`session-store.ts` 按 origin/会话组派生会话键，每会话独立 40-turn 有界历史，上限 20 + LRU 可读披露；切换标签页/会话自动 adopt 并回显（不串台）；切换时待决 confirm/ask 明确取消（EC-019）。补 §3/§3.1/§10.5/§10.6 与 §12；`test:ui` 70→79（#16a~#16i）、`test:binding` 44→58（阶段 2 #A0~#A7）、插件 229→262、全仓 0 fail（base 483 零回归）、`test:hardening` 22、`test:e2e` A/B PASS；无 `<all_urls>`/无 `tabs`/无新依赖/base 零改动。 |
 | 2.1 | **FR-049（作者决策③ 2026-09-12）**：新增 `tabs` 权限与插件级标签页管理工具 `tabs`（list/switch/open，**不含 close**）；list 隐私默认去 query/fragment（`--full` 显式）；switch 复用绑定链并切会话；open 仅 http(s)；options 新增隐私开关（关闭即从工具面移除）；补 §12.4 + 更新 §3.1/§12.1 权限纪律；`tabs-tools.test.ts` / `tabs-wiring.test.ts` + `test:binding` 新增真实 `tabs list`/`tabs switch`。 |
 | 2.2 | **TASK-028（作者要求）**：移除侧栏独立「测试连接」按钮（options 页保留）；侧栏**每次加载自动**测试当前模型配置并在 `#llm-test-result` 展示可读状态（复用既有 `llm-test`，不新增请求路径）；background 新增 60s TTL **内存**缓存（`src/llm/test-cache.ts`，指纹 = 厂商+模型+Base URL+Key 的不可逆哈希，仅内存比较、不落盘/日志/审计）——命中直接返回原结果（含原耗时）不发请求，配置变更/TTL 过期即失效；未配置零请求。补 §10.10 + 更新 §9/§10.5/§11.1；`test:ui` 87→97（#12~#12m）、`test:binding` 81→83（#6-1/#6-2）、新增 `test-cache.test.ts`（6 用例）；插件 309→315。 |
-| 2.3 | **TASK-029 / FR-051（作者实测：DOM 操作 / 浏览器截图等命令全部丢失）**：建立**机器化基线对账门禁**（`test/parity/`：baseline-catalog.json + extract 脚本 + waivers.json + parity.test.ts，双向 + 子命令级）；按基线补齐**无新权限**的浏览器能力 `dom` / `chrome`（含 screenshot）/ `wait` / `extract` / `export` / `save` / `events` / `web-search`（content 隔离世界真实现 DOM + background 远程代理 + 页面上下文 anchor 下载链）；补 §13；新增 `test/parity.test.ts`（8）+ `test/browser-tools.test.ts`（13），`test:e2e` 新增 dom/chrome 三条真机断言；插件 315→336，全仓 0 fail（base 483 零回归）、无新权限/依赖、base 零改动。 |
+| 2.3 | **TASK-029 / FR-051（作者实测：DOM 操作 / 浏览器截图等命令全部丢失）**：建立**机器化对账门禁**（`test/parity/`：baseline-catalog.json + extract 脚本 + waivers.json + parity.test.ts，双向 + 子命令级）；按基线补齐**无新权限**的浏览器能力 `dom` / `chrome`（含 screenshot）/ `wait` / `extract` / `export` / `save` / `events` / `web-search`（content 隔离世界真实现 DOM + background 远程代理 + 页面上下文 anchor 下载链）；补 §13；新增 `test/parity.test.ts`（8）+ `test/browser-tools.test.ts`（13），`test:e2e` 新增 dom/chrome 三条真机断言；插件 315→336，全仓 0 fail（base 483 零回归）、无新权限/依赖、base 零改动。 |
+| 2.4 | **FR-052 / ADR-017（作者要求：自动授权多选）**：新增按 origin 的「读操作自动 / 写操作自动」设置（`security/auto-authorize.ts`，存 `web-cli:auto-auth`，读默认开/写默认关，即时生效）；在 host `onAsk` 接缝**前置判定**——对应档位开启且非破坏性 read/write → 直接 allow（审计类型 `auto-authorize`/`reason: 自动授权（用户设置）`），不放宽 `riskDefaults`；`evaluate`（fail-closed 直接 deny）/ 未授权 origin（S1 deny）/ 未知 risk（S3 deny）/ 破坏性操作（`isDestructiveInvocation` 子命令分段判定）/ `ui·state·external` 仍保持确认或拒绝；侧栏新增复选框 + 常驻标记 + 一键关闭 + 硬底线常显文案，options 页新增按站点管理列表。补 §14 + §10（compliance）；新增 `test/auto-authorize.test.ts`（13）；`test:ui` 97→113、`test:binding` 83→96；插件 336→349，全仓 0 fail（base 483 零回归）、无新权限/依赖、manifest 零 diff、base 零改动。 |
 

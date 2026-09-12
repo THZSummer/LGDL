@@ -13,6 +13,8 @@ import {
   CONSENT_SUMMARY_TEXT,
   LOG_EMPTY_TEXT,
   activeSiteNotice,
+  autoAuthCheckboxState,
+  autoAuthMarker,
   buildOnboarding,
   buttonStates,
   currentSessionLabel,
@@ -29,6 +31,7 @@ import {
   type SessionsMessageView,
   type StateMessageView,
 } from './view-model.js';
+import { AUTO_AUTH_HARD_LINES, type AutoAuthSettings } from '../../security/auto-authorize.js';
 import type { LlmStatusSummary } from '../../llm/status.js';
 import type { ActiveTabView } from '../../background/state-message.js';
 import type { TestConnectionResult } from '../../llm/test-connection.js';
@@ -340,6 +343,7 @@ function render(): void {
   renderDiscoveryNotice();
   renderAsk();
   renderSession();
+  renderAutoAuth();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
 }
 
@@ -525,6 +529,78 @@ interface RiskStatusPayload {
   reason?: string;
 }
 
+/**
+ * FR-052 / ADR-017: render the bound origin's auto-authorization switches.
+ *
+ * The checkboxes and the always-visible marker reflect the authoritative
+ * background store (carried on the `state` reply), so an immediate off is
+ * reflected on the next state refresh. The hard-floor copy is always visible.
+ */
+function renderAutoAuth(): void {
+  const box = document.getElementById('auto-auth');
+  if (!box) return;
+  const origin = state.activeOrigin;
+  const s: AutoAuthSettings = autoAuthCheckboxState(state.autoAuth);
+  const read = document.getElementById('auto-read') as HTMLInputElement | null;
+  const write = document.getElementById('auto-write') as HTMLInputElement | null;
+  if (read) {
+    read.checked = s.read;
+    read.disabled = !origin;
+  }
+  if (write) {
+    write.checked = s.write;
+    write.disabled = !origin;
+  }
+  const originEl = document.getElementById('auto-auth-origin');
+  if (originEl) originEl.textContent = origin ?? '（无活跃站点）';
+  const badge = document.getElementById('auto-auth-badge') as HTMLButtonElement | null;
+  if (badge) {
+    const text = autoAuthMarker(s);
+    badge.textContent = text;
+    badge.style.display = origin && text ? 'inline-block' : 'none';
+    badge.disabled = !origin;
+  }
+  const note = document.getElementById('auto-auth-note');
+  if (note) note.textContent = AUTO_AUTH_HARD_LINES.join('');
+}
+
+/** Ask the background to flip one auto-authorization tier for the bound origin. */
+async function setAutoAuth(tier: 'read' | 'write', enabled: boolean): Promise<void> {
+  const origin = state.activeOrigin;
+  if (!origin) return;
+  try {
+    const res = await send<{ settings?: AutoAuthSettings }>(makeMessage('auto-auth', { action: 'set', origin, tier, enabled }));
+    if (res.ok && res.data?.settings) {
+      dispatch({ type: 'state', autoAuth: res.data.settings });
+      const label = tier === 'read' ? '读操作自动' : '写操作自动';
+      dispatch({ type: 'notice', text: `${enabled ? '已开启' : '已关闭'}「${label}」（${origin}）；${AUTO_AUTH_HARD_LINES.join('')}` });
+    } else {
+      dispatch({ type: 'notice', text: `✖ 保存自动授权失败：${res.error ?? '后台无响应'}` });
+      await refreshState();
+    }
+  } catch (err) {
+    dispatch({ type: 'notice', text: `✖ 保存自动授权失败：${err instanceof Error ? err.message : String(err)}` });
+  }
+}
+
+/** One-click off: restore both tiers to defaults (read on / write off). */
+async function clearAutoAuth(): Promise<void> {
+  const origin = state.activeOrigin;
+  if (!origin) return;
+  try {
+    const res = await send<{ settings?: AutoAuthSettings }>(makeMessage('auto-auth', { action: 'clear', origin }));
+    if (res.ok && res.data?.settings) {
+      dispatch({ type: 'state', autoAuth: res.data.settings });
+      dispatch({ type: 'notice', text: `已一键关闭 ${origin} 的自动授权（读/写都关）。` });
+    } else {
+      dispatch({ type: 'notice', text: `✖ 关闭自动授权失败：${res.error ?? '后台无响应'}` });
+      await refreshState();
+    }
+  } catch (err) {
+    dispatch({ type: 'notice', text: `✖ 关闭自动授权失败：${err instanceof Error ? err.message : String(err)}` });
+  }
+}
+
 /** Render the informed-consent block + risk controls (FR-031 / FR-029). */
 function renderConsent(): void {
   const section = document.createElement('section');
@@ -582,6 +658,49 @@ function renderConsent(): void {
   status.id = 'risk-status';
   status.className = 'muted';
   section.appendChild(status);
+
+  // FR-052 / ADR-017: per-origin auto-authorization (read/write). The hard-floor
+  // copy is always visible; the marker stays visible while anything is enabled.
+  const aa = document.createElement('div');
+  aa.id = 'auto-auth';
+  aa.className = 'auto-auth';
+
+  const aaTitle = document.createElement('div');
+  aaTitle.className = 'aa-title';
+  aaTitle.append('自动授权（作用于当前站点 ', Object.assign(document.createElement('span'), { id: 'auto-auth-origin', textContent: '（无活跃站点）' }), '）');
+  aa.appendChild(aaTitle);
+
+  const mkCheck = (id: string, label: string, onChange: (enabled: boolean) => void) => {
+    const wrap = document.createElement('label');
+    wrap.className = 'aa-check';
+    wrap.htmlFor = id;
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = id;
+    input.disabled = true;
+    input.addEventListener('change', () => onChange(input.checked));
+    wrap.append(input, ` ${label}`);
+    return wrap;
+  };
+  aa.appendChild(mkCheck('auto-read', '读操作自动（默认开）', (v) => void setAutoAuth('read', v)));
+  aa.appendChild(mkCheck('auto-write', '写操作自动（默认关）', (v) => void setAutoAuth('write', v)));
+
+  const badge = document.createElement('button');
+  badge.id = 'auto-auth-badge';
+  badge.type = 'button';
+  badge.className = 'aa-badge';
+  badge.style.display = 'none';
+  badge.title = '点击关闭该站点的自动授权（读/写都关）';
+  badge.addEventListener('click', () => void clearAutoAuth());
+  aa.appendChild(badge);
+
+  const aaNote = document.createElement('div');
+  aaNote.id = 'auto-auth-note';
+  aaNote.className = 'aa-note';
+  aaNote.textContent = AUTO_AUTH_HARD_LINES.join('');
+  aa.appendChild(aaNote);
+  section.appendChild(aa);
+
   // TASK-023: the consent disclosure lives in the bottom zone *above* the
   // composer (the composer must be the last element so nothing pushes it off the
   // bottom of the panel). `#consent-slot` is reserved for exactly this.

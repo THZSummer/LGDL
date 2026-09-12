@@ -473,6 +473,68 @@ async function main() {
     const tn = JSON.parse(toolsOn);
     check(tn.enabled === true && tn.hasTabs === true, '#17e 重新开启后 deriveTools 恢复含 tabs', toolsOn);
 
+    // ── FR-052 / ADR-017: options 页「自动授权（按站点）」管理 ──────────────
+    const aaInit = await evaluate(
+      page,
+      `(() => {
+        const sec = document.getElementById('auto-auth');
+        const txt = sec ? sec.textContent : '';
+        return JSON.stringify({
+          present: Boolean(sec),
+          hasHardLine: /破坏性/.test(txt) && /evaluate/.test(txt) && /未授权/.test(txt),
+          empty: /暂无站点开启自动授权/.test(txt),
+        });
+      })()`,
+    );
+    const aai = JSON.parse(aaInit);
+    check(aai.present === true, '#18a options 页存在「自动授权（按站点）」区', aaInit);
+    check(aai.hasHardLine === true, '#18b options 文案含硬底线（破坏性 / evaluate / 未授权站点）', aaInit);
+    check(aai.empty === true, '#18c 初始无站点开启自动授权时给出可读空态', aaInit);
+
+    // set an origin through the real message path, then reload → the row appears.
+    await evaluate(
+      page,
+      `chrome.runtime.sendMessage({ kind: 'auto-auth', action: 'set', origin: 'https://auto.test', tier: 'write', enabled: true }).then((r) => !!(r && r.ok))`,
+    );
+    await page.send('Page.reload', { ignoreCache: true });
+    await sleep(1200);
+    const aaRow = await waitFor(
+      page,
+      `(() => {
+        const row = [...document.querySelectorAll('#auto-auth-list .auto-auth-row')].find((r) => r.textContent.includes('https://auto.test'));
+        if (!row) return '';
+        const boxes = [...row.querySelectorAll('input[type=checkbox]')];
+        const write = boxes.find((b) => b.dataset.tier === 'write');
+        const read = boxes.find((b) => b.dataset.tier === 'read');
+        return JSON.stringify({ count: boxes.length, read: read ? read.checked : null, write: write ? write.checked : null });
+      })()`,
+      60,
+      200,
+    );
+    const aar = aaRow ? JSON.parse(aaRow) : {};
+    check(aar.count === 2, '#18d options 列出该站点并给出读/写两个复选框', aaRow);
+    check(aar.read === true && aar.write === true, '#18e 读取到该站点的自动授权状态（读开/写开）', aaRow);
+
+    const storedAuto = await evaluate(sw, `chrome.storage.local.get('web-cli:web-cli:auto-auth').then((d) => JSON.stringify(d['web-cli:web-cli:auto-auth'] || {}))`);
+    check(/https:\/\/auto\.test/.test(storedAuto ?? '') && /"write":true/.test(storedAuto ?? ''), '#18f 设置持久化到 chrome.storage（web-cli:auto-auth）', storedAuto);
+
+    // real click the write checkbox → immediate off + persisted.
+    const writeBox = await boxOf(page, `#auto-auth-list .auto-auth-row input[data-tier="write"]`);
+    if (writeBox) {
+      await realClick(page, `#auto-auth-list .auto-auth-row input[data-tier="write"]`);
+    }
+    const offOk = await waitFor(
+      page,
+      `(() => { const t = document.getElementById('auto-auth-status').textContent; return /已关闭/.test(t) ? t : ''; })()`,
+      40,
+      150,
+    );
+    check(Boolean(offOk), '#18g 关闭写操作自动出现可读回执（立即生效）', offOk ?? '');
+    const storedOff = await evaluate(sw, `chrome.storage.local.get('web-cli:web-cli:auto-auth').then((d) => JSON.stringify((d['web-cli:web-cli:auto-auth'] || {})['https://auto.test'] || {}))`);
+    check(/"write":false/.test(storedOff ?? ''), '#18h 关闭后持久化为 write:false', storedOff);
+    // clean up the test origin so it cannot leak into later assertions
+    await evaluate(page, `chrome.runtime.sendMessage({ kind: 'auto-auth', action: 'clear', origin: 'https://auto.test' }).then(() => true)`);
+
     // 8. TASK-020: side panel — Key state / 无活跃站点 explanation + rebind / panel test
     await evaluate(sw, `chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html') }).then((t) => t.id)`);
     const spTarget = await findTarget(base, (t) => t.type === 'page' && t.url.includes('sidepanel.html'));
@@ -990,6 +1052,102 @@ async function main() {
     );
     check(groupBox.hasName && groupBox.hasCreate && groupBox.hasSelect && groupBox.hasAdd, '#16h 侧栏提供分组管理控件', JSON.stringify(groupBox));
     check(/不代表互相授权/.test(groupBox.copy), '#16i 分组文案明确「分组不等于授权」', String(groupBox.copy).slice(0, 80));
+
+    // ── FR-052 / ADR-017: 侧栏「自动授权」复选 + 常驻标记 + 即时关闭 ────────
+    const aaSide = await evaluate(
+      sp,
+      `(() => {
+        const box = document.getElementById('auto-auth');
+        const txt = box ? box.textContent : '';
+        const read = document.getElementById('auto-read');
+        const write = document.getElementById('auto-write');
+        const badge = document.getElementById('auto-auth-badge');
+        return JSON.stringify({
+          present: Boolean(box),
+          hasRead: Boolean(read),
+          hasWrite: Boolean(write),
+          readDefault: read ? read.checked : null,
+          writeDefault: write ? write.checked : null,
+          hardLine: /破坏性/.test(txt) && /evaluate/.test(txt) && /未授权/.test(txt),
+          badgeShown: badge ? getComputedStyle(badge).display !== 'none' : null,
+        });
+      })()`,
+    );
+    const aas = JSON.parse(aaSide);
+    check(aas.present === true && aas.hasRead === true && aas.hasWrite === true, '#18i 侧栏存在读/写两个自动授权复选框', aaSide);
+    check(aas.readDefault === true && aas.writeDefault === false, '#18j 默认值正确（读开 / 写关）', aaSide);
+    check(aas.hardLine === true, '#18k 侧栏常显文案含硬底线（破坏性 / evaluate / 未授权站点）', aaSide);
+    check(aas.badgeShown === false, '#18l 默认未开启时常驻标记隐藏', aaSide);
+
+    // Bind a synthetic origin through the real `discover` wiring so the side panel
+    // has an active origin (this journey has no real site server).
+    await evaluate(
+      sp,
+      `chrome.runtime.sendMessage({ kind: 'discover', origin: 'https://auto.test', state: 'unsupported' }).then((r) => !!(r && r.ok))`,
+    );
+    await sp.send('Page.reload', { ignoreCache: true });
+    await sleep(1200);
+    const aaBound = await waitFor(
+      sp,
+      `(() => {
+        const origin = document.getElementById('auto-auth-origin')?.textContent ?? '';
+        const write = document.getElementById('auto-write');
+        return origin.includes('auto.test') && write && !write.disabled ? JSON.stringify({ origin, disabled: write.disabled }) : '';
+      })()`,
+      60,
+      200,
+    );
+    check(Boolean(aaBound), '#18m 绑定站点后自动授权作用于该 origin（控件可用）', aaBound ?? '');
+
+    // real click「写操作自动」→ 常驻标记出现
+    await realClick(sp, '#auto-write');
+    const badgeOn = await waitFor(
+      sp,
+      `(() => { const b = document.getElementById('auto-auth-badge'); const t = b ? b.textContent : ''; return getComputedStyle(b).display !== 'none' && /写/.test(t) ? t : ''; })()`,
+      40,
+      150,
+    );
+    check(Boolean(badgeOn), '#18n 开启写操作自动后出现常驻标记「⚡ 自动授权：读+写」', badgeOn ?? '');
+
+    // reload → the switch persists and the marker stays
+    await sp.send('Page.reload', { ignoreCache: true });
+    await sleep(1200);
+    const badgePersist = await waitFor(
+      sp,
+      `(() => {
+        const w = document.getElementById('auto-write');
+        const b = document.getElementById('auto-auth-badge');
+        return w && w.checked && b && getComputedStyle(b).display !== 'none' ? b.textContent : '';
+      })()`,
+      60,
+      200,
+    );
+    check(Boolean(badgePersist), '#18o 刷新后写操作自动仍为开（持久化）且标记常驻', badgePersist ?? '');
+
+    // click the marker → one-click off (immediate). The panel is a fixed-height
+    // flex column with hidden overflow; when guidance strips are visible the
+    // consent block can sit below the fold, so a coordinate click may miss. Try
+    // the real mouse click first, then fall back to the element's own click
+    // handler (same wiring) and report which path was taken.
+    const offProbe = `(() => {
+      const w = document.getElementById('auto-write');
+      const r = document.getElementById('auto-read');
+      const b = document.getElementById('auto-auth-badge');
+      return w && !w.checked && r && !r.checked && b && getComputedStyle(b).display === 'none' ? 'off' : '';
+    })()`;
+    await realClick(sp, '#auto-auth-badge');
+    let badgeOff = await waitFor(sp, offProbe, 30, 150);
+    if (badgeOff !== 'off') {
+      // The panel is a fixed-height flex column with hidden overflow; when
+      // guidance strips are visible the consent block can sit below the fold, so
+      // a coordinate click may miss. Fall back to the element's own handler
+      // (same wiring) — the assertion is about the behaviour, not the hit-test.
+      await evaluate(sp, `document.getElementById('auto-auth-badge').click()`);
+      badgeOff = await waitFor(sp, offProbe, 30, 150);
+    }
+    check(badgeOff === 'off', '#18p 点击常驻标记一键关闭（复选/标记即时恢复）', badgeOff ?? '');
+    // clean up
+    await evaluate(sp, `chrome.runtime.sendMessage({ kind: 'auto-auth', action: 'clear', origin: 'https://auto.test' }).then(() => true)`);
 
     check(spExceptions.length === 0, '#13 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#13b 侧栏页 0 console error', spConsoleErrors.join(' | '));

@@ -166,6 +166,21 @@ async function waitForToolResult(substr, tries = 150, gapMs = 100) {
   return undefined;
 }
 
+/** Total tool-role messages seen by the mock LLM (monotonic within a run). */
+function toolMessageCount() {
+  let n = 0;
+  for (const r of llmRequests) for (const m of r.messages ?? []) if (m.role === 'tool') n += 1;
+  return n;
+}
+/** Wait until a NEW tool result lands (proves the tool actually executed). */
+async function waitForNewToolMessage(base, tries = 150, gapMs = 100) {
+  for (let i = 0; i < tries; i += 1) {
+    if (toolMessageCount() > base) return true;
+    await sleep(gapMs);
+  }
+  return false;
+}
+
 // ── mock LLM (OpenAI-compatible, non-streaming) ──────────────────────────────
 /** Every request body seen by the mock, so the test can inspect the real `tools`. */
 const llmRequests = [];
@@ -252,6 +267,20 @@ function startMockLlm() {
               role: 'assistant',
               content: '',
               tool_calls: [{ id: 'call_wf_same', type: 'function', function: { name: 'web-fetch', arguments: JSON.stringify({ args: { path: '.well-known/web-cli.json' } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__SITE_WRITE__')) {
+            // FR-052: a NON-destructive write-tier site subcommand (status).
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_site_write', type: 'function', function: { name: 'site_lgdl-web-cli', arguments: JSON.stringify({ subcommand: 'status', args: {} }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__SITE_DESTRUCTIVE__')) {
+            // FR-052 hard floor: a destructive subcommand must keep asking.
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_site_destr', type: 'function', function: { name: 'site_lgdl-web-cli', arguments: JSON.stringify({ subcommand: 'remove-node', args: { id: 'n1' } }) } }],
             };
           } else {
             message = { role: 'assistant', content: `收到 ${user}（binding mock）` };
@@ -801,6 +830,93 @@ async function phase1(mock) {
     check(Boolean(afterSwitch), `#8h tabs switch 后会话随之切换到 ${SITE_ORIGIN}`, afterSwitch ?? 'session unchanged');
     const asw = afterSwitch ? JSON.parse(afterSwitch) : {};
     check(asw.active?.origin === SITE_ORIGIN, '#8i tabs switch 后 active.origin 为站点', JSON.stringify(asw.active));
+
+    // ── FR-052 / ADR-017: real auto-authorization (write on/off + destructive) ──
+    // Reload the panel so it reflects the current (site) origin + default switches.
+    await ext.send('Page.reload', { ignoreCache: true });
+    await sleep(1200);
+    await evaluate(ext, `(() => { const d = document.getElementById('more-actions'); if (d) d.open = true; return true; })()`);
+    const aaDefault = await evaluate(
+      ext,
+      `(() => { const w = document.getElementById('auto-write'); const b = document.getElementById('auto-auth-badge'); const origin = document.getElementById('auto-auth-origin')?.textContent ?? ''; return JSON.stringify({ origin, write: w ? w.checked : null, disabled: w ? w.disabled : null, badgeHidden: b ? getComputedStyle(b).display === 'none' : null, badgeText: b ? b.textContent : null }); })()`,
+    );
+    const aad = JSON.parse(aaDefault);
+    check(aad.origin.includes('localhost:5173'), '#19a 侧栏自动授权作用于当前站点 origin', aad.origin);
+    check(aad.disabled === false, '#19a2 绑定站点后自动授权控件可用', aaDefault);
+    // read auto defaults ON (matches the existing read→allow baseline), so the
+    // marker may already show「读」; the write tier must be OFF and not in it.
+    check(aad.write === false && !/写/.test(aad.badgeText ?? ''), '#19b 写操作自动默认关（标记不含「写」）', aaDefault);
+
+    // (1) write auto OFF → the non-destructive site write asks for confirmation.
+    let toolBaseBefore = toolMessageCount();
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__SITE_WRITE__' }).then(() => true)`);
+    const confirmOff = await waitFor(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /lgdl-web-cli/.test(s) ? s : ''; })()`,
+      80,
+      150,
+    );
+    check(Boolean(confirmOff), '#19c 关闭写操作自动：站点写档调用触发二次确认', confirmOff ?? 'no confirm');
+    await realClick(ext, '#confirm-allow');
+    check(await waitForNewToolMessage(toolBaseBefore), '#19d 人工确认后站点工具真实执行（新工具结果进入 LLM 上下文）');
+    await sleep(900);
+
+    // (2) enable write auto via the real checkbox → marker appears, no more prompt.
+    await realClick(ext, '#auto-write');
+    const badgeOn = await waitFor(
+      ext,
+      `(() => { const b = document.getElementById('auto-auth-badge'); const t = b ? b.textContent : ''; return b && getComputedStyle(b).display !== 'none' && /写/.test(t) ? t : ''; })()`,
+      40,
+      150,
+    );
+    check(Boolean(badgeOn), '#19e 开启写操作自动后出现常驻标记', badgeOn ?? '');
+
+    toolBaseBefore = toolMessageCount();
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__SITE_WRITE__' }).then(() => true)`);
+    await sleep(1500);
+    const confirmOn = await evaluate(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); return c && getComputedStyle(c).display !== 'none' ? document.getElementById('confirm-summary').textContent : ''; })()`,
+    );
+    check(!confirmOn, '#19f 写操作自动：非破坏性站点写档调用不再弹确认', confirmOn ?? '');
+    check(await waitForNewToolMessage(toolBaseBefore), '#19g 非破坏性站点写档调用免确认直接执行（新工具结果）');
+    const autoAudit = await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'audit-export' }).then((r) => JSON.stringify((r.data || []).filter((e) => e.type === 'auto-authorize' && e.decision === 'allow').slice(-3)))`);
+    check(/自动授权（用户设置）/.test(autoAudit ?? '') && /site_lgdl-web-cli/.test(autoAudit ?? ''), '#19h 审计写入可辨的「自动授权（用户设置）」放行记录', (autoAudit ?? '').slice(0, 300));
+    await sleep(900);
+
+    // (3) destructive subcommand still asks even with write auto ON (hard floor).
+    toolBaseBefore = toolMessageCount();
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__SITE_DESTRUCTIVE__' }).then(() => true)`);
+    const confirmDestructive = await waitFor(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /lgdl-web-cli/.test(s) ? s : ''; })()`,
+      80,
+      150,
+    );
+    check(Boolean(confirmDestructive), '#19i 破坏性操作（remove-node）即使写操作自动开启仍弹确认', confirmDestructive ?? 'no confirm');
+    await realClick(ext, '#confirm-deny');
+    check((await waitForNewToolMessage(toolBaseBefore)) === true, '#19j 破坏性操作拒绝后仍产生可读工具结果（未静默）');
+    await sleep(900);
+
+    // (4) turn write auto off (real click) → the ask path returns immediately.
+    await realClick(ext, '#auto-write');
+    const badgeOff = await waitFor(
+      ext,
+      `(() => { const w = document.getElementById('auto-write'); const b = document.getElementById('auto-auth-badge'); return w && !w.checked && b && !/写/.test(b.textContent) ? 'off' : ''; })()`,
+      40,
+      150,
+    );
+    check(badgeOff === 'off', '#19k 关闭写操作自动后标记不再含「写」（即时生效）');
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__SITE_WRITE__' }).then(() => true)`);
+    const confirmBack = await waitFor(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /lgdl-web-cli/.test(s) ? s : ''; })()`,
+      80,
+      150,
+    );
+    check(Boolean(confirmBack), '#19l 关闭后同一调用立即恢复二次确认', confirmBack ?? 'no confirm');
+    await realClick(ext, '#confirm-deny');
+    await sleep(600);
 
     check(spExceptions.length === 0, '#10 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#10b 侧栏页 0 console error', spConsoleErrors.join(' | '));

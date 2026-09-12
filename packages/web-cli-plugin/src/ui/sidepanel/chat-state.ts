@@ -48,6 +48,8 @@ export interface SidepanelState {
   authorized: boolean;
   /** TASK-023: per-origin trust (read-only display; display defaults to untrusted). */
   trust?: 'trusted' | 'untrusted';
+  /** FR-052 / ADR-017: bound origin's read/write auto-authorization switches. */
+  autoAuth?: { read: boolean; write: boolean };
   invalidated: boolean;
   confirm: ConfirmState | null;
   ask: AskState | null;
@@ -62,7 +64,7 @@ export type SidepanelAction =
   | { type: 'command'; text: string }
   | { type: 'error'; text: string }
   | { type: 'pending'; value: boolean }
-  | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; authorized?: boolean; trust?: SidepanelState['trust']; invalidated?: boolean }
+  | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; authorized?: boolean; trust?: SidepanelState['trust']; autoAuth?: { read: boolean; write: boolean }; invalidated?: boolean }
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
   | { type: 'confirm-resolved'; allow: boolean }
   | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
@@ -136,6 +138,7 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
         ...(action.discoveryReason !== undefined ? { discoveryReason: action.discoveryReason } : {}),
         ...(action.authorized !== undefined ? { authorized: action.authorized } : {}),
         ...(action.trust !== undefined ? { trust: action.trust } : {}),
+        ...(action.autoAuth !== undefined ? { autoAuth: action.autoAuth } : {}),
         ...(action.invalidated !== undefined ? { invalidated: action.invalidated } : {}),
         ...(action.invalidated
           ? { notice: '页面已导航：会话上下文失效，请重新授权/重连（不静默续接）' }

@@ -8,6 +8,8 @@
  *
  * Kept dependency-free (a plain async projection) so it is node-testable.
  */
+import type { AutoAuthSettings } from '../security/auto-authorize.js';
+
 export interface ActiveSessionView {
   tabId: number;
   origin: string;
@@ -111,6 +113,12 @@ export interface StateMessagePayload {
   tab?: ActiveTabView | null;
   /** decision ② / FR-048: the current multi-session projection (null when unbound). */
   session?: SessionView | null;
+  /**
+   * FR-052 / ADR-017: the bound origin's auto-authorization switches. Carried so
+   * the side panel's checkboxes/badge stay in sync with the authoritative store
+   * (and reflect an immediate off). Absent when no origin / no lookup supplied.
+   */
+  autoAuth?: AutoAuthSettings;
 }
 
 /** decision ② / FR-048: non-sensitive multi-session projection for the panel. */
@@ -129,10 +137,13 @@ export async function buildStateMessage(input: {
   trustOf?: (origin: string) => Promise<'trusted' | 'untrusted'>;
   tab?: ActiveTabView | null;
   session?: SessionView | null;
+  /** FR-052: optional auto-authorization lookup for the bound origin. */
+  autoAuthOf?: (origin: string) => AutoAuthSettings;
 }): Promise<StateMessagePayload> {
   const { active, tools, isAuthorized } = input;
   const authorized = active ? await isAuthorized(active.origin) : false;
   const trust = active && input.trustOf ? await input.trustOf(active.origin) : 'untrusted';
+  const autoAuth = active && input.autoAuthOf ? input.autoAuthOf(active.origin) : undefined;
   return {
     active,
     tools,
@@ -140,6 +151,7 @@ export async function buildStateMessage(input: {
     trust: trust === 'trusted' ? 'trusted' : 'untrusted',
     tab: input.tab ?? null,
     session: input.session ?? null,
+    ...(autoAuth ? { autoAuth } : {}),
   };
 }
 

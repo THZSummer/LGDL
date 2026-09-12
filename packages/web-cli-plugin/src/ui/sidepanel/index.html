@@ -435,6 +435,15 @@
       #consent li { margin: 1px 0; }
       #consent .row { margin-top: 6px; }
       #risk-status { font-size: 11.5px; }
+      /* FR-052: per-origin auto-authorization switches + always-visible marker */
+      #auto-auth { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 6px; }
+      #auto-auth .aa-title { font-size: 12px; font-weight: 600; }
+      #auto-auth .aa-check { display: block; font-size: 12px; margin: 4px 0; cursor: pointer; }
+      #auto-auth .aa-badge {
+        margin-top: 4px; border: 1px solid var(--warn-border); background: var(--warn-bg);
+        color: var(--warn-text); font-weight: 600; padding: 2px 8px;
+      }
+      #auto-auth .aa-note { margin-top: 4px; font-size: 11.5px; color: var(--warn-text); }
 
       /* ── safe Markdown body (TASK-022, restyled for bubbles) ─────────── */
       .content-user { white-space: pre-wrap; }

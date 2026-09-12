@@ -13,6 +13,7 @@ import type { WebCliDescriptor } from '../protocol/descriptor.js';
 import { normalizeDescriptor } from '../protocol/descriptor.js';
 import { createStorageAuditSink, type PluginAuditSink } from '../security/audit-sink.js';
 import { createConfirmBridge } from '../security/confirm.js';
+import { createAutoAuthStore, type AutoAuthStore } from '../security/auto-authorize.js';
 import { createOriginStore, type OriginStore } from '../security/origin-store.js';
 import { discoveryAuditEvent, versionAuditEvent } from '../security/discovery-audit.js';
 import type { VersionNegotiation } from '../protocol/version.js';
@@ -77,6 +78,8 @@ interface Singletons {
   sessionKv: ReturnType<typeof createChromeSessionKv>;
   audit: PluginAuditSink;
   origins: OriginStore;
+  /** FR-052 / ADR-017: per-origin auto-authorization switches. */
+  autoAuth: AutoAuthStore;
   controller: WebCliController;
   host: WebCliHost;
   keys: ReturnType<typeof createKeyStore>;
@@ -271,6 +274,10 @@ async function init(): Promise<Singletons> {
     const audit = createStorageAuditSink(kv);
     await audit.load();
     const origins = createOriginStore(kv, { audit });
+    // FR-052 / ADR-017: per-origin read/write auto-authorization (default read on,
+    // write off; persisted; immediate effect).
+    const autoAuth = createAutoAuthStore(kv, { audit });
+    await autoAuth.load();
     const controller = createController();
     const keys = createKeyStore(kv);
     // decision ② / FR-048: multi-session store (per-origin default, optional groups).
@@ -305,6 +312,8 @@ async function init(): Promise<Singletons> {
       audit,
       rpc: { invoke: (req) => invokeSite(req.origin, req.tool, req.subcommand, req.args) },
       currentOrigin: () => controller.get()?.origin,
+      // FR-052 / ADR-017: consulted at the onAsk seam before the confirm bridge.
+      autoAuth: { isEnabled: (origin, tier) => autoAuth.isEnabled(origin, tier) },
       askUser: askBridge.askUser,
       // FR-051 / TASK-029: base-derived browser tools (dom/chrome/wait/extract/
       // export/save/events/web-search). The DOM seam is a remote proxy into the
@@ -470,6 +479,7 @@ async function init(): Promise<Singletons> {
       sessionKv,
       audit,
       origins,
+      autoAuth,
       controller,
       host,
       keys,
@@ -855,6 +865,8 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         isAuthorized: (origin) => s.origins.isAuthorized(origin),
         // TASK-023: trust is a separate read-only display concern (FR-012).
         trustOf: (origin) => s.origins.trustOf(origin),
+        // FR-052 / ADR-017: auto-authorization switches of the bound origin.
+        autoAuthOf: (origin) => s.autoAuth.get(origin),
         tab: await activeTabProjection(),
         session: sessionView,
       });
@@ -1141,6 +1153,23 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
           : '用户关闭「允许助手查看/切换标签页」：tabs 工具从 LLM 工具面移除（不静默，回执含当前工具面）',
       });
       return okResponse({ enabled: s.tabsSetting.get(), tools: s.host.deriveTools().map((t) => t.name) });
+    }
+    case 'auto-auth': {
+      // FR-052 / ADR-017: per-origin auto-authorization switches. `get` lists the
+      // persisted records (options management view); `set` merges one tier and
+      // audits; `clear` restores the documented defaults (one-click off).
+      const action = message.action === 'set' ? 'set' : message.action === 'clear' ? 'clear' : 'get';
+      if (action === 'get') return okResponse({ origins: s.autoAuth.list() });
+      const origin = typeof message.origin === 'string' ? message.origin : '';
+      if (!origin) return errorResponse('auto-auth 需要 origin');
+      if (action === 'clear') {
+        const rec = await s.autoAuth.clear(origin);
+        return okResponse({ origin: rec.origin, settings: s.autoAuth.get(origin), origins: s.autoAuth.list() });
+      }
+      const tier = message.tier === 'write' ? 'write' : 'read';
+      if (typeof message.enabled !== 'boolean') return errorResponse('auto-auth set 需要 enabled:boolean');
+      const rec = await s.autoAuth.set(origin, { [tier]: message.enabled });
+      return okResponse({ origin: rec.origin, settings: s.autoAuth.get(origin), origins: s.autoAuth.list() });
     }
     case 'audit-export':
       return okResponse(await s.audit.exportEvents());

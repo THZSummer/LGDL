@@ -25,6 +25,9 @@ export type PluginAuditEventType =
   | 'descriptor-read'
   | 'protocol-version'
   | 'confirm'
+  // FR-052 / ADR-017: a distinct type so an auto-authorized allow can never be
+  // confused with a manual「用户确认放行」confirm event.
+  | 'auto-authorize'
   | 'llm-config'
   | 'tabs';
 

@@ -213,11 +213,16 @@ export const DESTRUCTIVE_VERBS: ReadonlySet<string> = new Set([
   'restore',
 ]);
 
-function idSegments(id: string): string[] {
-  return id
+/** Split an id/subcommand into its `[._:/-]`-separated lowercase segments. */
+export function segmentsOf(text: string): string[] {
+  return text
     .toLowerCase()
     .split(/[._:/-]+/)
     .filter(Boolean);
+}
+
+function idSegments(id: string): string[] {
+  return segmentsOf(id);
 }
 
 function lastIdSegment(id: string): string {
@@ -233,6 +238,31 @@ export function hasDestructiveVerb(decl: WebCliToolDecl): boolean {
   if (idSegments(decl.id).some((s) => DESTRUCTIVE_VERBS.has(s))) return true;
   const subs = decl.subcommands ?? [];
   return subs.some((s) => DESTRUCTIVE_VERBS.has(s.toLowerCase().trim()));
+}
+
+/**
+ * Whether a **concrete invocation** is destructive (FR-052 / ADR-017 hard floor 4).
+ *
+ * Distinct from {@link hasDestructiveVerb}: that helper checks the *whole tool*
+ * declaration and matches declared subcommands only as exact strings, so a
+ * hyphenated subcommand such as `add-node` / `remove-node` is not caught. For
+ * auto-authorization we must judge the operation actually being invoked, so this
+ * helper splits both the tool id and the invoked subcommand into segments and
+ * checks every segment against {@link DESTRUCTIVE_VERBS}.
+ *
+ * Fail-closed behaviours:
+ *   - any destructive id segment → destructive (tool-level mutation);
+ *   - a destructive invoked subcommand segment → destructive;
+ *   - no subcommand supplied but the declaration lists ≥1 destructive subcommand
+ *     → destructive (we cannot know which one will run).
+ */
+export function isDestructiveInvocation(decl: WebCliToolDecl, subcommand?: string): boolean {
+  if (idSegments(decl.id).some((s) => DESTRUCTIVE_VERBS.has(s))) return true;
+  const sub = (subcommand ?? '').trim();
+  if (!sub) {
+    return (decl.subcommands ?? []).some((s) => segmentsOf(s).some((x) => DESTRUCTIVE_VERBS.has(x)));
+  }
+  return segmentsOf(sub).some((s) => DESTRUCTIVE_VERBS.has(s));
 }
 
 /**

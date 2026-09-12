@@ -1005,6 +1005,35 @@ ACCEPTED（作者 2026-09-12 实测缺陷修复要求：工具清单不得再丢
 
 ---
 
+### ADR-017: 自动授权在 `onAsk` 接缝前置判定（v1.8 / FR-052）
+
+## 状态
+ACCEPTED（作者 2026-09-12 要求：读/写自动授权多选，勾选后对应档位免人工确认）
+
+## 背景
+作者要求为每个站点提供「读操作自动 / 写操作自动」开关，勾选后对应档位操作不再弹人工确认。既有安全模型（`riskDefaults` read→allow / write/external/ui/state→ask / evaluate→deny + S1/S2/S3 策略链 + `denyPriority`）要求：**自动授权只能是用户显式、按 origin 的收敛，绝不能放宽 fail-closed 硬底线**。需要选定「在哪里生效」以及「如何保证不被绕过」。
+
+## 决策
+1. **生效位置 = `host.ts` 的 `onAsk` 接缝前置判定**：保持 `createPluginPolicyConfig` 的策略链与 `riskDefaults` **原样不动**。策略链先裁决；只有当最终为 `ask` 时，host 包装过的 `onAsk` 才先看自动授权：命中（origin 开启对应 tier 且非破坏性 read/write）→ 直接返回 `allow`；`evaluate`/未知 risk → 直接 `deny`（`hardDeny`）；其余 → 落到既有 `createConfirmBridge` 人工确认。
+2. **设置按 origin 持久化**（`security/auto-authorize.ts`，`chrome.storage.local` 键 `web-cli:auto-auth`）：`{ read（默认 true，与既有只读免确认一致）, write（默认 false） }`；内存缓存在后台，故开关**即时生效**。
+3. **破坏性判定用插件真值**：`tools/declared-tools.ts` 的 `isDestructiveInvocation(decl, invokedSubcommand)` 把工具 id 与被调用子命令都按 `[._:/-]` 切段后逐段比对 `DESTRUCTIVE_VERBS`（因此 `add-node`/`remove-node` 这类连字符子命令也被抓住）；host 在 `activateSite` 建立「扁平工具名 → 声明」映射，未知工具按破坏性处理（fail-closed）。
+4. **审计可辨**：因自动授权放行写入独立事件类型 `auto-authorize`（含 origin/tool/tier/`decision: allow`/`reason: 自动授权（用户设置）`），设置开/关同样入审计；**不与人工 `confirm` 混淆**。
+5. **硬底线显式编码在纯函数** `decideAutoAuthorization`：未授权（S1 在策略链即 deny，不产生 ask）/ 未知 risk（S3 同上）/ `evaluate`（`hardDeny`）/ 破坏性写（不 allow）/ `ui·state·external`（不提供开关）——五条均有单测与真机断言。
+6. **UI**：侧栏「知情同意与能力边界」区两个复选框 + 开启时常驻标记（`⚡ 自动授权：读/写`）+ 一键关闭 + 硬底线常显文案；options 页按 origin 管理列表。**base 零改动、零新依赖、无新权限（manifest 零 diff）**。
+
+## 被否决方案与理由
+- **A. 直接修改 `PLUGIN_RISK_DEFAULTS`（如 write→allow）**（否决）：全局一刀切、无法按 origin、无法保留破坏性/`evaluate` 硬底线，且关闭后需要回滚策略表；违反「按 origin、可即时关闭、不降低基线」。
+- **B. 全局开关（不区分 origin）**（否决）：与既有 per-origin 授权模型不一致；一个站点的选择会外溢到所有站点。
+- **C. 提供 `evaluate` 自动授权**（否决）：`evaluate` 是设计硬底线（宿主页同源代码执行），永不放行——连人工确认也不提供自动档。
+- **D. 用站点自报 `riskHint` 判定档位/破坏性**（否决）：站点自报不可信（既有 BLK-1 原则）；必须用插件重算的 `effectiveRisk` + 插件 denylist。
+- **E. 只按工具级 `hasDestructiveVerb` 判定**（否决）：该函数对子命令只做整串精确匹配，`add-node`/`remove-node` 会漏判；改用 id/子命令分段判定（见决策 3）。
+- **F. 自动放行不写审计 / 复用 `confirm` 类型**（否决）：会与人工确认混淆，无法追溯「谁放行」；用独立 `auto-authorize` 类型 + 可读 reason。
+
+## 后果
+用户获得按站点的读/写自动授权，且 4 条硬底线与 S1/S3 deny 优先级保持不变；自动授权成为 `onAsk` 前置的**可审计收敛层**而非策略放宽。代价：`AskQuestion` 载荷不携带破坏性信息，host 需维护「工具名 → 声明」映射（内存，随 `activateSite`/`deactivateSite` 生命周期）。`ui`/`state`/`external` 自动档本轮未提供（如实披露）。
+
+---
+
 ## 9. 任务切分建议（sddu-tasks 输入；tasks.json/tasks.md 由 sddu-tasks 产出）
 > 可并行原子任务块划分建议（含依赖提示），不替代 sddu-tasks 的依赖拓扑/验收细化。
 
@@ -1046,4 +1075,5 @@ ACCEPTED（作者 2026-09-12 实测缺陷修复要求：工具清单不得再丢
 | v1.0 | 初始创建：以 spec.md v1.1（46 FR 十组 + 10 NFR + 16 EC + 12 AC）+ discovery.md v1.1（Q/A/R/O）+ 作者裁决（O-001 代码下线 / O-002 通用任意站点优先 / O-003 不预设形态但 plan 给方案 / O-008/O-009/O-010 安全红线 / O-006↔O-001 对象区分；S-004/S-005/S-007/S-011/S-015 核签冻结）为红线输入；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议机制（站点中立描述符 schema + 双通道发现 + postMessage RPC 执行）、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、权限模型映射（三 PolicyStrategy + riskDefaults + fail-closed + onAsk 二次确认）、对象区分下的桥接与 Gate-D 下线执行/回退设计、存储载体（chrome.storage.local + session，key 隔离）；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）+ 波次与裁剪；方案对比 3 主题（宿主形态 / 发现载体 / 衔接方式）× 3 方案 + 推荐；技术开放点 P-01~P-06 全部采纳推荐默认并落 ADR；12 ADR（ACCEPTED 7 / PROPOSED 5，正文内嵌 §8）；文件影响面（新增独立包 ~35 文件 + LGDL 暴露点 + 下线面；零运行时新依赖，devDep `esbuild`+`@types/chrome` 单列待作者确认）；风险 11 项 + 缓解；任务切分建议 TB-0A~TB-R（§9，tasks 产出归 sddu-tasks） | 2026-09-11 | SDDU Plan Agent |
 | v1.1 | **v0.9 增补（作者 2026-09-12 两项架构级决策）**：追加 **ADR-013 多会话模型 = 按 origin 自动共享 + 可选会话组**（sessionId 派生 `origin` / `group:<id>`；每会话独立 40-turn 有界历史；LRU 上限 20 + 可读披露；分组 ≠ 授权）与 **ADR-014 自动探测 = 声明式注入 + 自上报自动握手**（`registerContentScripts` + `persistAcrossSessions`；启动/安装/权限变更对账；`hello`/`whoami` 免手势免 `tabs` 绑定；未授权站点静默降级）；两 ADR 均含**被否决方案与理由**（单会话 / 每标签会话 / 全局会话 / 仅 origin；全站静态注入 `<all_urls>` / 保持点图标 / 申请 `tabs` / 仅 onUpdated）。§6 文件影响补 `session-store.ts` / `content-script-registry.ts`。对应 spec v1.4 FR-047/048 + EC-017~020；未改既有 ADR/FR 语义，fail-closed 不变 | 2026-09-12 | SDDU Build Agent |
 | v1.2 | **v0.9 增补（作者 2026-09-12 决策③：同意权限扩张）**：追加 **ADR-015 标签页管理 = 新增 `tabs` 权限 + 插件级工具 `tabs`（list/switch/open，无 close）**（risk 档 list=read/switch=ui/open=write；隐私默认去 query/fragment；非 http(s) 拒绝；无站点绑定亦可用；options 可关闭并从工具面移除）；含**被否决方案与理由**（不加权限仅已授权站点 / 拆成多个独立工具 / 提供 close / 走 origin 授权门禁）。§6 文件影响补 `tabs-tools.ts` / `tabs-setting.ts`。对应 spec v1.5 FR-049 + EC-021/022；未改既有 ADR/FR 的安全语义（fail-closed、deny 优先不变） | 2026-09-12 | SDDU Build Agent |
+| v1.4 | **自动授权多选（作者 2026-09-12 要求）**：追加 **ADR-017 自动授权在 `onAsk` 接缝前置判定**——按 origin 持久化 `{read(默认 true), write(默认 false)}`，在 host `onAsk` 前置判定（**不改 `riskDefaults`/策略链**）；硬底线（未授权 S1 / 未知 risk S3 / `evaluate` / 破坏性操作 / `ui·state·external`）永不自动放行；`isDestructiveInvocation` 按 id/子命令分段判定破坏性；独立 `auto-authorize` 审计（与人工确认可辨）。含被否决方案（改 `riskDefaults` / 全局开关 / 提供 `evaluate` 自动 / 站点自报 riskHint / 仅工具级 `hasDestructiveVerb` / 不写审计）。对应 spec v1.8 FR-052 + EC-024/025；**base 零改动 / 零新依赖 / 无新权限（manifest 零 diff）** | 2026-09-12 | SDDU Build Agent |
 | v1.3 | **工具面丢失缺陷修复**：追加 **ADR-016 工具面基线对账门禁 + 浏览器能力远程代理**——基线目录机器化夹具（`test/parity/baseline-catalog.json` + 提取脚本 + provenance）、双向子命令级门禁（`test/parity.test.ts` + `waivers.json`）、base `dom`/`chrome`/`wait`/`extract`/`export`/`save`/`events`/`web-search` 经 content 隔离世界 + background 远程代理接回工具面、页面上下文 anchor 下载链替代 `downloads` 权限；含被否决方案（手工矩阵 / 硬编码清单 / captureVisibleTab / 扩 `downloads` / 本轮实现 notify·clipboard）。对应 spec v1.7 FR-051；**零新权限 / 零新依赖 / base 零改动 / 风险档不放宽** | 2026-09-12 | SDDU Build Agent |

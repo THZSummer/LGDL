@@ -8,6 +8,7 @@
  */
 import type { LlmStatusSummary } from '../../llm/status.js';
 import type { ActiveTabView } from '../../background/state-message.js';
+import { AUTO_AUTH_DEFAULTS, autoAuthBadge, type AutoAuthSettings } from '../../security/auto-authorize.js';
 import type { SidepanelState } from './chat-state.js';
 
 // ── F-2: LLM configuration status ─────────────────────────────────────────
@@ -287,6 +288,8 @@ export interface StateMessageView {
   panelNotice?: string | null;
   /** decision ② / FR-048: current multi-session projection (null when unbound). */
   session?: SessionSummaryView | null;
+  /** FR-052 / ADR-017: bound origin's read/write auto-authorization switches. */
+  autoAuth?: AutoAuthSettings;
 }
 
 // ── decision ② / FR-048: multi-session switcher view ─────────────────────────
@@ -351,6 +354,7 @@ export interface StateActionView {
   invalidated: boolean;
   authorized: boolean;
   trust?: SidepanelState['trust'];
+  autoAuth?: AutoAuthSettings;
 }
 
 export function stateActionFromPayload(payload: StateMessageView): StateActionView {
@@ -366,7 +370,21 @@ export function stateActionFromPayload(payload: StateMessageView): StateActionVi
     authorized: hasOrigin && payload.authorized === true,
     // TASK-023: only a bound origin can be trusted; anything else is untrusted.
     trust: hasOrigin && payload.trust === 'trusted' ? 'trusted' : 'untrusted',
+    // FR-052: auto-authorization is per bound origin; never carry another's.
+    ...(hasOrigin && payload.autoAuth ? { autoAuth: payload.autoAuth } : {}),
   };
+}
+
+// ── FR-052 / ADR-017: auto-authorization view helpers (pure) ───────────────
+
+/** Checkbox state for a bound origin (documented defaults when unset). */
+export function autoAuthCheckboxState(settings: AutoAuthSettings | undefined): AutoAuthSettings {
+  return settings ? { read: settings.read === true, write: settings.write === true } : { ...AUTO_AUTH_DEFAULTS };
+}
+
+/** The always-visible marker text ('' when nothing is enabled). */
+export function autoAuthMarker(settings: AutoAuthSettings | undefined): string {
+  return autoAuthBadge(settings);
 }
 
 // ── F-5: empty-log state ──────────────────────────────────────────────────

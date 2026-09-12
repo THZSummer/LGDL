@@ -40,6 +40,8 @@ export type PluginMessageKind =
   | 'session-changed'
   // author decision ③ / FR-049: tab-tool privacy toggle (options page).
   | 'tabs-setting'
+  // FR-052 / ADR-017: per-origin auto-authorization switches (side panel / options).
+  | 'auto-auth'
   // FR-050 / EC-023: same-origin page-context read for the controlled web-fetch seam.
   | 'fetch-text'
   // FR-051 / TASK-029: base-derived browser tool seams (dom/chrome/wait/extract,
@@ -92,6 +94,7 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'session-group',
   'session-changed',
   'tabs-setting',
+  'auto-auth',
   'fetch-text',
   'dom-op',
   'file-save',

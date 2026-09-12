@@ -10,7 +10,9 @@ import {
   createAskUserToolEntry,
   createCommandRouter,
   fqNameOf,
+  type AskQuestion,
   type AskResponder,
+  type AskResolution,
   type CommandRouter,
   type LlmToolDef,
   type RouterPolicy,
@@ -18,9 +20,10 @@ import {
   type ToolResult,
   type WebCliToolCall,
 } from '@lgdl/web-cli-base';
-import type { WebCliDescriptor } from '../protocol/descriptor.js';
+import type { WebCliDescriptor, WebCliToolDecl } from '../protocol/descriptor.js';
 import type { PluginAuditSink } from '../security/audit-sink.js';
 import type { OriginStore } from '../security/origin-store.js';
+import { decideAutoAuthorization } from '../security/auto-authorize.js';
 import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../security/policy.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
 import { createBrowserToolEntries, type BrowserToolOptions } from '../tools/browser-tools.js';
@@ -29,7 +32,13 @@ import {
   createWebFetchToolEntry,
   type WebFetchToolDeps,
 } from '../tools/web-fetch-tool.js';
-import { SITE_TOOL_PREFIX, allocateSiteToolNames, toToolEntries, type SiteRpc } from '../tools/declared-tools.js';
+import {
+  SITE_TOOL_PREFIX,
+  allocateSiteToolNames,
+  isDestructiveInvocation,
+  toToolEntries,
+  type SiteRpc,
+} from '../tools/declared-tools.js';
 
 /** Whether a dispatch target is a declared site tool (flat `site_*` name). */
 export function isSiteToolName(name: string): boolean {
@@ -42,6 +51,13 @@ export interface WebCliHostOptions {
   rpc: SiteRpc;
   currentOrigin?: () => string | undefined;
   onAsk?: RouterPolicy['onAsk'];
+  /**
+   * FR-052 / ADR-017: per-origin auto-authorization switches. When provided, the
+   * `onAsk` seam first consults {@link decideAutoAuthorization}; an allowed
+   * non-destructive read/write ask is resolved as `allow` (audited as
+   * `auto-authorize`) instead of prompting. Absent → no auto path (unchanged).
+   */
+  autoAuth?: { isEnabled(origin: string, tier: 'read' | 'write'): boolean };
   /** Task-internal clarification responder (FR-017 / R7); absent → readable disabled tool. */
   askUser?: AskResponder;
   descriptorShow: (origin: string) => Promise<string>;
@@ -99,6 +115,70 @@ export interface WebCliHost {
 }
 
 export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
+  /**
+   * FR-052 / ADR-017: declared site-tool metadata keyed by the registered flat
+   * name, so the auto-authorization seam can reliably reverse-look-up the tool's
+   * destructive nature (never guessed from the free-form question payload).
+   */
+  const siteDecls = new Map<string, WebCliToolDecl>();
+
+  /**
+   * Auto-authorization is a **pre-check at the onAsk seam** — it does not relax
+   * `riskDefaults` or any strategy, so S1 (unauthorized) / S3 (unknown risk)
+   * still deny before an ask is ever produced. Only when the explicit user
+   * setting enables the tier and the invocation is non-destructive does this
+   * resolve the ask as `allow`; every such allow is audited as `auto-authorize`
+   * (kept distinct from a manual confirm).
+   */
+  const autoOnAsk: RouterPolicy['onAsk'] | undefined = opts.onAsk
+    ? async (question: AskQuestion): Promise<AskResolution> => {
+        const origin = opts.currentOrigin?.();
+        const decl = siteDecls.get(question.tool);
+        const destructive = decl ? isDestructiveInvocation(decl, question.subcommand) : true; // unknown tool → fail-closed
+        const decision = decideAutoAuthorization({
+          origin,
+          group: question.group,
+          risk: question.risk,
+          destructive,
+          settings:
+            origin && opts.autoAuth
+              ? { read: opts.autoAuth.isEnabled(origin, 'read'), write: opts.autoAuth.isEnabled(origin, 'write') }
+              : undefined,
+        });
+        if (decision.allow) {
+          opts.audit.recordPlugin({
+            type: 'auto-authorize',
+            ts: Date.now(),
+            tool: question.tool,
+            subcommand: question.subcommand,
+            risk: question.risk,
+            origin,
+            decision: 'allow',
+            reason: decision.reason,
+            detail: '因自动授权（用户设置）放行，未经人工二次确认（与「用户确认放行」区分）',
+          });
+          return { action: 'allow' };
+        }
+        if (decision.hardDeny) {
+          // Hard floor: evaluate / unclassifiable risk is denied here, never
+          // delegated to the confirmation UI (which could otherwise allow it).
+          opts.audit.recordPlugin({
+            type: 'auto-authorize',
+            ts: Date.now(),
+            tool: question.tool,
+            subcommand: question.subcommand,
+            risk: question.risk,
+            origin,
+            decision: 'deny',
+            reason: decision.reason,
+            detail: '自动授权前置判定：硬底线不可放行，直接拒绝（未经确认 UI）',
+          });
+          return { action: 'deny' };
+        }
+        return opts.onAsk!(question);
+      }
+    : undefined;
+
   const router = createCommandRouter({
     delayMs: 0,
     // FR-050: when the plugin owns a controlled `web-fetch` seam, keep the base
@@ -111,7 +191,7 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
         trustOf: (origin) => opts.origins.trustOf(origin),
         ...(opts.currentOrigin ? { currentOrigin: opts.currentOrigin } : {}),
       },
-      opts.onAsk,
+      autoOnAsk,
     ),
     audit: opts.audit,
   });
@@ -178,6 +258,14 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     router,
     activateSite(descriptor, origin) {
       this.deactivateSite();
+      // Deterministic flat-name assignment (also the lookup key for FR-052).
+      const assignments = allocateSiteToolNames(descriptor.tools);
+      // FR-052 / ADR-017: remember each flat name → declaration so the auto-auth
+      // seam can judge destructive invocations from plugin truth (never guessed).
+      descriptor.tools.forEach((decl, i) => {
+        const name = assignments[i]?.name;
+        if (name) siteDecls.set(name, decl);
+      });
       const entries = toToolEntries(descriptor, origin, opts.rpc);
       for (const entry of entries) {
         router.register(entry);
@@ -186,7 +274,6 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
       // Deterministic collision disclosure (FR-025 auditability): when two
       // declared ids flatten to the same LLM-safe name, the second gets a `_N`
       // suffix. Record it readably — never silent.
-      const assignments = allocateSiteToolNames(descriptor.tools);
       const deduped = assignments.filter((a) => a.deduped);
       if (deduped.length) {
         opts.audit.recordPlugin({
@@ -202,6 +289,7 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     deactivateSite() {
       for (const fqn of siteFqns) router.unregister(fqn);
       siteFqns = [];
+      siteDecls.clear();
       siteDescriptor = undefined;
       siteOrigin = undefined;
     },

@@ -46,6 +46,11 @@
       .diag-summary { margin-top: 6px; font-weight: 600; }
       .inline-check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
       .inline-check input { width: auto; }
+      .auto-auth-row {
+        border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; margin: 8px 0;
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      .auto-auth-row .row { margin-top: 0; align-items: center; }
     </style>
   </head>
   <body>
@@ -137,6 +142,18 @@
         关闭后 <code>tabs</code> 会立即从 LLM 工具面移除（不会静默保留）。
       </p>
       <div id="tabs-setting-status" class="muted" role="status" aria-live="polite">标签页管理：尚未读取。</div>
+    </section>
+
+    <section id="auto-auth">
+      <h2>自动授权（按站点）</h2>
+      <p class="muted">
+        按站点 origin 分别设置：勾选后，<strong>对应档位</strong>的操作不再弹出人工二次确认。
+        <strong>读操作自动</strong>默认开（与现状一致）；<strong>写操作自动</strong>默认关，且<strong>不含破坏性操作</strong>
+        （删除 / 清空 / 重置等仍需确认）。<code>evaluate</code> 档与<strong>未授权站点</strong>永不自动放行。
+        每项改动立即生效；可随时关闭。
+      </p>
+      <div id="auto-auth-list"></div>
+      <div id="auto-auth-status" class="muted" role="status" aria-live="polite">自动授权：尚未读取。</div>
     </section>
 
     <section id="diagnostics">

@@ -2142,6 +2142,48 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **`chrome screenshot` 用 base 近似截图**（foreignObject+canvas），非 `captureVisibleTab` 原生视口截图；与基线语义一致（同名同子命令），元素级可用、整页级不支持（归属 CDP）。
 - 仅在 `.pw-browsers` Chromium `--headless=new` 实测；系统 Chrome/Edge 未单独复验。
 
+## 28. 按 origin 自动授权（读/写多选；FR-052 / ADR-017；TASK-030，Wave 22）
+
+### 28.1 根因 / 需求
+作者要求：「自动授权多选：读操作自动、写操作自动，勾选之后，对应的操作无需用户手动同意授权」。既有门禁下，站点工具在 untrusted 声明时 `write/evaluate/external` 一律 `ask`（`security/policy.ts` S2），每次都要侧栏二次确认。需提供**按站点 origin**的用户显式收敛，且**不得降低 fail-closed 基线**。
+
+### 28.2 生效位置（不修改 `riskDefaults` / 策略链）
+- `createWebCliHost`（`background/host.ts`）在 `opts.onAsk` 外再包一层 `autoOnAsk`：策略链先出裁决，**只有最终为 `ask`** 时才进入自动授权前置判定。命中 → 直接 `{action:'allow'}`；`evaluate`/未知 risk → 直接 `{action:'deny'}`（`hardDeny`）；其余 → 落回既有 `createConfirmBridge`（侧栏确认，超时/取消 = deny）。
+- 自动授权**不改** `PLUGIN_RISK_DEFAULTS`、不改 S1/S2/S3，也不改 `denyPriority`：S1（未授权）与 S3（未知 risk）在策略链即 `deny`，根本不产生 `ask`，天然不受影响。
+
+### 28.3 设置模型与判定
+- 新增 `security/auto-authorize.ts`：`createAutoAuthStore`（`chrome.storage.local` 键 `web-cli:auto-auth`）按 origin 持久化 `{ read: 默认 true, write: 默认 false }`；`isEnabled(origin,tier)` 读内存缓存 → **即时生效**；`set`/`clear` 入审计。`clear` = 一键关闭**读写都关**（否则默认 read=true 会让标记常驻）。
+- 新增 `tools/declared-tools.ts` `isDestructiveInvocation(decl, subcommand)`：把工具 id 与**被调用子命令**按 `[._:/-]` 切段后逐段比对 `DESTRUCTIVE_VERBS`（修复既有 `hasDestructiveVerb` 对子命令只做整串精确匹配、漏判 `add-node`/`remove-node` 的问题；`hasDestructiveVerb` 本身**未改**以免影响既有分类）。host 在 `activateSite` 建立「扁平工具名 → 声明」映射；未知工具按破坏性处理。
+- `decideAutoAuthorization` 纯函数硬编码硬底线：仅 `group === 'site'` 且 `risk ∈ {read,write}` 且（write 时）非破坏性，且对应 tier 已开启，才 `allow`；`evaluate`/未知 risk `hardDeny`；`ui`/`state`/`external` 不提供开关。
+
+### 28.4 UI
+- 侧栏「知情同意与能力边界」区新增 `#auto-read` / `#auto-write` 两个复选框 + `#auto-auth-badge`（开启时常驻，显示 `⚡ 自动授权：读` / `读+写`，点击一键关闭）+ `#auto-auth-note`（常显硬底线文案）；控件作用于当前 origin，无活跃站点时禁用。`state` 载荷新增 `autoAuth`（随刷新同步；关闭即时反映）。
+- options 页新增「自动授权（按站点）」区：列出已显式设置的 origin 及读/写状态，可逐项开关或整体关闭；文案常显硬底线。
+
+### 28.5 审计
+- `security/audit-sink.ts` 新增独立事件类型 `auto-authorize`（与人工 `confirm` 可辨）：放行 `decision:'allow'` + `reason` 含「自动授权（用户设置）」+ origin/tool/subcommand/risk；硬底线拦截 `decision:'deny'`；设置变更 `enabled`/`disabled`。
+
+### 28.6 新增决策（D-123~D-127）
+- **D-123（在 `onAsk` 接缝前置判定，而非改 `riskDefaults`）**：自动授权只把「本会 ask 且非破坏性的 read/write」收敛为 allow；`deny` 从不进入 ask，故 S1/S3 优先级不变。**被否决**：直接把 `PLUGIN_RISK_DEFAULTS.write` 改成 allow（全局一刀切、无法按 origin、破坏性/ evaluate 无法保留、关闭需回滚策略表）。
+- **D-124（按 origin，不做全局开关）**：与既有 per-origin 授权模型一致；A 站点开启不影响 B。**被否决**：全局自动授权（选择外溢）。
+- **D-125（破坏性用 `isDestructiveInvocation` 分段判定）**：工具 id 与**被调用子命令**都按 `[._:/-]` 切段比对 denylist，抓住 `add-node`/`remove-node`；未知工具 fail-closed 按破坏性。**被否决**：只调 `hasDestructiveVerb`（对子命令整串精确匹配，`remove-node` 漏判）；站点自报 `riskHint`（不可信）。
+- **D-126（`evaluate` 永不放行，硬编码 `hardDeny`）**：自动授权前置判定对 `evaluate`/未知 risk 直接返回 deny，不委托确认 UI。**被否决**：提供 evaluate 自动档 / 委托到确认（可能被人工放行）。
+- **D-127（独立 `auto-authorize` 审计类型 + 一键关闭读写都关）**：放行记录与人工确认可辨；一键关闭把读写都置 false（而非恢复默认 read=true），否则常驻标记无法关闭。**被否决**：复用 `confirm` 类型（不可辨）/ clear 恢复默认（标记不消失）。
+
+### 28.7 门禁与验证
+- 新增 `test/auto-authorize.test.ts`（13 用例）：决策矩阵 + 4 条硬底线 + read 零回归 + 按 origin 隔离/持久化 + 即时关闭 + 审计可辨。
+- `test:ui` 97→**113**（#18a~#18p：options 区/空态/列表/持久化/即时关闭；侧栏复选框默认值/常驻标记/刷新持久化/一键关闭/硬底线文案）。
+- `test:binding` 83→**96**（#19a~#19l：真实站点默认写关、写关时 `status` 触发确认、开启写自动后 `status` 免确认直接执行、审计含「自动授权（用户设置）」、「`remove-node` 即使开启写自动仍弹确认」、关闭后立即恢复确认）。
+- 插件 336→**349**、`tsc` 0 error、`test:hardening` **22**、`test:e2e` **PASS**、全仓 build/test **0 fail**（base **483 零回归**）。
+- **base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；未 git 提交。
+
+### 28.8 未完成 / 降级（如实）
+- **`ui`/`state`/`external` 档本轮不提供自动开关**（保持 `ask`）——按作者要求与硬底线 #5，非缺陷。
+- **读操作自动当前为“行为等价开关”**：既有 `riskDefaults.read → allow` 使只读调用本就不进入 `ask`，故 read 开关在现有策略下不改变行为（默认 true 与现状一致）；它作为「标记/一致性/未来若收紧只读也需确认」的显式声明保留。开关默认 `read:true` 使侧栏常驻标记在绑定站点后即显示「⚡ 自动授权：读」——已如实标注，一键关闭会同时关掉读/写并隐藏标记。
+- **一键关闭会同时关闭读自动**：因默认 read=true，若只关写则标记仍常驻、用户无法「关闭标记」，故 `clear` 设为读写都关（读自动关闭在当前策略下仍不改变只读行为，仅为标记语义）。
+- **真实站点上的“写操作”以 `lgdl-web-cli status`（write 档、非破坏性子命令）演示**：真实 lgdl-web 声明中 `lgdl-web-cli` 的变更子命令（`add-node`/`remove-node`）均命中破坏性 denylist，故用 write 档非破坏性子命令证明「免确认直接执行」，并用 `remove-node` 证明「破坏性仍确认」；未修改站点声明。
+- **`AskQuestion` 破坏性信息来自 host 侧映射而非载荷**：base `AskQuestion` 不携带破坏性标记（base 零改动红线），host 维护 `activateSite` 生命周期内的「工具名 → 声明」映射；映射缺失按破坏性 fail-closed。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2166,4 +2208,5 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v1.17 | **v0.9 增补：标签页管理工具 + `tabs` 权限扩张**（§24，作者 2026-09-12 决策③；TASK-026）：新增 `src/tools/tabs-tools.ts`（插件级工具 `tabs`，list/switch/open，**明确不做 close**；risk list=read/switch=ui/open=write；`list` 默认去 query/fragment、`--full` 显式；非 http(s) scheme 可读拒绝；每子命令入审计）+ `src/background/tabs-setting.ts`（隐私开关，默认开）；`manifest.permissions` **唯一新增 `tabs`**（接受安装警告「读取您的浏览记录」）；`host.setTabsEnabled` 关闭即从 `deriveTools()` 移除（`enabled` 语义）；`switch` 复用 `bindTab` 绑定链并切到该 origin 会话；options 页隐私开关 + 披露文案；docs compliance §9 / release §5 / capability-matrix 第 27 行+§3.2 / dev §12.4。门禁：插件 262→**292**（+30，2 新测试文件）、`tsc` 0 error、`test:ui` 79→**85**（#17a~#17e 开关 + #15u tabs 卡片）、`test:binding` 58→**73**（真实 `tabs list`/`--full`/`tabs switch`→会话切换，工具面 12→13）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；base/`package.json`/`.opencode/opencode.json` 零改动、**无新依赖**、无 `<all_urls>`、无静态注入；三处旧「无 tabs」断言语义按决策③更新为精确权限集合（非降级）；未 git 提交。 |
 | v1.18 | **v0.9 缺陷修复：`web-fetch` CORS 预校验 + 失败可见**（§25，TASK-027，用户实测「插件加载报错」驱动）：根因 = base 内建 `web-fetch`（`web-fetch.ts:138/143`）在扩展 SW 内对未授权域名直接 `globalThis.fetch`，必然被 CORS 拦截（`chrome://extensions` 出现错误条目），且失败只进 LLM 上下文。修复（**base 零改动**）：新增 `src/tools/web-fetch-tool.ts` 受控 seam（相对路径解析绑定 origin / 绝对 http(s) 经 `chrome.permissions.contains` / **未授权 → 零请求 + 可读拒绝 + 两条授权指引** / 非 http(s) scheme 可读拒绝 / 同源优先页面上下文）；`host.ts` 传 `builtins:['sleep','web-cli-help']` 后注册受控同名条目**替换** base 内建（分发仍走 `router.dispatch`，门禁/审计不旁路）；`service-worker.ts` 注入真实 deps + system prompt 要求报告工具失败；`content-script.ts` 新增 `fetchSameOriginText` 同源读取；`chat-state.ts` 失败 tool 条目 `kind:'error'`（侧栏可见错误色）。门禁：插件 292→**309**（+17）、`tsc` 0 error、`test:ui` 85→**87**（#15v/#15w）、`test:binding` 73→**81**（#0h/#1d/#7f~#7k；**未授权域名零请求 + 无 CORS 条目 + 同源页面上下文真实读取**，保留既有断言）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；**manifest 零 diff**（无新权限/无 `<all_urls>`）、无新依赖、`.opencode/opencode.json` 零改动；D 项核实：**无真实加载错误**（SW 可达 + ping 往返 + 0 未捕获异常），CORS 属运行期；D-107~D-111；未 git 提交。 |
 | v1.19 | **侧栏自动测试当前模型配置**（§26，TASK-028，作者要求）：移除侧栏独立「测试连接」按钮（options 页保留）；面板加载**自动**复用既有 `llm-test` 在 `#llm-test-result` 展示可读状态（**不新增请求路径**、仅加载触发一次、`render()`/消息追加/`focus`/`visibilitychange` 均不重复触发）；`background` 新增 **60s TTL 内存单槽缓存** `src/llm/test-cache.ts`（指纹 = 厂商+模型+Base URL+Key 的不可逆 FNV-1a；**仅内存比较，不落盘/日志/审计**）——命中直接返回原结果（含原耗时 ms，`cached:true`）不发请求，配置变更/TTL 过期失效重测；未配置 `no-key` 零请求。门禁：插件 309→**315**（+6 `test-cache.test.ts`）、`tsc` 0 error、`test:ui` 87→**97**（#12~#12m：无按钮/自动成功态格式/缓存命中 mock 计数不变/重复 render 探针不变/配置变更 mock+1/未配置零请求）、`test:binding` 81→**83**（#6-1 真站点加载即出现状态 / #6-2 无按钮）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限**；docs dev §10.10 + §9/§10.5/§11.1 + tasks TASK-028 同步；D-112~D-116；未 git 提交。 |
+| v1.21 | **按 origin 自动授权（读/写多选）**（§28，TASK-030，FR-052/ADR-017，作者要求）：新增 `security/auto-authorize.ts`（按 origin 持久化 `{read 默认 true, write 默认 false}`，`web-cli:auto-auth`，内存缓存即时生效，`set`/`clear` 入审计；`clear` = 读写都关）；在 `host.ts` 的 `onAsk` 接缝**前置判定**（**不改 `riskDefaults`/S1·S2·S3/denyPriority**）——策略链先裁决，仅当最终为 `ask` 时命中「对应 tier 已开启且非破坏性 read/write」→ 直接 allow；`evaluate`/未知 risk → 直接 deny（hardDeny）；**4 条硬底线**（未授权 S1 deny / 未知 risk S3 deny / evaluate deny / 破坏性写 ask）+ `ui·state·external` 不提供开关。新增 `isDestructiveInvocation`（id + 被调用子命令按 `[._:/-]` 切段比对 `DESTRUCTIVE_VERBS`，抓 `add-node`/`remove-node`；既有 `hasDestructiveVerb` 未改）。审计独立类型 `auto-authorize`（allow/deny/enabled/disabled，与人工 `confirm` 可辨）。UI：侧栏两个复选框 + 常驻标记 `⚡ 自动授权：读/写`（点击一键关闭）+ 常显硬底线文案；options 按站点管理列表。门禁：插件 336→**349**（+13 `test/auto-authorize.test.ts`）、`tsc` 0 error、`test:ui` 97→**113**（#18a~#18p）、`test:binding` 83→**96**（#19a~#19l：真实站点「开启写自动→非破坏性 `status` 免确认直接执行」「破坏性 `remove-node` 仍弹确认」「关闭→立即恢复确认」）、`test:hardening` **22**、`test:e2e` **PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-123~D-127；未 git 提交。 |
 | v1.20 | **工具面基线对账门禁 + 浏览器能力补齐**（§27，TASK-029，FR-051/ADR-016，作者实测「DOM 操作 / 浏览器截图等命令全部丢失」驱动）：根因 = 既有测试只断言插件内部行为、`capability-matrix.md` 手写无执行 → 工具面静默漂移。修复：①**只读**临时克隆 main（不碰 main/不改本仓 .git）→ 机器枚举原助手工具目录（`main@2ddc9229`，34 工具/142 子命令）固化为 `test/parity/baseline-catalog.json`（provenance + 可重跑提取脚本 `extract-baseline-catalog.mjs`，含新工厂守卫）；②`test/parity.test.ts` **双向 + 子命令级**对账门禁（同名实现 / `waivers.json` 显式豁免（理由+依据+`providedAs`/`permission`）/ 否则失败；防插件新增未登记工具；`findCoverageGaps()` 自测能抓两类漂移）；③补齐**无新权限**的浏览器能力——content 隔离世界 `createBrowserDomOps()` + background `dom-op` 远程代理，注册 base `dom`(30)/`chrome`(print/back/forward/reload/**screenshot**)/`wait`/`extract`/`export`/`save`/`events`(经既有事件桥)/`web-search`；截图/导出/保存走页面上下文 anchor 下载链（**不新增 `downloads`**）；④风险档沿用 base（不放宽，走 `router.dispatch`）；⑤**待批准权限**（`notify`→`notifications`、`clipboard`→`clipboardRead/Write`）只报告不实施；⑥`docs/capability-matrix.md` 重写为机器校验的基线对账表 + `docs/dev.md` §13 对账/豁免流程。门禁：插件 315→**336**、`tsc` 0 error、`test:ui` **97**、`test:hardening` **22**、`test:binding` **83**（真实 LLM tools 清单 21 个已含 dom/chrome/wait/extract/export/save/events/web-search）、`test:e2e` **PASS**（新增 `dom read-state`/`dom click`/`chrome screenshot` 三条真机断言）、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-117~D-122；未 git 提交。 |

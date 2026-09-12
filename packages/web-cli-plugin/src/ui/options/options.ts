@@ -561,6 +561,116 @@ async function setTabsSetting(enabled: boolean): Promise<void> {
   }
 }
 
+// ── FR-052 / ADR-017: 按 origin 自动授权管理 ────────────────────────────────
+
+interface AutoAuthRecordView {
+  origin: string;
+  read: boolean;
+  write: boolean;
+  updatedAt: number;
+}
+
+function renderAutoAuthList(records: AutoAuthRecordView[]): void {
+  const box = $('auto-auth-list');
+  box.textContent = '';
+  if (records.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'muted';
+    empty.textContent = '暂无站点开启自动授权（侧栏「知情同意与能力边界」区可为当前站点开启）。';
+    box.appendChild(empty);
+    return;
+  }
+  for (const rec of records) {
+    const row = document.createElement('div');
+    row.className = 'auto-auth-row';
+    const label = document.createElement('strong');
+    label.textContent = rec.origin;
+    row.appendChild(label);
+
+    const mk = (tier: 'read' | 'write', text: string) => {
+      const wrap = document.createElement('label');
+      wrap.className = 'inline-check';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = rec[tier] === true;
+      input.dataset.tier = tier;
+      input.dataset.origin = rec.origin;
+      input.addEventListener('change', () => void setAutoAuthSetting(rec.origin, tier, input.checked));
+      wrap.append(input, ` ${text}`);
+      return wrap;
+    };
+    const controls = document.createElement('div');
+    controls.className = 'row';
+    controls.append(mk('read', '读操作自动'), mk('write', '写操作自动'));
+    const off = document.createElement('button');
+    off.type = 'button';
+    off.textContent = '关闭该站点自动授权';
+    off.addEventListener('click', () => void clearAutoAuthSetting(rec.origin));
+    controls.appendChild(off);
+    row.appendChild(controls);
+    box.appendChild(row);
+  }
+}
+
+async function refreshAutoAuth(): Promise<void> {
+  const status = $('auto-auth-status');
+  if (!envGuard.inExtension) {
+    status.textContent = '非扩展环境：无法读取自动授权设置。';
+    return;
+  }
+  try {
+    const res = (await chrome.runtime.sendMessage(makeMessage('auto-auth', { action: 'get' }))) as
+      | PluginResponse<{ origins?: AutoAuthRecordView[] }>
+      | undefined;
+    if (!res?.ok || !res.data) {
+      status.textContent = `✖ 读取自动授权失败：${res?.error ?? '后台无响应'}`;
+      return;
+    }
+    renderAutoAuthList(res.data.origins ?? []);
+    status.textContent = `自动授权：${res.data.origins?.length ?? 0} 个站点有显式设置（写操作自动不含破坏性操作；evaluate 档与未授权站点永不自动放行）。`;
+  } catch (err) {
+    status.textContent = `✖ 读取自动授权失败：${errMessage(err)}`;
+  }
+}
+
+async function setAutoAuthSetting(origin: string, tier: 'read' | 'write', enabled: boolean): Promise<void> {
+  const status = $('auto-auth-status');
+  try {
+    const res = (await chrome.runtime.sendMessage(makeMessage('auto-auth', { action: 'set', origin, tier, enabled }))) as
+      | PluginResponse<{ origins?: AutoAuthRecordView[] }>
+      | undefined;
+    if (!res?.ok || !res.data) {
+      status.textContent = `✖ 保存自动授权失败：${res?.error ?? '后台无响应'}`;
+      await refreshAutoAuth();
+      return;
+    }
+    renderAutoAuthList(res.data.origins ?? []);
+    status.textContent = `已${enabled ? '开启' : '关闭'} ${origin} 的「${tier === 'read' ? '读操作自动' : '写操作自动'}」；立即生效。`;
+  } catch (err) {
+    status.textContent = `✖ 保存自动授权失败：${errMessage(err)}`;
+    await refreshAutoAuth();
+  }
+}
+
+async function clearAutoAuthSetting(origin: string): Promise<void> {
+  const status = $('auto-auth-status');
+  try {
+    const res = (await chrome.runtime.sendMessage(makeMessage('auto-auth', { action: 'clear', origin }))) as
+      | PluginResponse<{ origins?: AutoAuthRecordView[] }>
+      | undefined;
+    if (!res?.ok || !res.data) {
+      status.textContent = `✖ 关闭自动授权失败：${res?.error ?? '后台无响应'}`;
+      await refreshAutoAuth();
+      return;
+    }
+    renderAutoAuthList(res.data.origins ?? []);
+    status.textContent = `已关闭 ${origin} 的自动授权（读/写都关）。`;
+  } catch (err) {
+    status.textContent = `✖ 关闭自动授权失败：${errMessage(err)}`;
+    await refreshAutoAuth();
+  }
+}
+
 function wire(): void {
   // author decision ③ / FR-049: 标签页管理隐私开关。
   $('tabs-enabled').addEventListener('change', (e) => {
@@ -651,6 +761,8 @@ void refresh();
 void refreshGroups();
 // author decision ③ / FR-049: load the tab-tool privacy toggle.
 void refreshTabsSetting();
+// FR-052 / ADR-017: load the per-origin auto-authorization management list.
+void refreshAutoAuth();
 // TASK-019 任务 C: run the self-check on load so the page immediately shows why
 // "保存不了 / 功能不能用" (never a silent blank). Also re-runnable via「运行自检」.
 void runDiagnostics()
