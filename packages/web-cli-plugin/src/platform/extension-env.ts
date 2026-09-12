@@ -82,13 +82,42 @@ export function originPermissionPattern(origin: string): string | null {
  * (the OriginStore authorization remains the authoritative gate), never throws.
  */
 export async function requestOriginPermission(origin: string): Promise<boolean> {
+  return (await requestOriginPermissionDetailed(origin)).granted;
+}
+
+/** Readable outcome of an optional host-permission request (D-064). */
+export interface OriginPermissionRequest {
+  granted: boolean;
+  /** The match pattern used, or null when the origin is not http(s). */
+  pattern: string | null;
+  /** Readable reason when not granted (never silent). */
+  reason?: string;
+}
+
+/**
+ * Request the optional host permission for an origin, carrying a readable
+ * reason on failure so the side panel can explain the activeTab fallback.
+ */
+export async function requestOriginPermissionDetailed(origin: string): Promise<OriginPermissionRequest> {
   const pattern = originPermissionPattern(origin);
-  if (!pattern) return false;
+  if (!pattern) {
+    return {
+      granted: false,
+      pattern: null,
+      reason: `无法为 ${origin || '当前站点'} 生成站点权限匹配式（仅支持 http(s) 站点）`,
+    };
+  }
   try {
-    return (await chrome.permissions.request({ origins: [pattern] })) === true;
+    const granted = (await chrome.permissions.request({ origins: [pattern] })) === true;
+    return granted
+      ? { granted: true, pattern }
+      : { granted: false, pattern, reason: '用户或浏览器未授予站点访问权限（原生权限弹窗被拒绝/取消）' };
   } catch (err) {
-    console.warn('[web-cli-plugin] host permission request failed:', err);
-    return false;
+    return {
+      granted: false,
+      pattern,
+      reason: `站点权限申请失败：${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }
 

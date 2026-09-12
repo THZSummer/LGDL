@@ -38,6 +38,7 @@
 | M27 | **环境自检 / 诊断面板** | `test/diagnostics.test.ts` + `test/ui/hardening.mjs`；一键复制文本 | 六项 ✅⚠❌ + 零明文（`sanitizeDiagText` 兜底） | ✅ PASS（TASK-019） |
 | M28 | **旧扩展未重载可见** | `npm run test:hardening`（C 场景：build 后仅刷新 options，不点「重新加载」） | 诊断提示「页面/background 构建不一致 + 重新加载」 | ✅ PASS（TASK-019） |
 | M29 | **保存后可验证 / 无活跃站点可自救** | `npm run test:ui`（#6d~#6f/#8d/侧栏 #11~#12）+ `test/sidepanel-view.test.ts` + `test/state-message.test.ts` | 保存后 `#key-state`=已写入、placeholder=已保存（不回显）、成功色；侧栏 LLM 行含 `Key ✅`；无活跃站点给具体原因 + 「重新绑定当前标签页」+ 发送禁用原因；侧栏「测试连接」复用 `llm-test` 可读结果 | ✅ PASS（TASK-020） |
+| M30 | **站点绑定全链（真站点）** | `npm run test:binding`（真实 dist + 真实 `http://localhost:5173` lgdl-web + mock LLM）+ `test/binding-wiring.test.ts` | 绑定成功（tabId+origin）→ content.js 注入 → discovery `supported` → 【授权当前站点】成功（http host permission 路径）→ 发送按钮可用 → 输入 `11111` 跑通一轮 mock 对话；切换标签页标记失效 + 可读提示；无 `<all_urls>`/无 `tabs` 权限 | ✅ PASS（第四轮修复，33 断言） |
 
 ## 2. 人工面（真实浏览器交互）
 

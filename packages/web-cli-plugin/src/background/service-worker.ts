@@ -72,6 +72,73 @@ let initPromise: Promise<Singletons> | null = null;
 let confirmResponder: ((requestId: string, allow: boolean) => void) | null = null;
 let chatBusy = false;
 
+/**
+ * One-shot readable notice surfaced through the next `state` reply (D-064).
+ * Used for the side-panel-open fallback, the "switched tab" prompt and the
+ * action-click binding result, so the panel never fails silently.
+ */
+let panelNotice: string | null = null;
+function takePanelNotice(): string | null {
+  const notice = panelNotice;
+  panelNotice = null;
+  return notice;
+}
+
+/**
+ * Binding path shared by the toolbar-icon click and the panel「重新绑定」:
+ * inject the content script, bind the controller, reset the conversation on an
+ * origin switch. Never throws; a readable reason is returned on failure.
+ */
+async function bindTab(
+  s: Singletons,
+  tabId: number,
+  url: string | undefined,
+): Promise<{ ok: true; origin: string; injected: boolean } | { ok: false; reason: string }> {
+  const origin = tabOrigin(url);
+  if (!origin) return { ok: false, reason: projectActiveTab({ url }).reason ?? '不是可注入的 http(s) 站点' };
+  const injected = await ensureContentScript(tabId);
+  const prevOrigin = s.controller.get()?.origin;
+  s.controller.bindTab(tabId, origin);
+  if (prevOrigin && prevOrigin !== origin) await resetChatSession(s);
+  await persistSession(s);
+  return { ok: true, origin, injected };
+}
+
+/**
+ * Open the side panel for a tab (D-064).
+ *
+ * MUST be invoked synchronously from inside a user gesture — awaiting anything
+ * first consumes the gesture token and Chrome rejects `sidePanel.open`. A
+ * failure only means the automatic open did not happen: the binding already
+ * succeeded and a readable notice tells the user how to open the panel.
+ */
+async function openSidePanel(tabId: number): Promise<void> {
+  try {
+    await chrome.sidePanel.open({ tabId });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    panelNotice =
+      `已绑定站点，但自动打开侧栏失败：${reason}。请点击浏览器工具栏的插件图标打开侧栏；` +
+      '若仍打不开，请在 chrome://extensions 重新加载扩展（自动打开侧栏需 Chrome 116+）。';
+    console.warn('[web-cli-plugin] sidePanel.open failed:', reason);
+  }
+}
+
+/**
+ * D-064: the toolbar icon must *bind* on click, which requires
+ * `chrome.action.onClicked` to fire. Chrome suppresses that event while
+ * `openPanelOnActionClick` is true, so it is explicitly disabled here (also
+ * repairs profiles upgraded from ≤0.8 builds). The click handler opens the
+ * panel itself instead.
+ */
+async function configureSidePanelBehavior(): Promise<void> {
+  try {
+    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+  } catch (err) {
+    console.warn('[web-cli-plugin] sidePanel.setPanelBehavior failed:', err);
+  }
+}
+
 async function invokeSite(
   origin: string,
   tool: string,
@@ -291,22 +358,22 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const session = s.controller.get();
       // W1: report the bound origin's persisted authorization so a side-panel
       // reload / SW restart never falls back to a false "未授权" (no origin → false).
-      return okResponse(
-        await buildStateMessage({
-          active: session
-            ? {
-                tabId: session.tabId,
-                origin: session.origin,
-                discoveryState: session.discoveryState,
-                ...(session.discoveryReason ? { discoveryReason: session.discoveryReason } : {}),
-                invalidated: session.invalidated,
-              }
-            : null,
-          tools: s.host.deriveTools().map((t) => t.name),
-          isAuthorized: (origin) => s.origins.isAuthorized(origin),
-          tab: await activeTabProjection(),
-        }),
-      );
+      const payload = await buildStateMessage({
+        active: session
+          ? {
+              tabId: session.tabId,
+              origin: session.origin,
+              discoveryState: session.discoveryState,
+              ...(session.discoveryReason ? { discoveryReason: session.discoveryReason } : {}),
+              invalidated: session.invalidated,
+            }
+          : null,
+        tools: s.host.deriveTools().map((t) => t.name),
+        isAuthorized: (origin) => s.origins.isAuthorized(origin),
+        tab: await activeTabProjection(),
+      });
+      // D-064: carry (and consume) the one-shot readable notice.
+      return okResponse({ ...payload, panelNotice: takePanelNotice() });
     }
     case 'authorize': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
@@ -520,6 +587,10 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // semantics as the action-click path (`chrome.action.onClicked`), but from
       // inside the panel with a readable failure reason. Restricted / missing
       // tabs fail readably (never silently).
+      //
+      // D-064: without `tabs` / a host grant this path cannot read `tab.url`, so
+      // the failure copy must point at the icon click (the only place Chrome
+      // hands the tab URL to the extension).
       let tab: chrome.tabs.Tab | undefined;
       try {
         [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -529,21 +600,14 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       if (tab?.id === undefined) {
         return errorResponse('没有可绑定的标签页：请先打开目标站点标签页，再点插件图标或本按钮。');
       }
-      const url = tab.url ?? '';
-      const origin = tabOrigin(url);
-      if (!origin) {
-        const projection = projectActiveTab(tab);
-        return errorResponse(`当前标签页不可绑定：${projection.reason ?? '不是 http(s) 站点'}。请切换到目标站点标签页后重试。`);
+      const bound = await bindTab(s, tab.id, tab.url);
+      if (!bound.ok) {
+        return errorResponse(
+          `当前标签页不可绑定：${bound.reason}。\n` +
+            '绑定的唯一触发点 = 在目标站点标签页点击浏览器工具栏的插件图标（点击时 Chrome 才会把该标签页地址交给插件）。',
+        );
       }
-      const injected = await ensureContentScript(tab.id);
-      if (!injected) {
-        return errorResponse('无法在当前标签页注入脚本（受限页面或权限不足）。请切换到目标站点标签页后重试。');
-      }
-      const prevOrigin = s.controller.get()?.origin;
-      s.controller.bindTab(tab.id, origin);
-      if (prevOrigin && prevOrigin !== origin) await resetChatSession(s);
-      await persistSession(s);
-      return okResponse({ origin, tabId: tab.id });
+      return okResponse({ origin: bound.origin, tabId: tab.id, contentInjected: bound.injected });
     }
     case 'confirm-response': {
       const rid = typeof message.requestId === 'string' ? message.requestId : '';
@@ -577,11 +641,10 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   return true; // async response
 });
 
-chrome.runtime.onInstalled.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((err) => {
-    console.warn('[web-cli-plugin] sidePanel behavior setup failed:', err);
-  });
-});
+// D-064: disable the "click toggles the panel" behavior so `action.onClicked`
+// fires and the icon click can *bind* the tab. Applied on every SW start (not
+// only onInstalled) so a stale profile upgraded from ≤0.8 is repaired too.
+void configureSidePanelBehavior();
 
 // EC-008 / FR-006: an externally revoked optional host permission (browser
 // extension page) is audited readably. The OriginStore authorization and the
@@ -601,23 +664,43 @@ chrome.permissions.onRemoved.addListener((permissions) => {
   })();
 });
 
+// D-064: the toolbar icon click is the ONE bind trigger.
+//
+// ① `chrome.sidePanel.open` must run synchronously inside this gesture, so it is
+//    kicked off (not awaited) before any other async work.
+// ② The tab object handed to `onClicked` carries `url` because the click *is* a
+//    user gesture — no `tabs` permission is required, honoring least privilege.
 chrome.action.onClicked.addListener((tab) => {
+  if (tab.id === undefined) return;
+  const tabId = tab.id;
+  const opening = openSidePanel(tabId);
   void (async () => {
     const s = await init();
-    if (tab.id !== undefined) {
-      await ensureContentScript(tab.id);
-      if (tab.url) {
-        try {
-          const origin = new URL(tab.url).origin;
-          const prevOrigin = s.controller.get()?.origin;
-          s.controller.bindTab(tab.id, origin);
-          if (prevOrigin && prevOrigin !== origin) await resetChatSession(s);
-          await persistSession(s);
-        } catch (err) {
-          console.warn('[web-cli-plugin] tab url parse failed:', err);
-        }
-      }
-    }
+    const bound = await bindTab(s, tabId, tab.url);
+    panelNotice = bound.ok
+      ? bound.injected
+        ? `✓ 已绑定站点 ${bound.origin}，正在发现 web-cli 声明。`
+        : `已绑定 ${bound.origin}，但页面脚本注入失败（页面可能受限或尚未加载完成）；请刷新页面后在「重新探测」。`
+      : `当前标签页不可绑定：${bound.reason}。请在目标站点标签页点击插件图标。`;
+    await opening;
+  })();
+});
+
+// D-065: switching away from the bound tab marks the session stale (readable
+// prompt) instead of silently keeping a background binding. Without the `tabs`
+// permission `onActivated` cannot read the new tab's URL, so only the tabId is
+// compared — that must never throw.
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  void (async () => {
+    const s = await init();
+    const session = s.controller.get();
+    if (!session) return;
+    // The bound tab is active again → nothing to do.
+    if (session.tabId === activeInfo.tabId) return;
+    if (session.invalidated) return;
+    s.controller.markStale();
+    panelNotice = '已切换标签页：原绑定站点已标记失效。请在新标签页点击浏览器工具栏的插件图标重新绑定。';
+    await persistSession(s);
   })();
 });
 

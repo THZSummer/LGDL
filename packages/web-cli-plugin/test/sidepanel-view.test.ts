@@ -461,6 +461,31 @@ test('TASK-020 B: sendDisabledReason is readable and empty only when send is ena
   assert.match(noTab, /没有可用标签页/);
 });
 
+// D-064: the single biggest real-world confusion was "无活跃站点" + the
+// misleading "当前标签页没有可读取的地址". An unreadable address is the normal
+// not-bound-yet state; the panel must say so and point at the icon click.
+test('D-064: addressUnreadable is framed as「尚未绑定」and points at the icon click', () => {
+  const unreadable = { present: true, restricted: true, addressUnreadable: true, reason: '无法读取当前标签页地址（请在目标站点标签页点击浏览器工具栏的插件图标）' } as const;
+  const view = activeSiteNotice({ hasOrigin: false, tab: unreadable });
+  assert.equal(view.kind, 'unbound-tab');
+  assert.match(view.title, /尚未绑定/);
+  assert.equal(/不可注入/.test(`${view.title}${view.detail}`), false, 'must not call a normal page restricted');
+  assert.match(view.detail, /插件图标/);
+  assert.match(view.action, /插件图标/);
+  assert.equal(/没有可读取的地址/.test(`${view.title}${view.detail}${view.action}`), false);
+
+  const sendReason = sendDisabledReason({ activeOrigin: undefined, pending: false, tab: unreadable });
+  assert.match(sendReason, /发送已禁用/);
+  assert.match(sendReason, /插件图标/);
+});
+
+test('D-064: onboarding states the icon click is the ONLY bind trigger', () => {
+  const view = buildOnboarding({ configured: true, hasOrigin: false, discovered: false, authorized: false, hasConversation: false });
+  assert.match(view.steps[2].text, /插件图标/);
+  assert.match(view.steps[2].text, /唯一触发点/);
+  assert.equal(view.currentStep, 2, 'configured → next action is step 2 (open a site)');
+});
+
 test('TASK-020 B/D: sidepanel exposes site-hint / rebind / llm-test surfaces', () => {
   const html = read('../../src/ui/sidepanel/index.html');
   assert.match(html, /id="site-hint"/);

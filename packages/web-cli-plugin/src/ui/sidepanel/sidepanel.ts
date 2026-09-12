@@ -25,7 +25,7 @@ import type { LlmStatusSummary } from '../../llm/status.js';
 import type { ActiveTabView } from '../../background/state-message.js';
 import type { TestConnectionResult } from '../../llm/test-connection.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
-import { requestOriginPermission } from '../../platform/extension-env.js';
+import { requestOriginPermissionDetailed } from '../../platform/extension-env.js';
 import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
@@ -331,6 +331,11 @@ async function refreshState(): Promise<void> {
   // W1: sync the persisted authorization too — otherwise a reload/reopen shows
   // a false "未授权" and the authorize button becomes clickable again.
   dispatch(stateActionFromPayload(res.data));
+  // D-064: surface the background's one-shot readable notice last (an icon-click
+  // binding result / "switched tab" prompt must win over the generic navigation
+  // notice the state reducer may have set).
+  const notice = typeof res.data.panelNotice === 'string' ? res.data.panelNotice.trim() : '';
+  if (notice) dispatch({ type: 'notice', text: notice });
 }
 
 /** TASK-020 任务 D: run the connectivity test from the panel (stored config). */
@@ -415,12 +420,16 @@ function wire(): void {
     void (async () => {
       // Request the optional host permission inside the user gesture (IMP-4 /
       // FR-006); best-effort — OriginStore authorization is the authoritative gate.
-      const granted = await requestOriginPermission(origin);
-      await send(makeMessage('authorize', { origin, hostPermissionGranted: granted }));
+      // D-064: keep the readable reason and state the activeTab fallback explicitly.
+      const req = await requestOriginPermissionDetailed(origin);
+      await send(makeMessage('authorize', { origin, hostPermissionGranted: req.granted }));
       dispatch({ type: 'state', authorized: true });
+      const permissionText = req.granted
+        ? `已获得站点访问权限（${req.pattern}）`
+        : `未获得持久站点权限（${req.reason ?? '未知原因'}），回退到 activeTab 临时授权——仅在点击插件图标的手势内有效`;
       dispatch({
         type: 'notice',
-        text: `已授权 ${origin}。${consentSummary()}${granted ? '' : '；站点访问权限未授予，将回退到 activeTab 临时授权'}`,
+        text: `已授权 ${origin}；${permissionText}。${consentSummary()}`,
       });
     })();
   });

@@ -91,8 +91,12 @@ test('active tab projection: no tab / unknown URL fail readably (never silent)',
   assert.deepEqual(projectActiveTab(null), { present: false, restricted: true, reason: '没有可用标签页' });
   const empty = projectActiveTab({});
   assert.equal(empty.restricted, true);
-  assert.ok((empty.reason ?? '').length > 0);
-  assert.match(restrictedPageReason(''), /没有可读取的地址/);
+  // D-064: an unreadable address is NOT a broken page — it is the "not bound yet"
+  // case (Chrome hides tab.url without tabs/host/activeTab). The copy must point
+  // at the icon click and must never re-introduce the misleading "没有可读取的地址".
+  assert.equal(empty.addressUnreadable, true);
+  assert.match(restrictedPageReason(''), /点击.*插件图标/);
+  assert.equal(/没有可读取的地址/.test(restrictedPageReason('')), false);
 });
 
 test('state payload (TASK-020 B): the active-tab projection is carried (or explicit null)', async () => {

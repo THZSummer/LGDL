@@ -1014,6 +1014,141 @@ Chromium 无扩展加载 `file://…/options.html`，设置 `#apiKey` 后**真�
 - 「重新绑定当前标签页」按钮的真实手势链路（`activeTab`）在 headless 下无法合成：本轮只断言按钮存在与
   `rebind` 消息可读路径；真实用户手势绑定仍属人工面 H0。
 
+## 17. 站点绑定链路缺陷修复（用户实测第四轮，D-064~D-068）
+
+> 场景：**真实 Google Chrome** + `chrome://extensions` 加载 `dist`。LLM 已配置且「测试连接」通过
+> （DeepSeek · deepseek-flash · 1020ms）；站点 `http://localhost:5173/`（本仓 lgdl-web，已确认
+> `public/.well-known/web-cli.json` 存在且 `index.html` 有 `<link rel="web-cli">`）；但侧栏**恒显示「无活跃
+> 站点」**，错误详情「当前标签页不可注入：当前标签页没有可读取的地址」，「重新绑定当前标签页」同样失败，
+> 发送按钮恒禁用。本轮由主 Agent 先做**代码级根因定位**（不重复调查），随后按定位结论修复并做**真站点全链实证**。
+
+### 17.1 根因（代码级，已确认）
+
+| # | 根因 | 位置（修复前） | 后果 |
+|---|------|----------------|------|
+| ① | `openPanelOnActionClick: true` 吞掉 `chrome.action.onClicked` | `service-worker.ts:581`（`onInstalled`）vs 绑定逻辑在 `:604` 的 `onClicked` | 点图标**只开面板、从不绑定**，绑定路径整体成死代码 |
+| ② | 无 `tabs` 权限、无该站点 host 权限、无 activeTab 手势授权时 `tab.url === undefined` | `manifest.json`（permissions 无 `tabs`；`optional_host_permissions` 仅 `https://*/*`） | `projectActiveTab` → `restrictedPageReason('')` → 「没有可读取的地址」；`rebind` 的 `tab.url ?? ''` → `tabOrigin('')=null` → 不可绑定；`http://localhost:5173` 不被 https-only 覆盖，**连权限都无法申请** |
+
+附：两处代码级证据（`test/ui/binding.mjs` 阶段 0 实证）——未授权时 `chrome.tabs.query().url === undefined`；
+未授权头下 `chrome.permissions.request('http://localhost:5173/*')` 在 headless **一直 pending**（无原生弹窗，
+非静默失败，如实记录）。
+
+### 17.2 修复逐项（file:line 前后对照）
+
+**A. 点图标可靠地「绑定 + 开面板」（核心）**
+
+- `src/background/service-worker.ts:644-648`（前：`chrome.runtime.onInstalled` 内 `setPanelBehavior({openPanelOnActionClick: true})`）
+  → `:647` `void configureSidePanelBehavior()`（`:134-141`，显式 `openPanelOnActionClick: false`，每次 SW 启动都执行，
+  可修复 ≤0.8 升级残留）。
+- `src/background/service-worker.ts:668-686`（前：`onClicked` 仅 `ensureContentScript` + 直接 `bindTab`）
+  → `:673-687`：`onClicked(tab)` 内先**同步** `const opening = openSidePanel(tabId)`（`:115-127`，调用
+  `chrome.sidePanel.open({tabId})`，同一用户手势内，**先于任何 await**），再 `bindTab(s, tabId, tab.url)`
+  （`:92-107`，复用注入+绑定+换 origin 清会话），最后 `await opening`。`open` 抛错时 `panelNotice` 给可读提示
+  「已绑定站点，但自动打开侧栏失败…请点击浏览器工具栏的插件图标」，**不静默失败、不撤销绑定**。
+- `manifest.json:6` `minimum_chrome_version` `114 → 116`；`build.mjs:39` esbuild `target: chrome114 → chrome116`。
+- 会话失效逻辑保留：`tabs.onUpdated(loading)`（`:711-724`）不变；**新增** `tabs.onActivated`（`:693-707`）：
+  绑定标签页被切走时 `controller.markStale()`（`controller.ts:83-88`：置 `invalidated=true`，**保留**
+  origin/discoveryState/descriptor，避免把「切标签页」误当「导航」而静默拆掉可用绑定）并给侧栏可读提示
+  「已切换标签页：原绑定站点已标记失效…」。无 `tabs` 权限下 `onActivated` 拿不到新标签页 url，**只比较 tabId、
+  不读 url、不报错**。
+
+**B. http 站点可被持久授权**
+
+- `manifest.json:17-20` `optional_host_permissions`：`["https://*/*"]` → `["http://*/*","https://*/*"]`（保留 https）。
+- `src/platform/extension-env.ts`：新增 `requestOriginPermissionDetailed(origin)`（返回 `{granted, pattern, reason}`，
+  http origin 生成 `http://localhost:5173/*`，失败给可读 reason）；侧栏 `#authorize` 改用它，回执明确「已获得站点
+  访问权限（pattern）」或「未获得持久站点权限（原因），回退到 activeTab 临时授权——仅在点击插件图标的手势内有效」。
+
+**C. 错误文案指向可执行动作**
+
+- `src/background/state-message.ts:58-63`（前：`if (!url) return '当前标签页没有可读取的地址'`）
+  → 明确「无法读取当前标签页地址（Chrome 尚未把该地址交给插件——通常是还没在目标站点点击插件图标授权）；请在
+  目标站点标签页点击浏览器工具栏的插件图标」。
+- `src/background/state-message.ts:78` 新增 `ActiveTabView.addressUnreadable`（`url` 为空即置位，区别于受限页）；
+  `src/ui/sidepanel/view-model.ts:149-163` 据此走「尚未绑定（读不到标签页地址）」分类，**不再误称「不可注入」**，
+  动作明确「点插件图标（绑定的唯一触发点）」。`rebind` 失败文案（`service-worker.ts:568-573`）同样明确指引。
+- `view-model.ts:222` 首次引导第 3 步改为「点击浏览器工具栏的插件图标（这是绑定的唯一触发点）：插件会绑定并发现
+  当前站点，然后自动打开侧栏」。
+
+### 17.3 真站点全链路实证（`npm run test:binding`，33 断言 PASS）
+
+真实 dist（JS 字节与发布一致）+ 真实 `http://localhost:5173` 的 lgdl-web（`/.well-known/web-cli.json` +
+`<link rel="web-cli">`）+ 真实 Chromium（`.pw-browsers`，headless=new）+ 本地 mock LLM（不打真实厂商）。
+逐步实测结果（原文）：
+
+1. **绑定成功**：`rebind`（与 `onClicked` 共用 `bindTab()`）返回 `{ok:true,data:{origin:"http://localhost:5173",
+   tabId:<id>, contentInjected:true}}`；`state.active.origin` 一致。✔
+2. **content.js 注入成功**：`contentInjected=true`。✔
+3. **discovery 走到 supported**：`state.active.discoveryState="supported"`，工具面含 `site.lgdl-web-cli`（well-known 通道）。✔
+4. **【授权当前站点】成功**：真实点击 `#authorize` → `permissions.request('http://localhost:5173/*')` 立即 `true`
+   （临时 dist 预授予；见披露②）→ 回执「已授权…；已获得站点访问权限（http://localhost:5173/*）…」，`state.authorized=true`。✔
+5. **发送按钮变为可用**：`#send.disabled=false`，`#send-reason` 为空。✔
+6. **mock LLM 一轮对话**：真实键入 `11111` → 点「发送」→ 侧栏出现 assistant 回复（含 `11111`），**无错误条目**。✔
+
+另证 `tabs.onActivated`：切走绑定标签页后 `state.active.invalidated=true` 且 `panelNotice` 含「已切换标签页」。✔
+侧栏页全程 **0 未捕获异常 / 0 console error**。
+
+> **披露①**：Chrome 未暴露程序化触发 `chrome.action.onClicked` 的 API，本脚本改用与 `onClicked` **同一个
+> `bindTab()`** 的等价绑定消息（`rebind`），并另行**实时断言**修复后的根因事实 `openPanelOnActionClick===false`
+> + `chrome.sidePanel.open` 可用；「图标点击→绑定」的 wiring 由 `test/binding-wiring.test.ts` 静态钉住。
+> **披露②**：headless 无法合成原生权限弹窗（未授权请求一直 pending，已用 4s race 记录为 `PENDING_TIMEOUT`），
+> 故主链在临时 dist 副本里把 `http://localhost:5173/*` 预先加入 `host_permissions`（**JS 字节零改动**），使真实的
+> `#authorize` 点击路径可跑通；`optional_host_permissions` 声明本身由阶段 0 实时读取 manifest 断言。
+
+### 17.4 新增/调整测试
+
+- 新增 `test/ui/binding.mjs` + `npm run test:binding`（**33 断言**，两阶段：真实 dist 复现根因 + 真站点全链）。
+- 新增 `test/binding-wiring.test.ts`（3 测试：`openPanelOnActionClick` 不得为 true、`onClicked→bindTab/openSidePanel`
+  wiring、`onActivated` 不读 url；最小权限红线）。
+- `test/state-message.test.ts`：`restrictedPageReason('')` 断言改为「指向点击插件图标」且**不得**再含「没有可读取
+  的地址」；补 `addressUnreadable` 断言。
+- `test/sidepanel-view.test.ts`（+2）：`addressUnreadable` 归类为「尚未绑定」+ 指向插件图标 + 不得出现「不可注入」；
+  引导第 3 步含「唯一触发点」。
+- `test/controller.test.ts`（+1）：`markStale` 保留 origin/discovery/descriptor 仅置 invalidated。
+- `test/extension-env.test.ts`（+2）：manifest `optional_host_permissions` 含 `http://*/*`、`min≥116`、无 `tabs`；
+  `requestOriginPermissionDetailed` 对 `http://localhost:5173` 产出 `http://localhost:5173/*` 且失败有可读 reason。
+
+### 17.5 门禁（本轮复跑）
+
+| 门禁 | 结果 |
+|------|------|
+| `build`（插件） | PASS（build stamp 2026-09-12T07:20:50Z；`target=chrome116`） |
+| `tsc --noEmit` | 0 error |
+| `npm test`（插件） | **191 pass / 0 fail**（183→191，+8） |
+| `test:ui` | PASS 41 断言 |
+| `test:hardening` | PASS 22 断言 |
+| `test:e2e` | PASS 场景 A/B |
+| **`test:binding`（新增）** | **PASS 33 断言**（真站点 6 步全链） |
+| 全仓 `build` + `test` | **0 fail**；base **483 零回归**（core 267 / render 94+1skip / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / base 483 / plugin 191） |
+| 红线 | base 零改动、无新依赖、**无 `<all_urls>`、无新增 `tabs` 权限**、无明文 key、未 git 提交 |
+
+### 17.6 新增决策（D-064~D-068）
+
+- **D-064（绑定唯一触发点 + 可读降级）**：`openPanelOnActionClick` 显式置 `false`（每次 SW 启动执行，修残留），
+  `action.onClicked` 内**先同步** `sidePanel.open`（保手势）再 `bindTab`；`open` 失败**不撤销绑定**，仅给
+  「请手动点图标开侧栏」可读提示。`minimum_chrome_version`/esbuild target 提到 116。`optional_host_permissions`
+  补 `http://*/*` 让本地 http 开发站可申请持久授权；`requestOriginPermissionDetailed` 携带可读 reason 并明确
+  activeTab 回退。**不引入 `tabs` 权限**——点击回调的 `tab.url` 在本手势下必含地址，是 Chrome 语义保证。
+- **D-065（`tabs.onActivated` 只标记不拆除）**：绑定标签页被切走时新增 `controller.markStale()`（保留
+  origin/discoveryState/descriptor，仅 `invalidated=true`）+ 可读提示；无 `tabs` 权限时**只比较 tabId、不读 url**，
+  避免把「切标签页」误当「导航」而静默销毁可用绑定（`markNavigated` 语义保持不变，仅用于 loading 导航）。
+- **D-066（`addressUnreadable` 分类）**：`projectActiveTab` 对空 `url` 输出独立标记，`activeSiteNotice` 归为
+  「尚未绑定」而非「不可注入」，文案指向「点插件图标（唯一触发点）」；废除误导性的「当前标签页没有可读取的地址」。
+- **D-067（真站点绑定门禁）**：新增 `test/ui/binding.mjs` + `npm run test:binding`，用真实 dist + 真实
+  `http://localhost:5173` + mock LLM 固化 6 步全链；两处 headless 不可能（图标不可脚本触发 / 无原生权限弹窗）
+  以「等价绑定消息 + 临时 dist 预授权 + 静态 wiring 断言」如实补位并在脚本头部披露，**不冒充真手势**。
+- **D-068（可读提示通道 additive）**：`state` 消息新增一次性 `panelNotice`（`takePanelNotice()` 消费即清）；
+  侧栏 `refreshState()` 在同步状态后以其覆盖 notice。既有 `state` 字段与 `PluginMessageKind` 均不变（零删除零降级）。
+
+### 17.7 未完成 / 未复现（如实）
+
+- **真实用户手势下的 `chrome.action.onClicked` 与原生权限弹窗**仍未在自动化中触发（Chrome 无脚本 API / headless
+  无 UI）；本轮的替代证据（等价 `bindTab` 消息 + 运行时 `openPanelOnActionClick=false` + 真站点全链）已最大限度
+  逼近，但**图标点击那一刻**的真实手势链路仍属人工面（见 §17.3 披露①②）。
+- 本机系统 Google Chrome 仍未安装；`test:binding` 在 `.pw-browsers` Chromium 1234（headless=new）上跑。
+- 站点使用**已在 `:5173` 运行**的 lgdl-web（本仓真实 dev/preview 服务）；无运行服务时脚本用 `vite preview` 起本仓
+  `lgdl-web/dist`，未跑 `vite dev`（避免 predev 全量构建的不确定性）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -1029,3 +1164,4 @@ Chromium 无扩展加载 `file://…/options.html`，设置 `#apiKey` 后**真�
 | v1.8 | TASK-018（§14）：用户实测反馈——**先真复现**（全新 profile + 真实 dist + CDP 真实键入/点击）：首次/二次保存均成功、storage 真落库，`loadProvider` 恒返回对象（非 undefined）→ 可疑 TypeError **假设不成立**，如实记录；据此做静默失败防御（保存/测试/刷新全部 try/catch 可读失败、空 Key 明确提示不假装成功、保存后清空 Key+摘要回显）+ 新增「测试连接」（background `llm-test` + `src/llm/test-connection.ts`，复用 base `chat`，可读分类 401/403/404/CORS/超时，火山直连受限如实呈现，key 不入日志/审计）+ 新增 `npm run test:ui`（`test/ui/journey.mjs`，全新 profile + 真实 dist + 真实点击，25 断言）常驻门禁；D-046~D-052；插件 132→**146**（+14）、base 483 零回归、全仓 0 fail、`test:ui` PASS、E2E A/B PASS、base/`.opencode/opencode.json` 零改动、零新增依赖；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.9 | TASK-019（§15）：三成因加固——① `src/platform/env-guard.ts` 非扩展上下文守卫（options/sidepanel 阻断横幅 + 保存/测试/清除禁用 + 输入说明；`file://` 修复前/后对照实证）；② `discover` 尊重上报三态 + 持久化可读 `reason` + `reprobe` 重试入口，侧栏三态显式说明（未声明 = 设计如此非故障；未知 = 可读原因 + 重新探测）；③ `diag` 消息 + 「环境自检/诊断」六项 + 一键复制（零明文，`sanitizeDiagText` 纵深脱敏）+ `__BUILD_STAMP__` 构建戳与「未重载」不一致提示；新增 `test:hardening` 实证探针（A/B/C，22 断言 PASS）；D-053~D-058；插件 146→**173**（+27）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` PASS（Chrome-for-Testing 151 + 系统 snap Chromium 152）、E2E A/B PASS、base/根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖；**「填 Key 没法保存」仍未能复现根因，如实标注**；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.10 | TASK-020（§16，用户实测反馈第三轮）：修复两个**真实 UX 缺陷**——① 保存成功却像失败（TASK-017 F-8 清空 Key 框无标记）→ 保存后 placeholder=「已保存（不回显）…」+ `#key-state`=「Key ✅ 已写入（不回显）」+ 成功块/高亮/摘要；②「无活跃站点」无解释无出路 → 三态具体原因 + 「重新绑定当前标签页」(`rebind` 消息) + 发送禁用原因就近可见；侧栏 LLM 行补 `Key ✅/⚠未配置`（零明文）；侧栏新增「测试连接」（复用 `llm-test`，stored 回退，key 不回传/不落日志审计），options 测试按钮视觉突出紧邻保存；`test:ui` 25→**41** 断言（含侧栏 0 异常）；D-059~D-063；插件 173→**183**（+10）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:hardening` 22 断言 PASS、E2E A/B PASS、base/根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖；真实第三方厂商直连仍属人工面 H7 不冒充；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.11 | 站点绑定链路缺陷修复（§17，用户实测第四轮）：代码级根因 ① `openPanelOnActionClick:true` 吞掉 `action.onClicked` 使绑定成死代码 + ② 无 `tabs`/host 权限时 `tab.url===undefined` 被误报「没有可读取的地址」；修复：显式置 `openPanelOnActionClick:false` + `onClicked` 先同步 `sidePanel.open` 再 `bindTab`（open 失败可读降级不撤销绑定）、`optional_host_permissions` 补 `http://*/*`、`minimum_chrome_version` 114→116、新增 `tabs.onActivated` 切换失效提示（只比 tabId 不读 url）、`addressUnreadable` 分类 + 文案统一指向「点插件图标（唯一触发点）」；新增 `npm run test:binding`（`test/ui/binding.mjs`，真实 dist + 真实 `http://localhost:5173` lgdl-web + mock LLM，**33 断言**跑通绑定→注入→发现→授权→发送可用→11111 对话 6 步）+ `test/binding-wiring.test.ts`；D-064~D-068；插件 183→**191**（+8）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41 PASS、`test:hardening` 22 PASS、E2E A/B PASS、无 `<all_urls>`/无新增 `tabs` 权限/无新依赖/base 与根 `package.json` 零改动；图标点击真实手势与原生权限弹窗仍属人工面（headless 不可能，已在脚本披露）；未 git 提交 | 2026-09-12 | SDDU Build Agent |

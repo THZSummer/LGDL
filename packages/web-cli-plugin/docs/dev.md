@@ -31,10 +31,11 @@ npm run build
 1. 构建（见 §2）。
 2. 打开 `chrome://extensions` → 打开右上角「开发者模式」。
 3. 点击「加载已解压的扩展程序」→ 选择 `packages/web-cli-plugin/dist/`。
-4. 打开目标站点 → 点击工具栏插件图标（用户手势）→ side panel 打开 → 授权当前站点。
+4. 打开目标站点 → **点击工具栏插件图标**（用户手势；这是绑定的唯一触发点）→ 插件绑定当前标签页并**自动打开 side panel** → 授权当前站点。
 5. 若需站点事件通道：在 side panel 触发事件订阅后才会安装观察源（默认关 / 零常驻）。
 
-> 首次授权会请求该 origin 的可选 host 权限；拒绝则回退 `activeTab`（仍可用，但后台特权 fetch 能力受限）。
+> 首次授权会请求该 origin 的可选 host 权限（manifest `optional_host_permissions` 同时覆盖 `http://*/*` 与 `https://*/*`，本地 `http://localhost:5173` 开发站也能被持久授权）；拒绝则回退 `activeTab`（仍可用，但后台特权 fetch 能力受限）。
+> 自动打开侧栏依赖 `chrome.sidePanel.open`（Chrome 116+，`minimum_chrome_version` 已提到 116）；若该调用失败，绑定仍然成功，面板会给出「请手动点图标打开侧栏」的可读提示。
 
 ### 3.1 首次使用（配置与授权顺序）
 
@@ -42,7 +43,7 @@ npm run build
 
 1. **配置模型**：侧栏顶部「配置模型 / 设置」按钮 → options 页选择厂商、填入 API Key 并保存（BYOK，仅存 `chrome.storage.local`，不回显明文）。
 2. **打开目标站点**：打开声明了 web-cli 协议的站点标签页（本仓库的 LGDL Web 即一个实例站点）。
-3. **点击插件图标**：让插件绑定并发现当前站点（`activeTab` 手势）。
+3. **点击插件图标**：这是**绑定的唯一触发点**。点击时 Chrome 才会把该标签页的地址交给插件（无需 `tabs` 权限）；插件绑定并发现当前站点，然后自动打开侧栏。
 4. **授权当前站点**：在侧栏点击「授权当前站点」，确认知情同意与可选站点权限。
 5. **输入指令**：在底部输入框发送，开始对话。
 
@@ -52,7 +53,7 @@ npm run build
 
 | 目标 | 入口 |
 |------|------|
-| 侧栏（会话/授权/确认/审计/风控） | 点击工具栏插件图标（`openPanelOnActionClick`）；或 `chrome://extensions` → 插件「详情」→「扩展程序选项」旁无侧栏入口时用图标 |
+| 侧栏（会话/授权/确认/审计/风控） | **点击工具栏插件图标**：点击处理函数先绑定当前标签页、再 `chrome.sidePanel.open({tabId})` 在同一手势内打开侧栏（**不是** `openPanelOnActionClick`——那个开关会吞掉 `action.onClicked`，导致只开面板、从不绑定） |
 | 设置页（LLM 配置 / 迁移 / 合规） | 侧栏顶部「配置模型 / 设置」按钮 → `chrome.runtime.openOptionsPage()`；或 `chrome://extensions` → 插件「详情」→「扩展程序选项」 |
 | 审计 | 侧栏「查看审计」（零明文导出） |
 | 风控（暂停/恢复/中止） | 侧栏底部（**不**在知情同意折叠区，保持可操作） |
@@ -287,13 +288,28 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 
 | 情况 | 侧栏提示 | 怎么解决 |
 |------|----------|----------|
+| 当前标签页的地址读不到（未点图标授权；Chrome 不向插件提供 `tab.url`） | 「当前站点尚未绑定（读不到标签页地址）」+ 说明「这不是页面故障」 | **在目标站点标签页点击工具栏插件图标**（绑定的唯一触发点）；或点侧栏「**重新绑定当前标签页**」 |
 | 当前标签页是 `chrome://` / 扩展页 / 应用商店等受限页 | 「当前标签页不可注入（…）」 | 切换到目标站点标签页 → 点工具栏插件图标；或点侧栏「**重新绑定当前标签页**」 |
-| 已打开 http(s) 站点但尚未绑定（未点图标 / 扩展刚重载） | 「当前站点尚未绑定（https://…）」 | 点工具栏插件图标，或点「**重新绑定当前标签页**」 |
+| 已打开 http(s) 站点但尚未绑定（已点图标但扩展刚重载等） | 「当前站点尚未绑定（https://…）」 | 点工具栏插件图标，或点「**重新绑定当前标签页**」 |
 | 没有可用标签页 | 「没有可用标签页」 | 打开目标站点标签页后再点插件图标 |
 | 已在目标站点但发现态非 `supported` | 由 `#discovery-notice` 说明（未声明 = 设计如此非故障；未知 = 可读原因 + 「重新探测」） | 按提示「重新探测」或换到声明了协议的站点 |
+| 切到别的标签页 | 「已切换标签页：原绑定站点已标记失效…」 | 回到目标站点标签页点插件图标重新绑定 |
 | 上一条指令仍在处理 | 「发送已禁用：上一条指令仍在处理中」 | 等当前轮结束 |
 
 侧栏顶部同时提供「**测试连接**」（无需打开 options，复用已保存配置），结果在侧栏内可读展示。
+
+### 10.6 「为什么一定要点插件图标？」（绑定逻辑）
+
+这是最容易踩、也最容易被误判为「插件坏了」的一步，所以单独说明：
+
+- **Chrome 只在「用户手势」里把标签页地址交给扩展。** manifest **没有**（也不应该有）`tabs` 权限；`host_permissions` 只覆盖 6 个 LLM 域名。因此在**点击插件图标之前**，`chrome.tabs.query(...).url` 对任何普通网页都是 `undefined`——包括正常的 `http://localhost:5173`。旧文案把它写成「当前标签页没有可读取的地址」，让人以为页面有问题；实际含义是「**你还没在目标站点点插件图标**」。
+- **点击插件图标 = 绑定的唯一触发点。** `chrome.action.onClicked(tab)` 的回调参数 `tab.url` 在手势下必定可读（不依赖 `tabs` 权限）。处理函数用 `tabUrl → bindTab()` 绑定该标签页并注入 content script；随后 `ensureContentScript` 触发发现（well-known / html-link / handshake）。
+- **为什么以前点了图标也不绑定？** 旧实现调用了 `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`。Chrome 语义：**该开关开启时 `chrome.action.onClicked` 不会触发**——于是点图标只开面板、绑定逻辑（在 `onClicked` 里）成了死代码。现在改为显式 `openPanelOnActionClick: false`，并由点击处理函数在**同一手势内**调用 `chrome.sidePanel.open({ tabId })`。
+- **切换标签页会标记失效（不静默保留后台绑定）。** `chrome.tabs.onActivated` 在绑定标签页被切走时把会话标记为 stale 并提示「已切换标签页…请点插件图标重新绑定」。没有 `tabs` 权限时 `onActivated` 拿不到新标签页地址，所以这里**只比较 tabId、绝不读 url、绝不因此报错**。
+
+排查顺序：① 在目标站点标签页点插件图标；② 看侧栏顶部是否出现站点 origin（不再是「无活跃站点」）；③ 点「授权当前站点」；④ 发送按钮应变为可用。仍不行时用 options 页「环境自检 / 诊断」（构建戳 / SW 连通性 / 活跃站点）反馈。
+
+> 机械面实证：`npm run test:binding`（`test/ui/binding.mjs`）用**真实 dist + 真实 `http://localhost:5173` 的 lgdl-web + mock LLM** 跑通「绑定 → 注入 → 发现 supported → 授权（http host permission 路径）→ 发送可用 → 输入 11111 对话」6 步；图标点击不可脚本触发与 headless 无原生权限弹窗两处偏差已在该脚本头部如实披露。
 
 ## 11. 变更记录
 
@@ -305,4 +321,5 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 1.3 | TASK-018：补 §9 UI 旅程测试（`npm run test:ui`，真实 dist + 真实键入/点击）；options 保存链路加 try/catch 可读失败 + 空 Key 明确提示 + 配置摘要回显；新增「测试连接」（background 最小真实请求 + 可读分类）。 |
 | 1.4 | TASK-019：补 §10 诊断与常见问题（非扩展上下文守卫 / 站点未声明协议说明 / 未重载扩展构建不一致）+ 「配置保存不了怎么办 / 站点用不了是正常的 / 改了代码要重新加载扩展」三问；新增 `npm run test:hardening` 实证探针。 |
 | 1.5 | TASK-020（用户实测反馈第三轮）：修复「保存成功却像失败」（保存后不再把 Key 框显示为空框——改 placeholder + `#key-state`=Key ✅ 已写入 + 成功色/高亮 + 摘要），侧栏 LLM 行补 `Key ✅/⚠未配置`；「无活跃站点」拆成具体原因 + 下一步动作并新增「重新绑定当前标签页」按钮，发送禁用原因就近可见；侧栏新增「测试连接」（复用 `llm-test`，读取已保存配置）；补 §10.4/§10.5 两问；`test:ui` 25→41 断言。 |
+| 1.6 | 站点绑定链路缺陷修复（用户实测：配置正常、站点正确却恒「无活跃站点」）：根因 = `setPanelBehavior({openPanelOnActionClick:true})` 吞掉 `action.onClicked` 使绑定成死代码 + 无 `tabs`/host 权限时 `tab.url` 为 `undefined` 被误报成「没有可读取的地址」。改为 `openPanelOnActionClick:false` + 点击处理内 `bindTab` 后同手势 `sidePanel.open`；`optional_host_permissions` 补 `http://*/*`、`minimum_chrome_version` 114→116；新增 `tabs.onActivated` 标签页切换失效提示；错误文案改为指向「点插件图标」；补 §10.6 与 §3/§3.1/§3.2/§10.5；新增 `npm run test:binding`（真站点全链 33 断言）。 |
 

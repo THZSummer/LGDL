@@ -41,3 +41,19 @@ test('controller: navigation and snapshot/restore keep the reason semantics', ()
   c2.restore({ tabId: 3, origin: 'https://a.test', discoveryState: 'unknown', discoveryReason: 'r', invalidated: false, updatedAt: 1 });
   assert.equal(c2.get()?.discoveryReason, 'r');
 });
+
+// D-065: switching tabs marks the session stale but must NOT tear down a working
+// binding (no tabs permission → the new tab's URL is unreadable, so a switch from
+// the extension's own options/panel tab must not look like a site change).
+test('controller: markStale keeps origin/discovery/descriptor and only flags invalidation', () => {
+  const c = createController();
+  c.bindTab(3, 'https://a.test');
+  c.setDiscovery('supported', { protocolVersion: '1.0', tools: [] } as never);
+  c.markStale();
+  const s = c.get();
+  assert.equal(s?.invalidated, true);
+  assert.equal(s?.origin, 'https://a.test');
+  assert.equal(s?.tabId, 3);
+  assert.equal(s?.discoveryState, 'supported');
+  assert.ok(s?.descriptor, 'the working descriptor survives a tab switch');
+});

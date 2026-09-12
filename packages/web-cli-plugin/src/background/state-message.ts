@@ -32,6 +32,14 @@ export interface ActiveTabView {
   origin?: string;
   /** True when the plugin cannot inject into this tab. */
   restricted: boolean;
+  /**
+   * True when Chrome gave the plugin no URL at all (D-064). This is the common
+   * "未绑定" state: without the `tabs` permission / an activeTab grant from an
+   * icon click, `chrome.tabs.query().url` is `undefined` even for a perfectly
+   * normal http(s) page. It is *not* a restricted page, so the panel must not
+   * claim "不可注入" — it must point at the icon click instead.
+   */
+  addressUnreadable?: boolean;
   /** Readable reason when restricted / no tab. */
   reason?: string;
 }
@@ -47,7 +55,11 @@ export function restrictedPageReason(url: string): string {
   if (url.startsWith('about:')) return '浏览器空白/内置页面（about:），扩展无法注入';
   if (url.startsWith('file://')) return '本地文件页面（file://），扩展默认无法注入';
   if (WEBSTORE_HOSTS.some((h) => url.includes(h))) return '浏览器应用商店页面，扩展禁止注入';
-  if (!url) return '当前标签页没有可读取的地址';
+  if (!url)
+    return (
+      '无法读取当前标签页地址（Chrome 尚未把该地址交给插件——通常是还没在目标站点点击插件图标授权）；' +
+      '请在目标站点标签页点击浏览器工具栏的插件图标'
+    );
   return '当前标签页不是 http(s) 站点，扩展无法注入';
 }
 
@@ -58,6 +70,13 @@ export function restrictedPageReason(url: string): string {
 export function projectActiveTab(tab: { url?: string } | undefined | null): ActiveTabView {
   if (!tab) return { present: false, restricted: true, reason: '没有可用标签页' };
   const url = tab.url ?? '';
+  // D-064: an empty/absent URL is *unreadable*, not restricted. Chrome hides
+  // `tab.url` until the extension holds `tabs` or a host/activeTab grant, so the
+  // very common "user is on the site but has not clicked the icon" case lands
+  // here. Report it distinctly so the panel can point at the actionable fix.
+  if (!url) {
+    return { present: true, restricted: true, addressUnreadable: true, reason: restrictedPageReason('') };
+  }
   if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('edge://') ||
       url.startsWith('devtools://') || url.startsWith('about:') || url.startsWith('file://') ||
       WEBSTORE_HOSTS.some((h) => url.includes(h))) {

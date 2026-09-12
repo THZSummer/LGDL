@@ -36,6 +36,15 @@ export interface WebCliController {
   setDiscovery(state: DiscoveryState, descriptor?: WebCliDescriptor, reason?: string): void;
   /** Mark the current session invalid after whole-page navigation (EC-011). */
   markNavigated(): void;
+  /**
+   * Mark the current session stale after the user switched to another tab
+   * (D-065). Unlike `markNavigated` this preserves the binding, the discovery
+   * state and the tool surface — a tab switch is not a page navigation, and
+   * without the `tabs` permission we cannot even read the new tab's URL, so the
+   * user gets a readable prompt to re-bind from the icon rather than a silent
+   * teardown.
+   */
+  markStale(): void;
   clear(): void;
   snapshot(): ControllerSnapshot;
   restore(snapshot: ControllerSnapshot): void;
@@ -70,6 +79,12 @@ export function createController(opts: { now?: () => number } = {}): WebCliContr
       session = { ...session, invalidated: true, discoveryState: 'unknown', updatedAt: now() };
       delete session.descriptor;
       delete session.discoveryReason;
+    },
+    markStale() {
+      if (!session) return;
+      // Keep origin / discoveryState / descriptor: switching tabs must not
+      // silently discard a working binding (the user may switch right back).
+      session = { ...session, invalidated: true, updatedAt: now() };
     },
     clear() {
       session = null;

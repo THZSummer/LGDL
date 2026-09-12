@@ -36,7 +36,7 @@ const BUILD_STAMP = new Date().toISOString();
 const common = {
   bundle: true,
   platform: 'browser',
-  target: 'chrome114',
+  target: 'chrome116',
   logLevel: 'info',
   plugins: [nodeStubPlugin],
   define: { 'process.env.NODE_ENV': '"production"', __BUILD_STAMP__: JSON.stringify(BUILD_STAMP) },

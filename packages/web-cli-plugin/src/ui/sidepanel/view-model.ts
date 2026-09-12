@@ -146,6 +146,20 @@ export function activeSiteNotice(input: {
     };
   }
   if (tab.restricted) {
+    if (tab.addressUnreadable) {
+      // D-064: the old copy ("当前标签页没有可读取的地址") read like a broken page,
+      // so users never realized the fix was "click the extension icon on the
+      // site". Point at the one action that actually binds.
+      return {
+        visible: true,
+        kind: 'unbound-tab',
+        title: '当前站点尚未绑定（读不到标签页地址）',
+        detail:
+          'Chrome 只有在目标站点标签页点击插件图标后，才会把该标签页地址交给插件。' +
+          '在此之前插件既读不到地址，也无法绑定——这不是页面故障。',
+        action: '请在目标站点标签页点击浏览器工具栏的插件图标（绑定的唯一触发点）；或点下方「重新绑定当前标签页」。',
+      };
+    }
     return {
       visible: true,
       kind: 'restricted-tab',
@@ -159,7 +173,7 @@ export function activeSiteNotice(input: {
     kind: 'unbound-tab',
     title: '当前站点尚未绑定',
     detail: `检测到当前标签页${tab.origin ? ` ${tab.origin}` : ''}，但尚未绑定到插件（可能未点插件图标，或扩展刚重载）。`,
-    action: '请点浏览器工具栏的插件图标，或点下方「重新绑定当前标签页」。',
+    action: '请在目标站点标签页点击浏览器工具栏的插件图标（绑定的唯一触发点）；或点下方「重新绑定当前标签页」。',
   };
 }
 
@@ -205,7 +219,7 @@ export interface OnboardingView {
 const ONBOARDING_TEXTS: readonly string[] = [
   '配置模型：点击上方「配置模型 / 设置」，选择厂商并填入 API Key',
   '打开目标站点：在标签页中打开声明了 web-cli 协议的站点',
-  '点击浏览器工具栏的插件图标，让插件绑定并发现当前站点',
+  '点击浏览器工具栏的插件图标（这是绑定的唯一触发点）：插件会绑定并发现当前站点，然后自动打开侧栏',
   '点击下方「授权当前站点」，确认知情同意与站点权限',
   '在输入框输入指令并发送，开始对话',
 ];
@@ -267,6 +281,8 @@ export interface StateMessageView {
   authorized?: boolean;
   /** Non-sensitive active-tab projection (TASK-020 任务 B). */
   tab?: ActiveTabView | null;
+  /** One-shot readable notice from the background (D-064: icon binding / tab switch). */
+  panelNotice?: string | null;
 }
 
 export interface StateActionView {
