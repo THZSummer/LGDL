@@ -2184,6 +2184,53 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **真实站点上的“写操作”以 `lgdl-web-cli status`（write 档、非破坏性子命令）演示**：真实 lgdl-web 声明中 `lgdl-web-cli` 的变更子命令（`add-node`/`remove-node`）均命中破坏性 denylist，故用 write 档非破坏性子命令证明「免确认直接执行」，并用 `remove-node` 证明「破坏性仍确认」；未修改站点声明。
 - **`AskQuestion` 破坏性信息来自 host 侧映射而非载荷**：base `AskQuestion` 不携带破坏性标记（base 零改动红线），host 维护 `activateSite` 生命周期内的「工具名 → 声明」映射；映射缺失按破坏性 fail-closed。
 
+## 29. 切 tab 按 `tab.url` 驱动会话跟随（用户实测缺陷修复；TASK-031 / Wave 23）
+
+### 29.1 根因
+用户故障原话：「切换到新域名 TAB，不会自动新建会话，旧 TAB 可以切到已有的会话；重新打开插件，才能自动识别到当前域名」。
+
+代码级根因（`src/background/service-worker.ts` 的 `chrome.tabs.onActivated`，修复前 :1398-1413）：
+1. `if (!session) return;` —— 还没有当前会话就直接返回（首次切到新域名永远不建会话）；
+2. `if (await autoBindFromTab(s, activeInfo.tabId)) return;` —— `autoBindFromTab`（:638-653）**只靠 content script `whoami` 握手**；**新域名未授权 → content script 不注入 → 握手必然失败**；
+3. 于是落到 `markStale()` + 提示，**既不新建也不切换会话** → 面板不跟随；
+4. 「重开插件才行」是因为面板重新拉 `state` 时走另一条路（`:1069`/`:1075` 用 `chrome.tabs.query` 读 URL → 切会话）；
+5. 关键过时假设：该路径注释写「no `tabs` permission / `tab.url`」——但自 FR-049（作者决策③ 2026-09-12）起**已持有 `tabs` 权限**，`chrome.tabs.get(tabId).url` 可直接读。
+
+### 29.2 修复（新增 `src/background/session-follow.ts`，依赖注入、可 node 单测）
+`followActiveTab(deps, tabId, reason)` 统一被 `chrome.tabs.onActivated` 与 `chrome.tabs.onUpdated(status==='complete')` 调用：
+
+| 当前标签页 | 行为 |
+|------------|------|
+| http(s) origin，已授权 | `bindOrigin`（切换/新建该 origin 会话）→ `ensureContentScript` → `kickDiscovery`（`reprobe`）→ 可读提示「已自动识别站点」 |
+| http(s) origin，未授权 | `bindOrigin`（**仍然切换/新建会话**）→ 可读提示「尚未授权，可点【授权当前站点】」；**零注入、零发现**（自动切会话 ≠ 自动授权） |
+| 同一 origin 的另一 tab | 复用同一会话（`sessionStore.activate` 幂等；不新建；LRU 上限规则不变） |
+| 受限页（`chrome://`/`chrome-extension://`/`about:`/空 URL） | 先试 `whoami` 握手回退，仍失败且已有绑定 → `markStale()` + 既有可读提示；**不建会话** |
+| 已是当前绑定（同 tab+origin 且 `!invalidated`） | 幂等 no-op（不重复绑定、不刷提示，握手路径与 URL 路径一致） |
+
+- **面板免重开**：会话切换经既有 `switchSession` → `chrome.runtime.sendMessage('session-changed')`；`sidepanel.ts` 监听后 `refreshState()`/`refreshSessions()` 重读渲染。
+- **`onUpdated`**：`status==='complete'` 同 URL 路径；`status==='loading'` 的 EC-011 失效语义（`markNavigated()` + 清 descriptor + `resetChatSession` + `persistSession`）**原样保留**。
+- **移除的早退/死路**：删除 `if (!session) return;`（无会话首次 activate 也建会话）、删除「可读新域名落 `markStale`」分支；`autoBindFromTab`（whoami）保留，仅 `tab.url` 不可读时作补充/回退。
+- **`tabOrigin` 本地副本移除**：改用 `session-follow.ts` 的导出（`bindTab`/`tabs open` 复用）。
+- **权限/依赖零变**：`tabs` 权限早已持有（FR-049）；无新权限、无新依赖、`manifest.json` 零改动、base 零改动。
+
+### 29.3 新增决策（D-128~D-131）
+- **D-128（按 `tab.url` 驱动，而非仅靠 `whoami` 握手）**：持有 `tabs` 权限后 `tab.url` 是权威来源；新域名未授权时握手必然失败，不能作为主判据。**被否决**：继续依赖握手（新域名死路）/ 等 content script `hello`（新域名不注入，永不到来）。
+- **D-129（未授权也切换/新建会话，但零注入）**：`bindOrigin` 只采用/创建会话并推面板；是否注入严格由 `OriginStore.isAuthorized` 决定，故「自动切会话 ≠ 自动授权」，per-origin 授权仍是执行门禁。**被否决**：未授权不切会话（回到用户故障）/ 顺手注入（越权，违反 FR-006/FR-023）。
+- **D-130（抽 `session-follow.ts` 依赖注入，`onActivated` 与 `onUpdated(complete)` 复用）**：决策表可被 node mock-chrome 单测覆盖，避免两个 handler 各写一份条件而漂移。**被否决**：在 service-worker handler 内堆条件（不可单测、易回归）。
+- **D-131（受限页保留 `markStale`、无会话首次 activate 不早退）**：受限页不建会话、走既有可读降级；可读 http(s) origin 一律 URL 驱动。**被否决**：所有 URL 不可读都建会话（受限页无 origin 可键）/ 保留 `if (!session) return`（首次 activate 不建会话）。
+
+### 29.4 门禁与验证
+- 新增 `test/session-follow.test.ts`（10 用例）：未授权新域名建会话+推送+零注入+不报错 / 已授权注入+发现 / 同 origin 复用会话 / 受限页不建会话 / `onUpdated(complete)` 新域名 / 无会话首次 activate（旧早退不回归）/ 幂等 / 握手回退 / 注入失败可读 / `tabOrigin` 白名单。
+- `test:ui` 113→**119**（#16j~#16o：真实 dist 创建新域名 tab → 已打开面板自动更新会话、零注入、未重开；置于 #16/#18 后，避免扰动自动授权基线）。
+- `test:binding` 96→**104**（阶段 1 #20a~#20f：真实站点面板自动跟随新域名会话 + 零注入 + 未授权；阶段 2 #A6/A6b/A6c 由「未授权 markStale」更新为「未授权新域名自动切/建会话 + 零注入 + 不抛错」；既有断言保留）。
+- 插件 349→**360**、`tsc --noEmit` 0 error、`test:hardening` **22**、`test:e2e` **A/B PASS**、全仓 `npm run build` + `npm test` **0 fail**（base **483 零回归**）。
+- **base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**。
+
+### 29.5 未完成 / 降级（如实）
+- **同 origin 另一 tab 复用会话时会重置 `discoveryState` 再发现**：`bindOrigin` 走既有的 `controller.bindTab`（discovery 置 `unknown`）+ `switchSession` 从 descriptor 缓存重激活站点工具，随后 `ensure+reprobe` 刷新；功能正确但有一次冗余探测。既有语义如此，本轮未改 controller 以控制范围。
+- **新建标签页的 `loading` 与 `onActivated` 存在事件顺序竞争**：若 `onActivated` 先绑定、随后同 tab 的 `loading` 到达，会短暂 `markNavigated` 失效，`complete` 再按 URL 重新绑定（最终态正确，测试以 `invalidated===false` 收敛等待）。未改 `loading` 语义以免回归 EC-011。
+- **面板对 `session-changed` 的监听是 TASK-025 既有能力**：本轮未新增面板监听，仅补齐 URL 驱动路径使该推送在「新域名 tab」场景真正被触发；test:ui #16j 以「未重开面板」实证。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2210,3 +2257,4 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v1.19 | **侧栏自动测试当前模型配置**（§26，TASK-028，作者要求）：移除侧栏独立「测试连接」按钮（options 页保留）；面板加载**自动**复用既有 `llm-test` 在 `#llm-test-result` 展示可读状态（**不新增请求路径**、仅加载触发一次、`render()`/消息追加/`focus`/`visibilitychange` 均不重复触发）；`background` 新增 **60s TTL 内存单槽缓存** `src/llm/test-cache.ts`（指纹 = 厂商+模型+Base URL+Key 的不可逆 FNV-1a；**仅内存比较，不落盘/日志/审计**）——命中直接返回原结果（含原耗时 ms，`cached:true`）不发请求，配置变更/TTL 过期失效重测；未配置 `no-key` 零请求。门禁：插件 309→**315**（+6 `test-cache.test.ts`）、`tsc` 0 error、`test:ui` 87→**97**（#12~#12m：无按钮/自动成功态格式/缓存命中 mock 计数不变/重复 render 探针不变/配置变更 mock+1/未配置零请求）、`test:binding` 81→**83**（#6-1 真站点加载即出现状态 / #6-2 无按钮）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限**；docs dev §10.10 + §9/§10.5/§11.1 + tasks TASK-028 同步；D-112~D-116；未 git 提交。 |
 | v1.21 | **按 origin 自动授权（读/写多选）**（§28，TASK-030，FR-052/ADR-017，作者要求）：新增 `security/auto-authorize.ts`（按 origin 持久化 `{read 默认 true, write 默认 false}`，`web-cli:auto-auth`，内存缓存即时生效，`set`/`clear` 入审计；`clear` = 读写都关）；在 `host.ts` 的 `onAsk` 接缝**前置判定**（**不改 `riskDefaults`/S1·S2·S3/denyPriority**）——策略链先裁决，仅当最终为 `ask` 时命中「对应 tier 已开启且非破坏性 read/write」→ 直接 allow；`evaluate`/未知 risk → 直接 deny（hardDeny）；**4 条硬底线**（未授权 S1 deny / 未知 risk S3 deny / evaluate deny / 破坏性写 ask）+ `ui·state·external` 不提供开关。新增 `isDestructiveInvocation`（id + 被调用子命令按 `[._:/-]` 切段比对 `DESTRUCTIVE_VERBS`，抓 `add-node`/`remove-node`；既有 `hasDestructiveVerb` 未改）。审计独立类型 `auto-authorize`（allow/deny/enabled/disabled，与人工 `confirm` 可辨）。UI：侧栏两个复选框 + 常驻标记 `⚡ 自动授权：读/写`（点击一键关闭）+ 常显硬底线文案；options 按站点管理列表。门禁：插件 336→**349**（+13 `test/auto-authorize.test.ts`）、`tsc` 0 error、`test:ui` 97→**113**（#18a~#18p）、`test:binding` 83→**96**（#19a~#19l：真实站点「开启写自动→非破坏性 `status` 免确认直接执行」「破坏性 `remove-node` 仍弹确认」「关闭→立即恢复确认」）、`test:hardening` **22**、`test:e2e` **PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-123~D-127；未 git 提交。 |
 | v1.20 | **工具面基线对账门禁 + 浏览器能力补齐**（§27，TASK-029，FR-051/ADR-016，作者实测「DOM 操作 / 浏览器截图等命令全部丢失」驱动）：根因 = 既有测试只断言插件内部行为、`capability-matrix.md` 手写无执行 → 工具面静默漂移。修复：①**只读**临时克隆 main（不碰 main/不改本仓 .git）→ 机器枚举原助手工具目录（`main@2ddc9229`，34 工具/142 子命令）固化为 `test/parity/baseline-catalog.json`（provenance + 可重跑提取脚本 `extract-baseline-catalog.mjs`，含新工厂守卫）；②`test/parity.test.ts` **双向 + 子命令级**对账门禁（同名实现 / `waivers.json` 显式豁免（理由+依据+`providedAs`/`permission`）/ 否则失败；防插件新增未登记工具；`findCoverageGaps()` 自测能抓两类漂移）；③补齐**无新权限**的浏览器能力——content 隔离世界 `createBrowserDomOps()` + background `dom-op` 远程代理，注册 base `dom`(30)/`chrome`(print/back/forward/reload/**screenshot**)/`wait`/`extract`/`export`/`save`/`events`(经既有事件桥)/`web-search`；截图/导出/保存走页面上下文 anchor 下载链（**不新增 `downloads`**）；④风险档沿用 base（不放宽，走 `router.dispatch`）；⑤**待批准权限**（`notify`→`notifications`、`clipboard`→`clipboardRead/Write`）只报告不实施；⑥`docs/capability-matrix.md` 重写为机器校验的基线对账表 + `docs/dev.md` §13 对账/豁免流程。门禁：插件 315→**336**、`tsc` 0 error、`test:ui` **97**、`test:hardening` **22**、`test:binding` **83**（真实 LLM tools 清单 21 个已含 dom/chrome/wait/extract/export/save/events/web-search）、`test:e2e` **PASS**（新增 `dom read-state`/`dom click`/`chrome screenshot` 三条真机断言）、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff（无新权限） / 无新依赖 / 无 `<all_urls>` / 无明文 key / 无静默失败**；D-117~D-122；未 git 提交。 |
+| v1.22 | **切 tab 按 `tab.url` 驱动会话跟随**（§29，TASK-031，Wave 23，用户实测「切到新域名 TAB 不会自动新建会话，旧 TAB 可以；重开插件才识别当前域名」驱动）：根因 = `onActivated` 的 `if (!session) return;` + 仅靠 content-script `whoami` 握手（新域名未授权→不注入→握手必失败）→ `markStale` 死路。修复 = 新增 `src/background/session-follow.ts` `followActiveTab`（URL 驱动：未授权新域名**仍切换/新建会话 + `session-changed` 推送面板 + 零注入**；已授权顺带 `ensureContentScript` + `reprobe` 发现；同 origin 复用同一会话；受限页不建会话、保留既有可读降级；`whoami` 仅作 URL 不可读回退），`onUpdated(complete)` 同路径，`loading` 的 EC-011 失效语义不变；移除本地 `tabOrigin` 副本。门禁：新增 `test/session-follow.test.ts`（10）、`test:ui` 113→**119**（#16j~#16o）、`test:binding` 96→**104**（#20a~#20f + #A6/A6b/A6c，保留既有）、`tsc` 0 error、`test:hardening` **22**、`test:e2e` **A/B PASS**、全仓 build/test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；D-128~D-131；未 git 提交（由上层统一提交）。 |

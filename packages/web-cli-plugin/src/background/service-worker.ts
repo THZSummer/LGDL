@@ -33,6 +33,7 @@ import { createWebCliHost, type WebCliHost } from './host.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
 import { createSessionStore, projectHistory, sessionLabel, type SessionStore } from './session-store.js';
+import { followActiveTab, tabOrigin, type FollowTabDeps } from './session-follow.js';
 import { createTabsSettingStore, type TabsSettingStore } from './tabs-setting.js';
 import type { TabsToolDeps } from '../tools/tabs-tools.js';
 import {
@@ -619,15 +620,43 @@ async function activeTabProjection() {
   }
 }
 
-/** Origin of an http(s) tab URL, or null when the tab is restricted / unparseable. */
-function tabOrigin(url: string | undefined): string | null {
-  try {
-    const u = new URL(url ?? '');
-    if (u.protocol === 'http:' || u.protocol === 'https:') return u.origin;
-  } catch {
-    /* restricted / unparseable */
-  }
-  return null;
+/**
+ * D-128 / TASK-031: chrome-backed dependencies for the URL-driven tab follow.
+ * `tab.url` is readable because we hold the `tabs` permission, so a tab switch
+ * to a new (even unauthorized) origin adopts its session before any handshake.
+ */
+function tabFollowDeps(s: Singletons): FollowTabDeps {
+  return {
+    current: () => {
+      const cur = s.controller.get();
+      return cur
+        ? { tabId: cur.tabId, origin: cur.origin, sessionId: cur.sessionId, invalidated: cur.invalidated }
+        : null;
+    },
+    getTabUrl: async (tabId) => {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        return tab?.url;
+      } catch {
+        // Tab closed / unreadable → treat as restricted (handshake fallback next).
+        return undefined;
+      }
+    },
+    autoBindFromTab: (tabId) => autoBindFromTab(s, tabId),
+    bindOrigin: (tabId, origin) => bindOrigin(s, tabId, origin),
+    isAuthorized: (origin) => s.origins.isAuthorized(origin),
+    ensureContentScript: (tabId) => ensureContentScript(tabId),
+    kickDiscovery: (tabId) => {
+      // Force a fresh discovery on an already-injected page; the script's own
+      // bootstrap covers the freshly-injected case. Fire-and-forget, never throws.
+      void chrome.tabs.sendMessage(tabId, makeMessage('reprobe')).catch(() => {});
+    },
+    markStale: () => s.controller.markStale(),
+    persist: () => persistSession(s),
+    notice: (text) => {
+      panelNotice = text;
+    },
+  };
 }
 
 /**
@@ -1389,41 +1418,39 @@ chrome.action.onClicked.addListener((tab) => {
   })();
 });
 
-// decision ① / FR-047: tab switch tries the automatic handshake first. If the
-// newly active tab has our content script (declaratively injected → the site was
-// authorized once), it reports its origin and we auto-bind + adopt its session —
-// no icon click, no `tabs` permission. If not (unauthorized / restricted), it
-// degrades **silently** to the existing readable "unbound" prompt (never an error
-// log, never a misleading failure).
+// D-128 / TASK-031: tab switch follows the *tab URL* (we hold `tabs`), so
+// switching to a new/unauthorized domain auto-creates + switches that origin's
+// session and pushes the panel — no icon click, no reopen. The content-script
+// `whoami` handshake remains only as a supplement when the URL is unreadable.
+// The old `if (!session) return;` / `markStale` dead end for a readable new
+// origin is removed: a readable http(s) origin is always session-driven.
 chrome.tabs.onActivated.addListener((activeInfo) => {
   void (async () => {
     const s = await init();
-    const session = s.controller.get();
-    if (!session) return;
-    // The bound tab is active again → nothing to do.
-    if (session.tabId === activeInfo.tabId) return;
-    if (await autoBindFromTab(s, activeInfo.tabId)) return;
-    if (session.invalidated) return;
-    s.controller.markStale();
-    panelNotice =
-      '已切换标签页：当前标签页尚未授权/未注入，原绑定站点已标记失效。请在目标站点标签页点击插件工具栏图标' +
-      '（或先在侧栏「授权当前站点」，之后该站点将自动注入、无需再点图标）。';
-    await persistSession(s);
+    await followActiveTab(tabFollowDeps(s), activeInfo.tabId, 'activated');
   })();
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status !== 'loading') return;
   void (async () => {
     const s = await init();
-    const session = s.controller.get();
-    if (session && session.tabId === tabId) {
-      s.controller.markNavigated();
-      s.descriptors.delete(session.origin);
-      s.host.deactivateSite();
-      // EC-011: whole-page navigation invalidates the conversation (no silent continuation).
-      await resetChatSession(s);
-      await persistSession(s);
+    if (changeInfo.status === 'loading') {
+      // EC-011 (unchanged): whole-page navigation invalidates the conversation of
+      // the bound tab (no silent continuation).
+      const session = s.controller.get();
+      if (session && session.tabId === tabId) {
+        s.controller.markNavigated();
+        s.descriptors.delete(session.origin);
+        s.host.deactivateSite();
+        await resetChatSession(s);
+        await persistSession(s);
+      }
+      return;
+    }
+    if (changeInfo.status === 'complete') {
+      // D-128: navigation completing on a *new* origin auto-switches/creates that
+      // origin's session (same URL-driven path as a tab switch).
+      await followActiveTab(tabFollowDeps(s), tabId, 'navigated');
     }
   })();
 });

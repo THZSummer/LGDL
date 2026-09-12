@@ -506,8 +506,8 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 |------|------|------|
 | 声明式注入 | `authorize` 且 `hostPermissionGranted=true` → `registerContentScripts({ id:'wcliSite_<hash>', matches:['<origin>/*'], js:['content.js'], runAt:'document_idle', persistAcrossSessions:true })` | `background/content-script-registry.ts`；`service-worker.ts` case `authorize` |
 | 启动对账 | SW 启动 / `onInstalled` / `permissions.onAdded·onRemoved` → 读注册表与「已授权+已获权限」集合对账，**补齐缺失·清理已撤销**；失败审计+日志 | `service-worker.ts` `reconcileContentScripts()` |
-| 自上报握手 | content script 加载后 `hello{origin}`；切标签页 background 发 `whoami`，content 回 `origin` | `content/content-script.ts`；`service-worker.ts` case `hello` / `autoBindFromTab` |
-| 未授权降级 | 未授权 origin 不注册不注入；握手失败**静默**返回未绑定 + 可读提示，保留点图标回退 | `service-worker.ts` `chrome.tabs.onActivated` |
+| 自上报握手 | content script 加载后 `hello{origin}`；`tab.url` 不可读时 background 发 `whoami`，content 回 `origin`（补充/回退） | `content/content-script.ts`；`service-worker.ts` case `hello` / `autoBindFromTab` |
+| 未授权降级 | 未授权 origin 不注册不注入；切 tab 时**仍按 `tab.url` 切换/新建其会话**（见 §12.5），但不注入、不报错，保留点图标/「授权当前站点」回退 | `service-worker.ts` `chrome.tabs.onActivated` / `onUpdated`；`background/session-follow.ts` |
 | 撤销 | `revoke` → `unregisterContentScripts`(best-effort) + 可读回执；随后 `permissions.onRemoved` 再对账 | `service-worker.ts` case `revoke` |
 
 **权限纪律**：manifest `permissions` = `activeTab/scripting/storage/sidePanel` **+ `tabs`（FR-049，作者决策③，2026-09-12）**；`optional_host_permissions` 仍为 `http://*/*`+`https://*/*`；`host_permissions` 仍为 6 个 LLM 域名；**无静态 `content_scripts`、无全站匹配、无 `<all_urls>`**。`tabs` 仅用于插件级 `tabs` 工具（§12.4），并可由 options 页开关从 LLM 工具面移除。
@@ -518,7 +518,7 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **存储**：`background/session-store.ts` → `chrome.storage.local['web-cli:session-store']`，结构 `{ groups[], sessions[{ sessionId, origins[], history[], createdAt, lastActiveAt, title? }] }`；历史从对话提交时 `setHistory(currentSessionId, …)` 写入，切换会话 `chatSession.restore(historyOf(sessionId))`。历史边界沿用既有 40 turn（`boundHistory`）。
 - **上限与回收**：默认 20 会话，超出按 LRU 淘汰最不活跃者并**可读披露**（侧栏 notice）。
 - **分组**：侧栏「更多」→ 会话区（新建分组 / 把当前域名并入 / 切换会话）；options 页「会话分组」可移出域名 / 删除分组。**分组只共享对话，不代表互相授权**（每 origin 仍单独授权；风控按 origin）。
-- **切换标签页**：`onActivated` → 自动握手 → adopt 该 origin 对应会话 → 广播 `session-changed` → 面板 `sessions` 重读并回显历史（不串台）。
+- **切换标签页**：`onActivated` 与 `onUpdated(complete)` 均**按 `tab.url` 驱动**（见 §12.5）→ adopt/新建该 origin 对应会话 → 广播 `session-changed` → 面板 `sessions` 重读并回显历史（不串台）；`tab.url` 不可读时才回退到 `whoami` 握手。
 - **待决交互**：切换会话时若有待决 `confirm`/`ask-user` → `cancelPendingConfirm()` + `askBridge.cancelAll()`（=拒绝/取消，fail-closed）+ 可读提示（EC-019），不静默挂起。
 
 ### 12.3 回归门禁
@@ -542,6 +542,29 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **隐私开关**：options 页「标签页管理（隐私）」→ **「允许助手查看/切换标签页（默认开）」**。关闭后后台经 `tabs-setting` 消息调用 `host.setTabsEnabled(false)`，`tabs` 从 `deriveTools()` 移除且派发被拒（`enabled` 语义，不静默保留）；开关状态与工具面回执可在 options 页看到。
 - **实现位置**：`src/tools/tabs-tools.ts`（工具与纯逻辑）、`src/background/tabs-setting.ts`（开关存储）、`service-worker.ts` `createTabsDeps`（真实 `chrome.tabs` 调用 + 复用绑定链）、`host.ts` `setTabsEnabled`。
 - **回归门禁**：`test/tabs-tools.test.ts`（子命令/risk/scheme/去 query/开关/审计）、`test/tabs-wiring.test.ts`（静态接线/权限面/无 close）、`test/ui/binding.mjs` 阶段 1 新增真实 `tabs list`/`tabs switch`（断言会话随之切换）、`test:ui` 开关与 `tabs` 结果呈现。
+
+### 12.5 切 tab 的会话跟随行为（TASK-031 / D-128，2026-09-12 缺陷修复）
+
+**用户故障**：切换到一个**新域名**的标签页后，不会自动新建会话（旧标签页之间可以切到已有会话）；必须重新打开插件面板才识别到当前域名。
+
+**根因**：`chrome.tabs.onActivated` 曾以 `if (!session) return;` 早退 + 仅靠 content-script `whoami` 握手判定 `autoBindFromTab`；**新域名尚未授权 → content script 未注入 → 握手必然失败** → 走到 `markStale()`（既不新建也不切换会话）→ 面板不跟随。而面板重开时 `state`/`sessions` 走另一条路（`chrome.tabs.query` 读 URL）能恢复，故「重开才行」。根因的过时假设是「只能靠握手、不能读 URL」——但自 FR-049 起已持有 `tabs` 权限，`tab.url` 可直接读。
+
+**修复（`background/session-follow.ts`，依赖注入、可单测）**：`onActivated` 与 `onUpdated(status==='complete')` 统一调用 `followActiveTab`：
+
+| 当前标签页 | 行为 |
+|------------|------|
+| http(s) origin，**已授权** | 切换/新建该 origin 会话 + `ensureContentScript` + 触发 `reprobe` 重新发现 → 站点工具免点图标装配 |
+| http(s) origin，**未授权** | **仍然切换/新建会话**（`bindOrigin`）并可读提示「尚未授权，可点【授权当前站点】」；**零注入**（自动切会话 ≠ 自动授权） |
+| 同一 origin 的另一个标签页 | 复用**同一会话**（`sessionStore.activate` 幂等；LRU 仅在超限时按既有规则淘汰） |
+| 受限页（`chrome://`/`chrome-extension://`/`about:`/空 URL） | **不建会话**：先试 `whoami` 握手回退，仍失败且已有绑定 → `markStale()` + 可读提示（既有降级语义，EC-011 导航失效不变） |
+| 已是当前绑定（同 tab+origin 且未失效） | 幂等 no-op（不重复绑定、不刷提示） |
+
+- **推送通道复用**：会话切换经既有 `switchSession` → `chrome.runtime.sendMessage('session-changed')`；侧栏 `sidepanel.ts` 监听后 `refreshState()`/`refreshSessions()` 重读并渲染，**无需重开面板**（面板自 TASK-025 起已监听该推送，本轮补齐 URL 驱动路径使其真正被触发）。
+- **早退/死路移除**：删除 `if (!session) return;`（无会话首次 activate 也建会话）与「可读新域名落入 `markStale`」的分支；`autoBindFromTab`（whoami）保留，仅在 `tab.url` 不可读时作补充/回退。
+- **导航失效不回归**：`onUpdated(status==='loading')` 的 `markNavigated()` + 清 descriptor + `resetChatSession` + `persistSession` 原样保留（EC-011）。
+- **权限/依赖零变**：`tabs` 权限早已持有；无新权限、无新依赖、`manifest.json` 零改动、base 零改动。
+
+**回归门禁**：`test/session-follow.test.ts`（10 用例：未授权新域名建会话+推送+零注入 / 已授权注入+发现 / 同 origin 复用 / 受限不建会话 / `onUpdated(complete)` 新域名 / 无会话首次 activate / 幂等 / 握手回退 / 注入失败可读）；`test:ui` 新增 **#16j~#16o**（真实 dist：创建新域名 tab → 已打开面板自动更新，零注入）；`test:binding` 阶段 1 **#20a~#20f** 与阶段 2 **#A6/A6b/A6c**（真站点 + 真扩展：切到新域名 tab → 会话自动切换且面板更新、未授权零注入、静默不抛错），既有 96 断言保留（#A6 由「未授权 markStale」更新为新语义）。
 
 ## 13. 能力对账与豁免流程（FR-051 / TASK-029）
 

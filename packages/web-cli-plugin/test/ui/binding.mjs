@@ -918,6 +918,53 @@ async function phase1(mock) {
     await realClick(ext, '#confirm-deny');
     await sleep(600);
 
+    // ── #20a~#20f D-128 / TASK-031: switching to a NEW-domain tab auto-switches
+    // the session (URL-driven; `tabs` permission) and the already-open panel
+    // follows — no icon click, no rebind, no reopen. The new origin is the mock
+    // HTTP server (a real http origin, NOT authorized). ──────────────────────
+    const newOrigin = mock.origin;
+    const newTabId = await evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(`${newOrigin}/`)} }).then((t) => t.id)`, 20000);
+    const switchedByUrl = await waitFor(
+      ext,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const d = r?.data;
+        return d?.active?.origin === ${JSON.stringify(newOrigin)} &&
+          d?.session?.sessionId === ${JSON.stringify(newOrigin)} &&
+          d?.active?.invalidated === false
+          ? JSON.stringify({ origin: d.active.origin, session: d.session.sessionId, authorized: d.authorized, invalidated: d.active.invalidated })
+          : '';
+      })()`,
+      80,
+      150,
+    );
+    const su = switchedByUrl ? JSON.parse(switchedByUrl) : {};
+    check(Boolean(switchedByUrl), '#20a 切到新域名 tab → 会话自动切换/新建（tab.url 驱动，未 rebind/未点图标）', switchedByUrl ?? 'session unchanged');
+    check(su.invalidated === false, '#20b 新域名会话有效（未落入 markStale 死路）', switchedByUrl ?? '');
+    check(su.authorized === false, '#20c 新域名未授权：自动切会话 ≠ 自动授权', switchedByUrl ?? '');
+
+    // The already-open panel must follow via the background `session-changed` push
+    // (no Page.reload between the tab switch above and this assertion).
+    const panelFollow = await waitFor(
+      ext,
+      `(() => {
+        const label = document.getElementById('session-label')?.textContent ?? '';
+        const status = document.getElementById('status')?.textContent ?? '';
+        return label.includes(${JSON.stringify(newOrigin)}) && status.includes(${JSON.stringify(newOrigin)})
+          ? JSON.stringify({ label, status })
+          : '';
+      })()`,
+      80,
+      150,
+    );
+    check(Boolean(panelFollow), '#20d 已打开面板自动跟随新域名会话（收到后台推送后更新，未重开）', panelFollow ?? 'panel not updated');
+    check(/未授权/.test((panelFollow ? JSON.parse(panelFollow).status : '') ?? ''), '#20e 面板显示新域名「未授权」+ 可点授权路径', panelFollow ?? '');
+
+    // Zero injection for the unauthorized origin: no content script receiver.
+    const injectProbe = await evaluate(sw, `chrome.tabs.sendMessage(${newTabId}, { kind: 'ping' }).then(() => 'responded').catch(() => 'no-receiver')`);
+    check(injectProbe === 'no-receiver', '#20f 未授权新域名零注入（无 content script 接收方）', String(injectProbe));
+    await sleep(300);
+
     check(spExceptions.length === 0, '#10 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#10b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 
@@ -947,15 +994,16 @@ async function phase1(mock) {
  *      → the background auto-binds `active.origin === SITE_ORIGIN` and completes
  *      discovery — with **no rebind and no icon click** (proved by #A4: the initial
  *      state is captured *before* any rebind call is made);
- *   4. tab switching re-binds via the `whoami` handshake;
- *   5. an unauthorized origin degrades **silently** to the readable "unbound"
- *      state (no exception, readable notice).
+ *   4. tab switching follows `tab.url` (tabs permission) and re-binds — the
+ *      `whoami` handshake remains only an unreadable-URL fallback;
+ *   5. an unauthorized new origin auto-adopts its own session with **zero
+ *      injection** and stays readable (no exception) — never a stale dead end.
  *
  * Disclosure ①/② from phase 0 still apply (no scriptable icon click; headless has
  * no native permission prompt → the temp manifest pre-grants the host permission,
  * dist JS byte-identical).
  */
-async function phase2() {
+async function phase2(mock) {
   console.log(`\n▶ 阶段 2：自动探测（授权后免点图标自动绑定）`);
   const work = await mkdtemp(join(tmpdir(), 'web-cli-binding-auto-'));
   const extDir = join(work, 'ext');
@@ -1043,7 +1091,8 @@ async function phase2() {
     check(Boolean(autoDiscover), '#A4c 自动绑定后 discovery 达到 supported', autoDiscover ?? 'not-supported');
     check((ad.tools ?? []).includes('site_lgdl-web-cli'), '#A4d 站点工具面随自动绑定装配', JSON.stringify(ad.tools));
 
-    // #A5 tab-switch re-bind via the `whoami` handshake (no tabs permission).
+    // #A5 tab-switch back to the authorized site re-binds (URL-driven; the
+    // declarative content script is already registered).
     await evaluate(sw, `chrome.tabs.update(${spTabId}, { active: true }).then(() => true)`);
     await sleep(600);
     await evaluate(sw, `chrome.tabs.update(${siteTabId}, { active: true }).then(() => true)`);
@@ -1058,20 +1107,33 @@ async function phase2() {
       60,
       250,
     );
-    check(Boolean(switched), '#A5 切走再切回站点标签页 → whoami 握手自动重新绑定', switched ?? 'no rebind');
+    check(Boolean(switched), '#A5 切走再切回站点标签页 → 按 tab.url 自动重新绑定', switched ?? 'no rebind');
 
-    // #A6 unauthorized origin degrades silently to a readable "unbound" state.
-    const stranger = await evaluate(sw, `chrome.tabs.create({ url: 'http://127.0.0.1:1/' }).then((t) => t.id).catch(() => -1)`);
+    // #A6 D-128 / TASK-031: an unauthorized origin no longer degrades to a stale
+    // dead end — the URL-driven follow auto-adopts its OWN session, performs zero
+    // injection and stays readable (never an error). The origin is the reachable
+    // mock HTTP server (real http origin, NOT in host_permissions).
+    const strangerOrigin = mock.origin;
+    const stranger = await evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(`${strangerOrigin}/`)} }).then((t) => t.id).catch(() => -1)`);
     if (stranger !== -1) {
-      await evaluate(sw, `chrome.tabs.update(${stranger}, { active: true }).then(() => true)`);
-      await sleep(700);
-      const degraded = await evaluate(
+      const strangerState = await waitFor(
         ext,
-        `chrome.runtime.sendMessage({ kind: 'state' }).then((r) => JSON.stringify({ invalidated: r.data.active ? r.data.active.invalidated : null, notice: r.data.panelNotice }))`,
+        `(async () => {
+          const r = await chrome.runtime.sendMessage({ kind: 'state' });
+          const d = r && r.data;
+          return d && d.active && d.active.origin === ${JSON.stringify(strangerOrigin)} && d.active.invalidated === false
+            ? JSON.stringify({ origin: d.active.origin, session: d.session?.sessionId, authorized: d.authorized })
+            : '';
+        })()`,
+        60,
+        200,
       );
-      const dg = JSON.parse(degraded);
-      check(dg.invalidated === true || dg.invalidated === null, '#A6 未授权标签页 → 静默降级（不抛错）', degraded);
-      observe(`#A6 未授权标签页 state = ${degraded}（未在注册表中 → content script 不注入 → autoBind 静默返回 false）`);
+      const ss = strangerState ? JSON.parse(strangerState) : {};
+      check(Boolean(strangerState), '#A6 未授权新域名 → 自动切换/新建会话（URL 驱动，不再走 markStale 死路）', strangerState ?? 'no session switch');
+      check(ss.session === strangerOrigin && ss.authorized === false, '#A6b 未授权新域名会话有效且未授权（自动切会话 ≠ 自动授权）', strangerState ?? '');
+      const strangerInject = await evaluate(sw, `chrome.tabs.sendMessage(${stranger}, { kind: 'ping' }).then(() => 'responded').catch(() => 'no-receiver')`);
+      check(strangerInject === 'no-receiver', '#A6c 未授权新域名零注入（静默降级，不抛错）', String(strangerInject));
+      observe(`#A6 未授权新域名 state = ${strangerState}`);
     } else {
       observe('#A6 跳过：无法创建未授权标签页（headless 环境限制）');
     }
@@ -1112,7 +1174,7 @@ async function main() {
   try {
     await phase0();
     await phase1(mock);
-    await phase2();
+    await phase2(mock);
   } finally {
     mock.server.close();
     unauth.server.close();

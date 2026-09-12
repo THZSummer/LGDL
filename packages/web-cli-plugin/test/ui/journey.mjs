@@ -1149,6 +1149,42 @@ async function main() {
     // clean up
     await evaluate(sp, `chrome.runtime.sendMessage({ kind: 'auto-auth', action: 'clear', origin: 'https://auto.test' }).then(() => true)`);
 
+    // ── #16j~#16o D-128 / TASK-031: a background-driven tab switch to a NEW domain
+    // pushes the new session to the ALREADY-OPEN panel (no Page.reload) ────────
+    // Create + activate a real tab on a new origin (the hermetic mock HTTP server;
+    // NOT authorized). The background's onActivated reads `tab.url` (we hold the
+    // `tabs` permission) → adopts/creates that origin's session → pushes
+    // `session-changed` → the already-open panel must follow without reopening.
+    const newOrigin = mock.origin;
+    const newTabId = await evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(`${newOrigin}/`)} }).then((t) => t.id)`);
+    const panelFollowRaw = await waitFor(
+      sp,
+      `(() => {
+        const label = document.getElementById('session-label')?.textContent ?? '';
+        return label.includes(${JSON.stringify(newOrigin)}) ? JSON.stringify({ label }) : '';
+      })()`,
+      60,
+      200,
+    );
+    check(Boolean(panelFollowRaw), '#16j 后台切到新域名 tab → 已打开的面板自动更新会话（未重开面板）', panelFollowRaw ?? 'label unchanged');
+    const pf = panelFollowRaw ? JSON.parse(panelFollowRaw) : {};
+    check((pf.label ?? '').includes(newOrigin), '#16k 面板当前会话标记 = 新域名 origin', String(pf.label));
+    const newStateRaw = await evaluate(
+      sp,
+      `chrome.runtime.sendMessage({ kind: 'state' }).then((r) => JSON.stringify({ origin: r.data.active?.origin, authorized: r.data.authorized, session: r.data.session?.sessionId }))`,
+    );
+    const ns = JSON.parse(newStateRaw);
+    check(ns.origin === newOrigin && ns.session === newOrigin, '#16l 后台 active/session 均为新域名（自动新建会话）', newStateRaw);
+    check(ns.authorized === false, '#16m 新域名未授权：自动切会话 ≠ 自动授权', newStateRaw);
+    const newInjectProbe = await evaluate(
+      sw,
+      `chrome.tabs.sendMessage(${newTabId}, { kind: 'ping' }).then(() => 'responded').catch(() => 'no-receiver')`,
+    );
+    check(newInjectProbe === 'no-receiver', '#16n 未授权新域名零注入（无 content script 接收方）', String(newInjectProbe));
+    // The readable-origin path must NOT have run the restricted/stale degradation.
+    const newStatusProbe = await evaluate(sp, `(() => { const t = document.getElementById('status')?.textContent ?? ''; return t.includes(${JSON.stringify(newOrigin)}) ? 'followed' : t; })()`);
+    check(newStatusProbe === 'followed', '#16o 面板未落入「未授权即失效」死路（会话已跟随）', String(newStatusProbe));
+
     check(spExceptions.length === 0, '#13 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#13b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 

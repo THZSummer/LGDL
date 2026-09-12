@@ -31,14 +31,28 @@ test('decision ①: content script self-reports hello and answers whoami', () =>
   assert.match(cs, /raw\.kind === 'whoami'/);
 });
 
-test('decision ①: tab switch auto-binds via whoami without reading tab.url', () => {
+test('decision ① + TASK-031: tab switch follows the tab URL (tabs perm); whoami kept as fallback', () => {
   const sw = read('../../src/background/service-worker.ts');
-  assert.match(sw, /autoBindFromTab\(s, activeInfo\.tabId\)/);
+  const follow = read('../../src/background/session-follow.ts');
+  // The onActivated handler now drives from `chrome.tabs.get` (we hold `tabs`):
+  // switching to a new/unauthorized origin auto-creates + switches its session.
+  assert.match(sw, /chrome\.tabs\.onActivated\.addListener/);
+  assert.match(sw, /followActiveTab\(tabFollowDeps\(s\), activeInfo\.tabId, 'activated'\)/);
+  assert.match(sw, /chrome\.tabs\.get\(tabId\)/);
+  // The whoami handshake is retained only as the unreadable-URL fallback.
+  assert.match(follow, /autoBindFromTab/);
+  assert.match(follow, /tabOrigin/);
   assert.match(sw, /makeMessage\('whoami'\)/);
-  // The onActivated handler must remain url-free (least privilege; no tabs perm).
-  const onActivated = sw.slice(sw.indexOf('chrome.tabs.onActivated.addListener'));
-  const body = onActivated.slice(0, onActivated.indexOf('chrome.tabs.onUpdated.addListener'));
-  assert.equal(/\.url/.test(body), false, 'onActivated must not read tab.url');
+});
+
+test('decision ①/② + TASK-031: the readable new-origin path never hits markStale (no dead end)', () => {
+  const follow = read('../../src/background/session-follow.ts');
+  // URL-driven adopt happens *before* the restricted-page degradation; there is
+  // no `if (!session) return`/`markStale` gate in front of it.
+  const urlBranch = follow.slice(follow.indexOf('const origin = tabOrigin(url)'), follow.indexOf('if (!origin)'));
+  assert.equal(/markStale/.test(urlBranch), false, 'markStale must not gate the readable-origin path');
+  assert.match(follow, /if \(!origin\)/);
+  assert.match(follow, /await deps\.bindOrigin\(tabId, origin\)/);
 });
 
 test('decision ②: session switch cancels pending confirm/ask and restores that session history', () => {

@@ -33,14 +33,17 @@ test('D-064: the action click binds (openPanelOnActionClick must NOT be true)', 
   assert.match(sw, /chrome\.sidePanel\.open\(\{\s*tabId\s*\}\)/);
 });
 
-test('D-065: switching away from the bound tab marks the session stale, url-free', () => {
+test('D-065 + D-128: tab switch follows the tab URL; restricted page degrades readably', () => {
   const sw = read('../../src/background/service-worker.ts');
+  const follow = read('../../src/background/session-follow.ts');
   assert.match(sw, /chrome\.tabs\.onActivated\.addListener/);
+  // D-128: `tab.url` is authoritative now that we hold the `tabs` permission.
+  assert.match(sw, /followActiveTab\(tabFollowDeps\(s\), activeInfo\.tabId, 'activated'\)/);
+  assert.match(sw, /chrome\.tabs\.get\(tabId\)/);
+  // Restricted / unreadable URL keeps the pre-existing readable degradation.
   assert.match(sw, /s\.controller\.markStale\(\)/);
-  assert.match(sw, /已切换标签页/);
-  // No `tabs`-permission-dependent URL read on this path.
-  const onActivated = sw.slice(sw.indexOf('chrome.tabs.onActivated.addListener'));
-  assert.equal(/onActivated[\s\S]{0,600}\.url/.test(onActivated.slice(0, 700)), false, 'onActivated must not read tab.url');
+  assert.match(follow, /已切换标签页/);
+  assert.match(follow, /markStale/);
 });
 
 test('D-064 + author decision ③: permission set is exactly the approved expansion (tabs approved 2026-09-12; no <all_urls>)', () => {

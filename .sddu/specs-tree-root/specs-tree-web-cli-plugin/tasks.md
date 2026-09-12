@@ -1298,15 +1298,35 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 
 ---
 
+### TASK-031: 切 tab 按 `tab.url` 驱动会话跟随（新域名自动新建/切换会话 + 推送面板，免重开）（用户实测缺陷修复，v1.8 增补）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（缺陷修复） |
+| **前置依赖** | TASK-030（post-validate additive；其决策记录见 build.md §28） |
+| **执行波次** | Wave 23（v1.8 增补） |
+| **对应 FR** | FR-047 / FR-048（自动探测 + 多会话随 tab 跟随）/ FR-052（自动切会话 ≠ 自动授权）/ EC-011（导航失效不回归） |
+| **ADR** | ADR-013 / ADR-014（复用会话/自动探测既有决策，无新增） |
+| **TB 映射** | —（非 plan TB，用户实测「切到新域名 TAB 不会自动新建会话，旧 TAB 可以；重开插件才识别当前域名」驱动） |
+
+**描述**: 根因 = `service-worker.ts` 的 `chrome.tabs.onActivated` 存在 `if (!session) return;` 早退，且仅靠 content-script `whoami` 握手（`autoBindFromTab`）判定——**新域名未授权 → 不会注入 → 握手必然失败** → 落入 `markStale()` 死路（既不新建也不切换会话）→ 面板不跟随；面板重开时 `state`/`sessions` 走 `chrome.tabs.query` 读 URL 的路径故能恢复，形成「重开才行」。过时假设是「只能靠握手、不能读 URL」——但自 FR-049 起已持有 `tabs` 权限，`tab.url` 可直接读。修复：新增 `src/background/session-follow.ts`（依赖注入、可 node 单测）统一 `followActiveTab`：http(s) origin **一律按 URL 切换/新建**该 origin 会话（`bindOrigin` → `switchSession` → `session-changed` 推送面板，免重开）；**已授权**顺带 `ensureContentScript` + 触发 `reprobe` 发现；**未授权**仍切换/新建会话但**零注入**、可读提示「授权当前站点」（自动切会话 ≠ 自动授权）；同一 origin 的另一 tab 复用同一会话（幂等，不新建）；受限页**不建会话**，保留既有可读降级；`whoami` 握手保留为 `tab.url` 不可读时的补充/回退。`onUpdated(status==='complete')` 同样按 URL 驱动；`loading` 的 EC-011 失效语义原样保留。**不新增权限（`tabs` 已有）/ 无新依赖 / base 零改动 / manifest 零改动**。
+
+**涉及文件**: NEW `src/background/session-follow.ts`、`test/session-follow.test.ts`；MODIFY `src/background/service-worker.ts`（移除 `tabOrigin` 本地副本改用新模块 + `tabFollowDeps` + 重写 `onActivated`/`onUpdated`）、`test/auto-session-wiring.test.ts`、`test/binding-wiring.test.ts`（旧「onActivated 不得读 tab.url」断言更新为新契约）、`test/ui/journey.mjs`（#16j~#16o）、`test/ui/binding.mjs`（#20a~#20f、#A6/A6b/A6c）、`docs/dev.md`（§12.5）。
+
+**验收标准**: `test/session-follow.test.ts` 覆盖 6 类必测场景（未授权新域名建会话+推送+零注入+不报错 / 已授权注入+发现 / 同 origin 复用会话 / 受限页不建会话 / `onUpdated(complete)` 新域名 / 无会话首次 activate 不回归 `if (!session) return`）全绿；`test:ui` 断言「已打开面板收到后台推送后自动更新（模拟真实 tab 切换，未重开）」；`test:binding` 真实断言「切到新域名 tab → 会话自动切换且面板更新 + 未授权零注入 + 静默不抛错」，既有断言保留；`test:hardening` / `test:e2e` 不回归；`tsc --noEmit` 0 error；插件 `npm test` 360 pass / 0 fail、全仓 `npm run build` + `npm test` 0 fail（base **483 零回归**）；红线：base 零改动、manifest 零改动、无新依赖、无明文 key、无静默失败。
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③）+ 3 v0.9 增补（TASK-027 `web-fetch` 权限边界预校验 + 失败可见，用户实测 CORS 驱动 / TASK-028 侧栏自动测试当前模型配置 + 移除独立按钮 + 60s TTL 缓存，作者要求 / TASK-029 工具面基线对账门禁 + 浏览器能力补齐，作者实测 dom·浏览器截图丢失驱动） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③）+ 3 v0.9 增补（TASK-027 `web-fetch` 权限边界预校验 + 失败可见，用户实测 CORS 驱动 / TASK-028 侧栏自动测试当前模型配置 + 移除独立按钮 + 60s TTL 缓存，作者要求 / TASK-029 工具面基线对账门禁 + 浏览器能力补齐，作者实测 dom·浏览器截图丢失驱动）+ 1 v1.8 缺陷修复增补（TASK-031 切 tab 按 `tab.url` 驱动会话跟随，用户实测「新域名 tab 不自动建会话」驱动；TASK-030 见 build.md §28） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022）+ 2 增补（027/028） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022）+ 2 增补（027/028）+ 1 缺陷修复（031） |
 | L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023）+ 3 v0.9（024/025/026）+ 1 增补（029） |
-| 执行波次 | 22（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补 + Wave 19 TASK-027 v0.9 缺陷修复 + Wave 20 TASK-028 v0.9 增补 + Wave 21 TASK-029 工具面对账+浏览器能力补齐） |
+| 执行波次 | 23（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补 + Wave 19 TASK-027 v0.9 缺陷修复 + Wave 20 TASK-028 v0.9 增补 + Wave 21 TASK-029 工具面对账+浏览器能力补齐 + Wave 22 TASK-030 自动授权 + Wave 23 TASK-031 切 tab 会话跟随缺陷修复） |
 | plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021/022（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
@@ -1423,3 +1443,4 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 | v1.9 | 追加 **TASK-027 `web-fetch` 权限边界预校验 + 失败可见**（FR-050/EC-023，v0.9 缺陷修复增补，非 plan TB，用户实测 `chrome://extensions` CORS 报错「插件加载报错」驱动）。任务汇总/波次计入增补轮（Wave 19，M 级）；根因 = base 内建 `web-fetch` 在扩展 SW 直接对未授权域名 fetch 必然 CORS；修复 = 插件侧受控 seam（未授权域名零请求 + 可读拒绝 + 授权指引；相对路径解析绑定 origin；非 http(s) 拒绝；同源优先页面上下文）+ 失败在侧栏可见（`.entry-error`）；**base 零改动 / 无新权限 / 无新依赖 / 无 `<all_urls>`**。对应 spec v1.6；新增 `test/web-fetch-tool.test.ts`；`test:binding` 新增 #0h/#1d/#7f~#7k（保留既有 73 断言）；`test:ui` 新增 #15v/#15w。 | 2026-09-12 | SDDU Build Agent |
 | v2.0 | 追加 **TASK-028 侧栏自动测试当前模型配置**（作者要求，v0.9 增补，非 plan TB）。任务汇总/波次计入增补轮（Wave 20，M 级）；移除侧栏独立「测试连接」按钮（options 页保留）；面板加载**自动**复用既有 `llm-test` 在 `#llm-test-result` 展示可读状态（不新增请求路径、仅加载触发一次、render/轮询不重复）；background 新增 60s TTL **内存**缓存（`src/llm/test-cache.ts`，指纹 = 厂商+模型+Base URL+Key 的不可逆哈希，仅内存比较、不落盘/日志/审计）；未配置零请求。**base 零改动 / 无新依赖 / 无新权限 / manifest 零 diff**；新增 `test/test-cache.test.ts`（6 用例）；`test:ui` 87→97（#12~#12m）、`test:binding` 81→83（#6-1/#6-2）、插件 309→315。 | 2026-09-12 | SDDU Build Agent |
 | v2.1 | 追加 **TASK-029 工具面基线对账门禁 + 浏览器能力补齐**（FR-051 / ADR-016，v1.7 增补，非 plan TB，作者实测「dom 操作 / 浏览器截图等命令全部丢失」驱动）。任务汇总/波次计入增补轮（Wave 21，L 级）；根因 = 测试只断言内部行为 + `capability-matrix.md` 手写无执行 → 静默漂移；修复 = ① 只读克隆 main 机器枚举 34 工具基线目录（`test/parity/baseline-catalog.json` + 提取脚本 + provenance）② 双向子命令级门禁 `test/parity.test.ts` + 豁免登记 `waivers.json` ③ content 隔离世界 `createBrowserDomOps()` + background 远程代理，补齐 `dom`/`chrome`（含 screenshot）/`wait`/`extract`/`export`/`save`/`events`/`web-search` ④ 页面上下文 anchor 下载链替代 `downloads` 权限 ⑤ 待批准权限（`notify`/`clipboard`）只报告不实施。**base 零改动 / 无新依赖 / 无新权限 / manifest 零 diff**；新增 `test/parity.test.ts`（8）+ `test/browser-tools.test.ts`（13），`test:e2e` 新增 dom/chrome 三条真机断言；插件 315→336，全仓 0 fail（base 483 零回归）。 | 2026-09-12 | SDDU Build Agent |
+| v2.2 | 追加 **TASK-031 切 tab 按 `tab.url` 驱动会话跟随**（FR-047/048，v1.8 缺陷修复增补，非 plan TB，用户实测「切到新域名 TAB 不会自动新建会话，旧 TAB 可以；重开插件才识别当前域名」驱动）。任务汇总/波次计入增补轮（Wave 23，M 级）；根因 = `onActivated` 的 `if (!session) return;` + 仅靠 `whoami` 握手（新域名未授权→不注入→握手必失败）→ `markStale` 死路；修复 = 新增 `src/background/session-follow.ts` `followActiveTab`（URL 驱动：未授权新域名**仍建/切会话+推送面板+零注入**；已授权顺带注入+发现；同 origin 复用会话；受限页不建会话、保留既有降级；`whoami` 仅作 URL 不可读回退）+ `onUpdated(complete)` 同路径；**base 零改动 / manifest 零改动 / 无新依赖 / 无新权限**；新增 `test/session-follow.test.ts`（10）、`test:ui` #16j~#16o（113→119）、`test:binding` #20a~#20f + #A6/A6b/A6c（96→104，保留既有），插件 349→360。 | 2026-09-12 | SDDU Build Agent |
