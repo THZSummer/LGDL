@@ -5,7 +5,8 @@
  * per-origin authorization, second-confirmation prompt and audit view. All state
  * transitions go through the pure reducer in `chat-state.ts`.
  */
-import { createInitialState, reduce, resolveAsk, resolveConfirm, type SidepanelState } from './chat-state.js';
+import { createInitialState, reduce, resolveAsk, resolveConfirm, type ChatRole, type SidepanelState } from './chat-state.js';
+import { renderMarkdown } from './markdown.js';
 import {
   CONSENT_DEFAULT_OPEN,
   CONSENT_SUMMARY_TEXT,
@@ -33,6 +34,41 @@ const $ = <T extends HTMLElement>(id: string): T => {
   if (!el) throw new Error(`missing element #${id}`);
   return el as T;
 };
+
+/** TASK-022: human-readable role label rendered above each message body. */
+const ROLE_LABEL: Record<ChatRole, string> = {
+  user: '你',
+  assistant: '助手',
+  tool: '工具',
+  system: '系统',
+};
+
+/**
+ * TASK-022: render one chat entry as a grouped message block. The assistant's
+ * body goes through the safe Markdown renderer; every other role keeps its text
+ * verbatim (tool/system output is often raw CLI/whole-document text).
+ */
+function renderEntry(entry: SidepanelState['entries'][number]): HTMLElement {
+  const block = document.createElement('div');
+  // Keep the legacy `entry-<role>`/`entry-error` classes (existing gates select
+  // them) and add the TASK-022 `msg-<role>` presentation classes.
+  block.className = `entry entry-${entry.role} msg msg-${entry.role}${entry.kind === 'error' ? ' entry-error' : ''}`;
+
+  const label = document.createElement('div');
+  label.className = 'msg-role';
+  label.textContent = ROLE_LABEL[entry.role];
+
+  const content = document.createElement('div');
+  content.className = `msg-content content-${entry.role}`;
+  if (entry.role === 'assistant') {
+    content.appendChild(renderMarkdown(entry.text, document));
+  } else {
+    content.textContent = entry.text;
+  }
+
+  block.append(label, content);
+  return block;
+}
 
 /**
  * Informed consent (FR-031 / NFR-008): the risks of operating a site on the
@@ -80,10 +116,7 @@ function render(): void {
   } else {
     log.classList.remove('empty');
     for (const entry of state.entries) {
-      const div = document.createElement('div');
-      div.className = `entry entry-${entry.role}${entry.kind === 'error' ? ' entry-error' : ''}`;
-      div.textContent = `${entry.role}: ${entry.text}`;
-      log.appendChild(div);
+      log.appendChild(renderEntry(entry));
     }
     log.scrollTop = log.scrollHeight;
   }

@@ -328,6 +328,34 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 
 **回归门禁**：`test/host.test.ts`「LLM function names…强制门禁」断言 `host.deriveTools()` 的**每一个** name 匹配 `^[a-zA-Z0-9_-]+$`（含站点/管理/内建），并覆盖 sanitize/去重/原始 id 保真；`npm run test:binding` 在真站点下捕获发给 LLM 的真实 `tools` 并断言合法（本次事故直接复现）。
 
+### 10.8 消息渲染（Markdown）与安全说明（TASK-022）
+
+**现象**：模型回复里的 `# 标题` / `| 表格 |` / `**加粗**` / 围栏代码块在侧栏原样显示成字符——旧实现对每条消息只做 ``textContent = `${role}: ${text}` `` 的纯文本写入。
+
+**现在**：每条消息渲染为「角色标签 + 内容区」分组块（`你 / 助手 / 工具 / 系统`，类名 `.msg-user` / `.msg-assistant` / `.msg-tool` / `.msg-system`）。**assistant** 走安全 Markdown 渲染；**tool/system** 保持等宽 + 保留空白/制表符（工具结果常是 CLI 文本或整份文档，不做 Markdown 解析）；**user** 纯文本。
+
+支持子集（`src/ui/sidepanel/markdown.ts`，**零新依赖**）：
+
+- 标题 `#`~`######`、水平线 `---`、引用 `>`；
+- 无序/有序列表（含简单嵌套）、段落；
+- 行内 `**粗**` / `*斜*` / `` `code` `` / `~~删除~~`；
+- 围栏代码块 ```lang（原文保留、等宽字体 + 横向滚动、内部不解析 Markdown）；
+- GFM 管道表格（窄侧栏内可横向滚动）；
+- 链接：仅当 scheme 为 `http` / `https` 时渲染 `<a target="_blank" rel="noreferrer noopener">`；其他 scheme（`javascript:` / `data:` / 相对路径 / 协议相对 `//host`）**降级为纯文本**。
+
+**为什么没有 XSS**（输入 = LLM 输出 + 站点内容，一律视为不可信）：
+
+1. **全程不解析 HTML**：不使用 inner-html / outer-html / adjacent-html 这类「HTML 字符串写入」DOM API；所有文本一律经 `createTextNode` / `textContent` 注入，浏览器只能当纯文本。`<img src=x onerror=…>` / `<script>` 以字面文本呈现，永远不会变成元素或被执行。
+2. **只创建白名单标签**：`h1`~`h6` / `p` / `hr` / `blockquote` / `ul` / `ol` / `li` / `pre` / `code` / `strong` / `em` / `del` / `a` / `table` / `thead` / `tbody` / `tr` / `th` / `td`；`img` / `script` / `iframe` / `style` / `link` 等无法被产出。
+3. **链接 scheme 网关**（`safeHref`）：无显式 scheme 或非 http(s) 一律返回 `null`，调用方降级为文本；锚点属性经 `setAttribute` 写入，不拼接 HTML。
+4. 围栏语言仅保留 `[A-Za-z0-9_+.-]` 后作为 `class="language-<x>"`。
+
+> 这是「不解析 HTML」的**结构性安全**，比「先转义再 innerHTML」更强且无双重转义。仓库内唯一一处 `outerHTML` 是 `src/content/content-script.ts:70` 的**只读** `document.documentElement.outerHTML`（读取页面 `<link rel="web-cli">` 声明），非注入。
+
+**窄侧栏防溢出**：`.msg-content { overflow-wrap: anywhere; }`；`pre` / `table` 各自 `overflow-x: auto`，容器不被撑破；`.content-assistant` 重置 `white-space: normal`，tool/system 保持 `pre-wrap`。`test:ui` 断言 `#log.scrollWidth === #log.clientWidth`。
+
+**回归门禁**：`test/markdown.test.ts`（12 用例：XSS / 链接 scheme / 表格 / 代码块 / 列表 / 标题 / 行内 / 未闭合语法 / 纯解析 / 无 HTML 注入 API）；`test/sidepanel-view.test.ts` 静态钉住集成与样式；`npm run test:ui` 新增 **#14a~#14i**（mock LLM 返回含恶意 HTML 的 Markdown → 经真实 `chat-result` 渲染 → 断言真实 `h1`/`strong`/`table`/`pre>code`、无 `script`/`img`、恶意内容为文本、无水平溢出）。
+
 ## 11. 变更记录
 
 | 版本 | 说明 |
@@ -340,4 +368,5 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 1.5 | TASK-020（用户实测反馈第三轮）：修复「保存成功却像失败」（保存后不再把 Key 框显示为空框——改 placeholder + `#key-state`=Key ✅ 已写入 + 成功色/高亮 + 摘要），侧栏 LLM 行补 `Key ✅/⚠未配置`；「无活跃站点」拆成具体原因 + 下一步动作并新增「重新绑定当前标签页」按钮，发送禁用原因就近可见；侧栏新增「测试连接」（复用 `llm-test`，读取已保存配置）；补 §10.4/§10.5 两问；`test:ui` 25→41 断言。 |
 | 1.6 | 站点绑定链路缺陷修复（用户实测：配置正常、站点正确却恒「无活跃站点」）：根因 = `setPanelBehavior({openPanelOnActionClick:true})` 吞掉 `action.onClicked` 使绑定成死代码 + 无 `tabs`/host 权限时 `tab.url` 为 `undefined` 被误报成「没有可读取的地址」。改为 `openPanelOnActionClick:false` + 点击处理内 `bindTab` 后同手势 `sidePanel.open`；`optional_host_permissions` 补 `http://*/*`、`minimum_chrome_version` 114→116；新增 `tabs.onActivated` 标签页切换失效提示；错误文案改为指向「点插件图标」；补 §10.6 与 §3/§3.1/§3.2/§10.5；新增 `npm run test:binding`（真站点全链 33 断言）。 |
 | 1.7 | 工具名非法字符缺陷修复（用户实测：`400 Invalid 'tools[0].function.name'`）：站点/管理工具改为扁平无点 `site_*` / `admin_*`（`namespace:''`，`group` 不变），策略链判据改 `group==='site'`；RPC 仍用原始 id；碰撞确定性加后缀并审计；`AgentRunner` 重试导致的重复错误改为「重试提示 + 单条 error」。补 §10.7；`test:binding` 扩展为捕获真实 LLM `tools` 并断言合法。 |
+| 1.8 | TASK-022（用户实测第六轮）：侧栏消息从纯文本改为「角色标签 + 内容区」分组块；assistant 走**零依赖、无 HTML 解析**的安全 Markdown 渲染（标题/列表/引用/行内/围栏代码/GFM 表格/仅 http(s) 链接），tool/system 保持等宽 `pre-wrap`，user 纯文本；新增 `src/ui/sidepanel/markdown.ts` + `test/markdown.test.ts`（12 用例），`test:ui` 41→50 断言（#14a~#14i），补 §10.8。 |
 

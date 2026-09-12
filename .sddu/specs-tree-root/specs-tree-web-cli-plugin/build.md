@@ -1262,6 +1262,95 @@ web-fetch, sleep, web-cli-help
 - `sanitizeToolName` 对 `:`/`/` 等字符的替换属**纵深防御**：站点描述符解析器（`protocol/descriptor.ts:100`）
   本就只接受 `[A-Za-z0-9_.-]`，实际触发的是 `.`（如 `graph.read`）。
 
+## 19. 侧栏消息 Markdown 渲染与消息样式（TASK-022，用户实测第六轮）
+
+### 19.1 现象与代码级定位
+
+用户跑通全链后反馈：对话框里模型回复显示为**纯文本**——`# 标题`、`| 类别 | 示例 |`、
+`**加粗**`、代码块全部原样显示成字符。代码级定位（直接采信）：
+
+- `src/ui/sidepanel/sidepanel.ts`（改前）每条记录 `div.textContent = \`${entry.role}: ${entry.text}\``——**纯文本、无 Markdown、无消息样式**；
+- `src/ui/sidepanel/index.html` 内联 `<style>`（构建时原样拷贝，CSS 没丢），但 `#log` 只有 `white-space: pre-wrap`；
+- 记录条目已带 `entry.role`（user/assistant/tool/system）与 `entry.text`，已有 `.entry-tool`/`.entry-error` 类但几乎没用到。
+
+### 19.2 实现
+
+| 操作 | 文件 | 说明 |
+|:--:|------|------|
+| NEW | `packages/web-cli-plugin/src/ui/sidepanel/markdown.ts` | 零依赖安全 Markdown → DOM。`parseMarkdown`/`parseInline`/`safeHref` 纯逻辑；`renderMarkdown(src, doc)` 只依赖最小 `DomFactory`（真实 `document` 即可满足）。 |
+| MODIFY | `src/ui/sidepanel/sidepanel.ts` | 新增 `ROLE_LABEL` 与 `renderEntry()`：每条消息 = 角色标签（`你/助手/工具/系统`）+ 内容区；assistant 调 `renderMarkdown`，其余 `textContent`；保留 `entry-<role>`/`entry-error` 旧类，新增 `msg msg-<role>`。 |
+| MODIFY | `src/ui/sidepanel/index.html` | 追加消息块与 Markdown 样式（角色色条 / 小字灰标签 / `pre`+`table` 横向滚动 / `code` 等宽 / `overflow-wrap:anywhere`）。 |
+| NEW | `packages/web-cli-plugin/test/markdown.test.ts` | 12 用例（最小假 DOM，node 环境）。 |
+| MODIFY | `test/sidepanel-view.test.ts` | 静态钉住集成（消息类名/样式/无旧纯文本行）。 |
+| MODIFY | `test/ui/journey.mjs` | mock LLM 增 Markdown 回复；新增 #14a~#14i。 |
+| MODIFY | `docs/dev.md`（§10.8 + 变更记录）、`.sddu/.../build.md`、`tasks.md`、`state.json` | 文档与状态。 |
+
+**支持的语法子集**：ATX 标题 `#`~`######`；水平线 `---`；引用 `>`；无序/有序列表（含简单嵌套）；
+段落；行内 `**粗**` / `*斜*` / `` `code` `` / `~~删除~~`；围栏代码块 ```lang（原文保留、内部不解析）；
+GFM 管道表格；`http`/`https` 链接。**不支持**（宁缺勿滥，未纳入）：图片、嵌套引用、任务列表、YAML
+front-matter、脚注、HTML 块、转义反引号外的复杂嵌套强调——均按纯文本安全呈现，不影响其他块。
+
+### 19.3 安全策略（为何无 XSS）
+
+输入 = LLM 输出 + 站点内容，一律不可信。模块的安全性是**结构性**的：
+
+1. **全程不解析 HTML**：不使用 inner-html / outer-html / adjacent-html 这类 HTML 字符串写入 DOM API；所有文本经
+   `createTextNode` / `textContent` 注入，浏览器只会当纯文本。`<img src=x onerror=…>` / `<script>` 因此以字面文本
+   呈现，永远不会变成元素或被执行。
+2. **只创建白名单标签**：`h1`~`h6`/`p`/`hr`/`blockquote`/`ul`/`ol`/`li`/`pre`/`code`/`strong`/`em`/`del`/`a`/`table`/
+   `thead`/`tbody`/`tr`/`th`/`td`。`img`/`script`/`iframe`/`style`/`link`/`object`/`embed` 无法被产出。
+3. **链接 scheme 网关**（`safeHref`）：无显式 scheme 或非 `http(s)` 返回 `null`，调用方把整个 `[label](url)` 降级为
+   纯文本；锚点属性用 `setAttribute` 写入，`target="_blank"` + `rel="noreferrer noopener"`。
+4. 围栏 info string 仅保留 `[A-Za-z0-9_+.-]` 作为 `class="language-<x>"`，不拼接 HTML。
+
+> 关于「先转义再解析」：本实现**不做输入转义**，因为转义后仍用 `textContent` 会双重转义、用 HTML 字符串 API 又会
+> 引入解析面。改为「(a) 解析出纯数据结构 + (b) 只用 `createTextNode`/白名单 `createElement` 建 DOM」，等价于把
+> 不可信输入安全落为文本且无双重转义——比转义方案更强。仓库内唯一 `outerHTML` 是
+> `src/content/content-script.ts:70` 的**只读** `document.documentElement.outerHTML`（读取页面 `<link rel="web-cli">`），非注入。
+
+### 19.4 消息呈现与保留语义
+
+- **assistant** → Markdown；**user** → 纯文本 `pre-wrap`；**tool/system** → 等宽 + `pre-wrap`（保留空白/制表符，不解析）。
+- 角色色条：`.msg-user` 蓝 / `.msg-assistant` 靛 / `.msg-tool` 灰 / `.msg-system` 琥珀；角色标签小字灰。
+- 保留既有语义：`#log.empty:not(:has(> *))` 空态、`log.textContent = ''` 清空、`render()` 末尾 `scrollTop = scrollHeight`；
+  `#log { height: 45vh; overflow: auto; ... white-space: pre-wrap; }` 原样保留（既有静态断言继续通过）。
+- **窄侧栏防溢出**：`.msg-content { overflow-wrap: anywhere; }`，`pre`/`table` 各自 `overflow-x: auto`，`#log.scrollWidth === clientWidth`。
+
+### 19.5 门禁结果
+
+| 门禁 | 结果 |
+|------|------|
+| `npm run typecheck`（`tsc --noEmit`） | **0 error** |
+| 插件 `npm run test` | **209 pass / 0 fail**（196→209，+13：`markdown.test.ts` 12 + 集成静态 1） |
+| `npm run test:ui` | **PASS 50 断言**（41→50：新增 #14a~#14i；含"无水平溢出"复断言） |
+| `npm run test:hardening` | **PASS 22 断言** |
+| `npm run test:e2e` | **PASS 场景 A/B** |
+| `npm run test:binding` | **PASS 38 断言**（保留 `.entry-assistant`/`.entry-error` 选择器 → 零回归） |
+| 全仓 `build` + `test` | **0 fail**；**base 483 零回归**（core 267 / render 94+1skip / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / base 483 / plugin 209） |
+| 红线 | **base 零改动**（`git diff -- packages/web-cli-base` 空）、**无新依赖**（`package.json` 零 diff）、无新增权限、无明文 key、`src/` 无 inner-html 写入 API、**未 git 提交** |
+
+### 19.6 新增决策（D-074~D-078）
+
+- **D-074（结构化 DOM，拒绝 HTML 解析）**：安全 Markdown 渲染一律用 `createTextNode`/白名单 `createElement` 构建，
+  **不引入任何 HTML 字符串写入 API**；不可信文本只可能成为文本节点。比「先转义再 innerHTML」更强且无双重转义。
+- **D-075（解析 / 建 DOM 分离）**：`parseMarkdown`/`parseInline` 为纯函数（返回 AST），`renderMarkdown(src, doc)` 只依赖
+  最小 `DomFactory`。既保证 node 环境可测（最小假 DOM，无需 jsdom 依赖），又让安全断言能直接检查「实际创建了哪些节点」。
+- **D-076（按角色分级渲染）**：assistant → Markdown；tool/system → 等宽 `pre-wrap` 原文（CLI/整份文档不解析）；
+  user → 纯文本。避免对工具结果误解析造成信息损失或注入面。
+- **D-077（链接 scheme 白名单）**：仅显式 `http`/`https` 渲染 `<a>` 并加 `rel="noreferrer noopener"` + `target="_blank"`；
+  其余 scheme（含 `javascript:`/`data:`/相对/协议相对）整段降级纯文本。
+- **D-078（保留既有 DOM 语义 + 零水平溢出）**：保留 `.entry-<role>`/`.entry-error`（既有门禁选择器）与 `#log` 空态/
+  `white-space: pre-wrap`/自动滚底；新样式以 `overflow-wrap:anywhere` + 子级 `overflow-x:auto` 保证窄侧栏不撑破。
+
+### 19.7 未完成 / 降级（如实）
+
+- `test:ui` 的 #14a~#14i 通过**真实面板的 `chat-result` 消息接缝**渲染（内容实时取自本地 mock LLM）。完整
+  background chat 管线需要「已绑定 + 已授权站点」，而 `journey.mjs` 是无站点的 hermetic 旅程，故未走全链——该
+  全链渲染由 `test:binding` 的 #6（真实站点 + mock LLM 对话）覆盖到「助手气泡出现且含回复文本」，但未在其中断言
+  Markdown 元素（binding 的 mock 回复是纯文本）。两处互补，均如实披露。
+- 未支持完整 GFM（见 §19.2 不支持清单）；未做语法高亮（无新依赖，代码块仅等宽 + 横向滚动）。
+- 真实第三方厂商端到端仍属人工面 H7，不冒充。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -1279,3 +1368,4 @@ web-fetch, sleep, web-cli-help
 | v1.10 | TASK-020（§16，用户实测反馈第三轮）：修复两个**真实 UX 缺陷**——① 保存成功却像失败（TASK-017 F-8 清空 Key 框无标记）→ 保存后 placeholder=「已保存（不回显）…」+ `#key-state`=「Key ✅ 已写入（不回显）」+ 成功块/高亮/摘要；②「无活跃站点」无解释无出路 → 三态具体原因 + 「重新绑定当前标签页」(`rebind` 消息) + 发送禁用原因就近可见；侧栏 LLM 行补 `Key ✅/⚠未配置`（零明文）；侧栏新增「测试连接」（复用 `llm-test`，stored 回退，key 不回传/不落日志审计），options 测试按钮视觉突出紧邻保存；`test:ui` 25→**41** 断言（含侧栏 0 异常）；D-059~D-063；插件 173→**183**（+10）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:hardening` 22 断言 PASS、E2E A/B PASS、base/根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖；真实第三方厂商直连仍属人工面 H7 不冒充；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.11 | 站点绑定链路缺陷修复（§17，用户实测第四轮）：代码级根因 ① `openPanelOnActionClick:true` 吞掉 `action.onClicked` 使绑定成死代码 + ② 无 `tabs`/host 权限时 `tab.url===undefined` 被误报「没有可读取的地址」；修复：显式置 `openPanelOnActionClick:false` + `onClicked` 先同步 `sidePanel.open` 再 `bindTab`（open 失败可读降级不撤销绑定）、`optional_host_permissions` 补 `http://*/*`、`minimum_chrome_version` 114→116、新增 `tabs.onActivated` 切换失效提示（只比 tabId 不读 url）、`addressUnreadable` 分类 + 文案统一指向「点插件图标（唯一触发点）」；新增 `npm run test:binding`（`test/ui/binding.mjs`，真实 dist + 真实 `http://localhost:5173` lgdl-web + mock LLM，**33 断言**跑通绑定→注入→发现→授权→发送可用→11111 对话 6 步）+ `test/binding-wiring.test.ts`；D-064~D-068；插件 183→**191**（+8）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41 PASS、`test:hardening` 22 PASS、E2E A/B PASS、无 `<all_urls>`/无新增 `tabs` 权限/无新依赖/base 与根 `package.json` 零改动；图标点击真实手势与原生权限弹窗仍属人工面（headless 不可能，已在脚本披露）；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.12 | 工具名非法字符缺陷修复（§18，用户实测第五轮）：根因 = base `deriveTools` 把含命名空间的 fqn 当 LLM 工具名，而 `site.<id>` / `plugin.<name>` 含 `.` → DeepSeek `400 Invalid 'tools[0].function.name'`；修复（base 零改动）：站点 `site_<sanitized>`、管理 `admin_<name>`（`namespace:''`，`group` 不变）、`sanitizeToolName`/`allocateSiteToolNames`（确定性去重 `_2`/`_3`… + 审计）、策略判据 `namespace==='site'`→`group==='site'`（未放宽）、RPC 仍用原始 `decl.id`；附带查清 B「同错误两次」= base `AgentRunner` 重试一次（用 `willRetry` 改为「重试提示 + 单条 error」）与 C「未授权」= 授权只门禁执行（声明可见，fail-closed 执行已断言，未改语义）；`test:binding` 扩展为**捕获真实发给 LLM 的 12 个 tools 并断言全部匹配 `^[a-zA-Z0-9_-]+$`**（38 断言）；D-069~D-073；插件 191→**196**（+5）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41 / `test:hardening` 22 / E2E A/B / `test:binding` 38 全 PASS、base 与 package.json 零改动、无新依赖、无明文 key、未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.13 | 侧栏消息 Markdown 渲染与消息样式（§19，TASK-022，用户实测第六轮）：根因 = `sidepanel.ts` 每条消息仅 `textContent = \`${role}: ${text}\`` 纯文本；新增零依赖 `ui/sidepanel/markdown.ts`（解析/建 DOM 分离；**不解析 HTML**，只用白名单标签 + `createTextNode`，链接仅 http/https，其余降级文本，`javascript:`/`data:` 不可能成为 `a.href`）；消息改角色分组块（assistant Markdown / tool+system 等宽 pre-wrap / user 纯文本），CSS 加角色色条 + `pre`/`table` 横向滚动 + `overflow-wrap:anywhere` 且保留 `#log` 空态/pre-wrap/滚底/`.entry-*` 选择器；新增 `test/markdown.test.ts`（12 用例）+ `test/ui/journey.mjs` #14a~#14i；D-074~D-078；插件 196→**209**（+13）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` 41→**50** / `test:hardening` 22 / E2E A/B / `test:binding` 38 全 PASS、base 与 package.json 零改动、无新依赖、无明文 key、未 git 提交 | 2026-09-12 | SDDU Build Agent |

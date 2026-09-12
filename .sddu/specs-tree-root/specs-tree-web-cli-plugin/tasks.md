@@ -1063,16 +1063,72 @@ npm run build && npm test
 
 ---
 
+### TASK-022: 侧栏消息 Markdown 渲染 + 消息样式（用户实测第六轮，post-validate additive）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（零依赖安全 Markdown + 消息分组块 + 样式；**不改 base、不引入新依赖**） |
+| **前置依赖** | TASK-021（post-validate 增补轮，不改已冻结 spec/plan） |
+| **执行波次** | Wave 14（TASK-021 之后 additive） |
+| **对应 FR** | FR-017/024/025（多轮对话渲染 + 工具调用展示 + 可读）；NFR-008（可读）；安全（不可信输入零 XSS） |
+| **TB 映射** | 无（用户实测反馈驱动的增补轮，非 plan TB） |
+| **状态** | ✅ completed（2026-09-12；权威状态见 `state.json`；执行记录见 `build.md §19`；D-074~D-078） |
+| **风险** | 低（base 零改动、零新依赖；全 GFM 与语法高亮不在范围，如实标注） |
+
+**描述**: 用户跑通全链后反馈侧栏模型回复显示为纯文本——`# 标题`、`| 类别 | 示例 |` 表格、`**加粗**`、代码块
+原样显示成字符。① 新增纯逻辑模块 `src/ui/sidepanel/markdown.ts`：把 Markdown 渲染为 DOM 节点，**禁止任何
+HTML 字符串写入 API**（不解析 HTML），所有文本经 `createTextNode`/`textContent` 注入，只创建白名单标签；输入
+一律不可信，`<img onerror>`/`<script>` 以文本呈现（零 XSS）；链接仅 `http`/`https` 渲染 `<a>`，其他 scheme
+降级纯文本。② 消息改角色分组块（`你/助手/工具/系统`）：assistant 渲染 Markdown，tool/system 等宽保留空白，
+user 纯文本；新增 `.msg-*` 类并保留 `.entry-*` 旧类。③ 样式遵守既有风格并保窄侧栏无水平溢出
+（`overflow-wrap:anywhere` + `pre`/`table` `overflow-x:auto`）。④ 单测 `test/markdown.test.ts` + `test:ui` 新增断言。
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| NEW | `packages/web-cli-plugin/src/ui/sidepanel/markdown.ts` |
+| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts`、`src/ui/sidepanel/index.html` |
+| NEW | `packages/web-cli-plugin/test/markdown.test.ts` |
+| MODIFY | `packages/web-cli-plugin/test/sidepanel-view.test.ts`、`test/ui/journey.mjs` |
+| MODIFY | `packages/web-cli-plugin/docs/dev.md`（§10.8 + 变更记录）；`.sddu/.../build.md`、`tasks.md`、`state.json` |
+| — | `packages/web-cli-base/**` **零改动**；各 `package.json` **零改动** |
+
+**验收标准**:
+- [x] A：`markdown.ts` 不使用 inner-html/outer-html/adjacent-html 字符串写入 API；只创建白名单标签；文本经 `createTextNode`/`textContent`
+- [x] A：XSS 用例 `<img src=x onerror=alert(1)>` / `<script>` / `[x](javascript:alert(1))` → 无 `img`/`script` 节点、无 `<a>`（降级文本）
+- [x] A：覆盖标题/水平线/引用/无序有序列表（含嵌套）/行内（粗斜代码删除线）/围栏代码块/GFM 表格/仅 http(s) 链接
+- [x] A：未闭合 ` ``` ` / 未闭合 `**` / 未闭合反引号 / `|` 半行不异常、不吞后续内容
+- [x] B：每条消息为「角色标签 + 内容区」块；assistant Markdown、tool/system 等宽 `pre-wrap`、user 纯文本；保留 `#log` 空态/清空/滚底与 `.entry-*` 选择器
+- [x] B：窄侧栏无水平溢出（`#log.scrollWidth === clientWidth`）；`pre`/`table` 可横向滚动
+- [x] C：`test:ui` 新增 #14a~#14i（mock LLM Markdown+恶意 HTML → 真实渲染 → h1/strong/table/pre>code + 无 script/img + 恶意文本化 + 无水平溢出）
+- [x] D：插件 **209** pass / 0 fail、`tsc` 0 error、`test:ui` **50** / `test:hardening` 22 / `test:e2e` A/B / `test:binding` 38 全 PASS
+- [x] D：全仓 `build`+`test` 0 fail、base **483 零回归**；红线：base/package.json 零改动、无新依赖、无明文 key、`src/` 无 inner-html 写入 API、未 git 提交
+
+**验证命令**:
+```bash
+npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin
+npm run typecheck --workspace @lgdl/web-cli-plugin
+npm run test:ui --workspace @lgdl/web-cli-plugin
+npm run test:hardening --workspace @lgdl/web-cli-plugin
+npm run test:e2e --workspace @lgdl/web-cli-plugin
+npm run test:binding --workspace @lgdl/web-cli-plugin
+npm run build && npm test
+```
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 5 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清，审查与实测反馈驱动） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 6 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式，审查与实测反馈驱动） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 5 增补（017/018/019/020/021） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022） |
 | L 级 (复杂) | 7（004/005/006/010/011/014/016） |
-| 执行波次 | 14（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 post-validate 增补） |
-| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021（非 plan TB） |
+| 执行波次 | 15（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 post-validate 增补） |
+| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021/022（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
 | 文档/契约预留任务 | 2（002；012/014 的文档面） |
@@ -1181,3 +1237,4 @@ npm run build && npm test
 | v1.2 | 追加 TASK-018（options 保存链路加固 + 「测试连接」+ UI 旅程门禁）与 TASK-019（三成因加固 + 环境自检诊断 + 真实验证；post-validate 增补，非 plan TB，用户实测反馈驱动）。任务汇总/波次计入增补轮（Wave 10/11）。 | 2026-09-12 | SDDU Build Agent |
 | v1.3 | 追加 TASK-020（保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见；post-validate 增补，非 plan TB，用户实测反馈第三轮驱动）。任务汇总/波次计入增补轮（Wave 12）；`test:ui` 25→41 断言、插件 173→183。 | 2026-09-12 | SDDU Build Agent |
 | v1.4 | 追加 TASK-021（工具名非法字符修复 + 附带疑点 B/C 查清；post-validate 增补，非 plan TB，用户实测第五轮 `400 Invalid 'tools[0].function.name'` 驱动）。任务汇总/波次计入增补轮（Wave 13）；站点 `site_*`/管理 `admin_*` 扁平命名 + `group` 判据 + `willRetry` 区分；`test:binding` 捕获真实 tools 断言合法（38 断言）；插件 191→196。 | 2026-09-12 | SDDU Build Agent |
+| v1.5 | 追加 TASK-022（侧栏消息 Markdown 渲染 + 消息样式；post-validate 增补，非 plan TB，用户实测第六轮「模型回复显示为纯文本」驱动）。任务汇总/波次计入增补轮（Wave 14）；零依赖安全 Markdown（不解析 HTML / 白名单标签 / 链接仅 http(s)）+ 角色分组块 + 样式；新增 `markdown.test.ts` 12 用例、`test:ui` 41→50；插件 196→209。 | 2026-09-12 | SDDU Build Agent |

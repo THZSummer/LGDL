@@ -68,6 +68,67 @@
       #consent ul { margin: 2px 0; padding-inline-start: 20px; }
       #consent li { margin: 2px 0; }
       .muted { color: #64748b; font-size: 12px; }
+      /* ── TASK-022: message blocks + safe Markdown ───────────────────────── */
+      /* One grouped block per message: role label + body, distinguished by a
+         left colour bar. `.entry-*` classes are kept for existing selectors. */
+      .msg {
+        margin: 8px 0; min-width: 0; border-radius: 4px;
+        border-left: 3px solid #cbd5e1; background: #f8fafc;
+      }
+      .msg:first-child { margin-top: 0; }
+      .msg:last-child { margin-bottom: 0; }
+      .msg-role { padding: 2px 8px; font-size: 11px; color: #64748b; background: rgba(148, 163, 184, 0.12); }
+      .msg-content { padding: 4px 8px; min-width: 0; overflow-wrap: anywhere; }
+      .content-user { white-space: pre-wrap; }
+      /* Assistant bodies are Markdown; reset the container's pre-wrap so block
+         elements and inline text flow normally (GFM tables/lists/pre handle
+         their own whitespace). */
+      .content-assistant { white-space: normal; }
+      /* Tool/system output is raw CLI/document text: keep whitespace + tabs. */
+      .content-tool, .content-system {
+        white-space: pre-wrap; font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      }
+      .msg-user { border-left-color: #38bdf8; }
+      .msg-assistant { border-left-color: #818cf8; }
+      .msg-tool { border-left-color: #94a3b8; }
+      .msg-system { border-left-color: #f59e0b; }
+      .entry-error .msg-role { color: #b91c1c; }
+      /* Markdown blocks: tighten margins and never let content widen the panel. */
+      .msg-content > :first-child { margin-top: 0; }
+      .msg-content > :last-child { margin-bottom: 0; }
+      .msg-content h1, .msg-content h2, .msg-content h3,
+      .msg-content h4, .msg-content h5, .msg-content h6 { margin: 6px 0 3px; line-height: 1.3; }
+      .msg-content h1 { font-size: 16px; }
+      .msg-content h2 { font-size: 15px; }
+      .msg-content h3, .msg-content h4, .msg-content h5, .msg-content h6 { font-size: 14px; }
+      .msg-content p { margin: 4px 0; }
+      .msg-content ul, .msg-content ol { margin: 4px 0; padding-inline-start: 20px; }
+      .msg-content li { margin: 1px 0; }
+      .msg-content blockquote {
+        margin: 4px 0; padding: 2px 8px; color: #475569;
+        border-left: 3px solid #cbd5e1; background: rgba(148, 163, 184, 0.08);
+      }
+      .msg-content hr { border: 0; border-top: 1px solid #cbd5e1; margin: 6px 0; }
+      .msg-content code {
+        padding: 1px 4px; border-radius: 3px; font-size: 12px;
+        background: rgba(100, 116, 139, 0.14);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      }
+      /* Code blocks + tables scroll inside their own box, never the panel. */
+      .msg-content pre {
+        margin: 4px 0; padding: 6px 8px; border-radius: 4px;
+        background: #0f172a; color: #e2e8f0;
+        max-width: 100%; overflow-x: auto;
+      }
+      .msg-content pre code { padding: 0; background: none; color: inherit; }
+      .msg-content table {
+        display: block; width: max-content; max-width: 100%;
+        margin: 4px 0; overflow-x: auto; border-collapse: collapse;
+      }
+      .msg-content th, .msg-content td { border: 1px solid #cbd5e1; padding: 2px 6px; text-align: left; }
+      .msg-content thead th { background: rgba(148, 163, 184, 0.14); }
+      .msg-content a { color: #2563eb; }
     </style>
   </head>
   <body>

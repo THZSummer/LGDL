@@ -135,6 +135,22 @@ test('empty-log centering is gated on #log having no entry elements (D-043)', ()
   assert.match(html, /white-space: pre-wrap;/);
 });
 
+test('TASK-022: message blocks + safe Markdown are wired (static surface)', () => {
+  const html = read('../../src/ui/sidepanel/index.html');
+  assert.match(html, /\.msg-content \{ padding: 4px 8px; min-width: 0; overflow-wrap: anywhere;/);
+  assert.match(html, /\.content-assistant \{ white-space: normal;/);
+  assert.match(html, /\.content-tool, \.content-system \{/);
+  assert.match(html, /\.msg-content pre \{[\s\S]*?overflow-x: auto;/);
+  assert.match(html, /\.msg-content table \{[\s\S]*?overflow-x: auto;/);
+
+  const ts = read('../../src/ui/sidepanel/sidepanel.ts');
+  assert.match(ts, /import \{ renderMarkdown \} from '\.\/markdown\.js';/);
+  assert.match(ts, /entry-\$\{entry\.role\} msg msg-\$\{entry\.role\}/);
+  assert.match(ts, /entry\.role === 'assistant'/);
+  // The old `role: text` plain-text line must be gone.
+  assert.equal(/textContent = `\$\{entry\.role\}: \$\{entry\.text\}`/.test(ts), false);
+});
+
 test('consent disclosure is collapsed by default while keeping the title text', () => {
   assert.equal(CONSENT_DEFAULT_OPEN, false);
   assert.equal(CONSENT_SUMMARY_TEXT, '知情同意与能力边界');

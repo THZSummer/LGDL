@@ -41,6 +41,29 @@ const CHROME = process.env.CHROME_BIN || resolve(repoRoot, '.pw-browsers', 'chro
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * TASK-022 payload: the mock LLM returns this when asked with `__markdown__`.
+ * It mixes the user-facing Markdown subset (heading / table / bold / fence) with
+ * deliberately hostile HTML (`<img onerror>`, `<script>`) that must render as
+ * inert text — never as elements, never executed.
+ */
+const MD_REPLY = [
+  '# 标题渲染',
+  '',
+  '普通段落，含 **加粗** 与 `行内代码`。',
+  '',
+  '| 类别 | 示例 |',
+  '| --- | --- |',
+  '| 标题 | # 标题 |',
+  '| 恶意 | <img src=x onerror=alert(1)> |',
+  '',
+  '```js',
+  'const x = 1;',
+  '```',
+  '',
+  '<script>alert(2)</script>',
+].join('\n');
+
 // ── assertions ───────────────────────────────────────────────────────────────
 const failures = [];
 let passes = 0;
@@ -206,6 +229,14 @@ function startMockLlm() {
       let raw = '';
       req.on('data', (c) => (raw += c));
       req.on('end', () => {
+        let content = 'pong';
+        try {
+          const body = JSON.parse(raw);
+          const lastUser = [...(body.messages ?? [])].reverse().find((m) => m.role === 'user');
+          if (typeof lastUser?.content === 'string' && lastUser.content.includes('__markdown__')) content = MD_REPLY;
+        } catch {
+          /* tolerate */
+        }
         res.writeHead(200, { ...cors, 'content-type': 'application/json' });
         res.end(
           JSON.stringify({
@@ -213,7 +244,7 @@ function startMockLlm() {
             object: 'chat.completion',
             created: 0,
             model: 'journey-mock',
-            choices: [{ index: 0, message: { role: 'assistant', content: 'pong' }, finish_reason: 'stop' }],
+            choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
             usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
           }),
         );
@@ -455,6 +486,56 @@ async function main() {
     check(Boolean(spTestText), '#12 侧栏「测试连接」可点并产生可读结果');
     check(/连接正常/.test(spTestText ?? ''), '#12b 侧栏连接本地 mock 端点成功', spTestText);
     check(/ms/.test(spTestText ?? ''), '#12c 侧栏成功结果含延迟 ms', spTestText);
+
+    // 9b. TASK-022: mock LLM Markdown reply → real `chat-result` seam → real render.
+    // (The full background chat pipeline needs a bound+authorized site, which this
+    // hermetic journey does not run; here we exercise the panel's real
+    // `chat-result` handler with content fetched live from the mock LLM.)
+    const mdFromLlm = await evaluate(
+      sw,
+      `fetch(${JSON.stringify(`${mock.origin}/v1/chat/completions`)}, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'journey-mock', messages: [{ role: 'user', content: '__markdown__' }] }),
+      }).then((r) => r.json()).then((d) => d.choices[0].message.content)`,
+    );
+    check(typeof mdFromLlm === 'string' && mdFromLlm.includes('# 标题渲染'), '#14a mock LLM 返回 Markdown 回复', String(mdFromLlm).slice(0, 60));
+    await evaluate(
+      sw,
+      `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'assistant', text: ${JSON.stringify(mdFromLlm)} }).catch(() => {})`,
+    );
+    const mdRaw = await waitFor(
+      sp,
+      `(() => {
+        const log = document.getElementById('log');
+        if (!log || !log.querySelector('h1')) return '';
+        return JSON.stringify({
+          h1: log.querySelectorAll('h1').length,
+          strong: log.querySelectorAll('strong').length,
+          table: log.querySelectorAll('table').length,
+          code: log.querySelectorAll('pre code').length,
+          script: log.querySelectorAll('script').length,
+          img: log.querySelectorAll('img').length,
+          literalBold: log.textContent.includes('**'),
+          literalPipe: log.textContent.includes('| 类别 |'),
+          maliciousAsText: log.textContent.includes('<img src=x onerror=alert(1)>'),
+          overflow: log.scrollWidth === log.clientWidth,
+          scrollWidth: log.scrollWidth,
+          clientWidth: log.clientWidth,
+        });
+      })()`,
+      60,
+      200,
+    );
+    const mdView = mdRaw ? JSON.parse(mdRaw) : {};
+    check((mdView.h1 ?? 0) >= 1, '#14b Markdown 标题渲染为真实 h1（非字面 #）', mdRaw);
+    check((mdView.strong ?? 0) >= 1, '#14c **加粗** 渲染为 <strong>（非字面 **）', mdRaw);
+    check((mdView.table ?? 0) >= 1, '#14d GFM 表格渲染为真实 <table>（非字面 |）', mdRaw);
+    check((mdView.code ?? 0) >= 1, '#14e 围栏代码块渲染为 <pre><code>', mdRaw);
+    check(mdView.script === 0 && mdView.img === 0, '#14f 无 script/img 节点（恶意内容不执行/不加载）', mdRaw);
+    check(mdView.maliciousAsText === true, '#14g 恶意 <img onerror> 以纯文本呈现', mdRaw);
+    check(mdView.literalBold === false && mdView.literalPipe === false, '#14h 无残留字面 Markdown 标记', mdRaw);
+    check(mdView.overflow === true, '#14i 侧栏仍无水平溢出（scrollWidth === clientWidth）', `${mdView.scrollWidth}/${mdView.clientWidth}`);
+
     check(spExceptions.length === 0, '#13 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#13b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 
