@@ -31,6 +31,8 @@ import { createWebCliHost, type WebCliHost } from './host.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
 import { createSessionStore, projectHistory, sessionLabel, type SessionStore } from './session-store.js';
+import { createTabsSettingStore, type TabsSettingStore } from './tabs-setting.js';
+import type { TabsToolDeps } from '../tools/tabs-tools.js';
 import {
   reconcileSiteContentScripts,
   registerSiteContentScript,
@@ -82,6 +84,8 @@ interface Singletons {
   contentScripts: ContentScriptsApi;
   /** Task-internal clarification bridge (FR-017 / R7). */
   askBridge: AskBridge;
+  /** FR-049 privacy switch: whether the plugin-level `tabs` tool is exposed. */
+  tabsSetting: TabsSettingStore;
 }
 
 let singletons: Singletons | null = null;
@@ -259,6 +263,11 @@ async function init(): Promise<Singletons> {
     // decision ② / FR-048: multi-session store (per-origin default, optional groups).
     const sessions = createSessionStore(kv);
     await sessions.load();
+    // FR-049 (author decision ③): tab-tool privacy toggle (default on). The
+    // stored value is applied to the host below so a disabled tool is simply not
+    // registered (it never appears in `deriveTools()`).
+    const tabsSetting = createTabsSettingStore(kv);
+    await tabsSetting.load();
     // decision ① / FR-047: `chrome.scripting` declarative-injection adapter.
     const contentScripts: ContentScriptsApi = {
       registerContentScripts: (scripts) => chrome.scripting.registerContentScripts(scripts),
@@ -311,6 +320,17 @@ async function init(): Promise<Singletons> {
         return JSON.stringify(active, null, 2);
       },
       llmConfig: async () => JSON.stringify(toLlmStatusSummary(await keys.maskedConfig()), null, 2),
+      // FR-049: plugin-level tab tool (available with no site bound/authorized).
+      tabs: createTabsDeps({
+        getSingletons: () => {
+          if (!singletons) throw new Error('后台尚未初始化完成，请稍后重试');
+          return singletons;
+        },
+        origins,
+        sessions,
+        audit,
+      }),
+      tabsEnabled: tabsSetting.get(),
     });
 
     // restore runtime session (EC-013)
@@ -368,6 +388,7 @@ async function init(): Promise<Singletons> {
       currentSessionId,
       contentScripts,
       askBridge,
+      tabsSetting,
     };
     return singletons;
   })();
@@ -551,6 +572,123 @@ async function findTabForOrigin(origin: string): Promise<number | undefined> {
     }
   }
   return undefined;
+}
+
+/**
+ * FR-049 (author decision ③): the plugin-level `tabs` tool deps.
+ *
+ * `switch` reuses the existing bind chain (`bindTab` = origin from URL →
+ * `ensureContentScript` → `bindOrigin` → session switch) so switching a tab
+ * adopts that origin's session exactly like an automatic handshake. `open`
+ * creates the tab then best-effort adopts the session; the injected content
+ * script's `hello` completes discovery once the page loads. All failures return
+ * a readable receipt (never silent). `close` is intentionally not implemented.
+ */
+function createTabsDeps(deps: {
+  getSingletons: () => Singletons;
+  origins: OriginStore;
+  sessions: SessionStore;
+  audit: PluginAuditSink;
+}): TabsToolDeps {
+  return {
+    listTabs: async () => {
+      const tabs = await chrome.tabs.query({});
+      const out = [];
+      for (const t of tabs) {
+        if (t.id === undefined) continue;
+        out.push({
+          id: t.id,
+          ...(t.title ? { title: t.title } : {}),
+          ...(t.url ? { url: t.url } : {}),
+          active: t.active === true,
+        });
+      }
+      return out;
+    },
+    isAuthorized: (origin) => deps.origins.isAuthorized(origin),
+    sessionIdForOrigin: (origin) => deps.sessions.sessionIdForOrigin(origin),
+    switchToTab: async (tab) => {
+      const s = deps.getSingletons();
+      try {
+        await chrome.tabs.update(tab.id, { active: true });
+      } catch (err) {
+        return {
+          ok: false,
+          output: `✖ 无法激活标签页 [${tab.id}]：${err instanceof Error ? err.message : String(err)}`,
+          error: 'tabs-activate-failed',
+          tabId: tab.id,
+        };
+      }
+      // Prefer the existing `whoami` auto-detection handshake (ADR-014) so a tab
+      // that already has the content script binds exactly like a tab switch; fall
+      // back to the shared `bindTab` binder when the page is not injected yet
+      // (e.g. a page that refused to load). Both paths adopt the origin session.
+      const autoBound = await autoBindFromTab(s, tab.id);
+      let origin: string | undefined;
+      if (autoBound) {
+        origin = s.controller.get()?.origin;
+      } else {
+        const bound = await bindTab(s, tab.id, tab.url);
+        if (!bound.ok) {
+          return {
+            ok: false,
+            output: `✖ 已激活标签页 [${tab.id}]，但未能绑定站点：${bound.reason}`,
+            error: 'tabs-bind-failed',
+            tabId: tab.id,
+          };
+        }
+        origin = bound.origin;
+      }
+      const sessionId = s.currentSessionId ?? origin;
+      return {
+        ok: true,
+        output: `✓ 已切到 ${origin}（会话：${sessionId}）`,
+        ...(origin ? { origin } : {}),
+        ...(sessionId ? { sessionId } : {}),
+        tabId: tab.id,
+      };
+    },
+    openTab: async (url) => {
+      const s = deps.getSingletons();
+      let created: chrome.tabs.Tab;
+      try {
+        created = await chrome.tabs.create({ url });
+      } catch (err) {
+        return {
+          ok: false,
+          output: `✖ 打开标签页失败：${err instanceof Error ? err.message : String(err)}`,
+          error: 'tabs-create-failed',
+        };
+      }
+      const origin = tabOrigin(url);
+      const tabId = created.id;
+      let sessionId: string | undefined;
+      let injected = false;
+      if (tabId !== undefined && origin) {
+        try {
+          await bindOrigin(s, tabId, origin);
+          injected = await ensureContentScript(tabId);
+          sessionId = s.currentSessionId ?? origin;
+        } catch (err) {
+          return {
+            ok: true,
+            output: `✓ 已打开 ${url}，但自动绑定未完成：${err instanceof Error ? err.message : String(err)}（可稍后点插件图标，或用 tabs switch 重试）`,
+            origin,
+            tabId,
+          };
+        }
+      }
+      const tail = origin && !injected ? '；页面尚未加载完成，注入/发现将在加载后自动完成' : '';
+      return {
+        ok: true,
+        output: `✓ 已打开 ${url}${sessionId ? `（会话：${sessionId}）` : ''}${tail}`,
+        ...(origin ? { origin } : {}),
+        ...(sessionId ? { sessionId } : {}),
+        ...(tabId !== undefined ? { tabId } : {}),
+      };
+    },
+    audit: deps.audit,
+  };
 }
 
 /**
@@ -887,6 +1025,30 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       else if (action === 'stop') s.host.stopRisk(reason ?? '用户中止');
       else if (action !== 'status') return errorResponse(`未知的风控操作：${action}`);
       return okResponse(s.host.riskGuard.status());
+    }
+    case 'tabs-setting': {
+      // FR-049: options-page privacy switch. `get` reports the current state;
+      // `set` persists + applies it so `tabs` leaves/enters the LLM tool surface.
+      // Applied readably (never silent).
+      const action = message.action === 'set' ? 'set' : 'get';
+      if (action === 'get') {
+        return okResponse({ enabled: s.tabsSetting.get(), tools: s.host.deriveTools().map((t) => t.name) });
+      }
+      if (typeof message.enabled !== 'boolean') {
+        return errorResponse('tabs-setting 的 set 操作需要 enabled:boolean');
+      }
+      await s.tabsSetting.save(message.enabled);
+      s.host.setTabsEnabled(message.enabled);
+      s.audit.recordPlugin({
+        type: 'tabs',
+        ts: Date.now(),
+        tool: 'tabs',
+        decision: message.enabled ? 'enabled' : 'disabled',
+        detail: message.enabled
+          ? '用户开启「允许助手查看/切换标签页」：tabs 工具进入 LLM 工具面'
+          : '用户关闭「允许助手查看/切换标签页」：tabs 工具从 LLM 工具面移除（不静默，回执含当前工具面）',
+      });
+      return okResponse({ enabled: s.tabsSetting.get(), tools: s.host.deriveTools().map((t) => t.name) });
     }
     case 'audit-export':
       return okResponse(await s.audit.exportEvents());

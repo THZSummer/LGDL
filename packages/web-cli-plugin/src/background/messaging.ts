@@ -37,7 +37,9 @@ export type PluginMessageKind =
   | 'sessions'
   | 'session-switch'
   | 'session-group'
-  | 'session-changed';
+  | 'session-changed'
+  // author decision ③ / FR-049: tab-tool privacy toggle (options page).
+  | 'tabs-setting';
 
 export interface PluginMessage {
   kind: PluginMessageKind;
@@ -83,6 +85,7 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'session-switch',
   'session-group',
   'session-changed',
+  'tabs-setting',
 ]);
 
 export function makeMessage(kind: PluginMessageKind, payload: Record<string, unknown> = {}): PluginMessage {

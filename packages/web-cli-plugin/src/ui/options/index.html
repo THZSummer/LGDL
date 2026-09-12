@@ -44,6 +44,8 @@
       .diag-warn { color: #92400e; }
       .diag-fail { color: #b91c1c; font-weight: 600; }
       .diag-summary { margin-top: 6px; font-weight: 600; }
+      .inline-check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+      .inline-check input { width: auto; }
     </style>
   </head>
   <body>
@@ -120,6 +122,21 @@
         <button type="button" id="group-join">加入所选分组</button>
       </div>
       <div id="sessions-status" class="muted" role="status" aria-live="polite">会话分组：尚未读取。</div>
+    </section>
+
+    <section id="tabs-privacy">
+      <h2>标签页管理（隐私）</h2>
+      <label class="inline-check" for="tabs-enabled">
+        <input type="checkbox" id="tabs-enabled" />
+        允许助手查看/切换标签页（默认开）
+      </label>
+      <p class="muted">
+        开启后，LLM 工具面包含 <code>tabs</code>（list / switch / open；<strong>不含 close，明确不关闭标签页</strong>）。
+        <code>list</code> 默认只返回 <strong>origin + path</strong>（去掉 query 与 fragment），避免把您的查询串带入模型上下文；
+        仅当显式传 <code>--full</code> 才返回完整 URL。<code>switch</code>/<code>open</code> 属敏感档位，执行前需二次确认（<code>open</code> 的确认摘要会显示目标 URL）。
+        关闭后 <code>tabs</code> 会立即从 LLM 工具面移除（不会静默保留）。
+      </p>
+      <div id="tabs-setting-status" class="muted" role="status" aria-live="polite">标签页管理：尚未读取。</div>
     </section>
 
     <section id="diagnostics">

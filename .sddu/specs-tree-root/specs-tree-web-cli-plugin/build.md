@@ -1878,6 +1878,82 @@ else log.scrollTop = prevTop;
 - **`session-store.load()` 每次 `sessions` 请求重读存储**：为让 options/侧栏跨上下文变更即时可见；频率受限于用户交互，未做去抖/缓存。
 - **`capability-matrix.md` 其余 30 行未逐行重核**：本轮仅修正审计已确认的漂移（第 1/2/21/27/31 行）+ 补 §3.1；其余行沿用 TASK-016 存档口径。
 
+## 24. v0.9 增补：标签页管理工具 + `tabs` 权限扩张（作者 2026-09-12 决策③；TASK-026）
+
+> 作者**已拍板**：同意新增 `tabs` 权限（接受安装时「读取您的浏览记录」提示）；工具能力**仅 list / switch / open，明确不做 close**。本节为 build 产物与验收证据；实现文件：`src/tools/tabs-tools.ts`（新）、`src/background/tabs-setting.ts`（新）及既有 background/UI/manifest 的 additive 接线。**base 零改动、无新增依赖、无 `<all_urls>`/静态注入。**
+
+### 24.1 实现（file:line 对照）
+
+| 环节 | 实现（file:line） |
+|------|------------------|
+| 工具定义（扁平名 `tabs`，无点） | `src/tools/tabs-tools.ts:33` `TABS_TOOL_NAME='tabs'`；`:211` `createTabsToolEntry`（`namespace:''`、`group:'plugin'`） |
+| risk 档（不放宽） | `tabs-tools.ts:42` `TABS_SUBCOMMAND_RISKS = { list:'read', switch:'ui', open:'write' }`；entry `subcommandRisks` 同源；兜底 `risk:'write'`（空/未知子命令绝不低于确认） |
+| `list` 隐私默认 | `tabs-tools.ts:112` `redactTabUrl(raw, full)` → 默认 `origin+path`（去 query/fragment），`--full` 显式；`:158` `formatTabList` 输出显式标注隐私模式；`:254` case `list` |
+| `switch` | `tabs-tools.ts:134` `parseTabRef`（`--id`/`--match` 二选一、数字校验）；`:297` case `switch`（受限页 `isAllowedTabUrl` 可读拒绝、歧义可读列出候选） |
+| `open` scheme 拒绝 | `tabs-tools.ts:366` case `open`（仅 `http:`/`https:`，其余 scheme 可读拒绝）；`:399` 未知子命令可读列出支持集（含「不支持 close」） |
+| 审计（每子命令） | `tabs-tools.ts` `auditSubcommand`（`type:'tabs'`，零明文、URL 去 query）；`src/security/audit-sink.ts:29` 事件类型并集增 `'tabs'` |
+| 真实 `chrome.tabs` + 绑定链复用 | `src/background/service-worker.ts:587` `createTabsDeps`（`chrome.tabs.query/update/create`；`switch` 调 `bindTab` = origin→`ensureContentScript`→`bindOrigin`→`switchSession`；`open` 尽力 `bindOrigin`+注入） |
+| 隐私开关存储 | `src/background/tabs-setting.ts:18` `TABS_SETTING_KEY`；`:34` `createTabsSettingStore`（默认开） |
+| 工具随开关注册/移除 | `src/background/host.ts:49` `tabs?` deps；`:116` `registerTabs` / `:121` `unregisterTabs` / `:126` 初始注册；`:197` `setTabsEnabled`（关闭→`router.unregister('tabs')`，`enabled` 语义） |
+| SW 接线 | `service-worker.ts:269` `tabsSetting.load()`；`:324` `tabs: createTabsDeps(...)`；`:333` `tabsEnabled: tabsSetting.get()`；`:1018` case `tabs-setting`（get/set + 审计 + 回执工具面） |
+| 消息面 | `src/background/messaging.ts:42` 增 `'tabs-setting'` kind（`:88` KIND_SET） |
+| options 开关 | `src/ui/options/index.html` `#tabs-enabled` + 隐私说明；`src/ui/options/options.ts:511` `renderTabsSetting` / `:532` `refreshTabsSetting` / `:548` `setTabsSetting` / `:566` change 监听 |
+| manifest | `manifest.json:16` `permissions` 增 `"tabs"`（唯一新增） |
+
+**门禁测试**：`test/tabs-tools.test.ts`（25 用例：子命令/risk/scheme/去 query/`--full`/开关/审计/无 close/host 门禁）、`test/tabs-wiring.test.ts`（5 用例：静态接线/权限面/无 close/未启用禁用档工具）。
+
+### 24.2 `manifest.json` permissions 前后逐项对照
+
+| # | 前 | 后 | 说明 |
+|---|----|----|------|
+| 1 | `activeTab` | `activeTab` | 不变 |
+| 2 | `scripting` | `scripting` | 不变（声明式注入复用） |
+| 3 | `storage` | `storage` | 不变 |
+| 4 | `sidePanel` | `sidePanel` | 不变 |
+| 5 | — | **`tabs`** | **唯一新增**（作者决策③；标签页工具；接受安装警告「读取您的浏览记录」） |
+| — | 无 `content_scripts` | 无 `content_scripts` | 不变（零静态全站注入） |
+| — | host/optional host 无 `<all_urls>` | 同左 | 不变 |
+
+`test:binding` 阶段 0 实测（`chrome.runtime.getManifest()`）：`permissions` 逐项 = `['activeTab','scripting','sidePanel','storage','tabs']`（断言 `#0e`/`#0e2`）。
+
+### 24.3 隐私默认与开关（实现 + 证据）
+
+| 要求 | 实现 | 证据 |
+|------|------|------|
+| `list` 默认只返回 `origin+path`（去 query/fragment） | `redactTabUrl`（`tabs-tools.ts:112`）+ case list | 单测「default strips query + fragment」；`test:binding` `#7c` 断言真实工具结果不含 `TOPSECRET`（真实 secret query 标签页） |
+| `--full` 显式返回完整 URL 并说明影响 | case list `full` 解析 + `formatTabList` 标注 | 单测「--full: explicit opt-in…」；`test:binding` `#7d/#7e` 断言完整 URL 可见 |
+| 审计零明文 | `tabs-tools.ts` `auditSubcommand` 用 `redactTabUrl(url,false)` | 单测断言 audit JSON 不含 `SECRET`/`TOPSECRET` |
+| options 开关（默认开） | `#tabs-enabled`（默认 `checked`；`tabs-setting` get/set） | `test:ui` `#17a` 默认开启；`#17b/#17d` 关/开回执；`#17c/#17e` `deriveTools` 随之不含/含 `tabs` |
+| 关闭后从 LLM 工具面移除（`enabled` 语义） | `host.setTabsEnabled(false)` → `router.unregister('tabs')`；派发返回「未注册/已禁用」 | 单测「disabling the privacy switch…」；`test:ui` `#17c` |
+| 工具无站点绑定亦可用 | `group:'plugin'`（不属 `group:'site'` → 不受 S1/S2/S3 origin 门禁） | 单测「no site bound / no origin authorized is still usable」+ host 无 site 注入仍 `list` 放行 |
+
+### 24.4 门禁结果（本轮复跑，原文摘录）
+
+- 插件 `npm test`：**292 pass / 0 fail**（262→292，+30：`tabs-tools.test.ts` 25 + `tabs-wiring.test.ts` 5）。
+- 插件 `npx tsc --noEmit`：**0 error**。
+- `npm run test:ui`：**85 断言 PASS**（79→85，+6：`#17a~#17e` 隐私开关 + `#15u` tabs 工具卡片）。
+- `npm run test:binding`：**73 断言 PASS**（58→73，+15：`#0e2` 权限集合、`#7a/#7/#7b/#7c/#7d/#7e` 真实 `tabs list`/`--full`、`#8/#8b/#8d/#8e/#8f/#8g/#8h/#8i` 真实 `tabs switch` → 会话随之切换）。**真实证据**：`#8h` 断言 `state.session.sessionId === 'http://localhost:5173'`（切换前已绑定 `http://127.0.0.1:1`），`#8i` `active.origin` 为站点；`#7` 工具结果真实来自 `chrome.tabs.query`。
+- `npm run test:hardening`：**22 断言 PASS**。
+- `npm run test:e2e`：**PASS**（场景 A fixture AC-010 + 场景 B LGDL Workbench AC-009；唯一偏差仍为本地 host_permissions 预授权）。
+- 全仓 `npm run build`：**退出码 0**；全仓 `npm test`：**0 fail**（plugin 292 / base **483 零回归** / lgdl-core 267 / lgdl-render 94+1skip / lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / lgdl-cli 0 / lgdl-layout 0）。
+- 红线：**base 零改动**（`git status packages/web-cli-base` 空）；**无新依赖**（`package.json` 零 diff）；`permissions` 仅多 `tabs`（逐项见 §24.2）；**无 `<all_urls>`/`*://*/*`**；**无静态 `content_scripts`**；无明文 key；禁用档工具（`page-eval`/`eval-js`/`eval-wasm`/`cookie`/`dialog`/`net`/`subagent`）零注册；`src/**` 无 `innerHTML`。
+- 构建戳：`2026-09-12T10:26:50.415Z`。
+
+### 24.5 新增决策（D-102~D-106）
+
+- **D-102（标签页管理选型 = 新增 `tabs` 权限 + 插件级单工具）**：作者批准唯一一次权限扩张，工具为扁平名 `tabs`（`namespace:''`），子命令 `list/switch/open`，**明确不做 close**。**被否决**：不加权限仅限已授权站点（无法列出/切换未绑定但已打开站点）、拆成多个独立工具（工具面碎片化）、提供 close（不可逆且超范围）。对应 plan ADR-015 / spec FR-049。
+- **D-103（risk 档按子命令、复用既有 policy，不放宽）**：`list=read`（allow）、`switch=ui`（ask）、`open=write`（ask）；`tabs` 用 `group:'plugin'` 而非 `'site'`，从而**不受 origin 授权门禁**（无站点绑定/未授权也可用）但风险档仍经 `PermissionGate` 与确认桥；兜底 `risk:'write'` 防止空子命令降档。
+- **D-104（隐私默认去 query/fragment + `--full` 显式）**：`list` 工具结果默认仅 `origin+path`，避免用户查询串进入 LLM 上下文；`--full` 为显式 opt-in 并在输出/文档披露；审计同样只记去 query 的 URL。属**对 LLM 上下文摄入面的主动最小化**。
+- **D-105（scheme 白名单可读拒绝）**：`open` 仅接受 `http(s)`；`javascript:`/`data:`/`file:`/`chrome:`/`about:`/`ftp:` 等一律可读拒绝；`switch` 目标为受限页同样可读拒绝；均入审计（EC-021），绝不静默。
+- **D-106（隐私开关 = `enabled` 语义，非静默开关）**：options 页「允许助手查看/切换标签页（默认开）」；关闭经 `tabs-setting` 消息落库并调用 `host.setTabsEnabled(false)` → `tabs` **不在** `deriveTools()` 且派发可读拒绝；重开即恢复；开关状态与当前工具面在 options/回执可见（EC-022）。`tabs` 权限本身为 manifest 静态权限，应用内开关只关闭工具面（权限移除需停用/卸载扩展，已披露）。
+
+### 24.6 未完成 / 未复现 / 降级（如实，不粉饰）
+
+- **`tabs` 权限的真实 Chrome 行为**：本机门禁均在 `.pw-browsers` Chromium `--headless=new` 下，`chrome.tabs.query` 返回 URL/title、`switch` 的 `tabs.update` + 绑定链 + 会话切换均已**真实断言**（`#0f`/`#7`/`#8*`）；但**系统 Chrome/Edge 未单独重测**，且 headless 下**真实 `close` 不存在**（本就不实现），`open` 新标签页的「加载完成后再自动发现」时序只在 `#8` 的绑定路径覆盖，未单独对 `open` 的新页做加载后断言（`open` 的自动绑定为 best-effort，回执已注明）。
+- **权限不可关闭性**：应用内开关只移除工具面；`tabs` 作为静态权限需停用/卸载扩展才能移除——已写入 `compliance.md` §9.1 与 `release.md` §5.1，**未**提供「卸载权限」按钮（浏览器 API 不允许撤销 manifest 静态权限）。
+- **`list` 的 `--full` 会主动把完整 URL（含 query）送入 LLM 上下文**：这是显式选项，已披露，未做二次确认（作者要求的确认面是 `open` 的写入档；`list` 档位为 read）。如需对 `--full` 也加确认，属后续增强，本轮未做。
+- **审计与 UI 的 `tabs` 计数**：`test:binding` 观测到工具面由 12 → **13**（新增 `tabs`）；既有测试中三处「无 tabs 权限」红线段言按作者决策③**更新为「已批准权限集合」**（`test/auto-session-wiring.test.ts`、`test/binding-wiring.test.ts`、`test/extension-env.test.ts`），属**决策驱动的断言语义更新**，非删除/降级（断言仍存在且更严：`deepEqual` 精确集合 + 无 `<all_urls>`）。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -1899,3 +1975,4 @@ else log.scrollTop = prevTop;
 | v1.14 | 侧栏整体 UI/UX 重做（§20，TASK-023，用户实测第七轮）：先 `git show 762d3a6^:packages/lgdl-web/src/ai/AiPanel.tsx` + `app.css` **读回原 AI 助手**作设计基准（§20.2 逐条「参照→对齐」表，16 项：12 对齐 / 2 不适用 / 1 部分 / 1 优于参照）；核心修复=三区 flex 全高（`html,body{height:100%}`+`body{display:flex;flex-direction:column}`），`#log` 去 `45vh` 硬编码改 `flex:1;min-height:0`，composer 为底部区**末元素**（`#consent` 折叠条移到 composer 之前），8 按钮收为「3 主操作 + `<details>更多`」；消息改角色气泡（user indigo 右对齐 / assistant Markdown 气泡 / tool **可折叠卡片**（工具名+状态+耗时+首行摘要，长输出默认折叠）/ system·error 醒目 / command 紧凑块 / thinking 三点 / `#scroll-bottom` 跟随策略）；明暗适配 tokens；**零新依赖/无框架/无 innerHTML/MV3 CSP 合规**；前后量化对照（真实 dist+CDP，400×900）：`#log` 45.0%→**65.5%**（稳态）且 flex-grow 0→1、composer 底边 **-64px（被挤出视口）→ +8px 贴底**、工具卡片 0→2 可折叠、320px 零水平溢出；截图 `/tmp/ui-redesign/{before,after}/`；`test:ui` 50→**67**（#15a~#15q）、`test:binding` 38→**41**（真实用户气泡 #6h~#6j）、插件 209→**222**、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:hardening` 22 / E2E A/B 全 PASS、base 与 package.json 零改动；**流式如实未实现（base 无增量能力，原助手亦无），首用态 31.5% 真实权衡**已披露；D-079~D-086；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.15 | ① 消息不自动滚动缺陷修复（§21，用户实测第八轮）：根因 = TASK-023「追加前判定 + 24px 阈值」的**误判即棘轮**（一次不跟随就还原 `prevTop`，此后恒不跟随）；修复 = 新增纯策略模块 `src/ui/sidepanel/scroll-policy.ts`（实时锚定 + 48px 阈值 + `userSent()` 一次性强制），`render()` 消费决策、`followToBottom` 以 `requestAnimationFrame` 布局后钉底（次帧仅仍锚定时，绝不抢用户上滚）；发送**无条件**到底，thinking 出现/消失同走 `render()`，上滚保留入口与位置；`test/sidepanel.test.ts` +7、`journey.mjs` +3（#15r/s/t）、`binding.mjs` +3（#6k/6k2/6l，真实发送到底）；D-087~D-089。② 能力面审计（§22，**只报告未改行为/注册**）：base 全量工厂清单 + 插件实际注册面（`host.ts:64` 未传 `builtins` → 仅 base 默认 3 内建 + 6 `admin_*` + `ask-user` + 站点声明 2 = **12**，`web-cli-help` `listed:false` → 自列 **11**，与用户实测吻合）+ 34 行漂移对照（明确漂移=第 1/2 行 web-fetch/sleep 被误写「非独立工具」；部分漂移=第 27/31 行 chrome/events；轻度=第 21 行 eval-js risk 理由）+ 未注册工具适用性/代价/risk 档 + 分级建议。门禁：插件 222→**229**、`tsc` 0 error、`test:ui` 67→**70**、`test:binding` 41→**44**、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）、base/`package.json`/`.opencode/opencode.json` 零改动、无新依赖、`capability-matrix.md` 未改；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.16 | **v0.9 增补：自动探测 + 多会话**（§23，作者 2026-09-12 两项架构级决策；TASK-024/025）：①**自动探测（FR-047/ADR-014）**——新增 `src/background/content-script-registry.ts`（`registerContentScripts` + `persistAcrossSessions` + 启动/安装/权限变更对账，补齐缺失·清理已撤销·失败可读）；`authorize` 授权即注册、`revoke` 即注销；content script 主动 `hello` + 应答 `whoami` → **免点图标自动绑定**（无 `tab.url`、无 `tabs`、无手势）；未授权站点静默降级保留点图标回退。②**多会话（FR-048/ADR-013）**——新增 `src/background/session-store.ts`（`sessionId=origin` / `group:<id>`；每会话独立 40-turn 有界历史；上限 20 + LRU 可读披露；分组加入/移出/删除可逆且**分组≠授权**）；`chat-session` 增 `boundHistory` 复用；`controller`/`state-message`/`sidepanel`/`options` additive 接线；切换会话取消待决 confirm/ask（EC-019）。**真实环境免点图标实证**：`test:binding` 新增阶段 2 `#A0~#A7`（authorize→真实 `chrome.scripting` 注册→reload 触发 hello→自动绑定 origin+supported+工具面；whoami 切页重绑；未授权静默降级）。门禁：插件 229→**262**（+33，5 个新测试文件）、`tsc` 0 error、`test:ui` 70→**79**（#16a~#16i 会话切换器/历史隔离双向/分组≠授权）、`test:binding` 44→**58**、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；base/`package.json`/`.opencode/opencode.json` 零改动、**无新依赖**、**无 `tabs`**、**无 `<all_urls>`**、无静态 `content_scripts`、无 innerHTML/明文/私有依赖；spec v1.4（FR-047/048 + EC-017~020）/plan v1.1（ADR-013/014）/docs dev·compliance·capability-matrix（漂移修正 D-100）同步；D-091~D-100；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.17 | **v0.9 增补：标签页管理工具 + `tabs` 权限扩张**（§24，作者 2026-09-12 决策③；TASK-026）：新增 `src/tools/tabs-tools.ts`（插件级工具 `tabs`，list/switch/open，**明确不做 close**；risk list=read/switch=ui/open=write；`list` 默认去 query/fragment、`--full` 显式；非 http(s) scheme 可读拒绝；每子命令入审计）+ `src/background/tabs-setting.ts`（隐私开关，默认开）；`manifest.permissions` **唯一新增 `tabs`**（接受安装警告「读取您的浏览记录」）；`host.setTabsEnabled` 关闭即从 `deriveTools()` 移除（`enabled` 语义）；`switch` 复用 `bindTab` 绑定链并切到该 origin 会话；options 页隐私开关 + 披露文案；docs compliance §9 / release §5 / capability-matrix 第 27 行+§3.2 / dev §12.4。门禁：插件 262→**292**（+30，2 新测试文件）、`tsc` 0 error、`test:ui` 79→**85**（#17a~#17e 开关 + #15u tabs 卡片）、`test:binding` 58→**73**（真实 `tabs list`/`--full`/`tabs switch`→会话切换，工具面 12→13）、`test:hardening` 22、`test:e2e` A/B PASS、全仓 build/test **0 fail**（base **483 零回归**）；base/`package.json`/`.opencode/opencode.json` 零改动、**无新依赖**、无 `<all_urls>`、无静态注入；三处旧「无 tabs」断言语义按决策③更新为精确权限集合（非降级）；未 git 提交。 |

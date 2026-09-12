@@ -25,7 +25,8 @@ export type PluginAuditEventType =
   | 'descriptor-read'
   | 'protocol-version'
   | 'confirm'
-  | 'llm-config';
+  | 'llm-config'
+  | 'tabs';
 
 export interface PluginAuditEvent {
   type: AuditEvent['type'] | PluginAuditEventType;

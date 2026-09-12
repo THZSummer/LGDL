@@ -1218,17 +1218,35 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 
 **验收标准**: 会话键派生正确；同 origin 共会话、不同 origin 不串台（node + `test:ui` #16d/#16e/#16g）；分组可逆；上限 LRU 可读；切换会话取消待决 confirm/ask（fail-closed）；侧栏会话显示/切换/分组控件 + 「分组≠授权」文案；全仓 0 fail + base 零回归。
 
+### TASK-026: 标签页管理工具 `tabs`（权限扩张：新增 `tabs`；list/switch/open，无 close）（v0.9 增补，作者决策③）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **类型** | 🛠 实施 |
+| **前置依赖** | TASK-025（post-validate additive） |
+| **执行波次** | Wave 18（v0.9 增补） |
+| **对应 FR** | FR-049（+ EC-021/EC-022；NFR-001/002/008） |
+| **ADR** | plan ADR-015 |
+| **TB 映射** | —（非 plan TB，作者 2026-09-12 决策③） |
+
+**描述**: (1) 新增 `src/tools/tabs-tools.ts`（插件级工具 `tabs`，扁名无点、`group:'plugin'`；子命令 **仅 list/switch/open，明确不做 close**；`subcommandRisks` = list→read / switch→ui / open→write；`redactTabUrl` 默认去 query+fragment、`--full` 显式；`open` 仅 http(s)、其余 scheme 可读拒绝；每子命令入审计）；(2) 新增 `src/background/tabs-setting.ts`（隐私开关，默认开）；(3) `service-worker.ts` 增 `createTabsDeps`（真实 `chrome.tabs.query/update/create` + `switch` 复用 `bindTab` 绑定链并切到该 origin 会话 + `open` 尽力自动绑定）与 `tabs-setting` 消息；(4) `host.ts` 接受 `tabs` deps + `setTabsEnabled`（关闭即 `unregister`，`enabled` 语义：不在 `deriveTools()` 且派发可读拒绝），无站点绑定/未授权时仍注册可用；(5) `manifest.json` `permissions` 新增 `tabs`（**唯一新增**；不得引入 `<all_urls>`/静态 `content_scripts`）；(6) options 页「允许助手查看/切换标签页（默认开）」开关 + 隐私影响文案；(7) docs `compliance.md` §9 权限扩张披露 / `release.md` 安装警告与可感知差异 / `capability-matrix.md` chrome 行 + §3.2 / `dev.md` §12.4。
+
+**涉及文件**: NEW `src/tools/tabs-tools.ts`、`src/background/tabs-setting.ts`、`test/tabs-tools.test.ts`、`test/tabs-wiring.test.ts`；MODIFY `manifest.json`、`src/background/{host.ts,service-worker.ts,messaging.ts}`、`src/security/audit-sink.ts`、`src/ui/options/{index.html,options.ts}`、`test/{auto-session-wiring,binding-wiring,extension-env}.test.ts`（权限面断言更新为已批准集合）、`test/ui/{binding.mjs,journey.mjs}`、`docs/{compliance,release,capability-matrix,dev}.md`。
+
+**验收标准**: 三子命令 + risk 档（list=read/switch=ui/open=write；open 需确认且摘要含目标 URL）；scheme 拒绝（javascript:/data:/file:/chrome:/about:）；`list` 默认去 query/fragment、`--full` 返回完整；开关关闭时 `tabs` 不在 `deriveTools()` 且派发可读拒绝；每子命令入审计；`switch` 触发会话切换；无站点绑定/未授权亦可用；真站点 `test:binding` 调用 `tabs list`/`tabs switch` 并断言会话随之切换；`permissions` 逐项 = `activeTab/scripting/storage/sidePanel/tabs`（无其他新增）；无 `<all_urls>`；无 close；全仓 0 fail + base 零回归。
+
 ---
 
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 7 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见 / TASK-021 工具名非法字符修复+附带疑点查清 / TASK-022 侧栏 Markdown 渲染+消息样式 / TASK-023 侧栏整体 UI/UX 重做，审查与实测反馈驱动）+ 2 v0.9 架构级增补（TASK-024 自动探测 / TASK-025 多会话，作者 2026-09-12 决策①②）+ 1 v0.9 权限扩张增补（TASK-026 标签页管理 `tabs`，作者 2026-09-12 决策③） |
 | S 级 (简单) | 0 |
 | M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 6 增补（017/018/019/020/021/022） |
-| L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023）+ 2 v0.9（024/025） |
-| 执行波次 | 18（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 v0.9 增补） |
+| L 级 (复杂) | 7（004/005/006/010/011/014/016）+ 1 增补（023）+ 3 v0.9（024/025/026） |
+| 执行波次 | 19（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 + Wave 13 TASK-021 + Wave 14 TASK-022 + Wave 15 TASK-023 + Wave 16 TASK-024 + Wave 17 TASK-025 + Wave 18 TASK-026 v0.9 增补） |
 | plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020/021/022（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
@@ -1341,3 +1359,4 @@ node /tmp/ui-redesign/shot.mjs /tmp/ui-redesign/after   # 布局量化 + 截图�
 | v1.5 | 追加 TASK-022（侧栏消息 Markdown 渲染 + 消息样式；post-validate 增补，非 plan TB，用户实测第六轮「模型回复显示为纯文本」驱动）。任务汇总/波次计入增补轮（Wave 14）；零依赖安全 Markdown（不解析 HTML / 白名单标签 / 链接仅 http(s)）+ 角色分组块 + 样式；新增 `markdown.test.ts` 12 用例、`test:ui` 41→50；插件 196→209。 | 2026-09-12 | SDDU Build Agent |
 | v1.6 | 追加 TASK-023（侧栏整体 UI/UX 重做；post-validate 增补，非 plan TB，用户实测第七轮「对话体验差于原内置 AI 助手」驱动）。先读回 git 历史原 AI 助手作设计基准；任务汇总/波次计入增补轮（Wave 15，L 级）；三区 flex 全高/去 45vh/composer 贴底/可折叠工具卡片/滚动跟随/明暗适配；真实 dist+CDP 前后量化 + 截图；`test:ui` 50→67、`test:binding` 38→41、插件 209→222。 | 2026-09-12 | SDDU Build Agent |
 | v1.7 | 追加 **TASK-024 自动探测**（FR-047/ADR-014）与 **TASK-025 多会话**（FR-048/ADR-013）（v0.9 增补，非 plan TB，作者 2026-09-12 两项架构级决策驱动）。任务汇总/波次计入增补轮（Wave 16/17，均 L 级）；自动探测 = 声明式注入（`registerContentScripts`+`persistAcrossSessions`）+ 自上报 `hello`/`whoami` 免点图标绑定 + 启动对账，权限零新增；多会话 = `sessionId=origin`/`group:<id>` + 每会话独立历史 + 上限 20 LRU + 分组可逆（≠授权）+ 切换取消待决交互。对应 spec v1.4 / plan v1.1；`test:ui` 70→79（#16a~#16i）、`test:binding` 44→58（阶段 2 #A0~#A7）、插件 229→262。 | 2026-09-12 | SDDU Build Agent |
+| v1.8 | 追加 **TASK-026 标签页管理工具 `tabs`**（FR-049/ADR-015，v0.9 权限扩张增补，非 plan TB，作者 2026-09-12 决策③驱动）。任务汇总/波次计入增补轮（Wave 18，L 级）；`manifest.permissions` 新增 **`tabs`**（唯一新增；接受安装警告「读取您的浏览记录」）；插件级工具仅 **list/switch/open（无 close）**，risk 档 list=read/switch=ui/open=write（open 需确认，摘要含目标 URL）；`list` 默认去 query/fragment（`--full` 显式）；非 http(s) scheme 可读拒绝；无站点绑定亦可用；options 隐私开关关闭即从 LLM 工具面移除。对应 spec v1.5 / plan v1.2；`test:binding` 58→（新增真实 `tabs list`/`tabs switch` 断言，保留既有断言）。 | 2026-09-12 | SDDU Build Agent |

@@ -431,6 +431,43 @@ async function main() {
     check(/连接正常/.test(testText ?? ''), '#9b 连接本地 mock 端点成功', testText);
     check(/ms/.test(testText ?? ''), '#9c 成功结果包含延迟 ms', testText);
 
+    // 7b. FR-049: tabs privacy toggle on the options page drives the LLM tool surface.
+    const tabsInit = await evaluate(
+      page,
+      `(() => ({ present: Boolean(document.getElementById('tabs-enabled')), checked: document.getElementById('tabs-enabled')?.checked }))()`,
+    );
+    check(tabsInit.present === true && tabsInit.checked === true, '#17a options 页标签页开关存在且默认开启', JSON.stringify(tabsInit));
+
+    await realClick(page, '#tabs-enabled');
+    const offStatus = await waitFor(
+      page,
+      `(() => { const t = document.getElementById('tabs-setting-status').textContent; return /已从 LLM 工具面移除/.test(t) ? t : ''; })()`,
+      60,
+      150,
+    );
+    check(Boolean(offStatus), '#17b 关闭开关后回执「已从 LLM 工具面移除」', offStatus ?? '');
+    const toolsOff = await evaluate(
+      page,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'tabs-setting', action: 'get' }); return JSON.stringify({ enabled: r.data.enabled, hasTabs: (r.data.tools || []).includes('tabs') }); })()`,
+    );
+    const to = JSON.parse(toolsOff);
+    check(to.enabled === false && to.hasTabs === false, '#17c 关闭后 deriveTools 不含 tabs（enabled 语义，不静默保留）', toolsOff);
+
+    await realClick(page, '#tabs-enabled');
+    const onStatus = await waitFor(
+      page,
+      `(() => { const t = document.getElementById('tabs-setting-status').textContent; return /已开启/.test(t) ? t : ''; })()`,
+      60,
+      150,
+    );
+    check(Boolean(onStatus), '#17d 重新开启后回执「已开启」', onStatus ?? '');
+    const toolsOn = await evaluate(
+      page,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'tabs-setting', action: 'get' }); return JSON.stringify({ enabled: r.data.enabled, hasTabs: (r.data.tools || []).includes('tabs') }); })()`,
+    );
+    const tn = JSON.parse(toolsOn);
+    check(tn.enabled === true && tn.hasTabs === true, '#17e 重新开启后 deriveTools 恢复含 tabs', toolsOn);
+
     // 8. TASK-020: side panel — Key state / 无活跃站点 explanation + rebind / panel test
     await evaluate(sw, `chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html') }).then((t) => t.id)`);
     const spTarget = await findTarget(base, (t) => t.type === 'page' && t.url.includes('sidepanel.html'));
@@ -630,6 +667,22 @@ async function main() {
     await realClick(sp, '.tool-card .tool-card-head');
     const expanded = await waitFor(sp, `(() => { const c = document.querySelector('.tool-card'); return c ? String(c.open) : ''; })()`, 20, 100);
     check(expanded === 'true', '#15o 真实点击摘要后工具卡片展开', expanded);
+
+    // FR-049: a real `tabs` tool result renders through the same safe tool-card path.
+    await evaluate(
+      sw,
+      `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'tool', tool: 'tabs', ok: true, ms: 42, text: '标签页（2 个）｜隐私默认：仅 origin+path（已去除 query/fragment）' }).catch(() => {})`,
+    );
+    const tabsCard = await waitFor(
+      sp,
+      `(() => {
+        const c = [...document.querySelectorAll('.tool-card')].find((x) => x.querySelector('.tool-name')?.textContent === 'tabs');
+        return c ? JSON.stringify({ name: c.querySelector('.tool-name').textContent, status: c.querySelector('.tool-status').textContent, preview: c.querySelector('.tool-preview')?.textContent ?? '' }) : '';
+      })()`,
+      40,
+      120,
+    );
+    check(Boolean(tabsCard), '#15u FR-049 tabs 工具结果渲染为工具卡片（含隐私默认说明）', tabsCard ?? '');
 
     // #15p scroll policy:「回到底部」appears when scrolled away, hidden at bottom
     const scrollHint = await evaluate(

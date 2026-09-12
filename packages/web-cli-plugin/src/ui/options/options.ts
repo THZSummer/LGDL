@@ -505,7 +505,68 @@ async function groupOp(payload: Record<string, unknown>): Promise<void> {
   }
 }
 
+// ── author decision ③ / FR-049: 标签页管理隐私开关 ─────────────────────────
+
+function renderTabsSetting(enabled: boolean, tools?: string[]): void {
+  ($('tabs-enabled') as HTMLInputElement).checked = enabled;
+  const status = $('tabs-setting-status');
+  const hasTool = !tools || tools.includes('tabs');
+  if (enabled) {
+    status.textContent = hasTool
+      ? '已开启：LLM 工具面包含 tabs（list / switch / open；不含 close）。'
+      : '已开启：tabs 应已进入 LLM 工具面（若未显示，请重新加载扩展）。';
+  } else {
+    status.textContent = hasTool
+      ? '⚠ 已关闭但工具面仍含 tabs：请重新加载扩展后重试（这是异常，不静默）。'
+      : '已关闭：tabs 已从 LLM 工具面移除（助手无法查看/切换标签页）。';
+  }
+}
+
+async function refreshTabsSetting(): Promise<void> {
+  const status = $('tabs-setting-status');
+  if (!envGuard.inExtension) {
+    status.textContent = '非扩展环境：无法读取标签页管理开关。';
+    return;
+  }
+  try {
+    const res = (await chrome.runtime.sendMessage(makeMessage('tabs-setting', { action: 'get' }))) as
+      | PluginResponse<{ enabled?: boolean; tools?: string[] }>
+      | undefined;
+    if (!res?.ok || !res.data) {
+      status.textContent = `✖ 读取标签页管理开关失败：${res?.error ?? '后台无响应'}`;
+      return;
+    }
+    renderTabsSetting(res.data.enabled !== false, res.data.tools);
+  } catch (err) {
+    status.textContent = `✖ 读取标签页管理开关失败：${errMessage(err)}`;
+  }
+}
+
+async function setTabsSetting(enabled: boolean): Promise<void> {
+  const status = $('tabs-setting-status');
+  try {
+    const res = (await chrome.runtime.sendMessage(makeMessage('tabs-setting', { action: 'set', enabled }))) as
+      | PluginResponse<{ enabled?: boolean; tools?: string[] }>
+      | undefined;
+    if (!res?.ok || !res.data) {
+      status.textContent = `✖ 保存标签页管理开关失败：${res?.error ?? '后台无响应'}`;
+      // Re-read the authoritative state so the checkbox never lies.
+      await refreshTabsSetting();
+      return;
+    }
+    renderTabsSetting(res.data.enabled !== false, res.data.tools);
+  } catch (err) {
+    status.textContent = `✖ 保存标签页管理开关失败：${errMessage(err)}`;
+    await refreshTabsSetting();
+  }
+}
+
 function wire(): void {
+  // author decision ③ / FR-049: 标签页管理隐私开关。
+  $('tabs-enabled').addEventListener('change', (e) => {
+    void setTabsSetting((e.target as HTMLInputElement).checked);
+  });
+
   // decision ② / FR-048: 会话分组管理。
   $('new-group').addEventListener('click', () => {
     const input = $('new-group-name') as HTMLInputElement;
@@ -588,6 +649,8 @@ applyEnvGuard();
 void refresh();
 // decision ② / FR-048: load session-group state alongside the LLM config.
 void refreshGroups();
+// author decision ③ / FR-049: load the tab-tool privacy toggle.
+void refreshTabsSetting();
 // TASK-019 任务 C: run the self-check on load so the page immediately shows why
 // "保存不了 / 功能不能用" (never a silent blank). Also re-runnable via「运行自检」.
 void runDiagnostics()

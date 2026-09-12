@@ -23,6 +23,7 @@ import type { PluginAuditSink } from '../security/audit-sink.js';
 import type { OriginStore } from '../security/origin-store.js';
 import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../security/policy.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
+import { createTabsToolEntry, TABS_TOOL_NAME, type TabsToolDeps } from '../tools/tabs-tools.js';
 import { SITE_TOOL_PREFIX, allocateSiteToolNames, toToolEntries, type SiteRpc } from '../tools/declared-tools.js';
 
 /** Whether a dispatch target is a declared site tool (flat `site_*` name). */
@@ -40,6 +41,14 @@ export interface WebCliHostOptions {
   askUser?: AskResponder;
   descriptorShow: (origin: string) => Promise<string>;
   llmConfig: () => Promise<string>;
+  /**
+   * Plugin-level tab-management capability (author decision ③ / FR-049).
+   * Omitted → the `tabs` tool is not registered at all (node tests / hosts that
+   * do not own `chrome.tabs`). Provided → registered unless `tabsEnabled` is false.
+   */
+  tabs?: TabsToolDeps;
+  /** Initial tab-tool toggle (privacy switch; default true when `tabs` is provided). */
+  tabsEnabled?: boolean;
 }
 
 export interface WebCliHost {
@@ -58,6 +67,15 @@ export interface WebCliHost {
   pauseRisk(reason?: string): void;
   resumeRisk(): void;
   stopRisk(reason?: string): void;
+  /**
+   * Enable/disable the `tabs` tool (FR-049 privacy switch). Disabling
+   * unregisters it so it disappears from `deriveTools()` and dispatch fails with
+   * the router's readable「已禁用」error; enabling re-registers it. No-op when the
+   * host was built without `tabs` deps.
+   */
+  setTabsEnabled(enabled: boolean): void;
+  /** Whether the `tabs` tool is currently registered/enabled. */
+  isTabsEnabled(): boolean;
 }
 
 export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
@@ -90,6 +108,22 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
   router.register(createAskUserToolEntry(opts.askUser ? { askUser: opts.askUser } : {}));
 
   const riskGuard = createRiskGuard();
+
+  // Plugin-level `tabs` tool (FR-049 / author decision ③). Registered only when
+  // the host has real tab deps; the privacy toggle can register/unregister it at
+  // runtime so it leaves/enters the LLM tool surface (`deriveTools`).
+  let tabsRegistered = false;
+  const registerTabs = (): void => {
+    if (!opts.tabs || tabsRegistered) return;
+    router.register(createTabsToolEntry(opts.tabs));
+    tabsRegistered = true;
+  };
+  const unregisterTabs = (): void => {
+    if (!tabsRegistered) return;
+    router.unregister(TABS_TOOL_NAME);
+    tabsRegistered = false;
+  };
+  if (opts.tabs && opts.tabsEnabled !== false) registerTabs();
 
   let siteFqns: string[] = [];
   let siteDescriptor: WebCliDescriptor | undefined;
@@ -159,6 +193,13 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     },
     stopRisk(reason) {
       riskGuard.stop(reason);
+    },
+    setTabsEnabled(enabled) {
+      if (enabled) registerTabs();
+      else unregisterTabs();
+    },
+    isTabsEnabled() {
+      return tabsRegistered;
     },
   };
 }

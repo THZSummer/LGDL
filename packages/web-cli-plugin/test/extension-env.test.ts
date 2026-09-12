@@ -31,7 +31,9 @@ test('extension-env: manifest declares http://*/* optional host permission (D-06
   assert.ok(manifest.optional_host_permissions.includes('http://*/*'), 'http origins must be requestable');
   assert.ok(manifest.optional_host_permissions.includes('https://*/*'), 'https remains requestable');
   assert.ok(Number(manifest.minimum_chrome_version) >= 116, 'sidePanel.open needs Chrome 116+');
-  assert.equal(manifest.permissions.includes('tabs'), false, 'must not escalate to the tabs permission');
+  // Author decision ③ (2026-09-12) approved `tabs` for the tab management tool.
+  assert.equal(manifest.permissions.includes('tabs'), true, 'tabs permission approved by author decision ③');
+  assert.deepEqual([...manifest.permissions].sort(), ['activeTab', 'scripting', 'sidePanel', 'storage', 'tabs']);
 });
 
 test('extension-env: http origin yields the right pattern and a readable reason on denial (D-064)', async () => {

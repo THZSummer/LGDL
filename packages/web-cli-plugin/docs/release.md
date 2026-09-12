@@ -22,7 +22,7 @@
 
 | 产物 | 说明 |
 |------|------|
-| `dist/manifest.json` | MV3 清单（`background.service_worker` type module；权限面最小化：`activeTab`/`scripting`/`storage`/`sidePanel`；`optional_host_permissions https://*/*`；`side_panel.default_path`；`options_page`；无静态全站 `content_scripts`） |
+| `dist/manifest.json` | MV3 清单（`background.service_worker` type module；权限面：`activeTab`/`scripting`/`storage`/`sidePanel`/**`tabs`（FR-049 作者决策③）**；`optional_host_permissions https://*/*`；`side_panel.default_path`；`options_page`；无静态全站 `content_scripts`） |
 | `dist/background.js` | Service Worker（控制面：消息路由 + 门禁 + 工具注册 + LLM/key） |
 | `dist/content.js` | content script（数据面：isolated world + page-bridge RPC） |
 | `dist/sidepanel.html` + `dist/sidepanel.js` | side panel UI（会话/授权/二次确认/审计/风控/ask-user） |
@@ -54,7 +54,31 @@
 - 发布管道：签名打包、版本升级、回滚策略。
 - 与 `docs/compliance.md`（站点自动化条款评估）和 `docs/migration.md`（存量迁移）的一致性复核。
 
-## 5. 引用
+## 5. 安装警告与用户可感知差异（v0.9 增补：`tabs` 权限 / FR-049）
+
+> 作者 2026-09-12 决策③：**同意新增 `tabs` 权限**（接受安装警告），用于插件级标签页管理工具 `tabs`（list/switch/open；**不含 close**）。这是相对上一分发包**唯一**的权限变化。
+
+### 5.1 安装/更新警告变化
+
+| | 上一分发包 | 本包 |
+|--|-----------|------|
+| `permissions` | `activeTab` / `scripting` / `storage` / `sidePanel` | 同左 **+ `tabs`** |
+| Chrome 权限提示 | 无浏览数据相关提示 | 新增 **「读取您的浏览记录」**（Chrome 对 `tabs` 的通用措辞） |
+| 其他权限 | — | **零新增**（无 `<all_urls>`、无 `*://*/*`、无静态 `content_scripts`） |
+
+**如实告知**：该提示为浏览器统一措辞；插件只用 `tabs` 读取**当前打开标签页**的 id/标题/URL，用于助手列出/切换/打开标签页，**不读取浏览历史**（§ compliance.md §9.1/§9.2）。用户不接受该权限时可不安装/不更新；安装后可在 options 页关闭应用内开关（见下）。
+
+### 5.2 用户可感知差异
+
+| 差异 | 说明 |
+|------|------|
+| 新增助手工具 `tabs` | `list`（列出标签页，默认仅 origin+path）/ `switch`（切页并切会话）/ `open`（打开新 http(s) 标签页）；**不含 close** |
+| 新增安装权限提示 | 见 §5.1「读取您的浏览记录」 |
+| 新增 options 开关 | 「允许助手查看/切换标签页（默认开）」；关闭后 `tabs` 从 LLM 工具面移除 |
+| 绑定回退路径增强 | 有 `tabs` 后后台可直接读取当前标签页 URL，`rebind` 不再依赖点击手势即可读取地址（点图标路径保持不变） |
+| 隐私默认 | `list` 默认去除 query/fragment，避免用户查询串进入模型上下文；仅 `--full` 显式返回完整 URL |
+
+## 6. 引用
 
 - 开发与调试（本地加载 / 热重载）：`docs/dev.md`
 - 冒烟方法论（机械面/人工面）：`docs/smoke-checklist.md`
@@ -62,8 +86,9 @@
 - 合规（站点条款 / 不适用清单）：`docs/compliance.md`
 - 协议（站点中立）：`docs/protocol.md`
 
-## 6. 变更记录
+## 7. 变更记录
 
 | 版本 | 说明 |
 |------|------|
 | 1.0 | 首版（TASK-016 / FR-046）：本地 unpacked + 自托管/未打包分发；分发物构成与构建核对；版本管理约定；商店发布后续（S-016）。 |
+| 1.1 | FR-049（作者决策③ 2026-09-12）：新增 `tabs` 权限与插件级标签页管理工具（list/switch/open，不含 close）；补 §5 安装警告变化（「读取您的浏览记录」）与用户可感知差异；§2 权限面同步。 |

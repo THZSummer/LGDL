@@ -35,7 +35,7 @@
 | 24 | `extract` | 增量采集 | 插件不采集页面数据（O-002 通用消费端定位） | 不适用 | — | 否 |
 | 25 | `export` | 采集导出 | 站点侧能力（如 op-cli `export-*`）经 RPC | 替代 | P1 | 否 |
 | 26 | `page-eval`（禁用） | 页面求值（最高档） | 不提供（evaluate 档缺省 deny，fail-closed） | 不适用 | — | 否 |
-| 27 | `chrome` | 浏览器外壳（print/back/forward/reload/screenshot） | base 工厂需页内 `env.dom`/`env.filePicker`（插件未提供、未注册）；**但扩展宿主原生拥有** `chrome.tabs` 导航与 `captureVisibleTab` 截图——属「不同 API 下更适用」，非「不适用」 | 后置（可裁决） | P2+ | 否 |
+| 27 | `chrome` | 浏览器外壳（print/back/forward/reload/screenshot） | **标签页能力已由插件级 `tabs` 工具承载**（`list`/`switch`/`open`，FR-049，**不含 close**；`chrome.tabs` 原生 API）；打印/前进后退/刷新/`captureVisibleTab` 截图仍属扩展原生能力（后置） | 部分对齐（标签页）/后置 | P0（标签页，FR-049） | 否 |
 | 28 | `save` | 文件落盘 | 站点侧 op-cli `export-*` 经 RPC；扩展侧可用 `chrome.downloads`（后置） | 替代 | P1 | 否 |
 | 29 | `notify` | 系统通知 | 扩展可后续扩展（`chrome.notifications`；非 P0） | 后置 | P2+ | 否 |
 | 30 | `clipboard` | 剪贴板读写 | 站点侧 op-cli `copy-source` 经 RPC | 替代 | P1 | 否 |
@@ -47,6 +47,8 @@
 > 合计 **34 项**（对照 **TASK-016 下线前**的 `lgdl-web/src/ai/session.ts` 注册矩阵逐项核对，无遗漏条目；该文件已随 FR-038 下线、仅存 git 历史 `762d3a6^`，本表为存档对照）。
 >
 > **文档漂移修正（2026-09-12，闭环 build.md §22 审计）**：第 1/2 行原写 `web-fetch`/`sleep`「非独立工具/无独立工具」与代码事实相反——base 将二者注册为**独立内建工具**并随插件下发，已改为「对齐」。第 21 行 `eval-js` 原写「evaluate 最高档」——base 实际 risk 为 `write`，已更正理由（结论「不提供」不变）。第 27 行 `chrome` 原写「不适用」——扩展宿主原生拥有 `chrome.tabs` 导航/截图能力，改为「后置（可裁决）」。第 31 行 `events` 原把「传输桥」写成「能力对齐/是」——区分「站点事件通道可用」与「LLM 工具面无 `events` 工具」，改为「部分对齐/后置」。
+>
+> **FR-049 复核更新（2026-09-12）**：第 27 行再更新——标签页能力已由插件级 `tabs` 工具（list/switch/open，不含 close）真实承载，不再只是「扩展原生更适用」；截图等其余外壳能力仍后置。同时显式标注 v0.9 增补新增了 `tabs` 这**唯一**一个 LLM 工具（§3.2），修正 §3.1 原「不新增任何 LLM 工具」的适用范围（FR-047/048 不新增；FR-049 新增 1 个）。
 
 ## 2. 下线最小能力集（Gate-D D-1 基线）
 
@@ -73,6 +75,13 @@
 
 - **不新增任何 LLM 工具**：自动探测（FR-047）与多会话（FR-048）分别是**注入/绑定链路**与**会话管理**，不改变 `deriveTools()` 的工具面（仍为 base 内建 3 + `admin_*` + `ask-user` + 站点声明 N）。
 - 会话从「全局单份」改为「按 origin / 会话组」，`session` 能力项（第 11 行）由「controller + storage.session」升级为「`session-store.ts` 按会话键持久化 + LRU 上限」；历史隔离更严格（不同 origin 不串台），不降级。
+
+### 3.2 v0.9 增补（FR-049，作者决策③）：新增插件级 `tabs` 工具
+
+- **新增 1 个 LLM 工具 `tabs`**（`list`/`switch`/`open`；**明确不含 `close`**）。这是 v0.9 增补中**唯一新增工具**，与 §3.1 的 FR-047/048（不新增工具）区分。
+- 工具面变更为：base 内建 3 + `admin_*`×6 + `ask-user` + **`tabs`** + 站点声明 N；`tabs` 通过 options 页隐私开关可**从工具面移除**（`enabled` 语义）。
+- 权限面新增 `tabs`（作者已同意）；`chrome` 行（第 27 行）的标签页能力由该工具承载，故从「后置（可裁决）」更新为「部分对齐（标签页）」。
+- 详细用途/边界/隐私影响见 `docs/compliance.md` §9、`docs/release.md` §5、`docs/dev.md` §12.4。
 
 ## 4. 引用
 

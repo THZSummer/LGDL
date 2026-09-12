@@ -60,14 +60,22 @@ test('decision ②: grouping is exposed and documented as NOT authorization', ()
   assert.match(html, /不代表互相授权/);
 });
 
-test('decision ①/②: least privilege preserved (no tabs permission, no <all_urls>, no static content_scripts)', () => {
+test('decision ①/② + author decision ③: permission set is exactly the approved expansion (tabs approved 2026-09-12; no <all_urls>; no static content_scripts)', () => {
   const manifest = JSON.parse(read('../../manifest.json')) as {
     permissions: string[];
     host_permissions: string[];
     optional_host_permissions: string[];
     content_scripts?: unknown;
   };
-  assert.equal(manifest.permissions.includes('tabs'), false, 'tabs permission must not be added this round');
+  // Author decision ③ (2026-09-12) approved the `tabs` permission for the tab
+  // management tool (list/switch/open). The set must contain tabs and must NOT
+  // have grown any other broad permission.
+  assert.equal(manifest.permissions.includes('tabs'), true, 'tabs permission approved by author decision ③');
+  assert.deepEqual(
+    [...manifest.permissions].sort(),
+    ['activeTab', 'scripting', 'sidePanel', 'storage', 'tabs'],
+    'permissions must be exactly the approved set (no other escalation)',
+  );
   assert.equal(manifest.content_scripts, undefined, 'no static all-site content_scripts');
   const all = [...manifest.host_permissions, ...manifest.optional_host_permissions];
   assert.equal(all.includes('<all_urls>'), false);

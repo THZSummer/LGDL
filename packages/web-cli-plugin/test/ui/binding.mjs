@@ -148,6 +148,24 @@ async function typeText(cdp, text) {
   }
 }
 
+/** FR-049: find a real tool-result content captured in any LLM request. */
+function findToolResult(substr) {
+  for (let i = llmRequests.length - 1; i >= 0; i -= 1) {
+    for (const m of llmRequests[i].messages ?? []) {
+      if (m.role === 'tool' && typeof m.content === 'string' && m.content.includes(substr)) return m.content;
+    }
+  }
+  return undefined;
+}
+async function waitForToolResult(substr, tries = 150, gapMs = 100) {
+  for (let i = 0; i < tries; i += 1) {
+    const hit = findToolResult(substr);
+    if (hit) return hit;
+    await sleep(gapMs);
+  }
+  return undefined;
+}
+
 // ── mock LLM (OpenAI-compatible, non-streaming) ──────────────────────────────
 /** Every request body seen by the mock, so the test can inspect the real `tools`. */
 const llmRequests = [];
@@ -169,14 +187,42 @@ function startMockLlm() {
       req.on('data', (c) => (raw += c));
       req.on('end', () => {
         let user = '';
+        let message = { role: 'assistant', content: '' };
         try {
           const body = JSON.parse(raw);
           // Capture the actual tools array the plugin sent (name legality gate).
-          llmRequests.push({ tools: Array.isArray(body.tools) ? body.tools : [], messages: body.messages ?? [] });
-          const lastUser = [...(body.messages ?? [])].reverse().find((m) => m.role === 'user');
+          const messages = Array.isArray(body.messages) ? body.messages : [];
+          llmRequests.push({ tools: Array.isArray(body.tools) ? body.tools : [], messages });
+          const lastUser = [...messages].reverse().find((m) => m.role === 'user');
           user = typeof lastUser?.content === 'string' ? lastUser.content : '';
+          // FR-049: drive the real `tabs` tool through the real chat loop. The
+          // marker is only in the user text; a follow-up round ends with a `tool`
+          // message and always falls back to a plain assistant reply (the session
+          // history also carries earlier tool messages, so check the LAST role).
+          const lastIsTool = messages[messages.length - 1]?.role === 'tool';
+          if (!lastIsTool && user.includes('__TABS_LIST_FULL__')) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_tabs_list_full', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'list', args: { full: 'true' } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__TABS_LIST__')) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_tabs_list', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'list', args: {} }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__TABS_SWITCH__')) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_tabs_switch', type: 'function', function: { name: 'tabs', arguments: JSON.stringify({ subcommand: 'switch', args: { match: 'localhost:5173' } }) } }],
+            };
+          } else {
+            message = { role: 'assistant', content: `收到 ${user}（binding mock）` };
+          }
         } catch {
-          /* tolerate */
+          message = { role: 'assistant', content: `收到 ${user}（binding mock）` };
         }
         res.writeHead(200, { ...cors, 'content-type': 'application/json' });
         res.end(
@@ -185,7 +231,7 @@ function startMockLlm() {
             object: 'chat.completion',
             created: 0,
             model: 'binding-mock',
-            choices: [{ index: 0, message: { role: 'assistant', content: `收到 ${user}（binding mock）` }, finish_reason: 'stop' }],
+            choices: [{ index: 0, message, finish_reason: message.tool_calls ? 'tool_calls' : 'stop' }],
             usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
           }),
         );
@@ -299,6 +345,7 @@ async function phase0() {
           optionalHost: m.optional_host_permissions ?? [],
           minChrome: m.minimum_chrome_version,
           tabsPermission: (m.permissions ?? []).includes('tabs'),
+          permissions: [...(m.permissions ?? [])].sort(),
           behavior,
           hasOpen: typeof chrome.sidePanel.open,
         };
@@ -308,14 +355,24 @@ async function phase0() {
     check(Number(runtime.minChrome) >= 116, '#0b minimum_chrome_version ≥ 116（sidePanel.open 需要）', runtime.minChrome);
     check(runtime.behavior?.openPanelOnActionClick === false, '#0c 运行时 openPanelOnActionClick=false（action.onClicked 可触发=绑定链路不再死代码）', JSON.stringify(runtime.behavior));
     check(runtime.hasOpen === 'function', '#0d chrome.sidePanel.open 可用（可在同一手势内开侧栏）');
-    check(runtime.tabsPermission === false, '#0e 未新增 tabs 权限（最小权限红线）');
+    // Author decision ③ (2026-09-12) approved the `tabs` permission. The
+    // assertion was repurposed from the old "no tabs" red line to pin the exact
+    // approved permission set (no other escalation).
+    check(runtime.tabsPermission === true, '#0e 已按作者决策③新增 tabs 权限（标签页工具；唯一新增）');
+    check(
+      JSON.stringify(runtime.permissions) === JSON.stringify(['activeTab', 'scripting', 'sidePanel', 'storage', 'tabs']),
+      '#0e2 permissions 逐项 = 已批准集合（无其他新增）',
+      JSON.stringify(runtime.permissions),
+    );
 
-    // Reproduce the exact root cause: without tabs/host grant the active tab URL is
-    // unreadable → projectActiveTab('') → old misleading reason.
+    // FR-049 user-perceivable change: with the approved `tabs` permission the
+    // background can now read `tab.url` directly (previously it was `undefined`
+    // without a host grant — that unreadability was the old root cause). This
+    // assertion is the positive counterpart, not a downgrade.
     const tabId = await evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(SITE_ORIGIN)} }).then((t) => t.id)`);
     await sleep(2000);
     const tabUrl = await evaluate(sw, `chrome.tabs.query({ active: true, currentWindow: true }).then((ts) => (ts[0]?.url === undefined ? '(undefined)' : ts[0].url))`);
-    check(tabUrl === '(undefined)', '#0f 复现根因：无 host 授权时 tab.url 为 undefined（旧「没有可读取的地址」的真因）', String(tabUrl));
+    check(String(tabUrl).includes('localhost:5173'), '#0f 有 tabs 权限后 background 可直接读取 tab.url（用户可感知差异；原「无 URL」根因消失）', String(tabUrl));
     observe(`#0f tab ${tabId} 的 url 观测值 = ${tabUrl}`);
 
     const extId = await evaluate(sw, `chrome.runtime.id`);
@@ -564,6 +621,75 @@ async function phase1(mock) {
     check(sentTools.some((n) => n.startsWith('admin_')), '#6f 管理工具以扁平合法名出现（admin_*）', JSON.stringify(sentTools));
     check(sentTools.every((n) => !n.includes('.')), '#6g 发给 LLM 的工具名零点号', JSON.stringify(sentTools.filter((n) => n.includes('.'))));
 
+    // ── FR-049: real `tabs list` / `tabs switch` through the real chat loop ──
+    check(sentTools.includes('tabs'), '#7a 工具面已含插件级 tabs（作者决策③）', JSON.stringify(sentTools));
+
+    // A "leak" tab carries a secret query so the privacy default can be asserted.
+    const leakTabId = await evaluate(
+      sw,
+      `chrome.tabs.create({ url: ${JSON.stringify(`${SITE_ORIGIN}/?secretmarker=TOPSECRET#frag`)} }).then((t) => t.id)`,
+    );
+    await sleep(1500);
+
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_LIST__' }).then(() => true)`);
+    const listResult = await waitForToolResult('标签页（');
+    check(Boolean(listResult), '#7 真实调用 tabs list（mock LLM 工具调用 → 真实 chrome.tabs.query）', (listResult ?? '').slice(0, 200));
+    check((listResult ?? '').includes('localhost:5173'), '#7b tabs list 返回真实站点标签页', (listResult ?? '').slice(0, 300));
+    check(!(listResult ?? '').includes('TOPSECRET'), '#7c tabs list 默认去除 query（TOPSECRET 未进入 LLM 上下文）', (listResult ?? '').slice(0, 300));
+    observe(`#7 tabs list 工具结果（前 240 字符）：${(listResult ?? '').replace(/\n/g, ' | ').slice(0, 240)}`);
+
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_LIST_FULL__' }).then(() => true)`);
+    const listFullResult = await waitForToolResult('--full 模式');
+    check(Boolean(listFullResult), '#7d tabs list --full 显式返回完整 URL', (listFullResult ?? '').slice(0, 200));
+    check((listFullResult ?? '').includes('TOPSECRET'), '#7e --full 模式下 query 可见（显式选项，已披露）', (listFullResult ?? '').slice(0, 300));
+
+    // Close the leak tab so `switch --match localhost:5173` is unambiguous.
+    await evaluate(sw, `chrome.tabs.remove(${leakTabId}).then(() => true)`);
+    await sleep(400);
+
+    // Bind a DIFFERENT origin first so the subsequent switch proves a session change.
+    const otherTabId = await evaluate(sw, `chrome.tabs.create({ url: 'http://127.0.0.1:1/' }).then((t) => t.id).catch(() => -1)`);
+    check(otherTabId !== -1, '#8 打开第二个 origin 标签页（用于证明会话切换）', String(otherTabId));
+    await evaluate(sw, `chrome.tabs.update(${otherTabId}, { active: true }).then(() => true)`);
+    await sleep(500);
+    const rebound = await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'rebind' }).then((r) => JSON.stringify(r)).catch((e) => 'ERR:' + String(e))`);
+    const rb = JSON.parse(rebound);
+    check(rb.ok === true && rb.data?.origin === 'http://127.0.0.1:1', '#8b 预先绑定第二个 origin（当前会话切换为它）', rebound);
+
+    // Now real `tabs switch --match localhost:5173` → confirm → session switches back.
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_SWITCH__' }).then(() => true)`);
+    const confirmShown = await waitFor(
+      ext,
+      `(() => { const s = document.getElementById('confirm-summary').textContent; return /tabs/.test(s) ? s : ''; })()`,
+      80,
+      150,
+    );
+    check(Boolean(confirmShown), '#8d tabs switch（ui 档）触发二次确认', confirmShown ?? 'no confirm');
+    const allowVisible = await waitFor(
+      ext,
+      `(() => { const el = document.getElementById('confirm-allow'); const r = el.getBoundingClientRect(); return r.width > 0 ? String(r.width) : ''; })()`,
+      40,
+      100,
+    );
+    check(Boolean(allowVisible), '#8e 确认按钮真实可见可点');
+    await realClick(ext, '#confirm-allow');
+    const switchResult = await waitForToolResult('已切到');
+    check(Boolean(switchResult), '#8f 真实调用 tabs switch（用户确认后执行）', (switchResult ?? '').slice(0, 200));
+    check((switchResult ?? '').includes('localhost:5173'), '#8g tabs switch 回执说明切到 localhost:5173', (switchResult ?? '').slice(0, 200));
+    const afterSwitch = await waitFor(
+      ext,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const sid = r?.data?.session?.sessionId;
+        return sid === ${JSON.stringify(SITE_ORIGIN)} ? JSON.stringify({ session: r.data.session, active: r.data.active }) : '';
+      })()`,
+      80,
+      150,
+    );
+    check(Boolean(afterSwitch), `#8h tabs switch 后会话随之切换到 ${SITE_ORIGIN}`, afterSwitch ?? 'session unchanged');
+    const asw = afterSwitch ? JSON.parse(afterSwitch) : {};
+    check(asw.active?.origin === SITE_ORIGIN, '#8i tabs switch 后 active.origin 为站点', JSON.stringify(asw.active));
+
     check(spExceptions.length === 0, '#10 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#10b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 
@@ -770,7 +896,7 @@ async function main() {
     for (const f of failures) console.error(`  - ${f}`);
     process.exit(1);
   }
-  console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）+ 阶段 2 自动探测（授权后免点图标自动绑定）`);
+  console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）+ 阶段 2 自动探测（授权后免点图标自动绑定）+ FR-049 标签页工具（真实 tabs list --full/默认 与 tabs switch → 会话随之切换）`);
 }
 
 main().catch((err) => {

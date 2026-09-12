@@ -7,7 +7,7 @@
 > **版本**: v1.1
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-12
-> **更新说明**: v1.1（v0.9 增补）：承接 spec v1.4 FR-047/048 + EC-017~020（作者 2026-09-12 两项架构级决策），追加 **ADR-013 多会话模型（按 origin 自动共享 + 可选会话组）** 与 **ADR-014 自动探测（声明式注入 + 自上报自动握手，非全站静态注入/`<all_urls>`）**，均含被否决方案与理由；§6 文件影响补 `background/session-store.ts` + `background/content-script-registry.ts`；既有 12 ADR 与 FR 语义零变更（fail-closed 不变）。v1.0 初始创建——承接 spec §9.7 六项技术开放点（P-01 协议发现/声明格式 / P-02 插件架构 / P-03 权限模型实现 / P-04 与页内 web-cli-base 衔接 / P-05 扩展存储与 key / P-06 无头加载扩展冒烟），逐项给出选型 + 备选对比 + ADR；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议描述符 schema、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、per-origin 授权与 PermissionGate 映射、对象区分下的桥接与下线执行/回退设计；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）；12 个 ADR（ACCEPTED 7 / PROPOSED 5）；文件影响面（新增独立包 + LGDL 页桥接暴露点 + 下线面）；风险与缓解；任务切分建议交 sddu-tasks。
+> **更新说明**: v1.1（v0.9 增补）：承接 spec v1.4 FR-047/048 + EC-017~020（作者 2026-09-12 两项架构级决策），追加 **ADR-013 多会话模型（按 origin 自动共享 + 可选会话组）** 与 **ADR-014 自动探测（声明式注入 + 自上报自动握手，非全站静态注入/`<all_urls>`）**，均含被否决方案与理由；§6 文件影响补 `background/session-store.ts` + `background/content-script-registry.ts`；既有 12 ADR 与 FR 语义零变更（fail-closed 不变）。**v1.2（决策③）**：追加 ADR-015 标签页管理（新增 `tabs` 权限 + 插件级工具 `tabs`：list/switch/open，无 close；隐私默认去 query；非 http(s) 拒绝；options 可关闭）。v1.0 初始创建——承接 spec §9.7 六项技术开放点（P-01 协议发现/声明格式 / P-02 插件架构 / P-03 权限模型实现 / P-04 与页内 web-cli-base 衔接 / P-05 扩展存储与 key / P-06 无头加载扩展冒烟），逐项给出选型 + 备选对比 + ADR；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议描述符 schema、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、per-origin 授权与 PermissionGate 映射、对象区分下的桥接与下线执行/回退设计；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）；12 个 ADR（ACCEPTED 7 / PROPOSED 5）；文件影响面（新增独立包 + LGDL 页桥接暴露点 + 下线面）；风险与缓解；任务切分建议交 sddu-tasks。
 
 ## 1. 前置检查
 > 启动技术规划前必须验证的前置条件
@@ -586,6 +586,8 @@ export interface WebCliDescriptorSource {
 | NEW | `packages/web-cli-plugin/src/background/controller.ts` | WebCliController：活跃标签绑定 + 会话状态 |
 | NEW | `packages/web-cli-plugin/src/background/session-store.ts` | **（v0.9 增补 / ADR-013）** 多会话仓库：origin/group 会话键派生 + 每会话历史 + 分组 + LRU 上限（纯逻辑，注入存储） |
 | NEW | `packages/web-cli-plugin/src/background/content-script-registry.ts` | **（v0.9 增补 / ADR-014）** 声明式注入注册/注销/对账（`registerContentScripts` + `persistAcrossSessions`，注入 `chrome.scripting` API） |
+| NEW | `packages/web-cli-plugin/src/tools/tabs-tools.ts` | **（v0.9 增补 / ADR-015 / FR-049）** 插件级标签页工具 `tabs`（list/switch/open；无 close）+ 隐私 URL 去 query + scheme 拒绝（纯逻辑 + 注入 `chrome.tabs` deps） |
+| NEW | `packages/web-cli-plugin/src/background/tabs-setting.ts` | **（v0.9 增补 / ADR-015 / FR-049）** 标签页工具隐私开关存储（默认开；关闭即从 LLM 工具面移除） |
 | NEW | `packages/web-cli-plugin/src/background/host.ts` | CommandRouter + AgentRunner 宿主 + 工具注册 |
 | NEW | `packages/web-cli-plugin/src/background/messaging.ts` | 跨面消息协议（background↔content↔sidepanel） |
 | NEW | `packages/web-cli-plugin/src/protocol/descriptor.ts` | WebCliDescriptor schema + 校验 + 归一化 |
@@ -680,6 +682,7 @@ export interface WebCliDescriptorSource {
 | ADR-012 | 单标签绑定与会话生命周期（活跃标签 + 导航失效明示 + 存储恢复）（S-011/EC-011/013） | ACCEPTED |
 | ADR-013 | 多会话模型 = **按 origin 自动共享 + 可选会话组**（sessionId=origin / group:<id>；每会话独立历史；LRU 上限）（v0.9 增补/FR-048） | ACCEPTED（作者 2026-09-12 决策②） |
 | ADR-014 | 自动探测 = **声明式注入（`registerContentScripts`）+ content script 自上报自动握手**，非全站静态注入/`<all_urls>`（v0.9 增补/FR-047） | ACCEPTED（作者 2026-09-12 决策①） |
+| ADR-015 | 标签页管理 = **新增 `tabs` 权限 + 插件级工具 `tabs`（list/switch/open，无 close）**（v0.9 增补/FR-049） | ACCEPTED（作者 2026-09-12 决策③） |
 
 ### ADR-001: 协议机制 = 站点中立描述符 + 双通道发现 + postMessage RPC 执行契约（P-01）
 
@@ -946,6 +949,32 @@ ADR-002/012 首版注入为「`chrome.scripting.executeScript` 按需注入」�
 ## 后果
 「每个站点首次授权一次、之后全自动」成立且无权限扩张；权限面零新增（`scripting` 已在 manifest）；代价 = 新增 `content-script-registry.ts` 对账面与 `hello`/`whoami` 消息，需在 SW 生命周期各入口做对账（已实现）。
 
+### ADR-015: 标签页管理 = 新增 `tabs` 权限 + 插件级工具（v0.9 增补 / FR-049）
+
+## 状态
+ACCEPTED（作者 2026-09-12 决策③：**同意新增 `tabs` 权限**，接受安装时「读取您的浏览记录」提示；工具能力**仅 list/switch/open，明确不做 close**）
+
+## 背景
+用户核心场景是「一站式管理不同域名」——同时打开多个站点标签页，希望助手能**列出/切换**到目标站点页面再操作。ADR-012/014 的单标签绑定 + 自动握手已能绑定「当前」标签页，但助手**无法主动切到另一个已打开的标签页**（既没有 `tabs` 权限，也没有「列出标签页」的工具面）。作者权衡后批准权限扩张，但明确**不做关闭标签页**。
+
+## 决策
+1. **权限面**：`manifest.permissions` 新增 `tabs`（唯一新增；仍无 `<all_urls>`/`*://*/*`、仍无静态 `content_scripts`）。安装/更新时 Chrome 会以「读取您的浏览记录」措辞提示——文档如实披露其含义与边界（`compliance.md` §9、`release.md` §5）。
+2. **工具面**：新增**单个插件级工具** `tabs`（`namespace:''`，扁名无点；`group:'plugin'`；`risk` 兜底 `write` + `subcommandRisks`）。子命令 **仅 `list`/`switch`/`open`**。
+3. **risk 档（遵循既有 policy 语义，不放宽）**：`list→read`（缺省 allow）；`switch→ui`（缺省 ask）；`open→write`（缺省 ask，**确认摘要包含目标 URL**）。工具**不属 `group:'site'`**，故不受 S1/S2/S3 origin 授权约束——**无需站点绑定/授权即可用**（这正是「一站式管理」前提），但风险档仍经 PermissionGate 裁决。
+4. **隐私默认**：`list` 默认只返回 `origin + path`（**去掉 query 与 fragment**），避免用户查询串进入 LLM 上下文；`--full` 显式返回完整 URL 并在输出/文档披露影响。
+5. **安全边界**：`open` **仅接受 http(s)**，其余 scheme（`javascript:`/`data:`/`file:`/`chrome:`/`about:` 等）一律**可读拒绝**；`switch` 目标为受限页同样可读拒绝；不静默。每个子命令入审计（可读、无明文敏感信息）。
+6. **绑定复用**：`switch` 激活标签页后复用既有 `bindTab`（origin→`ensureContentScript`→`bindOrigin`→`switchSession`），因此**切换即切到该 origin 的会话**；`open` 打开后尽力自动绑定，页面加载后由 `hello` 完成发现。
+7. **可关闭**：options 页「允许助手查看/切换标签页（默认开）」；关闭后 `host.setTabsEnabled(false)` 使 `tabs` **从 `deriveTools()` 移除**且派发被拒（`enabled` 语义），并给可读提示。
+
+## 被否决方案与理由
+- **A. 不加 `tabs` 权限，仅限已授权站点**（否决）：无法「列出/切换」当前未绑定但已授权/已打开的站点标签页；且 `chrome.tabs.query` 的 URL/title 在无 `tabs` 权限时不可读，无法做「一站式管理」。作者已明确接受该权限。
+- **B. 用 `chrome.tabs` 内部实现但把 list/switch/open 直接暴露成多个独立工具**（否决）：工具面碎片化、命名需各自扁平化；单工具 + 子命令与既有 `admin_*`/`site_*` 一致，risk 用 `subcommandRisks` 表达更贴合 policy。
+- **C. 提供 `close` 子命令**（明确否决，作者决策）：关闭标签页不可逆且超出「管理/导航」范围；`tabs` 不实现任何关闭路径（`test/tabs-wiring.test.ts` 静态钉住无 close）。
+- **D. 让 `tabs` 也走 origin 授权门禁**（否决）：与「无站点绑定也要可用」直接冲突；改为「插件级 + 风险档走 policy + options 可关闭」。
+
+## 后果
+助手可在多域名标签页间「列 → 切 → 操作」，切换即 adopt 对应会话（与 ADR-013 多会话一致）；权限面一次性、显式、透明披露且可应用内关闭；代价 = 安装警告变化与 `tabs` 权限的不可卸载性（已文档化），`list` 输出进入上下文（已用去 query 默认缓解）。
+
 ---
 
 ## 9. 任务切分建议（sddu-tasks 输入；tasks.json/tasks.md 由 sddu-tasks 产出）
@@ -988,3 +1017,4 @@ ADR-002/012 首版注入为「`chrome.scripting.executeScript` 按需注入」�
 |------|---------|------|--------|
 | v1.0 | 初始创建：以 spec.md v1.1（46 FR 十组 + 10 NFR + 16 EC + 12 AC）+ discovery.md v1.1（Q/A/R/O）+ 作者裁决（O-001 代码下线 / O-002 通用任意站点优先 / O-003 不预设形态但 plan 给方案 / O-008/O-009/O-010 安全红线 / O-006↔O-001 对象区分；S-004/S-005/S-007/S-011/S-015 核签冻结）为红线输入；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议机制（站点中立描述符 schema + 双通道发现 + postMessage RPC 执行）、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、权限模型映射（三 PolicyStrategy + riskDefaults + fail-closed + onAsk 二次确认）、对象区分下的桥接与 Gate-D 下线执行/回退设计、存储载体（chrome.storage.local + session，key 隔离）；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）+ 波次与裁剪；方案对比 3 主题（宿主形态 / 发现载体 / 衔接方式）× 3 方案 + 推荐；技术开放点 P-01~P-06 全部采纳推荐默认并落 ADR；12 ADR（ACCEPTED 7 / PROPOSED 5，正文内嵌 §8）；文件影响面（新增独立包 ~35 文件 + LGDL 暴露点 + 下线面；零运行时新依赖，devDep `esbuild`+`@types/chrome` 单列待作者确认）；风险 11 项 + 缓解；任务切分建议 TB-0A~TB-R（§9，tasks 产出归 sddu-tasks） | 2026-09-11 | SDDU Plan Agent |
 | v1.1 | **v0.9 增补（作者 2026-09-12 两项架构级决策）**：追加 **ADR-013 多会话模型 = 按 origin 自动共享 + 可选会话组**（sessionId 派生 `origin` / `group:<id>`；每会话独立 40-turn 有界历史；LRU 上限 20 + 可读披露；分组 ≠ 授权）与 **ADR-014 自动探测 = 声明式注入 + 自上报自动握手**（`registerContentScripts` + `persistAcrossSessions`；启动/安装/权限变更对账；`hello`/`whoami` 免手势免 `tabs` 绑定；未授权站点静默降级）；两 ADR 均含**被否决方案与理由**（单会话 / 每标签会话 / 全局会话 / 仅 origin；全站静态注入 `<all_urls>` / 保持点图标 / 申请 `tabs` / 仅 onUpdated）。§6 文件影响补 `session-store.ts` / `content-script-registry.ts`。对应 spec v1.4 FR-047/048 + EC-017~020；未改既有 ADR/FR 语义，fail-closed 不变 | 2026-09-12 | SDDU Build Agent |
+| v1.2 | **v0.9 增补（作者 2026-09-12 决策③：同意权限扩张）**：追加 **ADR-015 标签页管理 = 新增 `tabs` 权限 + 插件级工具 `tabs`（list/switch/open，无 close）**（risk 档 list=read/switch=ui/open=write；隐私默认去 query/fragment；非 http(s) 拒绝；无站点绑定亦可用；options 可关闭并从工具面移除）；含**被否决方案与理由**（不加权限仅已授权站点 / 拆成多个独立工具 / 提供 close / 走 origin 授权门禁）。§6 文件影响补 `tabs-tools.ts` / `tabs-setting.ts`。对应 spec v1.5 FR-049 + EC-021/022；未改既有 ADR/FR 的安全语义（fail-closed、deny 优先不变） | 2026-09-12 | SDDU Build Agent |

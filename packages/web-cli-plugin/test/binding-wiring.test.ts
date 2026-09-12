@@ -43,9 +43,11 @@ test('D-065: switching away from the bound tab marks the session stale, url-free
   assert.equal(/onActivated[\s\S]{0,600}\.url/.test(onActivated.slice(0, 700)), false, 'onActivated must not read tab.url');
 });
 
-test('D-064: least privilege is preserved (no tabs permission, no <all_urls>)', () => {
+test('D-064 + author decision ③: permission set is exactly the approved expansion (tabs approved 2026-09-12; no <all_urls>)', () => {
   const manifest = JSON.parse(read('../../manifest.json')) as { permissions: string[]; host_permissions: string[]; optional_host_permissions: string[] };
-  assert.equal(manifest.permissions.includes('tabs'), false);
+  // Author decision ③ (2026-09-12) approved `tabs` for the tab tool.
+  assert.equal(manifest.permissions.includes('tabs'), true);
+  assert.deepEqual([...manifest.permissions].sort(), ['activeTab', 'scripting', 'sidePanel', 'storage', 'tabs']);
   const all = [...manifest.host_permissions, ...manifest.optional_host_permissions];
   assert.equal(all.includes('<all_urls>'), false);
   assert.equal(all.includes('*://*/*'), false);

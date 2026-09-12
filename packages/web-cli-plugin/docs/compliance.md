@@ -142,6 +142,36 @@
 | 切换会话待决交互 | 待决 `confirm`/`ask-user` 明确取消（=拒绝/取消，fail-closed）+ 可读提示 | EC-019 |
 | 明文 | 会话历史沿用脱敏口径；LLM key 仍仅 background 持有，不进会话/日志/审计 | FR-028/035/NFR-001 |
 
+## 9. 权限扩张披露：`tabs` 权限与标签页管理工具（FR-049，作者决策③ 2026-09-12）
+
+> 作者**明确同意**新增 `tabs` 权限（接受 Chrome 安装/更新时的「读取您的浏览记录」提示），用于**插件级**标签页管理工具 `tabs`（`list` / `switch` / `open`；**明确不做 `close`**）。本轮是既有权限面的**唯一一次扩张**，必须向用户显式披露。
+
+### 9.1 用途与边界
+
+| 事项 | 结论 | 依据 |
+|------|------|------|
+| 新增权限 | **仅 `tabs`**：`permissions` 由 `activeTab/scripting/storage/sidePanel` 变为 `activeTab/scripting/storage/sidePanel/tabs` | `manifest.json` 核验（无其他新增） |
+| 用途 | 读取**当前打开标签页**的 id/标题/URL；激活指定标签页；打开新的 http(s) 标签页 | `tools/tabs-tools.ts` + `service-worker.ts` `createTabsDeps` |
+| 明确不做 | **不关闭标签页**（无 `close` 子命令）；不读取**浏览历史**（`tabs` 权限只覆盖已打开标签页，不覆盖 `history`）；不注入/不读取未授权站点的页面内容（沿用 per-origin 授权与声明式注入边界） | `tabs-tools.ts`（无 close）/ `content-script-registry.ts` |
+| scheme 边界 | `open` **仅接受 http(s)**；`javascript:`/`data:`/`file:`/`chrome:`/`about:` 等一律**可读拒绝**（不静默） | `tabs-tools.ts` `createTabsToolEntry` case `open` |
+| 与全站权限的区别 | 仍**无** `<all_urls>` / `*://*/*`；仍**无**静态 `content_scripts` | `manifest.json` 核验 |
+| **不可关闭性** | `tabs` 是 manifest **静态权限**：扩展页「站点访问权限」能撤销的是 host 权限；要彻底移除 `tabs` 只能**停用/卸载**扩展。因此插件提供**应用内隐私开关**（options 页「允许助手查看/切换标签页（默认开）」），关闭后 `tabs` 立即从 LLM 工具面移除 | `background/tabs-setting.ts` + `host.setTabsEnabled` |
+
+### 9.2 安装警告文案（如实告知）
+
+新增 `tabs` 后，Chrome 在安装/更新该扩展时的权限提示会出现**「读取您的浏览记录」**（Chrome 对 `tabs` 权限的通用措辞）。插件向用户的如实说明：
+
+> 该提示是浏览器对 `tabs` 权限的**统一措辞**。本插件用它来**列出/切换/打开当前打开的标签页**（助手工具 `tabs`），**不读取、不导出您的浏览历史**。若您不接受该权限，请不要安装/更新；安装后也可在 options 页把「允许助手查看/切换标签页」关掉，`tabs` 会从助手工具面移除（但权限本身需停用/卸载扩展才能移除）。
+
+### 9.3 隐私影响：标签页标题与 URL 会进入 LLM 上下文
+
+| 影响 | 说明 | 缓解 |
+|------|------|------|
+| 标题 + URL 进入上下文 | `tabs list` 的**工具结果**（含每个标签页的标题、URL、授权态、会话）会被送回 LLM 作为上下文 | **默认只返回 `origin + path`**，去掉 query 与 fragment（用户查询串/令牌不进入上下文）；输出显式标注「隐私默认」 |
+| 完整 URL 需显式开启 | 仅当显式传 `--full true` 才返回含 query/fragment 的完整 URL | 输出与本文档均披露该影响；单元测试断言默认输出不含 query 串 |
+| 主动切页/开页 | `switch`（`ui` 档）与 `open`（`write` 档）执行前经**二次确认**；`open` 的确认摘要包含目标 URL | `PLUGIN_RISK_DEFAULTS`（ui/write→ask） |
+| 关闭开关 | options 页关闭「允许助手查看/切换标签页」后，`tabs` 从 `deriveTools()` 移除并拒绝派发 | `host.setTabsEnabled(false)` + `tabs-setting` 消息 |
+
 ---
 
-**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话边界调整时
+**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理边界调整时

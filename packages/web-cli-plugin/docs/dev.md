@@ -44,7 +44,7 @@ npm run build
 
 1. **配置模型**：侧栏顶部「配置模型 / 设置」按钮 → options 页选择厂商、填入 API Key 并保存（BYOK，仅存 `chrome.storage.local`，不回显明文）。
 2. **打开目标站点**：打开声明了 web-cli 协议的站点标签页（本仓库的 LGDL Web 即一个实例站点）。
-3. **首次绑定该站点**：点击插件图标 —— 点击时 Chrome 才会把该标签页地址交给插件（无需 `tabs` 权限）；插件绑定并发现当前站点，然后自动打开侧栏。
+3. **首次绑定该站点**：点击插件图标 —— 点击处理在**同一用户手势**内绑定并打开侧栏。本版已获作者同意的 `tabs` 权限（见 §12.4），后台也能直接读取当前标签页 URL，但**点图标路径仍是未授权站点的主要绑定触发点**（自动探测仅对已授权站点生效）。
 4. **授权当前站点（每个站点只需一次）**：在侧栏点击「授权当前站点」，确认知情同意与可选站点权限（浏览器弹一次权限框）。
 5. **之后全自动**：该站点获得持久权限后，插件会注册**声明式注入**（`chrome.scripting.registerContentScripts`），此后该站点每次页面加载都自动注入、自动绑定，**不需要再点图标**；切换标签页自动切到该站点对应会话。
 6. **输入指令**：在底部输入框发送，开始对话。
@@ -443,7 +443,7 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 未授权降级 | 未授权 origin 不注册不注入；握手失败**静默**返回未绑定 + 可读提示，保留点图标回退 | `service-worker.ts` `chrome.tabs.onActivated` |
 | 撤销 | `revoke` → `unregisterContentScripts`(best-effort) + 可读回执；随后 `permissions.onRemoved` 再对账 | `service-worker.ts` case `revoke` |
 
-**权限纪律**：manifest `permissions` 仍为 `activeTab/scripting/storage/sidePanel`；`optional_host_permissions` 仍为 `http://*/*`+`https://*/*`；`host_permissions` 仍为 6 个 LLM 域名；**无静态 `content_scripts`、无 `tabs`、无全站匹配**。
+**权限纪律**：manifest `permissions` = `activeTab/scripting/storage/sidePanel` **+ `tabs`（FR-049，作者决策③，2026-09-12）**；`optional_host_permissions` 仍为 `http://*/*`+`https://*/*`；`host_permissions` 仍为 6 个 LLM 域名；**无静态 `content_scripts`、无全站匹配、无 `<all_urls>`**。`tabs` 仅用于插件级 `tabs` 工具（§12.4），并可由 options 页开关从 LLM 工具面移除。
 
 ### 12.2 多会话（FR-048 / ADR-013）
 
@@ -461,6 +461,21 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 - `npm run test:ui`：新增 **#16a~#16i**（会话标记/切换器/历史隔离双向/分组控件/「分组≠授权」文案）。
 - `npm run test:hardening`（22）/`npm run test:e2e`（A/B）复跑 PASS。
 
+### 12.4 标签页管理工具 `tabs` 与隐私开关（FR-049，作者决策③ 2026-09-12）
+
+作者已同意新增 `tabs` 权限（接受 Chrome 安装提示「读取您的浏览记录」），用于**插件级**工具 `tabs`（`list` / `switch` / `open`；**明确不做 `close`**）。它是 v0.9 增补中**唯一新增**的 LLM 工具，且**不受 origin 授权门禁**（无需站点绑定即可用），但其敏感子命令仍走 policy 风险档。
+
+| 子命令 | risk | 行为 | 使用方法 |
+|--------|:----:|------|---------|
+| `list` | `read`（allow） | 列出打开的标签页（id / 标题 / URL / 是否激活 / 是否已授权 / 对应会话） | `tabs list`；默认**仅 origin+path**（去 query/fragment）；`tabs list --full true` 返回完整 URL（隐私影响已在输出/文档披露） |
+| `switch` | `ui`（ask） | 激活指定标签页 → 复用 `bindTab`（origin→注入→`bindOrigin`）→ **切到该 origin 的会话** | `tabs switch --id <tabId>` 或 `tabs switch --match <域名/URL 片段>`；`--id`/`--match` 二选一；受限页（`chrome://` 等）可读拒绝 |
+| `open` | `write`（ask） | 打开新标签页并尽力自动绑定；确认摘要显示目标 URL | `tabs open --url <http(s) URL>`；**仅 http(s)**，`javascript:`/`data:`/`file:`/`chrome:`/`about:` 等一律可读拒绝 |
+
+- **安全/隐私边界**：不关闭标签页（无 `close`）；不读取浏览历史（`tabs` 只覆盖已打开标签页）；不注入未授权站点；每个子命令入审计（零明文，URL 以去 query 的形式记录）。
+- **隐私开关**：options 页「标签页管理（隐私）」→ **「允许助手查看/切换标签页（默认开）」**。关闭后后台经 `tabs-setting` 消息调用 `host.setTabsEnabled(false)`，`tabs` 从 `deriveTools()` 移除且派发被拒（`enabled` 语义，不静默保留）；开关状态与工具面回执可在 options 页看到。
+- **实现位置**：`src/tools/tabs-tools.ts`（工具与纯逻辑）、`src/background/tabs-setting.ts`（开关存储）、`service-worker.ts` `createTabsDeps`（真实 `chrome.tabs` 调用 + 复用绑定链）、`host.ts` `setTabsEnabled`。
+- **回归门禁**：`test/tabs-tools.test.ts`（子命令/risk/scheme/去 query/开关/审计）、`test/tabs-wiring.test.ts`（静态接线/权限面/无 close）、`test/ui/binding.mjs` 阶段 1 新增真实 `tabs list`/`tabs switch`（断言会话随之切换）、`test:ui` 开关与 `tabs` 结果呈现。
+
 ## 13. 变更记录
 
 | 版本 | 说明 |
@@ -476,4 +491,5 @@ MV3 没有 HMR。改源码后 `npm run build` 只更新了 `dist/` 磁盘字节�
 | 1.8 | TASK-022（用户实测第六轮）：侧栏消息从纯文本改为「角色标签 + 内容区」分组块；assistant 走**零依赖、无 HTML 解析**的安全 Markdown 渲染（标题/列表/引用/行内/围栏代码/GFM 表格/仅 http(s) 链接），tool/system 保持等宽 `pre-wrap`，user 纯文本；新增 `src/ui/sidepanel/markdown.ts` + `test/markdown.test.ts`（12 用例），`test:ui` 41→50 断言（#14a~#14i），补 §10.8。 |
 | 1.9 | TASK-023（用户实测第七轮，整体 UI/UX 重做）：先读回原 AI 助手（git 历史）作设计基准；侧栏改**三区 flex 全高**（`#log` 去 `45vh` 改 flex 填充、composer 为末元素贴底、8 按钮收为「主操作 + 〈更多〉`<details>`」）；消息改角色气泡（user indigo 右对齐 / assistant Markdown / tool **可折叠卡片** / system·error 醒目 / command 紧凑块 / thinking 三点 / 「回到底部」跟随策略）；明暗适配 tokens；零新依赖、无框架、无 `innerHTML`、MV3 CSP 合规。补 §11；`test:ui` 50→67（#15a~#15q）、`test:binding` 38→41（#6h~#6j 用户气泡）、插件 209→222、全仓 0 fail（base 483 零回归）。**流式如实未实现（base 无增量能力，原助手亦无）**。 |
 | 2.0 | **v0.9 增补（FR-047/048 / ADR-013/014）**：①自动探测——`authorize` 后声明式注入 + 自上报自动握手（免点图标）+ 启动对账；未授权站点静默降级；权限面零新增。②多会话——`session-store.ts` 按 origin/会话组派生会话键，每会话独立 40-turn 有界历史，上限 20 + LRU 可读披露；切换标签页/会话自动 adopt 并回显（不串台）；切换时待决 confirm/ask 明确取消（EC-019）。补 §3/§3.1/§10.5/§10.6 与 §12；`test:ui` 70→79（#16a~#16i）、`test:binding` 44→58（阶段 2 #A0~#A7）、插件 229→262、全仓 0 fail（base 483 零回归）、`test:hardening` 22、`test:e2e` A/B PASS；无 `<all_urls>`/无 `tabs`/无新依赖/base 零改动。 |
+| 2.1 | **FR-049（作者决策③ 2026-09-12）**：新增 `tabs` 权限与插件级标签页管理工具 `tabs`（list/switch/open，**不含 close**）；list 隐私默认去 query/fragment（`--full` 显式）；switch 复用绑定链并切会话；open 仅 http(s)；options 新增隐私开关（关闭即从工具面移除）；补 §12.4 + 更新 §3.1/§12.1 权限纪律；`tabs-tools.test.ts` / `tabs-wiring.test.ts` + `test:binding` 新增真实 `tabs list`/`tabs switch`。 |
 
