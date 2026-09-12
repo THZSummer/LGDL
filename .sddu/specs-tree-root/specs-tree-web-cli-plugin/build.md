@@ -933,6 +933,87 @@ Chromium 无扩展加载 `file://…/options.html`，设置 `#apiKey` 后**真�
   snap Chromium 152 各跑 `test:ui` 均 25 断言 PASS。
 - 真实第三方厂商连通（含火山 G-KEY 直连）仍属人工面 H7，本轮不冒充。
 
+## 16. 实测反馈第三轮：保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见（TASK-020，post-validate additive）
+
+> 触发：用户（真实 Google Chrome + `chrome://extensions` 加载 `dist`）实测反馈两个**真实 UX 缺陷**：
+> ① 点保存 → 提示「✓ 已保存…」**但 API Key 框变成空的** → 用户判定「没保存成功 / 配置被阻塞」；
+> ② 面板显示「无活跃站点 / 设置 / LLM：DeepSeek · deepseek-flash」，**发送按钮禁用**且无解释；
+> 诉求「要能验证配置是否有效（测试连接）」。
+> 本轮**按已定位根因修复**（不另起炉灶、不编造根因），并把这些 UX 行为固化为 `test:ui` 断言。
+
+### 16.1 缺陷定位与前后行为对照
+
+| # | 缺陷（根因） | 修复位置（file:line） | 修复前行为 | 修复后行为 |
+|---|--------------|----------------------|------------|------------|
+| R1 | **UX 回归**：TASK-017 的「F-8 保存后清空 API Key 输入框」把**成功做得像失败**（空框无任何标记） | `src/ui/options/options.ts:226` `setApiKeyPlaceholder(true)`、`:105` `renderKeyState`、`:113` `highlightSaved`；`src/ui/options/index.html` `#key-state` | 保存后 `#apiKey.value=''`，placeholder 仍是「仅写入扩展存储，不回显明文」，无「已保存」标记 → 用户看到空框误判失败 | value 仍为空（安全不回显），但 placeholder=「已保存（不回显）；如需更换请重新输入」+ `#key-state`=「Key ✅ 已写入（不回显）」+ 成功块绿底/加粗 + `scrollIntoView`/高亮闪烁 + 摘要「✓ 已保存：<厂商> · <模型> · Key ✅ 已写入」 |
+| R2 | 「无活跃站点」**无解释、无出路**；`send` 因无绑定站点禁用但只显示灰按钮 | `src/ui/sidepanel/view-model.ts:133` `activeSiteNotice`、`:170` `sendDisabledReason`；`src/ui/sidepanel/sidepanel.ts:137/148`；`src/background/state-message.ts:58` `projectActiveTab`；`src/background/service-worker.ts:518` `case 'rebind'`；`src/ui/sidepanel/index.html` `#site-hint`/`#rebind`/`#send-reason` | `#status` 仅「无活跃站点」；发送禁用无原因 | 拆成三态具体原因（受限页 `chrome://`/扩展页/商店页、http(s) 未绑定、无可用标签页）+ 下一步动作；新增「**重新绑定当前标签页**」按钮（background `rebind` 复用既有 bindTab 语义，失败给可读原因）；`#send-reason` 在输入框旁显示禁用原因 |
+| R3 | 侧栏 LLM 状态行**不含 Key 状态**（只显示厂商·模型），无法确认 Key 是否写入 | `src/ui/sidepanel/view-model.ts:35` `llmStatusView` | `LLM：DeepSeek · deepseek-flash` | `LLM：DeepSeek · deepseek-flash · Key ✅`（未配置：`… · Key ⚠未配置`）；仅由既有零明文 `configured` 布尔派生，**不新增 key 派生串** |
+| R4 | 「测试连接」入口**不显眼**，侧栏内无法直接测 | `src/ui/options/index.html`（`#test` 加 `test-primary`、紧邻 `#save`）；`src/ui/sidepanel/index.html` `#llm-test`/`#llm-test-result`；`src/ui/sidepanel/sidepanel.ts:337` `handlePanelTest`；`src/background/service-worker.ts:447` `llm-test` | 仅 options 有「测试连接」；侧栏无入口 | options 按钮视觉突出且紧邻保存；侧栏新增「测试连接」按钮，复用同一 `llm-test` 消息；无 key 入参时 background **回退读取已保存配置**（key 只在 background 使用，不回传/不落日志/不审计）；结果可读（成功含 ms / 401 / 403 / 404 / CORS / 超时）；非扩展上下文下 options `#test` 与侧栏 `#llm-test`/`#rebind` 均禁用 |
+
+### 16.2 阶段 1：真实验证（`test:ui` 断言先行）
+
+`test/ui/journey.mjs` 在既有「全新 profile + 真实 dist + CDP 真实键入/点击」旅程上新增断言（25→**41**）：
+
+| 断言 | 证据 |
+|------|------|
+| `#6d` 保存后 `#key-state`=「Key ✅ 已写入（不回显）」 | 真实点击保存后读取 DOM |
+| `#6e` 保存后 placeholder=「已保存（不回显）…」 | 同上 |
+| `#6f` `#saved` 使用成功色（`msg-ok`） | 同上（class 断言） |
+| `#8d` 刷新 options 后仍显示「已写入」+ 已保存 placeholder | 刷新后读取 DOM（零明文摘要驱动） |
+| `#11b` 侧栏 LLM 行含 `Key ✅` | 打开真实 `sidepanel.html` |
+| `#11c~#11g` 无活跃站点显示具体原因 + 下一步动作 + 「重新绑定当前标签页」按钮 + 发送禁用原因就近可见 | 同上 |
+| `#12~#12c` 侧栏「测试连接」真实点击 → 复用 `llm-test`（stored config）打本地 mock → 可读成功（含 ms） | 同上 |
+| `#13/#13b` 侧栏页 0 未捕获异常 / 0 console error | CDP `Runtime.exceptionThrown` / `Log.entryAdded` |
+
+运行输出（本机 `.pw-browsers` Chromium 1234）：`UI journey PASS — 41 assertions: …保存→读回→回显→测试连接`。
+
+### 16.3 单测（node 面，+10）
+
+- `test/sidepanel-view.test.ts`（+5）：TASK-020 C `llmStatusView` Key 标记；B `activeSiteNotice` 三态 + 动作；B `sendDisabledReason`（空仅当可发送）；B/D 侧栏 `site-hint`/`rebind`/`llm-test` 静态面；A options `#key-state`/placeholder/成功色 + 不泄露 key。
+- `test/state-message.test.ts`（+5）：`projectActiveTab` http(s) 只暴露 origin（无 path/title）；受限页可读；无 tab/空 URL 可读；`state` payload 携带/显式 null；零明文。
+
+### 16.4 全仓门禁 + 红线（本轮复跑）
+
+| 门禁 | 结果 |
+|------|------|
+| 插件 `npm run build` | ✅ 退出码 0 |
+| 插件 `npm run test` | ✅ **183 pass / 0 fail**（173→183，+10） |
+| 插件 `tsc --noEmit` | ✅ 0 error |
+| `npm run test:ui` | ✅ **41 断言 PASS**（含侧栏 0 异常 0 console error） |
+| `npm run test:hardening` | ✅ 22 断言 PASS（A/B/C 未回归） |
+| `npm run test:e2e` | ✅ 场景 A（7）+ B（4）PASS，真实 dist 全链 |
+| 全仓 `npm run build` | ✅ 退出码 0 |
+| 全仓 `npm test` | ✅ **0 fail**：cli 0 / core 267 / layout 0 / render 94+1skip / router 8 / lgdl-web 31 / web-cli 84 / op-cli 15 / **base 483 零回归** / plugin 183 |
+| 红线 grep | ✅ `packages/web-cli-base/**` 零改动；根 `package.json` 未动；`dependencies` 仍仅 `@lgdl/web-cli-base`（无新依赖）；`.opencode/opencode.json` 零改动；`src` 无 `apiKey` 进 console/audit；侧栏 bundle 未引入 LLM SDK（`dist/sidepanel.js` 无 `apiKey`/厂商名） |
+
+### 16.5 新增决策（D-059~D-063）
+
+- **D-059（保存后「空框」必须读作已保存）**：保留 F-8 的「保存后不回显明文」，但用**placeholder=已保存** +
+  `#key-state`=「Key ✅ 已写入（不回显）」+ 成功块（绿底/加粗）+ 滚动/高亮共同表达成功；`refresh()`/页面刷新后
+  由零明文摘要驱动同一标记。修复前 `#apiKey.value=''` 且无任何「已写入」语义 → 用户误判「没保存」。
+- **D-060（`#saved` 成功态增强）**：`#saved` 仍走既有 `msg-ok`（成功色），本轮增量为**填充底色 + 摘要内嵌
+  「Key ✅ 已写入」+ `scrollIntoView` + 1.5s 高亮**；失败仍保持 `msg-err` 红字可读，未改失败文案。
+- **D-061（「无活跃站点」三态化 + `rebind`）**：新增纯函数 `activeSiteNotice`（受限页 / 未绑定 http(s) / 无 tab）
+  与 `sendDisabledReason`；新增 `PluginMessageKind: 'rebind'`，background 用 `chrome.tabs.query` 复用既有
+  `bindTab` 语义，受限/无 tab/注入失败均给可读错误。`state` 消息 additive 增加**非敏感** `tab` 投影
+  （只回 origin，不回 URL/title），不新增状态机。
+- **D-062（侧栏 Key 状态零明文）**：`llmStatusView` 的 `Key ✅/⚠未配置` 只由既有 `configured` 布尔派生，
+  不引入任何 key 派生串；沿用 `llm-status` 的四字段摘要。
+- **D-063（侧栏测试连接复用 `llm-test` + stored 回退）**：侧栏无需 key 输入框；background `llm-test` 在
+  `apiKey` 为空时回退读取已保存配置（key 只在 background 使用，绝不回传/日志/审计）。options 侧「当前表单值
+  优先」行为不变（typed key 仍可测试未保存配置）。`#test` 增加 `test-primary` 视觉强调但保持紧邻 `#save`。
+
+### 16.6 未完成 / 未复现（如实）
+
+- 用户列出的 4 项均为**可定位的 UX/可见性缺陷**，非「后端保存失败」；本轮**未声称**曾存在 storage 写入失败。
+  既有 `test:ui`/storage 读回仍证明保存真实落库（#7b~#7e）。
+- 本项目**未在真实第三方厂商（含火山 G-KEY 直连）**上跑侧栏/options 的「测试连接」；UI 门禁用本地 hermetic
+  mock（`127.0.0.1`），真实厂商连通仍属人工面 H7，不冒充。
+- 系统 Google Chrome / Edge 本机未安装：`test:ui` 在 `.pw-browsers` Chromium 1234 上跑 41 断言 PASS；
+  多浏览器矩阵沿用 §15.5（未重测 Edge）。
+- 「重新绑定当前标签页」按钮的真实手势链路（`activeTab`）在 headless 下无法合成：本轮只断言按钮存在与
+  `rebind` 消息可读路径；真实用户手势绑定仍属人工面 H0。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -947,3 +1028,4 @@ Chromium 无扩展加载 `file://…/options.html`，设置 `#apiKey` 后**真�
 | v1.7 | R4 低危改进（§13.8）：W1 `state` 补回授权位（新增 `state-message.ts` + `stateActionFromPayload`，刷新即同步 `authorized`；CDP 实测「未授权→授权→重载→已授权」+ 按钮态，截图 `/tmp/w1-verify/`）；W3 `llm-config` 收敛到非敏感摘要（移除 `apiKeyMasked`/`maskValue`，消息+管理工具统一 `toLlmStatusSummary`）；D-044/D-045；插件 125→**132**（+7）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、E2E 场景 A/B PASS、base 与 `.opencode/opencode.json` 零改动、无新依赖；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.8 | TASK-018（§14）：用户实测反馈——**先真复现**（全新 profile + 真实 dist + CDP 真实键入/点击）：首次/二次保存均成功、storage 真落库，`loadProvider` 恒返回对象（非 undefined）→ 可疑 TypeError **假设不成立**，如实记录；据此做静默失败防御（保存/测试/刷新全部 try/catch 可读失败、空 Key 明确提示不假装成功、保存后清空 Key+摘要回显）+ 新增「测试连接」（background `llm-test` + `src/llm/test-connection.ts`，复用 base `chat`，可读分类 401/403/404/CORS/超时，火山直连受限如实呈现，key 不入日志/审计）+ 新增 `npm run test:ui`（`test/ui/journey.mjs`，全新 profile + 真实 dist + 真实点击，25 断言）常驻门禁；D-046~D-052；插件 132→**146**（+14）、base 483 零回归、全仓 0 fail、`test:ui` PASS、E2E A/B PASS、base/`.opencode/opencode.json` 零改动、零新增依赖；未 git 提交 | 2026-09-12 | SDDU Build Agent |
 | v1.9 | TASK-019（§15）：三成因加固——① `src/platform/env-guard.ts` 非扩展上下文守卫（options/sidepanel 阻断横幅 + 保存/测试/清除禁用 + 输入说明；`file://` 修复前/后对照实证）；② `discover` 尊重上报三态 + 持久化可读 `reason` + `reprobe` 重试入口，侧栏三态显式说明（未声明 = 设计如此非故障；未知 = 可读原因 + 重新探测）；③ `diag` 消息 + 「环境自检/诊断」六项 + 一键复制（零明文，`sanitizeDiagText` 纵深脱敏）+ `__BUILD_STAMP__` 构建戳与「未重载」不一致提示；新增 `test:hardening` 实证探针（A/B/C，22 断言 PASS）；D-053~D-058；插件 146→**173**（+27）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:ui` PASS（Chrome-for-Testing 151 + 系统 snap Chromium 152）、E2E A/B PASS、base/根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖；**「填 Key 没法保存」仍未能复现根因，如实标注**；未 git 提交 | 2026-09-12 | SDDU Build Agent |
+| v1.10 | TASK-020（§16，用户实测反馈第三轮）：修复两个**真实 UX 缺陷**——① 保存成功却像失败（TASK-017 F-8 清空 Key 框无标记）→ 保存后 placeholder=「已保存（不回显）…」+ `#key-state`=「Key ✅ 已写入（不回显）」+ 成功块/高亮/摘要；②「无活跃站点」无解释无出路 → 三态具体原因 + 「重新绑定当前标签页」(`rebind` 消息) + 发送禁用原因就近可见；侧栏 LLM 行补 `Key ✅/⚠未配置`（零明文）；侧栏新增「测试连接」（复用 `llm-test`，stored 回退，key 不回传/不落日志审计），options 测试按钮视觉突出紧邻保存；`test:ui` 25→**41** 断言（含侧栏 0 异常）；D-059~D-063；插件 173→**183**（+10）、`tsc` 0 error、全仓 build/test 0 fail（base 483 零回归）、`test:hardening` 22 断言 PASS、E2E A/B PASS、base/根 `package.json`/`.opencode/opencode.json` 零改动、零新增依赖；真实第三方厂商直连仍属人工面 H7 不冒充；未 git 提交 | 2026-09-12 | SDDU Build Agent |

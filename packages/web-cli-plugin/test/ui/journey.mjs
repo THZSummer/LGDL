@@ -17,6 +17,13 @@
  *  7. 「测试连接」真实点击 → 经 background 打本地 mock OpenAI 端点 → 出现可读结果（含 ms）；
  *  8. 全程 0 页面异常 / 0 console error，否则打印并**非零退出**。
  *
+ * TASK-020 追加（缺陷修复实证）：
+ *  9. 保存后 `#key-state`=「Key ✅ 已写入（不回显）」且 `#apiKey` placeholder=「已保存（不回显）…」，
+ *     `#saved` 为成功色（不再把「成功」做成「空框」）；
+ * 10. 侧栏 LLM 行含 `Key ✅`；
+ * 11. 「无活跃站点」显示具体原因 + 下一步动作 + 「重新绑定当前标签页」按钮，且发送禁用原因在输入框旁可见；
+ * 12. 侧栏「测试连接」可点并复用 `llm-test`（stored config）给出可读结果（含 ms）。
+ *
  * 依赖：Node ≥ 22（全局 WebSocket / fetch）、本机 `.pw-browsers` Chromium（或 CHROME_BIN）。
  * 前置：`npm run build --workspace @lgdl/web-cli-plugin`。
  */
@@ -262,6 +269,8 @@ async function main() {
 
   const pageExceptions = [];
   const pageConsoleErrors = [];
+  const spExceptions = [];
+  const spConsoleErrors = [];
 
   try {
     // 1. our extension service worker (Chrome also starts built-in SWs)
@@ -340,12 +349,19 @@ async function main() {
     await waitFor(page, `document.getElementById('saved').textContent.includes('已保存')`);
     const afterSave = await evaluate(page, `(() => ({
       apiKey: document.getElementById('apiKey').value,
+      placeholder: document.getElementById('apiKey').placeholder,
+      keyState: document.getElementById('key-state').textContent,
       saved: document.getElementById('saved').textContent,
+      savedClass: document.getElementById('saved').className,
       warningShown: document.getElementById('key-warning').classList.contains('show'),
     }))()`);
     check(/已保存/.test(afterSave.saved), '#6 真实点击「保存」出现成功回执', afterSave.saved);
     check(afterSave.apiKey === '', '#6b 保存成功后 #apiKey 被真正清空', `got='${afterSave.apiKey}'`);
     check(afterSave.warningShown === false, '#6c 保存成功后未配置警告消失');
+    // TASK-020 A: an empty box must read as "saved (not echoed)", not as failure.
+    check(/已写入/.test(afterSave.keyState), '#6d 保存后 #key-state 显示「Key ✅ 已写入（不回显）」', afterSave.keyState);
+    check(/已保存（不回显）/.test(afterSave.placeholder), '#6e 保存后 placeholder 变为「已保存（不回显）…」', afterSave.placeholder);
+    check(/msg-ok/.test(afterSave.savedClass), '#6f 成功回执使用成功色（msg-ok）', afterSave.savedClass);
 
     // 5. read back from the SW (authoritative storage)
     const stored = await evaluate(sw, `chrome.storage.local.get(null).then((d) => d)`);
@@ -363,11 +379,14 @@ async function main() {
       provider: document.getElementById('provider').value,
       model: document.getElementById('model').value,
       saved: document.getElementById('saved').textContent,
+      keyState: document.getElementById('key-state').textContent,
+      placeholder: document.getElementById('apiKey').placeholder,
       warningShown: document.getElementById('key-warning').classList.contains('show'),
     }))()`);
     check(afterReload.provider === 'openai' && afterReload.model === 'journey-mock', '#8 刷新后回显厂商/模型', JSON.stringify(afterReload));
     check(/当前配置/.test(afterReload.saved) && /Key ✅/.test(afterReload.saved), '#8b 刷新后回显配置摘要（含 Key ✅）', afterReload.saved);
     check(afterReload.warningShown === false, '#8c 刷新后不再提示未配置');
+    check(/已写入/.test(afterReload.keyState) && /已保存（不回显）/.test(afterReload.placeholder), '#8d 刷新后仍显示「已写入」+ 已保存 placeholder', `${afterReload.keyState} | ${afterReload.placeholder}`);
 
     // 7. test connection (real click → background → mock endpoint)
     await realClick(page, '#test');
@@ -381,12 +400,71 @@ async function main() {
     check(/连接正常/.test(testText ?? ''), '#9b 连接本地 mock 端点成功', testText);
     check(/ms/.test(testText ?? ''), '#9c 成功结果包含延迟 ms', testText);
 
-    // 8. error surface
+    // 8. TASK-020: side panel — Key state / 无活跃站点 explanation + rebind / panel test
+    await evaluate(sw, `chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html') }).then((t) => t.id)`);
+    const spTarget = await findTarget(base, (t) => t.type === 'page' && t.url.includes('sidepanel.html'));
+    check(Boolean(spTarget), '#11 侧栏页（chrome-extension://…/sidepanel.html）真实打开');
+    if (!spTarget) throw new Error('sidepanel target not found');
+
+    const sp = await connectCdp(spTarget.webSocketDebuggerUrl);
+    await sp.send('Runtime.enable');
+    await sp.send('Log.enable');
+    sp.on('Runtime.exceptionThrown', (p) => spExceptions.push(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text));
+    sp.on('Runtime.consoleAPICalled', (p) => {
+      if (p.type === 'error') spConsoleErrors.push(p.args.map((a) => a.value ?? a.description ?? a.type).join(' '));
+    });
+    sp.on('Log.entryAdded', (p) => {
+      if (p.entry.level === 'error') spConsoleErrors.push(p.entry.text);
+    });
+    await sp.send('Page.reload', { ignoreCache: true });
+    await sleep(1200);
+
+    const llmLine = await waitFor(
+      sp,
+      `(() => { const t = document.getElementById('llm-status')?.textContent ?? ''; return /Key ✅/.test(t) ? t : ''; })()`,
+      60,
+      250,
+    );
+    check(/Key ✅/.test(llmLine ?? ''), '#11b 侧栏 LLM 行含 Key ✅', llmLine);
+
+    const site = await evaluate(sp, `(() => {
+      const h = document.getElementById('site-hint');
+      return {
+        shown: getComputedStyle(h).display !== 'none',
+        title: document.getElementById('site-hint-title').textContent,
+        action: document.getElementById('site-hint-action').textContent,
+        rebind: !!document.getElementById('rebind'),
+        sendDisabled: document.getElementById('send').disabled,
+        sendReason: document.getElementById('send-reason').textContent,
+      };
+    })()`);
+    check(site.shown === true, '#11c 无活跃站点时显示可解释块（不再只有「无活跃站点」）', JSON.stringify(site));
+    check(/不可注入|尚未绑定|没有可用标签页/.test(site.title), '#11d 显示具体原因文案', site.title);
+    check(/重新绑定当前标签页/.test(site.action), '#11e 给出下一步动作', site.action);
+    check(site.rebind === true, '#11f 「重新绑定当前标签页」按钮存在');
+    check(site.sendDisabled === true && /发送已禁用/.test(site.sendReason), '#11g 发送禁用原因在输入框附近可见', site.sendReason);
+
+    // 9. panel-side test connection (reuses `llm-test` with the stored config)
+    await realClick(sp, '#llm-test');
+    const spTestText = await waitFor(
+      sp,
+      `(() => { const t = document.getElementById('llm-test-result').textContent; return t && !t.includes('正在') ? t : ''; })()`,
+      150,
+      200,
+    );
+    check(Boolean(spTestText), '#12 侧栏「测试连接」可点并产生可读结果');
+    check(/连接正常/.test(spTestText ?? ''), '#12b 侧栏连接本地 mock 端点成功', spTestText);
+    check(/ms/.test(spTestText ?? ''), '#12c 侧栏成功结果含延迟 ms', spTestText);
+    check(spExceptions.length === 0, '#13 侧栏页 0 未捕获异常', spExceptions.join(' | '));
+    check(spConsoleErrors.length === 0, '#13b 侧栏页 0 console error', spConsoleErrors.join(' | '));
+
+    // 10. error surface
     check(pageExceptions.length === 0, '#10 options 页 0 未捕获异常', pageExceptions.join(' | '));
     check(pageConsoleErrors.length === 0, '#10b options 页 0 console error', pageConsoleErrors.join(' | '));
 
     sw.close();
     page.close();
+    sp.close();
   } catch (err) {
     failures.push(`journey harness error: ${err instanceof Error ? err.message : String(err)}`);
     console.error('✖ journey harness error:', err);

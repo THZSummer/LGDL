@@ -7,13 +7,14 @@
  * a browser or a new dependency.
  */
 import type { LlmStatusSummary } from '../../llm/status.js';
+import type { ActiveTabView } from '../../background/state-message.js';
 import type { SidepanelState } from './chat-state.js';
 
 // ── F-2: LLM configuration status ─────────────────────────────────────────
 
 export interface LlmStatusView {
   configured: boolean;
-  /** Display label, e.g. `LLM：未配置` / `LLM：DeepSeek · deepseek-chat`. */
+  /** Display label, e.g. `LLM：未配置` / `LLM：DeepSeek · deepseek-chat · Key ✅`. */
   label: string;
   /** True when unconfigured → settings CTA is emphasized. */
   warn: boolean;
@@ -25,17 +26,29 @@ export interface LlmStatusView {
  * Turn the background `llm-status` summary into a display view. `null` means
  * "not loaded yet" and yields a neutral "detecting" state instead of a false
  * "unconfigured" claim (the panel renders before the round-trip completes).
+ *
+ * TASK-020 任务 C: the label carries an explicit `Key ✅ / ⚠未配置` marker so the
+ * user can confirm at a glance whether a key is written. It is derived purely
+ * from the existing zero-plaintext `configured` bit — no key-derived string is
+ * introduced.
  */
 export function llmStatusView(summary: LlmStatusSummary | null | undefined): LlmStatusView {
   if (summary === null || summary === undefined) {
     return { configured: false, label: 'LLM：检测中…', warn: false, settingsLabel: '配置模型 / 设置' };
   }
   if (!summary.configured) {
-    return { configured: false, label: '⚠ 未配置模型：插件无法调用 LLM', warn: true, settingsLabel: '去配置模型' };
+    const provider = (summary.providerName || summary.providerId || '未知厂商').trim();
+    const model = (summary.model || '默认模型').trim();
+    return {
+      configured: false,
+      label: `LLM：${provider} · ${model} · Key ⚠未配置`,
+      warn: true,
+      settingsLabel: '去配置模型',
+    };
   }
   const provider = (summary.providerName || summary.providerId || '未知厂商').trim();
   const model = (summary.model || '默认模型').trim();
-  return { configured: true, label: `LLM：${provider} · ${model}`, warn: false, settingsLabel: '设置' };
+  return { configured: true, label: `LLM：${provider} · ${model} · Key ✅`, warn: false, settingsLabel: '设置' };
 }
 
 // ── TASK-019 任务 B: 「站点未声明协议」显式说明（不误导、不新增状态机） ──────
@@ -94,8 +107,78 @@ export function discoveryNotice(discoveryState: string | undefined | null, reaso
   };
 }
 
-// ── F-3: first-run onboarding (state-driven) ──────────────────────────────
+// ── TASK-020 任务 B: 「无活跃站点」可解释 + 可自救 ───────────────────────────
+//
+// 用户实测「面板显示 无活跃站点 / 发送按钮禁用」——旧 UI 只给结论、不给原因与
+// 出路。本纯函数把「无绑定站点」拆成三种可操作的具体原因：
+//   ① 当前标签页不可注入（chrome:// / 扩展页 / 商店页 …）
+//   ② 有 http(s) 标签页但尚未绑定（未点插件图标 / 未重绑）
+//   ③ 没有可用标签页
+// 「已在目标站点但 discovery 未 supported」由既有 `discoveryNotice` 负责（此时
+// activeOrigin 存在，本块隐藏），不重复、不新增状态机。
 
+export type ActiveSiteNoticeKind = 'none' | 'restricted-tab' | 'unbound-tab' | 'no-tab';
+
+export interface ActiveSiteNoticeView {
+  visible: boolean;
+  kind: ActiveSiteNoticeKind;
+  title: string;
+  detail: string;
+  /** 下一步动作（可读指引）；空串表示无需动作。 */
+  action: string;
+}
+
+const HIDDEN_SITE_NOTICE: ActiveSiteNoticeView = { visible: false, kind: 'none', title: '', detail: '', action: '' };
+
+export function activeSiteNotice(input: {
+  hasOrigin: boolean;
+  tab?: ActiveTabView | null;
+}): ActiveSiteNoticeView {
+  if (input.hasOrigin) return HIDDEN_SITE_NOTICE;
+  const tab = input.tab;
+  if (!tab || !tab.present) {
+    return {
+      visible: true,
+      kind: 'no-tab',
+      title: '没有可用标签页',
+      detail: '插件需要一个标签页才能绑定站点。请打开目标站点标签页，再点浏览器工具栏的插件图标。',
+      action: '打开目标站点标签页后点插件图标，或点下方「重新绑定当前标签页」。',
+    };
+  }
+  if (tab.restricted) {
+    return {
+      visible: true,
+      kind: 'restricted-tab',
+      title: '当前标签页不可注入',
+      detail: `当前标签页是浏览器受限页面（${tab.reason ?? 'chrome:// / 扩展页 / 商店页等'}），插件无法在其中操作。`,
+      action: '请切换到目标站点标签页后点插件图标，或点下方「重新绑定当前标签页」。',
+    };
+  }
+  return {
+    visible: true,
+    kind: 'unbound-tab',
+    title: '当前站点尚未绑定',
+    detail: `检测到当前标签页${tab.origin ? ` ${tab.origin}` : ''}，但尚未绑定到插件（可能未点插件图标，或扩展刚重载）。`,
+    action: '请点浏览器工具栏的插件图标，或点下方「重新绑定当前标签页」。',
+  };
+}
+
+/**
+ * Readable reason shown next to the composer whenever `send` is disabled.
+ * `''` means send is enabled (hide the hint).
+ */
+export function sendDisabledReason(input: {
+  activeOrigin?: string;
+  pending: boolean;
+  tab?: ActiveTabView | null;
+}): string {
+  if (input.pending) return '发送已禁用：上一条指令仍在处理中，请稍候。';
+  if (input.activeOrigin) return '';
+  const notice = activeSiteNotice({ hasOrigin: false, tab: input.tab });
+  return `发送已禁用：${notice.title} —— ${notice.action}`;
+}
+
+// ── F-3: first-run onboarding (state-driven) ──────────────────────────────
 export interface OnboardingInput {
   configured: boolean;
   hasOrigin: boolean;
@@ -182,6 +265,8 @@ export interface StateMessageView {
   active: { origin: string; discoveryState?: string; discoveryReason?: string; invalidated: boolean } | null;
   tools?: string[];
   authorized?: boolean;
+  /** Non-sensitive active-tab projection (TASK-020 任务 B). */
+  tab?: ActiveTabView | null;
 }
 
 export interface StateActionView {

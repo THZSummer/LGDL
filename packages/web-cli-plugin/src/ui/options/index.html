@@ -12,6 +12,15 @@
       .row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
       .muted { color: #64748b; font-size: 12px; }
       #saved { padding-right: 4px; }
+      #saved.msg-ok {
+        color: #15803d; font-weight: 600; background: #f0fdf4;
+        border-radius: 4px; padding: 2px 6px; display: inline-block;
+      }
+      #saved.flash { outline: 2px solid #16a34a; outline-offset: 1px; }
+      #test.test-primary { font-weight: 600; border: 1px solid #2563eb; }
+      .key-state { font-weight: 600; margin-top: 4px; }
+      .key-state.ok { color: #15803d; }
+      .key-state.warn { color: #b45309; }
       .warning {
         border: 1px solid #f59e0b; background: #fffbeb; color: #92400e;
         border-radius: 4px; padding: 8px; margin: 12px 0; display: none;
@@ -66,6 +75,7 @@
 
       <label for="apiKey">API Key</label>
       <input id="apiKey" type="password" placeholder="仅写入扩展存储，不回显明文" autocomplete="off" />
+      <div id="key-state" class="key-state" role="status" aria-live="polite"></div>
 
       <label for="model">模型</label>
       <input id="model" type="text" />
@@ -81,7 +91,7 @@
 
       <div class="row">
         <button type="submit" id="save">保存</button>
-        <button type="button" id="test">测试连接</button>
+        <button type="button" id="test" class="test-primary">测试连接</button>
         <button type="button" id="clear">清除本插件全部配置</button>
       </div>
       <div id="saved" class="muted"></div>

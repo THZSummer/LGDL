@@ -46,6 +46,12 @@ import {
   type DiagStatus,
 } from './diagnostics.js';
 
+// TASK-020 任务 A: a successful save must never look like an empty/failed field.
+// The input is cleared (never re-echo the secret) but the placeholder + a
+// dedicated `#key-state` marker make the "already saved" state unmistakable.
+export const API_KEY_PLACEHOLDER_EMPTY = '仅写入扩展存储，不回显明文';
+export const API_KEY_PLACEHOLDER_SAVED = '已保存（不回显）；如需更换请重新输入';
+
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`missing element #${id}`);
@@ -81,8 +87,39 @@ function setMessage(el: HTMLElement, kind: MessageKind, text: string): void {
   el.textContent = text;
 }
 
-const setSaved = (kind: MessageKind, text: string): void => setMessage($('saved'), kind, text);
+const setSaved = (kind: MessageKind, text: string): void => {
+  $('saved').classList.remove('flash');
+  setMessage($('saved'), kind, text);
+};
 const setTestResult = (kind: MessageKind, text: string): void => setMessage($('test-result'), kind, text);
+
+/** TASK-020 任务 A: the API-key placeholder reflects the saved/empty state. */
+function setApiKeyPlaceholder(hasKey: boolean): void {
+  ($('apiKey') as HTMLInputElement).placeholder = hasKey ? API_KEY_PLACEHOLDER_SAVED : API_KEY_PLACEHOLDER_EMPTY;
+}
+
+/**
+ * TASK-020 任务 A: zero-plaintext key-state marker. `hasKey` is a boolean derived
+ * from the stored config (or the `llm-status` summary) — never the key itself.
+ */
+function renderKeyState(hasKey: boolean): void {
+  const el = $('key-state');
+  el.classList.remove('ok', 'warn');
+  el.classList.add(hasKey ? 'ok' : 'warn');
+  el.textContent = hasKey ? 'Key ✅ 已写入（不回显）' : '⚠ 未配置 Key —— 保存后仍无法调用 LLM';
+}
+
+/** TASK-020 任务 A: make the success receipt visually unmistakable. */
+function highlightSaved(): void {
+  const el = $('saved');
+  try {
+    el.scrollIntoView({ block: 'nearest' });
+  } catch {
+    /* non-layout environments */
+  }
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 1500);
+}
 
 function fillProviders(selected: string): void {
   const select = $('provider') as HTMLSelectElement;
@@ -107,7 +144,7 @@ function setKeyWarning(configured: boolean): void {
 /** Echo the stored config as a non-sensitive summary (never the key itself). */
 function renderSavedSummary(cfg: LlmSettings): void {
   const provider = providerById(cfg.providerId);
-  const keyState = cfg.apiKey ? 'Key ✅' : 'Key ❌';
+  const keyState = cfg.apiKey ? 'Key ✅' : 'Key ⚠未配置';
   setSaved(cfg.apiKey ? '' : 'warn', `当前配置：${provider.name} · ${cfg.model} · ${keyState}`);
 }
 
@@ -140,6 +177,8 @@ async function refresh(): Promise<void> {
     ($('baseURL') as HTMLInputElement).value = cfg.baseURL ?? '';
     ($('maxRounds') as HTMLInputElement).value = String(cfg.maxRounds ?? DEFAULT_MAX_ROUNDS);
     ($('apiKey') as HTMLInputElement).value = '';
+    setApiKeyPlaceholder(cfg.apiKey.length > 0);
+    renderKeyState(cfg.apiKey.length > 0);
     $('hint').textContent = providerHint(cfg.providerId);
     renderSavedSummary(cfg);
     setKeyWarning(cfg.apiKey.length > 0);
@@ -169,6 +208,7 @@ async function handleSave(): Promise<void> {
     const key = typed.trim() || existing.apiKey;
     if (!key) {
       setKeyWarning(false);
+      renderKeyState(false);
       setSaved('warn', `⚠ 未保存：未填写 ${provider.name} 的 API Key，且该厂商尚无已保存的 Key。请填入 Key 后重试。`);
       return;
     }
@@ -182,9 +222,13 @@ async function handleSave(): Promise<void> {
     });
     // F-8: never leave the typed secret in the DOM after a successful save.
     ($('apiKey') as HTMLInputElement).value = '';
+    // TASK-020 任务 A: an empty box must read as "saved (not echoed)", not "空/失败".
+    setApiKeyPlaceholder(true);
+    renderKeyState(true);
     setKeyWarning(true);
     setTestResult('', '');
-    setSaved('ok', `✓ 已保存：${provider.name} · ${model} · Key ✅（chrome.storage.local，页面脚本不可读，明文不回显）`);
+    setSaved('ok', `✓ 已保存：${provider.name} · ${model} · Key ✅ 已写入（chrome.storage.local，不回显）`);
+    highlightSaved();
   } catch (err) {
     setSaved('err', `✖ 保存失败：${errMessage(err)}`);
   } finally {

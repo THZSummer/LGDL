@@ -32,11 +32,12 @@
 | M21 | 任务内 ask-user 问答桥 | `test/ask-bridge.test.ts` + `test/sidepanel.test.ts` + `test/host.test.ts` | 提问→作答→回填；超时/取消可读 | ✅ PASS（node 面，P1/R7） |
 | M22 | `transport.channel` 动态绑定 | `test/content.test.ts` + `test/protocol.test.ts` | 声明通道绑定后 invoke/结果按新通道 | ✅ PASS（node 面，P1/R9-7） |
 | M23 | 破坏性动词 denylist | `test/host.test.ts` R-BLK1a 用例（5 例伪装） | 不得 read→allow | ✅ PASS（node 面，P1/R-BLK1a） |
-| M24 | **options 真实点击旅程** | `npm run test:ui`（`test/ui/journey.mjs`：全新 profile + 真实 dist + CDP 真实键入/点击） | 保存→读回 storage→刷新回显→测试连接 可读结果；0 异常 | ✅ PASS（25 断言，TASK-018） |
+| M24 | **options 真实点击旅程** | `npm run test:ui`（`test/ui/journey.mjs`：全新 profile + 真实 dist + CDP 真实键入/点击） | 保存→读回 storage→刷新回显→测试连接 可读结果；0 异常 | ✅ PASS（41 断言，TASK-018/020） |
 | M25 | **非扩展上下文守卫** | `npm run test:hardening`（A 场景：`file://.../options.html`）+ `test/env-guard.test.ts` | 横幅出现、保存/测试/清除禁用、诊断 ❌ 可读 | ✅ PASS（TASK-019） |
 | M26 | **站点未声明协议说明** | `npm run test:hardening`（B 场景：普通站点；`unsupported`/`unknown` 两态）+ `test/sidepanel-view.test.ts` | 「设计如此，非故障」说明；unknown 有可读原因 + 「重新探测」 | ✅ PASS（TASK-019） |
 | M27 | **环境自检 / 诊断面板** | `test/diagnostics.test.ts` + `test/ui/hardening.mjs`；一键复制文本 | 六项 ✅⚠❌ + 零明文（`sanitizeDiagText` 兜底） | ✅ PASS（TASK-019） |
 | M28 | **旧扩展未重载可见** | `npm run test:hardening`（C 场景：build 后仅刷新 options，不点「重新加载」） | 诊断提示「页面/background 构建不一致 + 重新加载」 | ✅ PASS（TASK-019） |
+| M29 | **保存后可验证 / 无活跃站点可自救** | `npm run test:ui`（#6d~#6f/#8d/侧栏 #11~#12）+ `test/sidepanel-view.test.ts` + `test/state-message.test.ts` | 保存后 `#key-state`=已写入、placeholder=已保存（不回显）、成功色；侧栏 LLM 行含 `Key ✅`；无活跃站点给具体原因 + 「重新绑定当前标签页」+ 发送禁用原因；侧栏「测试连接」复用 `llm-test` 可读结果 | ✅ PASS（TASK-020） |
 
 ## 2. 人工面（真实浏览器交互）
 

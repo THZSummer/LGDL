@@ -17,6 +17,63 @@ export interface ActiveSessionView {
   invalidated: boolean;
 }
 
+/**
+ * Non-sensitive projection of the current browser tab (TASK-020 任务 B).
+ *
+ * The side panel needs to explain *why* there is no active site (restricted
+ * page vs. not-bound-yet vs. no tab) — none of which the controller knows. Only
+ * `origin` is carried (never the full URL / title / content), so no page data
+ * leaks to the panel.
+ */
+export interface ActiveTabView {
+  /** Whether a tab is currently active in this window. */
+  present: boolean;
+  /** Origin of the active tab when it is an injectable http(s) page. */
+  origin?: string;
+  /** True when the plugin cannot inject into this tab. */
+  restricted: boolean;
+  /** Readable reason when restricted / no tab. */
+  reason?: string;
+}
+
+const WEBSTORE_HOSTS = ['chrome.google.com/webstore', 'chromewebstore.google.com'];
+
+/** A readable reason for a tab the plugin cannot inject into. */
+export function restrictedPageReason(url: string): string {
+  if (url.startsWith('chrome://')) return '浏览器内置页面（chrome://），扩展无法注入';
+  if (url.startsWith('chrome-extension://')) return '扩展页面（chrome-extension://），扩展无法注入';
+  if (url.startsWith('edge://')) return '浏览器内置页面（edge://），扩展无法注入';
+  if (url.startsWith('devtools://')) return '开发者工具页面，扩展无法注入';
+  if (url.startsWith('about:')) return '浏览器空白/内置页面（about:），扩展无法注入';
+  if (url.startsWith('file://')) return '本地文件页面（file://），扩展默认无法注入';
+  if (WEBSTORE_HOSTS.some((h) => url.includes(h))) return '浏览器应用商店页面，扩展禁止注入';
+  if (!url) return '当前标签页没有可读取的地址';
+  return '当前标签页不是 http(s) 站点，扩展无法注入';
+}
+
+/**
+ * Project a `chrome.tabs.Tab`-like object to the non-sensitive panel view.
+ * Pure and node-testable — no chrome API touched here.
+ */
+export function projectActiveTab(tab: { url?: string } | undefined | null): ActiveTabView {
+  if (!tab) return { present: false, restricted: true, reason: '没有可用标签页' };
+  const url = tab.url ?? '';
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('edge://') ||
+      url.startsWith('devtools://') || url.startsWith('about:') || url.startsWith('file://') ||
+      WEBSTORE_HOSTS.some((h) => url.includes(h))) {
+    return { present: true, restricted: true, reason: restrictedPageReason(url) };
+  }
+  let origin: string | undefined;
+  try {
+    const u = new URL(url);
+    if (u.protocol === 'http:' || u.protocol === 'https:') origin = u.origin;
+  } catch {
+    /* not a parseable URL (about:blank, empty, …) → treated as restricted */
+  }
+  if (!origin) return { present: true, restricted: true, reason: restrictedPageReason(url) };
+  return { present: true, origin, restricted: false };
+}
+
 export interface StateMessagePayload {
   active: ActiveSessionView | null;
   tools: string[];
@@ -25,14 +82,18 @@ export interface StateMessagePayload {
    * authorized" — always `false` when there is no bound origin.
    */
   authorized: boolean;
+  /** Non-sensitive active-tab projection (TASK-020 任务 B). */
+  tab?: ActiveTabView | null;
 }
 
 export async function buildStateMessage(input: {
   active: ActiveSessionView | null;
   tools: string[];
   isAuthorized: (origin: string) => Promise<boolean>;
+  tab?: ActiveTabView | null;
 }): Promise<StateMessagePayload> {
   const { active, tools, isAuthorized } = input;
   const authorized = active ? await isAuthorized(active.origin) : false;
-  return { active, tools, authorized };
+  return { active, tools, authorized, tab: input.tab ?? null };
 }
+

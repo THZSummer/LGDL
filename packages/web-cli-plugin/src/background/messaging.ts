@@ -28,6 +28,7 @@ export type PluginMessageKind =
   | 'llm-status'
   | 'llm-test'
   | 'reprobe'
+  | 'rebind'
   | 'diag';
 
 export interface PluginMessage {
@@ -66,6 +67,7 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'llm-status',
   'llm-test',
   'reprobe',
+  'rebind',
   'diag',
 ]);
 

@@ -10,16 +10,20 @@ import {
   CONSENT_DEFAULT_OPEN,
   CONSENT_SUMMARY_TEXT,
   LOG_EMPTY_TEXT,
+  activeSiteNotice,
   buildOnboarding,
   buttonStates,
   discoveryNotice,
   isLogEmpty,
   llmStatusView,
   openSettingsPage,
+  sendDisabledReason,
   stateActionFromPayload,
   type StateMessageView,
 } from './view-model.js';
 import type { LlmStatusSummary } from '../../llm/status.js';
+import type { ActiveTabView } from '../../background/state-message.js';
+import type { TestConnectionResult } from '../../llm/test-connection.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
 import { requestOriginPermission } from '../../platform/extension-env.js';
 import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
@@ -57,6 +61,8 @@ let state: SidepanelState = createInitialState();
 /** Last background `llm-status` summary; null until the round-trip completes. */
 let llmSummary: LlmStatusSummary | null = null;
 let llmLoaded = false;
+/** Last non-sensitive active-tab projection (TASK-020 任务 B). */
+let activeTab: ActiveTabView | null = null;
 /** Last discovery failure reason (populated by 「重新探测」) for a readable notice. */
 let discoveryReason: string | undefined;
 
@@ -90,6 +96,9 @@ function render(): void {
   ($('revoke') as HTMLButtonElement).disabled = buttons.revokeDisabled;
   ($('send') as HTMLButtonElement).disabled = buttons.sendDisabled;
 
+  renderSiteHint();
+  renderSendReason();
+
   const notice = $('notice');
   notice.textContent = state.notice ?? '';
   notice.style.display = state.notice ? 'block' : 'none';
@@ -118,6 +127,29 @@ function renderLlmStatus(): void {
   el.className = view.warn ? 'warn' : 'muted';
   btn.textContent = view.settingsLabel;
   btn.classList.toggle('primary', view.warn);
+}
+
+/**
+ * TASK-020 任务 B: explain「无活跃站点」with a specific reason + next action, and
+ * expose the「重新绑定当前标签页」escape hatch. The「已在目标站点但未 supported」
+ * case is owned by `discovery-notice` (activeOrigin present → this block hides).
+ */
+function renderSiteHint(): void {
+  const box = $('site-hint');
+  const view = activeSiteNotice({ hasOrigin: Boolean(state.activeOrigin), tab: activeTab });
+  box.style.display = view.visible ? 'block' : 'none';
+  if (!view.visible) return;
+  $('site-hint-title').textContent = view.title;
+  $('site-hint-detail').textContent = view.detail;
+  $('site-hint-action').textContent = view.action;
+}
+
+/** TASK-020 任务 B: make the disable reason visible next to the composer. */
+function renderSendReason(): void {
+  const el = $('send-reason');
+  const reason = sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab });
+  el.textContent = reason;
+  el.style.display = reason ? 'block' : 'none';
 }
 
 /** F-3: state-driven first-run guidance (only the next action is emphasized). */
@@ -294,9 +326,64 @@ function renderConsent(): void {
 async function refreshState(): Promise<void> {
   const res = await send<StateMessageView>(makeMessage('state'));
   if (!res.ok || !res.data) return;
+  // TASK-020 任务 B: keep the last active-tab projection for the site hint.
+  activeTab = res.data.tab ?? null;
   // W1: sync the persisted authorization too — otherwise a reload/reopen shows
   // a false "未授权" and the authorize button becomes clickable again.
   dispatch(stateActionFromPayload(res.data));
+}
+
+/** TASK-020 任务 D: run the connectivity test from the panel (stored config). */
+async function handlePanelTest(): Promise<void> {
+  const btn = $('llm-test') as HTMLButtonElement;
+  const out = $('llm-test-result');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = '测试中…';
+  out.className = 'muted';
+  out.textContent = '正在发送最小 ping 请求…';
+  try {
+    const res = await send<TestConnectionResult>(
+      makeMessage('llm-test', llmSummary?.providerId ? { providerId: llmSummary.providerId } : {}),
+    );
+    if (!res.ok || !res.data) {
+      out.className = 'warn';
+      out.textContent = `✖ 测试连接失败：${res.error ?? '后台无响应'}`;
+      return;
+    }
+    out.className = res.data.ok ? 'ok' : 'warn';
+    out.textContent = res.data.message;
+  } catch (err) {
+    out.className = 'warn';
+    out.textContent = `✖ 测试连接失败：${err instanceof Error ? err.message : String(err)}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label || '测试连接';
+  }
+}
+
+/** TASK-020 任务 B: rebind the current tab from the panel (readable failure). */
+async function rebindCurrentTab(): Promise<void> {
+  const btn = $('rebind') as HTMLButtonElement;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    const res = await send<{ origin?: string }>(makeMessage('rebind'));
+    if (res.ok && res.data?.origin) {
+      dispatch({ type: 'notice', text: `✓ 已重新绑定当前标签页：${res.data.origin}` });
+      await refreshState();
+      void refreshLlmStatus();
+    } else {
+      dispatch({ type: 'notice', text: `✖ 重新绑定失败：${res.error ?? '后台无响应'}` });
+      await refreshState();
+    }
+  } catch (err) {
+    dispatch({ type: 'notice', text: `✖ 重新绑定失败：${err instanceof Error ? err.message : String(err)}` });
+  } finally {
+    // `refreshState` triggers render() which resets the button disabled state.
+    btn.disabled = false;
+  }
 }
 
 function wire(): void {
@@ -304,6 +391,12 @@ function wire(): void {
   $('open-options').addEventListener('click', () => {
     openSettingsPage(chrome.runtime);
   });
+
+  // TASK-020 任务 D: panel-side connectivity test (reuses the `llm-test` message).
+  $('llm-test').addEventListener('click', () => void handlePanelTest());
+
+  // TASK-020 任务 B: explicit rebind escape hatch for「无活跃站点」.
+  $('rebind').addEventListener('click', () => void rebindCurrentTab());
 
   $('composer').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -448,7 +541,7 @@ function applyEnvGuard(env: EnvGuardResult): void {
   banner.textContent = env.banner;
   banner.style.display = env.inExtension ? 'none' : 'block';
   if (env.inExtension) return;
-  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-options', 'discovery-retry']) {
+  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-options', 'discovery-retry', 'rebind', 'llm-test']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) el.disabled = true;
   }

@@ -11,12 +11,14 @@ import {
   CONSENT_DEFAULT_OPEN,
   CONSENT_SUMMARY_TEXT,
   LOG_EMPTY_TEXT,
+  activeSiteNotice,
   buildOnboarding,
   buttonStates,
   discoveryNotice,
   isLogEmpty,
   llmStatusView,
   openSettingsPage,
+  sendDisabledReason,
   stateActionFromPayload,
 } from '../src/ui/sidepanel/view-model.js';
 import { createInitialState, reduce } from '../src/ui/sidepanel/chat-state.js';
@@ -399,5 +401,104 @@ test('diagnostics UI (TASK-019 C): options exposes the self-check panel + copy',
   assert.match(src, /renderDiagText/);
   // the diagnostics path never prints/echoes a key
   assert.equal(/console\.(log|warn|error)\([^)]*apiKey/.test(src), false);
+});
+
+// ── TASK-020：保存后呈现 / 无活跃站点自救 / 侧栏 Key 状态 / 侧栏测试连接 ──────
+
+test('TASK-020 C: llm-status view carries an explicit Key marker (zero plaintext)', () => {
+  const configured = llmStatusView({ configured: true, providerId: 'deepseek', providerName: 'DeepSeek', model: 'deepseek-flash' });
+  assert.match(configured.label, /DeepSeek/);
+  assert.match(configured.label, /deepseek-flash/);
+  assert.match(configured.label, /Key ✅/);
+
+  const missing = llmStatusView({ configured: false, providerId: 'deepseek', providerName: 'DeepSeek', model: 'deepseek-flash' });
+  assert.match(missing.label, /Key ⚠未配置/);
+  assert.equal(missing.warn, true);
+
+  // detecting must not claim a key state it does not know yet
+  const detecting = llmStatusView(null);
+  assert.equal(/Key ✅|Key ⚠/.test(detecting.label), false);
+});
+
+test('TASK-020 B: activeSiteNotice separates restricted / unbound / no-tab with an action', () => {
+  // bound origin → hidden (the status line already carries the site identity)
+  assert.equal(activeSiteNotice({ hasOrigin: true, tab: { present: true, restricted: true, reason: 'x' } }).visible, false);
+
+  const restricted = activeSiteNotice({
+    hasOrigin: false,
+    tab: { present: true, restricted: true, reason: '扩展页面（chrome-extension://），扩展无法注入' },
+  });
+  assert.equal(restricted.visible, true);
+  assert.equal(restricted.kind, 'restricted-tab');
+  assert.match(restricted.title, /不可注入/);
+  assert.match(restricted.detail, /chrome-extension/);
+  assert.match(restricted.action, /重新绑定当前标签页/);
+
+  const unbound = activeSiteNotice({ hasOrigin: false, tab: { present: true, origin: 'https://a.test', restricted: false } });
+  assert.equal(unbound.kind, 'unbound-tab');
+  assert.match(unbound.detail, /https:\/\/a\.test/);
+  assert.match(unbound.action, /插件图标|重新绑定/);
+
+  const noTab = activeSiteNotice({ hasOrigin: false, tab: { present: false, restricted: true, reason: '没有可用标签页' } });
+  assert.equal(noTab.kind, 'no-tab');
+  assert.match(noTab.action, /重新绑定当前标签页/);
+});
+
+test('TASK-020 B: sendDisabledReason is readable and empty only when send is enabled', () => {
+  assert.equal(sendDisabledReason({ activeOrigin: 'https://a.test', pending: false }), '');
+  assert.match(sendDisabledReason({ activeOrigin: 'https://a.test', pending: true }), /处理中/);
+
+  const noOrigin = sendDisabledReason({
+    activeOrigin: undefined,
+    pending: false,
+    tab: { present: true, restricted: true, reason: '扩展页面（chrome-extension://），扩展无法注入' },
+  });
+  assert.match(noOrigin, /发送已禁用/);
+  assert.match(noOrigin, /不可注入/);
+  assert.match(noOrigin, /重新绑定当前标签页/);
+
+  const noTab = sendDisabledReason({ activeOrigin: undefined, pending: false, tab: null });
+  assert.match(noTab, /没有可用标签页/);
+});
+
+test('TASK-020 B/D: sidepanel exposes site-hint / rebind / llm-test surfaces', () => {
+  const html = read('../../src/ui/sidepanel/index.html');
+  assert.match(html, /id="site-hint"/);
+  assert.match(html, /id="site-hint-title"/);
+  assert.match(html, /id="site-hint-detail"/);
+  assert.match(html, /id="site-hint-action"/);
+  assert.match(html, /id="rebind"/);
+  assert.match(html, /重新绑定当前标签页/);
+  assert.match(html, /id="send-reason"/);
+  assert.match(html, /id="llm-test"/);
+  assert.match(html, /id="llm-test-result"/);
+
+  const src = read('../../src/ui/sidepanel/sidepanel.ts');
+  assert.match(src, /renderSiteHint\(\)/);
+  assert.match(src, /renderSendReason\(\)/);
+  assert.match(src, /makeMessage\('rebind'\)/);
+  assert.match(src, /makeMessage\('llm-test'/);
+  // env guard disables the panel-side rebind / test entries outside the extension
+  assert.match(src, /'rebind', 'llm-test'/);
+
+  assert.match(read('../../src/background/messaging.ts'), /'rebind'/);
+});
+
+test('TASK-020 A: options exposes a saved-key state marker + saved placeholder', () => {
+  const html = read('../../src/ui/options/index.html');
+  assert.match(html, /id="key-state"/);
+  assert.match(html, /id="test" class="test-primary"/);
+
+  const src = read('../../src/ui/options/options.ts');
+  assert.match(src, /API_KEY_PLACEHOLDER_SAVED = '已保存（不回显）；如需更换请重新输入'/);
+  assert.match(src, /renderKeyState\(true\)/);
+  assert.match(src, /Key ✅ 已写入（不回显）/);
+  assert.match(src, /⚠ 未配置 Key —— 保存后仍无法调用 LLM/);
+  assert.match(src, /setApiKeyPlaceholder\(true\)/);
+  assert.match(src, /highlightSaved\(\)/);
+  // a successful save still clears the input (F-8) — the marker makes it non-ambiguous
+  assert.match(src, /\(\$\('apiKey'\) as HTMLInputElement\)\.value = '';/);
+  // never echo a plaintext key into the receipt
+  assert.equal(/已保存：[\s\S]{0,80}apiKey/.test(src), false);
 });
 

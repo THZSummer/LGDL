@@ -24,7 +24,7 @@ import {
 } from '../platform/extension-env.js';
 import { capabilityFailure } from '../platform/unsupported.js';
 import { createController, type WebCliController } from './controller.js';
-import { buildStateMessage } from './state-message.js';
+import { buildStateMessage, projectActiveTab } from './state-message.js';
 import { buildDiagMessage } from './diag-message.js';
 import { BUILD_STAMP } from '../build-info.js';
 import { createWebCliHost, type WebCliHost } from './host.js';
@@ -254,6 +254,34 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
   }
 }
 
+/**
+ * TASK-020 任务 B: non-sensitive projection of the current active tab. Used by
+ * `state` (so the panel can explain "无活跃站点") and `rebind`.
+ */
+async function activeTabProjection() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return projectActiveTab(tab);
+  } catch (err) {
+    return {
+      present: false,
+      restricted: true,
+      reason: `无法读取当前标签页：${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+/** Origin of an http(s) tab URL, or null when the tab is restricted / unparseable. */
+function tabOrigin(url: string | undefined): string | null {
+  try {
+    const u = new URL(url ?? '');
+    if (u.protocol === 'http:' || u.protocol === 'https:') return u.origin;
+  } catch {
+    /* restricted / unparseable */
+  }
+  return null;
+}
+
 async function handleMessage(message: PluginMessage, sender?: chrome.runtime.MessageSender): Promise<PluginResponse> {
   const s = await init();
   switch (message.kind) {
@@ -276,6 +304,7 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
             : null,
           tools: s.host.deriveTools().map((t) => t.name),
           isAuthorized: (origin) => s.origins.isAuthorized(origin),
+          tab: await activeTabProjection(),
         }),
       );
     }
@@ -421,12 +450,28 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // before saving). The plaintext key never leaves this background request
       // and is never written to logs or the audit trail; only the readable,
       // status-classified result is returned.
+      const requestedProviderId = typeof message.providerId === 'string' ? message.providerId : '';
+      const requestedKey = typeof message.apiKey === 'string' ? message.apiKey : '';
+      let providerId = requestedProviderId;
+      let apiKey = requestedKey;
+      let model = typeof message.model === 'string' ? message.model : undefined;
+      let baseURL = typeof message.baseURL === 'string' ? message.baseURL : undefined;
+      if (!apiKey.trim()) {
+        // TASK-020 任务 D: side-panel entry has no key field → fall back to the
+        // stored config for the active/requested provider. The key is read here in
+        // the background only and is never returned / logged / audited.
+        const stored = await s.keys.load();
+        providerId = requestedProviderId || stored.providerId;
+        apiKey = stored.apiKey;
+        if (!model) model = stored.model;
+        if (baseURL === undefined) baseURL = stored.baseURL;
+      }
       const result = await testLlmConnection(
         {
-          providerId: typeof message.providerId === 'string' ? message.providerId : '',
-          apiKey: typeof message.apiKey === 'string' ? message.apiKey : '',
-          ...(typeof message.model === 'string' ? { model: message.model } : {}),
-          ...(typeof message.baseURL === 'string' ? { baseURL: message.baseURL } : {}),
+          providerId,
+          apiKey,
+          ...(model ? { model } : {}),
+          ...(baseURL ? { baseURL } : {}),
         },
         providerChat,
       );
@@ -469,6 +514,36 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       } catch (err) {
         return errorResponse(`重新探测失败：${err instanceof Error ? err.message : String(err)}`);
       }
+    }
+    case 'rebind': {
+      // TASK-020 任务 B: side-panel「重新绑定当前标签页」. Reuses the same bind
+      // semantics as the action-click path (`chrome.action.onClicked`), but from
+      // inside the panel with a readable failure reason. Restricted / missing
+      // tabs fail readably (never silently).
+      let tab: chrome.tabs.Tab | undefined;
+      try {
+        [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      } catch (err) {
+        return errorResponse(`无法读取当前标签页：${err instanceof Error ? err.message : String(err)}`);
+      }
+      if (tab?.id === undefined) {
+        return errorResponse('没有可绑定的标签页：请先打开目标站点标签页，再点插件图标或本按钮。');
+      }
+      const url = tab.url ?? '';
+      const origin = tabOrigin(url);
+      if (!origin) {
+        const projection = projectActiveTab(tab);
+        return errorResponse(`当前标签页不可绑定：${projection.reason ?? '不是 http(s) 站点'}。请切换到目标站点标签页后重试。`);
+      }
+      const injected = await ensureContentScript(tab.id);
+      if (!injected) {
+        return errorResponse('无法在当前标签页注入脚本（受限页面或权限不足）。请切换到目标站点标签页后重试。');
+      }
+      const prevOrigin = s.controller.get()?.origin;
+      s.controller.bindTab(tab.id, origin);
+      if (prevOrigin && prevOrigin !== origin) await resetChatSession(s);
+      await persistSession(s);
+      return okResponse({ origin, tabId: tab.id });
     }
     case 'confirm-response': {
       const rid = typeof message.requestId === 'string' ? message.requestId : '';

@@ -13,6 +13,18 @@
       #llm-status { min-width: 0; }
       #llm-status.warn { color: #b45309; font-weight: 600; }
       #open-options.primary { font-weight: 600; }
+      #llm-test { font-weight: 600; }
+      #llm-test-result { margin: 2px 0 4px; }
+      #llm-test-result.ok { color: #15803d; }
+      #llm-test-result.warn { color: #b45309; font-weight: 600; }
+      #site-hint {
+        display: none; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e;
+        border-radius: 4px; padding: 6px 8px; margin: 4px 0;
+      }
+      #site-hint .sh-title { font-weight: 600; }
+      #site-hint .sh-detail { margin: 3px 0; font-size: 12px; }
+      #site-hint .sh-action { font-size: 12px; font-weight: 600; }
+      #send-reason { margin-top: 4px; color: #b45309; }
       #onboarding {
         border: 1px solid #93c5fd; background: #eff6ff; border-radius: 4px;
         padding: 6px 8px; margin: 4px 0; display: none;
@@ -64,6 +76,13 @@
     <div class="topbar" id="topbar">
       <button id="open-options" type="button">配置模型 / 设置</button>
       <span id="llm-status" class="muted">LLM：检测中…</span>
+      <button id="llm-test" type="button">测试连接</button>
+    </div>
+    <div id="llm-test-result" class="muted" role="status" aria-live="polite"></div>
+    <div id="site-hint" role="status" aria-live="polite">
+      <div class="sh-title" id="site-hint-title"></div>
+      <div class="sh-detail" id="site-hint-detail"></div>
+      <div class="sh-action" id="site-hint-action"></div>
     </div>
     <div id="onboarding"></div>
     <div id="discovery-notice" role="status" aria-live="polite">
@@ -75,6 +94,7 @@
     <div class="row">
       <button id="authorize" type="button">授权当前站点</button>
       <button id="revoke" type="button">撤销授权</button>
+      <button id="rebind" type="button">重新绑定当前标签页</button>
       <button id="audit" type="button">查看审计</button>
       <span id="audit-count" class="muted">审计 0 条</span>
     </div>
@@ -103,6 +123,7 @@
       <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />
       <button id="send" type="submit">发送</button>
     </form>
+    <div id="send-reason" class="muted" role="status" aria-live="polite"></div>
     <script src="sidepanel.js"></script>
   </body>
 </html>

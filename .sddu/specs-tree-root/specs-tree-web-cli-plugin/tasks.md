@@ -39,6 +39,8 @@
 | TASK-016 | R | 发布渠道 + Gate-D 下线执行 | 🛠📄 | L | 全部 + Gate-D | 波3 | Wave 8 | `docs/release.md` + Gate-D 前置检查 + 摘除 AI 助手层 + 回退预案 + ROADMAP 登记 |
 | TASK-017 | — | UI/UX 修复（首次截图式审查 F-1~F-9） | 🛠 | M | TASK-016（post-validate additive） | 波3+ | Wave 9 | 侧栏设置入口/LLM 状态/首次引导/日志空态/知情同意折叠/按钮禁用；options 使用说明与未配置提示；F-9 模型 ID 核验 |
 | TASK-018 | — | options 保存链路加固 + 「测试连接」+ UI 旅程门禁（用户实测反馈） | 🛠 | M | TASK-017（post-validate additive） | 波3+ | Wave 10 | 真复现（首次保存是否失败）+ 保存 try/catch 可读失败/空 Key 明确提示/摘要回显；新增测试连接（background 最小真实请求 + 可读分类）；`npm run test:ui` 常驻真实点击旅程 |
+| TASK-019 | — | 三成因加固 + 环境自检诊断 + 真实验证（用户实测反馈第二轮） | 🛠📄 | M | TASK-018（post-validate additive） | 波3+ | Wave 11 | 非扩展上下文守卫 + 站点未声明三态说明/reprobe + 诊断面板/构建戳 + `test:hardening` |
+| TASK-020 | — | 保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见（用户实测反馈第三轮） | 🛠 | M | TASK-019（post-validate additive） | 波3+ | Wave 12 | Key 框已保存态标记/placeholder/成功色高亮；无活跃站点三态原因 + 「重新绑定当前标签页」+ 发送禁用原因；侧栏 Key 状态 + 侧栏测试连接；`test:ui` 25→41 |
 
 ### 1.2 依赖拓扑（串行主轴 + 并行组）
 
@@ -954,16 +956,65 @@ npm run build && npm test
 
 ---
 
+### TASK-020: 保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见（用户实测反馈第三轮，post-validate additive）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **类型** | 🛠 实施（options/sidepanel UI + background `rebind`/`llm-test` stored 回退 + 测试门禁；**不改 base、不引入新依赖**） |
+| **前置依赖** | TASK-019（post-validate 增补轮，不改已冻结 spec/plan） |
+| **执行波次** | Wave 12（validate / TASK-019 之后 additive） |
+| **对应 FR** | FR-033/034/035（BYOK 配置持久化 + 可验证）/ FR-010/014（发现三态与失败降级）/ FR-044（可调试）/ NFR-008（可读、不静默） |
+| **TB 映射** | 无（用户实测反馈驱动的增补轮，非 plan TB） |
+| **状态** | ✅ completed（2026-09-12；权威状态见 `state.json`；执行记录见 `build.md §16`；D-059~D-063） |
+| **风险** | 低（均为 additive；真实第三方厂商连通仍属人工面 H7，不冒充） |
+
+**描述**: 用户（真实 Google Chrome + `chrome://extensions` 加载 `dist`）实测：点保存提示「✓ 已保存…」但 **API Key 框变空** → 误判未保存；面板「无活跃站点」且发送禁用却无解释；诉求「能验证配置是否有效（测试连接）」。按已定位根因修复：① 保存后不再把空框做成失败——placeholder 改「已保存（不回显）…」+ `#key-state`=「Key ✅ 已写入（不回显）」+ 成功块/高亮/摘要；② 「无活跃站点」三态具体原因 + 下一步动作 + 「重新绑定当前标签页」（background `rebind` 复用既有 bind 语义，失败可读）+ 发送禁用原因就近可见；③ 侧栏 LLM 行补 `Key ✅/⚠未配置`（零明文）；④ options 测试按钮视觉突出紧邻保存 + 侧栏新增「测试连接」（复用 `llm-test`，无 key 时回退已保存配置，key 不落日志/审计）。
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| MODIFY | `packages/web-cli-plugin/src/ui/options/options.ts`、`src/ui/options/index.html` |
+| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/view-model.ts`、`sidepanel.ts`、`index.html` |
+| MODIFY | `packages/web-cli-plugin/src/background/messaging.ts`（+`rebind`）、`service-worker.ts`、`state-message.ts`（`ActiveTabView`/`projectActiveTab`/`state.tab`） |
+| MODIFY | `packages/web-cli-plugin/test/sidepanel-view.test.ts`、`test/state-message.test.ts`、`test/ui/journey.mjs` |
+| MODIFY | `packages/web-cli-plugin/docs/dev.md`（§9/§10.4/§10.5）、`docs/smoke-checklist.md`（M24/M29）；`.sddu/.../build.md`、`tasks.md`、`state.json` |
+| — | `packages/web-cli-base/**` **零改动**；根 `package.json` / `.opencode/opencode.json` **零改动** |
+
+**验收标准**:
+- [x] A：保存成功后 `#apiKey` 不再表现为「空框」——placeholder=「已保存（不回显）；如需更换请重新输入」+ `#key-state`=「Key ✅ 已写入（不回显）」；未配置时 `⚠ 未配置 Key`；刷新后由零明文摘要驱动同一标记
+- [x] A：`#saved` 成功块（绿底/加粗/摘要含「Key ✅ 已写入」）+ `scrollIntoView`/高亮；失败保持 `✖ 保存失败：…` 红字可读
+- [x] B：「无活跃站点」拆成三态具体原因 + 下一步动作；新增「重新绑定当前标签页」(`rebind`，失败可读)；`#send-reason` 在输入框旁显示禁用原因
+- [x] C：侧栏 LLM 行含 `Key ✅/⚠未配置`（零明文，仅由 `configured` 布尔派生，不新增 key 派生串）
+- [x] D：options `#test` 紧邻 `#save` 且视觉突出；侧栏 `#llm-test` 复用 `llm-test`（stored 回退）可读结果（成功 ms / 401 / 403 / 404 / CORS / 超时）；非扩展上下文下 options `#test` 与侧栏 `#llm-test`/`#rebind` 禁用
+- [x] E：`test:ui` 25→**41** 断言（含侧栏 0 异常/0 console error；hermetic mock）；单测 +10（`sidepanel-view` +5 / `state-message` +5）
+- [x] E：既有测试零删除零降级（插件 173→**183**，base 483 零回归）；`tsc --noEmit` 0 error；`test:hardening` 22 断言 PASS；`test:e2e` A/B PASS
+- [x] E：全仓 `npm run build` + `npm test` 0 fail
+- [x] E：红线：base 零改动、零新增依赖、key 无明文进日志/审计/消息回传、`.opencode/opencode.json` 零改动
+
+**验证命令**:
+```bash
+npm run build --workspace @lgdl/web-cli-plugin && npm run test --workspace @lgdl/web-cli-plugin
+npm run typecheck --workspace @lgdl/web-cli-plugin
+npm run test:ui --workspace @lgdl/web-cli-plugin
+npm run test:hardening --workspace @lgdl/web-cli-plugin
+npm run test:e2e --workspace @lgdl/web-cli-plugin
+npm run build && npm test
+```
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 3 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断，审查与实测反馈驱动） |
+| 总任务数 | 16（15 核心 + 1 可选后置 TASK-015/TB-Q）+ 4 post-validate 增补（TASK-017 UI 修复 / TASK-018 options 加固+测试连接 / TASK-019 三成因加固+诊断 / TASK-020 保存后呈现+无活跃站点自救+Key/测试连接可见，审查与实测反馈驱动） |
 | S 级 (简单) | 0 |
-| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 3 增补（017/018/019） |
+| M 级 (中等) | 9（001/002/003/007/008/009/012/013/015）+ 4 增补（017/018/019/020） |
 | L 级 (复杂) | 7（004/005/006/010/011/014/016） |
-| 执行波次 | 12（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 post-validate 增补） |
-| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019（非 plan TB） |
+| 执行波次 | 13（Wave 0~8 + Wave 9 TASK-017 + Wave 10 TASK-018 + Wave 11 TASK-019 + Wave 12 TASK-020 post-validate 增补） |
+| plan 波次覆盖 | 波0 = 001/002；波1(P0) = 003~011；波2(P1) = 012~015；波3(P2) = 016；波3+ = 017/018/019/020（非 plan TB） |
 | **P0 最小可用必做集** | **TASK-001~TASK-011**（波0 门槛 + 波1 四根柱子） |
 | 实施任务 | 13（003~010、012~015、016） |
 | 文档/契约预留任务 | 2（002；012/014 的文档面） |
@@ -1070,3 +1121,4 @@ npm run build && npm test
 | v1.0 | 初始创建（plan §9 TB-0A~TB-R 22 块 → 16 原子任务 / 9 波次（Wave 0~8）：波0 门槛 TASK-001〔0A+0D〕/002〔0B+0C〕；波1 P0 四柱 TASK-003~011〔TB-B+C→004、TB-E+F→006、TB-K+L→011 合并〕；波2 P1 TASK-012~015〔TB-O+P→014；TB-Q 可选〕；波3 P2 TASK-016〔TB-R，Gate-D 严格前置〕。P0 最小可用必做集 = TASK-001~011。D-001 类整合记录见 §4.4；D-005 测试守恒 + AC-001 每步门禁见 §4.1；plan 未覆盖依赖/冲突 8 项见 §4.5） | 2026-09-11 | SDDU Tasks Agent |
 | v1.1 | 追加 TASK-017（post-validate 增补，非 plan TB）：首次截图式 UI 审查 F-1~F-9 修复（侧栏设置入口/LLM 状态摘要/状态驱动引导/日志空态/知情同意折叠/按钮禁用语义；options 使用说明与未配置提示；F-9 模型 ID 核验）。任务汇总计入增补轮。 | 2026-09-12 | SDDU Build Agent |
 | v1.2 | 追加 TASK-018（options 保存链路加固 + 「测试连接」+ UI 旅程门禁）与 TASK-019（三成因加固 + 环境自检诊断 + 真实验证；post-validate 增补，非 plan TB，用户实测反馈驱动）。任务汇总/波次计入增补轮（Wave 10/11）。 | 2026-09-12 | SDDU Build Agent |
+| v1.3 | 追加 TASK-020（保存后呈现 + 「无活跃站点」自救 + Key/测试连接可见；post-validate 增补，非 plan TB，用户实测反馈第三轮驱动）。任务汇总/波次计入增补轮（Wave 12）；`test:ui` 25→41 断言、插件 173→183。 | 2026-09-12 | SDDU Build Agent |
