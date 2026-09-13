@@ -255,4 +255,24 @@
 
 ---
 
-**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13；可选权限披露 §12（书签/下载记录）：2026-09-13） ｜ **作者裁决反转（2026-09-13）**：§9 更新——`tabs` 放开 `close` 并补齐 `mute`/`pin`/`move`（**需求变更**，零新权限、`manifest.json` 零 diff；安全处置见 §9.4） ｜ **可选权限（2026-09-13）**：§12 新增——书签（读+写，删除为破坏性永不自动放行）与下载记录（只读）以 `optional_permissions` 声明，静态 `permissions` 零新增 ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图路径/可选权限调整时
+## 13. 可选权限披露：系统通知与剪贴板（TASK-039，作者裁决 2026-09-13）
+
+作者 2026-09-13 批准新增两个浏览器能力：`notify`（系统通知，读 + 写）与 `clipboard`（剪贴板纯文本，读 + 写）。二者**均以 `optional_permissions` 声明**，**不进入静态 `permissions`**。
+
+| 事项 | 结论 | 依据 |
+|------|------|------|
+| 为什么用 `optional_permissions` 而不是静态 `permissions` | 静态新增权限会在扩展**更新时使已安装扩展被 Chrome 停用**，直到用户重新同意；可选权限保持**静态安装面零变化**，且**可单独撤销**（撤销即从工具面移除） | `manifest.json`（仅 `optional_permissions` 新增 `notifications`/`clipboardRead`/`clipboardWrite`；`permissions` 未变） |
+| 「可 optional」资格 | 本轮在目标 Chromium（151.0.7922.34）**实测**：三者均可被 `chrome.permissions.request` 在真实手势内受理（prompt/pending）；对照 `debugger`/`proxy`/`geolocation`/`declarativeNetRequest` 返回「Only permissions specified in the manifest may be requested.」——资格核实通过 | `build.md` §37.2（探针脚本 + 原始结果） |
+| 授予时机与手势约束 | `chrome.permissions.request` **必须在扩展页面（侧栏设置视图 / options 兜底页）的按钮点击手势内**同步发起；**绝不在 service worker 调**（无手势必失败/挂起） | `docs/dev.md` §18.2；`test:ui` #54i~#54n |
+| 用途 | `notify`：列出通知 id/权限级别（读）、创建单条通知、清除单条（写）。`clipboard`：读取剪贴板纯文本（读）、写入剪贴板纯文本（写） | `src/tools/notify-tools.ts` / `src/tools/clipboard-tools.ts` |
+| 不做什么 | `clipboard` **不**实现 `write-html`/`write-image`/`paste-read`（插件裁剪，返回可读「未实现」，绝不静默/假装成功）；`notify clear` / `clipboard` 均不做批量；`notify` 不修改/不伪造通知正文；不采集剪贴板历史 | 同上 + `test/{notify,clipboard}-tools.test.ts` |
+| 隐私默认 | 通知开关默认**开**；剪贴板**读默认关**（隐私敏感 + 重提示）、写默认开。开关关闭即把该能力**从 `deriveTools()` 工具面移除**（不只是前端隐藏），派发被可读拒绝 | `src/background/capability-setting.ts` + `src/background/host.ts` |
+| **读侧默认关的理由** | 剪贴板读取可触及密码管理器/一次性验证码等高度敏感内容，且用户不易预期后台读取；故默认关闭，必须由用户在设置中显式开启，并在每次调用时仍走二次确认 | `docs/dev.md` §18.3；`test:ui` #54l |
+| 剪贴板读的自动授权硬底线 | 剪贴板读风险档为 **`state`**；`state`/`evaluate` **永不纳入自动授权**——即使开启「读操作自动」，剪贴板读**仍然 ask**；「写操作自动」也不放行插件级写类（沿用既有 hard floor） | `src/security/auto-authorize.ts` + `test/clipboard-tools.test.ts`（专门断言） |
+| 内容机密性 | 剪贴板内容与通知正文（title/body）**绝不进入审计或日志**：审计只记长度/路径；确认摘要经 `scrubContentArgs` 替换为「已省略 N 字符」后再展示/审计 | `src/security/confirm.ts` + `test/{notify,clipboard}-tools.test.ts` |
+| 实现路径（如实披露） | 剪贴板读/写运行在**扩展页**（侧栏或 options 页）的 `navigator.clipboard`（回退 `document.execCommand`）；service worker 无 `navigator.clipboard`、MV3 无宿主剪贴板 API。因此剪贴板调用需**有一个扩展页处于打开状态**，否则返回可读「请保持侧栏打开」拒绝（不静默） | `src/platform/clipboard-page.ts`；test:e2e 观测显示写入真实成功（`document.execCommand(copy)`，13 字符） |
+| 如何撤销 | 在 `chrome://extensions` 该扩展详情权限项中移除对应权限；`permissions.onRemoved` 监听即时把工具从工具面移除并审计（不静默残留） | `service-worker.ts` `onRemoved`/`onAdded` 对账 + `test` 撤销断言 |
+
+---
+
+**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13；可选权限披露 §12（书签/下载记录）：2026-09-13；可选权限披露 §13（系统通知/剪贴板）：2026-09-13） ｜ **作者裁决反转（2026-09-13）**：§9 更新——`tabs` 放开 `close` 并补齐 `mute`/`pin`/`move`（**需求变更**，零新权限、`manifest.json` 零 diff；安全处置见 §9.4） ｜ **可选权限（2026-09-13）**：§12 新增——书签（读+写，删除为破坏性永不自动放行）与下载记录（只读）以 `optional_permissions` 声明，静态 `permissions` 零新增；§13 新增——系统通知（读+写）与剪贴板（读默认关/写，读为 `state` 档永不自动放行；`write-html`/`write-image`/`paste-read` 裁剪；内容零审计明文）同样以 `optional_permissions` 声明，静态 `permissions` 零新增 ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图路径/可选权限调整时

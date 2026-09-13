@@ -25,6 +25,7 @@ import type { PluginAuditSink } from '../security/audit-sink.js';
 import type { OriginStore } from '../security/origin-store.js';
 import { decideAutoAuthorization } from '../security/auto-authorize.js';
 import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../security/policy.js';
+import type { OptionalCapability } from '../platform/capability-permissions.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
 import { createBrowserToolEntries, type BrowserToolOptions } from '../tools/browser-tools.js';
 import { createTabsToolEntry, TABS_TOOL_NAME, type TabsToolDeps } from '../tools/tabs-tools.js';
@@ -35,6 +36,8 @@ import {
   type BookmarksToolDeps,
 } from '../tools/bookmarks-tools.js';
 import { DOWNLOADS_TOOL_NAME, createDownloadsToolEntry, type DownloadsToolDeps } from '../tools/downloads-tools.js';
+import { NOTIFY_TOOL_NAME, createNotifyToolEntry, type NotifyToolDeps } from '../tools/notify-tools.js';
+import { CLIPBOARD_TOOL_NAME, createClipboardToolEntry, type ClipboardToolDeps } from '../tools/clipboard-tools.js';
 import {
   createWebFetchToolEntry,
   type WebFetchToolDeps,
@@ -60,6 +63,10 @@ export function isSiteToolName(name: string): boolean {
  */
 export function isPluginDestructiveInvocation(tool: string, subcommand?: string): boolean {
   if (tool === BOOKMARKS_TOOL_NAME) return isBookmarksDestructive(subcommand);
+  // FR-055: `notify` / `clipboard` are not destructive (they create/clear a
+  // notification or move plain text). Their risk tiers already keep `send`/
+  // `write` at `ask` and `read`/`clear` out of any auto path (plugin group).
+  if (tool === NOTIFY_TOOL_NAME || tool === CLIPBOARD_TOOL_NAME) return false;
   return true;
 }
 
@@ -100,6 +107,19 @@ export interface WebCliHostOptions {
   bookmarksEnabled?: { read: boolean; write: boolean };
   /** Initial downloads privacy toggle (read default on). */
   downloadsEnabled?: boolean;
+  /**
+   * FR-055 (TASK-039): optional-permission `notify` (system notifications) and
+   * `clipboard` (read + write) capabilities. Same optional_permissions model as
+   * `bookmarks`/`downloads`; the host receives the chrome/panel-side ops + the
+   * privacy toggles. Omitted → the tool is not registered (node tests / hosts
+   * that do not own `chrome.notifications` or a side-panel clipboard seam).
+   */
+  notify?: Omit<NotifyToolDeps, 'enabled'>;
+  clipboard?: Omit<ClipboardToolDeps, 'readEnabled' | 'writeEnabled'>;
+  /** Initial notify privacy toggle (default on). */
+  notifyEnabled?: boolean;
+  /** Initial clipboard privacy toggles (read default OFF / write default ON). */
+  clipboardEnabled?: { read: boolean; write: boolean };
   /**
    * FR-050 / EC-023: plugin-side controlled `web-fetch` seam. When provided, the
    * base builtin `web-fetch` is **not** registered as a builtin; this controlled
@@ -152,13 +172,19 @@ export interface WebCliHost {
   /** FR-054: downloads privacy toggle (read-only tool). */
   setDownloadsEnabled(enabled: boolean): void;
   isDownloadsEnabled(): boolean;
+  /** FR-055: notify privacy toggle (whole tool). */
+  setNotifyEnabled(enabled: boolean): void;
+  isNotifyEnabled(): boolean;
+  /** FR-055: clipboard privacy toggles (read default off / write default on). */
+  setClipboardEnabled(next: { read: boolean; write: boolean }): void;
+  isClipboardEnabled(): { read: boolean; write: boolean };
   /**
-   * FR-054: permission-revocation suppression. `suppressed=true` unregisters the
-   * capability immediately (revocation never leaves a silently-present tool);
-   * `false` re-registers it per the privacy toggles (re-grant / user request).
+   * FR-054 / FR-055: permission-revocation suppression. `suppressed=true`
+   * unregisters the capability immediately (revocation never leaves a
+   * silently-present tool); `false` re-registers it per the privacy toggles.
    */
-  suppressCapability(cap: 'bookmarks' | 'downloads', suppressed: boolean): void;
-  isCapabilitySuppressed(cap: 'bookmarks' | 'downloads'): boolean;
+  suppressCapability(cap: OptionalCapability, suppressed: boolean): void;
+  isCapabilitySuppressed(cap: OptionalCapability): boolean;
 }
 
 export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
@@ -341,6 +367,61 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
   syncBookmarks();
   syncDownloads();
 
+  // FR-055 (TASK-039): `notify` / `clipboard` optional-permission capabilities.
+  // Same registration discipline as `bookmarks`/`downloads`: the permission is
+  // checked inside each executor (readable「未开启」), the privacy toggles govern
+  // whether the tool is in `deriveTools()`, and a revocation suppresses it.
+  let notifyToggle = opts.notifyEnabled !== false;
+  let clipboardToggles = {
+    read: opts.clipboardEnabled?.read === true,
+    write: opts.clipboardEnabled?.write !== false,
+  };
+  let notifySuppressed = false;
+  let clipboardSuppressed = false;
+  let notifyRegistered = false;
+  let clipboardRegistered = false;
+
+  const registerNotify = (): void => {
+    if (!opts.notify || notifyRegistered) return;
+    router.register(createNotifyToolEntry({ ...opts.notify, enabled: () => notifyToggle }));
+    notifyRegistered = true;
+  };
+  const unregisterNotify = (): void => {
+    if (!notifyRegistered) return;
+    router.unregister(NOTIFY_TOOL_NAME);
+    notifyRegistered = false;
+  };
+  const syncNotify = (): void => {
+    const should = Boolean(opts.notify) && !notifySuppressed && notifyToggle;
+    if (should) registerNotify();
+    else unregisterNotify();
+  };
+
+  const registerClipboard = (): void => {
+    if (!opts.clipboard || clipboardRegistered) return;
+    router.register(
+      createClipboardToolEntry({
+        ...opts.clipboard,
+        readEnabled: () => clipboardToggles.read,
+        writeEnabled: () => clipboardToggles.write,
+      }),
+    );
+    clipboardRegistered = true;
+  };
+  const unregisterClipboard = (): void => {
+    if (!clipboardRegistered) return;
+    router.unregister(CLIPBOARD_TOOL_NAME);
+    clipboardRegistered = false;
+  };
+  const syncClipboard = (): void => {
+    const should = Boolean(opts.clipboard) && !clipboardSuppressed && (clipboardToggles.read || clipboardToggles.write);
+    if (should) registerClipboard();
+    else unregisterClipboard();
+  };
+
+  syncNotify();
+  syncClipboard();
+
   // FR-050 / EC-023: controlled `web-fetch` seam (replaces the base builtin when
   // the host owns the permission checker). Registered as a plugin-level tool so
   // the pre-flight gate runs before any fetch is attempted.
@@ -453,17 +534,41 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     isDownloadsEnabled() {
       return downloadsToggle;
     },
+    setNotifyEnabled(enabled) {
+      notifyToggle = enabled === true;
+      syncNotify();
+    },
+    isNotifyEnabled() {
+      return notifyToggle;
+    },
+    setClipboardEnabled(next) {
+      clipboardToggles = { read: next.read === true, write: next.write === true };
+      syncClipboard();
+    },
+    isClipboardEnabled() {
+      return { ...clipboardToggles };
+    },
     suppressCapability(cap, suppressed) {
+      const flag = suppressed === true;
       if (cap === 'bookmarks') {
-        bookmarksSuppressed = suppressed === true;
+        bookmarksSuppressed = flag;
         syncBookmarks();
-      } else {
-        downloadsSuppressed = suppressed === true;
+      } else if (cap === 'downloads') {
+        downloadsSuppressed = flag;
         syncDownloads();
+      } else if (cap === 'notify') {
+        notifySuppressed = flag;
+        syncNotify();
+      } else {
+        clipboardSuppressed = flag;
+        syncClipboard();
       }
     },
     isCapabilitySuppressed(cap) {
-      return cap === 'bookmarks' ? bookmarksSuppressed : downloadsSuppressed;
+      if (cap === 'bookmarks') return bookmarksSuppressed;
+      if (cap === 'downloads') return downloadsSuppressed;
+      if (cap === 'notify') return notifySuppressed;
+      return clipboardSuppressed;
     },
   };
 }

@@ -49,7 +49,10 @@ import { TABS_TOOL_NAME, parseTabRef, redactTabTitle, redactTabUrl, resolveTabTa
 import { createCapabilitySettingStore, type CapabilitySettingStore } from './capability-setting.js';
 import type { BookmarkRecord, BookmarksToolDeps } from '../tools/bookmarks-tools.js';
 import type { DownloadRecord, DownloadsToolDeps } from '../tools/downloads-tools.js';
+import type { NotifyListing, NotifyOperationResult, NotifyToolDeps } from '../tools/notify-tools.js';
+import type { ClipboardIoResult, ClipboardToolDeps } from '../tools/clipboard-tools.js';
 import {
+  OPTIONAL_CAPABILITIES,
   OPTIONAL_CAPABILITY_TOOL,
   changeTouchesCapability,
   hasCapabilityPermission,
@@ -464,6 +467,11 @@ async function init(): Promise<Singletons> {
     // never from this SW.
     const bookmarksDeps = createBookmarksToolDeps({ audit });
     const downloadsDeps = createDownloadsToolDeps({ audit });
+    // FR-055 (TASK-039): `notify` runs on the real `chrome.notifications` host
+    // API; `clipboard` forwards to the side panel because the SW has no
+    // `navigator.clipboard` (and MV3 has no host clipboard API).
+    const notifyDeps = createNotifyToolDeps({ audit });
+    const clipboardDeps = createClipboardToolDeps({ audit });
 
     const host = createWebCliHost({
       origins,
@@ -620,6 +628,14 @@ async function init(): Promise<Singletons> {
         write: capabilitySetting.get().bookmarksWrite,
       },
       downloadsEnabled: capabilitySetting.get().downloadsRead,
+      // FR-055: notify (default on) + clipboard (read default off / write default on).
+      notify: notifyDeps,
+      notifyEnabled: capabilitySetting.get().notify,
+      clipboard: clipboardDeps,
+      clipboardEnabled: {
+        read: capabilitySetting.get().clipboardRead,
+        write: capabilitySetting.get().clipboardWrite,
+      },
       // FR-050 / EC-023: controlled `web-fetch` seam. The pre-flight gate checks
       // the host permission BEFORE fetching (uncovered origins → zero request +
       // readable refusal); same-origin reads prefer the bound tab's page context.
@@ -1104,6 +1120,103 @@ function createDownloadsToolDeps(deps: { audit: PluginAuditSink }): Omit<Downloa
 }
 
 /**
+ * FR-055 (TASK-039): minimal valid notification icon (1×1 transparent PNG) as a
+ * data URL — `chrome.notifications.create` requires an `iconUrl`; this avoids
+ * shipping a binary asset (and a missing URL would make create() reject).
+ */
+const NOTIFY_ICON_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+/**
+ * FR-055 (TASK-039): the plugin-level `notify` tool deps, backed by the real
+ * `chrome.notifications` host API (the base `notify` entry is a page-context
+ * `Notification` face and cannot run in the service worker). Content (title /
+ * body) is passed through to the API but never audited or logged.
+ */
+function createNotifyToolDeps(deps: { audit: PluginAuditSink }): Omit<NotifyToolDeps, 'enabled'> {
+  return {
+    hasPermission: () => chrome.permissions.contains({ permissions: ['notifications'] }),
+    listNotifications: async (): Promise<NotifyListing> => {
+      const all = (await chrome.notifications.getAll()) as Record<string, boolean> | undefined;
+      const entries = Object.keys(all ?? {}).map((id) => ({ id, shown: all?.[id] !== false }));
+      let permissionLevel = '';
+      try {
+        permissionLevel = await chrome.notifications.getPermissionLevel();
+      } catch {
+        permissionLevel = '(不可读)';
+      }
+      return { entries, permissionLevel };
+    },
+    createNotification: async ({ title, body }): Promise<NotifyOperationResult> => {
+      // `iconUrl` is required by the API typing (and by Chrome for `basic`); a
+      // 1×1 transparent PNG data URL avoids shipping a binary asset while still
+      // giving Chrome a valid icon. Content is passed through, never audited.
+      const id = await new Promise<string>((resolve, reject) => {
+        try {
+          chrome.notifications.create(
+            { type: 'basic', title, message: body ?? '', iconUrl: NOTIFY_ICON_DATA_URL },
+            (createdId) => {
+              const lastError = chrome.runtime.lastError;
+              if (lastError) reject(new Error(lastError.message));
+              else resolve(createdId);
+            },
+          );
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      });
+      return {
+        ok: true,
+        output: `✓ 已创建系统通知（id=${id}；标题 ${title.length} 字符${body ? `，正文 ${body.length} 字符` : ''}）`,
+        id,
+      };
+    },
+    clearNotification: async (id): Promise<NotifyOperationResult> => {
+      const cleared = await chrome.notifications.clear(id);
+      return {
+        ok: true,
+        output: cleared ? `✓ 已清除通知（id=${id}）` : `（通知 id=${id} 不存在或已清除）`,
+      };
+    },
+    audit: deps.audit,
+  };
+}
+
+/**
+ * FR-055 (TASK-039): the plugin-level `clipboard` tool deps.
+ *
+ * The service worker has no `navigator.clipboard` (and MV3 exposes no host
+ * clipboard API), so the real text read/write is forwarded to the **extension
+ * page** (side panel), which performs it under the granted
+ * `clipboardRead`/`clipboardWrite` permissions and reports the path it used. A
+ * missing receiver (panel closed) is a readable refusal, never a silent success.
+ */
+function createClipboardToolDeps(deps: { audit: PluginAuditSink }): Omit<ClipboardToolDeps, 'readEnabled' | 'writeEnabled'> {
+  const request = async (payload: Record<string, unknown>): Promise<ClipboardIoResult> => {
+    try {
+      const res = (await chrome.runtime.sendMessage(makeMessage('clipboard-op', payload))) as
+        | PluginResponse<{ ok: boolean; text?: string; chars?: number; path?: string; error?: string }>
+        | undefined;
+      if (!res) return { ok: false, error: '侧栏未响应剪贴板操作（请保持侧栏打开后重试）' };
+      if (!res.ok || !res.data) return { ok: false, error: res.error ?? '剪贴板操作失败' };
+      return res.data;
+    } catch (err) {
+      return {
+        ok: false,
+        error: `无法到达扩展页面执行剪贴板操作（请保持侧栏打开）：${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  };
+  return {
+    hasReadPermission: () => chrome.permissions.contains({ permissions: ['clipboardRead'] }),
+    hasWritePermission: () => chrome.permissions.contains({ permissions: ['clipboardWrite'] }),
+    readText: () => request({ op: 'read' }),
+    writeText: (text) => request({ op: 'write', text }),
+    audit: deps.audit,
+  };
+}
+
+/**
  * FR-049 (author decision ③ + author reversal 2026-09-13): the plugin-level
  * `tabs` tool deps.
  *
@@ -1377,11 +1490,15 @@ async function reconcileContentScripts(s: Singletons): Promise<void> {
 async function capabilityStatusPayload(s: Singletons): Promise<{
   bookmarks: { read: boolean; write: boolean; granted: boolean; revoked: boolean };
   downloads: { read: boolean; granted: boolean; revoked: boolean };
+  notify: { enabled: boolean; granted: boolean; revoked: boolean };
+  clipboard: { read: boolean; write: boolean; granted: boolean; revoked: boolean };
   tools: string[];
 }> {
   const cfg = s.capabilitySetting.get();
   const bookmarksGranted = await hasCapabilityPermission(chrome.permissions, 'bookmarks');
   const downloadsGranted = await hasCapabilityPermission(chrome.permissions, 'downloads');
+  const notifyGranted = await hasCapabilityPermission(chrome.permissions, 'notify');
+  const clipboardGranted = await hasCapabilityPermission(chrome.permissions, 'clipboard');
   return {
     bookmarks: {
       read: cfg.bookmarksRead,
@@ -1394,8 +1511,24 @@ async function capabilityStatusPayload(s: Singletons): Promise<{
       granted: downloadsGranted,
       revoked: !downloadsGranted && s.host.isCapabilitySuppressed('downloads'),
     },
+    notify: {
+      enabled: cfg.notify,
+      granted: notifyGranted,
+      revoked: !notifyGranted && s.host.isCapabilitySuppressed('notify'),
+    },
+    clipboard: {
+      read: cfg.clipboardRead,
+      write: cfg.clipboardWrite,
+      granted: clipboardGranted,
+      revoked: !clipboardGranted && s.host.isCapabilitySuppressed('clipboard'),
+    },
     tools: s.host.deriveTools().map((t) => t.name),
   };
+}
+
+/** FR-055: normalize the raw `capabilities` capability field to a known cap. */
+function capabilityOf(raw: unknown): OptionalCapability {
+  return raw === 'downloads' ? 'downloads' : raw === 'notify' ? 'notify' : raw === 'clipboard' ? 'clipboard' : 'bookmarks';
 }
 
 async function handleMessage(message: PluginMessage, sender?: chrome.runtime.MessageSender): Promise<PluginResponse> {
@@ -1760,7 +1893,7 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const action =
         message.action === 'set' ? 'set' : message.action === 'permission-changed' ? 'permission-changed' : 'status';
       if (action === 'set') {
-        const capability: OptionalCapability = message.capability === 'downloads' ? 'downloads' : 'bookmarks';
+        const capability: OptionalCapability = capabilityOf(message.capability);
         const scope = message.scope === 'write' ? 'write' : 'read';
         if (typeof message.enabled !== 'boolean') return errorResponse('capabilities set 需要 enabled:boolean');
         if (capability === 'bookmarks') {
@@ -1769,19 +1902,28 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
               ? await s.capabilitySetting.save({ bookmarksWrite: message.enabled })
               : await s.capabilitySetting.save({ bookmarksRead: message.enabled });
           s.host.setBookmarksEnabled({ read: next.bookmarksRead, write: next.bookmarksWrite });
-        } else {
+        } else if (capability === 'downloads') {
           const next = await s.capabilitySetting.save({ downloadsRead: message.enabled });
           s.host.setDownloadsEnabled(next.downloadsRead);
+        } else if (capability === 'notify') {
+          const next = await s.capabilitySetting.save({ notify: message.enabled });
+          s.host.setNotifyEnabled(next.notify);
+        } else {
+          const next =
+            scope === 'write'
+              ? await s.capabilitySetting.save({ clipboardWrite: message.enabled })
+              : await s.capabilitySetting.save({ clipboardRead: message.enabled });
+          s.host.setClipboardEnabled({ read: next.clipboardRead, write: next.clipboardWrite });
         }
         s.audit.recordPlugin({
           type: 'optional-permission',
           ts: Date.now(),
           tool: OPTIONAL_CAPABILITY_TOOL[capability],
           decision: message.enabled ? 'enabled' : 'disabled',
-          detail: `隐私开关：${capability} ${scope}=${message.enabled}（工具面随之增删，不静默）`,
+          detail: `隐私开关：${capability} ${capability === 'notify' ? 'enabled' : scope}=${message.enabled}（工具面随之增删，不静默）`,
         });
       } else if (action === 'permission-changed') {
-        const capability: OptionalCapability = message.capability === 'downloads' ? 'downloads' : 'bookmarks';
+        const capability: OptionalCapability = capabilityOf(message.capability);
         const granted = await hasCapabilityPermission(chrome.permissions, capability);
         // Denied/revoked → suppress (remove from the surface); granted → re-register
         // per the privacy toggles. Both audited readably.
@@ -2010,7 +2152,7 @@ chrome.permissions.onRemoved.addListener((permissions) => {
     // FR-054: an optional-capability revocation removes the tool from the surface
     // immediately (never leaves a silently-present tool). Re-granting is handled by
     // `onAdded` / the settings「开启」button.
-    for (const cap of ['bookmarks', 'downloads'] as const) {
+    for (const cap of OPTIONAL_CAPABILITIES) {
       if (!changeTouchesCapability(permissions, cap)) continue;
       s.host.suppressCapability(cap, true);
       s.audit.recordPlugin({
@@ -2032,7 +2174,7 @@ chrome.permissions.onAdded.addListener((permissions) => {
     const s = await init();
     // FR-054: a capability grant (e.g. from the browser's own site-access UI)
     // re-registers the tool per the privacy toggles.
-    for (const cap of ['bookmarks', 'downloads'] as const) {
+    for (const cap of OPTIONAL_CAPABILITIES) {
       if (!changeTouchesCapability(permissions, cap)) continue;
       s.host.suppressCapability(cap, false);
       s.audit.recordPlugin({

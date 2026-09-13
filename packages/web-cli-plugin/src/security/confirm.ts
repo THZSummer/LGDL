@@ -52,6 +52,32 @@ export interface ConfirmBridgeOptions {
 }
 
 /**
+ * Tools whose argument values are **content** (clipboard text / notification
+ * title+body). `summarizeArgs` masks only sensitive-looking KEYS, so these
+ * values would otherwise be copied verbatim into the confirmation summary →
+ * the `confirm` audit event. TASK-039 / FR-055: scrub them to a length-only
+ * placeholder before the summary is built and before the question is sent.
+ */
+export const CONTENT_ARG_TOOLS: ReadonlySet<string> = new Set(['clipboard', 'notify']);
+
+/** Arg keys carrying user content for the tools above. */
+const CONTENT_ARG_KEY_RE = /^(text|html|dataurl|data|title|body|message)$/i;
+
+/**
+ * Replace content-bearing arg values of `clipboard` / `notify` with a length-only
+ * placeholder. Every other tool is returned unchanged. Pure + exported so the
+ * zero-plaintext guarantee is unit-testable.
+ */
+export function scrubContentArgs(tool: string, args?: Record<string, string>): Record<string, string> | undefined {
+  if (!args || !CONTENT_ARG_TOOLS.has(tool)) return args;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(args)) {
+    out[k] = CONTENT_ARG_KEY_RE.test(k) ? `<已省略 ${String(v ?? '').length} 字符>` : v;
+  }
+  return out;
+}
+
+/**
  * Create the `onAsk` bridge for the plugin router policy.
  * Any failure (no responder / thrown error / non-allow) → deny.
  */
@@ -71,6 +97,10 @@ export function createConfirmBridge(opts: ConfirmBridgeOptions): (question: AskQ
         /* keep the plain question; the ask still happens */
       }
     }
+    // FR-055: never let clipboard/notification CONTENT reach the summary (→ the
+    // `confirm` audit event) or the confirm-request message sent to the panel.
+    const safeArgs = scrubContentArgs(shown.tool, shown.args);
+    shown = safeArgs === shown.args ? shown : { ...shown, args: safeArgs ?? {} };
     const summary = buildOperationSummary({
       origin,
       tool: shown.tool,

@@ -17,7 +17,10 @@
   ],
   "optional_permissions": [
     "bookmarks",
-    "downloads"
+    "downloads",
+    "notifications",
+    "clipboardRead",
+    "clipboardWrite"
   ],
   "optional_host_permissions": [
     "http://*/*",

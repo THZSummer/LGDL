@@ -79,25 +79,26 @@
 | 绑定回退路径增强 | 有 `tabs` 后后台可直接读取当前标签页 URL，`rebind` 不再依赖点击手势即可读取地址（点图标路径保持不变） |
 | 隐私默认 | `list` 默认去除 query/fragment，避免用户查询串进入模型上下文；仅 `--full` 显式返回完整 URL |
 
-## 6. 可选权限能力（`bookmarks` / `downloads`）不改变安装面（TASK-038，2026-09-13）
+## 6. 可选权限能力（`bookmarks` / `downloads` / `notify` / `clipboard`）不改变安装面（TASK-038/039，2026-09-13）
 
-> 作者 2026-09-13 批准新增书签（读 + 写）与下载记录（只读）能力。二者以 **`optional_permissions`** 声明，**静态 `permissions` 零新增**——因此**本包相对上一分发包的安装警告不变**（不触发 Chrome 更新时的「扩展已停用，需重新同意」）。
+> 作者 2026-09-13 批准新增书签（读 + 写）、下载记录（只读）、系统通知（读 + 写）与剪贴板（读 + 写，读默认关）能力。全部以 **`optional_permissions`** 声明，**静态 `permissions` 零新增**——因此**本包相对上一分发包的安装警告不变**（不触发 Chrome 更新时的「扩展已停用，需重新同意」）。
 
 | | 上一分发包 | 本包 |
 |--|-----------|------|
 | `permissions` | `activeTab` / `scripting` / `storage` / `sidePanel` / `tabs` | **不变** |
-| `optional_permissions` | —（无） | 新增 `bookmarks` / `downloads`（**首次使用才向用户请求**，非安装时） |
+| `optional_permissions` | 无 | 新增 `bookmarks` / `downloads` / `notifications` / `clipboardRead` / `clipboardWrite`（**首次使用才向用户请求**，非安装时） |
 | `host_permissions` / `optional_host_permissions` | 6 个 LLM 端点 / `http://*/*`、`https://*/*` | **不变** |
 | `minimum_chrome_version` | `116` | **不变** |
 | `<all_urls>` / 静态 `content_scripts` | 无 | **仍无** |
 
 **用户可感知差异**：
 
-- 安装/更新时**无新权限提示**；权限在用户于「⚙ 设置 → 能力与隐私」点击「开启书签访问 / 开启下载记录访问」时**按需请求**（手势内，浏览器弹窗）。
-- 新增两个助手工具：`bookmarks`（list/search/tree/add/remove/move；写侧 `ask`，`remove` 破坏性永不自动放行）、`downloads`（**只读** list/search；不做取消/删除/打开）。
+- 安装/更新时**无新权限提示**；权限在用户于「⚙ 设置 → 能力与隐私」点击「开启书签访问 / 开启下载记录访问 / 开启通知 / 开启剪贴板访问」时**按需请求**（手势内，浏览器弹窗）。
+- 新增四个助手工具：`bookmarks`（读+写；`remove` 破坏性永不自动放行）、`downloads`（只读）、`notify`（list/send/clear）、`clipboard`（纯文本 read/write；**读默认关**，`write-html`/`write-image`/`paste-read` 不实现）。
 - 未授权 → 工具调用返回可读「未开启：去设置开启」（不静默）；授权后在 `chrome://extensions` 可**单独撤销**，撤销即从工具面移除。
+- 剪贴板读为 `state` 档：**永不自动放行**；剪贴板/通知内容**零审计明文**。
 
-分发物构成（`dist/`）不变，仅 `dist/manifest.json` 的 `optional_permissions` 字段新增两项；分发前核对同 §2。
+分发物构成（`dist/`）不变，仅 `dist/manifest.json` 的 `optional_permissions` 字段新增项；分发前核对同 §2。
 
 ## 7. 引用
 
@@ -116,3 +117,4 @@
 | 1.2 | TASK-033：设置入口由跳转 `options.html` 改为**侧栏内设置视图**（零跳转、聊天状态保留）；设置逻辑抽为共享模块 `src/ui/settings/`（面板与 options 兜底页共用，消除分叉）；`options.html` 保留为兜底、功能不退化；**无新权限、无新依赖、manifest 零改动**。 |
 | 1.3 | **作者裁决反转（2026-09-13）**：`tabs` 补齐 `mute`/`pin`/`move` 并**放开 `close`**（撤销 1.1 的「不含 close」约束，属**需求变更**）——`close` 恒 `write`→`ask`、一次只关一个（禁止批量）、确认摘要含目标标题 + 去 query/fragment 的 URL + 不可逆（含侧栏自关）提示、受限页/未知 id 可读拒绝、审计零明文；**未新增任何权限**（`chrome.tabs.remove/update/move` 在既有 `tabs` 权限下可用），权限面与 §5 表格不变。 |
 | 1.4 | **TASK-038（作者裁决 2026-09-13）**：新增可选权限能力 `bookmarks`（读+写，`remove` 破坏性永不自动放行）与 `downloads`（只读）——**以 `optional_permissions` 声明，静态 `permissions` 零新增**，安装/更新**无新权限提示**（避免扩展更新被停用），首次使用才按需手势请求、可按能力单独撤销；新增 §6 说明安装面不变 + 用户可感知差异；`test:binding`/`test:e2e` 的测试副本静态权限偏差已披露（仅测试副本，不进分发物）。 |
+| 1.5 | **TASK-039（作者裁决 2026-09-13）**：新增可选权限能力 `notify`（系统通知，读+写）与 `clipboard`（剪贴板纯文本读+写，**读默认关**）——同样**以 `optional_permissions` 声明（`notifications` + `clipboardRead`/`clipboardWrite`），静态 `permissions` 零新增**，安装/更新**无新权限提示**；§6 更新为四项能力的安装面不变说明；剪贴板读为 `state` 档永不自动放行、内容零审计明文；「可 optional」资格已在目标 Chromium 实测核实；测试副本静态权限偏差已披露（仅测试副本，不进分发物）。 |

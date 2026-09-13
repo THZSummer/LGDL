@@ -50,9 +50,12 @@ import {
 } from '../settings/view.js';
 import { createSettingsOps, transportFromRuntime } from '../settings/ops.js';
 import { requestCapabilityPermissionOnGesture, type OptionalCapability } from '../../platform/capability-permissions.js';
+import { handleClipboardOpMessage } from '../../platform/clipboard-page.js';
 import {
   bookmarksCapabilityStatus,
   downloadsCapabilityStatus,
+  notifyCapabilityStatus,
+  clipboardCapabilityStatus,
   type CapabilitiesView,
 } from '../settings/view.js';
 
@@ -474,35 +477,49 @@ async function setTabsSetting(enabled: boolean): Promise<void> {
   renderTabsSetting(res.data.enabled, res.data.tools);
 }
 
-// ── FR-054: 可选权限能力（书签 / 下载记录） ─────────────────────────────────
+// ── FR-054 / FR-055: 可选权限能力（书签 / 下载记录 / 通知 / 剪贴板） ─────────
 
 function renderCapabilities(view: CapabilitiesView): void {
   ($('cap-bookmarks-read') as HTMLInputElement).checked = view.bookmarks.read;
   ($('cap-bookmarks-write') as HTMLInputElement).checked = view.bookmarks.write;
   ($('cap-downloads-read') as HTMLInputElement).checked = view.downloads.read;
+  ($('cap-notify-enabled') as HTMLInputElement).checked = view.notify.read;
+  ($('cap-clipboard-read') as HTMLInputElement).checked = view.clipboard.read;
+  ($('cap-clipboard-write') as HTMLInputElement).checked = view.clipboard.write;
   $('cap-bookmarks-status').textContent = bookmarksCapabilityStatus(view.bookmarks);
   $('cap-downloads-status').textContent = downloadsCapabilityStatus(view.downloads);
+  $('cap-notify-status').textContent = notifyCapabilityStatus(view.notify);
+  $('cap-clipboard-status').textContent = clipboardCapabilityStatus(view.clipboard);
 }
 
 async function refreshCapabilities(): Promise<void> {
   if (!envGuard.inExtension) {
-    $('cap-bookmarks-status').textContent = '非扩展环境：无法读取能力权限状态。';
-    $('cap-downloads-status').textContent = '非扩展环境：无法读取能力权限状态。';
+    for (const id of ['cap-bookmarks-status', 'cap-downloads-status', 'cap-notify-status', 'cap-clipboard-status']) {
+      $(id).textContent = '非扩展环境：无法读取能力权限状态。';
+    }
     return;
   }
   const res = await settingsOps.loadCapabilities();
   if (!res.data) {
-    $('cap-bookmarks-status').textContent = res.text;
-    $('cap-downloads-status').textContent = res.text;
+    for (const id of ['cap-bookmarks-status', 'cap-downloads-status', 'cap-notify-status', 'cap-clipboard-status']) {
+      $(id).textContent = res.text;
+    }
     return;
   }
   renderCapabilities(res.data);
 }
 
+const CAPABILITY_STATUS_ID: Record<OptionalCapability, string> = {
+  bookmarks: 'cap-bookmarks-status',
+  downloads: 'cap-downloads-status',
+  notify: 'cap-notify-status',
+  clipboard: 'cap-clipboard-status',
+};
+
 async function requestCapability(cap: OptionalCapability): Promise<void> {
-  const label = cap === 'bookmarks' ? '书签' : '下载记录';
-  const statusId = cap === 'bookmarks' ? 'cap-bookmarks-status' : 'cap-downloads-status';
-  const status = $(statusId);
+  const label =
+    cap === 'bookmarks' ? '书签' : cap === 'downloads' ? '下载记录' : cap === 'notify' ? '系统通知' : '剪贴板';
+  const status = $(CAPABILITY_STATUS_ID[cap]);
   status.textContent = `正在请求${label}权限…（浏览器会弹出授权提示；此请求发生在你的点击手势内）`;
   // Gesture call happens synchronously inside the click handler.
   const res = await requestCapabilityPermissionOnGesture(cap);
@@ -611,9 +628,11 @@ function wire(): void {
     void setTabsSetting((e.target as HTMLInputElement).checked);
   });
 
-  // FR-054: 可选权限能力（书签 / 下载记录）。权限请求必须在点击手势内发起。
+  // FR-054 / FR-055: 可选权限能力（书签 / 下载记录 / 通知 / 剪贴板）。权限请求必须在点击手势内发起。
   $('cap-bookmarks-request').addEventListener('click', () => void requestCapability('bookmarks'));
   $('cap-downloads-request').addEventListener('click', () => void requestCapability('downloads'));
+  $('cap-notify-request').addEventListener('click', () => void requestCapability('notify'));
+  $('cap-clipboard-request').addEventListener('click', () => void requestCapability('clipboard'));
   $('cap-bookmarks-read').addEventListener('change', (e) =>
     void setCapabilityPrivacy('bookmarks', 'read', (e.target as HTMLInputElement).checked),
   );
@@ -622,6 +641,15 @@ function wire(): void {
   );
   $('cap-downloads-read').addEventListener('change', (e) =>
     void setCapabilityPrivacy('downloads', 'read', (e.target as HTMLInputElement).checked),
+  );
+  $('cap-notify-enabled').addEventListener('change', (e) =>
+    void setCapabilityPrivacy('notify', 'read', (e.target as HTMLInputElement).checked),
+  );
+  $('cap-clipboard-read').addEventListener('change', (e) =>
+    void setCapabilityPrivacy('clipboard', 'read', (e.target as HTMLInputElement).checked),
+  );
+  $('cap-clipboard-write').addEventListener('change', (e) =>
+    void setCapabilityPrivacy('clipboard', 'write', (e.target as HTMLInputElement).checked),
   );
 
   // decision ② / FR-048: 会话分组管理。
@@ -704,6 +732,15 @@ function wire(): void {
 
 wire();
 applyEnvGuard();
+// FR-055 / TASK-039: the options page is also an extension page — answer the
+// SW-forwarded clipboard ops so a clipboard call works when this page is the open
+// extension surface (the side panel remains the primary host; headless e2e uses
+// this page). Shared handler with sidepanel.ts.
+if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) =>
+    handleClipboardOpMessage(raw, sendResponse as (r: unknown) => void),
+  );
+}
 void refresh();
 // decision ② / FR-048: load session-group state alongside the LLM config.
 void refreshGroups();

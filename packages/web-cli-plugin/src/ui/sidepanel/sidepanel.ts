@@ -39,6 +39,7 @@ import type { ActiveTabView } from '../../background/state-message.js';
 import type { TestConnectionResult } from '../../llm/test-connection.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
 import { requestOriginPermissionDetailed, createChromeAsyncKv } from '../../platform/extension-env.js';
+import { handleClipboardOpMessage } from '../../platform/clipboard-page.js';
 import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
 import { createKeyStore } from '../../llm/key-store.js';
 import { shortBuildStamp } from '../../build-info.js';
@@ -1074,8 +1075,13 @@ function wire(): void {
     }
   });
 
-  chrome.runtime.onMessage.addListener((raw) => {
+  chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const msg = raw as PluginMessage;
+    if (msg.kind === 'clipboard-op') {
+      // FR-055 (TASK-039): the service worker has no `navigator.clipboard`, so it
+      // forwards the clipboard op to an extension page. Shared with options.ts.
+      return handleClipboardOpMessage(raw, sendResponse);
+    }
     if (msg.kind === 'chat-result') {
       const text = typeof msg.text === 'string' ? msg.text : '';
       const variant = typeof msg.variant === 'string' ? msg.variant : 'assistant';

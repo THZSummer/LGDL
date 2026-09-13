@@ -111,6 +111,10 @@ export interface CapabilityGrantView {
 export interface CapabilitiesView {
   bookmarks: CapabilityGrantView & { write: boolean };
   downloads: CapabilityGrantView;
+  /** FR-055: notify privacy toggle (default ON). */
+  notify: CapabilityGrantView;
+  /** FR-055: clipboard read/write toggles (read default OFF / write default ON). */
+  clipboard: CapabilityGrantView & { write: boolean };
   /** Current deriveTools() surface (for the「已从工具面移除」回执). */
   tools?: string[];
 }
@@ -145,12 +149,34 @@ export function downloadsCapabilityStatus(v: CapabilitiesView['downloads']): str
   return `下载记录（可选权限，只读）：${label}｜${toggles}｜${capabilityToolNote('downloads', v.granted, v.revoked, v.tools)}`;
 }
 
+/** Readable status for the notify capability row (FR-055). */
+export function notifyCapabilityStatus(v: CapabilitiesView['notify']): string {
+  const label = capabilityStateLabel(v.granted, v.revoked);
+  const toggles = `开关 ${v.read ? '开' : '关'}`;
+  return `系统通知（可选权限 notifications）：${label}｜${toggles}｜${capabilityToolNote('notify', v.granted, v.revoked, v.tools)}`;
+}
+
+/** Readable status for the clipboard capability row (FR-055). */
+export function clipboardCapabilityStatus(v: CapabilitiesView['clipboard']): string {
+  const label = capabilityStateLabel(v.granted, v.revoked);
+  const toggles = `读开关 ${v.read ? '开' : '关'}（默认关）· 写开关 ${v.write ? '开' : '关'}（默认开）`;
+  return `剪贴板（可选权限 clipboardRead/clipboardWrite）：${label}｜${toggles}｜读取为 state 档、永不自动放行｜${capabilityToolNote('clipboard', v.granted, v.revoked, v.tools)}`;
+}
+
 /** Normalize the background `capabilities` reply into a stable view. */
 export function capabilitiesView(data: unknown): CapabilitiesView {
-  const raw = (data ?? {}) as Partial<CapabilitiesView>;
-  const b = (raw.bookmarks ?? {}) as Partial<CapabilitiesView['bookmarks']>;
-  const d = (raw.downloads ?? {}) as Partial<CapabilitiesView['downloads']>;
-  const tools = Array.isArray(raw.tools) ? raw.tools : undefined;
+  const raw = (data ?? {}) as {
+    bookmarks?: Partial<CapabilitiesView['bookmarks']>;
+    downloads?: Partial<CapabilitiesView['downloads']>;
+    notify?: { enabled?: unknown; granted?: unknown; revoked?: unknown; read?: unknown };
+    clipboard?: Partial<CapabilitiesView['clipboard']>;
+    tools?: unknown;
+  };
+  const b = raw.bookmarks ?? {};
+  const d = raw.downloads ?? {};
+  const n = raw.notify ?? {};
+  const c = raw.clipboard ?? {};
+  const tools = Array.isArray(raw.tools) ? (raw.tools as string[]) : undefined;
   return {
     bookmarks: {
       read: b.read !== false,
@@ -163,6 +189,21 @@ export function capabilitiesView(data: unknown): CapabilitiesView {
       read: d.read !== false,
       granted: d.granted === true,
       revoked: d.revoked === true,
+      ...(tools ? { tools } : {}),
+    },
+    notify: {
+      // The background ships `{enabled}`; the shared view uses `read` as the
+      // single-toggle slot so both surfaces render identically.
+      read: n.read !== undefined ? n.read !== false : n.enabled !== false,
+      granted: n.granted === true,
+      revoked: n.revoked === true,
+      ...(tools ? { tools } : {}),
+    },
+    clipboard: {
+      read: c.read === true,
+      write: c.write !== false,
+      granted: c.granted === true,
+      revoked: c.revoked === true,
       ...(tools ? { tools } : {}),
     },
     ...(tools ? { tools } : {}),

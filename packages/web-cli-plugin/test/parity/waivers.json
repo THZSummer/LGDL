@@ -86,20 +86,6 @@
       "reason": "Host-agent background jobs — a host-loop concern, not a browser capability.",
       "basis": "spec.md FR-022; docs/capability-matrix.md #20"
     },
-    "notify": {
-      "status": "pending-permission",
-      "permission": "notifications",
-      "pending": true,
-      "reason": "chrome.notifications requires the `notifications` permission, which is not in the manifest. Per the no-silent-permission-expansion red line this round, it is reported only — NOT implemented.",
-      "basis": "spec.md FR-006 / FR-022; task constraint 权限纪律"
-    },
-    "clipboard": {
-      "status": "pending-permission",
-      "permission": "clipboardRead (read) / clipboardWrite (write)",
-      "pending": true,
-      "reason": "Background clipboard access needs clipboardRead/clipboardWrite; the extension currently holds neither. Reported only — NOT implemented.",
-      "basis": "spec.md FR-006 / FR-028; task constraint 权限纪律"
-    },
     "eval-js": {
       "status": "baseline-disabled",
       "reason": "The original assistant registered eval-js as disabled (enabled:false); it was never part of the exposed command list. The plugin likewise does not offer arbitrary worker JS eval.",

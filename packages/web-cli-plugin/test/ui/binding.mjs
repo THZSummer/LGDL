@@ -553,15 +553,17 @@ async function phase1(mock) {
   // native prompt). dist JS is byte-identical to the release build.
   const manifest = JSON.parse(await readFile(join(extDir, 'manifest.json'), 'utf8'));
   manifest.host_permissions = [...manifest.host_permissions, SITE_PATTERN];
-  // FR-054 disclosure: the product keeps bookmarks/downloads in
+  // FR-054 / FR-055 disclosure: the product keeps these capabilities in
   // `optional_permissions`; headless cannot synthesize the gesture-driven
   // `chrome.permissions.request` prompt, so this test copy moves them into static
-  // `permissions` to prove the real chrome.bookmarks/downloads paths work when the
-  // permission is present (the gesture grant itself stays a manual item).
-  manifest.permissions = [...manifest.permissions, 'bookmarks', 'downloads'];
-  manifest.optional_permissions = (manifest.optional_permissions ?? []).filter((p) => p !== 'bookmarks' && p !== 'downloads');
+  // `permissions` to prove the real chrome.bookmarks/downloads/notifications and
+  // clipboard paths work when the permission is present (the gesture grant itself
+  // stays a manual item). dist JS is byte-identical to the release build.
+  const PRE_GRANTED_PERMISSIONS = ['bookmarks', 'downloads', 'notifications', 'clipboardRead', 'clipboardWrite'];
+  manifest.permissions = [...manifest.permissions, ...PRE_GRANTED_PERMISSIONS];
+  manifest.optional_permissions = (manifest.optional_permissions ?? []).filter((p) => !PRE_GRANTED_PERMISSIONS.includes(p));
   await writeFile(join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-  observe(`临时 dist：host_permissions += ${SITE_PATTERN}；permissions += bookmarks/downloads（FR-054；JS 字节未改；见披露②）`);
+  observe(`临时 dist：host_permissions += ${SITE_PATTERN}；permissions += ${PRE_GRANTED_PERMISSIONS.join('/')}（FR-054/FR-055；JS 字节未改；见披露②）`);
 
   const { work: chromeWork, chrome, base, sw, log } = await launchChrome(extDir, 'chain');
   try {
@@ -1108,6 +1110,37 @@ async function phase1(mock) {
       JSON.stringify(capTools),
     );
 
+    // ── FR-055: notify / clipboard optional-permission capabilities ──────────
+    const capPerms2 = await evaluate(
+      sw,
+      `Promise.all([chrome.permissions.contains({ permissions: ['notifications'] }), chrome.permissions.contains({ permissions: ['clipboardRead'] }), chrome.permissions.contains({ permissions: ['clipboardWrite'] })]).then(([n, r, w]) => JSON.stringify({ n, r, w }))`,
+    );
+    const cp2 = JSON.parse(capPerms2 ?? '{}');
+    check(cp2.n === true && cp2.r === true && cp2.w === true, '#54B11 test-copy 静态 notifications/clipboardRead/clipboardWrite 权限确实授予（contains=true）', String(capPerms2));
+    check(
+      capTools.includes('notify') && capTools.includes('clipboard'),
+      '#54B12 FR-055 权限在时真实发给 LLM 的工具面包含 notify / clipboard',
+      JSON.stringify(capTools),
+    );
+    const notifyLevel = await evaluate(
+      sw,
+      `(async () => { try { return await chrome.notifications.getPermissionLevel(); } catch (e) { return 'ERR:' + e.message; } })()`,
+    );
+    check(notifyLevel === 'granted', '#54B13 FR-055 真实 chrome.notifications.getPermissionLevel() = granted（宿主通知 API 可用）', String(notifyLevel));
+    const clipApi = await evaluate(
+      ext,
+      `JSON.stringify({ read: typeof navigator.clipboard?.readText === 'function', write: typeof navigator.clipboard?.writeText === 'function' })`,
+    );
+    const ca = JSON.parse(clipApi ?? '{}');
+    check(ca.read === true && ca.write === true, '#54B14 FR-055 侧栏扩展页 navigator.clipboard 读/写 API 可达（真实剪贴板往返归人工面）', String(clipApi));
+    // Non-assertive disclosure: whether a real round-trip works headlessly depends
+    // on panel focus; never silently reported as a pass/fail gate.
+    const clipRoundTrip = await evaluate(
+      ext,
+      `(async () => { try { await navigator.clipboard.writeText('wc-clip-probe'); return 'ok:' + (await navigator.clipboard.readText()); } catch (e) { return 'ERR:' + e.message; } })()`,
+    );
+    observe(`FR-055 剪贴板真实往返（headless 侧栏，非门禁断言，焦点相关）：${String(clipRoundTrip).slice(0, 120)}`);
+
     const bkId = await evaluate(
       sw,
       `chrome.bookmarks.create({ url: 'https://binding.test/page?secretmarker=BINDSECRET', title: 'binding-bookmark' }).then((n) => n.id)`,
@@ -1158,7 +1191,10 @@ async function phase1(mock) {
     // ── FR-052 / ADR-017: real auto-authorization (write on/off + destructive) ──
     // Reload the panel so it reflects the current (site) origin + default switches.
     await ext.send('Page.reload', { ignoreCache: true });
-    await waitFor(ext, `(() => (document.getElementById('auto-auth-origin') ? 'ready' : ''))()`, 80, 150);
+    // D-064/FR-052: wait until the reloaded panel has actually rendered the bound
+    // origin (the element exists in static HTML, so existence alone races the async
+    // `state` reply). Strengthens determinism; the #19a/#19a2 assertions are unchanged.
+    await waitFor(ext, `(() => { const o = document.getElementById('auto-auth-origin'); return o && /localhost:5173/.test(o.textContent || '') ? 'ready' : ''; })()`, 80, 150);
     await evaluate(ext, `(() => { const d = document.getElementById('more-actions'); if (d) d.open = true; return true; })()`);
     const aaDefault = await evaluate(
       ext,

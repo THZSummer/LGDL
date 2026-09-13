@@ -2541,6 +2541,94 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **`test:binding` / `test:e2e` 的权限可用性证明用「测试专用 manifest 副本」**：把 `bookmarks`/`downloads` 从 `optional_permissions` 移入静态 `permissions`（等同既有 `host_permissions` 副本偏差的做法），脚本头/观测均已披露；证明「权限在时能力真实可用」，**手势授权本身仍归人工面**。该偏差**仅存在于测试副本**，不进分发物。
 - **`FR-054` / `ADR-017「硬底线 4」编号**：本轮代码/文档/waivers 以 `FR-054（TASK-038）` 引用该需求；`spec.md` 中**尚未落 FR-054 条文**（本阶段规则禁止改 spec，需 `@sddu-spec` 后续补登）。已在 waivers 与 docs 标注 basis，**如实披露该引用为待补**。
 
+## 37. 可选权限能力：系统通知（`notify`，读+写）+ 剪贴板（`clipboard`，读+写，读侧默认关）（TASK-039 / 作者裁决 2026-09-13 / Wave 31）
+
+### 37.1 本轮范围与 manifest diff
+
+作者 2026-09-13 批准：`notifications`（读+写）、`clipboardRead` + `clipboardWrite`（读+写，**读侧隐私开关默认关**）。声明方式沿用第 5 轮（TASK-038）既有模式：**`optional_permissions` + 扩展页手势内用时请求**；**静态 `permissions` 零新增**（避免 Chrome 更新时停用扩展、可按能力单独撤销）。
+
+`packages/web-cli-plugin/manifest.json` diff（静态面零变化）：仅 `optional_permissions` 由 `["bookmarks","downloads"]` → `["bookmarks","downloads","notifications","clipboardRead","clipboardWrite"]`；`permissions` / `host_permissions` / `optional_host_permissions` / `minimum_chrome_version` / 无 `<all_urls>` / 无静态 `content_scripts` 全部不变。
+
+**明确未批、未加**：`history` / `cookies` / `declarativeNetRequest` / `debugger` / `tabGroups`（不得顺手加）。
+
+### 37.2 「可 optional」资格核实（目标 Chromium 实测，2026-09-13）
+
+Chrome 对个别权限是否允许放进 `optional_permissions` 有约束，故先核实。用仓库自带 Chromium（`chromium-1234`，**151.0.7922.34**）加载最小 MV3 扩展，在**扩展页真实手势**（CDP `Runtime.evaluate` `userGesture:true`）内调用 `chrome.permissions.request`，逐项记录：
+
+| 权限 | 结果 | 结论 |
+|------|------|------|
+| `notifications` | PENDING（弹出真实授权提示，无即时错误） | **可 optional** |
+| `clipboardRead` | PENDING | **可 optional** |
+| `clipboardWrite` | PENDING | **可 optional** |
+| `debugger` | `Only permissions specified in the manifest may be requested.` | 不可 optional（对照） |
+| `proxy` | 同上 | 不可 optional（对照） |
+| `geolocation` | 同上 | 不可 optional（对照） |
+| `declarativeNetRequest` | 同上 | 不可 optional（对照） |
+| `totally-fake-permission-xyz` | `'…' is not a recognized permission.` | 不认识（对照） |
+
+- 结论：本插件本轮三个权限**都能** optional，且**未偷偷塞进静态 `permissions`**。对照组的「既有 permission 名但不允许 optional」被明确区分（说明该探测不是假阴性）。
+- 附带观测：`chrome.notifications` 在**未授予**时于 SW 内 `undefined`，授予后可用；SW 内 `navigator.clipboard` **不存在**（这正是剪贴板必须走扩展页的根因）。
+- 本轮另有 `tabGroups` 也返回 PENDING（技术上可 optional），但**作者未批**，故未加。
+
+### 37.3 实现路径（复用 vs 插件侧）
+
+- **`notify` → 插件侧 `chrome.notifications`**：base `notify`（`packages/web-cli-base/src/notify.ts`）是页内 `Notification` 面（`env.notify` → 浏览器 `Notification` 构造器），在扩展 SW 不可用；**不复用 base 条目**，改为插件侧 `src/tools/notify-tools.ts`（子命令 `list` / `send` / `clear`），保留基线要求的 `send` 子命令以通过对账门禁。
+- **`clipboard` → 扩展页 `navigator.clipboard`（回退 `document.execCommand`）**：SW 无 `navigator.clipboard`，MV3 也无宿主剪贴板 API，故 `src/tools/clipboard-tools.ts` 通过注入的 `readText`/`writeText` 缝，把纯文本读/写**转发到扩展页**执行（新增 `src/platform/clipboard-page.ts`，侧栏与 options 页共用处理器；SW 发 `clipboard-op`，扩展页 `sendResponse` 回执并**如实标注实际路径**）。无法到达扩展页时返回可读「请保持侧栏打开」拒绝（不静默）。
+  - **功能裁剪**：`write-html` / `write-image` / `paste-read` **不实现**——保留在 schema（基线子命令对账需要），但一律返回可读「未实现」，绝不静默/假装成功。
+- 复用第 5 轮机制（未重造）：`capability-permissions.ts`（手势内 request）、`capability-setting.ts`（隐私开关 + 默认值）、`host.ts` 注册/`suppressCapability`、`permissions.onAdded`/`onRemoved` 对账、`waivers.json` `pluginExtras` 登记（`notify`/`clipboard` 是**基线同名**，属「已提供」，故**不登记 pluginExtra**，改为把 `capability-matrix.md` 状态由「待批准权限」更新为「已提供」）。
+
+### 37.4 逐子命令 risk 表与安全硬要求
+
+| 工具 | 子命令 | risk | 说明 |
+|------|--------|------|------|
+| `notify` | `list` | `read` | 列出通知 id + 系统权限级别（不回显正文） |
+| `notify` | `send` | `write` | 创建单条通知（`--title` 必填；`--body` 可选） |
+| `notify` | `clear` | `write` | 清除**单条**（`--id`；`--all`/批量可读拒绝） |
+| `clipboard` | `read` | **`state`** | 读取剪贴板纯文本；**默认关**；**永不自动放行** |
+| `clipboard` | `write` | `write` | 写入剪贴板纯文本（`--text` 必填） |
+| `clipboard` | `write-html` / `write-image` / `paste-read` | `write` / `write` / `state` | **裁剪**：可读「未实现」 |
+
+硬要求（均有专门断言钉住）：
+1. **剪贴板读 = `state` 档，永不自动授权**：`state`/`evaluate` 不纳入自动开关；即便「读操作自动」开启，剪贴板读**仍然 ask**。断言：`test/clipboard-tools.test.ts` 的「state tier is never auto-authorized（纯决策：plugin 组不 allow、site 组 `hardDeny`）」+「read-auto ON still ASKS（host 集成：`asks()===1` 且 `auto-authorize allow` 记录为 0）」。
+2. **内容零明文**：剪贴板内容 / 通知正文**不进审计与日志**（只记长度/路径）。工具自审记录 `chars=`/`titleLen=`/`bodyLen=`；并且 `src/security/confirm.ts` 新增 `scrubContentArgs`——把 `clipboard`/`notify` 的 `text`/`title`/`body` 等**内容参数**替换为「已省略 N 字符」后才生成确认摘要与 `confirm` 审计事件（否则 `summarizeArgs` 只按 key 名匹配敏感词，`text`/`title` 会漏网明文）。断言：`JSON.stringify(audit.events)` 不含明文 + `scrubContentArgs` 纯函数断言。
+3. **risk 档不放宽**：`clipboard` 顶层 `risk:'state'`（保守回退），写类不因「写操作自动」放行（插件级工具不纳入按 origin 自动授权，沿用既有 hard floor）。
+
+### 37.5 隐私开关、对账与文档
+
+- 默认：通知**开**（仍需授权）；剪贴板**读关 / 写开**（`capability-setting.ts`，`web-cli:capability-settings`）。关闭即从 `deriveTools()` 移除（不只是前端隐藏）。
+- 未授权可读文案指向「⚙ 设置 → 能力与隐私 → 开启通知 / 开启剪贴板访问」；`onRemoved` 撤销即摘除工具并审计，`onAdded`/`permission-changed` 重授即按开关恢复。
+- UI：侧栏设置视图新增「系统通知」「剪贴板」两行（按钮 + 开关 + 状态回显，`settings-cap-notify-*` / `settings-cap-clipboard-*`）；options 兜底页同步（`cap-notify-*` / `cap-clipboard-*`）。
+- 文档同步：`docs/capability-matrix.md`（第 26/27 行 待批准 → **已提供**；汇总「待批准权限 2 → 0」；§2 重写为「已批准并实施」+ 资格核实结论）、`docs/compliance.md` §13、`docs/dev.md` §18、`docs/release.md` §6/§8。
+
+### 37.6 门禁结果（串行；本轮实测）
+
+| 门禁 | 结果 |
+|------|------|
+| `npx tsc --noEmit` | 0 error |
+| 插件 `npm test` | **514 pass / 0 fail**（488 → 514，+26；新增 `notify-tools`/`clipboard-tools` 测试文件 + capabilities/capability-wiring 扩展） |
+| `test:ui` | **155 assertions**（149 → 155，#54i~#54n；断言只增不减） |
+| `test:binding` | **157 assertions**（153 → 157，真实 dist + 真实 Chromium + 静态权限副本；新增 #54B11~#54B14：`contains=true` + `notify`/`clipboard` 进入真实发给 LLM 的工具面 + `chrome.notifications.getPermissionLevel()=granted` + 侧栏 `navigator.clipboard` 可达；真实往返 `wc-clip-probe` 成功为观测项） |
+| `test:hardening` | **24** |
+| `test:e2e` | **PASS**（新增 `notify list` 走真实 `chrome.notifications`、`clipboard write` **真实写入成功**〔观测 `document.execCommand(copy)`，13 字符〕、`clipboard read` 达真实扩展页路径；headless 焦点限制与副本偏差均已披露） |
+| 全仓 `build` + `test` | 0 fail（base **483 零回归**） |
+
+红线：base 零改动、静态 `permissions` 零新增、无 `<all_urls>`、无静态 `content_scripts`、无新依赖、无明文 key、无静默失败。
+
+### 37.7 新增决策（D-168~D-172）
+
+- **D-168（先核实「可 optional」资格再落声明）**：在写 manifest 前用目标 Chromium 真实手势实测 `notifications`/`clipboardRead`/`clipboardWrite` 可 optional，并设「既有权限名但不允许 optional」的正对照（`debugger`/`proxy`/`geolocation`/`declarativeNetRequest`）以排除假阴性。**被否决**：直接假设可 optional（Chrome 对个别权限有约束，错了会让扩展加载/请求失败）；把不能 optional 的权限偷偷塞进静态 `permissions`（红线）。
+- **D-169（notify 用插件侧 `chrome.notifications`，不复用 base 页内条目）**：base `notify` 是页内 `Notification` 面，SW 不可用；复用＝注册一个永远执行不了的工具。改为插件侧实现并保留基线 `send` 子命令。**被否决**：复用 base 条目（假能力）；不实现而继续挂「待批准」（作者已批准）。
+- **D-170（clipart 走扩展页 `navigator.clipboard`，并如实标注路径）**：SW 无 `navigator.clipboard`、MV3 无宿主剪贴板 API → 转发到扩展页执行；优先异步 API，失败回退 `document.execCommand`，输出标注实际路径；侧栏与 options 共用 `clipboard-page.ts`。**被否决**：在 SW 里假装可读（必然失败）；为剪贴板引入 `offscreen` 权限（越权扩张，作者未批）。
+- **D-171（剪贴板读钉死 `state` 档 + 永不自动授权）**：读侧隐私敏感 → 顶层 `state`、`read:'state'`；`state`/`evaluate` 不纳入自动开关，即便「读操作自动」开仍 ask；`test/clipboard-tools.test.ts` 同时用纯决策与 host 集成两条路径断言。**被否决**：把读降为 `read`/`ui`（会被自动放行或误纳入自动档）；只在 UI 文案上提示而门禁不钉。
+- **D-172（内容零明文的兜底 scrub 而非只靠 key 名匹配）**：现有 `summarizeArgs` 只按 key 名含敏感词才脱敏，`text`/`title`/`body` 会原样进确认摘要与 `confirm` 审计；新增 `scrubContentArgs`（对 `clipboard`/`notify` 的内容键替换为「已省略 N 字符」）在**生成摘要与发送前**执行。**被否决**：把 `text`/`title` 加进全局敏感词（误伤其他工具的合法参数，且仍非按工具权威）；只在工具自审里记长度而放任确认桥明文（审计仍会落明文）。
+
+### 37.8 披露与未完成项
+
+- **headless 无法合成 `permissions.request` 手势**：`test:binding`/`test:e2e` 用**测试专用 manifest 副本**把 `bookmarks`/`downloads`/`notifications`/`clipboardRead`/`clipboardWrite` 声明为静态 `permissions`（脚本头/观测已披露，dist JS 字节未改），以证明「权限在时真实可用」；**真实授权弹窗仍是人工面**（`docs/smoke-checklist.md` H2），不冒充 PASS。
+- **剪贴板读/写依赖扩展页打开**：无扩展页（侧栏与 options 均未开）时返回可读「请保持侧栏打开」拒绝；这是根因限制，已披露。
+- **headless 剪贴板读回空**：e2e 的 `clipboard write` 真实写入成功（`document.execCommand(copy)`），但 `clipboard read` 在 headless 下回「（剪贴板为空）」——真实内容读回归人工面，已披露。
+- **FR-055 条文**：与 FR-054 同，`spec.md` 尚未落 FR-055 条文（本阶段规则禁止改 spec），已在 waivers/docs 标注 basis，**如实披露该引用待 `@sddu-spec` 补登**。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -2575,3 +2663,4 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 | v2.7 | **events 补齐运行时 6 子命令**（§34，TASK-036 / D3 / Wave 28，作者指出「工具面已对齐基线但运行时只有 4 个可用」）：`src/content/page-bridge.ts` 事件桥 op 集 4→10（+`pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`）；`src/tools/remote-events.ts` **删除 hardcoded 拒绝**，6 方法全部逐字转发页面 `env.events` hub，页面不支持时其**具体原因**原样透出；订阅摘要以页面 `status` 为准；`browser-env.ts`/`content-script.ts` 类型面随桥扩展。risk 仍由 base 单一来源、**未放宽**（`pull-sensitive`=`write`，未 `--trusted true` 不转发；控制类=`state`）；`pull-sensitive` 无明细给出 FR-006 **特定原因**、插件零缓存/零审计明文，有明细标注敏感来源。站点页面桥需实现这些 op（LGDL 可复用 base `createBrowserEventHub()`）；夹具 `test/fixtures/site/rpc.js` 提供无依赖参考实现。新增 `test/remote-events.test.ts`（9）+ `test/content.test.ts` 新 op 转发断言；`test:e2e` 新增 13 条真机断言（subscribe/switch/pull/ pause+clear→pull=0/resume→pull>0/budget/pull-sensitive 门禁/无明细原因/unsubscribe）。门禁：插件 425→**435 pass / 0 fail**、`tsc --noEmit` 0 error、`test:ui` **136**、`test:hardening` **24**、`test:binding` **125**、`test:e2e` **PASS**、全仓 build+test **0 fail**（base **483 零回归**）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**；docs dev §16 + capability-matrix §4.1 + tasks TASK-036 同步；**真实 LGDL 页面桥仅实现 4 op（站点侧另一轮），本轮已如实披露**；D-151~D-155。 |
 | v2.8 | **标签页工具补齐 mute/pin/move + 放开 close（作者裁决反转 FR-049）**（§35，TASK-037 / D5，Wave 29，作者 2026-09-13 明确撤销「明确不做 close」约束驱动——「标签页读写」包含 close、「完全放开 close」，属**需求变更**非测试降级）：`src/tools/tabs-tools.ts` 子命令 3→7（+`mute`/`pin`/`move`/`close`），`subcommandRisks` 全部 `write`→默认 `ask`（close 恒 `write`，**不放宽**；`tabs` 为 `group:'plugin'` 不纳入自动授权）；`resolveSingleTarget` 禁批量（`--all`→可读拒绝）、`resolveTabTarget(..., preferActive=false)` 歧义不猜；`redactTabTitle` URL 型标题去 query/fragment；`service-worker.ts` `createTabsDeps` 新增 `muteTab`/`pinTab`/`moveTab`/`closeTab`/`describeTarget`（真实 `chrome.tabs.update/move/remove`）；`security/confirm.ts` 新增 `describe` 接缝（ask 前并入「目标标题 + 去参 URL +（close）不可逆/侧栏自关」，best-effort 不阻断 fail-closed）；旧「无 close」断言**替换**为「close 存在 + write→ask + 单标签页 + 不可逆」（断言总数只增不减）；spec v1.9（FR-049/FR-053 + EC-026）/plan v1.5（ADR-015 修订 + 安全处置）/dev §12.4·§2.9 / compliance §9.4 / capability-matrix / release 同步（删除矛盾陈述）。**零新权限**（`chrome.tabs.remove/update/move` 无需新权限）、`manifest.json` 零 diff、base 零改动、无新依赖。门禁：插件 435→**452 pass / 0 fail**、`tsc --noEmit` 0 error、`test:ui` 136→**141**、`test:binding` 125→**143**（真实 mute/pin/move/close + 审计零明文 + `--all` 拒绝 + 基线还原）、`test:hardening` **24**、`test:e2e` **PASS**、全仓 build+test **0 fail**（base **483 零回归**）；**无明文 key / 无静默失败**；D-156~D-160。 |
 | v2.9 | **可选权限能力：书签（读+写，写侧 ask，删除破坏性）+ 下载记录（只读）**（§36，TASK-038，Wave 30，作者裁决 2026-09-13）：以 **`optional_permissions`** 声明（**静态 `permissions` 零新增**；避免扩展更新被停用、可按能力单独撤销）；`chrome.permissions.request` **只在扩展页面点击手势内**发起（`src/platform/capability-permissions.ts`；SW 绝不调用），随后 `capabilities/permission-changed` 重读真实授权并对账，`permissions.onAdded`/`onRemoved` 即时对账（撤销即从 `deriveTools()` 移除 + `optional-permission` 审计）；默认书签读开/写关、下载记录读开；未授权返回可读「去设置开启」（不静默）。`bookmarks remove` 为 **destructive** → `auto-authorize` 硬底线（判定**前移到 group 过滤之前**，「写操作自动」开仍 ask）+ 禁止批量 + 仅 http(s) add；`downloads` **只读**、明确不做取消/删除/打开；审计零明文（URL 去参、文件名仅 basename、搜索词只记长度）；`test/parity/waivers.json` 登记 `pluginExtras`。新增 `test/{bookmarks-tools,downloads-tools,capabilities,capability-wiring}.test.ts`；`test:ui` 141→**149**（#54a~#54h）、`test:binding` 143→**153**（测试副本静态权限 + 真实 `chrome.bookmarks`/`chrome.downloads` + 写自动仍弹确认 #54B8）、`test:e2e` **PASS**（副本偏差已披露）；插件 452→**488 pass / 0 fail**、`tsc --noEmit` 0 error、`test:hardening` **24**、全仓 build+test **0 fail**（base **483 零回归**）；**base 零改动 / 静态 `permissions` 零新增 / 无新依赖 / 无明文 key / 无静默失败**；docs dev §17·§3.0 / compliance §12 / release §6 / capability-matrix §3 同步；D-161~D-165；**手势弹窗与 FR-054 条文待补已如实披露（§36.5）**。 |
+| v3.0 | **可选权限能力：系统通知（读+写）+ 剪贴板（读+写，读侧默认关）**（§37，TASK-039，Wave 31，作者裁决 2026-09-13）：沿用第 5 轮 `optional_permissions` + 用时请求模式（**静态 `permissions` 零新增**）。**先实测核实**三个新权限在目标 Chromium（151）均可 optional（`debugger`/`proxy`/`geolocation`/`declarativeNetRequest` 为正对照不可 optional）；`notify` 走插件侧 `chrome.notifications`（base notify 为页内 Notification 面、SW 不可用），子命令 `list`/`send`/`clear`；`clipboard` 纯文本 `read`/`write` 经扩展页 `navigator.clipboard`（回退 `document.execCommand`，新增 `src/platform/clipboard-page.ts` 供侧栏与 options 共用），`write-html`/`write-image`/`paste-read` 裁剪为可读「未实现」。**剪贴板读 = `state` 档，永不自动放行**（「读操作自动」开仍 ask，纯决策 + host 集成双断言）；剪贴板/通知内容**零审计明文**（工具自审只记长度，另新增 `scrubContentArgs` 把内容参数替换为「已省略 N 字符」后才入确认摘要/`confirm` 审计）。默认通知开 / 剪贴板读关写开；关闭即从 `deriveTools()` 移除；`onAdded`/`onRemoved` 对账。`capability-matrix` 第 26/27 行由「待批准权限」→「已提供」（汇总待批准 2→0）；新增 `test/{notify-tools,clipboard-tools}.test.ts` + capabilities/capability-wiring 扩展；`tsc --noEmit` 0 error、插件 488→**514 pass / 0 fail**、`test:ui` 149→**155**（#54i~#54n）、`test:binding` 153→**157**（静态权限副本 + `getPermissionLevel()=granted` + 剪贴板 API 可达 + 真实往返观测成功）、`test:hardening` **24**、`test:e2e` **PASS**（notify 真机 + clipboard 写入真实成功）、全仓 build+test **0 fail**（base **483 零回归**）；**base 零改动 / 静态 `permissions` 零新增 / 无新依赖 / 无明文 key / 无静默失败**；docs dev §18 / compliance §13 / release §6·§8 / capability-matrix §2 同步；D-168~D-172；**手势弹窗、扩展页依赖、headless 读空与 FR-055 条文待补已如实披露（§37.8）**。 |

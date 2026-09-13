@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 
 const read = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
-test('FR-054 manifest: static permissions unchanged; bookmarks/downloads are optional only', () => {
+test('FR-054/FR-055 manifest: static permissions unchanged; every capability is optional only', () => {
   const manifest = JSON.parse(read('../../manifest.json')) as {
     permissions: string[];
     optional_permissions?: string[];
@@ -26,12 +26,19 @@ test('FR-054 manifest: static permissions unchanged; bookmarks/downloads are opt
     content_scripts?: unknown[];
     minimum_chrome_version?: string;
   };
+  const staticPermissions = [...manifest.permissions].sort();
   assert.deepEqual(
-    [...manifest.permissions].sort(),
+    staticPermissions,
     ['activeTab', 'scripting', 'sidePanel', 'storage', 'tabs'],
-    'static permissions must NOT gain bookmarks/downloads',
+    'static permissions must NOT gain bookmarks/downloads/notify/clipboard',
   );
-  assert.deepEqual([...(manifest.optional_permissions ?? [])].sort(), ['bookmarks', 'downloads']);
+  const optional = [...(manifest.optional_permissions ?? [])].sort();
+  assert.deepEqual(optional, ['bookmarks', 'clipboardRead', 'clipboardWrite', 'downloads', 'notifications']);
+  // The three new permissions must never leak into the static install surface.
+  for (const p of ['notifications', 'clipboardRead', 'clipboardWrite']) {
+    assert.equal(staticPermissions.includes(p), false, `${p} must stay optional (never static)`);
+    assert.equal(optional.includes(p), true, `${p} must be declared optional`);
+  }
   const all = [
     ...manifest.permissions,
     ...(manifest.optional_permissions ?? []),
@@ -60,17 +67,38 @@ test('FR-054: chrome.permissions.request lives in the extension page click path,
   assert.match(panel, /requestCapabilityPermissionOnGesture\(cap\)/);
   assert.match(panel, /requestCapability\('bookmarks'/);
   assert.match(panel, /requestCapability\('downloads'/);
+  assert.match(panel, /requestCapability\('notify'/);
+  assert.match(panel, /requestCapability\('clipboard'/);
   assert.match(panel, /bkRequest\.addEventListener\('click'/);
   assert.match(panel, /dlRequest\.addEventListener\('click'/);
+  assert.match(panel, /ntRequest\.addEventListener\('click'/);
+  assert.match(panel, /cbRequest\.addEventListener\('click'/);
   assert.match(panel, /id: 'settings-cap-bookmarks-request'/);
   assert.match(panel, /id: 'settings-cap-downloads-request'/);
+  assert.match(panel, /id: 'settings-cap-notify-request'/);
+  assert.match(panel, /id: 'settings-cap-clipboard-request'/);
+  assert.match(panel, /id: 'settings-cap-clipboard-read'/);
+  assert.match(panel, /id: 'settings-cap-clipboard-write'/);
 
   const options = read('../../src/ui/options/options.ts');
   assert.match(options, /requestCapabilityPermissionOnGesture/);
   assert.match(options, /\$\('cap-bookmarks-request'\)\.addEventListener\('click'/);
   assert.match(options, /\$\('cap-downloads-request'\)\.addEventListener\('click'/);
+  assert.match(options, /\$\('cap-notify-request'\)\.addEventListener\('click'/);
+  assert.match(options, /\$\('cap-clipboard-request'\)\.addEventListener\('click'/);
   const html = read('../../src/ui/options/index.html');
-  for (const id of ['cap-bookmarks-request', 'cap-downloads-request', 'cap-bookmarks-status', 'cap-downloads-status']) {
+  for (const id of [
+    'cap-bookmarks-request',
+    'cap-downloads-request',
+    'cap-bookmarks-status',
+    'cap-downloads-status',
+    'cap-notify-request',
+    'cap-notify-status',
+    'cap-clipboard-request',
+    'cap-clipboard-status',
+    'cap-clipboard-read',
+    'cap-clipboard-write',
+  ]) {
     assert.match(html, new RegExp(`id="${id}"`), `options.html must expose #${id}`);
   }
 });
@@ -87,10 +115,12 @@ test('FR-054: the tools are registered as parity pluginExtras with reason + basi
   }
 });
 
-test('FR-054: dedicated audit event types + destructive remove wiring exist', () => {
+test('FR-054/FR-055: dedicated audit event types + destructive remove wiring exist', () => {
   const audit = read('../../src/security/audit-sink.ts');
   assert.match(audit, /'bookmarks'/);
   assert.match(audit, /'downloads'/);
+  assert.match(audit, /'notify'/);
+  assert.match(audit, /'clipboard'/);
   assert.match(audit, /'optional-permission'/);
 
   const host = read('../../src/background/host.ts');
@@ -107,4 +137,50 @@ test('FR-054: dedicated audit event types + destructive remove wiring exist', ()
   assert.match(downloads, /export const DOWNLOADS_TOOL_NAME = 'downloads'/);
   // cancel/pause/erase/open intentionally refused.
   assert.match(downloads, /DOWNLOADS_UNSUPPORTED_SUBCOMMANDS/);
+});
+
+test('FR-055: notify/clipboard are provided under the baseline name (no waiver, no pluginExtra)', () => {
+  const waivers = JSON.parse(read('../../test/parity/waivers.json')) as {
+    waivers: Record<string, unknown>;
+    pluginExtras: Record<string, unknown>;
+  };
+  // Same-name baseline tools: coverage is enforced by the parity gate itself.
+  assert.equal(waivers.waivers.notify, undefined, 'notify must no longer be waived');
+  assert.equal(waivers.waivers.clipboard, undefined, 'clipboard must no longer be waived');
+  assert.equal(waivers.pluginExtras.notify, undefined, 'notify is a baseline name, not a pluginExtra');
+  assert.equal(waivers.pluginExtras.clipboard, undefined, 'clipboard is a baseline name, not a pluginExtra');
+
+  // `notify` runs on the real chrome.notifications host API (base notify is a
+  // page-context Notification face and cannot run in the SW).
+  const sw = read('../../src/background/service-worker.ts');
+  assert.match(sw, /chrome\.notifications\.create/);
+  assert.match(sw, /chrome\.notifications\.getAll/);
+  // `clipboard` forwards to an extension page (the SW has no navigator.clipboard).
+  assert.match(sw, /makeMessage\('clipboard-op'/);
+  const clipboardPage = read('../../src/platform/clipboard-page.ts');
+  assert.match(clipboardPage, /performClipboardOp/);
+  assert.match(clipboardPage, /navigator\.clipboard/);
+  assert.match(clipboardPage, /execCommand/);
+  // Both extension surfaces answer the forwarded op (side panel primary; options
+  // page is the open surface in the headless e2e harness).
+  assert.match(read('../../src/ui/sidepanel/sidepanel.ts'), /handleClipboardOpMessage/);
+  assert.match(read('../../src/ui/options/options.ts'), /handleClipboardOpMessage/);
+  // The SW still never calls permissions.request (gesture-only).
+  assert.equal(/\.request\s*\(/.test(sw), false, 'the service worker must never call chrome.permissions.request');
+
+  const notify = read('../../src/tools/notify-tools.ts');
+  assert.match(notify, /export const NOTIFY_TOOL_NAME = 'notify'/);
+  const clipboard = read('../../src/tools/clipboard-tools.ts');
+  assert.match(clipboard, /export const CLIPBOARD_TOOL_NAME = 'clipboard'/);
+  // Cropped rich subcommands remain declared (parity subcommand coverage) but refuse.
+  assert.match(clipboard, /CLIPBOARD_CROPPED_SUBCOMMANDS/);
+});
+
+test('FR-055: clipboard read is state-tier; the confirm/audit path scrubs content args', () => {
+  const clipboard = read('../../src/tools/clipboard-tools.ts');
+  assert.match(clipboard, /read: 'state'/, 'clipboard read must be the state tier');
+  assert.match(clipboard, /CLIPBOARD_CROPPED_TEXT/);
+  const confirm = read('../../src/security/confirm.ts');
+  assert.match(confirm, /scrubContentArgs/);
+  assert.match(confirm, /CONTENT_ARG_TOOLS/);
 });

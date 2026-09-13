@@ -1,12 +1,28 @@
 /**
- * Optional-permission capabilities (`bookmarks` / `downloads`) — FR-054.
+ * Optional-permission capabilities (`bookmarks` / `downloads` / `notify` /
+ * `clipboard`) — FR-054 (TASK-038) + FR-055 (TASK-039).
  *
- * Author decision (2026-09-13): the `bookmarks` (read + write; write side ask)
- * and `downloads` (read-only) capabilities are declared as **optional
- * permissions**, never as static `permissions`. Rationale: a static addition
- * makes Chrome **disable already-installed extensions on update** until the user
- * re-consents; optional keeps the static install surface unchanged and can be
- * revoked per capability.
+ * Author decision (2026-09-13): every capability here is declared as an
+ * **optional permission**, never as a static `permissions` entry. Rationale: a
+ * static addition makes Chrome **disable already-installed extensions on update**
+ * until the user re-consents; optional keeps the static install surface unchanged
+ * and can be revoked per capability.
+ *
+ *   bookmarks  → ['bookmarks']                          (read + write)
+ *   downloads  → ['downloads']                          (read-only)
+ *   notify     → ['notifications']                      (read + write)
+ *   clipboard  → ['clipboardRead', 'clipboardWrite']    (read + write; read
+ *                                                        privacy toggle defaults
+ *                                                        OFF — see capability-setting)
+ *
+ * ── Chrome optional-permission eligibility (TASK-039, verified 2026-09-13)
+ * All three new permissions ARE eligible for `optional_permissions` on the
+ * target Chromium (151.0.7922.34): a real load accepts them and a real
+ * `chrome.permissions.request` inside a gesture resolves to a prompt (PENDING),
+ * never to「Only permissions specified in the manifest may be requested」. The
+ * same probe shows `debugger` / `proxy` / `geolocation` / `declarativeNetRequest`
+ * DO get that rejection (i.e. they cannot be optional), so the check is not a
+ * false negative. Evidence is recorded in build.md §37.2.
  *
  * ── Gesture constraint (the single most important rule here)
  * `chrome.permissions.request` MUST be called from an **extension page with a
@@ -20,26 +36,35 @@
  * pure helpers stay node-testable and a non-extension context degrades readably.
  */
 
-/** The two optional-permission capabilities this round. */
-export type OptionalCapability = 'bookmarks' | 'downloads';
+/** The optional-permission capabilities approved so far. */
+export type OptionalCapability = 'bookmarks' | 'downloads' | 'notify' | 'clipboard';
 
 /** The exact manifest permission list each capability needs. */
 export const OPTIONAL_CAPABILITY_PERMISSIONS: Readonly<Record<OptionalCapability, readonly string[]>> = {
   bookmarks: ['bookmarks'],
   downloads: ['downloads'],
+  notify: ['notifications'],
+  clipboard: ['clipboardRead', 'clipboardWrite'],
 };
 
 /** The LLM tool each capability backs (used for settings status + suppression). */
 export const OPTIONAL_CAPABILITY_TOOL: Readonly<Record<OptionalCapability, string>> = {
   bookmarks: 'bookmarks',
   downloads: 'downloads',
+  notify: 'notify',
+  clipboard: 'clipboard',
 };
 
 /** Human-readable capability label (settings view). */
 export const OPTIONAL_CAPABILITY_LABEL: Readonly<Record<OptionalCapability, string>> = {
   bookmarks: '书签访问',
   downloads: '下载记录（只读）',
+  notify: '系统通知',
+  clipboard: '剪贴板访问',
 };
+
+/** All capabilities (stable order for settings rows / reconciliation loops). */
+export const OPTIONAL_CAPABILITIES: readonly OptionalCapability[] = ['bookmarks', 'downloads', 'notify', 'clipboard'];
 
 /** Readable, non-secret permission list for a capability. */
 export function permissionsOf(cap: OptionalCapability): string[] {

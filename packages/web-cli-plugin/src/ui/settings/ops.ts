@@ -38,10 +38,13 @@ import {
   capabilitiesView,
   bookmarksCapabilityStatus,
   downloadsCapabilityStatus,
+  notifyCapabilityStatus,
+  clipboardCapabilityStatus,
   type AutoAuthRecordView,
   type CapabilitiesView,
 } from './view.js';
 import type { SessionGroupView } from './view.js';
+import type { OptionalCapability } from '../../platform/capability-permissions.js';
 
 /** Minimal transport shape (a real `chrome.runtime.sendMessage` satisfies it). */
 export interface SettingsTransport {
@@ -107,11 +110,11 @@ export interface SettingsOps {
   loadLlmStatus(): Promise<OpResult<LlmStatusSummary>>;
   loadTabsSetting(): Promise<OpResult<{ enabled: boolean; tools?: string[] }>>;
   setTabsSetting(enabled: boolean): Promise<OpResult<{ enabled: boolean; tools?: string[] }>>;
-  /** FR-054: optional-permission capabilities (bookmarks / downloads). */
+  /** FR-054 / FR-055: optional-permission capabilities. */
   loadCapabilities(): Promise<OpResult<CapabilitiesView>>;
-  setCapabilityPrivacy(cap: 'bookmarks' | 'downloads', scope: 'read' | 'write', enabled: boolean): Promise<OpResult<CapabilitiesView>>;
+  setCapabilityPrivacy(cap: OptionalCapability, scope: 'read' | 'write', enabled: boolean): Promise<OpResult<CapabilitiesView>>;
   /** Re-reconcile after a gesture-driven `chrome.permissions.request` settles. */
-  notifyCapabilityPermissionChanged(cap: 'bookmarks' | 'downloads'): Promise<OpResult<CapabilitiesView>>;
+  notifyCapabilityPermissionChanged(cap: OptionalCapability): Promise<OpResult<CapabilitiesView>>;
   loadAutoAuth(): Promise<OpResult<AutoAuthRecordView[]>>;
   setAutoAuth(origin: string, tier: 'read' | 'write', enabled: boolean): Promise<OpResult<AutoAuthRecordView[]>>;
   clearAutoAuth(origin: string): Promise<OpResult<AutoAuthRecordView[]>>;
@@ -261,7 +264,12 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
         const res = await send<CapabilitiesView>(makeMessage('capabilities', { action: 'status' }));
         if (!res.ok || !res.data) return { ok: false, kind: 'err', text: `✖ 读取能力权限状态失败：${res.error ?? '后台无响应'}` };
         const view = capabilitiesView(res.data);
-        return { ok: true, kind: '', text: `${bookmarksCapabilityStatus(view.bookmarks)}；${downloadsCapabilityStatus(view.downloads)}`, data: view };
+        return {
+          ok: true,
+          kind: '',
+          text: `${bookmarksCapabilityStatus(view.bookmarks)}；${downloadsCapabilityStatus(view.downloads)}；${notifyCapabilityStatus(view.notify)}；${clipboardCapabilityStatus(view.clipboard)}`,
+          data: view,
+        };
       } catch (err) {
         return { ok: false, kind: 'err', text: `✖ 读取能力权限状态失败：${errText(err)}` };
       }
@@ -273,12 +281,13 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
         const res = await send<CapabilitiesView>(makeMessage('capabilities', { action: 'set', capability: cap, scope, enabled }));
         if (!res.ok || !res.data) return { ok: false, kind: 'err', text: `✖ 保存能力开关失败：${res.error ?? '后台无响应'}` };
         const view = capabilitiesView(res.data);
-        const label = cap === 'bookmarks' ? '书签' : '下载记录';
-        const scopeLabel = scope === 'write' ? '写' : '读';
+        const label =
+          cap === 'bookmarks' ? '书签' : cap === 'downloads' ? '下载记录' : cap === 'notify' ? '系统通知' : '剪贴板';
+        const scopeLabel = cap === 'notify' ? '' : scope === 'write' ? '·写' : '·读';
         return {
           ok: true,
           kind: '',
-          text: `已${enabled ? '开启' : '关闭'}「${label}·${scopeLabel}」；工具面已即时更新（不静默）。`,
+          text: `已${enabled ? '开启' : '关闭'}「${label}${scopeLabel}」；工具面已即时更新（不静默）。`,
           data: view,
         };
       } catch (err) {

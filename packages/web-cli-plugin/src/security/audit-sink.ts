@@ -34,6 +34,9 @@ export type PluginAuditEventType =
   // their permission grant/revoke reconciliation.
   | 'bookmarks'
   | 'downloads'
+  // FR-055 (TASK-039): `notify` / `clipboard` capability events + reconciliation.
+  | 'notify'
+  | 'clipboard'
   | 'optional-permission';
 
 export interface PluginAuditEvent {

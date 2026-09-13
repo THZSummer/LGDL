@@ -129,6 +129,25 @@ function buildFullHost() {
     },
     bookmarksEnabled: { read: true, write: false },
     downloadsEnabled: true,
+    // FR-055: notify (chrome.notifications) + clipboard (panel-forwarded) seams.
+    // Provided here so the real extension surface (which always has them via the
+    // service worker) is what the parity gate compares against the baseline.
+    notify: {
+      hasPermission: async () => true,
+      listNotifications: async () => ({ entries: [], permissionLevel: 'granted' }),
+      createNotification: async () => ({ ok: true, output: '', id: 'n1' }),
+      clearNotification: async () => ({ ok: true, output: '' }),
+      audit,
+    },
+    notifyEnabled: true,
+    clipboard: {
+      hasReadPermission: async () => true,
+      hasWritePermission: async () => true,
+      readText: async () => ({ ok: true, text: '', chars: 0, path: 'test' }),
+      writeText: async () => ({ ok: true, chars: 0, path: 'test' }),
+      audit,
+    },
+    clipboardEnabled: { read: false, write: true },
     webFetch: {
       currentOrigin: () => undefined,
       hasHostPermission: async () => false,

@@ -11,7 +11,7 @@
 
 ## 1. 对账矩阵（34 项，逐项）
 
-状态定义：**已提供** = 同名工具在 `deriveTools()` 可达且子命令覆盖；**已映射** = 由插件中另一工具承载（如站点声明 `site_*`）；**已豁免** = `waivers.json` 显式登记理由与依据；**待批准权限** = 可实现但需新权限，本轮只报告不实施；**基线禁用** = 原助手即 `enabled:false`，从未在暴露面。
+状态定义：**已提供** = 同名工具在 `deriveTools()` 可达且子命令覆盖；**已映射** = 由插件中另一工具承载（如站点声明 `site_*`）；**已豁免** = `waivers.json` 显式登记理由与依据；**待批准权限** = 可实现但需新权限（本轮已全部批准并实施，见 §2）；**基线禁用** = 原助手即 `enabled:false`，从未在暴露面。
 
 | # | 基线工具 | 子命令 | 插件实现 / 豁免 | 状态 | 依据 |
 |---|---------|:------:|----------------|:----:|------|
@@ -40,8 +40,8 @@
 | 23 | `page-eval` | 0 | 不提供（原助手 `enabled:false`；evaluate 档 fail-closed） | 基线禁用 | 基线 enabled:false；FR-027 |
 | 24 | `chrome` | 5 | **base `chrome`**：`print`/`back`/`forward`/`reload`/**`screenshot`** | **已提供** | FR-051 |
 | 25 | `save` | 2 | **base `save`**（页面上下文 anchor 下载链） | **已提供** | FR-051 |
-| 26 | `notify` | 1 | 需 `notifications` 权限 | **待批准权限** | FR-006；本任务权限纪律 |
-| 27 | `clipboard` | 5 | 需 `clipboardRead`/`clipboardWrite` 权限 | **待批准权限** | FR-006 / FR-028 |
+| 26 | `notify` | 1 | **插件侧 `notify`**：`chrome.notifications`（list / send / clear）；**可选权限** `notifications`（`optional_permissions`）；未授权返回可读「去设置开启通知」；通知正文（title/body）**零审计明文**（只记长度） | **已提供** | FR-055（TASK-039） |
+| 27 | `clipboard` | 5 | **插件侧 `clipboard`**：纯文本 `read` / `write`（经侧栏/options 扩展页 `navigator.clipboard`，回退 `document.execCommand`）；**可选权限** `clipboardRead`+`clipboardWrite`；**读默认关**、风险档 `state`**永不自动放行**；`write-html`/`write-image`/`paste-read` **明确裁剪**（可读「未实现」）；内容零审计明文（只记长度） | **已提供** | FR-055（TASK-039） |
 | 28 | `events` | 11 | **base `events`**；经既有 content 事件桥（subscribe/unsubscribe/pull/status/list + **pause/resume/clear/budget/switch/pull-sensitive** 全量转发，D3） | **已提供（运行时完整）** | FR-051 / FR-021 / D-151 |
 | 29 | `cookie` | 4 | 不提供（原助手 `enabled:false`） | 基线禁用 | 基线 enabled:false |
 | 30 | `dialog` | 6 | 不提供（原助手 `enabled:false`） | 基线禁用 | 基线 enabled:false |
@@ -50,16 +50,20 @@
 | 33 | `sleep` | 0 | base 内建 | 已提供 | base FR-020 |
 | 34 | `web-cli-help` | 0 | `CommandRouter` 自文档 + `admin_*` | 已提供 | FR-017 |
 
-**汇总**：已提供 12 · 已映射 4 · 已豁免（不适用/delegated）10 · 待批准权限 2 · 基线禁用 6 = **34**。
+**汇总**：已提供 14 · 已映射 4 · 已豁免（不适用/delegated）10 · 待批准权限 0 · 基线禁用 6 = **34**。
 
-## 2. 待批准权限（本轮只报告，未实施）
+## 2. 已批准并实施的可选权限能力（TASK-039，作者裁决 2026-09-13）
 
-| 基线工具 | 能力 | 需要什么权限 | 安装提示影响 | 状态 |
-|---------|------|-------------|-------------|------|
-| `notify` | 系统通知 | `notifications` | 安装时新增「显示通知」权限提示 | **未实施（待批准）** |
-| `clipboard` | 剪贴板读/写 | `clipboardRead`（读）/ `clipboardWrite`（写） | 安装时新增剪贴板权限提示 | **未实施（待批准）** |
+基线曾把 `notify`（需 `notifications`）与 `clipboard`（需 `clipboardRead`/`clipboardWrite`）登记为「待批准权限」。作者 2026-09-13 批准后，二者**已实施**，并以 **`optional_permissions` + 用时请求**声明（**静态 `permissions` 零新增**）：
 
-> 作者未批准前**不实现、不申请**。若批准，建议在 manifest 显式披露 + options 隐私开关（对齐 `tabs` 的做法）。
+| 基线工具 | 能力 | 声明方式 | 实现路径 | 隐私默认 | 状态 |
+|---------|------|---------|---------|---------|------|
+| `notify` | 系统通知（读+写） | `optional_permissions: ["notifications"]` | 插件侧 `chrome.notifications`（宿主 API；base `notify` 为页内 `Notification` 面，SW 不可用） | 开关默认**开**（仍需授权） | **已提供** |
+| `clipboard` | 剪贴板纯文本（读+写） | `optional_permissions: ["clipboardRead","clipboardWrite"]` | 扩展页 `navigator.clipboard`（回退 `document.execCommand`）；SW 无 `navigator.clipboard`，经侧栏/options 转发 | 读默认**关** / 写默认**开** | **已提供** |
+
+> 权限的「可 optional」资格已在本轮目标 Chromium（Chromium 151.0.7922.34）**实测核实**：三者均能被 `chrome.permissions.request` 在真实手势内正常受理（返回 prompt/pending），而 `debugger`/`proxy`/`geolocation`/`declarativeNetRequest` 会返回「Only permissions specified in the manifest may be requested.」——即本插件所用三者确认可 optional（见 `build.md` §37.2）。未批准项（`history`/`cookies`/`declarativeNetRequest`/`debugger`/`tabGroups`）**一律未加**。
+
+> 剪贴板读为风险档 **`state`**：`state`/`evaluate` **永不纳入自动授权**——即使使用者开启「读操作自动」，剪贴板读**仍然 ask**（`test/clipboard-tools.test.ts` 有专门断言）。剪贴板/通知内容**绝不进入审计或日志**（只记长度/路径）。
 
 ## 3. 插件新增（非基线同名）的面向 LLM 的工具
 

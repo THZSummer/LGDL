@@ -52,7 +52,11 @@ export type PluginMessageKind =
   // FR-051 / TASK-029: base-derived browser tool seams (dom/chrome/wait/extract,
   // and the page-context download chain for save/export/screenshot persistence).
   | 'dom-op'
-  | 'file-save';
+  | 'file-save'
+  // FR-055 / TASK-039: the service worker has no `navigator.clipboard`, so the
+  // `clipboard` tool forwards read/write to the extension page (side panel), which
+  // performs the op and answers with `sendResponse` (request/response, not a push).
+  | 'clipboard-op';
 
 export interface PluginMessage {
   kind: PluginMessageKind;
@@ -105,6 +109,7 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'fetch-text',
   'dom-op',
   'file-save',
+  'clipboard-op',
 ]);
 
 export function makeMessage(kind: PluginMessageKind, payload: Record<string, unknown> = {}): PluginMessage {
