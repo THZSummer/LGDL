@@ -289,6 +289,7 @@
 
 - **断言计数台账**：`test()` 646 → **686（+40，fail 0）**；`assert.*`/`assertPinnedHash` 出现次数 3059 → **3345（+286）**；`test:insight` 70 / `test:ui` **167** / `test:hardening` 24 / `test:binding` **180**（零删减）。
 - **硬底线/安全断言只增**：`policy`/`auto-authorize` 内容哈希 pin、决策表快照 pin、`PLUGIN_RISK_DEFAULTS` pin、parity 零 diff **不变** + 追加 AC-V2-025 反向断言（`insight-override-security`）。
+- **〔R2 收口口径说明（2026-09-14，@sddu-build；数字不改）〕** `docs/r2-supersession-ledger.json#counts.nodeTests` 绝对值**跨口径混用**，不可直接相减：`before=646` = **排除正则 `.test(` 的静态声明计数**（基线 `a955a7f`；取法 = 扫 `test/*.test.ts` 计 `\btest(` 后剔除「点号前缀」的 `.test(` 正则/方法调用形态；validate R2 独立复算 646、区间末同口径 697）；`afterR2=690` = **同一「排除正则静态」口径**（R2 审查独立复算）；`afterR2Fix=693` = **运行期** `node --test` 实测 tests 数（= `npm test` 输出 `tests 693 / pass 693 / fail 0`）。**门禁下界 = `before`（646）**：`test/insight-tree-hierarchy.test.ts#currentNodeTestCount()` 取 `\btest(`（**含**正则，现状 776）并要求 `current ≥ 646` → 防减有效；绝对值跨口径**不影响方向结论**（低龄文档口径不一致，**非静默降级**，两数各自取法已如实保留）。
 
 ### 9.5 门禁原文（严格串行，一次一个）
 | # | 命令 | 结果 | 完整日志 |
@@ -343,6 +344,7 @@
 | v2.0 | **v2 整体收口报告（第 11 轮）**：四叶（V2-1/V2-2/V2-3/V2-4）phase 全部 `validated`（父保持轻量规范容器；V2-4 P1 本轮由 builded→reviewed→validated）；review P0 R1 ⚠️ / V2-4 R1 ⚠️（均 0 阻塞）；validate P0 R1 ✅ / V2-4 R1 ✅（均 0 阻塞）；门禁串行实跑全绿（tsc 0 error / 插件 646·0 fail / insight 70 / ui 167 / hardening 24 / binding 180×3 / e2e PASS / 全仓 1629·1628 pass·0 fail·1 skip，base 483 零回归）；体积 content.js 零增长 1,073,453 B / sidepanel 1,132,748 B（ceiling 1,189,385）/ background 1,403,170 B；**修 #AP#5b 相位窗口 flake + 新观测修 tabs #7m3/#7m4/#7o/#7o2 harness 时序 flake**（零产品逻辑改动、断言只增不减/不减）；新增 `docs/dev.md` §6.1 完整日志落盘纪律（D-V24-06）；遗留项全量登记（人工面 13 项 + T1 缺口 + 已知偶发 + 口径 D-V24-01/02/08 + 未合并/未发布）；零改动核验（base/policy/auto-authorize/manifest/v1 目录/journey.mjs）。 | 2026-09-13 | SDDU Build Agent（代行收口） |
 | v3.0 | **R2 实施构建第 1 轮（第 12 轮）**：R2-Wave 1（V2-1 真层级树：`ownership-tree.ts` + `tree-model`/`command-catalog`/`project-tree`/`build-snapshot`）+ R2-Wave 2（V2-3 覆盖引擎：`command-override.ts` SW 侧 clamp/存储生命周期 + `host`/`service-worker`/`messaging`/`insight-protocol`/`tree-ops` 接线 + 白名单 7→9）；3 新测试文件（35 tests）；门禁串行全绿（typecheck 0 / 插件 npm test 686 0 fail / insight 70 / ui 167 / hardening 24 / binding 180 / e2e PASS / 全仓 EXIT=0）；断言取代 S1/S2/S3/S7/S9/S10/S12 + pin 显式更新（removed=0、总数只增）；`policy`/`auto-authorize` sha256 不变、content.js 零增长、base/manifest/options 零 diff；未完成 V2-2/V2-4 R2 与 `binding #22a`（如实登记）。 | 2026-09-13 | SDDU Build Agent |
 | v4.0 | **R2 第 3 轮（review 修复轮，消化 `5d9e6f1` R2 审查的 4 建议 + 关键提示）**：A1 no-widen 档叶子收紧控件（三层：硬底线零控件 / tightenOnly ask+deny 无 allow / 可覆盖三档；服务端 clamp 零改动）、A2 跨归属交叉引用可交互下钻（`crossTargets` + `.tree-link` + `navigateToNodeId`，节点不复制）、A3 示例①「工具→子命令」达成（`toolSubcommands` 以 `subcommandRisks` 回退，不改 base/`declared-tools.ts`）、A4 取代台账口径订正（字面 removed=0 不成立 → 无未取代删除 + 机器台账 `docs/r2-supersession-ledger.json`）、A6 文档漂移订正、A7 `meta.modelNote` 旧措辞订正 + 防回潮断言、T4 binding 失败诊断 + 就绪等待；门禁串行全绿（typecheck 0 / 插件 **693·0 fail** / insight **108** / ui **167** / hardening **24** / binding **192×2（0/2 flake）** / e2e PASS / 全仓 EXIT=0，base 483 零回归）；`policy`/`auto-authorize` sha256 不变、`content.js` 零增长、base/manifest/v1/journey 零 diff。 | 2026-09-13 | SDDU Build Agent |
+| v5.0 | **R2 收口（2026-09-14，纯文档 + 状态收口，零 `src/`、零 `test/` 改动）**：①**3 处低龄偏差订正/登记**（`smoke-checklist.md` §5 + `dev.md` 3.6：`test:insight` **102→108**〔历史 45/52/70/102 保留、以现状为准〕；`r2-supersession-ledger.json` `counts.nodeTests` 补**跨口径说明**〔646=排除正则静态 / 690=同口径 / 693=运行期；门禁下界=646；**数字不改**〕；legacy bare `catch` 如实登记为**已知项**〔`src/**` 14 处 `.catch(() => {})` + v1 `journey.mjs:589` `catch (e) {}`；非 R2 引入、不改代码〕）；②**R2 修订总账**（作者原始反馈逐字 / 两处偏差根因含 `file:line` / 反转项 / 新增 FR·AC / 安全设计 / 取代台账机制 / 未执行项 / commit 全链）成节；③**人工面汇总登记**（`V2-H-10~14` + `V2-H-A~D`/`V2-H-1~6`/`V2-H-7~9` + `H0~H10` + **T1 缺口**，全部 `⏳ 未执行（headless 不可合成）`，不冒充 PASS）；④父/四叶 `state.json` 追加 `revisionRounds.R2.closeout`；**phase 不回退**（父 `tasked` / 四叶 `validated`）；**本轮未跑 Chromium 门禁**（零 `src/`/`test/` 改动，以 `git diff --quiet` 零 diff 核实，如实标注不冒充通过）；**未合 main、未发布**。 | 2026-09-14 | SDDU Build Agent（代行收口） |
 
 ---
 
@@ -513,3 +515,102 @@
 - **T4 残留**：本轮 binding 0/2 flake，但根因未定位（仅增强诊断与就绪等待）；若后续复现，诊断已落盘 `R2_LOG_DIR/binding-diagnostics-*.log`。
 - **人工面**：`smoke-checklist.md` §8 `V2-H-10~14` 观感/键盘体感仍 `⏳ 待人工`（headless 不可合成）。
 - **未合并/未发布**：仍在 `feature/web-cli-plugin`，不合 main、不发布。
+
+---
+
+## R2 收口（2026-09-14，sddu-build；编排器代作者决策（2026-09-13 授权）+ R2）
+
+> **性质**：**纯文档 + 状态收口** —— 零 `src/`、零 `test/` 改动（见 §R2C-4 零 diff 核验）；**不跑 Chromium 门禁**（原因如实标注，不冒充 PASS）；**phase 不回退**（父 `tasked` / 四叶 `validated` 原样）。
+> **触发**：R2 全链完成（spec `a955a7f` → plan `7617687` → tasks `76d0d61` → build `ce60fd1`/`493f9d0`/`e35d852`/`ff32683` → review `5d9e6f1` ⚠️ 有条件通过 0 阻塞 → 修复 `02ee715`/`fa062ab`/`649f746` → **validate `a0d2629` ✅ 通过 0 阻塞**）后，清掉验证方报的 3 处低龄偏差 + R2 状态收口。
+
+### R2C-1 三处低龄偏差 before → after（保留历史叙述）
+
+| # | 位置 | before | after | 处置 |
+|:--:|------|------|------|------|
+| 1 | `docs/smoke-checklist.md` §5（`:84`）+ `docs/dev.md`（行 3.5/3.6） | `test:insight` = **102**（原文写「R2 修复轮后」） | **108**（R2 第 2 轮实测 102 → 修复轮 A1/A2/A3 再 +6 → 108；历史 45/52/70/102 **保留**，**以现状为准**） | ✅ 订正（`dev.md` 3.5 笔误同批订正 + 3.6 补记） |
+| 2 | `docs/r2-supersession-ledger.json#counts.nodeTests` + 父 `build.md` §9.4 | 绝对值为跨口径混用（无说明） | 补 **口径说明**（**数字不改**）：`before=646` 排除正则 `.test(` 静态 / `afterR2=690` 同口径 / `afterR2Fix=693` 运行期 `node --test`；**门禁下界 = `before`（646）**，`currentNodeTestCount()` 取 `\btest(` 含正则（现状 776） | ✅ 说明（低龄文档口径不一致，**非静默降级**） |
+| 3 | `src/**` 14 处 `.catch(() => {})` + v1 `test/ui/journey.mjs:589` `catch (e) {}` | 仅在 validate 报告提及 | **如实登记为已知项**（best-effort 推送 / 不伪造状态；v1 冻结文件非 R2 引入）；**不改代码**（本轮不碰 src/test） | ✅ 登记 |
+
+### R2C-2 R2 修订总账（供作者查阅）
+
+#### ① 作者原始反馈（逐字）
+
+> 「有个问题，需要修复下偏差，连接树的实现有偏差，所谓"连接树"，1、至少是树形的展示吧，当前是列表，不合适，如：连接数=》授权的站点=》站点xxx，连接树=》支持的命令=》系统内置命令=》dom=》dom xxx，等等，定义好树的形状，按找归属，逐层展开，才方便用户查阅、理解；2、连接要可以操作，当前完全不能操作，例如：dom\n来源 内置（base-builtin） · 命令间隔 delayMs=0ms（与 delay 档无关） · 处置 ask\nask（需确认）\n只读展示：命令级策略不可在树内修改（不提供命令级写入）\ndom read-state\n来源 内置（base-builtin） · 命令间隔 delayMs=0ms（与 delay 档无关） · 处置 allow\nallow（默认放行） ，不同层级都应该可以操作，dom要可以设置为ask 或 allow 或 deny，dom read-state 也要支持设置；」
+
+（逐字留存，亦见父 `state.json#revisionRounds.R2.authorFeedbackVerbatim`；authorization = 编排器代作者决策（2026-09-13 授权）+ R2。）
+
+#### ② 两处偏差的根因（`file:line`）
+
+| 偏差 | 根因（`file:line`） |
+|------|------|
+| D-R2-01 **形状**：非树形（列表） | `src/ui/tree/tree-view.ts:509-525` 构建「按维度分组的扁平 rows」；`src/ui/tree/tree-drawer.ts:601-613` 渲染为「分组标题 + 平铺 rows」→ 无父子层级、不可逐层展开 |
+| D-R2-02 **不可操作** | `src/insight/command-catalog.ts:142-145` `controlsFor()` 对所有命令返回 `{kind:'none'}`（文案「只读展示：命令级策略不可在树内修改（不提供命令级写入）」）；`src/ui/tree/tree-view.ts:251-254` 对 `action==='deny'` 恒返回 `controls:[]` |
+| D-R2-03 **共同根因** | 立项裁决⑤「撤销粒度 = 站点级 + 能力级，不做命令级策略覆盖」→ `NG-V2-001` + `ADR-V2-011`（deny 不可关 = 渲染模型结构保证）+「deny ⇒ controls:[]」 |
+
+#### ③ 反转项
+
+- 原裁决⑤「撤销粒度 = 站点级 + 能力级，**不做命令级策略覆盖**」→ **反转**：做**命令级用户覆盖层**（工具级 + 子命令级 allow/ask/deny）。
+- 原 `NG-V2-001`「不做命令级策略覆盖」→ 作废/改写为 **`NG-V2-001R`**「不做无审计的命令级放宽 / 不做绕过硬底线 clamp 的覆盖」。
+- 原 `ADR-V2-011`「deny 不可关 = 渲染模型结构保证（deny ⇒ controls:[]）」→ **部分取代**：硬底线 deny 仍无控件（不可放宽）+ 原因可读；非硬底线 deny 有 allow/ask 控件可改回（承接 ADR-V2-030）。
+- 原实现形态「按维度分组的扁平列表」（`tree-view.ts:509-525` / `tree-drawer.ts:601-613`）→ **反转为真父子层级树** + 逐层展开/收起 + 多归属主链（父 FR-V2-070/071）。
+- 原 `command-catalog.ts:142-145`「只读展示…不提供命令级写入」偏差文案 → **替换**（父 FR-V2-078）。
+- 原 `AC-V2-005` allow 单调性（allowAfter ⊆ allowBefore）→ 范围重定：只约束撤销/关断通路；用户显式覆盖为独立、被审计的放宽通路。
+
+#### ④ 新增 FR / AC（R2）
+
+- **FR**：`FR-V2-070` ~ `FR-V2-079`（10 条，父 spec）。
+- **AC**：`AC-V2-020` ~ `AC-V2-027`（8 条，父 spec）。
+- 叶级 AC：`V21-008~010` / `V22-008~011` / `V23-009~010` / `V24-008`。
+- 新 ADR：`ADR-V2-024` ~ `ADR-V2-033`（10 条，父 plan）；取代/扩展 `ADR-V2-008` / `011` / `016` / `020` / `001` / `003` / `019`。
+
+#### ⑤ 安全设计
+
+- **优先级**：`硬底线 > 用户覆盖 > 默认`。
+- **服务端强制**：覆盖层 clamp 在 **SW 侧**（`src/security/command-override.ts`），策略链重排 `[S1, S3, override, S2]` + clamp 策略 + onAsk 守卫；`policy.ts` / `auto-authorize.ts` **零改动**（内容哈希 pin 不变）—— **判定链零改动**。
+- **只可收紧档**（`tightenOnly`）：`ui`/`state`/`external`/破坏性叶子 → 只给 **ask/deny** 两档（结构上无 allow）。
+- **不可覆盖档**：`evaluate` / S1 / S3 硬底线 → 零控件 + `clampReason` 可读。
+- **零新权限 / 无新依赖 / `src/content/**` 零改动**；覆盖存储单键原子写 + 串行队列 + 子命令级 > 工具级继承 + 幂等 + 读失败视为无覆盖（更保守）+ 审计零明文。
+
+#### ⑥ 取代台账机制
+
+- 机器可核验台账 `packages/web-cli-plugin/docs/r2-supersession-ledger.json`（`S1`~`S20` 含 `S19b`，逐条 old→new + `protectedFileOldLines` + `counts` + `hardFloorPins`）。
+- 门禁 `packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts`：受保护文件**每一行删除**必须命中台账 old 行；`journey.mjs` 区间 + 工作区零 diff；`test(` 总数 ≥ `before`（646）。反证 C4a/C4b 证明其承重（未登记删除 → FAIL）。
+- `literalRemovedZero=false` 如实标注（字面 `removed=0` 不成立）；口径 = **无未取代删除 + 总断言数不减 + 硬底线/安全断言只增**。
+
+#### ⑦ 未执行项（不冒充 PASS）
+
+见 §R2C-3 人工面汇总登记。
+
+#### ⑧ commit 全链
+
+`a955a7f`（spec）→ `7617687`（plan）→ `76d0d61`（tasks）→ `ce60fd1` / `493f9d0` / `e35d852` / `ff32683`（build，含 hash 回填）→ `5d9e6f1`（review ⚠️ 有条件通过 0 阻塞）→ `02ee715` / `fa062ab` / `649f746`（修复轮）→ `a0d2629`（validate ✅ 通过 0 阻塞）。
+
+### R2C-3 人工面登记（**未执行，不冒充 PASS**）
+
+> headless（Chrome for Testing）**无法合成真实手势 / 原生权限弹窗**；以下人工面本轮**未执行**，一律标 `⏳ 未执行（headless 不可合成）`，**不冒充 PASS**。
+
+| 组 | 人工面 | 状态 |
+|----|--------|:--:|
+| **V2-H-10~14**（R2） | 10 树逐层展开观感；11 320px 长路径/面包屑；12 键盘操作体感；13 覆盖后即时生效观感（三档 + 二次确认）；14 deny 分层与 clamp 原因可读 | ⏳ 未执行（headless 不可合成） |
+| **V2-H-A~D**（V2-2） | A 悬浮观感/抽屉动画/明暗主题；B 长站点名·长文案·320px 窄栏；C 多显示器/高 DPI；D 键盘/焦点遍历真实体感 | ⏳ 未执行（headless 不可合成） |
+| **V2-H-1~6**（V2-3） | 1 真实授权弹窗；2 原生 `goBack`/`goForward`；3 剪贴板真读焦点；4 真实 `permissions.remove` 回执观感；5 `chrome://extensions` 外部撤销实时刷新；6 窄栏二次确认可读性 | ⏳ 未执行（headless 不可合成） |
+| **V2-H-7~9**（V2-4） | 7 档案子视图观感；8 三层口径可读性；9 deny 三成因可读性 | ⏳ 未执行（headless 不可合成） |
+| **H0~H10**（v1 `smoke-checklist.md` §1/§2） | 真实浏览器手势注入 / side panel 交互 / 真实 LLM / 真实页写回 UX / 风控·事件·ask 真实 UI | ⏳ 未执行（headless 不可合成） |
+| **T1 缺口**（V2-3） | 树侧**能力撤销成功**端到端（headless `chrome.permissions.request=PENDING_TIMEOUT` → `test:binding #21o*` 如实 observe 跳过；成功分支归人工面 V2-H-4） | ⏳ 未执行（headless 不可合成） |
+
+### R2C-4 零 diff 核验 + 未跑门禁说明
+
+| 核验项 | 命令 | 结果 |
+|------|------|:--:|
+| `src/` + `test/` 零 diff | `git diff --quiet -- packages/web-cli-plugin/src packages/web-cli-plugin/test` | **exit 0（零 diff）** |
+| 工作区范围 | `git status --porcelain` | 仅含本轮预期文档/状态文件（v2 `.sddu/` + `packages/web-cli-plugin/docs/` + `ROADMAP.md`） |
+| Chromium 门禁 | — | **未跑**（原因：本轮零 `src/`、零 `test/` 改动，无代码/测试变更需复验）—— **如实标注，不冒充通过** |
+
+> **基线来源**：以下数字引用 **validate R2（`a0d2629`）的实跑结论**（`validate-report.md` R2 段，8 门禁串行全 exit 0），本轮未重复执行：`tsc` **0 error**；插件 `npm test` **693/693 · 0 fail**；`test:insight` **108**；`test:ui` **167**；`test:hardening` **24**；`test:binding` **192**；`test:e2e` **PASS**；全仓 **EXIT=0**（base 483 零回归）。体积：`content.js` **1,073,453 B（零增长）**；`sidepanel.js` **1,162,942 B**（ceiling **1,217,848**）。
+
+### R2C-5 状态收口
+
+- 父 + 四叶 `state.json`：追加 `revisionRounds.R2.closeout`（结论 / commit 区间 / 门禁基线 / 体积 / 剩余低龄偏差 / 人工面未执行 / 未合 main·未发布）；**phase 不回退**（父 `tasked` / 四叶 `validated`），`status=tracked`。
+- `ROADMAP.md`：最小追加 v1.23.0 素材增补（R2 修订结论；**不删既有叙述**）。
+- `TREE.md`：由 `sddu-tree` Skill 刷新（见收口报告）。
+- **未合 main、未发布**（`NG-V2-009` 保持）；合入/发布由作者执行。

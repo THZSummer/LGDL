@@ -57,7 +57,7 @@
     }
   ],
   "createdAt": "2026-09-13",
-  "updatedAt": "2026-09-13",
+  "updatedAt": "2026-09-14",
   "description": "web-cli-plugin v2「any insight」的需求规范（spec 阶段，作者批准从 spec 直接切入、跳过 discovery）。立项来源 = 作者要求 2026-09-13（主题 any insight；原始诉求逐字留存于 ROADMAP §二 v0.8「F-27」小节与父 spec.md §2.1）+ 作者五项口径裁决 2026-09-13。上游/底座 = v1 `specs-tree-web-cli-plugin`（phase=validated / status=tracked，**只读参与、不改写**）——v2 本质是只读投影 + 聚合 + 侧栏悬浮 UI + 就地调用既有 ops；零新权限、零注入、不碰 packages/web-cli-base/**、无新依赖。结构（作者确认）= 父 Feature（轻量规范容器，不执行 tasks/build/review/validate）+ 4 个叶子子 Feature。",
   "scope": {
     "in": [
@@ -236,6 +236,40 @@
   },
   "revisionRounds": {
     "R2": {
+      "closeout": {
+        "round": "R2",
+        "subRound": "closeout（R2 收口：3 处低龄偏差订正/登记 + 状态·文档收口 + 人工面登记）",
+        "type": "post-validate 收口轮（phase 不回退；追加记录不稀释既有）",
+        "date": "2026-09-14",
+        "authorization": "编排器代作者决策（2026-09-13 授权）+ R2",
+        "conclusion": "✅ R2 全链完成并通过验证（0 阻塞）——作者两诉求（真层级树 + 逐层可操作）达成；本轮为纯文档/状态收口，不改 src/、test/；父 Phase 保持 tasked（轻量规范容器，不进入 tasks/build/review/validate），四叶保持 validated。",
+        "commitRange": "a955a7f（R2 spec）→ 7617687（plan）→ 76d0d61（tasks）→ ce60fd1 / 493f9d0 / e35d852 / ff32683（build，含 hash 回填）→ 5d9e6f1（review ⚠️ 有条件通过 0 阻塞）→ 02ee715 / fa062ab / 649f746（修复轮）→ a0d2629（validate ✅ 通过 0 阻塞）",
+        "gateBaseline": "tsc 0 error；插件 npm test 693/693 · 0 fail；test:insight 108；test:ui 167；test:hardening 24；test:binding 192；test:e2e PASS；全仓 EXIT=0（base 483 零回归）",
+        "sizes": {
+          "content.js": "1,073,453 B（零增长）",
+          "sidepanel.js": "1,162,942 B（ceiling 1,217,848 B）"
+        },
+        "remainingLowOrderDeviations": [
+          "smoke-checklist.md §5 + dev.md：test:insight 断言数 102 → 108（实测；历史 45/52/70/102 保留、以现状为准）——已订正",
+          "docs/r2-supersession-ledger.json#counts.nodeTests 绝对值跨口径混用（646=排除正则静态 / 690=同口径 / 693=运行期）→ 已在台账 + 父 build.md §9.4 补口径说明；数字不改；门禁下界=before（646）——已说明（低龄文档口径不一致，非静默降级）",
+          "legacy bare catch：src/** 14 处 .catch(() => {})（best-effort 推送）+ v1 test/ui/journey.mjs:589 既有 catch (e) {} → 如实登记为已知项；非 R2 引入、不改代码、不伪造状态——已登记"
+        ],
+        "manualSurfacesNotExecuted": [
+          "V2-H-10~14（R2 人工面：树逐层展开观感 / 320px 长路径·面包屑 / 键盘操作体感 / 覆盖后即时生效观感 / deny 分层与 clamp 原因可读）",
+          "V2-H-A~D（承前 V2-2：悬浮观感·抽屉动画·明暗主题 / 长站点名·长文案·320px 窄栏 / 多显示器·高 DPI / 键盘·焦点遍历真实体感）",
+          "V2-H-1~6（承前 V2-3：真实授权弹窗 / 原生 goBack·goForward / 剪贴板真读焦点 / 真实 permissions.remove 回执观感 / chrome://extensions 外部撤销实时刷新 / 窄栏二次确认可读性）",
+          "V2-H-7~9（承前 V2-4：档案子视图观感 / 三层口径可读性 / deny 三成因可读性）",
+          "H0~H10（v1 smoke-checklist §1/§2：真实浏览器手势注入 / side panel 交互 / 真实 LLM / 真实页写回 UX / 风控·事件·ask 真实 UI）",
+          "T1 缺口（V2-3：树侧能力撤销成功端到端；headless chrome.permissions.request=PENDING_TIMEOUT → test:binding #21o* 如实 observe 跳过；成功分支归人工面 V2-H-4）"
+        ],
+        "manualSurfacesStatus": "⏳ 未执行（headless 不可合成）——不冒充 PASS",
+        "chromiumGate": "未跑（本轮零 src/、零 test/ 改动 → 以 `git diff --quiet -- packages/web-cli-plugin/src packages/web-cli-plugin/test` 零 diff 核实；如实标注未跑原因，不冒充通过）",
+        "merge": "未合 main、未发布（NG-V2-009 保持；合入/发布由作者执行）",
+        "phaseKept": "tasked（父）/ validated（四叶）（原样，不回退）",
+        "phaseNotRegressed": true,
+        "reports": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/build.md（R2 收口 §R2C-1~5 + R2 修订总账 §R2C-2）+ ROADMAP.md v1.23.0",
+        "next": "作者决定合入/发布；如需复看收口文档可 @sddu-review"
+      },
       "round": "R2",
       "type": "post-validate 需求修订轮（不回退 phase；按 v1 先例，追加记录不稀释既有）",
       "date": "2026-09-13",

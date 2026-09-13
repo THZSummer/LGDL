@@ -11,7 +11,7 @@
     "note": "v1 门禁，R2 全轮零改动（含本轮）；本台账断言其区间 + 工作区 diff 均为 0 行。"
   },
   "counts": {
-    "nodeTests": { "before": 646, "afterR2": 690, "afterR2Fix": 693, "note": "静态 `test(` 计数；R2 审查独立复算 646→690（build.md 记 686→690 为旧基线，A8 另记；本台账取审查复算值）；R2 修复轮 A1/A2/A3/台账新增 3 个 test → 693" },
+    "nodeTests": { "before": 646, "afterR2": 690, "afterR2Fix": 693, "note": "静态 `test(` 计数；R2 审查独立复算 646→690（build.md 记 686→690 为旧基线，A8 另记；本台账取审查复算值）；R2 修复轮 A1/A2/A3/台账新增 3 个 test → 693", "countMethod": "【R2 收口口径说明（2026-09-14，@sddu-build，数字不改）】本字段绝对值**跨口径混用**，不可直接相减：`before=646` = 排除正则 `.test(` 的静态声明计数（基线 a955a7f；取法 = 扫 `test/*.test.ts` 计 `\\btest(` 后剔除「点号前缀」的 `.test(` 正则/方法调用形态；validate R2 独立复算 646，区间末同口径 697）；`afterR2=690` = 同一「排除正则静态」口径（R2 审查独立复算 646→690）；`afterR2Fix=693` = **运行期** `node --test` 实测 tests 数（= `npm test` 输出 `tests 693 / pass 693 / fail 0`）。**门禁下界 = 本字段 `before`（646）**：`test/insight-tree-hierarchy.test.ts#currentNodeTestCount()` 取 `\\btest(`（**含**正则，现状 776）并要求 `current ≥ 646` → 防减有效；绝对值跨口径不影响方向结论（**低龄文档口径不一致，非静默降级**，如实保留两数各自的取法）" },
     "insightChecks": { "staticBefore": 57, "staticAfterR2": 75, "runtimeBefore": 70, "runtimeAfterR2": 102, "afterR2Fix": 108 },
     "bindingChecks": { "staticBefore": 185, "staticAfterR2": 197, "runtimeBefore": 180, "runtimeAfterR2": 192, "afterR2Fix": 192 },
     "testUiJourney": { "runtime": 167, "policy": "零删减" }
