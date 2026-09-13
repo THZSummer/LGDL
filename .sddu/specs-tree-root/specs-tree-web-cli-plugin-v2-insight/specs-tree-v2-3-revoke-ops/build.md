@@ -191,7 +191,7 @@ insight-no-escalation.test.js ℹ tests 12 pass 12 fail 0   （V2-1 基础段 5 
 | 项 | before | after | 证据 |
 |----|--------|-------|------|
 | **W1** | 子 V2-2 `spec.md`/`state.json` + `ROADMAP.md` 仍写「≥65.5%」 | 最小订正为父口径「≥589px 主 + ≥65.0% 次 + 去镀铬测量条件 + ADR-V2-006」 | V2-2 `spec.md`/`state.json`/`ROADMAP.md` |
-| **W2** | `insight-protocol.ts` 无单测 | 新建 `test/insight-protocol.test.ts`（6 测试 / 30 断言） | `node --test` → 6/6 |
+| **W2** | `insight-protocol.ts` 无单测 | 新建 `test/insight-protocol.test.ts`（6 测试 / 18 条 assert） | `node --test` → 6/6 |
 | **W3** | 判定链冻结靠 `git diff --quiet HEAD`（提交后恒 0） | **内容哈希钉死**（`policy.ts` / `auto-authorize.ts` + 判定表快照 720 行）+ 反证自测；原 `git diff` 断言全保留 | pin 值：`bfcb2ede…` / `1096d065…` / `d1667d24…`；反证实跑原文见 V2-1 `build.md` §11 |
 | **W4** | `SIDEPANEL_BASELINE_BYTES=1,085,389`（实际 1,110,744） | 显式重登记 1,110,744；ceiling **1,166,281**；历史保留；`CONTENT_MAX_BYTES` 不变 | `stat -c %s dist/sidepanel.js`=1110744 |
 | **W5** | V2-2 `build.md` §5.2 「前」1,065,389 | 订正 1,068,165（+17,224） | V2-2 `build.md` §5.2 |

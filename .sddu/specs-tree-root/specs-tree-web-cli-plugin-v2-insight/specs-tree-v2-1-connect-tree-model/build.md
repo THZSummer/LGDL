@@ -214,7 +214,7 @@ git diff --quiet -- .sddu/specs-tree-root/specs-tree-web-cli-plugin/  （v1 目�
 | 项 | before | after | 证据 |
 |----|--------|-------|------|
 | **W1** | 子 V2-2 `spec.md`/`state.json` + `ROADMAP.md` 仍写「≥65.5%」 | 最小订正为父口径「≥589px 主 + ≥65.0% 次 + 去镀铬测量条件 + ADR-V2-006」，保留历史 + 以现状为准 | V2-2 `spec.md`/`state.json`/`ROADMAP.md`（见 diff） |
-| **W2** | `src/background/insight-protocol.ts` **无单测** | 新建 `test/insight-protocol.test.ts`（**6 测试 / 30 断言**）：合法通过 / 未知-畸形 kind 拒绝 / 缺字段-类型错-非对象拒绝 / 与主 `KIND_SET` 等价 / SW 入口并集无未校验放行 | `node --test dist-test/test/insight-protocol.test.js` → **6/6 pass** |
+| **W2** | `src/background/insight-protocol.ts` **无单测** | 新建 `test/insight-protocol.test.ts`（**6 测试 / 18 条 assert（循环覆盖 21 条反例 + 26 条 corpus）**）：合法通过 / 未知-畸形 kind 拒绝 / 缺字段-类型错-非对象拒绝 / 与主 `KIND_SET` 等价 / SW 入口并集无未校验放行 | `node --test dist-test/test/insight-protocol.test.js` → **6/6 pass** |
 | **W3** | `git diff --quiet HEAD` **提交后恒 0 = 假安全网** | **内容哈希钉死**：`policy.ts` / `auto-authorize.ts` SHA-256 + 判定表快照（720 行）+ 反证自测；原 `git diff` 断言全保留 | 反证实跑原文见下 |
 | **W4** | `SIDEPANEL_BASELINE_BYTES=1,085,389`（实际 1,110,744） | 显式重登记 **1,110,744**；ceiling **1,166,281**；历史保留；`CONTENT_MAX_BYTES` 不变 | `stat -c %s dist/sidepanel.js`=1110744；`test/size-budget.test.ts` +2 测试 |
 | **W5** | V2-2 `build.md` §5.2 「前」1,065,389（+20,000） | 订正 1,068,165（+17,224），历史行保留 + 以现状为准 | V2-2 `build.md` §5.2 |
@@ -246,4 +246,4 @@ assert.throws 触发原文: 内容哈希漂移
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-1（Wave 1~5 / TASK-001~009）实施构建报告：7 新源码 + 4 修改源码（additive）+ 4 新门禁测试（36 测试）；门禁 `typecheck` 0 error / 插件与全仓 `npm test` 561（v1 525 零删减）；四项零改动核验通过；`content.js`/`sidepanel.js` 零增长；父 spec 口径最小订正（FR-V2-023 + §2.5）；决策 D-V21-01~05；Chromium 门禁本轮未跑（如实登记）。 | 2026-09-13 | SDDU Build Agent |
-| v1.1 | R2 修复轮：W2（insight-protocol 补测 6/30）/ W3（判定链改内容哈希钉死 + 判定表快照 + 反证）/ T2（去静默吞异常 + 门禁）/ T3（deriveAction 全量一致性交叉断言 28 工具·94 子命令 + 站点域矩阵 + 反证）；门禁全量串行复跑：typecheck 0 / 插件 npm test 616 / test:insight 52 / test:ui 167 / test:hardening 24 / test:binding 180 / test:e2e PASS / 全仓 base 483 + plugin 616 = 0 fail。 | 2026-09-13 | SDDU Build Agent |
+| v1.1 | R2 修复轮：W2（insight-protocol 补测 6 测试）/ W3（判定链改内容哈希钉死 + 判定表快照 + 反证）/ T2（去静默吞异常 + 门禁）/ T3（deriveAction 全量一致性交叉断言 28 工具·94 子命令 + 站点域矩阵 + 反证）；门禁全量串行复跑：typecheck 0 / 插件 npm test 616 / test:insight 52 / test:ui 167 / test:hardening 24 / test:binding 180 / test:e2e PASS / 全仓 base 483 + plugin 616 = 0 fail。 | 2026-09-13 | SDDU Build Agent |

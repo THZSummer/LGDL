@@ -71,7 +71,7 @@
       "T3"
     ],
     "changes": [
-      "W2：新增 test/insight-protocol.test.ts（6 测试 / 30 断言）：合法通过 / 未知-畸形 kind 拒绝 / 缺字段-类型错-非对象拒绝 / 与主 KIND_SET 等价 / SW 入口并集无未校验放行",
+      "W2：新增 test/insight-protocol.test.ts（6 测试 / 18 条 assert（循环覆盖 21 条反例 + 26 条 corpus））：合法通过 / 未知-畸形 kind 拒绝 / 缺字段-类型错-非对象拒绝 / 与主 KIND_SET 等价 / SW 入口并集无未校验放行",
       "W3：判定链冻结由 git diff（worktree-vs-HEAD，提交后恒 0）升级为内容哈希钉死——policy.ts SHA-256 bfcb2ede…3c89a8 / auto-authorize.ts 1096d065…ef4b / 判定表快照 d1667d24…8b74（720 行）；含反证自测；原 git diff 断言全保留",
       "T2：pushInsightChanged 空 catch → console.debug 诊断（零敏感明文 / 不伪造状态），新增 no-escalation 门禁断言",
       "T3：新增 test/insight-action-parity.test.ts（4 测试）：真实 createPluginPolicyConfig + 真实 PermissionGate 逐条比对全部 28 工具 / 94 子命令（122 命令节点）+ 站点域矩阵 + 反证；已知保守方向分歧（base 内建 web-fetch/sleep/web-cli-help risk 缺失）显式钉死"
