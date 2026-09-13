@@ -155,7 +155,63 @@
         "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录，不稀释既有 R1 记录）",
         "红线：不得回改 v1 SDDU 目录 / 不合 main / 不 force push / 禁 git add -A"
       ],
-      "note": "V2-4 档案侧：deny 控件分层（硬底线无控件 / 非硬底线有控件）+ 默认档 vs 覆盖生效档分列 + 覆盖面 122 卡 vs 34/142 分列不夸大。"
+      "note": "V2-4 档案侧：deny 控件分层（硬底线无控件 / 非硬底线有控件）+ 默认档 vs 覆盖生效档分列 + 覆盖面 122 卡 vs 34/142 分列不夸大。",
+      "planRevision": {
+        "round": "R2",
+        "subRound": "plan（技术设计修订）",
+        "type": "post-validate 技术设计修订（phase 不回退；追加记录不稀释既有）",
+        "date": "2026-09-13",
+        "authorization": "编排器代作者决策（2026-09-13 授权）",
+        "phaseKept": "tasked | validated（原样，不回退）",
+        "phaseNotRegressed": true,
+        "scopeNote": "V2-4 plan.md v2.0：新增 §9A 档案侧 R2（分层控件 + 默认档 vs 覆盖生效档分列 + 覆盖面分列不夸大 + TREE_ACTION_IDS 7→9 pin 更新）；写入仍归 V2-3 单一路径，档案模块无写导入。",
+        "designSummary": [
+          "覆盖层接入点：SW 侧 policy 组合 withCommandOverride(createPluginPolicyConfig(...))，strategies 重排 [S1, S3, override, S2] + 追加 clamp 策略 + onAsk 守卫；host.ts 组合；dispatch 入口不变。",
+          "为什么 policy.ts/auto-authorize.ts 的 sha256 可保持不变：只组合返回值新对象，不 import/修改冻结文件源码；pinned 判定表 + 源码内容哈希全部不变。",
+          "clamp 逐档（服务端 SW 强制）：read/write 非破坏性可放宽；破坏性保底 ask；ui/state/external 只可收紧（allow→null 基线）；evaluate/S1/S3 不可覆盖（策略链顺序 + 首行拒绝）；dom/dom read-state 三档全可用（工具级=设置载体/继承，子命令按 effective risk 再 clamp）。",
+          "覆盖存储/生命周期：单键 web-cli:command-policy 整对象原子写 + 串行队列无半写 + 子命令级>工具级 继承 + 单条/全部恢复默认 + 幂等（同值不写不审计）+ 读失败视为无覆盖（更保守）+ 审计新类型 command-policy 零明文；不新增权限。",
+          "动作白名单 7→9（+set-command-policy/reset-command-policy）+ 无默认写入分支 + 新增 command-policy* 消息 + 放宽类二次确认 + pin 显式更新流程（TREE_ACTION_IDS_JSON_SHA256 / TREE_MODULE_SHA256 / TREE_NO_ESCALATION_NOTE_SHA256）。",
+          "真层级树：新增纯 src/insight/ownership-tree.ts（主归属链 + 交叉引用徽标 + 不复制节点 + path）；快照扁平面不变（对账/确定性零变化）；渲染模型改为嵌套节点。",
+          "展开/键盘/路径：自建 role=tree/treeitem + aria-expanded/aria-level + 会话 expanded:Set 保持 + 方向键/Enter/Home/End + 面包屑 + 惰性渲染（不虚拟化）；布局守卫 AC-V2-002 全量保持（开/关 drift=0）。",
+          "deny 控件分层：模型 defaultAction/overrideAction/effectiveAction/overridable/clampReason + ControlKind command-policy；DOM 双层（硬底线零控件；可覆盖行 allow/ask/deny 按钮，唯一 tree-ops 写路径）。",
+          "覆盖面口径：实时面 28/94=122 卡 vs parity 基线 34/142 分列；accounted 不渲染；禁『已全部渲染』（防夸大反证）。",
+          "偏差文案清除：TREE_NO_ESCALATION_NOTE 两通路重写（delay 消歧保留，pin 显式更新）；TREE_MODEL_NOTE 改为归属层级树。",
+          "断言取代策略：显式 old→new（父 plan §9.8 S1~S18）；removed=0；总断言数不减；硬底线/安全断言只增；journey.mjs 与 v1 既有编号零改动。",
+          "体积/门禁纪律：content.js 零增长（CONTENT_SOURCE_SHA256 不变）；sidepanel.js 显式重登记（前后值+日期+来源+理由+HISTORY，容差 5% 不变，targetBudgetBytes/targetMet 仍 null）；门禁串行 + 能真 FAIL（反证自测）+ 内容 sha256 冻结（禁 git diff HEAD）+ catch 只吞 ENOENT。"
+        ],
+        "newAdrIds": [
+          "ADR-V2-024",
+          "ADR-V2-025",
+          "ADR-V2-026",
+          "ADR-V2-027",
+          "ADR-V2-028",
+          "ADR-V2-029",
+          "ADR-V2-030",
+          "ADR-V2-031",
+          "ADR-V2-032",
+          "ADR-V2-033"
+        ],
+        "supersededOrExtendedAdrs": [
+          "ADR-V2-008（撤销面=7 动作白名单 + 永不新增判定路径）→ 扩展：白名单 7→9（+set-command-policy/reset-command-policy）；『不新增判定路径』收窄为撤销/关断面；覆盖为独立显式/被审计/可恢复/经 clamp 通路。承接 ADR-V2-024/025/027。",
+          "ADR-V2-011（deny⇒controls:[] 恒成立）→ 部分取代：收窄为『硬底线 deny ⇒ controls:[]』；非硬底线 deny 有 allow/ask 控件可改回；『静态权限不可撤销』部分不变。承接 ADR-V2-030。",
+          "ADR-V2-016（档案=结构无控件只读面；既有断言零修改）→ 部分取代：档案改为分层承载（硬底线零控件/非硬底线有控件描述，写入仍归 V2-3 单一路径）；『既有断言零修改』→ 显式断言取代策略（removed=0，总数不减）。承接 ADR-V2-027/030/031。",
+          "ADR-V2-020（档案四层结构证据 + 7 动作 pin + DOM 零控件）→ 部分取代：白名单 7→9（pin 显式更新）；DOM 分层（硬底线零控件/非硬底线有控件）；类型层/模块图仍无写入口不变。承接 ADR-V2-027/030。",
+          "ADR-V2-001（森林=四并列分组 + 扁平行）→ 形式扩展：四维度一级分组保留，组内由扁平 rows 改为真父子层级树；crossLinks 升级为主归属链 + 交叉引用徽标。承接 ADR-V2-028/029。",
+          "ADR-V2-003（多对多 = crossLinks 不复制节点）→ 扩展：唯一主归属链 + 交叉引用徽标 + 任一归属下钻同一 node id。承接 ADR-V2-028。",
+          "ADR-V2-019（delay 消歧单源 + 内容哈希钉死）→ 扩展：消歧句保留；TREE_NO_ESCALATION_NOTE 重写为两通路 + delay 消歧，并显式更新 pin。承接 ADR-V2-032。"
+        ],
+        "assertionSupersession": {
+          "policy": "removed=0；总断言数不减；硬底线断言只增（policy.ts/auto-authorize.ts 内容哈希 pin、PLUGIN_RISK_DEFAULTS、决策表快照、parity 零 diff 全部不变；追加 AC-V2-025 覆盖 clamp 反向断言 + #I-12a 硬底线零控件）。",
+          "explicitOldToNew": "显式映射见父 plan.md §9.8 S1~S18（tree-ops 7→9；tree-view 分层；insight-archive 分层 + pin 更新；insight.mjs #I-11a/#I-12/#I-18e/#I-02a 取代 + 新增；binding.mjs 既有 #21* 零改动，追加 #22a…）。",
+          "v1Untouched": "journey.mjs / v1 test:ui 既有断言 / binding.mjs 既有编号零删改。"
+        },
+        "pendingDownstream": [
+          "@sddu-tasks：按 R2 新 FR/AC（FR-V2-070~079 / AC-V2-020~027 + 叶级 AC-V21-008~010/V22-008~011/V23-009~010/V24-008）重排任务。",
+          "@sddu-build：按本设计重实施（覆盖层 SW clamp + 真层级树渲染 + deny 控件分层 + 断言取代）；零新权限 / 不碰 packages/web-cli-base/** / 无新依赖。",
+          "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录，不稀释既有记录）。",
+          "红线：不碰 main / 不碰 packages/web-cli-base/** / 不改 v1 SDDU 目录 / 不 force push / 禁 git add -A / 禁提交 .opencode/opencode.json。"
+        ]
+      }
     }
   }
 }

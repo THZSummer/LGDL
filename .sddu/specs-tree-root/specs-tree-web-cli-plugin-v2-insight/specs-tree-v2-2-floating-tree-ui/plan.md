@@ -226,8 +226,52 @@ export function needsConfirmation(actionId: TreeActionId): boolean;   // ADR-V2-
 
 ---
 
-## 9. 修订记录
+## 9. R2 技术设计修订（V2-2 UI 侧；post-validate，phase 不回退；2026-09-13）
+
+> **输入**：本叶 `spec.md` v2.0（R2，承载父 `FR-V2-072/073/077/078` 的 UI 侧）+ 父 `plan.md` §9/§10（ADR-V2-024~033）。
+
+### 9.1 R2 目标
+
+- 树抽屉从「分组标题 + 扁平列表」改为**真层级树**（逐层展开/收起 + 键盘可达 + `aria-expanded` + 面包屑/缩进）。
+- 命令节点**逐层可操作**（allow/ask/deny 控件；硬底线零控件 + 原因可读）。
+- 两通路文案 + 偏差文案清除；`delay` 消歧保留。
+- **布局守卫全部保持**：AC-V2-002（`#log ≥589px` / composer ∈[0,+8] / FAB∩composer=0 / 400·320px 溢出=0 / 开·关 drift=0）**不回退**。
+
+### 9.2 模块改动
+
+| 文件 | R2 改动 | ADR |
+|------|---------|-----|
+| MODIFY `src/ui/tree/tree-view.ts` | 渲染模型改为**嵌套节点**（`groups[].nodes`）+ 命令 `command-policy` 控件 + `clampReason` 文案 + 新 `TREE_MODEL_NOTE`/`TREE_NO_ESCALATION_NOTE` | ADR-V2-028/030/032 |
+| MODIFY `src/ui/tree/tree-drawer.ts` | `role="tree"/"treeitem"` + `aria-expanded`/`aria-level` + 会话 `expanded:Set` + 键盘代理 + 面包屑 + 分层控件渲染 + `#tree-clamp-reason` | ADR-V2-029/030 |
+| MODIFY `src/ui/tree/tree-ops.ts` | 白名单 9 + `set/reset-command-policy` 两分支（唯一消息通路） | ADR-V2-027 |
+
+**不改**：`#panel-main` 三区骨架、`#tree-fab`/`#tree-drawer` 的 absolute 覆盖层定位、`#scroll-bottom`、既有 id/`.entry-*`、`innerHTML` 纪律（零 `innerHTML`）。
+
+### 9.3 关键实现约束
+
+1. **自建 tree**（否 `<details>`）：逐层 `aria-expanded` 是 NFR-V2-011 硬要求。
+2. **惰性渲染**：仅渲染祖先链 + 已展开节点；收起不建 DOM；不虚拟化。
+3. **展开态会话保持**：`expanded:Set<nodeId>` 在抽屉会话内保持，重投影回放（EC-V2-006）。
+4. **写路径唯一**：控件点击 → `tree-ops`（白名单）→ 既有/新增消息；UI **不做本地判定**（服务端 clamp）。
+5. **布局**：树在 `#tree-body`（自身滚动，`overflow-x:hidden`、`min-width:0`、缩进上限）→ 三区几何与 AC-V2-002 全量复用（开/关 drift=0）。
+6. **偏差文案清除**：`TREE_MODEL_NOTE` / `TREE_NO_ESCALATION_NOTE` 重写；`delay` 消歧句保留（单源 + pin 更新）。
+
+### 9.4 断言取代（本叶，removed=0；对应父 §9.8 S4~S8、S13~S16）
+
+| 旧（`tree-view.test.ts` / `insight.mjs`） | 理由 | 新 |
+|----|------|----|
+| `a non-deny command still gets no write control` | 命令可覆盖 | 可覆盖行有 allow/ask/deny；硬底线行零控件 |
+| `pinned wording`（森林 + 撤销≠放宽） | 文案重写 | 归属层级树 + 两通路（`delay` 消歧保留） |
+| `needsConfirmation … 7 actions` | 9 动作 | 9 动作 + 放宽类确认 |
+| `deny rows zero controls` | 分层 | 硬底线零控件 / 非硬底线有控件（含过滤态） |
+| `#I-11a` / `#I-12` / `#I-18e` / `#I-02a` | R2 | `#I-11a~c` / `#I-12a~b` / 分层 `#I-18e` / `#I-02a`（逐层展开）+ 新增 `#I-20a…`（键盘/面包屑/分层） |
+| v1 `journey.mjs` / `#15a~#15q` | **不变** | 零删改 |
+
+---
+
+## 10. 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| **v2.0** | **R2 技术设计修订（post-validate；phase 不回退；编排器代作者决策 2026-09-13 授权）**：新增 §9 —— 真层级树渲染模型（嵌套节点 + 自建 `role=tree` + 键盘 + 面包屑 + 惰性渲染）+ 命令逐层可操作控件 + 分层 deny 控件 + 两通路文案；布局守卫 AC-V2-002 全量保持；断言取代（removed=0；`journey.mjs` 零改动）。承接父 ADR-V2-027/028/029/030/031/032。 | 2026-09-13 | SDDU Plan Agent（R2） |
 | v1.0 | 初始创建。V2-2 技术方案：`#panel-main` 内 absolute FAB + 覆盖式抽屉（结构上不遮挡 composer）；additive 消息；纯渲染模型结构保证 deny 无开关；侧栏不回退量化口径（589px 主 / ≥65.0% 次）；体积守卫（基线≠目标预算）；文件影响与可自动化/人工面。承接父 plan ADR-V2-004/005/006/007/011/013/015。 | 2026-09-13 | SDDU Plan Agent |

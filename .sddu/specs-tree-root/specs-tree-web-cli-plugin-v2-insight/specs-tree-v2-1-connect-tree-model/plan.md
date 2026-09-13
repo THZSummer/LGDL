@@ -220,8 +220,44 @@ export interface ConnectTreeSnapshot { version: 1; root: { id:'root'; label:'本
 
 ---
 
-## 9. 修订记录
+## 9. R2 技术设计修订（V2-1 模型侧；post-validate，phase 不回退；2026-09-13）
+
+> **输入**：本叶 `spec.md` v2.0（R2）+ 父 `plan.md` §9/§10（ADR-V2-024~033）+ 父 `state.json#revisionRounds.R2`。**只做设计**，不写代码、不排任务。
+
+### 9.1 R2 目标与边界
+
+- **真父子层级（父 FR-V2-070）**：新增纯 `src/insight/ownership-tree.ts#buildOwnershipTree(snapshot)` → 嵌套 `OwnershipNode`（`children` / `path` / `mainOwner` / `crossRefCount`）。**快照扁平面 `groups[].children` 不改**（对账/确定性/`meta.hash` 输入不变，ADR-V2-028）。
+- **多归属主链（父 FR-V2-071）**：节点唯一（稳定键不变）；`site_*` 命令主归属=站点面；`base-builtin`/`plugin-*` 主归属=命令面（按来源分组）；非主归属以交叉引用徽标 + 下钻同一 `nodeId`（不复制节点，沿用 ADR-V2-003）。
+- **覆盖生效档 / clamp 原因（父 FR-V2-013/079）**：`CommandNode` additive 字段 `defaultAction` / `overrideAction?` / `effectiveAction` / `overridable` / `clampReason?`；`overrides`（纯 `Record<commandId, PolicyAction>`）由 background **注入** → 本层**只读**、**零写入**（NG5R）。
+- **覆盖面分列**：`meta.counts`（实时面派生）+ `coverage`（live 28/94=122 vs baseline 34/142）分列；`accounted` 不渲染。
+
+### 9.2 模块改动
+
+| 文件 | R2 改动 | ADR |
+|------|---------|-----|
+| NEW `src/insight/ownership-tree.ts` | 纯归属树（主归属 + 交叉引用徽标 + path） | ADR-V2-028 |
+| MODIFY `src/insight/tree-model.ts` | additive 覆盖字段 + `ControlKind+'command-policy'` + `TreeActionId+2` + 层级类型 | ADR-V2-028/030 |
+| MODIFY `src/insight/command-catalog.ts` | `overrides` 注入（纯数据）+ 默认/生效分列 + clamp 原因（`resolveCommandPolicy` 纯调用）+ 删除偏差文案 | ADR-V2-025/030/032 |
+| MODIFY `src/insight/project-tree.ts` | 透传 `overrides`；覆盖面分列；派生 `ownershipTree`（只读） | ADR-V2-028/032 |
+| MODIFY `src/insight/build-snapshot.ts` | 透传 `overrides` / `coverage` | ADR-V2-024 |
+
+**不改**：`src/insight/catalog-reconcile.ts`（对账单一真值）、`test/parity/**`、`policy.ts`/`auto-authorize.ts`。
+
+### 9.3 断言取代（本叶，removed=0）
+
+| 旧 | 理由 | 新 |
+|----|------|----|
+| `insight-action-parity.test.ts` 全量 `node.action === real chain` | 保持：`action` 语义 = **默认档**（不改为生效档），parity 前提不变 | **不变**；新增 `command-policy-parity.test.ts` 断言 `effectiveAction` 与 clamp 结论表一致 + 覆盖注入后 dispatch 与投影一致 |
+| `insight-catalog.test.ts` 双向对账 / 34·142 | 扁平面保留 | **不变** |
+| 新增 | R2 层级/归属/分列 | `insight-tree-hierarchy.test.ts`：AC-V21-008/009/010 |
+
+**硬底线断言只增**：`insight-no-escalation.test.ts` pin 不变 + 覆盖层「不写覆盖」grep（`src/insight/**` 无 store 写入）。
+
+---
+
+## 10. 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| **v2.0** | **R2 技术设计修订（post-validate；phase 不回退；编排器代作者决策 2026-09-13 授权）**：新增 §9 —— 真父子层级 `ownership-tree.ts`（快照扁平面不变）+ 多归属主链/交叉引用 + 覆盖生效档/clamp 原因（纯只读注入）+ 覆盖面分列；承接父 ADR-V2-024/025/028/030/032；断言取代（removed=0，parity/catalog 不变，硬底线 pin 只增）。 | 2026-09-13 | SDDU Plan Agent（R2） |
 | v1.0 | 初始创建。V2-1 技术方案：纯函数投影 + 注入式数据源 + 四层分组森林；稳定键/固定排序/规范哈希；命令逐条有档（V2-4 预留位）；能力目录；单基线同源对账；additive 消息；空态降级；文件影响与验收面。承接父 plan ADR-V2-001/002/003/004/010/012/014/015。 | 2026-09-13 | SDDU Plan Agent |

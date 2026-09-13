@@ -258,8 +258,70 @@ export function toolSurfaceEvidence(tool: string, present: boolean, now: number)
 
 ---
 
-## 9. 修订记录
+## 9. R2 技术设计修订（V2-3 操作侧：撤销 + 命令级用户覆盖；post-validate，phase 不回退；2026-09-13）
+
+> **输入**：本叶 `spec.md` v2.0（R2，承载父 `FR-V2-074/075/076`）+ 父 `plan.md` §9/§10（尤其 ADR-V2-024/025/026/027）+ P0 pin（`policy.ts` `bfcb2ede…` / `auto-authorize.ts` `1096d065…`）。
+
+### 9.1 R2 边界变更
+
+- `FR-V2-036` **范围限定**：撤销/关断通路**仍只走既有 fail-closed 通路、不放宽**（本条**不变**）。
+- **新增独立通路**：命令级用户覆盖（显式 + 被审计 + 可恢复 + 经 clamp → 非旁路，父 FR-V2-063 判据三条齐备）。
+- 「不做命令级策略覆盖」**作废** → **NG1R**：不做无审计放宽 / 不做绕过 clamp 的覆盖。
+
+### 9.2 覆盖层接入与 clamp（**服务端强制**）
+
+```
+tree-drawer 控件
+  → tree-ops.run({actionId:'set-command-policy'|'reset-command-policy', target:{command, policyAction?}, confirmed?})
+  → transport.send(makeMessage('command-policy-set' | 'command-policy-reset', {...}))
+  → SW case：commandPolicyStore.set/reset/resetAll  → audit('command-policy') → pushInsightChanged()
+  → 下一次 host.dispatch：RouterPolicy strategies = [S1, S3, overrideStrategy, S2]
+        overrideStrategy 读 SW 内存覆盖 → clampOverride() → allow/ask/deny（硬底线返回 null → 基线）
+```
+
+- **优先级**：`硬底线（S1/S3/evaluate/ui·state·external 不放宽/破坏性保底 ask） > 用户覆盖 > 默认 risk 档`。
+- **clamp 逐档**：见父 `plan.md` §9.3（11 行结论表）；本叶实现 `resolveCommandPolicy()` + 策略，逐档单测（AC-V2-025 / AC-V23-010）。
+- **服务端强制证据**：判定在 SW 的 gate（`router.dispatch`）内完成；UI 只发消息、无本地判定；`host.ts` 组合 policy（`withCommandOverride`）；`policy.ts`/`auto-authorize.ts` 源码 sha256 **不变**。
+- **`dom`/`dom read-state`**：作者示例三档全可用（工具级=设置载体/继承；每子命令按 effective risk 再 clamp；`dom click` 等 ui 调用仍不放宽）。
+
+### 9.3 存储 / 生命周期（ADR-V2-026）
+
+- 键 `web-cli:command-policy`；`{version:1, entries:{commandId:{action,updatedAt}}}`；**不新增权限**。
+- 单键整对象原子写 + 串行队列 + 写成功才提交内存（**无半写**）；同值幂等（不写不审计）；单条/全部恢复默认；失败可读。
+- 继承：`cmd:name#sub` > `cmd:name` > 默认档。
+- 审计：新类型 `command-policy`，**零明文**。
+
+### 9.4 动作白名单 7→9（扩展 ADR-V2-008；ADR-V2-027）
+
+| `TreeActionId` | 唯一通路 | 可逆 | 需确认 | 方向 |
+|----------------|----------|:--:|:--:|:--:|
+| `set-command-policy` | `command-policy-set` 消息 → SW store + audit | 可逆（reset） | **放宽类**（desired allow 且相对默认是放宽）✅；收紧（ask/deny）❌ | 覆盖 |
+| `reset-command-policy` | `command-policy-reset` 消息 → SW store + audit | 可逆 | ❌ | 恢复默认 |
+| （既有 7 动作） | **不变** | — | 不变 | 撤销/关断 |
+
+- 保留 `switch` 分派 + 白名单外**零写入**兜底（无默认写入分支）。
+- **pin 更新流程**：`TREE_ACTION_IDS_JSON_SHA256` / `TREE_MODULE_SHA256` / `TREE_NO_ESCALATION_NOTE_SHA256` 显式更新（新值 + 日期 + 来源 commit + 理由 + 前后值 + 历史保留）+ 反证自测。
+
+### 9.5 断言取代（本叶，removed=0；对应父 §9.8 S1~S3、S9~S12、S17）
+
+| 旧 | 理由 | 新 |
+|----|------|----|
+| `tree-ops.test.ts :: exactly 7 values` | 7→9 | `… exactly 9 values` + 负例调整（保留 grant/request 非法） |
+| `tree-ops.test.ts :: each of the 7 actions …` | 9 | `… each of the 9 actions …`（+2 通路） |
+| `tree-ops.test.ts :: needsConfirmation …` | 放宽确认 | 9 动作 + `commandPolicyNeedsConfirmation` |
+| `insight-no-escalation.test.ts :: tree-ops no write verb` | 7→9 | 仍禁 grant/request；白名单含 9 id |
+| `insight-archive.test.ts :: TREE_ACTION_IDS exactly 7` | 7→9 | 9 + pin 显式更新 |
+| `insight-security.test.ts` 六条反向断言 + allow 单调性 | **范围重定** | 六条**保留**（撤销/关断场景）；追加 `command-policy` 覆盖场景的 clamp 反向断言（AC-V2-025）——**单调性不用于否定覆盖**（父 AC-V2-005 注） |
+| 新增 | 覆盖可达/工程属性 | `command-override.test.ts`（AC-V2-023/024）、`insight-override-security.test.ts`（AC-V2-025） |
+| `binding.mjs #21a…` | **不变** | 零改动；其后追加 `#22a…`（覆盖三档 → dispatch 反映 / reset / 持久化） |
+
+**硬底线断言只增**：`policy`/`auto-authorize` pin、决策表 pin、`AUTO_AUTH_DEFAULTS`、`decideAutoAuthorization` 硬底线 **全部不变**。
+
+---
+
+## 10. 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| **v2.0** | **R2 技术设计修订（post-validate；phase 不回退；编排器代作者决策 2026-09-13 授权）**：新增 §9 —— 命令级用户覆盖层（SW 侧 policy 组合 `[S1,S3,override,S2]` + `clampOverride` 逐档 + 服务端强制）+ 存储/继承/恢复/幂等/无半写/审计零明文 + 白名单 7→9 + 放宽类二次确认 + pin 显式更新；`FR-V2-036` 限定为撤销/关断面；断言取代（removed=0；六条反向断言保留 + 追加覆盖 clamp 反向断言）。承接父 ADR-V2-024/025/026/027/031。 | 2026-09-13 | SDDU Plan Agent（R2） |
 | v1.0 | 初始创建。V2-3 技术方案：既有 ops 白名单编排（7 动作，无新增判定路径）；三件套回执（工具面证据来自重拉实测）；`deny` 无开关 / 静态权限不可撤销（渲染模型结构保证）；AC-V2-005 六条反向断言 + allow 集合单调性 + policy 冻结门禁；二次确认范围；9 类边界情况；文件影响与可自动化/人工面。承接父 plan ADR-V2-008/009/011/013/015。 | 2026-09-13 | SDDU Plan Agent |

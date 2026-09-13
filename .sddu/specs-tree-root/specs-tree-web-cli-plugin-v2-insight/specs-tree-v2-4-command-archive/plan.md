@@ -549,8 +549,43 @@ npm run test:e2e       # 回归（不改 fullchain）
 
 ---
 
+## 9A. R2 技术设计修订（V2-4 档案侧；post-validate，phase 不回退；2026-09-13）
+
+> **输入**：本叶 `spec.md` v2.0（R2，承载父 `FR-V2-077/079` 的档案侧）+ 父 `plan.md` §9/§10（ADR-V2-025/030/031/032/033）。
+
+### 9A.1 R2 边界重定
+
+- ADR-V2-016/020「档案 = 结构无控件只读面」**部分取代** → 档案**分层承载**：**硬底线 `deny` 仍零控件**（+ 不可覆盖原因可读）；**非硬底线 `deny` / 普通命令有 `allow`/`ask`/`deny` 控件描述**；写入**仍归 V2-3 单一路径**（`tree-ops`），档案模块**仍无写导入**（grep 门禁保留）。
+- 档案展示**默认档 vs 覆盖生效档**分列（`defaultAction` / `effectiveAction` + `clampReason`）。
+- 覆盖面口径分列：实时面 122 卡 vs 基线 34/142；`accounted` 不渲染；禁夸大。
+
+### 9A.2 模块改动
+
+| 文件 | R2 改动 | ADR |
+|------|---------|-----|
+| MODIFY `src/insight/archive-catalog.ts` | `ArchiveCard` 追加 `defaultAction` / `effectiveAction` / `overridable` / `clampReason` / 控件描述（`policyControl`）；**删除** `FORBIDDEN_CARD_KEYS` 对 `controls` 的一律禁止（改为分层）；仍**不导入** `tree-ops`/写面 | ADR-V2-030/032 |
+| MODIFY `src/ui/tree/tree-drawer.ts` | 档案卡渲染分层控件（复用同一 `command-policy` 控件与 `tree-ops` 写路径） | ADR-V2-027/030 |
+| MODIFY `test/insight-archive.test.ts` | 分层 + 分列断言（取代见下）；`TREE_ACTION_IDS` 7→9 pin 显式更新 | ADR-V2-027/031 |
+| MODIFY `test/ui/insight.mjs` | 追加档案分层/分列 `#I-21a…`；既有 `#I-19*` 零删改（冲突项按清单取代） | ADR-V2-031 |
+
+**不改**：`catalog-reconcile.ts`、`catalog-meta.ts`、`test/parity/**`、`policy.ts`/`auto-authorize.ts`。
+
+### 9A.3 断言取代（本叶，removed=0）
+
+| 旧 | 理由 | 新 |
+|----|------|----|
+| `insight-archive.test.ts :: TREE_ACTION_IDS exactly 7` | 7→9 | 9 + `TREE_ACTION_IDS_JSON_SHA256` 显式更新 |
+| `FORBIDDEN_CARD_KEYS` 对 deny 卡一律禁止 | 分层 | 硬底线卡**无**控件键；非硬底线/普通卡**有** `policyControl`；档案模块**无写导入**（grep） |
+| `TREE_NO_ESCALATION_NOTE` pin | 文案重写 | 新 pin（两通路 + `delay` 消歧保留） |
+| `insight-archive.test.ts` 覆盖率/三层口径 | **不变**（口径仍 34/142 baseline · 122 live 分列） | 保留 + 新增「默认/生效分列 + 不夸大」断言（AC-V24-008） |
+
+**硬底线断言只增**：档案硬底线卡零控件 + 原因可读；`policy`/`auto-authorize` pin 不变。
+
+---
+
 ## 10. 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| **v2.0** | **R2 技术设计修订（post-validate；phase 不回退；编排器代作者决策 2026-09-13 授权）**：新增 §9A —— 档案从「结构无控件只读面」改为**分层**（硬底线 deny 零控件 + 原因可读；非硬底线/普通命令有 allow/ask/deny 控件描述，写入仍归 V2-3）+ 默认档 vs 覆盖生效档分列 + 覆盖面口径分列不夸大；`TREE_ACTION_IDS` 7→9 pin 显式更新；断言取代（removed=0；三层口径断言不变）。承接父 ADR-V2-025/027/030/031/032/033。 | 2026-09-13 | SDDU Plan Agent（R2） |
 | v1.0 | 初始创建。V2-4（P1）叶子技术方案：前置检查（含「无外部 API」核实）+ 架构分析（数据面/渲染面/门禁面现状 + 依赖图 + 边界）+ 9 个必答设计问题逐条决策 + 4 组方案对比 + 推荐方案 + 文件影响 + 风险 + **ADR-V2-016~023**（8 个）+ 交付门槛（node 门禁 A1~A9 + Chromium `#I-19a…` + 人工面 V2-H-7~9）。**只做技术设计**：不写代码、不排任务、不改 v1、不碰 `main`/`base`/`options`。 | 2026-09-13 | SDDU Plan Agent |

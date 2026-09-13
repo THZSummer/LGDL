@@ -4,10 +4,10 @@
 > **前置依赖**: `spec.md`（父 `spec.md` v1.0 为**权威条文单一事实源**：43 FR / 10 NFR / 16 EC / 12 AC）+ 三个 P0 叶子子 spec（V2-1 / V2-2 / V2-3）；v1（`specs-tree-web-cli-plugin`，phase=validated / status=tracked）**只读参与**
 > **创建人**: SDDU Plan Agent
 > **创建时间**: 2026-09-13
-> **版本**: v1.0
+> **版本**: v2.0（R2 技术设计修订，2026-09-13）
 > **更新人**: SDDU Plan Agent
 > **更新时间**: 2026-09-13
-> **更新说明**: 初始创建。父 Feature 统领性技术方案（**父不执行 tasks/build/review/validate**）。产出 **ADR-V2-001~015**（与 v1 ADR-001~018 零冲突）+ 6 个技术开放点（P-V2-01~06）裁决 + 3 个 P0 叶子的接口边界与交付门槛。**本任务只做技术设计**：不写代码、不排任务（tasks 归 @sddu-tasks）、不改 v1 任何文件、不碰 `main` / `packages/web-cli-base/**` / `options.html`。
+> **更新说明**: 初始创建（v1.0）。**v2.0 = R2 技术设计修订（post-validate 修订轮；phase 不回退；依据父 `spec.md` v2.0 §5.7 + §2.2b 作者 2026-09-13 偏差反馈，逐字反馈见 spec §2.2b；编排器代作者决策，2026-09-13 授权）**：新增 **§9 R2 技术设计修订**（覆盖层接入点 + 硬底线 clamp 逐档实现 + 覆盖存储/生命周期 + 动作白名单 7→9 + 真层级树渲染模型 + deny 控件分层 + 覆盖面口径分列 + **断言取代策略** + 体积/门禁纪律 + 方案对比 + 文件影响 + 风险）与 **§10 R2 生成的 ADR（ADR-V2-024~033，10 个）**；**显式取代/扩展** `ADR-V2-008`（扩展）/`ADR-V2-011`（部分取代）/`ADR-V2-016`（部分取代）/`ADR-V2-020`（部分取代）/`ADR-V2-001`（形式扩展）。**本任务只做技术设计**：不写代码、不排任务（tasks 归 @sddu-tasks）、不改 v1 任何文件、不碰 `main` / `packages/web-cli-base/**` / `options.html`、无新依赖、phase 不回退。
 
 ---
 
@@ -522,6 +522,21 @@ npm run test:e2e       # 回归（本任务不改 fullchain）
 
 > **V2-4（P1）追加登记（2026-09-13，sddu-plan；只增不删）**：V2-4 命令档案浏览器技术设计产出 **ADR-V2-016~023**（8 个，与 ADR-V2-001~015 及 v1 ADR-001~018 零编号冲突），正文见 `specs-tree-v2-4-command-archive/plan.md` §8。一句话结论：016 档案 = 复用 P0 抽屉内档案子视图（默认关；渲染模型并入 `src/insight/`，既有断言零修改）；017 逐条有档 = 三层口径分列（基线 34/142 · 豁免 20/88 · 实时面 28/94=122 卡）+ `accounted` 100%，禁止夸大；018 `deny` 成因分层 = policy 三成因 + 自动授权层 `auto-hardDeny`（派生只读、不新增模型字段、全量交叉断言）；019 `delay` 消歧 = 单一措辞源 + 内容哈希钉死；020 档案 = 结构无控件只读面（四层证据）；021 parity 同源 = 复用 `catalog-reconcile.ts` + `catalog-meta.ts` 常量注入；022 门禁只增不减 + sidepanel 显式重登记 + `content.js` 零增长；023 **V2-4 = 零模型改动（ADR-V2-012 兑现）**，唯一 additive 运行时注入面 = `service-worker` 1 行 `catalogMeta`。
 
+### §8.1 R2 取代 / 扩展关系（**显式登记，不静默删除**，2026-09-13）
+
+> 依据父 `spec.md` v2.0 §2.2b（作者逐字反馈）+ §5.7（FR-V2-070~079）+ §11.4（R2-D-09）。**历史正文全部保留**（本节只增不改）；被取代项以「**以现状为准**」标注。
+
+| 既有 ADR | R2 处置 | 取代/扩展内容 | 承接新 ADR |
+|----------|:--:|------|------|
+| **ADR-V2-008**（撤销面=既有 ops 白名单编排；永不新增判定路径；7 动作） | **扩展（不废除）** | ① 动作白名单 **7 → 9**（新增 `set-command-policy` / `reset-command-policy`）；② 「不新增判定路径」收窄为「**撤销/关断面**不新增判定路径」；**命令级用户覆盖是另一条显式、被审计、被 clamp、可恢复的正式通路**（父 FR-V2-063 澄清）；③ 其余（唯一映射、无默认写分支、导入白名单、单调性只约束撤销面）**不变** | ADR-V2-024 / 025 / 027 |
+| **ADR-V2-011**（`deny` 不可关 = `deny ⇒ controls:[]` 恒成立；静态权限不可撤销） | **部分取代** | 「`deny ⇒ controls:[]` **恒**成立」收窄为「**硬底线 `deny` ⇒ `controls:[]`**」；**非硬底线 `deny`（用户自设等）有 `allow`/`ask` 控件可改回**。「静态权限不可撤销 / 不渲染 disabled 开关」部分**不变** | ADR-V2-030 |
+| **ADR-V2-016**（档案=结构无控件只读面；**既有断言零修改**） | **部分取代** | 「档案=无控件只读面」→「档案=**分层**承载（硬底线 `deny` 零控件；非硬底线/普通命令有控件描述，写入仍归 V2-3 单一路径）」；「既有断言零修改」→「**断言取代策略**（显式 old→new 映射，总数不减）」 | ADR-V2-027 / 030 / 031 |
+| **ADR-V2-020**（档案四层结构证据 + 7 动作白名单哈希钉死 + DOM 零控件） | **部分取代** | 白名单钉死值 **7 → 9**（pin 显式更新）；「DOM 零控件」→「**DOM 分层**：硬底线零控件 / 非硬底线有控件」；类型层/模块图**仍无写入口**不变 | ADR-V2-027 / 030 |
+| **ADR-V2-001**（森林=四个并列分组 + 扁平行） | **形式扩展（不废除）** | 四维度一级分组保留；**组内由扁平 `rows` 改为真父子层级树**（父 FR-V2-070）；`crossLinks` 升级为**主归属链 + 交叉引用徽标**（父 FR-V2-071） | ADR-V2-028 / 029 |
+| **ADR-V2-003**（多对多 = 显式 `crossLinks`，不复制节点） | **扩展** | 增加「**唯一主归属链** + 交叉引用徽标 + 任一归属下钻同一节点 id」，仍**不复制节点** | ADR-V2-028 |
+| **ADR-V2-019**（`delay` 消歧单源 + 内容哈希钉死） | **扩展（不废除）** | 消歧句**保留**；`TREE_NO_ESCALATION_NOTE` 重写为「两通路 + `delay` 消歧」并**显式更新 pin**（前后值 + 日期 + 理由） | ADR-V2-032 |
+| **ADR-V2-006 / 007 / 013 / 014 / 015** | **保持** | 布局口径 / 体积守卫 / 二次确认 / `delayMs` accessor / 来源约束**不变**；`sidepanel.js` 基线按 ADR-V2-007 纪律**显式重登记** | ADR-V2-031 / 033 |
+
 ### ADR-V2-001: 连接树 = 纯函数投影 + 注入式数据源 + 四层分组（森林）模型（P-V2-01）
 
 ## 状态
@@ -827,9 +842,527 @@ G-V2-004/005 与 NG-V2-005/009 要求：零新权限、零注入、不碰 base�
 
 ---
 
-## 9. 修订记录
+## 9. R2 技术设计修订（post-validate 修订轮，2026-09-13；**phase 不回退**）
+
+> **输入**：父 `spec.md` v2.0 §2.2b（作者逐字反馈）+ §5.7 REV2 组 FR-V2-070~079 + §8 AC-V2-020~027 + `state.json#revisionRounds.R2`（`revertedItems` / `newFrIds` / `newAcIds` / `authorFeedbackVerbatim`）。
+> **授权**：编排器代作者决策（2026-09-13 授权）——本阶段**不再向作者提问**；开放点自行裁决并标注「编排器代作者决策（2026-09-13 授权）+ R2」。
+> **纪律**：本任务**只做设计**（不写代码、不排任务、不跑 Chromium 门禁）；`phase` 不回退（父 `tasked` / 四叶 `validated` 原样）；不碰 `main` / `packages/web-cli-base/**` / v1 SDDU 目录；无新依赖；不 force push；禁 `git add -A`；禁提交 `.opencode/opencode.json`。
+
+### 9.1 R2 输入 → 设计承接总映射
+
+| R2 需求（父 spec） | 设计结论 | 承接 ADR | 主要落点 |
+|-------------------|----------|:--:|----------|
+| FR-V2-074 逐层可操作（工具级 + 子命令级） | 覆盖键 `cmd:<tool>` / `cmd:<tool>#<sub>`；子命令级 > 工具级 > 默认；SW 侧 clamp | ADR-V2-024/025/026/027 | `src/security/command-override.ts` + `src/ui/tree/tree-ops.ts` |
+| FR-V2-075 用户覆盖层（持久/恢复/幂等/审计/即时生效） | 单键 `web-cli:command-policy` 整对象原子写 + 串行队列 + 新增 `command-policy*` 消息 + `pushInsightChanged` | ADR-V2-026/027 | `command-override.ts` + `service-worker.ts` + `messaging.ts` |
+| FR-V2-076 硬底线 clamp（不可覆盖） | 优先级 `硬底线 > 覆盖 > 默认`；策略链重排 `[S1, S3, override, S2]` + 追加 clamp 策略 + `onAsk` 守卫 | ADR-V2-024/025 | `host.ts` 组合 + `command-override.ts` |
+| FR-V2-070 真树形（逐层展开/收起） | 新增纯 `ownership-tree.ts`（主归属链 + 交叉引用徽标）；快照扁平面保留（对账/确定性零变化）；渲染模型改为嵌套节点 | ADR-V2-028/029 | `src/insight/ownership-tree.ts` + `tree-view.ts` + `tree-drawer.ts` |
+| FR-V2-071 多归属主链 + 交叉引用 | 节点唯一（稳定键不变）；`mainOwner` + `crossRefCount` + 跳转同一 node id | ADR-V2-028 | `ownership-tree.ts` |
+| FR-V2-072/073 展开语义 + 键盘 + 路径 | 自建 `role="tree"/"treeitem"` + `aria-expanded`/`aria-level` + 会话内展开集 + 面包屑 + 惰性渲染（不虚拟化） | ADR-V2-029 | `tree-drawer.ts` |
+| FR-V2-077 deny 控件语义反转 | 模型 `overridable` / `clampReason` / `effectiveAction`；DOM 双层（硬底线零控件 / 非硬底线 allow/ask/deny） | ADR-V2-030 | `tree-model.ts` + `command-catalog.ts` + `tree-view.ts` + `tree-drawer.ts` |
+| FR-V2-078 偏差文案清除 + `delay` 消歧保留 | `TREE_NO_ESCALATION_NOTE` 重写为两通路 + `delay` 消歧句保留（单源 + pin 更新）；`TREE_MODEL_NOTE` 改为归属层级树；偏差文案 grep 零命中 | ADR-V2-032 | `tree-view.ts` + `command-catalog.ts` |
+| FR-V2-079 覆盖面口径分列 | `meta.counts`（默认档派生：N 工具/N′ 子命令）+ 独立 `coverage` 口径（实时面 vs 基线）分列；`accounted` 不渲染；禁夸大 | ADR-V2-032 | `project-tree.ts` + `archive-catalog.ts` + UI |
+| **断言取代**（R2 隐性硬约束） | 显式 old→new 映射表；总断言数不减；硬底线断言只增 | ADR-V2-031 | `test/**`（见 §9.8） |
+| 体积/门禁/纪律 | `content.js` 零增长 + `sidepanel.js` 显式重登记 + 串行 + 能真 FAIL + 内容哈希冻结 | ADR-V2-033 | `test/size-baseline.ts` 等 |
+
+### 9.2 问题 1：覆盖层如何**真的影响判定**而不改冻结文件
+
+**约束**：`src/security/policy.ts`（sha256 `bfcb2ede…`）与 `src/security/auto-authorize.ts`（sha256 `1096d065…`）**必须保持 0 字节漂移**（P0 pin + AC-V2-025「代码零 diff」）。覆盖层**不得**写进这两个文件。
+
+**结论（ADR-V2-024）**：在 SW 侧**组合** RouterPolicy，而**不改判定链源码**：
+
+```
+createPluginPolicyConfig(deps, guardedOnAsk)      // policy.ts 原文调用，未改
+        │  （返回 { strategies:[S1,S2,S3], riskDefaults, denyPriority, askTimeoutMs, onAsk }）
+        ▼
+withCommandOverride(base, { resolveOverride, isDestructive })   // 新模块 command-override.ts
+        │  • 重排 strategies → [S1, S3, overrideStrategy, S2]（按 name 定位，找不到即 FAIL）
+        │  • 追加 overrideStrategy（clamp 后的用户覆盖；无覆盖 → 返回 null，行为与现状逐字节一致）
+        ▼
+createCommandRouter({ policy: <组合结果>, ... })   // host.ts（本设计唯一改动的运行时代码）
+```
+
+**具体调用点与顺序**（`src/background/host.ts#createWebCliHost`）：
+
+1. `opts.commandOverrides`（新可选注入：`get(name, sub?)→PolicyAction|undefined` / `isExplicit(name, sub?)→boolean`；由 SW 覆盖 store 提供，纯读内存态）。
+2. `guardedOnAsk` = `autoOnAsk`（既有）外层包一层：**若该 (tool, subcommand) 存在显式覆盖且 `autoOnAsk` 返回 `{action:'allow'}`，则不自动放行，改走 `opts.onAsk`（人工确认）**；其余情形原样透传（`hardDeny`/`allow:false` 不受影响，**不把 deny 变 ask**）。
+3. `policy: withCommandOverride(createPluginPolicyConfig(deps, guardedOnAsk), { resolveOverride, isDestructive })`。
+4. `resolveDestructive(tool, sub, risk)` = `risk === 'write' && DESTRUCTIVE_VERBS.has(末段sub)`（fail-closed：未知记为不可破坏，但风险档仍按 risk 决定；**不使用** `isPluginDestructiveInvocation` 的「未知→true」默认，否则会把 `dom read-state` 误判为破坏性、破坏作者示例——见 §9.5）。
+5. `dispatch` 入口不变（仍 `router.dispatch`），判定链本体不变。
+
+**为什么 `policy.ts` / `auto-authorize.ts` 的 sha256 仍能保持不变**：
+- `withCommandOverride` 接收 `createPluginPolicyConfig(...)` 的**返回值对象**，返回**新对象**（`{...base, strategies:[...]}`），**不 import 修改**任何冻结文件内容、不改其导出、不调用其写面；
+- 冻结文件源码字节数不变 → `POLICY_TS_SHA256` / `AUTO_AUTHORIZE_TS_SHA256` / `DECISION_TABLE_SNAPSHOT_SHA256`（基于 `PLUGIN_RISK_DEFAULTS` + `decideAutoAuthorization` 输入输出）**全部不变**；
+- 冻结门禁同时保留「pinned 判定表深度相等」+「源码内容哈希」+ 反证自测（W3 教训），并把**新增** `command-override.ts` 纳入**独立内容哈希 pin**（首登记；漂移须显式改 pin + 日期 + 理由）。
+
+**覆盖 → 即时生效路径（可见后果）**：
+
+```
+UI（tree-drawer 的 allow/ask/deny 按钮）
+  → tree-ops.run({actionId:'set-command-policy', target:{command:{tool,sub}, policyAction}})
+  → transport.send(makeMessage('command-policy-set', {commandId, action}))
+  → SW case 'command-policy-set'
+       ① commandPolicyStore.set(commandId, action)   // 内存态更新后再持久化；失败则内存态不变（无半写）
+       ② audit.recordPlugin({type:'command-policy', decision:'set', ...})  // 零明文
+       ③ pushInsightChanged()                         // 触发树/档案重投影
+  → 下一次 host.dispatch(同 tool+sub) → overrideStrategy 读**内存**覆盖 → clamp → 生效
+  → 下一次 'insight-tree' pull → 节点 effectiveAction / clampReason / overridable 即时更新
+```
+
+- **工具面 `deriveTools()` 成员集不变**（覆盖是**判定层**的显式放宽/收紧，不改变工具注册）；「工具面/档案即时反映」指**投影的处置档与控件态**即时更新（FR-V2-013/079）。
+- 消息面 **additive**：仅向 `PluginMessageKind` **追加** `command-policy`（pull）/ `command-policy-set` / `command-policy-reset`；既有 kind 语义零变更；`state.insight?` 追加**可选** `overrideCount`（旧消费者忽略）。
+
+### 9.3 问题 1/4：硬底线 clamp **逐档实现表**（服务端 SW 强制）
+
+> 位置：`src/security/command-override.ts#clampOverride()`（纯函数，逐档单测）+ `createCommandOverrideStrategy()`（策略链）+ `host.dispatch`（真实入口）。**UI 只是提示**：即使伪造 `command-policy-set` 消息或直接改 DOM，判定仍在 SW 的 gate 内 clamp。
+
+| 档 / 类别 | 默认档 | 覆盖 `allow` | 覆盖 `ask` | 覆盖 `deny` | 判据（服务端） | 实现位置 | 服务端强制证据设计 |
+|-----------|:--:|:--:|:--:|:--:|------|------|------|
+| `read` 档（非硬底线，如 `dom read-state`） | allow | ✅ allow | ✅ ask | ✅ deny | `risk==='read'` | 策略返回 desired | 单测：覆盖 allow 后 dispatch 走 allow（`dispatch` 真跑） |
+| `write` 档·非破坏性（如 `dom type`、`dom` 工具级继承） | ask | ✅ allow | ✅ ask | ✅ deny | `risk==='write' && !destructive` | 策略返回 desired | 单测：`dom` 设 allow，`dom read-state` 调用按 allow 执行 |
+| 破坏性子命令（`DESTRUCTIVE_VERBS` 命中，如 `dom remove` / `bookmarks remove`） | ask | ⚠️ **clamp → 返回 null（保底基线 `ask`）** | ✅ ask | ✅ deny | `risk==='write' && DESTRUCTIVE_VERBS.has(sub末段)` | 策略返回 null（desired=allow 时） | 单测：覆盖 allow 后 dispatch 仍 `ask`（onAsk 被触达）；自动授权也拒绝（`decideAutoAuthorization` 破坏性优先） |
+| `ui` 档（如 `dom click`） | ask | ❌ **返回 null（不放宽；基线 `ask` / 站点域 auto 硬底线 deny）** | ✅ ask | ✅ deny | `risk==='ui'` | 策略：desired=allow→null；else desired | 单测：覆盖 allow 后 dispatch 不变宽（非站点=ask；站点=auto hardDeny→deny） |
+| `state` 档（含 `clipboard read`） | ask | ❌ 返回 null（不放宽） | ✅ ask | ✅ deny | `risk==='state'` | 同上 | 单测：覆盖 allow 后 `clipboard read` 仍非 allow |
+| `external` 档 | ask | ❌ 返回 null（不放宽） | ✅ ask | ✅ deny | `risk==='external'` | 同上 | 单测：覆盖 allow 后仍非 allow |
+| `evaluate` 档（`eval-js` / `page-eval` / `subagent`） | deny | ❌ 返回 null（→ 基线 deny） | ❌ 返回 null | ❌ 返回 null | `risk==='evaluate'` | 策略**首行**硬拒绝 | 单测：覆盖 allow/ask/deny 后 dispatch 全 deny |
+| 未授权 origin（S1） | deny | ❌ 不可达 | ❌ 不可达 | ❌ 不可达 | S1 策略**先于**覆盖策略短路 deny | 策略链顺序 `[S1,S3,override,S2]` | 单测：未授权 + 覆盖 allow → 仍 deny（S1 命中，override 未执行） |
+| 未知/非法 risk（S3，如 `sleep` / `web-cli-help`） | deny | ❌ 不可达 | ❌ 不可达 | ❌ 不可达 | S3 策略先于覆盖短路 deny；覆盖策略对 `!isToolRisk(risk)` 亦返回 null | 同上 | 单测：覆盖 allow → 仍 deny；reason 可读 |
+| **`dom`（工具级设置载体）** | ask（entry `ui`，**容器**） | ✅ **可设**（设置持久化） | ✅ | ✅ | 容器节点 `overridable:true`（继承给子命令；每子命令按各自 risk 再 clamp） | 覆盖策略按**被调用子命令**的 effective risk clamp | 单测：`dom` 三档均可设；`dom read-state` 继承后按 read 生效；`dom click` 仍受 ui 约束 |
+| **`dom read-state`（子命令级）** | allow | ✅ allow | ✅ ask | ✅ deny | `risk==='read'` | 策略返回 desired | 单测：三档设置分别生效（AC-V2-023） |
+
+> **【clamp 判据口径 · 编排器代作者决策（2026-09-13 授权）+ R2】** 父 spec §5.7 结论表把 `dom`（工具级）列为「允许覆盖为 allow」，而 base registry 中 `dom` 的 `entry.risk='ui'`——本设计以**被调用的 (tool, subcommand) 的 effective risk**（`subcommandRisks[sub] ?? entry.risk`）为 clamp 判据，并把**工具级节点**视为「设置载体/继承默认」（`overridable:true`）。由此：**作者示例「dom 可设 ask/allow/deny、dom read-state 可设」100% 可达**；同时 `ui` 档的**实际调用**（如 `dom click`）**永不被放宽为 allow**。两条并存不矛盾，且在 §9.5/ADR-V2-025 逐档单测。
+
+### 9.4 问题 2：覆盖的存储 / 生命周期 / 动作白名单扩展
+
+**存储（ADR-V2-026）**
+
+| 项 | 设计 |
+|----|------|
+| 存储键 | **`web-cli:command-policy`**（`chrome.storage.local`，复用 v1 `ChromeAsyncKv`；`storage` 权限**已有**，**不新增 `permissions`**） |
+| 结构 | `{ version: 1, entries: { [commandId]: { action: 'allow'\|'ask'\|'deny'; updatedAt: number } } }`；`commandId` = `cmd:<name>` 或 `cmd:<name>#<sub>`（与 `STABLE_KEY.command` 同形，配**同源锚定断言**） |
+| 持久化 | 单键**整对象一次 `set`**（原子）；`load()` 启动水化；内存 cache 为唯一读源 |
+| 无半写 | ① 单键整对象写；② 写前不动内存、写成功后再提交内存（或失败回滚）；③ 串行化 promise 队列防并发交叠；④ 失败 → 内存态与旧值一致 + 可读错误，**绝不**「一半生效」 |
+| 幂等 | 设置为同值 → 返回 `ok` + 「已生效（无变化）」；**不写存储、不新增审计**（幂等且无审计噪音） |
+| 恢复默认 | 单条：删除 `entries[commandId]`；全部：`entries = {}`；均返回可读回执；对不存在的键幂等 |
+| 读失败 | fail-safe = **视为「无覆盖」→ 默认 risk 档**（等于/更保守，**绝不因失败而放宽**）；可读披露「覆盖暂不可读」+ 降级条目（EC-V2-018） |
+| 审计（零明文） | 新事件类型 **`command-policy`**（additive）：仅 `commandId` / `action` / `prevAction` / `ts` / `detail`；**不含** key/剪贴板/通知/页面数据 |
+| 作用域与继承 | **子命令级 > 工具级 > 默认档**：`resolve(name, sub)` 先查 `cmd:name#sub`，未命中查 `cmd:name`，再无 → 默认档。设 `dom` 后 `dom read-state` **未单独设时继承工具级**；显式设子命令级后**覆盖**工具级 |
+
+**动作白名单扩展（ADR-V2-027）**
+
+| 项 | 设计 |
+|----|------|
+| **N 值** | `TREE_ACTION_IDS` **7 → 9**：新增 `set-command-policy` / `reset-command-policy` |
+| 无默认写入分支 | 保留：`run()` 仍 `switch(actionId)` 分派 + 白名单外/类型不可达**零写入**兜底；新动作只能经各自**唯一**既有消息通路（`command-policy-set` / `command-policy-reset`），**无旁路** |
+| 风险档 | 两动作 = **write → ask**（判定层语义）；`set-command-policy` 的**放宽方向**（desired `allow` 且相对默认是放宽）**需二次确认**（`commandPolicyNeedsConfirmation(desired, defaultAction)`，ADR-V2-013 扩展）；`ask`/`deny`（收紧）与 `reset-command-policy`（可逆）**不需**确认 |
+| 审计可分辨 | 覆盖通路审计类型 `command-policy` **独立于**撤销/关断（`origin-revoke` 等）与 `auto-authorize`（父 FR-V2-036「可分辨」） |
+| **pin 更新流程** | 白名单/措辞/冻结模块的 sha256 pin **只允许显式更新**：在测试内更新常量并写明 `pin 于 YYYY-MM-DD` + 来源 commit + 理由 + 前后值 + 历史保留（参照体积基线与 `TREE_ACTION_IDS_JSON_SHA256` / `TREE_NO_ESCALATION_NOTE_SHA256` / `TREE_MODULE_SHA256` 既有纪律）；**禁止**为跑绿而删断言/放宽容差 |
+| 冻结文件 | `policy.ts` / `auto-authorize.ts` **pin 不变**（仍 `bfcb2ede…` / `1096d065…`）；新增 `command-override.ts` 的**独立 pin** |
+
+### 9.5 问题 3：真层级树的**渲染模型与实现**
+
+**数据模型（ADR-V2-028）**：**不改**快照既有扁平面（`groups[].children` 保留 → 对账/确定性/parity/archive 的既有断言前提**不受影响**），新增**纯**归属树模块 `src/insight/ownership-tree.ts`：
+
+```
+buildOwnershipTree(snapshot): OwnershipTree
+  OwnershipNode { id; kind; label; nodeId?; ariaLevel; path: string[];
+                  mainOwner: Dimension; crossRefCount: number;
+                  children: OwnershipNode[]; badgeSummary: string[] }
+```
+
+- **主归属链**（唯一）：`site_*` 命令 → 站点面（站点 → 授权站点 → 站点 xxx → 支持的命令 → 工具 → 子命令）；`base-builtin` / `plugin-*` 命令 → 命令面（支持的命令 → 系统内置命令 / 插件命令 → 工具 → 子命令）；能力工具 → 能力面；LLM → LLM 面。**同一 node id 不在两处各建一份**。
+- **交叉引用徽标**：被非主归属引用时，节点渲染「亦被 N 处引用」徽标 + `data-node-id=<id>`；从任一归属下钻解析到**同一 node id**（EC-V2-019）。
+- **快照确定性零变化**：`ownership-tree.ts` 是读取 `ConnectTreeSnapshot` 的**纯派生**，不改 `meta.hash` 输入（V2-1 确定性断言不变）。
+
+**展开 / 收起（ADR-V2-029）**
+
+| 项 | 设计 |
+|----|------|
+| 默认展开层级 | **根 + 一级默认展开，深层默认收起**（父 FR-V2-072） |
+| 会话内保持 | `tree-drawer.ts` 持有 `expanded: Set<nodeId>`；重投影重建 DOM 后**回放**；新增节点默认收起（除非层级 ≤1） |
+| 键盘可达 | 单一代理 `keydown`：`ArrowDown/Up`（移动焦点）、`ArrowRight`（展开/进子）、`ArrowLeft`（收起/回父）、`Enter`/`Space`（切换展开）、`Home`/`End`；roving tabindex；焦点可见样式 |
+| 语义 | `role="tree"` / `role="treeitem"` + `aria-expanded`（有子节点）+ `aria-level` + `aria-selected`；**每层节点带 `aria-expanded`** |
+| 层级路径 | 每节点 `path: string[]` → 渲染面包屑（`树 › 支持的站点 › 站点 xxx › dom › dom read-state`）+ 缩进语义；长路径截断可读 |
+| 渲染技术 | **自建** `<ul role="tree">`/`<li role="treeitem">`（`createElement`/`textContent`，**零 `innerHTML`**）。**否** `<details>/<summary>`：其原生 `open` 不提供 `aria-expanded`，无法满足 NFR-V2-011 的逐层 `aria-expanded` 断言，且重投影时展开态同步语义弱 |
+| 122 卡性能 | **惰性渲染**：仅渲染「祖先链 + 已展开节点」；收起子树不建 DOM（节点数受展开深度约束，最坏 ≤122）；**不虚拟化**（虚拟化破坏键盘/`aria` 连续性与会话展开态，收益不抵复杂度） |
+| 与既有布局守卫共存 | 树仍居 `#tree-drawer`（`#panel-main` 内 absolute 覆盖层，不参与 flex）；`#tree-body { overflow-y:auto; overflow-x:hidden; min-width:0 }`；缩进 `padding-inline-start` 有上限 + `overflow-wrap:anywhere` → **AC-V2-002 全部不回退**：`#log ≥589px`、composer ∈[0,+8]、FAB∩composer=0、400/320px 溢出=0、开·关 drift=0 |
+
+### 9.6 问题 4：`deny` 控件语义反转（分层）
+
+**模型层（ADR-V2-030）**：`CommandNode` 追加（additive）字段：
+
+```
+defaultAction: PolicyAction;          // 默认 risk 档（原 action 保留为默认档，兼容 T3 parity）
+overrideAction?: PolicyAction;         // 用户覆盖（原始设置值）
+effectiveAction: PolicyAction;         // 经 clamp 后的实际生效值
+overridable: boolean;                  // 是否可覆盖（硬底线 false）
+clampReason?: 'evaluate'|'s1-unauthorized'|'s3-unknown-risk'|'destructive-floor'|'ui-no-widen'|'state-no-widen'|'external-no-widen';
+```
+
+`ControlKind` 追加 `'command-policy'`；`commandControls(node)`：
+- 硬底线（`overridable===false`）→ `controls: []` + `clampReason`（可读文案映射）；
+- 可覆盖 → 三个控件 `{kind:'command-policy', actionId:'set-command-policy', policyAction:'allow'|'ask'|'deny', selected: effectiveAction===…}`（非硬底线 `deny` 亦有控件，可改回）。
+
+**DOM 层双层保证（沿用 P0「结构保证」思路，但不再是 deny 一律无控件）**：
+- 硬底线行：**零** `button[data-action-id]`，渲染 `.tree-clamp-reason`（原因可读）；
+- 非硬底线/普通命令行：渲染 `button[data-action-id="set-command-policy"][data-policy="allow|ask|deny"]`；
+- 断言：`hardFloorRows.every(row => row.querySelector('[data-action-id]') === null)` **且** `overridableCommandRows.some(row => row.querySelectorAll('[data-policy]').length === 3)`；真实点击派发到**同一** `tree-ops` 写路径（无第二个写入口）。
+
+### 9.7 问题 5：覆盖面口径
+
+- **树内命令面**覆盖**实时投影面（当前 28 工具 / 94 子命令 = 122 卡）**；`meta.counts.commands/subcommands` 即实时面。
+- **parity 基线 34/142** 为**独立口径分列**（`catalogMeta`；`accounted` 只作门禁背书、**不渲染**）。
+- 模型/UI 提供**分列**字段（`live` vs `baseline`）与文案；**禁止**「34/142 已全部渲染」类表述（grep 断言 + 防夸大反证：若把 live 计数改成等于 baseline → FAIL）。
+
+### 9.8 问题 6：断言**取代**策略（**显式设计，不得静默删除**）
+
+> 纪律：**removed = 0**；每条受影响断言给出 old → new（理由 + 替代）；**总断言数不得下降**；**硬底线/安全类断言只增不减**；`journey.mjs` 等 v1 断言**零改动**；`test:ui` / `test:binding` 既有断言**除下表显式取代清单外零删改**。
+
+| # | 旧断言（文件 :: 名称/编号） | 取代理由 | 新断言（替代） |
+|---|------------------------------|----------|----------------|
+| S1 | `tree-ops.test.ts :: the action union is closed at exactly 7 values` | 白名单 7→9（FR-V2-074/075） | `… exactly 9 values`；负例移除 `command-allow`/`set-command-policy`（现为合法），**保留** `grant-origin`/`request-permission` 非法 |
+| S2 | `tree-ops.test.ts :: each of the 7 actions maps to exactly one existing path` | 同上 | `each of the 9 actions …`（+`set-command-policy`→`command-policy-set`；`reset-command-policy`→`command-policy-reset`） |
+| S3 | `tree-ops.test.ts :: needsConfirmation matches the whitelist` | 9 动作 + 放宽类二次确认 | 扩展为 9 动作 + `commandPolicyNeedsConfirmation(allow, 非默认)` 真 |
+| S4 | `tree-view.test.ts :: a non-deny command still gets no write control` | 命令节点现可覆盖（FR-V2-074/077） | `overridable command rows expose allow/ask/deny policy controls; hard-floor rows expose none` |
+| S5 | `tree-view.test.ts :: all 142 baseline subcommands with deny ⇒ controls === []` | 该 fixture 全为 S3 硬底线 deny，原断言**依然成立** | **保留**并更名 `hard-floor deny (S3) ⇒ controls === []`；**新增** `非硬底线 deny（用户自设）⇒ controls 非空且可改回` |
+| S6 | `tree-view.test.ts :: pinned wording` | 文案重写（FR-V2-078） | 新 `TREE_MODEL_NOTE`（归属层级树）+ `TREE_NO_ESCALATION_NOTE`（**两通路 + `delay` 消歧保留**） |
+| S7 | `tree-view.test.ts :: needsConfirmation is correct for all 7 actions` | 9 动作 | `… all 9 actions` |
+| S8 | `tree-view.test.ts :: deny rows expose zero controls even when a subcommand is filtered out` | 分层（FR-V2-077） | `hard-floor deny rows stay control-free under filter; overridable rows keep controls` |
+| S9 | `insight-archive.test.ts :: TREE_ACTION_IDS is exactly 7 values (sha256-pinned)` | 白名单 7→9 | `… exactly 9 values` + **显式更新 `TREE_ACTION_IDS_JSON_SHA256`**（记日期/理由/前后值） |
+| S10 | `insight-archive.test.ts :: TREE_NO_ESCALATION_NOTE sha256 pin` | 文案重写 | 新 pin（两通路 + `delay` 消歧句仍完整）；偏差文案零命中 |
+| S11 | `insight-archive.test.ts :: FORBIDDEN_CARD_KEYS on deny cards` | 档案分层（FR-V2-077） | 硬底线卡零控件键；**非硬底线卡允许控件描述**；档案模块**仍无写导入**（grep） |
+| S12 | `insight-no-escalation.test.ts :: tree-ops.ts has NO write verb outside the closed whitelist` | 白名单 7→9 | 仍禁 `grant`/`permissions.request`；白名单含 9 个动作 id；新增动作仅两个且唯一映射 |
+| S13 | `insight.mjs #I-11a`（森林 + 撤销≠放宽 文案） | 文案重写 | `#I-11a`（归属层级树声明）+ `#I-11b`（两通路 + 覆盖受 clamp）；`delay` 消歧保留（`#I-11c`） |
+| S14 | `insight.mjs #I-12`（deny 节点无任何控件） | 分层 | `#I-12a` 硬底线 deny **零**控件；`#I-12b` 非硬底线/可覆盖节点**有** allow/ask/deny 控件 |
+| S15 | `insight.mjs #I-18e`（denyWithControls===0） | 分层 | `hardFloorDenyWithControls===0` **且** `overridableWithControls>=1` |
+| S16 | `insight.mjs #I-02a`（四维度分组） | 真层级树 | 根 + 四维度 + **逐层展开/收起**（作者两例各展开一层） |
+| S17 | `binding.mjs`（V2-3 撤销链 `#21a…`） | **不变** | **零改动**；R2 在**其后**追加 `#22a…`（覆盖三档 → dispatch 反映；reset；持久化） |
+| S18 | `test:ui` v1 `#15a~#15q` / `journey.mjs` | **不变** | **零删改**（红线） |
+
+**保持不变（且需加强）的硬底线断言**：`insight-no-escalation.test.ts` 的 `PLUGIN_RISK_DEFAULTS` pin、`decideAutoAuthorization` 硬底线 pin、`policy.ts`/`auto-authorize.ts` 内容哈希 pin、决策表快照 pin、`code zero-diff`、`test/parity`；外加 **新增 AC-V2-025 反向断言**（覆盖 allow 后：evaluate/S1/S3 仍 deny、破坏性仍 ask、ui·state·external 不得 allow）与 `#I-12a`。
+
+**新增断言（净增）**：`test/insight-tree-hierarchy.test.ts`（层级/主归属/交叉引用/展开态/路径，AC-V2-020~022）、`test/command-override.test.ts`（覆盖可达/持久/恢复/幂等/无半写/审计零明文，AC-V2-023/024）、`test/insight-override-security.test.ts`（clamp 逐档 + 反向断言，AC-V2-025）、`test/command-policy-parity.test.ts`（默认/生效分列 + 覆盖面分列，AC-V2-026/027 + AC-V24-008）、`#I-20a…`（键盘/面包屑/分层控件）、`#22a…`（binding 覆盖链）。**断言计数台账** = 旧总数 + 净增（removed=0）→ **严格不减**。
+
+### 9.9 问题 7：体积 / 门禁 / 既有纪律（全部保持）
+
+| 纪律 | 保持方式 |
+|------|----------|
+| `content.js` 不增长 | 不碰 `src/content/**`；`CONTENT_MAX_BYTES=1_073_453`（无容差）+ `CONTENT_SOURCE_SHA256` 三文件 pin **不变** |
+| `sidepanel.js` 显式重登记 | 树层级 + 覆盖控件有意增重 → build 后**实测重登记**（**前后值 + 日期 + 来源 + 理由 + `HISTORY` 历史保留**；`targetBudgetBytes/targetMet` 仍 `null`；容差 **5% 不变**） |
+| 门禁**串行** | `test` → `test:ui` → `test:insight` → `test:binding` → `test:hardening` → `test:e2e` 逐条串行（OOM 前科，绝不并发）；本设计阶段**不跑 Chromium 门禁** |
+| 新门禁**必须能真 FAIL** | 每条关键断言配**反证自测**：篡改 clamp（强制 evaluate allow）→ FAIL；把 hierarchy 改回扁平 → FAIL；把 live 计数改成 baseline → FAIL；白名单数改回 7 → FAIL |
+| 冻结用 **sha256**（禁 `git diff --quiet HEAD`） | `policy.ts`/`auto-authorize.ts` 内容哈希 pin 不变；新增 `command-override.ts` 独立 pin；`catch` 只吞 `ENOENT`（沿用 `readArtifactSize`） |
+| 四条硬底线语义**不得放宽** | 见 §9.3：S1/S3 顺序在覆盖之前、evaluate 覆盖首行拒绝、破坏性保底 ask；覆盖只对 `read`/非破坏性 `write` 放宽，且**显式 + 被审计 + 可恢复**（非「旁路」，父 FR-V2-063 判据三条齐备） |
+
+### 9.10 R2 文件影响分析（增量；父级聚合）
+
+| 操作 | 文件路径 | 说明 |
+|:--:|------|------|
+| NEW | `packages/web-cli-plugin/src/security/command-override.ts` | 纯 clamp/resolver + kv 注入 store + `withCommandOverride` + 覆盖策略；**零 chrome.*** |
+| NEW | `packages/web-cli-plugin/src/insight/ownership-tree.ts` | 纯归属树（主归属链 + 交叉引用 + path） |
+| MODIFY | `packages/web-cli-plugin/src/insight/tree-model.ts` | additive：`defaultAction/overrideAction/effectiveAction/overridable/clampReason`；`ControlKind+'command-policy'`；`TreeActionId+2`；层级类型 |
+| MODIFY | `packages/web-cli-plugin/src/insight/command-catalog.ts` | 默认/生效分列 + clamp 原因；`controlsFor` 分层（替换偏差文案） |
+| MODIFY | `packages/web-cli-plugin/src/insight/project-tree.ts` | 注入 `overrides`（纯数据）；覆盖面分列；派生归属树 |
+| MODIFY | `packages/web-cli-plugin/src/insight/build-snapshot.ts` | 透传 `overrides` / `coverage` |
+| MODIFY | `packages/web-cli-plugin/src/insight/archive-catalog.ts` | 默认 vs 生效 + 分层控件描述（仍无写导入） |
+| MODIFY | `packages/web-cli-plugin/src/ui/tree/tree-view.ts` | 嵌套渲染模型 + 命令策略控件 + 新文案（两通路 + 归属树） |
+| MODIFY | `packages/web-cli-plugin/src/ui/tree/tree-drawer.ts` | `role=tree` DOM + 键盘 + 展开集 + 面包屑 + 分层控件 + clamp 原因 |
+| MODIFY | `packages/web-cli-plugin/src/ui/tree/tree-ops.ts` | 白名单 9 + `set/reset-command-policy` 分支（唯一消息通路） |
+| MODIFY | `packages/web-cli-plugin/src/background/host.ts` | 组合 policy（`withCommandOverride`）+ `guardedOnAsk` + `commandOverrides` 注入 |
+| MODIFY | `packages/web-cli-plugin/src/background/service-worker.ts` | 覆盖 store 单例 + `command-policy*` cases + 注入 projection/host + `pushInsightChanged` |
+| MODIFY | `packages/web-cli-plugin/src/background/messaging.ts` | 追加 3 个 kind（additive） |
+| MODIFY | `packages/web-cli-plugin/src/background/insight-protocol.ts`（或既有 kind 校验点） | 允许新 kind（不绕过校验） |
+| MODIFY | `packages/web-cli-plugin/src/security/audit-sink.ts` | 追加审计类型 `command-policy`（additive union） |
+| NEW | `packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts` | AC-V2-020~022 |
+| NEW | `packages/web-cli-plugin/test/command-override.test.ts` | AC-V2-023/024（持久/恢复/幂等/无半写/审计） |
+| NEW | `packages/web-cli-plugin/test/insight-override-security.test.ts` | AC-V2-025 clamp 反向断言 |
+| NEW | `packages/web-cli-plugin/test/command-policy-parity.test.ts` | 默认/生效分列 + 覆盖面分列（AC-V2-026/027, AC-V24-008） |
+| MODIFY | `packages/web-cli-plugin/test/tree-ops.test.ts` / `tree-view.test.ts` / `insight-no-escalation.test.ts` / `insight-archive.test.ts` / `insight-action-parity.test.ts` | 按 §9.8 显式取代清单（**removed=0**） |
+| MODIFY | `packages/web-cli-plugin/test/ui/insight.mjs` / `test/ui/binding.mjs` | 追加 `#I-20a…` / `#22a…`；v1 编号零删改 |
+| MODIFY | `packages/web-cli-plugin/test/size-baseline.ts` / `size-budget.test.ts` | sidepanel 显式重登记 + 一致性断言（追加） |
+
+**明确不改（门禁断言 diff 为空）**：`packages/web-cli-base/**`、`src/security/policy.ts`、`src/security/auto-authorize.ts`、`manifest.json`、`src/content/**`、`src/ui/options/index.html`、`test/parity/**`、`test/parity.test.ts`、`test/ui/journey.mjs`、`test/perf-*`、v1 SDDU 目录、`.opencode/opencode.json`、依赖段。
+
+### 9.11 R2 方案对比（≥2 方案 + 被否理由）
+
+| 议题 | 推荐 | 被否方案 | 否决理由 |
+|------|------|----------|----------|
+| 覆盖层接入点 | **A：SW 侧 policy 组合（重排 + 追加 clamp 策略）** | B：改 `policy.ts` 加参数；C：仅 UI 写入 + 渲染层「假装」allow | B 破坏 sha256 pin / 安全红线；C 不改变真实判定（等于没做） |
+| 覆盖强制位置 | **A：SW 服务端 clamp** | B：UI 禁用按钮（乐观隐藏） | UI 可被伪造消息/绕过；服务端必须独立 clamp |
+| 策略链顺序 | **A：`[S1, S3, override, S2]`** | B：直接 append 到 `[S1,S2,S3]` 之后 | B 下 S2 的 untrusted ask 会先短路，导致用户覆盖**无法收紧**（违背 clamp 表「可覆盖为 deny」） |
+| 存储写 | **A：单键整对象 + 串行队列** | B：逐条键 + 并发写 | B 易半写/竞态，恢复默认与审计难一致 |
+| 真树实现 | **A：新增纯归属树 + 快照扁平面保留** | B：改快照把命令挂到站点下（破坏唯一/对账/确定性） | B 需要复制节点或破坏对账，回归面大 |
+| 渲染技术 | **A：自建 `role=tree`** | B：`<details>/<summary>` | B 无逐层 `aria-expanded`，不满足 NFR-V2-011 |
+| 122 卡性能 | **A：惰性渲染（按展开建 DOM）** | B：虚拟化 | B 破坏键盘/`aria` 连续性 + 会话展开态，收益不抵复杂度 |
+| deny 控件 | **A：分层（模型 `overridable` + DOM 双层）** | B：全部无控件（R2 前）；C：全部有控件 | B 违背 R2 反转；C 违背硬底线 |
+| 断言 | **A：显式取代 + 计数不减** | B：删旧加新 | B 违反「不得静默删除 / 总数不减」 |
+
+### 9.12 R2 风险评估与缓解
+
+| 风险 | 概率 | 影响 | 缓解措施 |
+|------|:--:|:--:|----------|
+| 覆盖层**意外放宽硬底线** | 低 | **极高** | `[S1,S3,override,S2]` 顺序 + evaluate 首行拒绝 + 破坏性/ui·state·external 只可收紧；AC-V2-025 反向断言 + `policy`/`auto-authorize` pin 不变 |
+| UI 伪造消息绕过 clamp | 低 | 极高 | 判定只在 SW gate；覆盖策略读 SW 内存态；UI 仅发消息，无本地判定 |
+| 覆盖持久化**半写/竞态** | 中 | 中 | 单键整对象 + 串行队列 + 写成功才提交内存 + 失败可读（EC-V2-018） |
+| 策略链**重排**漏识别 S1/S2/S3（base 改名） | 低 | 高 | 按 name 定位 + **找不到即 FAIL** 的锚定断言 + 反证 |
+| `dom`/`read-state` 被过度 clamp（`isPluginDestructiveInvocation` 未知→true） | 中 | 中 | clamp 用 `risk==='write' && DESTRUCTIVE_VERBS.has(sub)`，**不用**「未知→破坏性」；作者示例专项单测 |
+| 真树破坏既有布局/断言 | 中 | 中 | 覆盖层结构不变 + 惰性渲染 + AC-V2-002 全量复用（开/关 drift=0）+ 取代清单显式化 |
+| 断言被顺手删除/降级 | 低 | 高 | §9.8 显式 old→new + 计数台账 + 「removed=0」反证门禁 |
+| `sidepanel.js` 体积上涨失控 | 中 | 中 | 显式重登记（前后值/日期/理由/历史）+ 5% 容差不变 + 反证自测 |
+| `content.js` 被间接改变 | 低 | 极高 | 不碰 `src/content/**` + `CONTENT_SOURCE_SHA256` pin + 反证 |
+| 冻结用 `git diff HEAD` 假安全网 | 低 | 高 | 一律内容 sha256；`catch` 只吞 `ENOENT` |
+| Chromium 门禁并发 OOM | 中 | 高 | 断言追加到既有会话，不新增并发 Chromium 门禁；本设计阶段不跑 |
+
+---
+
+## 10. R2 生成的 ADR（ADR-V2-024~033；与 ADR-V2-001~023 及 v1 ADR-001~018 零冲突）
+
+> 状态 = **ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）**；被取代/扩展关系见 §8.1。
+
+| ADR | 标题 | 状态 |
+|-----|------|:--:|
+| ADR-V2-024 | 覆盖层接入点 = SW 侧 policy 组合（`withCommandOverride` 重排 + 追加 clamp 策略 + `onAsk` 守卫）；`policy.ts`/`auto-authorize.ts` 零改（sha256 不变） | ACCEPTED |
+| ADR-V2-025 | clamp 逐档 = `resolveCommandPolicy()`（硬底线 > 覆盖 > 默认）+ `[S1,S3,override,S2]` + 只可收紧不可放宽 | ACCEPTED |
+| ADR-V2-026 | 覆盖存储/生命周期 = 单键整对象原子写 + 串行无半写 + 继承 + 单条/全部恢复 + 幂等 + 审计零明文 | ACCEPTED |
+| ADR-V2-027 | 动作白名单 7→9 + 新增消息/审计 + 放宽类二次确认 + pin 显式更新流程（扩展 ADR-V2-008） | ACCEPTED |
+| ADR-V2-028 | 真层级树 = 纯归属树（主归属链 + 交叉引用徽标 + 不复制节点）；快照扁平面保留 | ACCEPTED |
+| ADR-V2-029 | 展开/键盘/路径 = 自建 `role=tree` + `aria-expanded` + 会话展开集 + 面包屑 + 惰性渲染 | ACCEPTED |
+| ADR-V2-030 | deny 控件分层 = 模型 `overridable`/`effectiveAction`/`clampReason` + DOM 双层（部分取代 ADR-V2-011/020） | ACCEPTED |
+| ADR-V2-031 | 断言取代策略 = 显式 old→new + 总数不减 + 硬底线只增（部分取代 ADR-V2-016） | ACCEPTED |
+| ADR-V2-032 | 覆盖面分列 + 偏差文案清除 + `TREE_NO_ESCALATION_NOTE` 两通路重写（pin 更新） | ACCEPTED |
+| ADR-V2-033 | 体积/门禁纪律保持 = content 零增长 + sidepanel 显式重登记 + 串行 + 能真 FAIL + 内容哈希冻结 | ACCEPTED |
+
+### ADR-V2-024: 覆盖层接入点 = SW 侧 policy 组合（不改冻结文件）
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+FR-V2-075/076 要求用户覆盖「真的影响判定」，优先级 `硬底线 > 用户覆盖 > 默认 risk 档`；同时 `policy.ts`/`auto-authorize.ts` 被 sha256 钉死（P0 pin），**不得改动**。需要在判定链之后、以 clamp 方式生效。
+
+## 决策
+1. 新增 `src/security/command-override.ts`，导出 `withCommandOverride(policy, deps)`：接收 `createPluginPolicyConfig(...)` 返回值，返回**新对象**，`strategies` 重排为 `[S1, S3, overrideStrategy, S2]`（按 `name` 定位；缺一即抛错），并追加 `createCommandOverrideStrategy()`。
+2. `host.ts` 调用点唯一改动：`policy: withCommandOverride(createPluginPolicyConfig(deps, guardedOnAsk), {...})`；`dispatch` 仍走 `router.dispatch`。
+3. `guardedOnAsk`：仅当「该命令存在显式覆盖」且 `autoOnAsk` 将返回 `allow` 时，改为走人工确认（防止显式 `ask` 被自动授权静默变 allow）；`hardDeny`/`allow:false` 原样透传。
+4. clamp 策略无覆盖时返回 `null` → 行为与现状逐字节一致（既有断言/单调性不受扰）。
+
+## 被否决方案与理由
+- **B. 改 `policy.ts` 增加 riskDefaults 参数**（否决）：破坏 sha256 pin 与安全红线。
+- **C. 只在 UI 隐藏/禁用控件**（否决）：不改变真实判定，且 UI 可被伪造消息绕过。
+- **D. append 到 `[S1,S2,S3]` 之后**（否决）：S2 的 untrusted ask 先短路，用户覆盖无法收紧（违背 clamp 表）。
+
+## 后果
+判定链本体零漂移、sha256 不变；覆盖可即时生效；代价 = host 一处组合 + 对 base 策略名有锚定依赖（配「找不到即 FAIL」断言）。
+
+### ADR-V2-025: clamp 逐档（只可收紧不可放宽）
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+父 spec §5.7 给出 clamp 逐档结论表（FR-V2-076 / D-OVERRIDE-3），并明确 `dom`/`dom read-state` 三档全可用。需把「档位」判据钉死并可单测。base registry 中 `dom` 的 `entry.risk='ui'`，但作者示例要求 `dom` 可设 allow——须消解。
+
+## 决策
+1. clamp 判据 = **被调用 (tool, subcommand) 的 effective risk**（`subcommandRisks[sub] ?? entry.risk`）+ 破坏性标志（`risk==='write' && DESTRUCTIVE_VERBS.has(sub末段)`）。
+2. 纯函数 `resolveCommandPolicy({ defaultAction, override, risk, destructive, siteAuthorized }) → { effectiveAction, overridable, clampReason }`，实现 §9.3 逐档表。
+3. **工具级节点 = 设置载体**（`overridable:true`，值继承给子命令）；每子命令按其 effective risk 再 clamp。因此「`dom` 可设 allow」与「`ui` 档不得放宽」并存不矛盾（`dom click` 实际调用仍不放宽）。
+4. `evaluate` / 未授权（S1）/ 未知非法 risk（S3）为**不可覆盖**：覆盖策略返回 `null`（S1/S3 已先短路；evaluate 落到基线 deny）。
+5. `ui`/`state`/`external`：`allow` → 返回 `null`（不放宽）；`ask`/`deny` → 生效（收紧）。破坏性：`allow` → `null`（保底 `ask`）。
+
+## 被否决方案与理由
+- **按 `entry.risk` 单值判 `dom` 工具级**（否决）：会把 `dom` 容器判成 `ui` 而禁止 allow，违背作者示例。
+- **按工具名硬编码豁免 `dom`**（否决）：安全味道差、脆弱；用「effective risk + 容器语义」更普适。
+- **允许覆盖 evaluate**（否决）：直接违反红线。
+
+## 后果
+clamp 可逐档单测、可反证；作者示例可达；代价 = 需明确「容器 vs 叶子」的投影语义（已在 §9.3/§9.6 定义）。
+
+### ADR-V2-026: 覆盖存储与生命周期
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+FR-V2-075/NFR-V2-012 要求持久化、恢复默认（单条+全部）、幂等、失败可读、零静默失败、审计零明文、无半写；且**不新增 `chrome.storage` 权限**（`storage` 已有）。
+
+## 决策
+1. 单键 `web-cli:command-policy`，结构 `{version:1, entries:{commandId:{action,updatedAt}}}`；`commandId` 与 `STABLE_KEY.command` 同形（配同源锚定断言）。
+2. `createCommandOverrideStore(kv, {audit, now})`：`load/get/list/set/reset/resetAll/isExplicit`；**kv 注入**（与 `auto-authorize.ts` 同款纪律，本模块零 `chrome.*`）。
+3. 无半写：单键整对象 `set` + 串行 promise 队列 + 写成功才提交内存（失败回滚/不变）+ 失败可读。
+4. 幂等：同值 → `ok`「已生效（无变化）」，不写、不审计。
+5. 继承：`cmd:name#sub` > `cmd:name` > 默认档。
+6. 审计：新类型 `command-policy`（`decision:'set'|'reset'|'reset-all'`；`commandId`/`action`/`prevAction`/`ts`），**零明文**。
+7. 读失败：视为「无覆盖」→ 默认档（更保守）+ 可读降级（EC-V2-018）。
+
+## 被否决方案与理由
+- **逐条键 + 并发写**（否决）：半写/竞态风险 + 恢复默认与审计难一致。
+- **新增存储权限**（否决）：红线（零新权限）。
+- **复用 `auto-auth` 键**（否决）：语义混叠，撤销/覆盖/自动授权须可分辨。
+
+## 后果
+持久、可恢复、幂等、可审计；代价 = 每次写整对象（122 条以内，量级极小）。
+
+### ADR-V2-027: 动作白名单 7→9 + pin 显式更新流程（扩展 ADR-V2-008）
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+FR-V2-074/075 要求树内可设命令策略；ADR-V2-008 的 7 动作封闭白名单 + pin 需扩展；父 FR-V2-063 要求覆盖通路「显式 + 被审计 + 可恢复 + 经 clamp」才不算旁路。
+
+## 决策
+1. `TREE_ACTION_IDS` **7 → 9**，新增 `set-command-policy` / `reset-command-policy`；**保留** `switch` 分派 + 白名单外零写入兜底（无默认写入分支）。
+2. 每个新动作**唯一映射**一个既有/新增**服务端消息通路**（`command-policy-set` / `command-policy-reset`），无旁路；覆盖写入仍是 SW 侧 store。
+3. `needsConfirmation` 扩展：放宽类覆盖（desired `allow` 且相对默认是放宽）需确认；收紧（`ask`/`deny`）与 `reset` 不需。
+4. **pin 更新流程**：白名单 JSON pin、`TREE_MODULE_SHA256`、`TREE_NO_ESCALATION_NOTE` pin 的更新必须**显式**（新值 + 日期 + 来源 commit + 理由 + 前后值 + 历史保留），并配反证自测；**禁止**删断言/放宽容差来「跑绿」。
+5. 覆盖通路审计类型 `command-policy` 与撤销/关断、`auto-authorize` 可分辨。
+
+## 被否决方案与理由
+- **把覆盖写入挂在既有 `capabilities/set` case 上**（否决）：语义混淆、审计不可分辨。
+- **在 UI 内直接写存储**（否决）：越权 + 无服务端 clamp。
+- **不改白名单、用泛化 write 动作**（否决）：破坏封闭白名单的结构保证。
+
+## 后果
+父 FR-V2-036/063 的三件套（显式/审计/可恢复+clamp）成立；代价 = 两处 pin 显式更新 + 新增消息 kind。
+
+### ADR-V2-028: 真层级树 = 纯归属树（不复制节点）
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+父 FR-V2-070/071 要求真父子层级 + 多归属主链 + 交叉引用徽标；ADR-V2-003（不复制节点）继续有效。快照已有扁平 `groups[].children` 被对账/parity/archive 消费，改动回归面大。
+
+## 决策
+1. 新增纯模块 `src/insight/ownership-tree.ts#buildOwnershipTree(snapshot)`，输出嵌套 `OwnershipNode`（`children` + `path` + `mainOwner` + `crossRefCount`）。
+2. **主归属**：`site_*` → 站点面；`base-builtin`/`plugin-*` → 命令面（按来源分组）；能力 → 能力面；LLM → LLM 面。**同一 node id 唯一**；非主归属以徽标引用 + 下钻同一 id。
+3. **快照扁平面不改**（对账/确定性/`meta.hash` 输入不变）；归属树为纯派生。
+
+## 被否决方案与理由
+- **把命令节点挂到站点下以改快照结构**（否决）：需复制节点或破坏唯一/对账，且改变 hash 确定性。
+- **在 UI 层临时拼层级**（否决）：模型层不可单测，容易漂移。
+
+## 后果
+真层级可单测、可对账零回归；代价 = 多一个纯模块 + 渲染层改为消费嵌套模型。
+
+### ADR-V2-029: 展开/键盘/路径 = 自建 `role=tree` + 惰性渲染
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+FR-V2-072/073 + NFR-V2-011 要求默认展开层级、会话内保持、键盘可达、逐层 `aria-expanded`、面包屑/缩进语义、122 卡可定位；且 AC-V2-002 布局守卫不得回退。
+
+## 决策
+1. 自建 `<ul role="tree">` / `<li role="treeitem">`（`createElement`/`textContent`，零 `innerHTML`）；`aria-expanded`/`aria-level`/`aria-selected`。
+2. 默认展开根 + 一级；`expanded:Set<nodeId>` 在抽屉会话内保持，重投影回放。
+3. 单一代理 `keydown`（方向键/Enter/Space/Home/End）+ roving tabindex + 焦点可见。
+4. 每节点 `path: string[]` 渲染面包屑。
+5. 惰性渲染（按展开建 DOM，收起不建）；**不虚拟化**。
+6. 抽屉仍为 `#panel-main` 内 absolute 覆盖层；`overflow-x:hidden` + 缩进上限 → AC-V2-002 全量复用（开/关 drift=0）。
+
+## 被否决方案与理由
+- **`<details>/<summary>`**（否决）：无逐层 `aria-expanded`，不满足 NFR-V2-011。
+- **虚拟化**（否决）：破坏键盘/`aria` 连续性与会话展开态。
+
+## 后果
+可访问性与布局双达标；代价 = 自定义键盘/焦点逻辑（配 `test:ui` 遍历断言）。
+
+### ADR-V2-030: deny 控件分层（部分取代 ADR-V2-011/020）
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+FR-V2-077 + AC-V2-026 要求区分硬底线 `deny`（无控件 + 原因可读）与非硬底线 `deny`（有控件可改回）；原 ADR-V2-011「`deny ⇒ controls:[]` 恒成立」被部分取代。
+
+## 决策
+1. 模型层 additive：`defaultAction` / `overrideAction?` / `effectiveAction` / `overridable` / `clampReason?`；`ControlKind+'command-policy'`。
+2. 硬底线（`overridable:false`）→ `controls:[]` + `clampReason` 可读；非硬底线/普通命令 → 三个 `command-policy` 控件。
+3. DOM 双层：硬底线行零 `button[data-action-id]`；可覆盖行渲染 `button[data-policy=allow|ask|deny]`；写入走**同一** `tree-ops` 路径。
+4. 静态权限部分**不变**（仍 `revocable:false` + `revokeHint`，无 revoke 控件）。
+5. 档案（V2-4）承载「默认档 vs 覆盖生效档」分列 + 同款控件描述，但模块**仍无写导入**。
+
+## 被否决方案与理由
+- **维持 `deny` 一律无控件**（否决）：违背 R2 反转与非硬底线可改回。
+- **`deny` 一律有控件**（否决）：违背硬底线不可放宽。
+- **仅文案承诺分层**（否决）：不可机器验证。
+
+## 后果
+分层可结构化断言；代价 = 更新 `tree-view`/`tree-drawer`/`archive-catalog` 的控件分支与既有断言（见 §9.8）。
+
+### ADR-V2-031: 断言取代策略（部分取代 ADR-V2-016）
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+R2 改动改变既有断言前提（扁平 `rows` → 节点树；`deny⇒controls:[]` → 分层；只读档案 → 可操作）；ADR-V2-016「既有断言零修改」不再适用。但 SDDU 纪律禁止「为跑绿而删断言」。
+
+## 决策
+1. **显式取代清单**（§9.8 S1~S18）：每条 old → new（编号 + 理由 + 替代断言）；**removed = 0**。
+2. **总断言数不减**：替换项 1:1 且新计数 ≥ 旧；新增净增；维护**断言计数台账**。
+3. **硬底线断言只增**：`policy`/`auto-authorize` pin、决策表 pin、`PLUGIN_RISK_DEFAULTS`、parity 零 diff **不变** + 追加 AC-V2-025 反向断言 / `#I-12a`。
+4. `journey.mjs` / v1 `test:ui` / `binding.mjs` 既有编号**零改动**（除清单内显式取代）。
+5. 冻结类断言一律内容 sha256（禁 `git diff HEAD`）；每条关键断言配反证自测。
+
+## 被否决方案与理由
+- **删旧加新**（否决）：违反「不得静默删除 / 总数不减」。
+- **保留旧断言并让新形态兼容**（部分不可行）：如「deny 一律无控件」与分层语义直接冲突，只能显式取代。
+- **用 `git diff HEAD` 证明未删**（否决）：弱冻结，W3 已证伪。
+
+## 后果
+R2 改动可审计、防静默降级；代价 = 需维护取代清单与计数台账（本 ADR + test 门禁）。
+
+### ADR-V2-032: 覆盖面分列 + 偏差文案清除
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+FR-V2-078/079 + AC-V2-027 要求：偏差文案「不提供命令级写入」「只读展示：命令级策略不可在树内修改」零命中；`delay` 消歧句保留；实时面 122 卡 vs 基线 34/142 分列不夸大。
+
+## 决策
+1. `TREE_NO_ESCALATION_NOTE` 重写为**两通路**：「撤销/关断 = 回到更保守，不放宽任何门禁；命令级覆盖 = 用户显式、被审计的放宽，但硬底线不可覆盖（经 clamp）」+ **保留 `delay`（= deny，fail-closed，非可配置档位；与命令间 `delayMs` 无关）**；`delay`/`deny` 仍非可配置档位（可覆盖的是命令策略值）。
+2. `TREE_MODEL_NOTE` 改为「按归属的层级树 + 多归属主链 + 交叉引用徽标（不复制节点）」。
+3. 单源 + **内容哈希 pin 显式更新**（前后值 + 日期 + 理由）；偏差文案 grep 零命中（范围：`src/**` + 渲染 DOM 文本 + `docs/**`，SDDU spec 的历史引文除外）。
+4. 覆盖面**分列**：`live`（28/94=122）与 `baseline`（34/142）分列字段/展示；`accounted` 不渲染；「已全部渲染」零命中 + 防夸大反证。
+
+## 被否决方案与理由
+- **保留旧森林文案**（否决）：与真层级树不符，且含偏差表述风险。
+- **只删偏差句不加两通路声明**（否决）：违背 FR-V2-025。
+- **把实时面说成基线**（否决）：诚实性红线。
+
+## 后果
+文案与新语义一致、可机器验证；代价 = pin 显式更新（已登记）。
+
+### ADR-V2-033: 体积/门禁纪律保持
+
+## 状态
+ACCEPTED（编排器代作者决策，2026-09-13 授权 + R2）
+
+## 背景
+R2 会增重 `sidepanel.js`（树 + 覆盖控件），须在保持 P0 纪律下受控。
+
+## 决策
+1. `content.js` **零增长**：不碰 `src/content/**`；`CONTENT_MAX_BYTES` 无容差 + `CONTENT_SOURCE_SHA256` 不变。
+2. `sidepanel.js` **显式重登记**（build 后实测）：前后值 + 日期 + 来源 + 理由 + `HISTORY` 历史；容差 **5% 不变**；`targetBudgetBytes/targetMet` 仍 `null`。
+3. 门禁**串行**、**能真 FAIL**（反证自测）、冻结用 **sha256**、`catch` 只吞 `ENOENT`。
+4. 不新增并发 Chromium 门禁（断言追加既有 `insight.mjs` 会话）。
+
+## 被否决方案与理由
+- **静默上调基线**（否决）：W4 前科。
+- **放宽容差/删断言**（否决）：虚绿。
+- **用 `git diff HEAD` 冻结**（否决）：弱安全网。
+
+## 后果
+体积/门禁纪律与 P0 一致；代价 = build 后一次显式重登记。
+
+---
+
+## 11. 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| **v2.0** | **R2 技术设计修订（post-validate；phase 不回退；依据父 spec v2.0 §5.7/§2.2b + `revisionRounds.R2`；编排器代作者决策 2026-09-13 授权）**：新增 §8.1（ADR-V2-008 扩展 / 011·016·020 部分取代 / 001·003·019 扩展）、§9 R2 技术设计修订（覆盖层 SW 侧 policy 组合接入点；硬底线 clamp 逐档实现表；覆盖存储/生命周期/继承；动作白名单 7→9 + pin 更新流程；真层级树归属模型 + 展开/键盘/路径 + 122 卡惰性渲染；deny 控件分层；覆盖面分列；**断言取代策略 S1~S18（removed=0、总数不减、硬底线只增）**；体积/门禁纪律；方案对比；增量文件影响；风险）、§10 **R2 ADR-V2-024~033（10 个）**。`policy.ts`/`auto-authorize.ts` **sha256 不变**；不碰 base/options/content；无新依赖；不碰 main。 | 2026-09-13 | SDDU Plan Agent（R2，编排器代作者决策授权） |
 | v1.0 | 初始创建。父 Feature 统领性技术方案：前置检查（含「无外部 API」替代核实）+ 架构分析（四维度状态源/操作通路/量化基线/结构约束）+ 分模块技术方案（V2-1 纯投影 / V2-2 覆盖式抽屉 / V2-3 白名单编排 / 体积守卫 / V2-4 预留位 / 交付门槛）+ 6 方案对比 + 推荐方案 + 10 项编排器代作者决策登记 + 聚合文件影响 + 风险评估 + **ADR-V2-001~015**。**只做技术设计**：不写代码、不排任务、不改 v1、不碰 main/base/options。 | 2026-09-13 | SDDU Plan Agent |
 | v1.1 | **最小追加**：§8 ADR 登记表追加 **ADR-V2-016~023**（V2-4 命令档案浏览器技术设计，正文见 `specs-tree-v2-4-command-archive/plan.md` §8）一行注 + 本修订行；不删既有叙述、不改父 `state.json` 容器体例。 | 2026-09-13 | SDDU Plan Agent |
