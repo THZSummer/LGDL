@@ -1100,7 +1100,22 @@ async function phase1(mock) {
     const moveTabId = await mkDisposable('/disposable-move?x=1');
     const closeTabId = await mkDisposable('/disposable-close?secretmarker=CLOSESECRET#frag');
     check([muteTabId, pinTabId, moveTabId, closeTabId].every((id) => typeof id === 'number' && id > 0), '#7m 已创建 4 个自建非激活标签页（互不干扰，可安全改动/关闭）', JSON.stringify([muteTabId, pinTabId, moveTabId, closeTabId]));
-    await sleep(600);
+    // 既有 harness 时序 flake 修复（非产品逻辑）：产品侧 `chrome.tabs.onUpdated(status==='complete')`
+    // → `followActiveTab` → `switchSession`，而**会话切换会把待决的二次确认按「拒绝」取消**
+    // （FR-048 / EC-019）。自建标签页为 `active:false` 但加载完成事件仍会触发该跟随；若在它们
+    // 尚未加载完时就发起 mute/move，迟到的 complete 事件可能在确认窗口内切换会话并取消确认 →
+    // `#7m3/#7m4/#7o/#7o2` 偶发失败（与 AP#5b 同类：harness 时序，非产品缺陷）。先等 4 个标签页
+    // status 全部 `complete`，再留一个会话稳定窗，使首次会话切换先于 mute/move 完成。
+    const disposableIds = [muteTabId, pinTabId, moveTabId, closeTabId];
+    for (let i = 0; i < 120; i += 1) {
+      const allDone = await evaluate(
+        sw,
+        `Promise.all(${JSON.stringify(disposableIds)}.map((id) => chrome.tabs.get(id).then((t) => t.status === 'complete').catch(() => true))).then((a) => a.every(Boolean))`,
+      );
+      if (allDone === true) break;
+      await sleep(250);
+    }
+    await sleep(900);
 
     // (1) real mute
     await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_MUTE__' }).then(() => true)`);
@@ -1907,9 +1922,15 @@ async function phaseAutoProbe() {
     check(manualTextAbsent === true, 'AP#4b 探测说明文案不含「重新探测」');
 
     // Failure → automatic backoff retry, observed via the real state projection.
+    //
+    // 相位语义（收紧谓词，修既有 flake 根因）：产品快照仅当 `phase === 'waiting'`
+    // （已排定下一次退避定时器）时才输出 `nextDelayMs`（src/discovery/auto-probe.ts:136）；
+    // 进入 `phase === 'probing'`（第 2 次尝试 in-flight）时该字段被清空（:175）。
+    // 因此轮询谓词必须限定 `phase === 'waiting'`，否则会命中 probing 窗口 → 快照无
+    // `nextDelayMs` → `#AP#5b` 偶发误报（验证方 R 已定位）。编号沿用 `#AP#5b`，不放宽断言。
     const retrying = await waitFor(
       sp,
-      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'state' }); const p = r && r.data && r.data.probe; return p && p.retries >= 1 && p.lastClass === 'temporary' ? JSON.stringify(p) : ''; })()`,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'state' }); const p = r && r.data && r.data.probe; return p && p.phase === 'waiting' && p.retries >= 1 && p.lastClass === 'temporary' ? JSON.stringify(p) : ''; })()`,
       150,
       250,
     );

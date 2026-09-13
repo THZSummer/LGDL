@@ -113,6 +113,29 @@ npm run test --workspace @lgdl/web-cli-plugin        # node --test（机制层�
 npm test                                             # 全仓
 ```
 
+### 6.1 门禁日志完整落盘（纪律，D-V24-06）
+
+- **要求**：一切门禁 / 测试（本节的机制层单测，以及 `test:insight` / `test:ui` /
+  `test:hardening` / `test:binding` / `test:e2e` 等 Chromium 门禁）的输出必须**完整落盘**
+  （例如 `/tmp/<name>.log`），**禁止 `tail -N` 截断后丢弃原文**。需要在报告里摘录片段时，
+  摘录必须与完整日志**并存**——原文保留到本轮结论固化，供 review/validate 复核。
+- **理由**：曾因 `tail` 截断，导致 flaky 门禁的**原始异常栈不可复原**、无法定位根因。
+  V2-4 验证方定位 `test:binding` `#AP#5b` 相位窗口 flake 时，**完整日志是唯一可复核证据**。
+- **门禁串行纪律**：一次只跑一个 Chromium 门禁，绝不并发（本仓库有 OOM 前科）；任一项
+  被杀 / OOM 时**如实报告，不循环重试**。
+- **既有偶发清单（如实登记，非「已修复」）**：
+  - `test:ui` `#3c`：单点偶发（既有）。
+  - `perf-budget` NFR-007：墙钟阈值（250ms）在负载下偶发抖动（既有）。
+  - `test:hardening`：启动 / CDP 就绪类偶发（D-V24-06，本轮未复现 → 判环境抖动）。
+  - `test:binding` `#AP#5b`：**本轮已修**——轮询谓词过松（未限定相位），收紧为
+    `phase === 'waiting'`（`test/ui/binding.mjs`，编号与断言不变）。
+  - `test:binding` `#7m3` / `#7m4` / `#7o` / `#7o2`（tabs mute/move 偶发）：**本轮已修（新观测）**
+    ——自建标签页加载完成事件（`tabs.onUpdated complete` → `followActiveTab` → `switchSession`）
+    会把确认窗口内的**待决二次确认按「拒绝」取消**（FR-048 / EC-019）；机器负载高时 complete
+    事件迟到，落在 mute/move 确认窗口内 → 偶发失败（`#AP#5b` 同类：harness 时序，非产品缺陷）。
+    harness 改为先等 4 个自建标签页 `status === 'complete'` 再操作（`test/ui/binding.mjs`，
+    **无断言增删**）。
+
 ## 7. 冒烟方法论（FR-045 / ADR-006）
 
 ### 7.1 无头 / 自动化可行性结论
@@ -974,4 +997,5 @@ router.dispatch → PermissionGate.check
 | 3.0 | **TASK-038（作者裁决 2026-09-13）：可选权限能力 `bookmarks`（读+写）/ `downloads`（只读）**：以 `optional_permissions` 声明（**静态 `permissions` 零新增**；避免更新时被 Chrome 停用、可单独撤销）；`chrome.permissions.request` **只在扩展页面点击手势内**发起（`src/platform/capability-permissions.ts`；SW 绝不调用），请求结束后 `capabilities/permission-changed` 让 background 重读真实授权并对账工具面；`permissions.onAdded`/`onRemoved` 即时对账（撤销即从 `deriveTools()` 移除 + 审计）。默认书签读开/写关、下载记录读开；未授权返回可读「去设置开启」（不静默）。`bookmarks remove` 为 **destructive** → 接入 `auto-authorize` 硬底线（「写操作自动」开仍 ask）；`downloads` 明确不做取消/删除/打开。补 §17；新增 `test/bookmarks-tools.test.ts`、`test/downloads-tools.test.ts`、`test/capabilities.test.ts`、`test/capability-wiring.test.ts`；`test:ui` 新增 #54a~#54h、`test:binding` 125→**153**（测试副本静态权限 + 真实 chrome.bookmarks/downloads + 写自动仍弹确认 #54B8）、`test:e2e` 新增 bookmarks/downloads 真机断言（副本偏差已披露）；插件 452→**488**、`tsc --noEmit` 0 error、`test:hardening` 24、全仓 build+test 0 fail（base 483 零回归）；**base 零改动 / 静态 `permissions` 零新增 / 无新依赖 / 无明文 key / 无静默失败**。 |
 | 3.1 | **TASK-039（作者裁决 2026-09-13）：可选权限能力 `notify`（读+写）/ `clipboard`（读+写，读默认关）**：继续以 **`optional_permissions` + 用时请求**声明（`notifications` + `clipboardRead`/`clipboardWrite`；**静态 `permissions` 零新增**）。**先核实三者均可 optional**（目标 Chromium 151 实测；`debugger`/`proxy`/`geolocation`/`declarativeNetRequest` 为对照不可 optional，见 §37.2）。`notify` 走插件侧 `chrome.notifications`（base `notify` 为页内 `Notification` 面、SW 不可用），子命令 `list`/`send`/`clear`；`clipboard` 纯文本 `read`/`write` 经扩展页 `navigator.clipboard`（回退 `document.execCommand`，新增 `src/platform/clipboard-page.ts` 供侧栏与 options 共用），`write-html`/`write-image`/`paste-read` **明确裁剪**（可读「未实现」）。**剪贴板读风险档 = `state`，永不自动放行**（即便「读操作自动」开仍 ask）；剪贴板/通知内容**零审计明文**（只记长度；`confirm.ts` 新增 `scrubContentArgs` 把内容参数替换为「已省略 N 字符」后才入摘要/审计）。默认通知开 / 剪贴板读关写开；关闭即从 `deriveTools()` 移除；`onAdded`/`onRemoved` 对账（撤销即摘除）。补 §18 + compliance §13 + capability-matrix §2；新增 `test/notify-tools.test.ts`、`test/clipboard-tools.test.ts`；`test:ui` 149→**155**（#54i~#54n）、`test:binding` 153→**157**、`test:e2e` 新增 notify/clipboard 真机断言（副本偏差已披露：写入真实成功 `document.execCommand(copy)`）；插件 488→**514**、`tsc --noEmit` 0 error、`test:hardening` 24、全仓 build+test 0 fail（base 483 零回归）；**base 零改动 / 静态 `permissions` 零新增 / 无新依赖 / 无明文 key / 无静默失败**。 |
 | 3.2 | **v2 P0 收口（2026-09-13，纯文档/状态订正，零 `src/`、零 `test/` 改动）**：① §8.2 回填 `dist/sidepanel.js` **实测 1,110,744 B**（`test/size-baseline.ts` 基线 = 1,110,744 B / ceiling = 1,166,281 B；历史 1,068,165 / 1,085,389 保留，**以现状为准**）；② §10 登记 `test:hardening` 会**中途重建 `dist`**（build stamp 变化、字节数不变）为**已知副作用**（仅登记，不改 hardening 逻辑）；③ 与 `docs/smoke-checklist.md` §5 的 `test:insight` 断言数订正（45→**52**）同批（该处历史值保留）。 |
+| 3.4 | **v2 收口（2026-09-13，flakes 修复 + 纪律 + 状态收口）**：① 新增 §6.1「门禁日志完整落盘」纪律（**D-V24-06**：禁止 `tail -N` 截断后丢弃原文；理由 = 曾因截断导致 flake 原始异常栈不可复原；并登记既有偶发清单：`test:ui` `#3c` / `perf-budget` NFR-007 墙钟 / `test:hardening` 启动·CDP 就绪类 / `test:binding` `#AP#5b`〔**本轮已修**——谓词收紧限定 `phase==='waiting'`〕/ `test:binding` `#7m3`·`#7m4`·`#7o`·`#7o2`〔**本轮已修·新观测**——先等自建标签页加载完成再操作，避免 `complete`→`switchSession` 取消待决确认〕）；② `test/ui/binding.mjs` `#AP#5b` 轮询谓词补相位限定（编号沿用、断言不减）+ 自建标签页加载完成等待（无断言增删）；③ `test/insight-no-escalation.test.ts` 为 legacy `git diff --quiet HEAD` 弱冻结**加注释**（真实冻结由 §sha256 pin 承担，保留以维持断言只增不减，W4 遗留登记）。**零产品逻辑改动**（未改 `src/discovery/auto-probe.ts` 可观察行为）。 |
 | 3.3 | **v2 V2-4 命令档案浏览器（2026-09-13，代码 + 门禁 + 文档）**：新增只读命令档案子视图（`src/insight/archive-catalog.ts` + `catalog-meta.ts`；`tree-drawer.ts` 追加默认关的 `.tree-archive`），① §8.2 回填 `dist/sidepanel.js` **实测 1,132,748 B**（基线 = 1,132,748 B / ceiling = **1,189,385 B**；历史 1,068,165 / 1,085,389 / 1,110,744 全保留）+ `dist/background.js` **1,403,170 B**（V2-4 additive 注入增量 **+549 B**）+ `dist/content.js` **1,073,453 B（零增长）**；② `docs/smoke-checklist.md` §5 的 `test:insight` 断言数由 52 回填为 **实测 70**（新增 `#I-19a…h`，历史 45/52 保留），并新增 §7 命令档案人工面 **V2-H-7~9**（`⏳ 待人工`）。**零模型改动 / `manifest.json` 零 diff / `src/content/**` 零改动 / 无新依赖**。 |

@@ -2,9 +2,9 @@
   "feature": "V2-4 命令档案浏览器（父：specs-tree-web-cli-plugin-v2-insight）",
   "featureKey": "specs-tree-v2-4-command-archive",
   "name": "V2-4 命令档案浏览器——34 工具 / 142 子命令逐条有档（allow / ask / delay(=deny) + risk + 来源 + delayMs + 抑制态）；deny 三成因分列可读；与 parity 同源机器对账",
-  "phase": "builded",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v2-insight",
   "childrens": [],
@@ -53,7 +53,66 @@
     "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/review-report.md",
     "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/validate-report.md"
   },
-  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.5；本子级 spec.md 含 delay 消歧红线文案与 parity 同源对账验收。P1 后段（不阻塞 P0 闭环）。 plan 阶段完成（2026-09-13，sddu-plan）：产出 plan.md（ADR-V2-016~023，8 个，与 ADR-V2-001~015 零冲突；ADR 登记追加于父 plan.md §8）——档案视图 = 复用 P0 抽屉内档案子视图（默认关，渲染模型并入 src/insight/ 以避免触发既有 treeSources() 精确列表断言）；逐条有档 = 三层口径分列（基线 34/142 · 豁免 20/88 · 实时面 28/94=122 卡）+ accounted 100%（禁止夸大）；deny 分层 = policy 三成因（denyCause）+ 自动授权层 auto-hardDeny（派生只读、不新增模型字段、全量交叉断言 + 反证）；delay 消歧 = 单一措辞源（复用 TREE_NO_ESCALATION_NOTE + 内容哈希钉死）；只读检索/过滤；体积守卫（sidepanel 显式重登记 + content.js 零增长内容哈希）；安全红线四层结构证据（卡片类型无控件字段 + 模块图无写入口 + 7 动作白名单哈希钉死 + DOM 零控件）；parity 同源（复用 catalog-reconcile + catalog-meta 常量注入）；门禁只增不减（新 test/insight-archive.test.ts + test/ui/insight.mjs 追加 #I-19a…）。关键结论：**零模型改动**（ADR-V2-012 兑现），唯一 additive 运行时改动 = service-worker 注入 catalogMeta（1 行只读）。**只做技术设计**：不写代码、不排任务、不改 v1、不碰 main/base/options。编排器代作者决策（2026-09-13 授权）。下一步 @sddu-tasks。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json（10 个原子任务 / 4 波，跨叶子 Wave 14~17）。映射 plan §2~§3：TASK-001 catalog-meta 常量 + service-worker 1 行 catalogMeta 注入（唯一 additive 运行时面，ADR-V2-023）；TASK-002 archive-catalog 渲染模型 + 三层口径（L1 34/142 · L2 20/88 · L3 28/94=122）+ accounted=carded∪waived=100% + deny 分层 autoAuthHardLine 派生只读 + ArchiveFilter 只读过滤；TASK-003 tree-drawer 档案子视图（默认关、.tree-archive* 隔离、复用 TREE_NO_ESCALATION_NOTE）；TASK-004 node 门禁主体 A1/A2/A4~A9（每条配反证）；TASK-005 A3 deny 分层全量交叉 + 站点域矩阵 + 分歧钉死 + 反证（T3 教训）；TASK-006 test:insight 追加 #I-19a…h（单 Chromium 会话，既有 52 断言零删改）；TASK-007 体积显式重登记（HISTORY 追加 1,110,744；content.js 1,073,453 零增长 + src/content/** 源码哈希）；TASK-008 串行收口 + 零 diff 核验；TASK-009 文档回填（断言数 52→实测 + sidepanel 新基线）；TASK-010 人工面 V2-H-7~9（⏳ 待人工）。继承 P0 教训：每条关键断言配反证、catch 只吞 ENOENT、冻结用内容哈希（W3）、体积显式重登记（W4）、测量条件写进 AC（D-V22-01）、策略再实现全量交叉（T3）、Chromium 绝不并发。编排器代作者决策（2026-09-13 授权）：TD-V24-01~07。下一步 @sddu-build TASK-001。 build 阶段完成（2026-09-13，sddu-build，编排器代作者决策（2026-09-13 授权））：Wave 14~17 / TASK-001~010 全部实施（10/10）。产出 build.md（逐任务/D-V24-01~08/门禁原文/体积新基线/未完成项）。新建 src/insight/catalog-meta.ts（parity 同源锚点常量 34/142 + provenance）+ src/insight/archive-catalog.ts（ArchiveCard 无写控件字段 + 三层口径 + autoAuthHardLine 派生只读 + ArchiveFilter 只读过滤）+ test/insight-archive.test.ts（26 test：A1/A2/A4~A9 + A3 全量交叉/站点域矩阵）；tree-drawer.ts 追加默认关只读档案子视图（.tree-archive，零 innerHTML）；service-worker.ts#buildInsightSnapshot 仅 +1 行 catalogMeta 注入（numstat 1 0，唯一 additive 运行时面，+549 B）。门禁串行全绿：typecheck 0 error；插件 npm test 646/646·0 fail；test:ui 167（v1 零删减）；test:insight 70（既有 52 零删改 +18）；test:hardening 24（首次偶发失败 1 次、复跑两次绿，D-V24-06 如实登记）；test:binding 180；test:e2e R8 PASS；全仓 npm test 0 fail（base 483 零回归 + plugin 646）。体积：content.js 1,073,453 B 零增长；sidepanel.js 显式重登记 1,110,744→1,132,748 B（ceiling 1,189,385，HISTORY [1,068,165,1,085,389,1,110,744] 保留，容差 5% 不变，targetBudgetBytes/targetMet=null 不变）。零模型改动：tree-model.ts/tree-view.ts/tree-ops.ts/tree-receipt.ts 零 diff；判定链 policy.ts SHA bfcb2ede… / auto-authorize.ts SHA 1096d065… === P0 pin；manifest/base/content/v1 SDDU 零 diff；无新依赖。反证实跑：改 carded→FAIL（34!==28 / 'counts'!=='rows'）；移除 autoAuthHardLine 的 origin 前置→A3 matrix+分歧类 FAIL（derived=true real=false）；均完整还原后绿。人工面 V2-H-7~9 未执行（⏳ 待人工，见 smoke-checklist §7）；ROADMAP 回填不在本叶（TD-V24-07）。下一步 @sddu-review。",
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.5；本子级 spec.md 含 delay 消歧红线文案与 parity 同源对账验收。P1 后段（不阻塞 P0 闭环）。 plan 阶段完成（2026-09-13，sddu-plan）：产出 plan.md（ADR-V2-016~023，8 个，与 ADR-V2-001~015 零冲突；ADR 登记追加于父 plan.md §8）——档案视图 = 复用 P0 抽屉内档案子视图（默认关，渲染模型并入 src/insight/ 以避免触发既有 treeSources() 精确列表断言）；逐条有档 = 三层口径分列（基线 34/142 · 豁免 20/88 · 实时面 28/94=122 卡）+ accounted 100%（禁止夸大）；deny 分层 = policy 三成因（denyCause）+ 自动授权层 auto-hardDeny（派生只读、不新增模型字段、全量交叉断言 + 反证）；delay 消歧 = 单一措辞源（复用 TREE_NO_ESCALATION_NOTE + 内容哈希钉死）；只读检索/过滤；体积守卫（sidepanel 显式重登记 + content.js 零增长内容哈希）；安全红线四层结构证据（卡片类型无控件字段 + 模块图无写入口 + 7 动作白名单哈希钉死 + DOM 零控件）；parity 同源（复用 catalog-reconcile + catalog-meta 常量注入）；门禁只增不减（新 test/insight-archive.test.ts + test/ui/insight.mjs 追加 #I-19a…）。关键结论：**零模型改动**（ADR-V2-012 兑现），唯一 additive 运行时改动 = service-worker 注入 catalogMeta（1 行只读）。**只做技术设计**：不写代码、不排任务、不改 v1、不碰 main/base/options。编排器代作者决策（2026-09-13 授权）。下一步 @sddu-tasks。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json（10 个原子任务 / 4 波，跨叶子 Wave 14~17）。映射 plan §2~§3：TASK-001 catalog-meta 常量 + service-worker 1 行 catalogMeta 注入（唯一 additive 运行时面，ADR-V2-023）；TASK-002 archive-catalog 渲染模型 + 三层口径（L1 34/142 · L2 20/88 · L3 28/94=122）+ accounted=carded∪waived=100% + deny 分层 autoAuthHardLine 派生只读 + ArchiveFilter 只读过滤；TASK-003 tree-drawer 档案子视图（默认关、.tree-archive* 隔离、复用 TREE_NO_ESCALATION_NOTE）；TASK-004 node 门禁主体 A1/A2/A4~A9（每条配反证）；TASK-005 A3 deny 分层全量交叉 + 站点域矩阵 + 分歧钉死 + 反证（T3 教训）；TASK-006 test:insight 追加 #I-19a…h（单 Chromium 会话，既有 52 断言零删改）；TASK-007 体积显式重登记（HISTORY 追加 1,110,744；content.js 1,073,453 零增长 + src/content/** 源码哈希）；TASK-008 串行收口 + 零 diff 核验；TASK-009 文档回填（断言数 52→实测 + sidepanel 新基线）；TASK-010 人工面 V2-H-7~9（⏳ 待人工）。继承 P0 教训：每条关键断言配反证、catch 只吞 ENOENT、冻结用内容哈希（W3）、体积显式重登记（W4）、测量条件写进 AC（D-V22-01）、策略再实现全量交叉（T3）、Chromium 绝不并发。编排器代作者决策（2026-09-13 授权）：TD-V24-01~07。下一步 @sddu-build TASK-001。 build 阶段完成（2026-09-13，sddu-build，编排器代作者决策（2026-09-13 授权））：Wave 14~17 / TASK-001~010 全部实施（10/10）。产出 build.md（逐任务/D-V24-01~08/门禁原文/体积新基线/未完成项）。新建 src/insight/catalog-meta.ts（parity 同源锚点常量 34/142 + provenance）+ src/insight/archive-catalog.ts（ArchiveCard 无写控件字段 + 三层口径 + autoAuthHardLine 派生只读 + ArchiveFilter 只读过滤）+ test/insight-archive.test.ts（26 test：A1/A2/A4~A9 + A3 全量交叉/站点域矩阵）；tree-drawer.ts 追加默认关只读档案子视图（.tree-archive，零 innerHTML）；service-worker.ts#buildInsightSnapshot 仅 +1 行 catalogMeta 注入（numstat 1 0，唯一 additive 运行时面，+549 B）。门禁串行全绿：typecheck 0 error；插件 npm test 646/646·0 fail；test:ui 167（v1 零删减）；test:insight 70（既有 52 零删改 +18）；test:hardening 24（首次偶发失败 1 次、复跑两次绿，D-V24-06 如实登记）；test:binding 180；test:e2e R8 PASS；全仓 npm test 0 fail（base 483 零回归 + plugin 646）。体积：content.js 1,073,453 B 零增长；sidepanel.js 显式重登记 1,110,744→1,132,748 B（ceiling 1,189,385，HISTORY [1,068,165,1,085,389,1,110,744] 保留，容差 5% 不变，targetBudgetBytes/targetMet=null 不变）。零模型改动：tree-model.ts/tree-view.ts/tree-ops.ts/tree-receipt.ts 零 diff；判定链 policy.ts SHA bfcb2ede… / auto-authorize.ts SHA 1096d065… === P0 pin；manifest/base/content/v1 SDDU 零 diff；无新依赖。反证实跑：改 carded→FAIL（34!==28 / 'counts'!=='rows'）；移除 autoAuthHardLine 的 origin 前置→A3 matrix+分歧类 FAIL（derived=true real=false）；均完整还原后绿。人工面 V2-H-7~9 未执行（⏳ 待人工，见 smoke-checklist §7）；ROADMAP 回填不在本叶（TD-V24-07）。下一步 @sddu-review。 V2-4 收口（2026-09-13，第 11 轮，sddu-build 代行，编排器代作者决策（2026-09-13 授权））：phase builded→reviewed→validated，最终 validated / status=tracked（不合 main、不发布）。review ⚠️ 有条件通过 0 阻塞（be44295）/ validate ✅ 通过 0 阻塞（983790a、4d15cff）。本轮修掉验证方定位的 #AP#5b 相位窗口 flake（谓词限定 phase===waiting），并新观测修复 tabs #7m3/#7m4/#7o/#7o2 harness 时序 flake（等待自建标签页加载完成）；legacy git diff HEAD 弱冻结加注释保留（W4）。人工面与 T1 缺口如实登记。",
   "status": "tracked",
-  "phaseNote": "build 阶段完成（2026-09-13，sddu-build）：Wave 14~17 / TASK-001~010 全部实施（10/10）。主产出 = 只读命令档案子视图（默认关、.tree-archive 类名隔离、DOM 零控件）+ 三层有档口径（L1 34/142 · L2 20/88 · L3 28/94=122，accounted 行级并集 100%）+ deny 分层（policy 三成因 + autoAuthHardLine 派生）+ parity 同源常量注入（service-worker +1/0）+ node 门禁 26 test + Chromium 追加 18 断言。断言只增不减：test:insight 52→70（既有零删改，append-only 核验）；size-budget assert 42→63；新文件 26 test；v1 journey/binding/parity 零 diff。体积：content.js 零增长 1,073,453 B；sidepanel.js 重登记 1,132,748 B / ceiling 1,189,385 B；background.js 1,403,170 B（V2-4 +549 B）。偏差 D-V24-01~08 已登记；未跑项为零；人工面 V2-H-7~9 ⏳ 待人工。下一步 @sddu-review。"
+  "phaseNote": "build 阶段完成（2026-09-13，sddu-build）：Wave 14~17 / TASK-001~010 全部实施（10/10）。主产出 = 只读命令档案子视图（默认关、.tree-archive 类名隔离、DOM 零控件）+ 三层有档口径（L1 34/142 · L2 20/88 · L3 28/94=122，accounted 行级并集 100%）+ deny 分层（policy 三成因 + autoAuthHardLine 派生）+ parity 同源常量注入（service-worker +1/0）+ node 门禁 26 test + Chromium 追加 18 断言。断言只增不减：test:insight 52→70（既有零删改，append-only 核验）；size-budget assert 42→63；新文件 26 test；v1 journey/binding/parity 零 diff。体积：content.js 零增长 1,073,453 B；sidepanel.js 重登记 1,132,748 B / ceiling 1,189,385 B；background.js 1,403,170 B（V2-4 +549 B）。偏差 D-V24-01~08 已登记；未跑项为零；人工面 V2-H-7~9 ⏳ 待人工。下一步 @sddu-review。\n\n第 11 轮 phase 收口（2026-09-13，sddu-build 代行，编排器代作者决策（2026-09-13 授权））：phase builded→reviewed→validated（逐级记录，最终 validated），status 保持 tracked（不合 main、不发布）。review R1 = ⚠️ 有条件通过（0 阻塞；本叶 review-report.md，commit be44295）；validate R1 = ✅ 通过（0 阻塞；本叶 validate-report.md，983790a/4d15cff）。本轮 flake 修复：① #AP#5b 轮询谓词限定 phase==='waiting'（编号沿用、断言不减；未改 auto-probe.ts 可观察行为）；② 新观测 tabs #7m3/#7m4/#7o/#7o2 harness 时序 flake → 先等自建标签页 status==='complete' 再操作（无断言增删）；③ legacy git diff --quiet HEAD 弱冻结加注释（W4 遗留，保留）。门禁：tsc 0 error / 插件 646·0 fail / test:insight 70 / test:ui 167 / test:hardening 24 / test:binding 180×3 / test:e2e PASS / 全仓 1629·1628 pass·0 fail·1 skip（base 483 零回归）。人工面 V2-H-7~9 / V2-H-A~D / V2-H-1~6 + T1 缺口未执行（如实登记，未冒充 PASS）。",
+  "phaseHistory": [
+    "specified → planned → tasked（2026-09-13，sddu-plan/sddu-tasks）",
+    "tasked → builded（2026-09-13，sddu-build；Wave 14~17 / TASK-001~010 全实施）",
+    "builded → reviewed（2026-09-13，review R1 ⚠️ 有条件通过 0 阻塞，commit be44295）",
+    "reviewed → validated（2026-09-13，validate R1 ✅ 通过 0 阻塞，commit 983790a / 4d15cff）"
+  ],
+  "closeout": {
+    "round": "V2-4 收口（第 11 轮）",
+    "date": "2026-09-13",
+    "authorization": "编排器代作者决策（2026-09-13 授权）",
+    "phaseTransition": "builded → reviewed → validated（逐级记录，最终 validated），status 保持 tracked",
+    "review": {
+      "round": "R1",
+      "verdict": "⚠️ 有条件通过（0 阻塞）",
+      "artifact": "specs-tree-v2-4-command-archive/review-report.md",
+      "commit": "be44295",
+      "notes": "零模型改动 / 三层口径防夸大 / A3 交叉断言有效性 / 只读四层 / 体积重登记诚实性"
+    },
+    "validate": {
+      "round": "R1",
+      "verdict": "✅ 通过（0 阻塞）",
+      "artifact": "specs-tree-v2-4-command-archive/validate-report.md",
+      "commitRange": "983790a / 4d15cff（build 72fefdf → review be44295）",
+      "notes": "门禁实跑含完整日志 + 三层口径独立复算 + 反证实跑 + 诚实性核验"
+    },
+    "flakeFixes": [
+      "#AP#5b（验证方定位）：test/ui/binding.mjs:1911 轮询谓词收紧为 phase==='waiting'（编号沿用、断言不减）；未改 src/discovery/auto-probe.ts 可观察行为",
+      "#7m3/#7m4/#7o/#7o2（本轮新观测）：先等 4 个自建标签页 status==='complete' 再操作，避免 tabs.onUpdated complete → followActiveTab → switchSession 在确认窗口按 EC-019 取消待决确认；无断言增删",
+      "test/insight-no-escalation.test.ts：legacy git diff --quiet HEAD 弱冻结加注释（真实冻结由 §sha256 pin 承担；W4 遗留，保留以维持断言只增不减）"
+    ],
+    "gates": {
+      "typecheck": "0 error（/tmp/v24closeout/01-typecheck.log）",
+      "pluginNpmTest": "646/646 · 0 fail（02-plugin-test.log / 09-repo-test.log）",
+      "testInsight": "70 断言 PASS（03-insight.log）",
+      "testUi": "167 断言 PASS（04-ui.log；#3c 绿）",
+      "testHardening": "24 断言 PASS（05-hardening.log）",
+      "testBinding": "180 断言 PASS ×3（07-binding-fixed-run1..3.log；AP#5b 全绿）",
+      "testE2e": "PASS（08-e2e.log）",
+      "repoNpmTest": "1629 tests / 1628 pass / 0 fail / 1 skip（base 483 零回归）（09-repo-test.log）"
+    },
+    "size": {
+      "contentJs": "1,073,453 B（零增长）",
+      "sidepanelJs": "1,132,748 B（ceiling 1,189,385）",
+      "backgroundJs": "1,403,170 B"
+    },
+    "humanFaces": "V2-H-7~9（本叶命令行档案人工面）+ V2-H-A~D + V2-H-1~6 未执行 + T1 缺口（树侧能力撤销成功端到端；headless chrome.permissions.request=PENDING_TIMEOUT）—— 如实登记，未冒充 PASS",
+    "leftovers": [
+      "KNOWN-FLAKE test:ui #3c（单点偶发，本轮未复现）",
+      "KNOWN-FLAKE perf-budget NFR-007 墙钟阈值（本轮未抖动）",
+      "KNOWN-FLAKE test:hardening 启动/CDP 就绪类（D-V24-06，本轮未复现 → 环境抖动）",
+      "FIXED test:binding #AP#5b（本轮收紧谓词限定 phase===waiting）",
+      "FIXED test:binding #7m3/#7m4/#7o/#7o2（本轮新观测；harness 等待自建标签页加载完成）",
+      "accounted 运行时为计数口径（D-V24-08；UI 不渲染）",
+      "service-worker +1 行动态导入（D-V24-01）",
+      "5 条钉死分歧（D-V24-02）",
+      "T1 缺口：树侧能力撤销成功端到端（headless permissions.request=PENDING_TIMEOUT）"
+    ],
+    "merge": "不合入 main、不发布（作者：只审验）"
+  }
 }

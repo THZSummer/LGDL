@@ -104,7 +104,15 @@ function gitDiffStatus(paths: string[]): number {
   }
 }
 
-/** V2-3: `git diff --quiet HEAD -- <paths>` (worktree vs the last commit). */
+/**
+ * V2-3: `git diff --quiet HEAD -- <paths>` (worktree vs the last commit).
+ *
+ * ⚠️ **legacy 弱冻结（保留，不删）**：这是 worktree-vs-HEAD 语义——一旦改动被
+ * `git commit`，该断言此后恒为退出码 0（提交后恒绿），是**弱安全网**。**真实冻结由
+ * 本文件 §sha256 pin 承担**（`POLICY_TS_SHA256` / `AUTO_AUTHORIZE_TS_SHA256` /
+ * `DECISION_TABLE_SNAPSHOT_SHA256`，内容哈希含空白/换行，改动即 FAIL）。此处**保留**该
+ * worktree 断言以维持「断言只增不减」，并如实标注其弱语义（V2-4 收口 W4 遗留登记）。
+ */
 function gitDiffHeadStatus(paths: string[]): number {
   try {
     execFileSync('git', ['diff', '--quiet', 'HEAD', '--', ...paths], { stdio: 'ignore' });
@@ -172,6 +180,9 @@ test('V2-3 no-escalation: src/ui/tree/** has no bare catch {} (no silently swall
   }
 });
 
+// ⚠️ legacy 弱冻结（W4 遗留登记，保留不删）：本断言为 worktree-vs-HEAD——提交后恒 0，
+// 语义弱。**真实冻结由下面 W3 段的 §sha256 pin 承担**（内容哈希，任何字节漂移即 FAIL，
+// 且带反证自测证明非虚绿）。保留本断言以维持「断言只增不减」。
 test('V2-3 no-escalation: the judgment chain is frozen against HEAD (git diff --quiet HEAD -- policy/auto-authorize)', () => {
   assert.equal(
     gitDiffHeadStatus(['src/security/policy.ts', 'src/security/auto-authorize.ts']),
