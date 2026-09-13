@@ -4,10 +4,10 @@
 > **前置依赖**: spec.md v1.1（46 FR 十组 + 10 NFR + 16 EC + 12 AC，已冻结）+ discovery.md v1.1（20 问题 Q-001~Q-020 / 假设 A-001~A-007 / 风险 R-001~R-008 / 开放点 O-001~O-016 + §7.3 作者裁决记录）+ 作者裁决硬约束（O-001 代码下线 / O-002 通用任意站点优先 / O-003 不预设方案形态但 plan 必须给方案 / O-008 授权模型 / O-009 安全边界 / O-010 协议信任 / O-006↔O-001 对象区分；P1 五项 S-004/S-005/S-007/S-011/S-015 已核签冻结）+ 上游资产事实（`packages/web-cli-base` v0.7.0 已发布稳定基线：CommandRouter/AgentRunner/DelayGate + 九域工具集 + PermissionGate/audit/sensitive + event-bus + `platform.ts` PlatformEnv 缝 + `ext-attribution.ts` ATTRIBUTION_MAP 契约预留；`packages/lgdl-web/src/ai/` 内置助手下线对象；`packages/lgdl-web-cli` / `lgdl-web-op-cli` 领域适配层）
 > **创建人**: SDDU Plan Agent
 > **创建时间**: 2026-09-11
-> **版本**: v1.1
-> **更新人**: SDDU Build Agent
-> **更新时间**: 2026-09-12
-> **更新说明**: **v1.5（作者裁决反转，2026-09-13）**：承接 spec v1.9 FR-049/FR-053 + EC-026——作者明确撤销 ADR-015 初版「明确不做 close」约束，「标签页读写」包含 close、「完全放开 close」，并补齐单标签页写操作 `mute`/`pin`/`move`；修订 **ADR-015**（状态/决策/被否决方案/后果）+ 追加**安全处置**（close 保持 `write`→`ask`、单标签页禁批量、确认摘要含标题 + 去参 URL + 不可逆提示、受限页可读拒绝、审计零明文）；零新权限/零新依赖/base 零改动。v1.1（v0.9 增补）：承接 spec v1.4 FR-047/048 + EC-017~020（作者 2026-09-12 两项架构级决策），追加 **ADR-013 多会话模型（按 origin 自动共享 + 可选会话组）** 与 **ADR-014 自动探测（声明式注入 + 自上报自动握手，非全站静态注入/`<all_urls>`）**，均含被否决方案与理由；§6 文件影响补 `background/session-store.ts` + `background/content-script-registry.ts`；既有 12 ADR 与 FR 语义零变更（fail-closed 不变）。**v1.2（决策③）**：追加 ADR-015 标签页管理（新增 `tabs` 权限 + 插件级工具 `tabs`：list/switch/open，无 close；隐私默认去 query；非 http(s) 拒绝；options 可关闭）。v1.0 初始创建——承接 spec §9.7 六项技术开放点（P-01 协议发现/声明格式 / P-02 插件架构 / P-03 权限模型实现 / P-04 与页内 web-cli-base 衔接 / P-05 扩展存储与 key / P-06 无头加载扩展冒烟），逐项给出选型 + 备选对比 + ADR；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议描述符 schema、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、per-origin 授权与 PermissionGate 映射、对象区分下的桥接与下线执行/回退设计；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）；12 个 ADR（ACCEPTED 7 / PROPOSED 5）；文件影响面（新增独立包 + LGDL 页桥接暴露点 + 下线面）；风险与缓解；任务切分建议交 sddu-tasks。
+> **版本**: v1.6
+> **更新人**: SDDU Spec Agent
+> **更新时间**: 2026-09-13
+> **更新说明**: **v1.6（FR-054/FR-055 ⇒ ADR-018 补记，2026-09-13）**：补记可选权限声明形态的架构决策——追加 **ADR-018 可选权限（`optional_permissions` + 用时请求）vs 静态权限**（静态新增会在 Chrome 更新时停用扩展；`permissions.request` 需扩展页用户手势且须同步调用、SW 绝不调用；`permissions.remove` 无需手势 → 支持应用内撤销；隐私开关与授权独立；被否决方案 A~E = 静态权限 / SW 内 request / 无开关 / offscreen / 复用 base notify），并将此前**漏登索引的 ADR-016/017 补入 §8 表**（文中已有完整小节）；对应 spec v1.10 **FR-054/FR-055**。既有 ADR/FR 语义零变更。**v1.5（作者裁决反转，2026-09-13）**：承接 spec v1.9 FR-049/FR-053 + EC-026——作者明确撤销 ADR-015 初版「明确不做 close」约束，「标签页读写」包含 close、「完全放开 close」，并补齐单标签页写操作 `mute`/`pin`/`move`；修订 **ADR-015**（状态/决策/被否决方案/后果）+ 追加**安全处置**（close 保持 `write`→`ask`、单标签页禁批量、确认摘要含标题 + 去参 URL + 不可逆提示、受限页可读拒绝、审计零明文）；零新权限/零新依赖/base 零改动。v1.1（v0.9 增补）：承接 spec v1.4 FR-047/048 + EC-017~020（作者 2026-09-12 两项架构级决策），追加 **ADR-013 多会话模型（按 origin 自动共享 + 可选会话组）** 与 **ADR-014 自动探测（声明式注入 + 自上报自动握手，非全站静态注入/`<all_urls>`）**，均含被否决方案与理由；§6 文件影响补 `background/session-store.ts` + `background/content-script-registry.ts`；既有 12 ADR 与 FR 语义零变更（fail-closed 不变）。**v1.2（决策③）**：追加 ADR-015 标签页管理（新增 `tabs` 权限 + 插件级工具 `tabs`：list/switch/open，无 close；隐私默认去 query；非 http(s) 拒绝；options 可关闭）。v1.0 初始创建——承接 spec §9.7 六项技术开放点（P-01 协议发现/声明格式 / P-02 插件架构 / P-03 权限模型实现 / P-04 与页内 web-cli-base 衔接 / P-05 扩展存储与 key / P-06 无头加载扩展冒烟），逐项给出选型 + 备选对比 + ADR；给出插件工程拓扑（monorepo 内独立包 `packages/web-cli-plugin`）、协议描述符 schema、MV3 三面架构（background 控制面 / content script 数据面 / side panel+options）、per-origin 授权与 PermissionGate 映射、对象区分下的桥接与下线执行/回退设计；46 FR → 模块/文件/波次落位总表（P0 最小可用四根柱子）；12 个 ADR（ACCEPTED 7 / PROPOSED 5）；文件影响面（新增独立包 + LGDL 页桥接暴露点 + 下线面）；风险与缓解；任务切分建议交 sddu-tasks。
 
 ## 1. 前置检查
 > 启动技术规划前必须验证的前置条件
@@ -664,7 +664,7 @@ export interface WebCliDescriptorSource {
 ---
 
 ## 8. 生成的 ADR
-> 12 个 ADR，承接 spec §9.7 P-01~P-06 + 作者裁决；状态 ACCEPTED（承接已核签裁决）或 PROPOSED（plan 推荐默认，待作者核签）
+> 18 个 ADR（ADR-001~018），承接 spec §9.7 P-01~P-06 + 作者裁决；状态 ACCEPTED（承接已核签裁决）或 PROPOSED（plan 推荐默认，待作者核签）
 
 | ADR | 标题 | 状态 |
 |-----|------|:--:|
@@ -683,6 +683,9 @@ export interface WebCliDescriptorSource {
 | ADR-013 | 多会话模型 = **按 origin 自动共享 + 可选会话组**（sessionId=origin / group:<id>；每会话独立历史；LRU 上限）（v0.9 增补/FR-048） | ACCEPTED（作者 2026-09-12 决策②） |
 | ADR-014 | 自动探测 = **声明式注入（`registerContentScripts`）+ content script 自上报自动握手**，非全站静态注入/`<all_urls>`（v0.9 增补/FR-047） | ACCEPTED（作者 2026-09-12 决策①） |
 | ADR-015 | 标签页管理 = **新增 `tabs` 权限 + 插件级工具 `tabs`（list/switch/open/mute/pin/move/close；v1.5 作者反转放开 close）**（v0.9 增补/FR-049） | ACCEPTED（作者 2026-09-12 决策③）+ 修订 v1.5（作者裁决反转 2026-09-13） |
+| ADR-016 | 工具面基线对账门禁 + 浏览器能力远程代理（v1.7/FR-051） | ACCEPTED（作者 2026-09-12 实测缺陷修复要求；v1.6 补登索引） |
+| ADR-017 | 自动授权在 `onAsk` 接缝前置判定（v1.8/FR-052） | ACCEPTED（作者 2026-09-12 要求；v1.6 补登索引） |
+| ADR-018 | **可选权限（`optional_permissions` + 用时请求）vs 静态权限**（v1.10/FR-054/FR-055） | ACCEPTED（作者裁决 2026-09-13） |
 
 ### ADR-001: 协议机制 = 站点中立描述符 + 双通道发现 + postMessage RPC 执行契约（P-01）
 
@@ -1045,6 +1048,34 @@ ACCEPTED（作者 2026-09-12 要求：读/写自动授权多选，勾选后对�
 
 ---
 
+### ADR-018: 可选权限（`optional_permissions` + 用时请求）vs 静态权限（v1.10 / FR-054 / FR-055）
+
+## 状态
+ACCEPTED（作者裁决 2026-09-13：`bookmarks` / `downloads` / `notify` / `clipboard` 四能力均以**可选权限**声明）
+
+## 背景
+FR-054/FR-055 需新增 `bookmarks` / `downloads` / `notifications` / `clipboardRead`+`clipboardWrite` 能力，而既有安全纪律（NFR-002 权限最小面、NFR-001 不静默、fail-closed）要求：**安装面稳定**、**权限可逐能力收敛与撤销**、**授权必须由用户显式发起**。Chrome MV3 对权限声明形态与 `permissions.request` 的手势约束直接决定架构落点，需给出取舍并记录被否决方案。
+
+## 决策
+1. **一律以 `optional_permissions` 声明**（manifest `optional_permissions: [bookmarks, downloads, notifications, clipboardRead, clipboardWrite]`），**静态 `permissions` 零新增**（保持 `activeTab,scripting,storage,sidePanel,tabs`）。
+2. **`chrome.permissions.request` 只在扩展页面（侧栏/设置视图）的用户点击手势内、且在任一 `await` 之前同步调用**（`src/platform/capability-permissions.ts`）；**SW 绝不调用**——无手势会失败/挂起，授权永不发生。
+3. **双路对账**：请求/移除后经 `capabilities`/`permission-changed` 重读真实授权，并监听 `permissions.onAdded`/`onRemoved`；撤销 → `suppressCapability` 使工具**即时移出 `deriveTools()`** + 直接派发被可读拒绝 + `optional-permission/revoked` 审计；再授予 → 反向恢复。对账读的是扩展页 `chrome.permissions.contains()` 实测态，**隐私开关不决定授权态**。
+4. **隐私开关与 Chrome 授权相互独立**：开关决定工具是否暴露（读/写分档：`bookmarksRead` 默认开 / `bookmarksWrite` 默认关 / `downloadsRead` 默认开 / `notify` 默认开 / `clipboardRead` 默认关 / `clipboardWrite` 默认开）；授权决定能力是否可用。关闭即从 LLM 工具面移除（可读提示，不静默保留）。
+5. **`permissions.remove` 无需手势 → 提供应用内撤销**（无需再点 Chrome 弹窗）；`request` 需手势 → 授权入口只能落在扩展页面点击处理器内。
+6. **安全档不放宽**：`clipboard` 读恒 `state` 且**永不自动放行**；`bookmarks remove` 破坏性且**永不自动放行**（写自动开仍 `ask`）+ 禁批量；内容参数入确认摘要/`confirm` 审计前经 `scrubContentArgs` 替换为「已省略 N 字符」（零明文）。
+
+## 被否决方案与理由
+- **A. 静态 `permissions` 声明**（否决）：Chrome 在扩展**更新时会停用已安装扩展**直到用户对新增权限重新同意，且无法按能力单独撤销——直接违背「安装面稳定 + 最小面 + 可收敛」。
+- **B. 在 SW 内发起 `permissions.request`**（否决）：无用户手势，调用会失败/挂起，授权永不发生（手势约束是 Chrome 硬约束，不是实现选择）。
+- **C. 只做 Chrome 授权、不做隐私开关**（否决）：无法表达「要能力但不要某方向」（如只要剪贴板写、不要读），也无法在不撤销 Chrome 权限的前提下收敛工具面。
+- **D. 为 `clipboard` 引入 `offscreen` 权限/文档**（否决）：为纯文本读写引入新的常驻宿主面，违背最小权限；改为经**既有扩展页** `navigator.clipboard` + `document.execCommand` 回退（`src/platform/clipboard-page.ts`）。
+- **E. 复用 base 的 `notify`（页内 `Notification`）**（否决）：MV3 SW 无 `Notification`，复用等于注册一个**永远执行不了**的工具；改为插件侧 `chrome.notifications`（保留基线 `send`）。
+
+## 后果
+四种能力按需授权、按能力可撤销，静态安装面与更新稳定性不变；`permissions.request` 的**用户手势约束**被显式编码在 `capability-permissions.ts`（`SW 零调用` 可 grep 断言）。代价：真实授权弹窗只能在扩展页面点击时出现（真实弹窗归人工面 H2）；`clipboard` 读依赖扩展页打开（无扩展页时返回可读「请保持侧栏打开」拒绝）；headless 测试用「静态权限副本 manifest」证明「权限在时真实可用」（偏差已披露，**不进分发物**）。
+
+---
+
 ## 9. 任务切分建议（sddu-tasks 输入；tasks.json/tasks.md 由 sddu-tasks 产出）
 > 可并行原子任务块划分建议（含依赖提示），不替代 sddu-tasks 的依赖拓扑/验收细化。
 
@@ -1089,3 +1120,4 @@ ACCEPTED（作者 2026-09-12 要求：读/写自动授权多选，勾选后对�
 | v1.4 | **自动授权多选（作者 2026-09-12 要求）**：追加 **ADR-017 自动授权在 `onAsk` 接缝前置判定**——按 origin 持久化 `{read(默认 true), write(默认 false)}`，在 host `onAsk` 前置判定（**不改 `riskDefaults`/策略链**）；硬底线（未授权 S1 / 未知 risk S3 / `evaluate` / 破坏性操作 / `ui·state·external`）永不自动放行；`isDestructiveInvocation` 按 id/子命令分段判定破坏性；独立 `auto-authorize` 审计（与人工确认可辨）。含被否决方案（改 `riskDefaults` / 全局开关 / 提供 `evaluate` 自动 / 站点自报 riskHint / 仅工具级 `hasDestructiveVerb` / 不写审计）。对应 spec v1.8 FR-052 + EC-024/025；**base 零改动 / 零新依赖 / 无新权限（manifest 零 diff）** | 2026-09-12 | SDDU Build Agent |
 | v1.5 | **作者裁决反转：`tabs` 补齐 `mute`/`pin`/`move` 并放开 `close`（2026-09-13）**：作者明确撤销 ADR-015 初版「明确不做 close」约束——「标签页读写」包含 close、「完全放开 close」。修订 ADR-015（状态/决策/被否决方案 C/后果）+ 追加**安全处置**：`close` 恒 `write`→`ask`（`subcommandRisks`，不改 riskDefaults/策略链、不纳入自动授权）、`--id`/`--match` 二选一、**禁批量**（`--all` 可读拒绝）、`--match` 歧义不猜（列表候选）、确认摘要经 `ConfirmBridgeOptions.describe` 显示目标标题 + `redactTabUrl` 去参 URL + **不可逆 + 侧栏自关**提示、受限页/未知 id 可读拒绝、审计零明文（URL+URL 型标题去 query/fragment）；`mute`/`pin`/`move` 同为单标签页 `write`→`ask`。**零新权限**（`chrome.tabs.remove/update/move` 无需新权限）、manifest 零 diff、base 零改动、无新依赖。对应 spec v1.9 FR-049/FR-053 + EC-026；旧「断言无 close」测试已替换（断言总数只增不减） | 2026-09-13 | SDDU Build Agent |
 | v1.3 | **工具面丢失缺陷修复**：追加 **ADR-016 工具面基线对账门禁 + 浏览器能力远程代理**——基线目录机器化夹具（`test/parity/baseline-catalog.json` + 提取脚本 + provenance）、双向子命令级门禁（`test/parity.test.ts` + `waivers.json`）、base `dom`/`chrome`/`wait`/`extract`/`export`/`save`/`events`/`web-search` 经 content 隔离世界 + background 远程代理接回工具面、页面上下文 anchor 下载链替代 `downloads` 权限；含被否决方案（手工矩阵 / 硬编码清单 / captureVisibleTab / 扩 `downloads` / 本轮实现 notify·clipboard）。对应 spec v1.7 FR-051；**零新权限 / 零新依赖 / base 零改动 / 风险档不放宽** | 2026-09-12 | SDDU Build Agent |
+| v1.6 | **FR-054/FR-055 ⇒ ADR-018 补记（需求补记/订正，非重写历史，2026-09-13）**：追加 **ADR-018 可选权限（`optional_permissions` + 用时请求）vs 静态权限**——静态 `permissions` 新增会在扩展更新时被 Chrome 停用（直到用户重新同意）→ 采用 `optional_permissions`（静态安装面零变化、可按能力单独撤销）；`chrome.permissions.request` **必须由扩展页面的用户手势触发且在任何 `await` 之前同步调用**（`src/platform/capability-permissions.ts`，**SW 绝不调用**）；`permissions.remove` **无需手势** → 可做应用内撤销（`onRemoved` + `permission-changed` 双路对账 → `suppressCapability` 即时移出 `deriveTools()` + 派发被拒 + `optional-permission/revoked` 审计）；隐私开关（读/写分档）与 Chrome 授权**独立**；安全不放宽（`clipboard` 读恒 `state`、永不自动放行；`bookmarks remove` 破坏性、永不自动放行；零明文审计 `scrubContentArgs`）。被否决方案 A~E：静态权限 / SW 内 request / 无隐私开关 / 引入 offscreen / 复用 base notify。**同时将漏登 §8 索引的 ADR-016/017 补入表**（正文小节原已存在；header 计数 12 → 18）。对应 spec v1.10 FR-054/FR-055；既有 ADR/FR 语义零变更 | 2026-09-13 | SDDU Spec Agent |

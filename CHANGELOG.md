@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.7.0 (2026-09-10，分支态 — 待作者合入 + 发布)
+## 0.7.0 (2026-09-10，已合入 main + 已打标签 + npm 已发布)
 
-**发布说明（v0.7.0，分支态记录）**
+**发布说明（v0.7.0）**
 
-- ⚠️ **本版本尚未发布**：代码在分支 `feature/web-cli-base-v2`，待作者完成真实浏览器冒烟收口 → 合入 main → 打标签 + npm 发布（发布时间不承诺）。本段为分支态收口记录，非正式发布声明。
+- 📦 **已发布（2026-09-10）**：代码已合入 main（`2ddc922`；分支 `feature/web-cli-base-v2` 已并入）；标签 `v0.7.0` 已打并推送（`refs/tags/v0.7.0`）；**npm 8 包已发布 0.7.0**（`npm view` 核实：@lgdl/{lgdl-core,lgdl-layout,lgdl-router,lgdl-render,lgdl-cli,web-cli-base,lgdl-web-cli,lgdl-web-op-cli}）；根 `package.json` 版本 0.7.0。**真实浏览器冒烟收口人工清单 5 项**未在仓库中发现完成记录，仍按下方「待基线（非阻塞，移交作者人工/配置）」段处置（如实保留，不冒充已完成）。
 - 📌 语义模型无破坏性变更（error-only 校验、group-as-node 统一、增量协议稳定；F-23 additive 契约保持）
 - 🧪 全仓测试 **1017 pass / 0 fail / 1 skip**（唯一 skip 为 lgdl-render 既有 B11 env-gate）；9 包构建零错误
 
@@ -25,7 +25,7 @@
 
 - 📡 **事件 push/订阅通道**：event-bus.ts 纯逻辑 Hub + PlatformEnv 新可选缝 `env.events` + platform-events.ts 浏览器真实现（观察/override/patch 收敛，惰性安装零常驻）；`events` 工具 11 子命令；同步捕获 + lastId 增量拉取 + 预算/合并/丢弃/自动暂停
 - 🪟 **页内快赢切面**：dialog override（三路 + 破坏性护栏）/ cookie 读写（掩码/明细细双通道 + 三路门禁）/ 富剪贴板（html·png roundtrip + paste 捕获）/ shadow·同源 iframe 穿透（via 标注 + 深度护栏）/ 合成 touch（G-01 PASS）/ 网络拦截改写（G-02 PASS）
-- 🧭 **EXT 统一转译面与契约预留**（ext-attribution.ts）：12 项需扩展能力「不支持 + 归属」转译（F-14 继承基线，非承诺）
+- 🧭 **EXT 统一转译面与契约预留**（ext-attribution.ts）：12 项需扩展能力「不支持 + 归属」转译（F-14 继承基线，非承诺兑现该 12 项；F-14 插件线本体已在 v0.8 实施并 validated，见分支 `feature/web-cli-plugin`）
 - ✅ 全仓 1007 pass / 0 fail / 1 skip；真实浏览器冒烟 148 断言 0 失败；G-01/G-02 独立复核 PASS；真实 DeepSeek AI 闭环 11/11
 
 **分支态收口修复**
