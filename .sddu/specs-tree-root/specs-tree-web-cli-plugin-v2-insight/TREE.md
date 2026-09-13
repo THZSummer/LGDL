@@ -11,6 +11,7 @@ specs-tree-web-cli-plugin-v2-insight/
 ├── review-report.md          # 审查报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 = V2-1 / V2-2 / V2-3）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」——把能力变得可见/可控）
 ├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── validate-report.md          # 验证报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 = V2-1 / V2-2 / V2-3）
 ├── specs-tree-v2-1-connect-tree-model/          # Feature Specification：specs-tree-v2-1-connect-tree
 ├── specs-tree-v2-2-floating-tree-ui/          # Feature Specification：specs-tree-v2-2-floating-tre
 ├── specs-tree-v2-3-revoke-ops/          # Feature Specification：specs-tree-v2-3-revoke-ops（V
@@ -24,6 +25,7 @@ specs-tree-web-cli-plugin-v2-insight/
 | review-report.md | 审查报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 = V2-1 / V2-2 / V2-3） — 1. **D-V21-01（`insight-*` 不入 `KIND_SET`）→ ✅ 接受（附建议 W2）**。校验强度等同、SW 入口并集放行、无未校... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」——把能力变得可见/可控） — Feature Specification：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「... | ✅ 存在 |
 | state.json | 状态文件 | 🟢 tracked [tasked] |
+| validate-report.md | 验证报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 = V2-1 / V2-2 / V2-3） — 1. **`test:hardening` 会中途重建 `dist`**：G5 运行时输出 `C#3 重新 build 后刷新页面（未重载扩展）`，`di... | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
