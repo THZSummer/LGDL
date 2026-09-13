@@ -131,15 +131,18 @@ function ownerFaceLabel(owner: Dimension): string {
 }
 
 interface CrossRefSlot {
+  /** 引用方节点 id（按 from 唯一去重）。 */
   refs: Set<string>;
-  labels: string[];
+  /** 引用方的归属面（用于单条可读徽标）。 */
+  faces: Set<Dimension>;
 }
 
 /**
  * 交叉引用计数（非主归属引用）。
  *
  * 对每条 `crossLink`（`from → to`）：仅当 `mainOwner(from) ≠ mainOwner(to)` 且两者都已知时，
- * 记 `to` 一次（按 `from` 唯一去重）——即「被其他归属引用 N 次」。
+ * 记 `to` 一次（按 `from` 唯一去重）——即「被其他归属引用 N 次」。徽标为**单条**
+ * `亦被 N 处引用（<面>）`（不产生 1..N 的累计重复）。
  */
 function computeCrossRefs(snapshot: OwnershipSource): Map<string, CrossRefSlot> {
   const owners = computeMainOwners(snapshot);
@@ -148,10 +151,10 @@ function computeCrossRefs(snapshot: OwnershipSource): Map<string, CrossRefSlot> 
     const ownerTo = owners.get(to);
     const ownerFrom = owners.get(from);
     if (!ownerTo || !ownerFrom || ownerTo === ownerFrom) return;
-    const slot = out.get(to) ?? { refs: new Set<string>(), labels: [] };
+    const slot = out.get(to) ?? { refs: new Set<string>(), faces: new Set<Dimension>() };
     if (!slot.refs.has(from)) {
       slot.refs.add(from);
-      slot.labels.push(`亦被 ${slot.refs.size} 处引用（${ownerFaceLabel(ownerFrom)}）`);
+      slot.faces.add(ownerFrom);
     }
     out.set(to, slot);
   };
@@ -228,7 +231,7 @@ export function buildOwnershipTree(snapshot: OwnershipSource): OwnershipTree {
       path,
       mainOwner: init.mainOwner,
       crossRefCount: refs ? refs.refs.size : 0,
-      crossRefLabels: refs ? [...refs.labels] : [],
+      crossRefLabels: refs ? [`亦被 ${refs.refs.size} 处引用（${[...refs.faces].map(ownerFaceLabel).join('、')}）`] : [],
       badgeSummary: [...(init.badges ?? [])],
       children,
     };

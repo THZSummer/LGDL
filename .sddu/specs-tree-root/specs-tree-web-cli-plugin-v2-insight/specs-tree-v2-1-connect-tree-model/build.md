@@ -261,4 +261,5 @@ assert.throws 触发原文: 内容哈希漂移
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.3 | 复验修正（D-R2B-09）：`ownership-tree` 交叉引用徽标单条化（1..N 累计 → 单条）；全 8 项门禁复跑全绿（日志 16~23）。 | 2026-09-13 | SDDU Build Agent |
 | v1.2 | R2 实施构建第 1 轮（V2-1 模型层真层级树）：`ownership-tree.ts` + 四文件 additive/分列改造 + `insight-tree-hierarchy` 门禁（11 tests）；门禁串行全绿（typecheck 0 / 插件 686·0 fail / insight 70 / ui 167 / hardening 24 / binding 180 / e2e PASS / 全仓 EXIT=0）；`content.js` 零增长、`policy`/`auto-authorize` sha256 不变。 | 2026-09-13 | SDDU Build Agent |

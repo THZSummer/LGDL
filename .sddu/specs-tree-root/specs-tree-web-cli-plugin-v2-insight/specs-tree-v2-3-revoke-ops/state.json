@@ -475,6 +475,45 @@
               "src/ui/tree/tree-ops.ts（白名单 9 + 两分支 + 放宽类确认）",
               "test/tree-ops.test.ts（S1/S2/S3）"
             ]
+          },
+          "reverification": {
+            "reason": "ownership-tree 交叉引用徽标单条化：crossRefLabels 由「1..N 累计多条」修正为单条「亦被 N 处引用（面）」；crossRefCount 语义不变（按 from 去重）。",
+            "artifactChanged": "packages/web-cli-plugin/src/insight/ownership-tree.ts（ownershipTree 不进 meta.hash → 快照 hash/扁平面不受影响）",
+            "gates": {
+              "typecheck": {
+                "result": "0 error · EXIT=0",
+                "log": "/tmp/opencode/r2-1/logs/16-typecheck-final.log"
+              },
+              "nodeTest": {
+                "result": "tests 686 / pass 686 / fail 0 · EXIT=0",
+                "log": "/tmp/opencode/r2-1/logs/17-npm-test-final.log"
+              },
+              "testInsight": {
+                "result": "PASS — 70 assertions · EXIT=0",
+                "log": "/tmp/opencode/r2-1/logs/18-test-insight-final.log"
+              },
+              "testUi": {
+                "result": "PASS — 167 assertions · EXIT=0",
+                "log": "/tmp/opencode/r2-1/logs/19-test-ui-final.log"
+              },
+              "testHardening": {
+                "result": "PASS — 24 assertions · EXIT=0",
+                "log": "/tmp/opencode/r2-1/logs/20-test-hardening-final.log"
+              },
+              "testBinding": {
+                "result": "PASS — 180 assertions · EXIT=0",
+                "log": "/tmp/opencode/r2-1/logs/21-test-binding-final.log"
+              },
+              "testE2e": {
+                "result": "PASS · EXIT=0",
+                "log": "/tmp/opencode/r2-1/logs/22-test-e2e-final.log"
+              },
+              "fullRepoTest": {
+                "result": "EXIT=0（base 483 / plugin 686 等全绿；fail 0）",
+                "log": "/tmp/opencode/r2-1/logs/23-full-npm-test-final.log"
+              }
+            },
+            "allPass": true
           }
         }
       ]

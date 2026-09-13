@@ -301,6 +301,8 @@
 | 8 | `npm test`（全仓） | **EXIT=0**（core 267 / render 94+1skip / router 8 / web 31 / web-cli 84 / web-op-cli 15 / base 483 / plugin 686；fail 0） | `/tmp/opencode/r2-1/logs/14-full-npm-test.log` |
 
 > 未跑项：无（8 项全跑）；无被杀/OOM。
+>
+> **复验轮（D-R2B-09 修正后）**：8 项门禁再次串行全绿，原文日志 `/tmp/opencode/r2-1/logs/16-*` ~ `23-*`（typecheck 16 / npm test 17 / insight 18 / ui 19 / hardening 20 / binding 21 / e2e 22 / 全仓 23）。
 
 ### 9.6 pin 显式更新（前值 / 后值 / 日期 / 来源 / 理由）
 | pin | old | new | 理由 |
@@ -320,6 +322,7 @@
 - **D-R2B-05**：`dom` 工具级按「容器/设置载体」`overridable:true`，由被调用子命令 effective risk 再 clamp（ADR-V2-025 §9.3 口径）；`dom read-state` 三档可达，`dom click` 恒不放宽。
 - **D-R2B-06**：`tree-view.test.ts` S7 最小连带（联合扩展强依赖）；S4/S5/S6/S8 留待 V2-2。
 - **D-R2B-07**：`insight-archive` S9/S10 + `TREE_MODULE_SHA256` 两文件 pin 本轮连带更新（被修改文件的冻结 pin 强依赖）；S11 留待 V2-4。
+- **D-R2B-09**：交叉引用徽标**单条化**（`crossRefLabels` 由 1..N 累计多条 → 单条「亦被 N 处引用（面）」；`crossRefCount` 语义不变）。首次提交后复验修正，**全 8 项门禁复跑全绿**（日志 16~23）。
 - **D-R2B-08**：`sidepanel.js` 实测 **1,138,591 B**（基线 1,132,748，+5,843 B ≈ +0.52%）≤ ceiling 1,189,385 → **本轮无需重登记**；`content.js` 恒 **1,073,453 B**（零增长）。
 
 ### 9.8 未完成 / 降级 / 风险
