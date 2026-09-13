@@ -7,22 +7,24 @@ Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数�
 ```
 specs-tree-v2-1-connect-tree-model/
 ├── TREE.md          # 本文件 - 目录导航
+├── plan.md          # 技术计划：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影）
 ├── spec.md          # Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影）
-└── state.json          # 状态文件 (🟢 tracked [specified])
+└── state.json          # 状态文件 (🟢 tracked [planned])
 ```
 
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
+| plan.md | 技术计划：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影） — deps（注入：已读平面数据） | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影） — Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影） | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [specified] |
+| state.json | 状态文件 | 🟢 tracked [planned] |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 规范 (2/7) |
-| Status | 🟢 tracked [specified] |
+| Phase | 设计 (3/7) |
+| Status | 🟢 tracked [planned] |
 
 ## 上级目录
 - [返回上级](../TREE.md)

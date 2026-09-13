@@ -2,9 +2,9 @@
   "feature": "V2-1 连接树数据模型与状态投影（父：specs-tree-web-cli-plugin-v2-insight）",
   "featureKey": "specs-tree-v2-1-connect-tree-model",
   "name": "V2-1 连接树数据模型与状态投影——四维度聚合为单一可投影树模型的确定性快照；纯读、零副作用、零明文；不渲染 UI",
-  "phase": "specified",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "phase": "planned",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v2-insight",
   "childrens": [],
@@ -28,14 +28,27 @@
       "不渲染 UI（归 V2-2）；不做任何写操作（归 V2-3）；不做命令级策略覆盖"
     ]
   },
-  "covers": ["FR-V2-010", "FR-V2-011", "FR-V2-012", "FR-V2-013", "FR-V2-014", "FR-V2-015", "FR-V2-016", "FR-V2-017"],
-  "artifacts": ["spec.md"],
+  "covers": [
+    "FR-V2-010",
+    "FR-V2-011",
+    "FR-V2-012",
+    "FR-V2-013",
+    "FR-V2-014",
+    "FR-V2-015",
+    "FR-V2-016",
+    "FR-V2-017"
+  ],
+  "artifacts": [
+    "spec.md",
+    "plan.md"
+  ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/spec.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/state.json",
-    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/TREE.md"
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/TREE.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/plan.md"
   },
-  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.2；本子级 spec.md 只做范围收缩与子级验收补充（NFR-V21-001~005 / EC-V21-001~006 / AC-V21-001~007）。下一步 @sddu-plan。",
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.2；本子级 spec.md 只做范围收缩与子级验收补充（NFR-V21-001~005 / EC-V21-001~006 / AC-V21-001~007）。下一步 @sddu-plan。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。",
   "status": "tracked",
-  "phaseNote": "spec 阶段完成（2026-09-13，sddu-spec）；下一步 @sddu-plan。"
+  "phaseNote": "plan 阶段完成（2026-09-13，sddu-plan）：产出 plan.md + ADR-V2-001~015（集中登记于父 plan.md §8；与 v1 ADR-001~018 零冲突）。裁决 6 个技术开放点（P-V2-01 纯投影+注入数据源 / P-V2-02 #panel-main 内 absolute FAB+覆盖式抽屉 / P-V2-03 additive：新 insight-tree + insight-changed + state.insight? 小摘要 / P-V2-04 新增体积基线守卫复用只吞-ENOENT+反证自测+基线≠目标预算 / P-V2-05 三件套回执含 admin_audit-export / P-V2-06 单基线文件+共享 reconcile 不重构 v1 parity）。安全红线落成结构保证（白名单编排 + allow 集合单调性决策表 + policy/auto-authorize 冻结 + deny 无开关/静态权限不可撤销的渲染模型约束）+ AC-V2-005 六条反向断言。编排器代作者决策 O-V2-001~005（默认收起 / 会话组解散 P1 / LLM 断开 P1 / 5% 容差 / 不可逆需确认）+ 侧栏高度口径修正（589px 主断言，≥65.0% 次；spec 65.5% 为 65.44% 进位）已登记（2026-09-13 授权）。本阶段只做技术设计：不写代码、不排任务、不改 v1、不碰 main/base/options。下一步 @sddu-tasks。"
 }

@@ -2,9 +2,9 @@
   "feature": "web-cli-plugin v2「any insight」（F-27，v0.8 同一版本位内第二 Feature，同批叠加；作者要求 2026-09-13）",
   "featureKey": "specs-tree-web-cli-plugin-v2-insight",
   "name": "web-cli-plugin v2「any insight」——把插件当前对用户完全不可见的四维度连接状态与全部 CLI 命令处置档，聚合到一棵可就地操作的悬浮连接树里（主题：把能力变得可见/可控）",
-  "phase": "specified",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "phase": "planned",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 1,
   "childrens": [
     {
@@ -82,14 +82,16 @@
     ]
   },
   "artifacts": [
-    "spec.md"
+    "spec.md",
+    "plan.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/spec.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/state.json",
-    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/TREE.md"
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/TREE.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/plan.md"
   },
-  "notes": "spec 阶段完成（2026-09-13，sddu-spec）：作者批准从 spec 阶段直接切入（跳过 discovery），以 ROADMAP §二 v0.8「F-27」小节为一手输入（作者原始诉求逐字引文 + 五项口径裁决 2026-09-13 + 可投影面清单），并逐文件核实 v1 状态源。产出 spec.md v1.0——编号 FR-V2-001~FR-V2-065（GOV 5 / TREE 8 / UI 6 / OPS 11 / ARC 7 / SEC 6，实际 43 条 FR）、NFR-V2-001~010、EC-V2-001~016、AC-V2-001~012，**与 v1 FR-001~FR-055 / NFR-001~010 / EC-001~026 / AC-001~012 零冲突**。作者确认的 5 项开放点（森林形态 / delay 同处并标 / 撤销后果三件套含审计 / 命名 specs-tree-web-cli-plugin-v2-insight / 父+4 叶子子 Feature）已全部落成条文。安全红线落成 FR-V2-060~065 + 反向断言 AC-V2-005；侧栏回归量化断言 AC-V2-002；体积基线守卫 NFR-V2-001 + AC-V2-006。v1 记录保护：specs-tree-web-cli-plugin 保持 phase=validated / status=tracked 原样不动。父 Feature 为轻量规范容器，不执行 tasks/build/review/validate。本任务只写需求规范（spec 层）：不写技术方案（ADR 留给 plan）、不写代码、不排任务。",
+  "notes": "spec 阶段完成（2026-09-13，sddu-spec）：作者批准从 spec 阶段直接切入（跳过 discovery），以 ROADMAP §二 v0.8「F-27」小节为一手输入（作者原始诉求逐字引文 + 五项口径裁决 2026-09-13 + 可投影面清单），并逐文件核实 v1 状态源。产出 spec.md v1.0——编号 FR-V2-001~FR-V2-065（GOV 5 / TREE 8 / UI 6 / OPS 11 / ARC 7 / SEC 6，实际 43 条 FR）、NFR-V2-001~010、EC-V2-001~016、AC-V2-001~012，**与 v1 FR-001~FR-055 / NFR-001~010 / EC-001~026 / AC-001~012 零冲突**。作者确认的 5 项开放点（森林形态 / delay 同处并标 / 撤销后果三件套含审计 / 命名 specs-tree-web-cli-plugin-v2-insight / 父+4 叶子子 Feature）已全部落成条文。安全红线落成 FR-V2-060~065 + 反向断言 AC-V2-005；侧栏回归量化断言 AC-V2-002；体积基线守卫 NFR-V2-001 + AC-V2-006。v1 记录保护：specs-tree-web-cli-plugin 保持 phase=validated / status=tracked 原样不动。父 Feature 为轻量规范容器，不执行 tasks/build/review/validate。本任务只写需求规范（spec 层）：不写技术方案（ADR 留给 plan）、不写代码、不排任务。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。",
   "status": "tracked",
-  "phaseNote": "spec 阶段完成（2026-09-13，sddu-spec）：父 Feature + 4 叶子子 Feature 立项并产出需求规范；下一步 @sddu-plan。"
+  "phaseNote": "plan 阶段完成（2026-09-13，sddu-plan）：产出 plan.md + ADR-V2-001~015（集中登记于父 plan.md §8；与 v1 ADR-001~018 零冲突）。裁决 6 个技术开放点（P-V2-01 纯投影+注入数据源 / P-V2-02 #panel-main 内 absolute FAB+覆盖式抽屉 / P-V2-03 additive：新 insight-tree + insight-changed + state.insight? 小摘要 / P-V2-04 新增体积基线守卫复用只吞-ENOENT+反证自测+基线≠目标预算 / P-V2-05 三件套回执含 admin_audit-export / P-V2-06 单基线文件+共享 reconcile 不重构 v1 parity）。安全红线落成结构保证（白名单编排 + allow 集合单调性决策表 + policy/auto-authorize 冻结 + deny 无开关/静态权限不可撤销的渲染模型约束）+ AC-V2-005 六条反向断言。编排器代作者决策 O-V2-001~005（默认收起 / 会话组解散 P1 / LLM 断开 P1 / 5% 容差 / 不可逆需确认）+ 侧栏高度口径修正（589px 主断言，≥65.0% 次；spec 65.5% 为 65.44% 进位）已登记（2026-09-13 授权）。本阶段只做技术设计：不写代码、不排任务、不改 v1、不碰 main/base/options。下一步 @sddu-tasks。"
 }
