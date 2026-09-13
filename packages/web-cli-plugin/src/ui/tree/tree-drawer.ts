@@ -15,14 +15,25 @@ import {
   TREE_MODEL_NOTE,
   TREE_NO_ESCALATION_NOTE,
   buildTreeRows,
+  confirmationSummary,
+  needsConfirmation,
+  type TreeActionTarget,
   type TreeFilter,
   type TreeRow,
 } from './tree-view.js';
-import type { ConnectTreeSnapshot } from '../../insight/tree-model.js';
+import type { TreeActionOutcome, TreeActionRequest } from './tree-ops.js';
+import type { ConnectTreeSnapshot, ControlDescriptor } from '../../insight/tree-model.js';
 
 export interface TreeDrawerOps {
   /** 拉取完整快照（sidepanel 侧 = `insight-tree` pull）。 */
   pull: () => Promise<ConnectTreeSnapshot | null>;
+}
+
+/**
+ * V2-3 动作执行器（`tree-ops`）。缺省时抽屉退化为**只读**（V2-2 行为，控件为只读披露）。
+ */
+export interface TreeDrawerActionRunner {
+  run(req: TreeActionRequest): Promise<TreeActionOutcome>;
 }
 
 export interface TreeDrawerDeps {
@@ -32,6 +43,10 @@ export interface TreeDrawerDeps {
   fab: HTMLElement;
   doc: Document;
   ops: TreeDrawerOps;
+  /** V2-3：撤销/关断动作执行器（`createTreeOps(...).run`）。 */
+  actions?: TreeDrawerActionRunner;
+  /** V2-3：既有 `admin_audit-export` 入口（回执 ③）。 */
+  onAuditExport?: () => void;
   /** 可读错误/状态外送（可选；不静默失败）。 */
   onNotice?: (text: string) => void;
 }
@@ -51,6 +66,10 @@ interface Shell {
   body: HTMLElement;
   count: HTMLElement;
   filterInput: HTMLInputElement;
+  /** V2-3 ①③：回执 + 审计入口（`role=status aria-live=polite`）。 */
+  receipt: HTMLElement;
+  /** V2-3：抽屉内联二次确认（ADR-V2-013）。 */
+  confirm: HTMLElement;
 }
 
 export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
@@ -114,11 +133,132 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     const count = el('div', 'tree-filter-count');
     filterWrap.append(filterInput, count);
 
+    // V2-3：回执（① + ②）与审计入口（③）；二次确认内联区（拒绝 = 零操作）。
+    const receipt = el('div', 'tree-receipt');
+    receipt.id = 'tree-receipt';
+    receipt.setAttribute('role', 'status');
+    receipt.setAttribute('aria-live', 'polite');
+    receipt.hidden = true;
+
+    const confirm = el('div', 'tree-confirm');
+    confirm.id = 'tree-confirm';
+    confirm.hidden = true;
+
     const body = el('div', 'tree-body');
 
-    root.append(header, notes, filterWrap, body);
-    shell = { body, count, filterInput };
+    root.append(header, notes, filterWrap, receipt, confirm, body);
+    shell = { body, count, filterInput, receipt, confirm };
     return shell;
+  }
+
+  // ── V2-3 actions: confirm (fail-closed) + execute + 三件套回执 ─────────────
+
+  /** 可读作用对象标签（不携带任何明文材料）。 */
+  function targetLabel(row: TreeRow): string {
+    const target: TreeActionTarget | undefined = row.actionTarget;
+    if (target?.origin) return `站点 ${target.origin}`;
+    if (target?.capability) return `能力「${row.label}」`;
+    if (target?.groupId) return `会话组 ${target.groupId}`;
+    return row.label;
+  }
+
+  function hideConfirm(): void {
+    const current = shell;
+    if (!current) return;
+    current.confirm.hidden = true;
+    current.confirm.replaceChildren();
+  }
+
+  function renderReceipt(outcome: TreeActionOutcome): void {
+    const current = ensureShell();
+    current.receipt.replaceChildren();
+    const line = el('div', 'tree-receipt-line', outcome.receipt.text);
+    line.dataset.kind = outcome.receipt.kind;
+    current.receipt.append(line);
+    current.receipt.append(el('div', 'tree-receipt-evidence', outcome.toolSurfaceEvidence.evidence));
+    if (outcome.receipt.nextStep) {
+      current.receipt.append(el('div', 'tree-receipt-next', `下一步：${outcome.receipt.nextStep}`));
+    }
+    const audit = el('button', 'tree-audit', '查看审计（admin_audit-export）');
+    audit.id = 'tree-audit-export';
+    audit.type = 'button';
+    audit.addEventListener('click', () => {
+      if (deps.onAuditExport) deps.onAuditExport();
+      else notice('审计入口未接线（请在侧栏「查看审计」中查看）。');
+    });
+    current.receipt.append(audit);
+    current.receipt.hidden = false;
+  }
+
+  function renderReceiptError(text: string): void {
+    const current = ensureShell();
+    current.receipt.replaceChildren();
+    const line = el('div', 'tree-receipt-line', text);
+    line.dataset.kind = 'err';
+    current.receipt.append(line);
+    current.receipt.hidden = false;
+  }
+
+  async function executeAction(row: TreeRow, control: ControlDescriptor): Promise<void> {
+    if (!deps.actions || !control.actionId) {
+      notice('连接树未接线动作执行器（只读模式）：未执行任何操作。');
+      return;
+    }
+    const req: TreeActionRequest = {
+      actionId: control.actionId,
+      ...(row.actionTarget ? { target: row.actionTarget } : {}),
+      ...(row.actionTool ? { toolHint: row.actionTool } : {}),
+      // 只有需要确认的动作会经 `#tree-confirm` 接受路径到达这里；显式确认。
+      confirmed: true,
+    };
+    let outcome: TreeActionOutcome;
+    try {
+      outcome = await deps.actions.run(req);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      renderReceiptError(`✖ 动作执行异常：${message}（未静默）`);
+      notice(`连接树动作执行异常：${message}`);
+      return;
+    }
+    renderReceipt(outcome);
+    // 回执 ② 来自重拉实测：动作后立即重投影，展示真实工具面。
+    await refresh();
+  }
+
+  function askConfirm(row: TreeRow, control: ControlDescriptor): void {
+    if (!control.actionId) return;
+    const summary = confirmationSummary(control.actionId, targetLabel(row));
+    const current = ensureShell();
+    current.confirm.replaceChildren();
+    current.confirm.dataset.actionId = control.actionId;
+    const title = el('div', 'tree-confirm-title', `请确认 — 作用对象：${summary.target}`);
+    const consequence = el('div', 'tree-confirm-consequence', `后果：${summary.consequence}`);
+    const irreversible = el('div', 'tree-confirm-irreversible', `不可逆说明：${summary.irreversible}`);
+    const actions = el('div', 'tree-confirm-actions');
+    const accept = el('button', 'tree-confirm-accept', '确认执行');
+    accept.id = 'tree-confirm-accept';
+    accept.type = 'button';
+    accept.addEventListener('click', () => {
+      hideConfirm();
+      void executeAction(row, control);
+    });
+    const deny = el('button', 'tree-confirm-deny', '取消');
+    deny.id = 'tree-confirm-deny';
+    deny.type = 'button';
+    // 拒绝 ⇒ 零操作：不发送任何消息、不调用任何 ops。
+    deny.addEventListener('click', () => {
+      hideConfirm();
+      notice('已取消：未执行任何操作。');
+    });
+    actions.append(accept, deny);
+    current.confirm.append(title, consequence, irreversible, actions);
+    current.confirm.hidden = false;
+  }
+
+  function onControlActivate(row: TreeRow, control: ControlDescriptor): void {
+    if (!control.actionId) return;
+    if (needsConfirmation(control.actionId)) askConfirm(row, control);
+    else void executeAction(row, control);
   }
 
   function renderRow(row: TreeRow): HTMLElement {
@@ -148,10 +288,23 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     if (row.controls.length > 0) {
       const controls = el('div', 'tree-controls');
       for (const control of row.controls) {
-        const item = el('span', 'tree-control', control.label);
-        item.dataset.kind = control.kind;
-        if (control.actionId) item.dataset.actionId = control.actionId;
-        controls.append(item);
+        const actionable = control.kind !== 'none' && Boolean(control.actionId) && Boolean(deps.actions);
+        if (!actionable) {
+          // 只读披露（命令级 `none`、或抽屉未接线动作执行器时）：非交互元素。
+          const item = el('span', 'tree-control', control.label);
+          item.dataset.kind = control.kind;
+          if (control.actionId) item.dataset.actionId = control.actionId;
+          controls.append(item);
+          continue;
+        }
+        const button = el('button', 'tree-control', control.label);
+        button.type = 'button';
+        button.dataset.kind = control.kind;
+        button.dataset.actionId = control.actionId as string;
+        button.addEventListener('click', () => {
+          onControlActivate(row, control);
+        });
+        controls.append(button);
       }
       wrap.append(controls);
     }

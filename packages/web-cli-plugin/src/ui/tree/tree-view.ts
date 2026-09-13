@@ -16,6 +16,7 @@
  * 过滤（FR-V2-022）为**纯只读**：只筛选展示集合，绝不 mutate 快照或授权状态。
  */
 import type { PolicyAction } from '@lgdl/web-cli-base';
+import { OPTIONAL_CAPABILITY_TOOL, type OptionalCapability } from '../../platform/capability-permissions.js';
 import {
   type Badge,
   type CapabilityNode,
@@ -23,6 +24,7 @@ import {
   type ConnectTreeSnapshot,
   type ControlDescriptor,
   type Dimension,
+  type DenyCause,
   type SiteNode,
   type SourceKind,
   type TreeActionId,
@@ -68,6 +70,33 @@ const SOURCE_KIND_LABEL: Readonly<Record<SourceKind, string>> = {
   'base-builtin': '内置',
 };
 
+/**
+ * `deny` 四成因的可读标注（FR-V2-051 前置；ADR-V2-011）。
+ *
+ * 与 V2-1 `DenyCause` 一一对应：S1 未授权 / S3 未知或非法 risk / evaluate 硬底线 /
+ * 自动授权 hardDeny（预留——V2-3 只展示，绝不提供任何「放宽/覆盖」控件）。
+ */
+export const DENY_CAUSE_LABEL: Readonly<Record<DenyCause, string>> = {
+  's1-unauthorized': 'S1 未授权站点：工具被 deny（授权后仍需按 risk 档判定）',
+  's3-unknown-risk': 'S3 未知/非法 risk：fail-closed deny（不可放行）',
+  'evaluate-floor': 'evaluate 硬底线：永不执行、永不自动放行',
+  'auto-hardDeny': '自动授权硬底线：永不自动放行（直接拒绝）',
+};
+
+/** V2-3 动作目标（作用对象）；与 `TreeActionRequest.target` 同形。 */
+export interface TreeActionTarget {
+  origin?: string;
+  capability?: OptionalCapability;
+  scope?: 'read' | 'write';
+  enabled?: boolean;
+  groupId?: string;
+}
+
+/** 可选能力 → 对应 LLM 工具名（回执 ② 实测对账用）。 */
+function toolOfCapability(capability: OptionalCapability): string {
+  return OPTIONAL_CAPABILITY_TOOL[capability];
+}
+
 // ---------------------------------------------------------------------------
 // 渲染模型类型
 // ---------------------------------------------------------------------------
@@ -92,8 +121,16 @@ export interface TreeRow {
   action?: PolicyAction;
   /** 命令行：来源分类（V2-4 预留）。 */
   sourceKind?: SourceKind;
+  /** 命令行：`deny` 成因（S1/S3/evaluate/auto-hardDeny）。 */
+  denyCause?: DenyCause;
+  /** 命令行：`deny` 成因可读文案。 */
+  denyCauseLabel?: string;
   /** 能力行：未授予（可选能力）/ 不可撤销（静态权限）的展示标记。 */
   revocable?: boolean;
+  /** V2-3：控件携带的动作目标（撤销/关断的作用对象）。 */
+  actionTarget?: TreeActionTarget;
+  /** V2-3：动作影响的工具名（回执 ② 实测对账；P1 动作缺省）。 */
+  actionTool?: string;
 }
 
 export interface TreeGroupModel {
@@ -149,6 +186,64 @@ export function needsConfirmation(actionId: TreeActionId): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// 二次确认摘要（ADR-V2-013；作用对象 + 后果 + 不可逆说明）
+// ---------------------------------------------------------------------------
+
+/** 每个需确认动作的「后果」与「不可逆说明」（纯文案，不含任何明文材料）。 */
+const CONFIRM_TEXT: Readonly<Record<string, { consequence: string; irreversible: string }>> = {
+  'revoke-origin': {
+    consequence: '该站点授权被取消，其声明工具将即时移出 LLM 工具面（回到更保守，不放宽任何门禁）',
+    irreversible: '不可逆（可重新授权），且重新授权需要用户手势；树内只做撤销、不授予权限',
+  },
+  'revoke-capability': {
+    consequence: '该可选能力权限被移除，对应工具即时移出 LLM 工具面',
+    irreversible: '不可逆（可重新授予），移除后需重新授予权限才会恢复',
+  },
+  'clear-auto-auth': {
+    consequence: '该站点的「读/写自动授权」都关断，下一次同档位调用恢复人工二次确认',
+    irreversible: '可重新开启；不影响站点授权本身（授权与自动授权是独立维度）',
+  },
+  'disconnect-llm': {
+    consequence: '清除已保存的 LLM 配置（含密钥）；树内不回显任何密钥材料',
+    irreversible: '不可逆，需在设置页重新填入配置',
+  },
+  'dissolve-group': {
+    consequence: '解散该会话组（分组只共享对话，不代表互相授权）',
+    irreversible: '不可逆；不触及任何站点授权',
+  },
+};
+
+export interface TreeConfirmSummary {
+  actionId: TreeActionId;
+  /** 作用对象（可读）。 */
+  target: string;
+  /** 后果（可读）。 */
+  consequence: string;
+  /** 不可逆 / 影响说明（可读）。 */
+  irreversible: string;
+  /** 合并展示文本：恒含「作用对象 + 后果 + 不可逆说明」三段。 */
+  text: string;
+}
+
+/**
+ * 生成二次确认摘要（纯函数）。拒绝即零操作（fail-closed，见 `tree-ops`）。
+ */
+export function confirmationSummary(actionId: TreeActionId, targetText: string): TreeConfirmSummary {
+  const known = CONFIRM_TEXT[actionId] ?? {
+    consequence: '该操作会改变连接状态（回到更保守，不放宽任何门禁）',
+    irreversible: '请确认后再执行；拒绝则零操作',
+  };
+  const target = targetText.trim() || '（未指定对象）';
+  return {
+    actionId,
+    target,
+    consequence: known.consequence,
+    irreversible: known.irreversible,
+    text: `作用对象：${target}；后果：${known.consequence}；不可逆说明：${known.irreversible}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 控件结构保证（ADR-V2-011）
 // ---------------------------------------------------------------------------
 
@@ -167,9 +262,61 @@ function capabilityControls(node: CapabilityNode): ControlDescriptor[] {
   return node.controls.filter((c) => c.kind === 'toggle');
 }
 
-/** 站点行控件：仅已授权站点可「撤销授权」。 */
+/**
+ * 站点行控件：仅已授权站点可「撤销授权」（V2-2），并在其上追加 V2-3 的
+ * 「关闭该站点自动授权」控件（FR-V2-033；分维：撤销自动授权 ≠ 撤销站点授权）。
+ */
 function siteControls(node: SiteNode): ControlDescriptor[] {
-  return node.authorized ? node.controls.filter((c) => c.kind === 'revoke') : [];
+  if (!node.authorized) return [];
+  const revoke = node.controls.filter((c) => c.kind === 'revoke');
+  return [
+    ...revoke,
+    {
+      kind: 'toggle',
+      actionId: 'clear-auto-auth',
+      label: '关闭该站点自动授权（读/写都关；不等于撤销站点授权）',
+    },
+  ];
+}
+
+/** 站点声明工具名（来自 V2-1 反向跨层引用 `cmd:<name>[#<sub>]`，去重排序）。 */
+function siteActionTools(node: SiteNode): string {
+  const names = new Set<string>();
+  for (const link of node.crossLinks) {
+    if (link.kind !== 'tool') continue;
+    // Reverse site links carry the command id in `to` (forward command→site links
+    // carry it in `from`); accept either so the extraction is shape-robust.
+    const cmdId = link.to.startsWith('cmd:') ? link.to : link.from.startsWith('cmd:') ? link.from : '';
+    if (!cmdId) continue;
+    const raw = cmdId.slice('cmd:'.length);
+    const name = raw.split('#')[0] ?? raw;
+    if (name.length > 0) names.add(name);
+  }
+  return [...names].sort().join('、');
+}
+
+/** 能力行/开关键行对应的工具名（回执 ② 实测对账）。 */
+function capabilityActionTool(node: CapabilityNode): string | undefined {
+  if (node.source === 'optional' && node.capability) return toolOfCapability(node.capability);
+  if (node.source === 'toggle') {
+    if (node.capability) return toolOfCapability(node.capability);
+    return node.permission === 'tabs' ? 'tabs' : undefined;
+  }
+  return undefined;
+}
+
+/** 能力行动作目标：可选能力撤销 / 开关翻转（`enabled` = 翻转后的目标态）。 */
+function capabilityTarget(node: CapabilityNode, control: ControlDescriptor): TreeActionTarget | undefined {
+  if (control.actionId === 'revoke-capability' && node.capability) return { capability: node.capability };
+  if (control.actionId === 'set-capability-toggle') {
+    return {
+      ...(node.capability ? { capability: node.capability } : {}),
+      ...(node.scope ? { scope: node.scope } : {}),
+      enabled: !node.enabled,
+    };
+  }
+  if (control.actionId === 'set-tabs-toggle') return { enabled: !node.enabled };
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +328,7 @@ function crossRefsOf(node: { crossLinks: { label: string }[] }): string[] {
 }
 
 function siteRow(node: SiteNode): TreeRow {
+  const tools = siteActionTools(node);
   return {
     id: node.id,
     depth: 1,
@@ -191,6 +339,8 @@ function siteRow(node: SiteNode): TreeRow {
     controls: siteControls(node),
     crossRefs: crossRefsOf(node),
     revocable: node.revocable,
+    ...(node.authorized ? { actionTarget: { origin: node.origin } } : {}),
+    ...(tools.length > 0 ? { actionTool: tools } : {}),
   };
 }
 
@@ -198,6 +348,9 @@ function capabilityRow(node: CapabilityNode): TreeRow {
   const sourceLabel =
     node.source === 'static' ? '静态权限' : node.source === 'optional' ? '可选能力' : '隐私开关';
   const scope = node.scope ? ` · ${node.scope === 'read' ? '读取' : '写入'}` : '';
+  const controls = capabilityControls(node);
+  const actionTool = capabilityActionTool(node);
+  const actionTarget = controls.length > 0 ? capabilityTarget(node, controls[0]) : undefined;
   return {
     id: node.id,
     depth: 1,
@@ -205,19 +358,23 @@ function capabilityRow(node: CapabilityNode): TreeRow {
     label: node.label,
     sublabel: `${sourceLabel}${scope} · ${node.granted ? '已授予/已开启' : '未授予/已关闭'}`,
     badges: [...node.badges],
-    controls: capabilityControls(node),
+    controls,
     ...(node.revokeHint ? { revokeHint: node.revokeHint } : {}),
     crossRefs: crossRefsOf(node),
     revocable: node.revocable,
+    ...(actionTarget ? { actionTarget } : {}),
+    ...(actionTool ? { actionTool } : {}),
   };
 }
 
 function commandRow(node: CommandNode): TreeRow {
   const label = node.subcommand ? `${node.name} ${node.subcommand}` : node.name;
+  const causeLabel = node.denyCause ? DENY_CAUSE_LABEL[node.denyCause] : undefined;
   const sublabel =
     `来源 ${SOURCE_KIND_LABEL[node.sourceKind]}（${node.sourceKind}）` +
     ` · 命令间隔 delayMs=${node.delayMs}ms（与 delay 档无关）` +
-    ` · 处置 ${node.action}`;
+    ` · 处置 ${node.action}` +
+    (causeLabel ? ` · 成因 ${causeLabel}` : '');
   return {
     id: node.id,
     depth: node.subcommand ? 2 : 1,
@@ -229,6 +386,8 @@ function commandRow(node: CommandNode): TreeRow {
     crossRefs: crossRefsOf(node),
     action: node.action,
     sourceKind: node.sourceKind,
+    ...(node.denyCause ? { denyCause: node.denyCause } : {}),
+    ...(causeLabel ? { denyCauseLabel: causeLabel } : {}),
   };
 }
 

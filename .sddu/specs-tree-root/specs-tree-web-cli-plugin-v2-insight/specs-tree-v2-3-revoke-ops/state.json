@@ -2,9 +2,9 @@
   "feature": "V2-3 撤销与取消授权操作面（父：specs-tree-web-cli-plugin-v2-insight）",
   "featureKey": "specs-tree-v2-3-revoke-ops",
   "name": "V2-3 撤销与取消授权操作面——树内就地撤销（站点级 + 能力级 + 开关 + 自动授权关断 + LLM 断开 + 会话组）；撤销后可见后果三件套；安全红线只收紧不放宽",
-  "phase": "tasked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v2-insight",
   "childrens": [],
@@ -49,7 +49,8 @@
     "spec.md",
     "plan.md",
     "tasks.md",
-    "tasks.json"
+    "tasks.json",
+    "build.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/spec.md",
@@ -57,11 +58,12 @@
     "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/TREE.md",
     "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/plan.md",
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/tasks.md",
-    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/tasks.json"
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/tasks.json",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/build.md"
   },
-  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.4 与 §5.6；本子级 spec.md 含安全红线反向断言验收（AC-V23-004）。FR-V2-034/035/040 标 P1（建议值待作者确认）。下一步 @sddu-plan（含安全复核）。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json。",
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.4 与 §5.6；本子级 spec.md 含安全红线反向断言验收（AC-V23-004）。FR-V2-034/035/040 标 P1（建议值待作者确认）。下一步 @sddu-plan（含安全复核）。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json。 build 阶段完成（2026-09-13，sddu-build）：Wave 10~13 / TASK-001~010 全部实施。新建 src/ui/tree/{tree-receipt,tree-ops}.ts（三件套回执 + 封闭 7 动作白名单编排，无默认写入分支）+ 改造 tree-view/tree-drawer（真实控件 + #tree-receipt 三件套 + #tree-confirm 二次确认，拒绝=零操作）+ sidepanel 接线 + index.html append-only 样式；新增 test/{tree-ops,insight-security}.test.ts、追加 insight-no-escalation 冻结段、binding.mjs #21a~#21n 撤销链、insight.mjs #I-18a~e。门禁串行全绿：typecheck 0 error / 插件 npm test 599（V2-2 577 零删减 +22）/ test:insight 50 / test:ui 167（零删减；首次运行 #3c 单点偶发，随后两次全绿）/ test:hardening 24 / test:binding 180（v1 163 零删减 + 17）/ test:e2e PASS / 全仓 npm test 0 fail（base 483 零回归）。体积：content.js 1,073,453 B 零增长；sidepanel.js 1,110,744 B ≤ ceiling 1,139,658。判定链零 diff（policy.ts/auto-authorize.ts）；base/manifest/options.html/v1 journey/perf-*/v1 SDDU 目录零 diff；main 2ddc922 未动。偏差 D-V23-01：service-worker.ts case 'revoke' 追加一行既有 host.deactivateSite()（绑定 origin 被撤销时），使站点工具即时移出 deriveTools()（FR-V2-030）——只收紧、不新增 case/消息/判定路径。D-V23-02：binding 树交互用 DOM 点击（侧栏非 active tab，headless 真实鼠标输入丢弃；真实点击由 test:insight 覆盖）。口径订正 D-V22-01 已落地（dev.md §11.3 + 父 spec AC-V2-002/FR-V2-023 补测量条件，原数值保留）。下一步 @sddu-review。",
   "status": "tracked",
-  "phaseNote": "tasks 阶段完成（2026-09-13，sddu-tasks）：技术方案分解为原子任务（含依赖/波次/并行标记/涉及文件/可执行验收标准/验证命令）。波次严格串行：V2-1（Wave 1~5，先行）→ V2-2（Wave 6~9）→ V2-3（Wave 10~13）；V2-2/V2-3 并行分解、执行串行。门禁矩阵：insight-projection / insight-determinism / insight-catalog（34 工具·142 子命令双向等价+反证+同源锚定）/ insight-no-escalation（V2-1 基础段，V2-3 追加冻结）/ tree-view 纯测 / size-budget（新基线文件，与 v1 D31 解耦）/ test:ui·insight.mjs（新文件承载 AC-V2-002 量化，v1 journey.mjs 零改动）/ insight-security（AC-V2-005 六条反向断言 + allow 单调性 allowAfter⊆allowBefore）/ tree-ops 纯测 / test:binding 追加撤链（#21a…）。断言只增不减：新断言全部落新文件；v1 既有测试与断言零删改（v1 journey.mjs / binding.mjs 既有编号、test/parity/**、test/perf-*）。AC-V2-002 口径最小订正：spec ⑤ 由「占比 ≥65.5%」订正为「clientHeight ≥589px 主 + 占比 ≥65.0% 次」（原因/来源 = ADR-V2-006）；仅此一处 AC。编排器代作者决策（2026-09-13 授权）已登记（TD-V21-01~03 / TD-V22-01~05 / TD-V23-01~04）。父 Feature 为轻量规范容器，不产出 tasks.md/tasks.json；本轮 tasks 落在 3 个 P0 叶子（V2-4 P1 未排）。下一步 @sddu-build。 本叶子：10 任务 / 4 波（Wave 10~13）：三件套回执 + 控件语义 + 白名单编排（7 动作）+ drawer 绑定 + tree-ops 纯测 + insight-security（AC-V2-005 六条反向断言+allow 单调性）+ 冻结门禁 + test:binding 追加撤链（#21a…）+ 串行收口 + 人工面 H-1~H-6。",
+  "phaseNote": "build 阶段完成（2026-09-13，sddu-build）：Wave 10~13 / TASK-001~010 全部实施（10/10）。主产出：封闭 7 动作白名单编排（无默认写入分支）+ 三件套回执（② 来自重拉实测）+ 二次确认（不可逆确认/开关不确认，拒绝=零操作）+ AC-V2-005 六条反向断言 + allow 集合单调性（allowAfter ⊆ allowBefore）+ 判定链冻结门禁（policy/auto-authorize git diff --quiet HEAD = 0）+ binding #21a~#21n 撤销链。断言只增不减：插件 577→599（+22），test:insight 45→50（+5），test:binding 163→180（+17，既有零删减），insight-no-escalation 基础段 5 条零删减。全量门禁串行全绿（typecheck / npm test / test:insight / test:ui / test:hardening / test:binding / test:e2e / 全仓 npm test），未跑项为零。偏差 D-V23-01（service-worker.ts revoke case 追加一行既有 host.deactivateSite()，只收紧、不新增判定路径）与 D-V23-02（binding 用 DOM 点击）已登记；D-V22-01 口径订正已落地。下一步 @sddu-review。",
   "taskCount": 10,
   "waveCount": 4,
   "complexity": {

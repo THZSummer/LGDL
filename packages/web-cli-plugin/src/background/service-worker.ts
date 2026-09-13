@@ -1760,6 +1760,13 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const revoked = await s.origins.revoke(origin);
       // TASK-032: revoking the bound origin stops the automatic probe immediately.
       if (s.controller.get()?.origin === origin) s.autoProbe.stop();
+      // V2-3 (FR-V2-030; 编排器代作者决策 D-V23-01): revocation is a tightening —
+      // the revoked origin's declared tools must leave `deriveTools()` immediately
+      // (not merely fail S1 at dispatch). This reuses the existing `deactivateSite`
+      // seam; it adds no case, no message and no policy/judgment path. Re-binding
+      // an unauthorized origin cannot re-register its tools (the tab-follow path
+      // checks `origins.isAuthorized`).
+      if (s.controller.get()?.origin === origin) s.host.deactivateSite();
       if (hostPermissionRemoved) {
         s.audit.recordPlugin({
           type: 'host-permission',

@@ -30,7 +30,7 @@ import {
   type SessionsMessageView,
   type StateMessageView,
 } from './view-model.js';
-import { createSettingsOps, transportFromRuntime } from '../settings/ops.js';
+import { createSettingsOps, transportFromRuntime, type SettingsOps } from '../settings/ops.js';
 import { mountSettingsPanel, type SettingsPanelHandle } from '../settings/panel.js';
 import { createViewSwitch } from '../settings/view-switch.js';
 import { AUTO_AUTH_HARD_LINES, type AutoAuthSettings } from '../../security/auto-authorize.js';
@@ -45,6 +45,8 @@ import { createKeyStore } from '../../llm/key-store.js';
 import { shortBuildStamp } from '../../build-info.js';
 // V2-2 (ADR-V2-004/005): floating connection tree (lazy overlay — additive).
 import { mountTreeDrawer, type TreeDrawerHandle } from '../tree/tree-drawer.js';
+// V2-3 (ADR-V2-008/009/013): closed 7-action revoke orchestrator (existing ops only).
+import { createTreeOps } from '../tree/tree-ops.js';
 import type { ConnectTreeSnapshot } from '../../insight/tree-model.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
@@ -285,29 +287,7 @@ async function openSettingsView(): Promise<void> {
       root,
       doc: document,
       env: detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined),
-      ops: createSettingsOps({
-        env: detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined),
-        transport: transportFromRuntime(chrome.runtime as unknown as { sendMessage(message: unknown): Promise<unknown> }),
-        store: createKeyStore(createChromeAsyncKv('web-cli')),
-        buildStamp: shortBuildStamp(),
-        manifestVersion: () => {
-          try {
-            return chrome.runtime.getManifest().version;
-          } catch {
-            return 'unknown';
-          }
-        },
-        probeStorage: async () => {
-          const kv = createChromeAsyncKv('web-cli-diag');
-          const token = { at: Date.now() };
-          await kv.set('probe', token);
-          const back = await kv.get<{ at?: number }>('probe');
-          await kv.remove('probe');
-          return back && typeof back.at === 'number'
-            ? { status: 'ok' as const, detail: '写入测试键 → 读回一致 → 已清理' }
-            : { status: 'warn' as const, detail: '写入测试键后读回为空或结构不符（存储可能不可用）' };
-        },
-      }),
+      ops: buildSettingsOps(),
       getActiveOrigin: () => state.activeOrigin,
       onNotice: (text) => dispatch({ type: 'notice', text }),
       onLlmChanged: () => void refreshLlmStatus(),
@@ -316,6 +296,37 @@ async function openSettingsView(): Promise<void> {
   settingsHandle.setActiveOrigin(state.activeOrigin);
   settingsViewSwitch.showSettings();
   await settingsHandle.refresh();
+}
+
+/**
+ * V2-3: the single `SettingsOps` factory shared by the in-panel settings view and
+ * the connection-tree action runner (same existing ops, no new channels/deps).
+ */
+function buildSettingsOps(): SettingsOps {
+  const env = detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined);
+  return createSettingsOps({
+    env,
+    transport: transportFromRuntime(chrome.runtime as unknown as { sendMessage(message: unknown): Promise<unknown> }),
+    store: createKeyStore(createChromeAsyncKv('web-cli')),
+    buildStamp: shortBuildStamp(),
+    manifestVersion: () => {
+      try {
+        return chrome.runtime.getManifest().version;
+      } catch {
+        return 'unknown';
+      }
+    },
+    probeStorage: async () => {
+      const kv = createChromeAsyncKv('web-cli-diag');
+      const token = { at: Date.now() };
+      await kv.set('probe', token);
+      const back = await kv.get<{ at?: number }>('probe');
+      await kv.remove('probe');
+      return back && typeof back.at === 'number'
+        ? { status: 'ok' as const, detail: '写入测试键 → 读回一致 → 已清理' }
+        : { status: 'warn' as const, detail: '写入测试键后读回为空或结构不符（存储可能不可用）' };
+    },
+  });
 }
 
 /** Live scroll metrics of the message list (measured from the real DOM). */
@@ -1170,6 +1181,20 @@ function wire(): void {
         if (!res.ok) throw new Error(res.error ?? 'insight-tree 拉取失败');
         return res.data ?? null;
       },
+    },
+    // V2-3: the closed 7-action whitelist runner — existing ops/messages only.
+    actions: createTreeOps({
+      ops: buildSettingsOps(),
+      transport: transportFromRuntime(chrome.runtime as unknown as { sendMessage(message: unknown): Promise<unknown> }),
+      env: detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined),
+      refreshSnapshot: async () => {
+        const res = await send<ConnectTreeSnapshot>(makeMessage('insight-tree'));
+        return res.ok ? (res.data ?? null) : null;
+      },
+    }),
+    onAuditExport: () => {
+      const audit = document.getElementById('audit') as HTMLButtonElement | null;
+      if (audit) audit.click();
     },
     onNotice: (text) => {
       const node = document.getElementById('notice');

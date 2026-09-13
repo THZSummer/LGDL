@@ -7,9 +7,10 @@ Feature Specification：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权�
 ```
 specs-tree-v2-3-revoke-ops/
 ├── TREE.md          # 本文件 - 目录导航
+├── build.md          # 构建报告：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面）
 ├── plan.md          # 技术计划：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面）
 ├── spec.md          # Feature Specification：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面）
-├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── state.json          # 状态文件 (🟢 tracked [builded])
 ├── tasks.json          # 任务清单 (机器可读)
 └── tasks.md          # 任务分解：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面）
 ```
@@ -17,9 +18,10 @@ specs-tree-v2-3-revoke-ops/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
+| build.md | 构建报告：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） — `node --test dist-test/test/insight-security.test.js` → **5/5 PASS**（`allow` ... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） — │                                   └─(accept)─┐ | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） — Feature Specification：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [tasked] |
+| state.json | 状态文件 | 🟢 tracked [builded] |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） — Wave 10（并行组 ①：文件不相交）： | ✅ 存在 |
 
@@ -27,8 +29,8 @@ specs-tree-v2-3-revoke-ops/
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 任务分解 (4/7) |
-| Status | 🟢 tracked [tasked] |
+| Phase | 构建完成 (5/7) |
+| Status | 🟢 tracked [builded] |
 
 ## 上级目录
 - [返回上级](../TREE.md)

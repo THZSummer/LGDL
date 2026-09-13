@@ -1358,6 +1358,228 @@ async function phase1(mock) {
     check(injectProbe === 'no-receiver', '#20f 未授权新域名零注入（无 content script 接收方）', String(injectProbe));
     await sleep(300);
 
+    // ── #21a~#21n V2-3 revocation chain (TASK-008): driven through the REAL tree
+    // drawer controls (`tree-ops.run`) on the real bound site. Append-only: the
+    // existing #19*//#20* numbering is untouched (TD-V23-01: #21* avoids the
+    // already-occupied #19a~#19l / #20a~#20f).
+    //
+    // The side panel is emulated at its real dimensions (400×1000) so the
+    // overlay drawer gets a real height (a wide/short tab collapses `#panel-main`
+    // to 0px and the drawer becomes un-clickable — a harness geometry artifact,
+    // not a product state). All tree interactions use atomic DOM clicks: the side
+    // panel tab is not the active tab here and headless CDP real-mouse input is
+    // dropped for background tabs (`test:insight` covers the real FAB click;
+    // revocation itself needs no user gesture). ───────────────────────────────
+    await ext.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await sleep(400);
+    await evaluate(sw, `chrome.tabs.update(${siteTabId}, { active: true }).then((t) => t.id)`);
+    const v23Back = await waitFor(
+      ext,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const d = r?.data;
+        return d?.active?.origin === ${JSON.stringify(SITE_ORIGIN)} && (d.tools || []).includes('site_lgdl-web-cli')
+          ? JSON.stringify({ authorized: d.authorized, hasSite: true })
+          : '';
+      })()`,
+      80,
+      200,
+    );
+    check(Boolean(v23Back), '#21a 切回已授权站点：工具面含 site_lgdl-web-cli（撤销链基线）', v23Back ?? 'no baseline');
+
+    // Open the floating tree. (DOM click: the side panel tab is not the active
+    // tab at this point, and headless CDP real-mouse input is dropped for a
+    // background tab; `test:insight` already proves the FAB via a real click.)
+    await evaluate(ext, `document.getElementById('tree-fab').click(), true`);
+    const v23TreeOpen = await waitFor(
+      ext,
+      `(() => {
+        const d = document.getElementById('tree-drawer');
+        return d && d.hidden === false && d.querySelectorAll('.tree-group').length >= 4 ? 'open' : '';
+      })()`,
+      100,
+      200,
+    );
+    check(v23TreeOpen === 'open', '#21a2 点击 FAB 打开树抽屉（四维度可见；真实鼠标点击由 test:insight 覆盖）', String(v23TreeOpen));
+
+    const v23RevokeBtn = await evaluate(
+      ext,
+      `(() => {
+        const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="revoke-origin"]');
+        return b ? JSON.stringify({ tag: b.tagName, label: b.textContent, kind: b.dataset.kind }) : '';
+      })()`,
+    );
+    check(Boolean(v23RevokeBtn), '#21b 站点行渲染真实撤销控件（button，非只读 span）', v23RevokeBtn ?? 'no control');
+
+    // Deny the confirmation → zero operation (site still authorized, tool present,
+    // no origin-revoke audit).
+    await evaluate(
+      ext,
+      `(() => { const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="revoke-origin"]'); if (!b) return false; b.click(); return true; })()`,
+    );
+    const v23Confirm = await waitFor(
+      ext,
+      `(() => {
+        const c = document.getElementById('tree-confirm');
+        if (!c || c.hidden) return '';
+        const t = c.textContent || '';
+        return /作用对象/.test(t) && /后果/.test(t) && /不可逆/.test(t) ? t : '';
+      })()`,
+      40,
+      150,
+    );
+    check(Boolean(v23Confirm), '#21c 不可逆动作弹出 #tree-confirm（含作用对象/后果/不可逆说明）', String(v23Confirm).slice(0, 200));
+    await evaluate(ext, `(() => { const b = document.getElementById('tree-confirm-deny'); if (!b) return false; b.click(); return true; })()`);
+    await sleep(500);
+    const v23AfterDeny = await evaluate(
+      ext,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const a = await chrome.runtime.sendMessage({ kind: 'audit-export' });
+        const events = JSON.stringify(a?.data || []);
+        return JSON.stringify({ authorized: r?.data?.authorized, hasSite: (r?.data?.tools || []).includes('site_lgdl-web-cli'), revokeAudit: /origin-revoke/.test(events) });
+      })()`,
+    );
+    const v23Deny = JSON.parse(v23AfterDeny ?? '{}');
+    check(
+      v23Deny.authorized === true && v23Deny.hasSite === true && v23Deny.revokeAudit === false,
+      '#21d 拒绝二次确认 = 零操作（站点仍授权 / 工具仍在 / 无 origin-revoke 审计）',
+      v23AfterDeny ?? '',
+    );
+
+    // Accept → real revoke through the tree (`tree-ops.run` → existing `revoke`).
+    await evaluate(
+      ext,
+      `(() => { const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="revoke-origin"]'); if (!b) return false; b.click(); return true; })()`,
+    );
+    await waitFor(ext, `(() => { const c = document.getElementById('tree-confirm'); return c && !c.hidden ? 'shown' : ''; })()`, 40, 150);
+    await evaluate(ext, `(() => { const b = document.getElementById('tree-confirm-accept'); if (!b) return false; b.click(); return true; })()`);
+    const v23Receipt = await waitFor(
+      ext,
+      `(() => {
+        const r = document.getElementById('tree-receipt');
+        if (!r || r.hidden) return '';
+        const t = r.textContent || '';
+        return t.includes(${JSON.stringify(SITE_ORIGIN)}) ? t : '';
+      })()`,
+      80,
+      200,
+    );
+    check(Boolean(v23Receipt), '#21e 撤销后 #tree-receipt 三件套回执可读（含 origin + 实测证据 + 审计入口）', String(v23Receipt).slice(0, 260));
+    check(/重拉实测|已不在工具面/.test(v23Receipt ?? ''), '#21e2 回执 ② 来自重拉实测（非文案声称）', String(v23Receipt).slice(0, 260));
+
+    const v23Revoked = await evaluate(
+      ext,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const a = await chrome.runtime.sendMessage({ kind: 'audit-export' });
+        const t = await chrome.runtime.sendMessage({ kind: 'insight-tree' });
+        const g = (t?.data?.groups || []).find((x) => x.dimension === 'command');
+        const present = (g?.children || []).filter((n) => n.presentInSurface && !n.subcommand).map((n) => n.name);
+        const sites = (t?.data?.groups || []).find((x) => x.dimension === 'site')?.children || [];
+        const site = sites.find((n) => n.origin === ${JSON.stringify(SITE_ORIGIN)});
+        return JSON.stringify({
+          authorized: r?.data?.authorized,
+          hasSite: (r?.data?.tools || []).includes('site_lgdl-web-cli'),
+          toolPresent: present.includes('site_lgdl-web-cli'),
+          siteAuthorizedInTree: site ? site.authorized : null,
+          revokeAudit: /origin-revoke/.test(JSON.stringify(a?.data || [])),
+        });
+      })()`,
+    );
+    const v23 = JSON.parse(v23Revoked ?? '{}');
+    check(v23.authorized === false, '#21f 站点取消授权即时生效（state.authorized=false，无需重载）', v23Revoked ?? '');
+    check(v23.hasSite === false, '#21g 站点工具即时移出 deriveTools()（不等待重启/重载）', v23Revoked ?? '');
+    check(v23.toolPresent === false, '#21i 重拉实测（insight-tree）：站点工具已不在工具面（证据来自实测）', v23Revoked ?? '');
+    check(v23.siteAuthorizedInTree === false, '#21i2 重拉实测：站点节点如实呈现「未授权」', v23Revoked ?? '');
+    check(v23.revokeAudit === true, '#21h 撤销写入 origin-revoke 审计（可经 audit-export 查证）', v23Revoked ?? '');
+
+    // Capability revoke FAILURE path (EC-V23-003): in this temp dist the capability
+    // is pre-granted as a STATIC permission, so the real `permissions.remove`
+    // cannot remove it → the tree must show a readable error and NOT fake removal.
+    const v23CapBtn = await evaluate(
+      ext,
+      `(() => {
+        const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="revoke-capability"]');
+        return b ? JSON.stringify({ label: b.textContent }) : '';
+      })()`,
+    );
+    if (v23CapBtn) {
+      await evaluate(
+        ext,
+        `(() => { const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="revoke-capability"]'); if (!b) return false; b.click(); return true; })()`,
+      );
+      await waitFor(ext, `(() => { const c = document.getElementById('tree-confirm'); return c && !c.hidden ? 'shown' : ''; })()`, 40, 150);
+      await evaluate(ext, `(() => { const b = document.getElementById('tree-confirm-accept'); if (!b) return false; b.click(); return true; })()`);
+      const v23CapReceipt = await waitFor(
+        ext,
+        `(() => { const r = document.getElementById('tree-receipt'); if (!r || r.hidden) return ''; const t = r.textContent || ''; return /书签|撤销.*权限|失败/.test(t) ? t : ''; })()`,
+        60,
+        200,
+      );
+      check(/失败|仍保留|可重试/.test(v23CapReceipt ?? ''), '#21j 能力撤销失败可读（不假成功、如实「权限仍保留」）', String(v23CapReceipt).slice(0, 220));
+      const v23CapTools = await evaluate(
+        ext,
+        `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'capabilities', action: 'status' }); return JSON.stringify(r?.data?.tools || []); })()`,
+      );
+      check(/bookmarks/.test(v23CapTools ?? ''), '#21k 撤销失败后工具面未变更（不假装已移出）', String(v23CapTools));
+    } else {
+      observe('#21j/#21k 跳过：当前没有已授予的可选能力撤销控件（无 granted 可选能力）——如实记录，不伪造 PASS');
+    }
+
+    // Reversible toggle (FR-V2-032): closing `tabs` removes the tool immediately;
+    // re-opening restores it. No confirmation (reversible).
+    const v23ToggleOff = await evaluate(
+      ext,
+      `(() => {
+        const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="set-tabs-toggle"]');
+        if (!b) return 'no-button';
+        b.click();
+        return 'clicked';
+      })()`,
+    );
+    const v23TabsOff = await waitFor(
+      ext,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'tabs-setting', action: 'get' }); return r?.data?.enabled === false ? 'off' : ''; })()`,
+      60,
+      200,
+    );
+    check(v23ToggleOff === 'clicked' && v23TabsOff === 'off', '#21l 开关关断即时生效（tabs 开关关闭，无二次确认）', `${v23ToggleOff}/${v23TabsOff}`);
+    const v23TabsTools = await evaluate(
+      ext,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'tabs-setting', action: 'get' }); return JSON.stringify({ enabled: r?.data?.enabled, hasTabs: (r?.data?.tools || []).includes('tabs') }); })()`,
+    );
+    const v23tt = JSON.parse(v23TabsTools ?? '{}');
+    check(v23tt.hasTabs === false, '#21m 开关关断 → deriveTools() 即时移出 tabs（enabled 语义）', v23TabsTools ?? '');
+    // Wait for the re-render to expose the「开启」control, then re-open.
+    const v23ReopenReady = await waitFor(
+      ext,
+      `(() => {
+        const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="set-tabs-toggle"]');
+        return b && /开启/.test(b.textContent || '') ? 'ready' : '';
+      })()`,
+      40,
+      150,
+    );
+    const v23TabsOn = v23ReopenReady
+      ? await evaluate(
+          ext,
+          `(() => {
+            const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="set-tabs-toggle"]');
+            if (!b) return '';
+            b.click();
+            return 'clicked';
+          })()`,
+        )
+      : '';
+    const v23TabsBack = await waitFor(
+      ext,
+      `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'tabs-setting', action: 'get' }); return r?.data?.enabled === true && (r?.data?.tools || []).includes('tabs') ? 'on' : ''; })()`,
+      60,
+      200,
+    );
+    check(v23TabsOn === 'clicked' && v23TabsBack === 'on', '#21n 机关再开启 → deriveTools() 恢复 tabs（可逆）', `${v23TabsOn}/${v23TabsBack}`);
+
     check(spExceptions.length === 0, '#10 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#10b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 

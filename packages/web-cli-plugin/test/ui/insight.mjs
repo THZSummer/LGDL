@@ -22,7 +22,9 @@
  *   #I-14 开/关两态复用全部几何断言（证明开抽屉不挤压消息区）；
  *   #I-15 Esc 关闭 + 焦点回归 FAB + `aria-expanded` 同步；
  *   #I-16 320px 窄侧栏零水平溢出（关/开两态）；
- *   #I-17 0 页面异常。
+ *   #I-17 0 页面异常；
+ *   #I-18a~e V2-3 真实撤销控件（button[data-action-id]）+ `#tree-receipt`/`#tree-confirm`
+ *            存在且默认收起 + `deny` 行仍结构上无控件（ADR-V2-011 未被写路径破坏）。
  *
  * 依赖：Node ≥ 22（全局 WebSocket / fetch）、本机 `.pw-browsers` Chromium（或 CHROME_BIN）。
  * 前置：`npm run build --workspace @lgdl/web-cli-plugin`。
@@ -498,6 +500,42 @@ async function main() {
     const restored = await waitFor(sp, `String(document.querySelectorAll('#tree-drawer .tree-row').length)`, 30, 150);
     check(Number(restored) > 0, '#I-13c 清空检索后恢复展示（过滤不改真值）', `rows=${restored}`);
 
+    // 8b. V2-3 (TASK-003/004): real controls + receipt/confirm containers, and the
+    // `deny` structural guarantee must survive the write-path wiring (ADR-V2-011).
+    const v23Tree = await evaluate(
+      sp,
+      `(() => {
+        const drawer = document.getElementById('tree-drawer');
+        const buttons = [...drawer.querySelectorAll('button.tree-control[data-action-id]')];
+        const readonlyControls = [...drawer.querySelectorAll('span.tree-control')];
+        const receipt = document.getElementById('tree-receipt');
+        const confirm = document.getElementById('tree-confirm');
+        const denyWithControls = [...drawer.querySelectorAll('.tree-row[data-action="deny"]')].filter(
+          (r) => r.querySelectorAll('.tree-controls .tree-control').length > 0,
+        ).length;
+        return {
+          buttons: buttons.length,
+          actionIds: [...new Set(buttons.map((b) => b.dataset.actionId))],
+          readonlyControls: readonlyControls.length,
+          hasReceipt: !!receipt,
+          receiptRole: receipt ? receipt.getAttribute('role') : '',
+          receiptHidden: receipt ? receipt.hidden : null,
+          hasConfirm: !!confirm,
+          confirmHidden: confirm ? confirm.hidden : null,
+          denyWithControls,
+        };
+      })()`,
+    );
+    check(v23Tree.hasReceipt === true && v23Tree.receiptRole === 'status', '#I-18a #tree-receipt 存在且 role=status（回执 ①/② + 审计入口 ③）', JSON.stringify(v23Tree));
+    check(v23Tree.hasConfirm === true && v23Tree.confirmHidden === true, '#I-18b #tree-confirm 存在且默认收起（拒绝 = 零操作）', JSON.stringify(v23Tree));
+    check(v23Tree.buttons >= 1, '#I-18c 树内控件渲染为真实 button[data-action-id]（非只读 span）', JSON.stringify(v23Tree));
+    check(
+      Array.isArray(v23Tree.actionIds) && v23Tree.actionIds.includes('set-tabs-toggle'),
+      '#I-18d 可逆开关动作已接线（set-tabs-toggle 真实控件）',
+      JSON.stringify(v23Tree.actionIds),
+    );
+    check(v23Tree.denyWithControls === 0, '#I-18e deny 行结构上仍无任何控件（DOM 层无可点开关，ADR-V2-011）', JSON.stringify(v23Tree));
+
     // 9. open-state layout (must equal the closed-state steady geometry)
     await sleep(200);
     const openLayout = await evaluate(sp, MEASURE);
@@ -571,7 +609,7 @@ async function main() {
     console.error(chromeLog.split('\n').filter((l) => /error|exception/i.test(l)).slice(0, 5).join('\n'));
     process.exit(1);
   }
-  console.log(`UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + 覆盖式抽屉 + 布局量化（#log ≥589px / composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出，开/关两态）`);
+  console.log(`UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + 覆盖式抽屉 + 布局量化（#log ≥589px / composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出，开/关两态）+ V2-3 真实撤销控件/回执/确认容器（deny 行仍无控件）`);
 }
 
 await main();

@@ -660,6 +660,51 @@
         border-radius: var(--radius-sm);
         padding: 6px 8px;
       }
+      /* ── V2-3 (ADR-V2-008/009/013): real controls + receipt + inline confirm ── */
+      #tree-drawer button.tree-control {
+        font-size: 11px;
+        text-align: left;
+        color: var(--accent-text);
+        background: var(--accent-weak);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        padding: 3px 6px;
+        cursor: pointer;
+      }
+      #tree-drawer button.tree-control[data-kind="revoke"] { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); }
+      #tree-drawer .tree-receipt {
+        margin: 8px 10px 0;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      #tree-drawer .tree-receipt[hidden] { display: none; }
+      #tree-drawer .tree-receipt-line { font-size: 11.5px; line-height: 1.6; }
+      #tree-drawer .tree-receipt-line[data-kind="ok"] { color: var(--ok); }
+      #tree-drawer .tree-receipt-line[data-kind="warn"] { color: var(--warn-text); }
+      #tree-drawer .tree-receipt-line[data-kind="err"] { color: var(--danger-text); }
+      #tree-drawer .tree-receipt-evidence { font-size: 11px; color: var(--text-muted); line-height: 1.55; overflow-wrap: anywhere; }
+      #tree-drawer .tree-receipt-next { font-size: 11px; color: var(--text-muted); line-height: 1.55; }
+      #tree-drawer .tree-audit { align-self: flex-start; font-size: 11px; }
+      #tree-drawer .tree-confirm {
+        margin: 8px 10px 0;
+        padding: 6px 8px;
+        border: 1px solid var(--warn-border);
+        border-radius: var(--radius-sm);
+        background: var(--warn-bg);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      #tree-drawer .tree-confirm[hidden] { display: none; }
+      #tree-drawer .tree-confirm-title { font-size: 12px; font-weight: 600; color: var(--warn-text); overflow-wrap: anywhere; }
+      #tree-drawer .tree-confirm-consequence,
+      #tree-drawer .tree-confirm-irreversible { font-size: 11px; line-height: 1.55; color: var(--text-muted); overflow-wrap: anywhere; }
+      #tree-drawer .tree-confirm-actions { display: flex; gap: 6px; }
     </style>
   </head>
   <body>

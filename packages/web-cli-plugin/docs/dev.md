@@ -504,6 +504,17 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 
 证据脚本 `/tmp/ui-redesign/shot.mjs`；截图 `/tmp/ui-redesign/{before,after}/`。
 
+**口径订正（D-V22-01，2026-09-13，V2-3 最小订正；以现状为准）**：上表 `after` 列的 `589px = 65.5%` 测于 **TASK-023**，**早于** FR-052 按 origin 自动授权块（提交 `7b56993`）+ `#risk-status` + `#llm-test-result` 落地。今日同一 `dist` 的实测值随**测量条件**不同而不同，两个条件都必须写明：
+
+| 测量条件（真实 dist + CDP，视口 400×900） | `#log` `clientHeight` | 占视口高比例 |
+|------|------|------|
+| **去镀铬稳态**（隐藏 `#site-hint`/`#onboarding`/`#discovery-notice`/`#consent-slot`/`#send-reason`；`test:insight` 主/次断言口径） | **674px**（断言下限 **≥589px**） | **74.9%**（断言下限 **≥65.0%**） |
+| **v1 口径**（仅隐藏首次引导条 `#site-hint`/`#onboarding`/`#discovery-notice`；v1 `journey.mjs` #15b 口径） | **418px**（断言下限 **≥405px**，v1 自身 `>45vh`） | **46.4%**（v1 自身只断言 `>45%`） |
+
+- **来源**：V2-2 `test:insight`（`test/ui/insight.mjs`）与 V2-2 `build.md` §5.1/§6 实测；测于 **2026-09-13**，构建 `npm run build --workspace @lgdl/web-cli-plugin`。
+- **零回归证明**：脚本另以 v1 口径断言 `#log ≥ 405px`（v1 自身 `>45vh` 下限），并以抽屉**开/关逐字段相等**证明 V2-2 覆盖层不改变任何稳态几何。
+- **上表 `after` 列保留为 TASK-023 当时的历史记录，不再作为今日门禁阈值；今日阈值以本注为准**（`≥589px` 主断言 / `≥65.0%` 次断言，去镀铬稳态）。
+
 ### 11.4 回归门禁
 
 - `test/ui/journey.mjs` 新增 **#15a~#15q**（50→67 断言）：flex 填充 / 高度占比 / composer 贴底 / 三区 /

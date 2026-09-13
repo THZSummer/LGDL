@@ -91,3 +91,18 @@
 | V2-H-D | 键盘 / 焦点遍历真实体感（Tab / Esc / 焦点回归） | 仅用键盘：Tab 至 FAB → Enter 开抽屉 → 在抽屉内 Tab 遍历过滤框/关闭按钮 → Esc 关闭 | 焦点可见（`focus-visible`）；Esc 关闭且焦点回到 FAB；`aria-expanded` 随开合切换；无焦点陷阱 | ⏳ 待人工 |
 
 **口径与偏差（D-V22-01，必读）**：布局硬阈值 `#log` 稳态 `clientHeight ≥ 589px` / 占比 `≥ 65.0%`（ADR-V2-006）在 `test:insight` 中按**去镀铬稳态**测量（隐藏 `#site-hint`/`#onboarding`/`#discovery-notice`/`#consent-slot`/`#send-reason`，实测 674px / 74.9%）。原因：`docs/dev.md` §11.3 记录的 589px 测于 TASK-023，早于 FR-052 自动授权块 + `#risk-status` + `#llm-test-result` 落地；今日同一 dist 仅隐藏导航条时 `#log` = 418px / 46.4%（v1 `journey.mjs` #15b 自身只断言 `>45%` 且通过）。脚本另以 v1 口径（仅隐藏导航条）断言 `#log ≥ 405px`（v1 自身 `>45vh` 下限）证明零回归，并以**开/关逐字段相等**证明 V2-2 覆盖层不改变任何稳态几何。详见 `specs-tree-v2-2-floating-tree-ui/build.md` §决策。
+
+## 6. v2 人工面：撤销与取消授权操作面（V2-3；`V2-H-*` 前缀，不与 §1 M / §2 H0~H10 / §5 V2-H-A~D 冲突）
+
+> 自动化已固化：`npm run test:insight`（`test/ui/insight.mjs`：真实控件 + `#tree-receipt`/`#tree-confirm` 容器 + `deny` 行无控件）与 `npm run test:binding`（`#21a~#21n`：真实站点 + 真实 dist，站点取消授权 / 能力撤销失败可读 / 开关关断→工具即时移出）。以下为 headless 无法判定的**真实交互 / 浏览器壳 / 视觉判断**人工面；未执行一律标 `⏳ 待人工`。
+
+| # | 人工面 | 步骤 | 期望 | 本轮结论 |
+|---|--------|------|------|:--:|
+| V2-H-1 | 真实授权弹窗（`chrome.permissions.request`；V2-3 **只撤销不授予**） | 真实 Chrome：在未授权站点点击插件图标 / 「授权当前站点」→ 观察原生权限弹窗；随后在树内点「撤销该站点授权」 | 授权弹窗由浏览器原生呈现（V2-3 树内**无任何授予入口**）；撤销后工具即时离开工具面并给可读回执 | ⏳ 待人工 |
+| V2-H-2 | 原生 `tabs.goBack` / `goForward` 等浏览器壳行为 | 真实 Chrome：用 `tabs` 工具触发浏览器前进/后退，观察壳层行为与历史恢复 | 行为与浏览器一致；与树内 `tabs` 开关关断/恢复无冲突（开关关断后工具离开工具面） | ⏳ 待人工 |
+| V2-H-3 | 剪贴板真读焦点（`clipboard read` 成功与否取决于页面焦点） | 真实 Chrome：切换页面焦点后经助手触发 `clipboard read`（`state` 档，永须人工确认） | 有焦点时可读、无焦点时可读失败原因；**任何情况下都不会被「读操作自动」自动放行** | ⏳ 待人工 |
+| V2-H-4 | 真实用户手势下 `permissions.remove` 的浏览器回执观感 | 真实 Chrome：对已授予的可选能力（书签/下载/通知/剪贴板），在树内点撤销并在确认框点「确认执行」 | 浏览器侧权限真实移除、工具即时移出工具面、回执显示「已从 LLM 工具面移除」；失败时显示可读「权限仍保留」 | ⏳ 待人工 |
+| V2-H-5 | `chrome://extensions` 外部撤销后树内实时刷新观感 | 真实 Chrome：打开树抽屉 → 在 `chrome://extensions` 手动移除某站点访问权限 / 某可选权限 → 回到侧栏观察树 | 树**自动重投影**（`insight-changed`/`capability-changed` 推送，无需重开面板）；状态与工具面即时一致，不显示陈旧态 | ⏳ 待人工 |
+| V2-H-6 | 二次确认文案在窄栏/长站点名下的可读性与拥挤度 | 真实 Chrome：拖窄侧栏（≈320px）→ 对超长 origin 的站点触发撤销 → 观察 `#tree-confirm` 与 `#tree-receipt` | 作用对象/后果/不可逆说明完整可读、自动换行、无横向滚动；确认/取消按钮不重叠 | ⏳ 待人工 |
+
+**口径与偏差（D-V23-01，必读）**：`test:binding` 的 `#21g`「站点工具即时移出 `deriveTools()`」要求撤销站点时**同时**撤下该站点在 router 中注册的工具。v1 `revoke` 处理器原先只做 `unregisterContentScript` + `removeOriginPermission` + `OriginStore.revoke`（工具名仍留在 registry，仅在派发时 S1-deny）。V2-3 按 FR-V2-030「工具面即时移出」补了一行**既有** `host.deactivateSite()` 调用（绑定 origin 被撤销时），是**只收紧**（fail-closed）的必要接线：不新增 `case` / 消息语义 / 判定路径；未授权 origin 经 tab-follow 也不会被重新注册（该路径先查 `origins.isAuthorized`）。详见 `specs-tree-v2-3-revoke-ops/build.md` §决策。
