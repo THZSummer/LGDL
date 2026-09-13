@@ -1654,6 +1654,7 @@ async function buildInsightSnapshot(s: Singletons) {
     })),
     ...(bound?.origin ? { activeOrigin: bound.origin } : {}),
     isOriginAuthorized: (origin) => authorizedOrigins.has(normalizeStableOrigin(origin)),
+    catalogMeta: (await import('../insight/catalog-meta.js')).CATALOG_BASELINE_META,
   });
 }
 

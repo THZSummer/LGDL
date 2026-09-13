@@ -14,8 +14,11 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import {
   CONTENT_MAX_BYTES,
+  CONTENT_SOURCE_SHA256,
   SIDEPANEL_BASELINE_BYTES,
   SIDEPANEL_BASELINE_BYTES_HISTORY,
   SIDEPANEL_BASELINE_META,
@@ -150,20 +153,22 @@ test('V2-2 size: v1 content 64 KiB target narrative is untouched (D31 not redefi
 
 // ---------------------------------------------------------------------------
 // W4 修复轮（2026-09-13）：sidepanel 基线显式重登记（V2-3 有意增重）
+// V2-4（2026-09-13）：再次显式重登记（只读命令档案面）；本节钉死值随重登记更新，
+// 断言结构零删减，历史值保留在 SIDEPANEL_BASELINE_BYTES_HISTORY。
 // ---------------------------------------------------------------------------
 
-test('W4 size: sidepanel baseline explicitly re-registered at the V2-3 re-measured value', () => {
+test('W4 size: sidepanel baseline explicitly re-registered at the V2-4 re-measured value', () => {
   // Re-measured 2026-09-13: `stat -c %s packages/web-cli-plugin/dist/sidepanel.js`
-  // → 1,110,744 B (V2-3 revoke/undo surface). V2-2's 1,085,389 B is retained in
-  // the history array and in the meta block — never silently overwritten.
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 1_110_744);
-  assert.deepEqual([...SIDEPANEL_BASELINE_BYTES_HISTORY], [1_068_165, 1_085_389]);
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_085_389);
+  // → 1,132,748 B (V2-4 read-only command archive surface). V2-3's 1,110,744 B and
+  // V2-2's 1,085,389 B are retained in the history array and in the meta block.
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 1_132_748);
+  assert.deepEqual([...SIDEPANEL_BASELINE_BYTES_HISTORY], [1_068_165, 1_085_389, 1_110_744]);
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_110_744);
   assert.ok(
     SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
     '重登记为「上调」必须显式记录（不得静默上调，也不得静默下调）',
   );
-  assert.equal(SIDEPANEL_CEILING, 1_166_281, 'ceiling = floor(1,110,744 × 1.05)');
+  assert.equal(SIDEPANEL_CEILING, 1_189_385, 'ceiling = floor(1,132,748 × 1.05)');
   assert.equal(SIDEPANEL_BASELINE_TOLERANCE, 0.05, '容差不得因重登记而放宽');
   assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_CEILING, '基线与上限自洽');
   // The zero-injection red line must NOT grow as part of the re-registration.
@@ -174,6 +179,69 @@ test('W4 size REVERSE PROOF: the re-registered ceiling still FAILS on one byte o
   assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, true);
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false, '新 ceiling + 1 必须 FAIL');
-  assert.equal(over.ceilingBytes, 1_166_281);
+  assert.equal(over.ceilingBytes, 1_189_385);
   assert.throws(() => assert.equal(over.ok, true, over.message), /体积回归/);
 });
+
+// ---------------------------------------------------------------------------
+// V2-4（2026-09-13）：重登记一致性 + content.js 零增长源码哈希 pin
+// （**追加**；上面 W4 段断言结构零删减，仅钉死值随显式重登记更新）
+// ---------------------------------------------------------------------------
+
+test('V2-4 size: baseline re-registration history is retained and monotonic', () => {
+  const history = [...SIDEPANEL_BASELINE_BYTES_HISTORY];
+  assert.ok(history.includes(1_068_165), 'v1 值保留');
+  assert.ok(history.includes(1_085_389), 'V2-2 值保留');
+  assert.ok(history.includes(1_110_744), 'V2-3 值保留');
+  for (let i = 1; i < history.length; i += 1) {
+    assert.ok(history[i] >= history[i - 1], 'HISTORY 必须单调不减');
+  }
+  assert.ok(SIDEPANEL_BASELINE_BYTES >= history[history.length - 1]);
+});
+
+test('V2-4 size: re-registration meta carries date/source/reason and is NOT a target budget', () => {
+  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-13');
+  assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');
+  assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('V2-4'), 'note 必须写明本轮重登记理由');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('1,132,748'), 'note 必须写明实测值');
+  assert.equal(SIDEPANEL_BASELINE_META.reRegisteredFrom, 'V2-3 1,110,744 B');
+  assert.equal(SIDEPANEL_BASELINE_META.targetBudgetBytes, null);
+  assert.equal(SIDEPANEL_BASELINE_META.targetMet, null);
+});
+
+test('V2-4 size: ceiling stays structurally consistent (floor(baseline × 1.05))', () => {
+  assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE)));
+  const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
+  assert.equal(over.ok, false);
+  assert.throws(
+    () => assert.equal(over.ok, true, over.message),
+    /体积回归/,
+    '反证：重登记后 ceiling + 1 仍必须 FAIL',
+  );
+});
+
+test('V2-4 size: content.js source files are frozen by content hash (zero-injection red line)', () => {
+  for (const [file, pinned] of Object.entries(CONTENT_SOURCE_SHA256)) {
+    const text = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
+    assert.equal(
+      createHash('sha256').update(text, 'utf8').digest('hex'),
+      pinned,
+      `${file} 内容哈希漂移（零注入红线：src/content/** 不得改动；若为有意改动须显式更新 pin 并注明日期与理由）`,
+    );
+  }
+  // 反证：改一个字节必须改变哈希（不得虚绿）
+  const victim = 'src/content/content-script.ts';
+  const text = readFileSync(new URL(`../../${victim}`, import.meta.url), 'utf8');
+  assert.notEqual(
+    createHash('sha256').update(`${text} `, 'utf8').digest('hex'),
+    CONTENT_SOURCE_SHA256[victim],
+    '反证：追加一字节必须改变内容哈希',
+  );
+  assert.equal(CONTENT_MAX_BYTES, 1_073_453);
+  const size = readArtifactSize(distArtifact('content.js'));
+  if (size !== undefined) {
+    assert.equal(evaluateContentCeiling(size).ok, true, `content.js ${size}B > ${CONTENT_MAX_BYTES}B`);
+  }
+});
+

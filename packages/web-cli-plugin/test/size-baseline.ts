@@ -29,7 +29,8 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * ── Re-registration history (never silently widen; keep every value on record) ──
  *   - v1 measured value .......... 1,068,165 B
  *   - V2-2 (2026-09-13) .......... 1,085,389 B (+20,000 B: floating-tree UI, TASK-008)
- *   - **current (2026-09-13)** ... 1,110,744 B (V2-3 revoke/undo surface, `f45c124`)
+ *   - V2-3 (2026-09-13) .......... 1,110,744 B (revoke/undo surface, `f45c124`)
+ *   - **current (2026-09-13)** ... 1,132,748 B (V2-4 read-only command archive surface)
  *
  * W4 fix round (2026-09-13): the V2-2 baseline (1,085,389 B) was NOT re-registered
  * after V2-3 added the revoke/confirm/receipt surface, so the guard's effective
@@ -37,11 +38,17 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * re-registration at the **re-measured** value (not a silent widen): the previous
  * values stay recorded above and the reason for the increase is the intentional
  * V2-3 weight. The tolerance (5%) is unchanged and no assertion was removed.
+ *
+ * V2-4 re-registration (2026-09-13): `src/insight/archive-catalog.ts` (new) +
+ * `tree-drawer.ts` archive sub-view grew the side panel by 22,004 B. Re-measured
+ * after `npm run build --workspace @lgdl/web-cli-plugin` (stat: 1,132,748 B).
+ * Previous values retained in the history array; tolerance unchanged (5%);
+ * `targetBudgetBytes` / `targetMet` remain null (baseline ≠ target budget).
  */
-export const SIDEPANEL_BASELINE_BYTES = 1_110_744;
+export const SIDEPANEL_BASELINE_BYTES = 1_132_748;
 
-/** Previous registered baseline (V2-2, 2026-09-13) — kept on record. */
-export const SIDEPANEL_BASELINE_BYTES_HISTORY = [1_068_165, 1_085_389] as const;
+/** Previous registered baselines (V2-2 / V2-3, 2026-09-13) — kept on record. */
+export const SIDEPANEL_BASELINE_BYTES_HISTORY = [1_068_165, 1_085_389, 1_110_744] as const;
 
 /** Allowed growth over the baseline before the guard fails. */
 export const SIDEPANEL_BASELINE_TOLERANCE = 0.05;
@@ -62,12 +69,12 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU build V2 P0 fix round W4: re-measured after the V2-3 revoke/undo surface (previous V2-2 baseline 1,085,389 B; v1 was 1,068,165 B). Explicit re-registration — previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
-  previousBaselineBytes: 1_085_389,
-  reRegisteredFrom: 'V2-2 1,085,389 B',
+    'SDDU build V2-4: re-measured after the read-only command archive surface (src/insight/archive-catalog.ts + tree-drawer sub-view; previous V2-3 baseline 1,110,744 B; V2-2 was 1,085,389 B; v1 was 1,068,165 B). Explicit re-registration — previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
+  previousBaselineBytes: 1_110_744,
+  reRegisteredFrom: 'V2-3 1,110,744 B',
   targetBudgetBytes: null,
   targetMet: null,
-  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-13 W4 显式重登记：V2-3 有意增重（撤销/回执面）后实测 1,110,744 B；历史值 1,068,165 / 1,085,389 保留在案。',
+  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-13 V2-4 显式重登记：只读命令档案面（archive-catalog + 抽屉子视图）有意增重后实测 1,132,748 B；历史值 1,068,165 / 1,085,389 / 1,110,744 保留在案；容差 5% 不变。',
 } as const;
 
 /**
@@ -75,6 +82,19 @@ export const SIDEPANEL_BASELINE_META = {
  * measured value, no tolerance. V2 must not add a single byte here.
  */
 export const CONTENT_MAX_BYTES = 1_073_453;
+
+/**
+ * `src/content/**` source content hashes (W3 discipline): the injected bundle's
+ * sources are **frozen by content hash** (not by a post-commit-恒绿 `git diff`).
+ * Any byte change — including whitespace — must FAIL unless the pin is explicitly
+ * updated with a dated reason. Pinned 2026-09-13 (V2-4 build; zero-injection red line).
+ */
+export const CONTENT_SOURCE_SHA256: Readonly<Record<string, string>> = {
+  'src/content/content-script.ts': 'a72900313ab77c018961aa2b8e02bb1b630a9960c1b622f2a85addf543f99e82',
+  'src/content/dom-agent.ts': '7df782b349b32839d0ec25fa515ee293441f85f75242083dae37e5ccfd601e0f',
+  'src/content/page-bridge.ts': '5737c40a2014e7adf2bf4091a31a347af6600ecfea80f8882d52e9407191f4ac',
+};
+
 
 export interface SizeVerdict {
   ok: boolean;

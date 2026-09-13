@@ -23,6 +23,12 @@ import {
 } from './tree-view.js';
 import type { TreeActionOutcome, TreeActionRequest } from './tree-ops.js';
 import type { ConnectTreeSnapshot, ControlDescriptor } from '../../insight/tree-model.js';
+import {
+  buildArchiveModel,
+  type ArchiveCard,
+  type ArchiveFilter,
+  type ArchiveGroupBy,
+} from '../../insight/archive-catalog.js';
 
 export interface TreeDrawerOps {
   /** 拉取完整快照（sidepanel 侧 = `insight-tree` pull）。 */
@@ -66,11 +72,41 @@ interface Shell {
   body: HTMLElement;
   count: HTMLElement;
   filterInput: HTMLInputElement;
+  /** V2-4：档案子视图控件（默认关；`.tree-archive` 之外，保持档案容器零控件）。 */
+  archiveToggle: HTMLButtonElement;
+  archiveControls: HTMLElement;
+  archiveDetail: HTMLElement;
+  archiveGroupBy: HTMLSelectElement;
+  archiveQuery: HTMLInputElement;
+  archiveAction: HTMLSelectElement;
+  archiveSource: HTMLSelectElement;
   /** V2-3 ①③：回执 + 审计入口（`role=status aria-live=polite`）。 */
   receipt: HTMLElement;
   /** V2-3：抽屉内联二次确认（ADR-V2-013）。 */
   confirm: HTMLElement;
 }
+
+/** V2-4 档案分组维度（与 `ArchiveGroupBy` 同形；下拉文案）。 */
+const ARCHIVE_GROUP_OPTIONS: readonly { value: ArchiveGroupBy; label: string }[] = [
+  { value: 'tool', label: '按工具' },
+  { value: 'action', label: '按档位' },
+  { value: 'risk', label: '按 risk' },
+  { value: 'source', label: '按来源' },
+  { value: 'deny-cause', label: '按 deny 成因' },
+];
+
+const ARCHIVE_SOURCE_OPTIONS: readonly string[] = [
+  'site-declared',
+  'plugin-admin',
+  'plugin-tabs',
+  'plugin-bookmarks',
+  'plugin-downloads',
+  'plugin-notify',
+  'plugin-clipboard',
+  'base-builtin',
+];
+
+const ARCHIVE_ACTION_OPTIONS: readonly string[] = ['allow', 'ask', 'deny'];
 
 export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
   const { root, fab, doc } = deps;
@@ -80,6 +116,9 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
   let loaded = false;
   let opened = false;
   let shell: Shell | null = null;
+  /** V2-4 档案子视图：默认关（关闭时不创建 `.tree-archive`，默认 DOM 与 P0 现状一致）。 */
+  let archiveEnabled = false;
+  let archiveFilter: ArchiveFilter = { groupBy: 'tool' };
 
   const notice = (text: string): void => {
     if (deps.onNotice) deps.onNotice(text);
@@ -133,6 +172,89 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     const count = el('div', 'tree-filter-count');
     filterWrap.append(filterInput, count);
 
+    // ── V2-4 档案子视图控件（默认关；位于 `.tree-archive` 之外 → 档案容器保持零控件） ──
+    // 这些都是**只读展示操作**（开关/分组/检索），不带任何动作标识（无命令级写路径）。
+    const archiveControls = el('div', 'tree-archive-controls');
+    const archiveDetail = el('div', 'tree-archive-detail');
+    archiveDetail.hidden = true;
+    const archiveToggle = el('button', 'tree-archive-toggle', '查看命令档案（只读）');
+    archiveToggle.id = 'tree-archive-toggle';
+    archiveToggle.type = 'button';
+    archiveToggle.setAttribute('aria-pressed', 'false');
+    archiveToggle.setAttribute('aria-label', '切换只读命令档案子视图（默认关闭）');
+    archiveToggle.addEventListener('click', () => {
+      setArchiveEnabled(!archiveEnabled);
+    });
+    const groupByLabel = el('span', 'tree-archive-control-label', '分组');
+    const archiveGroupBy = doc.createElement('select');
+    archiveGroupBy.id = 'tree-archive-groupby';
+    archiveGroupBy.setAttribute('aria-label', '档案分组维度（只读展示）');
+    for (const option of ARCHIVE_GROUP_OPTIONS) {
+      const node = el('option', undefined, option.label);
+      node.value = option.value;
+      archiveGroupBy.append(node);
+    }
+    archiveGroupBy.addEventListener('change', () => {
+      archiveFilter = { ...archiveFilter, groupBy: archiveGroupBy.value as ArchiveGroupBy };
+      renderBody();
+    });
+    const queryLabel = el('span', 'tree-archive-control-label', '检索');
+    const archiveQuery = doc.createElement('input');
+    archiveQuery.id = 'tree-archive-query';
+    archiveQuery.type = 'text';
+    archiveQuery.placeholder = '检索：命令 / 来源 / origin / 成因';
+    archiveQuery.setAttribute('aria-label', '检索命令档案（只读过滤，不改任何授权状态）');
+    archiveQuery.addEventListener('input', () => {
+      archiveFilter = { ...archiveFilter, query: archiveQuery.value };
+      renderBody();
+    });
+    const actionLabel = el('span', 'tree-archive-control-label', '档位');
+    const archiveAction = doc.createElement('select');
+    archiveAction.id = 'tree-archive-action';
+    archiveAction.setAttribute('aria-label', '按处置档位过滤（只读）');
+    for (const value of ['', ...ARCHIVE_ACTION_OPTIONS]) {
+      const node = el('option', undefined, value === '' ? '全部档位' : value);
+      node.value = value;
+      archiveAction.append(node);
+    }
+    archiveAction.addEventListener('change', () => {
+      const value = archiveAction.value;
+      archiveFilter = {
+        ...archiveFilter,
+        ...(value === '' ? { action: undefined } : { action: value as ArchiveCard['action'] }),
+      };
+      renderBody();
+    });
+    const sourceLabel = el('span', 'tree-archive-control-label', '来源');
+    const archiveSource = doc.createElement('select');
+    archiveSource.id = 'tree-archive-source';
+    archiveSource.setAttribute('aria-label', '按来源过滤（只读）');
+    for (const value of ['', ...ARCHIVE_SOURCE_OPTIONS]) {
+      const node = el('option', undefined, value === '' ? '全部来源' : value);
+      node.value = value;
+      archiveSource.append(node);
+    }
+    archiveSource.addEventListener('change', () => {
+      const value = archiveSource.value;
+      archiveFilter = {
+        ...archiveFilter,
+        ...(value === '' ? { sourceKind: undefined } : { sourceKind: value as ArchiveCard['sourceKind'] }),
+      };
+      renderBody();
+    });
+    archiveDetail.append(
+      groupByLabel,
+      archiveGroupBy,
+      queryLabel,
+      archiveQuery,
+      actionLabel,
+      archiveAction,
+      sourceLabel,
+      archiveSource,
+    );
+    archiveControls.append(archiveToggle, archiveDetail);
+    filterWrap.append(archiveControls);
+
     // V2-3：回执（① + ②）与审计入口（③）；二次确认内联区（拒绝 = 零操作）。
     const receipt = el('div', 'tree-receipt');
     receipt.id = 'tree-receipt';
@@ -147,7 +269,20 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     const body = el('div', 'tree-body');
 
     root.append(header, notes, filterWrap, receipt, confirm, body);
-    shell = { body, count, filterInput, receipt, confirm };
+    shell = {
+      body,
+      count,
+      filterInput,
+      archiveToggle,
+      archiveControls,
+      archiveDetail,
+      archiveGroupBy,
+      archiveQuery,
+      archiveAction,
+      archiveSource,
+      receipt,
+      confirm,
+    };
     return shell;
   }
 
@@ -316,6 +451,123 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     return wrap;
   }
 
+  // ── V2-4 archive sub-view (read-only; default OFF) ───────────────────────────
+  // The archive is a *display* surface: every node below is a `div`/`span` built
+  // with `createElement`/`textContent`. No actionable element is created inside
+  // `.tree-archive` (no control class, no action id, no checkbox) — the ADR-V2-020
+  // red line is structural, not a wording promise.
+
+  function archiveField(name: string, text: string): HTMLElement {
+    const node = el('div', 'tree-archive-field', text);
+    node.dataset.field = name;
+    return node;
+  }
+
+  function renderArchiveCard(card: ArchiveCard): HTMLElement {
+    const node = el('div', 'tree-archive-card');
+    node.dataset.cardId = card.cardId;
+    node.dataset.action = card.action;
+    node.dataset.sourceKind = card.sourceKind;
+    if (card.risk) node.dataset.risk = card.risk;
+    node.append(
+      el('div', 'tree-archive-card-title', card.subcommand ? `${card.name} ${card.subcommand}` : card.name),
+      archiveField('action', `处置（policy）：${card.action}`),
+    );
+    if (card.denyCauseLabel) {
+      node.append(archiveField('deny-cause', `deny 成因（policy 层）：${card.denyCauseLabel}`));
+    }
+    node.append(archiveField('auto-auth', card.autoAuthLabel));
+    node.append(
+      archiveField(
+        'source',
+        card.origin
+          ? `来源：${card.sourceKind}（站点 ${card.origin}）`
+          : `来源：${card.sourceKind}`,
+      ),
+    );
+    node.append(archiveField('delay-ms', `命令间隔 delayMs=${card.delayMs}ms（与 delay 档无关）`));
+    if (card.suppressed) {
+      node.append(archiveField('suppressed', `抑制：${card.suppressionReason ?? '当前不在工具面'}`));
+    }
+    if (card.badges.length > 0) {
+      const badges = el('div', 'tree-archive-badges');
+      for (const badge of card.badges) {
+        const item = el('span', 'tree-archive-badge', badge.label);
+        item.dataset.tone = badge.tone;
+        item.dataset.kind = badge.kind;
+        badges.append(item);
+      }
+      node.append(badges);
+    }
+    return node;
+  }
+
+  function renderArchive(): void {
+    const current = ensureShell();
+    if (!snapshot) return;
+    const model = buildArchiveModel(snapshot, archiveFilter);
+    current.body.replaceChildren();
+    current.count.textContent = `档案（只读）：${model.filter.matches} / ${model.header.liveCounts.cards} 卡`;
+
+    const wrap = el('div', 'tree-archive');
+    wrap.dataset.groupBy = model.filter.groupBy;
+    wrap.dataset.liveTools = String(model.header.liveCounts.tools);
+    wrap.dataset.liveSubs = String(model.header.liveCounts.subcommands);
+    wrap.dataset.liveCards = String(model.header.liveCounts.cards);
+
+    const header = el('div', 'tree-archive-header');
+    header.append(
+      el('div', 'tree-archive-title', model.header.title),
+      el('div', 'tree-archive-live', model.header.liveLabel),
+      el('div', 'tree-archive-baseline', model.header.baselineLabel),
+      el('div', 'tree-archive-parity', model.header.parityLabel),
+      el('div', 'tree-archive-readonly', model.header.readOnlyLabel),
+      el('div', 'tree-archive-noexag', model.notes.noExaggerationNote),
+      el(
+        'div',
+        'tree-archive-note-ref',
+        'delay 档消歧声明见上方「不是提权面」区块（同一措辞源，档案不重复渲染）。',
+      ),
+    );
+    const siteCards = model.cards.filter((card) => card.sourceKind === 'site-declared');
+    header.append(
+      el(
+        'div',
+        'tree-archive-site-count',
+        siteCards.length > 0
+          ? `站点声明卡 ${siteCards.length} 张（每张标注所属 origin）`
+          : '站点声明卡 0 张（当前无站点声明工具；绑定并授权站点后出现 site_* 卡）',
+      ),
+    );
+    wrap.append(header);
+
+    for (const group of model.groups) {
+      const section = el('div', 'tree-archive-group');
+      section.dataset.groupKey = group.key;
+      section.append(el('div', 'tree-archive-group-title', `${group.label}（${group.count}）`));
+      if (group.cards.length === 0) {
+        section.append(el('div', 'tree-empty', '该分组在当前过滤条件下无卡。'));
+      } else {
+        for (const card of group.cards) section.append(renderArchiveCard(card));
+      }
+      wrap.append(section);
+    }
+    if (model.cards.length === 0) {
+      wrap.append(el('div', 'tree-empty', '当前过滤条件下无档案卡（只读过滤，不改任何授权状态）。'));
+    }
+    current.body.append(wrap);
+  }
+
+  function setArchiveEnabled(next: boolean): void {
+    archiveEnabled = next;
+    const current = ensureShell();
+    current.archiveToggle.setAttribute('aria-pressed', next ? 'true' : 'false');
+    current.archiveToggle.textContent = next ? '关闭命令档案' : '查看命令档案（只读）';
+    current.archiveDetail.hidden = !next;
+    current.filterInput.disabled = next;
+    renderBody();
+  }
+
   function renderBody(): void {
     const current = ensureShell();
     current.body.replaceChildren();
@@ -325,6 +577,11 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
         el('div', 'tree-empty', '连接树尚未加载：点击左下角「连接树」按钮按需拉取（关闭态不渲染、不轮询）。'),
       );
       current.count.textContent = '';
+      return;
+    }
+
+    if (archiveEnabled) {
+      renderArchive();
       return;
     }
 

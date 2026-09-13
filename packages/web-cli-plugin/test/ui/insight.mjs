@@ -585,6 +585,170 @@ async function main() {
       `drift=${JSON.stringify(drift.map((f) => [f, closedLayout[f], openLayout[f]]))}`,
     );
 
+    // 9b. V2-4 (TASK-006): read-only command archive sub-view (#I-19a…h).
+    // Consumes the SAME Chromium session (no second browser, OOM discipline).
+    const archiveBefore = await evaluate(
+      sp,
+      `(() => {
+        const drawer = document.getElementById('tree-drawer');
+        const toggle = document.getElementById('tree-archive-toggle');
+        const groupBy = document.getElementById('tree-archive-groupby');
+        return {
+          hasToggle: !!toggle,
+          hasGroupBy: !!groupBy,
+          ariaPressed: toggle ? toggle.getAttribute('aria-pressed') : null,
+          archiveCount: drawer.querySelectorAll('.tree-archive').length,
+          toggleInArchive: toggle ? !!toggle.closest('.tree-archive') : null,
+        };
+      })()`,
+    );
+    check(
+      archiveBefore.hasToggle === true && archiveBefore.hasGroupBy === true,
+      '#I-19a0 档案开关 + 分组选择存在（默认关；控件在 `.tree-archive` 之外）',
+      JSON.stringify(archiveBefore),
+    );
+    check(
+      archiveBefore.ariaPressed === 'false' && archiveBefore.archiveCount === 0,
+      '#I-19a 档案默认关（aria-pressed=false）且 `.tree-archive` 不存在 → 默认 DOM 与现状一致',
+      JSON.stringify(archiveBefore),
+    );
+
+    await realClick(sp, '#tree-archive-toggle');
+    const archiveReady = await waitFor(sp, `document.querySelector('.tree-archive') ? 'ready' : ''`, 60, 150);
+    check(archiveReady === 'ready', '#I-19a2 真实点击后档案子视图出现（.tree-archive）', String(archiveReady));
+    await sleep(200);
+
+    const archiveShape = await evaluate(
+      sp,
+      `(() => {
+        const archive = document.querySelector('.tree-archive');
+        if (!archive) return null;
+        const cards = [...archive.querySelectorAll('.tree-archive-card')];
+        const missingFields = cards.filter(
+          (c) => !c.dataset.action || !c.dataset.sourceKind || !c.querySelector('[data-field="delay-ms"]'),
+        );
+        const denyCards = cards.filter((c) => c.dataset.action === 'deny');
+        const denyWithoutCause = denyCards.filter((c) => !c.querySelector('[data-field="deny-cause"]'));
+        const siteCards = [...archive.querySelectorAll('.tree-archive-card[data-source-kind="site-declared"]')];
+        const siteWithOrigin = siteCards.filter((c) =>
+          /站点 /.test(c.querySelector('[data-field="source"]')?.textContent ?? ''),
+        );
+        const siteCountText = archive.querySelector('.tree-archive-site-count')?.textContent ?? '';
+        const liveText = archive.querySelector('.tree-archive-live')?.textContent ?? '';
+        const html = document.body.textContent ?? '';
+        return {
+          cards: cards.length,
+          liveTools: Number(archive.dataset.liveTools),
+          liveSubs: Number(archive.dataset.liveSubs),
+          liveCards: Number(archive.dataset.liveCards),
+          liveText,
+          missingFields: missingFields.length,
+          denyCards: denyCards.length,
+          denyWithoutCause: denyWithoutCause.length,
+          siteCards: siteCards.length,
+          siteWithOrigin: siteWithOrigin.length,
+          siteCountText,
+          noteNodes: document.querySelectorAll('.tree-note-no-escalation').length,
+          disambiguationHits: html.split('非可配置档位').length - 1,
+          readonlyText: archive.querySelector('.tree-archive-readonly')?.textContent ?? '',
+        };
+      })()`,
+    );
+    check(
+      archiveShape &&
+        archiveShape.cards > 0 &&
+        archiveShape.cards === archiveShape.liveTools + archiveShape.liveSubs &&
+        archiveShape.cards === archiveShape.liveCards,
+      '#I-19b `.tree-archive-card` 数 === 头部「实时面 N 条目 / M 子命令 = K 卡」的 N+M（且 > 0）',
+      JSON.stringify(archiveShape),
+    );
+    check(
+      archiveShape && archiveShape.missingFields === 0 && archiveShape.denyCards >= 1 && archiveShape.denyWithoutCause === 0,
+      '#I-19c 每卡含 action/sourceKind/delayMs 字段；deny 卡含成因文案（复用 DENY_CAUSE_LABEL）',
+      JSON.stringify(archiveShape),
+    );
+    check(
+      archiveShape &&
+        ((archiveShape.siteCards > 0 && archiveShape.siteWithOrigin === archiveShape.siteCards) ||
+          (archiveShape.siteCards === 0 && archiveShape.siteCountText.includes('0 张'))),
+      '#I-19d site_* 卡（若存在）显示 origin；无站点卡时如实标注计数（不做空断言）',
+      JSON.stringify(archiveShape),
+    );
+    check(
+      archiveShape && archiveShape.noteNodes === 1 && archiveShape.disambiguationHits === 1,
+      '#I-19e `delay` 单源：`.tree-note-no-escalation` 恰 1 处且「非可配置档位」全文档出现 1 次',
+      JSON.stringify(archiveShape),
+    );
+
+    await realClick(sp, '#tree-archive-query');
+    await typeText(sp, 'zzz-no-such-card-zzz');
+    const archiveFiltered = await waitFor(
+      sp,
+      `(() => {
+        const archive = document.querySelector('.tree-archive');
+        if (!archive) return '';
+        return JSON.stringify({ cards: archive.querySelectorAll('.tree-archive-card').length, empties: archive.querySelectorAll('.tree-empty').length });
+      })()`,
+      40,
+      150,
+    );
+    const af = archiveFiltered ? JSON.parse(archiveFiltered) : {};
+    check(af.cards === 0 && (af.empties ?? 0) >= 1, '#I-19f1 档案检索无命中 → 0 卡 + 可读空态（只读过滤）', archiveFiltered ?? '');
+    await evaluate(
+      sp,
+      `(() => { const i = document.getElementById('tree-archive-query'); i.value = ''; i.dispatchEvent(new Event('input')); return true; })()`,
+    );
+    const archiveRestored = await waitFor(
+      sp,
+      `String(document.querySelectorAll('.tree-archive .tree-archive-card').length)`,
+      30,
+      150,
+    );
+    check(Number(archiveRestored) > 0, '#I-19f2 清空检索后恢复展示（过滤不改真值）', `cards=${archiveRestored}`);
+
+    const archiveControls = await evaluate(
+      sp,
+      `(() => {
+        const archive = document.querySelector('.tree-archive');
+        if (!archive) return null;
+        return {
+          treeControls: archive.querySelectorAll('.tree-control').length,
+          actionButtons: archive.querySelectorAll('button[data-action-id]').length,
+          checkboxes: archive.querySelectorAll('input[type=checkbox]').length,
+          rows: archive.querySelectorAll('.tree-row').length,
+        };
+      })()`,
+    );
+    check(
+      archiveControls &&
+        archiveControls.treeControls === 0 &&
+        archiveControls.actionButtons === 0 &&
+        archiveControls.checkboxes === 0 &&
+        archiveControls.rows === 0,
+      '#I-19g 安全红线：`.tree-archive` 内零 `.tree-control` / 零 `button[data-action-id]` / 零 checkbox / 零 `.tree-row`',
+      JSON.stringify(archiveControls),
+    );
+
+    const archiveLayout = await evaluate(sp, MEASURE);
+    checkLayout(archiveLayout, '#I-19h(开档案)');
+
+    // restore the default (archive OFF) state for the downstream narrow-viewport step
+    await realClick(sp, '#tree-archive-toggle');
+    await waitFor(sp, `document.querySelector('.tree-archive') ? '' : 'off'`, 40, 150);
+    const archiveClosed = await evaluate(
+      sp,
+      `(() => ({
+        archiveCount: document.querySelectorAll('.tree-archive').length,
+        ariaPressed: document.getElementById('tree-archive-toggle').getAttribute('aria-pressed'),
+        rows: document.querySelectorAll('#tree-drawer .tree-row').length,
+      }))()`,
+    );
+    check(
+      archiveClosed.archiveCount === 0 && archiveClosed.ariaPressed === 'false' && archiveClosed.rows > 0,
+      '#I-19h2 关闭档案后 `.tree-archive` 移除、aria 同步、默认平铺恢复（默认关不改变既有渲染路径）',
+      JSON.stringify(archiveClosed),
+    );
+
     // 10. Esc closes + focus returns to the FAB
     await sp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
     await sp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });

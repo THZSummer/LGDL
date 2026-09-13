@@ -81,7 +81,7 @@
 
 ## 5. v2 人工面：悬浮连接树（V2-2；`V2-H-*` 前缀，不与 §1 M1~M30 / §2 H0~H10 冲突）
 
-> 自动化已固化：`npm run test:insight`（`test/ui/insight.mjs`，**52 断言**〔原记 45 系 V2-2 时点；2026-09-13 v2 P0 修复轮新增 `#I-06c`/`#I-06d` 后实测 **52**，**以现状为准**〕，真实 dist + CDP，视口 400×900，开/关两态）覆盖 FAB/抽屉/四维度/徽标/降级/文案/过滤/几何量化。以下为 headless 无法判定的**观感与真实交互体感**人工面；未执行一律标 `⏳ 待人工`。
+> 自动化已固化：`npm run test:insight`（`test/ui/insight.mjs`，**70 断言**〔历史：原记 **45** 系 V2-2 时点；2026-09-13 v2 P0 修复轮新增 `#I-06c`/`#I-06d` 后实测 **52**；**2026-09-13 V2-4 新增 `#I-19a…h`（含 `#I-19h` 复用 `checkLayout` 展开 7 项）后实测 70**，**以现状为准**〕，真实 dist + CDP，视口 400×900，开/关两态）覆盖 FAB/抽屉/四维度/徽标/降级/文案/过滤/几何量化 + V2-4 只读命令档案子视图（默认关 / 实时面卡数 / 字段可读 / `delay` 单源 / 只读过滤 / 档案容器零控件 / 开档案布局不回退）。以下为 headless 无法判定的**观感与真实交互体感**人工面；未执行一律标 `⏳ 待人工`。
 
 | # | 人工面 | 步骤 | 期望 | 本轮结论 |
 |---|--------|------|------|:--:|
@@ -106,3 +106,15 @@
 | V2-H-6 | 二次确认文案在窄栏/长站点名下的可读性与拥挤度 | 真实 Chrome：拖窄侧栏（≈320px）→ 对超长 origin 的站点触发撤销 → 观察 `#tree-confirm` 与 `#tree-receipt` | 作用对象/后果/不可逆说明完整可读、自动换行、无横向滚动；确认/取消按钮不重叠 | ⏳ 待人工 |
 
 **口径与偏差（D-V23-01，必读）**：`test:binding` 的 `#21g`「站点工具即时移出 `deriveTools()`」要求撤销站点时**同时**撤下该站点在 router 中注册的工具。v1 `revoke` 处理器原先只做 `unregisterContentScript` + `removeOriginPermission` + `OriginStore.revoke`（工具名仍留在 registry，仅在派发时 S1-deny）。V2-3 按 FR-V2-030「工具面即时移出」补了一行**既有** `host.deactivateSite()` 调用（绑定 origin 被撤销时），是**只收紧**（fail-closed）的必要接线：不新增 `case` / 消息语义 / 判定路径；未授权 origin 经 tab-follow 也不会被重新注册（该路径先查 `origins.isAuthorized`）。详见 `specs-tree-v2-3-revoke-ops/build.md` §决策。
+
+## 7. v2 人工面：命令档案浏览器（V2-4；`V2-H-*` 前缀，不与 §1 M / §2 H0~H10 / §5 V2-H-A~D / §6 V2-H-1~6 冲突）
+
+> 自动化已固化：`npm run test:insight`（`test/ui/insight.mjs` 追加 `#I-19a…h`：档案开关默认关 / 实时面卡数 == 头部 N+M / 每卡 action·sourceKind·delayMs 字段与 `deny` 成因 / `site_*` origin 或 0 张计数 / `delay` 单源（`非可配置档位` 恰 1 次）/ 只读检索收窄与清空恢复 / `.tree-archive` 内零 `.tree-control`·零 `button[data-action-id]`·零 checkbox / 开档案布局不回退）与 node 门禁 `test/insight-archive.test.ts`（三层口径行级并集 100%、`deny` 分层全量交叉 × 站点域矩阵）。以下为 headless 无法判定的**视觉与感知判断**人工面；本轮未执行，一律标 `⏳ 待人工`（**不冒充 PASS**）。
+
+| # | 人工面 | 步骤 | 期望 | 本轮结论 |
+|---|--------|------|------|:--:|
+| V2-H-7 | 档案长文案 / 320px 窄栏下 122 卡的拥挤度与可读性 | 真实 Chrome：打开 side panel（拖到最窄 ≈320px）→ 点「查看命令档案（只读）」→ 用「分组」切换为「按工具」→ 上下滚动全部卡片，观察长命令名 / 长成因文案 / 长抑制原因 / 徽标的换行与拥挤度 | 卡片文本自动换行（`overflow-wrap:anywhere`），无截断丢字、无横向滚动；字段（处置 / 成因 / 自动授权层 / 来源 / delayMs）层次可读；徽标不撑破卡片；122 卡滚动流畅无卡顿 | ⏳ 待人工 |
+| V2-H-8 | 分组维度切换 / 折叠展开的观感与动效 | 真实 Chrome：依次切换「分组」为 按工具 / 按档位 / 按 risk / 按来源 / 按 deny 成因；在每个维度下滚动并观察分组标题与计数 | 分组标题与计数即时更新且与卡片数自洽；切换无闪烁 / 无跳动；同一维度内排序稳定（按 `cardId`）；无重复卡 | ⏳ 待人工 |
+| V2-H-9 | 真实站点绑定后 `site_*` 卡片增长时的观感 | 真实 Chrome：绑定并授权一个声明了 `site_*` 工具的站点 → 打开档案 → 按来源切到 `site-declared` → 观察站点卡（含所属 origin）与自动授权层文案 | site 卡逐张标注所属 origin；`evaluate`/不可分类档显示「自动授权层：硬底线」，`read`/`write` 显示「适用」；无绑定 origin 的站点工具如实标「不适用」；卡数增长后分组计数同步、无横向溢出 | ⏳ 待人工 |
+
+**口径与偏差（D-V24-01，必读）**：档案头部只显示「实时面 N 条目 / M 子命令 = K 卡」（**当次快照真实计数**）+「对账基线 34/142（来源 commit）」+ parity 结论，**绝不**出现「34/142 已全部渲染」类夸大表述；`accounted = carded ∪ waived` 的行级 100% 覆盖由 node 门禁 `test/insight-archive.test.ts` 以真实基线行注入验证（运行时只给计数口径，不打包 baseline JSON）。档案是**只读展示面**：`.tree-archive` 内无任何 `.tree-control` / `button[data-action-id]` / checkbox（`#I-19g` 运行期断言），不得把 `deny`/`delay` 误读为可关档位。详见 `specs-tree-v2-4-command-archive/build.md` §决策。
