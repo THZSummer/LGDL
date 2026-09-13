@@ -39,6 +39,9 @@ import { buildStateMessage, projectActiveTab, type SessionView } from './state-m
 import { buildDiagMessage } from './diag-message.js';
 import { BUILD_STAMP } from '../build-info.js';
 import { createWebCliHost, type WebCliHost } from './host.js';
+import { buildInsightTree, summarizeInsight } from '../insight/build-snapshot.js';
+import { suppressedCapabilitySurface, type ToolSurfaceEntry } from '../insight/command-catalog.js';
+import { normalizeStableOrigin } from '../insight/tree-model.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
 import { createSessionStore, projectHistory, sessionLabel, type SessionStore } from './session-store.js';
@@ -75,6 +78,7 @@ import {
   type PluginMessage,
   type PluginResponse,
 } from './messaging.js';
+import { isInsightMessage } from './insight-protocol.js';
 import { providerChat, providerById } from '../llm/providers.js';
 import { createKeyStore } from '../llm/key-store.js';
 import { toLlmStatusSummary } from '../llm/status.js';
@@ -1531,6 +1535,118 @@ function capabilityOf(raw: unknown): OptionalCapability {
   return raw === 'downloads' ? 'downloads' : raw === 'notify' ? 'notify' : raw === 'clipboard' ? 'clipboard' : 'bookmarks';
 }
 
+/**
+ * V2-1 (ADR-V2-001): assemble the plane tool surface from the live router —
+ * present tools (`deriveTools()` + `router.query` schema) plus the currently
+ * unregistered capability tools (`suppressedCapabilitySurface`, readable reason).
+ * Read-only; no writes, no chrome calls.
+ */
+function projectToolSurface(s: Singletons): ToolSurfaceEntry[] {
+  const entries: ToolSurfaceEntry[] = [];
+  for (const name of s.host.deriveTools().map((t) => t.name)) {
+    const entry = s.host.router.query({ name })[0];
+    if (!entry) {
+      // Base builtins (sleep / web-cli-help) are not in the business registry.
+      entries.push({ name, subcommands: [], presentInSurface: true });
+      continue;
+    }
+    const params = entry.schema.parameters as
+      | { properties?: { subcommand?: { enum?: string[] } } }
+      | undefined;
+    const subEnum = params?.properties?.subcommand?.enum;
+    entries.push({
+      name: entry.name,
+      ...(entry.group ? { group: entry.group } : {}),
+      ...(entry.risk ? { risk: entry.risk } : {}),
+      ...(entry.subcommandRisks ? { subcommandRisks: { ...entry.subcommandRisks } } : {}),
+      subcommands: Array.isArray(subEnum) ? [...subEnum] : [],
+      presentInSurface: true,
+    });
+  }
+  const cfg = s.capabilitySetting.get();
+  entries.push(
+    ...suppressedCapabilitySurface({
+      tabsEnabled: s.host.isTabsEnabled(),
+      toggles: {
+        bookmarksRead: cfg.bookmarksRead,
+        bookmarksWrite: cfg.bookmarksWrite,
+        downloadsRead: cfg.downloadsRead,
+        notify: cfg.notify,
+        clipboardRead: cfg.clipboardRead,
+        clipboardWrite: cfg.clipboardWrite,
+      },
+      suppressed: {
+        bookmarks: s.host.isCapabilitySuppressed('bookmarks'),
+        downloads: s.host.isCapabilitySuppressed('downloads'),
+        notify: s.host.isCapabilitySuppressed('notify'),
+        clipboard: s.host.isCapabilitySuppressed('clipboard'),
+      },
+    }),
+  );
+  return entries;
+}
+
+/** V2-1 (ADR-V2-004): push a re-projection trigger (carries no sensitive data). */
+function pushInsightChanged(): void {
+  void chrome.runtime.sendMessage(makeMessage('insight-changed')).catch(() => {});
+}
+
+/**
+ * V2-1 (ADR-V2-001): build the deterministic ConnectTreeSnapshot from the live
+ * singletons. Pure read — no storage writes, no audit entry, no authorization
+ * change. The only place in V2-1 that touches `chrome.*` (via `s.*` seams).
+ */
+async function buildInsightSnapshot(s: Singletons) {
+  const records = await s.origins.list();
+  const authorizedOrigins = new Set(records.filter((r) => r.authorized === true).map((r) => r.origin));
+  const cfg = s.capabilitySetting.get();
+  const grants: Record<OptionalCapability, boolean> = {
+    bookmarks: false,
+    downloads: false,
+    notify: false,
+    clipboard: false,
+  };
+  for (const cap of OPTIONAL_CAPABILITIES) {
+    grants[cap] = await hasCapabilityPermission(chrome.permissions, cap);
+  }
+  await s.sessions.load();
+  const llm = toLlmStatusSummary(await s.keys.maskedConfig());
+  const bound = s.controller.get();
+  return buildInsightTree({
+    listOrigins: () =>
+      records.map((r) => ({
+        origin: r.origin,
+        authorized: r.authorized === true,
+        trust: r.trust === 'trusted' ? 'trusted' : 'untrusted',
+        ...(r.authorizedAt !== undefined ? { authorizedAt: r.authorizedAt } : {}),
+        updatedAt: r.updatedAt,
+      })),
+    capability: {
+      grants,
+      toggles: {
+        bookmarksRead: cfg.bookmarksRead,
+        bookmarksWrite: cfg.bookmarksWrite,
+        downloadsRead: cfg.downloadsRead,
+        notify: cfg.notify,
+        clipboardRead: cfg.clipboardRead,
+        clipboardWrite: cfg.clipboardWrite,
+      },
+      tabsEnabled: s.host.isTabsEnabled(),
+    },
+    toolSurface: () => projectToolSurface(s),
+    delayMs: s.host.delayConfig().delayMs,
+    llm,
+    sessions: s.sessions.list().map((rec) => ({
+      sessionId: rec.sessionId,
+      label: sessionLabel(rec),
+      origins: [...rec.origins],
+      lastActiveAt: rec.lastActiveAt,
+    })),
+    ...(bound?.origin ? { activeOrigin: bound.origin } : {}),
+    isOriginAuthorized: (origin) => authorizedOrigins.has(normalizeStableOrigin(origin)),
+  });
+}
+
 async function handleMessage(message: PluginMessage, sender?: chrome.runtime.MessageSender): Promise<PluginResponse> {
   const s = await init();
   switch (message.kind) {
@@ -1576,9 +1692,15 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         session: sessionView,
         // TASK-032: automatic-probe projection for the bound origin.
         ...(session ? { probe: s.autoProbe.status() } : {}),
+        // V2-1 (ADR-V2-004): additive optional insight summary (counts/badges only).
+        insight: summarizeInsight(await buildInsightSnapshot(s)),
       });
       // D-064: carry (and consume) the one-shot readable notice.
       return okResponse({ ...payload, panelNotice: takePanelNotice() });
+    }
+    case 'insight-tree': {
+      // V2-1 (ADR-V2-001/004): pull the full deterministic ConnectTreeSnapshot.
+      return okResponse(await buildInsightSnapshot(s));
     }
     case 'authorize': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
@@ -1647,6 +1769,8 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
           reason: '用户撤销授权：可选站点权限已移除，回退 activeTab / 页面源发现',
         });
       }
+      // V2-1: authorization changed → trigger re-projection (no sensitive payload).
+      pushInsightChanged();
       return okResponse({ revoked, hostPermissionRemoved, contentScript });
     }
     case 'set-trust': {
@@ -1879,6 +2003,8 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
           ? '用户开启「允许助手查看/切换标签页」：tabs 工具进入 LLM 工具面'
           : '用户关闭「允许助手查看/切换标签页」：tabs 工具从 LLM 工具面移除（不静默，回执含当前工具面）',
       });
+      // V2-1: tabs toggle changed → trigger re-projection.
+      pushInsightChanged();
       return okResponse({ enabled: s.tabsSetting.get(), tools: s.host.deriveTools().map((t) => t.name) });
     }
     case 'capabilities': {
@@ -2099,7 +2225,9 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
 }
 
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
-  if (!isPluginMessage(raw)) return undefined;
+  // V2-1 (ADR-V2-004): accept the additive `insight-*` kinds without adding them
+  // to the shared KIND_SET (that set is bundled into content.js, which must not grow).
+  if (!isPluginMessage(raw) && !isInsightMessage(raw)) return undefined;
   void handleMessage(raw, sender).then(
     (res) => sendResponse(res),
     (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
@@ -2168,6 +2296,7 @@ chrome.permissions.onRemoved.addListener((permissions) => {
     // TASK-040: push the panel to re-measure + re-render the capability rows
     // (revoke visibility / receipt) without reopening the side panel.
     if (capabilityTouched) void chrome.runtime.sendMessage(makeMessage('capability-changed')).catch(() => {});
+    if (capabilityTouched) pushInsightChanged();
     await reconcileContentScripts(s);
   })();
 });
@@ -2194,6 +2323,7 @@ chrome.permissions.onAdded.addListener((permissions) => {
     }
     // TASK-040: push the panel to re-measure + re-render the capability rows.
     if (capabilityTouched) void chrome.runtime.sendMessage(makeMessage('capability-changed')).catch(() => {});
+    if (capabilityTouched) pushInsightChanged();
     if (!(permissions.origins ?? []).length) return;
     await reconcileContentScripts(s);
   })();

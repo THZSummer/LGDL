@@ -59,7 +59,12 @@ export type PluginMessageKind =
   // FR-055 / TASK-039: the service worker has no `navigator.clipboard`, so the
   // `clipboard` tool forwards read/write to the extension page (side panel), which
   // performs the op and answers with `sendResponse` (request/response, not a push).
-  | 'clipboard-op';
+  | 'clipboard-op'
+  // V2-1 (ADR-V2-004): additive insight-tree message face. `insight-tree` = pull
+  // (returns the full ConnectTreeSnapshot); `insight-changed` = push (re-project
+  // trigger, carries no sensitive data).
+  | 'insight-tree'
+  | 'insight-changed';
 
 export interface PluginMessage {
   kind: PluginMessageKind;

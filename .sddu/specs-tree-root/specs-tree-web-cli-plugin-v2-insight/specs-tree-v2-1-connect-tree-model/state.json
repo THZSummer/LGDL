@@ -2,9 +2,9 @@
   "feature": "V2-1 连接树数据模型与状态投影（父：specs-tree-web-cli-plugin-v2-insight）",
   "featureKey": "specs-tree-v2-1-connect-tree-model",
   "name": "V2-1 连接树数据模型与状态投影——四维度聚合为单一可投影树模型的确定性快照；纯读、零副作用、零明文；不渲染 UI",
-  "phase": "tasked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v2-insight",
   "childrens": [],
@@ -42,7 +42,8 @@
     "spec.md",
     "plan.md",
     "tasks.md",
-    "tasks.json"
+    "tasks.json",
+    "build.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/spec.md",
@@ -50,11 +51,12 @@
     "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/TREE.md",
     "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/plan.md",
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/tasks.md",
-    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/tasks.json"
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/tasks.json",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/build.md"
   },
-  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.2；本子级 spec.md 只做范围收缩与子级验收补充（NFR-V21-001~005 / EC-V21-001~006 / AC-V21-001~007）。下一步 @sddu-plan。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json。",
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.2；本子级 spec.md 只做范围收缩与子级验收补充（NFR-V21-001~005 / EC-V21-001~006 / AC-V21-001~007）。下一步 @sddu-plan。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json。 build 阶段完成（2026-09-13，sddu-build）：Wave 1~5 全部 9 任务实现；新增 src/insight/{tree-model,capability-catalog,command-catalog,catalog-reconcile,project-tree,build-snapshot}.ts + src/background/insight-protocol.ts；additive 接线 state-message/messaging/service-worker/host(delayConfig)；新增 4 门禁测试文件（36 测试）。插件 npm test 561 通过（v1 525 零删减 + 36 新增）；typecheck 0 error；零新权限 / content.js 1,073,453 B 零增长 / sidepanel 1,068,165 B 零增长；policy.ts/auto-authorize.ts/manifest.json/test-parity/packages/web-cli-base 零 diff；父 spec 最小订正 FR-V2-023 与 §2.5 的 65.5% 残留（→589px 主 + 65.0% 次，ADR-V2-006）。本轮未跑 Chromium 门禁（零 UI 改动，留 V2-2/V2-3）。",
   "status": "tracked",
-  "phaseNote": "tasks 阶段完成（2026-09-13，sddu-tasks）：技术方案分解为原子任务（含依赖/波次/并行标记/涉及文件/可执行验收标准/验证命令）。波次严格串行：V2-1（Wave 1~5，先行）→ V2-2（Wave 6~9）→ V2-3（Wave 10~13）；V2-2/V2-3 并行分解、执行串行。门禁矩阵：insight-projection / insight-determinism / insight-catalog（34 工具·142 子命令双向等价+反证+同源锚定）/ insight-no-escalation（V2-1 基础段，V2-3 追加冻结）/ tree-view 纯测 / size-budget（新基线文件，与 v1 D31 解耦）/ test:ui·insight.mjs（新文件承载 AC-V2-002 量化，v1 journey.mjs 零改动）/ insight-security（AC-V2-005 六条反向断言 + allow 单调性 allowAfter⊆allowBefore）/ tree-ops 纯测 / test:binding 追加撤链（#21a…）。断言只增不减：新断言全部落新文件；v1 既有测试与断言零删改（v1 journey.mjs / binding.mjs 既有编号、test/parity/**、test/perf-*）。AC-V2-002 口径最小订正：spec ⑤ 由「占比 ≥65.5%」订正为「clientHeight ≥589px 主 + 占比 ≥65.0% 次」（原因/来源 = ADR-V2-006）；仅此一处 AC。编排器代作者决策（2026-09-13 授权）已登记（TD-V21-01~03 / TD-V22-01~05 / TD-V23-01~04）。父 Feature 为轻量规范容器，不产出 tasks.md/tasks.json；本轮 tasks 落在 3 个 P0 叶子（V2-4 P1 未排）。下一步 @sddu-build。 本叶子：9 任务 / 5 波（类型+能力目录 → 命令档案∥对账 → 纯投影 → builder+additive 接线 → 4 门禁）；门禁：insight-projection / insight-determinism / insight-catalog（34·142 双向+反证+同源锚定）/ insight-no-escalation（基础段）。",
+  "phaseNote": "build 阶段完成（2026-09-13，sddu-build，编排器代作者决策 2026-09-13 授权）：Wave 1~5 / TASK-001~009 全部实现。T001 类型层 tree-model.ts（森林/四层分组、命名空间稳定键 site:/cap:static:/cap:opt:/toggle:/cmd:/cmd:#sub/llm:/session:/link:、crossLinks、V2-4 预留 cardId/denyCause/sourceKind/facets/catalogMeta/version）+ capability-catalog.ts（静态权限 revocable:false、4 可选能力、6 开关+tabs）。T002 command-catalog.ts（逐条有档 action/denyCause/sourceKind/delayMs 与 action 分列/suppressed/cardId；deny ⇒ controls:[]）。T003 catalog-reconcile.ts（单基线文件+双向对账+同源锚定；不重构 v1 test/parity/**）。T004 project-tree.ts（纯投影+固定排序+规范 JSON+FNV-1a 纯哈希 builtAt 不进 hash+空态降级 ≥3）。T005 build-snapshot.ts + additive 消息面（insight-tree pull / insight-changed push / state.insight? 小摘要）+ host.delayConfig() 只读 accessor。T006~T009 四门禁：insight-projection / insight-determinism / insight-catalog（34 工具 / 142 子命令双向等价+反证+同源锚定）/ insight-no-escalation（基础段：src/insight/** 无 chrome/apiKey/写 store/bare catch + policy pinned + 禁改面 git diff 零）。门禁：npm run typecheck 0 error；插件 npm test 561 pass（v1 既有 525 零删减 + 新增 36）；content.js 1,073,453 B 零增长（为守此红线，insight-* kind 不入共享 KIND_SET，改由 src/background/insight-protocol.ts 独立校验，记 D-V21-03）；sidepanel.js 1,068,165 B 零增长。本轮零 UI 改动，Chromium 类门禁（test:ui/binding/hardening/e2e）未跑，留 V2-2/V2-3 串行收口。下一步 @sddu-review。",
   "taskCount": 9,
   "waveCount": 5,
   "complexity": {

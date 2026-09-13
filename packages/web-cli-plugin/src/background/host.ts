@@ -185,6 +185,12 @@ export interface WebCliHost {
    */
   suppressCapability(cap: OptionalCapability, suppressed: boolean): void;
   isCapabilitySuppressed(cap: OptionalCapability): boolean;
+  /**
+   * V2-1 (ADR-V2-014): **read-only** accessor exposing the same `delayMs` value
+   * handed to `createCommandRouter` — so the projection's `delayMs` column is the
+   * real value, never a hard-coded copy. Pure read; no behavior change.
+   */
+  delayConfig(): { delayMs: number };
 }
 
 export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
@@ -254,8 +260,12 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
       }
     : undefined;
 
+  // V2-1 (ADR-V2-014): single source of the command-interval value; the read-only
+  // `delayConfig()` accessor returns this exact value (never a hard-coded copy).
+  const commandDelayMs = 0;
+
   const router = createCommandRouter({
-    delayMs: 0,
+    delayMs: commandDelayMs,
     // FR-050: when the plugin owns a controlled `web-fetch` seam, keep the base
     // builtin out of the registry so the controlled entry below is the ONLY
     // registration for that name (CommandRouter rejects duplicate names).
@@ -569,6 +579,10 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
       if (cap === 'downloads') return downloadsSuppressed;
       if (cap === 'notify') return notifySuppressed;
       return clipboardSuppressed;
+    },
+    // V2-1 (ADR-V2-014): read-only accessor; returns the same value passed to the router.
+    delayConfig() {
+      return { delayMs: commandDelayMs };
     },
   };
 }

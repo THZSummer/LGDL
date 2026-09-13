@@ -4,10 +4,10 @@
 > **前置依赖**: 本仓库 **无 discovery.md**（作者已批准**从 spec 阶段直接切入**，跳过 discovery）——本规范的一手输入 = `ROADMAP.md` §二 v0.8「F-27 web-cli-plugin v2「any insight」」小节（**作者原始诉求逐字留存** + **作者五项口径裁决 2026-09-13** + 可投影面清单 + 子 Feature 拆分 V2-1~V2-4 + 交付门槛 + 风险登记 R-V2-1~5）+ 仓库实测（`packages/web-cli-plugin/src/**` 状态源逐文件核实，见 §2.5）
 > **创建人**: SDDU Spec Agent
 > **创建时间**: 2026-09-13
-> **版本**: v1.1
-> **更新人**: SDDU Spec Agent（v1.1 由 SDDU Tasks Agent 最小订正，编排器代作者决策授权）
+> **版本**: v1.2
+> **更新人**: SDDU Spec Agent（v1.1 由 SDDU Tasks Agent 最小订正；v1.2 由 SDDU Build Agent 最小订正，编排器代作者决策授权）
 > **更新时间**: 2026-09-13
-> **更新说明**: v1.1 **最小订正 `AC-V2-002` ⑤**（`#log` 稳态高度口径：占比 ≥65.5% → `clientHeight` ≥589px 主断言 + 占比 ≥65.0% 次断言；原因/来源见该 AC 处注记与 ADR-V2-006；仅此一处 AC，其余条文不变）。v1.0 初始创建。**v2 立项**：作者已批准 web-cli-plugin v2（主题「any insight」，ROADMAP 登记为 F-27）= v0.8 同一版本位内第二 Feature（同批叠加）。本规范以 **4 个叶子子 Feature（V2-1~V2-4）** 承载，父 Feature 为轻量规范容器（**父 Feature 不执行 tasks/build/review/validate**——SDDU 规则）。编号采用 **FR-V2-xxx / NFR-V2-xxx / EC-V2-xxx / AC-V2-xxx 独立前缀**，与 v1（FR-001~FR-055 / NFR-001~010 / EC-001~026 / AC-001~012）**零冲突**。v1 的 `specs-tree-web-cli-plugin` 保持 `phase=validated` / `status=tracked` **原样不动、不回退、不改写**。**本规范只写需求（spec 层）**：不写技术方案（ADR 留给 @sddu-plan）、不写代码、不排任务。
+> **更新说明**: v1.2 **最小订正 `FR-V2-023` 与 §2.5 的 `65.5%` 残留口径**（v1.1 只改了 `AC-V2-002` ⑤，两处仍残留 65.5%）：统一为「稳态 `clientHeight` ≥589px 主断言 + 占比 ≥65.0% 次断言」，来源/原因见两处注记与 ADR-V2-006；仅这两处数字口径，其余条文不变。v1.1 **最小订正 `AC-V2-002` ⑤**（`#log` 稳态高度口径：占比 ≥65.5% → `clientHeight` ≥589px 主断言 + 占比 ≥65.0% 次断言；原因/来源见该 AC 处注记与 ADR-V2-006；仅此一处 AC，其余条文不变）。v1.0 初始创建。**v2 立项**：作者已批准 web-cli-plugin v2（主题「any insight」，ROADMAP 登记为 F-27）= v0.8 同一版本位内第二 Feature（同批叠加）。本规范以 **4 个叶子子 Feature（V2-1~V2-4）** 承载，父 Feature 为轻量规范容器（**父 Feature 不执行 tasks/build/review/validate**——SDDU 规则）。编号采用 **FR-V2-xxx / NFR-V2-xxx / EC-V2-xxx / AC-V2-xxx 独立前缀**，与 v1（FR-001~FR-055 / NFR-001~010 / EC-001~026 / AC-001~012）**零冲突**。v1 的 `specs-tree-web-cli-plugin` 保持 `phase=validated` / `status=tracked` **原样不动、不回退、不改写**。**本规范只写需求（spec 层）**：不写技术方案（ADR 留给 @sddu-plan）、不写代码、不排任务。
 
 ---
 
@@ -128,7 +128,7 @@
 |------|----------------------|
 | 自动授权 + 4 条硬底线 | `src/security/auto-authorize.ts`：`AutoAuthSettings{read(默认 true), write(默认 false)}`；`decideAutoAuthorization` 的硬底线——①未授权 origin 仍 deny（S1）②未知/缺失/非法 risk 仍 deny（S3 fail-closed）③`evaluate` 仍 deny ④破坏性写仍 `ask`（`hardDeny`）；`ui`/`state`/`external` 本轮无自动开关 |
 | 审计 | `src/security/audit-sink.ts`：存储键 `web-cli:audit`、容量 `DEFAULT_AUDIT_CAPACITY = 500`、零明文；导出入口 `admin_audit-export` |
-| 侧栏布局基线（量化） | `docs/dev.md` §11.3（真实 dist + CDP，视口 400×900）：`#log` `flex-grow=1`；`#log` 稳态高度 **589px = 65.5%**；`composer` 底边 − 视口底 **+8px（贴底）**；水平溢出 400px / 320px 均 **0**；三区 = `#panel-top` / `#panel-main(#log 唯一滚动区)` / `#panel-bottom`（`#composer` 为**末元素**，D-079 前科修复） |
+| 侧栏布局基线（量化） | `docs/dev.md` §11.3（真实 dist + CDP，视口 400×900）：`#log` `flex-grow=1`；`#log` 稳态高度 **589px（实测占比 65.44%；主断言口径 ≥589px / 次断言口径 ≥65.0%，来源 AC-V2-002 / ADR-V2-006）**；`composer` 底边 − 视口底 **+8px（贴底）**；水平溢出 400px / 320px 均 **0**；三区 = `#panel-top` / `#panel-main(#log 唯一滚动区)` / `#panel-bottom`（`#composer` 为**末元素**，D-079 前科修复） |
 | 滚动跟随策略 | `src/ui/sidepanel/scroll-policy.ts`：`BOTTOM_THRESHOLD_PX = 48`（D-087~D-089 前科修复） |
 | 体积基线守卫先例 | `test/perf-baseline.ts`：`content.js` 基线 `1,073,453 B`、容差 5%、上限 `1,127,125 B`、目标预算 **64 KiB（未达成 D31）**；`readArtifactSize` 只吞 `ENOENT`，其余错误必须抛出（第 9 轮修 perf-budget 虚绿门禁的做法） |
 | 当前 dist 实测（2026-09-13） | `content.js` 1,073,453 B；**`sidepanel.js` 1,068,165 B**；`background.js` 1,372,225 B；`options.js` 978,471 B；`options.html` 14,570 B |
@@ -215,7 +215,7 @@
 | FR-V2-020 | **侧栏常驻悬浮入口（FAB/浮动按钮）[裁决②]**：在**侧栏内**提供常驻悬浮入口，可开合「树抽屉」；**不做页面注入悬浮层**；**不放进设置面板** | `test:ui`（真实 dist）：悬浮入口存在且可点击开合；入口位于侧栏 DOM（非页面注入）；不在设置面板视图内 | P0 |
 | FR-V2-021 | **树抽屉：四维度层级导航 + 状态徽标 + 操作简单**：抽屉内按四维度层级导航、显示状态徽标（已授权/未授权/可撤销/deny 成因）；**少层级、可直达**（关键操作 ≤2 次点击） | 抽屉四维度可见；状态徽标与真值一致；从入口到任一撤销操作的层级 ≤2；空态/降级可读 | P0 |
 | FR-V2-022 | **检索/过滤（只读过滤，不改真值）**：可按维度/关键字检索或过滤树节点；过滤只影响展示，**不改变投影真值、不改变任何授权状态** | 过滤后展示集合正确；过滤前后存储/授权状态 diff 为空；命令档案可按 34/142 检索 | P1 |
-| FR-V2-023 | **侧栏布局不回退 [红线·量化]**：悬浮入口/抽屉**不遮挡 composer**；**消息区（`#log`）高度不回退**；**窄侧栏零水平溢出**；明暗适配；复用 v1 三区 flex 全高布局与 `scroll-policy`（48px 跟随） | `test:ui` **实测量化断言只增不减**（§8 AC-V2-002 给出精确阈值）：`#log` `flex-grow=1`、稳态高度占比 **≥65.5%**、composer 底边−视口底 ∈ **[0, +8px]**、入口与 composer boundingRect **不相交**、400px/320px 水平溢出 **=0**；v1 既有 `#15a~#15q` 断言零删减 | P0 |
+| FR-V2-023 | **侧栏布局不回退 [红线·量化]**：悬浮入口/抽屉**不遮挡 composer**；**消息区（`#log`）高度不回退**；**窄侧栏零水平溢出**；明暗适配；复用 v1 三区 flex 全高布局与 `scroll-policy`（48px 跟随） | `test:ui` **实测量化断言只增不减**（§8 AC-V2-002 给出精确阈值）：`#log` `flex-grow=1`、稳态 `clientHeight` **≥589px（主断言）且占比 ≥65.0%（次断言）**、composer 底边−视口底 ∈ **[0, +8px]**、入口与 composer boundingRect **不相交**、400px/320px 水平溢出 **=0**；v1 既有 `#15a~#15q` 断言零删减 | P0 |
 | FR-V2-024 | **入口可发现 + 不干扰 + 既有契约零回归**：入口常驻但**不遮挡交互**（可折叠/可最小化）；抽屉可关闭；**不改 v1 既有元素 ID / `.entry-*` 选择器**（测试门禁零回归） | 入口高 z-index 但不拦截 composer/交互（点击穿透/占位断言）；抽屉可关；既有 DOM id/类零重命名（grep 断言） | P0 |
 | FR-V2-025 | **「不是提权面」文案钉死 [红线]**：树内文案显式声明「撤销/关断 = 回到更保守，**不放宽**任何门禁」；`delay` 档旁不得出现任何「可开关/可放宽」控件 | UI 文案含显式声明（断言 grep）；`delay`/`deny` 节点无开关控件（断言） | P0 |
 
@@ -403,5 +403,6 @@
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.2 | **最小订正 `FR-V2-023` 与 §2.5 的 `65.5%` 残留口径**（v1.1 已订正 `AC-V2-002` ⑤，但 `FR-V2-023` 验收列与 §2.5「侧栏布局基线（量化）」仍残留「占比 ≥65.5%」/「589px = 65.5%」）：两处统一为「稳态 **`clientHeight` ≥589px（主断言）且占比 ≥65.0%（次断言）**」，并注明订正原因与来源（589/900 = **65.44% < 65.5%**，逐字断言在 v1 基线必然失败；来源 **ADR-V2-006**，口径与 `AC-V2-002` 完全一致）。**仅改这两处数字口径**，不改其他条文、不改 v1 任何文件 | 2026-09-13 | SDDU Build Agent（编排器代作者决策，2026-09-13 授权） |
 | v1.1 | **最小订正 `AC-V2-002` ⑤**：`#log` 稳态高度口径由「占比 **≥65.5%**」订正为「**`clientHeight` ≥589px（主断言）且占比 ≥65.0%（次断言，v1 基线 65.44% 留 0.44pp 余量）**」，并在该 AC 处注明订正原因与来源（**ADR-V2-006**，编排器代作者决策 2026-09-13 授权）。**仅改这一处 AC 条文**，其余 FR/NFR/EC/AC 不变；不改 v1 任何文件 | 2026-09-13 | SDDU Tasks Agent |
 | v1.0 | 初始创建（作者批准**从 spec 阶段直接切入**，跳过 discovery）。以 `ROADMAP.md` §二 v0.8「F-27」小节为**一手输入**（**作者原始诉求逐字留存** + **作者五项口径裁决 2026-09-13** + 可投影面清单 + 子拆分 + 风险 R-V2-1~5）；**逐文件核实可投影面**（origin-store / extension-env / content-script-registry / capability-permissions / capability-setting / tabs-setting / host.suppressCapability / auto-authorize / policy / declared-tools / parity baseline 34·142 / key-store / status / providers / session-store / audit-sink / perf-baseline / docs/dev 布局量化）。**结构（作者确认）**：父 Feature + **4 叶子子 Feature**（V2-1~V2-4），父 Feature 为轻量规范容器（不执行 tasks/build/review/validate）。**编号**：FR-V2-001~065 / NFR-V2-001~010 / EC-V2-001~016 / AC-V2-001~012，**与 v1 FR-001~FR-055 等零冲突**。**安全红线**落成 FR-V2-060~065 + **反向断言 AC-V2-005**（撤销后 evaluate 仍 deny / 破坏性仍 ask / 未授权仍 deny / 未知 risk 仍 deny / clipboard read 仍 ask / bookmarks remove 仍 ask）；**侧栏回归量化断言** AC-V2-002（`#log` ≥65.5% / composer 底边−视口底 ∈[0,+8px] / 入口与 composer 不相交 / 400·320px 零水平溢出，断言只增不减）；**体积基线守卫** NFR-V2-001 + AC-V2-006（基线 ≠ 目标预算；只吞 ENOENT；反证自测；content.js 不增长）；**`delay` 撞词消歧** FR-V2-054 + AC-V2-010。**v1 记录保护**：`specs-tree-web-cli-plugin` 保持 `phase=validated` / `status=tracked` 原样不动。**本文档只写需求（spec 层）**：不写技术方案、不写代码、不排任务 | 2026-09-13 | SDDU Spec Agent |

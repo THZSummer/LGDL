@@ -10,6 +10,7 @@
  */
 import type { AutoAuthSettings } from '../security/auto-authorize.js';
 import type { AutoProbeStatus } from '../discovery/auto-probe.js';
+import type { InsightSummary } from '../insight/tree-model.js';
 
 export interface ActiveSessionView {
   tabId: number;
@@ -127,6 +128,12 @@ export interface StateMessagePayload {
    * name or asking the user to click a manual retry button.
    */
   probe?: AutoProbeStatus | null;
+  /**
+   * V2-1 (ADR-V2-004): **additive** optional insight summary (counts/badges only).
+   * Existing consumers ignore the unknown optional field; existing field semantics
+   * are unchanged.
+   */
+  insight?: InsightSummary;
 }
 
 /** decision ② / FR-048: non-sensitive multi-session projection for the panel. */
@@ -149,6 +156,8 @@ export async function buildStateMessage(input: {
   autoAuthOf?: (origin: string) => AutoAuthSettings;
   /** TASK-032: optional automatic-probe projection for the bound origin. */
   probe?: AutoProbeStatus | null;
+  /** V2-1: additive optional insight summary (counts/badges only). */
+  insight?: InsightSummary;
 }): Promise<StateMessagePayload> {
   const { active, tools, isAuthorized } = input;
   const authorized = active ? await isAuthorized(active.origin) : false;
@@ -163,6 +172,7 @@ export async function buildStateMessage(input: {
     session: input.session ?? null,
     ...(autoAuth ? { autoAuth } : {}),
     ...(input.probe ? { probe: input.probe } : {}),
+    ...(input.insight ? { insight: input.insight } : {}),
   };
 }
 
