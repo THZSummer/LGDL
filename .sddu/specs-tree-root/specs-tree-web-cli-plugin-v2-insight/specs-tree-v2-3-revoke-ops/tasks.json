@@ -6,7 +6,7 @@
     "phase": "tasked",
     "agent": "sddu-tasks",
     "createdAt": "2026-09-13",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "sourcePlan": "V2-3 plan.md v1.0（§3.1~3.7 + §6 文件影响 + §9 交付门槛）+ 父 plan.md v1.0（ADR-V2-008/009/011/013/015）",
     "sourceSpec": "父 spec.md FR-V2-030~040 + FR-V2-060~065 + 本叶子 spec.md（NFR-V23-001~006 / EC-V23-001~009 / AC-V23-001~008）",
     "taskCount": 10,
@@ -112,7 +112,11 @@
       "v1 test/ui/binding.mjs 既有编号（163 断言）零删改",
       "policy.ts / auto-authorize.ts 零 diff"
     ],
-    "note": "V2-3 本叶子 10 任务 / 4 波（跨叶子 Wave 10~13）：三件套回执 → 控件语义 → 白名单编排 → tree-drawer 绑定 / tree-ops 纯测 / insight-security（六条反向断言 + allow 单调性）/ insight-no-escalation 追加冻结 → test:binding 追加撤链 → 串行收口 → 人工面 H-1~H-6。安全红线：封闭 7 动作白名单（无默认写入分支）+ 单调性（allowAfter ⊆ allowBefore）+ policy/auto-authorize 零 diff + 无 bare catch + 零明文。编排器代作者决策（2026-09-13 授权）：TD-V23-01 binding 编号 #19a→#21a；TD-V23-02 门禁承载；TD-V23-03 P1 动作保留；TD-V23-04 波次。门禁串行执行，绝不并发（OOM 前科）。"
+    "note": "V2-3 本叶子 10 任务 / 4 波（跨叶子 Wave 10~13）：三件套回执 → 控件语义 → 白名单编排 → tree-drawer 绑定 / tree-ops 纯测 / insight-security（六条反向断言 + allow 单调性）/ insight-no-escalation 追加冻结 → test:binding 追加撤链 → 串行收口 → 人工面 H-1~H-6。安全红线：封闭 7 动作白名单（无默认写入分支）+ 单调性（allowAfter ⊆ allowBefore）+ policy/auto-authorize 零 diff + 无 bare catch + 零明文。编排器代作者决策（2026-09-13 授权）：TD-V23-01 binding 编号 #19a→#21a；TD-V23-02 门禁承载；TD-V23-03 P1 动作保留；TD-V23-04 波次。门禁串行执行，绝不并发（OOM 前科）。",
+    "r2TaskCount": 7,
+    "totalTaskCount": 17,
+    "r2SourcePlan": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+    "r2Note": "R2 修订轮任务（追加式，v1 tasks 零删改）。全局承接 Wave 18~23（R2-Wave 1~6）。"
   },
   "waves": [
     {
@@ -657,6 +661,217 @@
         "git -C ../.. diff --stat -- packages/web-cli-plugin/docs/smoke-checklist.md"
       ],
       "type": "human"
+    },
+    {
+      "id": "R2-V23-01",
+      "name": "`command-override.ts` clamp + `withCommandOverride` 组合（SW 侧，不改冻结文件）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": ["R2-V21-02"],
+      "planRef": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 2,
+      "parallelWith": ["R2-V23-02"],
+      "fr": ["FR-V2-074", "FR-V2-076"],
+      "adr": ["ADR-V2-024", "ADR-V2-025"],
+      "ac": ["AC-V23-010", "AC-V2-025"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/security/command-override.ts" }
+      ],
+      "acceptance": [
+        "**clamp 反向断言**（覆盖为 `allow` 后）：① `evaluate` 仍 deny ② 未授权 origin 仍 deny（S1）③ 未知/非法 risk 仍 deny（S3，含 `sleep`/`web-cli-help`）④ 破坏性子命令保底 `ask` ⑤ `ui`/`state`/`external` 不得变 `allow`",
+        "**作者示例**：`dom`（工具级=设置载体）三档可设；`dom read-state` 子命令级三档生效；`dom click` 仍不放宽（ui clamp）",
+        "策略链顺序锚定 `[S1,S3,override,S2]`（按 name；缺一 **FAIL**）；无覆盖 → 返回 `null`（行为与现状逐字节一致）",
+        "`policy.ts`/`auto-authorize.ts` 源码 sha256 仍 = P0 pin（`bfcb2ede…` / `1096d065…`）",
+        "反证：强制 evaluate allow → **FAIL**；顺序改回 `[S1,S2,S3]` → 覆盖收紧失效 → **FAIL**"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "（node 单测见 R2-V23-06）"
+      ]
+    },
+    {
+      "id": "R2-V23-02",
+      "name": "覆盖存储/生命周期/审计（`command-override.ts` store + `audit-sink.ts`）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [],
+      "planRef": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 2,
+      "parallelWith": ["R2-V23-01"],
+      "fr": ["FR-V2-075"],
+      "adr": ["ADR-V2-026"],
+      "ac": ["AC-V23-009", "AC-V2-024"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/security/command-override.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/security/audit-sink.ts" }
+      ],
+      "acceptance": [
+        "**持久化**（重载后仍在）；**恢复默认**（单条 + 全部）；**幂等**（同值 → `ok`「已生效（无变化）」且不写存储/不新增审计）",
+        "**无半写**（并发 `set` 经串行队列；半途失败 → 内存态与旧值一致，绝不「一半生效」）；**失败可读** ≥3 类且零静默失败",
+        "**审计零明文**（grep 无 key/剪贴板/通知/页面数据）；审计类型 `command-policy` 与撤销/关断、`auto-authorize` **可分辨**",
+        "**同源锚定**：store `commandId` 与 `STABLE_KEY.command` 生成一致；**不新增 `chrome.storage` 权限**（manifest `permissions` 零变更）",
+        "反证：删除串行队列/注入并发竞态 → 半写即 **FAIL**"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "（node 单测见 R2-V23-06）"
+      ]
+    },
+    {
+      "id": "R2-V23-03",
+      "name": "`host.ts` 组合（`withCommandOverride` + `guardedOnAsk` + `commandOverrides` 注入）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["R2-V23-01", "R2-V23-02"],
+      "planRef": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 2,
+      "parallelWith": [],
+      "fr": ["FR-V2-076"],
+      "adr": ["ADR-V2-024"],
+      "ac": ["AC-V23-010"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/host.ts" }
+      ],
+      "acceptance": [
+        "覆盖 allow/ask/deny 经 `host.dispatch` **真跑**反映新值（可见后果）",
+        "显式 `ask` **不被自动授权静默变 allow**；`hardDeny`/`allow:false` 不受影响",
+        "`dispatch` 仍 `router.dispatch`；无新判定路径（grep）；`policy.ts`/`auto-authorize.ts` sha256 不变",
+        "反证：绕过 `guardedOnAsk` → 显式 ask 被 auto allow → **FAIL**"
+      ],
+      "verify": [
+        "（node 单测见 R2-V23-06）"
+      ]
+    },
+    {
+      "id": "R2-V23-04",
+      "name": "覆盖消息面（`service-worker.ts`/`messaging.ts`/`insight-protocol.ts`，additive）+ `pushInsightChanged`",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["R2-V23-02", "R2-V23-03"],
+      "planRef": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 2,
+      "parallelWith": [],
+      "fr": ["FR-V2-075"],
+      "adr": ["ADR-V2-024", "ADR-V2-026"],
+      "ac": ["AC-V23-009"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/service-worker.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/messaging.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/insight-protocol.ts" }
+      ],
+      "acceptance": [
+        "3 个 kind **additive**；旧 kind 语义零变更；新 kind 经既有校验点（不绕过校验）",
+        "`set`/`reset` → store 更新 + audit + `pushInsightChanged()`；下一次 pull 反映 `effectiveAction`",
+        "**服务端强制（绕过 UI）**：伪造 `command-policy-set` 消息（**不经 `tree-ops`**）→ store 更新但 `dispatch` 仍 clamp；未授权/S3/evaluate 覆盖 allow → 仍 deny",
+        "反证：把 clamp 移到 UI 层 → 服务端无强制 → **FAIL**"
+      ],
+      "verify": [
+        "（node 单测见 R2-V23-06；Chromium 链路见 R2-V23-07）"
+      ]
+    },
+    {
+      "id": "R2-V23-05",
+      "name": "`tree-ops.ts` 白名单 7→9 + 两分支 + 无默认写入兜底 + 放宽类确认 + pin 显式更新",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["R2-V23-04"],
+      "planRef": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 2,
+      "parallelWith": [],
+      "fr": ["FR-V2-074", "FR-V2-075"],
+      "adr": ["ADR-V2-027"],
+      "ac": ["AC-V23-009"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/tree/tree-ops.ts" }
+      ],
+      "acceptance": [
+        "`TREE_ACTION_IDS.length===9`；负例 `grant-origin`/`request-permission` 仍非法；`command-allow` 不再是负例",
+        "**每个动作唯一映射**一个既有/新增服务端消息通路（9 动作 → 9 通路）；白名单外零写入",
+        "`needsConfirmation`：`set-command-policy`（放宽方向）true；`ask`/`deny`（收紧）与 `reset-command-policy` false",
+        "pin 显式更新且配反证（改回 7 → **FAIL**，`insight-archive` S9 的 pin 由 V2-4 落）",
+        "取代 S1/S2/S3/S12：old→new **1:1**、`removed=0`"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
+    },
+    {
+      "id": "R2-V23-06",
+      "name": "覆盖门禁 `test/command-override.test.ts` + `test/insight-override-security.test.ts`",
+      "type": "gate",
+      "complexity": "L",
+      "dependsOn": ["R2-V23-01", "R2-V23-02", "R2-V23-03", "R2-V23-04", "R2-V23-05"],
+      "planRef": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 5,
+      "parallelWith": ["R2-V21-05", "R2-V22-03", "R2-V24-03"],
+      "fr": ["FR-V2-075", "FR-V2-076"],
+      "adr": ["ADR-V2-025", "ADR-V2-026", "ADR-V2-031"],
+      "ac": ["AC-V23-009", "AC-V23-010", "AC-V2-024", "AC-V2-025"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/command-override.test.ts" },
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/insight-override-security.test.ts" }
+      ],
+      "acceptance": [
+        "`command-override`：AC-V2-023/024 全项（可达/持久/恢复单条+全部/幂等/无半写/失败可读/审计零明文/继承）",
+        "`insight-override-security`：**AC-V2-025 逐档反向断言**（①~⑤）+ `dom`/`dom read-state` 三档 + 逐档结论表逐行",
+        "**服务端强制**：`host.dispatch` 注入 `commandOverrides`（绕过 UI 直接注入）+ 伪造 `command-policy-set` 消息 → 均**不能突破 clamp**（TD-R2-10）",
+        "取代 S1/S2/S3/S12、S9 的生成侧：old→new 1:1、`removed=0`；硬底线 pin 只增",
+        "反证：篡改 clamp（强制 evaluate allow）→ **FAIL**；`policy.ts`/`auto-authorize.ts` sha256 不变（`bfcb2ede…`/`1096d065…`）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
+    },
+    {
+      "id": "R2-V23-07",
+      "name": "`test/ui/binding.mjs` 追加 `#22a…`（覆盖三档 → dispatch 反映 / reset / 持久化）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["R2-V23-04"],
+      "planRef": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 5,
+      "parallelWith": ["R2-V21-05", "R2-V22-04", "R2-V24-03"],
+      "fr": ["FR-V2-075"],
+      "adr": ["ADR-V2-031"],
+      "ac": ["AC-V23-009"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/binding.mjs" }
+      ],
+      "acceptance": [
+        "`#22a…`：`dom`/`dom read-state` 三档设置 → 下一同档调用按新值执行；`reset` 恢复；重载后仍在",
+        "既有 `#0~#21o` **零删改**（`git diff --unified=0` 无删除行）；S17 零改动；`check(` 计数 ≥ 185 + 新增",
+        "反证：覆盖后 dispatch 未变 → **FAIL**"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run test:binding"
+      ]
     }
-  ]
+  ],
+  "r2": {
+    "round": "R2",
+    "type": "post-validate 任务分解修订（phase 不回退；体例沿用 v1.0；追加不稀释既有）",
+    "date": "2026-09-13",
+    "authorization": "编排器代作者决策（2026-09-13 授权）+ R2",
+    "sourcePlan": "V2-3 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+    "sourceSpec": "父 spec.md v2.0 §5.7 FR-V2-070~079 + §8 AC-V2-020~027 + 本叶 spec.md v2.0",
+    "scope": "新增**命令级用户覆盖层**（工具级 + 子命令级 allow/ask/deny）+ **SW 侧硬底线 clamp**（`[S1,S3,override,S2]`，不改冻结 `policy.ts`/`auto-authorize.ts`）+ 存储/继承/恢复/幂等/无半写/审计零明文 + 白名单 7→9 + 放宽类二次确认；`FR-V2-036` 范围限定为撤销/关断通路。",
+    "taskCount": 7,
+    "waveCount": 2,
+    "complexity": { "S": 0, "M": 4, "L": 3 },
+    "taskIds": ["R2-V23-01", "R2-V23-02", "R2-V23-03", "R2-V23-04", "R2-V23-05", "R2-V23-06", "R2-V23-07"],
+    "waveMap": [
+      { "wave": 2, "tasks": ["R2-V23-01", "R2-V23-02", "R2-V23-03", "R2-V23-04", "R2-V23-05"] },
+      { "wave": 5, "tasks": ["R2-V23-06", "R2-V23-07"] }
+    ],
+    "assertionSupersession": {
+      "policy": "removed=0；总断言数不减；硬底线/安全断言只增；v1 journey.mjs / binding.mjs 既有编号零改动（除显式取代清单）",
+      "ledgerRef": "父 plan.md §9.8 S1~S18（分工 TD-R2-05）"
+    },
+    "orchestratorDecisions": "TD-R2-01~10（2026-09-13 授权 + R2）",
+    "pendingDownstream": [
+      "@sddu-build：按 R2 任务重实施（只改偏差相关面；零新权限 / 不碰 packages/web-cli-base/** / 无新依赖）",
+      "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录，不稀释既有）",
+      "红线：不碰 main / 不改 v1 SDDU 目录 / 不 force push / 禁 git add -A / 禁提交 .opencode/opencode.json"
+    ]
+  }
 }

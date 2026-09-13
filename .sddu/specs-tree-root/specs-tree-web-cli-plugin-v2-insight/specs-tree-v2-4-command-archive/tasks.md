@@ -577,8 +577,244 @@ npm run test:e2e --workspace @lgdl/web-cli-plugin
 
 ---
 
+## 5. R2 任务分解（post-validate 修订轮，2026-09-13；**phase 不回退**）
+
+> **文档定位**: R2 修订轮任务（V2-4 档案）—— 档案从「结构无控件只读面」改为**分层**（硬底线 `deny` 零控件 + 原因可读；非硬底线/普通命令有 `allow`/`ask`/`deny` 控件描述，写入仍归 V2-3 单一路径）+ **默认档 vs 覆盖生效档分列** + 覆盖面口径分列不夸大；`TREE_ACTION_IDS` 7→9 pin 显式更新。
+> **输入**: 本叶 `spec.md` v2.0（R2）+ 本叶 `plan.md` v2.0（§9A）+ 父 `plan.md` v2.0 §9/§10（ADR-V2-024~033）+ 父 `spec.md` v2.0 §5.7 `FR-V2-070~079` / §8 `AC-V2-020~027` + `state.json#revisionRounds.R2`。
+> **授权**: 编排器代作者决策（2026-09-13 授权）**+ R2** —— 本阶段**不再向作者提问**；开放点自行裁决并登记（TD-R2-01~10）。
+> **纪律**: 不碰 `main` / 不碰 `packages/web-cli-base/**` / 不改 v1 SDDU 目录 / 无新依赖 / 不 force push / 禁 `git add -A` / 禁提交 `.opencode/opencode.json`；**只排任务**（不写代码、不跑 Chromium 门禁）；phase 不回退。
+> **承接**: 本叶 R2 承载 FR-V2-077、FR-V2-079；叶级 AC AC-V24-008。
+
+### 5.0 编排器代作者决策（TD-R2-01~10；2026-09-13 授权 + R2）
+
+> 作者已授权编排器自行决策 → 本阶段**不再向作者提问**；以下开放点自行裁决并登记。
+
+| # | 事项 | 裁决 |
+|:--:|------|------|
+| TD-R2-01 | R2 波次重排 | `R2-Wave 1~6`（全局承接原 Wave 18~23）= 模型层 → 覆盖引擎 → UI 层 → 档案 → 门禁/体积/文档 → 收口 |
+| TD-R2-02 | 任务编号 | 独立前缀 `R2-V2x-NN`；v1 `TASK-00N` 与既有 tasks **零删改**（追加式） |
+| TD-R2-03 | 文案归属 | `TREE_MODEL_NOTE` / `TREE_NO_ESCALATION_NOTE` 重写归 **V2-2**（文件所有权 `tree-view.ts`）；`command-catalog` 偏差文案删除归 **V2-1** |
+| TD-R2-04 | 白名单 7→9 | `tree-ops.ts` 归 **V2-3**（V2-2 只消费，不写白名单） |
+| TD-R2-05 | 取代台账分工 | S1~S3 / S12 / S17 → V2-3；S4~S8 / S13~S16 → V2-2；S9~S11 → V2-4；S9 的 `TREE_ACTION_IDS_JSON_SHA256` 新值由 V2-3 生成、V2-4 落 pin（同源锚定） |
+| TD-R2-06 | Chromium 门禁文件 | `insight.mjs` 由 V2-2（`#I-20a…`）→ V2-4（`#I-21a…`）串行追加；`binding.mjs` 由 V2-3 追加 `#22a…`（既有 `#0~#21o` 零删改） |
+| TD-R2-07 | 覆盖模块拆分 | `command-override.ts` 分两任务（clamp/组合 与 store/生命周期），同文件**串行**（避免并行写冲突） |
+| TD-R2-08 | 收口归属 | 体积重登记归 V2-2（`size-baseline.ts` owner）；计数台账总核 + 全套串行归 V2-4（最后一叶） |
+| TD-R2-09 | 同源锚定 | store `commandId` 与 `STABLE_KEY.command` 一致（V2-1 断言 + V2-3 实现） |
+| TD-R2-10 | 服务端强制测试手段 | 直接调用 SW 消息 handler（伪造 `command-policy-set`，**不经 UI**）+ `host.dispatch` 注入 `commandOverrides`，证明 clamp 在 SW gate 内 |
+
+### 5.1 R2 跨叶波次表（全局承接 Wave 18~23）
+
+| R2 波次 | 全局承接 | 内容 | 承载叶 | 并行性 |
+|:--:|:--:|------|:--:|------|
+| **R2-Wave 1** | Wave 18 | 模型层：`ownership-tree.ts` 纯归属树 + `tree-model`/`command-catalog` 分列/分层 + `project-tree` 派生 + `build-snapshot` 透传 | V2-1 | `01 ∥ 02` → `03` → `04` |
+| **R2-Wave 2** | Wave 19 | 覆盖引擎（**SW 侧强制**）：`command-override.ts` clamp/组合 + store/生命周期 + `host.ts` 组合 + 消息面 + `tree-ops` 白名单 7→9 | V2-3 | `01 ∥ 02` → `03` → `04` → `05` |
+| **R2-Wave 3** | Wave 20 | UI 层：`tree-view.ts` 嵌套模型 + 两通路文案；`tree-drawer.ts` 真树 DOM/键盘/面包屑/分层控件 | V2-2 | `01` → `02` |
+| **R2-Wave 4** | Wave 21 | 档案（V2-4）：`archive-catalog.ts` 分层/分列 + `tree-drawer` 档案卡控件 | V2-4 | `01` → `02`（与 V2-2 同文件串行） |
+| **R2-Wave 5** | Wave 22 | 门禁编写+执行（⚠️ 串行）+ 体积显式重登记 + 文档/人工面 | V2-1/2/3/4 | 编写并行，**执行串行** |
+| **R2-Wave 6** | Wave 23 | R2 收口：S1~S18 计数台账总核（`removed=0`）+ 全套串行 + 零 diff 面 + 人工面登记 | V2-4 | 串行 |
+
+> **波次依赖主轴**：`R2-Wave 1（V2-1 类型/模型）` → `R2-Wave 2（V2-3 覆盖引擎，消费 V2-1 类型）` → `R2-Wave 3（V2-2 UI，消费 V2-1 模型 + V2-3 消息/白名单）` → `R2-Wave 4（V2-4 档案，消费 V2-1 模型 + V2-2 抽屉）` → `R2-Wave 5（门禁，⚠️ 串行）` → `R2-Wave 6（收口）`。
+
+### 5.2 R2 任务总览（本叶 V2-4；共 5 个任务 / 复杂度 S×2 / M×3 / L×0）
+
+| 编号 | 标题 | 规模 | 类型 | 依赖 | 波次 | 可并行 | 涉及文件 |
+|------|------|:--:|:--:|------|:--:|:--:|------|
+| R2-V24-01 | `archive-catalog.ts` 分层 + 默认/生效分列 + 覆盖面分列 | M | 🛠 实施 | R2-V21-02、R2-V21-03 | 4 | — | MODIFY `packages/web-cli-plugin/src/insight/archive-catalog.ts` |
+| R2-V24-02 | `tree-drawer.ts` 档案卡渲染分层控件（复用同一 command-policy 控件与 tree-ops 写路径） | S | 🛠 实施 | R2-V24-01、R2-V22-02 | 4 | — | MODIFY `packages/web-cli-plugin/src/ui/tree/tree-drawer.ts` |
+| R2-V24-03 | `test/insight-archive.test.ts` 取代 S9~S11 + 分列断言 + pin 显式更新 | M | ⚖️ 门禁 | R2-V24-01 | 5 | R2-V21-05；R2-V22-03；R2-V23-06 | MODIFY `packages/web-cli-plugin/test/insight-archive.test.ts` |
+| R2-V24-04 | `test/ui/insight.mjs` 追加 `#I-21a…`（档案分层/分列） | S | ⚖️ 门禁 | R2-V24-02、R2-V22-04 | 5 | R2-V21-05；R2-V22-03；R2-V23-06 | MODIFY `packages/web-cli-plugin/test/ui/insight.mjs`（与 R2-V22-04 同文件 → 串行） |
+| R2-V24-05 | R2 收口 —— S1~S18 计数台账总核（`removed=0`）+ 全套串行 + 零 diff 面 + 人工面 | M | ⚖️ 门禁 | R2-V21-05、R2-V22-03、R2-V22-04、R2-V22-05、R2-V22-06、R2-V23-06、R2-V23-07、R2-V24-03、R2-V24-04 | 6 | — | MODIFY `packages/web-cli-plugin/docs/smoke-checklist.md`（收口登记；无代码） |
+
+### 5.3 R2 依赖拓扑（本叶）
+
+```
+R2-Wave 4: R2-V24-01；R2-V24-02
+R2-Wave 5: R2-V24-03；R2-V24-04
+R2-Wave 6: R2-V24-05
+```
+
+> **跨叶依赖**: V2-1（模型）→ V2-3（覆盖引擎）→ V2-2（UI）→ V2-4（档案）→ 门禁（串行）→ 收口。
+
+### 5.4 R2 任务列表（本叶）
+
+#### R2-V24-01: `archive-catalog.ts` 分层 + 默认/生效分列 + 覆盖面分列
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V21-02、R2-V21-03 |
+| **执行波次** | R2-Wave 4 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-077、FR-V2-079 |
+| **承接 ADR** | ADR-V2-030、ADR-V2-032 |
+| **对应 AC** | AC-V24-004、AC-V24-008 |
+
+**目标**: `ArchiveCard` 追加 `defaultAction`/`effectiveAction`/`overridable`/`clampReason`/`policyControl`（控件描述）；**删除** `FORBIDDEN_CARD_KEYS` 对 `controls` 的一律禁止（改**分层**）；默认档 vs 覆盖生效档分列；`live`(122) vs `baseline`(34/142) 分列；`accounted` 不渲染；档案模块**仍无写导入**。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/insight/archive-catalog.ts`
+
+**验收标准（可执行断言）**:
+- [ ] 硬底线卡**无控件键** + `clampReason` 可读；非硬底线 `deny`/普通卡有 `policyControl`
+- [ ] **仍无写导入**（grep 无 `tree-ops`/写面导入）；类型层/模块图无写入口不变
+- [ ] 默认/生效分列 + 实时面 122 vs 基线 34/142 分列；「已全部渲染」零命中
+- [ ] 反证：硬底线卡给控件 → **FAIL**；把 `live` 计数改成 `baseline` → **FAIL**
+
+**验证命令**:
+```bash
+（node 单测见 R2-V24-03）
+```
+
+#### R2-V24-02: `tree-drawer.ts` 档案卡渲染分层控件（复用同一 command-policy 控件与 tree-ops 写路径）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | S |
+| **前置依赖** | R2-V24-01、R2-V22-02 |
+| **执行波次** | R2-Wave 4 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-077 |
+| **承接 ADR** | ADR-V2-027、ADR-V2-030 |
+| **对应 AC** | AC-V24-004 |
+
+**目标**: 档案卡分层渲染（硬底线零控件 + 原因；非硬底线有控件），写入走**同一** `tree-ops`（无第二写入口）；不改 P0 骨架/`.tree-archive*` 类名隔离。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/ui/tree/tree-drawer.ts`
+
+**验收标准（可执行断言）**:
+- [ ] 档案卡硬底线行零 `[data-action-id]` + 原因可读；非硬底线行有 `[data-policy]` 控件
+- [ ] 写入派发到**同一** `tree-ops.run`（无第二写入口，grep）
+- [ ] 不改 P0 骨架 / 既有 DOM id 类零重命名
+
+**验证命令**:
+```bash
+（node 单测见 R2-V24-03；Chromium 见 R2-V24-04）
+```
+
+#### R2-V24-03: `test/insight-archive.test.ts` 取代 S9~S11 + 分列断言 + pin 显式更新
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V24-01 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | R2-V21-05、R2-V22-03、R2-V23-06 |
+| **对应 FR** | FR-V2-077、FR-V2-079 |
+| **承接 ADR** | ADR-V2-027、ADR-V2-030、ADR-V2-031、ADR-V2-032 |
+| **对应 AC** | AC-V24-004、AC-V24-008、AC-V2-026、AC-V2-027 |
+
+**目标**: 按父 §9.8 显式取代 `insight-archive.test.ts` 的 S9~S11；新增分层/分列断言 + pin 更新。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/test/insight-archive.test.ts`
+
+**验收标准（可执行断言）**:
+- [ ] S9 `TREE_ACTION_IDS is exactly 7 values` → `… exactly 9 values` + `TREE_ACTION_IDS_JSON_SHA256` **显式更新**（记日期/理由/前后值/历史）
+- [ ] S10 `TREE_NO_ESCALATION_NOTE sha256 pin` → 新 pin（**两通路 + `delay` 消歧保留**）；偏差文案零命中
+- [ ] S11 `FORBIDDEN_CARD_KEYS on deny cards` → 硬底线卡**无**控件键；非硬底线卡**有** `policyControl`；档案模块**无写导入**（grep）
+- [ ] 覆盖率/三层口径断言**不变** + 新增「默认/生效分列 + 不夸大」（AC-V24-008）
+- [ ] **removed=0**；`test(` 计数 ≥ 旧；反证：硬底线卡给控件 → FAIL；`live` 改成 `baseline` → FAIL
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm test
+```
+
+#### R2-V24-04: `test/ui/insight.mjs` 追加 `#I-21a…`（档案分层/分列）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | S |
+| **前置依赖** | R2-V24-02、R2-V22-04 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | R2-V21-05、R2-V22-03、R2-V23-06 |
+| **对应 FR** | FR-V2-077、FR-V2-079 |
+| **承接 ADR** | ADR-V2-031 |
+| **对应 AC** | AC-V24-004、AC-V24-008 |
+
+**目标**: Chromium 追加档案分层/分列断言 `#I-21a…`；既有 `#I-19*` 零删改（冲突项按清单取代）。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/test/ui/insight.mjs`（与 R2-V22-04 同文件 → 串行）
+
+**验收标准（可执行断言）**:
+- [ ] 档案卡硬底线零控件 + 原因；非硬底线有控件；默认/生效分列
+- [ ] 既有 `#I-19a…h` 零删改；`check(` 计数不减
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run test:insight
+```
+
+#### R2-V24-05: R2 收口 —— S1~S18 计数台账总核（`removed=0`）+ 全套串行 + 零 diff 面 + 人工面
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V21-05、R2-V22-03、R2-V22-04、R2-V22-05、R2-V22-06、R2-V23-06、R2-V23-07、R2-V24-03、R2-V24-04 |
+| **执行波次** | R2-Wave 6 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-070、FR-V2-079 |
+| **承接 ADR** | ADR-V2-031、ADR-V2-033 |
+| **对应 AC** | AC-V2-012、AC-V2-027 |
+
+**目标**: R2 收口：断言计数台账总核 + 全套门禁串行 + 零 diff 面 + 人工面登记。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/docs/smoke-checklist.md`（收口登记；无代码）
+
+**验收标准（可执行断言）**:
+- [ ] **S1~S18 台账总核**：逐条 old→new 落位；`removed=0`；**实测** `check(` 计数（`insight.mjs` 57→≥57+新增；`binding.mjs` 185→≥185+新增）与 node `test(` 计数 ≥ 旧（记录前后值）
+- [ ] 全套门禁**串行**：`build → test → test:ui → test:insight → test:binding → test:hardening → test:e2e` 逐条；任何 fail 即停，修复后从头串行重跑（绝不并发）
+- [ ] **零 diff 面核验**：`packages/web-cli-base/**`、`src/security/policy.ts`、`src/security/auto-authorize.ts`、`manifest.json`、`src/content/**`、`test/parity/**`、`test/ui/journey.mjs`、v1 SDDU 目录、`.opencode/opencode.json`、依赖段
+- [ ] `src/security/policy.ts`/`src/security/auto-authorize.ts` 内容 sha256 = `bfcb2ede…` / `1096d065…`
+- [ ] 人工面清单登记（树展开/长路径窄栏/键盘体感/覆盖即时生效/deny 分层原因）；每类「能真 FAIL」反证已备
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run build && npm test && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e
+sha256sum src/security/policy.ts src/security/auto-authorize.ts
+```
+
+
+### 5.5 R2 验收矩阵（本叶）
+
+| 验收要点（R2 / 对应 AC） | 落成任务 | 门禁/断言 | 新增 vs 追加 vs 取代 | 反证设计 |
+|------|:--:|------|:--:|------|
+| 档案分层：硬底线零控件 + 原因；非硬底线有控件（AC-V24-004/AC-V2-026） | R2-V24-01 / 02 / 03 / 04 | `insight-archive` + `#I-21a…` | **取代 S11** | 硬底线卡给控件 → FAIL |
+| 默认档 vs 覆盖生效档分列（AC-V24-008） | R2-V24-01 / 03 / 04 | `insight-archive` + `#I-21a…` | **新增** | 两档混同 → FAIL |
+| 覆盖面分列不夸大（AC-V24-008/AC-V2-027） | R2-V24-01 / 03 | `insight-archive` + grep | 三层口径**不变** + 新增 | `live`=`baseline` → FAIL |
+| 档案模块无写导入（结构保证） | R2-V24-01 / 03 | grep | **零放宽** | 出现写导入 → FAIL |
+| `TREE_ACTION_IDS` 7→9 pin + 文案 pin（S9/S10） | R2-V24-03 | `insight-archive` | **取代 S9/S10** | 改回 7 / 旧文案 → FAIL |
+| 收口：计数台账 `removed=0` + 全套串行 + 零 diff 面 | R2-V24-05 | 串行全套 + sha256 | **核验** | 删除行/计数下降 → FAIL |
+
+### 5.6 R2 断言取代台账（本叶承载；父 `plan.md` §9.8 S1~S18）
+
+> **纪律**: `removed = 0`；每条旧断言给出 old → new（理由 + 替代）；**总断言数不得下降**；硬底线/安全类断言**只增不减**；`journey.mjs` / v1 `test:ui` / `binding.mjs` 既有编号**零改动**（除清单内显式取代）。build 阶段**实测** `check(` 计数（`insight.mjs` 57 / `binding.mjs` 185 起算）与 node `test(` 计数，记录前后值证明「只增不减」。
+
+| # | 旧断言（文件 :: 名称/编号） | 理由 | 新断言（替代） |
+|:--:|------------------------------|------|----------------|
+| S9 | `insight-archive.test.ts :: TREE_ACTION_IDS is exactly 7 values (sha256-pinned)` | 白名单 7→9 | `… exactly 9 values` + **显式更新 `TREE_ACTION_IDS_JSON_SHA256`**（新值由 V2-3 R2-V23-05 生成，本叶落 pin） |
+| S10 | `insight-archive.test.ts :: TREE_NO_ESCALATION_NOTE sha256 pin` | 文案重写 | 新 pin（两通路 + `delay` 消歧保留）；偏差文案零命中 |
+| S11 | `insight-archive.test.ts :: FORBIDDEN_CARD_KEYS on deny cards` | 档案分层（FR-V2-077） | 硬底线卡零控件键；**非硬底线卡允许控件描述**；档案模块**仍无写导入**（grep） |
+| — | `insight-archive.test.ts` 覆盖率/三层口径 | **不变**（口径仍 34/142 baseline · 122 live 分列） | 保留 + 新增「默认/生效分列 + 不夸大」（AC-V24-008） |
+
+**硬底线只增**：档案硬底线卡零控件 + 原因可读；`policy.ts`/`auto-authorize.ts` pin 不变。
+
+### 5.7 R2 文件所有权与串行约束（本叶）
+
+- 同文件多任务一律**串行**（`command-override.ts`：R2-V23-01 → R2-V23-02；`tree-drawer.ts`：R2-V22-02 → R2-V24-02；`insight.mjs`：R2-V22-04 → R2-V24-04）。
+- Chromium 门禁（`test:ui`/`test:insight`/`test:binding`）**绝不并发**（OOM 前科，NFR-V2-009）。
+- 冻结面 `policy.ts`/`auto-authorize.ts` 零 diff；新增 `command-override.ts` 独立内容哈希 pin（首登记）。
+
+### 5.8 R2 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| **v2.0（R2）** | 新增 §5 R2 任务分解：R2-V24-01、R2-V24-02、R2-V24-03、R2-V24-04、R2-V24-05（共 5 个任务；S×2/M×3/L×0）。承接父 `plan.md` v2.0 §9/§10（ADR-V2-024~033）与父 `spec.md` v2.0 §5.7/§8；**只排任务**，phase 不回退；断言取代 `removed=0`。 | 2026-09-13 | SDDU Tasks Agent（R2） |
+
+---
+
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-4 plan §2~§3 + §6 + §9 → **10 个原子任务 / 4 波**（跨叶子 Wave 14~17）：catalogMeta 常量 + service-worker 1 行注入 / archive-catalog 渲染模型+三层口径+deny 分层+只读过滤 / tree-drawer 档案子视图 / node 门禁主体 A1/A2/A4~A9 / **A3 deny 分层全量交叉** / test:insight 追加 `#I-19a…h` / 体积显式重登记+content 零增长 / 门禁串行收口 / 文档回填 / 人工面 V2-H-7~9。**零模型改动**，唯一 additive 运行时面 = `service-worker` 1 行 `catalogMeta`（ADR-V2-023）。门禁纪律：每条关键断言配反证、`catch` 只吞 `ENOENT`、冻结用内容哈希（W3）、体积显式重登记（W4）、策略再实现全量交叉（T3）、Chromium 绝不并发。编排器代作者决策 TD-V24-01~07（2026-09-13 授权）。 | 2026-09-13 | SDDU Tasks Agent |
+| **v2.0（R2）** | 新增 §5 R2 任务分解（5 个任务；S×2/M×3/L×0）。承接父 plan v2.0 ADR-V2-024~033 + 父 spec v2.0 §5.7/§8；**只排任务**、phase 不回退；断言取代 `removed=0`。 | 2026-09-13 | SDDU Tasks Agent（R2） |

@@ -232,6 +232,57 @@
           "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录，不稀释既有记录）。",
           "红线：不碰 main / 不碰 packages/web-cli-base/** / 不改 v1 SDDU 目录 / 不 force push / 禁 git add -A / 禁提交 .opencode/opencode.json。"
         ]
+      },
+      "tasks": {
+        "round": "R2",
+        "subRound": "tasks（任务排布修订）",
+        "type": "post-validate 任务分解修订（phase 不回退；追加记录不稀释既有）",
+        "date": "2026-09-13",
+        "authorization": "编排器代作者决策（2026-09-13 授权）",
+        "phaseKept": "tasked | validated（原样，不回退）",
+        "phaseNotRegressed": true,
+        "scopeNote": "将连接树从「四层分组 + 扁平行」修订为**真父子层级树**（纯归属树 + 主归属链 + 交叉引用徽标，不复制节点）+ 命令**默认档/覆盖生效档分列** + clamp 原因 + 覆盖面口径分列；**快照扁平面不动**（对账/确定性/`meta.hash`/parity/archive 前提零变化）。",
+        "taskCount": 5,
+        "waveCount": 2,
+        "complexity": {
+          "S": 1,
+          "M": 3,
+          "L": 1
+        },
+        "r2TaskIds": [
+          "R2-V21-01",
+          "R2-V21-02",
+          "R2-V21-03",
+          "R2-V21-04",
+          "R2-V21-05"
+        ],
+        "waveMap": [
+          {
+            "wave": 1,
+            "tasks": [
+              "R2-V21-01",
+              "R2-V21-02",
+              "R2-V21-03",
+              "R2-V21-04"
+            ]
+          },
+          {
+            "wave": 5,
+            "tasks": [
+              "R2-V21-05"
+            ]
+          }
+        ],
+        "assertionSupersession": {
+          "policy": "removed=0；总断言数不减；硬底线断言只增；v1 journey.mjs/binding.mjs 既有编号零改动",
+          "ledger": "父 plan.md §9.8 S1~S18；实测 check( 计数（insight.mjs 57 / binding.mjs 185 起算）+ node test( 计数"
+        },
+        "orchestratorDecisions": "TD-R2-01~10（2026-09-13 授权 + R2）",
+        "pendingDownstream": [
+          "@sddu-build：按 R2 任务重实施（覆盖层 SW clamp + 真层级树渲染 + deny 控件分层 + 断言取代）",
+          "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录）",
+          "红线：不碰 main / 不碰 packages/web-cli-base/** / 不改 v1 SDDU 目录 / 不 force push / 禁 git add -A"
+        ]
       }
     }
   }

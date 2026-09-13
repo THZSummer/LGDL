@@ -6,7 +6,7 @@
     "phase": "tasked",
     "agent": "sddu-tasks",
     "createdAt": "2026-09-13",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "sourcePlan": "V2-1 plan.md v1.0（§3.1~3.6 六模块 + §6 文件影响 + §9 交付门槛）+ 父 plan.md v1.0（ADR-V2-001~015 集中登记 §8）",
     "sourceSpec": "父 spec.md FR-V2-010~017 + 本叶子 spec.md（NFR-V21-001~005 / EC-V21-001~006 / AC-V21-001~007）",
     "taskCount": 9,
@@ -76,7 +76,11 @@
       "v1 测试文件零删改（git diff 白名单核验）",
       "test/parity/** 零变更"
     ],
-    "note": "V2-1 本叶子 9 任务 / 5 波：类型+能力目录 → (命令档案 ∥ 对账) → 纯投影 → builder+additive 接线 → 4 门禁。src/insight/** 纯读零副作用（无 chrome.*、不写 store、不写审计）；不改 policy.ts/auto-authorize.ts；不碰 packages/web-cli-base/**；不改 v1 任何文件；无新依赖。编排器代作者决策（2026-09-13 授权）：TD-V21-01 tree-model+capability-catalog 合并；TD-V21-02 insight-no-escalation.test.ts 由 V2-1 建立基础段、V2-3 追加；TD-V21-03 叶内 5 波、V2-1 先行。门禁串行执行，绝不并发（OOM 前科）。"
+    "note": "V2-1 本叶子 9 任务 / 5 波：类型+能力目录 → (命令档案 ∥ 对账) → 纯投影 → builder+additive 接线 → 4 门禁。src/insight/** 纯读零副作用（无 chrome.*、不写 store、不写审计）；不改 policy.ts/auto-authorize.ts；不碰 packages/web-cli-base/**；不改 v1 任何文件；无新依赖。编排器代作者决策（2026-09-13 授权）：TD-V21-01 tree-model+capability-catalog 合并；TD-V21-02 insight-no-escalation.test.ts 由 V2-1 建立基础段、V2-3 追加；TD-V21-03 叶内 5 波、V2-1 先行。门禁串行执行，绝不并发（OOM 前科）。",
+    "r2TaskCount": 5,
+    "totalTaskCount": 14,
+    "r2SourcePlan": "V2-1 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+    "r2Note": "R2 修订轮任务（追加式，v1 tasks 零删改）。全局承接 Wave 18~23（R2-Wave 1~6）。"
   },
   "waves": [
     {
@@ -623,6 +627,166 @@
         "cd packages/web-cli-plugin && npm test",
         "! grep -rnE \"catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}\" src/insight"
       ]
+    },
+    {
+      "id": "R2-V21-01",
+      "name": "纯归属树 `ownership-tree.ts`（真父子层级 + 主归属链 + 交叉引用，不复制节点）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [],
+      "planRef": "V2-1 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 1,
+      "parallelWith": ["R2-V21-02"],
+      "fr": ["FR-V2-070", "FR-V2-071"],
+      "adr": ["ADR-V2-028"],
+      "ac": ["AC-V21-008", "AC-V21-009"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/insight/ownership-tree.ts" }
+      ],
+      "acceptance": [
+        "模型为嵌套 `children`（**非扁平 `rows`**）；作者**示例①** `连接树→授权的站点→站点 xxx→支持的命令→工具→子命令` 可逐层枚举",
+        "作者**示例②** `连接树→支持的命令→系统内置命令→dom→dom read-state` 可逐层枚举（`dom` 的 child 含 `dom read-state`）",
+        "每个 `nodeId` 全树唯一（`Set` 去重 count === total）；多归属节点 `crossRefCount>=1` 且 `mainOwner` 唯一",
+        "从非主归属路径下钻解析到**同一 `nodeId`**（不产生副本）",
+        "快照 `groups[].children` 与 `meta.hash` 输入**零变化**（对账/确定性断言前提不变）",
+        "纯函数：无 `chrome.*`、无 IO、`npm run typecheck` 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "（node 单测见 R2-V21-05）"
+      ]
+    },
+    {
+      "id": "R2-V21-02",
+      "name": "`tree-model.ts` additive 字段 + `command-catalog.ts` 默认/生效分列 + 分层控件 + 偏差文案删除",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [],
+      "planRef": "V2-1 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 1,
+      "parallelWith": ["R2-V21-01"],
+      "fr": ["FR-V2-013", "FR-V2-074", "FR-V2-077", "FR-V2-078"],
+      "adr": ["ADR-V2-025", "ADR-V2-030", "ADR-V2-032"],
+      "ac": ["AC-V21-010"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/insight/tree-model.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/insight/command-catalog.ts" }
+      ],
+      "acceptance": [
+        "additive 字段类型正确；`defaultAction` 保留原语义（T3 parity 不受扰）",
+        "硬底线节点 `overridable===false` ∧ `controls.length===0` ∧ `clampReason` 可读映射（`evaluate`/`s1-unauthorized`/`s3-unknown-risk`/`destructive-floor`/`ui-no-widen`/`state-no-widen`/`external-no-widen`）",
+        "可覆盖节点 `controls` **恰 3 个** `{kind:'command-policy',policyAction:'allow'|'ask'|'deny'}`；**非硬底线 `deny` 亦有控件**（可改回）",
+        "偏差文案「只读展示：命令级策略不可在树内修改」「不提供命令级写入」在 `src/insight/**` **grep 零命中**",
+        "`insight-catalog` 34/142 双向对账零回归（`catalog-reconcile` 不变）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "grep -rn '只读展示：命令级策略不可在树内修改\\|不提供命令级写入' src/insight/ （零命中）",
+        "（node 单测见 R2-V21-05）"
+      ]
+    },
+    {
+      "id": "R2-V21-03",
+      "name": "`project-tree.ts` 注入 overrides + 覆盖面分列 + 派生 `ownershipTree`",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["R2-V21-01", "R2-V21-02"],
+      "planRef": "V2-1 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 1,
+      "parallelWith": [],
+      "fr": ["FR-V2-079"],
+      "adr": ["ADR-V2-028", "ADR-V2-032"],
+      "ac": ["AC-V21-010"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/insight/project-tree.ts" }
+      ],
+      "acceptance": [
+        "`snapshot.ownershipTree` 存在且由 `buildOwnershipTree` 派生（同一契约）",
+        "`coverage` 分列字段：`live`(28/94=122) 与 `baseline`(34/142) 独立；`accounted` 不出现在渲染字段",
+        "投影确定性：两次投影 `ownershipTree` deep-equal；`meta.hash` 输入不变",
+        "「34/142 已全部渲染」「已全部渲染」类表述零命中",
+        "反证：把 `live` 计数改成等于 `baseline` → **FAIL**"
+      ],
+      "verify": [
+        "（node 单测见 R2-V21-05）"
+      ]
+    },
+    {
+      "id": "R2-V21-04",
+      "name": "`build-snapshot.ts` 透传 overrides / coverage（薄 builder）",
+      "type": "implementation",
+      "complexity": "S",
+      "dependsOn": ["R2-V21-03"],
+      "planRef": "V2-1 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 1,
+      "parallelWith": [],
+      "fr": ["FR-V2-075", "FR-V2-079"],
+      "adr": ["ADR-V2-024"],
+      "ac": ["AC-V21-010"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/insight/build-snapshot.ts" }
+      ],
+      "acceptance": [
+        "快照含 `overrides`/`coverage`；投影前后存储 diff 为空、无审计新增（零副作用）",
+        "`state.insight?` additive，旧字段语义零变更（回归断言）",
+        "不 import `chrome.*`（kv 注入）"
+      ],
+      "verify": [
+        "（node 单测见 R2-V21-05）"
+      ]
+    },
+    {
+      "id": "R2-V21-05",
+      "name": "模型门禁 `test/insight-tree-hierarchy.test.ts`（AC-V21-008~010）+ 既有门禁零回归核验",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["R2-V21-01", "R2-V21-02", "R2-V21-03", "R2-V21-04"],
+      "planRef": "V2-1 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+      "wave": 5,
+      "parallelWith": ["R2-V22-03", "R2-V23-06", "R2-V24-03"],
+      "fr": ["FR-V2-070", "FR-V2-071", "FR-V2-079"],
+      "adr": ["ADR-V2-028", "ADR-V2-031", "ADR-V2-032"],
+      "ac": ["AC-V21-008", "AC-V21-009", "AC-V21-010"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts" }
+      ],
+      "acceptance": [
+        "层级断言：模型为父子结构（非 `rows`）；**作者两例层级链逐层枚举成功**（AC-V21-008）",
+        "多归属断言：node id 唯一 + `mainOwner` + `crossRefCount` + 下钻同一 id（AC-V21-009）",
+        "分列断言：`defaultAction`/`effectiveAction` 分列 + `clampReason` 与父 §5.7 表一致 + `live` 122 vs `baseline` 34/142 分列、不夸大（AC-V21-010）",
+        "取代台账：本叶无 S 编号（S1~S18 由 V2-2/V2-3/V2-4 承载）；`removed=0`；`insight-projection`/`insight-determinism`/`insight-catalog` 既有断言**零删改**（`git diff --unified=0` 无删除行）",
+        "反证：把 ownership tree 改回扁平 `rows` → **FAIL**；把 `live` 计数改成 `baseline` → **FAIL**"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
     }
-  ]
+  ],
+  "r2": {
+    "round": "R2",
+    "type": "post-validate 任务分解修订（phase 不回退；体例沿用 v1.0；追加不稀释既有）",
+    "date": "2026-09-13",
+    "authorization": "编排器代作者决策（2026-09-13 授权）+ R2",
+    "sourcePlan": "V2-1 plan.md v2.0（§9 R2 修订）+ 父 plan.md v2.0 §9/§10（ADR-V2-024~033）",
+    "sourceSpec": "父 spec.md v2.0 §5.7 FR-V2-070~079 + §8 AC-V2-020~027 + 本叶 spec.md v2.0",
+    "scope": "将连接树从「四层分组 + 扁平行」修订为**真父子层级树**（纯归属树 + 主归属链 + 交叉引用徽标，不复制节点）+ 命令**默认档/覆盖生效档分列** + clamp 原因 + 覆盖面口径分列；**快照扁平面不动**（对账/确定性/`meta.hash`/parity/archive 前提零变化）。",
+    "taskCount": 5,
+    "waveCount": 2,
+    "complexity": { "S": 1, "M": 3, "L": 1 },
+    "taskIds": ["R2-V21-01", "R2-V21-02", "R2-V21-03", "R2-V21-04", "R2-V21-05"],
+    "waveMap": [
+      { "wave": 1, "tasks": ["R2-V21-01", "R2-V21-02", "R2-V21-03", "R2-V21-04"] },
+      { "wave": 5, "tasks": ["R2-V21-05"] }
+    ],
+    "assertionSupersession": {
+      "policy": "removed=0；总断言数不减；硬底线/安全断言只增；v1 journey.mjs / binding.mjs 既有编号零改动（除显式取代清单）",
+      "ledgerRef": "父 plan.md §9.8 S1~S18（分工 TD-R2-05）"
+    },
+    "orchestratorDecisions": "TD-R2-01~10（2026-09-13 授权 + R2）",
+    "pendingDownstream": [
+      "@sddu-build：按 R2 任务重实施（只改偏差相关面；零新权限 / 不碰 packages/web-cli-base/** / 无新依赖）",
+      "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录，不稀释既有）",
+      "红线：不碰 main / 不改 v1 SDDU 目录 / 不 force push / 禁 git add -A / 禁提交 .opencode/opencode.json"
+    ]
+  }
 }

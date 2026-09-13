@@ -345,6 +345,62 @@
           "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录，不稀释既有记录）。",
           "红线：不碰 main / 不碰 packages/web-cli-base/** / 不改 v1 SDDU 目录 / 不 force push / 禁 git add -A / 禁提交 .opencode/opencode.json。"
         ]
+      },
+      "tasks": {
+        "round": "R2",
+        "subRound": "tasks（父子 Feature 任务排布修订；父为轻量容器，任务落四叶）",
+        "type": "post-validate 任务分解修订（phase 不回退；追加记录不稀释既有）",
+        "date": "2026-09-13",
+        "authorization": "编排器代作者决策（2026-09-13 授权）",
+        "phaseKept": "tasked（父）| validated（四叶）原样，不回退",
+        "phaseNotRegressed": true,
+        "scopeNote": "R2 任务分解落四叶：V2-1 模型层（真层级树/分列/覆盖面）+ V2-3 覆盖引擎（SW clamp/存储/白名单 7→9）+ V2-2 UI（真树渲染/三态控件/deny 分层/两通路文案）+ V2-4 档案（分层/分列）。父 Feature 仍为轻量规范容器，不执行 tasks/build/review/validate。",
+        "leafTaskIds": {
+          "V2-1": [
+            "R2-V21-01",
+            "R2-V21-02",
+            "R2-V21-03",
+            "R2-V21-04",
+            "R2-V21-05"
+          ],
+          "V2-2": [
+            "R2-V22-01",
+            "R2-V22-02",
+            "R2-V22-03",
+            "R2-V22-04",
+            "R2-V22-05",
+            "R2-V22-06"
+          ],
+          "V2-3": [
+            "R2-V23-01",
+            "R2-V23-02",
+            "R2-V23-03",
+            "R2-V23-04",
+            "R2-V23-05",
+            "R2-V23-06",
+            "R2-V23-07"
+          ],
+          "V2-4": [
+            "R2-V24-01",
+            "R2-V24-02",
+            "R2-V24-03",
+            "R2-V24-04",
+            "R2-V24-05"
+          ]
+        },
+        "totalTaskCount": 23,
+        "waveMap": "R2-Wave 1~6（全局承接 Wave 18~23）：模型层 → 覆盖引擎 → UI 层 → 档案 → 门禁/体积/文档 → 收口",
+        "assertionSupersession": {
+          "policy": "removed=0；总断言数不减；硬底线断言只增；journey.mjs / binding.mjs 既有编号零改动",
+          "ledger": "父 plan.md §9.8 S1~S18；build 实测 check( 计数 + node test( 计数",
+          "v1Untouched": "journey.mjs / v1 test:ui 既有断言 / binding.mjs 既有 #0~#21o 零删改"
+        },
+        "orchestratorDecisions": "TD-R2-01~10（2026-09-13 授权 + R2）",
+        "pendingDownstream": [
+          "@sddu-build：按 R2 任务重实施（V2-1 → V2-3 → V2-2 → V2-4；门禁串行）",
+          "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录）",
+          "红线：不碰 main / 不碰 packages/web-cli-base/** / 不改 v1 SDDU 目录 / 不 force push / 禁 git add -A / 禁提交 .opencode/opencode.json"
+        ]
       }
     }
   }

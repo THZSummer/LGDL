@@ -482,8 +482,307 @@ npm run test:e2e --workspace @lgdl/web-cli-plugin
 
 ---
 
+## 5. R2 任务分解（post-validate 修订轮，2026-09-13；**phase 不回退**）
+
+> **文档定位**: R2 修订轮任务（V2-3 覆盖引擎）—— 新增**命令级用户覆盖层**（工具级 + 子命令级 allow/ask/deny）+ **SW 侧硬底线 clamp**（`[S1,S3,override,S2]`，不改冻结 `policy.ts`/`auto-authorize.ts`）+ 存储/继承/恢复/幂等/无半写/审计零明文 + 白名单 7→9 + 放宽类二次确认；`FR-V2-036` 范围限定为撤销/关断通路。
+> **输入**: 本叶 `spec.md` v2.0（R2）+ 本叶 `plan.md` v2.0（§9）+ 父 `plan.md` v2.0 §9/§10（ADR-V2-024~033）+ 父 `spec.md` v2.0 §5.7 `FR-V2-070~079` / §8 `AC-V2-020~027` + `state.json#revisionRounds.R2`。
+> **授权**: 编排器代作者决策（2026-09-13 授权）**+ R2** —— 本阶段**不再向作者提问**；开放点自行裁决并登记（TD-R2-01~10）。
+> **纪律**: 不碰 `main` / 不碰 `packages/web-cli-base/**` / 不改 v1 SDDU 目录 / 无新依赖 / 不 force push / 禁 `git add -A` / 禁提交 `.opencode/opencode.json`；**只排任务**（不写代码、不跑 Chromium 门禁）；phase 不回退。
+> **承接**: 本叶 R2 承载 FR-V2-074、FR-V2-075、FR-V2-076；叶级 AC AC-V23-009、AC-V23-010。
+
+### 5.0 编排器代作者决策（TD-R2-01~10；2026-09-13 授权 + R2）
+
+> 作者已授权编排器自行决策 → 本阶段**不再向作者提问**；以下开放点自行裁决并登记。
+
+| # | 事项 | 裁决 |
+|:--:|------|------|
+| TD-R2-01 | R2 波次重排 | `R2-Wave 1~6`（全局承接原 Wave 18~23）= 模型层 → 覆盖引擎 → UI 层 → 档案 → 门禁/体积/文档 → 收口 |
+| TD-R2-02 | 任务编号 | 独立前缀 `R2-V2x-NN`；v1 `TASK-00N` 与既有 tasks **零删改**（追加式） |
+| TD-R2-03 | 文案归属 | `TREE_MODEL_NOTE` / `TREE_NO_ESCALATION_NOTE` 重写归 **V2-2**（文件所有权 `tree-view.ts`）；`command-catalog` 偏差文案删除归 **V2-1** |
+| TD-R2-04 | 白名单 7→9 | `tree-ops.ts` 归 **V2-3**（V2-2 只消费，不写白名单） |
+| TD-R2-05 | 取代台账分工 | S1~S3 / S12 / S17 → V2-3；S4~S8 / S13~S16 → V2-2；S9~S11 → V2-4；S9 的 `TREE_ACTION_IDS_JSON_SHA256` 新值由 V2-3 生成、V2-4 落 pin（同源锚定） |
+| TD-R2-06 | Chromium 门禁文件 | `insight.mjs` 由 V2-2（`#I-20a…`）→ V2-4（`#I-21a…`）串行追加；`binding.mjs` 由 V2-3 追加 `#22a…`（既有 `#0~#21o` 零删改） |
+| TD-R2-07 | 覆盖模块拆分 | `command-override.ts` 分两任务（clamp/组合 与 store/生命周期），同文件**串行**（避免并行写冲突） |
+| TD-R2-08 | 收口归属 | 体积重登记归 V2-2（`size-baseline.ts` owner）；计数台账总核 + 全套串行归 V2-4（最后一叶） |
+| TD-R2-09 | 同源锚定 | store `commandId` 与 `STABLE_KEY.command` 一致（V2-1 断言 + V2-3 实现） |
+| TD-R2-10 | 服务端强制测试手段 | 直接调用 SW 消息 handler（伪造 `command-policy-set`，**不经 UI**）+ `host.dispatch` 注入 `commandOverrides`，证明 clamp 在 SW gate 内 |
+
+### 5.1 R2 跨叶波次表（全局承接 Wave 18~23）
+
+| R2 波次 | 全局承接 | 内容 | 承载叶 | 并行性 |
+|:--:|:--:|------|:--:|------|
+| **R2-Wave 1** | Wave 18 | 模型层：`ownership-tree.ts` 纯归属树 + `tree-model`/`command-catalog` 分列/分层 + `project-tree` 派生 + `build-snapshot` 透传 | V2-1 | `01 ∥ 02` → `03` → `04` |
+| **R2-Wave 2** | Wave 19 | 覆盖引擎（**SW 侧强制**）：`command-override.ts` clamp/组合 + store/生命周期 + `host.ts` 组合 + 消息面 + `tree-ops` 白名单 7→9 | V2-3 | `01 ∥ 02` → `03` → `04` → `05` |
+| **R2-Wave 3** | Wave 20 | UI 层：`tree-view.ts` 嵌套模型 + 两通路文案；`tree-drawer.ts` 真树 DOM/键盘/面包屑/分层控件 | V2-2 | `01` → `02` |
+| **R2-Wave 4** | Wave 21 | 档案（V2-4）：`archive-catalog.ts` 分层/分列 + `tree-drawer` 档案卡控件 | V2-4 | `01` → `02`（与 V2-2 同文件串行） |
+| **R2-Wave 5** | Wave 22 | 门禁编写+执行（⚠️ 串行）+ 体积显式重登记 + 文档/人工面 | V2-1/2/3/4 | 编写并行，**执行串行** |
+| **R2-Wave 6** | Wave 23 | R2 收口：S1~S18 计数台账总核（`removed=0`）+ 全套串行 + 零 diff 面 + 人工面登记 | V2-4 | 串行 |
+
+> **波次依赖主轴**：`R2-Wave 1（V2-1 类型/模型）` → `R2-Wave 2（V2-3 覆盖引擎，消费 V2-1 类型）` → `R2-Wave 3（V2-2 UI，消费 V2-1 模型 + V2-3 消息/白名单）` → `R2-Wave 4（V2-4 档案，消费 V2-1 模型 + V2-2 抽屉）` → `R2-Wave 5（门禁，⚠️ 串行）` → `R2-Wave 6（收口）`。
+
+### 5.2 R2 任务总览（本叶 V2-3；共 7 个任务 / 复杂度 S×0 / M×4 / L×3）
+
+| 编号 | 标题 | 规模 | 类型 | 依赖 | 波次 | 可并行 | 涉及文件 |
+|------|------|:--:|:--:|------|:--:|:--:|------|
+| R2-V23-01 | `command-override.ts` clamp + `withCommandOverride` 组合（SW 侧，不改冻结文件） | L | 🛠 实施 | R2-V21-02 | 2 | R2-V23-02 | NEW `packages/web-cli-plugin/src/security/command-override.ts`（clamp/resolver + 组合 + 确认） |
+| R2-V23-02 | 覆盖存储/生命周期/审计（`command-override.ts` store + `audit-sink.ts`） | L | 🛠 实施 | 无 | 2 | R2-V23-01 | NEW `packages/web-cli-plugin/src/security/command-override.ts`（store）；MODIFY `packages/web-cli-plugin/src/security/audit-sink.ts`（additive union `command-policy`） |
+| R2-V23-03 | `host.ts` 组合（`withCommandOverride` + `guardedOnAsk` + `commandOverrides` 注入） | M | 🛠 实施 | R2-V23-01、R2-V23-02 | 2 | — | MODIFY `packages/web-cli-plugin/src/background/host.ts` |
+| R2-V23-04 | 覆盖消息面（`service-worker.ts`/`messaging.ts`/`insight-protocol.ts`，additive）+ `pushInsightChanged` | M | 🛠 实施 | R2-V23-02、R2-V23-03 | 2 | — | MODIFY `packages/web-cli-plugin/src/background/service-worker.ts`；MODIFY `packages/web-cli-plugin/src/background/messaging.ts`；MODIFY `packages/web-cli-plugin/src/background/insight-protocol.ts` |
+| R2-V23-05 | `tree-ops.ts` 白名单 7→9 + 两分支 + 无默认写入兜底 + 放宽类确认 + pin 显式更新 | M | 🛠 实施 | R2-V23-04 | 2 | — | MODIFY `packages/web-cli-plugin/src/ui/tree/tree-ops.ts` |
+| R2-V23-06 | 覆盖门禁 `test/command-override.test.ts` + `test/insight-override-security.test.ts` | L | ⚖️ 门禁 | R2-V23-01、R2-V23-02、R2-V23-03、R2-V23-04、R2-V23-05 | 5 | R2-V21-05；R2-V22-03；R2-V24-03 | NEW `packages/web-cli-plugin/test/command-override.test.ts`；NEW `packages/web-cli-plugin/test/insight-override-security.test.ts` |
+| R2-V23-07 | `test/ui/binding.mjs` 追加 `#22a…`（覆盖三档 → dispatch 反映 / reset / 持久化） | M | ⚖️ 门禁 | R2-V23-04 | 5 | R2-V21-05；R2-V22-04；R2-V24-03 | MODIFY `packages/web-cli-plugin/test/ui/binding.mjs` |
+
+### 5.3 R2 依赖拓扑（本叶）
+
+```
+R2-Wave 2: R2-V23-01；R2-V23-02；R2-V23-03；R2-V23-04；R2-V23-05
+R2-Wave 5: R2-V23-06；R2-V23-07
+```
+
+> **跨叶依赖**: V2-1（模型）→ V2-3（覆盖引擎）→ V2-2（UI）→ V2-4（档案）→ 门禁（串行）→ 收口。
+
+### 5.4 R2 任务列表（本叶）
+
+#### R2-V23-01: `command-override.ts` clamp + `withCommandOverride` 组合（SW 侧，不改冻结文件）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **前置依赖** | R2-V21-02 |
+| **执行波次** | R2-Wave 2 |
+| **可并行** | R2-V23-02 |
+| **对应 FR** | FR-V2-074、FR-V2-076 |
+| **承接 ADR** | ADR-V2-024、ADR-V2-025 |
+| **对应 AC** | AC-V23-010、AC-V2-025 |
+
+**目标**: `resolveCommandPolicy({defaultAction,override,risk,destructive,siteAuthorized}) → {effectiveAction,overridable,clampReason}`（**硬底线 > 覆盖 > 默认**，父 §9.3 逐档表）；`withCommandOverride(base,{resolveOverride,isDestructive})` 按 `name` 定位 `[S1,S2,S3]` 重排为 `[S1,S3,overrideStrategy,S2]`（缺一 FAIL）+ 追加 clamp 策略；`commandPolicyNeedsConfirmation(desired,defaultAction)`；`isDestructive = risk==='write' && DESTRUCTIVE_VERBS.has(末段sub)`（**不用**「未知→true」）。零 `chrome.*`；不 import/修改 `policy.ts`/`auto-authorize.ts`。
+
+**涉及文件**: NEW `packages/web-cli-plugin/src/security/command-override.ts`（clamp/resolver + 组合 + 确认）
+
+**验收标准（可执行断言）**:
+- [ ] **clamp 反向断言**（覆盖为 `allow` 后）：① `evaluate` 仍 deny ② 未授权 origin 仍 deny（S1）③ 未知/非法 risk 仍 deny（S3，含 `sleep`/`web-cli-help`）④ 破坏性子命令保底 `ask` ⑤ `ui`/`state`/`external` 不得变 `allow`
+- [ ] **作者示例**：`dom`（工具级=设置载体）三档可设；`dom read-state` 子命令级三档生效；`dom click` 仍不放宽（ui clamp）
+- [ ] 策略链顺序锚定 `[S1,S3,override,S2]`（按 name；缺一 **FAIL**）；无覆盖 → 返回 `null`（行为与现状逐字节一致）
+- [ ] `policy.ts`/`auto-authorize.ts` 源码 sha256 仍 = P0 pin（`bfcb2ede…` / `1096d065…`）
+- [ ] 反证：强制 evaluate allow → **FAIL**；顺序改回 `[S1,S2,S3]` → 覆盖收紧失效 → **FAIL**
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run typecheck
+（node 单测见 R2-V23-06）
+```
+
+#### R2-V23-02: 覆盖存储/生命周期/审计（`command-override.ts` store + `audit-sink.ts`）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **前置依赖** | 无 |
+| **执行波次** | R2-Wave 2 |
+| **可并行** | R2-V23-01 |
+| **对应 FR** | FR-V2-075 |
+| **承接 ADR** | ADR-V2-026 |
+| **对应 AC** | AC-V23-009、AC-V2-024 |
+
+**目标**: 单键 `web-cli:command-policy` `{version:1,entries:{commandId:{action,updatedAt}}}`；`createCommandOverrideStore(kv,{audit,now})` 提供 `load/get/list/set/reset/resetAll/isExplicit`；**kv 注入零 chrome.***；单键整对象原子写 + 串行 promise 队列 + 写成功才提交内存（失败回滚）+ 失败可读；同值**幂等**（不写不审计）；继承 `cmd:x#sub` > `cmd:x` > 默认；读失败**视为无覆盖**（更保守）+ 可读降级；审计 `command-policy`（`set`/`reset`/`reset-all`；仅 `commandId`/`action`/`prevAction`/`ts`，**零明文**）；`commandId` 与 `STABLE_KEY.command` **同源**。
+
+**涉及文件**: NEW `packages/web-cli-plugin/src/security/command-override.ts`（store）；MODIFY `packages/web-cli-plugin/src/security/audit-sink.ts`（additive union `command-policy`）
+
+**验收标准（可执行断言）**:
+- [ ] **持久化**（重载后仍在）；**恢复默认**（单条 + 全部）；**幂等**（同值 → `ok`「已生效（无变化）」且不写存储/不新增审计）
+- [ ] **无半写**（并发 `set` 经串行队列；半途失败 → 内存态与旧值一致，绝不「一半生效」）；**失败可读** ≥3 类且零静默失败
+- [ ] **审计零明文**（grep 无 key/剪贴板/通知/页面数据）；审计类型 `command-policy` 与撤销/关断、`auto-authorize` **可分辨**
+- [ ] **同源锚定**：store `commandId` 与 `STABLE_KEY.command` 生成一致；**不新增 `chrome.storage` 权限**（manifest `permissions` 零变更）
+- [ ] 反证：删除串行队列/注入并发竞态 → 半写即 **FAIL**
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run typecheck
+（node 单测见 R2-V23-06）
+```
+
+#### R2-V23-03: `host.ts` 组合（`withCommandOverride` + `guardedOnAsk` + `commandOverrides` 注入）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V23-01、R2-V23-02 |
+| **执行波次** | R2-Wave 2 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-076 |
+| **承接 ADR** | ADR-V2-024 |
+| **对应 AC** | AC-V23-010 |
+
+**目标**: `policy: withCommandOverride(createPluginPolicyConfig(deps, guardedOnAsk), {resolveOverride,isDestructive})`；`guardedOnAsk`：**仅当**该命令存在显式覆盖且 `autoOnAsk` 将返回 `allow` → 改走 `opts.onAsk`（**不把 deny 变 ask**；`hardDeny`/`allow:false` 原样透传）；`opts.commandOverrides` 注入（纯读内存态）；`dispatch` 入口不变。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/background/host.ts`
+
+**验收标准（可执行断言）**:
+- [ ] 覆盖 allow/ask/deny 经 `host.dispatch` **真跑**反映新值（可见后果）
+- [ ] 显式 `ask` **不被自动授权静默变 allow**；`hardDeny`/`allow:false` 不受影响
+- [ ] `dispatch` 仍 `router.dispatch`；无新判定路径（grep）；`policy.ts`/`auto-authorize.ts` sha256 不变
+- [ ] 反证：绕过 `guardedOnAsk` → 显式 ask 被 auto allow → **FAIL**
+
+**验证命令**:
+```bash
+（node 单测见 R2-V23-06）
+```
+
+#### R2-V23-04: 覆盖消息面（`service-worker.ts`/`messaging.ts`/`insight-protocol.ts`，additive）+ `pushInsightChanged`
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V23-02、R2-V23-03 |
+| **执行波次** | R2-Wave 2 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-075 |
+| **承接 ADR** | ADR-V2-024、ADR-V2-026 |
+| **对应 AC** | AC-V23-009 |
+
+**目标**: 覆盖 store 单例 + `command-policy-set` / `command-policy-reset` / `command-policy`(pull) cases；`PluginMessageKind` **追加** 3 kind（既有语义零变更）；注入 projection/host；写后 `pushInsightChanged()`；`state.insight?` 追加**可选** `overrideCount`。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/background/service-worker.ts`；MODIFY `packages/web-cli-plugin/src/background/messaging.ts`；MODIFY `packages/web-cli-plugin/src/background/insight-protocol.ts`
+
+**验收标准（可执行断言）**:
+- [ ] 3 个 kind **additive**；旧 kind 语义零变更；新 kind 经既有校验点（不绕过校验）
+- [ ] `set`/`reset` → store 更新 + audit + `pushInsightChanged()`；下一次 pull 反映 `effectiveAction`
+- [ ] **服务端强制（绕过 UI）**：伪造 `command-policy-set` 消息（**不经 `tree-ops`**）→ store 更新但 `dispatch` 仍 clamp；未授权/S3/evaluate 覆盖 allow → 仍 deny
+- [ ] 反证：把 clamp 移到 UI 层 → 服务端无强制 → **FAIL**
+
+**验证命令**:
+```bash
+（node 单测见 R2-V23-06；Chromium 链路见 R2-V23-07）
+```
+
+#### R2-V23-05: `tree-ops.ts` 白名单 7→9 + 两分支 + 无默认写入兜底 + 放宽类确认 + pin 显式更新
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V23-04 |
+| **执行波次** | R2-Wave 2 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-074、FR-V2-075 |
+| **承接 ADR** | ADR-V2-027 |
+| **对应 AC** | AC-V23-009 |
+
+**目标**: `TREE_ACTION_IDS` **7→9**（+`set-command-policy`/`reset-command-policy`）；`run()` `switch` 两分支**唯一映射** `command-policy-set`/`command-policy-reset`；白名单外/类型不可达**零写入**兜底保留（**无默认写入分支**）；`needsConfirmation` 扩展（放宽类 true；收紧/`reset` false）；`TREE_ACTION_IDS_JSON_SHA256` **显式更新**（新值 + 日期 + 来源 commit + 理由 + 前后值 + 历史保留）。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/ui/tree/tree-ops.ts`
+
+**验收标准（可执行断言）**:
+- [ ] `TREE_ACTION_IDS.length===9`；负例 `grant-origin`/`request-permission` 仍非法；`command-allow` 不再是负例
+- [ ] **每个动作唯一映射**一个既有/新增服务端消息通路（9 动作 → 9 通路）；白名单外零写入
+- [ ] `needsConfirmation`：`set-command-policy`（放宽方向）true；`ask`/`deny`（收紧）与 `reset-command-policy` false
+- [ ] pin 显式更新且配反证（改回 7 → **FAIL**，`insight-archive` S9 的 pin 由 V2-4 落）
+- [ ] 取代 S1/S2/S3/S12：old→new **1:1**、`removed=0`
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm test
+```
+
+#### R2-V23-06: 覆盖门禁 `test/command-override.test.ts` + `test/insight-override-security.test.ts`
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **前置依赖** | R2-V23-01、R2-V23-02、R2-V23-03、R2-V23-04、R2-V23-05 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | R2-V21-05、R2-V22-03、R2-V24-03 |
+| **对应 FR** | FR-V2-075、FR-V2-076 |
+| **承接 ADR** | ADR-V2-025、ADR-V2-026、ADR-V2-031 |
+| **对应 AC** | AC-V23-009、AC-V23-010、AC-V2-024、AC-V2-025 |
+
+**目标**: 新增两门禁：覆盖可达 + 工程属性；clamp 逐档 + 反向断言 + **服务端强制**。
+
+**涉及文件**: NEW `packages/web-cli-plugin/test/command-override.test.ts`；NEW `packages/web-cli-plugin/test/insight-override-security.test.ts`
+
+**验收标准（可执行断言）**:
+- [ ] `command-override`：AC-V2-023/024 全项（可达/持久/恢复单条+全部/幂等/无半写/失败可读/审计零明文/继承）
+- [ ] `insight-override-security`：**AC-V2-025 逐档反向断言**（①~⑤）+ `dom`/`dom read-state` 三档 + 逐档结论表逐行
+- [ ] **服务端强制**：`host.dispatch` 注入 `commandOverrides`（绕过 UI 直接注入）+ 伪造 `command-policy-set` 消息 → 均**不能突破 clamp**（TD-R2-10）
+- [ ] 取代 S1/S2/S3/S12、S9 的生成侧：old→new 1:1、`removed=0`；硬底线 pin 只增
+- [ ] 反证：篡改 clamp（强制 evaluate allow）→ **FAIL**；`policy.ts`/`auto-authorize.ts` sha256 不变（`bfcb2ede…`/`1096d065…`）
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm test
+```
+
+#### R2-V23-07: `test/ui/binding.mjs` 追加 `#22a…`（覆盖三档 → dispatch 反映 / reset / 持久化）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V23-04 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | R2-V21-05、R2-V22-04、R2-V24-03 |
+| **对应 FR** | FR-V2-075 |
+| **承接 ADR** | ADR-V2-031 |
+| **对应 AC** | AC-V23-009 |
+
+**目标**: 真实 dist + 真实站点：`#22a…` 覆盖链（三档设置 → dispatch 反映；reset；重载持久化）。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/test/ui/binding.mjs`
+
+**验收标准（可执行断言）**:
+- [ ] `#22a…`：`dom`/`dom read-state` 三档设置 → 下一同档调用按新值执行；`reset` 恢复；重载后仍在
+- [ ] 既有 `#0~#21o` **零删改**（`git diff --unified=0` 无删除行）；S17 零改动；`check(` 计数 ≥ 185 + 新增
+- [ ] 反证：覆盖后 dispatch 未变 → **FAIL**
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run test:binding
+```
+
+
+### 5.5 R2 验收矩阵（本叶）
+
+| 验收要点（R2 / 对应 AC） | 落成任务 | 门禁/断言 | 新增 vs 追加 vs 取代 | 反证设计 |
+|------|:--:|------|:--:|------|
+| `dom` / `dom read-state` 三档均可设且生效（AC-V2-023/AC-V23-009） | R2-V23-01 / 03 / 06 | `command-override` + `insight-override-security`（node） | **新增** | 二档未生效 → FAIL |
+| clamp 反向断言 ①evaluate ②S1 ③S3 ④破坏性 ask ⑤ui/state/external 不得 allow（AC-V2-025/AC-V23-010） | R2-V23-01 / 06 | `insight-override-security` | **新增**（硬底线只增） | 强制 evaluate allow → FAIL |
+| 服务端强制（伪造消息/绕过 UI 不能突破 clamp） | R2-V23-04 / 06 | 直接 SW handler + `host.dispatch` 注入 | **新增**（TD-R2-10） | clamp 移到 UI → FAIL |
+| 存储生命周期：持久/恢复/幂等/无半写/失败可读/审计零明文（AC-V2-024/AC-V23-009） | R2-V23-02 / 06 | `command-override`（node） | **新增** | 删串行队列 → 半写即 FAIL |
+| 白名单 7→9 + 唯一映射 + 无默认写入（AC-V2-026） | R2-V23-05 / 06 | `tree-ops` | **取代 S1/S2/S3/S12** | 改回 7 → FAIL |
+| 覆盖链真实 dist（AC-V2-024） | R2-V23-07 | `test:binding` `#22a…` | **追加**（S17 不变） | 覆盖后 dispatch 未变 → FAIL |
+| `policy.ts`/`auto-authorize.ts` sha256 不变 | R2-V23-01 / 06 | `insight-no-escalation` | **零 diff** | 一字节漂移 → FAIL |
+
+### 5.6 R2 断言取代台账（本叶承载；父 `plan.md` §9.8 S1~S18）
+
+> **纪律**: `removed = 0`；每条旧断言给出 old → new（理由 + 替代）；**总断言数不得下降**；硬底线/安全类断言**只增不减**；`journey.mjs` / v1 `test:ui` / `binding.mjs` 既有编号**零改动**（除清单内显式取代）。build 阶段**实测** `check(` 计数（`insight.mjs` 57 / `binding.mjs` 185 起算）与 node `test(` 计数，记录前后值证明「只增不减」。
+
+| # | 旧断言（文件 :: 名称/编号） | 理由 | 新断言（替代） |
+|:--:|------------------------------|------|----------------|
+| S1 | `tree-ops.test.ts :: the action union is closed at exactly 7 values` | 白名单 7→9（FR-V2-074/075） | `… exactly 9 values`；负例移除 `command-allow`（现为合法），**保留** `grant-origin`/`request-permission` 非法 |
+| S2 | `tree-ops.test.ts :: each of the 7 actions maps to exactly one existing path` | 同上 | `each of the 9 actions …`（+`set-command-policy`→`command-policy-set`；`reset-command-policy`→`command-policy-reset`） |
+| S3 | `tree-ops.test.ts :: needsConfirmation matches the whitelist` | 9 动作 + 放宽类二次确认 | 扩展为 9 动作 + `commandPolicyNeedsConfirmation(allow, 非默认)` 真 |
+| S9 | `insight-archive.test.ts :: TREE_ACTION_IDS is exactly 7 values (sha256-pinned)` | 白名单 7→9 | `… exactly 9 values` + **显式更新 `TREE_ACTION_IDS_JSON_SHA256`**（新值由本叶 R2-V23-05 生成；pin 落点见 V2-4 R2-V24-03） |
+| S12 | `insight-no-escalation.test.ts :: tree-ops.ts has NO write verb outside the closed whitelist` | 白名单 7→9 | 仍禁 `grant`/`permissions.request`；白名单含 9 个动作 id；新增动作仅两个且唯一映射 |
+| S17 | `binding.mjs`（V2-3 撤销链 `#21a…`） | **不变** | **零改动**；R2 在**其后**追加 `#22a…`（覆盖三档 → dispatch 反映；reset；持久化） |
+
+**硬底线只增**：`insight-security.test.ts` 六条反向断言 + allow 单调性（**范围重定**：只管撤销/关断）**保留**；追加 `command-policy` 覆盖场景的 clamp 反向断言（AC-V2-025）；`policy.ts`/`auto-authorize.ts` 内容 sha256 pin 不变；新增 `command-override.ts` **独立 pin**（首登记）。
+
+### 5.7 R2 文件所有权与串行约束（本叶）
+
+- 同文件多任务一律**串行**（`command-override.ts`：R2-V23-01 → R2-V23-02；`tree-drawer.ts`：R2-V22-02 → R2-V24-02；`insight.mjs`：R2-V22-04 → R2-V24-04）。
+- Chromium 门禁（`test:ui`/`test:insight`/`test:binding`）**绝不并发**（OOM 前科，NFR-V2-009）。
+- 冻结面 `policy.ts`/`auto-authorize.ts` 零 diff；新增 `command-override.ts` 独立内容哈希 pin（首登记）。
+
+### 5.8 R2 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| **v2.0（R2）** | 新增 §5 R2 任务分解：R2-V23-01、R2-V23-02、R2-V23-03、R2-V23-04、R2-V23-05、R2-V23-06、R2-V23-07（共 7 个任务；S×0/M×4/L×3）。承接父 `plan.md` v2.0 §9/§10（ADR-V2-024~033）与父 `spec.md` v2.0 §5.7/§8；**只排任务**，phase 不回退；断言取代 `removed=0`。 | 2026-09-13 | SDDU Tasks Agent（R2） |
+
+---
+
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-3 plan §3.1~3.7 → **10 个原子任务 / 4 波**（三件套回执 / 控件语义 / 白名单编排 / tree-drawer 绑定 / tree-ops 纯测 / insight-security 六条反向断言+单调性 / insight-no-escalation 追加冻结门禁 / test:binding 追加撤链 / 串行收口 / 人工面 H-1~H-6）。安全红线：封闭 7 动作白名单（无默认写入分支）+ allow 单调性（`allowAfter ⊆ allowBefore`）+ `policy.ts`/`auto-authorize.ts` 零 diff + 无 bare catch + 零明文。`binding.mjs` 追加编号 `#21a…`（TD-V23-01，避让已被占用的 `#19a~#19l`/`#20a~#20f`）。承接父 plan ADR-V2-008/009/011/013/015。 | 2026-09-13 | SDDU Tasks Agent |
+| **v2.0（R2）** | 新增 §5 R2 任务分解（7 个任务；S×0/M×4/L×3）。承接父 plan v2.0 ADR-V2-024~033 + 父 spec v2.0 §5.7/§8；**只排任务**、phase 不回退；断言取代 `removed=0`。 | 2026-09-13 | SDDU Tasks Agent（R2） |

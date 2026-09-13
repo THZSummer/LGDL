@@ -528,8 +528,284 @@ npm run test:binding --workspace @lgdl/web-cli-plugin   # 串行
 
 ---
 
+## 5. R2 任务分解（post-validate 修订轮，2026-09-13；**phase 不回退**）
+
+> **文档定位**: R2 修订轮任务（V2-2 UI 层）—— 树抽屉改为**真层级树**（逐层展开/收起 + 键盘可达 + 逐层 `aria-expanded` + 面包屑 + 惰性渲染，零 `innerHTML`）+ 命令**逐层三态控件**（allow/ask/deny）+ **deny 分层**（硬底线零控件 + 原因可读）+ 放宽类二次确认 + 两通路文案重写；**布局 AC-V2-002 全量不回退**。
+> **输入**: 本叶 `spec.md` v2.0（R2）+ 本叶 `plan.md` v2.0（§9）+ 父 `plan.md` v2.0 §9/§10（ADR-V2-024~033）+ 父 `spec.md` v2.0 §5.7 `FR-V2-070~079` / §8 `AC-V2-020~027` + `state.json#revisionRounds.R2`。
+> **授权**: 编排器代作者决策（2026-09-13 授权）**+ R2** —— 本阶段**不再向作者提问**；开放点自行裁决并登记（TD-R2-01~10）。
+> **纪律**: 不碰 `main` / 不碰 `packages/web-cli-base/**` / 不改 v1 SDDU 目录 / 无新依赖 / 不 force push / 禁 `git add -A` / 禁提交 `.opencode/opencode.json`；**只排任务**（不写代码、不跑 Chromium 门禁）；phase 不回退。
+> **承接**: 本叶 R2 承载 FR-V2-072、FR-V2-073、FR-V2-077、FR-V2-078；叶级 AC AC-V22-008、AC-V22-009、AC-V22-010、AC-V22-011。
+
+### 5.0 编排器代作者决策（TD-R2-01~10；2026-09-13 授权 + R2）
+
+> 作者已授权编排器自行决策 → 本阶段**不再向作者提问**；以下开放点自行裁决并登记。
+
+| # | 事项 | 裁决 |
+|:--:|------|------|
+| TD-R2-01 | R2 波次重排 | `R2-Wave 1~6`（全局承接原 Wave 18~23）= 模型层 → 覆盖引擎 → UI 层 → 档案 → 门禁/体积/文档 → 收口 |
+| TD-R2-02 | 任务编号 | 独立前缀 `R2-V2x-NN`；v1 `TASK-00N` 与既有 tasks **零删改**（追加式） |
+| TD-R2-03 | 文案归属 | `TREE_MODEL_NOTE` / `TREE_NO_ESCALATION_NOTE` 重写归 **V2-2**（文件所有权 `tree-view.ts`）；`command-catalog` 偏差文案删除归 **V2-1** |
+| TD-R2-04 | 白名单 7→9 | `tree-ops.ts` 归 **V2-3**（V2-2 只消费，不写白名单） |
+| TD-R2-05 | 取代台账分工 | S1~S3 / S12 / S17 → V2-3；S4~S8 / S13~S16 → V2-2；S9~S11 → V2-4；S9 的 `TREE_ACTION_IDS_JSON_SHA256` 新值由 V2-3 生成、V2-4 落 pin（同源锚定） |
+| TD-R2-06 | Chromium 门禁文件 | `insight.mjs` 由 V2-2（`#I-20a…`）→ V2-4（`#I-21a…`）串行追加；`binding.mjs` 由 V2-3 追加 `#22a…`（既有 `#0~#21o` 零删改） |
+| TD-R2-07 | 覆盖模块拆分 | `command-override.ts` 分两任务（clamp/组合 与 store/生命周期），同文件**串行**（避免并行写冲突） |
+| TD-R2-08 | 收口归属 | 体积重登记归 V2-2（`size-baseline.ts` owner）；计数台账总核 + 全套串行归 V2-4（最后一叶） |
+| TD-R2-09 | 同源锚定 | store `commandId` 与 `STABLE_KEY.command` 一致（V2-1 断言 + V2-3 实现） |
+| TD-R2-10 | 服务端强制测试手段 | 直接调用 SW 消息 handler（伪造 `command-policy-set`，**不经 UI**）+ `host.dispatch` 注入 `commandOverrides`，证明 clamp 在 SW gate 内 |
+
+### 5.1 R2 跨叶波次表（全局承接 Wave 18~23）
+
+| R2 波次 | 全局承接 | 内容 | 承载叶 | 并行性 |
+|:--:|:--:|------|:--:|------|
+| **R2-Wave 1** | Wave 18 | 模型层：`ownership-tree.ts` 纯归属树 + `tree-model`/`command-catalog` 分列/分层 + `project-tree` 派生 + `build-snapshot` 透传 | V2-1 | `01 ∥ 02` → `03` → `04` |
+| **R2-Wave 2** | Wave 19 | 覆盖引擎（**SW 侧强制**）：`command-override.ts` clamp/组合 + store/生命周期 + `host.ts` 组合 + 消息面 + `tree-ops` 白名单 7→9 | V2-3 | `01 ∥ 02` → `03` → `04` → `05` |
+| **R2-Wave 3** | Wave 20 | UI 层：`tree-view.ts` 嵌套模型 + 两通路文案；`tree-drawer.ts` 真树 DOM/键盘/面包屑/分层控件 | V2-2 | `01` → `02` |
+| **R2-Wave 4** | Wave 21 | 档案（V2-4）：`archive-catalog.ts` 分层/分列 + `tree-drawer` 档案卡控件 | V2-4 | `01` → `02`（与 V2-2 同文件串行） |
+| **R2-Wave 5** | Wave 22 | 门禁编写+执行（⚠️ 串行）+ 体积显式重登记 + 文档/人工面 | V2-1/2/3/4 | 编写并行，**执行串行** |
+| **R2-Wave 6** | Wave 23 | R2 收口：S1~S18 计数台账总核（`removed=0`）+ 全套串行 + 零 diff 面 + 人工面登记 | V2-4 | 串行 |
+
+> **波次依赖主轴**：`R2-Wave 1（V2-1 类型/模型）` → `R2-Wave 2（V2-3 覆盖引擎，消费 V2-1 类型）` → `R2-Wave 3（V2-2 UI，消费 V2-1 模型 + V2-3 消息/白名单）` → `R2-Wave 4（V2-4 档案，消费 V2-1 模型 + V2-2 抽屉）` → `R2-Wave 5（门禁，⚠️ 串行）` → `R2-Wave 6（收口）`。
+
+### 5.2 R2 任务总览（本叶 V2-2；共 6 个任务 / 复杂度 S×0 / M×3 / L×3）
+
+| 编号 | 标题 | 规模 | 类型 | 依赖 | 波次 | 可并行 | 涉及文件 |
+|------|------|:--:|:--:|------|:--:|:--:|------|
+| R2-V22-01 | `tree-view.ts` 嵌套渲染模型 + command-policy 控件 + 两通路文案重写 | L | 🛠 实施 | R2-V21-02、R2-V21-03、R2-V23-01 | 3 | — | MODIFY `packages/web-cli-plugin/src/ui/tree/tree-view.ts` |
+| R2-V22-02 | `tree-drawer.ts` 自建 `role=tree` + 键盘 + 展开集 + 面包屑 + 分层控件 + clamp 原因 + 放宽类确认 | L | 🛠 实施 | R2-V22-01、R2-V23-05 | 3 | — | MODIFY `packages/web-cli-plugin/src/ui/tree/tree-drawer.ts` |
+| R2-V22-03 | `test/tree-view.test.ts` 取代 S4~S8 + 新增分层/两通路断言 | M | ⚖️ 门禁 | R2-V22-01 | 5 | R2-V21-05；R2-V23-06；R2-V24-03 | MODIFY `packages/web-cli-plugin/test/tree-view.test.ts` |
+| R2-V22-04 | `test/ui/insight.mjs` 追加 `#I-20a…` + 取代 S13~S16（逐层展开/键盘/面包屑/分层） | L | ⚖️ 门禁 | R2-V22-02 | 5 | R2-V21-05；R2-V22-03；R2-V23-06 | MODIFY `packages/web-cli-plugin/test/ui/insight.mjs` |
+| R2-V22-05 | 体积显式重登记（`sidepanel.js`）+ `content.js` 零增长 + 源码哈希 pin | M | 🛠 实施 | R2-V22-02 | 5 | R2-V22-06 | MODIFY `packages/web-cli-plugin/test/size-baseline.ts`；MODIFY `packages/web-cli-plugin/test/size-budget.test.ts` |
+| R2-V22-06 | 文档回填（`dev.md`/`smoke-checklist.md`/`capability-matrix.md` 如涉及）+ 人工面登记 | M | 📄 文档 | R2-V22-04、R2-V22-05 | 5 | — | MODIFY `packages/web-cli-plugin/docs/dev.md`；MODIFY `packages/web-cli-plugin/docs/smoke-checklist.md`；MODIFY `packages/web-cli-plugin/docs/capability-matrix.md`（如涉及） |
+
+### 5.3 R2 依赖拓扑（本叶）
+
+```
+R2-Wave 3: R2-V22-01；R2-V22-02
+R2-Wave 5: R2-V22-03；R2-V22-04；R2-V22-05；R2-V22-06
+```
+
+> **跨叶依赖**: V2-1（模型）→ V2-3（覆盖引擎）→ V2-2（UI）→ V2-4（档案）→ 门禁（串行）→ 收口。
+
+### 5.4 R2 任务列表（本叶）
+
+#### R2-V22-01: `tree-view.ts` 嵌套渲染模型 + command-policy 控件 + 两通路文案重写
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **前置依赖** | R2-V21-02、R2-V21-03、R2-V23-01 |
+| **执行波次** | R2-Wave 3 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-070、FR-V2-077、FR-V2-078 |
+| **承接 ADR** | ADR-V2-028、ADR-V2-030、ADR-V2-032 |
+| **对应 AC** | AC-V22-008、AC-V22-010、AC-V22-011 |
+
+**目标**: 渲染模型改为**嵌套节点**（消费 `ownershipTree`，非扁平 `rows`）；命令 `command-policy` 控件；`clampReason` 文案映射；`TREE_MODEL_NOTE` 改「按归属的层级树 + 多归属主链 + 交叉引用徽标（不复制节点）」；`TREE_NO_ESCALATION_NOTE` **两通路重写**（撤销/关断=更保守 + 命令级覆盖=显式/被审计放宽但硬底线不可覆盖）+ `delay` 消歧句保留。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/ui/tree/tree-view.ts`
+
+**验收标准（可执行断言）**:
+- [ ] 渲染模型为父子层级（非 `rows`）；**作者两例层级链**在模型层可逐层枚举
+- [ ] `TREE_NO_ESCALATION_NOTE` 含**两通路** + `delay`（=deny，fail-closed，与 `delayMs` 无关）消歧句完整；`TREE_MODEL_NOTE` 无「森林/非严格树」偏差表述
+- [ ] 偏差文案「只读展示：命令级策略不可在树内修改」「不提供命令级写入」零命中（`src/**` + 渲染 DOM 文本 + `docs/**`；SDDU 历史引文除外）
+- [ ] pin 显式更新（`TREE_NO_ESCALATION_NOTE_SHA256`；`TREE_MODULE_SHA256`）；反证：一字节改动 → hash 变
+
+**验证命令**:
+```bash
+（node 单测见 R2-V22-03）
+grep -rn '不提供命令级写入\|只读展示：命令级策略不可在树内修改' src/ docs/ （零命中）
+```
+
+#### R2-V22-02: `tree-drawer.ts` 自建 `role=tree` + 键盘 + 展开集 + 面包屑 + 分层控件 + clamp 原因 + 放宽类确认
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **前置依赖** | R2-V22-01、R2-V23-05 |
+| **执行波次** | R2-Wave 3 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-072、FR-V2-073、FR-V2-074、FR-V2-077 |
+| **承接 ADR** | ADR-V2-029、ADR-V2-030 |
+| **对应 AC** | AC-V22-008、AC-V22-009、AC-V22-010、AC-V22-011 |
+
+**目标**: 自建 `<ul role=tree>`/`<li role=treeitem>`（`createElement`/`textContent`，**零 `innerHTML`**）；`aria-expanded`/`aria-level`/`aria-selected`；单一代理 `keydown`（`ArrowUp/Down/Right/Left`/`Enter`/`Space`/`Home`/`End`）+ roving tabindex + 焦点可见；`expanded:Set<nodeId>` 会话保持 + 重投影回放；根 + 一级默认展开、深层收起；面包屑；惰性渲染（不虚拟化）；**deny 分层 DOM**（硬底线行零 `button[data-action-id]` + `.tree-clamp-reason`；可覆盖行 3 个 `button[data-policy=allow|ask|deny]`）；**放宽类二次确认**；写路径唯一 `tree-ops`。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/ui/tree/tree-drawer.ts`
+
+**验收标准（可执行断言）**:
+- [ ] `hardFloorRows.every(row => row.querySelector('[data-action-id]') === null)` **且** `overridableRows.some(row => row.querySelectorAll('[data-policy]').length === 3)`
+- [ ] 默认展开根+一级、深层收起；会话内保持；键盘展开/收起 + `aria-expanded` 正确；面包屑可读；122 卡逐层可定位
+- [ ] **布局 AC-V2-002 全量在树展开/收起各状态下成立**：`#log≥589px`、composer∈[0,+8]、FAB∩composer=0、400/320px 溢出=0、开·关 drift=0
+- [ ] 零 `innerHTML`（grep `#tree-*` 内）；放宽类 `set-command-policy(allow)` 走二次确认，收紧/`reset` 不需确认
+- [ ] 反证：改回扁平 rows → **FAIL**；硬底线行渲染控件 → **FAIL**；`<details>` 替代 → `aria-expanded` 断言 **FAIL**
+
+**验证命令**:
+```bash
+（node 单测见 R2-V22-03；Chromium 见 R2-V22-04）
+! grep -rn 'innerHTML' src/ui/tree/tree-drawer.ts
+```
+
+#### R2-V22-03: `test/tree-view.test.ts` 取代 S4~S8 + 新增分层/两通路断言
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V22-01 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | R2-V21-05、R2-V23-06、R2-V24-03 |
+| **对应 FR** | FR-V2-077、FR-V2-078 |
+| **承接 ADR** | ADR-V2-030、ADR-V2-031、ADR-V2-032 |
+| **对应 AC** | AC-V22-010、AC-V22-011 |
+
+**目标**: 按父 §9.8 显式取代 `tree-view.test.ts` 的 S4~S8；新增分层控件 + 两通路文案断言。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/test/tree-view.test.ts`
+
+**验收标准（可执行断言）**:
+- [ ] S4 `a non-deny command still gets no write control` → `overridable rows expose allow/ask/deny; hard-floor rows expose none`
+- [ ] S5 `all 142 … deny ⇒ controls===[]` → **保留**并更名 `hard-floor deny (S3) ⇒ controls===[]`；**新增** `非硬底线 deny（用户自设）⇒ controls 非空且可改回`
+- [ ] S6 `pinned wording` → 新 `TREE_MODEL_NOTE` + `TREE_NO_ESCALATION_NOTE`（两通路 + `delay` 消歧）
+- [ ] S7 `needsConfirmation … 7 actions` → `… all 9 actions` + 放宽类确认；S8 `deny rows … filtered out` → `hard-floor stay control-free; overridable keep controls`
+- [ ] **removed=0**；node `test(` 计数 ≥ 旧（记录前后值）
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm test
+```
+
+#### R2-V22-04: `test/ui/insight.mjs` 追加 `#I-20a…` + 取代 S13~S16（逐层展开/键盘/面包屑/分层）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **前置依赖** | R2-V22-02 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | R2-V21-05、R2-V22-03、R2-V23-06 |
+| **对应 FR** | FR-V2-070、FR-V2-072、FR-V2-073、FR-V2-077、FR-V2-078 |
+| **承接 ADR** | ADR-V2-029、ADR-V2-030、ADR-V2-031、ADR-V2-032 |
+| **对应 AC** | AC-V2-020、AC-V2-021、AC-V2-022、AC-V22-008、AC-V22-009、AC-V22-010、AC-V22-011 |
+
+**目标**: 真实 dist 下：**作者两例逐层展开/收起** + 键盘遍历 + `aria-expanded` + 面包屑 + 分层控件 + 两通路文案；取代 S13~S16。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/test/ui/insight.mjs`
+
+**验收标准（可执行断言）**:
+- [ ] 作者**示例①** 逐层展开：`连接树→授权的站点→站点 xxx→支持的命令→工具→子命令`；作者**示例②**：`连接树→支持的命令→系统内置命令→dom→dom read-state`——**每层可展开/收起**且叶子可定位
+- [ ] 取代 S13（`#I-11a`→`#I-11a~c`）/ S14（`#I-12`→`#I-12a~b`）/ S15（`#I-18e` 分层）/ S16（`#I-02a` 逐层展开）；新增 `#I-20a…`（键盘/面包屑/分层控件/clamp 原因）
+- [ ] **布局不回归**：AC-V2-002 全量在**树展开/收起各状态**下均成立（`#log≥589px`、composer∈[0,+8]、FAB∩composer=0、400·320px 溢出=0、开·关 drift=0）
+- [ ] v1 `#15a~#15q` / `journey.mjs`（S18）**零删改**；`check(` 计数 ≥ 57 + 新增；`removed=0`
+- [ ] 反证：扁平列表形态残留 → **FAIL**；硬底线行有控件 → **FAIL**
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run test:insight
+```
+
+#### R2-V22-05: 体积显式重登记（`sidepanel.js`）+ `content.js` 零增长 + 源码哈希 pin
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V22-02 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | R2-V22-06 |
+| **对应 FR** | FR-V2-023 |
+| **承接 ADR** | ADR-V2-033 |
+| **对应 AC** | AC-V2-006、AC-V22-002 |
+
+**目标**: build 后**实测** `sidepanel.js` 并显式重登记；`content.js` 零增长 + `src/content/**` 源码内容哈希 pin 不变。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/test/size-baseline.ts`；MODIFY `packages/web-cli-plugin/test/size-budget.test.ts`
+
+**验收标准（可执行断言）**:
+- [ ] `SIDEPANEL_BASELINE_BYTES` 更新为实测值；`SIDEPANEL_BASELINE_BYTES_HISTORY` **追加旧值**（保留 `1,068,165`/`1,085,389`/`1,110,744`/`1,132,748`）；`SIDEPANEL_BASELINE_META` 记 `measuredOn`/`source`/`buildCommand`/`previousBaselineBytes`/`reRegisteredFrom`/理由
+- [ ] 容差 **5% 不变**；`targetBudgetBytes`/`targetMet` 仍 `null`（基线 ≠ 目标预算）
+- [ ] `CONTENT_MAX_BYTES = 1_073_453` **不变**（无容差）；`CONTENT_SOURCE_SHA256`（`content-script.ts`/`dom-agent.ts`/`page-bridge.ts`）三文件 pin **不变**
+- [ ] 反证：不改基线却体积上涨 → **FAIL**；删断言/放宽容差 → **FAIL**（新断言用内容 sha256 冻结）
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run build && npm test
+```
+
+#### R2-V22-06: 文档回填（`dev.md`/`smoke-checklist.md`/`capability-matrix.md` 如涉及）+ 人工面登记
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V22-04、R2-V22-05 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-078、FR-V2-079 |
+| **承接 ADR** | ADR-V2-032 |
+| **对应 AC** | AC-V2-027 |
+
+**目标**: 文档回填 R2：树层级/两通路/覆盖层/白名单 9/新体积基线；人工面清单登记。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/docs/dev.md`；MODIFY `packages/web-cli-plugin/docs/smoke-checklist.md`；MODIFY `packages/web-cli-plugin/docs/capability-matrix.md`（如涉及）
+
+**验收标准（可执行断言）**:
+- [ ] `dev.md`：`sidepanel.js` 新基线 + `test:insight` 断言数**实测**（历史保留）；`capability-matrix.md`（如涉及）覆盖动作 7→9 与两通路
+- [ ] `smoke-checklist.md` 人工面（标 `⏳ 待人工`）：① 树展开观感 ② 长路径/窄栏（320px）③ 键盘操作体感 ④ 覆盖后即时生效观感 ⑤ deny 分层与 clamp 原因可读
+- [ ] 偏差文案在 `docs/**` 零命中；「34/142 已全部渲染」零命中
+
+**验证命令**:
+```bash
+grep -rn '不提供命令级写入\|只读展示：命令级策略不可在树内修改\|已全部渲染' docs/ （零命中）
+（`test/docs.test.ts` 若存在则纳入）
+```
+
+
+### 5.5 R2 验收矩阵（本叶）
+
+| 验收要点（R2 / 对应 AC） | 落成任务 | 门禁/断言 | 新增 vs 追加 vs 取代 | 反证设计 |
+|------|:--:|------|:--:|------|
+| 真层级树逐层展开（作者两例）（AC-V2-020/AC-V22-008） | R2-V22-01 / 02 / 04 | `test:insight` `#I-20a…` | **取代 S16** + 新增 | 扁平列表残留 → FAIL |
+| 展开态/键盘/面包屑/`aria-expanded`（AC-V2-022/AC-V22-009） | R2-V22-02 / 04 | 同上 | **新增** | `<details>` 替代 → FAIL |
+| 命令级三态控件可达（AC-V2-023/AC-V22-011） | R2-V22-01 / 02 / 03 | `tree-view` + `#I-20a…` | **取代 S4** | 可覆盖行无 3 控件 → FAIL |
+| deny 分层（硬底线零控件 + 原因；非硬底线有控件）（AC-V2-026/AC-V22-010） | R2-V22-02 / 03 / 04 | `tree-view` + `#I-20a…` | **取代 S8/S14/S15** | 硬底线行有控件 → FAIL |
+| 两通路文案 + 偏差文案清除 + `delay` 消歧（AC-V2-027/AC-V22-010） | R2-V22-01 / 03 / 04 | `tree-view` + `#I-11a~c` + grep | **取代 S6/S13** | 一字节改文案 hash 不变 → FAIL |
+| 布局 AC-V2-002 不回退（展开/收起各状态） | R2-V22-02 / 04 | `test:insight` 量化 | 复用 + 扩展 | 溢出/越界 → FAIL |
+| 体积/零增长（AC-V2-006） | R2-V22-05 | `size-budget` | 显式重登记（追加） | 不改基线涨 → FAIL |
+| v1 断言零删改（S18） | R2-V22-04 / 05 | `journey.mjs` / `#15a~#15q` | **零改动** | 删除行 → FAIL |
+
+### 5.6 R2 断言取代台账（本叶承载；父 `plan.md` §9.8 S1~S18）
+
+> **纪律**: `removed = 0`；每条旧断言给出 old → new（理由 + 替代）；**总断言数不得下降**；硬底线/安全类断言**只增不减**；`journey.mjs` / v1 `test:ui` / `binding.mjs` 既有编号**零改动**（除清单内显式取代）。build 阶段**实测** `check(` 计数（`insight.mjs` 57 / `binding.mjs` 185 起算）与 node `test(` 计数，记录前后值证明「只增不减」。
+
+| # | 旧断言（文件 :: 名称/编号） | 理由 | 新断言（替代） |
+|:--:|------------------------------|------|----------------|
+| S4 | `tree-view.test.ts :: a non-deny command still gets no write control` | 命令节点现可覆盖（FR-V2-074/077） | `overridable command rows expose allow/ask/deny policy controls; hard-floor rows expose none` |
+| S5 | `tree-view.test.ts :: all 142 baseline subcommands with deny ⇒ controls === []` | 该 fixture 全为 S3 硬底线 deny，原断言仍成立 | **保留**并更名 `hard-floor deny (S3) ⇒ controls === []`；**新增** `非硬底线 deny（用户自设）⇒ controls 非空且可改回` |
+| S6 | `tree-view.test.ts :: pinned wording` | 文案重写（FR-V2-078） | 新 `TREE_MODEL_NOTE`（归属层级树）+ `TREE_NO_ESCALATION_NOTE`（两通路 + `delay` 消歧保留） |
+| S7 | `tree-view.test.ts :: needsConfirmation is correct for all 7 actions` | 9 动作 | `… all 9 actions` + `commandPolicyNeedsConfirmation(allow, 非默认)` 真 |
+| S8 | `tree-view.test.ts :: deny rows expose zero controls even when a subcommand is filtered out` | 分层（FR-V2-077） | `hard-floor deny rows stay control-free under filter; overridable rows keep controls` |
+| S13 | `insight.mjs #I-11a`（森林 + 撤销≠放宽 文案） | 文案重写 | `#I-11a`（归属层级树声明）+ `#I-11b`（两通路 + 覆盖受 clamp）；`delay` 消歧保留（`#I-11c`） |
+| S14 | `insight.mjs #I-12`（deny 节点无任何控件） | 分层 | `#I-12a` 硬底线 deny **零**控件；`#I-12b` 非硬底线/可覆盖节点**有** allow/ask/deny 控件 |
+| S15 | `insight.mjs #I-18e`（`denyWithControls===0`） | 分层 | `hardFloorDenyWithControls===0` **且** `overridableWithControls>=1` |
+| S16 | `insight.mjs #I-02a`（四维度分组） | 真层级树 | 根 + 四维度 + **逐层展开/收起**（作者两例各展开一层） |
+| S18 | `test:ui` v1 `#15a~#15q` / `journey.mjs` | **不变** | **零删改**（红线） |
+
+**新增（净增）**：`#I-20a…`（键盘/面包屑/分层控件/clamp 原因/逐层展开）。
+
+### 5.7 R2 文件所有权与串行约束（本叶）
+
+- 同文件多任务一律**串行**（`command-override.ts`：R2-V23-01 → R2-V23-02；`tree-drawer.ts`：R2-V22-02 → R2-V24-02；`insight.mjs`：R2-V22-04 → R2-V24-04）。
+- Chromium 门禁（`test:ui`/`test:insight`/`test:binding`）**绝不并发**（OOM 前科，NFR-V2-009）。
+- 冻结面 `policy.ts`/`auto-authorize.ts` 零 diff；新增 `command-override.ts` 独立内容哈希 pin（首登记）。
+
+### 5.8 R2 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| **v2.0（R2）** | 新增 §5 R2 任务分解：R2-V22-01、R2-V22-02、R2-V22-03、R2-V22-04、R2-V22-05、R2-V22-06（共 6 个任务；S×0/M×3/L×3）。承接父 `plan.md` v2.0 §9/§10（ADR-V2-024~033）与父 `spec.md` v2.0 §5.7/§8；**只排任务**，phase 不回退；断言取代 `removed=0`。 | 2026-09-13 | SDDU Tasks Agent（R2） |
+
+---
+
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-2 plan §3.1~3.7 → **11 个原子任务 / 4 波**（append-only 标记/样式 / 纯渲染模型 / tree-view 纯测 / 惰性 tree-drawer / sidepanel 挂载+script / 体积守卫 / test:insight 量化门禁 / 基线实测登记 / 串行收口 / grep 契约门禁 / 人工面清单）。门禁：`test/ui/insight.mjs`（新文件，不改 v1 journey.mjs）+ `tree-view` 纯测 + `size-budget`（新基线文件，与 D31 解耦）。布局口径按 ADR-V2-006（589px 主 / ≥65.0% 次）。承接父 plan ADR-V2-004/005/006/007/011/013/015。 | 2026-09-13 | SDDU Tasks Agent |
+| **v2.0（R2）** | 新增 §5 R2 任务分解（6 个任务；S×0/M×3/L×3）。承接父 plan v2.0 ADR-V2-024~033 + 父 spec v2.0 §5.7/§8；**只排任务**、phase 不回退；断言取代 `removed=0`。 | 2026-09-13 | SDDU Tasks Agent（R2） |

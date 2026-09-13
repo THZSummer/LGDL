@@ -478,8 +478,246 @@ npm test --workspace @lgdl/web-cli-plugin      # 含 V2-1 新增 insight-* 门�
 
 ---
 
+## 5. R2 任务分解（post-validate 修订轮，2026-09-13；**phase 不回退**）
+
+> **文档定位**: R2 修订轮任务（V2-1 模型层）—— 将连接树从「四层分组 + 扁平行」修订为**真父子层级树**（纯归属树 + 主归属链 + 交叉引用徽标，不复制节点）+ 命令**默认档/覆盖生效档分列** + clamp 原因 + 覆盖面口径分列；**快照扁平面不动**（对账/确定性/`meta.hash`/parity/archive 前提零变化）。
+> **输入**: 本叶 `spec.md` v2.0（R2）+ 本叶 `plan.md` v2.0（§9）+ 父 `plan.md` v2.0 §9/§10（ADR-V2-024~033）+ 父 `spec.md` v2.0 §5.7 `FR-V2-070~079` / §8 `AC-V2-020~027` + `state.json#revisionRounds.R2`。
+> **授权**: 编排器代作者决策（2026-09-13 授权）**+ R2** —— 本阶段**不再向作者提问**；开放点自行裁决并登记（TD-R2-01~10）。
+> **纪律**: 不碰 `main` / 不碰 `packages/web-cli-base/**` / 不改 v1 SDDU 目录 / 无新依赖 / 不 force push / 禁 `git add -A` / 禁提交 `.opencode/opencode.json`；**只排任务**（不写代码、不跑 Chromium 门禁）；phase 不回退。
+> **承接**: 本叶 R2 承载 FR-V2-070、FR-V2-071、FR-V2-079；叶级 AC AC-V21-008、AC-V21-009、AC-V21-010。
+
+### 5.0 编排器代作者决策（TD-R2-01~10；2026-09-13 授权 + R2）
+
+> 作者已授权编排器自行决策 → 本阶段**不再向作者提问**；以下开放点自行裁决并登记。
+
+| # | 事项 | 裁决 |
+|:--:|------|------|
+| TD-R2-01 | R2 波次重排 | `R2-Wave 1~6`（全局承接原 Wave 18~23）= 模型层 → 覆盖引擎 → UI 层 → 档案 → 门禁/体积/文档 → 收口 |
+| TD-R2-02 | 任务编号 | 独立前缀 `R2-V2x-NN`；v1 `TASK-00N` 与既有 tasks **零删改**（追加式） |
+| TD-R2-03 | 文案归属 | `TREE_MODEL_NOTE` / `TREE_NO_ESCALATION_NOTE` 重写归 **V2-2**（文件所有权 `tree-view.ts`）；`command-catalog` 偏差文案删除归 **V2-1** |
+| TD-R2-04 | 白名单 7→9 | `tree-ops.ts` 归 **V2-3**（V2-2 只消费，不写白名单） |
+| TD-R2-05 | 取代台账分工 | S1~S3 / S12 / S17 → V2-3；S4~S8 / S13~S16 → V2-2；S9~S11 → V2-4；S9 的 `TREE_ACTION_IDS_JSON_SHA256` 新值由 V2-3 生成、V2-4 落 pin（同源锚定） |
+| TD-R2-06 | Chromium 门禁文件 | `insight.mjs` 由 V2-2（`#I-20a…`）→ V2-4（`#I-21a…`）串行追加；`binding.mjs` 由 V2-3 追加 `#22a…`（既有 `#0~#21o` 零删改） |
+| TD-R2-07 | 覆盖模块拆分 | `command-override.ts` 分两任务（clamp/组合 与 store/生命周期），同文件**串行**（避免并行写冲突） |
+| TD-R2-08 | 收口归属 | 体积重登记归 V2-2（`size-baseline.ts` owner）；计数台账总核 + 全套串行归 V2-4（最后一叶） |
+| TD-R2-09 | 同源锚定 | store `commandId` 与 `STABLE_KEY.command` 一致（V2-1 断言 + V2-3 实现） |
+| TD-R2-10 | 服务端强制测试手段 | 直接调用 SW 消息 handler（伪造 `command-policy-set`，**不经 UI**）+ `host.dispatch` 注入 `commandOverrides`，证明 clamp 在 SW gate 内 |
+
+### 5.1 R2 跨叶波次表（全局承接 Wave 18~23）
+
+| R2 波次 | 全局承接 | 内容 | 承载叶 | 并行性 |
+|:--:|:--:|------|:--:|------|
+| **R2-Wave 1** | Wave 18 | 模型层：`ownership-tree.ts` 纯归属树 + `tree-model`/`command-catalog` 分列/分层 + `project-tree` 派生 + `build-snapshot` 透传 | V2-1 | `01 ∥ 02` → `03` → `04` |
+| **R2-Wave 2** | Wave 19 | 覆盖引擎（**SW 侧强制**）：`command-override.ts` clamp/组合 + store/生命周期 + `host.ts` 组合 + 消息面 + `tree-ops` 白名单 7→9 | V2-3 | `01 ∥ 02` → `03` → `04` → `05` |
+| **R2-Wave 3** | Wave 20 | UI 层：`tree-view.ts` 嵌套模型 + 两通路文案；`tree-drawer.ts` 真树 DOM/键盘/面包屑/分层控件 | V2-2 | `01` → `02` |
+| **R2-Wave 4** | Wave 21 | 档案（V2-4）：`archive-catalog.ts` 分层/分列 + `tree-drawer` 档案卡控件 | V2-4 | `01` → `02`（与 V2-2 同文件串行） |
+| **R2-Wave 5** | Wave 22 | 门禁编写+执行（⚠️ 串行）+ 体积显式重登记 + 文档/人工面 | V2-1/2/3/4 | 编写并行，**执行串行** |
+| **R2-Wave 6** | Wave 23 | R2 收口：S1~S18 计数台账总核（`removed=0`）+ 全套串行 + 零 diff 面 + 人工面登记 | V2-4 | 串行 |
+
+> **波次依赖主轴**：`R2-Wave 1（V2-1 类型/模型）` → `R2-Wave 2（V2-3 覆盖引擎，消费 V2-1 类型）` → `R2-Wave 3（V2-2 UI，消费 V2-1 模型 + V2-3 消息/白名单）` → `R2-Wave 4（V2-4 档案，消费 V2-1 模型 + V2-2 抽屉）` → `R2-Wave 5（门禁，⚠️ 串行）` → `R2-Wave 6（收口）`。
+
+### 5.2 R2 任务总览（本叶 V2-1；共 5 个任务 / 复杂度 S×1 / M×3 / L×1）
+
+| 编号 | 标题 | 规模 | 类型 | 依赖 | 波次 | 可并行 | 涉及文件 |
+|------|------|:--:|:--:|------|:--:|:--:|------|
+| R2-V21-01 | 纯归属树 `ownership-tree.ts`（真父子层级 + 主归属链 + 交叉引用，不复制节点） | M | 🛠 实施 | 无 | 1 | R2-V21-02 | NEW `packages/web-cli-plugin/src/insight/ownership-tree.ts` |
+| R2-V21-02 | `tree-model.ts` additive 字段 + `command-catalog.ts` 默认/生效分列 + 分层控件 + 偏差文案删除 | L | 🛠 实施 | 无 | 1 | R2-V21-01 | MODIFY `packages/web-cli-plugin/src/insight/tree-model.ts`；MODIFY `packages/web-cli-plugin/src/insight/command-catalog.ts` |
+| R2-V21-03 | `project-tree.ts` 注入 overrides + 覆盖面分列 + 派生 `ownershipTree` | M | 🛠 实施 | R2-V21-01、R2-V21-02 | 1 | — | MODIFY `packages/web-cli-plugin/src/insight/project-tree.ts` |
+| R2-V21-04 | `build-snapshot.ts` 透传 overrides / coverage（薄 builder） | S | 🛠 实施 | R2-V21-03 | 1 | — | MODIFY `packages/web-cli-plugin/src/insight/build-snapshot.ts` |
+| R2-V21-05 | 模型门禁 `test/insight-tree-hierarchy.test.ts`（AC-V21-008~010）+ 既有门禁零回归核验 | M | ⚖️ 门禁 | R2-V21-01、R2-V21-02、R2-V21-03、R2-V21-04 | 5 | R2-V22-03；R2-V23-06；R2-V24-03 | NEW `packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts`；核验 `test/insight-projection.test.ts` / `test/insight-determinism.test.ts` 零删改 |
+
+### 5.3 R2 依赖拓扑（本叶）
+
+```
+R2-Wave 1: R2-V21-01；R2-V21-02；R2-V21-03；R2-V21-04
+R2-Wave 5: R2-V21-05
+```
+
+> **跨叶依赖**: V2-1（模型）→ V2-3（覆盖引擎）→ V2-2（UI）→ V2-4（档案）→ 门禁（串行）→ 收口。
+
+### 5.4 R2 任务列表（本叶）
+
+#### R2-V21-01: 纯归属树 `ownership-tree.ts`（真父子层级 + 主归属链 + 交叉引用，不复制节点）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | 无 |
+| **执行波次** | R2-Wave 1 |
+| **可并行** | R2-V21-02 |
+| **对应 FR** | FR-V2-070、FR-V2-071 |
+| **承接 ADR** | ADR-V2-028 |
+| **对应 AC** | AC-V21-008、AC-V21-009 |
+
+**目标**: `buildOwnershipTree(snapshot): OwnershipTree` 输出嵌套 `OwnershipNode{id;kind;label;nodeId?;ariaLevel;path:string[];mainOwner:Dimension;crossRefCount:number;children;badgeSummary}`；主归属链（`site_*`→站点面 / `base-builtin`·`plugin-*`→命令面按来源 / 能力→能力面 / LLM→LLM 面）；同一 node id 唯一、多归属不复制；纯派生不改 `meta.hash` 输入。
+
+**涉及文件**: NEW `packages/web-cli-plugin/src/insight/ownership-tree.ts`
+
+**验收标准（可执行断言）**:
+- [ ] 模型为嵌套 `children`（**非扁平 `rows`**）；作者**示例①** `连接树→授权的站点→站点 xxx→支持的命令→工具→子命令` 可逐层枚举
+- [ ] 作者**示例②** `连接树→支持的命令→系统内置命令→dom→dom read-state` 可逐层枚举（`dom` 的 child 含 `dom read-state`）
+- [ ] 每个 `nodeId` 全树唯一（`Set` 去重 count === total）；多归属节点 `crossRefCount>=1` 且 `mainOwner` 唯一
+- [ ] 从非主归属路径下钻解析到**同一 `nodeId`**（不产生副本）
+- [ ] 快照 `groups[].children` 与 `meta.hash` 输入**零变化**（对账/确定性断言前提不变）
+- [ ] 纯函数：无 `chrome.*`、无 IO、`npm run typecheck` 0 error
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run typecheck
+（node 单测见 R2-V21-05）
+```
+
+#### R2-V21-02: `tree-model.ts` additive 字段 + `command-catalog.ts` 默认/生效分列 + 分层控件 + 偏差文案删除
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | L |
+| **前置依赖** | 无 |
+| **执行波次** | R2-Wave 1 |
+| **可并行** | R2-V21-01 |
+| **对应 FR** | FR-V2-013、FR-V2-074、FR-V2-077、FR-V2-078 |
+| **承接 ADR** | ADR-V2-025、ADR-V2-030、ADR-V2-032 |
+| **对应 AC** | AC-V21-010 |
+
+**目标**: `CommandNode` additive `defaultAction`（保留原 `action` 为默认档，兼容 T3 parity）/`overrideAction?`/`effectiveAction`/`overridable`/`clampReason?`；`ControlKind+'command-policy'`；`TreeActionId+'set-command-policy'|'reset-command-policy'`；`command-catalog` 注入 `overrides`（纯数据）→ **默认档/覆盖生效档分列** + clamp 原因（调用纯 `resolveCommandPolicy`，由 V2-3 R2-V23-01 提供）；`controlsFor` **分层**：硬底线→`controls:[]`+`clampReason`，可覆盖→3 个 `command-policy` 控件；**删除**「只读展示：命令级策略不可在树内修改（不提供命令级写入）」偏差文案。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/insight/tree-model.ts`；MODIFY `packages/web-cli-plugin/src/insight/command-catalog.ts`
+
+**验收标准（可执行断言）**:
+- [ ] additive 字段类型正确；`defaultAction` 保留原语义（T3 parity 不受扰）
+- [ ] 硬底线节点 `overridable===false` ∧ `controls.length===0` ∧ `clampReason` 可读映射（`evaluate`/`s1-unauthorized`/`s3-unknown-risk`/`destructive-floor`/`ui-no-widen`/`state-no-widen`/`external-no-widen`）
+- [ ] 可覆盖节点 `controls` **恰 3 个** `{kind:'command-policy',policyAction:'allow'|'ask'|'deny'}`；**非硬底线 `deny` 亦有控件**（可改回）
+- [ ] 偏差文案「只读展示：命令级策略不可在树内修改」「不提供命令级写入」在 `src/insight/**` **grep 零命中**
+- [ ] `insight-catalog` 34/142 双向对账零回归（`catalog-reconcile` 不变）
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run typecheck
+grep -rn '只读展示：命令级策略不可在树内修改\|不提供命令级写入' src/insight/ （零命中）
+（node 单测见 R2-V21-05）
+```
+
+#### R2-V21-03: `project-tree.ts` 注入 overrides + 覆盖面分列 + 派生 `ownershipTree`
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V21-01、R2-V21-02 |
+| **执行波次** | R2-Wave 1 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-079 |
+| **承接 ADR** | ADR-V2-028、ADR-V2-032 |
+| **对应 AC** | AC-V21-010 |
+
+**目标**: 透传 `overrides`（纯数据）→ 命令节点 effectiveAction/clampReason 即时反映；派生 `ownershipTree`（只读，消费 R2-V21-01）；`meta.counts`（实时面 28/94=122）与 `coverage`（live vs baseline 34/142）**分列**；`accounted` 只作门禁背书、**不渲染**。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/insight/project-tree.ts`
+
+**验收标准（可执行断言）**:
+- [ ] `snapshot.ownershipTree` 存在且由 `buildOwnershipTree` 派生（同一契约）
+- [ ] `coverage` 分列字段：`live`(28/94=122) 与 `baseline`(34/142) 独立；`accounted` 不出现在渲染字段
+- [ ] 投影确定性：两次投影 `ownershipTree` deep-equal；`meta.hash` 输入不变
+- [ ] 「34/142 已全部渲染」「已全部渲染」类表述零命中
+- [ ] 反证：把 `live` 计数改成等于 `baseline` → **FAIL**
+
+**验证命令**:
+```bash
+（node 单测见 R2-V21-05）
+```
+
+#### R2-V21-04: `build-snapshot.ts` 透传 overrides / coverage（薄 builder）
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | S |
+| **前置依赖** | R2-V21-03 |
+| **执行波次** | R2-Wave 1 |
+| **可并行** | — |
+| **对应 FR** | FR-V2-075、FR-V2-079 |
+| **承接 ADR** | ADR-V2-024 |
+| **对应 AC** | AC-V21-010 |
+
+**目标**: 注入式读覆盖层（`get/list`）→ 快照 `overrides`/`coverage` 透传；**纯读零副作用**（投影前后存储 diff 为空、无审计新增）；`state` 消息 additive（旧字段语义零变更）。
+
+**涉及文件**: MODIFY `packages/web-cli-plugin/src/insight/build-snapshot.ts`
+
+**验收标准（可执行断言）**:
+- [ ] 快照含 `overrides`/`coverage`；投影前后存储 diff 为空、无审计新增（零副作用）
+- [ ] `state.insight?` additive，旧字段语义零变更（回归断言）
+- [ ] 不 import `chrome.*`（kv 注入）
+
+**验证命令**:
+```bash
+（node 单测见 R2-V21-05）
+```
+
+#### R2-V21-05: 模型门禁 `test/insight-tree-hierarchy.test.ts`（AC-V21-008~010）+ 既有门禁零回归核验
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | R2-V21-01、R2-V21-02、R2-V21-03、R2-V21-04 |
+| **执行波次** | R2-Wave 5 |
+| **可并行** | R2-V22-03、R2-V23-06、R2-V24-03 |
+| **对应 FR** | FR-V2-070、FR-V2-071、FR-V2-079 |
+| **承接 ADR** | ADR-V2-028、ADR-V2-031、ADR-V2-032 |
+| **对应 AC** | AC-V21-008、AC-V21-009、AC-V21-010 |
+
+**目标**: 新增 node 门禁覆盖 R2 层级/多归属/分列；并核验 P0 既有模型门禁（projection/determinism/catalog）**零删改**、快照扁平面零变化。
+
+**涉及文件**: NEW `packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts`；核验 `test/insight-projection.test.ts` / `test/insight-determinism.test.ts` 零删改
+
+**验收标准（可执行断言）**:
+- [ ] 层级断言：模型为父子结构（非 `rows`）；**作者两例层级链逐层枚举成功**（AC-V21-008）
+- [ ] 多归属断言：node id 唯一 + `mainOwner` + `crossRefCount` + 下钻同一 id（AC-V21-009）
+- [ ] 分列断言：`defaultAction`/`effectiveAction` 分列 + `clampReason` 与父 §5.7 表一致 + `live` 122 vs `baseline` 34/142 分列、不夸大（AC-V21-010）
+- [ ] 取代台账：本叶无 S 编号（S1~S18 由 V2-2/V2-3/V2-4 承载）；`removed=0`；`insight-projection`/`insight-determinism`/`insight-catalog` 既有断言**零删改**（`git diff --unified=0` 无删除行）
+- [ ] 反证：把 ownership tree 改回扁平 `rows` → **FAIL**；把 `live` 计数改成 `baseline` → **FAIL**
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm test
+```
+
+
+### 5.5 R2 验收矩阵（本叶）
+
+| 验收要点（R2 / 对应 AC） | 落成任务 | 门禁/断言 | 新增 vs 追加 vs 取代 | 反证设计 |
+|------|:--:|------|:--:|------|
+| 真树形：模型为父子层级（非 `rows`）；作者两例可逐层枚举（AC-V21-008/AC-V2-020） | R2-V21-01 / 05 | `test/insight-tree-hierarchy.test.ts`（node） | **新增** | 改回扁平 `rows` → FAIL |
+| 多归属：node 唯一 + 主归属 + 交叉引用 + 下钻同一 id（AC-V21-009/AC-V2-021） | R2-V21-01 / 05 | 同上（node） | **新增** | 复制节点产生副本 → FAIL |
+| 默认/生效分列 + clamp 原因（AC-V21-010/AC-V2-025） | R2-V21-02 / 05 | 同上（node） | **新增**（S5/S10 文案 pin 由 V2-2/V2-4 取代） | clampReason 缺失 → FAIL |
+| 覆盖面分列不夸大（AC-V21-010/AC-V2-027） | R2-V21-03 / 05 | 同上（node）+ grep | **新增** | `live` 改成 `baseline` → FAIL |
+| 快照扁平面/确定性零变化（AC-V21-003，不变） | R2-V21-01 / 03 | `insight-determinism` / `insight-catalog` | **零删改** | 改 `meta.hash` 输入 → FAIL |
+
+### 5.6 R2 断言取代台账（本叶承载；父 `plan.md` §9.8 S1~S18）
+
+> **纪律**: `removed = 0`；每条旧断言给出 old → new（理由 + 替代）；**总断言数不得下降**；硬底线/安全类断言**只增不减**；`journey.mjs` / v1 `test:ui` / `binding.mjs` 既有编号**零改动**（除清单内显式取代）。build 阶段**实测** `check(` 计数（`insight.mjs` 57 / `binding.mjs` 185 起算）与 node `test(` 计数，记录前后值证明「只增不减」。
+
+| # | 旧断言（文件 :: 名称/编号） | 理由 | 新断言（替代） |
+|:--:|------------------------------|------|----------------|
+| — | （本叶无直接 S 编号） | R2 本叶为**新增**模型面（`insight-tree-hierarchy.test.ts` 新文件） | 新增 AC-V21-008~010；P0 `insight-projection`/`insight-determinism`/`insight-catalog` **零删改**；S5/S10 的 pin 由 V2-2/V2-4 承载 |
+
+**本叶硬底线只增**：`ownership-tree` 为**纯派生**，`meta.hash` 输入不变 → `insight-determinism` 断言**零改动**；`test/parity/**` 零变更。
+
+### 5.7 R2 文件所有权与串行约束（本叶）
+
+- 同文件多任务一律**串行**（`command-override.ts`：R2-V23-01 → R2-V23-02；`tree-drawer.ts`：R2-V22-02 → R2-V24-02；`insight.mjs`：R2-V22-04 → R2-V24-04）。
+- Chromium 门禁（`test:ui`/`test:insight`/`test:binding`）**绝不并发**（OOM 前科，NFR-V2-009）。
+- 冻结面 `policy.ts`/`auto-authorize.ts` 零 diff；新增 `command-override.ts` 独立内容哈希 pin（首登记）。
+
+### 5.8 R2 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| **v2.0（R2）** | 新增 §5 R2 任务分解：R2-V21-01、R2-V21-02、R2-V21-03、R2-V21-04、R2-V21-05（共 5 个任务；S×1/M×3/L×1）。承接父 `plan.md` v2.0 §9/§10（ADR-V2-024~033）与父 `spec.md` v2.0 §5.7/§8；**只排任务**，phase 不回退；断言取代 `removed=0`。 | 2026-09-13 | SDDU Tasks Agent（R2） |
+
+---
+
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-1 plan §3.1~3.6 → **9 个原子任务 / 5 波**（类型+能力目录 / 命令档案 / 对账 / 纯投影 / builder+additive 接线 / 4 门禁）。门禁矩阵：`insight-projection` / `insight-determinism` / `insight-catalog`（34·142 双向 + 反证 + 同源锚定）/ `insight-no-escalation`（基础段）。断言只增不减（4 门禁全为新增文件）。承接父 plan ADR-V2-001/002/003/004/010/012/014/015。 | 2026-09-13 | SDDU Tasks Agent |
+| **v2.0（R2）** | 新增 §5 R2 任务分解（5 个任务；S×1/M×3/L×1）。承接父 plan v2.0 ADR-V2-024~033 + 父 spec v2.0 §5.7/§8；**只排任务**、phase 不回退；断言取代 `removed=0`。 | 2026-09-13 | SDDU Tasks Agent（R2） |
