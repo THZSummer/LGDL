@@ -788,7 +788,7 @@
             "R2-V24-05（S1~S18 计数台账总核 + 收口文档）—— 本轮已实质执行大半，收口留待下一轮",
             "人工面 V2-H-10~14（⏳ 待人工）"
           ],
-          "commit": "pending（门禁全绿后提交；本轮 commit 见 v2 state.json revisionRounds.R2.buildRounds[1].commit 回填）"
+          "commit": "e35d852413c2a073366812301274480308640911（feat(web-cli-plugin): v2 R2-2 真层级树 UI …；17 files changed, 2289 insertions(+), 421 deletions(-)）"
         }
       ]
     }
