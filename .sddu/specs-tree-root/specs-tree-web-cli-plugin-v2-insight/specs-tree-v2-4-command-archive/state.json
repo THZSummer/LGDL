@@ -114,5 +114,48 @@
       "T1 缺口：树侧能力撤销成功端到端（headless permissions.request=PENDING_TIMEOUT）"
     ],
     "merge": "不合入 main、不发布（作者：只审验）"
+  },
+  "revisionRounds": {
+    "R2": {
+      "round": "R2",
+      "type": "post-validate 需求修订轮（不回退 phase；按 v1 先例，追加记录不稀释既有）",
+      "date": "2026-09-13",
+      "authorization": "编排器代作者决策（2026-09-13 授权）",
+      "trigger": "作者 2026-09-13 报出 v2 交付偏差，要求修订需求（R2 修订轮）",
+      "authorFeedbackVerbatim": "有个问题，需要修复下偏差，连接树的实现有偏差，所谓\"连接树\"，1、至少是树形的展示吧，当前是列表，不合适，如：连接数=》授权的站点=》站点xxx，连接树=》支持的命令=》系统内置命令=》dom=》dom xxx，等等，定义好树的形状，按找归属，逐层展开，才方便用户查阅、理解；2、连接要可以操作，当前完全不能操作，例如：dom\n来源 内置（base-builtin） · 命令间隔 delayMs=0ms（与 delay 档无关） · 处置 ask\nask（需确认）\n只读展示：命令级策略不可在树内修改（不提供命令级写入）\ndom read-state\n来源 内置（base-builtin） · 命令间隔 delayMs=0ms（与 delay 档无关） · 处置 allow\nallow（默认放行） ，不同层级都应该可以操作，dom要可以设置为ask 或 allow 或 deny，dom read-state 也要支持设置；",
+      "deviationsConfirmed": [
+        "D-R2-01 形状：tree-view.ts:509-525 构建按维度分组的扁平 rows；tree-drawer.ts:601-613 渲染为「分组标题 + 平铺 rows」→ 无父子层级、不可逐层展开",
+        "D-R2-02 不可操作：command-catalog.ts:142-145 controlsFor() 对所有命令返回 {kind:'none'}「只读展示：命令级策略不可在树内修改（不提供命令级写入）」；tree-view.ts:251-254 对 action==='deny' 恒返回 controls:[]",
+        "D-R2-03 根因：立项裁决⑤「撤销粒度=站点级+能力级，不做命令级策略覆盖」→ NG-V2-001 + ADR-V2-011（deny 不可关=渲染模型结构保证）+ deny ⇒ controls:[]"
+      ],
+      "revertedItems": [
+        "原裁决⑤「撤销粒度 = 站点级 + 能力级，不做命令级策略覆盖」→ 反转：做命令级用户覆盖层（工具级 + 子命令级 allow/ask/deny）；原依据=裁决⑤；新依据=作者 2026-09-13 反馈",
+        "原 NG-V2-001「不做命令级策略覆盖」→ 作废/改写为 NG-V2-001R「不做无审计的命令级放宽 / 不做绕过硬底线 clamp 的覆盖」",
+        "原 plan ADR-V2-011「deny 不可关 = 渲染模型结构保证（deny ⇒ controls:[]）」→ 部分取代：硬底线 deny 仍无控件（不可放宽）+ 原因可读；非硬底线 deny 有 allow/ask 控件可改回（ADR 重开/替代由 plan 承接）",
+        "原实现形态「按维度分组的扁平列表」（tree-view.ts:509-525 / tree-drawer.ts:601-613）→ 反转为真父子层级树 + 逐层展开/收起 + 多归属主链（父 FR-V2-070/071）",
+        "原 command-catalog.ts:142-145「只读展示：命令级策略不可在树内修改（不提供命令级写入）」→ 偏差产物，文案必须替换（父 FR-V2-078）",
+        "原 AC-V2-005 allow 单调性（allowAfter ⊆ allowBefore）→ 范围重定：只约束撤销/关断通路；用户显式覆盖为独立、被审计的放宽通路，不得用单调性否定"
+      ],
+      "newFrIds": [
+        "FR-V2-077",
+        "FR-V2-079"
+      ],
+      "newAcIds": [
+        "AC-V24-008"
+      ],
+      "phaseKept": "validated",
+      "phaseNotRegressed": true,
+      "revisedArtifacts": [
+        "spec.md（V2-4，v2.0）"
+      ],
+      "pendingDownstream": [
+        "@sddu-plan：重开 ADR 面（真树形模型 + 多归属主链 + 覆盖层 + 硬底线 clamp + deny 控件分层 + 偏差文案替换），以 revisionRounds.R2 为输入",
+        "@sddu-tasks：按 R2 新 FR/AC 重排任务（编号从 FR-V2-070+/AC-V2-020+）",
+        "@sddu-build：重实施（只改本次偏差相关面；零新权限 / 不碰 packages/web-cli-base/** / 无新依赖）",
+        "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录，不稀释既有 R1 记录）",
+        "红线：不得回改 v1 SDDU 目录 / 不合 main / 不 force push / 禁 git add -A"
+      ],
+      "note": "V2-4 档案侧：deny 控件分层（硬底线无控件 / 非硬底线有控件）+ 默认档 vs 覆盖生效档分列 + 覆盖面 122 卡 vs 34/142 分列不夸大。"
+    }
   }
 }
