@@ -72,6 +72,8 @@
 | `admin_audit-export` | 导出审计 | FR-025 |
 | `admin_llm-config` | 掩码 LLM 配置 | FR-033 / FR-035 |
 | `tabs` | 标签页 list/switch/open/mute/pin/move/close（close 于 2026-09-13 作者反转放开；write→ask、单标签页、摘要含标题+去参 URL+不可逆）。仅列出/切换无需站点授权；改页/关页走 policy | FR-049/FR-053 |
+| `bookmarks` | 书签 list/search/tree（读，默认开）+ add/remove/move（写，默认关、`write`→ask）。**可选权限** `bookmarks`（`optional_permissions`）；未授权返回可读「去设置开启」；`remove` 为**破坏性**，接入 `auto-authorize` 硬底线（「写操作自动」开仍 ask）、禁止批量；`add` 仅 http(s)；审计零明文 | FR-054（TASK-038） |
+| `downloads` | 下载记录 **只读** list/search。**可选权限** `downloads`（`optional_permissions`）；未授权返回可读「去设置开启」；**明确不做** cancel/pause/resume/erase/removeFile/open/show（可读拒绝）；文件名仅 basename、来源 URL 默认去参；审计零明文 | FR-054（TASK-038） |
 
 ## 4. 最小能力集（Gate-D D-1 基线）
 

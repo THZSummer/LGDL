@@ -799,7 +799,49 @@ router.dispatch → PermissionGate.check
 - `test/content.test.ts`：`page-bridge` 逐字转发 6 个新 op（参数形状断言）。
 - `test:e2e`（真实 dist + 真实 Chromium）：夹具页实现完整 hub → 真机断言 subscribe / switch / pull（增量 > 0）/ pause+clear→pull（增量 0）/ resume→pull（增量 > 0）/ budget / pull-sensitive 门禁 / 无明细原因 / unsubscribe。
 
-## 17. 变更记录
+## 17. 可选权限能力：`bookmarks` / `downloads` 与手势请求流程（TASK-038，作者裁决 2026-09-13）
+
+### 17.1 声明方式（静态安装面零变化）
+
+`bookmarks`（读 + 写）与 `downloads`（只读）**只**登记在 `manifest.json` 的 `optional_permissions`，**不进入静态 `permissions`**：
+
+```json
+"permissions": ["activeTab", "scripting", "storage", "sidePanel", "tabs"],
+"optional_permissions": ["bookmarks", "downloads"]
+```
+
+- 静态新增权限会在扩展**更新时使已安装扩展被 Chrome 停用**直到重新同意；可选权限避免这一点，并允许**按能力单独撤销**。
+- 无 `<all_urls>`、无静态 `content_scripts`、`host_permissions`/`optional_host_permissions`/`minimum_chrome_version` 不变。
+
+### 17.2 请求流程（手势约束是硬规则）
+
+`chrome.permissions.request` **只有在扩展页面且处于用户手势中**才可能被授予；service worker 内调用无手势必失败/挂起。因此：
+
+1. 侧栏设置视图（`src/ui/settings/panel.ts`）与 options 兜底页（`src/ui/options/options.ts`）的「开启书签访问 / 开启下载记录访问」按钮，在 **click 处理器内同步**调用 `requestCapabilityPermissionOnGesture(cap)`（`src/platform/capability-permissions.ts`）——`api.request` 在**第一个 `await` 之前**调用，手势不丢失。
+2. 请求结束后扩展页发 `kind:'capabilities', action:'permission-changed'`，由 background **重新读真实授权**（`chrome.permissions.contains`）并对账工具面：授予 → 按隐私开关注册；拒绝/撤销 → `suppressCapability` 从 `deriveTools()` 移除，并写 `optional-permission` 审计。**绝不在 SW 里 `request`**。
+3. 浏览器侧 `permissions.onAdded` / `onRemoved` 监听同样触发对账（用户在 `chrome://extensions` 手动改权限也会即时反映）。
+
+### 17.3 隐私开关与工具面
+
+- 默认：书签**读开 / 写关**；下载记录读开（`src/background/capability-setting.ts`，存 `web-cli:capability-settings`）。
+- 关闭即把对应能力**从 `deriveTools()` 移除**（不是前端隐藏），派发可读拒绝；书签读/写都关时整个 `bookmarks` 工具离开工具面。
+- 未授权时调用**不静默**：返回可读「未开启：去『⚙ 设置 → 能力与隐私』点『开启…』」。
+
+### 17.4 安全语义（写侧）
+
+- `bookmarks` 子命令 risk：`list`/`search`/`tree`=`read`（放行）；`add`/`remove`/`move`=`write`（默认 `ask`）。
+- `remove` 额外判定 **destructive**，接入 `auto-authorize` 硬底线（判定在 group 过滤**之前**，`src/security/auto-authorize.ts`）：即使「写操作自动」开启，删除书签**仍必须人工确认**；禁止 `--all` 批量。
+- `downloads` 顶层 risk=`read`，**只读**；cancel/pause/resume/erase/removeFile/open/show 为**明确不实现**的可读拒绝。
+- 每子命令审计零明文（URL 去 query/fragment；搜索词只记长度；下载文件名仅 basename）。
+
+### 17.5 回归门禁
+
+- `test/bookmarks-tools.test.ts` / `test/downloads-tools.test.ts`：risk 档、未授权可读拒绝、开关摘除、审计零明文、`remove` 破坏性硬底线（写自动开仍 ask）、scheme/批量拒绝。
+- `test/capabilities.test.ts` / `test/capability-wiring.test.ts`：权限 helper（contains/request/变更判定）+ 专门审计类型 + wiring。
+- `test:ui`：#54a~#54h（设置视图分区分段 + 未授权回显 + 默认开关 + 拒绝路径可读 + 点击真实发起 `request({permissions:['bookmarks']})`）。
+- `test:binding` / `test:e2e`：**headless 无法合成手势授权弹窗**，故测试**副本 manifest** 把二者声明为静态 `permissions`（脚本头/观测已披露），以证明「权限在时能力真实可用」；手势弹窗仍归人工面（`docs/smoke-checklist.md` H2）。
+
+## 18. 变更记录
 
 | 版本 | 说明 |
 |------|------|
@@ -825,3 +867,4 @@ router.dispatch → PermissionGate.check
 | 2.8 | **TASK-036 / D3（补齐 events 运行时 6 子命令）**：`events` 工具面已对齐基线（11 子命令）但运行时仅 4 桥操作可用；本轮把 content 事件桥 op 集由 4 扩到 10（`pause`/`resume`/`clear`/`budget`/`switch`/`pull-sensitive`）并**逐字转发**页面 `env.events` hub —— 删除插件侧 hardcoded「暂不支持」，页面不支持时其**具体原因**原样透出（绝不假装成功）；订阅摘要以页面 `status` 为准。risk 仍由 base 单一来源（`pull-sensitive` = `write` **未降档**；控制类 = `state`），`pull-sensitive` 未 `--trusted true` 时**不转发**、无保留明细返回**特定原因**（FR-006 零明文 + 插件零缓存），审计零明文。站点页面桥需实现这些 op（LGDL 页面桥可复用 base `createBrowserEventHub()`）；夹具 `test/fixtures/site/rpc.js` 提供参考实现。新增 `test/remote-events.test.ts`（9）；补 §16；`test:e2e` 新增 13 条真机断言（pause/resume/clear/budget/switch + pull-sensitive 门禁 + 无明细原因）；插件 425→435、`tsc --noEmit` 0 error、`test:ui` 136、`test:hardening` 24、`test:binding` 125、`test:e2e` PASS、全仓 build+test 0 fail（base 483 零回归）；**base 零改动 / manifest 零 diff / 无新依赖 / 无新权限 / 无明文 key / 无静默失败**。 |
 
 | 2.9 | **TASK-037 / D5（作者裁决反转：`tabs` 补齐 `mute`/`pin`/`move` 并放开 `close`，2026-09-13）**：作者明确撤销初版「明确不做 close」约束（「标签页读写」包含 close、**完全放开 close**）——属**需求变更**，非测试降级。`src/tools/tabs-tools.ts`：子命令 3→7（`mute`/`pin`/`move`/`close`）、`subcommandRisks` 全部 `write`（close/move 等 → 默认 `ask`，**不放宽**）、入参解析（`--muted`/`--pinned true|false`；`--index`/`--window` 非负整数；`--id`/`--match` 二选一）、`resolveTabTarget`（`switch` 偏好激活页；**改页/关页歧义不猜**）、`--all`/批量**可读拒绝**、受限页/未知 id 可读拒绝、`redactTabTitle`（URL 型标题去 query/fragment）。`service-worker.ts`：`createTabsDeps` 新增 `muteTab`/`pinTab`/`moveTab`/`closeTab`/`describeTarget`（真实 `chrome.tabs.update/move/remove`）。`security/confirm.ts`：新增 `describe` 接缝，在 ask 前把「目标标题 + 去参 URL +（close）不可逆/侧栏自关」并入示人摘要（失败 best-effort 不阻断 ask）；`service-worker.ts` 接线。**零新权限**（`chrome.tabs.remove/update/move` 无需新权限）、`manifest.json` 零 diff、base 零改动。旧「断言无 close」测试**替换**为「close 存在 + write→ask + 单标签页 + 不可逆」（`tabs-tools.test.ts`/`tabs-wiring.test.ts`）。补 §12.4 + compliance §9.4；`test:ui` 136→**141**（#16p~#16t close 确认不可逆可见 + 拒绝结算）、`test:binding` 125→**143**（#7m~#7t 真实 mute/pin/move/close + 审计零明文 + `--all` 拒绝 + 基线还原）、插件 435→**452**、`tsc --noEmit` 0 error、`test:hardening` 24、`test:e2e` PASS、全仓 build+test 0 fail（base 483 零回归）；**无新依赖 / 无明文 key / 无静默失败**。 |
+| 3.0 | **TASK-038（作者裁决 2026-09-13）：可选权限能力 `bookmarks`（读+写）/ `downloads`（只读）**：以 `optional_permissions` 声明（**静态 `permissions` 零新增**；避免更新时被 Chrome 停用、可单独撤销）；`chrome.permissions.request` **只在扩展页面点击手势内**发起（`src/platform/capability-permissions.ts`；SW 绝不调用），请求结束后 `capabilities/permission-changed` 让 background 重读真实授权并对账工具面；`permissions.onAdded`/`onRemoved` 即时对账（撤销即从 `deriveTools()` 移除 + 审计）。默认书签读开/写关、下载记录读开；未授权返回可读「去设置开启」（不静默）。`bookmarks remove` 为 **destructive** → 接入 `auto-authorize` 硬底线（「写操作自动」开仍 ask）；`downloads` 明确不做取消/删除/打开。补 §17；新增 `test/bookmarks-tools.test.ts`、`test/downloads-tools.test.ts`、`test/capabilities.test.ts`、`test/capability-wiring.test.ts`；`test:ui` 新增 #54a~#54h、`test:binding` 125→**153**（测试副本静态权限 + 真实 chrome.bookmarks/downloads + 写自动仍弹确认 #54B8）、`test:e2e` 新增 bookmarks/downloads 真机断言（副本偏差已披露）；插件 452→**488**、`tsc --noEmit` 0 error、`test:hardening` 24、全仓 build+test 0 fail（base 483 零回归）；**base 零改动 / 静态 `permissions` 零新增 / 无新依赖 / 无明文 key / 无静默失败**。 |

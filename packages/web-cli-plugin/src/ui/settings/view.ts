@@ -93,8 +93,83 @@ export function tabsSettingStatus(enabled: boolean, tools?: string[]): string {
     : '已关闭：tabs 已从 LLM 工具面移除（助手无法查看/切换标签页）。';
 }
 
-// ── auto-authorization (per origin) ────────────────────────────────────────
+// ── FR-054: optional-permission capabilities (bookmarks / downloads) ────────
 
+export interface CapabilityGrantView {
+  /** Privacy toggle for the read group (bookmarks list/search/tree; downloads list/search). */
+  read: boolean;
+  /** Privacy toggle for the write group (bookmarks only). */
+  write?: boolean;
+  /** Whether the optional permission is currently granted. */
+  granted: boolean;
+  /** True when an explicit revocation removed it (distinct from「never requested」). */
+  revoked: boolean;
+  /** Current deriveTools() surface (optional; for the「已从工具面移除」note). */
+  tools?: string[];
+}
+
+export interface CapabilitiesView {
+  bookmarks: CapabilityGrantView & { write: boolean };
+  downloads: CapabilityGrantView;
+  /** Current deriveTools() surface (for the「已从工具面移除」回执). */
+  tools?: string[];
+}
+
+/** 已开启 / 未开启 / 已撤销 (single source for panel + options). */
+export function capabilityStateLabel(granted: boolean, revoked: boolean): '已开启' | '未开启' | '已撤销' {
+  if (granted) return '已开启';
+  return revoked ? '已撤销' : '未开启';
+}
+
+function capabilityToolNote(tool: string, granted: boolean, revoked: boolean, tools?: string[]): string {
+  if (!granted) {
+    return revoked
+      ? '（权限已被撤销：已从 LLM 工具面移除；可点「开启」重新申请）'
+      : '（点下方「开启」授权；未授权时调用会得到可读提示，不会静默失败）';
+  }
+  const inSurface = !tools || tools.includes(tool);
+  return inSurface ? '（工具已进入 LLM 工具面）' : '（开关关闭：工具已从 LLM 工具面移除）';
+}
+
+/** Readable status for the bookmarks capability row. */
+export function bookmarksCapabilityStatus(v: CapabilitiesView['bookmarks']): string {
+  const label = capabilityStateLabel(v.granted, v.revoked);
+  const toggles = `读开关 ${v.read ? '开' : '关'} · 写开关 ${v.write ? '开' : '关'}`;
+  return `书签访问（可选权限，读+写）：${label}｜${toggles}｜${capabilityToolNote('bookmarks', v.granted, v.revoked, v.tools)}`;
+}
+
+/** Readable status for the downloads capability row. */
+export function downloadsCapabilityStatus(v: CapabilitiesView['downloads']): string {
+  const label = capabilityStateLabel(v.granted, v.revoked);
+  const toggles = `读开关 ${v.read ? '开' : '关'}`;
+  return `下载记录（可选权限，只读）：${label}｜${toggles}｜${capabilityToolNote('downloads', v.granted, v.revoked, v.tools)}`;
+}
+
+/** Normalize the background `capabilities` reply into a stable view. */
+export function capabilitiesView(data: unknown): CapabilitiesView {
+  const raw = (data ?? {}) as Partial<CapabilitiesView>;
+  const b = (raw.bookmarks ?? {}) as Partial<CapabilitiesView['bookmarks']>;
+  const d = (raw.downloads ?? {}) as Partial<CapabilitiesView['downloads']>;
+  const tools = Array.isArray(raw.tools) ? raw.tools : undefined;
+  return {
+    bookmarks: {
+      read: b.read !== false,
+      write: b.write === true,
+      granted: b.granted === true,
+      revoked: b.revoked === true,
+      ...(tools ? { tools } : {}),
+    },
+    downloads: {
+      read: d.read !== false,
+      granted: d.granted === true,
+      revoked: d.revoked === true,
+      ...(tools ? { tools } : {}),
+    },
+    ...(tools ? { tools } : {}),
+  };
+}
+
+// ── auto-authorization (per origin) ────────────────────────────────────────
 export interface AutoAuthRecordView {
   origin: string;
   read: boolean;
@@ -144,13 +219,14 @@ export interface SettingsSectionDescriptor {
   id: string;
   title: string;
   /** Covered by the B-section migration checklist (TASK-033). */
-  key: 'llm' | 'auto-auth' | 'tabs' | 'sessions' | 'diagnostics' | 'compliance' | 'migration';
+  key: 'llm' | 'auto-auth' | 'tabs' | 'capabilities' | 'sessions' | 'diagnostics' | 'compliance' | 'migration';
 }
 
 export const SETTINGS_SECTIONS: readonly SettingsSectionDescriptor[] = [
   { id: 'llm', title: 'LLM 配置', key: 'llm' },
   { id: 'auto-auth', title: '自动授权（按站点）', key: 'auto-auth' },
   { id: 'tabs', title: '标签页管理（隐私）', key: 'tabs' },
+  { id: 'capabilities', title: '能力与隐私（可选权限）', key: 'capabilities' },
   { id: 'sessions', title: '会话分组（可选）', key: 'sessions' },
   { id: 'diagnostics', title: '环境自检 / 诊断', key: 'diagnostics' },
   { id: 'compliance', title: '合规与能力边界', key: 'compliance' },

@@ -236,7 +236,26 @@ function startMockLlm() {
           // message and always falls back to a plain assistant reply (the session
           // history also carries earlier tool messages, so check the LAST role).
           const lastIsTool = messages[messages.length - 1]?.role === 'tool';
-          if (!lastIsTool && user.includes('__TABS_LIST_FULL__')) {
+          const bkRemove = /__BOOKMARKS_REMOVE__:(\d+)/.exec(user);
+          if (!lastIsTool && user.includes('__BOOKMARKS_LIST__')) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_bk_list', type: 'function', function: { name: 'bookmarks', arguments: JSON.stringify({ subcommand: 'list', args: {} }) } }],
+            };
+          } else if (!lastIsTool && bkRemove) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_bk_remove', type: 'function', function: { name: 'bookmarks', arguments: JSON.stringify({ subcommand: 'remove', args: { id: bkRemove[1] } }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__DOWNLOADS_LIST__')) {
+            message = {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_dl_list', type: 'function', function: { name: 'downloads', arguments: JSON.stringify({ subcommand: 'list', args: {} }) } }],
+            };
+          } else if (!lastIsTool && user.includes('__TABS_LIST_FULL__')) {
             message = {
               role: 'assistant',
               content: '',
@@ -534,8 +553,15 @@ async function phase1(mock) {
   // native prompt). dist JS is byte-identical to the release build.
   const manifest = JSON.parse(await readFile(join(extDir, 'manifest.json'), 'utf8'));
   manifest.host_permissions = [...manifest.host_permissions, SITE_PATTERN];
+  // FR-054 disclosure: the product keeps bookmarks/downloads in
+  // `optional_permissions`; headless cannot synthesize the gesture-driven
+  // `chrome.permissions.request` prompt, so this test copy moves them into static
+  // `permissions` to prove the real chrome.bookmarks/downloads paths work when the
+  // permission is present (the gesture grant itself stays a manual item).
+  manifest.permissions = [...manifest.permissions, 'bookmarks', 'downloads'];
+  manifest.optional_permissions = (manifest.optional_permissions ?? []).filter((p) => p !== 'bookmarks' && p !== 'downloads');
   await writeFile(join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-  observe(`临时 dist：host_permissions += ${SITE_PATTERN}（JS 字节未改；仅用于绕过 headless 无原生弹窗，见披露②）`);
+  observe(`临时 dist：host_permissions += ${SITE_PATTERN}；permissions += bookmarks/downloads（FR-054；JS 字节未改；见披露②）`);
 
   const { work: chromeWork, chrome, base, sw, log } = await launchChrome(extDir, 'chain');
   try {
@@ -1065,10 +1091,74 @@ async function phase1(mock) {
     );
     check(restored === 'ok', '#7t 清理自建标签页后已将绑定还原到站点（后续断言基线不变）', String(restored));
 
+    // ── FR-054: optional-permission capabilities (bookmarks read+write, downloads read-only) ──
+    // The test-copy manifest moves the optional capabilities into static
+    // `permissions` (headless cannot show the gesture-driven prompt); with the
+    // permission present the real chrome.bookmarks/downloads paths must work.
+    const capPerms = await evaluate(
+      sw,
+      `Promise.all([chrome.permissions.contains({ permissions: ['bookmarks'] }), chrome.permissions.contains({ permissions: ['downloads'] })]).then(([b, d]) => JSON.stringify({ b, d }))`,
+    );
+    const cp = JSON.parse(capPerms ?? '{}');
+    check(cp.b === true && cp.d === true, '#54B1 test-copy 静态 bookmarks/downloads 权限确实授予（contains=true）', String(capPerms));
+    const capTools = [...new Set(llmRequests.flatMap((r) => (r.tools ?? []).map((t) => t?.function?.name)))].filter((n) => typeof n === 'string');
+    check(
+      capTools.includes('bookmarks') && capTools.includes('downloads'),
+      '#54B2 权限在时真实发给 LLM 的工具面包含 bookmarks / downloads',
+      JSON.stringify(capTools),
+    );
+
+    const bkId = await evaluate(
+      sw,
+      `chrome.bookmarks.create({ url: 'https://binding.test/page?secretmarker=BINDSECRET', title: 'binding-bookmark' }).then((n) => n.id)`,
+    );
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__BOOKMARKS_LIST__' }).then(() => true)`);
+    const bkList = await waitForToolResult('书签');
+    check(Boolean(bkList) && !/BINDSECRET/.test(bkList ?? ''), '#54B3 真实读取书签且默认去 query/fragment（零明文）', (bkList ?? '').slice(0, 200));
+
+    // Destructive remove stays gated; the confirm summary must name it + disclose irreversibility.
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'capabilities', action: 'set', capability: 'bookmarks', scope: 'write', enabled: true }).then(() => true)`);
+    let bkToolBase = toolMessageCount();
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__BOOKMARKS_REMOVE__:${bkId}' }).then(() => true)`);
+    const bkConfirm = await waitFor(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /binding-bookmark/.test(s) ? s : ''; })()`,
+      80,
+      150,
+    );
+    check(Boolean(bkConfirm) && /不可逆/.test(bkConfirm ?? ''), '#54B4 破坏性 bookmarks remove 触发二次确认且摘要含标题+「不可逆」', (bkConfirm ?? '').slice(0, 200));
+    check(!/BINDSECRET/.test(bkConfirm ?? ''), '#54B5 remove 确认摘要零明文（去 query/fragment）', (bkConfirm ?? '').slice(0, 200));
+    await realClick(ext, '#confirm-allow');
+    check(await waitForNewToolMessage(bkToolBase), '#54B6 用户确认后真实删除书签（新工具结果进入 LLM 上下文）');
+    const bkGone = await evaluate(sw, `chrome.bookmarks.get(${JSON.stringify(bkId)}).then(() => false).catch(() => true)`);
+    check(bkGone === true, '#54B7 chrome.bookmarks 目标书签确实删除', String(bkGone));
+
+    // HARD FLOOR: with write-auto ON for the origin, a destructive remove STILL asks.
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'auto-auth', action: 'set', origin: ${JSON.stringify(SITE_ORIGIN)}, tier: 'write', enabled: true }).then(() => true)`);
+    const bk2Id = await evaluate(sw, `chrome.bookmarks.create({ url: 'https://binding.test/page2', title: 'binding-bookmark-2' }).then((n) => n.id)`);
+    bkToolBase = toolMessageCount();
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__BOOKMARKS_REMOVE__:${bk2Id}' }).then(() => true)`);
+    const stillAsk = await waitFor(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); const s = document.getElementById('confirm-summary').textContent; return c && getComputedStyle(c).display !== 'none' && /binding-bookmark-2/.test(s) ? s : ''; })()`,
+      60,
+      150,
+    );
+    check(Boolean(stillAsk), '#54B8 【写操作自动开启时删书签仍弹确认】破坏性硬底线（不自动放行）', (stillAsk ?? '').slice(0, 200));
+    await realClick(ext, '#confirm-allow');
+    check(await waitForNewToolMessage(bkToolBase), '#54B9 确认后才真正删除第二个书签（未被自动放行）');
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'auto-auth', action: 'set', origin: ${JSON.stringify(SITE_ORIGIN)}, tier: 'write', enabled: false }).then(() => true)`);
+
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__DOWNLOADS_LIST__' }).then(() => true)`);
+    const dlList = await waitForToolResult('下载记录');
+    check(Boolean(dlList), '#54B10 真实读取下载记录（只读；permission 在时可用）', (dlList ?? '').slice(0, 160));
+    // Let the panel finish the in-flight chat before the next block reloads it.
+    await sleep(1200);
+
     // ── FR-052 / ADR-017: real auto-authorization (write on/off + destructive) ──
     // Reload the panel so it reflects the current (site) origin + default switches.
     await ext.send('Page.reload', { ignoreCache: true });
-    await sleep(1200);
+    await waitFor(ext, `(() => (document.getElementById('auto-auth-origin') ? 'ready' : ''))()`, 80, 150);
     await evaluate(ext, `(() => { const d = document.getElementById('more-actions'); if (d) d.open = true; return true; })()`);
     const aaDefault = await evaluate(
       ext,

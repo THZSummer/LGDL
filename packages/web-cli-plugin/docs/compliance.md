@@ -237,4 +237,22 @@
 
 ---
 
-**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13） ｜ **作者裁决反转（2026-09-13）**：§9 更新——`tabs` 放开 `close` 并补齐 `mute`/`pin`/`move`（**需求变更**，零新权限、`manifest.json` 零 diff；安全处置见 §9.4） ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图像素路径调整时
+## 12. 可选权限披露：书签（读+写）与下载记录（只读）（TASK-038，作者裁决 2026-09-13）
+
+作者 2026-09-13 批准新增两个浏览器能力：`bookmarks`（读 + 写，写侧一律 `ask`，删除为**破坏性**永不自动放行）与 `downloads`（**只读**，明确不做取消/暂停/删除/打开）。二者**均以 `optional_permissions` 声明**，**不进入静态 `permissions`**。
+
+| 事项 | 结论 | 依据 |
+|------|------|------|
+| 为什么用 `optional_permissions` 而不是静态 `permissions` | 静态新增权限会在扩展**更新时使已安装扩展被 Chrome 停用**，直到用户重新同意；可选权限保持**静态安装面零变化**，且**可单独撤销**（撤销即从工具面移除） | `manifest.json`（仅 `optional_permissions` 新增 `bookmarks`/`downloads`；`permissions` 未变） |
+| 授予时机与手势约束 | `chrome.permissions.request` **必须在扩展页面（侧栏设置视图 / options 兜底页）的按钮点击手势内**同步发起（`src/platform/capability-permissions.ts` `requestCapabilityPermissionOnGesture`）；**绝不在 service worker 调**（无手势必失败/挂起） | `docs/dev.md` §17.2；`test:ui` #54b/#54h 断言点击真实发起 `request` |
+| 用途 | `bookmarks`：列出/搜索/查看书签树（读），新增/移动/删除单个书签（写）。`downloads`：仅列出/搜索下载记录（读） | `src/tools/bookmarks-tools.ts` / `src/tools/downloads-tools.ts` |
+| 不做什么 | `downloads` **不**做 cancel/pause/resume/erase/removeFile/open/show（调用返回可读拒绝，绝不静默 no-op）；`bookmarks remove` **不**支持 `--all`/批量（一次只删一个，可读拒绝）；`add` 仅接受 http(s)（拒绝 `javascript:`/`data:`/`file:`/`chrome:`/`about:` 等） | 同上 + `test/bookmarks-tools.test.ts` / `test/downloads-tools.test.ts` |
+| 隐私默认 | 书签**读默认开 / 写默认关**；下载记录读默认开。开关关闭即把该能力**从 `deriveTools()` 工具面移除**（不只是前端隐藏），派发被可读拒绝 | `src/background/capability-setting.ts` + `src/background/host.ts` |
+| 破坏性硬底线 | `bookmarks remove` 判定为 **destructive** 并接入 `auto-authorize` 硬底线——**「写操作自动」开启时删除书签仍必须人工确认**（硬底线在 group 过滤之前判定，对插件级工具同样权威） | `src/security/auto-authorize.ts` + `test/bookmarks-tools.test.ts`（FR-054 destructive 断言）+ `test/e2e`「remove … never auto-released」 |
+| 未授权态 | 未授权时工具**不静默消失、不假装成功**：调用返回可读「✖ … 未开启：去「⚙ 设置 → 能力与隐私」点「开启…」」 | `src/tools/*-tools.ts`（`*_NOT_ENABLED_TEXT`）+ `test:ui` #54c/#54d/#54g |
+| 数据 / 审计 | URL 默认投影为 origin+path（去 query/fragment；`--full` 显式 opt-in）；下载文件名仅 **basename**（不暴露目录树）；每子命令审计**零明文**（搜索词只记长度） | `redactTabUrl` / `basenameOf` + 各 `auditSubcommand` |
+| 如何撤销 | 在 `chrome://extensions` 该扩展详情「网站访问权限」/ 权限项中移除 `bookmarks`/`downloads`；`permissions.onRemoved` 监听即时把工具从工具面移除并审计（不静默残留） | `service-worker.ts` `onRemoved`/`onAdded` 对账 + `test` 撤销断言 |
+
+---
+
+**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13；可选权限披露 §12（书签/下载记录）：2026-09-13） ｜ **作者裁决反转（2026-09-13）**：§9 更新——`tabs` 放开 `close` 并补齐 `mute`/`pin`/`move`（**需求变更**，零新权限、`manifest.json` 零 diff；安全处置见 §9.4） ｜ **可选权限（2026-09-13）**：§12 新增——书签（读+写，删除为破坏性永不自动放行）与下载记录（只读）以 `optional_permissions` 声明，静态 `permissions` 零新增 ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图路径/可选权限调整时

@@ -19,11 +19,14 @@ import type { DiagReport } from './diagnostics.js';
 import { diagStatusIcon, renderDiagText, sanitizeDiagText, summarizeReport } from './diagnostics.js';
 import { ensureSettingsStyles } from './styles.js';
 import { AUTO_AUTH_HARD_LINES } from '../../security/auto-authorize.js';
+import { requestCapabilityPermissionOnGesture, type OptionalCapability } from '../../platform/capability-permissions.js';
 import {
   AUTO_AUTH_EMPTY_TEXT,
   apiKeyPlaceholder,
   autoAuthListStatus,
   autoAuthRows,
+  bookmarksCapabilityStatus,
+  downloadsCapabilityStatus,
   groupListView,
   keyStateView,
   keyWarningText,
@@ -31,6 +34,7 @@ import {
   providerOptions,
   savedSummaryView,
   type AutoAuthRecordView,
+  type CapabilitiesView,
 } from './view.js';
 import type { OpMessageKind, SettingsOps } from './ops.js';
 
@@ -230,6 +234,51 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   tabsSection.appendChild(tabsStatus);
   root.appendChild(tabsSection);
 
+  // ── FR-054: optional-permission capabilities (bookmarks / downloads) ──────
+  const capsSection = h(doc, 'section', { id: 'settings-capabilities', class: 'wc-section' });
+  capsSection.appendChild(h(doc, 'h2', { text: '能力与隐私（可选权限）' }));
+  capsSection.appendChild(
+    h(doc, 'p', {
+      class: 'wc-note',
+      text: '书签与下载记录使用「可选权限」声明：静态安装面零变化、可单独撤销。未授权时对应工具不会静默消失——调用会返回「未开启：去设置开启」的可读提示。写类书签操作需确认；删除书签属破坏性操作，即使开启「写操作自动」也不会自动放行。',
+    }),
+  );
+
+  // Bookmarks row.
+  const bkRow = h(doc, 'div', { class: 'wc-auto-row' });
+  bkRow.appendChild(h(doc, 'strong', { text: '书签访问（读 + 写）' }));
+  const bkStatus = h(doc, 'div', { id: 'settings-cap-bookmarks-status', class: 'wc-muted', text: '书签访问：尚未读取。' });
+  bkStatus.setAttribute('role', 'status');
+  bkStatus.setAttribute('aria-live', 'polite');
+  bkRow.appendChild(bkStatus);
+  const bkRequest = h(doc, 'button', { id: 'settings-cap-bookmarks-request', type: 'button', text: '开启书签访问' }) as HTMLButtonElement;
+  const bkReadWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-bookmarks-read' });
+  const bkRead = h(doc, 'input', { id: 'settings-cap-bookmarks-read', type: 'checkbox' }) as HTMLInputElement;
+  bkReadWrap.append(bkRead, doc.createTextNode(' 允许读取书签（默认开）'));
+  const bkWriteWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-bookmarks-write' });
+  const bkWrite = h(doc, 'input', { id: 'settings-cap-bookmarks-write', type: 'checkbox' }) as HTMLInputElement;
+  bkWriteWrap.append(bkWrite, doc.createTextNode(' 允许写入书签（默认关；删除仍需确认）'));
+  bkRow.appendChild(h(doc, 'div', { class: 'wc-row' }, [bkRequest]));
+  bkRow.appendChild(bkReadWrap);
+  bkRow.appendChild(bkWriteWrap);
+  capsSection.appendChild(bkRow);
+
+  // Downloads row.
+  const dlRow = h(doc, 'div', { class: 'wc-auto-row' });
+  dlRow.appendChild(h(doc, 'strong', { text: '下载记录（只读）' }));
+  const dlStatus = h(doc, 'div', { id: 'settings-cap-downloads-status', class: 'wc-muted', text: '下载记录：尚未读取。' });
+  dlStatus.setAttribute('role', 'status');
+  dlStatus.setAttribute('aria-live', 'polite');
+  dlRow.appendChild(dlStatus);
+  const dlRequest = h(doc, 'button', { id: 'settings-cap-downloads-request', type: 'button', text: '开启下载记录访问' }) as HTMLButtonElement;
+  const dlReadWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-downloads-read' });
+  const dlRead = h(doc, 'input', { id: 'settings-cap-downloads-read', type: 'checkbox' }) as HTMLInputElement;
+  dlReadWrap.append(dlRead, doc.createTextNode(' 允许读取下载记录（默认开；不做取消/删除）'));
+  dlRow.appendChild(h(doc, 'div', { class: 'wc-row' }, [dlRequest]));
+  dlRow.appendChild(dlReadWrap);
+  capsSection.appendChild(dlRow);
+  root.appendChild(capsSection);
+
   // ── section 4: session groups ────────────────────────────────────────────
   const sessSection = h(doc, 'section', { id: 'settings-sessions', class: 'wc-section' });
   sessSection.appendChild(h(doc, 'h2', { text: '会话分组（可选）' }));
@@ -301,6 +350,7 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   // ── state ────────────────────────────────────────────────────────────────
   let activeOrigin: string | undefined;
   let aaRows: AutoAuthRecordView[] = [];
+  let capsView: CapabilitiesView | null = null;
   let lastDiag: DiagReport | null = null;
 
   function currentRow(): AutoAuthRecordView | undefined {
@@ -443,6 +493,42 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
     const res = await ops.loadTabsSetting();
     tabsCheck.checked = res.data?.enabled ?? false;
     tabsStatus.textContent = res.data ? res.text : res.text;
+  }
+
+  function renderCapabilityStatus(): void {
+    if (!capsView) return;
+    bkStatus.textContent = bookmarksCapabilityStatus(capsView.bookmarks);
+    dlStatus.textContent = downloadsCapabilityStatus(capsView.downloads);
+    bkRead.checked = capsView.bookmarks.read;
+    bkWrite.checked = capsView.bookmarks.write;
+    dlRead.checked = capsView.downloads.read;
+  }
+
+  async function refreshCapabilities(): Promise<void> {
+    const res = await ops.loadCapabilities();
+    if (!res.data) {
+      bkStatus.textContent = res.text;
+      dlStatus.textContent = res.text;
+      return;
+    }
+    capsView = res.data;
+    renderCapabilityStatus();
+  }
+
+  async function onCapabilityPrivacy(
+    cap: OptionalCapability,
+    scope: 'read' | 'write',
+    enabled: boolean,
+    statusEl: HTMLElement,
+  ): Promise<void> {
+    const res = await ops.setCapabilityPrivacy(cap, scope, enabled);
+    if (res.data) {
+      capsView = res.data;
+      renderCapabilityStatus();
+    } else {
+      statusEl.textContent = res.text;
+      await refreshCapabilities();
+    }
   }
 
   async function refreshAutoAuth(): Promise<void> {
@@ -597,6 +683,31 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
       if (!res.ok) void refreshTabs();
     });
   });
+  // FR-054: the permission request MUST run inside this click gesture in the
+  // extension page (never in the SW). The promise's UI updates happen after.
+  const requestCapability = (cap: OptionalCapability, statusEl: HTMLElement): void => {
+    const label = cap === 'bookmarks' ? '书签' : '下载记录';
+    statusEl.textContent = `正在请求${label}权限…（浏览器会弹出授权提示；此请求发生在你的点击手势内）`;
+    void requestCapabilityPermissionOnGesture(cap).then((res) => {
+      if (!res.granted) {
+        statusEl.textContent = `✖ 未开启${label}访问：${res.error ?? '未授予权限'}`;
+        return;
+      }
+      void ops.notifyCapabilityPermissionChanged(cap).then((r) => {
+        if (r.data) {
+          capsView = r.data;
+          renderCapabilityStatus();
+        } else {
+          statusEl.textContent = r.text;
+        }
+      });
+    });
+  };
+  bkRequest.addEventListener('click', () => requestCapability('bookmarks', bkStatus));
+  dlRequest.addEventListener('click', () => requestCapability('downloads', dlStatus));
+  bkRead.addEventListener('change', () => void onCapabilityPrivacy('bookmarks', 'read', bkRead.checked, bkStatus));
+  bkWrite.addEventListener('change', () => void onCapabilityPrivacy('bookmarks', 'write', bkWrite.checked, bkStatus));
+  dlRead.addEventListener('change', () => void onCapabilityPrivacy('downloads', 'read', dlRead.checked, dlStatus));
   newGroupBtn.addEventListener('click', () => {
     const name = newGroupName.value.trim();
     if (!name) {
@@ -631,6 +742,8 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
     (saveBtn as HTMLButtonElement).disabled = buttons.saveDisabled;
     (testBtn as HTMLButtonElement).disabled = buttons.testDisabled;
     (clearBtn as HTMLButtonElement).disabled = buttons.clearDisabled;
+    bkRequest.disabled = true;
+    dlRequest.disabled = true;
   }
 
   function setActiveOrigin(origin: string | undefined): void {
@@ -641,6 +754,7 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   async function refresh(): Promise<void> {
     await refreshLlm();
     await refreshTabs();
+    await refreshCapabilities();
     await refreshAutoAuth();
     await refreshSessions();
   }

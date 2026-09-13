@@ -1057,6 +1057,66 @@ async function main() {
     check(sv2.providerOptions === 8, '#33d 面板内 LLM 厂商选择含 8 个选项', String(sv2.providerOptions));
     check(sv2.hasSave === true && sv2.hasTest === true, '#33e 面板内提供保存 + 测试连接按钮', settingsShown);
 
+    // ── FR-054: optional-permission capability section (bookmarks/downloads) ──
+    const capView = await waitFor(
+      sp,
+      `(() => {
+        const sec = document.getElementById('settings-capabilities');
+        const bkBtn = document.getElementById('settings-cap-bookmarks-request');
+        const dlBtn = document.getElementById('settings-cap-downloads-request');
+        const bks = document.getElementById('settings-cap-bookmarks-status');
+        const dls = document.getElementById('settings-cap-downloads-status');
+        if (!sec || !bkBtn || !dlBtn || !bks || !dls) return '';
+        const t = bks.textContent || '';
+        if (/尚未读取/.test(t)) return '';
+        return JSON.stringify({
+          section: true,
+          bkLabel: bkBtn.textContent,
+          dlLabel: dlBtn.textContent,
+          bkStatus: t,
+          dlStatus: dls.textContent || '',
+          readChecked: document.getElementById('settings-cap-bookmarks-read')?.checked,
+          writeChecked: document.getElementById('settings-cap-bookmarks-write')?.checked,
+          dlReadChecked: document.getElementById('settings-cap-downloads-read')?.checked,
+        });
+      })()`,
+      40,
+      200,
+    );
+    const cv = capView ? JSON.parse(capView) : {};
+    check(cv.section === true, '#54a 设置视图新增「能力与隐私（可选权限）」分区（书签 / 下载记录）', capView ?? 'no capability section');
+    check(/开启书签访问/.test(cv.bkLabel ?? ''), '#54b 提供「开启书签访问」一键请求按钮（点击手势内调用 chrome.permissions.request）', String(cv.bkLabel));
+    check(/未开启/.test(cv.bkStatus ?? ''), '#54c 未授权时书签能力状态回显「未开启」（fresh profile 真实 contains=false）', String(cv.bkStatus));
+    check(/未开启/.test(cv.dlStatus ?? ''), '#54d 未授权时下载记录能力状态回显「未开启」', String(cv.dlStatus));
+    check(cv.readChecked === true && cv.writeChecked === false, '#54e 隐私默认：书签读开 / 写关', JSON.stringify({ read: cv.readChecked, write: cv.writeChecked }));
+    check(cv.dlReadChecked === true, '#54f 隐私默认：下载记录读开（只读）', String(cv.dlReadChecked));
+
+    // Denial path: a stubbed `chrome.permissions.request` resolving false must
+    // produce a READABLE refusal (headless cannot show the native prompt, so the
+    // real prompt stays a manual item — this pins the wiring + copy instead).
+    const denyStub = await evaluate(
+      sp,
+      `(() => {
+        window.__capReqCalls = [];
+        try {
+          Object.defineProperty(chrome.permissions, 'request', {
+            configurable: true,
+            value: (p) => { window.__capReqCalls.push(p); return Promise.resolve(false); },
+          });
+          return true;
+        } catch (e) { return String(e); }
+      })()`,
+    );
+    if (denyStub === true) {
+      await realClick(sp, '#settings-cap-bookmarks-request');
+      const denied = await waitFor(sp, `(() => { const t = document.getElementById('settings-cap-bookmarks-status').textContent; return /未开启/.test(t) && /未授予/.test(t) ? t : ''; })()`, 40, 150);
+      check(/未开启/.test(denied ?? ''), '#54g 拒绝路径：权限请求被拒后回显可读「未开启书签访问：…未授予…」（不静默）', String(denied));
+      const reqArgs = await evaluate(sp, `JSON.stringify(window.__capReqCalls || [])`);
+      check(/bookmarks/.test(reqArgs ?? ''), '#54h 点击「开启书签访问」实际调用了 chrome.permissions.request({permissions:[\'bookmarks\']})（手势内）', String(reqArgs));
+    } else {
+      check(false, '#54g 拒绝路径可注入（chrome.permissions.request 可覆盖）', String(denyStub));
+    }
+
     const preservedWhileOpen = JSON.parse(
       await evaluate(sp, `(() => { const log=document.getElementById('log'); const i=document.getElementById('input'); return JSON.stringify({ draft:i.value, hasMessage: log.textContent.length > 0 }); })()`),
     );

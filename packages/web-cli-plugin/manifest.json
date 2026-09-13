@@ -15,6 +15,10 @@
     "sidePanel",
     "tabs"
   ],
+  "optional_permissions": [
+    "bookmarks",
+    "downloads"
+  ],
   "optional_host_permissions": [
     "http://*/*",
     "https://*/*"

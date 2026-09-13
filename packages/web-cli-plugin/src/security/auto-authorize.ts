@@ -235,6 +235,13 @@ export function decideAutoAuthorization(input: {
 }): AutoAuthDecision {
   const { origin, group, risk, destructive, settings } = input;
   if (!origin) return { allow: false, reason: '无绑定站点 origin，不自动放行（保持确认/拒绝）' };
+  // Hard floor 4 (FR-054 hardening): destructive write stays on the manual
+  // confirmation path. Checked BEFORE the group filter so the floor is
+  // authoritative for every tool family — a `bookmarks remove` (plugin group)
+  // can never ride「写操作自动」even if the plugin group ever became eligible.
+  if (risk === 'write' && destructive) {
+    return { allow: false, reason: '破坏性写操作不纳入「写操作自动」，仍需人工确认' };
+  }
   if (group !== 'site') return { allow: false, reason: '非站点工具不纳入按 origin 自动授权（保持确认/拒绝）' };
   // Hard floor 3: evaluate is a design floor — never auto, never even asked.
   if (risk === 'evaluate') {
@@ -243,10 +250,6 @@ export function decideAutoAuthorization(input: {
   // Hard floor 2: unknown / missing / illegal risk never reaches a manual allow.
   if (risk !== 'read' && risk !== 'write') {
     return { allow: false, hardDeny: true, reason: `${risk ?? '未知'} 档不可分类，fail-closed 直接拒绝` };
-  }
-  // Hard floor 4: destructive write stays on the manual-confirmation path.
-  if (risk === 'write' && destructive) {
-    return { allow: false, reason: '破坏性写操作不纳入「写操作自动」，仍需人工确认' };
   }
   const tier: AutoRiskTier = risk;
   const enabled = settings ? settings[tier] === true : false;

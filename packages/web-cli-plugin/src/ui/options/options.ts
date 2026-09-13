@@ -49,6 +49,12 @@ import {
   type SessionGroupView,
 } from '../settings/view.js';
 import { createSettingsOps, transportFromRuntime } from '../settings/ops.js';
+import { requestCapabilityPermissionOnGesture, type OptionalCapability } from '../../platform/capability-permissions.js';
+import {
+  bookmarksCapabilityStatus,
+  downloadsCapabilityStatus,
+  type CapabilitiesView,
+} from '../settings/view.js';
 
 // TASK-033: the key placeholders now live in the shared settings module so the
 // side panel and this fallback page cannot diverge. Re-exported for compatibility.
@@ -468,8 +474,54 @@ async function setTabsSetting(enabled: boolean): Promise<void> {
   renderTabsSetting(res.data.enabled, res.data.tools);
 }
 
-// ── FR-052 / ADR-017: 按 origin 自动授权管理 ────────────────────────────────
+// ── FR-054: 可选权限能力（书签 / 下载记录） ─────────────────────────────────
 
+function renderCapabilities(view: CapabilitiesView): void {
+  ($('cap-bookmarks-read') as HTMLInputElement).checked = view.bookmarks.read;
+  ($('cap-bookmarks-write') as HTMLInputElement).checked = view.bookmarks.write;
+  ($('cap-downloads-read') as HTMLInputElement).checked = view.downloads.read;
+  $('cap-bookmarks-status').textContent = bookmarksCapabilityStatus(view.bookmarks);
+  $('cap-downloads-status').textContent = downloadsCapabilityStatus(view.downloads);
+}
+
+async function refreshCapabilities(): Promise<void> {
+  if (!envGuard.inExtension) {
+    $('cap-bookmarks-status').textContent = '非扩展环境：无法读取能力权限状态。';
+    $('cap-downloads-status').textContent = '非扩展环境：无法读取能力权限状态。';
+    return;
+  }
+  const res = await settingsOps.loadCapabilities();
+  if (!res.data) {
+    $('cap-bookmarks-status').textContent = res.text;
+    $('cap-downloads-status').textContent = res.text;
+    return;
+  }
+  renderCapabilities(res.data);
+}
+
+async function requestCapability(cap: OptionalCapability): Promise<void> {
+  const label = cap === 'bookmarks' ? '书签' : '下载记录';
+  const statusId = cap === 'bookmarks' ? 'cap-bookmarks-status' : 'cap-downloads-status';
+  const status = $(statusId);
+  status.textContent = `正在请求${label}权限…（浏览器会弹出授权提示；此请求发生在你的点击手势内）`;
+  // Gesture call happens synchronously inside the click handler.
+  const res = await requestCapabilityPermissionOnGesture(cap);
+  if (!res.granted) {
+    status.textContent = `✖ 未开启${label}访问：${res.error ?? '未授予权限'}`;
+    return;
+  }
+  const sync = await settingsOps.notifyCapabilityPermissionChanged(cap);
+  if (sync.data) renderCapabilities(sync.data);
+  else status.textContent = sync.text;
+}
+
+async function setCapabilityPrivacy(cap: OptionalCapability, scope: 'read' | 'write', enabled: boolean): Promise<void> {
+  const res = await settingsOps.setCapabilityPrivacy(cap, scope, enabled);
+  if (res.data) renderCapabilities(res.data);
+  else await refreshCapabilities();
+}
+
+// ── FR-052 / ADR-017: 按 origin 自动授权管理 ────────────────────────────────
 function renderAutoAuthList(records: AutoAuthRecordView[]): void {
   const box = $('auto-auth-list');
   box.textContent = '';
@@ -559,6 +611,19 @@ function wire(): void {
     void setTabsSetting((e.target as HTMLInputElement).checked);
   });
 
+  // FR-054: 可选权限能力（书签 / 下载记录）。权限请求必须在点击手势内发起。
+  $('cap-bookmarks-request').addEventListener('click', () => void requestCapability('bookmarks'));
+  $('cap-downloads-request').addEventListener('click', () => void requestCapability('downloads'));
+  $('cap-bookmarks-read').addEventListener('change', (e) =>
+    void setCapabilityPrivacy('bookmarks', 'read', (e.target as HTMLInputElement).checked),
+  );
+  $('cap-bookmarks-write').addEventListener('change', (e) =>
+    void setCapabilityPrivacy('bookmarks', 'write', (e.target as HTMLInputElement).checked),
+  );
+  $('cap-downloads-read').addEventListener('change', (e) =>
+    void setCapabilityPrivacy('downloads', 'read', (e.target as HTMLInputElement).checked),
+  );
+
   // decision ② / FR-048: 会话分组管理。
   $('new-group').addEventListener('click', () => {
     const input = $('new-group-name') as HTMLInputElement;
@@ -644,6 +709,8 @@ void refresh();
 void refreshGroups();
 // author decision ③ / FR-049: load the tab-tool privacy toggle.
 void refreshTabsSetting();
+// FR-054: load the optional-permission capability status.
+void refreshCapabilities();
 // FR-052 / ADR-017: load the per-origin auto-authorization management list.
 void refreshAutoAuth();
 // TASK-019 任务 C: run the self-check on load so the page immediately shows why

@@ -29,6 +29,13 @@ import { createAdminToolEntries } from '../tools/admin-tools.js';
 import { createBrowserToolEntries, type BrowserToolOptions } from '../tools/browser-tools.js';
 import { createTabsToolEntry, TABS_TOOL_NAME, type TabsToolDeps } from '../tools/tabs-tools.js';
 import {
+  BOOKMARKS_TOOL_NAME,
+  createBookmarksToolEntry,
+  isBookmarksDestructive,
+  type BookmarksToolDeps,
+} from '../tools/bookmarks-tools.js';
+import { DOWNLOADS_TOOL_NAME, createDownloadsToolEntry, type DownloadsToolDeps } from '../tools/downloads-tools.js';
+import {
   createWebFetchToolEntry,
   type WebFetchToolDeps,
 } from '../tools/web-fetch-tool.js';
@@ -43,6 +50,17 @@ import {
 /** Whether a dispatch target is a declared site tool (flat `site_*` name). */
 export function isSiteToolName(name: string): boolean {
   return name.startsWith(SITE_TOOL_PREFIX);
+}
+
+/**
+ * FR-054: destructive classification for **plugin-level** tools (which have no
+ * site declaration). `bookmarks remove` is destructive → hard floor 4 (never in
+ * 「写操作自动」). Any unknown plugin tool is treated as destructive (fail-closed),
+ * matching the previous `true` default for tools without a declaration.
+ */
+export function isPluginDestructiveInvocation(tool: string, subcommand?: string): boolean {
+  if (tool === BOOKMARKS_TOOL_NAME) return isBookmarksDestructive(subcommand);
+  return true;
 }
 
 export interface WebCliHostOptions {
@@ -70,6 +88,18 @@ export interface WebCliHostOptions {
   tabs?: TabsToolDeps;
   /** Initial tab-tool toggle (privacy switch; default true when `tabs` is provided). */
   tabsEnabled?: boolean;
+  /**
+   * FR-054: optional-permission capability tools. `bookmarks` (read + write) and
+   * `downloads` (read-only) are declared as `optional_permissions`; the host
+   * receives the chrome-side ops and the privacy-toggle state. Omitted → the tool
+   * is not registered (node tests / hosts without `chrome.bookmarks`/`downloads`).
+   */
+  bookmarks?: Omit<BookmarksToolDeps, 'readEnabled' | 'writeEnabled'>;
+  downloads?: Omit<DownloadsToolDeps, 'readEnabled'>;
+  /** Initial bookmarks privacy toggles (read default on / write default off). */
+  bookmarksEnabled?: { read: boolean; write: boolean };
+  /** Initial downloads privacy toggle (read default on). */
+  downloadsEnabled?: boolean;
   /**
    * FR-050 / EC-023: plugin-side controlled `web-fetch` seam. When provided, the
    * base builtin `web-fetch` is **not** registered as a builtin; this controlled
@@ -112,6 +142,23 @@ export interface WebCliHost {
   setTabsEnabled(enabled: boolean): void;
   /** Whether the `tabs` tool is currently registered/enabled. */
   isTabsEnabled(): boolean;
+  /**
+   * FR-054: bookmarks privacy toggles. `read`/`write` gate the subcommand groups;
+   * the tool leaves the surface entirely when both are off. No-op when the host
+   * was built without `bookmarks` deps.
+   */
+  setBookmarksEnabled(next: { read: boolean; write: boolean }): void;
+  isBookmarksEnabled(): { read: boolean; write: boolean };
+  /** FR-054: downloads privacy toggle (read-only tool). */
+  setDownloadsEnabled(enabled: boolean): void;
+  isDownloadsEnabled(): boolean;
+  /**
+   * FR-054: permission-revocation suppression. `suppressed=true` unregisters the
+   * capability immediately (revocation never leaves a silently-present tool);
+   * `false` re-registers it per the privacy toggles (re-grant / user request).
+   */
+  suppressCapability(cap: 'bookmarks' | 'downloads', suppressed: boolean): void;
+  isCapabilitySuppressed(cap: 'bookmarks' | 'downloads'): boolean;
 }
 
 export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
@@ -134,7 +181,9 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     ? async (question: AskQuestion): Promise<AskResolution> => {
         const origin = opts.currentOrigin?.();
         const decl = siteDecls.get(question.tool);
-        const destructive = decl ? isDestructiveInvocation(decl, question.subcommand) : true; // unknown tool → fail-closed
+        const destructive = decl
+          ? isDestructiveInvocation(decl, question.subcommand)
+          : isPluginDestructiveInvocation(question.tool, question.subcommand);
         const decision = decideAutoAuthorization({
           origin,
           group: question.group,
@@ -236,6 +285,62 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
   };
   if (opts.tabs && opts.tabsEnabled !== false) registerTabs();
 
+  // FR-054: optional-permission capability tools (`bookmarks` / `downloads`).
+  // Registration is governed by the privacy toggles + revocation suppression; the
+  // permission itself is checked inside each executor so an unauthorized call is a
+  // readable「未开启」refusal instead of a silently missing tool.
+  let bookmarksToggles = {
+    read: opts.bookmarksEnabled?.read !== false,
+    write: opts.bookmarksEnabled?.write === true,
+  };
+  let downloadsToggle = opts.downloadsEnabled !== false;
+  let bookmarksSuppressed = false;
+  let downloadsSuppressed = false;
+  let bookmarksRegistered = false;
+  let downloadsRegistered = false;
+
+  const registerBookmarks = (): void => {
+    if (!opts.bookmarks || bookmarksRegistered) return;
+    router.register(
+      createBookmarksToolEntry({
+        ...opts.bookmarks,
+        readEnabled: () => bookmarksToggles.read,
+        writeEnabled: () => bookmarksToggles.write,
+      }),
+    );
+    bookmarksRegistered = true;
+  };
+  const unregisterBookmarks = (): void => {
+    if (!bookmarksRegistered) return;
+    router.unregister(BOOKMARKS_TOOL_NAME);
+    bookmarksRegistered = false;
+  };
+  const syncBookmarks = (): void => {
+    const should =
+      Boolean(opts.bookmarks) && !bookmarksSuppressed && (bookmarksToggles.read || bookmarksToggles.write);
+    if (should) registerBookmarks();
+    else unregisterBookmarks();
+  };
+
+  const registerDownloads = (): void => {
+    if (!opts.downloads || downloadsRegistered) return;
+    router.register(createDownloadsToolEntry({ ...opts.downloads, readEnabled: () => downloadsToggle }));
+    downloadsRegistered = true;
+  };
+  const unregisterDownloads = (): void => {
+    if (!downloadsRegistered) return;
+    router.unregister(DOWNLOADS_TOOL_NAME);
+    downloadsRegistered = false;
+  };
+  const syncDownloads = (): void => {
+    const should = Boolean(opts.downloads) && !downloadsSuppressed && downloadsToggle;
+    if (should) registerDownloads();
+    else unregisterDownloads();
+  };
+
+  syncBookmarks();
+  syncDownloads();
+
   // FR-050 / EC-023: controlled `web-fetch` seam (replaces the base builtin when
   // the host owns the permission checker). Registered as a plugin-level tool so
   // the pre-flight gate runs before any fetch is attempted.
@@ -333,6 +438,32 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     },
     isTabsEnabled() {
       return tabsRegistered;
+    },
+    setBookmarksEnabled(next) {
+      bookmarksToggles = { read: next.read === true, write: next.write === true };
+      syncBookmarks();
+    },
+    isBookmarksEnabled() {
+      return { ...bookmarksToggles };
+    },
+    setDownloadsEnabled(enabled) {
+      downloadsToggle = enabled === true;
+      syncDownloads();
+    },
+    isDownloadsEnabled() {
+      return downloadsToggle;
+    },
+    suppressCapability(cap, suppressed) {
+      if (cap === 'bookmarks') {
+        bookmarksSuppressed = suppressed === true;
+        syncBookmarks();
+      } else {
+        downloadsSuppressed = suppressed === true;
+        syncDownloads();
+      }
+    },
+    isCapabilitySuppressed(cap) {
+      return cap === 'bookmarks' ? bookmarksSuppressed : downloadsSuppressed;
     },
   };
 }

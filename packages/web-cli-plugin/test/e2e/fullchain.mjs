@@ -25,6 +25,13 @@
  * **mechanism** full chain, NOT the gesture-driven permission UX; the latter stays
  * a documented manual item (`docs/smoke-checklist.md` H0/H2/H6/H8/H10).
  *
+ * A third deviation (FR-054): the product declares `bookmarks`/`downloads` in
+ * `optional_permissions` (static surface unchanged). Headless cannot synthesize
+ * the gesture-driven `chrome.permissions.request` prompt, so this harness adds
+ * them to the **test-copy** `permissions` — proving the capability is really
+ * usable when the permission is present (real `chrome.bookmarks`/`chrome.downloads`
+ * calls). The gesture-driven grant window itself remains a manual item.
+ *
  * A second (D6) deviation: headless Chrome for Testing 151's
  * `chrome.tabs.goBack/goForward` rejects「Cannot find a next page in history」even
  * when the tab really has ≥2 history entries (verified by probing
@@ -65,6 +72,9 @@ const MIME = {
 
 // ── mock LLM (OpenAI-compatible, non-streaming) ──────────────────────────────
 
+/** FR-054 shared state: the bookmark id created by the add step, used by remove. */
+const capState = { bookmarkId: '' };
+
 function mockResponse(body) {
   const messages = Array.isArray(body?.messages) ? body.messages : [];
   // A trailing tool result means the runner fed the tool output back → finish.
@@ -102,6 +112,22 @@ function mockResponse(body) {
   }
   if (/events pull|拉取事件/i.test(userText)) {
     return completion({ toolCalls: [{ id: 'call_ev_pull', name: 'events', subcommand: 'pull', args: { subId: 'sub-1' } }] });
+  }
+  // FR-054 — optional-permission capabilities (test-copy static grant; the
+  // gesture-driven request window stays a manual item).
+  if (/bookmarks list|书签列表/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_bk_list', name: 'bookmarks', subcommand: 'list', args: {} }] });
+  }
+  if (/bookmarks add|新增书签/i.test(userText)) {
+    return completion({
+      toolCalls: [{ id: 'call_bk_add', name: 'bookmarks', subcommand: 'add', args: { url: 'https://example.test/e2e-bookmark', title: 'e2e-bookmark' } }],
+    });
+  }
+  if (/bookmarks remove|删除书签/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_bk_rm', name: 'bookmarks', subcommand: 'remove', args: { id: capState.bookmarkId || '0' } }] });
+  }
+  if (/downloads list|下载记录/i.test(userText)) {
+    return completion({ toolCalls: [{ id: 'call_dl_list', name: 'downloads', subcommand: 'list', args: {} }] });
   }
   // FR-051 / TASK-029: real-page browser capability tools (dom / chrome).
   if (/domread|读页面/i.test(userText)) {
@@ -486,8 +512,15 @@ async function main() {
     `${fixture.origin}/*`,
     `${lgdl.origin}/*`,
   ];
+  // FR-054 deviation: move the optional capabilities into the test copy's static
+  // permissions so the real chrome.bookmarks/downloads paths are exercisable
+  // without the gesture-only prompt (the product keeps them optional).
+  manifest.permissions = [...manifest.permissions, 'bookmarks', 'downloads'];
+  manifest.optional_permissions = (manifest.optional_permissions ?? []).filter((p) => p !== 'bookmarks' && p !== 'downloads');
   await writeFile(join(EXT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2));
-  console.log(`▶ extension copy (deviations: host_permissions += <all_urls>, ${fixture.origin}/*, ${lgdl.origin}/*)`);
+  console.log(
+    `▶ extension copy (deviations: host_permissions += <all_urls>, ${fixture.origin}/*, ${lgdl.origin}/*; permissions += bookmarks/downloads)`,
+  );
   console.log(`▶ chrome: ${CHROME}`);
 
   try {
@@ -639,6 +672,50 @@ async function main() {
             );
           },
         },
+        // FR-054 — optional-permission capabilities. The test-copy manifest adds
+        // `bookmarks`/`downloads` to static permissions (headless cannot show the
+        // native gesture prompt); when present, the real chrome APIs must work.
+        {
+          user: 'bookmarks list',
+          label: 'bookmarks list ran on the real chrome.bookmarks API (permission present)',
+          pre: async ({ swCdp }) => {
+            const granted = await evaluate(swCdp, `chrome.permissions.contains({ permissions: ['bookmarks'] }).then((v) => v)`);
+            check(granted === true, 'A/fixture(non-LGDL): test-copy static `bookmarks` permission is really granted (contains=true)');
+            return true;
+          },
+          test: (t) => /书签/.test(t),
+        },
+        {
+          user: 'bookmarks add',
+          label: 'bookmarks write ran through the real confirmation gate (after enabling the write toggle)',
+          pre: async ({ optionsCdp }) => {
+            await evaluate(
+              optionsCdp,
+              `chrome.runtime.sendMessage({ kind: 'capabilities', action: 'set', capability: 'bookmarks', scope: 'write', enabled: true }).then(() => true)`,
+            );
+            return true;
+          },
+          post: async ({ text }) => {
+            const m = /\[(\d+)\]/.exec(text || '');
+            if (m) capState.bookmarkId = m[1];
+          },
+          test: (t) => /已新增书签/.test(t) && /e2e-bookmark/.test(t),
+        },
+        {
+          user: 'bookmarks remove',
+          label: 'bookmarks remove is destructive → still asked + executed (never auto-released)',
+          test: (t) => /已删除书签/.test(t),
+        },
+        {
+          user: 'downloads list',
+          label: 'downloads list ran on the real chrome.downloads API (read-only, permission present)',
+          pre: async ({ swCdp }) => {
+            const granted = await evaluate(swCdp, `chrome.permissions.contains({ permissions: ['downloads'] }).then((v) => v)`);
+            check(granted === true, 'A/fixture(non-LGDL): test-copy static `downloads` permission is really granted (contains=true)');
+            return true;
+          },
+          test: (t) => /下载记录/.test(t),
+        },
       ],
     });
 
@@ -668,7 +745,7 @@ async function main() {
     process.exit(1);
   }
   console.log('R8 E2E PASS — real dist full chain: fixture (AC-010) + LGDL Workbench (AC-009)');
-  console.log('deviations: host_permissions pre-granted for local origins + <all_urls> (gesture-driven permission UX = manual)');
+  console.log('deviations: host_permissions pre-granted for local origins + <all_urls>; permissions += bookmarks/downloads (FR-054; gesture-driven permission UX = manual)');
   console.log(
     'deviation (D6): headless Chrome for Testing 151 chrome.tabs.goBack/goForward rejects「Cannot find a next page in history」even with real history (history.length=2) — the e2e proves native is attempted first + the readable fallback; native success is covered by test/fullpage-screenshot.test.ts (injected host nav)',
   );

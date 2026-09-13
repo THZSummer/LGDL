@@ -29,7 +29,12 @@ export type PluginAuditEventType =
   // confused with a manual「用户确认放行」confirm event.
   | 'auto-authorize'
   | 'llm-config'
-  | 'tabs';
+  | 'tabs'
+  // FR-054: optional-permission capabilities (`bookmarks` / `downloads`) and
+  // their permission grant/revoke reconciliation.
+  | 'bookmarks'
+  | 'downloads'
+  | 'optional-permission';
 
 export interface PluginAuditEvent {
   type: AuditEvent['type'] | PluginAuditEventType;

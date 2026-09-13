@@ -46,6 +46,15 @@ import { followActiveTab, tabOrigin, type FollowTabDeps } from './session-follow
 import { createTabsSettingStore, type TabsSettingStore } from './tabs-setting.js';
 import type { TabsToolDeps } from '../tools/tabs-tools.js';
 import { TABS_TOOL_NAME, parseTabRef, redactTabTitle, redactTabUrl, resolveTabTarget, type TabRecord } from '../tools/tabs-tools.js';
+import { createCapabilitySettingStore, type CapabilitySettingStore } from './capability-setting.js';
+import type { BookmarkRecord, BookmarksToolDeps } from '../tools/bookmarks-tools.js';
+import type { DownloadRecord, DownloadsToolDeps } from '../tools/downloads-tools.js';
+import {
+  OPTIONAL_CAPABILITY_TOOL,
+  changeTouchesCapability,
+  hasCapabilityPermission,
+  type OptionalCapability,
+} from '../platform/capability-permissions.js';
 import {
   reconcileSiteContentScripts,
   registerSiteContentScript,
@@ -108,6 +117,8 @@ interface Singletons {
   askBridge: AskBridge;
   /** FR-049 privacy switch: whether the plugin-level `tabs` tool is exposed. */
   tabsSetting: TabsSettingStore;
+  /** FR-054: bookmarks/downloads privacy toggles. */
+  capabilitySetting: CapabilitySettingStore;
   /**
    * TASK-028: in-memory TTL cache for `llm-test` results (60s, keyed by a
    * non-reversible config fingerprint). Never persisted / logged / audited.
@@ -409,6 +420,11 @@ async function init(): Promise<Singletons> {
     // registered (it never appears in `deriveTools()`).
     const tabsSetting = createTabsSettingStore(kv);
     await tabsSetting.load();
+    // FR-054: optional-permission capability privacy toggles (bookmarks read on /
+    // write off; downloads read on). Applied to the host so a disabled capability
+    // is simply not registered (never a silent no-op).
+    const capabilitySetting = createCapabilitySettingStore(kv);
+    await capabilitySetting.load();
     // TASK-028: in-memory-only test-result cache (never persisted).
     const testCache = createTestConnectionCache();
     // decision ① / FR-047: `chrome.scripting` declarative-injection adapter.
@@ -441,6 +457,13 @@ async function init(): Promise<Singletons> {
       sessions,
       audit,
     });
+
+    // FR-054: optional-permission capability deps (bookmarks read+write /
+    // downloads read-only). The manifest declares them in `optional_permissions`;
+    // the permission is granted from an extension-page gesture (settings view),
+    // never from this SW.
+    const bookmarksDeps = createBookmarksToolDeps({ audit });
+    const downloadsDeps = createDownloadsToolDeps({ audit });
 
     const host = createWebCliHost({
       origins,
@@ -539,6 +562,19 @@ async function init(): Promise<Singletons> {
         // the irreversibility + side-panel warning). Best-effort: a resolution
         // failure simply omits the extra detail (the ask still happens).
         describe: async (question) => {
+          // FR-054: name the exact bookmark in a destructive `bookmarks remove`
+          // confirmation summary (title + query/fragment-stripped URL).
+          if (question.tool === 'bookmarks' && question.subcommand === 'remove') {
+            const id = (question.args?.id ?? '').trim();
+            if (id && bookmarksDeps.describeTarget) {
+              try {
+                return await bookmarksDeps.describeTarget(id);
+              } catch {
+                return undefined;
+              }
+            }
+            return undefined;
+          }
           if (question.tool !== TABS_TOOL_NAME || !question.subcommand) return undefined;
           if (!tabsDeps.describeTarget) return undefined;
           try {
@@ -576,6 +612,14 @@ async function init(): Promise<Singletons> {
       // FR-049: plugin-level tab tool (available with no site bound/authorized).
       tabs: tabsDeps,
       tabsEnabled: tabsSetting.get(),
+      // FR-054: capability tools + initial privacy toggles.
+      bookmarks: bookmarksDeps,
+      downloads: downloadsDeps,
+      bookmarksEnabled: {
+        read: capabilitySetting.get().bookmarksRead,
+        write: capabilitySetting.get().bookmarksWrite,
+      },
+      downloadsEnabled: capabilitySetting.get().downloadsRead,
       // FR-050 / EC-023: controlled `web-fetch` seam. The pre-flight gate checks
       // the host permission BEFORE fetching (uncovered origins → zero request +
       // readable refusal); same-origin reads prefer the bound tab's page context.
@@ -717,6 +761,7 @@ async function init(): Promise<Singletons> {
       contentScripts,
       askBridge,
       tabsSetting,
+      capabilitySetting,
       testCache,
       autoProbe,
     };
@@ -944,6 +989,118 @@ async function findTabForOrigin(origin: string): Promise<number | undefined> {
     }
   }
   return undefined;
+}
+
+/**
+ * FR-054: the plugin-level `bookmarks` tool deps (author ruling 2026-09-13:
+ * read + write, declared as an optional permission). The real `chrome.bookmarks`
+ * calls live here; the tool layer owns risk/confirmation/audit and the
+ * destructive single-id guard.
+ */
+function toBookmarkRecord(node: chrome.bookmarks.BookmarkTreeNode): BookmarkRecord {
+  return {
+    id: node.id,
+    ...(node.title ? { title: node.title } : {}),
+    ...(node.url !== undefined ? { url: node.url } : {}),
+    ...(node.parentId !== undefined ? { parentId: node.parentId } : {}),
+    ...(node.index !== undefined ? { index: node.index } : {}),
+    folder: node.url === undefined,
+    ...(node.children ? { children: node.children.map(toBookmarkRecord) } : {}),
+  };
+}
+
+function flattenBookmarkTree(nodes: readonly chrome.bookmarks.BookmarkTreeNode[]): BookmarkRecord[] {
+  const out: BookmarkRecord[] = [];
+  const walk = (list: readonly chrome.bookmarks.BookmarkTreeNode[]): void => {
+    for (const n of list) {
+      out.push(toBookmarkRecord(n));
+      if (n.children?.length) walk(n.children);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
+function createBookmarksToolDeps(deps: { audit: PluginAuditSink }): Omit<BookmarksToolDeps, 'readEnabled' | 'writeEnabled'> {
+  const findOne = async (id: string): Promise<chrome.bookmarks.BookmarkTreeNode | undefined> => {
+    try {
+      const found = await chrome.bookmarks.get(id);
+      return found[0];
+    } catch {
+      return undefined;
+    }
+  };
+  const label = (node: chrome.bookmarks.BookmarkTreeNode): string =>
+    `${node.title || '(无标题)'} — ${redactTabUrl(node.url, false)}`;
+  return {
+    hasPermission: () => chrome.permissions.contains({ permissions: ['bookmarks'] }),
+    listBookmarks: async () => flattenBookmarkTree(await chrome.bookmarks.getTree()),
+    searchBookmarks: async (query) => (await chrome.bookmarks.search(query)).map(toBookmarkRecord),
+    getTree: async () => (await chrome.bookmarks.getTree()).map(toBookmarkRecord),
+    addBookmark: async ({ url, title, parentId }) => {
+      const created = await chrome.bookmarks.create({
+        title: title || url,
+        url,
+        ...(parentId ? { parentId } : {}),
+      });
+      return {
+        ok: true,
+        output: `✓ 已新增书签：[${created.id}] ${created.title || url} — ${redactTabUrl(url, false)}`,
+        id: created.id,
+      };
+    },
+    removeBookmark: async (id) => {
+      const node = await findOne(id);
+      await chrome.bookmarks.remove(id);
+      return { ok: true, output: `✓ 已删除书签：${node ? label(node) : `id=${id}`}（不可逆）` };
+    },
+    moveBookmark: async (id, dest) => {
+      const moved = await chrome.bookmarks.move(id, {
+        ...(dest.parentId ? { parentId: dest.parentId } : {}),
+        ...(dest.index !== undefined ? { index: dest.index } : {}),
+      });
+      return {
+        ok: true,
+        output: `✓ 已移动书签：[${moved.id}] ${moved.title || '(无标题)'}${
+          dest.parentId ? ` → 文件夹 ${dest.parentId}` : ''
+        }${dest.index !== undefined ? ` · index ${dest.index}` : ''}`,
+        id: moved.id,
+      };
+    },
+    describeTarget: async (id) => {
+      const node = await findOne(id);
+      if (!node) return `⚠ 未找到 id=${id} 的书签（不会删除）`;
+      return `将删除书签：${label(node)}（不可逆）`;
+    },
+    audit: deps.audit,
+  };
+}
+
+function toDownloadRecord(item: chrome.downloads.DownloadItem): DownloadRecord {
+  return {
+    id: item.id,
+    ...(item.filename ? { filename: item.filename } : {}),
+    ...(item.url ? { url: item.url } : {}),
+    ...(item.state ? { state: item.state } : {}),
+    ...(item.bytesReceived !== undefined ? { bytesReceived: item.bytesReceived } : {}),
+    ...(item.totalBytes !== undefined ? { totalBytes: item.totalBytes } : {}),
+    ...(item.mime ? { mime: item.mime } : {}),
+    ...(item.paused ? { paused: true } : {}),
+    ...(item.danger ? { danger: item.danger } : {}),
+  };
+}
+
+/**
+ * FR-054: the plugin-level `downloads` tool deps (read-only). `cancel`/`pause`/
+ * `erase`/`open` are deliberately NOT wired — the tool layer refuses them readably.
+ */
+function createDownloadsToolDeps(deps: { audit: PluginAuditSink }): Omit<DownloadsToolDeps, 'readEnabled'> {
+  return {
+    hasPermission: () => chrome.permissions.contains({ permissions: ['downloads'] }),
+    listDownloads: async () => (await chrome.downloads.search({})).map(toDownloadRecord),
+    searchDownloads: async (query) => (await chrome.downloads.search({ query: [query] })).map(toDownloadRecord),
+    audit: deps.audit,
+  };
 }
 
 /**
@@ -1210,6 +1367,35 @@ async function reconcileContentScripts(s: Singletons): Promise<void> {
       reason: `声明式注入对账失败：${f.reason}`,
     });
   }
+}
+
+/**
+ * FR-054: the capability status payload shared by the settings view and the
+ * permission reconciliation. `revoked` is true only when the capability was
+ * explicitly suppressed by a revocation event (distinct from「never requested」).
+ */
+async function capabilityStatusPayload(s: Singletons): Promise<{
+  bookmarks: { read: boolean; write: boolean; granted: boolean; revoked: boolean };
+  downloads: { read: boolean; granted: boolean; revoked: boolean };
+  tools: string[];
+}> {
+  const cfg = s.capabilitySetting.get();
+  const bookmarksGranted = await hasCapabilityPermission(chrome.permissions, 'bookmarks');
+  const downloadsGranted = await hasCapabilityPermission(chrome.permissions, 'downloads');
+  return {
+    bookmarks: {
+      read: cfg.bookmarksRead,
+      write: cfg.bookmarksWrite,
+      granted: bookmarksGranted,
+      revoked: !bookmarksGranted && s.host.isCapabilitySuppressed('bookmarks'),
+    },
+    downloads: {
+      read: cfg.downloadsRead,
+      granted: downloadsGranted,
+      revoked: !downloadsGranted && s.host.isCapabilitySuppressed('downloads'),
+    },
+    tools: s.host.deriveTools().map((t) => t.name),
+  };
 }
 
 async function handleMessage(message: PluginMessage, sender?: chrome.runtime.MessageSender): Promise<PluginResponse> {
@@ -1562,6 +1748,56 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       });
       return okResponse({ enabled: s.tabsSetting.get(), tools: s.host.deriveTools().map((t) => t.name) });
     }
+    case 'capabilities': {
+      // FR-054: optional-permission capability settings.
+      //  - `status`: granted state + privacy toggles + current tool surface;
+      //  - `set`: persist a privacy toggle and apply it (tool leaves/enters the
+      //    surface readably — never silent);
+      //  - `permission-changed`: called by an extension page AFTER a gesture-driven
+      //    `chrome.permissions.request` settles; re-reads the real grant and
+      //    reconciles the tool surface (granted → register per toggles; denied →
+      //    suppress so the tool is not silently present).
+      const action =
+        message.action === 'set' ? 'set' : message.action === 'permission-changed' ? 'permission-changed' : 'status';
+      if (action === 'set') {
+        const capability: OptionalCapability = message.capability === 'downloads' ? 'downloads' : 'bookmarks';
+        const scope = message.scope === 'write' ? 'write' : 'read';
+        if (typeof message.enabled !== 'boolean') return errorResponse('capabilities set 需要 enabled:boolean');
+        if (capability === 'bookmarks') {
+          const next =
+            scope === 'write'
+              ? await s.capabilitySetting.save({ bookmarksWrite: message.enabled })
+              : await s.capabilitySetting.save({ bookmarksRead: message.enabled });
+          s.host.setBookmarksEnabled({ read: next.bookmarksRead, write: next.bookmarksWrite });
+        } else {
+          const next = await s.capabilitySetting.save({ downloadsRead: message.enabled });
+          s.host.setDownloadsEnabled(next.downloadsRead);
+        }
+        s.audit.recordPlugin({
+          type: 'optional-permission',
+          ts: Date.now(),
+          tool: OPTIONAL_CAPABILITY_TOOL[capability],
+          decision: message.enabled ? 'enabled' : 'disabled',
+          detail: `隐私开关：${capability} ${scope}=${message.enabled}（工具面随之增删，不静默）`,
+        });
+      } else if (action === 'permission-changed') {
+        const capability: OptionalCapability = message.capability === 'downloads' ? 'downloads' : 'bookmarks';
+        const granted = await hasCapabilityPermission(chrome.permissions, capability);
+        // Denied/revoked → suppress (remove from the surface); granted → re-register
+        // per the privacy toggles. Both audited readably.
+        s.host.suppressCapability(capability, !granted);
+        s.audit.recordPlugin({
+          type: 'optional-permission',
+          ts: Date.now(),
+          tool: OPTIONAL_CAPABILITY_TOOL[capability],
+          decision: granted ? 'granted' : 'revoked',
+          reason: granted
+            ? `${capability} 可选权限已授予：工具按隐私开关进入 LLM 工具面`
+            : `${capability} 可选权限未授予：工具已从 LLM 工具面移除（如需使用请在设置中点「开启」）`,
+        });
+      }
+      return okResponse(await capabilityStatusPayload(s));
+    }
     case 'auto-auth': {
       // FR-052 / ADR-017: per-origin auto-authorization switches. `get` lists the
       // persisted records (options management view); `set` merges one tier and
@@ -1771,6 +2007,20 @@ chrome.permissions.onRemoved.addListener((permissions) => {
         reason: '浏览器/用户撤销站点权限（授权保留，回退 activeTab / 页面源发现）',
       });
     }
+    // FR-054: an optional-capability revocation removes the tool from the surface
+    // immediately (never leaves a silently-present tool). Re-granting is handled by
+    // `onAdded` / the settings「开启」button.
+    for (const cap of ['bookmarks', 'downloads'] as const) {
+      if (!changeTouchesCapability(permissions, cap)) continue;
+      s.host.suppressCapability(cap, true);
+      s.audit.recordPlugin({
+        type: 'optional-permission',
+        ts: Date.now(),
+        tool: OPTIONAL_CAPABILITY_TOOL[cap],
+        decision: 'revoked',
+        reason: `浏览器/用户撤销 ${cap} 可选权限：工具已从 LLM 工具面移除（不静默保留）`,
+      });
+    }
     await reconcileContentScripts(s);
   })();
 });
@@ -1779,8 +2029,21 @@ chrome.permissions.onRemoved.addListener((permissions) => {
 // the browser's site-access UI) is reconciled into a declarative registration.
 chrome.permissions.onAdded.addListener((permissions) => {
   void (async () => {
-    if (!(permissions.origins ?? []).length) return;
     const s = await init();
+    // FR-054: a capability grant (e.g. from the browser's own site-access UI)
+    // re-registers the tool per the privacy toggles.
+    for (const cap of ['bookmarks', 'downloads'] as const) {
+      if (!changeTouchesCapability(permissions, cap)) continue;
+      s.host.suppressCapability(cap, false);
+      s.audit.recordPlugin({
+        type: 'optional-permission',
+        ts: Date.now(),
+        tool: OPTIONAL_CAPABILITY_TOOL[cap],
+        decision: 'granted',
+        reason: `浏览器/用户授予 ${cap} 可选权限：工具按隐私开关进入 LLM 工具面`,
+      });
+    }
+    if (!(permissions.origins ?? []).length) return;
     await reconcileContentScripts(s);
   })();
 });
