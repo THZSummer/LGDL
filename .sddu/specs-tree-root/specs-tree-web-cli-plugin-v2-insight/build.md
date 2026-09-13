@@ -1,4 +1,4 @@
-# 构建报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 收口 + v2 整体收口）
+# 构建报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 收口 + v2 整体收口 + R2 第 1~3 轮）
 
 > **文档定位**: SDDU 构建报告 —— **v2 P0 收口（第 10 轮）+ v2 整体收口（第 11 轮）**。本文件由 `sddu-build` 代行产出，汇总 V2-1 / V2-2 / V2-3 三个 P0 叶子的交付结论，以及 V2-4（P1）与 v2 整体收口（四叶全 `validated`）与本轮文档/状态收口、遗留项登记动作。
 > **容器体例声明（重要）**: **父 Feature 为轻量规范容器，不执行 tasks/build/review/validate** —— 本文件与父目录下的 `review-report.md` / `validate-report.md` 一样，是**聚合报告**，由作者/编排器直接指派产出，**不表示父 Feature 进入了 build 流程**；父 `state.json` 保持 `phase=tasked` / `workflow=4.tasks` / `agent=sddu-tasks` 不变。
@@ -8,7 +8,7 @@
 > **版本**: v2.0
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-13
-> **更新说明**: v2 整体收口（四叶 phase 全 validated；含 V2-4 P1）+ flake 修复（#AP#5b 相位窗口 + tabs harness 时序）+ 完整日志落盘纪律 + 遗留项全量登记（13 项人工面 + T1 + 已知偶发 + 口径 + 未合并/未发布）
+> **更新说明**: v2 整体收口（四叶 phase 全 validated；含 V2-4 P1）+ flake 修复（#AP#5b 相位窗口 + tabs harness 时序）+ 完整日志落盘纪律 + 遗留项全量登记（13 项人工面 + T1 + 已知偶发 + 口径 + 未合并/未发布）；**R2 第 1 轮（§9）/ 第 2 轮**；**R2 第 3 轮（review 修复轮 A1~A4 + A6/A7/T4）** 见文末。
 
 ---
 
@@ -342,6 +342,7 @@
 | v1.0 | P0 收口报告（第 10 轮）：三叶 phase builded→validated（父保持轻量规范容器）；review R1 ⚠️ 有条件通过 / validate R1 ✅ 通过；3 处文档偏差订正/登记；人工面（V2-H-A~D / V2-H-1~6 / T1 缺口）未执行如实登记；本轮零 `src/`/`test/` 改动、未跑 Chromium 门禁（原因已登记）。 | 2026-09-13 | SDDU Build Agent（代行收口） |
 | v2.0 | **v2 整体收口报告（第 11 轮）**：四叶（V2-1/V2-2/V2-3/V2-4）phase 全部 `validated`（父保持轻量规范容器；V2-4 P1 本轮由 builded→reviewed→validated）；review P0 R1 ⚠️ / V2-4 R1 ⚠️（均 0 阻塞）；validate P0 R1 ✅ / V2-4 R1 ✅（均 0 阻塞）；门禁串行实跑全绿（tsc 0 error / 插件 646·0 fail / insight 70 / ui 167 / hardening 24 / binding 180×3 / e2e PASS / 全仓 1629·1628 pass·0 fail·1 skip，base 483 零回归）；体积 content.js 零增长 1,073,453 B / sidepanel 1,132,748 B（ceiling 1,189,385）/ background 1,403,170 B；**修 #AP#5b 相位窗口 flake + 新观测修 tabs #7m3/#7m4/#7o/#7o2 harness 时序 flake**（零产品逻辑改动、断言只增不减/不减）；新增 `docs/dev.md` §6.1 完整日志落盘纪律（D-V24-06）；遗留项全量登记（人工面 13 项 + T1 缺口 + 已知偶发 + 口径 D-V24-01/02/08 + 未合并/未发布）；零改动核验（base/policy/auto-authorize/manifest/v1 目录/journey.mjs）。 | 2026-09-13 | SDDU Build Agent（代行收口） |
 | v3.0 | **R2 实施构建第 1 轮（第 12 轮）**：R2-Wave 1（V2-1 真层级树：`ownership-tree.ts` + `tree-model`/`command-catalog`/`project-tree`/`build-snapshot`）+ R2-Wave 2（V2-3 覆盖引擎：`command-override.ts` SW 侧 clamp/存储生命周期 + `host`/`service-worker`/`messaging`/`insight-protocol`/`tree-ops` 接线 + 白名单 7→9）；3 新测试文件（35 tests）；门禁串行全绿（typecheck 0 / 插件 npm test 686 0 fail / insight 70 / ui 167 / hardening 24 / binding 180 / e2e PASS / 全仓 EXIT=0）；断言取代 S1/S2/S3/S7/S9/S10/S12 + pin 显式更新（removed=0、总数只增）；`policy`/`auto-authorize` sha256 不变、content.js 零增长、base/manifest/options 零 diff；未完成 V2-2/V2-4 R2 与 `binding #22a`（如实登记）。 | 2026-09-13 | SDDU Build Agent |
+| v4.0 | **R2 第 3 轮（review 修复轮，消化 `5d9e6f1` R2 审查的 4 建议 + 关键提示）**：A1 no-widen 档叶子收紧控件（三层：硬底线零控件 / tightenOnly ask+deny 无 allow / 可覆盖三档；服务端 clamp 零改动）、A2 跨归属交叉引用可交互下钻（`crossTargets` + `.tree-link` + `navigateToNodeId`，节点不复制）、A3 示例①「工具→子命令」达成（`toolSubcommands` 以 `subcommandRisks` 回退，不改 base/`declared-tools.ts`）、A4 取代台账口径订正（字面 removed=0 不成立 → 无未取代删除 + 机器台账 `docs/r2-supersession-ledger.json`）、A6 文档漂移订正、A7 `meta.modelNote` 旧措辞订正 + 防回潮断言、T4 binding 失败诊断 + 就绪等待；门禁串行全绿（typecheck 0 / 插件 **693·0 fail** / insight **108** / ui **167** / hardening **24** / binding **192×2（0/2 flake）** / e2e PASS / 全仓 EXIT=0，base 483 零回归）；`policy`/`auto-authorize` sha256 不变、`content.js` 零增长、base/manifest/v1/journey 零 diff。 | 2026-09-13 | SDDU Build Agent |
 
 ---
 
