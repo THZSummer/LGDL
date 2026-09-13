@@ -37,7 +37,10 @@ export type PluginAuditEventType =
   // FR-055 (TASK-039): `notify` / `clipboard` capability events + reconciliation.
   | 'notify'
   | 'clipboard'
-  | 'optional-permission';
+  | 'optional-permission'
+  // V2-3 R2 (ADR-V2-026/027): command-level user-override changes. Kept distinct from
+  // revoke/auto-authorize so the override path is auditable and discernible.
+  | 'command-policy';
 
 export interface PluginAuditEvent {
   type: AuditEvent['type'] | PluginAuditEventType;

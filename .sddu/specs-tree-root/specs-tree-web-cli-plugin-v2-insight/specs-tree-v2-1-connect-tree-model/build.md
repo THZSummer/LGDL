@@ -247,3 +247,18 @@ assert.throws 触发原文: 内容哈希漂移
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-1（Wave 1~5 / TASK-001~009）实施构建报告：7 新源码 + 4 修改源码（additive）+ 4 新门禁测试（36 测试）；门禁 `typecheck` 0 error / 插件与全仓 `npm test` 561（v1 525 零删减）；四项零改动核验通过；`content.js`/`sidepanel.js` 零增长；父 spec 口径最小订正（FR-V2-023 + §2.5）；决策 D-V21-01~05；Chromium 门禁本轮未跑（如实登记）。 | 2026-09-13 | SDDU Build Agent |
 | v1.1 | R2 修复轮：W2（insight-protocol 补测 6 测试）/ W3（判定链改内容哈希钉死 + 判定表快照 + 反证）/ T2（去静默吞异常 + 门禁）/ T3（deriveAction 全量一致性交叉断言 28 工具·94 子命令 + 站点域矩阵 + 反证）；门禁全量串行复跑：typecheck 0 / 插件 npm test 616 / test:insight 52 / test:ui 167 / test:hardening 24 / test:binding 180 / test:e2e PASS / 全仓 base 483 + plugin 616 = 0 fail。 | 2026-09-13 | SDDU Build Agent |
+
+---
+
+## 13. R2 实施构建（第 12 轮 · R2 build 第 1 轮）
+
+> 完整聚合见父 `build.md` §9。本轮 **R2-V21-01~05 全部完成**（Wave 1 + Wave 5）。
+
+- **产出**：`src/insight/ownership-tree.ts`（新，纯归属树：真父子层级 + 主归属链 + 交叉引用徽标 + `path`，不复制节点）；`tree-model.ts`（additive `defaultAction`/`overrideAction?`/`effectiveAction`/`overridable`/`clampReason?` + `ControlKind+'command-policy'` + `TreeActionId+2` + `CoverageSplit` + `ownershipTree`/`coverage`）；`command-catalog.ts`（默认/生效分列 + 分层控件 + **删除偏差文案**）；`project-tree.ts`（overrides/coverage/派生归属树，`meta.hash` 输入不变）；`build-snapshot.ts`（透传）。
+- **门禁**：`test/insight-tree-hierarchy.test.ts`（新，11 tests）——作者两例逐层枚举 / nodeId 唯一 / 多归属不复制 / 扁平面与 hash 输入不变 / coverage 分列 / 反证；`removed=0`。
+- **取代**：本叶无 S 编号；连带改动 `tree-view.test.ts` S7（联合扩展强依赖）与 `insight-archive.test.ts` S9/S10 + `TREE_MODULE_SHA256`（被修改文件冻结 pin）由父 §9.4/§9.6 登记。
+- **未完成**：V2-2 的树 DOM 渲染（R2-V22-*）未做 → `ownershipTree` 模型已就绪，渲染层仍扁平 `rows`（模型/UI 分轮，如实登记）。
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.2 | R2 实施构建第 1 轮（V2-1 模型层真层级树）：`ownership-tree.ts` + 四文件 additive/分列改造 + `insight-tree-hierarchy` 门禁（11 tests）；门禁串行全绿（typecheck 0 / 插件 686·0 fail / insight 70 / ui 167 / hardening 24 / binding 180 / e2e PASS / 全仓 EXIT=0）；`content.js` 零增长、`policy`/`auto-authorize` sha256 不变。 | 2026-09-13 | SDDU Build Agent |

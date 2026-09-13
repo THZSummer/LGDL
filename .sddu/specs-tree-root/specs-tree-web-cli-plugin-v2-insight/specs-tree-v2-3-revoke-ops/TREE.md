@@ -7,7 +7,7 @@ Feature Specification：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权�
 ```
 specs-tree-v2-3-revoke-ops/
 ├── TREE.md          # 本文件 - 目录导航
-├── build.md          # 构建报告：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面）
+├── build.md          # 构建报告：specs-tree-v2-3-revoke-ops（V2-3 … + **R2 build 第 1 轮 §15**）
 ├── plan.md          # 技术计划：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面）
 ├── spec.md          # Feature Specification：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面）
 ├── state.json          # 状态文件 (✅ 已完成)
@@ -18,7 +18,7 @@ specs-tree-v2-3-revoke-ops/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） — `node --test dist-test/test/insight-security.test.js` → **5/5 PASS**（`allow` ... | ✅ 存在 |
+| build.md | 构建报告：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面 + **R2 build 第 1 轮（v1.2 §15）**） — `node --test dist-test/test/insight-security.test.js` → **5/5 PASS**（`allow` ... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） — │                                   └─(accept)─┐ | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） — Feature Specification：specs-tree-v2-3-revoke-ops（V2-3 撤销与取消授权操作面） | ✅ 存在 |
 | state.json | 状态文件 | ✅ 已完成 |

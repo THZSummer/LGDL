@@ -520,11 +520,11 @@ npm test --workspace @lgdl/web-cli-plugin      # 含 V2-1 新增 insight-* 门�
 
 | 编号 | 标题 | 规模 | 类型 | 依赖 | 波次 | 可并行 | 涉及文件 |
 |------|------|:--:|:--:|------|:--:|:--:|------|
-| R2-V21-01 | 纯归属树 `ownership-tree.ts`（真父子层级 + 主归属链 + 交叉引用，不复制节点） | M | 🛠 实施 | 无 | 1 | R2-V21-02 | NEW `packages/web-cli-plugin/src/insight/ownership-tree.ts` |
-| R2-V21-02 | `tree-model.ts` additive 字段 + `command-catalog.ts` 默认/生效分列 + 分层控件 + 偏差文案删除 | L | 🛠 实施 | 无 | 1 | R2-V21-01 | MODIFY `packages/web-cli-plugin/src/insight/tree-model.ts`；MODIFY `packages/web-cli-plugin/src/insight/command-catalog.ts` |
-| R2-V21-03 | `project-tree.ts` 注入 overrides + 覆盖面分列 + 派生 `ownershipTree` | M | 🛠 实施 | R2-V21-01、R2-V21-02 | 1 | — | MODIFY `packages/web-cli-plugin/src/insight/project-tree.ts` |
-| R2-V21-04 | `build-snapshot.ts` 透传 overrides / coverage（薄 builder） | S | 🛠 实施 | R2-V21-03 | 1 | — | MODIFY `packages/web-cli-plugin/src/insight/build-snapshot.ts` |
-| R2-V21-05 | 模型门禁 `test/insight-tree-hierarchy.test.ts`（AC-V21-008~010）+ 既有门禁零回归核验 | M | ⚖️ 门禁 | R2-V21-01、R2-V21-02、R2-V21-03、R2-V21-04 | 5 | R2-V22-03；R2-V23-06；R2-V24-03 | NEW `packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts`；核验 `test/insight-projection.test.ts` / `test/insight-determinism.test.ts` 零删改 |
+| R2-V21-01 | 纯归属树 `ownership-tree.ts`（真父子层级 + 主归属链 + 交叉引用，不复制节点） | M | ✅ 已完成（R2 build 第 1 轮） | 无 | 1 | R2-V21-02 | NEW `packages/web-cli-plugin/src/insight/ownership-tree.ts` |
+| R2-V21-02 | `tree-model.ts` additive 字段 + `command-catalog.ts` 默认/生效分列 + 分层控件 + 偏差文案删除 | L | ✅ 已完成（R2 build 第 1 轮） | 无 | 1 | R2-V21-01 | MODIFY `packages/web-cli-plugin/src/insight/tree-model.ts`；MODIFY `packages/web-cli-plugin/src/insight/command-catalog.ts` |
+| R2-V21-03 | `project-tree.ts` 注入 overrides + 覆盖面分列 + 派生 `ownershipTree` | M | ✅ 已完成（R2 build 第 1 轮） | R2-V21-01、R2-V21-02 | 1 | — | MODIFY `packages/web-cli-plugin/src/insight/project-tree.ts` |
+| R2-V21-04 | `build-snapshot.ts` 透传 overrides / coverage（薄 builder） | S | ✅ 已完成（R2 build 第 1 轮） | R2-V21-03 | 1 | — | MODIFY `packages/web-cli-plugin/src/insight/build-snapshot.ts` |
+| R2-V21-05 | 模型门禁 `test/insight-tree-hierarchy.test.ts`（AC-V21-008~010）+ 既有门禁零回归核验 | M | ✅ 已完成（R2 build 第 1 轮） | R2-V21-01、R2-V21-02、R2-V21-03、R2-V21-04 | 5 | R2-V22-03；R2-V23-06；R2-V24-03 | NEW `packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts`；核验 `test/insight-projection.test.ts` / `test/insight-determinism.test.ts` 零删改 |
 
 ### 5.3 R2 依赖拓扑（本叶）
 

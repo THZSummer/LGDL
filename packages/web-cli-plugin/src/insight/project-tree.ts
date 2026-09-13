@@ -15,7 +15,8 @@
  */
 import type { ToolRisk } from '@lgdl/web-cli-base';
 import { projectCapabilities, type CapabilityCatalogDeps } from './capability-catalog.js';
-import { projectCommands, type CommandCatalogDeps, type ToolSurfaceEntry } from './command-catalog.js';
+import { projectCommands, type CommandCatalogDeps, type CommandOverrideLookup, type ToolSurfaceEntry } from './command-catalog.js';
+import { buildOwnershipTree } from './ownership-tree.js';
 import {
   GROUP_LABELS,
   INSIGHT_DIMENSIONS,
@@ -29,6 +30,7 @@ import {
   type CatalogMeta,
   type CommandNode,
   type ConnectTreeSnapshot,
+  type CoverageSplit,
   type CrossLink,
   type InsightSummary,
   type LlmNode,
@@ -79,6 +81,8 @@ export interface InsightSource {
   degradations?: readonly SnapshotDegradation[];
   catalogMeta?: CatalogMeta;
   builtAt?: number;
+  /** R2：纯读的用户覆盖查询（只影响默认档/生效档分列；不改变命令集合与 hash 输入）。 */
+  overrides?: CommandOverrideLookup;
 }
 
 const BASE_SOURCES = [
@@ -279,6 +283,7 @@ export function projectInsightTree(source: InsightSource, opts: ProjectOptions =
     delayMs: source.delayMs,
     ...(source.activeOrigin ? { activeOrigin: source.activeOrigin } : {}),
     ...(source.isOriginAuthorized ? { isOriginAuthorized: source.isOriginAuthorized } : {}),
+    ...(source.overrides ? { overrides: source.overrides } : {}),
   };
   const commands: CommandNode[] = projectCommands(source.toolSurface, commandDeps);
   const llm = projectLlm(source);
@@ -314,7 +319,8 @@ export function projectInsightTree(source: InsightSource, opts: ProjectOptions =
   ];
   const builtAt = opts.builtAt ?? source.builtAt ?? Date.now();
 
-  // hash 输入**不含 builtAt / hash 自身**（两次投影 hash 全等）。
+  // hash 输入**不含 builtAt / hash 自身**（两次投影 hash 全等）；R2 追加字段
+  // （ownershipTree / coverage）**亦不进入** hash 输入（扁平面/确定性前提零变化）。
   const hash = hashStructure({
     version: 1,
     root,
@@ -326,7 +332,23 @@ export function projectInsightTree(source: InsightSource, opts: ProjectOptions =
     modelNote: INSIGHT_MODEL_NOTE,
   });
 
-  return {
+  // R2（FR-V2-079）：覆盖面**分列**（实时投影面 vs parity 基线）——`accounted` 不出现。
+  const liveTools = counts.commands;
+  const liveSubcommands = counts.subcommands;
+  const coverage: CoverageSplit = {
+    live: { tools: liveTools, subcommands: liveSubcommands, cards: liveTools + liveSubcommands },
+    ...(source.catalogMeta
+      ? { baseline: { tools: source.catalogMeta.toolCount, subcommands: source.catalogMeta.subcommandCount } }
+      : {}),
+    note:
+      `实时投影面 ${liveTools} 工具 / ${liveSubcommands} 子命令（${liveTools + liveSubcommands} 卡，树内渲染/可操作面）；` +
+      (source.catalogMeta
+        ? `parity 基线 ${source.catalogMeta.toolCount} 工具 / ${source.catalogMeta.subcommandCount} 子命令为独立对账口径；`
+        : 'parity 基线口径未注入（本快照不含 catalogMeta）；') +
+      '两口径分列，不得混同或夸大。',
+  };
+
+  const base: Omit<ConnectTreeSnapshot, 'ownershipTree'> = {
     version: 1,
     root,
     groups,
@@ -340,11 +362,17 @@ export function projectInsightTree(source: InsightSource, opts: ProjectOptions =
       modelNote: INSIGHT_MODEL_NOTE,
     },
     ...(source.catalogMeta ? { catalogMeta: source.catalogMeta } : {}),
+    coverage,
   };
+
+  return { ...base, ownershipTree: buildOwnershipTree(base) };
 }
 
 /** `state.insight?` 小摘要：counts + 徽标计数 + 是否有降级（零明文）。 */
-export function summarizeInsight(snapshot: ConnectTreeSnapshot): InsightSummary {
+export function summarizeInsight(
+  snapshot: ConnectTreeSnapshot,
+  opts: { overrideCount?: number } = {},
+): InsightSummary {
   const badges: Record<string, number> = {};
   for (const group of snapshot.groups) {
     for (const node of group.children as TreeNode[]) {
@@ -358,5 +386,7 @@ export function summarizeInsight(snapshot: ConnectTreeSnapshot): InsightSummary 
     counts: snapshot.meta.counts,
     badges,
     degraded: snapshot.meta.degradations.length > 0,
+    // R2 additive：旧消费者忽略未知可选字段。
+    ...(opts.overrideCount !== undefined ? { overrideCount: opts.overrideCount } : {}),
   };
 }

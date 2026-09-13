@@ -6,13 +6,23 @@
  * `action` 由 `PLUGIN_RISK_DEFAULTS` + S1/S3 + 开关抑制态推导，`risk` 取 base registry
  * 的 effective risk（`subcommandRisks[sub] ?? risk`）。
  *
- * 结构保证（ADR-V2-011）：**`action==='deny'` ⇒ `controls === []`**（`deny`/`delay` 不可
- * 渲染成可关开关）；命令级**无任何写入动作**（V2-3 动作表不含命令级条目）。
+ * 结构保证（R2 分层，ADR-V2-030）：**硬底线（`overridable===false`，含 evaluate/S1/S3/
+ * 破坏性/ui·state·external 不放宽）⇒ `controls === []` 且 `clampReason` 可读**；**可覆盖
+ * 节点 ⇒ 恰 3 个 `command-policy` 控件**（allow/ask/deny；非硬底线 `deny` 亦有控件可改回）。
+ *
+ * 默认档 / 覆盖生效档 **分列**（FR-V2-013）：`action`/`defaultAction` = risk 派生默认；
+ * `effectiveAction` = 经硬底线 clamp 后的实际生效值（无覆盖 ≡ 默认，逐字节兼容）。
  *
  * 纯投影：零 IO、零 chrome 接口、零写 store、零明文。
  */
 import type { PolicyAction, ToolRisk } from '@lgdl/web-cli-base';
 import { isToolRisk } from '../protocol/descriptor.js';
+import {
+  isCommandDestructive,
+  resolveCommandPolicy,
+  type ClampReason,
+  type CommandPolicyResolution,
+} from '../security/command-override.js';
 import { PLUGIN_RISK_DEFAULTS, PLUGIN_SITE_GROUP } from '../security/policy.js';
 import {
   BOOKMARKS_SUBCOMMAND_RISKS,
@@ -46,6 +56,11 @@ export interface ToolSurfaceEntry {
   suppressionReason?: string;
 }
 
+/** R2：纯读的用户覆盖查询（由 service-worker 的覆盖 store 提供；投影层零写）。 */
+export interface CommandOverrideLookup {
+  get(name: string, subcommand?: string): PolicyAction | undefined;
+}
+
 export interface CommandCatalogDeps {
   /** 命令间 `delayMs` 真值（来自 `host.delayConfig()`；ADR-V2-014）。 */
   delayMs: number;
@@ -53,6 +68,8 @@ export interface CommandCatalogDeps {
   activeOrigin?: string;
   /** 站点是否已授权（S1）。缺省视为未授权（fail-closed）。 */
   isOriginAuthorized?: (origin: string) => boolean;
+  /** R2：用户覆盖层（只读；缺省 = 无覆盖，行为与 R2 前逐字节一致）。 */
+  overrides?: CommandOverrideLookup;
 }
 
 /** 命令来源分类（8 值；FR-V2-055 / ADR-V2-012 预留）。 */
@@ -138,10 +155,77 @@ function crossLinksFor(name: string, id: string, sourceKind: SourceKind, activeO
   return links;
 }
 
-/** 命令级控件：**无任何写入路径**；`deny` ⇒ `[]`（ADR-V2-011）。 */
-function controlsFor(action: PolicyAction): ControlDescriptor[] {
-  if (action === 'deny') return [];
-  return [{ kind: 'none', label: '只读展示：命令级策略不可在树内修改（不提供命令级写入）' }];
+/** R2：硬底线成因映射（`DenyCause` → clamp 原因）。 */
+function hardFloorOf(denyCause: DenyCause | undefined, hardDeny: boolean): 's1-unauthorized' | 's3-unknown-risk' | 'evaluate' | undefined {
+  if (denyCause === 's1-unauthorized') return 's1-unauthorized';
+  if (denyCause === 's3-unknown-risk') return 's3-unknown-risk';
+  if (denyCause === 'evaluate-floor') return 'evaluate';
+  return hardDeny ? 's3-unknown-risk' : undefined;
+}
+
+/** R2：可覆盖节点的 3 个 `command-policy` 控件（allow/ask/deny；`selected` = effective 档）。 */
+function policyControls(effectiveAction: PolicyAction): ControlDescriptor[] {
+  const labels: Record<PolicyAction, string> = {
+    allow: '设为 allow（放行）',
+    ask: '设为 ask（需确认）',
+    deny: '设为 deny（拒绝）',
+  };
+  const actions: PolicyAction[] = ['allow', 'ask', 'deny'];
+  return actions.map((action) => ({
+    kind: 'command-policy' as const,
+    actionId: 'set-command-policy' as const,
+    policyAction: action,
+    selected: effectiveAction === action,
+    label: labels[action],
+  }));
+}
+
+interface CommandPolicyFields {
+  defaultAction: PolicyAction;
+  overrideAction?: PolicyAction;
+  effectiveAction: PolicyAction;
+  overridable: boolean;
+  clampReason?: ClampReason;
+  controls: ControlDescriptor[];
+}
+
+/**
+ * R2：默认档 / 覆盖生效档分列 + 硬底线 clamp + 控件分层。
+ *
+ * 工具级**容器**节点（有子命令）是「设置载体」：`overridable:true`（继承给子命令；每个
+ * 子命令按各自 effective risk 再 clamp）——由此「`dom` 可设 allow」与「`ui` 档不得放宽
+ * （`dom click` 实际调用仍不放宽）」并存不矛盾（ADR-V2-025 §9.3 口径）。
+ */
+function policyFields(
+  defaultAction: PolicyAction,
+  override: PolicyAction | undefined,
+  risk: ToolRisk | undefined,
+  subcommand: string | undefined,
+  decide: ActionDecision,
+  isContainer: boolean,
+): CommandPolicyFields {
+  const hardFloor = hardFloorOf(decide.denyCause, decide.hardDeny);
+  let resolution: CommandPolicyResolution;
+  if (isContainer && hardFloor === undefined) {
+    resolution = { effectiveAction: override ?? defaultAction, overridable: true };
+  } else {
+    const destructive = isContainer ? false : isCommandDestructive(risk, subcommand);
+    resolution = resolveCommandPolicy({
+      defaultAction,
+      ...(override ? { override } : {}),
+      ...(risk ? { risk } : {}),
+      destructive,
+      ...(hardFloor ? { hardFloor } : {}),
+    });
+  }
+  return {
+    defaultAction,
+    ...(override ? { overrideAction: override } : {}),
+    effectiveAction: resolution.effectiveAction,
+    overridable: resolution.overridable,
+    ...(resolution.clampReason ? { clampReason: resolution.clampReason } : {}),
+    controls: resolution.overridable ? policyControls(resolution.effectiveAction) : [],
+  };
 }
 
 function makeCommandNode(
@@ -159,6 +243,9 @@ function makeCommandNode(
   const badges: Badge[] = [actionBadge(decision.action)];
   if (decision.hardDeny) badges.push({ kind: 'hard-deny', label: '硬底线：不可放行', tone: 'danger' });
   if (suppressed) badges.push({ kind: 'suppressed', label: '已抑制（不在工具面）', tone: 'muted' });
+  const override = deps.overrides?.get(entry.name, subcommand);
+  const isContainer = subcommand === undefined && entry.subcommands.length > 0;
+  const policy = policyFields(decision.action, override, risk, subcommand, decision, isContainer);
   return {
     id,
     kind: 'command',
@@ -176,7 +263,12 @@ function makeCommandNode(
     ...(suppressed ? { suppressionReason: entry.suppressionReason ?? suppressionFallback(entry) } : {}),
     badges,
     crossLinks: crossLinksFor(entry.name, id, sourceKind, origin),
-    controls: controlsFor(decision.action),
+    controls: policy.controls,
+    defaultAction: policy.defaultAction,
+    ...(policy.overrideAction ? { overrideAction: policy.overrideAction } : {}),
+    effectiveAction: policy.effectiveAction,
+    overridable: policy.overridable,
+    ...(policy.clampReason ? { clampReason: policy.clampReason } : {}),
   };
 }
 

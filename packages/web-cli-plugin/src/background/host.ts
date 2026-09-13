@@ -15,6 +15,7 @@ import {
   type AskResolution,
   type CommandRouter,
   type LlmToolDef,
+  type PolicyAction,
   type RouterPolicy,
   type ToolContext,
   type ToolResult,
@@ -25,6 +26,7 @@ import type { PluginAuditSink } from '../security/audit-sink.js';
 import type { OriginStore } from '../security/origin-store.js';
 import { decideAutoAuthorization } from '../security/auto-authorize.js';
 import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../security/policy.js';
+import { isCommandDestructive, withCommandOverride } from '../security/command-override.js';
 import type { OptionalCapability } from '../platform/capability-permissions.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
 import { createBrowserToolEntries, type BrowserToolOptions } from '../tools/browser-tools.js';
@@ -83,6 +85,16 @@ export interface WebCliHostOptions {
    * `auto-authorize`) instead of prompting. Absent → no auto path (unchanged).
    */
   autoAuth?: { isEnabled(origin: string, tier: 'read' | 'write'): boolean };
+  /**
+   * V2-3 R2 (ADR-V2-024): command-level user overrides. Pure read accessors supplied
+   * by the service-worker override store; the host composes them into the router
+   * policy (`withCommandOverride`) — the judgment chain itself stays untouched.
+   * Absent → zero overrides (behavior byte-identical to pre-R2).
+   */
+  commandOverrides?: {
+    get(name: string, subcommand?: string): PolicyAction | undefined;
+    isExplicit(name: string, subcommand?: string): boolean;
+  };
   /** Task-internal clarification responder (FR-017 / R7); absent → readable disabled tool. */
   askUser?: AskResponder;
   descriptorShow: (origin: string) => Promise<string>;
@@ -260,6 +272,22 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
       }
     : undefined;
 
+  /**
+   * V2-3 R2 (ADR-V2-024): guard the auto-authorization seam so an **explicit user
+   * `ask`** can never be silently auto-resolved to `allow`. Only when the user
+   * explicitly asked for confirmation for this exact command do we bypass the
+   * auto path and go straight to the manual confirm bridge. Every other case is
+   * byte-identical to the previous `autoOnAsk` (no override, or a non-ask override).
+   */
+  const baseOnAsk = autoOnAsk;
+  const guardedOnAsk: RouterPolicy['onAsk'] | undefined = baseOnAsk
+    ? async (question: AskQuestion): Promise<AskResolution> => {
+        const desired = opts.commandOverrides?.get(question.tool, question.subcommand);
+        if (desired === 'ask' && opts.onAsk) return opts.onAsk(question);
+        return baseOnAsk(question);
+      }
+    : undefined;
+
   // V2-1 (ADR-V2-014): single source of the command-interval value; the read-only
   // `delayConfig()` accessor returns this exact value (never a hard-coded copy).
   const commandDelayMs = 0;
@@ -270,13 +298,21 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
     // builtin out of the registry so the controlled entry below is the ONLY
     // registration for that name (CommandRouter rejects duplicate names).
     ...(opts.webFetch ? { builtins: ['sleep', 'web-cli-help'] as const } : {}),
-    policy: createPluginPolicyConfig(
+    // V2-3 R2 (ADR-V2-024/025): compose the override layer on top of the untouched
+    // plugin policy — strategies reordered to [S1, S3, override, S2] + clamp strategy.
+    policy: withCommandOverride(
+      createPluginPolicyConfig(
+        {
+          isAuthorized: (origin) => opts.origins.isAuthorized(origin),
+          trustOf: (origin) => opts.origins.trustOf(origin),
+          ...(opts.currentOrigin ? { currentOrigin: opts.currentOrigin } : {}),
+        },
+        guardedOnAsk,
+      ),
       {
-        isAuthorized: (origin) => opts.origins.isAuthorized(origin),
-        trustOf: (origin) => opts.origins.trustOf(origin),
-        ...(opts.currentOrigin ? { currentOrigin: opts.currentOrigin } : {}),
+        resolveOverride: (name, sub) => opts.commandOverrides?.get(name, sub),
+        isDestructive: (_name, sub, risk) => isCommandDestructive(risk, sub),
       },
-      autoOnAsk,
     ),
     audit: opts.audit,
   });

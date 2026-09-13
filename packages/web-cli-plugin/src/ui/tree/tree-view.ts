@@ -45,9 +45,11 @@ export const TREE_MODEL_NOTE =
  * （不可放宽），后者是命令间隔毫秒数；此处并标以免误读（FR-V2-054）。
  */
 export const TREE_NO_ESCALATION_NOTE =
-  '连接树是「可见 + 撤销」面，不是提权面：撤销/关断 = 回到更保守，不放宽任何门禁。' +
+  '连接树是「可见 + 撤销 + 受硬底线约束的命令级覆盖」面，不是提权面：' +
+  '撤销/关断 = 回到更保守，不放宽任何门禁；' +
+  '命令级覆盖 = 用户显式、被审计的放宽，但硬底线不可覆盖（经 clamp）。' +
   '命令档位 delay（= deny，fail-closed，非可配置档位；与命令间 delayMs 无关）不可放宽；' +
-  'deny/delay 节点不提供任何开关。';
+  '硬底线 deny/delay 节点不提供任何开关（并展示不可覆盖原因），非硬底线命令节点可在树内设置 allow/ask/deny。';
 
 export const TREE_GROUP_ORDER: readonly Dimension[] = ['site', 'capability', 'command', 'llm'];
 
@@ -90,6 +92,14 @@ export interface TreeActionTarget {
   scope?: 'read' | 'write';
   enabled?: boolean;
   groupId?: string;
+  /** R2：命令级覆盖的作用对象（工具级 / 子命令级）。 */
+  command?: { tool: string; subcommand?: string };
+  /** R2：`set-command-policy` 的目标处置档。 */
+  policyAction?: PolicyAction;
+  /** R2：该命令的**默认档**（用于判定「放宽方向」→ 是否需要二次确认）。 */
+  defaultAction?: PolicyAction;
+  /** R2：`reset-command-policy` 是否清除全部覆盖。 */
+  resetAll?: boolean;
 }
 
 /** 可选能力 → 对应 LLM 工具名（回执 ② 实测对账用）。 */
@@ -178,11 +188,31 @@ const CONFIRM_NOT_REQUIRED: ReadonlySet<TreeActionId> = new Set<TreeActionId>([
 
 /**
  * 某动作是否需要二次确认（ADR-V2-013，纯函数）。
+ *
  * 不可逆/高影响 → `true`；可逆开关 → `false`。拒绝即零操作（fail-closed）。
+ *
+ * R2（ADR-V2-027 扩展）：命令级覆盖是**条件确认**——只有「放宽方向」
+ * （desired `allow` 且相对默认档是放宽）需要二次确认；收紧（`ask`/`deny`）与
+ * `reset-command-policy`（可逆）不需要。条件判定见 {@link commandPolicyNeedsConfirmation}。
  */
 export function needsConfirmation(actionId: TreeActionId): boolean {
+  if (actionId === 'set-command-policy' || actionId === 'reset-command-policy') return false;
   if (CONFIRM_NOT_REQUIRED.has(actionId)) return false;
   return CONFIRM_REQUIRED.has(actionId);
+}
+
+/**
+ * R2：命令级覆盖是否命中「放宽方向」（需二次确认，fail-closed）。
+ *
+ * 判据：desired = `allow` 且默认档不是 `allow`（缺省默认档视为放宽 → 需确认）。
+ * `ask`/`deny` 属收紧方向，不需确认（可逆、可恢复默认）。
+ */
+export function commandPolicyNeedsConfirmation(
+  desired: PolicyAction | undefined,
+  defaultAction: PolicyAction | undefined,
+): boolean {
+  if (desired !== 'allow') return false;
+  return defaultAction !== 'allow';
 }
 
 // ---------------------------------------------------------------------------

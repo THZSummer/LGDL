@@ -90,13 +90,30 @@ function assertPinnedHash(label: string, actualHash: string, pinnedHash: string)
 }
 
 // 钉死值（2026-09-13，V2-4 build；来源 = 各自文件原文）。
+//
+// ── R2 显式 pin 更新（2026-09-13，feature/web-cli-plugin，来源 = 本轮 build 原文）──
+// 依据父 plan §9.8 S9/S10 + ADR-V2-027 pin 更新流程；**只允许显式更新**（前后值 + 日期 +
+// 来源 + 理由 + 历史保留），禁止删断言/放宽容差来「跑绿」。
+//   TREE_NO_ESCALATION_NOTE（S10，FR-V2-078 两通路重写）
+//     old d37fecffb72ae33df8727a07a58d7f6ccca1455e923c5c962af8121806ababce
+//     new cfe96e8a31b2a6e5eea8cd256654dcba58e86a682c6986cfeaac5854384345d3
+//   TREE_ACTION_IDS_JSON（S9，FR-V2-074/075 白名单 7 → 9）
+//     old e5c65cc39397ae1abf0ca0e83ad2dd713866b84b1a505e7c3bf826902908d073
+//     new 71f743ed688d10ad74224b340d0e1b827f39a2b41aa625ca1d43dc9895aec1ac
+//   TREE_MODULE_SHA256（tree-view.ts / tree-ops.ts，随 R2 文案/白名单/覆盖分组变更）
+//     tree-view.ts old 023f9fc0687fc7977353de58657d5d1c000ef9bb7cd9ad255f9ccb4629778fd5
+//                  new 9beb26eaab6ab3fb6eb7c027d4bd2cc6b73ca851c71f6dc68360f70f7746c744
+//     tree-ops.ts  old abf9cdaba89ab63c7f0fa3f9b3ef9e829a702ec45b169de6e378eafacece9257
+//                  new 4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658
+//   tree-receipt.ts 不变（未改动）→ 保持旧值。
+// 反证：`assertPinnedHash` 在篡改文本上必须真的抛错（见 A5/A8 的 REVERSE PROOF 段）。
 const TREE_NO_ESCALATION_NOTE_SHA256 =
-  'd37fecffb72ae33df8727a07a58d7f6ccca1455e923c5c962af8121806ababce';
+  'cfe96e8a31b2a6e5eea8cd256654dcba58e86a682c6986cfeaac5854384345d3';
 const TREE_ACTION_IDS_JSON_SHA256 =
-  'e5c65cc39397ae1abf0ca0e83ad2dd713866b84b1a505e7c3bf826902908d073';
+  '71f743ed688d10ad74224b340d0e1b827f39a2b41aa625ca1d43dc9895aec1ac';
 const TREE_MODULE_SHA256: Readonly<Record<string, string>> = {
-  'src/ui/tree/tree-view.ts': '023f9fc0687fc7977353de58657d5d1c000ef9bb7cd9ad255f9ccb4629778fd5',
-  'src/ui/tree/tree-ops.ts': 'abf9cdaba89ab63c7f0fa3f9b3ef9e829a702ec45b169de6e378eafacece9257',
+  'src/ui/tree/tree-view.ts': '9beb26eaab6ab3fb6eb7c027d4bd2cc6b73ca851c71f6dc68360f70f7746c744',
+  'src/ui/tree/tree-ops.ts': '4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658',
   'src/ui/tree/tree-receipt.ts': '484bf84f6f7eddf203f519826bb415399a5f4819c3e6e91329cd2b47430d3db6',
 };
 const ARCHIVE_MODULE_PATH = 'src/insight/archive-catalog.ts';
@@ -613,7 +630,10 @@ test('A7 archive REVERSE PROOF: one changed constant digit FAILS the drift gate'
 // A8 禁改面内容哈希 pin
 // ---------------------------------------------------------------------------
 
-test('A8 archive: TREE_ACTION_IDS is exactly 7 values (sha256-pinned, no action expansion)', () => {
+// R2 (2026-09-13) — supersession S9 (ADR-V2-031/027): the closed whitelist grows
+// 7 → 9 (`set-command-policy` / `reset-command-policy`); the sha256 pin is updated
+// explicitly (see the pin block above for old/new/date/reason).
+test('A8 archive: TREE_ACTION_IDS is exactly 9 values (sha256-pinned, R2 supersession S9)', () => {
   assert.deepEqual([...TREE_ACTION_IDS], [
     'revoke-origin',
     'revoke-capability',
@@ -622,8 +642,10 @@ test('A8 archive: TREE_ACTION_IDS is exactly 7 values (sha256-pinned, no action 
     'clear-auto-auth',
     'disconnect-llm',
     'dissolve-group',
+    'set-command-policy',
+    'reset-command-policy',
   ]);
-  assert.equal(TREE_ACTION_IDS.length, 7);
+  assert.equal(TREE_ACTION_IDS.length, 9);
   assertPinnedHash('TREE_ACTION_IDS', sha256(JSON.stringify(TREE_ACTION_IDS)), TREE_ACTION_IDS_JSON_SHA256);
 });
 

@@ -87,9 +87,11 @@ function makeTransport(mode: TransportMode = 'ok'): TransportHarness {
         if (mode === 'throw') throw new Error('transport down');
         if (mode === 'fail') return { ok: false, error: '后台无响应' } as never as { ok: boolean; data?: T };
         const data =
-          mode === 'not-revoked'
-            ? { revoked: false, hostPermissionRemoved: false, contentScript: { ok: true } }
-            : { revoked: true, hostPermissionRemoved: true, contentScript: { ok: true } };
+          msg.kind === 'command-policy-set' || msg.kind === 'command-policy-reset'
+            ? { ok: true, changed: true, text: `${msg.kind} ok（测试注入回执）` }
+            : mode === 'not-revoked'
+              ? { revoked: false, hostPermissionRemoved: false, contentScript: { ok: true } }
+              : { revoked: true, hostPermissionRemoved: true, contentScript: { ok: true } };
         return { ok: true, data } as never as { ok: boolean; data?: T };
       },
     },
@@ -150,24 +152,41 @@ interface Case {
   toolHint?: string;
   /** 期望被调用的既有通路（ops spy 名 / `transport`）。 */
   path: string;
+  /** R2：transport 通路期望的**唯一**消息 kind（每动作 → 恰一条通路）。 */
+  messageKind?: string;
 }
 
+// R2 (2026-09-13) — supersession S2 (ADR-V2-031): 9 actions, each mapping to
+// exactly one existing/server path. The two new actions map to the two new
+// `command-policy-*` message kinds (no bypass).
 const CASES: Case[] = [
-  { actionId: 'revoke-origin', target: { origin: 'https://a.test' }, toolHint: 'site_a', path: 'transport' },
+  { actionId: 'revoke-origin', target: { origin: 'https://a.test' }, toolHint: 'site_a', path: 'transport', messageKind: 'revoke' },
   { actionId: 'revoke-capability', target: { capability: 'bookmarks' }, path: 'revokeCapability' },
   { actionId: 'set-capability-toggle', target: { capability: 'bookmarks', scope: 'read', enabled: false }, path: 'setCapabilityPrivacy' },
   { actionId: 'set-tabs-toggle', target: { enabled: false }, path: 'setTabsSetting' },
   { actionId: 'clear-auto-auth', target: { origin: 'https://a.test' }, path: 'clearAutoAuth' },
   { actionId: 'disconnect-llm', target: {}, path: 'clearLlm' },
   { actionId: 'dissolve-group', target: { groupId: 'grp-1' }, path: 'groupAction' },
+  // R2 new actions: tightening desired (`deny`) needs no confirmation.
+  {
+    actionId: 'set-command-policy',
+    target: { command: { tool: 'read-tool' }, policyAction: 'deny', defaultAction: 'allow' },
+    path: 'transport',
+    messageKind: 'command-policy-set',
+  },
+  { actionId: 'reset-command-policy', target: { command: { tool: 'read-tool' } }, path: 'transport', messageKind: 'command-policy-reset' },
 ];
 
 // ---------------------------------------------------------------------------
-// 1. 封闭白名单（7 值）
+// 1. 封闭白名单（9 值）
 // ---------------------------------------------------------------------------
 
-test('tree-ops: the action union is closed at exactly 7 values', () => {
-  assert.equal(TREE_ACTION_IDS.length, 7);
+// R2 (2026-09-13) — supersession S1 (ADR-V2-031, `removed=0`): the closed union
+// grows 7 → 9 with `set-command-policy` / `reset-command-policy`. Deviation from
+// the plan's loose wording: `command-allow` is **kept as a negative** (it is still
+// not a whitelisted action id — only the two `*-command-policy` ids were added).
+test('tree-ops: the action union is closed at exactly 9 values (R2 supersession S1)', () => {
+  assert.equal(TREE_ACTION_IDS.length, 9);
   assert.deepEqual([...TREE_ACTION_IDS], [
     'revoke-origin',
     'revoke-capability',
@@ -176,19 +195,23 @@ test('tree-ops: the action union is closed at exactly 7 values', () => {
     'clear-auto-auth',
     'disconnect-llm',
     'dissolve-group',
+    'set-command-policy',
+    'reset-command-policy',
   ]);
   for (const id of TREE_ACTION_IDS) assert.equal(isTreeActionId(id), true);
-  // 不是白名单内的值一律 false：撤销面**不做** grant / request / 命令级覆盖。
-  for (const bad of ['grant-origin', 'request-permission', 'command-allow', 'set-command-policy', '', undefined, 7]) {
+  // 白名单外一律 false：不做 grant / request，也没有 `command-allow` 之类的泛化写动作。
+  for (const bad of ['grant-origin', 'request-permission', 'command-allow', 'reset-command-policy ', '', undefined, 7]) {
     assert.equal(isTreeActionId(bad), false, `${String(bad)} must not be a whitelisted action`);
   }
 });
 
 // ---------------------------------------------------------------------------
-// 2. 7/7 唯一映射既有通路
+// 2. 9/9 唯一映射既有通路
 // ---------------------------------------------------------------------------
 
-test('tree-ops: each of the 7 actions maps to exactly one existing path (no side calls)', async () => {
+// R2 (2026-09-13) — supersession S2 (ADR-V2-031): 9 actions, each mapping to
+// exactly one existing/server path (no side calls).
+test('tree-ops: each of the 9 actions maps to exactly one existing path (no side calls, R2 supersession S2)', async () => {
   for (const c of CASES) {
     const h = harness({ tool: 'site_a' });
     const outcome = await h.run({ actionId: c.actionId, ...(c.target ? { target: c.target } : {}), ...(c.toolHint ? { toolHint: c.toolHint } : {}), confirmed: true });
@@ -196,10 +219,10 @@ test('tree-ops: each of the 7 actions maps to exactly one existing path (no side
     const transportCalls = h.count();
     const opsCalls = totalOpsCalls(h);
     if (c.path === 'transport') {
-      assert.equal(transportCalls, 1, `${c.actionId}: revoke message sent exactly once`);
+      assert.equal(transportCalls, 1, `${c.actionId}: exactly one message sent`);
       assert.equal(opsCalls, 0, `${c.actionId}: must not call any SettingsOps write`);
-      assert.equal(h.sent.at(-1)?.kind, 'revoke');
-      assert.equal(h.sent.at(-1)?.origin, 'https://a.test');
+      assert.equal(h.sent.at(-1)?.kind, c.messageKind, `${c.actionId}: unique message path`);
+      if (c.messageKind === 'revoke') assert.equal(h.sent.at(-1)?.origin, 'https://a.test');
     } else {
       assert.equal(transportCalls, 0, `${c.actionId}: must not send any message`);
       assert.equal(h.counts[c.path], 1, `${c.actionId}: ${c.path} called exactly once`);
@@ -231,7 +254,9 @@ test('tree-ops: no default write branch — a non-whitelisted actionId writes no
 // 4. needsConfirmation（逐动作）+ 未确认 ⇒ 零操作
 // ---------------------------------------------------------------------------
 
-test('tree-ops: needsConfirmation matches the whitelist; unconfirmed ⇒ zero operation', async () => {
+// R2 (2026-09-13) — supersession S3 (ADR-V2-031): 9 actions + the widening-only
+// conditional confirmation for `set-command-policy`.
+test('tree-ops: needsConfirmation matches the whitelist; unconfirmed ⇒ zero operation (R2 supersession S3)', async () => {
   for (const c of CASES) {
     const h = harness();
     const expected = needsConfirmation(c.actionId);
@@ -241,12 +266,66 @@ test('tree-ops: needsConfirmation matches the whitelist; unconfirmed ⇒ zero op
       assert.equal(h.count(), 0, `${c.actionId}: unconfirmed must not send any message`);
       assert.equal(totalOpsCalls(h), 0, `${c.actionId}: unconfirmed must not call any ops`);
       assert.match(outcome.receipt.text, /未收到显式确认|未执行任何操作/);
+    } else if (c.path === 'transport') {
+      // R2: tightening override / reset are reversible → run without confirmation.
+      assert.equal(outcome.receipt.ok, true, `${c.actionId}: runs without confirmation`);
+      assert.equal(h.count(), 1, `${c.actionId}: exactly one message sent`);
+      assert.equal(totalOpsCalls(h), 0, `${c.actionId}: no SettingsOps write`);
     } else {
       // reversible toggles run without confirmation
       assert.equal(outcome.receipt.ok, true, `${c.actionId}: reversible toggle runs without confirmation`);
       assert.equal(totalOpsCalls(h), 1);
     }
   }
+});
+
+// R2: the widening direction of `set-command-policy` requires explicit confirmation.
+test('tree-ops: widening command-policy needs explicit confirmation (zero operation otherwise)', async () => {
+  const unconfirmed = harness();
+  const blocked = await unconfirmed.run({
+    actionId: 'set-command-policy',
+    target: { command: { tool: 'dom' }, policyAction: 'allow', defaultAction: 'ask' },
+  });
+  assert.equal(blocked.receipt.ok, false);
+  assert.equal(blocked.receipt.kind, 'warn');
+  assert.match(blocked.receipt.text, /放宽方向|确认/);
+  assert.equal(unconfirmed.count(), 0, 'unconfirmed widening must not send any message');
+  assert.equal(totalOpsCalls(unconfirmed), 0);
+
+  const confirmed = harness();
+  const ran = await confirmed.run({
+    actionId: 'set-command-policy',
+    target: { command: { tool: 'dom' }, policyAction: 'allow', defaultAction: 'ask' },
+    confirmed: true,
+  });
+  assert.equal(ran.receipt.ok, true);
+  assert.equal(confirmed.count(), 1);
+  assert.equal(confirmed.sent.at(-1)?.kind, 'command-policy-set');
+
+  // Tightening (`deny`) is never gated by confirmation.
+  const tighten = harness();
+  const tightened = await tighten.run({
+    actionId: 'set-command-policy',
+    target: { command: { tool: 'dom' }, policyAction: 'deny', defaultAction: 'ask' },
+  });
+  assert.equal(tightened.receipt.ok, true);
+  assert.equal(tighten.count(), 1);
+});
+
+// R2: reset-command-policy supports both single and all-reset via one unique path.
+test('tree-ops: reset-command-policy (single / all) uses the unique reset path', async () => {
+  const single = harness();
+  const one = await single.run({ actionId: 'reset-command-policy', target: { command: { tool: 'dom', subcommand: 'read-state' } } });
+  assert.equal(one.receipt.ok, true);
+  assert.equal(single.sent.at(-1)?.kind, 'command-policy-reset');
+  const all = harness();
+  const every = await all.run({ actionId: 'reset-command-policy', target: { resetAll: true } });
+  assert.equal(every.receipt.ok, true);
+  assert.equal(all.sent.at(-1)?.kind, 'command-policy-reset');
+  const missing = harness();
+  const bad = await missing.run({ actionId: 'reset-command-policy', target: {} });
+  assert.equal(bad.receipt.kind, 'err');
+  assert.equal(missing.count(), 0, 'missing target → zero operation');
 });
 
 // ---------------------------------------------------------------------------

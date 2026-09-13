@@ -21,10 +21,10 @@
 import type { EnvGuardResult } from '../../platform/env-guard.js';
 import { OPTIONAL_CAPABILITY_TOOL, type OptionalCapability } from '../../platform/capability-permissions.js';
 import { makeMessage, type PluginResponse } from '../../background/messaging.js';
-import type { CommandNode, ConnectTreeSnapshot, TreeActionId } from '../../insight/tree-model.js';
+import { STABLE_KEY, type CommandNode, type ConnectTreeSnapshot, type TreeActionId } from '../../insight/tree-model.js';
 import type { OpResult, SettingsOps, SettingsTransport } from '../settings/ops.js';
 import type { TreeActionTarget } from './tree-view.js';
-import { needsConfirmation } from './tree-view.js';
+import { commandPolicyNeedsConfirmation, needsConfirmation } from './tree-view.js';
 import {
   AUDIT_ENTRY_HINT,
   AUDIT_ENTRY_POINT,
@@ -34,7 +34,13 @@ import {
   type TreeReceipt,
 } from './tree-receipt.js';
 
-/** 封闭动作白名单（7 值，固定序）。 */
+/**
+ * 封闭动作白名单（R2：**9 值**，固定序；ADR-V2-027 扩展 ADR-V2-008）。
+ *
+ * 前 7 个 = 撤销/关断面（只走既有 fail-closed 通路，永不放宽）；后 2 个 = 命令级用户
+ * 覆盖（**唯一**映射新增 `command-policy-set` / `command-policy-reset` 消息通路，服务端
+ * clamp 仍强制）。白名单外一律零写入（无默认写入分支）。
+ */
 export const TREE_ACTION_IDS: readonly TreeActionId[] = [
   'revoke-origin',
   'revoke-capability',
@@ -43,6 +49,8 @@ export const TREE_ACTION_IDS: readonly TreeActionId[] = [
   'clear-auto-auth',
   'disconnect-llm',
   'dissolve-group',
+  'set-command-policy',
+  'reset-command-policy',
 ];
 
 const TREE_ACTION_ID_SET: ReadonlySet<string> = new Set<string>(TREE_ACTION_IDS);
@@ -95,6 +103,13 @@ interface RevokePayload {
   revoked?: boolean;
   hostPermissionRemoved?: boolean;
   contentScript?: { ok?: boolean; id?: string; pattern?: string; reason?: string; alreadyRegistered?: boolean };
+}
+
+/** R2：`command-policy-set` / `command-policy-reset` 的可读回执形状（additive）。 */
+interface CommandPolicyMutationView {
+  ok?: boolean;
+  changed?: boolean;
+  text?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -269,6 +284,69 @@ export function createTreeOps(deps: TreeOpsDeps): TreeOps {
     return finish('dissolve-group', res, undefined, '分组只共享对话，不代表互相授权；本操作不触及任何站点授权。');
   }
 
+  /**
+   * R2：命令级覆盖设置（**唯一**消息通路 `command-policy-set`）。
+   *
+   * 本地不做任何判定 —— 写入由 SW 覆盖 store 完成，硬底线 clamp 由 SW 的判定链强制
+   * （伪造消息/绕过 UI 也不能突破）。失败可读、零静默失败。
+   */
+  async function setCommandPolicy(req: TreeActionRequest): Promise<TreeActionOutcome> {
+    const cmd = req.target?.command;
+    const desired = req.target?.policyAction;
+    if (!cmd?.tool || !desired) {
+      return finish('set-command-policy', errResult('命令级覆盖缺少作用对象（command.tool / policyAction）：零操作'), undefined);
+    }
+    const commandId = STABLE_KEY.command(cmd.tool, cmd.subcommand);
+    const nextStep = '硬底线（evaluate / 未授权 origin / 未知 risk / 破坏性 / ui·state·external 放宽方向）不可覆盖：覆盖后仍按硬底线执行。';
+    let res: PluginResponse<CommandPolicyMutationView>;
+    try {
+      res = await deps.transport.send<CommandPolicyMutationView>(
+        makeMessage('command-policy-set', { commandId, policyAction: desired }),
+      );
+    } catch (err) {
+      return finish('set-command-policy', errResult(`命令级覆盖请求异常：${errText(err)}`), undefined, '请重试；若持续失败请查看审计。');
+    }
+    if (!res.ok || !res.data) {
+      return finish('set-command-policy', errResult(`命令级覆盖失败：${res.error ?? '后台无响应'}`), undefined, nextStep);
+    }
+    const data = res.data;
+    const changed = data.changed === true;
+    const kind = data.ok === true ? (changed ? 'ok' : 'warn') : 'err';
+    return finish(
+      'set-command-policy',
+      { ok: data.ok === true, kind, text: data.text ?? `命令级覆盖：${commandId} → ${desired}` },
+      undefined,
+      nextStep,
+    );
+  }
+
+  /** R2：命令级覆盖恢复默认（单条 / 全部；**唯一**消息通路 `command-policy-reset`）。 */
+  async function resetCommandPolicy(req: TreeActionRequest): Promise<TreeActionOutcome> {
+    const all = req.target?.resetAll === true;
+    const cmd = req.target?.command;
+    if (!all && !cmd?.tool) {
+      return finish('reset-command-policy', errResult('恢复默认缺少作用对象（command.tool 或 resetAll=true）：零操作'), undefined);
+    }
+    const payload: Record<string, unknown> = all ? { all: true } : { commandId: STABLE_KEY.command(cmd!.tool, cmd!.subcommand) };
+    let res: PluginResponse<CommandPolicyMutationView>;
+    try {
+      res = await deps.transport.send<CommandPolicyMutationView>(makeMessage('command-policy-reset', payload));
+    } catch (err) {
+      return finish('reset-command-policy', errResult(`恢复默认请求异常：${errText(err)}`), undefined, '请重试；若持续失败请查看审计。');
+    }
+    if (!res.ok || !res.data) {
+      return finish('reset-command-policy', errResult(`恢复默认失败：${res.error ?? '后台无响应'}`), undefined, '请重试。');
+    }
+    const data = res.data;
+    const changed = data.changed === true;
+    return finish(
+      'reset-command-policy',
+      { ok: data.ok === true, kind: data.ok === true ? (changed ? 'ok' : 'warn') : 'err', text: data.text ?? '已恢复默认。' },
+      undefined,
+      '恢复默认后可再次在树内设置该命令的处置档。',
+    );
+  }
+
   return {
     async run(req: TreeActionRequest): Promise<TreeActionOutcome> {
       const actionId: unknown = req?.actionId;
@@ -277,7 +355,7 @@ export function createTreeOps(deps: TreeOpsDeps): TreeOps {
         return zeroOutcome(
           'err',
           `未知动作「${String(actionId)}」不在封闭白名单内：零操作（不发送任何消息、不调用任何 ops）。`,
-          '只允许封装的 7 个撤销/关断动作。',
+          '只允许封装的 9 个动作（7 个撤销/关断 + 2 个命令级覆盖）。',
         );
       }
       if (!deps.env.inExtension) {
@@ -289,6 +367,18 @@ export function createTreeOps(deps: TreeOpsDeps): TreeOps {
           'warn',
           `已取消「${actionId}」：未收到显式确认，未执行任何操作（fail-closed）。`,
           '如需执行，请在弹出的确认摘要中点「确认执行」。',
+        );
+      }
+      // R2：命令级覆盖的「放宽方向」条件确认（收紧/恢复默认不需确认）。
+      if (
+        actionId === 'set-command-policy' &&
+        commandPolicyNeedsConfirmation(req.target?.policyAction, req.target?.defaultAction) &&
+        req.confirmed !== true
+      ) {
+        return zeroOutcome(
+          'warn',
+          `已取消「set-command-policy」：放宽方向（desired allow 且相对默认档是放宽）需显式确认，未执行任何操作（fail-closed）。`,
+          '如需执行，请在弹出的确认摘要中点「确认执行」；收紧（ask/deny）与恢复默认无需确认。',
         );
       }
 
@@ -307,6 +397,10 @@ export function createTreeOps(deps: TreeOpsDeps): TreeOps {
           return disconnectLlm();
         case 'dissolve-group':
           return dissolveGroup(req);
+        case 'set-command-policy':
+          return setCommandPolicy(req);
+        case 'reset-command-policy':
+          return resetCommandPolicy(req);
       }
       // 类型上不可达；保留为**零写入**兜底（绝不在此新增写入）。
       return zeroOutcome('err', '未知动作：零操作。');

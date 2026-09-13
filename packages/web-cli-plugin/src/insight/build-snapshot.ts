@@ -7,7 +7,7 @@
  */
 import { projectInsightTree, summarizeInsight, type InsightSource, type ProjectOptions } from './project-tree.js';
 import type { CapabilityCatalogDeps } from './capability-catalog.js';
-import type { ToolSurfaceEntry } from './command-catalog.js';
+import type { CommandOverrideLookup, ToolSurfaceEntry } from './command-catalog.js';
 import type {
   CatalogMeta,
   ConnectTreeSnapshot,
@@ -37,6 +37,8 @@ export interface InsightTreeDeps {
   degradations?: readonly SnapshotDegradation[];
   catalogMeta?: CatalogMeta;
   builtAt?: () => number;
+  /** R2：纯读的用户覆盖查询（透传给投影；本模块零 IO、零写）。 */
+  overrides?: CommandOverrideLookup;
 }
 
 /** 规范化注入数据为 `InsightSource`（**不 mutate 输入**；数组均复制）。 */
@@ -69,6 +71,8 @@ export async function buildInsightTreePayload(deps: InsightTreeDeps): Promise<In
     ...(deps.degradations ? { degradations: [...deps.degradations] } : {}),
     ...(deps.catalogMeta ? { catalogMeta: { ...deps.catalogMeta } } : {}),
     ...(deps.builtAt ? { builtAt: deps.builtAt() } : {}),
+    // R2：纯读访问器（不复制、不变换；投影内部只读取覆盖值）。
+    ...(deps.overrides ? { overrides: deps.overrides } : {}),
   };
 }
 

@@ -216,3 +216,18 @@ insight-no-escalation.test.js ℹ tests 12 pass 12 fail 0   （V2-1 基础段 5 
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-3（Wave 10~13 / TASK-001~010）实施构建报告：封闭 7 动作白名单（无默认写入分支）+ 三件套回执（重拉实测）+ 二次确认（拒绝=零操作）+ AC-V2-005 六条反向断言与 allow 单调性 + 判定链冻结门禁 + `binding` `#21a…` 撤销链 + 人工面 H-1~H-6。全量门禁串行全绿；D-V23-01（`revoke` 追加 `deactivateSite` 一行）与 D-V23-02（DOM 点击口径）已登记。 | 2026-09-13 | SDDU Build Agent |
 | v1.1 | R2 修复轮：T1（`binding` `#21o*` 树侧撤销成功路径最佳努力 + 如实 observe）/ T2（去静默吞异常）/ W3（判定链哈希钉死复核）；门禁全量串行复跑：typecheck 0 / 插件 npm test 616 / test:insight 52 / test:ui 167 / test:hardening 24 / test:binding 180 / test:e2e PASS / 全仓 base 483 + plugin 616 = 0 fail。判定链零 diff（W3 pin 对值）。 | 2026-09-13 | SDDU Build Agent |
+
+---
+
+## 15. R2 实施构建（第 12 轮 · R2 build 第 1 轮）
+
+> 完整聚合见父 `build.md` §9。本轮 **R2-V23-01~06 完成**；**R2-V23-07（`binding #22a`）留待下一轮**。
+
+- **产出**：`src/security/command-override.ts`（新：`withCommandOverride` 重排 `[S1,S3,override,S2]` + `resolveCommandPolicy`/`clampActionForRisk` + kv 注入 store + 审计）；`host.ts`（组合 + `guardedOnAsk` + `commandOverrides` 注入）；`service-worker.ts`（store 单例 + `command-policy`/`-set`/`-reset` 3 cases + 投影注入 + `overrideState.overrideCount`）；`messaging.ts`/`insight-protocol.ts`（additive 3 kind，**未**入 `KIND_SET`）；`tree-ops.ts`（白名单 **7→9** + 两分支 + 保留无默认写入兜底 + 放宽类条件确认）；`audit-sink.ts`（additive 类型 `command-policy`）。
+- **门禁**：`test/command-override.test.ts`（14 tests：逐档 clamp / 组合锚定 / 持久/继承/幂等/无半写/串行/读失败降级/审计零明文）+ `test/insight-override-security.test.ts`（10 tests：AC-V2-025 反向断言①~⑤ + `dom`/`dom read-state` 三档 + 显式 ask 守卫 + 服务端强制反证）；`test/tree-ops.test.ts` S1/S2/S3；`insight-no-escalation` S12。
+- **判定链零改动**：`policy.ts=bfcb2ede…` / `auto-authorize.ts=1096d065…`（内容哈希 pin 不变）；`content.js` 恒 1,073,453 B（新 kind 未入 `KIND_SET`）。
+- **未完成**：`binding.mjs #22a…`（覆盖三档 → dispatch 反映 / reset / 持久化的 Chromium 链）留待下一轮；`sidepanel.js` 实测 1,138,591 B ≤ ceiling 1,189,385（本轮无需重登记）。
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.2 | R2 实施构建第 1 轮（V2-3 覆盖引擎）：SW 侧 clamp/存储生命周期/消息面/白名单 7→9 + 三个门禁文件；`policy`/`auto-authorize` sha256 不变、零新权限、base 零 diff；`binding #22a` 留待下一轮（如实登记）。 | 2026-09-13 | SDDU Build Agent |

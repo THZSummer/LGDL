@@ -185,9 +185,155 @@
 
 ---
 
+## 9. R2 实施构建（第 12 轮 · R2 build 第 1 轮：R2-Wave 1 + Wave 2）
+
+> **范围**：仅 **V2-1 模型层（R2-V21-01~05，Wave 1/5）** + **V2-3 覆盖引擎（R2-V23-01~06，Wave 2/5）**；**不做** V2-2 UI（R2-V22-*）与 V2-4 档案（R2-V24-*）。
+> **授权**：编排器代作者决策（2026-09-13 授权）+ R2；开放点自行裁决并逐条登记为 D-R2B-01~08。
+> **纪律**：不碰 `main` / 不碰 `packages/web-cli-base/**`（红线）/ 不改 v1 SDDU / 不碰 `options.html` / 无新依赖 / 零新权限 / 门禁严格串行（一次一个）/ 完整日志落盘（`docs/dev.md` §6.1）。
+> **phase**：不回退（父 `tasked` / 四叶 `validated` 原样）；本轮在父 + V2-1/V2-3 叶 `state.json` 追加 `revisionRounds.R2.buildRounds[0]`。
+
+### 9.1 逐任务完成清单
+
+| 任务 | 内容 | 状态 | 证据 |
+|------|------|:--:|------|
+| R2-V21-01 | 纯归属树 `src/insight/ownership-tree.ts`（真父子层级 + 主归属链 + 交叉引用；不复制节点；快照扁平面不动） | ✅ | `test/insight-tree-hierarchy.test.ts`（作者两例逐层枚举 / nodeId 唯一 / 多归属 / 扁平面不变 / 反证） |
+| R2-V21-02 | `tree-model.ts` additive 字段（`defaultAction`/`overrideAction?`/`effectiveAction`/`overridable`/`clampReason?`；`ControlKind+'command-policy'`；`TreeActionId+2`）+ `command-catalog.ts` 默认/生效分列 + 分层控件 + 偏差文案删除 | ✅ | 偏差文案 `grep -rn` **零命中**；`tree-view.test`/`insight-archive` 全绿；`insight-projection` deny⇒controls:[] 零回归 |
+| R2-V21-03 | `project-tree.ts` 注入 `overrides` + 覆盖面分列（live vs baseline）+ 派生 `ownershipTree`（**不进 `meta.hash` 输入**） | ✅ | `insight-tree-hierarchy`：determinism/hash 重算/coverage 分列 + 反证 |
+| R2-V21-04 | `build-snapshot.ts` 透传 `overrides`（薄 builder，纯读零副作用） | ✅ | 投影前后存储 diff 为空；`insight-determinism` 零回归 |
+| R2-V21-05 | 模型门禁 `test/insight-tree-hierarchy.test.ts`（AC-V21-008~010）+ 既有门禁零回归核验 | ✅ | 11 tests；`removed=0`（git diff --unified=0 删除行=0 + 解析器反证） |
+| R2-V23-01 | `src/security/command-override.ts`：`withCommandOverride`（重排 `[S1,S3,override,S2]`）+ `resolveCommandPolicy`/`clampActionForRisk`（硬底线 > 覆盖 > 默认；只收紧） | ✅ | `test/command-override.test.ts` 逐档表；`policy.ts`/`auto-authorize.ts` sha256 不变 |
+| R2-V23-02 | 覆盖存储/生命周期（键 `web-cli:command-policy`；单键整对象原子写 + 串行队列 + 无半写 + 同值幂等 + 读失败降级 + 恢复默认单条/全部 + 审计 `command-policy` 零明文） | ✅ | `test/command-override.test.ts`（persist/inherit/idempotent/reset/no-half-write/race/read-fail/audit） |
+| R2-V23-03 | `host.ts` 组合（`policy: withCommandOverride(createPluginPolicyConfig(deps, guardedOnAsk), {...})` + `commandOverrides` 注入） | ✅ | `test/insight-override-security.test.ts` ⑦（显式 ask 不被 auto-allow 吞掉 + 基线零变化） |
+| R2-V23-04 | 覆盖消息面（`service-worker.ts` 3 cases + `messaging.ts`/`insight-protocol.ts` additive；`pushInsightChanged`；`state.insight.overrideCount`） | ✅ | additive kind 未加入 `KIND_SET`（content.js 恒 1,073,453 B）；`command-policy*` 经既有校验点 |
+| R2-V23-05 | `tree-ops.ts` 白名单 **7 → 9** + 两分支 + 保留「无默认写入分支」兜底 + 放宽类条件确认 | ✅ | `test/tree-ops.test.ts` S1/S2/S3；`insight-no-escalation` S12 |
+| R2-V23-06 | 覆盖门禁 `test/command-override.test.ts` + `test/insight-override-security.test.ts`（AC-V2-024/025 全项 + 反向断言①~⑤ + 服务端强制反证） | ✅ | 24 tests（10 security + 14 override）；真实 `host.dispatch` |
+| R2-V23-07 | `test/ui/binding.mjs` 追加 `#22a…` | ⏸ 留待下一轮（按本轮指令**不**追加 #22a，保持既有 180 零删改） | — |
+
+> V2-2（R2-V22-01~06）与 V2-4（R2-V24-01~05）**未在本轮范围内** → 未完成（见 §9.8）。
+
+### 9.2 文件变更
+
+| 操作 | 文件 | 说明 |
+|:--:|------|------|
+| NEW | `packages/web-cli-plugin/src/insight/ownership-tree.ts` | 纯归属树（`buildOwnershipTree` / `collectOwnershipNodes` / `ownershipNodeFor` / `ownershipPathFor`；零 IO/零 chrome） |
+| NEW | `packages/web-cli-plugin/src/security/command-override.ts` | clamp + 组合 + kv 注入 store（零 `chrome.*`） |
+| NEW | `packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts` | 模型门禁（11 tests） |
+| NEW | `packages/web-cli-plugin/test/command-override.test.ts` | 覆盖存储/lifecycle 门禁（14 tests） |
+| NEW | `packages/web-cli-plugin/test/insight-override-security.test.ts` | clamp 反向断言 + 服务端强制（10 tests） |
+| MODIFY | `src/insight/tree-model.ts` | additive 字段/联合扩展 + `CoverageSplit` + `ownershipTree`/`coverage` |
+| MODIFY | `src/insight/command-catalog.ts` | 分列 + 分层控件（删偏差文案）+ `overrides` 注入 |
+| MODIFY | `src/insight/project-tree.ts` | `overrides` + `coverage` + 派生 `ownershipTree`（hash 输入不变） |
+| MODIFY | `src/insight/build-snapshot.ts` | 透传 `overrides`（薄 builder） |
+| MODIFY | `src/security/audit-sink.ts` | additive 审计类型 `command-policy` |
+| MODIFY | `src/background/host.ts` | `withCommandOverride` 组合 + `guardedOnAsk` + `commandOverrides` 注入 |
+| MODIFY | `src/background/service-worker.ts` | `commandPolicy` 单例 + load + 3 cases + 投影注入 + `overrideCount` |
+| MODIFY | `src/background/messaging.ts` | additive 3 kind（**未**加入 `KIND_SET`） |
+| MODIFY | `src/background/insight-protocol.ts` | additive kind 校验（`ADDITIVE_MESSAGE_KINDS`） |
+| MODIFY | `src/ui/tree/tree-ops.ts` | 白名单 9 + `set/reset-command-policy` 分支 + 放宽类确认 |
+| MODIFY | `src/ui/tree/tree-view.ts` | `TREE_NO_ESCALATION_NOTE` 两通路重写 + `commandPolicyNeedsConfirmation` + `TreeActionTarget` 扩展 |
+| MODIFY | `test/tree-ops.test.ts` / `test/tree-view.test.ts` / `test/insight-no-escalation.test.ts` / `test/insight-archive.test.ts` | 按 §9.4 显式取代（`removed=0`） |
+
+### 9.3 关键实现与证据
+
+**A. 真树形（FR-V2-070/071，AC-V2-020/021）**
+
+- 作者示例①逐层枚举（实跑 `ownershipPathFor(snapshot.ownershipTree,'cmd:site_notes#list')`）：
+  `连接树 → 授权的站点 → 站点 https://a.test → 支持的命令 → site_notes → site_notes list`
+- 作者示例②逐层枚举（`cmd:dom#read-state`）：
+  `连接树 → 支持的命令 → 系统内置命令 → dom → dom read-state`
+- **不复制节点**：全树 `id` 唯一（Set.size === length）；snapshot-backed `nodeId` 唯一。
+- **多归属**：`cap:opt:bookmarks` `mainOwner=capability`、`crossRefCount>=1`（命令面引用，徽标「亦被 1 处引用（命令面）」）；`cmd:bookmarks` 交叉引用下钻解析到**同一** `nodeId`。
+- **扁平面未变**：`groups[2].children` 仍为无 `children` 的扁平 `CommandNode`；`meta.hash` 重算与不带 `ownershipTree` 的输入一致；含 `ownershipTree` 的哈希 ≠ `meta.hash`（证明树不进 hash 输入）。
+- 反证：清空 face 的孙层 → 层级谓词 `maxDepth>=4` 为 false，断言必须拒绝。
+
+**B. 覆盖引擎接入点（FR-V2-076，ADR-V2-024/025）**
+
+- 接入点（`src/background/host.ts#createWebCliHost`）：
+  `policy: withCommandOverride(createPluginPolicyConfig({...}, guardedOnAsk), { resolveOverride, isDestructive })`
+- 策略链顺序（按 name 锚定，缺一抛错）：`[S1-origin-authorization, S3-fail-closed, command-override, S2-untrusted-declared]`；无覆盖时覆盖策略返回 `null` → 与 R2 前逐字节一致。
+- clamp 逐档实现（`resolveCommandPolicy` 模型侧 / `clampActionForRisk` 判定链侧，逐档单测）：
+
+| 档 / 类别 | 默认 | 覆盖 allow | 覆盖 ask | 覆盖 deny | 判据 |
+|-----------|:--:|:--:|:--:|:--:|------|
+| read（`dom read-state`） | allow | ✅ allow | ✅ ask | ✅ deny | `risk==='read'` |
+| write·非破坏性（`dom type`） | ask | ✅ allow | ✅ ask | ✅ deny | `risk==='write' && !destructive` |
+| 破坏性写（`dom remove`） | ask | ⚠️ clamp→null（保底 ask） | ✅ ask | ✅ deny | `DESTRUCTIVE_VERBS.has(sub)` |
+| ui（`dom click`） | ask | ❌ null（不放宽） | ✅ ask | ✅ deny | `risk==='ui'` |
+| state / external | ask | ❌ null | ✅ ask | ✅ deny | `risk==='state'\|'external'` |
+| evaluate | deny | ❌ null | ❌ null | ❌ null | `risk==='evaluate'`（首行硬拒绝） |
+| 未知/非法 risk（S3，sleep/web-cli-help） | deny | ⚠️ 返回 deny（更保守） | ✅ ask | ✅ deny | `!isToolRisk(risk)` |
+| 未授权 origin（S1） | deny | ❌ 不可达（S1 先短路） | — | — | 顺序 `[S1,S3,override,S2]` |
+| `dom`（工具级容器） | ask | ✅ 可设（继承） | ✅ | ✅ | 容器 `overridable:true`，子命令按各自 effective risk 再 clamp |
+
+- **冻结文件 sha256（自算，未变）**：`policy.ts=bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8`；`auto-authorize.ts=1096d065dac63d56e36285bf499eee041acdc3e323d4c7215df3981af7d0ef4b`。
+
+**C. 覆盖存储生命周期（FR-V2-075，ADR-V2-026）**：单键 `web-cli:command-policy`（`{version:1, entries:{[commandId]:{action,updatedAt}}}`）；`cmd:<t>#<s>` > `cmd:<t>` > 默认；单键整对象原子写 + 串行队列 + 写成功才提交内存（无半写）+ 同值幂等（不写/不审计）+ 读失败降级为「无覆盖」+ 恢复默认（单条/全部）+ 审计 `command-policy` 零明文（与 revoke/auto-authorize 可分辨）。
+
+**D. 服务端强制反证（AC-V2-025，ADV-V23-06）**：真实 `host.dispatch` 上——
+① `x-evaluate` 覆盖 allow 仍 deny（asked=0）；② 未授权 origin 覆盖 allow 仍 deny（S1 先短路）；③ `sleep`/`web-cli-help` 覆盖 allow 仍 deny；④ `x-destructive#remove` 覆盖 allow 仍 ask（asked=1）、`#go` 同层 allow 放行；⑤ `x-ui`/`x-state`/`x-external` 覆盖 allow 不 allow（落基线 ask）、覆盖 deny 直接拒绝；⑥ `dom`/`dom read-state` 三档实跑 + `dom click`（ui）恒不放宽；⑦ 显式 ask 不被写自动授权静默放行（有覆盖 → 人工确认；无覆盖 → 写自动放行，基线不变）；⑧ **伪造消息/绕过 UI**：`store.set(...)` 直注入 → dispatch 仍 clamp；反证 naive UI-only 无条件 allow 策略会放行（证明 clamp 是承重墙）。
+
+### 9.4 断言取代台账（removed=0；总数只增）
+
+| # | old（文件 :: 断言） | new（替代） | 备注 |
+|---|----|----|----|
+| S1 | `tree-ops.test.ts :: the action union is closed at exactly 7 values` | `… exactly 9 values（R2 supersession S1）` | 保留 `grant-origin`/`request-permission`/`command-allow` 负例（D-R2B-01） |
+| S2 | `tree-ops.test.ts :: each of the 7 actions maps to exactly one existing path` | `… each of the 9 actions …（R2 supersession S2）` | 新增 `set-command-policy→command-policy-set`、`reset-command-policy→command-policy-reset` 唯一映射断言 |
+| S3 | `tree-ops.test.ts :: needsConfirmation matches the whitelist` | `…（R2 supersession S3）` + 放宽类条件确认新测试 | 1:1 + 净增 |
+| S7 | `tree-view.test.ts :: needsConfirmation is correct for all 7 actions` | `… all 9 actions（R2 supersession S7）` + `commandPolicyNeedsConfirmation` 5 断言 | 联合扩展强依赖的最小连带 |
+| S9 | `insight-archive.test.ts :: TREE_ACTION_IDS is exactly 7 values` | `… exactly 9 values（R2 supersession S9）` + pin 显式更新 | pin old→new 见 §9.6 |
+| S10 | `insight-archive.test.ts :: TREE_NO_ESCALATION_NOTE sha256 pin` | pin 显式更新（两通路 + `delay` 消歧保留） | 反证段保留 |
+| S12 | `insight-no-escalation.test.ts :: tree-ops.ts has NO write verb outside the closed whitelist` | 9 个动作 id + 两个新增唯一通路 + 仍禁 grant/request | 硬底线断言只增 |
+| — | `insight-archive.test.ts :: TREE_MODULE_SHA256`（tree-view/tree-ops） | 显式更新 pin（连带走查，非 S 编号） | ADR-V2-027 pin 流程 |
+
+- **断言计数台账**：`test()` 646 → **686（+40，fail 0）**；`assert.*`/`assertPinnedHash` 出现次数 3059 → **3345（+286）**；`test:insight` 70 / `test:ui` **167** / `test:hardening` 24 / `test:binding` **180**（零删减）。
+- **硬底线/安全断言只增**：`policy`/`auto-authorize` 内容哈希 pin、决策表快照 pin、`PLUGIN_RISK_DEFAULTS` pin、parity 零 diff **不变** + 追加 AC-V2-025 反向断言（`insight-override-security`）。
+
+### 9.5 门禁原文（严格串行，一次一个）
+| # | 命令 | 结果 | 完整日志 |
+|:--:|------|------|------|
+| 1 | `npm run typecheck` | **0 error · EXIT=0** | `/tmp/opencode/r2-1/logs/02-typecheck.log` |
+| 2 | `npm test`（插件） | **tests 686 / pass 686 / fail 0 · EXIT=0** | `/tmp/opencode/r2-1/logs/07-npm-test.log` |
+| 3 | `npm run test:insight` | **PASS — 70 assertions · EXIT=0** | `/tmp/opencode/r2-1/logs/09-test-insight.log` |
+| 4 | `npm run test:ui` | **PASS — 167 assertions · EXIT=0** | `/tmp/opencode/r2-1/logs/10-test-ui.log` |
+| 5 | `npm run test:hardening` | **PASS — 24 assertions · EXIT=0**（会重建 dist） | `/tmp/opencode/r2-1/logs/11-test-hardening.log` |
+| 6 | `npm run test:binding` | **PASS — 180 assertions · EXIT=0** | `/tmp/opencode/r2-1/logs/12-test-binding.log` |
+| 7 | `npm run test:e2e` | **PASS — EXIT=0** | `/tmp/opencode/r2-1/logs/13-test-e2e.log` |
+| 8 | `npm test`（全仓） | **EXIT=0**（core 267 / render 94+1skip / router 8 / web 31 / web-cli 84 / web-op-cli 15 / base 483 / plugin 686；fail 0） | `/tmp/opencode/r2-1/logs/14-full-npm-test.log` |
+
+> 未跑项：无（8 项全跑）；无被杀/OOM。
+
+### 9.6 pin 显式更新（前值 / 后值 / 日期 / 来源 / 理由）
+| pin | old | new | 理由 |
+|-----|-----|-----|------|
+| `TREE_ACTION_IDS_JSON_SHA256` | `e5c65cc3…d073` | `71f743ed…c1ac` | 白名单 7→9 |
+| `TREE_NO_ESCALATION_NOTE_SHA256` | `d37fecff…abce` | `cfe96e8a…45d3` | FR-V2-078 两通路重写（保留 `delay` 消歧） |
+| `src/ui/tree/tree-view.ts` | `023f9fc0…8fd5` | `9beb26ea…c744` | 文案 + 确认纯函数 + target 扩展 |
+| `src/ui/tree/tree-ops.ts` | `abf9cdab…9257` | `4163a6cb…d658` | 白名单 9 + 两分支 + 放宽类确认 |
+
+日期 2026-09-13；来源 = `feature/web-cli-plugin` R2 build 第 1 轮实测（`sha256sum`）。
+
+### 9.7 D 编号（本轮决策 / 偏差）
+- **D-R2B-01**：S1 负例 `command-allow` 保留（plan 措辞按字面不成立）——更严，断言只增。
+- **D-R2B-02**：未知/非法 risk 覆盖 allow → 策略返回 `deny`（plan 写 null，但 null 会落回基线 allow，与「仍 deny」矛盾）；无覆盖仍 null（逐字节一致）。
+- **D-R2B-03**：破坏性判据 = `risk==='write' && DESTRUCTIVE_VERBS.has(<调用子命令>)`；不采用「未知→true」默认（否则 `dom read-state` 误判）。
+- **D-R2B-04**：`ui`/`state`/`external`/破坏性 在模型层 `overridable:false` + 零控件 + `clampReason`（按 R2-V21-02 acceptance）；服务端仍允许其 ask/deny 收紧、只禁 allow。
+- **D-R2B-05**：`dom` 工具级按「容器/设置载体」`overridable:true`，由被调用子命令 effective risk 再 clamp（ADR-V2-025 §9.3 口径）；`dom read-state` 三档可达，`dom click` 恒不放宽。
+- **D-R2B-06**：`tree-view.test.ts` S7 最小连带（联合扩展强依赖）；S4/S5/S6/S8 留待 V2-2。
+- **D-R2B-07**：`insight-archive` S9/S10 + `TREE_MODULE_SHA256` 两文件 pin 本轮连带更新（被修改文件的冻结 pin 强依赖）；S11 留待 V2-4。
+- **D-R2B-08**：`sidepanel.js` 实测 **1,138,591 B**（基线 1,132,748，+5,843 B ≈ +0.52%）≤ ceiling 1,189,385 → **本轮无需重登记**；`content.js` 恒 **1,073,453 B**（零增长）。
+
+### 9.8 未完成 / 降级 / 风险
+- **R2-V23-07**（`binding.mjs #22a…`）：未做（本轮指令明确留给下一轮）→ 覆盖链的 Chromium 端到端证据待补；服务端 clamp 已由 node 层真实 `host.dispatch` 覆盖。
+- **V2-2 R2（R2-V22-01~06）**：真层级树 **DOM** 渲染 / 键盘 / 面包屑 / 分层控件 / 两通路文案展示 / `test:insight` 追加 —— 本轮模型层已就绪（`ownershipTree` + `command-policy` 控件描述已产出），UI 层**仍渲染扁平 `rows`**（`tree-view.commandControls` 仍过滤旧 `kind==='none'` → 覆盖控件暂不在 DOM 出现）。
+- **V2-4 R2（R2-V24-01~05）**：档案分层 / 默认-生效分列 / 覆盖面分列 / S11 —— 未做。
+- **风险**：V2-1/V2-3 的 R2 取代项跨叶（S9/S10/TREE_MODULE pin 在 V2-4 测试文件、S7 在 V2-2 测试文件）已在本轮**最小连带**处理，后续轮不得回退；`sidepanel` 体积尚未包含 V2-2 树 DOM 增重，下一轮需按 ADR-V2-033 评估是否重登记。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | P0 收口报告（第 10 轮）：三叶 phase builded→validated（父保持轻量规范容器）；review R1 ⚠️ 有条件通过 / validate R1 ✅ 通过；3 处文档偏差订正/登记；人工面（V2-H-A~D / V2-H-1~6 / T1 缺口）未执行如实登记；本轮零 `src/`/`test/` 改动、未跑 Chromium 门禁（原因已登记）。 | 2026-09-13 | SDDU Build Agent（代行收口） |
 | v2.0 | **v2 整体收口报告（第 11 轮）**：四叶（V2-1/V2-2/V2-3/V2-4）phase 全部 `validated`（父保持轻量规范容器；V2-4 P1 本轮由 builded→reviewed→validated）；review P0 R1 ⚠️ / V2-4 R1 ⚠️（均 0 阻塞）；validate P0 R1 ✅ / V2-4 R1 ✅（均 0 阻塞）；门禁串行实跑全绿（tsc 0 error / 插件 646·0 fail / insight 70 / ui 167 / hardening 24 / binding 180×3 / e2e PASS / 全仓 1629·1628 pass·0 fail·1 skip，base 483 零回归）；体积 content.js 零增长 1,073,453 B / sidepanel 1,132,748 B（ceiling 1,189,385）/ background 1,403,170 B；**修 #AP#5b 相位窗口 flake + 新观测修 tabs #7m3/#7m4/#7o/#7o2 harness 时序 flake**（零产品逻辑改动、断言只增不减/不减）；新增 `docs/dev.md` §6.1 完整日志落盘纪律（D-V24-06）；遗留项全量登记（人工面 13 项 + T1 缺口 + 已知偶发 + 口径 D-V24-01/02/08 + 未合并/未发布）；零改动核验（base/policy/auto-authorize/manifest/v1 目录/journey.mjs）。 | 2026-09-13 | SDDU Build Agent（代行收口） |
+| v3.0 | **R2 实施构建第 1 轮（第 12 轮）**：R2-Wave 1（V2-1 真层级树：`ownership-tree.ts` + `tree-model`/`command-catalog`/`project-tree`/`build-snapshot`）+ R2-Wave 2（V2-3 覆盖引擎：`command-override.ts` SW 侧 clamp/存储生命周期 + `host`/`service-worker`/`messaging`/`insight-protocol`/`tree-ops` 接线 + 白名单 7→9）；3 新测试文件（35 tests）；门禁串行全绿（typecheck 0 / 插件 npm test 686 0 fail / insight 70 / ui 167 / hardening 24 / binding 180 / e2e PASS / 全仓 EXIT=0）；断言取代 S1/S2/S3/S7/S9/S10/S12 + pin 显式更新（removed=0、总数只增）；`policy`/`auto-authorize` sha256 不变、content.js 零增长、base/manifest/options 零 diff；未完成 V2-2/V2-4 R2 与 `binding #22a`（如实登记）。 | 2026-09-13 | SDDU Build Agent |

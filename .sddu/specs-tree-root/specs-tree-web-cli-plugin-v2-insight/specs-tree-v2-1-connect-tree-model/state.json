@@ -283,7 +283,184 @@
           "@sddu-review / @sddu-validate：重审 / 重验（phase 不回退，追加记录）",
           "红线：不碰 main / 不碰 packages/web-cli-base/** / 不改 v1 SDDU 目录 / 不 force push / 禁 git add -A"
         ]
-      }
+      },
+      "buildRounds": [
+        {
+          "round": "R2",
+          "subRound": "build（实施构建）第 1 轮：R2-Wave 1 + Wave 2（V2-1 模型层真层级树 + V2-3 覆盖引擎 SW clamp/存储生命周期/白名单 7→9）",
+          "type": "post-validate 实施轮（phase 不回退；追加记录不稀释既有）",
+          "date": "2026-09-13",
+          "authorization": "编排器代作者决策（2026-09-13 授权）+ R2",
+          "phaseKept": "tasked（父）/ validated（叶）（原样，不回退）",
+          "phaseNotRegressed": true,
+          "scope": "仅 R2-Wave 1（R2-V21-01~05）+ R2-Wave 2（R2-V23-01~06）；不做 V2-2 UI（R2-V22-*）与 V2-4 档案（R2-V24-*）；不碰 main / packages/web-cli-base/** / v1 SDDU / options.html；无新依赖；零新权限。",
+          "gates": {
+            "typecheck": {
+              "cmd": "npm run typecheck",
+              "result": "EXIT=0 / 0 error",
+              "log": "/tmp/opencode/r2-1/logs/02-typecheck.log"
+            },
+            "nodeTest": {
+              "cmd": "npm test（插件）",
+              "result": "tests 686 / pass 686 / fail 0（基线 646 → +40）",
+              "log": "/tmp/opencode/r2-1/logs/07-npm-test.log"
+            },
+            "testInsight": {
+              "cmd": "npm run test:insight",
+              "result": "PASS — 70 assertions，EXIT=0（本轮不改 UI；零回归）",
+              "log": "/tmp/opencode/r2-1/logs/09-test-insight.log"
+            },
+            "testUi": {
+              "cmd": "npm run test:ui",
+              "result": "PASS — 167 assertions，EXIT=0（v1 journey 零删减）",
+              "log": "/tmp/opencode/r2-1/logs/10-test-ui.log"
+            },
+            "testHardening": {
+              "cmd": "npm run test:hardening",
+              "result": "PASS — 24 assertions，EXIT=0",
+              "log": "/tmp/opencode/r2-1/logs/11-test-hardening.log"
+            },
+            "testBinding": {
+              "cmd": "npm run test:binding",
+              "result": "PASS — 180 assertions，EXIT=0（既有 180 零删减；#22a 留给下一轮）",
+              "log": "/tmp/opencode/r2-1/logs/12-test-binding.log"
+            },
+            "testE2e": {
+              "cmd": "npm run test:e2e",
+              "result": "PASS — fixture + LGDL Workbench 全链，EXIT=0",
+              "log": "/tmp/opencode/r2-1/logs/13-test-e2e.log"
+            },
+            "fullRepoTest": {
+              "cmd": "npm test（全仓）",
+              "result": "EXIT=0（lgdl-core 267 / lgdl-render 94+1 skip / lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / web-cli-base 483 / web-cli-plugin 686；fail 0）",
+              "log": "/tmp/opencode/r2-1/logs/14-full-npm-test.log"
+            }
+          },
+          "assertionSupersession": {
+            "policy": "removed=0；总断言数不减；硬底线/安全断言只增；v1 journey.mjs 167 / binding.mjs 180 零删减",
+            "nodeTestCount": "646 → 686（+40，fail 0）",
+            "done": [
+              "S1（tree-ops 白名单 7→9）",
+              "S2（9 动作唯一映射通路）",
+              "S3（needsConfirmation + 放宽类二次确认）",
+              "S7（tree-view needsConfirmation 类型映射 7→9，最小连带）",
+              "S9（insight-archive TREE_ACTION_IDS pin 7→9）",
+              "S10（insight-archive TREE_NO_ESCALATION_NOTE pin 两通路重写）",
+              "S12（insight-no-escalation 白名单 9 + 两个新增唯一通路）"
+            ],
+            "forcedPinUpdates": [
+              "TREE_MODULE_SHA256: src/ui/tree/tree-view.ts + src/ui/tree/tree-ops.ts（本轮文件变更的连带 pin，ADR-V2-027 流程）"
+            ],
+            "pending": [
+              "S4/S5/S6/S8（V2-2 UI 轮）",
+              "S11/S13~S16（V2-2/V2-4 UI 轮）",
+              "S17 保持零改动 + #22a（下一轮）",
+              "S18（零改动）"
+            ]
+          },
+          "pinUpdates": [
+            {
+              "pin": "TREE_ACTION_IDS_JSON_SHA256",
+              "old": "e5c65cc39397ae1abf0ca0e83ad2dd713866b84b1a505e7c3bf826902908d073",
+              "new": "71f743ed688d10ad74224b340d0e1b827f39a2b41aa625ca1d43dc9895aec1ac",
+              "date": "2026-09-13",
+              "source": "feature/web-cli-plugin R2 build 第 1 轮",
+              "reason": "白名单 7→9（set-command-policy/reset-command-policy）"
+            },
+            {
+              "pin": "TREE_NO_ESCALATION_NOTE_SHA256",
+              "old": "d37fecffb72ae33df8727a07a58d7f6ccca1455e923c5c962af8121806ababce",
+              "new": "cfe96e8a31b2a6e5eea8cd256654dcba58e86a682c6986cfeaac5854384345d3",
+              "date": "2026-09-13",
+              "source": "feature/web-cli-plugin R2 build 第 1 轮",
+              "reason": "FR-V2-078 两通路重写（保留 delay 消歧）"
+            },
+            {
+              "pin": "src/ui/tree/tree-view.ts",
+              "old": "023f9fc0687fc7977353de58657d5d1c000ef9bb7cd9ad255f9ccb4629778fd5",
+              "new": "9beb26eaab6ab3fb6eb7c027d4bd2cc6b73ca851c71f6dc68360f70f7746c744",
+              "date": "2026-09-13",
+              "source": "feature/web-cli-plugin R2 build 第 1 轮",
+              "reason": "文案重写 + commandPolicyNeedsConfirmation + TreeActionTarget 扩展"
+            },
+            {
+              "pin": "src/ui/tree/tree-ops.ts",
+              "old": "abf9cdaba89ab63c7f0fa3f9b3ef9e829a702ec45b169de6e378eafacece9257",
+              "new": "4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658",
+              "date": "2026-09-13",
+              "source": "feature/web-cli-plugin R2 build 第 1 轮",
+              "reason": "白名单 7→9 + 两分支 + 放宽类确认"
+            }
+          ],
+          "deviations": [
+            "S1 负例：plan §9.8 措辞「负例移除 command-allow/set-command-policy（现为合法）」按字面不成立——合法新增仅 set-command-policy/reset-command-policy；command-allow 仍保留为负例（更严，断言只增）。",
+            "S3 口径：plan §9.3 对未知/非法 risk 的覆盖策略写「返回 null」，但 null 会落回基线（sleep/web-cli-help 基线 allow），与「覆盖 allow → 仍 deny」矛盾。编排器代作者决策（2026-09-13 授权）+ R2：未知 risk + desired allow → 策略返回 deny（更保守收紧），ask/deny 原样；无覆盖仍返回 null（逐字节一致）。",
+            "破坏性判据：按 plan ADR-V2-025 使用 risk==='write' && DESTRUCTIVE_VERBS.has(<调用子命令>)；不采用 isPluginDestructiveInvocation 的「未知→true」默认（否则 dom read-state 会被误判）。",
+            "ui/state/external/破坏性 在模型层 overridable:false + 零控件 + clampReason（按 R2-V21-02 acceptance）；服务端仍允许其 ask/deny 收紧（伪造/直注入场景），只禁止 allow。dom（容器）overridable:true 作为设置载体，由被调用子命令的 effective risk 再 clamp（ADR-V2-025 §9.3 口径，已在单测钉死）。",
+            "本轮连带最小改 tree-view.test.ts S7（扩展 TreeActionId 联合导致 Record<TreeActionId,…> 必须补 2 键；编译强依赖）；S4/S5/S6/S8 等 V2-2 UI 取代项留待下一轮。",
+            "本轮连带更新 insight-archive S9/S10 + TREE_MODULE_SHA256 两文件 pin（tree-view/tree-ops 被本轮修改的冻结 pin 强依赖）；V2-4 的 S11 留待下一轮。",
+            "sidepanel.js 实测 1,138,591 B（基线 1,132,748，+5,843 B ≈ +0.52%）≤ ceiling 1,189,385（5% 容差）→ 本轮无需重登记；content.js 恒 1,073,453 B（零增长）。"
+          ],
+          "evidence": {
+            "tree": {
+              "example1": "cmd:site_notes#list path = [连接树, 授权的站点, 站点 https://a.test, 支持的命令, site_notes, site_notes list]",
+              "example2": "cmd:dom#read-state path = [连接树, 支持的命令, 系统内置命令, dom, dom read-state]",
+              "uniqueness": "全树节点 id 唯一 + snapshot-backed nodeId 唯一（Set.size === length）",
+              "multiOwning": "cap:opt:bookmarks mainOwner=capability，crossRefCount>=1（命令面引用），下钻 ownershipNodeFor 解析同一 nodeId",
+              "flatFace": "groups[2].children 仍为无 children 的 CommandNode；meta.hash 重算与 ownershipTree 无关（含树哈希 ≠ meta.hash）"
+            },
+            "override": {
+              "entrypoint": "src/background/host.ts policy: withCommandOverride(createPluginPolicyConfig(deps, guardedOnAsk), { resolveOverride, isDestructive })",
+              "order": "strategies = [S1-origin-authorization, S3-fail-closed, command-override, S2-untrusted-declared]（按 name 锚定；缺一抛错 FAIL）",
+              "clampTable": "resolveCommandPolicy/clampActionForRisk 逐档单测（read/write/破坏性/ui/state/external/evaluate/unknown/S1/S3）",
+              "satisfiesSha256": "policy.ts=bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8；auto-authorize.ts=1096d065dac63d56e36285bf499eee041acdc3e323d4c7215df3981af7d0ef4b（自算，未变）",
+              "serverEnforcement": "insight-override-security.test.ts：真实 host.dispatch 上 ①~⑧（含绕过 UI 直注入 store + 伪造消息等价路径 + naive UI-only 反证）",
+              "domThreeTier": "dom 工具级 + dom read-state 子命令级 allow/ask/deny 均实跑；dom click（ui）恒不放宽"
+            },
+            "storage": {
+              "le": "persist/inherit/idempotent/reset(single+all)/no-half-write/serial-queue/read-failure-degrade/audit-zero-plaintext（command-override.test.ts）"
+            }
+          },
+          "tasks": [
+            {
+              "id": "R2-V21-01",
+              "status": "completed"
+            },
+            {
+              "id": "R2-V21-02",
+              "status": "completed"
+            },
+            {
+              "id": "R2-V21-03",
+              "status": "completed"
+            },
+            {
+              "id": "R2-V21-04",
+              "status": "completed"
+            },
+            {
+              "id": "R2-V21-05",
+              "status": "completed"
+            }
+          ],
+          "artifacts": {
+            "new": [
+              "src/insight/ownership-tree.ts",
+              "test/insight-tree-hierarchy.test.ts"
+            ],
+            "modified": [
+              "src/insight/tree-model.ts",
+              "src/insight/command-catalog.ts",
+              "src/insight/project-tree.ts",
+              "src/insight/build-snapshot.ts",
+              "src/ui/tree/tree-view.ts（文案 + 确认纯函数）",
+              "test/insight-archive.test.ts（S9/S10 + TREE_MODULE pin）",
+              "test/tree-view.test.ts（S7 最小）",
+              "test/insight-no-escalation.test.ts（S12）"
+            ]
+          }
+        }
+      ]
     }
   }
 }

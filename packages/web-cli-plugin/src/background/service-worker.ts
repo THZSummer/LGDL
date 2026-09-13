@@ -15,6 +15,11 @@ import { createAutoProbe, type AutoProbe, type ProbeOutcome } from '../discovery
 import { createStorageAuditSink, type PluginAuditSink } from '../security/audit-sink.js';
 import { createConfirmBridge } from '../security/confirm.js';
 import { createAutoAuthStore, type AutoAuthStore } from '../security/auto-authorize.js';
+import {
+  createCommandOverrideStore,
+  isCommandPolicyAction,
+  type CommandOverrideStore,
+} from '../security/command-override.js';
 import { createOriginStore, type OriginStore } from '../security/origin-store.js';
 import { discoveryAuditEvent, versionAuditEvent } from '../security/discovery-audit.js';
 import type { VersionNegotiation } from '../protocol/version.js';
@@ -107,6 +112,8 @@ interface Singletons {
   origins: OriginStore;
   /** FR-052 / ADR-017: per-origin auto-authorization switches. */
   autoAuth: AutoAuthStore;
+  /** V2-3 R2 (ADR-V2-026): command-level user overrides (persisted, audited). */
+  commandPolicy: CommandOverrideStore;
   controller: WebCliController;
   host: WebCliHost;
   keys: ReturnType<typeof createKeyStore>;
@@ -417,6 +424,11 @@ async function init(): Promise<Singletons> {
     // write off; persisted; immediate effect).
     const autoAuth = createAutoAuthStore(kv, { audit });
     await autoAuth.load();
+    // V2-3 R2 (ADR-V2-026): command-level user overrides. Hydrated once at startup;
+    // a read failure degrades to「no overrides」(more conservative) with a readable
+    // disclosure — it never widens any gate. Uses the existing `storage` permission.
+    const commandPolicy = createCommandOverrideStore(kv, { audit });
+    await commandPolicy.load();
     const controller = createController();
     const keys = createKeyStore(kv);
     // decision ② / FR-048: multi-session store (per-origin default, optional groups).
@@ -484,6 +496,12 @@ async function init(): Promise<Singletons> {
       currentOrigin: () => controller.get()?.origin,
       // FR-052 / ADR-017: consulted at the onAsk seam before the confirm bridge.
       autoAuth: { isEnabled: (origin, tier) => autoAuth.isEnabled(origin, tier) },
+      // V2-3 R2 (ADR-V2-024): pure read seam — the host composes these into the
+      // router policy; the judgment chain itself stays untouched (sha256 pinned).
+      commandOverrides: {
+        get: (name, sub) => commandPolicy.get(name, sub),
+        isExplicit: (name, sub) => commandPolicy.isExplicit(name, sub),
+      },
       askUser: askBridge.askUser,
       // FR-051 / TASK-029: base-derived browser tools (dom/chrome/wait/extract/
       // export/save/events/web-search). The DOM seam is a remote proxy into the
@@ -771,6 +789,7 @@ async function init(): Promise<Singletons> {
       audit,
       origins,
       autoAuth,
+      commandPolicy,
       controller,
       host,
       keys,
@@ -1655,6 +1674,9 @@ async function buildInsightSnapshot(s: Singletons) {
     ...(bound?.origin ? { activeOrigin: bound.origin } : {}),
     isOriginAuthorized: (origin) => authorizedOrigins.has(normalizeStableOrigin(origin)),
     catalogMeta: (await import('../insight/catalog-meta.js')).CATALOG_BASELINE_META,
+    // V2-3 R2 (ADR-V2-026): pure read of the in-memory override layer so the
+    // projection can分列 default/effective/overridable/clampReason. Zero writes.
+    overrides: { get: (name, sub) => s.commandPolicy.get(name, sub) },
   });
 }
 
@@ -1704,7 +1726,8 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         // TASK-032: automatic-probe projection for the bound origin.
         ...(session ? { probe: s.autoProbe.status() } : {}),
         // V2-1 (ADR-V2-004): additive optional insight summary (counts/badges only).
-        insight: summarizeInsight(await buildInsightSnapshot(s)),
+        // V2-3 R2: additive `overrideCount` (old consumers ignore the unknown field).
+        insight: summarizeInsight(await buildInsightSnapshot(s), { overrideCount: s.commandPolicy.list().length }),
       });
       // D-064: carry (and consume) the one-shot readable notice.
       return okResponse({ ...payload, panelNotice: takePanelNotice() });
@@ -1712,6 +1735,45 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
     case 'insight-tree': {
       // V2-1 (ADR-V2-001/004): pull the full deterministic ConnectTreeSnapshot.
       return okResponse(await buildInsightSnapshot(s));
+    }
+    case 'command-policy': {
+      // V2-3 R2 (ADR-V2-026): pull the persisted command-level overrides + the
+      // readable degradation state (a read failure is disclosed, never hidden).
+      return okResponse({
+        entries: s.commandPolicy.list(),
+        degraded: s.commandPolicy.isDegraded(),
+        ...(s.commandPolicy.degradedReason() ? { degradedReason: s.commandPolicy.degradedReason() } : {}),
+      });
+    }
+    case 'command-policy-set': {
+      // V2-3 R2 (ADR-V2-026/027): the ONLY write path for a single override.
+      // Validation + clamp live in the SW (the UI is only a hint); a forged
+      // message can change the stored value but can never change the judgment —
+      // the clamp strategy re-applies the hard floors on every dispatch.
+      const commandId = typeof message.commandId === 'string' ? message.commandId : '';
+      if (!commandId) return errorResponse('command-policy-set 需要 commandId（cmd:<工具>[#<子命令>]）');
+      const policyAction = message.policyAction;
+      if (!isCommandPolicyAction(policyAction)) return errorResponse('command-policy-set 需要 policyAction: allow|ask|deny');
+      const res = await s.commandPolicy.set(commandId, policyAction);
+      if (!res.ok) return errorResponse(res.text);
+      pushInsightChanged();
+      return okResponse(res);
+    }
+    case 'command-policy-reset': {
+      // V2-3 R2 (ADR-V2-026): restore a single override (or all) to the default
+      // risk tier. Reversible; no confirmation required.
+      if (message.all === true) {
+        const res = await s.commandPolicy.resetAll();
+        if (!res.ok) return errorResponse(res.text);
+        pushInsightChanged();
+        return okResponse(res);
+      }
+      const commandId = typeof message.commandId === 'string' ? message.commandId : '';
+      if (!commandId) return errorResponse('command-policy-reset 需要 commandId 或 all=true');
+      const res = await s.commandPolicy.reset(commandId);
+      if (!res.ok) return errorResponse(res.text);
+      pushInsightChanged();
+      return okResponse(res);
     }
     case 'authorize': {
       const origin = typeof message.origin === 'string' ? message.origin : '';

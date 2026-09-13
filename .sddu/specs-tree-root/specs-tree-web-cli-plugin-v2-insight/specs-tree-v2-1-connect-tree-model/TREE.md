@@ -7,7 +7,7 @@ Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数�
 ```
 specs-tree-v2-1-connect-tree-model/
 ├── TREE.md          # 本文件 - 目录导航
-├── build.md          # 构建报告：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影）
+├── build.md          # 构建报告：specs-tree-v2-1-connect-tree-model（V2-1 … + **R2 build 第 1 轮 §13**）
 ├── plan.md          # 技术计划：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影）
 ├── spec.md          # Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影）
 ├── state.json          # 状态文件 (✅ 已完成)
@@ -18,7 +18,7 @@ specs-tree-v2-1-connect-tree-model/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影） — ℹ tests 561 | ✅ 存在 |
+| build.md | 构建报告：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影 + **R2 build 第 1 轮（v1.2 §13）**） — ℹ tests 561 | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影） — deps（注入：已读平面数据） | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影） — Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影） | ✅ 存在 |
 | state.json | 状态文件 | ✅ 已完成 |

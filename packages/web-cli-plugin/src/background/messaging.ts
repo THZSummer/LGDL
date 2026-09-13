@@ -64,7 +64,14 @@ export type PluginMessageKind =
   // (returns the full ConnectTreeSnapshot); `insight-changed` = push (re-project
   // trigger, carries no sensitive data).
   | 'insight-tree'
-  | 'insight-changed';
+  | 'insight-changed'
+  // V2-3 R2 (ADR-V2-024/026/027): additive command-level override face
+  // (background ↔ side panel only). Deliberately NOT added to `KIND_SET` below —
+  // that set is bundled into the injected content script (`content.js` zero-growth
+  // red line); validation lives in `insight-protocol.ts`.
+  | 'command-policy'
+  | 'command-policy-set'
+  | 'command-policy-reset';
 
 export interface PluginMessage {
   kind: PluginMessageKind;

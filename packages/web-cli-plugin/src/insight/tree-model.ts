@@ -16,6 +16,7 @@
  */
 import type { PolicyAction, ToolRisk } from '@lgdl/web-cli-base';
 import type { OptionalCapability } from '../platform/capability-permissions.js';
+import type { OwnershipTree } from './ownership-tree.js';
 
 // ---------------------------------------------------------------------------
 // 基础枚举 / 徽标 / 跨层引用
@@ -84,7 +85,12 @@ export type SourceKind =
   | 'plugin-clipboard'
   | 'base-builtin';
 
-/** V2-3 动作白名单（本层只作类型引用；V2-1 不执行任何动作）。 */
+/**
+ * V2-3 动作白名单（本层只作类型引用；V2-1 不执行任何动作）。
+ *
+ * R2（ADR-V2-027）：**7 → 9**——追加 `set-command-policy` / `reset-command-policy`
+ * （命令级用户覆盖层；唯一映射新增 `command-policy-set` / `command-policy-reset` 消息）。
+ */
 export type TreeActionId =
   | 'revoke-origin'
   | 'revoke-capability'
@@ -92,14 +98,20 @@ export type TreeActionId =
   | 'set-tabs-toggle'
   | 'clear-auto-auth'
   | 'disconnect-llm'
-  | 'dissolve-group';
+  | 'dissolve-group'
+  | 'set-command-policy'
+  | 'reset-command-policy';
 
-export type ControlKind = 'revoke' | 'toggle' | 'disconnect' | 'confirm-action' | 'none';
+export type ControlKind = 'revoke' | 'toggle' | 'disconnect' | 'confirm-action' | 'none' | 'command-policy';
 
 export interface ControlDescriptor {
   kind: ControlKind;
   actionId?: TreeActionId;
   label: string;
+  /** R2：`command-policy` 控件携带的目标处置档（allow/ask/deny）。 */
+  policyAction?: PolicyAction;
+  /** R2：该控件是否为当前 effective 档（渲染选中态）。 */
+  selected?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,6 +154,16 @@ export interface CapabilityNode {
   controls: ControlDescriptor[];
 }
 
+/** R2：节点不可覆盖的成因（可读映射见渲染层；ADR-V2-030）。 */
+export type ClampReason =
+  | 'evaluate'
+  | 's1-unauthorized'
+  | 's3-unknown-risk'
+  | 'destructive-floor'
+  | 'ui-no-widen'
+  | 'state-no-widen'
+  | 'external-no-widen';
+
 export interface CommandNode {
   id: string;
   kind: 'command';
@@ -151,6 +173,10 @@ export interface CommandNode {
   subcommand?: string;
   group: string;
   risk?: ToolRisk;
+  /**
+   * 默认 risk 档派生值（= 原 `action`，语义保留 —— T3 parity / 档案口径不受扰）。
+   * R2 起与「覆盖生效档」**分列**（FR-V2-013）。
+   */
   action: PolicyAction;
   denyCause?: DenyCause;
   sourceKind: SourceKind;
@@ -161,8 +187,21 @@ export interface CommandNode {
   suppressionReason?: string;
   badges: Badge[];
   crossLinks: CrossLink[];
-  /** **结构保证**：`action==='deny'` ⇒ `controls === []`（ADR-V2-011）。 */
+  /**
+   * **结构保证（R2 分层，ADR-V2-030）**：硬底线（`overridable===false`）⇒ `controls === []`
+   * 且 `clampReason` 可读；可覆盖节点 ⇒ **恰 3 个** `command-policy` 控件（allow/ask/deny）。
+   */
   controls: ControlDescriptor[];
+  /** R2：默认档（risk 派生；与 `action` 同值，便于分列消费）。 */
+  defaultAction: PolicyAction;
+  /** R2：用户覆盖（原始设置值；无覆盖则缺省）。 */
+  overrideAction?: PolicyAction;
+  /** R2：经硬底线 clamp 后的实际生效档。 */
+  effectiveAction: PolicyAction;
+  /** R2：是否可被用户在树内覆盖（硬底线 `false`）。 */
+  overridable: boolean;
+  /** R2：不可覆盖原因（`overridable===false` 时可读）。 */
+  clampReason?: ClampReason;
 }
 
 export interface SessionNode {
@@ -250,6 +289,16 @@ export interface CatalogMeta {
   provenanceCommit: string;
 }
 
+/** R2：覆盖面**分列**（FR-V2-079）——实时投影面 vs parity 基线；`accounted` 不出现在渲染字段。 */
+export interface CoverageSplit {
+  /** 实时投影面（树内实际渲染/可操作面）：`cards = tools + subcommands`。 */
+  live: { tools: number; subcommands: number; cards: number };
+  /** parity 对账基线（独立口径；缺 `catalogMeta` 时缺省）。 */
+  baseline?: { tools: number; subcommands: number };
+  /** 分列声明（禁止「34/142 已全部渲染」类夸大表述）。 */
+  note: string;
+}
+
 export interface ConnectTreeSnapshot {
   /** 结构版本（V2-4 预留 additive 演进）。 */
   version: 1;
@@ -258,6 +307,13 @@ export interface ConnectTreeSnapshot {
   facets: CatalogFacets;
   meta: SnapshotMeta;
   catalogMeta?: CatalogMeta;
+  /**
+   * R2（ADR-V2-028）：真父子层级归属树（纯派生）。**不进入 `meta.hash` 输入**；扁平面
+   * `groups[].children` 原样保留（对账/确定性/parity/archive 前提零变化）。
+   */
+  ownershipTree: OwnershipTree;
+  /** R2（FR-V2-079）：覆盖面分列（不进入 `meta.hash` 输入）。 */
+  coverage: CoverageSplit;
 }
 
 /** `state.insight?` 小摘要（counts/badges；additive，供 FAB 徽标）。 */
@@ -266,6 +322,8 @@ export interface InsightSummary {
   counts: SnapshotCounts;
   badges: Record<string, number>;
   degraded: boolean;
+  /** R2（additive）：用户覆盖条数（旧消费者忽略）。 */
+  overrideCount?: number;
 }
 
 /** 如实声明「森林，非严格单树」（FR-V2-010）。 */

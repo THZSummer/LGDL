@@ -524,12 +524,12 @@ npm run test:e2e --workspace @lgdl/web-cli-plugin
 
 | 编号 | 标题 | 规模 | 类型 | 依赖 | 波次 | 可并行 | 涉及文件 |
 |------|------|:--:|:--:|------|:--:|:--:|------|
-| R2-V23-01 | `command-override.ts` clamp + `withCommandOverride` 组合（SW 侧，不改冻结文件） | L | 🛠 实施 | R2-V21-02 | 2 | R2-V23-02 | NEW `packages/web-cli-plugin/src/security/command-override.ts`（clamp/resolver + 组合 + 确认） |
-| R2-V23-02 | 覆盖存储/生命周期/审计（`command-override.ts` store + `audit-sink.ts`） | L | 🛠 实施 | 无 | 2 | R2-V23-01 | NEW `packages/web-cli-plugin/src/security/command-override.ts`（store）；MODIFY `packages/web-cli-plugin/src/security/audit-sink.ts`（additive union `command-policy`） |
-| R2-V23-03 | `host.ts` 组合（`withCommandOverride` + `guardedOnAsk` + `commandOverrides` 注入） | M | 🛠 实施 | R2-V23-01、R2-V23-02 | 2 | — | MODIFY `packages/web-cli-plugin/src/background/host.ts` |
-| R2-V23-04 | 覆盖消息面（`service-worker.ts`/`messaging.ts`/`insight-protocol.ts`，additive）+ `pushInsightChanged` | M | 🛠 实施 | R2-V23-02、R2-V23-03 | 2 | — | MODIFY `packages/web-cli-plugin/src/background/service-worker.ts`；MODIFY `packages/web-cli-plugin/src/background/messaging.ts`；MODIFY `packages/web-cli-plugin/src/background/insight-protocol.ts` |
-| R2-V23-05 | `tree-ops.ts` 白名单 7→9 + 两分支 + 无默认写入兜底 + 放宽类确认 + pin 显式更新 | M | 🛠 实施 | R2-V23-04 | 2 | — | MODIFY `packages/web-cli-plugin/src/ui/tree/tree-ops.ts` |
-| R2-V23-06 | 覆盖门禁 `test/command-override.test.ts` + `test/insight-override-security.test.ts` | L | ⚖️ 门禁 | R2-V23-01、R2-V23-02、R2-V23-03、R2-V23-04、R2-V23-05 | 5 | R2-V21-05；R2-V22-03；R2-V24-03 | NEW `packages/web-cli-plugin/test/command-override.test.ts`；NEW `packages/web-cli-plugin/test/insight-override-security.test.ts` |
+| R2-V23-01 | `command-override.ts` clamp + `withCommandOverride` 组合（SW 侧，不改冻结文件） | L | ✅ 已完成（R2 build 第 1 轮） | R2-V21-02 | 2 | R2-V23-02 | NEW `packages/web-cli-plugin/src/security/command-override.ts`（clamp/resolver + 组合 + 确认） |
+| R2-V23-02 | 覆盖存储/生命周期/审计（`command-override.ts` store + `audit-sink.ts`） | L | ✅ 已完成（R2 build 第 1 轮） | 无 | 2 | R2-V23-01 | NEW `packages/web-cli-plugin/src/security/command-override.ts`（store）；MODIFY `packages/web-cli-plugin/src/security/audit-sink.ts`（additive union `command-policy`） |
+| R2-V23-03 | `host.ts` 组合（`withCommandOverride` + `guardedOnAsk` + `commandOverrides` 注入） | M | ✅ 已完成（R2 build 第 1 轮） | R2-V23-01、R2-V23-02 | 2 | — | MODIFY `packages/web-cli-plugin/src/background/host.ts` |
+| R2-V23-04 | 覆盖消息面（`service-worker.ts`/`messaging.ts`/`insight-protocol.ts`，additive）+ `pushInsightChanged` | M | ✅ 已完成（R2 build 第 1 轮） | R2-V23-02、R2-V23-03 | 2 | — | MODIFY `packages/web-cli-plugin/src/background/service-worker.ts`；MODIFY `packages/web-cli-plugin/src/background/messaging.ts`；MODIFY `packages/web-cli-plugin/src/background/insight-protocol.ts` |
+| R2-V23-05 | `tree-ops.ts` 白名单 7→9 + 两分支 + 无默认写入兜底 + 放宽类确认 + pin 显式更新 | M | ✅ 已完成（R2 build 第 1 轮） | R2-V23-04 | 2 | — | MODIFY `packages/web-cli-plugin/src/ui/tree/tree-ops.ts` |
+| R2-V23-06 | 覆盖门禁 `test/command-override.test.ts` + `test/insight-override-security.test.ts` | L | ✅ 已完成（R2 build 第 1 轮） | R2-V23-01、R2-V23-02、R2-V23-03、R2-V23-04、R2-V23-05 | 5 | R2-V21-05；R2-V22-03；R2-V24-03 | NEW `packages/web-cli-plugin/test/command-override.test.ts`；NEW `packages/web-cli-plugin/test/insight-override-security.test.ts` |
 | R2-V23-07 | `test/ui/binding.mjs` 追加 `#22a…`（覆盖三档 → dispatch 反映 / reset / 持久化） | M | ⚖️ 门禁 | R2-V23-04 | 5 | R2-V21-05；R2-V22-04；R2-V24-03 | MODIFY `packages/web-cli-plugin/test/ui/binding.mjs` |
 
 ### 5.3 R2 依赖拓扑（本叶）

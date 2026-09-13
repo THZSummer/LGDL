@@ -21,7 +21,13 @@ import { createRemoteDomOps } from '../src/content/dom-agent.js';
 import { createRemoteEventHub } from '../src/tools/remote-events.js';
 import { projectInsightTree, type InsightSource } from '../src/insight/project-tree.js';
 import { loadBaseline } from '../src/insight/catalog-reconcile.js';
-import { TREE_MODEL_NOTE, TREE_NO_ESCALATION_NOTE, buildTreeRows, needsConfirmation } from '../src/ui/tree/tree-view.js';
+import {
+  TREE_MODEL_NOTE,
+  TREE_NO_ESCALATION_NOTE,
+  buildTreeRows,
+  commandPolicyNeedsConfirmation,
+  needsConfirmation,
+} from '../src/ui/tree/tree-view.js';
 import type { CapabilityNode, TreeActionId } from '../src/insight/tree-model.js';
 
 function memoryKv(): PluginKv {
@@ -284,7 +290,11 @@ test('V2-2 tree-view: pinned wording (model note + no-escalation / delay disambi
   assert.ok(model.header.noEscalationNote.includes('delayMs'));
 });
 
-test('V2-2 tree-view: needsConfirmation is correct for all 7 actions', () => {
+// R2 (2026-09-13) — supersession S7 (ADR-V2-031): the whitelist grew 7 → 9
+// (`set-command-policy` / `reset-command-policy`). `needsConfirmation` returns
+// `false` for the two conditional override actions; the widening-only confirmation
+// is decided by `commandPolicyNeedsConfirmation` (asserted below + in tree-ops.test).
+test('V2-2 tree-view: needsConfirmation is correct for all 9 actions (R2 supersession S7)', () => {
   const expected: Record<TreeActionId, boolean> = {
     'revoke-origin': true,
     'revoke-capability': true,
@@ -293,12 +303,20 @@ test('V2-2 tree-view: needsConfirmation is correct for all 7 actions', () => {
     'clear-auto-auth': true,
     'disconnect-llm': true,
     'dissolve-group': true,
+    'set-command-policy': false,
+    'reset-command-policy': false,
   };
   const actions = Object.keys(expected) as TreeActionId[];
-  assert.equal(actions.length, 7);
+  assert.equal(actions.length, 9);
   for (const actionId of actions) {
     assert.equal(needsConfirmation(actionId), expected[actionId], `needsConfirmation(${actionId})`);
   }
+  // Widening-only confirmation (R2): desired allow vs default tier.
+  assert.equal(commandPolicyNeedsConfirmation('allow', 'ask'), true, 'allow on an ask-default command is a widening → confirm');
+  assert.equal(commandPolicyNeedsConfirmation('allow', 'allow'), false, 'allow on an allow-default command is not a widening');
+  assert.equal(commandPolicyNeedsConfirmation('ask', 'allow'), false, 'ask is a tightening → no confirm');
+  assert.equal(commandPolicyNeedsConfirmation('deny', 'allow'), false, 'deny is a tightening → no confirm');
+  assert.equal(commandPolicyNeedsConfirmation('allow', undefined), true, 'unknown default is treated as widening (fail-closed)');
 });
 
 test('V2-2 tree-view: filtering is read-only (snapshot + rows deep-equal before/after)', () => {

@@ -160,17 +160,35 @@ test('V2-3 no-escalation: src/ui/tree/** never imports the judgment chain nor wi
   }
 });
 
+// R2 (2026-09-13) — supersession S12 (ADR-V2-031, `removed=0`): the closed
+// whitelist grows 7 → 9 (`set-command-policy` / `reset-command-policy`). The
+// revoke-only prohibitions (`grant` / `permissions.request`) are unchanged and the
+// two new actions each have exactly one additive message path (asserted in
+// `tree-ops.test.ts`).
 test('V2-3 no-escalation: tree-ops.ts has NO write verb outside the closed whitelist (no grant/request)', () => {
   const ops = treeSources().find((f) => f.name === 'tree-ops.ts');
   assert.ok(ops, 'tree-ops.ts must exist');
-  // No `grant` action id and no optional-permission `request` write path (revoke-only面).
+  // No `grant` action id and no optional-permission `request` write path.
   assert.equal(/['"]grant/.test(ops.text), false, 'tree-ops.ts must not contain a grant action id');
   assert.equal(/permissions\.request/.test(ops.text), false, 'tree-ops.ts must not request permissions');
-  // The whitelist is a closed union of exactly 7 values.
+  // The whitelist is a closed union of exactly 9 values (R2).
   assert.equal(/TREE_ACTION_IDS/.test(ops.text), true);
-  for (const id of ['revoke-origin', 'revoke-capability', 'set-capability-toggle', 'set-tabs-toggle', 'clear-auto-auth', 'disconnect-llm', 'dissolve-group']) {
+  for (const id of [
+    'revoke-origin',
+    'revoke-capability',
+    'set-capability-toggle',
+    'set-tabs-toggle',
+    'clear-auto-auth',
+    'disconnect-llm',
+    'dissolve-group',
+    'set-command-policy',
+    'reset-command-policy',
+  ]) {
     assert.equal(ops.text.includes(`'${id}'`), true, `tree-ops.ts must whitelist ${id}`);
   }
+  // The two new write paths are the additive message kinds (unique mapping; no bypass).
+  assert.equal(ops.text.includes('command-policy-set'), true);
+  assert.equal(ops.text.includes('command-policy-reset'), true);
 });
 
 test('V2-3 no-escalation: src/ui/tree/** has no bare catch {} (no silently swallowed errors)', () => {
