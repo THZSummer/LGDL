@@ -560,6 +560,67 @@ async function phase0() {
         }
       })();
       check(revokedAudit, '#0o 撤销写入 optional-permission/revoked 审计（零明文：仅工具名/决策/可读原因）', String(auditEvents).slice(0, 240));
+
+      // ── T1 (2026-09-13 fix round): tree-side capability-revoke SUCCESS path, best effort.
+      // The tree `revoke-capability` action calls the REAL `chrome.permissions.remove`;
+      // success requires the optional capability to be GRANTED first. Headless cannot
+      // synthesize the native `permissions.request` prompt (#0g above proves it stays
+      // PENDING), so this probe attempts a real grant via `Runtime.evaluate` with
+      // `userGesture:true` and only asserts the success path when it genuinely
+      // resolves. Otherwise it records the limitation truthfully and keeps the existing
+      // (failure-path) disclosure. It is NEVER faked as PASS.
+      const v23Grant = await evaluate(
+        page,
+        `Promise.race([
+           chrome.permissions.request({ permissions: ['bookmarks'] }).then((v) => 'RESOLVED:' + v).catch((e) => 'ERR:' + String(e)),
+           new Promise((r) => setTimeout(() => r('PENDING_TIMEOUT'), 4000)),
+         ])`,
+        9000,
+      );
+      if (String(v23Grant) === 'RESOLVED:true') {
+        await evaluate(page, `chrome.runtime.sendMessage({ kind: 'capabilities', action: 'permission-changed', capability: 'bookmarks' }).then(() => true)`);
+        await sleep(500);
+        const v23Fab = await evaluate(page, `(() => { const f = document.getElementById('tree-fab'); if (!f) return 'no-fab'; f.click(); return 'clicked'; })()`);
+        const v23CapBtn = await waitFor(
+          page,
+          `(() => { const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="revoke-capability"]'); return b ? JSON.stringify({ label: b.textContent }) : ''; })()`,
+          40,
+          150,
+        );
+        check(v23Fab === 'clicked' && Boolean(v23CapBtn), '#21o 能力授予后树渲染真实 revoke-capability 控件（撤销成功路径前置）', String(v23CapBtn ?? v23Fab));
+        await evaluate(page, `(() => { const b = document.querySelector('#tree-drawer button.tree-control[data-action-id="revoke-capability"]'); if (!b) return false; b.click(); return true; })()`);
+        await waitFor(page, `(() => { const c = document.getElementById('tree-confirm'); return c && !c.hidden ? 'shown' : ''; })()`, 40, 150);
+        await evaluate(page, `(() => { const b = document.getElementById('tree-confirm-accept'); if (!b) return false; b.click(); return true; })()`);
+        const v23OkReceipt = await waitFor(
+          page,
+          `(() => { const r = document.getElementById('tree-receipt'); if (!r || r.hidden) return ''; const t = r.textContent || ''; return /书签|撤销|已移除|成功|失败/.test(t) ? t : ''; })()`,
+          60,
+          200,
+        );
+        check(
+          /已移除|撤销成功|成功/.test(v23OkReceipt ?? '') && !/失败|仍保留/.test(v23OkReceipt ?? ''),
+          '#21o2 能力撤销成功回执可读（如实「已移除」，非失败文案）',
+          String(v23OkReceipt).slice(0, 220),
+        );
+        const v23OkTools = await evaluate(
+          page,
+          `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'capabilities', action: 'status' }); return JSON.stringify(r?.data?.tools || []); })()`,
+        );
+        check(!/bookmarks/.test(v23OkTools ?? ''), '#21o3 撤销成功 → 工具即时移出 deriveTools()', String(v23OkTools));
+        const v23OkAudit = await evaluate(page, `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'audit-export' }); return JSON.stringify(r?.data || []); })()`);
+        const v23OkRevoked = (() => {
+          try {
+            return (JSON.parse(v23OkAudit ?? '[]') || []).some((e) => e.type === 'optional-permission' && e.tool === 'bookmarks' && e.decision === 'revoked');
+          } catch {
+            return false;
+          }
+        })();
+        check(v23OkRevoked, '#21o4 撤销成功写入 optional-permission/revoked 审计（可经 audit-export 查证）', String(v23OkAudit).slice(0, 240));
+      } else {
+        observe(
+          `#21o/#21o2/#21o3/#21o4 跳过（如实记录，不伪造 PASS）：headless 无法合成原生 grant 手势 → chrome.permissions.request = ${String(v23Grant)}；树侧「能力撤销成功」端到端因此保持人工面 V2-H-4，失败路径已由 #21j/#21k 覆盖。`,
+        );
+      }
       observe('TASK-040 披露：原生授权弹窗（request）与「已授权→onRemoved」过渡在 headless 不可合成；本节用真实可撤销的可选权限 + 真实 remove + 真实对账/审计取证，prompt 仍归人工面。');
       page.close();
     }

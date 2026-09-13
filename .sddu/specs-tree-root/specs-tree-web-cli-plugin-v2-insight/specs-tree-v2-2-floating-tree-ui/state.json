@@ -17,7 +17,7 @@
       "侧栏内渲染常驻悬浮入口 + 树抽屉（复用 v1 三区 flex 全高布局与 ui/settings/* 实现）",
       "四维度层级导航 + 状态徽标 + 操作简单（入口到撤销 ≤2 次点击）",
       "检索/过滤（只读，不改真值）",
-      "侧栏布局不回退量化断言（#log flex-grow=1 / 稳态高度占比 ≥65.5% / composer 底边−视口底 ∈[0,+8px] / 入口与 composer boundingRect 不相交 / 400·320px 水平溢出=0 / v1 #15a~#15q 断言零删减）",
+      "侧栏布局不回退量化断言（#log flex-grow=1 / 稳态 ≥589px 主 + ≥65.0% 次（去镀铬稳态，来源 ADR-V2-006；以现状为准，原记 ≥65.5% 已按父 AC-V2-002 订正） / composer 底边−视口底 ∈[0,+8px] / 入口与 composer boundingRect 不相交 / 400·320px 水平溢出=0 / v1 #15a~#15q 断言零删减）",
       "明暗适配；空态/降级可读；既有 DOM id/类零重命名"
     ],
     "out": [
@@ -52,6 +52,42 @@
   "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.3；本子级 spec.md 含侧栏回归量化阈值（AC-V22-002）与「只增不减」纪律。下一步 @sddu-plan。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json。",
   "status": "tracked",
   "phaseNote": "tasks 阶段完成（2026-09-13，sddu-tasks）：技术方案分解为原子任务（含依赖/波次/并行标记/涉及文件/可执行验收标准/验证命令）。波次严格串行：V2-1（Wave 1~5，先行）→ V2-2（Wave 6~9）→ V2-3（Wave 10~13）；V2-2/V2-3 并行分解、执行串行。门禁矩阵：insight-projection / insight-determinism / insight-catalog（34 工具·142 子命令双向等价+反证+同源锚定）/ insight-no-escalation（V2-1 基础段，V2-3 追加冻结）/ tree-view 纯测 / size-budget（新基线文件，与 v1 D31 解耦）/ test:ui·insight.mjs（新文件承载 AC-V2-002 量化，v1 journey.mjs 零改动）/ insight-security（AC-V2-005 六条反向断言 + allow 单调性 allowAfter⊆allowBefore）/ tree-ops 纯测 / test:binding 追加撤链（#21a…）。断言只增不减：新断言全部落新文件；v1 既有测试与断言零删改（v1 journey.mjs / binding.mjs 既有编号、test/parity/**、test/perf-*）。AC-V2-002 口径最小订正：spec ⑤ 由「占比 ≥65.5%」订正为「clientHeight ≥589px 主 + 占比 ≥65.0% 次」（原因/来源 = ADR-V2-006）；仅此一处 AC。编排器代作者决策（2026-09-13 授权）已登记（TD-V21-01~03 / TD-V22-01~05 / TD-V23-01~04）。父 Feature 为轻量规范容器，不产出 tasks.md/tasks.json；本轮 tasks 落在 3 个 P0 叶子（V2-4 P1 未排）。下一步 @sddu-build。 本叶子：11 任务 / 4 波（Wave 6~9）：append-only 标记/样式 + 纯渲染模型 + 惰性抽屉 + sidepanel 挂载 + 体积守卫 + test:insight 量化 + 基线实测登记 + 串行收口 + grep 契约 + 人工面 H-A~H-D；门禁：tree-view 纯测 / size-budget（新基线文件）/ test/ui/insight.mjs（v1 journey.mjs 零改动）。 build 阶段完成（2026-09-13，sddu-build）：Wave 6~9 / TASK-001~011 全部实施。append-only 交付（index.html FAB+覆盖式抽屉 / sidepanel.ts 挂载+订阅+环境守卫，git diff 零删除行）；新建 src/ui/tree/{tree-view,tree-drawer}.ts（纯渲染模型 + 惰性 DOM；零 innerHTML；deny⇒controls:[] 结构保证）+ test/{tree-view.test.ts,size-baseline.ts,size-budget.test.ts} + test/ui/insight.mjs。门禁串行全绿：typecheck 0 error / npm test 577 pass 0 fail（+16）/ test:insight 45 断言 / test:ui 167（v1 零删减）/ test:hardening 24 / test:binding 163 / test:e2e PASS / 全仓 npm test（base 483 + plugin 577）0 fail。体积：content.js 1,073,453 B 零增长；sidepanel.js 1,065,389→1,085,389 B（+20,000，V2-2 UI 有意增重），新基线 1,085,389 / ceiling 1,139,658。偏差 D-V22-01：`#log ≥589px` 主断言按去镀铬稳态测量（674px/74.9%），因 dev.md §11.3 的 589px 系 TASK-023 旧测（早于 FR-052 自动授权块）；另以 v1 口径断言 ≥405px + 开/关逐字段相等证明零回归。四项零改动核验通过（base / policy+auto-authorize / manifest / options.html / v1 journey.mjs / v1 perf-*）。下一步 @sddu-review。 review R1 完成（2026-09-13，sddu-review）：见父 review-report.md（C1~C22；⚠️ 有条件通过 0 阻塞；D-V22-01 去镀铬口径经独立复核接受，附建议 W6）；phase 保持 builded。",
+  "fixRound": {
+    "round": "R2",
+    "date": "2026-09-13",
+    "authorization": "编排器代作者决策（2026-09-13 授权）",
+    "input": "父 review-report.md（commit 39cd0a1；6 建议 W1~W6 + 3 提示 T1~T3）",
+    "phaseKept": "builded",
+    "items": [
+      "W1",
+      "W4",
+      "W5",
+      "W6"
+    ],
+    "changes": [
+      "W1：子 spec.md:56,88 + state.json:20 + ROADMAP.md v1.20.0 素材行「≥65.5%」订正为父 AC-V2-002 口径「≥589px 主 + ≥65.0% 次 + 去镀铬测量条件 + 来源 ADR-V2-006」；历史叙述保留 + 以现状为准",
+      "W4：SIDEPANEL_BASELINE_BYTES 1,085,389 → 1,110,744（显式重登记，实测 2026-09-13）；SIDEPANEL_CEILING 1,139,658 → 1,166,281；历史值 1,068,165 / 1,085,389 保留；CONTENT_MAX_BYTES=1,073,453 不变；新增 W4 门禁 + 反证",
+      "W5：build.md §5.2 sidepanel「前」1,065,389（+20,000）订正为 1,068,165（+17,224），保留历史行 + 以现状为准",
+      "W6：test/ui/insight.mjs 钉死 v1 raw 基线 418px / 46.4%（2026-09-13，来源 journey.mjs #15b 条件）+ 新增更敏感回归断言 #I-06c ≥410px / #I-06d ≥45.4%（容差 8px ≈1.9% / 1.0pt）；不降低既有 405px"
+    ],
+    "gates": {
+      "typecheck": "0 error",
+      "pluginNpmTest": "616/616 · 0 fail",
+      "testInsight": "52 断言 PASS（45 → +7）",
+      "testUi": "167 断言（v1 零删减）",
+      "testHardening": "24",
+      "testBinding": "180 断言",
+      "testE2e": "PASS",
+      "repoNpmTest": "base 483/483 + plugin 616/616 · 0 fail"
+    },
+    "zeroDiff": [
+      "packages/web-cli-base/**",
+      "src/security/policy.ts",
+      "src/security/auto-authorize.ts",
+      "manifest.json",
+      "specs-tree-web-cli-plugin/**（v1 SDDU）"
+    ]
+  },
   "taskCount": 11,
   "waveCount": 4,
   "complexity": {

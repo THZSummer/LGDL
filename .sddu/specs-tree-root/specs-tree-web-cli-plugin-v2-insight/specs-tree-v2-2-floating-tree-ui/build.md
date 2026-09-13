@@ -116,12 +116,14 @@
 | 产物 | 前（V2-1 / v1 基线） | 后（V2-2） | 增量 | 判定 |
 |------|:--:|:--:|:--:|:--:|
 | `dist/content.js` | 1,073,453 B | **1,073,453 B** | **0** | ✅ 零注入（`CONTENT_MAX_BYTES` 无容差） |
-| `dist/sidepanel.js` | 1,065,389 B | **1,085,389 B** | **+20,000 B** | ✅ V2-2 UI 有意增重 |
+| `dist/sidepanel.js` | **1,068,165 B** | **1,085,389 B** | **+17,224 B** | ✅ V2-2 UI 有意增重 |
 | `dist/background.js` | 1,402,337 B | 1,402,337 B | 0 | ✅ |
 
 **登记的新基线值**：`SIDEPANEL_BASELINE_BYTES = 1_085_389`（测量日期 **2026-09-13**；来源 `packages/web-cli-plugin/dist/sidepanel.js`；构建命令 `npm run build --workspace @lgdl/web-cli-plugin`）。
 **`SIDEPANEL_CEILING = floor(1_085_389 × 1.05) = 1_139_658`**。`SIDEPANEL_BASELINE_META.targetBudgetBytes = null`、`targetMet = null`（**基线 ≠ 目标预算**）。
 **文件头已注明**：增重为 V2-2 UI 有意引入（v1 1,068,165 → 1,085,389）。
+
+> **W5 订正（2026-09-13 修复轮）**：本表 `dist/sidepanel.js` 的「前」值原记 **1,065,389 B**（增量记 **+20,000 B**），与父 `spec.md` §2.5 / `docs/dev.md` 的 **1,068,165 B** 不自洽。**现订正为 1,068,165 B → 1,085,389 B（+17,224 B）**；来源 = v1 收口实测 `dist/sidepanel.js`（测量时点 = v1 收口，2026-09-13 由 `npm run build --workspace @lgdl/web-cli-plugin` 复核）。**历史行保留在案、以本订正为准**（不改代码真值；`test/size-baseline.ts` 的 v1 历史值同为 1,068,165）。
 
 ### 5.3 `deny` 无控件 / 静态权限无 revoke / `delay`（= deny）文案 —— 落地证据
 
@@ -179,8 +181,40 @@
 
 ---
 
+## R2 修复轮（2026-09-13，编排器代作者决策：消化 review `39cd0a1` 的 6 建议 + 3 提示）
+
+> **输入**：父 `review-report.md`（`39cd0a1`；C1~C22 + W1~W6 + T1~T3）。**纪律**：只加固不放宽；断言只增不减；门禁严格串行一次一个；不碰 `main`/`packages/web-cli-base/**`/v1 SDDU；无新依赖。
+> **本轮门禁原文（串行）**：`typecheck` **0 error**；插件 `npm test` **616/616 · 0 fail**（599 → **+17**）；`test:insight` **52 断言 PASS**（45 → +7）；`test:ui` **167 断言**（v1 零删减）；`test:hardening` **24**；`test:binding` **180 断言**；`test:e2e` **PASS**；全仓 `npm test`：base **483/483** + plugin **616/616**，**0 fail**。`dist/content.js = 1,073,453 B`（零增长）；`dist/sidepanel.js = 1,110,744 B`。
+
+以下为**修复轮全量条目逐条 before → after**（本表在三叶子 `build.md` 一致登记；各叶子仅触及其中一部分）：
+
+| 项 | before | after | 证据 |
+|----|--------|-------|------|
+| **W1** | 子 V2-2 `spec.md:56,88` + `state.json:20` + `ROADMAP.md` v1.20.0 素材行仍写「≥65.5%」，与父 `AC-V2-002`/ADR-V2-006 不一致 | 最小订正为父口径「**≥589px 主 + ≥65.0% 次 + 去镀铬测量条件 + 来源 ADR-V2-006**」；**保留历史叙述**并注「以现状为准（父 spec 为权威）」 | 本叶子 `spec.md` / `state.json` / `ROADMAP.md`（见 diff） |
+| **W2** | `src/background/insight-protocol.ts`（第二校验路径）**无任何单测**；两路径一致性无门禁 | 新建 `test/insight-protocol.test.ts`（**6 测试 / 30 断言**）：①合法 insight 通过 ②未知/畸形 kind 拒绝 ③缺字段/类型错/非对象拒绝 ④与主 `KIND_SET`（`isPluginMessage`）**等价性**（同批反例 + oracle）⑤SW 入口并集守卫**无未校验放行**（静态锚定 `!isPluginMessage && !isInsightMessage ⇒ return undefined`） | `node --test dist-test/test/insight-protocol.test.js` → **6/6 pass** |
+| **W3** | 冻结靠 `git diff --quiet HEAD -- policy.ts auto-authorize.ts` → **worktree vs HEAD**，提交后恒为 0 = **永不失效的假安全网** | 改为**内容哈希钉死**：`policy.ts` / `auto-authorize.ts` 的 SHA-256 常量化（含登记日期/来源 commit/理由）+ **判定表快照**（`PLUGIN_RISK_DEFAULTS` + `AUTO_AUTH_DEFAULTS` + 720 行 `decideAutoAuthorization` 结论）哈希 + **反证自测**（改一字节必 FAIL）。原 `git diff` 断言**全部保留** | pin：`policy.ts=bfcb2ede…3c89a8`、`auto-authorize.ts=1096d065…ef4b`、判定表 `d1667d24…8b74`（2026-09-13 / `39cd0a1`）；反证实跑见 V2-1 `build.md` R2 节 |
+| **W4** | `SIDEPANEL_BASELINE_BYTES=1,085,389`（V2-2 时点），实际 `sidepanel.js=1,110,744`（V2-3 后）→ 有效余量 ~29KB > 声明的 5% | **显式重登记**为实测 **1,110,744**；`SIDEPANEL_CEILING` **1,139,658 → 1,166,281**；历史值 `1,068,165` / `1,085,389` 保留在案；`CONTENT_MAX_BYTES=1,073,453` **不变**；新增 W4 门禁 + 随新 ceiling 的反证自测 | `stat -c %s dist/sidepanel.js` = **1110744**（2026-09-13，`npm run build --workspace @lgdl/web-cli-plugin`）；`test/size-budget.test.ts` 新增 2 测试 |
+| **W5** | 本 `build.md` §5.2 `sidepanel.js` 「前」值 `1,065,389`（增量记 `+20,000`），与父 spec §2.5 / `dev.md` 的 `1,068,165` 不自洽 | 订正为 **1,068,165 B → 1,085,389 B（+17,224 B）**；加 W5 脚注说明来源/测量时点，**保留历史行**并注「以本订正为准」 | §5.2 已改（见 diff） |
+| **W6** | v1 口径仅断言 raw `#log ≥405px`（实测 418px，余量仅 13px）→ 有「小幅回退仍绿」盲区 | `test/ui/insight.mjs` **钉死 v1 raw 基线 418px / 46.4%**（2026-09-13，来源 `journey.mjs` #15b 条件）；新增**更敏感**断言 `#I-06c ≥410px`、`#I-06d ≥45.4%`（容差 8px ≈1.9% / 1.0pt）；**不降低**既有 405px | `test:insight` **52 断言 PASS**（含新增 `#I-06c/#I-06d`） |
+| **T1** | 树侧能力撤销**成功**路径未自动化（仅单测 + 失败路径 e2e `#21j/#21k`） | `binding.mjs` 追加 `#21o*` **最佳努力端到端**：以 `userGesture:true` 真实 `chrome.permissions.request` 授权可选能力，成功则断言「撤销成功 + 工具即时移出 `deriveTools()` + 审计 + 回执可读」。**实跑：headless `permissions.request = PENDING_TIMEOUT`**（原生弹窗不可合成）→ **如实 observe 跳过、不伪造 PASS**；成功分支代码就位，环境允许时自动生效。既有断言**零删改** | `test:binding` 观测原文（见下）|
+| **T2** | `pushInsightChanged()` 用 `void … .catch(() => {})` **静默吞异常** | 改为 `console.debug` 诊断（说明「best-effort / 无接收方 / 不伪造状态」；payload 为空 → **零敏感明文**）；新增门禁断言（无空 catch + 有诊断 + 注释声明不伪造） | `src/background/service-worker.ts`；`test/insight-no-escalation.test.ts` 新增 T2 测试 |
+| **T3** | `deriveAction` 是对策略的**再实现**，与真实判定链漂移风险无门禁 | 新建 `test/insight-action-parity.test.ts`（**4 测试**）：用**真实** `createPluginPolicyConfig` + **真实** `PermissionGate` 复算；对 `projectCommands` 产出的**全部 28 工具 / 94 子命令（122 命令节点）**逐条断言 == 真值链，另加站点域矩阵（read/write/undefined × 授权 × trust）；**反证自测**。唯一已知**保守方向**分歧（base 内建 `web-fetch`/`sleep`/`web-cli-help` risk 缺失：投影 `deny` vs 运行时 `allow`）**显式钉死**（仅此三工具、仅此方向；其它任何分歧 FAIL） | `node --test dist-test/test/insight-action-parity.test.js` → **4/4 pass** |
+
+**T1 实跑观测原文**（来自本轮 `test:binding`）：
+```
+· #21o/#21o2/#21o3/#21o4 跳过（如实记录，不伪造 PASS）：headless 无法合成原生 grant 手势 →
+  chrome.permissions.request = PENDING_TIMEOUT；树侧「能力撤销成功」端到端因此保持人工面 V2-H-4，
+  失败路径已由 #21j/#21k 覆盖。
+```
+**T2 实跑**：`pushInsightChanged` 现于推送失败/无接收方时 `console.debug` 一行诊断（无 payload、零明文）；门禁断言证明**不再有空 catch** 且诊断存在。
+
+**四项零改动复核（本轮再次核验）**：`packages/web-cli-base/**` / `src/security/policy.ts` / `src/security/auto-authorize.ts` / `manifest.json` → `git diff --quiet` 全部 **exit 0**（W3 哈希 pin 因此**钉在对的值上**）。`specs-tree-web-cli-plugin/**`（v1 SDDU）零 diff。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-2 Wave 6~9 / TASK-001~011 全部实施；逐任务文件变更 + 门禁原文（typecheck / 插件 npm test 577 / test:insight 45 / test:ui 167 / test:hardening 24 / test:binding 163 / test:e2e / 全仓 npm test base 483 + plugin 577）+ 布局实测（去镀铬 674px/74.9%，v1 口径 418px/46.4%，开/关逐字段相等）+ 体积（content 0 增长；sidepanel +20,000 → 新基线 1,085,389 / ceiling 1,139,658）+ 零改动核验 + 决策 D-V22-01~05。 | 2026-09-13 | SDDU Build Agent |
+| v1.1 | R2 修复轮：W1（口径订正）/ W4（基线重登记 1,110,744 · ceiling 1,166,281）/ W5（§5.2 数字订正 1,068,165 → 1,085,389，+17,224）/ W6（pinned v1 raw 基线 418px + `#I-06c/#I-06d`）；门禁全量串行复跑：typecheck 0 / 插件 npm test 616 / test:insight 52 / test:ui 167 / test:hardening 24 / test:binding 180 / test:e2e PASS / 全仓 base 483 + plugin 616 = 0 fail。 | 2026-09-13 | SDDU Build Agent |

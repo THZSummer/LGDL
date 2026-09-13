@@ -181,8 +181,38 @@ insight-no-escalation.test.js ℹ tests 12 pass 12 fail 0   （V2-1 基础段 5 
 
 ---
 
+## R2 修复轮（2026-09-13，编排器代作者决策：消化 review `39cd0a1` 的 6 建议 + 3 提示）
+
+> **输入**：父 `review-report.md`（`39cd0a1`；C1~C22 + W1~W6 + T1~T3）。**纪律**：只加固不放宽；断言只增不减；门禁严格串行一次一个；不碰 `main`/`packages/web-cli-base/**`/v1 SDDU；无新依赖。
+> **本轮门禁原文（串行）**：`typecheck` **0 error**；插件 `npm test` **616/616 · 0 fail**；`test:insight` **52 断言 PASS**；`test:ui` **167 断言**（v1 零删减）；`test:hardening` **24**；`test:binding` **180 断言**；`test:e2e` **PASS**；全仓 `npm test`：base **483/483** + plugin **616/616**，**0 fail**。
+
+以下为**修复轮全量条目逐条 before → after**（本叶子（V2-3：撤销面 / 判定链冻结 / 撤销链 e2e）触及 **W3 / T1 / T2**）：
+
+| 项 | before | after | 证据 |
+|----|--------|-------|------|
+| **W1** | 子 V2-2 `spec.md`/`state.json` + `ROADMAP.md` 仍写「≥65.5%」 | 最小订正为父口径「≥589px 主 + ≥65.0% 次 + 去镀铬测量条件 + ADR-V2-006」 | V2-2 `spec.md`/`state.json`/`ROADMAP.md` |
+| **W2** | `insight-protocol.ts` 无单测 | 新建 `test/insight-protocol.test.ts`（6 测试 / 30 断言） | `node --test` → 6/6 |
+| **W3** | 判定链冻结靠 `git diff --quiet HEAD`（提交后恒 0） | **内容哈希钉死**（`policy.ts` / `auto-authorize.ts` + 判定表快照 720 行）+ 反证自测；原 `git diff` 断言全保留 | pin 值：`bfcb2ede…` / `1096d065…` / `d1667d24…`；反证实跑原文见 V2-1 `build.md` §11 |
+| **W4** | `SIDEPANEL_BASELINE_BYTES=1,085,389`（实际 1,110,744） | 显式重登记 1,110,744；ceiling **1,166,281**；历史保留；`CONTENT_MAX_BYTES` 不变 | `stat -c %s dist/sidepanel.js`=1110744 |
+| **W5** | V2-2 `build.md` §5.2 「前」1,065,389 | 订正 1,068,165（+17,224） | V2-2 `build.md` §5.2 |
+| **W6** | 仅 raw `#log ≥405px` | 钉死 v1 raw 基线 418px/46.4% + `#I-06c/#I-06d` | `test:insight` 52 断言 PASS |
+| **T1** | 树侧能力撤销**成功**路径仅单测 + 失败路径 e2e（`#21j/#21k`） | `binding.mjs` 追加 `#21o*` 最佳努力端到端（树 `revoke-capability` → 真实 `permissions.remove` → 断言成功 + 工具移出 + 审计 + 回执）。**实跑 headless `permissions.request = PENDING_TIMEOUT` → 如实 observe 跳过（不伪造 PASS）**；成功分支代码就位；既有断言零删改 | `test:binding` 观测原文（V2-2 `build.md` R2 节） |
+| **T2** | `pushInsightChanged` 空 catch 静默吞（撤销/开关变更后的树刷新触发点） | 改为 `console.debug` 诊断（零敏感明文 / 不伪造状态）+ 门禁断言 | `service-worker.ts`；no-escalation T2 测试 |
+| **T3** | `deriveAction` 再实现无一致性门禁 | 新建 `test/insight-action-parity.test.ts`（4 测试）：真实策略链逐条比对 28 工具 / 94 子命令 + 站点域矩阵 + 反证 | `node --test` → 4/4 |
+
+**T1 实跑观测原文**：
+```
+· #21o/#21o2/#21o3/#21o4 跳过（如实记录，不伪造 PASS）：headless 无法合成原生 grant 手势 →
+  chrome.permissions.request = PENDING_TIMEOUT；树侧「能力撤销成功」端到端因此保持人工面 V2-H-4，
+  失败路径已由 #21j/#21k 覆盖。
+```
+**判定链零改动复核**：`git diff --quiet -- src/security/policy.ts src/security/auto-authorize.ts` → **exit 0**；W3 哈希 pin 与文件实测一致（`bfcb2ede…` / `1096d065…`）。`packages/web-cli-base/**` / `manifest.json` / v1 SDDU 均零 diff。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-3（Wave 10~13 / TASK-001~010）实施构建报告：封闭 7 动作白名单（无默认写入分支）+ 三件套回执（重拉实测）+ 二次确认（拒绝=零操作）+ AC-V2-005 六条反向断言与 allow 单调性 + 判定链冻结门禁 + `binding` `#21a…` 撤销链 + 人工面 H-1~H-6。全量门禁串行全绿；D-V23-01（`revoke` 追加 `deactivateSite` 一行）与 D-V23-02（DOM 点击口径）已登记。 | 2026-09-13 | SDDU Build Agent |
+| v1.1 | R2 修复轮：T1（`binding` `#21o*` 树侧撤销成功路径最佳努力 + 如实 observe）/ T2（去静默吞异常）/ W3（判定链哈希钉死复核）；门禁全量串行复跑：typecheck 0 / 插件 npm test 616 / test:insight 52 / test:ui 167 / test:hardening 24 / test:binding 180 / test:e2e PASS / 全仓 base 483 + plugin 616 = 0 fail。判定链零 diff（W3 pin 对值）。 | 2026-09-13 | SDDU Build Agent |

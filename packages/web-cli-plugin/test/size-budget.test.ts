@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import {
   CONTENT_MAX_BYTES,
   SIDEPANEL_BASELINE_BYTES,
+  SIDEPANEL_BASELINE_BYTES_HISTORY,
   SIDEPANEL_BASELINE_META,
   SIDEPANEL_BASELINE_TOLERANCE,
   SIDEPANEL_CEILING,
@@ -145,4 +146,34 @@ test('V2-2 size: v1 content 64 KiB target narrative is untouched (D31 not redefi
     false,
     'v1 的 64 KiB 目标仍未达成（D31）；V2 不得把它改写成达成',
   );
+});
+
+// ---------------------------------------------------------------------------
+// W4 修复轮（2026-09-13）：sidepanel 基线显式重登记（V2-3 有意增重）
+// ---------------------------------------------------------------------------
+
+test('W4 size: sidepanel baseline explicitly re-registered at the V2-3 re-measured value', () => {
+  // Re-measured 2026-09-13: `stat -c %s packages/web-cli-plugin/dist/sidepanel.js`
+  // → 1,110,744 B (V2-3 revoke/undo surface). V2-2's 1,085,389 B is retained in
+  // the history array and in the meta block — never silently overwritten.
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 1_110_744);
+  assert.deepEqual([...SIDEPANEL_BASELINE_BYTES_HISTORY], [1_068_165, 1_085_389]);
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_085_389);
+  assert.ok(
+    SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
+    '重登记为「上调」必须显式记录（不得静默上调，也不得静默下调）',
+  );
+  assert.equal(SIDEPANEL_CEILING, 1_166_281, 'ceiling = floor(1,110,744 × 1.05)');
+  assert.equal(SIDEPANEL_BASELINE_TOLERANCE, 0.05, '容差不得因重登记而放宽');
+  assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_CEILING, '基线与上限自洽');
+  // The zero-injection red line must NOT grow as part of the re-registration.
+  assert.equal(CONTENT_MAX_BYTES, 1_073_453, 'content.js 硬上限保持不变（零注入红线）');
+});
+
+test('W4 size REVERSE PROOF: the re-registered ceiling still FAILS on one byte over', () => {
+  assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, true);
+  const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
+  assert.equal(over.ok, false, '新 ceiling + 1 必须 FAIL');
+  assert.equal(over.ceilingBytes, 1_166_281);
+  assert.throws(() => assert.equal(over.ok, true, over.message), /体积回归/);
 });

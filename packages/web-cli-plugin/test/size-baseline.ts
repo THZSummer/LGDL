@@ -26,13 +26,22 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
 /**
  * Regression baseline for `dist/sidepanel.js`.
  *
- * Re-measured 2026-09-13 after the V2-2 UI build (`npm run build`): **1,085,389 B**
- * (the v1 measured value was 1,068,165 B → +20,000 B, the intentional V2-2
- * floating-tree UI weight). TASK-006 seeded the v1 value; TASK-008 re-registered
- * this measured value with its date/source. The `content.js` hard ceiling below
- * is what proves zero injection growth; this number only bounds the side panel.
+ * ── Re-registration history (never silently widen; keep every value on record) ──
+ *   - v1 measured value .......... 1,068,165 B
+ *   - V2-2 (2026-09-13) .......... 1,085,389 B (+20,000 B: floating-tree UI, TASK-008)
+ *   - **current (2026-09-13)** ... 1,110,744 B (V2-3 revoke/undo surface, `f45c124`)
+ *
+ * W4 fix round (2026-09-13): the V2-2 baseline (1,085,389 B) was NOT re-registered
+ * after V2-3 added the revoke/confirm/receipt surface, so the guard's effective
+ * headroom (~29 KB) was larger than the declared 5%. This is an explicit
+ * re-registration at the **re-measured** value (not a silent widen): the previous
+ * values stay recorded above and the reason for the increase is the intentional
+ * V2-3 weight. The tolerance (5%) is unchanged and no assertion was removed.
  */
-export const SIDEPANEL_BASELINE_BYTES = 1_085_389;
+export const SIDEPANEL_BASELINE_BYTES = 1_110_744;
+
+/** Previous registered baseline (V2-2, 2026-09-13) — kept on record. */
+export const SIDEPANEL_BASELINE_BYTES_HISTORY = [1_068_165, 1_085_389] as const;
 
 /** Allowed growth over the baseline before the guard fails. */
 export const SIDEPANEL_BASELINE_TOLERANCE = 0.05;
@@ -53,10 +62,12 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU build V2-2 TASK-008: re-measured after the floating-tree UI build (v1 was 1,068,165 B → +20,000 B intentional V2-2 UI weight)',
+    'SDDU build V2 P0 fix round W4: re-measured after the V2-3 revoke/undo surface (previous V2-2 baseline 1,085,389 B; v1 was 1,068,165 B). Explicit re-registration — previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
+  previousBaselineBytes: 1_085_389,
+  reRegisteredFrom: 'V2-2 1,085,389 B',
   targetBudgetBytes: null,
   targetMet: null,
-  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。增重为 V2-2 UI 有意引入。',
+  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-13 W4 显式重登记：V2-3 有意增重（撤销/回执面）后实测 1,110,744 B；历史值 1,068,165 / 1,085,389 保留在案。',
 } as const;
 
 /**

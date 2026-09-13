@@ -1588,7 +1588,17 @@ function projectToolSurface(s: Singletons): ToolSurfaceEntry[] {
 
 /** V2-1 (ADR-V2-004): push a re-projection trigger (carries no sensitive data). */
 function pushInsightChanged(): void {
-  void chrome.runtime.sendMessage(makeMessage('insight-changed')).catch(() => {});
+  // T2 fix round (2026-09-13): this used to be `void ... .catch(() => {})` — a
+  // silent swallow. "No receiver" (side panel closed) is a normal state, but a
+  // real send failure must stay diagnosable. The message payload is empty, so the
+  // diagnostic carries no sensitive plaintext. Best-effort semantics unchanged:
+  // the state itself is never fabricated here (peers re-pull `insight-tree`).
+  void chrome.runtime.sendMessage(makeMessage('insight-changed')).catch((err: unknown) => {
+    console.debug(
+      '[web-cli-plugin] insight-changed push failed or had no receiver (best-effort re-projection trigger; no state faked):',
+      err instanceof Error ? err.message : String(err),
+    );
+  });
 }
 
 /**

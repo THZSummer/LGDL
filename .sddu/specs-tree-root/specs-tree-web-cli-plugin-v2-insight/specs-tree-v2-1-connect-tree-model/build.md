@@ -202,8 +202,48 @@ git diff --quiet -- .sddu/specs-tree-root/specs-tree-web-cli-plugin/  （v1 目�
 
 ---
 
-## 11. 修订记录
+---
+
+## 11. R2 修复轮（2026-09-13，编排器代作者决策：消化 review `39cd0a1` 的 6 建议 + 3 提示）
+
+> **输入**：父 `review-report.md`（`39cd0a1`；C1~C22 + W1~W6 + T1~T3）。**纪律**：只加固不放宽；断言只增不减；门禁严格串行一次一个；不碰 `main`/`packages/web-cli-base/**`/v1 SDDU；无新依赖。
+> **本轮门禁原文（串行）**：`typecheck` **0 error**；插件 `npm test` **616/616 · 0 fail**（599 → **+17**）；`test:insight` **52 断言 PASS**；`test:ui` **167 断言**（v1 零删减）；`test:hardening` **24**；`test:binding` **180 断言**；`test:e2e` **PASS**；全仓 `npm test`：base **483/483** + plugin **616/616**，**0 fail**。
+
+以下为**修复轮全量条目逐条 before → after**（本表在三叶子 `build.md` 一致登记；本叶子（V2-1：投影 / 协议 / 冻结门禁）触及 **W2 / W3 / T2 / T3**）：
+
+| 项 | before | after | 证据 |
+|----|--------|-------|------|
+| **W1** | 子 V2-2 `spec.md`/`state.json` + `ROADMAP.md` 仍写「≥65.5%」 | 最小订正为父口径「≥589px 主 + ≥65.0% 次 + 去镀铬测量条件 + ADR-V2-006」，保留历史 + 以现状为准 | V2-2 `spec.md`/`state.json`/`ROADMAP.md`（见 diff） |
+| **W2** | `src/background/insight-protocol.ts` **无单测** | 新建 `test/insight-protocol.test.ts`（**6 测试 / 30 断言**）：合法通过 / 未知-畸形 kind 拒绝 / 缺字段-类型错-非对象拒绝 / 与主 `KIND_SET` 等价 / SW 入口并集无未校验放行 | `node --test dist-test/test/insight-protocol.test.js` → **6/6 pass** |
+| **W3** | `git diff --quiet HEAD` **提交后恒 0 = 假安全网** | **内容哈希钉死**：`policy.ts` / `auto-authorize.ts` SHA-256 + 判定表快照（720 行）+ 反证自测；原 `git diff` 断言全保留 | 反证实跑原文见下 |
+| **W4** | `SIDEPANEL_BASELINE_BYTES=1,085,389`（实际 1,110,744） | 显式重登记 **1,110,744**；ceiling **1,166,281**；历史保留；`CONTENT_MAX_BYTES` 不变 | `stat -c %s dist/sidepanel.js`=1110744；`test/size-budget.test.ts` +2 测试 |
+| **W5** | V2-2 `build.md` §5.2 「前」1,065,389（+20,000） | 订正 1,068,165（+17,224），历史行保留 + 以现状为准 | V2-2 `build.md` §5.2 |
+| **W6** | 仅 raw `#log ≥405px`（余量 13px） | 钉死 v1 raw 基线 418px/46.4% + `#I-06c ≥410px` / `#I-06d ≥45.4%`（容差 8px / 1.0pt）；不降低 405px | `test:insight` 52 断言 PASS |
+| **T1** | 树侧能力撤销成功路径未自动化 | `binding.mjs` 追加 `#21o*` 最佳努力端到端；**实跑 headless grant=PENDING_TIMEOUT → 如实 observe（不伪造 PASS）**；成功分支就位；既有断言零删改 | `test:binding` 观测原文 |
+| **T2** | `pushInsightChanged` 空 catch 静默吞 | 改为 `console.debug` 诊断（零敏感明文 / 不伪造状态）+ 新增门禁断言 | `service-worker.ts`；no-escalation T2 测试 |
+| **T3** | `deriveAction` 再实现无一致性门禁 | 新建 `test/insight-action-parity.test.ts`（**4 测试**）：真实 `createPluginPolicyConfig` + 真实 `PermissionGate`，对**全部 28 工具 / 94 子命令（122 命令节点）** + 站点域矩阵逐条断言 == 真值链；**反证自测**；已知保守分歧（3 个 base 内建 risk 缺失）显式钉死 | `node --test dist-test/test/insight-action-parity.test.js` → **4/4 pass** |
+
+**W3 pin 值（登记 2026-09-13 / 来源 commit `39cd0a1b91c5d41eae2d4079835a12b635e1ae1f`）**：
+- `src/security/policy.ts` = `bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8`
+- `src/security/auto-authorize.ts` = `1096d065dac63d56e36285bf499eee041acdc3e323d4c7215df3981af7d0ef4b`
+- 判定表快照（`PLUGIN_RISK_DEFAULTS` + `AUTO_AUTH_DEFAULTS` + 720 行 `decideAutoAuthorization`）= `d1667d24cbb8cfc422ce92e61af3701ebd70bf85a30224f3fc7c7ccf22a88b74`
+
+**W3 反证自测实跑原文**（`node` 复算，证明门禁非虚绿）：
+```
+original  = bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8 MATCH pin ✔
+tampered+ " " = 7c3cf5d796c6f8bee980b3a3d98ee755d70aefc47096fb3fbff8351389f5fc2a ≠ pin → 断言 FAIL ✔
+assert.throws 触发原文: 内容哈希漂移
+```
+
+**T3 覆盖计数**：`projectCommands` 产出 **28 工具 / 94 子命令 = 122 命令节点**，逐条与真实判定链比对；另加站点域矩阵（`read`/`write`/`undefined` × 授权 true/false × trust trusted/untrusted = 18 组合）。唯一已知**保守方向**分歧（投影 `deny` vs 运行时 `allow`，仅 `web-fetch` / `sleep` / `web-cli-help` 三个 base 内建、仅 risk 缺失）显式钉死；**其它任何分歧 FAIL**（含反证自测）。
+
+**四项零改动复核（本轮）**：`packages/web-cli-base/**` / `src/security/policy.ts` / `src/security/auto-authorize.ts` / `manifest.json` → `git diff --quiet` 全部 **exit 0**；`specs-tree-web-cli-plugin/**`（v1 SDDU）零 diff。
+
+---
+
+## 12. 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-1（Wave 1~5 / TASK-001~009）实施构建报告：7 新源码 + 4 修改源码（additive）+ 4 新门禁测试（36 测试）；门禁 `typecheck` 0 error / 插件与全仓 `npm test` 561（v1 525 零删减）；四项零改动核验通过；`content.js`/`sidepanel.js` 零增长；父 spec 口径最小订正（FR-V2-023 + §2.5）；决策 D-V21-01~05；Chromium 门禁本轮未跑（如实登记）。 | 2026-09-13 | SDDU Build Agent |
+| v1.1 | R2 修复轮：W2（insight-protocol 补测 6/30）/ W3（判定链改内容哈希钉死 + 判定表快照 + 反证）/ T2（去静默吞异常 + 门禁）/ T3（deriveAction 全量一致性交叉断言 28 工具·94 子命令 + 站点域矩阵 + 反证）；门禁全量串行复跑：typecheck 0 / 插件 npm test 616 / test:insight 52 / test:ui 167 / test:hardening 24 / test:binding 180 / test:e2e PASS / 全仓 base 483 + plugin 616 = 0 fail。 | 2026-09-13 | SDDU Build Agent |

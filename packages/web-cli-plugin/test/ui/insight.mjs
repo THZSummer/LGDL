@@ -12,6 +12,8 @@
  *   #I-05 `#log` 计算 `flex-grow === '1'`；
  *   #I-06 `#log` 稳态（去镀铬，guidance/consent 隐藏）`clientHeight ≥ 589px`（主断言）；
  *   #I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）`#log ≥ 405px`（v1 自身下限，无回归，D-V22-01）；
+ *   #I-06c pinned v1 raw 基线（418px @ 2026-09-13，W6）回归：`#log ≥ 410px`（更敏感）；
+ *   #I-06d 同上占比回归：`#log ≥ 45.4%`；
  *   #I-07 `#log` 稳态高度占比 `≥ 65.0%`（次断言）；
  *   #I-08 `#composer` 底边 − 视口底 `∈ [0, +8px]`（不得为负，D-079）；
  *   #I-09 `#tree-fab` ∩ `#composer` 交面积 `= 0`；
@@ -47,6 +49,27 @@ const NARROW = { width: 320, height: 900 };
 const LOG_MIN_HEIGHT = 589; // dev.md §11.3 v1 baseline (ADR-V2-006 main assertion)
 const LOG_MIN_RATIO = 65.0; // conservative lower bound (589/900 = 65.44%)
 const V1_RAW_LOG_MIN = 405; // v1 journey.mjs #15b's own floor (`>45vh` at 900px)
+/**
+ * W6 修复轮（2026-09-13）：v1 同条件 raw 基线 pinned。
+ *
+ * v1 口径（仅隐藏 `site-hint`/`onboarding`/`discovery-notice`，与 `journey.mjs` #15b
+ * 完全相同）在**今日 dist** 上实测 `#log = 418px / 46.4%`（测于 2026-09-13，来源
+ * `test/ui/journey.mjs` #15b 的测量条件）。原断言仅 `≥ 405px`（余量 13px）→ 存在
+ * 「小幅回退仍绿」盲区。这里钉死 raw 基线并加一条**更敏感**的回归断言：
+ * `#log ≥ 418 − 8 = 410px`。容差取 **8px（≈1.9%）** 的理由：吸收跨运行的字形/滚动条
+ * 亚像素舍入波动，同时仍能捕获任何 ≥9px 的有意/无意回退（例如新增镀铬挤压消息区）。
+ * **不降低**既有 405px 下限（只加不减）。
+ */
+const V1_RAW_LOG_BASELINE_PX = 418;
+const V1_RAW_LOG_BASELINE_RATIO = 46.4;
+const V1_RAW_LOG_BASELINE_TOLERANCE_PX = 8;
+const V1_RAW_LOG_BASELINE_RATIO_TOLERANCE = 1.0; // percentage points
+const V1_RAW_LOG_BASELINE_META = {
+  measuredOn: '2026-09-13',
+  source: 'test/ui/journey.mjs #15b 条件（仅隐藏 site-hint/onboarding/discovery-notice）',
+  dist: 'packages/web-cli-plugin/dist/sidepanel.js',
+  note: 'v1 口径 raw 几何实测；v2 叠加（抽屉/FAB）后不得回退超过容差',
+};
 const COMPOSER_GAP = [0, 8];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -389,6 +412,17 @@ async function main() {
       rawOpenClose.logFlexGrow === '1' && rawOpenClose.logClientHeight >= V1_RAW_LOG_MIN,
       `#I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）#log ≥ ${V1_RAW_LOG_MIN}px（v1 自身 >45vh 下限，无回归）`,
       JSON.stringify(rawOpenClose),
+    );
+    // W6: a MORE SENSITIVE regression assertion against the pinned v1 raw baseline.
+    check(
+      rawOpenClose.logClientHeight >= V1_RAW_LOG_BASELINE_PX - V1_RAW_LOG_BASELINE_TOLERANCE_PX,
+      `#I-06c pinned v1 raw 基线回归：原始口径 #log ≥ ${V1_RAW_LOG_BASELINE_PX - V1_RAW_LOG_BASELINE_TOLERANCE_PX}px（钉死 ${V1_RAW_LOG_BASELINE_PX}px @ ${V1_RAW_LOG_BASELINE_META.measuredOn}，容差 ${V1_RAW_LOG_BASELINE_TOLERANCE_PX}px）`,
+      JSON.stringify(rawOpenClose),
+    );
+    check(
+      rawOpenClose.logRatio >= V1_RAW_LOG_BASELINE_RATIO - V1_RAW_LOG_BASELINE_RATIO_TOLERANCE,
+      `#I-06d pinned v1 raw 基线占比回归：原始口径 #log ≥ ${(V1_RAW_LOG_BASELINE_RATIO - V1_RAW_LOG_BASELINE_RATIO_TOLERANCE).toFixed(1)}%（钉死 ${V1_RAW_LOG_BASELINE_RATIO}%）`,
+      `${rawOpenClose.logRatio}%`,
     );
     check(
       rawOpenClose.composerGapToBottom >= COMPOSER_GAP[0] && rawOpenClose.composerGapToBottom <= COMPOSER_GAP[1],
