@@ -489,10 +489,117 @@
 
 **判定理由**：TASK-017 的 8 项 UI 修复全部经**本审查自建 CDP 探针**独立证实为界面真实可见可用——设置入口真实调用 `openOptionsPage`（计数 0→1）、`llm-status` 真实返回体恰为 4 个非敏感字段且侧栏 bundle 零 LLM SDK/零明文、引导四态 current 步各不相同、合规文案 7 条与源码逐字一致且默认折叠、空态占位与条目逐行堆叠、禁用态三态与 `buttonStates` 完全一致、400/320 全页零溢出零超宽零裁切、options 使用说明/未配置提示/保存清空 Key/maxRounds 说明真实生效。D-043 的「脆弱耦合 + 生产路径本就正确」说法经源码与实测双证成立。F-9 未擅改成立、真实性如实待核。全仓独立复跑 0 fail、base 483 零回归、红线全 0、无漂移。剩余 3 项均为低severity非阻塞改进（其中 W1 为前轮既存行为被新引导放大的可见性提示）。
 
+## 10. R5 复审（2026-09-13，post-validate 增补轮 TASK-017~040 / 提交区间 `b3629a6..c02481d`）
+
+> **复审范围**：post-validate 增补轮（TASK-017~040，区间 `b3629a6..c02481d` 共 22 提交；**非** 仅 TASK-017）。范围**不**含基线 16 任务（R1~R4 已审）；但本轮**改动了基线语义/文件**的项**一并纳入**并标注：`tabs` 放开 `close`（反转 FR-049 初版「不做 close」）、`chrome` 工具 `description`/`help` 文案包装、`events` 内容桥 op 集扩张、`host.ts` 的 `onAsk` 接缝改为自动授权前置判定、`tools/declared-tools.ts` 的 `namespace→group` 判据迁移、`site_*`/`admin_*` 扁平化命名。
+> **复审基线**：分支 `feature/web-cli-plugin`，HEAD = `c02481d`；工作区 clean。
+> **方法论（本仓库曾 OOM → 静态为主 + 门禁串行）**：按 §5.1~§5.4 四维度 + §5.3 安全底线逐条**读码 / 跨文件比对 / grep**。独立复跑**仅串行**执行 `npm run test --workspace @lgdl/web-cli-plugin` 与 `npm run typecheck`；**未并发**启动 `test:e2e`/`test:ui`/`test:binding`（各起 Chromium，避免并发 OOM），相应核查项以静态读测断言 + 逐条标注「未跑」。
+> **改动面**：119 文件 / +29575 −771（`packages/web-cli-base/**` 零改动、`.opencode/opencode.json` 未被提交）。
+
+### 10.1 自主审查清单（C-R5-1 ~ C-R5-13）结论
+
+| # | 维度 | 审查对象 / 基准 | 结论 | 证据（file:line） | 严重度 |
+|---|------|----------------|:----:|-------------------|:--:|
+| **C-R5-1** | 规范符合 | FR-049/FR-053（`tabs` 补齐 mute/pin/move + 放开 close）逐字对账 | ✅ PASS | 子命令 7 个 + `subcommandRisks` 全 `write`：`src/tools/tabs-tools.ts:70-79,457-458`；`--id`/`--match` 二选一 + 禁批量：`:393-400`；受限页可读拒绝：`:451-458`；close/move/mute/pin describe 摘要（标题 + 去参 URL + close 不可逆/侧栏自关）：`src/background/service-worker.ts:1423-1443`；close 确认审计：`src/tools/tabs-tools.ts:721` | 无 |
+| **C-R5-2** | 规范符合 | FR-054（`bookmarks` 读+写 / `downloads` 只读）与实现**逐字对账** | ✅ PASS | destructive 集合恰为 `remove`：`bookmarks-tools.ts:59`；子命令 risk `list/search/tree=read`、`add/remove/move=write`：`:66-73`；禁批量 + 仅 http(s) add：`:407-420`；`downloads` 只读无 mutating：`downloads-tools.ts:54-60,213`；`describeTarget` 摘要：`service-worker.ts:1086-1090` | 无 |
+| **C-R5-3** | 规范符合 | FR-055（`notify` 读+写 / `clipboard` 读+写；clipboard 读 `state` 档永不自动放行；读侧默认关）逐字对账 | ✅ PASS | risk 表：`notify-tools.ts:50-54`（list=read/send,clear=write）、`clipboard-tools.ts:74-80`（read=`state`、write=`write`、富子命令裁剪）；默认值 `notify:true`/`clipboardRead:false`/`clipboardWrite:true`：`capability-setting.ts:34-41`；裁剪子命令可读拒绝：`clipboard-tools.ts:219-221`；扩展页读拒绝：`service-worker.ts:1197-1209` | 无 |
+| **C-R5-4** | 架构一致 | ADR-013/014/015（多会话 / 自动探测 / 标签页管理） | ✅ PASS | 会话键 origin/group + LRU：`session-store.ts`；声明式注入 `persistAcrossSessions`：`content-script-registry.ts`；URL 驱动会话跟随：`session-follow.ts`；自动探测有界退避 500ms→15s：`auto-probe.ts`；`tabs` 隐私开关即时增删工具面：`host.ts:283-296` | 无 |
+| **C-R5-5** | 架构一致 | **ADR-018 关键断言：`permissions.request` 只在扩展页手势内、SW 绝不调用** | ✅ PASS | 实现方 `src/platform/capability-permissions.ts:100-120`（`request` 在首个 `await` 前同步调用）；**调用方**仅 `ui/settings/panel.ts:767`、`ui/options/options.ts:586`、`ui/sidepanel/sidepanel.ts:1025`（origin 授权）；SW 导入白名单仅 `hasCapabilityPermission`/`changeTouchesCapability`（`service-worker.ts:54-60`）+ `hasOriginPermission`/`removeOriginPermission`（`:21-26`），**全仓 `src/background/**` 零 `permissions.request`**（grep 证实） | 无 |
+| **C-R5-6** | **安全底线** | 自动授权硬底线 4 条 + clipboard 读永不自动放行 | ✅ PASS | 判定顺序：destructive→group→evaluate→非 read/write：`auto-authorize.ts:242-253`；host 前置判定 + 独立审计：`host.ts:200-250`；未授权 S1 deny / 未知 risk S2·S3 deny / evaluate deny：`policy.ts:43-47,73-124`；**host 级集成双断言**：`test/bookmarks-tools.test.ts:362-369`（写自动开仍 ask remove）、`test/clipboard-tools.test.ts:308-321`（读自动开仍 ask read + 零 auto-allow 审计） | 无 |
+| **C-R5-7** | 权限纪律 | manifest 静态权限面 / 未批权限 | ✅ PASS | `manifest.json`：`permissions` = `activeTab,scripting,storage,sidePanel,tabs`（`tabs` 为 FR-049 作者批准的唯一静态扩张）；四能力**仅** `optional_permissions`（`bookmarks,downloads,notifications,clipboardRead,clipboardWrite`）——FR-054/055 的「静态 `permissions` 零新增」**成立**；无 `<all_urls>`、无静态 `content_scripts`；未批权限 `history/cookies/declarativeNetRequest/debugger/tabGroups` grep 仅命中 1 处注释（`capability-permissions.ts:23`），**零使用** | 无 |
+| **C-R5-8** | 安全底线 | 审计零明文（剪贴板/通知内容、URL query、bookmark 标题） | ✅ PASS（附 1 提示） | 工具自审只记长度/路径：`clipboard-tools.ts:258,276`、`notify-tools.ts:261`；URL 去 query（`redactTabUrl`）与搜索词只记长度：`bookmarks-tools.ts:270-278`；内容参数入确认摘要前 `scrubContentArgs`：`confirm.ts:54-75`；单测 `clipboard-tools.test.ts:199-248`/`notify-tools.test.ts:187-197`/`bookmarks-tools.test.ts:270-278`/`downloads-tools.test.ts:44,105`。**提示**：`bookmarks remove`/`tabs close|move|mute|pin` 的 `confirm` 审计 `reason` 含目标**标题**（用户内容）——由 EC-026/FR-054 要求「摘要显示标题」推导，属既定设计，非违规 | 提示 |
+| **C-R5-9** | 代码质量 | 无静默失败 / 假成功 | ✅ PASS | 权限缺失→工具仍在面 + 可读拒绝（`clipboard-tools.ts:226-241`、`bookmarks-tools.ts` 同类）；扩展页不可达→可读「请保持侧栏打开」拒绝（`service-worker.ts:1197-1200`）；events 桥逐字转发、页面不支持透出具体原因（`remote-events.ts:18-33`、`page-bridge.ts:275-284`）；自动探测失败可读分类（`auto-probe.ts`）；无 `<all_urls>`/静默 catch（`.executor(` 直调 0、`silentAllow` 0） | 无 |
+| **C-R5-10** | 架构一致 | FR-051 对账门禁有效性 | ✅ PASS | 基线 34 工具 / **142 子命令** + provenance（main `2ddc922…`）：`test/parity/baseline-catalog.json`；双向 + 子命令级 + **自测**（能抓丢 dom/chrome 与未登记新工具）：`parity.test.ts:201-269`；`pluginExtras` 登记完整性 + **过期条目检测**：`:253-269`；`waivers.json` 无 `pending-permission` 残留、无过期豁免 | 无 |
+| **C-R5-11** | 测试质量 | 断言只增不减 / 安全底线覆盖 | ✅ PASS | 插件 test 断言 720→**2456**（`grep -o "assert\."`），区间测试新增 +11993 / −116，删除仅 `namespace→group` 改名等；新增安全专项 `auto-authorize.test.ts`(13 test)/`bookmarks-tools.test.ts`(15)/`capability-revoke.test.ts`(5)；**host 级**硬底线双断言见 C-R5-6 | 无 |
+| **C-R5-12** | 规范符合 | 文档漂移 / 残留矛盾陈述 | ⚠️ 4 处滞后 | 见 §10.4（均为**文档**滞后，代码为真值） | 低 |
+| **C-R5-13** | 架构一致 | 红线复核（base 零改动 / 无新依赖 / 无明文 key / 无越权提交） | ✅ PASS | `git diff b3629a6..c02481d -- packages/web-cli-base` **空**；`package.json` 仅加 `test:binding` 脚本、`dependencies` 仍仅 base `^0.7.0`；`.opencode/opencode.json` 未被提交；`build.mjs` `target` 与 `manifest.minimum_chrome_version` 同步为 116 | 无 |
+
+### 10.2 安全底线逐条验证结果（最高优先）
+
+| 底线 | 判定 | 本审查证据 |
+|------|:--:|------|
+| ① 未授权 origin 仍 `deny`（S1） | ✅ | `policy.ts:73-84`（group==='site' 且未授权→deny；`denyPriority:true` 使 deny 胜出），自动授权接缝**不改**策略链（`host.ts:259-268`） |
+| ② 未知/缺失/非法 risk 仍 `deny`（S2/S3，fail-closed） | ✅ | `policy.ts:92-124`；`auto-authorize.ts:251-253`（非 read/write→`hardDeny`） |
+| ③ `evaluate` 仍 `deny` | ✅ | `policy.ts:47`（`evaluate:'deny'`）+ `auto-authorize.ts:247-249`（`hardDeny`，**不经确认 UI**） |
+| ④ **破坏性操作仍 `ask`**（不纳入「写操作自动」） | ✅ | 判定**前移到 group 过滤之前**：`auto-authorize.ts:242-244`；插件级归类 `isPluginDestructiveInvocation`（`host.ts:58-68`）；`bookmarks remove`=destructive（`bookmarks-tools.ts:59`）；host 集成断言 `test/bookmarks-tools.test.ts:362-369`（写自动开仍 `asks()===1`、零 auto-allow 审计） |
+| ⑤ `clipboard read`（`state` 档）**永不自动放行** | ✅ | `clipboard-tools.ts:75`（read=`state`）+ group='plugin' → `allow:false`→保持 `ask`（`auto-authorize.ts:245`）；host 集成断言 `test/clipboard-tools.test.ts:308-321`（读自动开仍 ask、零 auto-allow 审计、审计零明文） |
+| ⑥ **SW 内真的没有 `permissions.request`** | ✅ | 调用点仅 3 个 UI 文件（见 C-R5-5）；SW 导入面 `service-worker.ts:21-26,54-60` 仅 `has*`/`remove*`/`changeTouches*`；全仓 `src/background/**` grep `permissions.request` = 0 |
+| ⑦ 审计**零明文** | ✅ | 见 C-R5-8（工具自审仅长度/路径；内容参数 `scrubContentArgs`；URL 去 query）；单测以 `SECRET_*` 常量断言「JSON 不含明文」 |
+| ⑧ 无静默失败 / 假成功 | ✅ | 见 C-R5-9 |
+| ⑨ 可选权限**静态 `permissions` 零新增** | ✅ | 四能力仅在 `optional_permissions`；`permissions` 本轮唯一变化 = `+tabs`（FR-049 作者批准，**非** FR-054/055 能力） |
+| ⑩ 无 `<all_urls>` / 无静态 `content_scripts` | ✅ | `manifest.json` 无二者；`src/` 与 `manifest.json` grep `all_urls`=0 |
+
+### 10.3 对账门禁与 waivers 复核结论
+
+- **门禁有效**：`test/parity.test.ts` 基线与插件 `deriveTools()` 做**双向**（基线缺失 / 插件未登记）**子命令级**比对，并含**自测**（模拟丢 `dom`/`chrome`、新增 `brand-new-tool` 必须被拦）；`pluginExtras` 既查「未登记」也查「**过期条目**」（登记了不存在的工具则失败）；`waivers` 还查「指向已不存在的基线工具」。基线 34 工具 / 142 子命令与文档一致。
+- **waivers 无残留**：`waivers.json` 已**无 `pending-permission` 条目**——`notify`/`clipboard` 实现后其豁免被撤（二者现为基线同名工具，直接由同名实现覆盖，**不**登记 `pluginExtras`，正确）；`pluginExtras` 现含 `tabs`/`bookmarks`/`downloads`（均带理由+依据）。无「已实现但豁免未撤」的过期项。
+- **风险档未放宽**：`clipboard read`=`state`（base 为 `ui`，同为 `ask`，未放宽）；`notify send`=`write`（base 为 `ui`，同为 `ask`）；`tabs close/move`=`write`。门禁**只校名与子命令**、不校 risk，故此项由源码人工核对（见 C-R5-1/3）。
+
+### 10.4 问题清单（分级）
+
+**阻塞问题：0 个**（未发现安全底线违规、无功能阻断、无未登记工具、无权限越界）。
+
+**建议（非阻塞，4 项）：**
+
+| # | 项 | 严重度 | 为何不阻塞 |
+|---|----|:--:|------|
+| **W-R5-1** | `docs/compliance.md:130`（§8.1）仍写「`permissions` 仍 `activeTab/scripting/storage/sidePanel`；无 `tabs`」 ——与 `manifest.json` 及同文件 §9（`tabs` 已扩张）矛盾 | 低 | 代码/门禁为真值（`tabs` 经 FR-049/ADR-015 已批准且披露），仅 §8.1 的 FR-047 上下文未随 v1.5 回填 |
+| **W-R5-2** | `docs/smoke-checklist.md:14`（M3）「无 `tabs`」、`:41`（M30）「无 `<all_urls>`/无 `tabs` 权限」滞后 | 低 | 同上；M30 其余断言（真站点全链）仍有效 |
+| **W-R5-3** | `docs/smoke-checklist.md:37`（M26）与 `docs/dev.md:276,322` 仍引用已被 TASK-032 **移除**的「重新探测」手动按钮 | 低 | 源码已无该按钮（`grep discovery-retry` 仅命中说明性注释）；仅文档未同步 |
+| **W-R5-4** | `build.md:2542`（§36.5）/§37.8 仍写「spec.md 尚未落 FR-054/FR-055 条文…待 @sddu-spec 补登」 | 低 | 该披露在**当轮**为真；`state.json` D-167/D-173/D-178 已更新为「已闭环/已解除」，但 build.md 未回填（历史日志节） |
+
+**提示（3 项）：**
+
+| # | 项 | 说明 |
+|---|----|------|
+| **T-R5-1** | `auto-authorize.ts` 模块 doc（硬底线 5「`ui`/`state`/`external` → 保持 `ask`」）与实现对 **site 组**的 `ui/state/external` 返回 `hardDeny`（`:251-253`）**措辞不一** | 实际 `effectiveRisk()` 仅产出 `read`/`write`/`undefined`（`declared-tools.ts:300-305`），site 路径不可达该分支（死防御）；插件组先 `allow:false`→`ask`，行为与硬底线一致。建议对齐注释以免误读 |
+| **T-R5-2** | 撤销抑制态 `suppressCapability` 为**内存态**，SW 重启后丢失 | 权限仍缺失时工具会重注册但执行返回**可读拒绝**（安全、不静默）；UI 由「已撤销」回落为「未授权」。建议文档注明该会话级语义 |
+| **T-R5-3** | `test/perf-budget.test.ts` 的 NFR-007 墙钟阈值（50 次 dispatch < 250ms）**时序敏感** | 本审查串行首跑 **262ms 失败**、隔离重跑 **15.2ms 通过**（4/4）。建议放宽或改相对基准，降低门禁抖动 |
+
+### 10.5 独立复跑（本审查实测，串行，不引用 build 声明）
+
+| 门禁 | 命令 | 实测结果 |
+|------|------|---------|
+| 插件单测 | `npm run test --workspace @lgdl/web-cli-plugin` | ⚠️ 523 tests / **522 pass / 1 fail** —— 唯一失败为 `perf-budget.test.ts` NFR-007 墙钟（262ms > 250ms）。**隔离重跑该文件 4/4 pass（15.2ms）** → 判定为**时序抖动**，非功能回归 |
+| 插件类型检查 | `npm run typecheck --workspace @lgdl/web-cli-plugin` | ✅ `tsc --noEmit` 退出码 0 |
+| 安全底线 grep | `permissions.request` in `src/background/**` | ✅ **0** |
+| 红线 grep | `.executor(` 直调 / `silentAllow` / `<all_urls>` / `src/ui/sidepanel` `apiKey` / `src/llm|ui/settings` `localStorage` | ✅ 全 0 |
+| 未批权限 grep | `history/cookies/declarativeNetRequest/debugger/tabGroups/management/webRequest/proxy/geolocation` in `src/` | ✅ 仅 1 处注释（`capability-permissions.ts:23`），零使用 |
+| base 零改动 | `git diff b3629a6..c02481d -- packages/web-cli-base` | ✅ 空 |
+| 越权提交 | `git diff --name-only … -- .opencode/opencode.json` | ✅ 空 |
+| 依赖 | `package.json` diff | ✅ 仅 `+test:binding` 脚本；`dependencies` 不变 |
+
+> **未跑（避免 Chromium 并发 OOM）**：`test:e2e` / `test:ui` / `test:hardening` / `test:binding` 均**未**在本轮独立复跑。对应用例以**静态读测断言**核验（`ui/binding.mjs:498-499` 断言真实 dist `permissions` 恰为已批准集合且无其他新增；`:584-599` 披露测试副本偏差；`ui/journey.mjs:1109,1218` 三态按钮断言）。测试副本偏差（temp dir 内追加静态权限 / host_permissions）**已如实披露**且**不污染分发物**（`dist/` 未纳入版本控制、`manifest.json` 未被测试改写）。
+
+### 10.6 未覆盖项 / 偏差（如实）
+
+- **未独立跑浏览器级门禁**（e2e/ui/binding/hardening，见 §10.5），故不冒充其 PASS；这些门禁的**断言存在性与偏差披露**经静态核验，但**运行结果**以 build 声明为准（本轮不复跑）。
+- **headless 无法合成原生授权弹窗 / 手势**：真实 `chrome.permissions.request` 弹层、真实 `tabs.goBack/goForward` 全栈交互、扩展页剪贴板真读的 headless 限制，沿用既有如实披露（`build.md` §36.5/§37.8/§38.9），归人工面 H2，**未冒充 PASS**。
+- **已知降级项**（诚实性核验，均如实记录、无冒充）：① 终态/暂时性**共用同一有界退避序列**（`build.md` §30 D-135）；② **同 origin 另一 tab 复用会话时有一次冗余 reprobe**（§28）；③ 新建标签页 `url` `loading` 期空值的**竞态**（`build.md` §31 D-140，属测试脚手架健壮性修复）；④ `options.html` **未**重写为纯空壳、保留为功能完整兜底页（§31 D-138，取舍已披露）。**核验结论：四项均如实记录，无冒充 PASS。**
+- **未深查**：`src/ui/sidepanel/markdown.ts` 的完整 XSS 面（已确认零 `innerHTML`、链接经 `safeHref` 仅放行 http(s) + `rel=noreferrer noopener`）、`real-screenshot.ts` 整页拼接的像素级正确性（属 validate 动手面）。
+
+### 10.7 R5 结论
+
+**结论：⚠️ 有条件通过（0 阻塞；4 建议 + 3 提示，均低）**
+
+| 指标 | 结果 |
+|------|------|
+| FR-047~055 覆盖 | FR-047/048/049/051/052/053/054/055 **均有实现 + 验收断言**；FR-050（web-fetch 受控 seam）在范围内、静态复核通过 |
+| 安全底线（§10.2 逐条） | **10/10 PASS**（含 SW 零 `permissions.request`、四条 hard floor、clipboard read 永不放行、静态 permissions 零新增） |
+| ADR-013~018 一致性 | ✅（ADR-018 关键手势/SW 断言经 grep 独立证实） |
+| 对账门禁 / waivers | ✅ 有效；无过期豁免、无未登记工具 |
+| 文档漂移 | ⚠️ 4 处滞后（W-R5-1~4，均文档层、代码为真值） |
+| 独立复跑 | typecheck 0 error；插件单测 522/523（唯一失败为时序抖动，隔离 4/4 pass） |
+| 红线 | base 零改动 / 无新依赖 / 无明文 key / `.opencode/opencode.json` 未提交 —— 全 PASS |
+| 新增阻塞 | **0** |
+
+**判定理由**：增补轮的结构性安全改动经**静态读码 + host 级集成断言**逐条证实为 fail-closed——自动授权是 `onAsk` **前置判定**（不改 `riskDefaults`/策略链），四条硬底线（未授权 deny / 未知 risk deny / `evaluate` deny / 破坏性仍 ask）与「`clipboard` 读 `state` 档永不自动放行」均有**纯决策 + host 集成双断言**；**SW 内确无 `permissions.request`**（唯一调用点全在扩展页 UI）；FR-054/055 四能力**仅** `optional_permissions` 声明、静态 `permissions` 零新增、未批权限零使用、无 `<all_urls>`/静态 `content_scripts`；审计零明文有 `SECRET_*` 单测硬证；`tabs` 放开 `close` 的**需求变更**（FR-053）以 `write→ask` + 单标签页 + 禁批量 + 不可逆摘要 + 可读拒绝落实，安全门禁未放宽；对账门禁双向有效、waivers 无过期项。剩余 4 项文档滞后（`compliance.md` §8.1「无 tabs」、`smoke-checklist.md` M3/M26/M30、`dev.md` §10.2/§10.3「重新探测」、`build.md` §36.5/§37.8「FR-054/055 待补登」）与 3 项提示（auto-authorize 注释措辞、撤销抑制会话级、perf-budget 时序阈值）**均不阻塞**（< 5 改进门槛）。因存在文档漂移，判为**有条件通过**而非「通过」——建议在下一轮文档打扫一并订正；不阻塞进入/维持 validate。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v5.0 | R5 复审：post-validate 增补轮 TASK-017~040（`b3629a6..c02481d`）——含基线语义改动（`tabs` 放开 close、chrome 文案包装、events op 扩张、host onAsk 前置判定、扁平命名/group 判据）；C-R5-1~13 逐项；安全底线 10 条逐条验证（SW 零 `permissions.request` / 四 hard floor / clipboard read 永不放行 / 静态 permissions 零新增）；对账门禁与 waivers 复核；独立串行复跑 typecheck 0 error + 插件 522/523（1 时序抖动，隔离 4/4 pass）；红线复核。**结论 ⚠️ 有条件通过（0 阻塞，4 建议 + 3 提示，均低）** | 2026-09-13 | SDDU Review Agent |
 | v4.0 | R4 UI 复审（TASK-017 F-1~F-9 + D-043）：自建 headless Chromium/CDP 探针独立截图 + 实测（不引用 build 证据）；逐项核验 UI 真实可见可用、代码质量/规范符合、诚实性、独立复跑 build/test(125+483)/tsc/E2E/红线；**结论 ✅ 通过（0 阻塞，3 低危改进）** | 2026-09-12 | SDDU Review Agent |
 | v3.0 | R3 全量复审：P1（TASK-012~015）+ 遗留清账（R-BLK1a/R7/R8/R9/minors/EC/AC/NFR-007）+ P2（TASK-016）逐项核验；独立复跑全仓 build/test/tsc/E2E/红线 grep + 自写 R-BLK1a 复现脚本；**最终结论 ✅ 通过（0 阻塞，可进入 validate）** | 2026-09-12 | SDDU Review Agent |
 | v2.0 | R2 复审：BLK-1/BLK-2 复验 PASS + 6 项改进 6/6 落地 + 独立复跑（全仓 0 fail / tsc / 红线 grep / base 零改动 / G-MV3 / G-KEY）+ 残余 R-BLK1a 实证；**最终结论 ⚠️ 有条件通过（0 阻塞，可进入 validate）** | 2026-09-11 | SDDU Review Agent |
