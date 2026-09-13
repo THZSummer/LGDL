@@ -1,0 +1,561 @@
+{
+  "meta": {
+    "feature": "V2-4 命令档案浏览器（父：specs-tree-web-cli-plugin-v2-insight）",
+    "featureKey": "specs-tree-v2-4-command-archive",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-13",
+    "version": "1.0.0",
+    "sourcePlan": "V2-4 plan.md v1.0（ADR-V2-016~023 + §2~§3 设计决策 + §6 文件影响 + §9 交付门槛 A1~A9 / #I-19a…h / V2-H-7~9）+ 父 plan.md v1.0（ADR-V2-001~015）",
+    "sourceSpec": "父 spec.md FR-V2-050~FR-V2-056 + 本叶子 spec.md（NFR-V24-001~005 / EC-V24-001~005 / AC-V24-001~007）",
+    "taskCount": 10,
+    "waveCount": 4,
+    "complexity": {
+      "S": 3,
+      "M": 5,
+      "L": 2
+    },
+    "typeBreakdown": {
+      "implementation": 3,
+      "gate": 5,
+      "doc": 1,
+      "human": 1
+    },
+    "p0MinimalSet": [
+      "TASK-001",
+      "TASK-002",
+      "TASK-003",
+      "TASK-004",
+      "TASK-005",
+      "TASK-006",
+      "TASK-007",
+      "TASK-008",
+      "TASK-009",
+      "TASK-010"
+    ],
+    "crossLeafOrder": {
+      "leaf": "V2-4",
+      "executionWaves": "Wave 14~17",
+      "dependsOn": [
+        "specs-tree-v2-1-connect-tree-model",
+        "specs-tree-v2-2-floating-tree-ui"
+      ],
+      "priorLeavesValidated": [
+        "specs-tree-v2-1-connect-tree-model",
+        "specs-tree-v2-2-floating-tree-ui",
+        "specs-tree-v2-3-revoke-ops"
+      ]
+    },
+    "gateMatrix": [
+      {
+        "gate": "insight-archive (main)",
+        "command": "npm test",
+        "file": "test/insight-archive.test.ts",
+        "change": "new",
+        "task": "TASK-004",
+        "assertions": ["A1", "A2", "A4", "A5", "A6", "A7", "A8", "A9"],
+        "reverseProofs": [
+          "A1 drop a card -> FAIL",
+          "A2 drop a baseline row -> FAIL; accounted computed from L1 -> FAIL (anti-exaggeration)",
+          "A4 inject actionId field -> FAIL",
+          "A5 duplicate literal -> FAIL; mutate TREE_NO_ESCALATION_NOTE one byte -> FAIL",
+          "A6 predicate always true -> FAIL",
+          "A7 mutate constant one char -> FAIL",
+          "A8 mutate one byte -> FAIL",
+          "A9 ceiling+1 -> FAIL"
+        ]
+      },
+      {
+        "gate": "insight-archive (A3 deny layering)",
+        "command": "npm test",
+        "file": "test/insight-archive.test.ts",
+        "change": "append (zero-deletion)",
+        "task": "TASK-005",
+        "assertions": ["A3"],
+        "reverseProofs": ["flip one card's derivation input -> FAIL"]
+      },
+      {
+        "gate": "test:insight (#I-19a…h)",
+        "command": "npm run test:insight",
+        "file": "test/ui/insight.mjs",
+        "change": "append #I-19a…h (existing #I-00…18e untouched, single Chromium session)",
+        "task": "TASK-006",
+        "assertions": ["#I-19a", "#I-19b", "#I-19c", "#I-19d", "#I-19e", "#I-19f", "#I-19g", "#I-19h"]
+      },
+      {
+        "gate": "size-budget (sidepanel 5% / content no-growth)",
+        "command": "npm run build && npm test",
+        "file": "test/size-baseline.ts + test/size-budget.test.ts",
+        "change": "re-register + append (existing assertions untouched)",
+        "task": "TASK-007",
+        "reverseProofs": ["ceiling+1 -> FAIL", "1_073_454 content.js -> FAIL", "mutate src/content/** one byte -> FAIL"]
+      },
+      {
+        "gate": "serial closeout / zero-diff surfaces",
+        "command": "full serial suite + git diff --quiet",
+        "file": "src/security/** + src/content/** + manifest.json + tree-model.ts + tree-view.ts + tree-ops.ts + tree-receipt.ts + test/parity/** + packages/web-cli-base/**",
+        "change": "zero diff",
+        "task": "TASK-008"
+      }
+    ],
+    "coverageTiers": {
+      "L1_baseline": {
+        "tools": 34,
+        "subcommands": 142,
+        "source": "test/parity/baseline-catalog.json",
+        "provenanceCommit": "2ddc92299ad10cfe0ea2b65403243a45ce7fb041"
+      },
+      "L2_waivers": {
+        "tools": 20,
+        "subcommands": 88,
+        "breakdown": "mapped 4/39, not-applicable 9/29, baseline-disabled 6/16, delegated 1/4",
+        "source": "test/parity/waivers.json"
+      },
+      "L3_live_surface": {
+        "entries": 28,
+        "subcommands": 94,
+        "cards": 122,
+        "dedupedToolNames": 23,
+        "suppressedSyntheticEntries": 5,
+        "source": "P0 T3 fixture (insight-action-parity same data)"
+      },
+      "accounted": {
+        "definition": "carded ∪ waived covers every baseline row",
+        "percent": 100
+      },
+      "antiExaggeration": {
+        "carded": "equals L3 only",
+        "forbidden": "never claim '34/142 all rendered as cards'",
+        "dynamicInvariant": "cards.length === meta.counts.commands + meta.counts.subcommands",
+        "fixturePin": 122
+      }
+    },
+    "delayNote": {
+      "singleSource": "TREE_NO_ESCALATION_NOTE (import, never copy literal)",
+      "verbatim": "delay（= deny，fail-closed，非可配置档位；与命令间 delayMs 无关）",
+      "freeze": "sha256(TREE_NO_ESCALATION_NOTE) pinned; DOM occurrence of 非可配置档位 === 1",
+      "reason": "W3 lesson: never use git diff --quiet HEAD as the only freeze"
+    },
+    "autoAuthHardLine": {
+      "derivation": "pure read-only; no new model field; no change to deriveAction",
+      "rule": "card.group === PLUGIN_SITE_GROUP ∧ (card.risk === 'evaluate' ∨ risk missing/illegal)",
+      "crossAssertion": "real decideAutoAuthorization over ALL cards + site domain matrix",
+      "divergencePin": "non-site evaluate/unknown-risk: policy deny but auto 'not applicable' (explicit, not loosened)",
+      "lesson": "T3"
+    },
+    "sizeBudget": {
+      "sidepanel": {
+        "policy": "explicit re-registration after build (W4)",
+        "tolerance": 0.05,
+        "history": [1068165, 1085389, 1110744],
+        "historyMustInclude": 1110744,
+        "newBaseline": "measured after build (not preset)",
+        "ceiling": "floor(newBaseline × 1.05)",
+        "metaMustStayNull": ["targetBudgetBytes", "targetMet"],
+        "previousBaselineBytes": 1110744
+      },
+      "content": {
+        "policy": "hard no-growth (red line)",
+        "maxBytes": 1073453,
+        "tolerance": 0,
+        "sourceHashPin": "src/content/** (3 files: content-script.ts / dom-agent.ts / page-bridge.ts)"
+      }
+    },
+    "assertionsOnlyIncrease": [
+      "V2-4 node gate is a NEW file (test/insight-archive.test.ts)",
+      "A3 is appended to the TASK-004 file with zero deletion",
+      "test/ui/insight.mjs appends #I-19a…h; existing 52-assertion set (#I-00…18e) untouched (verify via git diff -U0 no deletion lines)",
+      "test/size-budget.test.ts appends; existing assertions untouched",
+      "zero-diff surfaces: src/security/** / src/content/** / manifest.json / tree-model.ts / tree-view.ts / tree-ops.ts / tree-receipt.ts / test/parity/** / packages/web-cli-base/**"
+    ],
+    "numberingDecision": {
+      "gate": "test/ui/insight.mjs",
+      "actual": "#I-19a…h",
+      "existingMax": "#I-18e",
+      "conflict": "none",
+      "decision": "TD-V24-02",
+      "note": "no second Chromium gate (OOM risk); reuse the single session"
+    },
+    "assertionCountDecision": {
+      "id": "TD-V24-03",
+      "existing": 52,
+      "existingBasis": "runtime passes counter",
+      "newLabels": "#I-19a…h (8)",
+      "caveat": "#I-19h reuses checkLayout which expands multiple checks; measured delta must come from the runtime passes value (expected >= 52+8), document the measured number and the basis, do not hardcode"
+    },
+    "orchestratorDecisions": [
+      {
+        "id": "TD-V24-01",
+        "item": "render model location",
+        "ruling": "merge into src/insight/archive-catalog.ts; never add a file under src/ui/tree/ (avoid treeSources() exact-list assertion; ADR-V2-016)"
+      },
+      {
+        "id": "TD-V24-02",
+        "item": "Chromium append numbering",
+        "ruling": "#I-19a…h (max existing #I-18e, no conflict); no new second Chromium gate, reuse single session"
+      },
+      {
+        "id": "TD-V24-03",
+        "item": "test:insight assertion count basis",
+        "ruling": "existing 52 = runtime passes; document measured value after appending #I-19a…h, do not preset a fixed number"
+      },
+      {
+        "id": "TD-V24-04",
+        "item": "node gate split",
+        "ruling": "A3 (deny layering full cross-assertion, T3 high risk) is an independent TASK-005; A1/A2/A4~A9 in TASK-004"
+      },
+      {
+        "id": "TD-V24-05",
+        "item": "waves",
+        "ruling": "4 waves (cross-leaf Wave 14~17); TASK-009 -> TASK-010 same-file (smoke-checklist.md) serial"
+      },
+      {
+        "id": "TD-V24-06",
+        "item": "size baseline",
+        "ruling": "new baseline = measured after build (not preset); HISTORY appends 1_110_744; tolerance 5% and targetBudgetBytes/targetMet null unchanged"
+      },
+      {
+        "id": "TD-V24-07",
+        "item": "ROADMAP.md backfill",
+        "ruling": "out of scope for this leaf (authorized docs are docs/dev.md + docs/smoke-checklist.md only)"
+      }
+    ],
+    "p0LessonsInherited": [
+      "gates must be able to truly FAIL (reverse proof for every critical assertion); no assert.ok(true) empty assertions",
+      "catch swallows ONLY ENOENT",
+      "freeze by content hash (sha256), never git diff --quiet HEAD as the only freeze (W3)",
+      "size baseline changes require explicit re-registration with before/after + date + source + reason + history (W4)",
+      "measurement conditions defined reproducible and written into AC (D-V22-01)",
+      "policy re-implementation requires full-population cross-assertion (T3)",
+      "Chromium gates never run concurrently (OOM)"
+    ],
+    "note": "V2-4（v2 最后一叶，P1）10 任务 / 4 波（跨叶子 Wave 14~17）：catalogMeta 常量 + service-worker 1 行注入 → archive-catalog（渲染模型 + 三层口径 34/142 · 20/88 · 28/94=122 + accounted 100% + deny 分层 autoAuthHardLine 派生只读 + ArchiveFilter 只读过滤）→ tree-drawer 档案子视图（默认关、.tree-archive* 隔离、复用 TREE_NO_ESCALATION_NOTE）→ node 门禁 A1/A2/A4~A9（每条配反证）+ A3 deny 分层全量交叉（真实 decideAutoAuthorization × 全量卡片 + 站点域矩阵 + 分歧钉死）→ test:insight 追加 #I-19a…h（单 Chromium 会话）→ 体积显式重登记（HISTORY 追加 1_110_744；content.js 零增长 1_073_453 + src/content/** 源码哈希）→ 串行收口 → 文档回填 → 人工面 V2-H-7~9（⏳ 待人工）。**零模型改动**；唯一 additive 运行时面 = service-worker 1 行 catalogMeta（ADR-V2-023）。断言只增不减：新门禁落新文件，既有 test:insight 52 断言零删改。编排器代作者决策（2026-09-13 授权）：TD-V24-01~07。门禁串行执行，绝不并发（OOM 前科）。"
+  },
+  "waves": [
+    {
+      "wave": 14,
+      "planWave": "V2-4 内部",
+      "tasks": ["TASK-001", "TASK-002"],
+      "strategy": "并行组 ①：文件不相交（catalog-meta.ts + service-worker MODIFY | archive-catalog.ts NEW）"
+    },
+    {
+      "wave": 15,
+      "planWave": "V2-4 内部",
+      "tasks": ["TASK-003", "TASK-004"],
+      "strategy": "并行组 ②：tree-drawer 档案子视图（消费 002 接口）| node 门禁主体（消费 001/002）"
+    },
+    {
+      "wave": 16,
+      "planWave": "V2-4 内部",
+      "tasks": ["TASK-005", "TASK-006", "TASK-007"],
+      "strategy": "并行组 ③：A3 deny 分层交叉（追加 004 文件）| test:insight 追加 #I-19a…h（单 Chromium）| sidepanel 重登记 + content 零增长（需先 build；文件不相交）"
+    },
+    {
+      "wave": 17,
+      "planWave": "V2-4 内部",
+      "tasks": ["TASK-008", "TASK-009", "TASK-010"],
+      "strategy": "收口（⚠️ Chromium 门禁串行，绝不并发）：008 门禁串行 + 零 diff 核验 | 009 文档回填 | 010 人工面 V2-H-7~9（009→010 同文件串行）"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "parity 同源锚点常量（catalog-meta.ts）+ service-worker 单行注入",
+      "type": "implementation",
+      "complexity": "S",
+      "dependsOn": [],
+      "planRef": "V2-4 plan §3.9 / §6 文件影响",
+      "wave": 14,
+      "parallelWith": ["TASK-002"],
+      "fr": ["FR-V2-053"],
+      "nfr": ["NFR-V24-003"],
+      "ec": ["EC-V24-002"],
+      "ac": ["AC-V24-003"],
+      "adr": ["ADR-V2-021", "ADR-V2-023"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/insight/catalog-meta.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/service-worker.ts" }
+      ],
+      "acceptance": [
+        "CATALOG_BASELINE_META 的 toolCount/subcommandCount/provenanceCommit === loadBaseline() 真值；commit 匹配 /^[0-9a-f]{40}$/",
+        "catalog-meta.ts 无 node:fs / chrome. 引用（insight-no-escalation 的 insightSources() glob 自然吸纳且既有断言全绿）",
+        "service-worker.ts 相对 HEAD 仅 +1 行、0 删除（git diff --numstat 新增 1 / 删除 0，且仅该处）",
+        "既有 test/insight-catalog.test.ts / insight-action-parity.test.ts 零删改且全绿",
+        "npm run build + npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run typecheck && npm test",
+        "git -C ../.. diff --numstat -- packages/web-cli-plugin/src/background/service-worker.ts",
+        "! grep -nE \"node:fs|chrome\\s*\\.\" src/insight/catalog-meta.ts"
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "name": "档案渲染模型 + 三层口径 + deny 分层派生 + 只读过滤（archive-catalog.ts，纯）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [],
+      "planRef": "V2-4 plan §3.1~3.5 / §3.7",
+      "wave": 14,
+      "parallelWith": ["TASK-001"],
+      "fr": ["FR-V2-050", "FR-V2-051", "FR-V2-052", "FR-V2-055", "FR-V2-056"],
+      "nfr": ["NFR-V24-001", "NFR-V24-002", "NFR-V24-005"],
+      "ec": ["EC-V24-001", "EC-V24-002", "EC-V24-003", "EC-V24-004", "EC-V24-005"],
+      "ac": ["AC-V24-001", "AC-V24-002", "AC-V24-004", "AC-V24-006", "AC-V24-007"],
+      "adr": ["ADR-V2-016", "ADR-V2-017", "ADR-V2-018", "ADR-V2-020"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/insight/archive-catalog.ts" }
+      ],
+      "acceptance": [
+        "ArchiveCard 无控件字段（遍历全部卡片断言 Object.keys(card) ∩ {controls,actionId,control,actionTarget} === ∅）",
+        "动态不变量 cards.length === meta.counts.commands + meta.counts.subcommands（恒真）；P0 fixture = 122；cardId 唯一且 === CommandNode.cardId",
+        "逐条有档：基线每行 ∈ (carded ∪ waived-with-reason)；accounted.percent === 100；carded.tools === 28 ≠ baseline.tools === 34（禁止用 L1 计算 accounted）",
+        "denyCause ∈ {s1-unauthorized, s3-unknown-risk, evaluate-floor}；autoAuthHardLine 纯派生只读（group===PLUGIN_SITE_GROUP ∧ (risk==='evaluate' ∨ risk 缺失/非法)），不新增模型字段、不改 deriveAction",
+        "过滤只读：过滤前后 stableStringify(snapshot) 全等；过滤真的收窄",
+        "模块 grep 零命中：tree-ops / tree-receipt / TreeActionId / riskDefaults[:=] / createPluginPolicyConfig / innerHTML / chrome. / apiKey / 非可配置档位（字面量须来自导入）",
+        "npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "! grep -rnE \"tree-ops|tree-receipt|TreeActionId|riskDefaults\\s*[:=]|createPluginPolicyConfig|innerHTML|chrome\\s*\\.|apiKey|非可配置档位\" src/insight/archive-catalog.ts"
+      ]
+    },
+    {
+      "id": "TASK-003",
+      "name": "抽屉内档案子视图（tree-drawer.ts MODIFY，默认关，.tree-archive* 隔离）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["TASK-002"],
+      "planRef": "V2-4 plan §3.1 / §3.4",
+      "wave": 15,
+      "parallelWith": ["TASK-004"],
+      "fr": ["FR-V2-050", "FR-V2-054", "FR-V2-055", "FR-V2-056"],
+      "nfr": ["NFR-V24-001", "NFR-V24-005"],
+      "ec": ["EC-V24-003", "EC-V24-004", "EC-V24-005"],
+      "ac": ["AC-V24-005", "AC-V24-006", "AC-V24-007"],
+      "adr": ["ADR-V2-016", "ADR-V2-019", "ADR-V2-020"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/tree/tree-drawer.ts" }
+      ],
+      "acceptance": [
+        "默认 aria-pressed=false 且 .tree-archive 不存在 -> 默认 DOM 与 P0 现状一致（开/关两态既有断言逐字段相等）",
+        "开启后 .tree-archive-card 数 === 头部「实时面 N/M 卡」的 N+M，且 > 0",
+        "每卡有 action/sourceKind/delayMs 字段；deny 卡含成因文案（复用 DENY_CAUSE_LABEL）；自动授权层可读、非站点标「不适用」；site_* 卡显示 origin（无站点卡时如实标注计数，非空断言）",
+        "delay 单源：抽屉/档案模块不含第二处 非可配置档位 字面量（复用既有 #tree-note-no-escalation 区块）",
+        "零 innerHTML；无 bare catch；.tree-archive 内 .tree-control===0、button[data-action-id]===0、input[type=checkbox]===0",
+        "P0 抽屉既有行为零删改；npm run build + typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run typecheck",
+        "! grep -nE \"innerHTML|catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}|非可配置档位\" src/ui/tree/tree-drawer.ts"
+      ]
+    },
+    {
+      "id": "TASK-004",
+      "name": "node 门禁主体 insight-archive.test.ts（A1/A2/A4~A9 + 反证）",
+      "type": "gate",
+      "complexity": "L",
+      "dependsOn": ["TASK-001", "TASK-002"],
+      "planRef": "V2-4 plan §9.1",
+      "wave": 15,
+      "parallelWith": ["TASK-003"],
+      "fr": ["FR-V2-050", "FR-V2-052", "FR-V2-053", "FR-V2-054", "FR-V2-055", "FR-V2-056"],
+      "nfr": ["NFR-V24-001", "NFR-V24-002", "NFR-V24-003", "NFR-V24-004", "NFR-V24-005"],
+      "ec": ["EC-V24-001", "EC-V24-002", "EC-V24-005"],
+      "ac": ["AC-V24-001", "AC-V24-004", "AC-V24-005", "AC-V24-006", "AC-V24-007"],
+      "adr": ["ADR-V2-017", "ADR-V2-019", "ADR-V2-020", "ADR-V2-021", "ADR-V2-022"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/insight-archive.test.ts" }
+      ],
+      "acceptance": [
+        "A1 cards.length === counts.commands + counts.subcommands；fixture=122；cardId 唯一且 === CommandNode.cardId",
+        "A2 基线每行 ∈ (carded ∪ waived-with-reason)；accounted.percent===100；carded.tools===28 ≠ baseline.tools===34（防范夸大）",
+        "A4 ArchiveCard 无控件字段；模块 grep 无 tree-ops/TreeActionId/riskDefaults[:=]",
+        "A5 delay 单源：导入 TREE_NO_ESCALATION_NOTE；无第二处 非可配置档位 字面量；sha256(TREE_NO_ESCALATION_NOTE)===pin",
+        "A6 过滤只读：过滤前后 stableStringify(snapshot) 全等 + 授权节点 id 不变 + 真的收窄",
+        "A7 CATALOG_BASELINE_META === loadBaseline() 计数 + 40-hex provenance commit",
+        "A8 禁改面内容哈希 pin：TREE_ACTION_IDS 恰 7 值；src/content/** 3 文件源码哈希；tree-view/tree-ops/tree-receipt.ts 内容哈希",
+        "A9 体积重登记结构：HISTORY 含 1_110_744 且单调不减；META 含日期/来源/理由且 targetBudgetBytes===null/targetMet===null；ceiling===floor(baseline×1.05)",
+        "每条关键断言配反证自测且反证真能 FAIL（非空洞）；catch 只吞 ENOENT；无 assert.ok(true)；冻结用 sha256 内容哈希（禁 git diff --quiet HEAD 作唯一冻结）",
+        "npm test 全绿"
+      ],
+      "verify": ["cd packages/web-cli-plugin && npm test"]
+    },
+    {
+      "id": "TASK-005",
+      "name": "node 门禁 A3 —— deny 分层全量交叉断言 + 站点域矩阵 + 分歧钉死 + 反证（T3 教训）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["TASK-004"],
+      "planRef": "V2-4 plan §3.3 / §9.1 A3",
+      "wave": 16,
+      "parallelWith": ["TASK-006", "TASK-007"],
+      "fr": ["FR-V2-051", "FR-V2-053"],
+      "nfr": ["NFR-V24-002"],
+      "ec": ["EC-V24-001", "EC-V24-004"],
+      "ac": ["AC-V24-002", "AC-V24-003"],
+      "adr": ["ADR-V2-018"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/insight-archive.test.ts" }
+      ],
+      "acceptance": [
+        "全量卡片 100% autoAuthHardLine === real decideAutoAuthorization(...).hardDeny（真实判定链，非再实现）",
+        "站点域矩阵逐格一致：risk ∈ {read,write,evaluate,unknown,ui,state,external,undefined} × 授权(origin 有/无) × trust(trusted/untrusted)",
+        "分歧类显式钉死：非站点 evaluate/未知 risk -> policy deny + auto「不适用」；站点 evaluate/未知 risk -> policy deny + auto hardDeny；分歧类不从宽",
+        "反证自测真能 FAIL（人为翻转一张卡的派生输入 -> FAIL）",
+        "A1/A2/A4~A9 段零删改；npm test 全绿"
+      ],
+      "verify": ["cd packages/web-cli-plugin && npm test"]
+    },
+    {
+      "id": "TASK-006",
+      "name": "test:insight 追加 #I-19a…h（test/ui/insight.mjs，复用单 Chromium 会话）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["TASK-003"],
+      "planRef": "V2-4 plan §9.2",
+      "wave": 16,
+      "parallelWith": ["TASK-005", "TASK-007"],
+      "fr": ["FR-V2-050", "FR-V2-051", "FR-V2-052", "FR-V2-053", "FR-V2-054", "FR-V2-055", "FR-V2-056"],
+      "nfr": ["NFR-V24-001", "NFR-V24-003", "NFR-V24-005"],
+      "ec": ["EC-V24-003", "EC-V24-005"],
+      "ac": ["AC-V24-004", "AC-V24-005", "AC-V24-006", "AC-V24-007"],
+      "adr": ["ADR-V2-022"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/insight.mjs" }
+      ],
+      "acceptance": [
+        "#I-19a 开关存在、默认关（aria-pressed=false）、.tree-archive 不存在；#I-19b 开启后卡数 === 头部 N+M 且 >0",
+        "#I-19c 每卡有 action/sourceKind/delayMs，deny 卡含成因文案；#I-19d site_* origin（无站点卡时如实标注计数）",
+        "#I-19e delay 单源：.tree-note-no-escalation 恰 1 处且含完整消歧句；全文 非可配置档位 出现 1 次",
+        "#I-19f 检索/过滤收窄 + 清空恢复；#I-19g .tree-archive .tree-control===0 / button[data-action-id]===0 / input[type=checkbox]===0",
+        "#I-19h 档案开启后复用 checkLayout（#log ≥589px / 占比 ≥65.0% / composer ∈[0,+8] / FAB∩composer=0 / 零水平溢出；测量条件与 P0 同段 JS）",
+        "既有 #I-00…18e（52 断言）零删改（git diff --unified=0 仅新增行）；复用单 Chromium 会话，不新增第二个 Chromium 门禁",
+        "实测 passes 计数登记（预计 ≥52+8；#I-19h 复用 checkLayout 展开多项，以实测为准）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run test:insight",
+        "git -C ../.. diff --unified=0 -- packages/web-cli-plugin/test/ui/insight.mjs | grep -E \"^-[^-]\" || echo \"append-only ok\""
+      ]
+    },
+    {
+      "id": "TASK-007",
+      "name": "体积守卫显式重登记 + size-budget 追加（sidepanel 5% / content 零增长）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["TASK-002", "TASK-003"],
+      "planRef": "V2-4 plan §3.6 / §9.1 A9",
+      "wave": 16,
+      "parallelWith": ["TASK-005", "TASK-006"],
+      "fr": [],
+      "nfr": ["NFR-V2-001", "NFR-V2-002", "NFR-V24-001"],
+      "ec": [],
+      "ac": ["AC-V2-006"],
+      "adr": ["ADR-V2-007", "ADR-V2-022"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-budget.test.ts" }
+      ],
+      "acceptance": [
+        "SIDEPANEL_BASELINE_BYTES_HISTORY = [1_068_165, 1_085_389, 1_110_744]，严格单调不减",
+        "SIDEPANEL_BASELINE_BYTES = build 后实测值（登记 measuredOn / source / buildCommand / 理由，非静默上调）",
+        "SIDEPANEL_CEILING === Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)；容差 === 0.05 不变",
+        "CONTENT_MAX_BYTES === 1_073_453（无容差）；dist/content.js ≤ 1_073_453（当前恰等于）；src/content/** 3 文件源码内容哈希 pin（改一字节 FAIL）",
+        "SIDEPANEL_BASELINE_META：targetBudgetBytes===null、targetMet===null、previousBaselineBytes===1_110_744、measuredOn 非空、source==='packages/web-cli-plugin/dist/sidepanel.js'",
+        "反证：ceiling+1 -> FAIL；1_073_454 content -> FAIL（沿用 P0，不得改容差或删断言）",
+        "npm run build + npm test 全绿"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm test",
+        "node -e \"const b=require('node:fs').statSync('dist/content.js').size; if(b>1073453) process.exit(1); console.log('content.js',b)\""
+      ]
+    },
+    {
+      "id": "TASK-008",
+      "name": "门禁串行收口 + 断言只增不减核验",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["TASK-004", "TASK-005", "TASK-006", "TASK-007"],
+      "planRef": "V2-4 plan §9 交付门槛",
+      "wave": 17,
+      "parallelWith": ["TASK-009", "TASK-010"],
+      "fr": [],
+      "nfr": ["NFR-V24-003", "NFR-V2-009"],
+      "ec": [],
+      "ac": ["AC-V24-001"],
+      "adr": ["ADR-V2-022"],
+      "files": [],
+      "acceptance": [
+        "全套门禁逐条串行通过（build -> test -> test:ui -> test:insight -> test:hardening -> test:binding -> test:e2e -> typecheck），全仓 0 fail",
+        "零 diff 面清单逐项 git diff --quiet 为空（含 packages/web-cli-base/** 与 src/content/**）",
+        "test:insight 既有 52 断言零删改；v1 test:ui 既有断言零删减",
+        "dist/content.js === 1,073,453（零增长）；dist/sidepanel.js ≤ SIDEPANEL_CEILING",
+        "串行执行记录可追溯（命令顺序 + 时间 + 实测 passes）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm test && npm run test:ui && npm run test:insight && npm run test:hardening && npm run test:binding && npm run test:e2e && npm run typecheck",
+        "git -C ../.. diff --quiet -- packages/web-cli-base packages/web-cli-plugin/src/security packages/web-cli-plugin/src/content packages/web-cli-plugin/manifest.json packages/web-cli-plugin/src/insight/tree-model.ts packages/web-cli-plugin/src/ui/tree/tree-view.ts packages/web-cli-plugin/src/ui/tree/tree-ops.ts packages/web-cli-plugin/src/ui/tree/tree-receipt.ts packages/web-cli-plugin/test/parity"
+      ]
+    },
+    {
+      "id": "TASK-009",
+      "name": "文档回填（docs/dev.md sidepanel 新基线/ceiling + smoke-checklist test:insight 断言数）",
+      "type": "doc",
+      "complexity": "S",
+      "dependsOn": ["TASK-006", "TASK-007", "TASK-008"],
+      "planRef": "V2-4 plan §6 文档回填候选 / §9",
+      "wave": 17,
+      "parallelWith": ["TASK-008"],
+      "fr": [],
+      "nfr": ["NFR-V24-003", "NFR-V2-008"],
+      "ec": [],
+      "ac": ["AC-V24-001"],
+      "adr": [],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/dev.md" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/smoke-checklist.md" }
+      ],
+      "acceptance": [
+        "docs/dev.md §8.2 含 V2-4 实测基线 + 新 ceiling + 历史 4 值（1,068,165 / 1,085,389 / 1,110,744 / 新值）",
+        "docs/smoke-checklist.md §5 断言数 = 实测 passes（非硬编码猜测），并注明新增编号 #I-19a…h",
+        "数字与 test/size-baseline.ts 一致",
+        "既有内容零删改（git diff 仅新增/单行订正且保留历史值）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && grep -nE \"1,110,744|V2-4\" docs/dev.md",
+        "grep -nE \"test:insight\" docs/smoke-checklist.md",
+        "git -C ../.. diff --stat -- packages/web-cli-plugin/docs/dev.md packages/web-cli-plugin/docs/smoke-checklist.md"
+      ]
+    },
+    {
+      "id": "TASK-010",
+      "name": "人工面 V2-H-7~9 登记（docs/smoke-checklist.md V2 段追加）",
+      "type": "human",
+      "complexity": "S",
+      "dependsOn": ["TASK-009"],
+      "planRef": "V2-4 plan §9.3",
+      "wave": 17,
+      "parallelWith": [],
+      "fr": [],
+      "nfr": ["NFR-V2-008"],
+      "ec": ["EC-V24-005"],
+      "ac": [],
+      "adr": [],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/smoke-checklist.md" }
+      ],
+      "acceptance": [
+        "V2-H-7 档案长文案 / 320px 窄栏下 122 卡拥挤度与可读性（步骤/期望/结论栏）",
+        "V2-H-8 分组维度切换 / 折叠展开观感与动效（步骤/期望/结论栏）",
+        "V2-H-9 真实站点绑定后 site_* 卡片增长观感（步骤/期望/结论栏）",
+        "三项本轮均标 ⏳ 待人工（headless 不可覆盖，不冒充 PASS）",
+        "既有 §1~§6 内容零删改；编号 V2-H-7~9 唯一、与既有编号零冲突"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && grep -nE \"V2-H-7|V2-H-8|V2-H-9|待人工\" docs/smoke-checklist.md",
+        "git -C ../.. diff --stat -- packages/web-cli-plugin/docs/smoke-checklist.md"
+      ]
+    }
+  ]
+}

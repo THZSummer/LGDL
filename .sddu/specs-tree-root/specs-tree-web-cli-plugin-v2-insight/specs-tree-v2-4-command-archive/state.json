@@ -2,9 +2,9 @@
   "feature": "V2-4 命令档案浏览器（父：specs-tree-web-cli-plugin-v2-insight）",
   "featureKey": "specs-tree-v2-4-command-archive",
   "name": "V2-4 命令档案浏览器——34 工具 / 142 子命令逐条有档（allow / ask / delay(=deny) + risk + 来源 + delayMs + 抑制态）；deny 三成因分列可读；与 parity 同源机器对账",
-  "phase": "planned",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "phase": "tasked",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v2-insight",
   "childrens": [],
@@ -26,15 +26,30 @@
       "不预设站点 runtime 行为（档案只读真值）；不改判定链/不放宽门禁/不新增权限"
     ]
   },
-  "covers": ["FR-V2-050", "FR-V2-051", "FR-V2-052", "FR-V2-053", "FR-V2-054", "FR-V2-055", "FR-V2-056"],
-  "artifacts": ["spec.md", "plan.md"],
+  "covers": [
+    "FR-V2-050",
+    "FR-V2-051",
+    "FR-V2-052",
+    "FR-V2-053",
+    "FR-V2-054",
+    "FR-V2-055",
+    "FR-V2-056"
+  ],
+  "artifacts": [
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "tasks.json"
+  ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/spec.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/state.json",
     "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/TREE.md",
-    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/plan.md"
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/tasks.json"
   },
-  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.5；本子级 spec.md 含 delay 消歧红线文案与 parity 同源对账验收。P1 后段（不阻塞 P0 闭环）。 plan 阶段完成（2026-09-13，sddu-plan）：产出 plan.md（ADR-V2-016~023，8 个，与 ADR-V2-001~015 零冲突；ADR 登记追加于父 plan.md §8）——档案视图 = 复用 P0 抽屉内档案子视图（默认关，渲染模型并入 src/insight/ 以避免触发既有 treeSources() 精确列表断言）；逐条有档 = 三层口径分列（基线 34/142 · 豁免 20/88 · 实时面 28/94=122 卡）+ accounted 100%（禁止夸大）；deny 分层 = policy 三成因（denyCause）+ 自动授权层 auto-hardDeny（派生只读、不新增模型字段、全量交叉断言 + 反证）；delay 消歧 = 单一措辞源（复用 TREE_NO_ESCALATION_NOTE + 内容哈希钉死）；只读检索/过滤；体积守卫（sidepanel 显式重登记 + content.js 零增长内容哈希）；安全红线四层结构证据（卡片类型无控件字段 + 模块图无写入口 + 7 动作白名单哈希钉死 + DOM 零控件）；parity 同源（复用 catalog-reconcile + catalog-meta 常量注入）；门禁只增不减（新 test/insight-archive.test.ts + test/ui/insight.mjs 追加 #I-19a…）。关键结论：**零模型改动**（ADR-V2-012 兑现），唯一 additive 运行时改动 = service-worker 注入 catalogMeta（1 行只读）。**只做技术设计**：不写代码、不排任务、不改 v1、不碰 main/base/options。编排器代作者决策（2026-09-13 授权）。下一步 @sddu-tasks。",
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.5；本子级 spec.md 含 delay 消歧红线文案与 parity 同源对账验收。P1 后段（不阻塞 P0 闭环）。 plan 阶段完成（2026-09-13，sddu-plan）：产出 plan.md（ADR-V2-016~023，8 个，与 ADR-V2-001~015 零冲突；ADR 登记追加于父 plan.md §8）——档案视图 = 复用 P0 抽屉内档案子视图（默认关，渲染模型并入 src/insight/ 以避免触发既有 treeSources() 精确列表断言）；逐条有档 = 三层口径分列（基线 34/142 · 豁免 20/88 · 实时面 28/94=122 卡）+ accounted 100%（禁止夸大）；deny 分层 = policy 三成因（denyCause）+ 自动授权层 auto-hardDeny（派生只读、不新增模型字段、全量交叉断言 + 反证）；delay 消歧 = 单一措辞源（复用 TREE_NO_ESCALATION_NOTE + 内容哈希钉死）；只读检索/过滤；体积守卫（sidepanel 显式重登记 + content.js 零增长内容哈希）；安全红线四层结构证据（卡片类型无控件字段 + 模块图无写入口 + 7 动作白名单哈希钉死 + DOM 零控件）；parity 同源（复用 catalog-reconcile + catalog-meta 常量注入）；门禁只增不减（新 test/insight-archive.test.ts + test/ui/insight.mjs 追加 #I-19a…）。关键结论：**零模型改动**（ADR-V2-012 兑现），唯一 additive 运行时改动 = service-worker 注入 catalogMeta（1 行只读）。**只做技术设计**：不写代码、不排任务、不改 v1、不碰 main/base/options。编排器代作者决策（2026-09-13 授权）。下一步 @sddu-tasks。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json（10 个原子任务 / 4 波，跨叶子 Wave 14~17）。映射 plan §2~§3：TASK-001 catalog-meta 常量 + service-worker 1 行 catalogMeta 注入（唯一 additive 运行时面，ADR-V2-023）；TASK-002 archive-catalog 渲染模型 + 三层口径（L1 34/142 · L2 20/88 · L3 28/94=122）+ accounted=carded∪waived=100% + deny 分层 autoAuthHardLine 派生只读 + ArchiveFilter 只读过滤；TASK-003 tree-drawer 档案子视图（默认关、.tree-archive* 隔离、复用 TREE_NO_ESCALATION_NOTE）；TASK-004 node 门禁主体 A1/A2/A4~A9（每条配反证）；TASK-005 A3 deny 分层全量交叉 + 站点域矩阵 + 分歧钉死 + 反证（T3 教训）；TASK-006 test:insight 追加 #I-19a…h（单 Chromium 会话，既有 52 断言零删改）；TASK-007 体积显式重登记（HISTORY 追加 1,110,744；content.js 1,073,453 零增长 + src/content/** 源码哈希）；TASK-008 串行收口 + 零 diff 核验；TASK-009 文档回填（断言数 52→实测 + sidepanel 新基线）；TASK-010 人工面 V2-H-7~9（⏳ 待人工）。继承 P0 教训：每条关键断言配反证、catch 只吞 ENOENT、冻结用内容哈希（W3）、体积显式重登记（W4）、测量条件写进 AC（D-V22-01）、策略再实现全量交叉（T3）、Chromium 绝不并发。编排器代作者决策（2026-09-13 授权）：TD-V24-01~07。下一步 @sddu-build TASK-001。",
   "status": "tracked",
-  "phaseNote": "plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-016~023（8 个）已产出，ADR 登记集中于父 plan.md §8；phase specified→planned / workflow 3.plan / agent sddu-plan。核心裁决：档案子视图（默认关、不改 FAB/抽屉骨架）、三层口径分列（不夸大）、deny 成因分层、delay 单源、只读过滤、体积显式重登记、四层结构安全证据、parity 同源复用、门禁只增不减、零模型改动 + service-worker 1 行 catalogMeta 注入。下一阶段 @sddu-tasks。"
+  "phaseNote": "tasks 阶段完成（2026-09-13，sddu-tasks）：tasks.md + tasks.json（10 任务 / 4 波 Wave 14~17）已产出，phase planned→tasked / workflow 4.tasks / agent sddu-tasks。门禁矩阵：新 node 门禁 test/insight-archive.test.ts（A1/A2/A4~A9 主体 + A3 deny 分层全量交叉独立成任务，每条配反证）+ test/ui/insight.mjs 追加 #I-19a…h（复用单 Chromium 会话）+ size-baseline 显式重登记 + size-budget 追加。零模型改动，唯一 additive 运行时注入 = service-worker 1 行 catalogMeta。断言只增不减（既有 test:insight 52 断言零删改）。下一阶段 @sddu-build。"
 }
