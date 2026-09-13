@@ -4,10 +4,10 @@
 > **前置依赖**: 本仓库 **无 discovery.md**（作者已批准**从 spec 阶段直接切入**，跳过 discovery）——本规范的一手输入 = `ROADMAP.md` §二 v0.8「F-27 web-cli-plugin v2「any insight」」小节（**作者原始诉求逐字留存** + **作者五项口径裁决 2026-09-13** + 可投影面清单 + 子 Feature 拆分 V2-1~V2-4 + 交付门槛 + 风险登记 R-V2-1~5）+ 仓库实测（`packages/web-cli-plugin/src/**` 状态源逐文件核实，见 §2.5）
 > **创建人**: SDDU Spec Agent
 > **创建时间**: 2026-09-13
-> **版本**: v1.0
-> **更新人**: SDDU Spec Agent
+> **版本**: v1.1
+> **更新人**: SDDU Spec Agent（v1.1 由 SDDU Tasks Agent 最小订正，编排器代作者决策授权）
 > **更新时间**: 2026-09-13
-> **更新说明**: 初始创建。**v2 立项**：作者已批准 web-cli-plugin v2（主题「any insight」，ROADMAP 登记为 F-27）= v0.8 同一版本位内第二 Feature（同批叠加）。本规范以 **4 个叶子子 Feature（V2-1~V2-4）** 承载，父 Feature 为轻量规范容器（**父 Feature 不执行 tasks/build/review/validate**——SDDU 规则）。编号采用 **FR-V2-xxx / NFR-V2-xxx / EC-V2-xxx / AC-V2-xxx 独立前缀**，与 v1（FR-001~FR-055 / NFR-001~010 / EC-001~026 / AC-001~012）**零冲突**。v1 的 `specs-tree-web-cli-plugin` 保持 `phase=validated` / `status=tracked` **原样不动、不回退、不改写**。**本规范只写需求（spec 层）**：不写技术方案（ADR 留给 @sddu-plan）、不写代码、不排任务。
+> **更新说明**: v1.1 **最小订正 `AC-V2-002` ⑤**（`#log` 稳态高度口径：占比 ≥65.5% → `clientHeight` ≥589px 主断言 + 占比 ≥65.0% 次断言；原因/来源见该 AC 处注记与 ADR-V2-006；仅此一处 AC，其余条文不变）。v1.0 初始创建。**v2 立项**：作者已批准 web-cli-plugin v2（主题「any insight」，ROADMAP 登记为 F-27）= v0.8 同一版本位内第二 Feature（同批叠加）。本规范以 **4 个叶子子 Feature（V2-1~V2-4）** 承载，父 Feature 为轻量规范容器（**父 Feature 不执行 tasks/build/review/validate**——SDDU 规则）。编号采用 **FR-V2-xxx / NFR-V2-xxx / EC-V2-xxx / AC-V2-xxx 独立前缀**，与 v1（FR-001~FR-055 / NFR-001~010 / EC-001~026 / AC-001~012）**零冲突**。v1 的 `specs-tree-web-cli-plugin` 保持 `phase=validated` / `status=tracked` **原样不动、不回退、不改写**。**本规范只写需求（spec 层）**：不写技术方案（ADR 留给 @sddu-plan）、不写代码、不排任务。
 
 ---
 
@@ -307,7 +307,7 @@
 | # | 验收项 | 验证方式（可自动化优先） | 关联 |
 |----|--------|--------------------------|------|
 | AC-V2-001 | **V2-1 投影正确性**：四层分组（森林）模型确定性快照；树命令集合 == `deriveTools()` + registry（不重不漏）；零明文（无 key/剪贴板/通知内容）；`state` 消息 additive 兼容 | node 单测：确定性投影快照；双向集合对账；明文 grep 零命中；`state` 消息回归断言 | FR-V2-010~017, NFR-V2-006 |
-| AC-V2-002 | **V2-2 悬浮树 UI + 侧栏布局回归量化**（`test:ui`，真实 dist，视口 **400×900**，**断言只增不减**）：① 悬浮入口存在且可开合；② 抽屉四维度可见 + 状态徽标；③ 空态/降级可读；④ **`#log` `flex-grow = 1`**（非 45vh 硬编码）；⑤ **`#log` 稳态高度占比 ≥ 65.5%**（v1 基线 589px，不得回退）；⑥ **`composer` 底边 − 视口底 ∈ [0, +8px]**（贴底，**不得为负 = 不得被挤出视口**，D-079 回归）；⑦ **悬浮入口 boundingRect 与 `#composer` boundingRect 不相交**（无遮挡）；⑧ **文档级水平溢出 = 0**（400px 与 **320px** 窄栏）；⑨ v1 既有 `#15a~#15q` 断言**零删减** | `npm run test:ui`（串行）：上述 ①~⑨ 全绿；既有断言计数**只增不减** | FR-V2-020~025, NFR-V2-004/007 |
+| AC-V2-002 | **V2-2 悬浮树 UI + 侧栏布局回归量化**（`test:ui`，真实 dist，视口 **400×900**，**断言只增不减**）：① 悬浮入口存在且可开合；② 抽屉四维度可见 + 状态徽标；③ 空态/降级可读；④ **`#log` `flex-grow = 1`**（非 45vh 硬编码）；⑤ **`#log` 稳态 `clientHeight` ≥589px（主断言）且占比 ≥65.0%（次断言，v1 基线 65.44% 留 0.44pp 余量）**（不得回退）；⑥ **`composer` 底边 − 视口底 ∈ [0, +8px]**（贴底，**不得为负 = 不得被挤出视口**，D-079 回归）；⑦ **悬浮入口 boundingRect 与 `#composer` boundingRect 不相交**（无遮挡）；⑧ **文档级水平溢出 = 0**（400px 与 **320px** 窄栏）；⑨ v1 既有 `#15a~#15q` 断言**零删减** | `npm run test:ui`（串行）：上述 ①~⑨ 全绿；既有断言计数**只增不减** | FR-V2-020~025, NFR-V2-004/007 |
 | AC-V2-003 | **V2-3 撤销与取消授权链**（`test:binding`，真实 dist + 真实站点）：站点取消授权 → 工具面**即时移出** + 审计；可选能力 `permissions.remove` → 工具移出 + 审计；开关关断 → `deriveTools()` 无该工具；**硬底线不被撤销面绕过** | `npm run test:binding`（串行）：三类撤销链 + 反向断言（见 AC-V2-005）全绿 | FR-V2-030~040, NFR-V2-009 |
 | AC-V2-004 | **V2-4 命令档案齐全**：**142 子命令逐条有档**（工具 34/34）；判定表与 `policy.ts` / `auto-authorize.ts` 真值一致；`deny` 三成因（S1/S3/evaluate + hardDeny）分类正确；与 `test/parity.test.ts` 同源，新增/丢失命令即失败 | node 单测 + 对账门禁：142 子命令覆盖率 100%；判定表一致性；deny 分类正确；parity 双向 FAIL 能力 | FR-V2-050~056, NFR-V2-008 |
 | AC-V2-005 | **安全红线反向断言（原文钉死）**：撤销/关断后——**① 未授权 origin 仍 `deny`（S1）**；**② 未知/非法 risk 仍 `deny`（S3 fail-closed）**；**③ `evaluate` 仍 `deny`**；**④ 破坏性写仍 `ask`**；**⑤ `clipboard read`（state 档）仍 `ask`（永不自动放行）**；**⑥ `bookmarks remove` 仍 `ask`（不纳入写自动）**；且 `PLUGIN_RISK_DEFAULTS` / 4 硬底线代码**零 diff** | 单测：撤销/关断/自动授权开启等各状态下逐条反向断言（①②③④⑤⑥）；`policy.ts`/`auto-authorize.ts` git diff 为空 | FR-V2-036/060~065, NFR-V2-006 |
@@ -318,6 +318,8 @@
 | AC-V2-010 | **`delay` 撞词消歧**：命令档案文案同一处并标「`delay`（= `deny`，fail-closed，非可配置档位；与命令间 `delayMs` 无关）」；`delayMs` 独立列示；无「第三档位」暗示 | UI/档案文案 grep 断言；`delayMs` 与档位分列展示断言 | FR-V2-054, EC-V2-015 |
 | AC-V2-011 | **门禁串行 + 全仓 0 fail**：`test` / `test:ui` / `test:binding` **串行**执行；全仓 0 fail；`web-cli-base` **483 零回归**；`tsc` 0 error | 串行执行记录 + 基线核对 + `tsc --noEmit` | NFR-V2-009/010 |
 | AC-V2-012 | **范围纪律（NG 核验）**：NG-V2-001~010 逐项核验未越界（不做命令级覆盖 / 不做静态权限假撤销 / 不做页面注入层 / 不做树内改绑 LLM / 不改判定链 / 不改 options / 不解决 NFR-007 / 不新增依赖权限 / 不合 main 不发布 / 不改 v1 文件） | NG 清单逐项 grep/评审；越界项为零 | NG-V2-001~010, §3.2 |
+
+> **【AC-V2-002 口径订正 · 2026-09-13 · 来源 ADR-V2-006（编排器代作者决策，2026-09-13 授权）】** 本条 ⑤ 原为「`#log` 稳态高度占比 **≥65.5%**」，但 v1 实测基线 `589/900 = **65.44% < 65.5%**`——逐字执行会在 v1 基线上**必然失败**（属**口径自相矛盾**，非布局回归）。故订正为「**`#log` 稳态 `clientHeight` ≥589px（主断言，绝对量）且占比 ≥65.0%（次断言，保守下限）**」：589px 与 `composer ∈[0,+8px]` 均为**可证伪硬阈值**，门禁不因此空洞。订正依据 = 父 `plan.md` **ADR-V2-006**（侧栏不回退量化口径 + §3.3 口径说明 + §5 D10 决策登记）。**本次仅订正 AC-V2-002 本条**，其余 FR/NFR/EC/AC 条文不变。
 
 ---
 
@@ -401,4 +403,5 @@
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.1 | **最小订正 `AC-V2-002` ⑤**：`#log` 稳态高度口径由「占比 **≥65.5%**」订正为「**`clientHeight` ≥589px（主断言）且占比 ≥65.0%（次断言，v1 基线 65.44% 留 0.44pp 余量）**」，并在该 AC 处注明订正原因与来源（**ADR-V2-006**，编排器代作者决策 2026-09-13 授权）。**仅改这一处 AC 条文**，其余 FR/NFR/EC/AC 不变；不改 v1 任何文件 | 2026-09-13 | SDDU Tasks Agent |
 | v1.0 | 初始创建（作者批准**从 spec 阶段直接切入**，跳过 discovery）。以 `ROADMAP.md` §二 v0.8「F-27」小节为**一手输入**（**作者原始诉求逐字留存** + **作者五项口径裁决 2026-09-13** + 可投影面清单 + 子拆分 + 风险 R-V2-1~5）；**逐文件核实可投影面**（origin-store / extension-env / content-script-registry / capability-permissions / capability-setting / tabs-setting / host.suppressCapability / auto-authorize / policy / declared-tools / parity baseline 34·142 / key-store / status / providers / session-store / audit-sink / perf-baseline / docs/dev 布局量化）。**结构（作者确认）**：父 Feature + **4 叶子子 Feature**（V2-1~V2-4），父 Feature 为轻量规范容器（不执行 tasks/build/review/validate）。**编号**：FR-V2-001~065 / NFR-V2-001~010 / EC-V2-001~016 / AC-V2-001~012，**与 v1 FR-001~FR-055 等零冲突**。**安全红线**落成 FR-V2-060~065 + **反向断言 AC-V2-005**（撤销后 evaluate 仍 deny / 破坏性仍 ask / 未授权仍 deny / 未知 risk 仍 deny / clipboard read 仍 ask / bookmarks remove 仍 ask）；**侧栏回归量化断言** AC-V2-002（`#log` ≥65.5% / composer 底边−视口底 ∈[0,+8px] / 入口与 composer 不相交 / 400·320px 零水平溢出，断言只增不减）；**体积基线守卫** NFR-V2-001 + AC-V2-006（基线 ≠ 目标预算；只吞 ENOENT；反证自测；content.js 不增长）；**`delay` 撞词消歧** FR-V2-054 + AC-V2-010。**v1 记录保护**：`specs-tree-web-cli-plugin` 保持 `phase=validated` / `status=tracked` 原样不动。**本文档只写需求（spec 层）**：不写技术方案、不写代码、不排任务 | 2026-09-13 | SDDU Spec Agent |

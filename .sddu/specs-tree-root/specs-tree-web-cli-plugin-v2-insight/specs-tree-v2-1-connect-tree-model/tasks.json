@@ -1,0 +1,628 @@
+{
+  "meta": {
+    "feature": "V2-1 连接树数据模型与状态投影（父：specs-tree-web-cli-plugin-v2-insight）",
+    "featureKey": "specs-tree-v2-1-connect-tree-model",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-13",
+    "version": "1.0.0",
+    "sourcePlan": "V2-1 plan.md v1.0（§3.1~3.6 六模块 + §6 文件影响 + §9 交付门槛）+ 父 plan.md v1.0（ADR-V2-001~015 集中登记 §8）",
+    "sourceSpec": "父 spec.md FR-V2-010~017 + 本叶子 spec.md（NFR-V21-001~005 / EC-V21-001~006 / AC-V21-001~007）",
+    "taskCount": 9,
+    "waveCount": 5,
+    "complexity": {
+      "S": 2,
+      "M": 5,
+      "L": 2
+    },
+    "typeBreakdown": {
+      "implementation": 5,
+      "gate": 4,
+      "human": 0,
+      "doc": 0
+    },
+    "p0MinimalSet": [
+      "TASK-001",
+      "TASK-002",
+      "TASK-003",
+      "TASK-004",
+      "TASK-005",
+      "TASK-006",
+      "TASK-007",
+      "TASK-008",
+      "TASK-009"
+    ],
+    "crossLeafOrder": {
+      "leaf": "V2-1",
+      "executionWaves": "Wave 1~5（先行）",
+      "feeds": [
+        "specs-tree-v2-2-floating-tree-ui",
+        "specs-tree-v2-3-revoke-ops"
+      ]
+    },
+    "gateMatrix": [
+      {
+        "gate": "insight-projection",
+        "command": "npm test",
+        "file": "test/insight-projection.test.ts",
+        "change": "new",
+        "task": "TASK-006"
+      },
+      {
+        "gate": "insight-determinism",
+        "command": "npm test",
+        "file": "test/insight-determinism.test.ts",
+        "change": "new",
+        "task": "TASK-007"
+      },
+      {
+        "gate": "insight-catalog",
+        "command": "npm test",
+        "file": "test/insight-catalog.test.ts",
+        "change": "new",
+        "task": "TASK-008"
+      },
+      {
+        "gate": "insight-no-escalation(base)",
+        "command": "npm test + grep",
+        "file": "test/insight-no-escalation.test.ts",
+        "change": "new (V2-3-TASK-007 appends)",
+        "task": "TASK-009"
+      }
+    ],
+    "assertionsOnlyIncrease": [
+      "4 个门禁全为新增文件（v1 无同名）",
+      "v1 测试文件零删改（git diff 白名单核验）",
+      "test/parity/** 零变更"
+    ],
+    "note": "V2-1 本叶子 9 任务 / 5 波：类型+能力目录 → (命令档案 ∥ 对账) → 纯投影 → builder+additive 接线 → 4 门禁。src/insight/** 纯读零副作用（无 chrome.*、不写 store、不写审计）；不改 policy.ts/auto-authorize.ts；不碰 packages/web-cli-base/**；不改 v1 任何文件；无新依赖。编排器代作者决策（2026-09-13 授权）：TD-V21-01 tree-model+capability-catalog 合并；TD-V21-02 insight-no-escalation.test.ts 由 V2-1 建立基础段、V2-3 追加；TD-V21-03 叶内 5 波、V2-1 先行。门禁串行执行，绝不并发（OOM 前科）。"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "planWave": "V2-1 内部",
+      "tasks": [
+        "TASK-001"
+      ],
+      "strategy": "串行：类型层是全部后续模块的编译前提"
+    },
+    {
+      "wave": 2,
+      "planWave": "V2-1 内部",
+      "tasks": [
+        "TASK-002",
+        "TASK-003"
+      ],
+      "strategy": "并行组 ①：均依赖 001；文件不相交（command-catalog.ts | catalog-reconcile.ts）"
+    },
+    {
+      "wave": 3,
+      "planWave": "V2-1 内部",
+      "tasks": [
+        "TASK-004"
+      ],
+      "strategy": "串行：消费 001/002/003"
+    },
+    {
+      "wave": 4,
+      "planWave": "V2-1 内部",
+      "tasks": [
+        "TASK-005"
+      ],
+      "strategy": "串行：消费 004 的快照契约；背景面 4 文件单任务所有权"
+    },
+    {
+      "wave": 5,
+      "planWave": "V2-1 内部",
+      "tasks": [
+        "TASK-006",
+        "TASK-007",
+        "TASK-008",
+        "TASK-009"
+      ],
+      "strategy": "并行组 ②：门禁（可并行编写；⚠️ 执行串行，绝不与 test:ui/test:binding 并发）"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "类型层 + 能力目录投影（tree-model.ts + capability-catalog.ts）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [],
+      "planRef": "V2-1 plan §3.1/§3.4",
+      "wave": 1,
+      "parallelWith": [],
+      "fr": [
+        "FR-V2-010",
+        "FR-V2-012"
+      ],
+      "nfr": [
+        "NFR-V21-001",
+        "NFR-V21-002",
+        "NFR-V21-004"
+      ],
+      "ec": [
+        "EC-V21-002"
+      ],
+      "ac": [
+        "AC-V21-001"
+      ],
+      "adr": [
+        "ADR-V2-001",
+        "ADR-V2-002",
+        "ADR-V2-003",
+        "ADR-V2-011",
+        "ADR-V2-012",
+        "ADR-V2-015"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/insight/tree-model.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/insight/capability-catalog.ts"
+        }
+      ],
+      "acceptance": [
+        "ConnectTreeSnapshot.version===1；modelNote 含「四维度分组视图（森林）」+「非严格单树」；groups 为固定序四元组（站点/能力/命令/LLM）",
+        "稳定键生成器覆盖 site:/cap:static:/cap:opt:/toggle:/cmd:/cmd:#sub/llm:/session:/link: 全部命名空间，同输入同键",
+        "静态权限 5 项 revocable:false + revokeHint（不可逐项撤销，需停用/卸载扩展）+ controls 无 revoke",
+        "4 可选能力 granted 取注入实测态（不由隐私开关决定）、revocable:true",
+        "6 隐私开关 + tabs-enabled：source:'toggle'、enabled 真值、controls 给 toggle",
+        "DenyCause / SourceKind 8 值 / cardId 在类型中显式存在（V2-4 预留，ADR-V2-012）",
+        "无 chrome. / 无写 store / 无 apiKey（grep）；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "! grep -rnE \"chrome\\.|apiKey\" src/insight/tree-model.ts src/insight/capability-catalog.ts"
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "name": "命令档案投影（command-catalog.ts，逐条有档 + V2-4 预留位）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-001"
+      ],
+      "planRef": "V2-1 plan §3.3",
+      "wave": 2,
+      "parallelWith": [
+        "TASK-003"
+      ],
+      "fr": [
+        "FR-V2-013",
+        "FR-V2-051",
+        "FR-V2-052",
+        "FR-V2-054",
+        "FR-V2-055",
+        "FR-V2-056",
+        "FR-V2-064"
+      ],
+      "nfr": [
+        "NFR-V21-001",
+        "NFR-V21-004"
+      ],
+      "ec": [
+        "EC-V21-003",
+        "EC-V21-004"
+      ],
+      "ac": [
+        "AC-V21-002"
+      ],
+      "adr": [
+        "ADR-V2-011",
+        "ADR-V2-012",
+        "ADR-V2-014"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/insight/command-catalog.ts"
+        }
+      ],
+      "acceptance": [
+        "action 推导与 PLUGIN_RISK_DEFAULTS + S1/S2/S3 真值一致；risk 未知/缺失/非法 → deny + s3-unknown-risk",
+        "denyCause 四值分列：s1-unauthorized / s3-unknown-risk / evaluate-floor / auto-hardDeny",
+        "sourceKind 8 值分类与注册真值一致（site_→site-declared / admin_→plugin-admin / tabs→plugin-tabs / 4 可选能力工具名→plugin-* / 其余→base-builtin）",
+        "delayMs 与 action 分列字段（不合成、不新增第三档）",
+        "suppressed/suppressionReason：presentInSurface===false 时给可读原因",
+        "action==='deny' ⇒ controls===[]（结构保证 ADR-V2-011）",
+        "无 chrome. / 无写 store / 无 apiKey；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "! grep -rnE \"chrome\\.|apiKey\" src/insight/command-catalog.ts"
+      ]
+    },
+    {
+      "id": "TASK-003",
+      "name": "对账模块（catalog-reconcile.ts，单基线 + 双向 + 同源锚定）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-001"
+      ],
+      "planRef": "V2-1 plan §3.5",
+      "wave": 2,
+      "parallelWith": [
+        "TASK-002"
+      ],
+      "fr": [
+        "FR-V2-015",
+        "FR-V2-053"
+      ],
+      "nfr": [
+        "NFR-V21-003"
+      ],
+      "ec": [
+        "EC-V21-003"
+      ],
+      "ac": [
+        "AC-V21-002",
+        "AC-V21-007"
+      ],
+      "adr": [
+        "ADR-V2-010"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/insight/catalog-reconcile.ts"
+        }
+      ],
+      "acceptance": [
+        "只读单一基线文件（test/parity/baseline-catalog.json + waivers.json，不新建/不复制基线）",
+        "loadBaseline() 读出 toolCount=34、子命令合计 142、provenance.commit 为全 SHA",
+        "reconcileCatalog 为双向（漏命令/漏子命令/未注册/过期 waivers 均可报告）",
+        "导出基线路径字面量常量（与 v1 test/parity.test.ts 同源锚点）",
+        "不修改 test/parity.test.ts 与 test/parity/**（v1 validated 门禁只读）",
+        "无 chrome. / 无写 store / 无 apiKey；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "node -e \"const b=require('./test/parity/baseline-catalog.json');const subs=b.tools.reduce((n,t)=>n+(t.subcommands?.length??0),0);if(b.toolCount!==34||subs!==142)throw new Error('drift');console.log('34/'+subs)\"",
+        "git -C ../.. diff --quiet -- packages/web-cli-plugin/test/parity.test.ts packages/web-cli-plugin/test/parity"
+      ]
+    },
+    {
+      "id": "TASK-004",
+      "name": "纯投影 + 确定性（project-tree.ts）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-001",
+        "TASK-002",
+        "TASK-003"
+      ],
+      "planRef": "V2-1 plan §3.2",
+      "wave": 3,
+      "parallelWith": [],
+      "fr": [
+        "FR-V2-010",
+        "FR-V2-011",
+        "FR-V2-014",
+        "FR-V2-015",
+        "FR-V2-016",
+        "FR-V2-017"
+      ],
+      "nfr": [
+        "NFR-V21-001",
+        "NFR-V21-002",
+        "NFR-V21-003",
+        "NFR-V21-004"
+      ],
+      "ec": [
+        "EC-V21-001",
+        "EC-V21-002",
+        "EC-V21-005",
+        "EC-V21-006"
+      ],
+      "ac": [
+        "AC-V21-001",
+        "AC-V21-003",
+        "AC-V21-006"
+      ],
+      "adr": [
+        "ADR-V2-001",
+        "ADR-V2-002",
+        "ADR-V2-003"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/insight/project-tree.ts"
+        }
+      ],
+      "acceptance": [
+        "森林模型：root.label='本插件' + 四分组固定序；跨层引用以显式 crossLinks 表达",
+        "站点节点与 OriginStore.list() 真值一致；未授权站点可见；可取消授权仅 authorized===true",
+        "能力节点静态权限 revocable:false；可选能力 granted 实测；开关 enabled 真值",
+        "命令集合 == 注入 toolSurface() 真值（不重不漏）",
+        "LLM 节点字段 == LlmStatusSummary；树内无改绑/编辑 key 入口",
+        "确定性：同输入两次投影 deep-equal 且 meta.hash 相等",
+        "零副作用：不 mutate 输入、不写存储、不写审计",
+        "≥3 类空态/降级可读（meta.degradations）",
+        "无 chrome. / 无写 store / 无 apiKey；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "! grep -rnE \"chrome\\.|apiKey\" src/insight/project-tree.ts"
+      ]
+    },
+    {
+      "id": "TASK-005",
+      "name": "薄 builder + additive 消息面接线（build-snapshot + state-message/messaging/service-worker/host）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-004"
+      ],
+      "planRef": "V2-1 plan §3.6 + 父 plan §2.3",
+      "wave": 4,
+      "parallelWith": [],
+      "fr": [
+        "FR-V2-003",
+        "FR-V2-013",
+        "FR-V2-016"
+      ],
+      "nfr": [
+        "NFR-V21-002"
+      ],
+      "ec": [
+        "EC-V21-002"
+      ],
+      "ac": [
+        "AC-V21-005"
+      ],
+      "adr": [
+        "ADR-V2-004",
+        "ADR-V2-014"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/insight/build-snapshot.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/background/state-message.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/background/messaging.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/background/service-worker.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/background/host.ts"
+        }
+      ],
+      "acceptance": [
+        "build-snapshot.ts 无 chrome.（grep）；node 可测（注入 fake deps 产出快照）",
+        "state.insight? 为可选字段；既有字段 Object.keys 与语义零变更（additive）",
+        "insight-tree（pull）返回完整 ConnectTreeSnapshot；insight-changed（push）不携带敏感数据",
+        "service-worker.ts 既有 case 零删改（git diff 仅新增行）",
+        "host.delayConfig() 为只读 accessor；默认 delayMs:0 可透出、非 0 可透出（不硬编码）",
+        "npm run build + npm run typecheck 0 error；v1 test/state-message.test.ts 零回归"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run typecheck",
+        "! grep -n \"chrome\\.\" src/insight/build-snapshot.ts",
+        "git -C ../.. diff --unified=0 -- packages/web-cli-plugin/src/background/service-worker.ts | grep -E \"^-\" | grep -v \"^---\" || echo \"zero-deletion\""
+      ]
+    },
+    {
+      "id": "TASK-006",
+      "name": "门禁 insight-projection（字段真值/additive/零副作用/零明文/空态）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-005"
+      ],
+      "planRef": "V2-1 plan §9 交付门槛",
+      "wave": 5,
+      "parallelWith": [
+        "TASK-007",
+        "TASK-008",
+        "TASK-009"
+      ],
+      "fr": [
+        "FR-V2-010",
+        "FR-V2-011",
+        "FR-V2-012",
+        "FR-V2-013",
+        "FR-V2-014",
+        "FR-V2-015",
+        "FR-V2-016",
+        "FR-V2-017"
+      ],
+      "nfr": [
+        "NFR-V21-001",
+        "NFR-V21-002",
+        "NFR-V21-004"
+      ],
+      "ec": [
+        "EC-V21-001",
+        "EC-V21-002",
+        "EC-V21-005"
+      ],
+      "ac": [
+        "AC-V21-001",
+        "AC-V21-004",
+        "AC-V21-005",
+        "AC-V21-006"
+      ],
+      "adr": [
+        "ADR-V2-004"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/insight-projection.test.ts"
+        }
+      ],
+      "acceptance": [
+        "四维度字段与 v1 真值逐项核对",
+        "state additive：既有字段 Object.keys 无删除/改名；insight? 可选",
+        "零副作用：投影前后 storage diff 为空 + 审计零新增",
+        "零明文：输出序列化 grep 零命中 apiKey/剪贴板/通知正文",
+        "≥3 类空态/降级断言可读文案",
+        "不修改 v1 任何既有测试文件；npm test 全绿（串行）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
+    },
+    {
+      "id": "TASK-007",
+      "name": "门禁 insight-determinism（两次投影一致 + hash 相等）",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-004"
+      ],
+      "planRef": "V2-1 plan §9 交付门槛",
+      "wave": 5,
+      "parallelWith": [
+        "TASK-006",
+        "TASK-008",
+        "TASK-009"
+      ],
+      "fr": [
+        "FR-V2-015"
+      ],
+      "nfr": [
+        "NFR-V21-003"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V21-003"
+      ],
+      "adr": [
+        "ADR-V2-002"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/insight-determinism.test.ts"
+        }
+      ],
+      "acceptance": [
+        "两次投影 deep-equal + hash 全等",
+        "builtAt 变化不影响 hash",
+        "集合输入顺序打乱后 hash 不变（固定排序证明）",
+        "npm test 全绿"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
+    },
+    {
+      "id": "TASK-008",
+      "name": "门禁 insight-catalog（34 工具/142 子命令双向等价 + 反证 + 同源锚定）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-003",
+        "TASK-004"
+      ],
+      "planRef": "V2-1 plan §9 交付门槛",
+      "wave": 5,
+      "parallelWith": [
+        "TASK-006",
+        "TASK-007",
+        "TASK-009"
+      ],
+      "fr": [
+        "FR-V2-015",
+        "FR-V2-053"
+      ],
+      "nfr": [
+        "NFR-V21-004"
+      ],
+      "ec": [
+        "EC-V21-003"
+      ],
+      "ac": [
+        "AC-V21-002",
+        "AC-V21-007"
+      ],
+      "adr": [
+        "ADR-V2-010"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/insight-catalog.test.ts"
+        }
+      ],
+      "acceptance": [
+        "双向集合等价（不重不漏）；工具 34、子命令 142、覆盖率 100%",
+        "denyCause 分类正确（S1/S3/evaluate/hardDeny）",
+        "反证自测：人为丢一条命令 → 断言 FAIL（门禁可证伪）",
+        "同源锚定：V2 模块与 test/parity.test.ts 引用同一基线路径字面量",
+        "过滤只读：过滤前后存储/授权状态 diff 为空",
+        "npm test 全绿；v1 test/parity.test.ts 零改动"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
+    },
+    {
+      "id": "TASK-009",
+      "name": "门禁 insight-no-escalation 基础段（导入白名单/policy pinned/无 bare catch）",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-005"
+      ],
+      "planRef": "V2-1 plan §9 交付门槛（与 V2-3 共用）",
+      "wave": 5,
+      "parallelWith": [
+        "TASK-006",
+        "TASK-007",
+        "TASK-008"
+      ],
+      "fr": [
+        "FR-V2-003",
+        "FR-V2-016",
+        "FR-V2-065"
+      ],
+      "nfr": [
+        "NFR-V21-001"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V2-005"
+      ],
+      "adr": [
+        "ADR-V2-015"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/insight-no-escalation.test.ts"
+        }
+      ],
+      "acceptance": [
+        "src/insight/** grep：无 chrome.、无写 store 导入、无 apiKey",
+        "无 bare catch {}（grep）",
+        "PLUGIN_RISK_DEFAULTS pinned 判定表深度相等",
+        "门禁为只追加容器：本任务建立基础断言，V2-3-TASK-007 追加 tree 层，零删减",
+        "npm test 全绿"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test",
+        "! grep -rnE \"catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}\" src/insight"
+      ]
+    }
+  ]
+}

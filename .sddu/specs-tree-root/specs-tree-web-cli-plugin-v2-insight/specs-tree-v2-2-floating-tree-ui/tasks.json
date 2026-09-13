@@ -1,0 +1,709 @@
+{
+  "meta": {
+    "feature": "V2-2 悬浮连接树 UI 与交互（父：specs-tree-web-cli-plugin-v2-insight）",
+    "featureKey": "specs-tree-v2-2-floating-tree-ui",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-13",
+    "version": "1.0.0",
+    "sourcePlan": "V2-2 plan.md v1.0（§3.1~3.7 + §6 文件影响 + §9 交付门槛）+ 父 plan.md v1.0（ADR-V2-004/005/006/007/011/013/015）",
+    "sourceSpec": "父 spec.md FR-V2-020~025 + 本叶子 spec.md（NFR-V22-001~006 / EC-V22-001~005 / AC-V22-001~007；量化阈值）",
+    "taskCount": 11,
+    "waveCount": 4,
+    "complexity": {
+      "S": 3,
+      "M": 7,
+      "L": 1
+    },
+    "typeBreakdown": {
+      "implementation": 4,
+      "gate": 6,
+      "human": 1,
+      "doc": 0
+    },
+    "p0MinimalSet": [
+      "TASK-001",
+      "TASK-002",
+      "TASK-003",
+      "TASK-004",
+      "TASK-005",
+      "TASK-006",
+      "TASK-007",
+      "TASK-008",
+      "TASK-009",
+      "TASK-010",
+      "TASK-011"
+    ],
+    "crossLeafOrder": {
+      "leaf": "V2-2",
+      "executionWaves": "Wave 6~9",
+      "dependsOn": [
+        "specs-tree-v2-1-connect-tree-model"
+      ],
+      "feeds": [
+        "specs-tree-v2-3-revoke-ops"
+      ]
+    },
+    "gateMatrix": [
+      {
+        "gate": "tree-view(pure)",
+        "command": "npm test",
+        "file": "test/tree-view.test.ts",
+        "change": "new",
+        "task": "TASK-003"
+      },
+      {
+        "gate": "size-budget",
+        "command": "npm test",
+        "file": "test/size-baseline.ts + test/size-budget.test.ts",
+        "change": "new (v1 perf-* untouched)",
+        "task": "TASK-006/008"
+      },
+      {
+        "gate": "test:insight",
+        "command": "npm run test:insight",
+        "file": "test/ui/insight.mjs",
+        "change": "new (v1 journey.mjs untouched)",
+        "task": "TASK-007"
+      },
+      {
+        "gate": "v1 test:ui regression",
+        "command": "npm run test:ui",
+        "file": "test/ui/journey.mjs",
+        "change": "zero change / zero-deletion",
+        "task": "TASK-009"
+      },
+      {
+        "gate": "grep/contract",
+        "command": "grep + git diff",
+        "file": "-",
+        "change": "zero change existing contract",
+        "task": "TASK-010"
+      }
+    ],
+    "layoutThresholds": {
+      "logFlexGrow": "1",
+      "logClientHeightMin": 589,
+      "logHeightRatioMin": 0.65,
+      "composerGapToBottom": [
+        0,
+        8
+      ],
+      "fabIntersectComposer": 0,
+      "overflowX": [
+        400,
+        320
+      ],
+      "drawerStates": [
+        "open",
+        "closed"
+      ]
+    },
+    "sizeBudget": {
+      "SIDEPANEL_BASELINE_BYTES": 1068165,
+      "SIDEPANEL_BASELINE_TOLERANCE": 0.05,
+      "SIDEPANEL_CEILING": 1121573,
+      "CONTENT_MAX_BYTES": 1073453
+    },
+    "assertionsOnlyIncrease": [
+      "新断言全部落新文件（test/ui/insight.mjs #I-01… / test/tree-view.test.ts / test/size-budget.test.ts）",
+      "v1 test/ui/journey.mjs 零改动、断言计数只增不减",
+      "v1 test/perf-*.ts 零删改"
+    ],
+    "note": "V2-2 本叶子 11 任务 / 4 波（跨叶子 Wave 6~9）：append-only 标记/样式 → 纯渲染模型 → tree-view 纯测 → 惰性 tree-drawer → sidepanel 挂载+script → 体积守卫 → test:insight 量化门禁 → 基线实测登记 → 串行收口 → grep 契约门禁 → 人工面清单。布局口径按 ADR-V2-006（589px 主 / ≥65.0% 次）；体积守卫另建新文件，与 v1 D31 解耦。零注入 / 不放进设置面板 / 不改 options.html / 不改 v1 journey.mjs。编排器代作者决策（2026-09-13 授权）：TD-V22-01~05。门禁串行执行，绝不并发（OOM 前科）。"
+  },
+  "waves": [
+    {
+      "wave": 6,
+      "planWave": "V2-2 内部",
+      "tasks": [
+        "TASK-001",
+        "TASK-002",
+        "TASK-006"
+      ],
+      "strategy": "并行组 ①（跨叶子 Wave 6）：均依赖 V2-1 TASK-005；文件不相交（index.html | tree-view.ts | size-*）"
+    },
+    {
+      "wave": 7,
+      "planWave": "V2-2 内部",
+      "tasks": [
+        "TASK-003",
+        "TASK-004"
+      ],
+      "strategy": "并行组 ②：tree-view 纯测（dep 002）| tree-drawer.ts（dep 001/002）"
+    },
+    {
+      "wave": 8,
+      "planWave": "V2-2 内部",
+      "tasks": [
+        "TASK-005"
+      ],
+      "strategy": "串行：sidepanel 挂载/订阅 + test:insight script（dep 004）"
+    },
+    {
+      "wave": 9,
+      "planWave": "V2-2 内部",
+      "tasks": [
+        "TASK-007",
+        "TASK-008",
+        "TASK-009",
+        "TASK-010",
+        "TASK-011"
+      ],
+      "strategy": "门禁/收口（可并行编写；⚠️ Chromium 门禁执行严格串行，绝不与 test:ui/test:binding 并发）：007 test:insight | 008 基线实测登记 | 009 串行收口 | 010 grep 契约 | 011 人工面清单"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "index.html 追加 FAB + 覆盖式抽屉标记与样式（append-only）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "V2-1-TASK-005"
+      ],
+      "planRef": "V2-2 plan §3.1",
+      "wave": 6,
+      "parallelWith": [
+        "TASK-002",
+        "TASK-006"
+      ],
+      "fr": [
+        "FR-V2-020",
+        "FR-V2-023",
+        "FR-V2-024",
+        "FR-V2-004"
+      ],
+      "nfr": [
+        "NFR-V22-001",
+        "NFR-V22-006"
+      ],
+      "ec": [
+        "EC-V22-005"
+      ],
+      "ac": [
+        "AC-V22-004",
+        "AC-V22-007"
+      ],
+      "adr": [
+        "ADR-V2-005"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html"
+        }
+      ],
+      "acceptance": [
+        "#tree-fab 位于 #panel-main DOM 内（非页面注入）；aria-controls=tree-drawer + aria-expanded=false",
+        "#tree-drawer 为 #panel-main 的 absolute 子元素，默认 hidden；不参与 flex 流",
+        "既有元素 id/类零重命名（#panel-top/#panel-main/#panel-bottom/#log/#composer/#scroll-bottom/#settings-view 及 .entry-*/.msg-*/.tool-* 全保留）",
+        "options.html git diff 为空",
+        "npm run build 成功"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build",
+        "grep -q 'id=\"tree-fab\"' src/ui/sidepanel/index.html && grep -q 'id=\"tree-drawer\"' src/ui/sidepanel/index.html",
+        "git -C ../.. diff --quiet -- packages/web-cli-plugin/src/ui/options/index.html"
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "name": "tree-view.ts 纯渲染模型（deny 无开关 / 静态权限无撤销 / needsConfirmation）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "V2-1-TASK-003"
+      ],
+      "planRef": "V2-2 plan §3.2",
+      "wave": 6,
+      "parallelWith": [
+        "TASK-001",
+        "TASK-006"
+      ],
+      "fr": [
+        "FR-V2-021",
+        "FR-V2-022",
+        "FR-V2-025"
+      ],
+      "nfr": [
+        "NFR-V22-002"
+      ],
+      "ec": [
+        "EC-V22-004"
+      ],
+      "ac": [
+        "AC-V22-005",
+        "AC-V22-006"
+      ],
+      "adr": [
+        "ADR-V2-011",
+        "ADR-V2-013"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/tree/tree-view.ts"
+        }
+      ],
+      "acceptance": [
+        "header.modelNote 恒含「四维度分组视图（森林），非严格树」",
+        "header.noEscalationNote 恒含「撤销/关断 = 回到更保守，不放宽任何门禁；delay = deny（fail-closed）」",
+        "命令 action==='deny' → controls===[]（结构保证 ADR-V2-011）",
+        "静态权限节点 controls 不含 revoke + revokeHint 如实披露不可逐项撤销",
+        "可选能力仅 granted===true 给 revoke 控件",
+        "needsConfirmation 对 7 个动作取值正确（可逆开关为 false）",
+        "过滤只读（纯函数、不 mutate snapshot）；无 innerHTML；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "! grep -n \"innerHTML\" src/ui/tree/tree-view.ts"
+      ]
+    },
+    {
+      "id": "TASK-003",
+      "name": "门禁 tree-view 纯测（142 子命令 deny 无开关 / 静态权限无撤销 / 过滤只读）",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-002"
+      ],
+      "planRef": "V2-2 plan §9 交付门槛",
+      "wave": 7,
+      "parallelWith": [
+        "TASK-004"
+      ],
+      "fr": [
+        "FR-V2-021",
+        "FR-V2-022",
+        "FR-V2-025"
+      ],
+      "nfr": [
+        "NFR-V22-002"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V22-001",
+        "AC-V22-005",
+        "AC-V22-006"
+      ],
+      "adr": [
+        "ADR-V2-011",
+        "ADR-V2-013"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/tree-view.test.ts"
+        }
+      ],
+      "acceptance": [
+        "142 子命令逐个断言 action==='deny' ⇒ controls.length===0",
+        "静态权限节点 controls 全部不含 revoke",
+        "modelNote / noEscalationNote 文案断言",
+        "needsConfirmation 7/7 动作断言",
+        "过滤前后 snapshot deep-equal（只读）",
+        "npm test 全绿"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
+    },
+    {
+      "id": "TASK-004",
+      "name": "tree-drawer.ts DOM 挂载（惰性 / 开合 / Esc / 焦点回归 / 零 innerHTML）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-001",
+        "TASK-002"
+      ],
+      "planRef": "V2-2 plan §3.3",
+      "wave": 7,
+      "parallelWith": [
+        "TASK-003"
+      ],
+      "fr": [
+        "FR-V2-020",
+        "FR-V2-021",
+        "FR-V2-022",
+        "FR-V2-024"
+      ],
+      "nfr": [
+        "NFR-V22-005"
+      ],
+      "ec": [
+        "EC-V22-002",
+        "EC-V22-005"
+      ],
+      "ac": [
+        "AC-V22-001",
+        "AC-V22-005"
+      ],
+      "adr": [
+        "ADR-V2-004",
+        "ADR-V2-005"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/tree/tree-drawer.ts"
+        }
+      ],
+      "acceptance": [
+        "#tree-fab 首开触发 insight-tree；refresh() 可重拉",
+        "关闭态 [hidden] 且无渲染/无定时器",
+        "Esc 关闭；关闭后焦点回 FAB；aria-expanded 同步",
+        "零 innerHTML（grep）；无 bare catch",
+        "setFilter 只重渲染，不改真值",
+        "npm run build + npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run typecheck",
+        "! grep -rnE \"innerHTML|catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}\" src/ui/tree/tree-drawer.ts"
+      ]
+    },
+    {
+      "id": "TASK-005",
+      "name": "sidepanel.ts 挂载/订阅 + package.json test:insight（append-only）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-004"
+      ],
+      "planRef": "V2-2 plan §3.4",
+      "wave": 8,
+      "parallelWith": [],
+      "fr": [
+        "FR-V2-020",
+        "FR-V2-024",
+        "FR-V2-002"
+      ],
+      "nfr": [
+        "NFR-V22-006"
+      ],
+      "ec": [
+        "EC-V22-002"
+      ],
+      "ac": [
+        "AC-V22-004",
+        "AC-V2-007"
+      ],
+      "adr": [
+        "ADR-V2-004"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/package.json"
+        }
+      ],
+      "acceptance": [
+        "sidepanel.ts 既有 hook/handler 零删改（git diff 仅新增行）",
+        "applyEnvGuard 禁用列表含 #tree-fab",
+        "package.json 追加 test:insight；dependencies/devDependencies 零新增",
+        "#settings-view 与树互不嵌套、可分别打开（AC-V22-004/AC-V2-008）",
+        "npm run build + typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run typecheck",
+        "node -e \"const p=require('./package.json');if(!p.scripts['test:insight'])throw new Error('missing');if(Object.keys(p.dependencies).length!==1)throw new Error('dep新增');console.log('ok')\"",
+        "git -C ../.. diff --unified=0 -- packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts | grep -E \"^-[^-]\" || echo append-only"
+      ]
+    },
+    {
+      "id": "TASK-006",
+      "name": "门禁 size-budget 基建（只吞 ENOENT + 反证自测 + 基线≠目标预算）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [],
+      "planRef": "V2-2 plan §3.6 + 父 plan ADR-V2-007",
+      "wave": 6,
+      "parallelWith": [
+        "TASK-001",
+        "TASK-002"
+      ],
+      "fr": [
+        "NFR-V2-001",
+        "NFR-V2-002"
+      ],
+      "nfr": [
+        "NFR-V22-003",
+        "NFR-V22-004"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V2-006"
+      ],
+      "adr": [
+        "ADR-V2-007"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/size-baseline.ts"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/size-budget.test.ts"
+        }
+      ],
+      "acceptance": [
+        "守卫只吞 ENOENT；EACCES/裸 Error 必须抛出（反证测试）",
+        "反证自测：ceiling+1 与 1_073_454 均触发 FAIL",
+        "SIDEPANEL_BASELINE_META.targetBudgetBytes===null 且 targetMet===null",
+        "content.js 上限 1_073_453（无容差）",
+        "不修改 v1 test/perf-baseline.ts / test/perf-budget.test.ts",
+        "npm test 全绿"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test",
+        "git -C ../.. diff --quiet -- packages/web-cli-plugin/test/perf-baseline.ts packages/web-cli-plugin/test/perf-budget.test.ts"
+      ]
+    },
+    {
+      "id": "TASK-007",
+      "name": "门禁 test:insight（test/ui/insight.mjs，AC-V2-002 量化）",
+      "type": "gate",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-005"
+      ],
+      "planRef": "V2-2 plan §3.3/§3.5",
+      "wave": 9,
+      "parallelWith": [],
+      "fr": [
+        "FR-V2-020",
+        "FR-V2-021",
+        "FR-V2-022",
+        "FR-V2-023",
+        "FR-V2-024",
+        "FR-V2-025"
+      ],
+      "nfr": [
+        "NFR-V2-004",
+        "NFR-V22-001",
+        "NFR-V22-007"
+      ],
+      "ec": [
+        "EC-V22-001",
+        "EC-V22-003",
+        "EC-V22-005"
+      ],
+      "ac": [
+        "AC-V22-001",
+        "AC-V22-002",
+        "AC-V22-006",
+        "AC-V2-002"
+      ],
+      "adr": [
+        "ADR-V2-005",
+        "ADR-V2-006",
+        "ADR-V2-011"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ui/insight.mjs"
+        }
+      ],
+      "acceptance": [
+        "①~⑪ 全绿；新断言编号 #I-01…",
+        "#log ≥589px（主）且 ≥65.0%（次）；composer 底边−视口底 ∈[0,+8px]",
+        "#tree-fab ∩ #composer = 0（开/关两态）",
+        "400px / 320px 文档级水平溢出 = 0",
+        "文案含「撤销/关断 = 回到更保守，不放宽」+ delay(=deny) 消歧句；deny 节点无开关",
+        "不修改 v1 test/ui/journey.mjs（git diff 零变更）",
+        "串行执行（绝不与 test:ui/test:binding 并发）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run test:insight",
+        "git -C ../.. diff --quiet -- packages/web-cli-plugin/test/ui/journey.mjs"
+      ]
+    },
+    {
+      "id": "TASK-008",
+      "name": "build 后实测登记 sidepanel 基线 + content.js 不增长",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-005"
+      ],
+      "planRef": "V2-2 plan §3.6 + ADR-V2-007",
+      "wave": 9,
+      "parallelWith": [
+        "TASK-007",
+        "TASK-010"
+      ],
+      "fr": [
+        "NFR-V2-001",
+        "NFR-V2-002"
+      ],
+      "nfr": [
+        "NFR-V22-003",
+        "NFR-V22-004"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V2-006"
+      ],
+      "adr": [
+        "ADR-V2-007"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/size-baseline.ts"
+        }
+      ],
+      "acceptance": [
+        "build 后实测值写入 SIDEPANEL_BASELINE_BYTES，SIDEPANEL_CEILING 随之重算",
+        "SIDEPANEL_BASELINE_META 含 measuredOn/source/buildCommand；targetBudgetBytes===null、targetMet===null",
+        "content.js 实测 ≤ 1_073_453 B（不增长）",
+        "文件头注明测量日期 + 来源 + V2-2 UI 有意增重",
+        "npm test 全绿；未改容差/未删断言"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build",
+        "node -e \"const fs=require('node:fs');const c=fs.statSync('dist/content.js').size;console.log('content',c);if(c>1073453)throw new Error('content.js growth')\"",
+        "npm test"
+      ]
+    },
+    {
+      "id": "TASK-009",
+      "name": "门禁串行 + v1 断言零删减核验（收口）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-007",
+        "TASK-008",
+        "TASK-010"
+      ],
+      "planRef": "V2-2 plan §9 交付门槛 + NFR-V2-009",
+      "wave": 9,
+      "parallelWith": [],
+      "fr": [
+        "FR-V2-023"
+      ],
+      "nfr": [
+        "NFR-V22-001",
+        "NFR-V22-006",
+        "NFR-V2-009"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V22-003",
+        "AC-V2-011"
+      ],
+      "adr": [],
+      "files": [],
+      "acceptance": [
+        "全套门禁逐条串行通过，全仓 0 fail",
+        "v1 test/ui/journey.mjs 既有断言零删减（计数只增不减）；文件本身零改动",
+        "web-cli-base 483 零回归；tsc --noEmit 0 error",
+        "串行执行记录可追溯（命令顺序 + 时间）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm test",
+        "npm run test:ui",
+        "npm run test:insight",
+        "npm run test:binding",
+        "npm run test:hardening",
+        "npm run test:e2e",
+        "npm run typecheck"
+      ]
+    },
+    {
+      "id": "TASK-010",
+      "name": "grep/契约门禁（无 innerHTML / id 类零重命名 / options 零 diff）",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-005"
+      ],
+      "planRef": "V2-2 plan §9 交付门槛",
+      "wave": 9,
+      "parallelWith": [
+        "TASK-007",
+        "TASK-008"
+      ],
+      "fr": [
+        "FR-V2-024",
+        "FR-V2-004"
+      ],
+      "nfr": [
+        "NFR-V22-006",
+        "NFR-V2-003",
+        "NFR-V2-010"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V22-004",
+        "AC-V22-007",
+        "AC-V2-007",
+        "AC-V2-008"
+      ],
+      "adr": [
+        "ADR-V2-015"
+      ],
+      "files": [],
+      "acceptance": [
+        "src/ui/tree 与 index.html 新增段零 innerHTML",
+        "既有 DOM 契约 id/类零重命名（v1 基线集合 grep 全命中）",
+        "options.html / manifest.json / packages/web-cli-base/** diff 为空",
+        "无 <all_urls> / 无新增静态 content_scripts"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && ! grep -rn \"innerHTML\" src/ui/tree src/ui/sidepanel/index.html",
+        "git -C ../.. diff --quiet -- packages/web-cli-plugin/src/ui/options/index.html packages/web-cli-plugin/manifest.json packages/web-cli-base"
+      ]
+    },
+    {
+      "id": "TASK-011",
+      "name": "人工面清单落点（docs/smoke-checklist.md v2 段）+ H-A~H-D 执行登记",
+      "type": "human",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-007"
+      ],
+      "planRef": "V2-2 plan §9 人工面",
+      "wave": 9,
+      "parallelWith": [],
+      "fr": [
+        "FR-V2-022"
+      ],
+      "nfr": [
+        "NFR-V2-008",
+        "NFR-V22-002"
+      ],
+      "ec": [
+        "EC-V22-001"
+      ],
+      "ac": [
+        "AC-V22-006"
+      ],
+      "adr": [],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/docs/smoke-checklist.md"
+        }
+      ],
+      "acceptance": [
+        "追加 v2 §，含 H-A~H-D 逐项（步骤/期望/本轮结论栏）",
+        "既有 §1 机械面/§2 人工面/§3 降级出口零删改",
+        "人工执行登记（无法自动化项如实标注；未执行标「⏳ 待人工」）",
+        "v1 既有 M1~M30 / H0~H10 编号零冲突（v2 用 V2-H-* 前缀）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && grep -qE \"H-A|H-B|H-C|H-D\" docs/smoke-checklist.md",
+        "git -C ../.. diff --stat -- packages/web-cli-plugin/docs/smoke-checklist.md"
+      ]
+    }
+  ]
+}

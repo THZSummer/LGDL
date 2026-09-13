@@ -1,0 +1,662 @@
+{
+  "meta": {
+    "feature": "V2-3 撤销与取消授权操作面（父：specs-tree-web-cli-plugin-v2-insight）",
+    "featureKey": "specs-tree-v2-3-revoke-ops",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-13",
+    "version": "1.0.0",
+    "sourcePlan": "V2-3 plan.md v1.0（§3.1~3.7 + §6 文件影响 + §9 交付门槛）+ 父 plan.md v1.0（ADR-V2-008/009/011/013/015）",
+    "sourceSpec": "父 spec.md FR-V2-030~040 + FR-V2-060~065 + 本叶子 spec.md（NFR-V23-001~006 / EC-V23-001~009 / AC-V23-001~008）",
+    "taskCount": 10,
+    "waveCount": 4,
+    "complexity": {
+      "S": 2,
+      "M": 6,
+      "L": 2
+    },
+    "typeBreakdown": {
+      "implementation": 4,
+      "gate": 5,
+      "human": 1,
+      "doc": 0
+    },
+    "p0MinimalSet": [
+      "TASK-001",
+      "TASK-002",
+      "TASK-003",
+      "TASK-004",
+      "TASK-005",
+      "TASK-006",
+      "TASK-007",
+      "TASK-008",
+      "TASK-009",
+      "TASK-010"
+    ],
+    "crossLeafOrder": {
+      "leaf": "V2-3",
+      "executionWaves": "Wave 10~13",
+      "dependsOn": [
+        "specs-tree-v2-1-connect-tree-model",
+        "specs-tree-v2-2-floating-tree-ui"
+      ]
+    },
+    "gateMatrix": [
+      {
+        "gate": "tree-ops(pure)",
+        "command": "npm test",
+        "file": "test/tree-ops.test.ts",
+        "change": "new",
+        "task": "TASK-005"
+      },
+      {
+        "gate": "insight-security",
+        "command": "npm test",
+        "file": "test/insight-security.test.ts",
+        "change": "new",
+        "task": "TASK-006"
+      },
+      {
+        "gate": "insight-no-escalation",
+        "command": "npm test + git diff",
+        "file": "test/insight-no-escalation.test.ts",
+        "change": "append (V2-1 base, zero-deletion)",
+        "task": "TASK-007"
+      },
+      {
+        "gate": "test:binding revoke-chain",
+        "command": "npm run test:binding",
+        "file": "test/ui/binding.mjs",
+        "change": "append #21a… (existing numbering untouched)",
+        "task": "TASK-008"
+      },
+      {
+        "gate": "policy/auto-authorize freeze",
+        "command": "git diff --quiet",
+        "file": "src/security/policy.ts + src/security/auto-authorize.ts",
+        "change": "zero diff",
+        "task": "TASK-006/007/009"
+      }
+    ],
+    "actionWhitelist": [
+      "revoke-origin",
+      "revoke-capability",
+      "set-capability-toggle",
+      "set-tabs-toggle",
+      "clear-auto-auth",
+      "disconnect-llm(P1)",
+      "dissolve-group(P1)"
+    ],
+    "reverseAssertionsACV2005": [
+      "S1 unauthorized origin deny",
+      "S3 unknown/invalid risk deny",
+      "evaluate deny",
+      "destructive write ask",
+      "clipboard read ask",
+      "bookmarks remove ask"
+    ],
+    "monotonicity": {
+      "invariant": "allowAfter ⊆ allowBefore",
+      "anyEscalation": "FAIL"
+    },
+    "numberingDecision": {
+      "gate": "test/ui/binding.mjs",
+      "plannedInPlan": "#19a…",
+      "actual": "#21a…",
+      "reason": "#19a~#19l (v1 auto-authorize) and #20a~#20f (v1 session-follow) already occupied; TD-V23-01"
+    },
+    "assertionsOnlyIncrease": [
+      "新门禁全部落新文件（test/tree-ops.test.ts / test/insight-security.test.ts）",
+      "insight-no-escalation.test.ts 由 V2-1 建立、V2-3 追加（零删减）",
+      "v1 test/ui/binding.mjs 既有编号（163 断言）零删改",
+      "policy.ts / auto-authorize.ts 零 diff"
+    ],
+    "note": "V2-3 本叶子 10 任务 / 4 波（跨叶子 Wave 10~13）：三件套回执 → 控件语义 → 白名单编排 → tree-drawer 绑定 / tree-ops 纯测 / insight-security（六条反向断言 + allow 单调性）/ insight-no-escalation 追加冻结 → test:binding 追加撤链 → 串行收口 → 人工面 H-1~H-6。安全红线：封闭 7 动作白名单（无默认写入分支）+ 单调性（allowAfter ⊆ allowBefore）+ policy/auto-authorize 零 diff + 无 bare catch + 零明文。编排器代作者决策（2026-09-13 授权）：TD-V23-01 binding 编号 #19a→#21a；TD-V23-02 门禁承载；TD-V23-03 P1 动作保留；TD-V23-04 波次。门禁串行执行，绝不并发（OOM 前科）。"
+  },
+  "waves": [
+    {
+      "wave": 10,
+      "planWave": "V2-3 内部",
+      "tasks": [
+        "TASK-001",
+        "TASK-003"
+      ],
+      "strategy": "并行组 ①（跨叶子 Wave 10）：文件不相交（tree-receipt.ts 新建 | tree-view.ts MODIFY V2-2 产物）"
+    },
+    {
+      "wave": 11,
+      "planWave": "V2-3 内部",
+      "tasks": [
+        "TASK-002"
+      ],
+      "strategy": "串行：白名单编排消费 001/003 的动作表与控件语义"
+    },
+    {
+      "wave": 12,
+      "planWave": "V2-3 内部",
+      "tasks": [
+        "TASK-004",
+        "TASK-005",
+        "TASK-006",
+        "TASK-007"
+      ],
+      "strategy": "并行组 ②：tree-drawer 绑定 | tree-ops 纯测 | insight-security | insight-no-escalation 追加；文件不相交"
+    },
+    {
+      "wave": 13,
+      "planWave": "V2-3 内部",
+      "tasks": [
+        "TASK-008",
+        "TASK-009",
+        "TASK-010"
+      ],
+      "strategy": "收口（⚠️ Chromium 门禁严格串行，绝不与 test:ui/test:insight 并发）：008 test:binding 追加撤链 | 009 门禁串行收口 | 010 人工面清单"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "name": "三件套回执（tree-receipt.ts，纯）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "V2-1-TASK-005"
+      ],
+      "planRef": "V2-3 plan §3.2",
+      "wave": 10,
+      "parallelWith": [
+        "TASK-003"
+      ],
+      "fr": [
+        "FR-V2-037",
+        "FR-V2-039"
+      ],
+      "nfr": [
+        "NFR-V23-002"
+      ],
+      "ec": [
+        "EC-V23-006"
+      ],
+      "ac": [
+        "AC-V23-005",
+        "AC-V23-007"
+      ],
+      "adr": [
+        "ADR-V2-009"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/tree/tree-receipt.ts"
+        }
+      ],
+      "acceptance": [
+        "三件套字段齐全；② 的 present 由注入实测值决定（非文案声称）",
+        "opResult.ok===false → kind:'err'；不产生成功态",
+        "无 bare catch；零明文（不携带 key/剪贴板/通知正文）",
+        "纯函数（now 可注入，可单测）；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck",
+        "! grep -rnE \"catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}|apiKey\" src/ui/tree/tree-receipt.ts"
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "name": "动作白名单编排（tree-ops.ts，7 动作 → 唯一既有通路）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-001",
+        "TASK-003"
+      ],
+      "planRef": "V2-3 plan §3.1/§3.4",
+      "wave": 11,
+      "parallelWith": [],
+      "fr": [
+        "FR-V2-030",
+        "FR-V2-031",
+        "FR-V2-032",
+        "FR-V2-033",
+        "FR-V2-034",
+        "FR-V2-035",
+        "FR-V2-036",
+        "FR-V2-037",
+        "FR-V2-039",
+        "FR-V2-040",
+        "FR-V2-063"
+      ],
+      "nfr": [
+        "NFR-V23-001",
+        "NFR-V23-005"
+      ],
+      "ec": [
+        "EC-V23-001",
+        "EC-V23-002",
+        "EC-V23-003",
+        "EC-V23-007"
+      ],
+      "ac": [
+        "AC-V23-001",
+        "AC-V23-002",
+        "AC-V23-003",
+        "AC-V23-005",
+        "AC-V23-008"
+      ],
+      "adr": [
+        "ADR-V2-008",
+        "ADR-V2-013"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/tree/tree-ops.ts"
+        }
+      ],
+      "acceptance": [
+        "动作表为封闭联合 7 值；run() switch(actionId) 无默认写入分支；无 grant/request；无命令级动作",
+        "每个动作唯一映射既有通路（只调 SettingsOps/既有消息，不新增 SW case/消息语义）",
+        "不导入 security/policy.ts / security/auto-authorize.ts（grep）",
+        "确认拒绝 → 零操作（不发送任何消息，fail-closed）",
+        "不可逆/高影响 → 确认；可逆开关 → 不确认",
+        "幂等：重复 revoke-origin 返回可读「已撤销」；失败 → kind:'err'；无 bare catch",
+        "零明文；npm run build + typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run typecheck",
+        "! grep -rnE \"from '.*security/(policy|auto-authorize)'|catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}\" src/ui/tree/tree-ops.ts"
+      ]
+    },
+    {
+      "id": "TASK-003",
+      "name": "tree-view.ts 控件语义扩展（deny 无开关/静态权限无撤销/needsConfirmation）",
+      "type": "implementation",
+      "complexity": "S",
+      "dependsOn": [
+        "V2-2-TASK-002"
+      ],
+      "planRef": "V2-3 plan §3.3",
+      "wave": 10,
+      "parallelWith": [
+        "TASK-001"
+      ],
+      "fr": [
+        "FR-V2-038",
+        "FR-V2-052",
+        "FR-V2-064",
+        "FR-V2-025"
+      ],
+      "nfr": [],
+      "ec": [
+        "EC-V23-005"
+      ],
+      "ac": [
+        "AC-V23-006"
+      ],
+      "adr": [
+        "ADR-V2-011"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/tree/tree-view.ts"
+        }
+      ],
+      "acceptance": [
+        "deny → controls:[]；静态权限 controls 无 revoke；可选能力仅 granted===true 给 revoke",
+        "deny 成因标注可读（S1/S3/evaluate/hardDeny）",
+        "needsConfirmation 7/7 正确",
+        "V2-2 既有 tree-view 断言零删减（test/tree-view.test.ts 全绿）",
+        "npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm test"
+      ]
+    },
+    {
+      "id": "TASK-004",
+      "name": "tree-drawer.ts 动作绑定 + #tree-receipt + #tree-confirm（MODIFY）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-002"
+      ],
+      "planRef": "V2-3 plan §3.4",
+      "wave": 12,
+      "parallelWith": [
+        "TASK-005",
+        "TASK-006",
+        "TASK-007"
+      ],
+      "fr": [
+        "FR-V2-037",
+        "FR-V2-039",
+        "FR-V2-040"
+      ],
+      "nfr": [
+        "NFR-V23-002"
+      ],
+      "ec": [
+        "EC-V23-009"
+      ],
+      "ac": [
+        "AC-V23-005",
+        "AC-V23-007"
+      ],
+      "adr": [
+        "ADR-V2-009",
+        "ADR-V2-013"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/tree/tree-drawer.ts"
+        }
+      ],
+      "acceptance": [
+        "7 动作控件绑定到 tree-ops.run()；确认拒绝 → 零操作（无消息发送）",
+        "#tree-receipt 展示三件套（① 内联；② 来自实测；③ 触发既有 admin_audit-export）",
+        "#tree-confirm 摘要含「作用对象 + 后果 + 不可逆说明」",
+        "零 innerHTML；无 bare catch；失败不渲染成功态",
+        "V2-2 既有抽屉行为零删改；npm run build + typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run typecheck",
+        "! grep -rnE \"innerHTML|catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}\" src/ui/tree/tree-drawer.ts"
+      ]
+    },
+    {
+      "id": "TASK-005",
+      "name": "门禁 tree-ops 纯测（7 动作唯一映射/无默认写入分支/幂等/失败 kind err）",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-002"
+      ],
+      "planRef": "V2-3 plan §9 交付门槛",
+      "wave": 12,
+      "parallelWith": [
+        "TASK-004",
+        "TASK-006",
+        "TASK-007"
+      ],
+      "fr": [
+        "FR-V2-036",
+        "FR-V2-039",
+        "FR-V2-040"
+      ],
+      "nfr": [
+        "NFR-V23-005"
+      ],
+      "ec": [
+        "EC-V23-007"
+      ],
+      "ac": [
+        "AC-V23-005",
+        "AC-V23-007",
+        "AC-V23-008"
+      ],
+      "adr": [
+        "ADR-V2-008",
+        "ADR-V2-013"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/tree-ops.test.ts"
+        }
+      ],
+      "acceptance": [
+        "7/7 动作映射唯一既有通路（spy 断言）",
+        "无默认写入分支（未知 actionId 不触发任何写入）",
+        "needsConfirmation 逐动作；确认拒绝零操作",
+        "幂等可读；失败路径 kind:'err'（≥3 类失败可读）",
+        "npm test 全绿"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
+    },
+    {
+      "id": "TASK-006",
+      "name": "门禁 insight-security（AC-V2-005 六条反向断言 + allow 单调性）",
+      "type": "gate",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-002"
+      ],
+      "planRef": "V2-3 plan §3.5(b)(c)",
+      "wave": 12,
+      "parallelWith": [
+        "TASK-004",
+        "TASK-005",
+        "TASK-007"
+      ],
+      "fr": [
+        "FR-V2-036",
+        "FR-V2-060",
+        "FR-V2-061",
+        "FR-V2-062",
+        "FR-V2-063"
+      ],
+      "nfr": [
+        "NFR-V23-001"
+      ],
+      "ec": [
+        "EC-V23-004",
+        "EC-V23-008"
+      ],
+      "ac": [
+        "AC-V2-005",
+        "AC-V23-004"
+      ],
+      "adr": [
+        "ADR-V2-008",
+        "ADR-V2-011",
+        "ADR-V2-015"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/insight-security.test.ts"
+        }
+      ],
+      "acceptance": [
+        "六条反向断言 6/6 逐条通过（撤销/关断/自动授权开启等状态）：未授权 origin deny / 未知非法 risk deny / evaluate deny / 破坏性写 ask / clipboard read ask / bookmarks remove ask",
+        "allow 单调收缩（allowAfter ⊆ allowBefore）对每个撤销动作成立；零 ask/deny→allow",
+        "破坏性写断言中无 auto-authorize/allow 审计",
+        "真实 createPluginPolicyConfig + decideAutoAuthorization 经 host.dispatch + onAsk spy",
+        "policy.ts / auto-authorize.ts 代码零 diff（与 TASK-007 联合）",
+        "npm test 全绿（串行）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test"
+      ]
+    },
+    {
+      "id": "TASK-007",
+      "name": "门禁 insight-no-escalation 追加（冻结 + 导入白名单 + 无 bare catch + 零明文）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-004"
+      ],
+      "planRef": "V2-3 plan §3.5(d)/§3.6",
+      "wave": 12,
+      "parallelWith": [
+        "TASK-004",
+        "TASK-005",
+        "TASK-006"
+      ],
+      "fr": [
+        "FR-V2-003",
+        "FR-V2-063",
+        "FR-V2-065"
+      ],
+      "nfr": [
+        "NFR-V23-001"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V2-005"
+      ],
+      "adr": [
+        "ADR-V2-015"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/insight-no-escalation.test.ts"
+        }
+      ],
+      "acceptance": [
+        "policy.ts / auto-authorize.ts git diff --quiet 为空（非 git 环境可读降级，不静默通过）",
+        "PLUGIN_RISK_DEFAULTS / AUTO_AUTH_DEFAULTS / decideAutoAuthorization 硬底线 pinned",
+        "导入白名单 grep 零命中（tree-ops 不导入 policy/auto-authorize；无 riskDefaults 赋值；无 createPluginPolicyConfig 调用）",
+        "无 bare catch；零明文（无 apiKey/剪贴板/通知正文）",
+        "V2-1 基础段断言零删减",
+        "npm test 全绿"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test",
+        "git -C ../.. diff --quiet HEAD -- packages/web-cli-plugin/src/security/policy.ts packages/web-cli-plugin/src/security/auto-authorize.ts"
+      ]
+    },
+    {
+      "id": "TASK-008",
+      "name": "test:binding 追加撤销链 check（binding.mjs，编号 #21a…）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-004"
+      ],
+      "planRef": "V2-3 plan §9 交付门槛（与 §3.6 编号修正）",
+      "wave": 13,
+      "parallelWith": [
+        "TASK-009",
+        "TASK-010"
+      ],
+      "fr": [
+        "FR-V2-030",
+        "FR-V2-031",
+        "FR-V2-032",
+        "FR-V2-037"
+      ],
+      "nfr": [
+        "NFR-V23-003",
+        "NFR-V23-004"
+      ],
+      "ec": [
+        "EC-V23-001",
+        "EC-V23-002",
+        "EC-V23-003"
+      ],
+      "ac": [
+        "AC-V23-001",
+        "AC-V23-002",
+        "AC-V23-003"
+      ],
+      "adr": [
+        "ADR-V2-008",
+        "ADR-V2-009"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/ui/binding.mjs"
+        }
+      ],
+      "acceptance": [
+        "三类撤销链全绿：站点取消授权 / 能力撤销 / 开关关断",
+        "撤销后工具面即时移出（不等待重启/重载）+ 审计落地",
+        "新编号 #21a…，与既有 #19*/#20* 零冲突（TD-V23-01）",
+        "既有编号（含 v1 163 断言）零删改（git diff 仅新增行）",
+        "串行执行（绝不与 test:ui / test:insight 并发）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run test:binding",
+        "git -C ../.. diff --unified=0 -- packages/web-cli-plugin/test/ui/binding.mjs | grep -E \"^-[^-]\" || echo append-only"
+      ]
+    },
+    {
+      "id": "TASK-009",
+      "name": "门禁串行 + test:binding 回归核验（收口）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-006",
+        "TASK-007",
+        "TASK-008"
+      ],
+      "planRef": "V2-3 plan §9 交付门槛 + NFR-V2-009",
+      "wave": 13,
+      "parallelWith": [],
+      "fr": [],
+      "nfr": [
+        "NFR-V23-003",
+        "NFR-V23-004",
+        "NFR-V2-009"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V2-011"
+      ],
+      "adr": [],
+      "files": [],
+      "acceptance": [
+        "全套门禁逐条串行通过，全仓 0 fail",
+        "v1 test:binding 既有 163 断言零删减（新 #21a… 为纯追加）",
+        "web-cli-base 483 零回归；tsc --noEmit 0 error",
+        "policy.ts / auto-authorize.ts 零 diff",
+        "串行执行记录可追溯（命令顺序 + 时间）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm test",
+        "npm run test:ui && npm run test:insight && npm run test:binding",
+        "npm run test:hardening && npm run test:e2e && npm run typecheck"
+      ]
+    },
+    {
+      "id": "TASK-010",
+      "name": "人工面清单落点（docs/smoke-checklist.md v2 § 追加）+ H-1~H-6 执行登记",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-008"
+      ],
+      "planRef": "V2-3 plan §9 人工面",
+      "wave": 13,
+      "parallelWith": [
+        "TASK-009"
+      ],
+      "fr": [],
+      "nfr": [
+        "NFR-V2-008"
+      ],
+      "ec": [
+        "EC-V23-009"
+      ],
+      "ac": [
+        "AC-V2-005"
+      ],
+      "adr": [],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/docs/smoke-checklist.md"
+        }
+      ],
+      "acceptance": [
+        "追加 V2-3 人工面 §，含 H-1~H-6 逐项（步骤/期望/本轮结论栏）",
+        "既有 §1/§2/§3 与 V2-2 已写内容零删改",
+        "人工执行登记（无法自动化项如实标注；未执行标「⏳ 待人工」）",
+        "编号前缀 V2-H-*，与 v1 H0~H10 零冲突"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && grep -qE \"H-1|H-5|chrome://extensions\" docs/smoke-checklist.md",
+        "git -C ../.. diff --stat -- packages/web-cli-plugin/docs/smoke-checklist.md"
+      ],
+      "type": "human"
+    }
+  ]
+}

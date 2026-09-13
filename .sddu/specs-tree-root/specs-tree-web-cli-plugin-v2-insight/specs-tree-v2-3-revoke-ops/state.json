@@ -2,9 +2,9 @@
   "feature": "V2-3 撤销与取消授权操作面（父：specs-tree-web-cli-plugin-v2-insight）",
   "featureKey": "specs-tree-v2-3-revoke-ops",
   "name": "V2-3 撤销与取消授权操作面——树内就地撤销（站点级 + 能力级 + 开关 + 自动授权关断 + LLM 断开 + 会话组）；撤销后可见后果三件套；安全红线只收紧不放宽",
-  "phase": "planned",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "phase": "tasked",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v2-insight",
   "childrens": [],
@@ -47,15 +47,26 @@
   ],
   "artifacts": [
     "spec.md",
-    "plan.md"
+    "plan.md",
+    "tasks.md",
+    "tasks.json"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/spec.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/state.json",
     "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/TREE.md",
-    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/plan.md"
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/tasks.json"
   },
-  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.4 与 §5.6；本子级 spec.md 含安全红线反向断言验收（AC-V23-004）。FR-V2-034/035/040 标 P1（建议值待作者确认）。下一步 @sddu-plan（含安全复核）。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。",
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.4 与 §5.6；本子级 spec.md 含安全红线反向断言验收（AC-V23-004）。FR-V2-034/035/040 标 P1（建议值待作者确认）。下一步 @sddu-plan（含安全复核）。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json。",
   "status": "tracked",
-  "phaseNote": "plan 阶段完成（2026-09-13，sddu-plan）：产出 plan.md + ADR-V2-001~015（集中登记于父 plan.md §8；与 v1 ADR-001~018 零冲突）。裁决 6 个技术开放点（P-V2-01 纯投影+注入数据源 / P-V2-02 #panel-main 内 absolute FAB+覆盖式抽屉 / P-V2-03 additive：新 insight-tree + insight-changed + state.insight? 小摘要 / P-V2-04 新增体积基线守卫复用只吞-ENOENT+反证自测+基线≠目标预算 / P-V2-05 三件套回执含 admin_audit-export / P-V2-06 单基线文件+共享 reconcile 不重构 v1 parity）。安全红线落成结构保证（白名单编排 + allow 集合单调性决策表 + policy/auto-authorize 冻结 + deny 无开关/静态权限不可撤销的渲染模型约束）+ AC-V2-005 六条反向断言。编排器代作者决策 O-V2-001~005（默认收起 / 会话组解散 P1 / LLM 断开 P1 / 5% 容差 / 不可逆需确认）+ 侧栏高度口径修正（589px 主断言，≥65.0% 次；spec 65.5% 为 65.44% 进位）已登记（2026-09-13 授权）。本阶段只做技术设计：不写代码、不排任务、不改 v1、不碰 main/base/options。下一步 @sddu-tasks。"
+  "phaseNote": "tasks 阶段完成（2026-09-13，sddu-tasks）：技术方案分解为原子任务（含依赖/波次/并行标记/涉及文件/可执行验收标准/验证命令）。波次严格串行：V2-1（Wave 1~5，先行）→ V2-2（Wave 6~9）→ V2-3（Wave 10~13）；V2-2/V2-3 并行分解、执行串行。门禁矩阵：insight-projection / insight-determinism / insight-catalog（34 工具·142 子命令双向等价+反证+同源锚定）/ insight-no-escalation（V2-1 基础段，V2-3 追加冻结）/ tree-view 纯测 / size-budget（新基线文件，与 v1 D31 解耦）/ test:ui·insight.mjs（新文件承载 AC-V2-002 量化，v1 journey.mjs 零改动）/ insight-security（AC-V2-005 六条反向断言 + allow 单调性 allowAfter⊆allowBefore）/ tree-ops 纯测 / test:binding 追加撤链（#21a…）。断言只增不减：新断言全部落新文件；v1 既有测试与断言零删改（v1 journey.mjs / binding.mjs 既有编号、test/parity/**、test/perf-*）。AC-V2-002 口径最小订正：spec ⑤ 由「占比 ≥65.5%」订正为「clientHeight ≥589px 主 + 占比 ≥65.0% 次」（原因/来源 = ADR-V2-006）；仅此一处 AC。编排器代作者决策（2026-09-13 授权）已登记（TD-V21-01~03 / TD-V22-01~05 / TD-V23-01~04）。父 Feature 为轻量规范容器，不产出 tasks.md/tasks.json；本轮 tasks 落在 3 个 P0 叶子（V2-4 P1 未排）。下一步 @sddu-build。 本叶子：10 任务 / 4 波（Wave 10~13）：三件套回执 + 控件语义 + 白名单编排（7 动作）+ drawer 绑定 + tree-ops 纯测 + insight-security（AC-V2-005 六条反向断言+allow 单调性）+ 冻结门禁 + test:binding 追加撤链（#21a…）+ 串行收口 + 人工面 H-1~H-6。",
+  "taskCount": 10,
+  "waveCount": 4,
+  "complexity": {
+    "S": 2,
+    "M": 6,
+    "L": 2
+  }
 }

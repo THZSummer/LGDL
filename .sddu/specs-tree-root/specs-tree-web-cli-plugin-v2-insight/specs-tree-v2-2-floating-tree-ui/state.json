@@ -2,9 +2,9 @@
   "feature": "V2-2 悬浮连接树 UI 与交互（父：specs-tree-web-cli-plugin-v2-insight）",
   "featureKey": "specs-tree-v2-2-floating-tree-ui",
   "name": "V2-2 悬浮连接树 UI 与交互——侧栏常驻悬浮入口 + 树抽屉（四维度导航 / 检索过滤 / 状态徽标 / 操作简单）；不遮挡 composer、消息区高度不回退、窄侧栏零水平溢出",
-  "phase": "planned",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "phase": "tasked",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v2-insight",
   "childrens": [],
@@ -36,15 +36,26 @@
   ],
   "artifacts": [
     "spec.md",
-    "plan.md"
+    "plan.md",
+    "tasks.md",
+    "tasks.json"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/spec.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/state.json",
     "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/TREE.md",
-    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/plan.md"
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/tasks.json"
   },
-  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.3；本子级 spec.md 含侧栏回归量化阈值（AC-V22-002）与「只增不减」纪律。下一步 @sddu-plan。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。",
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.3；本子级 spec.md 含侧栏回归量化阈值（AC-V22-002）与「只增不减」纪律。下一步 @sddu-plan。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json。",
   "status": "tracked",
-  "phaseNote": "plan 阶段完成（2026-09-13，sddu-plan）：产出 plan.md + ADR-V2-001~015（集中登记于父 plan.md §8；与 v1 ADR-001~018 零冲突）。裁决 6 个技术开放点（P-V2-01 纯投影+注入数据源 / P-V2-02 #panel-main 内 absolute FAB+覆盖式抽屉 / P-V2-03 additive：新 insight-tree + insight-changed + state.insight? 小摘要 / P-V2-04 新增体积基线守卫复用只吞-ENOENT+反证自测+基线≠目标预算 / P-V2-05 三件套回执含 admin_audit-export / P-V2-06 单基线文件+共享 reconcile 不重构 v1 parity）。安全红线落成结构保证（白名单编排 + allow 集合单调性决策表 + policy/auto-authorize 冻结 + deny 无开关/静态权限不可撤销的渲染模型约束）+ AC-V2-005 六条反向断言。编排器代作者决策 O-V2-001~005（默认收起 / 会话组解散 P1 / LLM 断开 P1 / 5% 容差 / 不可逆需确认）+ 侧栏高度口径修正（589px 主断言，≥65.0% 次；spec 65.5% 为 65.44% 进位）已登记（2026-09-13 授权）。本阶段只做技术设计：不写代码、不排任务、不改 v1、不碰 main/base/options。下一步 @sddu-tasks。"
+  "phaseNote": "tasks 阶段完成（2026-09-13，sddu-tasks）：技术方案分解为原子任务（含依赖/波次/并行标记/涉及文件/可执行验收标准/验证命令）。波次严格串行：V2-1（Wave 1~5，先行）→ V2-2（Wave 6~9）→ V2-3（Wave 10~13）；V2-2/V2-3 并行分解、执行串行。门禁矩阵：insight-projection / insight-determinism / insight-catalog（34 工具·142 子命令双向等价+反证+同源锚定）/ insight-no-escalation（V2-1 基础段，V2-3 追加冻结）/ tree-view 纯测 / size-budget（新基线文件，与 v1 D31 解耦）/ test:ui·insight.mjs（新文件承载 AC-V2-002 量化，v1 journey.mjs 零改动）/ insight-security（AC-V2-005 六条反向断言 + allow 单调性 allowAfter⊆allowBefore）/ tree-ops 纯测 / test:binding 追加撤链（#21a…）。断言只增不减：新断言全部落新文件；v1 既有测试与断言零删改（v1 journey.mjs / binding.mjs 既有编号、test/parity/**、test/perf-*）。AC-V2-002 口径最小订正：spec ⑤ 由「占比 ≥65.5%」订正为「clientHeight ≥589px 主 + 占比 ≥65.0% 次」（原因/来源 = ADR-V2-006）；仅此一处 AC。编排器代作者决策（2026-09-13 授权）已登记（TD-V21-01~03 / TD-V22-01~05 / TD-V23-01~04）。父 Feature 为轻量规范容器，不产出 tasks.md/tasks.json；本轮 tasks 落在 3 个 P0 叶子（V2-4 P1 未排）。下一步 @sddu-build。 本叶子：11 任务 / 4 波（Wave 6~9）：append-only 标记/样式 + 纯渲染模型 + 惰性抽屉 + sidepanel 挂载 + 体积守卫 + test:insight 量化 + 基线实测登记 + 串行收口 + grep 契约 + 人工面 H-A~H-D；门禁：tree-view 纯测 / size-budget（新基线文件）/ test/ui/insight.mjs（v1 journey.mjs 零改动）。",
+  "taskCount": 11,
+  "waveCount": 4,
+  "complexity": {
+    "S": 3,
+    "M": 7,
+    "L": 1
+  }
 }
