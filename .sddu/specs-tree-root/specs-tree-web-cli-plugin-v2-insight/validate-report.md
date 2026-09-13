@@ -278,3 +278,278 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | R1 验证：web-cli-plugin v2 P0（V2-1 `f564f44`/`ee5be97` + V2-2 `a1f9453`/`d2f2676` + V2-3 `f45c124`；区间 `9f55d1b..ccf621d`）。V1~V18 场景；8 门禁串行实跑全 exit 0；AC-V2-001~012 逐条对照（AC-V2-004=V2-4 P1 不适用）；4 项反证实跑（W3 哈希冻结 / size-budget / parity 对账 / no-escalation 空洞性）——就地篡改→FAIL→完整还原→PASS；安全面区间 diff 退出码 + 权限/写路径/`deny⇒[]`/零明文；W1~W6 逐条复核；人工面与 T1/T3/内建分歧诚实性核验。**结论 ✅ 通过（0 阻塞；3 低龄文档/副作用偏差）** | 2026-09-13 | SDDU Validate Agent |
+
+---
+---
+
+# 验证报告（续 · R2 段）：web-cli-plugin v2 —— 真层级树 + 命令级可操作（连接树可操作）
+
+> **文档定位**: 本段为**追加轮次 R2**（post-validate 修订轮）的**动手验证**执行结果，**不覆盖 R1**（R1 段见上方）。
+> **验证区间**: `a955a7f`（R2 spec）→ `649f746`（R2 修复轮收尾），含 `7617687`（plan）/ `76d0d61`（tasks）/ `ce60fd1` + `493f9d0`（build 1）/ `e35d852` + `ff32683`（build 2）/ `5d9e6f1`（review）/ `02ee715` + `fa062ab` + `649f746`（修复轮）。
+> **前置**: 父 `spec.md` v2.0（§5.7 `FR-V2-070~079` + §8 `AC-V2-020~027` + `NG-V2-001R` + §8 `AC-V2-005` 范围重定）/ `plan.md`（`ADR-V2-024~033`）/ R2 `build.md`（3 轮）/ `review-report.md` R2 段（**⚠️ 有条件通过，0 阻塞**，4 建议 A1~A4 + 8 提示 A5~A8/T1~T4）/ `docs/r2-supersession-ledger.json` / `docs/{dev,smoke-checklist,capability-matrix}.md` / `state.json`。
+> **验证策略**: 本 Agent 自主定义 **V1~V20** 验证场景（作者两条诉求端到端 + clamp 逐档 + 反证实跑 + 安全面），并**自主编写独立探针**（ADR-003，不落项目源码）。
+> **日志根目录**: `/tmp/sddu-validate-r2-20260913-235509/`（**完整落盘，未截断**；`01-tsc.log`…`08-repo-npm-test.log` + `obs/`）。
+> **内存纪律**: 8 门禁**严格串行、一次一个**（可用内存 0.8~1.8 GB，全程未 OOM）。
+
+---
+
+## R2-1. 逐项门禁实跑（原文退出码 / 计数）
+
+| # | 门禁 | 命令 | 退出码 | 计数（原文） | 完整日志 |
+|:--:|------|------|:--:|------|------|
+| A1 | tsc | `npx tsc --noEmit`（plugin） | **0** | 0 error（日志 0 行） | `01-tsc.log` |
+| A2 | 插件单测 | `npm test`（plugin） | **0** | **693 tests / 693 pass / 0 fail / 0 skipped** | `02-plugin-npm-test.log` |
+| A3 | insight | `npm run test:insight` | **0** | **PASS — 108 assertions** | `03-test-insight.log` |
+| A4 | ui | `npm run test:ui` | **0** | **PASS — 167 assertions** | `04-test-ui.log` |
+| A5 | hardening | `npm run test:hardening` | **0** | **PASS — 24 assertions** | `05-test-hardening.log` |
+| A6 | binding | `npm run test:binding` | **0** | **PASS — 192 assertions** | `06-test-binding.log` |
+| A7 | e2e | `npm run test:e2e` | **0** | **R8 E2E PASS — 真实 dist 全链**（fixture AC-010 + Workbench AC-009） | `07-test-e2e.log` |
+| A8 | 全仓 | `npm test`（root --workspaces） | **0** | 全工作区 exit 0；插件 **693 / 0 fail**；base 483 等全绿（一次性） | `08-repo-npm-test.log` |
+
+**抖动/未跑项如实说明**：
+- `test:binding` 首次执行被**本 Agent 的 shell 工具 120s 超时**中止（非产物抖动；无遗留 chrome 进程，日志 `06` 保留被截断的第一次运行片段）。提高超时后**单次干净通过（192 断言）**，**本轮未观测到 `#33B1`/`#3d` 类既有 flake**。
+- `test:ui` 本轮**未复现** `#3c` 单点偶发；`test:hardening` **未复现**启动/CDP 就绪类偶发（日志 C#3 的「构建不一致」为**脚本有意构造**的旧扩展未重载场景，属期望行为）。
+- 上表 8 门禁均**实跑通过**，无「未跑」项。
+
+---
+
+## R2-2. 作者两条诉求的端到端验证结论（本轮核心）
+
+### 诉求 1 ——「至少是树形展示、按归属逐层展开」
+
+**独立观测探针** `obs/probe-dom.mjs`（**真实 dist + headless Chromium + CDP**，自建 fixture 站点；**不复用** `test/ui/insight.mjs` 断言）→ **35/35 PASS**（`obs/probe-dom.log`）。关键结论：
+
+| 观测 | 结果 | 证据 |
+|------|:--:|------|
+| 抽屉渲染**单棵** `ul[role=tree]`（非森林/非多列表） | ✅ | `#V-01b` `treeCount===1` |
+| 所有节点 `role="treeitem"` | ✅ | `#V-01c` |
+| **作者示例②** `连接树 → 支持的命令 → 系统内置命令 → dom → dom read-state` 祖先链完整（真实 DOM） | ✅ | `#V-02`；`aria-level` 逐层 **1,2,3,4,5**（`#V-02a`）；各级祖先 `aria-expanded="true"`（`#V-02b`）；叶子 `role=treeitem` 且无 `aria-expanded`（`#V-02c`） |
+| **作者示例①** `连接树 → 授权的站点 → 站点 xxx → 支持的命令 → site_notes → site_notes list` 祖先链完整（真实 DOM，**含工具→子命令**） | ✅ | `#V-04`；`aria-level` 逐层 **1..6**（`#V-04a`） |
+| 逐层**收起/展开**（惰性：收起后子树移出 DOM） | ✅ | `#V-03` 收起「系统内置命令」后 `dom` 及其子树从 DOM 移除，`aria-expanded` 翻转为 `false` |
+| **扁平列表形态零残留** | ✅ | 抽屉内**恰一个** `ul.tree`（`#V-01b`）；源码 `tree-drawer.ts` 恒用 `snapshot.ownershipTree.root` 嵌套渲染、无 `groups[].rows` 扁平 fallback（代码实读）；`meta.modelNote` 旧「森林/非严格单树」措辞零回潮（`insight-projection.test.ts` A7 断言 + `tree-view.test.ts` 森林零命中） |
+| **多归属不复制节点**（同 `nodeId` 唯一实例） | ✅ | `#V-01d` 全树 `nodeId` 唯一；`#V-01e` `data-test-id` 全树唯一 |
+| **跨归属下钻可交互**（点击 + 键盘） | ⏭️ 本夹具无跨归属引用（`site_notes` 与内置能力无 crossLink）→ **如实标注跳过**；模型层 + 键盘下钻由 `insight-tree-hierarchy.test.ts`（A2）与 `test:insight` `#I-22a~c` 覆盖（均在本轮 A2/A3 门禁中 PASS） | `#V-06` |
+| 键盘：`ArrowDown` 移动 roving 焦点（`aria-selected` 变化）+ 面包屑随焦点更新 | ✅ | `#V-05` / `#V-05b` |
+| 键盘：`End`/`Home` 跳末/首节点 | ✅（合成 keydown） | `#V-05c`；**注**：CDP `Input.dispatchKeyEvent` 对 `Home`/`End` 的投递在该 headless 下未生效（探针投递问题），改用合成 `KeyboardEvent` 验证处理器逻辑（`End→末`、`Home→首`），**非产物缺陷** |
+
+### 诉求 2 ——「连接要可以操作，不同层级都能设置」
+
+**独立观测** `obs/probe-dom.mjs`（UI/DOM 侧，真实 dist）+ **独立探针** `obs/probe-clamp.mjs`（host 判定链侧，编译产物 `dist-test`，57/57 PASS）交叉证实：
+
+**(a) 三档可达（工具级 + 子命令级）**
+
+| 观测 | 结果 | 证据 |
+|------|:--:|------|
+| `dom`（工具级）三档 `allow/ask/deny` 控件齐备 | ✅ | `probe-dom #V-07d` `['allow','ask','deny']` |
+| `dom read-state`（子命令级）三档控件齐备 | ✅ | `probe-dom #V-07c`；`test:insight #I-20*` |
+| 三档**均可设**且判定链按新值执行 | ✅ | `probe-clamp ⑥`：子命令级 allow→执行成功、ask→到达确认、deny→直接拒绝；**工具级 allow/ask/deny 被子命令继承**；工具级 allow **不得放宽 ui 子命令**（`dom click` 仍 ask） |
+| UI 设值**即时生效 + 可见回执 + 持久化** | ✅ | `probe-dom #V-08`：点 `dom read-state` 的 `deny` → `#tree-receipt` 回执出现 → `chrome.storage.local['web-cli:web-cli:command-policy']` 落库 → UI `data-effective-action` 变化；`#V-08c` 「恢复默认」清除；`#V-08d/e` 工具级 ask/deny 同理 |
+
+**(b) 只可收紧档（A1）**
+
+| 观测 | 结果 | 证据 |
+|------|:--:|------|
+| `ui`/`state`/`external`/破坏性叶子层可设 **ask/deny（无 allow）** | ✅ | `probe-dom #V-07e`：`dom click`（ui）`data-tighten-only="true"`，控件仅 `['ask','deny']`（**无 allow**）+ `.tree-clamp-reason` 可读；`probe-clamp A1`：`clampActionForRisk('allow','ui'/'state'/'external')===null`，`ask`/`deny` 放行 |
+| 硬底线（`evaluate`/S1/S3）**仍零控件 + 原因可读** | ✅ | `probe-dom #V-07`：`[data-hard-floor="true"]` 行 `button[data-action-id]` 数 = **0**；`#V-07b` 全部有 `.tree-clamp-reason`；`test/insight-tree-hierarchy` 断言 `mystery`(S3)/`evaluate` 零控件、`dom remove`(破坏性)`tightenOnly` |
+
+**(c) 存储生命周期（逐条，`probe-clamp` 实跑）**
+
+| 项 | 结果 | 证据 |
+|----|:--:|------|
+| 持久化（重载后仍在） | ✅ | 跨 store 重载 `get('dom','read-state')==='deny'` |
+| 恢复默认（单条 + 全部） | ✅ | `reset` 单条清除；`resetAll` 清空；空态幂等 |
+| 幂等（同值 set） | ✅ | `changed===false`（不写存储、不新增审计） |
+| **无半写**（写失败→内存不提交） | ✅ | `kv.set` 抛错 → `ok:false` 且内存仍无该键 |
+| 读失败降级为「无覆盖」 | ✅ | `kv.get` 抛错 → `isDegraded()===true`、`get()===undefined`、`degradedReason()` 含「不会放宽」 |
+| 审计零明文（可追溯） | ✅ | 写/恢复均有 `command-policy` 审计；含 `commandId`；无 `sk-`/`apiKey`/`Bearer` 等 |
+| 非法输入零操作 | ✅ | 非法命令键/非法档被拒（`ok:false`，未写入） |
+
+---
+
+## R2-3. clamp 反向断言①~⑤ + 服务端强制（实跑原文 + 反证）
+
+`probe-clamp.mjs`（独立，host 判定链）**57/57 PASS**；下列①~⑤ 与 `AC-V2-025` 逐条对应：
+
+| # | 断言 | 实测 |
+|:--:|------|:--:|
+| ① | 覆盖为 `allow` 后 **`evaluate` 仍 `deny`** | ✅ `res.ok===false`，且 `asked===0`（永不进确认面） |
+| ② | 覆盖为 `allow` 后**未授权 origin 仍 `deny`（S1）** | ✅ `res.ok===false`（S1 短路先于覆盖策略） |
+| ③ | 覆盖为 `allow` 后**未知/非法 risk 仍 `deny`（S3）** | ✅ `sleep` / `web-cli-help` 均 `ok===false`，`asked===0` |
+| ④ | **破坏性子命令保底 `ask`**（allow 后仍 ask；显式 deny 直接拒） | ✅ allow→`asked` +1 且 `risk==='write'`；改 deny→不新增 ask；非破坏性 write 子命令可被 allow 执行 |
+| ⑤ | **`ui`/`state`/`external` 不得变 `allow`** | ✅ 三者 allow 后 `ok===false`（落到基线 ask ×3）；ask 仍 ask；deny 直接拒 |
+
+**服务端强制（伪造/绕过 UI）**：
+- `probe-clamp ⑧a`：**不经 UI** 直接 `store.set('cmd:x-ui','allow')`（等价伪造 `command-policy-set` 消息已到达 store）→ **dispatch 仍 clamp**（`ok===false`，落到 ask）→ 存储被改但**判定未被突破**。
+- `probe-dom #V-09`：从扩展页**伪造 `chrome.runtime.sendMessage({kind:'command-policy-set', commandId:'cmd:dom#click', policyAction:'allow'})`**（绕过 UI 的 tighten-only 控件）→ ① 消息到达 SW（`#V-09`）② 伪造值确实落库（`#V-09a1`，store 接受 allow）③ **SW 投影仍 clamp**：`dom click` 的 `data-effective-action≠allow`（`#V-09a`）且仍 `tighten-only` 无 allow 控件（`#V-09b`）。
+- **反证** `probe-clamp ⑧b`：把 clamp 挪到 UI-only 的「无条件 `allow`」策略（真实 `createCommandRouter`）→ **同一 `ui` 工具被放行**（`naiveRes.ok===true`）；而真 host 按同一覆盖 dispatch **拒绝** → 证明 SW 侧 clamp **承重、非虚绿**。
+
+> 判定链源码零改动：`probe-dom`/`probe-clamp` 均为**新增独立层（`command-override.ts`）**消费案例，`policy.ts`/`auto-authorize.ts` 未 import/未修改（见 R2-6 sha256）。
+
+---
+
+## R2-4. 反证实跑结果（做了什么 / 结果 / 是否完整还原）
+
+| # | 反证 | 操作 | 结果 | 还原 |
+|:--:|------|------|:--:|:--:|
+| C1 | 冻结门禁真会 FAIL | `src/security/policy.ts` **追加 1 字节空格** | ✅ **FAIL**（exit 1）：`内容哈希漂移 7c3cf5d7… ≠ bfcb2ede…` | ✅ 完整还原，sha256 复为 `bfcb2ede…`（= pin） |
+| C2a | 注入红线真会 FAIL | `dist/content.js` **+1 字节**（1,073,454） | ✅ **FAIL**（exit 1）：`体积回归：实测 1073454B > 上限 1073453B；超出 1B` | ✅ 还原 1,073,453 B |
+| C2b | 侧栏体积守卫真会 FAIL | `dist/sidepanel.js` **+56,000 B**（1,218,942 > ceiling 1,217,848） | ✅ **FAIL**：`实测 1218942B > 上限 1217848B；超出 1094B` | ✅ 还原 1,162,942 B |
+| C3 | 服务端 clamp 真会拦住伪造 | 伪造 `command-policy-set`（见 R2-3） | ✅ clamp 保持；**反证** UI-only 无条件 allow 会放宽 | ✅ 伪造条目经 reset 通路清除 |
+| C4a | 取代台账真会拦「未登记删除」 | 在受保护文件 `test/insight-projection.test.ts` 删除**未登记**行（`import { readFileSync } …`） | ✅ **FAIL**：`unreplaced deletion (no ledger entry)` | ✅ 还原（worktree clean） |
+| C4b | 台账条目**承重** | 从 `r2-supersession-ledger.json` 移除 1 条 `protectedFileOldLines`（`/非严格单树/`） | ✅ **FAIL**：`unreplaced deletion … /非严格单树/;` | ✅ 还原（sha256 `cb6f46ad…`） |
+| C4c | 默认态台账门禁 | 复原后运行 `insight-tree-hierarchy` | ✅ **PASS**（exit 0）——已登记的 R2 区间删除**正常通过** | — |
+| C5 | 冻结机制 | 确认用 **sha256 内容 pin**（`POLICY_TS_SHA256` / `AUTO_AUTHORIZE_TS_SHA256` / 判定表快照 / `TREE_ACTION_IDS` / `TREE_NO_ESCALATION_NOTE` / `src/content/**`）；`git diff --quiet HEAD` 已**显式标注为 legacy 弱冻结**（W3 教训），**非唯一冻结** | ✅ | — |
+| C6 | 空断言 / bare catch | `assert.ok()/equal()...` 无参形状、空 `test()` 体：**零命中**；`catch {}`：`src/insight/**` 与 `src/ui/tree/**` 门禁扫描**零命中**；**既有** `test/ui/journey.mjs:589 catch (e) {}`（v1 冻结文件，非 R2 引入）；`src/**` 有 **14 处 `.catch(() => {})`**（best-effort 推送，T2，非 `catch{}` 块） | ✅（如实列出） |
+
+---
+
+## R2-5. 取代台账核验
+
+`docs/r2-supersession-ledger.json`：
+
+- **`literalRemovedZero` = `false`**（**已如实标注**），并附 `literalRemovedZeroNote`：历史 `removed=0` 不成立（区间删除 470 行含 10 处 `test('…')` 标题 + ~40 处 `assert.*`），A4 已订正为「无未取代删除 + 总数不减 + 硬底线/安全断言只增」口径 → **口径订正如实，非收窄掩盖**。
+- **S1~S20 逐条 old→new 有据**：21 条（含 S19b）全部 `file` 存在；old 标题关键词在基线 `a955a7f` **可验证存在**（如 S5 `all 142`、S14 `#I-12`、S15 `#I-18e`、S16 `#I-02a`、S17 `#21a`、S18 `#15a`、S6 森林措辞 `四维度分组视图（森林），非严格树`）；**R2 修复轮的 S19/S19b/S20 正确地在基线不存在**（属本轮引入的再取代），无伪条目。
+- **总数不减（独立复算）**：
+  - 插件 `test/*.test.ts`：基线 `a955a7f` → 现状 —— `\btest(` **723 → 776**；**排除正则 `.test(` 的声明计数 646 → 697**；运行期 `node --test` **693**。**任一一致口径下均不减**（+51~+53）。
+  - `test/ui/*.mjs` 的 `check(`：`journey` **170→170**（零改）、`insight` **57→81**、`binding` **185→197**、`hardening` **28→28**（本无需增长）。
+  - 运行期与台账一致：`insight` **108**（台账 `afterR2Fix=108`）、`binding` **192**（`=192`）、`node` **693**（`=693`）。
+  - **口径说明（低龄一致性）**：台账 `counts.nodeTests` 混用了两种计数法——`before=646` 与「排除正则 `.test(` 的静态基线」一致，`afterR2Fix=693` 与「运行期」一致；而门禁函数 `currentNodeTestCount()` 取 `\btest(`（含正则，现状 776）。门禁为**下界**（`current ≥ 646`）→ **功能有效（防减）**，但台账绝对值跨口径，属**低龄文档口径不一致**（非静默降级，不影响方向结论）。
+- **`journey.mjs` 零改动**：区间 `a955a7f 649f746` diff **exit 0** + worktree-vs-HEAD **exit 0**。
+- **硬底线/安全断言只增**：`insight-no-escalation`（424 行，S12 扩白名单+硬底线）、新增 `insight-override-security`（345 行，AC-V2-025 全档反向 + 服务端强制反证）、新增 `insight-tree-hierarchy`（580 行，含台账 A4 门禁）。
+
+---
+
+## R2-6. 安全面核验
+
+**区间级 `git diff --quiet a955a7f 649f746 -- <path>`（非 worktree-vs-HEAD）退出码**：
+
+| path | exit |
+|------|:--:|
+| `packages/web-cli-base/` | **0** |
+| `src/security/policy.ts` | **0** |
+| `src/security/auto-authorize.ts` | **0** |
+| `manifest.json` | **0** |
+| `src/ui/options/index.html`（→ dist `options.html`） | **0** |
+| `test/ui/journey.mjs` | **0** |
+| `.sddu/specs-tree-root/specs-tree-web-cli-plugin/`（v1 SDDU 目录） | **0** |
+
+> `options.html` 无独立 git 跟踪源，唯一源 = `src/ui/options/index.html`（`build.mjs` 复制），其区间 diff **0**；`dist/*` 为构建产物。
+> `src/ui/sidepanel/index.html` 于区间 **+93**（**预期**：R2 抽屉/FAB/覆盖控件 DOM，属本 Feature 产物）。
+
+**冻结 pin（自算 sha256，与要求逐字一致）**：
+- `src/security/policy.ts` = `bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8` ✅
+- `src/security/auto-authorize.ts` = `1096d065dac63d56e36285bf499eee041acdc3e323d4c7215df3981af7d0ef4b` ✅
+
+**零新权限 / 零新依赖**：静态 `permissions` 恰 **5**（`activeTab/scripting/storage/sidePanel/tabs`）；`optional_permissions` 5；**无 `<all_urls>`**；**无静态 `content_scripts`**；`package.json` 区间 diff **0**（依赖零新增）。
+
+**零注入红线**：`dist/content.js` = **1,073,453 B（零增长）**；`src/content/**` 三个源码 sha256 **自算全部匹配 pin**（`content-script.ts a7290031…` / `dom-agent.ts 7df782b3…` / `page-bridge.ts 5737c40a…`）。
+
+**写路径封闭**：`TREE_ACTION_IDS` **恰 9**（`revoke-origin` / `revoke-capability` / `set-capability-toggle` / `set-tabs-toggle` / `clear-auto-auth` / `disconnect-llm` / `dissolve-group` / **`set-command-policy`** / **`reset-command-policy`**）；`tree-ops.ts` **无 `grant`**、**无 `permissions.request`**、**无默认写入分支**；两个新增动作各**唯一**映射一条消息通路（`command-policy-set` / `command-policy-reset`）。
+
+**零明文**：`src/ui/tree/**` 与 `src/insight/**` 无 `apiKey`/`LlmSettings`/`storage.local`（门禁 grep 零命中）；覆盖审计仅记 `commandId`/`action`。
+
+---
+
+## R2-7. binding flake 状态 + A3/A4 处置
+
+- **`test:binding` flake**：R2 修复轮记录 **0/2** 偶发；**本轮 2 次运行 = 1 次工具超时中止（非产物，见 R2-1）+ 1 次干净通过（192）**，**未观测到 `#33B1`/`#3d` 类 flake**。→ **无 flake 需判定**。
+- **A3 处置是否「真达成」**：**是真达成**（**非收窄 AC 掩盖**）。证据：`probe-dom #V-04` 在**真实 dist DOM** 观测到完整 6 层链 `连接树→授权的站点→站点 xxx→支持的命令→site_notes→site_notes list`；实现为 `service-worker#projectToolSurface` 用站点声明 `subcommandRisks` 作 schema `subcommand.enum` 回退（`toolSubcommands`），**不改 base、不改 `declared-tools.ts`**；`test:insight #I-20a2` 与 `insight-tree-hierarchy` A3 用例同 PASS。
+- **A4 指标订正是否如实**：**如实**——`literalRemovedZero:false` + 订正理由 + 逐条 old→new + 机器门禁（本 Agent 反证 C4a/C4b 证其承重）。
+
+---
+
+## R2-8. 偏差与人工面清单（不冒充 PASS）
+
+**未执行人工面（一律 `⏳ 待人工`，本轮**未执行**）：**
+- R2 人工面 **V2-H-10~14**：树逐层展开观感 / 320px 长路径面包屑 / 键盘真实体感（焦点环/读屏）/ 覆盖即时生效与二次确认观感 / deny 分层与 clamp 原因可读性。
+- 承前人工面：**V2-H-A~D**（悬浮观感/动画/明暗、窄栏字重、多 DPI、键盘焦点遍历）、**V2-H-1~6**（真实授权弹窗、原生 `tabs.goBack/goForward`、剪贴板真读焦点、`permissions.remove` 回执、`chrome://extensions` 外部撤销刷新、窄栏确认框）、**V2-H-7~9**（档案长文案/分组切换/site_* 增长观感）、`smoke-checklist §1 H0~H10`（真实浏览器交互/真实 LLM 闭环）。
+- **T1 缺口**：树侧**能力撤销成功**端到端未自动化（`revokeCapability`→权限 API→工具面链路；仅单测 + 失败路径 e2e）→ 归人工面 V2-H-4，**未执行**。
+
+**本轮探针的自主性偏差（如实）**：
+- 独立探针首轮各有**探针自身**问题并已修正（非产物缺陷）：`probe-clamp` 1 处（子级覆盖优先级误设，致 1 检查误报→修正后 57/57）；`probe-dom` 3 处（storage 键前缀漏 `web-cli:` 命名空间、CDP `Home`/`End` 投递、伪造方式由「裸 storage 写」升级为「真实 `command-policy-set` 消息」）→ 修正后 35/35。
+- `probe-dom #V-06`（跨归属交互下钻）因本期夹具无跨归属边**未在本探针观测**（模型层/`test:insight #I-22a~c` 已覆盖，均 PASS）。
+
+**文档一致性抽样（只报告不修）**：
+- `docs/smoke-checklist.md` §5：写「test:insight … R2 修复轮（A1/A2/A3）后实测 **102**」，**与实测 108 不一致（陈旧，低龄）**；`docs/dev.md` §1002 同写 102。**建议下一轮文档打扫订正为 108**（台账 `afterR2Fix=108` 为准）。
+- `docs/smoke-checklist.md` §7「档案只读」已加 **R2 部分取代注**（硬底线零 `[data-policy]` / 只可收紧 ask·deny / 可覆盖三档；`.tree-archive` 零 `.tree-control`/零 `button[data-action-id]` 红线保留）→ **与实现一致**。
+- §8 人工面 V2-H-10~14 + A3「已达成」注 → **与实现一致**（`probe-dom #V-04` 佐证）。
+- `docs/capability-matrix.md`：34 基线对账口径与 R2 白名单**互不相交**、零改动、无冲突；`docs/dev.md` 体积回填（sidepanel 1,159,856 / ceiling 1,217,848 / content 1,073,453）与 `size-baseline.ts` **一致**。
+
+**状态**：**未合并 main**（`HEAD` 非 `main` 祖先；feature 领先 **86** commit）；**未发布**（`HEAD` 无 tag）。
+
+---
+
+## R2-9. V1~V20 场景矩阵（结果速览）
+
+| 场景 | 验证对象 | 维度 | 方法 | 结果 | 证据 |
+|:--:|------|:--:|:--:|:--:|------|
+| V1 | tsc 全量 | 构建 | 自动化 | ✅ PASS | `01-tsc.log` |
+| V2 | 插件单测 693 | 测试覆盖 | 自动化 | ✅ PASS | `02-*.log` |
+| V3 | insight 108 | 接口/UI | 自动化 | ✅ PASS | `03-*.log` |
+| V4 | ui journey 167 | 回归 | 自动化 | ✅ PASS | `04-*.log` |
+| V5 | hardening 24 | 加固 | 自动化 | ✅ PASS | `05-*.log` |
+| V6 | binding 192 | 端到端 | 自动化 | ✅ PASS | `06-*.log` |
+| V7 | e2e 全链 | 端到端 | 自动化 | ✅ PASS | `07-*.log` |
+| V8 | 全仓 npm test | 回归 | 自动化 | ✅ PASS | `08-*.log` |
+| V9 | 作者示例①（站点→命令→工具→子命令） | 接口/UI | 独立探针 DOM | ✅ PASS | `probe-dom #V-04` |
+| V10 | 作者示例②（命令面→内置→dom→子命令） | 接口/UI | 独立探针 DOM | ✅ PASS | `probe-dom #V-02` |
+| V11 | 单树/role/aria-level/aria-expanded/扁平零残留/节点唯一 | 接口/UI | 独立探针 DOM | ✅ PASS | `probe-dom #V-01*`/`#V-02*`/`#V-03` |
+| V12 | 键盘 roving + 面包屑 + End/Home | UI | 独立探针 DOM | ✅ PASS | `probe-dom #V-05*` |
+| V13 | 三档可达（工具级+子命令级） | 功能 | 独立探针 host+DOM | ✅ PASS | `probe-clamp ⑥`/`probe-dom #V-07c/d`/`#V-08*` |
+| V14 | clamp ①~⑤ 反向 | 安全 | 独立探针 host | ✅ PASS | `probe-clamp ①~⑤` |
+| V15 | 服务端强制 + 反证 | 安全 | 独立探针 host+DOM | ✅ PASS | `probe-clamp ⑧a/⑧b`/`probe-dom #V-09*` |
+| V16 | A1 只可收紧 + 硬底线零控件 | 功能/安全 | 独立探针 + 门禁 | ✅ PASS | `probe-clamp A1`/`probe-dom #V-07*` |
+| V17 | 存储生命周期（持久/恢复/幂等/无半写/降级/审计零明文） | 功能 | 独立探针 host | ✅ PASS | `probe-clamp` 存储段 |
+| V18 | 反证实跑 C1~C4 | 漂移/构建 | 篡改+还原 | ✅ PASS | `obs/C1~C4*.log` |
+| V19 | 安全面（区间 diff/sha256/体积/白名单/零明文） | 漂移/安全 | 脚本 | ✅ PASS | R2-6 |
+| V20 | 取代台账（literal=false/有据/计数不减/journey 零改） | 漂移 | 独立复算+反证 | ✅ PASS（1 低龄口径注） | R2-5 |
+
+> 「不适用」项：本 Feature 为**代码类**，五维全覆盖；无跳过维度。
+
+---
+
+## R2-10. AC 逐条对照（AC-V2-020~027 + AC-V2-005 范围重定）
+
+| AC | 要求摘要 | 本轮实测 | 判定 |
+|------|------|------|:--:|
+| **AC-V2-020** | 真树形 + 作者两例逐层展开/收起 + 扁平零残留 | `probe-dom #V-02/#V-04`（真实 DOM 逐层链 + aria-level 1..5/1..6）；`#V-03` 惰性收起；`#V-01b` 单树；`insight-tree-hierarchy` 层级判据 + 森林零回潮 | ✅ |
+| **AC-V2-021** | 多归属主链 + 交叉引用徽标 + 下钻同一节点 | `#V-01d/#V-01e` 节点唯一；`insight-tree-hierarchy`（A2）crossTargets 唯一解析 + 反向（同面不算跨引用）；跨归属**点击/键盘**下钻归 `test:insight #I-22a~c`（PASS）；本探针夹具无跨归属边（如实） | ✅（探针侧 ⏭️ 该子项） |
+| **AC-V2-022** | 展开语义 + 键盘可达 + 路径可读 | `#V-02a/#V-02b` 默认展开层级；`#V-05/#V-05b/#V-05c` 键盘 + 面包屑；`test:insight #I-20*` 会话保持 | ✅ |
+| **AC-V2-023** | 工具级 + 子命令级三档可达 + 即时反映 | `probe-clamp ⑥`；`probe-dom #V-08*`（UI 设值→回执→落库→生效档变化→reset）；`test:binding #22a~l` | ✅ |
+| **AC-V2-024** | 覆盖层工程属性（持久/恢复/幂等/失败可读/审计零明文/无半写） | `probe-clamp` 存储段**逐条 PASS** | ✅ |
+| **AC-V2-025** | 硬底线 clamp ①~⑤ + 服务端强制（原文钉死） | `probe-clamp ①~⑤` + `⑧a/⑧b` 反证 + `probe-dom #V-09*`；判定链 sha256 不变 | ✅ |
+| **AC-V2-026** | deny 控件分层（硬底线零控件+原因 / 非硬底线有控件）+ 无绕过写入 | `probe-dom #V-07/#V-07b/#V-07e`；`insight-tree-hierarchy` 分层断言；`tree-ops` 单一写通路 grep | ✅ |
+| **AC-V2-027** | 偏差文案清除 + `delay` 消歧保留 + 覆盖面不夸大 | `insight-projection`/`tree-view` 森林零回潮 + `TREE_NO_ESCALATION_NOTE` sha256 pin；`insight-tree-hierarchy` live(28/94=122) vs baseline(34/142) 分列 + 「已全部渲染」零命中 | ✅ |
+| **AC-V2-005（范围重定）** | allow 单调性**只管撤销/关断**；不得否定用户覆盖；原①~⑥反向断言全保留 | 撤销/关断类门禁（`insight-no-escalation`/`insight-security`/`binding #21*`）PASS；覆盖类**另立** AC-V2-023~025 并**单独**经 `command-override` clamp（`probe-clamp`）；判定链零 diff | ✅ |
+
+---
+
+## R2-11. 阻塞与结论
+
+**阻塞问题：0**（本轮）。**低龄偏差 3 项（不阻塞）**：① smoke §5 / dev.md 的 `insight=102` 陈旧（实测 108）；② 台账 `nodeTests` 绝对值为跨口径混用（门禁为有效下界）；③ `journey.mjs` 既有 `catch(e){}` 与 `src` 14 处 `.catch(()=>{})`（best-effort 推送，T2）如实登记。
+
+**结论：✅ 通过（0 阻塞；3 低龄文档/口径偏差）**
+
+| 指标 | 要求 | 实测 | 达标？ |
+|------|------|------|:--:|
+| 功能需求覆盖率（R2 FR-V2-070~079） | 100% | 两条作者诉求端到端 + clamp ①~⑤ + 存储生命周期**逐条实跑**（R2-2/R2-3） | ✅ |
+| 非功能需求覆盖率（NFR-V2-011/012） | ≥ 80% | 体积/零注入/权限/判定链冻结/可访问性/审计零明文均有实跑或区间 diff | ✅ |
+| 构建通过 | 退出码 0 | `tsc` **0**；8 门禁全 **exit 0** | ✅ |
+| 作者诉求①「树形逐层展开」 | 达成 | `probe-dom` 真实 DOM 两例逐层链 + 单树 + 唯一 + 惰性收起 = **PASS** | ✅ |
+| 作者诉求②「不同层级可操作」 | 达成 | 工具级+子命令级三档 + 只可收紧档 + 硬底线零控件 = **PASS** | ✅ |
+| 反证有效（真会 FAIL） | ≥ 3 | C1 哈希冻结 / C2a·C2b 体积 / C4a·C4b 台账 / C3 clamp 反证 —— **全部实文件篡改→FAIL→完整还原** | ✅ |
+| 安全红线（AC-V2-025 + 判定链冻结） | 全 PASS | ①~⑤ + 服务端强制 + sha256 pin 不变 + 白名单恰 9 + 零新权限/依赖 | ✅ |
+| 取代台账 | literal=false 如实 + 有据 + 不减 + journey 零改 | 21 条有据；任一一致口径不减；journey 区间+worktree diff=0 | ✅ |
+| 测试零降级 | v1 journey 零改、append-only、硬底线只增 | `journey` +0；`check(` journey 170→170；新增 2 个安全门禁文件；白名单 7→9 | ✅ |
+| 全仓回归 | 0 fail | 全工作区 exit 0；插件 **693 / 0 fail** | ✅ |
+| 人工面诚实性 | 未执行不冒充 | V2-H-10~14 / V2-H-A~D / V2-H-1~9 / H0~H10 / T1 全 `⏳ 待人工` | ✅ |
+
+**判定理由**：R2 的交付本质是「把扁平分组的连接树改为**真父子层级树**（逐层展开/键盘/面包屑/惰性）+ 新增**命令级用户覆盖层**（工具级/子命令级三档、硬底线 clamp、可恢复、被审计）」。经**本 Agent 独立动手**（8 门禁严格串行 + 2 个自写独立探针 + 6 项反证篡改）：`tsc` 0 error；插件 **693/693**；`test:insight` **108**、`test:ui` **167**、`test:hardening` **24**、`test:binding` **192**、`test:e2e` **PASS**、全仓 **exit 0**。**作者两条诉求**在**真实 dist** 上**逐条端到端复现**：示例② 5 层链与示例① 6 层链（含工具→子命令）均可逐层展开、`aria-level/aria-expanded/role=treeitem` 正确、全树**恰一棵**（扁平零残留）、节点 `nodeId` 唯一（多归属不复制）。**命令级可操作**：`dom`/`dom read-state` 三档可达且即时生效（UI 设值→回执→落库→生效档变化→reset）；`ui`/`state`/`external`/破坏性叶子层**只可收紧（ask/deny，无 allow）**，硬底线（evaluate/S1/S3）**零控件 + 原因可读**。**clamp 服务端强制**以两条独立路径证实：① host 判定链（覆盖为 allow 后 evaluate/S1/S3 仍 deny、破坏性仍 ask、ui/state/external 不放宽）② 真实 DOM 中**伪造 `command-policy-set` 消息绕过 UI** 后 SW **投影仍 clamp**；并**反证** UI-only 无条件 allow 会真放宽（证明 clamp 承重）。判定链**零改动**（`policy.ts`/`auto-authorize.ts` 自算 sha256 = pin）、`base`/`manifest`/`options`/`v1 目录`/`journey` 区间 diff **均 0**、`content.js` **1,073,453 B 零增长** + `src/content/**` 哈希匹配、白名单**恰 9**、**零新权限/依赖**。取代台账 `literalRemovedZero=false` **如实**，并经反证（未登记删除→FAIL、移除台账条目→FAIL、默认→PASS）证明其**非摆设**。3 项低龄偏差（文档 102→108 陈旧、台账计数口径混用、既有 bare `.catch`）**均不阻塞**。故判为 **✅ 通过（0 阻塞）**——仍**不合 main、不发布**（由作者执行）。
+
+---
+
+## 修订记录（R2 追加）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v2.0 | **R2 验证**：web-cli-plugin v2 R2（区间 `a955a7f..649f746`，含 plan/tasks/build1/build2/review/修复轮）。**作者两条诉求端到端**（真层级树逐层展开：示例①/② 真实 DOM 链 + 单树 + 唯一 + 惰性收起；命令级可操作：工具级/子命令级三档 + 只可收紧档 + 硬底线零控件）。**8 门禁串行实跑全 exit 0**（tsc / 693 单测 / insight 108 / ui 167 / hardening 24 / binding 192 / e2e PASS / 全仓 0 fail），完整日志落盘 `/tmp/sddu-validate-r2-20260913-235509/`。**2 个自写独立探针**（`probe-clamp` 57/57、`probe-dom` 35/35）。**6 项反证实跑**（policy +1B→哈希 FAIL；content +1B / sidepanel +56KB→体积 FAIL；未登记删除/s 台账条目→台账 FAIL；伪造消息→clamp 保持 + UI-only 反证）**全部完整还原**。**clamp ①~⑤ + 服务端强制**逐条；AC-V2-020~027 + AC-V2-005 范围重定逐条对照。**取代台账**：`literalRemovedZero=false` 如实、21 条有据、计数不减、`journey` 零改。安全面：区间 diff 全 0 / 自算 sha256 = pin / 白名单 9 / `content.js` 1,073,453 / 零新权限依赖。人工面（V2-H-10~14 / V2-H-A~D / V2-H-1~9 / H0~H10 / T1）**未执行→如实列入不冒充**。**结论 ✅ 通过（0 阻塞；3 低龄文档/口径偏差）** | 2026-09-13 | SDDU Validate Agent |

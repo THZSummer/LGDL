@@ -886,7 +886,80 @@
         "phaseNotRegressed": true,
         "merge": "未合 main、未发布（NG-V2-009 保持）"
       },
-      "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/review-report.md"
+      "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/review-report.md",
+      "validation": {
+        "round": "R2",
+        "subRound": "validate（产物验证 · 动手实测）",
+        "type": "post-validate 验证轮（phase 不回退；追加记录不稀释既有 R1）",
+        "date": "2026-09-14",
+        "authorization": "用户指派（对 R2 修订做动手验证：作者两条诉求端到端 + clamp 反向断言与服务端强制 + 取代台账反证）",
+        "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/validate-report.md（R2 段，追加于 R1 之后，不覆盖）",
+        "range": "a955a7f（R2 spec）→ 649f746（R2 修复轮收尾）",
+        "verdict": "✅ 通过（0 阻塞；3 低龄文档/口径偏差）",
+        "method": "8 门禁严格串行实跑 + 2 个自主编写独立探针（dist-test host 判定链 / 真实 dist DOM CDP）+ 6 项反证篡改实文件并完整还原；完整日志落盘（未截断）",
+        "gates": {
+          "typecheck": "EXIT 0（0 error）",
+          "pluginTest": "693 tests / 693 pass / 0 fail EXIT 0",
+          "testInsight": "PASS 108 assertions EXIT 0",
+          "testUi": "PASS 167 assertions EXIT 0",
+          "testHardening": "PASS 24 assertions EXIT 0",
+          "testBinding": "PASS 192 assertions EXIT 0（首次被工具 120s 超时中止，非产物 flake；重跑干净）",
+          "testE2e": "PASS EXIT 0",
+          "fullRepoTest": "EXIT 0（全工作区；plugin 693 / base 483 等 fail 0）"
+        },
+        "logsDir": "/tmp/sddu-validate-r2-20260913-235509/（含 obs/ 子目录）",
+        "independentProbes": {
+          "clampHost": "obs/probe-clamp.mjs —— 57/57（clamp ①~⑤ + 服务端强制 ⑧a/⑧b 反证 + A1 只可收紧 + 存储生命周期 7 项）",
+          "domReal": "obs/probe-dom.mjs —— 35/35（真实 dist：作者示例①/② 逐层链 + aria-level/expanded/role + 单树/唯一 + 惰性收起 + 键盘/面包屑 + 三档控件 + 分层 + UI 设值即时生效/持久化 + 伪造消息 clamp）"
+        },
+        "authorDemands": {
+          "treeShape": "达成 —— 真实 DOM 单棵 role=tree，示例② 5 层链 / 示例① 6 层链（含 工具→子命令），aria-level 逐层正确、扁平零残留、nodeId 唯一（多归属不复制）",
+          "operable": "达成 —— dom 工具级 + dom read-state 子命令级 allow/ask/deny 三档可达且即时生效（UI 设值→回执→落库→重置）；ui/state/external/破坏性叶子只可收紧（ask/deny 无 allow）；硬底线 evaluate/S1/S3 零控件 + 原因可读"
+        },
+        "reverseProofs": [
+          "C1 policy.ts +1B → 哈希冻结 FAIL（exit 1）；还原 sha256=bfcb2ede…=pin",
+          "C2a content.js +1B → 体积 FAIL；还原 1,073,453 B",
+          "C2b sidepanel.js +56KB（>ceiling）→ 体积 FAIL；还原 1,162,942 B",
+          "C3 伪造 command-policy-set 绕过 UI → SW 投影仍 clamp；反证 UI-only 无条件 allow 会放宽",
+          "C4a 受保护文件未登记删除 → 台账 FAIL",
+          "C4b 移除 1 条台账 protectedFileOldLines → 台账 FAIL",
+          "C4c 默认态台账门禁 → PASS"
+        ],
+        "security": {
+          "rangeDiffQuiet": "base/policy.ts/auto-authorize.ts/manifest/options(index.html)/journey.mjs/v1 SDDU 目录 区间 diff 全 exit 0",
+          "selfSha256": "policy.ts=bfcb2ede… auto-authorize.ts=1096d065…（自算，=pin）",
+          "zeroNewPermission": "静态 permissions 恰 5；无 <all_urls>；无静态 content_scripts",
+          "zeroNewDependency": "package.json 区间 diff 0",
+          "contentJs": "1,073,453 B 零增长；src/content/** 三文件 sha256 自算匹配 pin",
+          "whitelist": "TREE_ACTION_IDS 恰 9；无 grant / 无 permissions.request / 无默认写入分支",
+          "zeroPlaintext": "tree/insight 源码零 apiKey/LlmSettings/storage.local；覆盖审计零明文"
+        },
+        "ledger": {
+          "literalRemovedZero": "false（如实标注 + 订正理由）",
+          "entries": "S1~S20（含 S19b）21 条，file 存在，old 标题关键词基线可验（S19/S19b/S20 属修复轮再取代，基线不存在合理）",
+          "countsNonDecreasing": "test( 基线 646/723 → 现状 697/776；运行期 693；journey check( 170→170（零改）",
+          "journeyZeroDiff": "区间 + worktree diff 均 0 行",
+          "note": "台账 nodeTests 绝对值为跨口径混用（646=排除正则静态 / 693=运行期）→ 低龄文档口径不一致，门禁为有效下界，非静默降级"
+        },
+        "lowOrderDeviations": [
+          "smoke-checklist §5 / dev.md 写 insight=102，实测 108（陈旧，低龄）",
+          "台账 counts.nodeTests 绝对值跨口径混用（低龄）",
+          "既有 journey.mjs catch(e){} + src 14 处 .catch(()=>{})（best-effort 推送，T2）如实登记，非 R2 引入"
+        ],
+        "manualSurfacesNotExecuted": [
+          "V2-H-10~14（R2 人工面）",
+          "V2-H-A~D / V2-H-1~6 / V2-H-7~9",
+          "smoke-checklist §1 H0~H10",
+          "T1（树侧能力撤销成功端到端未自动化）"
+        ],
+        "bindingFlake": "本轮未观测到 #33B1/#3d 类 flakes（2 次运行：1 次工具超时中止非产物 + 1 次干净 PASS 192）",
+        "a3": "真达成（probe-dom #V-04 真实 DOM 站点→命令→工具→子命令，非收窄 AC 掩盖）",
+        "a4": "口径订正如实（literalRemovedZero=false + 订正理由 + 逐条 old→new + 机器门禁，经 C4a/C4b 反证其承重）",
+        "merge": "未合 main（HEAD 非 main 祖先；领先 86 commit）、未发布（HEAD 无 tag）（NG-V2-009 保持）",
+        "phaseKept": "tasked（父 Feature 轻量容器，原样不回退；四叶 validated 原样）",
+        "phaseNotRegressed": true,
+        "report": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/validate-report.md"
+      }
     }
   }
 }
