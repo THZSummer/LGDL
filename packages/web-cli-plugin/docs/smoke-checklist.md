@@ -11,7 +11,7 @@
 |---|--------|------|------|:----:|
 | M1 | 扩展加载成功 | `--load-extension` 后 `/json` 查 `type=service_worker` | target 存在 | ✅ PASS |
 | M2 | SW target 可达 | CDP `Runtime.evaluate` 取 `chrome.runtime.getManifest()` | name/mv=3 | ✅ PASS |
-| M3 | 权限面最小化 | manifest 断言（无 `tabs`，有 `optional_host_permissions`，无静态 `content_scripts`） | 断言通过 | ✅ PASS |
+| M3 | 权限面最小化 | manifest 断言（静态 `permissions` 恰为 `activeTab/scripting/storage/sidePanel/tabs`；5 个能力仅在 `optional_permissions`；有 `optional_host_permissions`；无 `<all_urls>`、无静态 `content_scripts`） | 断言通过 | ✅ PASS |
 | M4 | storage.local 往返 | SW 内 set/get/remove | 值一致 | ✅ PASS |
 | M5 | sidePanel/scripting API 可达 | SW 内 `typeof chrome.sidePanel/scripting` | object | ✅ PASS |
 | M6 | G-KEY 火山端点直连 | SW 内带 Authorization fetch | 返回 HTTP 状态（非 CORS 失败） | ✅ PASS（401） |
@@ -34,11 +34,11 @@
 | M23 | 破坏性动词 denylist | `test/host.test.ts` R-BLK1a 用例（5 例伪装） | 不得 read→allow | ✅ PASS（node 面，P1/R-BLK1a） |
 | M24 | **options 真实点击旅程** | `npm run test:ui`（`test/ui/journey.mjs`：全新 profile + 真实 dist + CDP 真实键入/点击） | 保存→读回 storage→刷新回显→测试连接 可读结果；0 异常 | ✅ PASS（41 断言，TASK-018/020） |
 | M25 | **非扩展上下文守卫** | `npm run test:hardening`（A 场景：`file://.../options.html`）+ `test/env-guard.test.ts` | 横幅出现、保存/测试/清除禁用、诊断 ❌ 可读 | ✅ PASS（TASK-019） |
-| M26 | **站点未声明协议说明** | `npm run test:hardening`（B 场景：普通站点；`unsupported`/`unknown` 两态）+ `test/sidepanel-view.test.ts` | 「设计如此，非故障」说明；unknown 有可读原因 + 「重新探测」 | ✅ PASS（TASK-019） |
+| M26 | **站点未声明协议说明** | `npm run test:hardening`（B 场景：普通站点；`unsupported`/`unknown` 两态）+ `test/sidepanel-view.test.ts` + `test/auto-probe.test.ts` | 「设计如此，非故障」说明；unknown 有可读原因 + **全自动重试状态**（TASK-032 已移除手动「重新探测」按钮，断言 `retryAbsent=true`） | ✅ PASS（TASK-019/032） |
 | M27 | **环境自检 / 诊断面板** | `test/diagnostics.test.ts` + `test/ui/hardening.mjs`；一键复制文本 | 六项 ✅⚠❌ + 零明文（`sanitizeDiagText` 兜底） | ✅ PASS（TASK-019） |
 | M28 | **旧扩展未重载可见** | `npm run test:hardening`（C 场景：build 后仅刷新 options，不点「重新加载」） | 诊断提示「页面/background 构建不一致 + 重新加载」 | ✅ PASS（TASK-019） |
 | M29 | **保存后可验证 / 无活跃站点可自救** | `npm run test:ui`（#6d~#6f/#8d/侧栏 #11~#12）+ `test/sidepanel-view.test.ts` + `test/state-message.test.ts` | 保存后 `#key-state`=已写入、placeholder=已保存（不回显）、成功色；侧栏 LLM 行含 `Key ✅`；无活跃站点给具体原因 + 「重新绑定当前标签页」+ 发送禁用原因；侧栏「测试连接」复用 `llm-test` 可读结果 | ✅ PASS（TASK-020） |
-| M30 | **站点绑定全链（真站点）** | `npm run test:binding`（真实 dist + 真实 `http://localhost:5173` lgdl-web + mock LLM）+ `test/binding-wiring.test.ts` | 绑定成功（tabId+origin）→ content.js 注入 → discovery `supported` → 【授权当前站点】成功（http host permission 路径）→ 发送按钮可用 → 输入 `11111` 跑通一轮 mock 对话；切换标签页标记失效 + 可读提示；无 `<all_urls>`/无 `tabs` 权限 | ✅ PASS（第四轮修复，33 断言） |
+| M30 | **站点绑定全链（真站点）** | `npm run test:binding`（真实 dist + 真实 `http://localhost:5173` lgdl-web + mock LLM）+ `test/binding-wiring.test.ts` | 绑定成功（tabId+origin）→ content.js 注入 → discovery `supported` → 【授权当前站点】成功（http host permission 路径）→ 发送按钮可用 → 输入 `11111` 跑通一轮 mock 对话；切换标签页标记失效 + 可读提示；无 `<all_urls>`；静态权限含 `tabs`（FR-049，作者批准，见 `docs/compliance.md` §9） | ✅ PASS（第四轮修复，33 断言） |
 
 ## 2. 人工面（真实浏览器交互）
 

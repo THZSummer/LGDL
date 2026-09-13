@@ -390,7 +390,7 @@
 
 | 门禁 | 结果 |
 |------|------|
-| `npm run build` | PASS（plugin dist：background 968442B / content 34711B / sidepanel 15512B / options 915305B） |
+| `npm run build` | PASS（plugin dist：background 968442B / content 34711B / sidepanel 15512B / options 915305B）〔历史轮次快照（2026-09-12）；`content.js` 其后因 base DOM 值导入 + 内联 LLM SDK 增至 1,073,453B，**以 §11.5 现状为准**〕 |
 | `npm test` | **0 fail**：core 267 / render 94(+1 skip) / router 8 / lgdl-web **78** / web-cli 84 / op-cli 15 / base **483** / plugin **112** |
 | 插件 `tsc --noEmit` | PASS（0 error） |
 | `npm run test:e2e` | **PASS**（真实 dist CDP headless 全链；见 §11.4） |
@@ -409,10 +409,10 @@
 
 ### 11.5 NFR-007 阈值定义与实测
 
-| 维度 | 阈值 | 实测（2026-09-12） | 判定 |
+| 维度 | 阈值 | 实测（2026-09-13 复核；括注 2026-09-12 旧值） | 判定 |
 |------|------|------|:--:|
-| `content.js` 注入体积 | ≤ 64 KB | 33.9 KB（34711 B） | ✅ |
-| `background.js` | ≤ 1.2 MB | 968442 B | ✅ |
+| `content.js` 注入体积 | ≤ 64 KB（NFR-007 **目标预算**，**未达成**） | **1,073,453 B**（≈1,048.3 KiB ≈1.02 MiB；**超目标 ≈16.4×**）〔2026-09-12 旧值 34,711 B；后因 base DOM 值导入 + 内联 LLM SDK（提交 8b06a43）增至 1.0MB 级〕 | ❌ **未达成**（D31，作者暂缓分包） |
+| `background.js` | ≤ 1.2 MB | 1,372,225 B（≈1.31 MiB，**超目标**；同因内联 base 全量工具面 + LLM SDK）〔2026-09-12 旧值 968,442 B〕 | ⚠️ 超目标（仅记录，无硬断言） |
 | 事件上下文摘要 | ≤ 10 条/次 | 10（`EVENT_CONTEXT_SUMMARY_N`） | ✅ |
 | 单事件负载 | ≤ 4096 字符 | base `DEFAULT_BUDGETS.payloadBudgetChars` | ✅ |
 | 事件速率 | ≤ 200 条/s | base `event-bus` 护栏 | ✅ |
@@ -422,7 +422,7 @@
 | RPC / 握手超时 | 30s / 3s | `protocol/rpc.ts` | ✅ |
 | 50 次已授权读派发 | < 250 ms | ~0.9 ms/call（200 次 180.9 ms） | ✅ |
 
-> 回归护栏：`test/perf-budget.test.ts`；文档：`docs/dev.md §8`。扩展 SW 真实内存采样归人工面。
+> 回归护栏：`test/perf-budget.test.ts`（**基线回归守卫** + 反证自测，基线快照 `test/perf-baseline.ts` = 1,073,453 B / 容差 5%；超出即 FAIL，失败信息给出实测/基线/超出幅度/更新基线指引；`catch` 只吞 `ENOENT`）；文档：`docs/dev.md §8`。**NFR-007 的 64KB 目标仍未达成**（实测超约 16.4×，D31 待分包），如实登记于本节与 `state.json` 未达成项；**回归基线 ≠ 目标预算**，不得以基线值宣布达标。扩展 SW 真实内存采样归人工面。
 
 ### 11.6 新增决策（D-021~D-029）
 
@@ -1852,7 +1852,7 @@ else log.scrollTop = prevTop;
 - `npm run test:hardening`：**22 断言 PASS**。
 - `npm run test:e2e`：**PASS**（场景 A fixture AC-010 + 场景 B LGDL Workbench AC-009；唯一偏差仍为本地 host_permissions 预授权）。
 - 全仓 `npm run build`：**退出码 0**；全仓 `npm test`：**0 fail**（plugin 262 / base **483 零回归** / lgdl-core 267 / lgdl-render 94+1skip / lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / lgdl-cli 0 / lgdl-layout 0）。
-- 红线：**base 零改动**（`git status packages/web-cli-base` 空）；**无新依赖**（`package.json` 零 diff）；**无 `tabs` 权限**、**无 `<all_urls>`**、**无静态 `content_scripts`**；`src/**` 无 `innerHTML`、无空 catch、无明文 key、无 `@lgdl/lgdl-web` 私有依赖；NFR-007 `content.js` 35,615 B ≤ 64 KB。
+- 红线：**base 零改动**（`git status packages/web-cli-base` 空）；**无新依赖**（`package.json` 零 diff）；**无 `tabs` 权限**、**无 `<all_urls>`**、**无静态 `content_scripts`**；`src/**` 无 `innerHTML`、无空 catch、无明文 key、无 `@lgdl/lgdl-web` 私有依赖；NFR-007 `content.js`〔该轮历史值 35,615 B；**现状 = 1,073,453 B，超 64KB 预算 ≈16.4×、判为未达成（D31），以 §11.5 为准**〕。
 - 构建戳：`2026-09-12T09:45:16.759Z`。
 
 ### 23.5 新增决策（D-091~D-100）
@@ -2115,7 +2115,7 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ### 27.3 门禁结果（本轮复跑，原文摘录）
 
 - 插件 `npm test`：**336 pass / 0 fail**（315→336，+8 parity +13 browser-tools）。
-- `tsc --noEmit`：**0 error**；插件 `build` 退出码 0（content.js 1.0MB / background.js 1.2MB）。
+- `tsc --noEmit`：**0 error**；插件 `build` 退出码 0（content.js ≈1.0MiB / background.js ≈1.2MiB；2026-09-13 复核精确值见 §11.5）。
 - `test:e2e`：**PASS**（真实 dist + headless Chromium；新增三条真机断言全部通过）：
   - `✔ A/fixture: dom read-state ran on the real page DOM (was missing)`
   - `✔ A/fixture: dom click ran through the confirmation gate`
@@ -2138,7 +2138,7 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - **`events` 运行时仅 4 个桥操作可用**（subscribe/pull/unsubscribe/status）+ 本地 `list`；其余 6 个子命令返回可读「暂不支持」。工具面（11 子命令）已按基线对齐，但**运行时能力是部分的**——如实披露，不视为完全对齐。
 - **`notify` / `clipboard` 未实施**：需新权限（`notifications` / `clipboardRead`·`clipboardWrite`），本轮**只报告不实施**（见上报「待批准权限」）。
 - **`web-search` 默认禁用态**：无搜索端点配置入口，工具在工具面可达但执行返回可读「未配置」指引；启用需配置端点 + 该域 host 权限（本轮未做配置 UI）。
-- **content bundle 体积增长**（约 1.0MB，内联 base DOM 实现）：未做 tree-shaking/分包优化；可接受但作为后续优化项。
+- **content bundle 体积增长**（实测 **1,073,453 B** ≈1,048.3 KiB ≈1.02 MiB，内联 base DOM 实现 + LLM SDK）：原表述「可接受但作为后续优化项」是当时的工程口径；**就 NFR-007 的 64KB 目标预算而言它是未达成项**（超约 16.4×，D31），不得因此改写目标。未做 tree-shaking/分包优化，作者暂缓。已建立**回归基线守卫**（`test/perf-baseline.ts` + `test/perf-budget.test.ts`）防新增膨胀；**回归基线 ≠ 目标预算**。
 - **`chrome screenshot` 用 base 近似截图**（foreignObject+canvas），非 `captureVisibleTab` 原生视口截图；与基线语义一致（同名同子命令），元素级可用、整页级不支持（归属 CDP）。
 - 仅在 `.pw-browsers` Chromium `--headless=new` 实测；系统 Chrome/Edge 未单独复验。
 
@@ -2539,7 +2539,7 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 
 - **手势授权弹窗（原生 `chrome.permissions.request` 弹层）无法在 headless 合成**：`test:ui` 只能以可覆盖的 stub 验证「点击→调用 `request({permissions:[...]})`→拒绝路径可读」，真实弹窗仍属人工面（`docs/smoke-checklist.md` H2）。**不冒充 PASS**。
 - **`test:binding` / `test:e2e` 的权限可用性证明用「测试专用 manifest 副本」**：把 `bookmarks`/`downloads` 从 `optional_permissions` 移入静态 `permissions`（等同既有 `host_permissions` 副本偏差的做法），脚本头/观测均已披露；证明「权限在时能力真实可用」，**手势授权本身仍归人工面**。该偏差**仅存在于测试副本**，不进分发物。
-- **`FR-054` / `ADR-017「硬底线 4」编号**：本轮代码/文档/waivers 以 `FR-054（TASK-038）` 引用该需求；`spec.md` 中**尚未落 FR-054 条文**（本阶段规则禁止改 spec，需 `@sddu-spec` 后续补登）。已在 waivers 与 docs 标注 basis，**如实披露该引用为待补**。
+- **`FR-054` / `ADR-017「硬底线 4」编号**：本轮代码/文档/waivers 以 `FR-054（TASK-038）` 引用该需求。**【2026-09-13 已闭环】** `spec.md` 已由 `@sddu-spec` 补登 **FR-054**（v1.10，§5.11：`bookmarks` 读+写 / `downloads` 只读）与 **FR-055**（同批：`notify` + `clipboard`），并在 `plan.md` 补记 **ADR-018**（可选权限 vs 静态权限取舍）。waivers/docs 的 basis 引用现为**有效引用**；原「待补登」披露已解除（保留此历史叙述，**以现状为准**）。
 
 ## 37. 可选权限能力：系统通知（`notify`，读+写）+ 剪贴板（`clipboard`，读+写，读侧默认关）（TASK-039 / 作者裁决 2026-09-13 / Wave 31）
 
@@ -2627,7 +2627,7 @@ Chrome 对个别权限是否允许放进 `optional_permissions` 有约束，故�
 - **headless 无法合成 `permissions.request` 手势**：`test:binding`/`test:e2e` 用**测试专用 manifest 副本**把 `bookmarks`/`downloads`/`notifications`/`clipboardRead`/`clipboardWrite` 声明为静态 `permissions`（脚本头/观测已披露，dist JS 字节未改），以证明「权限在时真实可用」；**真实授权弹窗仍是人工面**（`docs/smoke-checklist.md` H2），不冒充 PASS。
 - **剪贴板读/写依赖扩展页打开**：无扩展页（侧栏与 options 均未开）时返回可读「请保持侧栏打开」拒绝；这是根因限制，已披露。
 - **headless 剪贴板读回空**：e2e 的 `clipboard write` 真实写入成功（`document.execCommand(copy)`），但 `clipboard read` 在 headless 下回「（剪贴板为空）」——真实内容读回归人工面，已披露。
-- **FR-055 条文**：与 FR-054 同，`spec.md` 尚未落 FR-055 条文（本阶段规则禁止改 spec），已在 waivers/docs 标注 basis，**如实披露该引用待 `@sddu-spec` 补登**。
+- **FR-055 条文**：**【2026-09-13 已闭环】** 与 FR-054 同批，`spec.md` 已补登 **FR-055**（v1.10，§5.11：`notify` 读+写 + `clipboard` 读+写，剪贴板读 `state` 档永不自动放行）+ `plan.md` **ADR-018**；waivers/docs 的 basis 引用现为有效引用。原「待补登」披露已解除（保留此历史叙述，**以现状为准**）。
 
 ## 38. 可选权限申请 UX 直观化：三态按钮 + 明确回执 + 应用内撤销（TASK-040 / 用户 UX 反馈 2026-09-13 / Wave 32）
 
@@ -2700,7 +2700,7 @@ Chrome 对个别权限是否允许放进 `optional_permissions` 有约束，故�
 
 - **headless 无法合成 `permissions.request` 手势**（沿用既有披露）：`test:ui` 用可注入的 `chrome.permissions.contains/remove/request` 桩验证真实 UI 路径；`test:binding` 用真实 dist 的真实 `permissions.remove`（可选权限，无需手势）取证工具移除 + 审计，但「已授权→`onRemoved`」过渡与原生授权弹窗仍归人工面（不冒充 PASS）。
 - `test:binding` 的可选权限在无头下**未经真实授权**（`contains=false`），故撤销断言走「从未授予 → remove（可选，返回 true）→ 显式对账 → 工具移除 + 审计」这一真实路径；**已授权态下的撤销**由 `test:ui` 的桩路径覆盖（#54o~#54w）。
-- FR-054/FR-055 条文仍待 `@sddu-spec` 补登（本阶段规则禁止改 spec），沿用既有披露。
+- FR-054/FR-055 条文**已由 `@sddu-spec` 于 2026-09-13 补登**（`spec.md` v1.10 §5.11 FR-054/FR-055 + `plan.md` ADR-018）；本条历史披露已解除（**以现状为准**）。
 
 ## 修订记录
 

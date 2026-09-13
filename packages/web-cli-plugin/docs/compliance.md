@@ -127,7 +127,7 @@
 | 何时注入 | **仅**在用户对某 origin **显式授权**且浏览器授予该站点权限之后 | 声明式注入在 `authorize` 成功且 `hostPermissionGranted=true` 时注册 |
 | 注入范围 | **仅该 origin**（`<origin>/*`），逐站点、可撤销 | `registerContentScripts` matches 由 origin 派生 |
 | 是否有全站注入 | **无**：manifest 零静态 `content_scripts`，不引入全站匹配 | 权限最小化（FR-006/NFR-002） |
-| 是否扩权限 | **否**：`permissions` 仍 `activeTab/scripting/storage/sidePanel`；无 `tabs`、无 `<all_urls>` | manifest 核验 |
+| 是否扩权限 | **自动探测本身零权限扩张**：其引入时静态 `permissions` 为 `activeTab/scripting/storage/sidePanel`；其后 §9 经作者批准新增 `tabs`（FR-049），**故当前静态 `permissions` 含 `tabs`**（**以 §9 现状为准**）。两者均无 `<all_urls>`、无静态 `content_scripts` | manifest 核验（现状见 §9） |
 | 免点图标是否弱化门禁 | **否**：自动探测 ≠ 自动授权；执行仍受 per-origin 授权 + 二次确认 + fail-closed | ADR-003/ADR-014 |
 | 未授权站点 | 不注入、不注册；握手失败静默降级为可读「未绑定」，保留点图标回退 | EC-017 |
 

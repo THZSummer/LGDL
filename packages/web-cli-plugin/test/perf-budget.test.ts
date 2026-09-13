@@ -6,8 +6,11 @@
  * recorded in `docs/dev.md` §8 and `build.md §11` (D-028).
  *
  * Thresholds:
- *  - content script bundle (IIFE, on-demand injected) ≤ 64 KB — a small injected
- *    payload so host-page jank stays negligible; zero static content_scripts.
+ *  - content script bundle (IIFE, on-demand injected): see the two SEPARATE
+ *    numbers below — the NFR-007 **target budget** (64 KiB, currently NOT met,
+ *    open deviation D31) and the **regression baseline** (the measured size,
+ *    used to fail on new growth). The guard logic + snapshot live in
+ *    `./perf-baseline.ts`.
  *  - event context summary ≤ 10 events per pull, with an explicit truncation note.
  *  - session history ≤ 40 turns (bounded `chrome.storage.session` snapshot).
  *  - audit ring buffer ≤ 500 events.
@@ -16,7 +19,6 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { statSync } from 'node:fs';
 import {
   DEFAULT_AUDIT_CAPACITY,
   createStorageAuditSink,
@@ -27,8 +29,17 @@ import { createWebCliHost } from '../src/background/host.js';
 import { MAX_SESSION_TURNS, createChatSession } from '../src/background/chat-session.js';
 import { EVENT_CONTEXT_SUMMARY_N } from '../src/content/page-bridge.js';
 import { parseDescriptor } from '../src/protocol/descriptor.js';
+import {
+  CONTENT_BUNDLE_BASELINE_BYTES,
+  CONTENT_BUNDLE_BASELINE_META,
+  CONTENT_BUNDLE_BASELINE_TOLERANCE,
+  CONTENT_BUNDLE_TARGET_BYTES,
+  evaluateContentBundleSize,
+  readArtifactSize,
+} from './perf-baseline.js';
 
-export const CONTENT_BUNDLE_BUDGET_BYTES = 64 * 1024;
+/** NFR-007 goal for the injected bundle (kept as an alias for continuity). */
+export const CONTENT_BUNDLE_BUDGET_BYTES = CONTENT_BUNDLE_TARGET_BYTES;
 export const DISPATCH_BUDGET_PER_CALL_MS = 5;
 
 function memoryKv(): AuditKv {
@@ -102,14 +113,94 @@ test('NFR-007: sequential authorized read dispatches stay within the per-call bu
   );
 });
 
-test('NFR-007: built content bundle stays under the injection budget (when built)', () => {
-  // Building is not part of `npm test`; assert the budget only on a built dist so
-  // the check is meaningful in CI after `npm run build`.
-  try {
-    const size = statSync(new URL('../../dist/content.js', import.meta.url)).size;
-    assert.equal(size < CONTENT_BUNDLE_BUDGET_BYTES, true, `content.js ${size}B > ${CONTENT_BUNDLE_BUDGET_BYTES}B`);
-  } catch {
-    // dist absent (unit-test-only run): skip with an explicit, non-silent reason.
-    assert.ok(true, 'dist/content.js not present — build first to measure the bundle budget');
+test('NFR-007: built content bundle stays within the regression baseline (when built)', (t) => {
+  // Building is not part of `npm test`; measure the artifact only when it is
+  // present (CI after `npm run build`). `readArtifactSize` tolerates ONLY
+  // `ENOENT` and rethrows every other failure — see the guard test below for why
+  // a bare `catch` here was a false-green gate (validate R4 §R4-11).
+  const size = readArtifactSize(new URL('../../dist/content.js', import.meta.url));
+  if (size === undefined) {
+    // dist absent (unit-test-only run): explicit, visible skip — not a silent pass.
+    t.skip('dist/content.js not present — build first to measure the bundle budget');
+    return;
   }
+
+  const verdict = evaluateContentBundleSize(size);
+  // 1) Regression guard: fail on new growth beyond the recorded baseline.
+  assert.equal(verdict.ok, true, verdict.message);
+
+  // 2) NFR-007 target must NOT be silently redefined to the measured size. The
+  //    target is pinned to 64 KiB and the snapshot records it as NOT met (D31);
+  //    this consistency assertion forces docs/baseline updates either way.
+  assert.equal(
+    CONTENT_BUNDLE_TARGET_BYTES,
+    64 * 1024,
+    'NFR-007 目标预算恒为 64 KiB，不得改写成实测值来「宣布达成」',
+  );
+  assert.equal(
+    CONTENT_BUNDLE_BASELINE_META.targetBudgetBytes,
+    CONTENT_BUNDLE_TARGET_BYTES,
+    '基线快照记录的目标预算必须与 CONTENT_BUNDLE_TARGET_BYTES 一致',
+  );
+  assert.equal(
+    CONTENT_BUNDLE_BASELINE_META.targetMet,
+    size <= CONTENT_BUNDLE_TARGET_BYTES,
+    `NFR-007 目标登记与实测不一致：基线快照 targetMet=${CONTENT_BUNDLE_BASELINE_META.targetMet}，实测 ${size}B ` +
+      `${size <= CONTENT_BUNDLE_TARGET_BYTES ? '≤' : '>'} 目标 ${CONTENT_BUNDLE_TARGET_BYTES}B。` +
+      '请同步 test/perf-baseline.ts 元数据 + build.md §11.5 + docs/dev.md §8 + state.json（不得为宣布达成而改写目标）。',
+  );
+});
+
+test('NFR-007 guard self-check: an over-baseline bundle FAILS the guard (proves it is not a false-green)', () => {
+  const ceiling = Math.floor(CONTENT_BUNDLE_BASELINE_BYTES * (1 + CONTENT_BUNDLE_BASELINE_TOLERANCE));
+
+  // Exactly at the regression ceiling → still within tolerance → PASS.
+  const atCeiling = evaluateContentBundleSize(ceiling);
+  assert.equal(atCeiling.ok, true, atCeiling.message);
+
+  // One byte over the ceiling → must FAIL (a 1.07 MB bundle vs a 64 KiB budget
+  // must never report green).
+  const overCeiling = evaluateContentBundleSize(ceiling + 1);
+  assert.equal(overCeiling.ok, false, '守卫必须在超出基线容差时 FAIL');
+  assert.match(overCeiling.message, /体积回归/);
+  assert.match(overCeiling.message, new RegExp(`实测 ${ceiling + 1}B`));
+  assert.match(overCeiling.message, /超出 1B/);
+  assert.match(overCeiling.message, new RegExp(`${CONTENT_BUNDLE_BASELINE_BYTES}B`));
+
+  // Run the actual assertion path: feeding the over-budget value as "measured"
+  // MUST throw. The old implementation's bare `catch` swallowed exactly this.
+  assert.throws(
+    () => assert.equal(overCeiling.ok, true, overCeiling.message),
+    /体积回归/,
+    '反证：超出基线的实测必须让断言抛错（旧 bare catch 会吞掉该错 → 恒绿）',
+  );
+});
+
+test('NFR-007 guard: only ENOENT is swallowed; other stat failures propagate', () => {
+  const url = new URL('../../dist/content.js', import.meta.url);
+  const enoent = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
+  assert.equal(
+    readArtifactSize(url, () => {
+      throw enoent;
+    }),
+    undefined,
+    '文件不存在（未构建）是合理情形，按既有语义跳过',
+  );
+
+  const eacces = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+  assert.throws(
+    () => readArtifactSize(url, () => {
+      throw eacces;
+    }),
+    /permission denied/,
+    '非 ENOENT 的 stat 失败不得被吞掉（旧 bare catch 会把它当作「未构建」）',
+  );
+
+  // A plain error without an errno code must also propagate.
+  assert.throws(
+    () => readArtifactSize(url, () => {
+      throw new Error('boom');
+    }),
+    /boom/,
+  );
 });
