@@ -1,0 +1,39 @@
+{
+  "feature": "V2-2 悬浮连接树 UI 与交互（父：specs-tree-web-cli-plugin-v2-insight）",
+  "featureKey": "specs-tree-v2-2-floating-tree-ui",
+  "name": "V2-2 悬浮连接树 UI 与交互——侧栏常驻悬浮入口 + 树抽屉（四维度导航 / 检索过滤 / 状态徽标 / 操作简单）；不遮挡 composer、消息区高度不回退、窄侧栏零水平溢出",
+  "phase": "specified",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v2-insight",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-13",
+  "updatedAt": "2026-09-13",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v2-insight 立项的叶子子 Feature（P0，P0 闭环第二环）。承载父 spec FR-V2-020~FR-V2-025：侧栏内常驻悬浮入口（FAB/浮动按钮）+ 树抽屉；四维度层级导航 + 状态徽标 + 检索/过滤 + 空态/降级可读；明暗适配；侧栏布局回归量化（composer 未遮挡 / #log 高度不回退 / 400·320px 零水平溢出，断言只增不减）。不做页面注入悬浮层、不放进设置面板、不改 options.html、不重命名 v1 既有 DOM 契约。",
+  "scope": {
+    "in": [
+      "侧栏内渲染常驻悬浮入口 + 树抽屉（复用 v1 三区 flex 全高布局与 ui/settings/* 实现）",
+      "四维度层级导航 + 状态徽标 + 操作简单（入口到撤销 ≤2 次点击）",
+      "检索/过滤（只读，不改真值）",
+      "侧栏布局不回退量化断言（#log flex-grow=1 / 稳态高度占比 ≥65.5% / composer 底边−视口底 ∈[0,+8px] / 入口与 composer boundingRect 不相交 / 400·320px 水平溢出=0 / v1 #15a~#15q 断言零删减）",
+      "明暗适配；空态/降级可读；既有 DOM id/类零重命名"
+    ],
+    "out": [
+      "不做页面注入悬浮层（作者裁决②）",
+      "不放进设置面板、不取代设置面板（作者裁决③）；不改 options.html；不推翻 v1 TASK-033",
+      "不做写操作（归 V2-3）；不新增权限/依赖/静态 content_scripts；不加重 content.js"
+    ]
+  },
+  "covers": ["FR-V2-020", "FR-V2-021", "FR-V2-022", "FR-V2-023", "FR-V2-024", "FR-V2-025"],
+  "artifacts": ["spec.md"],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/TREE.md"
+  },
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.3；本子级 spec.md 含侧栏回归量化阈值（AC-V22-002）与「只增不减」纪律。下一步 @sddu-plan。",
+  "status": "tracked",
+  "phaseNote": "spec 阶段完成（2026-09-13，sddu-spec）；下一步 @sddu-plan。"
+}

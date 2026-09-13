@@ -1,0 +1,98 @@
+# Feature Specification：specs-tree-v2-1-connect-tree-model（V2-1 连接树数据模型与状态投影）
+
+> **文档定位**: SDDU 需求规范（**叶子子 Feature**）— 定义 V2-1 的功能/非功能需求与验收边界，作为 plan 阶段的输入
+> **前置依赖**: 父 Feature `specs-tree-web-cli-plugin-v2-insight/spec.md`（v1.0，2026-09-13）——本子 Feature 的需求为**父 spec 的 FR-V2-010~FR-V2-017**（逐条已可测试），本文件只做**范围收缩 + 子级验收补充**，不重复父级全文
+> **创建人**: SDDU Spec Agent · **创建时间**: 2026-09-13 · **版本**: v1.0 · **更新人/时间**: SDDU Spec Agent / 2026-09-13
+> **更新说明**: 初始创建。随父 Feature `specs-tree-web-cli-plugin-v2-insight` 立项（父 + 4 叶子子 Feature，作者确认 2026-09-13）。
+
+## 1. 元数据
+
+| 字段 | 值 |
+|------|-----|
+| Feature ID | specs-tree-v2-1-connect-tree-model（父：specs-tree-web-cli-plugin-v2-insight） |
+| 名称 | V2-1 连接树数据模型与状态投影 |
+| 优先级 | **P0**（P0 闭环第一环：没有投影就没有树） |
+| 目标版本 | v0.8（与 v1 / 父 v2 同批叠加） |
+| 承载需求 | 父 spec **FR-V2-010~FR-V2-017** |
+| 依赖 | v1 全部状态源（`origin-store` / `capability-permissions` / `capability-setting` / `tabs-setting` / `auto-authorize` / `session-store` / `llm/key-store`+`status` / `declared-tools` / `policy` / base `deriveTools()` / `test/parity/baseline-catalog.json`） |
+| 建议进入阶段 | plan |
+
+## 2. 上下文与边界
+
+**为什么存在**：把插件当前对用户完全不可见的四维度（站点授权面 / 浏览器能力面 / CLI 命令档案面 / LLM 连接面）聚合为**单一可投影的树模型**（确定性「当前状态 → 树节点」映射与快照），供 V2-2/V2-3/V2-4 全部 UI 消费。**纯读、零副作用、不渲染 UI。**
+
+**边界（做什么 / 不做什么）**
+
+| ✅ 做什么 | ❌ 不做什么 |
+|-----------|-------------|
+| 四维度 → 四层分组（森林）模型：以「本插件」为根的四个并列分组，允许跨层引用 | 不改 `security/policy.ts` 判定链 / `PLUGIN_RISK_DEFAULTS` / `auto-authorize.ts` 4 条硬底线 |
+| 站点（已授权/未授权/trust）、能力（静态 + 可选 + 6 开关 + tabs 开关）、命令（工具·子命令·risk·`allow`/`ask`/`delay(=deny)`·来源·`delayMs`·抑制态）、LLM（configured/provider/model，零明文 key）+ 会话分组 | 不新增权限、不做 `<all_urls>`、不加重 `content.js` |
+| 确定性投影快照；命令集合对账（== `deriveTools()` + registry，**34 工具 / 142 子命令**） | 不碰 `packages/web-cli-base/**` |
+| `state` 消息面 **additive** 扩展 | 不渲染 UI（UI 归 V2-2）；不做任何写操作（归 V2-3） |
+| 空态/降级可读；零明文（无 key / 无剪贴板·通知内容） | 不做命令级策略覆盖（明确排除）；不把 `deny` 表达为可关状态 |
+
+## 3. 目标与非目标
+
+**Goals**：G1 四维度一眼可见的确定性投影模型；G2 命令/能力/站点集合与真值**不重不漏**；G3 零明文 + 零副作用 + additive 兼容。
+**Non-Goals**：NG1 不渲染 UI；NG2 不做写操作；NG3 不改判定链/不放宽门禁；NG4 不新增权限/依赖/注入；NG5 不做命令级覆盖。
+
+## 4. 功能需求
+
+> 本子 Feature **直接承载父 spec 的以下 FR**（权威条文见父 `spec.md §5.2`，逐条可测试；此处仅列范围）：
+
+| 父 FR | 一句话 | 子级验收补充 |
+|-------|--------|-------------|
+| FR-V2-010 | 四层分组（森林）模型（非严格树，如实说明） | 模型含四分组根 + 跨层引用字段；UI 提示「四维度分组，非严格树」 |
+| FR-V2-011 | 站点授权面投影（已授权/未授权/可取消授权 + trust） | 未授权站点**必须可见**；「可取消授权」态仅在 `authorized=true` |
+| FR-V2-012 | 能力面投影（静态 `permissions` + `optional_permissions` + 6 开关 + tabs 开关） | 静态权限项**不得**显示为「可撤销」 |
+| FR-V2-013 | 命令档案投影（档位 + risk + 来源 + `delayMs` + 抑制态） | 档位由 `PLUGIN_RISK_DEFAULTS` + S1/S2/S3 + 开关抑制态推导 |
+| FR-V2-014 | LLM 连接面投影（零明文 key）+ 会话分组 | 输出 == `LlmStatusSummary`；grep 零命中 key |
+| FR-V2-015 | 确定性 + 对账（不重不漏） | 双向集合等价 + 确定性快照 + 对齐 142 子命令基线 |
+| FR-V2-016 | 纯读、零副作用、`state` 消息 additive 兼容 | 投影前后存储 diff 为空、无审计新增 |
+| FR-V2-017 | 空态/降级可读 | ≥3 类空态可读文案；读失败可读降级 |
+
+## 5. 非功能需求
+
+| ID | 类别 | 需求 | 验收 |
+|----|------|------|------|
+| NFR-V21-001 | 零明文 | 投影不含 LLM key / 剪贴板内容 / 通知正文 / 页面数据 | grep 零命中；只记长度/路径等派生量 |
+| NFR-V21-002 | 零副作用 | 投影为纯读（不改存储、不触发操作、不写审计） | 前后 diff 为空断言 |
+| NFR-V21-003 | 确定性 | 同输入 → 同输出快照（可复现） | 两次投影一致断言 |
+| NFR-V21-004 | 可测试性 | 投影纯函数化、node 可单测 | 单测覆盖四维度 + 对账 + 空态 |
+| NFR-V21-005 | 体积 | 投影实现不新增 `content.js`；对 `sidepanel.js` 的增量纳入父级体积守卫（NFR-V2-001） | `content.js` ≤ 1,073,453 B |
+
+## 6. 边界情况
+
+| ID | 场景 | 处理 |
+|----|------|------|
+| EC-V21-001 | 无活跃站点/无 origin | 站点分组可读空态 + 下一步 |
+| EC-V21-002 | `chrome.storage` 读失败 | 可读降级，**不当作空/已撤销**（不放宽） |
+| EC-V21-003 | 命令集合与 `deriveTools()`/基线漂移 | 对账 FAIL，不掩盖 |
+| EC-V21-004 | risk 未知/非法/缺失 | 展示为 `deny`（S3 fail-closed） |
+| EC-V21-005 | LLM 未配置 | 可读空态 + 配置指引，不显示假连接 |
+| EC-V21-006 | 会话组解散/成员变更中的投影 | 会话键与成员列表正确；明示「分组≠授权」 |
+
+## 7. 验收标准
+
+| # | 验收项 | 验证方式 | 关联 |
+|---|--------|---------|------|
+| AC-V21-001 | 四维度投影字段与 v1 状态源真值一致 | node 单测（逐维度字段核对） | FR-V2-010~014 |
+| AC-V21-002 | 树命令集合 == `deriveTools()` + registry（不重不漏） | node 单测双向集合对账 | FR-V2-015 |
+| AC-V21-003 | 确定性快照（两次投影一致） | node 单测 | FR-V2-015 |
+| AC-V21-004 | 投影零明文（key/剪贴板/通知） | grep 断言 | NFR-V21-001 |
+| AC-V21-005 | 投影零副作用 + `state` 消息 additive 兼容 | 存储 diff + 回归断言 | FR-V2-016 |
+| AC-V21-006 | ≥3 类空态/降级可读 | node 单测 | FR-V2-017, EC-V21-001~005 |
+| AC-V21-007 | 与 142 子命令基线对齐 | 与 `test/parity.test.ts` 同源对账 | FR-V2-015 |
+
+## 8. 开放问题
+
+| # | 问题 | 状态 |
+|---|------|:--:|
+| 1 | 树模型的具体数据结构与投影实现（属 plan） | 归 plan（父 P-V2-01） |
+| 2 | 投影/消息面 additive 扩展的具体形态（属 plan） | 归 plan（父 P-V2-03） |
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | 初始创建（随父 Feature 立项；承载父 spec FR-V2-010~017） | 2026-09-13 | SDDU Spec Agent |

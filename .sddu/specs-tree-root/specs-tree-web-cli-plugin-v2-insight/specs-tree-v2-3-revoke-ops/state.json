@@ -1,0 +1,39 @@
+{
+  "feature": "V2-3 撤销与取消授权操作面（父：specs-tree-web-cli-plugin-v2-insight）",
+  "featureKey": "specs-tree-v2-3-revoke-ops",
+  "name": "V2-3 撤销与取消授权操作面——树内就地撤销（站点级 + 能力级 + 开关 + 自动授权关断 + LLM 断开 + 会话组）；撤销后可见后果三件套；安全红线只收紧不放宽",
+  "phase": "specified",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v2-insight",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-13",
+  "updatedAt": "2026-09-13",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v2-insight 立项的叶子子 Feature（P0，P0 闭环第三环：可操作）。承载父 spec FR-V2-030~FR-V2-040 + 安全红线 FR-V2-060~FR-V2-065：站点取消授权（removeOriginPermission + OriginStore.revoke + content-script 注销 + 对账）/ 可选能力单能力撤销（removeCapabilityPermission + onRemoved 对账 + capability-changed）/ 隐私开关 / 按 origin 自动授权关断 / LLM 断开 / 会话组解散；撤销后可见后果三件套（回执 + 工具面已移除证据 + 审计入口 admin_audit-export）；静态 permissions 不可逐项撤销如实披露。含安全复核：撤销路径不得成为放宽门禁的旁路。",
+  "scope": {
+    "in": [
+      "站点级 + 能力级撤销（作者裁决⑤），只调用既有 ops",
+      "隐私开关翻转（capability-setting 6 开关 + tabs-setting）；按 origin 自动授权关断（autoAuth.clear）；LLM 断开（key-store 清除）；会话组解散（session-store）",
+      "撤销后可见后果三件套：回执（成功/失败原因可读）+ 工具面已移除证据 + 审计入口",
+      "撤销/取消授权即时从 deriveTools() 移出；无静默失败/假成功；静态权限不可撤销如实披露",
+      "安全红线：只收紧不放宽（riskDefaults / 4 硬底线 / clipboard read state 档永不自动放行 / bookmarks remove 不纳入自动授权）+ 反向断言"
+    ],
+    "out": [
+      "不做命令级策略覆盖（作者未选，明确排除）",
+      "不新增权限、不放宽硬底线；不做静态 permissions 假撤销",
+      "不引入静默失败/假成功；不改 policy 判定链/auto-authorize 硬底线"
+    ]
+  },
+  "covers": ["FR-V2-030", "FR-V2-031", "FR-V2-032", "FR-V2-033", "FR-V2-034", "FR-V2-035", "FR-V2-036", "FR-V2-037", "FR-V2-038", "FR-V2-039", "FR-V2-040", "FR-V2-060", "FR-V2-061", "FR-V2-062", "FR-V2-063", "FR-V2-064", "FR-V2-065"],
+  "artifacts": ["spec.md"],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/TREE.md"
+  },
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.4 与 §5.6；本子级 spec.md 含安全红线反向断言验收（AC-V23-004）。FR-V2-034/035/040 标 P1（建议值待作者确认）。下一步 @sddu-plan（含安全复核）。",
+  "status": "tracked",
+  "phaseNote": "spec 阶段完成（2026-09-13，sddu-spec）；下一步 @sddu-plan（含安全复核）。"
+}

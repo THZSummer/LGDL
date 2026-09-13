@@ -1,0 +1,95 @@
+{
+  "feature": "web-cli-plugin v2「any insight」（F-27，v0.8 同一版本位内第二 Feature，同批叠加；作者要求 2026-09-13）",
+  "featureKey": "specs-tree-web-cli-plugin-v2-insight",
+  "name": "web-cli-plugin v2「any insight」——把插件当前对用户完全不可见的四维度连接状态与全部 CLI 命令处置档，聚合到一棵可就地操作的悬浮连接树里（主题：把能力变得可见/可控）",
+  "phase": "specified",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 1,
+  "childrens": [
+    {
+      "featureKey": "specs-tree-v2-1-connect-tree-model",
+      "name": "V2-1 连接树数据模型与状态投影",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/",
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "covers": "FR-V2-010~FR-V2-017",
+      "role": "四维度 → 单一可投影树模型的确定性快照；纯读、零副作用、零明文；不渲染 UI"
+    },
+    {
+      "featureKey": "specs-tree-v2-2-floating-tree-ui",
+      "name": "V2-2 悬浮连接树 UI 与交互",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-2-floating-tree-ui/",
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "covers": "FR-V2-020~FR-V2-025",
+      "role": "侧栏常驻悬浮入口 + 树抽屉（四维度导航 / 检索过滤 / 状态徽标 / 操作简单）；不遮挡 composer、消息区高度不回退、窄侧栏零水平溢出"
+    },
+    {
+      "featureKey": "specs-tree-v2-3-revoke-ops",
+      "name": "V2-3 撤销与取消授权操作面",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-3-revoke-ops/",
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "covers": "FR-V2-030~FR-V2-040 + FR-V2-060~FR-V2-065",
+      "role": "树内就地撤销（站点级 + 能力级 + 开关 + 自动授权关断 + LLM 断开 + 会话组）；撤销后可见后果三件套（回执 + 工具面证据 + 审计入口）；安全红线只收紧不放宽"
+    },
+    {
+      "featureKey": "specs-tree-v2-4-command-archive",
+      "name": "V2-4 命令档案浏览器",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/",
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P1",
+      "covers": "FR-V2-050~FR-V2-056",
+      "role": "34 工具 / 142 子命令逐条有档（allow / ask / delay(=deny) + risk + 来源 + delayMs + 抑制态）；deny 三成因分列可读；与 parity 同源机器对账"
+    }
+  ],
+  "createdAt": "2026-09-13",
+  "updatedAt": "2026-09-13",
+  "description": "web-cli-plugin v2「any insight」的需求规范（spec 阶段，作者批准从 spec 直接切入、跳过 discovery）。立项来源 = 作者要求 2026-09-13（主题 any insight；原始诉求逐字留存于 ROADMAP §二 v0.8「F-27」小节与父 spec.md §2.1）+ 作者五项口径裁决 2026-09-13。上游/底座 = v1 `specs-tree-web-cli-plugin`（phase=validated / status=tracked，**只读参与、不改写**）——v2 本质是只读投影 + 聚合 + 侧栏悬浮 UI + 就地调用既有 ops；零新权限、零注入、不碰 packages/web-cli-base/**、无新依赖。结构（作者确认）= 父 Feature（轻量规范容器，不执行 tasks/build/review/validate）+ 4 个叶子子 Feature。",
+  "scope": {
+    "in": [
+      "V2-1 连接树数据模型与状态投影：四维度（站点授权面 / 浏览器能力面 / CLI 命令档案面 / LLM 连接面）聚合为四层分组（森林）模型的确定性投影；复用 v1 状态源；命令集合对账（== deriveTools() + registry，34 工具 / 142 子命令）；零明文；state 消息 additive 兼容",
+      "V2-2 悬浮连接树 UI 与交互：侧栏常驻悬浮入口 + 树抽屉；四维度层级导航 / 状态徽标 / 检索过滤 / 操作简单；侧栏布局回归量化（composer 未遮挡 / 消息区高度不回退 / 窄侧栏零水平溢出）；不做页面注入悬浮层、不放进设置面板",
+      "V2-3 撤销与取消授权操作面：站点取消授权（removeOriginPermission + OriginStore.revoke + content-script 注销 + 对账）/ 可选能力单能力撤销（removeCapabilityPermission + onRemoved 对账 + capability-changed）/ 隐私开关（capabilitySetting 6 开关 + tabs-setting）/ 按 origin 自动授权关断（autoAuth.clear）/ LLM 断开（key-store 清除）/ 会话组解散（session-store）；撤销后可见后果三件套（回执 + 工具面已移除证据 + 审计入口 admin_audit-export）；静态 permissions 不可逐项撤销如实披露",
+      "V2-4 命令档案浏览器：34 工具 / 142 子命令逐条有档（allow / ask / delay(=deny) + risk 档 + 来源 + delayMs + 抑制态）；deny 三成因（S1 未授权 / S3 未知或非法 risk / evaluate 硬底线）+ auto-authorize hardDeny 分列可读；与 test/parity.test.ts 同源机器对账；delay 撞词消歧文案；可检索/过滤",
+      "安全红线：树是可见性 + 撤销面、不是提权面；撤销/关断只调用既有 fail-closed 通路，永不放宽 riskDefaults / 4 条硬底线 / clipboard read state 档永不自动放行 / bookmarks remove 不纳入自动授权；反向断言钉死；零明文",
+      "体积与布局守卫：sidepanel.js 基线回归守卫（基线 ≠ 目标预算；只吞 ENOENT；反证自测）；content.js 不增长（不触碰 NFR-007 未达成项 D31）"
+    ],
+    "out": [
+      "命令级策略覆盖（作者裁决⑤未选，明确排除；未来须单开 Feature + 安全评审）",
+      "静态 permissions 逐项撤销（Chrome 需停用/卸载扩展，技术不可行；只做隐私开关 + 如实披露，不假装可撤销）",
+      "页面注入悬浮层（作者裁决②未选；与 v1 无 <all_urls> / 无静态 content_scripts 红线冲突）",
+      "树内改绑 LLM 配置写路径（v1 侧栏已能配置；v2 默认只做可见 + 断开；改绑入树需作者另行批准）",
+      "重写框架 / 改 policy 判定链 / 改 riskDefaults / 改 4 硬底线 / 改 packages/web-cli-base/**",
+      "改 options.html / 设置面板重构 / 推翻 v1 TASK-033 决策",
+      "解决 v1 遗留未达成项（content.js 1.07MB 超 64KB、options.html 未薄壳化）",
+      "新增依赖 / 新增权限 / <all_urls> / 静态 content_scripts",
+      "合 main / 发布 / force push / git add -A / 改 .opencode/opencode.json",
+      "修改 v1 的任何文件（specs-tree-web-cli-plugin/** 只读）"
+    ]
+  },
+  "artifacts": [
+    "spec.md"
+  ],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/TREE.md"
+  },
+  "notes": "spec 阶段完成（2026-09-13，sddu-spec）：作者批准从 spec 阶段直接切入（跳过 discovery），以 ROADMAP §二 v0.8「F-27」小节为一手输入（作者原始诉求逐字引文 + 五项口径裁决 2026-09-13 + 可投影面清单），并逐文件核实 v1 状态源。产出 spec.md v1.0——编号 FR-V2-001~FR-V2-065（GOV 5 / TREE 8 / UI 6 / OPS 11 / ARC 7 / SEC 6，实际 43 条 FR）、NFR-V2-001~010、EC-V2-001~016、AC-V2-001~012，**与 v1 FR-001~FR-055 / NFR-001~010 / EC-001~026 / AC-001~012 零冲突**。作者确认的 5 项开放点（森林形态 / delay 同处并标 / 撤销后果三件套含审计 / 命名 specs-tree-web-cli-plugin-v2-insight / 父+4 叶子子 Feature）已全部落成条文。安全红线落成 FR-V2-060~065 + 反向断言 AC-V2-005；侧栏回归量化断言 AC-V2-002；体积基线守卫 NFR-V2-001 + AC-V2-006。v1 记录保护：specs-tree-web-cli-plugin 保持 phase=validated / status=tracked 原样不动。父 Feature 为轻量规范容器，不执行 tasks/build/review/validate。本任务只写需求规范（spec 层）：不写技术方案（ADR 留给 plan）、不写代码、不排任务。",
+  "status": "tracked",
+  "phaseNote": "spec 阶段完成（2026-09-13，sddu-spec）：父 Feature + 4 叶子子 Feature 立项并产出需求规范；下一步 @sddu-plan。"
+}

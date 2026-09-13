@@ -1,0 +1,39 @@
+{
+  "feature": "V2-4 命令档案浏览器（父：specs-tree-web-cli-plugin-v2-insight）",
+  "featureKey": "specs-tree-v2-4-command-archive",
+  "name": "V2-4 命令档案浏览器——34 工具 / 142 子命令逐条有档（allow / ask / delay(=deny) + risk + 来源 + delayMs + 抑制态）；deny 三成因分列可读；与 parity 同源机器对账",
+  "phase": "specified",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v2-insight",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-13",
+  "updatedAt": "2026-09-13",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v2-insight 立项的叶子子 Feature（P1，v2 后段；作者点名的四维度之一但纯展示、工作量大）。承载父 spec FR-V2-050~FR-V2-056：对账基线 34 工具 / 142 子命令逐条有档（allow / ask / delay(=deny) + risk 档 + 来源 + delayMs + 抑制态）；deny 三成因（S1 未授权 / S3 未知或非法 risk fail-closed / evaluate 硬底线）+ auto-authorize hardDeny 分列可读；与 test/parity.test.ts 同源机器对账（新增/丢失即失败）；delay 撞词消歧文案；可检索/过滤。",
+  "scope": {
+    "in": [
+      "34 工具 / 142 子命令逐条有档（覆盖率 100%）：allow / ask / delay(=deny) + risk 档 + 来源 + delayMs + 抑制态",
+      "deny 三成因分列可读（未授权 S1 / 未知或非法 risk S3 fail-closed / evaluate 硬底线）+ auto-authorize hardDeny",
+      "与 test/parity.test.ts 同源机器对账（双向 + 子命令级，新增/丢失命令即失败）",
+      "delay 撞词消歧文案：delay（= deny，fail-closed，非可配置档位；与命令间 delayMs 无关）",
+      "来源标注（base 内建 / site_* / 插件 admin_*·tabs·bookmarks·downloads·notify·clipboard）；抑制态标注；可检索/过滤"
+    ],
+    "out": [
+      "不把 deny 渲染成用户可关的开关（fail-closed 不可放宽）",
+      "不做命令级覆盖（作者未选）",
+      "不预设站点 runtime 行为（档案只读真值）；不改判定链/不放宽门禁/不新增权限"
+    ]
+  },
+  "covers": ["FR-V2-050", "FR-V2-051", "FR-V2-052", "FR-V2-053", "FR-V2-054", "FR-V2-055", "FR-V2-056"],
+  "artifacts": ["spec.md"],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-4-command-archive/TREE.md"
+  },
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.5；本子级 spec.md 含 delay 消歧红线文案与 parity 同源对账验收。P1 后段（不阻塞 P0 闭环）。下一步 @sddu-plan。",
+  "status": "tracked",
+  "phaseNote": "spec 阶段完成（2026-09-13，sddu-spec）；下一步 @sddu-plan。"
+}

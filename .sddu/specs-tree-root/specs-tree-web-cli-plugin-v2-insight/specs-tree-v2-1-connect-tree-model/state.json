@@ -1,0 +1,41 @@
+{
+  "feature": "V2-1 连接树数据模型与状态投影（父：specs-tree-web-cli-plugin-v2-insight）",
+  "featureKey": "specs-tree-v2-1-connect-tree-model",
+  "name": "V2-1 连接树数据模型与状态投影——四维度聚合为单一可投影树模型的确定性快照；纯读、零副作用、零明文；不渲染 UI",
+  "phase": "specified",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v2-insight",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-13",
+  "updatedAt": "2026-09-13",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v2-insight 立项的叶子子 Feature（P0，P0 闭环第一环）。承载父 spec FR-V2-010~FR-V2-017：四层分组（森林）树模型；站点/能力/命令/LLM 四维度投影；命令集合对账（== deriveTools() + registry，34 工具 / 142 子命令）；确定性快照；零明文；state 消息 additive 兼容；空态/降级可读。",
+  "scope": {
+    "in": [
+      "四维度 → 四层分组（森林）模型（以本插件为根的四并列分组，允许跨层引用，如实说明非严格树）",
+      "站点授权面投影（已授权/未授权/可取消授权 + trust）",
+      "能力面投影（静态 permissions + optional_permissions + 6 开关 + tabs 开关）",
+      "命令档案投影（工具·子命令·risk·allow/ask/delay(=deny)·来源·delayMs·抑制态）",
+      "LLM 连接面投影（configured/providerId/providerName/model，零明文 key）+ 会话分组",
+      "确定性投影快照；命令集合对账（不重不漏，对齐 142 子命令基线）",
+      "state 消息面 additive 扩展；空态/降级可读；零明文"
+    ],
+    "out": [
+      "不改 policy.ts 判定链 / PLUGIN_RISK_DEFAULTS / auto-authorize.ts 4 条硬底线",
+      "不新增权限；不做 <all_urls>；不加重 content.js；不碰 packages/web-cli-base/**",
+      "不渲染 UI（归 V2-2）；不做任何写操作（归 V2-3）；不做命令级策略覆盖"
+    ]
+  },
+  "covers": ["FR-V2-010", "FR-V2-011", "FR-V2-012", "FR-V2-013", "FR-V2-014", "FR-V2-015", "FR-V2-016", "FR-V2-017"],
+  "artifacts": ["spec.md"],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/specs-tree-v2-1-connect-tree-model/TREE.md"
+  },
+  "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.2；本子级 spec.md 只做范围收缩与子级验收补充（NFR-V21-001~005 / EC-V21-001~006 / AC-V21-001~007）。下一步 @sddu-plan。",
+  "status": "tracked",
+  "phaseNote": "spec 阶段完成（2026-09-13，sddu-spec）；下一步 @sddu-plan。"
+}
