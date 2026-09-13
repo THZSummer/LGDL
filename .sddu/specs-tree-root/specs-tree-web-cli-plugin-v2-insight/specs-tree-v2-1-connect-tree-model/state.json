@@ -2,9 +2,9 @@
   "feature": "V2-1 连接树数据模型与状态投影（父：specs-tree-web-cli-plugin-v2-insight）",
   "featureKey": "specs-tree-v2-1-connect-tree-model",
   "name": "V2-1 连接树数据模型与状态投影——四维度聚合为单一可投影树模型的确定性快照；纯读、零副作用、零明文；不渲染 UI",
-  "phase": "builded",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v2-insight",
   "childrens": [],
@@ -58,7 +58,7 @@
   },
   "notes": "叶子子 Feature（可独立走 SDDU 全流程）。spec 阶段完成（2026-09-13，sddu-spec）。权威需求条文见父 spec.md §5.2；本子级 spec.md 只做范围收缩与子级验收补充（NFR-V21-001~005 / EC-V21-001~006 / AC-V21-001~007）。下一步 @sddu-plan。 plan 阶段完成（2026-09-13，sddu-plan）：plan.md + ADR-V2-001~015 已产出（ADR 集中登记于父 plan.md §8）；phase specified→planned；6 开放点与 O-V2-001~005 裁决已登记（编排器代作者决策，2026-09-13 授权）。 tasks 阶段完成（2026-09-13，sddu-tasks）：产出 tasks.md + tasks.json。 build 阶段完成（2026-09-13，sddu-build）：Wave 1~5 全部 9 任务实现；新增 src/insight/{tree-model,capability-catalog,command-catalog,catalog-reconcile,project-tree,build-snapshot}.ts + src/background/insight-protocol.ts；additive 接线 state-message/messaging/service-worker/host(delayConfig)；新增 4 门禁测试文件（36 测试）。插件 npm test 561 通过（v1 525 零删减 + 36 新增）；typecheck 0 error；零新权限 / content.js 1,073,453 B 零增长 / sidepanel 1,068,165 B 零增长；policy.ts/auto-authorize.ts/manifest.json/test-parity/packages/web-cli-base 零 diff；父 spec 最小订正 FR-V2-023 与 §2.5 的 65.5% 残留（→589px 主 + 65.0% 次，ADR-V2-006）。本轮未跑 Chromium 门禁（零 UI 改动，留 V2-2/V2-3）。 validate R1 完成（2026-09-13，sddu-validate）：对 V2-1/V2-2/V2-3 三个 P0 叶子做动手验证（区间 9f55d1b..ccf621d），产出父目录 validate-report.md（V1~V18 场景 / AC-V2-001~012 逐条 / 8 门禁串行实跑 / 反证实跑 / 安全面 / W1~W6 复核）。实跑全绿：tsc 0 error；插件 npm test 616/616·0 fail；test:insight 52 断言；test:ui 167；test:hardening 24；test:binding 180；test:e2e PASS；全仓 npm test 1599 tests/0 fail（base 483 零回归）。反证实跑：篡改 policy.ts(+1 空格)→W3 内容哈希冻结 FAIL→完整还原；dist content/sidepanel +1B→size-budget FAIL→还原；删 parity 基线 dom→V2 catalog+v1 parity 双双 FAIL→还原；工作区收尾 clean。结论 ✅ 通过（0 阻塞；3 低龄文档/副作用偏差）。叶子保持 builded，未推进 phase。",
   "status": "tracked",
-  "phaseNote": "build 阶段完成（2026-09-13，sddu-build，编排器代作者决策 2026-09-13 授权）：Wave 1~5 / TASK-001~009 全部实现。T001 类型层 tree-model.ts（森林/四层分组、命名空间稳定键 site:/cap:static:/cap:opt:/toggle:/cmd:/cmd:#sub/llm:/session:/link:、crossLinks、V2-4 预留 cardId/denyCause/sourceKind/facets/catalogMeta/version）+ capability-catalog.ts（静态权限 revocable:false、4 可选能力、6 开关+tabs）。T002 command-catalog.ts（逐条有档 action/denyCause/sourceKind/delayMs 与 action 分列/suppressed/cardId；deny ⇒ controls:[]）。T003 catalog-reconcile.ts（单基线文件+双向对账+同源锚定；不重构 v1 test/parity/**）。T004 project-tree.ts（纯投影+固定排序+规范 JSON+FNV-1a 纯哈希 builtAt 不进 hash+空态降级 ≥3）。T005 build-snapshot.ts + additive 消息面（insight-tree pull / insight-changed push / state.insight? 小摘要）+ host.delayConfig() 只读 accessor。T006~T009 四门禁：insight-projection / insight-determinism / insight-catalog（34 工具 / 142 子命令双向等价+反证+同源锚定）/ insight-no-escalation（基础段：src/insight/** 无 chrome/apiKey/写 store/bare catch + policy pinned + 禁改面 git diff 零）。门禁：npm run typecheck 0 error；插件 npm test 561 pass（v1 既有 525 零删减 + 新增 36）；content.js 1,073,453 B 零增长（为守此红线，insight-* kind 不入共享 KIND_SET，改由 src/background/insight-protocol.ts 独立校验，记 D-V21-03）；sidepanel.js 1,068,165 B 零增长。本轮零 UI 改动，Chromium 类门禁（test:ui/binding/hardening/e2e）未跑，留 V2-2/V2-3 串行收口。 review R1 完成（2026-09-13，sddu-review）：见父 review-report.md（C1~C22；⚠️ 有条件通过 0 阻塞）；phase 保持 builded。",
+  "phaseNote": "build 阶段完成（2026-09-13，sddu-build，编排器代作者决策 2026-09-13 授权）：Wave 1~5 / TASK-001~009 全部实现。T001 类型层 tree-model.ts（森林/四层分组、命名空间稳定键 site:/cap:static:/cap:opt:/toggle:/cmd:/cmd:#sub/llm:/session:/link:、crossLinks、V2-4 预留 cardId/denyCause/sourceKind/facets/catalogMeta/version）+ capability-catalog.ts（静态权限 revocable:false、4 可选能力、6 开关+tabs）。T002 command-catalog.ts（逐条有档 action/denyCause/sourceKind/delayMs 与 action 分列/suppressed/cardId；deny ⇒ controls:[]）。T003 catalog-reconcile.ts（单基线文件+双向对账+同源锚定；不重构 v1 test/parity/**）。T004 project-tree.ts（纯投影+固定排序+规范 JSON+FNV-1a 纯哈希 builtAt 不进 hash+空态降级 ≥3）。T005 build-snapshot.ts + additive 消息面（insight-tree pull / insight-changed push / state.insight? 小摘要）+ host.delayConfig() 只读 accessor。T006~T009 四门禁：insight-projection / insight-determinism / insight-catalog（34 工具 / 142 子命令双向等价+反证+同源锚定）/ insight-no-escalation（基础段：src/insight/** 无 chrome/apiKey/写 store/bare catch + policy pinned + 禁改面 git diff 零）。门禁：npm run typecheck 0 error；插件 npm test 561 pass（v1 既有 525 零删减 + 新增 36）；content.js 1,073,453 B 零增长（为守此红线，insight-* kind 不入共享 KIND_SET，改由 src/background/insight-protocol.ts 独立校验，记 D-V21-03）；sidepanel.js 1,068,165 B 零增长。本轮零 UI 改动，Chromium 类门禁（test:ui/binding/hardening/e2e）未跑，留 V2-2/V2-3 串行收口。 review R1 完成（2026-09-13，sddu-review）：见父 review-report.md（C1~C22；⚠️ 有条件通过 0 阻塞）；phase 保持 builded。 第 10 轮 phase 收口（2026-09-13，sddu-build 代行，编排器代作者决策（2026-09-13 授权））：phase builded→reviewed→validated（逐级记录，最终 validated），status 保持 tracked（不合 main、不发布）。review R1 = ⚠️ 有条件通过（0 阻塞；父 review-report.md，commit 39cd0a1）；validate R1 = ✅ 通过（0 阻塞；父 validate-report.md，区间 9f55d1b..ccf621d）；修复轮 = 2f9b2ff / 26a5ca6 / ccf621d。人工面 V2-H-A~D / V2-H-1~6 未执行（headless 不可合成，未冒充 PASS，登记见父 build.md）；T1 缺口（树侧能力撤销成功路径，headless permissions.request=PENDING_TIMEOUT）如实登记。",
   "fixRound": {
     "round": "R2",
     "date": "2026-09-13",
@@ -94,6 +94,37 @@
       "manifest.json",
       "specs-tree-web-cli-plugin/**（v1 SDDU）"
     ]
+  },
+  "closeout": {
+    "round": "P0 收口（第 10 轮）",
+    "date": "2026-09-13",
+    "authorization": "编排器代作者决策（2026-09-13 授权）",
+    "phaseTransition": "builded → reviewed → validated（逐级记录，最终 validated）",
+    "review": {
+      "round": "R1",
+      "verdict": "⚠️ 有条件通过（0 阻塞）",
+      "artifact": "父 review-report.md",
+      "commit": "39cd0a1"
+    },
+    "validate": {
+      "round": "R1",
+      "verdict": "✅ 通过（0 阻塞）",
+      "artifact": "父 validate-report.md",
+      "commitRange": "9f55d1b..ccf621d"
+    },
+    "fixRound": "2f9b2ff / 26a5ca6 / ccf621d",
+    "gates": {
+      "typecheck": "0 error",
+      "pluginNpmTest": "616/616 · 0 fail",
+      "testInsight": "52 断言 PASS",
+      "testUi": "167 断言（v1 零删减）",
+      "testHardening": "24",
+      "testBinding": "180 断言",
+      "testE2e": "PASS",
+      "repoNpmTest": "1599 tests / 1598 pass / 0 fail / 1 skip（base 483 零回归）"
+    },
+    "humanFaces": "V2-H-A~D / V2-H-1~6 未执行；T1 缺口（树侧能力撤销成功路径，headless permissions.request=PENDING_TIMEOUT）如实登记 —— 见父 build.md",
+    "merge": "不合入 main、不发布（作者：只审验）"
   },
   "taskCount": 9,
   "waveCount": 5,
