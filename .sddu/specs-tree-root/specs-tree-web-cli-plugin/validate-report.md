@@ -646,10 +646,207 @@
 
 ---
 
+## R4 验证（2026-09-13，post-validate 增补轮 TASK-017~040 / 提交区间 `b3629a6..339f84a`）
+
+> **范围**：post-validate 增补轮（TASK-017~040）。**基线语义改动一并纳入验证**：`tabs` 放开 `close`（反转 FR-049）、`chrome` 文案包装 + 真实像素截图 + 整页拼接 + 原生 back/forward、`events` 桥 4→10 op、`host.ts` `onAsk` 自动授权接缝、四能力可选权限（bookmarks/downloads/notify/clipboard）。
+> **基线**：分支 `feature/web-cli-plugin`，HEAD = `339f84a`；验证全程工作区 clean（`git status -sb` 空）。
+> **方法（本仓库曾 OOM → 门禁严格串行、绝不并发）**：本 Agent 独立**动手执行**（不引用 build/review 声明）——按 `tsc --noEmit` → 插件 `npm test` → `test:hardening` → `test:ui` → `test:binding` → `test:e2e` → 全仓 `npm test` 逐项串行复跑，每项确认退出后再跑下一项；另在 gitignore 的 `dist-test/` 生成物上做了一次**对账门禁反证实跑**（注入未登记工具→FAIL→完整还原）。日志与备份存 `/tmp/sddu-validate-web-cli-plugin-r4-20260913-123357/`。
+> **环境**：可用内存仅 ~1.5Gi（7.2Gi 总量、无 swap）——故**不并发**、逐项串行，全部门禁本轮**均未 OOM/未被杀/未超时**。
+
+### R4-1. 验证概要
+
+| 维度 | 数值 |
+|------|:--:|
+| 验证场景 | 24（V-R4-1 ~ V-R4-24，五维度 + 安全面全覆盖） |
+| 通过 | 23 |
+| 失败 | 1（V-R4-23：NFR-007 `content.js` 预算超标 + 守卫测试虚绿，**非阻塞**） |
+| 无法执行 | 0（真实手势/授权弹窗/原生 `goBack` 仍为**人工面**，单列 R4-12，非场景失败） |
+| 阻塞问题 | **0** |
+| 新增非阻塞发现 | **1**（NFR-007 content bundle 守卫虚绿，见 R4-11） |
+| review R5 遗留文档漂移 | 4（仍在，见 R4-10） |
+
+### R4-2. 门禁实跑结果（本 Agent 实测原文摘要，逐条串行）
+
+| # | 门禁 | 命令 | 退出码 | 实测原文摘要 |
+|:--:|------|------|:--:|------|
+| G1 | 插件类型检查 | `npm run typecheck --workspace @lgdl/web-cli-plugin` | **0** | `tsc --noEmit`，0 error |
+| G2 | 插件单测/安全 | `npm run test --workspace @lgdl/web-cli-plugin` | **0** | `ℹ tests 523 / pass 523 / fail 0 / skipped 0`（duration 60441ms） |
+| G3 | 加固场景 | `npm run test:hardening --workspace @lgdl/web-cli-plugin` | **0** | `hardening PASS — 24 assertions`（A 非扩展守卫 / B 未声明协议说明 / C 未重载构建不一致；C#4 默认跳过） |
+| G4 | 真实 UI 旅程 | `npm run test:ui --workspace @lgdl/web-cli-plugin` | **0** | `UI journey PASS — 167 assertions`（全新 profile + 真实 dist + 真实键入/点击；含 #16 会话/close、#18 自动授权三态） |
+| G5 | 真站点绑定 | `npm run test:binding --workspace @lgdl/web-cli-plugin` | **0** | `binding PASS — 163 assertions`（真实 `http://localhost:5173` + mock LLM；阶段 0 真实 `permissions.remove` + 阶段 1 全链 + #7 tabs + #54 可选权限） |
+| G6 | 真实 dist 全链 E2E | `npm run test:e2e --workspace @lgdl/web-cli-plugin` | **0** | `R8 E2E PASS — real dist full chain: fixture (AC-010) + LGDL Workbench (AC-009)` |
+| G7 | 全仓回归 | `npm test`（root，`--workspaces`） | **0** | `TOTAL 1506 tests / 1505 pass / 0 fail / 1 skip`：core 267 · render 94(+1skip) · router 8 · lgdl-web 31 · web-cli 84 · op-cli 15 · **base 483** · **plugin 523** |
+
+> **无 OOM / 无被杀 / 无超时**：7 项门禁均正常退出；未出现需要重试或循环的情形。
+
+### R4-3. V-R4 场景逐条结果
+
+| # | 验证对象 | 验证步骤 | 预期结果 | 实测结果 | 判定 |
+|---|---------|---------|---------|---------|:--:|
+| V-R4-1 | 插件类型 | `tsc --noEmit` | 0 error | 退出码 0，0 error | ✅ |
+| V-R4-2 | 插件单测/安全面 | 插件 `npm test` | 0 fail | **523 pass / 0 fail** | ✅ |
+| V-R4-3 | 加固三维 | `test:hardening` | 断言全过 | **24 assertions PASS**（A/B/C） | ✅ |
+| V-R4-4 | 真实 UI 旅程 | `test:ui` | 0 异常 | **167 assertions PASS**，侧栏/options 0 未捕获异常、0 console error | ✅ |
+| V-R4-5 | 真站点全链 | `test:binding` | 6 步全链 | **163 assertions PASS**（真实 dist + 真实站点 + mock LLM） | ✅ |
+| V-R4-6 | 真实 dist E2E | `test:e2e` | 场景 A/B PASS | **PASS**（A fixture 全链 + B Workbench） | ✅ |
+| V-R4-7 | 全仓回归 | root `npm test` | 0 fail；base 483 | **1506 tests / 0 fail / 1 skip**；base **483** 零回归；plugin **523** | ✅ |
+| V-R4-8 | FR-047 自动探测 | 单测 `registry: reconcile…`/`auto-probe` + binding 阶段 2 | 声明式注入 + 免点图标绑定 + 对账 | binding `#A1~#A5`：授权后 `registerContentScripts` 命中 `http://localhost:5173/*`、`persistAcrossSessions=true`、页面加载自上报 `hello` 免点图标绑定、切页按 `tab.url` 重绑；未授权新域名零注入 | ✅ |
+| V-R4-9 | FR-048 多会话 | 单测 session-* + UI `#16a~#16p` | 按 origin 共享 / 不串台 / 分组≠授权 | 单测 33 条 session 断言；UI `#16c` 会话以域名（alpha/beta）为键、`#16e/#16g` 双向隔离不串台、`#16i` 文案「分组不等于授权」、`#16m` 未授权新域名切会话≠授权 | ✅ |
+| V-R4-10 | FR-049/053 tabs（含 close） | 单测 tabs-tools + UI `#16p~#16t` + binding `#7a~#7t` | list/switch/open/mute/pin/move/close；risk 表；close write→ask + 单标签页 + 禁批量 + 不可逆摘要 | 单测 `tabs: close exists with write→ask…`、`tabs: mutating subcommands reject --all`；UI `#16p~#16s` close 二次确认 + 摘要含「不可逆」+ 标题/去参 URL + 零明文；binding `#7o2/#7n2/#7q2` 真实 move/pin/close 生效、`#7s` `--all` 可读拒绝、`#7r2` 审计零明文 | ✅ |
+| V-R4-11 | FR-050 web-fetch seam | 单测 17 条 + binding web-fetch | 未授权零请求 + 可读拒绝 + 同源页面上下文 | 单测 `FR-050/EC-023: unauthorized … ZERO fetch calls`、`same-origin read prefers the page context`；binding 未授权域名真实目标服务器零命中 | ✅ |
+| V-R4-12 | FR-051 对账 + 浏览器能力 | `parity.test.ts`(8) + browser-tools/dom/fullpage/real-screenshot/remote-events + e2e | 双向子命令级门禁 + dom/chrome(screenshot)/events | 单测 8 条 parity 全过 + 62 条 browser/dom/chrome/screenshot 断言；e2e `captureVisibleTab` 返回真实 PNG dataURL（113698B） | ✅ |
+| V-R4-13 | FR-052 按 origin 自动授权 | 单测 auto-authorize + UI `#18i~#18p` | 读默认开/写默认关；硬底线；持久化 | 单测 `auto-authorize decision: write auto allows non-destructive write only`；UI `#18j` 默认值正确、`#18k` 文案含硬底线、`#18o` 刷新后持久、`#18p` 一键关闭即时恢复 | ✅ |
+| V-R4-14 | FR-054 bookmarks/downloads | 单测 36 条 + binding `#54B1~#54B10` + e2e | optional_permissions + 用时请求；remove 破坏性；downloads 只读 | 单测 36 条 FR-054 断言；binding 真实 `chrome.bookmarks` 读/删、`#54B4` remove 二次确认含标题+不可逆、`#54B8` **写自动开仍弹确认**、`downloads search` 只读；e2e 同 | ✅ |
+| V-R4-15 | FR-055 notify/clipboard | 单测 32 条 + binding `#54B11~#54B14` + e2e | optional；clipboard 读 state 永不放行；零明文 | 单测 32 条；binding `#54B13` `getPermissionLevel()=granted`、`#54B14` 扩展页 `navigator.clipboard` 可达、真实往返观测 `ok:wc-clip-probe`；e2e 真实 notify/clipboard 写入路径 | ✅ |
+| V-R4-16 | 安全四条 hard floor | 见 R4-4 | 全部 fail-closed | 4/4 实跑 PASS（见 R4-4） | ✅ |
+| V-R4-17 | 两条「自动开启仍 ask」 | 见 R4-4 | 破坏性/state 档不被自动放行 | 2/2 实跑 PASS（见 R4-4） | ✅ |
+| V-R4-18 | 撤销后移出工具面 | binding `#0j~#0o` | 真实 `permissions.remove` → `deriveTools` 移除 + 审计 | 真实 dist 未改 manifest 下 `#0j` bookmarks 未授予→`#0l` 真实 `permissions.remove` 解析 true→`#0n` 撤销对账后**工具面不再含 bookmarks（从 `deriveTools` 移除）**+`#0o` `optional-permission/revoked` 审计 | ✅ |
+| V-R4-19 | 权限面核验 | `manifest.json` 静态比对 | 静态 `permissions` 零新增；未批权限零出现 | 见 R4-5 | ✅ |
+| V-R4-20 | 对账门禁有效性 + 反证 | `parity.test.ts` + 注入反证 | 门禁真会失败 | 8/8 PASS + 反证实跑（见 R4-6） | ✅ |
+| V-R4-21 | 审计零明文 | 单测 SECRET + binding/e2e | 剪贴板/通知/URL/书签标题不出现明文 | 单测 `FR-054 bookmarks audit: zero plaintext`、`FR-055 confirm scrub…`；binding `#7p3/#7r2/#54B5`；e2e 审计 136+9 事件 | ✅ |
+| V-R4-22 | 红线核验 | `git diff` / grep | base 零改动 / 无新依赖 / 无明文 key / opencode.json 未提交 / main 未动 | 见 R4-9 | ✅ |
+| V-R4-23 | NFR-007 content bundle 预算 | 实跑 `content.js` 体积 + 隔离跑 `perf-budget.test.ts` | ≤ 64KB 且守卫真会失败 | **实测 1,073,453 B ≫ 65,536 B；但守卫测试 4/4 仍 PASS（bare catch 吞断言）** | ❌ |
+| V-R4-24 | 规格/文档漂移 | `git log`/`grep` | 无静默漂移；文档滞后如实 | spec/plan 改动均为**显式补登**（c02481d/2ee4d5c）；review R5 4 处文档滞后**仍在**（见 R4-10） | ✅（附滞后） |
+
+### R4-4. 安全底线实跑证据（最高优先，全部来自 G2/G5 实跑输出）
+
+| 底线 | 判定 | 实跑断言（原文） |
+|------|:--:|------|
+| ① 未授权 origin 仍 `deny`（S1） | ✅ | `host: unauthorized origin still denies (S1) — auto switch cannot bypass authorization`；`policy S1: unauthorized site origin is denied` |
+| ② 未知/缺失/非法 risk 仍 `deny`（S2/S3，fail-closed） | ✅ | `host: unknown risk still denies fail-closed (S3) — auto switch cannot bypass`；`policy S2/S3: … unknown → deny (fail-closed)` |
+| ③ `evaluate` 仍 `deny` | ✅ | `host: evaluate tier still denies even with write auto on (hard floor, never asks)` |
+| ④ 破坏性操作仍 `ask` | ✅ | `host: destructive write still asks even with write auto on`；`auto-authorize decision: hard floors never auto-allow` |
+| ⑤ **写操作自动开启时 `bookmarks remove` 仍 ask** | ✅ | 单测：`FR-054 host: write-auto ON still asks for bookmarks remove (destructive never auto-released)`；真机 binding `#54B8 【写操作自动开启时删书签仍弹确认】破坏性硬底线（不自动放行）` + `#54B9`（确认后才真删） | 
+| ⑥ **读操作自动开启时 `clipboard read` 仍 ask** | ✅ | 单测：`FR-055 host: read-auto ON still ASKS for clipboard read (state never auto-released)` + `FR-055 clipboard read: state tier is never auto-authorized (pure decision)` |
+| ⑦ **撤销后工具真的离开 `deriveTools()`** | ✅ | binding 真实 `chrome.permissions.remove({permissions:[bookmarks]})`→`true`（`:0l`）→ 撤销对账后 `:0n` 工具面**不再含 bookmarks（从 `deriveTools` 移除，非仅 UI）**→ `:0o` `optional-permission/revoked` 审计（零明文） |
+| ⑧ SW 内零 `permissions.request` | ✅ | `grep permissions.request src/background/` 仅 1 处**注释**（`service-worker.ts:1890`）；SW 实导入面仅 `hasOriginPermission/removeOriginPermission/…`（extension-env）与 `hasCapabilityPermission/changeTouchesCapability`（capability-permissions），**无 request** |
+
+### R4-5. 权限面核验（静态比对，实测）
+
+| 检查项 | 结果 |
+|------|------|
+| 静态 `permissions` | **恰为** `activeTab,scripting,storage,sidePanel,tabs`（= 任务指定批准集，**零新增**；`tabs` 为 FR-049 作者批准的唯一扩张） |
+| 四能力声明 | **仅** `optional_permissions` = `bookmarks,downloads,notifications,clipboardRead,clipboardWrite`（静态 `permissions` 零新增） |
+| `host_permissions` | 仅 LLM 端点（deepseek/dashscope/volces/hunyuan/openai/anthropic）；**无 `<all_urls>`**；`optional_host_permissions` = `http://*/*`,`https://*/*` |
+| 静态 `content_scripts` | **无**（`grep content_scripts manifest.json` 空） |
+| 未批权限 | `chrome.(history\|cookies\|declarativeNetRequest\|debugger\|tabGroups\|management\|webRequest\|proxy\|geolocation)` 在 `src/` **零命中**；`grep` 仅 1 处说明性注释（`capability-permissions.ts:23`） |
+| src/dist manifest 一致性 | `diff` 两文件 **IDENTICAL**（构建未注入任何权限） |
+
+### R4-6. 对账门禁有效性与**反证实跑**
+
+- **门禁有效性（实跑）**：`parity.test.ts` **8/8 PASS**——含 provenance、双向 + 子命令级「无静默漂移」、「无未登记 LLM 工具」、无过期 waiver、`pluginExtras` 完整性、**自带 self-test**（能抓丢 `dom`/`chrome` 与新增 `brand-new-tool`）。
+- **反证实跑（本 Agent 独立执行，非仅静态论证）**：在 gitignore 的生成物 `dist-test/src/background/host.js` 的 `deriveTools()` 中注入一个未登记工具 `validate-r4-injected-tool` → 实跑 `node --test dist-test/test/parity.test.js` → **FAIL（exit 1）**，报错原文：`AssertionError: 插件新增了未登记的面向 LLM 的工具：validate-r4-injected-tool　修复路径：在 test/parity/waivers.json 的 pluginExtras 中登记（理由+依据）。`（8 tests / 7 pass / 1 fail）。随后**完整还原**（`cp` 备份回写，`grep validate-r4-injected-tool` = 0）→ 重跑 **8/8 PASS（exit 0）**。**未触碰 `src/`、`test/`、`spec.md`、`plan.md`**（仅改生成物并还原）。
+
+### R4-7. 真实浏览器面与测试副本偏差（如实披露）
+
+- **G4/G5/G6 均为真实 Chromium（`.pw-browsers/chromium-1234`）实跑**，断言数 167 / 163 / E2E PASS。
+- **测试副本偏差（已如实披露，与 review/build 一致）**：`test:binding`/`test:e2e`/`test:hardening` 在**临时 dist 副本**上把本地 origin 追加进 `host_permissions`（e2e 另加 `<all_urls>` + `permissions += bookmarks/downloads/notifications/clipboardRead/clipboardWrite`），因为 headless 无法合成原生权限弹窗/`activeTab` 手势；**JS 字节未改**、`manifest.json` 源文件未被改写、`dist/` 未纳入版本控制。binding 输出原文：`临时 dist：host_permissions += http://localhost:5173/*；permissions += bookmarks/…（JS 字节未改；见披露②）`。
+- **`chrome screenshot` 真实像素路径**：e2e `captureVisibleTab returns a Promise in this MV3 SW {"isPromise":true,"ok":true,"len":113698}` + `yields a real PNG dataURL`；整页拼接见单测 `fullpage: stitches ceil(h/vh) screens, throttles to the 2/s limit, restores scroll, labels the approximation`。
+- **`events` 新 op**：单测 `page-bridge: forwards the D3 event control ops verbatim (pause/resume/clear/budget/switch/pull-sensitive)`、`D3: pause/resume/clear/budget/switch` 全过。
+- **`tabs` mute/pin/move/close 真机断言**：binding `#7o2`（真实 index=0）、`#7n2`（真实 pinned=true）、`#7q2`（`chrome.tabs.get` 失败=真消失）、`#7r` 审计可读。
+
+### R4-8. 审计零明文（实跑断言）
+
+单测硬证：`FR-054 bookmarks audit: zero plaintext (no raw query / secret in any event)`、`FR-054 downloads audit: zero plaintext`、`FR-055 confirm scrub: clipboard/notify content is replaced before the summary + audit`、`audit-sink: masks plaintext args (zero plaintext)`；真机证据：binding `#0o`（撤销审计零明文）、`#7p3`（close 摘要不含 query/fragment）、`#7r2`（close 审计去参）、`#54B5`（remove 摘要去参）；e2e 审计 136 + 9 事件。**结论：剪贴板/通知内容、URL query、bookmark 标题均不出现在审计/摘要明文。**
+
+### R4-9. 红线与漂移检测（实跑）
+
+| 检查 | 命令/方法 | 结果 |
+|------|----------|:--:|
+| base 零改动 | `git diff --stat b3629a6..339f84a -- packages/web-cli-base` | ✅ **空** |
+| `.opencode/opencode.json` 未提交 | `git log/diff --name-only b3629a6..339f84a -- .opencode/opencode.json` | ✅ **空** |
+| `main` 未动 | `git show-ref --heads main` | ✅ `main = 2ddc922`（未被本分支触及） |
+| 无新运行时依赖 | `git diff … -- package.json` | ✅ 插件 `dependencies` 仍仅 `@lgdl/web-cli-base ^0.7.0`；仅新增 `test:binding` 脚本 |
+| 无明文 key | `git diff b3629a6..339f84a \| grep -E "sk-[A-Za-z0-9]{12,}…"`（排除占位） | ✅ 无 |
+| 工作区零污染 | `git status -sb` | ✅ 全程 clean（`dist/`、`dist-test/` 均 gitignore） |
+| 规格漂移 | `git log b3629a6..339f84a -- spec.md plan.md` | ⚠️ spec/plan 在区间**被显式修改**（`2ee4d5c` FR-049 反转、`c02481d` FR-054/055 补登）——均为**作者裁决驱动的显式需求变更/补记**，非静默漂移 |
+| 孤立代码 / 需求缺失 | 全仓各 workspace 门禁 + parity 双向 | ✅ 无（parity 未登记工具/需求缺失双向零命中） |
+
+### R4-10. 文档漂移复核（review R5 的 4 处，**只报告不修**）
+
+| # | 位置 | 现状（本轮复核） | 仍在？ |
+|---|------|------|:--:|
+| W-R5-1 | `docs/compliance.md:130`（§8.1） | 仍写「`permissions` 仍 `activeTab/scripting/storage/sidePanel`；无 `tabs`、无 `<all_urls>`」——与 `manifest.json`（含 `tabs`）及同文件 §9 矛盾 | ✅ 仍在 |
+| W-R5-2 | `docs/smoke-checklist.md:14`（M3）/`:41`（M30） | M3 仍「无 `tabs`」；M30 仍「无 `<all_urls>`/无 `tabs` 权限」 | ✅ 仍在 |
+| W-R5-3 | `docs/smoke-checklist.md:37`（M26）/`docs/dev.md:276,322` | 仍引用已被 TASK-032 移除的「重新探测」手动按钮（源码已无，`dev.md:730` 反向记录了「已移除」，前后矛盾） | ✅ 仍在 |
+| W-R5-4 | `build.md:2542`（§36.5）/`:2630`（§37.8）/`:2703` | 仍写「`spec.md` 尚未落 FR-054/FR-055 条文…待 `@sddu-spec` 补登」——但 `spec.md` 已补登（v1.10） | ✅ 仍在 |
+
+> **附带发现（与 R4-11 同源）**：`build.md:414`（§11.5）仍写 `content.js ≤ 64 KB / 33.9 KB（34711 B）✅`，`:1855` 仍写 `content.js 35,615 B ≤ 64 KB`——与 HEAD 实测 `dist/content.js = 1,073,453 B` 及 `build.md:2141`（§27.5 已如实披露「约 1.0MB，可接受但作为后续优化项」）**自相矛盾**（详见 R4-11）。
+
+### R4-11. ⚠️ 新发现：NFR-007 `content.js` 注入体积预算超标 **且** 守卫测试虚绿（非阻塞，但应修复）
+
+**实跑证据（本 Agent 独立复现）**：
+
+1. **体积实测超标**：`stat -c '%s' packages/web-cli-plugin/dist/content.js` = **1,073,453 B（≈1.05 MB）**，而 `test/perf-budget.test.ts:31` 定义 `CONTENT_BUNDLE_BUDGET_BYTES = 64 * 1024`（65,536 B）——**超约 16×**。`dist/content.js` 实际内联了 `@anthropic-ai/sdk` 等 LLM SDK（`grep -oE "node_modules/@anthropic-ai/sdk[^\"']*" dist/content.js` 命中；`doubao|deepseek|openai|anthropic` 命中 495 处）。
+2. **归因**：`git log -S "createBrowserDomOps" -- ` 确认该 base 值导入由区间内提交 **`8b06a43`**（「补齐 dom/chrome…」）加入 `src/content/content-script.ts`；`build.md:2141` 亦由 `8b06a43` 写下「content bundle 体积增长（约 1.0MB，内联 base DOM 实现）」。（`build.md:174` D-011 早已实证「content 引 base → 25.1KB→913KB」并据此刻意避免，本轮又引入。）
+3. **守卫测试虚绿（关键缺陷）**：隔离实跑 `node --test dist-test/test/perf-budget.test.js`（当前 `dist` 为超标产物）→ **4/4 PASS**，其中 `NFR-007: built content bundle stays under the injection budget (when built)` **PASS**。根因：该用例（`test/perf-budget.test.ts:105-114`）把 `assert.equal(size < BUDGET, true, …)` 包在 **bare `catch {}`** 中，断言失败抛出的 `AssertionError` 被同一 `catch` 吞掉，落入 `assert.ok(true)` 分支 —— 因此**无论 `content.js` 多大，该守卫恒绿**。即：一个既定的 64KB 预算门禁已被静默失效。
+4. **影响与判级**：① 无功能/安全影响（截图/工具面均正常）；② 产品侧体积增长已在 `build.md:2141` 如实披露为「可接受、后续优化」，**故不作为阻塞**；③ 但**守卫恒绿** + `build.md:414/1855` 的「33.9KB ✅」陈旧数字，构成 **false-green 门禁 + 文档漂移**，应在后续轮修复（建议：`catch` 仅吞 `ENOENT`，其余错误重抛；并回填 §11.5 实测数字）。
+5. **未修代码**：按 validate 规则**只报告不修**（未改 `test/`/`src/`/文档）。`perf-budget` 的另 3 条阈值（上下文 10 / 会话 40 / 审计 500 / 50 次 dispatch）本轮均实测 **PASS**。
+
+### R4-12. 偏差与人工面清单（如实，不冒充 PASS）
+
+**人工面（headless 不可合成，沿用既有披露）**：
+- H2 原生授权弹窗（`chrome.permissions.request`）与「已授权 → `onRemoved`」过渡——`binding` 观测 `#0g … = PENDING_TIMEOUT`；`build.md:2701`/§38.9 已披露。
+- H-手势：真实 `activeTab`/`onClicked` 用户手势链路（`build.md:126,168,192` D-005/D-192）。
+- 原生 `tabs.goBack/goForward` 成功路径：e2e 偏差 D6 原文「headless Chrome for Testing 151 chrome.tabs.goBack/goForward rejects「Cannot find a next page in history」even with real history (history.length=2) — the e2e proves native is attempted first + the readable fallback」。
+- 剪贴板真实读的焦点相关往返（binding `#54B14` 只断言 API 可达 + 观测 `ok:wc-clip-probe`；e2e 观测「剪贴板为空」）。
+- 真实 LLM 闭环、真实站点（LGDL 工作台）端到端、扩展 SW 真实内存采样等——`docs/smoke-checklist.md §2` 保留。
+
+**既有降级项诚实性核验（5 项，均如实记录、无冒充 PASS）**：
+
+| 项 | 文档记录 | 核验 |
+|----|----------|:--:|
+| 终态/暂时性共用有界退避 | `build.md:2254`（D-135）、`:2265` | ✅ 如实 |
+| 同 origin 另一 tab 复用会话有一次冗余 reprobe | `build.md:2230`（§28.8） | ✅ 如实 |
+| 新建标签页 `url` `loading` 期空值竞态 | `build.md:2295`、`:2310`（D-140，测试脚手架健壮性） | ✅ 如实 |
+| `options.html` **未**重写为纯空壳（保留功能完整兜底页，静态薄壳复用共享逻辑） | `build.md:2293`（D-138）、`:2307` | ✅ 如实（取舍已披露） |
+| headless 无法合成手势 / 原生 `goBack` | `build.md:1094,2701` + e2e 偏差 D6 | ✅ 如实 |
+
+### R4-13. 验证脚本执行记录（ADR-003）
+
+> 存放路径：`/tmp/sddu-validate-web-cli-plugin-r4-20260913-123357/`（仓库零污染；`dist/`、`dist-test/` 均 gitignore）。
+
+| 脚本/日志 | 用途 | 对应场景 | 退出码 | 关键输出 |
+|------|------|:--:|:--:|---------|
+| `g1-typecheck.log` | 插件 `tsc --noEmit` | V-R4-1 | 0 | 0 error |
+| `g2-plugin-test.log` | 插件单测/安全面 | V-R4-2/8~18/21 | 0 | 523 tests / 523 pass / 0 fail |
+| `g3-hardening.log` | 加固三维（Chromium） | V-R4-3 | 0 | hardening PASS — 24 assertions |
+| `g4-ui.log` | 真实 UI 旅程（Chromium） | V-R4-4/13/10 | 0 | UI journey PASS — 167 assertions |
+| `g5-binding.log` | 真站点绑定（Chromium） | V-R4-5/10/14/15/18 | 0 | binding PASS — 163 assertions |
+| `g6-e2e.log` | 真实 dist 全链 E2E（Chromium） | V-R4-6/7/11/12/14/15 | 0 | R8 E2E PASS（A + B） |
+| `g7-full-test.log` | 全仓回归 | V-R4-7 | 0 | 1506 tests / 1505 pass / 0 fail / 1 skip |
+| `dist-test` 注入反证（就地，`/tmp/sddu-r4-host.js.bak` 备份后完整还原） | parity 门禁反证 | V-R4-20 | 1→0 | 注入未登记工具→FAIL；还原→8/8 PASS |
+| 隔离 `node --test dist-test/test/perf-budget.test.js`（内联） | NFR-007 守卫虚绿取证 | V-R4-23 | 0 | 4/4 PASS（含超标 `content.js`） |
+
+### R4-14. 阻塞与结论
+
+**阻塞问题：0。**
+
+**结论：⚠️ 有条件通过（0 阻塞；1 项新增非阻塞发现 NFR-007 守卫虚绿 + 4 项 review R5 遗留文档漂移）**
+
+| 指标 | 要求 | 实测 | 达标？ |
+|------|------|------|:--:|
+| FR 覆盖（FR-047~055） | 逐条可自动化验证 | 9/9 均有实跑断言（V-R4-8~15） | ✅ |
+| 安全底线 | 四条 hard floor + 两条「自动仍 ask」+ 撤销移出 | **全部实跑 PASS**（R4-4 ⑦ 项） | ✅ |
+| 权限面 | 静态 `permissions` 零新增、未批权限零出现 | 恰为批准集；未批权限零使用 | ✅ |
+| 对账门禁 | 真会失败 | 8/8 + 反证 FAIL→还原 PASS | ✅ |
+| 构建退出码 | 0 | `tsc` 0；`test:e2e` 0；`npm test` 0 | ✅ |
+| 全仓回归 | 0 fail；base 483 零回归 | 1506 tests / 0 fail / base 483 / plugin 523 | ✅ |
+| NFR-007 `content.js` 预算 | ≤ 64KB 且守卫有效 | **1.05MB；守卫 bare catch 恒绿** | ❌ |
+| `perf-budget` 50 次 dispatch 时序 | < 250ms | 本轮 g2 126.7ms / g7 114.9ms / 隔离 10.8ms——**无抖动** | ✅ |
+| 漂移（代码/需求） | 0 | 0 孤立代码 / 0 需求缺失；spec 变更为显式补登 | ✅ |
+| 文档漂移 | 0 | 4 处 R5 遗留仍在 | ⚠️ |
+| 阻塞 | 0 | **0** | ✅ |
+
+**判定理由**：post-validate 增补轮 TASK-017~040 经**本 Agent 独立动手复跑**（7 项门禁严格串行、全程未 OOM）全部通过——`tsc` 0 error、插件 **523 pass/0 fail**、`test:hardening` **24**、`test:ui` **167**、`test:binding` **163**、`test:e2e` **PASS**、全仓 **1506 tests / 0 fail（base 483 零回归）**。**安全底线**逐条以**实跑断言**证实：四条 hard floor（未授权 deny / 未知 risk deny / `evaluate` deny / 破坏性仍 ask）+ 两条「自动开启仍 ask」（写自动开 `bookmarks remove` 仍 ask、读自动开 `clipboard read` 仍 ask）+ **撤销后工具真的离开 `deriveTools()`**（真实 `permissions.remove` 路径 binding `#0n`）；SW 内零 `permissions.request`；静态 `permissions` 恰为批准集、四能力仅在 `optional_permissions`、未批权限零使用、无 `<all_urls>`/静态 `content_scripts`。**对账门禁**经**反证实跑**（注入未登记工具→FAIL→完整还原→PASS）证明真会失败。红线全 PASS（base 零改动 / 无新依赖 / 无明文 key / `opencode.json` 未提交 / `main` 未动）。**唯一新增非阻塞发现**为 NFR-007 `content.js` 体积 1.05MB 超 64KB 预算且守卫测试因 bare `catch` 恒绿（产品侧增长已在 `build.md:2141` 如实披露为可接受，故不阻塞，但建议修 guard + 回填 §11.5 数字）；另 review R5 的 4 处文档漂移**仍未订正**。因存在「虚绿门禁 + 文档滞后」，判为**有条件通过**而非「通过」；安全与功能面**无阻塞**，可维持 builded 状态。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v2.2 | **R4 验证**（post-validate 增补轮 TASK-017~040，区间 `b3629a6..339f84a`）：7 项门禁**严格串行实跑** tsc 0 error / 插件 **523 pass 0 fail** / `test:hardening` **24** / `test:ui` **167** / `test:binding` **163** / `test:e2e` **PASS** / 全仓 **1506 tests 0 fail（base 483 零回归）**；安全底线四条 hard floor + 两条「自动开启仍 ask」+ 撤销移出 `deriveTools` 均**实跑断言** PASS；权限面静态 `permissions` 恰为批准集、未批权限零使用；parity 门禁**反证实跑**（注入未登记工具→FAIL，还原→PASS）；红线全 PASS；**新发现 NFR-007 `content.js` 1.05MB > 64KB 且守卫测试 bare catch 恒绿（虚绿门禁）**；review R5 的 4 处文档漂移仍在。**结论 ⚠️ 有条件通过（0 阻塞）** | 2026-09-13 | SDDU Validate Agent |
 | v2.1 | **R3 验证**（TASK-017 UI 修复轮 + D-043~D-045）：自写 5 个 CDP 探针 + 自截 12 张图（真实 dist 字节）独立复核 F-1~F-8/D-043 + W1 授权态跨 reload/SW 重启 + W3 `llm-config` 零 key；独立复跑 build/test(1114 pass/0 fail, base 483 零回归, plugin 132)/tsc/E2E/G-MV3/G-KEY/红线/漂移；**结论 ✅ 通过（0 阻塞）** | 2026-09-12 | SDDU Validate Agent |
 | v2.0 | **R2 全量验证**：P0 回归 + P1 + P2 + 遗留清账；46 FR / 10 NFR / 16 EC / 12 AC 全量承接（100%）；独立复跑 build/test/tsc/E2E/G-MV3/G-KEY/红线 grep + 自写 R-BLK1a 复现 + NFR-007 实测 + revert 可性实测；**结论 ✅ 通过（0 阻塞）** | 2026-09-12 | SDDU Validate Agent |
 | v1.0 | 初始创建：P0 最小可用集独立验证（V1~V13；全仓 0 fail / 安全 10/10 / 协议 8/8 / 红线 12/12 / G-MV3·G-KEY PASS / 受控全链 PASS / V9b 真实产物无法执行）；**结论 ⚠️ 有条件通过（0 阻塞）** | 2026-09-11 | SDDU Validate Agent |
