@@ -1138,6 +1138,13 @@ function wire(): void {
       void refreshState();
       return undefined;
     }
+    if (msg.kind === 'capability-changed') {
+      // TASK-040: an optional-capability grant/revoke happened (a gesture request
+      // settling, or an external change in chrome://extensions). Re-measure the
+      // capability rows in place — the side panel is never reopened.
+      void settingsHandle?.refreshCapabilities();
+      return undefined;
+    }
     return undefined;
   });
 }

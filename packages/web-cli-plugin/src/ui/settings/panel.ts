@@ -29,6 +29,12 @@ import {
   downloadsCapabilityStatus,
   notifyCapabilityStatus,
   clipboardCapabilityStatus,
+  CAPABILITY_EXPLANATION,
+  CAPABILITY_SHORT_LABEL,
+  capabilityActionView,
+  capabilityDeniedReceipt,
+  capabilityGrantReceipt,
+  capabilityStateNote,
   groupListView,
   keyStateView,
   keyWarningText,
@@ -56,6 +62,8 @@ export interface SettingsPanelDeps {
 export interface SettingsPanelHandle {
   /** Reload every section from the authoritative stores. */
   refresh: () => Promise<void>;
+  /** TASK-040: re-measure optional-permission grants + re-render just this section. */
+  refreshCapabilities: () => Promise<void>;
   /** Re-derive origin-scoped controls (called when the active tab changes). */
   setActiveOrigin: (origin: string | undefined) => void;
   element: HTMLElement;
@@ -242,77 +250,80 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   capsSection.appendChild(
     h(doc, 'p', {
       class: 'wc-note',
-      text: '书签、下载记录、系统通知与剪贴板使用「可选权限」声明：静态安装面零变化、可单独撤销。未授权时对应工具不会静默消失——调用会返回「未开启：去设置开启」的可读提示。写类操作需确认；删除书签属破坏性操作，即使开启「写操作自动」也不会自动放行。剪贴板的读取默认为关（隐私敏感，风险档 state），即使开启「读操作自动」也仍会请求确认；剪贴板/通知内容绝不写入审计或日志。',
+      text: '书签、下载记录、系统通知与剪贴板使用「可选权限」声明：静态安装面零变化、可单独撤销。每行按 Chrome 的**实测权限态**显示：未授权 →「授权 Chrome ＜能力＞权限」；已授权 →「撤销 Chrome 权限」+「✅ 已授权」徽标；已撤销 → 回到未授权并说明上次撤销。撤销走 chrome.permissions.remove（无需点击手势），工具会即时移出 LLM 工具面并写审计。写类操作需确认；删除书签属破坏性操作，即使开启「写操作自动」也不会自动放行。剪贴板的读取默认为关（隐私敏感，风险档 state），即使开启「读操作自动」也仍会请求确认；剪贴板/通知内容绝不写入审计或日志。',
     }),
   );
 
-  // Bookmarks row.
-  const bkRow = h(doc, 'div', { class: 'wc-auto-row' });
-  bkRow.appendChild(h(doc, 'strong', { text: '书签访问（读 + 写）' }));
-  const bkStatus = h(doc, 'div', { id: 'settings-cap-bookmarks-status', class: 'wc-muted', text: '书签访问：尚未读取。' });
-  bkStatus.setAttribute('role', 'status');
-  bkStatus.setAttribute('aria-live', 'polite');
-  bkRow.appendChild(bkStatus);
-  const bkRequest = h(doc, 'button', { id: 'settings-cap-bookmarks-request', type: 'button', text: '开启书签访问' }) as HTMLButtonElement;
-  const bkReadWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-bookmarks-read' });
-  const bkRead = h(doc, 'input', { id: 'settings-cap-bookmarks-read', type: 'checkbox' }) as HTMLInputElement;
-  bkReadWrap.append(bkRead, doc.createTextNode(' 允许读取书签（默认开）'));
-  const bkWriteWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-bookmarks-write' });
-  const bkWrite = h(doc, 'input', { id: 'settings-cap-bookmarks-write', type: 'checkbox' }) as HTMLInputElement;
-  bkWriteWrap.append(bkWrite, doc.createTextNode(' 允许写入书签（默认关；删除仍需确认）'));
-  bkRow.appendChild(h(doc, 'div', { class: 'wc-row' }, [bkRequest]));
-  bkRow.appendChild(bkReadWrap);
-  bkRow.appendChild(bkWriteWrap);
-  capsSection.appendChild(bkRow);
+  interface CapRow {
+    cap: OptionalCapability;
+    button: HTMLButtonElement;
+    badge: HTMLElement;
+    status: HTMLElement;
+    receipt: HTMLElement;
+    read?: HTMLInputElement;
+    write?: HTMLInputElement;
+  }
+  const capRows: CapRow[] = [];
 
-  // Downloads row.
-  const dlRow = h(doc, 'div', { class: 'wc-auto-row' });
-  dlRow.appendChild(h(doc, 'strong', { text: '下载记录（只读）' }));
-  const dlStatus = h(doc, 'div', { id: 'settings-cap-downloads-status', class: 'wc-muted', text: '下载记录：尚未读取。' });
-  dlStatus.setAttribute('role', 'status');
-  dlStatus.setAttribute('aria-live', 'polite');
-  dlRow.appendChild(dlStatus);
-  const dlRequest = h(doc, 'button', { id: 'settings-cap-downloads-request', type: 'button', text: '开启下载记录访问' }) as HTMLButtonElement;
-  const dlReadWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-downloads-read' });
-  const dlRead = h(doc, 'input', { id: 'settings-cap-downloads-read', type: 'checkbox' }) as HTMLInputElement;
-  dlReadWrap.append(dlRead, doc.createTextNode(' 允许读取下载记录（默认开；不做取消/删除）'));
-  dlRow.appendChild(h(doc, 'div', { class: 'wc-row' }, [dlRequest]));
-  dlRow.appendChild(dlReadWrap);
-  capsSection.appendChild(dlRow);
+  const mkCapRow = (
+    cap: OptionalCapability,
+    title: string,
+    readId: string,
+    readLabel: string,
+    writeOpt?: { id: string; label: string },
+  ): void => {
+    const row = h(doc, 'div', { class: 'wc-auto-row' });
+    row.appendChild(h(doc, 'strong', { text: title }));
+    const status = h(doc, 'div', { id: `settings-cap-${cap}-status`, class: 'wc-muted', text: `${title}：尚未读取。` });
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    row.appendChild(status);
+    // TASK-040 defect ③: plain-language explanation of the capability + why Chrome prompts.
+    row.appendChild(h(doc, 'p', { id: `settings-cap-${cap}-explain`, class: 'wc-note', text: CAPABILITY_EXPLANATION[cap] }));
+    const actionRow = h(doc, 'div', { class: 'wc-row' });
+    const button = h(doc, 'button', {
+      id: `settings-cap-${cap}-request`,
+      type: 'button',
+      text: capabilityActionView(cap, false, false).buttonLabel,
+    }) as HTMLButtonElement;
+    const badge = h(doc, 'span', { id: `settings-cap-${cap}-badge`, class: 'wc-badge-granted', text: '' });
+    badge.style.display = 'none';
+    actionRow.append(button, badge);
+    row.appendChild(actionRow);
+    // TASK-040 defect ②: prominent, persistent receipt (survives refreshes).
+    const receipt = h(doc, 'div', { id: `settings-cap-${cap}-receipt`, class: 'wc-msg' });
+    receipt.setAttribute('role', 'status');
+    receipt.setAttribute('aria-live', 'polite');
+    row.appendChild(receipt);
 
-  // Notify row (FR-055 / TASK-039).
-  const ntRow = h(doc, 'div', { class: 'wc-auto-row' });
-  ntRow.appendChild(h(doc, 'strong', { text: '系统通知（读 + 写）' }));
-  const ntStatus = h(doc, 'div', { id: 'settings-cap-notify-status', class: 'wc-muted', text: '系统通知：尚未读取。' });
-  ntStatus.setAttribute('role', 'status');
-  ntStatus.setAttribute('aria-live', 'polite');
-  ntRow.appendChild(ntStatus);
-  const ntRequest = h(doc, 'button', { id: 'settings-cap-notify-request', type: 'button', text: '开启通知' }) as HTMLButtonElement;
-  const ntEnabledWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-notify-enabled' });
-  const ntEnabled = h(doc, 'input', { id: 'settings-cap-notify-enabled', type: 'checkbox' }) as HTMLInputElement;
-  ntEnabledWrap.append(ntEnabled, doc.createTextNode(' 允许助手发送系统通知（默认开）'));
-  ntRow.appendChild(h(doc, 'div', { class: 'wc-row' }, [ntRequest]));
-  ntRow.appendChild(ntEnabledWrap);
-  capsSection.appendChild(ntRow);
+    const readWrap = h(doc, 'label', { class: 'wc-inline', for: readId });
+    const read = h(doc, 'input', { id: readId, type: 'checkbox' }) as HTMLInputElement;
+    readWrap.append(read, doc.createTextNode(` ${readLabel}`));
+    row.appendChild(readWrap);
+    let write: HTMLInputElement | undefined;
+    if (writeOpt) {
+      const writeWrap = h(doc, 'label', { class: 'wc-inline', for: writeOpt.id });
+      write = h(doc, 'input', { id: writeOpt.id, type: 'checkbox' }) as HTMLInputElement;
+      writeWrap.append(write, doc.createTextNode(` ${writeOpt.label}`));
+      row.appendChild(writeWrap);
+    }
+    capsSection.appendChild(row);
+    capRows.push({ cap, button, badge, status, receipt, read, write });
+  };
 
-  // Clipboard row (FR-055 / TASK-039). Read side is privacy-sensitive → default off.
-  const cbRow = h(doc, 'div', { class: 'wc-auto-row' });
-  cbRow.appendChild(h(doc, 'strong', { text: '剪贴板（读 + 写）' }));
-  const cbStatus = h(doc, 'div', { id: 'settings-cap-clipboard-status', class: 'wc-muted', text: '剪贴板：尚未读取。' });
-  cbStatus.setAttribute('role', 'status');
-  cbStatus.setAttribute('aria-live', 'polite');
-  cbRow.appendChild(cbStatus);
-  const cbRequest = h(doc, 'button', { id: 'settings-cap-clipboard-request', type: 'button', text: '开启剪贴板访问' }) as HTMLButtonElement;
-  const cbReadWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-clipboard-read' });
-  const cbRead = h(doc, 'input', { id: 'settings-cap-clipboard-read', type: 'checkbox' }) as HTMLInputElement;
-  cbReadWrap.append(cbRead, doc.createTextNode(' 允许读取剪贴板（默认关；隐私敏感，读取为 state 档、永不自动放行）'));
-  const cbWriteWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-cap-clipboard-write' });
-  const cbWrite = h(doc, 'input', { id: 'settings-cap-clipboard-write', type: 'checkbox' }) as HTMLInputElement;
-  cbWriteWrap.append(cbWrite, doc.createTextNode(' 允许写入剪贴板（默认开；写入需确认）'));
-  cbRow.appendChild(h(doc, 'div', { class: 'wc-row' }, [cbRequest]));
-  cbRow.appendChild(cbReadWrap);
-  cbRow.appendChild(cbWriteWrap);
-  capsSection.appendChild(cbRow);
+  mkCapRow('bookmarks', '书签访问（读 + 写）', 'settings-cap-bookmarks-read', '允许读取书签（默认开）', {
+    id: 'settings-cap-bookmarks-write',
+    label: '允许写入书签（默认关；删除仍需确认）',
+  });
+  mkCapRow('downloads', '下载记录（只读）', 'settings-cap-downloads-read', '允许读取下载记录（默认开；不做取消/删除）');
+  mkCapRow('notify', '系统通知（读 + 写）', 'settings-cap-notify-enabled', '允许助手发送系统通知（默认开）');
+  mkCapRow(
+    'clipboard',
+    '剪贴板（读 + 写）',
+    'settings-cap-clipboard-read',
+    '允许读取剪贴板（默认关；隐私敏感，读取为 state 档、永不自动放行）',
+    { id: 'settings-cap-clipboard-write', label: '允许写入剪贴板（默认开；写入需确认）' },
+  );
   root.appendChild(capsSection);
 
   // ── section 4: session groups ────────────────────────────────────────────
@@ -533,25 +544,45 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
 
   function renderCapabilityStatus(): void {
     if (!capsView) return;
-    bkStatus.textContent = bookmarksCapabilityStatus(capsView.bookmarks);
-    dlStatus.textContent = downloadsCapabilityStatus(capsView.downloads);
-    ntStatus.textContent = notifyCapabilityStatus(capsView.notify);
-    cbStatus.textContent = clipboardCapabilityStatus(capsView.clipboard);
-    bkRead.checked = capsView.bookmarks.read;
-    bkWrite.checked = capsView.bookmarks.write;
-    dlRead.checked = capsView.downloads.read;
-    ntEnabled.checked = capsView.notify.read;
-    cbRead.checked = capsView.clipboard.read;
-    cbWrite.checked = capsView.clipboard.write;
+    const v = capsView;
+    const statusById: Record<OptionalCapability, string> = {
+      bookmarks: bookmarksCapabilityStatus(v.bookmarks),
+      downloads: downloadsCapabilityStatus(v.downloads),
+      notify: notifyCapabilityStatus(v.notify),
+      clipboard: clipboardCapabilityStatus(v.clipboard),
+    };
+    for (const row of capRows) {
+      const grant = v[row.cap];
+      row.status.textContent = statusById[row.cap];
+      // TASK-040: the action control is derived from the **measured** grant only.
+      const action = capabilityActionView(row.cap, grant.granted, grant.revoked);
+      row.button.textContent = action.buttonLabel;
+      row.button.dataset.mode = action.mode;
+      row.button.disabled = disabled;
+      row.badge.textContent = action.badge;
+      row.badge.style.display = action.badge ? 'inline-block' : 'none';
+      // Persistent state note (consistent with the measured grant); an action
+      // receipt set right after an action renders on top until the next refresh.
+      const note = capabilityStateNote(row.cap, grant.granted, grant.revoked);
+      setMessage(row.receipt, note.kind, note.text);
+      // No permission → the privacy toggles fall back to「未授予」semantics (unchecked + disabled),
+      // never reading as「开」while the permission is gone.
+      const toggleEnabled = grant.granted && !disabled;
+      if (row.read) {
+        row.read.checked = grant.granted ? grant.read : false;
+        row.read.disabled = !toggleEnabled;
+      }
+      if (row.write) {
+        row.write.checked = grant.granted ? Boolean(grant.write) : false;
+        row.write.disabled = !toggleEnabled;
+      }
+    }
   }
 
   async function refreshCapabilities(): Promise<void> {
     const res = await ops.loadCapabilities();
     if (!res.data) {
-      bkStatus.textContent = res.text;
-      dlStatus.textContent = res.text;
-      ntStatus.textContent = res.text;
-      cbStatus.textContent = res.text;
+      for (const row of capRows) row.status.textContent = res.text;
       return;
     }
     capsView = res.data;
@@ -728,13 +759,15 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   });
   // FR-054: the permission request MUST run inside this click gesture in the
   // extension page (never in the SW). The promise's UI updates happen after.
-  const requestCapability = (cap: OptionalCapability, statusEl: HTMLElement): void => {
-    const label =
-      cap === 'bookmarks' ? '书签' : cap === 'downloads' ? '下载记录' : cap === 'notify' ? '系统通知' : '剪贴板';
-    statusEl.textContent = `正在请求${label}权限…（浏览器会弹出授权提示；此请求发生在你的点击手势内）`;
+  const requestCapability = (row: (typeof capRows)[number]): void => {
+    const { cap } = row;
+    const label = CAPABILITY_SHORT_LABEL[cap];
+    row.status.textContent = `正在请求${label}权限…（Chrome 会弹出授权提示；此请求发生在你的点击手势内）`;
+    setMessage(row.receipt, '', `正在请求${label}权限…（浏览器会弹出授权提示；此请求发生在你的点击手势内）`);
     void requestCapabilityPermissionOnGesture(cap).then((res) => {
       if (!res.granted) {
-        statusEl.textContent = `✖ 未开启${label}访问：${res.error ?? '未授予权限'}`;
+        const denied = capabilityDeniedReceipt(cap, res.error);
+        setMessage(row.receipt, denied.kind, denied.text);
         return;
       }
       void ops.notifyCapabilityPermissionChanged(cap).then((r) => {
@@ -742,21 +775,40 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
           capsView = r.data;
           renderCapabilityStatus();
         } else {
-          statusEl.textContent = r.text;
+          row.status.textContent = r.text;
         }
+        const granted = capabilityGrantReceipt(cap);
+        setMessage(row.receipt, granted.kind, granted.text);
       });
     });
   };
-  bkRequest.addEventListener('click', () => requestCapability('bookmarks', bkStatus));
-  dlRequest.addEventListener('click', () => requestCapability('downloads', dlStatus));
-  ntRequest.addEventListener('click', () => requestCapability('notify', ntStatus));
-  cbRequest.addEventListener('click', () => requestCapability('clipboard', cbStatus));
-  bkRead.addEventListener('change', () => void onCapabilityPrivacy('bookmarks', 'read', bkRead.checked, bkStatus));
-  bkWrite.addEventListener('change', () => void onCapabilityPrivacy('bookmarks', 'write', bkWrite.checked, bkStatus));
-  dlRead.addEventListener('change', () => void onCapabilityPrivacy('downloads', 'read', dlRead.checked, dlStatus));
-  ntEnabled.addEventListener('change', () => void onCapabilityPrivacy('notify', 'read', ntEnabled.checked, ntStatus));
-  cbRead.addEventListener('change', () => void onCapabilityPrivacy('clipboard', 'read', cbRead.checked, cbStatus));
-  cbWrite.addEventListener('change', () => void onCapabilityPrivacy('clipboard', 'write', cbWrite.checked, cbStatus));
+
+  const revokeCapability = async (row: (typeof capRows)[number]): Promise<void> => {
+    const { cap } = row;
+    setMessage(row.receipt, '', `正在撤销${CAPABILITY_SHORT_LABEL[cap]}权限…（Chrome 会立即移除，无需弹窗）`);
+    const res = await ops.revokeCapability(cap);
+    if (res.data) {
+      capsView = res.data;
+      renderCapabilityStatus();
+    } else {
+      await refreshCapabilities();
+    }
+    setMessage(row.receipt, res.kind, res.text);
+  };
+
+  for (const row of capRows) {
+    // One button, two states: request (inside the gesture) or revoke (no gesture needed).
+    row.button.addEventListener('click', () => {
+      if (row.button.dataset.mode === 'revoke') void revokeCapability(row);
+      else requestCapability(row);
+    });
+    row.read?.addEventListener('change', () => {
+      if (row.read) void onCapabilityPrivacy(row.cap, 'read', row.read.checked, row.status);
+    });
+    row.write?.addEventListener('change', () => {
+      if (row.write) void onCapabilityPrivacy(row.cap, 'write', row.write.checked, row.status);
+    });
+  }
   newGroupBtn.addEventListener('click', () => {
     const name = newGroupName.value.trim();
     if (!name) {
@@ -791,10 +843,7 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
     (saveBtn as HTMLButtonElement).disabled = buttons.saveDisabled;
     (testBtn as HTMLButtonElement).disabled = buttons.testDisabled;
     (clearBtn as HTMLButtonElement).disabled = buttons.clearDisabled;
-    bkRequest.disabled = true;
-    dlRequest.disabled = true;
-    ntRequest.disabled = true;
-    cbRequest.disabled = true;
+    for (const row of capRows) row.button.disabled = true;
   }
 
   function setActiveOrigin(origin: string | undefined): void {
@@ -810,5 +859,5 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
     await refreshSessions();
   }
 
-  return { refresh, setActiveOrigin, element: root };
+  return { refresh, refreshCapabilities, setActiveOrigin, element: root };
 }

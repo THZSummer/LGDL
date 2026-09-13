@@ -45,6 +45,9 @@ export type PluginMessageKind =
   // FR-054: optional-permission capability (bookmarks/downloads) status,
   // privacy toggles and post-gesture permission reconciliation.
   | 'capabilities'
+  // TASK-040: an optional-capability grant/revoke landed (onAdded/onRemoved) →
+  // push the panel to re-measure + re-render without reopening it.
+  | 'capability-changed'
   // FR-052 / ADR-017: per-origin auto-authorization switches (side panel / options).
   | 'auto-auth'
   // FR-050 / EC-023: same-origin page-context read for the controlled web-fetch seam.
@@ -105,6 +108,7 @@ const KIND_SET: ReadonlySet<PluginMessageKind> = new Set<PluginMessageKind>([
   'session-changed',
   'tabs-setting',
   'capabilities',
+  'capability-changed',
   'auto-auth',
   'fetch-text',
   'dom-op',

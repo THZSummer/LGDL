@@ -29,6 +29,8 @@
       .msg-ok { color: #15803d; }
       .msg-warn { color: #92400e; }
       .msg-err { color: #b91c1c; }
+      .badge-granted { display: inline-block; color: #15803d; font-weight: 600; font-size: 12px; }
+      .msg { margin-top: 4px; font-size: 12px; }
       #test-result { margin-top: 6px; }
       section { border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 12px; }
       ol { margin: 4px 0; padding-inline-start: 20px; }
@@ -149,11 +151,16 @@
       <h2>能力与隐私（可选权限）</h2>
       <p class="muted">
         书签、下载记录、系统通知与剪贴板使用 <strong>可选权限</strong> 声明（<code>optional_permissions</code>）：静态安装面零变化、可单独撤销。
-        授权请求发生在<strong>你点击下方按钮的手势内</strong>（不会在后台静默申请）。未授权时对应工具不会静默消失——调用会返回可读的「未开启：去设置开启」提示。
-        写类操作需确认；<strong>删除书签属破坏性操作，即使开启「写操作自动」也不会自动放行</strong>。
+        每行按 Chrome 的<strong>实测权限态</strong>显示：未授权 →「授权 Chrome ＜能力＞权限」；已授权 →「撤销 Chrome 权限」+ <strong>✅ 已授权</strong> 徽标；已撤销 → 回到未授权并说明上次撤销。
+        撤销走 <code>chrome.permissions.remove</code>（无需点击手势），工具会即时移出 LLM 工具面并写审计。
+        授权请求发生在<strong>你点击按钮的手势内</strong>（不会在后台静默申请）。写类操作需确认；<strong>删除书签属破坏性操作，即使开启「写操作自动」也不会自动放行</strong>。
         剪贴板<strong>读取默认关</strong>（隐私敏感，风险档 <code>state</code>，永不自动放行）；剪贴板/通知内容绝不写入审计或日志。
       </p>
-      <div class="row"><button type="button" id="cap-bookmarks-request">开启书签访问</button></div>
+      <div class="row">
+        <button type="button" id="cap-bookmarks-request">授权 Chrome 书签权限</button>
+        <span class="badge-granted" id="cap-bookmarks-badge" style="display:none"></span>
+      </div>
+      <p class="muted" id="cap-bookmarks-explain"></p>
       <label class="inline-check" for="cap-bookmarks-read">
         <input type="checkbox" id="cap-bookmarks-read" /> 允许读取书签（默认开）
       </label>
@@ -161,17 +168,32 @@
         <input type="checkbox" id="cap-bookmarks-write" /> 允许写入书签（默认关；删除仍需确认）
       </label>
       <div id="cap-bookmarks-status" class="muted" role="status" aria-live="polite">书签访问：尚未读取。</div>
-      <div class="row"><button type="button" id="cap-downloads-request">开启下载记录访问</button></div>
+      <div id="cap-bookmarks-receipt" class="msg" role="status" aria-live="polite"></div>
+      <div class="row">
+        <button type="button" id="cap-downloads-request">授权 Chrome 下载记录权限</button>
+        <span class="badge-granted" id="cap-downloads-badge" style="display:none"></span>
+      </div>
+      <p class="muted" id="cap-downloads-explain"></p>
       <label class="inline-check" for="cap-downloads-read">
         <input type="checkbox" id="cap-downloads-read" /> 允许读取下载记录（默认开；不做取消/删除）
       </label>
       <div id="cap-downloads-status" class="muted" role="status" aria-live="polite">下载记录：尚未读取。</div>
-      <div class="row"><button type="button" id="cap-notify-request">开启通知</button></div>
+      <div id="cap-downloads-receipt" class="msg" role="status" aria-live="polite"></div>
+      <div class="row">
+        <button type="button" id="cap-notify-request">授权 Chrome 系统通知权限</button>
+        <span class="badge-granted" id="cap-notify-badge" style="display:none"></span>
+      </div>
+      <p class="muted" id="cap-notify-explain"></p>
       <label class="inline-check" for="cap-notify-enabled">
         <input type="checkbox" id="cap-notify-enabled" /> 允许助手发送系统通知（默认开）
       </label>
       <div id="cap-notify-status" class="muted" role="status" aria-live="polite">系统通知：尚未读取。</div>
-      <div class="row"><button type="button" id="cap-clipboard-request">开启剪贴板访问</button></div>
+      <div id="cap-notify-receipt" class="msg" role="status" aria-live="polite"></div>
+      <div class="row">
+        <button type="button" id="cap-clipboard-request">授权 Chrome 剪贴板权限</button>
+        <span class="badge-granted" id="cap-clipboard-badge" style="display:none"></span>
+      </div>
+      <p class="muted" id="cap-clipboard-explain"></p>
       <label class="inline-check" for="cap-clipboard-read">
         <input type="checkbox" id="cap-clipboard-read" /> 允许读取剪贴板（默认关；隐私敏感，读取为 state 档、永不自动放行）
       </label>
@@ -179,6 +201,7 @@
         <input type="checkbox" id="cap-clipboard-write" /> 允许写入剪贴板（默认开；写入需确认）
       </label>
       <div id="cap-clipboard-status" class="muted" role="status" aria-live="polite">剪贴板：尚未读取。</div>
+      <div id="cap-clipboard-receipt" class="msg" role="status" aria-live="polite"></div>
     </section>
 
     <section id="auto-auth">

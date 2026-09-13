@@ -65,27 +65,25 @@ test('FR-054: chrome.permissions.request lives in the extension page click path,
 
   const panel = read('../../src/ui/settings/panel.ts');
   assert.match(panel, /requestCapabilityPermissionOnGesture\(cap\)/);
-  assert.match(panel, /requestCapability\('bookmarks'/);
-  assert.match(panel, /requestCapability\('downloads'/);
-  assert.match(panel, /requestCapability\('notify'/);
-  assert.match(panel, /requestCapability\('clipboard'/);
-  assert.match(panel, /bkRequest\.addEventListener\('click'/);
-  assert.match(panel, /dlRequest\.addEventListener\('click'/);
-  assert.match(panel, /ntRequest\.addEventListener\('click'/);
-  assert.match(panel, /cbRequest\.addEventListener\('click'/);
-  assert.match(panel, /id: 'settings-cap-bookmarks-request'/);
-  assert.match(panel, /id: 'settings-cap-downloads-request'/);
-  assert.match(panel, /id: 'settings-cap-notify-request'/);
-  assert.match(panel, /id: 'settings-cap-clipboard-request'/);
-  assert.match(panel, /id: 'settings-cap-clipboard-read'/);
-  assert.match(panel, /id: 'settings-cap-clipboard-write'/);
+  // TASK-040: one three-state control per capability (dynamic label + action).
+  assert.match(panel, /capabilityActionView\(row\.cap, grant\.granted, grant\.revoked\)/);
+  assert.match(panel, /requestCapability\(row\)/);
+  assert.match(panel, /revokeCapability\(row\)/);
+  assert.match(panel, /for \(const row of capRows\)/);
+  assert.match(panel, /row\.button\.addEventListener\('click'/);
+  assert.match(panel, /id: `settings-cap-\$\{cap\}-request`/);
+  assert.match(panel, /'settings-cap-clipboard-read'/);
+  assert.match(panel, /'settings-cap-clipboard-write'/);
+  assert.match(panel, /ops\.revokeCapability\(cap\)/);
+  assert.match(panel, /CAPABILITY_EXPLANATION\[cap\]/);
+  assert.match(panel, /settings-cap-\$\{cap\}-receipt/);
 
   const options = read('../../src/ui/options/options.ts');
   assert.match(options, /requestCapabilityPermissionOnGesture/);
-  assert.match(options, /\$\('cap-bookmarks-request'\)\.addEventListener\('click'/);
-  assert.match(options, /\$\('cap-downloads-request'\)\.addEventListener\('click'/);
-  assert.match(options, /\$\('cap-notify-request'\)\.addEventListener\('click'/);
-  assert.match(options, /\$\('cap-clipboard-request'\)\.addEventListener\('click'/);
+  assert.match(options, /CAPABILITY_BUTTON_ID\[cap\]/);
+  assert.match(options, /settingsOps\.revokeCapability\(cap\)/);
+  assert.match(options, /button\.dataset\.mode === 'revoke'/);
+  assert.match(options, /capabilityActionView\(cap, grant\.granted, grant\.revoked\)/);
   const html = read('../../src/ui/options/index.html');
   for (const id of [
     'cap-bookmarks-request',
@@ -98,6 +96,14 @@ test('FR-054: chrome.permissions.request lives in the extension page click path,
     'cap-clipboard-status',
     'cap-clipboard-read',
     'cap-clipboard-write',
+    // TASK-040: the three-state badge + persistent receipt + explanation per row.
+    'cap-bookmarks-badge',
+    'cap-bookmarks-receipt',
+    'cap-bookmarks-explain',
+    'cap-notify-badge',
+    'cap-notify-receipt',
+    'cap-clipboard-badge',
+    'cap-clipboard-receipt',
   ]) {
     assert.match(html, new RegExp(`id="${id}"`), `options.html must expose #${id}`);
   }

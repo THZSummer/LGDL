@@ -36,15 +36,26 @@ import {
   tabsSettingStatus,
   autoAuthRows,
   capabilitiesView,
+  applyMeasuredGrants,
+  capabilityRevokeFailureReceipt,
+  capabilityRevokeReceipt,
   bookmarksCapabilityStatus,
   downloadsCapabilityStatus,
   notifyCapabilityStatus,
   clipboardCapabilityStatus,
   type AutoAuthRecordView,
   type CapabilitiesView,
+  type MeasuredCapabilityGrants,
 } from './view.js';
 import type { SessionGroupView } from './view.js';
-import type { OptionalCapability } from '../../platform/capability-permissions.js';
+import {
+  OPTIONAL_CAPABILITIES,
+  capabilityPermissionsApi,
+  hasCapabilityPermission,
+  removeCapabilityPermission,
+  type OptionalCapability,
+  type PermissionsApiLike,
+} from '../../platform/capability-permissions.js';
 
 /** Minimal transport shape (a real `chrome.runtime.sendMessage` satisfies it). */
 export interface SettingsTransport {
@@ -60,6 +71,12 @@ export interface SettingsOpsDeps {
   manifestVersion: () => string;
   /** Real `chrome.storage.local` round-trip probe; only called in-extension. */
   probeStorage?: () => Promise<{ status: DiagStatus; detail: string }>;
+  /**
+   * TASK-040: optional `chrome.permissions` seam for the live `contains()`
+   * grant probe and the no-gesture `remove()`. Injected so the whole module
+   * stays node-testable; defaults to the lazy real `chrome.permissions`.
+   */
+  permissions?: PermissionsApiLike;
   now?: () => number;
 }
 
@@ -115,6 +132,13 @@ export interface SettingsOps {
   setCapabilityPrivacy(cap: OptionalCapability, scope: 'read' | 'write', enabled: boolean): Promise<OpResult<CapabilitiesView>>;
   /** Re-reconcile after a gesture-driven `chrome.permissions.request` settles. */
   notifyCapabilityPermissionChanged(cap: OptionalCapability): Promise<OpResult<CapabilitiesView>>;
+  /**
+   * TASK-040: revoke a capability's optional permission (`chrome.permissions.remove`
+   * — no gesture required), then re-reconcile the tool surface through the
+   * existing `capabilities/permission-changed` path (tool leaves the surface +
+   * audit). Never silent: a failed remove returns a readable error receipt.
+   */
+  revokeCapability(cap: OptionalCapability): Promise<OpResult<CapabilitiesView>>;
   loadAutoAuth(): Promise<OpResult<AutoAuthRecordView[]>>;
   setAutoAuth(origin: string, tier: 'read' | 'write', enabled: boolean): Promise<OpResult<AutoAuthRecordView[]>>;
   clearAutoAuth(origin: string): Promise<OpResult<AutoAuthRecordView[]>>;
@@ -128,6 +152,25 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
   const send = <T>(msg: PluginMessage): Promise<PluginResponse<T>> => deps.transport.send<T>(msg);
 
   const notExtension = <T = unknown>(): OpResult<T> => ({ ok: false, kind: 'err', text: `✖ ${deps.env.banner}` });
+
+  const permissionsApi = (): PermissionsApiLike | undefined => deps.permissions ?? capabilityPermissionsApi();
+
+  /**
+   * TASK-040: measure the **real** grant for every capability in the extension
+   * page (`chrome.permissions.contains`). This is the single source of truth for
+   * the UI — the persisted privacy toggles never decide authorization.
+   */
+  async function measuredGrants(): Promise<MeasuredCapabilityGrants> {
+    const api = permissionsApi();
+    const out: MeasuredCapabilityGrants = {};
+    for (const cap of OPTIONAL_CAPABILITIES) out[cap] = await hasCapabilityPermission(api, cap);
+    return out;
+  }
+
+  /** Normalize a raw background payload, then override grants with the measured values. */
+  async function measuredView(raw: unknown): Promise<CapabilitiesView> {
+    return applyMeasuredGrants(capabilitiesView(raw), await measuredGrants());
+  }
 
   return {
     async loadLlm() {
@@ -263,7 +306,7 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
       try {
         const res = await send<CapabilitiesView>(makeMessage('capabilities', { action: 'status' }));
         if (!res.ok || !res.data) return { ok: false, kind: 'err', text: `✖ 读取能力权限状态失败：${res.error ?? '后台无响应'}` };
-        const view = capabilitiesView(res.data);
+        const view = await measuredView(res.data);
         return {
           ok: true,
           kind: '',
@@ -280,7 +323,7 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
       try {
         const res = await send<CapabilitiesView>(makeMessage('capabilities', { action: 'set', capability: cap, scope, enabled }));
         if (!res.ok || !res.data) return { ok: false, kind: 'err', text: `✖ 保存能力开关失败：${res.error ?? '后台无响应'}` };
-        const view = capabilitiesView(res.data);
+        const view = await measuredView(res.data);
         const label =
           cap === 'bookmarks' ? '书签' : cap === 'downloads' ? '下载记录' : cap === 'notify' ? '系统通知' : '剪贴板';
         const scopeLabel = cap === 'notify' ? '' : scope === 'write' ? '·写' : '·读';
@@ -300,9 +343,33 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
       try {
         const res = await send<CapabilitiesView>(makeMessage('capabilities', { action: 'permission-changed', capability: cap }));
         if (!res.ok || !res.data) return { ok: false, kind: 'err', text: `✖ 同步权限状态失败：${res.error ?? '后台无响应'}` };
-        return { ok: true, kind: '', text: '权限状态已同步。', data: capabilitiesView(res.data) };
+        return { ok: true, kind: '', text: '权限状态已同步。', data: await measuredView(res.data) };
       } catch (err) {
         return { ok: false, kind: 'err', text: `✖ 同步权限状态失败：${errText(err)}` };
+      }
+    },
+
+    async revokeCapability(cap) {
+      if (!deps.env.inExtension) return notExtension();
+      // `chrome.permissions.remove` needs NO user gesture (unlike `request`), so
+      // it runs here directly. Removing the permission fires the background's
+      // `permissions.onRemoved` reconciliation; we then send the explicit
+      // `permission-changed` reconcile so the tool leaves `deriveTools()` and an
+      // `optional-permission/revoked` audit lands even if the event races.
+      const removed = await removeCapabilityPermission(permissionsApi(), cap);
+      if (!removed.removed) {
+        const failure = capabilityRevokeFailureReceipt(cap, removed.error);
+        return { ok: false, kind: 'err', text: failure.text };
+      }
+      const receipt = capabilityRevokeReceipt(cap);
+      try {
+        const res = await send<CapabilitiesView>(makeMessage('capabilities', { action: 'permission-changed', capability: cap }));
+        if (!res.ok || !res.data) {
+          return { ok: true, kind: 'warn', text: `${receipt.text}（工具面对账未返回：${res.error ?? '后台无响应'}，将重新读取）` };
+        }
+        return { ok: true, kind: receipt.kind, text: receipt.text, data: await measuredView(res.data) };
+      } catch (err) {
+        return { ok: true, kind: 'warn', text: `${receipt.text}（工具面对账异常：${errText(err)}，将重新读取）` };
       }
     },
 

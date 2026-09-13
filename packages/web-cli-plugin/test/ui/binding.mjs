@@ -528,6 +528,39 @@ async function phase0() {
       );
       observe(`#0g 未授权头下 chrome.permissions.request(${SITE_PATTERN}) = ${attempted}（headless 无原生弹窗 → 主链改用临时 dist 预授权，见披露②）`);
       check(attempted === 'PENDING_TIMEOUT' || String(attempted).startsWith('ERR:'), '#0g 如实记录：未授权请求在 headless 不可合成（非静默失败）', String(attempted));
+
+      // ── TASK-040: real `permissions.remove` (optional permission) → tool leaves
+      // the LLM surface + `optional-permission/revoked` audit. The native grant
+      // prompt (and thus a granted→onRemoved transition) stays a MANUAL item —
+      // headless cannot synthesize it; disclosed, never faked as PASS.
+      const bkBefore = await evaluate(page, `chrome.permissions.contains({ permissions: ['bookmarks'] }).then((v) => v)`);
+      check(bkBefore === false, '#0j 真实 dist（未改动 manifest）：bookmarks 未授予（contains=false，optional_permissions）', String(bkBefore));
+      const capToolsBefore = await evaluate(
+        page,
+        `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'capabilities', action: 'status' }); return JSON.stringify(r?.data?.tools || []); })()`,
+      );
+      check(/bookmarks/.test(capToolsBefore ?? ''), '#0k 撤销前工具面包含 bookmarks（未请求权限 ≠ 静默移除；调用会得到可读提示）', String(capToolsBefore));
+      const removed = await evaluate(page, `chrome.permissions.remove({ permissions: ['bookmarks'] }).then((v) => 'RESOLVED:' + v).catch((e) => 'ERR:' + e.message)`);
+      check(String(removed) === 'RESOLVED:true', '#0l 真实 chrome.permissions.remove({permissions:[bookmarks]}) 解析为 true（可选权限，无需手势）', String(removed));
+      const afterRemoveContains = await evaluate(page, `chrome.permissions.contains({ permissions: ['bookmarks'] }).then((v) => v)`);
+      check(afterRemoveContains === false, '#0m remove 后 contains=false（Chrome 权限已移除）', String(afterRemoveContains));
+      // The exact reconcile the in-product「撤销」button sends.
+      await evaluate(page, `chrome.runtime.sendMessage({ kind: 'capabilities', action: 'permission-changed', capability: 'bookmarks' }).then(() => true)`);
+      const capToolsAfter = await evaluate(
+        page,
+        `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'capabilities', action: 'status' }); return JSON.stringify(r?.data?.tools || []); })()`,
+      );
+      check(!/bookmarks/.test(capToolsAfter ?? ''), '#0n 撤销对账后工具面不再含 bookmarks（工具从 deriveTools 移除，非仅 UI）', String(capToolsAfter));
+      const auditEvents = await evaluate(page, `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'audit-export' }); return JSON.stringify(r?.data || []); })()`);
+      const revokedAudit = (() => {
+        try {
+          return (JSON.parse(auditEvents ?? '[]') || []).some((e) => e.type === 'optional-permission' && e.tool === 'bookmarks' && e.decision === 'revoked');
+        } catch {
+          return false;
+        }
+      })();
+      check(revokedAudit, '#0o 撤销写入 optional-permission/revoked 审计（零明文：仅工具名/决策/可读原因）', String(auditEvents).slice(0, 240));
+      observe('TASK-040 披露：原生授权弹窗（request）与「已授权→onRemoved」过渡在 headless 不可合成；本节用真实可撤销的可选权限 + 真实 remove + 真实对账/审计取证，prompt 仍归人工面。');
       page.close();
     }
     sw.close();

@@ -2152,8 +2152,10 @@ chrome.permissions.onRemoved.addListener((permissions) => {
     // FR-054: an optional-capability revocation removes the tool from the surface
     // immediately (never leaves a silently-present tool). Re-granting is handled by
     // `onAdded` / the settings「开启」button.
+    let capabilityTouched = false;
     for (const cap of OPTIONAL_CAPABILITIES) {
       if (!changeTouchesCapability(permissions, cap)) continue;
+      capabilityTouched = true;
       s.host.suppressCapability(cap, true);
       s.audit.recordPlugin({
         type: 'optional-permission',
@@ -2163,6 +2165,9 @@ chrome.permissions.onRemoved.addListener((permissions) => {
         reason: `浏览器/用户撤销 ${cap} 可选权限：工具已从 LLM 工具面移除（不静默保留）`,
       });
     }
+    // TASK-040: push the panel to re-measure + re-render the capability rows
+    // (revoke visibility / receipt) without reopening the side panel.
+    if (capabilityTouched) void chrome.runtime.sendMessage(makeMessage('capability-changed')).catch(() => {});
     await reconcileContentScripts(s);
   })();
 });
@@ -2174,8 +2179,10 @@ chrome.permissions.onAdded.addListener((permissions) => {
     const s = await init();
     // FR-054: a capability grant (e.g. from the browser's own site-access UI)
     // re-registers the tool per the privacy toggles.
+    let capabilityTouched = false;
     for (const cap of OPTIONAL_CAPABILITIES) {
       if (!changeTouchesCapability(permissions, cap)) continue;
+      capabilityTouched = true;
       s.host.suppressCapability(cap, false);
       s.audit.recordPlugin({
         type: 'optional-permission',
@@ -2185,6 +2192,8 @@ chrome.permissions.onAdded.addListener((permissions) => {
         reason: `浏览器/用户授予 ${cap} 可选权限：工具按隐私开关进入 LLM 工具面`,
       });
     }
+    // TASK-040: push the panel to re-measure + re-render the capability rows.
+    if (capabilityTouched) void chrome.runtime.sendMessage(makeMessage('capability-changed')).catch(() => {});
     if (!(permissions.origins ?? []).length) return;
     await reconcileContentScripts(s);
   })();

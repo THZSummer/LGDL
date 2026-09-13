@@ -1079,16 +1079,26 @@ async function main() {
           dlLabel: dlBtn.textContent,
           ntLabel: ntBtn.textContent,
           cbLabel: cbBtn.textContent,
+          bkMode: bkBtn.dataset.mode || '',
+          bkBadge: document.getElementById('settings-cap-bookmarks-badge')?.textContent || '',
+          bkExplain: document.getElementById('settings-cap-bookmarks-explain')?.textContent || '',
+          bkReceipt: document.getElementById('settings-cap-bookmarks-receipt')?.textContent || '',
           bkStatus: t,
           dlStatus: dls.textContent || '',
           ntStatus: nts.textContent || '',
           cbStatus: cbs.textContent || '',
           readChecked: document.getElementById('settings-cap-bookmarks-read')?.checked,
+          readDisabled: document.getElementById('settings-cap-bookmarks-read')?.disabled,
           writeChecked: document.getElementById('settings-cap-bookmarks-write')?.checked,
+          writeDisabled: document.getElementById('settings-cap-bookmarks-write')?.disabled,
           dlReadChecked: document.getElementById('settings-cap-downloads-read')?.checked,
+          dlReadDisabled: document.getElementById('settings-cap-downloads-read')?.disabled,
           ntChecked: document.getElementById('settings-cap-notify-enabled')?.checked,
+          ntDisabled: document.getElementById('settings-cap-notify-enabled')?.disabled,
           cbReadChecked: document.getElementById('settings-cap-clipboard-read')?.checked,
+          cbReadDisabled: document.getElementById('settings-cap-clipboard-read')?.disabled,
           cbWriteChecked: document.getElementById('settings-cap-clipboard-write')?.checked,
+          cbWriteDisabled: document.getElementById('settings-cap-clipboard-write')?.disabled,
         });
       })()`,
       40,
@@ -1096,26 +1106,32 @@ async function main() {
     );
     const cv = capView ? JSON.parse(capView) : {};
     check(cv.section === true, '#54a 设置视图新增「能力与隐私（可选权限）」分区（书签 / 下载记录 / 通知 / 剪贴板）', capView ?? 'no capability section');
-    check(/开启书签访问/.test(cv.bkLabel ?? ''), '#54b 提供「开启书签访问」一键请求按钮（点击手势内调用 chrome.permissions.request）', String(cv.bkLabel));
+    check(/授权 Chrome 书签权限/.test(cv.bkLabel ?? ''), '#54b 未授权时按钮文案为「授权 Chrome 书签权限」（三态之一；点击手势内调用 chrome.permissions.request）', String(cv.bkLabel));
+    check(cv.bkMode === 'request' && !cv.bkBadge, '#54b2 未授权态：按钮 mode=request 且不显示「✅ 已授权」徽标', JSON.stringify({ mode: cv.bkMode, badge: cv.bkBadge }));
+    check(/点一次/.test(cv.bkExplain ?? '') && /可选权限/.test(cv.bkExplain ?? ''), '#54b3 每能力行给出可读解释（做什么 + 为什么 Chrome 会弹窗/必须点一次）', String(cv.bkExplain));
     check(/未开启/.test(cv.bkStatus ?? ''), '#54c 未授权时书签能力状态回显「未开启」（fresh profile 真实 contains=false）', String(cv.bkStatus));
     check(/未开启/.test(cv.dlStatus ?? ''), '#54d 未授权时下载记录能力状态回显「未开启」', String(cv.dlStatus));
-    check(cv.readChecked === true && cv.writeChecked === false, '#54e 隐私默认：书签读开 / 写关', JSON.stringify({ read: cv.readChecked, write: cv.writeChecked }));
-    check(cv.dlReadChecked === true, '#54f 隐私默认：下载记录读开（只读）', String(cv.dlReadChecked));
     check(
-      /开启通知/.test(cv.ntLabel ?? '') && /未开启/.test(cv.ntStatus ?? ''),
-      '#54i FR-055：提供「开启通知」按钮且未授权时回显「未开启」',
+      cv.readChecked === false && cv.writeChecked === false && cv.readDisabled === true && cv.writeDisabled === true,
+      '#54e 未授权时隐私开关回落到「权限未授予」语义（不勾选且禁用，绝不显示为「开」）',
+      JSON.stringify({ read: cv.readChecked, write: cv.writeChecked, readDisabled: cv.readDisabled, writeDisabled: cv.writeDisabled }),
+    );
+    check(cv.dlReadChecked === false && cv.dlReadDisabled === true, '#54f 未授权时下载记录读开关同样回落（不勾选 + 禁用）', JSON.stringify({ checked: cv.dlReadChecked, disabled: cv.dlReadDisabled }));
+    check(
+      /授权 Chrome 系统通知权限/.test(cv.ntLabel ?? '') && /未开启/.test(cv.ntStatus ?? ''),
+      '#54i FR-055：未授权时提供「授权 Chrome 系统通知权限」按钮且回显「未开启」',
       JSON.stringify({ label: cv.ntLabel, status: cv.ntStatus }),
     );
-    check(cv.ntChecked === true, '#54j FR-055：通知隐私开关默认开', String(cv.ntChecked));
+    check(cv.ntChecked === false && cv.ntDisabled === true, '#54j FR-055：未授权时通知隐私开关回落（不勾选 + 禁用）', JSON.stringify({ checked: cv.ntChecked, disabled: cv.ntDisabled }));
     check(
-      /开启剪贴板访问/.test(cv.cbLabel ?? '') && /未开启/.test(cv.cbStatus ?? ''),
-      '#54k FR-055：提供「开启剪贴板访问」按钮且未授权时回显「未开启」',
+      /授权 Chrome 剪贴板权限/.test(cv.cbLabel ?? '') && /未开启/.test(cv.cbStatus ?? ''),
+      '#54k FR-055：未授权时提供「授权 Chrome 剪贴板权限」按钮且回显「未开启」',
       JSON.stringify({ label: cv.cbLabel, status: cv.cbStatus }),
     );
     check(
-      cv.cbReadChecked === false && cv.cbWriteChecked === true,
-      '#54l FR-055：剪贴板读默认关（隐私敏感）/ 写默认开',
-      JSON.stringify({ read: cv.cbReadChecked, write: cv.cbWriteChecked }),
+      cv.cbReadChecked === false && cv.cbWriteChecked === false && cv.cbReadDisabled === true && cv.cbWriteDisabled === true,
+      '#54l FR-055：未授权时剪贴板读/写开关同样回落（读默认关；不勾选 + 禁用）',
+      JSON.stringify({ read: cv.cbReadChecked, write: cv.cbWriteChecked, readDisabled: cv.cbReadDisabled, writeDisabled: cv.cbWriteDisabled }),
     );
 
     // Denial path: a stubbed `chrome.permissions.request` resolving false must
@@ -1136,23 +1152,87 @@ async function main() {
     );
     if (denyStub === true) {
       await realClick(sp, '#settings-cap-bookmarks-request');
-      const denied = await waitFor(sp, `(() => { const t = document.getElementById('settings-cap-bookmarks-status').textContent; return /未开启/.test(t) && /未授予/.test(t) ? t : ''; })()`, 40, 150);
-      check(/未开启/.test(denied ?? ''), '#54g 拒绝路径：权限请求被拒后回显可读「未开启书签访问：…未授予…」（不静默）', String(denied));
+      const denied = await waitFor(sp, `(() => { const t = document.getElementById('settings-cap-bookmarks-receipt').textContent; return /未开启/.test(t) && /未授予/.test(t) && /bookmarks/.test(t) ? t : ''; })()`, 40, 150);
+      check(/未开启/.test(denied ?? ''), '#54g 拒绝路径：权限请求被拒后在持久回执区回显可读「✖ 未开启：Chrome 未授予 bookmarks 权限；可再次点击重试」（不静默）', String(denied));
+      const deniedButton = await evaluate(sp, `document.getElementById('settings-cap-bookmarks-request').textContent`);
+      check(/授权 Chrome 书签权限/.test(deniedButton ?? ''), '#54g2 拒绝后按钮仍为「授权 Chrome 书签权限」（与回执同步，可再次点击重试）', String(deniedButton));
       const reqArgs = await evaluate(sp, `JSON.stringify(window.__capReqCalls || [])`);
-      check(/bookmarks/.test(reqArgs ?? ''), '#54h 点击「开启书签访问」实际调用了 chrome.permissions.request({permissions:[\'bookmarks\']})（手势内）', String(reqArgs));
+      check(/bookmarks/.test(reqArgs ?? ''), '#54h 点击授权按钮实际调用了 chrome.permissions.request({permissions:[\'bookmarks\']})（手势内）', String(reqArgs));
 
       // FR-055 clipboard denial path + exact permission set in the gesture.
       await realClick(sp, '#settings-cap-clipboard-request');
-      const cbDenied = await waitFor(sp, `(() => { const t = document.getElementById('settings-cap-clipboard-status').textContent; return /未开启/.test(t) && /未授予/.test(t) ? t : ''; })()`, 40, 150);
-      check(/未开启/.test(cbDenied ?? ''), '#54m FR-055 拒绝路径：剪贴板权限被拒后回显可读「未开启剪贴板访问：…未授予…」', String(cbDenied));
+      const cbDenied = await waitFor(sp, `(() => { const t = document.getElementById('settings-cap-clipboard-receipt').textContent; return /未开启/.test(t) && /未授予/.test(t) && /clipboardRead/.test(t) ? t : ''; })()`, 40, 150);
+      check(/未开启/.test(cbDenied ?? ''), '#54m FR-055 拒绝路径：剪贴板权限被拒后在持久回执区回显「✖ 未开启：Chrome 未授予 clipboardRead/clipboardWrite 权限」（不静默）', String(cbDenied));
       const cbReqArgs = await evaluate(sp, `JSON.stringify((window.__capReqCalls || []).filter((p) => (p.permissions || []).includes('clipboardRead')))`);
       check(
         /clipboardRead/.test(cbReqArgs ?? '') && /clipboardWrite/.test(cbReqArgs ?? ''),
-        '#54n FR-055：点击「开启剪贴板访问」在点击手势内调用 request({permissions:[\'clipboardRead\',\'clipboardWrite\']})',
+        '#54n FR-055：点击「授权 Chrome 剪贴板权限」在点击手势内调用 request({permissions:[\'clipboardRead\',\'clipboardWrite\']})',
         String(cbReqArgs),
       );
     } else {
       check(false, '#54g 拒绝路径可注入（chrome.permissions.request 可覆盖）', String(denyStub));
+    }
+
+    // ── TASK-040: three-state button (授权 ↔ 撤销) + real permission.remove + tool removal ──
+    // Stub `contains` (stateful) and `remove` in the extension page so the real
+    // UI path runs without the headless prompt (the native prompt stays a manual
+    // item — disclosed). The background reconcile itself is NOT stubbed.
+    const threeStateStub = await evaluate(
+      sp,
+      `(() => {
+        window.__capGranted = true;
+        window.__capRemoveCalls = [];
+        try {
+          Object.defineProperty(chrome.permissions, 'contains', {
+            configurable: true,
+            value: (p) => Promise.resolve((p && p.permissions || []).includes('bookmarks') ? window.__capGranted : false),
+          });
+          Object.defineProperty(chrome.permissions, 'remove', {
+            configurable: true,
+            value: (p) => { window.__capRemoveCalls.push(p); window.__capGranted = false; return Promise.resolve(true); },
+          });
+          return true;
+        } catch (e) { return String(e); }
+      })()`,
+    );
+    if (threeStateStub === true) {
+      const capToolsBefore = await evaluate(sp, `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'capabilities', action: 'status' }); return JSON.stringify(r?.data?.tools || []); })()`);
+      check(/bookmarks/.test(capToolsBefore ?? ''), '#54o 撤销前：真实 background 工具面包含 bookmarks（deriveTools 实测）', String(capToolsBefore));
+
+      // Re-open the settings view (close → open) so every render re-measures
+      // contains() live; that is the「实测优先」path under test.
+      await realClick(sp, '#settings-back');
+      await realClick(sp, '#open-settings');
+      const grantedView = await waitFor(
+        sp,
+        `(() => {
+          const b = document.getElementById('settings-cap-bookmarks-request');
+          const badge = document.getElementById('settings-cap-bookmarks-badge');
+          if (!b || b.textContent !== '撤销 Chrome 权限' || badge.textContent !== '✅ 已授权') return '';
+          return JSON.stringify({ label: b.textContent, mode: b.dataset.mode || '', badge: badge.textContent, status: document.getElementById('settings-cap-bookmarks-status').textContent });
+        })()`,
+        40,
+        150,
+      );
+      const gv = grantedView ? JSON.parse(grantedView) : {};
+      check(gv.label === '撤销 Chrome 权限' && gv.mode === 'revoke', '#54p 已授权态：按钮文案切换为「撤销 Chrome 权限」（授权前「授权 Chrome 书签权限」）', grantedView ?? 'no granted view');
+      check(gv.badge === '✅ 已授权', '#54q 已授权态：显示「✅ 已授权」徽标', String(gv.badge));
+      check(/已开启/.test(gv.status ?? ''), '#54r 已授权态：状态行按实测权限显示「已开启」', String(gv.status));
+
+      // Click revoke → real permissions.remove + explicit permission-changed reconcile.
+      await realClick(sp, '#settings-cap-bookmarks-request');
+      const revokeReceipt = await waitFor(sp, `(() => { const t = document.getElementById('settings-cap-bookmarks-receipt').textContent; return /✅ 已撤销书签权限/.test(t) ? t : ''; })()`, 40, 150);
+      check(/✅ 已撤销书签权限：Chrome 权限已移除（助手工具已从 LLM 工具面移除）/.test(revokeReceipt ?? ''), '#54s 撤销回执原文（含「已从 LLM 工具面移除」）', String(revokeReceipt));
+      const afterRevokeButton = await evaluate(sp, `document.getElementById('settings-cap-bookmarks-request').textContent`);
+      check(/授权 Chrome 书签权限/.test(afterRevokeButton ?? ''), '#54t 撤销后按钮同步切回「授权 Chrome 书签权限」（按钮与回执同步）', String(afterRevokeButton));
+      const removeArgs = await evaluate(sp, `JSON.stringify(window.__capRemoveCalls || [])`);
+      check(/bookmarks/.test(removeArgs ?? ''), '#54u 撤销真实调用了 chrome.permissions.remove({permissions:[\'bookmarks\']})（无需手势）', String(removeArgs));
+      const revokedStatus = await evaluate(sp, `document.getElementById('settings-cap-bookmarks-status').textContent`);
+      check(/已从 LLM 工具面移除/.test(revokedStatus ?? ''), '#54v 撤销后状态回落到「权限未授予」并说明工具已从 LLM 工具面移除', String(revokedStatus));
+      const capToolsAfter = await evaluate(sp, `(async () => { const r = await chrome.runtime.sendMessage({ kind: 'capabilities', action: 'status' }); return JSON.stringify(r?.data?.tools || []); })()`);
+      check(!/bookmarks/.test(capToolsAfter ?? ''), '#54w 撤销后：真实 background 工具面已不含 bookmarks（撤销后工具消失，非仅 UI）', String(capToolsAfter));
+    } else {
+      check(false, '#54o 三态/撤销路径可注入（chrome.permissions.contains/remove 可覆盖）', String(threeStateStub));
     }
 
     const preservedWhileOpen = JSON.parse(

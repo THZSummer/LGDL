@@ -12,6 +12,7 @@
  */
 import { PROVIDERS, providerById } from '../../llm/providers.js';
 import type { LlmSettings } from '../../llm/key-store.js';
+import { OPTIONAL_CAPABILITIES, permissionsOf, type OptionalCapability } from '../../platform/capability-permissions.js';
 
 // ── LLM API key state (single source for both surfaces) ────────────────────
 
@@ -100,7 +101,13 @@ export interface CapabilityGrantView {
   read: boolean;
   /** Privacy toggle for the write group (bookmarks only). */
   write?: boolean;
-  /** Whether the optional permission is currently granted. */
+  /**
+   * Whether the optional permission is currently granted. Author UX round
+   * (TASK-040): every render derives this from a **live**
+   * `chrome.permissions.contains()` probe (never from the persisted privacy
+   * toggle), so a toggle that reads「开」while the permission is gone can never
+   * masquerade as granted.
+   */
   granted: boolean;
   /** True when an explicit revocation removed it (distinct from「never requested」). */
   revoked: boolean;
@@ -119,47 +126,207 @@ export interface CapabilitiesView {
   tools?: string[];
 }
 
+/** A measured-grant map keyed by capability (from a live `contains()` probe). */
+export type MeasuredCapabilityGrants = Partial<Record<OptionalCapability, boolean>>;
+
+/**
+ * TASK-040: override the background-reported `granted` flags with the values
+ * **measured in the extension page** via `chrome.permissions.contains()`.
+ *
+ * The privacy toggles (`read` / `write`) are persisted preferences and are
+ * deliberately ignored here: authorization is decided by the measured grant
+ * only. `granted=true` also clears a stale `revoked` flag (a re-grant after a
+ * revoke must not keep reading as「已撤销」).
+ */
+export function applyMeasuredGrants(view: CapabilitiesView, measured: MeasuredCapabilityGrants): CapabilitiesView {
+  const next: CapabilitiesView = {
+    bookmarks: { ...view.bookmarks },
+    downloads: { ...view.downloads },
+    notify: { ...view.notify },
+    clipboard: { ...view.clipboard },
+    ...(view.tools ? { tools: view.tools } : {}),
+  };
+  for (const cap of OPTIONAL_CAPABILITIES) {
+    const m = measured[cap];
+    if (typeof m !== 'boolean') continue;
+    const row = next[cap] as CapabilityGrantView;
+    row.granted = m;
+    if (m) row.revoked = false;
+  }
+  return next;
+}
+
+/** Short capability label for readable receipts / action copy. */
+export const CAPABILITY_SHORT_LABEL: Readonly<Record<OptionalCapability, string>> = {
+  bookmarks: '书签',
+  downloads: '下载记录',
+  notify: '系统通知',
+  clipboard: '剪贴板',
+};
+
+/**
+ * TASK-040 (defect ③): readable explanation of what each capability enables and
+ * **why Chrome prompts at all** (optional permission + mandatory user gesture),
+ * so「不直观」is answered on the row itself.
+ */
+export const CAPABILITY_EXPLANATION: Readonly<Record<OptionalCapability, string>> = {
+  bookmarks:
+    '「书签访问」= 让助手读取/整理你的书签栏与书签管理器条目；Chrome 把 bookmarks 列为可选权限，必须由你在扩展页面点一次才会弹窗授权。',
+  downloads:
+    '「下载记录（只读）」= 让助手查看你的下载历史（不做取消/删除/打开）；Chrome 把 downloads 列为可选权限，必须由你在扩展页面点一次才会弹窗授权。',
+  notify:
+    '「系统通知」= 让助手读取当前通知并通过 Chrome 发送系统通知；Chrome 把 notifications 列为可选权限，必须由你在扩展页面点一次才会弹窗授权。',
+  clipboard:
+    '「剪贴板访问」= 让助手读取/写入系统剪贴板文本（读取为 state 档、永不自动放行）；Chrome 把 clipboardRead/clipboardWrite 列为可选权限，必须由你在扩展页面点一次才会弹窗授权。',
+};
+
 /** 已开启 / 未开启 / 已撤销 (single source for panel + options). */
 export function capabilityStateLabel(granted: boolean, revoked: boolean): '已开启' | '未开启' | '已撤销' {
   if (granted) return '已开启';
   return revoked ? '已撤销' : '未开启';
 }
 
+/**
+ * TASK-040 (defect ①): the three-state action control derived **only** from the
+ * measured grant.
+ *  - not granted → one「授权 Chrome ＜能力＞权限」button (opens the gesture prompt);
+ *  - granted     → the button flips to「撤销 Chrome 权限」+ a `✅ 已授权` badge;
+ *  - revoked     → back to the request button, plus a readable「上次已撤销」note.
+ */
+export interface CapabilityActionView {
+  mode: 'request' | 'revoke';
+  buttonLabel: string;
+  badge: string;
+  showRequest: boolean;
+  showRevoke: boolean;
+  revokedNote: string;
+}
+
+export function capabilityActionView(cap: OptionalCapability, granted: boolean, revoked: boolean): CapabilityActionView {
+  if (granted) {
+    return {
+      mode: 'revoke',
+      buttonLabel: '撤销 Chrome 权限',
+      badge: '✅ 已授权',
+      showRequest: false,
+      showRevoke: true,
+      revokedNote: '',
+    };
+  }
+  return {
+    mode: 'request',
+    buttonLabel: `授权 Chrome ${CAPABILITY_SHORT_LABEL[cap]}权限`,
+    badge: '',
+    showRequest: true,
+    showRevoke: false,
+    revokedNote: revoked
+      ? `上次已撤销：Chrome 未授予 ${permissionsOf(cap).join('/')} 权限，助手工具已从 LLM 工具面移除；可再次点击「授权」重新申请。`
+      : '',
+  };
+}
+
+/** Persistent action receipt (TASK-040 defect ②) — kind drives colour only. */
+export interface CapabilityReceipt {
+  kind: 'ok' | 'warn' | 'err' | '';
+  text: string;
+}
+
+export function capabilityGrantReceipt(cap: OptionalCapability): CapabilityReceipt {
+  return {
+    kind: 'ok',
+    text: `✅ 已开启${CAPABILITY_SHORT_LABEL[cap]}访问：Chrome 权限已授予（助手工具已进入 LLM 工具面）`,
+  };
+}
+
+export function capabilityDeniedReceipt(cap: OptionalCapability, detail?: string): CapabilityReceipt {
+  const extra = detail && detail.trim() ? `（${detail}）` : '';
+  return {
+    kind: 'warn',
+    text: `✖ 未开启：Chrome 未授予 ${permissionsOf(cap).join('/')} 权限；可再次点击重试${extra}`,
+  };
+}
+
+export function capabilityRevokeReceipt(cap: OptionalCapability): CapabilityReceipt {
+  return {
+    kind: 'ok',
+    text: `✅ 已撤销${CAPABILITY_SHORT_LABEL[cap]}权限：Chrome 权限已移除（助手工具已从 LLM 工具面移除）`,
+  };
+}
+
+export function capabilityRevokeFailureReceipt(cap: OptionalCapability, detail?: string): CapabilityReceipt {
+  return {
+    kind: 'err',
+    text: `✖ 撤销${CAPABILITY_SHORT_LABEL[cap]}权限失败：${detail && detail.trim() ? detail : '未知原因'}（Chrome 权限仍保留；可重试）`,
+  };
+}
+
+/**
+ * The persistent state note a row shows on every (re-)render — always consistent
+ * with the measured grant. Action receipts ({@link capabilityGrantReceipt} /
+ * {@link capabilityRevokeReceipt}) are shown on top of it until the next render.
+ */
+export function capabilityStateNote(cap: OptionalCapability, granted: boolean, revoked: boolean): CapabilityReceipt {
+  const perms = permissionsOf(cap).join('/');
+  if (granted) {
+    return { kind: 'ok', text: `✅ 已授权：Chrome 已授予 ${perms} 权限，助手工具已进入 LLM 工具面。` };
+  }
+  if (revoked) {
+    return {
+      kind: 'warn',
+      text: capabilityActionView(cap, false, true).revokedNote,
+    };
+  }
+  return { kind: 'warn', text: `未授权：Chrome 未授予 ${perms} 权限；点「授权 Chrome ${CAPABILITY_SHORT_LABEL[cap]}权限」申请。` };
+}
+
 function capabilityToolNote(tool: string, granted: boolean, revoked: boolean, tools?: string[]): string {
   if (!granted) {
     return revoked
-      ? '（权限已被撤销：已从 LLM 工具面移除；可点「开启」重新申请）'
-      : '（点下方「开启」授权；未授权时调用会得到可读提示，不会静默失败）';
+      ? '（权限已被撤销：已从 LLM 工具面移除；可点「授权」重新申请或「撤销」再次确认）'
+      : '（点下方「授权」按钮；未授权时调用会得到可读提示，不会静默失败）';
   }
   const inSurface = !tools || tools.includes(tool);
   return inSurface ? '（工具已进入 LLM 工具面）' : '（开关关闭：工具已从 LLM 工具面移除）';
 }
 
+/**
+ * TASK-040 (defect ③): when the permission is not granted, the privacy toggles
+ * must **not** keep reading as「开」— the row falls back to「权限未授予」semantics.
+ */
+function capabilityTogglesText(granted: boolean, grantedText: string, scopes: string): string {
+  if (granted) return grantedText;
+  return `${scopes}开关：权限未授予（不生效）`;
+}
+
 /** Readable status for the bookmarks capability row. */
 export function bookmarksCapabilityStatus(v: CapabilitiesView['bookmarks']): string {
   const label = capabilityStateLabel(v.granted, v.revoked);
-  const toggles = `读开关 ${v.read ? '开' : '关'} · 写开关 ${v.write ? '开' : '关'}`;
+  const toggles = capabilityTogglesText(v.granted, `读开关 ${v.read ? '开' : '关'} · 写开关 ${v.write ? '开' : '关'}`, '读/写');
   return `书签访问（可选权限，读+写）：${label}｜${toggles}｜${capabilityToolNote('bookmarks', v.granted, v.revoked, v.tools)}`;
 }
 
 /** Readable status for the downloads capability row. */
 export function downloadsCapabilityStatus(v: CapabilitiesView['downloads']): string {
   const label = capabilityStateLabel(v.granted, v.revoked);
-  const toggles = `读开关 ${v.read ? '开' : '关'}`;
+  const toggles = capabilityTogglesText(v.granted, `读开关 ${v.read ? '开' : '关'}`, '读');
   return `下载记录（可选权限，只读）：${label}｜${toggles}｜${capabilityToolNote('downloads', v.granted, v.revoked, v.tools)}`;
 }
 
 /** Readable status for the notify capability row (FR-055). */
 export function notifyCapabilityStatus(v: CapabilitiesView['notify']): string {
   const label = capabilityStateLabel(v.granted, v.revoked);
-  const toggles = `开关 ${v.read ? '开' : '关'}`;
+  const toggles = capabilityTogglesText(v.granted, `开关 ${v.read ? '开' : '关'}`, '');
   return `系统通知（可选权限 notifications）：${label}｜${toggles}｜${capabilityToolNote('notify', v.granted, v.revoked, v.tools)}`;
 }
 
 /** Readable status for the clipboard capability row (FR-055). */
 export function clipboardCapabilityStatus(v: CapabilitiesView['clipboard']): string {
   const label = capabilityStateLabel(v.granted, v.revoked);
-  const toggles = `读开关 ${v.read ? '开' : '关'}（默认关）· 写开关 ${v.write ? '开' : '关'}（默认开）`;
+  const toggles = capabilityTogglesText(
+    v.granted,
+    `读开关 ${v.read ? '开' : '关'}（默认关）· 写开关 ${v.write ? '开' : '关'}（默认开）`,
+    '读/写',
+  );
   return `剪贴板（可选权限 clipboardRead/clipboardWrite）：${label}｜${toggles}｜读取为 state 档、永不自动放行｜${capabilityToolNote('clipboard', v.granted, v.revoked, v.tools)}`;
 }
 

@@ -881,7 +881,56 @@ router.dispatch → PermissionGate.check
 - `test:ui`：#54i~#54n（通知/剪贴板行 + 拒绝路径可读 + 默认读关写开 + 点击真实 `request({permissions:['clipboardRead','clipboardWrite']})`）。
 - `test:binding` / `test:e2e`：**headless 无法合成手势授权弹窗**，故测试**副本 manifest** 把这些权限声明为静态 `permissions`（脚本头/观测已披露），证明「权限在时能力真实可用」：binding 断言 `chrome.notifications.getPermissionLevel()=granted` + 侧栏 `navigator.clipboard` 可达（真实往返 `wc-clip-probe` 成功为观测项）；e2e 断言 `notify list` 走真实 `chrome.notifications`、`clipboard write` 真实写入成功（观测显示 `document.execCommand(copy)`，13 字符）。**手势弹窗与真实剪贴板内容仍归人工面（`docs/smoke-checklist.md` H2）。**
 
-## 19. 变更记录
+## 19. 可选权限申请 UX：三态按钮 / 明确回执 / 应用内撤销（TASK-040，用户 UX 反馈 2026-09-13）
+
+作者反馈：可选权限申请**不直观**、点没点成**效果不明显**、且**只能授权不能撤销**。本轮把 5 个可选权限（bookmarks 读/写、downloads 只读、notifications、clipboardRead/clipboardWrite）统一改造——**不是只改书签**。
+
+### 19.1 三态按钮（以实测权限态为准，不信本地缓存）
+
+每个能力行**每次渲染**都在扩展页调用 `chrome.permissions.contains()` **实测**权限态（`SettingsOps.loadCapabilities()` → `measuredGrants()` → `applyMeasuredGrants()`），再决定 UI：
+
+| 实测 `contains` | 按钮文案 | 附加 |
+|---|---|---|
+| `false`（未授权） | `授权 Chrome ＜能力＞权限` | 点击 → 既有手势内 `permissions.request` |
+| `true`（已授权） | `撤销 Chrome 权限` | 显示 `✅ 已授权` 徽标；不显示授权按钮 |
+| `false` 且曾显式撤销（`revoked`） | 回到未授权态 | 回执区给出「上次已撤销：Chrome 未授予 … 权限，助手工具已从 LLM 工具面移除；可再次点击『授权』」 |
+
+判定点在纯函数 `capabilityActionView(cap, granted, revoked)`（`src/ui/settings/view.ts`），**只接收实测 `granted`**；持久化的隐私开关（`read`/`write`）**不参与授权判定**。因此「开关显示为开但权限已没了」不可能再冒充已授权（`applyMeasuredGrants` 以实测覆盖 background 回报；单测「实测权限优先于本地开关」钉住）。
+
+### 19.2 明确、持久的回执（与状态同步切换）
+
+操作后在每行回执区（`settings-cap-<cap>-receipt` / `cap-<cap>-receipt`）显示可读回执；按钮按实测态同步切换：
+
+- 授权成功：`✅ 已开启＜能力＞访问：Chrome 权限已授予（助手工具已进入 LLM 工具面）`
+- 用户拒绝：`✖ 未开启：Chrome 未授予 ＜permission 列表＞ 权限；可再次点击重试`
+- 撤销成功：`✅ 已撤销＜能力＞权限：Chrome 权限已移除（助手工具已从 LLM 工具面移除）`
+- 撤销失败/异常：`✖ 撤销＜能力＞权限失败：＜原因＞（Chrome 权限仍保留；可重试）`（不静默）
+
+普通渲染期回执区展示与实测态一致的**状态说明**（`capabilityStateNote`）；动作回执在其上覆盖，直到下一次刷新。
+
+### 19.3 撤销流程（真实移除，不只改 UI）
+
+`chrome.permissions.remove` **不需要用户手势**（比 `request` 更好做），由 `SettingsOps.revokeCapability()` 在扩展页直接调用，随后发送既有的 `capabilities/permission-changed` 让 background 对账：
+
+1. `permissions.remove({ permissions })` → Chrome 移除权限（可选权限；`bookmarks`→`['bookmarks']`，`clipboard`→`['clipboardRead','clipboardWrite']`）；
+2. background `permissions.onRemoved`（外部撤销时）与 `capabilities/permission-changed`（产品撤销时）都会 `suppressCapability(cap, true)` → 工具**立即离开 `deriveTools()`**、派发被可读拒绝、写 `optional-permission/revoked` 审计；
+3. `permissions.onAdded`/`onRemoved` 对账后额外推送 `capability-changed` 给侧栏 → 面板**就地刷新**能力行（无需重开侧栏；options 页同样监听）。
+
+**「权限未授予」语义回落**：当 `granted=false` 时，隐私开关不再显示为「开」——复选框置为未勾选且禁用，状态行显示 `…开关：权限未授予（不生效）`（杜绝「权限没了开关还开着」的误导）。
+
+### 19.4 不新增权限 / 不新增依赖 / 一致性
+
+- `manifest.json` 零 diff（仅既有 `optional_permissions`）；不新增依赖、不新增权限、base 零改动。
+- 侧栏设置视图（`panel.ts`，主）与 `options.html`（兜底）**共用同一套** `src/ui/settings/{view,ops}.ts` 判定/操作（`capabilityActionView` / receipts / `revokeCapability`），未分叉第二套。
+
+### 19.5 回归门禁（TASK-040）
+
+- `test/capabilities.test.ts`：三态按钮、4 能力回执原文、解释文案、**实测优先于本地开关**（`读开关 开` + `contains=false` → 未开启且不显示「读开关 开」）。
+- `test/capability-revoke.test.ts`（新）：`revokeCapability` 调用精确权限集 + `permission-changed` 对账 + 成功/失败（返回 false / 抛错 / 无 remove API）回执；`suppressCapability` 使 4 个能力工具进出 `deriveTools()`。
+- `test:ui`：`#54b/#54b2/#54b3/#54e/#54f/#54g2/#54j/#54l`（三态/解释/未授权回落）+ `#54o~#54w`（撤销前工具在、已授权态按钮切「撤销」+ `✅ 已授权`、撤销回执原文、按钮切回、真实 `permissions.remove`、状态说明、**撤销后真实 background 工具面不含 bookmarks**）。
+- `test:binding`（真 dist）：`#0j~#0o` 真实 `permissions.remove`（可选权限，无需手势）→ 工具面移除 + `optional-permission/revoked` 审计；**原生授权弹窗与「已授权→onRemoved」过渡仍归人工面**（headless 不可合成，如实披露）。
+
+## 20. 变更记录
 
 | 版本 | 说明 |
 |------|------|

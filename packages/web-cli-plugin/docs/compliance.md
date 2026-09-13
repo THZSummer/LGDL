@@ -251,7 +251,7 @@
 | 破坏性硬底线 | `bookmarks remove` 判定为 **destructive** 并接入 `auto-authorize` 硬底线——**「写操作自动」开启时删除书签仍必须人工确认**（硬底线在 group 过滤之前判定，对插件级工具同样权威） | `src/security/auto-authorize.ts` + `test/bookmarks-tools.test.ts`（FR-054 destructive 断言）+ `test/e2e`「remove … never auto-released」 |
 | 未授权态 | 未授权时工具**不静默消失、不假装成功**：调用返回可读「✖ … 未开启：去「⚙ 设置 → 能力与隐私」点「开启…」」 | `src/tools/*-tools.ts`（`*_NOT_ENABLED_TEXT`）+ `test:ui` #54c/#54d/#54g |
 | 数据 / 审计 | URL 默认投影为 origin+path（去 query/fragment；`--full` 显式 opt-in）；下载文件名仅 **basename**（不暴露目录树）；每子命令审计**零明文**（搜索词只记长度） | `redactTabUrl` / `basenameOf` + 各 `auditSubcommand` |
-| 如何撤销 | 在 `chrome://extensions` 该扩展详情「网站访问权限」/ 权限项中移除 `bookmarks`/`downloads`；`permissions.onRemoved` 监听即时把工具从工具面移除并审计（不静默残留） | `service-worker.ts` `onRemoved`/`onAdded` 对账 + `test` 撤销断言 |
+| 如何撤销 | **应用内撤销（TASK-040）**：设置 → 能力与隐私，点该行的「撤销 Chrome 权限」→ `chrome.permissions.remove` 即时移除 + 工具移出 LLM 工具面 + 写审计；亦可仍到 `chrome://extensions` 该扩展详情权限项移除 `bookmarks`/`downloads`（`permissions.onRemoved` 对账同样即时移除并审计，不静默残留） | `src/ui/settings/{view,ops,panel}.ts` + `service-worker.ts` `onRemoved`/`onAdded` 对账 + `test:ui` #54o~#54w / `test:binding` #0j~#0o |
 
 ---
 
@@ -271,8 +271,26 @@
 | 剪贴板读的自动授权硬底线 | 剪贴板读风险档为 **`state`**；`state`/`evaluate` **永不纳入自动授权**——即使开启「读操作自动」，剪贴板读**仍然 ask**；「写操作自动」也不放行插件级写类（沿用既有 hard floor） | `src/security/auto-authorize.ts` + `test/clipboard-tools.test.ts`（专门断言） |
 | 内容机密性 | 剪贴板内容与通知正文（title/body）**绝不进入审计或日志**：审计只记长度/路径；确认摘要经 `scrubContentArgs` 替换为「已省略 N 字符」后再展示/审计 | `src/security/confirm.ts` + `test/{notify,clipboard}-tools.test.ts` |
 | 实现路径（如实披露） | 剪贴板读/写运行在**扩展页**（侧栏或 options 页）的 `navigator.clipboard`（回退 `document.execCommand`）；service worker 无 `navigator.clipboard`、MV3 无宿主剪贴板 API。因此剪贴板调用需**有一个扩展页处于打开状态**，否则返回可读「请保持侧栏打开」拒绝（不静默） | `src/platform/clipboard-page.ts`；test:e2e 观测显示写入真实成功（`document.execCommand(copy)`，13 字符） |
-| 如何撤销 | 在 `chrome://extensions` 该扩展详情权限项中移除对应权限；`permissions.onRemoved` 监听即时把工具从工具面移除并审计（不静默残留） | `service-worker.ts` `onRemoved`/`onAdded` 对账 + `test` 撤销断言 |
+| 如何撤销 | **应用内撤销（TASK-040）**：设置 → 能力与隐私，点该行的「撤销 Chrome 权限」→ `chrome.permissions.remove`（无需手势）即时移除 `notifications`/`clipboardRead`/`clipboardWrite` + 工具移出 LLM 工具面 + 写审计；亦可到 `chrome://extensions` 权限项移除（`permissions.onRemoved` 对账同样即时移除并审计） | `src/ui/settings/{view,ops,panel}.ts` + `service-worker.ts` 对账 + `test/capability-revoke.test.ts` / `test:ui` #54p~#54w |
 
 ---
 
-**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13；可选权限披露 §12（书签/下载记录）：2026-09-13；可选权限披露 §13（系统通知/剪贴板）：2026-09-13） ｜ **作者裁决反转（2026-09-13）**：§9 更新——`tabs` 放开 `close` 并补齐 `mute`/`pin`/`move`（**需求变更**，零新权限、`manifest.json` 零 diff；安全处置见 §9.4） ｜ **可选权限（2026-09-13）**：§12 新增——书签（读+写，删除为破坏性永不自动放行）与下载记录（只读）以 `optional_permissions` 声明，静态 `permissions` 零新增；§13 新增——系统通知（读+写）与剪贴板（读默认关/写，读为 `state` 档永不自动放行；`write-html`/`write-image`/`paste-read` 裁剪；内容零审计明文）同样以 `optional_permissions` 声明，静态 `permissions` 零新增 ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图路径/可选权限调整时
+## 14. 可选权限的应用内撤销（TASK-040，用户 UX 反馈 2026-09-13）
+
+作者反馈「申请不够直观、点没点成不明显、缺少取消权限」。本轮把 5 个可选权限统一为：
+
+| 事项 | 结论 | 依据 |
+|------|------|------|
+| 三态按钮（以实测为准） | 每次渲染在扩展页实测 `chrome.permissions.contains()`：未授权 → 「授权 Chrome ＜能力＞权限」；已授权 → 「撤销 Chrome 权限」+ `✅ 已授权`；已撤销 → 回到未授权并说明「上次已撤销」。**持久化隐私开关不参与授权判定**（杜绝「开关开着但权限没了」的误导） | `src/ui/settings/view.ts` `capabilityActionView` / `applyMeasuredGrants`；`test/capabilities.test.ts`「实测权限优先于本地开关」 |
+| 明确回执 | 授权成功 / 拒绝 / 撤销成功 / 撤销失败均在每行**持久回执区**给出可读文案，且与按钮同步切换 | `capabilityGrantReceipt` / `capabilityDeniedReceipt` / `capabilityRevokeReceipt` / `capabilityRevokeFailureReceipt` |
+| 解释性文案 | 每个能力行说明「这个权限让助手能做什么」+「Chrome 为何弹窗（可选权限 + 必须由你点一次）」 | `CAPABILITY_EXPLANATION`；`test:ui` #54b3 |
+| 撤销的真实效果 | `chrome.permissions.remove`（**无需用户手势**）→ `permissions.onRemoved` 与 `capabilities/permission-changed` 双路对账 → 工具**移出 `deriveTools()`** + 派发被拒 + `optional-permission/revoked` 审计；撤销后隐私开关**回落「未授予」语义**（不勾选 + 禁用，不再显示「开」） | `SettingsOps.revokeCapability` + `host.suppressCapability`；`test/capability-revoke.test.ts` + `test:ui` #54w + `test:binding` #0n/#0o |
+| 面板即时刷新 | `permissions.onAdded`/`onRemoved` 对账后推送 `capability-changed` → 侧栏/选项页**就地刷新**能力行（无需重开面板） | `service-worker.ts` + `sidepanel.ts` / `options.ts` |
+| 权限/依赖红线 | **不新增权限**（`manifest.json` 零 diff）、**不新增依赖**、base 零改动；侧栏设置视图与 options 兜底页**共用同一套**判定/操作逻辑 | `src/ui/settings/{view,ops,panel}.ts`（+ `options.ts` 仅 DOM 接线） |
+| 人工面（如实披露） | 原生授权弹窗（`request`）在无头自动化中**不可合成**；`test:binding` 用真实 `permissions.remove`（可选权限，无需手势）+ 真实对账/审计取证，凡「已授权→`onRemoved`」过渡仍归人工面（不冒充 PASS） | `test/ui/binding.mjs` 观测/披露 + `docs/smoke-checklist.md` H2 |
+
+> 撤销路径总结：**应用内撤销**（设置 → 能力与隐私 → 该行「撤销 Chrome 权限」，5 个能力均支持）为主；**`chrome://extensions` 权限项移除**（或浏览器回收）为等价兜底——两条路径都经 `permissions.onRemoved`/`capabilities permission-changed` 对账，工具即时移出 LLM 工具面并写审计。
+
+---
+
+**评估时间**: 2026-09-11（v0.9 增补 §8：2026-09-12；权限扩张披露 §9：2026-09-12；自动授权边界 §10：2026-09-12；真实像素截图不扩权限 §11：2026-09-13；整页拼接 + 原生 back/forward 零新权限 §11：2026-09-13；可选权限披露 §12（书签/下载记录）：2026-09-13；可选权限披露 §13（系统通知/剪贴板）：2026-09-13；可选权限应用内撤销 §14（TASK-040）：2026-09-13） ｜ **作者裁决反转（2026-09-13）**：§9 更新——`tabs` 放开 `close` 并补齐 `mute`/`pin`/`move`（**需求变更**，零新权限、`manifest.json` 零 diff；安全处置见 §9.4） ｜ **可选权限（2026-09-13）**：§12 新增——书签（读+写，删除为破坏性永不自动放行）与下载记录（只读）以 `optional_permissions` 声明，静态 `permissions` 零新增；§13 新增——系统通知（读+写）与剪贴板（读默认关/写，读为 `state` 档永不自动放行；`write-html`/`write-image`/`paste-read` 裁剪；内容零审计明文）同样以 `optional_permissions` 声明，静态 `permissions` 零新增 ｜ **评估人**: SDDU Build Agent ｜ **下次复核**: 新增试点站点、条款变更，或自动探测/多会话/标签页管理/自动授权/截图路径/可选权限调整时

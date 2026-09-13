@@ -56,6 +56,12 @@ import {
   downloadsCapabilityStatus,
   notifyCapabilityStatus,
   clipboardCapabilityStatus,
+  CAPABILITY_EXPLANATION,
+  CAPABILITY_SHORT_LABEL,
+  capabilityActionView,
+  capabilityDeniedReceipt,
+  capabilityGrantReceipt,
+  capabilityStateNote,
   type CapabilitiesView,
 } from '../settings/view.js';
 
@@ -479,17 +485,79 @@ async function setTabsSetting(enabled: boolean): Promise<void> {
 
 // ── FR-054 / FR-055: 可选权限能力（书签 / 下载记录 / 通知 / 剪贴板） ─────────
 
+/** TASK-040: exact id map shared by the explain badge/receipt wiring. */
+const CAPABILITY_STATUS_ID: Record<OptionalCapability, string> = {
+  bookmarks: 'cap-bookmarks-status',
+  downloads: 'cap-downloads-status',
+  notify: 'cap-notify-status',
+  clipboard: 'cap-clipboard-status',
+};
+
+const CAPABILITY_BUTTON_ID: Record<OptionalCapability, string> = {
+  bookmarks: 'cap-bookmarks-request',
+  downloads: 'cap-downloads-request',
+  notify: 'cap-notify-request',
+  clipboard: 'cap-clipboard-request',
+};
+
+const CAPABILITY_READ_ID: Record<OptionalCapability, string> = {
+  bookmarks: 'cap-bookmarks-read',
+  downloads: 'cap-downloads-read',
+  notify: 'cap-notify-enabled',
+  clipboard: 'cap-clipboard-read',
+};
+
+const CAPABILITY_WRITE_ID: Partial<Record<OptionalCapability, string>> = {
+  bookmarks: 'cap-bookmarks-write',
+  clipboard: 'cap-clipboard-write',
+};
+
+function setCapReceipt(cap: OptionalCapability, kind: string, text: string): void {
+  const el = document.getElementById(`cap-${cap}-receipt`);
+  if (!el) return;
+  el.classList.remove('msg-ok', 'msg-warn', 'msg-err');
+  if (kind === 'ok') el.classList.add('msg-ok');
+  else if (kind === 'warn') el.classList.add('msg-warn');
+  else if (kind === 'err') el.classList.add('msg-err');
+  el.textContent = text;
+}
+
 function renderCapabilities(view: CapabilitiesView): void {
-  ($('cap-bookmarks-read') as HTMLInputElement).checked = view.bookmarks.read;
-  ($('cap-bookmarks-write') as HTMLInputElement).checked = view.bookmarks.write;
-  ($('cap-downloads-read') as HTMLInputElement).checked = view.downloads.read;
-  ($('cap-notify-enabled') as HTMLInputElement).checked = view.notify.read;
-  ($('cap-clipboard-read') as HTMLInputElement).checked = view.clipboard.read;
-  ($('cap-clipboard-write') as HTMLInputElement).checked = view.clipboard.write;
-  $('cap-bookmarks-status').textContent = bookmarksCapabilityStatus(view.bookmarks);
-  $('cap-downloads-status').textContent = downloadsCapabilityStatus(view.downloads);
-  $('cap-notify-status').textContent = notifyCapabilityStatus(view.notify);
-  $('cap-clipboard-status').textContent = clipboardCapabilityStatus(view.clipboard);
+  const statusText: Record<OptionalCapability, string> = {
+    bookmarks: bookmarksCapabilityStatus(view.bookmarks),
+    downloads: downloadsCapabilityStatus(view.downloads),
+    notify: notifyCapabilityStatus(view.notify),
+    clipboard: clipboardCapabilityStatus(view.clipboard),
+  };
+  for (const cap of ['bookmarks', 'downloads', 'notify', 'clipboard'] as OptionalCapability[]) {
+    const grant = view[cap];
+    $(CAPABILITY_STATUS_ID[cap]).textContent = statusText[cap];
+    // TASK-040: three-state control derived from the **measured** grant.
+    const action = capabilityActionView(cap, grant.granted, grant.revoked);
+    const button = $(CAPABILITY_BUTTON_ID[cap]) as HTMLButtonElement;
+    button.textContent = action.buttonLabel;
+    button.dataset.mode = action.mode;
+    const badge = document.getElementById(`cap-${cap}-badge`);
+    if (badge) {
+      badge.textContent = action.badge;
+      badge.style.display = action.badge ? 'inline-block' : 'none';
+    }
+    const explain = document.getElementById(`cap-${cap}-explain`);
+    if (explain) explain.textContent = CAPABILITY_EXPLANATION[cap];
+    // Persistent state note (consistent with the measured grant).
+    const note = capabilityStateNote(cap, grant.granted, grant.revoked);
+    setCapReceipt(cap, note.kind, note.text);
+    // No permission → toggles fall back to「未授予」semantics (unchecked + disabled).
+    const read = $(CAPABILITY_READ_ID[cap]) as HTMLInputElement;
+    read.checked = grant.granted ? grant.read : false;
+    read.disabled = !grant.granted;
+    const writeId = CAPABILITY_WRITE_ID[cap];
+    if (writeId) {
+      const write = $(writeId) as HTMLInputElement;
+      write.checked = grant.granted ? Boolean(grant.write) : false;
+      write.disabled = !grant.granted;
+    }
+  }
 }
 
 async function refreshCapabilities(): Promise<void> {
@@ -509,27 +577,31 @@ async function refreshCapabilities(): Promise<void> {
   renderCapabilities(res.data);
 }
 
-const CAPABILITY_STATUS_ID: Record<OptionalCapability, string> = {
-  bookmarks: 'cap-bookmarks-status',
-  downloads: 'cap-downloads-status',
-  notify: 'cap-notify-status',
-  clipboard: 'cap-clipboard-status',
-};
-
 async function requestCapability(cap: OptionalCapability): Promise<void> {
-  const label =
-    cap === 'bookmarks' ? '书签' : cap === 'downloads' ? '下载记录' : cap === 'notify' ? '系统通知' : '剪贴板';
+  const label = CAPABILITY_SHORT_LABEL[cap];
   const status = $(CAPABILITY_STATUS_ID[cap]);
-  status.textContent = `正在请求${label}权限…（浏览器会弹出授权提示；此请求发生在你的点击手势内）`;
+  status.textContent = `正在请求${label}权限…（Chrome 会弹出授权提示；此请求发生在你的点击手势内）`;
+  setCapReceipt(cap, '', `正在请求${label}权限…（浏览器会弹出授权提示；此请求发生在你的点击手势内）`);
   // Gesture call happens synchronously inside the click handler.
   const res = await requestCapabilityPermissionOnGesture(cap);
   if (!res.granted) {
-    status.textContent = `✖ 未开启${label}访问：${res.error ?? '未授予权限'}`;
+    const denied = capabilityDeniedReceipt(cap, res.error);
+    setCapReceipt(cap, denied.kind, denied.text);
     return;
   }
   const sync = await settingsOps.notifyCapabilityPermissionChanged(cap);
   if (sync.data) renderCapabilities(sync.data);
   else status.textContent = sync.text;
+  const granted = capabilityGrantReceipt(cap);
+  setCapReceipt(cap, granted.kind, granted.text);
+}
+
+async function revokeCapability(cap: OptionalCapability): Promise<void> {
+  setCapReceipt(cap, '', `正在撤销${CAPABILITY_SHORT_LABEL[cap]}权限…（Chrome 会立即移除，无需弹窗）`);
+  const res = await settingsOps.revokeCapability(cap);
+  if (res.data) renderCapabilities(res.data);
+  else await refreshCapabilities();
+  setCapReceipt(cap, res.kind, res.text);
 }
 
 async function setCapabilityPrivacy(cap: OptionalCapability, scope: 'read' | 'write', enabled: boolean): Promise<void> {
@@ -629,10 +701,14 @@ function wire(): void {
   });
 
   // FR-054 / FR-055: 可选权限能力（书签 / 下载记录 / 通知 / 剪贴板）。权限请求必须在点击手势内发起。
-  $('cap-bookmarks-request').addEventListener('click', () => void requestCapability('bookmarks'));
-  $('cap-downloads-request').addEventListener('click', () => void requestCapability('downloads'));
-  $('cap-notify-request').addEventListener('click', () => void requestCapability('notify'));
-  $('cap-clipboard-request').addEventListener('click', () => void requestCapability('clipboard'));
+  // TASK-040: the same button is three-state — request (gesture) or revoke (no gesture).
+  for (const cap of ['bookmarks', 'downloads', 'notify', 'clipboard'] as OptionalCapability[]) {
+    const button = $(CAPABILITY_BUTTON_ID[cap]) as HTMLButtonElement;
+    button.addEventListener('click', () => {
+      if (button.dataset.mode === 'revoke') void revokeCapability(cap);
+      else void requestCapability(cap);
+    });
+  }
   $('cap-bookmarks-read').addEventListener('change', (e) =>
     void setCapabilityPrivacy('bookmarks', 'read', (e.target as HTMLInputElement).checked),
   );
@@ -737,9 +813,14 @@ applyEnvGuard();
 // extension surface (the side panel remains the primary host; headless e2e uses
 // this page). Shared handler with sidepanel.ts.
 if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
-  chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) =>
-    handleClipboardOpMessage(raw, sendResponse as (r: unknown) => void),
-  );
+  chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
+    // TASK-040: an optional-capability grant/revoke landed → re-measure + re-render.
+    if ((raw as { kind?: string } | null)?.kind === 'capability-changed') {
+      void refreshCapabilities();
+      return undefined;
+    }
+    return handleClipboardOpMessage(raw, sendResponse as (r: unknown) => void);
+  });
 }
 void refresh();
 // decision ② / FR-048: load session-group state alongside the LLM config.

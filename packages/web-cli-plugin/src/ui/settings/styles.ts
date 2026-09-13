@@ -61,6 +61,7 @@ export const SETTINGS_CSS = `
 .wc-settings code { overflow-wrap: anywhere; }
 .wc-settings .wc-session-item { width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .wc-settings .wc-session-item.current { border-color: var(--wc-accent); color: var(--wc-accent-text); font-weight: 600; }
+.wc-settings .wc-badge-granted { display: inline-block; color: var(--wc-ok); font-weight: 600; font-size: 12px; }
 `;
 
 const STYLE_ID = 'wc-settings-styles';
