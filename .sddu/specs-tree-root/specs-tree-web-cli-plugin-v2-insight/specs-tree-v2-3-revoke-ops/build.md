@@ -231,3 +231,9 @@ insight-no-escalation.test.js ℹ tests 12 pass 12 fail 0   （V2-1 基础段 5 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.2 | R2 实施构建第 1 轮（V2-3 覆盖引擎）：SW 侧 clamp/存储生命周期/消息面/白名单 7→9 + 三个门禁文件；`policy`/`auto-authorize` sha256 不变、零新权限、base 零 diff；`binding #22a` 留待下一轮（如实登记）。 | 2026-09-13 | SDDU Build Agent |
+
+---
+
+## R2 第 2 轮（2026-09-13，sddu-build）
+
+R2-V23-07 完成：`test/ui/binding.mjs` 追加 `#22a~l` 覆盖链——UI（树内 `[data-policy]` 三档）→ tree-ops 唯一写路径 → `command-policy-set` → **真实 dispatch 生效**（deny：工具结果「权限被拒」；ask：弹真实二次确认，拒绝=零操作；allow：不再弹确认并真实执行）→ `reset` 回到基线 → `chrome.storage` 单键持久化；既有 `#0…/#19…/#20…/#21…` 零删改；`check(` 185→197（运行期 192 断言）。前两次运行遇环境 flake（`#33B1`/`#3d`），第三次全绿（详见父 build.md §R2 第 2 轮 §3/§8）。

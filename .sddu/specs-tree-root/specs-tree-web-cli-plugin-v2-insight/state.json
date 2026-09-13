@@ -640,6 +640,155 @@
             },
             "allPass": true
           }
+        },
+        {
+          "round": "R2",
+          "subRound": "build（实施构建）第 2 轮：R2-Wave 3 + Wave 4 + 部分 Wave 5（V2-2 真层级树 UI + V2-4 档案分层 + V2-3 binding #22a）",
+          "type": "post-validate 实施轮（phase 不回退；追加记录不稀释既有）",
+          "date": "2026-09-13",
+          "authorization": "编排器代作者决策（2026-09-13 授权）+ R2",
+          "phaseKept": "tasked（父）/ validated（叶）（原样，不回退）",
+          "phaseNotRegressed": true,
+          "scope": "R2-Wave 3（R2-V22-01/02）+ R2-Wave 4（R2-V24-01/02）+ R2-Wave 5 部分（R2-V22-03/04/05/06、R2-V24-03/04、R2-V23-07）；R2-V24-05 收口留待下一轮（本轮已实质完成大半）。不碰 main / packages/web-cli-base/** / v1 SDDU / options.html；无新依赖；零新权限。",
+          "gates": {
+            "build": {
+              "cmd": "npm run build --workspace @lgdl/web-cli-plugin",
+              "result": "EXIT=0；content.js 1,073,453 B（零增长）/ sidepanel.js 1,159,856 B / background.js 1,429,603 B",
+              "log": "/tmp/opencode/r2-2/logs/final-01-build.log"
+            },
+            "typecheck": {
+              "cmd": "npm run typecheck",
+              "result": "EXIT=0 / 0 error",
+              "log": "/tmp/opencode/r2-2/logs/final-02-typecheck.log"
+            },
+            "nodeTest": {
+              "cmd": "npm test（插件）",
+              "result": "tests 690 / pass 690 / fail 0（基线 686 → +4，removed=0）",
+              "log": "/tmp/opencode/r2-2/logs/final-03-npm-test.log"
+            },
+            "testInsight": {
+              "cmd": "npm run test:insight",
+              "result": "PASS — 102 assertions，EXIT=0（基线 57；check( 57→75；含 #I-20a…/#I-21a…）",
+              "log": "/tmp/opencode/r2-2/logs/final-04-test-insight.log"
+            },
+            "testUi": {
+              "cmd": "npm run test:ui",
+              "result": "PASS — 167 assertions，EXIT=0（v1 journey 零删减）",
+              "log": "/tmp/opencode/r2-2/logs/final-05-test-ui.log"
+            },
+            "testHardening": {
+              "cmd": "npm run test:hardening",
+              "result": "PASS — 24 assertions，EXIT=0（中途重建 dist 为既有已知副作用）",
+              "log": "/tmp/opencode/r2-2/logs/final-06-test-hardening.log"
+            },
+            "testBinding": {
+              "cmd": "npm run test:binding",
+              "result": "PASS — 192 assertions，EXIT=0（基线 180；check( 185→197；含 #22a…l）。前两次运行为环境 flake（#33B1 设置视图 / #3d discovery），第三次全绿；未改测试逻辑掩盖",
+              "log": "/tmp/opencode/r2-2/logs/final-07c-test-binding.log",
+              "flakeLogs": [
+                "/tmp/opencode/r2-2/logs/final-07-test-binding.log",
+                "/tmp/opencode/r2-2/logs/final-07b-test-binding.log"
+              ]
+            },
+            "testE2e": {
+              "cmd": "npm run test:e2e",
+              "result": "PASS — fixture + LGDL Workbench 全链，EXIT=0",
+              "log": "/tmp/opencode/r2-2/logs/final-08-test-e2e.log"
+            },
+            "fullRepoTest": {
+              "cmd": "npm test（全仓）",
+              "result": "EXIT=0（lgdl-core 267 / lgdl-render 95·1 skip / lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / web-cli-base 483 / web-cli-plugin 690；fail 0）",
+              "log": "/tmp/opencode/r2-2/logs/final-09-full-npm-test.log"
+            }
+          },
+          "assertionSupersession": {
+            "policy": "removed=0；总断言数不减；硬底线/安全断言只增；journey.mjs 167 零删改、binding 既有 #0~#21 零删改",
+            "counts": "node test( 686→690；insight.mjs check( 57→75（运行期断言 57→102）；binding.mjs check( 185→197（运行期 180→192）；journey.mjs check( 170 不变",
+            "done": [
+              "S4/S5/S6/S7/S8（tree-view.test.ts 显式 old→new）",
+              "S9/S10（pin 保持：白名单 9 / 两通路文案）",
+              "S11（insight-archive 分层 + 默认/生效分列）",
+              "S13/S14/S15/S16（insight.mjs #I-11a~c / #I-12a~b / 分层 #I-18e / 真树 #I-02a）",
+              "S17 保持零改动 + 追加 #22a~l",
+              "S18 保持零改动（journey.mjs 零 diff）"
+            ],
+            "forcedPinUpdates": [
+              "TREE_MODULE_SHA256['src/ui/tree/tree-view.ts']: 9beb26ea… → b4392d65…（R2-2 嵌套模型/分层控件/文案重写）"
+            ],
+            "unchangedPins": [
+              "TREE_ACTION_IDS_JSON_SHA256 = 71f743ed…（白名单 9，R2-1 起）",
+              "TREE_NO_ESCALATION_NOTE_SHA256 = cfe96e8a…（两通路 + delay 消歧，本轮未再改）",
+              "tree-ops.ts / tree-receipt.ts / src/content/** 哈希不变"
+            ]
+          },
+          "pinUpdates": [
+            {
+              "pin": "TREE_MODULE_SHA256['src/ui/tree/tree-view.ts']",
+              "old": "9beb26eaab6ab3fb6eb7c027d4bd2cc6b73ca851c71f6dc68360f70f7746c744",
+              "new": "b4392d651076080cdaa31ae76f06ae647563048f914e0c42b3a8be5f02e9c187",
+              "date": "2026-09-13",
+              "source": "feature/web-cli-plugin R2 build 第 2 轮",
+              "reason": "真层级树渲染模型（嵌套 ownershipTree）+ 默认/生效分列 + 分层控件 + TREE_MODEL_NOTE 重写"
+            }
+          ],
+          "evidence": {
+            "tree": {
+              "authorExample1": "真实 DOM：连接树→授权的站点→站点 http://127.0.0.1:<port>→支持的命令→site_notes（已授权徽标 + role=treeitem）",
+              "authorExample2": "真实 DOM：连接树→支持的命令→系统内置命令→dom→dom read-state（逐层 aria-expanded + 收起后子命令零 DOM = 惰性）",
+              "keyboard": "ArrowLeft→父(dom) / ArrowRight→首子(dom read-state) / Home→连接树 / End→末节点 / ArrowUp→上一节点",
+              "breadcrumb": "连接树 › 支持的命令 › 系统内置命令 › dom › dom read-state",
+              "layering": "硬底线行（dom click/dom remove）零 [data-action-id] + .tree-clamp-reason；可覆盖行（dom read-state）3×button[data-policy=allow,ask,deny]",
+              "liveUpdate": "设 cmd:dom#read-state=deny → 重投影（展开态保持）生效档即时 deny；reset → 回 allow",
+              "layoutStates": "关/开/深展开/收起 四态 #log=674px(74.9%)（≥589 / ≥65.0%）；composer ∈[0,+8]；FAB∩composer=0；400·320px 溢出=0；drift=0"
+            },
+            "archive": {
+              "layering": "硬底线卡零 [data-policy] + [data-field=clamp-reason]；可覆盖卡 3×[data-policy]；默认/生效分列（每卡两字段）",
+              "redLine": "#I-19g 保持：.tree-archive 内零 .tree-control / 零 button[data-action-id] / 零 checkbox / 零 .tree-row（档案控件用自有类 .tree-archive-policy*）",
+              "writePath": "#I-21e：档案卡点击 → 同一 tree-ops.run → command-policy 落盘（无第二写入口）"
+            },
+            "overrideChain": {
+              "ui": "#22c/#22f/#22i：树内 [data-policy] 三档 → tree-ops → command-policy-set 落盘",
+              "dispatch": "#22e deny → 工具结果「权限被拒」；#22g ask → 真实 #confirm 弹出（拒绝=零操作）；#22j allow → 免确认真实执行",
+              "persistence": "#22d chrome.storage('web-cli:web-cli:command-policy') 单键；#22k reset → entries=[]",
+              "serverEnforcement": "UI 无本地判定；clamp 仍在 SW（第 1 轮 insight-override-security 已证，本轮保持）"
+            }
+          },
+          "size": {
+            "contentJs": "1,073,453 B（零增长；CONTENT_SOURCE_SHA256 三文件 pin 不变）",
+            "sidepanelJs": "1,159,856 B（重登记：基线 1,132,748 → 1,159,856；ceiling 1,189,385 → 1,217,848；容差 5% 不变；targetBudgetBytes/targetMet 仍 null；HISTORY 追加 1,132,748）",
+            "backgroundJs": "1,429,603 B"
+          },
+          "zeroDiff": [
+            "packages/web-cli-base/**",
+            "src/security/policy.ts（sha256 bfcb2ede…）",
+            "src/security/auto-authorize.ts（sha256 1096d065…）",
+            "manifest.json",
+            "src/content/**（三文件内容哈希不变）",
+            "test/parity/** + test/parity.test.ts",
+            "test/ui/journey.mjs",
+            "v1 SDDU 目录（specs-tree-web-cli-plugin）",
+            ".opencode/opencode.json",
+            "package.json（依赖段）"
+          ],
+          "deviations": [
+            "D-R2B-02 延续：未知/非法 risk 的覆盖 allow → deny（非 plan 字面 null）；UI 体现为 s3-unknown-risk 硬底线行（零控件 + .tree-clamp-reason）",
+            "档案控件类名隔离（编排器代作者决策 + R2）：R2-V24-02 要求档案卡分层控件，而 §9.8 未把 insight.mjs #I-19g 列入取代清单 → 档案控件用自有类 .tree-archive-policy*（无 data-action-id），同时满足分层可操作与 P0 红线/ledger-clean",
+            "作者示例①真实 DOM 最深可展层 = 工具：declared site tool 的 schema 不暴露 subcommand enum（src/tools/declared-tools.ts#paramsToSchema，既有实现面、非本轮范围）；「工具→子命令」由示例②与 node 门禁 insight-tree-hierarchy（注入含子命令的 site 工具）证明",
+            "TREE_NO_ESCALATION_NOTE 未再改（R2-1 已两通路 + delay 消歧，pin cfe96e8a… 保持）；本轮仅 TREE_MODEL_NOTE 重写（森林偏差清零）",
+            "绑定站点会合法增加面板镀铬高度（去镀铬 #log 674→583px）→ 站点夹具在全部 AC-V2-002 布局断言之后（脚本末尾）才绑定",
+            "insight.mjs 首次实现把 fixture site 前置导致布局守卫 583px 假失败 → 已改为末尾绑定；site 发现前置断言 #I-01g 相应移除（改由末尾 #I-20a0 覆盖）"
+          ],
+          "knownFlakes": [
+            "test:binding #33B1（设置视图真实渲染；本轮 1/3 运行偶发）",
+            "test:binding #3d（discovery 到 supported；本轮 1/3 运行偶发，站点服务正常）",
+            "内存吃紧（available ~1.8GB）下 Chromium 启动/加载时序抖动为共因"
+          ],
+          "leavePending": true,
+          "pending": [
+            "R2-V24-05（S1~S18 计数台账总核 + 收口文档）—— 本轮已实质执行大半，收口留待下一轮",
+            "人工面 V2-H-10~14（⏳ 待人工）"
+          ],
+          "commit": "pending（门禁全绿后提交；本轮 commit 见 v2 state.json revisionRounds.R2.buildRounds[1].commit 回填）"
         }
       ]
     }

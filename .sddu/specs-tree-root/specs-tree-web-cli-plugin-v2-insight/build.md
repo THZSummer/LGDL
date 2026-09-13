@@ -340,3 +340,89 @@
 | v1.0 | P0 收口报告（第 10 轮）：三叶 phase builded→validated（父保持轻量规范容器）；review R1 ⚠️ 有条件通过 / validate R1 ✅ 通过；3 处文档偏差订正/登记；人工面（V2-H-A~D / V2-H-1~6 / T1 缺口）未执行如实登记；本轮零 `src/`/`test/` 改动、未跑 Chromium 门禁（原因已登记）。 | 2026-09-13 | SDDU Build Agent（代行收口） |
 | v2.0 | **v2 整体收口报告（第 11 轮）**：四叶（V2-1/V2-2/V2-3/V2-4）phase 全部 `validated`（父保持轻量规范容器；V2-4 P1 本轮由 builded→reviewed→validated）；review P0 R1 ⚠️ / V2-4 R1 ⚠️（均 0 阻塞）；validate P0 R1 ✅ / V2-4 R1 ✅（均 0 阻塞）；门禁串行实跑全绿（tsc 0 error / 插件 646·0 fail / insight 70 / ui 167 / hardening 24 / binding 180×3 / e2e PASS / 全仓 1629·1628 pass·0 fail·1 skip，base 483 零回归）；体积 content.js 零增长 1,073,453 B / sidepanel 1,132,748 B（ceiling 1,189,385）/ background 1,403,170 B；**修 #AP#5b 相位窗口 flake + 新观测修 tabs #7m3/#7m4/#7o/#7o2 harness 时序 flake**（零产品逻辑改动、断言只增不减/不减）；新增 `docs/dev.md` §6.1 完整日志落盘纪律（D-V24-06）；遗留项全量登记（人工面 13 项 + T1 缺口 + 已知偶发 + 口径 D-V24-01/02/08 + 未合并/未发布）；零改动核验（base/policy/auto-authorize/manifest/v1 目录/journey.mjs）。 | 2026-09-13 | SDDU Build Agent（代行收口） |
 | v3.0 | **R2 实施构建第 1 轮（第 12 轮）**：R2-Wave 1（V2-1 真层级树：`ownership-tree.ts` + `tree-model`/`command-catalog`/`project-tree`/`build-snapshot`）+ R2-Wave 2（V2-3 覆盖引擎：`command-override.ts` SW 侧 clamp/存储生命周期 + `host`/`service-worker`/`messaging`/`insight-protocol`/`tree-ops` 接线 + 白名单 7→9）；3 新测试文件（35 tests）；门禁串行全绿（typecheck 0 / 插件 npm test 686 0 fail / insight 70 / ui 167 / hardening 24 / binding 180 / e2e PASS / 全仓 EXIT=0）；断言取代 S1/S2/S3/S7/S9/S10/S12 + pin 显式更新（removed=0、总数只增）；`policy`/`auto-authorize` sha256 不变、content.js 零增长、base/manifest/options 零 diff；未完成 V2-2/V2-4 R2 与 `binding #22a`（如实登记）。 | 2026-09-13 | SDDU Build Agent |
+
+---
+
+## R2 第 2 轮（2026-09-13，sddu-build；编排器代作者决策（2026-09-13 授权）+ R2）
+
+> 范围：R2-Wave 3（V2-2 真层级树 UI）+ R2-Wave 4（V2-4 档案分层）+ R2-Wave 5 部分（V2-3 `binding #22a…`、体积显式重登记、文档/人工面）。**phase 不回退**（父 `tasked` / 四叶 `validated` 原样）。
+
+### 1. 逐任务完成情况
+
+| 任务 | 状态 | 落点 |
+|------|:--:|------|
+| R2-V22-01 `tree-view.ts` 嵌套渲染模型 + command-policy 控件 + 两通路文案 | ✅ | `buildTreeRows` 消费 `snapshot.ownershipTree`（消费归属树，非扁平 `rows`），输出嵌套 `TreeRow`（`children` + `depth`/`kind`/`nodeId`）；命令行默认/生效分列 + `clampReason(Label)` + 恰 3 个 `command-policy` 控件（`overridable`）或零控件（硬底线）；`TREE_MODEL_NOTE` 重写为「按归属的层级树 + 多归属主链 + 交叉引用徽标（不复制节点）」；`CLAMP_REASON_LABEL` 新增；`TREE_NO_ESCALATION_NOTE` 保持 R2-1 的两通路 + `delay` 消歧（pin 不变） |
+| R2-V22-02 `tree-drawer.ts` 自建 `role=tree` + 键盘 + 展开集 + 面包屑 + 分层控件 + clamp 原因 + 放宽类确认 | ✅ | `<ul role=tree>/<li role=treeitem>`（`createElement`/`textContent`，**零 `innerHTML`**）；`aria-expanded`/`aria-level`/`aria-selected` + roving tabindex；代理 `keydown`（↑↓←→/Enter/Space/Home/End）；`expanded`/`collapsed` 会话保持（重投影回放）；`#tree-breadcrumb` 层级路径；惰性渲染（收起不建 DOM，不虚拟化）；deny 分层 DOM（硬底线零 `[data-action-id]` + `.tree-clamp-reason`；可覆盖 3×`button[data-policy]` + 有覆盖时「恢复默认」）；放宽方向 `commandPolicyNeedsConfirmation` → `#tree-confirm`；写路径唯一 `tree-ops.run`；过滤时命中路径自动展开（内容过滤可见） |
+| R2-V22-03 `test/tree-view.test.ts` 取代 S4~S8 | ✅ | S4/S5/S6/S7/S8 显式 old→new；新增非硬底线 deny 保持控件 + 模型层示例②路径；`removed=0`（node `test(` 686→**690**） |
+| R2-V22-04 `test/ui/insight.mjs` `#I-20a…` + 取代 S13~S16 | ✅ | `#I-11a~c`（取代 S13）、`#I-12a/b`（取代 S14）、`#I-18e` 分层（取代 S15）、`#I-02a` 真树（取代 S16）；新增 `#I-20a0/a~k`（作者两例逐层展开/收起 + 惰性 + 面包屑 + 键盘 + 覆盖即时生效 + 多状态布局守卫）；`check(` 57→**75**（运行期 **102** 断言） |
+| R2-V22-05 体积显式重登记 + content.js 零增长 + 源码哈希 pin | ✅ | `SIDEPANEL_BASELINE_BYTES` 1,132,748 → **1,159,856**（实测）；`HISTORY` 追加 1,132,748；`SIDEPANEL_CEILING` **1,217,848**；容差 5% 不变；`targetBudgetBytes/targetMet` 仍 `null`；`CONTENT_MAX_BYTES=1,073,453` + `CONTENT_SOURCE_SHA256` 三文件 pin 不变 |
+| R2-V22-06 文档回填 + 人工面登记 | ✅ | `docs/dev.md` §8.2 体积回填（历史保留）+ 修订 3.5；`docs/smoke-checklist.md` 新增 §8（`V2-H-10~14`，`⏳ 待人工`）；`capability-matrix.md` 未涉及白名单口径 → 零改动 |
+| R2-V24-01 `archive-catalog.ts` 分层 + 默认/生效分列 | ✅ | `ArchiveCard` 追加 `defaultAction/overrideAction/effectiveAction/overridable/clampReason(Label)/policyControl`（硬底线卡**无** `policyControl`）；`READ_ONLY_NOTE` 改为分层语义；模块**仍无写导入**（grep 无 `tree-ops`/写面） |
+| R2-V24-02 `tree-drawer.ts` 档案卡分层控件 | ✅ | 档案卡渲染 `.tree-archive-policy*`（自有类，无 `data-action-id`）→ 同一 `tree-ops.run`；默认/生效分列字段；保持 `.tree-archive` 零 `.tree-control`/零 `button[data-action-id]`（`#I-19g` 红线） |
+| R2-V24-03 `test/insight-archive.test.ts` 取代 S9~S11 + pin | ✅ | S9/S10 pin 保持（白名单 9 / 文案哈希）；S11 改为分层断言（硬底线零 `policyControl` + 可读原因；可覆盖有描述）+ 默认/生效分列；`TREE_MODULE_SHA256['src/ui/tree/tree-view.ts']` 显式更新 9beb26ea… → **b4392d65…**；`test(` 计数不减 |
+| R2-V24-04 `test/ui/insight.mjs` `#I-21a…` | ✅ | `#I-21a~e`（硬底线零 `[data-policy]` + 原因；可覆盖三档；默认/生效分列；P0 红线保持；档案写入走同一 tree-ops 路径落盘） |
+| R2-V23-07 `test/ui/binding.mjs` 追加 `#22a…` | ✅ | `#22a~l`（三档 deny/ask/allow → 真实 dispatch 生效〔权限被拒 / 二次确认 / 免确认执行〕→ reset → chrome.storage 持久化）；既有 `#0…/#19…/#20…/#21…` 零删改；`check(` 185→**197**（运行期 **192** 断言） |
+
+**未做/留待下一轮**：R2-Wave 6 收口（`R2-V24-05` 的 S1~S18 计数台账总核；本轮已实质执行大半，收口文档可随后补）。
+
+### 2. 关键设计裁决（编排器代作者决策（2026-09-13 授权）+ R2）
+
+- **D-R2B-02 延续**：未知/非法 risk 的覆盖 allow → 策略返回 `deny`（不是 plan 字面的 null）；UI 侧体现为 `s3-unknown-risk` 硬底线行（零控件 + `.tree-clamp-reason`）。
+- **档案控件类名隔离（新裁决）**：`R2-V24-02` 要求档案卡渲染分层控件并走同一 tree-ops，但 §9.8 未把 `insight.mjs #I-19g`（`.tree-archive` 零 `.tree-control`/零 `button[data-action-id]`）列入取代清单 → 采用**自有类** `.tree-archive-policy*`（无 `data-action-id`）兼顾两者；既满足档案分层可操作，又保持 P0 红线与 ledger-clean 取代。
+- **作者示例①真实 DOM 最深可展层偏差**：declared site tool 的 schema（`src/tools/declared-tools.ts#paramsToSchema`）**不暴露 `subcommand` enum** → 真实 dist 下 site 工具节点无子命令子层；`#I-20a` 展开到「工具」层，「工具→子命令」层由示例②（base-builtin `dom → dom read-state`）与 node 门禁 `insight-tree-hierarchy`（注入含子命令的 site 工具）证明；`docs/smoke-checklist.md` §8 已如实登记。
+- **布局守卫与站点夹具的互斥**：绑定站点会合法地增加面板镀铬高度（实测去镀铬 `#log` 674→583px），故**站点夹具在全部 AC-V2-002 布局断言之后**才绑定（脚本末尾），避免以夹具状态污染 baseline。
+- **`TREE_NO_ESCALATION_NOTE` 未再改**：R2-1 已重写为两通路 + `delay` 消歧，pin `cfe96e8a…` 保持；本轮仅改 `TREE_MODEL_NOTE`（森林偏差清零）。
+
+### 3. 门禁（**严格串行，一次一个**；完整日志 `/tmp/opencode/r2-2/logs/`）
+
+| # | 命令 | 退出码 | 结果 | 日志 |
+|:--:|------|:--:|------|------|
+| 0 | `npm run build --workspace @lgdl/web-cli-plugin` | 0 | `content.js` 1,073,453 B（零增长）/ `sidepanel.js` 1,159,856 B / `background.js` 1,429,603 B | `final-01-build.log` |
+| 1 | `npm run typecheck` | 0 | 0 error | `final-02-typecheck.log` |
+| 2 | 插件 `npm test` | 0 | **690 tests / 690 pass / 0 fail**（基线 686 → +4） | `final-03-npm-test.log` |
+| 3 | `npm run test:insight` | 0 | **PASS — 102 assertions**（基线 57 → 102；`check(` 57→75） | `final-04-test-insight.log` |
+| 4 | `npm run test:ui` | 0 | **PASS — 167 assertions**（v1 journey 零删减） | `final-05-test-ui.log` |
+| 5 | `npm run test:hardening` | 0 | **PASS — 24 assertions** | `final-06-test-hardening.log` |
+| 6 | `npm run test:binding` | 0 | **PASS — 192 assertions**（基线 180 → 192；`check(` 185→197）。⚠️ 前两次运行遇**环境 flake**（`#33B1` 设置视图渲染 / `#3d` discovery），第三次全绿 | `final-07-test-binding.log`（flake）/ `final-07b`（flake）/ `final-07c`（PASS） |
+| 7 | `npm run test:e2e` | 0 | **PASS — 真实 dist full chain（fixture + LGDL Workbench）** | `final-08-test-e2e.log` |
+| 8 | 全仓 `npm test` | 0 | lgdl-core 267 / lgdl-render 95（94 pass·1 skip）/ lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / **web-cli-base 483** / **web-cli-plugin 690**；**fail 0** | `final-09-full-npm-test.log` |
+
+### 4. 断言取代台账（removed=0；实测计数）
+
+| # | 旧 | 新 | 证据 |
+|:--:|----|----|------|
+| S4 | `tree-view.test.ts a non-deny command still gets no write control` | `…overridable command rows expose allow/ask/deny; hard-floor rows expose none` | 节点 test 686→690 |
+| S5 | `all 142 … deny ⇒ controls===[]` | `hard-floor deny (S3) ⇒ controls===[]` + 非硬底线 deny 保持控件 | 同上 |
+| S6 | `pinned wording` | 归属层级树 + 两通路 + `delay` 消歧 | 同上 |
+| S7 | `needsConfirmation … 7 actions` | `… all 9 actions` | R2-1 已落；保持 |
+| S8 | `deny rows … filtered out` | `hard-floor stay control-free; overridable keep controls` | 节点 test |
+| S9/S10 | `insight-archive` 白名单 7 / 旧文案 pin | 9 值 pin（`71f743ed…`）/ 文案 pin（`cfe96e8a…`）保持 + `tree-view.ts` pin 显式更新 | `insight-archive.test.ts` |
+| S11 | `FORBIDDEN_CARD_KEYS on deny cards` | 硬底线卡零 `policyControl` + 可读原因；可覆盖卡有描述；仍无写导入 | 同上 |
+| S13 | `insight.mjs #I-11a` | `#I-11a~c` | `#I-11a/b/c` |
+| S14 | `#I-12` | `#I-12a/b` | 分层 |
+| S15 | `#I-18e` | 分层版 `#I-18e` | `hardFloorWithControls===0 && withThree>=1` |
+| S16 | `#I-02a` | 真树根 + 可展开面默认展开 | `#I-02a` |
+| S17 | `binding.mjs` `#21a…` | **不变** | `#22a…` 之后追加 |
+| S18 | `test:ui` v1 `#15a~#15q` / `journey.mjs` | **不变** | `journey.mjs` 零 diff；`test:ui` 167 |
+
+### 5. 零改动核验
+
+- `packages/web-cli-base/**` / `src/security/policy.ts`（sha256 `bfcb2ede…`）/ `src/security/auto-authorize.ts`（sha256 `1096d065…`）/ `manifest.json` / `src/content/**`（三文件内容哈希不变，`dist/content.js` 1,073,453 B 零增长）/ `test/parity/**` + `parity.test.ts` / `test/ui/journey.mjs` / v1 SDDU 目录 / `.opencode/opencode.json` / `package.json`（依赖段）**全部 `git diff --quiet` 零 diff**。
+- 零新权限 / 零新依赖 / `options.html` 未改。
+
+### 6. 体积
+
+| 对象 | 前 | 后 | 结论 |
+|------|----|----|------|
+| `dist/content.js` | 1,073,453 B | 1,073,453 B | **零增长**（源码哈希 pin 不变） |
+| `dist/sidepanel.js` | 1,138,591 B（工作区实测，非登记基线） | 1,159,856 B | 显式重登记：基线 1,132,748 → 1,159,856（+27,108 B），ceiling 1,189,385 → 1,217,848，容差 5% 不变，HISTORY 追加 1,132,748 |
+
+### 7. 人工面（`⏳ 待人工`，未冒充 PASS）
+
+`docs/smoke-checklist.md` §8 `V2-H-10~14`：① 树逐层展开观感 ② 长路径/320px 窄栏面包屑 ③ 键盘操作体感 ④ 覆盖后即时生效观感（三档 + 二次确认）⑤ deny 分层与 clamp 原因可读。headless 不可合成真实手势/原生弹窗，一律如实登记。
+
+### 8. 已知偏差 / flake
+
+- `test:binding` 本轮前两次为**环境 flake**（`#33B1` 设置视图渲染、`#3d` discovery；内存吃紧下 Chromium 启动/加载时序抖动），第三次全绿；未改测试逻辑掩盖。
+- `#I-20a` 最深可展层偏差见 §2（declared site tool 无 subcommand enum）。
+- `docs/smoke-checklist.md` §7 既有「只读展示面」表述按 R2 部分取代，未删改既有条目，改以 §8 口径澄清。

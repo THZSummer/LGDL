@@ -153,22 +153,25 @@ test('V2-2 size: v1 content 64 KiB target narrative is untouched (D31 not redefi
 
 // ---------------------------------------------------------------------------
 // W4 修复轮（2026-09-13）：sidepanel 基线显式重登记（V2-3 有意增重）
-// V2-4（2026-09-13）：再次显式重登记（只读命令档案面）；本节钉死值随重登记更新，
-// 断言结构零删减，历史值保留在 SIDEPANEL_BASELINE_BYTES_HISTORY。
+// V2-4（2026-09-13）：再次显式重登记（只读命令档案面）
+// v2 R2 第 2 轮（2026-09-13，R2-V22-05）：再次显式重登记（真层级树 UI + 三态覆盖
+// 控件 + 档案分层）；本节钉死值随重登记更新，断言结构零删减，历史值保留在
+// SIDEPANEL_BASELINE_BYTES_HISTORY。
 // ---------------------------------------------------------------------------
 
-test('W4 size: sidepanel baseline explicitly re-registered at the V2-4 re-measured value', () => {
+test('W4 size: sidepanel baseline explicitly re-registered at the v2 R2 re-measured value', () => {
   // Re-measured 2026-09-13: `stat -c %s packages/web-cli-plugin/dist/sidepanel.js`
-  // → 1,132,748 B (V2-4 read-only command archive surface). V2-3's 1,110,744 B and
-  // V2-2's 1,085,389 B are retained in the history array and in the meta block.
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 1_132_748);
-  assert.deepEqual([...SIDEPANEL_BASELINE_BYTES_HISTORY], [1_068_165, 1_085_389, 1_110_744]);
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_110_744);
+  // → 1,159,856 B (v2 R2 real nested tree UI + layered policy controls + archive
+  // layering). V2-4's 1,132,748 B, V2-3's 1,110,744 B and V2-2's 1,085,389 B are
+  // retained in the history array and in the meta block.
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 1_159_856);
+  assert.deepEqual([...SIDEPANEL_BASELINE_BYTES_HISTORY], [1_068_165, 1_085_389, 1_110_744, 1_132_748]);
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_132_748);
   assert.ok(
     SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
     '重登记为「上调」必须显式记录（不得静默上调，也不得静默下调）',
   );
-  assert.equal(SIDEPANEL_CEILING, 1_189_385, 'ceiling = floor(1,132,748 × 1.05)');
+  assert.equal(SIDEPANEL_CEILING, 1_217_848, 'ceiling = floor(1,159,856 × 1.05)');
   assert.equal(SIDEPANEL_BASELINE_TOLERANCE, 0.05, '容差不得因重登记而放宽');
   assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_CEILING, '基线与上限自洽');
   // The zero-injection red line must NOT grow as part of the re-registration.
@@ -179,7 +182,7 @@ test('W4 size REVERSE PROOF: the re-registered ceiling still FAILS on one byte o
   assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, true);
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false, '新 ceiling + 1 必须 FAIL');
-  assert.equal(over.ceilingBytes, 1_189_385);
+  assert.equal(over.ceilingBytes, 1_217_848);
   assert.throws(() => assert.equal(over.ok, true, over.message), /体积回归/);
 });
 
@@ -193,6 +196,7 @@ test('V2-4 size: baseline re-registration history is retained and monotonic', ()
   assert.ok(history.includes(1_068_165), 'v1 值保留');
   assert.ok(history.includes(1_085_389), 'V2-2 值保留');
   assert.ok(history.includes(1_110_744), 'V2-3 值保留');
+  assert.ok(history.includes(1_132_748), 'V2-4 值保留');
   for (let i = 1; i < history.length; i += 1) {
     assert.ok(history[i] >= history[i - 1], 'HISTORY 必须单调不减');
   }
@@ -203,9 +207,11 @@ test('V2-4 size: re-registration meta carries date/source/reason and is NOT a ta
   assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-13');
   assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');
   assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
-  assert.ok(SIDEPANEL_BASELINE_META.note.includes('V2-4'), 'note 必须写明本轮重登记理由');
-  assert.ok(SIDEPANEL_BASELINE_META.note.includes('1,132,748'), 'note 必须写明实测值');
-  assert.equal(SIDEPANEL_BASELINE_META.reRegisteredFrom, 'V2-3 1,110,744 B');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('R2'), 'note 必须写明本轮重登记理由（v2 R2）');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('1,159,856'), 'note 必须写明实测值');
+  // 历史保留：V2-4 的重登记事实仍可在 HISTORY 中核对（不因新一轮重登记而丢失）。
+  assert.ok(SIDEPANEL_BASELINE_BYTES_HISTORY.includes(1_132_748), 'V2-4 历史值保留');
+  assert.equal(SIDEPANEL_BASELINE_META.reRegisteredFrom, 'V2-4 1,132,748 B');
   assert.equal(SIDEPANEL_BASELINE_META.targetBudgetBytes, null);
   assert.equal(SIDEPANEL_BASELINE_META.targetMet, null);
 });

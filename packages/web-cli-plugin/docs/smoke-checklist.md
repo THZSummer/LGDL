@@ -118,3 +118,17 @@
 | V2-H-9 | 真实站点绑定后 `site_*` 卡片增长时的观感 | 真实 Chrome：绑定并授权一个声明了 `site_*` 工具的站点 → 打开档案 → 按来源切到 `site-declared` → 观察站点卡（含所属 origin）与自动授权层文案 | site 卡逐张标注所属 origin；`evaluate`/不可分类档显示「自动授权层：硬底线」，`read`/`write` 显示「适用」；无绑定 origin 的站点工具如实标「不适用」；卡数增长后分组计数同步、无横向溢出 | ⏳ 待人工 |
 
 **口径与偏差（D-V24-01，必读）**：档案头部只显示「实时面 N 条目 / M 子命令 = K 卡」（**当次快照真实计数**）+「对账基线 34/142（来源 commit）」+ parity 结论，**绝不**出现「34/142 已全部渲染」类夸大表述；`accounted = carded ∪ waived` 的行级 100% 覆盖由 node 门禁 `test/insight-archive.test.ts` 以真实基线行注入验证（运行时只给计数口径，不打包 baseline JSON）。档案是**只读展示面**：`.tree-archive` 内无任何 `.tree-control` / `button[data-action-id]` / checkbox（`#I-19g` 运行期断言），不得把 `deny`/`delay` 误读为可关档位。详见 `specs-tree-v2-4-command-archive/build.md` §决策。
+
+## 8. v2 R2 人工面：真层级树 + 命令级覆盖 + 档案分层（`V2-H-10~14`；不与 §1 M / §2 H0~H10 / §5 V2-H-A~D / §6 V2-H-1~6 / §7 V2-H-7~9 冲突）
+
+> 自动化已固化：`npm run test:insight`（`test/ui/insight.mjs` 追加 `#I-20a~k` / `#I-21a~e`：作者两例在真实 DOM 逐层展开/收起、惰性渲染、面包屑、键盘（方向键/Home/End）、deny 分层三态控件、硬底线零控件 + `.tree-clamp-reason`、覆盖即时生效、多状态布局守卫〔关/开/深展开/收起 drift=0〕、档案卡分层 + 默认/生效分列 + 同一 tree-ops 写路径）与 node 门禁 `test/insight-tree-hierarchy.test.ts` / `test/tree-view.test.ts` / `test/insight-archive.test.ts`；`npm run test:binding` 追加 `#22a~l`（UI 三档 → 真实 dispatch 生效 → reset → 持久化）。以下为 headless 无法判定的**真实交互 / 视觉与感知判断**人工面；本轮未执行，一律标 `⏳ 待人工`（**不冒充 PASS**）。
+
+| # | 人工面 | 步骤 | 期望 | 本轮结论 |
+|---|--------|------|------|:--:|
+| V2-H-10 | 树逐层展开/收起的观感与动效 | 真实 Chrome：打开侧栏 → 点「连接树」→ 依次展开/收起 授权的站点 → 站点 → 支持的命令 → 工具，以及 支持的命令 → 系统内置命令 → `dom` → `dom read-state`；观察缩进层级、展开箭头与内容对齐 | 每层可独立展开/收起；缩进层级清晰、无错位；展开态在后台重投影后保持（会话内不回弹）；滚动流畅（122 卡不卡顿） | ⏳ 待人工 |
+| V2-H-11 | 长归属路径 / 320px 窄栏下的面包屑与拥挤度 | 真实 Chrome：拖窄侧栏（≈320px）→ 展开深层节点并把焦点落到 `dom read-state` → 观察 `#tree-breadcrumb` 与行内徽标/子标签 | 面包屑完整可读、自动换行、无横向滚动；缩进有上限不挤爆卡片；长站点名/长命令名不撑破抽屉 | ⏳ 待人工 |
+| V2-H-12 | 键盘操作真实体感（焦点可见 / roving tabindex） | 真实 Chrome：Tab 进入树 → 用 ↑/↓ 移动焦点、→/← 展开收起/回父、Enter/Space 切换、Home/End 跳首尾；观察焦点环与 `aria-selected` 同步 | 焦点可见且始终唯一；方向键行为符合 ARIA tree 约定；Esc 关闭后焦点回到 FAB；读屏（如开启）能读出 `aria-expanded`/`aria-level` | ⏳ 待人工 |
+| V2-H-13 | 命令级覆盖设置后**即时生效**的观感（三档 + 二次确认） | 真实 Chrome：展开到可覆盖命令（如 `dom` / `dom read-state`）→ 分别设 allow/ask/deny；设 allow（放宽方向）时观察 `#tree-confirm` 二次确认；随后在助手对话中触发同一命令，观察是否按新档生效 | 设置后树内生效档即时更新、回执可读；放宽方向必弹二次确认，收紧/reset 不弹；真实调用行为与所设档一致（deny 可读拒绝 / ask 弹确认 / allow 放行）；`reset` 回到默认 | ⏳ 待人工 |
+| V2-H-14 | deny 分层与 clamp 原因可读性（硬底线 vs 非硬底线） | 真实 Chrome：展开 `dom` 子树 → 对比 `dom click`（ui 硬底线）与 `dom remove`（破坏性）与 `dom read-state`（可覆盖）三行 | 硬底线行**无任何开关**且展示 `.tree-clamp-reason` 可读原因（ui 档/破坏性/evaluate/S1/S3 措辞不混淆）；可覆盖行三档按钮齐备、选中态清晰；`delay`（=deny）不被误读为可配置档位 | ⏳ 待人工 |
+
+**口径与偏差（R2，必读）**：§7 的 D-V24-01 中「档案是只读展示面、`.tree-archive` 内无任何命令级控件」按 R2 **部分取代**——档案卡现按**同款分层**渲染（硬底线卡零 `[data-policy]` + 可读原因；可覆盖卡有 allow/ask/deny），写入仍走**唯一** tree-ops 通路；为保持 P0 运行期红线（`#I-19g`：`.tree-archive` 内零 `.tree-control` / 零 `button[data-action-id]` / 零 checkbox），档案控件使用**自有类** `.tree-archive-policy*` 且不带 `data-action-id`。作者示例①在真实 DOM 的最深可展层为「工具」——declared site tool 的 schema 不暴露 `subcommand` enum（`src/tools/declared-tools.ts#paramsToSchema`，既有实现面、非本轮范围），故「工具→子命令」层由示例②（base-builtin `dom → dom read-state`）与 node 门禁（注入含子命令的 site 工具）证明。详见 `specs-tree-web-cli-plugin-v2-insight/build.md` §R2 第 2 轮。

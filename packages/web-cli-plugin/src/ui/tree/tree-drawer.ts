@@ -6,19 +6,33 @@
  * 渲染只用 `createElement` / `textContent`（**零标记字符串注入**，防 XSS，与 v1
  * 消息渲染一致）。
  *
- * 本模块**不做任何写操作**：控件以只读 `ControlDescriptor` 呈现（V2-3 才接线）。
- * `deny` 行 `controls===[]`，故结构上不存在可开关/可覆盖的入口（ADR-V2-011）。
+ * R2（ADR-V2-028/029/030；FR-V2-070/072/073/074/077/078）：
+ *   - **真层级树**：`<ul role="tree">` / `<li role="treeitem">` 自建（**否** `<details>`），
+ *     逐层 `aria-expanded` / `aria-level` / `aria-selected`；根 + 一级默认展开，深层默认
+ *     收起；`expanded` / `collapsed` 会话内保持并在重投影后回放（EC-V2-006）；
+ *   - **键盘可达**：单一代理 `keydown`（方向键 / Enter / Space / Home / End）+ roving
+ *     tabindex + 焦点可见；`ArrowRight` 进子 / `ArrowLeft` 回父；
+ *   - **面包屑**：`#tree-breadcrumb` 显示当前焦点节点的层级路径（FR-V2-073）；
+ *   - **惰性渲染**（不虚拟化）：仅渲染展开路径；
+ *   - **deny 控件分层**：硬底线行零 `button[data-action-id]` + `.tree-clamp-reason` 可读；
+ *     可覆盖行渲染 3 个 `button[data-action-id="set-command-policy"][data-policy=allow|ask|deny]`
+ *     （+ 有覆盖时的「恢复默认」）；写入仍走**唯一** `tree-ops` 写路径（无第二写入口）；
+ *   - **放宽类二次确认**：`commandPolicyNeedsConfirmation(desired, default)` → `#tree-confirm`。
  *
- * 键盘可达：FAB `aria-expanded` 同步；Esc 关闭；关闭后焦点回归 FAB。
+ * 本模块不新增判定：服务端 SW 的 clamp 仍强制（伪造消息/绕过 UI 也不能突破）。
  */
+import type { PolicyAction } from '@lgdl/web-cli-base';
 import {
   TREE_MODEL_NOTE,
   TREE_NO_ESCALATION_NOTE,
   buildTreeRows,
+  commandPolicyNeedsConfirmation,
   confirmationSummary,
+  collectTreeRows,
   needsConfirmation,
   type TreeActionTarget,
   type TreeFilter,
+  type TreeRenderModel,
   type TreeRow,
 } from './tree-view.js';
 import type { TreeActionOutcome, TreeActionRequest } from './tree-ops.js';
@@ -36,7 +50,7 @@ export interface TreeDrawerOps {
 }
 
 /**
- * V2-3 动作执行器（`tree-ops`）。缺省时抽屉退化为**只读**（V2-2 行为，控件为只读披露）。
+ * V2-3 动作执行器（`tree-ops`）。缺省时抽屉退化为**只读**（控件为只读披露）。
  */
 export interface TreeDrawerActionRunner {
   run(req: TreeActionRequest): Promise<TreeActionOutcome>;
@@ -71,8 +85,9 @@ export interface TreeDrawerHandle {
 interface Shell {
   body: HTMLElement;
   count: HTMLElement;
+  breadcrumb: HTMLElement;
   filterInput: HTMLInputElement;
-  /** V2-4：档案子视图控件（默认关；`.tree-archive` 之外，保持档案容器零控件）。 */
+  /** V2-4：档案子视图控件（默认关；`.tree-archive` 之外）。 */
   archiveToggle: HTMLButtonElement;
   archiveControls: HTMLElement;
   archiveDetail: HTMLElement;
@@ -84,6 +99,14 @@ interface Shell {
   receipt: HTMLElement;
   /** V2-3：抽屉内联二次确认（ADR-V2-013）。 */
   confirm: HTMLElement;
+}
+
+/** 动作上下文（渲染节点 / 档案卡共用；把写路径收敛到同一 `tree-ops.run`）。 */
+interface ActionContext {
+  label: string;
+  actionTarget?: TreeActionTarget;
+  actionTool?: string;
+  defaultAction?: PolicyAction;
 }
 
 /** V2-4 档案分组维度（与 `ArchiveGroupBy` 同形；下拉文案）。 */
@@ -108,6 +131,8 @@ const ARCHIVE_SOURCE_OPTIONS: readonly string[] = [
 
 const ARCHIVE_ACTION_OPTIONS: readonly string[] = ['allow', 'ask', 'deny'];
 
+const POLICY_ACTIONS: readonly PolicyAction[] = ['allow', 'ask', 'deny'];
+
 export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
   const { root, fab, doc } = deps;
 
@@ -116,9 +141,17 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
   let loaded = false;
   let opened = false;
   let shell: Shell | null = null;
-  /** V2-4 档案子视图：默认关（关闭时不创建 `.tree-archive`，默认 DOM 与 P0 现状一致）。 */
+  /** V2-4 档案子视图：默认关。 */
   let archiveEnabled = false;
   let archiveFilter: ArchiveFilter = { groupBy: 'tool' };
+  /** R2：展开态会话保持（显式展开 / 显式收起；默认 = 根 + 一级展开）。 */
+  const expandedExplicit = new Set<string>();
+  const collapsedExplicit = new Set<string>();
+  /** R2：roving tabindex 焦点节点。 */
+  let focusedId: string | null = null;
+  /** 当前渲染的节点查找表（键盘/面包屑用；每次渲染重建）。 */
+  let renderedById = new Map<string, TreeRow>();
+  let parentById = new Map<string, string>();
 
   const notice = (text: string): void => {
     if (deps.onNotice) deps.onNotice(text);
@@ -139,6 +172,39 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     fab.setAttribute('aria-expanded', value ? 'true' : 'false');
   }
 
+  // ── R2: expansion state (session-persistent) ──────────────────────────────
+
+  function hasChildren(row: TreeRow): boolean {
+    return row.children.length > 0;
+  }
+
+  /** R2：当前渲染是否处于「内容过滤」态（命中节点的祖先链需自动展开才可见）。 */
+  let filterActive = false;
+
+  function descendantMatches(row: TreeRow): boolean {
+    if (row.matches) return true;
+    return row.children.some((child) => descendantMatches(child));
+  }
+
+  /** 默认展开根 + 一级；显式展开/收起覆盖默认值（会话内保持）；过滤时命中路径自动展开。 */
+  function isExpanded(row: TreeRow): boolean {
+    if (filterActive && descendantMatches(row)) return true;
+    if (collapsedExplicit.has(row.id)) return false;
+    if (expandedExplicit.has(row.id)) return true;
+    return row.depth <= 1;
+  }
+
+  function toggleExpansion(row: TreeRow): void {
+    if (!hasChildren(row)) return;
+    if (isExpanded(row)) {
+      collapsedExplicit.add(row.id);
+      expandedExplicit.delete(row.id);
+    } else {
+      expandedExplicit.add(row.id);
+      collapsedExplicit.delete(row.id);
+    }
+  }
+
   // ── rendering (textContent / createElement only) ──────────────────────────
 
   function ensureShell(): Shell {
@@ -146,7 +212,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     root.replaceChildren();
 
     const header = el('div', 'tree-header');
-    const title = el('span', 'tree-title', '连接树 · 四维度总览（站点 / 能力 / 命令 / LLM）');
+    const title = el('span', 'tree-title', '连接树 · 按归属逐层展开（站点 / 命令 / 能力 / LLM）');
     const closeBtn = el('button', 'tree-close', '关闭');
     closeBtn.id = 'tree-close';
     closeBtn.type = 'button';
@@ -160,6 +226,12 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     const noteNoEscalation = el('div', 'tree-note tree-note-no-escalation', TREE_NO_ESCALATION_NOTE);
     notes.append(noteModel, noteNoEscalation);
 
+    const breadcrumb = el('div', 'tree-breadcrumb');
+    breadcrumb.id = 'tree-breadcrumb';
+    breadcrumb.setAttribute('role', 'navigation');
+    breadcrumb.setAttribute('aria-label', '当前节点层级路径');
+    breadcrumb.textContent = '连接树';
+
     const filterWrap = el('div', 'tree-filter');
     const filterInput = doc.createElement('input');
     filterInput.id = 'tree-filter-input';
@@ -172,23 +244,22 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     const count = el('div', 'tree-filter-count');
     filterWrap.append(filterInput, count);
 
-    // ── V2-4 档案子视图控件（默认关；位于 `.tree-archive` 之外 → 档案容器保持零控件） ──
-    // 这些都是**只读展示操作**（开关/分组/检索），不带任何动作标识（无命令级写路径）。
+    // ── V2-4 档案子视图控件（默认关） ─────────────────────────────────────────
     const archiveControls = el('div', 'tree-archive-controls');
     const archiveDetail = el('div', 'tree-archive-detail');
     archiveDetail.hidden = true;
-    const archiveToggle = el('button', 'tree-archive-toggle', '查看命令档案（只读）');
+    const archiveToggle = el('button', 'tree-archive-toggle', '查看命令档案（分层）');
     archiveToggle.id = 'tree-archive-toggle';
     archiveToggle.type = 'button';
     archiveToggle.setAttribute('aria-pressed', 'false');
-    archiveToggle.setAttribute('aria-label', '切换只读命令档案子视图（默认关闭）');
+    archiveToggle.setAttribute('aria-label', '切换命令档案子视图（默认关闭）');
     archiveToggle.addEventListener('click', () => {
       setArchiveEnabled(!archiveEnabled);
     });
     const groupByLabel = el('span', 'tree-archive-control-label', '分组');
     const archiveGroupBy = doc.createElement('select');
     archiveGroupBy.id = 'tree-archive-groupby';
-    archiveGroupBy.setAttribute('aria-label', '档案分组维度（只读展示）');
+    archiveGroupBy.setAttribute('aria-label', '档案分组维度（展示）');
     for (const option of ARCHIVE_GROUP_OPTIONS) {
       const node = el('option', undefined, option.label);
       node.value = option.value;
@@ -211,7 +282,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     const actionLabel = el('span', 'tree-archive-control-label', '档位');
     const archiveAction = doc.createElement('select');
     archiveAction.id = 'tree-archive-action';
-    archiveAction.setAttribute('aria-label', '按处置档位过滤（只读）');
+    archiveAction.setAttribute('aria-label', '按处置档位过滤');
     for (const value of ['', ...ARCHIVE_ACTION_OPTIONS]) {
       const node = el('option', undefined, value === '' ? '全部档位' : value);
       node.value = value;
@@ -228,7 +299,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     const sourceLabel = el('span', 'tree-archive-control-label', '来源');
     const archiveSource = doc.createElement('select');
     archiveSource.id = 'tree-archive-source';
-    archiveSource.setAttribute('aria-label', '按来源过滤（只读）');
+    archiveSource.setAttribute('aria-label', '按来源过滤');
     for (const value of ['', ...ARCHIVE_SOURCE_OPTIONS]) {
       const node = el('option', undefined, value === '' ? '全部来源' : value);
       node.value = value;
@@ -268,10 +339,11 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
 
     const body = el('div', 'tree-body');
 
-    root.append(header, notes, filterWrap, receipt, confirm, body);
+    root.append(header, notes, breadcrumb, filterWrap, receipt, confirm, body);
     shell = {
       body,
       count,
+      breadcrumb,
       filterInput,
       archiveToggle,
       archiveControls,
@@ -283,18 +355,44 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
       receipt,
       confirm,
     };
+
+    body.addEventListener('keydown', (event) => {
+      if (archiveEnabled) return;
+      onTreeKeydown(event);
+    });
+    // R2：焦点进入任一 treeitem（鼠标 / 键盘 / 程序化）→ 同步 roving tabindex 与面包屑。
+    body.addEventListener('focusin', (event) => {
+      if (archiveEnabled) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const li = target.closest('li.tree-node');
+      const id = li instanceof HTMLElement ? li.dataset.nodeId : undefined;
+      if (!id || id === focusedId) return;
+      focusedId = id;
+      const items = [...body.querySelectorAll<HTMLElement>('li.tree-node')];
+      for (const item of items) {
+        const selected = item.dataset.nodeId === id;
+        item.tabIndex = selected ? 0 : -1;
+        item.setAttribute('aria-selected', selected ? 'true' : 'false');
+      }
+      updateBreadcrumb();
+    });
     return shell;
   }
 
   // ── V2-3 actions: confirm (fail-closed) + execute + 三件套回执 ─────────────
 
   /** 可读作用对象标签（不携带任何明文材料）。 */
-  function targetLabel(row: TreeRow): string {
-    const target: TreeActionTarget | undefined = row.actionTarget;
+  function targetLabel(ctx: ActionContext): string {
+    const target: TreeActionTarget | undefined = ctx.actionTarget;
     if (target?.origin) return `站点 ${target.origin}`;
-    if (target?.capability) return `能力「${row.label}」`;
+    if (target?.capability) return `能力「${ctx.label}」`;
+    if (target?.command) {
+      const sub = target.command.subcommand ? ` ${target.command.subcommand}` : '';
+      return `命令 ${target.command.tool}${sub}`;
+    }
     if (target?.groupId) return `会话组 ${target.groupId}`;
-    return row.label;
+    return ctx.label;
   }
 
   function hideConfirm(): void {
@@ -334,21 +432,30 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     current.receipt.hidden = false;
   }
 
-  async function executeAction(row: TreeRow, control: ControlDescriptor): Promise<void> {
+  /** 构造动作请求（把控件上的 `policyAction` 合并进目标；无第二写入口）。 */
+  function requestFor(ctx: ActionContext, control: ControlDescriptor): TreeActionRequest {
+    const baseTarget: TreeActionTarget | undefined = ctx.actionTarget;
+    const target: TreeActionTarget | undefined =
+      control.kind === 'command-policy' && control.policyAction
+        ? { ...(baseTarget ?? {}), policyAction: control.policyAction }
+        : baseTarget;
+    const defaultAction = control.kind === 'command-policy' ? (ctx.defaultAction ?? baseTarget?.defaultAction) : undefined;
+    return {
+      actionId: control.actionId as TreeActionRequest['actionId'],
+      ...(target ? { target: { ...target, ...(defaultAction ? { defaultAction } : {}) } } : {}),
+      ...(ctx.actionTool ? { toolHint: ctx.actionTool } : {}),
+      confirmed: true,
+    };
+  }
+
+  async function executeAction(ctx: ActionContext, control: ControlDescriptor): Promise<void> {
     if (!deps.actions || !control.actionId) {
       notice('连接树未接线动作执行器（只读模式）：未执行任何操作。');
       return;
     }
-    const req: TreeActionRequest = {
-      actionId: control.actionId,
-      ...(row.actionTarget ? { target: row.actionTarget } : {}),
-      ...(row.actionTool ? { toolHint: row.actionTool } : {}),
-      // 只有需要确认的动作会经 `#tree-confirm` 接受路径到达这里；显式确认。
-      confirmed: true,
-    };
     let outcome: TreeActionOutcome;
     try {
-      outcome = await deps.actions.run(req);
+      outcome = await deps.actions.run(requestFor(ctx, control));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       renderReceiptError(`✖ 动作执行异常：${message}（未静默）`);
@@ -360,9 +467,9 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     await refresh();
   }
 
-  function askConfirm(row: TreeRow, control: ControlDescriptor): void {
+  function askConfirm(ctx: ActionContext, control: ControlDescriptor): void {
     if (!control.actionId) return;
-    const summary = confirmationSummary(control.actionId, targetLabel(row));
+    const summary = confirmationSummary(control.actionId, targetLabel(ctx));
     const current = ensureShell();
     current.confirm.replaceChildren();
     current.confirm.dataset.actionId = control.actionId;
@@ -375,7 +482,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     accept.type = 'button';
     accept.addEventListener('click', () => {
       hideConfirm();
-      void executeAction(row, control);
+      void executeAction(ctx, control);
     });
     const deny = el('button', 'tree-confirm-deny', '取消');
     deny.id = 'tree-confirm-deny';
@@ -390,77 +497,321 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     current.confirm.hidden = false;
   }
 
-  function onControlActivate(row: TreeRow, control: ControlDescriptor): void {
+  /** R2：命令级覆盖的「放宽方向」也需二次确认（收紧 / 恢复默认不需）。 */
+  function onControlActivate(ctx: ActionContext, control: ControlDescriptor): void {
     if (!control.actionId) return;
-    if (needsConfirmation(control.actionId)) askConfirm(row, control);
-    else void executeAction(row, control);
+    if (control.kind === 'command-policy') {
+      if (commandPolicyNeedsConfirmation(control.policyAction, ctx.defaultAction ?? ctx.actionTarget?.defaultAction)) {
+        askConfirm(ctx, control);
+        return;
+      }
+      void executeAction(ctx, control);
+      return;
+    }
+    if (needsConfirmation(control.actionId)) askConfirm(ctx, control);
+    else void executeAction(ctx, control);
   }
 
-  function renderRow(row: TreeRow): HTMLElement {
-    const wrap = el('div', 'tree-row');
-    wrap.dataset.depth = String(row.depth);
-    wrap.dataset.nodeId = row.id;
-    wrap.dataset.dimension = row.dimension;
-    if (row.action) wrap.dataset.action = row.action;
-    if (row.sourceKind) wrap.dataset.sourceKind = row.sourceKind;
+  // ── R2: tree rendering (role=tree / treeitem, lazy, keyboard) ──────────────
 
-    wrap.append(el('div', 'tree-label', row.label));
-    if (row.sublabel) wrap.append(el('div', 'tree-sublabel', row.sublabel));
+  function nodeTestId(row: TreeRow): string {
+    return row.kind === 'command' ? `command:${row.nodeId ?? row.id}` : row.id;
+  }
 
-    if (row.badges.length > 0) {
-      const badges = el('div', 'tree-badges');
-      for (const badge of row.badges) {
-        const item = el('span', 'tree-badge', badge.label);
-        item.dataset.tone = badge.tone;
-        item.dataset.kind = badge.kind;
-        badges.append(item);
+  function renderControls(row: TreeRow): HTMLElement | null {
+    if (row.controls.length === 0) return null;
+    const wrap = el('div', 'tree-controls');
+    for (const control of row.controls) {
+      const actionable = control.kind !== 'none' && Boolean(control.actionId) && Boolean(deps.actions);
+      const ctx: ActionContext = {
+        label: row.label,
+        ...(row.actionTarget ? { actionTarget: row.actionTarget } : {}),
+        ...(row.actionTool ? { actionTool: row.actionTool } : {}),
+        ...(row.defaultAction ? { defaultAction: row.defaultAction } : {}),
+      };
+      if (!actionable) {
+        const item = el('span', 'tree-control', control.label);
+        item.dataset.kind = control.kind;
+        if (control.actionId) item.dataset.actionId = control.actionId;
+        if (control.policyAction) item.dataset.policy = control.policyAction;
+        wrap.append(item);
+        continue;
       }
-      wrap.append(badges);
-    }
-
-    // ADR-V2-011: a `deny` command carries `controls === []`, so this block is
-    // never reached for it — the deny row cannot render an actionable control.
-    if (row.controls.length > 0) {
-      const controls = el('div', 'tree-controls');
-      for (const control of row.controls) {
-        const actionable = control.kind !== 'none' && Boolean(control.actionId) && Boolean(deps.actions);
-        if (!actionable) {
-          // 只读披露（命令级 `none`、或抽屉未接线动作执行器时）：非交互元素。
-          const item = el('span', 'tree-control', control.label);
-          item.dataset.kind = control.kind;
-          if (control.actionId) item.dataset.actionId = control.actionId;
-          controls.append(item);
-          continue;
-        }
-        const button = el('button', 'tree-control', control.label);
-        button.type = 'button';
-        button.dataset.kind = control.kind;
-        button.dataset.actionId = control.actionId as string;
-        button.addEventListener('click', () => {
-          onControlActivate(row, control);
-        });
-        controls.append(button);
+      const button = el('button', 'tree-control', control.policyAction ? control.policyAction : control.label);
+      button.type = 'button';
+      button.dataset.kind = control.kind;
+      button.dataset.actionId = control.actionId as string;
+      if (control.policyAction) {
+        button.dataset.policy = control.policyAction;
+        button.setAttribute('aria-pressed', control.selected === true ? 'true' : 'false');
+        if (control.label) button.title = control.label;
       }
-      wrap.append(controls);
+      button.addEventListener('click', () => {
+        onControlActivate(ctx, control);
+      });
+      wrap.append(button);
     }
-
-    if (row.revokeHint) wrap.append(el('div', 'tree-revoke-hint', row.revokeHint));
-    if (row.crossRefs.length > 0) {
-      wrap.append(el('div', 'tree-sublabel', `跨层引用：${row.crossRefs.join('；')}`));
+    // R2：可覆盖行若已有用户覆盖 → 提供「恢复默认」（可逆，不需确认；同一 tree-ops 写路径）。
+    if (row.overridable === true && row.overrideAction && row.actionTarget?.command) {
+      const reset = el('button', 'tree-control tree-policy-reset', '恢复默认');
+      reset.type = 'button';
+      reset.dataset.kind = 'command-policy-reset';
+      reset.dataset.actionId = 'reset-command-policy';
+      reset.title = `恢复默认（当前覆盖 ${row.overrideAction}）`;
+      reset.addEventListener('click', () => {
+        onControlActivate(
+          {
+            label: row.label,
+            actionTarget: row.actionTarget as TreeActionTarget,
+            ...(row.defaultAction ? { defaultAction: row.defaultAction } : {}),
+          },
+          { kind: 'command-policy', actionId: 'reset-command-policy', label: '恢复默认' },
+        );
+      });
+      wrap.append(reset);
     }
     return wrap;
   }
 
-  // ── V2-4 archive sub-view (read-only; default OFF) ───────────────────────────
-  // The archive is a *display* surface: every node below is a `div`/`span` built
-  // with `createElement`/`textContent`. No actionable element is created inside
-  // `.tree-archive` (no control class, no action id, no checkbox) — the ADR-V2-020
-  // red line is structural, not a wording promise.
+  function renderNode(row: TreeRow): HTMLElement {
+    const item = el('li', 'tree-node tree-row');
+    item.setAttribute('role', 'treeitem');
+    item.setAttribute('aria-level', String(row.depth + 1));
+    item.setAttribute('aria-selected', focusedId === row.id ? 'true' : 'false');
+    item.tabIndex = focusedId === row.id ? 0 : -1;
+    item.dataset.depth = String(row.depth);
+    item.dataset.nodeId = row.id;
+    item.dataset.kind = row.kind;
+    item.dataset.testId = nodeTestId(row);
+    if (row.dimension) item.dataset.dimension = row.dimension;
+    if (row.kind === 'face') item.classList.add('tree-group');
+    if (row.action) item.dataset.action = row.action;
+    if (row.sourceKind) item.dataset.sourceKind = row.sourceKind;
+    if (row.overridable === false) item.dataset.hardFloor = 'true';
+    if (row.overridable === true) item.dataset.overridable = 'true';
+    if (row.kind === 'command' && row.effectiveAction) item.dataset.effectiveAction = row.effectiveAction;
+
+    const expandable = hasChildren(row);
+    const expanded = expandable && isExpanded(row);
+    if (expandable) item.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+
+    const head = el('div', 'tree-node-head');
+    if (expandable) {
+      const toggle = el('button', 'tree-toggle', expanded ? '▾' : '▸');
+      toggle.type = 'button';
+      toggle.tabIndex = -1;
+      toggle.setAttribute('aria-label', `${expanded ? '收起' : '展开'} ${row.label}`);
+      toggle.dataset.toggleNodeId = row.id;
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleExpansion(row);
+        focusedId = row.id;
+        renderBody();
+      });
+      head.append(toggle);
+    } else {
+      const leaf = el('span', 'tree-toggle tree-toggle-leaf', '•');
+      leaf.setAttribute('aria-hidden', 'true');
+      head.append(leaf);
+    }
+    head.append(el('span', 'tree-label', row.label));
+    if (row.badges.length > 0) {
+      const badges = el('span', 'tree-badges');
+      for (const badge of row.badges) {
+        const badgeEl = el('span', 'tree-badge', badge.label);
+        badgeEl.dataset.tone = badge.tone;
+        badgeEl.dataset.kind = badge.kind;
+        badges.append(badgeEl);
+      }
+      head.append(badges);
+    }
+    item.append(head);
+
+    if (row.sublabel) item.append(el('div', 'tree-sublabel', row.sublabel));
+
+    const controls = renderControls(row);
+    if (controls) item.append(controls);
+
+    // R2：硬底线行零控件 + 不可覆盖原因可读（FR-V2-077）。
+    if (row.overridable === false && row.clampReasonLabel) {
+      item.append(el('div', 'tree-clamp-reason', `不可覆盖：${row.clampReasonLabel}`));
+    }
+
+    if (row.revokeHint) item.append(el('div', 'tree-revoke-hint', row.revokeHint));
+    if (row.crossRefs.length > 0) {
+      item.append(el('div', 'tree-sublabel', `跨层引用：${row.crossRefs.join('；')}`));
+    }
+
+    if (expandable && expanded) {
+      const group = el('ul', 'tree-children');
+      group.setAttribute('role', 'group');
+      for (const child of row.children) group.append(renderNode(child));
+      item.append(group);
+    } else if (row.kind === 'face' && !expandable) {
+      item.append(el('div', 'tree-empty', row.emptyHint ?? '该维度当前无内容。'));
+    }
+    return item;
+  }
+
+  function rebuildMaps(model: TreeRenderModel): void {
+    renderedById = new Map();
+    parentById = new Map();
+    for (const node of collectTreeRows(model)) {
+      renderedById.set(node.id, node);
+    }
+    const walk = (row: TreeRow, parentId: string | undefined): void => {
+      if (parentId) parentById.set(row.id, parentId);
+      for (const child of row.children) walk(child, row.id);
+    };
+    walk(model.root, undefined);
+  }
+
+  function pathOf(id: string): string[] {
+    const labels: string[] = [];
+    let cursor: string | undefined = id;
+    const seen = new Set<string>();
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      const node = renderedById.get(cursor);
+      if (!node) break;
+      labels.unshift(node.label);
+      cursor = parentById.get(cursor);
+    }
+    return labels;
+  }
+
+  function updateBreadcrumb(): void {
+    const current = shell;
+    if (!current) return;
+    if (!focusedId) {
+      current.breadcrumb.textContent = '连接树';
+      return;
+    }
+    const labels = pathOf(focusedId);
+    current.breadcrumb.textContent = labels.length > 0 ? labels.join(' › ') : '连接树';
+  }
+
+  function moveFocus(id: string): void {
+    focusedId = id;
+    const current = ensureShell();
+    const items = [...current.body.querySelectorAll<HTMLElement>('li.tree-node')];
+    for (const item of items) {
+      const selected = item.dataset.nodeId === id;
+      item.tabIndex = selected ? 0 : -1;
+      item.setAttribute('aria-selected', selected ? 'true' : 'false');
+    }
+    const target = items.find((item) => item.dataset.nodeId === id);
+    if (target && typeof target.focus === 'function') target.focus();
+    updateBreadcrumb();
+  }
+
+  function onTreeKeydown(event: KeyboardEvent): void {
+    const current = shell;
+    if (!current) return;
+    const items = [...current.body.querySelectorAll<HTMLElement>('li.tree-node')];
+    if (items.length === 0) return;
+    const index = focusedId ? items.findIndex((item) => item.dataset.nodeId === focusedId) : -1;
+    const row = focusedId ? renderedById.get(focusedId) : undefined;
+
+    const focusAt = (i: number): void => {
+      const next = items[Math.max(0, Math.min(items.length - 1, i))];
+      if (next?.dataset.nodeId) moveFocus(next.dataset.nodeId);
+    };
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        focusAt(index < 0 ? 0 : index + 1);
+        return;
+      case 'ArrowUp':
+        event.preventDefault();
+        focusAt(index < 0 ? 0 : index - 1);
+        return;
+      case 'Home':
+        event.preventDefault();
+        focusAt(0);
+        return;
+      case 'End':
+        event.preventDefault();
+        focusAt(items.length - 1);
+        return;
+      case 'ArrowRight':
+        event.preventDefault();
+        if (row && hasChildren(row) && !isExpanded(row)) {
+          toggleExpansion(row);
+          renderBody();
+          moveFocus(row.id);
+        } else {
+          focusAt(index + 1);
+        }
+        return;
+      case 'ArrowLeft':
+        event.preventDefault();
+        if (row && hasChildren(row) && isExpanded(row)) {
+          toggleExpansion(row);
+          renderBody();
+          moveFocus(row.id);
+        } else if (focusedId) {
+          const parentId = parentById.get(focusedId);
+          if (parentId) moveFocus(parentId);
+        }
+        return;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        if (row && hasChildren(row)) {
+          toggleExpansion(row);
+          renderBody();
+          moveFocus(row.id);
+        }
+        return;
+      default:
+        return;
+    }
+  }
+
+  // ── V2-4 archive sub-view (layered policy controls; same tree-ops path) ────
 
   function archiveField(name: string, text: string): HTMLElement {
     const node = el('div', 'tree-archive-field', text);
     node.dataset.field = name;
     return node;
+  }
+
+  function archivePolicyControls(card: ArchiveCard): HTMLElement | null {
+    if (card.overridable !== true) return null;
+    const wrap = el('div', 'tree-archive-policy-controls');
+    const ctx: ActionContext = {
+      label: card.subcommand ? `${card.name} ${card.subcommand}` : card.name,
+      actionTarget: {
+        command: { tool: card.name, ...(card.subcommand ? { subcommand: card.subcommand } : {}) },
+        defaultAction: card.defaultAction,
+      },
+      defaultAction: card.defaultAction,
+    };
+    for (const action of POLICY_ACTIONS) {
+      const button = el('button', 'tree-archive-policy', action);
+      button.type = 'button';
+      button.dataset.policy = action;
+      button.dataset.archiveCommand = card.cardId;
+      button.setAttribute('aria-pressed', card.effectiveAction === action ? 'true' : 'false');
+      button.title = card.effectiveAction === action ? `当前生效档 ${action}` : `设为 ${action}`;
+      button.addEventListener('click', () => {
+        onControlActivate(ctx, { kind: 'command-policy', actionId: 'set-command-policy', policyAction: action, label: `设为 ${action}` });
+      });
+      wrap.append(button);
+    }
+    if (card.overrideAction) {
+      const reset = el('button', 'tree-archive-policy-reset', '恢复默认');
+      reset.type = 'button';
+      reset.dataset.archiveReset = card.cardId;
+      reset.title = `恢复默认（当前覆盖 ${card.overrideAction}）`;
+      reset.addEventListener('click', () => {
+        onControlActivate(ctx, { kind: 'command-policy', actionId: 'reset-command-policy', label: '恢复默认' });
+      });
+      wrap.append(reset);
+    }
+    return wrap;
   }
 
   function renderArchiveCard(card: ArchiveCard): HTMLElement {
@@ -469,10 +820,20 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     node.dataset.action = card.action;
     node.dataset.sourceKind = card.sourceKind;
     if (card.risk) node.dataset.risk = card.risk;
+    if (card.overridable === false) node.dataset.hardFloor = 'true';
+    if (card.overridable === true) node.dataset.overridable = 'true';
     node.append(
       el('div', 'tree-archive-card-title', card.subcommand ? `${card.name} ${card.subcommand}` : card.name),
-      archiveField('action', `处置（policy）：${card.action}`),
+      archiveField('action', `处置（policy 默认档）：${card.action}`),
+      archiveField('default-action', `默认档：${card.defaultAction}`),
+      archiveField(
+        'effective-action',
+        `生效档：${card.effectiveAction}${card.overrideAction ? `（用户覆盖 ${card.overrideAction}）` : '（= 默认档，无覆盖）'}`,
+      ),
     );
+    if (card.clampReasonLabel) {
+      node.append(archiveField('clamp-reason', `不可覆盖：${card.clampReasonLabel}`));
+    }
     if (card.denyCauseLabel) {
       node.append(archiveField('deny-cause', `deny 成因（policy 层）：${card.denyCauseLabel}`));
     }
@@ -480,9 +841,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     node.append(
       archiveField(
         'source',
-        card.origin
-          ? `来源：${card.sourceKind}（站点 ${card.origin}）`
-          : `来源：${card.sourceKind}`,
+        card.origin ? `来源：${card.sourceKind}（站点 ${card.origin}）` : `来源：${card.sourceKind}`,
       ),
     );
     node.append(archiveField('delay-ms', `命令间隔 delayMs=${card.delayMs}ms（与 delay 档无关）`));
@@ -492,13 +851,15 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     if (card.badges.length > 0) {
       const badges = el('div', 'tree-archive-badges');
       for (const badge of card.badges) {
-        const item = el('span', 'tree-archive-badge', badge.label);
-        item.dataset.tone = badge.tone;
-        item.dataset.kind = badge.kind;
-        badges.append(item);
+        const badgeEl = el('span', 'tree-archive-badge', badge.label);
+        badgeEl.dataset.tone = badge.tone;
+        badgeEl.dataset.kind = badge.kind;
+        badges.append(badgeEl);
       }
       node.append(badges);
     }
+    const controls = archivePolicyControls(card);
+    if (controls) node.append(controls);
     return node;
   }
 
@@ -507,7 +868,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     if (!snapshot) return;
     const model = buildArchiveModel(snapshot, archiveFilter);
     current.body.replaceChildren();
-    current.count.textContent = `档案（只读）：${model.filter.matches} / ${model.header.liveCounts.cards} 卡`;
+    current.count.textContent = `档案：${model.filter.matches} / ${model.header.liveCounts.cards} 卡（分层：硬底线无控件 + 原因；可覆盖行可设 allow/ask/deny）`;
 
     const wrap = el('div', 'tree-archive');
     wrap.dataset.groupBy = model.filter.groupBy;
@@ -556,13 +917,14 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
       wrap.append(el('div', 'tree-empty', '当前过滤条件下无档案卡（只读过滤，不改任何授权状态）。'));
     }
     current.body.append(wrap);
+    current.breadcrumb.textContent = '命令档案（分层）';
   }
 
   function setArchiveEnabled(next: boolean): void {
     archiveEnabled = next;
     const current = ensureShell();
     current.archiveToggle.setAttribute('aria-pressed', next ? 'true' : 'false');
-    current.archiveToggle.textContent = next ? '关闭命令档案' : '查看命令档案（只读）';
+    current.archiveToggle.textContent = next ? '关闭命令档案' : '查看命令档案（分层）';
     current.archiveDetail.hidden = !next;
     current.filterInput.disabled = next;
     renderBody();
@@ -571,6 +933,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
   function renderBody(): void {
     const current = ensureShell();
     current.body.replaceChildren();
+    filterActive = false;
 
     if (!snapshot) {
       current.body.append(
@@ -586,9 +949,10 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     }
 
     const model = buildTreeRows(snapshot, filter);
+    rebuildMaps(model);
     current.count.textContent = model.filter.query
-      ? `过滤命中 ${model.filter.matches} 行（只读：不改任何授权状态）`
-      : `共 ${model.filter.matches} 行（只读投影）`;
+      ? `过滤命中 ${model.filter.matches} 个节点（只读：不改任何授权状态）`
+      : `共 ${model.filter.matches} 个节点（真层级树，按归属逐层展开）`;
 
     if (model.degradations.length > 0) {
       const degradations = el('div', 'tree-degradations');
@@ -598,22 +962,37 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
       current.body.append(degradations);
     }
 
-    for (const group of model.groups) {
-      const section = el('div', 'tree-group');
-      section.dataset.dimension = group.dimension;
-      const heading = el('div', 'tree-group-title');
-      heading.append(
-        el('span', 'tree-group-name', group.label),
-        el('span', 'tree-group-count', `（${group.count}）`),
-      );
-      section.append(heading);
-      if (group.rows.length === 0) {
-        section.append(el('div', 'tree-empty', group.emptyHint));
-      } else {
-        for (const row of group.rows) section.append(renderRow(row));
-      }
-      current.body.append(section);
+    const filterActiveNow =
+      Boolean(model.filter.query) ||
+      filter.action !== undefined ||
+      filter.sourceKind !== undefined ||
+      filter.dimension !== undefined;
+    filterActive = filterActiveNow;
+    if (filterActiveNow && model.filter.matches === 0) {
+      current.body.append(el('div', 'tree-empty', '当前过滤条件下无命中节点（只读过滤，不改任何授权状态）。'));
+      current.breadcrumb.textContent = '连接树';
+      return;
     }
+
+    const tree = el('ul', 'tree');
+    tree.setAttribute('role', 'tree');
+    tree.setAttribute('aria-label', '连接树：按归属逐层展开');
+    tree.append(renderNode(model.root));
+    current.body.append(tree);
+
+    // roving tabindex：优先保持原焦点；否则落到第一个可见节点。
+    const items = [...current.body.querySelectorAll<HTMLElement>('li.tree-node')];
+    if (items.length > 0) {
+      const keep = focusedId && items.some((item) => item.dataset.nodeId === focusedId);
+      const targetId = keep && focusedId ? focusedId : items[0]!.dataset.nodeId!;
+      focusedId = targetId;
+      for (const item of items) {
+        const selected = item.dataset.nodeId === targetId;
+        item.tabIndex = selected ? 0 : -1;
+        item.setAttribute('aria-selected', selected ? 'true' : 'false');
+      }
+    }
+    updateBreadcrumb();
   }
 
   function renderError(message: string): void {
@@ -621,6 +1000,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     current.body.replaceChildren();
     current.body.append(el('div', 'tree-error', message));
     current.count.textContent = '';
+    current.breadcrumb.textContent = '连接树';
   }
 
   // ── lifecycle ─────────────────────────────────────────────────────────────

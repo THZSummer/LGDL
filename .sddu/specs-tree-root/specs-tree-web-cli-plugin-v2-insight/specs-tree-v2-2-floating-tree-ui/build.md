@@ -218,3 +218,13 @@
 |------|---------|------|--------|
 | v1.0 | 初始创建。V2-2 Wave 6~9 / TASK-001~011 全部实施；逐任务文件变更 + 门禁原文（typecheck / 插件 npm test 577 / test:insight 45 / test:ui 167 / test:hardening 24 / test:binding 163 / test:e2e / 全仓 npm test base 483 + plugin 577）+ 布局实测（去镀铬 674px/74.9%，v1 口径 418px/46.4%，开/关逐字段相等）+ 体积（content 0 增长；sidepanel +20,000 → 新基线 1,085,389 / ceiling 1,139,658）+ 零改动核验 + 决策 D-V22-01~05。 | 2026-09-13 | SDDU Build Agent |
 | v1.1 | R2 修复轮：W1（口径订正）/ W4（基线重登记 1,110,744 · ceiling 1,166,281）/ W5（§5.2 数字订正 1,068,165 → 1,085,389，+17,224）/ W6（pinned v1 raw 基线 418px + `#I-06c/#I-06d`）；门禁全量串行复跑：typecheck 0 / 插件 npm test 616 / test:insight 52 / test:ui 167 / test:hardening 24 / test:binding 180 / test:e2e PASS / 全仓 base 483 + plugin 616 = 0 fail。 | 2026-09-13 | SDDU Build Agent |
+
+---
+
+## R2 第 2 轮（2026-09-13，sddu-build）
+
+R2-V22-01~06 全部完成：`tree-view.ts` 改真层级树（消费 `ownershipTree` 嵌套模型 + 默认/生效分列 + 分层控件 + `CLAMP_REASON_LABEL` + `TREE_MODEL_NOTE` 重写）；`tree-drawer.ts` 自建 `role=tree/treeitem` + `aria-expanded/aria-level` + 键盘（↑↓←→/Enter/Space/Home/End）+ roving tabindex + 面包屑 + 展开态会话保持 + 惰性渲染 + deny 分层 DOM（硬底线零控件 + `.tree-clamp-reason`）+ 放宽类二次确认 + 过滤命中路径自动展开；`test/tree-view.test.ts` 取代 S4~S8；`test/ui/insight.mjs` 取代 S13~S16 + 新增 `#I-20a~k`（作者两例真实 DOM 逐层展开/收起、面包屑、键盘、覆盖即时生效、多状态布局守卫关/开/深展开/收起 drift=0）；体积显式重登记（sidepanel 1,132,748 → **1,159,856**，ceiling **1,217,848**，容差 5% 不变，HISTORY 追加）；文档回填 + 人工面 `V2-H-10~14`（`⏳ 待人工`）。
+
+门禁：typecheck 0 error；插件 npm test 690/0；test:insight PASS 102 断言；test:ui 167；test:hardening 24；test:binding 192；test:e2e PASS；全仓 0 fail。`content.js` 零增长；`policy.ts`/`auto-authorize.ts` sha256 不变；manifest/base/content/options 零 diff；无新依赖/权限。
+
+偏差：declared site tool 的 schema 不暴露 `subcommand` enum → 作者示例①真实 DOM 最深可展层为「工具」；「工具→子命令」由示例②与 node 门禁证明（详见父 build.md §R2 第 2 轮 §2）。

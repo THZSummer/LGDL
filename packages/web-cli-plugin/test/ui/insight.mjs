@@ -5,8 +5,8 @@
  * 与 v1 断言只增不减（v1 journey 的 `#15a~#15q` 由 `npm run test:ui` 独立守护）。
  *
  * 真实 dist + 全新 user-data-dir + headless Chromium（CDP），侧栏视口 400×900：
- *   #I-01 FAB 存在、默认收起、可开合；
- *   #I-02 抽屉四维度可见（site/capability/command/llm）；
+ *   #I-01 FAB 存在、默认收起、可开合；站点夹具发现完成（#I-01g）；
+ *   #I-02 抽屉真层级树：根 + 四维度面默认展开（R2 取代 S16）；四维度可见；
  *   #I-03 状态徽标存在；
  *   #I-04 空态/降级可读（`.tree-degradation` / `.tree-empty`）；
  *   #I-05 `#log` 计算 `flex-grow === '1'`；
@@ -18,15 +18,19 @@
  *   #I-08 `#composer` 底边 − 视口底 `∈ [0, +8px]`（不得为负，D-079）；
  *   #I-09 `#tree-fab` ∩ `#composer` 交面积 `= 0`；
  *   #I-10 文档 / `#log` / 抽屉 400px 水平溢出 `= 0`；
- *   #I-11 「撤销/关断 = 回到更保守，不放宽」+ `delay`(=`deny`) 消歧文案；
- *   #I-12 `deny` 节点无任何控件（结构保证，ADR-V2-011）；
+ *   #I-11 R2 两通路文案 + 归属层级树声明 + `delay`(=`deny`) 消歧（取代 S13）；
+ *   #I-12a/b R2 deny 分层：硬底线零控件 + 原因可读；可覆盖行 allow/ask/deny（取代 S14）；
  *   #I-13 过滤只读：检索收窄展示集合、不改真值；
  *   #I-14 开/关两态复用全部几何断言（证明开抽屉不挤压消息区）；
  *   #I-15 Esc 关闭 + 焦点回归 FAB + `aria-expanded` 同步；
- *   #I-16 320px 窄侧栏零水平溢出（关/开两态）；
+ *   #I-16 320px 窄侧栏零水平溢出（关/开两态，深展开状态下同样成立）；
  *   #I-17 0 页面异常；
- *   #I-18a~e V2-3 真实撤销控件（button[data-action-id]）+ `#tree-receipt`/`#tree-confirm`
- *            存在且默认收起 + `deny` 行仍结构上无控件（ADR-V2-011 未被写路径破坏）。
+ *   #I-18a~d V2-3 真实动作控件（button[data-action-id]）+ `#tree-receipt`/`#tree-confirm`
+ *            存在且默认收起；#I-18e R2 分层（取代 S15）；
+ *   #I-19a~h V2-4 档案子视图（只读过滤 + P0 红线：零 `.tree-control`/`button[data-action-id]`）；
+ *   #I-20a~k R2（AC-V2-020~023 / AC-V22-008~011）：作者两例在真实 DOM 逐层展开/收起 +
+ *            惰性渲染 + 面包屑 + 键盘（方向键/Home/End）+ 覆盖即时生效 + 多状态布局守卫；
+ *   #I-21a~e R2-V24-04：档案卡分层 + 默认/生效分列 + 同一 tree-ops 写路径。
  *
  * 依赖：Node ≥ 22（全局 WebSocket / fetch）、本机 `.pw-browsers` Chromium（或 CHROME_BIN）。
  * 前置：`npm run build --workspace @lgdl/web-cli-plugin`。
@@ -34,7 +38,8 @@
  * ⚠️ 串行纪律：本脚本自起 Chromium，**绝不与 test:ui / test:binding 并发**（OOM 前科）。
  */
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -71,6 +76,43 @@ const V1_RAW_LOG_BASELINE_META = {
   note: 'v1 口径 raw 几何实测；v2 叠加（抽屉/FAB）后不得回退超过容差',
 };
 const COMPOSER_GAP = [0, 8];
+
+/**
+ * R2 (AC-V22-008 / FR-V2-070): a tiny local fixture site so the **author example ①**
+ * path (`连接树 → 授权的站点 → 站点 xxx → 支持的命令 → 工具 → 子命令`) can be
+ * drilled in the real dist DOM. The manifest of a temp dist copy is pre-granted
+ * `http://127.0.0.1/*` (JS byte-identical; headless has no native permission
+ * prompt — same disclosure as `test:binding`), the origin is pre-seeded as
+ * authorized, and the site declares one read tool with two subcommands.
+ */
+const INSIGHT_SITE_DESCRIPTOR = {
+  protocolVersion: '1.0',
+  siteName: 'R2 Insight Fixture',
+  tools: [
+    {
+      id: 'notes',
+      summary: 'Fixture notes (read-only).',
+      subcommands: ['list', 'show'],
+      riskHint: 'read',
+    },
+  ],
+  transport: { kind: 'page-message', channel: 'web-cli' },
+};
+
+function startInsightSite() {
+  const server = createServer((req, res) => {
+    if (req.url.startsWith('/.well-known/web-cli.json')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(INSIGHT_SITE_DESCRIPTOR));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<!doctype html><html><head><title>R2 insight fixture</title></head><body><h1>R2 insight fixture</h1></body></html>');
+  });
+  return new Promise((resolveListen) => {
+    server.listen(0, '127.0.0.1', () => resolveListen({ server, origin: `http://127.0.0.1:${server.address().port}` }));
+  });
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -306,6 +348,18 @@ async function main() {
   const work = await mkdtemp(join(tmpdir(), 'web-cli-ui-insight-'));
   const profile = join(work, 'profile');
   const port = 9900 + Math.floor(Math.random() * 600);
+
+  // R2: a temp dist copy with a pre-granted host permission for the local fixture
+  // site (JS byte-identical; headless has no native permission prompt → same
+  // disclosure as `test:binding`). Used ONLY to drill the author example ①.
+  const site = await startInsightSite();
+  const extDir = join(work, 'ext');
+  await cp(dist, extDir, { recursive: true });
+  const manifest = JSON.parse(await readFile(join(extDir, 'manifest.json'), 'utf8'));
+  manifest.host_permissions = [...manifest.host_permissions, 'http://127.0.0.1/*'];
+  await writeFile(join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  console.log(`▶ fixture site: ${site.origin}（临时 dist copy：host_permissions += http://127.0.0.1/*；JS 字节未改）`);
+
   const chrome = spawn(
     CHROME,
     [
@@ -314,8 +368,8 @@ async function main() {
       '--disable-gpu',
       '--disable-dev-shm-usage',
       `--user-data-dir=${profile}`,
-      `--disable-extensions-except=${dist}`,
-      `--load-extension=${dist}`,
+      `--disable-extensions-except=${extDir}`,
+      `--load-extension=${extDir}`,
       `--remote-debugging-port=${port}`,
       'about:blank',
     ],
@@ -438,13 +492,27 @@ async function main() {
       `(() => {
         const drawer = document.getElementById('tree-drawer');
         if (!drawer || drawer.hidden) return '';
-        const n = drawer.querySelectorAll('.tree-group').length;
-        return n >= 4 ? String(n) : '';
+        const groups = [...drawer.querySelectorAll('.tree-group')];
+        const root = drawer.querySelector('li[role="treeitem"][data-node-id="root"]');
+        const ok =
+          groups.length >= 4 &&
+          Boolean(root) &&
+          root.getAttribute('aria-expanded') === 'true' &&
+          // Root + level-1 default expanded: every expandable face is expanded; an
+          // empty face is simply a leaf (no aria-expanded), which is correct.
+          groups.every((g) => g.getAttribute('aria-expanded') === 'true' || !g.hasAttribute('aria-expanded'));
+        return ok ? JSON.stringify({ groups: groups.length, rootExpanded: root.getAttribute('aria-expanded') }) : '';
       })()`,
       150,
       200,
     );
-    check(Number(openOk) >= 4, '#I-02a 真实点击 FAB 后抽屉打开并渲染四维度分组', `groups=${openOk}`);
+    // R2 supersession S16: four-dimension visibility is now asserted on the real
+    // root + faces of the nested tree (root + level-1 default expanded).
+    check(
+      Boolean(openOk),
+      '#I-02a 真实点击 FAB 后抽屉打开：真层级树根 + 四维度面（可展开面默认展开；R2 取代 S16）',
+      String(openOk),
+    );
     const openState = await evaluate(
       sp,
       `(() => {
@@ -461,20 +529,19 @@ async function main() {
       `(() => {
         const drawer = document.getElementById('tree-drawer');
         const dims = [...drawer.querySelectorAll('.tree-group')].map((g) => g.dataset.dimension);
-        const denyRows = [...drawer.querySelectorAll('.tree-row[data-action="deny"]')];
-        const denyWithControls = denyRows.filter((r) => r.querySelectorAll('.tree-controls .tree-control').length > 0).length;
         const badges = drawer.querySelectorAll('.tree-badge').length;
         const text = drawer.textContent || '';
         return {
           dims,
           badges,
-          denyRows: denyRows.length,
-          denyWithControls,
           hasDegradation: drawer.querySelectorAll('.tree-degradation').length > 0,
           hasEmpty: drawer.querySelectorAll('.tree-empty').length > 0,
           hasFilterInput: !!document.getElementById('tree-filter-input'),
-          hasModelNote: text.includes('四维度分组视图（森林），非严格树'),
-          hasNoEscalation: text.includes('撤销/关断 = 回到更保守，不放宽任何门禁'),
+          hasOwnershipNote: text.includes('按归属的层级树'),
+          hasForestWording: text.includes('森林'),
+          hasTwoPathways: text.includes('命令级覆盖 = 用户显式、被审计的放宽'),
+          hasHardFloorClause: text.includes('硬底线不可覆盖'),
+          hasDelayDisambiguation: text.includes('非可配置档位'),
           hasDelay: text.includes('delay'),
           hasDeny: text.includes('deny'),
           hasFailClosed: text.includes('fail-closed'),
@@ -491,20 +558,25 @@ async function main() {
     check((content.badges ?? 0) >= 1, '#I-03 状态徽标可见（.tree-badge）', `badges=${content.badges}`);
     check(content.hasDegradation === true || content.hasEmpty === true, '#I-04 空态/降级可读（.tree-degradation/.tree-empty）', JSON.stringify(content));
     check(content.hasFilterInput === true, '#I-02c 检索/过滤入口可见', JSON.stringify(content));
+    // R2 supersession S13: wording rewritten to the ownership hierarchy (deviation gone).
     check(
-      content.hasModelNote === true && content.hasNoEscalation === true,
-      '#I-11a 文案含模型声明 +「撤销/关断 = 回到更保守，不放宽任何门禁」',
+      content.hasOwnershipNote === true && content.hasForestWording === false,
+      '#I-11a 文案为「按归属的层级树」（偏差文案「森林/非严格树」零命中）',
       JSON.stringify(content),
     );
     check(
-      content.hasDelay === true && content.hasDeny === true && content.hasFailClosed === true && content.hasDelayMs === true,
-      '#I-11b `delay`(= deny, fail-closed) 与命令间 `delayMs` 消歧文案同处',
+      content.hasTwoPathways === true && content.hasHardFloorClause === true,
+      '#I-11b 两通路（撤销=收紧 / 命令级覆盖=显式放宽但硬底线不可覆盖）',
       JSON.stringify(content),
     );
     check(
-      (content.denyRows ?? 0) >= 1 && content.denyWithControls === 0,
-      '#I-12 `deny` 节点无任何控件（结构保证，ADR-V2-011）',
-      `denyRows=${content.denyRows}, withControls=${content.denyWithControls}`,
+      content.hasDelayDisambiguation === true &&
+        content.hasDelay === true &&
+        content.hasDeny === true &&
+        content.hasFailClosed === true &&
+        content.hasDelayMs === true,
+      '#I-11c `delay`(= deny, fail-closed, 非可配置档位) 与命令间 `delayMs` 消歧文案同处',
+      JSON.stringify(content),
     );
 
     // 8. read-only filter narrows the render set (真实键入)
@@ -544,9 +616,6 @@ async function main() {
         const readonlyControls = [...drawer.querySelectorAll('span.tree-control')];
         const receipt = document.getElementById('tree-receipt');
         const confirm = document.getElementById('tree-confirm');
-        const denyWithControls = [...drawer.querySelectorAll('.tree-row[data-action="deny"]')].filter(
-          (r) => r.querySelectorAll('.tree-controls .tree-control').length > 0,
-        ).length;
         return {
           buttons: buttons.length,
           actionIds: [...new Set(buttons.map((b) => b.dataset.actionId))],
@@ -556,7 +625,6 @@ async function main() {
           receiptHidden: receipt ? receipt.hidden : null,
           hasConfirm: !!confirm,
           confirmHidden: confirm ? confirm.hidden : null,
-          denyWithControls,
         };
       })()`,
     );
@@ -568,7 +636,333 @@ async function main() {
       '#I-18d 可逆开关动作已接线（set-tabs-toggle 真实控件）',
       JSON.stringify(v23Tree.actionIds),
     );
-    check(v23Tree.denyWithControls === 0, '#I-18e deny 行结构上仍无任何控件（DOM 层无可点开关，ADR-V2-011）', JSON.stringify(v23Tree));
+    // #I-18e (deny rows have no controls) is superseded by the R2 layered form below
+    // (hard-floor deny ⇒ zero controls; overridable ⇒ allow/ask/deny controls).
+
+    // ── 8c. R2 (AC-V2-020~023 / AC-V22-008~011): author examples drilled layer by
+    // layer in the REAL DOM, keyboard + breadcrumb + layered controls, session
+    // persistence. Supersedes S14 (#I-12) / S15 (#I-18e) / S16 (#I-02a).
+    const toggleByLabel = async (label) =>
+      evaluate(
+        sp,
+        `(() => {
+          const li = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+            (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === ${JSON.stringify(label)},
+          );
+          if (!li) return 'not-found';
+          const btn = li.querySelector(':scope > .tree-node-head > .tree-toggle');
+          if (!btn || btn.disabled) return 'no-toggle';
+          btn.click();
+          return 'clicked';
+        })()`,
+      );
+
+    const expandNode = async (label, tries = 30) => {
+      for (let i = 0; i < tries; i += 1) {
+        const state = await evaluate(
+          sp,
+          `(() => {
+            const li = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+              (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === ${JSON.stringify(label)},
+            );
+            return li ? li.getAttribute('aria-expanded') : 'missing';
+          })()`,
+        );
+        if (state === 'true') return true;
+        if (state === 'missing') {
+          await sleep(150);
+          continue;
+        }
+        await toggleByLabel(label);
+        await sleep(150);
+      }
+      return false;
+    };
+
+    // Author example ① (connection tree → authorized site → site xxx → its commands →
+    // tool → subcommand) is exercised at the END of this script: the local fixture site
+    // is bound last so it cannot perturb the AC-V2-002 layout guards measured above
+    // (binding a site legitimately changes the panel chrome height, which would
+    // otherwise consume the 589px budget). Example ② follows immediately (no site).
+
+    // Example ②: 连接树 → 支持的命令 → 系统内置命令 → dom → dom read-state
+    await expandNode('系统内置命令');
+    await expandNode('dom');
+    const drill2 = await evaluate(
+      sp,
+      `(() => {
+        const drawer = document.getElementById('tree-drawer');
+        const labels = [...drawer.querySelectorAll('li.tree-node .tree-label')].map((n) => n.textContent);
+        const commandFace = [...drawer.querySelectorAll('li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === '支持的命令',
+        );
+        const dom = [...drawer.querySelectorAll('li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom',
+        );
+        const leaf = [...drawer.querySelectorAll('li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom read-state',
+        );
+        return {
+          hasCommandFace: labels.includes('支持的命令'),
+          hasBuiltin: labels.includes('系统内置命令'),
+          hasDom: labels.includes('dom'),
+          hasLeaf: labels.includes('dom read-state'),
+          commandFaceLevel: commandFace ? commandFace.getAttribute('aria-level') : null,
+          commandFaceExpanded: commandFace ? commandFace.getAttribute('aria-expanded') : null,
+          domLevel: dom ? dom.getAttribute('aria-level') : null,
+          domExpanded: dom ? dom.getAttribute('aria-expanded') : null,
+          leafHasExpanded: leaf ? leaf.hasAttribute('aria-expanded') : null,
+          leafRole: leaf ? leaf.getAttribute('role') : null,
+        };
+      })()`,
+    );
+    check(
+      drill2.hasCommandFace === true &&
+        drill2.hasBuiltin === true &&
+        drill2.hasDom === true &&
+        drill2.hasLeaf === true &&
+        drill2.commandFaceExpanded === 'true' &&
+        drill2.leafHasExpanded === false &&
+        drill2.leafRole === 'treeitem',
+      '#I-20b 作者示例② 逐层展开：连接树→支持的命令→系统内置命令→dom→dom read-state（真实 DOM）',
+      JSON.stringify(drill2),
+    );
+
+    // Lazy rendering: collapsing `dom` removes its subcommands from the DOM entirely.
+    await toggleByLabel('dom');
+    await sleep(150);
+    const collapsed = await evaluate(
+      sp,
+      `(() => {
+        const drawer = document.getElementById('tree-drawer');
+        const dom = [...drawer.querySelectorAll('li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom',
+        );
+        const labels = [...drawer.querySelectorAll('li.tree-node .tree-label')].map((n) => n.textContent);
+        return { domExpanded: dom ? dom.getAttribute('aria-expanded') : null, hasLeaf: labels.includes('dom read-state') };
+      })()`,
+    );
+    check(
+      collapsed.domExpanded === 'false' && collapsed.hasLeaf === false,
+      '#I-20c 收起 dom → 子命令不在 DOM（惰性渲染，不虚拟化）',
+      JSON.stringify(collapsed),
+    );
+    await expandNode('dom');
+
+    // R2 supersession S14: hard-floor rows carry zero action controls + a readable
+    // clamp reason; overridable rows carry allow/ask/deny policy controls.
+    const layered = await evaluate(
+      sp,
+      `(() => {
+        const drawer = document.getElementById('tree-drawer');
+        const hardFloor = [...drawer.querySelectorAll('li.tree-node[data-hard-floor="true"]')];
+        const hardFloorWithControls = hardFloor.filter((r) => r.querySelector('[data-action-id]')).length;
+        const hardFloorWithReason = hardFloor.filter((r) => r.querySelector('.tree-clamp-reason')).length;
+        const overridable = [...drawer.querySelectorAll('li.tree-node[data-overridable="true"]')];
+        const withThree = overridable.filter((r) => r.querySelectorAll('button[data-policy]').length === 3).length;
+        const uiRow = [...drawer.querySelectorAll('li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom click',
+        );
+        const readRow = [...drawer.querySelectorAll('li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom read-state',
+        );
+        return {
+          hardFloor: hardFloor.length,
+          hardFloorWithControls,
+          hardFloorWithReason,
+          overridable: overridable.length,
+          withThree,
+          uiHasControls: uiRow ? uiRow.querySelectorAll('[data-action-id]').length : -1,
+          uiReason: uiRow ? (uiRow.querySelector('.tree-clamp-reason')?.textContent ?? '') : '',
+          readPolicies: readRow ? [...readRow.querySelectorAll('button[data-policy]')].map((b) => b.dataset.policy) : [],
+          readSelected: readRow ? readRow.querySelector('button[data-policy][aria-pressed="true"]')?.dataset.policy : null,
+        };
+      })()`,
+    );
+    check(
+      layered.hardFloor >= 1 && layered.hardFloorWithControls === 0 && layered.hardFloorWithReason === layered.hardFloor,
+      '#I-12a 硬底线行零 [data-action-id] 且每行有可读 .tree-clamp-reason（R2 取代 S14）',
+      JSON.stringify(layered),
+    );
+    check(
+      layered.overridable >= 1 && layered.withThree >= 1 && layered.readPolicies.join(',') === 'allow,ask,deny',
+      '#I-12b 可覆盖行渲染 allow/ask/deny 三档控件（R2 取代 S14）',
+      JSON.stringify(layered),
+    );
+    check(
+      layered.uiHasControls === 0 && /ui 档/.test(layered.uiReason) && layered.readSelected === 'allow',
+      '#I-20d dom click（ui 硬底线）零控件 + 原因可读；dom read-state 当前生效档 allow',
+      JSON.stringify(layered),
+    );
+    check(
+      layered.hardFloorWithControls === 0 && layered.withThree >= 1,
+      '#I-18e deny 分层：硬底线行零控件 且 可覆盖行有控件（R2 取代 S15）',
+      JSON.stringify(layered),
+    );
+
+    // Breadcrumb follows the focused node's hierarchy path (FR-V2-073).
+    const breadcrumb = await evaluate(
+      sp,
+      `(() => {
+        const drawer = document.getElementById('tree-drawer');
+        const leaf = [...drawer.querySelectorAll('li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom read-state',
+        );
+        if (!leaf) return '';
+        leaf.focus();
+        leaf.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+        return document.getElementById('tree-breadcrumb')?.textContent ?? '';
+      })()`,
+    );
+    check(
+      typeof breadcrumb === 'string' &&
+        breadcrumb.includes('连接树') &&
+        breadcrumb.includes('支持的命令') &&
+        breadcrumb.includes('系统内置命令') &&
+        breadcrumb.includes('dom') &&
+        breadcrumb.includes('dom read-state'),
+      '#I-20e 面包屑显示当前节点层级路径（连接树 › 支持的命令 › 系统内置命令 › dom › dom read-state）',
+      String(breadcrumb),
+    );
+
+    // Keyboard: Home/End/ArrowUp/ArrowDown move focus among visible treeitems;
+    // ArrowLeft collapses/navigates to parent; Enter toggles.
+    const keyProbe = await evaluate(
+      sp,
+      `(() => {
+        const drawer = document.getElementById('tree-drawer');
+        const leaf = [...drawer.querySelectorAll('li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom read-state',
+        );
+        if (!leaf) return '';
+        leaf.focus();
+        return 'focused';
+      })()`,
+    );
+    const dispatchKey = async (key, code, vk) => {
+      await sp.send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: vk });
+      await sp.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk });
+      await sleep(80);
+    };
+    let keyboardEvidence = null;
+    if (keyProbe === 'focused') {
+      await dispatchKey('ArrowLeft', 'ArrowLeft', 37);
+      const afterLeft = await evaluate(sp, `document.activeElement?.querySelector(':scope > .tree-node-head > .tree-label')?.textContent ?? ''`);
+      await dispatchKey('ArrowRight', 'ArrowRight', 39);
+      const afterRight = await evaluate(sp, `document.activeElement?.querySelector(':scope > .tree-node-head > .tree-label')?.textContent ?? ''`);
+      await dispatchKey('Home', 'Home', 36);
+      const afterHome = await evaluate(sp, `document.activeElement?.querySelector(':scope > .tree-node-head > .tree-label')?.textContent ?? ''`);
+      await dispatchKey('End', 'End', 35);
+      const afterEnd = await evaluate(sp, `document.activeElement?.querySelector(':scope > .tree-node-head > .tree-label')?.textContent ?? ''`);
+      await dispatchKey('ArrowUp', 'ArrowUp', 38);
+      const afterUp = await evaluate(sp, `document.activeElement?.querySelector(':scope > .tree-node-head > .tree-label')?.textContent ?? ''`);
+      keyboardEvidence = { afterLeft, afterRight, afterHome, afterEnd, afterUp };
+      // leave focus back on the leaf for the later sections
+      await evaluate(
+        sp,
+        `(() => {
+          const leaf = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+            (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom read-state',
+          );
+          leaf?.focus();
+          return true;
+        })()`,
+      );
+    }
+    check(
+      keyboardEvidence !== null &&
+        keyboardEvidence.afterLeft === 'dom' &&
+        keyboardEvidence.afterRight === 'dom read-state' &&
+        keyboardEvidence.afterHome === '连接树' &&
+        keyboardEvidence.afterEnd !== '' &&
+        keyboardEvidence.afterUp !== '',
+      '#I-20f 键盘可达：Home/End/ArrowLeft（回父）/ArrowRight/ArrowUp 移动焦点（roving tabindex）',
+      JSON.stringify(keyboardEvidence),
+    );
+
+    // Session persistence + override live update: a policy push re-projects the
+    // tree but keeps the expanded/collapsed session state.
+    const beforePush = await evaluate(
+      sp,
+      `(() => {
+        const drawer = document.getElementById('tree-drawer');
+        const labels = [...drawer.querySelectorAll('li.tree-node .tree-label')].map((n) => n.textContent);
+        return { hasLeaf: labels.includes('dom read-state') };
+      })()`,
+    );
+    const setRes = await evaluate(
+      sp,
+      `chrome.runtime.sendMessage({ kind: 'command-policy-set', commandId: 'cmd:dom#read-state', policyAction: 'deny' }).then((r) => JSON.stringify(r))`,
+    );
+    const applied = await waitFor(
+      sp,
+      `(() => {
+        const leaf = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom read-state',
+        );
+        if (!leaf) return '';
+        const selected = leaf.querySelector('button[data-policy][aria-pressed="true"]')?.dataset.policy;
+        return selected === 'deny' ? JSON.stringify({ effective: leaf.dataset.effectiveAction, selected }) : '';
+      })()`,
+      60,
+      200,
+    );
+    check(
+      beforePush.hasLeaf === true && applied !== undefined,
+      '#I-20g 覆盖后重投影：展开态会话保持（dom read-state 仍在 DOM）且生效档即时变 deny',
+      `${setRes} / applied=${applied}`,
+    );
+    const resetRes = await evaluate(
+      sp,
+      `chrome.runtime.sendMessage({ kind: 'command-policy-reset', commandId: 'cmd:dom#read-state' }).then((r) => JSON.stringify(r))`,
+    );
+    const resetApplied = await waitFor(
+      sp,
+      `(() => {
+        const leaf = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom read-state',
+        );
+        if (!leaf) return '';
+        const selected = leaf.querySelector('button[data-policy][aria-pressed="true"]')?.dataset.policy;
+        return selected === 'allow' ? 'allow' : '';
+      })()`,
+      60,
+      200,
+    );
+    check(
+      resetApplied === 'allow',
+      '#I-20h 恢复默认后生效档即时回到 allow（可逆、无残留覆盖）',
+      `${resetRes} / applied=${resetApplied}`,
+    );
+
+    // ── Multi-state layout guard (AC-V2-002): deep-expanded + collapsed states must
+    // keep the exact same steady geometry as the closed state (absolute overlay).
+    const deepExpanded = await evaluate(sp, MEASURE);
+    checkLayout(deepExpanded, '#I-20i(树深展开)');
+    const deepDrift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'].filter(
+      (f) => deepExpanded[f] !== closedLayout[f],
+    );
+    check(
+      deepDrift.length === 0,
+      '#I-20j 树深展开（站点面 + 命令面 + dom 子树）不改变稳态几何（drift=0）',
+      `drift=${JSON.stringify(deepDrift.map((f) => [f, closedLayout[f], deepExpanded[f]]))}`,
+    );
+    // Collapse a mid-level group → still zero drift.
+    await toggleByLabel('系统内置命令');
+    await sleep(150);
+    const collapsedState = await evaluate(sp, MEASURE);
+    checkLayout(collapsedState, '#I-20k(树收起)');
+    const collapsedDrift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'].filter(
+      (f) => collapsedState[f] !== closedLayout[f],
+    );
+    check(
+      collapsedDrift.length === 0,
+      '#I-20k 树收起（一级分组折叠）不改变稳态几何（drift=0）',
+      `drift=${JSON.stringify(collapsedDrift.map((f) => [f, closedLayout[f], collapsedState[f]]))}`,
+    );
+    // Re-expand for the downstream steps (session state keeps the explicit expand).
+    await expandNode('系统内置命令');
+    await expandNode('dom');
 
     // 9. open-state layout (must equal the closed-state steady geometry)
     await sleep(200);
@@ -729,9 +1123,94 @@ async function main() {
       JSON.stringify(archiveControls),
     );
 
+    // ── R2-V24-04 (AC-V24-004/008; supersession S11): archive cards are layered
+    // (hard-floor ⇒ no policy control + readable clamp reason; overridable ⇒
+    // allow/ask/deny) and split default vs effective. The P0 red line above still
+    // holds because the archive uses its own classes / attributes (no `.tree-control`,
+    // no `button[data-action-id]`) and writes through the SAME tree-ops path.
+    const archiveLayered = await evaluate(
+      sp,
+      `(() => {
+        const archive = document.querySelector('.tree-archive');
+        if (!archive) return null;
+        const cards = [...archive.querySelectorAll('.tree-archive-card')];
+        const hardFloor = cards.filter((c) => c.dataset.hardFloor === 'true');
+        const overridable = cards.filter((c) => c.dataset.overridable === 'true');
+        return {
+          cards: cards.length,
+          hardFloor: hardFloor.length,
+          overridable: overridable.length,
+          hardFloorWithPolicy: hardFloor.filter((c) => c.querySelector('[data-policy]')).length,
+          hardFloorWithReason: hardFloor.filter((c) => c.querySelector('[data-field="clamp-reason"]')).length,
+          overridableWithThree: overridable.filter((c) => c.querySelectorAll('[data-policy]').length === 3).length,
+          withDefaultField: cards.filter((c) => c.querySelector('[data-field="default-action"]')).length,
+          withEffectiveField: cards.filter((c) => c.querySelector('[data-field="effective-action"]')).length,
+          treeControls: archive.querySelectorAll('.tree-control').length,
+          actionButtons: archive.querySelectorAll('button[data-action-id]').length,
+        };
+      })()`,
+    );
+    check(
+      archiveLayered &&
+        archiveLayered.hardFloor >= 1 &&
+        archiveLayered.hardFloorWithPolicy === 0 &&
+        archiveLayered.hardFloorWithReason === archiveLayered.hardFloor,
+      '#I-21a 档案硬底线卡零 [data-policy] 且 clamp 原因可读（R2 取代 S11）',
+      JSON.stringify(archiveLayered),
+    );
+    check(
+      archiveLayered && archiveLayered.overridable >= 1 && archiveLayered.overridableWithThree >= 1,
+      '#I-21b 档案可覆盖卡渲染 allow/ask/deny 三档 [data-policy] 控件',
+      JSON.stringify(archiveLayered),
+    );
+    check(
+      archiveLayered &&
+        archiveLayered.withDefaultField === archiveLayered.cards &&
+        archiveLayered.withEffectiveField === archiveLayered.cards,
+      '#I-21c 每卡默认档 vs 生效档分列（[data-field=default-action|effective-action]）',
+      JSON.stringify(archiveLayered),
+    );
+    check(
+      archiveLayered && archiveLayered.treeControls === 0 && archiveLayered.actionButtons === 0,
+      '#I-21d 档案内仍无 .tree-control / button[data-action-id]（P0 红线保持）',
+      JSON.stringify(archiveLayered),
+    );
+
+    // Same tree-ops write path: a tightening click (allow → deny) applies immediately
+    // without confirmation and lands in the command-policy store.
+    const archiveWriteTarget = await evaluate(
+      sp,
+      `(() => {
+        const archive = document.querySelector('.tree-archive');
+        const card = [...archive.querySelectorAll('.tree-archive-card[data-overridable="true"]')].find(
+          (c) => c.dataset.action === 'allow' && c.querySelector('button[data-policy="deny"]'),
+        );
+        if (!card) return 'no-allow-card';
+        card.querySelector('button[data-policy="deny"]').click();
+        return card.dataset.cardId;
+      })()`,
+    );
+    const archiveWritten = await waitFor(
+      sp,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'command-policy' });
+        const entries = (r && r.data && r.data.entries) || [];
+        const hit = entries.find((e) => e.action === 'deny');
+        return hit ? JSON.stringify(hit) : '';
+      })()`,
+      60,
+      200,
+    );
+    check(
+      typeof archiveWriteTarget === 'string' && archiveWriteTarget.startsWith('cmd:') && Boolean(archiveWritten),
+      '#I-21e 档案卡写入走同一 tree-ops 路径（command-policy 落盘；无第二写入口）',
+      `${archiveWriteTarget} / ${archiveWritten}`,
+    );
+    await evaluate(sp, `chrome.runtime.sendMessage({ kind: 'command-policy-reset', all: true }).then((r) => JSON.stringify(r))`);
+    await sleep(200);
+
     const archiveLayout = await evaluate(sp, MEASURE);
     checkLayout(archiveLayout, '#I-19h(开档案)');
-
     // restore the default (archive OFF) state for the downstream narrow-viewport step
     await realClick(sp, '#tree-archive-toggle');
     await waitFor(sp, `document.querySelector('.tree-archive') ? '' : 'off'`, 40, 150);
@@ -788,13 +1267,88 @@ async function main() {
     await sp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
     await sleep(150);
 
-    // 12. no page exceptions
+    // 12. Author example ① (real DOM): 连接树 → 授权的站点 → 站点 xxx → 支持的命令 → 工具.
+    // The local fixture site is bound LAST so it cannot perturb the AC-V2-002 layout
+    // guards measured above (binding a site legitimately changes the panel chrome
+    // height; those guards are pinned against the no-site baseline).
+    const normSite = site.origin.toLowerCase();
+    await evaluate(
+      sw,
+      `chrome.storage.local.set({ ${JSON.stringify('web-cli:web-cli:origins')}: { ${JSON.stringify(normSite)}: { origin: ${JSON.stringify(normSite)}, authorized: true, trust: 'untrusted', authorizedAt: Date.now(), updatedAt: Date.now() } } }).then(() => true)`,
+    );
+    await evaluate(sw, `chrome.tabs.create({ url: ${JSON.stringify(site.origin)} }).then((t) => t.id)`);
+    const siteReady = await waitFor(
+      sp,
+      `(async () => {
+        const r = await chrome.runtime.sendMessage({ kind: 'state' });
+        const d = r && r.data;
+        return d && Array.isArray(d.tools) && d.tools.includes('site_notes') && d.active && d.active.origin === ${JSON.stringify(site.origin)}
+          ? JSON.stringify({ tools: d.tools }) : '';
+      })()`,
+      120,
+      250,
+    );
+    check(
+      Boolean(siteReady),
+      '#I-20a0 站点夹具发现完成（site_notes 进入工具面；作者示例①前置）',
+      siteReady ?? 'no site tool',
+    );
+
+    await sp.send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: 1, mobile: false });
+    await sleep(200);
+    await evaluate(
+      sp,
+      `(() => { const f = document.getElementById('tree-fab'); if (document.getElementById('tree-drawer').hidden) f.click(); return true; })()`,
+    );
+    await waitFor(sp, `document.getElementById('tree-drawer').hidden ? '' : 'open'`, 60, 150);
+    await sleep(250);
+
+    const siteLabel = `站点 ${site.origin}`;
+    let siteDrill = null;
+    if (siteReady) {
+      await expandNode(siteLabel);
+      await expandNode('支持的命令');
+      await expandNode('site_notes');
+      siteDrill = await evaluate(
+        sp,
+        `(() => {
+          const labels = [...document.querySelectorAll('#tree-drawer li.tree-node .tree-label')].map((n) => n.textContent);
+          const site = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+            (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === ${JSON.stringify(siteLabel)},
+          );
+          const tool = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+            (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'site_notes',
+          );
+          return {
+            siteAuthorized: site?.querySelector('.tree-badge[data-kind="authorized"]')?.textContent ?? '',
+            hasSite: labels.includes(${JSON.stringify(siteLabel)}),
+            hasSupport: labels.includes('支持的命令'),
+            hasTool: labels.includes('site_notes'),
+            toolRole: tool ? tool.getAttribute('role') : null,
+            toolLevel: tool ? tool.getAttribute('aria-level') : null,
+          };
+        })()`,
+      );
+    }
+    check(
+      siteDrill !== null &&
+        siteDrill.hasSite === true &&
+        siteDrill.hasSupport === true &&
+        siteDrill.hasTool === true &&
+        siteDrill.siteAuthorized === '已授权' &&
+        siteDrill.toolRole === 'treeitem',
+      '#I-20a 作者示例① 逐层展开：连接树→授权的站点→站点 xxx→支持的命令→工具（真实 DOM）',
+      JSON.stringify(siteDrill),
+    );
+
+    // 12b. no page exceptions
     check(spExceptions.length === 0, '#I-17 0 页面异常（sidepanel 无 exceptionThrown）', JSON.stringify(spExceptions.slice(0, 3)));
   } catch (err) {
     failures.push(`insight harness error: ${err instanceof Error ? err.message : String(err)}`);
   } finally {
     sp?.close();
     chrome.kill('SIGKILL');
+    site.server.close();
     await sleep(300);
     await rm(work, { recursive: true, force: true }).catch(() => {});
   }
@@ -807,7 +1361,9 @@ async function main() {
     console.error(chromeLog.split('\n').filter((l) => /error|exception/i.test(l)).slice(0, 5).join('\n'));
     process.exit(1);
   }
-  console.log(`UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + 覆盖式抽屉 + 布局量化（#log ≥589px / composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出，开/关两态）+ V2-3 真实撤销控件/回执/确认容器（deny 行仍无控件）`);
+  console.log(
+    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（#log ≥589px / composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；关/开/深展开/收起 drift=0）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
+  );
 }
 
 await main();

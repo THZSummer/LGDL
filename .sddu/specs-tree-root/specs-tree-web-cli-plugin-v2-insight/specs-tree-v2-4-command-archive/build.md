@@ -183,3 +183,11 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。Wave 14~17 / TASK-001~010 全部实施；三层有档口径 + `deny` 分层全量交叉 + `delay` 单源 + 只读档案子视图 + 体积显式重登记 + 防夸大/翻转反证实跑；门禁 8 项串行（`test:hardening` 首次偶发、复跑绿）；偏差 D-V24-01~08 登记；人工面 V2-H-7~9 `⏳ 待人工`。 | 2026-09-13 | SDDU Build Agent（编排器代作者决策，2026-09-13 授权） |
+
+---
+
+## R2 第 2 轮（2026-09-13，sddu-build）
+
+R2-V24-01~04 完成：`archive-catalog.ts` 追加 `defaultAction/overrideAction/effectiveAction/overridable/clampReason(Label)/policyControl`，硬底线卡**无** `policyControl`（分层结构保证），模块**仍无写导入**；`tree-drawer.ts` 档案卡渲染分层控件（自有类 `.tree-archive-policy*`，无 `data-action-id`，保持 `.tree-archive` P0 红线）并走**同一** tree-ops 写路径；`test/insight-archive.test.ts` 取代 S9~S11（S9/S10 pin 保持；S11 改分层 + 默认/生效分列）+ `tree-view.ts` 冻结 pin 显式更新（`b4392d65…`）；`test/ui/insight.mjs` 新增 `#I-21a~e`。门禁与父 build.md §R2 第 2 轮一致（全绿）。
+
+口径：`accounted` 仍不渲染、`live` vs `baseline` 分列不变；`#I-19g`（`.tree-archive` 零 `.tree-control`/零 `button[data-action-id]`）保持通过（档案控件用自有类名）。

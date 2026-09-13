@@ -1,15 +1,21 @@
 /**
- * V2-2 gate `tree-view` (TASK-003; FR-V2-021/022/025, AC-V22-001/005/006;
- * ADR-V2-011 / ADR-V2-013).
+ * V2-2 gate `tree-view` (TASK-003; FR-V2-021/022/025, AC-V22-001/005/006/008/010/011;
+ * ADR-V2-011 / ADR-V2-013 / ADR-V2-030).
  *
- * New file — the render model is proven structurally, not by wording:
- *   - all 142 baseline subcommands (34 tools) with `action==='deny'` ⇒ `controls === []`;
- *   - a non-deny command still gets NO write control (command level has no write path);
+ * The render model is proven structurally, not by wording:
+ *   - **hard-floor** deny (S3 unknown-risk / S1 / evaluate) ⇒ `controls === []` +
+ *     readable `clampReasonLabel`;
+ *   - **overridable** command rows ⇒ exactly 3 `command-policy` controls
+ *     (allow/ask/deny) — R2 supersession S4 (command level now supports coverage);
+ *   - a **non-hard-floor** deny (user override) keeps its controls and can change back
+ *     (R2 S5 addition);
  *   - static permissions never carry `revoke` + always disclose `revokeHint`;
  *   - optional capabilities get `revoke` ONLY when granted (no fake revoke);
- *   - `header.modelNote` / `header.noEscalationNote` carry the pinned wording;
- *   - `needsConfirmation` is correct for all 7 actions;
- *   - filtering is read-only (snapshot deep-equal before/after).
+ *   - `header.modelNote` / `header.noEscalationNote` carry the R2 pinned wording
+ *     (ownership hierarchy + two pathways + `delay` disambiguation) — supersession S6;
+ *   - `needsConfirmation` is correct for all 9 actions;
+ *   - filtering is read-only (snapshot deep-equal before/after) and keeps the
+ *     ancestors of the hits (R2 nested tree).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,8 +31,10 @@ import {
   TREE_MODEL_NOTE,
   TREE_NO_ESCALATION_NOTE,
   buildTreeRows,
+  collectTreeRows,
   commandPolicyNeedsConfirmation,
   needsConfirmation,
+  type TreeRow,
 } from '../src/ui/tree/tree-view.js';
 import type { CapabilityNode, TreeActionId } from '../src/insight/tree-model.js';
 
@@ -164,9 +172,8 @@ function sourceFromSurface(surface: Surface): InsightSource {
 /**
  * The single catalogue baseline (`test/parity/baseline-catalog.json`, 34 tools /
  * 142 subcommands) as a projection input. No risk is injected → every command
- * derives `deny`, so the structural guarantee is exercised on ALL baseline
- * subcommands (not just the live `deriveTools()` subset, which is 23/71 after
- * waivers).
+ * derives `deny` (S3 hard floor), so the structural guarantee is exercised on ALL
+ * baseline subcommands.
  */
 function surfaceFromBaseline() {
   const baseline = loadBaseline();
@@ -177,25 +184,41 @@ function surfaceFromBaseline() {
   };
 }
 
-test('V2-2 tree-view: all 142 baseline subcommands with deny ⇒ controls === [] (structural)', () => {
+function flat(model: ReturnType<typeof buildTreeRows>): TreeRow[] {
+  return collectTreeRows(model);
+}
+
+function commandRows(model: ReturnType<typeof buildTreeRows>): TreeRow[] {
+  return flat(model).filter((row) => row.kind === 'command');
+}
+
+// R2 supersession S5: this fixture is ALL S3 hard-floor deny, so the original
+// structural guarantee still holds — renamed + strengthened (clampReason readable).
+test('V2-2 tree-view: hard-floor deny (S3) ⇒ controls === [] (structural, R2 supersession S5)', () => {
   const surface = surfaceFromBaseline();
   const snapshot = projectInsightTree(sourceFromSurface(surface));
   const model = buildTreeRows(snapshot);
-  const commandGroup = model.groups.find((g) => g.dimension === 'command');
-  assert.ok(commandGroup, 'command group must exist');
 
-  const subRows = commandGroup.rows.filter((r) => r.depth === 2);
-  assert.equal(subRows.length, 142, 'baseline subcommand count must be 142');
-  assert.equal(commandGroup.rows.length, 34 + 142, 'tool rows + subcommand rows');
+  const all = commandRows(model);
+  assert.equal(all.filter((r) => r.nodeId?.includes('#')).length, 142, 'baseline subcommand count must be 142');
+  assert.equal(all.length, 34 + 142, 'tool rows + subcommand rows');
 
-  const denyRows = commandGroup.rows.filter((r) => r.action === 'deny');
+  const denyRows = all.filter((r) => r.action === 'deny');
   assert.equal(denyRows.length, 176, 'every baseline command derives deny (no risk injected)');
   for (const row of denyRows) {
     assert.equal(row.controls.length, 0, `deny row ${row.id} must expose zero controls`);
+    assert.equal(row.overridable, false, `hard-floor ${row.id} must not be overridable`);
+    assert.ok(row.clampReason, `hard-floor ${row.id} must carry a clampReason`);
+    assert.ok(
+      typeof row.clampReasonLabel === 'string' && row.clampReasonLabel.length > 0,
+      `hard-floor ${row.id} must carry a readable clampReasonLabel`,
+    );
   }
 });
 
-test('V2-2 tree-view: a non-deny command still gets no write control (no command-level write)', () => {
+// R2 supersession S4: command nodes are now overridable (allow/ask/deny), while
+// hard-floor rows stay control-free.
+test('V2-2 tree-view: overridable command rows expose allow/ask/deny; hard-floor rows expose none (R2 supersession S4)', () => {
   const snapshot = projectInsightTree({
     sites: [],
     capability: {
@@ -216,30 +239,74 @@ test('V2-2 tree-view: a non-deny command still gets no write control (no command
     ],
     delayMs: 0,
   });
-  const rows = buildTreeRows(snapshot).groups.find((g) => g.dimension === 'command')!.rows;
-  const allowRow = rows.find((r) => r.id === 'cmd:read-tool');
+  const rows = commandRows(buildTreeRows(snapshot));
+
+  const allowRow = rows.find((r) => r.nodeId === 'cmd:read-tool');
   assert.ok(allowRow, 'read risk must derive allow');
   assert.equal(allowRow.action, 'allow');
-  assert.equal(
-    allowRow.controls.some((c) => c.kind === 'revoke' || c.kind === 'toggle'),
-    false,
-    'command rows must never expose a write control',
+  assert.equal(allowRow.overridable, true);
+  assert.deepEqual(
+    allowRow.controls.map((c) => c.policyAction),
+    ['allow', 'ask', 'deny'],
+    'overridable rows expose exactly allow/ask/deny',
   );
-  assert.equal(allowRow.controls.every((c) => c.kind === 'none'), true);
+  assert.equal(
+    allowRow.controls.every((c) => c.kind === 'command-policy' && c.actionId === 'set-command-policy'),
+    true,
+  );
+  assert.equal(allowRow.controls.filter((c) => c.selected).map((c) => c.policyAction).join(','), 'allow');
+  // No revoke/toggle write control leaks into a command row.
+  assert.equal(allowRow.controls.some((c) => c.kind === 'revoke' || c.kind === 'toggle'), false);
 
-  // The unauthorized site tool must be a deny row with zero controls.
-  const siteRow = rows.find((r) => r.id === 'cmd:site_thing');
+  // The unauthorized site tool must be a hard-floor deny row: zero controls + reason.
+  const siteRow = rows.find((r) => r.nodeId === 'cmd:site_thing');
   assert.ok(siteRow);
   assert.equal(siteRow.action, 'deny');
   assert.equal(siteRow.controls.length, 0);
+  assert.equal(siteRow.overridable, false);
+  assert.equal(siteRow.clampReason, 's1-unauthorized');
+  assert.match(siteRow.clampReasonLabel ?? '', /S1 未授权站点/);
+});
+
+// R2 S5 addition: a non-hard-floor deny (user override) keeps its controls and can
+// be changed back — the deny layering is structural, not a wording promise.
+test('R2 tree-view: non-hard-floor deny (user override) keeps controls and can change back', () => {
+  const overrides = { get: (name: string) => (name === 'read-tool' ? ('deny' as const) : undefined) };
+  const snapshot = projectInsightTree({
+    sites: [],
+    capability: {
+      grants: { bookmarks: false, downloads: false, notify: false, clipboard: false },
+      toggles: {
+        bookmarksRead: false,
+        bookmarksWrite: false,
+        downloadsRead: false,
+        notify: false,
+        clipboardRead: false,
+        clipboardWrite: false,
+      },
+      tabsEnabled: false,
+    },
+    toolSurface: [{ name: 'read-tool', risk: 'read', subcommands: [], presentInSurface: true }],
+    delayMs: 0,
+    overrides,
+  });
+  const row = commandRows(buildTreeRows(snapshot)).find((r) => r.nodeId === 'cmd:read-tool');
+  assert.ok(row);
+  assert.equal(row.defaultAction, 'allow');
+  assert.equal(row.overrideAction, 'deny');
+  assert.equal(row.effectiveAction, 'deny');
+  assert.equal(row.overridable, true, 'a non-hard-floor deny stays overridable');
+  assert.equal(row.controls.length, 3, 'non-hard-floor deny keeps allow/ask/deny controls');
+  assert.equal(row.clampReason, undefined);
+  assert.equal(row.controls.find((c) => c.selected)?.policyAction, 'deny');
 });
 
 test('V2-2 tree-view: static permissions carry no revoke control + disclose the hint', () => {
   const snapshot = projectInsightTree(sourceFromSurface(pluginSurface()));
-  const rows = buildTreeRows(snapshot).groups.find((g) => g.dimension === 'capability')!.rows;
+  const rows = flat(buildTreeRows(snapshot)).filter((r) => r.kind === 'capability');
   const staticNodes = snapshot.groups[1].children as CapabilityNode[];
   const staticRows = rows.filter((r) => {
-    const node = staticNodes.find((n) => n.id === r.id);
+    const node = staticNodes.find((n) => n.id === r.nodeId);
     return node?.source === 'static';
   });
   assert.equal(staticRows.length, 5, 'manifest has 5 static permissions');
@@ -255,45 +322,50 @@ test('V2-2 tree-view: static permissions carry no revoke control + disclose the 
 
 test('V2-2 tree-view: optional capability gets revoke only when granted (no fake revoke)', () => {
   const base = sourceFromSurface(pluginSurface());
-  const notGranted = buildTreeRows(
-    projectInsightTree({
-      ...base,
-      capability: { ...base.capability, grants: { bookmarks: false, downloads: false, notify: false, clipboard: false } },
-    }),
-  )
-    .groups.find((g) => g.dimension === 'capability')!
-    .rows.filter((r) => r.id.startsWith('cap:opt:'));
+  const notGranted = flat(
+    buildTreeRows(
+      projectInsightTree({
+        ...base,
+        capability: { ...base.capability, grants: { bookmarks: false, downloads: false, notify: false, clipboard: false } },
+      }),
+    ),
+  ).filter((r) => r.nodeId?.startsWith('cap:opt:') ?? false);
 
   const grantedSnapshot = projectInsightTree({
     ...base,
     capability: { ...base.capability, grants: { bookmarks: true, downloads: false, notify: false, clipboard: false } },
   });
-  const grantedRows = buildTreeRows(grantedSnapshot).groups.find((g) => g.dimension === 'capability')!.rows;
-  const bookmarks = grantedRows.find((r) => r.id === 'cap:opt:bookmarks');
+  const grantedRows = flat(buildTreeRows(grantedSnapshot));
+  const bookmarks = grantedRows.find((r) => r.nodeId === 'cap:opt:bookmarks');
   assert.ok(bookmarks);
   assert.equal(bookmarks.controls.some((c) => c.kind === 'revoke'), true, 'granted optional capability offers revoke');
 
   for (const row of notGranted) {
-    if (row.id === 'cap:opt:bookmarks') continue;
+    if (row.nodeId === 'cap:opt:bookmarks') continue;
     assert.equal(row.controls.length, 0, `ungranted optional ${row.id} must not offer revoke`);
   }
 });
 
-test('V2-2 tree-view: pinned wording (model note + no-escalation / delay disambiguation)', () => {
+// R2 supersession S6: wording rewritten (ownership hierarchy + two pathways +
+// `delay` disambiguation retained).
+test('R2 tree-view: pinned wording — ownership hierarchy + two pathways + delay disambiguation (supersession S6)', () => {
   const model = buildTreeRows(projectInsightTree(sourceFromSurface(pluginSurface())));
   assert.equal(model.header.modelNote, TREE_MODEL_NOTE);
-  assert.ok(model.header.modelNote.includes('四维度分组视图（森林），非严格树'));
+  assert.ok(model.header.modelNote.includes('按归属的层级树'));
+  assert.equal(model.header.modelNote.includes('森林'), false, 'deviation wording must be gone');
+  assert.equal(model.header.modelNote.includes('非严格树'), false, 'deviation wording must be gone');
+
+  assert.equal(model.header.noEscalationNote, TREE_NO_ESCALATION_NOTE);
   assert.ok(model.header.noEscalationNote.includes('撤销/关断 = 回到更保守，不放宽任何门禁'));
+  assert.ok(model.header.noEscalationNote.includes('命令级覆盖 = 用户显式、被审计的放宽'));
+  assert.ok(model.header.noEscalationNote.includes('硬底线不可覆盖'));
   assert.ok(model.header.noEscalationNote.includes('delay'));
   assert.ok(model.header.noEscalationNote.includes('deny'));
   assert.ok(model.header.noEscalationNote.includes('fail-closed'));
   assert.ok(model.header.noEscalationNote.includes('delayMs'));
 });
 
-// R2 (2026-09-13) — supersession S7 (ADR-V2-031): the whitelist grew 7 → 9
-// (`set-command-policy` / `reset-command-policy`). `needsConfirmation` returns
-// `false` for the two conditional override actions; the widening-only confirmation
-// is decided by `commandPolicyNeedsConfirmation` (asserted below + in tree-ops.test).
+// R2 (2026-09-13) — supersession S7 (ADR-V2-031): the whitelist grew 7 → 9.
 test('V2-2 tree-view: needsConfirmation is correct for all 9 actions (R2 supersession S7)', () => {
   const expected: Record<TreeActionId, boolean> = {
     'revoke-origin': true,
@@ -319,6 +391,21 @@ test('V2-2 tree-view: needsConfirmation is correct for all 9 actions (R2 superse
   assert.equal(commandPolicyNeedsConfirmation('allow', undefined), true, 'unknown default is treated as widening (fail-closed)');
 });
 
+test('R2 tree-view: the model is a real nested hierarchy (author example ② path)', () => {
+  const model = buildTreeRows(projectInsightTree(sourceFromSurface(pluginSurface())));
+  assert.equal(model.root.label, '连接树');
+  const commandFace = model.root.children.find((c) => c.kind === 'face' && c.dimension === 'command');
+  assert.ok(commandFace, 'the command face must exist at level 1');
+  const source = commandFace.children.find((c) => c.label === '系统内置命令');
+  assert.ok(source, 'the 系统内置命令 source group must exist under the command face');
+  const dom = source.children.find((c) => c.label === 'dom');
+  assert.ok(dom, 'the dom tool node must be under 系统内置命令');
+  assert.ok(
+    dom.children.some((c) => c.label === 'dom read-state'),
+    'the dom read-state subcommand must be a child of dom',
+  );
+});
+
 test('V2-2 tree-view: filtering is read-only (snapshot + rows deep-equal before/after)', () => {
   const snapshot = projectInsightTree(sourceFromSurface(pluginSurface()));
   const before = JSON.stringify(snapshot);
@@ -326,11 +413,11 @@ test('V2-2 tree-view: filtering is read-only (snapshot + rows deep-equal before/
   const baseRowsJson = JSON.stringify(baseRows);
 
   const commandOnly = buildTreeRows(snapshot, { dimension: 'command' });
-  assert.equal(commandOnly.groups.length, 1);
-  assert.equal(commandOnly.groups[0].dimension, 'command');
+  assert.equal(commandOnly.root.children.length, 1);
+  assert.equal(commandOnly.root.children[0].dimension, 'command');
 
   const queried = buildTreeRows(snapshot, { query: 'dom' });
-  assert.ok(queried.filter.matches >= 1, 'query must actually select rows');
+  assert.ok(queried.filter.matches >= 1, 'query must actually select nodes');
   assert.ok(queried.filter.matches < baseRows.filter.matches, 'query must narrow the set');
 
   const denyOnly = buildTreeRows(projectInsightTree(sourceFromSurface(surfaceFromBaseline())), {
@@ -340,10 +427,8 @@ test('V2-2 tree-view: filtering is read-only (snapshot + rows deep-equal before/
 
   const builtinOnly = buildTreeRows(snapshot, { sourceKind: 'base-builtin' });
   assert.ok(builtinOnly.filter.matches >= 1);
-  for (const group of builtinOnly.groups) {
-    for (const row of group.rows) {
-      if (row.dimension === 'command') assert.equal(row.sourceKind, 'base-builtin');
-    }
+  for (const row of commandRows(builtinOnly)) {
+    assert.equal(row.sourceKind, 'base-builtin');
   }
 
   // No mutation of the snapshot, and repeated builds are deterministic.
@@ -351,14 +436,43 @@ test('V2-2 tree-view: filtering is read-only (snapshot + rows deep-equal before/
   assert.equal(JSON.stringify(buildTreeRows(snapshot)), baseRowsJson, 'build must be deterministic');
 });
 
-test('V2-2 tree-view: deny rows expose zero controls even when a subcommand is filtered out', () => {
-  const snapshot = projectInsightTree(sourceFromSurface(pluginSurface()));
-  const model = buildTreeRows(snapshot, { action: 'deny' });
-  for (const group of model.groups) {
-    for (const row of group.rows) {
-      if (row.dimension === 'command' && row.action === 'deny') {
-        assert.equal(row.controls.length, 0, `${row.id} must stay control-free under filter`);
-      }
-    }
+// R2 supersession S8: layering under filter.
+test('R2 tree-view: hard-floor deny rows stay control-free under filter; overridable rows keep controls (supersession S8)', () => {
+  const hardFloor = buildTreeRows(projectInsightTree(sourceFromSurface(surfaceFromBaseline())), { action: 'deny' });
+  for (const row of commandRows(hardFloor)) {
+    if (row.action === 'deny') assert.equal(row.controls.length, 0, `${row.id} must stay control-free under filter`);
   }
+
+  const overrides = { get: (name: string) => (name === 'read-tool' ? ('deny' as const) : undefined) };
+  const overridableDeny = buildTreeRows(
+    projectInsightTree({
+      sites: [],
+      capability: {
+        grants: { bookmarks: false, downloads: false, notify: false, clipboard: false },
+        toggles: {
+          bookmarksRead: false,
+          bookmarksWrite: false,
+          downloadsRead: false,
+          notify: false,
+          clipboardRead: false,
+          clipboardWrite: false,
+        },
+        tabsEnabled: false,
+      },
+      toolSurface: [
+        { name: 'read-tool', risk: 'read', subcommands: [], presentInSurface: true },
+        { name: 'mystery', subcommands: [], presentInSurface: true },
+      ],
+      delayMs: 0,
+      overrides,
+    }),
+    { action: 'deny' },
+  );
+  const rows = commandRows(overridableDeny);
+  assert.ok(rows.length >= 1, 'the overridable deny must survive the filter');
+  assert.equal(
+    rows.some((r) => r.overridable === true && r.controls.length === 3),
+    true,
+    'overridable deny rows keep their 3 policy controls under filter',
+  );
 });

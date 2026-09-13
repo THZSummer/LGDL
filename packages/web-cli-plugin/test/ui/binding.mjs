@@ -1656,6 +1656,193 @@ async function phase1(mock) {
     );
     check(v23TabsOn === 'clicked' && v23TabsBack === 'on', '#21n 机关再开启 → deriveTools() 恢复 tabs（可逆）', `${v23TabsOn}/${v23TabsBack}`);
 
+    // ── #22a~#22j V2-3 R2 command-level override chain (R2-V23-07; AC-V2-024) ──
+    // UI (tree policy buttons) → tree-ops (unique write path) → command-policy-set →
+    // real dispatch effect → reset → persistence. Existing #0/#19/#20/#21 numbering
+    // is untouched (append only).
+    /** Newest tool-result content seen by the mock LLM. */
+    const lastToolResult = () => {
+      for (let i = llmRequests.length - 1; i >= 0; i -= 1) {
+        const msgs = llmRequests[i].messages ?? [];
+        for (let j = msgs.length - 1; j >= 0; j -= 1) {
+          if (msgs[j].role === 'tool' && typeof msgs[j].content === 'string') return msgs[j].content;
+        }
+      }
+      return '';
+    };
+    // Ensure the drawer is open, then use the read-only filter to locate the
+    // overridable command node (the filter auto-expands the hit path — R2).
+    await evaluate(
+      ext,
+      `(() => { const d = document.getElementById('tree-drawer'); if (d.hidden) document.getElementById('tree-fab').click(); return true; })()`,
+    );
+    await waitFor(ext, `document.getElementById('tree-drawer').hidden ? '' : 'open'`, 60, 150);
+    await evaluate(
+      ext,
+      `(() => { const i = document.getElementById('tree-filter-input'); if (!i) return false; i.value = 'tabs list'; i.dispatchEvent(new Event('input')); return true; })()`,
+    );
+    const tabsListReady = await waitFor(
+      ext,
+      `(() => [...document.querySelectorAll('#tree-drawer li.tree-node')].some((n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'tabs list') ? 'ready' : '')()`,
+      40,
+      150,
+    );
+    check(
+      tabsListReady === 'ready',
+      '#22a 树内检索定位到可覆盖命令节点 tabs list（真实 DOM，逐层可操作）',
+      String(tabsListReady),
+    );
+
+    const clickPolicy = (policy) =>
+      evaluate(
+        ext,
+        `(() => {
+          const leaf = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+            (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'tabs list',
+          );
+          if (!leaf) return 'no-node';
+          const btn = leaf.querySelector('button[data-policy=${policy}]');
+          if (!btn) return 'no-button';
+          btn.click();
+          return 'clicked';
+        })()`,
+      );
+
+    const dispatchTabsList = async () => {
+      const base = toolMessageCount();
+      await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_LIST__' }).then(() => true)`);
+      const landed = await waitForNewToolMessage(base);
+      await sleep(400);
+      return landed;
+    };
+    const policyEntry = async (commandId, expected) => {
+      const raw = await waitFor(
+        ext,
+        `chrome.runtime.sendMessage({ kind: 'command-policy' }).then((r) => {
+          const e = (r.data.entries || []).find((x) => x.commandId === '${commandId}');
+          return e && e.action === '${expected}' ? JSON.stringify(e) : '';
+        })`,
+        60,
+        200,
+      );
+      return raw ?? 'null';
+    };
+
+    // Baseline: tabs list is dispatchable with no override.
+    await dispatchTabsList();
+    check(
+      !lastToolResult().includes('权限被拒'),
+      '#22b 基线：无覆盖时 tabs list 正常 dispatch（探测链起点）',
+      lastToolResult().slice(0, 140),
+    );
+
+    // Tier 1 — deny: store persists the override AND the real dispatch is refused.
+    const denyClick = await clickPolicy('deny');
+    const denyEntryRaw = await policyEntry('cmd:tabs#list', 'deny');
+    const denyEntry = JSON.parse(denyEntryRaw);
+    check(
+      denyClick === 'clicked' && denyEntry && denyEntry.action === 'deny',
+      '#22c 树内设 deny → command-policy 落盘（UI → tree-ops 唯一写路径；非本地假装）',
+      `${denyClick} / ${denyEntryRaw}`,
+    );
+    const denyPersisted = await evaluate(
+      ext,
+      `chrome.storage.local.get('web-cli:web-cli:command-policy').then((v) => JSON.stringify(v))`,
+    );
+    check(
+      /cmd:tabs#list/.test(denyPersisted ?? '') && /"action":"deny"/.test(denyPersisted ?? ''),
+      '#22d deny 覆盖持久化到 chrome.storage 单键（进程重启仍生效）',
+      String(denyPersisted).slice(0, 220),
+    );
+    await dispatchTabsList();
+    check(
+      lastToolResult().includes('权限被拒'),
+      '#22e 覆盖 deny 真实影响 dispatch（工具结果「权限被拒」，非仅 UI 状态）',
+      lastToolResult().slice(0, 180),
+    );
+
+    // Tier 2 — ask: dispatch now requires the real interactive confirmation.
+    const askClick = await clickPolicy('ask');
+    const askEntryRaw = await policyEntry('cmd:tabs#list', 'ask');
+    check(
+      askClick === 'clicked' && JSON.parse(askEntryRaw)?.action === 'ask',
+      '#22f 树内设 ask → command-policy 落盘',
+      `${askClick} / ${askEntryRaw}`,
+    );
+    const askBase = toolMessageCount();
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_LIST__' }).then(() => true)`);
+    const confirmAsk = await waitFor(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); return c && getComputedStyle(c).display !== 'none' ? (document.getElementById('confirm-summary')?.textContent ?? 'confirm') : ''; })()`,
+      80,
+      150,
+    );
+    check(
+      Boolean(confirmAsk),
+      '#22g 覆盖 ask 真实影响 dispatch（弹出二次确认，未自动放行）',
+      String(confirmAsk).slice(0, 160),
+    );
+    await realClick(ext, '#confirm-deny');
+    check(await waitForNewToolMessage(askBase), '#22h 拒绝确认 = 零操作但产生可读工具结果（不静默、不假成功）');
+
+    // Tier 3 — allow: dispatch proceeds with no confirmation.
+    const allowClick = await clickPolicy('allow');
+    const allowEntryRaw = await policyEntry('cmd:tabs#list', 'allow');
+    check(
+      allowClick === 'clicked' && JSON.parse(allowEntryRaw)?.action === 'allow',
+      '#22i 树内设 allow → command-policy 落盘',
+      `${allowClick} / ${allowEntryRaw}`,
+    );
+    const allowBase = toolMessageCount();
+    await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'chat', user: '__TABS_LIST__' }).then(() => true)`);
+    const landedAllow = await waitForNewToolMessage(allowBase);
+    const confirmVisible = await evaluate(
+      ext,
+      `(() => { const c = document.getElementById('confirm'); return c && getComputedStyle(c).display !== 'none' ? 'visible' : ''; })()`,
+    );
+    // Poll until the NEW tool result (not the earlier ask-denied one) lands.
+    let allowResult = '';
+    for (let i = 0; i < 40; i += 1) {
+      const latest = lastToolResult();
+      if (latest && !latest.includes('权限被拒')) {
+        allowResult = latest;
+        break;
+      }
+      await sleep(150);
+    }
+    check(
+      landedAllow === true && !confirmVisible && allowResult.length > 0,
+      '#22j 覆盖 allow 真实影响 dispatch（不再弹确认且真实执行，工具结果进入 LLM 上下文）',
+      `confirm=${confirmVisible} / ${allowResult.slice(0, 140)}`,
+    );
+
+    // Reset via the tree row's「恢复默认」button → entry gone → dispatch back to baseline.
+    const resetClick = await evaluate(
+      ext,
+      `(() => {
+        const leaf = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
+          (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'tabs list',
+        );
+        const btn = leaf?.querySelector('button[data-action-id="reset-command-policy"]');
+        if (!btn) return 'no-button';
+        btn.click();
+        return 'clicked';
+      })()`,
+    );
+    const clearedRaw = await waitFor(
+      ext,
+      `chrome.runtime.sendMessage({ kind: 'command-policy' }).then((r) => { const e = r.data.entries || []; return e.length === 0 ? '[]' : ''; })`,
+      60,
+      200,
+    );
+    check(resetClick === 'clicked' && clearedRaw === '[]', '#22k 树内「恢复默认」清空覆盖（可逆、幂等）', `${resetClick}/${clearedRaw}`);
+    const resetLanded = await dispatchTabsList();
+    check(
+      resetLanded === true && !lastToolResult().includes('权限被拒'),
+      '#22l 恢复默认后 dispatch 回到基线（无残留覆盖）',
+      lastToolResult().slice(0, 140),
+    );
+
     check(spExceptions.length === 0, '#10 侧栏页 0 未捕获异常', spExceptions.join(' | '));
     check(spConsoleErrors.length === 0, '#10b 侧栏页 0 console error', spConsoleErrors.join(' | '));
 

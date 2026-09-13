@@ -7,11 +7,11 @@
  * 断言分组（每条关键断言配**反证自测**，`catch` 只吞 `ENOENT`，冻结类用 `sha256` 内容哈希）：
  *   A1 动态不变量 + fixture 122 + cardId 唯一且 === `CommandNode.cardId`
  *   A2 三层口径（L1 34/142 · L2 20/88 · L3 28/94=122）+ `accounted` 行级并集 100% + **防夸大反证**
- *   A4 `ArchiveCard` 无写控件字段 + 档案模块无写面/无标记注入
+ *   A4 `ArchiveCard` 无写控件字段 + **R2 分层**（硬底线无 `policyControl` + 原因；可覆盖有描述）+ 档案模块无写面/无标记注入
  *   A5 `delay` 消歧单源（导入 + 内容哈希 pin + 无第二处字面量）
  *   A6 过滤只读（快照不变 + 真的收窄）
  *   A7 `CATALOG_BASELINE_META` === `loadBaseline()` 真值
- *   A8 禁改面内容哈希 pin（`TREE_ACTION_IDS` 恰 7 值 / `src/content/**` / 三个 tree 模块）
+ *   A8 禁改面内容哈希 pin（`TREE_ACTION_IDS` 恰 9 值 / `src/content/**` / 三个 tree 模块）
  *   A9 体积重登记结构 + `content.js` 零增长
  *   A3（TASK-005 追加）`deny` 分层全量交叉 × 站点域矩阵 + 分歧钉死 + 翻转反证
  */
@@ -102,9 +102,10 @@ function assertPinnedHash(label: string, actualHash: string, pinnedHash: string)
 //     new 71f743ed688d10ad74224b340d0e1b827f39a2b41aa625ca1d43dc9895aec1ac
 //   TREE_MODULE_SHA256（tree-view.ts / tree-ops.ts，随 R2 文案/白名单/覆盖分组变更）
 //     tree-view.ts old 023f9fc0687fc7977353de58657d5d1c000ef9bb7cd9ad255f9ccb4629778fd5
-//                  new 9beb26eaab6ab3fb6eb7c027d4bd2cc6b73ca851c71f6dc68360f70f7746c744
-//     tree-ops.ts  old abf9cdaba89ab63c7f0fa3f9b3ef9e829a702ec45b169de6e378eafacece9257
-//                  new 4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658
+//                  R2-1 9beb26eaab6ab3fb6eb7c027d4bd2cc6b73ca851c71f6dc68360f70f7746c744
+//                  R2-2 b4392d651076080cdaa31ae76f06ae647563048f914e0c42b3a8be5f02e9c187
+//     tree-ops.ts  abf9cdaba89ab63c7f0fa3f9b3ef9e829a702ec45b169de6e378eafacece9257 →
+//                  R2-1/R2-2 4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658（R2-2 未改）
 //   tree-receipt.ts 不变（未改动）→ 保持旧值。
 // 反证：`assertPinnedHash` 在篡改文本上必须真的抛错（见 A5/A8 的 REVERSE PROOF 段）。
 const TREE_NO_ESCALATION_NOTE_SHA256 =
@@ -112,7 +113,7 @@ const TREE_NO_ESCALATION_NOTE_SHA256 =
 const TREE_ACTION_IDS_JSON_SHA256 =
   '71f743ed688d10ad74224b340d0e1b827f39a2b41aa625ca1d43dc9895aec1ac';
 const TREE_MODULE_SHA256: Readonly<Record<string, string>> = {
-  'src/ui/tree/tree-view.ts': '9beb26eaab6ab3fb6eb7c027d4bd2cc6b73ca851c71f6dc68360f70f7746c744',
+  'src/ui/tree/tree-view.ts': 'b4392d651076080cdaa31ae76f06ae647563048f914e0c42b3a8be5f02e9c187',
   'src/ui/tree/tree-ops.ts': '4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658',
   'src/ui/tree/tree-receipt.ts': '484bf84f6f7eddf203f519826bb415399a5f4819c3e6e91329cd2b47430d3db6',
 };
@@ -523,6 +524,57 @@ test('A4 archive REVERSE PROOF: injecting an action-id field is detected', () =>
   assert.deepEqual(cardKeyViolations([injected]), [`${injected.cardId}:actionId`]);
 });
 
+// R2 supersession S11 (ADR-V2-030/031): the archive is now **layered** — hard-floor
+// cards carry no control description (+ readable clamp reason); overridable cards
+// carry `policyControl` (allow/ask/deny). The module still has no write import.
+test('R2 A4 archive: hard-floor cards carry no policyControl; overridable cards do (supersession S11)', () => {
+  const { model } = snapshotFixture();
+  const hardFloor = model.cards.filter((card) => card.overridable !== true);
+  const overridable = model.cards.filter((card) => card.overridable === true);
+  assert.ok(hardFloor.length > 0, 'fixture must contain hard-floor cards');
+  assert.ok(overridable.length > 0, 'fixture must contain overridable cards');
+
+  for (const card of hardFloor) {
+    assert.equal(card.policyControl, undefined, `hard-floor ${card.cardId} must carry no policyControl`);
+    assert.ok(card.clampReason, `hard-floor ${card.cardId} must carry a clampReason`);
+    assert.ok(
+      typeof card.clampReasonLabel === 'string' && card.clampReasonLabel.length > 0,
+      `hard-floor ${card.cardId} must carry a readable clampReasonLabel`,
+    );
+  }
+  for (const card of overridable) {
+    assert.equal(card.policyControl?.kind, 'command-policy', `${card.cardId} must carry a control description`);
+    assert.deepEqual(
+      card.policyControl?.options.map((o) => o.policyAction),
+      ['allow', 'ask', 'deny'],
+      `${card.cardId} policy options`,
+    );
+    assert.equal(card.policyControl?.options.filter((o) => o.selected).length, 1, 'exactly one selected');
+    assert.equal(card.policyControl?.options.find((o) => o.selected)?.policyAction, card.effectiveAction);
+    assert.equal(card.clampReason, undefined, `overridable ${card.cardId} must not carry a clampReason`);
+  }
+
+  // Reverse proof: giving a hard-floor card a policyControl is detectable.
+  const injected = { ...hardFloor[0]!, policyControl: { kind: 'command-policy' as const, options: [] } };
+  assert.notEqual(injected.policyControl, undefined);
+  assert.throws(() => assert.equal(injected.policyControl, undefined));
+});
+
+// R2 (AC-V24-008): default tier vs effective tier are split per card; overrides
+// change the effective tier only.
+test('R2 A4 archive: default vs effective action are split (override changes effective only)', () => {
+  const overrides = { get: (name: string, sub?: string) => (name === 'dom' && sub === 'read-state' ? ('deny' as const) : undefined) };
+  const snapshot = projectInsightTree({ ...sourceOf(buildSurface()), overrides });
+  const model = buildArchiveModel(snapshot);
+  const card = model.cards.find((c) => c.cardId === 'cmd:dom#read-state');
+  assert.ok(card, 'dom read-state card must exist');
+  assert.equal(card.defaultAction, 'allow');
+  assert.equal(card.overrideAction, 'deny');
+  assert.equal(card.effectiveAction, 'deny');
+  assert.equal(card.overridable, true, 'a non-hard-floor deny stays overridable');
+  assert.equal(card.policyControl?.options.find((o) => o.selected)?.policyAction, 'deny');
+});
+
 test('A4 archive: the module has no write face / marker injection (source grep)', () => {
   const source = readPluginFile(ARCHIVE_MODULE_PATH);
   const forbidden: readonly { name: string; re: RegExp }[] = [
@@ -678,6 +730,7 @@ test('A9 archive: sidepanel baseline re-registration is explicit and monotonic (
   assert.equal(SIDEPANEL_BASELINE_TOLERANCE, 0.05, '容差不得因重登记而放宽');
   const history = [...SIDEPANEL_BASELINE_BYTES_HISTORY];
   assert.ok(history.includes(1_110_744), 'HISTORY 必须保留 V2-3 值 1,110,744');
+  assert.ok(history.includes(1_132_748), 'HISTORY 必须保留 V2-4 值 1,132,748（v2 R2 重登记不丢历史）');
   for (let i = 1; i < history.length; i += 1) {
     assert.ok(history[i] >= history[i - 1], 'HISTORY 必须单调不减（禁止静默下调）');
   }
@@ -687,7 +740,7 @@ test('A9 archive: sidepanel baseline re-registration is explicit and monotonic (
   assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');
   assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
   assert.ok(SIDEPANEL_BASELINE_META.measuredOn.length > 0);
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_110_744);
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_132_748);
   assert.ok(SIDEPANEL_BASELINE_META.reRegisteredFrom.length > 0);
   assert.equal(SIDEPANEL_BASELINE_META.targetBudgetBytes, null, '基线 ≠ 目标预算');
   assert.equal(SIDEPANEL_BASELINE_META.targetMet, null, '基线 ≠ 目标预算');

@@ -30,7 +30,9 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  *   - v1 measured value .......... 1,068,165 B
  *   - V2-2 (2026-09-13) .......... 1,085,389 B (+20,000 B: floating-tree UI, TASK-008)
  *   - V2-3 (2026-09-13) .......... 1,110,744 B (revoke/undo surface, `f45c124`)
- *   - **current (2026-09-13)** ... 1,132,748 B (V2-4 read-only command archive surface)
+ *   - V2-4 (2026-09-13) .......... 1,132,748 B (read-only command archive surface)
+ *   - **current (2026-09-13)** ... 1,159,856 B (V2 R2: real nested tree UI + per-level
+ *     allow/ask/deny policy controls + archive layering)
  *
  * W4 fix round (2026-09-13): the V2-2 baseline (1,085,389 B) was NOT re-registered
  * after V2-3 added the revoke/confirm/receipt surface, so the guard's effective
@@ -40,15 +42,19 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * V2-3 weight. The tolerance (5%) is unchanged and no assertion was removed.
  *
  * V2-4 re-registration (2026-09-13): `src/insight/archive-catalog.ts` (new) +
- * `tree-drawer.ts` archive sub-view grew the side panel by 22,004 B. Re-measured
- * after `npm run build --workspace @lgdl/web-cli-plugin` (stat: 1,132,748 B).
- * Previous values retained in the history array; tolerance unchanged (5%);
- * `targetBudgetBytes` / `targetMet` remain null (baseline ≠ target budget).
+ * `tree-drawer.ts` archive sub-view grew the side panel by 22,004 B.
+ *
+ * R2 re-registration (2026-09-13, R2-V22-05): the real nested tree renderer
+ * (`tree-view.ts` nested model + `tree-drawer.ts` role=tree/keyboard/breadcrumb/
+ * layered controls) + archive layering grew the side panel by 27,108 B over
+ * 1,132,748 B. Re-measured after `npm run build --workspace @lgdl/web-cli-plugin`
+ * (stat: 1,159,856 B). Previous values retained in the history array; tolerance
+ * unchanged (5%); `targetBudgetBytes` / `targetMet` remain null.
  */
-export const SIDEPANEL_BASELINE_BYTES = 1_132_748;
+export const SIDEPANEL_BASELINE_BYTES = 1_159_856;
 
-/** Previous registered baselines (V2-2 / V2-3, 2026-09-13) — kept on record. */
-export const SIDEPANEL_BASELINE_BYTES_HISTORY = [1_068_165, 1_085_389, 1_110_744] as const;
+/** Previous registered baselines (V2-2 / V2-3 / V2-4, 2026-09-13) — kept on record. */
+export const SIDEPANEL_BASELINE_BYTES_HISTORY = [1_068_165, 1_085_389, 1_110_744, 1_132_748] as const;
 
 /** Allowed growth over the baseline before the guard fails. */
 export const SIDEPANEL_BASELINE_TOLERANCE = 0.05;
@@ -69,12 +75,12 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU build V2-4: re-measured after the read-only command archive surface (src/insight/archive-catalog.ts + tree-drawer sub-view; previous V2-3 baseline 1,110,744 B; V2-2 was 1,085,389 B; v1 was 1,068,165 B). Explicit re-registration — previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
-  previousBaselineBytes: 1_110_744,
-  reRegisteredFrom: 'V2-3 1,110,744 B',
+    'SDDU build v2 R2 round 2: re-measured after the real nested-tree renderer (tree-view.ts nested ownership model + tree-drawer.ts role=tree/keyboard/breadcrumb + per-level allow/ask/deny policy controls) and archive layering. Previous baseline 1,132,748 B (V2-4); V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Explicit re-registration — previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
+  previousBaselineBytes: 1_132_748,
+  reRegisteredFrom: 'V2-4 1,132,748 B',
   targetBudgetBytes: null,
   targetMet: null,
-  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-13 V2-4 显式重登记：只读命令档案面（archive-catalog + 抽屉子视图）有意增重后实测 1,132,748 B；历史值 1,068,165 / 1,085,389 / 1,110,744 保留在案；容差 5% 不变。',
+  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-13 v2 R2 显式重登记：真层级树 UI（逐层展开/键盘/面包屑/三态覆盖控件）+ 档案分层有意增重后实测 1,159,856 B；历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 保留在案；容差 5% 不变。',
 } as const;
 
 /**

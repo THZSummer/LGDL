@@ -705,6 +705,99 @@
       #tree-drawer .tree-confirm-consequence,
       #tree-drawer .tree-confirm-irreversible { font-size: 11px; line-height: 1.55; color: var(--text-muted); overflow-wrap: anywhere; }
       #tree-drawer .tree-confirm-actions { display: flex; gap: 6px; }
+
+      /* ── V2-2 R2 (ADR-V2-028/029/030): real nested tree ──────────────────────
+         role=tree / treeitem with per-level aria-expanded, roving tabindex, lazy
+         children. Indentation is aria-level driven with a hard cap so a deep path
+         can never grow the drawer horizontally (320px zero horizontal overflow). ── */
+      #tree-drawer .tree-breadcrumb {
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-subtle);
+        font-size: 11px;
+        line-height: 1.5;
+        color: var(--text-muted);
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      #tree-drawer ul.tree {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        min-width: 0;
+      }
+      #tree-drawer ul.tree-children {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        min-width: 0;
+      }
+      #tree-drawer li.tree-row {
+        min-width: 0;
+        padding: 3px 0 3px 0;
+        border-bottom: none;
+      }
+      #tree-drawer li.tree-node[aria-level="2"] { padding-left: 10px; }
+      #tree-drawer li.tree-node[aria-level="3"] { padding-left: 20px; }
+      #tree-drawer li.tree-node[aria-level="4"] { padding-left: 30px; }
+      #tree-drawer li.tree-node[aria-level="5"] { padding-left: 40px; }
+      #tree-drawer li.tree-node[aria-level="6"] { padding-left: 50px; }
+      #tree-drawer li.tree-node:focus,
+      #tree-drawer li.tree-node:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -1px;
+        border-radius: var(--radius-sm);
+      }
+      #tree-drawer .tree-node-head { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+      #tree-drawer .tree-toggle {
+        flex: 0 0 auto;
+        width: 16px;
+        min-width: 16px;
+        padding: 0;
+        font-size: 10px;
+        line-height: 1.4;
+        color: var(--text-muted);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+      }
+      #tree-drawer .tree-toggle-leaf { cursor: default; text-align: center; }
+      #tree-drawer .tree-clamp-reason {
+        font-size: 10.5px;
+        line-height: 1.5;
+        color: var(--warn-text);
+        background: var(--warn-bg);
+        border-left: 3px solid var(--warn-border);
+        padding: 3px 6px;
+        margin-top: 3px;
+        border-radius: var(--radius-sm);
+        overflow-wrap: anywhere;
+      }
+      #tree-drawer .tree-policy-reset { color: var(--text-muted); border-color: var(--border-strong); background: var(--bg-subtle); }
+      /* ── V2-4 R2 (ADR-V2-030): archive card layering (own classes; the P0
+         `.tree-archive` zero-`.tree-control` / zero-`[data-action-id]` red line stays) ── */
+      #tree-drawer .tree-archive-clamp-reason,
+      #tree-drawer .tree-archive-policy-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+      }
+      #tree-drawer .tree-archive-policy,
+      #tree-drawer .tree-archive-policy-reset {
+        font-size: 10.5px;
+        color: var(--accent-text);
+        background: var(--accent-weak);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        padding: 2px 6px;
+        cursor: pointer;
+      }
+      #tree-drawer .tree-archive-policy[aria-pressed="true"] {
+        font-weight: 600;
+        color: var(--accent-text);
+        background: var(--accent-weak);
+      }
     </style>
   </head>
   <body>

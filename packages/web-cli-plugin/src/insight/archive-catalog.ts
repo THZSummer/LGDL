@@ -21,10 +21,11 @@ import type { PolicyAction, ToolRisk } from '@lgdl/web-cli-base';
 import { isToolRisk } from '../protocol/descriptor.js';
 import { PLUGIN_SITE_GROUP } from '../security/policy.js';
 import { CATALOG_BASELINE_META } from './catalog-meta.js';
-import { DENY_CAUSE_LABEL, TREE_NO_ESCALATION_NOTE } from '../ui/tree/tree-view.js';
+import { DENY_CAUSE_LABEL, TREE_NO_ESCALATION_NOTE, CLAMP_REASON_LABEL } from '../ui/tree/tree-view.js';
 import type {
   Badge,
   CatalogFacets,
+  ClampReason,
   CommandNode,
   ConnectTreeSnapshot,
   DenyCause,
@@ -81,11 +82,24 @@ export const ARCHIVE_PARITY_PINNED_CLEAN = true;
 export type ArchiveGroupBy = 'tool' | 'action' | 'risk' | 'source' | 'deny-cause';
 
 /**
- * 只读档案卡。
+ * 只读档案卡（R2 分层，ADR-V2-030）。
  *
- * **结构保证**：接口**不含**写控件字段（无控件清单 / 无动作标识 / 无动作目标）
- * → 编译期不可能渲染写控件（ADR-V2-020）。
+ * **结构保证**：接口**不含**写控件字段（无 `controls` / 无动作目标），只有**控件描述**
+ * 字段 `policyControl?`（可覆盖行才有）；硬底线行（`overridable:false`）**无** `policyControl`
+ * 且携带 `clampReason` 可读。写入仍归 V2-3 的**唯一**动作执行通路（本模块无写导入）。
  */
+export interface ArchivePolicyOption {
+  policyAction: PolicyAction;
+  /** 是否为当前生效档（渲染选中态）。 */
+  selected: boolean;
+}
+
+/** 可覆盖卡的控件描述（**非**可执行控件；仅描述 allow/ask/deny 三档与当前档）。 */
+export interface ArchivePolicyControl {
+  kind: 'command-policy';
+  options: ArchivePolicyOption[];
+}
+
 export interface ArchiveCard {
   /** 稳定键：`cmd:<name>` / `cmd:<name>#<sub>`（复用 `CommandNode.cardId`）。 */
   cardId: string;
@@ -110,6 +124,20 @@ export interface ArchiveCard {
   suppressed: boolean;
   suppressionReason?: string;
   badges: Badge[];
+  /** R2：默认档（risk 派生；与 `action` 同值，分列展示）。 */
+  defaultAction: PolicyAction;
+  /** R2：用户覆盖（原始设置值；无覆盖缺省）。 */
+  overrideAction?: PolicyAction;
+  /** R2：经硬底线 clamp 后的生效档（无覆盖 ≡ 默认）。 */
+  effectiveAction: PolicyAction;
+  /** R2：是否可被用户在树内覆盖（硬底线 `false`）。 */
+  overridable: boolean;
+  /** R2：不可覆盖原因（硬底线可读）。 */
+  clampReason?: ClampReason;
+  /** R2：不可覆盖原因可读文案。 */
+  clampReasonLabel?: string;
+  /** R2：可覆盖卡的控件描述（硬底线卡为 `undefined` —— 分层结构保证）。 */
+  policyControl?: ArchivePolicyControl;
 }
 
 export interface ArchiveGroup {
@@ -283,6 +311,8 @@ function toCard(node: CommandNode): ArchiveCard {
   const origin = originOf(node);
   const causeLabel = node.denyCause ? DENY_CAUSE_LABEL[node.denyCause] : undefined;
   const autoInput = { group: node.group, risk: node.risk, ...(origin ? { origin } : {}) };
+  const overridable = node.overridable === true;
+  const clampReasonLabel = node.clampReason ? CLAMP_REASON_LABEL[node.clampReason] : undefined;
   return {
     cardId: node.cardId,
     name: node.name,
@@ -300,6 +330,24 @@ function toCard(node: CommandNode): ArchiveCard {
     suppressed: node.suppressed,
     ...(node.suppressionReason ? { suppressionReason: node.suppressionReason } : {}),
     badges: node.badges.map((b) => ({ ...b })),
+    // R2：默认档 / 覆盖生效档**分列** + 分层控件描述（硬底线无 `policyControl`）。
+    defaultAction: node.defaultAction,
+    ...(node.overrideAction ? { overrideAction: node.overrideAction } : {}),
+    effectiveAction: node.effectiveAction,
+    overridable,
+    ...(node.clampReason ? { clampReason: node.clampReason } : {}),
+    ...(clampReasonLabel ? { clampReasonLabel } : {}),
+    ...(overridable
+      ? {
+          policyControl: {
+            kind: 'command-policy' as const,
+            options: (['allow', 'ask', 'deny'] as PolicyAction[]).map((policyAction) => ({
+              policyAction,
+              selected: node.effectiveAction === policyAction,
+            })),
+          },
+        }
+      : {}),
   };
 }
 
@@ -519,7 +567,9 @@ function commandNodes(snapshot: ConnectTreeSnapshot): CommandNode[] {
 }
 
 const READ_ONLY_NOTE =
-  '只读展示：档案卡不含任何写控件字段，不提供命令级覆盖；deny / delay（= deny，fail-closed）不可放宽。';
+  '分层展示（R2）：硬底线卡（evaluate / 未授权 origin / 未知 risk / 破坏性 / ui·state·external 放宽方向）无任何命令级控件并展示不可覆盖原因；' +
+  '非硬底线命令卡可按 allow/ask/deny 分层设置（写入经唯一动作执行通路，服务端 clamp 仍强制）。' +
+  'deny / delay（= deny，fail-closed）本身不可放宽。';
 
 const NO_EXAGGERATION_NOTE =
   '「逐条有档」= 基线每一行都由「豁免登记」或「实时投影面」覆盖（行级真值由 parity 门禁注入基线行验证）；' +
