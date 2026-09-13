@@ -838,7 +838,8 @@
             "docs/r2-supersession-ledger.json",
             "docs/smoke-checklist.md §5/§7/§8"
           ],
-          "commit": "PENDING（本轮提交后回填）"
+          "commit": "02ee71576dc19e0cac7fb1882eb8d697abaf7689",
+          "commitNote": "本轮修复提交（feature/web-cli-plugin）；buildRounds 记录随 hash 回填提交。"
         }
       ],
       "review": {
