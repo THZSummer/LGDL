@@ -790,7 +790,52 @@
           ],
           "commit": "e35d852413c2a073366812301274480308640911（feat(web-cli-plugin): v2 R2-2 真层级树 UI …；17 files changed, 2289 insertions(+), 421 deletions(-)）"
         }
-      ]
+      ],
+      "review": {
+        "round": "R2",
+        "subRound": "review（产物审查 · 静态分析）",
+        "type": "post-validate 审查轮（phase 不回退；追加记录不稀释既有 R1）",
+        "date": "2026-09-13",
+        "authorization": "用户指派（对 R2 修订做代码审查）",
+        "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/review-report.md（R2 段，追加于 R1 之后）",
+        "range": "a955a7f（R2 spec）→ ff32683（R2 build 第 2 轮 + hash 回填）",
+        "checklist": "C1~C22（R2）",
+        "verdict": "⚠️ 有条件通过（0 阻塞；4 建议 A1~A4 + 8 提示 A5~A8/T1~T4）",
+        "method": "静态读码 / grep / 跨文件比对 / 独立哈希与计数复算 + 串行 node 门禁实跑（npm test 690/690·0 fail）；Chromium 类（test:ui/test:insight/test:binding/test:e2e/test:hardening）未重跑（OOM 纪律，如实）",
+        "keyFindings": {
+          "domUiTension": "自洽、安全、非规避——clamp 按被调用子命令 effective risk；dom=allow 时 dom click(ui) 仍 ask（真实 dispatch 验证）；残留 A1（no-widen 档节点层收紧控件缺失），非阻塞",
+          "serverEnforcement": "服务端 clamp 承重（反证 ⑧a 直注入仍被 clamp / ⑧b naive UI-only allow 确实放行），真实非空洞",
+          "storageLifecycle": "无半写/写成功才提交/串行无丢更新/同值幂等/读失败降级/审计零明文——逐条成立",
+          "whitelistPins": "TREE_ACTION_IDS 恰 9（JSON sha256 71f743ed… 独立复算一致）；pin old→new+日期+理由+历史齐备；policy.ts bfcb2ede…/auto-authorize.ts 1096d065… 仍等于 P0 pin",
+          "zeroRelaxation": "manifest/base/content/v1/依赖零 diff；content.js 1,073,453 B 零增长",
+          "assertionSupersession": "总数只增（node test( 646→690 / insight check( 57→75 / binding check( 185→197）；journey.mjs 0 行 diff；硬底线断言只增；字面 removed=0 不成立（A4）",
+          "bindingFlake": "2/3 flake 判为环境抖动（#33B1/#3d 非 R2 路径；binding.mjs append-only 未改该逻辑；final-07c PASS 192）——非真缺陷",
+          "archiveClassIsolation": "判为正当类名隔离（非规避取巧）：档案控件用自有类 .tree-archive-policy*，写路径仍唯一 tree-ops，能力由 #I-21a~e 独立断言",
+          "gateAuthenticity": "无空断言/bare catch；冻结以 sha256 为准（legacy git diff HEAD 弱冻结保留+注释）；反证 assert.throws 真抛",
+          "docDrift": "smoke-checklist §4（70→实测 102）、§7（档案只读展示面）未同步，仅 §8 事后澄清（A6）"
+        },
+        "blocking": 0,
+        "suggestions": [
+          "A1 no-widen 档节点层收紧缺失（ui/state/external/破坏性 overridable:false ⇒ 零控件）",
+          "A2 AC-V2-021 UI 侧跨归属下钻未实现（crossRefs 纯文本）",
+          "A3 AC-V2-020 示例①「工具→子命令」真实 DOM 未达成（site 工具 schema 无 subcommand enum）",
+          "A4 取代台账字面 removed=0 不成立（470 删除行；实质=无未取代删除+总数只增）"
+        ],
+        "hints": [
+          "A5 isCommandDestructive 整串精确匹配弱于 v1 分段判据",
+          "A6 smoke-checklist §5/§7 未同步",
+          "A7 meta.modelNote 仍含旧「森林」措辞（未渲染）",
+          "A8 断言计数台账基线数字（686）不可复现",
+          "T1 legacy git diff HEAD 弱冻结保留",
+          "T2 archive.policyControl 仅门禁消费",
+          "T3 #I-19g 标签语义已收窄",
+          "T4 binding flake 频率偏高"
+        ],
+        "phaseKept": "tasked（父 Feature 轻量容器，原样不回退）",
+        "phaseNotRegressed": true,
+        "merge": "未合 main、未发布（NG-V2-009 保持）"
+      },
+      "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/review-report.md"
     }
   }
 }

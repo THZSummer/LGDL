@@ -185,3 +185,206 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | R1 审查：web-cli-plugin v2 P0（V2-1 `f564f44`/`ee5be97` + V2-2 `a1f9453`/`d2f2676` + V2-3 `f45c124`，区间 `9f55d1b..f45c124`）。C1~C22 逐项；安全红线逐条独立验证（区间级 `git diff --quiet` 退出码 / AC-V2-005 真实性 / allow 单调性有效性）；门禁真伪复核（8 门禁实跑 74/74 + 反证能力）；测试零降级证据；五项贴边处置独立复核（D-V21-01 / D-V22-01 / D-V23-01 / 撤销成功路径缺口 / 偶发失败）；问题清单 6 建议 + 3 提示。**结论 ⚠️ 有条件通过（0 阻塞）** | 2026-09-13 | SDDU Review Agent |
+
+---
+
+# 审查报告（续 · R2 段）：web-cli-plugin v2 真层级树 + 命令级覆盖层
+
+> **文档定位**: 本段为**追加轮次 R2**（post-validate 修订轮）的审查执行结果，**不覆盖 R1**（R1 段见上方）
+> **审查策略**: 本段自主定义 **C1~C22（R2）** 审查清单（父 `spec.md` v2.0 §5.7 `FR-V2-070~079` + `AC-V2-020~027` + `NG-V2-001R` + `NFR-V2-011/012` + `EC-V2-017~020`；父 `plan.md` §9/§10 `ADR-V2-024~033`；实际产物）
+> **前置依赖**: 父 `spec.md`（v2.0）/ `plan.md`（v2.0）/ `build.md`（R2 第 1、2 轮）；V2-1/V2-2/V2-3/V2-4 R2 修订；代码与测试产物
+> **审查创建时间**: 2026-09-13
+> **审查区间**: `a955a7f`（R2 spec）→ `ff32683`（R2 build 第 2 轮 + hash 回填），含 `7617687`（plan）/ `76d0d61`（tasks）/ `ce60fd1` + `493f9d0`（build 1）/ `e35d852` + `ff32683`（build 2）
+
+## R2-1. 审查概要
+
+| 维度 | 数值 |
+|------|:--:|
+| 提交区间 | `a955a7f`（R2 spec）→ `ff32683`；R2 改动 60 文件 / +9329 −584（含 R2 spec/plan/tasks/build 文档） |
+| 审查项总数 | 22（C1~C22 R2） |
+| 通过 | 19 |
+| 改进（非阻塞） | 4 建议（A1~A4）+ 8 提示（A5~A8 / T1~T4） |
+| 阻塞问题 | **0** |
+| 结论 | **⚠️ 有条件通过（0 阻塞）** |
+
+**方法（本仓库 OOM 前科 → 静态为主 + 门禁串行，绝不并发）**：以**静态读码 / grep / 跨文件比对 / 独立哈希与计数复算**为主；**仅串行实跑 node 门禁**（`npm test`）；**未跑** Chromium 类重门禁（`test:ui` / `test:insight` / `test:binding` / `test:e2e` / `test:hardening`）——遵守「串行/一次一个/绝不并发」纪律，其运行结果以 build 落盘日志为据并**如实标注「未由本审查重跑」**，不冒充。
+
+**本审查实际读/跑了什么（可复核）**：
+- **读（R2 产物）**：父 `spec.md`（v2.0 §5.7/§2.2b/§8/§9）、父 `plan.md`（§9 技术设计 + §10 `ADR-V2-024~033` 全文）、父/四叶 `build.md`（R2 第 1、2 轮）、`state.json`（`revisionRounds.R2`）、`docs/{dev,smoke-checklist,capability-matrix}.md`。
+- **读（代码）**：`src/security/command-override.ts`（445 行全文）、`src/insight/ownership-tree.ts`（355 行全文）、`src/insight/{tree-model,command-catalog,project-tree,build-snapshot,archive-catalog}.ts`、`src/background/{host,service-worker,messaging,insight-protocol,state-message}.ts`、`src/ui/tree/{tree-view,tree-drawer,tree-ops}.ts`、`src/ui/sidepanel/index.html`（R2 增量）、base `src/{permission,dom-tools}.ts`、`src/tools/declared-tools.ts`。
+- **读（测试）**：`test/{insight-tree-hierarchy,command-override,insight-override-security,tree-view,tree-ops,insight-archive,insight-no-escalation}.test.ts`、`test/{size-baseline,size-budget}.test.ts`、`test/ui/{insight,binding}.mjs`（R2 增量逐段）。
+- **跑（串行，node 单测）**：`npm test`（插件）→ **690 tests / 690 pass / 0 fail / EXIT=0**（完整日志 `/tmp/opencode/r2-npmtest.log`，本审查生成）；含 R2 新增 `command-override`(16) / `insight-override-security`(10) / `insight-tree-hierarchy`(12) 与 `insight-archive` / `tree-ops` / `tree-view` / `insight-no-escalation` 全部 pin 断言。
+- **跑（只读核验）**：`sha256sum src/security/{policy,auto-authorize}.ts`、`git diff --stat/--name-only`（base/manifest/package/content/journey/v1）、`git diff -U0 | grep -E '^-[^-]'`（取代台账）、独立复算 `TREE_ACTION_IDS`/`TREE_NO_ESCALATION_NOTE`/tree 模块 sha256（node）、静态计数 `check(`/`test(`。
+- **未跑**：`test:ui` / `test:insight` / `test:binding` / `test:e2e` / `test:hardening`（Chromium 类，重；本审查内存纪律下不跑）——其结论引用 build 落盘日志 `/tmp/opencode/r2-2/logs/final-04/05/07c/08.log`（本审查已抽读核验关键行，见 R2-3）。
+
+---
+
+## R2-2. 逐项审查结果（C1~C22 R2）
+
+| # | 维度 | 审查对象 / 基准 | 结论 | 证据（file:line / 命令） | 严重度 |
+|---|------|----------------|:----:|--------------------------|:--:|
+| **C1** | 代码质量 | `command-override.ts` clamp 引擎：纯函数、`clampReason` 完备、无硬编码魔法值 | ✅ PASS | `clampActionForRisk`（:95-113）/`resolveCommandPolicy`（:130-156）纯函数 + kv 注入零 `chrome.*`；`ClampReason` 7 值穷举；`policy.ts`/`auto-authorize.ts` **零 import**（:5-7 声明，实码未导入） | 无 |
+| **C2** | 代码质量 | 存储生命周期：单键整对象写 / 无半写 / 写成功才提交内存 / 串行队列 / 同值幂等 / 读失败降级 / 审计零明文 | ✅ PASS | `createCommandOverrideStore`（:299-444）；`enqueue` 串行（:310-318）；`persist` 后 `entries=next`（:380）；同值 early-return 不写不审计（:368-370）；读失败 `entries=new Map()`+degraded（:336-341）。实跑 `command-override` 16/16（含半写 :352-362 / 并发 :364-381 / 读降级 :383-395 / 弱文档 :397-410 / 审计零明文 :412-430） | 无 |
+| **C3** | 规范符合 | **FR-V2-070 真树形**：父子层级（非扁平 `rows`）+ 扁平零残留 | ✅ PASS（附偏差 A3） | `buildOwnershipTree` 输出嵌套 `children`（ownership-tree.ts:218-334）；UI 无 `.rows`/无扁平 fallback（`buildTreeRows` :684-694 恒用 `snapshot.ownershipTree.root`）；真实 DOM #I-20b 逐层 `支持的命令→系统内置命令→dom→dom read-state` 通过；#I-20c 惰性收起。`meta.modelNote` 旧「森林」文案未渲染（DOM `#I-11a` 零命中） | 低 |
+| **C4** | 规范符合 | **FR-V2-071 多归属不复制** | ✅ PASS（附建议 A2） | `cap:opt:bookmarks` 全树恰 1（`collectOwnershipNodes` 过滤 `nodeId` 长度=1，insight-tree-hierarchy.test.ts:177-178）、`mainOwner='capability'`（:179）、`crossRefCount>=1` + 可读「亦被…命令面」（:180-184）；全树 `nodeId` 唯一（:161-168）；跨引用下钻同一 `nodeId`（`ownershipNodeFor` :348-349）。**无「复制后去重」迹象**：site-declared 命令以 `claimed` 只落站点面（ownership-tree.ts:243-249/273） | 低 |
+| **C5** | 规范符合 | **FR-V2-072/073 展开语义 + 键盘 + 路径 + 122 卡** | ✅ PASS | `aria-expanded`/`aria-level`/roving tabindex（tree-drawer.ts:576-616）、代理 keydown（:708-771）、面包屑（:683-692）、会话展开集重投影回放（#I-20g）；#I-20f 键盘 Home/End/ArrowLeft/Right/Up；#I-20e 面包屑五级路径；122 卡下可定位 | 无 |
+| **C6** | 规范符合 | **FR-V2-074/075 逐层可操作 + 用户覆盖层工程属性** | ✅ PASS | 工具级 `dom` 三档（insight-tree-hierarchy.test.ts:209-215）、子命令级 `dom read-state` 三档（:218-222）；覆盖即时生效（#I-20g/h）；覆盖链真实 dispatch（insight-override-security.test.ts:219-238）；工程属性见 C2 | 无 |
+| **C7** | 规范符合 | **FR-V2-076 硬底线 clamp 逐档** | ✅ PASS（附建议 A1/A5） | 逐档单测：`command-override.test.ts:110-142`；真实链反证 ①~⑤（insight-override-security.test.ts:125-213）；`dom click`（ui）恒不放宽（:258-263 实跑 pass） | 无 |
+| **C8** | 规范符合 | **FR-V2-077 deny 控件分层** | ✅ PASS | 硬底线 `overridable:false ⇒ controls:[]` + `clampReason` 可读（command-catalog.ts:199-228；tree-drawer.ts:635-638）；非硬底线 deny 保持 3 控件可改回（tree-view.test.ts:273-306）；DOM 断言 #I-12a/#I-12b/#I-18e | 无 |
+| **C9** | 规范符合 | **FR-V2-078 偏差文案清除 + `delay` 消歧保留** | ✅ PASS（附提示 A7） | `grep '不提供命令级写入\|只读展示：命令级策略不可在树内修改' src/` **零命中**；`TREE_NO_ESCALATION_NOTE` 含两通路 + `delay` 消歧（tree-view.ts:64-69），sha256 pin `cfe96e8a…`（本审查独立复算一致）；`TREE_MODEL_NOTE` 重写 | 低 |
+| **C10** | 规范符合 | **FR-V2-079 覆盖面分列不夸大** | ✅ PASS | `coverage.live` vs `coverage.baseline` 分列（project-tree.ts:329-343）；`accounted` 不入渲染；「已全部渲染」类表述零命中；archive 头 `liveCards`（tree-drawer.ts:871-877） | 无 |
+| **C11** | 规范符合 | **NG-V2-001R 未越界**（不做无审计/绕 clamp 的放宽） | ✅ PASS | 唯一写通路 `command-policy-set`/`-reset`（tree-ops.ts:304/333；`grep` 仅此两处发送）；审计类型 `command-policy` 可分辨（audit-sink.ts:40-43）；clamp 在 SW 判定链强制（C14） | 无 |
+| **C12** | 架构一致 | `ADR-V2-024~033` 无被实现违背 | ✅ PASS | 024 组合式（host.ts:298-317 `withCommandOverride`）；025 逐档（command-override.ts）；026 存储（同文件）；027 白名单/pin；028 纯归属树；029 role=tree/惰性；030 分层；031 取代台账；032 分列+文案；033 体积/门禁纪律——逐条比对实现一致 | 无 |
+| **C13** | 架构一致 | **判定链零改动**：`policy.ts`/`auto-authorize.ts` 内容哈希 = P0 pin | ✅ PASS | 本审查独立 `sha256sum`：`policy.ts=bfcb2edeceae…c89a8`（= `POLICY_TS_SHA256`）、`auto-authorize.ts=1096d065dac6…ef4b`（= pin）；`insight-no-escalation` W3 反证（单字节篡改必须 FAIL）实跑通过；快照 `meta.hash` 输入不含 R2 追加字段（project-tree.ts:323-333） | 无 |
+| **C14** | 安全红线 | **服务端强制（UI 不可绕过）**：伪造消息/直注入仍被 clamp | ✅ PASS | ⑧a：`store.set` 直注入 → 真实 `host.dispatch` 仍拒绝（insight-override-security.test.ts:305-316）；⑧b **非空洞反证**：naive「UI-only 无条件 allow」策略在真实 `createCommandRouter` 下**确实放行**（:318-336），真实 host 拒绝（:339-344）。判定链用真实 `createWebCliHost`+`createPluginPolicyConfig`，非自建 oracle | 无 |
+| **C15** | 安全红线 | 白名单 **7→9** + 无默认写入 + 无 `grant`/命令级越界 | ✅ PASS | `TREE_ACTION_IDS` 恰 9（本审查独立复算 JSON sha256=`71f743ed…`，与 pin 一致）；`run()` 白名单外→`zeroOutcome` 零写入、`switch` 无 `default` 写分支（tree-ops.ts:352-410）；负例 `grant-origin`/`request-permission`/`command-allow` 非法（tree-ops.test.ts:188-204） | 无 |
+| **C16** | 安全红线 | **零放宽**：AC-V2-005 范围重定后 ①~⑥ 仍成立 + AC-V2-025 ①~⑤ | ✅ PASS | 4 硬底线/evaluate/S1/S3/破坏性/ui·state·external 全覆盖反证（insight-override-security.test.ts:125-264，本审查实跑 pass）；`riskDefaults`/硬底线代码零 diff（sha256 pin） | 无 |
+| **C17** | 测试质量 | **断言取代台账**：old→new 有据 / 总数不减 / 硬底线只增 / `journey.mjs` 零改 | ⚠️ 见 R2-5 | 10 处旧 test 标题均有 S1~S11/S13~S16 old→new（build.md §9.4/§4）；W4 size 旧断言由 `R2-V22-05` 重登记取代（size-budget.test.ts）；node `test(` 646→690、`check(` insight 57→75（运行期 102）/binding 185→197（运行期 192）；`journey.mjs` diff **0 行**。**字面 `removed=0` 不成立**（见 A4） | 低 |
+| **C18** | 测试质量 | 新门禁真伪：无空断言 / 无 bare catch / 反证真抛 / 冻结用 sha256 | ✅ PASS | 新测试 `assert.ok(true)`=0、`catch`=0；`assertPinnedHash` 反证 `assert.throws(/内容哈希漂移/)`（insight-no-escalation.test.ts:378-399；insight-archive.test.ts 同款）；冻结主用内容 sha256（legacy `git diff --quiet HEAD` 仅保留并注释，见 T1）；`insight.mjs`/`binding.mjs` 断言非空洞（DOM 计数 + 真实落盘） | 无 |
+| **C19** | 测试质量 | **作者两例真实 DOM + 布局多状态** | ✅ PASS（附偏差 A3） | 示例②逐层真实 DOM（#I-20b）+ 惰性（#I-20c）；示例①真实 DOM 展开到「工具」（#I-20a，最深可展层偏差已披露）；多状态布局守卫 关/开/深展开/收起 drift=0（#I-05~10 / #I-20i~k / #I-19h），阈值 589px / 65.0% / composer∈[0,8] / 400·320px 零溢出为真实数值（insight.mjs:52-55,305-320） | 低 |
+| **C20** | 权限/红线 | 零新权限/零新依赖/manifest/base/content/v1 零改动 | ✅ PASS | 本审查独立：`git diff --stat a955a7f^..ff32683 -- packages/web-cli-base manifest.json package.json src/content` **空**；`dist/content.js=1,073,453 B`（= 上限，零增长）；`package.json` 依赖段零 diff；v1 目录零 diff | 无 |
+| **C21** | 文档一致 | `dev.md`/`smoke-checklist.md`/`capability-matrix.md` 与实现一致 | ⚠️ 见 R2-8 | `dev.md` §8.2 体积回填（历史保留）；`capability-matrix.md` 未涉及白名单口径（零改动，不冲突）；`smoke-checklist.md` 新增 §8，但 §5（仍写 70 断言）与 §7（仍写「档案是只读展示面」）**未同步**（见 A6） | 低 |
+| **C22** | 门禁运行 | node `npm test` 独立复跑；UI/binding 未重跑 | ✅ PASS（如实） | `npm test` **690/690·0 fail·EXIT=0**（本审查）；`test:insight`/`test:binding`/`test:ui` 未由本审查重跑（OOM 纪律），引用 build 落盘日志并抽读关键行（见 R2-3/R2-6），**不冒充** | 无 |
+
+---
+
+## R2-3. 关键点独立复核（15 项）
+
+| # | 关键点 | 判定 | 独立依据 |
+|:--:|--------|:----:|----------|
+| 1 | 作者两例真实 DOM 逐层展开 / 扁平零残留 | **接受（示例②完整；示例①部分，已披露）** | 示例②：#I-20b 断言 `支持的命令`(aria-expanded=true)→`系统内置命令`→`dom`→`dom read-state` 均在真实 DOM；#I-20c 收起后子节点**不在 DOM**（惰性）。示例①：#I-20a 真实 DOM 到「工具」层；**「工具→子命令」真实 DOM 未达成**——`paramsToSchema` 不产出 `subcommand.enum` → `projectToolSurface` 的 site 工具 `subcommands=[]`（service-worker.ts:1572-1583；declared-tools.ts:91-112），该层由示例② + node 模型（insight-tree-hierarchy.test.ts:126-143）证明。扁平零残留：`grep '\.rows' src/` 于 tree 面 0 命中；`TREE_MODEL_NOTE` 无「森林」；#I-11a 真实 DOM 零「森林」 |
+| 2 | 多归属不复制（`cap:opt:bookmarks`） | **接受** | 全树恰 1（test:177-178）；`mainOwner='capability'`；`crossRefCount>=1`；徽标可读「亦被…命令面」；`nodeId` 全树唯一（test:161-168）；下钻解析同一 `nodeId`。site-declared 命令被 `claimed` 收归站点面、命令面剔除（ownership-tree.ts:243-284）——**无「复制后去重」假象**（唯一性由结构保证，非事后去重） |
+| 3 | clamp 反证①~⑤作用于真实判定链 | **接受** | `insight-override-security.test.ts` 用真实 `createWebCliHost`（内部真实 `createPluginPolicyConfig` + `withCommandOverride`）+ 真实 `host.dispatch`；①~⑧b 在本审查 `npm test` 中全 pass（日志行 315-324）；**唯一 mock 为 ops/transport 接缝**，判定链本体真实 |
+| 4 | `dom`/`ui` 档张力（最重要） | **自洽、安全、非规避**（详见 R2-4） | clamp 按**被调用子命令的 effective risk**（router.ts:543 `subcommandRisks[sub] ?? entry.risk`）；`dom`=allow 时 `dom click`（ui）仍 ask（真实 dispatch：insight-override-security.test.ts:258-263 实跑 pass）；`ui` 档 allow→`null` 落回基线 `riskDefaults['ui']='ask'`，**不可放宽**。**残留风险 = A1**（no-widen 档节点层收紧控件缺失），非阻塞 |
+| 5 | 服务端强制反证⑧a/⑧b 真实非空洞 | **接受** | ⑧a 直注入 `store.set` → 真实 dispatch 仍拒；⑧b `assert.equal(naiveRes.ok,true)` 证明「UI-only 无条件 allow」**确实会放行**（真实 `createCommandRouter`），对照真实 host 拒绝——反证承重墙成立 |
+| 6 | 存储生命周期逐条 | **接受** | 无半写（:352-362 断言内存不变 + **零落盘**）；写成功才提交（:380）；串行队列无丢更新（:364-381 并发 3 写后 `a=deny` 胜出 + 落盘==内存）；同值幂等不写不审计（:285-301）；读失败视为无覆盖（:383-395）；恢复默认可逆（:303-335）；审计零明文（:412-430 `/apiKey\|clipboard\|notification\|title=\|body=\|https?:\/\//` 零命中） |
+| 7 | 白名单 9 + pin 纪律 | **接受** | `TREE_ACTION_IDS` 恰 9、JSON sha256 `71f743ed…`（本审查 node 复算一致）；无默认写分支；无 grant/命令级越界；pin `TREE_NO_ESCALATION_NOTE=cfe96e8a…`、`tree-view.ts=b4392d65…`、`tree-ops.ts=4163a6cb…`（本审查 `sha256sum` 复算一致）；pin 注释含**旧值/新值/日期/来源/理由/历史保留**（insight-archive.test.ts:92-119）；`insight-archive` 反证「扩一个动作必须改变哈希」仍有效（:721-722） |
+| 8 | deny 控件分层 + 档案类名隔离 | **接受（正当隔离）**（详见 R2-6） | 硬底线行零 `[data-action-id]` + `.tree-clamp-reason`（tree-drawer.ts:635-638；#I-12a 真实 DOM）；非硬底线 3 档；**两路径同一写通路**（tree-drawer 仅调 `deps.actions.run`，`grep makeMessage/transport` 于 tree-drawer=0 命中，唯一发送在 tree-ops）；档案用 `.tree-archive-policy*`（无 `data-action-id`）→ `#I-19g` 保持；#I-21e 证明档案真实落盘 |
+| 9 | D-R2B-02 未知/非法 risk → deny | **接受** | `clampActionForRisk`：`risk undefined/invalid && desired==='allow' → 'deny'`（command-override.ts:101-105）；test ③ `sleep`/`web-cli-help` 覆盖 allow → 真实 dispatch `ok=false`、`asked=0`（实跑 pass）——**无「改 deny 实际仍 allow」**；与 `AC-V2-025③` 一致。模型侧 `hardFloor='s3-unknown-risk'` → `overridable=false` 零控件（D-R2B-02 如实登记） |
+| 10 | 布局守卫多状态 | **接受（未重跑 UI，依据 build 日志抽读）** | 状态：关(#I-05~10)/开(#I-05~10)/深展开(#I-20i/j)/收起(#I-20k)/档案开(#I-19h)；drift 字段 `logFlexGrow/logClientHeight/logRatio/composerGapToBottom/docOverflowX/logOverflowX` 全 0；阈值真实 589px/65.0%/composer∈[0,+8]/320px；build 日志 `final-04` 显示 `#I-20j/#I-20k … drift=0` 且 **PASS 102**。**本审查未重跑 `test:insight`** |
+| 11 | 断言取代台账 | **数量只增成立；字面 `removed=0` 不成立** | 独立复算 `git diff -U0 \| grep '^-[^-]'`（test+src）=**470 行删除**，其中 test 面删除行含 10 处 `test('…')` 标题与约 40 处 `assert.*` 行；每条旧 title 均有 S 编号 old→new（`command-allow` 负例保留）；总数：node `test(` 646→690、`insight.mjs check(` 57→75、`binding.mjs check(` 185→197、`journey.mjs` **0 行 diff**；硬底线/安全断言保留并强化（sha256 pin + clampReason）。**结论见 A4** |
+| 12 | 安全红线零放宽 | **接受** | 独立 `sha256sum`：`policy.ts=bfcb2ede…`✓、`auto-authorize.ts=1096d065…`✓；`manifest.json`/base/v1/content 零 diff；`content.js=1,073,453 B`（零增长）；无新依赖 |
+| 13 | 门禁真伪（空断言/bare catch/冻结/反证） | **接受** | 新测试无 `assert.ok(true)`/无 `catch`；`src/` 无 bare catch（`grep -E 'catch\s*(\([^)]*\))?\s*\{\s*\}'` 于 insight/ui-tree 0 命中）；冻结主用 sha256（内容哈希），legacy `git diff HEAD` 仅保留并注释（T1）；反证 `assert.throws` 真抛（sha256 篡改 / 判定表弱化） |
+| 14 | `binding.mjs` flake（2/3） | **判为环境抖动，非真缺陷**（详见 R2-6） | flake 落于**既有** `#33B1`（设置视图渲染）/`#3d~#3f`（discovery），与 R2 无关；`binding.mjs` R2 diff **append-only（0 删除行）**，未改这两段逻辑；build 日志 `final-07`/`final-07b` 显示失败点即上述两段、`final-07c` **PASS 192**。**残留**：2/3 频率偏高（T4） |
+| 15 | 文档一致性 | **⚠️ 有漂移（提示 A6）** | `dev.md` 一致；`capability-matrix.md` 零改动不冲突；`smoke-checklist.md` §8 新增澄清，但 **§5 仍写「test:insight 70 断言」**（实测 102）、**§7 仍写「档案是只读展示面…无任何命令级控件」**（R2 已可操作），仅靠 §8 事后指针，**存在读者误读风险** |
+
+---
+
+## R2-4. `dom`/`ui` 档张力判定（关键点 4）
+
+**判定：口径自洽、安全，不构成对 spec `ui` 档「不得放宽」约束的规避。**
+
+- **口径**：clamp 判据 = **被调用 `(tool, subcommand)` 的 effective risk**（`router.ts:543`），而非工具级 `entry.risk`。`dom` 工具级仅作**设置载体/继承**（`overridable:true`），每个子命令按各自风险再 clamp（ADR-V2-025 §3）。
+- **安全验证（独立）**：设 `cmd:dom=allow` 后，`dom click`（`subcommandRisks['click']='ui'`）经 clamp `ui && allow → null` 落回 `riskDefaults['ui']='ask'` → 真实 `host.dispatch` **仍 ask**（`insight-override-security.test.ts:258-263`，本审查实跑 pass）。即**不存在**「工具级 `dom`=allow 意外放宽 `dom` 下 ui/破坏性子命令」的路径；破坏性子命令同理（`allow`→`null`→保底 `ask`）。
+- **是否规避 spec**：spec §5.7 `ui` 行「❌不得放宽为 allow」= **运行时不可放宽**——本实现满足（allow 被 clamp，绝不 allow）；`dom`/`dom read-state` 三档全可达（作者示例）由容器载体 + read 档实现。故**不构成规避**。
+- **残留风险（A1，非阻塞）**：spec §5.7 对 `ui`/`state`/`external`/破坏性标注「✅ 可覆盖为 ask/deny（收紧仍可）」，但投影层 `resolveCommandPolicy` 对这些档返回 `overridable:false ⇒ controls:[]`（command-override.ts:106-111/151-155；command-catalog.ts:227）→ **节点层无收紧控件**；呈现上把「no-widen」与「hard floor（零控件）」合并。运行时收紧仍可用（`clamp` 对非 allow 返回 desired；test ⑤/④ 已验证 ask/deny 生效），且可经**工具级载体**收紧（如 `dom=deny` 传导至 `dom click`）；但**叶子 ui/state/external 工具无任何树内收紧入口**。方向恒为收紧，**无安全风险**，属功能/条文一致性问题——**不阻塞**，建议后续为 no-widen 档暴露 ask/deny 控件或在 spec/ADR 显式登记「有意收窄」。
+
+---
+
+## R2-5. 断言取代台账独立核验
+
+| 项 | 本审查核验 | 结果 |
+|----|-----------|:--:|
+| 旧 test 标题是否有 old→new | 10 处被删 `test('…')` 标题对应 S1/S2/S3/S4/S5/S6/S7/S8/S9/S10/S11/S13/S14/S15/S16 台账 | ✅ 有据（size W4 另由 R2-V22-05 取代） |
+| 逐文件是否有**净减少** | `insight-archive 26→28`、`insight-no-escalation 17→17`、`size-budget 14→14`、`tree-ops 10→12`、`tree-view 8→10`、新增 3 文件（16/12/10） | ✅ 无文件减少 |
+| 总数不减 | node `test(` **646→690**（本审查静态复算；运行 `npm test`=690）；`insight.mjs check(` **57→75**（运行期 102）；`binding.mjs check(` **185→197**（运行期 192） | ✅ 只增 |
+| 硬底线/安全断言只增 | `POLICY_TS_SHA256`/`AUTO_AUTHORIZE_TS_SHA256`/判决表快照 pin **不变**；deny 分层由「一律零控件」改为「硬底线零控件 + 非硬底线可改回」，**硬底线零控件 + clampReason 保留并强化**；#I-12a 新增 | ✅ |
+| `journey.mjs` 零改动 | `git diff a955a7f^..ff32683 -- test/ui/journey.mjs` = **0 行** | ✅ |
+| **字面 `removed=0`** | 区间删除行 **470**（test+src）；test 面含 `assert.*` 删除约 40 行 | ❌ **字面不成立**（见 A4；实质=「无未取代删除 + 总数不减」） |
+| 计数台账基线数字 | build 记 node「686→690」；本审查静态复算 **646→690**；v2 收口 build 另记「616/616」——三处不一致 | ❌ 基线数字不可复现（A8） |
+
+---
+
+## R2-6. `binding.mjs` flake 判定 + 档案控件类名隔离判定
+
+**binding flake → 判为「环境抖动」，不判缺陷。** 依据：① flake 断言 `#33B1`（面板设置视图渲染）/`#3d~#3f`（discovery）均**非 R2 代码路径**，R2 未触碰该逻辑；② `git diff` 显示 `binding.mjs` R2 改动为**纯追加**（0 删除行），未改这两段；③ build 落盘 `final-07`（#33B1 失败）/`final-07b`（#3d 失败）/`final-07c`（**PASS 192**）显示**不同**失败点，符合时序抖动而非确定性缺陷；④ 本审查未重跑（OOM 纪律），未发现「复跑绿掩盖真问题」的证据。**残留**：2/3 频率偏高（T4）——建议后续为该 harness 加就绪等待以降低抖动，但**不阻塞**。
+
+**档案控件类名隔离 → 判为「正当的类名隔离」，非规避取巧。** 依据：① R2 **显式反转** FR-V2-052 原「档案只读展示、无任何命令级覆盖」→ 规格上允许档案卡对**可覆盖**条目承载控制（AC-V2-026）；② 若复用 `.tree-control`/`data-action-id` 会与 `#I-19g` 冲突，故采**自有类** `.tree-archive-policy*`（无 `data-action-id`），但**写入路径仍唯一**（`deps.actions.run`→tree-ops→`command-policy-set`，`#I-21e` 真实落盘证据）；③ 新增能力有**独立**断言 `#I-21a~e`（硬底线零 `[data-policy]` + 原因；可覆盖三档；默认/生效分列；真实写），未靠「让旧断言继续绿」来隐藏回归；④ 决策在 build §2、smoke-checklist §8 显式登记。**保留**：`#I-19g` 标签仍写「安全红线」而其语义已收窄为「档案不复用树行控件类」，叠加 §7 stale 文案，存在误读风险（T3/A6）。
+
+---
+
+## R2-7. 门禁真伪结论（有无虚绿 / 空断言 / bare catch / 冻结机制 / 反证）
+
+| 门禁（R2 相关） | 本审查 | 可证伪性 | 虚绿风险 |
+|------|:--:|------|:--:|
+| `command-override` | ✅ 16/16（实跑） | §5.7 逐档表 + 半写/并发/降级/弱文档/审计 pin | 无 |
+| `insight-override-security` | ✅ 10/10（实跑） | ①~⑧b 真实 dispatch；⑧b naive 策略**确实放行**（非空洞） | 无 |
+| `insight-tree-hierarchy` | ✅ 12/12（实跑） | 真层级反证（扁平化→FAIL）、唯一性、hash 输入零变化 | 无 |
+| `insight-archive` | ✅（实跑，含 pin） | `TREE_ACTION_IDS` 9 值 sha256；扩动作必变哈希；硬底线零 `policyControl` 反证 | 无 |
+| `insight-no-escalation` | ✅（实跑） | 内容哈希 pin + 单字节篡改 `assert.throws` + 判定表弱化 FAIL | 无（legacy `git diff HEAD` 弱冻结保留，T1） |
+| `tree-ops` / `tree-view` | ✅（实跑） | 白名单 9/唯一映射/无默认写；硬底线零控件结构保证 | 无 |
+| **空断言 / bare catch** | 新测试 `assert.ok(true)`=0；新 `src/` bare catch=0 | — | 无 |
+| **冻结机制** | 主用**内容 sha256**（`assertPinnedHash`）；`git diff --quiet HEAD` 仅 legacy 保留+注释 | — | 无（附 T1） |
+| **反证是否真抛** | `assert.throws(/内容哈希漂移/)` 对篡改文本/弱化判定表（insight-no-escalation.test.ts:378-399；insight-archive 同款） | — | 无 |
+
+**结论：R2 新增/改动门禁无虚绿、无空断言、无 bare-catch 吞断言；冻结以内容哈希为准；反证真抛。**
+
+---
+
+## R2-8. 问题清单（R2）
+
+### 阻塞问题：**0 个**
+未发现安全底线违规、无绕过 clamp 的放宽路径、无判定链改动、无 base/v1/main 越界、无新增权限/依赖。
+
+### 建议（非阻塞）
+
+| # | 项 | 严重度 | 为何不阻塞 |
+|---|----|:--:|------|
+| **A1** | **no-widen 档节点层收紧缺失**：spec §5.7 对 `ui`/`state`/`external`/破坏性标「✅ 可覆盖为 ask/deny」，但投影把这些档与硬底线合并为 `overridable:false ⇒ controls:[]`，节点层无收紧控件；叶子 ui/state/external 工具无树内收紧入口（ADR-V2-025 §5「ask/deny 生效」与 ADR-V2-030 §2 存在口径不一致） | 中（低风险） | 方向恒为收紧、无放宽风险；运行时 tighten 生效、且可经工具级载体内收紧；作者示例不受影响 |
+| **A2** | **AC-V2-021 UI 侧「从非主归属下钻到同一节点」未实现**：`crossRefs` 仅渲染为纯文本（tree-drawer.ts:641-642），无点击跳转；`test:ui` 未断言下钻（仅模型 `ownershipNodeFor` 覆盖） | 中 | 节点唯一性/主归属/徽标计数均由模型与 node 门禁钉死；缺失 UI 跳转不影响安全与数据正确性 |
+| **A3** | **AC-V2-020 作者示例①「工具→子命令」真实 DOM 未达成**：site 工具 schema 无 `subcommand` enum → 快照 `subcommands=[]`；仅示例② + node 模型覆盖该层 | 低 | 已如实披露（build §2/§8、smoke §8）；层级能力本身由示例② 与模型证明 |
+| **A4** | **取代台账口径「removed=0」字面不成立**：区间删除 470 行（含 10 test 标题 + ~40 assert 行），实为「显式 old→new 取代 + 总数只增 + 硬底线只增」 | 低 | 每条旧断言均有 S 编号替代，无「未取代删除」；安全断言只增 |
+
+### 提示（非阻塞）
+
+| # | 项 | 说明 |
+|---|----|------|
+| **A5** | `isCommandDestructive` 采用**整串精确匹配**，弱于 v1 分段判据（`dom set-text/fill/type` 等 write 档可被放宽为 allow）；与 ADR-V2-025「末段」对现有子命令等价，但与 v1 `isDestructiveInvocation` 分段语义不同。建议补一条受影响子命令集合的固化断言 |
+| **A6** | `smoke-checklist.md` §5 仍写「test:insight 70 断言」（实测 102）、§7 仍写「档案是只读展示面…无任何命令级控件」（R2 已可操作）；仅 §8 事后澄清，存在读者误读风险。建议在 §5/§7 加「以 §8 为准」指针（不删历史） |
+| **A7** | `INSIGHT_MODEL_NOTE`（含「森林/非严格树」旧措辞）仍保留在快照 `meta.modelNote`（未渲染，但随 `insight-tree` 消息下发）；FR-V2-078 若计 payload 则残留，建议注释点明「仅历史/哈希输入，不渲染」 |
+| **A8** | 断言计数台账基线数字不可复现：build 记 node「686→690」，本审查静态复算 **646→690**，v2 收口 build 另记「616/616」；不变式（只增/无文件减少）成立，建议订正台账基线 |
+| **T1** | legacy `git diff --quiet HEAD` 弱冻结仍保留（真实冻结由 sha256 承担，已注释登记）——无风险，建议后续删除或改区间冻结 |
+| **T2** | `ArchiveCard.policyControl` 由门禁消费、渲染层自 `overridable` 重建按钮（同一写通路，非两套实现）；建议渲染消费 `policyControl` 以防两处漂移 |
+| **T3** | `#I-19g` 标签仍写「安全红线」，语义已收窄为「档案不复用 `.tree-control`/`data-action-id`」；建议补注已收窄，避免被读成「档案只读」 |
+| **T4** | `test:binding` 本轮 2/3 flake（`#33B1`/`#3d`）判为环境抖动、非 R2 缺陷；频率偏高，建议为既有 harness 就绪等待稳定化 |
+
+---
+
+## R2-9. 未覆盖项 / 偏差（如实）
+
+- **未由本审查重跑 Chromium 类门禁**（`test:ui` / `test:insight` / `test:binding` / `test:e2e` / `test:hardening`）：遵守 OOM 纪律（串行/绝不并发）。故 `AC-V2-020/021/022`（真实 DOM）与 `AC-V2-024`（binding 覆盖链）的**运行结果**以 build 落盘日志为据，并抽读核验（`final-04` PASS 102 含 #I-19g/#I-20b/#I-20a/#I-21e；`final-07c` PASS 192）——**不冒充本审查的 PASS**；其**断言存在性与逻辑**经静态全文阅读（R2-2/R2-3）。
+- **未逐行核验** `tree-drawer.ts` 全部焦点/DOM 事件管理的运行期正确性（属 validate 动手面）；`index.html` R2 增量为**纯 CSS**（本审查已确认无脚本/无凭据）。
+- **未实跑** browser-level 的 `binding #22a~l` 三档链（含真实二次确认）——仅读码 + build 日志。
+- **headless 不可覆盖**：真实键盘体感 / 读屏 / 原生弹窗 / 320px 拥挤度 / 展开动效——沿用 `smoke-checklist.md` §8 `V2-H-10~14`（`⏳ 待人工`，未冒充 PASS）。
+- **偏差**：A1~A8 / T1~T4（均非阻塞）。
+
+---
+
+## R2-10. 总体结论
+
+**结论：⚠️ 有条件通过（0 阻塞；4 建议 + 8 提示）**
+
+| 指标 | 结果 |
+|------|------|
+| R2 需求覆盖（FR-V2-070~079） | 10/10 有实现与对应门禁断言（C3~C10） |
+| 安全红线（R2） | **全部 PASS**：判定链零改动（sha256 独立复算）/ 服务端 clamp 承重（⑧a/⑧b 非空洞）/ 白名单 9 无默认写无 grant / 零放宽（①~⑤）/ 无新权限依赖 |
+| 规范符合率 | <100%（A1 no-widen 档节点收紧缺失；A2 UI 下钻缺失；A3 示例①子命令层未真实 DOM）——**均非安全方向** |
+| 代码质量（C1/C2） | ✅ 纯函数/kv 注入/无半写/串行/幂等/降级/审计零明文 |
+| 架构一致（C12/C13） | ✅ ADR-V2-024~033 一致；判定链零 diff |
+| 测试质量（C17~C19） | ✅ 数量只增、硬底线只增、journey 零改、反证真抛；⚠️ 字面 removed=0 不成立（A4）、台账基线数字不一致（A8） |
+| 权限/红线（C20） | ✅ manifest/base/content/v1/依赖零改动；`content.js` 零增长 |
+| 门禁运行（C22） | node `npm test` 独立 **690/690·0 fail**；UI/binding 未重跑（如实） |
+| 新增阻塞 | **0** |
+
+**判定理由**：R2 的核心是「真层级树（不复制节点）+ 命令级用户覆盖层（服务端 clamp）」。本审查以**独立读码 + 独立哈希/计数复算 + node 门禁实跑**核验：clamp 判据取**被调用子命令的 effective risk**、`dom`=allow 时 `dom click`（ui）**仍 ask**（真实 dispatch 验证）——`dom`/`ui` 张力**自洽、安全、非规避**（残留 A1 为保守方向的条文不一致）；服务端强制反证 ⑧a/⑧b **真实非空洞**；存储生命周期六项**逐条成立**；白名单 7→9 与 pin（`71f743ed…`/`cfe96e8a…`/tree 模块）**独立复算一致**、old→new+日期+理由+历史齐备；判定链文件 sha256 仍等于 P0 pin、base/manifest/content/v1/依赖零 diff。`binding` 2/3 flake 判为**环境抖动（非真缺陷）**；档案控件类名隔离判为**正当隔离（非规避）**——两者均在报告中留残留风险但**不阻塞**。剩余 4 建议 + 8 提示为**条文一致性 / UI 完整性 / 文档口径 / 防漂移**层面，**不阻塞**进入 validate。据此判为 **⚠️ 有条件通过**，可进入 `@sddu-validate` 动手验证（重点复核 A1/A2/A3 与真实 Chromium 面）。
+
+**R2 审查记录**：本 R2 段 + `state.json`（`revisionRounds.R2.review`）随本轮 review 提交（`feature/web-cli-plugin`）；提交 hash 与 push 输出见交付摘要（本轮对话）。
+
+---
+
+## 修订记录（R2 追加）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | R1 审查（P0 = V2-1/V2-2/V2-3），见上 | 2026-09-13 | SDDU Review Agent |
+| **v2.0** | **R2 审查（追加，不覆盖 R1）**：区间 `a955a7f`（R2 spec）→ `ff32683`（R2 build 2 + hash 回填）。C1~C22（R2）逐项；15 项关键点独立复核（作者两例/多归属/clamp 真实链/`dom`·`ui` 张力/服务端强制/存储生命周期/白名单+pin/deny 分层+档案类隔离/D-R2B-02/布局多状态/取代台账/零放宽/门禁真伪/binding flake/文档一致）；`dom`·`ui` 张力判为**自洽安全非规避**；取代台账**字面 removed=0 不成立**（A4）；`binding` flake 判为**环境抖动**；档案类名隔离判为**正当隔离**；门禁真伪无虚绿、反证真抛。node `npm test` **690/690·0 fail**（本审查实跑），Chromium 类未重跑（如实）。问题清单 **0 阻塞 + 4 建议 + 8 提示**。**结论 ⚠️ 有条件通过（0 阻塞）** | 2026-09-13 | SDDU Review Agent |
