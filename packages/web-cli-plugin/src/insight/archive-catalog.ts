@@ -132,11 +132,21 @@ export interface ArchiveCard {
   effectiveAction: PolicyAction;
   /** R2：是否可被用户在树内覆盖（硬底线 `false`）。 */
   overridable: boolean;
+  /**
+   * R2 修复轮（A1）：只可收紧档（`ui`/`state`/`external`/破坏性写）。
+   * `true` ⇒ `policyControl.options` 只含 `ask`/`deny`（**不含 `allow`**）。
+   */
+  tightenOnly?: boolean;
   /** R2：不可覆盖原因（硬底线可读）。 */
   clampReason?: ClampReason;
   /** R2：不可覆盖原因可读文案。 */
   clampReasonLabel?: string;
-  /** R2：可覆盖卡的控件描述（硬底线卡为 `undefined` —— 分层结构保证）。 */
+  /**
+   * R2：控件描述（**非**可执行控件）。
+   *
+   * 可覆盖卡 = `allow`/`ask`/`deny` 三档；只可收紧卡 = `ask`/`deny` 两档；硬底线卡 =
+   * `undefined`（分层结构保证）。
+   */
   policyControl?: ArchivePolicyControl;
 }
 
@@ -312,6 +322,7 @@ function toCard(node: CommandNode): ArchiveCard {
   const causeLabel = node.denyCause ? DENY_CAUSE_LABEL[node.denyCause] : undefined;
   const autoInput = { group: node.group, risk: node.risk, ...(origin ? { origin } : {}) };
   const overridable = node.overridable === true;
+  const tightenOnly = node.tightenOnly === true;
   const clampReasonLabel = node.clampReason ? CLAMP_REASON_LABEL[node.clampReason] : undefined;
   return {
     cardId: node.cardId,
@@ -335,6 +346,7 @@ function toCard(node: CommandNode): ArchiveCard {
     ...(node.overrideAction ? { overrideAction: node.overrideAction } : {}),
     effectiveAction: node.effectiveAction,
     overridable,
+    ...(tightenOnly ? { tightenOnly: true } : {}),
     ...(node.clampReason ? { clampReason: node.clampReason } : {}),
     ...(clampReasonLabel ? { clampReasonLabel } : {}),
     ...(overridable
@@ -347,7 +359,17 @@ function toCard(node: CommandNode): ArchiveCard {
             })),
           },
         }
-      : {}),
+      : tightenOnly
+        ? {
+            policyControl: {
+              kind: 'command-policy' as const,
+              options: (['ask', 'deny'] as PolicyAction[]).map((policyAction) => ({
+                policyAction,
+                selected: node.effectiveAction === policyAction,
+              })),
+            },
+          }
+        : {}),
   };
 }
 
@@ -567,8 +589,9 @@ function commandNodes(snapshot: ConnectTreeSnapshot): CommandNode[] {
 }
 
 const READ_ONLY_NOTE =
-  '分层展示（R2）：硬底线卡（evaluate / 未授权 origin / 未知 risk / 破坏性 / ui·state·external 放宽方向）无任何命令级控件并展示不可覆盖原因；' +
-  '非硬底线命令卡可按 allow/ask/deny 分层设置（写入经唯一动作执行通路，服务端 clamp 仍强制）。' +
+  '分层展示（R2）：硬底线卡（evaluate / 未授权 origin / 未知 risk）无任何命令级控件并展示不可覆盖原因；' +
+  '只可收紧卡（破坏性写 / ui·state·external 放宽方向）可设 ask/deny（收紧），**不提供 allow**；' +
+  '可覆盖命令卡可按 allow/ask/deny 分层设置（写入经唯一动作执行通路，服务端 clamp 仍强制）。' +
   'deny / delay（= deny，fail-closed）本身不可放宽。';
 
 const NO_EXAGGERATION_NOTE =

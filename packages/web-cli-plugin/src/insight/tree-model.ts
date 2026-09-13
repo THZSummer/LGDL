@@ -200,6 +200,14 @@ export interface CommandNode {
   effectiveAction: PolicyAction;
   /** R2：是否可被用户在树内覆盖（硬底线 `false`）。 */
   overridable: boolean;
+  /**
+   * R2 修复轮（A1）：**只可收紧**档（`ui`/`state`/`external`/破坏性写）。
+   *
+   * `overridable===false && tightenOnly===true` ⇒ 节点级提供 `ask`/`deny` **两档**控件
+   * （**不含 `allow`**）；`clampReason` 仍可读。`tightenOnly===false && overridable===false`
+   * 才是零控件的硬底线（evaluate / S1 / S3）。
+   */
+  tightenOnly?: boolean;
   /** R2：不可覆盖原因（`overridable===false` 时可读）。 */
   clampReason?: ClampReason;
 }
@@ -326,9 +334,16 @@ export interface InsightSummary {
   overrideCount?: number;
 }
 
-/** 如实声明「森林，非严格单树」（FR-V2-010）。 */
+/**
+ * 如实声明「按归属的真层级树 + 多归属交叉引用」（FR-V2-010〔R2·形式被 FR-V2-070 取代〕/ FR-V2-071）。
+ *
+ * R2 修复轮（A7）：旧措辞「四维度分组视图（森林）…非严格单树」是 R2 前的**扁平**形态描述，
+ * 与 R2 真层级树不一致（该字段随 `insight-tree` 消息下发，虽不直接渲染）。此处订正为与
+ * `tree-view.ts#TREE_MODEL_NOTE` 一致的层级树措辞，并保留「不复制节点」的诚实说明。
+ */
 export const INSIGHT_MODEL_NOTE =
-  '四维度分组视图（森林），以「本插件」为根；允许跨层引用，非严格单树';
+  '按归属的层级树：以「连接树」为根，按主归属逐层展开（授权的站点 / 支持的命令 / 浏览器能力 / LLM 连接）；' +
+  '多归属以交叉引用表达，同一节点不复制';
 
 export const INSIGHT_ROOT_LABEL = '本插件';
 

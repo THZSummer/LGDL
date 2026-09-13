@@ -25,6 +25,7 @@
 import type { PolicyAction } from '@lgdl/web-cli-base';
 import { OPTIONAL_CAPABILITY_TOOL, type OptionalCapability } from '../../platform/capability-permissions.js';
 import {
+  type CrossRefTarget,
   type OwnershipNode,
   type OwnershipNodeKind,
 } from '../../insight/ownership-tree.js';
@@ -169,6 +170,8 @@ export interface TreeRow {
   emptyHint?: string;
   /** 跨层引用（展示用标签，不复制节点）。 */
   crossRefs: string[];
+  /** R2 修复轮（A2）：出站交叉引用（可交互下钻到目标节点主归属位置）。 */
+  crossTargets: CrossRefTarget[];
   /** 命令行：**生效**处置档（effective；filter 口径）。 */
   action?: PolicyAction;
   /** 命令行：来源分类。 */
@@ -191,6 +194,11 @@ export interface TreeRow {
   effectiveAction?: PolicyAction;
   /** R2：是否可被用户在树内覆盖（硬底线 `false`）。 */
   overridable?: boolean;
+  /**
+   * R2 修复轮（A1）：只可收紧档（`ui`/`state`/`external`/破坏性写）。
+   * `tightenOnly===true` ⇒ 节点级 `ask`/`deny` 两档控件（**无 `allow`**）+ `clampReasonLabel`。
+   */
+  tightenOnly?: boolean;
   /** R2：不可覆盖原因（硬底线可读）。 */
   clampReason?: ClampReason;
   /** R2：不可覆盖原因可读文案（`.tree-clamp-reason`）。 */
@@ -334,13 +342,16 @@ export function confirmationSummary(actionId: TreeActionId, targetText: string):
 // ---------------------------------------------------------------------------
 
 /**
- * 命令行控件（R2 分层）：
- *   - 硬底线（`overridable===false`）⇒ `[]`（零控件；原因由 `clampReasonLabel` 可读）；
+ * 命令行控件（R2 分层；R2 修复轮 A1 补齐叶子层收紧入口）：
+ *   - 硬底线（evaluate / S1 / S3）⇒ `[]`（零控件；原因由 `clampReasonLabel` 可读）；
+ *   - 只可收紧（`ui`/`state`/`external`/破坏性写）⇒ `ask`/`deny` 两档（**结构上过滤掉 `allow`**）；
  *   - 可覆盖 ⇒ 该节点恰 3 个 `command-policy` 控件（allow/ask/deny）。
  */
 function commandControls(node: CommandNode): ControlDescriptor[] {
-  if (node.overridable !== true) return [];
-  return node.controls.filter((c) => c.kind === 'command-policy');
+  const policy = node.controls.filter((c) => c.kind === 'command-policy');
+  if (node.overridable === true) return policy;
+  if (node.tightenOnly === true) return policy.filter((c) => c.policyAction !== 'allow');
+  return [];
 }
 
 /** 能力行控件：静态权限永无 revoke；可选能力仅授予后给 revoke；开关给 toggle。 */
@@ -479,6 +490,7 @@ function commandRow(node: CommandNode, ownership: OwnershipNode): TreeRow {
     badges: [...node.badges],
     controls: commandControls(node),
     crossRefs: [...ownership.crossRefLabels],
+    crossTargets: [...ownership.crossTargets],
     action: node.effectiveAction,
     sourceKind: node.sourceKind,
     ...(node.denyCause ? { denyCause: node.denyCause } : {}),
@@ -491,6 +503,7 @@ function commandRow(node: CommandNode, ownership: OwnershipNode): TreeRow {
     ...(node.overrideAction ? { overrideAction: node.overrideAction } : {}),
     effectiveAction: node.effectiveAction,
     overridable: node.overridable === true,
+    ...(node.tightenOnly === true ? { tightenOnly: true } : {}),
     ...(node.clampReason ? { clampReason: node.clampReason } : {}),
     ...(node.clampReason ? { clampReasonLabel: CLAMP_REASON_LABEL[node.clampReason] } : {}),
     matches: false,
@@ -511,6 +524,7 @@ function structuralRow(ownership: OwnershipNode, dimension: Dimension | 'root'):
     badges: [],
     controls: [],
     crossRefs: [...ownership.crossRefLabels],
+    crossTargets: [...ownership.crossTargets],
     ...(ownership.kind === 'face' && faceDimension ? { emptyHint: GROUP_EMPTY_HINT[faceDimension] } : {}),
     matches: false,
     children: [],

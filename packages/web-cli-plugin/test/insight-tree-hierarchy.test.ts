@@ -8,14 +8,17 @@
  *   - 覆盖面 `live` vs `baseline` **分列**、不夸大（FR-V2-079）；
  *   - **快照扁平面与 `meta.hash` 输入零变化**（对账/确定性/parity/archive 前提）；
  *   - 反证：把归属树改回扁平 → FAIL；把 live 计数改成 baseline → FAIL；
- *   - `removed=0`：`insight-projection` / `insight-determinism` / `insight-catalog`
- *     既有断言 `git diff --unified=0` 零删除行。
+ *   - 取代台账（A4 订正口径）：**无未取代删除**（受保护文件每一行删除均有 old→new 台账依据）
+ *     + `test(` 总数不减 + `journey.mjs` 零 diff；字面 `removed=0` 经 R2 审查复核**不成立**，
+ *     台账登记 `literalRemovedZero:false`（历史表述保留、口径订正）。
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { projectInsightTree, type InsightSource } from '../src/insight/project-tree.js';
+import { toolSubcommands } from '../src/insight/command-catalog.js';
 import {
   OWNERSHIP_FACE_LABELS,
   OWNERSHIP_ROOT_LABEL,
@@ -198,6 +201,30 @@ test('R2 hierarchy: multi-ownership uses a unique main chain + cross-ref badge (
   assert.equal(staticTabs.crossRefCount >= 1, true);
 });
 
+// R2 fix round (A2 / AC-V2-021): the non-main-ownership cross reference is an
+// interactive drill-down target that resolves to the SAME unique node (no copy).
+test('R2 hierarchy (A2): outbound cross-refs resolve to the same unique main-owner node', () => {
+  const snapshot = projectInsightTree(source());
+  const nodes = collectOwnershipNodes(snapshot.ownershipTree);
+
+  const bookmarksTool = nodes.find((n) => n.nodeId === 'cmd:bookmarks');
+  assert.ok(bookmarksTool, 'cmd:bookmarks must exist');
+  const toCapability = bookmarksTool!.crossTargets.find((t) => t.nodeId === 'cap:opt:bookmarks');
+  assert.ok(toCapability, 'cmd:bookmarks must carry an outbound cross-ref to cap:opt:bookmarks');
+  assert.equal(toCapability!.faceLabel, '能力面');
+  assert.ok(toCapability!.targetLabel.length > 0);
+  // Drill-down resolves to exactly one node (same id; the multi-owned node is not copied).
+  const resolved = nodes.filter((n) => n.nodeId === 'cap:opt:bookmarks');
+  assert.equal(resolved.length, 1, 'the cross-ref target must resolve to a single node (no copy)');
+  assert.equal(resolved[0]!.id, 'cap:opt:bookmarks');
+  assert.equal(resolved[0]!.mainOwner, 'capability');
+
+  // Reverse proof: a same-face link is NOT a cross-ref (outbound only across faces).
+  const readState = nodes.find((n) => n.nodeId === 'cmd:dom#read-state');
+  assert.ok(readState);
+  assert.deepEqual(readState!.crossTargets, [], 'same-face links must not be outbound cross-refs');
+});
+
 // ---------------------------------------------------------------------------
 // AC-V21-010：默认档 / 生效档分列 + clamp 逐档（父 §5.7 表）
 // ---------------------------------------------------------------------------
@@ -221,13 +248,15 @@ test('R2 hierarchy: default vs effective action split + clampReason matches the 
   assert.equal(readState.overridable, true);
   assert.equal(readState.controls.length, 3);
 
-  // ui 档：不得放宽 → 硬底线（零控件 + 可读原因）。
+  // ui 档：不得放宽 → 只可收紧层（ask/deny 两档控件 + 可读原因；A1）。
   const click = commandById(snapshot, 'cmd:dom#click');
   assert.equal(click.defaultAction, 'ask');
   assert.equal(click.effectiveAction, 'ask');
   assert.equal(click.overridable, false);
+  assert.equal(click.tightenOnly, true);
   assert.equal(click.clampReason, 'ui-no-widen');
-  assert.equal(click.controls.length, 0);
+  assert.deepEqual(click.controls.map((c) => c.policyAction), ['ask', 'deny'], 'ui tier exposes tighten-only ask/deny');
+  assert.equal(click.controls.some((c) => c.policyAction === 'allow'), false, 'ui tier must never offer allow');
 
   // 非破坏性 write 档：可覆盖。
   const type = commandById(snapshot, 'cmd:dom#type');
@@ -235,18 +264,21 @@ test('R2 hierarchy: default vs effective action split + clampReason matches the 
   assert.equal(type.overridable, true);
   assert.equal(type.controls.length, 3);
 
-  // 破坏性子命令：保底 ask（不可放宽）。
+  // 破坏性子命令：保底 ask（只可收紧）。
   const remove = commandById(snapshot, 'cmd:dom#remove');
   assert.equal(remove.overridable, false);
+  assert.equal(remove.tightenOnly, true);
   assert.equal(remove.clampReason, 'destructive-floor');
   assert.equal(remove.effectiveAction, 'ask');
-  assert.equal(remove.controls.length, 0);
+  assert.deepEqual(remove.controls.map((c) => c.policyAction), ['ask', 'deny']);
+  assert.equal(remove.controls.some((c) => c.policyAction === 'allow'), false);
 
-  // 未知 risk（S3）：fail-closed deny，不可覆盖。
+  // 未知 risk（S3）：fail-closed deny，硬底线零控件。
   const mystery = commandById(snapshot, 'cmd:mystery');
   assert.equal(mystery.defaultAction, 'deny');
   assert.equal(mystery.denyCause, 's3-unknown-risk');
   assert.equal(mystery.overridable, false);
+  assert.equal(mystery.tightenOnly, undefined);
   assert.equal(mystery.clampReason, 's3-unknown-risk');
   assert.equal(mystery.effectiveAction, 'deny');
   assert.equal(mystery.controls.length, 0);
@@ -276,8 +308,12 @@ test('R2 hierarchy: state / external / evaluate tiers are clamped (no widening)'
   });
   assert.equal(commandById(custom, 'cmd:x-state').clampReason, 'state-no-widen');
   assert.equal(commandById(custom, 'cmd:x-state').overridable, false);
+  assert.equal(commandById(custom, 'cmd:x-state').tightenOnly, true);
+  assert.deepEqual(commandById(custom, 'cmd:x-state').controls.map((c) => c.policyAction), ['ask', 'deny']);
   assert.equal(commandById(custom, 'cmd:x-external').clampReason, 'external-no-widen');
+  assert.equal(commandById(custom, 'cmd:x-external').tightenOnly, true);
   assert.equal(commandById(custom, 'cmd:x-evaluate').clampReason, 'evaluate');
+  assert.equal(commandById(custom, 'cmd:x-evaluate').tightenOnly, undefined);
   assert.equal(commandById(custom, 'cmd:x-evaluate').effectiveAction, 'deny');
   assert.equal(commandById(custom, 'cmd:x-evaluate').controls.length, 0);
   assert.equal(commandById(custom, 'cmd:x-read').overridable, true);
@@ -402,14 +438,67 @@ test('R2 hierarchy: buildOwnershipTree is deterministic and does not mutate the 
 });
 
 // ---------------------------------------------------------------------------
-// removed=0：既有断言零删改（git diff --unified=0 无删除行）
+// A3：站点工具的子命令枚举回退（真实 DOM 示例①「工具→子命令」的前提）
 // ---------------------------------------------------------------------------
+
+test('R2 A3: toolSubcommands prefers schema enum and falls back to subcommandRisks (site-declared)', () => {
+  // plugin/base tools declare the enum explicitly.
+  assert.deepEqual(
+    toolSubcommands({ schema: { parameters: { properties: { subcommand: { enum: ['list', 'open'] } } } }, subcommandRisks: { list: 'read' } }),
+    ['list', 'open'],
+  );
+  // site-declared tools have no enum but carry `subcommandRisks` (declaration order preserved).
+  assert.deepEqual(toolSubcommands({ schema: { parameters: { properties: {} } }, subcommandRisks: { list: 'write', show: 'write' } }), [
+    'list',
+    'show',
+  ]);
+  // opaque tool → [] (unchanged behaviour; S3 fail-closed downstream).
+  assert.deepEqual(toolSubcommands({ schema: { parameters: {} } }), []);
+  assert.deepEqual(toolSubcommands({}), []);
+  // Reverse proof: without the fallback a site tool would expose no subcommands.
+  assert.equal(toolSubcommands({ schema: { parameters: { properties: { subcommand: { description: '子命令（可选：list / show）' } } } } }).length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// removed=0 → A4 订正口径：无未取代删除 + 总数不减 + journey 零 diff
+// ---------------------------------------------------------------------------
+
+const REPO_ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
+/** 运行期工作目录 = 插件包根（`npm test` 在 package 目录执行；源码与 `dist-test` 两种形态通用）。 */
+const PLUGIN_ROOT = `${process.cwd()}/`;
 
 const PROTECTED_EXISTING_TESTS = [
   'packages/web-cli-plugin/test/insight-projection.test.ts',
   'packages/web-cli-plugin/test/insight-determinism.test.ts',
   'packages/web-cli-plugin/test/insight-catalog.test.ts',
 ] as const;
+
+const JOURNEY_V1_GATE = ['packages/web-cli-plugin/test/ui/journey.mjs'] as const;
+
+/** R2 起点（spec 修订轮提交）；区间删除以此基线核验。 */
+const R2_BASE = 'a955a7f';
+
+interface LedgerEntry {
+  id: string;
+  file: string;
+  oldTitle: string;
+  newTitle: string;
+  reason: string;
+}
+
+interface Ledger {
+  metric: string;
+  literalRemovedZero: boolean;
+  literalRemovedZeroNote: string;
+  journey: { file: string; policy: string };
+  counts: { nodeTests: { before: number; afterR2: number } };
+  entries: LedgerEntry[];
+  protectedFileOldLines: string[];
+}
+
+function readLedger(): Ledger {
+  return JSON.parse(readFileSync(`${PLUGIN_ROOT}docs/r2-supersession-ledger.json`, 'utf8')) as Ledger;
+}
 
 /** 从 unified diff 抽取删除行（排除 `---` 文件头）。 */
 export function parseDeletedLines(diff: string): string[] {
@@ -420,18 +509,71 @@ export function parseDeletedLines(diff: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-/** 删除行；非 git 仓库 / git 缺失 → 抛出（绝不吞成假绿）。 */
-function deletedLines(paths: readonly string[]): string[] {
-  const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
-  const diff = execFileSync('git', ['-C', repoRoot, 'diff', '--unified=0', 'HEAD', '--', ...paths], {
-    encoding: 'utf8',
-  });
+/** `rev`（HEAD / 区间起点 / 工作区）相对工作区的删除行；git 缺失 → 抛出（绝不吞成假绿）。 */
+function deletedLines(rev: string, paths: readonly string[]): string[] {
+  const diff = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--unified=0', rev, '--', ...paths], { encoding: 'utf8' });
   return parseDeletedLines(diff);
 }
 
-test('R2 hierarchy: existing projection/determinism/catalog assertions have zero deletions (removed=0)', () => {
-  const deleted = deletedLines(PROTECTED_EXISTING_TESTS);
-  assert.deepEqual(deleted, [], `既有断言禁止删除；发现删除行：${JSON.stringify(deleted.slice(0, 5))}`);
+/** `rev` 相对工作区是否有任何 diff（含新增）。 */
+function hasDiff(rev: string, paths: readonly string[]): boolean {
+  try {
+    execFileSync('git', ['-C', REPO_ROOT, 'diff', '--quiet', rev, '--', ...paths], { encoding: 'utf8' });
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/** 工作区 test/*.test.ts 的静态 `test(` 计数（与审查复算同法）。 */
+function currentNodeTestCount(): number {
+  let total = 0;
+  for (const file of readdirSync(`${PLUGIN_ROOT}test`).filter((f) => f.endsWith('.test.ts'))) {
+    const text = readFileSync(`${PLUGIN_ROOT}test/${file}`, 'utf8');
+    total += text.match(/\btest\(/g)?.length ?? 0;
+  }
+  return total;
+}
+
+test('R2 (A4): no unreplaced deletions (ledger-covered) + counts non-decreasing + journey zero-diff', () => {
+  const ledger = readLedger();
+
+  // 1) 口径订正已记录：字面 removed=0 不成立（false），正确口径在 metric。
+  assert.equal(ledger.literalRemovedZero, false, 'literal removed=0 must be recorded as superseded');
+  assert.match(ledger.metric, /无未取代删除/);
+  assert.match(ledger.metric, /总断言数不减/);
+
+  // 2) 台账逐条 old→new 齐备（S1~S16 + R2 修复轮 S19/S19b/S20）。
+  assert.ok(ledger.entries.length >= 16, 'ledger must enumerate the R2 supersessions');
+  for (const entry of ledger.entries) {
+    assert.ok(
+      entry.id && entry.file && entry.oldTitle && entry.newTitle && entry.reason,
+      `ledger entry incomplete: ${JSON.stringify(entry)}`,
+    );
+  }
+  assert.ok(ledger.entries.some((e) => e.id === 'S20'), 'A7 supersession (S20) must be recorded');
+
+  // 3) 受保护文件（既有断言）的**每一行删除**都必须命中台账 old 行（无未取代删除）。
+  const covered = ledger.protectedFileOldLines.map((line) => line.trim());
+  const protectedDeleted = [
+    ...deletedLines('HEAD', PROTECTED_EXISTING_TESTS),
+    ...deletedLines(R2_BASE, PROTECTED_EXISTING_TESTS),
+  ];
+  for (const line of protectedDeleted) {
+    assert.ok(
+      covered.some((c) => c === line || line.includes(c)),
+      `unreplaced deletion (no ledger entry): ${JSON.stringify(line)}`,
+    );
+  }
+
+  // 4) journey.mjs（v1 门禁）区间 + 工作区零 diff。
+  assert.equal(hasDiff('HEAD', JOURNEY_V1_GATE), false, 'journey.mjs must have zero working-tree diff');
+  assert.equal(hasDiff(R2_BASE, JOURNEY_V1_GATE), false, 'journey.mjs must have zero R2-range diff');
+
+  // 5) 总断言数不减（静态 `test(` 计数 ≥ 台账 before）。
+  const current = currentNodeTestCount();
+  assert.ok(current >= ledger.counts.nodeTests.before, `node test( count must not decrease: ${current} < ${ledger.counts.nodeTests.before}`);
+
   // 反证：删除行解析器在合成的 diff 上必须真的检出删除（避免解析器恒空导致假绿）。
   const synthetic = ['--- a/x.ts', '+++ b/x.ts', '@@ -1 +1 @@', '-const kept = true;', '+const kept = false;'].join('\n');
   assert.deepEqual(parseDeletedLines(synthetic), ['const kept = true;']);

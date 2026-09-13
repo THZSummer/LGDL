@@ -45,7 +45,7 @@ import { buildDiagMessage } from './diag-message.js';
 import { BUILD_STAMP } from '../build-info.js';
 import { createWebCliHost, type WebCliHost } from './host.js';
 import { buildInsightTree, summarizeInsight } from '../insight/build-snapshot.js';
-import { suppressedCapabilitySurface, type ToolSurfaceEntry } from '../insight/command-catalog.js';
+import { suppressedCapabilitySurface, toolSubcommands, type ToolSurfaceEntry } from '../insight/command-catalog.js';
 import { normalizeStableOrigin } from '../insight/tree-model.js';
 import { createAskBridge, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
@@ -1569,16 +1569,13 @@ function projectToolSurface(s: Singletons): ToolSurfaceEntry[] {
       entries.push({ name, subcommands: [], presentInSurface: true });
       continue;
     }
-    const params = entry.schema.parameters as
-      | { properties?: { subcommand?: { enum?: string[] } } }
-      | undefined;
-    const subEnum = params?.properties?.subcommand?.enum;
+    // R2 修复轮（A3）：schema enum 优先，站点声明工具回退到 `subcommandRisks` 键。
     entries.push({
       name: entry.name,
       ...(entry.group ? { group: entry.group } : {}),
       ...(entry.risk ? { risk: entry.risk } : {}),
       ...(entry.subcommandRisks ? { subcommandRisks: { ...entry.subcommandRisks } } : {}),
-      subcommands: Array.isArray(subEnum) ? [...subEnum] : [],
+      subcommands: toolSubcommands(entry),
       presentInSurface: true,
     });
   }

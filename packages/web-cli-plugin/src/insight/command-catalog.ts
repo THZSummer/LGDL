@@ -6,9 +6,11 @@
  * `action` 由 `PLUGIN_RISK_DEFAULTS` + S1/S3 + 开关抑制态推导，`risk` 取 base registry
  * 的 effective risk（`subcommandRisks[sub] ?? risk`）。
  *
- * 结构保证（R2 分层，ADR-V2-030）：**硬底线（`overridable===false`，含 evaluate/S1/S3/
- * 破坏性/ui·state·external 不放宽）⇒ `controls === []` 且 `clampReason` 可读**；**可覆盖
- * 节点 ⇒ 恰 3 个 `command-policy` 控件**（allow/ask/deny；非硬底线 `deny` 亦有控件可改回）。
+ * 结构保证（R2 分层，ADR-V2-030；R2 修复轮 A1 补齐叶子层收紧入口）：
+ * **硬底线（evaluate/S1/S3）⇒ `controls === []` 且 `clampReason` 可读**；**只可收紧档
+ * （`ui`/`state`/`external`/破坏性写，`tightenOnly===true`）⇒ `ask`/`deny` 两档控件（无
+ * `allow`）+ `clampReason` 可读**；**可覆盖节点 ⇒ 恰 3 个 `command-policy` 控件**
+ * （allow/ask/deny；非硬底线 `deny` 亦有控件可改回）。
  *
  * 默认档 / 覆盖生效档 **分列**（FR-V2-013）：`action`/`defaultAction` = risk 派生默认；
  * `effectiveAction` = 经硬底线 clamp 后的实际生效值（无覆盖 ≡ 默认，逐字节兼容）。
@@ -18,6 +20,7 @@
 import type { PolicyAction, ToolRisk } from '@lgdl/web-cli-base';
 import { isToolRisk } from '../protocol/descriptor.js';
 import {
+  TIGHTEN_ONLY_ACTIONS,
   isCommandDestructive,
   resolveCommandPolicy,
   type ClampReason,
@@ -59,6 +62,27 @@ export interface ToolSurfaceEntry {
 /** R2：纯读的用户覆盖查询（由 service-worker 的覆盖 store 提供；投影层零写）。 */
 export interface CommandOverrideLookup {
   get(name: string, subcommand?: string): PolicyAction | undefined;
+}
+
+/**
+ * R2 修复轮（A3）：从工具条目解析**子命令枚举**（只读、确定性）。
+ *
+ * 优先取 schema 的 `parameters.properties.subcommand.enum`（插件 / base 工具均以此声明）；
+ * 否则回退到 `subcommandRisks` 的键——站点声明工具由
+ * `declared-tools.ts#toToolEntry` 依据 `decl.subcommands` 生成 `subcommandRisks`，但其
+ * `paramsToSchema` 只把子命令写进 description、**不暴露 enum**，故真实 DOM 下需此回退
+ * 才能建「工具 → 子命令」子层（AC-V2-020 示例①）。两者都缺 → `[]`（保持既有行为）。
+ */
+export function toolSubcommands(entry: {
+  schema?: { parameters?: unknown };
+  subcommandRisks?: Record<string, unknown>;
+}): string[] {
+  const params = entry.schema?.parameters as { properties?: { subcommand?: { enum?: unknown } } } | undefined;
+  const raw = params?.properties?.subcommand?.enum;
+  if (Array.isArray(raw) && raw.length > 0) return raw.map((v) => String(v));
+  const risks = entry.subcommandRisks;
+  if (risks && typeof risks === 'object') return Object.keys(risks);
+  return [];
 }
 
 export interface CommandCatalogDeps {
@@ -163,14 +187,18 @@ function hardFloorOf(denyCause: DenyCause | undefined, hardDeny: boolean): 's1-u
   return hardDeny ? 's3-unknown-risk' : undefined;
 }
 
-/** R2：可覆盖节点的 3 个 `command-policy` 控件（allow/ask/deny；`selected` = effective 档）。 */
-function policyControls(effectiveAction: PolicyAction): ControlDescriptor[] {
+/**
+ * 命令级 `command-policy` 控件（档位集合由调用方按分层给出）。
+ *
+ * R2 修复轮（A1）：可覆盖节点 → 3 档（allow/ask/deny）；**只可收紧**节点 →
+ * `TIGHTEN_ONLY_ACTIONS`（ask/deny，**不含 allow**）；硬底线节点 → 调用方不产出控件。
+ */
+function policyControls(effectiveAction: PolicyAction, actions: readonly PolicyAction[]): ControlDescriptor[] {
   const labels: Record<PolicyAction, string> = {
     allow: '设为 allow（放行）',
     ask: '设为 ask（需确认）',
     deny: '设为 deny（拒绝）',
   };
-  const actions: PolicyAction[] = ['allow', 'ask', 'deny'];
   return actions.map((action) => ({
     kind: 'command-policy' as const,
     actionId: 'set-command-policy' as const,
@@ -185,6 +213,7 @@ interface CommandPolicyFields {
   overrideAction?: PolicyAction;
   effectiveAction: PolicyAction;
   overridable: boolean;
+  tightenOnly: boolean;
   clampReason?: ClampReason;
   controls: ControlDescriptor[];
 }
@@ -207,7 +236,7 @@ function policyFields(
   const hardFloor = hardFloorOf(decide.denyCause, decide.hardDeny);
   let resolution: CommandPolicyResolution;
   if (isContainer && hardFloor === undefined) {
-    resolution = { effectiveAction: override ?? defaultAction, overridable: true };
+    resolution = { effectiveAction: override ?? defaultAction, overridable: true, tightenOnly: false };
   } else {
     const destructive = isContainer ? false : isCommandDestructive(risk, subcommand);
     resolution = resolveCommandPolicy({
@@ -218,13 +247,19 @@ function policyFields(
       ...(hardFloor ? { hardFloor } : {}),
     });
   }
+  const controls = resolution.overridable
+    ? policyControls(resolution.effectiveAction, ['allow', 'ask', 'deny'])
+    : resolution.tightenOnly
+      ? policyControls(resolution.effectiveAction, TIGHTEN_ONLY_ACTIONS)
+      : [];
   return {
     defaultAction,
     ...(override ? { overrideAction: override } : {}),
     effectiveAction: resolution.effectiveAction,
     overridable: resolution.overridable,
+    tightenOnly: resolution.tightenOnly,
     ...(resolution.clampReason ? { clampReason: resolution.clampReason } : {}),
-    controls: resolution.overridable ? policyControls(resolution.effectiveAction) : [],
+    controls,
   };
 }
 
@@ -268,6 +303,7 @@ function makeCommandNode(
     ...(policy.overrideAction ? { overrideAction: policy.overrideAction } : {}),
     effectiveAction: policy.effectiveAction,
     overridable: policy.overridable,
+    ...(policy.tightenOnly ? { tightenOnly: true } : {}),
     ...(policy.clampReason ? { clampReason: policy.clampReason } : {}),
   };
 }

@@ -1017,6 +1017,8 @@ clampReason?: 'evaluate'|'s1-unauthorized'|'s3-unknown-risk'|'destructive-floor'
 
 > 纪律：**removed = 0**；每条受影响断言给出 old → new（理由 + 替代）；**总断言数不得下降**；**硬底线/安全类断言只增不减**；`journey.mjs` 等 v1 断言**零改动**；`test:ui` / `test:binding` 既有断言**除下表显式取代清单外零删改**。
 
+> **〔R2 修复轮订正（2026-09-13，A4；保留上句「removed = 0」为历史表述）〕**：R2 审查（`5d9e6f1`）独立核验显示**字面 `removed = 0` 不成立**——区间删除 470 行（含 10 处 `test('…')` 标题 + ~40 处 `assert.*`）。**订正口径** = 「**无未取代删除（every removed assertion has an old→new ledger entry）+ 总断言数不减 + 硬底线/安全断言只增**」；机器可核验台账见 `packages/web-cli-plugin/docs/r2-supersession-ledger.json`（S1~S18 + R2 修复轮 S19/S19b/S20），门禁见 `test/insight-tree-hierarchy.test.ts`（受保护文件每一行删除必须命中台账 old 行，`journey.mjs` 区间+工作区零 diff，`test(` 总数 ≥ 基线 646）。上句及下表**原样保留**，据此对照。
+
 | # | 旧断言（文件 :: 名称/编号） | 取代理由 | 新断言（替代） |
 |---|------------------------------|----------|----------------|
 | S1 | `tree-ops.test.ts :: the action union is closed at exactly 7 values` | 白名单 7→9（FR-V2-074/075） | `… exactly 9 values`；负例移除 `command-allow`/`set-command-policy`（现为合法），**保留** `grant-origin`/`request-permission` 非法 |

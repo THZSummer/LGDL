@@ -104,6 +104,8 @@ function assertPinnedHash(label: string, actualHash: string, pinnedHash: string)
 //     tree-view.ts old 023f9fc0687fc7977353de58657d5d1c000ef9bb7cd9ad255f9ccb4629778fd5
 //                  R2-1 9beb26eaab6ab3fb6eb7c027d4bd2cc6b73ca851c71f6dc68360f70f7746c744
 //                  R2-2 b4392d651076080cdaa31ae76f06ae647563048f914e0c42b3a8be5f02e9c187
+//   R2-3 (2026-09-13, A1/A2)：tree-view.ts 追加 tightenOnly 控件分层 + crossTargets 透传 →
+//                  b0075d15b25dfef8c604a8efe7a21305d735ae3435ce8357397e95ba486e0849
 //     tree-ops.ts  abf9cdaba89ab63c7f0fa3f9b3ef9e829a702ec45b169de6e378eafacece9257 →
 //                  R2-1/R2-2 4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658（R2-2 未改）
 //   tree-receipt.ts 不变（未改动）→ 保持旧值。
@@ -113,7 +115,7 @@ const TREE_NO_ESCALATION_NOTE_SHA256 =
 const TREE_ACTION_IDS_JSON_SHA256 =
   '71f743ed688d10ad74224b340d0e1b827f39a2b41aa625ca1d43dc9895aec1ac';
 const TREE_MODULE_SHA256: Readonly<Record<string, string>> = {
-  'src/ui/tree/tree-view.ts': 'b4392d651076080cdaa31ae76f06ae647563048f914e0c42b3a8be5f02e9c187',
+  'src/ui/tree/tree-view.ts': 'b0075d15b25dfef8c604a8efe7a21305d735ae3435ce8357397e95ba486e0849',
   'src/ui/tree/tree-ops.ts': '4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658',
   'src/ui/tree/tree-receipt.ts': '484bf84f6f7eddf203f519826bb415399a5f4819c3e6e91329cd2b47430d3db6',
 };
@@ -524,14 +526,17 @@ test('A4 archive REVERSE PROOF: injecting an action-id field is detected', () =>
   assert.deepEqual(cardKeyViolations([injected]), [`${injected.cardId}:actionId`]);
 });
 
-// R2 supersession S11 (ADR-V2-030/031): the archive is now **layered** — hard-floor
-// cards carry no control description (+ readable clamp reason); overridable cards
-// carry `policyControl` (allow/ask/deny). The module still has no write import.
-test('R2 A4 archive: hard-floor cards carry no policyControl; overridable cards do (supersession S11)', () => {
+// R2 supersession S11 + A1 (ADR-V2-030/031): the archive is **layered** — hard-floor
+// cards carry no control description (+ readable clamp reason); **tighten-only** cards
+// (ui/state/external/destructive) carry `policyControl` with ask/deny only (A1);
+// overridable cards carry allow/ask/deny. The module still has no write import.
+test('R2 A4 archive: hard-floor cards carry no policyControl; tighten-only ask/deny; overridable allow/ask/deny (S11 + A1)', () => {
   const { model } = snapshotFixture();
-  const hardFloor = model.cards.filter((card) => card.overridable !== true);
+  const hardFloor = model.cards.filter((card) => card.overridable !== true && card.tightenOnly !== true);
+  const tightenOnly = model.cards.filter((card) => card.tightenOnly === true);
   const overridable = model.cards.filter((card) => card.overridable === true);
   assert.ok(hardFloor.length > 0, 'fixture must contain hard-floor cards');
+  assert.ok(tightenOnly.length > 0, 'fixture must contain tighten-only cards (dom click / destructive)');
   assert.ok(overridable.length > 0, 'fixture must contain overridable cards');
 
   for (const card of hardFloor) {
@@ -540,6 +545,22 @@ test('R2 A4 archive: hard-floor cards carry no policyControl; overridable cards 
     assert.ok(
       typeof card.clampReasonLabel === 'string' && card.clampReasonLabel.length > 0,
       `hard-floor ${card.cardId} must carry a readable clampReasonLabel`,
+    );
+  }
+  for (const card of tightenOnly) {
+    assert.equal(card.policyControl?.kind, 'command-policy', `${card.cardId} must carry a control description`);
+    assert.deepEqual(
+      card.policyControl?.options.map((o) => o.policyAction),
+      ['ask', 'deny'],
+      `${card.cardId} tighten-only options must be ask/deny (never allow)`,
+    );
+    assert.equal(card.policyControl?.options.some((o) => o.policyAction === 'allow'), false, `${card.cardId} must not offer allow`);
+    assert.equal(card.policyControl?.options.filter((o) => o.selected).length, 1, 'exactly one selected');
+    assert.equal(card.policyControl?.options.find((o) => o.selected)?.policyAction, card.effectiveAction);
+    assert.ok(card.clampReason, `tighten-only ${card.cardId} must carry a readable clampReason`);
+    assert.ok(
+      typeof card.clampReasonLabel === 'string' && card.clampReasonLabel.length > 0,
+      `tighten-only ${card.cardId} must carry a readable clampReasonLabel`,
     );
   }
   for (const card of overridable) {
@@ -558,6 +579,9 @@ test('R2 A4 archive: hard-floor cards carry no policyControl; overridable cards 
   const injected = { ...hardFloor[0]!, policyControl: { kind: 'command-policy' as const, options: [] } };
   assert.notEqual(injected.policyControl, undefined);
   assert.throws(() => assert.equal(injected.policyControl, undefined));
+  // Reverse proof (A1): a tighten-only card must never carry an `allow` option.
+  const allowInjected = { ...tightenOnly[0]!, policyControl: { kind: 'command-policy' as const, options: [{ policyAction: 'allow' as const, selected: false }] } };
+  assert.throws(() => assert.deepEqual(allowInjected.policyControl.options.map((o) => o.policyAction), ['ask', 'deny']));
 });
 
 // R2 (AC-V24-008): default tier vs effective tier are split per card; overrides

@@ -789,6 +789,56 @@
             "人工面 V2-H-10~14（⏳ 待人工）"
           ],
           "commit": "e35d852413c2a073366812301274480308640911（feat(web-cli-plugin): v2 R2-2 真层级树 UI …；17 files changed, 2289 insertions(+), 421 deletions(-)）"
+        },
+        {
+          "round": "R2",
+          "subRound": "build（实施构建）第 3 轮：R2 review 修复轮（A1~A4 + A6/A7/T4）",
+          "type": "post-validate 修复轮（phase 不回退；追加记录不稀释既有）",
+          "date": "2026-09-13",
+          "authorization": "编排器代作者决策（2026-09-13 授权）+ R2",
+          "phaseKept": "tasked（父）/ validated（叶）（原样，不回退）",
+          "phaseNotRegressed": true,
+          "inputs": [
+            "review-report.md R2 段（5d9e6f1）：4 建议 A1~A4 + 关键提示 A6/A7/T4"
+          ],
+          "items": {
+            "A1": "不可放宽档叶子层收紧控件：新增三层（硬底线零控件 / tightenOnly ask+deny 无 allow / 可覆盖三档）；服务端 clamp 零改动不放宽。证据 test/command-override.test.ts、insight-tree-hierarchy、tree-view、insight-archive、test:insight #I-20d/#I-20d2/#I-21b2",
+            "A2": "跨归属交叉引用可交互下钻：ownershipTree#crossTargets + .tree-link[data-target-node-id] + navigateToNodeId()（展开祖先/聚焦；节点不复制）。证据 test:insight #I-22a~c + node R2 hierarchy (A2)",
+            "A3": "选路线 ①（低成本插件侧）：toolSubcommands 以 subcommandRisks 回退解析站点工具子命令枚举，真实 DOM 达成 站点→支持的命令→site_notes→site_notes list/show（#I-20a2）；不改 base / 不改 declared-tools.ts",
+            "A4": "台账口径订正：字面 removed=0 经审查复核不成立 → 订正为「无未取代删除 + 总数不减 + 硬底线只增」；机器台账 docs/r2-supersession-ledger.json（S1~S18 + S19/S19b/S20）；门禁 test/insight-tree-hierarchy.test.ts；build §9.4/§4 + plan §9.8 保留历史表述并标注订正",
+            "A6": "smoke-checklist §5 追加实测 102（历史 45/52/70 保留）；§7 追加「R2 起部分取代」澄清；V2-H-14 与 §8 同步校准",
+            "A7": "INSIGHT_MODEL_NOTE 订正为按归属层级树措辞；insight-projection S20 补旧措辞零回潮断言",
+            "T4": "test:binding 失败诊断（完整栈 + DOM/面板摘要落盘）+ 就绪等待（#3d 120×300ms / #33B1 120×250ms + 点击前等 #open-settings）；不放宽断言；本轮 0/2 flake"
+          },
+          "gates": {
+            "typecheck": "EXIT 0（0 error）",
+            "pluginTest": "693/693 pass 0 fail EXIT 0（R2 基线 690 → +3）",
+            "testInsight": "PASS 108 assertions EXIT 0（R2 基线 102 → +6）",
+            "testUi": "PASS 167 assertions EXIT 0",
+            "testHardening": "PASS 24 assertions EXIT 0",
+            "testBinding": "PASS 192 ×2（0/2 flake）EXIT 0/0",
+            "testE2e": "PASS EXIT 0",
+            "fullRepoTest": "EXIT 0；core 267 / render 95(94pass,1skip) / router 8 / web 31 / web-cli 84 / web-op-cli 15 / base 483 / plugin 693；fail 0",
+            "logsDir": "/tmp/opencode/r2-3/logs/"
+          },
+          "zeroChange": {
+            "base": "packages/web-cli-base/** 零 diff",
+            "policyTsSha256": "bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8",
+            "autoAuthorizeTsSha256": "1096d065dac63d56e36285bf499eee041acdc3e323d4c7215df3981af7d0ef4b",
+            "manifest": "零 diff",
+            "optionsHtml": "零 diff",
+            "v1SdduDir": "零 diff",
+            "journeyMjs": "零 diff",
+            "contentJs": "1,073,453 B 零增长"
+          },
+          "phaseKeptNote": "父仍 tasked / 四叶仍 validated；本轮只追加 revisionRounds.R2.buildRounds，不推进 phase（修复轮不改 phase）",
+          "artifacts": [
+            "build.md（新增 §R2 第 3 轮）",
+            "plan.md §9.8 订正注",
+            "docs/r2-supersession-ledger.json",
+            "docs/smoke-checklist.md §5/§7/§8"
+          ],
+          "commit": "PENDING（本轮提交后回填）"
         }
       ],
       "review": {

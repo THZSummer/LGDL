@@ -29,8 +29,10 @@
  *            存在且默认收起；#I-18e R2 分层（取代 S15）；
  *   #I-19a~h V2-4 档案子视图（只读过滤 + P0 红线：零 `.tree-control`/`button[data-action-id]`）；
  *   #I-20a~k R2（AC-V2-020~023 / AC-V22-008~011）：作者两例在真实 DOM 逐层展开/收起 +
- *            惰性渲染 + 面包屑 + 键盘（方向键/Home/End）+ 覆盖即时生效 + 多状态布局守卫；
- *   #I-21a~e R2-V24-04：档案卡分层 + 默认/生效分列 + 同一 tree-ops 写路径。
+ *            惰性渲染 + 面包屑 + 键盘（方向键/Home/End）+ deny 分层三态（含 A1 只可收紧
+ *            ask/deny 叶子控件）+ 覆盖即时生效 + 多状态布局守卫；#I-20a2 A3 站点工具→子命令；
+ *   #I-21a~e R2-V24-04：档案卡分层（A1 含只可收紧 ask/deny）+ 默认/生效分列 + 同一 tree-ops 写路径；
+ *   #I-22a~c R2 修复轮 A2：非主归属交叉引用可交互下钻（点击/键盘 → 同一 nodeId 主归属，不复制）。
  *
  * 依赖：Node ≥ 22（全局 WebSocket / fetch）、本机 `.pw-browsers` Chromium（或 CHROME_BIN）。
  * 前置：`npm run build --workspace @lgdl/web-cli-plugin`。
@@ -766,13 +768,20 @@ async function main() {
         const readRow = [...drawer.querySelectorAll('li.tree-node')].find(
           (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'dom read-state',
         );
+        const tightenOnly = [...drawer.querySelectorAll('li.tree-node[data-tighten-only="true"]')];
         return {
           hardFloor: hardFloor.length,
           hardFloorWithControls,
           hardFloorWithReason,
           overridable: overridable.length,
           withThree,
-          uiHasControls: uiRow ? uiRow.querySelectorAll('[data-action-id]').length : -1,
+          tightenOnly: tightenOnly.length,
+          tightenWithTwo: tightenOnly.filter((r) => r.querySelectorAll('button[data-policy]').length === 2).length,
+          tightenWithAllow: tightenOnly.filter((r) => r.querySelector('button[data-policy="allow"]')).length,
+          tightenWithReason: tightenOnly.filter((r) => r.querySelector('.tree-clamp-reason')).length,
+          uiHasControls: uiRow ? uiRow.querySelectorAll('button[data-policy]').length : -1,
+          uiPolicies: uiRow ? [...uiRow.querySelectorAll('button[data-policy]')].map((b) => b.dataset.policy) : [],
+          uiHasAllow: uiRow ? Boolean(uiRow.querySelector('button[data-policy="allow"]')) : null,
           uiReason: uiRow ? (uiRow.querySelector('.tree-clamp-reason')?.textContent ?? '') : '',
           readPolicies: readRow ? [...readRow.querySelectorAll('button[data-policy]')].map((b) => b.dataset.policy) : [],
           readSelected: readRow ? readRow.querySelector('button[data-policy][aria-pressed="true"]')?.dataset.policy : null,
@@ -790,8 +799,20 @@ async function main() {
       JSON.stringify(layered),
     );
     check(
-      layered.uiHasControls === 0 && /ui 档/.test(layered.uiReason) && layered.readSelected === 'allow',
-      '#I-20d dom click（ui 硬底线）零控件 + 原因可读；dom read-state 当前生效档 allow',
+      layered.uiHasControls === 2 &&
+        layered.uiPolicies.join(',') === 'ask,deny' &&
+        layered.uiHasAllow === false &&
+        /ui 档/.test(layered.uiReason) &&
+        layered.readSelected === 'allow',
+      '#I-20d dom click（ui 只可收紧层）渲染 ask/deny 两档（无 allow）+ 原因可读；dom read-state 当前生效档 allow',
+      JSON.stringify(layered),
+    );
+    check(
+      layered.tightenOnly >= 1 &&
+        layered.tightenWithTwo === layered.tightenOnly &&
+        layered.tightenWithAllow === 0 &&
+        layered.tightenWithReason === layered.tightenOnly,
+      '#I-20d2 只可收紧档（data-tighten-only）叶子层均有 ask/deny 两档 + 零 allow + clamp 原因可读（A1）',
       JSON.stringify(layered),
     );
     check(
@@ -878,6 +899,78 @@ async function main() {
         keyboardEvidence.afterUp !== '',
       '#I-20f 键盘可达：Home/End/ArrowLeft（回父）/ArrowRight/ArrowUp 移动焦点（roving tabindex）',
       JSON.stringify(keyboardEvidence),
+    );
+
+    // ── 8ce. R2 fix round A2 (AC-V2-021): the non-main-ownership cross reference is
+    // an interactive drill-down (click + keyboard) into the SAME unique nodeId's
+    // main-owner position; the target node is never copied.
+    await expandNode('标签页命令');
+    const a2Link = await evaluate(
+      sp,
+      `(() => {
+        const link = document.querySelector('#tree-drawer .tree-link[data-target-node-id="cap:static:tabs"]');
+        if (!link) return null;
+        const row = link.closest('li.tree-node');
+        link.focus();
+        return JSON.stringify({
+          text: link.textContent,
+          face: link.dataset.face,
+          aria: link.getAttribute('aria-label'),
+          row: row?.querySelector(':scope > .tree-node-head > .tree-label')?.textContent ?? '',
+        });
+      })()`,
+    );
+    check(
+      Boolean(a2Link) && /tabs/.test(a2Link ?? '') && /能力面/.test(a2Link ?? ''),
+      '#I-22a 非主归属处交叉引用渲染为可交互 .tree-link[data-target-node-id]（真实 DOM）',
+      a2Link ?? 'no link',
+    );
+    let a2Click = null;
+    if (a2Link) {
+      const clicked = await evaluate(
+        sp,
+        `(() => {
+          const link = document.querySelector('#tree-drawer .tree-link[data-target-node-id="cap:static:tabs"]');
+          if (!link) return '';
+          link.click();
+          const target = document.querySelector('#tree-drawer li.tree-node[data-node-id="cap:static:tabs"]');
+          return JSON.stringify({
+            selected: target?.getAttribute('aria-selected') ?? null,
+            copies: document.querySelectorAll('#tree-drawer li.tree-node[data-node-id="cap:static:tabs"]').length,
+            breadcrumb: document.getElementById('tree-breadcrumb')?.textContent ?? '',
+          });
+        })()`,
+      );
+      a2Click = clicked ? JSON.parse(clicked) : null;
+    }
+    check(
+      a2Click !== null && a2Click.copies === 1 && a2Click.selected === 'true' && /浏览器能力/.test(a2Click.breadcrumb ?? ''),
+      '#I-22b 点击交叉引用 → 下钻到同一 nodeId 的主归属（能力面）位置：唯一副本 + 焦点/展开可见',
+      JSON.stringify(a2Click),
+    );
+    let a2Key = null;
+    if (a2Link) {
+      await evaluate(
+        sp,
+        `(() => { const link = document.querySelector('#tree-drawer .tree-link[data-target-node-id="cap:static:tabs"]'); if (link) link.focus(); return !!link; })()`,
+      );
+      await dispatchKey('Enter', 'Enter', 13);
+      const kb = await evaluate(
+        sp,
+        `(() => {
+          const target = document.querySelector('#tree-drawer li.tree-node[data-node-id="cap:static:tabs"]');
+          return JSON.stringify({
+            selected: target?.getAttribute('aria-selected') ?? null,
+            copies: document.querySelectorAll('#tree-drawer li.tree-node[data-node-id="cap:static:tabs"]').length,
+          });
+        })()`,
+      );
+      a2Key = kb ? JSON.parse(kb) : null;
+    }
+    check(
+      a2Key !== null && a2Key.selected === 'true' && a2Key.copies === 1,
+      '#I-22c 键盘（Enter）在交叉引用上同样下钻到同一节点（可达 + 不复制）',
+      JSON.stringify(a2Key),
     );
 
     // Session persistence + override live update: a policy push re-projects the
@@ -1136,12 +1229,17 @@ async function main() {
         const cards = [...archive.querySelectorAll('.tree-archive-card')];
         const hardFloor = cards.filter((c) => c.dataset.hardFloor === 'true');
         const overridable = cards.filter((c) => c.dataset.overridable === 'true');
+        const tightenOnly = cards.filter((c) => c.dataset.tightenOnly === 'true');
         return {
           cards: cards.length,
           hardFloor: hardFloor.length,
           overridable: overridable.length,
+          tightenOnly: tightenOnly.length,
           hardFloorWithPolicy: hardFloor.filter((c) => c.querySelector('[data-policy]')).length,
           hardFloorWithReason: hardFloor.filter((c) => c.querySelector('[data-field="clamp-reason"]')).length,
+          tightenWithTwo: tightenOnly.filter((c) => c.querySelectorAll('[data-policy]').length === 2).length,
+          tightenWithAllow: tightenOnly.filter((c) => c.querySelector('[data-policy="allow"]')).length,
+          tightenWithReason: tightenOnly.filter((c) => c.querySelector('[data-field="clamp-reason"]')).length,
           overridableWithThree: overridable.filter((c) => c.querySelectorAll('[data-policy]').length === 3).length,
           withDefaultField: cards.filter((c) => c.querySelector('[data-field="default-action"]')).length,
           withEffectiveField: cards.filter((c) => c.querySelector('[data-field="effective-action"]')).length,
@@ -1161,6 +1259,15 @@ async function main() {
     check(
       archiveLayered && archiveLayered.overridable >= 1 && archiveLayered.overridableWithThree >= 1,
       '#I-21b 档案可覆盖卡渲染 allow/ask/deny 三档 [data-policy] 控件',
+      JSON.stringify(archiveLayered),
+    );
+    check(
+      archiveLayered &&
+        archiveLayered.tightenOnly >= 1 &&
+        archiveLayered.tightenWithTwo === archiveLayered.tightenOnly &&
+        archiveLayered.tightenWithAllow === 0 &&
+        archiveLayered.tightenWithReason === archiveLayered.tightenOnly,
+      '#I-21b2 档案只可收紧卡（data-tighten-only）渲染 ask/deny 两档 + 零 allow + 原因可读（A1）',
       JSON.stringify(archiveLayered),
     );
     check(
@@ -1324,8 +1431,11 @@ async function main() {
             hasSite: labels.includes(${JSON.stringify(siteLabel)}),
             hasSupport: labels.includes('支持的命令'),
             hasTool: labels.includes('site_notes'),
+            hasSubList: labels.includes('site_notes list'),
+            hasSubShow: labels.includes('site_notes show'),
             toolRole: tool ? tool.getAttribute('role') : null,
             toolLevel: tool ? tool.getAttribute('aria-level') : null,
+            toolExpanded: tool ? tool.getAttribute('aria-expanded') : null,
           };
         })()`,
       );
@@ -1337,7 +1447,12 @@ async function main() {
         siteDrill.hasTool === true &&
         siteDrill.siteAuthorized === '已授权' &&
         siteDrill.toolRole === 'treeitem',
-      '#I-20a 作者示例① 逐层展开：连接树→授权的站点→站点 xxx→支持的命令→工具（真实 DOM）',
+      '#I-20a 作者示例① 逐层展开：连接树→授权的站点→站点 xxx→支持的命令→工具（真实 DOM；子命令层见 #I-20a2）',
+      JSON.stringify(siteDrill),
+    );
+    check(
+      siteDrill !== null && siteDrill.hasSubList === true && siteDrill.hasSubShow === true && siteDrill.toolExpanded === 'true',
+      '#I-20a2 作者示例① 完整达成（A3）：站点工具 → 子命令（site_notes → site_notes list / show，真实 DOM）',
       JSON.stringify(siteDrill),
     );
 

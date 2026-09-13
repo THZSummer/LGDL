@@ -14,9 +14,14 @@
  *     tabindex + 焦点可见；`ArrowRight` 进子 / `ArrowLeft` 回父；
  *   - **面包屑**：`#tree-breadcrumb` 显示当前焦点节点的层级路径（FR-V2-073）；
  *   - **惰性渲染**（不虚拟化）：仅渲染展开路径；
- *   - **deny 控件分层**：硬底线行零 `button[data-action-id]` + `.tree-clamp-reason` 可读；
- *     可覆盖行渲染 3 个 `button[data-action-id="set-command-policy"][data-policy=allow|ask|deny]`
- *     （+ 有覆盖时的「恢复默认」）；写入仍走**唯一** `tree-ops` 写路径（无第二写入口）；
+ *   - **deny/覆盖控件分层**（R2 修复轮 A1 补齐叶子收紧入口）：**硬底线**行（evaluate /
+ *     S1 / S3）零 `button[data-action-id]` + `.tree-clamp-reason` 可读；**只可收紧**行
+ *     （`data-tighten-only="true"`：破坏性写 / ui·state·external）渲染 2 个
+ *     `button[data-action-id="set-command-policy"][data-policy=ask|deny]`（**无 allow**）+
+ *     原因可读；**可覆盖**行渲染 3 个 `[data-policy=allow|ask|deny]`（+ 有覆盖时的「恢复默认」）；
+ *     写入仍走**唯一** `tree-ops` 写路径（无第二写入口）；
+ *   - **交叉引用可交互下钻**（R2 修复轮 A2）：`.tree-link[data-target-node-id]`（点击 /
+ *     Enter / Space）跳到同一 `nodeId` 的主归属位置并展开到可见；**节点不复制**；
  *   - **放宽类二次确认**：`commandPolicyNeedsConfirmation(desired, default)` → `#tree-confirm`。
  *
  * 本模块不新增判定：服务端 SW 的 clamp 仍强制（伪造消息/绕过 UI 也不能突破）。
@@ -130,8 +135,6 @@ const ARCHIVE_SOURCE_OPTIONS: readonly string[] = [
 ];
 
 const ARCHIVE_ACTION_OPTIONS: readonly string[] = ['allow', 'ask', 'deny'];
-
-const POLICY_ACTIONS: readonly PolicyAction[] = ['allow', 'ask', 'deny'];
 
 export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
   const { root, fab, doc } = deps;
@@ -551,8 +554,8 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
       });
       wrap.append(button);
     }
-    // R2：可覆盖行若已有用户覆盖 → 提供「恢复默认」（可逆，不需确认；同一 tree-ops 写路径）。
-    if (row.overridable === true && row.overrideAction && row.actionTarget?.command) {
+    // R2：可覆盖 / 只可收紧行若已有用户覆盖 → 提供「恢复默认」（可逆，不需确认；同一 tree-ops 写路径）。
+    if ((row.overridable === true || row.tightenOnly === true) && row.overrideAction && row.actionTarget?.command) {
       const reset = el('button', 'tree-control tree-policy-reset', '恢复默认');
       reset.type = 'button';
       reset.dataset.kind = 'command-policy-reset';
@@ -587,8 +590,9 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     if (row.kind === 'face') item.classList.add('tree-group');
     if (row.action) item.dataset.action = row.action;
     if (row.sourceKind) item.dataset.sourceKind = row.sourceKind;
-    if (row.overridable === false) item.dataset.hardFloor = 'true';
+    if (row.overridable === false && row.tightenOnly !== true) item.dataset.hardFloor = 'true';
     if (row.overridable === true) item.dataset.overridable = 'true';
+    if (row.tightenOnly === true) item.dataset.tightenOnly = 'true';
     if (row.kind === 'command' && row.effectiveAction) item.dataset.effectiveAction = row.effectiveAction;
 
     const expandable = hasChildren(row);
@@ -641,6 +645,31 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     if (row.crossRefs.length > 0) {
       item.append(el('div', 'tree-sublabel', `跨层引用：${row.crossRefs.join('；')}`));
     }
+    // R2 修复轮（A2）：出站交叉引用**可交互**下钻（点击 / Enter / Space）→ 同一 nodeId 的
+    // 主归属位置并展开到可见；节点不复制（只移动焦点/展开，不克隆）。
+    if (row.crossTargets.length > 0) {
+      const links = el('div', 'tree-links');
+      for (const target of row.crossTargets) {
+        const link = el('button', 'tree-link', `${target.relation} → ${target.targetLabel}`);
+        link.type = 'button';
+        link.dataset.targetNodeId = target.nodeId;
+        link.dataset.face = target.faceLabel;
+        link.setAttribute('aria-label', `下钻到 ${target.targetLabel}（${target.faceLabel}；同一节点，不复制）`);
+        link.title = `跳到 ${target.targetLabel} 的主归属位置（${target.faceLabel}）`;
+        link.addEventListener('click', (event) => {
+          event.stopPropagation();
+          navigateToNodeId(target.nodeId);
+        });
+        link.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          event.stopPropagation();
+          navigateToNodeId(target.nodeId);
+        });
+        links.append(link);
+      }
+      item.append(links);
+    }
 
     if (expandable && expanded) {
       const group = el('ul', 'tree-children');
@@ -689,6 +718,33 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     }
     const labels = pathOf(focusedId);
     current.breadcrumb.textContent = labels.length > 0 ? labels.join(' › ') : '连接树';
+  }
+
+  /**
+   * R2 修复轮（A2）：下钻到 `nodeId` 的**唯一主归属实例**并展开到可见。
+   *
+   * 只移动焦点 / 展开祖先链（`expandedExplicit`），**不创建任何节点副本**（`renderedById`
+   * 中同一 `nodeId` 恒唯一）。目标不存在（如被过滤剪枝）→ 返回 `false`，零副作用。
+   */
+  function navigateToNodeId(nodeId: string): boolean {
+    const target = [...renderedById.values()].find((row) => row.nodeId === nodeId);
+    if (!target) return false;
+    let cursor = parentById.get(target.id);
+    const guard = new Set<string>();
+    while (cursor && !guard.has(cursor)) {
+      guard.add(cursor);
+      expandedExplicit.add(cursor);
+      collapsedExplicit.delete(cursor);
+      cursor = parentById.get(cursor);
+    }
+    focusedId = target.id;
+    renderBody();
+    moveFocus(target.id);
+    const current = shell;
+    const items = current ? [...current.body.querySelectorAll<HTMLElement>('li.tree-node')] : [];
+    const landed = items.find((item) => item.dataset.nodeId === target.id);
+    if (landed && typeof landed.scrollIntoView === 'function') landed.scrollIntoView({ block: 'nearest' });
+    return true;
   }
 
   function moveFocus(id: string): void {
@@ -779,7 +835,8 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
   }
 
   function archivePolicyControls(card: ArchiveCard): HTMLElement | null {
-    if (card.overridable !== true) return null;
+    const control = card.policyControl;
+    if (!control || control.options.length === 0) return null;
     const wrap = el('div', 'tree-archive-policy-controls');
     const ctx: ActionContext = {
       label: card.subcommand ? `${card.name} ${card.subcommand}` : card.name,
@@ -789,13 +846,14 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
       },
       defaultAction: card.defaultAction,
     };
-    for (const action of POLICY_ACTIONS) {
+    for (const option of control.options) {
+      const action = option.policyAction;
       const button = el('button', 'tree-archive-policy', action);
       button.type = 'button';
       button.dataset.policy = action;
       button.dataset.archiveCommand = card.cardId;
-      button.setAttribute('aria-pressed', card.effectiveAction === action ? 'true' : 'false');
-      button.title = card.effectiveAction === action ? `当前生效档 ${action}` : `设为 ${action}`;
+      button.setAttribute('aria-pressed', option.selected ? 'true' : 'false');
+      button.title = option.selected ? `当前生效档 ${action}` : `设为 ${action}`;
       button.addEventListener('click', () => {
         onControlActivate(ctx, { kind: 'command-policy', actionId: 'set-command-policy', policyAction: action, label: `设为 ${action}` });
       });
@@ -820,8 +878,9 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     node.dataset.action = card.action;
     node.dataset.sourceKind = card.sourceKind;
     if (card.risk) node.dataset.risk = card.risk;
-    if (card.overridable === false) node.dataset.hardFloor = 'true';
+    if (card.overridable === false && card.tightenOnly !== true) node.dataset.hardFloor = 'true';
     if (card.overridable === true) node.dataset.overridable = 'true';
+    if (card.tightenOnly === true) node.dataset.tightenOnly = 'true';
     node.append(
       el('div', 'tree-archive-card-title', card.subcommand ? `${card.name} ${card.subcommand}` : card.name),
       archiveField('action', `处置（policy 默认档）：${card.action}`),
@@ -868,7 +927,7 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     if (!snapshot) return;
     const model = buildArchiveModel(snapshot, archiveFilter);
     current.body.replaceChildren();
-    current.count.textContent = `档案：${model.filter.matches} / ${model.header.liveCounts.cards} 卡（分层：硬底线无控件 + 原因；可覆盖行可设 allow/ask/deny）`;
+    current.count.textContent = `档案：${model.filter.matches} / ${model.header.liveCounts.cards} 卡（分层：硬底线无控件 + 原因；只可收紧卡可设 ask/deny；可覆盖行可设 allow/ask/deny）`;
 
     const wrap = el('div', 'tree-archive');
     wrap.dataset.groupBy = model.filter.groupBy;

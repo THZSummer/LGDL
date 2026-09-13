@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "feature": "specs-tree-web-cli-plugin-v2-insight",
+  "range": "a955a7f..ff32683",
+  "metric": "无未取代删除（every removed assertion has an old→new ledger entry）+ 总断言数不减 + 硬底线/安全断言只增",
+  "literalRemovedZero": false,
+  "literalRemovedZeroNote": "原表述「removed = 0」保留为历史；R2 审查（5d9e6f1）独立核验：区间删除 470 行（含 10 处 test('…') 标题 + ~40 处 assert.*），字面 removed=0 不成立。A4 已订正为左侧 metric 口径，并由本台账提供逐条 old→new 依据。",
+  "journey": {
+    "file": "test/ui/journey.mjs",
+    "policy": "zero-diff",
+    "note": "v1 门禁，R2 全轮零改动（含本轮）；本台账断言其区间 + 工作区 diff 均为 0 行。"
+  },
+  "counts": {
+    "nodeTests": { "before": 646, "afterR2": 690, "afterR2Fix": 693, "note": "静态 `test(` 计数；R2 审查独立复算 646→690（build.md 记 686→690 为旧基线，A8 另记；本台账取审查复算值）；R2 修复轮 A1/A2/A3/台账新增 3 个 test → 693" },
+    "insightChecks": { "staticBefore": 57, "staticAfterR2": 75, "runtimeBefore": 70, "runtimeAfterR2": 102, "afterR2Fix": 108 },
+    "bindingChecks": { "staticBefore": 185, "staticAfterR2": 197, "runtimeBefore": 180, "runtimeAfterR2": 192, "afterR2Fix": 192 },
+    "testUiJourney": { "runtime": 167, "policy": "零删减" }
+  },
+  "hardFloorPins": {
+    "policyTsSha256": "bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8",
+    "autoAuthorizeTsSha256": "1096d065dac63d56e36285bf499eee041acdc3e323d4c7215df3981af7d0ef4b",
+    "treeActionIdsJsonSha256": "71f743ed",
+    "note": "硬底线/安全断言只增不减：判定链 sha256 pin 不变，白名单 7→9 pin 显式更新（old e5c65cc3d073 → new 71f743ed…c1ac）。"
+  },
+  "entries": [
+    { "id": "S1", "file": "test/tree-ops.test.ts", "oldTitle": "the action union is closed at exactly 7 values", "newTitle": "the action union is closed at exactly 9 values (R2 supersession S1)", "reason": "白名单 7→9（ADR-V2-027）；保留 grant-origin/request-permission/command-allow 负例（D-R2B-01）" },
+    { "id": "S2", "file": "test/tree-ops.test.ts", "oldTitle": "each of the 7 actions maps to exactly one existing path", "newTitle": "each of the 9 actions maps to exactly one existing path (R2 supersession S2)", "reason": "新增 set-command-policy→command-policy-set、reset-command-policy→command-policy-reset 唯一映射" },
+    { "id": "S3", "file": "test/tree-ops.test.ts", "oldTitle": "needsConfirmation matches the whitelist", "newTitle": "needsConfirmation matches the whitelist (R2 supersession S3) + 放宽类条件确认新测试", "reason": "1:1 保留 + 净增条件确认断言" },
+    { "id": "S4", "file": "test/tree-view.test.ts", "oldTitle": "a non-deny command still gets no write control", "newTitle": "overridable command rows expose allow/ask/deny; hard-floor rows expose none", "reason": "命令级覆盖层引入后，可覆盖行有 3 档控件；硬底线仍零控件" },
+    { "id": "S5", "file": "test/tree-view.test.ts", "oldTitle": "all 142 … deny ⇒ controls===[]", "newTitle": "hard-floor deny (S3) ⇒ controls===[]", "reason": "「deny ⇒ 无控件」收窄为「硬底线 deny ⇒ 无控件」；非硬底线 deny 保持控件（ADR-V2-030）" },
+    { "id": "S6", "file": "test/tree-view.test.ts", "oldTitle": "pinned wording (forest / non-strict tree)", "newTitle": "pinned wording — ownership hierarchy + two pathways + delay disambiguation", "reason": "森林偏差文案清除（FR-V2-078）" },
+    { "id": "S7", "file": "test/tree-view.test.ts", "oldTitle": "needsConfirmation is correct for all 7 actions", "newTitle": "needsConfirmation is correct for all 9 actions (R2 supersession S7)", "reason": "白名单扩展的强依赖最小连带" },
+    { "id": "S8", "file": "test/tree-view.test.ts", "oldTitle": "deny rows are filtered out", "newTitle": "hard-floor deny rows stay control-free under filter; overridable rows keep controls", "reason": "过滤下层控件的分层保持" },
+    { "id": "S9", "file": "test/insight-archive.test.ts", "oldTitle": "TREE_ACTION_IDS is exactly 7 values", "newTitle": "TREE_ACTION_IDS is exactly 9 values (R2 supersession S9)", "reason": "白名单 7→9 + pin 显式更新 71f743ed…c1ac" },
+    { "id": "S10", "file": "test/insight-archive.test.ts", "oldTitle": "TREE_NO_ESCALATION_NOTE sha256 pin", "newTitle": "pin 显式更新（两通路 + delay 消歧保留）", "reason": "FR-V2-078 两通路重写 + delay 消歧" },
+    { "id": "S11", "file": "test/insight-archive.test.ts", "oldTitle": "FORBIDDEN_CARD_KEYS on deny cards", "newTitle": "hard-floor cards carry no policyControl; overridable cards do (supersession S11)", "reason": "档案卡分层：硬底线零控件描述 + 可读原因；可覆盖有描述；仍无写导入" },
+    { "id": "S12", "file": "test/insight-no-escalation.test.ts", "oldTitle": "tree-ops.ts has NO write verb outside the closed whitelist", "newTitle": "9 个动作 id + 两个新增唯一通路 + 仍禁 grant/request", "reason": "硬底线断言只增" },
+    { "id": "S13", "file": "test/ui/insight.mjs", "oldTitle": "#I-11a (single wording assertion)", "newTitle": "#I-11a~c", "reason": "两通路 + 归属层级树声明 + delay 消歧" },
+    { "id": "S14", "file": "test/ui/insight.mjs", "oldTitle": "#I-12 deny rows expose controls (flat)", "newTitle": "#I-12a/b deny 分层", "reason": "硬底线零控件 + 可覆盖 allow/ask/deny（A1 后 #I-20d 追加 ask/deny 收紧层）" },
+    { "id": "S15", "file": "test/ui/insight.mjs", "oldTitle": "#I-18e deny 行一律无控件", "newTitle": "#I-18e 硬底线行零控件 且 可覆盖行有控件", "reason": "分层（取代 S15）" },
+    { "id": "S16", "file": "test/ui/insight.mjs", "oldTitle": "#I-02a flat group rows", "newTitle": "#I-02a 真树根 + 可展开面默认展开", "reason": "真树形取代扁平行（A3 后 #I-20a 补「工具→子命令」真实 DOM 层）" },
+    { "id": "S17", "file": "test/ui/binding.mjs", "oldTitle": "#21a…", "newTitle": "#21a… 不变（#22a… 之后追加）", "reason": "既有断言零删改" },
+    { "id": "S18", "file": "test/ui/journey.mjs", "oldTitle": "#15a~#15q", "newTitle": "不变", "reason": "v1 门禁零 diff；test:ui 167" },
+    { "id": "S19", "file": "test/ui/insight.mjs", "oldTitle": "#I-20d dom click（ui 硬底线）零控件", "newTitle": "#I-20d dom click（ui 只可收紧层）ask/deny 两档控件（无 allow）+ 原因可读", "reason": "A1：no-widen 档叶子层收紧控件；硬底线（evaluate/S1/S3）仍零控件" },
+    { "id": "S19b", "file": "test/insight-archive.test.ts", "oldTitle": "hard-floor cards = overridable !== true", "newTitle": "hard-floor cards = overridable !== true && tightenOnly !== true；tighten-only 卡有 ask/deny", "reason": "A1：档案卡同步分层" },
+    { "id": "S20", "file": "test/insight-projection.test.ts", "oldTitle": "modelNote = 四维度分组视图（森林）… 非严格单树", "newTitle": "modelNote = 按归属的层级树 … 同一节点不复制 + 旧措辞零回潮断言", "reason": "A7：meta.modelNote 订正为真层级树措辞（未渲染但随 insight-tree 下发）" }
+  ],
+  "protectedFileOldLines": [
+    "// snapshot shape (FR-V2-010)",
+    "assert.match(snapshot.meta.modelNote, /四维度分组视图（森林）/);",
+    "assert.match(snapshot.meta.modelNote, /非严格单树/);",
+    "test('V2-1 forest shape: version 1, root label, modelNote honestly says non-strict tree, fixed group order', () => {"
+  ],
+  "note": "本台账由 `test/insight-tree-hierarchy.test.ts`（A4 门禁）机器核验：受保护文件删除行必须逐条命中 protectedFileOldLines（否则 FAIL）；journey.mjs 区间 + 工作区 diff 必须为 0 行；node 静态 test( 总数必须 ≥ counts.nodeTests.before。"
+}

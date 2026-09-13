@@ -55,6 +55,14 @@ export function isCommandPolicyAction(value: unknown): value is CommandPolicyAct
   return value === 'allow' || value === 'ask' || value === 'deny';
 }
 
+/**
+ * R2 修复轮（A1）：**只可收紧**档允许的控件档位（**不含 `allow`**）。
+ *
+ * `ui`/`state`/`external`/破坏性写的**节点级**控件只能取这两档；`allow` 既不被渲染，
+ * 也会被服务端 `clampActionForRisk` clamp 回基线（复核见 `command-override.test.ts`）。
+ */
+export const TIGHTEN_ONLY_ACTIONS: readonly CommandPolicyAction[] = ['ask', 'deny'];
+
 const COMMAND_ID_RE = /^cmd:[^#]+(?:#.+)?$/;
 
 /** 运行时判定合法命令键（拒绝任何非 `cmd:` 形状的伪造键）。 */
@@ -117,6 +125,14 @@ export interface CommandPolicyResolution {
   effectiveAction: PolicyAction;
   /** 是否可被用户覆盖（硬底线 `false`）。 */
   overridable: boolean;
+  /**
+   * R2 修复轮（A1）：**只可收紧**档（`ui`/`state`/`external`/破坏性写）。
+   *
+   * `true` ⇒ 该节点在树/档案内可设 `ask`/`deny`（收紧方向），**不提供 `allow`**；
+   * `overridable===false && tightenOnly!==true` 才是零控件的硬底线（evaluate / S1 / S3）。
+   * 服务端 clamp 对收紧方向恒放行（`ask`/`deny` 原样返回），故本标记**不放宽**任何门禁。
+   */
+  tightenOnly: boolean;
   /** 不可覆盖原因（`overridable===false` 时）。 */
   clampReason?: ClampReason;
 }
@@ -145,14 +161,14 @@ export function resolveCommandPolicy(input: {
   else if (destructive === true) clampReason = 'destructive-floor';
 
   if (clampReason === undefined) {
-    return { effectiveAction: override ?? defaultAction, overridable: true };
+    return { effectiveAction: override ?? defaultAction, overridable: true, tightenOnly: false };
   }
   // S1/S3/evaluate 为不可覆盖（override 一律不生效）；ui/state/external/破坏性只允许收紧。
   const tightenOnly =
     clampReason === 'ui-no-widen' || clampReason === 'state-no-widen' || clampReason === 'external-no-widen' || clampReason === 'destructive-floor';
   const effectiveAction =
     tightenOnly && override !== undefined && override !== 'allow' ? override : defaultAction;
-  return { effectiveAction, overridable: false, clampReason };
+  return { effectiveAction, overridable: false, tightenOnly, clampReason };
 }
 
 // ---------------------------------------------------------------------------

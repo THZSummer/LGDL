@@ -274,6 +274,8 @@
 
 ### 9.4 断言取代台账（removed=0；总数只增）
 
+> **〔R2 修复轮订正（2026-09-13，A4；「removed=0」原表述保留为历史）〕**：R2 审查（`5d9e6f1`）独立核验显示**字面 `removed = 0` 不成立**（区间删除 470 行，含 10 处 `test('…')` 标题 + ~40 处 `assert.*`）。订正口径 = 「**无未取代删除 + 总断言数不减 + 硬底线/安全断言只增**」；逐条 old→new 见 `packages/web-cli-plugin/docs/r2-supersession-ledger.json`（S1~S18 + S19/S19b/S20），机器门禁见 `test/insight-tree-hierarchy.test.ts`。下表历史值**原样保留**（供对照）。
+
 | # | old（文件 :: 断言） | new（替代） | 备注 |
 |---|----|----|----|
 | S1 | `tree-ops.test.ts :: the action union is closed at exactly 7 values` | `… exactly 9 values（R2 supersession S1）` | 保留 `grant-origin`/`request-permission`/`command-allow` 负例（D-R2B-01） |
@@ -369,7 +371,7 @@
 
 - **D-R2B-02 延续**：未知/非法 risk 的覆盖 allow → 策略返回 `deny`（不是 plan 字面的 null）；UI 侧体现为 `s3-unknown-risk` 硬底线行（零控件 + `.tree-clamp-reason`）。
 - **档案控件类名隔离（新裁决）**：`R2-V24-02` 要求档案卡渲染分层控件并走同一 tree-ops，但 §9.8 未把 `insight.mjs #I-19g`（`.tree-archive` 零 `.tree-control`/零 `button[data-action-id]`）列入取代清单 → 采用**自有类** `.tree-archive-policy*`（无 `data-action-id`）兼顾两者；既满足档案分层可操作，又保持 P0 红线与 ledger-clean 取代。
-- **作者示例①真实 DOM 最深可展层偏差**：declared site tool 的 schema（`src/tools/declared-tools.ts#paramsToSchema`）**不暴露 `subcommand` enum** → 真实 dist 下 site 工具节点无子命令子层；`#I-20a` 展开到「工具」层，「工具→子命令」层由示例②（base-builtin `dom → dom read-state`）与 node 门禁 `insight-tree-hierarchy`（注入含子命令的 site 工具）证明；`docs/smoke-checklist.md` §8 已如实登记。
+- **作者示例①真实 DOM 最深可展层偏差**：declared site tool 的 schema（`src/tools/declared-tools.ts#paramsToSchema`）**不暴露 `subcommand` enum` → 真实 dist 下 site 工具节点无子命令子层；`#I-20a` 展开到「工具」层，「工具→子命令」层由示例②（base-builtin `dom → dom read-state`）与 node 门禁 `insight-tree-hierarchy`（注入含子命令的 site 工具）证明；`docs/smoke-checklist.md` §8 已如实登记。**〔R2 修复轮 A3 校准（2026-09-13）〕**：该边界**已消除**——插件侧 `service-worker#projectToolSurface` 从站点工具的 `subcommandRisks`（由 `decl.subcommands` 生成）回退解析子命令枚举（**不改 base、不改 `declared-tools.ts`**），真实 DOM 下 `站点 → 支持的命令 → site_notes → site_notes list / show` 逐层可展（`#I-20a2`）；见本文件 §R2 第 3 轮 A3。
 - **布局守卫与站点夹具的互斥**：绑定站点会合法地增加面板镀铬高度（实测去镀铬 `#log` 674→583px），故**站点夹具在全部 AC-V2-002 布局断言之后**才绑定（脚本末尾），避免以夹具状态污染 baseline。
 - **`TREE_NO_ESCALATION_NOTE` 未再改**：R2-1 已重写为两通路 + `delay` 消歧，pin `cfe96e8a…` 保持；本轮仅改 `TREE_MODEL_NOTE`（森林偏差清零）。
 
@@ -388,6 +390,8 @@
 | 8 | 全仓 `npm test` | 0 | lgdl-core 267 / lgdl-render 95（94 pass·1 skip）/ lgdl-router 8 / lgdl-web 31 / lgdl-web-cli 84 / lgdl-web-op-cli 15 / **web-cli-base 483** / **web-cli-plugin 690**；**fail 0** | `final-09-full-npm-test.log` |
 
 ### 4. 断言取代台账（removed=0；实测计数）
+
+> **〔R2 修复轮订正（2026-09-13，A4）〕**：字面 `removed=0` 经 R2 审查复核**不成立**，订正为「无未取代删除 + 总数不减 + 硬底线只增」；机器台账见 `packages/web-cli-plugin/docs/r2-supersession-ledger.json`。本表历史值保留。
 
 | # | 旧 | 新 | 证据 |
 |:--:|----|----|------|
@@ -426,3 +430,85 @@
 - `test:binding` 本轮前两次为**环境 flake**（`#33B1` 设置视图渲染、`#3d` discovery；内存吃紧下 Chromium 启动/加载时序抖动），第三次全绿；未改测试逻辑掩盖。
 - `#I-20a` 最深可展层偏差见 §2（declared site tool 无 subcommand enum）。
 - `docs/smoke-checklist.md` §7 既有「只读展示面」表述按 R2 部分取代，未删改既有条目，改以 §8 口径澄清。
+
+---
+
+## R2 第 3 轮（2026-09-13，sddu-build；编排器代作者决策（2026-09-13 授权）+ R2）
+
+> **范围**：消化 R2 review（`5d9e6f1`）的 **4 建议（A1~A4）+ 关键提示（A6/A7/T4）**。
+> **纪律**：只加固/补齐、**不放宽安全边界**；`content.js` **零增长**；`policy.ts`/`auto-authorize.ts` sha256 **不变**；不碰 `main`/`packages/web-cli-base/**`/v1 SDDU/`options.html`；无新依赖；门禁严格串行、完整日志落盘。**phase 不回退**（`revisionRounds.R2.buildRounds` 追加本轮记录）。
+
+### 1. 逐项 before → after（A1~A4 / A6 / A7 / T4）
+
+| # | before | after | 证据 |
+|---|--------|-------|------|
+| **A1** | `ui`/`state`/`external`/破坏性档在投影层与硬底线**合并**为 `overridable:false ⇒ controls:[]` → 叶子层**无树内收紧入口** | 新增**三层**：**硬底线**（evaluate / S1 / S3）仍 `controls:[]` + `clampReason` 可读；**只可收紧**（`tightenOnly:true`）给 **ask/deny 两档**（**结构上过滤掉 allow**）+ `clampReason` 可读；**可覆盖**仍 3 档 | `command-override.ts#resolveCommandPolicy` 增 `tightenOnly` + `TIGHTEN_ONLY_ACTIONS`；`command-catalog.ts` 按层产出控件；`tree-view.ts#commandControls` 对 tighten-only 过滤 `allow`；`tree-drawer.ts` 写 `data-tighten-only`；`archive-catalog.ts#policyControl` 同步（tighten-only → ask/deny） |
+| **A1（服务端）** | — | **不放宽**：`clampActionForRisk` **零改动**（ui/state/external/破坏性对 `allow` 仍返回 `null`/clamp，对 `ask`/`deny` 原样放行） | 新增 `test/command-override.test.ts`「A1 tighten-only never offers allow；server honours ask/deny」；`test:insight` `#I-20d`/`#I-20d2`/`#I-21b2` 真实 DOM |
+| **A2** | `crossRefs` 为**纯文本**，UI 侧不可下钻 | 新增**出站**交叉引用 `crossTargets` + `.tree-link[data-target-node-id]`（点击 / **Enter / Space**）→ `navigateToNodeId()` 展开祖先链并聚焦到**同一 `nodeId` 的唯一主归属实例**（**不复制节点**） | `ownership-tree.ts#computeCrossTargets`；`tree-view.ts` 透传 `crossTargets`；`tree-drawer.ts#navigateToNodeId`；`test:insight` `#I-22a~c`（真实 DOM + 键盘 + `copies===1`）；node `R2 hierarchy (A2)` |
+| **A3** | 站点工具的 schema 不暴露 `subcommand` enum → 真实 DOM 无「工具→子命令」子层；示例①只到「工具」层 | **选路线 ①（低成本、插件侧可行）**：`projectToolSurface` 以 `subcommandRisks` 的键**回退**解析子命令枚举（站点工具的 `subcommandRisks` 由 `decl.subcommands` 生成）→ 真实 DOM 达成 `站点 → 支持的命令 → site_notes → site_notes list / show`；**不改 base、不改 `declared-tools.ts`** | 新增纯函数 `command-catalog.ts#toolSubcommands` + `service-worker.ts#projectToolSurface` 调用；`test/insight-tree-hierarchy`（A3 单测）；`test:insight` `#I-20a2`（真实 DOM） |
+| **A4** | 台账口径写「`removed=0`」——R2 审查独立核验**字面不成立**（区间删除 470 行，含 10 处 `test('…')` 标题 + ~40 处 `assert.*`） | **订正为**「**无未取代删除（every removed assertion has an old→new ledger entry）+ 总断言数不减 + 硬底线/安全断言只增**」；**保留原「removed=0」表述并标注订正**（build §9.4/§4、plan §9.8、ADR-V2-031 相关段落历史保留）；补**机器可核验台账** | `docs/r2-supersession-ledger.json`（S1~S18 + S19/S19b/S20 + 计数前后）；`test/insight-tree-hierarchy.test.ts`（受保护文件删除行必须命中台账 old 行 + `journey.mjs` 零 diff + `test(` ≥ 646） |
+| **A6** | `smoke-checklist.md` §5 仍写「70 断言」；§7 仍写「档案只读展示面…无任何命令级控件」 | §5 追加「R2 修复轮实测 **102**」（历史 45/52/70 保留）；§7 追加「R2 起部分取代」澄清（零删改既有条目）；顺带校准 `V2-H-14`（只可收紧 ask/deny / 硬底线零控件）与 §8（A3 达成） | `docs/smoke-checklist.md` §5/§7/§8 |
+| **A7** | `INSIGHT_MODEL_NOTE`（快照 `meta.modelNote`）仍含旧「四维度分组视图（森林）…非严格单树」 | 订正为与真层级树一致的措辞（「按归属的层级树…同一节点不复制」）；**补断言防旧措辞回潮** | `tree-model.ts#INSIGHT_MODEL_NOTE`；`test/insight-projection.test.ts`（S20：`/按归属的层级树/`、`森林`/`非严格单树` 零命中、`/同一节点不复制/`） |
+| **T4** | `test:binding` 上轮 2/3 flake（`#33B1`/`#3d`），无失败时诊断 | 新增失败诊断（**完整栈** + 失败时面板/DOM 摘要，落盘 `R2_LOG_DIR`）；`#3d` 就绪等待 60→120×300ms、`#33B1` 60→120×250ms + 点击前显式等 `#open-settings` **（只加等待，不放宽断言）** | `test/ui/binding.mjs`（`diagnostics`/`captureRuntimeSummary`/`dumpDiagnostics`）；本轮 binding **0/2 flake**（新增诊断未触发） |
+
+### 2. 文件变更
+
+| 操作 | 文件 | 说明 |
+|:--:|------|------|
+| MODIFY | `src/security/command-override.ts` | `CommandPolicyResolution.tightenOnly` + `TIGHTEN_ONLY_ACTIONS`（clamp **零改动**） |
+| MODIFY | `src/insight/command-catalog.ts` | 三层控件；`toolSubcommands`（A3）；`tightenOnly` 落节点 |
+| MODIFY | `src/insight/tree-model.ts` | `CommandNode.tightenOnly?`；`INSIGHT_MODEL_NOTE` 订正（A7） |
+| MODIFY | `src/insight/ownership-tree.ts` | `CrossRefTarget` + `crossTargets`（A2） |
+| MODIFY | `src/insight/archive-catalog.ts` | 档案卡分层（tighten-only ask/deny）+ `READ_ONLY_NOTE` 校准 |
+| MODIFY | `src/ui/tree/tree-view.ts` | `TreeRow.tightenOnly/crossTargets` + 控件分层 |
+| MODIFY | `src/ui/tree/tree-drawer.ts` | `data-tighten-only` + `.tree-link` 下钻 + 档案控件消费 `policyControl` |
+| MODIFY | `src/background/service-worker.ts` | `projectToolSurface` 用 `toolSubcommands`（A3 回退） |
+| NEW | `docs/r2-supersession-ledger.json` | 机器可核验取代台账（A4） |
+| MODIFY | `test/{insight-tree-hierarchy,tree-view,command-override,insight-archive,insight-projection}.test.ts` | A1/A2/A3/A7/台账门禁（S19/S19b/S20） |
+| MODIFY | `test/ui/insight.mjs` / `test/ui/binding.mjs` | `#I-20a2/#I-20d/#I-20d2/#I-21b2/#I-22a~c`；T4 诊断 + 就绪等待 |
+| MODIFY | `docs/smoke-checklist.md` | A6 |
+
+### 3. 门禁（**严格串行，一次一个**；完整日志 `/tmp/opencode/r2-3/logs/`）
+
+| # | 命令 | 退出码 | 结果 | 日志 |
+|:--:|------|:--:|------|------|
+| 0 | `npm run build --workspace @lgdl/web-cli-plugin` | 0 | `content.js` 1,073,453 B（**零增长**）/ `sidepanel.js` 1,162,942 B / `background.js` 1,432,228 B | `00-build.log` |
+| 1 | `npm run typecheck` | 0 | **0 error** | `01-typecheck.log` |
+| 2 | 插件 `npm test` | 0 | **693 tests / 693 pass / 0 fail**（R2 基线 690 → +3） | `02-plugin-test.log` |
+| 3 | `npm run test:insight` | 0 | **PASS — 108 assertions**（R2 基线 102 → +6：`#I-20a2`/`#I-20d2`/`#I-21b2`/`#I-22a~c`） | `03-insight.log` |
+| 4 | `npm run test:ui` | 0 | **PASS — 167 assertions**（journey 零删减） | `04-ui.log` |
+| 5 | `npm run test:hardening` | 0 | **PASS — 24 assertions**（会重建 dist，已知副作用） | `05-hardening.log` |
+| 6 | `npm run test:binding` ×2 | 0 / 0 | **PASS — 192 assertions ×2（0/2 flake）** | `06-binding-run1.log` / `06-binding-run2.log` |
+| 7 | `npm run test:e2e` | 0 | **PASS — 真实 dist full chain（fixture + LGDL Workbench）** | `07-e2e.log` |
+| 8 | 全仓 `npm test` | 0 | core 267 / render 95（94 pass·1 skip）/ router 8 / web 31 / web-cli 84 / web-op-cli 15 / **base 483** / **plugin 693**；**fail 0** | `08-full-repo-test.log` |
+
+> 未跑项：无（8 项全跑）；无被杀/OOM。日志全文落盘，未做 `tail` 截断丢弃。
+
+### 4. 本轮新增取代（S19/S19b/S20）
+
+| # | old | new | 理由 |
+|---|-----|-----|------|
+| S19 | `insight.mjs #I-20d`：`dom click`（ui）零控件 | `#I-20d`：`dom click` ask/deny 两档（无 allow）+ 原因可读；`#I-20d2` 叶子收紧层断言 | A1 |
+| S19b | `insight-archive.test.ts`：hard-floor = `overridable !== true` | hard-floor = `overridable !== true && tightenOnly !== true`；tighten-only 卡 ask/deny | A1 |
+| S20 | `insight-projection.test.ts`：modelNote `/四维度分组视图（森林）/` + `/非严格单树/` | 层级树措辞 + 旧措辞零回潮断言 | A7 |
+
+> pin 显式更新（日期/理由见测试文件注释）：`src/ui/tree/tree-view.ts` `b4392d65…` → **`b0075d15…`**（A1/A2 触发的强依赖）。`content.js` 源码哈希 pin 不变（零增长）。
+
+### 5. 零改动核验（本轮）
+
+| 核验项 | 结果 |
+|------|:--:|
+| `packages/web-cli-base/**` 零 diff | ✅ `git diff --quiet` exit 0 |
+| `src/security/policy.ts` sha256 === pin | ✅ `bfcb2edeceae…c89a8` |
+| `src/security/auto-authorize.ts` sha256 === pin | ✅ `1096d065dac6…ef4b` |
+| `manifest.json` / `options.html` 零 diff | ✅ |
+| v1 SDDU 目录零 diff | ✅ |
+| `test/ui/journey.mjs` 零 diff | ✅（台账门禁亦断言区间+工作区 0 行） |
+| `dist/content.js` 零增长 | ✅ 1,073,453 B |
+
+### 6. 未完成 / 降级 / 风险（如实）
+
+- **未由 R2 第三轮修 T1/T2/T3/A5/A8**（R2 提示项，非本轮指令范围）：legacy `git diff --quiet HEAD` 弱冻结仍保留（真实冻结由 sha256 承担）；`ArchiveCard.policyControl` 现已由渲染层消费（T2 顺带覆盖）；`#I-19g` 标签措辞（T3）与 `isCommandDestructive` 整串匹配（A5）、计数基线数字（A8）未动。
+- **T4 残留**：本轮 binding 0/2 flake，但根因未定位（仅增强诊断与就绪等待）；若后续复现，诊断已落盘 `R2_LOG_DIR/binding-diagnostics-*.log`。
+- **人工面**：`smoke-checklist.md` §8 `V2-H-10~14` 观感/键盘体感仍 `⏳ 待人工`（headless 不可合成）。
+- **未合并/未发布**：仍在 `feature/web-cli-plugin`，不合 main、不发布。

@@ -58,6 +58,23 @@ export type OwnershipNodeKind = 'root' | 'face' | 'group' | 'site' | 'capability
 /** 主归属面（`root` = 连接树根自身）。 */
 export type OwnershipOwner = Dimension | 'root';
 
+/**
+ * R2 修复轮（A2）：**出站**交叉引用（本节点引用他归属节点）。
+ *
+ * 用于 UI 侧「非主归属处可交互下钻」：点击后经 `nodeId` 解析到该节点**唯一**主归属
+ * 实例并展开到可见（节点不复制）。
+ */
+export interface CrossRefTarget {
+  /** 目标节点稳定键（全树唯一；主归属处唯一实例）。 */
+  nodeId: string;
+  /** 引用关系文案（来自 `CrossLink.label`，如「依赖权限/能力」）。 */
+  relation: string;
+  /** 目标主归属面可读标签（如「能力面」）。 */
+  faceLabel: string;
+  /** 目标节点可读标签（如「浏览器能力 · 书签」）。 */
+  targetLabel: string;
+}
+
 export interface OwnershipNode {
   /** 全树唯一 id（face/group 用 `owner:` 前缀命名空间；其余用快照稳定键）。 */
   id: string;
@@ -74,6 +91,8 @@ export interface OwnershipNode {
   crossRefCount: number;
   /** 交叉引用徽标文案（可读）。 */
   crossRefLabels: string[];
+  /** 出站交叉引用（本节点引用他归属节点；A2 交互下钻用）。 */
+  crossTargets: CrossRefTarget[];
   badgeSummary: string[];
   children: OwnershipNode[];
 }
@@ -135,6 +154,53 @@ interface CrossRefSlot {
   refs: Set<string>;
   /** 引用方的归属面（用于单条可读徽标）。 */
   faces: Set<Dimension>;
+}
+
+/** LLM 节点可读标签（与 `buildOwnershipTree` 渲染一致，单一措辞源）。 */
+function llmNodeLabel(llm: LlmNode): string {
+  return llm.configured ? `${llm.providerName || '已配置'}${llm.model ? ` · ${llm.model}` : ''}` : '未配置 LLM';
+}
+
+/**
+ * R2 修复轮（A2）：出站交叉引用（本节点 → 他归属节点）。
+ *
+ * 仅收录「目标已知且目标主归属面 ≠ 本节点主归属面」的 `crossLink`（同一主归属内的
+ * 引用不算跨归属下钻），按 `(to, relation)` 去重并保持 `crossLinks` 原序（确定性）。
+ */
+function computeCrossTargets(snapshot: OwnershipSource, owners: Map<string, Dimension>): Map<string, CrossRefTarget[]> {
+  const labels = new Map<string, string>();
+  for (const site of siteNodes(snapshot)) labels.set(site.id, `站点 ${site.origin}`);
+  for (const cap of capabilityNodes(snapshot)) labels.set(cap.id, cap.label);
+  for (const cmd of commandNodes(snapshot)) labels.set(cmd.id, commandNodeLabel(cmd));
+  for (const llm of groupChildren<LlmNode>(snapshot, 'llm')) {
+    labels.set(llm.id, llmNodeLabel(llm));
+    for (const s of (llm.sessions ?? []) as SessionNode[]) labels.set(s.id, s.label);
+  }
+
+  const out = new Map<string, CrossRefTarget[]>();
+  const add = (fromId: string, links: readonly { to: string; label: string }[]): void => {
+    const ownerFrom = owners.get(fromId);
+    if (!ownerFrom) return;
+    const slot = out.get(fromId) ?? [];
+    const seen = new Set(slot.map((t) => `${t.nodeId}|${t.relation}`));
+    for (const link of links) {
+      const to = link.to;
+      const ownerTo = owners.get(to);
+      const targetLabel = labels.get(to);
+      if (!ownerTo || ownerTo === ownerFrom || to === fromId || !targetLabel) continue;
+      const key = `${to}|${link.label}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      slot.push({ nodeId: to, relation: link.label, faceLabel: ownerFaceLabel(ownerTo), targetLabel });
+    }
+    if (slot.length > 0) out.set(fromId, slot);
+  };
+  for (const node of [...siteNodes(snapshot), ...capabilityNodes(snapshot), ...commandNodes(snapshot)]) add(node.id, node.crossLinks);
+  for (const llm of groupChildren<LlmNode>(snapshot, 'llm')) {
+    add(llm.id, llm.crossLinks);
+    for (const s of (llm.sessions ?? []) as SessionNode[]) add(s.id, s.crossLinks);
+  }
+  return out;
 }
 
 /**
@@ -216,7 +282,9 @@ function makeCommandSubtree(make: NodeFactory, tool: CommandNode, subs: readonly
  * 不做任何写操作、不改快照（不 mutate 输入）。
  */
 export function buildOwnershipTree(snapshot: OwnershipSource): OwnershipTree {
+  const owners = computeMainOwners(snapshot);
   const crossRefs = computeCrossRefs(snapshot);
+  const crossTargets = computeCrossTargets(snapshot, owners);
   const commands = commandNodes(snapshot);
 
   const make: NodeFactory = (init, pathLabels, children) => {
@@ -232,6 +300,7 @@ export function buildOwnershipTree(snapshot: OwnershipSource): OwnershipTree {
       mainOwner: init.mainOwner,
       crossRefCount: refs ? refs.refs.size : 0,
       crossRefLabels: refs ? [`亦被 ${refs.refs.size} 处引用（${[...refs.faces].map(ownerFaceLabel).join('、')}）`] : [],
+      crossTargets: init.nodeId ? (crossTargets.get(init.nodeId) ?? []) : [],
       badgeSummary: [...(init.badges ?? [])],
       children,
     };

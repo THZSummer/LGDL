@@ -28,6 +28,7 @@
  * 站点：优先复用已在 `:5173` 运行的 lgdl-web；否则用 `vite preview` 起本仓 dist。
  */
 import { spawn } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -47,6 +48,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ── assertions ───────────────────────────────────────────────────────────────
 const failures = [];
 const observations = [];
+
+/**
+ * R2 修复轮 T4：失败诊断（完整栈 + 失败时面板/DOM 快照摘要）。
+ *
+ * 2/3 flake（`#33B1` / `#3d`）判为环境抖动但频率偏高；这里**只加诊断与就绪等待**，
+ * **不放宽任何断言**（失败仍 `process.exit(1)`）。诊断落盘到 `R2_LOG_DIR`（默认
+ * `/tmp/opencode/r2-3/logs`），便于下次定位「是渲染未就绪还是真回归」。
+ */
+const R2_LOG_DIR = process.env.R2_LOG_DIR || '/tmp/opencode/r2-3/logs';
+const diagnostics = [];
+const diagnosticContexts = new Map();
+
+function stackOf() {
+  const raw = new Error().stack ?? '';
+  return raw.split('\n').slice(2, 7).map((l) => l.trim()).join(' | ');
+}
+
 let passes = 0;
 function check(cond, label, detail) {
   if (cond) {
@@ -55,11 +73,50 @@ function check(cond, label, detail) {
   } else {
     console.log(`  ✖ ${label}${detail ? ` — ${detail}` : ''}`);
     failures.push(label);
+    diagnostics.push({ label, detail: detail === undefined ? '' : String(detail), at: new Date().toISOString(), stack: stackOf() });
   }
 }
 function observe(text) {
   observations.push(text);
   console.log(`  · [观测] ${text}`);
+}
+
+/** 注册 CDP 上下文（失败时抓取 DOM 摘要；不改变任何断言）。 */
+function registerContext(name, cdp) {
+  diagnosticContexts.set(name, cdp);
+}
+
+const DIAG_SELECTORS = ['tree-fab', 'tree-drawer', 'settings-view', 'panel-main', 'status', 'log', 'composer', 'tree-breadcrumb'];
+
+async function captureRuntimeSummary() {
+  const out = {};
+  for (const [name, cdp] of diagnosticContexts) {
+    out[name] = await evaluate(
+      cdp,
+      `(() => ({
+        url: location.href,
+        ready: document.readyState,
+        keyNodes: ${JSON.stringify(DIAG_SELECTORS)}.map((id) => id + ':' + (document.getElementById(id) ? '1' : '0')).join(','),
+        treeNodes: document.querySelectorAll('#tree-drawer li.tree-node').length,
+        bodyLen: ((document.body && document.body.innerText) || '').length,
+      }))()`,
+      8000,
+    ).catch((e) => `ERR:${e instanceof Error ? e.message : String(e)}`);
+  }
+  return out;
+}
+
+async function dumpDiagnostics(reason) {
+  try {
+    mkdirSync(R2_LOG_DIR, { recursive: true });
+    const summary = await captureRuntimeSummary();
+    const file = `${R2_LOG_DIR}/binding-diagnostics-${Date.now()}.log`;
+    writeFileSync(file, `${JSON.stringify({ at: new Date().toISOString(), reason, passes, failures: [...failures], diagnostics, contexts: summary }, null, 2)}\n`);
+    console.error(`✖ binding 诊断已落盘（完整栈 + DOM 摘要）：${file}`);
+    console.error(JSON.stringify(summary, null, 2));
+  } catch (err) {
+    console.error('binding 诊断落盘失败（不影响断言结论）:', err instanceof Error ? err.message : String(err));
+  }
 }
 
 // ── CDP client ───────────────────────────────────────────────────────────────
@@ -441,6 +498,7 @@ async function launchChrome(extDir, tag) {
     }
     if (!sw) await sleep(250);
   }
+  if (sw) registerContext('sw', sw);
   return { work, chrome, base, sw, log: () => log };
 }
 
@@ -515,6 +573,7 @@ async function phase0() {
     const spTarget = await findTarget(base, (t) => t.type === 'page' && t.url.includes('sidepanel.html'));
     if (spTarget) {
       const page = await connectCdp(spTarget.webSocketDebuggerUrl);
+      registerContext('unauth-page', page);
       await page.send('Runtime.enable');
       await sleep(800);
       // headless 无法合成原生权限弹窗：未授权的 optional host 请求会一直 pending。
@@ -684,6 +743,7 @@ async function phase1(mock) {
     const spTarget = await findTarget(base, (t) => t.type === 'page' && t.url.includes('sidepanel.html'));
     if (!spTarget) throw new Error('sidepanel target not found');
     const ext = await connectCdp(spTarget.webSocketDebuggerUrl);
+    registerContext('panel', ext);
     await ext.send('Runtime.enable');
     await ext.send('Log.enable');
     await ext.send('Page.enable');
@@ -743,8 +803,10 @@ async function phase1(mock) {
         const d = r?.data;
         return d?.active?.discoveryState === 'supported' ? JSON.stringify({ active: d.active, tools: d.tools }) : '';
       })()`,
-      60,
-      250,
+      // T4: readiness window widened (60→120 × 300ms) — an explicit wait for the
+      // discovery signal, NOT a relaxation of the assertion.
+      120,
+      300,
     );
     check(Boolean(state), '#3d discovery 走到 supported（well-known / html-link / handshake）', String(state).slice(0, 160));
     const parsed = state ? JSON.parse(state) : { tools: [] };
@@ -826,6 +888,9 @@ async function phase1(mock) {
         return window.__ooWrapped;
       })()`,
     );
+    // T4: explicit readiness wait for the settings entry before clicking (so the
+    // click lands on a wired control under load); the assertion below is unchanged.
+    await waitFor(ext, `document.getElementById('open-settings') ? '1' : ''`, 60, 150);
     await realClick(ext, '#open-settings');
     const settingsView = await waitFor(
       ext,
@@ -845,8 +910,9 @@ async function phase1(mock) {
           keyState: document.getElementById('settings-key-state').textContent,
         });
       })()`,
-      60,
-      200,
+      // T4: readiness window widened (60→120 × 250ms) — wait for the real render.
+      120,
+      250,
     );
     const svp = settingsView ? JSON.parse(settingsView) : {};
     check(Boolean(settingsView), '#33B1 面板内设置视图真实渲染（真实 dist + 真实扩展，零跳转）', settingsView ?? 'no settings view');
@@ -1902,6 +1968,7 @@ async function phase2(mock) {
     const spTarget = await findTarget(base, (t) => t.type === 'page' && t.url.includes('sidepanel.html'));
     if (!spTarget) throw new Error('sidepanel target not found');
     const ext = await connectCdp(spTarget.webSocketDebuggerUrl);
+    registerContext('panel-phase1', ext);
     await ext.send('Runtime.enable');
     await ext.send('Log.enable');
     const extExceptions = [];
@@ -2098,6 +2165,7 @@ async function phaseAutoProbe() {
     check(Boolean(spTarget), 'AP#3 侧栏打开（面板关注该 origin）');
     if (!spTarget) throw new Error('no sidepanel target');
     const sp = await connectCdp(spTarget.webSocketDebuggerUrl);
+    registerContext('panel-autoprobe', sp);
     await sp.send('Runtime.enable');
     const spExceptions = [];
     sp.on('Runtime.exceptionThrown', (p) => spExceptions.push(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text));
@@ -2187,12 +2255,15 @@ async function main() {
   if (failures.length) {
     console.error(`binding FAILED (${failures.length}):`);
     for (const f of failures) console.error(`  - ${f}`);
+    // T4: full stacks + failure-time DOM/panel snapshot for the next triage.
+    await dumpDiagnostics('main: assertions failed');
     process.exit(1);
   }
   console.log(`binding PASS — ${passes} assertions：真实 dist + 真实 http://localhost:5173 + mock LLM，6 步全链（绑定→注入→发现→授权→发送可用→对话）+ 阶段 2 自动探测（授权后免点图标自动绑定）+ FR-049 标签页工具（真实 tabs list --full/默认 与 tabs switch → 会话随之切换）+ FR-050 web-fetch 预校验（未授权域名零请求 + 可读拒绝；同源经页面上下文真实读取；SW ping 往返 + 无加载/CORS 错误）+ TASK-032 自动探测（延迟就绪 + 有界退避重试，全程零点击，无手动「重新探测」按钮）`);
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error(err);
+  await dumpDiagnostics(`main: uncaught ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });

@@ -141,17 +141,20 @@ test('V2-1 anchor: capability toggle keys equal CAPABILITY_SETTING_DEFAULTS keys
 });
 
 // ---------------------------------------------------------------------------
-// snapshot shape (FR-V2-010)
+// snapshot shape (FR-V2-010〔R2·形式被 FR-V2-070 取代〕；A7 订正 modelNote)
 // ---------------------------------------------------------------------------
 
-test('V2-1 forest shape: version 1, root label, modelNote honestly says non-strict tree, fixed group order', () => {
+test('V2-1 hierarchy shape: version 1, root label, modelNote states the ownership hierarchy, fixed group order (R2 supersession S20)', () => {
   const snapshot = projectInsightTree(richSource());
   assert.equal(snapshot.version, 1);
   assert.equal(snapshot.root.id, 'root');
   assert.equal(snapshot.root.label, '本插件');
   assert.deepEqual([...snapshot.root.dimensions], [...INSIGHT_DIMENSIONS]);
-  assert.match(snapshot.meta.modelNote, /四维度分组视图（森林）/);
-  assert.match(snapshot.meta.modelNote, /非严格单树/);
+  // A7：meta.modelNote 与真层级树一致；旧「森林 / 非严格单树」措辞零回潮（防止回归）。
+  assert.match(snapshot.meta.modelNote, /按归属的层级树/);
+  assert.equal(snapshot.meta.modelNote.includes('森林'), false, 'legacy forest wording must not come back');
+  assert.equal(snapshot.meta.modelNote.includes('非严格单树'), false, 'legacy non-strict-tree wording must not come back');
+  assert.match(snapshot.meta.modelNote, /同一节点不复制/);
   assert.equal(snapshot.meta.modelNote, INSIGHT_MODEL_NOTE);
   assert.deepEqual(
     snapshot.groups.map((g) => g.dimension),

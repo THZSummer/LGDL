@@ -15,6 +15,7 @@ import {
   COMMAND_OVERRIDE_STRATEGY_NAME,
   COMMAND_OVERRIDE_STRATEGY_ORDER,
   COMMAND_POLICY_STORAGE_KEY,
+  TIGHTEN_ONLY_ACTIONS,
   clampActionForRisk,
   commandIdOf,
   createCommandOverrideStore,
@@ -146,43 +147,69 @@ test('R2 command-override: resolveCommandPolicy splits default/effective + reada
   assert.deepEqual(resolveCommandPolicy({ defaultAction: 'allow', override: 'deny', risk: 'read' }), {
     effectiveAction: 'deny',
     overridable: true,
+    tightenOnly: false,
   });
-  // ui allow → clamped to default; ask/deny tighten
+  // ui allow → clamped to default; ask/deny tighten (A1: tightenOnly tier)
   assert.deepEqual(resolveCommandPolicy({ defaultAction: 'ask', override: 'allow', risk: 'ui' }), {
     effectiveAction: 'ask',
     overridable: false,
+    tightenOnly: true,
     clampReason: 'ui-no-widen',
   });
   assert.deepEqual(resolveCommandPolicy({ defaultAction: 'ask', override: 'deny', risk: 'ui' }), {
     effectiveAction: 'deny',
     overridable: false,
+    tightenOnly: true,
     clampReason: 'ui-no-widen',
   });
   // destructive floor
   assert.deepEqual(resolveCommandPolicy({ defaultAction: 'ask', override: 'allow', risk: 'write', destructive: true }), {
     effectiveAction: 'ask',
     overridable: false,
+    tightenOnly: true,
     clampReason: 'destructive-floor',
   });
-  // evaluate / s3 / s1 hard floors (override never takes effect)
+  // evaluate / s3 / s1 hard floors (override never takes effect; zero-control tier)
   assert.deepEqual(resolveCommandPolicy({ defaultAction: 'deny', override: 'allow', risk: 'evaluate' }), {
     effectiveAction: 'deny',
     overridable: false,
+    tightenOnly: false,
     clampReason: 'evaluate',
   });
   assert.deepEqual(resolveCommandPolicy({ defaultAction: 'deny', override: 'allow' }), {
     effectiveAction: 'deny',
     overridable: false,
+    tightenOnly: false,
     clampReason: 's3-unknown-risk',
   });
   assert.deepEqual(resolveCommandPolicy({ defaultAction: 'deny', override: 'allow', risk: 'read', hardFloor: 's1-unauthorized' }), {
     effectiveAction: 'deny',
     overridable: false,
+    tightenOnly: false,
     clampReason: 's1-unauthorized',
   });
-  // state / external reasons
-  assert.equal(resolveCommandPolicy({ defaultAction: 'ask', override: 'allow', risk: 'state' }).clampReason, 'state-no-widen');
-  assert.equal(resolveCommandPolicy({ defaultAction: 'ask', override: 'allow', risk: 'external' }).clampReason, 'external-no-widen');
+  // state / external reasons (A1 tighten-only tier)
+  const state = resolveCommandPolicy({ defaultAction: 'ask', override: 'allow', risk: 'state' });
+  assert.equal(state.clampReason, 'state-no-widen');
+  assert.equal(state.tightenOnly, true);
+  const external = resolveCommandPolicy({ defaultAction: 'ask', override: 'allow', risk: 'external' });
+  assert.equal(external.clampReason, 'external-no-widen');
+  assert.equal(external.tightenOnly, true);
+});
+
+test('R2 A1 command-override: the tighten-only tier never offers allow; server clamp still honours ask/deny', () => {
+  // A1: the node-level tighten-only controls are exactly ask/deny (no allow) …
+  assert.deepEqual([...TIGHTEN_ONLY_ACTIONS], ['ask', 'deny']);
+  assert.equal(TIGHTEN_ONLY_ACTIONS.includes('allow'), false);
+  // … and the server clamp always honours the tightening direction for every no-widen risk.
+  for (const risk of ['ui', 'state', 'external'] as const) {
+    assert.equal(clampActionForRisk('ask', risk, false), 'ask', `${risk}: ask must tighten`);
+    assert.equal(clampActionForRisk('deny', risk, false), 'deny', `${risk}: deny must tighten`);
+    assert.equal(clampActionForRisk('allow', risk, false), null, `${risk}: allow must never widen`);
+  }
+  assert.equal(clampActionForRisk('ask', 'write', true), 'ask');
+  assert.equal(clampActionForRisk('deny', 'write', true), 'deny');
+  assert.equal(clampActionForRisk('allow', 'write', true), null);
 });
 
 test('R2 command-override: isCommandDestructive only flags write-tier destructive verbs', () => {
