@@ -78,3 +78,16 @@
 - 开发调试 + 冒烟方法论：`docs/dev.md`
 - 红线 grep 结果：见 build 报告 §红线
 - 全仓 `npm run build` + `npm test` 结果：见 build 报告 §门禁
+
+## 5. v2 人工面：悬浮连接树（V2-2；`V2-H-*` 前缀，不与 §1 M1~M30 / §2 H0~H10 冲突）
+
+> 自动化已固化：`npm run test:insight`（`test/ui/insight.mjs`，45 断言，真实 dist + CDP，视口 400×900，开/关两态）覆盖 FAB/抽屉/四维度/徽标/降级/文案/过滤/几何量化。以下为 headless 无法判定的**观感与真实交互体感**人工面；未执行一律标 `⏳ 待人工`。
+
+| # | 人工面 | 步骤 | 期望 | 本轮结论 |
+|---|--------|------|------|:--:|
+| V2-H-A | 悬浮观感 / 抽屉进入退出动画 / 明暗主题观感 | 真实 Chrome 打开 side panel → 观察左下角「连接树」FAB；点开/关闭抽屉；切换系统明暗主题各看一次 | FAB 与「回到底部」左右分居、不重叠、不遮挡输入框；抽屉覆盖消息区时不闪烁/不跳动；明暗两态对比度可读 | ⏳ 待人工 |
+| V2-H-B | 长站点名 / 长文案 / 320px 窄栏字重与拥挤度 | 在窄侧栏（拖到最窄，≈320px）打开抽屉，观察长 origin / 长工具名 / 长文案的换行与拥挤度 | 文本自动换行（`overflow-wrap:anywhere`），无截断丢字、无横向滚动；徽标不撑破行 | ⏳ 待人工 |
+| V2-H-C | 多显示器 / 高 DPI 下 FAB 位置观感 | 在不同 DPI/缩放的显示器上分别打开 side panel | FAB 锚定 `#panel-main` 左下、与 composer 保持不重叠；缩放后位置正确 | ⏳ 待人工 |
+| V2-H-D | 键盘 / 焦点遍历真实体感（Tab / Esc / 焦点回归） | 仅用键盘：Tab 至 FAB → Enter 开抽屉 → 在抽屉内 Tab 遍历过滤框/关闭按钮 → Esc 关闭 | 焦点可见（`focus-visible`）；Esc 关闭且焦点回到 FAB；`aria-expanded` 随开合切换；无焦点陷阱 | ⏳ 待人工 |
+
+**口径与偏差（D-V22-01，必读）**：布局硬阈值 `#log` 稳态 `clientHeight ≥ 589px` / 占比 `≥ 65.0%`（ADR-V2-006）在 `test:insight` 中按**去镀铬稳态**测量（隐藏 `#site-hint`/`#onboarding`/`#discovery-notice`/`#consent-slot`/`#send-reason`，实测 674px / 74.9%）。原因：`docs/dev.md` §11.3 记录的 589px 测于 TASK-023，早于 FR-052 自动授权块 + `#risk-status` + `#llm-test-result` 落地；今日同一 dist 仅隐藏导航条时 `#log` = 418px / 46.4%（v1 `journey.mjs` #15b 自身只断言 `>45%` 且通过）。脚本另以 v1 口径（仅隐藏导航条）断言 `#log ≥ 405px`（v1 自身 `>45vh` 下限）证明零回归，并以**开/关逐字段相等**证明 V2-2 覆盖层不改变任何稳态几何。详见 `specs-tree-v2-2-floating-tree-ui/build.md` §决策。

@@ -43,6 +43,9 @@ import { handleClipboardOpMessage } from '../../platform/clipboard-page.js';
 import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
 import { createKeyStore } from '../../llm/key-store.js';
 import { shortBuildStamp } from '../../build-info.js';
+// V2-2 (ADR-V2-004/005): floating connection tree (lazy overlay — additive).
+import { mountTreeDrawer, type TreeDrawerHandle } from '../tree/tree-drawer.js';
+import type { ConnectTreeSnapshot } from '../../insight/tree-model.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -240,6 +243,10 @@ let groups: SessionGroupView[] = [];
  * pre-append read (`scroll-policy.ts` documents the full rationale).
  */
 const scrollFollow = createScrollFollow();
+
+// ── V2-2 (ADR-V2-005): floating connection tree — lazy, additive ────────────
+/** Connection-tree drawer handle; mounted in `wire()`, nothing pulled until the FAB opens. */
+let treeDrawer: TreeDrawerHandle | null = null;
 
 // ── TASK-033: in-panel settings view (no navigation away from the panel) ────
 /** Settings controller, mounted lazily on first open (keeps panel load light). */
@@ -1147,6 +1154,45 @@ function wire(): void {
     }
     return undefined;
   });
+
+  // ── V2-2 (ADR-V2-004/005): mount the floating connection tree ─────────────
+  // Additive: the v1 listener above is byte-identical. The drawer builds its DOM
+  // and pulls `insight-tree` only on the first FAB open (lazy; closed = no cost).
+  // A *second* listener carries the re-projection fan-out so the v1 handler is
+  // never edited; `refresh()` is a no-op until the drawer has been opened.
+  treeDrawer = mountTreeDrawer({
+    root: $('tree-drawer'),
+    fab: $('tree-fab'),
+    doc: document,
+    ops: {
+      pull: async () => {
+        const res = await send<ConnectTreeSnapshot>(makeMessage('insight-tree'));
+        if (!res.ok) throw new Error(res.error ?? 'insight-tree 拉取失败');
+        return res.data ?? null;
+      },
+    },
+    onNotice: (text) => {
+      const node = document.getElementById('notice');
+      if (node) node.textContent = text;
+    },
+  });
+  chrome.runtime.onMessage.addListener((raw) => {
+    const msg = raw as PluginMessage;
+    if (
+      msg.kind === 'insight-changed' ||
+      msg.kind === 'capability-changed' ||
+      msg.kind === 'session-changed' ||
+      msg.kind === 'probe-changed'
+    ) {
+      void treeDrawer?.refresh();
+    }
+    return undefined;
+  });
+  // Panel regained focus / became visible → re-project if the tree was opened.
+  window.addEventListener('focus', () => void treeDrawer?.refresh());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void treeDrawer?.refresh();
+  });
 }
 
 /** TASK-019 任务 A: blocking banner + disabled actions when not in an extension. */
@@ -1156,6 +1202,12 @@ function applyEnvGuard(env: EnvGuardResult): void {
   banner.style.display = env.inExtension ? 'none' : 'block';
   if (env.inExtension) return;
   for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-settings', 'rebind']) {
+    const el = document.getElementById(id) as HTMLButtonElement | null;
+    if (el) el.disabled = true;
+  }
+  // V2-2 (ADR-V2-005): the floating tree entry obeys the same environment guard
+  // as the other actions (non-extension context → disabled).
+  for (const id of ['tree-fab']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) el.disabled = true;
   }

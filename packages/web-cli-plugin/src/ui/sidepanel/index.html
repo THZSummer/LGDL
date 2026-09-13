@@ -520,6 +520,146 @@
         #log { padding: 10px 8px; }
         #settings-root { padding: 8px; }
       }
+
+      /* ── V2-2 (ADR-V2-005): floating connection tree — FAB + overlay drawer ──
+         Both are **absolute children of #panel-main** (already `position:
+         relative`). They therefore never participate in the flex flow: #log keeps
+         `flex:1 1 auto` and #composer stays the last element of #panel-bottom, so
+         the tree can never push the composer out of the viewport (D-079) nor
+         shrink the message zone. Closed state is `display:none` → zero cost. ── */
+      #tree-fab {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        z-index: 6;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: var(--bg-elevated);
+        border-color: var(--border-strong);
+        font-weight: 600;
+        box-shadow: var(--shadow);
+        max-width: calc(100% - 24px);
+      }
+      #tree-fab[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      #tree-drawer {
+        position: absolute;
+        inset: 0 0 0 auto;
+        width: min(340px, 100%);
+        max-height: 100%;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        overflow-x: hidden;
+        z-index: 7;
+        background: var(--bg-elevated);
+        border-left: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        overflow-wrap: anywhere;
+      }
+      #tree-drawer[hidden] { display: none; }
+      #tree-drawer .tree-header {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+      }
+      #tree-drawer .tree-title { font-weight: 600; font-size: 13px; flex: 1 1 auto; min-width: 0; }
+      #tree-drawer .tree-close { flex: 0 0 auto; }
+      #tree-drawer .tree-notes {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-subtle);
+      }
+      #tree-drawer .tree-note {
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--text-muted);
+        border-left: 3px solid var(--border-strong);
+        padding-left: 6px;
+      }
+      #tree-drawer .tree-note-no-escalation { color: var(--danger-text); border-left-color: var(--danger-border); }
+      #tree-drawer .tree-filter { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+      #tree-drawer .tree-filter input {
+        width: 100%;
+        min-width: 0;
+        padding: 5px 8px;
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+      }
+      #tree-drawer .tree-filter-count { margin-top: 4px; font-size: 11.5px; color: var(--text-muted); }
+      #tree-drawer .tree-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+      #tree-drawer .tree-group { min-width: 0; }
+      #tree-drawer .tree-group-title {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-weight: 600;
+        font-size: 12px;
+        color: var(--accent-text);
+        margin-bottom: 4px;
+      }
+      #tree-drawer .tree-group-count { font-weight: 400; color: var(--text-muted); font-size: 11px; }
+      #tree-drawer .tree-row {
+        min-width: 0;
+        padding: 5px 0;
+        border-bottom: 1px dashed var(--border);
+      }
+      #tree-drawer .tree-row[data-depth="2"] { padding-left: 12px; }
+      #tree-drawer .tree-label { font-size: 12px; min-width: 0; }
+      #tree-drawer .tree-sublabel { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+      #tree-drawer .tree-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+      #tree-drawer .tree-badge {
+        font-size: 10.5px;
+        line-height: 1.4;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        color: var(--text-muted);
+        background: var(--bg-subtle);
+        white-space: normal;
+      }
+      #tree-drawer .tree-badge[data-tone="ok"] { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
+      #tree-drawer .tree-badge[data-tone="warn"] { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); }
+      #tree-drawer .tree-badge[data-tone="danger"] { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); }
+      #tree-drawer .tree-controls { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+      #tree-drawer .tree-control { font-size: 11px; color: var(--accent-text); }
+      #tree-drawer .tree-control[data-kind="revoke"] { color: var(--warn-text); }
+      #tree-drawer .tree-revoke-hint { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+      #tree-drawer .tree-empty { font-size: 11.5px; color: var(--text-muted); line-height: 1.6; }
+      #tree-drawer .tree-degradations { display: flex; flex-direction: column; gap: 6px; }
+      #tree-drawer .tree-degradation {
+        font-size: 11.5px;
+        line-height: 1.6;
+        color: var(--warn-text);
+        background: var(--warn-bg);
+        border: 1px solid var(--warn-border);
+        border-radius: var(--radius-sm);
+        padding: 6px 8px;
+      }
+      #tree-drawer .tree-error {
+        font-size: 12px;
+        color: var(--danger-text);
+        background: var(--danger-bg);
+        border: 1px solid var(--danger-border);
+        border-radius: var(--radius-sm);
+        padding: 6px 8px;
+      }
     </style>
   </head>
   <body>
@@ -563,6 +703,13 @@
     <div id="panel-main">
       <div id="log" aria-label="会话记录"></div>
       <button id="scroll-bottom" type="button" title="新消息在下方">回到底部 ↓</button>
+      <!-- V2-2 (ADR-V2-005): connection-tree entry (FAB) + overlay drawer.
+           Both are absolute children of #panel-main, so they overlay the message
+           zone without ever touching the three-zone flex geometry or the
+           composer. Default state: collapsed (O-V2-001); nothing is pulled or
+           rendered until the FAB is first opened (NFR-V22-005). -->
+      <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" aria-haspopup="dialog" title="连接树：四维度总览与撤销入口">连接树</button>
+      <aside id="tree-drawer" hidden aria-label="连接树" role="dialog" aria-modal="false"></aside>
     </div>
 
     <!-- ── zone 3: hints + composer (never scrolls; composer is last) ── -->
