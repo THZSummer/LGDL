@@ -9,7 +9,7 @@
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-13
 > **更新说明**: v2 整体收口（四叶 phase 全 validated；含 V2-4 P1）+ flake 修复（#AP#5b 相位窗口 + tabs harness 时序）+ 完整日志落盘纪律 + 遗留项全量登记（13 项人工面 + T1 + 已知偶发 + 口径 + 未合并/未发布）；**R2 第 1 轮（§9）/ 第 2 轮**；**R2 第 3 轮（review 修复轮 A1~A4 + A6/A7/T4）** 见文末。
-> **最新轮次（体积现状订正，2026-09-14）**: **R3-perf —— base LLM SDK 惰性化**（作者显式授权修改 `packages/web-cli-base/**`，仅本修复）。`content.js` 实测 **1,073,453 B → 177,076 B**（−83.5%），`sidepanel.js` **1,162,942 → 266,500 B**；**NFR-007 的 64 KiB 目标仍未达成（2.70×，D31 保留未消除）**，未改任何阈值/断言。本文件前半部分（§1 / R2C-4 等）的体积数字为**历史时点记录，保留在案**；**体积以 §R3-perf 与 `docs/dev.md §8` 现状为准**。
+> **最新轮次（体积现状订正，2026-09-14）**: **R3-perf —— base LLM SDK 惰性化**（作者显式授权修改 `packages/web-cli-base/**`，仅本修复）。`content.js` 实测 **1,073,453 B → 177,076 B**（−83.5%），`sidepanel.js` **1,162,942 → 266,500 B**；**NFR-007 的 64 KiB 目标仍未达成（2.70×，D31 保留未消除）**，未改任何阈值/断言（R3-perf 轮）。**后续守卫收紧轮（2026-09-14）**：按实测值**显式收紧**体积守卫（`CONTENT_MAX_BYTES` / `CONTENT_BUNDLE_BASELINE_BYTES` → 177,076 B；`SIDEPANEL_BASELINE_BYTES` → 266,500 B / ceiling 279,825 B）并订正文档/状态漂移，**详见 §R3P-13**。本文件前半部分（§1 / R2C-4 等）的体积数字为**历史时点记录，保留在案**；**体积与守卫现状以 §R3-perf / §R3P-13 与 `docs/dev.md §8` 为准**。
 
 ---
 
@@ -133,7 +133,7 @@
 | `test:e2e` | **PASS** | `/tmp/v24closeout/08-e2e.log` |
 | 全仓 `npm test` | **1629 tests / 1628 pass / 0 fail / 1 skip**（base **483** 零回归） | `/tmp/v24closeout/09-repo-test.log` |
 
-体积现状（2026-09-14，**以 §R3-perf 为准 —— 目录导航取本行**）：`content.js` **177,076 B**；`sidepanel.js` **266,500 B**；`options.js` **82,093 B**；`background.js` **1,587,839 B**。**NFR-007 的 64 KiB 目标仍未达成（2.70×，D31 保留未消除）**。
+体积现状（2026-09-14，**以 §R3-perf / §R3P-13 为准 —— 目录导航取本行**）：`content.js` **177,076 B**；`sidepanel.js` **266,500 B**；`options.js` **82,093 B**；`background.js` **1,587,839 B**。**NFR-007 的 64 KiB 目标仍未达成（2.70×，D31 保留未消除）**。体积守卫已于 2026-09-14 收紧（content 硬上限 177,076 B / sidepanel 基线 266,500 B / ceiling 279,825 B；见 §R3P-13）。
 
 体积（**历史时点，2026-09-13；保留原值**）：`content.js` **1,073,453 B（零增长）**；`sidepanel.js` **1,132,748 B**（ceiling 1,189,385）；`background.js` **1,403,170 B**。
 
@@ -348,6 +348,7 @@
 | v3.0 | **R2 实施构建第 1 轮（第 12 轮）**：R2-Wave 1（V2-1 真层级树：`ownership-tree.ts` + `tree-model`/`command-catalog`/`project-tree`/`build-snapshot`）+ R2-Wave 2（V2-3 覆盖引擎：`command-override.ts` SW 侧 clamp/存储生命周期 + `host`/`service-worker`/`messaging`/`insight-protocol`/`tree-ops` 接线 + 白名单 7→9）；3 新测试文件（35 tests）；门禁串行全绿（typecheck 0 / 插件 npm test 686 0 fail / insight 70 / ui 167 / hardening 24 / binding 180 / e2e PASS / 全仓 EXIT=0）；断言取代 S1/S2/S3/S7/S9/S10/S12 + pin 显式更新（removed=0、总数只增）；`policy`/`auto-authorize` sha256 不变、content.js 零增长、base/manifest/options 零 diff；未完成 V2-2/V2-4 R2 与 `binding #22a`（如实登记）。 | 2026-09-13 | SDDU Build Agent |
 | v4.0 | **R2 第 3 轮（review 修复轮，消化 `5d9e6f1` R2 审查的 4 建议 + 关键提示）**：A1 no-widen 档叶子收紧控件（三层：硬底线零控件 / tightenOnly ask+deny 无 allow / 可覆盖三档；服务端 clamp 零改动）、A2 跨归属交叉引用可交互下钻（`crossTargets` + `.tree-link` + `navigateToNodeId`，节点不复制）、A3 示例①「工具→子命令」达成（`toolSubcommands` 以 `subcommandRisks` 回退，不改 base/`declared-tools.ts`）、A4 取代台账口径订正（字面 removed=0 不成立 → 无未取代删除 + 机器台账 `docs/r2-supersession-ledger.json`）、A6 文档漂移订正、A7 `meta.modelNote` 旧措辞订正 + 防回潮断言、T4 binding 失败诊断 + 就绪等待；门禁串行全绿（typecheck 0 / 插件 **693·0 fail** / insight **108** / ui **167** / hardening **24** / binding **192×2（0/2 flake）** / e2e PASS / 全仓 EXIT=0，base 483 零回归）；`policy`/`auto-authorize` sha256 不变、`content.js` 零增长、base/manifest/v1/journey 零 diff。 | 2026-09-13 | SDDU Build Agent |
 | v5.0 | **R2 收口（2026-09-14，纯文档 + 状态收口，零 `src/`、零 `test/` 改动）**：①**3 处低龄偏差订正/登记**（`smoke-checklist.md` §5 + `dev.md` 3.6：`test:insight` **102→108**〔历史 45/52/70/102 保留、以现状为准〕；`r2-supersession-ledger.json` `counts.nodeTests` 补**跨口径说明**〔646=排除正则静态 / 690=同口径 / 693=运行期；门禁下界=646；**数字不改**〕；legacy bare `catch` 如实登记为**已知项**〔`src/**` 14 处 `.catch(() => {})` + v1 `journey.mjs:589` `catch (e) {}`；非 R2 引入、不改代码〕）；②**R2 修订总账**（作者原始反馈逐字 / 两处偏差根因含 `file:line` / 反转项 / 新增 FR·AC / 安全设计 / 取代台账机制 / 未执行项 / commit 全链）成节；③**人工面汇总登记**（`V2-H-10~14` + `V2-H-A~D`/`V2-H-1~6`/`V2-H-7~9` + `H0~H10` + **T1 缺口**，全部 `⏳ 未执行（headless 不可合成）`，不冒充 PASS）；④父/四叶 `state.json` 追加 `revisionRounds.R2.closeout`；**phase 不回退**（父 `tasked` / 四叶 `validated`）；**本轮未跑 Chromium 门禁**（零 `src/`/`test/` 改动，以 `git diff --quiet` 零 diff 核实，如实标注不冒充通过）；**未合 main、未发布**。 | 2026-09-14 | SDDU Build Agent（代行收口） |
+| v6.0 | **R3P-13 守卫收紧轮（2026-09-14，锁死 R3-perf SDK 惰性化战果；纯 `test/` + 文档/状态，零 `src/`、零 base 改动）**：按实测值**显式收紧**体积守卫（方向只准更严，容差/断言零放宽零删除）——`CONTENT_MAX_BYTES` 1,073,453 → **177,076 B**、`CONTENT_BUNDLE_BASELINE_BYTES` 1,073,453 → **177,076 B**、`SIDEPANEL_BASELINE_BYTES` 1,159,856 → **266,500 B** / ceiling 1,217,848 → **279,825 B**；`HISTORY` / `previousBaselineBytes` / `previousCeilingBytes` / `direction='tightened'` 全登记。①**NFR-007/D31 订正**：`content.js` **16.4× → 2.70×**（177,076 / 65,536）；**`targetMet` 仍 `false`（未达成，如实保留）**；登记「**根因已消除**（base 结构门禁 + 本轮体积守卫）+ **剩余差距**（距 64 KiB 仍 2.70×，需真正 code-splitting）」；②`options.js` **无守卫**（如实说明）、`background.js` **只记录** +155,611 B 原因与取舍（惰性命名空间挡住 tree-shaking，换后台仅真正调用时才求值）；③订正文档/状态漂移（保留历史行 + 以现状为准）：`docs/dev.md §8.1/§8.2` + `§3.8`、本文件 §R3P-7 / §R3P-12 / **新增 §R3P-13**、`ROADMAP.md v1.24.0`、v2 父/四叶 `state.json` 追加 `perfRounds.R3-perf`；④`test/insight-no-escalation.test.ts:132` legacy「base 零改动」断言**保留并加注释**登记语义变更（红线已于 2026-09-14 经作者放行调整、仅限性能修复；现仅检测**未提交**的 base 漂移）；⑤门禁严格串行全绿：build 0 + 体积 content 177,076 / sidepanel 266,500 / options 82,093 / background 1,587,839；插件 **696/696 · 0 fail**、insight 108、ui 167、hardening 24、binding 192、e2e PASS、base **490/490**、全仓 **1686/1685 pass / 0 fail / 1 skip**；⑥**本轮 base 零改动**（`git diff --quiet -- packages/web-cli-base` 零 diff）、`manifest.json` 零 diff、无新依赖、`policy.ts`/`auto-authorize.ts` sha256 = pin；**不合 main、不发布**。 | 2026-09-14 | SDDU Build Agent |
 
 ---
 
@@ -729,12 +730,12 @@
 |------|------|------|:--:|
 | `content.js` vs 64 KiB 目标 | 1,073,453 B（≈1.02 MiB），**超 ≈16.4×**，D31 未达成 | **177,076 B**（≈172.9 KiB），**超 2.70×** | ❌ **仍未达成**（**D31 保留、未消除**） |
 | `targetMet`（`test/perf-baseline.ts`） | `false` | **`false`**（与实测一致；**未改动**） | ✅ 一致 |
-| `CONTENT_MAX_BYTES`（硬上限，`test/size-baseline.ts`） | 1,073,453 B | **1,073,453 B（原样保留、未放宽）** | ✅ 上限式守卫自然通过 |
-| `SIDEPANEL_BASELINE_BYTES` / `SIDEPANEL_CEILING` | 1,159,856 / 1,217,848 | **原样保留（未放宽/未重登记）**；实测 266,500 ≤ ceiling | ✅ |
-| NFR-007 相关测试改动 | — | **零**（`perf-budget.test.ts` / `size-budget.test.ts` / `size-baseline.ts` / `insight-archive.test.ts` **零 diff**） | ✅ 无阈值放宽、无断言删除 |
+| `CONTENT_MAX_BYTES`（硬上限，`test/size-baseline.ts`） | 1,073,453 B | **1,073,453 B（R3P 时点原样保留、未放宽）** → **已于 2026-09-14 守卫收紧轮改为 177,076 B（见 §R3P-13）** | ✅ 上限式守卫自然通过 |
+| `SIDEPANEL_BASELINE_BYTES` / `SIDEPANEL_CEILING` | 1,159,856 / 1,217,848 | **R3P 时点原样保留（未放宽/未重登记）**；实测 266,500 ≤ ceiling → **已于 2026-09-14 守卫收紧轮改为 266,500 / 279,825（见 §R3P-13）** | ✅ |
+| NFR-007 相关测试改动 | — | **R3P 轮零**（`perf-budget.test.ts` / `size-budget.test.ts` / `size-baseline.ts` / `insight-archive.test.ts` **零 diff**）→ **2026-09-14 守卫收紧轮按实测值显式重登记 + 反证同步（见 §R3P-13）** | ✅ 无阈值放宽、无断言删除 |
 
 > **为什么不把 `targetMet` 改成 `true`**：本轮实测 177,076 B **仍 > 64 KiB（65,536 B）**，按实测如实保留 `false`；**不得为了让数字好看而改阈值/删断言**。若后续真正降到 ≤64 KiB，`test/perf-budget.test.ts` 的 `targetMet === (size <= 目标)` 一致性断言会**强制**同步订正元数据与文档——该通道已就位。
-> **残留**：`content.js` 的**回归上限仍是 1,073,453 B**（未收紧），故「体积回升至 1.0 MiB 级」不会被插件体积守卫单独拦住；但**具体根因回潮**已由 base 层结构门禁 `src/llm-lazy-sdk.test.ts`（dist/求值图三层）**真 FAIL** 兜住（见 R3P-4 反证）。属已登记残留，非静默风险。
+> **残留（R3P 时点）**：`content.js` 的**回归上限仍是 1,073,453 B**（未收紧），故「体积回升至 1.0 MiB 级」不会被插件体积守卫单独拦住；但**具体根因回潮**已由 base 层结构门禁 `src/llm-lazy-sdk.test.ts`（dist/求值图三层）**真 FAIL** 兜住（见 R3P-4 反证）。属已登记残留，非静默风险。 → **该残留已于 2026-09-14 守卫收紧轮消除（见 §R3P-13）**。
 
 ### R3P-8 lgdl-web（消费方）验证
 
@@ -797,8 +798,46 @@
 1. **dev 首屏**：**未实测**（headless 不可量化），仅结构性证据 + 配方（R3P-11）。
 2. **NFR-007 D31 未消除**：`content.js` 177,076 B 仍超 64 KiB **2.70×**（如实保留 `targetMet=false`）。
 3. **`background.js` 体积上升 +10.9%**（1,432,228 → 1,587,839 B）：动态 import 在无 code-splitting 下的必然代价（SDK 未用导出不再 tree-shake）；`≤1.2 MB` 本就**仅记录、无硬断言**。若需回退该增量，须引入分包（`splitting`）或 SDK 按需裁剪——**不在本修复范围**。
-4. **`content.js` 回归上限仍是 1,073,453 B**（未收紧）：体积层面的「回升」不会被插件守卫单独拦住；但**本根因**的回潮已被 base 结构门禁真 FAIL 兜住（R3P-4）。收紧上限属后续可选项（需显式重登记 + 同步多处钉死断言），本轮**不动**。
+4. **`content.js` 回归上限仍是 1,073,453 B**（未收紧）：体积层面的「回升」不会被插件守卫单独拦住；但**本根因**的回潮已被 base 结构门禁真 FAIL 兜住（R3P-4）。收紧上限属后续可选项（需显式重登记 + 同步多处钉死断言），R3P 轮**不动**。→ **已于 2026-09-14 守卫收紧轮完成（`CONTENT_MAX_BYTES` = 177,076 B + `CONTENT_BUNDLE_BASELINE_BYTES` = 177,076 B + sidepanel 基线 266,500 B；见 §R3P-13）**。
 5. **SDK 模块加载失败**的表现由「导入即失败」变为「调用时 reject」（R3P-3 第 4 点），属惰性化定义本身；未新增包装。
 6. **本轮提交**：主体 commit **`0df2273`**（`perf(web-cli-base): LLM SDK 改为惰性动态 import …`，4 files / +470 −10；path-limited 逐文件 add，未用 `git add -A`），已 push 至 `origin/feature/web-cli-plugin`（`6a92d53..0df2273`）；本 `build.md` 的 hash 回填 commit 见后续 `docs(sddu): 回填 …`。**未合 main、未发布**（`main` = `2ddc92299ad10cfe0ea2b65403243a45ce7fb041` 未动）。
+
+### R3P-13 体积守卫收紧（2026-09-14，锁死 R3P 战果；**方向只准更严**）
+
+> R3P-12 第 4 条如实登记了残留：「`content.js` 回归上限仍是 1,073,453 B（未收紧）→ 体积可悄悄长回 ~1 MiB 而守卫不响」。本轮专治该残留：**按实测值显式重登记**（前后值 + 测量日期 + 来源命令 + 理由 + 历史保留 + 反证齐备），容差与断言**零放宽、零删除**。
+
+**来源命令**：`npm run build --workspace @lgdl/web-cli-plugin` → `stat -c %s packages/web-cli-plugin/dist/{content,sidepanel,options,background}.js`（**测量日期 2026-09-14**，branch `feature/web-cli-plugin`）。
+
+| 守卫 | 文件 | 前值 | **后值（收紧）** | 语义 / 反证 |
+|------|------|:--:|:--:|------|
+| `content.js` 硬上限 | `test/size-baseline.ts` `CONTENT_MAX_BYTES` | 1,073,453 B | **177,076 B** | 无容差、不得增长；反证 `177_077` **必须 FAIL**，旧值 1,073,453 B 亦已 FAIL |
+| `content.js` 回归基线 | `test/perf-baseline.ts` `CONTENT_BUNDLE_BASELINE_BYTES` | 1,073,453 B | **177,076 B** | 容差 5%（ceiling 185,929）；反证旧值 1,073,453 B 已 FAIL；`targetMet` 仍 `false`（D31 保留） |
+| `sidepanel.js` 回归基线 | `test/size-baseline.ts` `SIDEPANEL_BASELINE_BYTES` | 1,159,856 B | **266,500 B** | ceiling **279,825 B** = floor(266,500 × 1.05)，容差 5% 不变；`HISTORY` 追加 1,159,856 / 1,162,942；`targetBudgetBytes/targetMet` 仍 `null` |
+| `options.js` | — | — | **无守卫可收紧** | `test/size-budget.test.ts` / `test/size-baseline.ts` 未对 `options.js` 设上限/基线（**如实说明，非静默遗漏**） |
+| `background.js` | — | 1,432,228 B | **1,587,839 B（只记录 +155,611 B / +10.9%）** | 既有约定**无硬断言**，本轮**未新增断言**；原因与取舍见下 |
+
+**`background.js` +155,611 B 的登记（如实，不掩饰）**：`background` 仍**真实使用** `chat()`；esbuild **无 code-splitting** 时，`chat()` 内的动态 `import()` 被内联为**惰性模块**，其**命名空间必须完整保留**，因此两个 SDK 的**未用导出不再被 tree-shake**（相较惰性化前体积反增）。换取的是「后台仅在真正调用 LLM 时才求值 SDK」——**取舍 = 用 ~152 KB 体积换首屏不再急切加载两个重 SDK**。`≤1.2 MB` 阈值本就**仅记录、无硬断言**；如需回退该增量须引入分包或 SDK 按需裁剪（**不在本轮范围**）。
+
+**历史保留**：所有被取代值均留在 `SIDEPANEL_BASELINE_BYTES_HISTORY`（1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942）与 `SIDEPANEL_BASELINE_META.previousBaselineBytes` / `previousCeilingBytes` / `direction='tightened'`、`CONTENT_BUNDLE_BASELINE_META.previousBaselineBytes`，**未删除任何历史行**。
+
+**D31 现状（订正后）**：`content.js` **177,076 B** vs 64 KiB（65,536 B）= **2.70×**（历史 1,073,453 B 时点 ≈16.4× **保留在案**）；**`targetMet` 仍为 `false` —— 未达成，如实保留**。**根因已消除**（base 层结构门禁 `src/llm-lazy-sdk.test.ts` 兜住回潮 + 本轮体积守卫收紧锁死战果）；**剩余差距 = 距 64 KiB 目标仍有 2.70×**，消除需真正做 code-splitting / SDK 裁剪（作者暂缓，D31 保留）。
+
+**门禁**（严格串行、一次一个、完整日志落盘，无 `tail` 截断丢弃；日志根目录 `/tmp/sddu-guard-20260914/`）：
+
+| # | 命令 | 退出码 | 原文计数 | 日志 |
+|:--:|------|:--:|------|------|
+| 1 | `npm run build --workspace @lgdl/web-cli-plugin` + 体积实测 | 0 | content **177,076** / sidepanel **266,500** / options **82,093** / background **1,587,839** | `01-BUILD-size.log` |
+| 2 | `npm test --workspace @lgdl/web-cli-plugin` | 0 | **tests 696 / pass 696 / fail 0 / skipped 0**（693 + 3 条新反证） | `02-plugin-test.log` |
+| 3 | `npm run test:insight --workspace @lgdl/web-cli-plugin` | 0 | **UI insight PASS — 108 assertions** | `03-insight.log` |
+| 4 | `npm run test:ui --workspace @lgdl/web-cli-plugin` | 0 | **UI journey PASS — 167 assertions** | `04-ui.log` |
+| 5 | `npm run test:hardening --workspace @lgdl/web-cli-plugin` | 0 | **hardening PASS — 24 assertions** | `05-hardening.log` |
+| 6 | `npm run test:binding --workspace @lgdl/web-cli-plugin` | 0 | **binding PASS — 192 assertions** | `06-binding.log` |
+| 7 | `npm run test:e2e --workspace @lgdl/web-cli-plugin` | 0 | **R8 E2E PASS — real dist full chain** | `07-e2e.log` |
+| 8 | `npm test --workspace @lgdl/web-cli-base` | 0 | **tests 490 / pass 490 / fail 0 / skipped 0** | `08-base-test.log` |
+| 9 | 全仓 `npm test` | 0 | **合计 1686 tests / 1685 pass / 0 fail / 1 skip**（base 490 零回归） | `09-full-repo-test.log` |
+
+**未跑项**：无（1~9 全跑，均 exit 0）。
+**反证自跑结果**：新值下仍会 FAIL —— `177_077` → FAIL；旧 `1,073,453`（content，两处守卫）→ FAIL；旧 `1,159,856`（sidepanel 前值）→ FAIL；`SIDEPANEL_CEILING+1`（279,826）→ FAIL。均由 `npm test` 中更新的反证断言实跑覆盖（696/696 通过即证明「能真 FAIL」的路径被驱动）。
+**零改动核验**：本轮 `packages/web-cli-base` **零 diff**（`git diff --quiet -- packages/web-cli-base` exit 0）；`manifest.json` 零 diff；无新依赖；`policy.ts` / `auto-authorize.ts` sha256 = pin；**不合 main、不发布**。
 
 ---

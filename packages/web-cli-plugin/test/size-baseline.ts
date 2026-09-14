@@ -11,13 +11,26 @@
  * drift into the v1 content-bundle「目标达成」narrative (D31 stays where it is).
  *
  * `dist/content.js` is different: its ceiling is a hard **no-growth** limit
- * (`CONTENT_MAX_BYTES`, no tolerance) pinned to the v1 measured value, so V2 can
- * never silently fatten the injected bundle (NFR-V2-002 red line).
+ * (`CONTENT_MAX_BYTES`, no tolerance) pinned to the **latest re-measured value**,
+ * so V2 can never silently fatten the injected bundle (NFR-V2-002 red line).
  *
  * Measurement discipline: re-measure after `npm run build` and update
  * `SIDEPANEL_BASELINE_BYTES` / `SIDEPANEL_CEILING` / `SIDEPANEL_BASELINE_META`
  * explicitly (date + source + build command). Never widen the tolerance or delete
  * an assertion to make a gate green.
+ *
+ * ── Guard-tighten round (2026-09-14): lock in the SDK-lazification result ─────
+ *
+ * Commit `0df2273` (base `src/llm.ts` static → lazy dynamic `import()`) shrank the
+ * artifacts sharply, but the guards still carried the *pre-fix* ceilings
+ * (`CONTENT_MAX_BYTES = 1,073,453`; side-panel ceiling `1,217,848`) — so
+ * `content.js` could silently regrow to ~1 MiB without tripping anything. This
+ * round **re-registers both at the measured post-fix values** (direction: strictly
+ * tighter, never wider):
+ *   - `CONTENT_MAX_BYTES` ....... 1,073,453 → **177,076** (no tolerance; one byte fails)
+ *   - `SIDEPANEL_BASELINE_BYTES`  1,159,856 → **266,500** (ceiling 279,825 = ×1.05)
+ * Every superseded value stays in `SIDEPANEL_BASELINE_BYTES_HISTORY` and the
+ * reverse proofs were re-driven so they still FAIL at the new values.
  */
 // Re-export the v1 reader unchanged (it swallows ONLY `ENOENT`; every other stat
 // failure propagates — see `test/perf-budget.test.ts` for the reverse proof).
@@ -31,8 +44,11 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  *   - V2-2 (2026-09-13) .......... 1,085,389 B (+20,000 B: floating-tree UI, TASK-008)
  *   - V2-3 (2026-09-13) .......... 1,110,744 B (revoke/undo surface, `f45c124`)
  *   - V2-4 (2026-09-13) .......... 1,132,748 B (read-only command archive surface)
- *   - **current (2026-09-13)** ... 1,159,856 B (V2 R2: real nested tree UI + per-level
- *     allow/ask/deny policy controls + archive layering)
+ *   - V2 R2 (2026-09-13) ......... 1,159,856 B (real nested tree UI + per-level
+ *     allow/ask/deny policy controls + archive layering; R2 closeout re-measure
+ *     recorded 1,162,942 B)
+ *   - **current (2026-09-14)** ... 266,500 B (tightened after base LLM SDK
+ *     lazification, commit `0df2273`; direction = down, see below)
  *
  * W4 fix round (2026-09-13): the V2-2 baseline (1,085,389 B) was NOT re-registered
  * after V2-3 added the revoke/confirm/receipt surface, so the guard's effective
@@ -50,11 +66,23 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * 1,132,748 B. Re-measured after `npm run build --workspace @lgdl/web-cli-plugin`
  * (stat: 1,159,856 B). Previous values retained in the history array; tolerance
  * unchanged (5%); `targetBudgetBytes` / `targetMet` remain null.
+ *
+ * Guard-tighten re-registration (2026-09-14, R3-perf follow-up): after commit
+ * `0df2273` (base LLM SDK lazification) the side panel measured **266,500 B**, so
+ * the pre-fix baseline 1,159,856 B (ceiling 1,217,848 B) was left holding ~950 KB
+ * of silent headroom. This is an explicit **tightening** re-registration at the
+ * re-measured value — source command
+ * `npm run build --workspace @lgdl/web-cli-plugin` then `stat -c %s dist/sidepanel.js`.
+ * Direction = **down** (previous recorded value 1,159,856 B; the R2 closeout
+ * measurement 1,162,942 B is also retained on record). Tolerance still 5%; no
+ * assertion removed.
  */
-export const SIDEPANEL_BASELINE_BYTES = 1_159_856;
+export const SIDEPANEL_BASELINE_BYTES = 266_500;
 
-/** Previous registered baselines (V2-2 / V2-3 / V2-4, 2026-09-13) — kept on record. */
-export const SIDEPANEL_BASELINE_BYTES_HISTORY = [1_068_165, 1_085_389, 1_110_744, 1_132_748] as const;
+/** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2, 2026-09-13) — kept on record. */
+export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
+  1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942,
+] as const;
 
 /** Allowed growth over the baseline before the guard fails. */
 export const SIDEPANEL_BASELINE_TOLERANCE = 0.05;
@@ -71,23 +99,32 @@ export const SIDEPANEL_CEILING = Math.floor(
  */
 export const SIDEPANEL_BASELINE_META = {
   kind: 'regression-baseline-only',
-  measuredOn: '2026-09-13',
+  measuredOn: '2026-09-14',
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU build v2 R2 round 2: re-measured after the real nested-tree renderer (tree-view.ts nested ownership model + tree-drawer.ts role=tree/keyboard/breadcrumb + per-level allow/ask/deny policy controls) and archive layering. Previous baseline 1,132,748 B (V2-4); V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Explicit re-registration — previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
-  previousBaselineBytes: 1_132_748,
-  reRegisteredFrom: 'V2-4 1,132,748 B',
+    'SDDU build guard-tighten round (2026-09-14): re-measured after the base LLM SDK lazification (commit 0df2273). This is a TIGHTENING re-registration — previous recorded baseline 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. All previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
+  previousBaselineBytes: 1_159_856,
+  previousCeilingBytes: 1_217_848,
+  direction: 'tightened',
+  reRegisteredFrom: 'V2 R2 1,159,856 B（ceiling 1,217,848 B；R2 收口实测 1,162,942 B）',
   targetBudgetBytes: null,
   targetMet: null,
-  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-13 v2 R2 显式重登记：真层级树 UI（逐层展开/键盘/面包屑/三态覆盖控件）+ 档案分层有意增重后实测 1,159,856 B；历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 保留在案；容差 5% 不变。',
+  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-14 显式**收紧**重登记：base LLM SDK 惰性化（commit 0df2273）后实测 266,500 B，前值 1,159,856 B / ceiling 1,217,848 B 会留下约 950 KB 静默余量，故按实测收紧到 266,500 B（ceiling 279,825 B = floor(266,500 × 1.05)）；历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 全保留；容差 5% 不变、断言零删减。',
 } as const;
 
 /**
- * Hard no-growth ceiling for the injected `dist/content.js` (NFR-V2-002): the v1
- * measured value, no tolerance. V2 must not add a single byte here.
+ * Hard no-growth ceiling for the injected `dist/content.js` (NFR-V2-002).
+ *
+ * Guard-tighten re-registration (2026-09-14): the v1-era value 1,073,453 B was
+ * measured *before* the base LLM SDK lazification (commit `0df2273`). Leaving it
+ * there let `content.js` silently regrow to ~1 MiB with every guard green. It is
+ * now re-registered at the post-fix measured value **177,076 B** (source:
+ * `npm run build --workspace @lgdl/web-cli-plugin` + `stat -c %s dist/content.js`).
+ * Semantics are unchanged: **no tolerance — one byte over FAILS** (reverse proof
+ * drives `177_077` → FAIL). Previous value 1,073,453 B stays on record.
  */
-export const CONTENT_MAX_BYTES = 1_073_453;
+export const CONTENT_MAX_BYTES = 177_076;
 
 /**
  * `src/content/**` source content hashes (W3 discipline): the injected bundle's

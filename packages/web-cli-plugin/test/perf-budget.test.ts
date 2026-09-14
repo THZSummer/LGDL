@@ -158,7 +158,7 @@ test('NFR-007 guard self-check: an over-baseline bundle FAILS the guard (proves 
   const atCeiling = evaluateContentBundleSize(ceiling);
   assert.equal(atCeiling.ok, true, atCeiling.message);
 
-  // One byte over the ceiling → must FAIL (a 1.07 MB bundle vs a 64 KiB budget
+  // One byte over the ceiling → must FAIL (a ~177 KB bundle vs a 64 KiB budget
   // must never report green).
   const overCeiling = evaluateContentBundleSize(ceiling + 1);
   assert.equal(overCeiling.ok, false, '守卫必须在超出基线容差时 FAIL');
@@ -174,6 +174,37 @@ test('NFR-007 guard self-check: an over-baseline bundle FAILS the guard (proves 
     /体积回归/,
     '反证：超出基线的实测必须让断言抛错（旧 bare catch 会吞掉该错 → 恒绿）',
   );
+});
+
+// ---------------------------------------------------------------------------
+// 守卫收紧轮（2026-09-14，锁死 base LLM SDK 惰性化战果）
+// v1 的 content 回归基线同属「content.js 体积守卫」，与 v2 的
+// CONTENT_MAX_BYTES 是同一产物、同一漏洞面，故一并**收紧**（方向只准更严）。
+// ---------------------------------------------------------------------------
+
+test('NFR-007 guard-tighten REVERSE PROOF: the pre-lazification 1,073,453 B now FAILS', () => {
+  assert.equal(CONTENT_BUNDLE_BASELINE_BYTES, 177_076, '基线已收紧到 2026-09-14 实测值');
+  assert.equal(CONTENT_BUNDLE_BASELINE_META.previousBaselineBytes, 1_073_453, '前值保留在案');
+  assert.equal(CONTENT_BUNDLE_BASELINE_META.direction, 'tightened');
+  assert.equal(CONTENT_BUNDLE_BASELINE_TOLERANCE, 0.05, '容差不得因收紧而放宽');
+  assert.ok(
+    CONTENT_BUNDLE_BASELINE_BYTES < CONTENT_BUNDLE_BASELINE_META.previousBaselineBytes,
+    '本轮方向 = 收紧（严格小于前值）',
+  );
+
+  // 旧值（= 旧基线）在收紧后的守卫下必须 FAIL —— 证明「悄悄长回 ~1 MiB」不再可能。
+  const old = evaluateContentBundleSize(1_073_453);
+  assert.equal(old.ok, false, '旧 1 MiB 级实测不得再通过回归守卫');
+  assert.equal(old.ceilingBytes, Math.floor(177_076 * 1.05));
+  assert.throws(
+    () => assert.equal(old.ok, true, old.message),
+    /体积回归/,
+    '反证：收紧后旧 1 MiB 级值必须抛错',
+  );
+  // 未达成项不受收紧影响：64 KiB 目标仍如实登记为未达成（D31 保留）。
+  assert.equal(old.targetMet, false);
+  assert.equal(CONTENT_BUNDLE_BASELINE_META.targetMet, false);
+  assert.equal(CONTENT_BUNDLE_BASELINE_META.targetBudgetBytes, 64 * 1024);
 });
 
 test('NFR-007 guard: only ENOENT is swallowed; other stat failures propagate', () => {

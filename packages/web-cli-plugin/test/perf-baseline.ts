@@ -6,37 +6,46 @@
  * 1. TARGET BUDGET = `CONTENT_BUNDLE_TARGET_BYTES` (64 KiB, NFR-007).
  *    The *goal*: a small on-demand-injected payload so host-page jank stays
  *    negligible (zero static `content_scripts`). It is **NOT met today** — the
- *    measured bundle is ~16.4× the target. This is an open, disclosed deviation
- *    (D31: the author deferred code-splitting), and it MUST NOT be silently
- *    redefined to the measured size in order to claim success.
+ *    measured bundle is ~2.70× the target (down from ~16.4× before the base LLM
+ *    SDK lazification). This is an open, disclosed deviation (D31: the author
+ *    deferred code-splitting), and it MUST NOT be silently redefined to the
+ *    measured size in order to claim success.
  *
  * 2. REGRESSION BASELINE = `CONTENT_BUNDLE_BASELINE_BYTES` (a measured value).
  *    The guard FAILS when a change grows the bundle beyond
  *    `baseline × (1 + tolerance)`. Raising the baseline is a deliberate act and
  *    must be accompanied by a note here (date + source) plus updates in
- *    `build.md §11.5`, `docs/dev.md §8` and `state.json`.
+ *    `build.md`, `docs/dev.md §8` and `state.json`. **Lowering (tightening) it is
+ *    likewise explicit** — see the guard-tighten note below.
  *
- * Snapshot (2026-09-13, branch `feature/web-cli-plugin`): `dist/content.js`
- * measured after `npm run build` = **1,073,453 B** (≈1,048.3 KiB ≈1.02 MiB).
- * Independently confirmed by validate R4 (`validate-report.md` §R4-11). The
- * growth was introduced with commit `8b06a43` (inlining the base DOM value
- * import + the LLM SDK) — see `build.md §27.5`.
+ * Snapshot (2026-09-14, branch `feature/web-cli-plugin`, guard-tighten round):
+ * after commit `0df2273` (base `src/llm.ts` static → lazy dynamic `import()`)
+ * `dist/content.js` re-measured after
+ * `npm run build --workspace @lgdl/web-cli-plugin` = **177,076 B** (~172.9 KiB).
+ * The baseline was re-registered at this measured value (direction = **down**,
+ * from the pre-fix 1,073,453 B): keeping the old ceiling (1,127,125 B) would have
+ * let the injected bundle silently regrow to ~1 MiB with the guard still green.
+ * The previous value 1,073,453 B stays on record; the NFR-007 target is still
+ * **NOT met** (`targetMet: false`), so D31 remains open.
  */
 import { statSync } from 'node:fs';
 
 export const CONTENT_BUNDLE_TARGET_BYTES = 64 * 1024;
-export const CONTENT_BUNDLE_BASELINE_BYTES = 1_073_453;
+export const CONTENT_BUNDLE_BASELINE_BYTES = 177_076;
 export const CONTENT_BUNDLE_BASELINE_TOLERANCE = 0.05;
 
 export const CONTENT_BUNDLE_BASELINE_META = {
-  measuredOn: '2026-09-13',
+  measuredOn: '2026-09-14',
   source: 'packages/web-cli-plugin/dist/content.js',
-  measuredBy: 'SDDU build round 9 (re-measured; matches validate R4 §R4-11)',
+  measuredBy:
+    'SDDU build guard-tighten round (2026-09-14): re-measured after base LLM SDK lazification (commit 0df2273). Explicit TIGHTENING re-registration at the measured value (previous 1,073,453 B retained on record) so the injected bundle can no longer silently regrow to ~1 MiB.',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   targetBudgetBytes: CONTENT_BUNDLE_TARGET_BYTES,
   /** The 64 KiB NFR-007 target is explicitly recorded as NOT met (open deviation D31). */
   targetMet: false,
-  note: '内联 base DOM 值导入 + LLM SDK（提交 8b06a43 起）后约 1.0MB；分包优化由作者暂缓（D31）。',
+  previousBaselineBytes: 1_073_453,
+  direction: 'tightened',
+  note: 'base LLM SDK 惰性化（commit 0df2273）后实测 177,076 B（约 2.70× 目标，仍 **未达成** 64 KiB，D31 保留未消除）；本基线由 1,073,453 B **收紧**到 177,076 B（容差 5% 不变），防止体积悄悄长回 ~1 MiB。',
 } as const;
 
 export interface ContentBundleSizeVerdict {

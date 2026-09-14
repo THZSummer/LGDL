@@ -995,5 +995,81 @@
         "report": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/validate-report.md"
       }
     }
+  },
+  "perfRounds": {
+    "R3-perf": {
+      "round": "R3-perf",
+      "subRounds": [
+        "perf-fix（base LLM SDK 惰性化，2026-09-14，commit 0df2273）",
+        "guard-tighten（体积守卫收紧锁死战果，2026-09-14 第 2 轮）"
+      ],
+      "type": "性能根因修复 + 守卫收紧（phase 不回退；追加记录不稀释既有 R1/R2 记录）",
+      "date": "2026-09-14",
+      "authorization": "作者 2026-09-14 显式授权修改 packages/web-cli-base/**（仅限本性能修复）；守卫收紧 + 文档/状态订正由 sddu-build 代行收口（编排器代作者决策）",
+      "trigger": "同一根因两处症状：① lgdl-web dev 首屏「加载不出来」（Vite 中途发现 openai/@anthropic-ai/sdk 触发 optimizeDeps reload）；② 插件 content.js 被 base barrel 急切拉入两个重 SDK 后达 1,073,453 B（NFR-007 未达成 D31）",
+      "rootCause": "packages/web-cli-base/src/index.ts:30 急切 re-export llm.ts → 顶层静态 import OpenAI / @anthropic-ai/sdk 被任何 barrel 消费方（lgdl-web bridge.ts 的 createBrowserEventHub；插件 content script 的 createBrowserDomOps）急切求值",
+      "fix": "packages/web-cli-base/src/llm.ts：顶层静态 import → import type（编译擦除）+ chat() 内按需 await import(...)；新增结构性防回潮门禁 src/llm-lazy-sdk.test.ts（源码/dist/求值模块图三层断言 + 反证）。公开 API 与行为零变化（运行期导出名 270/270、d.ts 导出 537/537 一致；dist/llm.d.ts 逐字节相同）",
+      "sizes": {
+        "content.js": "1,073,453 → 177,076 B（−83.5%）",
+        "sidepanel.js": "1,162,942 → 266,500 B（−77.1%）",
+        "options.js": "978,471 → 82,093 B（−91.6%）",
+        "background.js": "1,432,228 → 1,587,839 B（+155,611 B / +10.9%，如实登记：esbuild 无 code-splitting 时 chat() 的动态 import 被内联为惰性模块、命名空间须完整保留 → SDK 未用导出不再 tree-shake；换得后台仅真正调用时才求值）"
+      },
+      "guardTightening": {
+        "discipline": "显式重登记：前后值 + 测量日期(2026-09-14) + 来源命令 + 理由 + 历史保留 + 反证；方向只准更严，容差/断言零放宽零删除",
+        "sourceCommand": "npm run build --workspace @lgdl/web-cli-plugin + stat -c %s dist/*.js",
+        "CONTENT_MAX_BYTES": "1,073,453 → 177,076 B（无容差；反证 177_077 必须 FAIL；旧值 1,073,453 B 亦已 FAIL）",
+        "CONTENT_BUNDLE_BASELINE_BYTES": "1,073,453 → 177,076 B（容差 5% 不变；targetMet 仍 false）",
+        "SIDEPANEL_BASELINE_BYTES": "1,159,856 → 266,500 B；SIDEPANEL_CEILING 1,217,848 → 279,825 B（= floor(266,500×1.05)，容差 5% 不变）",
+        "historyRetained": [
+          1068165,
+          1085389,
+          1110744,
+          1132748,
+          1159856,
+          1162942
+        ],
+        "previousBaselineBytes": 1159856,
+        "previousCeilingBytes": 1217848,
+        "direction": "tightened",
+        "targetBudgetBytes": null,
+        "targetMet": null,
+        "options": "options.js 无体积守卫 → 无可收紧项（如实说明，非静默遗漏）",
+        "background": "background.js 只记录、无硬断言 → 只登记 +155,611 B 原因与取舍，未新增断言"
+      },
+      "d31": {
+        "nfr007TargetBytes": 65536,
+        "measuredBytes": 177076,
+        "ratio": "16.4× → 2.70×",
+        "targetMet": false,
+        "status": "仍未达成（如实保留，不宣布达成）；根因已消除（base 结构门禁 + 本轮体积守卫收紧），剩余差距 = 距 64 KiB 仍 2.70×（需真正 code-splitting / SDK 裁剪，作者暂缓）"
+      },
+      "semanticsChange": "test/insight-no-escalation.test.ts:132 的 legacy「packages/web-cli-base 零改动」红线断言**保留并加注释**：该红线已于 2026-09-14 经作者放行调整（仅限性能修复），现仅用于检测**未提交**的 base 漂移；真实冻结仍由 §sha256 pin 承担。断言零删除。",
+      "gates": {
+        "logRoot": "/tmp/sddu-guard-20260914/",
+        "serial": true,
+        "build": "EXIT=0；content 177,076 / sidepanel 266,500 / options 82,093 / background 1,587,839",
+        "pluginTest": "EXIT=0；tests 696 / pass 696 / fail 0 / skipped 0（693 + 3 条新反证）",
+        "testInsight": "EXIT=0；108 assertions",
+        "testUi": "EXIT=0；167 assertions",
+        "testHardening": "EXIT=0；24 assertions",
+        "testBinding": "EXIT=0；192 assertions",
+        "testE2e": "EXIT=0；R8 E2E PASS",
+        "baseTest": "EXIT=0；tests 490 / pass 490 / fail 0 / skipped 0",
+        "fullRepoTest": "EXIT=0；合计 1686 tests / 1685 pass / 0 fail / 1 skip"
+      },
+      "zeroDiff": {
+        "web-cli-base": "git diff --quiet -- packages/web-cli-base → exit 0（本轮 base 零改动）",
+        "manifest.json": "零 diff",
+        "newDependencies": "无",
+        "policyTs_sha256": "= pin",
+        "autoAuthorizeTs_sha256": "= pin",
+        "main": "2ddc92299ad10cfe0ea2b65403243a45ce7fb041（未动）"
+      },
+      "phaseKept": "tasked（父为轻量规范容器）/ validated（四叶）（原样，不回退）",
+      "phaseNotRegressed": true,
+      "merge": "未合 main、未发布（NG-V2-009 保持；合入/发布由作者执行）",
+      "reports": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v2-insight/build.md §R3-perf / §R3P-13 + docs/dev.md §8 + §3.7/3.8 + ROADMAP.md v1.24.0"
+    }
   }
 }

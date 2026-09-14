@@ -535,5 +535,21 @@
         }
       ]
     }
+  },
+  "perfRounds": {
+    "R3-perf": {
+      "round": "R3-perf",
+      "type": "性能根因修复 + 体积守卫收紧（追加记录；phase 不回退）",
+      "date": "2026-09-14",
+      "authorization": "作者 2026-09-14 显式授权修改 packages/web-cli-base/**（仅限本性能修复）；守卫收紧 + 文档/状态订正由 sddu-build 代行收口",
+      "summary": "base LLM SDK 惰性化（commit 0df2273）修 barrel 急切拉入两个重 SDK 的共同根因；插件体积 content.js 1,073,453 → 177,076 B / sidepanel.js 1,162,942 → 266,500 B / options.js 978,471 → 82,093 B / background.js 1,432,228 → 1,587,839 B（+10.9%，如实登记）。体积守卫按实测值显式**收紧**：CONTENT_MAX_BYTES 与 CONTENT_BUNDLE_BASELINE_BYTES → 177,076 B；SIDEPANEL_BASELINE_BYTES → 266,500 B / ceiling → 279,825 B；历史值全保留 + 反证同步并实跑仍 FAIL。",
+      "d31": "NFR-007 的 64 KiB 目标仍未达成：16.4× → 2.70×（177,076 / 65,536），targetMet 仍 false（如实保留，不宣布达成）。根因已消除 + 剩余差距登记。",
+      "gates": "串行全绿（日志 /tmp/sddu-guard-20260914/）：build 0 + 体积实测；插件 696/696·0 fail（含 3 条新反证）；insight 108；ui 167；hardening 24；binding 192；e2e PASS；base 490/490；全仓 1686/1685 pass·0 fail·1 skip。",
+      "zeroDiff": "本轮 base 零改动（git diff --quiet -- packages/web-cli-base = 0）；manifest.json 零 diff；无新依赖；policy.ts / auto-authorize.ts sha256 = pin。",
+      "phaseKept": "validated / tracked（原样，不回退）",
+      "phaseNotRegressed": true,
+      "merge": "未合 main、未发布（NG-V2-009 保持）",
+      "reports": "父 build.md §R3-perf / §R3P-13 + docs/dev.md §8 + ROADMAP.md v1.24.0"
+    }
   }
 }

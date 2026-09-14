@@ -129,7 +129,22 @@ test('V2-1 no-escalation: frozen surfaces have zero git diff (policy / auto-auth
   assert.equal(gitDiffStatus(['src/security/auto-authorize.ts']), 0, 'security/auto-authorize.ts must be zero-diff');
   assert.equal(gitDiffStatus(['manifest.json']), 0, 'manifest.json must be zero-diff');
   assert.equal(gitDiffStatus(['test/parity.test.ts', 'test/parity']), 0, 'v1 parity gate/baseline must be zero-diff');
-  assert.equal(gitDiffStatus(['../web-cli-base']), 0, 'packages/web-cli-base must be zero-diff');
+  // -------------------------------------------------------------------------
+  // ⚠️ 语义变更登记（2026-09-14，**断言保留，不删**）
+  //
+  // 原语义：「`packages/web-cli-base/**` 永零改动」的**红线**（worktree-vs-index 强冻结）。
+  // 现语义：该「base 零改动」红线**已于 2026-09-14 经作者显式放行调整** —— 放行范围
+  // **仅限**性能修复（commit `0df2273`：`packages/web-cli-base/src/llm.ts` 的 LLM SDK
+  // 由顶层静态 import 改为惰性动态 `import()`；作者授权原文与范围见
+  // `build.md §R3-perf`）。因此本断言**不再是「base 永不可改」的绝对红线**，现仅用于
+  // 检测**未提交（worktree ≠ index）的 base 漂移**：它不会拦住已提交的、经授权的 base
+  // 改动，只会拦住忘记 `git add` 的工作区残留。
+  //
+  // 真实冻结仍由本文件 §sha256 pin 承担（`POLICY_TS_SHA256` / `AUTO_AUTHORIZE_TS_SHA256`
+  // / `DECISION_TABLE_SNAPSHOT_SHA256`）；判定链冻结不因本次放行而削弱。按纪律
+  // 「断言只增不减」，此断言**保留**，仅如实登记其语义变更。
+  // -------------------------------------------------------------------------
+  assert.equal(gitDiffStatus(['../web-cli-base']), 0, 'packages/web-cli-base must be zero-diff (未提交漂移检测；「base 零改动」红线已于 2026-09-14 经作者放行调整，仅限性能修复)');
 });
 
 // ---------------------------------------------------------------------------

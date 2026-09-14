@@ -22,7 +22,7 @@ specs-tree-web-cli-plugin-v2-insight/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 收口 + v2 整体收口 + R2 第 1~3 轮） — 体积现状（2026-09-14，**以 §R3-perf 为准 —— 目录导航取本行**）：`content.js` **177,076 B**；`sid... | ✅ 存在 |
+| build.md | 构建报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 收口 + v2 整体收口 + R2 第 1~3 轮） — 体积现状（2026-09-14，**以 §R3-perf / §R3P-13 为准 —— 目录导航取本行**）：`content.js` **177,07... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」——把能力变得可见/可控；父 Feature 统领性技术方案） — ┌─────────────────────────────── 侧栏扩展页面（sidepanel.html）──────────────────────... | ✅ 存在 |
 | review-report.md | 审查报告：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」· P0 = V2-1 / V2-2 / V2-3） — 1. **D-V21-01（`insight-*` 不入 `KIND_SET`）→ ✅ 接受（附建议 W2）**。校验强度等同、SW 入口并集放行、无未校... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「any insight」——把能力变得可见/可控） — Feature Specification：specs-tree-web-cli-plugin-v2-insight（web-cli-plugin v2「... | ✅ 存在 |

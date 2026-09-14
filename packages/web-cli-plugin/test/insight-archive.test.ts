@@ -755,23 +755,32 @@ test('A9 archive: sidepanel baseline re-registration is explicit and monotonic (
   const history = [...SIDEPANEL_BASELINE_BYTES_HISTORY];
   assert.ok(history.includes(1_110_744), 'HISTORY 必须保留 V2-3 值 1,110,744');
   assert.ok(history.includes(1_132_748), 'HISTORY 必须保留 V2-4 值 1,132,748（v2 R2 重登记不丢历史）');
+  assert.ok(history.includes(1_159_856), 'HISTORY 必须保留 v2 R2 值 1,159,856');
+  assert.ok(history.includes(1_162_942), 'HISTORY 必须保留 R2 收口实测值 1,162,942');
   for (let i = 1; i < history.length; i += 1) {
-    assert.ok(history[i] >= history[i - 1], 'HISTORY 必须单调不减（禁止静默下调）');
+    assert.ok(history[i] >= history[i - 1], 'HISTORY 必须单调不减（历史序不得被改写）');
   }
-  assert.ok(SIDEPANEL_BASELINE_BYTES >= history[history.length - 1], '当前基线 ≥ 历史末值');
+  // 守卫收紧轮（2026-09-14）：当前基线为**收紧**（严格小于前值），且低于全部历史值。
+  assert.ok(
+    SIDEPANEL_BASELINE_BYTES < SIDEPANEL_BASELINE_META.previousBaselineBytes,
+    '当前基线 < 前值（本轮方向 = 收紧）',
+  );
+  for (const value of history) {
+    assert.ok(SIDEPANEL_BASELINE_BYTES < value, `当前基线必须严格小于历史值 ${value}`);
+  }
   assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05));
   assert.equal(SIDEPANEL_BASELINE_META.kind, 'regression-baseline-only');
   assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');
   assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
   assert.ok(SIDEPANEL_BASELINE_META.measuredOn.length > 0);
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_132_748);
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_159_856);
   assert.ok(SIDEPANEL_BASELINE_META.reRegisteredFrom.length > 0);
   assert.equal(SIDEPANEL_BASELINE_META.targetBudgetBytes, null, '基线 ≠ 目标预算');
   assert.equal(SIDEPANEL_BASELINE_META.targetMet, null, '基线 ≠ 目标预算');
 });
 
 test('A9 archive: content.js stays at the hard no-growth ceiling (zero injection)', (t) => {
-  assert.equal(CONTENT_MAX_BYTES, 1_073_453);
+  assert.equal(CONTENT_MAX_BYTES, 177_076, '硬上限 = 2026-09-14 实测值（收紧轮）');
   const size = readArtifactSize(distArtifact('content.js'));
   if (size === undefined) {
     t.skip('dist/content.js not present — build first to measure the content ceiling');
