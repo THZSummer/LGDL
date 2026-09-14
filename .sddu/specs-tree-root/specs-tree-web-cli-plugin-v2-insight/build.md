@@ -133,7 +133,9 @@
 | `test:e2e` | **PASS** | `/tmp/v24closeout/08-e2e.log` |
 | 全仓 `npm test` | **1629 tests / 1628 pass / 0 fail / 1 skip**（base **483** 零回归） | `/tmp/v24closeout/09-repo-test.log` |
 
-体积：`content.js` **1,073,453 B（零增长）**；`sidepanel.js` **1,132,748 B**（ceiling 1,189,385）；`background.js` **1,403,170 B**。
+体积现状（2026-09-14，**以 §R3-perf 为准 —— 目录导航取本行**）：`content.js` **177,076 B**；`sidepanel.js` **266,500 B**；`options.js` **82,093 B**；`background.js` **1,587,839 B**。**NFR-007 的 64 KiB 目标仍未达成（2.70×，D31 保留未消除）**。
+
+体积（**历史时点，2026-09-13；保留原值**）：`content.js` **1,073,453 B（零增长）**；`sidepanel.js` **1,132,748 B**（ceiling 1,189,385）；`background.js` **1,403,170 B**。
 
 ### 8.3 本轮 flake 修复（如实）
 
