@@ -797,6 +797,6 @@
 3. **`background.js` 体积上升 +10.9%**（1,432,228 → 1,587,839 B）：动态 import 在无 code-splitting 下的必然代价（SDK 未用导出不再 tree-shake）；`≤1.2 MB` 本就**仅记录、无硬断言**。若需回退该增量，须引入分包（`splitting`）或 SDK 按需裁剪——**不在本修复范围**。
 4. **`content.js` 回归上限仍是 1,073,453 B**（未收紧）：体积层面的「回升」不会被插件守卫单独拦住；但**本根因**的回潮已被 base 结构门禁真 FAIL 兜住（R3P-4）。收紧上限属后续可选项（需显式重登记 + 同步多处钉死断言），本轮**不动**。
 5. **SDK 模块加载失败**的表现由「导入即失败」变为「调用时 reject」（R3P-3 第 4 点），属惰性化定义本身；未新增包装。
-6. 本轮 commit hash / push 输出见交付摘要（按既有轮次惯例，如为文档收口另起 commit 则在后续回填）。
+6. **本轮提交**：主体 commit **`0df2273`**（`perf(web-cli-base): LLM SDK 改为惰性动态 import …`，4 files / +470 −10；path-limited 逐文件 add，未用 `git add -A`），已 push 至 `origin/feature/web-cli-plugin`（`6a92d53..0df2273`）；本 `build.md` 的 hash 回填 commit 见后续 `docs(sddu): 回填 …`。**未合 main、未发布**（`main` = `2ddc92299ad10cfe0ea2b65403243a45ce7fb041` 未动）。
 
 ---
