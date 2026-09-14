@@ -5,9 +5,19 @@
  * ProviderSettings/ProviderConfig（web 应用态）不迁入；chat 收中性 LlmConfig，
  * 其中 provider 为 LlmProviderInfo、tools 由调用方组装注入（D-011 注册组装留 web）。
  * 断言行为与迁移前一致。）
+ *
+ * 惰性加载（2026-09-14 性能修复，作者授权）：两个 SDK 顶层**不再静态 import**
+ * （只有 `import type`，编译后完全擦除），改为在 `chat()` 内按需 `await import(...)`。
+ * 原因：本模块经 barrel `index.ts` 被 re-export，任何只想要 barrel 中一个小工具
+ * （如 lgdl-web `bridge.ts` 的 `createBrowserEventHub`、插件 content script 的
+ * `createBrowserDomOps`）的消费方，原先都会被迫**急切求值**两个重 SDK
+ * ——lgdl-web dev 首屏因 Vite 中途发现重依赖触发 optimizeDeps reload；
+ * 插件 `content.js` 被撑到 ~1.05 MiB（NFR-007 / D31）。
+ * 公开 API（`chat` / `parseToolArguments` / `classifyError` 的签名、返回值、
+ * 导出名集合）与运行期行为**逐字不变**：改动仅为 SDK 模块的**加载时机**。
  */
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
+import type OpenAI from 'openai';
+import type Anthropic from '@anthropic-ai/sdk';
 
 export interface ChatTurn {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -76,7 +86,10 @@ export async function chat(config: LlmConfig, turns: ChatTurn[]): Promise<ChatRe
   }
 
   if (provider.id === 'claude') {
-    const client = new Anthropic({
+    // 惰性加载：仅 Claude 路径真正调用时才拉入 Anthropic SDK（顶层无静态 import）。
+    // 位置与原有 `new Anthropic(...)` 完全一致（仍在 try 之外），错误传播语义不变。
+    const { default: AnthropicClient } = await import('@anthropic-ai/sdk');
+    const client: Anthropic = new AnthropicClient({
       apiKey: config.apiKey,
       dangerouslyAllowBrowser: true,
       ...(config.baseURL ? { baseURL: config.baseURL } : {}),
@@ -145,7 +158,10 @@ export async function chat(config: LlmConfig, turns: ChatTurn[]): Promise<ChatRe
 
   // OpenAI 兼容端点
   const baseURL = config.baseURL || provider.baseURL || undefined;
-  const client = new OpenAI({
+  // 惰性加载：仅 OpenAI 兼容路径真正调用时才拉入 openai SDK（顶层无静态 import）。
+  // 位置与原有 `new OpenAI(...)` 完全一致（仍在 try 之外），错误传播语义不变。
+  const { default: OpenAIClient } = await import('openai');
+  const client: OpenAI = new OpenAIClient({
     apiKey: config.apiKey,
     baseURL,
     dangerouslyAllowBrowser: true,

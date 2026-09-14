@@ -9,6 +9,7 @@
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-13
 > **更新说明**: v2 整体收口（四叶 phase 全 validated；含 V2-4 P1）+ flake 修复（#AP#5b 相位窗口 + tabs harness 时序）+ 完整日志落盘纪律 + 遗留项全量登记（13 项人工面 + T1 + 已知偶发 + 口径 + 未合并/未发布）；**R2 第 1 轮（§9）/ 第 2 轮**；**R2 第 3 轮（review 修复轮 A1~A4 + A6/A7/T4）** 见文末。
+> **最新轮次（体积现状订正，2026-09-14）**: **R3-perf —— base LLM SDK 惰性化**（作者显式授权修改 `packages/web-cli-base/**`，仅本修复）。`content.js` 实测 **1,073,453 B → 177,076 B**（−83.5%），`sidepanel.js` **1,162,942 → 266,500 B**；**NFR-007 的 64 KiB 目标仍未达成（2.70×，D31 保留未消除）**，未改任何阈值/断言。本文件前半部分（§1 / R2C-4 等）的体积数字为**历史时点记录，保留在案**；**体积以 §R3-perf 与 `docs/dev.md §8` 现状为准**。
 
 ---
 
@@ -614,3 +615,188 @@
 - `ROADMAP.md`：最小追加 v1.23.0 素材增补（R2 修订结论；**不删既有叙述**）。
 - `TREE.md`：由 `sddu-tree` Skill 刷新（见收口报告）。
 - **未合 main、未发布**（`NG-V2-009` 保持）；合入/发布由作者执行。
+
+---
+
+## R3-perf（2026-09-14，sddu-build；**作者显式授权修改 `packages/web-cli-base/**`**）
+
+> **本轮性质**：**性能根因修复**（非 SDDU 新增功能轮次）。作者于 2026-09-14 显式放行 `packages/web-cli-base/**`（**仅限本性能修复**）；其余红线保持：不碰 `main`、不改 v1 SDDU 目录（`specs-tree-web-cli-plugin/**`）、无新依赖、不 force push、禁 `git add -A`、不提交 `.opencode/opencode.json`。
+
+### R3P-1 授权登记（scope）
+
+| 项 | 内容 |
+|------|------|
+| 授权人 / 日期 | **作者，2026-09-14** |
+| 授权范围 | **仅** `packages/web-cli-base/**`（本轮实际改动 = `src/llm.ts` + 新增 `src/llm-lazy-sdk.test.ts`） |
+| 授权事由 | 修「base barrel 急切拉入两个 LLM SDK」这一**共同根因**：lgdl-web dev 首屏「加载不出来」+ 插件 `content.js` 1,073,453 B（NFR-007 D31） |
+| 未越界声明 | 未改 `packages/web-cli-base` 的 `package.json`（**无新依赖**）、未改 barrel `src/index.ts` 导出面、未改任何其它 base 源文件 |
+
+### R3P-2 根因证据链（含 `file:line`）
+
+| # | 证据 | 位置 | 说明 |
+|:--:|------|------|------|
+| 1 | 顶层静态 SDK import | `packages/web-cli-base/src/llm.ts:9-10` | `import OpenAI from 'openai'; import Anthropic from '@anthropic-ai/sdk';`（**急切求值**） |
+| 2 | 构建产物同形 | `packages/web-cli-base/dist/llm.js:9-10` | tsc 产物保留为顶层静态 import |
+| 3 | barrel 连带求值 | `packages/web-cli-base/src/index.ts:30` | `export { chat, parseToolArguments, classifyError } from './llm.js';` → 只要 import barrel 即**静态求值 `llm.js`** |
+| 4 | 消费方只要一个小工具 | `packages/lgdl-web/src/web-cli-host/bridge.ts:22` | `import { createBrowserEventHub, … } from '@lgdl/web-cli-base'` → 拖进整个 barrel |
+| 5 | 站点挂载即安装 bridge | `packages/lgdl-web/src/App.tsx`（`startWebCliBridge`，见 `:1149`） | 首屏渲染前必须等两个大 SDK 加载求值完 |
+| 6 | 插件 content 同理 | `packages/web-cli-plugin/src/content/content-script.ts:22` | `import { createBrowserDomOps } from '@lgdl/web-cli-base'` → content 包被撑到 1,073,453 B |
+
+**修复**：把 SDK 的**加载时机**从「模块求值期」推迟到「`chat()` 真正发请求时」——顶层改 `import type`（编译擦除），函数内 `await import(...)`。
+
+### R3P-3 改动（before → after 要点）
+
+`packages/web-cli-base/src/llm.ts`（**仅此一个源文件**）：
+
+```diff
+-import OpenAI from 'openai';
+-import Anthropic from '@anthropic-ai/sdk';
++// 惰性加载：顶层只有类型导入（编译后完全擦除），SDK 在 chat() 内按需 await import
++import type OpenAI from 'openai';
++import type Anthropic from '@anthropic-ai/sdk';
+@@ chat() Anthropic 路径
+-    const client = new Anthropic({ … });
++    const { default: AnthropicClient } = await import('@anthropic-ai/sdk');
++    const client: Anthropic = new AnthropicClient({ … });   // 位置与原先 new 完全一致（仍在 try 之外）
+@@ chat() OpenAI 兼容路径
+-    const client = new OpenAI({ … });
++    const { default: OpenAIClient } = await import('openai');
++    const client: OpenAI = new OpenAIClient({ … });          // 同上
+```
+
+**为什么 API 与行为不变**：
+
+1. **导出名集合一字不改**：`src/index.ts:30` 的 re-export 未动；`src/llm.ts` 的 6 个接口 + 3 个函数签名/返回类型未动（`dist/llm.d.ts` 与修复前**逐字节相同**）。
+2. **消息构造 / 错误分类 / 工具调用解析零改动**：diff 仅涉及两处「客户端实例化前多一行动态 import」，其余代码（含 `messages.create` / `chat.completions.create` 的参数拼装、`parseToolArguments`、`classifyError` 全部分支）**未触碰一个字符**。
+3. **错误传播语义保持**：动态 import 放在原 `new Xxx(...)` 的**同一位置**（Anthropic 构造与 OpenAI 构造都**仍在 `try` 之外**），因此构造失败依旧是「未分类错误直接抛出」；`try` 内的调用/解析失败仍走 `classifyError`。
+4. **唯一的、不可避免的差异**（如实登记）：SDK **模块加载失败**（网络/打包缺失）原先表现为「导入 `llm.js` 时即失败」，现表现为「`chat()` 调用时 promise reject」。这是惰性化的**定义本身**，不影响正常路径与已覆盖的错误分类路径；未对失败信息做任何包装/改写。
+
+### R3P-4 结构性防回潮门禁（**只增不减**；新增 `packages/web-cli-base/src/llm-lazy-sdk.test.ts`，7 条）
+
+| 层 | 断言 | 说明 |
+|:--:|------|------|
+| ① 源码 | `src/llm.ts` **无顶层静态** SDK import（`import type` 允许） | 行首语句判定 + 子句不跨引号；注释/正文字面量不误报 |
+| ① 源码 | `src/llm.ts` 保留两个 `import type`（证明类型面仍被钉住） | —— |
+| ① 源码 | `src/llm.ts` 确有 `await import('openai')` / `await import('@anthropic-ai/sdk')` | 正面证据：惰性加载真的在 |
+| ① 反证 | 合成文本：`import X from 'openai'` / `import 'openai'` / `export … from 'openai'` 必须命中；`import type` 与 `await import()` 必须**不**命中 | 纯函数反向断言（不依赖当前工作区） |
+| ① 反证 | 模块图 walker：假 `index.js → llm.js`（静态 SDK import）必须命中；改成惰性形态后必须归零 | 纯函数反向断言 |
+| ② 产物 | `dist/llm.js` **无顶层静态** SDK import（有 dist 才断言，否则显式 skip） | 构建产物层 |
+| ③ 求值图 | 从 `dist/index.js` 沿**静态**相对 import 闭包，任一可达模块都不得静态 import SDK | 直接对「barrel 首次求值」建模；动态 import 不算（不参与首次求值） |
+
+**反证实跑（真实变异 → 真 FAIL → 完整还原）**：临时把顶层静态 import 加回（`import OpenAISdkStatic from 'openai';` + 引用，避免与 `import type` 重名）→ `npm run build` EXIT=0（dist 顶层出现静态 import）→ `npm test` **EXIT=1 / 490 tests / pass 487 / fail 3**，三层全部 FAIL：
+
+```
+✖ lazy-sdk ①: src/llm.ts has NO top-level static SDK import
+  AssertionError: 命中：import OpenAISdkStatic from 'openai'   actual ["import OpenAISdkStatic from 'openai'"] expected []
+✖ lazy-sdk ②: dist/llm.js has NO top-level static SDK import (when built)
+  AssertionError: 命中：import OpenAISdkStatic from 'openai'
+✖ lazy-sdk ③: dist/index.js static module graph does NOT eagerly reach the SDKs (when built)
+  AssertionError: 违规：…/packages/web-cli-base/dist/llm.js → import OpenAISdkStatic from 'openai'
+```
+
+→ 随后**完整还原**（`src/llm.ts` sha256 回到 `0cdf51172cd9607dfe33d8a8027b1fe36c020e1d6563bf02f431bd161d4b44c3`，`grep -c OpenAISdkStatic` = 0），重新 build + test **EXIT=0 / 490 / 490 / 0 fail**。日志：`04-REVERSE-build-mutated.log` / `04-REVERSE-test-mutated.log` / `05-base-build-RESTORED.log` / `05-base-test-RESTORED.log`。
+
+### R3P-5 base 验证（build / test / 导出面等价性）
+
+| 项 | 前 | 后 | 结论 |
+|------|:--:|:--:|------|
+| `npm run build --workspace @lgdl/web-cli-base` | EXIT=0 | EXIT=0 | ✅ `dist` 无顶层静态 SDK import（`grep` 空） |
+| `npm test --workspace @lgdl/web-cli-base` | **483 / 483 · 0 fail · 0 skip** | **490 / 490 · 0 fail · 0 skip** | ✅ **零删除**（483 全保留 + 7 条新门禁） |
+| 运行期导出名集合（`Object.keys(await import(dist/index.js))`） | **270** | **270** | ✅ **完全一致**（`onlyBefore=[]` / `onlyAfter=[]`，`JSON.stringify` 相等） |
+| 类型导出面（TS Compiler API `getExportsOfModule(dist/index.d.ts)`） | **537** | **537** | ✅ **完全一致**（`onlyBefore=[]` / `onlyAfter=[]`） |
+| `dist/llm.d.ts` | — | — | ✅ 与修复前**逐字节相同**（d.ts diff 为空） |
+| `dist/llm.js` | — | — | ✅ 与修复前差异**仅**为「去掉 2 行顶层静态 import + 新增 2 行动态 import（含注释）」 |
+
+导出面机器比对方法：① 运行期 —— 对 `dist/index.js` 做 `import()` 取 `Object.keys`，修复前后各存 JSON 再作集合 diff；② 类型 —— 用仓库内 `typescript` 的 `createProgram` + `checker.getExportsOfModule` 读 `dist/index.d.ts`；修复前的 `dist` 用 `git show HEAD:packages/web-cli-base/src/llm.ts` 还原源码后 `tsc --outDir dist-before` 重建（随后删除 `dist-before`）。
+
+### R3P-6 消费方体积前后对照（同一会话、同一工具链，仅切换 base `src/llm.ts`）
+
+| 产物 | 前 | 后 | Δ | 归因 |
+|------|:--:|:--:|:--:|------|
+| `dist/content.js` | 1,073,453 B | **177,076 B** | **−896,377 B（−83.5%）** | content script **不使用** `chat()` → 惰性化后 esbuild 可整块丢弃 `llm.js` 及两个 SDK |
+| `dist/sidepanel.js` | 1,162,942 B | **266,500 B** | −896,442 B（−77.1%） | 同上（侧栏不直接调 `chat()`） |
+| `dist/options.js` | 978,471 B | **82,093 B** | −896,378 B（−91.6%） | 同上 |
+| `dist/background.js` | 1,432,228 B | **1,587,839 B** | **+155,611 B（+10.9%）** | background **真实使用** `chat()`；esbuild **无 code-splitting** 时动态 import 被内联为惰性模块，命名空间须完整保留 → 两个 SDK 的**未用导出不再被 tree-shake**。换取「后台仅在真正调用 LLM 时才求值」。**如实登记，不掩饰** |
+| `dist/manifest.json` | 1,141 B | 1,141 B | 0 | sha256 不变 |
+
+> 口径：前值 / 后值均为本会话 `npm run build --workspace @lgdl/web-cli-plugin` 实测（`stat -c %s`），日志 `07-size-BEFORE-*.txt|log`、`07-size-AFTER-*.txt|log`、`07-size-DELTA.txt`。`test:hardening` 会中途重建 `dist`（**既有已知副作用**），复跑后字节数不变（content 177,076 / sidepanel 266,500 / background 1,587,839 / options 82,093）。
+
+### R3P-7 NFR-007 / D31 现状订正（**保留历史行 + 以现状为准**）
+
+| 项 | 历史记录（保留） | **现状（2026-09-14 实测）** | 判定 |
+|------|------|------|:--:|
+| `content.js` vs 64 KiB 目标 | 1,073,453 B（≈1.02 MiB），**超 ≈16.4×**，D31 未达成 | **177,076 B**（≈172.9 KiB），**超 2.70×** | ❌ **仍未达成**（**D31 保留、未消除**） |
+| `targetMet`（`test/perf-baseline.ts`） | `false` | **`false`**（与实测一致；**未改动**） | ✅ 一致 |
+| `CONTENT_MAX_BYTES`（硬上限，`test/size-baseline.ts`） | 1,073,453 B | **1,073,453 B（原样保留、未放宽）** | ✅ 上限式守卫自然通过 |
+| `SIDEPANEL_BASELINE_BYTES` / `SIDEPANEL_CEILING` | 1,159,856 / 1,217,848 | **原样保留（未放宽/未重登记）**；实测 266,500 ≤ ceiling | ✅ |
+| NFR-007 相关测试改动 | — | **零**（`perf-budget.test.ts` / `size-budget.test.ts` / `size-baseline.ts` / `insight-archive.test.ts` **零 diff**） | ✅ 无阈值放宽、无断言删除 |
+
+> **为什么不把 `targetMet` 改成 `true`**：本轮实测 177,076 B **仍 > 64 KiB（65,536 B）**，按实测如实保留 `false`；**不得为了让数字好看而改阈值/删断言**。若后续真正降到 ≤64 KiB，`test/perf-budget.test.ts` 的 `targetMet === (size <= 目标)` 一致性断言会**强制**同步订正元数据与文档——该通道已就位。
+> **残留**：`content.js` 的**回归上限仍是 1,073,453 B**（未收紧），故「体积回升至 1.0 MiB 级」不会被插件体积守卫单独拦住；但**具体根因回潮**已由 base 层结构门禁 `src/llm-lazy-sdk.test.ts`（dist/求值图三层）**真 FAIL** 兜住（见 R3P-4 反证）。属已登记残留，非静默风险。
+
+### R3P-8 lgdl-web（消费方）验证
+
+| 门禁 | 结果 |
+|------|------|
+| `npm run test --workspace @lgdl/lgdl-web` | **31 / 31 · 0 fail**（EXIT=0） |
+| `npm run build --workspace @lgdl/lgdl-web` | **EXIT=0**（`✓ 424 modules transformed` / `✓ built in 9.18s`） |
+
+### R3P-9 门禁原文（**严格串行，一次一个**；完整日志落盘，无 `tail` 截断丢弃）
+
+日志根目录：`/tmp/opencode/lgdl-perf-fix-20260914/`
+
+| # | 命令 | 退出码 | 原文计数 / 结论 | 日志 |
+|:--:|------|:--:|------|------|
+| 1 | `npm run build --workspace @lgdl/web-cli-base` | 0 | `dist/` 无顶层静态 SDK import | `01b-base-build.log` |
+| 2 | `npm test --workspace @lgdl/web-cli-base` | 0 | **tests 490 / pass 490 / fail 0 / skipped 0**（前：483/483/0） | `02b-base-test-AFTER.log`（前值 `00-base-test-BEFORE.log`） |
+| 3 | 导出面等价性（运行期 + d.ts，机器化） | 0 | 270/270 与 537/537 均**完全一致** | `exports-BEFORE.json` / `exports-AFTER.json` / `03-dts-exports-diff.log` |
+| 3b | 反证实跑（变异 → FAIL → 还原） | 1（预期） | 490/487/3 → 还原后 490/490/0 | `04-REVERSE-*.log` / `05-*-RESTORED.log` |
+| 4 | `npm run build --workspace @lgdl/web-cli-plugin` + 体积对照 | 0 | content 1,073,453→**177,076**；sidepanel 1,162,942→**266,500**；options 978,471→**82,093**；background 1,432,228→**1,587,839** | `07-size-BEFORE-*.log` / `07-size-AFTER-*.log` / `07-size-DELTA.txt` |
+| 5 | `npm run typecheck --workspace @lgdl/web-cli-plugin` | 0 | 无输出（0 error） | `08-plugin-typecheck.log` |
+| 6 | `npm test --workspace @lgdl/web-cli-plugin` | 0 | **tests 693 / pass 693 / fail 0 / skipped 0** | `09b-plugin-test.log` |
+| 7 | `npm run test:insight --workspace @lgdl/web-cli-plugin` | 0 | **UI insight PASS — 108 assertions** | `10-insight.log` |
+| 8 | `npm run test:ui --workspace @lgdl/web-cli-plugin` | 0 | **UI journey PASS — 167 assertions** | `11-ui.log` |
+| 9 | `npm run test:hardening --workspace @lgdl/web-cli-plugin` | 0 | **hardening PASS — 24 assertions** | `12-hardening.log` |
+| 10 | `npm run test:binding --workspace @lgdl/web-cli-plugin` | 0 | **binding PASS — 192 assertions** | `13-binding.log` |
+| 11 | `npm run test:e2e --workspace @lgdl/web-cli-plugin` | 0 | **PASS — real dist full chain**（含 1 条既有 D6 偏差披露） | `14-e2e.log` |
+| 12 | `npm run test --workspace @lgdl/lgdl-web` + `build` | 0 / 0 | 31/31；`424 modules transformed` | `15-lgdlweb-test.log` / `16-lgdlweb-build.log` |
+| 13 | 全仓 `npm test` | 0 | 各 workspace：base 490 / plugin 693 / lgdl-web 31 / 其余 267·95(94+1skip)·8·84·15 / 0·0 → **合计 1683 tests · 1682 pass · 0 fail · 1 skip** | `17-full-repo-test.log` |
+
+**未跑项**：无（1~13 全跑，均 exit 0）。
+**过程中的一次真实失败（如实披露，不掩盖）**：首次 `npm test --workspace @lgdl/web-cli-plugin`（`09-plugin-test.log`）**EXIT=1 / 693 tests / pass 692 / fail 1** —— 失败项为 **legacy 弱冻结** `V2-1 no-escalation: frozen surfaces have zero git diff (… / base)`（`test/insight-no-escalation.test.ts:132`，`git diff --quiet -- ../web-cli-base`；该断言被测文件自身注释标注为 **worktree-vs-index 弱语义**，真实冻结由 §sha256 pin 承担）。**因为 base 改动经作者授权但当时未入 index**，故其工作区 ≠ index → 退出码 1。**处置：不改任何测试**——按最终提交口径**显式逐文件 `git add packages/web-cli-base/src/llm.ts packages/web-cli-base/src/llm-lazy-sdk.test.ts`**（index == worktree 后该断言语义成立）→ 重跑 `09b` **693/693 · 0 fail**。**测试零删除、零放宽、零改写**。
+
+### R3P-10 零改动核验（自算）
+
+| 核验项 | 命令 | 结果 |
+|------|------|:--:|
+| `manifest.json` | `sha256sum` | `57e6407eacbcf9f979f9a5b1ef4aec4773760b1870c6818be9f1c1da425dc8a9`（与 R2 记录一致） |
+| `src/security/policy.ts` | `sha256sum` vs pin | `bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8` = pin ✅ |
+| `src/security/auto-authorize.ts` | `sha256sum` vs pin | `1096d065dac63d56e36285bf499eee041acdc3e323d4c7215df3981af7d0ef4b` = pin ✅ |
+| `src/content/**`（三文件内容哈希） | `test/size-budget.test.ts` V2-4 段 | 未改动，测试 PASS ✅ |
+| 依赖段零 diff（**无新依赖**） | `git diff --quiet -- '**/package.json'` | exit 0 ✅ |
+| v1 SDDU 目录 | `git diff --quiet HEAD -- .sddu/specs-tree-root/specs-tree-web-cli-plugin` | exit 0 ✅ |
+| `.opencode/opencode.json` | `git diff --quiet` | exit 0 ✅ |
+| `main` | `git rev-parse main` | `2ddc92299ad10cfe0ea2b65403243a45ce7fb041`（**未动**） |
+
+### R3P-11 未实测项（**dev 首屏改善：headless 不可量化**）+ 作者验证配方
+
+> **不得声称已实测首屏变快**。本轮只证明了「首屏不再被迫急切求值两个 SDK」（结构性证据 + 体积证据），**没有**做浏览器首屏耗时测量。
+
+**作者可执行验证配方（在 `packages/lgdl-web`）**：
+
+1. `npm run dev`（`predev` 会先构建 base 等依赖）→ 等 Vite 就绪；
+2. **终端观察**：首次加载页面时**不应再出现** `new dependencies optimized: …` / `✨ optimized dependencies changed. reloading` 一类 dev 中途 reload 提示（修复前会因浏览器请求到 `openai`/`@anthropic-ai/sdk` 而触发）；
+3. **DevTools → Network**：首屏不应再出现体积巨大的 SDK chunk（`openai` / `@anthropic-ai/sdk` 预打包 chunk）；页面应正常渲染出工作台；
+4. （可选）`⚠` 只有真正触发 LLM 调用时，才应看到两个 SDK 被请求/求值；
+5. 若仍出现中途 reload，请回报终端原文（属未完成/风险项，见 R3P-12）。
+
+### R3P-12 未完成 / 降级 / 风险（如实）
+
+1. **dev 首屏**：**未实测**（headless 不可量化），仅结构性证据 + 配方（R3P-11）。
+2. **NFR-007 D31 未消除**：`content.js` 177,076 B 仍超 64 KiB **2.70×**（如实保留 `targetMet=false`）。
+3. **`background.js` 体积上升 +10.9%**（1,432,228 → 1,587,839 B）：动态 import 在无 code-splitting 下的必然代价（SDK 未用导出不再 tree-shake）；`≤1.2 MB` 本就**仅记录、无硬断言**。若需回退该增量，须引入分包（`splitting`）或 SDK 按需裁剪——**不在本修复范围**。
+4. **`content.js` 回归上限仍是 1,073,453 B**（未收紧）：体积层面的「回升」不会被插件守卫单独拦住；但**本根因**的回潮已被 base 结构门禁真 FAIL 兜住（R3P-4）。收紧上限属后续可选项（需显式重登记 + 同步多处钉死断言），本轮**不动**。
+5. **SDK 模块加载失败**的表现由「导入即失败」变为「调用时 reject」（R3P-3 第 4 点），属惰性化定义本身；未新增包装。
+6. 本轮 commit hash / push 输出见交付摘要（按既有轮次惯例，如为文档收口另起 commit 则在后续回填）。
+
+---
