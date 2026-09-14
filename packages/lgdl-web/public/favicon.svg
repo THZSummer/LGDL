@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- LGDL favicon — connection-tree mark; bold strokes / 32px grid, legible at 16px -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#g)"/>
+  <path d="M16 22 V15.5 M16 15.5 L9.8 10 M16 15.5 L22.2 10"
+        fill="none" stroke="#ffffff" stroke-width="3.2"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#ffffff">
+    <circle cx="16" cy="22" r="3.5"/>
+    <circle cx="9.8" cy="10" r="3.5"/>
+    <circle cx="22.2" cy="10" r="3.5"/>
+  </g>
+</svg>
