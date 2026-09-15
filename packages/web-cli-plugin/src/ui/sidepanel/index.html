@@ -1088,10 +1088,22 @@
            V3-1 (ADR-V3-017): both are L2 — hidden until the L2 view is opened
            from the status-bar entry panel (≤2 interactions, FR-V3-048). -->
       <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" aria-haspopup="dialog" title="连接树：四维度总览与撤销入口" hidden>连接树</button>
-      <aside id="tree-drawer" hidden aria-label="连接树" role="dialog" aria-modal="false"></aside>
+      <!-- AC-V3-010 / D6: a collapsed disclosure must carry a readable summary.
+           `mountTreeDrawer()` replaces this line when the drawer is first opened
+           (`root.replaceChildren()`), so the summary is *always* present — before
+           the first pull the drawer is never a clue-less void. -->
+      <aside id="tree-drawer" hidden aria-label="连接树" role="dialog" aria-modal="false"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。</div></aside>
       <!-- V3-1: L2 host (command catalog / audit / global tree / settings land
            here in v3-3). Default `hidden` — one of the four L2 views is never
-           resident. -->
+           resident.
+           AC-V3-010 / review I5: in the v3-1 SKELETON phase this host is empty by
+           design, so its summary requirement is an **explicitly registered
+           exemption** (`test/ui/l0.mjs` ⑥ + ledger `v3SkeletonExemptions`): the
+           discoverability burden is carried by the four `#l2-entry-*` triggers
+           (non-empty labels + real counts) and the trigger↔host ARIA pair. v3-3
+           fills the host with the real view and drops the exemption. The host is
+           deliberately kept EMPTY: its content would otherwise change the panel
+           geometry the moment the L2 view is opened (insight #I-20j/#I-14c). -->
       <div id="view-host" aria-label="按需视图" hidden></div>
     </div>
 
@@ -1102,10 +1114,14 @@
       <span class="l0-statusbar-caret">▴</span>
     </button>
     <div id="l2-entries" data-disclose-panel="l2-entries" hidden>
-      <button id="l2-entry-tree" type="button" aria-controls="view-host">连接树 · 0</button>
-      <button id="l2-entry-commands" type="button" aria-controls="view-host">命令目录 · 0</button>
-      <button id="l2-entry-audit" type="button" aria-controls="view-host">审计 · 0</button>
-      <button id="l2-entry-settings" type="button" aria-controls="view-host">设置</button>
+      <!-- AC-V3-010 (I5 fix round): every `[aria-controls]` element must carry
+           the pair `aria-expanded` + `aria-controls`, not just the four L0
+           triggers — these four L2 entries address `#view-host`, so they carry
+           `aria-expanded` too (kept in sync by `l0/status-bar.ts#syncTriggerAria`). -->
+      <button id="l2-entry-tree" type="button" aria-expanded="false" aria-controls="view-host">连接树 · 0</button>
+      <button id="l2-entry-commands" type="button" aria-expanded="false" aria-controls="view-host">命令目录 · 0</button>
+      <button id="l2-entry-audit" type="button" aria-expanded="false" aria-controls="view-host">审计 · 0</button>
+      <button id="l2-entry-settings" type="button" aria-expanded="false" aria-controls="view-host">设置</button>
     </div>
 
     <!-- ── zone 3: hints (never scrolls; composer is last) ── -->

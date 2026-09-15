@@ -16,9 +16,15 @@
  * `#composer` / `#input` keep serving the full free-text path (the v1 behaviour
  * three existing gates still exercise) — they are simply not L0 chrome any more.
  *
+ * This module is also the **only writer** of `#l0-more` (label + `data-count` +
+ * `hidden`). `l0/shell.ts` used to re-write the label after `render()`, which is
+ * how the *no-card* state could end up offering a live「还有 1 个」entry point
+ * (review I1): the label must be derived from the same `visible`/`foldedCount`
+ * pair that drives the visibility, in one place.
+ *
  * @module l0/decision-card
  */
-import { OTHER_OPTION_LABEL } from '../view-model.js';
+import { OTHER_OPTION_LABEL, moreOptionsLabel } from '../view-model.js';
 import type { L0View } from '../view-model.js';
 
 /** Element handles the card owns (looked up once, by id, at mount). */
@@ -115,6 +121,25 @@ export function mountDecisionCard(deps: DecisionCardDeps): DecisionCardHandle {
   return {
     render(view: L0View): void {
       const decision = view.decision;
+      /**
+       * `#l0-more` is written HERE and nowhere else (label + `data-count` +
+       * `hidden`). Two rules, one place:
+       *   - **no card ⇒ no entry point.** The label reads the honest「还有 0 个」
+       *     and the button is `hidden`; re-rendering the same no-card state must
+       *     not resurrect it (review I1: `foldedCount` is *always* ≥ 1, so
+       *     `foldedCount <= 0` alone is never true and the button became VISIBLE
+       *     on the second render of the no-card state);
+       *   - **a card with nothing behind the disclosure ⇒ no dead entry.** A
+       *     visible card whose option list is empty must not offer a disclosure
+       *     that expands to nothing.
+       */
+      const applyMore = (): void => {
+        const count = decision.visible ? decision.foldedCount : 0;
+        nodes.more.textContent = moreOptionsLabel(count);
+        nodes.more.setAttribute('data-count', String(count));
+        const nothingBehind = decision.visibleOptions.length === 0 && decision.foldedOptions.length === 0;
+        nodes.more.hidden = !decision.visible || decision.foldedCount <= 0 || nothingBehind;
+      };
       const signature = JSON.stringify([
         decision.visible,
         decision.prompt,
@@ -127,7 +152,7 @@ export function mountDecisionCard(deps: DecisionCardDeps): DecisionCardHandle {
       // always re-applied so an external state change can never be masked.
       if (signature === lastSignature) {
         nodes.ask.hidden = !decision.visible;
-        nodes.more.hidden = decision.foldedCount <= 0;
+        applyMore();
         setFallback(fallbackRequested);
         return;
       }
@@ -137,8 +162,7 @@ export function mountDecisionCard(deps: DecisionCardDeps): DecisionCardHandle {
         nodes.prompt.textContent = '';
         nodes.options.textContent = '';
         nodes.moreOptions.textContent = '';
-        nodes.more.textContent = '更多选项（还有 0 个）';
-        nodes.more.hidden = true;
+        applyMore();
         // No card → no fallback state either (the round is over).
         setFallback(false);
         return;
@@ -166,10 +190,8 @@ export function mountDecisionCard(deps: DecisionCardDeps): DecisionCardHandle {
       if (decision.visibleOptions.length > 0 || decision.foldedOptions.length > 0) {
         nodes.moreOptions.appendChild(terminalButton());
       }
-      nodes.more.textContent = `更多选项（还有 ${decision.foldedCount} 个）`;
-      nodes.more.setAttribute('data-count', String(decision.foldedCount));
       // A card with nothing behind the disclosure must not offer a dead entry.
-      nodes.more.hidden = decision.foldedCount <= 0;
+      applyMore();
       // Re-apply the user's fallback intent (never silently collapse it).
       setFallback(fallbackRequested);
     },

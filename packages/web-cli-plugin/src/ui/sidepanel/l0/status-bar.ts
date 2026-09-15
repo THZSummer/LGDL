@@ -16,6 +16,13 @@ import type { L0View } from '../view-model.js';
 
 export interface StatusBarHandle {
   render(view: L0View): void;
+  /**
+   * Re-sync the four L2 entries' `aria-expanded` with `#view-host`'s state.
+   * AC-V3-010 applies to **every** `[aria-controls]` element, not just the four
+   * L0 triggers — the L2 entries carry `aria-controls="view-host"` and were
+   * missing the paired `aria-expanded` (review I5).
+   */
+  syncTriggerAria(): void;
 }
 
 /** L2 entries are capped at four (FR-V3-015). */
@@ -33,7 +40,17 @@ export function mountStatusBar(doc: Document): StatusBarHandle {
     return existing instanceof HTMLButtonElement ? existing : null;
   };
 
+  const syncTriggerAria = (): void => {
+    const expanded = doc.getElementById('view-host')?.hidden === false ? 'true' : 'false';
+    for (const key of L2_ENTRY_FIELDS) {
+      const btn = buttonFor(key);
+      if (!btn) continue;
+      btn.setAttribute('aria-expanded', expanded);
+    }
+  };
+
   return {
+    syncTriggerAria,
     render(view: L0View): void {
       text.textContent = view.statusbar.text;
       for (const entry of view.statusbar.entries) {
@@ -45,6 +62,7 @@ export function mountStatusBar(doc: Document): StatusBarHandle {
         btn.setAttribute('data-count', entry.count < 0 ? 'n/a' : String(entry.count));
         btn.setAttribute('aria-controls', 'view-host');
       }
+      syncTriggerAria();
     },
   };
 }

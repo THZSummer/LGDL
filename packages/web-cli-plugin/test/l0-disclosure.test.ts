@@ -10,6 +10,12 @@
  *
  * Supersession: this file is NEW — no existing assertion is deleted or
  * downgraded by it (NFR-V3-014; ledger entry V31-S4).
+ *
+ * v3-1 review fix round (I2/I3/I9): the dead `partitionDecisionOptions` block was
+ * replaced by the PRODUCT partition rule (`l0ViewModel`), the terminal-label
+ * constants are now pinned equal to each other, and the tautological
+ * `assert.ok(… || true)` became a real equality assertion. No `test(...)`
+ * registration was removed — the suite only grew.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,17 +35,26 @@ import {
   normalizeId,
 } from '../src/ui/sidepanel/disclosure.js';
 import {
-  MAX_VISIBLE_RECOMMENDED,
   OTHER_OPTION_LABEL,
   RISK_CLASSES,
   RISK_COPY,
   RiskRowError,
   assertNoAllowControls,
   assertThreeChannels,
-  partitionDecisionOptions,
   renderRiskRail,
   renderRiskRow,
 } from '../src/ui/sidepanel/l0/risk-rail.js';
+// The PRODUCT copy of the terminal label (what `decision-card.ts` renders) plus
+// the single product partition rule (`l0ViewModel`) — review I2/I3: the previous
+// version only pinned the rail-side copy and exercised a product-unused
+// `partitionDecisionOptions()` with a conflicting `MAX_VISIBLE_RECOMMENDED = 1`.
+import { L0_OTHER_OPTION_LABEL } from '../src/ui/sidepanel/l0/shell.js';
+import {
+  L0_VISIBLE_RECOMMENDED,
+  OTHER_OPTION_LABEL as VIEW_MODEL_OTHER_OPTION_LABEL,
+  l0ViewModel,
+  moreOptionsLabel,
+} from '../src/ui/sidepanel/view-model.js';
 
 // ── a deliberately tiny DOM stub ─────────────────────────────────────────────
 class StubEl {
@@ -234,7 +249,15 @@ test('disclosure: window.__v3.disclosure 三方法齐备且幂等安装', () => 
   for (const key of ['toggle', 'collapseAll', 'expandMemory']) {
     assert.ok(key in hooks.disclosure, `__v3.disclosure 缺少 ${key}`);
   }
-  for (const id of COLLAPSIBLE_TARGETS) assert.ok(hooks.disclosure.targets instanceof Array || true);
+  // I9 fix round: the old loop body was `assert.ok(targets instanceof Array || true)`
+  // — a tautology that could never fail (and never touched the loop variable). The
+  // contract is that the exposed list is exactly the controller's whitelist.
+  assert.ok(Array.isArray(hooks.disclosure.targets), '__v3.disclosure.targets 必须是数组');
+  assert.deepEqual(
+    [...(hooks.disclosure.targets as string[])],
+    [...COLLAPSIBLE_TARGETS],
+    '__v3.disclosure.targets 必须是 COLLAPSIBLE_TARGETS 的逐项副本',
+  );
 });
 
 // ── 6. three channels (FR-V3-017) ──────────────────────────────────────────
@@ -272,31 +295,66 @@ test('risk-rail: 五类风险渲染到 #risk-rail，无风险时给出平静摘�
   assert.throws(() => renderRiskRail(empty as never, []), RiskRowError, '#risk-rail 缺失必须抛错');
 });
 
-// ── 7. destructive options are structurally unfoldable (FR-V3-018) ─────────
-test('risk-rail: destructive 选项结构上永不进入折叠池', () => {
-  const options = [
-    { label: '查看声明', recommended: true },
-    { label: '重试探测' },
-    { label: '撤销授权' },
-    { label: '删除书签「工作」', kind: 'destructive' as const },
-    { label: '清空剪贴板', kind: 'destructive' as const },
-  ];
-  const part = partitionDecisionOptions(options);
-  assert.equal(part.destructive.length, 2);
-  assert.equal(
-    part.folded.some((o) => o.kind === 'destructive'),
-    false,
-    '折叠池中不得出现破坏性选项',
+// ── 7. the decision card's option partition is the PRODUCT one (FR-V3-011/012) ─
+test('risk-rail: 决策卡推荐位/折叠位由产品视图模型派生（唯一实现源）', () => {
+  // I3 fix round: this block used to exercise `partitionDecisionOptions()`, a
+  // product-unused second implementation in `risk-rail.ts` whose comment
+  // contradicted both `view-model.L0_VISIBLE_RECOMMENDED = 2` and the measured
+  // clickable budget. It is gone; the ONE partition rule (`l0ViewModel`) is
+  // asserted here instead, so the test can no longer vouch for dead code.
+  const ask = {
+    prompt: '这一步先做什么？',
+    options: ['查看声明', '重试探测', '撤销授权', '删除书签「工作」', '清空剪贴板'],
+  };
+  const view = l0ViewModel({ authorized: true, activeOrigin: 'https://a.test', ask });
+  assert.equal(view.decision.visible, true);
+  assert.equal(view.decision.prompt, ask.prompt);
+  assert.ok(
+    view.decision.visibleOptions.length <= L0_VISIBLE_RECOMMENDED,
+    `可见推荐选项必须 ≤ ${L0_VISIBLE_RECOMMENDED}（实际 ${view.decision.visibleOptions.length}）`,
   );
-  assert.equal(part.recommended.length, 1);
-  assert.ok(part.recommended.length <= MAX_VISIBLE_RECOMMENDED);
-  assert.ok(MAX_VISIBLE_RECOMMENDED <= 2, 'FR-V3-011: 可见推荐选项 ≤2');
-  // N is derived from the real option list, never hard-coded:
-  assert.equal(part.foldedCount, part.folded.length + 1, 'N = 其余选项数 + 末项「其他…」');
-  const more = partitionDecisionOptions([...options, { label: '第三个非推荐项' }]);
-  assert.equal(more.foldedCount, part.foldedCount + 1, '真实选项变多 → N 必须随之变化');
+  assert.ok(L0_VISIBLE_RECOMMENDED <= 2, 'FR-V3-011: 可见推荐选项 ≤2');
+  assert.deepEqual(
+    view.decision.visibleOptions.map((o) => o.label),
+    ask.options.slice(0, view.decision.visibleOptions.length),
+  );
+  assert.deepEqual(view.decision.foldedOptions, ask.options.slice(view.decision.visibleOptions.length));
+  // N is derived from the REAL option list, never hard-coded:
+  assert.equal(view.decision.foldedCount, view.decision.foldedOptions.length + 1, 'N = 其余选项数 + 末项「其他…」');
+  assert.equal(view.decision.foldedCount, 4, '5 选项 → 2 可见 + 3 收起 + 1 末项');
+  const more = l0ViewModel({ authorized: true, activeOrigin: 'https://a.test', ask: { ...ask, options: [...ask.options, '第三个非推荐项'] } });
+  assert.equal(more.decision.foldedCount, view.decision.foldedCount + 1, '真实选项变多 → N 必须随之变化');
+  assert.equal(moreOptionsLabel(view.decision.foldedCount), `更多选项（还有 ${view.decision.foldedCount} 个）`);
+  // No card ⇒ no entry point: the label is the honest「还有 0 个」, never「还有 1 个」
+  // (foldedCount is always ≥ 1, which is exactly why `foldedCount <= 0` was the
+  // wrong gate — see review I1 and `test/ui/l0.mjs` ②).
+  const empty = l0ViewModel({ authorized: true, activeOrigin: 'https://a.test', ask: null });
+  assert.equal(empty.decision.visible, false);
+  assert.equal(empty.decision.foldedCount, 1, '无卡态 foldedCount 仍为 1（0 选项 + 末项）');
+  assert.equal(moreOptionsLabel(0), '更多选项（还有 0 个）');
+  assert.equal(moreOptionsLabel(empty.decision.visible ? empty.decision.foldedCount : 0), '更多选项（还有 0 个）');
+  // FR-V3-018 keeps its structural half here: the destructive confirmation card is
+  // its own target and lives in NEVER_FOLDABLE (asserted by test #1:
+  // `assertFoldable('confirm')` throws); the runtime half — destructive options
+  // never entering the「更多选项」pool — is asserted by `test/ui/l0.mjs` ⑤.
+  assert.ok((NEVER_FOLDABLE as readonly string[]).includes('confirm'), '破坏性确认卡必须是「永不折叠」目标');
+});
+
+test('risk-rail: 末项文案逐字——两份常量相等且与产品渲染同源（FR-V3-012）', () => {
+  // I2 fix round: two same-named constants used to exist with NO equality
+  // assertion and NO rendered-DOM assertion, so a drift between the rail-side copy
+  // (asserted by the old test) and the product copy (actually rendered) was
+  // invisible to every gate.
   assert.equal(OTHER_OPTION_LABEL, '其他…（我来描述）');
-  assert.equal(part.foldedCount, 3);
+  assert.equal(VIEW_MODEL_OTHER_OPTION_LABEL, '其他…（我来描述）');
+  assert.equal(L0_OTHER_OPTION_LABEL, '其他…（我来描述）');
+  assert.equal(
+    OTHER_OPTION_LABEL,
+    VIEW_MODEL_OTHER_OPTION_LABEL,
+    'risk-rail.ts 与 view-model.ts 的同名末项常量必须逐字相等（否则渲染文案由哪一份决定不可判定）',
+  );
+  assert.equal(L0_OTHER_OPTION_LABEL, VIEW_MODEL_OTHER_OPTION_LABEL, 'shell.ts 的再导出必须指向产品常量');
+  // The rendered text itself is asserted in `test/ui/l0.mjs` ② (real DOM).
 });
 
 test('risk-rail: 硬底线被拦时零「允许 / 放行」控件', () => {

@@ -1,7 +1,7 @@
 # V3-1 首轮真实产物密度基线（L0 骨架与密度门禁）
 
 > **定位**：`specs-tree-v3-1-l0-shell-density` 的**首轮真实产物密度基线**（A-UI-001 兑现）。
-> 机器可读版本：`docs/v3-density-baseline.json`（门禁读取并断言「实测 ≤ 阈值」且「只允许收紧」）。
+> 机器可读版本：`docs/v3-density-baseline.json`（门禁读取并断言「实测 ≤ 阈值」且「只允许收紧」，并由 `test/ui/density.mjs` **阶段 F** 与实测逐格做机器比对 —— ADR-V3-018 决策 2 / review I8）。
 > 测量：`npm run build --workspace @lgdl/web-cli-plugin` → `npm run test:density`（Chromium 单实例串行，320/400/520 × 900）。
 > 日期 / 来源：**2026-09-16** · `dist/sidepanel.html` + `dist/sidepanel.js` · 测量人：**v3-1 第 1 轮**。
 
@@ -47,7 +47,9 @@
 
 ### 3.1 消息区下界（几何契约迁移）
 
-`#log` clientHeight 下界 = **488 px**（400×900、默认档含待答决策卡的最坏情形实测 498 px − 10 px 已登记余量）。它取代 v2 insight 门的 589 px 锚点（ADR-V3-019 V31-S3），**只允许上调**；`test/ui/l0.mjs` 与 `test/ui/insight.mjs` 共用同一常量（`test/ui/density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR`）。
+`#log` clientHeight 下界 = **488 px**（400×900、默认档含待答决策卡的最坏情形、**最终产物**实测 **495 px** − 7 px 已登记余量）。它取代 v2 insight 门的 589 px 锚点（ADR-V3-019 V31-S3），**只允许上调**；`test/ui/l0.mjs` 与 `test/ui/insight.mjs` 共用同一常量（`test/ui/density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR`）。
+
+> **I7 修复轮（2026-09-16）**：本节此前引用中间轮次的 498 px / 10 px —— 最终产物实测为 **495 px**，实余量 **7 px**（比登记的更薄）。下界数值 **488 不动**（ADR-V3-009 已授权），只订正**来源与余量叙述**；机器可读的 `logClientHeightMeasuredWorst = 495` 由 `test/ui/density.mjs` 阶段 F 与 `test/ui/l0.mjs` ⑧ 逐次比对，来源数字不再能静默漂移。
 
 ### 3.2 C4 变化登记（只登记不上限）
 
@@ -79,10 +81,10 @@
 
 ## 5. 反证（门禁必须能真 FAIL）
 
-见 `TASK-111` 的独立日志（`/tmp/opencode/v3-gate-logs/rp-v3-0*.log`）：RP-V3-01（+1 可点 → FAIL → 还原 → PASS）、RP-V3-02（阈值 7→6 副本 → FAIL，原文件 sha256 未变）、RP-V3-03（CSS 隐身 4 变体计数不降 + `hidden=true` 必降 1）、RP-V3-04（风险行移入折叠容器 → AC-V3-008/009 FAIL → 还原 PASS）、RP-V3-05（删 1 条断言 → 台账/计数下界 FAIL）、RP-V3-06（`content.js` +1 B → 体积门禁 FAIL）。
+见 `/tmp/opencode/v3-gate-logs/v3-1-fix/` 的独立日志：RP-V3-01（+1 可点 → FAIL → 还原 → PASS）、RP-V3-02（阈值 7→6 副本 → FAIL，原文件 sha256 未变）、RP-V3-03（CSS 隐身 4 变体计数不降 + `hidden=true` 必降 1）、RP-V3-04（风险行移入折叠容器 → AC-V3-008/009 FAIL → 还原 PASS）、RP-V3-05（删 1 条断言 → 台账/计数下界 FAIL）、RP-V3-06（`content.js` +1 B → 体积门禁 FAIL）、**RP-V3-08（本文件被篡改一个登记值 → 阶段 F 基线比对 FAIL → 还原（sha256 复原）→ PASS）**。
 
 ---
 
 ## 6. 与体积基线的关系
 
-**分开登记**（ADR-V3-011 第 4 条）：密度在本文件；体积在 `test/size-baseline.ts`（2026-09-16 显式**提升**重登记 `sidepanel.js` 266,500 → **291,523 B**，ceiling **306,099 B**；`content.js` 177,076 B 无容差、本轮零改动）。
+**分开登记 + 交叉引用**（ADR-V3-011 第 4 条）：密度在本文件；体积在 `test/size-baseline.ts`（2026-09-16 v3-1 review 修复轮按**真实产物**重登记 `sidepanel.js` 291,523 → **295,225 B**，ceiling **未抬高**：仍 **306,099 B** = 只降不升的 cap；`content.js` 177,076 B 无容差、本轮零改动）。机器可读的交叉引用见本文件 JSON 的 `volume` 段，由 `test/density-thresholds.test.ts`（静态同源）与 `test/ui/density.mjs` 阶段 F（运行期产物体节）双向比对。

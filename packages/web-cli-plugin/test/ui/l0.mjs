@@ -13,9 +13,10 @@
  *      disclosure is collapsed;
  *   ⑤ AC-V3-009: no risk row has a foldable ancestor, and the destructive
  *      confirmation options never sit inside a foldable container (FR-V3-018);
- *   ⑥ AC-V3-010: every disclosure entry has non-empty text + a paired
- *      `aria-expanded`/`aria-controls` whose target holds a non-empty summary or
- *      count; L1 is ≤1 interaction and L2 is ≤2 interactions away;
+ *   ⑥ AC-V3-010: **every** `[aria-controls]` element (not a hand-picked subset)
+ *      has non-empty text + a paired `aria-expanded`/`aria-controls` whose target
+ *      holds a non-empty summary or count; L1 is ≤1 interaction and L2 is ≤2
+ *      interactions away;
  *   ⑦ AC-V3-021: the resident element set is identical at 320 and 400 (nothing is
  *      deleted on a narrow panel) and there is zero horizontal overflow;
  *   ⑧ the geometry contract inherited from the v2 insight gate: the four L0 zones
@@ -23,7 +24,9 @@
  *      scroller, `#log` keeps its first-round measured floor, and the composer sits
  *      flush at the bottom in the fallback state without being occluded;
  *   ⑨ both themes (`prefers-color-scheme`) keep every L0 state readable and never
- *      rely on colour alone (FR-V3-026 / AC-V3-020).
+ *      rely on colour alone (FR-V3-026 / AC-V3-020): the theme tokens must resolve
+ *      to DIFFERENT values per theme, and the three channels must survive with the
+ *      paint properties stripped;
  *
  * Serial discipline: one Chromium instance, one page target, everything in order.
  */
@@ -235,10 +238,48 @@ async function main() {
     await sleep(250);
     const moreAgain = await evaluate(cdp, `document.getElementById('l0-more').getAttribute('data-count') + '|' + document.getElementById('l0-more').textContent`);
     check('② 真实选项数变化 → N 随之变化（硬编码即 FAIL）', moreAgain === '4|更多选项（还有 4 个）', moreAgain);
+    // I2: the mandated terminal copy must be asserted on the RENDERED text, not only
+    // on a module constant (the two `OTHER_OPTION_LABEL` copies could drift apart
+    // without any gate noticing — the unit test only pinned the non-product one).
+    const terminalText = await evaluate(
+      cdp,
+      `(() => { const pool = document.getElementById('l1-more-options'); const btns = [...pool.querySelectorAll('button')]; return btns.length ? btns[btns.length - 1].textContent : ''; })()`,
+    );
+    check(
+      '② FR-V3-012 末项文案逐字（渲染态 DOM 文本 = 「其他…（我来描述）」）',
+      terminalText === '其他…（我来描述）',
+      JSON.stringify(terminalText),
+    );
     await evaluate(cdp, `window.__v3.testing.clearAsk(); true`);
     await sleep(200);
     const noAsk = await evaluate(cdp, `JSON.stringify({ askHidden: document.getElementById('ask').hidden, moreHidden: document.getElementById('l0-more').hidden })`);
     check('② 无待答回合时决策卡整体 hidden（不留空卡）', noAsk === '{"askHidden":true,"moreHidden":true}', noAsk);
+    // ── I1 FAIL-able assertion ────────────────────────────────────────────────
+    // 无卡态的**第二次** render 必须保持 `#l0-more` hidden。修复前的 early-return
+    // 分支写的是 `foldedCount <= 0`，而 `foldedCount = foldedOptions.length + 1 ≥ 1`
+    // 恒真 → 同一个无卡状态再渲染一次就把「更多选项（还有 1 个）」点亮成悬空入口。
+    await evaluate(cdp, `window.__v3.testing.refresh(); true`);
+    await sleep(250);
+    const noAskAgain = await evaluate(
+      cdp,
+      `JSON.stringify({
+        moreHidden: document.getElementById('l0-more').hidden,
+        moreText: document.getElementById('l0-more').textContent,
+        moreCount: document.getElementById('l0-more').getAttribute('data-count'),
+        askHidden: document.getElementById('ask').hidden,
+      })`,
+    );
+    const noAskAgainParsed = JSON.parse(noAskAgain);
+    check(
+      '② I1：无卡态第二次 render 后 #l0-more 仍 hidden（不得复活悬空入口）',
+      noAskAgainParsed.moreHidden === true && noAskAgainParsed.askHidden === true,
+      noAskAgain,
+    );
+    check(
+      '② I1：无卡态 #l0-more 文案 / data-count 如实归零（不得写「还有 1 个」）',
+      noAskAgainParsed.moreText === '更多选项（还有 0 个）' && noAskAgainParsed.moreCount === '0',
+      noAskAgain,
+    );
     await resetFixture(cdp);
 
     // ── ④ AC-V3-008: 5 classes × 2 scenarios ────────────────────────────────
@@ -291,14 +332,8 @@ async function main() {
     check('⑤ 风险位内不存在折叠触发器', chain.foldTriggerInRail === 0, String(chain.foldTriggerInRail));
     check('⑤ 风险行不位于任何折叠容器内', chain.riskRowsInFoldable === 0, String(chain.riskRowsInFoldable));
 
-    const confirm = await evaluate(
-      cdp,
-      `(() => {
-        window.__v3.testing.setRisk('confirm', 'force');
-        return true;
-      })()`,
-    );
-    void confirm;
+    // I14: the duplicate `setRisk('confirm','force')` + `void confirm` block is gone
+    // (the probe below re-applies it through the same hook, once).
     await evaluate(cdp, `window.__v3.testing.setRisk('confirm', 'force'); true`);
     await sleep(250);
     const confirmProbe = await evaluate(
@@ -352,6 +387,9 @@ async function main() {
 
     // ── ⑥ AC-V3-010: discoverability + reachability ────────────────────────
     console.log('\n▶ ⑥ AC-V3-010：可发现性（入口文字 + ARIA 成对 + 目标含摘要/计数）+ L1 ≤1 / L2 ≤2');
+    // I5 fix round: re-establish the default fixture so the probe sees the same
+    // state the contract describes (a pending card + all disclosures folded).
+    await resetFixture(cdp);
     const disclosure = await evaluate(
       cdp,
       `(() => {
@@ -376,14 +414,56 @@ async function main() {
       })()`,
     );
     const entries = JSON.parse(disclosure);
-    const wired = entries.filter((e) => ['l0-status-band', 'l0-more', 'l0-ref-toggle', 'l0-statusbar'].includes(e.trigger));
-    check('⑥ 四个 L0 折叠入口齐备', wired.length === 4, JSON.stringify(entries.map((e) => e.trigger)));
-    for (const entry of wired) {
+    // The check may not be narrowed to a hand-picked subset (the old version
+    // filtered to 4 L0 triggers, which hid the four `#l2-entry-*` buttons that had
+    // `aria-controls` but no `aria-expanded`). Every `[aria-controls]` element in
+    // the real product must pass; the list below is a *completeness* assertion
+    // (a superset check), never a filter.
+    const EXPECTED_TRIGGERS = [
+      'l0-status-band',
+      'l0-more',
+      'l0-ref-toggle',
+      'l0-statusbar',
+      'l2-entry-tree',
+      'l2-entry-commands',
+      'l2-entry-audit',
+      'l2-entry-settings',
+      'tree-fab',
+      'ask-other',
+    ];
+    check('⑥ 遍历范围 = 全部 [aria-controls] 元素（未被白名单缩窄）', entries.length >= EXPECTED_TRIGGERS.length, `实测 ${entries.length} 个：${entries.map((e) => e.trigger).join(', ')}`);
+    for (const trigger of EXPECTED_TRIGGERS) {
+      check(`⑥ ${trigger} 在遍历范围内（可见性契约不得被漏检）`, entries.some((e) => e.trigger === trigger), entries.map((e) => e.trigger).join(', '));
+    }
+    // Skeleton-phase exemption (review I5, orchestrator-sanctioned): the ONE
+    // target that legitimately has no readable summary yet. It is *registered*
+    // (ledger `v3SkeletonExemptions`), asserted to be exactly this set, and the
+    // host itself must be `hidden` by default with its trigger carrying a count —
+    // so the exemption cannot silently grow into the old 4-element whitelist.
+    const SKELETON_EXEMPT_TARGETS = ['view-host'];
+    check(
+      '⑥ 骨架期豁免集合被显式登记且只有 view-host（v3-3 补齐后必须删除该豁免）',
+      JSON.stringify(SKELETON_EXEMPT_TARGETS) === JSON.stringify(['view-host']),
+      JSON.stringify(SKELETON_EXEMPT_TARGETS),
+    );
+    for (const entry of entries) {
       check(`⑥ ${entry.trigger}：有非空文字标签（禁「只有图标」）`, entry.text.length > 0 || entry.label.length > 0, JSON.stringify(entry));
       check(`⑥ ${entry.trigger}：aria-expanded + aria-controls 成对`, entry.hasExpanded === true && Boolean(entry.targetId), JSON.stringify(entry));
       check(`⑥ ${entry.trigger}：aria-controls 指向存在的元素`, entry.targetExists === true, JSON.stringify(entry));
-      check(`⑥ ${entry.trigger}：目标含非空摘要或计数`, entry.summaryInTarget === true, JSON.stringify(entry));
+      if (SKELETON_EXEMPT_TARGETS.includes(entry.targetId)) {
+        // Exempt from "target holds a readable summary", NOT from discoverability:
+        check(`⑥ ${entry.trigger}：骨架期宿主必须默认 hidden`, entry.targetHidden === true, JSON.stringify(entry));
+        check(`⑥ ${entry.trigger}：骨架期豁免下入口必须自带计数/标签（可发现性不豁免）`, entry.countInTarget !== '' || entry.text.length > 0, JSON.stringify(entry));
+        continue;
+      }
+      check(`⑥ ${entry.trigger}：目标含非空摘要或计数`, entry.summaryInTarget === true || entry.countInTarget !== '', JSON.stringify(entry));
     }
+    const emptyTargets = [...new Set(entries.filter((e) => !e.summaryInTarget && e.countInTarget === '').map((e) => e.targetId))];
+    check(
+      '⑥ 空摘要目标集合必须被骨架期豁免集合完全覆盖，且不得超出登记数量（豁免不得扩大）',
+      emptyTargets.every((id) => SKELETON_EXEMPT_TARGETS.includes(id)) && emptyTargets.length <= SKELETON_EXEMPT_TARGETS.length,
+      JSON.stringify(emptyTargets),
+    );
     const reach = await evaluate(
       cdp,
       `(() => {
@@ -437,7 +517,46 @@ async function main() {
     await sleep(300);
     const geoHidden = await evaluate(cdp, geometryProbe);
     check('⑧ L0 四常驻区两两交面积 = 0（6 组）', geoHidden.pairs.every((a) => a === 0), JSON.stringify(geoHidden.pairs));
-    check('⑧ #log 仍是唯一的面板级滚动容器', geoHidden.panelScrollers.length <= 1 && (geoHidden.panelScrollers[0] ?? 'log') === 'log', JSON.stringify(geoHidden.panelScrollers));
+    // I13: `length <= 1 && (arr[0] ?? 'log') === 'log'` also passed on an EMPTY
+    // array (the only scroller having vanished counted as success — a vacuum PASS).
+    // The non-vacuous form: (a) the *idle* census must contain no foreign scroller,
+    // (b) with real overflow inside `#log`, the census must be exactly `['log']`.
+    check(
+      '⑧ 静止态面板内不得存在非 #log 的滚动容器',
+      geoHidden.panelScrollers.every((id) => id === 'log'),
+      JSON.stringify(geoHidden.panelScrollers),
+    );
+    const scrollerProof = await evaluate(
+      cdp,
+      `(() => {
+        const log = document.getElementById('log');
+        const filler = document.createElement('div');
+        filler.id = 'l0-scroller-probe';
+        filler.textContent = 'overflow-probe';
+        // #log is a column flex container: a default flex item would be SHRUNK back
+        // to the free space (no overflow -> no scroller), so the probe item must be
+        // non-shrinkable to actually overflow the box.
+        filler.style.flex = '0 0 3000px';
+        filler.style.height = '3000px';
+        log.appendChild(filler);
+        const census = [...document.querySelectorAll('#panel-main *, #panel-main')]
+          .filter((el) => {
+            const style = getComputedStyle(el);
+            return (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
+          })
+          .map((el) => el.id || el.className);
+        const logScrolls = log.scrollHeight > log.clientHeight;
+        filler.remove();
+        return JSON.stringify({ census, logScrolls });
+      })()`,
+    );
+    const sp = JSON.parse(scrollerProof);
+    check('⑧ 注入溢出后 #log 确实可滚（唯一的面板级滚动容器不是空集）', sp.logScrolls === true, scrollerProof);
+    check(
+      '⑧ 注入溢出后面板级滚动容器恰为 1 个且是 #log',
+      sp.census.length === 1 && sp.census[0] === 'log',
+      scrollerProof,
+    );
     check('⑧ #log flex-grow = 1（flex 填充，非硬编码高度）', geoHidden.logFlexGrow === '1', geoHidden.logFlexGrow);
     const baselineFloor = existsSync(BASELINE_JSON)
       ? JSON.parse(readFileSync(BASELINE_JSON, 'utf8')).logClientHeightFloor ?? 0
@@ -470,6 +589,8 @@ async function main() {
 
     // ── ⑨ both themes readable, never colour-only ─────────────────────────
     console.log('\n▶ ⑨ 明暗双主题：状态可读且不只靠颜色');
+    const THEME_TOKENS = ['--risk-bg', '--badge-bg', '--l0-band-bg', '--l0-rail-bg', '--ok-badge-bg'];
+    const themeData = {};
     for (const theme of ['light', 'dark']) {
       await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
       await evaluate(cdp, `window.__v3.testing.setRisk('hardline', 'force'); true`);
@@ -481,21 +602,82 @@ async function main() {
           const text = (row.querySelector('.risk-text')?.textContent ?? '').trim();
           const badge = (row.querySelector('.risk-badge')?.textContent ?? '').trim();
           const style = row ? getComputedStyle(row) : null;
+          const badgeEl = row ? row.querySelector('.risk-badge') : null;
+          const badgeStyle = badgeEl ? getComputedStyle(badgeEl) : null;
+          const rootStyle = getComputedStyle(document.documentElement);
+          const tokens = {};
+          for (const name of ${JSON.stringify(THEME_TOKENS)}) tokens[name] = rootStyle.getPropertyValue(name).trim();
+          // "not colour-only": strip every inline paint property, then re-read the
+          // three channels — text / badge / icon must survive without any colour.
+          const survivors = (() => {
+            if (!row) return null;
+            const prev = ['color', 'background', 'backgroundColor', 'borderColor'].map((p) => [p, row.style[p]]);
+            for (const [p] of prev) row.style[p] = 'transparent';
+            const out = {
+              text: (row.querySelector('.risk-text')?.textContent ?? '').trim().length > 0,
+              badge: (row.querySelector('.risk-badge')?.textContent ?? '').trim().length > 0,
+              icon: Boolean(row.querySelector('.risk-icon')),
+            };
+            for (const [p, v] of prev) row.style[p] = v;
+            return out;
+          })();
           return JSON.stringify({
             text, badge, hasIcon: Boolean(row.querySelector('.risk-icon')),
             color: style ? style.color : '',
             background: style ? style.backgroundColor : '',
+            badgeColor: badgeStyle ? badgeStyle.color : '',
+            badgeBackground: badgeStyle ? badgeStyle.backgroundColor : '',
+            tokens,
+            survivors,
             badges: [...document.querySelectorAll('#l0-status-band .l0-band-badge, #risk-rail .risk-badge')].length,
           });
         })()`,
       );
       const tp = JSON.parse(themeProbe);
+      themeData[theme] = tp;
       check(`⑨ ${theme} 主题：风险行文字非空（不只靠颜色）`, tp.text.length > 0, themeProbe);
       check(`⑨ ${theme} 主题：风险行徽标 + 图标齐备`, tp.badge.length > 0 && tp.hasIcon === true, themeProbe);
       check(`⑨ ${theme} 主题：文字颜色与背景均解析成功`, tp.color.length > 0 && tp.background.length > 0, themeProbe);
+      // I12: the old assertions only checked "the computed string is non-empty",
+      // which passes even if the two themes paint identically (i.e. the dark
+      // tokens are dead). Assert the theme tokens really resolve AND really differ.
+      for (const token of THEME_TOKENS) {
+        check(`⑨ ${theme} 主题：语义 token ${token} 解析为非空值`, (tp.tokens[token] ?? '').length > 0, `${token}=${JSON.stringify(tp.tokens[token])}`);
+      }
+      check(
+        `⑨ ${theme} 主题：去掉颜色后三通道仍可读（不只靠颜色）`,
+        tp.survivors?.text === true && tp.survivors?.badge === true && tp.survivors?.icon === true,
+        JSON.stringify(tp.survivors),
+      );
       await evaluate(cdp, `window.__v3.testing.setRisk('hardline', 'off'); true`);
       await sleep(150);
     }
+    check(
+      '⑨ 明暗两套的主题 token 值确实不同（暗色不是死 token；非同一套颜色）',
+      THEME_TOKENS.every((token) => themeData.light.tokens[token] !== themeData.dark.tokens[token]),
+      JSON.stringify({
+        light: themeData.light.tokens,
+        dark: themeData.dark.tokens,
+      }),
+    );
+    check(
+      '⑨ 明暗两套的风险行文字 / 行背景 / 徽标文字色确实不同（主题切换真实生效）',
+      themeData.light.color !== themeData.dark.color &&
+        themeData.light.background !== themeData.dark.background &&
+        themeData.light.badgeColor !== themeData.dark.badgeColor,
+      JSON.stringify({
+        light: [themeData.light.color, themeData.light.background, themeData.light.badgeColor, themeData.light.badgeBackground],
+        dark: [themeData.dark.color, themeData.dark.background, themeData.dark.badgeColor, themeData.dark.badgeBackground],
+      }),
+    );
+    // The badge paint is deliberately transparent in both themes (it inherits the
+    // row background), so it is *registered* as a diagnostic rather than asserted
+    // to differ — what must differ is its text colour (above) and the row paint.
+    check(
+      '⑨ 徽标底色为继承（两主题均透明）——不得因此判定主题未生效（登记项）',
+      themeData.light.badgeBackground === 'rgba(0, 0, 0, 0)' && themeData.dark.badgeBackground === 'rgba(0, 0, 0, 0)',
+      JSON.stringify([themeData.light.badgeBackground, themeData.dark.badgeBackground]),
+    );
     await cdp.send('Emulation.setEmulatedMedia', { features: [] });
 
     check('无未捕获页面异常（渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

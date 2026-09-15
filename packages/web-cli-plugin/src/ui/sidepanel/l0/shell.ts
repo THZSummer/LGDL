@@ -15,7 +15,7 @@
  * @module l0/shell
  */
 import type { DisclosureController } from '../disclosure.js';
-import { OTHER_OPTION_LABEL, l0ViewModel, moreOptionsLabel } from '../view-model.js';
+import { OTHER_OPTION_LABEL, l0ViewModel } from '../view-model.js';
 import type { L0Input, L0View } from '../view-model.js';
 import { renderRiskRail } from './risk-rail.js';
 import { mountDecisionCard } from './decision-card.js';
@@ -58,7 +58,6 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   const policyBadge = doc.createElement('span');
   const kicker = get('l0-kicker');
   const pick = get<HTMLButtonElement>('l0-pick');
-  const more = get<HTMLButtonElement>('l0-more');
   const refToggle = get<HTMLButtonElement>('l0-ref-toggle');
   const refSummary = get('l1-ref-summary');
   const viewHost = get('view-host');
@@ -94,8 +93,9 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     pick.disabled = view.pick.disabled;
     pick.setAttribute('title', view.pick.reason);
     pick.setAttribute('data-disabled-reason', view.pick.reason);
-    more.setAttribute('data-count', String(view.decision.foldedCount));
-    more.textContent = moreOptionsLabel(view.decision.foldedCount);
+    // `#l0-more`'s label / `data-count` / `hidden` are written by the decision
+    // card ONLY (`l0/decision-card.ts#applyMore`) — writing them here as well
+    // re-introduced the「无卡却还有 1 个」symptom on every background re-render.
     refToggle.textContent = view.ref.label;
     refToggle.setAttribute('data-stale', String(view.ref.stale));
     // FR-V3-037: the invalidation mark is risk information, so the density caliber
@@ -123,6 +123,9 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     viewHost.hidden = false;
     viewHost.setAttribute('data-view', which);
     if (which === 'tree') treeFab.hidden = false;
+    // AC-V3-010 (I5): the four `#l2-entry-*` triggers must keep a truthful
+    // `aria-expanded` pair with their `aria-controls="view-host"` target.
+    statusBar.syncTriggerAria();
     // Choosing an entry closes the entry menu (one interaction, one outcome) —
     // the L2 view host itself stays open. This also keeps the geometry identical
     // to the closed state: the panel is a menu, not resident chrome.

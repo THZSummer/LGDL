@@ -10,11 +10,11 @@
  *   #I-03 状态徽标存在；
  *   #I-04 空态/降级可读（`.tree-degradation` / `.tree-empty`）；
  *   #I-05 `#log` 计算 `flex-grow === '1'`；
- *   #I-06 `#log` 稳态（去镀铬，guidance/consent 隐藏）`clientHeight ≥ 589px`（主断言）；
+ *   #I-06 `#log` 稳态（去镀铬，guidance/consent 隐藏）`clientHeight ≥ LOG_CLIENT_HEIGHT_FLOOR`（主断言；v3-1 起为 488px，v1 前值为 589px，见 ADR-V3-019 V31-S3）；
  *   #I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）`#log ≥ 405px`（v1 自身下限，无回归，D-V22-01）；
  *   #I-06c pinned v1 raw 基线（418px @ 2026-09-13，W6）回归：`#log ≥ 410px`（更敏感）；
  *   #I-06d 同上占比回归：`#log ≥ 45.4%`；
- *   #I-07 `#log` 稳态高度占比 `≥ 65.0%`（次断言）；
+ *   #I-07 `#log` 稳态高度占比 `≥ LOG_MIN_RATIO`（次断言；v3-1 起为 54.0%，v1 前值为 65.0%）；
  *   #I-08 `#composer` 底边 − 视口底 `∈ [0, +8px]`（不得为负，D-079）；
  *   #I-09 `#tree-fab` ∩ `#composer` 交面积 `= 0`；
  *   #I-10 文档 / `#log` / 抽屉 400px 水平溢出 `= 0`；
@@ -72,7 +72,9 @@ const NARROW = { width: 320, height: 900 };
 // V3-1 (V31-S3): the v1 anchor 589px / 65.0% is migrated to the **first-round
 // measured floor** because the L0 decision zone is now resident above the
 // transcript (see `test/ui/density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR` for the
-// measurement, the registered 10px allowance and the "may only be raised" rule).
+// measurement, the registered 7px margin and the "may only be raised" rule).
+// I7 fix round: the margin is 7px (worst-case measurement 495px → floor 488px);
+// this comment previously repeated an intermediate 10px/498px figure.
 // The assertion itself is unchanged: same `#I-05~10` / `#I-20i` / `#I-20k` /
 // `#I-19h` numbering, same structure, still a hard ≥ bound.
 const LOG_MIN_HEIGHT = LOG_CLIENT_HEIGHT_FLOOR;
@@ -1511,7 +1513,7 @@ async function main() {
     process.exit(1);
   }
   console.log(
-    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（#log ≥589px / composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；关/开/深展开/收起 drift=0）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
+    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（#log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；关/开/深展开/收起 drift=0）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
   );
 }
 

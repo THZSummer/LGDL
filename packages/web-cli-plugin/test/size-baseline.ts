@@ -87,38 +87,90 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  *
  *   - `dist/content.js` ..... 177,076 B (UNCHANGED — v3-1 does not touch
  *     `src/content/**`; the hard, tolerance-free ceiling still holds byte-for-byte)
- *   - `dist/sidepanel.js` ... 266,500 → **291,523 B** (+25,023 B, +9.4%)
- *     ceiling 279,825 → **306,099 B** = floor(291,523 × 1.05)
+ *   - `dist/sidepanel.js` ... 266,500 → 291,523 B (+25,023 B, +9.4%)
+ *     ceiling 279,825 → 306,099 B = floor(291,523 × 1.05)
  *
- * Direction = **raised** (deliberate feature weight), NOT a silent widen:
- *   - the previous value 266,500 B is retained in
- *     `SIDEPANEL_BASELINE_META.previousBaselineBytes` + `reRegisteredFrom`
- *     (`SIDEPANEL_BASELINE_BYTES_HISTORY` keeps its monotonic non-decreasing
- *     pre-266,500 chain — the 2026-09-14 tightening round recorded itself in META
- *     exactly the same way, and v3-1 follows that convention);
- *   - the tolerance stays **5%** (`SIDEPANEL_BASELINE_TOLERANCE` untouched);
- *   - `targetBudgetBytes` / `targetMet` stay **null** (this is still a
- *     regression baseline, never a target — ADR-V2-007's narrative stays banned);
- *   - the size assertions were **not** deleted, only re-pinned to the new
- *     measured value + the raised direction (registered in
- *     `docs/v3-supersession-ledger.json`, entries `V31-S6`/`V31-S7`);
- *   - the one-byte reverse proof was re-driven at the new ceiling
- *     (`test/size-budget.test.ts`「v3-1 size REVERSE PROOF」).
+ * ── v3-1 review fix round re-registration (2026-09-16, review I6) ────────────
+ *
+ * The 291,523 B entry above was published as the re-registration **value** while
+ * the FINAL artifact of that round measured **294,874 B** (+3,351 B, produced by
+ * the three gate-discovered regressions fixed *after* the re-registration) — so
+ * the registry (and its `note`) did not describe the shipped artifact.
+ *
+ * The fix round re-registers the **real artifact** and, at the same time, forbids
+ * the ceiling from being raised by that bookkeeping (the old ceiling already
+ * covers the artifact):
+ *
+ *   - `SIDEPANEL_BASELINE_BYTES` ... 291,523 → **295,225 B** (measured on the fix
+ *     round's final build: L0 review fixes I1/I3/I5, +351 B over 294,874 B)
+ *   - `SIDEPANEL_CEILING` ......... **306,099 B, UNCHANGED**: the ceiling is now
+ *     `min(floor(baseline × 1.05), SIDEPANEL_CEILING_CAP)` and the cap is the
+ *     previously registered ceiling, i.e. the ceiling may only ever go DOWN. The
+ *     value the formula alone would produce (309,986 B) is therefore *not* taken —
+ *     `floor(295,225 × 1.05) = 309,986 > 306,099` would have widened the guard by
+ *     3,887 B purely for a registry-fidelity fix.
+ *   - tolerance ................... **5% unchanged**; the effective headroom is
+ *     now 3.68% (stricter, never wider);
+ *   - `targetBudgetBytes` / `targetMet` stay **null**; the size assertions were not
+ *     deleted — the ones that encoded「baseline > previous ceiling」were re-pinned
+ *     to the direction-sensitive「ceiling ≤ previous ceiling」claim (registered in
+ *     `docs/v3-supersession-ledger.json`, entry `V31-S10`).
  */
-export const SIDEPANEL_BASELINE_BYTES = 291_523;
+export const SIDEPANEL_BASELINE_BYTES = 295_225;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
   1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942,
 ] as const;
 
+/**
+ * The **chronological** registry of every value this file has ever published
+ * (2026-09-16, I6). `SIDEPANEL_BASELINE_BYTES_HISTORY` keeps the monotonically
+ * non-decreasing v1→V2-R2 chain; the post-lazification values are *smaller*, so
+ * appending them there would break its monotonicity assertion. This timeline is
+ * the "keep every previous value" record the re-registration discipline demands —
+ * appending is the only allowed edit (history may never be rewritten).
+ */
+export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
+  1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500, 291_523, 295_225,
+] as const;
+
 /** Allowed growth over the baseline before the guard fails. */
 export const SIDEPANEL_BASELINE_TOLERANCE = 0.05;
 
-/** `floor(baseline × (1 + tolerance))` — the regression ceiling. */
-export const SIDEPANEL_CEILING = Math.floor(
+/**
+ * Tighten-only cap on the regression ceiling (I6 fix round).
+ *
+ * The ceiling is the *operative* guard; letting it grow whenever the registered
+ * baseline grows would turn every registry-fidelity fix into an invisible
+ * widening. The cap pins the previously registered ceiling (306,099 B) as an
+ * upper bound: `SIDEPANEL_CEILING` and `evaluateSidepanelSize()` both take the
+ * minimum of the formula and this cap, so the ceiling can only ever decrease.
+ */
+export const SIDEPANEL_CEILING_CAP = 306_099;
+
+/** `min(floor(baseline × (1 + tolerance)), SIDEPANEL_CEILING_CAP)` — only ever ↓. */
+export const SIDEPANEL_CEILING = Math.min(
+  Math.floor(SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE)),
+  SIDEPANEL_CEILING_CAP,
+);
+
+/**
+ * `floor(baseline × 1.05)` without the cap — recorded so the *tightening* is
+ * visible: `SIDEPANEL_CEILING === SIDEPANEL_CEILING_UNCAPPED` would mean the cap
+ * is inactive; `SIDEPANEL_CEILING < SIDEPANEL_CEILING_UNCAPPED` is the honest
+ * statement of "the ceiling was NOT raised for this re-registration".
+ */
+export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
   SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE),
 );
+
+/**
+ * The bytes `dist/sidepanel.js` actually has (I6: 登记值 == 实测产物). Asserted
+ * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
+ * runtime against the density registry by `test/ui/density.mjs` stage F.
+ */
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 295_225;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -131,14 +183,17 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU v3-1 build round (2026-09-16, leaf specs-tree-v3-1-l0-shell-density): re-measured after the L0 skeleton + disclosure controller landed. This is a RAISED re-registration (deliberate feature weight, direction = up) — previous recorded baseline 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
-  previousBaselineBytes: 266_500,
-  previousCeilingBytes: 279_825,
+    'SDDU v3-1 review fix round (2026-09-16, leaf specs-tree-v3-1-l0-shell-density, review I6): re-measured on the FINAL artifact after the review fixes (I1 decision-card no-card render, I3 dead-code removal, I5 L2-entry ARIA) were built. This is a RAISED re-registration of the BASELINE (295,225 B) with a NON-RAISED ceiling (306,099 B = the previous ceiling, kept as a tighten-only cap). Previous registered baseline 291,523 B (whose final artifact measured 294,874 B — that discrepancy is exactly what this round fixes); before that 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE.',
+  previousBaselineBytes: 291_523,
+  previousCeilingBytes: 306_099,
   direction: 'raised',
-  reRegisteredFrom: 'v3-1 前值 266,500 B（ceiling 279,825 B = floor(266,500 × 1.05)，2026-09-14 收紧轮）',
+  ceilingDirection: 'held',
+  finalArtifactBytes: 295_225,
+  reRegisteredFrom:
+    'v3-1 上一轮 291,523 B（ceiling 306,099 B；该轮最终产物实测 294,874 B —— I6 修正的失真点）；再前 266,500 B（ceiling 279,825 B = floor(266,500 × 1.05)，2026-09-14 收紧轮）',
   targetBudgetBytes: null,
   targetMet: null,
-  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-1 显式**提升**重登记：L0 常驻骨架（l0/{shell,decision-card,status-bar,risk-rail}.ts）+ 单一折叠控制器（disclosure.ts）+ L0 视图模型为 v3 披露改造的**有意增重**，实测 291,523 B（前值 266,500 B，+25,023 B / +9.4%），ceiling 279,825 B → 306,099 B = floor(291,523 × 1.05)。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 / 266,500 全保留；容差 5% 不变（SIDEPANEL_BASELINE_TOLERANCE 未改）；断言零删减（仅按实测值重新 pin 并显式登记方向）；targetBudgetBytes/targetMet 保持 null；+1 B 反证已在**新 ceiling** 上重跑。',
+  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-1 review 修复轮（I6）按**真实产物**重登记（基线**提升**、ceiling **未抬高**）：291,523 B（该轮产物实测 294,874 B，差值来自登记后的 3 处门禁回归修复）→ **295,225 B**（修复轮最终构建实测；+351 B 来自 I1/I3/I5 三处源码修复）。ceiling 仍为 306,099 B（= 上一轮 ceiling，作为只降不升的 cap；公式值 floor(295,225 × 1.05) = 309,986 B 未被采用），容差 5% 不变，有效余量由 5.00% 收紧为 3.68%。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 保留在 HISTORY，266,500 / 291,523 保留在 TIMELINE 与 previousBaselineBytes；断言零删减（方向敏感断言由「baseline > 上一轮 ceiling」改为更强且更严的「ceiling ≤ 上一轮 ceiling」）；targetBudgetBytes/targetMet 保持 null；+1 B 反证仍在新 ceiling 上重跑。',
 } as const;
 
 /**
@@ -189,13 +244,21 @@ function sizeMessage(
       '若为有意增重，请显式更新 test/size-baseline.ts 的基线并注明测量日期与来源；不得改容差或删断言来掩盖。';
 }
 
-/** Pure verdict for a measured `dist/sidepanel.js` size (regression guard). */
+/**
+ * Pure verdict for a measured `dist/sidepanel.js` size (regression guard).
+ *
+ * The ceiling is `min(floor(baseline × (1 + tolerance)), ceilingCapBytes)` — the
+ * cap (I6 fix round) makes the guard **tighten-only**: a re-registration that
+ * raises the baseline can never widen the pass/fail boundary. Pass
+ * `ceilingCapBytes: Number.POSITIVE_INFINITY` to inspect the uncapped formula.
+ */
 export function evaluateSidepanelSize(
   measuredBytes: number,
   baselineBytes: number = SIDEPANEL_BASELINE_BYTES,
   tolerance: number = SIDEPANEL_BASELINE_TOLERANCE,
+  ceilingCapBytes: number = SIDEPANEL_CEILING_CAP,
 ): SizeVerdict {
-  const ceilingBytes = Math.floor(baselineBytes * (1 + tolerance));
+  const ceilingBytes = Math.min(Math.floor(baselineBytes * (1 + tolerance)), ceilingCapBytes);
   const ok = measuredBytes <= ceilingBytes;
   return {
     ok,
@@ -207,7 +270,7 @@ export function evaluateSidepanelSize(
       measuredBytes,
       ceilingBytes,
       ok,
-      `基线 ${baselineBytes}B × ${(1 + tolerance).toFixed(2)} 容差；基线 ≠ 目标预算`,
+      `基线 ${baselineBytes}B × ${(1 + tolerance).toFixed(2)} 容差（ceiling 只降不升，cap ${ceilingCapBytes}B）；基线 ≠ 目标预算`,
     ),
   };
 }

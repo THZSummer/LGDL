@@ -33,11 +33,18 @@ import {
   DENSITY_TIER_ORDER,
   DENSITY_VIEWPORTS,
   DENSITY_VIEWPORT_HEIGHT,
+  LOG_CLIENT_HEIGHT_FLOOR,
   RISK_SUBSCENARIOS,
   bannedApisInMeasureSource,
   evaluateDensity,
   evaluateDelta,
 } from './ui/density-metrics.mjs';
+import {
+  SIDEPANEL_BASELINE_BYTES,
+  SIDEPANEL_BASELINE_TOLERANCE,
+  SIDEPANEL_CEILING,
+  SIDEPANEL_CEILING_CAP,
+} from './size-baseline.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -326,7 +333,11 @@ test('AC-V3-003: 风险增量只能被风险类元素占用；无稳定键元素
 
 // ── ⑦ C4 registration (baseline file, when it exists) ─────────────────────
 test('AC-V3-007: C4 常驻分区变化显式登记（基线文件存在时校验形状与方向）', () => {
-  if (!existsSync(BASELINE_JSON)) return; // written in TASK-112, after the first real measurement
+  // I10 fix round: the old first line was `if (!existsSync(BASELINE_JSON)) return;`
+  // — with the file missing, the WHOLE AC-V3-007 / C4 block silently "passed".
+  // A missing registry is now a hard failure: the baseline is a deliverable of
+  // this leaf (TASK-112), not an optional extra.
+  assert.ok(existsSync(BASELINE_JSON), `密度基线必须存在（${BASELINE_JSON}）—— 缺失即 FAIL，不得静默跳过`);
   const baseline = JSON.parse(readFileSync(BASELINE_JSON, 'utf8'));
   assert.ok(baseline.measuredOn, '基线必须含日期');
   assert.ok(baseline.source, '基线必须含来源');
@@ -359,4 +370,97 @@ test('AC-V3-007: C4 常驻分区变化显式登记（基线文件存在时校验
   assert.ok(risk.worst.lines <= DENSITY_LIMITS.risk.lines, 'risk 最差值行数必须 ≤ 上限');
   assert.ok(baseline.logClientHeightFloor > 0, '必须登记消息区下界（几何契约迁移的单一来源）');
   assert.equal(baseline.direction, 'tighten-only', '基线只允许收紧');
+});
+
+// ── ⑦a registry self-consistency (I8 spin-off): ⌈chars ÷ 34⌉ must equal the
+// registered `lines`, otherwise the registry contradicts itself. The v3-1
+// registry shipped `risk(staleRef).lines = 7` next to `chars = 244`
+// (⌈244 ÷ 34⌉ = 8) — a defect only the new stage-F machine comparison caught. ──
+test('AC-V3-007/I8: 每个登记格自洽（lines = ⌈chars ÷ CHARS_PER_LINE⌉），登记不得自相矛盾', () => {
+  assert.ok(existsSync(BASELINE_JSON), `密度基线必须存在（${BASELINE_JSON}）`);
+  const baseline = JSON.parse(readFileSync(BASELINE_JSON, 'utf8'));
+  const inconsistent: string[] = [];
+  const checkCell = (label: string, cell: { chars?: number; lines?: number } | undefined): void => {
+    assert.ok(cell, `缺登记格 ${label}`);
+    assert.equal(typeof cell?.chars, 'number', `${label} 必须登记 chars（口径 C2 的分子）`);
+    const want = Math.ceil((cell?.chars ?? 0) / CHARS_PER_LINE);
+    if (want !== cell?.lines) inconsistent.push(`${label}: lines=${cell?.lines} 但 ⌈${cell?.chars} ÷ ${CHARS_PER_LINE}⌉ = ${want}`);
+  };
+  for (const tier of ['default', 'firstRun']) {
+    for (const vp of ['320', '400', '520']) checkCell(`${tier}@${vp}`, baseline.tiers[tier][vp]);
+  }
+  for (const sub of RISK_SUBSCENARIOS) {
+    for (const vp of ['320', '400', '520']) checkCell(`risk(${sub.key})@${vp}`, baseline.tiers.risk.subs[sub.key][vp]);
+  }
+  checkCell('risk.worst', baseline.tiers.risk.worst);
+  assert.deepEqual(inconsistent, [], `登记格自相矛盾：\n${inconsistent.join('\n')}`);
+  // 反证：故意构造一个矛盾格必须被检出。
+  const tampered = { chars: 244, lines: 7 };
+  assert.notEqual(Math.ceil(244 / CHARS_PER_LINE), tampered.lines, '反证：244 chars 的真实行数是 8，登记 7 即矛盾');
+});
+
+// ── ⑦b registry fidelity: the machine registry vs the single sources (I7/I8) ──
+test('AC-V3-007/I7/I8: 基线登记值与门禁单源逐项一致（几何下界来源 + 体积登记 + 阈值）', () => {
+  assert.ok(existsSync(BASELINE_JSON), `密度基线必须存在（${BASELINE_JSON}）`);
+  const baseline = JSON.parse(readFileSync(BASELINE_JSON, 'utf8'));
+
+  // 几何下界：登记值与 `density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR` 必须同源，
+  // 且**登记来源**必须是最终产物的最坏档实测值（I7：旧叙述写 498，实测 495）。
+  assert.equal(baseline.logClientHeightFloor, LOG_CLIENT_HEIGHT_FLOOR, '基线几何下界必须等于单源常量');
+  assert.equal(typeof baseline.logClientHeightMeasuredWorst, 'number', '必须登记「来源实测最坏值」字段（可机器比对）');
+  assert.ok(
+    baseline.logClientHeightMeasuredWorst >= baseline.logClientHeightFloor,
+    `来源实测最坏值 ${baseline.logClientHeightMeasuredWorst} 不得低于登记下界 ${baseline.logClientHeightFloor}`,
+  );
+  assert.ok(
+    baseline.logClientHeightFloorNote.includes(String(baseline.logClientHeightMeasuredWorst)),
+    `下界来源叙述必须写明真实实测值 ${baseline.logClientHeightMeasuredWorst}`,
+  );
+  assert.equal(
+    /实测\s*498/.test(baseline.logClientHeightFloorNote),
+    false,
+    '下界来源叙述不得再把 498px 当作实测来源（I7：最终产物实测为 495px；历史值可提及，但不得充当来源）',
+  );
+  assert.equal(
+    /498px\s*[−-]\s*10/.test(baseline.logClientHeightFloorNote),
+    false,
+    '下界来源公式不得再是「498 − 10」（真实来源是 495 − 7）',
+  );
+
+  // 体积登记：与 `test/size-baseline.ts` 的登记值/上限必须同源（I6：登记值 == 实测产物，
+  // 且 ceiling 不得因登记保真而被抬高）。
+  assert.ok(baseline.volume, '基线必须与体积登记交叉引用（ADR-V3-011 第 4 条：分开登记、互相引用）');
+  assert.equal(baseline.volume.artifact, 'dist/sidepanel.js');
+  assert.equal(baseline.volume.registeredBaselineBytes, SIDEPANEL_BASELINE_BYTES, '体积登记值必须与 size-baseline 同源');
+  assert.equal(baseline.volume.ceilingBytes, SIDEPANEL_CEILING, '体积上限必须与 size-baseline 同源');
+  assert.ok(
+    baseline.volume.ceilingBytes <= SIDEPANEL_CEILING_CAP,
+    'ceiling 不得超过只降不升的 cap（不得为登记保真而抬高）',
+  );
+  assert.equal(baseline.volume.tolerance, SIDEPANEL_BASELINE_TOLERANCE, '容差 5% 不得因重登记而变');
+
+  // 阈值：机读基线与单源常量逐字相等。
+  assert.deepEqual(baseline.thresholds, JSON.parse(JSON.stringify(DENSITY_LIMITS)));
+  // 反证：改一个字节的登记值必须让上面的比对 FAIL（避免该段成为恒真检查）。
+  const tampered = { ...baseline, logClientHeightFloor: baseline.logClientHeightFloor + 1 };
+  assert.notEqual(tampered.logClientHeightFloor, LOG_CLIENT_HEIGHT_FLOOR, '反证：篡改登记下界必须可被检出');
+});
+
+// ── ⑦c I17: the caliber module has no `check()` calls, so its "floor" is a set
+// of literal-content pins (a real, failable assertion) instead of `floor: 0`. ──
+test('ledger I17: 口径单源模块以字面量 pin 代替无意义的 count floor', () => {
+  const source = readFileSync(resolve(PKG, 'test/ui/density-metrics.mjs'), 'utf8');
+  const pins = [
+    'default: Object.freeze({ clickables: 7, lines: 15 })',
+    'firstRun: Object.freeze({ clickables: 9, lines: 20 })',
+    'risk: Object.freeze({ clickables: 17, lines: 35 })',
+    'export const LOG_CLIENT_HEIGHT_FLOOR = 488;',
+    'export const DENSITY_VIEWPORTS = Object.freeze([320, 400, 520]);',
+    'export const CHARS_PER_LINE = 34;',
+  ];
+  for (const pin of pins) {
+    assert.ok(source.includes(pin), `口径单源必须逐字包含：${pin}`);
+  }
+  // 反证：pin 必须真的能 FAIL（改一个字符即命中不了）。
+  assert.equal(source.includes('export const LOG_CLIENT_HEIGHT_FLOOR = 489;'), false);
 });

@@ -162,19 +162,20 @@
         "staleRef": {
           "320": {
             "clickables": 7,
-            "lines": 7,
+            "lines": 8,
             "chars": 244
           },
           "400": {
             "clickables": 7,
-            "lines": 7,
+            "lines": 8,
             "chars": 244
           },
           "520": {
             "clickables": 7,
-            "lines": 7,
+            "lines": 8,
             "chars": 244
-          }
+          },
+          "_correction": "I8 修复轮（2026-09-16）：本子场景的 `lines` 原登记为 7，与同一登记格的 `chars: 244` 自相矛盾（⌈244 ÷ 34⌉ = 8），也与 wcl v3-1 轮次的门禁实测（日志 `risk(staleRef)@*: C2=8 chars=244`）不符 —— 是一次**登记错误**，不是产物漂移。I8 的基线机器比对（`test/ui/density.mjs` 阶段 F）在修复轮首次运行时即检出该漂移并要求显式订正；订正后 8 ≤ 风险档上限 35，方向仍为「不高于已登记上限」。同时新增静态自洽断言（`test/density-thresholds.test.ts`：每个登记格必须满足 lines = ⌈chars ÷ 34⌉），使此类错误无法再次通过。"
         }
       },
       "previous": null,
@@ -182,7 +183,8 @@
     }
   },
   "logClientHeightFloor": 488,
-  "logClientHeightFloorNote": "消息区 #log 的 clientHeight 下界（400×900、默认档含待答决策卡的最坏情形实测 498px − 10px 已登记余量）。它取代 v2 insight 门的 589px 锚点（ADR-V3-019 V31-S3）；只允许上调。test/ui/l0.mjs 与 test/ui/insight.mjs 共用该值（单一来源 test/ui/density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR）。",
+  "logClientHeightMeasuredWorst": 495,
+  "logClientHeightFloorNote": "消息区 #log 的 clientHeight 下界（400×900、默认档含待答决策卡的最坏情形，**最终产物**实测 **495px** − 7px 已登记余量 = 488px）。它取代 v2 insight 门的 589px 锚点（ADR-V3-019 V31-S3）；只允许上调。I7 修复轮：此前叙述引用的是中间轮次的 498px/10px，最终产物实测为 495px（实余量 7px），本字段与其来源数值均已按实测订正（`logClientHeightMeasuredWorst`），并由 `test/ui/density.mjs` 阶段 F 与 `test/ui/l0.mjs` ⑧ 共同机器比对。test/ui/l0.mjs 与 test/ui/insight.mjs 共用该值（单一来源 test/ui/density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR）。",
   "regions": {
     "default": 6,
     "firstRun": 6,
@@ -240,6 +242,23 @@
     "sameSourceProof": "option-e-progressive.html 自带的 window.__density() 与我们的 DENSITY_MEASURE_SOURCE 在同一 DOM 上**逐项相等**（clickables/lines/blocks/regions/chars 全部相等）——同源证明成立。公布值落差来自稿件修订/Node 垫片条件差异，已如实登记（指令：实测值优先于设计稿数字）。"
   },
   "volumeBaselineSeparation": {
-    "note": "密度基线与体积基线**分开登记**（ADR-V3-011 第 4 条）：本文件不写体积；sidepanel.js 体积基线在 test/size-baseline.ts（2026-09-16 提升重登记 266,500 → 291,523 B，ceiling 306,099 B）。"
+    "note": "密度基线与体积基线**分开登记**（ADR-V3-011 第 4 条）：本文件不写体积明细；sidepanel.js 体积登记在 test/size-baseline.ts（2026-09-16 I6 修复轮按真实产物重登记 291,523 → 295,225 B，ceiling 仍 306,099 B 未被抬高）。下面的 volume 段只做**交叉引用**，供门禁做机器比对（不得在此单独放宽）。"
+  },
+  "volume": {
+    "artifact": "dist/sidepanel.js",
+    "registeredBaselineBytes": 295225,
+    "finalArtifactBytes": 295225,
+    "ceilingBytes": 306099,
+    "ceilingCapBytes": 306099,
+    "tolerance": 0.05,
+    "previousBaselineBytes": 291523,
+    "previousCeilingBytes": 306099,
+    "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP）",
+    "note": "I6 修复轮：登记值必须等于**实测产物**字节（`test/size-budget.test.ts` 与 `test/ui/density.mjs` 阶段 F 双向机器比对）。ceiling 只降不升（cap = 上一轮 ceiling），故基线提升不构成放宽；content.js 不受影响（177,076 B、无容差、零改动）。"
+  },
+  "fixtureAsymmetry": {
+    "note": "default 档三视口的登记值**不是**视口差异造成的：`default@320`（194 chars / 18 blocks / 6 lines）是在**第一次**夹具运行后测量，而 `default@400` / `default@520`（223 / 19 / 7）是在**第二次及以后**的夹具运行后测量 —— 差异来自产品在主流程之后弹出的瞬时 `#notice` toast（29 字符 / +1 块 / +1 行）。",
+    "handling": "按「只登记、不粉饰」如实登记，未改动已登记格（改动任一格都会构成放宽或未经裁决的收紧）。因此 `test/ui/density.mjs` 的阶段 F 机器比对要求夹具**序列一致**（同一会话内先 320 后 400/520），RP-V3-08 驱动同样先跑两次夹具以复现稳态。",
+    "residual": "建议后续叶（v3-2/v3-3 或 validate）把夹具做成确定性（每格都复现同一稳态，或显式关闭瞬时 toast），届时 default@320 会收紧为 223/19/7 —— 方向为**收紧**（6→7 行仍 ≤ 15 上限），届时应按重登记流程显式登记前后值。"
   }
 }

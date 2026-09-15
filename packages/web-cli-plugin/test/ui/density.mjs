@@ -16,19 +16,24 @@
  *      attributed element-by-element (AC-V3-003);
  *   D  anti-cheat — the injected expression provably contains none of
  *      `getComputedStyle` / `offsetParent` / `getBoundingClientRect` / `aria-hidden`;
- *   E  the summary table (tier | viewport | caliber | measured | ceiling).
+ *   E  the summary table (tier | viewport | caliber | measured | ceiling);
+ *   F  **registry machine comparison** (ADR-V3-018 decision 2, review I8) — every
+ *      measured cell (9 mandatory + 15 risk + worst), the geometry floor AND its
+ *      source measurement, and the shipped artifact bytes are compared against
+ *      `docs/v3-density-baseline.json`; any divergence is a FAIL with a readable
+ *      diff (the registry can no longer drift silently).
  *
- * `--reverse RP-V3-01..04` runs one counter-proof (see TASK-111). Every driver
- * asserts BOTH halves — "must FAIL" and "must PASS again after restore" — and
- * exits non-zero if either half is missing (a counter-proof that cannot fail is
- * not a counter-proof, NFR-V3-013).
+ * `--reverse RP-V3-01..04,08` runs one counter-proof (see TASK-111 / the I8 fix
+ * round). Every driver asserts BOTH halves — "must FAIL" and "must PASS again
+ * after restore" — and exits non-zero if either half is missing (a counter-proof
+ * that cannot fail is not a counter-proof, NFR-V3-013).
  *
  * Serial discipline (NFR-V3-012): exactly ONE Chromium instance, ONE page target,
  * every cell executed in order. Full stdout/stderr is tee'd to
  * `/tmp/opencode/v3-gate-logs/density.log` by the caller — never tail-truncated.
  */
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
@@ -52,8 +57,10 @@ import {
   DENSITY_MEASURE_SOURCE,
   DENSITY_TIER_ORDER,
   DENSITY_VIEWPORTS,
+  LOG_CLIENT_HEIGHT_FLOOR,
   RISK_SUBSCENARIOS,
   bannedApisInMeasureSource,
+  compareBaselineCells,
   evaluateDelta,
   evaluateDensity,
   measureSourceForRoot,
@@ -470,14 +477,90 @@ async function stageC(cdp) {
     (acc, cell) => ({
       clickables: Math.max(acc.clickables, cell.measured.clickables),
       lines: Math.max(acc.lines, cell.measured.lines),
+      // I15: `blocks` was missing, so stage E printed `C3=undefined` for the worst row.
+      blocks: Math.max(acc.blocks, cell.measured.blocks),
       regions: Math.max(acc.regions, cell.measured.regions),
+      // `chars` keeps the `worst` aggregate comparable with the registry cell.
+      chars: Math.max(acc.chars, cell.measured.chars),
     }),
-    { clickables: 0, lines: 0, regions: 0 },
+    { clickables: 0, lines: 0, blocks: 0, regions: 0, chars: 0 },
   );
   const worstVerdict = evaluateDensity(worst, 'risk');
   check('风险档最差值 ≤ 上限（强制判定）', worstVerdict.ok, worstVerdict.message);
-  console.log(`  · 风险档 15 格最差值：C1=${worst.clickables} C2=${worst.lines} C4=${worst.regions}`);
+  console.log(`  · 风险档 15 格最差值：C1=${worst.clickables} C2=${worst.lines} C3=${worst.blocks} C4=${worst.regions}`);
   return { cells, worst };
+}
+
+// ── registry reader (single read path for stage F and RP-V3-08) ─────────────
+function readBaselineRegistry() {
+  return JSON.parse(readFileSync(BASELINE_JSON, 'utf8'));
+}
+
+// ── stage F: registry machine comparison (ADR-V3-018 决策 2 / review I8) ─────
+async function stageF(cdp, rows, cells, worst) {
+  console.log('\n▶ 阶段 F：基线机器比对（实测 vs docs/v3-density-baseline.json）');
+  check('F 基线文件存在（ADR-V3-018 的登记载体）', existsSync(BASELINE_JSON), BASELINE_JSON);
+  if (!existsSync(BASELINE_JSON)) return { diffs: ['基线文件缺失'] };
+  const baseline = readBaselineRegistry();
+  const diffs = [];
+  for (const row of rows) {
+    if (row.tier === 'risk') continue;
+    diffs.push(...compareBaselineCells(row.measured, baseline.tiers?.[row.tier]?.[String(row.vp)], () => `${row.tier}@${row.vp}`));
+  }
+  for (const cell of cells) {
+    diffs.push(...compareBaselineCells(cell.measured, baseline.tiers?.risk?.subs?.[cell.sub]?.[String(cell.vp)], () => `risk(${cell.sub})@${cell.vp}`));
+  }
+  diffs.push(...compareBaselineCells(worst, baseline.tiers?.risk?.worst, () => 'risk.worst'));
+  if (diffs.length > 0) {
+    console.log('    漂移明细（可读差异）：');
+    for (const line of diffs) console.log(`      · ${line}`);
+  }
+  check(
+    `F ${rows.filter((r) => r.tier !== 'risk').length + cells.length + 1} 个登记格实测 == 基线登记值（漂移即 FAIL）`,
+    diffs.length === 0,
+    diffs.slice(0, 8).join(' | '),
+  );
+  check(
+    'F 阈值同源（机读基线 == 单源常量 DENSITY_LIMITS）',
+    JSON.stringify(baseline.thresholds) === JSON.stringify(DENSITY_LIMITS),
+    `${JSON.stringify(baseline.thresholds)} vs ${JSON.stringify(DENSITY_LIMITS)}`,
+  );
+  check(
+    'F 几何下界同源（机读基线 == LOG_CLIENT_HEIGHT_FLOOR）',
+    baseline.logClientHeightFloor === LOG_CLIENT_HEIGHT_FLOOR,
+    `${baseline.logClientHeightFloor} vs ${LOG_CLIENT_HEIGHT_FLOOR}`,
+  );
+  // The geometry FLOOR's source figure must also be a real measurement: re-measure
+  // the worst case (default tier, 400×900, pending decision card) on this build.
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  await resetFixture(cdp);
+  const logClientHeight = await evaluate(cdp, `document.getElementById('log').clientHeight`);
+  check(
+    'F 几何下界来源实测 == 登记来源值（I7：来源 498→495 的机器比对）',
+    logClientHeight === baseline.logClientHeightMeasuredWorst,
+    `实测 ${logClientHeight}px ≠ 登记 ${baseline.logClientHeightMeasuredWorst}px`,
+  );
+  check(
+    `F 几何下界成立（实测 ${logClientHeight}px ≥ 登记 ${baseline.logClientHeightFloor}px）`,
+    logClientHeight >= baseline.logClientHeightFloor,
+    `实测 ${logClientHeight}px < 登记下界 ${baseline.logClientHeightFloor}px`,
+  );
+  // Artifact bytes vs the volume registry (review I6: 登记值 == 实测产物).
+  const artifactBytes = statSync(resolve(PACKAGE_ROOT, 'dist/sidepanel.js')).size;
+  check(
+    'F 产物字节 == 体积登记值（登记值必须等于实测产物）',
+    artifactBytes === baseline.volume?.registeredBaselineBytes,
+    `实测 ${artifactBytes}B ≠ 登记 ${baseline.volume?.registeredBaselineBytes}B`,
+  );
+  check(
+    'F 产物字节 ≤ 体积上限（ceiling 未因登记保真被抬高）',
+    artifactBytes <= baseline.volume?.ceilingBytes,
+    `实测 ${artifactBytes}B > 上限 ${baseline.volume?.ceilingBytes}B`,
+  );
+  console.log(
+    `  · 基线比对：24 格 + 几何下界（来源 ${baseline.logClientHeightMeasuredWorst}px / 下界 ${baseline.logClientHeightFloor}px）+ 产物 ${artifactBytes}B / 上限 ${baseline.volume?.ceilingBytes}B`,
+  );
+  return { diffs, artifactBytes, logClientHeight };
 }
 
 // ── stage D/E ───────────────────────────────────────────────────────────────
@@ -621,6 +704,61 @@ async function reverseRp04(cdp) {
   await setRisk(cdp, 'hardline', 'off');
 }
 
+/**
+ * RP-V3-08 (review I8) — **the registry comparison must be able to fail**.
+ *
+ * The perturbation is applied to the REAL registry file that stage F reads
+ * (`docs/v3-density-baseline.json`) and the judgement goes through the SAME
+ * `compareBaselineCells()` + the same `readBaselineRegistry()`, so this is not a
+ * copy-driven proof. The file is restored byte-for-byte and the sha256 is
+ * re-checked, so a failed restore cannot go unnoticed.
+ */
+async function reverseRp08(cdp) {
+  console.log('\n▶ RP-V3-08：篡改基线登记值 → 基线比对必须 FAIL → 还原 → 必须 PASS');
+  const sha = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
+  check('RP-V3-08 前置：基线文件存在', existsSync(BASELINE_JSON), BASELINE_JSON);
+  if (!existsSync(BASELINE_JSON)) return;
+  const originalBytes = readFileSync(BASELINE_JSON);
+  const shaBefore = sha(BASELINE_JSON);
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  // The default@400 registry cell is measured on a *settled* fixture: from the
+  // second fixture cycle on, the product shows a transient `#notice` toast
+  // (29 own-text chars / +1 block / +1 line) that the very first cycle does not.
+  // That asymmetry is REGISTERED in the baseline (`fixtureAsymmetry`) instead of
+  // being smoothed away — and this driver must replicate the same steady state,
+  // otherwise it would compare against a different cell.
+  await resetFixture(cdp);
+  await resetFixture(cdp);
+  const measured = await measure(cdp);
+  // Diagnostic (never an assertion): the RP-08 comparison only makes sense on the
+  // same fixture cell stage B measured, so the width + the structural fingerprint
+  // are printed alongside the result.
+  const measuredFp = JSON.parse(await fingerprint(cdp));
+  console.log(
+    `  · RP-V3-08 诊断：innerWidth=${await evaluate(cdp, `window.innerWidth`)} ${fmt(measured)} | 指纹 askHidden=${measuredFp.askHidden} moreHidden=${measuredFp.moreHidden} origin=${JSON.stringify(measuredFp.origin)}`,
+  );
+  const before = compareBaselineCells(measured, readBaselineRegistry().tiers?.default?.['400'], () => 'default@400');
+  check('RP-V3-08 前置：未篡改时实测与登记一致（PASS 段基线）', before.length === 0, before.join(' | '));
+  let failDiffs = [];
+  try {
+    const tampered = readBaselineRegistry();
+    tampered.tiers.default['400'].clickables = measured.clickables + 1;
+    writeFileSync(BASELINE_JSON, `${JSON.stringify(tampered, null, 2)}\n`, 'utf8');
+    failDiffs = compareBaselineCells(measured, readBaselineRegistry().tiers?.default?.['400'], () => 'default@400');
+  } finally {
+    writeFileSync(BASELINE_JSON, originalBytes);
+  }
+  check('RP-V3-08 (FAIL 段) 基线被篡改后比对必须 FAIL', failDiffs.length > 0, failDiffs.join(' | '));
+  check(
+    'RP-V3-08 FAIL 段诊断可读（含「实测 X ≠ 登记 Y」）',
+    failDiffs.some((d) => /default@400\.clickables: 实测 \d+ ≠ 登记 \d+/.test(d)),
+    failDiffs.join(' | '),
+  );
+  const restored = compareBaselineCells(measured, readBaselineRegistry().tiers?.default?.['400'], () => 'default@400');
+  check('RP-V3-08 (还原后 PASS 段) 还原基线后比对必须 PASS', restored.length === 0, restored.join(' | '));
+  check('RP-V3-08 还原后基线文件 sha256 复原', sha(BASELINE_JSON) === shaBefore, `${shaBefore} → ${sha(BASELINE_JSON)}`);
+}
+
 // ── main ────────────────────────────────────────────────────────────────────
 async function main() {
   console.log(`▶ chrome: ${CHROME}`);
@@ -653,7 +791,7 @@ async function main() {
       stageE([...rows, { tier: 'risk', vp: 'worst', measured: worst, verdict: evaluateDensity(worst, 'risk') }]);
       console.log(`\n  · 风险 15 登记格：${cells.length} 格`);
       check('风险登记格数 == 15', cells.length === 15, String(cells.length));
-      if (BASELINE_JSON) console.log(`  · 基线文件：${existsSync(BASELINE_JSON) ? '已存在（由 TASK-112 登记）' : '尚未生成'}`);
+      await stageF(cdp, rows, cells, worst);
     } else {
       switch (REVERSE) {
         case 'RP-V3-01':
@@ -667,6 +805,9 @@ async function main() {
           break;
         case 'RP-V3-04':
           await reverseRp04(cdp);
+          break;
+        case 'RP-V3-08':
+          await reverseRp08(cdp);
           break;
         default:
           throw new Error(`未知反证：${REVERSE}`);

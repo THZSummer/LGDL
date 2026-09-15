@@ -170,9 +170,6 @@ export function renderRiskRow(
   return row;
 }
 
-/** How many "why / details" entries a risk class is allowed to add (≤1 each). */
-export const RISK_DETAIL_ENTRY_LABEL = '为什么';
-
 /**
  * Render the whole rail. The rail node is looked up **by id** — the function
  * takes no parent parameter on purpose (no caller can relocate it).
@@ -210,49 +207,23 @@ let renderedRows: RailElement[] = [];
  *  risk set must not pay for it (the panel repaints on every state push). */
 let lastRiskSignature = '';
 
-/** An ask/decision option as the view model sees it. */
-export interface DecisionOption {
-  label: string;
-  /** `destructive` options may NEVER be folded (FR-V3-018 / EC-V3-015). */
-  kind?: 'normal' | 'destructive';
-  recommended?: boolean;
-}
-
-/** The terminal escape hatch — verbatim, asserted character-for-character. */
-export const OTHER_OPTION_LABEL = '其他…（我来描述）';
-
 /**
- * Split the round's options for the decision card.
+ * The terminal escape hatch — verbatim, asserted character-for-character.
  *
- * `destructive` options are **structurally** removed from the foldable pool
- * before anything else happens, so they can only ever be rendered directly in
- * `#l0-decision` — the partition is a filter, not a convention.
+ * **Single source pair.** The product renders this label from
+ * `view-model.ts#OTHER_OPTION_LABEL` (the decision card imports it from there);
+ * this module keeps its own copy only so the rail-side unit tests can assert the
+ * string without importing the whole view model. The two constants are pinned
+ * equal by `test/l0-disclosure.test.ts` (review I2) — and the *rendered* DOM text
+ * is pinned by `test/ui/l0.mjs`.
+ *
+ * Review I3 removed `partitionDecisionOptions` / `MAX_VISIBLE_RECOMMENDED = 1`
+ * from this module: they were a second, product-unused partition rule whose
+ * comment contradicted both the product constant (`L0_VISIBLE_RECOMMENDED = 2`)
+ * and the measured clickable budget. The ONE partition rule lives in
+ * `view-model.ts#l0ViewModel` and is tested there.
  */
-export function partitionDecisionOptions(options: readonly DecisionOption[]): {
-  destructive: DecisionOption[];
-  recommended: DecisionOption[];
-  folded: DecisionOption[];
-  /** `#l0-more`'s N: the number of options that live behind the disclosure. */
-  foldedCount: number;
-} {
-  const destructive = options.filter((o) => o.kind === 'destructive');
-  const rest = options.filter((o) => o.kind !== 'destructive');
-  const recommended = rest.filter((o) => o.recommended).slice(0, MAX_VISIBLE_RECOMMENDED);
-  const visible = new Set(recommended);
-  // Everything else — plus the terminal 「其他…（我来描述）」 — goes behind the
-  // disclosure. The terminal item stays the LAST option of the sequence.
-  const folded = rest.filter((o) => !visible.has(o));
-  return { destructive, recommended, folded, foldedCount: folded.length + 1 };
-}
-
-/**
- * Visible recommended options. FR-V3-011 allows ≤2; V3-1 shows **one**
- * recommended option plus the always-last terminal 「其他…（我来描述）」 inside
- * the disclosure, which keeps the default tier at exactly 7 clickables while
- * still satisfying "≤2 推荐选项" (ADR-V3-013's per-item budget is preserved: one
- * recommended slot is re-allocated to the terminal item).
- */
-export const MAX_VISIBLE_RECOMMENDED = 1;
+export const OTHER_OPTION_LABEL = '其他…（我来描述）';
 
 /** Control labels that would constitute an "allow / permit" escape hatch. */
 export const FORBIDDEN_ALLOW_LABELS: readonly string[] = Object.freeze([

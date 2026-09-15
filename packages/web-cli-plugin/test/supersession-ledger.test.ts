@@ -20,12 +20,19 @@
  *      `options.html`, `src/content/**`, `src/security/{policy,auto-authorize}.ts`).
  *   4. **`newTitle` must be locatable** — a ledger entry whose replacement text
  *      cannot be found in the target file is a rubber stamp and fails.
- *   5. **count floors** — `countMethod` is force-restricted to
- *      `runtime-check-calls` (the r2 ledger's static/runtime ambiguity is
- *      abolished), `counts.*.currentRuntime ≥ gateFloors.*`, and every v3 gate
- *      file keeps at least the number of runtime `check(...)` calls the ledger
- *      recorded.
- *   6. **`--files-override <path>`** — RP-V3-05's seam: the named file is judged
+ *   5. **count floors** — every caliber used in `counts` / `staticCalibers` is
+ *      defined in `countCalibers` and the numbers are kept **per caliber**
+ *      (runtime `check(...)` calls, runtime node test registrations, static
+ *      `test(` registrations); `counts.*.currentRuntime ≥ gateFloors.*`, and every
+ *      v3 gate file keeps at least the number of runtime `check(...)` calls the
+ *      ledger recorded. The caliber module (`density-metrics.mjs`) has no
+ *      `check()` at all, so it is registered as **literal content pins**
+ *      (`v3CaliberPins`) instead of a meaningless `floor: 0`;
+ *   6. **pure-addition files** (review I4②) are listed in `pureAdditionFiles` and
+ *      excluded from the per-hunk check *explicitly*; the "zero deleted lines"
+ *      claim itself is asserted, and `pure-addition` entries must carry
+ *      `oldTitle: null` (no fabricated "superseded text");
+ *   7. **`--files-override <path>`** — RP-V3-05's seam: the named file is judged
  *      against the ledger floor of the ledger file with the same basename, so
  *      deleting one assertion from a copy FAILS the gate.
  */
@@ -65,7 +72,13 @@ interface LedgerEntry {
   file: string;
   gate: string;
   oldId: string;
-  oldTitle: string;
+  /**
+   * The superseded text. `null` **only** for `modificationType === 'pure-addition'`
+   * entries (review I4①: V31-S1/S2 claimed to replace a line that the real `git
+   * diff -U0` never deleted — a pure insertion has no "old title", and pretending
+   * it does is unverifiable bookkeeping).
+   */
+  oldTitle: string | null;
   newId: string;
   newTitle: string;
   reason: string;
@@ -86,9 +99,16 @@ interface Ledger {
   feature: string;
   base: string;
   metric: string;
-  counts: Record<string, { baselineRuntime: number; currentRuntime: number; countMethod: string; floor: number; note: string }>;
+  /** Human-readable definition of every caliber that appears in `counts`. */
+  countCalibers: Record<string, string>;
+  counts: Record<string, { baselineRuntime?: number; currentRuntime: number; countMethod: string; floor: number; note: string }>;
+  staticCalibers: Record<string, { countMethod: string; baselineStatic: number; currentStatic: number; floor: number; note: string }>;
   gateFloors: Record<string, number>;
   v3GateFloors: Record<string, number>;
+  v3CaliberPins: Record<string, { countMethod: string; note: string; pins: string[] }>;
+  /** Files whose diff vs `base` deletes ZERO lines (hunk↔ledger is inapplicable). */
+  pureAdditionFiles: string[];
+  pureAdditionNote: string;
   protectedRanges: ProtectedRange[];
   modifiedRanges: ModifiedRange[];
   entries: LedgerEntry[];
@@ -135,21 +155,34 @@ function deletionHunks(file: string) {
 }
 
 // ── 1. schema + count discipline ─────────────────────────────────────────────
-test('ledger: schema 完整，countMethod 只能取 runtime-check-calls（消灭跨口径歧义）', () => {
+test('ledger: schema 完整，口径显式分层（运行期 check / 运行期 node 用例 / 静态 test(）', () => {
   assert.equal(ledger.version, 'v3');
   assert.ok(ledger.feature.includes('v3-1'), ledger.feature);
   assert.equal(ledger.base, 'c2c0e0d', '台账 base 必须是本轮起点 c2c0e0d');
+  // I4③ fix round: the r2-style「countMethod 只有一种合法值」套话被替换为**显式分口径**：
+  // 每个 counts / staticCalibers 条目声明的 countMethod 必须能在 countCalibers 里找到定义，
+  // 且必须与其数值口径一致 —— 646（node 静态）与 725（node 运行期）不得再混用。
   for (const [gate, count] of Object.entries(ledger.counts)) {
-    assert.equal(
-      count.countMethod,
-      'runtime-check-calls',
-      `${gate}.countMethod 只能取 runtime-check-calls（实际 ${count.countMethod}）`,
+    assert.ok(
+      ledger.countCalibers[count.countMethod],
+      `${gate}.countMethod="${count.countMethod}" 未在 countCalibers 中定义（禁止口径悬空）`,
     );
   }
-  for (const key of ['journey', 'insight', 'binding', 'sidepanelView', 'nodeTestLowerBound']) {
+  for (const key of ['journey', 'insight', 'binding', 'sidepanelView']) {
+    assert.equal(ledger.counts[key].countMethod, 'runtime-check-calls', `${key}.countMethod 只能是 runtime-check-calls`);
+  }
+  assert.equal(ledger.counts.nodeTestRuntime.countMethod, 'runtime-node-tests');
+  assert.equal(ledger.staticCalibers.nodeTestStatic.countMethod, 'static-node-test-registrations');
+  assert.notEqual(
+    ledger.counts.nodeTestRuntime.currentRuntime,
+    ledger.staticCalibers.nodeTestStatic.currentStatic,
+    '两种口径的数字必须分列（若相等，说明口径声明与数值不一致）',
+  );
+  for (const key of ['journey', 'insight', 'binding', 'sidepanelView', 'nodeTestRuntime']) {
     assert.ok(ledger.gateFloors[key] > 0, `gateFloors 缺 ${key}`);
     assert.ok(key in ledger.counts, `counts 缺 ${key}`);
   }
+  assert.ok(ledger.staticCalibers.nodeTestStatic.floor > 0, '静态口径下界必须登记');
 });
 
 test('ledger: 计数只增不减（currentRuntime ≥ gateFloors）', () => {
@@ -162,6 +195,62 @@ test('ledger: 计数只增不减（currentRuntime ≥ gateFloors）', () => {
     );
     assert.equal(count.floor, floor, `${gate}.floor 必须与 gateFloors 一致`);
   }
+  // 静态口径同样只增不减（与运行期口径**分别**判定，不得互借）。
+  const staticCaliber = ledger.staticCalibers.nodeTestStatic;
+  assert.ok(
+    staticCaliber.currentStatic >= staticCaliber.floor,
+    `node 静态 test( 计数下降：${staticCaliber.currentStatic} < ${staticCaliber.floor}`,
+  );
+  assert.ok(
+    staticCaliber.currentStatic >= staticCaliber.baselineStatic,
+    `node 静态 test( 计数不得低于基线：${staticCaliber.currentStatic} < ${staticCaliber.baselineStatic}`,
+  );
+});
+
+// ── 1b. pure-addition files: the hunk↔ledger check does NOT apply (I4②) ─────
+test('ledger: 纯新增（0 删除行）文件单独归类——hunk↔台账校验对其不适用，且「0 删除行」本身受断言', () => {
+  assert.ok(Array.isArray(ledger.pureAdditionFiles) && ledger.pureAdditionFiles.length > 0, '必须显式登记纯新增文件集合');
+  assert.ok((ledger.pureAdditionNote ?? '').length > 0, '纯新增归类必须写明理由（不得只给一个空数组）');
+  for (const file of ledger.pureAdditionFiles) {
+    assert.ok(existsSync(resolve(REPO, file)), `${file} 不存在`);
+    // The registered fact *is* the assertion: a pure-addition file must really
+    // delete nothing. If it ever deletes a line, the classification is wrong and
+    // the file must move back into the per-hunk covered set.
+    assert.deepEqual(
+      deletionHunks(file),
+      [],
+      `${file} 被登记为纯新增（0 删除行），但实测存在删除行 —— 归类失真，必须逐 hunk 登记`,
+    );
+    assert.ok(
+      ledger.entries.some((e) => e.file === file) || ledger.modifiedRanges.some((r) => r.file === file),
+      `${file} 即使纯新增也必须有台账条目（newTitle 可定位）`,
+    );
+  }
+});
+
+// ── 1c. pure-addition entries carry NO fabricated `oldTitle` (I4①) ─────────
+test('ledger: modificationType=pure-addition 的条目 oldTitle 必须为 null（不得登记未被删除的「被取代文本」）', () => {
+  const mislabelled: string[] = [];
+  for (const entry of ledger.entries) {
+    const pure = entry.modificationType === 'pure-addition';
+    if (pure && entry.oldTitle !== null) mislabelled.push(`${entry.id}: oldTitle 必须为 null`);
+    if (!pure && (typeof entry.oldTitle !== 'string' || entry.oldTitle.length === 0)) {
+      mislabelled.push(`${entry.id}: 非纯新增条目必须给出可定位的 oldTitle`);
+    }
+  }
+  assert.deepEqual(mislabelled, [], `台账条目字段与 modificationType 不一致：\n${mislabelled.join('\n')}`);
+  // The oldTitle of a *superseding* entry must really be gone (a registered
+  // supersession whose「被取代文本」is still present is not a supersession).
+  const stillPresent: string[] = [];
+  for (const entry of ledger.entries) {
+    if (entry.modificationType === 'pure-addition') continue;
+    if (entry.file.includes('*')) continue;
+    const path = resolve(REPO, entry.file);
+    if (!existsSync(path)) continue;
+    const text = readFileSync(path, 'utf8');
+    if (text.includes(entry.oldTitle as string)) stillPresent.push(`${entry.id}: oldTitle 仍存在于 ${entry.file}`);
+  }
+  assert.deepEqual(stillPresent, [], `以下「被取代文本」仍存在于目标文件（登记失真）：\n${stillPresent.join('\n')}`);
 });
 
 test('ledger: 既有门禁文件零删除——每个删除/改写 hunk 必须命中台账或 modifiedRanges', () => {
@@ -171,8 +260,14 @@ test('ledger: 既有门禁文件零删除——每个删除/改写 hunk 必须�
     ...ledger.protectedRanges.map((r) => r.file),
   ]);
   const failures: string[] = [];
+  let checkedFiles = 0;
   for (const file of files) {
     if (!existsSync(resolve(REPO, file))) continue;
+    // I4②: pure-addition files (0 deleted lines) are excluded from the per-hunk
+    // check **explicitly** (they are asserted by the 1b test instead). Registering
+    // them here made the check vacuously true and looked like real coverage.
+    if (ledger.pureAdditionFiles.includes(file)) continue;
+    if (deletionHunks(file).length > 0) checkedFiles += 1;
     const ranges = ledger.modifiedRanges.filter((r) => r.file === file);
     const titles = ledger.entries.filter((e) => e.file === file).map((e) => e.oldTitle);
     for (const hunk of deletionHunks(file)) {
@@ -185,6 +280,7 @@ test('ledger: 既有门禁文件零删除——每个删除/改写 hunk 必须�
       }
     }
   }
+  assert.ok(checkedFiles > 0, '本检查必须真的覆盖到至少一个有删除行的文件（否则是空转）');
   assert.deepEqual(failures, [], `以下删除行未命中台账：\n${failures.join('\n')}`);
 });
 
@@ -276,7 +372,7 @@ test('ledger: v3 新增门禁的运行时 check 计数不低于台账下界（--
 // ── 6. RP-V3-05 driver sanity: the override seam really is hooked ───────────
 test('ledger: --files-override 未提供时，本门禁覆盖全部 v3 新增门禁', () => {
   if (FILES_OVERRIDE) return;
-  const expected = ['test/ui/l0.mjs', 'test/ui/density.mjs', 'test/ui/density-metrics.mjs'];
+  const expected = ['test/ui/l0.mjs', 'test/ui/density.mjs'];
   const keys = Object.keys(ledger.v3GateFloors);
   for (const file of expected) {
     assert.ok(
@@ -284,4 +380,36 @@ test('ledger: --files-override 未提供时，本门禁覆盖全部 v3 新增门
       `v3GateFloors 缺 ${file}（现有 ${keys.join(', ')}）`,
     );
   }
+  // 口径单源模块没有 `check(...)`（判据都在门禁侧），因此它的「下界」不是计数而是
+  // **字面量 pin** —— 旧的 `density-metrics.mjs: 0` 是永不失败的登记项（I17）。
+  assert.equal(
+    Object.keys(ledger.v3GateFloors).some((key) => key.endsWith('density-metrics.mjs')),
+    false,
+    'density-metrics.mjs 不得再以 count floor 0 登记',
+  );
+  assert.ok(
+    Object.keys(ledger.v3CaliberPins).some((key) => key.endsWith('density-metrics.mjs')),
+    'density-metrics.mjs 必须登记为字面量 pin 集合',
+  );
+});
+
+// ── 7. I17: the caliber pins must really be present (not a decorative floor) ─
+test('ledger: v3CaliberPins 的字面量必须逐条存在于目标文件（替代 count floor 0）', () => {
+  let checked = 0;
+  for (const [file, pin] of Object.entries(ledger.v3CaliberPins)) {
+    assert.ok(
+      ledger.countCalibers[pin.countMethod],
+      `${file}.countMethod="${pin.countMethod}" 未在 countCalibers 中定义`,
+    );
+    assert.ok(pin.pins.length > 0, `${file} 必须至少一条 pin（否则等价于 floor 0）`);
+    assert.ok((pin.note ?? '').length > 0, `${file} 必须写明为何用 pin 而非计数`);
+    const path = resolve(REPO, file);
+    assert.ok(existsSync(path), `${file} 不存在`);
+    const text = readFileSync(path, 'utf8');
+    for (const literal of pin.pins) {
+      assert.ok(text.includes(literal), `${file} 缺少 pin 字面量：${literal}`);
+      checked += 1;
+    }
+  }
+  assert.ok(checked > 0, '至少校验一条 pin（否则本测试是空转）');
 });

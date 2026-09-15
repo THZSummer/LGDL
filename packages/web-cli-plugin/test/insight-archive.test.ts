@@ -61,6 +61,7 @@ import {
   SIDEPANEL_BASELINE_META,
   SIDEPANEL_BASELINE_TOLERANCE,
   SIDEPANEL_CEILING,
+  SIDEPANEL_CEILING_CAP,
   distArtifact,
   evaluateSidepanelSize,
   readArtifactSize,
@@ -763,23 +764,29 @@ test('A9 archive: sidepanel baseline re-registration is explicit and monotonic (
   // v3-1（2026-09-16）：本轮方向为**提升**（L0 骨架 + 折叠控制器的有意增重），
   // 断言改为方向敏感：当前基线必须严格**大于**上一轮登记值，同时历史链仍是可核事实
   // （1,068,165…1,162,942 全保留、单调不减）。
+  // v3-1 review 修复轮（2026-09-16, I6）：按真实产物重登记 295,225 B（上一轮
+  // 291,523 B 的产物实测 294,874 B），且 ceiling **未抬高**（仍 306,099 B）。
   assert.ok(
     SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
-    '当前基线 > 上一轮登记值（本轮方向 = 提升）',
+    '当前基线 > 上一轮登记值（本轮方向 = 基线提升）',
   );
-  // 提升真实性：本轮实测值必须超出上一轮**登记值**与上一轮 **ceiling**（后者正是
-  // 必须显式重登记的原因）——方向敏感且不掩盖历史（历史链仍单调不减、全保留）。
+  // I6：ceiling 不得随基线提升而抬高（只降不升）。旧断言「baseline > 上一轮 ceiling」
+  // 证明的是「旧 ceiling 已被突破」，与 I6 的「登记保真但不放宽」目标相反。
   assert.ok(
-    SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousCeilingBytes,
-    `当前基线 ${SIDEPANEL_BASELINE_BYTES}B 必须超出上一轮 ceiling ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B`,
+    SIDEPANEL_CEILING <= SIDEPANEL_BASELINE_META.previousCeilingBytes,
+    `ceiling ${SIDEPANEL_CEILING}B 必须 ≤ 上一轮 ceiling ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B（只降不升，I6）`,
   );
-  assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05));
+  assert.equal(
+    SIDEPANEL_CEILING,
+    Math.min(Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05), SIDEPANEL_CEILING_CAP),
+    'ceiling = min(floor(baseline × 1.05), cap)',
+  );
   assert.equal(SIDEPANEL_BASELINE_META.kind, 'regression-baseline-only');
   assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');
   assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
   assert.ok(SIDEPANEL_BASELINE_META.measuredOn.length > 0);
-  // v3-1 提升轮：上一轮登记值 = 266,500 B（2026-09-14 守卫收紧轮）。
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 266_500);
+  // v3-1 提升轮 + I6 修复轮：上一轮登记值 = 291,523 B（其产物实测 294,874 B）。
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 291_523);
   assert.ok(SIDEPANEL_BASELINE_META.reRegisteredFrom.length > 0);
   assert.equal(SIDEPANEL_BASELINE_META.targetBudgetBytes, null, '基线 ≠ 目标预算');
   assert.equal(SIDEPANEL_BASELINE_META.targetMet, null, '基线 ≠ 目标预算');

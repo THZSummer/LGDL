@@ -9,7 +9,9 @@
  *   - **快照扁平面与 `meta.hash` 输入零变化**（对账/确定性/parity/archive 前提）；
  *   - 反证：把归属树改回扁平 → FAIL；把 live 计数改成 baseline → FAIL；
  *   - 取代台账（A4 订正口径）：**无未取代删除**（受保护文件每一行删除均有 old→new 台账依据）
- *     + `test(` 总数不减 + `journey.mjs` 零 diff；字面 `removed=0` 经 R2 审查复核**不成立**，
+ *     + `test(` 总数不减 + `journey.mjs` **零删除行 + 新增行逐条归属 v3 台账**
+ *     （v3-1 V31-S9；I11 修复轮把新增行白名单收紧为「`await` + helper 名」并禁止新增断言）；
+ *     字面 `removed=0` 经 R2 审查复核**不成立**，
  *     台账登记 `literalRemovedZero:false`（历史表述保留、口径订正）。
  */
 import { test } from 'node:test';
@@ -534,16 +536,6 @@ function deletedLines(rev: string, paths: readonly string[]): string[] {
   return parseDeletedLines(diff);
 }
 
-/** `rev` 相对工作区是否有任何 diff（含新增）。 */
-function hasDiff(rev: string, paths: readonly string[]): boolean {
-  try {
-    execFileSync('git', ['-C', REPO_ROOT, 'diff', '--quiet', rev, '--', ...paths], { encoding: 'utf8' });
-    return false;
-  } catch {
-    return true;
-  }
-}
-
 /** 工作区 test/*.test.ts 的静态 `test(` 计数（与审查复算同法）。 */
 function currentNodeTestCount(): number {
   let total = 0;
@@ -611,13 +603,26 @@ test('R2 (A4): no unreplaced deletions (ledger-covered) + counts non-decreasing 
   //      增加披露前置展开**，不允许新增/改写断言逻辑（断言只增必须落新文件）；
   //   ② 结构性胶水（`await sleep(N);` / `};` / 括号）。
   // 任何新增的 `check(...)`、选择器改写或断言体都会被这条规则判为未登记。
+  //
+  // I11 修复轮：旧白名单 `/__v3|v3RevealComposer|v3OpenStatusDetails|v3Collapse/`
+  // 是**子串**匹配——任何含 `__v3` 的新增行（包括一条新的 `check(...)`）都会通过，
+  // 于是「新增行逐条归属」在断言维度被放宽。收紧为：
+  //   ① 必须**以 `await ` 开头**且紧跟白名单 helper 名（`v3RevealComposer(` /
+  //      `window.__v3.` 调用）或结构性胶水；
+  //   ② 新增行里**不得出现 `check(` / `assert`**（断言只增不减的实质条款：新增断言
+  //      必须落新文件，不得改写既有门禁）。
   const GLUE = /^(await sleep\(\d+\);|\};?|\{|\}\)?;?|\);)$/;
-  const V3_PRE_STEP = /__v3|v3RevealComposer|v3OpenStatusDetails|v3Collapse/;
+  const V3_PRE_STEP = /^await (v3RevealComposer|v3OpenStatusDetails|v3Collapse|v3OpenTreeView|window\.__v3)[.(]/;
   const substantive = journeyAdded.filter((line) => !line.startsWith('//'));
+  const callsAnAssertion = substantive.filter((line) => /\b(check|assert)\s*\(/.test(line));
+  assert.deepEqual(
+    callsAnAssertion,
+    [],
+    `journey.mjs 的新增行不得包含断言（新增断言必须落新文件，不得改写既有门禁）：${callsAnAssertion.join(' ⏎ ')}`,
+  );
   const unattributed = substantive.filter(
     (line) =>
-      !V3_PRE_STEP.test(line) &&
-      !GLUE.test(line) &&
+      !(V3_PRE_STEP.test(line) || GLUE.test(line)) &&
       !journeyTitles.some((t) => t && (line.includes(t) || t.includes(line))),
   );
   assert.deepEqual(
@@ -625,6 +630,12 @@ test('R2 (A4): no unreplaced deletions (ledger-covered) + counts non-decreasing 
     [],
     `journey.mjs 的新增行必须逐条命中 v3 台账 entries（未登记：${unattributed.join(' ⏎ ')})`,
   );
+  // 反证：收紧后的白名单必须真的会拒绝一条「含 __v3 的新断言行」（旧白名单会放行）。
+  const legacyWhitelist = /__v3|v3RevealComposer|v3OpenStatusDetails|v3Collapse/;
+  const sneaky = "check('__v3 伪装的新断言', true);";
+  assert.ok(legacyWhitelist.test(sneaky), '反证前提：旧白名单确实会放行该行');
+  assert.equal(V3_PRE_STEP.test(sneaky) || GLUE.test(sneaky), false, '收紧后的白名单必须拒绝该行');
+  assert.ok(/\b(check|assert)\s*\(/.test(sneaky), '收紧后的断言维度必须检出该行');
 
   // 5) 总断言数不减（静态 `test(` 计数 ≥ 台账 before）。
   const current = currentNodeTestCount();

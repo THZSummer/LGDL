@@ -92,3 +92,23 @@ export declare function evaluateDelta(
 
 export declare const BANNED_MEASURE_APIS: readonly string[];
 export declare function bannedApisInMeasureSource(): string[];
+
+/** First-round measured floor for `#log`'s client height (review I7 source). */
+export declare const LOG_CLIENT_HEIGHT_FLOOR: 488;
+
+/** Registry-comparison keys (ADR-V3-018 decision 2 / review I8). */
+export declare const BASELINE_COMPARE_KEYS: readonly string[];
+
+export interface BaselineCell {
+  clickables?: number;
+  lines?: number;
+  blocks?: number;
+  regions?: number;
+  chars?: number;
+}
+
+export declare function compareBaselineCells(
+  measured: Partial<BaselineCell> | undefined,
+  registered: BaselineCell | undefined,
+  labelOf?: () => string,
+): string[];

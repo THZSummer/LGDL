@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-v3-1-l0-shell-density",
   "version": "v3.0.0",
   "name": "V3-1 L0 骨架与密度门禁——立 L0 常驻骨架（我在哪 · 谁在管我 · 下一步做什么 = 当前一张卡 + 「从页面拾取」入口 + 一行可点开状态栏）+ 五类风险位独立常驻（永不折叠）+ 密度四项口径与机器门禁（默认态 ≤7/≤15 · 首装态 ≤9/≤20 · 风险态 ≤17/≤35 × 320/400/520）+ 反证 + 首轮真实产物基线登记",
-  "phase": "builded",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "reviewed",
+  "workflow": "6.review",
+  "agent": "sddu-build（review 修复轮）",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v3-ui",
   "childrens": [],
@@ -93,7 +93,10 @@
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/tasks.md",
     "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/tasks.json",
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
-    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md"
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/build.md",
+    "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/review.md",
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/review-report.md"
   },
   "dependencies": {
     "on": [
@@ -149,7 +152,7 @@
       "needs": "plan"
     }
   ],
-  "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.2 / §8.1~8.2 / §9）。范围 = L0 骨架 + 五类风险位独立常驻（永不折叠）+ 选择题/无常驻输入框 + 折叠器与可发现性契约 + **密度四项口径与机器门禁（三段阈值 × 三档视口）+ 反证 + 首轮真实产物基线登记**；不做 L1/L2 内容、不做页面侧交互、不放宽任何上限。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-013~019）。**范围**：L0 常驻骨架（三件事三区 + 可点预算逐项配平：默认档 7）+ 五类风险位（三层结构保证 + AC-V3-008/009 祖先链实现）+ 决策卡（复用 #ask 家族 + 末项兜底输入 + 真值计数）+ disclosure.ts 折叠器单一控制器（白名单排斥 #risk-rail、抛错语义）+ **密度口径单源与三段式门禁（9 强制格 + 5 风险子场景 × 3 视口 = 15 登记格 + RP-V3-01~04 实跑）** + **本叶建立取代台账 docs/v3-supersession-ledger.json** + 首轮真实产物密度基线登记（三档 × 三视口，与设计稿口径分列、只允许收紧）。**开放点裁决**：V31-O-1（首装态 ≤9/≤20 首轮校准只允许收紧，超限只能改披露策略）/ V31-O-2（密度门禁三段式载体）/ V31-O-3（不新增 #panel 包裹层：body 为测量根 + L0 分区直挂，最小改动路径）/ V31-O-4（54 id 归属映射表：L0/L1/L2 三分逐项清单）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。",
+  "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.2 / §8.1~8.2 / §9）。范围 = L0 骨架 + 五类风险位独立常驻（永不折叠）+ 选择题/无常驻输入框 + 折叠器与可发现性契约 + **密度四项口径与机器门禁（三段阈值 × 三档视口）+ 反证 + 首轮真实产物基线登记**；不做 L1/L2 内容、不做页面侧交互、不放宽任何上限。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-013~019）。**范围**：L0 常驻骨架（三件事三区 + 可点预算逐项配平：默认档 7）+ 五类风险位（三层结构保证 + AC-V3-008/009 祖先链实现）+ 决策卡（复用 #ask 家族 + 末项兜底输入 + 真值计数）+ disclosure.ts 折叠器单一控制器（白名单排斥 #risk-rail、抛错语义）+ **密度口径单源与三段式门禁（9 强制格 + 5 风险子场景 × 3 视口 = 15 登记格 + RP-V3-01~04 实跑）** + **本叶建立取代台账 docs/v3-supersession-ledger.json** + 首轮真实产物密度基线登记（三档 × 三视口，与设计稿口径分列、只允许收紧）。**开放点裁决**：V31-O-1（首装态 ≤9/≤20 首轮校准只允许收紧，超限只能改披露策略）/ V31-O-2（密度门禁三段式载体）/ V31-O-3（不新增 #panel 包裹层：body 为测量根 + L0 分区直挂，最小改动路径）/ V31-O-4（54 id 归属映射表：L0/L1/L2 三分逐项清单）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。\n\nreview 修复轮完成（2026-09-16，sddu-build）：I1~I8 全部修复（I1 决策卡无卡态重复渲染复活 `#l0-more` 的状态机缺陷 + 门禁盲区、I2 末项文案证明力、I3 死代码分区规则、I4 台账保真与口径分层、I5 AC-V3-010 遍历被白名单缩窄、I6 体积登记保真且 ceiling 未抬高、I7 几何来源与文案保真、I8 基线机器比对缺失）；I9~I17 机械型低severity 全部修复；新增门禁：density 阶段 F（24 登记格 + 几何下界与来源 + 产物字节 vs 机读基线，不一致即 FAIL）、RP-V3-08、I1 反证、台账 pureAdditionFiles/口径字典/字面量 pin、静态登记格自洽断言（lines = ⌈chars ÷ 34⌉）。阶段 F 首跑即检出并订正一处**登记错误**（risk(staleRef) lines 7 → 8，与自身 chars=244 矛盾）并暴露一处夹具非对称（default@320 缺瞬时 #notice），后者按「只登记」记入 docs/v3-density-baseline.json#fixtureAsymmetry 未改任何已登记格。**只做修复轮**：未改 spec/plan/tasks、未改 main、未新增依赖、未改 manifest 权限段/判定链/src/content/**，禁 git add -A。",
   "status": "tracked",
   "phaseHistory": [
     {
@@ -177,7 +180,13 @@
       "at": "2026-09-16",
       "agent": "sddu-build",
       "note": "v3-1 全量实施完成：15 任务 / 7 波；全门禁绿（typecheck / build / npm test 725 / test:supersession 8 / test:density 97 / test:l0 74 / test:ui 167 / test:insight 108 / test:binding 192 / test:hardening 24 / test:e2e PASS）；RP-V3-01~06 六条反证 FAIL→还原→PASS 实跑；首轮真实产物密度基线登记（默认 7/6~7 · 首装 7/12 · 风险最差 9/13，C4=6 只登记不上限）；取代台账 + 门禁落地（9 entries / 26 modifiedRanges / protectedRanges 字节 hash）；体积显式提升重登记 sidepanel 266,500→291,523（ceiling 306,099，容差 5% 不变），content 177,076 零改动；人工面如实登记 ⏳ 未执行。"
+    },
+    {
+      "phase": "reviewed",
+      "at": "2026-09-16",
+      "agent": "sddu-build（review 修复轮）",
+      "note": "review R1（22 通过 / 16 改进 / 0 阻塞）后的修复轮：I1~I8 中severity 全部修复 + I9~I17 机械型低severity 全部修复；门禁串行全绿（typecheck / build / npm test 732 / supersession 11 / density 105 / l0 134 / ui 167 / insight 108 / binding 192 / hardening 24 / e2e PASS）；反证 RP-V3-01~06 实跑 + 新增 RP-V3-08（基线机器比对）+ I1 修复反证（移除修复即红、还原即绿）；体积按真实产物重登记 291,523 → 295,225 B（ceiling 306,099 未抬高、只降不升）；content.js 177,076 零改动；判定链与 src/content/** sha256 = pin；3 项如实登记 deferred（RP-02b/03/04 读取侧仍为副本、package.json 台账覆盖面、7px 几何薄余量）。"
     }
   ],
-  "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：15 任务 / 7 波（S×5 · M×8 · L×2）。波次与并行性见 tasks.md §1.3（可并行写入的任务文件不相交；门禁执行严格串行，一次只跑一个——本机 ~1.5GB 曾 OOM）。必含项 8/8 覆盖：①密度口径唯一实现源 density-metrics.mjs + 三段式（density.mjs / density-thresholds.test.ts / _v3-helpers.mjs）②9 强制格 + 15 登记格参数化 ③RP-V3-01~06 六条反证（每条可真 FAIL）④反作弊静态断言（测量源码零命中 getComputedStyle/offsetParent/getBoundingClientRect）⑤L0 骨架 + #risk-rail 结构保证（AC-V3-008/009）⑥取代台账 docs/v3-supersession-ledger.json + test/supersession-ledger.test.ts ⑦首轮真实产物密度基线登记（三档视口）⑧主题/320px/a11y 基建。阻断级任务：TASK-102 / TASK-103 / TASK-106 / TASK-108 / TASK-109（阻断本叶后段 + 后三叶密度复测与台账追加）。验收锚点：父 spec FR/NFR/EC/AC 编号（叶子不新造 FR 编号）+ 本叶 plan ADR 编号，逐任务写入 tasks.json 的 fr/nfr/ec/ac/adr 字段。门禁严格串行顺序见 tasks.md §4.1；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断。本叶收尾必须全门禁绿（AC-V3-013 / EC-V3-013），禁留红灯给下一叶。只做 tasks：未写代码、未改 src/**·test/**·manifest.json·design/**·ROADMAP.md、未动 main、未 commit、未跑门禁/构建/Chromium。\n\nbuild 阶段完成（2026-09-16，sddu-build）：见 build.md。"
+  "phaseNote": "phase=reviewed（本叶由 build 推进到 reviewed：review 产物 review.md / review-report.md 已关联，且完成 R1 的 16 项改进修复中的 8 项中severity + 9 项机械型低severity）；修复轮改动与证据见 build.md §5；验证（validate）为下一阶段（@sddu-validate）。"
 }

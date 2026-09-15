@@ -205,13 +205,23 @@ export const DENSITY_LIMITS = Object.freeze({
  * **first-round measured floor**:
  *
  *   measured on 2026-09-16 at 400×900 in the DEFAULT tier **with a pending
- *   decision card** (the worst case): `#log` = 498 px.
- *   registered floor = 498 − 10 = **488 px**
- *   (the 10px is a registered allowance for sub-pixel / font-metric variance, not
- *   a loosened ceiling — the floor may only be RAISED).
+ *   decision card** (the worst case), on the FINAL build artifact:
+ *     `#log` clientHeight = **495 px**
+ *   registered floor = 495 − 7 = **488 px**
+ *   (the 7px is the *remaining* registered allowance for sub-pixel / font-metric
+ *   variance, not a loosened ceiling — the floor may only be RAISED. Review I7:
+ *   the earlier version of this comment claimed a 498px measurement with a 10px
+ *   allowance; 498 was a pre-final-round figure and 495 is what the shipped
+ *   artifact actually renders, so the margin was really 7px. The registered
+ *   floor number (488, authorised by ADR-V3-009/ADR-V3-019 V31-S3) is unchanged;
+ *   only the *source* statement and the margin are now truthful.)
  *
  * `#log` must remain the ONLY panel-level scroller and must never be occluded;
- * both are asserted independently by `test/ui/l0.mjs`.
+ * both are asserted independently by `test/ui/l0.mjs`. The registered
+ * source measurement lives in `docs/v3-density-baseline.json`
+ * (`logClientHeightMeasuredWorst`) and is compared against a fresh measurement by
+ * `test/ui/density.mjs` stage F (I8) — the statement above can no longer drift
+ * silently.
  */
 export const LOG_CLIENT_HEIGHT_FLOOR = 488;
 
@@ -368,6 +378,41 @@ export function evaluateDelta(defaultMeasured, riskMeasured) {
     if (what) violations.push(`非风险类新增${what}占用风险增量预算：${el.key}`);
   }
   return { violations };
+}
+
+/**
+ * Registry comparison (ADR-V3-018 decision 2, review I8).
+ *
+ * `docs/v3-density-baseline.json` is the machine registry of the first real
+ * measurement. Until I8 the Chromium gate only *printed* that the file existed —
+ * nothing compared the fresh measurement against it, so a product/registry drift
+ * (which is exactly how the stale `498px` and `291,523 B` figures survived) was
+ * invisible. This pure comparison makes the drift a FAIL with a readable diff.
+ *
+ * @param measured  a `DENSITY_MEASURE_SOURCE` result (or a `worst` aggregate)
+ * @param registered the matching registry cell
+ * @param labelOf   a thunk producing the human label (lazy, for cheap big loops)
+ * @returns one readable string per diverging caliber (empty ⇒ identical)
+ */
+export const BASELINE_COMPARE_KEYS = Object.freeze(['clickables', 'lines', 'blocks', 'regions', 'chars']);
+
+export function compareBaselineCells(measured, registered, labelOf = () => 'cell') {
+  const diffs = [];
+  if (!registered) {
+    diffs.push(`${labelOf()}: 基线缺少该登记格（新测量未登记 → 必须显式登记，不得静默通过）`);
+    return diffs;
+  }
+  for (const key of BASELINE_COMPARE_KEYS) {
+    if (registered[key] === undefined || measured?.[key] === undefined) continue;
+    if (measured[key] !== registered[key]) {
+      const direction =
+        measured[key] > registered[key]
+          ? '高于已登记基线 → 必须收紧或显式重登记（不得静默通过）'
+          : '低于已登记基线 → 应重登记收紧（direction=tighten-only）';
+      diffs.push(`${labelOf()}.${key}: 实测 ${measured[key]} ≠ 登记 ${registered[key]}（${direction}）`);
+    }
+  }
+  return diffs;
 }
 
 /** `true` when the measurement source is free of the banned visibility APIs. */
