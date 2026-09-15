@@ -33,10 +33,20 @@
       "state": "已绑定 + 已授权 + 探测完成 + 无待确认 + onboarding 与 discovery-notice 已终结（含一张待答决策卡 → 可点预算被完整占用）",
       "320": {
         "clickables": 7,
-        "lines": 6,
-        "blocks": 18,
+        "lines": 7,
+        "blocks": 19,
         "regions": 6,
-        "chars": 194
+        "chars": 223,
+        "previous": {
+          "clickables": 7,
+          "lines": 6,
+          "blocks": 18,
+          "regions": 6,
+          "chars": 194
+        },
+        "reRegisteredOn": "2026-09-16",
+        "reRegisteredBy": "收口轮（validate R1 F2 / K-1 + 编排器裁决）。旧登记值 194/18/6 是**夹具非对称**的产物：它是 `default@320` 作为阶段 B **第一格**时的测量值，此时会话尚未绑定到面板自身标签页，因此 `#notice` 还不存在。从第二个夹具周期起（含 400/520 与全部 risk 格）`#notice` 常驻，320 也变成 223/19/7。夹具改为**两遍**（`fixturePass()` ×2）后每格都处于同一稳态，三视口逐项相等（新增断言 `默认档夹具确定性：三视口逐项相等`）。",
+        "reRegistrationReason": "订正理由 = 测量真值（稳态）而非放宽阈值：`#notice`（29 字符 / +1 块 / +1 行）在会话内**持续存在**（validate R1 独立复测确认，非文档原先写的「瞬时」）。三条档位上限 7/15 · 9/20 · 17/35 与 ceiling 一律未动；本格数值由 194/18/6 → 223/19/7 是**登记真值订正**（前一值为夹具未稳态的欠测），已按「显式重登记」流程登记前后值 + 日期 + 来源 + 理由，历史值逐字保留在 previous。下一行的 `restore` 说明为何不能反向「压低」：见 fixtureAsymmetry。"
       },
       "400": {
         "clickables": 7,
@@ -53,7 +63,7 @@
         "chars": 223
       },
       "previous": null,
-      "note": "C1 恰为 7 且逐项可追溯：#l0-status-band / #l0-pick / 2 个推荐选项 / #l0-more / #l0-ref-toggle / #l0-statusbar（ADR-V3-013 §2）。"
+      "note": "C1 恰为 7 且逐项可追溯：#l0-status-band / #l0-pick / 2 个推荐选项 / #l0-more / #l0-ref-toggle / #l0-statusbar（ADR-V3-013 §2）。 收口轮（2026-09-16）：320 格的登记值由 194/18/6 订正为 223/19/7 —— 它是夹具**未稳态**（第一格）造成的欠测，而非视口差异；夹具改为两遍后三视口逐项相等（223/19/7）。"
     },
     "firstRun": {
       "state": "onboarding 或 discovery-notice 生效中（其余同默认档）",
@@ -257,8 +267,10 @@
     "note": "I6 修复轮：登记值必须等于**实测产物**字节（`test/size-budget.test.ts` 与 `test/ui/density.mjs` 阶段 F 双向机器比对）。ceiling 只降不升（cap = 上一轮 ceiling），故基线提升不构成放宽；content.js 不受影响（177,076 B、无容差、零改动）。"
   },
   "fixtureAsymmetry": {
-    "note": "default 档三视口的登记值**不是**视口差异造成的：`default@320`（194 chars / 18 blocks / 6 lines）是在**第一次**夹具运行后测量，而 `default@400` / `default@520`（223 / 19 / 7）是在**第二次及以后**的夹具运行后测量 —— 差异来自产品在主流程之后弹出的瞬时 `#notice` toast（29 字符 / +1 块 / +1 行）。",
-    "handling": "按「只登记、不粉饰」如实登记，未改动已登记格（改动任一格都会构成放宽或未经裁决的收紧）。因此 `test/ui/density.mjs` 的阶段 F 机器比对要求夹具**序列一致**（同一会话内先 320 后 400/520），RP-V3-08 驱动同样先跑两次夹具以复现稳态。",
-    "residual": "建议后续叶（v3-2/v3-3 或 validate）把夹具做成确定性（每格都复现同一稳态，或显式关闭瞬时 toast），届时 default@320 会收紧为 223/19/7 —— 方向为**收紧**（6→7 行仍 ≤ 15 上限），届时应按重登记流程显式登记前后值。"
+    "status": "FIXED（收口轮 2026-09-16）",
+    "fixedBy": "test/ui/density.mjs#resetFixture → fixturePass() ×2 + assertFixtureSettled()（每格断言稳态）+ 默认档三视口逐项相等断言",
+    "note": "default 档三视口的登记值**曾经**不是视口差异造成的：`default@320`（194 chars / 18 blocks / 6 lines）是在**第一次**夹具运行后测量，而 `default@400` / `default@520`（223 / 19 / 7）是在**第二次及以后**的夹具运行后测量 —— 差异来自 `#notice` （「页面已导航：会话上下文失效，请重新授权/重连（不静默续接）」，29 字符 / +1 块 / +1 行）。**收口轮订正措辞**：该 `#notice` **不是瞬时的**（旧文档写「瞬时 toast」是错的）——validate R1 独立复测显示它在同一会话内**持续存在**（第二次夹具运行起，直到被新的 notice 覆盖），这正是旧夹具「第一格 vs 其余格」不可复现的根因。",
+    "handling": "夹具改为**确定性两遍**：每一格都执行两次 `fixturePass()`（绑定 → 授权 → 收起 → 决策卡），只测第二遍，因此每格都处于同一「会话已失效提示常驻」稳态，与运行顺序无关；并新增两条机器断言：① 每格 `#notice` 必须存在且可见（`assertFixtureSettled`）；② 默认档三视口逐项相等。旧登记格 194/18/6 作为历史值逐字保留在 `tiers.default[\"320\"].previous`。",
+    "residual": "若后续叶子要在**无 notice** 的会话态上度量，需要产品侧提供「清除会话失效提示」的真实通路（v3-1 无此路径：`state.notice` 只由 reducer 的 `notice` action 覆盖，门禁侧无法在不改 `src/**` 的前提下清除）。本轮不为此改动 `src/**`：体积登记值 295,225 B 已由编排器裁决钉死（F8），改源码即会让该裁决失效。"
   }
 }

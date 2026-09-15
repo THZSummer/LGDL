@@ -91,6 +91,12 @@
       "phase": "tasked",
       "timestamp": "2026-09-16T02:30:00.000Z",
       "triggeredBy": "sddu-tasks（4 叶产出 tasks.md + tasks.json；4 叶 state.json 同批推进到 phase=tasked；父仅产出总览 tasks.md，不产出 tasks.json）"
+    },
+    {
+      "phase": "tracked",
+      "at": "2026-09-16",
+      "agent": "sddu-build（v3-1 叶子收口轮：F1~F9 处置 + 体积 AC 显式订正）",
+      "note": "子叶 `specs-tree-v3-1-l0-shell-density` 的 validate 收口轮完成，父状态同步记录：① **F8 订正**（不豁免）：本叶 spec.md §5 NFR-V3-005 / §7 AC-V3-016、本叶 state.json#gateSet、**父 spec.md 3 处**（§90 现状表 / NFR-V3-005 / AC-V3-016）、**父 plan.md 5 处**（§75 体积硬线 / §222 C / §226 增量预测 / §396 R3-04 / §720 重登记条件）、**父 state.json#evidenceFacts.sizeGuards** 的 sidepanel ≤279,825（基线 266,500）→ ≤306,099（基线 295,225）；每处逐字保留历史（`~~279,825~~ → 306,099`、`~~266,500~~ → 295,225`）；容差 5% 未变、SIDEPANEL_CEILING_CAP 只降不升、断言零删减，密度阈值 7/15 · 9/20 · 17/35 未动。② 子叶 F1~F7/F9 处置完成（按行台账判定 + 补登 3 行 / 台账与 build.md 数字订正 / 阶段 F 格数与检查名 / FR-V3-015 真值计数三处同源断言与豁免登记 / 风险探针补 visibility+opacity 判定 + RP-V3-09）。③ 夹具确定性 + `default@320` 由 194/18/6 重登记为 223/19/7（历史保留）。④ 收口轮门禁严格串行全 0，计数只增不减（density 105→127 / l0 134→137），红线零漂移（判定链与 src/content/** sha256 = pin、content.js 177,076、manifest 0 diff、main 未动）。⑤ **未**改动的同类残留（超出裁决范围，已在子叶 deferred 登记）：三个兄弟叶（v3-2/v3-3/v3-4）的 spec/state/tasks 与父 discovery.md 仍含旧 ceiling 279,825，建议各叶开工时按同一订正方式同步。"
     }
   ],
   "dependencies": {
@@ -106,7 +112,7 @@
   "scope": {
     "in": [
       "需求条文（父 spec v1.0）：FR-V3-001~007（GOV 范围与基线纪律）· FR-V3-010~024+026（L0 常驻骨架与密度，v3-1）· FR-V3-030~040（L1 就地展开与引用/回执，v3-2）· FR-V3-045~054（L2 按需视图，v3-3）· FR-V3-060~072（页面即输入，v3-4）· FR-V3-080~087（SEC/UI 横切）",
-      "非功能需求（18 条）：NFR-V3-001 三段密度预算 · NFR-V3-002 口径可机器复算（与 design/ui-redesign/index.html 同源）· NFR-V3-003 content.js ≤177,076 B 无容差 + CONTENT_SOURCE_SHA256 内容冻结 · NFR-V3-004 页面侧按需注入（O-UI-003）· NFR-V3-005 sidepanel 基线 266,500 / ceiling 279,825 + 显式重登记 · NFR-V3-006 manifest 静态权限零新增（无 contextMenus）· NFR-V3-007 登记式零注入 · NFR-V3-008 安全判定链 sha256 pin 不变 + 只读投影 + 9 动作白名单固定序 · NFR-V3-009 明暗双主题 · NFR-V3-010 320–560px 零水平溢出 · NFR-V3-011 无障碍 · NFR-V3-012 门禁串行 + 日志完整 · NFR-V3-013 门禁必须能真 FAIL · NFR-V3-014 断言零删除零降级 + 计数不减 · NFR-V3-015 人工面如实登记 · NFR-V3-016 零审计明文 + URL 去参 · NFR-V3-017 零新增依赖 / 不改 base / 不改 v1·v2 已验收行为 · NFR-V3-018 sha256 内容 pin（禁弱冻结）",
+      "非功能需求（18 条）：NFR-V3-001 三段密度预算 · NFR-V3-002 口径可机器复算（与 design/ui-redesign/index.html 同源）· NFR-V3-003 content.js ≤177,076 B 无容差 + CONTENT_SOURCE_SHA256 内容冻结 · NFR-V3-004 页面侧按需注入（O-UI-003）· NFR-V3-005 sidepanel 基线 ~~266,500~~ → **295,225** / ceiling ~~279,825~~ → **306,099** + 显式重登记（收口轮订正 2026-09-16，validate R1 F8 + 编排器裁决；原文数字逐字保留，见 spec.md §5/§7 订正说明） · NFR-V3-006 manifest 静态权限零新增（无 contextMenus）· NFR-V3-007 登记式零注入 · NFR-V3-008 安全判定链 sha256 pin 不变 + 只读投影 + 9 动作白名单固定序 · NFR-V3-009 明暗双主题 · NFR-V3-010 320–560px 零水平溢出 · NFR-V3-011 无障碍 · NFR-V3-012 门禁串行 + 日志完整 · NFR-V3-013 门禁必须能真 FAIL · NFR-V3-014 断言零删除零降级 + 计数不减 · NFR-V3-015 人工面如实登记 · NFR-V3-016 零审计明文 + URL 去参 · NFR-V3-017 零新增依赖 / 不改 base / 不改 v1·v2 已验收行为 · NFR-V3-018 sha256 内容 pin（禁弱冻结）",
       "边界情况（17 条）：引用失效 fail-closed · 硬底线被拦不可覆盖 · 未授权零注入 · 可选权限未批准（可见但禁用，禁静默隐藏）· 站点无声明/版本不兼容 · 元素操作中消失 · 扩展重载/SW 休眠 · 320px 极窄 · 系统主题切换 · 密度超预算 · 收起缺摘要缺入口 · content.js 余量 0 冲突 · 中间态长期红灯 · 多标签/origin 切换 · 破坏性确认期间折叠全部披露层 · 命令目录口径分歧分列 · 宿主样式冲突",
       "验收标准（27 条）：密度 7 条（三档状态 × 三档视口 + 口径一致 + 6 条反证 + 分区数登记）· 风险永不折叠 3 条（5 状态 × 2 场景 + DOM 祖先链 + 可发现性/L1≤1 与 L2≤2 可达）· 取代与回归 6 条（台账机制 + 计数不减 + 每叶全门禁绿 + 反证 + 能力集等价 + 不做项守卫）· 体积/安全/可用性/纪律 11 条",
       "非目标（17 条，NG-V3-001~017）：不新增静态权限 · 不引入 contextMenus · 不改安全判定链 · 不做后端 · 不改 v1/v2 已验收行为 · 不把密度低实现为删功能 · 不改 base · 不新增依赖 · 不合 main 不发布 · 不放宽体积/密度上限换功能 · 不删除降级既有断言 · 不做无线索隐藏 · 不把风险收进展开层/tooltip/仅颜色 · 不删改设置项语义 · 禁 git add -A / 不提交 .opencode/opencode.json · 不冒充 PASS · 不改 content.js 既有能力语义",
@@ -330,11 +336,14 @@
       "contentMeasuredBytes": 177076,
       "contentHeadroomBytes": 0,
       "contentTolerance": "none（+1B 即 FAIL）",
-      "sidepanelBaselineBytes": 266500,
-      "sidepanelMeasuredBytes": 266500,
-      "sidepanelCeilingBytes": 279825,
+      "sidepanelBaselineBytes": 295225,
+      "sidepanelMeasuredBytes": 295225,
+      "sidepanelCeilingBytes": 306099,
       "sidepanelTolerance": 0.05,
-      "source": "test/size-baseline.ts + stat -c %s dist/*.js"
+      "source": "test/size-baseline.ts + stat -c %s dist/*.js（v3-1 收口轮后：content 177,076 / sidepanel 295,225 ≤ ceiling 306,099）",
+      "history": [
+        "~~sidepanelBaselineBytes 266500 / measured 266500 / ceiling 279825~~ —— 收口轮订正（validate R1 F8 + 编排器裁决，2026-09-16）：v3-1 交付后按真实产物显式重登记为 baseline 295,225 / ceiling 306,099（容差 5% 未变、cap 只降不升）；原文数字逐字保留于此。"
+      ]
     },
     "testBaseline": {
       "pluginUnit": 696,

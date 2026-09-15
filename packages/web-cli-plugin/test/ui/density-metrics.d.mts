@@ -13,6 +13,15 @@ export declare const CHARS_PER_LINE: 34;
 export declare const isRiskClassSource: string;
 export declare const DENSITY_MEASURE_SOURCE: string;
 export declare function measureExpression(): string;
+export declare function measureSourceForRoot(rootExpression: string): string;
+
+/**
+ * Risk-visibility probe (AC-V3-008/009) — single source for the runtime gates.
+ * Absolute-position variant of the in-page expression string (closeout round F7:
+ * `visibility:hidden` / `opacity:0` ancestors now count as NOT visible, aligning
+ * the probe with C1's "only `hidden` is exempt" rule).
+ */
+export declare function riskVisibilityProbeSource(cls: string): string;
 
 export interface DensityLimits {
   clickables: number;

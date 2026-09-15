@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-v3-1-l0-shell-density",
   "version": "v3.0.0",
   "name": "V3-1 L0 骨架与密度门禁——立 L0 常驻骨架（我在哪 · 谁在管我 · 下一步做什么 = 当前一张卡 + 「从页面拾取」入口 + 一行可点开状态栏）+ 五类风险位独立常驻（永不折叠）+ 密度四项口径与机器门禁（默认态 ≤7/≤15 · 首装态 ≤9/≤20 · 风险态 ≤17/≤35 × 320/400/520）+ 反证 + 首轮真实产物基线登记",
-  "phase": "reviewed",
-  "workflow": "6.review",
-  "agent": "sddu-build（review 修复轮）",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v3-ui",
   "childrens": [],
@@ -96,7 +96,9 @@
     "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md",
     "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/build.md",
     "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/review.md",
-    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/review-report.md"
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/review-report.md",
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/validate-report.md"
   },
   "dependencies": {
     "on": [
@@ -122,9 +124,12 @@
       "test:binding ≥192",
       "test:e2e",
       "新增密度门禁（含 RP-V3-01~04 反证）",
-      "体积守卫（content 177,076 无容差 / sidepanel ≤279,825）"
+      "体积守卫（content 177,076 无容差 / sidepanel ≤306,099（基线 295,225））"
     ],
-    "gateDiscipline": "严格串行（禁并发 Chromium）+ 完整日志落盘（禁 tail 截断）+ 反证必须实跑"
+    "gateDiscipline": "严格串行（禁并发 Chromium）+ 完整日志落盘（禁 tail 截断）+ 反证必须实跑 收口轮补充：门禁**严格串行、一次一个 Chromium**、日志全量落盘（禁 tail 截断）（`/tmp/opencode/v3-gate-logs/v3-1-closeout/`）；计数只增不减；F1/F6/F7 的新判据各自配套实跑反证（FAIL → 还原 → PASS）。",
+    "gateSetHistory": [
+      "~~体积守卫（content 177,076 无容差 / sidepanel ≤279,825）~~ —— 收口轮订正（validate R1 F8 + 编排器裁决，2026-09-16）：原文数字保留于此；现行为 ceiling 306,099 / 基线 295,225（经显式重登记订正；容差 5% 未变、SIDEPANEL_CEILING_CAP 只降不升、断言零删减）。"
+    ]
   },
   "openPoints": [
     {
@@ -186,7 +191,34 @@
       "at": "2026-09-16",
       "agent": "sddu-build（review 修复轮）",
       "note": "review R1（22 通过 / 16 改进 / 0 阻塞）后的修复轮：I1~I8 中severity 全部修复 + I9~I17 机械型低severity 全部修复；门禁串行全绿（typecheck / build / npm test 732 / supersession 11 / density 105 / l0 134 / ui 167 / insight 108 / binding 192 / hardening 24 / e2e PASS）；反证 RP-V3-01~06 实跑 + 新增 RP-V3-08（基线机器比对）+ I1 修复反证（移除修复即红、还原即绿）；体积按真实产物重登记 291,523 → 295,225 B（ceiling 306,099 未抬高、只降不升）；content.js 177,076 零改动；判定链与 src/content/** sha256 = pin；3 项如实登记 deferred（RP-02b/03/04 读取侧仍为副本、package.json 台账覆盖面、7px 几何薄余量）。"
+    },
+    {
+      "phase": "validated",
+      "at": "2026-09-16",
+      "agent": "sddu-validate",
+      "note": "R1 独立验证（**独立复现，不复用被验证方脚本作唯一证据**）：自写 C1~C4 度量实现（不 import test/ui/density-metrics.mjs）+ 自写风险祖先闭包探针 + 自写增量归属，产出 validate.md（V1~V12 策略）与 validate-report.md（R1 执行结论）。**结论 ⚠️ 有条件通过（0 阻塞）**。① 独立复现 25 个密度登记格（default 7/6/18/6·7/7/19/6·7/7/19/6 / firstRun 7/12/25/6×3 / risk 15 子场景 / worst 9/13/25/6）**逐格与被验证方一致（0 差值）**，自写增量归属违规 0；② E 稿「同源硬证明」独立复算成立（自写口径 ≡ 稿件 window.__density() 逐项相等），但公布数字 7/10/47/6 不可复现（实测 7/12/51/6，落差已登记）；③ 反证独立重跑 RP-V3-01/03/05/06/08 + I1 全部 FAIL→还原→PASS，扰动均在门禁真读路径、还原 sha256 逐字节复原（content 52a82620…/l0.mjs d5c55fe4…/decision-card 2e14e49d…）；④ 红线 hash 与 zero-diff 独立复核 100% 一致，content.js 可从源码字节级重建；⑤ 11 条门禁严格串行复跑全 0、计数与声称逐项一致（732/11/105/134/167/108/192/24/PASS）；⑥ 人工面 6 项如实登记 ⏳ 未执行。**独立新发现 8 项（0 🔴 / 2 🟠 / 5 🟡 / 1 🔵）**：F8（🟠 spec NFR-V3-005/AC-V3-016 与 state.json#gateSet 登记 sidepanel ≤279,825，产物/代码实为 295,225 / ceiling 306,099 —— 重登记按 NFR-V3-005「显式」要求完成且容差未放宽、I6 轮 ceiling 只降不升，但 spec 字面数值已被突破且未同步，需编排器/作者显式裁决）、F1（🟠 台账门禁按 hunk 重叠而非按行判定 → 3 条删除行未逐条登记，AC-V3-011 机器强制力不足）、F2（counts.nodeTestRuntime 731 ≠ 实测 732）、F3（staticCalibers 830/740 不可复现，实测 833/741）、F4（build.md §1 台账计数 26/9/12 ≠ 实际 37/15/11）、F5（「24 登记格」高估 2，实际机器比对 22 格）、F6（FR-V3-015「各带计数」未满足：`设置` 入口无计数且无门禁断言）、F7（风险可见性探针检不出 visibility:hidden/opacity:0 祖先；当前产物无此路径，属兜底覆盖面缺口）、F9（🔵 阶段 F 检查名与断言不等价）。已知风险复核：夹具非对称确认为真（#notice 29 字符，steady-state 320 = 223/19/7）、几何余量 7px 确认（#log 495 ≥ 488）、3 条 deferred 复核属实。**纪律**：未修改任何源码/测试/文档/配置（dist/** 重建除外，I1 反证扰动已 sha256 复原）、未 commit/push/add、main 未动、HEAD 仍 76d4154、探针只写 /tmp/opencode/v3-validate/；注：`/tool sddu_update_state` 在本会话不可见，本状态文件由 Agent 直接写入。"
+    },
+    {
+      "phase": "validated",
+      "at": "2026-09-16",
+      "agent": "sddu-build（validate 收口轮：F1~F9 处置 + 收口）",
+      "input": "validate-report.md R1（⚠️ 有条件通过 / 0 阻塞 / 独立新发现 F1~F9）+ 编排器裁决（F8 订正不豁免；F1 改按行；F6 优先真值计数否则登记豁免；F7 探针补判定；夹具确定性后按收紧流程重登记）",
+      "disposition": {
+        "F8": "**订正，不豁免**：本叶 spec.md §5 NFR-V3-005 / §7 AC-V3-016 + 本叶 state.json#gateSet（+ 父 spec.md 3 处 / 父 plan.md 5 处 / 父 state.json sizeGuards）的 sidepanel ≤279,825 → ≤306,099（基线 295,225）；每处**逐字保留历史行**（`~~279,825~~ → 306,099`、`~~266,500~~ → 295,225`；容差 5% 未变、cap 只降不升、断言零删减）。阈值 7/15 · 9/20 · 17/35 未动，ceiling 未抬高。",
+        "F1": "**改为按行包含判定**：`test/supersession-ledger.test.ts` 的覆盖率判据由「hunk 与已登记区间重叠」改为「**每一条删除行的 base 行号**必须落在本文件某个 `oldRange` 内（或命中 oldTitle）」，并新增「逐行判定数 > 0」防空转；台账补登 3 行（`size-budget.test.ts` old 272/273、`insight-archive.test.ts` old 771，条目 `V31-MR-F1`）。反证实跑：移出 [272,273] → 门禁 FAIL（逐行打印 old 272/273）→ 还原（sha256 2b0e58f0… 复原）→ 11/0 PASS。",
+        "F2": "台账 `counts.nodeTestRuntime.currentRuntime` 731 → **732**（按 `npm test` 实测订正，note 写入复现命令）。",
+        "F3": "台账 `staticCalibers.nodeTestStatic` 830/740 → **833 / 741**（确切正则 `\\btest\\(` / `(?<![\\w.])test\\(`），并新增第三种读法 `^test\\(` = **732**（与运行期 `ℹ tests` 逐值相等）；三种读法写入 `readings` 由门禁**机器复算**（不可再漂移）。",
+        "F4": "build.md §1 台账计数 26/9/12 → **39/15/11**（原文数字保留于该节订正注）。",
+        "F5": "阶段 F「24 登记格」→ **22**（改为机器计算 `comparedCells`；原文与订正说明保留于 build.md §5.1 I8）。",
+        "F6": "**走了登记豁免路线**（编排器允许的两条路之一，理由已逐条写入台账 `v3SkeletonExemptions#settings-count`）：L0 层派生不出设置项真值（设置视图懒挂载、`l0ViewModel()` 为纯函数；写死魔数被禁，改 src 会让编排器已钉死的体积登记值 295,225 B 失效）；新增门禁断言 `test/ui/l0.mjs §⑥b`：`连接树/命令目录/审计` 三入口必须「入口标签 ≡ data-count ≡ 状态栏摘要」**三处同源**，豁免入口必须显式 `data-count=\"n/a\"`，且「无计数入口集合 ⊆ 登记豁免集合（settings）且数量不得增长」；内联反证实跑：篡改 `#l2-entry-tree` 的 data-count → 判据 FAIL → 还原 → 空。",
+        "F7": "风险可见性探针**上移为口径单源**（`test/ui/density-metrics.mjs#riskVisibilityProbeSource`，两门禁共用），并补 `visibility:hidden` / `opacity:0` 祖先判定（与 C1「只豁免 hidden」对齐）；新增 `RP-V3-09` 反证实跑：`#risk-rail` 置 visibility:hidden / opacity:0 → 探针 FAIL（且旧判据三条件仍判通过，证明新判据是唯一拦截点）→ 还原 → PASS。",
+        "F9": "阶段 F 产物字节检查名改为「产物字节 ≤ 机读体积上限」，并注释指向 `test/size-budget.test.ts` 的 V31-S12 作为「未抬高」的唯一证明。",
+        "K-1/夹具": "**夹具确定性 + 320 格重登记**：`resetFixture()` 改为**两遍**（`fixturePass()` ×2），每格都测同一稳态；新增断言（每格 `#notice` 存在可见 + 默认档三视口逐项相等）+ `default@320` 由 194/18/6 **重登记为 223/19/7**（历史值逐字保留在 `docs/v3-density-baseline.json#tiers.default[\"320\"].previous`；阈值与 ceiling 未动）；订正「瞬时 #notice」措辞为「会话内持续存在」。"
+      },
+      "gates": "严格串行，全 0；计数只增不减：插件 732（不变）· journey 167 · insight 108 · binding 192 · hardening 24 · density 105 → **127** · l0 134 → **137** · supersession 11（不变）· e2e PASS；体积三线 content 177,076（sha256 52a82620…）/ sidepanel 295,225 ≤ 306,099；零改动核对全 0 diff；反证 RP-V3-01/03/05/06/08 + I1 复跑 + RP-V3-09（新）+ F1/F6 反证。",
+      "redlines": "密度阈值逐字 7/15 · 9/20 · 17/35；content.js 177,076 B 无容差零改动；manifest.json 零 diff（零新增权限、无 contextMenus）；判定链 sha256 = pin（policy.ts bfcb2ede… / auto-authorize.ts 1096d065…）；src/content/** 三 hash = pin；main 未动（2ddc922）；无新增依赖；未用 git add -A；ceiling 未抬高；测试只增不减、断言只强不弱。",
+      "deferred": "① 夹具「无 notice 会话态」需要产品侧清除通路（本轮为不改 src 而未做，已在 baseline#fixtureAsymmetry.residual 登记）；② 三个兄弟叶（v3-2/v3-3/v3-4）的 spec/tasks 与父 discovery.md 仍含旧 ceiling 279,825 —— 超出本轮裁决范围（**未**改动），建议各叶开工时按同一订正方式同步；③ 既有 deferred（RP-02b/03/04 读取侧副本、package.json 台账覆盖面、7px 几何薄余量）不变。"
     }
   ],
-  "phaseNote": "phase=reviewed（本叶由 build 推进到 reviewed：review 产物 review.md / review-report.md 已关联，且完成 R1 的 16 项改进修复中的 8 项中severity + 9 项机械型低severity）；修复轮改动与证据见 build.md §5；验证（validate）为下一阶段（@sddu-validate）。"
+  "phaseNote": "phase=validated（**保持 validated**；sddu-validate R1 结论 ⚠️ 有条件通过 / 0 阻塞，随后 sddu-build 执行**收口轮**：F1~F9 逐条处置 + 夹具确定性 + 320 格重登记，见 phaseHistory 末条 closeout 记录）。**F8 已按编排器裁决「订正、不豁免」落地**：本叶 spec.md §5/§7 与 state.json#gateSet（及父 spec.md/plan.md/state.json）的 sidepanel ≤279,825 → ≤306,099（基线 295,225），历史行逐字保留，阈值与 ceiling 未动。**F1 已改为按行判定**并补登 3 条删除行；F2/F3/F4/F5/F9 已订正为可复现值；F6 走登记豁免 + 可 FAIL 断言；F7 探针补判定并经 RP-V3-09 反证。收口轮门禁严格串行全 0、计数只增不减（density 105→127 / l0 134→137）；红线零漂移（判定链与 src/content/** sha256 = pin、content.js 177,076、manifest 0 diff、main 未动、ceiling 未抬高）。注：`/tool sddu_update_state` 在本会话不可见，state.json 由 Agent 直接写入。"
 }

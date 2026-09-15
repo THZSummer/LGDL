@@ -56,7 +56,7 @@
 | 既有提示位 | `#env-guard` / `#site-hint` / `#onboarding` / `#discovery-notice` / `#notice` / `#send-reason` / `#consent-slot` | 全部留在 `#panel-bottom`，**归属不变**（首装态可见） |
 | `#composer` / `#input` / `#send` | `#panel-bottom` 末元素 | 默认 `hidden`；由末项「其他…（我来描述）」展开 |
 | tokens | `:root` 内 `--*` 引用 249 处 + 暗色 `@media` 覆盖 | 复用；新增 token 必须双主题对称 |
-| 体积 | sidepanel 266,500 / ceiling 279,825（5% 容差）；content 177,076（无容差） | 本叶**不碰** `content.js`；`sidepanel.js` 增量见表 §2.6 |
+| 体积 | sidepanel ~~266,500~~ → **295,225** / ceiling ~~279,825~~ → **306,099**（5% 容差）；content 177,076（无容差）（**收口轮订正 2026-09-16，validate R1 F8 + 编排器裁决**：`~~279,825~~ → 306,099`、`~~266,500~~ → 295,225`（经显式重登记订正；容差 5% 未变、`SIDEPANEL_CEILING_CAP` 只降不升、断言零删减、历史值逐字保留）。原文如下） | 本叶**不碰** `content.js`；`sidepanel.js` 增量见表 §2.6 |
 | 既有门禁 helper | `test/ui/*.mjs` 各自内联（无共享模块） | v3 门禁自带 `_v3-helpers.mjs`（ADR-V3-003 第 5 条） |
 | 计数下界守卫 | `test/insight-tree-hierarchy.test.ts#currentNodeTestCount()` ≥ 646 | 本叶新增 node 测试只增不减 |
 
@@ -149,7 +149,7 @@
 | 项 | 预估 / 事实 |
 |---|---|
 | `src/ui/sidepanel/index.html` 增量 | 静态骨架（L0 分区 + 风险位 + 状态栏 + 入口面板 + 样式）→ **~+6~9 KB**（html 不在 js 守卫口径） |
-| `src/ui/sidepanel/{l0/*,disclosure.ts,status-bar.ts}` | 逻辑 ~+8~12 KB 源码 → `sidepanel.js` 增量预估 **+8~12 KB**（266,500 → ~274,500~278,500，**贴近 ceiling 279,825**） |
+| `src/ui/sidepanel/{l0/*,disclosure.ts,status-bar.ts}` | 逻辑 ~+8~12 KB 源码 → `sidepanel.js` 增量预估 **+8~12 KB**（~~266,500 → ~274,500~278,500，贴近 ceiling 279,825~~ → 实际重登记为 **295,225 ≤ 306,099**，见 spec.md §5/§7 订正说明；原文按下不删） |
 | 是否触发重登记 | **可能**（贴合度太近）→ 按父 ADR-V3-011 在**本叶内**完成显式重登记与反证复跑 |
 | 既有断言取代量 | **最小**：journey `#15c` 同编号改写（1 条）；binding 自由文本相关（`#6a`/`#6`/`#6l`，同编号前置展开）；insight 几何 3 条按 union 口径迁移到 `test/ui/l0.mjs`。台账由本叶建立 |
 

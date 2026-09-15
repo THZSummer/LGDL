@@ -7,11 +7,22 @@
  *
  * What it enforces, per requirement:
  *
- *   1. **hunk ↔ ledger** — for every protected file, every `git diff -U0 <base>`
- *      hunk that DELETES or REWRITES a line must either (a) contain an
- *      `entries[].oldTitle` string, or (b) overlap a `modifiedRanges` interval
- *      recorded for that file. Otherwise the gate fails and prints the deleted
- *      lines (this is what stops "delete first, explain later").
+ *   1. **line ↔ ledger (per-line, NOT per-hunk)** — for every protected file,
+ *      every line DELETED or REWRITTEN by `git diff -U0 <base>` must either
+ *      (a) match an `entries[].oldTitle` string, or (b) fall **inside** a
+ *      `modifiedRanges` interval recorded for that file (its base line number is
+ *      contained in `oldRange`). Otherwise the gate fails and prints the escaped
+ *      line with its base line number (this is what stops "delete first, explain
+ *      later").
+ *
+ *      **Closeout round (2026-09-16, validate R1 F1).** The judge used to be
+ *      *hunk-overlap*: a hunk passed as soon as it overlapped a registered range,
+ *      so a neighbouring registered line carried 3 unregistered deletions
+ *      (`size-budget.test.ts` old 272/273, `insight-archive.test.ts` old 771)
+ *      through and AC-V3-011 lost its machine force. Per-line containment is
+ *      strictly stronger than hunk overlap (every line inside ⇒ hunk overlaps;
+ *      the converse does not hold), and the 3 lines are now registered
+ *      (`V31-MR-F1`).
  *   2. **protected byte ranges** — designated regions (journey `#15a~#15q`,
  *      binding `#21*`/`#22*`) are pinned by **byte-range sha256**, not by line
  *      numbers, so they survive unrelated insertions above them.
@@ -40,7 +51,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -94,6 +105,13 @@ interface ProtectedRange {
   sha256: string;
   lineCount: number;
 }
+interface StaticReading {
+  regex: string;
+  count: number;
+  /** `true` when the regex also counts regex-method calls (the dotted form). */
+  includesRegexMethodCalls?: boolean;
+  note?: string;
+}
 interface Ledger {
   version: string;
   feature: string;
@@ -102,7 +120,7 @@ interface Ledger {
   /** Human-readable definition of every caliber that appears in `counts`. */
   countCalibers: Record<string, string>;
   counts: Record<string, { baselineRuntime?: number; currentRuntime: number; countMethod: string; floor: number; note: string }>;
-  staticCalibers: Record<string, { countMethod: string; baselineStatic: number; currentStatic: number; floor: number; note: string }>;
+  staticCalibers: Record<string, { countMethod: string; baselineStatic: number; currentStatic: number; floor: number; note: string; readings?: Record<string, StaticReading> }>;
   gateFloors: Record<string, number>;
   v3GateFloors: Record<string, number>;
   v3CaliberPins: Record<string, { countMethod: string; note: string; pins: string[] }>;
@@ -152,6 +170,21 @@ function deletionHunks(file: string) {
   }
   if (cur) hunks.push(cur);
   return hunks.filter((h) => h.deleted.length > 0);
+}
+
+/**
+ * Every deleted/rewritten line of `file`, with its **base line number**.
+ *
+ * Closeout round (F1): the coverage judge is per-line, so it needs line numbers,
+ * not hunk extents. `-U0` hunks only contain deletions, so within a hunk the
+ * i-th `-` line is `oldStart + i`.
+ */
+function deletionLines(file: string): Array<{ line: number; text: string }> {
+  const out: Array<{ line: number; text: string }> = [];
+  for (const hunk of deletionHunks(file)) {
+    hunk.deleted.forEach((text, i) => out.push({ line: hunk.oldStart + i, text }));
+  }
+  return out;
 }
 
 // ── 1. schema + count discipline ─────────────────────────────────────────────
@@ -205,6 +238,36 @@ test('ledger: 计数只增不减（currentRuntime ≥ gateFloors）', () => {
     staticCaliber.currentStatic >= staticCaliber.baselineStatic,
     `node 静态 test( 计数不得低于基线：${staticCaliber.currentStatic} < ${staticCaliber.baselineStatic}`,
   );
+
+  // ── F3 (closeout round): a registered static count nobody can recompute is not a
+  // caliber. Every `staticCalibers[*].readings` entry declares its EXACT regex and
+  // count; the gate recompiles the regex over the same file set and requires the
+  // numbers to match the ledger, and requires `currentStatic` to equal the reading
+  // it claims to use. The regexes used to be described in prose ("含点号前缀 830 /
+  // 排除点号前缀 740") and neither number was reproducible (measured: 833 / 741).
+  const readings = staticCaliber.readings ?? {};
+  const readingKeys = Object.keys(readings);
+  assert.ok(readingKeys.length >= 2, `静态口径必须登记 ≥2 种可复算读法（实测 ${readingKeys.length}）`);
+  const staticFiles = readdirSync(resolve(REPO, 'packages/web-cli-plugin/test'), { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.test.ts'))
+    .map((e) => resolve(REPO, 'packages/web-cli-plugin/test', e.name))
+    .sort();
+  assert.ok(staticFiles.length > 0, '静态口径的文件集合不得为空（否则复算是空转）');
+  const staticText = staticFiles.map((f) => readFileSync(f, 'utf8')).join('\n');
+  const mismatches: string[] = [];
+  for (const [key, reading] of Object.entries(readings)) {
+    assert.ok((reading.regex ?? '').length > 0, `${key} 必须给出确切正则（不得只写自然语言口径）`);
+    const actual = (staticText.match(new RegExp(reading.regex, 'gm')) ?? []).length;
+    if (actual !== reading.count) {
+      mismatches.push(`${key} (/${reading.regex}/gm): 实测 ${actual} ≠ 登记 ${reading.count}`);
+    }
+  }
+  assert.deepEqual(mismatches, [], `静态口径登记值不可复算（F3）：\n${mismatches.join('\n')}`);
+  assert.equal(
+    staticCaliber.currentStatic,
+    readings.excludingDottedPrefix?.count,
+    'currentStatic 必须等于它所声明的读法（excludingDottedPrefix）的复算值',
+  );
 });
 
 // ── 1b. pure-addition files: the hunk↔ledger check does NOT apply (I4②) ─────
@@ -253,7 +316,7 @@ test('ledger: modificationType=pure-addition 的条目 oldTitle 必须为 null�
   assert.deepEqual(stillPresent, [], `以下「被取代文本」仍存在于目标文件（登记失真）：\n${stillPresent.join('\n')}`);
 });
 
-test('ledger: 既有门禁文件零删除——每个删除/改写 hunk 必须命中台账或 modifiedRanges', () => {
+test('ledger: 既有门禁文件零删除——**每一条删除行**必须逐行命中台账或 modifiedRanges', () => {
   const files = new Set<string>([
     ...ledger.modifiedRanges.map((r) => r.file),
     ...ledger.entries.map((e) => e.file).filter((f) => !f.includes('*')),
@@ -261,27 +324,36 @@ test('ledger: 既有门禁文件零删除——每个删除/改写 hunk 必须�
   ]);
   const failures: string[] = [];
   let checkedFiles = 0;
+  let checkedLines = 0;
   for (const file of files) {
     if (!existsSync(resolve(REPO, file))) continue;
-    // I4②: pure-addition files (0 deleted lines) are excluded from the per-hunk
+    // I4②: pure-addition files (0 deleted lines) are excluded from the per-line
     // check **explicitly** (they are asserted by the 1b test instead). Registering
     // them here made the check vacuously true and looked like real coverage.
     if (ledger.pureAdditionFiles.includes(file)) continue;
-    if (deletionHunks(file).length > 0) checkedFiles += 1;
     const ranges = ledger.modifiedRanges.filter((r) => r.file === file);
     const titles = ledger.entries.filter((e) => e.file === file).map((e) => e.oldTitle);
-    for (const hunk of deletionHunks(file)) {
+    const lines = deletionLines(file);
+    if (lines.length > 0) checkedFiles += 1;
+    for (const deleted of lines) {
+      checkedLines += 1;
+      // Per-LINE containment (F1): the line's own base line number must sit inside
+      // a registered interval — a *neighbouring* registered line no longer carries
+      // it through.
       const coveredByRange = ranges.some(
-        (r) => hunk.oldStart + hunk.oldCount - 1 >= r.oldRange[0] && hunk.oldStart <= r.oldRange[1],
+        (r) => deleted.line >= r.oldRange[0] && deleted.line <= r.oldRange[1],
       );
-      const coveredByTitle = hunk.deleted.some((line) => titles.some((t) => t && line.includes(t)));
+      const coveredByTitle = titles.some((t) => t !== null && deleted.text.includes(t));
       if (!coveredByRange && !coveredByTitle) {
-        failures.push(`${file} @@ -${hunk.oldStart},${hunk.oldCount}: ${hunk.deleted.map((l) => l.trim()).join(' ⏎ ')}`);
+        failures.push(`${file} old ${deleted.line}: ${deleted.text.trim()}`);
       }
     }
   }
   assert.ok(checkedFiles > 0, '本检查必须真的覆盖到至少一个有删除行的文件（否则是空转）');
-  assert.deepEqual(failures, [], `以下删除行未命中台账：\n${failures.join('\n')}`);
+  // Anti-vacuity at LINE granularity too: a file set that yields zero deleted lines
+  // would make the per-line judge pass without judging anything.
+  assert.ok(checkedLines > 0, '本检查必须真的逐行判定至少一条删除行（否则是空转）');
+  assert.deepEqual(failures, [], `以下删除行未按行命中台账（逐行判定）：\n${failures.join('\n')}`);
 });
 
 // ── 2. protected byte ranges ────────────────────────────────────────────────

@@ -23,9 +23,15 @@
  *      `docs/v3-density-baseline.json`; any divergence is a FAIL with a readable
  *      diff (the registry can no longer drift silently).
  *
- * `--reverse RP-V3-01..04,08` runs one counter-proof (see TASK-111 / the I8 fix
- * round). Every driver asserts BOTH halves — "must FAIL" and "must PASS again
- * after restore" — and exits non-zero if either half is missing (a counter-proof
+ * Closeout round (2026-09-16, validate R1): the fixture runs in TWO passes so every
+ * cell reaches the same settled session state (`assertFixtureSettled()` asserts it
+ * per cell, and the default tier must be identical across the three viewports);
+ * stage F's cell count is computed instead of transcribed (F5) and its byte check is
+ * named for what it proves (F9).
+ *
+ * `--reverse RP-V3-01..04,08,09` runs one counter-proof (see TASK-111 / the I8 and
+ * closeout rounds). Every driver asserts BOTH halves — "must FAIL" and "must PASS
+ * again after restore" — and exits non-zero if either half is missing (a counter-proof
  * that cannot fail is not a counter-proof, NFR-V3-013).
  *
  * Serial discipline (NFR-V3-012): exactly ONE Chromium instance, ONE page target,
@@ -64,6 +70,7 @@ import {
   evaluateDelta,
   evaluateDensity,
   measureSourceForRoot,
+  riskVisibilityProbeSource,
 } from './density-metrics.mjs';
 
 const DESIGN_DIR = resolve(PACKAGE_ROOT, 'design/ui-redesign');
@@ -85,28 +92,13 @@ const REVERSE = argv.includes('--reverse') ? argv[argv.indexOf('--reverse') + 1]
 
 // ── in-page probes ───────────────────────────────────────────────────────────
 
-/** The AC-V3-008 / AC-V3-009 risk-visibility probe (shared with `test/ui/l0.mjs`). */
-const riskVisibleExpr = (cls) => `(() => {
-  const row = document.querySelector('#risk-rail .risk-row[data-risk-class="${cls}"]');
-  if (!row) return { ok: false, why: '风险行不存在' };
-  const chain = [];
-  let node = row;
-  while (node) { chain.push(node); node = node.parentElement; }
-  const hiddenAncestor = chain.find((n) => n.hidden === true);
-  if (hiddenAncestor) return { ok: false, why: '祖先链含 hidden=' + hiddenAncestor.id };
-  const folded = chain.find((n) => n.hasAttribute && (n.hasAttribute('data-l1-panel') || n.hasAttribute('data-l2-view') || n.hasAttribute('data-disclose-panel')));
-  if (folded) return { ok: false, why: '祖先链含折叠容器 ' + (folded.id || folded.className) };
-  const rect = row.getBoundingClientRect();
-  if (!(rect.height > 0)) return { ok: false, why: '渲染高度为 0' };
-  if (rect.bottom < 0 || rect.top > window.innerHeight) return { ok: false, why: '不在默认视口内' };
-  const text = (row.querySelector('.risk-text')?.textContent ?? '').trim();
-  const badge = (row.querySelector('.risk-badge')?.textContent ?? '').trim();
-  const icon = row.querySelector('.risk-icon');
-  if (!text) return { ok: false, why: '文字通道为空' };
-  if (!badge) return { ok: false, why: '徽标通道为空' };
-  if (!icon) return { ok: false, why: '图标通道缺失' };
-  return { ok: true, text, badge };
-})()`;
+/** The AC-V3-008 / AC-V3-009 risk-visibility probe (shared with `test/ui/l0.mjs`).
+ *
+ * Closeout round (F7): the implementation moved to the single-source module
+ * (`density-metrics.mjs#riskVisibilityProbeSource`) so the two runtime gates can no
+ * longer disagree about what "visible" means, and so the `visibility:hidden` /
+ * `opacity:0` ancestor gap is fixed in exactly one place. */
+const riskVisibleExpr = riskVisibilityProbeSource;
 
 /** Per-element contribution snapshot for the RP-V3-03 counter-proof. */
 const c1Probe = `(() => {
@@ -181,12 +173,11 @@ async function authorize(cdp) {
 }
 
 /**
- * THE default fixture (spec §9.2 "L0 默认态"):
- * bound + authorized + probe finished + no pending confirmation +
- * onboarding / discovery-notice terminated; every disclosure layer folded; one
- * decision card with four options (so the clickable budget sits exactly at 7).
+ * ONE fixture pass: bind + authorize + fold every disclosure + one decision card.
+ *
+ * Not called directly — `resetFixture()` runs it twice (see the determinism note).
  */
-async function resetFixture(cdp, { authorized = true, ask = true, configured = true } = {}) {
+async function fixturePass(cdp, { authorized = true, ask = true, configured = true } = {}) {
   await setLlm(cdp, configured);
   const bound = await bindOrigin(cdp);
   if (!bound) throw new Error('fixture: origin 绑定失败');
@@ -214,6 +205,64 @@ async function resetFixture(cdp, { authorized = true, ask = true, configured = t
   }
   await sleep(350);
   return { authorized: authOk };
+}
+
+/**
+ * THE default fixture (spec §9.2 "L0 默认态"): bound + authorized + probe finished
+ * + no pending confirmation + onboarding / discovery-notice terminated; every
+ * disclosure layer folded; one decision card with four options (so the clickable
+ * budget sits exactly at 7).
+ *
+ * ── Fixture determinism (closeout round, validate R1 F2/K-1) ─────────────────
+ *
+ * The fixture runs in **two passes** and the *second* one is what the gate
+ * measures. Reason: `#notice`(「页面已导航：会话上下文失效，请重新授权/重连（不静默续接）」,
+ * 29 chars) is produced when the panel reloads while a session for the fixture
+ * origin is already bound to the panel's OWN tab — which is true from the 2nd
+ * fixture run onward, and never on the very first run of a fresh browser. Measuring
+ * the 1st pass therefore produced a non-reproducible cell: `default@320` registered
+ * 194 chars / 18 blocks / 6 lines while `default@400`/`@520` registered 223 / 19 / 7
+ * — the whole difference being that notice (I8 had registered it as a fixture
+ * asymmetry instead of fixing it).
+ *
+ * The notice is **not** transient: validate R1 independently measured the same 29
+ * chars persisting inside the session for every subsequent cell, so the settled
+ * state (notice present) is the product behaviour a long-lived panel actually has.
+ * Making every cell run two passes makes every cell reach that same settled state
+ * *by construction* instead of depending on run order (`#notice` cannot come and go),
+ * and `assertFixtureSettled()` below asserts it per cell — an assertion that did not
+ * exist before and that the asymmetry would have failed.
+ */
+async function resetFixture(cdp, opts = {}) {
+  await fixturePass(cdp, opts);
+  return fixturePass(cdp, opts);
+}
+
+/**
+ * The settled-state anchor, read after every `resetFixture()`: the fixture must be
+ * in the SAME state for every cell (the 29-char `#notice` of the settled session is
+ * present, not absent). Returns the raw probe so a mismatch can be printed.
+ */
+const settledProbe = `(() => {
+  const n = document.getElementById('notice');
+  return JSON.stringify({
+    noticeExists: Boolean(n),
+    noticeHidden: n ? n.hidden : null,
+    noticeLen: n ? (n.textContent || '').length : null,
+    noticeText: n ? (n.textContent || '').slice(0, 60) : null,
+  });
+})()`;
+
+/** Assert the fixture reached the settled state (one FAIL-able check per cell). */
+async function assertFixtureSettled(cdp, label) {
+  const raw = await evaluate(cdp, settledProbe);
+  const s = JSON.parse(raw);
+  check(
+    `${label} 夹具确定性：达到同一稳态（#notice 持续存在的会话态，而非首次运行的未稳态）`,
+    s.noticeExists === true && s.noticeHidden === false && s.noticeLen > 0,
+    raw,
+  );
+  return s;
 }
 
 /** Force / hide a risk projection (AC-V3-003's attribution needs an exact pair). */
@@ -367,6 +416,7 @@ async function stageB(cdp) {
       await setViewport(cdp, vp, VIEWPORT_HEIGHT);
       await resetFixture(cdp, { authorized: true, ask: true, configured: tier !== 'firstRun' });
       await sleep(250);
+      await assertFixtureSettled(cdp, `${tier}@${vp}`);
       const measured = await measure(cdp);
       const measuredAgain = await measure(cdp);
       const verdict = evaluateDensity(measured, tier);
@@ -402,6 +452,23 @@ async function stageB(cdp) {
       }
     }
   }
+  // Fixture determinism (closeout round, F2/K-1): the default tier is a *state*, not
+  // a viewport-dependent layout, so a deterministic fixture must produce identical
+  // cells at 320 / 400 / 520. The old asymmetry (`default@320` = 194/18/6 vs
+  // 400/520 = 223/19/7) is exactly what this assertion FAILS on.
+  const defaultRows = rows.filter((r) => r.tier === 'default');
+  const firstMeasured = defaultRows[0]?.measured;
+  const drift = defaultRows
+    .filter((r) => r.measured.clickables !== firstMeasured.clickables
+      || r.measured.lines !== firstMeasured.lines
+      || r.measured.blocks !== firstMeasured.blocks
+      || r.measured.chars !== firstMeasured.chars)
+    .map((r) => `default@${r.vp}: ${fmt(r.measured)} ≠ default@${defaultRows[0].vp}: ${fmt(firstMeasured)}`);
+  check(
+    '默认档夹具确定性：三视口逐项相等（可点/行/块/chars，同一稳态 ⇒ 无视口差异）',
+    Boolean(firstMeasured) && defaultRows.length === DENSITY_VIEWPORTS.length && drift.length === 0,
+    drift.join(' | ') || `rows=${defaultRows.length}`,
+  );
   return rows;
 }
 
@@ -414,6 +481,7 @@ async function stageC(cdp) {
       // base = the exact same fixture with the risk projection suppressed
       await setViewport(cdp, vp, VIEWPORT_HEIGHT);
       await resetFixture(cdp, { authorized: sub.key !== 'unauthorized', ask: true });
+      await assertFixtureSettled(cdp, `risk(${sub.key})@${vp}`);
       if (sub.key === 'unauthorized') await setRisk(cdp, 'unauthorized', 'off');
       await sleep(250);
       const base = await measure(cdp);
@@ -515,8 +583,14 @@ async function stageF(cdp, rows, cells, worst) {
     console.log('    漂移明细（可读差异）：');
     for (const line of diffs) console.log(`      · ${line}`);
   }
+  // F5 (closeout round): the compared-cell count is COMPUTED, never transcribed.
+  // It used to be the hard-coded "24" in the log line below, which double-counted
+  // the 3 risk viewport cells that only ever exist as members of the 15-cell
+  // sub-scenario set (9 mandatory + 15 risk + 1 worst ≠ the 22 cells actually
+  // compared: 6 non-risk rows + 15 risk sub-cells + 1 worst).
+  const comparedCells = rows.filter((r) => r.tier !== 'risk').length + cells.length + 1;
   check(
-    `F ${rows.filter((r) => r.tier !== 'risk').length + cells.length + 1} 个登记格实测 == 基线登记值（漂移即 FAIL）`,
+    `F ${comparedCells} 个登记格实测 == 基线登记值（漂移即 FAIL）`,
     diffs.length === 0,
     diffs.slice(0, 8).join(' | '),
   );
@@ -552,15 +626,22 @@ async function stageF(cdp, rows, cells, worst) {
     artifactBytes === baseline.volume?.registeredBaselineBytes,
     `实测 ${artifactBytes}B ≠ 登记 ${baseline.volume?.registeredBaselineBytes}B`,
   );
+  // F9 (closeout round): the check name must say what the assertion actually
+  // proves — "artifact ≤ the machine-read ceiling", NOT "the ceiling was not
+  // raised". The only proof of "not raised" is V31-S12 in
+  // `test/size-budget.test.ts` (`SIDEPANEL_CEILING <= previousCeilingBytes` plus the
+  // tighten-only `SIDEPANEL_CEILING_CAP`, asserted in that file's
+  // 「ceiling is min(baseline × 1.05, cap) — 只降不升（I6）」 test); this stage only
+  // cross-checks the artifact against the registered ceiling.
   check(
-    'F 产物字节 ≤ 体积上限（ceiling 未因登记保真被抬高）',
+    'F 产物字节 ≤ 机读体积上限（「未抬高」的唯一证明在 test/size-budget.test.ts#V31-S12）',
     artifactBytes <= baseline.volume?.ceilingBytes,
     `实测 ${artifactBytes}B > 上限 ${baseline.volume?.ceilingBytes}B`,
   );
   console.log(
-    `  · 基线比对：24 格 + 几何下界（来源 ${baseline.logClientHeightMeasuredWorst}px / 下界 ${baseline.logClientHeightFloor}px）+ 产物 ${artifactBytes}B / 上限 ${baseline.volume?.ceilingBytes}B`,
+    `  · 基线比对：${comparedCells} 格 + 几何下界（来源 ${baseline.logClientHeightMeasuredWorst}px / 下界 ${baseline.logClientHeightFloor}px）+ 产物 ${artifactBytes}B / 上限 ${baseline.volume?.ceilingBytes}B`,
   );
-  return { diffs, artifactBytes, logClientHeight };
+  return { diffs, artifactBytes, logClientHeight, comparedCells };
 }
 
 // ── stage D/E ───────────────────────────────────────────────────────────────
@@ -705,6 +786,67 @@ async function reverseRp04(cdp) {
 }
 
 /**
+ * RP-V3-09 (closeout round, validate R1 **F7**) — the risk-visibility probe must
+ * catch **CSS concealment** of an ancestor.
+ *
+ * `visibility:hidden` and `opacity:0` do not change `getBoundingClientRect()`, so
+ * the pre-fix probe (hidden-ancestor + foldable-ancestor + non-zero box) reported
+ * `ok: true` for a risk rail that was visually gone — while C1 explicitly refuses to
+ * exempt those very properties. The perturbation is applied to the REAL ancestor
+ * (`#risk-rail`, i.e. the row's parent chain — not the row itself), on the same
+ * expression the gate uses, and the old criteria are asserted to still hold so the
+ * proof shows the new clause is the only thing that can catch it.
+ */
+async function reverseRp09(cdp) {
+  console.log('\n▶ RP-V3-09：风险位 CSS 隐身（visibility:hidden / opacity:0）→ 探针必须 FAIL → 还原 → PASS');
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  await resetFixture(cdp);
+  await assertFixtureSettled(cdp, 'RP-V3-09');
+  await setRisk(cdp, 'hardline', 'force');
+  await sleep(200);
+  const before = await evaluate(cdp, riskVisibleExpr('hardline'));
+  check('RP-V3-09 前置：风险行可见（基线 PASS）', before.ok === true, JSON.stringify(before));
+
+  /** The pre-fix criteria, asserted independently: they must ALL still hold under CSS concealment. */
+  const legacyProbe = `(() => {
+    const row = document.querySelector('#risk-rail .risk-row[data-risk-class="hardline"]');
+    if (!row) return { ok: false };
+    let chain = []; let node = row;
+    while (node) { chain.push(node); node = node.parentElement; }
+    const hiddenAncestor = chain.some((n) => n.hidden === true);
+    const folded = chain.some((n) => n.hasAttribute && (n.hasAttribute('data-l1-panel') || n.hasAttribute('data-l2-view') || n.hasAttribute('data-disclose-panel')));
+    const rect = row.getBoundingClientRect();
+    return { ok: !hiddenAncestor && !folded && rect.height > 0 };
+  })()`;
+
+  const cases = [
+    { prop: 'visibility', value: 'hidden' },
+    { prop: 'opacity', value: '0' },
+  ];
+  for (const c of cases) {
+    await evaluate(cdp, `(() => { document.getElementById('risk-rail').style.${c.prop} = ${JSON.stringify(c.value)}; return true; })()`);
+    await sleep(150);
+    const concealed = await evaluate(cdp, riskVisibleExpr('hardline'));
+    check(
+      `RP-V3-09 (FAIL 段) 祖先 ${c.prop}:${c.value} 必须被判为不可见`,
+      concealed.ok === false && /CSS 隐身/.test(String(concealed.why)),
+      JSON.stringify(concealed),
+    );
+    const legacy = await evaluate(cdp, legacyProbe);
+    check(
+      `RP-V3-09 对照：旧判据（hidden / 折叠容器 / rect 高度）在 ${c.prop}:${c.value} 下仍判「通过」——新判据是唯一拦截点`,
+      legacy.ok === true,
+      JSON.stringify(legacy),
+    );
+    await evaluate(cdp, `(() => { document.getElementById('risk-rail').style.${c.prop} = ''; return true; })()`);
+    await sleep(150);
+    const restored = await evaluate(cdp, riskVisibleExpr('hardline'));
+    check(`RP-V3-09 (还原后 PASS 段) 还原 ${c.prop} 后必须 PASS`, restored.ok === true, JSON.stringify(restored));
+  }
+  await setRisk(cdp, 'hardline', 'off');
+}
+
+/**
  * RP-V3-08 (review I8) — **the registry comparison must be able to fail**.
  *
  * The perturbation is applied to the REAL registry file that stage F reads
@@ -808,6 +950,9 @@ async function main() {
           break;
         case 'RP-V3-08':
           await reverseRp08(cdp);
+          break;
+        case 'RP-V3-09':
+          await reverseRp09(cdp);
           break;
         default:
           throw new Error(`未知反证：${REVERSE}`);

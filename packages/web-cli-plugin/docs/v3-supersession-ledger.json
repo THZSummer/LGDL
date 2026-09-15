@@ -4,7 +4,7 @@
   "base": "c2c0e0d",
   "metric": "runtime assertions (`check(...)` / `assert` calls) for the browser gates + node `test(` registrations, each in its OWN declared caliber (see countCalibers)",
   "literalRemovedZero": true,
-  "literalRemovedZeroNote": "v3-1 零删除：受保护文件中**真正有删除行**的每一个删除/改写 hunk 都在 modifiedRanges 中逐条登记（oldRange 用 base 行号，deletedLinesText 保留原文）；entries[].newTitle 全部可在目标文件定位（防橡皮图章），且 non-pure-addition 条目的 oldTitle 必须**已不存在**于目标文件。纯新增（0 删除行）文件单独归类于 pureAdditionFiles —— hunk↔台账校验对其不适用，改由「0 删除行」断言保证（I4②）。",
+  "literalRemovedZeroNote": "v3-1 零删除（**按行**判据，收口轮 / validate R1 F1 订正）：受保护文件相对 base 的每一**删除行**（`git diff -U0` 逐行展开，带 base 行号）都必须被台账覆盖——该行号落在本文件的某个 `modifiedRanges[].oldRange` 区间内，或该行文本包含本文件某个 `entries[].oldTitle`；否则门禁 FAIL 并逐行打印未命中行。旧实现按「hunk 与已登记区间的**重叠**」判定，导致 3 条删除行（size-budget.test.ts old 272/273、insight-archive.test.ts old 771）借同 hunk 相邻行已登记而整 hunk 通过（AC-V3-011 的机器强制力不足）。这 3 行已按 V31-MR-F1 逐条补登；门禁改为按行包含后，判据严格强于 hunk 重叠（逐行命中 ⇒ hunk 必然重叠，反向不成立）。`entries[].newTitle` 全部可在目标文件定位（防橡皮图章），且 non-pure-addition 条目的 oldTitle 必须**已不存在**于目标文件。纯新增（0 删除行）文件单独归类于 pureAdditionFiles —— 按行校验对其不适用，改由「0 删除行」断言保证（I4②）。",
   "counts": {
     "journey": {
       "baselineRuntime": 167,
@@ -36,10 +36,10 @@
     },
     "nodeTestRuntime": {
       "baselineRuntime": 646,
-      "currentRuntime": 731,
+      "currentRuntime": 732,
       "countMethod": "runtime-node-tests",
       "floor": 646,
-      "note": "node 运行期用例 646 → 731（只增不减；v3-1 新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件，修复轮又新增台账/基线保真用例）。口径 = `npm test` 日志的 `ℹ tests`；与静态口径（staticCalibers.nodeTestStatic）分别登记，不得混用（I4③）。"
+      "note": "node 运行期用例 646 → **732**（只增不减；v3-1 新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件，修复轮又新增台账/基线保真用例）。口径 = `npm test` 日志的 `ℹ tests`（2026-09-16 收口轮实测 732；复现：`npm test --workspace @lgdl/web-cli-plugin` 后 `grep \"^ℹ tests\"`）。validate R1（F2）指出旧登记值 731 与实测差 1 → 本轮按实测订正为 732（仍 ≥ 646 下界，方向不越界）。与静态口径（staticCalibers.nodeTestStatic）分别登记，不得混用（I4③）。"
     }
   },
   "gateFloors": {
@@ -50,8 +50,8 @@
     "nodeTestRuntime": 646
   },
   "v3GateFloors": {
-    "packages/web-cli-plugin/test/ui/l0.mjs": 65,
-    "packages/web-cli-plugin/test/ui/density.mjs": 54
+    "packages/web-cli-plugin/test/ui/l0.mjs": 68,
+    "packages/web-cli-plugin/test/ui/density.mjs": 60
   },
   "protectedRanges": [
     {
@@ -534,6 +534,20 @@
     {
       "file": "packages/web-cli-plugin/test/size-budget.test.ts",
       "oldRange": [
+        272,
+        273
+      ],
+      "newRange": [
+        358,
+        362
+      ],
+      "deletedLines": 2,
+      "oldId": "V31-MR-F1",
+      "reason": "size-budget.test.ts 的 V2-4 ceiling 结构一致性用例：old 272 = test 标题行、old 273 = `assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE)));`，二者在同一次改写中被替换为 `min(floor(baseline × 1.05), cap)` 形式的新用例（newRange 358-362）。validate R1（F1）复算发现：本行此前借同 hunk 相邻行已登记而整 hunk 通过（旧门禁按 **hunk 与已登记区间的重叠** 判定，而非按行包含）。语义上本行已由 V31-S11 / V31-S12 的同一次改写取代，属**登记补齐**（不是断言放宽）。收口轮已把门禁改为**按行包含**（逐行命中 oldRange 或 oldTitle），本行是新判定下必须逐条登记的 3 行之一。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
         274,
         274
       ],
@@ -620,6 +634,20 @@
       "addedLinesText": [],
       "oldId": "V31-MR",
       "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        771,
+        771
+      ],
+      "newRange": [
+        779,
+        783
+      ],
+      "deletedLines": 1,
+      "oldId": "V31-MR-F1",
+      "reason": "insight-archive.test.ts 的 A9 基线重登记用例：old 771 = `assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05));`（纯删除，同 hunk 内无替换文本），其职责由 newRange 779-783 的 `assert.equal(SIDEPANEL_CEILING, Math.min(Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05), SIDEPANEL_CEILING_CAP), 'ceiling = min(floor(baseline × 1.05), cap)')` 承担。validate R1（F1）复算发现：本行此前借同 hunk 相邻行已登记而整 hunk 通过（旧门禁按 **hunk 与已登记区间的重叠** 判定，而非按行包含）。语义上本行已由 V31-S11 / V31-S12 的同一次改写取代，属**登记补齐**（不是断言放宽）。收口轮已把门禁改为**按行包含**（逐行命中 oldRange 或 oldTitle），本行是新判定下必须逐条登记的 3 行之一。"
     },
     {
       "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
@@ -1139,16 +1167,36 @@
   "countCalibers": {
     "runtime-check-calls": "门禁脚本内的运行期断言调用点（`check(` / `assert(`）；台账下界按**调用点**计，运行日志按**执行次数**计——两者同口径不可混用，必须标明用的是哪一个。",
     "runtime-node-tests": "node:test 在 `npm test` 运行期注册的用例数（日志 `ℹ tests N`）。",
-    "static-node-test-registrations": "`test/*.test.ts` 源码中 `\\btest(` 的静态出现次数（两种读法都已复算登记：含点号前缀命中 830 / 排除点号前缀 740）。该口径与运行期口径**不可直接相减**（I4③）。",
+    "static-node-test-registrations": "`test/*.test.ts`（67 份）源码拼接后按**确切正则**计数；三种读法都已复算并登记在 `staticCalibers.nodeTestStatic.readings`（由 `test/supersession-ledger.test.ts` 机器复算）：① `/\\btest\\(/gm` = 833（**含** 92 处点号前缀方法调用，不是用例数口径）② `/(?<![\\w.])test\\(/gm` = 741（排除点号前缀；`currentStatic` 采用此读法）③ `/^test\\(/gm` = 732（仅行首顶格注册；与运行期 `ℹ tests` 732 逐值相等）。该口径与运行期口径**不可直接相减**（I4③）。",
     "literal-content-pins": "无 `check()` 的口径单源模块以「字面量必须逐字出现」作为下界（I17：替代永不失败的 `floor: 0`）。"
   },
   "staticCalibers": {
     "nodeTestStatic": {
       "countMethod": "static-node-test-registrations",
       "baselineStatic": 646,
-      "currentStatic": 830,
+      "currentStatic": 741,
       "floor": 646,
-      "note": "静态复算（2026-09-16 修复轮后）：`test/*.test.ts` 全部 `\\btest(` = 830；排除点号前缀（`processPendingSubtests(` 之类）= 740。旧台账的 646 是「新增文件前」的静态下界；两种读法都 ≥ 646，故「只增不减」在两种静态读法下均成立。**不得**用 725/731（运行期）与 646/830/740（静态）互相相减——口径不同（I4③）。"
+      "note": "静态复算（2026-09-16 收口轮，`test/*.test.ts` 全 67 份文件拼接后逐正则计数；复现：`cat test/*.test.ts | grep -o -P '<regex>' | wc -l`）：① `\\btest\\(`（任意词边界，**会把正则方法调用也算进来**）= **833**；② `(?<![\\w.])test\\(`（排除点号前缀）= **741** ← `currentStatic` 采用此读法；③ `^test\\(`（多行、仅行首顶格注册）= **732**，与运行期 `ℹ tests` 732 **逐值相等**（跨口径交叉印证，非口径混用）。三种读法都 ≥ 下界 646，故「只增不减」在任一读法下均成立。validate R1（F3）指出旧登记 830 / 740 不可复现（实测 833 / 741）且未给出可复算的正则 → 本轮按实测订正，并把三个读法的**确切正则**写入 `readings` 由门禁机器复算（`test/supersession-ledger.test.ts`）。**不得**用 732/741/833（静态）与 646/725/731/732（运行期）互相相减——口径不同（I4③）。",
+      "readings": {
+        "anyWordBoundary": {
+          "regex": "\\btest\\(",
+          "count": 833,
+          "includesRegexMethodCalls": true,
+          "note": "含 92 处 `正则.test(...)` 方法调用（如 insight-no-escalation.test.ts 的 21 处），故不是「用例数」口径。"
+        },
+        "excludingDottedPrefix": {
+          "regex": "(?<![\\w.])test\\(",
+          "count": 741,
+          "includesRegexMethodCalls": false,
+          "note": "currentStatic 采用此读法：排除了点号前缀的方法调用。"
+        },
+        "topLevelColumnZero": {
+          "regex": "^test\\(",
+          "count": 732,
+          "includesRegexMethodCalls": false,
+          "note": "多行模式、仅行首顶格注册 → 与运行期 `ℹ tests`（732）逐值相等，是最贴近「用例注册数」的静态读法；因与运行期口径数值相同，**不作为** currentStatic（台账要求两口径数字必须分列，见 schema 用例）。"
+        }
+      }
     }
   },
   "pureAdditionFiles": [
@@ -1156,11 +1204,11 @@
     "packages/web-cli-plugin/test/ui/binding.mjs"
   ],
   "pureAdditionNote": "经真实 `git diff -U0 c2c0e0d` 复算：这两份受保护门禁相对本轮起点**只新增、零删除**（journey +27/-0、binding +45/-0）。因此「每个删除/改写 hunk 必须命中台账」的逐 hunk 校验对它们**天然空转**（旧台账把它们列进 hunk 集合，看起来有覆盖、实际恒真 —— review I4②）。本表把它们单独归类：门禁改为 ① 断言其删除行数确实为 0（「纯新增」这一事实本身受检），② 不再对其假装做逐 hunk 校验；真正有删除行的文件（insight.mjs / size-baseline.ts / size-budget.test.ts / insight-archive.test.ts / insight-tree-hierarchy.test.ts）保留逐 hunk 覆盖。",
-  "v3GateFloorsNote": "下界按**运行期 `check(` 调用点**计（与旧值同口径，`--files-override` 的判据）。修复轮后实测：l0.mjs **65**（旧 50）、density.mjs **54**（旧 40）—— 新增 I1/I2/I5/I12/I13 断言 + ⑥ 的「全部 [aria-controls] 遍历」+ stage F / RP-V3-08；下界只增不减，故按新实测登记。",
+  "v3GateFloorsNote": "下界按**运行期 `check(` 调用点**计（与旧值同口径，`--files-override` 的判据；RP-V3-05 靠「下界 == 实测调用点数」保持敏感 —— 删掉任意一条断言即低于下界而 FAIL）。历史：l0.mjs 50 → 65（修复轮）→ **68**（收口轮 F6：FR-V3-015 三处同源断言 + 反证 FAIL/还原两段）；density.mjs 40 → 54（修复轮）→ **60**（收口轮 F7：RP-V3-09 六条 + 夹具稳态相关断言）。下界**只增不减**，故按本轮实测登记（收口轮实测：l0.mjs 68 / density.mjs 60；来源：门禁启动时的 `ℹ 计数核对` 行）。",
   "v3CaliberPins": {
     "packages/web-cli-plugin/test/ui/density-metrics.mjs": {
       "countMethod": "literal-content-pins",
-      "note": "口径单源模块**没有** `check()`（判据都在门禁侧），旧的 `v3GateFloors: {\"…density-metrics.mjs\": 0}` 是永不失败的登记项（I17）。改为内容 pin：以下字面量必须在文件中逐字出现，由 `test/supersession-ledger.test.ts` 断言（可 FAIL）。",
+      "note": "口径单源模块**没有** `check()`（判据都在门禁侧），旧的 `v3GateFloors: {\"…density-metrics.mjs\": 0}` 是永不失败的登记项（I17）。改为内容 pin：以下字面量必须在文件中逐字出现（收口轮新增最后两条：F7 的风险可见性探针与其 CSS 隐身判据），由 `test/supersession-ledger.test.ts` 断言（可 FAIL）。",
       "pins": [
         "default: Object.freeze({ clickables: 7, lines: 15 })",
         "firstRun: Object.freeze({ clickables: 9, lines: 20 })",
@@ -1168,7 +1216,9 @@
         "export const LOG_CLIENT_HEIGHT_FLOOR = 488;",
         "export const DENSITY_VIEWPORTS = Object.freeze([320, 400, 520]);",
         "export const CHARS_PER_LINE = 34;",
-        "export function compareBaselineCells("
+        "export function compareBaselineCells(",
+        "export const riskVisibilityProbeSource = (cls) =>",
+        "cs.visibility === 'hidden' || cs.opacity === '0'"
       ]
     }
   },
@@ -1180,6 +1230,14 @@
       "notExempt": "入口文字、ARIA 成对、目标存在性、L2 ≤2 次可达 —— 这些要求对 view-host 同样生效，不豁免。",
       "removalCondition": "v3-3 用真实视图填充 #view-host 后必须删除该豁免（并把摘要断言恢复为对所有目标生效）。",
       "whyNotContent": "曾尝试在 #view-host 内放一行摘要文案：`test/ui/insight.mjs` #I-20j/#I-20k/#I-14c 的 drift=0 断言随即失败（宿主可见时 #log 534→492px），因为 v3-1 的几何契约要求 L2 视图打开不改变稳态几何。故按编排器指示改为**显式登记豁免**，不改动几何。"
+    },
+    "settings-count": {
+      "ac": "FR-V3-015（≤4 个 L2 入口**各带计数**）/ AC-V3-010",
+      "registeredOn": "2026-09-16",
+      "why": "`#l2-entry-settings` 的 `data-count=\"n/a\"`、标签为纯文本「设置」。收口轮（validate R1 F6）优先尝试「补真值计数」：在 L0 层**派生不出**真值 —— `l0ViewModel()` 是纯函数，而设置视图（`#settings-view` / `src/ui/settings/panel.ts`）是**首次打开才挂载**的懒加载 DOM（`sidepanel.ts`: `settingsHandle` 懒挂载），故 L0 渲染时刻没有可读的设置项数；唯一替代是写死魔数（禁止）或改 `src/**` 增加计数通路 —— 后者会改变 `dist/sidepanel.js` 的字节数，使编排器已裁决钉死的体积登记值 295,225 B（validate F8）失效。故按 `#view-host` 同法**登记豁免**，并让门禁断言豁免边界（豁免集合 ⊆ 登记集合且数量不得增长）。",
+      "notExempt": "入口文字、ARIA 成对、入口数量 ≤4、`data-count` 属性必须存在（豁免入口必须显式写作 `n/a`，不得留空冒充有计数）—— 这些要求对 settings 入口同样生效；其余三个入口（连接树 / 命令目录 / 审计）必须带**真值**计数，且「入口标签 ≡ data-count ≡ 状态栏一行摘要」三处同源。",
+      "removalCondition": "v3-3 交付设置视图（L2）并给出可派生的设置项数后必须删除该豁免，把 settings 入口纳入「三处同源」断言。",
+      "where": "test/ui/l0.mjs §⑥b（`L2_COUNT_EXEMPT` 常量 + `l2CountJudge()` + 内联反证实跑 FAIL→还原→PASS）"
     }
   }
 }

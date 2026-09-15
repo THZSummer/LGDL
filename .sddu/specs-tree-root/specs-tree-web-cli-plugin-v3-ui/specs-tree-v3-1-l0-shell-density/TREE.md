@@ -12,9 +12,11 @@ specs-tree-v3-1-l0-shell-density/
 ├── review.md          # 审查报告：specs-tree-v3-1-l0-shell-density
 ├── review-report.md          # 审查报告：specs-tree-v3-1-l0-shell-density
 ├── spec.md          # Feature Specification：specs-tree-v3-1-l0-shell-density（V3-1 L0 骨架与密度门禁）
-├── state.json          # 状态文件 (🟢 tracked [reviewed])
+├── state.json          # 状态文件 (✅ 已完成)
 ├── tasks.json          # 任务清单 (机器可读)
-└── tasks.md          # 任务分解：specs-tree-v3-1-l0-shell-density（V3-1 L0 骨架与密度门禁）
+├── tasks.md          # 任务分解：specs-tree-v3-1-l0-shell-density（V3-1 L0 骨架与密度门禁）
+├── validate.md          # 验证报告：specs-tree-v3-1-l0-shell-density
+└── validate-report.md          # 验证报告：specs-tree-v3-1-l0-shell-density
 ```
 
 ## 文件说明
@@ -25,16 +27,18 @@ specs-tree-v3-1-l0-shell-density/
 | review.md | 审查报告：specs-tree-v3-1-l0-shell-density — 审查报告：specs-tree-v3-1-l0-shell-density | ✅ 存在 |
 | review-report.md | 审查报告：specs-tree-v3-1-l0-shell-density — 见 §5 原文（`0 命中` 项与命中项逐条列出）。 | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v3-1-l0-shell-density（V3-1 L0 骨架与密度门禁） — 作者两段反馈（「凌乱、没有条理」/「很复杂、很难用，信息密度太高」）的直接对应物是**默认首屏**：现状侧栏同时承载状态 / 会话 / 树入口 / 命令与... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [reviewed] |
+| state.json | 状态文件 | ✅ 已完成 |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-v3-1-l0-shell-density（V3-1 L0 骨架与密度门禁） — Wave 1 ── 无依赖，4 路并行写入（文件不相交） | ✅ 存在 |
+| validate.md | 验证报告：specs-tree-v3-1-l0-shell-density — 验证报告：specs-tree-v3-1-l0-shell-density | ✅ 存在 |
+| validate-report.md | 验证报告：specs-tree-v3-1-l0-shell-density — 1. **核心验收经独立复现成立**——我用**自己写的 C1~C4 度量实现**（不 import 被测口径）在真实构建产物上独立测得 **25 个登记... | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 审查完成 (6/7) |
-| Status | 🟢 tracked [reviewed] |
+| Phase | 验证完成 (7/7) |
+| Status | ✅ 已完成 |
 
 ## 上级目录
 - [返回上级](../TREE.md)

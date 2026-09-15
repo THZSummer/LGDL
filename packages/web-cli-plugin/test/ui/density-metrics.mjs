@@ -185,6 +185,62 @@ export function measureSourceForRoot(rootExpression) {
 export const measureExpression = () => DENSITY_MEASURE_SOURCE;
 
 /**
+ * The **risk-visibility probe**, as an in-page expression string — single source
+ * for both runtime gates (`test/ui/density.mjs` stage C and `test/ui/l0.mjs` ④/⑤).
+ *
+ * AC-V3-008/AC-V3-009: a risk row must be *visible* in the default viewport, and
+ * must stay visible after every disclosure layer is collapsed. "Visible" means,
+ * for the whole **ancestor chain**:
+ *
+ *   1. no `hidden === true` ancestor (the only *legitimate* concealment, and the
+ *      same single exemption C1 uses);
+ *   2. no foldable ancestor (`data-l1-panel` / `data-l2-view` / `data-disclose-panel`);
+ *   3. no `visibility: hidden` / `opacity: 0` ancestor, and a non-zero box fully
+ *      inside the viewport.
+ *
+ * **Closeout round (2026-09-16, validate R1 F7).** (3) is the fix: `opacity: 0` and
+ * `visibility: hidden` do **not** change `getBoundingClientRect()`, so the old
+ * probe reported `ok: true` for a risk rail that was visually gone. C1 explicitly
+ * refuses to exempt those two properties (hiding by CSS must not buy budget), so
+ * the two calibers disagreed about what "hidden" means. They now agree: CSS
+ * concealment is **not** visibility, in either direction.
+ *
+ * `getComputedStyle` is used **here** on purpose and is still banned inside
+ * `DENSITY_MEASURE_SOURCE` (see `BANNED_MEASURE_APIS`): the density *budget* must
+ * never consult computed style (that is what stops CSS-hiding from shrinking the
+ * count), while a *visibility* probe must.
+ */
+export const riskVisibilityProbeSource = (cls) => `(() => {
+  const row = document.querySelector('#risk-rail .risk-row[data-risk-class="${cls}"]');
+  if (!row) return { ok: false, why: '风险行不存在' };
+  const chain = [];
+  let node = row;
+  while (node) { chain.push(node); node = node.parentElement; }
+  const hiddenAncestor = chain.find((n) => n.hidden === true);
+  if (hiddenAncestor) return { ok: false, why: '祖先链含 hidden=' + (hiddenAncestor.id || hiddenAncestor.tagName) };
+  const folded = chain.find((n) => n.hasAttribute && (n.hasAttribute('data-l1-panel') || n.hasAttribute('data-l2-view') || n.hasAttribute('data-disclose-panel')));
+  if (folded) return { ok: false, why: '祖先链含折叠容器 ' + (folded.id || folded.className) };
+  const concealed = chain.find((n) => {
+    const cs = getComputedStyle(n);
+    return cs.visibility === 'hidden' || cs.opacity === '0';
+  });
+  if (concealed) {
+    const cs = getComputedStyle(concealed);
+    return { ok: false, why: '祖先链含 CSS 隐身 ' + (concealed.id || concealed.className) + '（visibility=' + cs.visibility + ' opacity=' + cs.opacity + '）' };
+  }
+  const rect = row.getBoundingClientRect();
+  if (!(rect.height > 0)) return { ok: false, why: '渲染高度为 0' };
+  if (rect.top < 0 || rect.bottom > window.innerHeight) return { ok: false, why: '不在默认视口内（top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + '）' };
+  const text = (row.querySelector('.risk-text')?.textContent ?? '').trim();
+  const badge = (row.querySelector('.risk-badge')?.textContent ?? '').trim();
+  const icon = row.querySelector('.risk-icon');
+  if (!text) return { ok: false, why: '文字通道为空' };
+  if (!badge) return { ok: false, why: '徽标通道为空' };
+  if (!icon) return { ok: false, why: '图标通道缺失' };
+  return { ok: true, text, badge, hasText: true, hasBadge: true, hasIcon: true, height: Math.round(rect.height) };
+})()`;
+
+/**
  * The three tier ceilings (spec §9.2, verbatim).
  * `risk` = default + risk increment budget (clickables +10, lines +20).
  */

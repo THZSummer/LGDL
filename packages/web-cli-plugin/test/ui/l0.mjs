@@ -49,7 +49,7 @@ import {
   waitFor,
   VIEWPORT_HEIGHT,
 } from './_v3-helpers.mjs';
-import { LOG_CLIENT_HEIGHT_FLOOR, RISK_SUBSCENARIOS } from './density-metrics.mjs';
+import { LOG_CLIENT_HEIGHT_FLOOR, RISK_SUBSCENARIOS, riskVisibilityProbeSource } from './density-metrics.mjs';
 
 const FIXTURE_ORIGIN = 'https://v3-l0.test';
 const LLM_KEY = 'web-cli:web-cli:llm';
@@ -151,26 +151,17 @@ const geometryProbe = `(() => {
   };
 })()`;
 
-/** In-page: the risk row probe (visibility + foldable ancestors + 3 channels). */
-const riskProbe = (cls) => `(() => {
-  const row = document.querySelector('#risk-rail .risk-row[data-risk-class="${cls}"]');
-  if (!row) return { ok: false, why: '不存在' };
-  const chain = [];
-  let node = row;
-  while (node) { chain.push(node); node = node.parentElement; }
-  const hiddenAncestor = chain.find((n) => n.hidden === true);
-  if (hiddenAncestor) return { ok: false, why: 'hidden 祖先 ' + (hiddenAncestor.id || hiddenAncestor.tagName) };
-  const folded = chain.find((n) => n.hasAttribute('data-l1-panel') || n.hasAttribute('data-l2-view') || n.hasAttribute('data-disclose-panel'));
-  if (folded) return { ok: false, why: '折叠容器祖先 ' + (folded.id || folded.className) };
-  const rect = row.getBoundingClientRect();
-  if (!(rect.height > 0)) return { ok: false, why: '高度 0' };
-  if (rect.top < 0 || rect.bottom > window.innerHeight) return { ok: false, why: '不在默认视口内' };
-  const text = (row.querySelector('.risk-text')?.textContent ?? '').trim();
-  const badge = (row.querySelector('.risk-badge')?.textContent ?? '').trim();
-  const icon = row.querySelector('.risk-icon');
-  if (!text || !badge || !icon) return { ok: false, why: '三通道不齐备' };
-  return { ok: true, text, badge, hasText: true, hasBadge: true, hasIcon: true, height: Math.round(rect.height) };
-})()`;
+/**
+ * In-page: the risk row probe (visibility + foldable ancestors + 3 channels).
+ *
+ * Closeout round (F7): the implementation is the single-source
+ * `riskVisibilityProbeSource()` from `test/ui/density-metrics.mjs`. It used to be a
+ * local copy, and it accepted a `visibility:hidden` / `opacity:0` ancestor as
+ * "visible" (neither changes `getBoundingClientRect()`), while the density caliber
+ * C1 explicitly refuses to exempt those properties. One probe, one meaning of
+ * "visible".
+ */
+const riskProbe = (cls) => riskVisibilityProbeSource(cls);
 
 async function main() {
   console.log(`▶ chrome: ${CHROME}`);
@@ -464,6 +455,87 @@ async function main() {
       emptyTargets.every((id) => SKELETON_EXEMPT_TARGETS.includes(id)) && emptyTargets.length <= SKELETON_EXEMPT_TARGETS.length,
       JSON.stringify(emptyTargets),
     );
+
+    // ── ⑥b FR-V3-015: each of the ≤4 L2 entries must carry a REAL count ──────
+    // Closeout round (validate R1 F6): the old assertion for an exempt *target*
+    // was `countInTarget !== '' || text.length > 0` — a one-of-two disjunction that
+    // is trivially satisfied by any non-empty label, so「≤4 入口**各带计数**」had no
+    // failing assertion at all (`#l2-entry-settings` shipped `data-count="n/a"` and
+    // no digit, and the gate still passed). The count now has to be *derived*: the
+    // digit in the entry's own label, its `data-count` attribute and the L1
+    // one-line status-bar summary all come from the same `l0ViewModel()` values, so
+    // the three must agree — and a missing count must be an explicitly REGISTERED
+    // exemption (`#l2-entry-settings`, ledger `v3SkeletonExemptions#settings-count`),
+    // whose set may never grow.
+    const L2_KEYS = ['tree', 'commands', 'audit', 'settings'];
+    /** The ONE registered L2 entry with no derivable count. */
+    const L2_COUNT_EXEMPT = ['settings'];
+    const l2ProbeExpr = `(() => {
+      const entries = ${JSON.stringify(L2_KEYS)}.map((key) => {
+        const btn = document.getElementById('l2-entry-' + key);
+        if (!btn) return { key, missing: true };
+        const m = /(\\d+)/.exec(btn.textContent || '');
+        return {
+          key,
+          text: (btn.textContent || '').trim(),
+          dataCount: btn.getAttribute('data-count'),
+          labelCount: m ? Number(m[1]) : null,
+          ariaControls: btn.getAttribute('aria-controls'),
+        };
+      });
+      const bar = document.getElementById('l0-statusbar-text');
+      return JSON.stringify({ entries, summary: bar ? (bar.textContent || '').trim() : '' });
+    })()`;
+    /**
+     * The FR-V3-015 judge, as a pure function so the counter-proof below can drive
+     * it with a perturbed snapshot instead of a perturbed product.
+     */
+    const l2CountJudge = (l2) => {
+      const failures = [];
+      const summaryCount = (label) => {
+        const m = new RegExp(`${label}\\s*(\\d+)`).exec(l2.summary ?? '');
+        return m ? Number(m[1]) : null;
+      };
+      if (l2.entries.length !== 4 || l2.entries.some((e) => e.missing === true)) failures.push('L2 入口数 ≠ 4');
+      for (const [label, key] of [['树', 'tree'], ['命令', 'commands'], ['审计', 'audit']]) {
+        const entry = l2.entries.find((e) => e.key === key);
+        if (!/^\d+$/.test(String(entry?.dataCount))) failures.push(`${key}: data-count 不是数字（${entry?.dataCount}）`);
+        else if (entry.labelCount !== Number(entry.dataCount) || Number(entry.dataCount) !== summaryCount(label)) {
+          failures.push(`${key}: 三处不同源（label=${entry?.labelCount} data-count=${entry?.dataCount} summary=${summaryCount(label)}）`);
+        }
+      }
+      const unCounted = l2.entries.filter((e) => !/^\d+$/.test(String(e.dataCount))).map((e) => e.key);
+      if (!unCounted.every((k) => L2_COUNT_EXEMPT.includes(k)) || unCounted.length > L2_COUNT_EXEMPT.length) {
+        failures.push(`无计数入口超出登记豁免集合：${JSON.stringify(unCounted)}`);
+      }
+      if (l2.entries.find((e) => e.key === 'settings')?.dataCount !== 'n/a') failures.push('豁免入口缺少显式 n/a 标记');
+      return failures;
+    };
+    const l2Raw = await evaluate(cdp, l2ProbeExpr);
+    const l2Failures = l2CountJudge(JSON.parse(l2Raw));
+    check(
+      '⑥ FR-V3-015 ≤4 个 L2 入口**各带真值计数**（入口标签 ≡ data-count ≡ 状态栏摘要，三处同源）',
+      l2Failures.length === 0,
+      `${JSON.stringify(l2Failures)} | ${l2Raw}`,
+    );
+    // 反证（内联，实跑 FAIL → 还原 → PASS）：篡改真 DOM 的 `data-count` → 同一条判据
+    // 必须给出失败；还原后必须再次为空。这证明该判据**不是恒真**（旧判据在同样
+    // 篡改下仍然 PASS —— 因为「计数或标签」二选一被标签满足）。
+    await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', '99'); true`);
+    const l2Tampered = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
+    check(
+      '⑥ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出',
+      l2Tampered.some((f) => f.includes('tree')),
+      JSON.stringify(l2Tampered),
+    );
+    await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', '0'); true`);
+    const l2Restored = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
+    check(
+      '⑥ FR-V3-015 反证（还原段）：还原真值后判据必须再次为空',
+      l2Restored.length === 0,
+      JSON.stringify(l2Restored),
+    );
+
     const reach = await evaluate(
       cdp,
       `(() => {
