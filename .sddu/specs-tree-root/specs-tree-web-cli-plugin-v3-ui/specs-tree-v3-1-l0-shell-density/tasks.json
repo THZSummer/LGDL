@@ -1,0 +1,1148 @@
+{
+  "meta": {
+    "feature": "V3-1 L0 骨架与密度门禁（父：specs-tree-web-cli-plugin-v3-ui）",
+    "featureKey": "specs-tree-v3-1-l0-shell-density",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-16",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V3-013~019；§2.2 L0 配平 / §2.3 风险位 / §2.4 密度门禁 / §2.5 夹具 / §5 文件影响 / §6 交付门槛）+ 父 plan.md v1.0（ADR-V3-001~012）",
+    "sourceSpec": "父 spec.md FR-V3-010~024 · FR-V3-026 · NFR-V3-001/002/003/005/009~015/017/018 · EC-V3-008~013/015 · AC-V3-001~015/020~025/027 + 本叶 spec.md §7 验收锚点",
+    "taskCount": 15,
+    "waveCount": 7,
+    "complexity": {
+      "S": 5,
+      "M": 8,
+      "L": 2
+    },
+    "typeBreakdown": {
+      "implementation": 6,
+      "gate": 8,
+      "doc": 1,
+      "human": 0
+    },
+    "crossLeafOrder": {
+      "leaf": "V3-1",
+      "executionOrder": "第 1 环（首个开工，无前置）",
+      "feeds": [
+        "specs-tree-v3-2-l1-disclosure-refs",
+        "specs-tree-v3-3-l2-on-demand-views",
+        "specs-tree-v3-4-page-as-input"
+      ],
+      "contractsProduced": [
+        "window.__v3.disclosure { toggle(id), collapseAll(), expandMemory }",
+        "摘要/计数契约：data-summary / data-count + aria-controls 目标内非空文本",
+        "密度口径唯一实现源 + 门禁三段式 + 首轮基线（供后三叶复用密度不回归复测）",
+        "取代台账 docs/v3-supersession-ledger.json + 台账门禁（后三叶只追加）",
+        "选择题契约：复用 #ask 家族 id"
+      ]
+    },
+    "mandatoryCoverage": {
+      "densitySingleSourceAndThreeStage": [
+        "TASK-102",
+        "TASK-109",
+        "TASK-107",
+        "TASK-101"
+      ],
+      "nineForcedPlusFifteenRegisteredCells": [
+        "TASK-109"
+      ],
+      "rpV3_01to06ReverseProofs": [
+        "TASK-111"
+      ],
+      "antiCheatStaticAssertions": [
+        "TASK-102",
+        "TASK-107"
+      ],
+      "l0ShellAndRiskRailStructuralGuarantee": [
+        "TASK-103",
+        "TASK-105",
+        "TASK-110"
+      ],
+      "supersessionLedgerAndGate": [
+        "TASK-108"
+      ],
+      "firstRunDensityBaselineRegistration": [
+        "TASK-112"
+      ],
+      "theme320A11yInfrastructure": [
+        "TASK-103",
+        "TASK-104",
+        "TASK-110"
+      ]
+    },
+    "volumeTask": {
+      "id": "TASK-114",
+      "mode": "conditional-explicit-reregistration",
+      "disclosureFields": [
+        "previousBaselineBytes",
+        "previousCeilingBytes",
+        "measuredOn",
+        "source",
+        "buildCommand",
+        "measuredBy",
+        "direction",
+        "reRegisteredFrom"
+      ],
+      "historyKept": "SIDEPANEL_BASELINE_BYTES_HISTORY",
+      "toleranceUnchanged": "5%",
+      "assertionsZeroDeletion": true
+    },
+    "serialGates": {
+      "policy": "严格串行，一次只跑一个（本机 ~1.5GB，曾 OOM）；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断",
+      "order": [
+        "typecheck",
+        "build",
+        "npm-test",
+        "supersession",
+        "density",
+        "reverse(RP-V3-01..04)",
+        "l0",
+        "ui(journey)",
+        "insight",
+        "binding",
+        "hardening",
+        "e2e",
+        "size(+1B RP-V3-06 content 段)",
+        "zero-diff-check"
+      ],
+      "neverConcurrent": [
+        "test:density",
+        "test:l0",
+        "test:ui",
+        "test:insight",
+        "test:binding",
+        "test:hardening",
+        "test:e2e"
+      ]
+    },
+    "assertionsOnlyIncrease": [
+      "本叶新增断言全部落新文件（density-metrics.mjs / density.mjs / l0.mjs / density-thresholds.test.ts / supersession-ledger.test.ts / l0-disclosure.test.ts）",
+      "既有门禁删除行必须命中台账（test/supersession-ledger.test.ts 机器核验）",
+      "计数下界：journey ≥167 / insight union ≥108 / binding ≥192 / sidepanelView ≥38 / node test( ≥646（只增不减）",
+      "受保护区段用字节区间 hash pin（binding #21*/#22*、journey #15a~#15q）"
+    ],
+    "note": "V3-1 本叶 15 任务 / 7 波：helper → (口径单源 ∥ L0 DOM ∥ 折叠器) → (风险位 ∥ 静态门禁) → L0 接线 → (密度门禁 ∥ L0 门禁 ∥ 同编号改写) → (台账 ∥ 密度基线) → 六条反证 → (体积 ∥ 收口)。**红线**：content.js 177,076 B 无容差 / manifest 静态权限零新增且无 contextMenus / policy.ts·auto-authorize.ts sha256 pin 不变；本叶不碰 src/content/**、不改 base、不改 options.html、不改 design/**、零新增依赖。**门禁严格串行**，收尾必须全绿（AC-V3-013），禁留红灯给 v3-2 / v3-3。",
+    "serialWithinWaveNote": "仅 V3-1 Wave 7 存在波内串行链（TASK-114 → TASK-115）；除此之外依赖均严格跨波次（dependsOn 的 wave < 本任务 wave）。",
+    "status": "completed"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "planWave": "V3-1 内部",
+      "tasks": [
+        "TASK-101",
+        "TASK-102",
+        "TASK-103",
+        "TASK-104"
+      ],
+      "strategy": "并行（4 文件不相交）：helper / 口径单源 / L0 DOM / 折叠器"
+    },
+    {
+      "wave": 2,
+      "planWave": "V3-1 内部",
+      "tasks": [
+        "TASK-105",
+        "TASK-107"
+      ],
+      "strategy": "并行组 ①（文件不相交）：风险位模块+单测 ∥ 静态门禁"
+    },
+    {
+      "wave": 3,
+      "planWave": "V3-1 内部",
+      "tasks": [
+        "TASK-106"
+      ],
+      "strategy": "串行：L0 主骨架接线（sidepanel.ts / view-model.ts 单所有者）"
+    },
+    {
+      "wave": 4,
+      "planWave": "V3-1 内部",
+      "tasks": [
+        "TASK-109",
+        "TASK-110",
+        "TASK-113"
+      ],
+      "strategy": "并行写入；⚠️ 门禁执行严格串行，绝不并发 Chromium"
+    },
+    {
+      "wave": 5,
+      "planWave": "V3-1 内部",
+      "tasks": [
+        "TASK-108",
+        "TASK-112"
+      ],
+      "strategy": "并行写入（台账 ∥ 密度基线）；⚠️ test:supersession 与 npm test 串行"
+    },
+    {
+      "wave": 6,
+      "planWave": "V3-1 内部",
+      "tasks": [
+        "TASK-111"
+      ],
+      "strategy": "串行：六条反证逐条执行、逐条还原（禁并发）"
+    },
+    {
+      "wave": 7,
+      "planWave": "V3-1 内部",
+      "tasks": [
+        "TASK-114",
+        "TASK-115"
+      ],
+      "strategy": "串行收口（**波内串行链**）：TASK-114（体积核对/条件重登记）→ TASK-115（14 步全门禁绿 + 人工面登记）",
+      "serialWithinWave": true
+    }
+  ],
+  "p0MinimalSet": [
+    "TASK-101",
+    "TASK-102",
+    "TASK-103",
+    "TASK-104",
+    "TASK-105",
+    "TASK-106",
+    "TASK-107",
+    "TASK-108",
+    "TASK-109",
+    "TASK-110",
+    "TASK-111",
+    "TASK-112",
+    "TASK-113",
+    "TASK-114",
+    "TASK-115"
+  ],
+  "tasks": [
+    {
+      "id": "TASK-101",
+      "name": "v3 门禁自带 helper `test/ui/_v3-helpers.mjs`",
+      "type": "implementation",
+      "complexity": "S",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [],
+      "planRef": "V3-1 plan §5；父 ADR-V3-003 第 5 条",
+      "fr": "FR-V3-004",
+      "nfr": [
+        "NFR-V3-014"
+      ],
+      "ec": [
+        "EC-V3-013"
+      ],
+      "ac": [
+        "AC-V3-011"
+      ],
+      "adr": [
+        "ADR-V3-003"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ui/_v3-helpers.mjs",
+          "note": "connectCdp/evaluate/waitFor/realBox/realClick/check/launch 最小实现；不抽共享模块"
+        }
+      ],
+      "acceptance": [
+        "导出 7 个函数，签名与 ADR-V3-003 第 5 条一致；零依赖新增",
+        "launch() 仅启动单 Chromium 实例；connectCdp 只连单 page target（串行前提）",
+        "check(name, cond, detail) 在 cond===false 时必须非零退出（门禁必须能真 FAIL）",
+        "既有 4 个 test/ui/*.mjs 零 diff（git diff --numstat 为 0）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && node -e \"import('./test/ui/_v3-helpers.mjs').then(m=>{const n=['connectCdp','evaluate','waitFor','realBox','realClick','check','launch'];const miss=n.filter(k=>!(k in m));if(miss.length)throw new Error('missing:'+miss);console.log('helpers ok')})\" | tee /tmp/opencode/v3-gate-logs/helpers.log",
+        "git diff --numstat -- packages/web-cli-plugin/test/ui/journey.mjs packages/web-cli-plugin/test/ui/insight.mjs packages/web-cli-plugin/test/ui/binding.mjs packages/web-cli-plugin/test/ui/hardening.mjs"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-102",
+      "name": "密度口径唯一实现源 `test/ui/density-metrics.mjs`（C1~C4 + 阈值 + 档位 + 归属判定 + 纯判定函数）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [],
+      "planRef": "V3-1 plan §2.4(1)/§5；父 ADR-V3-003/004/005",
+      "fr": "FR-V3-022",
+      "nfr": [
+        "NFR-V3-001",
+        "NFR-V3-002",
+        "NFR-V3-013"
+      ],
+      "ec": [
+        "EC-V3-010"
+      ],
+      "ac": [
+        "AC-V3-001",
+        "AC-V3-002",
+        "AC-V3-003",
+        "AC-V3-004",
+        "AC-V3-005"
+      ],
+      "adr": [
+        "ADR-V3-003",
+        "ADR-V3-004",
+        "ADR-V3-005"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+          "note": "DENSITY_MEASURE_SOURCE / DENSITY_LIMITS / DENSITY_VIEWPORTS / DENSITY_TIERS / RISK_SUBSCENARIOS / isRiskClassSource / evaluateDensity / evaluateDelta"
+        }
+      ],
+      "acceptance": [
+        "DENSITY_LIMITS 与父 spec §9.2 逐字相等（default{7,15} / firstRun{9,20} / risk{17,35}）",
+        "矩阵规模 = 3 档 × 3 视口 = 9 强制格；RISK_SUBSCENARIOS 长度 = 5",
+        "C1：仅 hidden 属性豁免；display/visibility/opacity/pointer-events/aria-hidden/视口位置一律不豁免",
+        "C2 = ⌈Σ(自身直接文本去空白字符数) ÷ 34⌉；每元素只计一次；{{…}} 剔除；34 为 pin 常量",
+        "C4 = 测量根一级子元素中非 hidden 个数；不设上限且注释写明反直觉事实（E 比 D 多 1）",
+        "测量源码中 visibleIn(el) 只有一处；字符串零命中 getComputedStyle/offsetParent/getBoundingClientRect/aria-hidden",
+        "evaluateDensity({clickables:7},'default',{clickables:6,lines:15}).ok === false（RP-V3-02a 机器判据）",
+        "无稳定键（id→data-key→结构性路径）的新增元素在 evaluateDelta 中直接 FAIL",
+        "单文件同时含测量源码+阈值+视口+档位+判定 → 结构上消灭双实现漂移"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && node --input-type=module -e \"import {DENSITY_LIMITS,DENSITY_VIEWPORTS,RISK_SUBSCENARIOS,DENSITY_MEASURE_SOURCE,evaluateDensity} from './test/ui/density-metrics.mjs';if(DENSITY_LIMITS.default.clickables!==7||DENSITY_LIMITS.firstRun.lines!==20||DENSITY_LIMITS.risk.clickables!==17)throw new Error('limits drift');if(DENSITY_VIEWPORTS.join()!=='320,400,520')throw new Error('viewports drift');if(RISK_SUBSCENARIOS.length!==5)throw new Error('risk subscenarios != 5');for(const t of ['getComputedStyle','offsetParent','getBoundingClientRect','aria-hidden']) if(DENSITY_MEASURE_SOURCE.includes(t)) throw new Error('anti-cheat leak: '+t);if(evaluateDensity({clickables:7},'default',{clickables:6,lines:15}).ok!==false) throw new Error('RP-V3-02a must FAIL');console.log('density-metrics ok')\" | tee /tmp/opencode/v3-gate-logs/density-metrics.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-103",
+      "name": "`index.html` L0 常驻 DOM/样式（`#risk-rail` 结构保证 + 54 id 保留 + `#composer` 默认 hidden）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [],
+      "planRef": "V3-1 plan §2.2/§2.3/§5；父 ADR-V3-001/006/009",
+      "fr": [
+        "FR-V3-010",
+        "FR-V3-013",
+        "FR-V3-014",
+        "FR-V3-015",
+        "FR-V3-016",
+        "FR-V3-024",
+        "FR-V3-026",
+        "FR-V3-085"
+      ],
+      "nfr": [
+        "NFR-V3-009",
+        "NFR-V3-010",
+        "NFR-V3-011"
+      ],
+      "ec": [
+        "EC-V3-008",
+        "EC-V3-009"
+      ],
+      "ac": [
+        "AC-V3-008",
+        "AC-V3-009",
+        "AC-V3-020",
+        "AC-V3-021"
+      ],
+      "adr": [
+        "ADR-V3-001",
+        "ADR-V3-006",
+        "ADR-V3-008",
+        "ADR-V3-009",
+        "ADR-V3-013",
+        "ADR-V3-017"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html",
+          "note": "追加 #risk-rail/#l0-decision/#l0-statusbar/#view-host 标记与样式；#composer 加 hidden；54 id 零重命名；保留三区文档序与 #composer 末元素"
+        }
+      ],
+      "acceptance": [
+        "#risk-rail 为 document.body 直接子元素；祖先闭包（含自身）无 hidden、无 [aria-expanded]",
+        "#view-host 存在且默认 hidden；#l0-decision / #l0-statusbar 存在",
+        "index.html 的 id 集合 ⊇ v1 的 54 id 集合（零重命名）",
+        "#composer 带 hidden 且仍为 #panel-bottom 末元素（#consent-slot 之上）",
+        "body 仍 display:flex + overflow:hidden；#panel-top→#panel-main→#panel-bottom 文档序不变",
+        "新增 token 名在 :root 与 @media (prefers-color-scheme: dark) 两处都出现",
+        "320px 与 400px 常驻元素 id 集合相等（AC-V3-021）",
+        "#risk-rail 内风险行不在 [data-l1-panel]/[data-l2-view]/[data-disclose-panel] 子树内"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && node --input-type=module -e \"import fs from 'node:fs';const h=fs.readFileSync('src/ui/sidepanel/index.html','utf8');const ids=[...h.matchAll(/\\sid=\\\"([^\\\"]+)\\\"/g)].map(m=>m[1]);if(new Set(ids).size!==ids.length) throw new Error('duplicate id');if(!ids.includes('risk-rail')||!ids.includes('l0-decision')||!ids.includes('l0-statusbar')||!ids.includes('view-host')) throw new Error('missing v3 partition');if(!/id=\\\"composer\\\"[^>]*\\shidden/.test(h)) throw new Error('composer must default hidden');console.log('html structure ok; ids=',ids.length)\" | tee /tmp/opencode/v3-gate-logs/html-structure.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-104",
+      "name": "折叠器契约 `src/ui/sidepanel/disclosure.ts`",
+      "type": "implementation",
+      "complexity": "S",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [],
+      "planRef": "V3-1 plan §5；父 ADR-V3-006/016",
+      "fr": [
+        "FR-V3-020",
+        "FR-V3-023",
+        "FR-V3-024"
+      ],
+      "nfr": [
+        "NFR-V3-011"
+      ],
+      "ec": [
+        "EC-V3-011"
+      ],
+      "ac": [
+        "AC-V3-010"
+      ],
+      "adr": [
+        "ADR-V3-006",
+        "ADR-V3-008",
+        "ADR-V3-016"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts",
+          "note": "COLLAPSIBLE_TARGETS 白名单 + assertFoldable 抛错 + hidden + ARIA 成对 + expandMemory + window.__v3.disclosure"
+        }
+      ],
+      "acceptance": [
+        "assertFoldable('#risk-rail') 抛出；disclosure.toggle('#risk-rail') 抛出（负向）",
+        "收起一律用 hidden 属性；代码内零 display:none / visibility:hidden 式折叠",
+        "每个触发器同时具备 aria-expanded + aria-controls 且成对（缺一即抛错）",
+        "展开态记忆往返：toggle(open) → 记 → 模拟上下文切换 → restore 后展开态相等（FR-V3-023）",
+        "window.__v3.disclosure 三方法齐备；collapseAll() 后白名单内目标全 hidden，#risk-rail 不受影响",
+        "无 chrome.* 调用；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck 2>&1 | tee /tmp/opencode/v3-gate-logs/typecheck-w1.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-105",
+      "name": "风险位唯一模板与结构保证 `l0/risk-rail.ts` + `test/l0-disclosure.test.ts`",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-103",
+        "TASK-104"
+      ],
+      "wave": 2,
+      "parallelWith": [
+        "TASK-107"
+      ],
+      "planRef": "V3-1 plan §2.3/§5；父 ADR-V3-006",
+      "fr": [
+        "FR-V3-016",
+        "FR-V3-017",
+        "FR-V3-018",
+        "FR-V3-019"
+      ],
+      "nfr": [
+        "NFR-V3-008"
+      ],
+      "ec": [
+        "EC-V3-002",
+        "EC-V3-015"
+      ],
+      "ac": [
+        "AC-V3-008",
+        "AC-V3-009"
+      ],
+      "adr": [
+        "ADR-V3-005",
+        "ADR-V3-006",
+        "ADR-V3-016"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/risk-rail.ts",
+          "note": "#risk-rail 唯一写入者；renderRiskRow 三通道单一模板；文本为空抛错"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/l0-disclosure.test.ts",
+          "note": "白名单抛错 / ARIA 成对 / 展开态记忆往返 / destructive 过滤 / 三通道文本非空"
+        }
+      ],
+      "acceptance": [
+        "五类风险各产出三通道（非空文本 + 徽标 + 内联 svg 图标）；renderRiskRow({text:''}) 抛错",
+        "#risk-rail 唯一写入者为本模块；API 不接受父节点参数",
+        "kind==='destructive' 的选项结构性不出现在折叠池（负向断言：注入后期望被过滤/抛错）",
+        "硬底线被拦状态下「允许/放行」控件计数 = 0（FR-V3-019）",
+        "单测覆盖五组断言；npm test 全绿且 test( 计数只增"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test 2>&1 | tee /tmp/opencode/v3-gate-logs/npm-test-w2.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-107",
+      "name": "无 Chromium 静态门禁 `test/density-thresholds.test.ts`",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-102",
+        "TASK-103"
+      ],
+      "wave": 2,
+      "parallelWith": [
+        "TASK-105"
+      ],
+      "planRef": "V3-1 plan §2.4(3)/§5；父 ADR-V3-003 第 3 条",
+      "fr": [
+        "FR-V3-022",
+        "FR-V3-024"
+      ],
+      "nfr": [
+        "NFR-V3-002",
+        "NFR-V3-013"
+      ],
+      "ec": [
+        "EC-V3-010",
+        "EC-V3-011"
+      ],
+      "ac": [
+        "AC-V3-005",
+        "AC-V3-007"
+      ],
+      "adr": [
+        "ADR-V3-003",
+        "ADR-V3-004",
+        "ADR-V3-005"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/density-thresholds.test.ts",
+          "note": "阈值逐字 / 矩阵 9 / C1 选择器集合 / 禁用函数零命中 / index.html 静态结构 / RP-V3-02(a) / C4 变化登记"
+        }
+      ],
+      "acceptance": [
+        "七组断言全部实现；每条均有独立可 FAIL 的判据",
+        "反作弊断言：把 getComputedStyle 写进测量源码时必须 FAIL（本地自检一次并还原）",
+        "54 id 基线以常量清单固化在测试内（供 S5 断言与后续叶复用）",
+        "不触碰既有 4 个 test/ui/*.mjs；npm test 的 test( 计数只增不减（≥646 下界守卫保持）",
+        "无 Chromium 依赖（node --test 可单独跑）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test 2>&1 | tee /tmp/opencode/v3-gate-logs/npm-test-w2b.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-106",
+      "name": "L0 骨架三件事 + 决策卡 + 状态栏（逻辑接线）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-105",
+        "TASK-103",
+        "TASK-104"
+      ],
+      "wave": 3,
+      "parallelWith": [],
+      "planRef": "V3-1 plan §2.2/§5；ADR-V3-013/014/017",
+      "fr": [
+        "FR-V3-010",
+        "FR-V3-011",
+        "FR-V3-012",
+        "FR-V3-013",
+        "FR-V3-014",
+        "FR-V3-015",
+        "FR-V3-021",
+        "FR-V3-023"
+      ],
+      "nfr": [
+        "NFR-V3-001"
+      ],
+      "ec": [
+        "EC-V3-003",
+        "EC-V3-005",
+        "EC-V3-011"
+      ],
+      "ac": [
+        "AC-V3-001",
+        "AC-V3-002",
+        "AC-V3-010"
+      ],
+      "adr": [
+        "ADR-V3-013",
+        "ADR-V3-014",
+        "ADR-V3-017"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/shell.ts",
+          "note": "三件事三区渲染"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/decision-card.ts",
+          "note": "复用 #ask 家族 + ≤2 推荐 + 真值计数 + 末项兜底输入"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/status-bar.ts",
+          "note": "一行状态栏 + ≤4 个 L2 入口面板骨架（计数占位待 v3-3）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts",
+          "note": "追加 L0 视图模型（纯函数，node 可测）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts",
+          "note": "追加 l0/* 与 disclosure 挂载与订阅（既有 render/handler 零删改）"
+        }
+      ],
+      "acceptance": [
+        "三件事在默认态同时可见（我在哪 / 谁在管我 / 下一步做什么）",
+        "默认态决策卡数 = 1；推荐选项 ≤2；「更多选项（还有 N 个）」的 N 与真实非推荐选项数相等（改真值 → N 变）",
+        "末项文案逐字为「其他…（我来描述）」；兜底输入框仅该项被选中时可见，提交/取消后回 hidden",
+        "默认态可见文本输入框计数 = 0（含 input:not([type]) / textarea；不得用 CSS 隐藏的真实输入框绕过）",
+        "#l0-pick 存在；未授权/探测中时禁用且风险位明示「页面侧零注入」",
+        "#l0-statusbar 为一行；展开后出现入口面板（≤4 入口），不是 L2 内容",
+        "既有 54 id 全部仍可 getElementById 命中（迁移只改归属与可见性）",
+        "view-model.ts 新增部分为纯函数（node 可测）；sidepanel.ts 既有分支零删改",
+        "默认档可点元素按 plan §2.2 逐项配平为 7（由 TASK-109 实测封口）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck 2>&1 | tee /tmp/opencode/v3-gate-logs/typecheck-w3.log && npm test 2>&1 | tee /tmp/opencode/v3-gate-logs/npm-test-w3.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-109",
+      "name": "Chromium 密度门禁 `test/ui/density.mjs`（9 强制格 + 15 登记格）",
+      "type": "gate",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-101",
+        "TASK-102",
+        "TASK-106"
+      ],
+      "wave": 4,
+      "parallelWith": [
+        "TASK-110",
+        "TASK-113"
+      ],
+      "planRef": "V3-1 plan §2.4(2)/§2.5/§5；父 ADR-V3-003 第 4 条 / ADR-V3-004 第 1~2 条",
+      "fr": [
+        "FR-V3-022"
+      ],
+      "nfr": [
+        "NFR-V3-001",
+        "NFR-V3-002",
+        "NFR-V3-012"
+      ],
+      "ec": [
+        "EC-V3-010"
+      ],
+      "ac": [
+        "AC-V3-001",
+        "AC-V3-002",
+        "AC-V3-003",
+        "AC-V3-004",
+        "AC-V3-005"
+      ],
+      "adr": [
+        "ADR-V3-003",
+        "ADR-V3-004",
+        "ADR-V3-005"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ui/density.mjs",
+          "note": "阶段 A 稿件同源 + B 9 强制格 + C 5×3=15 登记格 + D 反作弊 + E 汇总表 + --reverse RP-V3-01..04"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/package.json",
+          "note": "仅追加 script test:density（依赖零新增）"
+        }
+      ],
+      "acceptance": [
+        "阶段 A 双向对账成立（同输入同输出）；E/D 稿公布值与 index.html 不一致时如实登记",
+        "阶段 B 9 格全过；任一处超限即 FAIL（不得只测 400×900）",
+        "阶段 C 15 登记格全部记录实测值；强制判定取最差值；增量归属违规数 = 0（AC-V3-003）",
+        "夹具幂等：每格 resetFixture()；driver 打印每格状态指纹（授权态/探测态/展开态）",
+        "设计稿口径数字与真实产物口径数字分列输出（不得混为一个数字）",
+        "单 Chromium 实例、单 page target、逐格顺序执行；stdout+stderr 全量 tee 落盘，禁 tail 截断",
+        "可独立运行；不触碰既有 4 个 test/ui/*.mjs"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm run test:density 2>&1 | tee /tmp/opencode/v3-gate-logs/density.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-110",
+      "name": "L0 运行时门禁 `test/ui/l0.mjs`",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-106"
+      ],
+      "wave": 4,
+      "parallelWith": [
+        "TASK-109",
+        "TASK-113"
+      ],
+      "planRef": "V3-1 plan §2.3/§5；父 ADR-V3-006 第 5~6 条 / ADR-V3-007 第 6 条 / ADR-V3-009 第 3 条",
+      "fr": [
+        "FR-V3-010",
+        "FR-V3-020",
+        "FR-V3-021",
+        "FR-V3-026",
+        "FR-V3-085"
+      ],
+      "nfr": [
+        "NFR-V3-009",
+        "NFR-V3-010",
+        "NFR-V3-011",
+        "NFR-V3-013"
+      ],
+      "ec": [
+        "EC-V3-008",
+        "EC-V3-015"
+      ],
+      "ac": [
+        "AC-V3-008",
+        "AC-V3-009",
+        "AC-V3-010",
+        "AC-V3-020",
+        "AC-V3-021"
+      ],
+      "adr": [
+        "ADR-V3-006",
+        "ADR-V3-007",
+        "ADR-V3-008",
+        "ADR-V3-009"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ui/l0.mjs",
+          "note": "骨架/决策卡/无常驻输入框/风险位 5×2/可发现性/320-400 等价/四区互不遮挡/#log 唯一滚动/展开态 composer 贴底/双主题"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/package.json",
+          "note": "仅追加 script test:l0"
+        }
+      ],
+      "acceptance": [
+        "AC-V3-008 = 5 类 × 2 场景 = 10 条 assertRiskVisible + 祖先链；从 #risk-rail 移除任一风险行必须 FAIL",
+        "AC-V3-009 祖先闭包断言 + #confirm-* 不参与折叠",
+        "AC-V3-010 可发现性：入口非空文字 + ARIA 成对 + aria-controls 目标含非空摘要/计数 + L1≤1 / L2≤2 步可达",
+        "320/400 常驻元素 id 集合相等 + 零水平溢出（AC-V3-021）",
+        "几何增强式替代：L0 四常驻区两两交面积 = 0（6 组）；#log 面板级滚动容器计数 = 1；#log clientHeight ≥ 基线登记下界（只允许上调）；兜底展开态 #composer 贴底 gap ∈ [0,+12] 且不被常驻区遮挡",
+        "明暗两主题（prefers-color-scheme 仿真）各跑一轮；三通道断言覆盖 5 类风险",
+        "承载 insight 几何 3 条 union 迁移（与 TASK-113 台账条目 old→new 对齐）；不触碰 test/ui/insight.mjs"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run test:l0 2>&1 | tee /tmp/opencode/v3-gate-logs/l0.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-113",
+      "name": "既有门禁同编号最小改写 + `package.json` scripts 追加",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-106"
+      ],
+      "wave": 4,
+      "parallelWith": [
+        "TASK-109",
+        "TASK-110"
+      ],
+      "planRef": "V3-1 plan §2.6/§5；父 ADR-V3-007 第 5 条 / ADR-V3-019",
+      "fr": [
+        "FR-V3-004"
+      ],
+      "nfr": [
+        "NFR-V3-014",
+        "NFR-V3-017"
+      ],
+      "ec": [
+        "EC-V3-013"
+      ],
+      "ac": [
+        "AC-V3-011",
+        "AC-V3-012"
+      ],
+      "adr": [
+        "ADR-V3-007",
+        "ADR-V3-019"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/ui/journey.mjs",
+          "note": "仅 #15c（composer 贴底）→ 兜底展开态同义断言；其余字节零改"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/ui/binding.mjs",
+          "note": "#6a/#6/#6l 同编号前置展开（await revealFallbackInput()）；#21*/#22* 字节零改"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/ui/insight.mjs",
+          "note": "几何 3 条按 union 口径迁移登记 + 最小前置展开；既有条目零删除"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/package.json",
+          "note": "追加 scripts test:density / test:l0 / test:supersession / test:v3（依赖零新增）"
+        }
+      ],
+      "acceptance": [
+        "journey.mjs 除 #15c 外 git diff 为 0 行；断言计数 ≥167",
+        "binding.mjs 的 #21*/#22* 区段字节 hash 不变；断言计数 ≥192",
+        "insight.mjs 既有条目零删除；union 口径写入台账（TASK-108）",
+        "三文件均无删除行未命中台账（由 TASK-108 门禁机器核验）",
+        "package.json 的 dependencies / devDependencies 零 diff"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && git diff --numstat -- test/ui/journey.mjs test/ui/binding.mjs test/ui/insight.mjs package.json | tee /tmp/opencode/v3-gate-logs/diff-protected.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-108",
+      "name": "取代台账 `docs/v3-supersession-ledger.json` + 门禁 `test/supersession-ledger.test.ts`",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-113"
+      ],
+      "wave": 5,
+      "parallelWith": [
+        "TASK-112"
+      ],
+      "planRef": "V3-1 plan §5；父 ADR-V3-007 第 2~3 条 / ADR-V3-019",
+      "fr": [
+        "FR-V3-004"
+      ],
+      "nfr": [
+        "NFR-V3-014"
+      ],
+      "ec": [
+        "EC-V3-013"
+      ],
+      "ac": [
+        "AC-V3-011",
+        "AC-V3-012",
+        "AC-V3-014"
+      ],
+      "adr": [
+        "ADR-V3-007",
+        "ADR-V3-019"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/v3-supersession-ledger.json",
+          "note": "r2 schema + counts.countMethod + gateFloors + protectedRanges + modifiedRanges + entries + zeroDiffFiles"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+          "note": "hunk ↔ 台账映射 + protectedRanges hash + countMethod 校验 + gateFloors 下界 + --files-override"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/package.json",
+          "note": "仅追加 script test:supersession"
+        }
+      ],
+      "acceptance": [
+        "countMethod 唯一合法值 = runtime-check-calls；出现其他值 → FAIL",
+        "gateFloors 五项齐备且为只增下界（journey:167/insight:108/binding:192/sidepanelView:38/nodeTestLowerBound:646）；counts.*.currentRuntime ≥ gateFloors.*",
+        "台账 base 明确为 c2c0e0d（本轮起点），只登记本叶改动（不把 v1/v2 历史行计入）",
+        "protectedRanges 以字节 hash 而非行号锚定；hash 变化 → FAIL",
+        "本叶条目：journey #15c（同编号改写）、binding #6a/#6/#6l 前置展开、insight 几何 3 条 union 迁移（newTitle 可在 test/ui/l0.mjs 定位）",
+        "zeroDiffFiles 必须 diff 为 0 行",
+        "--files-override <path> 通路可用（RP-V3-05 前置）",
+        "逆命题：任一删除/修改 hunk 未命中 entries 或 modifiedRanges → FAIL（AC-V3-011）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run test:supersession 2>&1 | tee /tmp/opencode/v3-gate-logs/supersession.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-112",
+      "name": "首轮真实产物密度基线登记 `docs/v3-density-baseline.{md,json}`",
+      "type": "doc",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-109"
+      ],
+      "wave": 5,
+      "parallelWith": [
+        "TASK-108"
+      ],
+      "planRef": "V3-1 plan §2.6/§5；ADR-V3-011 第 4 条 / ADR-V3-018",
+      "fr": [
+        "FR-V3-022"
+      ],
+      "nfr": [
+        "NFR-V3-001"
+      ],
+      "ec": [
+        "EC-V3-010"
+      ],
+      "ac": [
+        "AC-V3-004",
+        "AC-V3-005",
+        "AC-V3-007"
+      ],
+      "adr": [
+        "ADR-V3-011",
+        "ADR-V3-018"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/v3-density-baseline.md",
+          "note": "人读：三档 × 三视口实测值 + 日期 + 来源 + 与设计稿口径分列"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/docs/v3-density-baseline.json",
+          "note": "机读：门禁读取并断言「实测 ≤ 阈值」且「基线只允许收紧」"
+        }
+      ],
+      "acceptance": [
+        "三档 × 三视口 = 9 格实测值逐格登记（含 C1/C2/C3/C4 四口径数值）",
+        "与设计稿口径分列（E 7/10/47/6、D 80/144/391/5 与真实产物数字不得合并）",
+        "每格含日期 + 来源（dist/sidepanel.js + npm run build）+ 实测人（v3-1 + 轮次）",
+        "基线「只允许收紧」：JSON 含 direction 与 previous* 字段；门禁读取后断言实测 ≤ 阈值",
+        "首装态 ≤9/≤20 为首轮实测校准：只允许下调；超限则改披露策略（文案收进 L1），不得放宽阈值",
+        "C4 常驻分区数变化登记含前后值 + 日期 + 理由 + 反直觉事实说明；不得作为密度达标证据或放宽理由",
+        "与体积基线分开（不得写进 test/size-baseline.ts）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && node -e \"const b=require('./docs/v3-density-baseline.json');if(!b.tiers||!b.viewports||!b.designCaliber)throw new Error('baseline shape');console.log('baseline ok', Object.keys(b.tiers))\" | tee /tmp/opencode/v3-gate-logs/density-baseline.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-111",
+      "name": "RP-V3-01~06 六条反证实跑（每条都必须能真 FAIL）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-108",
+        "TASK-109",
+        "TASK-110",
+        "TASK-112"
+      ],
+      "wave": 6,
+      "parallelWith": [],
+      "planRef": "V3-1 plan §2.4(4)/§5；父 ADR-V3-004 第 3~4 条",
+      "fr": [
+        "FR-V3-086"
+      ],
+      "nfr": [
+        "NFR-V3-012",
+        "NFR-V3-013"
+      ],
+      "ec": [
+        "EC-V3-010"
+      ],
+      "ac": [
+        "AC-V3-006",
+        "AC-V3-014",
+        "AC-V3-015",
+        "AC-V3-024"
+      ],
+      "adr": [
+        "ADR-V3-003",
+        "ADR-V3-004",
+        "ADR-V3-007"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/ui/density.mjs",
+          "note": "--reverse RP-V3-01/02/03/04 驱动分支；判据写死「注入后必须 FAIL ∧ 还原后必须 PASS」"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+          "note": "--files-override 通路（RP-V3-05）"
+        },
+        {
+          "op": "NEW",
+          "path": "/tmp/opencode/v3-gate-logs/rp-v3-0*.log",
+          "note": "反证证据（不入版本库）"
+        }
+      ],
+      "acceptance": [
+        "六条全部实跑；每条日志同时含 FAIL 段与还原后 PASS 段（缺一即反证无效）",
+        "RP-V3-01：注入 <button id=rp01> → ok===false 且 exceeds 含 C1 8 > 7；remove() 后 ok===true",
+        "RP-V3-02：(a) 纯函数 evaluateDensity({clickables:7},'default',{clickables:6,lines:15}).ok===false；(b) 复制副本把默认档 clickables 7→6 → 必须 FAIL；try/finally 内校验原文件 sha256 未变",
+        "RP-V3-03：display:none/visibility:hidden/opacity:0/pointerEvents:none 四变体 C1 不得下降；el.hidden=true 时 C1 必须下降 1",
+        "RP-V3-04：风险行移入 #l1-status(hidden) → AC-V3-008/009 必须 FAIL → 还原后 PASS",
+        "RP-V3-05：复制 test/ui/l0.mjs 删 1 条 check → 以副本跑台账门禁必须 FAIL → 还原",
+        "RP-V3-06：dist/content.js +1 B → 既有体积守卫必须 FAIL（dist/pick-layer.js 段归 v3-4）",
+        "反证过程中不残留任何临时改动；完整日志落盘禁 tail 截断；结果如实记录"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && for rp in RP-V3-01 RP-V3-02 RP-V3-03 RP-V3-04; do node test/ui/density.mjs --reverse $rp 2>&1 | tee /tmp/opencode/v3-gate-logs/$rp.log; done",
+        "# RP-V3-05 / RP-V3-06 见验收标准；每条做完必须还原并复核 git status"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-114",
+      "name": "体积守卫核对 + `sidepanel.js` 显式重登记（条件触发）",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-111"
+      ],
+      "wave": 7,
+      "parallelWith": [],
+      "planRef": "V3-1 plan §2.6/§5；父 ADR-V3-011 第 3/5 条",
+      "fr": [],
+      "nfr": [
+        "NFR-V3-003",
+        "NFR-V3-005"
+      ],
+      "ec": [
+        "EC-V3-012"
+      ],
+      "ac": [
+        "AC-V3-015",
+        "AC-V3-016"
+      ],
+      "adr": [
+        "ADR-V3-011",
+        "ADR-V3-031"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/size-baseline.ts",
+          "note": "条件触发：更新 SIDEPANEL_BASELINE_BYTES + 旧值入 _HISTORY + _META 补全 6 字段；未触发则零改动"
+        }
+      ],
+      "acceptance": [
+        "content.js 实测 ≤ 177,076 B；CONTENT_SOURCE_SHA256 三项 pin 不变（本叶零改动）",
+        "sidepanel.js 实测值与 ceiling 279,825 B 比较结果如实记录",
+        "若触发重登记：五要素（前后值 + 日期 + 来源 + 理由 + _HISTORY 历史保留）齐备；SIDEPANEL_BASELINE_META 含 measuredOn/source/buildCommand/measuredBy/previousBaselineBytes/previousCeilingBytes/direction/reRegisteredFrom",
+        "若触发重登记：容差 5% 不变；targetBudgetBytes/targetMet 保持 null；断言零删减；反证（+1B → FAIL）在新值上重新驱动并留日志",
+        "若未触发：test/size-baseline.ts diff = 0，并登记「本叶未触发重登记」",
+        "本叶内完成（不得留给下一叶，EC-V3-013）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && node -e \"const fs=require('fs');const c=fs.statSync('dist/content.js').size,s=fs.statSync('dist/sidepanel.js').size;console.log({content:c,sidepanel:s});if(c>177076)process.exit(1);if(s>279825)console.error('CEILING EXCEEDED -> 走显式重登记');\" | tee /tmp/opencode/v3-gate-logs/size.log"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-115",
+      "name": "收口：全门禁绿串行验证 + 人工面如实登记",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-114"
+      ],
+      "wave": 7,
+      "parallelWith": [],
+      "planRef": "V3-1 plan §6 交付门槛；父 spec §10.3 / §11.1",
+      "fr": [
+        "FR-V3-003",
+        "FR-V3-086",
+        "FR-V3-087"
+      ],
+      "nfr": [
+        "NFR-V3-012",
+        "NFR-V3-014",
+        "NFR-V3-015"
+      ],
+      "ec": [
+        "EC-V3-013"
+      ],
+      "ac": [
+        "AC-V3-013",
+        "AC-V3-024",
+        "AC-V3-025",
+        "AC-V3-027"
+      ],
+      "adr": [
+        "ADR-V3-010"
+      ],
+      "ng": [],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "/tmp/opencode/v3-gate-logs/*.log",
+          "note": "14 步串行门禁全量日志（不入版本库）"
+        }
+      ],
+      "acceptance": [
+        "全门禁绿（§4.1 的 14 步顺序，逐条串行）；每门禁日志完整落盘、禁 tail 截断",
+        "断言计数逐项 ≥ 下界：journey ≥167 / insight union ≥108 / binding ≥192 / sidepanel-view ≥38 / node test( ≥646（只增不减）",
+        "零改动核对全部通过：manifest.json / src/security/** / src/content/** 三 hash / packages/web-cli-base/** / options.html / design/** 零 diff",
+        "人工面清单逐项标注「未执行 / PASS」二值之一，不得留空或写「通过」",
+        "AC-V3-013 达成：无红灯遗留给 v3-2 / v3-3"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && bash -c 'set -e; run(){ echo \"=== $1 ===\"; eval \"$2\" 2>&1 | tee /tmp/opencode/v3-gate-logs/$1.log; }; run typecheck \"npm run typecheck\"; run build \"npm run build\"; run npm-test \"npm test\"; run supersession \"npm run test:supersession\"; run density \"npm run test:density\"; run l0 \"npm run test:l0\"; run ui \"npm run test:ui\"; run insight \"npm run test:insight\"; run binding \"npm run test:binding\"; run hardening \"npm run test:hardening\"; run e2e \"npm run test:e2e\"; echo ALL-GREEN'"
+      ],
+      "status": "completed"
+    }
+  ],
+  "blockers": {
+    "hardBlocking": [
+      {
+        "id": "TASK-102",
+        "blocks": "TASK-107 / TASK-109 / TASK-111 / TASK-112（口径单源是全部密度断言的唯一事实源）"
+      },
+      {
+        "id": "TASK-103",
+        "blocks": "TASK-105 / TASK-106 / TASK-107 / TASK-109 / TASK-110（L0 容器是密度与风险位断言的物理落点）"
+      },
+      {
+        "id": "TASK-106",
+        "blocks": "TASK-109 / TASK-110 / TASK-113（未接线则无法实测默认档 7）"
+      },
+      {
+        "id": "TASK-108",
+        "blocks": "TASK-111（RP-V3-05）+ v3-2/v3-3/v3-4 的台账追加与取代门禁"
+      },
+      {
+        "id": "TASK-109",
+        "blocks": "TASK-112 / TASK-111 + 后三叶「密度不回归复测」"
+      }
+    ],
+    "crossLeaf": "V3-1 未全绿前 v3-2 / v3-3 / v3-4 一律不得开工（FR-V3-003 / EC-V3-013）"
+  }
+}

@@ -46,6 +46,35 @@ const SITE_PATTERN = `${SITE_ORIGIN}/*`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── assertions ───────────────────────────────────────────────────────────────
+// ── V3-1 (registered supersession V31-S2): L1/fallback pre-steps ─────────────
+// v3-1 made the toolbar an L1 disclosure and the composer hidden-until-used. These
+// two helpers step through the product's own controller so every pre-existing
+// assertion below keeps its exact selector and expectation (one extra interaction
+// in front, nothing weakened).
+const v3OpenStatusDetails = async (page) => {
+  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.openStatusDetails(); true');
+  await sleep(250);
+};
+/**
+ * Fold every L1/L2 layer again. The L1 status panel is tall (toolbar + consent +
+ * auto-auth + risk controls); leaving it open would push the composer out of a
+ * short viewport and break unrelated later assertions, so every pre-step closes
+ * what it opened.
+ */
+const v3Collapse = async (page) => {
+  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.collapseAll(); true');
+  await sleep(200);
+};
+const revealFallbackInput = async (page) => {
+  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.revealFallback(); true');
+  await sleep(300);
+  const state = await evaluate(
+    page,
+    `JSON.stringify({ composerHidden: document.getElementById('composer').hidden, inputDisabled: document.getElementById('input').disabled })`,
+  );
+  console.log(`  · [v3] fallback reveal（ADR-V3-014 §5）→ ${state}`);
+};
+
 const failures = [];
 const observations = [];
 
@@ -832,7 +861,10 @@ async function phase1(mock) {
     check(Boolean(status), '#4 侧栏读到活跃站点（不再恒「无活跃站点」）', status);
 
     // #4 authorize via the REAL button → requestOriginPermissionDetailed → http pattern
+    // V3-1 pre-step (registered): the authorize button now lives in the L1 status panel.
+    await v3OpenStatusDetails(ext);
     await realClick(ext, '#authorize');
+    await v3Collapse(ext);
     const authNotice = await waitFor(ext, `(() => { const t = document.getElementById('notice').textContent; return /已授权/.test(t) ? t : ''; })()`, 40, 200);
     check(Boolean(authNotice), '#4b 【授权当前站点】真实点击后出现可读回执', authNotice);
     check(/站点访问权限|activeTab|未获得持久站点权限/.test(authNotice ?? ''), '#4c 授权回执说明站点权限结果/回退', authNotice);
@@ -891,7 +923,10 @@ async function phase1(mock) {
     // T4: explicit readiness wait for the settings entry before clicking (so the
     // click lands on a wired control under load); the assertion below is unchanged.
     await waitFor(ext, `document.getElementById('open-settings') ? '1' : ''`, 60, 150);
+    // V3-1 pre-step (registered): #open-settings is an L1 entry now.
+    await v3OpenStatusDetails(ext);
     await realClick(ext, '#open-settings');
+    await v3Collapse(ext);
     const settingsView = await waitFor(
       ext,
       `(() => {
@@ -964,6 +999,9 @@ async function phase1(mock) {
     check(ooCalled === 0, '#33B10 面板设置入口零 openOptionsPage 调用（页面内计数=0）', String(ooCalled));
     check(pagesAfter === pagesBefore && optsAfter === optsBefore, '#33B11 面板设置全程零标签页跳转（page/options target 数不变）', `${pagesBefore}→${pagesAfter} / ${optsBefore}→${optsAfter}`);
 
+    // V3-1 pre-step (registered): the composer is hidden-until-used disclosure; the
+    // fallback state reveals it (ADR-V3-014 §5) before the unchanged real typing.
+    await revealFallbackInput(ext);
     await realClick(ext, '#input');
     await typeText(ext, '11111');
     const typed = await evaluate(ext, `document.getElementById('input').value`);
@@ -1023,6 +1061,7 @@ async function phase1(mock) {
     const aw = JSON.parse(away);
     check(aw.scrollable === true, '#6k 消息区可滚动（长回复已撑高）', away);
     check(aw.shown === true, '#6k2 上滚后「回到底部」入口出现', away);
+    await revealFallbackInput(ext);
     await realClick(ext, '#input');
     await typeText(ext, '22222');
     await realClick(ext, '#send');
@@ -1397,7 +1436,11 @@ async function phase1(mock) {
     await sleep(900);
 
     // (2) enable write auto via the real checkbox → marker appears, no more prompt.
+    // V3-1 pre-step (registered): the auto-auth switches are「谁在管我」→ L1.
+    await v3OpenStatusDetails(ext);
     await realClick(ext, '#auto-write');
+    await v3Collapse(ext);
+    await v3Collapse(ext);
     const badgeOn = await waitFor(
       ext,
       `(() => { const b = document.getElementById('auto-auth-badge'); const t = b ? b.textContent : ''; return b && getComputedStyle(b).display !== 'none' && /写/.test(t) ? t : ''; })()`,
@@ -1434,7 +1477,9 @@ async function phase1(mock) {
     await sleep(900);
 
     // (4) turn write auto off (real click) → the ask path returns immediately.
+    await v3OpenStatusDetails(ext);
     await realClick(ext, '#auto-write');
+    await v3Collapse(ext);
     const badgeOff = await waitFor(
       ext,
       `(() => { const w = document.getElementById('auto-write'); const b = document.getElementById('auto-auth-badge'); return w && !w.checked && b && !/写/.test(b.textContent) ? 'off' : ''; })()`,

@@ -15,7 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { projectInsightTree, type InsightSource } from '../src/insight/project-tree.js';
 import { toolSubcommands } from '../src/insight/command-catalog.js';
@@ -496,6 +496,25 @@ interface Ledger {
   protectedFileOldLines: string[];
 }
 
+/**
+ * v3-1 (registered supersession V31-S9): the v3 ledger is the *newer* supersession
+ * record. The r2-era「journey.mjs 零 diff」ban is replaced by the strictly stronger
+ * 「zero deletions + every addition attributed to a ledger entry」rule, and the r2
+ * coverage check now unions in the v3 ledger's registered deletion lines.
+ */
+interface V3Ledger {
+  counts: Record<string, { currentRuntime: number; countMethod: string }>;
+  gateFloors: Record<string, number>;
+  modifiedRanges: Array<{ file: string; deletedLinesText?: string[] }>;
+  entries: Array<{ id: string; file: string; oldTitle: string; newTitle: string }>;
+}
+
+function readV3Ledger(): V3Ledger | null {
+  const path = `${PLUGIN_ROOT}docs/v3-supersession-ledger.json`;
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, 'utf8')) as V3Ledger;
+}
+
 function readLedger(): Ledger {
   return JSON.parse(readFileSync(`${PLUGIN_ROOT}docs/r2-supersession-ledger.json`, 'utf8')) as Ledger;
 }
@@ -554,7 +573,14 @@ test('R2 (A4): no unreplaced deletions (ledger-covered) + counts non-decreasing 
   assert.ok(ledger.entries.some((e) => e.id === 'S20'), 'A7 supersession (S20) must be recorded');
 
   // 3) 受保护文件（既有断言）的**每一行删除**都必须命中台账 old 行（无未取代删除）。
-  const covered = ledger.protectedFileOldLines.map((line) => line.trim());
+  // v3-1 (V31-S9): 覆盖率来源并入 v3 台账（r2 台账只看 r2 一轮；v3 轮次的删除行由
+  // v3-supersession-ledger.json 的 modifiedRanges[].deletedLinesText 逐行登记）。
+  const v3 = readV3Ledger();
+  const covered = [
+    ...ledger.protectedFileOldLines.map((line) => line.trim()),
+    ...(v3?.modifiedRanges ?? []).flatMap((r) => r.deletedLinesText ?? []),
+    ...(v3?.entries ?? []).map((e) => e.oldTitle),
+  ];
   const protectedDeleted = [
     ...deletedLines('HEAD', PROTECTED_EXISTING_TESTS),
     ...deletedLines(R2_BASE, PROTECTED_EXISTING_TESTS),
@@ -566,9 +592,39 @@ test('R2 (A4): no unreplaced deletions (ledger-covered) + counts non-decreasing 
     );
   }
 
-  // 4) journey.mjs（v1 门禁）区间 + 工作区零 diff。
-  assert.equal(hasDiff('HEAD', JOURNEY_V1_GATE), false, 'journey.mjs must have zero working-tree diff');
-  assert.equal(hasDiff(R2_BASE, JOURNEY_V1_GATE), false, 'journey.mjs must have zero R2-range diff');
+  // 4) journey.mjs（v1 门禁）：v3-1 (V31-S9) 把 r2 时代的**包裹式零 diff 禁令**换成
+  //    **更强**的两条断言：
+  //    ① 相对 HEAD 与 R2_BASE **零删除行**（「断言零删除」这一实质条款被保留，且比
+  //       「整文件零 diff」更直接地表达了它真正要保的东西）；
+  //    ② 任何新增行都必须由 v3 台账覆盖（journey 的每条前置展开都能在 entries 里定位）。
+  assert.deepEqual(deletedLines('HEAD', JOURNEY_V1_GATE), [], 'journey.mjs 不得删除任何既有断言行');
+  assert.deepEqual(deletedLines(R2_BASE, JOURNEY_V1_GATE), [], 'journey.mjs 相对 R2_BASE 亦不得删除任何行');
+  const journeyAdded = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--unified=0', 'HEAD', '--', ...JOURNEY_V1_GATE], { encoding: 'utf8' })
+    .split('\n')
+    .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
+    .map((line) => line.slice(1).trim())
+    .filter(Boolean);
+  const journeyTitles = (v3?.entries ?? []).filter((e) => e.file.endsWith('journey.mjs')).map((e) => e.newTitle);
+  // 注释行是前置展开步骤的文档，不算「未登记的可执行新增」。其余每一行必须属于
+  // 以下两类之一：
+  //   ① 走 v3 产品控制器（`window.__v3.testing.*` / 其封装的 helper）——即**只允许
+  //      增加披露前置展开**，不允许新增/改写断言逻辑（断言只增必须落新文件）；
+  //   ② 结构性胶水（`await sleep(N);` / `};` / 括号）。
+  // 任何新增的 `check(...)`、选择器改写或断言体都会被这条规则判为未登记。
+  const GLUE = /^(await sleep\(\d+\);|\};?|\{|\}\)?;?|\);)$/;
+  const V3_PRE_STEP = /__v3|v3RevealComposer|v3OpenStatusDetails|v3Collapse/;
+  const substantive = journeyAdded.filter((line) => !line.startsWith('//'));
+  const unattributed = substantive.filter(
+    (line) =>
+      !V3_PRE_STEP.test(line) &&
+      !GLUE.test(line) &&
+      !journeyTitles.some((t) => t && (line.includes(t) || t.includes(line))),
+  );
+  assert.deepEqual(
+    unattributed,
+    [],
+    `journey.mjs 的新增行必须逐条命中 v3 台账 entries（未登记：${unattributed.join(' ⏎ ')})`,
+  );
 
   // 5) 总断言数不减（静态 `test(` 计数 ≥ 台账 before）。
   const current = currentNodeTestCount();

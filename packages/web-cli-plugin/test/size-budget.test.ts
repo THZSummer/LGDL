@@ -191,21 +191,25 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
   // v2 R2 (2026-09-13) pinned 1,159,856 B (real nested tree UI + layered policy
   // controls + archive layering). 守卫收紧轮 (2026-09-14) re-measured after the
   // base LLM SDK lazification → 266,500 B and TIGHTENED (direction = down).
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_159_856);
-  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 1_217_848);
-  assert.equal(SIDEPANEL_BASELINE_META.direction, 'tightened');
-  // 历史值全保留（含 v2 R2 的 1,159,856 与 R2 收口实测 1,162,942）。
+  // v3-1 (2026-09-16)：L0 骨架 + 折叠控制器为**有意增重**，按实测**提升**重登记
+  // （前值 266,500 B / ceiling 279,825 B 全保留在 HISTORY 与 reRegisteredFrom）。
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 291_523);
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 266_500);
+  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 279_825);
+  assert.equal(SIDEPANEL_BASELINE_META.direction, 'raised');
+  // 历史值全保留（含 v2 R2 的 1,159,856 与 R2 收口实测 1,162,942）；
+  // 2026-09-14 的 266,500 B 由 META.previousBaselineBytes / reRegisteredFrom 保留
+  // （与收紧轮同一约定：HISTORY 保持单调不减的链条）。
   assert.deepEqual(
     [...SIDEPANEL_BASELINE_BYTES_HISTORY],
     [1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942],
   );
-  // 「收紧」必须严格小于前值（上调/下调都必须显式记录，不得静默）。
+  // 方向必须与数值一致（上调/下调都必须显式记录，不得静默）。
   assert.ok(
-    SIDEPANEL_BASELINE_BYTES < SIDEPANEL_BASELINE_META.previousBaselineBytes,
-    '本轮为「收紧」重登记：当前基线必须严格小于前值',
+    SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
+    '本轮为「提升」重登记：当前基线必须严格大于前值',
   );
-  assert.equal(SIDEPANEL_CEILING, 279_825, 'ceiling = floor(266,500 × 1.05)');
+  assert.equal(SIDEPANEL_CEILING, 306_099, 'ceiling = floor(291,523 × 1.05)');
   assert.equal(SIDEPANEL_BASELINE_TOLERANCE, 0.05, '容差不得因重登记而放宽');
   assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_CEILING, '基线与上限自洽');
   // 零注入红线随本轮**收紧**（不是放宽）。
@@ -216,14 +220,25 @@ test('W4 size REVERSE PROOF: the tightened ceiling still FAILS on one byte over'
   assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, true);
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false, '新 ceiling + 1 必须 FAIL');
-  assert.equal(over.ceilingBytes, 279_825);
+  assert.equal(over.ceilingBytes, 306_099);
   assert.throws(() => assert.equal(over.ok, true, over.message), /体积回归/);
-  // 反证：旧的 R2 基线值（1,159,856 B）在新守卫下必须 FAIL —— 证明
-  //「悄悄长回 ~1.16 MB」已经不可能。
+  // 方向敏感的张力证明（v3-1 提升轮）：
+  //   ① 上一轮基线（266,500 B）在新守卫下仍然 PASS —— 提升不是「偷偷放宽」；
+  //   ② 上一轮 ceiling（279,825 B）在新守卫下必须 FAIL —— 证明 sidepanel.js 真的
+  //      长过了旧 ceiling（这正是本轮必须重登记的原因，也是「提升真实落地」）。
   assert.equal(
     evaluateSidepanelSize(SIDEPANEL_BASELINE_META.previousBaselineBytes).ok,
-    false,
-    '前值 1,159,856 B 必须已不被新守卫接受（收紧真实落地）',
+    true,
+    '上一轮基线 266,500 B 仍在新守卫接受范围内',
+  );
+  assert.ok(
+    SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousCeilingBytes,
+    '本轮实测值必须超出上一轮 ceiling（这正是必须显式重登记的原因）',
+  );
+  assert.equal(
+    evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok,
+    true,
+    '新基线本身必须通过新守卫（提升后的守卫自洽）',
   );
 });
 
@@ -243,27 +258,37 @@ test('V2-4 size: baseline re-registration history is retained and monotonic', ()
   for (let i = 1; i < history.length; i += 1) {
     assert.ok(history[i] >= history[i - 1], 'HISTORY 必须单调不减');
   }
-  // 收紧轮后：当前基线严格低于**每一个**历史值（方向 = 只准更严）。
-  for (const value of history) {
-    assert.ok(
-      SIDEPANEL_BASELINE_BYTES < value,
-      `收紧轮后当前基线 ${SIDEPANEL_BASELINE_BYTES}B 必须严格小于历史值 ${value}B`,
-    );
-  }
+  // v3-1 提升轮：当前基线必须严格**高于上一轮登记值**（方向显式；静默上调不可能），
+  // 且新 ceiling 必须严格**高于上一轮 ceiling**（提升真实落地）。
+  assert.ok(
+    SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
+    `v3-1 提升轮后当前基线 ${SIDEPANEL_BASELINE_BYTES}B 必须严格大于上一轮 ${SIDEPANEL_BASELINE_META.previousBaselineBytes}B`,
+  );
+  assert.ok(
+    SIDEPANEL_CEILING > SIDEPANEL_BASELINE_META.previousCeilingBytes,
+    `v3-1 提升轮后 ceiling ${SIDEPANEL_CEILING}B 必须严格大于上一轮 ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B`,
+  );
 });
 
 test('V2-4 size: re-registration meta carries date/source/reason and is NOT a target budget', () => {
-  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-14');
+  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-16');
   assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');
   assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
-  assert.ok(SIDEPANEL_BASELINE_META.note.includes('收紧'), 'note 必须写明本轮重登记方向（收紧）');
-  assert.ok(SIDEPANEL_BASELINE_META.note.includes('266,500'), 'note 必须写明实测值 266,500');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('提升'), 'note 必须写明本轮重登记方向（提升）');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('291,523'), 'note 必须写明本轮实测值 291,523');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('266,500'), 'note 必须保留前值 266,500（历史可核）');
   // 历史保留：V2-4 / v2 R2 的重登记事实仍可在 HISTORY 中核对（不因新一轮收紧而丢失）。
   assert.ok(SIDEPANEL_BASELINE_BYTES_HISTORY.includes(1_132_748), 'V2-4 历史值保留');
   assert.ok(SIDEPANEL_BASELINE_BYTES_HISTORY.includes(1_159_856), 'v2 R2 历史值保留');
-  assert.equal(
+  assert.match(
     SIDEPANEL_BASELINE_META.reRegisteredFrom,
-    'V2 R2 1,159,856 B（ceiling 1,217,848 B；R2 收口实测 1,162,942 B）',
+    /266,500 B/,
+    'reRegisteredFrom 必须写明上一轮基线（266,500 B）',
+  );
+  assert.match(
+    SIDEPANEL_BASELINE_META.reRegisteredFrom,
+    /279,825 B/,
+    'reRegisteredFrom 必须写明上一轮 ceiling（279,825 B）',
   );
   assert.equal(SIDEPANEL_BASELINE_META.targetBudgetBytes, null);
   assert.equal(SIDEPANEL_BASELINE_META.targetMet, null);
@@ -271,7 +296,7 @@ test('V2-4 size: re-registration meta carries date/source/reason and is NOT a ta
 
 test('V2-4 size: ceiling stays structurally consistent (floor(baseline × 1.05))', () => {
   assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE)));
-  assert.equal(SIDEPANEL_CEILING, Math.floor(266_500 * 1.05), '收紧后 ceiling = 279,825');
+  assert.equal(SIDEPANEL_CEILING, Math.floor(291_523 * 1.05), 'v3-1 提升后 ceiling = 306,099');
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false);
   assert.throws(

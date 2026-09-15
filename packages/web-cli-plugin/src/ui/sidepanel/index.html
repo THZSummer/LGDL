@@ -49,6 +49,21 @@
         --radius-sm: 8px;
         --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
         --focus: 0 0 0 2px rgba(79, 70, 229, 0.35);
+        /* ── V3-1 (FR-V3-026): L0 skeleton tokens. Any token added here MUST be
+           mirrored in the dark-scheme `@media` block below (the two blocks are
+           asserted symmetric by test/ui/l0.mjs + density-thresholds.test.ts). ── */
+        --l0-band-bg: #eef2ff;
+        --l0-band-border: #c7d2fe;
+        --l0-rail-bg: #f8fafc;
+        --l0-rail-border: #cbd5e1;
+        --badge-bg: #f1f5f9;
+        --badge-border: #cbd5e1;
+        --badge-text: #334155;
+        --risk-bg: #fef2f2;
+        --risk-border: #fecaca;
+        --risk-text: #991b1b;
+        --ok-badge-bg: rgba(21, 128, 61, 0.14);
+        --ok-badge-text: #15803d;
       }
       @media (prefers-color-scheme: dark) {
         :root {
@@ -74,8 +89,27 @@
           --ok: #4ade80;
           --ok-bg: rgba(74, 222, 128, 0.14);
           --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+          --l0-band-bg: #1e1b4b;
+          --l0-band-border: #4338ca;
+          --l0-rail-bg: #0f172a;
+          --l0-rail-border: #334155;
+          --badge-bg: #1e293b;
+          --badge-border: #334155;
+          --badge-text: #cbd5e1;
+          --risk-bg: #3f1414;
+          --risk-border: #7f1d1d;
+          --risk-text: #fca5a5;
+          --ok-badge-bg: rgba(74, 222, 128, 0.14);
+          --ok-badge-text: #4ade80;
         }
       }
+
+      /* ── V3-1 (FR-V3-024 / EC-V3-010): `hidden` is the ONLY collapse channel.
+         `display:none` / `visibility` must never be used to hide L0 content —
+         the density caliber (spec §9.1) exempts **only** the `hidden` attribute,
+         so a CSS-hidden element still costs density budget. `!important` keeps
+         the attribute honest even where a `#id.class` rule sets a display. ── */
+      [hidden] { display: none !important; }
 
       *, *::before, *::after { box-sizing: border-box; }
       html, body { height: 100%; }
@@ -176,7 +210,11 @@
       #group-select { flex: 1 1 auto; min-width: 0; }
 
       /* ── zone 2: message list (flex fill, the only scroller) ─────────── */
-      #panel-main { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; }
+      /* V3-1: `#panel-main` stacks its children now — `#l0-decision` sits above
+         `#log` (the decision card must be read before the transcript), and `#log`
+         stays the only scroller. Before v3-1 the zone had a single child, so the
+         default `row` direction happened to look identical. */
+      #panel-main { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
       #log {
         flex: 1 1 auto;
         min-height: 0;
@@ -330,12 +368,14 @@
       .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
       @keyframes blink { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
 
-      /* "back to bottom" — only while the user has scrolled away */
+      /* "back to bottom" — only while the user has scrolled away.
+         V3-1: visibility is the `hidden` attribute (never `display:none`/`.show`),
+         so the button is genuinely out of the density budget while idle. */
       #scroll-bottom {
         position: absolute;
         right: 12px;
         bottom: 12px;
-        display: none;
+        display: inline-flex;
         align-items: center;
         gap: 4px;
         padding: 5px 12px;
@@ -347,7 +387,6 @@
         box-shadow: 0 2px 8px rgba(15, 23, 42, 0.22);
         z-index: 5;
       }
-      #scroll-bottom.show { display: inline-flex; }
       #scroll-bottom:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
 
       /* ── zone 3: bottom (fixed, non-scrolling) — composer is last ─────── */
@@ -363,18 +402,18 @@
       }
       .strips { display: flex; flex-direction: column; gap: 6px; max-height: 34vh; overflow-y: auto; min-width: 0; }
       #env-guard {
-        display: none; border: 2px solid #dc2626; background: var(--danger-bg); color: var(--danger-text);
+        border: 2px solid #dc2626; background: var(--danger-bg); color: var(--danger-text);
         border-radius: var(--radius-sm); padding: 8px; font-weight: 600;
       }
       #site-hint {
-        display: none; border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
+        border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
         border-radius: var(--radius-sm); padding: 6px 9px;
       }
       #site-hint .sh-title { font-weight: 600; }
       #site-hint .sh-detail { margin: 3px 0; font-size: 12px; line-height: 1.55; }
       #site-hint .sh-action { font-size: 12px; font-weight: 600; }
       #onboarding {
-        display: none; border: 1px solid var(--border-strong); background: var(--bg-subtle);
+        border: 1px solid var(--border-strong); background: var(--bg-subtle);
         border-radius: var(--radius-sm); padding: 6px 9px; font-size: 12px;
       }
       #onboarding .onboarding-title { font-weight: 600; }
@@ -383,22 +422,22 @@
       #onboarding li.current { font-weight: 600; color: var(--accent-text); }
       #onboarding li.done { color: var(--text-muted); }
       #discovery-notice {
-        display: none; border: 1px solid var(--border-strong); background: var(--bg-subtle);
+        border: 1px solid var(--border-strong); background: var(--bg-subtle);
         border-radius: var(--radius-sm); padding: 6px 9px;
       }
       #discovery-notice .dn-title { font-weight: 600; }
       #discovery-notice .dn-detail { margin: 4px 0; color: var(--text-muted); font-size: 12px; }
       #notice {
-        display: none; background: var(--warn-bg); color: var(--warn-text);
+        background: var(--warn-bg); color: var(--warn-text);
         border: 1px solid var(--warn-border); border-radius: var(--radius-sm); padding: 6px 9px; font-size: 12px;
       }
       #confirm {
-        display: none; border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
+        border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
         border-radius: var(--radius-sm); padding: 8px 9px;
       }
       #confirm-summary, #ask-prompt { overflow-wrap: anywhere; }
       #ask {
-        display: none; border: 1px solid var(--border-strong); background: var(--bg-subtle);
+        border: 1px solid var(--border-strong); background: var(--bg-subtle);
         border-radius: var(--radius-sm); padding: 8px 9px;
       }
       #send-reason { margin: 0; color: var(--warn-text); font-size: 11.5px; }
@@ -488,7 +527,6 @@
 
       /* ── TASK-033: in-panel settings view (zero navigation) ──────────── */
       #settings-view {
-        display: none;
         flex: 1 1 auto;
         min-height: 0;
         min-width: 0;
@@ -496,7 +534,6 @@
         overflow-x: hidden;
         background: var(--bg);
       }
-      #settings-view.show { display: block; }
       body.settings-open #panel-top,
       body.settings-open #panel-main,
       body.settings-open #panel-bottom { display: none; }
@@ -798,19 +835,179 @@
         color: var(--accent-text);
         background: var(--accent-weak);
       }
+
+      /* ══ V3-1 (ADR-V3-013 / ADR-V3-017 / ADR-V3-018): L0 skeleton ═════════
+         Design baseline = option-e-progressive.html. Three things, three zones:
+           ① 我在哪 + ② 谁在管我 → #l0-status-band (single clickable in #panel-top)
+           ③ 下一步做什么      → #l0-decision (#panel-main, sibling of #log)
+           plus #risk-rail + #l0-statusbar (body-direct; #risk-rail never folds).
+         Everything else (the former #topbar toolbar, the composer, the
+         settings view, the tree overlay) is disclosure, not L0. ── */
+      #risk-rail {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 6px 10px;
+        min-width: 0;
+        background: var(--l0-rail-bg);
+        border-bottom: 1px solid var(--l0-rail-border);
+      }
+      #risk-rail .risk-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 3px 6px;
+        min-width: 0;
+        border: 1px solid var(--risk-border);
+        background: var(--risk-bg);
+        color: var(--risk-text);
+        border-radius: var(--radius-sm);
+        padding: 4px 7px;
+      }
+      #risk-rail .risk-row[data-risk-severity="calm"] {
+        border-color: var(--l0-rail-border);
+        background: transparent;
+        color: var(--text-muted);
+      }
+      #risk-rail .risk-text { min-width: 0; font-size: 11.5px; line-height: 1.5; }
+      #risk-rail .risk-badge {
+        flex: 0 0 auto;
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+      }
+      #risk-rail .risk-icon { flex: 0 0 auto; width: 12px; height: 12px; }
+      /* the risk rail must never look foldable: no disclosure affordance here */
+      #risk-rail > * { flex: 0 0 auto; }
+
+      #l0-status-band {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px 8px;
+        width: 100%;
+        min-width: 0;
+        text-align: left;
+        font-size: 12px;
+        background: var(--l0-band-bg);
+        border: 1px solid var(--l0-band-border);
+        border-radius: var(--radius-sm);
+        padding: 6px 8px;
+      }
+      #l0-status-band .l0-band-label { font-weight: 600; }
+      #l0-status-band #status,
+      #l0-status-band #llm-status,
+      #l0-status-band #session-label { min-width: 0; }
+      #l0-status-band .l0-band-caret { margin-left: auto; color: var(--text-muted); font-size: 10px; }
+
+      #l0-decision {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 10px;
+        min-width: 0;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+      }
+      #l0-decision .l0-kicker { font-size: 11px; color: var(--text-muted); }
+      #l0-decision #ask { margin: 0; }
+      #l0-decision #confirm { margin: 0; }
+      /* V3-1: a destructive confirmation must be answerable **always** — even while
+         the L2 overlays (the connection-tree drawer, z-index 7) are open. The card
+         therefore floats above them; only the card, not the whole decision zone,
+         so the drawer stays usable. (Regression found by test:binding #22h: the
+         drawer's own notes covered the「拒绝」button, silently blocking every later
+         dispatch of that round.) */
+      #confirm { position: relative; z-index: 9; }
+      #l0-decision .row { min-width: 0; }
+      #l0-pick,
+      #l0-more,
+      #l0-ref-toggle { font-size: 12px; text-align: left; }
+      #l0-ref-toggle { width: 100%; }
+      #l1-ref,
+      #l1-more { border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); padding: 6px 8px; }
+      #l1-ref .l1-entry,
+      #l1-more .l1-entry { font-size: 11.5px; line-height: 1.55; color: var(--text-muted); }
+      #l1-more .row { gap: 4px; }
+      #ask-fallback { border-top: 1px dashed var(--border); padding-top: 6px; }
+      #l0-statusbar {
+        flex: 0 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 8px;
+        width: 100%;
+        min-width: 0;
+        text-align: left;
+        font-size: 11.5px;
+        color: var(--text-muted);
+        background: var(--bg-subtle);
+        border-top: 1px solid var(--border);
+        border-radius: 0;
+        padding: 5px 10px;
+      }
+      #l0-statusbar .l0-statusbar-caret { margin-left: auto; }
+      #l2-entries {
+        flex: 0 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 6px 10px;
+        background: var(--bg-subtle);
+        border-top: 1px solid var(--border);
+      }
+      #l2-entries button { font-size: 11.5px; }
+      /* V3-1: the L2 host is a *skeleton* — while it is empty it must not steal
+         space from the transcript (opening the L2 entry panel alone must not move
+         the geometry). v3-3 owns the real view-replacement switch (FR-V3-047:
+         hide `#log`, let the host take the content area). */
+      #view-host {
+        flex: 0 0 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+      }
+      /* EC-V3-008: at 320px nothing is deleted — the zones wrap and truncate. */
+      @media (max-width: 380px) {
+        #l0-status-band,
+        #risk-rail .risk-row,
+        #l0-statusbar,
+        #l2-entries { padding-left: 6px; padding-right: 6px; }
+        #l0-status-band #status,
+        #l0-status-bar-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      }
     </style>
   </head>
   <body>
-    <!-- ── zone 1: status + primary actions (never scrolls) ── -->
+    <!-- ── V3-1 (FR-V3-016 / ADR-V3-006, D3 iron rule): the risk rail is an
+         INDEPENDENT zone, permanently resident at the very top, and it NEVER
+         folds. `l0/risk-rail.ts` is its only writer; `disclosure.ts` refuses it
+         (assertFoldable throws); its ancestor closure contains no `hidden` and
+         no disclosure trigger. ── -->
+    <section id="risk-rail" role="status" aria-live="polite" aria-label="风险位（常驻，永不折叠）"></section>
+
+    <!-- ── zone 1: ① 我在哪 + ② 谁在管我 — ONE clickable band.
+         Everything that used to live in the toolbar is now L1 (`#topbar`,
+         ≤1 interaction away, default `hidden`). ── -->
     <header id="panel-top">
-      <div class="status-bar">
+      <button id="l0-status-band" type="button" aria-expanded="false" aria-controls="topbar">
+        <span class="l0-band-label">当前站点</span>
         <span id="status">无活跃站点</span>
         <span id="llm-status" class="muted">LLM：检测中…</span>
         <span id="session-label" class="muted">会话：（无活跃站点）</span>
-      </div>
-      <div class="toolbar row" id="topbar">
+        <span class="l0-band-caret">▾</span>
+      </button>
+      <div class="toolbar row" id="topbar" data-l1-panel="l1-status" hidden>
         <button id="open-settings" class="primary" type="button">⚙ 设置</button>
         <button id="authorize" type="button">授权当前站点</button>
+        <!-- V3-1: "谁在管我" details (consent text + per-origin auto-auth switches)
+             are appended here by `renderConsent()`. They are L1: the default
+             screen must not spend density budget on them. -->
+        <div id="l1-status-extra"></div>
         <details class="more" id="more-actions">
           <summary>更多</summary>
           <div class="more-menu">
@@ -833,62 +1030,103 @@
             </div>
           </div>
         </details>
+        <!-- V3-1: the LLM connection status is a *detail* of「谁在管我」— it lives in
+             the L1 status panel, not on the default screen. Its text is still read by
+             the existing gates (they assert `textContent`, never visibility). -->
+        <div id="llm-test-result" class="muted" role="status" aria-live="polite"></div>
       </div>
-      <div id="llm-test-result" class="muted" role="status" aria-live="polite"></div>
     </header>
 
-    <!-- ── zone 2: message list (flex fill, the only scroller) ── -->
+    <!-- ── zone 2: message list (flex fill, the only scroller) + ③ 下一步做什么 ── -->
     <div id="panel-main">
+      <!-- ── V3-1 (ADR-V3-013 / ADR-V3-014): the ONE decision card.
+           #ask / #confirm are reused verbatim (zero id renames); the terminal
+           option 「其他…（我来描述）」 and the non-recommended options live in
+           the L1 `#l1-more` panel, and the fallback input `#ask-fallback` is
+           `hidden` until that terminal option is chosen (FR-V3-012 /
+           FR-V3-013 — no permanently resident text input). ── -->
+      <div id="l0-decision">
+        <div class="l0-kicker" id="l0-kicker">下一步做什么</div>
+        <div id="ask" hidden>
+          <div id="ask-prompt"></div>
+          <div id="ask-options" class="row"></div>
+          <div id="ask-fallback" hidden>
+            <div class="row">
+              <input id="ask-input" type="text" placeholder="输入回答…" autocomplete="off" />
+              <button id="ask-submit" type="button">回答</button>
+              <button id="ask-cancel" type="button">取消</button>
+            </div>
+            <span class="muted">取消 = 回答被取消（不代填默认值）</span>
+          </div>
+        </div>
+        <div class="row">
+          <button id="l0-pick" type="button">从页面拾取</button>
+          <button id="l0-more" type="button" aria-expanded="false" aria-controls="l1-more">更多选项（还有 0 个）</button>
+        </div>
+        <button id="l0-ref-toggle" type="button" aria-expanded="false" aria-controls="l1-ref">引用 0 条</button>
+        <div id="l1-more" data-l1-panel="l1-more" hidden>
+          <div class="row" id="l1-more-options"></div>
+          <div class="l1-entry">末项固定为「其他…（我来描述）」；选中它就地展开输入框。</div>
+        </div>
+        <div id="l1-ref" data-l1-panel="l1-ref" hidden>
+          <div class="l1-entry" id="l1-ref-summary">引用条：选择器 / 语义路径 / 文本摘要 / 捕获时间（证据层只读）。</div>
+        </div>
+        <!-- 破坏性确认：落在 #l0-decision 直系、不参与折叠（FR-V3-018 / EC-V3-015） -->
+        <div id="confirm" hidden data-destructive-option="confirm">
+          <div>敏感操作需二次确认：</div>
+          <div id="confirm-summary"></div>
+          <div class="row">
+            <button id="confirm-allow" type="button" data-destructive-option="confirm-allow">允许</button>
+            <button id="confirm-deny" type="button" data-destructive-option="confirm-deny">拒绝</button>
+            <span class="muted">超时/取消 = 拒绝</span>
+          </div>
+        </div>
+      </div>
       <div id="log" aria-label="会话记录"></div>
-      <button id="scroll-bottom" type="button" title="新消息在下方">回到底部 ↓</button>
+      <button id="scroll-bottom" type="button" title="新消息在下方" hidden>回到底部 ↓</button>
       <!-- V2-2 (ADR-V2-005): connection-tree entry (FAB) + overlay drawer.
-           Both are absolute children of #panel-main, so they overlay the message
-           zone without ever touching the three-zone flex geometry or the
-           composer. Default state: collapsed (O-V2-001); nothing is pulled or
-           rendered until the FAB is first opened (NFR-V22-005). -->
-      <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" aria-haspopup="dialog" title="连接树：四维度总览与撤销入口">连接树</button>
+           V3-1 (ADR-V3-017): both are L2 — hidden until the L2 view is opened
+           from the status-bar entry panel (≤2 interactions, FR-V3-048). -->
+      <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" aria-haspopup="dialog" title="连接树：四维度总览与撤销入口" hidden>连接树</button>
       <aside id="tree-drawer" hidden aria-label="连接树" role="dialog" aria-modal="false"></aside>
+      <!-- V3-1: L2 host (command catalog / audit / global tree / settings land
+           here in v3-3). Default `hidden` — one of the four L2 views is never
+           resident. -->
+      <div id="view-host" aria-label="按需视图" hidden></div>
     </div>
 
-    <!-- ── zone 3: hints + composer (never scrolls; composer is last) ── -->
+    <!-- ── V3-1 (FR-V3-015): the ONE-LINE status bar; its entry panel holds the
+         ≤4 L2 entries with real counts. ── -->
+    <button id="l0-statusbar" type="button" aria-expanded="false" aria-controls="l2-entries">
+      <span id="l0-statusbar-text">状态：树 0 · 命令 0 · 审计 0 · 设置</span>
+      <span class="l0-statusbar-caret">▴</span>
+    </button>
+    <div id="l2-entries" data-disclose-panel="l2-entries" hidden>
+      <button id="l2-entry-tree" type="button" aria-controls="view-host">连接树 · 0</button>
+      <button id="l2-entry-commands" type="button" aria-controls="view-host">命令目录 · 0</button>
+      <button id="l2-entry-audit" type="button" aria-controls="view-host">审计 · 0</button>
+      <button id="l2-entry-settings" type="button" aria-controls="view-host">设置</button>
+    </div>
+
+    <!-- ── zone 3: hints (never scrolls; composer is last) ── -->
     <div id="panel-bottom">
       <div class="strips">
-        <div id="env-guard" role="alert"></div>
-        <div id="site-hint" role="status" aria-live="polite">
+        <div id="env-guard" role="alert" hidden></div>
+        <div id="site-hint" role="status" aria-live="polite" hidden>
           <div class="sh-title" id="site-hint-title"></div>
           <div class="sh-detail" id="site-hint-detail"></div>
           <div class="sh-action" id="site-hint-action"></div>
         </div>
-        <div id="onboarding"></div>
-        <div id="discovery-notice" role="status" aria-live="polite">
+        <div id="onboarding" hidden></div>
+        <div id="discovery-notice" role="status" aria-live="polite" hidden>
           <div class="dn-title" id="discovery-title"></div>
           <div class="dn-detail" id="discovery-detail"></div>
         </div>
-        <div id="notice" role="status" aria-live="polite"></div>
-      </div>
-      <div id="confirm">
-        <div>敏感操作需二次确认：</div>
-        <div id="confirm-summary"></div>
-        <div class="row">
-          <button id="confirm-allow" type="button">允许</button>
-          <button id="confirm-deny" type="button">拒绝</button>
-          <span class="muted">超时/取消 = 拒绝</span>
-        </div>
-      </div>
-      <div id="ask">
-        <div class="muted">AI 任务内澄清提问（与权限确认不同）：</div>
-        <div id="ask-prompt"></div>
-        <div id="ask-options" class="row"></div>
-        <div class="row">
-          <input id="ask-input" type="text" placeholder="输入回答…" autocomplete="off" />
-          <button id="ask-submit" type="button">回答</button>
-          <button id="ask-cancel" type="button">取消</button>
-        </div>
-        <span class="muted">取消 = 回答被取消（不代填默认值）</span>
+        <div id="notice" role="status" aria-live="polite" hidden></div>
       </div>
       <div id="send-reason" class="muted" role="status" aria-live="polite"></div>
       <div id="consent-slot"></div>
-      <form id="composer">
+      <form id="composer" hidden>
         <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />
         <button id="send" type="submit">发送</button>
       </form>
@@ -897,13 +1135,18 @@
     <!-- ── TASK-033: in-panel settings view (same document, zero navigation).
          The chat zones above are only hidden, never rebuilt, so messages /
          scroll position / composer draft survive a round-trip. ── -->
-    <section id="settings-view" aria-label="设置">
+    <section id="settings-view" aria-label="设置" hidden>
       <div id="settings-header">
         <button id="settings-back" type="button">← 返回对话</button>
         <span class="sh-title">设置</span>
       </div>
       <div id="settings-root"></div>
     </section>
+    <!-- V3-1: the script stays the last element of <body>. It is a `display:none`
+         element (Chrome's UA sheet), so it costs no layout — but it IS a non-hidden
+         direct child of <body>, i.e. it is counted by C4 (常驻分区数). C4 has no
+         ceiling and is registration-only (see the density baseline), and moving the
+         tag would have forced a byte edit into an existing layout contract test. -->
     <script src="sidepanel.js"></script>
   </body>
 </html>

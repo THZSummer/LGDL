@@ -51,10 +51,32 @@ const repoRoot = resolve(root, '..', '..');
 const dist = resolve(root, 'dist');
 const CHROME = process.env.CHROME_BIN || resolve(repoRoot, '.pw-browsers', 'chromium-1234', 'chrome-linux64', 'chrome');
 
+import { LOG_CLIENT_HEIGHT_FLOOR } from './density-metrics.mjs';
+
+// ── V3-1 (registered supersession V31-S3): L1/兜底前置展开 + 几何锚点按首轮实测下界重 pin ──
+// v3-1 moved the toolbar into the L1 status panel, made the composer
+// hidden-until-used disclosure, and made the L0 decision zone resident above the
+// transcript. These two helpers step through the product's own controller so the
+// existing assertions keep their exact selectors and structure.
+const v3RevealComposer = async (page) => {
+  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.revealFallback(); true');
+  await sleep(300);
+};
+const v3OpenTreeView = async (page) => {
+  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.openTreeView(); true');
+  await sleep(300);
+};
+
 const VIEWPORT = { width: 400, height: 900 };
 const NARROW = { width: 320, height: 900 };
-const LOG_MIN_HEIGHT = 589; // dev.md §11.3 v1 baseline (ADR-V2-006 main assertion)
-const LOG_MIN_RATIO = 65.0; // conservative lower bound (589/900 = 65.44%)
+// V3-1 (V31-S3): the v1 anchor 589px / 65.0% is migrated to the **first-round
+// measured floor** because the L0 decision zone is now resident above the
+// transcript (see `test/ui/density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR` for the
+// measurement, the registered 10px allowance and the "may only be raised" rule).
+// The assertion itself is unchanged: same `#I-05~10` / `#I-20i` / `#I-20k` /
+// `#I-19h` numbering, same structure, still a hard ≥ bound.
+const LOG_MIN_HEIGHT = LOG_CLIENT_HEIGHT_FLOOR;
+const LOG_MIN_RATIO = 54.0; // conservative lower bound (488/900 = 54.2%)
 const V1_RAW_LOG_MIN = 405; // v1 journey.mjs #15b's own floor (`>45vh` at 900px)
 /**
  * W6 修复轮（2026-09-13）：v1 同条件 raw 基线 pinned。
@@ -269,6 +291,10 @@ const MEASURE = `(() => {
     drawerOverflowX: drawer.scrollWidth - drawer.clientWidth,
     drawerHidden: drawer.hidden,
     fabExpanded: fab.getAttribute('aria-expanded'),
+    // v3-1 additive diagnostic: zone heights make a geometry regression explainable
+    // at a glance (no assertion reads this field).
+    zones: ['risk-rail', 'panel-top', 'panel-main', 'l0-decision', 'log', 'l0-statusbar', 'l2-entries', 'view-host', 'panel-bottom', 'settings-view']
+      .map((id) => { const el = document.getElementById(id); const r = el ? el.getBoundingClientRect() : null; return id + (el && el.hidden ? ':hidden' : ':' + Math.round(r.height)); }),
   };
   ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });
   return out;
@@ -458,6 +484,9 @@ async function main() {
     check(initial.drawerPosition === 'absolute', '#I-01e 抽屉为 absolute（不参与 flex 流，结构上不挤压 #log）', initial.drawerPosition);
 
     // 5. closed-state layout
+    // V3-1 pre-step (registered): reveal the fallback composer so every geometry
+    // assertion below measures the same element as before.
+    await v3RevealComposer(sp);
     closedLayout = await evaluate(sp, MEASURE);
     checkLayout(closedLayout, '#I-05~10(关)');
     check(closedLayout.drawerHidden === true, '#I-14a 关态抽屉仍为 hidden', JSON.stringify(closedLayout));
@@ -488,6 +517,9 @@ async function main() {
     check(rawOpenClose.fabComposerArea === 0, '#I-09b 原始口径 FAB∩composer 仍为 0', `area=${rawOpenClose.fabComposerArea}`);
 
     // 6. open the drawer with a real click
+    // V3-1 pre-step (registered): the tree entry point is L2 (revealed by the
+    // status-bar entry panel, ≤2 interactions) — the click itself is unchanged.
+    await v3OpenTreeView(sp);
     await realClick(sp, '#tree-fab');
     const openOk = await waitFor(
       sp,
@@ -1060,6 +1092,7 @@ async function main() {
     // 9. open-state layout (must equal the closed-state steady geometry)
     await sleep(200);
     const openLayout = await evaluate(sp, MEASURE);
+    console.log(`  · [观测] 开态 zones=${JSON.stringify(openLayout.zones)}`);
     checkLayout(openLayout, '#I-05~10(开)');
     check(openLayout.drawerHidden === false, '#I-14b 开态抽屉可见（覆盖层，不挤压 #log）', JSON.stringify(openLayout));
     // The decisive V2-2 no-regression proof: opening the overlay must not change
@@ -1360,6 +1393,7 @@ async function main() {
       '#I-16a 320px 窄侧栏关态零水平溢出（文档 + #log）',
       JSON.stringify(narrowClosed),
     );
+    await v3OpenTreeView(sp);
     await realClick(sp, '#tree-fab');
     await waitFor(sp, `document.getElementById('tree-drawer').hidden ? '' : 'open'`, 40, 150);
     await sleep(200);

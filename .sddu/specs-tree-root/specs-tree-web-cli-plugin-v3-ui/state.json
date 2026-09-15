@@ -1,0 +1,482 @@
+{
+  "feature": "specs-tree-web-cli-plugin-v3-ui（web-cli-plugin v3「UI 渐进式披露升级」，v0.9 同版本位内第三 Feature，同批叠加；作者要求 2026-09-15）",
+  "featureKey": "specs-tree-web-cli-plugin-v3-ui",
+  "version": "v3.0.0",
+  "name": "web-cli-plugin v3「UI 渐进式披露升级」——把侧栏默认首屏从「全部能力平铺」改为「随用随取」的三层披露（L0 常驻 / L1 就地展开 / L2 按需视图），风险与状态永不折叠（主题：把界面变得可用）",
+  "phase": "tasked",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
+  "depth": 1,
+  "parent": null,
+  "childrens": [
+    {
+      "featureKey": "specs-tree-v3-1-l0-shell-density",
+      "name": "V3-1 L0 骨架与密度门禁",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/",
+      "phase": "tasked",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "deliveryOrder": 1,
+      "covers": "Q-UI-001 / Q-UI-002 / Q-UI-003 / Q-UI-004（主干）",
+      "role": "L0 常驻骨架（我在哪 · 谁在管我 · 下一步做什么 = 当前一张卡 + 「从页面拾取」入口 + 一行可点开状态栏）+ 五类风险位独立常驻（永不折叠）+ 密度四项口径与机器门禁（含反证）+ 首轮真实产物基线登记",
+      "note": "首个开工；其余三叶的共同基线"
+    },
+    {
+      "featureKey": "specs-tree-v3-2-l1-disclosure-refs",
+      "name": "V3-2 L1 就地展开与引用/回执",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/",
+      "phase": "tasked",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "deliveryOrder": 2,
+      "covers": "Q-UI-003（就地解释层）/ Q-UI-011（引用失效提示位）",
+      "role": "≤1 次交互的就地展开（8 类内容：状态与连接详情 · 后果说明与影响预演 · 引用 chip 证据 · 局部树 2~3 节点 · 已决策历史含改选 · 回执三件套证据 · 手势表 · 「更多选项」其余项）+ 引用失效判定（fail-closed 五维 + 不确定即失效）与常驻提示位 + 两条恢复路径",
+      "note": "前置 V3-1；O-UI-002 裁决已在父 spec 定死"
+    },
+    {
+      "featureKey": "specs-tree-v3-3-l2-on-demand-views",
+      "name": "V3-3 L2 按需视图（树/命令/审计/设置）",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/",
+      "phase": "tasked",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "deliveryOrder": 3,
+      "covers": "Q-UI-002 / Q-UI-004",
+      "role": "四类底账默认一个都不出现，只留「计数 + 入口」（计数从真值派生），≤2 次交互可达的视图替换 + 「← 返回」；复用既有 tree-drawer / 命令档案 / 审计 / 设置资产；承担 R-UI-002 取代台账最大工作量",
+      "note": "前置 V3-1；与 V3-2 可并行分解但门禁执行必须串行"
+    },
+    {
+      "featureKey": "specs-tree-v3-4-page-as-input",
+      "name": "V3-4 页面即输入",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/",
+      "phase": "tasked",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "deliveryOrder": 4,
+      "covers": "Q-UI-005 / Q-UI-006 / Q-UI-007（部分）/ Q-UI-009 / Q-UI-012",
+      "role": "Alt 悬停拾取 · Alt 拖动入侧栏 · 右键自绘菜单（零新增权限 + 三退让）· 拖选文本气泡 → 生成引用 + 选择题；页面侧按需注入、未授权站点零注入；双向高亮联动（chip ↔ 角标同序号）",
+      "note": "**最后开工**：R-UI-001（content.js 余量 0）/ R-UI-004（contextMenus 缺失）/ R-UI-008（零注入红线）三条风险全部集中于此；需 A-UI-004 前置 spike 通过"
+    }
+  ],
+  "phaseHistory": [
+    {
+      "phase": "registered",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-discovery（新建 Feature 目录 specs-tree-web-cli-plugin-v3-ui）"
+    },
+    {
+      "phase": "discovered",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-discovery（产出 discovery.md v1.0，问题挖掘完成）"
+    },
+    {
+      "phase": "specified",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（产出 spec.md v1.0 父规范 + 4 个叶子 spec.md v1.0；4 叶子 state.json 同批推进到 phase=specified）"
+    },
+    {
+      "phase": "planned",
+      "timestamp": "2026-09-16T01:30:00.000Z",
+      "triggeredBy": "sddu-plan（产出 plan.md；技术方案与 ADR 定稿）"
+    },
+    {
+      "phase": "tasked",
+      "timestamp": "2026-09-16T02:30:00.000Z",
+      "triggeredBy": "sddu-tasks（4 叶产出 tasks.md + tasks.json；4 叶 state.json 同批推进到 phase=tasked；父仅产出总览 tasks.md，不产出 tasks.json）"
+    }
+  ],
+  "dependencies": {
+    "on": [
+      "specs-tree-web-cli-plugin（v1，phase=validated / status=tracked；只读参与、零改写）",
+      "specs-tree-web-cli-plugin-v2-insight（v2，父 + 4 叶全部 validated，已收口；只读参与、零改写）"
+    ],
+    "blocking": []
+  },
+  "createdAt": "2026-09-16",
+  "updatedAt": "2026-09-16",
+  "description": "web-cli-plugin v3「UI 渐进式披露升级」的需求规范（spec 阶段，SDDU 全流程第 2 站；discovery 已于 2026-09-16 完成）。立项来源 = 作者真机反馈 2026-09-15（逐字两段：「web-cli-plugin 的整个 UI 布局还是比较凌乱，没有条理」/「让人感觉你这个系统很复杂、很难用，信息密度太高了，逻辑上应该是随用随取，所谓『渐进式披露』」）+ 作者设计取向「按照E的思路」+ 编排器代作者决策 2026-09-16（D1 设计基准 = E 稿 option-e-progressive.html / D2 A~D 四稿 + index.html 存档保留、D 为高密度参照物不删除 / D3 风险位绝对常驻永不折叠，五类 = 未授权·探测中·硬底线被拦·破坏性待确认·引用失效 / D4 保留 E 内核三条 = 无常驻输入框·每回合一选择题（末项固定「其他…（我来描述）」）·页面即输入 / D5 三层模型 L0/L1/L2 / D6 可发现性硬约束「凡收起必有摘要·计数 + 入口，禁止无线索隐藏」/ D7 密度可机器复算且门禁必须能真 FAIL）。**本次 spec 产出**：父 spec.md v1.0（父 = 轻量规范容器，**不承接 tasks/build/review/validate**）+ 4 个叶子 spec.md v1.0；编号命名空间 = FR-V3-* / NFR-V3-* / EC-V3-* / AC-V3-* / NG-V3-*（与 v1 FR-001~055·NFR-001~010·EC-001~026·AC-001~012、v2 FR-V2-*·NFR-V2-*·EC-V2-*·AC-V2-*·NG-V2-* **零冲突**）。**产出计数**：FR **65** / NFR **18** / EC **17** / AC **27** / NG **17** / G-V3 **6** / US-V3 **10**。**核心需求**：① 密度口径与阈值（父 spec §9：四项机器可复算口径 = 可点元素 / 可见正文行（字符÷34）/ 可见文本块 / 面板常驻分区；三段阈值 = 默认态 ≤7 可点 & ≤15 行 · 首装态 ≤9/≤20 · 风险态 ≤17/≤35（= 默认档 + 风险增量预算，且增量只能被风险类元素占用）× 320/400/520 三档视口 + **6 条反证 RP-V3-01~06** + 反作弊规则「只有 hidden 属性才豁免计数，CSS 隐身仍计入」+ 常驻分区数**不设上限**只登记〔反直觉事实：E 比 D 多 1，因风险位独立成区〕）② **风险永不折叠**（D3）落成 AC-V3-008~009（5 类状态 × 2 场景 + DOM 祖先链断言 + 破坏性确认选项不参与折叠）③ **既有断言取代策略 + 取代台账**（父 §10：journey 167 零 diff 优先 / insight 108 新文件承载 / binding 192 既有编号零删改 / sidepanel-view 38 含 4 项布局契约 / 计数只增不减 ≥167·≥108·≥192·≥38·test( ≥646 / 台账沿用 docs/r2-supersession-ledger.json 先例与 schema / 「每叶结束全部门禁必须绿」）④ O-UI-001~005 逐一落点（见 openPoints）⑤ ROADMAP 版本位**事实核对 + 三方案建议**（父 §2.6，只登记不改文档；建议方案 A「v0.9.0 双主题并列·最小消解」为推荐，方案 B「v3 = v0.8 同批第三 Feature·零 ROADMAP 改动」为备选，方案 C「顺延 v0.9→v0.10」不建议）。设计基准 = packages/web-cli-plugin/design/ui-redesign/option-e-progressive.html（180,493 B，untracked，本轮零改动；O-UI-004 裁决已定「纳入版本库」，提交由编排器统一执行）。上游/底座 = v1 specs-tree-web-cli-plugin（validated）与 v2 specs-tree-web-cli-plugin-v2-insight（父 + 4 叶全部 validated；两者均只读参与、零改写）。",
+  "scope": {
+    "in": [
+      "需求条文（父 spec v1.0）：FR-V3-001~007（GOV 范围与基线纪律）· FR-V3-010~024+026（L0 常驻骨架与密度，v3-1）· FR-V3-030~040（L1 就地展开与引用/回执，v3-2）· FR-V3-045~054（L2 按需视图，v3-3）· FR-V3-060~072（页面即输入，v3-4）· FR-V3-080~087（SEC/UI 横切）",
+      "非功能需求（18 条）：NFR-V3-001 三段密度预算 · NFR-V3-002 口径可机器复算（与 design/ui-redesign/index.html 同源）· NFR-V3-003 content.js ≤177,076 B 无容差 + CONTENT_SOURCE_SHA256 内容冻结 · NFR-V3-004 页面侧按需注入（O-UI-003）· NFR-V3-005 sidepanel 基线 266,500 / ceiling 279,825 + 显式重登记 · NFR-V3-006 manifest 静态权限零新增（无 contextMenus）· NFR-V3-007 登记式零注入 · NFR-V3-008 安全判定链 sha256 pin 不变 + 只读投影 + 9 动作白名单固定序 · NFR-V3-009 明暗双主题 · NFR-V3-010 320–560px 零水平溢出 · NFR-V3-011 无障碍 · NFR-V3-012 门禁串行 + 日志完整 · NFR-V3-013 门禁必须能真 FAIL · NFR-V3-014 断言零删除零降级 + 计数不减 · NFR-V3-015 人工面如实登记 · NFR-V3-016 零审计明文 + URL 去参 · NFR-V3-017 零新增依赖 / 不改 base / 不改 v1·v2 已验收行为 · NFR-V3-018 sha256 内容 pin（禁弱冻结）",
+      "边界情况（17 条）：引用失效 fail-closed · 硬底线被拦不可覆盖 · 未授权零注入 · 可选权限未批准（可见但禁用，禁静默隐藏）· 站点无声明/版本不兼容 · 元素操作中消失 · 扩展重载/SW 休眠 · 320px 极窄 · 系统主题切换 · 密度超预算 · 收起缺摘要缺入口 · content.js 余量 0 冲突 · 中间态长期红灯 · 多标签/origin 切换 · 破坏性确认期间折叠全部披露层 · 命令目录口径分歧分列 · 宿主样式冲突",
+      "验收标准（27 条）：密度 7 条（三档状态 × 三档视口 + 口径一致 + 6 条反证 + 分区数登记）· 风险永不折叠 3 条（5 状态 × 2 场景 + DOM 祖先链 + 可发现性/L1≤1 与 L2≤2 可达）· 取代与回归 6 条（台账机制 + 计数不减 + 每叶全门禁绿 + 反证 + 能力集等价 + 不做项守卫）· 体积/安全/可用性/纪律 11 条",
+      "非目标（17 条，NG-V3-001~017）：不新增静态权限 · 不引入 contextMenus · 不改安全判定链 · 不做后端 · 不改 v1/v2 已验收行为 · 不把密度低实现为删功能 · 不改 base · 不新增依赖 · 不合 main 不发布 · 不放宽体积/密度上限换功能 · 不删除降级既有断言 · 不做无线索隐藏 · 不把风险收进展开层/tooltip/仅颜色 · 不删改设置项语义 · 禁 git add -A / 不提交 .opencode/opencode.json · 不冒充 PASS · 不改 content.js 既有能力语义",
+      "子 Feature 结构：父（轻量规范容器）+ 4 个叶子（specs-tree-v3-1-l0-shell-density / v3-2-l1-disclosure-refs / v3-3-l2-on-demand-views / v3-4-page-as-input，均 depth=2 / leaf=true / phase=specified）；交付顺序 v3-1 → {v3-2, v3-3} → v3-4（门禁执行严格串行）",
+      "取代台账落点与 schema（父 §10.2）：机器可读 JSON，沿用 packages/web-cli-plugin/docs/r2-supersession-ledger.json 的目录与 schema（建议新建 v3-supersession-ledger.json，具体文件名由 plan 确认）；台账必须含 counts 字段与口径说明"
+    ],
+    "out": [
+      "不写技术方案 · ADR · 组件设计 · 实现选型——属 plan 职责（父 spec §12.2 已登记 6 个留给 plan 的技术开放点）",
+      "不排任务 · 不划波次——属 tasks 职责；父 Feature **不承接** tasks/build/review/validate",
+      "不写代码 · 不改任何既有源码 / 测试 / 设计稿（packages/web-cli-plugin/design/** 只读、零改动）",
+      "不改 v1 `specs-tree-web-cli-plugin/**`（只读历史产物）与 v2 `specs-tree-web-cli-plugin-v2-insight/**`（已收口：父 + 4 叶 validated）",
+      "不改 `.sddu/specs-tree-root/ROADMAP.md`——O-UI-005 的版本位消解只登记事实与建议（§2.6 三方案），由编排器/roadmap 执行",
+      "不动 `main`（主分支 HEAD 2ddc922，本轮不合、不发布）；不 commit · 不 push（提交节奏由编排器统一决定）",
+      "不跑 Chromium 门禁（e2e / test:ui / test:insight / test:binding）与本机构建——本机内存紧张（约 1.5GB，曾 OOM），且 spec 阶段不需要跑门禁",
+      "不代作者拍板超出 O-UI-005 的版本决策；不编造外部竞品结论（O-UI-001 保持开放、非阻塞）"
+    ]
+  },
+  "artifacts": [
+    "discovery.md",
+    "spec.md",
+    "plan.md",
+    "tasks.md"
+  ],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/TREE.md",
+    "children": {
+      "v3-1": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/spec.md",
+      "v3-2": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/spec.md",
+      "v3-3": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/spec.md",
+      "v3-4": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/spec.md"
+    },
+    "plan": "/home/usb/wks/gits/GitHub/LGDL/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/tasks.md（总览与叶子映射，不承接执行；父无 tasks.json）"
+  },
+  "filesNote": "父 tasks.md 为**聚合导航文档**（叶子映射 / 跨叶执行序 / 串行门禁清单 / 阻断级任务 / 三条关键任务索引 / 编排器必含项对照），**不列任何可执行 TASK-###**、**不承接** build·review·validate；机器可读任务只在 4 叶 tasks.json（见偏差登记 3）。",
+  "proposedChildren": [
+    {
+      "featureKey": "specs-tree-v3-1-l0-shell-density",
+      "name": "V3-1 L0 骨架与密度门禁",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/",
+      "phase": "planned",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "covers": "Q-UI-001 / Q-UI-002 / Q-UI-003 / Q-UI-004（主干）",
+      "role": "立 L0 常驻骨架 + 风险位独立常驻（五类永不折叠）+ 密度口径机器可测断言（对照假设 A-UI-001：设计稿数字不得直接当验收值）",
+      "discoveryNote": "discovery 复核后接受；补充建议：本叶子须同时产出「L0 密度口径可测基线」，否则后续叶子无共同基线 —— **已在 spec 落地**（父 §9 + AC-V3-001~006）"
+    },
+    {
+      "featureKey": "specs-tree-v3-2-l1-disclosure-refs",
+      "name": "V3-2 L1 就地展开与引用/回执",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/",
+      "phase": "planned",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "covers": "Q-UI-003（就地解释层）/ Q-UI-011（引用失效提示位）",
+      "role": "≤1 次交互的就地展开 + 引用失效判定（fail-closed）与常驻提示位",
+      "discoveryNote": "discovery 提示：Q-UI-011 判定语义须在 spec 阶段先定 —— **已裁决并落地**（父 FR-V3-036~038 / EC-V3-001 / AC-V3-023）"
+    },
+    {
+      "featureKey": "specs-tree-v3-3-l2-on-demand-views",
+      "name": "V3-3 L2 按需视图（树/命令/审计/设置）",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/",
+      "phase": "planned",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "covers": "Q-UI-002 / Q-UI-004",
+      "role": "四类底账默认不可见 + 「计数 + 入口」 + ≤2 次交互可达的视图替换",
+      "discoveryNote": "discovery 风险提示：本叶是 R-UI-002 最大战场 —— spec 已把取代策略与台账固化为 §10 与 AC-V3-011~014"
+    },
+    {
+      "featureKey": "specs-tree-v3-4-page-as-input",
+      "name": "V3-4 页面即输入（拾取层按需注入 + 右键自绘菜单 + 双向联动）",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/",
+      "phase": "planned",
+      "status": "tracked",
+      "depth": 2,
+      "leaf": true,
+      "priority": "P0",
+      "covers": "Q-UI-005 / Q-UI-006 / Q-UI-007（部分）/ Q-UI-009 / Q-UI-012",
+      "role": "四项页面侧交互 + 按需注入 + 零注入 + 双向联动",
+      "discoveryNote": "discovery 风险提示：R-UI-001 / R-UI-004 / R-UI-008 三条集中于此，建议最后开工且不得用放宽上限换功能 —— **已在 spec 落地**（NFR-V3-003~007 / NG-V3-010 / deliveryOrder=4）"
+    }
+  ],
+  "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出父 spec.md v1.0（轻量规范容器）+ 4 个叶子 spec.md v1.0 + 4 个叶子 state.json（均 phase=specified / status=tracked）。**只做 spec**：零 src/ 改动、零 test/ 改动、零设计稿改动、未 commit、未跑任何门禁/构建/Chromium（按纪律：本机内存紧张约 1.5GB 曾 OOM，spec 阶段不需要门禁）。核心产出：编号命名空间声明确认（FR-V3 / NFR-V3 / EC-V3 / AC-V3 / NG-V3，与 v1/v2 零冲突）+ **FR 65 / NFR 18 / EC 17 / AC 27 / NG 17 / G-V3 6 / US-V3 10**；**最大原创贡献 = 父 §9 密度口径（四项机器可复算定义 + 三档阈值 × 三档视口 + 反作弊规则 + 6 条反证）与父 §10 取代策略与台账（journey 167 零 diff 优先 / insight 108 新文件 / binding 192 零删改 / sidepanel-view 38 含 4 项布局契约 / 计数只增不减 / 每叶全门禁绿）**。**关键裁决落地**：O-UI-002（引用失效五维 + fail-closed，进 FR-V3-036~038 / EC-V3-001 / EC-V3-006 / AC-V3-023）、O-UI-003（按需注入为 NFR 硬约束 NFR-V3-004，不可行才允许显式重登记，禁放宽上限换功能）、O-UI-004（design/** 纳入版本库 = FR-V3-005，提交由编排器统一执行）、O-UI-005（版本位 v0.9.0 已裁决；ROADMAP 文本消解待执行，父 §2.6 给出三方案，**推荐方案 A 双主题并列·最小消解**，备选方案 B v0.8 同批第三 Feature）。**非阻塞开放项**：O-UI-001（外部竞品调研未完成，Provider 在发出业务请求之前因本地配置/脚本缺陷失败，原始错误逐字保留于 discovery §4.1；如实保留为 open，不编造）。**不做的边界**：不写 plan/ADR/tasks/代码、不改 v1/v2 SDDU 目录、不改 ROADMAP、不改源码/测试、不动 main、不 commit/push、不跑门禁。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。**父 Feature 的本阶段定位**：父 plan.md = 接口与契约的定义者（跨叶 ADR + 门禁口径 + 三元组守线 + 叶子边界），**不是实施载体**（不排任务、不写代码）；父仍**不产出** tasks.md / tasks.json、**不承接** build / review / validate（FR-V3-002 的可操作内核遵守）。**偏差显式登记**：FR-V3-002 字面为「父不产出 plan.md」，本轮编排器指令要求产出父 plan.md → 已登记为 ADR-V3-002 + §1「偏差登记 1」，并给出可核验理由（11 项跨叶议题需单点定义，否则 4 叶各自发明）。**产出**：父 plan.md + 4 叶 plan.md；**ADR-V3-001~036**（父承 001~012，v3-1 承 013~019，v3-2 承 020~024，v3-3 承 025~029，v3-4 承 030~036）。**覆盖编排器 11 项议题**（父 plan §2.8 逐项索引）。**关键裁决**：密度门禁三段式（口径单源 test/ui/density-metrics.mjs + Chromium test/ui/density.mjs + 无 Chromium test/density-thresholds.test.ts）与 6 条反证判据 / 风险位永不折叠的三层结构保证 / 引用失效 fail-closed 的唯一放行点 / 页面侧第 5 bundle dist/pick-layer.js 按需注入（content.js 字节与 CONTENT_SOURCE_SHA256 全不变）/ 取代台账 docs/v3-supersession-ledger.json 的 hunk ↔ 台账映射与 counts.countMethod 唯一口径 / id 零重命名 + 54 id 归属映射 / 叶子顺序 v3-1→{v3-2,v3-3}→v3-4 + v3-4 前置 spike / 体积重登记流程（content.js 无容差不可放宽）/ ROADMAP 方案 A 最小消解（只登记，执行放收口）。**测量根口径适配**：设计稿 #panel ≙ 真实产物 document.body（ADR-V3-001，语义等价断言机器化）。**只做 plan**：未写 tasks、未写代码、未改 src/**·test/**·manifest.json·design/**·ROADMAP、未改 v1/v2 SDDU 目录、未动 main、未 commit/push、**未跑任何门禁 / 构建 / Chromium**。",
+  "status": "tracked",
+  "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：父 Feature 维持**轻量规范容器**定位（FR-V3-002 / ADR-V3-002）。4 个叶子各产出 `tasks.md` + `tasks.json`，并全部推进到 **phase=tasked**：V3-1 15 任务/7 波（S×5·M×8·L×2）· V3-2 10 任务/6 波（S×4·M×6）· V3-3 9 任务/5 波（S×3·M×5·L×1）· V3-4 14 任务/8 波（S×2·M×11·L×1）→ **合计 48 任务 / 26 叶内波次（S×14·M×30·L×4）**。叶间顺序 `v3-1 → {v3-2, v3-3} → v3-4`（可并行分解、门禁执行严格串行）；**每叶收尾必须全门禁绿**（AC-V3-013 / EC-V3-013），禁留红灯。**V3-4 的 TASK-401 A-UI-004 spike（S1~S4）为硬前置**，未过不得进入实现（失败降级 D1 形态降级 / D2 范围降级 + 回报编排器）。**门禁严格串行**（18 项清单见父 tasks.md §2.2；一次只跑一个，本机 ~1.5GB 曾 OOM；日志 tee 落盘禁 tail 截断）。**计数下界只增不减**：journey ≥167 / insight union ≥108 / binding ≥192 / sidepanel-view ≥38（含 4 契约）/ node `test(` ≥646。**三条关键任务**：取代台账 = V3-1 TASK-108（AC-V3-011/012/014）；密度反证 = V3-1 TASK-111（AC-V3-006/014/015）；体积重登记 = V3-4 TASK-411（pick-layer.js 独立基线）+ V3-1 TASK-114 / V3-3 TASK-308 / V3-4 TASK-413（sidepanel.js 条件重登记，AC-V3-015/016）。**偏差登记 3**：按编排器指令产出父 `tasks.md`（**仅总览与叶子映射**），明确 FR-V3-002 / ADR-V3-002 的可操作内核仍被遵守——父**不产出** `tasks.json`、**不列可执行任务**、**不承接** build/review/validate。下一步：`@sddu-build TASK-101`（V3-1 首个任务）。",
+  "evidenceFacts": {
+    "branch": "feature/web-cli-plugin",
+    "head": "c2c0e0d",
+    "mainHead": "2ddc922",
+    "mergePolicy": "不合 main、不发布",
+    "designBaseline": "packages/web-cli-plugin/design/ui-redesign/option-e-progressive.html",
+    "designArchive": [
+      "packages/web-cli-plugin/design/ui-redesign/index.html",
+      "packages/web-cli-plugin/design/ui-redesign/option-a-panel-shell.html",
+      "packages/web-cli-plugin/design/ui-redesign/option-b-workbench.html",
+      "packages/web-cli-plugin/design/ui-redesign/option-c-chat-first.html",
+      "packages/web-cli-plugin/design/ui-redesign/option-d-choice-guided.html"
+    ],
+    "designFilesTracked": false,
+    "designTrackingDecision": "O-UI-004 裁决：design/** 纳入版本库（FR-V3-005）；提交由编排器统一执行（当前仍 untracked，本轮零改动）",
+    "densityMeasured": {
+      "clickables": {
+        "d": 80,
+        "e": 7,
+        "deltaPct": -91,
+        "eExpanded": 73
+      },
+      "visibleBodyChars": {
+        "d": 4870,
+        "e": 321,
+        "deltaPct": -93,
+        "eExpanded": 4089
+      },
+      "visibleBodyLines": {
+        "d": 144,
+        "e": 10,
+        "deltaPct": -93,
+        "eExpanded": 121
+      },
+      "visibleTextBlocks": {
+        "d": 391,
+        "e": 47,
+        "deltaPct": -88,
+        "eExpanded": 347
+      },
+      "residentZones": {
+        "d": 5,
+        "e": 6,
+        "deltaPct": 20,
+        "eExpanded": 7
+      },
+      "source": "design/ui-redesign/index.html（Node 垫片同口径实测）",
+      "note": "设计稿口径（自包含单文件模拟），**不等于真实产物口径**；A-UI-001 要求首轮对真实构建产物复测并分开记录"
+    },
+    "densityBudgetAdopted": {
+      "calibers": {
+        "C1_clickables": "非 hidden 祖先子树中的 button/a/input/select/textarea 或 tabindex≠-1 元素；仅 hidden 属性豁免（CSS 隐身仍计入）",
+        "C2_visibleBodyLines": "ceil( Σ 可见元素自身直接文本去空白字符数 ÷ 34 )；34 = 320px 宽 13px 字号每行约 34 字（保守取整）",
+        "C3_visibleTextBlocks": "自身直接文本去空白后为空的可见元素不计；只做计数不设上限",
+        "C4_residentZones": "面板一级子元素中非 hidden 的个数；**不设上限、不视为越小越好**（E 比 D 多 1，因风险位独立成区）"
+      },
+      "thresholds": {
+        "default": {
+          "clickables": 7,
+          "lines": 15,
+          "source": "E 稿实测 7 可点；15 行取自 E 稿法则 1 原文上限（E 实测约 10 行为裕量）"
+        },
+        "firstRun": {
+          "clickables": 9,
+          "lines": 20,
+          "source": "spec 新建档（设计稿未覆盖首装态；v1 onboarding/discovery-notice 属已验收行为不删 → 需独立档），须首轮实测校准（只允许收紧）"
+        },
+        "risk": {
+          "clickables": 17,
+          "lines": 35,
+          "source": "默认档 + 风险增量预算（可点 +10 = 五类风险各至多 1 个「为什么/详情」入口 + 破坏性确认选项至多 5 个；行 +20 = 五类各至多 4 行）"
+        }
+      },
+      "viewports": [
+        320,
+        400,
+        520
+      ],
+      "reverseProofs": [
+        "RP-V3-01 注入 +1 可点元素 → FAIL",
+        "RP-V3-02 上限常量调低 1 → FAIL",
+        "RP-V3-03 CSS 隐身（非 hidden）仍计入",
+        "RP-V3-04 风险移入 L1 → AC-V3-008/009 FAIL",
+        "RP-V3-05 删 1 条既有断言 → 台账/下界守卫 FAIL",
+        "RP-V3-06 content.js +1B → FAIL"
+      ]
+    },
+    "supersessionPlan": {
+      "precedent": "packages/web-cli-plugin/docs/r2-supersession-ledger.json",
+      "schema": [
+        "oldId",
+        "oldTitle",
+        "newId",
+        "newTitle",
+        "gate",
+        "reason"
+      ],
+      "ledgerPlacement": "仓库内机器可读 JSON（建议 packages/web-cli-plugin/docs/v3-supersession-ledger.json，具体文件名由 plan 确认；须含 counts 字段与口径说明）",
+      "perGatePolicy": {
+        "journey": {
+          "count": 167,
+          "policy": "zero-diff 优先；仅允许同编号 old→new 改写 + 台账登记；总数 ≥167"
+        },
+        "insight": {
+          "count": 108,
+          "policy": "新断言落新文件；被取代条目逐条登记；count ≥108"
+        },
+        "binding": {
+          "count": 192,
+          "policy": "既有编号零删改；新断言追加新编号；count ≥192"
+        },
+        "sidepanelViewTest": {
+          "cases": 38,
+          "layoutContracts": 4,
+          "policy": "允许随 DOM 契约迁移但逐条登记；用例数 ≥38；4 项布局契约必须逐项仍被断言"
+        },
+        "nodeTestLowerBound": {
+          "value": 646,
+          "policy": "保留并只增不减"
+        }
+      },
+      "leafRule": "每个叶子结束时全部门禁必须绿（禁止中间态长期红灯遗留）"
+    },
+    "sizeGuards": {
+      "contentMaxBytes": 177076,
+      "contentMeasuredBytes": 177076,
+      "contentHeadroomBytes": 0,
+      "contentTolerance": "none（+1B 即 FAIL）",
+      "sidepanelBaselineBytes": 266500,
+      "sidepanelMeasuredBytes": 266500,
+      "sidepanelCeilingBytes": 279825,
+      "sidepanelTolerance": 0.05,
+      "source": "test/size-baseline.ts + stat -c %s dist/*.js"
+    },
+    "testBaseline": {
+      "pluginUnit": 696,
+      "base": 490,
+      "repoTotal": 1686,
+      "repoSkip": 1,
+      "testInsightAssertions": 108,
+      "testUiJourneyAssertions": 167,
+      "testHardening": 24,
+      "testBinding": 192,
+      "e2e": "PASS",
+      "discipline": "零删除、零降级"
+    },
+    "existingDomAssertionCoupling": {
+      "journey": {
+        "querySelector": 32,
+        "getElementById": 134,
+        "policy": "zero-diff"
+      },
+      "insight": {
+        "querySelector": 118,
+        "getElementById": 42
+      },
+      "binding": {
+        "querySelector": 25,
+        "getElementById": 63
+      },
+      "sidepanelViewTest": {
+        "tests": 38,
+        "layoutContracts": 4
+      },
+      "supersessionLedgerPrecedent": "packages/web-cli-plugin/docs/r2-supersession-ledger.json"
+    },
+    "securityPins": {
+      "policyTsSha256": "bfcb2edeceae19a27384aef6608e9f2ae9c3a0f6c1e5d3618f277164bb3c89a8",
+      "autoAuthorizeTsSha256": "1096d065dac63d56e36285bf499eee041acdc3e323d4c7215df3981af7d0ef4b",
+      "verified": "与既有 pin 一致，未漂移",
+      "treeActionWhitelistCount": 9,
+      "treeActionWhitelistSource": "src/ui/tree/tree-ops.ts:44-56"
+    },
+    "manifestPermissions": {
+      "static": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "sidePanel",
+        "tabs"
+      ],
+      "optional": [
+        "bookmarks",
+        "downloads",
+        "notifications",
+        "clipboardRead",
+        "clipboardWrite"
+      ],
+      "contextMenus": "absent（不可用平台右键菜单 API → 只能 content script 自绘 + 三退让）",
+      "injection": "零静态 content_scripts + 绑定后按 origin 登记（registerContentScripts 需 host permission）",
+      "manifestVersion": "0.8.0（版本位 v0.9.0 的 bump 与发布不在本 Feature 范围）"
+    },
+    "sidepanelDom": {
+      "indexHtmlBytes": 37960,
+      "idCount": 54,
+      "source": "src/ui/sidepanel/index.html"
+    },
+    "roadmapFacts": {
+      "file": ".sddu/specs-tree-root/ROADMAP.md",
+      "v090Occupied": "v0.9.0 = 工程质量与文档对齐（原 v0.7→v0.8 内容整体后移，含 archify 借鉴：验收闭环机械化）；状态 📋 规划（后移）；内容 = CI 强化 + 文档零漂移（D1-D8/T-D1/L-D1/R-D4）+ 遗留清理（G6/W-D2/R-D1）+ archify 批次 F-15~F-22 + F-24 候选挂靠",
+      "v090SectionHeading": "§二 v0.9.0 小节标题（约 line 380）：「v0.9.0（工程质量与文档对齐——原 v0.7→v0.8 内容整体后移）📋 规划（时间待重排）」；双轨 = 主线「对齐与护栏」（F-06/F-11 测试护栏立项首位 + F-08/F-09/F-10）+ 并行线「archify 借鉴批次 F-15~F-22（验收闭环机械化）」",
+      "v090Milestone": "原 v0.7 里程碑（09-30 测试护栏全绿 → 10-09 文档零漂移达成、发布）随后移不再成立，待作者重排",
+      "v090Step": "§七 步骤 3：v0.9（工程质量，原 v0.7→v0.8 后移）立项：F-06/F-11 → F-08 → F-09/F-10",
+      "thisFeatureHits": "grep `specs-tree-web-cli-plugin-v3` / `渐进式披露` / `F-28` = **0 命中**（discovery R-UI-013 判断成立；ROADMAP 无本 Feature 任何登记）",
+      "v080Note": "v0.8.0 = 浏览器插件孵化，已含 F-14（v1）+ F-27（v2）同批叠加（同分支 feature/web-cli-plugin，不另占版本位）",
+      "dissolutionOptions": {
+        "A": "推荐·最小消解：v0.9.0 主题扩写为「UI 渐进式披露升级」+「工程质量与文档对齐」双主题并列，原内容不删除不顺延；理由 = 本 Feature 核心验收（密度门禁可机器复算 + 断言取代台账 + 显式重登记 + 门禁必须能 FAIL）与 v0.9「验收闭环机械化」同主题，F-06/F-11 测试护栏恰是本 Feature 门禁的载体",
+        "B": "备选·零 ROADMAP 改动：v3 = v0.8 同批第三 Feature（与 F-14/F-27 同批叠加），v0.9.0 原内容原样不动；代价 = 与 O-UI-005 裁决（v0.9.0）不一致，需编排器确认",
+        "C": "不建议：把 v0.9.0 现有内容顺延到 v0.10.0；会连带 v0.10/v1.0.0/v1.1 版本位与里程碑连锁重排，改动面最大"
+      },
+      "discipline": "本 spec 只登记事实与建议，**未修改 ROADMAP**；消解必须保留既有里程碑叙述（不得删除）"
+    }
+  },
+  "openPoints": [
+    {
+      "id": "O-UI-001",
+      "topic": "外部竞品调研未完成（byted-web-search Provider 在发出业务请求之前因本地配置/脚本缺陷失败：未找到凭证分支引用未定义常量 AGENT_PLAN_URL，line 485 与 line 281 两处 NameError；环境无 WEB_SEARCH_API_KEY；原始错误逐字保留于 discovery §4.1）",
+      "status": "open",
+      "blocking": false,
+      "needs": "提供 WEB_SEARCH_API_KEY / 修复脚本缺陷 / 或由作者直接提供竞品事实；**不得据此编造竞品结论**；本 Feature 不依赖外部竞品结论（设计基准 = E 稿）"
+    },
+    {
+      "id": "O-UI-002",
+      "topic": "「引用失效」判定条件未定义",
+      "status": "closed",
+      "resolution": "**已由 spec 裁决并落地**：五维（元素从 DOM 消失 / origin 变更 / 页面导航含 SPA / 站点声明版本变化 / 授权被撤销）任一成立即失效 + **不确定即失效（fail-closed）** + 可读原因 + 阻断动作 + 两条恢复路径",
+      "landed": [
+        "FR-V3-036",
+        "FR-V3-037",
+        "FR-V3-038",
+        "EC-V3-001",
+        "EC-V3-006",
+        "AC-V3-023"
+      ]
+    },
+    {
+      "id": "O-UI-003",
+      "topic": "页面侧交互层在 content.js 0 字节余量下的实现形态",
+      "status": "closed",
+      "resolution": "**已由 spec 裁决为 NFR 硬约束**：首选「按需注入」（拾取层不打进常驻 content.js，守住 177,076 B 无容差上限）；若不可行才允许显式**重登记**体积基线（前后值 + 日期 + 来源 + 理由 + 历史保留）；**禁止以放宽上限换功能**。实现细节（独立 bundle / 运行时注入 / 消息驱动加载）留给 plan + A-UI-004 前置 spike",
+      "landed": [
+        "NFR-V3-003",
+        "NFR-V3-004",
+        "NG-V3-010",
+        "EC-V3-012",
+        "FR-V3-067"
+      ]
+    },
+    {
+      "id": "O-UI-004",
+      "topic": "设计稿是否入版本库（design/ untracked）",
+      "status": "closed",
+      "resolution": "**已裁决纳入版本库**（作为被引用的设计依据；E = 设计基准 / index = 密度口径出处 / A~C = 对照存档 / **D = 高密度参照物不删除**）；**提交由编排器统一执行**（本轮零改动、仍 untracked）",
+      "landed": [
+        "FR-V3-005",
+        "spec §2.5",
+        "state.evidenceFacts.designTrackingDecision"
+      ]
+    },
+    {
+      "id": "O-UI-005",
+      "topic": "v0.9.0 版本位与 ROADMAP 现有「工程质量与文档对齐」主题的事实冲突",
+      "status": "closed-pending-roadmap",
+      "resolution": "**版本位已裁决 = v0.9.0（UI 渐进式披露升级）**（编排器代作者）；**ROADMAP 文本消解待执行**（本 spec 只登记事实 + 三方案建议，未改 ROADMAP；不得删除既有里程碑叙述）。推荐方案 A（双主题并列·最小消解），备选方案 B（v3 = v0.8 同批第三 Feature·零 ROADMAP 改动），方案 C（顺延 v0.9→v0.10）不建议",
+      "landed": [
+        "FR-V3-006",
+        "spec §2.6",
+        "state.evidenceFacts.roadmapFacts"
+      ]
+    },
+    {
+      "id": "O-UI-006",
+      "topic": "除 O-UI-001~005 外无需澄清",
+      "status": "closed",
+      "needs": "无（作者已授权编排器代决 D1~D4，直接作为约束记录，不再重新讨论）"
+    }
+  ]
+}

@@ -760,20 +760,26 @@ test('A9 archive: sidepanel baseline re-registration is explicit and monotonic (
   for (let i = 1; i < history.length; i += 1) {
     assert.ok(history[i] >= history[i - 1], 'HISTORY 必须单调不减（历史序不得被改写）');
   }
-  // 守卫收紧轮（2026-09-14）：当前基线为**收紧**（严格小于前值），且低于全部历史值。
+  // v3-1（2026-09-16）：本轮方向为**提升**（L0 骨架 + 折叠控制器的有意增重），
+  // 断言改为方向敏感：当前基线必须严格**大于**上一轮登记值，同时历史链仍是可核事实
+  // （1,068,165…1,162,942 全保留、单调不减）。
   assert.ok(
-    SIDEPANEL_BASELINE_BYTES < SIDEPANEL_BASELINE_META.previousBaselineBytes,
-    '当前基线 < 前值（本轮方向 = 收紧）',
+    SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
+    '当前基线 > 上一轮登记值（本轮方向 = 提升）',
   );
-  for (const value of history) {
-    assert.ok(SIDEPANEL_BASELINE_BYTES < value, `当前基线必须严格小于历史值 ${value}`);
-  }
+  // 提升真实性：本轮实测值必须超出上一轮**登记值**与上一轮 **ceiling**（后者正是
+  // 必须显式重登记的原因）——方向敏感且不掩盖历史（历史链仍单调不减、全保留）。
+  assert.ok(
+    SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousCeilingBytes,
+    `当前基线 ${SIDEPANEL_BASELINE_BYTES}B 必须超出上一轮 ceiling ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B`,
+  );
   assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05));
   assert.equal(SIDEPANEL_BASELINE_META.kind, 'regression-baseline-only');
   assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');
   assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
   assert.ok(SIDEPANEL_BASELINE_META.measuredOn.length > 0);
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_159_856);
+  // v3-1 提升轮：上一轮登记值 = 266,500 B（2026-09-14 守卫收紧轮）。
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 266_500);
   assert.ok(SIDEPANEL_BASELINE_META.reRegisteredFrom.length > 0);
   assert.equal(SIDEPANEL_BASELINE_META.targetBudgetBytes, null, '基线 ≠ 目标预算');
   assert.equal(SIDEPANEL_BASELINE_META.targetMet, null, '基线 ≠ 目标预算');

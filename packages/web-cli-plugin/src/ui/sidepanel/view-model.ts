@@ -460,3 +460,211 @@ export const CONSENT_SUMMARY_TEXT = '知情同意与能力边界';
 // `src/ui/settings/`). `options.html` remains available as a fallback page
 // (Chrome「扩展详细信息 → 扩展程序选项」), but it is never the settings entry.
 
+
+// ══ V3-1 (ADR-V3-013 / ADR-V3-017 / ADR-V3-018): L0 skeleton view model ═══════
+//
+// Pure functions only — no DOM, no `chrome.*`, no storage. Everything the L0
+// skeleton displays is derived here, so `test/ui/l0.mjs` and the density gate can
+// cross-check the *rendered* numbers against the same source of truth the panel
+// uses (FR-V3-011's "N must be derivable", FR-V3-015's "counts from real values",
+// FR-V3-046 in v3-3).
+
+/** Five risk classes, mirroring `l0/risk-rail.ts` (kept as strings for purity). */
+export type L0RiskClass = 'unauthorized' | 'probing' | 'hardline' | 'confirm' | 'staleRef';
+
+/** Everything the L0 skeleton needs to know about the app state. */
+export interface L0Input {
+  activeOrigin?: string;
+  /** Site display name (host) — falls back to the origin. */
+  siteName?: string;
+  authorized: boolean;
+  trust?: 'trusted' | 'untrusted';
+  /** LLM connection badge text (already human readable) — verbatim, for L1/title. */
+  llmBadge?: string;
+  /** Compact LLM badge: true → `LLM：✅`, false → `LLM：⚠`. */
+  llmConfigured?: boolean;
+  sessionLabel?: string;
+  /** Site declaration read in flight (no command dispatched). */
+  probing?: boolean;
+  /** Raw discovery state — the band keeps the v1 `发现=<state>` contract text. */
+  discoveryState?: string;
+  /** Hard-floor blocks observed this session (evaluate / unknown risk / …). */
+  hardlineCount?: number;
+  /** Stale references reported by the v3-2 validity judge (0 in v3-1). */
+  staleRefCount?: number;
+  /** A destructive sub-command awaits confirmation. */
+  confirmPending?: boolean;
+  /** The current round's ask (the ONE decision card). */
+  ask?: { prompt: string; options: string[]; recommendedCount?: number } | null;
+  /** Reference chips currently attached to the round. */
+  refCount?: number;
+  /** `#l0-ref-toggle`'s validity flag (v3-2 fills the real evidence). */
+  refStale?: boolean;
+  /** Real counts for the L2 entry panel (v3-3 fills the catalog/audit views). */
+  counts?: { tree?: number; commands?: number; audit?: number };
+  /**
+   * Test-only risk projection controls (`window.__v3.testing`): `force` shows a
+   * risk class whose real transition lands in a later leaf, `off` hides a class so
+   * the density gate can measure the exact risk increment (AC-V3-003).
+   */
+  riskForced?: L0RiskClass[];
+  riskSuppressed?: L0RiskClass[];
+}
+
+/** One visible option of the decision card. */
+export interface L0OptionView {
+  label: string;
+  recommended: boolean;
+}
+
+/** The derived L0 view (what the DOM must show). */
+export interface L0View {
+  band: {
+    origin: string;
+    siteName: string;
+    statusDot: 'ok' | 'warn' | 'idle';
+    statusText: string;
+    policy: string;
+    /** Compact badge shown on the band (`LLM：✅` / `LLM：⚠`). */
+    llm: string;
+    /** Full LLM label — the band's `title` + the L1 details (never lost). */
+    llmDetail: string;
+    session: string;
+  };
+  pick: { disabled: boolean; reason: string };
+  decision: {
+    visible: boolean;
+    prompt: string;
+    visibleOptions: L0OptionView[];
+    foldedOptions: string[];
+    /** `#l0-more`'s N — always `foldedOptions.length + 1` (the terminal item). */
+    foldedCount: number;
+  };
+  ref: { count: number; stale: boolean; label: string };
+  statusbar: { text: string; entries: Array<{ key: string; label: string; count: number }> };
+  risks: L0RiskClass[];
+}
+
+/** The terminal escape hatch — must match `l0/risk-rail.ts#OTHER_OPTION_LABEL`. */
+export const OTHER_OPTION_LABEL = '其他…（我来描述）';
+
+/** Visible recommended slots. FR-V3-011 allows ≤2; V3-1 shows one (see risk-rail). */
+export const L0_VISIBLE_RECOMMENDED = 2;
+
+/** `#l0-base` label — the question the L0 decision zone always answers. */
+export const L0_KICKER = '下一步做什么';
+
+/** Derive the active risk classes from the app state (priority order fixed). */
+export function deriveRiskClasses(input: L0Input): L0RiskClass[] {
+  const risks: L0RiskClass[] = [];
+  if (input.authorized !== true) risks.push('unauthorized');
+  if (input.probing === true) risks.push('probing');
+  if ((input.hardlineCount ?? 0) > 0) risks.push('hardline');
+  if (input.confirmPending === true) risks.push('confirm');
+  if ((input.staleRefCount ?? 0) > 0) risks.push('staleRef');
+  for (const forced of input.riskForced ?? []) if (!risks.includes(forced)) risks.push(forced);
+  const suppressed = new Set(input.riskSuppressed ?? []);
+  return risks.filter((risk) => !suppressed.has(risk));
+}
+
+/** Site display name: host, else the raw origin, else a readable placeholder. */
+export function siteDisplayName(origin?: string, explicit?: string): string {
+  if (explicit && explicit.trim()) return explicit.trim();
+  if (!origin) return '（无活跃站点）';
+  try {
+    return new URL(origin).host;
+  } catch {
+    return origin;
+  }
+}
+
+/**
+ * Pure L0 view derivation. Everything the density gate counts as L0 text or
+ * clickable comes from here, so the budget is auditable in one place.
+ */
+export function l0ViewModel(input: L0Input): L0View {
+  const origin = input.activeOrigin ?? '';
+  const siteName = siteDisplayName(origin);
+  const risks = deriveRiskClasses(input);
+  const probing = input.probing === true;
+  const pickDisabled = !input.authorized || probing;
+  const pickReason = !input.authorized
+    ? '未授权：页面侧零注入，拾取层不存在'
+    : probing
+      ? '探测中：本阶段不发命令'
+      : '从页面拾取引用（替代输入框）';
+
+  // ── decision card: ≤2 visible options + 「更多选项（还有 N 个）」 ──
+  const ask = input.ask ?? null;
+  const all = ask ? [...ask.options] : [];
+  const recommendedSlots = Math.max(0, Math.min(2, ask?.recommendedCount ?? L0_VISIBLE_RECOMMENDED));
+  const visibleOptions: L0OptionView[] = all
+    .slice(0, recommendedSlots)
+    .map((label) => ({ label, recommended: true }));
+  const foldedOptions = all.slice(visibleOptions.length);
+  // N is derived from the REAL option list (never hard-coded): the options that
+  // live behind the disclosure **plus** the always-last terminal item.
+  const foldedCount = foldedOptions.length + 1;
+
+  const refCount = Math.max(0, input.refCount ?? 0);
+  const counts = {
+    tree: Math.max(0, input.counts?.tree ?? 0),
+    commands: Math.max(0, input.counts?.commands ?? 0),
+    audit: Math.max(0, input.counts?.audit ?? 0),
+  };
+
+  return {
+    band: {
+      origin,
+      siteName,
+      statusDot: !origin ? 'idle' : input.authorized ? 'ok' : 'warn',
+      // The band carries the FULL origin (not just the host): the v1 status contract
+      // (`站点 <origin> · 发现=… · 授权态`) is what the existing gates read, and
+      // FR-V3-010 asks for「origin + 站点名」. The verbose LLM label is a detail of
+      //「谁在管我」and lives in the band's `title` + the L1 status panel.
+      // Keeps the v1 `#status` contract that three existing gates read for the RAW
+      // discovery state (`unsupported` / `unknown`), and FR-V3-010's origin + site
+      // name. The trust tier is the *policy badge*'s job (a separate, always-visible
+      // channel), so the band stays on one or two lines at 400px — the message zone
+      // keeps its first-round floor (`LOG_CLIENT_HEIGHT_FLOOR`).
+      statusText: !origin
+        ? '无活跃站点'
+        : `站点 ${origin} · 发现=${input.discoveryState ?? '未知'} · ${input.authorized ? '已授权' : '未授权'}`,
+      policy: `策略：${input.trust === 'trusted' ? 'trusted' : 'untrusted'}`,
+      // Compact, but it still carries the v1 `Key ✅ / Key ⚠` marker the existing
+      // gates read (`#11b`); the verbose provider/model label is the band's title +
+      // the L1 detail line.
+      llm: `LLM：Key ${input.llmConfigured ? '✅' : '⚠'}`,
+      llmDetail: input.llmBadge && input.llmBadge.trim() ? input.llmBadge.trim() : 'LLM：未知',
+      session: input.sessionLabel ?? '会话：（无活跃站点）',
+    },
+    pick: { disabled: pickDisabled, reason: pickReason },
+    decision: {
+      visible: Boolean(ask),
+      prompt: ask?.prompt ?? '',
+      visibleOptions,
+      foldedOptions,
+      foldedCount,
+    },
+    ref: {
+      count: refCount,
+      stale: input.refStale === true,
+      label: `引用 ${refCount} 条${input.refStale ? '（有失效）' : ''}`,
+    },
+    statusbar: {
+      text: `状态：树 ${counts.tree} · 命令 ${counts.commands} · 审计 ${counts.audit} · 设置`,
+      entries: [
+        { key: 'tree', label: `连接树 · ${counts.tree}`, count: counts.tree },
+        { key: 'commands', label: `命令目录 · ${counts.commands}`, count: counts.commands },
+        { key: 'audit', label: `审计 · ${counts.audit}`, count: counts.audit },
+        { key: 'settings', label: '设置', count: -1 },
+      ],
+    },
+    risks,
+  };
+}
+
+/** `更多选项（还有 N 个）` label — single source for the button copy. */
+export function moreOptionsLabel(foldedCount: number): string {
+  return `更多选项（还有 ${foldedCount} 个）`;
+}

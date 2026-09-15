@@ -48,6 +48,11 @@ import { mountTreeDrawer, type TreeDrawerHandle } from '../tree/tree-drawer.js';
 // V2-3 (ADR-V2-008/009/013): closed 7-action revoke orchestrator (existing ops only).
 import { createTreeOps } from '../tree/tree-ops.js';
 import type { ConnectTreeSnapshot } from '../../insight/tree-model.js';
+// V3-1 (ADR-V3-013 / ADR-V3-016): the L0 skeleton + the single disclosure
+// controller. Both are additive: no existing render branch or handler is removed.
+import { installDisclosure } from './disclosure.js';
+import { mountL0, type L0Handle } from './l0/shell.js';
+import type { L0Input } from './view-model.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -253,15 +258,162 @@ let treeDrawer: TreeDrawerHandle | null = null;
 // ── TASK-033: in-panel settings view (no navigation away from the panel) ────
 /** Settings controller, mounted lazily on first open (keeps panel load light). */
 let settingsHandle: SettingsPanelHandle | null = null;
+
+/** V3-1: the L0 skeleton handle (mounted once in `wire()`, repainted by `render()`). */
+let l0: L0Handle | null = null;
+
+/**
+ * V3-1 test seams for the two risk projections that have no sidepanel-side
+ * receipt path yet:
+ *   - `hardlineCount` is normally derived from REAL blocked-receipt entries
+ *     (`state.entries` with `kind === 'error'` mentioning `evaluate`); the seam
+ *     lets the density gate force the state deterministically.
+ *   - `staleRefCount` / `refCount` are injected because the引用失效 judge itself
+ *     is v3-2's deliverable (the plan explicitly allows a test-only namespace:
+ *     `window.__v3.testing`). They are read-only projections — no security
+ *     decision reads them.
+ */
+/** `force` = show a class whose real transition lands in a later leaf; `off` =
+ *  hide a class so the gate can measure the pure risk increment. */
+const v3TestState = { refCount: 0, lastStaleRef: '', riskMode: {} as Record<string, 'force' | 'off'> };
+
+/** Derive the pure L0 view-model input straight from the panel state. */
+function l0Input(): L0Input {
+  const llm = llmStatusView(llmLoaded ? llmSummary : null);
+  const receiptHardLines = state.entries.filter(
+    (entry) => entry.kind === 'error' && /evaluate|硬底线/.test(entry.text),
+  ).length;
+  return {
+    activeOrigin: state.activeOrigin,
+    authorized: state.authorized,
+    trust: state.trust,
+    llmBadge: llm.label,
+    llmConfigured: llm.configured,
+    sessionLabel: currentSessionLabel(sessions.find((s) => s.sessionId === sessionId) ?? null),
+    // A background probe *refresh* on an already-discovered site must not flip the
+    // band to「探测中」: that would make the L0 status flicker on a 15s timer while
+    // the site is working. The transient state is still surfaced as a RISK row
+    // (`probing`) whenever the site is not (yet) discovered.
+    probing: state.probe?.phase === 'probing' && state.discoveryState !== 'supported',
+    discoveryState: state.discoveryState ?? (state.probe?.phase === 'probing' ? '探测中' : '未知'),
+    hardlineCount: receiptHardLines,
+    staleRefCount: 0,
+    confirmPending: confirmActive(),
+    riskForced: Object.entries(v3TestState.riskMode)
+      .filter(([, mode]) => mode === 'force')
+      .map(([cls]) => cls) as L0Input['riskForced'],
+    riskSuppressed: Object.entries(v3TestState.riskMode)
+      .filter(([, mode]) => mode === 'off')
+      .map(([cls]) => cls) as L0Input['riskSuppressed'],
+    ask: state.ask
+      ? { prompt: state.ask.prompt, options: state.ask.options ?? [], recommendedCount: 2 }
+      : null,
+    refCount: v3TestState.refCount,
+    refStale: v3TestState.riskMode.staleRef === 'force',
+    counts: { tree: 0, commands: 0, audit: state.auditCount },
+  };
+}
+
+/** True when a destructive confirmation is pending (real state, or the forced
+ *  projection the L0 gate uses to make the state deterministic). */
+function confirmActive(): boolean {
+  return state.confirm !== null || v3TestState.riskMode.confirm === 'force';
+}
+
+/** Install the `window.__v3.testing` namespace used by the density/l0 gates. */
+function installV3TestHooks(): void {
+  const win = window as unknown as { __v3?: { testing?: Record<string, unknown> } };
+  win.__v3 = {
+    ...(win.__v3 ?? {}),
+    testing: {
+      setRisk(cls: string, mode: 'force' | 'off' | 'natural' = 'force') {
+        if (!['unauthorized', 'probing', 'hardline', 'confirm', 'staleRef'].includes(cls)) {
+          throw new Error(`未知风险类：${cls}`);
+        }
+        if (mode === 'natural') delete v3TestState.riskMode[cls];
+        else v3TestState.riskMode[cls] = mode;
+        render();
+      },
+      /**
+       * Re-pull the authoritative state from the service worker — the same call the
+       * panel makes on load and after every action. The gates use it after driving
+       * a background message directly (there is no generic state push to listen to).
+       */
+      refresh() {
+        void refreshState();
+      },
+      /** Reveal the fallback input + the full-text composer (ADR-V3-014 §5). */
+      revealFallback() {
+        l0?.revealFallback();
+      },
+      hideFallback() {
+        l0?.hideFallback();
+      },
+      /** Open the L1 status panel (`#topbar`) — the v1 toolbar lives there now. */
+      openStatusDetails() {
+        installDisclosure().open('topbar');
+      },
+      /** Fold every disclosure layer (used by the density/risk fixtures). */
+      collapseAll() {
+        installDisclosure().collapseAll();
+      },
+      /** Open the L2 entry panel + reveal the global-tree entry point. */
+      openTreeView() {
+        installDisclosure().open('l2-entries');
+        l0?.openL2('tree');
+      },
+      setRefCount(count: number) {
+        v3TestState.refCount = Math.max(0, count);
+        render();
+      },
+      /**
+       * V3-1 test seam: drives the ONE decision card through the same reducer
+       * action the real `ask-user-request` push uses — only the transport
+       * (background → panel message) is bypassed.
+       */
+      ask(prompt: string, options: string[]) {
+        dispatch({ type: 'ask', requestId: 'v3-test-ask', kind: 'choice', prompt, options });
+      },
+      clearAsk() {
+        dispatch({ type: 'ask-resolved' });
+      },
+      /**
+       * Injects a stale-reference event. v3-1 has no page-side reference judge
+       * (that is v3-4's deliverable), so this seam only drives the *projection*;
+       * v3-2 will replace it with the real five-dimension judgement
+       * (FR-V3-036) without changing the risk-rail contract.
+       */
+      staleRef(refId = 'ref-1') {
+        v3TestState.lastStaleRef = String(refId);
+        v3TestState.riskMode.staleRef = 'force';
+        render();
+      },
+      reset() {
+        v3TestState.refCount = 0;
+        v3TestState.riskMode = {};
+        render();
+      },
+      snapshot() {
+        return { risks: l0?.view()?.risks ?? [], foldedCount: l0?.view()?.decision.foldedCount ?? 0 };
+      },
+    },
+  };
+}
 /** Chat ⇄ settings view switch; captures/restores scroll position + draft. */
 const settingsViewSwitch = createViewSwitch({
   open: () => {
     document.body.classList.add('settings-open');
-    document.getElementById('settings-view')?.classList.add('show');
+    const view = document.getElementById('settings-view');
+    view?.classList.add('show');
+    // V3-1: the `hidden` attribute is the real disclosure (the class stays for the
+    // existing gates, but the density caliber only exempts `hidden`).
+    if (view) view.hidden = false;
   },
   close: () => {
     document.body.classList.remove('settings-open');
-    document.getElementById('settings-view')?.classList.remove('show');
+    const view = document.getElementById('settings-view');
+    view?.classList.remove('show');
+    if (view) view.hidden = true;
     // Re-measure the list after it becomes visible again and keep the anchor
     // honest, so the next appended message follows correctly.
     syncScrollAnchor(document.getElementById('log'));
@@ -350,7 +502,10 @@ function updateScrollHint(): void {
   const log = document.getElementById('log');
   const btn = document.getElementById('scroll-bottom');
   if (!log || !btn) return;
-  btn.classList.toggle('show', !isAtBottom(log));
+  const show = !isAtBottom(log);
+  btn.classList.toggle('show', show);
+  // V3-1: `hidden` is what actually removes it from the density budget.
+  btn.hidden = !show;
 }
 
 /**
@@ -421,22 +576,27 @@ function render(): void {
 
   const notice = $('notice');
   notice.textContent = state.notice ?? '';
-  notice.style.display = state.notice ? 'block' : 'none';
+  // V3-1: `hidden`, not `display:none` — the caliber counts text/controls inside a
+  // CSS-hidden subtree, so a `display` toggle would silently spend density budget.
+  notice.hidden = !state.notice;
 
   const confirmBox = $('confirm');
-  if (state.confirm) {
-    confirmBox.style.display = 'block';
-    $('confirm-summary').textContent = state.confirm.summary;
+  if (confirmActive()) {
+    confirmBox.hidden = false;
+    if (state.confirm) $('confirm-summary').textContent = state.confirm.summary;
   } else {
-    confirmBox.style.display = 'none';
+    confirmBox.hidden = true;
   }
 
   renderLlmStatus();
   renderOnboarding();
   renderDiscoveryNotice();
-  renderAsk();
   renderSession();
   renderAutoAuth();
+  // V3-1 (ADR-V3-013): the ONE decision card + the three-things skeleton.
+  l0?.update(l0Input());
+  // FR-V3-012: a free-text ask has no choices, so its fallback input opens at once.
+  if (state.ask?.kind === 'text') l0?.revealFallback();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
 }
 
@@ -506,7 +666,7 @@ function renderLlmStatus(): void {
 function renderSiteHint(): void {
   const box = $('site-hint');
   const view = activeSiteNotice({ hasOrigin: Boolean(state.activeOrigin), tab: activeTab });
-  box.style.display = view.visible ? 'block' : 'none';
+  box.hidden = !view.visible;
   if (!view.visible) return;
   $('site-hint-title').textContent = view.title;
   $('site-hint-detail').textContent = view.detail;
@@ -518,7 +678,7 @@ function renderSendReason(): void {
   const el = $('send-reason');
   const reason = sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab });
   el.textContent = reason;
-  el.style.display = reason ? 'block' : 'none';
+  el.hidden = !reason;
 }
 
 /** F-3: state-driven first-run guidance (only the next action is emphasized). */
@@ -532,7 +692,7 @@ function renderOnboarding(): void {
     authorized: state.authorized,
     hasConversation: state.entries.length > 0,
   });
-  box.style.display = view.visible ? 'block' : 'none';
+  box.hidden = !view.visible;
   if (!view.visible) return;
 
   const title = document.createElement('div');
@@ -559,7 +719,7 @@ function renderOnboarding(): void {
 function renderDiscoveryNotice(): void {
   const box = $('discovery-notice');
   const view = discoveryNotice(state.activeOrigin ? state.discoveryState : undefined, state.discoveryReason, state.probe);
-  box.style.display = view.visible ? 'block' : 'none';
+  box.hidden = !view.visible;
   if (!view.visible) return;
   $('discovery-title').textContent = view.title;
   $('discovery-detail').textContent = view.detail;
@@ -577,32 +737,10 @@ async function refreshLlmStatus(): Promise<void> {
   render();
 }
 
-/** Render the task-internal clarification prompt (FR-017 / R7). */
-function renderAsk(): void {
-  const box = $('ask');
-  const options = $('ask-options');
-  options.textContent = '';
-  if (!state.ask) {
-    box.style.display = 'none';
-    return;
-  }
-  box.style.display = 'block';
-  $('ask-prompt').textContent = state.ask.prompt;
-  const choices =
-    state.ask.kind === 'choice'
-      ? (state.ask.options ?? [])
-      : state.ask.kind === 'confirm'
-        ? ['是', '否']
-        : [];
-  for (const choice of choices) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = choice;
-    btn.addEventListener('click', () => submitAsk(choice, false));
-    options.appendChild(btn);
-  }
-  ($('ask-input') as HTMLInputElement).style.display = state.ask.kind === 'text' ? '' : 'none';
-}
+/* V3-1 (ADR-V3-014): the former `renderAsk()` moved into `l0/decision-card.ts`.
+   The ask itself, its resolution path (`submitAsk`) and its reducer are unchanged;
+   only the rendering location changed (the card is now L0, and everything past the
+   first option plus the terminal 「其他…（我来描述）」 lives behind `#l0-more`). */
 
 /** Send the user's answer back to the background and clear the prompt (R7). */
 function submitAsk(value: string | undefined, canceled: boolean): void {
@@ -797,7 +935,10 @@ function renderConsent(): void {
   // TASK-023: the consent disclosure lives in the bottom zone *above* the
   // composer (the composer must be the last element so nothing pushes it off the
   // bottom of the panel). `#consent-slot` is reserved for exactly this.
-  const slot = document.getElementById('consent-slot');
+  // V3-1: the consent/auto-auth block is "谁在管我" — it belongs to the L1 status
+  // panel, not to the bottom zone. Keeping it resident would spend density budget
+  // on the default screen (it renders two checkboxes + a marker button).
+  const slot = document.getElementById('l1-status-extra') ?? document.getElementById('consent-slot');
   (slot ?? document.body).appendChild(section);
 
   const refresh = (d?: RiskStatusPayload) => {
@@ -960,6 +1101,17 @@ async function rebindCurrentTab(): Promise<void> {
 }
 
 function wire(): void {
+  // V3-1 (ADR-V3-016): one disclosure controller owns every collapse; the risk
+  // rail is deliberately NOT in its whitelist.
+  const disclosure = installDisclosure();
+  l0 = mountL0({
+    doc: document,
+    disclosure,
+    onAnswer: (label) => submitAsk(label, false),
+    onOpenSettings: () => void openSettingsView(),
+  });
+  installV3TestHooks();
+
   // TASK-033: the settings entry opens an in-panel view in the SAME document.
   // It never opens the options page and never opens a new tab.
   $('open-settings').addEventListener('click', () => {
@@ -1084,8 +1236,15 @@ function wire(): void {
     });
   });
 
-  $('ask-submit').addEventListener('click', () => submitAsk(($('ask-input') as HTMLInputElement).value, false));
-  $('ask-cancel').addEventListener('click', () => submitAsk(undefined, true));
+  $('ask-submit').addEventListener('click', () => {
+    submitAsk(($('ask-input') as HTMLInputElement).value, false);
+    // FR-V3-012: submitting puts the fallback input straight back to `hidden`.
+    l0?.hideFallback();
+  });
+  $('ask-cancel').addEventListener('click', () => {
+    submitAsk(undefined, true);
+    l0?.hideFallback();
+  });
   $('ask-input').addEventListener('keydown', (e) => {
     if ((e as KeyboardEvent).key === 'Enter') {
       e.preventDefault();
@@ -1224,7 +1383,7 @@ function wire(): void {
 function applyEnvGuard(env: EnvGuardResult): void {
   const banner = $('env-guard');
   banner.textContent = env.banner;
-  banner.style.display = env.inExtension ? 'none' : 'block';
+  banner.hidden = env.inExtension;
   if (env.inExtension) return;
   for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-settings', 'rebind']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;

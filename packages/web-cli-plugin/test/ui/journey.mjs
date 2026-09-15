@@ -64,6 +64,22 @@ const MD_REPLY = [
   '<script>alert(2)</script>',
 ].join('\n');
 
+
+  // ── V3-1 (registered supersession V31-S2): L1 disclosure pre-steps ────────
+  // v3-1 moved the former toolbar into the L1 status panel and made the composer
+  // hidden-until-used disclosure. These helpers open those layers through the
+  // product's own controller (`window.__v3.disclosure` / the L0 shell) so every
+  // pre-existing assertion below runs UNCHANGED (same selector, same expectation,
+  // only one extra interaction in front of it).
+  const v3RevealComposer = async (page) => {
+    await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.revealFallback(); true');
+    await sleep(250);
+  };
+  const v3OpenStatusDetails = async (page) => {
+    await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.openStatusDetails(); true');
+    await sleep(250);
+  };
+
 // ── assertions ───────────────────────────────────────────────────────────────
 const failures = [];
 let passes = 0;
@@ -802,6 +818,9 @@ async function main() {
     // Pin a deterministic side-panel viewport (400×900) for the layout metrics.
     await sp.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });
     await sleep(300);
+    // V3-1 pre-step (registered): reveal the fallback composer so the「composer
+    // 贴底」geometry assertion below measures the same element as before.
+    await v3RevealComposer(sp);
     const layout = await evaluate(sp, `(() => {
       const log = document.getElementById('log');
       const composer = document.getElementById('composer');
@@ -1028,6 +1047,7 @@ async function main() {
       })()`,
     );
 
+    await v3OpenStatusDetails(sp);
     await realClick(sp, '#open-settings');
     const settingsShown = await waitFor(
       sp,
@@ -1202,6 +1222,7 @@ async function main() {
       // Re-open the settings view (close → open) so every render re-measures
       // contains() live; that is the「实测优先」path under test.
       await realClick(sp, '#settings-back');
+      await v3OpenStatusDetails(sp);
       await realClick(sp, '#open-settings');
       const grantedView = await waitFor(
         sp,
@@ -1308,6 +1329,8 @@ async function main() {
     check(Boolean(sessionLabelInit), '#16a 侧栏顶部显示当前会话标记', sessionLabelInit);
 
     // open the「更多」details so the switcher is visible/clickable
+    // V3-1 pre-step (registered): the details live inside the L1 status panel now.
+    await v3OpenStatusDetails(sp);
     await evaluate(sp, `(() => { const d = document.getElementById('more-actions'); if (d) d.open = true; return true; })()`);
     await sleep(200);
     const sessionListRaw = await waitFor(
@@ -1403,6 +1426,9 @@ async function main() {
     check(Boolean(aaBound), '#18m 绑定站点后自动授权作用于该 origin（控件可用）', aaBound ?? '');
 
     // real click「写操作自动」→ 常驻标记出现
+    // V3-1 pre-step (registered): the auto-authorization switches are「谁在管我」and
+    // live in the L1 status panel.
+    await v3OpenStatusDetails(sp);
     await realClick(sp, '#auto-write');
     const badgeOn = await waitFor(
       sp,
@@ -1438,6 +1464,7 @@ async function main() {
       const b = document.getElementById('auto-auth-badge');
       return w && !w.checked && r && !r.checked && b && getComputedStyle(b).display === 'none' ? 'off' : '';
     })()`;
+    await v3OpenStatusDetails(sp);
     await realClick(sp, '#auto-auth-badge');
     let badgeOff = await waitFor(sp, offProbe, 30, 150);
     if (badgeOff !== 'off') {

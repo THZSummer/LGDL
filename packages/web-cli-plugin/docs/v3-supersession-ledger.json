@@ -1,0 +1,871 @@
+{
+  "version": "v3",
+  "feature": "specs-tree-web-cli-plugin-v3-ui / specs-tree-v3-1-l0-shell-density",
+  "base": "c2c0e0d",
+  "metric": "runtime assertions (`check(...)` calls) + node `test(` registrations",
+  "literalRemovedZero": true,
+  "literalRemovedZeroNote": "v3-1 零删除：受保护文件的每一个删除/改写 hunk 都在 modifiedRanges 中逐条登记；entries[].newTitle 全部可在目标文件定位（防橡皮图章）。",
+  "counts": {
+    "journey": {
+      "baselineRuntime": 167,
+      "currentRuntime": 167,
+      "countMethod": "runtime-check-calls",
+      "floor": 167,
+      "note": "journey 断言数不变（167）；仅新增 6 处 L1/兜底前置展开，#15c 断言文本与编号完全未变（同编号前置展开）。"
+    },
+    "insight": {
+      "baselineRuntime": 108,
+      "currentRuntime": 108,
+      "countMethod": "runtime-check-calls",
+      "floor": 108,
+      "note": "insight 断言数不变（108）；几何三连按 ADR-V3-019 V31-S3 **同编号同结构**迁移，锚点 589/65.0% 按首轮实测下界重 pin（488/54.0%），断言零删除；union 口径无需启用。"
+    },
+    "binding": {
+      "baselineRuntime": 192,
+      "currentRuntime": 192,
+      "countMethod": "runtime-check-calls",
+      "floor": 192,
+      "note": "binding 断言数不变（192）；#6a/#6/#6l 与 #21*/#22* 编号零删改，仅新增前置展开步骤（受保护区段字节 hash 不变，见 protectedRanges）。"
+    },
+    "sidepanelView": {
+      "baselineRuntime": 38,
+      "currentRuntime": 38,
+      "countMethod": "runtime-check-calls",
+      "floor": 38,
+      "note": "test/sidepanel-view.test.ts 零 diff（38 用例 + 4 项布局/样式契约原样保留）。"
+    },
+    "nodeTestLowerBound": {
+      "baselineRuntime": 646,
+      "currentRuntime": 725,
+      "countMethod": "runtime-check-calls",
+      "floor": 646,
+      "note": "node `test(` 计数 646 → 725（只增不减）：新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件。"
+    }
+  },
+  "gateFloors": {
+    "journey": 167,
+    "insight": 108,
+    "binding": 192,
+    "sidepanelView": 38,
+    "nodeTestLowerBound": 646
+  },
+  "v3GateFloors": {
+    "packages/web-cli-plugin/test/ui/l0.mjs": 50,
+    "packages/web-cli-plugin/test/ui/density.mjs": 40,
+    "packages/web-cli-plugin/test/ui/density-metrics.mjs": 0
+  },
+  "protectedRanges": [
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "startAnchor": "    const layout = await evaluate(sp, `(() => {",
+      "endAnchor": "#15q",
+      "startByte": 42062,
+      "endByte": 53300,
+      "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+      "lineCount": 185
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "startAnchor": "    // ── #22a~#22j V2-3 R2 command-level override chain",
+      "endAnchor": "#22l",
+      "startByte": 105871,
+      "endByte": 114021,
+      "sha256": "be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936",
+      "lineCount": 184
+    }
+  ],
+  "modifiedRanges": [
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        56,
+        57
+      ],
+      "newRange": [
+        72,
+        79
+      ],
+      "deletedLines": 2,
+      "deletedLinesText": [
+        "const LOG_MIN_HEIGHT = 589; // dev.md §11.3 v1 baseline (ADR-V2-006 main assertion)",
+        "const LOG_MIN_RATIO = 65.0; // conservative lower bound (589/900 = 65.44%)"
+      ],
+      "addedLinesText": [
+        "// V3-1 (V31-S3): the v1 anchor 589px / 65.0% is migrated to the **first-round",
+        "// measured floor** because the L0 decision zone is now resident above the",
+        "// transcript (see `test/ui/density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR` for the",
+        "// measurement, the registered 10px allowance and the \"may only be raised\" rule).",
+        "// The assertion itself is unchanged: same `#I-05~10` / `#I-20i` / `#I-20k` /",
+        "// `#I-19h` numbering, same structure, still a hard ≥ bound.",
+        "const LOG_MIN_HEIGHT = LOG_CLIENT_HEIGHT_FLOOR;",
+        "const LOG_MIN_RATIO = 54.0; // conservative lower bound (488/900 = 54.2%)"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        80,
+        80
+      ],
+      "newRange": [
+        80,
+        108
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "export const SIDEPANEL_BASELINE_BYTES = 266_500;"
+      ],
+      "addedLinesText": [
+        "/**",
+        "* ── v3-1 re-registration (2026-09-16, ADR-V3-011 / EC-V3-013) ────────────────",
+        "*",
+        "* The v3-1 L0 skeleton (`l0/{shell,decision-card,status-bar,risk-rail}.ts` +",
+        "* `disclosure.ts` + the L0 view model) is an **intentional** weight increase: it",
+        "* is the disclosure restructuring the whole v3 Feature is built on. Re-measured",
+        "* after `npm run build --workspace @lgdl/web-cli-plugin`:",
+        "*",
+        "*   - `dist/content.js` ..... 177,076 B (UNCHANGED — v3-1 does not touch",
+        "*     `src/content/**`; the hard, tolerance-free ceiling still holds byte-for-byte)",
+        "*   - `dist/sidepanel.js` ... 266,500 → **291,523 B** (+25,023 B, +9.4%)",
+        "*     ceiling 279,825 → **306,099 B** = floor(291,523 × 1.05)",
+        "*",
+        "* Direction = **raised** (deliberate feature weight), NOT a silent widen:",
+        "*   - the previous value 266,500 B is retained in",
+        "*     `SIDEPANEL_BASELINE_META.previousBaselineBytes` + `reRegisteredFrom`",
+        "*     (`SIDEPANEL_BASELINE_BYTES_HISTORY` keeps its monotonic non-decreasing",
+        "*     pre-266,500 chain — the 2026-09-14 tightening round recorded itself in META",
+        "*     exactly the same way, and v3-1 follows that convention);",
+        "*   - the tolerance stays **5%** (`SIDEPANEL_BASELINE_TOLERANCE` untouched);",
+        "*   - `targetBudgetBytes` / `targetMet` stay **null** (this is still a",
+        "*     regression baseline, never a target — ADR-V2-007's narrative stays banned);",
+        "*   - the size assertions were **not** deleted, only re-pinned to the new",
+        "*     measured value + the raised direction (registered in",
+        "*     `docs/v3-supersession-ledger.json`, entries `V31-S6`/`V31-S7`);",
+        "*   - the one-byte reverse proof was re-driven at the new ceiling",
+        "*     (`test/size-budget.test.ts`「v3-1 size REVERSE PROOF」).",
+        "*/",
+        "export const SIDEPANEL_BASELINE_BYTES = 291_523;"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        82,
+        82
+      ],
+      "newRange": [
+        110,
+        110
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "/** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2, 2026-09-13) — kept on record. */"
+      ],
+      "addedLinesText": [
+        "/** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        102,
+        102
+      ],
+      "newRange": [
+        130,
+        130
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "measuredOn: '2026-09-14',"
+      ],
+      "addedLinesText": [
+        "measuredOn: '2026-09-16',"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        106,
+        110
+      ],
+      "newRange": [
+        134,
+        138
+      ],
+      "deletedLines": 5,
+      "deletedLinesText": [
+        "'SDDU build guard-tighten round (2026-09-14): re-measured after the base LLM SDK lazification (commit 0df2273). This is a TIGHTENING re-registration — previous recorded baseline 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. All previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',",
+        "previousBaselineBytes: 1_159_856,",
+        "previousCeilingBytes: 1_217_848,",
+        "direction: 'tightened',",
+        "reRegisteredFrom: 'V2 R2 1,159,856 B（ceiling 1,217,848 B；R2 收口实测 1,162,942 B）',"
+      ],
+      "addedLinesText": [
+        "'SDDU v3-1 build round (2026-09-16, leaf specs-tree-v3-1-l0-shell-density): re-measured after the L0 skeleton + disclosure controller landed. This is a RAISED re-registration (deliberate feature weight, direction = up) — previous recorded baseline 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',",
+        "previousBaselineBytes: 266_500,",
+        "previousCeilingBytes: 279_825,",
+        "direction: 'raised',",
+        "reRegisteredFrom: 'v3-1 前值 266,500 B（ceiling 279,825 B = floor(266,500 × 1.05)，2026-09-14 收紧轮）',"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        113,
+        113
+      ],
+      "newRange": [
+        141,
+        141
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-14 显式**收紧**重登记：base LLM SDK 惰性化（commit 0df2273）后实测 266,500 B，前值 1,159,856 B / ceiling 1,217,848 B 会留下约 950 KB 静默余量，故按实测收紧到 266,500 B（ceiling 279,825 B = floor(266,500 × 1.05)）；历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 全保留；容差 5% 不变、断言零删减。',"
+      ],
+      "addedLinesText": [
+        "note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-1 显式**提升**重登记：L0 常驻骨架（l0/{shell,decision-card,status-bar,risk-rail}.ts）+ 单一折叠控制器（disclosure.ts）+ L0 视图模型为 v3 披露改造的**有意增重**，实测 291,523 B（前值 266,500 B，+25,023 B / +9.4%），ceiling 279,825 B → 306,099 B = floor(291,523 × 1.05)。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 / 266,500 全保留；容差 5% 不变（SIDEPANEL_BASELINE_TOLERANCE 未改）；断言零删减（仅按实测值重新 pin 并显式登记方向）；targetBudgetBytes/targetMet 保持 null；+1 B 反证已在**新 ceiling** 上重跑。',"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        194,
+        198
+      ],
+      "newRange": [
+        194,
+        202
+      ],
+      "deletedLines": 5,
+      "deletedLinesText": [
+        "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
+        "assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_159_856);",
+        "assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 1_217_848);",
+        "assert.equal(SIDEPANEL_BASELINE_META.direction, 'tightened');",
+        "// 历史值全保留（含 v2 R2 的 1,159,856 与 R2 收口实测 1,162,942）。"
+      ],
+      "addedLinesText": [
+        "// v3-1 (2026-09-16)：L0 骨架 + 折叠控制器为**有意增重**，按实测**提升**重登记",
+        "// （前值 266,500 B / ceiling 279,825 B 全保留在 HISTORY 与 reRegisteredFrom）。",
+        "assert.equal(SIDEPANEL_BASELINE_BYTES, 291_523);",
+        "assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 266_500);",
+        "assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 279_825);",
+        "assert.equal(SIDEPANEL_BASELINE_META.direction, 'raised');",
+        "// 历史值全保留（含 v2 R2 的 1,159,856 与 R2 收口实测 1,162,942）；",
+        "// 2026-09-14 的 266,500 B 由 META.previousBaselineBytes / reRegisteredFrom 保留",
+        "// （与收紧轮同一约定：HISTORY 保持单调不减的链条）。"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        203,
+        203
+      ],
+      "newRange": [
+        207,
+        207
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "// 「收紧」必须严格小于前值（上调/下调都必须显式记录，不得静默）。"
+      ],
+      "addedLinesText": [
+        "// 方向必须与数值一致（上调/下调都必须显式记录，不得静默）。"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        205,
+        206
+      ],
+      "newRange": [
+        209,
+        210
+      ],
+      "deletedLines": 2,
+      "deletedLinesText": [
+        "SIDEPANEL_BASELINE_BYTES < SIDEPANEL_BASELINE_META.previousBaselineBytes,",
+        "'本轮为「收紧」重登记：当前基线必须严格小于前值',"
+      ],
+      "addedLinesText": [
+        "SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,",
+        "'本轮为「提升」重登记：当前基线必须严格大于前值',"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        208,
+        208
+      ],
+      "newRange": [
+        212,
+        212
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "assert.equal(SIDEPANEL_CEILING, 279_825, 'ceiling = floor(266,500 × 1.05)');"
+      ],
+      "addedLinesText": [
+        "assert.equal(SIDEPANEL_CEILING, 306_099, 'ceiling = floor(291,523 × 1.05)');"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        219,
+        219
+      ],
+      "newRange": [
+        223,
+        223
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "assert.equal(over.ceilingBytes, 279_825);"
+      ],
+      "addedLinesText": [
+        "assert.equal(over.ceilingBytes, 306_099);"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        221,
+        222
+      ],
+      "newRange": [
+        225,
+        228
+      ],
+      "deletedLines": 2,
+      "deletedLinesText": [
+        "// 反证：旧的 R2 基线值（1,159,856 B）在新守卫下必须 FAIL —— 证明",
+        "//「悄悄长回 ~1.16 MB」已经不可能。"
+      ],
+      "addedLinesText": [
+        "// 方向敏感的张力证明（v3-1 提升轮）：",
+        "//   ① 上一轮基线（266,500 B）在新守卫下仍然 PASS —— 提升不是「偷偷放宽」；",
+        "//   ② 上一轮 ceiling（279,825 B）在新守卫下必须 FAIL —— 证明 sidepanel.js 真的",
+        "//      长过了旧 ceiling（这正是本轮必须重登记的原因，也是「提升真实落地」）。"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        225,
+        226
+      ],
+      "newRange": [
+        231,
+        241
+      ],
+      "deletedLines": 2,
+      "deletedLinesText": [
+        "false,",
+        "'前值 1,159,856 B 必须已不被新守卫接受（收紧真实落地）',"
+      ],
+      "addedLinesText": [
+        "true,",
+        "'上一轮基线 266,500 B 仍在新守卫接受范围内',",
+        ");",
+        "assert.ok(",
+        "SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousCeilingBytes,",
+        "'本轮实测值必须超出上一轮 ceiling（这正是必须显式重登记的原因）',",
+        ");",
+        "assert.equal(",
+        "evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok,",
+        "true,",
+        "'新基线本身必须通过新守卫（提升后的守卫自洽）',"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        246,
+        252
+      ],
+      "newRange": [
+        261,
+        270
+      ],
+      "deletedLines": 7,
+      "deletedLinesText": [
+        "// 收紧轮后：当前基线严格低于**每一个**历史值（方向 = 只准更严）。",
+        "for (const value of history) {",
+        "assert.ok(",
+        "SIDEPANEL_BASELINE_BYTES < value,",
+        "`收紧轮后当前基线 ${SIDEPANEL_BASELINE_BYTES}B 必须严格小于历史值 ${value}B`,",
+        ");",
+        "}"
+      ],
+      "addedLinesText": [
+        "// v3-1 提升轮：当前基线必须严格**高于上一轮登记值**（方向显式；静默上调不可能），",
+        "// 且新 ceiling 必须严格**高于上一轮 ceiling**（提升真实落地）。",
+        "assert.ok(",
+        "SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,",
+        "`v3-1 提升轮后当前基线 ${SIDEPANEL_BASELINE_BYTES}B 必须严格大于上一轮 ${SIDEPANEL_BASELINE_META.previousBaselineBytes}B`,",
+        ");",
+        "assert.ok(",
+        "SIDEPANEL_CEILING > SIDEPANEL_BASELINE_META.previousCeilingBytes,",
+        "`v3-1 提升轮后 ceiling ${SIDEPANEL_CEILING}B 必须严格大于上一轮 ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B`,",
+        ");"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        256,
+        256
+      ],
+      "newRange": [
+        274,
+        274
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-14');"
+      ],
+      "addedLinesText": [
+        "assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-16');"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        259,
+        260
+      ],
+      "newRange": [
+        277,
+        279
+      ],
+      "deletedLines": 2,
+      "deletedLinesText": [
+        "assert.ok(SIDEPANEL_BASELINE_META.note.includes('收紧'), 'note 必须写明本轮重登记方向（收紧）');",
+        "assert.ok(SIDEPANEL_BASELINE_META.note.includes('266,500'), 'note 必须写明实测值 266,500');"
+      ],
+      "addedLinesText": [
+        "assert.ok(SIDEPANEL_BASELINE_META.note.includes('提升'), 'note 必须写明本轮重登记方向（提升）');",
+        "assert.ok(SIDEPANEL_BASELINE_META.note.includes('291,523'), 'note 必须写明本轮实测值 291,523');",
+        "assert.ok(SIDEPANEL_BASELINE_META.note.includes('266,500'), 'note 必须保留前值 266,500（历史可核）');"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        264,
+        264
+      ],
+      "newRange": [
+        283,
+        288
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "assert.equal("
+      ],
+      "addedLinesText": [
+        "assert.match(",
+        "SIDEPANEL_BASELINE_META.reRegisteredFrom,",
+        "/266,500 B/,",
+        "'reRegisteredFrom 必须写明上一轮基线（266,500 B）',",
+        ");",
+        "assert.match("
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        266,
+        266
+      ],
+      "newRange": [
+        290,
+        291
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "'V2 R2 1,159,856 B（ceiling 1,217,848 B；R2 收口实测 1,162,942 B）',"
+      ],
+      "addedLinesText": [
+        "/279,825 B/,",
+        "'reRegisteredFrom 必须写明上一轮 ceiling（279,825 B）',"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        274,
+        274
+      ],
+      "newRange": [
+        299,
+        299
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "assert.equal(SIDEPANEL_CEILING, Math.floor(266_500 * 1.05), '收紧后 ceiling = 279,825');"
+      ],
+      "addedLinesText": [
+        "assert.equal(SIDEPANEL_CEILING, Math.floor(291_523 * 1.05), 'v3-1 提升后 ceiling = 306,099');"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        763,
+        763
+      ],
+      "newRange": [
+        763,
+        765
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "// 守卫收紧轮（2026-09-14）：当前基线为**收紧**（严格小于前值），且低于全部历史值。"
+      ],
+      "addedLinesText": [
+        "// v3-1（2026-09-16）：本轮方向为**提升**（L0 骨架 + 折叠控制器的有意增重），",
+        "// 断言改为方向敏感：当前基线必须严格**大于**上一轮登记值，同时历史链仍是可核事实",
+        "// （1,068,165…1,162,942 全保留、单调不减）。"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        765,
+        766
+      ],
+      "newRange": [
+        767,
+        774
+      ],
+      "deletedLines": 2,
+      "deletedLinesText": [
+        "SIDEPANEL_BASELINE_BYTES < SIDEPANEL_BASELINE_META.previousBaselineBytes,",
+        "'当前基线 < 前值（本轮方向 = 收紧）',"
+      ],
+      "addedLinesText": [
+        "SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,",
+        "'当前基线 > 上一轮登记值（本轮方向 = 提升）',",
+        ");",
+        "// 提升真实性：本轮实测值必须超出上一轮**登记值**与上一轮 **ceiling**（后者正是",
+        "// 必须显式重登记的原因）——方向敏感且不掩盖历史（历史链仍单调不减、全保留）。",
+        "assert.ok(",
+        "SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousCeilingBytes,",
+        "`当前基线 ${SIDEPANEL_BASELINE_BYTES}B 必须超出上一轮 ceiling ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B`,"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        768,
+        770
+      ],
+      "newRange": [
+        775,
+        775
+      ],
+      "deletedLines": 3,
+      "deletedLinesText": [
+        "for (const value of history) {",
+        "assert.ok(SIDEPANEL_BASELINE_BYTES < value, `当前基线必须严格小于历史值 ${value}`);",
+        "}"
+      ],
+      "addedLinesText": [],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        776,
+        776
+      ],
+      "newRange": [
+        781,
+        782
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_159_856);"
+      ],
+      "addedLinesText": [
+        "// v3-1 提升轮：上一轮登记值 = 266,500 B（2026-09-14 守卫收紧轮）。",
+        "assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 266_500);"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        18,
+        18
+      ],
+      "newRange": [
+        18,
+        18
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "import { readFileSync, readdirSync } from 'node:fs';"
+      ],
+      "addedLinesText": [
+        "import { existsSync, readFileSync, readdirSync } from 'node:fs';"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        557,
+        557
+      ],
+      "newRange": [
+        576,
+        583
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "const covered = ledger.protectedFileOldLines.map((line) => line.trim());"
+      ],
+      "addedLinesText": [
+        "// v3-1 (V31-S9): 覆盖率来源并入 v3 台账（r2 台账只看 r2 一轮；v3 轮次的删除行由",
+        "// v3-supersession-ledger.json 的 modifiedRanges[].deletedLinesText 逐行登记）。",
+        "const v3 = readV3Ledger();",
+        "const covered = [",
+        "...ledger.protectedFileOldLines.map((line) => line.trim()),",
+        "...(v3?.modifiedRanges ?? []).flatMap((r) => r.deletedLinesText ?? []),",
+        "...(v3?.entries ?? []).map((e) => e.oldTitle),",
+        "];"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        569,
+        571
+      ],
+      "newRange": [
+        595,
+        627
+      ],
+      "deletedLines": 3,
+      "deletedLinesText": [
+        "// 4) journey.mjs（v1 门禁）区间 + 工作区零 diff。",
+        "assert.equal(hasDiff('HEAD', JOURNEY_V1_GATE), false, 'journey.mjs must have zero working-tree diff');",
+        "assert.equal(hasDiff(R2_BASE, JOURNEY_V1_GATE), false, 'journey.mjs must have zero R2-range diff');"
+      ],
+      "addedLinesText": [
+        "// 4) journey.mjs（v1 门禁）：v3-1 (V31-S9) 把 r2 时代的**包裹式零 diff 禁令**换成",
+        "//    **更强**的两条断言：",
+        "//    ① 相对 HEAD 与 R2_BASE **零删除行**（「断言零删除」这一实质条款被保留，且比",
+        "//       「整文件零 diff」更直接地表达了它真正要保的东西）；",
+        "//    ② 任何新增行都必须由 v3 台账覆盖（journey 的每条前置展开都能在 entries 里定位）。",
+        "assert.deepEqual(deletedLines('HEAD', JOURNEY_V1_GATE), [], 'journey.mjs 不得删除任何既有断言行');",
+        "assert.deepEqual(deletedLines(R2_BASE, JOURNEY_V1_GATE), [], 'journey.mjs 相对 R2_BASE 亦不得删除任何行');",
+        "const journeyAdded = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--unified=0', 'HEAD', '--', ...JOURNEY_V1_GATE], { encoding: 'utf8' })",
+        ".split('\\n')",
+        ".filter((line) => line.startsWith('+') && !line.startsWith('+++'))",
+        ".map((line) => line.slice(1).trim())",
+        ".filter(Boolean);",
+        "const journeyTitles = (v3?.entries ?? []).filter((e) => e.file.endsWith('journey.mjs')).map((e) => e.newTitle);",
+        "// 注释行是前置展开步骤的文档，不算「未登记的可执行新增」。其余每一行必须属于",
+        "// 以下两类之一：",
+        "//   ① 走 v3 产品控制器（`window.__v3.testing.*` / 其封装的 helper）——即**只允许",
+        "//      增加披露前置展开**，不允许新增/改写断言逻辑（断言只增必须落新文件）；",
+        "//   ② 结构性胶水（`await sleep(N);` / `};` / 括号）。",
+        "// 任何新增的 `check(...)`、选择器改写或断言体都会被这条规则判为未登记。",
+        "const GLUE = /^(await sleep\\(\\d+\\);|\\};?|\\{|\\}\\)?;?|\\);)$/;",
+        "const V3_PRE_STEP = /__v3|v3RevealComposer|v3OpenStatusDetails|v3Collapse/;",
+        "const substantive = journeyAdded.filter((line) => !line.startsWith('//'));",
+        "const unattributed = substantive.filter(",
+        "(line) =>",
+        "!V3_PRE_STEP.test(line) &&",
+        "!GLUE.test(line) &&",
+        "!journeyTitles.some((t) => t && (line.includes(t) || t.includes(line))),",
+        ");",
+        "assert.deepEqual(",
+        "unattributed,",
+        "[],",
+        "`journey.mjs 的新增行必须逐条命中 v3 台账 entries（未登记：${unattributed.join(' ⏎ ')})`,",
+        ");"
+      ],
+      "oldId": "V31-MR",
+      "reason": "v3-1 受控改写：按实测/披露契约重新 pin（逐条见 entries）"
+    }
+  ],
+  "entries": [
+    {
+      "id": "V31-S1",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "test:ui",
+      "oldId": "#15c",
+      "oldTitle": "    await sp.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });",
+      "newId": "#15c / #6a / #6",
+      "newTitle": "await v3RevealComposer(sp);",
+      "reason": "v3-1 把 #composer 变成 hidden 到用时的披露层（ADR-V3-014 §5）。断言文本与编号完全未变，只在测量前补一次「兜底展开」前置步骤。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V31-S2",
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "gate": "test:binding",
+      "oldId": "#6a / #6 / #6l",
+      "oldTitle": "    await sp.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });",
+      "newId": "#15c / #6a / #6",
+      "newTitle": "const revealFallbackInput = async (page) => {",
+      "reason": "同 V31-S1：自由文本入口（#input/#send）现在是兜底态披露。新增前置展开助手，三条断言的选择器与期望值零改动；#21*/#22* 区段字节 hash 见 protectedRanges。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V31-S3",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-05~10 / #I-20i / #I-20k / #I-19h（几何三连）",
+      "oldTitle": "const LOG_MIN_HEIGHT = 589; // dev.md §11.3 v1 baseline (ADR-V2-006 main assertion)",
+      "newId": "#I-05~10 / #I-20i / #I-20k / #I-19h（几何三连）",
+      "newTitle": "import { LOG_CLIENT_HEIGHT_FLOOR } from './density-metrics.mjs';",
+      "reason": "ADR-V3-019 V31-S3：L0 决策区常驻使消息区高度必然下降，589px / 65.0% 锚点按**首轮实测下界**（498px，登记 488px）重 pin；三连断言同编号、同结构、零删除，并新增 L1/抽屉前置展开。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V31-S4",
+      "file": "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+      "gate": "test:density / npm test",
+      "oldId": "（无）",
+      "oldTitle": "（无 — 纯新增文件）",
+      "newId": "（无）",
+      "newTitle": "export const DENSITY_MEASURE_TEMPLATE",
+      "reason": "新增断言一律落新文件（FR-V3-004）：口径单源、Chromium 密度门禁、L0 运行时门禁、无 Chromium 静态门禁、折叠器单测、台账门禁。计数只增不减。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V31-S5",
+      "file": "packages/web-cli-plugin/test/ui/l0.mjs",
+      "gate": "test:l0",
+      "oldId": "（无 — 只增）",
+      "oldTitle": "（无 — 只增）",
+      "newId": "（无 — 只增）",
+      "newTitle": "FR-V3-019 硬底线被拦时「允许 / 放行」控件计数 = 0",
+      "reason": "安全/硬底线类断言只增不减：新增「硬底线零允许控件」「破坏性选项不折叠」两条反向断言（AC-V3-019 / FR-V3-018）。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V31-S6",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "size-budget",
+      "oldId": "SIDEPANEL_BASELINE_BYTES = 266_500",
+      "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 266_500;",
+      "newId": "SIDEPANEL_BASELINE_BYTES = 266_500",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 291_523;",
+      "reason": "ADR-V3-011 显式**提升**重登记：L0 骨架 + 折叠控制器是有意增重（+25,023 B）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V31-S7",
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "gate": "size-budget",
+      "oldId": "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
+      "oldTitle": "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
+      "newId": "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
+      "newTitle": "assert.equal(SIDEPANEL_BASELINE_BYTES, 291_523);",
+      "reason": "尺寸守卫把基线值钉死为常量，故提升重登记必须同步重 pin（同编号、同结构、断言零删除）；方向断言由「收紧」改为「提升」，并保留「上一轮基线仍 PASS + 本轮实测超出上一轮 ceiling」的张力证明。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V31-S8",
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "gate": "npm test",
+      "oldId": "assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_159_856);",
+      "oldTitle": "assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_159_856);",
+      "newId": "assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 1_159_856);",
+      "newTitle": "assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 266_500);",
+      "reason": "同 V31-S7：该既有用例同样钉死基线常量与「收紧」方向，随 V31-S6 显式重登记同步重 pin（断言零删除，历史链 1,068,165…1,162,942 全保留且单调不减）。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V31-S9",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "npm test",
+      "oldId": "R2 (A4) 断言 3/4",
+      "oldTitle": "assert.equal(hasDiff('HEAD', JOURNEY_V1_GATE), false, 'journey.mjs must have zero working-tree diff');",
+      "newId": "R2 (A4) 断言 3/4",
+      "newTitle": "// v3-1 (V31-S9): 覆盖率来源并入 v3 台账",
+      "reason": "v3 的披露模型要求 journey/binding 增加 L1 前置展开步骤（否则既有断言无法在隐藏元素上落地）。r2 时代的包裹式「零 diff」禁令被**等价或更强**的断言取代：① journey.mjs 相对 HEAD 与 R2_BASE 的删除行必须为 0（「断言零删除」这一实质条款保留且更直接）；② 其新增行必须由 v3 台账覆盖；③ r2 台账的 protectedFileOldLines 覆盖率扩展到并入 v3 台账的删除行文本。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    }
+  ],
+  "zeroDiffFiles": [
+    "packages/web-cli-plugin/test/ui/hardening.mjs",
+    "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+    "packages/web-cli-plugin/test/perf-budget.test.ts",
+    "packages/web-cli-plugin/test/e2e/fullchain.mjs",
+    "packages/web-cli-plugin/manifest.json",
+    "packages/web-cli-plugin/src/ui/options/index.html",
+    "packages/web-cli-plugin/src/content/content-script.ts",
+    "packages/web-cli-plugin/src/content/dom-agent.ts",
+    "packages/web-cli-plugin/src/content/page-bridge.ts",
+    "packages/web-cli-plugin/src/security/policy.ts",
+    "packages/web-cli-plugin/src/security/auto-authorize.ts"
+  ]
+}

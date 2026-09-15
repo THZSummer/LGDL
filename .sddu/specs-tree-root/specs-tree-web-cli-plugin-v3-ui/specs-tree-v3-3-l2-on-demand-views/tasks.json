@@ -1,0 +1,693 @@
+{
+  "meta": {
+    "feature": "V3-3 L2 按需视图（树/命令/审计/设置）（父：specs-tree-web-cli-plugin-v3-ui）",
+    "featureKey": "specs-tree-v3-3-l2-on-demand-views",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-16",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V3-025~029；§2.2 四视图 / §2.3 计数真值 / §2.4 命令目录口径 / §2.5 tree-fab 处置 / §2.6 能力集等价 / §5 文件影响 / §6 交付门槛）+ 父 plan.md v1.0（ADR-V3-001~012）",
+    "sourceSpec": "父 spec.md FR-V3-045~054 · FR-V3-015 · NFR-V3-001/005/006/008/009/010/011/012/013/014/016/018 · EC-V3-002/003/005/008/009/011/013/014/016 · AC-V3-005/010/011/012/013/015/016/019/021/024/025/026/027 + 本叶 spec.md §7 验收锚点",
+    "taskCount": 9,
+    "waveCount": 5,
+    "complexity": {
+      "S": 3,
+      "M": 5,
+      "L": 1
+    },
+    "typeBreakdown": {
+      "implementation": 6,
+      "gate": 3,
+      "doc": 0,
+      "human": 0
+    },
+    "crossLeafOrder": {
+      "leaf": "V3-3",
+      "executionOrder": "第 3 环（与 v3-2 可并行分解；门禁执行严格串行）",
+      "requires": [
+        "specs-tree-v3-1-l0-shell-density（状态栏入口 + 折叠器契约 + 密度门禁/基线 + 取代台账）"
+      ],
+      "feeds": [
+        "specs-tree-v3-4-page-as-input（审计出口目标视图 / 引用 chip 与 L2 视图解耦）"
+      ]
+    },
+    "mandatoryCoverage": {
+      "fourL2ViewsDefaultZeroFootprint": [
+        "TASK-305",
+        "TASK-306"
+      ],
+      "countsDerivedFromTruthNotHardcoded": [
+        "TASK-301",
+        "TASK-306"
+      ],
+      "twoInteractionBudgetAndReturn": [
+        "TASK-302",
+        "TASK-305",
+        "TASK-306"
+      ],
+      "capabilitySetEquivalenceACV3026": [
+        "TASK-306"
+      ],
+      "supersessionLedgerLargestBattlefield": [
+        "TASK-307"
+      ]
+    },
+    "volumeTask": {
+      "id": "TASK-308",
+      "mode": "explicit-reregistration-most-likely",
+      "disclosureFields": [
+        "previousBaselineBytes",
+        "previousCeilingBytes",
+        "measuredOn",
+        "source",
+        "buildCommand",
+        "measuredBy",
+        "direction",
+        "reRegisteredFrom"
+      ],
+      "historyKept": "SIDEPANEL_BASELINE_BYTES_HISTORY",
+      "toleranceUnchanged": "5%",
+      "targetBudgetBytesAndTargetMet": "null",
+      "assertionsZeroDeletion": true
+    },
+    "serialGates": {
+      "policy": "严格串行，一次只跑一个（本机 ~1.5GB，曾 OOM）；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断",
+      "order": [
+        "typecheck",
+        "build",
+        "npm-test",
+        "supersession",
+        "l2",
+        "density",
+        "ui(journey)",
+        "insight",
+        "binding",
+        "hardening",
+        "e2e",
+        "size",
+        "zero-diff-check"
+      ],
+      "neverConcurrent": [
+        "test:l2",
+        "test:density",
+        "test:ui",
+        "test:insight",
+        "test:binding",
+        "test:hardening",
+        "test:e2e"
+      ]
+    },
+    "assertionsOnlyIncrease": [
+      "新断言落新文件：test/ui/l2.mjs / test/l2-counts.test.ts",
+      "insight.mjs 入口路径改写逐条台账；既有条目零删除",
+      "sidepanel-view.test.ts 4 契约增强式替代（不删契约）；用例数 ≥38",
+      "binding.mjs 的 #21*/#22* 字节区间 hash pin",
+      "计数下界：journey ≥167 / insight union ≥108 / binding ≥192 / sidepanelView ≥38 / node ≥646"
+    ],
+    "note": "V3-3 本叶 9 任务 / 5 波：四模块并行（计数 / 宿主 / 命令目录 / 审计）→ L2 归属迁移接线 → （L2 门禁 ∥ 取代最大战场）→ 体积重登记 → 收口。四视图默认零占用、计数从真值派生（硬编码即 FAIL）、≤2 次交互、返回复位、L2 期间风险位可见、能力集等价 8 项。**门禁严格串行**，取代必须在本叶内闭合（EC-V3-013）。"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "planWave": "V3-3 内部",
+      "tasks": [
+        "TASK-301",
+        "TASK-302",
+        "TASK-303",
+        "TASK-304"
+      ],
+      "strategy": "并行（4 文件不相交）：计数真值 / 视图宿主 / 命令目录 / 审计"
+    },
+    {
+      "wave": 2,
+      "planWave": "V3-3 内部",
+      "tasks": [
+        "TASK-305"
+      ],
+      "strategy": "串行：L2 归属迁移与接线（index.html / sidepanel.ts / view-model.ts / tree-drawer.ts 单所有者）"
+    },
+    {
+      "wave": 3,
+      "planWave": "V3-3 内部",
+      "tasks": [
+        "TASK-306",
+        "TASK-307"
+      ],
+      "strategy": "并行写入（新 Chromium 门禁 ∥ 既有断言取代）；⚠️ 门禁执行严格串行"
+    },
+    {
+      "wave": 4,
+      "planWave": "V3-3 内部",
+      "tasks": [
+        "TASK-308"
+      ],
+      "strategy": "串行：体积核对 / 显式重登记（本叶最可能触发）"
+    },
+    {
+      "wave": 5,
+      "planWave": "V3-3 内部",
+      "tasks": [
+        "TASK-309"
+      ],
+      "strategy": "串行收口：13 步全门禁绿 + 密度复位复测 + 人工面登记"
+    }
+  ],
+  "p0MinimalSet": [
+    "TASK-301",
+    "TASK-302",
+    "TASK-303",
+    "TASK-304",
+    "TASK-305",
+    "TASK-306",
+    "TASK-307",
+    "TASK-308",
+    "TASK-309"
+  ],
+  "tasks": [
+    {
+      "id": "TASK-301",
+      "name": "计数真值派生 `l2/counts.ts` + `test/l2-counts.test.ts`",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [],
+      "planRef": "V3-3 plan §2.3/§4 V33-O-1；ADR-V3-026",
+      "fr": [
+        "FR-V3-046",
+        "FR-V3-049"
+      ],
+      "nfr": [
+        "NFR-V3-002"
+      ],
+      "ec": [
+        "EC-V3-016"
+      ],
+      "ac": [
+        "AC-V3-026"
+      ],
+      "adr": [
+        "ADR-V3-026"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l2/counts.ts",
+          "note": "deriveCounts(snapshot, auditEntries, settingsSections)；四类计数从真值派生；命令目录 {live,baseline} 分列"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/l2-counts.test.ts",
+          "note": "计数同源（含增量）+ 分列口径不退化为合并数字"
+        }
+      ],
+      "acceptance": [
+        "四类计数均有唯一真值源；counts.commands = { live, baseline } 两个数字分别可读",
+        "单测：改真值（绑定 origin / 追加会话命令 / 注入审计记录 / 分区集合）→ 计数变化量与真值变化量相等",
+        "硬编码常量 → 测试 FAIL",
+        "l2-counts.test.ts 显式断言 'live' in counts.commands ∧ 'baseline' in counts.commands（不得退化为合并数字）",
+        "纯函数（node 可测）；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm test 2>&1 | tee /tmp/opencode/v3-gate-logs/npm-test-v33-w1.log"
+      ]
+    },
+    {
+      "id": "TASK-302",
+      "name": "L2 视图宿主 `l2/view-host.ts`",
+      "type": "implementation",
+      "complexity": "S",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [
+        "TASK-303",
+        "TASK-304"
+      ],
+      "planRef": "V3-3 plan §2.2/§4 V33-O-2；ADR-V3-025",
+      "fr": [
+        "FR-V3-047",
+        "FR-V3-048",
+        "FR-V3-054"
+      ],
+      "nfr": [
+        "NFR-V3-011"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V3-021"
+      ],
+      "adr": [
+        "ADR-V3-025"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l2/view-host.ts",
+          "note": "#log ↔ #view-host 二选一 + 「← 返回」+ 展开态复原 + 焦点管理；单一面板级滚动容器"
+        }
+      ],
+      "acceptance": [
+        "#log 与 #view-host 互斥可见；打开期间 #log hidden === true",
+        "面板级滚动容器计数 = 1（长内容用视图内局部滚动块）",
+        "返回后展开态与进入前相等（disclosure.restore）；焦点回焦入口项",
+        "打开时焦点移入视图标题（tabindex=\"-1\"）",
+        "无 chrome.* 调用；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck 2>&1 | tee /tmp/opencode/v3-gate-logs/typecheck-v33-w1.log"
+      ]
+    },
+    {
+      "id": "TASK-303",
+      "name": "命令目录视图 `l2/command-catalog.ts`",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [
+        "TASK-302",
+        "TASK-304"
+      ],
+      "planRef": "V3-3 plan §2.4/§4；ADR-V3-027",
+      "fr": [
+        "FR-V3-049",
+        "FR-V3-052",
+        "FR-V3-053"
+      ],
+      "nfr": [
+        "NFR-V3-008"
+      ],
+      "ec": [
+        "EC-V3-016"
+      ],
+      "ac": [
+        "AC-V3-019",
+        "AC-V3-026"
+      ],
+      "adr": [
+        "ADR-V3-027"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l2/command-catalog.ts",
+          "note": "只读投影 src/insight/command-catalog.ts；逐条有档 + {live,baseline} 分列 + delay 单源措辞 + 硬底线零控件 + 9 动作固定序"
+        }
+      ],
+      "acceptance": [
+        "逐条有档（allow/ask/deny）+ 来源 + 生效值；硬底线档控件计数 = 0",
+        "delay 文案取自单一常量且与 v2 单源逐字一致（门禁逐字断言）",
+        "{live, baseline} 分列呈现（各带标签）；无「已全部渲染」类表述",
+        "提权/放宽控件计数 = 0；仅 v2 既有覆盖控件（clamp 仍在 SW 侧强制）",
+        "9 个树内动作白名单 + 固定序保留（断言 9 个 + 顺序）",
+        "不修改 src/insight/**（只读复用）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck 2>&1 | tee /tmp/opencode/v3-gate-logs/typecheck-v33-w1b.log",
+        "git diff --numstat -- packages/web-cli-plugin/src/insight/"
+      ]
+    },
+    {
+      "id": "TASK-304",
+      "name": "审计视图 `l2/audit.ts`",
+      "type": "implementation",
+      "complexity": "S",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [
+        "TASK-302",
+        "TASK-303"
+      ],
+      "planRef": "V3-3 plan §2.2/§2.4；ADR-V3-026",
+      "fr": [
+        "FR-V3-050"
+      ],
+      "nfr": [
+        "NFR-V3-016"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V3-019"
+      ],
+      "adr": [
+        "ADR-V3-026"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l2/audit.ts",
+          "note": "条目列表 + 零明文字段白名单 + 既有导出出口（复用 admin_audit-export）"
+        }
+      ],
+      "acceptance": [
+        "条目列表渲染 + 既有导出出口可达",
+        "字段白名单严格（命令名/动作 id/结果/耗时/时间/审计 id）；白名单外字段不渲染",
+        "反例扫描：apiKey / 剪贴板正文 / 通知正文 / 书签正文零命中；URL 去参",
+        "静态权限零新增；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck 2>&1 | tee /tmp/opencode/v3-gate-logs/typecheck-v33-w1c.log"
+      ]
+    },
+    {
+      "id": "TASK-305",
+      "name": "L2 归属迁移与接线（四视图默认零占用 + ≤2 次交互 + 返回复位）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-301",
+        "TASK-302",
+        "TASK-303",
+        "TASK-304"
+      ],
+      "wave": 2,
+      "parallelWith": [],
+      "planRef": "V3-3 plan §2.2/§2.5/§5；ADR-V3-025/028",
+      "fr": [
+        "FR-V3-015",
+        "FR-V3-045",
+        "FR-V3-047",
+        "FR-V3-048",
+        "FR-V3-051",
+        "FR-V3-052",
+        "FR-V3-054"
+      ],
+      "nfr": [
+        "NFR-V3-006"
+      ],
+      "ec": [
+        "EC-V3-005",
+        "EC-V3-008",
+        "EC-V3-014"
+      ],
+      "ac": [
+        "AC-V3-005",
+        "AC-V3-010",
+        "AC-V3-021",
+        "AC-V3-026",
+        "AC-V3-027"
+      ],
+      "adr": [
+        "ADR-V3-025",
+        "ADR-V3-028"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html",
+          "note": "追加 #view-host 与 4 个 [data-l2-view]（默认 hidden）；#tree-fab 加 hidden；#settings-view 归属调整"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts",
+          "note": "追加 L2 入口面板接线 / 视图替换 / 返回（既有 handler 零删改）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts",
+          "note": "追加 L2 视图模型（入口面板 + 四视图数据 + 计数）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts",
+          "note": "仅追加 L2 入口面板 id（仍不含 #risk-rail）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/tree/tree-drawer.ts",
+          "note": "宿主从 absolute 覆盖抽屉改为 #view-host 内视图主体；渲染/ARIA/键盘/面包屑/分层控件零改动"
+        }
+      ],
+      "acceptance": [
+        "四类视图内容默认全部在 hidden 子树内（可见计数 = 0）；不得 CSS 隐身或移出视口",
+        "≤2 次交互可达（状态栏 1 → 入口 2）；入口面板 ≤4 个入口且各带计数",
+        "L2 打开期间 #risk-rail 仍可见（视图替换只在 #panel-main 内；祖先闭包无 hidden / [data-l2-view]）",
+        "返回复位：#view-host 隐藏 + #log 恢复 + 进入前展开态复原 + 密度回默认档",
+        "树视图：role=tree/treeitem + aria-expanded/aria-level + 键盘 + 面包屑全部保留；9 动作白名单固定序断言通过",
+        "#tree-fab 保留 id 与按钮语义但默认 hidden；#tree-drawer 的 role/aria-* 迁移逐条台账登记",
+        "设置视图项集合与 v1 等价；options.html 零 diff",
+        "#risk-rail 仍不在 disclosure 白名单；index.html 54 id 仍全保留",
+        "320px 长路径 / 长命令名 / 面包屑零水平溢出"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm test 2>&1 | tee /tmp/opencode/v3-gate-logs/npm-test-v33-w2.log",
+        "git diff --numstat -- packages/web-cli-plugin/src/ui/options/index.html"
+      ]
+    },
+    {
+      "id": "TASK-306",
+      "name": "L2 运行时门禁 `test/ui/l2.mjs`（含 AC-V3-026 能力集等价）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-305"
+      ],
+      "wave": 3,
+      "parallelWith": [
+        "TASK-307"
+      ],
+      "planRef": "V3-3 plan §2.2~2.6/§6 交付门槛；父 spec AC-V3-026",
+      "fr": [
+        "FR-V3-045",
+        "FR-V3-046",
+        "FR-V3-047",
+        "FR-V3-048",
+        "FR-V3-049",
+        "FR-V3-050",
+        "FR-V3-052",
+        "FR-V3-053",
+        "FR-V3-054"
+      ],
+      "nfr": [
+        "NFR-V3-001",
+        "NFR-V3-006"
+      ],
+      "ec": [
+        "EC-V3-016"
+      ],
+      "ac": [
+        "AC-V3-005",
+        "AC-V3-010",
+        "AC-V3-019",
+        "AC-V3-021",
+        "AC-V3-026",
+        "AC-V3-027"
+      ],
+      "adr": [
+        "ADR-V3-025",
+        "ADR-V3-026",
+        "ADR-V3-027"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ui/l2.mjs",
+          "note": "四视图默认零占用 + ≤2 次 + 计数同源（改真值→计数变）+ 返回复位 + 单滚动容器 + L2 期间风险位可见 + 树 ARIA/9 动作固定序 + 零提权 + 零明文 + 能力集等价 8 项"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/package.json",
+          "note": "追加 script test:l2；test:v3 追加（依赖零新增）"
+        }
+      ],
+      "acceptance": [
+        "四视图默认可见计数 = 0；≤2 次交互可达断言成立",
+        "计数同源双向断言（改真值 → 计数变）；{live, baseline} 分列且各自与真值相等",
+        "返回复位：展开态相等 + 密度回默认档（三档 × 三视口）",
+        "单滚动容器计数 = 1；L2 期间风险位可见",
+        "树 ARIA / 9 动作固定序；零提权控件；伪造 sendMessage 仍 FAIL",
+        "零明文扫描通过；AC-V3-026 八项逐项等价断言落地",
+        "单 Chromium 实例、单 page target；日志全量 tee 落盘禁 tail；不触碰既有 4 个 test/ui/*.mjs"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run test:l2 2>&1 | tee /tmp/opencode/v3-gate-logs/l2.log",
+        "npm run test:density 2>&1 | tee /tmp/opencode/v3-gate-logs/density-v33.log"
+      ]
+    },
+    {
+      "id": "TASK-307",
+      "name": "取代台账最大战场（4 契约增强式迁移 + 批量入口路径改写）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-305"
+      ],
+      "wave": 3,
+      "parallelWith": [
+        "TASK-306"
+      ],
+      "planRef": "V3-3 plan §2.5/§5/§6；父 ADR-V3-007 第 6 条；ADR-V3-029",
+      "fr": [
+        "FR-V3-004"
+      ],
+      "nfr": [
+        "NFR-V3-014"
+      ],
+      "ec": [
+        "EC-V3-013"
+      ],
+      "ac": [
+        "AC-V3-011",
+        "AC-V3-012"
+      ],
+      "adr": [
+        "ADR-V3-007",
+        "ADR-V3-029"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/ui/insight.mjs",
+          "note": "树/回执/确认相关断言的入口路径改写（状态栏→入口→视图）+ 逐条台账"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+          "note": "4 项布局契约逐项迁移为等价或更强断言（不删）+ 逐条台账"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/ui/binding.mjs",
+          "note": "仅必要时同编号最小改写；#21*/#22* 字节零改"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/docs/v3-supersession-ledger.json",
+          "note": "追加本叶 entries[]（最大批量）+ 更新 counts.insight.currentRuntime（含 l2.mjs）与 counts.sidepanelView"
+        }
+      ],
+      "acceptance": [
+        "sidepanel-view.test.ts 4 项布局契约逐项仍被断言（等价或更强）；用例数 ≥38",
+        "insight.mjs 既有条目零删除；入口路径改写逐条台账登记",
+        "binding.mjs 的 #21*/#22* 区段字节 hash 不变；断言计数 ≥192",
+        "台账只追加（schema 未改、他叶条目未改）；本叶 hunk 全部命中（npm run test:supersession 通过）",
+        "union 口径计数 ≥108（含 l1.mjs + l2.mjs）",
+        "不得因「DOM 变了」删除任何契约；不得弱化既有断言"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run test:supersession 2>&1 | tee /tmp/opencode/v3-gate-logs/supersession-v33.log",
+        "git diff --numstat -- test/sidepanel-view.test.ts test/ui/insight.mjs test/ui/binding.mjs"
+      ]
+    },
+    {
+      "id": "TASK-308",
+      "name": "体积守卫核对 + `sidepanel.js` 显式重登记（本叶最可能触发）",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-306",
+        "TASK-307"
+      ],
+      "wave": 4,
+      "parallelWith": [],
+      "planRef": "V3-3 plan §4 V33-O-4/§6；父 ADR-V3-011 第 3/5 条",
+      "fr": [],
+      "nfr": [
+        "NFR-V3-005"
+      ],
+      "ec": [
+        "EC-V3-012"
+      ],
+      "ac": [
+        "AC-V3-015",
+        "AC-V3-016"
+      ],
+      "adr": [
+        "ADR-V3-011",
+        "ADR-V3-029"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/size-baseline.ts",
+          "note": "更新 SIDEPANEL_BASELINE_BYTES + 旧值入 _HISTORY + _META 补全 8 字段；未触发则零改动"
+        }
+      ],
+      "acceptance": [
+        "content.js ≤ 177,076 B（无容差）；CONTENT_SOURCE_SHA256 三项 pin 不变",
+        "sidepanel.js 实测值与 ceiling 279,825 B 比较结果如实记录（本叶预计触发）",
+        "触发时五要素齐备（前后值 + 日期 + 来源 + 理由 + _HISTORY 历史保留）；_META 含 measuredOn/source/buildCommand/measuredBy/previousBaselineBytes/previousCeilingBytes/direction/reRegisteredFrom",
+        "容差 5% 不变；targetBudgetBytes/targetMet 保持 null；断言零删减",
+        "反证（+1B → FAIL）在新值上重新驱动并留完整日志",
+        "本叶内完成（不得留给 v3-4，EC-V3-013）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && node -e \"const fs=require('fs');const c=fs.statSync('dist/content.js').size,s=fs.statSync('dist/sidepanel.js').size;console.log({content:c,sidepanel:s});if(c>177076)process.exit(1);if(s>279825)console.error('CEILING EXCEEDED -> 走显式重登记');\" | tee /tmp/opencode/v3-gate-logs/size-v33.log"
+      ]
+    },
+    {
+      "id": "TASK-309",
+      "name": "收口：全门禁绿串行验证 + 密度复位复测 + 人工面如实登记",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-308"
+      ],
+      "wave": 5,
+      "parallelWith": [],
+      "planRef": "V3-3 plan §6 交付门槛；父 spec §10.3/§11.1",
+      "fr": [
+        "FR-V3-003",
+        "FR-V3-086",
+        "FR-V3-087"
+      ],
+      "nfr": [
+        "NFR-V3-012",
+        "NFR-V3-014",
+        "NFR-V3-015"
+      ],
+      "ec": [
+        "EC-V3-013"
+      ],
+      "ac": [
+        "AC-V3-013",
+        "AC-V3-024",
+        "AC-V3-025",
+        "AC-V3-027"
+      ],
+      "adr": [
+        "ADR-V3-010"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "/tmp/opencode/v3-gate-logs/*.log",
+          "note": "13 步串行门禁全量日志（不入版本库）"
+        }
+      ],
+      "acceptance": [
+        "全门禁绿（§4.1 的 13 步顺序，逐条串行）；日志完整落盘、禁 tail 截断",
+        "断言计数 ≥ 下界：journey ≥167 / insight union ≥108（含 l1 + l2）/ binding ≥192 / sidepanel-view ≥38（含 4 契约）/ node test( ≥646",
+        "L2 往返后密度复位复测 = 默认档阈值（三档 × 三视口）",
+        "零改动核对全部通过：manifest.json / src/security/** / src/content/** 三 hash / src/insight/** / packages/web-cli-base/** / options.html / design/** 零 diff",
+        "人工面逐项标注「未执行 / PASS」（树逐层展开观感 / 窄栏长路径 / 键盘体感 / 明暗观感）",
+        "无红灯遗留给 v3-4（EC-V3-013）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && bash -c 'set -e; run(){ echo \"=== $1 ===\"; eval \"$2\" 2>&1 | tee /tmp/opencode/v3-gate-logs/$1.log; }; run typecheck \"npm run typecheck\"; run build \"npm run build\"; run npm-test \"npm test\"; run supersession \"npm run test:supersession\"; run l2 \"npm run test:l2\"; run density \"npm run test:density\"; run ui \"npm run test:ui\"; run insight \"npm run test:insight\"; run binding \"npm run test:binding\"; run hardening \"npm run test:hardening\"; run e2e \"npm run test:e2e\"; echo ALL-GREEN'"
+      ]
+    }
+  ],
+  "blockers": {
+    "hardBlocking": [
+      {
+        "id": "TASK-301",
+        "blocks": "TASK-305 / TASK-306（无计数则入口面板与视图标题无真值）"
+      },
+      {
+        "id": "TASK-305",
+        "blocks": "TASK-306 / TASK-307 / TASK-308 / TASK-309（归属未迁移则四视图不可达）"
+      },
+      {
+        "id": "TASK-307",
+        "blocks": "TASK-308（取代未闭合则台账门禁红，收口无法全绿）"
+      },
+      {
+        "id": "TASK-308",
+        "blocks": "TASK-309"
+      }
+    ],
+    "crossLeaf": "V3-3 未全绿前 v3-4 不得开工；本叶取代量最大，必须同叶闭合（EC-V3-013）"
+  }
+}

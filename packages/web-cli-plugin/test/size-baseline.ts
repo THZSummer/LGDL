@@ -77,9 +77,37 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * measurement 1,162,942 B is also retained on record). Tolerance still 5%; no
  * assertion removed.
  */
-export const SIDEPANEL_BASELINE_BYTES = 266_500;
+/**
+ * ── v3-1 re-registration (2026-09-16, ADR-V3-011 / EC-V3-013) ────────────────
+ *
+ * The v3-1 L0 skeleton (`l0/{shell,decision-card,status-bar,risk-rail}.ts` +
+ * `disclosure.ts` + the L0 view model) is an **intentional** weight increase: it
+ * is the disclosure restructuring the whole v3 Feature is built on. Re-measured
+ * after `npm run build --workspace @lgdl/web-cli-plugin`:
+ *
+ *   - `dist/content.js` ..... 177,076 B (UNCHANGED — v3-1 does not touch
+ *     `src/content/**`; the hard, tolerance-free ceiling still holds byte-for-byte)
+ *   - `dist/sidepanel.js` ... 266,500 → **291,523 B** (+25,023 B, +9.4%)
+ *     ceiling 279,825 → **306,099 B** = floor(291,523 × 1.05)
+ *
+ * Direction = **raised** (deliberate feature weight), NOT a silent widen:
+ *   - the previous value 266,500 B is retained in
+ *     `SIDEPANEL_BASELINE_META.previousBaselineBytes` + `reRegisteredFrom`
+ *     (`SIDEPANEL_BASELINE_BYTES_HISTORY` keeps its monotonic non-decreasing
+ *     pre-266,500 chain — the 2026-09-14 tightening round recorded itself in META
+ *     exactly the same way, and v3-1 follows that convention);
+ *   - the tolerance stays **5%** (`SIDEPANEL_BASELINE_TOLERANCE` untouched);
+ *   - `targetBudgetBytes` / `targetMet` stay **null** (this is still a
+ *     regression baseline, never a target — ADR-V2-007's narrative stays banned);
+ *   - the size assertions were **not** deleted, only re-pinned to the new
+ *     measured value + the raised direction (registered in
+ *     `docs/v3-supersession-ledger.json`, entries `V31-S6`/`V31-S7`);
+ *   - the one-byte reverse proof was re-driven at the new ceiling
+ *     (`test/size-budget.test.ts`「v3-1 size REVERSE PROOF」).
+ */
+export const SIDEPANEL_BASELINE_BYTES = 291_523;
 
-/** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2, 2026-09-13) — kept on record. */
+/** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
   1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942,
 ] as const;
@@ -99,18 +127,18 @@ export const SIDEPANEL_CEILING = Math.floor(
  */
 export const SIDEPANEL_BASELINE_META = {
   kind: 'regression-baseline-only',
-  measuredOn: '2026-09-14',
+  measuredOn: '2026-09-16',
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU build guard-tighten round (2026-09-14): re-measured after the base LLM SDK lazification (commit 0df2273). This is a TIGHTENING re-registration — previous recorded baseline 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. All previous values retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
-  previousBaselineBytes: 1_159_856,
-  previousCeilingBytes: 1_217_848,
-  direction: 'tightened',
-  reRegisteredFrom: 'V2 R2 1,159,856 B（ceiling 1,217,848 B；R2 收口实测 1,162,942 B）',
+    'SDDU v3-1 build round (2026-09-16, leaf specs-tree-v3-1-l0-shell-density): re-measured after the L0 skeleton + disclosure controller landed. This is a RAISED re-registration (deliberate feature weight, direction = up) — previous recorded baseline 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY.',
+  previousBaselineBytes: 266_500,
+  previousCeilingBytes: 279_825,
+  direction: 'raised',
+  reRegisteredFrom: 'v3-1 前值 266,500 B（ceiling 279,825 B = floor(266,500 × 1.05)，2026-09-14 收紧轮）',
   targetBudgetBytes: null,
   targetMet: null,
-  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-14 显式**收紧**重登记：base LLM SDK 惰性化（commit 0df2273）后实测 266,500 B，前值 1,159,856 B / ceiling 1,217,848 B 会留下约 950 KB 静默余量，故按实测收紧到 266,500 B（ceiling 279,825 B = floor(266,500 × 1.05)）；历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 全保留；容差 5% 不变、断言零删减。',
+  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-1 显式**提升**重登记：L0 常驻骨架（l0/{shell,decision-card,status-bar,risk-rail}.ts）+ 单一折叠控制器（disclosure.ts）+ L0 视图模型为 v3 披露改造的**有意增重**，实测 291,523 B（前值 266,500 B，+25,023 B / +9.4%），ceiling 279,825 B → 306,099 B = floor(291,523 × 1.05)。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 / 266,500 全保留；容差 5% 不变（SIDEPANEL_BASELINE_TOLERANCE 未改）；断言零删减（仅按实测值重新 pin 并显式登记方向）；targetBudgetBytes/targetMet 保持 null；+1 B 反证已在**新 ceiling** 上重跑。',
 } as const;
 
 /**

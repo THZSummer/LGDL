@@ -1,0 +1,1101 @@
+{
+  "meta": {
+    "feature": "V3-4 页面即输入（父：specs-tree-web-cli-plugin-v3-ui）",
+    "featureKey": "specs-tree-v3-4-page-as-input",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-16",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V3-030~036；§2.2 页面侧交互层 / §2.3 体积核算 / §2.4 边界 / §5 文件影响 / §6 交付门槛 / ADR-V3-035 spike）+ 父 plan.md v1.0（ADR-V3-001~012）",
+    "sourceSpec": "父 spec.md FR-V3-060~072 · NFR-V3-003/004/005/006/007/008/011/012/013/014/015/016/018 · EC-V3-003/005/006/012/013/014/017 · AC-V3-013/015/016/017/018/022/023/024/025/027 + 本叶 spec.md §7 验收锚点",
+    "taskCount": 14,
+    "waveCount": 8,
+    "complexity": {
+      "S": 2,
+      "M": 11,
+      "L": 1
+    },
+    "typeBreakdown": {
+      "implementation": 9,
+      "gate": 4,
+      "spike": 1,
+      "doc": 0,
+      "human": 0
+    },
+    "crossLeafOrder": {
+      "leaf": "V3-4",
+      "executionOrder": "第 4 环（最后开工；三险集中）",
+      "requires": [
+        "specs-tree-v3-1-l0-shell-density",
+        "specs-tree-v3-2-l1-disclosure-refs",
+        "specs-tree-v3-3-l2-on-demand-views",
+        "TASK-401 spike 通过"
+      ]
+    },
+    "mandatoryCoverage": {
+      "spikeAUI004First": [
+        "TASK-401"
+      ],
+      "fifthBundlePickLayerIndependentCeilingNoTolerance": [
+        "TASK-403",
+        "TASK-411"
+      ],
+      "dualTriggerIdempotentTeardownFailureDegradation": [
+        "TASK-403",
+        "TASK-404",
+        "TASK-407"
+      ],
+      "contextMenuSelfDrawnWithThreeConcessions": [
+        "TASK-406",
+        "TASK-409"
+      ],
+      "referencesBidirectionalLinkageExecutionVisualization": [
+        "TASK-407",
+        "TASK-408",
+        "TASK-409"
+      ],
+      "unauthorizedZeroInjection": [
+        "TASK-410"
+      ]
+    },
+    "spikeGate": {
+      "task": "TASK-401",
+      "acceptance": [
+        "S1 注入可行（已授权成功 / 未授权失败可读原因）",
+        "S2 体积可控 ≤60,000 B",
+        "S3 零注入可验证（五项探针）",
+        "S4 三退让可实现"
+      ],
+      "passCriteria": "S1~S4 全部通过 → 放行 Wave 2（实现）",
+      "failHandling": {
+        "D1": "形态降级 = 第二个登记式 content script（registerSiteContentScript 的 js 追加 pick-layer.js）；仍不改 content.js 字节、仍满足未授权零注入；显式登记取舍 + 回报编排器",
+        "D2": "范围降级 = 不自行扩权/放宽上限；把结论与实测数据回报编排器，由编排器裁决是否缩小本叶范围"
+      },
+      "redLines": [
+        "不放宽 CONTENT_MAX_BYTES（177,076 无容差）",
+        "不引入 contextMenus",
+        "不静态注入 / 不扩 host_permissions",
+        "不修改冻结三文件而不更新 pin（本叶不更新 pin）",
+        "不静默沿用失效引用"
+      ],
+      "gateRule": "spike 未通过前不得进入实现（本叶实现任务的硬前置，ADR-V3-035 第 5 条）"
+    },
+    "volumeTasks": [
+      {
+        "id": "TASK-411",
+        "artifact": "dist/pick-layer.js",
+        "mode": "new-artifact-independent-hard-ceiling",
+        "baseline": "首轮实测值（无容差）",
+        "metaFields": [
+          "measuredOn",
+          "source",
+          "buildCommand",
+          "measuredBy",
+          "previousBaselineBytes",
+          "direction"
+        ],
+        "reverseProof": "+1B → FAIL",
+        "noMergeWithContentJs": true,
+        "overLimitHandling": "只能改实现，不得放宽上限"
+      },
+      {
+        "id": "TASK-413",
+        "artifact": "dist/sidepanel.js",
+        "mode": "conditional-explicit-reregistration",
+        "disclosureFields": [
+          "previousBaselineBytes",
+          "previousCeilingBytes",
+          "measuredOn",
+          "source",
+          "buildCommand",
+          "measuredBy",
+          "direction",
+          "reRegisteredFrom"
+        ],
+        "historyKept": "SIDEPANEL_BASELINE_BYTES_HISTORY",
+        "toleranceUnchanged": "5%",
+        "targetBudgetBytesAndTargetMet": "null",
+        "assertionsZeroDeletion": true
+      }
+    ],
+    "serialGates": {
+      "policy": "严格串行，一次只跑一个（本机 ~1.5GB，曾 OOM）；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断",
+      "order": [
+        "typecheck",
+        "build",
+        "npm-test",
+        "supersession",
+        "zero-injection",
+        "page-input",
+        "density",
+        "l0",
+        "l1",
+        "l2",
+        "ui(journey)",
+        "insight",
+        "binding",
+        "hardening",
+        "e2e"
+      ],
+      "neverConcurrent": [
+        "test:zero-injection",
+        "test:page-input",
+        "test:density",
+        "test:l0",
+        "test:l1",
+        "test:l2",
+        "test:ui",
+        "test:insight",
+        "test:binding",
+        "test:hardening",
+        "test:e2e"
+      ],
+      "additional": "体积三线核对 + 反证（RP-V3-06 的 pick-layer.js 段）+ 零改动核对 亦串行"
+    },
+    "assertionsOnlyIncrease": [
+      "新断言落新文件：test/ui/page-input.mjs / test/ui/zero-injection.mjs / test/ref-capture.test.ts / test/pick-layer-budget.test.ts",
+      "binding.mjs 页面侧条目同编号最小改写；删除行必须命中台账",
+      "#21*/#22* 字节区间 hash pin（本叶零改动）",
+      "计数下界：journey ≥167 / insight union ≥108 / binding ≥192 / sidepanelView ≥38 / node ≥646",
+      "安全断言只增：未授权零注入（反证）+ 拾取期间命令发送 = 0 + picker 不产生判定路径"
+    ],
+    "note": "V3-4 本叶 14 任务 / 8 波：**spike 硬前置**（Wave 1，未过不得实现）→（捕获口径 ∥ 第 5 bundle+注入通路）→（入口/消息桥 ∥ Shadow 宿主 ∥ 自绘菜单）→四交互集成 →（P5+G1/G2 ∥ 零注入门禁 ∥ pick-layer 体积基线）→（page-input 门禁 ∥ binding 取代）→ sidepanel 体积 → 收口。**红线**：content.js 177,076 B 无容差 / manifest 零 diff 且无 contextMenus / CONTENT_SOURCE_SHA256 三 hash 不变 / 零新增依赖。**门禁严格串行**，收尾必须全绿。",
+    "serialWithinWaveNote": "V3-4 Wave 6 存在波内串行链（TASK-409 → TASK-412）；除此之外依赖均严格跨波次。"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "planWave": "V3-4 内部",
+      "tasks": [
+        "TASK-401"
+      ],
+      "strategy": "串行 spike 门：S1~S4 全过才放行；未过走 D1/D2（禁进入实现）"
+    },
+    {
+      "wave": 2,
+      "planWave": "V3-4 内部",
+      "tasks": [
+        "TASK-402",
+        "TASK-403"
+      ],
+      "strategy": "并行组 ①（文件不相交）：捕获口径 ∥ 第 5 bundle + 注入通路"
+    },
+    {
+      "wave": 3,
+      "planWave": "V3-4 内部",
+      "tasks": [
+        "TASK-404",
+        "TASK-405",
+        "TASK-406"
+      ],
+      "strategy": "并行组 ②（三个页面侧模块文件不相交）"
+    },
+    {
+      "wave": 4,
+      "planWave": "V3-4 内部",
+      "tasks": [
+        "TASK-407"
+      ],
+      "strategy": "串行：四项交互集成 + 失败降级 + chip 消费 + 双向联动 P4"
+    },
+    {
+      "wave": 5,
+      "planWave": "V3-4 内部",
+      "tasks": [
+        "TASK-408",
+        "TASK-410",
+        "TASK-411"
+      ],
+      "strategy": "并行写入（P5/G1/G2 ∥ 零注入门禁 ∥ pick-layer 体积基线）；⚠️ 门禁执行串行"
+    },
+    {
+      "wave": 6,
+      "planWave": "V3-4 内部",
+      "tasks": [
+        "TASK-409",
+        "TASK-412"
+      ],
+      "strategy": "**波内串行链**：TASK-409（page-input 门禁）→ TASK-412（binding 取代 + 台账追加，需引用新门禁文件）；⚠️ 门禁执行严格串行",
+      "serialWithinWave": true
+    },
+    {
+      "wave": 7,
+      "planWave": "V3-4 内部",
+      "tasks": [
+        "TASK-413"
+      ],
+      "strategy": "串行：sidepanel 体积核对 / 条件重登记"
+    },
+    {
+      "wave": 8,
+      "planWave": "V3-4 内部",
+      "tasks": [
+        "TASK-414"
+      ],
+      "strategy": "串行收口：15 步全门禁绿 + 体积三线 + 人工面登记"
+    }
+  ],
+  "p0MinimalSet": [
+    "TASK-401",
+    "TASK-402",
+    "TASK-403",
+    "TASK-404",
+    "TASK-405",
+    "TASK-406",
+    "TASK-407",
+    "TASK-408",
+    "TASK-409",
+    "TASK-410",
+    "TASK-411",
+    "TASK-412",
+    "TASK-413",
+    "TASK-414"
+  ],
+  "tasks": [
+    {
+      "id": "TASK-401",
+      "name": "A-UI-004 前置 spike（S1~S4；未过不得进入实现）",
+      "type": "spike",
+      "complexity": "M",
+      "dependsOn": [],
+      "wave": 1,
+      "parallelWith": [
+        "TASK-402",
+        "TASK-403"
+      ],
+      "planRef": "V3-4 plan §3.1/§4 V34-O-1/§5；ADR-V3-035",
+      "fr": [
+        "FR-V3-067"
+      ],
+      "nfr": [
+        "NFR-V3-003",
+        "NFR-V3-004",
+        "NFR-V3-007"
+      ],
+      "ec": [
+        "EC-V3-012"
+      ],
+      "ac": [
+        "AC-V3-015",
+        "AC-V3-018"
+      ],
+      "adr": [
+        "ADR-V3-030",
+        "ADR-V3-031",
+        "ADR-V3-035"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "/tmp/opencode/v3-spike/",
+          "note": "临时目录：spike 脚本 + 最小实验产物 + 完整日志（不入版本库）"
+        },
+        {
+          "op": "NEW",
+          "path": "/tmp/opencode/v3-gate-logs/spike-*.log",
+          "note": "spike 证据（不入版本库）"
+        }
+      ],
+      "acceptance": [
+        "S1 注入可行：已授权 fixture 注入成功 ∧ 未授权 origin 注入失败且报可读原因（两段日志都在）",
+        "S2 体积可控：最小骨架实测 ≤ 60,000 B；超限时给出精简方案（不得并入 content.js）",
+        "S3 零注入可验证：未授权 origin 上五项探针（注册/注入/监听/Shadow host/右键拦截）全部为「无」",
+        "S4 三退让可实现：① 仅已授权站点拦截 ② 「交给原生菜单」出口可用（下一次右键不被拦截）③ Esc 与点击空白可关",
+        "红线自证：spike 全程未改 CONTENT_MAX_BYTES、未引入 contextMenus、未静态注入、未更新三 hash pin",
+        "结论摘要（通过/不通过 + 实测值 + 降级路径）写入 build 报告；临时文件不入版本库（git status 干净）",
+        "若未全过 → 走 D1（形态降级：第二个登记式 content script）/ D2（范围降级 + 回报编排器）；禁止进入 Wave 2",
+        "spike 结论（含实测体积）作为 PICK_LAYER_BASELINE_BYTES 的来源依据"
+      ],
+      "verify": [
+        "mkdir -p /tmp/opencode/v3-gate-logs && node /tmp/opencode/v3-spike/spike.mjs 2>&1 | tee /tmp/opencode/v3-gate-logs/spike-all.log",
+        "git diff --numstat -- packages/web-cli-plugin/manifest.json packages/web-cli-plugin/src/content/content-script.ts packages/web-cli-plugin/src/content/dom-agent.ts packages/web-cli-plugin/src/content/page-bridge.ts",
+        "git status --porcelain"
+      ]
+    },
+    {
+      "id": "TASK-402",
+      "name": "引用捕获口径 `src/content/ref-capture.ts` + `test/ref-capture.test.ts`",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-401"
+      ],
+      "wave": 2,
+      "parallelWith": [
+        "TASK-403"
+      ],
+      "planRef": "V3-4 plan §3.3/§4 V34-O-3；ADR-V3-034",
+      "fr": [
+        "FR-V3-071"
+      ],
+      "nfr": [
+        "NFR-V3-003"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V3-023"
+      ],
+      "adr": [
+        "ADR-V3-034"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/content/ref-capture.ts",
+          "note": "稳定优先语义路径（id→data-*→结构性路径 ≤6 级）+ data-wcli-ref 标记 + 截断 80/120；纯函数"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ref-capture.test.ts",
+          "note": "同 DOM 两次结果相等 / 截断口径 / 事实字段齐备"
+        }
+      ],
+      "acceptance": [
+        "稳定优先路径算法实现（id → data-* → 结构性路径 ≤6 级）；同 DOM 两次结果相等",
+        "截断口径：textDigest 80 / semanticPath 120（单测断言边界值）",
+        "事实字段齐备（selector/semanticPath/textDigest/origin/documentId/navSeq/declarationHash/capturedAt）",
+        "目标上写 data-wcli-ref 标记（供 v3-2 的 D1 节点身份判定）",
+        "不修改冻结三文件 src/content/{content-script,dom-agent,page-bridge}.ts（CONTENT_SOURCE_SHA256 三项 pin 不变）",
+        "纯函数（无 chrome.* 业务调用）；npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm test 2>&1 | tee /tmp/opencode/v3-gate-logs/npm-test-v34-w2.log",
+        "git diff --numstat -- src/content/content-script.ts src/content/dom-agent.ts src/content/page-bridge.ts"
+      ]
+    },
+    {
+      "id": "TASK-403",
+      "name": "第 5 bundle 构建与注入通路（build.mjs + messaging.ts + service-worker.ts）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-401"
+      ],
+      "wave": 2,
+      "parallelWith": [
+        "TASK-402"
+      ],
+      "planRef": "V3-4 plan §2.2(1)/§2.2(4)/§5；ADR-V3-030/031",
+      "fr": [
+        "FR-V3-067",
+        "FR-V3-072"
+      ],
+      "nfr": [
+        "NFR-V3-003",
+        "NFR-V3-004",
+        "NFR-V3-006"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V3-015",
+        "AC-V3-017"
+      ],
+      "adr": [
+        "ADR-V3-030",
+        "ADR-V3-031"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/build.mjs",
+          "note": "仅追加第 5 个 entryPoint（src/content/pick-layer.ts → dist/pick-layer.js，IIFE）；既有 4 个 entry 零改动"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/background/messaging.ts",
+          "note": "PluginMessageKind 仅追加拾取层 kind（pick-layer-inject / pick-layer-teardown / ref-captured / highlight）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/background/service-worker.ts",
+          "note": "仅追加 case 'pick-layer-inject' / 'pick-layer-teardown'（复用既有 executeScript 通路；既有 case 零改动）"
+        }
+      ],
+      "acceptance": [
+        "npm run build 产出 dist/pick-layer.js（第 5 bundle）；content.js 仍 = 177,076 B",
+        "build.mjs 既有 4 个 entry 零改动；manifest.json 零 diff（不加 web_accessible_resources / 不加 content_scripts / 不加权限）",
+        "SW 两 case 追加（既有 case 零改动）；注入前再次校验授权集合（未授权拒绝 + 可读原因）",
+        "幂等：重复注入不产生第二个 Shadow host / 不重复注册监听",
+        "注入失败 → 可读原因回报（不静默失败）",
+        "npm run typecheck 0 error"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm run build && node -e \"const fs=require('fs');const c=fs.statSync('dist/content.js').size;console.log({content:c,pick:fs.existsSync('dist/pick-layer.js')?fs.statSync('dist/pick-layer.js').size:'MISSING'});if(c!==177076)throw new Error('content.js drifted: '+c)\"",
+        "git diff --numstat -- packages/web-cli-plugin/manifest.json"
+      ]
+    },
+    {
+      "id": "TASK-404",
+      "name": "拾取层入口与消息桥 `pick-layer.ts` + `pick-bridge.ts`",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-402",
+        "TASK-403"
+      ],
+      "wave": 3,
+      "parallelWith": [
+        "TASK-405",
+        "TASK-406"
+      ],
+      "planRef": "V3-4 plan §2.2(2)(3)/§5；ADR-V3-030/033",
+      "fr": [
+        "FR-V3-060",
+        "FR-V3-062",
+        "FR-V3-067",
+        "FR-V3-068",
+        "FR-V3-069",
+        "FR-V3-071"
+      ],
+      "nfr": [
+        "NFR-V3-007"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V3-018",
+        "AC-V3-022"
+      ],
+      "adr": [
+        "ADR-V3-030",
+        "ADR-V3-031",
+        "ADR-V3-033",
+        "ADR-V3-034"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/content/pick-layer.ts",
+          "note": "组装 + Alt 状态机 + 幂等标记 window.__wcliPickLayer + unmount"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/content/pick-bridge.ts",
+          "note": "与 SW/侧栏消息（ref-captured / highlight / teardown）+ 注入幂等 + 宿主事件不吞五规则"
+        }
+      ],
+      "acceptance": [
+        "window.__wcliPickLayer 幂等标记（version / state / unmount()）；重复注入不重复注册",
+        "teardown → 全部监听移除 + Shadow host 移除 + delete window.__wcliPickLayer",
+        "宿主事件不吞五规则逐条实现（Alt 不 preventDefault；非拾取态不接管 pointerdown/move；仅目标元素在拾取态接管；菜单只在自己打开时拦截 contextmenu；气泡不阻止选区默认行为）",
+        "Esc 可关闭菜单 / 撤销高亮 / 退出拾取态",
+        "拾取路径只产出引用素材（ref-captured），不进入动作派发（命令发送 = 0）",
+        "不改冻结三文件（三 hash pin 不变）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm run build 2>&1 | tee /tmp/opencode/v3-gate-logs/build-v34-w3.log",
+        "git diff --numstat -- src/content/content-script.ts src/content/dom-agent.ts src/content/page-bridge.ts"
+      ]
+    },
+    {
+      "id": "TASK-405",
+      "name": "Shadow DOM 隔离宿主 `pick-overlay.ts`",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-402",
+        "TASK-403"
+      ],
+      "wave": 3,
+      "parallelWith": [
+        "TASK-404",
+        "TASK-406"
+      ],
+      "planRef": "V3-4 plan §2.2(2)(3)/§5；ADR-V3-033",
+      "fr": [
+        "FR-V3-060",
+        "FR-V3-062",
+        "FR-V3-063",
+        "FR-V3-065",
+        "FR-V3-069"
+      ],
+      "nfr": [
+        "NFR-V3-011"
+      ],
+      "ec": [
+        "EC-V3-017"
+      ],
+      "ac": [
+        "AC-V3-022"
+      ],
+      "adr": [
+        "ADR-V3-030",
+        "ADR-V3-033"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/content/pick-overlay.ts",
+          "note": "Shadow DOM 宿主 + 描边 / 浮动标签 / 跟随胶囊 / 气泡 / 角标 + 内联 CSS 与内联 SVG"
+        }
+      ],
+      "acceptance": [
+        "全部自绘 UI 在 open Shadow DOM 内；host 用唯一属性选择器 + all: initial + z-index = 2147483000",
+        "内联 CSS / 内联 SVG（无外链）",
+        "描边唯一目标（不得多点同时高亮）；Esc / 释放 Alt 即撤销，撤销后页面零残留",
+        "气泡：拖选 ≥2 字符出现；input/textarea/[contenteditable] 内不出现；1.8s 自动淡出；只读选区不读剪贴板",
+        "角标序号与侧栏 chip 同序号（同一 ref_<n>）",
+        "宿主全局 * { … !important } + 高 z-index 全屏元素污染夹具下仍可读且可关（EC-V3-017）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm run build 2>&1 | tee /tmp/opencode/v3-gate-logs/build-v34-w3b.log"
+      ]
+    },
+    {
+      "id": "TASK-406",
+      "name": "右键自绘菜单 `pick-menu.ts`（路线 1 + 三退让）",
+      "type": "implementation",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-403"
+      ],
+      "wave": 3,
+      "parallelWith": [
+        "TASK-404",
+        "TASK-405"
+      ],
+      "planRef": "V3-4 plan §2.2(2)/§5；ADR-V3-032",
+      "fr": [
+        "FR-V3-064"
+      ],
+      "nfr": [
+        "NFR-V3-006",
+        "NFR-V3-011"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V3-017",
+        "AC-V3-022"
+      ],
+      "adr": [
+        "ADR-V3-032"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/src/content/pick-menu.ts",
+          "note": "自绘菜单 + 三退让 + role=menu/menuitem + 键盘 + Esc/点空白关闭"
+        }
+      ],
+      "acceptance": [
+        "manifest.json 零 diff（无 contextMenus、无新权限）",
+        "role=\"menu\" + role=\"menuitem\" + roving tabindex + 方向键 / Home / End / Enter 全部实现",
+        "三退让逐条成立（① 仅已授权站点 ② 原生菜单出口 → 下一次右键不被拦截 ③ Esc / 点击空白即关）",
+        "菜单仅在自己打开时拦截 contextmenu（layer 不在场 → 完全不拦截）",
+        "菜单内不出现任何「提权 / 放宽」项"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm run build 2>&1 | tee /tmp/opencode/v3-gate-logs/build-v34-w3c.log",
+        "git diff --numstat -- packages/web-cli-plugin/manifest.json"
+      ]
+    },
+    {
+      "id": "TASK-407",
+      "name": "四项交互接线 + 失败降级 + 引用 chip 消费 + 双向高亮联动（P4）",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": [
+        "TASK-404",
+        "TASK-405",
+        "TASK-406"
+      ],
+      "wave": 4,
+      "parallelWith": [],
+      "planRef": "V3-4 plan §2.2(1)(2)/§5 交付门槛；ADR-V3-030/034",
+      "fr": [
+        "FR-V3-060",
+        "FR-V3-061",
+        "FR-V3-062",
+        "FR-V3-063",
+        "FR-V3-064",
+        "FR-V3-065",
+        "FR-V3-066",
+        "FR-V3-068",
+        "FR-V3-071"
+      ],
+      "nfr": [
+        "NFR-V3-007"
+      ],
+      "ec": [
+        "EC-V3-003",
+        "EC-V3-005",
+        "EC-V3-006",
+        "EC-V3-014"
+      ],
+      "ac": [
+        "AC-V3-022",
+        "AC-V3-023"
+      ],
+      "adr": [
+        "ADR-V3-030",
+        "ADR-V3-033",
+        "ADR-V3-034"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/content/pick-layer.ts",
+          "note": "四项交互组装与状态机（Alt 悬停 / Alt 拖动 / 右键 / 拖选）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts",
+          "note": "面板在场注入触发 / teardown / 引用事件订阅 / 角标联动 / 拾取入口接线（既有 handler 零删改）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/panels.ts",
+          "note": "手势表条目补齐 + 证据层消费同一 ref-capture 口径"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html",
+          "note": "引用 chip / 角标联动标记与样式（复用 :root tokens）"
+        }
+      ],
+      "acceptance": [
+        "四项交互各自生成 1 个引用 + 1 道选择题（不是「至少一项可用」）",
+        "拾取后不出现常驻输入框（结果 = 引用 chip + 选择题）",
+        "Alt 悬停唯一高亮且可撤销（Esc / 释放 Alt）；撤销后页面零残留",
+        "拾取期间命令发送计数 = 0",
+        "Alt 拖动落点 / 未落点两路径各验证一次；未落点 → 零副作用（不生成引用、不改状态）",
+        "右键三退让成立（同 TASK-406 门槛）",
+        "拖选气泡出现 + ≥1 个动作候选 + 选择后生成引用与选择题",
+        "chip ↔ 角标同序号；双向 hover 互相高亮；目标移出视口 / 消失走 v3-2 判定",
+        "失败降级：注入失败 → 风险位明示「页面侧不可用（原因）」+ 拾取入口禁用（不静默）",
+        "侧栏既有 handler 零删改"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm test 2>&1 | tee /tmp/opencode/v3-gate-logs/npm-test-v34-w4.log"
+      ]
+    },
+    {
+      "id": "TASK-408",
+      "name": "P5 执行可视化 + G1 双击 / G2 悬停⊕ + 手势表 6 项双向相等",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-407"
+      ],
+      "wave": 5,
+      "parallelWith": [
+        "TASK-410",
+        "TASK-411"
+      ],
+      "planRef": "V3-4 plan §2.4/§5；设计基准 P5 + G1/G2；ADR-V3-034",
+      "fr": [
+        "FR-V3-070"
+      ],
+      "nfr": [
+        "NFR-V3-002"
+      ],
+      "ec": [],
+      "ac": [
+        "AC-V3-022"
+      ],
+      "adr": [
+        "ADR-V3-034"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/content/pick-layer.ts",
+          "note": "P5 执行可视化 + G1 双击即引用 + G2 悬停 600ms ⊕ 引用"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/content/pick-overlay.ts",
+          "note": "描边闪动 + ⊕ 角标"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/panels.ts",
+          "note": "手势表补齐至 6 项"
+        }
+      ],
+      "acceptance": [
+        "P5：执行可视化（页面描边闪动 + 侧栏「回合进行中 → 已处理」角标）可用",
+        "G1 双击 / G2 悬停 600ms ⊕ → 各生成 1 引用 + 1 选择题",
+        "手势表条目数 = 6 且与实际实现集合相等（不许多列未实现手势）",
+        "G3~G5（长按 500ms / 滚动候选 / Alt+数字绑定）明确标为「规格未实现」（不列入手势表）",
+        "复用 ref-capture 同一捕获路径（不另写一份）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run typecheck && npm run build 2>&1 | tee /tmp/opencode/v3-gate-logs/build-v34-w5.log"
+      ]
+    },
+    {
+      "id": "TASK-410",
+      "name": "未授权零注入门禁 `test/ui/zero-injection.mjs` + `test/zero-injection.test.ts`（含反证）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-404"
+      ],
+      "wave": 5,
+      "parallelWith": [
+        "TASK-408",
+        "TASK-411"
+      ],
+      "planRef": "V3-4 plan §2.2(1)/§5 交付门槛；父 spec AC-V3-018 / NFR-V3-007",
+      "fr": [
+        "FR-V3-067",
+        "FR-V3-068"
+      ],
+      "nfr": [
+        "NFR-V3-007",
+        "NFR-V3-013"
+      ],
+      "ec": [
+        "EC-V3-003",
+        "EC-V3-005"
+      ],
+      "ac": [
+        "AC-V3-018"
+      ],
+      "adr": [
+        "ADR-V3-030",
+        "ADR-V3-031"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ui/zero-injection.mjs",
+          "note": "未授权 origin 七项探针（注册/注入/监听/Shadow host/UI/气泡/右键拦截）+ 反证"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/zero-injection.test.ts",
+          "note": "manifest 静态权限零新增（5 项 / 6 域 / 无 contextMenus / 无静态 content_scripts / optional 不变）"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/package.json",
+          "note": "追加 script test:zero-injection；test:v3 追加（依赖零新增）"
+        }
+      ],
+      "acceptance": [
+        "未授权 origin 上七项（注册/注入/监听/Shadow host/UI/气泡/右键拦截）全部为「无」",
+        "反证：故意注入 → 门禁必须 FAIL（留日志）",
+        "L0 风险位「未授权 + 页面侧零注入」文案成立；「从页面拾取」入口 disabled",
+        "manifest.json 静态权限零新增（无 contextMenus）；门禁内机器核对零 diff",
+        "单 Chromium 实例；日志全量落盘禁 tail 截断"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run test:zero-injection 2>&1 | tee /tmp/opencode/v3-gate-logs/zero-injection.log"
+      ]
+    },
+    {
+      "id": "TASK-411",
+      "name": "`pick-layer.js` 独立硬上限 + 基线登记（+1B 反证）",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-403"
+      ],
+      "wave": 5,
+      "parallelWith": [
+        "TASK-408",
+        "TASK-410"
+      ],
+      "planRef": "V3-4 plan §2.3/§5；父 ADR-V3-011；ADR-V3-031/035",
+      "fr": [],
+      "nfr": [
+        "NFR-V3-003",
+        "NFR-V3-004"
+      ],
+      "ec": [
+        "EC-V3-012"
+      ],
+      "ac": [
+        "AC-V3-015",
+        "AC-V3-016"
+      ],
+      "adr": [
+        "ADR-V3-011",
+        "ADR-V3-031",
+        "ADR-V3-035"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/size-baseline.ts",
+          "note": "仅追加 PICK_LAYER_BASELINE_BYTES / PICK_LAYER_CEILING / PICK_LAYER_BASELINE_META（既有常量与断言零改动）"
+        },
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
+          "note": "新 artifact 体积守卫 + 反证（+1B → FAIL）+ content.js 无容差复核 + CONTENT_SOURCE_SHA256 三项 pin 不变"
+        }
+      ],
+      "acceptance": [
+        "PICK_LAYER_BASELINE_BYTES = 首轮 npm run build 实测值（无容差）；PICK_LAYER_CEILING = 该值",
+        "PICK_LAYER_BASELINE_META 含 measuredOn / source（dist/pick-layer.js）/ buildCommand / measuredBy（v3-4 + 轮次）/ previousBaselineBytes（null）/ direction（initial）",
+        "反证：dist/pick-layer.js +1 B → 守卫必须 FAIL（留日志）",
+        "dist/content.js ≤ 177,076 B 复核；CONTENT_SOURCE_SHA256 三项 pin 不变",
+        "不合并计数（pick-layer.js 与 content.js 各自独立断言）",
+        "test/size-baseline.ts 既有常量与断言零删改（仅追加）",
+        "超限时只能改实现（拆 CSS / 去重复 / 复用已有纯函数）；不得放宽上限；不得与 CONTENT_MAX_BYTES 合并",
+        "基线来源依据 = TASK-401 spike 的 S2 实测值"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && npm test 2>&1 | tee /tmp/opencode/v3-gate-logs/pick-layer-budget.log",
+        "node -e \"const fs=require('fs');console.log('pick-layer.js =',fs.statSync('dist/pick-layer.js').size,'B; content.js =',fs.statSync('dist/content.js').size,'B')\""
+      ]
+    },
+    {
+      "id": "TASK-409",
+      "name": "页面即输入门禁 `test/ui/page-input.mjs`",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-408"
+      ],
+      "wave": 6,
+      "parallelWith": [
+        "TASK-412"
+      ],
+      "planRef": "V3-4 plan §2.2(2)/§5 交付门槛；父 spec AC-V3-022/023",
+      "fr": [
+        "FR-V3-060",
+        "FR-V3-061",
+        "FR-V3-062",
+        "FR-V3-063",
+        "FR-V3-064",
+        "FR-V3-065",
+        "FR-V3-066",
+        "FR-V3-069",
+        "FR-V3-070",
+        "FR-V3-071"
+      ],
+      "nfr": [
+        "NFR-V3-012",
+        "NFR-V3-013"
+      ],
+      "ec": [
+        "EC-V3-017"
+      ],
+      "ac": [
+        "AC-V3-022",
+        "AC-V3-023",
+        "AC-V3-024"
+      ],
+      "adr": [
+        "ADR-V3-030",
+        "ADR-V3-032",
+        "ADR-V3-033",
+        "ADR-V3-034"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "packages/web-cli-plugin/test/ui/page-input.mjs",
+          "note": "已授权 fixture 站点：四项交互 + 唯一高亮可撤销 + 拾取零命令 + 拖动两路径 + 右键三退让 + 气泡 + 双向同序号 + 宿主零影响 + 手势表双向相等 + 注入失败降级"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/package.json",
+          "note": "追加 script test:page-input；test:v3 追加（依赖零新增）"
+        }
+      ],
+      "acceptance": [
+        "四项交互各生成 1 引用 + 1 选择题",
+        "唯一高亮可撤销 + 撤销后零残留；拾取期间命令发送计数 = 0",
+        "Alt 拖动落点 / 未落点两路径各断言一次",
+        "右键三退让逐条断言",
+        "气泡出现 + ≥1 动作候选 + 1.8s 淡出",
+        "双向同序号 + 双向 hover 互相高亮",
+        "宿主交互零影响（点击 / 拖动 / 输入 / 选区四类）",
+        "手势表条目数 = 6 且与实现集合相等",
+        "注入失败降级可读（风险位明示 + 入口禁用）",
+        "确定性夹具（无网络/定时器依赖）+ waitFor 带超时与可读失败原因；flake 如实登记不掩盖",
+        "单 Chromium 实例；日志全量 tee 落盘禁 tail；不触碰既有 4 个 test/ui/*.mjs"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run test:page-input 2>&1 | tee /tmp/opencode/v3-gate-logs/page-input.log"
+      ]
+    },
+    {
+      "id": "TASK-412",
+      "name": "既有 `binding.mjs` 页面侧条目同编号最小改写 + 台账追加",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-409"
+      ],
+      "wave": 6,
+      "parallelWith": [
+        "TASK-409"
+      ],
+      "planRef": "V3-4 plan §5/§7 ADR-V3-036；父 ADR-V3-007",
+      "fr": [
+        "FR-V3-004"
+      ],
+      "nfr": [
+        "NFR-V3-014"
+      ],
+      "ec": [
+        "EC-V3-013"
+      ],
+      "ac": [
+        "AC-V3-011",
+        "AC-V3-012"
+      ],
+      "adr": [
+        "ADR-V3-007",
+        "ADR-V3-036"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/ui/binding.mjs",
+          "note": "页面侧相关条目同编号最小改写（oldId == newId）；#21*/#22* 区域字节零改"
+        },
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/docs/v3-supersession-ledger.json",
+          "note": "仅追加本叶 entries[]（不改 schema / 不改他叶条目）"
+        }
+      ],
+      "acceptance": [
+        "binding.mjs 的 #21*/#22* 区段字节 hash 不变；断言计数 ≥192",
+        "改写条目 oldId == newId 且 reason 具体；台账只追加",
+        "新增三条安全断言落地（未授权零注入反证 / 拾取期间命令发送 = 0 / picker 不产生判定路径）；不删任何既有安全断言",
+        "union 口径（insight）与 counts.binding 下界满足；npm run test:supersession 通过",
+        "tree 相关条目未在本叶改动（归属 v3-3；若必须改则先登记 + 回报编排器）",
+        "禁止为让新门禁变绿而弱化 / 删除既有断言"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run test:supersession 2>&1 | tee /tmp/opencode/v3-gate-logs/supersession-v34.log",
+        "git diff --numstat -- test/ui/binding.mjs docs/v3-supersession-ledger.json"
+      ]
+    },
+    {
+      "id": "TASK-413",
+      "name": "`sidepanel.js` 体积核对 + 显式重登记（条件触发）",
+      "type": "gate",
+      "complexity": "S",
+      "dependsOn": [
+        "TASK-409",
+        "TASK-412"
+      ],
+      "wave": 7,
+      "parallelWith": [],
+      "planRef": "V3-4 plan §5/§6；父 ADR-V3-011 第 3/5 条",
+      "fr": [],
+      "nfr": [
+        "NFR-V3-005"
+      ],
+      "ec": [
+        "EC-V3-012"
+      ],
+      "ac": [
+        "AC-V3-015",
+        "AC-V3-016"
+      ],
+      "adr": [
+        "ADR-V3-011"
+      ],
+      "files": [
+        {
+          "op": "MODIFY",
+          "path": "packages/web-cli-plugin/test/size-baseline.ts",
+          "note": "条件触发：SIDEPANEL_BASELINE_BYTES 更新 + 旧值入 _HISTORY + _META 补全 8 字段；未触发则零改动"
+        }
+      ],
+      "acceptance": [
+        "sidepanel.js 实测值与 ceiling 279,825 B 比较结果如实记录",
+        "若触发：五要素齐备（前后值 + 日期 + 来源 + 理由 + _HISTORY）；_META 含 measuredOn/source/buildCommand/measuredBy/previousBaselineBytes/previousCeilingBytes/direction/reRegisteredFrom",
+        "容差 5% 不变；targetBudgetBytes/targetMet 保持 null；断言零删减",
+        "反证（+1B → FAIL）在新值上重新驱动并留完整日志",
+        "不得与 pick-layer.js 的 PICK_LAYER_*（TASK-411）混淆或合并计数",
+        "本叶内完成（EC-V3-013）"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && npm run build && node -e \"const fs=require('fs');for(const f of ['content','sidepanel','pick-layer']){const p='dist/'+f+'.js';console.log(p,fs.statSync(p).size)};const s=fs.statSync('dist/sidepanel.js').size;if(s>279825)console.error('CEILING EXCEEDED -> 走显式重登记');\" | tee /tmp/opencode/v3-gate-logs/size-v34.log"
+      ]
+    },
+    {
+      "id": "TASK-414",
+      "name": "收口：全门禁绿串行验证 + 人工面如实登记",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": [
+        "TASK-413"
+      ],
+      "wave": 8,
+      "parallelWith": [],
+      "planRef": "V3-4 plan §6 交付门槛；父 spec §10.3/§11.1",
+      "fr": [
+        "FR-V3-003",
+        "FR-V3-086",
+        "FR-V3-087"
+      ],
+      "nfr": [
+        "NFR-V3-012",
+        "NFR-V3-014",
+        "NFR-V3-015"
+      ],
+      "ec": [
+        "EC-V3-013"
+      ],
+      "ac": [
+        "AC-V3-013",
+        "AC-V3-024",
+        "AC-V3-025",
+        "AC-V3-027"
+      ],
+      "adr": [
+        "ADR-V3-010"
+      ],
+      "files": [
+        {
+          "op": "NEW",
+          "path": "/tmp/opencode/v3-gate-logs/*.log",
+          "note": "15 步串行门禁全量日志（不入版本库）"
+        }
+      ],
+      "acceptance": [
+        "全门禁绿（§4.2 的 15 步顺序，逐条串行）；日志完整落盘、禁 tail 截断",
+        "断言计数 ≥ 下界：journey ≥167 / insight union ≥108 / binding ≥192 / sidepanel-view ≥38 / node test( ≥646",
+        "体积三线：content.js ≤177,076（无容差）/ sidepanel.js ≤ceiling / pick-layer.js ≤独立上限；RP-V3-06 两段日志齐备",
+        "CONTENT_SOURCE_SHA256 三项 pin 不变；manifest.json 零 diff 且无 contextMenus",
+        "零改动核对全部通过（6 类文件零 diff）",
+        "人工面逐项标注「未执行 / PASS」（拾取观感 / 拖动体感 / 右键菜单观感 / 真实宿主兼容 / 多显示器 / 高 DPI）",
+        "收口结论含体积三线实测值与各门禁断言数"
+      ],
+      "verify": [
+        "cd packages/web-cli-plugin && bash -c 'set -e; run(){ echo \"=== $1 ===\"; eval \"$2\" 2>&1 | tee /tmp/opencode/v3-gate-logs/$1.log; }; run typecheck \"npm run typecheck\"; run build \"npm run build\"; run npm-test \"npm test\"; run supersession \"npm run test:supersession\"; run zero-injection \"npm run test:zero-injection\"; run page-input \"npm run test:page-input\"; run density \"npm run test:density\"; run l0 \"npm run test:l0\"; run l1 \"npm run test:l1\"; run l2 \"npm run test:l2\"; run ui \"npm run test:ui\"; run insight \"npm run test:insight\"; run binding \"npm run test:binding\"; run hardening \"npm run test:hardening\"; run e2e \"npm run test:e2e\"; echo ALL-GREEN'"
+      ]
+    }
+  ],
+  "blockers": {
+    "hardBlocking": [
+      {
+        "id": "TASK-401",
+        "blocks": "TASK-402~TASK-414 全部（spike 未过不得进入实现；ADR-V3-035 第 5 条）"
+      },
+      {
+        "id": "TASK-403",
+        "blocks": "TASK-404 / TASK-405 / TASK-406 / TASK-411（无第 5 bundle 与注入通路则页面侧不存在）"
+      },
+      {
+        "id": "TASK-402",
+        "blocks": "TASK-404 / TASK-405（捕获口径是页面侧唯一事实源）"
+      },
+      {
+        "id": "TASK-407",
+        "blocks": "TASK-408 / TASK-409（未集成则四项交互不可验证）"
+      },
+      {
+        "id": "TASK-409",
+        "blocks": "TASK-412 / TASK-413 / TASK-414"
+      },
+      {
+        "id": "TASK-411",
+        "blocks": "TASK-414（新 artifact 无守卫则体积红线无机器判据）"
+      }
+    ],
+    "crossLeaf": "本叶为本 Feature 最后一叶；收口全绿后进入 review / validate 与 ROADMAP 方案 A 的收口执行"
+  }
+}

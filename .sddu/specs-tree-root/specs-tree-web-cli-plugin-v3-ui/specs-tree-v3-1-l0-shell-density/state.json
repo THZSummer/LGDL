@@ -1,0 +1,183 @@
+{
+  "feature": "V3-1 L0 骨架与密度门禁（父：specs-tree-web-cli-plugin-v3-ui）",
+  "featureKey": "specs-tree-v3-1-l0-shell-density",
+  "version": "v3.0.0",
+  "name": "V3-1 L0 骨架与密度门禁——立 L0 常驻骨架（我在哪 · 谁在管我 · 下一步做什么 = 当前一张卡 + 「从页面拾取」入口 + 一行可点开状态栏）+ 五类风险位独立常驻（永不折叠）+ 密度四项口径与机器门禁（默认态 ≤7/≤15 · 首装态 ≤9/≤20 · 风险态 ≤17/≤35 × 320/400/520）+ 反证 + 首轮真实产物基线登记",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v3-ui",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-16",
+  "updatedAt": "2026-09-16",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v3-ui 立项的叶子子 Feature（P0，**首个开工**，其余三叶的共同基线）。承载父 spec FR-V3-010~024 与 FR-V3-026：① L0 常驻骨架只回答三件事（我在哪 / 谁在管我 / 下一步做什么），当前决策卡同一时刻只呈现一张（问题 + ≤2 推荐选项 + 「更多选项（还有 N 个）」）+ 「从页面拾取」入口（未授权/探测中禁用）+ 一行可点开状态栏（含 L2 计数摘要）；② 每回合一道选择题（选项数 ∈[2,5]，末项固定「其他…（我来描述）」+ 兜底输入框用完即收）+ 主界面无常驻输入框；③ **五类风险位（未授权 / 探测中 / 硬底线被拦 / 破坏性待确认 / 引用失效）独立分区、常驻最上层、永不折叠**（文字 + 徽标 + 图标三通道；破坏性确认选项不参与折叠；硬底线无「允许」控件）；④ 折叠器契约（一律 `hidden` 属性 + `aria-expanded`/`aria-controls` 成对 + 展开状态记忆）+ 可发现性契约（凡收起必有摘要/计数 + 文字入口；禁止无线索隐藏）；⑤ **密度四项口径与机器门禁**（可点元素 / 可见正文行 / 可见文本块 / 面板常驻分区；口径与 design/ui-redesign/index.html 同源）+ 三段阈值 × 320/400/520 三档视口 + 常驻分区数只登记不上限（反直觉事实：E 比 D 多 1，因风险位独立成区）+ **6 条反证**（RP-V3-01~04 本叶实跑）。权威条文见父 spec §5.2 / §8.1~8.2 / §9。",
+  "scope": {
+    "in": [
+      "L0 常驻骨架：我在哪（origin + 站点名 + 状态点）· 谁在管我（策略档摘要徽标 + LLM 状态徽标）· 下一步做什么（当前一张决策卡 ≤2 推荐选项 + 「更多选项（还有 N 个）」）",
+      "「从页面拾取」入口常驻 L0（替代输入框）；未授权 / 探测中时禁用 + 风险位明示「页面侧零注入」",
+      "一行可点开状态栏（含 L2 计数摘要；展开后为 ≤4 个 L2 入口的入口面板，不是 L2 内容）",
+      "五类风险位独立常驻（永不折叠）：独立分区 + 常驻最上层 + 三通道（文字/徽标/图标）+ 破坏性确认选项不参与折叠 + 硬底线零允许控件 + 解释文本在 L1（≤1 次交互）",
+      "每回合一道选择题（∈[2,5]，末项固定「其他…（我来描述）」）+ 兜底输入框用完即收 + 主界面无常驻输入框",
+      "折叠器契约：收起一律 `hidden` 属性（非 CSS 视觉隐藏）+ `aria-expanded`/`aria-controls` 成对 + 展开状态记忆（内存表）",
+      "可发现性契约：凡收起必有摘要或计数 + 非空文字入口；禁止「只有图标没有文字」的入口",
+      "密度四项口径实现为可机器复算统计（与设计稿口径同源）+ 三段阈值（默认态 ≤7/≤15 · 首装态 ≤9/≤20 · 风险态 ≤17/≤35）× 320/400/520 三档视口 + 风险增量预算只能被风险类元素占用",
+      "常驻分区数只登记不上限（C4）：任何变化显式登记；不得作为密度达标证据或放宽理由",
+      "反证实跑：RP-V3-01（+1 可点元素 → FAIL）/ RP-V3-02（上限调低 1 → FAIL）/ RP-V3-03（CSS 隐身仍计入）/ RP-V3-04（风险移入 L1 → FAIL）",
+      "首轮真实产物密度基线登记（对照 A-UI-001）：三档视口实测值 + 日期 + 来源 + 与设计稿口径数字分开记录",
+      "明暗双主题下 L0 全状态可读、不只靠颜色；320px 不删任何常驻元素"
+    ],
+    "out": [
+      "不做 L1 就地展开的内容（后果说明 / 影响预演 / 引用证据 / 局部树 / 已决策历史 / 回执三件套证据 / 手势表 / 更多选项其余项）→ 归 V3-2（本叶只提供折叠器与摘要/计数契约）",
+      "不做 L2 四类视图内容（全局连接树 / 命令目录 122 卡 / 审计 / 设置）→ 归 V3-3（本叶只提供状态栏入口面板 + 计数骨架位）",
+      "不做页面侧任何 UI / 手势 / 拾取实现（Alt 悬停 / Alt 拖动 / 右键自绘 / 拖选气泡 / 双向联动）→ 归 V3-4（本叶只做入口与禁用态）",
+      "不新增静态权限、不引入 contextMenus、不改安全判定链（policy.ts / auto-authorize.ts 哈希不变）、不碰 src/content/**",
+      "不删除或降级任何既有断言；不以放宽密度/体积上限换功能；不把「密度低」实现为「删功能」",
+      "不做后端/服务端；不新增依赖；不改 v1 / v2 已验收行为；不改 packages/web-cli-base/**"
+    ]
+  },
+  "covers": [
+    "FR-V3-010",
+    "FR-V3-011",
+    "FR-V3-012",
+    "FR-V3-013",
+    "FR-V3-014",
+    "FR-V3-015",
+    "FR-V3-016",
+    "FR-V3-017",
+    "FR-V3-018",
+    "FR-V3-019",
+    "FR-V3-020",
+    "FR-V3-021",
+    "FR-V3-022",
+    "FR-V3-023",
+    "FR-V3-024",
+    "FR-V3-026"
+  ],
+  "acceptanceAnchors": [
+    "AC-V3-001",
+    "AC-V3-002",
+    "AC-V3-003",
+    "AC-V3-004",
+    "AC-V3-005",
+    "AC-V3-006",
+    "AC-V3-007",
+    "AC-V3-008",
+    "AC-V3-009",
+    "AC-V3-010",
+    "AC-V3-012",
+    "AC-V3-013",
+    "AC-V3-016",
+    "AC-V3-017",
+    "AC-V3-025",
+    "AC-V3-027"
+  ],
+  "coversIssues": [
+    "Q-UI-001",
+    "Q-UI-002",
+    "Q-UI-003",
+    "Q-UI-004"
+  ],
+  "artifacts": [
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "tasks.json"
+  ],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/TREE.md",
+    "plan": "/home/usb/wks/gits/GitHub/LGDL/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-1-l0-shell-density/tasks.json",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md"
+  },
+  "dependencies": {
+    "on": [
+      "specs-tree-web-cli-plugin-v3-ui（父，phase=specified / status=tracked；权威条文 §5.2 / §8.1~8.2 / §9）",
+      "packages/web-cli-plugin v1 + v2 已验收实现（只读复用：sidepanel 三区布局 / 设置面板 / 真层级树 / 命令级覆盖层；零改写）"
+    ],
+    "blocking": []
+  },
+  "deliveryOrder": {
+    "position": 1,
+    "note": "首个开工，无前置叶子；本叶产出（L0 折叠器与摘要/计数契约 + 密度口径基线）是 V3-2 / V3-3 / V3-4 的共同基线"
+  },
+  "independence": {
+    "changeSurface": "仅侧栏侧（src/ui/sidepanel/** 与必要的 UI 视图模型）+ 新增密度门禁测试文件；不碰 src/content/**、不碰权限、不碰判定链",
+    "supersessionLoad": "最小：密度与 L0 断言落新增文件；test/ui/journey.mjs 目标保持零 diff；少量被取代条目走台账 old→new（计数不减）",
+    "canReachAllGreen": true,
+    "gateSet": [
+      "typecheck",
+      "plugin npm test",
+      "test:insight ≥108",
+      "test:ui ≥167",
+      "test:hardening 24",
+      "test:binding ≥192",
+      "test:e2e",
+      "新增密度门禁（含 RP-V3-01~04 反证）",
+      "体积守卫（content 177,076 无容差 / sidepanel ≤279,825）"
+    ],
+    "gateDiscipline": "严格串行（禁并发 Chromium）+ 完整日志落盘（禁 tail 截断）+ 反证必须实跑"
+  },
+  "openPoints": [
+    {
+      "id": "V31-O-1",
+      "topic": "「首装态 ≤9 / ≤20」为 spec 新建档（设计稿未覆盖），需首轮实测校准（只允许收紧）",
+      "status": "open",
+      "needs": "plan 落成可测断言 + 首轮实测登记"
+    },
+    {
+      "id": "V31-O-2",
+      "topic": "密度门禁的实现载体（Chromium 运行时测量脚本 / 断面选择）",
+      "status": "open",
+      "needs": "plan（父 §12.2 #2）"
+    },
+    {
+      "id": "V31-O-3",
+      "topic": "L0 骨架与 v1 既有三区 flex 布局的最小改动路径（#log / #panel-main / 底部区契约不外溢）",
+      "status": "open",
+      "needs": "plan"
+    },
+    {
+      "id": "V31-O-4",
+      "topic": "风险位「独立分区」与既有 54 个 id 的归属映射",
+      "status": "open",
+      "needs": "plan"
+    }
+  ],
+  "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.2 / §8.1~8.2 / §9）。范围 = L0 骨架 + 五类风险位独立常驻（永不折叠）+ 选择题/无常驻输入框 + 折叠器与可发现性契约 + **密度四项口径与机器门禁（三段阈值 × 三档视口）+ 反证 + 首轮真实产物基线登记**；不做 L1/L2 内容、不做页面侧交互、不放宽任何上限。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-013~019）。**范围**：L0 常驻骨架（三件事三区 + 可点预算逐项配平：默认档 7）+ 五类风险位（三层结构保证 + AC-V3-008/009 祖先链实现）+ 决策卡（复用 #ask 家族 + 末项兜底输入 + 真值计数）+ disclosure.ts 折叠器单一控制器（白名单排斥 #risk-rail、抛错语义）+ **密度口径单源与三段式门禁（9 强制格 + 5 风险子场景 × 3 视口 = 15 登记格 + RP-V3-01~04 实跑）** + **本叶建立取代台账 docs/v3-supersession-ledger.json** + 首轮真实产物密度基线登记（三档 × 三视口，与设计稿口径分列、只允许收紧）。**开放点裁决**：V31-O-1（首装态 ≤9/≤20 首轮校准只允许收紧，超限只能改披露策略）/ V31-O-2（密度门禁三段式载体）/ V31-O-3（不新增 #panel 包裹层：body 为测量根 + L0 分区直挂，最小改动路径）/ V31-O-4（54 id 归属映射表：L0/L1/L2 三分逐项清单）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。",
+  "status": "tracked",
+  "phaseHistory": [
+    {
+      "phase": "registered",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v3-ui 创建叶子目录）"
+    },
+    {
+      "phase": "specified",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成）"
+    },
+    {
+      "phase": "planned",
+      "timestamp": "2026-09-16T01:30:00.000Z",
+      "triggeredBy": "sddu-plan（产出 plan.md；技术方案与 ADR 定稿）"
+    },
+    {
+      "phase": "tasked",
+      "timestamp": "2026-09-16T02:30:00.000Z",
+      "triggeredBy": "sddu-tasks（产出 tasks.md + tasks.json；技术方案分解为原子任务，含依赖/波次/并行标记/涉及文件/验收锚点/验证命令）"
+    },
+    {
+      "phase": "builded",
+      "at": "2026-09-16",
+      "agent": "sddu-build",
+      "note": "v3-1 全量实施完成：15 任务 / 7 波；全门禁绿（typecheck / build / npm test 725 / test:supersession 8 / test:density 97 / test:l0 74 / test:ui 167 / test:insight 108 / test:binding 192 / test:hardening 24 / test:e2e PASS）；RP-V3-01~06 六条反证 FAIL→还原→PASS 实跑；首轮真实产物密度基线登记（默认 7/6~7 · 首装 7/12 · 风险最差 9/13，C4=6 只登记不上限）；取代台账 + 门禁落地（9 entries / 26 modifiedRanges / protectedRanges 字节 hash）；体积显式提升重登记 sidepanel 266,500→291,523（ceiling 306,099，容差 5% 不变），content 177,076 零改动；人工面如实登记 ⏳ 未执行。"
+    }
+  ],
+  "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：15 任务 / 7 波（S×5 · M×8 · L×2）。波次与并行性见 tasks.md §1.3（可并行写入的任务文件不相交；门禁执行严格串行，一次只跑一个——本机 ~1.5GB 曾 OOM）。必含项 8/8 覆盖：①密度口径唯一实现源 density-metrics.mjs + 三段式（density.mjs / density-thresholds.test.ts / _v3-helpers.mjs）②9 强制格 + 15 登记格参数化 ③RP-V3-01~06 六条反证（每条可真 FAIL）④反作弊静态断言（测量源码零命中 getComputedStyle/offsetParent/getBoundingClientRect）⑤L0 骨架 + #risk-rail 结构保证（AC-V3-008/009）⑥取代台账 docs/v3-supersession-ledger.json + test/supersession-ledger.test.ts ⑦首轮真实产物密度基线登记（三档视口）⑧主题/320px/a11y 基建。阻断级任务：TASK-102 / TASK-103 / TASK-106 / TASK-108 / TASK-109（阻断本叶后段 + 后三叶密度复测与台账追加）。验收锚点：父 spec FR/NFR/EC/AC 编号（叶子不新造 FR 编号）+ 本叶 plan ADR 编号，逐任务写入 tasks.json 的 fr/nfr/ec/ac/adr 字段。门禁严格串行顺序见 tasks.md §4.1；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断。本叶收尾必须全门禁绿（AC-V3-013 / EC-V3-013），禁留红灯给下一叶。只做 tasks：未写代码、未改 src/**·test/**·manifest.json·design/**·ROADMAP.md、未动 main、未 commit、未跑门禁/构建/Chromium。\n\nbuild 阶段完成（2026-09-16，sddu-build）：见 build.md。"
+}

@@ -1,0 +1,76 @@
+{
+  "version": "v3",
+  "feature": "specs-tree-v3-1-l0-shell-density",
+  "measuredOn": "2026-09-16",
+  "source": "packages/web-cli-plugin/dist/sidepanel.html + dist/sidepanel.js（真实构建产物）",
+  "buildCommand": "npm run build --workspace @lgdl/web-cli-plugin",
+  "measuredBy": "v3-1 第 1 轮（npm run test:density 阶段 B/C，Chromium 400/320/520 × 900，单实例串行）",
+  "measurementRoot": "document.body（父 ADR-V3-001：真实产物不新增 #panel 包裹层；设计稿口径的等价根是 #panel）",
+  "caliber": {
+    "C1": "可点元素：非 hidden 祖先 ∧ (tag ∈ {BUTTON,A,INPUT,SELECT,TEXTAREA} ∨ tabindex ≠ -1)；display/visibility/opacity/pointer-events/视口位置/aria-hidden 一律不豁免",
+    "C2": "可见正文行 = ⌈Σ(自身直接文本去空白字符数) ÷ 34⌉（{{…}} 占位符剔除，每元素只计一次）",
+    "C3": "可见文本块数（只登记不上限）",
+    "C4": "常驻分区数 = 测量根一级子元素中非 hidden 的个数（只登记不上限）"
+  },
+  "thresholds": {
+    "default": { "clickables": 7, "lines": 15 },
+    "firstRun": { "clickables": 9, "lines": 20 },
+    "risk": { "clickables": 17, "lines": 35 }
+  },
+  "direction": "tighten-only",
+  "directionNote": "本文件是**首轮真实产物基线**：后续任何变更只允许**收紧**（实测值 ≤ 已登记值）；放宽必须由作者/编排器裁决并显式登记（前后值 + 日期 + 理由 + 历史保留），且不得以放宽上限换功能（NG-V3-010）。",
+  "tiers": {
+    "default": {
+      "state": "已绑定 + 已授权 + 探测完成 + 无待确认 + onboarding 与 discovery-notice 已终结（含一张待答决策卡 → 可点预算被完整占用）",
+      "320": { "clickables": 7, "lines": 6, "blocks": 18, "regions": 6, "chars": 184 },
+      "400": { "clickables": 7, "lines": 7, "blocks": 19, "regions": 6, "chars": 213 },
+      "520": { "clickables": 7, "lines": 7, "blocks": 19, "regions": 6, "chars": 213 },
+      "previous": null,
+      "note": "C1 恰为 7 且逐项可追溯：#l0-status-band / #l0-pick / 2 个推荐选项 / #l0-more / #l0-ref-toggle / #l0-statusbar（ADR-V3-013 §2）。"
+    },
+    "firstRun": {
+      "state": "onboarding 或 discovery-notice 生效中（其余同默认档）",
+      "320": { "clickables": 7, "lines": 12, "blocks": 25, "regions": 6, "chars": 377 },
+      "400": { "clickables": 7, "lines": 12, "blocks": 25, "regions": 6, "chars": 377 },
+      "520": { "clickables": 7, "lines": 12, "blocks": 25, "regions": 6, "chars": 377 },
+      "previous": null,
+      "note": "spec 新建档（设计稿未覆盖）：首轮实测 7/12，显著低于档位上限 9/20 → 按只允许收紧登记为基线（7/12），后续不得高于此值；不反向放宽。"
+    },
+    "risk": {
+      "state": "五类风险任一生效（worst-of-15 登记格）",
+      "worst": { "clickables": 9, "lines": 13, "blocks": 25, "regions": 6, "chars": 418 },
+      "subs": {
+        "unauthorized": { "320": { "clickables": 7, "lines": 13 }, "400": { "clickables": 7, "lines": 13 }, "520": { "clickables": 7, "lines": 13 } },
+        "probing": { "320": { "clickables": 7, "lines": 8 }, "400": { "clickables": 7, "lines": 8 }, "520": { "clickables": 7, "lines": 8 } },
+        "hardline": { "320": { "clickables": 7, "lines": 8 }, "400": { "clickables": 7, "lines": 8 }, "520": { "clickables": 7, "lines": 8 } },
+        "confirm": { "320": { "clickables": 9, "lines": 8 }, "400": { "clickables": 9, "lines": 8 }, "520": { "clickables": 9, "lines": 8 } },
+        "staleRef": { "320": { "clickables": 7, "lines": 7 }, "400": { "clickables": 7, "lines": 7 }, "520": { "clickables": 7, "lines": 7 } }
+      },
+      "previous": null,
+      "note": "15 格全部登记；强制判定取最差值（9/13 ≤ 17/35）。风险增量归属：15 格 evaluateDelta 违规数均为 0（新增可点/文本块全部为风险类元素）。"
+    }
+  },
+  "logClientHeightFloor": 488,
+  "logClientHeightFloorNote": "消息区 #log 的 clientHeight 下界（400×900、默认档含待答决策卡的最坏情形实测 498px − 10px 已登记余量）。它取代 v2 insight 门的 589px 锚点（ADR-V3-019 V31-S3）；只允许上调。test/ui/l0.mjs 与 test/ui/insight.mjs 共用该值（单一来源 test/ui/density-metrics.mjs#LOG_CLIENT_HEIGHT_FLOOR）。",
+  "regions": {
+    "default": 6,
+    "firstRun": 6,
+    "risk": 6,
+    "previous": null,
+    "changedOn": "2026-09-16",
+    "note": "C4 只登记不上限。反直觉事实（必须保留）：① L0 常驻分区数**高于**高密度参照稿 D（设计稿实测 E=6 > D=5），原因是**风险位独立成区**（D3 铁律）；② 真实产物的 6 个分区 = risk-rail / panel-top / panel-main / l0-statusbar / panel-bottom / <script>（`<script>` 是 `display:none` 的 body 直接子元素，无布局占用但确属非 hidden 一级子元素）。**不得**以分区数下降作为密度达标证据，也**不得**以分区数上升为由放宽可点/行数上限。"
+  },
+  "designCaliber": {
+    "note": "设计稿口径数字与真实产物口径**分列**（A-UI-001）。设计稿仅用于阶段 A 的**同源对账**，不作为验收依据。",
+    "published": { "e": { "clickables": 7, "lines": 10, "blocks": 47, "regions": 6 }, "d": { "clickables": 80, "lines": 144, "blocks": 391, "regions": 5 } },
+    "measuredByOurs": { "e": { "clickables": 7, "lines": 12, "blocks": 51, "regions": 6, "chars": 375 }, "d": { "clickables": 79, "lines": 145, "blocks": 392, "regions": 5, "chars": 4910 } },
+    "deltas": {
+      "e": { "clickables": 0, "lines": 2, "blocks": 4, "regions": 0 },
+      "d": { "clickables": -1, "lines": 1, "blocks": 1, "regions": 0 }
+    },
+    "sameSourceProof": "option-e-progressive.html 自带的 window.__density() 与我们的 DENSITY_MEASURE_SOURCE 在同一 DOM 上**逐项相等**（clickables/lines/blocks/regions/chars 全部相等）——同源证明成立。公布值落差来自稿件修订/Node 垫片条件差异，已如实登记（指令：实测值优先于设计稿数字）。"
+  },
+  "volumeBaselineSeparation": {
+    "note": "密度基线与体积基线**分开登记**（ADR-V3-011 第 4 条）：本文件不写体积；sidepanel.js 体积基线在 test/size-baseline.ts（2026-09-16 提升重登记 266,500 → 291,523 B，ceiling 306,099 B）。"
+  }
+}

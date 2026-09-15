@@ -8,12 +8,16 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsc test/*.test.ts --outDir dist-test --module nodenext --moduleResolution nodenext --target es2022 --strict --esModuleInterop --skipLibCheck --declaration false --allowImportingTsExtensions --rewriteRelativeImportExtensions && node --test dist-test/test/*.test.js",
+    "test": "tsc test/*.test.ts --outDir dist-test --module nodenext --moduleResolution nodenext --target es2022 --strict --esModuleInterop --skipLibCheck --declaration false --allowImportingTsExtensions --rewriteRelativeImportExtensions && node -e \"const fs=require('node:fs');fs.mkdirSync('dist-test/test/ui',{recursive:true});fs.copyFileSync('test/ui/density-metrics.mjs','dist-test/test/ui/density-metrics.mjs')\" && node --test dist-test/test/*.test.js",
     "test:e2e": "node test/e2e/fullchain.mjs",
     "test:ui": "node test/ui/journey.mjs",
     "test:insight": "node test/ui/insight.mjs",
     "test:hardening": "node test/ui/hardening.mjs",
-    "test:binding": "node test/ui/binding.mjs"
+    "test:binding": "node test/ui/binding.mjs",
+    "test:density": "node test/ui/density.mjs",
+    "test:l0": "node test/ui/l0.mjs",
+    "test:supersession": "node --test dist-test/test/supersession-ledger.test.js",
+    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:density && npm run test:l0 && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e"
   },
   "dependencies": {
     "@lgdl/web-cli-base": "^0.7.0"
