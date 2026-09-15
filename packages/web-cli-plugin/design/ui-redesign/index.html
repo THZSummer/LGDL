@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>web-cli plugin 侧边栏重构 · 三方案对比入口</title>
+<!--
+═══════════════════════════════════════════════════════════════════════════════
+  三方案对比入口（web-cli plugin 侧边栏布局重构 · 纯设计探索）
+═══════════════════════════════════════════════════════════════════════════════
+
+  · 本页只做「入口 + 差别表」，用**普通链接**跳转，不用 iframe 内嵌三份大文件
+    （内嵌会拖慢打开速度、在 file:// 下也更容易打不开；三份稿本身都是自包含单文件，
+     单独打开即可）。
+  · 三份稿文件名固定、三稿同源同数据：
+      A  option-a-panel-shell.html   VSCode 式「单列分区带」
+      B  option-b-workbench.html     「Workbench 双栏」（activity bar + 五视图）
+      C  option-c-chat-first.html    「对话优先 + 统一浮层」
+  · B / C 两列的内容取自各自稿件顶部的自文档说明（设计意图 / 取舍），
+    A 列的结论取自 option-a-panel-shell.html 的实际实现参数。
+  · 零外链 / 零 CDN / 零外链字体 / 零网络请求 / 零框架 / 零构建；图标全部内联 SVG。
+  · 深浅色跟随 prefers-color-scheme（无 JS 也成立）。
+  · 本页不修改仓库任何既有文件，也不 commit。
+═══════════════════════════════════════════════════════════════════════════════
+-->
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  --bg: #eef1f6; --card: #ffffff; --text: #1e293b; --sub: #5b6b82;
+  --line: #d5dde9; --accent: #4f46e5; --band: rgba(79, 70, 229, 0.07);
+  --ok: #15803d; --warn: #92400e; --warn-bg: #fffbeb; --warn-line: #fde68a;
+  --band-head: rgba(100, 116, 139, 0.10);
+}
+html[data-theme="dark"] {
+  --bg: #070b14; --card: #0d1526; --text: #e2e8f0; --sub: #94a3b8;
+  --line: #1e293b; --accent: #818cf8; --band: rgba(129, 140, 248, 0.10);
+  --ok: #4ade80; --warn: #fcd34d; --warn-bg: #3b2f10; --warn-line: #78500f;
+  --band-head: rgba(148, 163, 184, 0.10);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --bg: #070b14; --card: #0d1526; --text: #e2e8f0; --sub: #94a3b8;
+    --line: #1e293b; --accent: #818cf8; --band: rgba(129, 140, 248, 0.10);
+    --ok: #4ade80; --warn: #fcd34d; --warn-bg: #3b2f10; --warn-line: #78500f;
+    --band-head: rgba(148, 163, 184, 0.10);
+  }
+}
+body {
+  margin: 0; padding: 22px 16px 48px;
+  background: var(--bg); color: var(--text);
+  font: 13px/1.65 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow-wrap: anywhere;
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { margin: 0; font-size: 20px; letter-spacing: 0.2px; }
+.lede { margin: 6px 0 0; color: var(--sub); font-size: 12.5px; }
+.meta { margin: 8px 0 0; color: var(--sub); font-size: 11.5px; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+
+.states { display: flex; flex-wrap: wrap; gap: 6px; }
+.states span {
+  font-size: 10.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--sub);
+}
+.states span[data-tone="ok"] { color: var(--ok); border-color: var(--ok); }
+.states span[data-tone="warn"] { color: var(--warn); border-color: var(--warn-line); background: var(--warn-bg); }
+
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 820px) { .cards { grid-template-columns: 1fr; } }
+.card {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; text-decoration: none; color: var(--text);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.card:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.35); }
+.card-head { display: flex; align-items: center; gap: 8px; }
+.mark {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 8px; color: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: 12px;
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+}
+.card-title { font-size: 14px; font-weight: 700; }
+.card-file { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--sub); }
+.card-line { font-size: 12px; color: var(--sub); }
+.card-line b { color: var(--text); }
+.tag {
+  align-self: flex-start; font-size: 10.5px; font-weight: 600;
+  padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--sub);
+}
+.tag.ready { color: var(--ok); border-color: var(--ok); }
+.card-cta { margin-top: auto; font-size: 12px; font-weight: 600; color: var(--accent); }
+
+section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+h2 { margin: 0 0 8px; font-size: 14px; }
+h2 .hint { font-weight: 400; color: var(--sub); font-size: 11.5px; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 12px; }
+th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+thead th { background: var(--band-head); font-weight: 700; }
+tbody th { font-weight: 600; background: var(--band-head); }
+td.a { background: var(--band); }
+td ul { margin: 3px 0 0; padding-inline-start: 16px; }
+td li { margin: 2px 0; }
+ul.tight { margin: 4px 0 0; padding-inline-start: 18px; }
+ul.tight li { margin: 3px 0; }
+.kv { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
+.kv span { display: inline-flex; gap: 5px; align-items: baseline; }
+footer { color: var(--sub); font-size: 11.5px; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>web-cli plugin · 侧边栏布局重构 —— 三方案对比</h1>
+    <p class="lede">
+      同一份真实事实、同一组样例情境下的三种布局取向。点卡片用<b>相对路径</b>直接打开对应稿
+      （<code>file://</code> 双击即可，无需服务器；三份稿都是自包含单文件）。
+    </p>
+    <p class="meta">
+      产品：Chrome MV3 扩展 <b>web-cli plugin v0.8.0</b> · UI 面 = 侧边栏（主界面）+ 设置页 options ·
+      侧栏宽度通常 <b>320–560px</b>（窄屏优先）· 深浅色跟随系统 ·
+      三份稿均为纯设计稿：零外链 / 零 CDN / 零外部字体 / 零网络请求 / 零框架 / 零构建，不改动仓库既有文件。
+    </p>
+    <p class="meta">
+      三稿共同遵守的真实状态机（每种布局都要成立）：
+    </p>
+    <p class="states">
+      <span data-tone="ok">supported</span>
+      <span>探测中</span>
+      <span data-tone="warn">未授权</span>
+      <span>无活跃站点</span>
+      <span>版本不兼容</span>
+      <span>声明缺失</span>
+      <span data-tone="warn">等待确认（破坏性）</span>
+      <span>处理中（含工具执行流）</span>
+    </p>
+  </header>
+
+  <div class="cards">
+    <a class="card" href="option-a-panel-shell.html">
+      <span class="card-head">
+        <span class="mark" aria-hidden="true">A</span>
+        <span class="card-title">单列分区带</span>
+      </span>
+      <span class="card-file">option-a-panel-shell.html</span>
+      <span class="tag ready">已交付</span>
+      <span class="card-line">
+        <b>做法：</b>把侧栏当一条纵向轴读 —— title bar（品牌 + 4 图标 + ⋯ 菜单）→ 状态条 → 聊天区（唯一滚动区）
+        → <b>连接树停靠区</b>（默认折叠成一行摘要，展开约占半屏，树内部滚动）→ 输入区 → 底部状态栏；
+        122 卡命令目录收进 Ctrl+Shift+P 命令面板。
+      </span>
+      <span class="card-line">
+        <b>最适合：</b>窄屏为主、信息类别多、要求「授权 / 撤销 / 硬底线」一眼可见的日常使用。
+      </span>
+      <span class="card-line">
+        <b>主要取舍：</b>固定带（title + 状态条 + 状态栏）吃掉约 124px 纵向预算；连接树展开会把聊天压到约 110–120px（并存而非遮挡）。
+      </span>
+      <span class="card-cta">打开方案 A（单列分区带）→</span>
+    </a>
+
+    <a class="card" href="option-b-workbench.html">
+      <span class="card-head">
+        <span class="mark" aria-hidden="true">B</span>
+        <span class="card-title">Workbench 双栏</span>
+      </span>
+      <span class="card-file">option-b-workbench.html</span>
+      <span class="tag ready">已交付</span>
+      <span class="card-line">
+        <b>做法：</b>左侧图标导航栏（48px，520px 时展开为图标 + 文字 148px）+ 右侧内容区；五个视图各自完整成立
+        （对话 / 连接树 / 命令 / 归档 / 设置）。连接树升为<b>一级公民视图</b>，拿全高画布容纳 4–5 层树与每层控件。
+      </span>
+      <span class="card-line">
+        <b>最适合：</b>侧栏较宽（≥520px）、需要长时间在树上做深度操作、把树当主工作面的高频工作流。
+      </span>
+      <span class="card-line">
+        <b>主要取舍：</b>一次只显示一个视图 —— 看树时对话不可见（上下文被打断）；320px 下导航固定 48px 图标模式以换取一次点击可达。
+      </span>
+      <span class="card-cta">打开方案 B（Workbench 双栏）→</span>
+    </a>
+
+    <a class="card" href="option-c-chat-first.html">
+      <span class="card-head">
+        <span class="mark" aria-hidden="true">C</span>
+        <span class="card-title">对话优先浮层</span>
+      </span>
+      <span class="card-file">option-c-chat-first.html</span>
+      <span class="tag ready">已交付</span>
+      <span class="card-line">
+        <b>做法：</b>聊天是唯一主视图，不做多视图切换；连接树 / 命令目录 / 归档 / 设置由右下角操作坞（3 个带文字标签的按钮）
+        唤起的<b>统一右侧滑出浮层</b>承载，补上现状覆盖抽屉缺的显式入口、标题栏与焦点管理；ask-user 卡与确认卡<b>就地插入对话流</b>。
+      </span>
+      <span class="card-line">
+        <b>最适合：</b>以对话为主、树与设置属低频操作的日常使用；改动面最小（与现状覆盖层同源）。
+      </span>
+      <span class="card-line">
+        <b>主要取舍：</b>连接树仍然是覆盖式（无固定归属，只是补了入口与回位），打开时遮挡聊天。
+      </span>
+      <span class="card-cta">打开方案 C（对话优先浮层）→</span>
+    </a>
+
+    <a class="card" href="option-d-choice-guided.html" style="grid-column: 1 / -1">
+      <span class="card-head">
+        <span class="mark" aria-hidden="true">D</span>
+        <span class="card-title">无输入框 · 选择题引导式操作台</span>
+      </span>
+      <span class="card-file">option-d-choice-guided.html</span>
+      <span class="tag ready">已交付</span>
+      <span class="card-line">
+        <b>做法（v2）：</b>取消常驻输入框 —— 主界面没有任何 <code>&lt;input&gt;</code> / <code>&lt;textarea&gt;</code>；每个助手回合都是一道选择题
+        （一行问题 + 2~5 个选项，每个选项固定四件套：标签 + 后果说明 + 风险徽标 + 数字键 1~5），自由输入只作为选项组最后一项
+        「其他…（我来描述）」的兜底（就地展开 → 发送 → 立刻收起 → 转成下一道选择题）；连接树升为<b>常驻主操作面</b>
+        （点任一节点 → 就地展开该节点的选择题），无浮层 / 无遮罩 / 无 ⋯ 菜单 / 无折叠抽屉，命令目录与 L1·L2·L3 三层对账常驻在同一滚动流里。
+      </span>
+      <span class="card-line">
+        <b>v2 新增 —— 含页面侧交互（侧栏与页面是同一个交互系统）：</b>演示外壳改为「模拟浏览器窗口」（左 = 宿主页面，右 = 侧栏）；
+        意图从页面上「指」出来：<b>右键引用</b>（自绘菜单，零新增权限，菜单里保留「交给页面原生菜单」出口）·
+        <b>Alt 悬停拾取</b>（描边 + 语义路径 / 选择器 / 文本摘要标签）· <b>Alt + 拖动到侧栏</b>（跟随胶囊 + 侧栏落点高亮「松手即引用」）·
+        <b>拖选文本 → 小气泡引用</b> · 双击 / 悬停 ⊕ 即引用；<b>双向高亮联动</b>（侧栏引用 chip ↔ 页面元素角标同序号，点 chip 页面高亮并滚动到可见）；
+        某道题选「执行」→ 页面元素描边闪动 +「正在操作此处…」，完成后打「已处理 ✓」角标。页面侧注入<b>只在已授权站点生效</b>（登记式零注入）。
+      </span>
+      <span class="card-line">
+        <b>最适合：</b>「永远给人类的是选择题」的引导式操作台 —— 把连接树当主工作面、要求每一步的后果与策略档都摊开可见、
+        不接受自由文本指令作为默认路径的场景。
+      </span>
+      <span class="card-line">
+        <b>主要取舍：</b><b>D 与其他三稿哲学不同</b> —— A / B / C 都保留常驻输入框与对话流，D 取消常驻输入（输入只在选项内兜底）。
+        「信息全可见」在 320px 下换来的是「两段滚动」（连接树常驻固定 + 决策流主滚动），而不是「一屏塞下全部」：牺牲一屏可见，保住零隐藏。
+      </span>
+      <span class="card-cta">打开方案 D（无输入框 · 选择题引导式）→</span>
+    </a>
+
+    <a class="card" href="option-e-progressive.html" style="grid-column: 1 / -1">
+      <span class="card-head">
+        <span class="mark" aria-hidden="true">E</span>
+        <span class="card-title">渐进式披露（随用随取）</span>
+      </span>
+      <span class="card-file">option-e-progressive.html</span>
+      <span class="tag ready">已交付</span>
+      <span class="card-line">
+        <b>做法：</b>与 D <b>同哲学、反密度</b> —— 默认低密度，按「三层披露模型」随用随取：<b>L0 常驻</b>只回答三件事
+        （我在哪 / 谁在管 / 下一步做什么：状态带 + 当前那一张决策卡 + 一行可点开的状态栏 + 一个「从页面拾取」入口）；
+        <b>L1 就地展开</b>（选项后果说明与影响预演、引用证据、局部树、已决策历史、回执三件套的证据、页面手势表）；
+        <b>L2 按需视图</b>（全局连接树 / 命令目录 122 卡 / 审计 / 设置）默认一个都不出现，只留「计数 + 入口」，状态栏 → 入口 = 2 次交互到达。
+        右侧演示控制台带一个<b>「密度对照：全部展开」开关</b>，打开即在同一屏复现 D 的铺开形态；旁边实时显示实测密度（可点元素 / 可见正文行数）。
+      </span>
+      <span class="card-line">
+        <b>实测密度（Node 垫片对两份稿件同口径统计）：</b>可点元素 <b>80 → 7</b>（−91%）· 可见正文字符 <b>4,870 → 321</b>（−93%）·
+        可见正文行数 <b>144 → 10</b>（−93%）· 可见文本块 <b>391 → 47</b>（−88%）；「全部展开」对照态 73 可点 / 121 行（≈ D 的铺开程度）。
+      </span>
+      <span class="card-line">
+        <b>最适合：</b>把「少即是多」当设计目标、希望默认态一眼就懂「现在只有一件事要做」的场景；同时保留安全底线 ——
+        <b>风险与状态永不折叠</b>（未授权 / 探测中 / 硬底线被拦 / 破坏性确认 / 引用失效 五类信息必须留在 L0）。
+      </span>
+      <span class="card-line">
+        <b>主要取舍：</b>与 D 并排看最直观（D = 高密度对照物）。E 推翻 D 的「无浮层 / 无折叠 / 无 ⋯ 菜单」与「树常驻」两条法则，
+        保留 D 的内核三条：<b>主界面无常驻输入框</b>（意图靠页面拾取）· <b>每回合一道选择题</b>（末项固定「其他…（我来描述）」）· <b>页面即输入</b>。
+        代价：信息不在同屏（但都有摘要 + 计数 + 明确入口，≤2 次交互可达），需要用户接受"按需取用"。
+      </span>
+      <span class="card-cta">打开方案 E（渐进式披露）→</span>
+    </a>
+  </div>
+  <section>
+    <h2>差别表 <span class="hint">（A 列取自本方案实际实现参数；B / C 列取自各自稿件顶部的自文档说明）</span></h2>
+    <div class="table-scroll">
+      <table>
+        <caption class="sr-only">三种侧边栏布局方案在 11 个维度上的差别</caption>
+        <thead>
+          <tr>
+            <th scope="col">维度</th>
+            <th scope="col">A · 单列分区带</th>
+            <th scope="col">B · Workbench 双栏</th>
+            <th scope="col">C · 对话优先浮层</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">信息归属单元</th>
+            <td class="a">纵向「带」：每个分区带只放一类信息，全部常驻可见</td>
+            <td>「视图」：一级导航 5 个视图，一次一个，各自内部再分层</td>
+            <td>「主视图 + 统一浮层」：对话常驻，其余四类内容共用一个浮层容器</td>
+          </tr>
+          <tr>
+            <th scope="row">顶部</th>
+            <td class="a">title bar：品牌 + 站点名 + 4 个图标（设置 / 重新探测 / 审计 / ⋯）；撤销授权 / 重新绑定 / 会话切换 / 分组管理收进 ⋯ 菜单</td>
+            <td>左侧导航栏常驻；内容区顶部为标题 / 面包屑栏（不可滚动）</td>
+            <td>仅一行：品牌点 + 站点状态胶囊（同时是连接树第二入口）+ 更多菜单</td>
+          </tr>
+          <tr>
+            <th scope="row">状态呈现</th>
+            <td class="a">两级：status strip（origin + 探测 + LLM，可展开详情）+ 底部状态栏（+ 策略档、审计 n 条）</td>
+            <td>底部常驻状态栏（origin · 探测 · LLM · 策略档 · 审计 n 条）+ 导航栏审计徽标</td>
+            <td>顶部状态胶囊 + 底部状态栏（默认一行，详情可展开）</td>
+          </tr>
+          <tr>
+            <th scope="row">聊天区</th>
+            <td class="a">flex:1，<b>全文唯一滚动区</b>；工具结果 = 深色等宽终端块；amber 系统提示；ask 卡在流内、确认卡 sticky 贴底</td>
+            <td>「对话」视图内容区中部为唯一滚动区；底部输入区不可滚动</td>
+            <td>唯一主视图，拿满剩余高度；ask 卡与确认卡直接出现在对话流里</td>
+          </tr>
+          <tr>
+            <th scope="row"><b>连接树位置</b>（★ 与现状最大差别）</th>
+            <td class="a"><b>停靠区（docked）</b>：聊天区下沿，默认折叠成一行摘要（站点 / 能力 / 命令 / LLM + 状态点），展开约占半屏</td>
+            <td><b>一级公民视图</b>：占满内容区全高，4–5 层树 + 每层控件都放得下，与消息流互不遮挡（因为不同时显示）</td>
+            <td><b>统一浮层</b>（右侧滑出）：与现状覆盖抽屉同源，补上显式入口（操作坞）、标题栏、焦点管理与关闭回位</td>
+          </tr>
+          <tr>
+            <th scope="row">看树时对话的状态</th>
+            <td class="a">被压缩但<b>同时可读</b>（约 400px → 约 120px）；树自己滚动</td>
+            <td>不可见（已切到连接树视图），上下文被打断，需切回</td>
+            <td>被浮层遮挡；关闭后原样恢复</td>
+          </tr>
+          <tr>
+            <th scope="row">命令目录（L3 122 卡）</th>
+            <td class="a">命令面板遮罩层（Ctrl+Shift+P，输入即过滤，带 L1/L2/L3 与 allow/ask/deny 徽标）；主界面只留 4 行提示（贴输入框的浮层，不占纵向流）</td>
+            <td>独立的「命令」视图（全高列表，需自行处理 122 条的滚动与虚拟化）</td>
+            <td>浮层内可切换的四类内容之一（同一容器，不新增壳）</td>
+          </tr>
+          <tr>
+            <th scope="row">输入区</th>
+            <td class="a">固定在底部（多行输入 + 发送）；命令提示浮在输入框上方，不挤压聊天与停靠区</td>
+            <td>固定在内容区底部（对话视图内）；切到其他视图时不显示</td>
+            <td>固定在底部，宽度最充裕（浮层出现时也不跳位）</td>
+          </tr>
+          <tr>
+            <th scope="row"><b>320px 表现</b></th>
+            <td class="a">字号 10–12.5px、内边距 6–8px、图标 24px、树缩进 8px；状态栏允许单行横向滚动；<b>六个分区带一个都不删</b></td>
+            <td>导航栏保留 48px 图标模式（不折叠、不 hamburger），内容区仍有 272px；选中态用「底色 + 左侧 3px 指示条 + aria-selected」</td>
+            <td>浮层宽度由 85% 改为 100%（避免只剩约 48px 可点区域）；操作坞 3 个按钮坚持带文字标签；状态栏允许换行、工具块横向滚动</td>
+          </tr>
+          <tr>
+            <th scope="row">纵向预算（660px 面板内聊天可视高度）</th>
+            <td class="a">停靠区折叠 ≈ 404px；展开 ≈ 112px；固定带合计 ≈ 124px（title 47 + strip 54 + status bar 23，400px 宽实测估算）</td>
+            <td>与 A 同量级：内容区顶部栏 + 输入区 + 状态栏占位；无停靠区挤压</td>
+            <td>最大：无固定带、无停靠区，聊天拿满剩余高度</td>
+          </tr>
+          <tr>
+            <th scope="row">实现 / 迁移风险</th>
+            <td class="a">中等：需把 #tree-fab / #tree-drawer 改成停靠区（DOM 归属与 aria 语义要重写），其余多为 CSS 重组</td>
+            <td>中等偏上：需引入「当前视图 / 导航」状态与树的全高布局（内容区按视图再分层）</td>
+            <td>较低：与现状覆盖层机制同源，改动面最小；需补焦点管理、入口可发现性与底部堆叠收敛</td>
+          </tr>
+          <tr>
+            <th scope="row">最适合</th>
+            <td class="a"><b>窄屏为主、信息类别多、要求危险动作（撤销 / 硬底线）一眼可见</b></td>
+            <td><b>侧栏较宽、需要边操作树边看结果、把树当主工作面</b></td>
+            <td><b>以对话为主、树与设置低频、优先保留对话高度</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>三稿共同样例情境 <span class="hint">（横向对比时以此为准；三份稿的文案与数据应当一致）</span></h2>
+    <div class="kv">
+      <span><b>站点</b> http://localhost:5173</span>
+      <span><b>站点名</b> LGDL Workbench</span>
+      <span><b>声明</b> web-cli/0.2</span>
+      <span><b>探测状态</b> supported</span>
+    </div>
+    <div class="kv">
+      <span><b>LLM</b> 火山方舟（ark）· deepseek-v3 · 已配置</span>
+      <span><b>测试连接</b> 1.2s OK</span>
+      <span><b>会话</b> 默认分组 · 该域名下 3 个标签页</span>
+      <span><b>审计</b> 12 条</span>
+    </div>
+    <ul class="tight">
+      <li><b>聊天记录</b>：用户「帮我把工作台里的接口文档导出成 markdown」→ 助手回复（含一句说明）→ 一次工具调用结果块（站点声明工具 <code>doc-info</code> 返回节点摘要，深色等宽）→ 一条 amber 系统提示。</li>
+      <li><b>连接树</b>：四维度顶层（站点 / 浏览器能力 / 命令处置档 / LLM 连接）并展开到第 3 层 —— <code>tabs</code>（已授权 / allow）、<code>bookmarks</code>（未授权 → 去设置开启）、<code>clipboard.read</code>（state 档 · 只可收紧 → deny）、<code>dom</code>（三档可用 / allow）→ <code>dom.click</code>（保底 ask）、<code>evaluate</code>（硬底线 · 不可覆盖 · 零控件）；LLM 连接带「断开」控件。</li>
+      <li><b>等待确认卡</b>：「<code>bookmarks.remove</code> 将删除书签「LGDL 文档」，此操作不可撤销」→ 拒绝 / 允许（超时或取消 = 拒绝）。</li>
+      <li><b>回执三件套</b>：「已撤销 <code>clipboard.write</code>」+ 重拉实测的工具面证据 + 「导出审计」入口。</li>
+      <li><b>命令目录</b>：L3 实时投影 <b>122 卡</b>，带 L1/L2/L3 与 allow/ask/deny 徽标；L1 对账基线 34 工具 / 142 子命令；L2 豁免登记 20 / 88。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>看稿时建议重点对比的 4 个问题</h2>
+    <ul class="tight">
+      <li><b>连接树算不算「有家」？</b>—— 它是否参与布局；你读对话时它会不会盖住对话（A 压缩并存 / B 换视图 / C 遮挡）。</li>
+      <li><b>320px 下还成立吗？</b>—— 哪些区域被删掉、哪些被压到不可读、危险动作是否还在一次点击内。</li>
+      <li><b>危险动作是否可见？</b>—— 撤销授权 / 硬底线（<code>evaluate</code>）/ 破坏性保底 ask 能否一眼找到。</li>
+      <li><b>122 卡命令目录放在哪？</b>—— 常驻列表、独立视图还是按需浮层；会不会再次把主界面塞满。</li>
+    </ul>
+  </section>
+
+  <footer>
+    本次交付只<b>新增</b>本目录下的文件：不建 Feature 目录、不写 state.json、不改动 .sddu/**、不修改任何既有文件、不 commit / 不 push。
+    这页由方案 A 的作者编写；B / C 摘要取自两稿自带的顶部注释。
+  </footer>
+
+  <p class="meta">
+    补记（方案 D 作者追加）：本页标题与上面这张差别表按原样保留（它们描述的是 A / B / C 三稿）；上面新增的那张卡片是后来追加的<b>第四入口</b>。
+    选项 D 与三稿<b>哲学不同</b>：其他三稿都保留常驻输入框与对话流，D 取消常驻输入、把每一步都变成选择题，并把连接树从抽屉升为常驻操作面。
+    本次追加只新增本节点与新卡片，未改动原有三个入口、差别表与原有文案。
+  </p>
+
+</div>
+</body>
+</html>

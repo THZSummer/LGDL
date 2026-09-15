@@ -1,0 +1,1791 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>web-cli plugin 侧边栏重构 · 方案 A 单列分区带</title>
+<!--
+═══════════════════════════════════════════════════════════════════════════════
+  方案 A —「VSCode 式单列分区带」高保真设计稿（自包含，file:// 双击可开）
+═══════════════════════════════════════════════════════════════════════════════
+
+【设计意图】
+  把侧边栏从「顶部一条通吃 + 漂浮抽屉 + 底部层层堆叠」改为**纵向分区带**：
+  每一类信息只有一个固定归属地，视线从「到处找东西」变成「沿一条轴往下读」。
+
+  分区带（自上而下，固定顺序，永不互相挤压）：
+    ① title bar       —— 品牌/站点 + 图标工具栏（设置 / 重新探测 / 审计 / ⋯ 菜单）
+    ② status strip    —— origin + 探测状态 + LLM 状态（紧凑一行，可展开详情）
+    ③ chat region     —— flex:1，**唯一**滚动区：用户气泡 / 助手气泡 /
+                         工具结果（深色等宽终端块）/ amber 系统提示 /
+                         ask-user 问答卡 / 破坏性确认卡（sticky 贴底）
+    ④ connection dock —— 连接树**停靠区**（默认折叠成一行摘要 → 展开约占半屏）
+    ⑤ composer        —— 命令面板入口 + 命令提示 + 多行输入 + 发送
+    ⑥ status bar      —— 仿 VSCode 单行小字分段状态
+    ＋ command palette（遮罩层，Ctrl+Shift+P）—— 承载「L3 实时投影 122 卡」
+
+【解决的现状痛点】（对照 packages/web-cli-plugin/src/ui/sidepanel/index.html）
+  P1 顶部爆满：#panel-top 里 设置/授权/撤销/重绑/审计/会话列表/分组管理/LLM 状态
+     全挤在一条（现状 805–838 行）。
+     → 顶部只留 4 个图标 + 1 个 ⋯ 菜单；撤销授权 / 重新绑定标签页 / 查看审计 /
+       会话切换 / 分组管理 全部收进下拉。
+  P2 连接树没有归属：#tree-fab + #tree-drawer 是 **绝对定位的漂浮 FAB + 覆盖抽屉**
+     （现状 530–563 行），盖在聊天区上、没有固定位置、打开时遮住对话。
+     → 本方案把它改成**停靠区（docked）**：正常参与纵向 flex 流，占据聊天区下沿，
+       折叠时只有一行摘要，展开时约占半屏，且**树自己在内部滚动**，
+       **永不复盖聊天记录**。★ 这是本方案与现状最大的差别。
+  P3 底部层层堆叠：#panel-bottom 的 .strips 把 env-guard / site-hint / onboarding /
+     discovery-notice / notice / confirm / ask / consent 一层层叠在输入框上方
+     （现状 854–895 行），输入框会被不断往下推。
+     → 现在：确认卡 sticky 贴聊天区底部；ask-user 卡进聊天流；
+       提示类信息进状态条 / 连接树 / 状态栏，各有唯一归属。
+  P4 没有分层：没有状态栏、没有菜单栏、没有独立输入区。
+     → 现在 6 个分区带各司其职；底部状态栏给出「当前生效事实」一眼可读。
+  P5 122 张命令卡无处安放。
+     → 交给命令面板遮罩层（L1/L2/L3 + allow/ask/deny 徽标）；主界面只有 4 行命令提示。
+
+【取舍（明说）】
+  T1 分区带比现状多占约 76px 固定高度（status strip ≈52px + status bar ≈24px）。
+     收益是「一眼定位」；代价是聊天可视高度变少。窄屏用 10.5–11px 小字压低成本。
+     命令提示（长列表）做成**贴输入框上方的浮层**而非纵向流内元素，避免它挤压聊天与停靠区。
+  T2 ⋯ 菜单把 5 个动作藏进二级。现状的「一键撤销授权」不再常驻。
+     取舍：撤销授权是危险动作，藏一级反而降低误触；「授权当前站点」则提升为
+     status strip 里的常驻主按钮（只在未授权状态出现）。
+  T3 连接树停靠区展开占约半屏 → 聊天被压缩但**不消失**（flex:1 + min-height 兜底），
+     树自己滚动。相比「覆盖抽屉」丢一点瞬时空间，换「两件事同时可读」。
+  T4 命令面板是覆盖式遮罩 —— 但它承载的是**只读命令目录**，不参与授权决策，
+     覆盖聊天不产生误操作风险；确认卡与 ask-user 卡**绝不**进遮罩层。
+  T5 本稿只做「设置入口」按钮，不做设置页全分区（按任务要求）。
+
+【硬约束遵守】
+  · 零外链 / 零 CDN / 零外链字体 / 零网络请求 / 零框架 / 零构建；图标全部内联 SVG。
+  · 内联 JS 仅用于演示开关（主题 / 宽度 / 状态 / 折叠 / 面板过滤），非产品代码。
+  · 明暗双主题：跟随 prefers-color-scheme（无 JS 也成立）+ 手动覆盖。
+  · 320px 不破版：字号与内边距收敛，状态栏允许单行横向滚动。
+  · 真实事实来源（不自创能力）：
+      src/ui/sidepanel/index.html（tokens 20–78 行 / 分区 805–909 行）
+      src/ui/options/index.html（设置分区与文案）
+      src/insight/archive-catalog.ts（L1 34/142 · L2 20/88 · L3 实时投影 122 卡）
+      src/insight/tree-model.ts + src/ui/tree/*（9 动作白名单 / 硬底线 clamp 文案）
+      src/ui/tree/tree-receipt.ts（回执三件套文案）
+      docs/capability-matrix.md（工具面与可选权限）
+      test/parity/baseline-catalog.json（真实工具名与子命令，如 dom 30 子命令）
+═══════════════════════════════════════════════════════════════════════════════
+-->
+<style>
+/* ─────────────────────────────────────────────────────────────────────────────
+   0. 演示外壳（页面级 tokens）——「模拟浏览器侧边栏」容器，不属于产品 UI
+   ───────────────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { height: 100%; }
+html {
+  --page-bg: #eef1f6;
+  --page-text: #1e293b;
+  --page-sub: #5b6b82;
+  --page-card: #ffffff;
+  --page-line: #d5dde9;
+  --page-chrome: #dfe5ee;
+}
+html[data-theme="dark"] {
+  --page-bg: #070b14;
+  --page-text: #e2e8f0;
+  --page-sub: #94a3b8;
+  --page-card: #0d1526;
+  --page-line: #1e293b;
+  --page-chrome: #131c2e;
+}
+/* 深色第二份：让「无 JS 时跟随系统」也成立（纯 CSS 无法复用声明块） */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --page-bg: #070b14;
+    --page-text: #e2e8f0;
+    --page-sub: #94a3b8;
+    --page-card: #0d1526;
+    --page-line: #1e293b;
+    --page-chrome: #131c2e;
+  }
+}
+body {
+  margin: 0;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 12px 40px;
+  background: var(--page-bg);
+  color: var(--page-text);
+  font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow-wrap: anywhere;
+}
+
+/* 演示控制条 */
+.hx { width: 100%; max-width: 780px; }
+.hx-h1 { margin: 0 0 2px; font-size: 17px; letter-spacing: 0.2px; }
+.hx-sub { margin: 0 0 10px; color: var(--page-sub); font-size: 12px; }
+.hx-ctl {
+  display: flex; flex-wrap: wrap; gap: 10px 16px;
+  padding: 10px 12px; background: var(--page-card);
+  border: 1px solid var(--page-line); border-radius: 12px;
+}
+.hx-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hx-lab { font-size: 11px; font-weight: 600; color: var(--page-sub); letter-spacing: 0.4px; }
+.hx-btn {
+  font: inherit; font-size: 12px; cursor: pointer;
+  padding: 4px 9px; border-radius: 8px;
+  color: var(--page-text); background: var(--page-bg);
+  border: 1px solid var(--page-line);
+}
+.hx-btn:hover { border-color: #4f46e5; }
+.hx-btn[aria-pressed="true"] { background: #4f46e5; border-color: #4f46e5; color: #fff; font-weight: 600; }
+.hx-note { margin: 8px 2px 0; font-size: 11.5px; color: var(--page-sub); line-height: 1.7; }
+.hx-note b { color: var(--page-text); }
+.hx-note code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
+
+/* 模拟浏览器 + 侧边栏槽位 */
+.chrome {
+  width: 100%; max-width: 780px;
+  border: 1px solid var(--page-line); border-radius: 14px;
+  background: var(--page-chrome); overflow: hidden;
+}
+.chrome-tabbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--page-chrome);
+  border-bottom: 1px solid var(--page-line); font-size: 11.5px; color: var(--page-sub);
+}
+.chrome-dots { display: flex; gap: 4px; flex: 0 0 auto; }
+.chrome-dots i { width: 9px; height: 9px; border-radius: 50%; background: #b6c1d1; }
+.chrome-tab {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 0;
+  max-width: 260px; padding: 3px 9px; border-radius: 8px;
+  background: var(--page-card); border: 1px solid var(--page-line);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chrome-side-note { margin-left: auto; white-space: nowrap; }
+.chrome-body { display: flex; align-items: flex-start; justify-content: flex-end; gap: 12px; padding: 12px; }
+.chrome-page {
+  flex: 1 1 auto; min-width: 0; height: 660px;
+  border: 1px dashed var(--page-line); border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--page-sub); font-size: 11.5px; text-align: center; padding: 16px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   1. 产品 tokens —— 复用 src/ui/sidepanel/index.html 第 20–78 行，并补充分区带
+      所需的新 token（品牌渐变 / 大阴影 / 停靠区高度）
+   ───────────────────────────────────────────────────────────────────────────── */
+.panel {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --bg-subtle: #f6f8fb;
+  --bg-elevated: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --border: #e5e9f0;
+  --border-strong: #cbd5e1;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-weak: #eef2ff;
+  --accent-text: #4338ca;
+  --user-bg: #4f46e5;
+  --user-text: #ffffff;
+  --assistant-bg: #f1f5f9;
+  --assistant-text: #334155;
+  --tool-bg: #0f172a;
+  --tool-text: #cbd5e1;
+  --warn-bg: #fffbeb;
+  --warn-border: #fde68a;
+  --warn-text: #92400e;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-text: #991b1b;
+  --ok: #15803d;
+  --ok-bg: rgba(21, 128, 61, 0.12);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.18);
+  --brand-grad: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+  --focus: 0 0 0 2px rgba(79, 70, 229, 0.4);
+  --dock-h: 292px; /* 展开高度 ≈ 面板 660px 的 44%（「约占半屏」） */
+}
+html[data-theme="dark"] .panel {
+  --bg: #0b1120;
+  --bg-subtle: #0f172a;
+  --bg-elevated: #101a30;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --border: #1e293b;
+  --border-strong: #334155;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-weak: #1e1b4b;
+  --accent-text: #c7d2fe;
+  --assistant-bg: #1e293b;
+  --assistant-text: #cbd5e1;
+  --tool-bg: #060c18;
+  --tool-text: #cbd5e1;
+  --warn-bg: #3b2f10;
+  --warn-border: #78500f;
+  --warn-text: #fcd34d;
+  --danger-bg: #3f1414;
+  --danger-border: #7f1d1d;
+  --danger-text: #fca5a5;
+  --ok: #4ade80;
+  --ok-bg: rgba(74, 222, 128, 0.14);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 34px rgba(0, 0, 0, 0.55);
+  --focus: 0 0 0 2px rgba(129, 140, 248, 0.5);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .panel {
+    --bg: #0b1120;
+    --bg-subtle: #0f172a;
+    --bg-elevated: #101a30;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --border: #1e293b;
+    --border-strong: #334155;
+    --accent: #818cf8;
+    --accent-hover: #a5b4fc;
+    --accent-weak: #1e1b4b;
+    --accent-text: #c7d2fe;
+    --assistant-bg: #1e293b;
+    --assistant-text: #cbd5e1;
+    --tool-bg: #060c18;
+    --tool-text: #cbd5e1;
+    --warn-bg: #3b2f10;
+    --warn-border: #78500f;
+    --warn-text: #fcd34d;
+    --danger-bg: #3f1414;
+    --danger-border: #7f1d1d;
+    --danger-text: #fca5a5;
+    --ok: #4ade80;
+    --ok-bg: rgba(74, 222, 128, 0.14);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 34px rgba(0, 0, 0, 0.55);
+    --focus: 0 0 0 2px rgba(129, 140, 248, 0.5);
+  }
+}
+
+/* ── 侧边栏容器本体：窄屏优先，默认 400px，320 / 400 / 520 可切 ──────────────── */
+.panel {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: 400px;
+  max-width: 100%;
+  height: 660px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow-wrap: anywhere;
+}
+.panel[data-w="320"] { width: 320px; }
+.panel[data-w="400"] { width: 400px; }
+.panel[data-w="520"] { width: 520px; }
+
+/* ── 控件基线（继承现状：12px 按钮 / 8px 圆角 / 统一焦点环） ─────────────────── */
+.panel button {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  cursor: pointer;
+  max-width: 100%;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.panel button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-text);
+  background: var(--accent-weak);
+}
+.panel button:disabled { opacity: 0.5; cursor: not-allowed; }
+.panel button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.panel button.primary:hover:not(:disabled) {
+  background: var(--accent-hover); border-color: var(--accent-hover); color: #fff;
+}
+.panel code { font-family: var(--mono); font-size: 11.5px; }
+.panel :focus-visible { outline: none; box-shadow: var(--focus); border-radius: 6px; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* ─────────────────────────────────────────────────────────────────────────────
+   2. 分区带 ① title bar —— 品牌 + 站点名 + 图标工具栏 + ⋯ 菜单
+      现状把 8 个控件平铺在这里（805–838 行）；现在只剩 4 个图标 + 1 个下拉
+   ───────────────────────────────────────────────────────────────────────────── */
+.p-title {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.p-brand { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1 1 auto; }
+.p-logo {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px;
+  background: var(--brand-grad); display: grid; place-items: center; color: #fff;
+}
+.p-titles { min-width: 0; }
+.p-name {
+  display: block; font-weight: 600; font-size: 12.5px; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.p-site {
+  display: block; font-size: 11px; line-height: 1.35; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.p-tools { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.panel .iconbtn {
+  position: relative;
+  width: 26px; height: 26px; padding: 0;
+  display: grid; place-items: center;
+  background: transparent; border-color: transparent; color: var(--text-muted);
+  border-radius: var(--radius-sm);
+}
+.panel .iconbtn:hover:not(:disabled) { color: var(--accent-text); background: var(--accent-weak); border-color: transparent; }
+.iconbtn .ic { display: block; }
+.iconbtn-flag {
+  position: absolute; top: -1px; right: -1px;
+  min-width: 14px; height: 14px; padding: 0 3px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700;
+  display: grid; place-items: center; line-height: 1;
+}
+.p-menu-wrap { position: relative; flex: 0 0 auto; }
+.p-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
+  width: 236px; max-width: 260px;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.p-menu[hidden] { display: none; }
+.p-menu-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px;
+  color: var(--text-muted); padding: 2px 2px 0;
+}
+.p-menu button { width: 100%; text-align: left; }
+.p-menu hr { width: 100%; border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+.p-menu .pm-row { display: flex; gap: 6px; width: 100%; }
+.p-menu .pm-row > * { flex: 1 1 0; min-width: 0; }
+.p-menu input, .p-menu select {
+  font: inherit; font-size: 12px; min-width: 0; width: 100%;
+  padding: 4px 7px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.p-session { display: flex; flex-direction: column; gap: 3px; max-height: 120px; overflow-y: auto; }
+.p-session button { font-size: 11.5px; }
+.p-session button[aria-current="true"] {
+  border-color: var(--accent); color: var(--accent-text);
+  background: var(--accent-weak); font-weight: 600;
+}
+.p-menu-note { font-size: 10.5px; line-height: 1.5; color: var(--text-muted); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   3. 分区带 ② status strip —— origin + 探测状态 + LLM 状态（一行，可展开详情）
+   ───────────────────────────────────────────────────────────────────────────── */
+.p-strip {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 6px 10px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+  min-width: 0;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 10.5px; line-height: 1.55;
+  max-width: 100%;
+}
+.chip[data-tone="ok"] { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
+.chip[data-tone="warn"] { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); }
+.chip[data-tone="danger"] { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); }
+.chip.mono, .mono { font-family: var(--mono); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.strip-origin { font-family: var(--mono); font-size: 11px; min-width: 0; }
+.strip-detail { flex: 1 1 100%; min-width: 0; }
+.strip-detail > summary { cursor: pointer; font-size: 10.5px; color: var(--text-muted); list-style: none; }
+.strip-detail > summary::-webkit-details-marker { display: none; }
+.strip-detail > summary::after { content: " ▾"; font-size: 9px; }
+.strip-detail[open] > summary::after { content: " ▴"; }
+.strip-detail > summary:hover { color: var(--accent-text); }
+.strip-detail-body {
+  display: flex; flex-direction: column; gap: 3px;
+  margin-top: 4px; padding: 6px 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px; color: var(--text-muted); line-height: 1.6;
+}
+.strip-detail-body b { color: var(--text); font-weight: 600; }
+.panel button.btn-auth {
+  border-color: var(--accent); background: var(--accent); color: #fff;
+  font-weight: 600; font-size: 11px; padding: 2px 9px; border-radius: 999px;
+}
+.panel button.btn-auth:hover:not(:disabled) {
+  background: var(--accent-hover); border-color: var(--accent-hover); color: #fff;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   4. 分区带 ③ chat region —— 唯一滚动区：气泡 / 深色终端块 / amber 提示 / 卡片
+   ───────────────────────────────────────────────────────────────────────────── */
+.p-chat {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 10px;
+  background: var(--bg-subtle);
+}
+.entry { display: flex; min-width: 0; }
+.msg-user { justify-content: flex-end; }
+.bubble {
+  max-width: 92%; min-width: 0;
+  padding: 8px 11px; border-radius: var(--radius);
+  font-size: 13px; line-height: 1.6;
+}
+.msg-user .bubble {
+  background: var(--user-bg); color: var(--user-text); border-bottom-right-radius: 3px;
+}
+.msg-assistant .bubble {
+  background: var(--assistant-bg); color: var(--assistant-text);
+  border-bottom-left-radius: 3px; box-shadow: var(--shadow);
+}
+.bubble > :first-child { margin-top: 0; }
+.bubble > :last-child { margin-bottom: 0; }
+.bubble p { margin: 4px 0; }
+.bubble ol, .bubble ul { margin: 4px 0; padding-inline-start: 18px; }
+.bubble li { margin: 1px 0; }
+
+/* 助手即将执行的命令行（等宽，来自现状 .cmd） */
+.cmd {
+  display: flex; gap: 6px; align-items: flex-start;
+  max-width: 96%; min-width: 0;
+  padding: 4px 8px;
+  background: var(--accent-weak); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono); font-size: 11.5px; color: var(--accent-text);
+}
+.cmd-prompt { flex: 0 0 auto; font-weight: 700; }
+.cmd-text { min-width: 0; white-space: pre-wrap; word-break: break-all; }
+
+/* 工具结果 = 深色等宽终端块（结果有自己的容器，不污染气泡） */
+.tool { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-elevated); }
+.tool-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 6px 9px; font-size: 11.5px; min-width: 0; }
+.tool-name { font-family: var(--mono); font-weight: 600; min-width: 0; }
+.tool-status { flex: 0 0 auto; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
+.tool-status[data-tone="ok"] { background: var(--ok-bg); color: var(--ok); }
+.tool-status[data-tone="run"] { background: var(--accent-weak); color: var(--accent-text); }
+.tool-ms { flex: 0 0 auto; color: var(--text-muted); font-size: 10.5px; }
+.tool-preview {
+  flex: 1 1 100%; min-width: 0; color: var(--text-muted);
+  font-family: var(--mono); font-size: 10.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tool-body {
+  margin: 0; padding: 8px 9px;
+  background: var(--tool-bg); color: var(--tool-text);
+  border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 11px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 230px; overflow: auto;
+}
+.cursor {
+  display: inline-block; width: 7px; height: 12px;
+  background: var(--tool-text); vertical-align: -2px;
+  animation: blink 1.05s steps(2, start) infinite;
+}
+@keyframes blink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: 0; } }
+
+/* amber 系统提示（现状 .msg-system 语义，但现在归属聊天流） */
+.note {
+  max-width: 96%; min-width: 0;
+  padding: 7px 9px; border-radius: var(--radius-sm);
+  font-size: 11.5px; line-height: 1.6;
+  background: var(--warn-bg); color: var(--warn-text);
+  border: 1px solid var(--warn-border);
+  font-weight: 600;
+}
+.note-plain { font-weight: 400; }
+
+/* 卡片：ask-user 问答卡 / 破坏性确认卡 / 未授权引导卡 / 探测占位 */
+.card {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 9px; min-width: 0;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+}
+.card-title { font-size: 12px; font-weight: 600; }
+.card-note { font-size: 11px; line-height: 1.6; color: var(--text-muted); }
+.card-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.card input[type="text"] {
+  flex: 1 1 130px; min-width: 0;
+  font: inherit; font-size: 12px; padding: 5px 8px;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.card-confirm {
+  border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
+  box-shadow: 0 -6px 14px rgba(15, 23, 42, 0.12);
+}
+.card-confirm .card-title, .card-confirm .card-note { color: var(--warn-text); }
+.card-danger { border-color: var(--danger-border); background: var(--danger-bg); }
+.card-danger .card-title, .card-danger .card-note { color: var(--danger-text); }
+/* 确认卡 sticky 贴聊天区底部：既属于聊天区，又紧邻输入区（不覆盖输入框） */
+.pin { position: sticky; bottom: 0; z-index: 3; }
+
+/* 处理中：思考指示 + 骨架 + 工具执行流 */
+.thinking { display: inline-flex; gap: 4px; align-items: center; padding: 11px 13px; }
+.thinking i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: pulse 1.2s infinite ease-in-out; }
+.thinking i:nth-child(2) { animation-delay: 0.2s; }
+.thinking i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulse { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
+.skeleton { height: 11px; border-radius: 999px; background: var(--border); animation: shimmer 1.4s ease-in-out infinite; }
+.skeleton.w92 { width: 92%; }
+.skeleton.w80 { width: 80%; }
+.skeleton.w60 { width: 60%; }
+@keyframes shimmer { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+/* 徽标（归档层 L1/L2/L3 与命令档 allow/ask/deny）—— 每个徽标都有文字，不靠颜色传达 */
+.badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 0 6px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; line-height: 1.6;
+  border: 1px solid var(--border-strong); background: var(--bg-subtle); color: var(--text-muted);
+}
+.badge[data-policy="allow"] { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
+.badge[data-policy="ask"] { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); }
+.badge[data-policy="deny"] { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); }
+.badge[data-layer] { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); }
+/* ─────────────────────────────────────────────────────────────────────────────
+   5. 分区带 ④ connection dock —— 连接树「停靠区」（不是浮动抽屉！）
+      ★ 与现状最大差别：
+        现状 = #tree-fab（absolute FAB）+ #tree-drawer（absolute 覆盖式抽屉），
+               盖在聊天区上、没有固定归属（现状 530–563 行）。
+        本方案 = 一个正常参与纵向 flex 流的 <section>：
+               · 折叠态 = 一行摘要（约 32px，含 4 个状态点）
+               · 展开态 = 约半屏（--dock-h），树在内部滚动
+               · 聊天区被压缩但保留可视高度，**永不被覆盖**
+   ───────────────────────────────────────────────────────────────────────────── */
+.p-dock {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.panel .p-dock-sum {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  width: 100%; padding: 6px 10px; min-width: 0;
+  background: transparent; border: 0; border-radius: 0;
+  text-align: left; cursor: pointer; font-size: 11.5px;
+}
+.panel .p-dock-sum:hover:not(:disabled) { background: var(--accent-weak); border: 0; color: var(--text); }
+.dock-chev { flex: 0 0 auto; transition: transform 0.15s ease; color: var(--text-muted); font-size: 10px; }
+.p-dock-sum[aria-expanded="true"] .dock-chev { transform: rotate(90deg); }
+.dock-title { font-weight: 600; font-size: 12px; flex: 0 0 auto; }
+.dock-counts { color: var(--text-muted); min-width: 0; flex: 1 1 auto; }
+.dock-dots { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.dock-dot { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--text-muted); }
+.p-dock-body {
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--border);
+  height: var(--dock-h);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+}
+.p-dock-body[hidden] { display: none; }
+.dock-head { padding: 7px 10px 6px; display: flex; flex-direction: column; gap: 5px; background: var(--bg-subtle); border-bottom: 1px solid var(--border); }
+.dock-search input {
+  width: 100%; min-width: 0;
+  font: inherit; font-size: 11.5px; padding: 4px 8px;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.dock-count { font-size: 10.5px; color: var(--text-muted); line-height: 1.55; }
+.dock-breadcrumb {
+  padding: 5px 10px; background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px; color: var(--text-muted); line-height: 1.55;
+}
+.dock-note { font-size: 10.5px; line-height: 1.55; color: var(--text-muted); border-left: 3px solid var(--border-strong); padding-left: 6px; }
+.dock-note-danger { color: var(--danger-text); border-left-color: var(--danger-border); }
+
+/* 回执三件套（tree-receipt.ts：① 回执 ② 重拉实测证据 ③ 审计入口） */
+.receipt { margin: 8px 10px 0; padding: 7px 8px; display: flex; flex-direction: column; gap: 4px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.receipt-line { font-size: 11px; line-height: 1.6; }
+.receipt-line[data-kind="ok"] { color: var(--ok); }
+.receipt-evidence { font-size: 10.5px; line-height: 1.55; color: var(--text-muted); }
+.receipt-evidence .mono { font-size: 10.5px; }
+
+/* 真层级树：role=tree / treeitem + aria-level + 每层控件 + 面包屑 */
+.tree { list-style: none; margin: 0; padding: 8px 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tree-children { list-style: none; margin: 3px 0 3px; padding: 0; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tree-children[hidden] { display: none; }
+.tnode { min-width: 0; }
+.tnode[aria-level="2"] { padding-left: 10px; border-left: 1px solid var(--border); }
+.tnode[aria-level="3"] { padding-left: 10px; border-left: 1px solid var(--border); }
+.tnode[role="treeitem"]:focus { outline: none; }
+.trow { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
+.panel .tdisc {
+  flex: 0 0 auto; width: 16px; height: 16px; padding: 0;
+  display: grid; place-items: center;
+  font-size: 9.5px; line-height: 1;
+  color: var(--text-muted); background: transparent; border-color: transparent;
+  border-radius: 4px;
+}
+.panel .tdisc:hover:not(:disabled) { color: var(--accent-text); background: var(--accent-weak); border-color: transparent; }
+.panel .tdisc.leaf { display: grid; color: var(--border-strong); cursor: default; background: transparent; }
+.tname { font-size: 11.5px; font-weight: 600; min-width: 0; }
+.tval { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); min-width: 0; overflow-wrap: anywhere; }
+.tctls { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.panel button.tctl { font-size: 10.5px; padding: 2px 7px; color: var(--accent-text); background: var(--accent-weak); border-color: var(--accent); }
+.panel button.tctl-danger { color: var(--warn-text); background: var(--warn-bg); border-color: var(--warn-border); }
+.panel button.tctl-locked { color: var(--text-muted); background: var(--bg-subtle); border-color: var(--border-strong); }
+.panel button.tctl[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.policy-seg { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.tsub { margin: 2px 0 0; font-size: 10.5px; line-height: 1.55; color: var(--text-muted); padding-left: 21px; }
+.tclamp { margin: 3px 0 0 21px; font-size: 10.5px; line-height: 1.55; color: var(--warn-text); background: var(--warn-bg); border-left: 3px solid var(--warn-border); border-radius: var(--radius-sm); padding: 3px 6px; }
+.lock-ic { flex: 0 0 auto; color: var(--danger-text); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   6. 分区带 ⑤ composer —— 命令面板入口 + 命令提示 + 多行输入 + 发送
+      现状把 confirm / ask / notice / onboarding / consent 全堆在这里；
+      现在这里只有：入口按钮 → 命令提示 → 输入框 → 发送。
+   ───────────────────────────────────────────────────────────────────────────── */
+.p-composer {
+  flex: 0 0 auto;
+  position: relative; /* 命令提示浮层的定位上下文 */
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.cm-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
+.panel button.ghost { font-size: 11px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); }
+.kbd {
+  display: inline-block; padding: 0 5px; border-radius: 5px;
+  border: 1px solid var(--border-strong); background: var(--bg-subtle);
+  font-family: var(--mono); font-size: 10px; color: var(--text-muted); line-height: 1.6;
+}
+.cm-spacer { margin-left: auto; }
+.cm-policy { font-size: 10.5px; color: var(--text-muted); }
+.cm-reason { margin: 0; font-size: 10.5px; line-height: 1.55; color: var(--warn-text); }
+/* 命令提示是**贴在输入框上方的浮层**（IDE 补全同款）：绝对定位、不参与纵向流，
+   因此无论提示多长都不会挤压聊天区 / 停靠区 / 状态栏。 */
+.p-hint {
+  display: none; flex-direction: column; gap: 3px;
+  position: absolute; left: 8px; right: 8px; bottom: calc(100% - 2px); z-index: 20;
+  max-height: 172px; overflow-y: auto;
+  padding: 6px 7px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--bg-elevated); box-shadow: var(--shadow-lg);
+}
+.p-hint.show { display: flex; }
+.hint-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; font-size: 10.5px; }
+.hint-cmd { font-family: var(--mono); font-weight: 600; min-width: 0; }
+.hint-desc { color: var(--text-muted); min-width: 0; flex: 1 1 auto; }
+.p-hint-foot { font-size: 10.5px; color: var(--text-muted); border-top: 1px dashed var(--border); padding-top: 4px; margin-top: 2px; }
+.cm-form { display: flex; gap: 6px; align-items: flex-end; min-width: 0; }
+#p-input {
+  flex: 1 1 auto; min-width: 0;
+  font: inherit; font-size: 12.5px; line-height: 1.5;
+  padding: 7px 9px; resize: none;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+#p-input::placeholder { color: var(--text-muted); }
+#p-input:disabled { background: var(--bg-subtle); color: var(--text-muted); }
+.panel button#p-send { flex: 0 0 auto; padding: 7px 13px; font-weight: 600; }
+.cm-foot { font-size: 10px; color: var(--text-muted); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   7. 分区带 ⑥ status bar —— 仿 VSCode 单行小字分段（origin · 探测 · LLM · 档 · 审计）
+   ───────────────────────────────────────────────────────────────────────────── */
+.p-statusbar {
+  flex: 0 0 auto;
+  display: flex; align-items: stretch; flex-wrap: nowrap;
+  overflow-x: auto; overflow-y: hidden;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-muted);
+  scrollbar-width: none;
+}
+.p-statusbar::-webkit-scrollbar { height: 0; }
+.sseg {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; flex: 0 0 auto; white-space: nowrap;
+}
+.sseg + .sseg { border-left: 1px solid var(--border); }
+.sseg b { color: var(--text); font-weight: 600; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   8. 命令面板（遮罩层，Ctrl+Shift+P）—— 承载「L3 实时投影 122 卡」
+      只读命令目录：不参与授权决策，因此允许覆盖式；确认卡/ask 卡绝不进遮罩。
+   ───────────────────────────────────────────────────────────────────────────── */
+.p-palette {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; flex-direction: column;
+  padding: 34px 10px 10px;
+  background: rgba(15, 23, 42, 0.5);
+}
+.p-palette[hidden] { display: none; }
+.palette-box {
+  display: flex; flex-direction: column; min-height: 0; max-height: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.palette-in {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 8px; border-bottom: 1px solid var(--border);
+}
+.palette-in input {
+  flex: 1 1 auto; min-width: 0;
+  font: inherit; font-size: 12.5px; padding: 5px 8px;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.palette-meta { padding: 4px 8px; font-size: 10px; color: var(--text-muted); background: var(--bg-subtle); border-bottom: 1px solid var(--border); line-height: 1.5; }
+.palette-list { list-style: none; margin: 0; padding: 4px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
+.palette-item { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; padding: 5px 6px; border-radius: var(--radius-sm); font-size: 11px; min-width: 0; }
+.palette-item[hidden] { display: none; }
+.palette-item[aria-selected="true"] { background: var(--accent-weak); }
+.palette-cmd { font-family: var(--mono); font-weight: 600; min-width: 0; }
+.palette-desc { color: var(--text-muted); flex: 1 1 auto; min-width: 0; }
+.palette-foot { padding: 5px 8px; font-size: 10px; color: var(--text-muted); border-top: 1px solid var(--border); background: var(--bg-subtle); line-height: 1.5; }
+.palette-empty { padding: 8px; font-size: 11px; color: var(--text-muted); }
+.palette-empty[hidden] { display: none; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   9. 演示状态机：.zb-* 控制「块级」显隐，.st-* 控制「行内」显隐
+      规则要点：每个 .st 元素必须列出它要在哪些状态下出现（class 即白名单）
+   ───────────────────────────────────────────────────────────────────────────── */
+.zb { display: none; }
+.panel[data-state="unauthorized"] .zb-unauthorized { display: flex; }
+.panel[data-state="probing"] .zb-probing { display: flex; }
+.panel[data-state="supported"] .zb-supported { display: flex; }
+.panel[data-state="working"] .zb-working { display: flex; }
+.panel[data-state="confirm"] .zb-confirm { display: flex; }
+.panel[data-state="unauthorized"] .st:not(.st-unauthorized),
+.panel[data-state="probing"] .st:not(.st-probing),
+.panel[data-state="supported"] .st:not(.st-supported),
+.panel[data-state="working"] .st:not(.st-working),
+.panel[data-state="confirm"] .st:not(.st-confirm) { display: none; }
+/* 命令提示只在「可输入」的状态出现（未授权 / 探测中不出现） */
+.panel[data-state="supported"] .p-hint.show,
+.panel[data-state="working"] .p-hint.show,
+.panel[data-state="confirm"] .p-hint.show { display: flex; }
+.panel[data-state="unauthorized"] .p-hint.show,
+.panel[data-state="probing"] .p-hint.show { display: none; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   10. 320px 让步（硬要求：320 下不破版）
+      让步清单：字号 → 12.5px；内边距 → 6–8px；图标按钮 → 24px；
+      状态栏 → 10px + 允许单行横向滚动；树缩进 → 8px；徽标 → 9.5px。
+      始终不删的区域：title / strip / chat / dock（含摘要行）/ composer / status bar 五段
+   ───────────────────────────────────────────────────────────────────────────── */
+.panel[data-w="320"] .p-title { padding: 6px 8px; }
+.panel[data-w="320"] .iconbtn { width: 24px; height: 24px; }
+.panel[data-w="320"] .p-name { font-size: 12px; }
+.panel[data-w="320"] .p-site { font-size: 10.5px; }
+.panel[data-w="320"] .p-strip { padding: 5px 8px; gap: 4px; font-size: 11px; }
+.panel[data-w="320"] .chip { font-size: 10px; padding: 1px 6px; }
+.panel[data-w="320"] .p-chat { padding: 10px 8px; }
+.panel[data-w="320"] .bubble { max-width: 100%; }
+.panel[data-w="320"] .tnode[aria-level="2"],
+.panel[data-w="320"] .tnode[aria-level="3"] { padding-left: 8px; }
+.panel[data-w="320"] .tsub, .panel[data-w="320"] .tclamp { padding-left: 17px; font-size: 10px; }
+.panel[data-w="320"] .badge { font-size: 9.5px; padding: 0 5px; }
+.panel[data-w="320"] .p-composer { padding: 6px 8px; }
+.panel[data-w="320"] .p-statusbar { font-size: 10px; }
+.panel[data-w="320"] .sseg { padding: 3px 6px; }
+.panel[data-w="320"] .p-menu { width: 216px; }
+.panel[data-w="320"] .p-palette { padding: 28px 6px 6px; }
+
+/* 无障碍与动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .panel *, .panel *::before, .panel *::after { animation: none !important; transition: none !important; }
+}
+/* 极窄视口（窗口本身很窄）下，隐藏示意「网页内容区」，让侧栏占满 */
+@media (max-width: 620px) {
+  .chrome-page { display: none; }
+  .chrome-body { justify-content: center; }
+  .chrome-side-note { display: none; }
+}
+/* ─────────────────────────────────────────────────────────────────────────────
+   11. 折叠箭头（CSS 驱动）· 流向容器 · 状态点配色
+   ───────────────────────────────────────────────────────────────────────────── */
+.disc-arrow { display: inline-block; transition: transform 0.15s ease; }
+[aria-expanded="false"] > .disc-arrow,
+[aria-expanded="false"] > .tdisc > .disc-arrow { transform: rotate(-90deg); }
+.p-dock-sum[aria-expanded="true"] .dock-chev { transform: rotate(90deg); }
+/* .flow 只提供流向，显隐交给第 9 节的 .zb 状态规则（避免 display 覆盖冲突） */
+.flow { flex-direction: column; gap: 10px; min-width: 0; }
+/* 状态点：颜色 + 相邻文字标签，任一单独维度都能读出状态 */
+.dot[data-tone="ok"] { color: var(--ok); }
+.dot[data-tone="warn"] { color: var(--warn-text); }
+.dot[data-tone="danger"] { color: var(--danger-text); }
+.dock-dot[data-tone="ok"] { color: var(--ok); }
+.dock-dot[data-tone="warn"] { color: var(--warn-text); }
+.dock-dot[data-tone="danger"] { color: var(--danger-text); }
+
+</style>
+</head>
+<body>
+<header class="hx">
+  <h1 class="hx-h1">web-cli plugin · 侧边栏布局重构 — 方案 A「单列分区带」</h1>
+  <p class="hx-sub">
+    模拟 Chrome 侧边栏（真实宽度约 320–560px，窄屏优先）。下面的控制条只用于演示：切主题、切宽度、切 5 种真实状态。
+    面板内所有内容均为静态设计稿，按真实产品事实填写，不含占位文案。
+  </p>
+  <div class="hx-ctl">
+    <div class="hx-group" role="group" aria-label="主题切换">
+      <span class="hx-lab">主题</span>
+      <button class="hx-btn" id="btn-theme-auto" type="button" aria-pressed="true">跟随系统</button>
+      <button class="hx-btn" id="btn-theme-light" type="button" aria-pressed="false">浅色</button>
+      <button class="hx-btn" id="btn-theme-dark" type="button" aria-pressed="false">深色</button>
+    </div>
+    <div class="hx-group" role="group" aria-label="宽度切换">
+      <span class="hx-lab">侧栏宽度</span>
+      <button class="hx-btn" id="btn-w320" type="button" aria-pressed="false">320</button>
+      <button class="hx-btn" id="btn-w400" type="button" aria-pressed="true">400（默认）</button>
+      <button class="hx-btn" id="btn-w520" type="button" aria-pressed="false">520</button>
+    </div>
+    <div class="hx-group" role="group" aria-label="状态切换">
+      <span class="hx-lab">状态</span>
+      <button class="hx-btn" id="btn-st-unauthorized" type="button" aria-pressed="false">① 未授权</button>
+      <button class="hx-btn" id="btn-st-probing" type="button" aria-pressed="false">② 探测中</button>
+      <button class="hx-btn" id="btn-st-supported" type="button" aria-pressed="true">③ supported 空闲</button>
+      <button class="hx-btn" id="btn-st-working" type="button" aria-pressed="false">④ 处理中</button>
+      <button class="hx-btn" id="btn-st-confirm" type="button" aria-pressed="false">⑤ 等待确认</button>
+    </div>
+  </div>
+  <p class="hx-note">
+    <b>本方案要解决的 5 个现状痛点</b>：① 顶部一条塞满设置/授权/撤销/重绑/审计/会话/分组 →
+    收进 ⋯ 菜单；② 连接树是「漂浮 FAB + 覆盖抽屉」<b>没有归属</b> → 改成<b>停靠区</b>（默认折叠成一行摘要，展开约占半屏，永不复盖聊天）；
+    ③ 底部层层堆叠（confirm / ask / notice / onboarding / consent 全推着输入框走）→ 各自归位；
+    ④ 没有状态栏 / 菜单栏 / 聊天区 / 输入区分层 → 6 条分区带；⑤ 122 张命令卡无处安放 → 命令面板遮罩层。
+    <br /><b>320px 让步</b>：字号降到 10–12.5px、内边距 6–8px、图标按钮 24px、树缩进 8px、底部状态栏 10px 且允许单行横向滚动；
+    <b>五个分区带与状态栏五段在 320px 下一个都不删</b>。
+  </p>
+</header>
+
+<div class="chrome">
+  <div class="chrome-tabbar">
+    <span class="chrome-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="chrome-tab" title="当前标签页">LGDL Workbench — localhost:5173</span>
+    <span class="chrome-side-note">右侧为 Chrome 侧边栏（web-cli plugin v0.8.0）</span>
+  </div>
+  <div class="chrome-body">
+    <div class="chrome-page" aria-hidden="true">网页内容区（示意）<br />—— 侧边栏停靠在此处右侧</div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         侧边栏面板本体：6 条纵向分区带，自上而下依次为
+         title bar → status strip → chat region → connection dock → composer → status bar
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="panel" id="panel" data-state="supported" data-w="400"
+         aria-label="web-cli plugin 侧边栏（方案 A 单列分区带）">
+
+      <!-- ═══ 分区带 ①：title bar（品牌 / 站点 / 图标工具栏 / ⋯ 菜单） ═══ -->
+      <div class="p-title">
+        <div class="p-brand">
+          <span class="p-logo" aria-hidden="true">
+            <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 7l5 5-5 5" /><path d="M13 17h6" />
+            </svg>
+          </span>
+          <span class="p-titles">
+            <span class="p-name">web-cli plugin</span>
+            <span class="p-site" id="title-site" title="当前活跃站点（侧栏跟随标签页）">LGDL Workbench · localhost:5173</span>
+          </span>
+        </div>
+
+        <div class="p-tools">
+          <button class="iconbtn" id="btn-settings" type="button" aria-label="打开设置" title="设置（LLM 配置 / 会话分组 / 标签页与隐私 / 能力权限 / 自动授权 / 诊断自检）">
+            <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3.2" />
+              <path d="M12 3.2v2.2M12 18.6v2.2M4.6 7.6l1.9 1.1M17.5 15.3l1.9 1.1M4.6 16.4l1.9-1.1M17.5 8.7l1.9-1.1" />
+            </svg>
+          </button>
+          <button class="iconbtn" id="btn-reprobe" type="button" aria-label="重新探测当前站点声明" title="重新探测（读取站点 web-cli 声明与工具面）">
+            <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 12a8 8 0 1 1-2.4-5.7" /><path d="M20 4.2v5h-5" />
+            </svg>
+          </button>
+          <button class="iconbtn" id="btn-audit" type="button" aria-label="查看审计（12 条）" title="查看审计（admin_audit-export；事件经既有 redact 掩码，零明文）">
+            <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 3.5h8l4 4v13H6z" /><path d="M9.5 11.5h5M9.5 15h3.5" />
+            </svg>
+            <span class="iconbtn-flag" aria-hidden="true">12</span>
+          </button>
+
+          <!-- ⋯ 菜单：撤销授权 / 重新绑定标签页 / 查看审计 / 会话切换 / 分组管理 -->
+          <span class="p-menu-wrap">
+            <button class="iconbtn" id="btn-more" type="button" aria-haspopup="true"
+                    aria-expanded="false" aria-controls="p-menu" aria-label="更多操作（撤销授权 / 重新绑定标签页 / 查看审计 / 会话切换 / 分组管理）"
+                    title="更多操作">
+              <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="6" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="18" cy="12" r="1.7" />
+              </svg>
+            </button>
+            <div class="p-menu" id="p-menu" hidden role="menu" aria-label="更多操作">
+              <span class="p-menu-title">授权与标签页</span>
+              <button type="button" role="menuitem" class="tctl-danger">撤销授权（当前 origin）</button>
+              <button type="button" role="menuitem">重新绑定当前标签页</button>
+              <button type="button" role="menuitem">查看审计 · 12 条</button>
+              <hr />
+              <span class="p-menu-title">会话切换</span>
+              <div class="p-session" role="listbox" aria-label="会话切换（同域名共用同一会话）">
+                <button type="button" role="option" aria-selected="true" aria-current="true">默认分组 · localhost:5173</button>
+                <button type="button" role="option" aria-selected="false">默认分组 · docs.example.com</button>
+                <button type="button" role="option" aria-selected="false">调试分组 · localhost:5174</button>
+              </div>
+              <hr />
+              <span class="p-menu-title">分组管理</span>
+              <div class="pm-row">
+                <input type="text" placeholder="新建分组名" aria-label="新建分组名" autocomplete="off" />
+                <button type="button">新建分组</button>
+              </div>
+              <div class="pm-row">
+                <select aria-label="选择目标分组">
+                  <option>默认分组</option>
+                  <option>调试分组</option>
+                </select>
+                <button type="button">把当前域名并入</button>
+              </div>
+              <p class="p-menu-note">分组只共享对话历史，<b>不代表互相授权</b>；每个站点仍需单独授权。</p>
+            </div>
+          </span>
+        </div>
+      </div>
+
+      <!-- ═══ 分区带 ②：status strip（origin · 探测状态 · LLM 状态） ═══ -->
+      <div class="p-strip" aria-label="状态条">
+        <span class="chip mono st st-supported st-working st-confirm" title="当前活跃站点 origin">http://localhost:5173</span>
+        <span class="chip mono st st-unauthorized" data-tone="warn" title="当前活跃站点 origin">http://localhost:5173</span>
+        <span class="chip mono st st-probing" title="当前活跃站点 origin">http://localhost:5173</span>
+
+        <span class="chip st st-supported st-working st-confirm" data-tone="ok">
+          <span class="dot" aria-hidden="true"></span>探测 supported
+        </span>
+        <span class="chip st st-probing">
+          <span class="dot" aria-hidden="true"></span>探测中…
+        </span>
+        <span class="chip st st-unauthorized" data-tone="warn">
+          <span class="dot" aria-hidden="true"></span>未授权
+        </span>
+
+        <span class="chip st st-supported st-working st-confirm" data-tone="ok">
+          <span class="dot" aria-hidden="true"></span>LLM 火山方舟 · deepseek-v3
+        </span>
+        <span class="chip st st-probing">LLM：检测中…</span>
+        <span class="chip st st-unauthorized" data-tone="ok">
+          <span class="dot" aria-hidden="true"></span>LLM 火山方舟 · deepseek-v3
+        </span>
+
+        <button class="btn-auth st st-unauthorized" type="button">授权当前站点</button>
+
+        <details class="strip-detail">
+          <summary>详情（声明 / 能力 / 策略）</summary>
+          <div class="strip-detail-body">
+            <span>站点：<b>LGDL Workbench</b> · 声明 <b>web-cli/0.2</b>（未支持 / 版本不兼容 / 声明缺失 会在此显示为可读原因）</span>
+            <span>能力权限：已授权 <b>2 / 4</b> —— <b>tabs</b>、<b>clipboard.write</b> 已授权；<b>bookmarks</b>、<b>clipboard.read</b> 未授权（可选权限，去设置开启）</span>
+            <span>策略档：读 <b>allow</b> · 写 <b>ask</b> · <b>evaluate</b> 硬底线 deny（不可覆盖）</span>
+          </div>
+        </details>
+      </div>
+      <!-- ═══ 分区带 ③：chat region（flex:1，全文唯一的滚动区） ═══ -->
+      <div class="p-chat" id="p-chat" role="log" aria-label="会话记录" aria-live="polite">
+
+        <!-- ① 未授权：不假装能用，给出原因与两条自救路径 -->
+        <div class="card card-info zb zb-unauthorized">
+          <span class="card-title">未授权当前站点</span>
+          <span class="card-note">
+            助手只能在已授权 origin 上执行命令。授权后仍按档位逐次确认（<b>allow / ask / deny</b>）；
+            硬底线（<code>evaluate</code> / 未授权 origin / 未知 risk）永不放行。
+          </span>
+          <span class="card-note">
+            可选权限（书签 / 下载记录 / 系统通知 / 剪贴板）未授权时，命令会返回可读提示「去设置开启」，
+            不会静默失败。
+          </span>
+          <div class="card-actions">
+            <button class="primary" type="button">授权当前站点</button>
+            <button type="button">重新绑定当前标签页</button>
+            <button type="button">去设置开启能力权限</button>
+          </div>
+        </div>
+
+        <!-- ② 探测中：骨架 + 说明（探测期间不执行任何命令） -->
+        <div class="card zb zb-probing">
+          <span class="card-title">正在探测站点声明…</span>
+          <span class="skeleton w92"></span>
+          <span class="skeleton w80"></span>
+          <span class="skeleton w60"></span>
+          <span class="card-note">
+            读取页面 <code>web-cli</code> 声明与工具面；探测期间<b>不执行任何命令</b>。
+            站点未支持时会给出可读原因与验证方式（<b>这不是故障</b>）。
+          </span>
+        </div>
+
+        <!-- ③④⑤ 聊天流：用户气泡 / 助手气泡 / 命令行 / 工具结果深色终端块 / amber 系统提示 -->
+        <div class="flow zb zb-supported zb-working zb-confirm">
+          <div class="entry msg-user">
+            <div class="bubble">帮我把工作台里的接口文档导出成 markdown</div>
+          </div>
+
+          <div class="entry msg-assistant">
+            <div class="bubble">
+              <p>好，我先读当前文档的节点结构，确认范围后再导出：</p>
+              <ol>
+                <li>用站点声明工具读取节点摘要（只读，<b>allow</b>）；</li>
+                <li>用 <code>export</code> 落盘为 markdown（写档 <b>ask</b>，执行前会二次确认）。</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="entry">
+            <div class="cmd">
+              <span class="cmd-prompt" aria-hidden="true">›</span>
+              <span class="cmd-text">site_lgdl-web-cli doc-info --doc api-spec</span>
+            </div>
+          </div>
+
+          <div class="entry">
+            <div class="tool">
+              <div class="tool-head">
+                <span class="tool-name">site_lgdl-web-cli doc-info</span>
+                <span class="tool-status" data-tone="ok">成功</span>
+                <span class="tool-ms">128 ms</span>
+                <span class="badge" data-layer="L3">L3</span>
+                <span class="badge" data-policy="allow">allow</span>
+                <span class="tool-preview">3 个顶层节点 · 12 个子节点 · 类型 api-spec</span>
+              </div>
+              <pre class="tool-body">{
+  "doc": "api-spec",
+  "nodeKinds": ["api", "schema", "note"],
+  "topLevel": [
+    { "id": "nd-1", "title": "接口总览", "kind": "api" },
+    { "id": "nd-2", "title": "鉴权与鉴权头", "kind": "api" },
+    { "id": "nd-3", "title": "错误码表", "kind": "note" }
+  ],
+  "childCount": 12,
+  "truncated": false,
+  "source": "site-declared page RPC"
+}</pre>
+            </div>
+          </div>
+
+          <div class="entry">
+            <div class="note">
+              注意：<code>export</code> 属写档（write）。当前策略档 <b>ask</b> → 12:04 你在确认卡点了「允许」；
+              本次写入 <code>api-spec.md</code>（1.8 KB），审计已记录（内容零明文）。
+            </div>
+          </div>
+        </div>
+
+        <!-- ④ 处理中：非流式 LLM 调用期间的诚实替代（思考点）+ 工具执行流 -->
+        <div class="flow zb zb-working">
+          <div class="entry msg-assistant">
+            <div class="bubble thinking" aria-label="助手正在执行工具调用">
+              <i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i>
+              <span style="font-size:11.5px;margin-left:4px">正在执行工具调用（第 2 / 12 轮）…</span>
+            </div>
+          </div>
+          <div class="entry">
+            <div class="tool">
+              <div class="tool-head">
+                <span class="tool-name">export</span>
+                <span class="tool-status" data-tone="run">执行中</span>
+                <span class="tool-ms">--</span>
+                <span class="badge" data-layer="L3">L3</span>
+                <span class="badge" data-policy="ask">ask</span>
+                <span class="tool-preview">--format markdown --scope top-level（写档，已确认）</span>
+              </div>
+              <pre class="tool-body">→ export --format markdown --scope top-level
+  · 解析节点 3 / 3
+  · 渲染 markdown 12.4 KB
+  · 写入 api-spec.md（页面上下文 anchor 下载链）
+  <span class="cursor" aria-hidden="true"></span></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ask-user 问答卡（AI 任务内澄清提问，与权限确认不同） -->
+        <div class="card zb zb-supported zb-working zb-confirm">
+          <span class="card-title">AI 任务内澄清提问：导出范围要包含哪些节点？</span>
+          <div class="card-actions">
+            <button type="button">全部节点（15）</button>
+            <button type="button">仅顶层接口（3）</button>
+            <button type="button">仅错误码表（1）</button>
+          </div>
+          <div class="card-actions">
+            <input type="text" placeholder="输入回答…" aria-label="回答 AI 的提问" autocomplete="off" />
+            <button type="button">回答</button>
+            <button type="button">取消</button>
+          </div>
+          <span class="card-note">取消 = 回答被取消（不代填默认值）；与权限确认卡是两条独立通道。</span>
+        </div>
+
+        <!-- ⑤ 等待确认：破坏性动作确认卡（sticky 贴聊天区底部，紧邻输入区，且不覆盖输入框） -->
+        <div class="card card-confirm pin zb zb-confirm">
+          <span class="card-title">敏感操作需二次确认</span>
+          <span class="card-note">
+            <code>bookmarks.remove</code> 将删除书签「LGDL 文档」，此操作不可撤销。
+          </span>
+          <span class="card-note">
+            处置档：<b>ask</b>（破坏性保底 ask，即使开启「写操作自动」也仍需确认）；目标 origin：<b>http://localhost:5173</b>。
+          </span>
+          <div class="card-actions">
+            <button type="button">拒绝</button>
+            <button class="primary" type="button">允许</button>
+            <span class="card-note">超时 / 取消 = 拒绝</span>
+          </div>
+        </div>
+      </div>
+      <!-- ═══ 分区带 ④：connection dock —— 连接树「停靠区」 ═══
+           ★ 现状是 #tree-fab（absolute FAB）+ #tree-drawer（absolute 覆盖式抽屉），
+             盖在聊天区上、没有固定归属；本方案改为**参与纵向 flex 流的停靠区**：
+             折叠 = 一行摘要；展开 = 约半屏（--dock-h）；树在内部滚动，永不复盖聊天。 -->
+      <section class="p-dock" id="p-dock" aria-label="连接树停靠区（默认折叠）">
+        <button class="p-dock-sum" id="p-dock-sum" type="button" aria-expanded="false" aria-controls="p-dock-body">
+          <span class="dock-chev disc-arrow" aria-hidden="true">▸</span>
+          <span class="dock-title">连接树</span>
+          <span class="dock-counts">站点 1 · 能力 2/4 已授权 · 命令 4 · LLM 1</span>
+          <span class="dock-dots">
+            <span class="dock-dot" data-tone="ok" title="站点：supported"><span class="dot" aria-hidden="true"></span>站点</span>
+            <span class="dock-dot" data-tone="warn" title="能力：bookmarks / clipboard.read 未授权"><span class="dot" aria-hidden="true"></span>能力 2</span>
+            <span class="dock-dot" data-tone="danger" title="命令：含 1 项硬底线（evaluate）"><span class="dot" aria-hidden="true"></span>命令 4</span>
+            <span class="dock-dot" data-tone="ok" title="LLM：已配置并测试通过"><span class="dot" aria-hidden="true"></span>LLM</span>
+          </span>
+        </button>
+
+        <div class="p-dock-body" id="p-dock-body" hidden>
+          <div class="dock-head">
+            <div class="dock-search">
+              <input type="text" placeholder="检索：站点 / 能力 / 命令 / LLM"
+                     aria-label="检索连接树（只读过滤，不改任何授权状态）" autocomplete="off" />
+            </div>
+            <p class="dock-count">
+              实时投影面 28 条目 / 94 子命令 = <b>122 卡</b> · 对账基线 <b>34 / 142</b>（来源 2ddc922）· 对账：无缺口
+            </p>
+            <p class="dock-note">
+              连接树是「可见 + 撤销 + 受硬底线约束的命令级覆盖」面，不是提权面：撤销 / 关断 = 收紧；
+              命令级覆盖 = 用户显式、被审计的放宽，硬底线不可覆盖。
+            </p>
+            <p class="dock-note dock-note-danger">
+              本区是<b>停靠区（docked）</b>，不是浮动抽屉：参与纵向布局，展开时压缩聊天区而<b>不覆盖</b>它。
+            </p>
+          </div>
+
+          <div class="dock-breadcrumb" role="navigation" aria-label="当前节点层级路径">
+            连接树 › 命令处置档 › dom › dom.click
+          </div>
+
+          <!-- 动作成功后的回执三件套：①回执摘要 ②重拉实测工具面证据 ③审计导出入口 -->
+          <div class="receipt" role="status" aria-label="最近一次动作的回执三件套">
+            <span class="receipt-line" data-kind="ok">① 已撤销 <span class="mono">clipboard.write</span>：剪贴板写能力已移出工具面（审计已记录，零明文）</span>
+            <span class="receipt-evidence">② 重拉实测：<span class="mono">clipboard</span> 已不在工具面（deriveTools）——已移除；实测时刻 12:04:15</span>
+            <span class="receipt-evidence">
+              ③ 审计导出入口：在侧栏「查看审计」或经既有 <span class="mono">admin_audit-export</span> 查看本次撤销 / 关断事件
+              （事件经既有 redact 掩码，零明文）。
+            </span>
+            <span class="card-actions"><button class="tctl" type="button">导出审计</button></span>
+          </div>
+
+          <!-- 真层级树：站点 → 声明 → 工具 / 能力 → 子命令 / 命令档 → 子命令 / LLM -->
+          <ul class="tree" role="tree" aria-label="连接树：站点 / 浏览器能力 / 命令处置档 / LLM 连接">
+
+            <!-- ══ 维度 1：站点 ══ -->
+            <li class="tnode" role="treeitem" aria-level="1" aria-expanded="true" tabindex="-1">
+              <div class="trow">
+                <button class="tdisc" type="button" aria-expanded="true" aria-controls="tw-site" data-tw="#tw-site" aria-label="收起「站点」子节点">
+                  <span class="disc-arrow" aria-hidden="true">▾</span>
+                </button>
+                <span class="tname">站点</span>
+                <span class="tval">http://localhost:5173</span>
+                <span class="chip mono" data-tone="ok">supported</span>
+                <span class="tctls">
+                  <button class="tctl tctl-danger" type="button">撤销授权</button>
+                </span>
+              </div>
+              <p class="tsub">站点名 LGDL Workbench（声明缺失 / 版本不兼容 会在此显示为异常态）</p>
+
+              <ul class="tree-children" id="tw-site" role="group">
+                <li class="tnode" role="treeitem" aria-level="2" aria-expanded="true" tabindex="-1">
+                  <div class="trow">
+                    <button class="tdisc" type="button" aria-expanded="true" aria-controls="tw-decl" data-tw="#tw-decl" aria-label="收起「声明」子节点">
+                      <span class="disc-arrow" aria-hidden="true">▾</span>
+                    </button>
+                    <span class="tname">声明</span>
+                    <span class="tval">web-cli/0.2</span>
+                    <span class="chip" data-tone="ok">已声明</span>
+                  </div>
+                  <ul class="tree-children" id="tw-decl" role="group">
+                    <li class="tnode" role="treeitem" aria-level="3" tabindex="-1">
+                      <div class="trow">
+                        <span class="tdisc leaf" aria-hidden="true">·</span>
+                        <span class="tname mono">site_lgdl-web-cli</span>
+                        <span class="tval">17 子命令</span>
+                        <span class="badge" data-layer="L3">L3</span>
+                        <span class="badge" data-policy="allow">allow</span>
+                      </div>
+                      <p class="tsub">站点声明工具（页面 RPC）；示例：<code>doc-info</code>、<code>get-node</code>、<code>find-node</code></p>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+
+            <!-- ══ 维度 2：浏览器能力 ══ -->
+            <li class="tnode" role="treeitem" aria-level="1" aria-expanded="true" tabindex="-1">
+              <div class="trow">
+                <button class="tdisc" type="button" aria-expanded="true" aria-controls="tw-cap" data-tw="#tw-cap" aria-label="收起「浏览器能力」子节点">
+                  <span class="disc-arrow" aria-hidden="true">▾</span>
+                </button>
+                <span class="tname">浏览器能力</span>
+                <span class="tval">2 / 4 已授权</span>
+              </div>
+
+              <ul class="tree-children" id="tw-cap" role="group">
+                <li class="tnode" role="treeitem" aria-level="2" aria-expanded="true" tabindex="-1">
+                  <div class="trow">
+                    <button class="tdisc" type="button" aria-expanded="true" aria-controls="tw-tabs" data-tw="#tw-tabs" aria-label="收起「tabs」子节点">
+                      <span class="disc-arrow" aria-hidden="true">▾</span>
+                    </button>
+                    <span class="tname mono">tabs</span>
+                    <span class="chip" data-tone="ok">已授权</span>
+                    <span class="badge" data-policy="allow">allow</span>
+                  </div>
+                  <p class="tsub"><code>list</code> 默认只返回 origin + path（去掉 query / fragment）；<code>close</code> 需确认且一次只关一个</p>
+                  <ul class="tree-children" id="tw-tabs" role="group">
+                    <li class="tnode" role="treeitem" aria-level="3" tabindex="-1">
+                      <div class="trow">
+                        <span class="tdisc leaf" aria-hidden="true">·</span>
+                        <span class="tname mono">tabs.close</span>
+                        <span class="badge" data-layer="L3">L3</span>
+                        <span class="badge" data-policy="ask">ask</span>
+                      </div>
+                      <p class="tsub">破坏性：关闭不可逆，确认摘要含标题 + 去参 URL；若目标是侧栏所在页面，侧栏会一并关闭</p>
+                    </li>
+                  </ul>
+                </li>
+
+                <li class="tnode" role="treeitem" aria-level="2" tabindex="-1">
+                  <div class="trow">
+                    <span class="tdisc leaf" aria-hidden="true">·</span>
+                    <span class="tname mono">bookmarks</span>
+                    <span class="chip" data-tone="warn">未授权</span>
+                    <span class="tval">可选权限 bookmarks</span>
+                    <span class="tctls"><button class="tctl" type="button">去设置开启</button></span>
+                  </div>
+                  <p class="tsub">未授权时命令返回可读提示「去设置开启」；<code>remove</code> 属破坏性，接入自动授权硬底线</p>
+                </li>
+
+                <li class="tnode" role="treeitem" aria-level="2" tabindex="-1">
+                  <div class="trow">
+                    <span class="tdisc leaf" aria-hidden="true">·</span>
+                    <span class="tname mono">clipboard.read</span>
+                    <span class="chip" data-tone="danger"><span class="dot" aria-hidden="true"></span>deny</span>
+                    <span class="badge" data-policy="deny">deny</span>
+                    <span class="tval">state 档 · 只可收紧</span>
+                  </div>
+                  <p class="tclamp">state 档（如剪贴板读取）：只可收紧不可放宽 —— 隐私敏感，读默认关，永不自动放行。</p>
+                </li>
+
+                <li class="tnode" role="treeitem" aria-level="2" tabindex="-1">
+                  <div class="trow">
+                    <span class="tdisc leaf" aria-hidden="true">·</span>
+                    <span class="tname mono">clipboard.write</span>
+                    <span class="chip" data-tone="ok">已授权</span>
+                    <span class="badge" data-policy="ask">ask</span>
+                  </div>
+                  <p class="tsub">写剪贴板需确认；内容零审计明文（只记长度）</p>
+                </li>
+              </ul>
+            </li>
+
+            <!-- ══ 维度 3：命令处置档 ══ -->
+            <li class="tnode" role="treeitem" aria-level="1" aria-expanded="true" tabindex="-1">
+              <div class="trow">
+                <button class="tdisc" type="button" aria-expanded="true" aria-controls="tw-cmd" data-tw="#tw-cmd" aria-label="收起「命令处置档」子节点">
+                  <span class="disc-arrow" aria-hidden="true">▾</span>
+                </button>
+                <span class="tname">命令处置档</span>
+                <span class="tval">硬底线 1 项</span>
+              </div>
+
+              <ul class="tree-children" id="tw-cmd" role="group">
+                <li class="tnode" role="treeitem" aria-level="2" aria-expanded="true" tabindex="-1">
+                  <div class="trow">
+                    <button class="tdisc" type="button" aria-expanded="true" aria-controls="tw-dom" data-tw="#tw-dom" aria-label="收起「dom」子节点">
+                      <span class="disc-arrow" aria-hidden="true">▾</span>
+                    </button>
+                    <span class="tname mono">dom</span>
+                    <span class="tval">30 子命令 · ui 档 · 三档可用</span>
+                    <span class="badge" data-layer="L3">L3</span>
+                    <span class="policy-seg" role="group" aria-label="dom 处置档（三档可用）">
+                      <button class="tctl" type="button" aria-pressed="true">allow</button>
+                      <button class="tctl" type="button" aria-pressed="false">ask</button>
+                      <button class="tctl tctl-locked" type="button" aria-pressed="false">deny</button>
+                    </span>
+                  </div>
+                  <p class="tsub">读态可放宽为 allow（用户显式、被审计）；放宽方向需显式确认</p>
+                  <ul class="tree-children" id="tw-dom" role="group">
+                    <li class="tnode" role="treeitem" aria-level="3" tabindex="-1">
+                      <div class="trow">
+                        <span class="tdisc leaf" aria-hidden="true">·</span>
+                        <span class="tname mono">dom.click</span>
+                        <span class="badge" data-layer="L3">L3</span>
+                        <span class="badge" data-policy="ask">ask</span>
+                        <span class="badge">保底 ask</span>
+                        <span class="policy-seg" role="group" aria-label="dom.click 处置档（只可收紧）">
+                          <button class="tctl" type="button" aria-pressed="true">ask</button>
+                          <button class="tctl tctl-locked" type="button" aria-pressed="false">deny</button>
+                        </span>
+                      </div>
+                      <p class="tclamp">ui 档（如 dom click）：只可收紧不可放宽（allow 会被 clamp 回基线）；破坏性子命令另加保底 ask。</p>
+                    </li>
+                  </ul>
+                </li>
+
+                <li class="tnode" role="treeitem" aria-level="2" tabindex="-1">
+                  <div class="trow">
+                    <span class="tdisc leaf" aria-hidden="true"><svg class="lock-ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2" /><path d="M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5" /></svg></span>
+                    <span class="tname mono">evaluate</span>
+                    <span class="chip" data-tone="danger"><span class="dot" aria-hidden="true"></span>deny</span>
+                    <span class="badge" data-policy="deny">deny</span>
+                    <span class="badge">硬底线 · 不可覆盖</span>
+                  </div>
+                  <p class="tclamp">evaluate 硬底线：永不执行、永不自动放行（不可覆盖）—— 该行零控件。</p>
+                </li>
+              </ul>
+            </li>
+
+            <!-- ══ 维度 4：LLM 连接 ══ -->
+            <li class="tnode" role="treeitem" aria-level="1" tabindex="-1">
+              <div class="trow">
+                <span class="tdisc leaf" aria-hidden="true">·</span>
+                <span class="tname">LLM 连接</span>
+                <span class="tname mono">火山方舟（ark）</span>
+                <span class="tval">deepseek-v3</span>
+                <span class="chip" data-tone="ok">已配置 · 测试连接 1.2s OK</span>
+                <span class="tctls"><button class="tctl" type="button">断开</button></span>
+              </div>
+              <p class="tsub">maxRounds 1000 · baseURL 使用厂商默认；断开后工具面即时移除 LLM 相关能力（可在设置页重配）</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+      <!-- ═══ 分区带 ⑤：composer（命令面板入口 + 命令提示 + 多行输入 + 发送） ═══
+           现状把 confirm / ask / notice / onboarding / consent 全堆在这里；
+           现在这里只有 4 件事，输入框永远在同一个位置。 -->
+      <div class="p-composer">
+        <div class="cm-row">
+          <button class="ghost" id="btn-palette" type="button" aria-haspopup="dialog" aria-controls="p-palette">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 7l5 5-5 5" /><path d="M13 17h6" />
+            </svg>
+            命令面板
+          </button>
+          <span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">P</span>
+          <span class="cm-spacer"></span>
+          <span class="cm-policy">策略档：<b>ask</b></span>
+        </div>
+
+        <p class="cm-reason st st-unauthorized">未授权当前站点 —— 授权后才能发送指令（授权前助手不会执行任何命令）。</p>
+        <p class="cm-reason st st-probing">探测中…请稍候（探测期间不会执行任何命令）。</p>
+
+        <!-- 命令提示：输入为空或输入「/」时出现；命令名与处置档均为真实值 -->
+        <div class="p-hint show" id="p-hint" aria-label="命令提示（真实命令名与处置档）">
+          <div class="hint-row"><span class="hint-cmd">/dom</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span><span class="hint-desc">30 子命令 · 截图 / 点击 / 填表</span></div>
+          <div class="hint-row"><span class="hint-cmd">/chrome screenshot</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span><span class="hint-desc">页面可见区截图</span></div>
+          <div class="hint-row"><span class="hint-cmd">/site_lgdl-web-cli doc-info</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span><span class="hint-desc">站点声明：读节点摘要</span></div>
+          <div class="hint-row"><span class="hint-cmd">/export</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span><span class="hint-desc">写档：页面上下文 anchor 下载链</span></div>
+          <div class="hint-row"><span class="hint-cmd">/tabs close</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span><span class="hint-desc">破坏性：一次只关一个</span></div>
+          <div class="hint-row"><span class="hint-cmd">/bookmarks remove</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span><span class="hint-desc">破坏性保底 ask（需 bookmarks 权限）</span></div>
+          <div class="hint-row"><span class="hint-cmd">/clipboard.read</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="deny">deny</span><span class="hint-desc">state 档 · 只可收紧 · 读默认关</span></div>
+          <div class="hint-row"><span class="hint-cmd">/events pull-sensitive</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span><span class="hint-desc">write 档 · 需 --trusted true</span></div>
+          <div class="hint-row"><span class="hint-cmd">/evaluate</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="deny">deny</span><span class="hint-desc">硬底线：永不执行、永不自动放行</span></div>
+          <div class="hint-row"><span class="hint-cmd">/admin_audit-export</span><span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span><span class="hint-desc">导出审计（零明文）</span></div>
+          <div class="p-hint-foot">输入 <code>/</code> 过滤命令 · <b>Ctrl+Shift+P</b> 打开命令面板（L3 实时投影 122 卡）</div>
+        </div>
+
+        <form class="cm-form" id="p-form">
+          <textarea id="p-input" rows="2" placeholder="输入指令，例如：把右侧面板的配色改成深色（Enter 换行，Ctrl+Enter 发送）"
+                    aria-label="输入指令"></textarea>
+          <button class="primary" id="p-send" type="submit">发送</button>
+        </form>
+      </div>
+
+      <!-- ═══ 分区带 ⑥：status bar（仿 VSCode：origin · 探测 · LLM 模型 · 策略档 · 审计 n 条） ═══ -->
+      <div class="p-statusbar" id="p-statusbar" aria-label="状态栏">
+        <span class="sseg mono" title="当前活跃站点 origin">localhost:5173</span>
+        <span class="sseg" title="站点声明探测状态">
+          <span class="dot" data-tone="ok" aria-hidden="true"></span>
+          <span class="st st-supported st-working st-confirm">探测 supported</span>
+          <span class="st st-probing">探测中</span>
+          <span class="st st-unauthorized">未授权</span>
+        </span>
+        <span class="sseg" title="当前 LLM 连接（provider · model）">
+          <span class="st st-supported st-working st-confirm">LLM <b>deepseek-v3</b></span>
+          <span class="st st-probing">LLM 检测中</span>
+          <span class="st st-unauthorized">LLM <b>deepseek-v3</b> 已配置</span>
+        </span>
+        <span class="sseg" title="当前生效策略档">
+          <span class="st st-supported st-working st-confirm">策略档 <b>ask</b></span>
+          <span class="st st-probing">策略档 —</span>
+          <span class="st st-unauthorized">策略档 —（未授权）</span>
+        </span>
+        <span class="sseg" title="审计条数（admin_audit-export）">审计 <b>12</b> 条</span>
+      </div>
+
+      <!-- ═══ 命令面板遮罩层（Ctrl+Shift+P）：承载 122 卡命令目录，替代把它们塞进主界面 ═══ -->
+      <div class="p-palette" id="p-palette" hidden role="dialog" aria-modal="true" aria-label="命令面板">
+        <div class="palette-box">
+          <div class="palette-in">
+            <input id="p-palette-input" type="text" placeholder="输入命令 / 工具名 / 档位（如 dom、export、deny）"
+                   aria-label="筛选命令" autocomplete="off" />
+            <button id="p-palette-close" type="button" aria-label="关闭命令面板">关闭</button>
+          </div>
+          <p class="palette-meta" id="p-palette-count">
+            L3 实时投影 <b>122 卡</b> · L1 对账基线 <b>34 工具 / 142 子命令</b> · L2 豁免登记 <b>20 / 88</b>（当前列出 19 条示例）
+          </p>
+          <ul class="palette-list" id="p-palette-list" role="listbox" aria-label="命令列表">
+            <li class="palette-item" role="option" aria-selected="false" data-k="dom ui allow 子命令 点击 截图 dom.click">
+              <span class="palette-cmd">dom</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span>
+              <span class="palette-desc">30 子命令 · ui 档（只可收紧）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="dom.click 保底 ask 破坏性 ui">
+              <span class="palette-cmd">dom.click</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span>
+              <span class="palette-desc">破坏性保底 ask · 只可收紧</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="chrome screenshot 截图 可见区 ui allow">
+              <span class="palette-cmd">chrome screenshot</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span>
+              <span class="palette-desc">页面可见区截图</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="site_lgdl-web-cli 站点声明 doc-info allow 节点摘要">
+              <span class="palette-cmd">site_lgdl-web-cli doc-info</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span>
+              <span class="palette-desc">站点声明工具（页面 RPC）· 17 子命令</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="extract 抽取 采集 allow read">
+              <span class="palette-cmd">extract</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span>
+              <span class="palette-desc">页面数据抽取（共享 CollectBuffer）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="export 写档 导出 markdown ask anchor 下载链">
+              <span class="palette-cmd">export</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span>
+              <span class="palette-desc">写档：页面上下文 anchor 下载链</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="save 保存 下载 download ask 写档">
+              <span class="palette-cmd">save</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span>
+              <span class="palette-desc">写档：另存为 / 下载</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="tabs list 标签页 只读 origin path allow">
+              <span class="palette-cmd">tabs list</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span>
+              <span class="palette-desc">默认只返回 origin + path（去掉 query / fragment）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="tabs close 关闭标签页 破坏性 ask 不可逆">
+              <span class="palette-cmd">tabs close</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span>
+              <span class="palette-desc">破坏性 · 一次只关一个 · 不可逆</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="bookmarks remove 删除书签 破坏性 ask 保底">
+              <span class="palette-cmd">bookmarks remove</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span>
+              <span class="palette-desc">破坏性保底 ask（需 bookmarks 可选权限）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="downloads list 下载记录 只读 allow">
+              <span class="palette-cmd">downloads list</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span>
+              <span class="palette-desc">下载记录只读（不做取消 / 删除 / 打开）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="clipboard.read 剪贴板 读取 state 档 deny 只可收紧">
+              <span class="palette-cmd">clipboard.read</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="deny">deny</span>
+              <span class="palette-desc">state 档 · 只可收紧 · 读默认关，永不自动放行</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="clipboard.write 剪贴板 写入 ask 写">
+              <span class="palette-cmd">clipboard.write</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span>
+              <span class="palette-desc">写剪贴板（内容零审计明文）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="events pull-sensitive 事件 敏感 ask write trusted">
+              <span class="palette-cmd">events pull-sensitive</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="ask">ask</span>
+              <span class="palette-desc">write 档 · 需 --trusted true，未声明时不转发</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="wait 等待 allow read 轮询">
+              <span class="palette-cmd">wait</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="allow">allow</span>
+              <span class="palette-desc">等待条件满足（经 ops.waitFor）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="evaluate 硬底线 deny 不可覆盖 脚本">
+              <span class="palette-cmd">evaluate</span>
+              <span class="badge" data-layer="L3">L3</span><span class="badge" data-policy="deny">deny</span>
+              <span class="palette-desc">硬底线：永不执行、永不自动放行（不可覆盖）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="storage list 豁免 L2 页面宿主 不暴露">
+              <span class="palette-cmd">storage list</span>
+              <span class="badge" data-layer="L2">L2 豁免登记</span>
+              <span class="palette-desc">页面宿主自身存储 —— 不对 LLM 暴露（不适用）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="settings get 豁免 L2 delegated options 设置">
+              <span class="palette-cmd">settings get</span>
+              <span class="badge" data-layer="L2">L2 豁免登记</span>
+              <span class="palette-desc">由 options 页 + llm/key-store 承接（delegated）</span>
+            </li>
+            <li class="palette-item" role="option" aria-selected="false" data-k="eval-js 基线禁用 L1 enabled false 不提供">
+              <span class="palette-cmd">eval-js</span>
+              <span class="badge" data-layer="L1">L1 对账基线</span>
+              <span class="badge" data-policy="deny">deny</span>
+              <span class="palette-desc">基线即 enabled:false，从未在暴露面（不提供）</span>
+            </li>
+          </ul>
+          <p class="palette-empty" id="p-palette-empty" hidden>
+            没有匹配的命令。试试 <code>dom</code>、<code>export</code>、<code>clipboard</code>、<code>evaluate</code>、<code>bookmark</code>。
+          </p>
+          <p class="palette-foot">
+            输入即过滤（本稿只演示过滤，未实现上下键选择）；Esc 或「关闭」退出。
+            确认卡与提问卡<b>不会</b>出现在这里 —— 它们只走聊天区。
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- /panel -->
+  </div>
+  <!-- /chrome-body -->
+</div>
+<!-- /chrome -->
+
+<script>
+/* ─────────────────────────────────────────────────────────────────────────────
+   演示开关（非产品代码）：主题 / 宽度 / 状态 / 折叠 / 命令面板过滤。
+   产品实现应由 sidepanel.js + tree-drawer.ts 等既有模块驱动这些 DOM 契约
+   （data-state / data-w / aria-expanded / hidden）。
+   ───────────────────────────────────────────────────────────────────────────── */
+(function () {
+  var root = document.documentElement;
+  var panel = document.getElementById('panel');
+  var input = document.getElementById('p-input');
+  var hint = document.getElementById('p-hint');
+  var send = document.getElementById('p-send');
+  var form = document.getElementById('p-form');
+  var menu = document.getElementById('p-menu');
+  var moreBtn = document.getElementById('btn-more');
+  var dockSum = document.getElementById('p-dock-sum');
+  var dockBody = document.getElementById('p-dock-body');
+  var palette = document.getElementById('p-palette');
+  var palTrigger = document.getElementById('btn-palette');
+  var palInput = document.getElementById('p-palette-input');
+  var palEmpty = document.getElementById('p-palette-empty');
+  var palCount = document.getElementById('p-palette-count');
+  var palItems = Array.prototype.slice.call(document.querySelectorAll('#p-palette-list .palette-item'));
+
+  var PLACEHOLDER = '输入指令，例如：把右侧面板的配色改成深色（Enter 换行，Ctrl+Enter 发送）';
+  var BLOCKED = {
+    unauthorized: '先授权当前站点后才能发送指令',
+    probing: '探测中…请稍候（不会执行任何命令）'
+  };
+
+  /* ── 主题：跟随系统 / 浅色 / 深色 ── */
+  var themeBtns = {
+    auto: document.getElementById('btn-theme-auto'),
+    light: document.getElementById('btn-theme-light'),
+    dark: document.getElementById('btn-theme-dark')
+  };
+  function setTheme(mode) {
+    if (mode === 'auto') { root.removeAttribute('data-theme'); }
+    else { root.setAttribute('data-theme', mode); }
+    Object.keys(themeBtns).forEach(function (key) {
+      themeBtns[key].setAttribute('aria-pressed', key === mode ? 'true' : 'false');
+    });
+  }
+  themeBtns.auto.addEventListener('click', function () { setTheme('auto'); });
+  themeBtns.light.addEventListener('click', function () { setTheme('light'); });
+  themeBtns.dark.addEventListener('click', function () { setTheme('dark'); });
+
+  /* ── 宽度：320 / 400 / 520 ── */
+  var widthBtns = {
+    '320': document.getElementById('btn-w320'),
+    '400': document.getElementById('btn-w400'),
+    '520': document.getElementById('btn-w520')
+  };
+  function setWidth(w) {
+    panel.setAttribute('data-w', String(w));
+    Object.keys(widthBtns).forEach(function (key) {
+      widthBtns[key].setAttribute('aria-pressed', key === String(w) ? 'true' : 'false');
+    });
+  }
+  Object.keys(widthBtns).forEach(function (key) {
+    widthBtns[key].addEventListener('click', function () { setWidth(key); });
+  });
+
+  /* ── 状态：5 种真实状态（布局在每种状态下都成立） ── */
+  var stateBtns = {
+    unauthorized: document.getElementById('btn-st-unauthorized'),
+    probing: document.getElementById('btn-st-probing'),
+    supported: document.getElementById('btn-st-supported'),
+    working: document.getElementById('btn-st-working'),
+    confirm: document.getElementById('btn-st-confirm')
+  };
+  function setState(state) {
+    panel.setAttribute('data-state', state);
+    var blocked = Object.prototype.hasOwnProperty.call(BLOCKED, state);
+    input.disabled = blocked;
+    send.disabled = blocked;
+    input.setAttribute('placeholder', blocked ? BLOCKED[state] : PLACEHOLDER);
+    Object.keys(stateBtns).forEach(function (key) {
+      stateBtns[key].setAttribute('aria-pressed', key === state ? 'true' : 'false');
+    });
+  }
+  Object.keys(stateBtns).forEach(function (key) {
+    stateBtns[key].addEventListener('click', function () { setState(key); });
+  });
+
+  /* ── ⋯ 菜单 ── */
+  function setMenu(open) {
+    if (open) { menu.removeAttribute('hidden'); } else { menu.setAttribute('hidden', ''); }
+    moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  moreBtn.addEventListener('click', function () { setMenu(menu.hasAttribute('hidden')); });
+  document.addEventListener('click', function (ev) {
+    if (menu.hasAttribute('hidden')) { return; }
+    if (ev.target.closest('#p-menu') || ev.target === moreBtn) { return; }
+    if (ev.target.closest('#btn-more')) { return; }
+    setMenu(false);
+  });
+
+  /* ── 连接树停靠区：折叠 / 展开（默认折叠） ── */
+  dockSum.addEventListener('click', function () {
+    var open = dockBody.hasAttribute('hidden');
+    if (open) { dockBody.removeAttribute('hidden'); } else { dockBody.setAttribute('hidden', ''); }
+    dockSum.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  /* ── 树节点逐层展开（data-tw 通用开关，语义在 aria-expanded / role=treeitem） ── */
+  document.addEventListener('click', function (ev) {
+    var trg = ev.target.closest('[data-tw]');
+    if (!trg) { return; }
+    ev.preventDefault();
+    var tgt = document.querySelector(trg.getAttribute('data-tw'));
+    if (!tgt) { return; }
+    var open = tgt.hasAttribute('hidden');
+    if (open) { tgt.removeAttribute('hidden'); } else { tgt.setAttribute('hidden', ''); }
+    trg.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var li = trg.closest('li[role="treeitem"]');
+    if (li) { li.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+  });
+
+  /* ── 命令提示：输入为空或输入「/」时出现 ── */
+  function syncHint() {
+    var v = input.value.trim();
+    var show = (v === '') || (v.charAt(0) === '/');
+    hint.classList.toggle('show', show);
+  }
+  input.addEventListener('input', syncHint);
+
+  /* ── 命令面板：输入即过滤 ── */
+  function renderPalette() {
+    var q = palInput.value.trim().toLowerCase();
+    var shown = 0;
+    palItems.forEach(function (li) {
+      var hay = ((li.getAttribute('data-k') || '') + ' ' + li.textContent).toLowerCase();
+      var hit = (q === '') || (hay.indexOf(q) !== -1);
+      if (hit) { li.removeAttribute('hidden'); shown = shown + 1; } else { li.setAttribute('hidden', ''); }
+    });
+    if (shown === 0) { palEmpty.removeAttribute('hidden'); } else { palEmpty.setAttribute('hidden', ''); }
+    palCount.textContent = '匹配 ' + shown + ' / ' + palItems.length +
+      ' 条示例 · L3 实时投影 122 卡 · L1 对账基线 34 工具 / 142 子命令 · L2 豁免登记 20 / 88';
+  }
+  function openPalette() {
+    palette.removeAttribute('hidden');
+    palInput.value = '';
+    renderPalette();
+    palInput.focus();
+  }
+  function closePalette() {
+    palette.setAttribute('hidden', '');
+    palTrigger.focus();
+  }
+  palTrigger.addEventListener('click', openPalette);
+  document.getElementById('p-palette-close').addEventListener('click', closePalette);
+  palInput.addEventListener('input', renderPalette);
+  palette.addEventListener('click', function (ev) {
+    if (ev.target === palette) { closePalette(); }
+  });
+
+  /* ── 键盘：Ctrl/Cmd+Shift+P 开关命令面板；Esc 关闭 ── */
+  document.addEventListener('keydown', function (ev) {
+    var isKey = (ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === 'P' || ev.key === 'p');
+    if (isKey) {
+      ev.preventDefault();
+      if (palette.hasAttribute('hidden')) { openPalette(); } else { closePalette(); }
+      return;
+    }
+    if (ev.key === 'Escape') {
+      if (!palette.hasAttribute('hidden')) { closePalette(); return; }
+      if (!menu.hasAttribute('hidden')) { setMenu(false); return; }
+      if (!dockBody.hasAttribute('hidden')) {
+        dockBody.setAttribute('hidden', '');
+        dockSum.setAttribute('aria-expanded', 'false');
+      }
+    }
+  });
+
+  /* ── 表单：本稿不真的发送 ── */
+  form.addEventListener('submit', function (ev) { ev.preventDefault(); });
+  input.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); }
+  });
+
+  /* ── 初始态：跟随系统 / 400px / supported ── */
+  setTheme('auto');
+  setWidth(400);
+  setState('supported');
+  syncHint();
+})();
+</script>
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,3394 @@
+<!doctype html>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  web-cli plugin v0.8.0 · 侧边栏布局重构 · 方案 E
+  「渐进式披露 · 随用随取」（默认低密度 + 三层披露模型）
+  ═══════════════════════════════════════════════════════════════════════════
+
+  ┌─ ① 本稿主题与对 D 的自我修正（先把话说透） ─────────────────────────────┐
+  作者看完 D（v2）的反馈：「很直观的感受：你这个系统很复杂、很难用，信息密度太高了，
+  逻辑上应该是随用随取，所谓『渐进式披露』。」
+
+  我把上一轮的一句理解搞错了：把「所有的信息都是对用户可见的」读成了「同屏全展开」。
+  本稿把两个概念拆开，并且**明确推翻 D 的两条法则**：
+
+    · 「可见」（随时可查证、绝不偷偷发生）  → **保留**：这是安全与信任要求，一条都不放
+    · 「铺开」（同屏全展开、零折叠）        → **推翻**：这正是"复杂、难用"的来源
+
+  因此在本稿中：
+    · **D 的法则 4「信息全可见、无浮层 / 无折叠 / 无 ⋯ 菜单」作废** ——
+      E 允许就地展开（L1）与按需视图（L2），因为它们不是"藏起来"，而是
+      「摘要 + 计数 + 明确入口」，任何时候 ≤2 次交互可达。
+    · **D 的法则 5「连接树常驻」作废** —— 全局连接树在 E 里是 L2 按需视图，
+      L0 只保留「局部树（当前对象所在 2~3 个节点）」作为 L1 上下文。
+    · 被推翻的两条，替换为本稿的六条新法则（见 ③）。D 稿**保持原样**，
+      作为「高密度」对照物与 E 并排看；本稿还内置了一个「密度对照：全部展开」
+      开关，打开即在同一屏复现 D 那种全铺开形态，可直接感受差多少。
+
+  ┌─ ② 三层披露模型（本稿骨架） ────────────────────────────────────────────┐
+  L0 常驻（默认态，极简）—— 只回答三件事：
+     ① 我在哪：origin + 状态点（+ 站点名）
+     ② 是否安全 / 谁在管：策略档摘要一个徽标 + LLM 状态点一个徽标（常驻可见）
+     ③ 下一步做什么：**当前那一张决策卡**（问题 + ≤2 个推荐选项 + 「更多选项（还有 N 个）」）
+     另加：一个「从页面拾取」入口（替代输入框）+ 一行可点开的状态栏（含 L2 计数）
+  L1 就地展开（与当前任务强相关，点开即见、用完收起）：
+     状态与连接详情 · 选项的后果说明/影响预演 · 引用 chip 的证据（选择器 / 语义路径）·
+     局部树（当前对象所在 2~3 个节点）· 已决策历史 · 回执三件套的完整证据 ·
+     页面交互说明（手势表）· 「更多选项」里的其余选项
+  L2 按需视图（全局底账，用完即走）：
+     全局连接树（四维度）· 命令目录（122 卡 + L1/L2/L3）· 审计 · 设置
+     默认**一个都不出现**，只在状态栏留「计数 + 入口」；打开后是同一块内容区的视图替换
+     （不是浮层、不是第二个滚动容器），顶部有「← 返回」。
+
+  ┌─ ③ 六条新法则（逐条可验证） ────────────────────────────────────────────┐
+  1. 默认低密度：L0 首屏 **可点元素 ≤ 7 个**、可见正文 **不超过约 15 行**
+     （两条都在稿内**实时实测并显示**，见演示控制台右侧的「密度实测」条；
+       口径写死：可点元素 = 面板内非 hidden 子树中的 button/a/input/select/textarea/
+       带 tabindex 的元素；可见正文行数 = Σ 非 hidden 元素的自身文本字符数 ÷ 34，
+       34 = 320px 宽、13px 字体下每行约 34 字，属保守取整）。
+  2. 随用随取：任何 L1 / L2 内容都在 **≤2 次交互**内到达
+     （L1：1 次点击展开入口；L2：点状态栏展开入口面板 → 点具体入口 = 2 次）。
+  3. 可发现性硬约束（防止"藏起来找不到"）：**凡被收起的，必须自带摘要/计数 + 明确入口**。
+     本稿逐条落实：还有 N 个选项 / 引用 3 个 / 已决策 4 步 / 树 4 维 / 命令 122 /
+     审计 12 / 设置各分区 / 9 个树内动作 / 回执三件套剩余 2 件 —— 全部有计数或摘要。
+     **禁止无线索的隐藏**：不存在只有图标没有文字的折叠入口。
+  4. ⚠️ 风险与状态永不折叠（本稿最重要的**安全规则**）：
+     以下五类信息**必须出现在 L0**，不得以"简洁"为理由收进任何展开层 ——
+       (a) 未授权（S1 fail-closed deny）
+       (b) 探测中（正在读声明，不发命令）
+       (c) 硬底线被拦（evaluate 等：永不执行、永不自动放行，且**不提供「允许」**）
+       (d) 破坏性动作确认（书签删除等：确认选项**不折叠**，全部直接可见）
+       (e) 引用对象已失效（页面重渲染导致目标消失）
+     实现方式：这些信息住在 `#risk-rail`（常驻、不参与任何展开/收起），
+     破坏性确认卡整体不参与「更多选项」折叠；稿内可验证：切到「等待确认」状态时，
+     风险行与确认选项仍在 L0；把任一 L1/L2 全部收起，风险行不受影响。
+  5. 保留 D 的内核（三条不变）：
+     ① **主界面无常驻输入框** —— 意图靠**页面拾取**产生（"指"比"描述"轻）；
+        自由文本只在选项组最后一项「其他…（我来描述）」的兜底输入框里，用完即收。
+     ② **每个回合一道选择题**，2~5 个选项，**末项固定「其他…（我来描述）」**。
+     ③ **页面即输入**：Alt 悬停拾取 / Alt 拖动入侧栏 / 右键引用 / 拖选文本 → 生成引用 + 选择题。
+  6. 展开状态一致性 + 记忆：所有展开都用同一套「折叠器」视觉语言（caret + 主色边 + 摘要行），
+     同一位置规则一致；展开状态写入内存表，切到 L2 视图再回来仍然保持原状；
+     收起的内容一律用 `hidden` 属性（不是视觉隐藏），`aria-expanded` + `aria-controls` 成对出现。
+
+  ┌─ ④ 复杂度来源诊断：D 里「属于 L2 却常驻」的东西，一年会用几次？ ─────────┐
+  | D 里常驻的东西                    | 使用频率（一年估计）        | 判定 | E 里放到哪 |
+  | …                                 | …                           | …    | …         |
+  | 四维度全局连接树（含每层控件）     | 绑定/撤销/排障时用，约 5~20 次 | L2   | L2 视图「全局连接树」；L0 只留局部树 |
+  | 9 个树内动作白名单（固定序列表）   | 查白名单约 1~3 次            | L2   | 全局树视图里一个折叠项（计数 9） |
+  | 命令目录 122 卡                   | 排查「这条命令什么档」约 10~30 次 | L2 | L2 视图「命令目录」；L0 只留计数 122 |
+  | L1/L2/L3 三层归档计数             | 对账/审计时看，约 2~6 次      | L2   | 命令目录视图内的一个计数行 |
+  | 硬底线判定链解释（evaluate 为什么）| 首次遇到时看，约 1~2 次       | L1   | 风险行常驻 L0（**不可折叠**）+ 解释在 L1 |
+  | 审计计数（12 条）                 | 每周 1~2 次                  | L2   | 状态栏计数 + L2 视图「审计」 |
+  | 回执三件套的完整证据（重拉/导出）  | 每次动作后 1 次 → 高频但瞬时   | L1   | 摘要常驻；证据与审计出口 1 次展开 |
+  | 设置项（LLM / 能力权限 / 自动授权 / 诊断） | 变更配置约 2~10 次      | L2   | L2 视图「设置」 |
+  | 「更多选项」（其余选项与后果说明） | 每题 1 次（选非推荐路径时）    | L1   | 当前题的「更多选项（还有 N 个）」 |
+  | 页面侧手势表（6+2 个手势）         | 学习期 2~3 次、之后靠肌肉记忆  | L1   | 页面交互说明（1 次展开） |
+  | 已决策的 4 个回合（含改选）        | 回退时用，约 1~3 次/任务      | L1   | 「已决策 4 步」一行 → 展开 |
+  结论：D 把「一年用 2~6 次的东西」和「每次任务都要用的当前决策」放在了同一个平面上，
+  所以显得复杂。E 把它们按使用频率分层：**高频在 L0，任务相关在 L1，底账在 L2**。
+
+  ┌─ ⑤ §2.4 风险永不折叠规则（复述，因为它是安全底线） ────────────────────┐
+  规则：未授权 / 探测中 / 硬底线被拦 / 破坏性确认 / 引用失效 —— 五类风险与状态信息
+        **必须在 L0 常驻可见**，不得收进 L1 或 L2，也不得因为「省地方」而改用 tooltip
+        或仅用颜色表达（必须文字 + 徽标 + 图标三通道）。
+  为什么：E 的全部理由是"少即是多"，而"少"最容易伤到的就是这些**低频但只要漏一次就出事**
+          的信息（未授权时以为能用、破坏性动作被折叠到看不见、硬底线被悄悄执行）。
+          所以：**密度可以让步，风险不让步**。这条规则优先于本稿其它所有规则。
+
+  ┌─ ⑥ 320px 取舍（本稿比 D 容易，说明"少即是多"怎么帮忙） ────────────────┐
+  · 侧栏宽度 320 / 400 / 520 只改侧栏；页面区永远保留（"页面即输入"，藏了就等于断了输入）。
+  · L0 在 320px 下**不需要删任何东西**：它本来就只有一个状态带 + 一张决策卡 + 一行状态栏，
+    所有内容都能换成单列 + 允许换行（状态带与状态栏 flex-wrap，徽标可换行）。
+  · 320px 的让步：决策卡的两个推荐选项改为整行（数字键徽标仍在行首）、
+    「更多选项」与摘要行字号 10.5px、状态带的 origin 用省略号截断（点击仍可看全文）、
+    展开层（L1）里的后果说明与证据块允许换行不截断；树缩进步长 8px（宽屏 12px）。
+  · 与 D 的对比：D 在 320px 要同时安顿「树 + 决策流 + 命令目录 + 状态栏」，
+    只能靠缩字号 / 缩进 / 内部滚动硬挤；E 因为默认只有一个决策卡，**天然不紧张** ——
+    这就是"少即是多"在窄屏上的直接收益。
+  · 320px 的取舍原则：**密度可以让步（字号、换行、省略号），层级不让步（风险不下沉、入口不消失）。**
+
+  ┌─ ⑦ 权限路线（沿用上一轮的结论） ───────────────────────────────────────┐
+  现实核对：manifest.json 静态权限 activeTab / scripting / storage / sidePanel / tabs，
+  可选权限 bookmarks / downloads / notifications / clipboardRead / clipboardWrite ——
+  **没有 contextMenus**。因此右键菜单继续走**路线 1：content script 自绘，零新增权限**，
+  并配同样的退让策略（只在已授权站点生效 / 菜单里保留「交给页面原生菜单」/ Esc 与点击空白即关）。
+  页面侧注入**只在「已授权站点」生效**（登记式零注入：绑定并授权后才注册 content script）。
+  E 对这条的体现：L0 只留一个「从页面拾取」入口；未授权 / 探测中时该入口禁用，
+  并在 L0 的风险行写明「页面侧零注入」，不出现任何拾取 UI。
+
+  ┌─ 自检 ────────────────────────────────────────────────────────────────┐
+  · 零外链：全部样式与图标内联（图标一律内联 SVG），无远程资源引用、无网络请求；
+    下载后双击即可打开，无需服务器、无构建。
+  · 内联 JS 仅用于演示：主题 / 侧栏宽度 / 5 状态 / 三层展开收起（含状态记忆）/
+    按需视图切换 / 密度对照开关与实时实测 / 页面侧拾取交互。
+  · 顶部「演示控制台」与底部「密度口径」不属于交付 UI。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web-cli plugin · 方案 E 渐进式披露（设计稿）</title>
+    <style>
+      /* ── 令牌 / 基础（与其它稿同源） ── */
+      :root {
+        color-scheme: light dark;
+
+        /* 面板内（与现状一致） */
+        --bg: #ffffff;
+        --bg-subtle: #f6f8fb;
+        --bg-elevated: #ffffff;
+        --text: #1e293b;
+        --text-muted: #64748b;
+        --border: #e5e9f0;
+        --border-strong: #cbd5e1;
+        --accent: #4f46e5;
+        --accent-weak: #eef2ff;
+        --accent-text: #4338ca;
+        --brand-a: #4f46e5;
+        --brand-b: #3b82f6;
+        --tool-bg: #0f172a;
+        --tool-text: #cbd5e1;
+        --tool-border: #1e293b;
+        --warn-bg: #fffbeb;
+        --warn-border: #fde68a;
+        --warn-text: #92400e;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --danger-border: #fecaca;
+        --danger-text: #991b1b;
+        --ok: #15803d;
+        --ok-bg: rgba(21, 128, 61, 0.12);
+        --accent-hover: #4338ca;
+        --warn: #92400e;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        --focus: 0 0 0 2px rgba(79, 70, 229, 0.35);
+
+        /* 演示舞台（面板之外，仅供评审） */
+        --stage-bg: #eceff5;
+        --stage-panel: #ffffff;
+        --stage-text: #334155;
+        --stage-muted: #64748b;
+        --stage-border: #d7dde8;
+        --page-bg: #f8fafc;
+
+        /* 版面尺寸（宽度切换器改写 --panel-w） */
+        --panel-w: 400px;
+        /* 连接树常驻区的最大高度（占面板高度的比例） */
+        /* 树缩进步长（320px 下改 8px） */
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) {
+          --bg: #0b1120;
+          --bg-subtle: #0f172a;
+          --bg-elevated: #101a30;
+          --text: #e2e8f0;
+          --text-muted: #94a3b8;
+          --border: #1e293b;
+          --border-strong: #334155;
+          --accent: #818cf8;
+            --accent-weak: #1e1b4b;
+          --accent-text: #c7d2fe;
+              --tool-bg: #050a16;
+          --tool-text: #cbd5e1;
+          --tool-border: #1e293b;
+          --warn-bg: #3b2f10;
+          --warn-border: #78500f;
+          --warn-text: #fcd34d;
+          --danger: #f87171;
+          --danger-bg: #3f1414;
+          --danger-border: #7f1d1d;
+          --danger-text: #fca5a5;
+          --ok: #4ade80;
+          --ok-bg: rgba(74, 222, 128, 0.14);
+          --accent-hover: #a5b4fc;
+          --warn: #fcd34d;
+          --stage-bg: #070b14;
+          --stage-panel: #0b1120;
+          --stage-text: #cbd5e1;
+          --stage-muted: #94a3b8;
+          --stage-border: #24304a;
+          --page-bg: #0d1424;
+        }
+      }
+
+      /* 手动深色（覆盖系统浅色） */
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0b1120;
+        --bg-subtle: #0f172a;
+        --bg-elevated: #101a30;
+        --text: #e2e8f0;
+        --text-muted: #94a3b8;
+        --border: #1e293b;
+        --border-strong: #334155;
+        --accent: #818cf8;
+        --accent-weak: #1e1b4b;
+        --accent-text: #c7d2fe;
+        --tool-bg: #050a16;
+        --tool-text: #cbd5e1;
+        --tool-border: #1e293b;
+        --warn-bg: #3b2f10;
+        --warn-border: #78500f;
+        --warn-text: #fcd34d;
+        --danger: #f87171;
+        --danger-bg: #3f1414;
+        --danger-border: #7f1d1d;
+        --danger-text: #fca5a5;
+        --ok: #4ade80;
+        --ok-bg: rgba(74, 222, 128, 0.14);
+        --accent-hover: #a5b4fc;
+        --warn: #fcd34d;
+        --stage-bg: #070b14;
+        --stage-panel: #0b1120;
+        --stage-text: #cbd5e1;
+        --stage-muted: #94a3b8;
+        --stage-border: #24304a;
+        --page-bg: #0d1424;
+      }
+
+      /* 手动浅色（覆盖系统深色） */
+      html[data-theme="light"] { color-scheme: light; }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      /* 演示开关用 hidden 切显隐：必须有 !important 才不会被 display:flex 反超 */
+      [hidden] { display: none !important; }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--stage-bg);
+        color: var(--stage-text);
+        overflow-wrap: anywhere;
+      }
+
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      /* ── 通用控件 ───────────────────────────────────────────────────── */
+      button {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 10px;
+        cursor: pointer;
+        max-width: 100%;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .mini-btn {
+        font-size: 10.5px;
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+      .muted { color: var(--text-muted); font-size: 11.5px; }
+      .hint { margin: 4px 0 0; color: var(--text-muted); font-size: 10.5px; line-height: 1.55; }
+      code { font-family: var(--mono); font-size: 11.5px; }
+      input, select, textarea {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 8px;
+        min-width: 0;
+        max-width: 100%;
+      }
+      input::placeholder, textarea::placeholder { color: var(--text-muted); }
+      input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; box-shadow: var(--focus); }
+
+      /* ── 风险 / 权限 / 层级 徽标（一律带文字，不靠颜色单独传达） ────── */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-subtle);
+        color: var(--text-muted);
+        font-size: 10.5px;
+        line-height: 1.65;
+        white-space: normal;
+      }
+      .badge.allow { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); font-weight: 600; }
+      .badge.ask { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); font-weight: 600; }
+      .badge.deny { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); font-weight: 600; }
+      .badge.floor { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); font-weight: 600; }
+      .badge.tighten { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); }
+      .badge.layer { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); font-family: var(--mono); }
+      .badge.perm { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); font-weight: 600; }
+      .badge.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
+      .badge.stale { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); }
+      .ico { width: 13px; height: 13px; flex: 0 0 auto; display: block; }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         2. 演示外壳（非交付 UI）：模拟浏览器窗口 = 左「宿主页面」+ 右「插件侧栏」
+            v2 变更：v1 是"居中的侧栏容器"（只演示侧栏，方案看起来像孤岛）；
+            v2 换成"窗口 + 页面 + 侧栏"，因为本方案的核心命题是
+            「页面就是输入设备」—— 意图从页面上"指"出来。
+         ═══════════════════════════════════════════════════════════════════ */
+      .stage {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 12px 36px;
+      }
+
+      .demo-bar {
+        width: 100%;
+        max-width: 1320px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 10px 18px;
+        padding: 10px 12px;
+        border: 1px dashed var(--stage-border);
+        border-radius: 10px;
+        background: var(--stage-panel);
+        color: var(--stage-text);
+      }
+      .demo-bar-title {
+        flex: 1 1 100%;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--stage-muted);
+      }
+      .demo-bar-title .demo-bar-note { font-weight: 400; font-size: 11px; }
+      .demo-bar-title a { color: var(--accent-text); }
+      .demo-group { display: flex; flex-direction: column; gap: 5px; }
+      .demo-group > .demo-label { font-size: 11px; font-weight: 600; color: var(--stage-muted); }
+      .seg {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 3px;
+        border: 1px solid var(--stage-border);
+        border-radius: 999px;
+        background: var(--stage-bg);
+      }
+      .seg [role="radio"] {
+        font: inherit;
+        font-size: 11.5px;
+        color: var(--stage-text);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      .seg [role="radio"]:hover { border-color: var(--accent); color: var(--accent-text); }
+      .seg [role="radio"][aria-checked="true"] {
+        background: linear-gradient(120deg, var(--brand-a), var(--brand-b));
+        color: #fff;
+        font-weight: 600;
+      }
+
+      /* ── 模拟浏览器窗口 ─────────────────────────────────────────────── */
+      .browser {
+        width: 100%;
+        max-width: 1320px;
+        height: min(880px, calc(100vh - 150px));
+        min-height: 640px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--stage-border);
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--stage-panel);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+      }
+      .browser-chrome {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 7px 10px 0;
+        background: var(--stage-bg);
+        border-bottom: 1px solid var(--stage-border);
+      }
+      .chrome-dots { display: flex; gap: 4px; padding-bottom: 7px; }
+      .chrome-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--stage-border); display: block; }
+      .chrome-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 11px;
+        border-radius: 8px 8px 0 0;
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        border-bottom-color: transparent;
+        font-size: 11px;
+        color: var(--stage-text);
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .chrome-url {
+        flex: 1 1 220px;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 7px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--stage-muted);
+      }
+      .chrome-url span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .browser-body { flex: 1 1 auto; min-height: 0; display: flex; align-items: stretch; }
+
+      /* ── 左：宿主页面（真实可拾取结构，无装饰占位） ─────────────────── */
+      .page-area {
+        position: relative;
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--page-bg);
+        border-right: 1px solid var(--stage-border);
+      }
+      .pickbar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        padding: 6px 9px;
+        background: var(--stage-panel);
+        border-bottom: 1px solid var(--stage-border);
+        font-size: 10.5px;
+        color: var(--stage-muted);
+      }
+      .pick-state {
+        font-weight: 700;
+        padding: 1px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--stage-border);
+        background: var(--stage-bg);
+        color: var(--stage-text);
+      }
+      .pick-state[data-on="true"] { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); }
+      .pick-btn {
+        font: inherit;
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 2px 9px;
+        border-radius: 999px;
+        color: var(--stage-text);
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        cursor: pointer;
+      }
+      .pick-btn[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
+      .pick-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .pick-hints { display: flex; gap: 5px; flex-wrap: wrap; }
+      .pick-hint { padding: 1px 7px; border-radius: 999px; border: 1px dashed var(--stage-border); }
+      .pick-note { flex: 1 1 100%; font-size: 10.5px; color: var(--warn-text); }
+      .pick-note.ok { color: var(--ok); }
+      .page-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        padding: 14px 16px 64px;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--stage-text);
+      }
+      .page-area.picking .page-scroll { cursor: crosshair; }
+      .page-area.picking .page-scroll [data-pickable] { cursor: crosshair; }
+
+      /* 页面内容（LGDL Workbench 接口文档样例） */
+      .doc-h1 { margin: 0 0 4px; font-size: 17px; letter-spacing: 0.2px; }
+      .doc-meta { margin: 0; font-size: 11px; color: var(--stage-muted); }
+      .doc-nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; padding: 0; list-style: none; }
+      .doc-nav li { font-size: 11px; }
+      .doc-nav button {
+        font: inherit;
+        font-size: 11px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--stage-border);
+        background: var(--stage-panel);
+        color: var(--stage-muted);
+        cursor: pointer;
+      }
+      .doc-h2 { margin: 16px 0 6px; font-size: 13px; }
+      .doc-p { margin: 4px 0; font-size: 11.5px; }
+      .doc-toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 10px 0 4px; }
+      .doc-btn {
+        font: inherit;
+        font-size: 11.5px;
+        padding: 4px 11px;
+        border-radius: 7px;
+        border: 1px solid var(--stage-border);
+        background: var(--stage-panel);
+        color: var(--stage-text);
+        cursor: pointer;
+      }
+      .doc-btn.primary {
+        background: linear-gradient(120deg, var(--brand-a), var(--brand-b));
+        border-color: transparent;
+        color: #fff;
+        font-weight: 600;
+      }
+      .doc-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      .doc-table th, .doc-table td { border: 1px solid var(--stage-border); padding: 4px 7px; text-align: left; }
+      .doc-table thead th { background: rgba(100, 116, 139, 0.1); }
+      .doc-table code { font-family: var(--mono); font-size: 10.5px; }
+      .doc-code {
+        margin: 4px 0;
+        padding: 8px 10px;
+        border: 1px solid var(--stage-border);
+        border-radius: 8px;
+        background: var(--stage-panel);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        line-height: 1.6;
+        white-space: pre;
+        overflow: auto;
+      }
+      .doc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+      .doc-card { border: 1px solid var(--stage-border); border-radius: 10px; padding: 8px 10px; background: var(--stage-panel); }
+      .doc-card h3 { margin: 0 0 3px; font-size: 12px; }
+      .doc-card p { margin: 0; font-size: 11px; color: var(--stage-muted); }
+      .doc-list { margin: 6px 0 0; padding-inline-start: 18px; font-size: 11.5px; }
+      .doc-list li { margin: 2px 0; }
+      @media (max-width: 1180px) {
+        .doc-nav { display: none; }
+        .doc-meta { font-size: 10.5px; }
+      }
+      @media (max-width: 1000px) {
+        .page-scroll { padding: 10px 10px 56px; }
+        .chrome-tab { display: none; }
+      }
+
+      /* ── 页面侧拾取图层（真实实现 = 固定定位图层 / 影子 DOM） ────────── */
+      [data-pickable] { position: relative; }
+      .pick-hl {
+        position: fixed;
+        z-index: 40;
+        pointer-events: none;
+        border: 2px solid var(--accent);
+        background: rgba(79, 70, 229, 0.14);
+        border-radius: 6px;
+      }
+      .pick-tag {
+        position: fixed;
+        z-index: 41;
+        pointer-events: none;
+        max-width: min(330px, 92vw);
+        padding: 6px 9px;
+        border-radius: 9px;
+        background: #0f172a;
+        color: #e2e8f0;
+        border: 1px solid #1e293b;
+        font-size: 10.5px;
+        line-height: 1.55;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      }
+      .pick-tag b { color: #a5b4fc; }
+      .pick-tag .pt-sel { font-family: var(--mono); color: #6ee7b7; }
+      .pick-tag .pt-dim { color: #94a3b8; }
+      .pick-plus {
+        position: fixed;
+        z-index: 43;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border-radius: 7px;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        line-height: 1;
+        color: #fff;
+        background: var(--accent);
+        border: 1px solid #fff;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+        cursor: pointer;
+      }
+      .sel-bubble {
+        position: fixed;
+        z-index: 44;
+        padding: 5px 10px;
+        border-radius: 999px;
+        color: #fff;
+        background: var(--accent);
+        border: 1px solid #fff;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 600;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+        cursor: pointer;
+      }
+      .drag-chip {
+        position: fixed;
+        z-index: 60;
+        pointer-events: none;
+        max-width: 260px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.32);
+      }
+      .busy-badge {
+        position: fixed;
+        z-index: 45;
+        pointer-events: none;
+        padding: 2px 9px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.28);
+      }
+      .ref-badge {
+        position: absolute;
+        top: -9px;
+        right: -9px;
+        z-index: 36;
+        min-width: 17px;
+        height: 17px;
+        padding: 0 4px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: #fff;
+        background: var(--accent);
+        border: 1px solid #fff;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+      }
+      .ref-badge.done { background: var(--ok); }
+      /* 执行可视化：描边闪动 + 已处理 */
+      [data-pickable].is-busy { animation: pick-pulse 1.1s ease-in-out infinite; }
+      [data-pickable].is-done { box-shadow: 0 0 0 2px var(--ok); border-radius: 6px; }
+      [data-pickable].is-ref-flash { animation: pick-flash 0.9s ease-out 2; }
+      @keyframes pick-pulse {
+        0%, 100% { box-shadow: 0 0 0 2px var(--accent); }
+        50% { box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.18); }
+      }
+      @keyframes pick-flash {
+        0% { box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.35); }
+        100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+      }
+
+      /* ── 页面侧右键菜单（路线 1：content script 自绘，零新增权限） ──── */
+      .ctx-menu {
+        position: fixed;
+        z-index: 70;
+        min-width: 240px;
+        max-width: min(320px, 92vw);
+        padding: 5px;
+        border-radius: 10px;
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        box-shadow: 0 16px 36px rgba(15, 23, 42, 0.3);
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        font-size: 11.5px;
+      }
+      .ctx-title { padding: 3px 8px 4px; font-size: 10px; color: var(--stage-muted); }
+      .ctx-menu [role="menuitem"] {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        width: 100%;
+        text-align: left;
+        padding: 5px 8px;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--stage-text);
+        font: inherit;
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+      .ctx-menu [role="menuitem"]:hover { background: var(--accent-weak); border-color: var(--accent); }
+      .ctx-menu [role="menuitem"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-weak); }
+      .ctx-menu [role="menuitem"][aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+      .ctx-menu [role="menuitem"] .ctx-keys { margin-left: auto; font-family: var(--mono); font-size: 9.5px; color: var(--stage-muted); }
+      .ctx-menu [role="menuitem"] .ctx-why { display: block; font-size: 10px; color: var(--warn-text); }
+      .ctx-menu hr { border: 0; border-top: 1px solid var(--stage-border); margin: 3px 2px; }
+
+
+
+      /* ── 手势规格表（演示区，非交付 UI） ───────────────────────────── */
+      .spec { width: 100%; max-width: 1320px; }
+      .spec h2 { margin: 0 0 6px; font-size: 13px; color: var(--stage-muted); }
+      .spec-scroll { overflow-x: auto; }
+      .spec-table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 11px; color: var(--stage-text); }
+      .spec-table th, .spec-table td { border: 1px solid var(--stage-border); padding: 5px 7px; text-align: left; vertical-align: top; }
+      .spec-table thead th { background: rgba(100, 116, 139, 0.12); }
+      .spec-table td.done { color: var(--ok); font-weight: 700; white-space: nowrap; }
+      .spec-table td.plan { color: var(--stage-muted); white-space: nowrap; }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         5. E 侧栏面板：三层披露模型（L0 常驻 / L1 就地展开 / L2 按需视图）
+            统一折叠语言：.disclose + caret + 主色边；收起一律用 hidden 属性
+         ═══════════════════════════════════════════════════════════════════ */
+      .panel {
+        position: relative;
+        height: 100%;
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 7px 8px 6px;
+        background: var(--bg);
+        color: var(--text);
+        overflow-y: auto;          /* 单滚动容器：L0 不需要滚动，全部展开时才滚 */
+        overflow-x: hidden;
+      }
+
+      /* ── 统一折叠语言（法则 6） ─────────────────────────────────────── */
+      .disclose {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        text-align: left;
+        font-size: 11.5px;
+        color: var(--text);
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 5px 8px;
+        max-width: 100%;
+      }
+      .disclose:hover { border-color: var(--accent); color: var(--accent-text); }
+      .disclose[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); }
+      .disclose .caret { margin-left: auto; flex: 0 0 auto; color: var(--text-muted); font-size: 9px; }
+      .disclose[aria-expanded="true"] .caret { color: var(--accent-text); }
+      .l1 {
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+        padding: 7px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-size: 11px;
+        line-height: 1.6;
+        min-width: 0;
+      }
+      .l1-nested { border-style: dashed; background: var(--bg-elevated); }
+      .l1 dl { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+      .l1 dt { font-size: 10.5px; font-weight: 700; color: var(--text-muted); }
+      .l1 dd { margin: 0; }
+      ol.tight, ul.tight { margin: 0; padding-inline-start: 18px; font-size: 10.5px; }
+      ol.tight li, ul.tight li { margin: 2px 0; }
+
+      .sidebar {
+        flex: 0 0 auto;
+        width: var(--panel-w);
+        max-width: 100%;
+        min-width: 0;
+        display: flex;
+        position: relative;
+      }
+
+      /* ── L0：状态带 + 拾取入口 ─────────────────────────────────────── */
+      .l0-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
+      .status-band { flex: 1 1 190px; min-width: 0; }
+      .status-band .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+      .status-band .band-name { font-weight: 700; font-size: 11.5px; }
+      .status-band .band-origin {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-muted);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+      }
+      #panel[data-state="idle"] .status-band .dot { background: var(--ok); }
+      #panel[data-state="busy"] .status-band .dot { background: var(--accent); }
+      #panel[data-state="confirm"] .status-band .dot { background: var(--warn-text); }
+      #panel[data-state="probing"] .status-band .dot { background: transparent; border: 2px solid var(--accent); }
+      #panel[data-state="unauthorized"] .status-band .dot { background: var(--danger); }
+      .pick-entry {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 9px;
+        border-radius: 999px;
+        color: #fff;
+        background: var(--accent);
+        border: 1px solid var(--accent);
+      }
+      .pick-entry:hover:not(:disabled) { background: var(--accent-hover, #4338ca); color: #fff; }
+      .pick-entry[aria-pressed="true"] { background: var(--accent-weak); color: var(--accent-text); }
+      .pick-entry:disabled { opacity: 0.5; cursor: not-allowed; background: var(--bg-subtle); color: var(--text-muted); border-color: var(--border-strong); }
+
+      /* ── §2.4 风险位：永不折叠（常驻 L0，不参与任何展开/收起） ─────── */
+      .risk-rail { display: flex; flex-direction: column; gap: 4px; }
+      .risk {
+        margin: 0;
+        padding: 5px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 10.5px;
+        line-height: 1.6;
+        border: 1px solid;
+        border-left-width: 4px;
+      }
+      .risk-danger { color: var(--danger-text); background: var(--danger-bg); border-color: var(--danger-border); }
+      .risk-info { color: var(--accent-text); background: var(--accent-weak); border-color: var(--accent); }
+      .risk-warn { color: var(--warn-text); background: var(--warn-bg); border-color: var(--warn-border); }
+
+      /* ── L0：当前决策卡 ───────────────────────────────────────────── */
+      .decision { display: flex; flex-direction: column; gap: 6px; }
+      .q-card {
+        border: 1px solid var(--accent);
+        border-radius: var(--radius);
+        background: var(--bg-elevated);
+        padding: 8px 9px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+      }
+      .q-card.risk-open { border-color: var(--warn-border); background: var(--warn-bg); }
+      .q-card[data-stale="true"] { border-color: var(--warn-border); }
+      .q-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+      .q-num {
+        flex: 0 0 auto;
+        width: 19px;
+        height: 19px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 700;
+        background: var(--accent-weak);
+        color: var(--accent-text);
+        border: 1px solid var(--accent);
+      }
+      .q-tag { font-size: 10px; color: var(--text-muted); }
+      .q-ask { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.55; }
+      .q-decided {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        padding: 4px 7px;
+        border-radius: var(--radius-sm);
+        background: var(--ok-bg);
+        border: 1px solid var(--ok);
+        font-size: 11px;
+      }
+      .q-decided .chosen { font-weight: 700; color: var(--ok); min-width: 0; }
+      .opt-group { display: flex; flex-direction: column; gap: 4px; }
+      .opt-rest { display: flex; flex-direction: column; gap: 4px; }
+      .opt {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        width: 100%;
+        text-align: left;
+        padding: 5px 7px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--bg);
+        flex-wrap: wrap;
+        font-size: 11.5px;
+      }
+      .opt:hover:not([aria-disabled="true"]) { border-color: var(--accent); background: var(--accent-weak); }
+      .opt[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-weak); box-shadow: inset 0 0 0 1px var(--accent); }
+      .opt[aria-disabled="true"] { border-style: dashed; color: var(--text-muted); background: var(--bg-subtle); cursor: not-allowed; }
+      .opt-key {
+        flex: 0 0 auto;
+        width: 17px;
+        height: 17px;
+        border-radius: 5px;
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 700;
+        font-family: var(--mono);
+        background: var(--bg-subtle);
+        border: 1px solid var(--border-strong);
+        color: var(--text-muted);
+      }
+      .opt-main { flex: 1 1 120px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .opt-line { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
+      .opt-label { font-weight: 600; min-width: 0; }
+      .opt-badges { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+      .opt-cons { font-size: 10.5px; line-height: 1.6; color: var(--text-muted); }
+      .opt-input {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 5px 7px;
+        border: 1px dashed var(--accent);
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+      }
+      .opt-input input { flex: 1 1 110px; }
+      .more-opts { font-size: 10.5px; padding: 4px 8px; }
+      .impact-toggle { align-self: flex-start; }
+      .impact { font-size: 10.5px; }
+      .q-note {
+        margin: 0;
+        font-size: 10.5px;
+        line-height: 1.55;
+        color: var(--warn-text);
+        background: var(--warn-bg);
+        border: 1px solid var(--warn-border);
+        border-radius: var(--radius-sm);
+        padding: 4px 7px;
+      }
+      .empty-hint { margin: 0; font-size: 10.5px; color: var(--text-muted); }
+      .term {
+        margin: 0;
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
+        background: var(--tool-bg);
+        color: var(--tool-text);
+        border: 1px solid var(--tool-border);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        line-height: 1.6;
+        white-space: pre;
+        overflow: auto;
+        max-height: 170px;
+      }
+
+      /* ── L0：引用条（一行 + 计数；证据在 L1） ─────────────────────── */
+      .ref-line { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
+      .ref-line-btn { flex: 0 0 auto; font-size: 10.5px; padding: 4px 8px; }
+      .ref-line .muted { font-size: 10.5px; min-width: 0; }
+      .ref-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+      .ref-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: inherit;
+        font-size: 10.5px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        color: var(--text);
+        max-width: 100%;
+      }
+      .ref-chip .rc-num { font-weight: 700; color: var(--accent-text); }
+      .ref-chip .rc-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+      .ref-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); }
+      .ref-evidence { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+
+      /* ── L1：历史 / 回执 ─────────────────────────────────────────── */
+      .view-host { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+      .l0-flow { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+      /* L0「进展」行：一行摘要 + 计数，展开即见引用证据 / 回执 / 已决策历史 */
+      .progress-line { font-size: 11px; }
+      .history-block { display: flex; flex-direction: column; gap: 4px; }
+      .history-block .hint { margin: 0; }
+      #history-host { display: flex; flex-direction: column; gap: 6px; }
+      .receipt-slot { display: flex; flex-direction: column; gap: 4px; }
+      .receipt-min {
+        border: 1px solid var(--ok);
+        background: var(--ok-bg);
+        border-radius: var(--radius-sm);
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 11px;
+      }
+      .receipt-min .rm-title { font-weight: 700; color: var(--ok); }
+      .receipt-min .rm-sub { font-size: 10.5px; color: var(--text-muted); }
+      .receipt-evidence {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text);
+        background: var(--bg-elevated);
+        border: 1px solid var(--ok);
+        border-radius: var(--radius-sm);
+        padding: 5px 7px;
+        white-space: pre-wrap;
+      }
+
+      /* ── L2：按需视图 ────────────────────────────────────────────── */
+      .view-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        padding: 4px 6px;
+        border: 1px dashed var(--accent);
+        border-radius: var(--radius-sm);
+        background: var(--accent-weak);
+      }
+      .view-bar .view-name { font-size: 11.5px; font-weight: 700; color: var(--accent-text); }
+      .view { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+      .view-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+      .view-head h2 { margin: 0; font-size: 12.5px; }
+      .row-line { font-size: 11px; }
+      .node-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; font-size: 11px; }
+      .node-label { font-weight: 600; }
+      .node-sub { margin: 2px 0 0; font-size: 10.5px; color: var(--text-muted); line-height: 1.55; }
+      .node-controls { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+      .node-ctl {
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: var(--radius-sm);
+        color: var(--accent-text);
+        background: var(--accent-weak);
+        border: 1px solid var(--accent);
+      }
+      .node-ctl[aria-pressed="true"] { font-weight: 700; box-shadow: inset 0 0 0 1px var(--accent); }
+      .cmd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+      .cmd-card { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; }
+      .cmd-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+      .cmd-name { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+      .cmd-meta { margin: 0; font-size: 10px; color: var(--text-muted); }
+      .cat-ctl { display: flex; gap: 4px; flex-wrap: wrap; }
+      .cat-ctl button { font-size: 10px; padding: 2px 7px; border-radius: var(--radius-sm); color: var(--accent-text); background: var(--accent-weak); border: 1px solid var(--accent); }
+      .cat-ctl button[aria-pressed="true"] { font-weight: 700; box-shadow: inset 0 0 0 1px var(--accent); }
+      .cat-ctl button.floor { color: var(--danger-text); background: var(--danger-bg); border-color: var(--danger-border); }
+      .audit-list { margin: 0; padding-inline-start: 16px; font-size: 11px; }
+      .audit-list li { margin: 2px 0; }
+      .field { display: flex; flex-direction: column; gap: 2px; }
+      .field > label { font-size: 10.5px; font-weight: 700; color: var(--text-muted); }
+      .gesture-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+      .gesture-table th, .gesture-table td { border: 1px solid var(--border); padding: 3px 5px; text-align: left; vertical-align: top; }
+      .gesture-table thead th { background: var(--bg-elevated); }
+
+      /* ── L0：状态栏（一行 + 计数）与 L2 入口面板 ─────────────────── */
+      .statusbar { border-top: 1px solid var(--border); padding-top: 4px; }
+      .status-line {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        width: 100%;
+        font-size: 10.5px;
+        padding: 4px 7px;
+        background: var(--bg-subtle);
+      }
+      .status-line .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+      .status-line .sb-state { font-weight: 700; }
+      .status-line .sb-item b { color: var(--accent-text); }
+      .status-line .sb-hint { color: var(--text-muted); }
+      #panel[data-state="idle"] .status-line .dot { background: var(--ok); }
+      #panel[data-state="idle"] .status-line .sb-state { color: var(--ok); }
+      #panel[data-state="busy"] .status-line .dot { background: var(--accent); }
+      #panel[data-state="busy"] .status-line .sb-state { color: var(--accent-text); }
+      #panel[data-state="confirm"] .status-line .dot { background: var(--warn-text); }
+      #panel[data-state="confirm"] .status-line .sb-state { color: var(--warn-text); }
+      #panel[data-state="probing"] .status-line .dot { background: transparent; border: 2px solid var(--accent); }
+      #panel[data-state="probing"] .status-line .sb-state { color: var(--accent-text); }
+      #panel[data-state="unauthorized"] .status-line .dot { background: var(--danger); }
+      #panel[data-state="unauthorized"] .status-line .sb-state { color: var(--danger-text); }
+      .l2-entries { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; }
+      #panel[data-width="320"] .l2-entries { grid-template-columns: 1fr; }
+      .l2-entries .entry {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        justify-content: space-between;
+        font-size: 11px;
+        padding: 5px 7px;
+        text-align: left;
+      }
+      .l2-entries .entry span:first-child { font-weight: 600; }
+
+      /* ── 320px：只调密度，不动层级（风险不下沉、入口不消失） ─────── */
+      #panel[data-width="320"] { --radius: 10px; font-size: 12.5px; }
+      #panel[data-width="320"] .status-band { flex: 1 1 100%; }
+      #panel[data-width="320"] .pick-entry { flex: 1 1 100%; justify-content: center; }
+      #panel[data-width="320"] .opt { padding: 5px 6px; }
+      #panel[data-width="320"] .opt-cons { font-size: 10px; }
+      #panel[data-width="320"] .band-origin { max-width: 100%; }
+      #panel[data-width="320"] .ref-chip .rc-label { max-width: 120px; }
+      #panel[data-width="520"] .l2-entries { grid-template-columns: repeat(4, 1fr); }
+
+      /* ── 密度对照：全部展开（教学开关，用于与 D 对照） ────────────── */
+      .metrics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        font-size: 10.5px;
+        color: var(--stage-muted);
+      }
+      .metrics b { color: var(--stage-text); }
+      .metrics .m-ok { color: var(--ok); font-weight: 700; }
+      .metrics .m-warn { color: var(--warn); font-weight: 700; }
+      /* 拖动落点提示（P2 复用 v2 的机制） */
+      .drop-hint {
+        margin: 0 0 2px;
+        padding: 5px 8px;
+        border-radius: var(--radius-sm);
+        border: 1px dashed var(--accent);
+        background: var(--accent-weak);
+        color: var(--accent-text);
+        font-size: 10.5px;
+        font-weight: 600;
+        line-height: 1.55;
+      }
+      .sidebar.is-drop { outline: 2px dashed var(--accent); outline-offset: -4px; background: var(--accent-weak); }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <!-- ═══ 演示控制台（非交付 UI，仅供评审切换） ═══ -->
+      <nav class="demo-bar" aria-label="演示控制台（非交付 UI）">
+        <div class="demo-bar-title">
+          <span>演示控制台 · 方案 E（渐进式披露）</span>
+          <span class="demo-bar-note">
+            打开「密度对照：全部展开」即可在同一屏复现 D 的全铺开形态，直接对比两态密度 ·
+            区域索引：<a href="#region-top">状态带</a> / <a href="#l1-status">状态与连接</a> /
+            <a href="#decision">当前决策卡</a> / <a href="#region-statusbar">状态栏入口</a>
+          </span>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-state">站点状态（5 种）</span>
+          <div class="seg" id="state-switch" role="radiogroup" aria-labelledby="lb-state">
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-state-set="unauthorized">① 未授权</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-state-set="probing">② 探测中</button>
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-state-set="idle">③ supported 空闲</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-state-set="busy">④ 处理中</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-state-set="confirm">⑤ 等待确认</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-width">侧栏宽度</span>
+          <div class="seg" id="width-switch" role="radiogroup" aria-labelledby="lb-width">
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="320">320px</button>
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-width-set="400">400px</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="520">520px</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-theme">主题</span>
+          <div class="seg" id="theme-switch" role="radiogroup" aria-labelledby="lb-theme">
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-theme-set="auto">跟随系统</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-set="light">浅色</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-set="dark">深色</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label">密度对照（本稿关键交付）</span>
+          <button type="button" class="density-btn" id="density-toggle" aria-pressed="false">
+            密度对照：全部展开（复现 D 的形态）
+          </button>
+        </div>
+
+        <div class="demo-group metrics-group">
+          <span class="demo-label">密度实测（实时统计侧栏面板内非 hidden 内容；口径见页脚）</span>
+          <div class="metrics" id="metrics">
+            <span>可点元素 <b id="m-interactive">–</b> <span class="muted">/ L0 预算 7</span></span>
+            <span>可见正文 <b id="m-chars">–</b> 字 ≈ <b id="m-lines">–</b> 行 <span class="muted">/ 预算 15 行</span></span>
+            <span>文本块 <b id="m-blocks">–</b></span>
+            <span>常驻分区 <b id="m-regions">–</b></span>
+            <span id="m-verdict" class="m-ok">—</span>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ═══ 模拟浏览器窗口：左 = 宿主页面，右 = 插件侧栏 ═══ -->
+      <div class="browser" aria-label="模拟浏览器窗口（左：宿主页面 · 右：web-cli plugin 侧栏）">
+        <div class="browser-chrome">
+          <span class="chrome-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="chrome-tab">LGDL Workbench · 接口文档</span>
+          <span class="chrome-url" aria-label="地址栏"><span>http://localhost:5173/lgdl/docs</span></span>
+          <span class="chrome-tab">web-cli plugin（侧栏）</span>
+        </div>
+        <div class="browser-body">
+          <div class="page-area" id="page-area">
+            <div class="pickbar" role="region" aria-label="页面拾取状态">
+              <span class="pick-state" id="pick-state" data-on="false" role="status">拾取模式：关</span>
+              <span class="muted" data-when="idle busy confirm">手势：Alt 悬停 / Alt+拖动到侧栏 / 右键引用 / 拖选文本 / 双击 / 悬停 ⊕ —— 完整手势表在侧栏「页面交互说明」里</span>
+              <span class="pick-note" data-when="unauthorized probing">未授权站点：页面侧零注入 —— 不注册页面监听、不渲染拾取 UI、不拦截右键（登记式零注入）。</span>
+            </div>
+
+            <div class="page-scroll" id="page-scroll">
+              <article class="doc" aria-label="LGDL Workbench 接口文档（宿主页面样例）">
+                <header>
+                  <h1 class="doc-h1" data-pickable data-ref-kind="doc" data-pick-name="页面标题「LGDL Workbench · 接口文档」">LGDL Workbench · 接口文档</h1>
+                  <p class="doc-meta">站点声明 <code>web-cli/0.2</code> · 12 个接口节点 · 更新于 2026-09-12 14:12</p>
+                </header>
+
+                <ul class="doc-nav" aria-label="页内目录">
+                  <li><button type="button">概览</button></li>
+                  <li><button type="button">接口清单</button></li>
+                  <li><button type="button">声明片段</button></li>
+                  <li><button type="button">导出</button></li>
+                </ul>
+
+                <div class="doc-toolbar">
+                  <button
+                    type="button"
+                    class="doc-btn primary"
+                    id="p-export"
+                    data-pickable
+                    data-quick-ref="1"
+                    data-ref-kind="button"
+                    data-pick-name="「导出」按钮"
+                  >导出</button>
+                  <button type="button" class="doc-btn" data-pickable data-ref-kind="button" data-pick-name="「复制声明」按钮">复制声明</button>
+                  <button type="button" class="doc-btn" data-pickable data-ref-kind="button" data-pick-name="「刷新声明」按钮">刷新声明</button>
+                  <span class="doc-meta">3 个动作 · 导出会生成 markdown / json</span>
+                </div>
+
+                <h2 class="doc-h2">概览</h2>
+                <p class="doc-p" data-pickable data-ref-kind="doc" data-pick-name="概览段落">
+                  本页由 LGDL Workbench 在运行时注入接口文档：每个接口节点包含方法、路径、参数表与示例。
+                  插件绑定并对本站点授权后，页面侧才会注册拾取监听（未授权时页面完全不知道插件存在）。
+                </p>
+
+                <h2 class="doc-h2">接口清单</h2>
+                <table class="doc-table">
+                  <caption class="sr-only">接口清单</caption>
+                  <thead>
+                    <tr><th scope="col">方法</th><th scope="col">路径</th><th scope="col">说明</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr data-pickable data-ref-kind="doc" data-pick-name="端点行 GET /api/session" id="p-row-session">
+                      <td><code>GET</code></td><td><code>/api/session</code></td><td>会话信息</td>
+                    </tr>
+                    <tr data-pickable data-ref-kind="doc" data-pick-name="端点行 POST /api/chat">
+                      <td><code>POST</code></td><td><code>/api/chat</code></td><td>对话补全</td>
+                    </tr>
+                    <tr data-pickable data-ref-kind="doc" data-pick-name="端点行 GET /api/diagram">
+                      <td><code>GET</code></td><td><code>/api/diagram</code></td><td>图数据读取</td>
+                    </tr>
+                    <tr data-pickable data-ref-kind="doc" data-pick-name="端点行 POST /api/export">
+                      <td><code>POST</code></td><td><code>/api/export</code></td><td>导出任务提交</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <h2 class="doc-h2">站点声明片段</h2>
+                <pre class="doc-code" data-pickable data-ref-kind="doc" data-pick-name="站点声明代码块" id="p-code">declare site "LGDL Workbench" {
+  spec: "web-cli/0.2"
+  tools: 12            // 9 interface + 3 schema
+  export: ["markdown", "json"]
+  pickable: [".doc-card", "#p-export", "tbody tr"]   // 站点声明的可引用白名单
+}</pre>
+
+                <h2 class="doc-h2">文档卡片</h2>
+                <div class="doc-cards">
+                  <article class="doc-card" data-pickable data-quick-ref="1" data-ref-kind="doc" data-pick-name="文档卡片「会话」" id="p-card-session">
+                    <h3 data-pickable data-ref-kind="doc" data-pick-name="卡片标题「会话」">会话</h3>
+                    <p><code>/api/session</code> 返回当前工作台会话与 3 个标签页的绑定关系。</p>
+                  </article>
+                  <article class="doc-card" data-pickable data-ref-kind="doc" data-pick-name="文档卡片「图数据」">
+                    <h3 data-pickable data-ref-kind="doc" data-pick-name="卡片标题「图数据」">图数据</h3>
+                    <p><code>/api/diagram</code> 读取节点与边；保存走 <code>/api/diagram/save</code>。</p>
+                  </article>
+                  <article class="doc-card" data-pickable data-ref-kind="doc" data-pick-name="文档卡片「导出」">
+                    <h3 data-pickable data-ref-kind="doc" data-pick-name="卡片标题「导出」">导出</h3>
+                    <p>导出为 markdown 时会逐节点抓取定义；含子节点约 4.2KB。</p>
+                  </article>
+                </div>
+
+                <h2 class="doc-h2">下一步</h2>
+                <ul class="doc-list">
+                  <li data-pickable data-ref-kind="doc" data-pick-name="列表项「导出为 markdown」" data-quotable>导出为 markdown，并放进书签方便下次打开。</li>
+                  <li data-pickable data-ref-kind="doc" data-pick-name="列表项「只读预演」">先只做只读预演，确认影响范围再落盘。</li>
+                </ul>
+              </article>
+            </div>
+
+            <!-- 页面侧拾取图层（固定定位；真实实现 = 独立图层 / 影子 DOM，避免被页面样式污染） -->
+            <div class="pick-hl" id="pick-hl" hidden aria-hidden="true"></div>
+            <div class="pick-tag" id="pick-tag" hidden aria-hidden="true">
+              <div><b id="pick-tag-name">元素</b> <span class="pt-dim" id="pick-tag-kind">·</span></div>
+              <div><b id="pick-tag-path">路径</b></div>
+              <div><span class="pt-sel" id="pick-tag-sel">选择器</span></div>
+              <div class="pt-dim" id="pick-tag-text">文本摘要</div>
+              <div class="pt-dim">单击引用 · Alt+拖到侧栏 · Esc 退出</div>
+            </div>
+            <button type="button" class="pick-plus" id="pick-plus" hidden aria-label="引用此元素（加分手势 G2：悬停 600ms 出现）">＋</button>
+            <button type="button" class="sel-bubble" id="sel-bubble" hidden aria-label="引用选中内容">引用选中内容</button>
+            <div class="busy-badge" id="busy-badge" hidden aria-hidden="true">正在操作此处…</div>
+            <div class="drag-chip" id="drag-chip" hidden aria-hidden="true">引用：</div>
+
+            <!-- 页面侧右键菜单（路线 1：content script 自绘，零新增权限；见顶部注释 ⑥） -->
+            <div class="ctx-menu" id="ctx-menu" role="menu" aria-label="页面侧引用菜单（自绘，零新增权限）" hidden>
+              <span class="ctx-title" id="ctx-title">页面侧菜单 · 零新增权限</span>
+              <button type="button" role="menuitem" tabindex="-1" data-ctx="ref">
+                引用到 web-cli
+                <span class="ctx-keys">Alt+⇧+R</span>
+              </button>
+              <button type="button" role="menuitem" tabindex="-1" data-ctx="operate">
+                用这里作为操作目标
+                <span class="ctx-keys">Alt+⇧+T</span>
+              </button>
+              <button type="button" role="menuitem" tabindex="-1" data-ctx="selector" aria-disabled="true" aria-describedby="ctx-sel-why">
+                复制选择器
+                <span class="ctx-keys">Alt+⇧+C</span>
+              </button>
+              <span class="ctx-title" id="ctx-sel-why" style="padding: 0 8px 4px">
+                不可用：<code>clipboard.write</code> 已撤销（不在工具面）—— 见侧栏连接树 → clipboard
+              </span>
+              <button type="button" role="menuitem" tabindex="-1" data-ctx="ref-text" aria-disabled="true" aria-describedby="ctx-text-why">
+                引用选中文本
+                <span class="ctx-keys">Alt+⇧+S</span>
+              </button>
+              <span class="ctx-title" id="ctx-text-why" style="padding: 0 8px 4px">先在页面里拖选文字，此项才可用</span>
+              <button type="button" role="menuitem" tabindex="-1" data-ctx="pick-here">
+                在此处拾取…
+                <span class="ctx-keys">Alt</span>
+              </button>
+              <hr />
+              <button type="button" role="menuitem" tabindex="-1" data-ctx="native">
+                交给页面原生菜单
+                <span class="ctx-keys">Esc</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="sidebar" id="sidebar">
+            <div
+              class="panel"
+              id="panel"
+              data-width="400"
+              data-state="idle"
+              data-density="lean"
+              role="region"
+              aria-label="web-cli plugin 侧边栏（方案 E · 渐进式披露）"
+            >
+              <!-- 拖动落点提示（P2）：拖到侧栏时出现，松手即引用 -->
+              <p class="drop-hint" id="drop-hint" hidden>
+                松手即引用：把「<span id="drop-hint-name">元素</span>」加进引用，并生成一道选择题。
+              </p>
+            <!-- ═══════════════════════════════════════════════════════════
+                 L0：常驻极简区 —— 只回答 ①我在哪 ②谁在管 ③下一步做什么
+                 （可点元素预算 ≤7：状态带 / 从页面拾取 / 推荐选项×2 /
+                   「更多选项」/ 引用展开 / 状态栏展开）
+                 ═══════════════════════════════════════════════════════════ -->
+            <header class="l0-head" id="region-top">
+              <span class="sr-only">web-cli plugin 侧边栏（方案 E · 渐进式披露）</span>
+
+              <!-- L0-1 + L0-2：状态带。徽标常驻可见，共享一个展开入口（省下可点预算） -->
+              <button
+                type="button"
+                class="status-band disclose"
+                id="status-band"
+                aria-expanded="false"
+                aria-controls="l1-status"
+                data-disclose="l1-status"
+                aria-label="状态与连接详情：站点、策略档、LLM"
+              >
+                <span class="dot" aria-hidden="true"></span>
+                <span class="band-name">LGDL Workbench</span>
+                <span class="band-origin">http://localhost:5173</span>
+                <span class="badge" data-when="unauthorized">未授权</span>
+                <span class="badge" data-when="probing">探测中</span>
+                <span class="badge ok" data-when="idle busy confirm">supported</span>
+                <span class="badge">策略 ask 保底</span>
+                <span class="badge ok">LLM 1.2s OK</span>
+                <span class="caret" aria-hidden="true">▾</span>
+              </button>
+
+              <!-- L0：唯一的常驻入口（替代输入框）——意图从页面"指"出来 -->
+              <button type="button" class="pick-entry" id="pick-toggle" aria-pressed="false">
+                <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M8 2.5v7" /><path d="M5 6.5L8 9.5l3-3" /><path d="M3 12.5h10" />
+                </svg>
+                从页面拾取
+              </button>
+            </header>
+
+            <!-- L1：状态与连接（点状态带展开；含页面交互说明入口） -->
+            <div class="l1" id="l1-status" hidden>
+              <dl>
+                <div>
+                  <dt>站点</dt>
+                  <dd>http://localhost:5173 · LGDL Workbench · 声明 <code>web-cli/0.2</code> · <b>supported</b> · 12 个声明工具</dd>
+                </div>
+                <div>
+                  <dt>策略档</dt>
+                  <dd>
+                    <code>dom</code> 三档可用（当前 allow）· <code>dom.click</code> 保底 ask · <code>evaluate</code> 硬底线 deny（零控件）·
+                    ui / state / external 只可收紧 · 破坏性子命令保底 ask
+                  </dd>
+                </div>
+                <div>
+                  <dt>自动授权</dt>
+                  <dd>本站点：读操作自动 = 开 · 写操作自动 = 关（不含破坏性）· evaluate 与未授权站点永不自动放行</dd>
+                </div>
+                <div>
+                  <dt>LLM 连接</dt>
+                  <dd>火山方舟（ark）· deepseek-v3 · 已配置 · 测试连接 1.2s OK（不回显 key）</dd>
+                </div>
+              </dl>
+              <div class="row">
+                <button type="button" class="mini-btn disclose" data-disclose="l1-gestures" aria-expanded="false" aria-controls="l1-gestures">
+                  页面交互说明（8 个手势）
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <button type="button" class="mini-btn">重新测试连接</button>
+                <button type="button" class="mini-btn">断开 LLM（需确认）</button>
+              </div>
+              <!-- L1：页面交互（手势不占屏，收在这里；点开即见完整手势表） -->
+              <div class="l1 l1-nested" id="l1-gestures" hidden>
+                <table class="gesture-table">
+                  <caption class="sr-only">页面侧手势：触发 / 反馈 / 权限成本 / 冲突风险 / 降级</caption>
+                  <thead>
+                    <tr><th scope="col">手势</th><th scope="col">触发 → 反馈</th><th scope="col">权限</th><th scope="col">冲突 → 降级</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Alt 悬停拾取</th><td>按住 Alt 悬停 → 描边 + 语义路径/选择器标签</td><td>零</td><td>与页面 Alt 快捷键冲突 → 松开/ Esc 即退</td></tr>
+                    <tr><th scope="row">Alt + 拖动入侧栏</th><td>拾取态拖动 → 跟随胶囊；侧栏落点高亮「松手即引用」</td><td>零</td><td>与页面拖放冲突 → 仅拾取态接管 mousedown</td></tr>
+                    <tr><th scope="row">右键引用</th><td>contextmenu → 自绘菜单（含「交给原生菜单」出口）</td><td>零新增权限</td><td>劫持页面右键 → 已授权站点才拦截</td></tr>
+                    <tr><th scope="row">拖选文本</th><td>选中后松手 → 气泡「引用选中内容」</td><td>零（不读剪贴板）</td><td>与划词工具重叠 → 气泡 1.8s 自动淡出</td></tr>
+                    <tr><th scope="row">双击即引用</th><td>拾取态双击 / Shift+双击 → 同一条落地路径</td><td>零</td><td>会选中文字 → 需 Shift 或拾取态</td></tr>
+                    <tr><th scope="row">悬停 ⊕ 引用</th><td>悬停 600ms（站点白名单元素）→ 右上角 ⊕</td><td>零</td><td>密集页噪声 → 仅白名单 + 延迟 + 移开即消失</td></tr>
+                    <tr><th scope="row">长按 500ms（规格）</th><td>长按 → 高亮 + 两项动作</td><td>零（未实现）</td><td>与页面长按菜单冲突 → 仅触屏启用</td></tr>
+                    <tr><th scope="row">Alt+1~5 绑定第 N 个引用（规格）</th><td>Alt+数字 → 当前题标题追加「作用于 ③」</td><td>零（未实现）</td><td>与系统组合键冲突 → 退化为 Ctrl+Alt+数字</td></tr>
+                  </tbody>
+                </table>
+                <p class="hint">演示方式：点 L0 的「从页面拾取」进入拾取态，然后在左侧页面上悬停 / 拖动 / 右键 / 拖选文本。</p>
+              </div>
+            </div>
+
+            <!-- ═══ §2.4 风险位（永不折叠）：五类风险/状态信息常驻 L0 ═══ -->
+            <div class="risk-rail" id="risk-rail" role="status" aria-live="polite" aria-label="风险与状态（永不折叠）">
+              <p class="risk risk-danger" data-when="unauthorized">
+                <b>未授权</b>：授权前所有命令按 S1 判定 <b>fail-closed deny</b>（不执行、不静默失败）。页面侧零注入。
+              </p>
+              <p class="risk risk-info" data-when="probing">
+                <b>探测中</b>：正在读取站点声明（<code>web-cli/0.2</code>）；本阶段不发命令、不改授权。
+              </p>
+              <p class="risk risk-danger" data-when="confirm">
+                <b>破坏性待确认</b>：<code>bookmarks.remove</code> 将删除书签「LGDL 文档」，不可撤销 ——
+                确认选项<b>不折叠</b>，全部可见（见下方决策卡）。
+              </p>
+              <p class="risk risk-warn" data-when="idle busy confirm">
+                <b>硬底线拦下 1 条</b>：<code>evaluate</code> 永不执行、永不自动放行，<b>不提供「允许」选项</b>
+                （解释在「更多选项」里的影响预演）。
+              </p>
+              <p class="risk risk-warn" id="risk-ref-stale" hidden>
+                <b>引用已失效</b>：引用 ② 的目标元素已被页面重渲染移除；请重新拾取（或点引用条查看证据）。
+              </p>
+            </div>
+
+            <!-- ═══ L0-3：下一步做什么 —— 当前那一张决策卡（其余回合收在 L1 历史里） ═══ -->
+            <section class="decision" id="decision" aria-label="当前决策卡（L0：下一步做什么）">
+              <!-- 由 JS 把「当前题」搬进这里；下面这张是默认态（supported 空闲）的当前题 -->
+              <article class="q-card" id="q-ref-1" data-answered="false" data-when="idle busy confirm" data-for-ref="1">
+                <div class="q-head">
+                  <span class="q-num" aria-hidden="true">指</span>
+                  <span class="q-tag">引用题 · 来自页面</span>
+                  <span class="badge ok" data-chosen-badge hidden>已决策</span>
+                  <span class="badge" data-active-badge>当前题 · 数字键 1~2</span>
+                  <span class="badge" data-run-state hidden>进行中…</span>
+                  <span class="badge ok" data-done-state hidden>已完成 · 回执 dom.click → ok</span>
+                </div>
+                <p class="q-ask" id="q-ref-1-ask">
+                  引用 <b>[<span data-ref-num>①</span>]</b>「<b><span data-ref-slot>「导出」按钮</span></b>」：想对它做什么？
+                </p>
+                <div class="q-decided" hidden>
+                  <span class="chosen">已选：（等待你选择）</span>
+                  <button type="button" class="mini-btn" data-reselect="q-ref-1">改选</button>
+                </div>
+                <div class="opt-group" role="group" aria-labelledby="q-ref-1-ask">
+                  <button type="button" class="opt" data-exec="ref" aria-describedby="q-ref-1-c1">
+                    <span class="opt-key" aria-hidden="true">1</span>
+                    <span class="opt-main">
+                      <span class="opt-line">
+                        <span class="opt-label">点击它（<code>dom.click</code>）</span>
+                        <span class="opt-badges"><span class="badge ask">ask</span><span class="badge tighten">破坏性保底</span></span>
+                      </span>
+                      <span class="opt-cons" id="q-ref-1-c1" hidden>
+                        先给你确认摘要（目标元素 + 后果），确认后执行；页面里该元素显示「正在操作此处…」，
+                        完成后打「已处理 ✓」角标。即使开启「写操作自动」也不会自动放行。
+                      </span>
+                    </span>
+                  </button>
+                  <button type="button" class="opt" aria-describedby="q-ref-1-c2">
+                    <span class="opt-key" aria-hidden="true">2</span>
+                    <span class="opt-main">
+                      <span class="opt-line">
+                        <span class="opt-label">读取它的状态（<code>dom read-state</code>）</span>
+                        <span class="opt-badges"><span class="badge allow">allow</span><span class="badge">只读</span></span>
+                      </span>
+                      <span class="opt-cons" id="q-ref-1-c2" hidden>只读该元素的可见性 / 文案 / 是否禁用，不改变页面；无副作用。</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    class="more-opts disclose"
+                    data-disclose="q-ref-1-rest"
+                    aria-expanded="false"
+                    aria-controls="q-ref-1-rest"
+                  >
+                    更多选项（还有 2 个 · 含影响预演）
+                    <span class="caret" aria-hidden="true">▾</span>
+                  </button>
+                  <div class="opt-rest" id="q-ref-1-rest" hidden>
+                    <button type="button" class="opt" aria-describedby="q-ref-1-c3">
+                      <span class="opt-key" aria-hidden="true">3</span>
+                      <span class="opt-main">
+                        <span class="opt-line">
+                          <span class="opt-label">只把它当上下文，不操作</span>
+                          <span class="opt-badges"><span class="badge allow">allow</span><span class="badge">零命令</span></span>
+                        </span>
+                        <span class="opt-cons" id="q-ref-1-c3" hidden>引用只在对话上下文里生效（后续选择题可引用它的语义路径），不执行任何命令。</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="opt"
+                      aria-expanded="false"
+                      aria-controls="q-ref-1-input"
+                      data-opens-input="q-ref-1-input"
+                      aria-describedby="q-ref-1-c4"
+                    >
+                      <span class="opt-key" aria-hidden="true">4</span>
+                      <span class="opt-main">
+                        <span class="opt-line">
+                          <span class="opt-label">其他…（我来描述）</span>
+                          <span class="opt-badges"><span class="badge">兜底 · 唯一的自由输入</span></span>
+                        </span>
+                        <span class="opt-cons" id="q-ref-1-c4" hidden>点开后就地出现输入框（这是全稿唯一允许自由文本的地方）；发送后立刻收起并转成下一道选择题。</span>
+                      </span>
+                    </button>
+                    <div class="opt-input" id="q-ref-1-input" hidden>
+                      <label class="sr-only" for="q-ref-1-free">用一句话描述你想对这个元素做什么</label>
+                      <input type="text" id="q-ref-1-free" placeholder="用一句话描述…（例如：先别点，看看它绑定了什么事件）" />
+                      <button type="button" class="mini-btn" data-send-input="q-ref-1">发送</button>
+                      <button type="button" class="mini-btn" data-cancel-input="q-ref-1">取消</button>
+                    </div>
+                    <button type="button" class="mini-btn impact-toggle disclose" data-disclose="q-ref-1-impact" aria-expanded="false" aria-controls="q-ref-1-impact">
+                      看影响预演（3 条命令 · 可撤销）
+                      <span class="caret" aria-hidden="true">▾</span>
+                    </button>
+  <div class="l1 impact" id="q-ref-1-impact" hidden>
+  <pre class="term">将要执行（1 条）
+    dom.click  #p-export          ui     ask      破坏性保底 ask（需确认）
+
+  可选路径（只读）
+    dom read-state #p-export      ui     allow    不改变页面
+
+  被策略拦下（1 条，已从计划移除）
+    evaluate                      eval   硬底线   永不执行、永不自动放行（无「允许」选项）</pre>
+                      <p class="hint">可撤销性：本次点击不写站点数据；页面元素会在执行后显示「已处理 ✓」角标。</p>
+                    </div>
+</div>
+                  <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算（不会静默沿用旧决策）。</p>
+                </div>
+              </article>
+            </section>
+            <div class="view-host" id="view-host">
+              <!-- L2 视图的返回条（只在按需视图里出现，不占 L0 预算） -->
+              <div class="view-bar" id="view-bar" hidden>
+                <button type="button" class="mini-btn" id="view-back">← 返回当前任务</button>
+                <span class="view-name" id="view-name">命令目录</span>
+                <span class="badge muted">按需视图 · 用完即走</span>
+              </div>
+
+              <!-- L0/L1 主流程 -->
+              <div class="l0-flow" id="l0-flow">
+                <!-- 已决策历史：一行计数 + 展开（L1） -->
+
+
+                <!-- 停车位：非当前题的回合都停在这里（JS 只把「当前题」搬进 #decision） -->
+                
+
+
+
+                <!-- L0：进展（一行摘要 + 计数）——引用证据 / 回执三件套 / 已决策历史都收在 1 次展开里 -->
+                <button type="button" class="progress-line disclose" data-disclose="l1-progress" aria-expanded="false" aria-controls="l1-progress">
+                  进展：已决策 <b id="history-count">4</b> 步 · 引用 <b id="ref-count">2</b> 个 · 回执 ① 已撤销 <code>clipboard.write</code>（还有 2 件）
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="l1-progress" hidden>
+                  <p class="hint">引用证据：点 chip → 页面里对应元素高亮并滚动到可见（角标序号与 chip 一致）。</p>
+                <p class="hint">证据：每个引用都带选择器与语义路径；点 chip 会在页面里高亮并滚动到可见（角标序号一致）。</p>
+                <div class="ref-chips" id="ref-chips" role="group" aria-label="页面引用列表">
+                  <button type="button" class="ref-chip" data-ref="1" data-ref-target="p-export" data-ref-label="「导出」按钮" aria-pressed="false">
+                    <span class="rc-num">①</span><span class="rc-label">「导出」按钮</span><span class="badge">元素</span>
+                  </button>
+                  <button type="button" class="ref-chip" data-ref="2" data-ref-target="p-row-session" data-ref-label="端点行 GET /api/session" aria-pressed="false">
+                    <span class="rc-num">②</span><span class="rc-label">端点行 GET /api/session</span><span class="badge">元素</span>
+                  </button>
+                </div>
+                <dl class="ref-evidence" id="ref-evidence">
+                  <div><dt>① 选择器</dt><dd><code>button.doc-btn:nth-of-type(1)</code> · 路径 <code>div.doc-toolbar › button.doc-btn</code></dd></div>
+                  <div><dt>② 选择器</dt><dd><code>tr</code> · 路径 <code>table.doc-table › tr</code></dd></div>
+                </dl>
+                <button type="button" class="mini-btn" id="simulate-stale">模拟：目标元素被页面重渲染移除（验证「引用失效」始终在 L0）</button>
+              
+                  <div class="history-block">
+                    <p class="hint">已决策回合（<span id="history-steps">选目标 → 选范围 → 确认影响 → 执行</span>）：点「改选」把该题放回 L0 重新决策。</p>
+                    <div id="history-host">
+                  <article class="q-card" id="h1" data-answered="true">
+                    <div class="q-head">
+                      <span class="q-num" aria-hidden="true">1</span><span class="q-tag">① 选目标</span><span class="badge ok">已决策</span>
+                      <span class="badge" data-active-badge hidden>当前题</span>
+                    </div>
+                    <p class="q-ask" id="h1-ask">导出哪一部分？</p>
+                    <div class="q-decided">
+                      <span class="chosen">已选：整个工作台（12 个接口节点）</span>
+                      <button type="button" class="mini-btn" data-reselect="h1">改选</button>
+                    </div>
+                    <div class="opt-group" role="group" aria-labelledby="h1-ask" hidden>
+                      <button type="button" class="opt" aria-describedby="h1-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">当前文档（1 个节点）</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="h1-c1" hidden>只读当前打开的那一个接口节点。</span></span></button>
+                      <button type="button" class="opt" aria-pressed="true" aria-describedby="h1-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">整个工作台（12 个节点）</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">当前选择</span></span></span><span class="opt-cons" id="h1-c2" hidden>读取站点声明的全部 12 个接口节点；只读。</span></span></button>
+                      <button type="button" class="more-opts disclose" data-disclose="h1-rest" aria-expanded="false" aria-controls="h1-rest">更多选项（还有 2 个）<span class="caret" aria-hidden="true">▾</span></button>
+                      <div class="opt-rest" id="h1-rest" hidden>
+                      <button type="button" class="opt" aria-describedby="h1-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">当前选区（预览里的 3 行）</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="h1-c3" hidden>只导出你在预览里选中的 3 行。</span></span></button>
+                      <button type="button" class="opt" aria-expanded="false" aria-controls="h1-input" data-opens-input="h1-input" aria-describedby="h1-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="h1-c4" hidden>输入一句话，发送后收起并转成下一道选择题。</span></span></button>
+                      <div class="opt-input" id="h1-input" hidden><label class="sr-only" for="h1-free">描述导出目标</label><input type="text" id="h1-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="h1">发送</button><button type="button" class="mini-btn" data-cancel-input="h1">取消</button></div>
+                      </div>
+                    </div>
+                    <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+                  </article>
+
+                  <article class="q-card" id="h2" data-answered="true">
+                    <div class="q-head">
+                      <span class="q-num" aria-hidden="true">2</span><span class="q-tag">② 选范围与格式</span><span class="badge ok">已决策</span>
+                      <span class="badge" data-active-badge hidden>当前题</span>
+                    </div>
+                    <p class="q-ask" id="h2-ask">导出成什么格式？要不要含子节点？</p>
+                    <div class="q-decided">
+                      <span class="chosen">已选：markdown · 含子节点</span>
+                      <button type="button" class="mini-btn" data-reselect="h2">改选</button>
+                    </div>
+                    <div class="opt-group" role="group" aria-labelledby="h2-ask" hidden>
+                      <button type="button" class="opt" aria-pressed="true" aria-describedby="h2-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">markdown · 含子节点</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">当前选择</span></span></span><span class="opt-cons" id="h2-c1" hidden>12 个节点带参数表与示例，约 4.2KB。</span></span></button>
+                      <button type="button" class="opt" aria-describedby="h2-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">markdown · 仅当前层</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="h2-c2" hidden>子节点折叠成索引行。</span></span></button>
+                      <button type="button" class="more-opts disclose" data-disclose="h2-rest" aria-expanded="false" aria-controls="h2-rest">更多选项（还有 2 个）<span class="caret" aria-hidden="true">▾</span></button>
+                      <div class="opt-rest" id="h2-rest" hidden>
+                      <button type="button" class="opt" aria-describedby="h2-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">json · 含子节点</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="h2-c3" hidden>机器可读，便于二次转换。</span></span></button>
+                      <button type="button" class="opt" aria-expanded="false" aria-controls="h2-input" data-opens-input="h2-input" aria-describedby="h2-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="h2-c4" hidden>例如「只要请求参数，不要示例」。</span></span></button>
+                      <div class="opt-input" id="h2-input" hidden><label class="sr-only" for="h2-free">描述格式与范围</label><input type="text" id="h2-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="h2">发送</button><button type="button" class="mini-btn" data-cancel-input="h2">取消</button></div>
+                      </div>
+                    </div>
+                    <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+                  </article>
+
+                  <article class="q-card" id="h3" data-answered="true">
+                    <div class="q-head">
+                      <span class="q-num" aria-hidden="true">3</span><span class="q-tag">③ 确认影响</span><span class="badge ok">已决策</span>
+                      <span class="badge" data-active-badge hidden>当前题</span>
+                    </div>
+                    <p class="q-ask" id="h3-ask">影响预演：将执行 3 条命令（另 1 条被硬底线拦下），全部可撤销。确认吗？</p>
+                    <div class="q-decided">
+                      <span class="chosen">已选：确认执行（3 条命令）</span>
+                      <button type="button" class="mini-btn" data-reselect="h3">改选</button>
+                    </div>
+                    <div class="opt-group" role="group" aria-labelledby="h3-ask" hidden>
+                      <button type="button" class="opt" aria-pressed="true" aria-describedby="h3-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">确认执行（3 条）</span><span class="opt-badges"><span class="badge ask">ask</span><span class="badge allow">可撤销</span></span></span><span class="opt-cons" id="h3-c1" hidden><code>doc-info</code> + <code>get-node ×12</code> + <code>export</code>；export 属写操作（ask），本次已确认并写审计。</span></span></button>
+                      <button type="button" class="opt" aria-describedby="h3-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">只做只读预演</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="h3-c2" hidden>只跑两条 read，不落盘。</span></span></button>
+                      <button type="button" class="more-opts disclose" data-disclose="h3-rest" aria-expanded="false" aria-controls="h3-rest">更多选项（还有 2 个）<span class="caret" aria-hidden="true">▾</span></button>
+                      <div class="opt-rest" id="h3-rest" hidden>
+                      <button type="button" class="opt" data-reselect-target="h1" aria-describedby="h3-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">回到第 1 题重选目标</span><span class="opt-badges"><span class="badge">回退</span></span></span><span class="opt-cons" id="h3-c3" hidden>第 1 题变回未答并成为当前题；第 2、3 题标记「待重算」。</span></span></button>
+                      <button type="button" class="opt" aria-expanded="false" aria-controls="h3-input" data-opens-input="h3-input" aria-describedby="h3-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="h3-c4" hidden>例如「先只导出前 3 个节点」。</span></span></button>
+                      <div class="opt-input" id="h3-input" hidden><label class="sr-only" for="h3-free">描述你的调整</label><input type="text" id="h3-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="h3">发送</button><button type="button" class="mini-btn" data-cancel-input="h3">取消</button></div>
+                      </div>
+                    </div>
+                    <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+                  </article>
+
+                  <article class="q-card" id="h4" data-answered="true">
+                    <div class="q-head">
+                      <span class="q-num" aria-hidden="true">4</span><span class="q-tag">④ 执行</span><span class="badge ok">已决策</span>
+                      <span class="badge" data-active-badge hidden>当前题</span>
+                    </div>
+                    <p class="q-ask" id="h4-ask">导出完成（12 个接口节点 / 4.2KB）。要怎么拿到它？</p>
+                    <div class="q-decided">
+                      <span class="chosen">已选：在新标签页打开</span>
+                      <button type="button" class="mini-btn" data-reselect="h4">改选</button>
+                    </div>
+                    <div class="opt-group" role="group" aria-labelledby="h4-ask" hidden>
+                      <button type="button" class="opt" aria-pressed="true" aria-describedby="h4-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">在新标签页打开</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">当前选择</span></span></span><span class="opt-cons" id="h4-c1" hidden>新开标签页打开 docs/api.md；关掉即可，不写站点数据。</span></span></button>
+                      <button type="button" class="opt" aria-disabled="true" aria-describedby="h4-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">复制路径到剪贴板</span><span class="opt-badges"><span class="badge deny">deny</span><span class="badge">当前不可用</span></span></span><span class="opt-cons" id="h4-c2" hidden>不可用：<code>clipboard.write</code> 已撤销、不在工具面（见全局连接树 → 浏览器能力）。</span></span></button>
+                      <button type="button" class="more-opts disclose" data-disclose="h4-rest" aria-expanded="false" aria-controls="h4-rest">更多选项（还有 2 个）<span class="caret" aria-hidden="true">▾</span></button>
+                      <div class="opt-rest" id="h4-rest" hidden>
+                      <button type="button" class="opt" aria-describedby="h4-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">只看结果，不打开</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="h4-c3" hidden>到此结束；文件仍在下载目录。</span></span></button>
+                      <button type="button" class="opt" aria-expanded="false" aria-controls="h4-input" data-opens-input="h4-input" aria-describedby="h4-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="h4-c4" hidden>例如「再导一份 json 到同目录」。</span></span></button>
+                      <div class="opt-input" id="h4-input" hidden><label class="sr-only" for="h4-free">描述下一步</label><input type="text" id="h4-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="h4">发送</button><button type="button" class="mini-btn" data-cancel-input="h4">取消</button></div>
+                      </div>
+                    </div>
+                    <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+                  </article>
+
+                  <!-- 状态题（未授权 / 探测中 / 处理中）：与当前状态匹配时会被搬到 L0 -->
+                  <article class="q-card" id="q-unauth" data-answered="false" data-when="unauthorized" data-active-priority>
+                    <div class="q-head">
+                      <span class="q-num" aria-hidden="true">!</span><span class="q-tag">站点状态 · 未授权</span>
+                      <span class="badge" data-active-badge hidden>当前题</span>
+                    </div>
+                    <p class="q-ask" id="qu-ask">当前站点 <code>http://localhost:5173</code> 未授权。先做哪一步？</p>
+                    <div class="q-decided" hidden><span class="chosen">已选：（等待你选择）</span><button type="button" class="mini-btn" data-reselect="q-unauth">改选</button></div>
+                    <div class="opt-group" role="group" aria-labelledby="qu-ask">
+                      <button type="button" class="opt" aria-describedby="qu-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">在全局连接树里授权该站点</span><span class="opt-badges"><span class="badge perm">权限</span><span class="badge">需手势</span></span></span><span class="opt-cons" id="qu-c1" hidden>打开「全局连接树」视图 → 站点维度；授权后声明工具才进入工具面。</span></span></button>
+                      <button type="button" class="opt" aria-describedby="qu-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">查看未授权时会被拦下什么</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">只读</span></span></span><span class="opt-cons" id="qu-c2" hidden>列出 S1 全量 deny 的原因，不执行任何命令。</span></span></button>
+                      <button type="button" class="more-opts disclose" data-disclose="qu-rest" aria-expanded="false" aria-controls="qu-rest">更多选项（还有 2 个 · 含影响预演）<span class="caret" aria-hidden="true">▾</span></button>
+                      <div class="opt-rest" id="qu-rest" hidden>
+                        <button type="button" class="opt" aria-describedby="qu-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">稍后再说（保持未授权）</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">零变更</span></span></span><span class="opt-cons" id="qu-c3" hidden>不做任何变更。</span></span></button>
+                        <button type="button" class="opt" aria-expanded="false" aria-controls="qu-input" data-opens-input="qu-input" aria-describedby="qu-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="qu-c4" hidden>描述你的目标，系统会转成下一道选择题。</span></span></button>
+                        <div class="opt-input" id="qu-input" hidden><label class="sr-only" for="qu-free">描述目标</label><input type="text" id="qu-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="q-unauth">发送</button><button type="button" class="mini-btn" data-cancel-input="q-unauth">取消</button></div>
+                        <button type="button" class="mini-btn impact-toggle disclose" data-disclose="qu-impact" aria-expanded="false" aria-controls="qu-impact">看影响预演（全量 deny）<span class="caret" aria-hidden="true">▾</span></button>
+  <div class="l1 impact" id="qu-impact" hidden>
+  <pre class="term">S1 未授权站点 → 全量 deny（fail-closed）
+    site_lgdl-web-cli doc-info   deny   S1 未授权
+    dom read-state               deny   S1 未授权
+    evaluate                     deny   S1 + 硬底线（双重拦下）</pre>
+                        </div>
+</div>
+                      <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+                    </div>
+                  </article>
+
+                  <article class="q-card" id="q-probe" data-answered="false" data-when="probing" data-active-priority>
+                    <div class="q-head">
+                      <span class="q-num" aria-hidden="true">…</span><span class="q-tag">站点状态 · 探测中</span>
+                      <span class="badge" data-active-badge hidden>当前题</span>
+                    </div>
+                    <p class="q-ask" id="qp-ask">正在读取 <code>web-cli/0.2</code> 声明。要做什么？</p>
+                    <div class="q-decided" hidden><span class="chosen">已选：（等待你选择）</span><button type="button" class="mini-btn" data-reselect="q-probe">改选</button></div>
+                    <div class="opt-group" role="group" aria-labelledby="qp-ask">
+                      <button type="button" class="opt" aria-describedby="qp-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">继续等待（自动完成）</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">零操作</span></span></span><span class="opt-cons" id="qp-c1" hidden>不打断探测；完成后出现引导的第一道题。</span></span></button>
+                      <button type="button" class="opt" aria-describedby="qp-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">重新探测一次</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">只读</span></span></span><span class="opt-cons" id="qp-c2" hidden>重新拉取页面声明并覆盖本轮结果。</span></span></button>
+                      <button type="button" class="more-opts disclose" data-disclose="qp-rest" aria-expanded="false" aria-controls="qp-rest">更多选项（还有 2 个）<span class="caret" aria-hidden="true">▾</span></button>
+                      <div class="opt-rest" id="qp-rest" hidden>
+                        <button type="button" class="opt" aria-describedby="qp-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">查看探测细节</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="qp-c3" hidden>展开阶段、已读到的声明字段与失败原因。</span></span></button>
+                        <button type="button" class="opt" aria-expanded="false" aria-controls="qp-input" data-opens-input="qp-input" aria-describedby="qp-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="qp-c4" hidden>描述你的目标。</span></span></button>
+                        <div class="opt-input" id="qp-input" hidden><label class="sr-only" for="qp-free">描述目标</label><input type="text" id="qp-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="q-probe">发送</button><button type="button" class="mini-btn" data-cancel-input="q-probe">取消</button></div>
+                      </div>
+                      <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+                    </div>
+                  </article>
+
+                  <article class="q-card" id="q-busy" data-answered="false" data-when="busy" data-active-priority>
+                    <div class="q-head">
+                      <span class="q-num" aria-hidden="true">▶</span><span class="q-tag">执行中 · 第 3/5 步</span>
+                      <span class="badge" data-active-badge hidden>当前题</span>
+                    </div>
+                    <p class="q-ask" id="qb-ask">正在逐节点读取接口定义（3/12）。要做什么？</p>
+                    <p class="muted">进度：<b>3/12</b> 节点 · 已完成 2 个 · 剩余 10 个（执行流在「更多选项」里）</p>
+                    <div class="q-decided" hidden><span class="chosen">已选：（等待你选择）</span><button type="button" class="mini-btn" data-reselect="q-busy">改选</button></div>
+                    <div class="opt-group" role="group" aria-labelledby="qb-ask">
+                      <button type="button" class="opt" aria-describedby="qb-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">让它跑完（推荐）</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">继续</span></span></span><span class="opt-cons" id="qb-c1" hidden>继续执行剩余 10 个节点；完成后出现结果卡与回执。</span></span></button>
+                      <button type="button" class="opt" aria-describedby="qb-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">立即停止本次任务</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">安全停止</span></span></span><span class="opt-cons" id="qb-c2" hidden>停止后续命令；已产出的中间结果保留，不写站点数据。</span></span></button>
+                      <button type="button" class="more-opts disclose" data-disclose="qb-rest" aria-expanded="false" aria-controls="qb-rest">更多选项（还有 2 个 · 含影响预演）<span class="caret" aria-hidden="true">▾</span></button>
+                      <div class="opt-rest" id="qb-rest" hidden>
+                        <button type="button" class="opt" aria-describedby="qb-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">看执行流</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="qb-c3" hidden>展开 5 步命令流与已完成步骤的产出。</span></span></button>
+                        <button type="button" class="opt" aria-expanded="false" aria-controls="qb-input" data-opens-input="qb-input" aria-describedby="qb-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="qb-c4" hidden>例如「只导前 3 个节点」。</span></span></button>
+                        <div class="opt-input" id="qb-input" hidden><label class="sr-only" for="qb-free">描述调整</label><input type="text" id="qb-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="q-busy">发送</button><button type="button" class="mini-btn" data-cancel-input="q-busy">取消</button></div>
+                        <button type="button" class="mini-btn impact-toggle disclose" data-disclose="qb-stream" aria-expanded="false" aria-controls="qb-stream">看执行流（5 步 · 已完成 2）<span class="caret" aria-hidden="true">▾</span></button>
+  <div class="l1 impact" id="qb-stream" hidden>
+  <pre class="term">site_lgdl-web-cli doc-info                ok        142ms
+  site_lgdl-web-cli get-node /api/session  ok        96ms
+  site_lgdl-web-cli get-node /api/chat     running   3/12
+  site_lgdl-web-cli get-node /api/diagram  queued    —
+  export --format markdown                 queued    — (写操作 · ask，已确认)</pre>
+                        </div>
+</div>
+                      <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+                    </div>
+                  </article>
+
+                  <!-- 破坏性确认（§2.4）：选项**不折叠**，全部直接可见 -->
+                  <article class="q-card risk-open" id="q-confirm" data-answered="false" data-when="confirm" data-active-priority>
+                    <div class="q-head">
+                      <span class="q-num" aria-hidden="true">!</span><span class="q-tag">⑤ 收尾（写书签）</span>
+                      <span class="badge" data-active-badge hidden>当前题 · 数字键 1~4</span>
+                      <span class="badge floor">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                          <rect x="3.5" y="7" width="9" height="6" rx="1.2" /><path d="M5.8 7V5.4a2.2 2.2 0 014.4 0V7" />
+                        </svg>
+                        破坏性 · 保底 ask · 选项不折叠
+                      </span>
+                    </div>
+                    <p class="q-ask" id="qc-ask"><code>bookmarks.remove</code> 将删除书签「LGDL 文档」，此操作不可撤销。怎么办？</p>
+                    <p class="muted">你已选择「写入书签」；写入前发现同名旧书签，需要先删掉它 —— 删除属破坏性，保底 ask，不会被自动授权放行。</p>
+                    <div class="q-decided" hidden><span class="chosen">已选：（等待你选择）</span><button type="button" class="mini-btn" data-reselect="q-confirm">改选</button></div>
+                    <div class="opt-group" role="group" aria-labelledby="qc-ask">
+                      <button type="button" class="opt" aria-describedby="qc-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">拒绝（零操作）</span><span class="opt-badges"><span class="badge deny">deny</span><span class="badge">fail-closed</span></span></span><span class="opt-cons" id="qc-c1" hidden>不发命令、不写审计；改为直接新增一条新书签。</span></span></button>
+                      <button type="button" class="opt" aria-describedby="qc-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">仅删这一个</span><span class="opt-badges"><span class="badge ask">ask</span><span class="badge">禁止批量</span></span></span><span class="opt-cons" id="qc-c2" hidden>只删「LGDL 文档」；删除不可恢复，审计记录 bookmarks.remove（不含明文）。</span></span></button>
+                      <button type="button" class="opt" data-disclose="qc-detail" aria-expanded="false" aria-controls="qc-detail" aria-describedby="qc-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">先看详情</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">只读</span></span></span><span class="opt-cons" id="qc-c3" hidden>就地展开书签详情（标题 / URL / 创建时间 / 删除后果），不改变本题状态。</span></span></button>
+                      <button type="button" class="opt" aria-expanded="false" aria-controls="qc-input" data-opens-input="qc-input" aria-describedby="qc-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="qc-c4" hidden>例如「别删，改名保存」。</span></span></button>
+                      <div class="l1" id="qc-detail" hidden>
+                        <dl>
+                          <div><dt>标题</dt><dd>LGDL 文档</dd></div>
+                          <div><dt>URL</dt><dd><code>http://localhost:5173/lgdl/docs</code></dd></div>
+                          <div><dt>创建时间</dt><dd>2026-08-30 14:12</dd></div>
+                          <div><dt>删除后果</dt><dd>不可恢复（Chrome 书签没有回收站）；同名其它书签不受影响。</dd></div>
+                        </dl>
+                      </div>
+                      <div class="opt-input" id="qc-input" hidden><label class="sr-only" for="qc-free">描述处理方式</label><input type="text" id="qc-free" placeholder="用一句话描述…（例如：改名保存，不要删）" /><button type="button" class="mini-btn" data-send-input="q-confirm">发送</button><button type="button" class="mini-btn" data-cancel-input="q-confirm">取消</button></div>
+                    </div>
+                    <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+                  </article>
+                
+                    </div>
+                  </div>
+                                  <div class="receipt-slot"><div class="receipt-min" role="status" aria-live="polite">
+                                    <span class="rm-title">回执 ① 已撤销 <code>clipboard.write</code></span>
+                                    <span class="rm-sub">权限已移除，工具即时移出工具面</span>
+                                    <button type="button" class="mini-btn disclose" data-disclose="l1-receipt" aria-expanded="false" aria-controls="l1-receipt">
+                                      重拉实测证据 + 审计出口（还有 2 件）
+                                      <span class="caret" aria-hidden="true">▾</span>
+                                    </button>
+                                    <div class="l1" id="l1-receipt" hidden>
+                                      <span class="receipt-evidence">② 重拉实测证据 · 工具面实测（12:04:11 重拉）
+                  clipboard: read(deny)；write 已不在工具面
+                  tabs: list, switch, open, mute, pin, move, close
+                  site_lgdl-web-cli: 1 个声明工具
+                  审计记录：plugin / origin-revoke / clipboard.write</span>
+                                      <button type="button" class="mini-btn">③ 导出审计（admin_audit-export）</button>
+                                    </div>
+                                  </div></div>
+                  </div>
+                
+                <p class="empty-hint" id="empty-hint" hidden>当前没有待你决策的题：可以从页面拾取，或打开下方状态栏入口。</p>
+              </div>
+              <!-- ═══ L2 按需视图（默认全部 hidden；一次只开一个；全部展开时并列显示） ═══ -->
+              <section class="view" data-view="tree" id="view-tree" hidden aria-label="全局连接树">
+                <header class="view-head">
+                  <h2>全局连接树</h2>
+                  <span class="badge">4 维度</span>
+                  <span class="badge">站点 1 · 能力 4 · 命令 3 · LLM 2</span>
+                </header>
+                <button type="button" class="disclose row-line" data-disclose="tree-actions" aria-expanded="false" aria-controls="tree-actions">
+                  树内动作白名单 <b>9</b> 个（固定序）
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="tree-actions" hidden>
+                  <ol class="tight">
+                    <li><code>revoke-origin</code> 撤销站点授权</li>
+                    <li><code>revoke-capability</code> 撤销可选能力权限</li>
+                    <li><code>set-capability-toggle</code> 能力开关</li>
+                    <li><code>set-tabs-toggle</code> tabs 工具开关</li>
+                    <li><code>clear-auto-auth</code> 关闭该站点自动授权</li>
+                    <li><code>disconnect-llm</code> 断开 LLM</li>
+                    <li><code>dissolve-group</code> 解散会话组</li>
+                    <li><code>set-command-policy</code> 设置命令处置档</li>
+                    <li><code>reset-command-policy</code> 恢复默认档</li>
+                  </ol>
+                  <p class="hint">授予权限不在树内（需要你的点击手势）；树内只做撤销、关断与档位覆盖。</p>
+                </div>
+
+                <button type="button" class="disclose row-line" data-disclose="dim-site" aria-expanded="false" aria-controls="dim-site">
+                  <span class="dot ok" aria-hidden="true"></span> 站点 <b>1</b> 条授权记录
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="dim-site" hidden>
+                  <div class="node-row">
+                    <span class="node-label">http://localhost:5173</span>
+                    <span class="badge ok">supported</span><span class="badge">LGDL Workbench</span><span class="badge layer">web-cli/0.2</span>
+                  </div>
+                  <p class="node-sub">已授权站点 · 自动授权：读 = 开 / 写 = 关（不含破坏性）</p>
+                  <div class="node-controls">
+                    <button type="button" class="node-ctl" data-kind="revoke">撤销授权</button>
+                    <button type="button" class="node-ctl">关闭自动授权</button>
+                  </div>
+                  <p class="hint">撤销后声明工具即时移出工具面；重新授权需要你的点击手势。</p>
+                </div>
+
+                <button type="button" class="disclose row-line" data-disclose="dim-cap" aria-expanded="false" aria-controls="dim-cap">
+                  <span class="dot ok" aria-hidden="true"></span> 浏览器能力 <b>4</b>
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="dim-cap" hidden>
+                  <div class="node-row">
+                    <span class="node-label">tabs</span><span class="badge ok">已授权</span><span class="badge allow">allow</span>
+                    <span class="node-controls"><button type="button" class="node-ctl">关闭 tabs 工具</button></span>
+                  </div>
+                  <p class="node-sub">静态权限 · list 默认只回 origin + path；close 一次只关一个</p>
+                  <div class="node-row">
+                    <span class="node-label">bookmarks</span><span class="badge ask">未授权</span>
+                    <span class="node-controls"><button type="button" class="node-ctl">去设置开启</button></span>
+                  </div>
+                  <p class="node-sub">可选能力 · 未授予时不渲染「假撤销」；未授权会返回可读「去设置开启书签访问」</p>
+                  <div class="node-row">
+                    <span class="node-label">clipboard.read</span><span class="badge deny">deny</span><span class="badge tighten">只可收紧</span>
+                    <span class="node-controls">
+                      <button type="button" class="node-ctl" aria-pressed="false">ask</button>
+                      <button type="button" class="node-ctl" aria-pressed="true">deny</button>
+                    </span>
+                  </div>
+                  <p class="node-sub">state 档 · 只可收紧 → 只有 ask / deny，<b>结构上没有 allow</b>；永不自动放行</p>
+                  <div class="node-row">
+                    <span class="node-label">clipboard.write</span><span class="badge deny">已撤销</span>
+                    <span class="node-controls"><button type="button" class="node-ctl">重新授权（需手势）</button></span>
+                  </div>
+                  <p class="node-sub">权限已移除、不在工具面 —— 回执三件套见 L0 回执行</p>
+                </div>
+
+                <button type="button" class="disclose row-line" data-disclose="dim-cmd" aria-expanded="false" aria-controls="dim-cmd">
+                  <span class="dot ok" aria-hidden="true"></span> 命令处置档 <b>3</b>
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="dim-cmd" hidden>
+                  <div class="node-row">
+                    <span class="node-label">dom</span><span class="badge allow">allow</span><span class="badge">ui 档 · 三档可用</span>
+                    <span class="node-controls">
+                      <button type="button" class="node-ctl" aria-pressed="true">allow</button>
+                      <button type="button" class="node-ctl" aria-pressed="false">ask</button>
+                      <button type="button" class="node-ctl" aria-pressed="false">deny</button>
+                    </span>
+                  </div>
+                  <div class="node-row">
+                    <span class="node-label">dom.click</span><span class="badge ask">ask</span><span class="badge tighten">只可收紧</span>
+                    <span class="node-controls">
+                      <button type="button" class="node-ctl" aria-pressed="true">ask</button>
+                      <button type="button" class="node-ctl" aria-pressed="false">deny</button>
+                      <button type="button" class="node-ctl">恢复默认</button>
+                    </span>
+                  </div>
+                  <p class="hint">破坏性保底 ask：允许收紧（ask / deny），不允许放宽为 allow。</p>
+                  <div class="node-row">
+                    <span class="node-label">evaluate</span>
+                    <span class="badge floor">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                        <rect x="3.5" y="7" width="9" height="6" rx="1.2" /><path d="M5.8 7V5.4a2.2 2.2 0 014.4 0V7" />
+                      </svg>
+                      硬底线
+                    </span><span class="badge deny">deny</span><span class="badge">零控件</span>
+                  </div>
+                  <p class="hint">evaluate 硬底线：永不执行、永不自动放行，本节点不提供任何开关（解释见 L0 风险行）。</p>
+                </div>
+
+                <button type="button" class="disclose row-line" data-disclose="dim-llm" aria-expanded="false" aria-controls="dim-llm">
+                  <span class="dot ok" aria-hidden="true"></span> LLM 连接 <b>2</b>
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="dim-llm" hidden>
+                  <div class="node-row">
+                    <span class="node-label">火山方舟 · deepseek-v3</span><span class="badge ok">测试连接 1.2s OK</span>
+                    <span class="node-controls"><button type="button" class="node-ctl" data-kind="revoke">断开</button></span>
+                  </div>
+                  <p class="node-sub">已配置（不回显 key）· BYOK 仅存扩展本地</p>
+                  <div class="node-row">
+                    <span class="node-label">会话组 默认分组</span><span class="badge">3 个来源站点</span>
+                    <span class="node-controls"><button type="button" class="node-ctl" data-kind="revoke">解散分组</button></span>
+                  </div>
+                  <p class="node-sub">会话 · 该域名下 3 个标签页共用同一份对话 · 分组只共享对话，不代表互相授权</p>
+                </div>
+              </section>
+
+              <section class="view" data-view="commands" id="view-commands" hidden aria-label="命令目录">
+                <header class="view-head">
+                  <h2>命令目录</h2>
+                  <span class="badge layer">L3 实时投影 122 卡</span>
+                  <span class="badge">L1 对账基线 34 工具 / 142 子命令</span>
+                  <span class="badge">L2 豁免登记 20 / 88</span>
+                  <span class="badge ok">对账：无缺口</span>
+                </header>
+                <p class="hint">分层展示：硬底线卡无任何命令级控件并展示原因；只可收紧卡可设 ask / deny；可覆盖卡可设 allow / ask / deny。只显示实时面卡数，不声称基线已全部渲染为卡。</p>
+                <div class="cmd-grid">
+                  <article class="cmd-card">
+                    <div class="cmd-row"><span class="cmd-name">site_lgdl-web-cli doc-info</span><span class="badge allow">allow</span><span class="badge layer">L1↔L3</span></div>
+                    <p class="cmd-meta">站点声明 · 默认 allow · 生效 allow</p>
+                    <div class="cat-ctl"><button type="button" aria-pressed="true">allow</button><button type="button" aria-pressed="false">ask</button><button type="button" aria-pressed="false">deny</button></div>
+                  </article>
+                  <article class="cmd-card">
+                    <div class="cmd-row"><span class="cmd-name">dom click</span><span class="badge allow">allow</span><span class="badge layer">L3 实时</span></div>
+                    <p class="cmd-meta">ui 档 · 三档可用 · delayMs=0ms</p>
+                    <div class="cat-ctl"><button type="button" aria-pressed="true">allow</button><button type="button" aria-pressed="false">ask</button><button type="button" aria-pressed="false">deny</button></div>
+                  </article>
+                  <article class="cmd-card">
+                    <div class="cmd-row"><span class="cmd-name">bookmarks remove</span><span class="badge ask">ask</span><span class="badge tighten">只可收紧</span></div>
+                    <p class="cmd-meta">破坏性保底 ask · 禁止批量</p>
+                    <div class="cat-ctl"><button type="button" aria-pressed="true">ask</button><button type="button" aria-pressed="false">deny</button></div>
+                  </article>
+                  <article class="cmd-card">
+                    <div class="cmd-row"><span class="cmd-name">page-eval</span><span class="badge floor">硬底线</span><span class="badge layer">L2 豁免登记</span></div>
+                    <p class="cmd-meta">evaluate · 零命令级控件（不可覆盖）</p>
+                    <div class="cat-ctl"><button type="button" class="floor">了解为什么（无档位可改）</button></div>
+                  </article>
+                </div>
+                <p class="muted">完整 122 卡在真实实现里由实时投影面渲染；本稿给 4 张代表性卡 + 计数。</p>
+              </section>
+
+              <section class="view" data-view="audit" id="view-audit" hidden aria-label="审计">
+                <header class="view-head">
+                  <h2>审计</h2>
+                  <span class="badge">12 条</span>
+                  <span class="badge">剪贴板 / 通知内容零明文</span>
+                </header>
+                <ul class="audit-list">
+                  <li><code>12:04</code> plugin / origin-revoke / clipboard.write</li>
+                  <li><code>12:03</code> plugin / command-policy / dom → allow</li>
+                  <li><code>11:58</code> plugin / capability-grant / notifications</li>
+                </ul>
+                <div class="row">
+                  <button type="button" class="mini-btn">导出审计（admin_audit-export）</button>
+                  <button type="button" class="mini-btn">筛选：仅看权限变更</button>
+                </div>
+                <p class="hint">审计只记长度 / 路径，不记剪贴板与通知正文。</p>
+              </section>
+
+              <section class="view" data-view="settings" id="view-settings" hidden aria-label="设置">
+                <header class="view-head">
+                  <h2>设置（精简版）</h2>
+                  <span class="badge">4 个分区</span>
+                  <span class="badge muted">完整设置在 options 页</span>
+                </header>
+                <button type="button" class="disclose row-line" data-disclose="set-llm" aria-expanded="false" aria-controls="set-llm">
+                  LLM 配置 <b>火山方舟 · deepseek-v3</b>（Key 已保存，不回显）
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="set-llm" hidden>
+                  <div class="field"><label for="set-provider">厂商</label>
+                    <select id="set-provider"><option selected>火山方舟（ark）</option><option>OpenAI 兼容</option><option>Anthropic</option></select>
+                  </div>
+                  <div class="field"><label for="set-model">模型</label><input id="set-model" type="text" value="deepseek-v3" /></div>
+                  <div class="field"><label for="set-rounds">最大执行轮数</label><input id="set-rounds" type="number" min="1" value="1000" /></div>
+                  <div class="row"><button type="button" class="mini-btn">保存</button><button type="button" class="mini-btn">测试连接</button><button type="button" class="mini-btn">清除全部配置</button></div>
+                </div>
+                <button type="button" class="disclose row-line" data-disclose="set-perm" aria-expanded="false" aria-controls="set-perm">
+                  能力权限 <b>2 未授权 / 1 已授权 / 1 已撤销</b>
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="set-perm" hidden>
+                  <div class="row"><button type="button" class="mini-btn">授权 Chrome 书签权限</button><span class="badge ask">未授权</span></div>
+                  <div class="row"><button type="button" class="mini-btn">授权 Chrome 下载记录权限</button><span class="badge ask">未授权</span></div>
+                  <div class="row"><button type="button" class="mini-btn">撤销 Chrome 权限</button><span class="badge ok">已授权</span><span class="muted">系统通知</span></div>
+                  <div class="row"><button type="button" class="mini-btn">重新授权</button><span class="badge deny">已撤销</span><span class="muted">剪贴板写入</span></div>
+                </div>
+                <button type="button" class="disclose row-line" data-disclose="set-auto" aria-expanded="false" aria-controls="set-auto">
+                  自动授权 <b>读开 / 写关</b>（不含破坏性）
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="set-auto" hidden>
+                  <p class="hint">evaluate 档与未授权站点永不自动放行；破坏性操作（删除 / 清空 / 重置）即使开启写自动仍需确认。</p>
+                </div>
+                <button type="button" class="disclose row-line" data-disclose="set-diag" aria-expanded="false" aria-controls="set-diag">
+                  诊断自检 <b>最后一次：全部通过</b>
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="l1" id="set-diag" hidden>
+<pre class="term">扩展上下文        ok
+扩展版本 / 构建    0.8.0
+storage.local    读写 12ms
+service worker   连通 · 往返 8ms
+活跃站点          http://localhost:5173（supported）
+已配置厂商        火山方舟 · deepseek-v3（零明文）</pre>
+                  <div class="row"><button type="button" class="mini-btn">运行自检</button><button type="button" class="mini-btn">复制诊断信息</button></div>
+                </div>
+              </section>
+            </div>
+
+            <!-- 克隆模板（隐藏；引用生成选择题时克隆 + 重写 id） -->
+            <div id="templates" hidden>
+              <article class="q-card" id="tpl-ref-doc" data-answered="false" data-when="idle busy confirm" data-ref-template="doc">
+                <div class="q-head">
+                  <span class="q-num" aria-hidden="true">指</span><span class="q-tag">引用题 · 来自页面</span>
+                  <span class="badge ok" data-chosen-badge hidden>已决策</span>
+                  <span class="badge" data-active-badge hidden>当前题</span>
+                  <span class="badge" data-run-state hidden>进行中…</span>
+                  <span class="badge ok" data-done-state hidden>已完成 · 回执 export → ok</span>
+                </div>
+                <p class="q-ask" id="tpl-ref-doc-ask">引用 <b>[<span data-ref-num>②</span>]</b>「<b><span data-ref-slot>这块内容</span></b>」：想对它做什么？</p>
+                <div class="q-decided" hidden><span class="chosen">已选：（等待你选择）</span><button type="button" class="mini-btn" data-reselect="tpl-ref-doc">改选</button></div>
+                <div class="opt-group" role="group" aria-labelledby="tpl-ref-doc-ask">
+                  <button type="button" class="opt" aria-describedby="tpl-ref-doc-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">摘取为上下文（<code>extract</code>）</span><span class="opt-badges"><span class="badge allow">allow</span><span class="badge">只读</span></span></span><span class="opt-cons" id="tpl-ref-doc-c1" hidden>只读取文本与结构放进上下文，不改动页面。</span></span></button>
+                  <button type="button" class="opt" data-exec="ref" aria-describedby="tpl-ref-doc-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">导出为 markdown（<code>export</code>）</span><span class="opt-badges"><span class="badge ask">ask</span><span class="badge">可撤销</span></span></span><span class="opt-cons" id="tpl-ref-doc-c2" hidden>写入下载目录 / 新标签页；页面元素显示「正在操作此处…」并打「已处理 ✓」。</span></span></button>
+                  <button type="button" class="more-opts disclose" data-disclose="tpl-ref-doc-rest" aria-expanded="false" aria-controls="tpl-ref-doc-rest">更多选项（还有 2 个）<span class="caret" aria-hidden="true">▾</span></button>
+                  <div class="opt-rest" id="tpl-ref-doc-rest" hidden>
+                    <button type="button" class="opt" aria-describedby="tpl-ref-doc-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">只看不操作</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="tpl-ref-doc-c3" hidden>引用保留在引用条里，不执行命令。</span></span></button>
+                    <button type="button" class="opt" aria-expanded="false" aria-controls="tpl-ref-doc-input" data-opens-input="tpl-ref-doc-input" aria-describedby="tpl-ref-doc-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="tpl-ref-doc-c4" hidden>描述你的目标。</span></span></button>
+                    <div class="opt-input" id="tpl-ref-doc-input" hidden><label class="sr-only" for="tpl-ref-doc-free">描述目标</label><input type="text" id="tpl-ref-doc-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="tpl-ref-doc">发送</button><button type="button" class="mini-btn" data-cancel-input="tpl-ref-doc">取消</button></div>
+                  </div>
+                </div>
+                <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+              </article>
+
+              <article class="q-card" id="tpl-ref-text" data-answered="false" data-when="idle busy confirm" data-ref-template="text">
+                <div class="q-head">
+                  <span class="q-num" aria-hidden="true">文</span><span class="q-tag">引用题 · 选中文本</span>
+                  <span class="badge ok" data-chosen-badge hidden>已决策</span>
+                  <span class="badge" data-active-badge hidden>当前题</span>
+                </div>
+                <p class="q-ask" id="tpl-ref-text-ask">引用 <b>[<span data-ref-num>③</span>]</b>「<span data-ref-slot>选中的文字</span>」：这段文字要做什么？</p>
+                <div class="q-decided" hidden><span class="chosen">已选：（等待你选择）</span><button type="button" class="mini-btn" data-reselect="tpl-ref-text">改选</button></div>
+                <div class="opt-group" role="group" aria-labelledby="tpl-ref-text-ask">
+                  <button type="button" class="opt" aria-describedby="tpl-ref-text-c1"><span class="opt-key">1</span><span class="opt-main"><span class="opt-line"><span class="opt-label">让它解释这段文字</span><span class="opt-badges"><span class="badge allow">allow</span></span></span><span class="opt-cons" id="tpl-ref-text-c1" hidden>把选中文本作为上下文交给助手解释。</span></span></button>
+                  <button type="button" class="opt" aria-describedby="tpl-ref-text-c2"><span class="opt-key">2</span><span class="opt-main"><span class="opt-line"><span class="opt-label">翻译成中文（<code>web-fetch</code>）</span><span class="opt-badges"><span class="badge ask">ask</span><span class="badge tighten">只可收紧</span></span></span><span class="opt-cons" id="tpl-ref-text-c2" hidden>external 档只可收紧：会发往外部服务，每次都要确认；未授权域名零请求。</span></span></button>
+                  <button type="button" class="more-opts disclose" data-disclose="tpl-ref-text-rest" aria-expanded="false" aria-controls="tpl-ref-text-rest">更多选项（还有 2 个）<span class="caret" aria-hidden="true">▾</span></button>
+                  <div class="opt-rest" id="tpl-ref-text-rest" hidden>
+                    <button type="button" class="opt" aria-describedby="tpl-ref-text-c3"><span class="opt-key">3</span><span class="opt-main"><span class="opt-line"><span class="opt-label">作为操作目标</span><span class="opt-badges"><span class="badge ask">ask</span></span></span><span class="opt-cons" id="tpl-ref-text-c3" hidden>绑定为下一道操作题的目标文本；执行前仍需确认。</span></span></button>
+                    <button type="button" class="opt" aria-expanded="false" aria-controls="tpl-ref-text-input" data-opens-input="tpl-ref-text-input" aria-describedby="tpl-ref-text-c4"><span class="opt-key">4</span><span class="opt-main"><span class="opt-line"><span class="opt-label">其他…（我来描述）</span><span class="opt-badges"><span class="badge">兜底</span></span></span><span class="opt-cons" id="tpl-ref-text-c4" hidden>描述你要拿这段文字做什么。</span></span></button>
+                    <div class="opt-input" id="tpl-ref-text-input" hidden><label class="sr-only" for="tpl-ref-text-free">描述用途</label><input type="text" id="tpl-ref-text-free" placeholder="用一句话描述…" /><button type="button" class="mini-btn" data-send-input="tpl-ref-text">发送</button><button type="button" class="mini-btn" data-cancel-input="tpl-ref-text">取消</button></div>
+                  </div>
+                </div>
+                <p class="q-note" data-stale-note hidden>上游选择题已改选：本回合需要重新计算。</p>
+              </article>
+            </div>
+
+            <!-- 底部状态栏：一行 + 计数（整行一个展开入口 → L2 入口面板；≤2 次交互到达任一视图） -->
+            <footer class="statusbar" id="region-statusbar">
+              <button type="button" class="status-line disclose" id="status-line" aria-expanded="false" aria-controls="l2-entries" data-disclose="l2-entries">
+                <span class="dot" aria-hidden="true"></span>
+                <span class="sb-state" data-when="unauthorized">未授权</span>
+                <span class="sb-state" data-when="probing">探测中</span>
+                <span class="sb-state" data-when="idle">supported</span>
+                <span class="sb-state" data-when="busy">执行中 3/5</span>
+                <span class="sb-state" data-when="confirm">等待确认</span>
+                <span aria-hidden="true">·</span>
+                <span class="sb-item">树 <b>4</b> 维</span>
+                <span aria-hidden="true">·</span>
+                <span class="sb-item">命令 <b>122</b></span>
+                <span aria-hidden="true">·</span>
+                <span class="sb-item">审计 <b>12</b></span>
+                <span aria-hidden="true">·</span>
+                <span class="sb-item">设置</span>
+                <span class="sb-hint">入口</span>
+                <span class="caret" aria-hidden="true">▾</span>
+              </button>
+              <div class="l2-entries" id="l2-entries" hidden>
+                <button type="button" class="entry" data-open-view="tree"><span>全局连接树</span><span class="badge">4 维</span></button>
+                <button type="button" class="entry" data-open-view="commands"><span>命令目录</span><span class="badge layer">122 卡</span></button>
+                <button type="button" class="entry" data-open-view="audit"><span>审计</span><span class="badge">12 条</span></button>
+                <button type="button" class="entry" data-open-view="settings"><span>设置</span><span class="badge">4 分区</span></button>
+              </div>
+            </footer>
+
+            <p class="sr-only" id="live-region" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+        </div>
+      </div>
+      <!-- ═══ 密度口径与 D / E 对照（非交付 UI；数字为 Node 垫片实测） ═══ -->
+      <section class="spec" aria-label="密度口径与 D/E 对照（非交付 UI）">
+        <h2>密度口径（可复现）与 D / E 对照</h2>
+        <div class="spec-scroll">
+          <table class="spec-table">
+            <caption class="sr-only">D 与 E 默认态的密度实测对照</caption>
+            <thead>
+              <tr>
+                <th scope="col">口径 / 指标</th>
+                <th scope="col">D（v2）默认态</th>
+                <th scope="col">E 默认态（L0）</th>
+                <th scope="col">E「全部展开」对照态</th>
+                <th scope="col">E 相对 D 的降幅</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">可点元素数<sup>1</sup></th>
+                <td>80</td>
+                <td><b>7</b></td>
+                <td>73</td>
+                <td class="done">−91%（80 → 7）</td>
+              </tr>
+              <tr>
+                <th scope="row">可见正文字符数<sup>2</sup></th>
+                <td>4,870</td>
+                <td><b>321</b></td>
+                <td>4,089</td>
+                <td class="done">−93%</td>
+              </tr>
+              <tr>
+                <th scope="row">可见正文行数（≈字符 ÷ 34）</th>
+                <td>144</td>
+                <td><b>10</b></td>
+                <td>121</td>
+                <td class="done">−93%</td>
+              </tr>
+              <tr>
+                <th scope="row">可见文本块数<sup>3</sup></th>
+                <td>391</td>
+                <td><b>47</b></td>
+                <td>347</td>
+                <td class="done">−88%</td>
+              </tr>
+              <tr>
+                <th scope="row">面板常驻分区数<sup>4</sup></th>
+                <td>5</td>
+                <td><b>6</b></td>
+                <td>7</td>
+                <td class="done">+1（见下注）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ol class="tight" style="font-size: 11px; color: var(--stage-muted)">
+          <li><b>可点元素数</b> = 侧栏面板内<b>非 hidden 子树</b>中的 <code>button / a / input / select / textarea</code> 以及带 <code>tabindex</code>（非 -1）的元素个数。</li>
+          <li><b>可见正文字符数</b> = 上述可见元素的<b>自身直接文本</b>（不含子元素文本）去掉空白后的字符总和 —— 每段文字只算一次，避免父子重复计数。</li>
+          <li><b>可见文本块数</b> = 自身直接文本非空的可见元素个数（信息"块"的数量，越少越不吵）。</li>
+          <li><b>常驻分区数</b> = 面板一级子元素中非 hidden 的个数（版面的固定分区数）。</li>
+          <li><b>常驻分区数</b>：E 反而 +1（5 → 6）—— 因为 E 把顶部分成「状态带」与「风险位」两块，让<b>风险独立常驻</b>（§2.4）。
+              分区更细不等于信息更多：同一份面板里 E 的可点元素只有 D 的 1/11、正文只有 1/15。</li>
+        </ol>
+        <p class="muted" style="color: var(--stage-muted); font-size: 11px; margin: 6px 0 0">
+          数字由 Node 垫片用同一函数对两份稿件实测（D 与 E 均按上述口径统计，E 的两列由稿内实时条与垫片交叉验证一致）。
+          E 的「全部展开」态刻意复现 D 的铺开程度，用来证明"密度差"来自<b>披露策略</b>而不是功能缺失 ——
+          两态的能力集完全相同：同一批命令、同一批档位、同一棵四维树、同一份 122 卡目录、同一份审计。
+        </p>
+      </section>
+    </div>
+    <script>
+      (function () {
+        'use strict';
+        /* ═══ 12. 页面侧交互：页面就是输入设备（P1~P6 + G1 / G2） ═══════════
+           设计前提（写死在稿件里）：**页面侧注入只在「已授权站点」生效**
+           —— 登记式零注入：绑定并授权后才注册 content script。
+           本稿把这条前提做成可见的：切到「未授权 / 探测中」，拾取条显示零注入、
+           拾取按钮禁用、右键不再被拦截（交回页面原生菜单）。
+           右键菜单走路线 1（content script 自绘，零新增权限），
+           并把「交给页面原生菜单」写进菜单，作为劫持右键的退让策略。
+           ═══════════════════════════════════════════════════════════════════ */
+        var BADGES = ['', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
+        var pageArea = document.getElementById('page-area');
+        var pickToggle = document.getElementById('pick-toggle');
+        var pickStateEl = document.getElementById('pick-state');
+        var pickHl = document.getElementById('pick-hl');
+        var pickTag = document.getElementById('pick-tag');
+        var pickTagName = document.getElementById('pick-tag-name');
+        var pickTagKind = document.getElementById('pick-tag-kind');
+        var pickTagPath = document.getElementById('pick-tag-path');
+        var pickTagSel = document.getElementById('pick-tag-sel');
+        var pickTagText = document.getElementById('pick-tag-text');
+        var pickPlus = document.getElementById('pick-plus');
+        var selBubble = document.getElementById('sel-bubble');
+        var busyBadge = document.getElementById('busy-badge');
+        var dragChip = document.getElementById('drag-chip');
+        var ctxMenu = document.getElementById('ctx-menu');
+        var ctxTitle = document.getElementById('ctx-title');
+        var sidebarEl = document.getElementById('sidebar');
+        var dropHint = document.getElementById('drop-hint');
+        var dropHintName = document.getElementById('drop-hint-name');
+        var flowEl = document.getElementById('history-host'); /* E：非当前题的停车位（在「进展」展开层里） */
+        var catalogEl = null; /* E：没有常驻命令目录区块，克隆题先停到 L1 历史位 */
+        var refChipsEl = document.getElementById('ref-chips');
+
+        var pickMode = false;         /* 常驻拾取（点按钮进入） */
+        var altHeld = false;          /* 瞬时拾取（按住 Alt） */
+        var dragging = null;          /* { el, info } */
+        var quickEl = null;           /* ⊕ 悬停目标（G2） */
+        var quickTimer = null;
+        var ctxTarget = null;         /* 右键时命中的可拾取元素 */
+        var lastSelectionHost = null; /* 最近一次鼠标所在的可拾取元素（文本引用宿主） */
+        var selectedText = '';
+        var nativeOnce = false;       /* 退让：下一次 contextmenu 交给页面原生 */
+        var pageInjected = true;      /* 是否已注入（未授权站点 = false） */
+        var refs = [];
+        var refSeq = 0;
+
+        function pickTargetOf(el) {
+          return el && el.closest ? el.closest('[data-pickable]') : null;
+        }
+        function pickActive() {
+          return pageInjected && (pickMode || altHeld);
+        }
+        function shortKey(el) {
+          var cls = (el.getAttribute('class') || '').split(/\s+/).filter(function (c) {
+            return c && c !== 'is-busy' && c !== 'is-done' && c !== 'is-ref-flash';
+          })[0] || '';
+          return el.tagName.toLowerCase() + (cls ? '.' + cls : '');
+        }
+        /** 语义路径 + 极短选择器 + 文本摘要（真实实现同款算法） */
+        function describeElement(el) {
+          var chain = [];
+          var node = el.parentElement;
+          var guard = 0;
+          while (node && guard < 3 && chain.length < 2) {
+            if (node.tagName && node.tagName !== 'BODY' && node.tagName !== 'HTML' && node.getAttribute('class')) {
+              chain.unshift(shortKey(node));
+            }
+            node = node.parentElement;
+            guard += 1;
+          }
+          var sel = shortKey(el);
+          var parent = el.parentElement;
+          if (parent && parent.children) {
+            var same = Array.prototype.slice.call(parent.children).filter(function (c) { return c.tagName === el.tagName; });
+            if (same.length > 1) sel += ':nth-of-type(' + (same.indexOf(el) + 1) + ')';
+          }
+          var text = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+          return {
+            name: el.getAttribute('data-pick-name') || sel,
+            path: chain.concat([shortKey(el)]).join(' › '),
+            selector: sel,
+            text: text,
+            kind: el.getAttribute('data-ref-kind') || 'doc'
+          };
+        }
+
+        /* ── P1：拾取高亮 + 浮动标签 ─────────────────────────────── */
+        function showPick(el) {
+          var info = describeElement(el);
+          var rect = el.getBoundingClientRect ? el.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0, bottom: 0 };
+          pickHl.hidden = false;
+          pickHl.style.setProperty('left', rect.left + 'px');
+          pickHl.style.setProperty('top', rect.top + 'px');
+          pickHl.style.setProperty('width', rect.width + 'px');
+          pickHl.style.setProperty('height', rect.height + 'px');
+          pickTag.hidden = false;
+          pickTagName.textContent = info.name;
+          pickTagKind.textContent = '· ' + info.kind;
+          pickTagPath.textContent = info.path;
+          pickTagSel.textContent = info.selector;
+          pickTagText.textContent = info.text ? '“' + info.text + '”' : '（无文本）';
+          pickTag.style.setProperty('left', Math.max(8, rect.left) + 'px');
+          pickTag.style.setProperty('top', Math.max(8, (rect.bottom || rect.top) + 6) + 'px');
+          say('拾取到「' + info.name + '」（' + info.path + ' · ' + info.selector + '）：单击引用，或 Alt+拖到侧栏。');
+        }
+        function hidePick() {
+          pickHl.hidden = true;
+          pickTag.hidden = true;
+        }
+        function setPickVisual() {
+          if (pickActive()) pageArea.classList.add('picking');
+          else pageArea.classList.remove('picking');
+          pickStateEl.setAttribute('data-on', pickActive() ? 'true' : 'false');
+          pickStateEl.textContent = pickActive()
+            ? (pickMode ? '拾取模式：开（常驻）' : '拾取模式：开（按住 Alt）')
+            : '拾取模式：关';
+          pickToggle.setAttribute('aria-pressed', pickMode ? 'true' : 'false');
+          pickToggle.textContent = pickMode ? '退出拾取模式（Esc）' : '进入拾取模式';
+          if (!pickActive()) {
+            hidePick();
+            pickPlus.hidden = true;
+          }
+        }
+        function setPickMode(on) {
+          pickMode = !!on;
+          setPickVisual();
+          if (pickMode) say('已进入拾取模式：悬停元素即拾取，Alt+拖动可拖到侧栏，Esc 退出。');
+          else say('已退出拾取模式。');
+        }
+        function setAlt(on) {
+          if (altHeld === on) return;
+          altHeld = on;
+          setPickVisual();
+          if (altHeld) say('已按住 Alt：悬停页面元素即可拾取（松开 Alt 或按 Esc 退出）。');
+        }
+        function exitPick() {
+          var was = pickMode || altHeld;
+          pickMode = false;
+          altHeld = false;
+          dragging = null;
+          dragChip.hidden = true;
+          sidebarEl.classList.remove('is-drop');
+          dropHint.hidden = true;
+          setPickVisual();
+          if (was) say('已退出拾取（Esc）：页面侧不残留高亮、标签或角标。');
+          return was;
+        }
+
+        /* ── 引用落地：chip + 页面角标 + 一道新选择题（P2 / P3 / P6 / G1 / G2 共用同一条路径） ── */
+        function addChip(ref) {
+          var chip = document.createElement('button');
+          chip.setAttribute('type', 'button');
+          chip.classList.add('ref-chip');
+          chip.setAttribute('data-ref', String(ref.index));
+          chip.setAttribute('aria-pressed', 'false');
+          var num = document.createElement('span');
+          num.classList.add('rc-num');
+          num.textContent = ref.badge;
+          var label = document.createElement('span');
+          label.classList.add('rc-label');
+          label.textContent = ref.label;
+          var kind = document.createElement('span');
+          kind.classList.add('badge');
+          kind.textContent = ref.kindLabel;
+          chip.appendChild(num);
+          chip.appendChild(label);
+          chip.appendChild(kind);
+          refChipsEl.appendChild(chip);
+          ref.chip = chip;
+        }
+        function addPageBadge(ref) {
+          var badge = document.createElement('span');
+          badge.classList.add('ref-badge');
+          badge.setAttribute('data-ref-badge', String(ref.index));
+          badge.textContent = ref.badge;
+          ref.el.appendChild(badge);
+          ref.badgeEl = badge;
+        }
+        function rewriteIds(root, suffix) {
+          var nodes = [root].concat(Array.prototype.slice.call(root.querySelectorAll('[id]')));
+          nodes.forEach(function (node) {
+            var id = node.getAttribute('id');
+            if (id) node.setAttribute('id', id + suffix);
+            ['aria-describedby', 'aria-controls', 'aria-labelledby'].forEach(function (attr) {
+              var val = node.getAttribute(attr);
+              if (val) {
+                node.setAttribute(attr, val.split(/\s+/).map(function (token) { return token + suffix; }).join(' '));
+              }
+            });
+          });
+        }
+        function instantiateRefQuestion(kind, ref) {
+          var tpl = document.getElementById('tpl-ref-' + kind) || document.getElementById('tpl-ref-doc');
+          if (!tpl) return null;
+          refSeq += 1;
+          var clone = tpl.cloneNode(true);
+          rewriteIds(clone, '-r' + refSeq);
+          clone.removeAttribute('hidden');
+          clone.removeAttribute('data-ref-template');
+          clone.setAttribute('data-answered', 'false');
+          questions().forEach(function (q) {
+            if (q.hasAttribute('data-for-ref')) q.removeAttribute('data-active-priority');
+          });
+          clone.setAttribute('data-active-priority', '');
+          clone.setAttribute('data-for-ref', String(ref.index));
+          clone.setAttribute('data-when', 'idle busy confirm');
+          Array.prototype.slice.call(clone.querySelectorAll('[data-ref-slot]')).forEach(function (el) {
+            el.textContent = ref.label;
+          });
+          Array.prototype.slice.call(clone.querySelectorAll('[data-ref-num]')).forEach(function (el) {
+            el.textContent = ref.badge;
+          });
+          Array.prototype.slice.call(clone.querySelectorAll('[data-reselect]')).forEach(function (btn) {
+            btn.setAttribute('data-reselect', clone.getAttribute('id'));
+          });
+          if (catalogEl) flowEl.insertBefore(clone, catalogEl);
+          else flowEl.appendChild(clone);
+          return clone;
+        }
+        function flashElement(el) {
+          el.classList.add('is-ref-flash');
+          if (el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+          setTimeout(function () { el.classList.remove('is-ref-flash'); }, 1800);
+        }
+        function refFromChip(chip) {
+          var target = document.getElementById(chip.getAttribute('data-ref-target'));
+          if (!target) return null;
+          var info = describeElement(target);
+          var index = Number(chip.getAttribute('data-ref')) || (refs.length + 1);
+          var ref = {
+            index: index,
+            badge: BADGES[index] || ('(' + index + ')'),
+            el: target,
+            label: chip.getAttribute('data-ref-label') || info.name,
+            kindLabel: '元素',
+            chip: chip,
+            info: info
+          };
+          refs.push(ref);
+          refSeq = Math.max(refSeq, index);
+          if (!target.querySelector('.ref-badge')) addPageBadge(ref);
+          return ref;
+        }
+        /* 预置引用（①②）在加载时绑定到页面元素，并打上同序号角标 ——
+           「页面元素角标 ↔ 侧栏 chip 序号」的一致性从加载那一刻就成立。 */
+        Array.prototype.slice.call(refChipsEl.querySelectorAll('.ref-chip')).forEach(refFromChip);
+
+        function createReference(el, source) {
+          if (!el) return null;
+          var info = describeElement(el);
+          var index = refs.length + 1;
+          var kindLabel = source === 'text' ? '文本' : (source === 'operate' ? '操作目标' : '元素');
+          var ref = {
+            index: index,
+            badge: BADGES[index] || ('(' + index + ')'),
+            el: el,
+            label: info.name,
+            kindLabel: kindLabel,
+            info: info
+          };
+          refs.push(ref);
+          addChip(ref);
+          addPageBadge(ref);
+          var card = instantiateRefQuestion(source === 'text' ? 'text' : (source === 'operate' ? 'button' : info.kind), ref);
+          flashElement(el);
+          updateRefLine();     /* E：L0 引用条只显示「引用 N 个」，证据收在 L1 */
+          addEvidence(ref);
+          refreshActive();
+          if (card && card.scrollIntoView) card.scrollIntoView({ block: 'nearest' });
+          say('已引用「' + info.name + '」（' + info.selector + '）→ 侧栏新增引用 ' + ref.badge +
+            '，并就地生成一道选择题（来源：' + source + '；页面侧零新增权限）。');
+          return ref;
+        }
+        function activateRef(ref) {
+          flashElement(ref.el);
+          say('已定位引用 ' + ref.badge + '：页面里「' + ref.label + '」高亮并滚动到可见' +
+            (ref.badgeEl && ref.badgeEl.classList.contains('done') ? '（该引用已处理过，角标为已处理态）。' : '。'));
+        }
+
+        /* ── P5：执行可视化（页面描边闪动 + 侧栏回合进行中 → 已处理角标） ── */
+        function runOnElement(ref, card) {
+          if (!ref) return;
+          ref.el.classList.add('is-busy');
+          var rect = ref.el.getBoundingClientRect ? ref.el.getBoundingClientRect() : { left: 0, top: 0 };
+          busyBadge.hidden = false;
+          busyBadge.textContent = '正在操作此处…（' + ref.label + '）';
+          busyBadge.style.setProperty('left', Math.max(8, rect.left) + 'px');
+          busyBadge.style.setProperty('top', Math.max(8, rect.top - 22) + 'px');
+          if (card) {
+            var run = card.querySelector('[data-run-state]');
+            if (run) run.hidden = false;
+          }
+          say('正在操作页面元素「' + ref.label + '」：页面显示「正在操作此处…」，侧栏该回合显示进行中。');
+          setTimeout(function () {
+            ref.el.classList.remove('is-busy');
+            ref.el.classList.add('is-done');
+            busyBadge.hidden = true;
+            if (ref.badgeEl) {
+              ref.badgeEl.classList.add('done');
+              ref.badgeEl.textContent = ref.badge + ' ✓';
+            }
+            if (card) {
+              var run2 = card.querySelector('[data-run-state]');
+              if (run2) run2.hidden = true;
+              var done = card.querySelector('[data-done-state]');
+              if (done) done.hidden = false;
+            }
+            say('已处理「' + ref.label + '」：页面元素打上「已处理 ✓」角标，侧栏该回合给出回执行。');
+          }, 1200);
+        }
+        function refForCard(card) {
+          var idx = Number(card && card.getAttribute ? card.getAttribute('data-for-ref') : NaN);
+          if (!idx) return null;
+          for (var i = 0; i < refs.length; i += 1) if (refs[i].index === idx) return refs[i];
+          return null;
+        }
+
+        /* ── P1 / P2：拾取与拖动（pointer 事件） ──────────────────── */
+        pageArea.addEventListener('mousedown', function (event) {
+          if (!pickActive()) return;
+          var target = pickTargetOf(event.target);
+          if (!target) return;
+          dragging = { el: target, info: describeElement(target) };
+          dragChip.hidden = false;
+          dragChip.textContent = '引用：' + dragging.info.name;
+          dragChip.style.setProperty('left', (event.clientX || 0) + 'px');
+          dragChip.style.setProperty('top', (event.clientY || 0) + 'px');
+          event.preventDefault();
+          say('开始拖动引用「' + dragging.info.name + '」：拖到右侧栏松手即引用，松在别处则取消。');
+        });
+        document.addEventListener('mousemove', function (event) {
+          if (dragging) {
+            dragChip.style.setProperty('left', (event.clientX || 0) + 'px');
+            dragChip.style.setProperty('top', (event.clientY || 0) + 'px');
+            var overSidebar = !!(event.target && event.target.closest && event.target.closest('#sidebar'));
+            if (overSidebar) {
+              sidebarEl.classList.add('is-drop');
+              dropHint.hidden = false;
+              dropHintName.textContent = dragging.info.name;
+            } else {
+              sidebarEl.classList.remove('is-drop');
+              dropHint.hidden = true;
+            }
+            return;
+          }
+          if (!pickActive()) return;
+          var target = pickTargetOf(event.target);
+          if (target) showPick(target);
+          else hidePick();
+        });
+        document.addEventListener('mouseup', function (event) {
+          var target = pickTargetOf(event.target);
+          if (target) lastSelectionHost = target;
+          if (dragging) {
+            var drop = dragging;
+            dragging = null;
+            dragChip.hidden = true;
+            sidebarEl.classList.remove('is-drop');
+            dropHint.hidden = true;
+            var onSidebar = !!(event.target && event.target.closest && event.target.closest('#sidebar'));
+            if (onSidebar) createReference(drop.el, 'drag');
+            else say('已取消引用：松手位置不在侧栏（把元素拖到右侧栏再松手即可）。页面与侧栏都没有任何变更。');
+            return;
+          }
+          if (!pageInjected) return;
+          var selection = window.getSelection ? window.getSelection() : null;
+          var text = selection && selection.toString ? selection.toString().trim() : '';
+          var inPage = !!(event.target && event.target.closest && event.target.closest('.page-scroll'));
+          if (text.length > 1 && inPage) {
+            selectedText = text;
+            selBubble.textContent = '引用选中内容（' + text.length + ' 字）';
+            selBubble.hidden = false;
+            selBubble.style.setProperty('left', Math.max(8, (event.clientX || 0) - 40) + 'px');
+            selBubble.style.setProperty('top', ((event.clientY || 0) + 14) + 'px');
+            say('已选中 ' + text.length + ' 个字：点气泡「引用选中内容」生成文本引用题（也可用右键 → 引用选中文本）。');
+          } else if (!selBubble.hidden && !(event.target && event.target.closest && event.target.closest('#sel-bubble'))) {
+            selBubble.hidden = true;
+          }
+        });
+        pickToggle.addEventListener('click', function () {
+          if (!pageInjected) {
+            say('未授权站点：页面侧零注入，先完成站点授权才能拾取。');
+            return;
+          }
+          setPickMode(!pickMode);
+        });
+
+        /* ── P3：自绘右键菜单（路线 1；含「交给页面原生菜单」退让出口） ── */
+        function ctxItems() {
+          return Array.prototype.slice.call(ctxMenu.querySelectorAll('[role="menuitem"]'));
+        }
+        function ctxEnabled() {
+          return ctxItems().filter(function (item) { return item.getAttribute('aria-disabled') !== 'true'; });
+        }
+        function ctxFocus(index) {
+          var items = ctxEnabled();
+          ctxItems().forEach(function (item) { item.tabIndex = -1; });
+          if (items[index]) {
+            items[index].tabIndex = 0;
+            items[index].focus();
+          }
+        }
+        function setCtxDisabled(action, disabled) {
+          var item = ctxMenu.querySelector('[data-ctx="' + action + '"]');
+          if (item) item.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        }
+        function openCtxMenu(event, target) {
+          ctxTarget = target || null;
+          var info = target ? describeElement(target) : null;
+          ctxMenu.setAttribute('data-target', target ? 'element' : 'blank');
+          ctxTitle.textContent = '页面侧菜单 · 零新增权限 · ' + (info ? info.name : '未拾取到元素');
+          ctxMenu.hidden = false;
+          ctxMenu.style.setProperty('left', Math.min(event.clientX || 0, 620) + 'px');
+          ctxMenu.style.setProperty('top', (event.clientY || 0) + 'px');
+          setCtxDisabled('ref', !target);
+          setCtxDisabled('operate', !target);
+          setCtxDisabled('ref-text', selectedText.length < 2);
+          setCtxDisabled('selector', true);   /* clipboard.write 已撤销 */
+          ctxFocus(0);
+          say('右键菜单已打开（' + (info ? '目标：' + info.name : '未拾取到元素') +
+            '）：方向键选择 · Enter 执行 · Esc 关闭；菜单里保留「交给页面原生菜单」出口。');
+        }
+        function closeCtxMenu(silent) {
+          if (ctxMenu.hidden) return false;
+          ctxMenu.hidden = true;
+          if (!silent) say('右键菜单已关闭（Esc）：这次没有执行任何动作。');
+          return true;
+        }
+        pageArea.addEventListener('contextmenu', function (event) {
+          if (!pageInjected) return;                /* 未授权站点：零注入，右键交回页面原生 */
+          if (nativeOnce) { nativeOnce = false; return; }
+          event.preventDefault();
+          openCtxMenu(event, pickTargetOf(event.target));
+        });
+        ctxMenu.addEventListener('click', function (event) {
+          var item = event.target.closest ? event.target.closest('[role="menuitem"]') : null;
+          if (!item) return;
+          event.stopPropagation();
+          var action = item.getAttribute('data-ctx');
+          if (item.getAttribute('aria-disabled') === 'true') {
+            say('该菜单项当前不可用：' + item.textContent.trim().replace(/\s+/g, ' '));
+            return;
+          }
+          closeCtxMenu(true);
+          if (action === 'ref') createReference(ctxTarget, 'contextmenu');
+          else if (action === 'operate') createReference(ctxTarget, 'operate');
+          else if (action === 'ref-text') {
+            var host = ctxTarget || lastSelectionHost;
+            if (host) createReference(host, 'text');
+            else say('没有可承载文本引用的元素：先在页面里拖选文字。');
+          } else if (action === 'pick-here') setPickMode(true);
+          else if (action === 'native') {
+            nativeOnce = true;
+            say('已交给页面原生菜单：下一次右键不再被拦截（这就是路线 1 的退让策略）。');
+          }
+        });
+        ctxMenu.addEventListener('keydown', function (event) {
+          var items = ctxEnabled();
+          var idx = items.indexOf(document.activeElement);
+          if (event.key === 'ArrowDown') { event.preventDefault(); ctxFocus(Math.min(items.length - 1, idx + 1)); return; }
+          if (event.key === 'ArrowUp') { event.preventDefault(); ctxFocus(Math.max(0, idx - 1)); return; }
+          if (event.key === 'Home') { event.preventDefault(); ctxFocus(0); return; }
+          if (event.key === 'End') { event.preventDefault(); ctxFocus(items.length - 1); return; }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (items[idx]) items[idx].click();
+            return;
+          }
+          if (event.key === 'Escape') { event.preventDefault(); closeCtxMenu(); }
+        });
+        document.addEventListener('click', function (event) {
+          if (ctxMenu.hidden) return;
+          if (event.target && event.target.closest && event.target.closest('#ctx-menu')) return;
+          closeCtxMenu(true);
+        });
+
+        /* ── G1 双击即引用 / G2 悬停 ⊕ 引用 ──────────────────────── */
+        pageArea.addEventListener('dblclick', function (event) {
+          if (!pageInjected) return;
+          var target = pickTargetOf(event.target);
+          if (!target) return;
+          if (!(pickMode || event.shiftKey)) return;   /* 冲突缓解：拾取态，或 Shift+双击 */
+          event.preventDefault();
+          createReference(target, 'dblclick');
+        });
+        pageArea.addEventListener('mouseover', function (event) {
+          if (!pageInjected) return;
+          var target = pickTargetOf(event.target);
+          if (!target || !target.hasAttribute('data-quick-ref')) return;
+          if (target === quickEl) return;
+          quickEl = target;
+          if (quickTimer) clearTimeout(quickTimer);
+          quickTimer = setTimeout(function () {
+            if (quickEl !== target) return;
+            var rect = target.getBoundingClientRect ? target.getBoundingClientRect() : { left: 0, top: 0, width: 0 };
+            pickPlus.hidden = false;
+            pickPlus.style.setProperty('left', Math.max(8, rect.left + rect.width - 12) + 'px');
+            pickPlus.style.setProperty('top', Math.max(8, rect.top - 10) + 'px');
+            say('该元素在站点声明的可引用白名单里：点右上角 ⊕ 即可引用（悬停 600ms 才出现，避免噪声）。');
+          }, 600);
+        });
+        pageArea.addEventListener('mouseout', function (event) {
+          var target = pickTargetOf(event.target);
+          if (!target || target !== quickEl) return;
+          if (quickTimer) clearTimeout(quickTimer);
+          var stillOnPlus = pickPlus.contains && event.relatedTarget && pickPlus.contains(event.relatedTarget);
+          if (!stillOnPlus) {
+            quickEl = null;
+            pickPlus.hidden = true;
+          }
+        });
+        pickPlus.addEventListener('click', function () {
+          if (quickEl) createReference(quickEl, 'plus');
+        });
+
+        /* ── P6：选中文本气泡 ───────────────────────────────────── */
+        selBubble.addEventListener('click', function () {
+          selBubble.hidden = true;
+          var host = lastSelectionHost || document.getElementById('p-card-session');
+          createReference(host, 'text');
+        });
+
+        /* ── P4 正向：点侧栏 chip → 页面元素高亮 + 滚动到可见 ─────── */
+        refChipsEl.addEventListener('click', function (event) {
+          var chip = event.target.closest ? event.target.closest('.ref-chip') : null;
+          if (!chip) return;
+          var index = Number(chip.getAttribute('data-ref'));
+          var ref = null;
+          for (var i = 0; i < refs.length; i += 1) if (refs[i].index === index) ref = refs[i];
+          if (!ref) return;
+          var chips = Array.prototype.slice.call(refChipsEl.querySelectorAll('.ref-chip'));
+          chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c === chip)); });
+          activateRef(ref);
+        });
+
+        /* ── Alt 瞬时拾取键盘 ───────────────────────────────────── */
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Alt') setAlt(true);
+        });
+        document.addEventListener('keyup', function (event) {
+          if (event.key === 'Alt') setAlt(false);
+        });
+
+        /** 页面侧注入开关：未授权 / 探测中 = 零注入（登记式零注入）。 */
+        function applyPageInjection(name) {
+          pageInjected = name === 'idle' || name === 'busy' || name === 'confirm';
+          if (!pageInjected) {
+            pickMode = false;
+            altHeld = false;
+            dragging = null;
+            dragChip.hidden = true;
+            ctxTarget = null;
+            closeCtxMenu(true);
+            sidebarEl.classList.remove('is-drop');
+            dropHint.hidden = true;
+            selBubble.hidden = true;
+            pickPlus.hidden = true;
+          }
+          pickToggle.disabled = !pageInjected;
+          setPickVisual();
+        }
+
+
+        var docEl = document.documentElement;
+        var panel = document.getElementById('panel');
+        var live = document.getElementById('live-region');
+        var currentState = 'idle';
+        var expansion = {};            /* 展开状态记忆（法则 6） */
+        var densityFull = false;
+
+        function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+        function $(sel, root) { return (root || document).querySelector(sel); }
+        function say(text) { if (live) live.textContent = text; }
+        function whenList() { return $$('[data-when]'); }
+
+        /* ── 1. 主题 / 2. 宽度 ───────────────────────────────────────── */
+        function setTheme(value) {
+          if (value === 'auto') docEl.removeAttribute('data-theme');
+          else docEl.setAttribute('data-theme', value);
+        }
+        function setWidth(px) {
+          panel.setAttribute('data-width', px);
+          docEl.style.setProperty('--panel-w', px + 'px');
+          updateMetrics();
+        }
+
+        /* ── 3. 状态（5 种；风险行由 data-when 常驻 L0，永不折叠） ──── */
+        var STATE_TEXT = { unauthorized: '未授权', probing: '探测中', idle: 'supported（空闲）', busy: '处理中', confirm: '等待确认（破坏性）' };
+        function setState(name) {
+          currentState = name;
+          panel.setAttribute('data-state', name);
+          whenList().forEach(function (el) {
+            var list = (el.getAttribute('data-when') || '').split(/\s+/).filter(Boolean);
+            el.hidden = list.indexOf(name) === -1;
+          });
+          applyPageInjection(name);
+          refreshActive();
+          updateMetrics();
+          say('演示状态已切换为：' + STATE_TEXT[name] + '（风险与状态信息始终留在 L0，不随展开收起变化）');
+        }
+
+        /* ── 4. 折叠器：统一语言 + 状态记忆 ─────────────────────────── */
+        function setDisclose(trigger, id, force) {
+          if (!id) return;
+          var target = document.getElementById(id);
+          if (!target) return;
+          var open = typeof force === 'boolean' ? force : target.hidden;
+          target.hidden = !open;
+          expansion[id] = open;
+          var btn = trigger || $('[data-disclose="' + id + '"]');
+          if (btn) btn.setAttribute('aria-expanded', String(open));
+        }
+        function toggleDisclose(trigger) {
+          var id = trigger.getAttribute('data-disclose');
+          setDisclose(trigger, id);
+          updateMetrics();
+        }
+        function restoreExpansion() {
+          Object.keys(expansion).forEach(function (id) {
+            var target = document.getElementById(id);
+            if (!target) return;
+            target.hidden = !expansion[id];
+            var btn = $('[data-disclose="' + id + '"]');
+            if (btn) btn.setAttribute('aria-expanded', String(expansion[id]));
+          });
+        }
+
+        /* ── 5. 当前题（L0 只有一张卡；其余停到 L1 历史里） ─────────── */
+        var decisionHost = document.getElementById('decision');
+        var historyHost = document.getElementById('history-host'); /* 已决策回合住在「进展」展开层里 */
+        var emptyHint = document.getElementById('empty-hint');
+
+        function questions() {
+          return $$('.q-card').filter(function (q) {
+            return q.hasAttribute('data-answered') && !q.hasAttribute('data-ref-template');
+          });
+        }
+        function eligible(q) {
+          var when = (q.getAttribute('data-when') || '').split(/\s+/).filter(Boolean);
+          var stateOk = when.length === 0 || when.indexOf(currentState) >= 0;
+          return stateOk && q.getAttribute('data-answered') === 'false';
+        }
+        function activeQuestion() {
+          var pending = questions().filter(eligible);
+          var pri = pending.filter(function (q) {
+            return q.hasAttribute('data-active-priority') || q.hasAttribute('data-focus-priority');
+          });
+          return (pri.length ? pri : pending)[0] || null;
+        }
+        function updateHistoryLine() {
+          var answered = questions().filter(function (q) { return q.getAttribute('data-answered') === 'true'; });
+          var count = document.getElementById('history-count');
+          if (count) count.textContent = String(answered.length);
+          var steps = document.getElementById('history-steps');
+          if (steps) {
+            var tags = answered.map(function (q) {
+              var t = $('.q-tag', q);
+              return t ? t.textContent.replace(/^[①-⑤✓\s]+/, '').trim() : '';
+            }).filter(Boolean);
+            steps.textContent = tags.length ? tags.join(' → ') : '（暂无已决策回合）';
+          }
+          var btn = $('[data-disclose="l1-progress"]');
+          if (btn && !expansion['l1-progress']) {
+            /* 折叠状态下的摘要必须是可发现的：把计数写进折叠行本身 */
+            btn.setAttribute('aria-label', '已决策 ' + answered.length + ' 步，点开查看与改选');
+          }
+        }
+        function refreshActive() {
+          var active = activeQuestion();
+          questions().forEach(function (q) {
+            var on = q === active;
+            q.classList.toggle('is-active', on);
+            var ab = $('[data-active-badge]', q);
+            if (ab) ab.hidden = !on;
+            var cb = $('[data-chosen-badge]', q);
+            if (cb) cb.hidden = q.getAttribute('data-answered') !== 'true';
+            if (on && q.parentElement !== decisionHost) decisionHost.appendChild(q);
+            else if (!on && q.parentElement === decisionHost) historyHost.appendChild(q);
+          });
+          if (emptyHint) emptyHint.hidden = !!active;
+          updateHistoryLine();
+          updateMetrics();
+          return active;
+        }
+
+        /* ── 6. 选项交互（与 D 同源：exec / 内联输入 / 就地详情 / 回退） ── */
+        function optionLabel(opt) {
+          var label = $('.opt-label', opt);
+          return label ? label.textContent.trim() : '已选择';
+        }
+        function collapseBoxes(card) {
+          $$('.opt-input', card).forEach(function (box) {
+            box.hidden = true;
+            var trigger = $('.opt[data-opens-input="' + box.id + '"]', card);
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+          });
+        }
+        function setAnswered(card, answered, label) {
+          card.setAttribute('data-answered', answered ? 'true' : 'false');
+          var group = $('.opt-group', card);
+          var decided = $('.q-decided', card);
+          if (group && decided && answered) group.hidden = true;
+          if (group && !answered) group.hidden = false;
+          if (decided) {
+            decided.hidden = !answered;
+            if (answered && label) {
+              var chosen = $('.chosen', decided);
+              if (chosen) chosen.textContent = '已选：' + label;
+            }
+          }
+          if (answered) {
+            card.removeAttribute('data-focus-priority');
+            collapseBoxes(card);
+          } else {
+            $$('.opt', card).forEach(function (o) {
+              if (o.hasAttribute('aria-pressed')) o.setAttribute('aria-pressed', 'false');
+            });
+            card.removeAttribute('data-stale');
+            var note = $('[data-stale-note]', card);
+            if (note) note.hidden = true;
+          }
+        }
+        function clearStale(card) {
+          var list = questions();
+          list.slice(list.indexOf(card) + 1).forEach(function (q) {
+            q.removeAttribute('data-stale');
+            var note = $('[data-stale-note]', q);
+            if (note) note.hidden = true;
+          });
+        }
+        function answerQuestion(card, opt, chosenText) {
+          $$('.opt', card).forEach(function (o) {
+            if (o.hasAttribute('aria-pressed')) o.setAttribute('aria-pressed', String(o === opt));
+          });
+          setAnswered(card, true, chosenText || optionLabel(opt));
+          clearStale(card);
+          var active = refreshActive();
+          say('已记录选择：' + (chosenText || optionLabel(opt)) +
+            '。该回合已收进「已决策 N 步」历史（可展开改选）' + (active ? '，L0 已切换到下一道题。' : '，当前没有待决策的题。'));
+        }
+        function reselect(card) {
+          questions().forEach(function (q) {
+            q.removeAttribute('data-focus-priority');
+            if (q.hasAttribute('data-for-ref')) q.removeAttribute('data-active-priority');
+          });
+          card.setAttribute('data-focus-priority', '');
+          if (card.parentElement !== decisionHost) decisionHost.appendChild(card);
+          var note = $('[data-stale-note]', card);
+          if (note) note.hidden = true;
+          setAnswered(card, false);
+          var list = questions();
+          list.slice(list.indexOf(card) + 1).forEach(function (q) {
+            if (q.getAttribute('data-answered') === 'true') {
+              q.setAttribute('data-stale', 'true');
+              var n = $('[data-stale-note]', q);
+              if (n) n.hidden = false;
+            }
+          });
+          refreshActive();
+          var first = $('.opt', card);
+          if (first) first.focus();
+          say('已改选：该题回到 L0（当前题），其后的已答回合标记「待重算」。');
+        }
+        function runRefExec(card) {
+          var ref = refForCard(card);
+          if (ref) runOnElement(ref, card);
+        }
+        function onOptionClick(card, opt) {
+          if (opt.hasAttribute('data-exec')) runRefExec(card);
+          if (opt.getAttribute('aria-disabled') === 'true') {
+            var why = $('.opt-cons', opt);
+            say('该选项当前不可用：' + (why ? why.textContent.trim() : ''));
+            return;
+          }
+          if (opt.hasAttribute('data-reselect-target')) {
+            var target = document.getElementById(opt.getAttribute('data-reselect-target'));
+            setAnswered(card, false);
+            if (target) reselect(target);
+            return;
+          }
+          if (opt.hasAttribute('data-disclose')) {
+            toggleDisclose(opt);
+            return;
+          }
+          if (opt.hasAttribute('data-opens-input')) {
+            var box = document.getElementById(opt.getAttribute('data-opens-input'));
+            if (!box) return;
+            var open = box.hidden;
+            box.hidden = !open;
+            opt.setAttribute('aria-expanded', String(open));
+            if (open) {
+              var input = $('input', box);
+              if (input) input.focus();
+              say('已就地展开兜底输入（全稿唯一的自由输入位置）；Esc 收起并把焦点还给该选项。');
+            }
+            updateMetrics();
+            return;
+          }
+          answerQuestion(card, opt);
+        }
+
+        /* ── 7. L2 按需视图：≤2 次交互到达 + 用完即走 ────────────────── */
+        var viewBar = document.getElementById('view-bar');
+        var viewName = document.getElementById('view-name');
+        var l0Flow = document.getElementById('l0-flow');
+        var openedView = null;
+        function openView(name) {
+          if (densityFull) {
+            say('「全部展开」对照态下四个视图已并列显示；关掉对照开关即可回到按需取用。');
+            return;
+          }
+          var target = $('.view[data-view="' + name + '"]');
+          if (!target) return;
+          openedView = name;
+          $$('.view').forEach(function (v) { v.hidden = v !== target; });
+          if (l0Flow) l0Flow.hidden = true;
+          if (viewBar) viewBar.hidden = false;
+          var h2 = $('h2', target);
+          if (viewName && h2) viewName.textContent = h2.textContent;
+          setDisclose($('#status-line'), 'l2-entries', false);
+          restoreExpansion();
+          if (target.scrollIntoView) target.scrollIntoView({ block: 'start' });
+          updateMetrics();
+          say('已打开按需视图「' + (h2 ? h2.textContent : name) + '」：状态栏 1 次 + 入口 1 次 = 2 次交互到达；← 返回可回到当前任务。');
+        }
+        function closeView() {
+          openedView = null;
+          $$('.view').forEach(function (v) { v.hidden = true; });
+          if (l0Flow) l0Flow.hidden = false;
+          if (viewBar) viewBar.hidden = true;
+          restoreExpansion();
+          updateMetrics();
+          say('已回到当前任务（L0）；展开状态保持原样（切走再回来不变）。');
+        }
+
+        /* ── 8. 密度实测 + 「全部展开」对照开关（关键交付） ─────────── */
+        function ownText(el) {
+          var out = '';
+          var kids = Array.prototype.slice.call(el.childNodes || el.children || []);
+          kids.forEach(function (k) {
+            if (k.nodeType === 3) out += k.textContent;
+            else if (k.tag === null && typeof k._text === 'string') out += k._text;
+          });
+          return out;
+        }
+        function visibleIn(el) {
+          var n = el;
+          while (n) { if (n.hidden === true) return false; n = n.parentElement; }
+          return true;
+        }
+        function measureDensity() {
+          var all = [panel].concat($$('*', panel));
+          var interactive = 0, chars = 0, blocks = 0;
+          all.forEach(function (el) {
+            if (!visibleIn(el)) return;
+            var tag = el.tagName || '';
+            if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(tag) || (el.hasAttribute('tabindex') && el.getAttribute('tabindex') !== '-1')) {
+              interactive += 1;
+            }
+            var own = ownText(el).replace(/\s+/g, '');
+            if (own) { chars += own.length; blocks += 1; }
+          });
+          var regions = Array.prototype.slice.call(panel.children || []).filter(visibleIn).length;
+          return { interactive: interactive, chars: chars, lines: Math.ceil(chars / 34), blocks: blocks, regions: regions };
+        }
+        function updateMetrics() {
+          var m = measureDensity();
+          var set = function (id, value) { var el = document.getElementById(id); if (el) el.textContent = String(value); };
+          set('m-interactive', m.interactive);
+          set('m-chars', m.chars);
+          set('m-lines', m.lines);
+          set('m-blocks', m.blocks);
+          set('m-regions', m.regions);
+          var verdict = document.getElementById('m-verdict');
+          if (verdict) {
+            var ok = m.interactive <= 7 && m.lines <= 15;
+            verdict.textContent = ok
+              ? 'L0 达标（可点 ≤7 · 正文 ≤15 行）'
+              : '超出 L0 预算 —— 这正是「全部展开」对照态';
+            verdict.setAttribute('class', ok ? 'm-ok' : 'm-warn');
+          }
+          return m;
+        }
+        function setDensity(full) {
+          densityFull = !!full;
+          panel.setAttribute('data-density', full ? 'full' : 'lean');
+          if (full) {
+            $$('[data-disclose]').forEach(function (t) { setDisclose(t, t.getAttribute('data-disclose'), true); });
+            $$('.opt-cons').forEach(function (c) { c.hidden = false; });
+            $$('.view').forEach(function (v) { v.hidden = false; });
+            if (l0Flow) l0Flow.hidden = false;
+            if (viewBar) viewBar.hidden = true;
+          } else {
+            $$('[data-disclose]').forEach(function (t) { setDisclose(t, t.getAttribute('data-disclose'), false); });
+            $$('.opt-cons').forEach(function (c) { c.hidden = true; });
+            $$('.view').forEach(function (v) { v.hidden = true; });
+            if (l0Flow) l0Flow.hidden = false;
+            if (viewBar) viewBar.hidden = true;
+            if (openedView) openView(openedView);
+          }
+          var m = updateMetrics();
+          say(full
+            ? '密度对照已开启：同一屏呈现 D 那种「全铺开」形态（可点 ' + m.interactive + ' · 正文约 ' + m.lines + ' 行）。'
+            : '已回到 E 的默认低密度形态（可点 ' + m.interactive + ' · 正文约 ' + m.lines + ' 行）。');
+        }
+
+        /* ── 9. 内联兜底输入 / 数字键 / Esc ─────────────────────────── */
+        function sendInline(btn) {
+          var box = btn.closest('.opt-input');
+          if (!box) return;
+          var card = box.closest('.q-card');
+          var input = $('input', box);
+          var text = input && input.value.trim() ? input.value.trim() : '（未填写描述）';
+          box.hidden = true;
+          if (input) input.value = '';
+          if (card) {
+            var trigger = $('.opt[data-opens-input="' + box.id + '"]', card);
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+            answerQuestion(card, trigger, '其他：' + text);
+          }
+          say('已收起输入框并把描述转成「已选」值：其他：' + text);
+        }
+        function cancelInline(btn) {
+          var box = btn.closest('.opt-input');
+          if (!box) return;
+          var card = box.closest('.q-card');
+          box.hidden = true;
+          var trigger = card ? $('.opt[data-opens-input="' + box.id + '"]', card) : null;
+          if (trigger) { trigger.setAttribute('aria-expanded', 'false'); trigger.focus(); }
+          updateMetrics();
+          say('已取消输入（未记录任何选择）；焦点回到触发选项。');
+        }
+        function isField(el) { return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || ''); }
+        function visibleOptions(card) {
+          return $$('.opt', card).filter(function (o) { return visibleIn(o); });
+        }
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            if (closeCtxMenu()) return;                       /* 右键菜单优先 */
+            if (exitPick()) return;                           /* 拾取态 */
+            if (dragging) {                                   /* 拖动中 */
+              dragging = null;
+              dragChip.hidden = true;
+              sidebarEl.classList.remove('is-drop');
+              dropHint.hidden = true;
+              say('已取消拖动引用（Esc）。');
+              return;
+            }
+            var openBoxes = $$('.opt-input').filter(function (b) { return b.hidden !== true; });
+            if (openBoxes.length > 0) {
+              var box = openBoxes[openBoxes.length - 1];
+              var card = box.closest('.q-card');
+              box.hidden = true;
+              var trigger = card ? $('.opt[data-opens-input="' + box.id + '"]', card) : null;
+              if (trigger) { trigger.setAttribute('aria-expanded', 'false'); trigger.focus(); }
+              updateMetrics();
+              say('已收起兜底输入框；焦点回到触发它的选项。');
+              return;
+            }
+            var openPanels = $$('.l1').filter(function (p) { return p.hidden !== true; });
+            if (openPanels.length > 0) {
+              var p = openPanels[openPanels.length - 1];
+              p.hidden = true;
+              expansion[p.id] = false;
+              var btn = $('[data-disclose="' + p.id + '"]');
+              if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
+              updateMetrics();
+              say('已收起就地展开的内容；焦点回到触发项。');
+              return;
+            }
+            say('当前没有展开的内容需要收起。');
+            return;
+          }
+          if (isField(event.target)) return;
+          if (!/^[1-5]$/.test(event.key || '')) return;
+          var active = activeQuestion();
+          if (!active) return;
+          var opts = visibleOptions(active);
+          var opt = opts[Number(event.key) - 1];
+          if (!opt) {
+            say('本题当前可见 ' + opts.length + ' 个选项，没有第 ' + event.key + ' 项（其余选项在「更多选项」里）。');
+            return;
+          }
+          event.preventDefault();
+          onOptionClick(active, opt);
+        });
+
+        /* ── 10. 统一点击分发（选项 / 折叠器 / 改选 / 输入 / 视图 / 行内控件） ── */
+        document.addEventListener('click', function (event) {
+          var t = event.target;
+          if (!t || !t.closest) return;
+          var resel = t.closest('[data-reselect]');
+          if (resel) { event.preventDefault(); var c = document.getElementById(resel.getAttribute('data-reselect')); if (c) reselect(c); return; }
+          var send = t.closest('[data-send-input]');
+          if (send) { event.preventDefault(); sendInline(send); return; }
+          var cancel = t.closest('[data-cancel-input]');
+          if (cancel) { event.preventDefault(); cancelInline(cancel); return; }
+          var opt = t.closest('.opt');
+          if (opt) { var card = opt.closest('.q-card'); if (card) onOptionClick(card, opt); return; }
+          var entry = t.closest('[data-open-view]');
+          if (entry) { openView(entry.getAttribute('data-open-view')); return; }
+          var disc = t.closest('[data-disclose]');
+          if (disc) { toggleDisclose(disc); return; }
+          var inline = t.closest('.cat-ctl button, .node-ctl');
+          if (inline) {
+            var group = inline.closest('.cat-ctl, .node-controls');
+            var sibs = group ? $$('button', group).filter(function (b) { return b.hasAttribute('aria-pressed'); }) : [];
+            if (sibs.length > 0 && sibs.indexOf(inline) !== -1) {
+              sibs.forEach(function (b) { b.setAttribute('aria-pressed', String(b === inline)); });
+              say('已就地设置处置档：' + inline.textContent.trim() + '（演示稿只改界面；真实实现经唯一动作通路写入并由服务端 clamp 强制）。');
+            } else {
+              say('演示动作：' + inline.textContent.trim());
+            }
+          }
+        });
+
+        document.getElementById('view-back').addEventListener('click', closeView);
+        var staleBtn = document.getElementById('simulate-stale');
+        if (staleBtn) {
+          staleBtn.addEventListener('click', function () {
+            var line = document.getElementById('risk-ref-stale');
+            if (line) line.hidden = false;
+            var chip = $('#ref-chips .ref-chip[data-ref="2"]');
+            if (chip) chip.setAttribute('aria-disabled', 'true');
+            say('已模拟「目标元素被页面重渲染移除」：失效信息立即出现在 L0 风险位（不可折叠）。');
+          });
+        }
+
+        /* ── 11. 引用条（计数 + 摘要，证据在 L1） ───────────────────── */
+        function updateRefLine() {
+          var chips = $$('#ref-chips .ref-chip');
+          var count = document.getElementById('ref-count');
+          if (count) count.textContent = String(chips.length);
+          var summary = document.getElementById('ref-summary');
+          if (summary) {
+            summary.textContent = chips.length === 0
+              ? '还没有引用：点「从页面拾取」在左侧页面上指一个元素'
+              : chips.map(function (c) { return c.querySelector('.rc-num').textContent + ' ' + c.querySelector('.rc-label').textContent; }).join(' · ');
+          }
+          var evidence = document.getElementById('ref-evidence');
+          if (evidence) {
+            evidence.hidden = false;
+          }
+        }
+        function addEvidence(ref) {
+          var evidence = document.getElementById('ref-evidence');
+          if (!evidence || !ref || !ref.info) return;
+          var row = document.createElement('div');
+          var dt = document.createElement('dt');
+          dt.textContent = ref.badge + ' 选择器';
+          var dd = document.createElement('dd');
+          var code = document.createElement('code');
+          code.textContent = ref.info.selector;
+          dd.appendChild(code);
+          dd.appendChild(document.createTextNode(' · 路径 '));
+          var code2 = document.createElement('code');
+          code2.textContent = ref.info.path;
+          dd.appendChild(code2);
+          row.appendChild(dt);
+          row.appendChild(dd);
+          evidence.appendChild(row);
+        }
+
+        /* ── 12. 演示控制台：三组互斥开关 + 密度对照 ───────────────── */
+        function wireRadioGroup(selector, attr, onPick) {
+          var group = document.querySelector(selector);
+          if (!group) return;
+          var items = $$('[role="radio"]', group);
+          function pick(item, focus) {
+            items.forEach(function (node) {
+              var on = node === item;
+              node.setAttribute('aria-checked', String(on));
+              node.tabIndex = on ? 0 : -1;
+            });
+            if (focus) item.focus();
+            onPick(item.getAttribute(attr));
+          }
+          items.forEach(function (item) {
+            item.addEventListener('click', function () { pick(item, false); });
+            item.addEventListener('keydown', function (event) {
+              var i = items.indexOf(item);
+              var next = null;
+              if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = items[(i + 1) % items.length];
+              else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = items[(i - 1 + items.length) % items.length];
+              else if (event.key === 'Home') next = items[0];
+              else if (event.key === 'End') next = items[items.length - 1];
+              if (!next) return;
+              event.preventDefault();
+              pick(next, true);
+            });
+          });
+          var initial = items.filter(function (n) { return n.getAttribute('aria-checked') === 'true'; })[0] || items[0];
+          if (initial) pick(initial, false);
+        }
+        var densityBtn = document.getElementById('density-toggle');
+        if (densityBtn) {
+          densityBtn.addEventListener('click', function () {
+            setDensity(!densityFull);
+            densityBtn.setAttribute('aria-pressed', String(densityFull));
+          });
+        }
+        wireRadioGroup('#state-switch', 'data-state-set', setState);
+        wireRadioGroup('#width-switch', 'data-width-set', setWidth);
+        wireRadioGroup('#theme-switch', 'data-theme-set', setTheme);
+
+        /* ── 13. 初始化 ─────────────────────────────────────────────── */
+        window.__density = measureDensity;   /* 供自动化自检调用（与页面显示同一函数） */
+        window.__panel = panel;
+        /* 引用的注册在页面侧 JS 里已经做过一次（避免重复注册导致序号漂移） */
+        updateRefLine();
+        refreshActive();
+        restoreExpansion();
+        updateMetrics();
+      })();
+    </script>
+  </body>
+</html>

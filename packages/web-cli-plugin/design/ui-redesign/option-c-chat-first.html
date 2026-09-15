@@ -1,0 +1,2603 @@
+<!doctype html>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  web-cli plugin v0.8.0 · 侧边栏主界面布局重构 · 方案 C「对话优先 + 浮层面板」
+  ═══════════════════════════════════════════════════════════════════════════
+
+  【这是什么】
+  一份自包含的高保真设计稿（单文件、零外链、零构建、零网络请求），用于对侧边栏
+  主界面做布局重构的横向评审。它不接入扩展运行时：所有内容都是与真实产品一致的
+  静态样例（真实 origin、真实工具名、真实处置档、真实树层级、真实状态机）。
+
+  【现状的痛点（本方案逐一对应）】
+  1. 设置 / 授权 / 撤销 / 重绑 / 审计 / 会话列表 / 分组 / 状态 / LLM 状态全部挤在
+     顶部一条 —— 顶部信息密度失控，聊天区被持续挤压。
+  2. 连接树是漂浮 FAB + 覆盖抽屉：没有固定归属位置、看不出那是个按钮、打开就遮挡
+     聊天，关闭后也没有「回到哪」。
+  3. 提示 / 引导 / 发现通知 / 确认卡层层堆在输入框上方，输入区被反复顶起。
+  4. 缺少 状态栏 / 菜单栏 / 聊天区 / 输入区 的分层，只靠一条顶栏 + 底部堆叠硬撑。
+
+  【本方案的取舍】
+  · 承认侧栏天生窄（通常 320 到 560px）：聊天是唯一主视图，不做多视图切换。
+    多视图在 320px 下会退化成「每个视图都不够用」，而且会打断对话上下文。
+  · 其余内容（连接树 / 命令目录 / 归档 / 设置）从右侧滑出的统一浮层进入。浮层与
+    现状的「覆盖抽屉」同源，但补上了它缺的三件事：
+      ① 显式入口：右下角操作坞（3 个带文字标签的按钮）+ 首次引导气泡；
+      ② 明确归属：浮层有标题栏与关闭按钮，打开时聊天不被永久挤走，关闭后原样恢复；
+      ③ 内容可切换：一个容器承载四种内容，不再四个入口四套壳。
+  · 顶部只保留一行：品牌点 + 站点状态胶囊 + 更多菜单。状态胶囊同时是连接树的第二
+    入口 —— 「当前站点是什么状态」与「谁在管我」本就是同一件事。
+  · 输入区上方的堆叠改为「就地插入」：ask-user 问答卡与破坏性确认卡直接出现在对话
+    流里（不跳转、不遮挡输入框），因为确认也是对话的一部分。
+  · 底部状态栏默认一行（状态点 + origin + 策略档 + 审计条数），详情收进可展开区域，
+    而不是全部平铺。
+
+  【320px 下的让步（硬要求：不破版）】
+  · 浮层宽度从 85% 改为 100%（320px 下若仍留遮罩，只剩约 48px 可点区域，不值当）。
+  · 操作坞保持 3 个带文字标签的纵向按钮，不退化成一排无字图标 —— 避免重演现状
+    「看不出来那是个按钮」的问题。
+  · 状态栏允许换行（origin 省略号截断）；工具块横向滚动而不是撑破面板。
+  · 树缩进逐层 10px 并在第 6 层封顶；深层路径不会把树撑宽。
+  · 徽标一律可换行，任何一行都不做 nowrap 硬撑。
+
+  【无障碍】
+  · 语义标签（header / main / footer / aside / nav / section）；浮层 role=dialog +
+    aria-modal + 焦点管理（打开时焦点进入浮层、背景置为 inert、Tab 在浮层内循环、
+    Esc 关闭、关闭后焦点回到触发按钮）。
+  · 树用 role=tree / treeitem + aria-level / aria-expanded / roving tabindex，支持
+    方向键 / Home / End / 左右展开收起，面包屑随焦点更新。
+  · 状态一律「图形 + 文字」双通道，不靠颜色单独传达（状态胶囊与状态栏都带文字）。
+  · 全站 :focus-visible 焦点环；演示控制台的三组开关用 role=radiogroup + 方向键。
+
+  【自检】
+  · 零外链：全部样式与图标内联（图标一律内联 SVG），没有任何远程资源引用，页面不开
+    任何网络请求；下载后双击即可打开，无需服务器、无构建步骤。
+  · 内联 JS 仅用于演示开关（主题 / 宽度 / 状态 / 浮层开合与内容切换 / 命令补全 /
+    树键盘导航 / 状态栏展开 / 引导气泡关闭），无框架、无依赖。
+  · 顶部「演示控制台」不属于交付 UI，仅用于评审切换展示状态。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web-cli plugin · 方案 C 对话优先 + 浮层面板（设计稿）</title>
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════
+         1. 设计令牌 —— 继承现状 tokens（src/ui/sidepanel/index.html 20-78 行），
+            仅补充：品牌渐变、危险实色、浮层/遮罩、操作坞、策略徽标、树缩进。
+         ═══════════════════════════════════════════════════════════════════ */
+      :root {
+        color-scheme: light dark;
+
+        /* 面板内（与现状一致） */
+        --bg: #ffffff;
+        --bg-subtle: #f6f8fb;
+        --bg-elevated: #ffffff;
+        --text: #1e293b;
+        --text-muted: #64748b;
+        --border: #e5e9f0;
+        --border-strong: #cbd5e1;
+        --accent: #4f46e5;
+        --accent-hover: #4338ca;
+        --accent-weak: #eef2ff;
+        --accent-text: #4338ca;
+        --brand-a: #4f46e5;
+        --brand-b: #3b82f6;
+        --user-bg: #4f46e5;
+        --user-text: #ffffff;
+        --assistant-bg: #f1f5f9;
+        --assistant-text: #334155;
+        --tool-bg: #0f172a;
+        --tool-text: #cbd5e1;
+        --tool-border: #1e293b;
+        --warn-bg: #fffbeb;
+        --warn-border: #fde68a;
+        --warn-text: #92400e;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --danger-border: #fecaca;
+        --danger-text: #991b1b;
+        --ok: #15803d;
+        --ok-bg: rgba(21, 128, 61, 0.12);
+        --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        --shadow-lg: -18px 0 40px rgba(15, 23, 42, 0.18);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        --focus: 0 0 0 2px rgba(79, 70, 229, 0.35);
+
+        /* 演示舞台（面板之外，仅供评审） */
+        --stage-bg: #eceff5;
+        --stage-panel: #ffffff;
+        --stage-text: #334155;
+        --stage-muted: #64748b;
+        --stage-border: #d7dde8;
+        --page-bg: #f8fafc;
+
+        /* 版面尺寸（宽度切换器改写 --panel-w） */
+        --panel-w: 400px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) {
+          --bg: #0b1120;
+          --bg-subtle: #0f172a;
+          --bg-elevated: #101a30;
+          --text: #e2e8f0;
+          --text-muted: #94a3b8;
+          --border: #1e293b;
+          --border-strong: #334155;
+          --accent: #818cf8;
+          --accent-hover: #a5b4fc;
+          --accent-weak: #1e1b4b;
+          --accent-text: #c7d2fe;
+          --assistant-bg: #1e293b;
+          --assistant-text: #cbd5e1;
+          --tool-bg: #050a16;
+          --tool-text: #cbd5e1;
+          --tool-border: #1e293b;
+          --warn-bg: #3b2f10;
+          --warn-border: #78500f;
+          --warn-text: #fcd34d;
+          --danger: #f87171;
+          --danger-bg: #3f1414;
+          --danger-border: #7f1d1d;
+          --danger-text: #fca5a5;
+          --ok: #4ade80;
+          --ok-bg: rgba(74, 222, 128, 0.14);
+          --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+          --shadow-lg: -18px 0 40px rgba(0, 0, 0, 0.55);
+          --stage-bg: #070b14;
+          --stage-panel: #0b1120;
+          --stage-text: #cbd5e1;
+          --stage-muted: #94a3b8;
+          --stage-border: #24304a;
+          --page-bg: #0d1424;
+        }
+      }
+
+      /* 手动深色（覆盖系统浅色） */
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0b1120;
+        --bg-subtle: #0f172a;
+        --bg-elevated: #101a30;
+        --text: #e2e8f0;
+        --text-muted: #94a3b8;
+        --border: #1e293b;
+        --border-strong: #334155;
+        --accent: #818cf8;
+        --accent-hover: #a5b4fc;
+        --accent-weak: #1e1b4b;
+        --accent-text: #c7d2fe;
+        --assistant-bg: #1e293b;
+        --assistant-text: #cbd5e1;
+        --tool-bg: #050a16;
+        --tool-text: #cbd5e1;
+        --tool-border: #1e293b;
+        --warn-bg: #3b2f10;
+        --warn-border: #78500f;
+        --warn-text: #fcd34d;
+        --danger: #f87171;
+        --danger-bg: #3f1414;
+        --danger-border: #7f1d1d;
+        --danger-text: #fca5a5;
+        --ok: #4ade80;
+        --ok-bg: rgba(74, 222, 128, 0.14);
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        --shadow-lg: -18px 0 40px rgba(0, 0, 0, 0.55);
+        --stage-bg: #070b14;
+        --stage-panel: #0b1120;
+        --stage-text: #cbd5e1;
+        --stage-muted: #94a3b8;
+        --stage-border: #24304a;
+        --page-bg: #0d1424;
+      }
+
+      /* 手动浅色（覆盖系统深色） */
+      html[data-theme="light"] { color-scheme: light; }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      /* 演示开关用 hidden 切显隐：必须有 !important 才不会被 display:flex 反超 */
+      [hidden] { display: none !important; }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--stage-bg);
+        color: var(--stage-text);
+        overflow-wrap: anywhere;
+      }
+
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         2. 演示舞台（非交付 UI）：控制台 + 浏览器侧栏容器
+         ═══════════════════════════════════════════════════════════════════ */
+      .stage {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 14px 40px;
+      }
+
+      .demo-bar {
+        width: 100%;
+        max-width: 760px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 10px 18px;
+        padding: 10px 12px;
+        border: 1px dashed var(--stage-border);
+        border-radius: 10px;
+        background: var(--stage-panel);
+        color: var(--stage-text);
+      }
+      .demo-bar-title {
+        flex: 1 1 100%;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--stage-muted);
+      }
+      .demo-bar-title .demo-bar-note { font-weight: 400; font-size: 11px; }
+      .demo-group { display: flex; flex-direction: column; gap: 5px; }
+      .demo-group > .demo-label { font-size: 11px; font-weight: 600; color: var(--stage-muted); }
+      .seg {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 3px;
+        border: 1px solid var(--stage-border);
+        border-radius: 999px;
+        background: var(--stage-bg);
+      }
+      .seg [role="radio"] {
+        font: inherit;
+        font-size: 11.5px;
+        color: var(--stage-text);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      .seg [role="radio"]:hover { border-color: var(--accent); color: var(--accent-text); }
+      .seg [role="radio"][aria-checked="true"] {
+        background: linear-gradient(120deg, var(--brand-a), var(--brand-b));
+        color: #fff;
+        font-weight: 600;
+      }
+
+      /* 浏览器侧栏容器 */
+      .frame {
+        width: calc(var(--panel-w) + 168px);
+        max-width: 100%;
+        height: min(790px, calc(100vh - 200px));
+        min-height: 540px;
+        display: flex;
+        align-items: stretch;
+        border: 1px solid var(--stage-border);
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--stage-panel);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+      }
+      .frame-page {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 14px 12px;
+        background: var(--page-bg);
+        color: var(--stage-muted);
+        font-size: 11.5px;
+        line-height: 1.7;
+        border-right: 1px solid var(--stage-border);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .frame-page .fp-bar {
+        height: 10px;
+        border-radius: 999px;
+        background: var(--stage-bg);
+        border: 1px solid var(--stage-border);
+      }
+      .frame-page .fp-bar.short { width: 62%; }
+      .frame-page .fp-note { margin-top: auto; font-size: 10.5px; opacity: 0.85; }
+      @media (max-width: 760px) {
+        .frame-page { display: none; }
+        .frame { width: 100%; }
+      }
+
+      .mock-sidebar {
+        flex: 0 0 auto;
+        width: var(--panel-w);
+        max-width: 100%;
+        min-width: 0;
+        display: flex;
+        border-left: 1px solid var(--stage-border);
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         3. 侧边栏面板骨架：顶栏 / 聊天区 / 输入区 / 状态栏（四区显式分层）
+         ═══════════════════════════════════════════════════════════════════ */
+      .panel {
+        position: relative;
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        color: var(--text);
+        overflow: hidden;
+      }
+
+      /* ── 通用控件 ───────────────────────────────────────────────────── */
+      button {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 10px;
+        cursor: pointer;
+        max-width: 100%;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+      button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+      button.danger { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); }
+      button.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger-text); background: var(--danger-bg); }
+      button.btn-sm { font-size: 11.5px; padding: 4px 8px; }
+      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+      .muted { color: var(--text-muted); font-size: 11.5px; }
+      .hint { margin: 4px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.55; }
+      code { font-family: var(--mono); font-size: 11.5px; }
+
+      /* ── 策略 / 层级 徽标（不靠颜色单独传达：徽标均带文字） ─────────── */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-subtle);
+        color: var(--text-muted);
+        font-size: 10.5px;
+        line-height: 1.6;
+        white-space: normal;
+      }
+      .badge.allow { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); font-weight: 600; }
+      .badge.ask { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); font-weight: 600; }
+      .badge.deny { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); font-weight: 600; }
+      .badge.floor { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); font-weight: 600; }
+      .badge.tighten { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); }
+      .badge.layer { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); font-family: var(--mono); }
+      .badge.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
+      .badge.muted { color: var(--text-muted); }
+      .ico { width: 13px; height: 13px; flex: 0 0 auto; display: block; }
+      /* ═══════════════════════════════════════════════════════════════════
+         4. 区 1：顶部极简标题栏（品牌点 + 站点状态胶囊 + 更多菜单）
+         ═══════════════════════════════════════════════════════════════════ */
+      .topbar {
+        flex: 0 0 auto;
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 10px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+        min-width: 0;
+        z-index: 6;
+      }
+      .brand-dot {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, var(--brand-a), var(--brand-b));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        box-shadow: 0 1px 3px rgba(79, 70, 229, 0.4);
+      }
+      .brand-dot svg { width: 12px; height: 12px; }
+
+      .site-pill {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: var(--bg-subtle);
+        font-size: 11.5px;
+        text-align: left;
+      }
+      .site-pill .pill-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+      .site-pill .pill-origin {
+        min-width: 0;
+        font-family: var(--mono);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .site-pill .pill-sep { flex: 0 0 auto; color: var(--text-muted); }
+      .site-pill .pill-state { flex: 0 0 auto; font-weight: 600; color: var(--text-muted); }
+      .site-pill .pill-caret { flex: 0 0 auto; color: var(--text-muted); display: flex; }
+      #panel[data-state="idle"] .site-pill .pill-dot { background: var(--ok); }
+      #panel[data-state="idle"] .site-pill .pill-state { color: var(--ok); }
+      #panel[data-state="busy"] .site-pill .pill-dot { background: var(--accent); }
+      #panel[data-state="busy"] .site-pill .pill-state { color: var(--accent-text); }
+      #panel[data-state="confirm"] .site-pill .pill-dot { background: var(--warn-text); }
+      #panel[data-state="confirm"] .site-pill .pill-state { color: var(--warn-text); }
+      #panel[data-state="probing"] .site-pill .pill-dot { background: transparent; border: 2px solid var(--accent); }
+      #panel[data-state="probing"] .site-pill .pill-state { color: var(--accent-text); }
+      #panel[data-state="unauthorized"] .site-pill .pill-dot { background: var(--danger); }
+      #panel[data-state="unauthorized"] .site-pill .pill-state { color: var(--danger-text); }
+
+      .icon-btn {
+        flex: 0 0 auto;
+        width: 30px;
+        height: 28px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .menu-popover {
+        position: absolute;
+        top: 44px;
+        right: 8px;
+        width: min(250px, calc(100% - 16px));
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 6px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+        z-index: 8;
+      }
+      .menu-popover .menu-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 7px;
+        width: 100%;
+        text-align: left;
+        border: 1px solid transparent;
+        background: transparent;
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+      .menu-popover .menu-item small { display: block; color: var(--text-muted); font-size: 10.5px; font-weight: 400; }
+      .menu-popover hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         5. 区 2：聊天区（flex 填充 + 唯一滚动容器）
+         ═══════════════════════════════════════════════════════════════════ */
+      .chat-wrap { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; }
+      .chat {
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 10px 128px;
+        background: var(--bg-subtle);
+      }
+      .chat-note {
+        align-self: center;
+        max-width: 100%;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 10.5px;
+        text-align: center;
+      }
+
+      .banner { border-radius: var(--radius-sm); padding: 8px 10px; font-size: 12px; line-height: 1.6; display: flex; gap: 7px; }
+      .banner .ico { margin-top: 2px; }
+      .banner.warn { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text); }
+      .banner.info { background: var(--accent-weak); border: 1px solid var(--accent); color: var(--accent-text); }
+      .banner b { font-weight: 700; }
+
+      .msg { display: flex; min-width: 0; }
+      .msg-user { justify-content: flex-end; }
+      .msg-assistant, .msg-system { justify-content: flex-start; }
+      .bubble {
+        max-width: 92%;
+        min-width: 0;
+        padding: 8px 11px;
+        border-radius: var(--radius);
+        font-size: 13px;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+      .msg-user .bubble { background: var(--user-bg); color: var(--user-text); border-bottom-right-radius: 3px; }
+      .msg-assistant .bubble {
+        background: var(--assistant-bg);
+        color: var(--assistant-text);
+        border-bottom-left-radius: 3px;
+        box-shadow: var(--shadow);
+      }
+      .msg-system .bubble {
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        border: 1px solid var(--warn-border);
+        border-bottom-left-radius: 3px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .thinking { display: inline-flex; align-items: center; gap: 4px; }
+      .thinking-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        animation: blink 1.2s infinite ease-in-out;
+      }
+      .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+      .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes blink { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
+
+      /* 工具结果：深色等宽终端块（现状 .tool-card-body 的直系继承者） */
+      .tool {
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        background: var(--bg-elevated);
+      }
+      .tool-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 7px;
+        padding: 6px 10px;
+        font-size: 11.5px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+      }
+      .tool-head .tool-prompt { color: var(--accent-text); font-weight: 700; font-family: var(--mono); }
+      .tool-head code { min-width: 0; font-weight: 600; }
+      .tool-head .ms { color: var(--text-muted); font-size: 10.5px; }
+      .tool-body {
+        margin: 0;
+        padding: 8px 10px;
+        background: var(--tool-bg);
+        color: var(--tool-text);
+        border-top: 1px solid var(--tool-border);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        line-height: 1.6;
+        white-space: pre;
+        overflow: auto;
+        max-height: 260px;
+      }
+      .tool-body .ln-ok { color: #6ee7b7; }
+      .tool-body .ln-run { color: #fcd34d; }
+      .tool-body .ln-dim { color: #94a3b8; }
+      /* 就地插入的卡片：ask-user 问答卡 / 破坏性确认卡 */
+      .card {
+        border-radius: var(--radius-sm);
+        padding: 9px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        min-width: 0;
+      }
+      .card.ask { background: var(--bg-subtle); border: 1px solid var(--border-strong); }
+      .card.confirm { background: var(--warn-bg); border: 1px solid var(--warn-border); }
+      .card-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .card-kind {
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-strong);
+        color: var(--text-muted);
+      }
+      .card.confirm .card-kind { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+      .card-text { margin: 0; font-size: 12.5px; line-height: 1.6; }
+      .card.confirm .card-text { font-weight: 600; color: var(--warn-text); }
+      .card-detail { margin: 0; font-size: 11px; line-height: 1.6; color: var(--text-muted); }
+      .card.confirm .card-detail { color: var(--warn-text); }
+      .chip {
+        font: inherit;
+        font-size: 11.5px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-strong);
+      }
+      input, textarea, select {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 8px;
+        min-width: 0;
+        max-width: 100%;
+      }
+      input::placeholder, textarea::placeholder { color: var(--text-muted); }
+      input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; box-shadow: var(--focus); }
+      input:disabled, textarea:disabled { background: var(--bg-subtle); color: var(--text-muted); }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         6. 操作坞（浮层入口：3 个带文字标签的按钮 + 首次引导气泡）
+         ═══════════════════════════════════════════════════════════════════ */
+      .dock {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        max-width: calc(100% - 20px);
+      }
+      .dock-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        font-size: 11.5px;
+        font-weight: 600;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-strong);
+        border-radius: 999px;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
+        white-space: nowrap;
+      }
+      .dock-btn .ico { color: var(--accent); }
+      .dock .guide {
+        position: relative;
+        max-width: 100%;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        background: var(--accent-weak);
+        border: 1px solid var(--accent);
+        color: var(--accent-text);
+        font-size: 11px;
+        line-height: 1.55;
+        box-shadow: var(--shadow);
+      }
+      .dock .guide::after {
+        content: "";
+        position: absolute;
+        right: 18px;
+        bottom: -6px;
+        width: 10px;
+        height: 10px;
+        background: var(--accent-weak);
+        border-right: 1px solid var(--accent);
+        border-bottom: 1px solid var(--accent);
+        transform: rotate(45deg);
+      }
+      .dock .guide p { margin: 0 0 6px; }
+      .guide-close {
+        font-size: 10.5px;
+        padding: 2px 8px;
+        background: var(--bg-elevated);
+        border-color: var(--accent);
+        color: var(--accent-text);
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         7. 区 3：输入区（多行 + 发送 + 徽标 + 命令自动补全）
+         ═══════════════════════════════════════════════════════════════════ */
+      .composer-area {
+        flex: 0 0 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 10px 6px;
+        background: var(--bg-elevated);
+        border-top: 1px solid var(--border);
+      }
+      .send-reason { margin: 0; font-size: 11px; color: var(--warn-text); font-weight: 600; }
+      .palette {
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--bg-elevated);
+        box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.12);
+        overflow: hidden;
+      }
+      .palette-head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        flex-wrap: wrap;
+        padding: 5px 9px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-subtle);
+        font-size: 10.5px;
+        color: var(--text-muted);
+      }
+      .palette-list { list-style: none; margin: 0; padding: 4px; max-height: 214px; overflow-y: auto; }
+      .palette-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        padding: 5px 7px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        border: 1px solid transparent;
+        min-width: 0;
+      }
+      .palette-item[aria-selected="true"] { background: var(--accent-weak); border-color: var(--accent); }
+      .palette-item .palette-cmd { font-family: var(--mono); font-size: 11.5px; font-weight: 600; }
+      .palette-item .palette-desc { flex: 1 1 100%; font-size: 10.5px; color: var(--text-muted); line-height: 1.5; }
+      .palette-foot { padding: 4px 9px; border-top: 1px solid var(--border); background: var(--bg-subtle); font-size: 10.5px; color: var(--text-muted); }
+
+      .composer { display: flex; gap: 6px; align-items: flex-end; min-width: 0; }
+      .composer textarea {
+        flex: 1 1 auto;
+        min-width: 0;
+        resize: vertical;
+        min-height: 54px;
+        max-height: 140px;
+        line-height: 1.55;
+        padding: 8px 10px;
+        font-size: 12.5px;
+      }
+      .composer .send-btn {
+        flex: 0 0 auto;
+        padding: 8px 14px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .composer .send-btn:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+      .composer .stop-btn { flex: 0 0 auto; padding: 8px 12px; font-weight: 600; }
+      .composer-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 6px;
+        font-size: 10.5px;
+        color: var(--text-muted);
+        min-width: 0;
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         8. 区 4：底部状态栏（默认一行极简 + 可展开详情）
+         ═══════════════════════════════════════════════════════════════════ */
+      .statusbar { flex: 0 0 auto; min-width: 0; background: var(--bg-elevated); border-top: 1px solid var(--border); }
+      .statusbar-line {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        width: 100%;
+        padding: 5px 10px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        text-align: left;
+        font-size: 10.5px;
+        color: var(--text-muted);
+      }
+      .statusbar-line:hover { background: var(--bg-subtle); color: var(--text-muted); border-color: transparent; }
+      .statusbar-line .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+      .statusbar-line .sb-state { font-weight: 700; color: var(--text-muted); }
+      .statusbar-line .sb-origin {
+        font-family: var(--mono);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+      }
+      .statusbar-line .sb-chevron { margin-left: auto; flex: 0 0 auto; display: flex; color: var(--text-muted); }
+      #panel[data-state="idle"] .statusbar-line .dot { background: var(--ok); }
+      #panel[data-state="idle"] .statusbar-line .sb-state { color: var(--ok); }
+      #panel[data-state="busy"] .statusbar-line .dot { background: var(--accent); }
+      #panel[data-state="busy"] .statusbar-line .sb-state { color: var(--accent-text); }
+      #panel[data-state="confirm"] .statusbar-line .dot { background: var(--warn-text); }
+      #panel[data-state="confirm"] .statusbar-line .sb-state { color: var(--warn-text); }
+      #panel[data-state="probing"] .statusbar-line .dot { background: transparent; border: 2px solid var(--accent); }
+      #panel[data-state="probing"] .statusbar-line .sb-state { color: var(--accent-text); }
+      #panel[data-state="unauthorized"] .statusbar-line .dot { background: var(--danger); }
+      #panel[data-state="unauthorized"] .statusbar-line .sb-state { color: var(--danger-text); }
+
+      .status-details {
+        padding: 4px 10px 10px;
+        border-top: 1px dashed var(--border);
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      .status-details dl { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+      .status-details dl > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+      .status-details dt { font-size: 10.5px; font-weight: 700; color: var(--text-muted); }
+      .status-details dd { margin: 0; font-size: 11px; line-height: 1.55; }
+      /* ═══════════════════════════════════════════════════════════════════
+         9. 浮层：遮罩 + 右侧滑出容器（连接树 / 命令目录 / 归档 / 设置）
+         ═══════════════════════════════════════════════════════════════════ */
+      .scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        background: rgba(15, 23, 42, 0.42);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s;
+      }
+      .scrim.is-open { opacity: 1; visibility: visible; }
+
+      .float {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 21;
+        width: 85%;
+        max-width: 100%;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-elevated);
+        border-left: 1px solid var(--border-strong);
+        box-shadow: var(--shadow-lg);
+        transform: translateX(101%);
+        visibility: hidden;
+        transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.22s;
+      }
+      /* 320px：浮层全宽（留遮罩只剩约 48px 可点区域，没有意义） */
+      #panel[data-width="320"] .float { width: 100%; }
+      .float.is-open { transform: none; visibility: visible; }
+
+      .float-head {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-elevated);
+        min-width: 0;
+      }
+      .float-head .float-title { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; }
+      .float-head .float-sub { font-weight: 400; color: var(--text-muted); font-size: 10.5px; }
+
+      .float-tabs {
+        flex: 0 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-subtle);
+      }
+      .float-tabs [role="tab"] {
+        font: inherit;
+        font-size: 11.5px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-strong);
+        color: var(--text);
+      }
+      .float-tabs [role="tab"][aria-selected="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .float-body { flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; }
+      [role="tabpanel"] {
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .pane-title { margin: 0; font-size: 12px; font-weight: 700; }
+      .note-block {
+        padding: 7px 9px;
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        font-size: 10.5px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+      .stat-row { display: flex; flex-wrap: wrap; gap: 5px; }
+      .stat {
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        font-size: 10.5px;
+        line-height: 1.55;
+        color: var(--text-muted);
+      }
+      .stat b { color: var(--accent-text); font-family: var(--mono); }
+      .filter-row { display: flex; flex-wrap: wrap; gap: 5px; }
+      .filter-row input, .filter-row select { flex: 1 1 108px; font-size: 11px; padding: 4px 7px; }
+
+      /* ── 连接树（role=tree / treeitem；缩进逐层 10px、第 6 层封顶） ───── */
+      .crumb {
+        padding: 6px 9px;
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        font-size: 10.5px;
+        line-height: 1.5;
+        color: var(--text-muted);
+      }
+      ul.tree, ul.tree-children { list-style: none; margin: 0; padding: 0; min-width: 0; }
+      li.tree-item { min-width: 0; padding: 3px 0; outline: none; border-radius: var(--radius-sm); }
+      li.tree-item:focus, li.tree-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+      li.tree-item[aria-level="2"] { padding-left: 10px; }
+      li.tree-item[aria-level="3"] { padding-left: 20px; }
+      li.tree-item[aria-level="4"] { padding-left: 30px; }
+      li.tree-item[aria-level="5"] { padding-left: 40px; }
+      li.tree-item[aria-level="6"], li.tree-item[aria-level="7"] { padding-left: 50px; }
+      .tree-row { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; min-width: 0; }
+      .tree-toggle {
+        flex: 0 0 auto;
+        width: 16px;
+        min-width: 16px;
+        padding: 0;
+        font-size: 10px;
+        line-height: 1.5;
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .tree-toggle-leaf { cursor: default; text-align: center; color: var(--border-strong); }
+      .tree-label { font-size: 12px; font-weight: 600; min-width: 0; }
+      .tree-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+      .tree-sublabel { font-size: 10.5px; color: var(--text-muted); line-height: 1.55; margin-top: 2px; }
+      .tree-controls { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+      .tree-control {
+        font-size: 10.5px;
+        padding: 2px 7px;
+        border-radius: var(--radius-sm);
+        color: var(--accent-text);
+        background: var(--accent-weak);
+        border: 1px solid var(--accent);
+      }
+      .tree-control[data-kind="revoke"] { color: var(--warn-text); background: var(--warn-bg); border-color: var(--warn-border); }
+      .tree-control[aria-pressed="true"] { font-weight: 700; box-shadow: inset 0 0 0 1px var(--accent); }
+      .tree-clamp {
+        margin-top: 4px;
+        padding: 3px 7px;
+        border-left: 3px solid var(--warn-border);
+        border-radius: var(--radius-sm);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 10.5px;
+        line-height: 1.55;
+      }
+      .tree-hint { margin-top: 3px; font-size: 10.5px; color: var(--text-muted); line-height: 1.55; }
+      .receipt {
+        border: 1px solid var(--ok);
+        background: var(--ok-bg);
+        border-radius: var(--radius-sm);
+        padding: 8px 9px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-size: 11px;
+        line-height: 1.6;
+      }
+      .receipt-title { font-weight: 700; color: var(--ok); display: flex; align-items: center; gap: 5px; }
+      .receipt-evidence {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text);
+        background: var(--bg-elevated);
+        border: 1px solid var(--ok);
+        border-radius: var(--radius-sm);
+        padding: 5px 7px;
+        white-space: pre-wrap;
+      }
+
+      /* ── 命令目录卡片 / 设置分组 / 诊断块 ──────────────────────────── */
+      .cmd-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 8px 9px;
+        background: var(--bg-elevated);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .cmd-card-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+      .cmd-card-head .cmd-name { font-family: var(--mono); font-size: 11.5px; font-weight: 700; }
+      .cmd-meta { margin: 0; font-size: 10.5px; line-height: 1.6; color: var(--text-muted); }
+      .set-group {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 9px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        min-width: 0;
+      }
+      .set-group > h3 { margin: 0; font-size: 12px; }
+      .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+      .field > label { font-size: 10.5px; font-weight: 700; color: var(--text-muted); }
+      .field input, .field select { width: 100%; }
+      .session-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg-elevated);
+      }
+      .session-row.current { border-color: var(--accent); background: var(--accent-weak); }
+      .session-row .sess-name { font-weight: 600; font-size: 11.5px; }
+      .diag {
+        margin: 0;
+        padding: 7px 9px;
+        border-radius: var(--radius-sm);
+        background: var(--tool-bg);
+        color: var(--tool-text);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        line-height: 1.6;
+        white-space: pre;
+        overflow: auto;
+      }
+
+      /* 尊重系统「减少动态效果」 */
+      @media (prefers-reduced-motion: reduce) {
+        * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <!-- ═══ 演示控制台（非交付 UI，仅供评审切换） ═══ -->
+      <nav class="demo-bar" aria-label="演示控制台（非交付 UI）">
+        <div class="demo-bar-title">
+          <span>演示控制台</span>
+          <span class="demo-bar-note">仅切换本稿的展示状态 · 不改动任何文件 · 不发起任何请求</span>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-state">站点状态（5 种真实状态机取值）</span>
+          <div class="seg" id="state-switch" role="radiogroup" aria-labelledby="lb-state">
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-state-set="unauthorized">① 未授权</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-state-set="probing">② 探测中</button>
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-state-set="idle">③ supported 空闲</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-state-set="busy">④ 处理中</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-state-set="confirm">⑤ 等待确认</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-width">侧栏宽度</span>
+          <div class="seg" id="width-switch" role="radiogroup" aria-labelledby="lb-width">
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="320">320px</button>
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-width-set="400">400px</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="520">520px</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-theme">主题</span>
+          <div class="seg" id="theme-switch" role="radiogroup" aria-labelledby="lb-theme">
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-theme-set="auto">跟随系统</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-set="light">浅色</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-set="dark">深色</button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ═══ 浏览器侧栏容器（侧栏贴右侧边缘） ═══ -->
+      <div class="frame">
+        <div class="frame-page" aria-hidden="true">
+          <span class="fp-bar"></span>
+          <span class="fp-bar short"></span>
+          <span>浏览器主视图（页面）</span>
+          <span>localhost:5173/lgdl</span>
+          <span class="fp-note">本区域为装饰：仅用于标示侧栏宽度与贴边位置。</span>
+        </div>
+
+        <div class="mock-sidebar">
+          <div
+            class="panel"
+            id="panel"
+            data-width="400"
+            data-state="idle"
+            role="region"
+            aria-label="web-cli plugin 侧边栏（方案 C 布局稿）"
+          >
+            <!-- ═══ 区 1：顶部极简标题栏（一行：品牌点 + 状态胶囊 + 更多） ═══ -->
+            <header class="topbar">
+              <span class="brand-dot" aria-hidden="true">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.5 4.5L7 8l-3.5 3.5" />
+                  <path d="M9 11.5h4" />
+                </svg>
+              </span>
+              <span class="sr-only">web-cli plugin</span>
+
+              <button
+                type="button"
+                class="site-pill"
+                id="site-pill"
+                data-open-float="tree"
+                aria-haspopup="dialog"
+                aria-label="站点状态 http://localhost:5173，打开连接树浮层"
+                title="打开连接树（站点 / 浏览器能力 / 命令处置档 / LLM 连接）"
+              >
+                <span class="pill-dot" aria-hidden="true"></span>
+                <span class="pill-origin">http://localhost:5173</span>
+                <span class="pill-sep" aria-hidden="true">·</span>
+                <span class="pill-state" data-when="unauthorized">未授权</span>
+                <span class="pill-state" data-when="probing">探测中…</span>
+                <span class="pill-state" data-when="idle busy confirm">supported</span>
+                <span class="pill-caret" aria-hidden="true">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4.5 6.5L8 10l3.5-3.5" />
+                  </svg>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                class="icon-btn"
+                id="menu-btn"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="menu-popover"
+                aria-label="更多：撤销授权 / 重新绑定 / 审计 / 会话与分组 / 设置"
+                title="更多"
+              >
+                <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <circle cx="3.2" cy="8" r="1.35" />
+                  <circle cx="8" cy="8" r="1.35" />
+                  <circle cx="12.8" cy="8" r="1.35" />
+                </svg>
+              </button>
+
+              <div class="menu-popover" id="menu-popover" role="menu" aria-labelledby="menu-btn" hidden>
+                <button type="button" class="menu-item" role="menuitem" data-menu-float="tree">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="4" cy="4" r="1.6" />
+                    <circle cx="12" cy="12" r="1.6" />
+                    <path d="M4 5.6v3.2a3 3 0 003 3h3.4" />
+                  </svg>
+                  <span>撤销授权<small>回到更保守；树内只撤销、不授予权限</small></span>
+                </button>
+                <button type="button" class="menu-item" role="menuitem" data-menu-float="tree">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                    <path d="M6.5 9.5l3-3" />
+                    <path d="M7 4.5h3.5A3 3 0 0114 8a3 3 0 01-3.5 3H9" />
+                    <path d="M9 11.5H5.5A3 3 0 012 8a3 3 0 013.5-3H7" />
+                  </svg>
+                  <span>重新绑定当前标签页<small>当前 3 个标签页 → 默认分组</small></span>
+                </button>
+                <button type="button" class="menu-item" role="menuitem" data-menu-float="archive">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                    <path d="M3 5.5h10v7.5H3z" />
+                    <path d="M2 3.5h12v2H2z" />
+                    <path d="M6.5 8.5h3" />
+                  </svg>
+                  <span>查看审计<small>审计 12 条 · admin_audit-export</small></span>
+                </button>
+                <button type="button" class="menu-item" role="menuitem" data-menu-float="archive">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                    <path d="M2.5 4.5h11v8h-11z" />
+                    <path d="M2.5 7h11" />
+                    <path d="M5 10h2" />
+                  </svg>
+                  <span>会话与分组<small>默认分组 · 该域名下 3 个标签页</small></span>
+                </button>
+                <hr />
+                <button type="button" class="menu-item" role="menuitem" data-menu-float="settings">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                    <path d="M2 5.5h12" />
+                    <path d="M2 10.5h12" />
+                    <circle cx="6" cy="5.5" r="1.8" />
+                    <circle cx="10.5" cy="10.5" r="1.8" />
+                  </svg>
+                  <span>设置<small>LLM / 能力权限 / 自动授权 / 诊断自检</small></span>
+                </button>
+              </div>
+            </header>
+            <!-- ═══ 区 2：聊天记录（flex 填充 · 唯一滚动区） + 操作坞 ═══ -->
+            <div class="chat-wrap">
+              <main class="chat" id="chat" aria-label="会话记录" tabindex="-1">
+                <p class="chat-note">会话 默认分组 · 该域名下 3 个标签页共享同一份对话</p>
+
+                <!-- 状态横幅：未授权 -->
+                <div class="banner warn" data-when="unauthorized" role="status">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                    <path d="M8 2.5l6 10.5H2z" />
+                    <path d="M8 6.5v3" />
+                    <path d="M8 11.4v.3" />
+                  </svg>
+                  <span>
+                    <b>当前站点未授权</b>：http://localhost:5173。授权前所有命令按 S1 判定 <b>fail-closed deny</b>，不会执行。
+                    入口：顶部状态胶囊 → 连接树 › 站点；重新授权需要你的一次点击手势。布局不因未授权而抽空：状态栏 / 输入区 / 操作坞都在原位。
+                  </span>
+                </div>
+
+                <!-- 状态横幅：探测中 -->
+                <div class="banner info" data-when="probing" role="status">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                    <path d="M8 2.5a5.5 5.5 0 105.5 5.5" />
+                  </svg>
+                  <span>
+                    <b>探测中</b>：正在读取 http://localhost:5173 的站点声明（web-cli/0.2）与工具面。
+                    本阶段不发任何命令、不做任何授权变更。探测完成后状态转为 supported。
+                  </span>
+                </div>
+
+                <!-- ── 样例对话（与真实产品一致的 5 段） ── -->
+                <div class="msg msg-user">
+                  <div class="bubble">帮我把工作台里的接口文档导出成 markdown</div>
+                </div>
+
+                <div class="msg msg-assistant">
+                  <div class="bubble">好，我先读取工作台当前的接口文档节点，确认有哪些接口，再导出成 markdown。</div>
+                </div>
+
+                <figure class="tool" aria-label="工具结果：site_lgdl-web-cli doc-info">
+                  <figcaption class="tool-head">
+                    <span class="tool-prompt" aria-hidden="true">$</span>
+                    <code>site_lgdl-web-cli doc-info --format summary</code>
+                    <span class="badge ok">ok</span>
+                    <span class="ms">142ms</span>
+                  </figcaption>
+<pre class="tool-body">doc-info: LGDL Workbench · 站点声明 web-cli/0.2
+nodes: 12 (interface 9 / schema 3)
+  - GET  /api/session        会话信息
+  - POST /api/chat           对话补全
+  - GET  /api/diagram        图数据读取
+  - POST /api/diagram/save   图数据保存
+  - GET  /api/docs           接口文档索引
+  - POST /api/export         导出任务提交
+  ... 其余 6 条已折叠
+export.targets: markdown | json
+status: ok (12/12 节点可读)</pre>
+                </figure>
+
+                <div class="msg msg-system">
+                  <div class="bubble">
+                    bookmarks 未授权：已跳过「写入书签」这一步。可在 设置 → 能力权限 开启；
+                    未授权时不静默失败，工具会返回可读提示。
+                  </div>
+                </div>
+
+                <!-- ── 处理中：助手进程 + 即将执行的命令 + 工具执行流 ── -->
+                <div class="msg msg-assistant" data-when="busy">
+                  <div class="bubble">
+                    正在逐节点抓取接口定义（3/5）
+                    <span class="thinking" aria-hidden="true">
+                      <span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-dot"></span>
+                    </span>
+                    <span class="sr-only">助手仍在执行</span>
+                  </div>
+                </div>
+
+                <figure class="tool" data-when="busy" aria-label="工具执行流：site_lgdl-web-cli export-markdown">
+                  <figcaption class="tool-head">
+                    <span class="tool-prompt" aria-hidden="true">$</span>
+                    <code>site_lgdl-web-cli export-markdown --target /api/docs</code>
+                    <span class="badge ask">执行中</span>
+                    <span class="ms">3/5</span>
+                  </figcaption>
+<pre class="tool-body">[1/5] /api/session          done
+[2/5] /api/chat             done
+[3/5] /api/diagram          running...
+[4/5] /api/docs             queued
+[5/5] /api/export           queued
+命令间隔 delayMs=0ms（与 delay 档无关）</pre>
+                </figure>
+
+                <!-- ── ask-user 问答卡（就地插入，不跳转） ── -->
+                <section class="card ask" data-when="idle" aria-labelledby="ask-title">
+                  <div class="card-head">
+                    <span class="card-kind">助手提问 · ask-user</span>
+                    <span class="badge muted">read 档 · 与权限确认是两回事</span>
+                  </div>
+                  <p class="card-text" id="ask-title">导出的 markdown 放哪里？</p>
+                  <div class="row" role="group" aria-label="可选回答">
+                    <button type="button" class="chip">新建标签页打开</button>
+                    <button type="button" class="chip">覆盖当前预览</button>
+                    <button type="button" class="chip">保存到下载目录</button>
+                  </div>
+                  <div class="row">
+                    <input type="text" id="ask-input" placeholder="或输入自定义回答…" aria-label="自定义回答" />
+                    <button type="button" class="btn-sm primary">回答</button>
+                    <button type="button" class="btn-sm">取消</button>
+                  </div>
+                  <p class="hint">取消 = 回答被取消（不代填默认值）。</p>
+                </section>
+
+                <!-- ── 破坏性动作确认卡（就地插入，不跳转、不遮挡输入区） ── -->
+                <section
+                  class="card confirm"
+                  data-when="confirm"
+                  role="group"
+                  aria-labelledby="confirm-title"
+                  aria-describedby="confirm-detail"
+                >
+                  <div class="card-head">
+                    <span class="card-kind">敏感操作需二次确认 · ask 档</span>
+                    <span class="badge floor">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                        <rect x="3.5" y="7" width="9" height="6" rx="1.2" />
+                        <path d="M5.8 7V5.4a2.2 2.2 0 014.4 0V7" />
+                      </svg>
+                      破坏性 · 保底 ask
+                    </span>
+                  </div>
+                  <p class="card-text" id="confirm-title">
+                    <code>bookmarks.remove</code> 将删除书签「LGDL 文档」，此操作不可撤销。
+                  </p>
+                  <p class="card-detail" id="confirm-detail">
+                    破坏性操作保底 ask：即使开启「写操作自动」也不会自动放行；不允许批量；拒绝 = 零操作。
+                  </p>
+                  <div class="row">
+                    <button type="button" class="btn-sm">拒绝</button>
+                    <button type="button" class="btn-sm danger">允许</button>
+                    <span class="muted">超时 / 取消 = 拒绝</span>
+                  </div>
+                </section>
+              </main>
+
+              <!-- 操作坞：不是孤零零的 FAB，而是 3 个带文字标签的入口 + 首次引导 -->
+              <div class="dock" role="group" aria-label="操作坞：进入连接树 / 命令目录 / 设置">
+                <div class="guide" id="dock-guide">
+                  <p>连接与权限都从这里进：<b>连接树</b>看「谁在管我」，<b>命令</b>看每个命令的处置档。</p>
+                  <button type="button" class="guide-close" id="guide-close">知道了</button>
+                </div>
+                <button type="button" class="dock-btn" data-open-float="tree">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="4" cy="4" r="1.7" />
+                    <circle cx="12" cy="12" r="1.7" />
+                    <path d="M4 5.7v3.1a3 3 0 003 3h3.3" />
+                  </svg>
+                  连接树
+                </button>
+                <button type="button" class="dock-btn" data-open-float="commands">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 4l3 4-3 4" />
+                    <path d="M9 12h3.5" />
+                  </svg>
+                  命令
+                </button>
+                <button type="button" class="dock-btn" data-open-float="settings">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                    <path d="M2.5 5.5h11" />
+                    <path d="M2.5 10.5h11" />
+                    <circle cx="6" cy="5.5" r="1.7" />
+                    <circle cx="10.5" cy="10.5" r="1.7" />
+                  </svg>
+                  设置
+                </button>
+              </div>
+            </div>
+
+            <!-- ═══ 区 3：输入区（多行 + 发送 + 徽标 + 命令自动补全） ═══ -->
+            <div class="composer-area">
+              <p class="send-reason" data-when="unauthorized" role="status">
+                未授权站点：发送被禁用（授权前命令一律 deny，不做「看起来能发」的假象）。
+              </p>
+              <p class="send-reason" data-when="probing" role="status">
+                正在探测站点声明（web-cli/0.2），探测完成后可输入。
+              </p>
+              <p class="send-reason" data-when="busy" role="status">
+                执行中：当前任务 3/5 步，完成或点「停止」后可继续输入。
+              </p>
+              <p class="send-reason" data-when="confirm" role="status">
+                等待确认：bookmarks.remove（破坏性）。允许或拒绝后恢复输入。
+              </p>
+
+              <!-- 输入 / 时弹出的命令自动补全（真实命令名 + 处置档徽标 + ↑↓ 选择） -->
+              <div class="palette" id="cmd-palette" hidden>
+                <div class="palette-head">
+                  <span>命令补全</span>
+                  <span class="muted">真实命令名 + 处置档徽标 · ↑↓ 选择 · Enter 填入 · Esc 关闭</span>
+                </div>
+                <ul class="palette-list" role="listbox" aria-label="命令补全建议">
+                  <li class="palette-item" id="p-1" role="option" data-cmd="/dom click" aria-selected="false">
+                    <span class="palette-cmd">/dom click</span>
+                    <span class="badge allow">allow</span>
+                    <span class="badge">ui 档 · 三档可用</span>
+                    <span class="palette-desc">点击页面元素；ui 档可在连接树内覆盖（收紧或放宽都写审计）</span>
+                  </li>
+                  <li class="palette-item" id="p-2" role="option" data-cmd="/chrome screenshot" aria-selected="false">
+                    <span class="palette-cmd">/chrome screenshot</span>
+                    <span class="badge allow">allow</span>
+                    <span class="badge">ui 档</span>
+                    <span class="palette-desc">截取当前标签页可见区域（截图内容不进审计明文，只记长度 / 路径）</span>
+                  </li>
+                  <li class="palette-item" id="p-3" role="option" data-cmd="/tabs close" aria-selected="false">
+                    <span class="palette-cmd">/tabs close</span>
+                    <span class="badge ask">ask</span>
+                    <span class="badge">write 档 · 一次只关一个</span>
+                    <span class="palette-desc">关闭单个标签页；确认摘要含标题与去参 URL，关闭不可逆</span>
+                  </li>
+                  <li class="palette-item" id="p-4" role="option" data-cmd="/bookmarks remove" aria-selected="false">
+                    <span class="palette-cmd">/bookmarks remove</span>
+                    <span class="badge ask">ask</span>
+                    <span class="badge tighten">只可收紧</span>
+                    <span class="palette-desc">删除书签：破坏性保底 ask，即使开启「写操作自动」也不会放行</span>
+                  </li>
+                  <li class="palette-item" id="p-5" role="option" data-cmd="/clipboard read" aria-selected="false">
+                    <span class="palette-cmd">/clipboard read</span>
+                    <span class="badge deny">deny</span>
+                    <span class="badge tighten">只可收紧</span>
+                    <span class="palette-desc">读取剪贴板：state 档、默认关、永不自动放行（内容零审计明文）</span>
+                  </li>
+                  <li class="palette-item" id="p-6" role="option" data-cmd="/web-search" aria-selected="false">
+                    <span class="palette-cmd">/web-search</span>
+                    <span class="badge ask">ask</span>
+                    <span class="badge tighten">只可收紧</span>
+                    <span class="palette-desc">联网检索：external 档，只可收紧不可放宽</span>
+                  </li>
+                  <li class="palette-item" id="p-7" role="option" data-cmd="/page-eval" aria-selected="false">
+                    <span class="palette-cmd">/page-eval</span>
+                    <span class="badge floor">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                        <rect x="3.5" y="7" width="9" height="6" rx="1.2" />
+                        <path d="M5.8 7V5.4a2.2 2.2 0 014.4 0V7" />
+                      </svg>
+                      硬底线
+                    </span>
+                    <span class="badge">零控件</span>
+                    <span class="palette-desc">evaluate 档：永不执行、永不自动放行，树内不提供任何开关</span>
+                  </li>
+                </ul>
+                <div class="palette-foot">共 7 条建议（演示子集）· 徽标口径：allow / ask / deny / 硬底线 / 只可收紧</div>
+              </div>
+
+              <form class="composer" id="composer" autocomplete="off">
+                <textarea
+                  id="composer-input"
+                  rows="2"
+                  placeholder="输入指令…（输入 / 唤起命令补全）"
+                  aria-label="输入指令"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls="cmd-palette"
+                  aria-expanded="false"
+                ></textarea>
+                <button type="submit" class="send-btn" id="composer-send">发送</button>
+                <button type="button" class="btn-sm stop-btn" data-when="busy">停止</button>
+              </form>
+
+              <div class="composer-meta">
+                <span class="badge muted">火山方舟 · deepseek-v3</span>
+                <span class="badge muted">最大轮数 1000</span>
+                <span class="badge">策略：ask 保底 · evaluate deny</span>
+                <span class="badge">自动授权：读开 / 写关</span>
+              </div>
+            </div>
+
+            <!-- ═══ 区 4：底部状态栏（默认一行极简 + 可展开详情） ═══ -->
+            <footer class="statusbar" aria-label="状态栏">
+              <button
+                type="button"
+                class="statusbar-line"
+                id="statusbar-toggle"
+                aria-expanded="false"
+                aria-controls="status-details"
+                aria-label="展开状态详情：LLM 模型 / 权限摘要 / 探测原因 / 策略档摘要"
+              >
+                <span class="dot" aria-hidden="true"></span>
+                <span class="sb-state" data-when="unauthorized">未授权</span>
+                <span class="sb-state" data-when="probing">探测中</span>
+                <span class="sb-state" data-when="idle">supported</span>
+                <span class="sb-state" data-when="busy">supported · 工具执行中 3/5</span>
+                <span class="sb-state" data-when="confirm">supported · 等待确认</span>
+                <span aria-hidden="true">·</span>
+                <span class="sb-origin">http://localhost:5173</span>
+                <span aria-hidden="true">·</span>
+                <span class="sb-policy">策略 ask 保底</span>
+                <span aria-hidden="true">·</span>
+                <span class="sb-audit">审计 12 条</span>
+                <span class="sb-chevron" aria-hidden="true">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4.5 9.5L8 6l3.5 3.5" />
+                  </svg>
+                </span>
+              </button>
+              <div class="status-details" id="status-details" hidden>
+                <dl>
+                  <div>
+                    <dt>LLM 模型</dt>
+                    <dd>火山方舟（ark）· deepseek-v3 · 已配置 · 测试连接 1.2s OK（不回显 key）</dd>
+                  </div>
+                  <div>
+                    <dt>权限摘要</dt>
+                    <dd>
+                      已授权 origin 1 个；<code>tabs</code> 已开；<code>bookmarks</code> / <code>downloads</code> 未授权；
+                      剪贴板写已授予、读默认关（state 档，永不自动放行）
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>探测原因</dt>
+                    <dd>命中站点声明 <code>web-cli/0.2</code>（12 个声明工具）→ 状态机 探测中 → supported</dd>
+                  </div>
+                  <div>
+                    <dt>策略档摘要</dt>
+                    <dd>
+                      <code>dom</code> 三档可用（当前 allow）；<code>dom.click</code> 破坏性保底 ask；
+                      <code>evaluate</code> 硬底线 deny（零控件、锁形图标）；ui / state / external 只可收紧
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </footer>
+            <!-- ═══ 浮层：遮罩 + 右侧滑出容器（内容可切换：连接树 / 命令目录 / 归档 / 设置） ═══ -->
+            <div class="scrim" id="scrim" aria-hidden="true"></div>
+
+            <aside
+              class="float"
+              id="float"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="float-title"
+            >
+              <div class="float-head">
+                <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                  <path d="M2.5 4.5h11v7h-11z" />
+                  <path d="M2.5 7.5h11" />
+                </svg>
+                <span class="float-title" id="float-title">连接树</span>
+                <span class="float-sub">浮层 · Esc 关闭</span>
+                <button type="button" class="icon-btn" id="float-close" aria-label="关闭浮层">
+                  <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                    <path d="M4 4l8 8" />
+                    <path d="M12 4l-8 8" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="float-tabs" role="tablist" aria-label="浮层内容切换">
+                <button type="button" role="tab" id="tab-tree" aria-controls="pane-tree" aria-selected="true" tabindex="0" data-tab="tree" data-tab-title="连接树">连接树</button>
+                <button type="button" role="tab" id="tab-commands" aria-controls="pane-commands" aria-selected="false" tabindex="-1" data-tab="commands" data-tab-title="命令目录">命令目录</button>
+                <button type="button" role="tab" id="tab-archive" aria-controls="pane-archive" aria-selected="false" tabindex="-1" data-tab="archive" data-tab-title="归档">归档</button>
+                <button type="button" role="tab" id="tab-settings" aria-controls="pane-settings" aria-selected="false" tabindex="-1" data-tab="settings" data-tab-title="设置">设置</button>
+              </div>
+
+              <div class="float-body">
+                <!-- ═══ 浮层内容 1：连接树（四维度 · 真层级 · 逐层控件 · 面包屑 · 回执三件套） ═══ -->
+                <section role="tabpanel" id="pane-tree" aria-labelledby="tab-tree" tabindex="0">
+                  <h2 class="pane-title">连接树（四维度 · 按归属逐层展开）</h2>
+                  <div class="note-block">
+                    以「连接树」为根，按主归属逐层下钻（授权的站点 / 支持的命令 / 浏览器能力 / LLM 连接）；多归属以交叉引用徽标表达，同一节点不复制。
+                    连接树是「可见 + 撤销 + 受硬底线约束的命令级覆盖」面，<b>不是提权面</b>：撤销 = 回到更保守；命令级覆盖 = 用户显式、被审计的放宽，硬底线不可覆盖。
+                  </div>
+
+                  <div class="filter-row">
+                    <input type="text" id="tree-filter" placeholder="检索：站点 / 能力 / 命令 / LLM" aria-label="检索连接树（只读过滤，不改任何授权状态）" />
+                    <span class="badge muted">共 24 个节点（真层级树）</span>
+                  </div>
+
+                  <nav class="crumb" id="tree-breadcrumb" aria-label="当前节点层级路径">连接树</nav>
+
+                  <ul class="tree" id="tree" role="tree" aria-label="连接树：按归属逐层展开（站点 / 浏览器能力 / 命令处置档 / LLM 连接）">
+                    <li class="tree-item" role="treeitem" aria-level="1" aria-expanded="true" aria-selected="true" tabindex="0" data-path="连接树">
+                      <div class="tree-row">
+                        <button type="button" class="tree-toggle" aria-label="收起 连接树" tabindex="-1">▾</button>
+                        <span class="tree-label">连接树</span>
+                        <span class="tree-badges"><span class="badge layer">按归属 · 4 维度</span></span>
+                      </div>
+
+                      <ul class="tree-children" role="group">
+                        <!-- ── 维度 1：站点 ── -->
+                        <li class="tree-item" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" tabindex="-1" data-path="连接树 › 站点">
+                          <div class="tree-row">
+                            <button type="button" class="tree-toggle" aria-label="收起 站点" tabindex="-1">▾</button>
+                            <span class="tree-label">站点</span>
+                            <span class="tree-badges"><span class="badge muted">1 条授权记录</span></span>
+                          </div>
+                          <ul class="tree-children" role="group">
+                            <li class="tree-item" role="treeitem" aria-level="3" aria-selected="false" tabindex="-1" data-path="连接树 › 站点 › http://localhost:5173">
+                              <div class="tree-row">
+                                <span class="tree-toggle tree-toggle-leaf" aria-hidden="true">•</span>
+                                <span class="tree-label">http://localhost:5173</span>
+                                <span class="tree-badges">
+                                  <span class="badge ok">supported</span>
+                                  <span class="badge">LGDL Workbench</span>
+                                  <span class="badge layer">web-cli/0.2</span>
+                                </span>
+                              </div>
+                              <div class="tree-sublabel">已授权站点（可撤销授权）· 来源 站点声明（site-declared）</div>
+                              <div class="tree-controls">
+                                <button type="button" class="tree-control" data-kind="revoke">撤销授权</button>
+                              </div>
+                              <div class="tree-hint">
+                                树内只做撤销、不授予权限；重新授权需要你的点击手势。撤销后该站点的声明工具即时移出工具面。
+                              </div>
+                            </li>
+                          </ul>
+                        </li>
+
+                        <!-- ── 维度 2：浏览器能力 ── -->
+                        <li class="tree-item" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" tabindex="-1" data-path="连接树 › 浏览器能力">
+                          <div class="tree-row">
+                            <button type="button" class="tree-toggle" aria-label="收起 浏览器能力" tabindex="-1">▾</button>
+                            <span class="tree-label">浏览器能力</span>
+                            <span class="tree-badges"><span class="badge muted">静态权限 / 可选能力 / 隐私开关</span></span>
+                          </div>
+                          <ul class="tree-children" role="group">
+                            <li class="tree-item" role="treeitem" aria-level="3" aria-selected="false" tabindex="-1" data-path="连接树 › 浏览器能力 › tabs">
+                              <div class="tree-row">
+                                <span class="tree-toggle tree-toggle-leaf" aria-hidden="true">•</span>
+                                <span class="tree-label">tabs</span>
+                                <span class="tree-badges">
+                                  <span class="badge ok">已授权</span>
+                                  <span class="badge allow">allow</span>
+                                  <span class="badge">静态权限</span>
+                                </span>
+                              </div>
+                              <div class="tree-sublabel">静态权限 · 已授权 · 隐私开关（tabs 工具已开启，可随时关掉）</div>
+                              <div class="tree-controls">
+                                <button type="button" class="tree-control" data-kind="toggle">关闭 tabs 工具（可逆，不需确认）</button>
+                              </div>
+                            </li>
+                            <li class="tree-item" role="treeitem" aria-level="3" aria-selected="false" tabindex="-1" data-path="连接树 › 浏览器能力 › bookmarks">
+                              <div class="tree-row">
+                                <span class="tree-toggle tree-toggle-leaf" aria-hidden="true">•</span>
+                                <span class="tree-label">bookmarks</span>
+                                <span class="tree-badges">
+                                  <span class="badge ask">未授权</span>
+                                  <span class="badge">可选能力</span>
+                                </span>
+                              </div>
+                              <div class="tree-sublabel">可选能力 · 未授予 / 已关闭 · 未授权时不静默失败，工具返回可读「去设置开启书签访问」</div>
+                              <div class="tree-controls">
+                                <button type="button" class="tree-control" data-open-tab="settings">去设置开启</button>
+                              </div>
+                              <div class="tree-hint">未授予的可选能力不渲染「假撤销」：只有已授权才在树内提供撤销入口。</div>
+                            </li>
+                            <li class="tree-item" role="treeitem" aria-level="3" aria-expanded="true" aria-selected="false" tabindex="-1" data-path="连接树 › 浏览器能力 › clipboard">
+                              <div class="tree-row">
+                                <button type="button" class="tree-toggle" aria-label="收起 clipboard" tabindex="-1">▾</button>
+                                <span class="tree-label">clipboard</span>
+                                <span class="tree-badges"><span class="badge">可选能力 clipboardRead / clipboardWrite</span></span>
+                              </div>
+                              <ul class="tree-children" role="group">
+                                <li class="tree-item" role="treeitem" aria-level="4" aria-selected="false" tabindex="-1" data-path="连接树 › 浏览器能力 › clipboard › clipboard.read">
+                                  <div class="tree-row">
+                                    <span class="tree-toggle tree-toggle-leaf" aria-hidden="true">•</span>
+                                    <span class="tree-label">clipboard.read</span>
+                                    <span class="tree-badges">
+                                      <span class="badge deny">deny</span>
+                                      <span class="badge tighten">只可收紧</span>
+                                      <span class="badge">state 档</span>
+                                    </span>
+                                  </div>
+                                  <div class="tree-sublabel">来源 插件管理（plugin-clipboard）· 默认档 state · 生效档 deny · 命令间隔 delayMs=0ms</div>
+                                  <div class="tree-controls">
+                                    <button type="button" class="tree-control" aria-pressed="false">ask</button>
+                                    <button type="button" class="tree-control" aria-pressed="true">deny</button>
+                                  </div>
+                                  <div class="tree-clamp">不可覆盖：state 档（如剪贴板读取）只可收紧不可放宽；结构上不渲染 allow。</div>
+                                </li>
+                                <li class="tree-item" role="treeitem" aria-level="4" aria-selected="false" tabindex="-1" data-path="连接树 › 浏览器能力 › clipboard › clipboard.write">
+                                  <div class="tree-row">
+                                    <span class="tree-toggle tree-toggle-leaf" aria-hidden="true">•</span>
+                                    <span class="tree-label">clipboard.write</span>
+                                    <span class="tree-badges">
+                                      <span class="badge ask">ask</span>
+                                      <span class="badge ok">已授权</span>
+                                      <span class="badge">写入需确认</span>
+                                    </span>
+                                  </div>
+                                  <div class="tree-sublabel">来源 插件管理（plugin-clipboard）· 默认档 write · 生效档 ask</div>
+                                  <div class="tree-controls">
+                                    <button type="button" class="tree-control" aria-pressed="false">ask</button>
+                                    <button type="button" class="tree-control" aria-pressed="false">deny</button>
+                                  </div>
+                                  <div class="tree-clamp">不可覆盖：破坏性写保底 ask，允许收紧（ask / deny），不允许放宽为 allow。</div>
+                                </li>
+                              </ul>
+                            </li>
+                          </ul>
+                        </li>
+
+                        <!-- ── 维度 3：命令处置档 ── -->
+                        <li class="tree-item" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" tabindex="-1" data-path="连接树 › 命令处置档">
+                          <div class="tree-row">
+                            <button type="button" class="tree-toggle" aria-label="收起 命令处置档" tabindex="-1">▾</button>
+                            <span class="tree-label">命令处置档</span>
+                            <span class="tree-badges"><span class="badge muted">allow / ask / deny 三档</span></span>
+                          </div>
+                          <ul class="tree-children" role="group">
+                            <li class="tree-item" role="treeitem" aria-level="3" aria-expanded="true" aria-selected="false" tabindex="-1" data-path="连接树 › 命令处置档 › dom">
+                              <div class="tree-row">
+                                <button type="button" class="tree-toggle" aria-label="收起 dom" tabindex="-1">▾</button>
+                                <span class="tree-label">dom</span>
+                                <span class="tree-badges">
+                                  <span class="badge allow">allow</span>
+                                  <span class="badge">ui 档 · 三档可用</span>
+                                  <span class="badge">30 子命令</span>
+                                </span>
+                              </div>
+                              <div class="tree-sublabel">来源 内置（base-builtin）· 默认档 allow · 生效档 allow（无覆盖）· delayMs=0ms（与 delay 档无关）</div>
+                              <div class="tree-controls">
+                                <button type="button" class="tree-control" aria-pressed="true">allow</button>
+                                <button type="button" class="tree-control" aria-pressed="false">ask</button>
+                                <button type="button" class="tree-control" aria-pressed="false">deny</button>
+                              </div>
+                              <ul class="tree-children" role="group">
+                                <li class="tree-item" role="treeitem" aria-level="4" aria-selected="false" tabindex="-1" data-path="连接树 › 命令处置档 › dom › dom.click">
+                                  <div class="tree-row">
+                                    <span class="tree-toggle tree-toggle-leaf" aria-hidden="true">•</span>
+                                    <span class="tree-label">dom.click</span>
+                                    <span class="tree-badges">
+                                      <span class="badge ask">ask</span>
+                                      <span class="badge tighten">只可收紧</span>
+                                      <span class="badge">破坏性保底</span>
+                                    </span>
+                                  </div>
+                                  <div class="tree-sublabel">来源 内置（base-builtin）· 默认档 ui · 生效档 ask · 用户覆盖 ask</div>
+                                  <div class="tree-controls">
+                                    <button type="button" class="tree-control" aria-pressed="true">ask</button>
+                                    <button type="button" class="tree-control" aria-pressed="false">deny</button>
+                                    <button type="button" class="tree-control" data-kind="reset">恢复默认</button>
+                                  </div>
+                                  <div class="tree-clamp">不可覆盖：破坏性操作保底 ask，允许收紧（ask / deny），不允许放宽为 allow。</div>
+                                </li>
+                              </ul>
+                            </li>
+                            <li class="tree-item" role="treeitem" aria-level="3" aria-selected="false" tabindex="-1" data-path="连接树 › 命令处置档 › evaluate">
+                              <div class="tree-row">
+                                <span class="tree-toggle tree-toggle-leaf" aria-hidden="true">•</span>
+                                <span class="tree-label">evaluate</span>
+                                <span class="tree-badges">
+                                  <span class="badge floor">
+                                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                                      <rect x="3.5" y="7" width="9" height="6" rx="1.2" />
+                                      <path d="M5.8 7V5.4a2.2 2.2 0 014.4 0V7" />
+                                    </svg>
+                                    硬底线
+                                  </span>
+                                  <span class="badge deny">deny</span>
+                                  <span class="badge">零控件</span>
+                                </span>
+                              </div>
+                              <div class="tree-sublabel">来源 内置（base-builtin）· 默认档 deny · 生效档 deny · 成因 evaluate 硬底线</div>
+                              <div class="tree-clamp">不可覆盖：evaluate 硬底线 —— 永不执行、永不自动放行（不提供任何开关）。</div>
+                            </li>
+                          </ul>
+                        </li>
+
+                        <!-- ── 维度 4：LLM 连接 ── -->
+                        <li class="tree-item" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" tabindex="-1" data-path="连接树 › LLM 连接">
+                          <div class="tree-row">
+                            <button type="button" class="tree-toggle" aria-label="收起 LLM 连接" tabindex="-1">▾</button>
+                            <span class="tree-label">LLM 连接</span>
+                            <span class="tree-badges"><span class="badge ok">已配置</span></span>
+                          </div>
+                          <ul class="tree-children" role="group">
+                            <li class="tree-item" role="treeitem" aria-level="3" aria-expanded="true" aria-selected="false" tabindex="-1" data-path="连接树 › LLM 连接 › 火山方舟 · deepseek-v3">
+                              <div class="tree-row">
+                                <button type="button" class="tree-toggle" aria-label="收起 火山方舟 · deepseek-v3" tabindex="-1">▾</button>
+                                <span class="tree-label">火山方舟 · deepseek-v3</span>
+                                <span class="tree-badges">
+                                  <span class="badge ok">测试连接 1.2s OK</span>
+                                  <span class="badge">不回显 key</span>
+                                </span>
+                              </div>
+                              <div class="tree-sublabel">已配置（不显示 key）· BYOK 仅存扩展本地</div>
+                              <div class="tree-controls">
+                                <button type="button" class="tree-control" data-kind="revoke">断开</button>
+                              </div>
+                              <ul class="tree-children" role="group">
+                                <li class="tree-item" role="treeitem" aria-level="4" aria-selected="false" tabindex="-1" data-path="连接树 › LLM 连接 › 火山方舟 · deepseek-v3 › 会话组 默认分组">
+                                  <div class="tree-row">
+                                    <span class="tree-toggle tree-toggle-leaf" aria-hidden="true">•</span>
+                                    <span class="tree-label">会话组 默认分组</span>
+                                    <span class="tree-badges"><span class="badge">3 个来源站点</span></span>
+                                  </div>
+                                  <div class="tree-sublabel">
+                                    会话 · 3 个来源站点（该域名下 3 个标签页共用同一份对话）· 分组只共享对话，不代表互相授权
+                                  </div>
+                                </li>
+                              </ul>
+                            </li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+                  </ul>
+
+                  <!-- 动作成功后的回执三件套：① 摘要 ② 重拉实测证据 ③ 审计导出 -->
+                  <div class="receipt" role="status" aria-live="polite">
+                    <span class="receipt-title">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3.5 8.5l3 3 6-7" />
+                      </svg>
+                      回执 ① 动作摘要
+                    </span>
+                    <span>已撤销 <code>clipboard.write</code>：该可选能力的 Chrome 权限已移除，对应工具即时移出 LLM 工具面。</span>
+                    <span class="receipt-evidence">② 重拉实测证据 · 工具面实测（12:04:11 重拉）
+clipboard: read(deny)；write 已不在工具面
+tabs: list, switch, open, mute, pin, move, close
+site_lgdl-web-cli: 1 个声明工具
+审计记录：plugin / origin-revoke / clipboard.write</span>
+                    <div class="row">
+                      <button type="button" class="btn-sm">③ 导出审计（admin_audit-export）</button>
+                      <span class="muted">动作成功后固定三件套：摘要 → 重拉实测 → 审计导出</span>
+                    </div>
+                  </div>
+                </section>
+                <!-- ═══ 浮层内容 2：命令目录（L1 / L2 / L3 分层 + allow / ask / deny 徽标） ═══ -->
+                <section role="tabpanel" id="pane-commands" aria-labelledby="tab-commands" tabindex="0" hidden>
+                  <h2 class="pane-title">命令目录（只读）</h2>
+                  <div class="stat-row">
+                    <span class="stat"><b>L1</b> 对账基线 34 工具 / 142 子命令（来源 2ddc922）</span>
+                    <span class="stat"><b>L2</b> 豁免登记 20 / 88（含理由，非「缺失」）</span>
+                    <span class="stat"><b>L3</b> 实时投影 44 条目 / 78 子命令 = 122 卡</span>
+                  </div>
+                  <div class="note-block">
+                    对账：无缺口（missing / missingSubs / unregistered / extraStale 均为空）。分层展示：硬底线卡无任何命令级控件并展示不可覆盖原因；
+                    只可收紧卡可设 ask / deny（不提供 allow）；可覆盖卡可按 allow / ask / deny 设置。本视图只显示实时面卡数，
+                    不声称对账基线已全部渲染为卡。
+                  </div>
+                  <div class="filter-row">
+                    <select aria-label="档案分组维度（展示）">
+                      <option>按工具</option>
+                      <option>按档位</option>
+                      <option>按 risk</option>
+                      <option>按来源</option>
+                      <option>按 deny 成因</option>
+                    </select>
+                    <input type="text" placeholder="检索：命令 / 来源 / origin / 成因" aria-label="检索命令档案（只读过滤，不改任何授权状态）" />
+                    <select aria-label="按处置档位过滤">
+                      <option>全部档位</option>
+                      <option>allow</option>
+                      <option>ask</option>
+                      <option>deny</option>
+                    </select>
+                    <select aria-label="按来源过滤">
+                      <option>全部来源</option>
+                      <option>site-declared</option>
+                      <option>base-builtin</option>
+                      <option>plugin-tabs</option>
+                      <option>plugin-bookmarks</option>
+                      <option>plugin-clipboard</option>
+                    </select>
+                  </div>
+
+                  <article class="cmd-card">
+                    <div class="cmd-card-head">
+                      <span class="cmd-name">site_lgdl-web-cli doc-info</span>
+                      <span class="badge allow">allow</span>
+                      <span class="badge layer">L1 ↔ L3</span>
+                      <span class="badge">站点声明</span>
+                    </div>
+                    <p class="cmd-meta">来源 site-declared（站点 http://localhost:5173）· 默认档 allow · 生效档 allow（无覆盖）· 自动授权 读 = 自动</p>
+                  </article>
+
+                  <article class="cmd-card">
+                    <div class="cmd-card-head">
+                      <span class="cmd-name">dom click</span>
+                      <span class="badge allow">allow</span>
+                      <span class="badge layer">L3 实时</span>
+                      <span class="badge">ui 档 · 可覆盖三档</span>
+                    </div>
+                    <p class="cmd-meta">来源 base-builtin · 默认档 ui · 生效档 allow · delayMs=0ms（与 delay 档无关）</p>
+                    <div class="tree-controls">
+                      <button type="button" class="tree-control" aria-pressed="true">allow</button>
+                      <button type="button" class="tree-control" aria-pressed="false">ask</button>
+                      <button type="button" class="tree-control" aria-pressed="false">deny</button>
+                    </div>
+                  </article>
+
+                  <article class="cmd-card">
+                    <div class="cmd-card-head">
+                      <span class="cmd-name">chrome screenshot</span>
+                      <span class="badge allow">allow</span>
+                      <span class="badge layer">L3 实时</span>
+                      <span class="badge">ui 档</span>
+                    </div>
+                    <p class="cmd-meta">来源 base-builtin · 默认档 ui · 生效档 allow · 截图内容不进审计明文（只记长度 / 路径）</p>
+                  </article>
+
+                  <article class="cmd-card">
+                    <div class="cmd-card-head">
+                      <span class="cmd-name">bookmarks remove</span>
+                      <span class="badge ask">ask</span>
+                      <span class="badge tighten">只可收紧</span>
+                      <span class="badge layer">L3 实时</span>
+                    </div>
+                    <p class="cmd-meta">来源 plugin-bookmarks · 默认档 write · 生效档 ask · 破坏性保底 ask · 禁止批量 · 拒绝 = 零操作</p>
+                    <div class="tree-controls">
+                      <button type="button" class="tree-control" aria-pressed="true">ask</button>
+                      <button type="button" class="tree-control" aria-pressed="false">deny</button>
+                    </div>
+                    <div class="tree-clamp">不可覆盖：破坏性写只可收紧，不提供 allow（即使开启「写操作自动」也不会放行）。</div>
+                  </article>
+
+                  <article class="cmd-card">
+                    <div class="cmd-card-head">
+                      <span class="cmd-name">clipboard read</span>
+                      <span class="badge deny">deny</span>
+                      <span class="badge tighten">只可收紧</span>
+                      <span class="badge layer">L3 实时</span>
+                    </div>
+                    <p class="cmd-meta">来源 plugin-clipboard · 默认档 state · 生效档 deny · state 档永不纳入自动授权（读默认关）</p>
+                  </article>
+
+                  <article class="cmd-card">
+                    <div class="cmd-card-head">
+                      <span class="cmd-name">web-fetch</span>
+                      <span class="badge ask">ask</span>
+                      <span class="badge tighten">只可收紧</span>
+                      <span class="badge layer">L3 实时</span>
+                    </div>
+                    <p class="cmd-meta">来源 base-builtin · external 档只可收紧 · 未授权域名零请求（可读拒绝，不静默失败）</p>
+                  </article>
+
+                  <article class="cmd-card">
+                    <div class="cmd-card-head">
+                      <span class="cmd-name">page-eval</span>
+                      <span class="badge floor">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                          <rect x="3.5" y="7" width="9" height="6" rx="1.2" />
+                          <path d="M5.8 7V5.4a2.2 2.2 0 014.4 0V7" />
+                        </svg>
+                        硬底线
+                      </span>
+                      <span class="badge layer">L2 豁免登记</span>
+                      <span class="badge">基线 enabled:false</span>
+                    </div>
+                    <p class="cmd-meta">默认档 deny · 生效档 deny · 零命令级控件（evaluate 档 fail-closed，不可覆盖）</p>
+                  </article>
+                </section>
+
+                <!-- ═══ 浮层内容 3：归档（会话与分组 · 审计归档） ═══ -->
+                <section role="tabpanel" id="pane-archive" aria-labelledby="tab-archive" tabindex="0" hidden>
+                  <h2 class="pane-title">归档（会话与分组 · 审计）</h2>
+                  <div class="note-block">
+                    默认<strong>每个域名独立一个会话</strong>（同域名的标签页共用同一份对话历史）。可把多个域名并入同一「会话组」以共享对话。
+                    <strong>分组只共享对话，不代表互相授权</strong> —— 每个站点仍需单独授权，执行仍受门禁。
+                  </div>
+
+                  <div class="session-row current">
+                    <span class="sess-name">默认分组</span>
+                    <span class="badge ok">当前</span>
+                    <span class="badge">3 个标签页</span>
+                    <span class="muted">http://localhost:5173 · 最近 12:04</span>
+                    <button type="button" class="btn-sm">切换</button>
+                  </div>
+                  <div class="session-row">
+                    <span class="sess-name">docs.lgdl.dev</span>
+                    <span class="badge">1 个标签页</span>
+                    <span class="muted">独立会话 · 未授权</span>
+                    <button type="button" class="btn-sm">切换</button>
+                  </div>
+                  <div class="session-row">
+                    <span class="sess-name">离线草稿（本地示例）</span>
+                    <span class="badge">4 条消息</span>
+                    <span class="muted">来源 文件预览 · 只读</span>
+                    <button type="button" class="btn-sm">切换</button>
+                  </div>
+
+                  <div class="row">
+                    <input type="text" placeholder="新建分组名" aria-label="新建分组名" />
+                    <button type="button" class="btn-sm">新建分组</button>
+                  </div>
+                  <div class="row">
+                    <select aria-label="目标分组">
+                      <option>默认分组</option>
+                      <option>docs.lgdl.dev</option>
+                    </select>
+                    <button type="button" class="btn-sm">把当前域名并入</button>
+                  </div>
+
+                  <div class="receipt" role="status" aria-live="polite">
+                    <span class="receipt-title">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3.5 8.5l3 3 6-7" />
+                      </svg>
+                      回执 ① 动作摘要
+                    </span>
+                    <span>已解散会话组 <code>默认分组</code>（分组只共享对话，不代表互相授权；不触及任何站点授权）。</span>
+                    <span class="receipt-evidence">② 重拉实测证据 · 会话面实测（12:06:02 重拉）
+sessions: docs.lgdl.dev, 离线草稿
+toolSurface: 未变化（12 个声明工具仍在工具面）
+审计记录：plugin / group-dissolve / 默认分组</span>
+                    <div class="row">
+                      <button type="button" class="btn-sm">③ 导出审计（admin_audit-export）</button>
+                      <span class="muted">审计 12 条 · 剪贴板 / 通知内容零明文</span>
+                    </div>
+                  </div>
+                </section>
+                <!-- ═══ 浮层内容 4：设置（精简版，完整设置仍在 options 页） ═══ -->
+                <section role="tabpanel" id="pane-settings" aria-labelledby="tab-settings" tabindex="0" hidden>
+                  <h2 class="pane-title">设置（精简版 · 完整设置见 options 页）</h2>
+
+                  <div class="set-group">
+                    <h3>LLM 配置（BYOK，仅存扩展本地）</h3>
+                    <div class="field">
+                      <label for="set-provider">LLM 厂商</label>
+                      <select id="set-provider">
+                        <option selected>火山方舟（ark）</option>
+                        <option>OpenAI 兼容</option>
+                        <option>Anthropic</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="set-key">API Key</label>
+                      <input id="set-key" type="password" placeholder="仅写入扩展存储，不回显明文" autocomplete="off" />
+                    </div>
+                    <p class="hint" style="color: var(--ok)">Key 已保存（不回显明文）· 测试连接 1.2s OK</p>
+                    <div class="field">
+                      <label for="set-model">模型</label>
+                      <input id="set-model" type="text" value="deepseek-v3" />
+                    </div>
+                    <div class="field">
+                      <label for="set-base">自定义 Base URL（可选）</label>
+                      <input id="set-base" type="text" placeholder="留空使用厂商默认" />
+                    </div>
+                    <div class="field">
+                      <label for="set-rounds">最大执行轮数</label>
+                      <input id="set-rounds" type="number" min="1" value="1000" />
+                    </div>
+                    <p class="hint">默认 1000：单次任务中 agent 工具调用的最大轮数（防死循环）。一般无需修改。</p>
+                    <div class="row">
+                      <button type="button" class="btn-sm primary">保存</button>
+                      <button type="button" class="btn-sm">测试连接</button>
+                      <button type="button" class="btn-sm">清除本插件全部配置</button>
+                    </div>
+                  </div>
+
+                  <div class="set-group">
+                    <h3>会话分组</h3>
+                    <div class="row">
+                      <input type="text" placeholder="新建分组名" aria-label="新建分组名" />
+                      <button type="button" class="btn-sm">新建分组</button>
+                    </div>
+                    <div class="row">
+                      <input type="text" placeholder="域名/来源，如 https://example.com" aria-label="域名或来源" />
+                      <select aria-label="目标分组"><option>默认分组</option></select>
+                      <button type="button" class="btn-sm">加入所选分组</button>
+                    </div>
+                    <p class="hint">分组只共享对话历史，不代表互相授权；每个站点仍需单独授权。</p>
+                  </div>
+
+                  <div class="set-group">
+                    <h3>标签页与隐私</h3>
+                    <div class="row" style="align-items: flex-start">
+                      <input type="checkbox" id="set-tabs" checked aria-label="允许助手查看或切换标签页" />
+                      <label for="set-tabs">允许助手查看 / 切换标签页（默认开）</label>
+                    </div>
+                    <p class="hint">
+                      开启后工具面包含 <code>tabs</code>（list / switch / open / mute / pin / move / close）。
+                      <code>list</code> 默认只返回 origin + path（去掉 query 与 fragment）；
+                      <code>close</code> 一次只关一个，确认摘要含标题与去参 URL，并提示关闭不可逆。
+                    </p>
+                  </div>
+
+                  <div class="set-group">
+                    <h3>能力权限（可选权限）</h3>
+                    <div class="row">
+                      <button type="button" class="btn-sm">授权 Chrome 书签权限</button>
+                      <span class="badge ask">未授权</span>
+                      <span class="muted">未授权时不静默失败，返回可读「去设置开启书签访问」</span>
+                    </div>
+                    <div class="row">
+                      <button type="button" class="btn-sm">授权 Chrome 下载记录权限</button>
+                      <span class="badge ask">未授权</span>
+                      <span class="muted">下载记录只读，不提供取消 / 删除</span>
+                    </div>
+                    <div class="row">
+                      <button type="button" class="btn-sm">撤销 Chrome 权限</button>
+                      <span class="badge ok">已授权</span>
+                      <span class="muted">系统通知（notification 正文零审计明文）</span>
+                    </div>
+                    <div class="row">
+                      <button type="button" class="btn-sm">撤销 Chrome 权限</button>
+                      <span class="badge ok">已授权</span>
+                      <span class="muted">剪贴板写入（读取仍未授权、默认关）</span>
+                    </div>
+                    <p class="hint">
+                      授权请求发生在<strong>你点击按钮的手势内</strong>；撤销走 <code>chrome.permissions.remove</code>，
+                      工具会即时移出工具面并写审计。剪贴板 / 通知内容绝不写入审计或日志（只记长度）。
+                    </p>
+                  </div>
+
+                  <div class="set-group">
+                    <h3>自动授权列表（按站点）</h3>
+                    <div class="session-row">
+                      <span class="sess-name">http://localhost:5173</span>
+                      <span class="badge ok">读操作自动：开</span>
+                      <span class="badge ask">写操作自动：关（不含破坏性）</span>
+                    </div>
+                    <p class="hint">
+                      <code>evaluate</code> 档与<strong>未授权站点</strong>永不自动放行；破坏性操作（删除 / 清空 / 重置）
+                      即使开启写自动仍需你确认。
+                    </p>
+                  </div>
+
+                  <div class="set-group">
+                    <h3>诊断自检</h3>
+                    <pre class="diag">扩展上下文        ok
+扩展版本 / 构建    0.8.0
+storage.local    读写 12ms
+service worker   连通 · 往返 8ms
+活跃站点          http://localhost:5173（supported）
+已配置厂商        火山方舟 · deepseek-v3（零明文）
+已授权 origin     1 个</pre>
+                    <div class="row">
+                      <button type="button" class="btn-sm">运行自检</button>
+                      <button type="button" class="btn-sm">复制诊断信息</button>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </aside>
+
+            <!-- 状态变化对外播报（屏幕阅读器） -->
+            <p class="sr-only" id="state-live" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      /* ═══════════════════════════════════════════════════════════════════
+         仅演示用内联脚本：主题 / 宽度 / 状态 / 浮层 / 命令补全 / 树键盘导航 /
+         状态栏展开 / 引导气泡关闭。不发起任何网络请求，不改动任何文件。
+         ═══════════════════════════════════════════════════════════════════ */
+      (function () {
+        'use strict';
+
+        var docEl = document.documentElement;
+        var panel = document.getElementById('panel');
+        var whenNodes = Array.prototype.slice.call(document.querySelectorAll('[data-when]'));
+        var stateLive = document.getElementById('state-live');
+
+        /* ── 1. 主题：跟随系统（无 data-theme）/ 强制浅色 / 强制深色 ─── */
+        function setTheme(value) {
+          if (value === 'auto') docEl.removeAttribute('data-theme');
+          else docEl.setAttribute('data-theme', value);
+        }
+
+        /* ── 2. 宽度：320 / 400 / 520（写 --panel-w，并给面板打 data-width） ── */
+        function setWidth(px) {
+          panel.setAttribute('data-width', px);
+          docEl.style.setProperty('--panel-w', px + 'px');
+        }
+
+        /* ── 3. 状态：5 种真实状态机取值（未授权 / 探测中 / supported / 处理中 / 等待确认） ── */
+        var STATE_TEXT = {
+          unauthorized: '未授权',
+          probing: '探测中',
+          idle: 'supported（空闲）',
+          busy: '处理中（工具执行流）',
+          confirm: '等待确认（破坏性确认卡）'
+        };
+        var composerInput = document.getElementById('composer-input');
+        var composerSend = document.getElementById('composer-send');
+
+        function setState(name) {
+          panel.setAttribute('data-state', name);
+          whenNodes.forEach(function (el) {
+            var list = (el.getAttribute('data-when') || '').split(/\s+/);
+            el.hidden = list.indexOf(name) === -1;
+          });
+          var editable = name === 'idle';
+          composerInput.disabled = !editable;
+          composerSend.disabled = !editable;
+          if (!editable) closePalette();
+          if (stateLive) stateLive.textContent = '演示状态已切换为：' + STATE_TEXT[name];
+        }
+
+        /* 三个互斥选项组共用：点击 + 方向键 + roving tabindex + aria-checked */
+        function wireRadioGroup(selector, attr, onPick) {
+          var group = document.querySelector(selector);
+          if (!group) return;
+          var items = Array.prototype.slice.call(group.querySelectorAll('[role="radio"]'));
+          if (items.length === 0) return;
+
+          function pick(item, focus) {
+            items.forEach(function (node) {
+              var on = node === item;
+              node.setAttribute('aria-checked', String(on));
+              node.tabIndex = on ? 0 : -1;
+            });
+            if (focus) item.focus();
+            onPick(item.getAttribute(attr));
+          }
+
+          items.forEach(function (item) {
+            item.addEventListener('click', function () { pick(item, false); });
+            item.addEventListener('keydown', function (event) {
+              var i = items.indexOf(item);
+              var next = null;
+              if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = items[(i + 1) % items.length];
+              else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = items[(i - 1 + items.length) % items.length];
+              else if (event.key === 'Home') next = items[0];
+              else if (event.key === 'End') next = items[items.length - 1];
+              if (!next) return;
+              event.preventDefault();
+              pick(next, true);
+            });
+          });
+
+          var initial = items.filter(function (node) {
+            return node.getAttribute('aria-checked') === 'true';
+          })[0] || items[0];
+          pick(initial, false);
+        }
+        /* ── 4. 浮层：开合 + 内容切换（tab）+ 焦点管理 + Tab 循环 ─────── */
+        var floatEl = document.getElementById('float');
+        var scrim = document.getElementById('scrim');
+        var floatTitle = document.getElementById('float-title');
+        var floatClose = document.getElementById('float-close');
+        var tabButtons = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+        var lastFocus = null;
+
+        function activateTab(name) {
+          tabButtons.forEach(function (btn) {
+            var on = btn.getAttribute('data-tab') === name;
+            btn.setAttribute('aria-selected', String(on));
+            btn.tabIndex = on ? 0 : -1;
+            var pane = document.getElementById('pane-' + btn.getAttribute('data-tab'));
+            if (pane) pane.hidden = !on;
+            if (on) floatTitle.textContent = btn.getAttribute('data-tab-title') || btn.textContent.trim();
+          });
+        }
+
+        tabButtons.forEach(function (btn, index) {
+          btn.addEventListener('click', function () { activateTab(btn.getAttribute('data-tab')); });
+          btn.addEventListener('keydown', function (event) {
+            var next = null;
+            if (event.key === 'ArrowRight') next = tabButtons[(index + 1) % tabButtons.length];
+            else if (event.key === 'ArrowLeft') next = tabButtons[(index - 1 + tabButtons.length) % tabButtons.length];
+            else if (event.key === 'Home') next = tabButtons[0];
+            else if (event.key === 'End') next = tabButtons[tabButtons.length - 1];
+            if (!next) return;
+            event.preventDefault();
+            activateTab(next.getAttribute('data-tab'));
+            next.focus();
+          });
+        });
+
+        /* 浮层打开时把背景区域置为 inert：焦点与辅助技术都无法落到被遮住的内容上 */
+        var inertTargets = ['.topbar', '.chat-wrap', '.composer-area', '.statusbar']
+          .map(function (sel) { return panel.querySelector(sel); })
+          .filter(Boolean);
+
+        function setBackgroundInert(on) {
+          inertTargets.forEach(function (el) {
+            if (on) el.setAttribute('inert', '');
+            else el.removeAttribute('inert');
+          });
+        }
+
+        function openFloat(tab) {
+          if (tab) activateTab(tab);
+          if (floatEl.classList.contains('is-open')) return;
+          lastFocus = document.activeElement;
+          setBackgroundInert(true);
+          scrim.classList.add('is-open');
+          floatEl.classList.add('is-open');
+          floatClose.focus();
+        }
+
+        function closeFloat() {
+          if (!floatEl.classList.contains('is-open')) return;
+          floatEl.classList.remove('is-open');
+          scrim.classList.remove('is-open');
+          setBackgroundInert(false);
+          if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+        }
+
+        /* 焦点管理：Tab 在浮层内循环（role=dialog + aria-modal 的配套约束） */
+        floatEl.addEventListener('keydown', function (event) {
+          if (event.key !== 'Tab') return;
+          var focusables = Array.prototype.slice
+            .call(floatEl.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+            .filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+          if (focusables.length === 0) return;
+          var first = focusables[0];
+          var last = focusables[focusables.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        });
+
+        floatClose.addEventListener('click', closeFloat);
+        scrim.addEventListener('click', closeFloat);
+
+        Array.prototype.slice.call(document.querySelectorAll('[data-open-float]')).forEach(function (btn) {
+          btn.addEventListener('click', function () { openFloat(btn.getAttribute('data-open-float')); });
+        });
+        /* 树内「去设置开启」：切到设置内容并保持浮层打开 */
+        Array.prototype.slice.call(document.querySelectorAll('[data-open-tab]')).forEach(function (btn) {
+          btn.addEventListener('click', function () { openFloat(btn.getAttribute('data-open-tab')); });
+        });
+
+        /* ── 5. 顶部「更多」菜单（⋯） ─────────────────────────────────── */
+        var menuBtn = document.getElementById('menu-btn');
+        var menuPopover = document.getElementById('menu-popover');
+
+        function closeMenu() {
+          menuPopover.hidden = true;
+          menuBtn.setAttribute('aria-expanded', 'false');
+        }
+
+        menuBtn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          if (menuPopover.hidden) {
+            menuPopover.hidden = false;
+            menuBtn.setAttribute('aria-expanded', 'true');
+          } else {
+            closeMenu();
+          }
+        });
+        Array.prototype.slice.call(menuPopover.querySelectorAll('[data-menu-float]')).forEach(function (item) {
+          item.addEventListener('click', function () {
+            var tab = item.getAttribute('data-menu-float');
+            closeMenu();
+            openFloat(tab);
+          });
+        });
+        document.addEventListener('click', function (event) {
+          if (menuPopover.hidden) return;
+          var target = event.target;
+          if (target && target.closest && (target.closest('#menu-popover') || target.closest('#menu-btn'))) return;
+          closeMenu();
+        });
+
+        /* ── 6. 命令自动补全（输入 / 唤起，↑↓ 选择，Enter 填入，Esc 关闭） ── */
+        var palette = document.getElementById('cmd-palette');
+        var paletteItems = Array.prototype.slice.call(palette.querySelectorAll('.palette-item'));
+        var activeIndex = -1;
+
+        function setActivePaletteItem(index) {
+          activeIndex = index;
+          paletteItems.forEach(function (item, i) {
+            item.setAttribute('aria-selected', String(i === index));
+          });
+          if (index >= 0) composerInput.setAttribute('aria-activedescendant', paletteItems[index].id);
+          else composerInput.removeAttribute('aria-activedescendant');
+        }
+
+        function openPalette() {
+          palette.hidden = false;
+          composerInput.setAttribute('aria-expanded', 'true');
+          if (activeIndex < 0) setActivePaletteItem(0);
+        }
+
+        function closePalette() {
+          if (palette.hidden) return;
+          palette.hidden = true;
+          composerInput.setAttribute('aria-expanded', 'false');
+          setActivePaletteItem(-1);
+        }
+
+        function choosePaletteItem(index) {
+          var item = paletteItems[index];
+          if (!item) return;
+          composerInput.value = item.getAttribute('data-cmd') + ' ';
+          closePalette();
+          composerInput.focus();
+        }
+
+        composerInput.addEventListener('input', function () {
+          if (/^\s*\/[a-z-]*$/i.test(composerInput.value)) openPalette();
+          else closePalette();
+        });
+        composerInput.addEventListener('keydown', function (event) {
+          if (!palette.hidden) {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              setActivePaletteItem(Math.min(paletteItems.length - 1, activeIndex + 1));
+              return;
+            }
+            if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              setActivePaletteItem(Math.max(0, activeIndex - 1));
+              return;
+            }
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              choosePaletteItem(activeIndex < 0 ? 0 : activeIndex);
+              return;
+            }
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              closePalette();
+              return;
+            }
+          }
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            simulateSend();
+          }
+        });
+        paletteItems.forEach(function (item, index) {
+          item.addEventListener('mousedown', function (event) {
+            event.preventDefault();
+            choosePaletteItem(index);
+          });
+        });
+
+        function simulateSend() {
+          if (composerInput.disabled) return;
+          if (composerInput.value.trim() === '') return;
+          composerInput.value = '';
+          closePalette();
+          if (stateLive) stateLive.textContent = '演示稿：输入已清空，未发送任何请求。';
+        }
+        document.getElementById('composer').addEventListener('submit', function (event) {
+          event.preventDefault();
+          simulateSend();
+        });
+
+        /* ── 7. 连接树：展开收起 + 键盘导航（方向键 / Home / End）+ 面包屑 ── */
+        var tree = document.getElementById('tree');
+        var crumb = document.getElementById('tree-breadcrumb');
+
+        function treeItems() {
+          return Array.prototype.slice.call(tree.querySelectorAll('li.tree-item')).filter(function (li) {
+            return li.offsetParent !== null;
+          });
+        }
+        function directChildren(li) {
+          return li.querySelector(':scope > ul.tree-children');
+        }
+        function treeLabel(li) {
+          var label = li.querySelector(':scope > .tree-row > .tree-label');
+          return label ? label.textContent.trim() : '';
+        }
+        function toggleItem(li, force) {
+          var children = directChildren(li);
+          if (!children) return;
+          var expanded = typeof force === 'boolean' ? force : children.hidden;
+          children.hidden = !expanded;
+          li.setAttribute('aria-expanded', String(expanded));
+          var toggle = li.querySelector(':scope > .tree-row > .tree-toggle');
+          if (toggle) toggle.setAttribute('aria-label', (expanded ? '收起 ' : '展开 ') + treeLabel(li));
+        }
+        function setTreeFocus(li) {
+          Array.prototype.slice.call(tree.querySelectorAll('li.tree-item')).forEach(function (node) {
+            var on = node === li;
+            node.tabIndex = on ? 0 : -1;
+            node.setAttribute('aria-selected', String(on));
+          });
+          if (!li) return;
+          li.focus();
+          crumb.textContent = li.getAttribute('data-path') || '连接树';
+        }
+
+        tree.addEventListener('click', function (event) {
+          var target = event.target;
+          if (!target || !target.closest) return;
+          var li = target.closest('li.tree-item');
+          if (!li) return;
+          if (target.closest('.tree-toggle')) {
+            event.preventDefault();
+            toggleItem(li);
+            setTreeFocus(li);
+            return;
+          }
+          /* 行内控件（撤销 / 开关 / 处置档 / 去设置）各自处理，不触发展开 */
+          if (target.closest('.tree-controls')) return;
+          toggleItem(li);
+          setTreeFocus(li);
+        });
+
+        tree.addEventListener('keydown', function (event) {
+          var target = event.target;
+          if (!target || !target.closest) return;
+          var li = target.closest('li.tree-item');
+          if (!li) return;
+          var items = treeItems();
+          var index = items.indexOf(li);
+          var children = directChildren(li);
+
+          if (event.key === 'ArrowDown') { event.preventDefault(); if (index < items.length - 1) setTreeFocus(items[index + 1]); return; }
+          if (event.key === 'ArrowUp') { event.preventDefault(); if (index > 0) setTreeFocus(items[index - 1]); return; }
+          if (event.key === 'Home') { event.preventDefault(); setTreeFocus(items[0]); return; }
+          if (event.key === 'End') { event.preventDefault(); setTreeFocus(items[items.length - 1]); return; }
+          if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            if (children && children.hidden) toggleItem(li, true);
+            else if (index < items.length - 1) setTreeFocus(items[index + 1]);
+            return;
+          }
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            if (children && !children.hidden) toggleItem(li, false);
+            else {
+              var parent = li.parentElement ? li.parentElement.closest('li.tree-item') : null;
+              if (parent) setTreeFocus(parent);
+            }
+            return;
+          }
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleItem(li); }
+        });
+
+        /* ── 8. 状态栏展开 + 引导气泡关闭 + 全局 Esc ──────────────────── */
+        var statusToggle = document.getElementById('statusbar-toggle');
+        var statusDetails = document.getElementById('status-details');
+        statusToggle.addEventListener('click', function () {
+          var willOpen = statusDetails.hidden;
+          statusDetails.hidden = !willOpen;
+          statusToggle.setAttribute('aria-expanded', String(willOpen));
+        });
+
+        document.getElementById('guide-close').addEventListener('click', function () {
+          document.getElementById('dock-guide').hidden = true;
+        });
+
+        document.addEventListener('keydown', function (event) {
+          if (event.key !== 'Escape') return;
+          if (!palette.hidden) { closePalette(); composerInput.focus(); return; }
+          if (!menuPopover.hidden) { closeMenu(); menuBtn.focus(); return; }
+          closeFloat();
+        });
+
+        /* ── 9. 接线：三组互斥开关（状态 / 宽度 / 主题） ──────────────── */
+        wireRadioGroup('#state-switch', 'data-state-set', setState);
+        wireRadioGroup('#width-switch', 'data-width-set', setWidth);
+        wireRadioGroup('#theme-switch', 'data-theme-set', setTheme);
+      })();
+    </script>
+  </body>
+</html>

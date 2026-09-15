@@ -1,0 +1,1716 @@
+<!doctype html>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════════════
+  方案 B · Workbench 双栏（activity bar）— 自文档（设计意图 / 解决的问题 / 取舍）
+  ═══════════════════════════════════════════════════════════════════════════════════
+  文件：packages/web-cli-plugin/design/ui-redesign/option-b-workbench.html
+  性质：纯设计探索稿（高保真静态 HTML）。**不属于 SDDU 流程**，不建 Feature、不写 state.json，
+        不改动仓库任何既有文件；不改 .sddu/**；不 commit。
+  约束：零 CDN / 零外链 / 零外部字体 / 零网络请求 / 零框架 / 零构建；图标全部内联 SVG；
+        JS 仅用于「演示开关」（主题 / 宽度 / 状态 / 视图）+ 一棵树的最小键盘漫游。
+
+  ── 1. 设计意图 ──────────────────────────────────────────────────────────────────
+  把侧栏重构成「左侧图标导航栏（48px）+ 右侧内容区」的工作台：
+    · 导航是**一级归属**（VSCode / Chrome DevTools 的 activity bar 心智），
+      五个视图各自完整成立：对话 / 连接树 / 命令 / 归档 / 设置。
+    · 「连接树」由「漂浮 FAB + 覆盖抽屉」升为**一级公民视图** →
+      获得**全高**画布，能舒服容纳「根 → 维度 → 站点/能力/命令/LLM → 子命令」4~5 层 + 每层控件。
+    · 内容区固定三段式：顶部标题/面包屑栏（不可滚动）→ 中部唯一滚动区 → 底部输入区（不可滚动）；
+      再外挂一条**状态栏**（单行小字）。
+
+  ── 2. 直接解决的现状痛点（对照 src/ui/sidepanel/index.html 的 #panel-top 工具栏）──
+     P1 「设置/授权/撤销/重绑/审计/会话列表/分组管理/状态/LLM 状态全挤在顶部一条」(#panel-top 内
+        6 个按钮 + <details> 里再塞 session-list / 新建分组 / 并入分组)
+        → 拆解：设置进「设置」视图；授权/撤销进「连接树·站点」节点；审计计数进导航栏徽标 +
+          状态栏；会话切换/分组进「对话」视图的会话栏（details 折叠）。
+     P2 「连接树无固定归属（FAB 是 #panel-main 的绝对定位子元素，抽屉 overlay 盖住消息区）」
+        → 升为一级视图，占满内容区高度，与消息流互不遮挡；面包屑给出「我在树里的哪一层」。
+     P3 「提示/引导/发现通知/确认卡层层堆在底部」（.strips / #confirm / #ask / #consent-slot 叠在
+        composer 上方，最多 4 条同时出现且挤掉输入区）
+        → **按状态收敛**：本稿任一状态下，底部最多 1 条情境提示条 +（可选）1 张卡；
+          提示条带「原因 + 下一步」，且**只在对应状态出现**（未授权 / 探测中）。
+     P4 「没有状态栏」→ 底部常驻状态栏：origin · 探测状态 · LLM · 策略档 · 审计 n 条。
+     P5 「没有分层」（无菜单栏/聊天区/输入区/状态栏之分）
+        → 顶部栏 / 内容区 / 输入区 / 状态栏四段显式分层，且内容区按视图再分层。
+
+  ── 3. 320px 时导航栏怎么处理（硬要求，两人方案都要能用 → 本稿的选择与理由）──────────
+     选择：**320 / 400px 保留「图标模式」常驻（48px，不折叠、不 hamburger）；
+           520px 自动「优雅展开」为图标 + 文字（148px）** —— 两种形态在同一稿里都能看到。
+     理由：
+       a) 48px 已是该导航的最小可用宽度（15% @320px），内容区仍有 272px，实测 4 层树 +
+          每层控件 + 深色等宽工具块均不破版（见 CSS 的 [data-width="320"] 覆盖段）。
+       b) 折叠成 hamburger 会把「连接树」从**一次点击**变成**两次点击**（展开菜单 → 选视图），
+          恰好抹掉方案 B 的核心价值（树是一级公民、随手可达）；且菜单会再次变成覆盖层，
+          等于把刚修好的 P2 又装回去。
+       c) 导航项恒带 title + aria-label，图标模式下可发现性不依赖可见文字；选中态同时用
+          「图标底色 + 左侧 3px 指示条 + aria-selected」，不靠颜色单独传达状态。
+       d) 520px 宽度充裕时才加文字，属于「优雅展开」，不需要用户手动开合，避免多一个状态。
+
+  ── 4. 演示开关与内容口径（每个状态都成立，不增不减关键区域）────────────────────
+     状态 → 表现（body[data-state]）：
+       unauth  ：探测状态=未授权；站点提示条（S1 硬底线可读说明 + 「授权当前站点」）；输入区禁用
+       probing ：探测状态=探测中；提示条「正在自动探测…（第 2 次重试）」+ 自动重试说明；输入区禁用
+       idle    ：探测状态=supported；无提示条；输入区可用（默认态）
+       busy    ：supported + 工具执行流（thinking 点 + 执行中工具卡 + ask-user 卡）；输入区禁用
+       confirm ：supported + 破坏性确认卡（bookmarks.remove「删除书签『LGDL 文档』」）；输入区禁用
+     任意状态下：导航栏、顶部栏、消息流、输入区、状态栏**都在**；消失的只有「与当前状态无关的卡/条」。
+
+  事实口径（全部取自仓库，不发明能力）：
+    · 站点 http://localhost:5173（LGDL Workbench，声明 web-cli/0.2，supported）
+    · LLM 火山方舟 ark / deepseek-v3，已配置，「测试连接 1.2s OK」
+    · 会话：默认分组 · 该域名下 3 个标签页
+    · 工具名/子命令：test/parity/baseline-catalog.json（34 工具 · 142 子命令）+ docs/capability-matrix.md
+    · 归档三层：L1 对账基线 34/142 · L2 豁免登记 20 工具/88 子命令（非「缺失」）· L3 实时投影 122 卡
+      （本地 fixture 实测 28 工具卡 + 94 子命令卡）；来源 commit 2ddc922
+    · 树内动作白名单 9 个（固定序）与回执三件套文案：src/ui/tree/tree-ops.ts、tree-receipt.ts
+    · 面板宽度：Chrome 侧栏通常 320–560px → 窄屏优先；深浅色跟随系统
+  ═══════════════════════════════════════════════════════════════════════════════════
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web-cli plugin 侧栏 · 方案 B Workbench 双栏（设计稿）</title>
+    <style>
+      /* ═══ 0. tokens（沿用 sidepanel/index.html 第 20–78 行现状 tokens，新增少量语义色）═══ */
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --bg-subtle: #f6f8fb;
+        --bg-elevated: #ffffff;
+        --text: #1e293b;
+        --text-muted: #64748b;
+        --border: #e5e9f0;
+        --border-strong: #cbd5e1;
+        --accent: #4f46e5;
+        --accent-hover: #4338ca;
+        --accent-weak: #eef2ff;
+        --accent-text: #4338ca;
+        --brand-grad: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+        --user-bg: #4f46e5;
+        --user-text: #ffffff;
+        --assistant-bg: #f1f5f9;
+        --assistant-text: #334155;
+        --tool-bg: #0f172a;
+        --tool-text: #cbd5e1;
+        --warn-bg: #fffbeb;
+        --warn-border: #fde68a;
+        --warn-text: #92400e;
+        --danger-bg: #fef2f2;
+        --danger-border: #fecaca;
+        --danger-text: #991b1b;
+        --ok: #15803d;
+        --ok-bg: rgba(21, 128, 61, 0.12);
+        --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        --focus: 0 0 0 2px rgba(79, 70, 229, 0.35);
+        /* 方案 B 新增：导航栏 / 页框 / 徽标 / 档位 */
+        --nav-bg: #f1f5f9;
+        --nav-item: #64748b;
+        --nav-item-hover-bg: #e2e8f0;
+        --nav-item-active-bg: #ffffff;
+        --frame-bg: #e9edf3;
+        --frame-border: #cfd8e3;
+        --allow-bg: rgba(21, 128, 61, 0.12);
+        --allow-fg: #15803d;
+        --ask-bg: rgba(180, 83, 9, 0.12);
+        --ask-fg: #b45309;
+        --deny-bg: rgba(185, 28, 28, 0.12);
+        --deny-fg: #b91c1c;
+      }
+      /* 深色：跟随系统（可被显式 data-theme="light" 覆盖） */
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #0b1120;
+          --bg-subtle: #0f172a;
+          --bg-elevated: #101a30;
+          --text: #e2e8f0;
+          --text-muted: #94a3b8;
+          --border: #1e293b;
+          --border-strong: #334155;
+          --accent: #818cf8;
+          --accent-hover: #a5b4fc;
+          --accent-weak: #1e1b4b;
+          --accent-text: #c7d2fe;
+          --assistant-bg: #1e293b;
+          --assistant-text: #cbd5e1;
+          --warn-bg: #3b2f10;
+          --warn-border: #78500f;
+          --warn-text: #fcd34d;
+          --danger-bg: #3f1414;
+          --danger-border: #7f1d1d;
+          --danger-text: #fca5a5;
+          --ok: #4ade80;
+          --ok-bg: rgba(74, 222, 128, 0.14);
+          --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+          --nav-bg: #0f172a;
+          --nav-item: #94a3b8;
+          --nav-item-hover-bg: #1e293b;
+          --nav-item-active-bg: #101a30;
+          --frame-bg: #060b16;
+          --frame-border: #1e293b;
+          --allow-bg: rgba(74, 222, 128, 0.16);
+          --allow-fg: #4ade80;
+          --ask-bg: rgba(251, 191, 36, 0.16);
+          --ask-fg: #fcd34d;
+          --deny-bg: rgba(248, 113, 113, 0.16);
+          --deny-fg: #fca5a5;
+        }
+      }
+      /* 深色：手动指定（显式覆盖系统） */
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0b1120;
+        --bg-subtle: #0f172a;
+        --bg-elevated: #101a30;
+        --text: #e2e8f0;
+        --text-muted: #94a3b8;
+        --border: #1e293b;
+        --border-strong: #334155;
+        --accent: #818cf8;
+        --accent-hover: #a5b4fc;
+        --accent-weak: #1e1b4b;
+        --accent-text: #c7d2fe;
+        --assistant-bg: #1e293b;
+        --assistant-text: #cbd5e1;
+        --warn-bg: #3b2f10;
+        --warn-border: #78500f;
+        --warn-text: #fcd34d;
+        --danger-bg: #3f1414;
+        --danger-border: #7f1d1d;
+        --danger-text: #fca5a5;
+        --ok: #4ade80;
+        --ok-bg: rgba(74, 222, 128, 0.14);
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        --nav-bg: #0f172a;
+        --nav-item: #94a3b8;
+        --nav-item-hover-bg: #1e293b;
+        --nav-item-active-bg: #101a30;
+        --frame-bg: #060b16;
+        --frame-border: #1e293b;
+        --allow-bg: rgba(74, 222, 128, 0.16);
+        --allow-fg: #4ade80;
+        --ask-bg: rgba(251, 191, 36, 0.16);
+        --ask-fg: #fcd34d;
+        --deny-bg: rgba(248, 113, 113, 0.16);
+        --deny-fg: #fca5a5;
+      }
+      :root[data-theme="light"] { color-scheme: light; }
+
+      /* ═══ 1. reset / base ═══════════════════════════════════════════════════════ */
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--frame-bg);
+        color: var(--text);
+        overflow-wrap: anywhere;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 20px 12px 32px;
+      }
+      .sprite { display: none; }
+      .icon { width: 20px; height: 20px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-sm { width: 13px; height: 13px; }
+      button { font: inherit; font-size: 12px; color: var(--text); background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 5px 10px; cursor: pointer; max-width: 100%; transition: background .15s, border-color .15s, color .15s; }
+      button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      button:disabled { opacity: .5; cursor: not-allowed; }
+      button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, [tabindex]:focus-visible, a:focus-visible { outline: none; box-shadow: var(--focus); }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+      button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+      input[type="text"], input[type="search"] { font: inherit; padding: 6px 9px; color: var(--text); background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); min-width: 0; }
+      input::placeholder { color: var(--text-muted); }
+      h2 { font-size: 12px; margin: 0 0 6px; letter-spacing: .02em; text-transform: none; color: var(--text-muted); font-weight: 700; }
+      p { margin: 0 0 6px; }
+      code { font-family: var(--mono); font-size: 11.5px; }
+      .muted { color: var(--text-muted); font-size: 11.5px; }
+      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+      .stack { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+      /* ═══ 2. 演示控制台（非产品 UI：只在设计稿外层出现）══════════════════════════ */
+      .demo-console {
+        width: min(100%, 560px);
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .demo-console > .demo-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+      .demo-console .demo-title { font-weight: 700; font-size: 12.5px; }
+      .demo-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+      .demo-group > .demo-label { color: var(--text-muted); font-size: 11.5px; min-width: 52px; }
+      .seg { display: inline-flex; flex-wrap: wrap; max-width: 100%; min-width: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+      .seg button { border: 0; border-radius: 0; background: transparent; padding: 3px 9px; font-size: 11.5px; }
+      .seg button + button { border-left: 1px solid var(--border); }
+      .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+      .demo-note { color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+
+      /* ═══ 3. 浏览器侧栏外框（模拟真实侧栏容器）═══════════════════════════════════ */
+      .sidepanel-frame {
+        width: var(--panel-w, 400px);
+        max-width: 100%;
+        height: min(760px, 88vh);
+        min-height: 460px;
+        background: var(--bg);
+        border: 1px solid var(--frame-border);
+        border-radius: var(--radius);
+        box-shadow: 0 6px 24px rgba(15, 23, 42, .14);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      body[data-width="320"] { --panel-w: 320px; }
+      body[data-width="400"] { --panel-w: 400px; }
+      body[data-width="520"] { --panel-w: 520px; }
+      .frame-chrome {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 10px;
+        background: var(--bg-subtle);
+        border-bottom: 1px solid var(--border);
+        font-size: 11px; color: var(--text-muted);
+      }
+      .frame-dots { display: inline-flex; gap: 4px; }
+      .frame-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); display: block; }
+      .frame-chrome .frame-w { margin-left: auto; font-family: var(--mono); }
+      .app { flex: 1 1 auto; min-height: 0; display: flex; min-width: 0; }
+
+      /* ═══ 4. 左侧图标导航栏（activity bar）═══════════════════════════════════════ */
+      .nav {
+        flex: 0 0 auto;
+        width: 48px;
+        background: var(--nav-bg);
+        border-right: 1px solid var(--border);
+        display: flex; flex-direction: column;
+        padding: 6px 0;
+        min-width: 0;
+      }
+      body[data-width="520"] .nav { width: 148px; padding: 6px 8px; }
+      .nav [role="tablist"] { display: flex; flex-direction: column; gap: 2px; }
+      .nav-tab {
+        position: relative;
+        display: flex; align-items: center; gap: 8px;
+        width: 100%;
+        padding: 8px 0;
+        justify-content: center;
+        background: transparent; border: 0; border-radius: var(--radius-sm);
+        color: var(--nav-item);
+        cursor: pointer;
+      }
+      body[data-width="520"] .nav-tab { justify-content: flex-start; padding: 8px 10px; }
+      .nav-tab:hover { background: var(--nav-item-hover-bg); color: var(--text); }
+      .nav-tab[aria-selected="true"] { background: var(--nav-item-active-bg); color: var(--accent-text); box-shadow: var(--shadow); }
+      .nav-tab[aria-selected="true"]::before {
+        content: ""; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 3px;
+        border-radius: 0 3px 3px 0; background: var(--brand-grad);
+      }
+      .nav-label { display: none; font-size: 12px; font-weight: 600; white-space: nowrap; }
+      body[data-width="520"] .nav-label { display: inline; }
+      .nav-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
+      body[data-width="520"] .nav-foot { align-items: stretch; }
+      .audit-badge {
+        display: flex; flex-direction: column; align-items: center; gap: 2px;
+        font-size: 10.5px; color: var(--text-muted); text-align: center;
+      }
+      body[data-width="520"] .audit-badge { flex-direction: row; gap: 6px; }
+      .audit-badge .n {
+        font-family: var(--mono); font-weight: 700; font-size: 11px;
+        background: var(--accent-weak); color: var(--accent-text);
+        border-radius: 999px; padding: 0 6px; line-height: 1.5;
+      }
+
+      /* ═══ 5. 内容区骨架 ══════════════════════════════════════════════════════════ */
+      .content { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+
+      /* 5.1 顶部栏：视图名 + 面包屑 + 站点 chips（不可滚动） */
+      .topbar {
+        flex: 0 0 auto;
+        padding: 7px 10px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+        display: flex; flex-direction: column; gap: 5px;
+        min-width: 0;
+      }
+      .topbar-line { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+      .topbar-title { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+      .crumb {
+        font-size: 11px; color: var(--text-muted); min-width: 0;
+        display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+      }
+      .crumb .sep { opacity: .6; }
+      .crumbs { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
+      .chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 10.5px; font-family: var(--mono);
+        padding: 1px 7px; border-radius: 999px;
+        background: var(--bg-subtle); color: var(--text-muted);
+        border: 1px solid var(--border); max-width: 100%;
+      }
+      .chip b { font-family: inherit; font-weight: 700; }
+      .chip--ok { background: var(--allow-bg); color: var(--allow-fg); border-color: transparent; }
+      .chip--warn { background: var(--ask-bg); color: var(--ask-fg); border-color: transparent; }
+      .chip--danger { background: var(--deny-bg); color: var(--deny-fg); border-color: transparent; }
+      .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: block; flex: 0 0 auto; }
+
+      /* 5.2 视图容器与切换 */
+      .views { flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; }
+      .view { display: none; flex: 1 1 auto; min-width: 0; min-height: 0; flex-direction: column; }
+      /* 视图显隐只由 [hidden] 决定（声明式；无 hidden = 可见），is-active 仅供阅读对照 */
+      .view:not([hidden]) { display: flex; }
+      .view-scroll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; }
+      .view-pad { padding: 10px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+      /* 5.3 状态栏（底部常驻单行） */
+      .statusbar {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 6px;
+        padding: 3px 10px;
+        background: var(--bg-subtle);
+        border-top: 1px solid var(--border);
+        font-size: 10.5px;
+        color: var(--text-muted);
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .statusbar .sb { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+      .statusbar .sb-sep { opacity: .45; }
+      .statusbar .sb-main { overflow: hidden; text-overflow: ellipsis; }
+      /* 窄屏收敛：320px 只保留「host · 状态 · 审计 n 条」，其余整体隐藏，保证始终单行不截断 */
+      .statusbar .sb-sm { display: none; }
+      body[data-width="320"] .sb-lg { display: none; }
+      body[data-width="320"] .sb-sm { display: inline-flex; }
+      body[data-width="320"] .sb-hide-narrow { display: none; }
+
+      /* ═══ 6. 对话视图 ════════════════════════════════════════════════════════════ */
+      .session-bar {
+        flex: 0 0 auto;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-elevated);
+        padding: 6px 10px;
+        display: flex; flex-direction: column; gap: 5px;
+        min-width: 0;
+      }
+      .tab-chips { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
+      .tab-chip {
+        font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
+        border: 1px solid var(--border); background: var(--bg-subtle); color: var(--text-muted);
+      }
+      .tab-chip.current { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); font-weight: 600; }
+      details.inline-more { min-width: 0; }
+      details.inline-more > summary {
+        list-style: none; cursor: pointer; user-select: none;
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 11.5px; color: var(--accent-text);
+        border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+        padding: 2px 8px; background: var(--bg);
+      }
+      details.inline-more > summary::-webkit-details-marker { display: none; }
+      details.inline-more > summary::after { content: "▾"; font-size: 9px; color: var(--text-muted); }
+      details.inline-more[open] > summary { border-color: var(--accent); background: var(--accent-weak); }
+      .inline-more-body { margin-top: 6px; padding: 7px 9px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 6px; }
+
+      .log {
+        display: flex; flex-direction: column; gap: 9px;
+        padding: 10px;
+        background: var(--bg-subtle);
+        min-height: 100%;
+        min-width: 0;
+      }
+      .entry { display: flex; min-width: 0; }
+      .msg-user { justify-content: flex-end; }
+      .msg-content { max-width: 92%; min-width: 0; padding: 8px 11px; border-radius: var(--radius); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+      .msg-user .msg-content { background: var(--user-bg); color: var(--user-text); border-bottom-right-radius: 3px; }
+      .msg-assistant .msg-content { background: var(--assistant-bg); color: var(--assistant-text); border-bottom-left-radius: 3px; box-shadow: var(--shadow); }
+      .msg-system .msg-content { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); font-size: 11.5px; font-weight: 600; border-bottom-left-radius: 3px; }
+      .msg-content p + p { margin-top: 6px; }
+      .cmd {
+        display: flex; gap: 6px; align-items: flex-start; max-width: 96%; min-width: 0;
+        padding: 4px 8px; background: var(--accent-weak); border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm); font-family: var(--mono); font-size: 11px; color: var(--accent-text);
+      }
+      .cmd-prompt { flex: 0 0 auto; font-weight: 700; }
+      .cmd-text { min-width: 0; white-space: pre-wrap; word-break: break-word; }
+      /* 深色等宽工具结果块（现状 .tool-card-body 的语义） */
+      .tool-block {
+        width: 100%; min-width: 0;
+        background: var(--tool-bg); color: var(--tool-text);
+        border-radius: var(--radius-sm);
+        padding: 8px 10px;
+        font-family: var(--mono); font-size: 11px; line-height: 1.6;
+        white-space: pre-wrap; word-break: break-word;
+        border: 1px solid rgba(148, 163, 184, .25);
+      }
+      .tool-block .tb-head { display: block; color: #93c5fd; font-weight: 700; }
+      .tool-block .tb-ok { color: #86efac; }
+      .tool-block .tb-hit { color: #fde68a; }
+      /* 可折叠工具卡（现状 details.tool-card 的语义） */
+      details.tool-card { width: 100%; min-width: 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+      details.tool-card > summary { list-style: none; display: flex; align-items: center; gap: 6px; padding: 6px 9px; cursor: pointer; font-size: 11.5px; min-width: 0; flex-wrap: wrap; }
+      details.tool-card > summary::-webkit-details-marker { display: none; }
+      details.tool-card > summary .tool-name { font-family: var(--mono); font-weight: 600; }
+      details.tool-card .tool-ms { color: var(--text-muted); font-size: 10.5px; font-family: var(--mono); }
+      details.tool-card .body { border-top: 1px solid var(--border); }
+      /* thinking 指示 */
+      .thinking { display: inline-flex; gap: 4px; align-items: center; padding: 10px 12px; background: var(--assistant-bg); border-radius: var(--radius); }
+      .thinking-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: blink 1.2s infinite ease-in-out; }
+      .thinking-dot:nth-child(2) { animation-delay: .2s; }
+      .thinking-dot:nth-child(3) { animation-delay: .4s; }
+      @keyframes blink { 0%, 80%, 100% { opacity: .3; transform: scale(.8); } 40% { opacity: 1; transform: scale(1); } }
+      .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+      /* 6.4 卡 / 提示条（按状态出现） */
+      .card { width: 100%; min-width: 0; border-radius: var(--radius-sm); padding: 8px 9px; display: flex; flex-direction: column; gap: 5px; }
+      .card--warn { border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text); }
+      .card--info { border: 1px solid var(--border-strong); background: var(--bg-elevated); }
+      .card-title { font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+      .card-body { font-size: 11.5px; line-height: 1.6; color: var(--text-muted); }
+      .card--warn .card-body { color: var(--warn-text); }
+      .card-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+      .badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+      .badge--allow { background: var(--allow-bg); color: var(--allow-fg); }
+      .badge--ask { background: var(--ask-bg); color: var(--ask-fg); }
+      .badge--deny { background: var(--deny-bg); color: var(--deny-fg); }
+      .badge--lock { background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-strong); }
+      .badge--l { background: var(--accent-weak); color: var(--accent-text); font-family: var(--mono); }
+
+      /* 6.5 输入区（不可滚动，恒在底部） */
+      .composer-wrap {
+        flex: 0 0 auto;
+        border-top: 1px solid var(--border);
+        background: var(--bg-elevated);
+        padding: 7px 10px 8px;
+        display: flex; flex-direction: column; gap: 6px;
+        min-width: 0;
+      }
+      .composer { display: flex; gap: 6px; align-items: center; min-width: 0; }
+      .composer input { flex: 1 1 auto; min-width: 0; }
+      .composer input:disabled { background: var(--bg-subtle); color: var(--text-muted); }
+      .composer-meta { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+      .kbd-hint { font-size: 10.5px; color: var(--text-muted); }
+      .kbd-hint code { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 10.5px; }
+      #composer-reason { margin: 0; font-size: 11px; color: var(--warn-text); font-weight: 600; }
+      #composer-reason:empty { display: none; }
+
+      /* 状态可见性（声明式，便于对照） */
+      .only-unauth, .only-probing, .only-busy, .only-confirm { display: none; }
+      body[data-state="unauth"] .only-unauth { display: flex; }
+      body[data-state="probing"] .only-probing { display: flex; }
+      body[data-state="busy"] .only-busy { display: flex; }
+      body[data-state="confirm"] .only-confirm { display: flex; }
+
+      /* ═══ 7. 连接树视图（一级公民，全高）═════════════════════════════════════════ */
+      .tree-crumb {
+        flex: 0 0 auto;
+        padding: 6px 10px;
+        background: var(--bg-subtle);
+        border-bottom: 1px solid var(--border);
+        font-size: 11px; color: var(--text-muted);
+        display: flex; flex-direction: column; gap: 3px;
+        min-width: 0;
+      }
+      .tree-crumb .path { overflow-wrap: anywhere; }
+      .tree-crumb .path b { color: var(--text); font-weight: 700; }
+      .tree-legend { display: flex; gap: 8px; flex-wrap: wrap; font-size: 10.5px; align-items: center; }
+      .tree-legend .lg { display: inline-flex; align-items: center; gap: 3px; }
+      .tree-body { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; padding: 6px 8px 10px; }
+      ul.tree, ul.tree-group { list-style: none; margin: 0; padding: 0; min-width: 0; }
+      li.tree-node { min-width: 0; padding: 1px 0; }
+      li.tree-node[aria-level="2"] > .tn-row { padding-left: 8px; }
+      li.tree-node[aria-level="3"] > .tn-row { padding-left: 18px; }
+      li.tree-node[aria-level="4"] > .tn-row { padding-left: 28px; }
+      li.tree-node[aria-level="5"] > .tn-row { padding-left: 38px; }
+      li.tree-node > ul[hidden] { display: none; }
+      .tn-row {
+        display: flex; align-items: flex-start; gap: 5px;
+        padding: 4px 6px; border-radius: var(--radius-sm);
+        min-width: 0;
+      }
+      .tn-row:hover { background: var(--bg-subtle); }
+      li.tree-node[aria-selected="true"] > .tn-row { background: var(--accent-weak); box-shadow: inset 0 0 0 1px var(--accent); }
+      li.tree-node:focus { outline: none; }
+      li.tree-node:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-sm); }
+      .tn-toggle {
+        flex: 0 0 auto; width: 16px; height: 18px; padding: 0; border: 0; background: transparent;
+        color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 4px;
+      }
+      .tn-toggle .icon { width: 12px; height: 12px; stroke-width: 2.2; transition: transform .12s; }
+      li.tree-node[aria-expanded="true"] > .tn-row .tn-toggle .icon { transform: rotate(90deg); }
+      .tn-toggle-leaf { flex: 0 0 auto; width: 16px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
+      .tn-toggle-leaf .icon { width: 5px; height: 5px; fill: currentColor; stroke: none; }
+      .tn-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+      .tn-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
+      .tn-label { font-size: 12px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+      .tn-label.mono { font-family: var(--mono); font-weight: 600; font-size: 11.5px; }
+      .tn-sub { font-size: 10.5px; color: var(--text-muted); overflow-wrap: anywhere; font-family: var(--mono); }
+      .tn-hint { font-size: 10.5px; color: var(--warn-text); display: flex; align-items: center; gap: 4px; }
+      .tn-clamp { font-size: 10.5px; line-height: 1.5; color: var(--warn-text); background: var(--warn-bg); border-left: 3px solid var(--warn-border); padding: 2px 6px; border-radius: 4px; margin-top: 2px; }
+      .tn-controls { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+      .tn-ctl {
+        font-size: 10.5px; text-align: left; padding: 2px 7px;
+        color: var(--accent-text); background: var(--accent-weak);
+        border: 1px solid var(--accent); border-radius: var(--radius-sm); cursor: pointer;
+      }
+      .tn-ctl[data-kind="revoke"] { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); }
+      .tn-ctl[aria-pressed="true"] { font-weight: 700; box-shadow: inset 0 0 0 1px currentColor; }
+      .tn-ctl:disabled { opacity: .55; }
+      /* 回执三件套（树视图底部固定面板） */
+      .receipt {
+        flex: 0 0 auto;
+        border-top: 1px solid var(--border);
+        background: var(--bg-subtle);
+        padding: 8px 10px;
+        display: flex; flex-direction: column; gap: 5px;
+        min-width: 0;
+        max-height: 40%;
+        overflow: auto;
+      }
+      .receipt .r-title { font-size: 11px; font-weight: 700; color: var(--text-muted); }
+      .receipt .r-line { font-size: 11.5px; line-height: 1.6; display: flex; gap: 5px; min-width: 0; }
+      .receipt .r-line b { flex: 0 0 auto; }
+      .receipt .r-ok { color: var(--ok); }
+      .receipt .r-evidence { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 7px; overflow-wrap: anywhere; }
+      .whitelist { font-family: var(--mono); font-size: 10px; color: var(--text-muted); line-height: 1.7; overflow-wrap: anywhere; }
+
+      /* ═══ 8. 命令视图 ════════════════════════════════════════════════════════════ */
+      .cmd-search { display: flex; gap: 6px; align-items: center; min-width: 0; }
+      .cmd-search input { flex: 1 1 auto; min-width: 0; }
+      .facets { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+      .facet { font-size: 10.5px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-muted); border-radius: 999px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 4px; }
+      .facet[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 600; }
+      .cmd-group { display: flex; flex-direction: column; gap: 7px; }
+      .cmd-group > .cg-head { display: flex; align-items: center; gap: 6px; }
+      .cmd-card {
+        border: 1px solid var(--border); background: var(--bg-elevated);
+        border-radius: var(--radius-sm); padding: 7px 9px;
+        display: flex; flex-direction: column; gap: 4px; min-width: 0;
+      }
+      .cmd-card .cc-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
+      .cmd-card .cc-name { font-family: var(--mono); font-weight: 700; font-size: 12px; }
+      .cmd-card .cc-sub { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); overflow-wrap: anywhere; }
+      .cmd-card .cc-note { font-size: 10.5px; color: var(--text-muted); }
+      .cmd-card.hardline { border-style: dashed; border-color: var(--danger-border); background: var(--danger-bg); }
+      .cmd-card.hardline .cc-note { color: var(--danger-text); }
+      .cmd-card .controls { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+
+      /* ═══ 9. 归档视图 ════════════════════════════════════════════════════════════ */
+      .layer-grid { display: flex; flex-direction: column; gap: 8px; }
+      .layer-card { border: 1px solid var(--border); background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 8px 9px; display: flex; flex-direction: column; gap: 3px; }
+      .layer-card .lc-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .layer-card .lc-title { font-weight: 700; font-size: 12px; }
+      .layer-card .lc-num { font-family: var(--mono); font-size: 11.5px; color: var(--accent-text); font-weight: 700; }
+      .layer-card .lc-body { font-size: 11px; line-height: 1.6; color: var(--text-muted); }
+      .drill { display: flex; flex-direction: column; gap: 6px; }
+      details.drill-row { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); overflow: hidden; }
+      details.drill-row > summary { list-style: none; cursor: pointer; padding: 7px 9px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11.5px; }
+      details.drill-row > summary::-webkit-details-marker { display: none; }
+      details.drill-row > summary::before { content: "▸"; font-size: 10px; color: var(--text-muted); }
+      details.drill-row[open] > summary::before { content: "▾"; }
+      details.drill-row .drill-body { border-top: 1px solid var(--border); padding: 7px 9px; background: var(--bg-subtle); display: flex; flex-direction: column; gap: 4px; }
+      .drill-item { display: flex; gap: 6px; align-items: baseline; font-size: 11px; min-width: 0; flex-wrap: wrap; }
+      .drill-item .di-name { font-family: var(--mono); font-weight: 600; }
+      .drill-item .di-note { color: var(--text-muted); font-size: 10.5px; }
+
+      /* ═══ 10. 设置视图（仅入口/摘要）═════════════════════════════════════════════ */
+      .set-card { border: 1px solid var(--border); background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 8px 9px; display: flex; flex-direction: column; gap: 6px; }
+      .kv { display: flex; gap: 6px; font-size: 11.5px; align-items: baseline; min-width: 0; flex-wrap: wrap; }
+      .kv .k { color: var(--text-muted); min-width: 62px; flex: 0 0 auto; }
+      .kv .v { font-family: var(--mono); font-size: 11px; min-width: 0; overflow-wrap: anywhere; }
+      .perm-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11.5px; padding: 3px 0; border-bottom: 1px dashed var(--border); min-width: 0; }
+      .perm-row:last-child { border-bottom: 0; }
+      .perm-row .p-name { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+      .perm-row .p-note { color: var(--text-muted); font-size: 10.5px; }
+
+      /* ═══ 11. 320px 窄屏收敛（硬要求：不破版）═══════════════════════════════════ */
+      body[data-width="320"] .frame-chrome .frame-w { font-size: 10px; }
+      body[data-width="320"] .topbar { padding: 6px 8px; }
+      body[data-width="320"] .view-pad { padding: 8px; }
+      body[data-width="320"] .log { padding: 8px; gap: 8px; }
+      body[data-width="320"] .msg-content { max-width: 96%; }
+      body[data-width="320"] .composer-wrap { padding: 6px 8px; }
+      body[data-width="320"] button { padding: 4px 8px; }
+      body[data-width="320"] .nav-tab { padding: 7px 0; }
+      body[data-width="320"] .statusbar { padding: 3px 8px; }
+      body[data-width="320"] .kv .k { min-width: 56px; }
+      @media (prefers-reduced-motion: reduce) {
+        .thinking-dot { animation: none; }
+        * { transition: none !important; }
+      }
+    </style>
+  </head>
+  <body data-width="400" data-state="idle">
+    <!-- 内联 SVG sprite（零外链；<use href="#id"> 为同文档片段引用，file:// 可用） -->
+    <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3H8l-5 3 1.3-4.6A8.3 8.3 0 1 1 21 11.5z"/></symbol>
+      <symbol id="i-tree" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><circle cx="6" cy="19.5" r="2"/><circle cx="18" cy="19.5" r="2"/><path d="M12 6.5v4M6 17.5v-4h12v4"/></symbol>
+      <symbol id="i-cmd" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9.5l3 2.5-3 2.5M13 15h4"/></symbol>
+      <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13.5h4"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M4.2 7.5l1.9 1.1M17.9 15.4l1.9 1.1M4.2 16.5l1.9-1.1M17.9 8.6l1.9-1.1"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></symbol>
+      <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></symbol>
+    </svg>
+
+    <!-- ═══ 演示控制台（非产品 UI）══════════════════════════════════════════════ -->
+    <section class="demo-console" aria-label="设计稿演示控制台（不属于产品 UI）">
+      <div class="demo-head">
+        <span class="demo-title">方案 B · Workbench 双栏（activity bar）</span>
+        <span class="muted">演示控制台 — 不属于产品 UI</span>
+      </div>
+      <div class="demo-group">
+        <span class="demo-label" id="lbl-state">状态</span>
+        <div class="seg" role="group" aria-labelledby="lbl-state">
+          <button type="button" data-state-set="unauth" aria-pressed="false">未授权</button>
+          <button type="button" data-state-set="probing" aria-pressed="false">探测中</button>
+          <button type="button" data-state-set="idle" aria-pressed="true">supported 空闲</button>
+          <button type="button" data-state-set="busy" aria-pressed="false">处理中</button>
+          <button type="button" data-state-set="confirm" aria-pressed="false">等待确认</button>
+        </div>
+      </div>
+      <div class="demo-group">
+        <span class="demo-label" id="lbl-width">侧栏宽度</span>
+        <div class="seg" role="group" aria-labelledby="lbl-width">
+          <button type="button" data-width-set="320" aria-pressed="false">320</button>
+          <button type="button" data-width-set="400" aria-pressed="true">400（默认）</button>
+          <button type="button" data-width-set="520" aria-pressed="false">520</button>
+        </div>
+      </div>
+      <div class="demo-group">
+        <span class="demo-label" id="lbl-theme">主题</span>
+        <div class="seg" role="group" aria-labelledby="lbl-theme">
+          <button type="button" data-theme-set="auto" aria-pressed="true">跟随系统</button>
+          <button type="button" data-theme-set="light" aria-pressed="false">亮</button>
+          <button type="button" data-theme-set="dark" aria-pressed="false">暗</button>
+        </div>
+      </div>
+      <p class="demo-note">
+        视图切换请直接点左侧导航栏（真实交互路径）。320px：导航栏保留 <b>图标模式</b>（48px，理由见文件顶部注释 §3）；
+        520px：自动展开为「图标 + 文字」。
+      </p>
+    </section>
+
+    <!-- ═══ 模拟浏览器侧栏容器 ══════════════════════════════════════════════════ -->
+    <div class="sidepanel-frame" role="group" aria-label="Chrome 侧边栏（模拟容器）">
+      <div class="frame-chrome">
+        <span class="frame-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Chrome 侧边栏</span>
+        <span class="frame-w" id="frame-width-label">400px</span>
+      </div>
+
+      <div class="app">
+        <!-- ── 4. 左侧图标导航栏（activity bar）────────────────────────────── -->
+        <nav class="nav" aria-label="主导航">
+          <div role="tablist" aria-orientation="vertical" aria-label="侧栏视图">
+            <button class="nav-tab" id="tab-chat" role="tab" type="button" aria-selected="true" aria-controls="view-chat" tabindex="0" title="对话" aria-label="对话">
+              <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg>
+              <span class="nav-label">对话</span>
+            </button>
+            <button class="nav-tab" id="tab-tree" role="tab" type="button" aria-selected="false" aria-controls="view-tree" tabindex="-1" title="连接树" aria-label="连接树">
+              <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-tree"/></svg>
+              <span class="nav-label">连接树</span>
+            </button>
+            <button class="nav-tab" id="tab-cmd" role="tab" type="button" aria-selected="false" aria-controls="view-cmd" tabindex="-1" title="命令" aria-label="命令">
+              <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-cmd"/></svg>
+              <span class="nav-label">命令</span>
+            </button>
+            <button class="nav-tab" id="tab-archive" role="tab" type="button" aria-selected="false" aria-controls="view-archive" tabindex="-1" title="归档" aria-label="归档">
+              <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-archive"/></svg>
+              <span class="nav-label">归档</span>
+            </button>
+            <button class="nav-tab" id="tab-settings" role="tab" type="button" aria-selected="false" aria-controls="view-settings" tabindex="-1" title="设置" aria-label="设置">
+              <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-gear"/></svg>
+              <span class="nav-label">设置</span>
+            </button>
+          </div>
+          <div class="nav-foot">
+            <a class="audit-badge" href="#view-settings" id="audit-link" title="查看审计：12 条（零明文）" aria-label="审计 12 条，跳转到设置视图的审计入口">
+              <span class="n">12</span>
+              <span>审计</span>
+            </a>
+          </div>
+        </nav>
+
+        <!-- ── 右侧内容区 ──────────────────────────────────────────────────── -->
+        <div class="content">
+          <!-- 顶部栏：视图标题 + 面包屑 + 站点 chips（不可滚动） -->
+          <header class="topbar">
+            <div class="topbar-line">
+              <span class="topbar-title" id="view-title">对话</span>
+              <span class="muted" id="view-sub">默认分组 · 3 个标签页</span>
+            </div>
+            <div class="crumbs">
+              <span class="chip" title="当前活跃站点 origin">
+                <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-dot"/></svg>
+                <span id="chip-origin">http://localhost:5173</span>
+              </span>
+              <span class="chip chip--ok" id="chip-state" title="站点声明探测状态">
+                <span class="dot" aria-hidden="true"></span>探测 supported
+              </span>
+              <span class="chip" title="LLM 连接">ark / deepseek-v3</span>
+              <span class="chip" id="chip-decl" title="站点声明">web-cli/0.2</span>
+            </div>
+          </header>
+
+          <div class="views">
+            <!-- ─────────── 视图 1：对话 ─────────────────────────────────── -->
+            <section class="view is-active" id="view-chat" role="tabpanel" aria-labelledby="tab-chat" tabindex="0">
+              <!-- 会话栏（原顶部「更多」里的会话/分组整体搬到这里） -->
+              <div class="session-bar">
+                <div class="row" style="justify-content: space-between">
+                  <span class="muted">会话 <b style="color: var(--text)">默认分组</b> · 该域名 3 个标签页</span>
+                  <details class="inline-more">
+                    <summary aria-label="会话与分组管理">会话与分组</summary>
+                    <div class="inline-more-body">
+                      <div class="tab-chips" role="list" aria-label="该域名下的标签页">
+                        <span class="tab-chip current" role="listitem">LGDL Workbench — 编辑器</span>
+                        <span class="tab-chip" role="listitem">接口文档</span>
+                        <span class="tab-chip" role="listitem">数据模型</span>
+                      </div>
+                      <div class="row">
+                        <input type="text" placeholder="新建分组名" aria-label="新建分组名" />
+                        <button type="button">新建分组</button>
+                      </div>
+                      <div class="row">
+                        <select aria-label="目标分组" style="min-width: 0; flex: 1 1 90px">
+                          <option>默认分组</option>
+                          <option>文档组</option>
+                        </select>
+                        <button type="button">把当前域名并入</button>
+                      </div>
+                      <p class="muted">分组只共享对话，<b>不代表互相授权</b>；每个站点仍需单独授权，执行仍受门禁。</p>
+                    </div>
+                  </details>
+                </div>
+              </div>
+
+              <!-- 消息流（唯一滚动区） -->
+              <div class="view-scroll">
+                <div class="log" aria-label="会话记录" aria-live="polite">
+                  <div class="entry msg-user">
+                    <div class="msg-content">帮我把工作台里的接口文档导出成 markdown</div>
+                  </div>
+
+                  <div class="entry msg-assistant">
+                    <div class="msg-content">
+                      我先读取当前站点声明的文档节点，确认要导出的范围；确认后再调用站点工具生成 markdown。
+                    </div>
+                  </div>
+
+                  <div class="entry msg-assistant" style="flex-direction: column; gap: 5px; align-items: stretch">
+                    <div class="cmd" role="group" aria-label="助手将执行的命令">
+                      <span class="cmd-prompt" aria-hidden="true">$</span>
+                      <span class="cmd-text">site_lgdl-web-cli doc-info --depth 1</span>
+                    </div>
+                    <div class="tool-block" role="group" aria-label="工具 site_lgdl-web-cli doc-info 的执行结果">
+<span class="tb-head">$ site_lgdl-web-cli doc-info --depth 1</span>
+<span class="tb-ok">✓ ok · 142ms · 节点 4 · 边 3 · 处置档 allow</span>
+├─ 00-总览            <span style="opacity:.75">(node:overview)</span>
+├─ 10-接口文档        <span style="opacity:.75">(node:api-doc)</span>  <span class="tb-hit">← 命中</span>
+│   ├─ 11-REST 约定   <span style="opacity:.75">(node:api-rest)</span>
+│   └─ 12-错误码表    <span style="opacity:.75">(node:api-errors)</span>
+└─ 20-数据模型        <span style="opacity:.75">(node:data-model)</span>
+                    </div>
+                  </div>
+
+                  <div class="entry msg-system">
+                    <div class="msg-content">
+                      站点声明 web-cli/0.2 探测通过（supported）；本次调用命中处置档 allow，已写入审计（零明文、只记类型与耗时）。
+                    </div>
+                  </div>
+
+                  <div class="entry msg-assistant" style="flex-direction: column; gap: 5px; align-items: stretch">
+                    <div class="msg-content" style="max-width: 100%">
+                      命中「10-接口文档」及其 2 个子节点，共 3 个节点。下一步调用 <code>export</code> 导出为 markdown。
+                    </div>
+                    <details class="tool-card">
+                      <summary>
+                        <span class="tool-name">export</span>
+                        <span class="badge badge--allow">allow</span>
+                        <span class="tool-ms">已折叠 · 点击展开原始输出</span>
+                      </summary>
+                      <div class="body tool-block" style="border-radius: 0; border: 0">
+<span class="tb-head">$ export --format markdown --nodes api-doc,api-rest,api-errors</span>
+<span class="tb-ok">✓ ok · 318ms · 3 节点 / 1 文件</span>
+产物：workbench-api-doc.md（经页面上下文 anchor 下载链落盘，文件名仅 basename 入审计）
+                      </div>
+                    </details>
+                  </div>
+
+                  <!-- ⑤ 处理中：工具执行流（thinking + 执行中工具卡） -->
+                  <div class="entry msg-assistant only-busy" style="gap: 6px">
+                    <div class="thinking" role="status" aria-label="助手正在处理">
+                      <span class="thinking-dot" aria-hidden="true"></span>
+                      <span class="thinking-dot" aria-hidden="true"></span>
+                      <span class="thinking-dot" aria-hidden="true"></span>
+                      <span class="sr-only">正在处理</span>
+                    </div>
+                  </div>
+                  <div class="only-busy" style="flex-direction: column; gap: 5px">
+                    <details class="tool-card" open>
+                      <summary>
+                        <span class="tool-name">site_lgdl-web-cli export-source</span>
+                        <span class="badge badge--ask">执行中</span>
+                        <span class="tool-ms">第 2 轮 · 已 0.8s</span>
+                      </summary>
+                      <div class="body tool-block" style="border-radius: 0; border: 0">$ site_lgdl-web-cli export-source --format markdown
+… 正在采集页面节点（流式输出待回传）</div>
+                    </details>
+                  </div>
+
+                  <!-- ask-user 卡（AI 任务内澄清，与权限确认不同） -->
+                  <div class="entry only-busy" style="flex-direction: column">
+                    <div class="card card--info" style="max-width: 96%">
+                      <div class="card-title">助手需要确认导出范围</div>
+                      <div class="card-body">「12-错误码表」是否一并导出？（取消 = 回答被取消，不代填默认值）</div>
+                      <div class="card-actions">
+                        <button type="button" class="primary">包含</button>
+                        <button type="button">不包含</button>
+                        <input type="text" placeholder="或输入其他说明…" aria-label="回答助手的澄清提问" style="flex: 1 1 90px; min-width: 0" />
+                      </div>
+                      <div class="muted">ask-user · 与权限确认不同：这一条不影响任何门禁判定。</div>
+                    </div>
+                  </div>
+
+                  <!-- ⑦ 等待确认：破坏性操作待确认的痕迹 -->
+                  <div class="entry msg-assistant only-confirm" style="flex-direction: column; gap: 5px; align-items: stretch">
+                    <div class="cmd" role="group" aria-label="待确认的命令">
+                      <span class="cmd-prompt" aria-hidden="true">$</span>
+                      <span class="cmd-text">bookmarks remove --id 1284 --title "LGDL 文档"</span>
+                    </div>
+                    <div class="muted">该调用命中 <b>破坏性保底 ask</b>：即使开启「写操作自动」仍需人工确认；超时/取消 = 拒绝（fail-closed）。</div>
+                  </div>
+
+                  <!-- ② 未授权 / ③ 探测中：情境提示条（底部最多 1 条） -->
+                  <div class="entry only-unauth" style="flex-direction: column">
+                    <div class="card card--warn" role="status" aria-label="站点未授权提示">
+                      <div class="card-title">当前站点未授权（http://localhost:5173）</div>
+                      <div class="card-body">
+                        未授权 origin 命中硬底线 <code>S1</code>：所有工具调用直接 deny，<b>不可被任何设置覆盖</b>。
+                        授权只作用于当前 origin，且需要你在手势内点击。
+                      </div>
+                      <div class="card-actions">
+                        <button type="button" class="primary">授权当前站点</button>
+                        <button type="button">重新绑定当前标签页</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="entry only-probing" style="flex-direction: column">
+                    <div class="card card--warn" role="status" aria-label="自动探测中提示">
+                      <div class="card-title">正在自动探测…（第 2 次重试）</div>
+                      <div class="card-body">
+                        最近探测原因：内容脚本未响应 / 页面尚未就绪。探测成功前发送按钮保持禁用（不假装可用）。
+                        切换标签页或刷新页面会自动重试。
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 输入区（不可滚动，恒在底部；破坏性确认卡停靠在此上方） -->
+              <div class="composer-wrap">
+                <div class="only-confirm" style="flex-direction: column">
+                  <div class="card card--warn" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-desc">
+                    <div class="card-title" id="confirm-title">敏感操作需二次确认</div>
+                    <div class="card-body" id="confirm-desc">
+                      作用对象：书签「LGDL 文档」（bookmarks.remove）<br />
+                      后果：书签将被永久删除，<b>此操作不可撤销</b>；删除属破坏性操作，禁止批量。
+                    </div>
+                    <div class="card-actions">
+                      <button type="button" class="primary" aria-label="允许删除书签 LGDL 文档">允许</button>
+                      <button type="button" aria-label="拒绝删除书签 LGDL 文档">拒绝</button>
+                      <span class="muted">超时 / 取消 = 拒绝</span>
+                    </div>
+                  </div>
+                </div>
+                <p id="composer-reason"></p>
+                <form class="composer">
+                  <input type="text" id="composer-input" placeholder="输入指令…（/ 唤起命令）" aria-label="输入指令" autocomplete="off" />
+                  <button type="button" id="composer-send" class="primary">发送</button>
+                </form>
+                <div class="composer-meta">
+                  <span class="kbd-hint"><code>/</code> 命令提示 · <code>Shift+Enter</code> 换行</span>
+                  <span class="muted" style="margin-left: auto">maxRounds 1000</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- ─────────── 视图 2：连接树（一级公民 · 全高）───────────────── -->
+            <section class="view" id="view-tree" role="tabpanel" aria-labelledby="tab-tree" tabindex="0" hidden>
+              <div class="tree-crumb">
+                <span class="path" id="tree-crumb-path" role="navigation" aria-label="当前节点层级路径">
+                  <b>连接树</b> <span class="sep">›</span> 浏览器能力 <span class="sep">›</span> clipboard（聚焦节点：clipboard.read）
+                </span>
+                <span class="tree-legend">
+                  <span class="lg"><span class="badge badge--allow">allow</span>可放行</span>
+                  <span class="lg"><span class="badge badge--ask">ask</span>需确认</span>
+                  <span class="lg"><span class="badge badge--deny">deny</span>拒绝</span>
+                  <span class="lg"><span class="badge badge--lock"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>硬底线</span>不可覆盖</span>
+                </span>
+              </div>
+
+              <div class="tree-body">
+                <ul class="tree" role="tree" aria-label="连接树：站点 / 浏览器能力 / 命令处置档 / LLM 连接">
+                  <!-- L1 -->
+                  <li class="tree-node" id="tn-root" role="treeitem" aria-level="1" aria-expanded="true" aria-selected="false" tabindex="0">
+                    <div class="tn-row">
+                      <button class="tn-toggle" type="button" tabindex="-1" aria-label="折叠 连接树"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                      <div class="tn-main">
+                        <div class="tn-head">
+                          <span class="tn-label">连接树</span>
+                          <span class="badge badge--l">4 维度</span>
+                          <span class="muted">真层级树 · 逐层展开 · 每层独立控件</span>
+                        </div>
+                      </div>
+                    </div>
+                    <ul class="tree-group" role="group">
+                      <!-- L2 · 站点 -->
+                      <li class="tree-node" id="tn-site" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" tabindex="-1">
+                        <div class="tn-row">
+                          <button class="tn-toggle" type="button" tabindex="-1" aria-label="折叠 站点"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                          <div class="tn-main">
+                            <div class="tn-head"><span class="tn-label">站点</span><span class="badge badge--l">1 项</span></div>
+                          </div>
+                        </div>
+                        <ul class="tree-group" role="group">
+                          <!-- L3 · 站点实例 -->
+                          <li class="tree-node" id="tn-site-origin" role="treeitem" aria-level="3" aria-expanded="true" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <button class="tn-toggle" type="button" tabindex="-1" aria-label="折叠 http://localhost:5173"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label mono">http://localhost:5173</span>
+                                  <span class="badge badge--allow">supported</span>
+                                  <span class="badge">声明 web-cli/0.2</span>
+                                  <span class="muted">LGDL Workbench</span>
+                                </div>
+                                <div class="tn-sub">origin 级授权 · 只作用于该 origin</div>
+                                <div class="tn-controls">
+                                  <button class="tn-ctl" type="button" data-kind="revoke" data-action-id="revoke-origin" aria-label="撤销 http://localhost:5173 的站点授权">撤销授权</button>
+                                </div>
+                              </div>
+                            </div>
+                            <ul class="tree-group" role="group">
+                              <!-- L4 · 声明工具 -->
+                              <li class="tree-node" id="tn-site-tool" role="treeitem" aria-level="4" aria-expanded="false" aria-selected="false" tabindex="-1">
+                                <div class="tn-row">
+                                  <button class="tn-toggle" type="button" tabindex="-1" aria-label="展开 site_lgdl-web-cli"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                                  <div class="tn-main">
+                                    <div class="tn-head">
+                                      <span class="tn-label mono">site_lgdl-web-cli</span>
+                                      <span class="badge badge--l">L2 豁免登记</span>
+                                      <span class="badge badge--allow">allow</span>
+                                    </div>
+                                    <div class="tn-sub">站点声明工具（页面 RPC）· 17 子命令 · 基线 lgdl-web-cli 已映射</div>
+                                    <div class="tn-sub" style="color: var(--accent-text)">交叉引用：命令处置档 › site_lgdl-web-cli（不复制节点，点击下钻）</div>
+                                  </div>
+                                </div>
+                                <ul class="tree-group" role="group" hidden>
+                                  <li class="tree-node" id="tn-site-tool-sub" role="treeitem" aria-level="5" aria-selected="false" tabindex="-1">
+                                    <div class="tn-row">
+                                      <span class="tn-toggle-leaf" aria-hidden="true"><svg class="icon"><use href="#i-dot"/></svg></span>
+                                      <div class="tn-main">
+                                        <div class="tn-head"><span class="tn-label mono">doc-info</span><span class="badge badge--allow">allow</span></div>
+                                        <div class="tn-sub">读取文档节点摘要（本次对话已调用）</div>
+                                      </div>
+                                    </div>
+                                  </li>
+                                </ul>
+                              </li>
+                            </ul>
+                          </li>
+                        </ul>
+                      </li>
+
+                      <!-- L2 · 浏览器能力 -->
+                      <li class="tree-node" id="tn-cap" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" tabindex="-1">
+                        <div class="tn-row">
+                          <button class="tn-toggle" type="button" tabindex="-1" aria-label="折叠 浏览器能力"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                          <div class="tn-main">
+                            <div class="tn-head"><span class="tn-label">浏览器能力</span><span class="badge badge--l">3 项</span></div>
+                            <div class="tn-sub">静态权限不可逐项撤销；可选权限可撤销</div>
+                          </div>
+                        </div>
+                        <ul class="tree-group" role="group">
+                          <li class="tree-node" id="tn-cap-tabs" role="treeitem" aria-level="3" aria-expanded="false" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <button class="tn-toggle" type="button" tabindex="-1" aria-label="展开 tabs"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label mono">tabs</span>
+                                  <span class="badge badge--allow">已授权</span>
+                                  <span class="badge badge--allow">allow</span>
+                                  <span class="muted">list / switch / open / mute / pin / move / close</span>
+                                </div>
+                                <div class="tn-sub">静态权限 · 不可逐项撤销（清单固定 5 项声明）</div>
+                                <div class="tn-controls">
+                                  <button class="tn-ctl" type="button" data-action-id="set-tabs-toggle" aria-pressed="true" aria-label="关闭标签页管理（可逆开关）">标签页管理：开</button>
+                                </div>
+                              </div>
+                            </div>
+                            <ul class="tree-group" role="group" hidden>
+                              <li class="tree-node" id="tn-cap-tabs-close" role="treeitem" aria-level="4" aria-selected="false" tabindex="-1">
+                                <div class="tn-row">
+                                  <span class="tn-toggle-leaf" aria-hidden="true"><svg class="icon"><use href="#i-dot"/></svg></span>
+                                  <div class="tn-main">
+                                    <div class="tn-head"><span class="tn-label mono">tabs.close</span><span class="badge badge--ask">ask</span><span class="muted">write 档</span></div>
+                                    <div class="tn-sub">一次只关一个（禁止批量）· 摘要含标题 + 去 query/fragment 的 URL</div>
+                                  </div>
+                                </div>
+                              </li>
+                            </ul>
+                          </li>
+                          <li class="tree-node" id="tn-cap-bookmarks" role="treeitem" aria-level="3" aria-expanded="false" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <button class="tn-toggle" type="button" tabindex="-1" aria-label="展开 bookmarks"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label mono">bookmarks</span>
+                                  <span class="badge badge--deny">未授权</span>
+                                  <span class="muted">list / search / tree（读）· add / remove / move（写）</span>
+                                </div>
+                                <div class="tn-sub">可选权限（optional_permissions）· 用时请求，需手势</div>
+                                <div class="tn-hint">
+                                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>
+                                  该能力未授权：相关工具不在 LLM 工具面 →
+                                  <button class="tn-ctl" type="button" aria-label="去设置页开启书签权限">去设置开启</button>
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                          <li class="tree-node" id="tn-cap-clipread" role="treeitem" aria-level="3" aria-expanded="false" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <button class="tn-toggle" type="button" tabindex="-1" aria-label="展开 clipboard.read"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label mono">clipboard.read</span>
+                                  <span class="badge badge--deny">deny</span>
+                                  <span class="badge">只可收紧</span>
+                                  <span class="muted">state 档</span>
+                                </div>
+                                <div class="tn-sub">读默认关 · 隐私敏感 · 永不自动放行（即使开启「读操作自动」仍 ask/deny）</div>
+                                <div class="tn-controls">
+                                  <button class="tn-ctl" type="button" data-action-id="set-command-policy" aria-pressed="false" aria-label="把 clipboard.read 收紧为 ask">ask</button>
+                                  <button class="tn-ctl" type="button" data-action-id="set-command-policy" aria-pressed="true" aria-label="把 clipboard.read 设为 deny">deny（当前）</button>
+                                </div>
+                                <div class="tn-clamp">只可收紧：该档位结构上不提供 allow（无放宽入口）。</div>
+                              </div>
+                            </div>
+                          </li>
+                          <li class="tree-node" id="tn-cap-clipwrite" role="treeitem" aria-level="3" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <span class="tn-toggle-leaf" aria-hidden="true"><svg class="icon"><use href="#i-dot"/></svg></span>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label mono">clipboard.write</span>
+                                  <span class="badge badge--deny">未授权</span>
+                                  <span class="muted">Chrome 权限 clipboardWrite 已撤销</span>
+                                </div>
+                                <div class="tn-sub">撤销后工具即时移出 LLM 工具面（见下方回执 ②）· 审计零明文（只记长度）</div>
+                                <div class="tn-hint">
+                                  <button class="tn-ctl" type="button" aria-label="去设置页重新开启剪贴板写入权限">去设置开启</button>
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                        </ul>
+                      </li>
+
+                      <!-- L2 · 命令处置档 -->
+                      <li class="tree-node" id="tn-policy" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" tabindex="-1">
+                        <div class="tn-row">
+                          <button class="tn-toggle" type="button" tabindex="-1" aria-label="折叠 命令处置档"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                          <div class="tn-main">
+                            <div class="tn-head"><span class="tn-label">命令处置档</span><span class="badge badge--l">含硬底线</span></div>
+                            <div class="tn-sub">三档 allow / ask / deny；硬底线不可覆盖；ui / state / external 只可收紧</div>
+                          </div>
+                        </div>
+                        <ul class="tree-group" role="group">
+                          <li class="tree-node" id="tn-policy-dom" role="treeitem" aria-level="3" aria-expanded="true" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <button class="tn-toggle" type="button" tabindex="-1" aria-label="折叠 dom"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label mono">dom</span>
+                                  <span class="badge badge--allow">allow</span>
+                                  <span class="muted">30 子命令 · 三档可用（可覆盖）</span>
+                                </div>
+                                <div class="tn-controls">
+                                  <button class="tn-ctl" type="button" data-action-id="set-command-policy" aria-pressed="true" aria-label="dom 设为 allow">allow（当前）</button>
+                                  <button class="tn-ctl" type="button" data-action-id="set-command-policy" aria-pressed="false" aria-label="dom 设为 ask">ask</button>
+                                  <button class="tn-ctl" type="button" data-action-id="set-command-policy" aria-pressed="false" aria-label="dom 设为 deny">deny</button>
+                                  <button class="tn-ctl" type="button" data-kind="reset" data-action-id="reset-command-policy" aria-label="dom 恢复默认档">恢复默认</button>
+                                </div>
+                              </div>
+                            </div>
+                            <ul class="tree-group" role="group">
+                              <li class="tree-node" id="tn-policy-dom-click" role="treeitem" aria-level="4" aria-selected="false" tabindex="-1">
+                                <div class="tn-row">
+                                  <span class="tn-toggle-leaf" aria-hidden="true"><svg class="icon"><use href="#i-dot"/></svg></span>
+                                  <div class="tn-main">
+                                    <div class="tn-head">
+                                      <span class="tn-label mono">dom.click</span>
+                                      <span class="badge badge--ask">ask</span>
+                                      <span class="badge">只可收紧</span>
+                                      <span class="muted">ui 档</span>
+                                    </div>
+                                    <div class="tn-controls">
+                                      <button class="tn-ctl" type="button" data-action-id="set-command-policy" aria-pressed="true" aria-label="dom.click 设为 ask">ask（当前）</button>
+                                      <button class="tn-ctl" type="button" data-action-id="set-command-policy" aria-pressed="false" aria-label="dom.click 设为 deny">deny</button>
+                                    </div>
+                                    <div class="tn-clamp">保底 ask：破坏性/界面影响子命令即使开启「写操作自动」仍需确认；无 allow 档。</div>
+                                  </div>
+                                </div>
+                              </li>
+                            </ul>
+                          </li>
+                          <li class="tree-node" id="tn-policy-evaluate" role="treeitem" aria-level="3" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <span class="tn-toggle-leaf" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label mono">evaluate</span>
+                                  <span class="badge badge--deny">deny</span>
+                                  <span class="badge badge--lock"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>硬底线</span>
+                                  <span class="muted">不可覆盖</span>
+                                </div>
+                                <div class="tn-clamp">evaluate 档 fail-closed：永不自动放行、树内零控件、不可被任何设置覆盖（结构上无 allow/ask 入口）。</div>
+                              </div>
+                            </div>
+                          </li>
+                          <li class="tree-node" id="tn-policy-bookmark-remove" role="treeitem" aria-level="3" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <span class="tn-toggle-leaf" aria-hidden="true"><svg class="icon"><use href="#i-dot"/></svg></span>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label mono">bookmarks.remove</span>
+                                  <span class="badge badge--ask">保底 ask</span>
+                                  <span class="badge">破坏性</span>
+                                </div>
+                                <div class="tn-sub">删除不可逆 · 禁止批量 · 「写操作自动」开启仍需确认</div>
+                              </div>
+                            </div>
+                          </li>
+                        </ul>
+                      </li>
+
+                      <!-- L2 · LLM 连接 -->
+                      <li class="tree-node" id="tn-llm" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" tabindex="-1">
+                        <div class="tn-row">
+                          <button class="tn-toggle" type="button" tabindex="-1" aria-label="折叠 LLM 连接"><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+                          <div class="tn-main">
+                            <div class="tn-head"><span class="tn-label">LLM 连接</span><span class="badge badge--l">1 项</span></div>
+                          </div>
+                        </div>
+                        <ul class="tree-group" role="group">
+                          <li class="tree-node" id="tn-llm-ark" role="treeitem" aria-level="3" aria-selected="false" tabindex="-1">
+                            <div class="tn-row">
+                              <span class="tn-toggle-leaf" aria-hidden="true"><svg class="icon"><use href="#i-dot"/></svg></span>
+                              <div class="tn-main">
+                                <div class="tn-head">
+                                  <span class="tn-label">火山方舟（ark）</span>
+                                  <span class="badge badge--allow">已配置</span>
+                                  <span class="muted">model deepseek-v3</span>
+                                </div>
+                                <div class="tn-sub">Key 已保存（仅扩展本地，树内不回显任何明文）· 测试连接 1.2s OK</div>
+                                <div class="tn-controls">
+                                  <button class="tn-ctl" type="button" data-kind="revoke" data-action-id="disconnect-llm" aria-label="断开 LLM 连接（清除已保存配置）">断开</button>
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- 回执三件套（动作后固定面板：①回执摘要 ②重拉实测证据 ③审计导出） -->
+              <div class="receipt" role="status" aria-label="最近一次树内动作的回执">
+                <span class="r-title">最近一次动作回执（三件套）</span>
+                <span class="r-line r-ok"><b>① 回执</b><span>✓ 已撤销 <code>clipboard.write</code>（Chrome 权限 <code>clipboardWrite</code> 已移除；对应工具即时移出 LLM 工具面）</span></span>
+                <span class="r-evidence">② 重拉实测证据（insight-tree · 14:02:11）：重拉实测：clipboard 的 write 子命令已不在工具面（deriveTools）——已移除</span>
+                <span class="r-line"><b>③ 审计</b>
+                  <button class="tn-ctl" type="button" aria-label="导出审计（admin_audit-export）">导出审计</button>
+                  <span class="muted">admin_audit-export · 事件经既有 redact 掩码，零明文</span>
+                </span>
+                <span class="whitelist">树内动作白名单（9 个 · 固定序）：revoke-origin · revoke-capability · set-capability-toggle · set-tabs-toggle · clear-auto-auth · disconnect-llm · dissolve-group · set-command-policy · reset-command-policy</span>
+              </div>
+            </section>
+
+            <!-- ─────────── 视图 3：命令 ─────────────────────────────────── -->
+            <section class="view" id="view-cmd" role="tabpanel" aria-labelledby="tab-cmd" tabindex="0" hidden>
+              <div class="view-scroll">
+                <div class="view-pad">
+                  <div class="cmd-search">
+                    <label class="sr-only" for="cmd-search-input">搜索命令或子命令</label>
+                    <input type="search" id="cmd-search-input" placeholder="搜索命令 / 子命令，如 dom / evaluate / bookmarks.remove" />
+                    <button type="button">搜索</button>
+                  </div>
+                  <div class="row">
+                    <span class="chip"><b>L3 实时投影 122 卡</b></span>
+                    <span class="chip">L1 对账基线 34 工具 / 142 子命令</span>
+                    <span class="chip">L2 豁免登记 20 工具 / 88 子命令</span>
+                  </div>
+                  <div class="facets" role="group" aria-label="按处置档过滤">
+                    <button class="facet" type="button" aria-pressed="true">全部</button>
+                    <button class="facet" type="button" aria-pressed="false"><span class="badge badge--allow">allow</span></button>
+                    <button class="facet" type="button" aria-pressed="false"><span class="badge badge--ask">ask</span>（含保底 ask）</button>
+                    <button class="facet" type="button" aria-pressed="false"><span class="badge badge--deny">deny</span>（含硬底线）</button>
+                  </div>
+
+                  <!-- 分组 1：allow -->
+                  <div class="cmd-group">
+                    <div class="cg-head"><h2>处置档 allow</h2><span class="muted">可覆盖 · 可在树内收紧</span></div>
+                    <div class="cmd-card">
+                      <div class="cc-head">
+                        <span class="cc-name">dom</span>
+                        <span class="badge badge--allow">allow</span>
+                        <span class="badge badge--l">L3</span>
+                        <span class="muted">30 子命令 · 三档可用</span>
+                      </div>
+                      <div class="cc-sub">子命令示例：read-state · click · snapshot · interactives · read-element · find · structure</div>
+                      <div class="cc-note">默认 risk 档为读；子命令级档位见树内「命令处置档 › dom」。</div>
+                    </div>
+                    <div class="cmd-card">
+                      <div class="cc-head">
+                        <span class="cc-name">site_lgdl-web-cli</span>
+                        <span class="badge badge--allow">allow</span>
+                        <span class="badge badge--l">L2</span>
+                        <span class="muted">17 子命令 · 站点声明工具</span>
+                      </div>
+                      <div class="cc-sub">doc-info · get-node · add-node · update-node · add-edge · export-source …</div>
+                      <div class="cc-note">基线 <code>lgdl-web-cli</code> 的承载者（已映射，非「缺失」）；仅在声明并通过探测的站点出现。</div>
+                    </div>
+                  </div>
+
+                  <!-- 分组 2：ask -->
+                  <div class="cmd-group">
+                    <div class="cg-head"><h2>处置档 ask</h2><span class="muted">敏感档位 · 执行前二次确认</span></div>
+                    <div class="cmd-card">
+                      <div class="cc-head">
+                        <span class="cc-name">dom.click</span>
+                        <span class="badge badge--ask">ask</span>
+                        <span class="badge badge--l">L3</span>
+                        <span class="muted">ui 档 · 只可收紧</span>
+                      </div>
+                      <div class="cc-note">保底 ask：破坏性 / 界面影响子命令即使开启「写操作自动」仍需确认；结构上无 allow 档。</div>
+                      <div class="controls">
+                        <button class="tn-ctl" type="button" aria-pressed="true">ask</button>
+                        <button class="tn-ctl" type="button" aria-pressed="false">deny</button>
+                      </div>
+                    </div>
+                    <div class="cmd-card">
+                      <div class="cc-head">
+                        <span class="cc-name">bookmarks.remove</span>
+                        <span class="badge badge--ask">保底 ask</span>
+                        <span class="badge badge--l">L1</span>
+                        <span class="muted">破坏性写</span>
+                      </div>
+                      <div class="cc-note">删除不可逆 · 禁止批量 · 摘要含目标标题；未授权时返回可读「去设置开启」。</div>
+                    </div>
+                    <div class="cmd-card">
+                      <div class="cc-head">
+                        <span class="cc-name">tabs.close</span>
+                        <span class="badge badge--ask">ask</span>
+                        <span class="badge badge--l">L1</span>
+                        <span class="muted">write 档</span>
+                      </div>
+                      <div class="cc-note">一次只关一个；摘要含标签页标题 + 去 query/fragment 的 URL，并提示关闭不可逆。</div>
+                    </div>
+                  </div>
+
+                  <!-- 分组 3：deny -->
+                  <div class="cmd-group">
+                    <div class="cg-head"><h2>处置档 deny / 不可用</h2><span class="muted">硬底线 · 基线禁用 · 未授权</span></div>
+                    <div class="cmd-card hardline">
+                      <div class="cc-head">
+                        <span class="cc-name">evaluate</span>
+                        <span class="badge badge--deny">deny</span>
+                        <span class="badge badge--lock"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>硬底线</span>
+                        <span class="badge badge--l">L1</span>
+                      </div>
+                      <div class="cc-note">不可覆盖：fail-closed，永不自动放行；未授权 origin 与未知 risk 同属硬底线。</div>
+                    </div>
+                    <div class="cmd-card">
+                      <div class="cc-head">
+                        <span class="cc-name">clipboard.read</span>
+                        <span class="badge badge--deny">deny</span>
+                        <span class="badge badge--l">L3</span>
+                        <span class="muted">state 档 · 只可收紧</span>
+                      </div>
+                      <div class="cc-note">读默认关；隐私敏感，内容绝不进审计/日志（只记长度）。</div>
+                    </div>
+                    <div class="cmd-card">
+                      <div class="cc-head">
+                        <span class="cc-name">eval-js · page-eval · cookie · dialog · net · subagent</span>
+                        <span class="badge badge--l">L1</span>
+                        <span class="muted">基线禁用（原助手 enabled:false）· 6 项</span>
+                      </div>
+                      <div class="cc-note">从未在暴露面：不提供、不可在侧栏开启。</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ─────────── 视图 4：归档 ─────────────────────────────────── -->
+            <section class="view" id="view-archive" role="tabpanel" aria-labelledby="tab-archive" tabindex="0" hidden>
+              <div class="view-scroll">
+                <div class="view-pad">
+                  <div class="layer-grid">
+                    <div class="layer-card">
+                      <div class="lc-head"><span class="lc-title">L1 · 对账基线</span><span class="lc-num">34 工具 / 142 子命令</span><span class="badge badge--l">来源 2ddc922</span></div>
+                      <div class="lc-body">单一真值：原内置助手的工具面快照（<code>baseline-catalog.json</code>，含 provenance）。任何「基线有、插件无」或「插件新增未登记」都会让对账门禁失败。</div>
+                    </div>
+                    <div class="layer-card">
+                      <div class="lc-head"><span class="lc-title">L2 · 豁免登记</span><span class="lc-num">20 工具 / 88 子命令</span><span class="badge badge--l">非「缺失」</span></div>
+                      <div class="lc-body">在 <code>waivers.json</code> 显式登记理由与依据的条目（已映射 / 已豁免 / 基线禁用），逐条有档、可解释。</div>
+                    </div>
+                    <div class="layer-card">
+                      <div class="lc-head"><span class="lc-title">L3 · 实时投影面</span><span class="lc-num">122 卡</span><span class="badge badge--l">当次快照实测</span></div>
+                      <div class="lc-body">树内实际渲染 / 可操作面 = 工具卡 + 子命令卡（本地 fixture 实测：28 工具卡 + 94 子命令卡）。<b>只显示实时面卡数，不声称对账基线已全部渲染为卡。</b></div>
+                    </div>
+                  </div>
+
+                  <h2>可下钻列表</h2>
+                  <div class="drill">
+                    <details class="drill-row" open>
+                      <summary><b>站点声明工具（已映射）</b><span class="badge badge--allow">allow</span><span class="muted">1 项 · 17 子命令</span></summary>
+                      <div class="drill-body">
+                        <div class="drill-item"><span class="di-name">site_lgdl-web-cli</span><span class="di-note">承载基线 lgdl-web-cli（17 子命令）+ doc-read / doc-edit 的读写路径</span></div>
+                      </div>
+                    </details>
+                    <details class="drill-row">
+                      <summary><b>已提供（baseline 同名可达）</b><span class="badge badge--allow">14 项</span><span class="muted">dom / chrome / extract / export / save / wait / events / web-search / web-fetch / notify / clipboard / ask-user …</span></summary>
+                      <div class="drill-body">
+                        <div class="drill-item"><span class="di-name">dom</span><span class="di-note">30 子命令 · content 隔离世界 + background 远程代理</span></div>
+                        <div class="drill-item"><span class="di-name">chrome</span><span class="di-note">print / back / forward / reload / screenshot</span></div>
+                        <div class="drill-item"><span class="di-name">events</span><span class="di-note">11 子命令运行时完整对齐（含 pull-sensitive，risk 未放宽）</span></div>
+                        <div class="drill-item"><span class="di-name">clipboard</span><span class="di-note">纯文本 read / write；write-html / write-image / paste-read 明确裁剪（可读「未实现」）</span></div>
+                      </div>
+                    </details>
+                    <details class="drill-row">
+                      <summary><b>已豁免（不适用 / delegated）</b><span class="badge badge--ask">10 项</span><span class="muted">storage · settings · session · context · todo · goal · jobs …</span></summary>
+                      <div class="drill-body">
+                        <div class="drill-item"><span class="di-name">storage</span><span class="di-note">页面宿主应用自身存储；插件用 chrome.storage，不对 LLM 暴露</span></div>
+                        <div class="drill-item"><span class="di-name">settings</span><span class="di-note">由 options 页 + llm/key-store 承载（delegated）</span></div>
+                        <div class="drill-item"><span class="di-name">session</span><span class="di-note">插件 session-store 多会话，非 LLM 工具</span></div>
+                      </div>
+                    </details>
+                    <details class="drill-row">
+                      <summary><b>基线禁用（原助手 enabled:false）</b><span class="badge badge--deny">6 项</span><span class="muted">eval-js · page-eval · subagent · cookie · dialog · net</span></summary>
+                      <div class="drill-body">
+                        <div class="drill-item"><span class="di-name">eval-js / page-eval</span><span class="di-note">evaluate 档 fail-closed；从未在暴露面</span></div>
+                        <div class="drill-item"><span class="di-name">cookie / dialog / net</span><span class="di-note">涉权限与网络拦截，一律未加</span></div>
+                      </div>
+                    </details>
+                  </div>
+                  <p class="muted">口径：<code>accounted = carded ∪ waived</code> 覆盖基线每一行；本视图只给计数口径，行级 100% 覆盖由 node 门禁以真实基线行注入验证。</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- ─────────── 视图 5：设置（精简入口/摘要）────────────────── -->
+            <section class="view" id="view-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
+              <div class="view-scroll">
+                <div class="view-pad">
+                  <div class="set-card">
+                    <div class="row" style="justify-content: space-between">
+                      <h2 style="margin: 0">LLM 配置</h2>
+                      <button type="button">打开设置页（options）</button>
+                    </div>
+                    <div class="kv"><span class="k">厂商</span><span class="v">火山方舟（ark）</span></div>
+                    <div class="kv"><span class="k">模型</span><span class="v">deepseek-v3</span></div>
+                    <div class="kv"><span class="k">API Key</span><span class="v">已配置（仅写入扩展本地，不回显明文）</span></div>
+                    <div class="kv"><span class="k">Base URL</span><span class="v">厂商默认（未自定义）</span></div>
+                    <div class="kv"><span class="k">maxRounds</span><span class="v">1000（防死循环；一般无需修改）</span></div>
+                    <div class="row">
+                      <button type="button">测试连接</button>
+                      <span class="badge badge--allow">测试连接 1.2s OK</span>
+                    </div>
+                  </div>
+
+                  <div class="set-card">
+                    <h2>权限状态</h2>
+                    <div class="perm-row">
+                      <span class="p-name">activeTab / scripting / storage / sidePanel / tabs</span>
+                      <span class="badge badge--allow">已授权（静态）</span>
+                      <span class="p-note">清单固定 · 不可逐项撤销</span>
+                    </div>
+                    <div class="perm-row">
+                      <span class="p-name">bookmarks</span>
+                      <span class="badge badge--deny">未授权</span>
+                      <button type="button">去设置开启</button>
+                      <span class="p-note">可选权限 · 用时请求（需手势）· 未授权时相关工具返回可读提示</span>
+                    </div>
+                    <div class="perm-row">
+                      <span class="p-name">downloads</span>
+                      <span class="badge badge--deny">未授权</span>
+                      <button type="button">去设置开启</button>
+                      <span class="p-note">可选权限 · 只读 list / search</span>
+                    </div>
+                    <div class="perm-row">
+                      <span class="p-name">notifications</span>
+                      <span class="badge badge--allow">已授权</span>
+                      <span class="p-note">notify send · 通知正文零审计明文（只记长度）</span>
+                    </div>
+                    <div class="perm-row">
+                      <span class="p-name">clipboardRead</span>
+                      <span class="badge badge--deny">未授权</span>
+                      <button type="button">去设置开启</button>
+                      <span class="p-note">读默认关 · state 档 · 永不自动放行</span>
+                    </div>
+                    <div class="perm-row">
+                      <span class="p-name">clipboardWrite</span>
+                      <span class="badge badge--deny">已撤销</span>
+                      <button type="button">去设置开启</button>
+                      <span class="p-note">上次由连接树「撤销 clipboard.write」移除（见连接树回执）</span>
+                    </div>
+                  </div>
+
+                  <div class="set-card">
+                    <div class="row" style="justify-content: space-between">
+                      <h2 style="margin: 0">会话与分组</h2>
+                      <button type="button">管理分组</button>
+                    </div>
+                    <div class="kv"><span class="k">当前会话</span><span class="v">默认分组（http://localhost:5173 · 3 个标签页）</span></div>
+                    <p class="muted">分组只共享对话，不代表互相授权；每个站点仍需单独授权。</p>
+                  </div>
+
+                  <div class="set-card">
+                    <div class="row" style="justify-content: space-between">
+                      <h2 style="margin: 0">诊断与自检</h2>
+                      <button type="button">运行自检（options）</button>
+                    </div>
+                    <p class="muted">扩展上下文 / 版本构建 / chrome.storage.local 读写实测 / service worker 连通性 / 已授权 origin / 已配置厂商与模型（零明文）。保存不了、功能不能用时先看这里。</p>
+                  </div>
+
+                  <div class="set-card">
+                    <h2>审计</h2>
+                    <div class="row">
+                      <span class="badge badge--l" id="audit-count-badge">审计 12 条</span>
+                      <button type="button">查看审计</button>
+                      <button type="button">导出审计（admin_audit-export）</button>
+                    </div>
+                    <p class="muted">事件经既有 redact 掩码：零明文（不含 URL query、剪贴板内容、通知正文、书签标题）。</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- 底部状态栏（单行小字） -->
+          <footer class="statusbar" id="statusbar" aria-label="状态栏"></footer>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* ─────────────────────────────────────────────────────────────────────
+         极少量内联 JS：仅「演示开关」（视图 / 状态 / 宽度 / 主题）
+         + 一棵树的最小键盘漫游（箭头移动焦点 / 左折叠右展开），用于证明
+         「树是键盘可达的」这条无障碍要求。无框架、无网络、无其他逻辑。
+         ───────────────────────────────────────────────────────────────────── */
+      (function () {
+        'use strict';
+
+        // ── 状态 → 文案 / 输入区可用性（5 种真实状态）────────────────────
+        var STATES = {
+          unauth:  { text: '未授权',  cls: 'chip--danger', disabled: true,
+                     reason: '站点未授权（硬底线 S1：未授权 origin 永不自动放行）——请先「授权当前站点」再发送。' },
+          probing: { text: '探测中',  cls: 'chip--warn',   disabled: true,
+                     reason: '正在自动探测站点声明…（第 2 次重试）；探测成功前发送按钮保持禁用。' },
+          idle:    { text: 'supported', cls: 'chip--ok',   disabled: false, reason: '' },
+          busy:    { text: 'supported', cls: 'chip--ok',   disabled: true,
+                     reason: '任务执行中：等待当前工具调用结束（第 2 轮 · site_lgdl-web-cli export-source）。' },
+          confirm: { text: 'supported', cls: 'chip--ok',   disabled: true,
+                     reason: '等待确认：本次为破坏性操作，请选择「允许」或「拒绝」（超时 / 取消 = 拒绝）。' }
+        };
+
+        var VIEWS = [
+          { tab: 'tab-chat',     panel: 'view-chat',     title: '对话',   sub: '默认分组 · 3 个标签页' },
+          { tab: 'tab-tree',     panel: 'view-tree',     title: '连接树', sub: '4 维度 · 真层级树 · 逐层展开' },
+          { tab: 'tab-cmd',      panel: 'view-cmd',      title: '命令',   sub: 'L3 实时投影 122 卡' },
+          { tab: 'tab-archive',  panel: 'view-archive',  title: '归档',   sub: 'L1 34/142 · L2 20/88 · L3 122 卡' },
+          { tab: 'tab-settings', panel: 'view-settings', title: '设置',   sub: '入口与摘要（完整设置见 options 页）' }
+        ];
+
+        var body = document.body;
+        var chipState = document.getElementById('chip-state');
+        var reasonEl = document.getElementById('composer-reason');
+        var input = document.getElementById('composer-input');
+        var send = document.getElementById('composer-send');
+        var statusbar = document.getElementById('statusbar');
+        var widthLabel = document.getElementById('frame-width-label');
+        var crumbPath = document.getElementById('tree-crumb-path');
+
+        function applyState(key) {
+          var s = STATES[key] || STATES.idle;
+          body.dataset.state = key;
+          chipState.className = 'chip ' + s.cls;
+          chipState.innerHTML = '<span class="dot" aria-hidden="true"></span>探测 ' + s.text;
+          reasonEl.textContent = s.reason;
+          input.disabled = s.disabled;
+          send.disabled = s.disabled;
+          input.setAttribute('aria-disabled', String(s.disabled));
+          syncStatusbar();
+          document.querySelectorAll('[data-state-set]').forEach(function (b) {
+            b.setAttribute('aria-pressed', String(b.dataset.stateSet === key));
+          });
+        }
+
+        function syncStatusbar() {
+          var st = STATES[body.dataset.state] || STATES.idle;
+          var policy = '策略档 ask';
+          statusbar.innerHTML =
+            '<span class="sb sb-main"><span class="sb-lg">http://localhost:5173</span><span class="sb-sm">localhost:5173</span></span>' +
+            '<span class="sb sb-sep" aria-hidden="true">·</span>' +
+            '<span class="sb"><span class="sb-lg">探测 ' + st.text + '</span><span class="sb-sm">' + st.text + '</span></span>' +
+            '<span class="sb sb-sep sb-hide-narrow" aria-hidden="true">·</span>' +
+            '<span class="sb sb-hide-narrow">ark/deepseek-v3</span>' +
+            '<span class="sb sb-sep sb-hide-narrow" aria-hidden="true">·</span>' +
+            '<span class="sb sb-hide-narrow">' + policy + '</span>' +
+            '<span class="sb sb-sep" aria-hidden="true">·</span>' +
+            '<span class="sb">审计 12 条</span>';
+          statusbar.setAttribute('title',
+            'http://localhost:5173 · 探测 ' + st.text + ' · ark/deepseek-v3 · ' + policy + ' · 审计 12 条');
+        }
+
+        function selectView(panelId) {
+          VIEWS.forEach(function (v) {
+            var tabEl = document.getElementById(v.tab);
+            var panelEl = document.getElementById(v.panel);
+            var on = v.panel === panelId;
+            tabEl.setAttribute('aria-selected', String(on));
+            tabEl.tabIndex = on ? 0 : -1;
+            if (on) { panelEl.removeAttribute('hidden'); panelEl.classList.add('is-active'); }
+            else { panelEl.setAttribute('hidden', ''); panelEl.classList.remove('is-active'); }
+            if (on) {
+              document.getElementById('view-title').textContent = v.title;
+              document.getElementById('view-sub').textContent = v.sub;
+            }
+          });
+        }
+
+        // 导航栏：点击 + 方向键切换（role=tablist 的键盘约定）
+        document.querySelectorAll('.nav-tab').forEach(function (tab) {
+          tab.addEventListener('click', function () { selectView(tab.getAttribute('aria-controls')); });
+          tab.addEventListener('keydown', function (e) {
+            var tabs = Array.prototype.slice.call(document.querySelectorAll('.nav-tab'));
+            var i = tabs.indexOf(tab);
+            var n = tabs.length;
+            var next = -1;
+            if (e.key === 'ArrowDown') next = (i + 1) % n;
+            else if (e.key === 'ArrowUp') next = (i - 1 + n) % n;
+            else if (e.key === 'Home') next = 0;
+            else if (e.key === 'End') next = n - 1;
+            if (next >= 0) { e.preventDefault(); tabs[next].focus(); selectView(tabs[next].getAttribute('aria-controls')); }
+          });
+        });
+
+        // 演示开关：状态
+        document.querySelectorAll('[data-state-set]').forEach(function (b) {
+          b.addEventListener('click', function () { applyState(b.dataset.stateSet); });
+        });
+
+        // 演示开关：宽度（320 下导航栏保留图标模式，见文件顶部注释 §3）
+        document.querySelectorAll('[data-width-set]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            body.dataset.width = b.dataset.widthSet;
+            widthLabel.textContent = b.dataset.widthSet + 'px';
+            document.querySelectorAll('[data-width-set]').forEach(function (x) {
+              x.setAttribute('aria-pressed', String(x === b));
+            });
+          });
+        });
+
+        // 演示开关：主题（auto = 跟随系统；light/dark = 显式覆盖）
+        document.querySelectorAll('[data-theme-set]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var t = b.dataset.themeSet;
+            if (t === 'auto') { document.documentElement.removeAttribute('data-theme'); }
+            else { document.documentElement.setAttribute('data-theme', t); }
+            document.querySelectorAll('[data-theme-set]').forEach(function (x) {
+              x.setAttribute('aria-pressed', String(x === b));
+            });
+          });
+        });
+
+        // ── 树：最小键盘漫游（ArrowUp/Down 移动，Right 展开/进子树，Left 折叠/回父）──
+        var treeRoot = document.querySelector('#view-tree ul[role="tree"]');
+        function visibleNodes() {
+          return Array.prototype.slice.call(treeRoot.querySelectorAll('li[role="treeitem"]'))
+            .filter(function (li) { return li.closest('ul[hidden]') === null; });
+        }
+        function setExpanded(li, on) {
+          var childUl = li.querySelector(':scope > ul[role="group"]');
+          if (!childUl) return false;
+          li.setAttribute('aria-expanded', String(on));
+          if (on) { childUl.removeAttribute('hidden'); } else { childUl.setAttribute('hidden', ''); }
+          return true;
+        }
+        treeRoot.addEventListener('keydown', function (e) {
+          var li = e.target.closest('li[role="treeitem"]');
+          if (!li) return;
+          var nodes = visibleNodes();
+          var i = nodes.indexOf(li);
+          if (e.key === 'ArrowDown') { e.preventDefault(); nodes[Math.min(i + 1, nodes.length - 1)].focus(); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); nodes[Math.max(i - 1, 0)].focus(); }
+          else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (li.getAttribute('aria-expanded') !== 'true') { setExpanded(li, true); }
+            else { var kids = visibleNodes(); var k = kids.indexOf(li); if (kids[k + 1] && kids[k + 1].closest('ul') === li.querySelector(':scope > ul')) kids[k + 1].focus(); }
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (li.getAttribute('aria-expanded') === 'true') { setExpanded(li, false); }
+            else { var p = li.parentElement.closest('li[role="treeitem"]'); if (p) p.focus(); }
+          } else if (e.key === 'Enter' || e.key === ' ') {
+            if (li.getAttribute('aria-expanded') === 'false') { e.preventDefault(); setExpanded(li, true); }
+          }
+        });
+        // 展开/折叠按钮（每个节点每层独立控件）
+        treeRoot.querySelectorAll('.tn-toggle').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var li = btn.closest('li[role="treeitem"]');
+            setExpanded(li, li.getAttribute('aria-expanded') !== 'true');
+          });
+        });
+        // 焦点同步：进入任一 treeitem → 面包屑反映当前路径（产品语义：FR-V2-073）
+        treeRoot.querySelectorAll('li[role="treeitem"]').forEach(function (li) {
+          li.addEventListener('focus', function () {
+            var labels = [];
+            var cur = li;
+            while (cur && cur.getAttribute('role') === 'treeitem') {
+              var l = cur.querySelector(':scope > .tn-row .tn-label');
+              if (l) labels.unshift(l.textContent.trim());
+              cur = cur.parentElement.closest('li[role="treeitem"]');
+            }
+            crumbPath.innerHTML = '<b>' + labels.join('</b> <span class="sep">›</span> ') + '</b>';
+          });
+        });
+
+        // 深链：#view-settings 之类的锚点先切视图
+        document.getElementById('audit-link').addEventListener('click', function (e) {
+          e.preventDefault();
+          selectView('view-settings');
+          document.getElementById('tab-settings').focus();
+        });
+
+        // 初始化
+        applyState('idle');
+        selectView('view-chat');
+      })();
+    </script>
+  </body>
+</html>
