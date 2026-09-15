@@ -61,7 +61,7 @@ web-cli-plugin v3「UI 渐进式披露升级」问题挖掘报告 —— 把侧�
 | 侧栏 DOM 规模 | `src/ui/sidepanel/index.html` = **37,960 B**，**54 个 `id`**，一级分区含 `#panel-top` `#status` `#session-box` `#panel-main` `#log` `#panel-bottom` `#tree-fab` `#tree-drawer` `#onboarding` `#discovery-notice` `#confirm` `#ask` `#composer` `#settings-view` 等 | 静态解析 `src/ui/sidepanel/index.html` |
 | 侧栏逻辑规模 | `sidepanel.ts` 53,783 B；`view-model.ts` 20,028 B；`src/ui/tree/tree-drawer.ts` 45,431 B、`tree-view.ts` 32,378 B、`tree-ops.ts` 19,409 B、`tree-receipt.ts` 5,934 B；`src/ui/settings/*` 合计 ≈ 94 KB | `ls -la` / `wc` |
 | **content 体积（头号硬约束）** | `dist/content.js` 实测 **177,076 B = `CONTENT_MAX_BYTES` 177,076 B**（`test/size-baseline.ts`，**无容差，+1B 即 FAIL**）→ **当前余量 = 0 字节** | `stat -c %s dist/content.js` + `test/size-baseline.ts` |
-| sidepanel 体积 | `dist/sidepanel.js` 实测 **266,500 B**；基线 **266,500** / ceiling **279,825**（容差 5%） | `stat` + `test/size-baseline.ts` |
+| sidepanel 体积 | `dist/sidepanel.js` 实测 **266,500 B**；基线 **266,500** / ceiling **~~279,825~~ → 306,099**（基线 **~~266,500~~ → 295,225**） | `stat` + `test/size-baseline.ts` | （**收口/开工订正 2026-09-16**：`~~279,825~~ → 306,099`、`~~266,500~~ → 295,225`（经显式重登记订正；阈值 7/15·9/20·17/35 未动、容差 5% 未变、`SIDEPANEL_CEILING_CAP` 只降不升、断言零删减、历史值逐字保留））
 | manifest 权限 | 静态权限仅 `activeTab / scripting / storage / sidePanel / tabs`；可选 `bookmarks / downloads / notifications / clipboardRead / clipboardWrite`；**无 `contextMenus`** | `manifest.json` |
 | 注入模型 | **零静态 `content_scripts`**；绑定后经 `chrome.scripting.registerContentScripts({persistAcrossSessions:true})` 登记，`registerContentScripts` **对无 host permission 的 origin 会失败** → 未授权站点零注入 | `src/background/content-script-registry.ts:6,9,15,98` + `test/content-script-registry.test.ts` |
 | 安全判定链 | `src/security/policy.ts` sha256 = `bfcb2ede…`；`src/security/auto-authorize.ts` sha256 = `1096d065…`（**与既有 pin 一致，未漂移**） | `sha256sum` |
@@ -270,7 +270,7 @@ NameError: name 'AGENT_PLAN_URL' is not defined
 |------|------------|------|
 | 仓库 | `/home/usb/wks/gits/GitHub/LGDL`，分支 `feature/web-cli-plugin`，HEAD `c2c0e0d`；`main=2ddc922`（**不合、不发布**） | git 核验 |
 | 测试基线（当前全绿；纪律 = 零删除零降级） | 插件单测 **696** · base **490** · 全仓 **1686 tests（1 skip）** · `test:insight` **108 断言** · `test:ui` journey **167 断言** · `test:hardening` **24** · `test:binding` **192** · `test:e2e` PASS | 编排器给定 + 本报告静态复核（`test/ui/*.mjs` 运行时断言与台账 `docs/r2-supersession-ledger.json` 口径一致） |
-| 体积（硬） | `CONTENT_MAX_BYTES = 177,076`（`dist/content.js`，**无容差**）；sidepanel 基线 **266,500** / ceiling **279,825**（5% 容差）。**实测 `dist/content.js` = 177,076 B（余量 0）**、`dist/sidepanel.js` = 266,500 B | `test/size-baseline.ts` + `stat` |
+| 体积（硬） | `CONTENT_MAX_BYTES = 177,076`（`dist/content.js`，**无容差**）；sidepanel 基线 **266,500** / ceiling **~~279,825~~ → 306,099**（基线 **~~266,500~~ → 295,225**；5% 容差）。**实测 `dist/content.js` = 177,076 B（余量 0）**、`dist/sidepanel.js` = 266,500 B | `test/size-baseline.ts` + `stat` |
 | 体积（内容冻结） | `CONTENT_SOURCE_SHA256` 冻结 `src/content/{content-script,dom-agent,page-bridge}.ts`（任何字节变化含空白即 FAIL，须显式更新 pin 并注明日期+理由） | `test/size-baseline.ts` |
 | 权限 | 静态 `activeTab / scripting / storage / sidePanel / tabs`；可选 `bookmarks / downloads / notifications / clipboardRead / clipboardWrite`；**无 `contextMenus`** → 右键菜单只能 content script 自绘（零新增权限）+ 三条退让（仅已授权站点生效 / 保留「交给页面原生菜单」出口 / `Esc` 与点击空白即关） | `manifest.json` |
 | 注入 | 页面侧登记式零注入：绑定后注册 content script → 未授权站点零注入（`registerContentScripts` 对无 host permission 的 origin 直接失败） | `src/background/content-script-registry.ts` |
