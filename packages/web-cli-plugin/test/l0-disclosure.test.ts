@@ -226,7 +226,21 @@ test('disclosure: 展开态记忆往返（open → 切走 → 返回后相等）
   controller.close('l1-more');
   controller.open('l2-entries');
   const before = controller.snapshot();
-  assert.deepEqual(before, { topbar: true, 'l1-more': false, 'l1-ref': false, 'l2-entries': true });
+  // V3-2 extended the whitelist with the five L1 content panels (ADR-V3-021); the
+  // expected map is re-pinned to the FULL whitelist (a superset check, never a
+  // narrowed one) so the round-trip claim still covers every foldable target.
+  assert.deepEqual(before, {
+    topbar: true,
+    'l1-more': false,
+    'l1-ref': false,
+    'l2-entries': true,
+    'l1-consequences': false,
+    'l1-local-tree': false,
+    'l1-history': false,
+    'l1-receipt': false,
+    'l1-gestures': false,
+  });
+  assert.equal(Object.keys(before).length, COLLAPSIBLE_TARGETS.length, '快照必须覆盖白名单全部目标');
   // simulate: enter an L2 view (everything folds) then come back
   controller.collapseAll();
   assert.equal(controller.isOpen('topbar'), false);

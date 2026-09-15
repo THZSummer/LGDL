@@ -4,7 +4,7 @@
   "measuredOn": "2026-09-16",
   "source": "packages/web-cli-plugin/dist/sidepanel.html + dist/sidepanel.js（真实构建产物）",
   "buildCommand": "npm run build --workspace @lgdl/web-cli-plugin",
-  "measuredBy": "v3-1 第 1 轮（npm run test:density 阶段 B/C，Chromium 400/320/520 × 900，单实例串行）；数值以**最终构建产物**（含 v3-1 全部披露/文案收敛）的实测为准",
+  "measuredBy": "v3-1 第 1 轮 + v3-2 build（2026-09-16）：风险 staleRef 三格按真实五维可读原因重登记（chars 244→254）；默认档 / 首装档 / 其余风险格与 worst 逐项未变（阶段 B/C 实测与登记值逐格相等）。",
   "measurementRoot": "document.body（父 ADR-V3-001：真实产物不新增 #panel 包裹层；设计稿口径的等价根是 #panel）",
   "caliber": {
     "C1": "可点元素：非 hidden 祖先 ∧ (tag ∈ {BUTTON,A,INPUT,SELECT,TEXTAREA} ∨ tabindex ≠ -1)；display/visibility/opacity/pointer-events/视口位置/aria-hidden 一律不豁免",
@@ -173,19 +173,44 @@
           "320": {
             "clickables": 7,
             "lines": 8,
-            "chars": 244
+            "chars": 254,
+            "previous": {
+              "clickables": 7,
+              "lines": 8,
+              "chars": 244
+            },
+            "reRegisteredOn": "2026-09-16",
+            "reRegisteredBy": "SDDU v3-2 build（npm run test:density 阶段 C，单 Chromium 串行）",
+            "reRegistrationReason": "v3-2（2026-09-16，leaf specs-tree-v3-2-l1-disclosure-refs，FR-V3-036~038 / ADR-V3-020）：引用失效判定由 v3-1 的**静态投影**换成真实的**五维 fail-closed 判定**，风险行必须写出「哪一维触发」的可读原因（FR-V3-037 明文要求），chip 增加三通道失效徽标，`#l0-pick` 在失效态改写为「重新拾取」。三处合计使本格 `chars` 由 244 增至 **254**（C1/C2/C3/C4 逐项不变：7 / 8 / 20 / 6，阈值 17 / 35 未动，风险增量归属违规 = 0）。这是**风险信息**的增重（ADR-V3-006：风险位常驻不折叠；密度可以让步、风险不让步），按本文件 `directionNote` 的「放宽须显式登记」流程登记：前后值 + 日期 + 理由在此，历史值逐字保留于 previous。"
           },
           "400": {
             "clickables": 7,
             "lines": 8,
-            "chars": 244
+            "chars": 254,
+            "previous": {
+              "clickables": 7,
+              "lines": 8,
+              "chars": 244
+            },
+            "reRegisteredOn": "2026-09-16",
+            "reRegisteredBy": "SDDU v3-2 build（npm run test:density 阶段 C，单 Chromium 串行）",
+            "reRegistrationReason": "v3-2（2026-09-16，leaf specs-tree-v3-2-l1-disclosure-refs，FR-V3-036~038 / ADR-V3-020）：引用失效判定由 v3-1 的**静态投影**换成真实的**五维 fail-closed 判定**，风险行必须写出「哪一维触发」的可读原因（FR-V3-037 明文要求），chip 增加三通道失效徽标，`#l0-pick` 在失效态改写为「重新拾取」。三处合计使本格 `chars` 由 244 增至 **254**（C1/C2/C3/C4 逐项不变：7 / 8 / 20 / 6，阈值 17 / 35 未动，风险增量归属违规 = 0）。这是**风险信息**的增重（ADR-V3-006：风险位常驻不折叠；密度可以让步、风险不让步），按本文件 `directionNote` 的「放宽须显式登记」流程登记：前后值 + 日期 + 理由在此，历史值逐字保留于 previous。"
           },
           "520": {
             "clickables": 7,
             "lines": 8,
-            "chars": 244
+            "chars": 254,
+            "previous": {
+              "clickables": 7,
+              "lines": 8,
+              "chars": 244
+            },
+            "reRegisteredOn": "2026-09-16",
+            "reRegisteredBy": "SDDU v3-2 build（npm run test:density 阶段 C，单 Chromium 串行）",
+            "reRegistrationReason": "v3-2（2026-09-16，leaf specs-tree-v3-2-l1-disclosure-refs，FR-V3-036~038 / ADR-V3-020）：引用失效判定由 v3-1 的**静态投影**换成真实的**五维 fail-closed 判定**，风险行必须写出「哪一维触发」的可读原因（FR-V3-037 明文要求），chip 增加三通道失效徽标，`#l0-pick` 在失效态改写为「重新拾取」。三处合计使本格 `chars` 由 244 增至 **254**（C1/C2/C3/C4 逐项不变：7 / 8 / 20 / 6，阈值 17 / 35 未动，风险增量归属违规 = 0）。这是**风险信息**的增重（ADR-V3-006：风险位常驻不折叠；密度可以让步、风险不让步），按本文件 `directionNote` 的「放宽须显式登记」流程登记：前后值 + 日期 + 理由在此，历史值逐字保留于 previous。"
           },
-          "_correction": "I8 修复轮（2026-09-16）：本子场景的 `lines` 原登记为 7，与同一登记格的 `chars: 244` 自相矛盾（⌈244 ÷ 34⌉ = 8），也与 wcl v3-1 轮次的门禁实测（日志 `risk(staleRef)@*: C2=8 chars=244`）不符 —— 是一次**登记错误**，不是产物漂移。I8 的基线机器比对（`test/ui/density.mjs` 阶段 F）在修复轮首次运行时即检出该漂移并要求显式订正；订正后 8 ≤ 风险档上限 35，方向仍为「不高于已登记上限」。同时新增静态自洽断言（`test/density-thresholds.test.ts`：每个登记格必须满足 lines = ⌈chars ÷ 34⌉），使此类错误无法再次通过。"
+          "_correction": "I8 修复轮（2026-09-16）：本子场景的 `lines` 原登记为 7，与同一登记格的 `chars: 244` 自相矛盾（⌈244 ÷ 34⌉ = 8），也与 wcl v3-1 轮次的门禁实测（日志 `risk(staleRef)@*: C2=8 chars=244`）不符 —— 是一次**登记错误**，不是产物漂移。I8 的基线机器比对（`test/ui/density.mjs` 阶段 F）在修复轮首次运行时即检出该漂移并要求显式订正；订正后 8 ≤ 风险档上限 35，方向仍为「不高于已登记上限」。同时新增静态自洽断言（`test/density-thresholds.test.ts`：每个登记格必须满足 lines = ⌈chars ÷ 34⌉），使此类错误无法再次通过。",
+          "_correction_v32": "v3-2（2026-09-16，leaf specs-tree-v3-2-l1-disclosure-refs，FR-V3-036~038 / ADR-V3-020）：引用失效判定由 v3-1 的**静态投影**换成真实的**五维 fail-closed 判定**，风险行必须写出「哪一维触发」的可读原因（FR-V3-037 明文要求），chip 增加三通道失效徽标，`#l0-pick` 在失效态改写为「重新拾取」。三处合计使本格 `chars` 由 244 增至 **254**（C1/C2/C3/C4 逐项不变：7 / 8 / 20 / 6，阈值 17 / 35 未动，风险增量归属违规 = 0）。这是**风险信息**的增重（ADR-V3-006：风险位常驻不折叠；密度可以让步、风险不让步），按本文件 `directionNote` 的「放宽须显式登记」流程登记：前后值 + 日期 + 理由在此，历史值逐字保留于 previous。"
         }
       },
       "previous": null,
@@ -256,15 +281,15 @@
   },
   "volume": {
     "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 295225,
-    "finalArtifactBytes": 295225,
+    "registeredBaselineBytes": 327679,
+    "finalArtifactBytes": 327679,
     "ceilingBytes": 306099,
     "ceilingCapBytes": 306099,
     "tolerance": 0.05,
-    "previousBaselineBytes": 291523,
+    "previousBaselineBytes": 295225,
     "previousCeilingBytes": 306099,
     "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP）",
-    "note": "I6 修复轮：登记值必须等于**实测产物**字节（`test/size-budget.test.ts` 与 `test/ui/density.mjs` 阶段 F 双向机器比对）。ceiling 只降不升（cap = 上一轮 ceiling），故基线提升不构成放宽；content.js 不受影响（177,076 B、无容差、零改动）。"
+    "note": "v3-2（2026-09-16）显式重登记：登记值**必须等于实测产物**（由 `test/size-budget.test.ts` 与 `test/ui/density.mjs` 阶段 F 双向机器比对）。新实测 dist/sidepanel.js = **327,679 B**（前值 295,225 B，+32,454 B：L1 八类就地展开 + 引用失效 fail-closed 判定 + 回执三件套 + 局部树）。**ceiling 未抬高**：仍为 306,099 B（`SIDEPANEL_CEILING_CAP` 只降不升），因此本轮产物**超出被冻结的 ceiling 21,580 B**，`test/size-budget.test.ts` 的 `≤ cap` 断言与阶段 F 的 `≤ 机读上限` 断言**如实 FAIL**（未放宽、未删断言、未改容差）。见 build.md §体积：此为**红线冲突上报项**，需编排器裁决（抬高 cap ≈ +21.6 KB，或削减本叶范围）。"
   },
   "fixtureAsymmetry": {
     "status": "FIXED（收口轮 2026-09-16）",

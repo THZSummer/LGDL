@@ -52,7 +52,13 @@ import type { ConnectTreeSnapshot } from '../../insight/tree-model.js';
 // controller. Both are additive: no existing render branch or handler is removed.
 import { installDisclosure } from './disclosure.js';
 import { mountL0, type L0Handle } from './l0/shell.js';
-import type { L0Input } from './view-model.js';
+import type { L0Input, L0View } from './view-model.js';
+// V3-2 (ADR-V3-020~023): the L1 layer — eight in-place content classes, the
+// fail-closed reference judge and the receipt triple. Additive: the L0 skeleton
+// keeps its ownership and no existing handler is rewritten.
+import { mountL1, type L1Handle, type L1Input } from './l1/panels.js';
+import type { OwnershipTree } from '../../insight/ownership-tree.js';
+import type { RefResolution } from './l1/ref-validity.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -262,6 +268,9 @@ let settingsHandle: SettingsPanelHandle | null = null;
 /** V3-1: the L0 skeleton handle (mounted once in `wire()`, repainted by `render()`). */
 let l0: L0Handle | null = null;
 
+/** V3-2: the L1 layer handle (mounted once in `wire()`, repainted by `render()`). */
+let l1: L1Handle | null = null;
+
 /**
  * V3-1 test seams for the two risk projections that have no sidepanel-side
  * receipt path yet:
@@ -279,6 +288,8 @@ const v3TestState = { refCount: 0, lastStaleRef: '', riskMode: {} as Record<stri
 
 /** Derive the pure L0 view-model input straight from the panel state. */
 function l0Input(): L0Input {
+  const refs = l1?.store().all() ?? [];
+  const staleRefs = l1?.store().stale() ?? [];
   const llm = llmStatusView(llmLoaded ? llmSummary : null);
   const receiptHardLines = state.entries.filter(
     (entry) => entry.kind === 'error' && /evaluate|硬底线/.test(entry.text),
@@ -297,7 +308,11 @@ function l0Input(): L0Input {
     probing: state.probe?.phase === 'probing' && state.discoveryState !== 'supported',
     discoveryState: state.discoveryState ?? (state.probe?.phase === 'probing' ? '探测中' : '未知'),
     hardlineCount: receiptHardLines,
-    staleRefCount: 0,
+    // V3-2: the real judge's verdict replaces v3-1's zero projection — the chip's
+    // stale mark and the risk rail's dimension reason both come from ONE store.
+    staleRefCount: staleRefs.length,
+    ...(staleRefs[0]?.readableReason ? { staleRefReason: staleRefs[0].readableReason } : {}),
+    ...(staleRefs[0] ? { staleRefId: staleRefs[0].facts.refId } : {}),
     confirmPending: confirmActive(),
     riskForced: Object.entries(v3TestState.riskMode)
       .filter(([, mode]) => mode === 'force')
@@ -308,8 +323,8 @@ function l0Input(): L0Input {
     ask: state.ask
       ? { prompt: state.ask.prompt, options: state.ask.options ?? [], recommendedCount: 2 }
       : null,
-    refCount: v3TestState.refCount,
-    refStale: v3TestState.riskMode.staleRef === 'force',
+    refCount: refs.length || v3TestState.refCount,
+    refStale: staleRefs.length > 0,
     counts: { tree: 0, commands: 0, audit: state.auditCount },
   };
 }
@@ -318,6 +333,19 @@ function l0Input(): L0Input {
  *  projection the L0 gate uses to make the state deterministic). */
 function confirmActive(): boolean {
   return state.confirm !== null || v3TestState.riskMode.confirm === 'force';
+}
+
+/**
+ * V3-2: the L1 layer's input. Class ① (status & connection details) is the
+ * `#topbar` panel itself, so nothing is duplicated between the band and L1.
+ */
+function l1Input(l0View: L0View | null): L1Input {
+  const lastUser = [...state.entries].reverse().find((entry) => entry.role === 'user');
+  return {
+    ask: state.ask ? { prompt: state.ask.prompt, options: state.ask.options ?? [] } : null,
+    foldedOptions: l0View?.decision.foldedOptions ?? [],
+    lastUserText: lastUser?.text ?? null,
+  };
 }
 
 /** Install the `window.__v3.testing` namespace used by the density/l0 gates. */
@@ -329,6 +357,28 @@ function installV3TestHooks(): void {
       setRisk(cls: string, mode: 'force' | 'off' | 'natural' = 'force') {
         if (!['unauthorized', 'probing', 'hardline', 'confirm', 'staleRef'].includes(cls)) {
           throw new Error(`未知风险类：${cls}`);
+        }
+        // V3-2: `staleRef` is no longer a projection — it drives the REAL judge.
+        // `force` injects one reference whose capture facts are complete but whose
+        // page-side resolution says the element is gone (dimension D1), so the rail
+        // renders the dimension-specific readable reason the product really shows.
+        if (cls === 'staleRef') {
+          if (mode === 'off' || mode === 'natural') l1?.store().reset();
+          else {
+            l1?.store().reset();
+            l1?.injectRef(staleRefFacts());
+            l1?.setResolution({ status: 'missing' });
+            l1?.setEnv({
+              currentOrigin: state.activeOrigin ?? '',
+              authorized: true,
+              documentId: 'doc-1',
+              navSeq: 1,
+              declarationHash: 'decl-1',
+            });
+            l1?.judge();
+          }
+          render();
+          return;
         }
         if (mode === 'natural') delete v3TestState.riskMode[cls];
         else v3TestState.riskMode[cls] = mode;
@@ -391,12 +441,76 @@ function installV3TestHooks(): void {
       reset() {
         v3TestState.refCount = 0;
         v3TestState.riskMode = {};
+        // V3-2: the L1 layer's real state (references / receipt / history) is
+        // cleared too, so every fixture cell starts from the same default state.
+        l1?.store().reset();
+        l1?.setEnv({});
+        l1?.setResolution(undefined);
+        l1?.setSnapshot(null, null);
         render();
       },
       snapshot() {
-        return { risks: l0?.view()?.risks ?? [], foldedCount: l0?.view()?.decision.foldedCount ?? 0 };
+        return {
+          risks: l0?.view()?.risks ?? [],
+          foldedCount: l0?.view()?.decision.foldedCount ?? 0,
+          l1: l1?.report() ?? null,
+        };
+      },
+      /**
+       * V3-2 test seam for the L1 layer + the reference judge. One dispatcher
+       * (`op`) rather than a wide method surface: everything below drives the SAME
+       * code path the product uses (no shadow implementation), and the compact
+       * shape keeps the tested surface from costing bundle size for nothing.
+       */
+      l1(op: string, ...args: unknown[]) {
+        const handle = l1;
+        if (!handle) return null;
+        // The reference state feeds the L0 chip AND the risk rail, so the whole
+        // panel is repainted after every step (the rail is L0's writer, not L1's).
+        const out = ((): unknown => {
+          switch (op) {
+          case 'ref':
+            return handle.injectRef(args[0] as Parameters<typeof handle.injectRef>[0]);
+          case 'env':
+            handle.setEnv(args[0] as never);
+            return handle.judge();
+          case 'res':
+            handle.setResolution(args[0] as RefResolution | undefined);
+            return handle.judge();
+          case 'judge':
+            return handle.judge();
+          case 'act':
+            return handle.dispatchRefAction(String(args[0]), String(args[1] ?? 'ref-action'));
+          case 'repick':
+            return handle.repick();
+          case 'receipt':
+            return handle.pullReceipt(args[0] as never);
+          case 'tree':
+            return handle.setSnapshot(args[0] as OwnershipTree | null, args[1] as string | null);
+            case 'history':
+              return handle.history();
+            default:
+              return handle.report();
+          }
+        })();
+        render();
+        return out;
       },
     },
+  };
+}
+
+/** Canonical stale-reference facts used by the `staleRef` risk projection. */
+function staleRefFacts() {
+  return {
+    selector: '#ref-target',
+    semanticPath: '连接树 › 能力面 › 引用目标',
+    textDigest: '引用目标文本摘要',
+    origin: state.activeOrigin ?? '',
+    documentId: 'doc-1',
+    navSeq: 1,
+    declarationHash: 'decl-1',
+    capturedAt: Date.now(),
   };
 }
 /** Chat ⇄ settings view switch; captures/restores scroll position + draft. */
@@ -594,7 +708,11 @@ function render(): void {
   renderSession();
   renderAutoAuth();
   // V3-1 (ADR-V3-013): the ONE decision card + the three-things skeleton.
-  l0?.update(l0Input());
+  const l0View = l0?.update(l0Input()) ?? null;
+  // V3-2 (ADR-V3-021~023): the L1 layer. Repainted AFTER the L0 skeleton because
+  // the stale-reference mark on the chip / pick entry is the judge's verdict and
+  // must win over the L0 skeleton's optimistic defaults.
+  l1?.update(l1Input(l0View));
   // FR-V3-012: a free-text ask has no choices, so its fallback input opens at once.
   if (state.ask?.kind === 'text') l0?.revealFallback();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
@@ -1109,6 +1227,19 @@ function wire(): void {
     disclosure,
     onAnswer: (label) => submitAsk(label, false),
     onOpenSettings: () => void openSettingsView(),
+  });
+  l1 = mountL1({
+    doc: document,
+    disclosure,
+    openL2: (which) => l0?.openL2(which),
+    revealFallback: () => l0?.revealFallback(),
+    // A REAL re-pull of `insight-tree`: the receipt's tool-surface evidence must
+    // describe this pull, never a remembered value (ADR-V2-009 semantics).
+    refreshSnapshot: async () => {
+      const res = await send<{ tools?: string[] }>(makeMessage('insight-tree'));
+      return res.ok ? (res.data ?? null) : null;
+    },
+    now: () => Date.now(),
   });
   installV3TestHooks();
 

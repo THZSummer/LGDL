@@ -174,12 +174,22 @@ export function renderRiskRow(
  * Render the whole rail. The rail node is looked up **by id** — the function
  * takes no parent parameter on purpose (no caller can relocate it).
  *
+ * V3-2 (ADR-V3-020 / FR-V3-037) adds an optional `staleRef` override: the
+ * invalidation row must state **which dimension** triggered it, so the copy
+ * cannot be the frozen generic string any more. The override is data, never a
+ * second template — `renderRiskRow` still owns the three channels, and the
+ * override participates in the repaint signature so a changed reason repaints.
+ *
  * Returns the number of rows written, for gates/diagnostics.
  */
-export function renderRiskRail(doc: RailDoc, active: readonly RiskClass[]): number {
+export function renderRiskRail(
+  doc: RailDoc,
+  active: readonly RiskClass[],
+  staleRef?: { reason: string; refId: string },
+): number {
   const rail = doc.getElementById('risk-rail');
   if (!rail) throw new RiskRowError('renderRiskRail: #risk-rail 不存在（风险位必须常驻）');
-  const signature = RISK_CLASSES.filter((c) => active.includes(c)).join('|');
+  const signature = `${RISK_CLASSES.filter((c) => active.includes(c)).join('|')}::${staleRef?.reason ?? ''}`;
   if (signature === lastRiskSignature && renderedRows.length > 0) return renderedRows.length;
   lastRiskSignature = signature;
   // Clear previous rows without innerHTML (no HTML injection surface at all).
@@ -193,7 +203,20 @@ export function renderRiskRail(doc: RailDoc, active: readonly RiskClass[]): numb
   if (uniq.length === 0) {
     rows.push(renderRiskRow(doc, { text: RISK_CALM_TEXT, badge: RISK_CALM_BADGE, icon: 'shield', severity: 'calm' }));
   } else {
-    for (const cls of uniq) rows.push(renderRiskRow(doc, cls));
+    for (const cls of uniq) {
+      if (cls === 'staleRef' && staleRef) {
+        rows.push(
+          renderRiskRow(doc, {
+            text: staleRef.reason,
+            badge: RISK_COPY.staleRef.badge,
+            icon: RISK_COPY.staleRef.icon,
+            riskClass: 'staleRef',
+          }),
+        );
+        continue;
+      }
+      rows.push(renderRiskRow(doc, cls));
+    }
   }
   for (const row of rows) rail.appendChild?.(row);
   renderedRows = rows;

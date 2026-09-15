@@ -228,8 +228,8 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
   // v3-1 review 修复轮 (2026-09-16, I6)：上一轮的 291,523 B 与该轮**最终产物**
   // 294,874 B 不符 → 按真实产物重登记为 295,225 B（修复轮最终构建）；
   // 上一轮 291,523 B / ceiling 306,099 B 保留为 previous*，且 ceiling **未抬高**。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 295_225);
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 291_523);
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 327_679);
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 295_225);
   assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 306_099);
   assert.equal(SIDEPANEL_BASELINE_META.direction, 'raised');
   assert.equal(SIDEPANEL_BASELINE_META.ceilingDirection, 'held', 'ceiling 不得为登记保真而抬高');
@@ -241,6 +241,7 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
     [...SIDEPANEL_BASELINE_BYTES_HISTORY],
     [1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942],
   );
+  assert.ok(SIDEPANEL_BASELINE_BYTES_TIMELINE.includes(295_225), 'TIMELINE 必须保留 295,225 B');
   assert.ok(SIDEPANEL_BASELINE_BYTES_TIMELINE.includes(291_523), 'TIMELINE 必须保留 291,523 B');
   assert.ok(SIDEPANEL_BASELINE_BYTES_TIMELINE.includes(266_500), 'TIMELINE 必须保留 266,500 B');
   assert.equal(
@@ -256,16 +257,22 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
   // I6：ceiling 保持 306,099（= 上一轮 ceiling；公式值 309,986 未被采用 → 只降不升）。
   assert.equal(SIDEPANEL_CEILING, 306_099, 'ceiling 未抬高：仍 = 上一轮 ceiling（cap 生效）');
   assert.equal(SIDEPANEL_CEILING_CAP, 306_099);
-  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(295_225 * 1.05), '未加 cap 的公式值必须被记录');
+  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(327_679 * 1.05), '未加 cap 的公式值必须被记录');
   assert.ok(SIDEPANEL_CEILING_UNCAPPED > SIDEPANEL_CEILING, '本轮 cap 必须真的收紧（否则是变相放宽）');
   assert.equal(SIDEPANEL_BASELINE_TOLERANCE, 0.05, '容差不得因重登记而放宽');
-  assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_CEILING, '基线与上限自洽');
+  // v3-2 (2026-09-16)：本轮**如实**超出被冻结的 ceiling（红线冲突已上报，未放宽）。
+  assert.ok(
+    SIDEPANEL_BASELINE_BYTES > SIDEPANEL_CEILING,
+    `v3-2 产物 ${SIDEPANEL_BASELINE_BYTES}B 必须如实高于冻结 ceiling ${SIDEPANEL_CEILING}B（不得被「修好」）`,
+  );
   // 零注入红线随本轮**收紧**（不是放宽）。
   assert.equal(CONTENT_MAX_BYTES, 177_076, 'content.js 硬上限同步收紧到 2026-09-14 实测值');
 });
 
 test('W4 size REVERSE PROOF: the tightened ceiling still FAILS on one byte over', () => {
-  assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, true);
+  // v3-2（2026-09-16）：当前基线 = 327,679 B，**超出**被冻结的 ceiling（红线冲突已
+  // 上报）；本条断言按实测方向重 pin —— 不得改回 `true` 来掩盖冲突。
+  assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, false);
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false, '新 ceiling + 1 必须 FAIL');
   assert.equal(over.ceilingBytes, 306_099);
@@ -284,11 +291,14 @@ test('W4 size REVERSE PROOF: the tightened ceiling still FAILS on one byte over'
     SIDEPANEL_CEILING <= SIDEPANEL_BASELINE_META.previousCeilingBytes,
     `ceiling ${SIDEPANEL_CEILING}B 必须 ≤ 上一轮 ceiling ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B（只降不升）`,
   );
+  // v3-2：新基线**不再**通过守卫（这正是本轮的红线冲突；断言按实测方向重 pin，
+  // 不得改成 `true` 来「宣布通过」）。
   assert.equal(
     evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok,
-    true,
-    '新基线本身必须通过新守卫（提升后的守卫自洽）',
+    false,
+    'v3-2 产物超出冻结 ceiling —— 守卫必须如实 FAIL',
   );
+  assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).excessBytes, 327_679 - 306_099);
 });
 
 // ---------------------------------------------------------------------------
@@ -325,7 +335,8 @@ test('V2-4 size: re-registration meta carries date/source/reason and is NOT a ta
   assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
   assert.ok(SIDEPANEL_BASELINE_META.note.includes('提升'), 'note 必须写明本轮重登记方向（基线提升）');
   assert.ok(SIDEPANEL_BASELINE_META.note.includes('未抬高'), 'note 必须写明 ceiling 未被抬高（I6）');
-  assert.ok(SIDEPANEL_BASELINE_META.note.includes('295,225'), 'note 必须写明本轮实测值 295,225');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('327,679'), 'note 必须写明本轮实测值 327,679');
+  assert.ok(SIDEPANEL_BASELINE_META.note.includes('295,225'), 'note 必须保留前值 295,225（本轮上一轮）');
   assert.ok(SIDEPANEL_BASELINE_META.note.includes('291,523'), 'note 必须保留前值 291,523（含其产物 294,874 的失真点）');
   assert.ok(SIDEPANEL_BASELINE_META.note.includes('266,500'), 'note 必须保留更早前值 266,500（历史可核）');
   // 历史保留：V2-4 / v2 R2 的重登记事实仍可在 HISTORY 中核对（不因新一轮收紧而丢失）。
@@ -333,8 +344,13 @@ test('V2-4 size: re-registration meta carries date/source/reason and is NOT a ta
   assert.ok(SIDEPANEL_BASELINE_BYTES_HISTORY.includes(1_159_856), 'v2 R2 历史值保留');
   assert.match(
     SIDEPANEL_BASELINE_META.reRegisteredFrom,
+    /295,225 B/,
+    'reRegisteredFrom 必须写明上一轮基线（295,225 B）',
+  );
+  assert.match(
+    SIDEPANEL_BASELINE_META.reRegisteredFrom,
     /291,523 B/,
-    'reRegisteredFrom 必须写明上一轮基线（291,523 B）',
+    'reRegisteredFrom 必须保留更早一轮基线（291,523 B）',
   );
   assert.match(
     SIDEPANEL_BASELINE_META.reRegisteredFrom,

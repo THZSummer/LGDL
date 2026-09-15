@@ -16,8 +16,9 @@
     "test:binding": "node test/ui/binding.mjs",
     "test:density": "node test/ui/density.mjs",
     "test:l0": "node test/ui/l0.mjs",
+    "test:l1": "node test/ui/l1.mjs",
     "test:supersession": "node --test dist-test/test/supersession-ledger.test.js",
-    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:density && npm run test:l0 && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e"
+    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:density && npm run test:l0 && npm run test:l1 && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e"
   },
   "dependencies": {
     "@lgdl/web-cli-base": "^0.7.0"

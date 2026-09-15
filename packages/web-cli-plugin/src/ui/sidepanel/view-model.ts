@@ -498,8 +498,17 @@ export interface L0Input {
   ask?: { prompt: string; options: string[]; recommendedCount?: number } | null;
   /** Reference chips currently attached to the round. */
   refCount?: number;
-  /** `#l0-ref-toggle`'s validity flag (v3-2 fills the real evidence). */
+  /** `#l0-ref-toggle`'s validity flag (v3-2: the real five-dimension judgement). */
   refStale?: boolean;
+  /**
+   * V3-2 (FR-V3-037): the readable reason of the first unusable reference, so the
+   * risk rail can state **which dimension** triggered the invalidation. The copy
+   * is produced by `l1/ref-validity.ts` (the single judge) and only *carried*
+   * here — the view model never invents a reason.
+   */
+  staleRefReason?: string;
+  /** The `ref_<n>` id the reason belongs to (the risk row's identity channel). */
+  staleRefId?: string;
   /** Real counts for the L2 entry panel (v3-3 fills the catalog/audit views). */
   counts?: { tree?: number; commands?: number; audit?: number };
   /**
@@ -541,6 +550,8 @@ export interface L0View {
     foldedCount: number;
   };
   ref: { count: number; stale: boolean; label: string };
+  /** V3-2: the dynamic invalidation row (null ⇒ the rail uses its generic copy). */
+  staleRef: { reason: string; refId: string } | null;
   statusbar: { text: string; entries: Array<{ key: string; label: string; count: number }> };
   risks: L0RiskClass[];
 }
@@ -651,6 +662,10 @@ export function l0ViewModel(input: L0Input): L0View {
       stale: input.refStale === true,
       label: `引用 ${refCount} 条${input.refStale ? '（有失效）' : ''}`,
     },
+    staleRef:
+      input.refStale === true && input.staleRefReason
+        ? { reason: input.staleRefReason, refId: input.staleRefId ?? 'ref_?' }
+        : null,
     statusbar: {
       text: `状态：树 ${counts.tree} · 命令 ${counts.commands} · 审计 ${counts.audit} · 设置`,
       entries: [
@@ -667,4 +682,51 @@ export function l0ViewModel(input: L0Input): L0View {
 /** `更多选项（还有 N 个）` label — single source for the button copy. */
 export function moreOptionsLabel(foldedCount: number): string {
   return `更多选项（还有 ${foldedCount} 个）`;
+}
+
+// ══ V3-2 (ADR-V3-021 / ADR-V3-022): L1 entry contract ═══════════════════════
+//
+// Only the *derivations* live here (pure, DOM-free), so the runtime gate can
+// cross-check the rendered counts against the same source of truth the panel
+// uses. All static L1 copy (titles, empty states, the two consequence
+// paragraph templates) lives in `index.html` — `sidepanel.html` is outside the
+// `sidepanel.js` size guard, so shipping it as markup keeps the bundle lean
+// without weakening any assertion (ADR-V3-021 §1).
+
+/** `data-l1-panel` id of each of the eight L1 content classes (FR-V3-031). */
+export const L1_PANEL_IDS = Object.freeze([
+  'l1-status',
+  'l1-consequences',
+  'l1-ref-evidence',
+  'l1-local-tree',
+  'l1-history',
+  'l1-receipt',
+  'l1-gestures',
+  'l1-more',
+] as const);
+
+/** The four gestures v3-2 ships (v3-4 completes the table and pins it 双向). */
+export const L1_GESTURE_COUNT = 4;
+
+/** Labels that make an option destructive (structural filter, single source). */
+export const DESTRUCTIVE_OPTION_PATTERN = /删除|清空|移除|覆盖|撤销|重置|批量|卸载/;
+
+/** `true` when an option leads to an irreversible (destructive) sub-command. */
+export function isDestructiveOption(label: string): boolean {
+  return DESTRUCTIVE_OPTION_PATTERN.test(label);
+}
+
+/** One decided round (the L1 history row). */
+export interface DecisionRound {
+  n: number;
+  prompt: string;
+  chosen: string;
+  canceled: boolean;
+  /** `true` when this prompt was reached again (改选). */
+  changed: boolean;
+}
+
+/** `已决策 N 步` — N is the round count, recomputable from the same array. */
+export function decisionHistoryLabel(n: number): string {
+  return `已决策 ${Math.max(0, n)} 步`;
 }

@@ -785,8 +785,11 @@ test('A9 archive: sidepanel baseline re-registration is explicit and monotonic (
   assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');
   assert.equal(SIDEPANEL_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin');
   assert.ok(SIDEPANEL_BASELINE_META.measuredOn.length > 0);
-  // v3-1 提升轮 + I6 修复轮：上一轮登记值 = 291,523 B（其产物实测 294,874 B）。
-  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 291_523);
+  // v3-2（2026-09-16）：上一轮登记值 = 295,225 B（v3-1 I6 轮的最终产物）；更早的
+  // 291,523 B（其产物实测 294,874 B）与 266,500 B 仍保留在 reRegisteredFrom 中。
+  assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 295_225);
+  assert.match(SIDEPANEL_BASELINE_META.reRegisteredFrom, /291,523 B/, '更早一轮基线必须保留');
+  assert.match(SIDEPANEL_BASELINE_META.reRegisteredFrom, /266,500 B/, '更早一轮基线必须保留');
   assert.ok(SIDEPANEL_BASELINE_META.reRegisteredFrom.length > 0);
   assert.equal(SIDEPANEL_BASELINE_META.targetBudgetBytes, null, '基线 ≠ 目标预算');
   assert.equal(SIDEPANEL_BASELINE_META.targetMet, null, '基线 ≠ 目标预算');

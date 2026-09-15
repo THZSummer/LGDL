@@ -980,6 +980,65 @@
         #l0-status-band #status,
         #l0-status-bar-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       }
+
+      /* ══ V3-2 (ADR-V3-021 / ADR-V3-022 / ADR-V3-023): the L1 in-place layer ══
+         Eight content classes, every one of them `hidden` in the default state, so
+         the L0 default tier's measured density (7 clickables / 15 lines) is
+         untouched by construction: the C1/C2 caliber exempts only `hidden`
+         ancestors. The L0 clickable budget is exactly full (7/7), so the three
+         existing L0 disclosures ARE the entries — one click on `#l0-status-band`
+         reveals the whole `#l1-status` group (status + local tree + history +
+         receipt + gestures), one on `#l0-ref-toggle` reveals the reference
+         evidence, one on `#l0-more` reveals the remaining options + consequences. */
+      .l1-group { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; }
+      .l1-group > button { font-size: 11.5px; text-align: left; }
+      /* L1-local scroll block: the group can hold five panels, so `#topbar` gets a
+         bounded height. It lives in `#panel-top` (NOT `#panel-main`), so the
+         panel-level scroller census (`#log` is the only one) is unaffected. */
+      #topbar { max-height: 40vh; overflow-y: auto; overflow-x: hidden; }
+      #l1-status-detail,
+      #l1-local-tree,
+      #l1-history,
+      #l1-receipt,
+      #l1-gestures,
+      #l1-consequences {
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 6px 8px;
+        min-width: 0;
+      }
+      .l1-rows { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+      .l1-rows .l1-row { font-size: 11.5px; line-height: 1.55; overflow-wrap: anywhere; }
+      .l1-rows .l1-row b { font-weight: 600; }
+      .l1-list { margin: 2px 0 0; padding-inline-start: 16px; font-size: 11.5px; line-height: 1.55; }
+      .l1-hint { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+      #l1-gestures table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      #l1-gestures th, #l1-gestures td { border: 1px solid var(--border); padding: 2px 4px; text-align: left; }
+      #l1-receipt .l1-audit { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin-top: 4px; }
+      /* FR-V3-039 ①: the receipt summary is the ONE resident L0 piece; it stays
+         `hidden` until an action really produced a receipt, so the default tier
+         measurement cannot drift. */
+      #l0-receipt-summary {
+        border: 1px solid var(--ok);
+        background: var(--ok-bg);
+        color: var(--ok);
+        border-radius: var(--radius-sm);
+        padding: 4px 6px;
+        font-size: 11.5px;
+        line-height: 1.5;
+      }
+      /* FR-V3-037: the invalidated chip carries text + badge + `aria-disabled`
+         (three channels, never colour alone). */
+      .ref-stale-badge {
+        margin-left: 6px;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+      #l0-ref-toggle[data-ref-stale="true"] { color: var(--danger-text); border-color: var(--danger-border); }
+      #l1-ref-actions[hidden] { display: none !important; }
     </style>
   </head>
   <body>
@@ -1034,6 +1093,49 @@
              the L1 status panel, not on the default screen. Its text is still read by
              the existing gates (they assert `textContent`, never visibility). -->
         <div id="llm-test-result" class="muted" role="status" aria-live="polite"></div>
+        <!-- ── V3-2 FR-V3-031 ① is THIS panel: 状态与连接详情 = `#topbar`'s own
+             content (settings / authorize / consent / auto-auth / session / LLM).
+             ── V3-2 FR-V3-031 ④⑤⑥⑦: the L1 detail group. Each class owns a
+             `[data-l1-panel]` container (default `hidden`) AND a labelled trigger with
+             the `aria-expanded`/`aria-controls` pair; ONE click on `#l0-status-band`
+             reveals all five at once (that is the ≤1-interaction path the gate drives),
+             and each trigger collapses/expands its own class afterwards. ── -->
+        <div class="l1-group" id="l1-group">
+          <button id="l1-local-tree-toggle" type="button" data-disclose="l1-local-tree" aria-expanded="false" aria-controls="l1-local-tree">归属（局部树）· 0 个节点</button>
+          <div id="l1-local-tree" data-l1-panel="l1-local-tree" hidden>
+            <div class="l1-rows" id="l1-local-tree-rows"></div>
+            <div class="l1-hint" id="l1-local-tree-hint">暂无归属快照：在「连接树」里打开一次后，这里会就地显示当前对象所在的最多 3 个节点。</div>
+            <div class="row"><button id="l1-local-tree-global" type="button">查看全局树</button></div>
+          </div>
+
+          <button id="l1-history-toggle" type="button" data-disclose="l1-history" aria-expanded="false" aria-controls="l1-history">已决策 0 步</button>
+          <div id="l1-history" data-l1-panel="l1-history" hidden>
+            <div class="l1-rows" id="l1-history-rows"></div>
+            <div class="l1-hint">回看只读：不重放、不改变任何已执行动作（零副作用）。</div>
+          </div>
+
+          <button id="l1-receipt-toggle" type="button" data-disclose="l1-receipt" aria-expanded="false" aria-controls="l1-receipt">回执证据（0 行）</button>
+          <div id="l1-receipt" data-l1-panel="l1-receipt" hidden>
+            <div class="l1-rows" id="l1-receipt-rows"></div>
+            <div class="l1-audit">
+              <button id="l1-receipt-audit" type="button">查看审计（完整审计视图）</button>
+              <span class="l1-hint" id="l1-receipt-audit-summary"></span>
+            </div>
+          </div>
+
+          <button id="l1-gestures-toggle" type="button" data-disclose="l1-gestures" aria-expanded="false" aria-controls="l1-gestures">页面交互说明（4 个手势）</button>
+          <div id="l1-gestures" data-l1-panel="l1-gestures" hidden>
+            <table>
+              <thead><tr><th>手势</th><th>作用</th></tr></thead>
+              <tbody>
+                <tr><td>Alt + 悬停</td><td>高亮页面元素并显示引用序号（不改变页面）</td></tr>
+                <tr><td>Alt + 拖动</td><td>拖选区域，生成文本引用</td></tr>
+                <tr><td>右键</td><td>自绘菜单：拾取为引用 / 加入选区</td></tr>
+                <tr><td>拖选文本</td><td>出现气泡：作为上下文 / 作为操作目标</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -1063,14 +1165,46 @@
           <button id="l0-pick" type="button">从页面拾取</button>
           <button id="l0-more" type="button" aria-expanded="false" aria-controls="l1-more">更多选项（还有 0 个）</button>
         </div>
+        <!-- FR-V3-039 ①: the receipt SUMMARY is the resident L0 piece. `hidden` until
+             a real receipt exists → zero impact on the measured default tier. -->
+        <div id="l0-receipt-summary" hidden></div>
         <button id="l0-ref-toggle" type="button" aria-expanded="false" aria-controls="l1-ref">引用 0 条</button>
+        <!-- FR-V3-037: the chip's failure mark is a sibling (not a child) of the chip:
+             `l0/shell.ts` rewrites the chip's text on every render, and a badge inside
+             it would be wiped. `hidden` unless a reference is unusable, so the measured
+             default tier is unaffected. -->
+        <span class="ref-stale-badge" id="l0-ref-badge" hidden>失效</span>
         <div id="l1-more" data-l1-panel="l1-more" hidden>
           <div class="row" id="l1-more-options"></div>
           <div class="l1-entry">末项固定为「其他…（我来描述）」；选中它就地展开输入框。</div>
+          <!-- ── V3-2 FR-V3-031 ②: consequences & impact preview. ONE click on
+               `#l0-more` reveals this together with the remaining options, so both
+               classes are ≤1 interaction from the default state. ── -->
+          <button id="l1-consequences-toggle" type="button" data-disclose="l1-consequences" aria-expanded="false" aria-controls="l1-consequences">选项后果与影响预演（0 个选项）</button>
+          <div id="l1-consequences" data-l1-panel="l1-consequences" hidden></div>
         </div>
-        <div id="l1-ref" data-l1-panel="l1-ref" hidden>
+        <div id="l1-ref" data-l1-panel="l1-ref-evidence" hidden>
           <div class="l1-entry" id="l1-ref-summary">引用条：选择器 / 语义路径 / 文本摘要 / 捕获时间（证据层只读）。</div>
+          <!-- FR-V3-033: the four evidence elements as a READ-ONLY projection — this
+               container must never hold an input/button/select. -->
+          <div class="l1-rows" id="l1-ref-rows"></div>
+          <!-- FR-V3-038: the two recovery paths (only shown while a reference is
+               unusable). `重新拾取` reuses `#l0-pick`; `改用描述` reuses the `#ask`
+               terminal fallback input — no new input box anywhere. -->
+          <div class="row" id="l1-ref-actions" hidden>
+            <button id="l1-ref-repick" type="button">重新拾取</button>
+            <button id="l1-ref-describe" type="button">改用描述</button>
+            <span class="l1-hint" id="l1-ref-reason"></span>
+          </div>
         </div>
+        <!-- FR-V3-032: the two mandatory paragraphs (＋ the irreversibility
+             declaration for destructive options) ship as MARKUP and are cloned per
+             option — the copy is static, only the label is substituted. -->
+        <template id="l1-consequence-tpl">
+          <div class="l1-row" data-tpl>会发生什么：选中「{{label}}」后本轮按该选项推进；含子命令时逐条写入审计（命令名 / 动作 id / 结果 / 耗时，零明文）。</div>
+          <div class="l1-row" data-tpl>不会发生什么：不会放宽策略档、不会自动放行 evaluate、不会改动授权集合；确认前零命令下发。</div>
+          <div class="l1-row" data-tpl data-irreversible>不可逆性声明：该选项含破坏性子命令，执行后无法从插件侧撤销（审计保留记录，不保留明文）。</div>
+        </template>
         <!-- 破坏性确认：落在 #l0-decision 直系、不参与折叠（FR-V3-018 / EC-V3-015） -->
         <div id="confirm" hidden data-destructive-option="confirm">
           <div>敏感操作需二次确认：</div>

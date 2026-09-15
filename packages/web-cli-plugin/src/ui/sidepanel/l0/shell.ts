@@ -105,8 +105,10 @@ export function mountL0(deps: MountL0Deps): L0Handle {
       ? `引用 ${view.ref.count} 条（选择器 / 语义路径 / 文本摘要 / 捕获时间；证据层只读）。`
       : '暂无引用：用「从页面拾取」生成第一条引用。';
 
-    // 风险位 — its ONLY writer, always resident, never folded (D3)
-    renderRiskRail(doc, view.risks);
+    // 风险位 — its ONLY writer, always resident, never folded (D3).
+    // V3-2 (FR-V3-037): the invalidation row carries the dimension-specific
+    // readable reason produced by the single judge (`l1/ref-validity.ts`).
+    renderRiskRail(doc, view.risks, view.staleRef ?? undefined);
 
     // L2 skeleton (counts realise FR-V3-015 / FR-V3-046's mechanism)
     statusBar.render(view);

@@ -51,8 +51,23 @@ export interface DisclosureDoc {
  * The **only** foldable targets in v3. Ids, not selectors, so a typo fails
  * loudly at once. Deliberately absent: `#risk-rail` (永不折叠, D3),
  * `#confirm` / `#l0-decision` (破坏性确认不参与折叠, FR-V3-018).
+ *
+ * V3-2 appended the five L1 content panels (ADR-V3-021): the eight L1 classes are
+ * `l1-status` (the `#topbar` panel), `l1-ref` (reference evidence), `l1-more`
+ * (the remaining options) plus these five. Nothing was removed and `#risk-rail`
+ * is still outside the whitelist — `assertFoldable('#risk-rail')` still throws.
  */
-export const COLLAPSIBLE_TARGETS = Object.freeze(['topbar', 'l1-more', 'l1-ref', 'l2-entries'] as const);
+export const COLLAPSIBLE_TARGETS = Object.freeze([
+  'topbar',
+  'l1-more',
+  'l1-ref',
+  'l2-entries',
+  'l1-consequences',
+  'l1-local-tree',
+  'l1-history',
+  'l1-receipt',
+  'l1-gestures',
+] as const);
 
 /** Trigger → target wiring. Each trigger must carry `aria-expanded` + `aria-controls`. */
 export const DISCLOSURE_WIRING = Object.freeze([
@@ -60,6 +75,11 @@ export const DISCLOSURE_WIRING = Object.freeze([
   Object.freeze({ triggerId: 'l0-more', targetId: 'l1-more', summary: '其余选项' }),
   Object.freeze({ triggerId: 'l0-ref-toggle', targetId: 'l1-ref', summary: '引用证据' }),
   Object.freeze({ triggerId: 'l0-statusbar', targetId: 'l2-entries', summary: '按需视图入口' }),
+  Object.freeze({ triggerId: 'l1-consequences-toggle', targetId: 'l1-consequences', summary: '选项后果与影响预演' }),
+  Object.freeze({ triggerId: 'l1-local-tree-toggle', targetId: 'l1-local-tree', summary: '局部树' }),
+  Object.freeze({ triggerId: 'l1-history-toggle', targetId: 'l1-history', summary: '已决策历史' }),
+  Object.freeze({ triggerId: 'l1-receipt-toggle', targetId: 'l1-receipt', summary: '回执完整证据' }),
+  Object.freeze({ triggerId: 'l1-gestures-toggle', targetId: 'l1-gestures', summary: '页面交互说明' }),
 ] as const);
 
 /** Targets that must never be foldable — asserted negatively by the unit test. */

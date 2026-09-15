@@ -116,7 +116,46 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  *     to the direction-sensitive「ceiling ≤ previous ceiling」claim (registered in
  *     `docs/v3-supersession-ledger.json`, entry `V31-S10`).
  */
-export const SIDEPANEL_BASELINE_BYTES = 295_225;
+/**
+ * ── v3-2 re-registration (2026-09-16, ADR-V3-011 / EC-V3-013, leaf
+ *    specs-tree-v3-2-l1-disclosure-refs) ──────────────────────────────────────
+ *
+ * The v3-2 L1 layer (eight in-place content classes + the fail-closed reference
+ * judge + the receipt triple + the local-tree slice) is an **intentional** weight
+ * increase. Re-measured after `npm run build --workspace @lgdl/web-cli-plugin`:
+ *
+ *   - `dist/content.js` ..... 177,076 B (UNCHANGED — v3-2 does not touch
+ *     `src/content/**`; the hard, tolerance-free ceiling still holds byte-for-byte)
+ *   - `dist/sidepanel.js` ... 295,225 → **327,679 B** (+32,454 B, +11.0%)
+ *
+ * Direction = **raised** (deliberate feature weight), the ceiling is **HELD**:
+ *
+ *   - the previous value 295,225 B is retained in
+ *     `SIDEPANEL_BASELINE_META.previousBaselineBytes` + `reRegisteredFrom` and in
+ *     `SIDEPANEL_BASELINE_BYTES_TIMELINE` / `docs/v3-density-baseline.json#volume`;
+ *   - the tolerance stays **5%** (`SIDEPANEL_BASELINE_TOLERANCE` untouched);
+ *   - `targetBudgetBytes` / `targetMet` stay **null** (still a regression
+ *     baseline, never a target — ADR-V2-007's narrative stays banned);
+ *   - the size assertions were **not** deleted — the direction-sensitive ones are
+ *     re-pinned (registered in `docs/v3-supersession-ledger.json`, entries
+ *     `V32-S1`…`V32-S4`);
+ *   - the one-byte reverse proof is re-driven at the (unchanged) ceiling.
+ *
+ * ── ⚠️ 本轮的**红线冲突**（必须显式上报，不得静默放宽）─────────────────────────
+ *
+ * `SIDEPANEL_CEILING_CAP = 306,099 B` 是**只降不升**的冻结上限（v3-1 I6 轮设立，
+ * v3-2 编排器红线 ⑧ 明文禁止抬高）。同文件底部 `SIDEPANEL_CEILING` 因此仍等于
+ * 306,099 B，而本轮产物实测 **327,679 B** → 产物**超出被冻结的 ceiling 21,580 B**，
+ * 且：
+ *
+ *   - `test/size-budget.test.ts`「实测 ≤ cap」断言；
+ *   - `test/ui/density.mjs` 阶段 F「产物 ≤ 机读上限」断言
+ *
+ * 会**如实 FAIL**。本叶**未**抬高 cap、**未**放宽容差、**未**删除任何断言、**未**
+ * 把代码搬到 `sidepanel.js` 之外以绕开门禁 —— 按红线「若某目标只能靠放宽达成 → 停下
+ * 如实上报」处理：需要编排器裁决（抬高 cap 至 ≥327,679 B，或削减本叶范围）。
+ */
+export const SIDEPANEL_BASELINE_BYTES = 327_679;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -132,7 +171,7 @@ export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
  * appending is the only allowed edit (history may never be rewritten).
  */
 export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
-  1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500, 291_523, 295_225,
+  1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500, 291_523, 295_225, 327_679,
 ] as const;
 
 /** Allowed growth over the baseline before the guard fails. */
@@ -170,7 +209,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 295_225;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 327_679;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -183,17 +222,17 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU v3-1 review fix round (2026-09-16, leaf specs-tree-v3-1-l0-shell-density, review I6): re-measured on the FINAL artifact after the review fixes (I1 decision-card no-card render, I3 dead-code removal, I5 L2-entry ARIA) were built. This is a RAISED re-registration of the BASELINE (295,225 B) with a NON-RAISED ceiling (306,099 B = the previous ceiling, kept as a tighten-only cap). Previous registered baseline 291,523 B (whose final artifact measured 294,874 B — that discrepancy is exactly what this round fixes); before that 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE.',
-  previousBaselineBytes: 291_523,
+    'SDDU v3-2 build round (2026-09-16, leaf specs-tree-v3-2-l1-disclosure-refs): re-measured on the final artifact of the L1 layer (eight in-place content classes + the fail-closed five-dimension reference judge + the receipt triple + the local-tree slice). This is a RAISED re-registration of the BASELINE (327,679 B) with a NON-RAISED ceiling (306,099 B = the previous ceiling, kept as a tighten-only cap) — the artifact therefore EXCEEDS the frozen ceiling by 21,580 B, which is reported as an explicit red-line conflict rather than widened away. Previous registered baseline 295,225 B (v3-1 I6 round); before that 291,523 B (whose final artifact measured 294,874 B — the discrepancy the I6 round fixed); before that 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE.',
+  previousBaselineBytes: 295_225,
   previousCeilingBytes: 306_099,
   direction: 'raised',
   ceilingDirection: 'held',
-  finalArtifactBytes: 295_225,
+  finalArtifactBytes: 327_679,
   reRegisteredFrom:
-    'v3-1 上一轮 291,523 B（ceiling 306,099 B；该轮最终产物实测 294,874 B —— I6 修正的失真点）；再前 266,500 B（ceiling 279,825 B = floor(266,500 × 1.05)，2026-09-14 收紧轮）',
+    'v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）；更早 291,523 B（该轮最终产物实测 294,874 B）与 266,500 B（ceiling 279,825 B，2026-09-14 收紧轮），再早 1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',
   targetBudgetBytes: null,
   targetMet: null,
-  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-1 review 修复轮（I6）按**真实产物**重登记（基线**提升**、ceiling **未抬高**）：291,523 B（该轮产物实测 294,874 B，差值来自登记后的 3 处门禁回归修复）→ **295,225 B**（修复轮最终构建实测；+351 B 来自 I1/I3/I5 三处源码修复）。ceiling 仍为 306,099 B（= 上一轮 ceiling，作为只降不升的 cap；公式值 floor(295,225 × 1.05) = 309,986 B 未被采用），容差 5% 不变，有效余量由 5.00% 收紧为 3.68%。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 保留在 HISTORY，266,500 / 291,523 保留在 TIMELINE 与 previousBaselineBytes；断言零删减（方向敏感断言由「baseline > 上一轮 ceiling」改为更强且更严的「ceiling ≤ 上一轮 ceiling」）；targetBudgetBytes/targetMet 保持 null；+1 B 反证仍在新 ceiling 上重跑。',
+  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-2 显式**提升**重登记：L1 八类就地展开 + 引用失效 fail-closed 判定 + 回执三件套 + 局部树为**有意增重**，实测 327,679 B（前值 295,225 B，+32,454 B），**ceiling 未抬高**（仍为 306,099 B = 上一轮 ceiling，cap 只降不升）→ 产物超出冻结上限 **21,580 B**，`≤ cap` 断言如实 FAIL（红线冲突，已上报）。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 / 266,500 / 291,523 / 295,225 全保留；容差 5% 不变；断言零删减（方向敏感断言按新实测值重新 pin）；targetBudgetBytes/targetMet 保持 null；+1 B 反证在**当前 ceiling** 上重跑。',
 } as const;
 
 /**
