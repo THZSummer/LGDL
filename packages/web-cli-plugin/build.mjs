@@ -10,7 +10,7 @@
  * they live on non-executed browser paths and must not break the bundle.
  */
 import { build } from 'esbuild';
-import { mkdir, copyFile, rm } from 'node:fs/promises';
+import { mkdir, copyFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -60,12 +60,18 @@ async function main() {
     format: 'iife',
   });
 
-  await build({
+  const sidepanel = await build({
     ...common,
     entryPoints: [resolve(root, 'src/ui/sidepanel/sidepanel.ts')],
     outfile: resolve(dist, 'sidepanel.js'),
     format: 'iife',
+    // v3-2 fix round (orchestrator ruling V3-VOL-1 ③): the per-module byte
+    // attribution of the shipped artifact must be *checkable*, not narrated.
+    // The metafile is emitted next to the artifact and asserted by
+    // `test/size-growth-evidence.test.ts` against `SIDEPANEL_GROWTH_BREAKDOWN`.
+    metafile: true,
   });
+  await writeFile(resolve(dist, 'build-meta.json'), `${JSON.stringify(sidepanel.metafile)}\n`);
 
   await build({
     ...common,

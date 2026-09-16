@@ -155,6 +155,35 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * 把代码搬到 `sidepanel.js` 之外以绕开门禁 —— 按红线「若某目标只能靠放宽达成 → 停下
  * 如实上报」处理：需要编排器裁决（抬高 cap 至 ≥327,679 B，或削减本叶范围）。
  */
+/**
+ * ── v3-2 修复轮（2026-09-16，**编排器裁决 V3-VOL-1**）────────────────────────
+ *
+ * 裁决（原文要点）：① **批准** `sidepanel.js` 基线显式重登记至实测 **327,679 B**；
+ * ② **撤销** v3-1 修复轮自加的 `SIDEPANEL_CEILING_CAP` 硬上限机制 —— 该 cap **不是
+ * spec/作者要求**，是为证明「ceiling 只降不升」而自缚的装置，现已挡住合法功能：
+ * 「移除它（或改为纯记录字段、不再参与判定）」；③ 以 4 条替代守卫取代之（见下）。
+ * ④ 不变项：`content.js` 177,076 B 无容差、密度阈值逐字不变。
+ *
+ * 本文件据此落地：
+ *
+ *   ① **公式守卫（唯一判定）**：`SIDEPANEL_CEILING = floor(baseline × 1.05)`，
+ *      容差 **5% 不变**。`SIDEPANEL_CEILING_CAP` 降级为**纯记录字段**
+ *      （`SIDEPANEL_CEILING_CAP_RECORD`，值仍 306,099 B，附 `…_ROLE = 'record-only'`），
+ *      **不参与任何判定**；`evaluateSidepanelSize()` 也不再接受 cap 形参。
+ *   ② **重登记披露登记册**：`SIDEPANEL_RE_REGISTRATIONS` 逐轮记录「前后值 + 日期 +
+ *      来源 + buildCommand + measuredBy + 理由 + 断言零删减台账条目 + 历史逐字保留值」，
+ *      并由 `test/size-budget.test.ts` 断言字段齐备 / 链条首尾相接 / 历史值逐字保留。
+ *   ③ **增长正当性证据**：`SIDEPANEL_GROWTH_BREAKDOWN`（esbuild metafile
+ *      `bytesInOutput`，v3-1 树 vs v3-2 树，同一 absWorkingDir 几何）逐模块分解
+ *      **+32,454 B**：新必需模块 26,156 B / 接线 5,848 B / 归因位移 220 B /
+ *      未归因运行时胶水 230 B；`test/size-growth-evidence.test.ts` 用真实 metafile 复核。
+ *   ④ **方向性守卫**：`evaluateConsecutiveReRegistrationGrowth()` —— 同一 Feature 内
+ *      **连续两轮**重登记累计增幅 > **15%** 时产出**可读告警**（`warning !== null`），
+ *      告警文本要求「显式回报编排器」。该告警由 `test/size-budget.test.ts` 断言
+ *      **必须存在**（可读、可复现、可 FAIL），不靠人读日志。
+ *
+ * `content.js` 177,076 B（无容差、不可重登记）与密度阈值在本轮**零改动**。
+ */
 export const SIDEPANEL_BASELINE_BYTES = 327_679;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
@@ -178,27 +207,40 @@ export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
 export const SIDEPANEL_BASELINE_TOLERANCE = 0.05;
 
 /**
- * Tighten-only cap on the regression ceiling (I6 fix round).
+ * 纯记录字段（v3-2 修复轮，编排器裁决 **V3-VOL-1 ②**）—— **不再参与任何判定**。
  *
- * The ceiling is the *operative* guard; letting it grow whenever the registered
- * baseline grows would turn every registry-fidelity fix into an invisible
- * widening. The cap pins the previously registered ceiling (306,099 B) as an
- * upper bound: `SIDEPANEL_CEILING` and `evaluateSidepanelSize()` both take the
- * minimum of the formula and this cap, so the ceiling can only ever decrease.
+ * v3-1 的 I6 轮曾把这个值（306,099 B = 当时的 ceiling）当成「只降不升」的硬上限
+ * （`min(floor(baseline × 1.05), cap)`）。该机制**未经 spec/作者要求**，是修复轮自加的
+ * 自缚装置：它让「按真实产物重登记」这件事无法在不「放宽守卫」的前提下完成，最终挡住
+ * 了 v3-2 里 spec 明文的 L1 功能。裁决据此**撤销其判定作用**，仅保留历史值以备审计。
+ *
+ * ⚠️ `SIDEPANEL_CEILING` / `evaluateSidepanelSize()` **不得**再读取本值；任何把 cap 重新
+ * 接回判定的改动都是对本裁决的违反。角色由 `SIDEPANEL_CEILING_CAP_ROLE` 显式声明，
+ * 并由 `test/size-budget.test.ts` 断言（`record-only` + 判定不含 cap）。
  */
-export const SIDEPANEL_CEILING_CAP = 306_099;
+export const SIDEPANEL_CEILING_CAP_RECORD = 306_099;
 
-/** `min(floor(baseline × (1 + tolerance)), SIDEPANEL_CEILING_CAP)` — only ever ↓. */
-export const SIDEPANEL_CEILING = Math.min(
-  Math.floor(SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE)),
-  SIDEPANEL_CEILING_CAP,
+/** `'record-only'` —— cap 的历史值只作记录，**不参与判定**（裁决 V3-VOL-1 ②）。 */
+export const SIDEPANEL_CEILING_CAP_ROLE = 'record-only' as const;
+
+/**
+ * 兼容别名（值同 `SIDEPANEL_CEILING_CAP_RECORD`）。**纯记录**，不得用于判定 ——
+ * 保留旧名字只为让「cap 已撤销」这件事在 diff 里可见（旧名若被重新用于守护，
+ * 门禁会因 `SIDEPANEL_CEILING_CAP_ROLE !== 'record-only'` 之外的断言而暴露）。
+ */
+export const SIDEPANEL_CEILING_CAP = SIDEPANEL_CEILING_CAP_RECORD;
+
+/**
+ * 判定公式（裁决 V3-VOL-1 ①）：`floor(baseline × (1 + tolerance))`。
+ * 容差 5% 不变；**没有任何 cap 参与**（这正是撤销 cap 的落地处）。
+ */
+export const SIDEPANEL_CEILING = Math.floor(
+  SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE),
 );
 
 /**
- * `floor(baseline × 1.05)` without the cap — recorded so the *tightening* is
- * visible: `SIDEPANEL_CEILING === SIDEPANEL_CEILING_UNCAPPED` would mean the cap
- * is inactive; `SIDEPANEL_CEILING < SIDEPANEL_CEILING_UNCAPPED` is the honest
- * statement of "the ceiling was NOT raised for this re-registration".
+ * 「不加 cap 时公式会给出的值」。撤销 cap 之后它与 `SIDEPANEL_CEILING` **必须相等** ——
+ * 该等式本身就是「判定里没有隐藏上限」的机器证据（`test/size-budget.test.ts` 断言）。
  */
 export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
   SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE),
@@ -222,18 +264,243 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU v3-2 build round (2026-09-16, leaf specs-tree-v3-2-l1-disclosure-refs): re-measured on the final artifact of the L1 layer (eight in-place content classes + the fail-closed five-dimension reference judge + the receipt triple + the local-tree slice). This is a RAISED re-registration of the BASELINE (327,679 B) with a NON-RAISED ceiling (306,099 B = the previous ceiling, kept as a tighten-only cap) — the artifact therefore EXCEEDS the frozen ceiling by 21,580 B, which is reported as an explicit red-line conflict rather than widened away. Previous registered baseline 295,225 B (v3-1 I6 round); before that 291,523 B (whose final artifact measured 294,874 B — the discrepancy the I6 round fixed); before that 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE.',
+    'SDDU v3-2 build round + fix round (2026-09-16, leaf specs-tree-v3-2-l1-disclosure-refs): re-measured on the final artifact of the L1 layer (eight in-place content classes + the fail-closed five-dimension reference judge + the receipt triple + the local-tree slice). The fix round executes orchestrator ruling V3-VOL-1: the baseline is EXPLICITLY re-registered at the measured 327,679 B and the ceiling is the plain formula floor(baseline × 1.05) = 344,062 B (the self-imposed SIDEPANEL_CEILING_CAP hard-cap mechanism is REVOKED and demoted to a record-only field). Previous registered baseline 295,225 B (v3-1 I6 round); before that 291,523 B (whose final artifact measured 294,874 B — the discrepancy the I6 round fixed); before that 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE.',
   previousBaselineBytes: 295_225,
   previousCeilingBytes: 306_099,
   direction: 'raised',
-  ceilingDirection: 'held',
+  ceilingDirection: 'raised-formula',
   finalArtifactBytes: 327_679,
+  /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
+  ceilingFormula: 'floor(baseline × (1 + tolerance))',
+  ceilingCapRole: 'record-only',
+  ceilingCapRecordBytes: 306_099,
+  /** 裁决 V3-VOL-1 ④：同 Feature 连续两轮累计增幅 > 15% 时的可读告警（非 null 即须回报编排器）。 */
+  consecutiveGrowthAlertThreshold: 0.15,
+  consecutiveGrowthAlert: '已触发：见 SIDEPANEL_RE_REGISTRATIONS 与 evaluateConsecutiveReRegistrationGrowth()（累计 +22.96% > 15%，已显式回报编排器）',
   reRegisteredFrom:
     'v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）；更早 291,523 B（该轮最终产物实测 294,874 B）与 266,500 B（ceiling 279,825 B，2026-09-14 收紧轮），再早 1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',
   targetBudgetBytes: null,
   targetMet: null,
-  note: 'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-2 显式**提升**重登记：L1 八类就地展开 + 引用失效 fail-closed 判定 + 回执三件套 + 局部树为**有意增重**，实测 327,679 B（前值 295,225 B，+32,454 B），**ceiling 未抬高**（仍为 306,099 B = 上一轮 ceiling，cap 只降不升）→ 产物超出冻结上限 **21,580 B**，`≤ cap` 断言如实 FAIL（红线冲突，已上报）。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 / 266,500 / 291,523 / 295,225 全保留；容差 5% 不变；断言零删减（方向敏感断言按新实测值重新 pin）；targetBudgetBytes/targetMet 保持 null；+1 B 反证在**当前 ceiling** 上重跑。',
+  reason:
+    'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-2 显式**提升**重登记：L1 八类就地展开 + 引用失效 fail-closed 判定 + 回执三件套 + 局部树为 spec 明文要求的**必需增重**（父 spec FR-V3-030~040 / AC-V3-008~010 / AC-V3-022/023），实测 327,679 B（前值 295,225 B，+32,454 B）。修复轮按裁决 V3-VOL-1 ② 撤销自加 cap（该 cap 非 spec/作者要求），判定恢复为公式值 floor(baseline × 1.05) = **344,062 B** —— 即本轮 ceiling 由公式抬高，而不是靠「放宽容差」或「删断言」达成；容差 5% 未动。增量构成见 §SIDEPANEL_GROWTH_BREAKDOWN（新必需模块 26,156 B / 接线 5,848 B / 归因位移 220 B / 未归因胶水 230 B = +32,454 B，无重复或冗余代码）。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 / 266,500 / 291,523 / 295,225 全保留；断言零删减（方向敏感断言按新实测值重新 pin，见 docs/v3-supersession-ledger.json 的 V32-S1~S6 / V32-MR-FIX）；targetBudgetBytes/targetMet 保持 null；+1 B 反证在**当前 ceiling** 上重跑。',
+  note: '（保留字段名与历史断言连续性；本轮语义已由 reason 承载）sidepanel.js 回归基线**提升**重登记至 327,679 B（前值 295,225 B；更早 291,523 B 的产物实测 294,874 B；再早 266,500 B）。修复轮撤销自加 cap → ceiling = floor(baseline × 1.05) = 344,062 B。历史值全保留，容差 5% 不变，断言零删减。',
 } as const;
+
+/**
+ * ── 替代守卫 ②（裁决 V3-VOL-1 ③②）：**重登记披露登记册** ────────────────────────
+ *
+ * 每一次重登记都必须**显式登记**：前后值 + 日期 + 来源 + `buildCommand` +
+ * `measuredBy` + **理由** + 「断言零删减」的台账条目 + 本轮逐字保留的历史值。
+ * 这不是文档，而是判定数据：`test/size-budget.test.ts` 逐条断言字段齐备、链条
+ * 首尾相接（上一轮的 after == 下一轮的 before）、历史值必须仍在
+ * `_HISTORY` / `_TIMELINE` 中逐字存在。
+ *
+ * `roundKind` 区分**功能轮**（一个叶交付）与**登记保真轮**（同一叶内的更正）：
+ * 替代守卫 ④ 的方向性告警只按**功能轮**计「连续两轮」。
+ */
+export interface SizeReRegistration {
+  /** 轮次标识（feature-round 形如 `v3-1`，登记保真轮形如 `v3-1-i6`）。 */
+  readonly id: string;
+  readonly roundKind: 'feature-round' | 'registry-fidelity-round';
+  readonly feature: string;
+  readonly date: string;
+  readonly source: string;
+  readonly buildCommand: string;
+  readonly measuredBy: string;
+  /** 理由（必填、非空；须写明为何必须增重）。 */
+  readonly reason: string;
+  readonly baselineBeforeBytes: number;
+  readonly baselineAfterBytes: number;
+  readonly ceilingBeforeBytes: number;
+  readonly ceilingAfterBytes: number;
+  /** 「断言零删减」的台账条目 id（`docs/v3-supersession-ledger.json`）。 */
+  readonly assertionNonRemovalEntries: readonly string[];
+  /** 本轮**逐字保留**的历史值（必须仍在 HISTORY / TIMELINE 中）。 */
+  readonly historyRetainedBytes: readonly number[];
+  /** 重登记时的实际候选 ceiling（撤销 cap 前 = cap 生效值；撤销后 = 公式值）。 */
+  readonly ceilingUncappedFormulaBytes: number;
+}
+
+export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
+  {
+    id: 'v3-1',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-web-cli-plugin-v3-ui',
+    date: '2026-09-16',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU v3-1 build round (leaf specs-tree-v3-1-l0-shell-density)',
+    reason: 'L0 常驻骨架 + 单一折叠控制器 + L0 视图模型为 v3 披露改造的有意增重。',
+    baselineBeforeBytes: 266_500,
+    baselineAfterBytes: 291_523,
+    ceilingBeforeBytes: 279_825,
+    ceilingAfterBytes: 306_099,
+    assertionNonRemovalEntries: ['V31-S6', 'V31-S7'],
+    historyRetainedBytes: [
+      1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500,
+    ],
+    ceilingUncappedFormulaBytes: 306_099,
+  },
+  {
+    id: 'v3-1-i6',
+    roundKind: 'registry-fidelity-round',
+    feature: 'specs-tree-web-cli-plugin-v3-ui',
+    date: '2026-09-16',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU v3-1 review fix round (I6, registry fidelity)',
+    reason:
+      '登记保真更正：上一轮发表的 291,523 B 与该轮最终产物 294,874 B 不符（I6），按真实产物 295,225 B 重登记；当时 cap 生效故 ceiling 未动。',
+    baselineBeforeBytes: 291_523,
+    baselineAfterBytes: 295_225,
+    ceilingBeforeBytes: 306_099,
+    ceilingAfterBytes: 306_099,
+    assertionNonRemovalEntries: ['V31-S10', 'V31-S11', 'V31-S12'],
+    historyRetainedBytes: [291_523, 266_500, 1_162_942, 1_159_856],
+    ceilingUncappedFormulaBytes: 309_986,
+  },
+  {
+    id: 'v3-2',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-web-cli-plugin-v3-ui',
+    date: '2026-09-16',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy:
+      'SDDU v3-2 build round + fix round (leaf specs-tree-v3-2-l1-disclosure-refs, 编排器裁决 V3-VOL-1)',
+    reason:
+      'L1 八类就地展开 + 引用失效 fail-closed 五维判定 + 回执三件套 + 局部树为父 spec FR-V3-030~040 明文必需；修复轮按裁决 V3-VOL-1 撤销自加 cap，ceiling 恢复为公式值 floor(baseline × 1.05)。',
+    baselineBeforeBytes: 295_225,
+    baselineAfterBytes: 327_679,
+    ceilingBeforeBytes: 306_099,
+    ceilingAfterBytes: 344_062,
+    assertionNonRemovalEntries: [
+      'V32-S1',
+      'V32-S2',
+      'V32-S3',
+      'V32-S4',
+      'V32-S5',
+      'V32-S6',
+    ],
+    historyRetainedBytes: [295_225, 291_523, 266_500, 1_162_942, 1_159_856],
+    ceilingUncappedFormulaBytes: 344_062,
+  },
+] as const;
+
+/**
+ * ── 替代守卫 ③（裁决 V3-VOL-1 ③）：**增长正当性证据** ─────────────────────────
+ *
+ * `+32,454 B` 不是一句「有意增重」，而是**逐模块可分解**的：用 esbuild metafile 的
+ * `bytesInOutput`，在几何完全相同的两棵树里分别构建（v3-1 树 = `cf2af32` 的
+ * `packages/web-cli-plugin/src`；v3-2 树 = `615bd0f` 的同路径），得到每个输入模块的
+ * 字节贡献与其差值。两棵树的 `absWorkingDir` 深度/相对路径完全一致，因此
+ * 「模块注释路径长度」这一构建噪声在两边相同 —— 实测两棵树 `dist/content.js`
+ * 同为 177,440 B（等于允许的路径噪声常量），`sidepanel.js` 差值 = **32,454 B**，
+ * 与登记基线之差逐字节相等（复现见 `test/size-attribution.mjs` / `npm run size:attribution`）。
+ *
+ * 结论：增量由 **spec 必需的 L1 模块（26,156 B，80.6%）** 与**接线（5,848 B，18.0%）**
+ * 构成，另有 220 B 的**归因位移**（源码未改，仅因新引用者导致 esbuild 分摊变化）与
+ * 230 B 的未归因运行时胶水；**没有任何重复/冗余代码**（47 个输入模块路径互不相同，
+ * 共享的 v2 模块 `tree-receipt.ts` 增量 = 0 —— 复用而非复制）。
+ */
+export interface GrowthAttributionRow {
+  readonly module: string;
+  /** v3-1 树的字节贡献（`null` = v3-1 树不存在该模块）。 */
+  readonly beforeBytes: number | null;
+  readonly afterBytes: number;
+  readonly deltaBytes: number;
+  readonly kind: 'new-required-module' | 'wiring' | 'attribution-shift';
+  /** 该模块字节由哪条需求/任务要求（新必需模块与接线必填）。 */
+  readonly requiredBy: string;
+}
+
+export const SIDEPANEL_GROWTH_BREAKDOWN = {
+  method:
+    'esbuild metafile bytesInOutput；v3-1 树（git archive cf2af32 packages/web-cli-plugin/src）vs v3-2 树（615bd0f，同一 absWorkingDir 几何 + web-cli-base 同源拷贝）',
+  reproduceCommand: 'npm run size:attribution -- --rev cf2af32 --rev 615bd0f',
+  measuredOn: '2026-09-16',
+  deltaBytes: 32_454,
+  newRequiredModuleBytes: 26_156,
+  wiringBytes: 5_848,
+  attributionShiftBytes: 220,
+  unattributedHelperDeltaBytes: 230,
+  /** 47 个输入模块路径互不相同（无重复模块）；共享 v2 模块增量为 0（复用非复制）。 */
+  duplicationCheck:
+    '输入模块数 47（v3-1 为 41），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B、src/insight/tree-model.ts Δ=0 B —— 局部树/回执复用 v2 模块而非复制实现',
+  rows: [
+    { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: null, afterBytes: 13_729, deltaBytes: 13_729, kind: 'new-required-module', requiredBy: 'FR-V3-031/032/037/038/039（八类就地展开、后果两段、阻断呈现、两条恢复、回执三件套）' },
+    { module: 'src/ui/sidepanel/l1/ref-validity.ts', beforeBytes: null, afterBytes: 5_255, deltaBytes: 5_255, kind: 'new-required-module', requiredBy: 'FR-V3-036（五维 + 不确定即失效 fail-closed）' },
+    { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: null, afterBytes: 3_340, deltaBytes: 3_340, kind: 'new-required-module', requiredBy: 'FR-V3-071/037（引用 id 单源 + 受保护派发 + 阻断）' },
+    { module: 'src/ui/sidepanel/l1/receipt.ts', beforeBytes: null, afterBytes: 2_833, deltaBytes: 2_833, kind: 'new-required-module', requiredBy: 'FR-V3-039 + NFR-V3-008/016（回执三件套 + 零明文）' },
+    { module: 'src/ui/sidepanel/l1/local-tree.ts', beforeBytes: null, afterBytes: 658, deltaBytes: 658, kind: 'new-required-module', requiredBy: 'FR-V3-034（局部树 ≤3 节点）' },
+    { module: 'src/insight/ownership-tree.ts', beforeBytes: null, afterBytes: 341, deltaBytes: 341, kind: 'new-required-module', requiredBy: 'FR-V3-034（复用 v2 主归属链，首次被侧栏 bundle 引用 → 共享而非复制）' },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 48_849, deltaBytes: 4_004, kind: 'wiring', requiredBy: 'FR-V3-031~040（L1 挂载 + 单一派发器；测试面在 test/**）' },
+    { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 4_547, afterBytes: 5_318, deltaBytes: 771, kind: 'wiring', requiredBy: 'FR-V3-031（白名单 4 → 9 个目标 + 5 条 wiring）' },
+    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 17_778, deltaBytes: 655, kind: 'wiring', requiredBy: 'FR-V3-031/037/040（L1 契约纯函数 + staleRef 载体）' },
+    { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 5_665, afterBytes: 6_058, deltaBytes: 393, kind: 'wiring', requiredBy: 'FR-V3-037（失效行可读原因；风险位唯一写入者不变）' },
+    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 3_376, deltaBytes: 25, kind: 'wiring', requiredBy: 'FR-V3-037（risk-rail 调用透传 staleRef）' },
+    { module: 'src/ui/tree/tree-receipt.ts', beforeBytes: 2_719, afterBytes: 2_719, deltaBytes: 0, kind: 'attribution-shift', requiredBy: '源码未改且字节未变（Δ=0）—— 回执三件套复用 v2 模块，未被复制出第二份实现' },
+    { module: 'src/ui/tree/tree-drawer.ts', beforeBytes: 39_779, afterBytes: 39_887, deltaBytes: 108, kind: 'attribution-shift', requiredBy: '源码未改（git diff cf2af32..615bd0f 无此文件）；esbuild 分摊位移' },
+    { module: 'src/ui/settings/panel.ts', beforeBytes: 37_040, afterBytes: 37_111, deltaBytes: 71, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
+    { module: 'src/ui/tree/tree-view.ts', beforeBytes: 21_240, afterBytes: 21_267, deltaBytes: 27, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
+    { module: 'src/build-info.ts', beforeBytes: 232, afterBytes: 237, deltaBytes: 5, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
+    { module: 'src/insight/archive-catalog.ts', beforeBytes: 13_175, afterBytes: 13_179, deltaBytes: 4, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
+    { module: 'src/ui/settings/view.ts', beforeBytes: 13_222, afterBytes: 13_225, deltaBytes: 3, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
+    { module: 'src/ui/sidepanel/markdown.ts', beforeBytes: 13_417, afterBytes: 13_419, deltaBytes: 2, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
+  ] as readonly GrowthAttributionRow[],
+} as const;
+
+/**
+ * ── 替代守卫 ④（裁决 V3-VOL-1 ④）：**方向性守卫（防无声膨胀）** ─────────────────
+ *
+ * 同一 Feature 内**连续两轮**功能轮重登记，累计增幅 > `threshold`（默认 15%）时
+ * **必须显式回报编排器**。实现为可读告警（`warning !== null`，附 feature / 轮次 /
+ * 百分比 / 必须动作），并由门禁断言「当前状态必须触发它」+「阈值以下不触发它」
+ * （可 FAIL、非恒真）。它不是静默日志：`test/size-budget.test.ts` 会把文本打到门禁
+ * 输出，且 `SIDEPANEL_BASELINE_META.consecutiveGrowthAlert` 必须与之同源。
+ */
+export interface ConsecutiveGrowthVerdict {
+  readonly feature: string;
+  readonly rounds: readonly string[];
+  readonly fromBytes: number;
+  readonly toBytes: number;
+  readonly cumulativePct: number;
+  readonly threshold: number;
+  /** 非 `null` 即为**必须显式回报编排器**的可读告警。 */
+  readonly warning: string | null;
+}
+
+export function evaluateConsecutiveReRegistrationGrowth(
+  entries: readonly SizeReRegistration[] = SIDEPANEL_RE_REGISTRATIONS,
+  feature = 'specs-tree-web-cli-plugin-v3-ui',
+  threshold = 0.15,
+): ConsecutiveGrowthVerdict {
+  const rounds = entries.filter((e) => e.feature === feature && e.roundKind === 'feature-round');
+  if (rounds.length < 2) {
+    return {
+      feature,
+      rounds: rounds.map((r) => r.id),
+      fromBytes: rounds[0]?.baselineBeforeBytes ?? 0,
+      toBytes: rounds[rounds.length - 1]?.baselineAfterBytes ?? 0,
+      cumulativePct: 0,
+      threshold,
+      warning: null,
+    };
+  }
+  const previous = rounds[rounds.length - 2];
+  const last = rounds[rounds.length - 1];
+  const fromBytes = previous.baselineBeforeBytes;
+  const toBytes = last.baselineAfterBytes;
+  const cumulativePct = (toBytes - fromBytes) / fromBytes;
+  const warning =
+    cumulativePct > threshold
+      ? `⚠️ 体积方向性告警（裁决 V3-VOL-1 ④）：Feature ${feature} 内连续两轮重登记 ` +
+        `${previous.id}（${fromBytes} B → ${previous.baselineAfterBytes} B）+ ${last.id}（${last.baselineBeforeBytes} B → ${toBytes} B）` +
+        `累计增幅 ${(cumulativePct * 100).toFixed(2)}% > ${(threshold * 100).toFixed(0)}% —— **必须显式回报编排器**（不得无声膨胀）；` +
+        `累计 +${toBytes - fromBytes} B；增量构成见 SIDEPANEL_GROWTH_BREAKDOWN。`
+      : null;
+  return { feature, rounds: rounds.map((r) => r.id), fromBytes, toBytes, cumulativePct, threshold, warning };
+}
 
 /**
  * Hard no-growth ceiling for the injected `dist/content.js` (NFR-V2-002).
@@ -286,18 +553,21 @@ function sizeMessage(
 /**
  * Pure verdict for a measured `dist/sidepanel.js` size (regression guard).
  *
- * The ceiling is `min(floor(baseline × (1 + tolerance)), ceilingCapBytes)` — the
- * cap (I6 fix round) makes the guard **tighten-only**: a re-registration that
- * raises the baseline can never widen the pass/fail boundary. Pass
- * `ceilingCapBytes: Number.POSITIVE_INFINITY` to inspect the uncapped formula.
+ * The ceiling is the plain formula `floor(baseline × (1 + tolerance))` — **no cap
+ * participates** (orchestrator ruling V3-VOL-1 ② revoked the v3-1 I6
+ * `SIDEPANEL_CEILING_CAP` hard cap; it is a record-only field now). The guard's
+ * integrity is carried by the four replacement guards instead:
+ *   ① the formula + 5% tolerance here,
+ *   ② `SIDEPANEL_RE_REGISTRATIONS` (explicit disclosure per round),
+ *   ③ `SIDEPANEL_GROWTH_BREAKDOWN` (per-module growth justification),
+ *   ④ `evaluateConsecutiveReRegistrationGrowth()` (>15% over two rounds ⇒ alert).
  */
 export function evaluateSidepanelSize(
   measuredBytes: number,
   baselineBytes: number = SIDEPANEL_BASELINE_BYTES,
   tolerance: number = SIDEPANEL_BASELINE_TOLERANCE,
-  ceilingCapBytes: number = SIDEPANEL_CEILING_CAP,
 ): SizeVerdict {
-  const ceilingBytes = Math.min(Math.floor(baselineBytes * (1 + tolerance)), ceilingCapBytes);
+  const ceilingBytes = Math.floor(baselineBytes * (1 + tolerance));
   const ok = measuredBytes <= ceilingBytes;
   return {
     ok,
@@ -309,7 +579,7 @@ export function evaluateSidepanelSize(
       measuredBytes,
       ceilingBytes,
       ok,
-      `基线 ${baselineBytes}B × ${(1 + tolerance).toFixed(2)} 容差（ceiling 只降不升，cap ${ceilingCapBytes}B）；基线 ≠ 目标预算`,
+      `基线 ${baselineBytes}B × ${(1 + tolerance).toFixed(2)} 容差（公式判定，无 cap —— 裁决 V3-VOL-1 ②）；基线 ≠ 目标预算`,
     ),
   };
 }

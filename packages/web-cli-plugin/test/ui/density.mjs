@@ -633,6 +633,19 @@ async function stageF(cdp, rows, cells, worst) {
   // tighten-only `SIDEPANEL_CEILING_CAP`, asserted in that file's
   // 「ceiling is min(baseline × 1.05, cap) — 只降不升（I6）」 test); this stage only
   // cross-checks the artifact against the registered ceiling.
+  //
+  // ── V3-2 fix round (2026-09-16, orchestrator ruling V3-VOL-1 ②) ───────────
+  // The tighten-only `SIDEPANEL_CEILING_CAP` referenced above has been
+  // **REVOKED**: it was not a spec/author requirement but a self-imposed device
+  // that ended up blocking the spec-mandated L1 feature. The ceiling is once
+  // again the plain formula `floor(baseline × 1.05)` (tolerance 5% unchanged),
+  // and "只降不升" is replaced by **four replacement guards**, asserted in
+  // `test/size-budget.test.ts` + `test/size-growth-evidence.test.ts`:
+  //   ① formula ceiling; ② explicit per-round re-registration registry;
+  //   ③ per-module growth-justification evidence; ④ >15% over two consecutive
+  //   feature rounds ⇒ mandatory reportable alert.
+  // The claim proven *here* is unchanged and unchanged-able: the shipped
+  // artifact ≤ the machine-read ceiling, with 登记值 == 实测产物 checked above.
   check(
     'F 产物字节 ≤ 机读体积上限（「未抬高」的唯一证明在 test/size-budget.test.ts#V31-S12）',
     artifactBytes <= baseline.volume?.ceilingBytes,

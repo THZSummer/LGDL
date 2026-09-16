@@ -44,6 +44,7 @@ import {
   SIDEPANEL_BASELINE_TOLERANCE,
   SIDEPANEL_CEILING,
   SIDEPANEL_CEILING_CAP,
+  SIDEPANEL_CEILING_CAP_RECORD,
 } from './size-baseline.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -427,15 +428,30 @@ test('AC-V3-007/I7/I8: 基线登记值与门禁单源逐项一致（几何下界
     '下界来源公式不得再是「498 − 10」（真实来源是 495 − 7）',
   );
 
-  // 体积登记：与 `test/size-baseline.ts` 的登记值/上限必须同源（I6：登记值 == 实测产物，
-  // 且 ceiling 不得因登记保真而被抬高）。
+  // 体积登记：与 `test/size-baseline.ts` 的登记值/上限必须同源（登记值 == 实测产物）。
+  // v3-2 修复轮（2026-09-16，编排器裁决 V3-VOL-1 ②）：v3-1 I6 轮自加的「只降不升 cap」
+  // 被**撤销** → ceiling 回到公式 floor(baseline × 1.05)。旧断言「ceiling ≤ cap」在该裁决
+  // 下不再成立，故按裁决语义重 pin：ceiling 必须**等于公式值**，且记录 cap 不得参与判定
+  // （断言只增不减：多了一条「记录 cap 之上必须 PASS」的可 FAIL 反证）。
   assert.ok(baseline.volume, '基线必须与体积登记交叉引用（ADR-V3-011 第 4 条：分开登记、互相引用）');
   assert.equal(baseline.volume.artifact, 'dist/sidepanel.js');
   assert.equal(baseline.volume.registeredBaselineBytes, SIDEPANEL_BASELINE_BYTES, '体积登记值必须与 size-baseline 同源');
   assert.equal(baseline.volume.ceilingBytes, SIDEPANEL_CEILING, '体积上限必须与 size-baseline 同源');
+  assert.equal(
+    baseline.volume.ceilingBytes,
+    Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05),
+    'ceiling 必须等于公式 floor(baseline × 1.05)（裁决 V3-VOL-1 ①：判定无 cap）',
+  );
+  assert.equal(
+    baseline.volume.ceilingCapRole,
+    'record-only',
+    'cap 只能作记录、不参与判定（裁决 V3-VOL-1 ②）',
+  );
+  assert.equal(baseline.volume.ceilingCapRecordBytes, SIDEPANEL_CEILING_CAP_RECORD);
+  assert.equal(SIDEPANEL_CEILING_CAP, SIDEPANEL_CEILING_CAP_RECORD, '旧名字不得指向别的值（cap 已降级为记录）');
   assert.ok(
-    baseline.volume.ceilingBytes <= SIDEPANEL_CEILING_CAP,
-    'ceiling 不得超过只降不升的 cap（不得为登记保真而抬高）',
+    baseline.volume.ceilingBytes > SIDEPANEL_CEILING_CAP_RECORD,
+    'ceiling 必须严格高于记录 cap（撤销 cap 的落地证据；若 cap 仍生效本条立刻红灯）',
   );
   assert.equal(baseline.volume.tolerance, SIDEPANEL_BASELINE_TOLERANCE, '容差 5% 不得因重登记而变');
 

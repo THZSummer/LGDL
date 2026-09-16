@@ -521,6 +521,24 @@ async function main() {
     // 反证（内联，实跑 FAIL → 还原 → PASS）：篡改真 DOM 的 `data-count` → 同一条判据
     // 必须给出失败；还原后必须再次为空。这证明该判据**不是恒真**（旧判据在同样
     // 篡改下仍然 PASS —— 因为「计数或标签」二选一被标签满足）。
+    //
+    // ── V3-2 fix round (2026-09-16, ledger V32-S11) — **纯插入，不改判据** ──────
+    // 下面的反证会篡改真实 DOM 并**立刻**复读。在 CPU 争用下它曾与一次**尚未完成
+    // 的重渲染**赛跑（侧栏把常驻计数重新写回，篡改属性在复读前被还原）→ 产生
+    // **负载相关的假红**（`[]`，在 v3-2 修复轮的串行链中实测出现 1 次，单跑 3/3 绿）。
+    // 这里只先等 DOM 静默（有硬上限，绝不挂死），判据本体与断言均未改动/未削弱。
+    await evaluate(
+      cdp,
+      `new Promise((res) => {
+        const root = document.getElementById('l0-statusbar') ?? document.body;
+        let t = null;
+        const done = () => { clearTimeout(t); clearTimeout(cap); mo.disconnect(); res(true); };
+        const mo = new MutationObserver(() => { clearTimeout(t); t = setTimeout(done, 200); });
+        const cap = setTimeout(done, 1500);
+        t = setTimeout(done, 200);
+        mo.observe(root, { subtree: true, childList: true, attributes: true, characterData: true });
+      })`,
+    );
     await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', '99'); true`);
     const l2Tampered = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
     check(

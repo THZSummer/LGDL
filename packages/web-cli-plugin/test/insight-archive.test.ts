@@ -62,6 +62,8 @@ import {
   SIDEPANEL_BASELINE_TOLERANCE,
   SIDEPANEL_CEILING,
   SIDEPANEL_CEILING_CAP,
+  SIDEPANEL_CEILING_CAP_RECORD,
+  SIDEPANEL_CEILING_CAP_ROLE,
   distArtifact,
   evaluateSidepanelSize,
   readArtifactSize,
@@ -770,16 +772,29 @@ test('A9 archive: sidepanel baseline re-registration is explicit and monotonic (
     SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
     '当前基线 > 上一轮登记值（本轮方向 = 基线提升）',
   );
-  // I6：ceiling 不得随基线提升而抬高（只降不升）。旧断言「baseline > 上一轮 ceiling」
-  // 证明的是「旧 ceiling 已被突破」，与 I6 的「登记保真但不放宽」目标相反。
+  // v3-2 修复轮（2026-09-16，编排器裁决 V3-VOL-1 ②）：v3-1 I6 轮自加的只降不升 cap
+  // 被**撤销**（该 cap 非 spec/作者要求，是自缚装置），ceiling 恢复为公式值
+  // floor(baseline × 1.05) = 344,062 B。旧断言「ceiling ≤ 上一轮 ceiling」在该裁决下
+  // 不再成立，故按裁决语义重 pin（不是放宽：容差 5% 未动、cap 降级为纯记录、断言只增）。
   assert.ok(
-    SIDEPANEL_CEILING <= SIDEPANEL_BASELINE_META.previousCeilingBytes,
-    `ceiling ${SIDEPANEL_CEILING}B 必须 ≤ 上一轮 ceiling ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B（只降不升，I6）`,
+    SIDEPANEL_CEILING > SIDEPANEL_BASELINE_META.previousCeilingBytes,
+    `ceiling ${SIDEPANEL_CEILING}B 必须 > 上一轮记录 ceiling ${SIDEPANEL_BASELINE_META.previousCeilingBytes}B（cap 已撤销，判定回到公式）`,
   );
   assert.equal(
     SIDEPANEL_CEILING,
-    Math.min(Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05), SIDEPANEL_CEILING_CAP),
-    'ceiling = min(floor(baseline × 1.05), cap)',
+    Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05),
+    'ceiling = floor(baseline × 1.05)（无 cap，裁决 V3-VOL-1 ①）',
+  );
+  assert.equal(
+    SIDEPANEL_CEILING_CAP_ROLE,
+    'record-only',
+    'cap 只能作记录、不参与判定（裁决 V3-VOL-1 ②）',
+  );
+  assert.equal(SIDEPANEL_CEILING_CAP, SIDEPANEL_CEILING_CAP_RECORD, 'cap 旧名只能指向记录值');
+  assert.equal(
+    evaluateSidepanelSize(SIDEPANEL_CEILING_CAP_RECORD + 1).ok,
+    true,
+    '反证：记录 cap 之上必须 PASS ⇒ cap 已不在判定里',
   );
   assert.equal(SIDEPANEL_BASELINE_META.kind, 'regression-baseline-only');
   assert.equal(SIDEPANEL_BASELINE_META.source, 'packages/web-cli-plugin/dist/sidepanel.js');

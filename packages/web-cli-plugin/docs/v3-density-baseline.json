@@ -283,13 +283,75 @@
     "artifact": "dist/sidepanel.js",
     "registeredBaselineBytes": 327679,
     "finalArtifactBytes": 327679,
-    "ceilingBytes": 306099,
-    "ceilingCapBytes": 306099,
+    "ceilingBytes": 344062,
+    "ceilingFormula": "floor(baseline × (1 + tolerance))",
     "tolerance": 0.05,
+    "ceilingCapRole": "record-only",
+    "ceilingCapRecordBytes": 306099,
     "previousBaselineBytes": 295225,
     "previousCeilingBytes": 306099,
-    "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP）",
-    "note": "v3-2（2026-09-16）显式重登记：登记值**必须等于实测产物**（由 `test/size-budget.test.ts` 与 `test/ui/density.mjs` 阶段 F 双向机器比对）。新实测 dist/sidepanel.js = **327,679 B**（前值 295,225 B，+32,454 B：L1 八类就地展开 + 引用失效 fail-closed 判定 + 回执三件套 + 局部树）。**ceiling 未抬高**：仍为 306,099 B（`SIDEPANEL_CEILING_CAP` 只降不升），因此本轮产物**超出被冻结的 ceiling 21,580 B**，`test/size-budget.test.ts` 的 `≤ cap` 断言与阶段 F 的 `≤ 机读上限` 断言**如实 FAIL**（未放宽、未删断言、未改容差）。见 build.md §体积：此为**红线冲突上报项**，需编排器裁决（抬高 cap ≈ +21.6 KB，或削减本叶范围）。"
+    "ceilingDirection": "raised-formula",
+    "directionAlertThreshold": 0.15,
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：Feature specs-tree-web-cli-plugin-v3-ui 内连续两轮功能轮重登记 v3-1（266,500 B → 295,225 B）+ v3-2（295,225 B → 327,679 B）累计增幅 22.96% > 15% —— **必须显式回报编排器**（不得无声膨胀）。增量构成见 growthBreakdown。",
+    "reRegistrations": [
+      {
+        "id": "v3-1",
+        "roundKind": "feature-round",
+        "date": "2026-09-16",
+        "baselineBeforeBytes": 266500,
+        "baselineAfterBytes": 291523,
+        "ceilingBeforeBytes": 279825,
+        "ceilingAfterBytes": 306099,
+        "assertionNonRemovalEntries": [
+          "V31-S6",
+          "V31-S7"
+        ]
+      },
+      {
+        "id": "v3-1-i6",
+        "roundKind": "registry-fidelity-round",
+        "date": "2026-09-16",
+        "baselineBeforeBytes": 291523,
+        "baselineAfterBytes": 295225,
+        "ceilingBeforeBytes": 306099,
+        "ceilingAfterBytes": 306099,
+        "assertionNonRemovalEntries": [
+          "V31-S10",
+          "V31-S11",
+          "V31-S12"
+        ]
+      },
+      {
+        "id": "v3-2",
+        "roundKind": "feature-round",
+        "date": "2026-09-16",
+        "baselineBeforeBytes": 295225,
+        "baselineAfterBytes": 327679,
+        "ceilingBeforeBytes": 306099,
+        "ceilingAfterBytes": 344062,
+        "assertionNonRemovalEntries": [
+          "V32-S1",
+          "V32-S2",
+          "V32-S3",
+          "V32-S4",
+          "V32-S5",
+          "V32-S6"
+        ]
+      }
+    ],
+    "growthBreakdown": {
+      "method": "esbuild metafile bytesInOutput；v3-1 树（git archive cf2af32 packages/web-cli-plugin/src）vs v3-2 树（615bd0f），同一 absWorkingDir 几何 + web-cli-base 同源拷贝",
+      "reproduceCommand": "npm run size:attribution --workspace @lgdl/web-cli-plugin -- --rev cf2af32 --rev 615bd0f",
+      "deltaBytes": 32454,
+      "newRequiredModuleBytes": 26156,
+      "wiringBytes": 5848,
+      "attributionShiftBytes": 220,
+      "unattributedHelperDeltaBytes": 230,
+      "duplicationCheck": "输入模块 41 → 47，路径互不相同（无重复模块）；共享 v2 模块 src/ui/tree/tree-receipt.ts Δ=0 B、src/insight/tree-model.ts Δ=0 B —— 局部树/回执/判定复用 v2 模块而非复制实现",
+      "conclusion": "增长来自本叶 spec 必需模块（新必需模块 26,156 B = 80.6% + 接线 5,848 B = 18.0%，合计 98.6%），无冗余/重复代码"
+    },
+    "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP_RECORD / SIDEPANEL_RE_REGISTRATIONS / SIDEPANEL_GROWTH_BREAKDOWN / evaluateConsecutiveReRegistrationGrowth）；门禁 test/size-budget.test.ts + test/size-growth-evidence.test.ts",
+    "note": "v3-2 修复轮（2026-09-16，编排器裁决 V3-VOL-1）：登记值**必须等于实测产物**（由 test/size-budget.test.ts 与 test/ui/density.mjs 阶段 F 双向机器比对）。新实测 dist/sidepanel.js = **327,679 B**（前值 295,225 B，+32,454 B：L1 八类就地展开 + 引用失效 fail-closed 判定 + 回执三件套 + 局部树）。**裁决 ①** 批准基线显式重登记至 327,679 B；**裁决 ②** 撤销 v3-1 I6 轮自加的 SIDEPANEL_CEILING_CAP 硬上限（非 spec/作者要求，是自缚装置，已挡住合法功能）→ ceiling 恢复为公式值 floor(327,679 × 1.05) = **344,062 B**（容差 5% 不变；cap 值 306,099 B 降级为纯记录 `ceilingCapRole: record-only`，不再参与判定）。**裁决 ③** 增长正当性证据见 growthBreakdown（逐模块分解 + 无重复代码判据）。**裁决 ④** 方向性守卫已触发（见 directionalAlert），本轮已显式回报编排器。密度侧：risk(staleRef) 三格 chars 244 → 254 的显式订正**予以保留**（裁决 ⑤ 接受；阈值/口径未动、风险增量归属违规 0、默认档零漂移）。"
   },
   "fixtureAsymmetry": {
     "status": "FIXED（收口轮 2026-09-16）",
