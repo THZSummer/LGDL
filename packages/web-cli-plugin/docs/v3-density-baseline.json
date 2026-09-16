@@ -358,18 +358,18 @@
   },
   "volume": {
     "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 349880,
-    "finalArtifactBytes": 349880,
-    "ceilingBytes": 367374,
+    "registeredBaselineBytes": 349925,
+    "finalArtifactBytes": 349925,
+    "ceilingBytes": 367421,
     "ceilingFormula": "floor(baseline × (1 + tolerance))",
     "tolerance": 0.05,
     "ceilingCapRole": "record-only",
     "ceilingCapRecordBytes": 306099,
-    "previousBaselineBytes": 328476,
-    "previousCeilingBytes": 344899,
+    "previousBaselineBytes": 349880,
+    "previousCeilingBytes": 367374,
     "ceilingDirection": "raised-formula",
     "directionAlertThreshold": 0.15,
-    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：Feature specs-tree-web-cli-plugin-v3-ui 内连续两个**功能轮**（v3-1 266,500→295,225 与 v3-2 295,225→327,679、v3-3 328,476→349,880）累计增幅 **+18.51%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；另：从 266,500 B 起算的 Feature 累计增幅 **+31.29%**（>30%）亦已在 v3-3 build 回报中显式列出。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。",
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：Feature specs-tree-web-cli-plugin-v3-ui 内连续两个**功能轮**（v3-1 266,500→295,225 与 v3-2 295,225→327,679、v3-3 328,476→349,880）累计增幅 **+18.51%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；另：当前产物 349,925 B（v3-3 修复轮重登记，+45 B）从 266,500 B 起算的 Feature 累计增幅 **+31.30%**（>30%）亦已在 v3-3 build 回报与修复轮回报中显式列出。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。",
     "reRegistrations": [
       {
         "id": "v3-1",
@@ -426,21 +426,70 @@
         "assertionNonRemovalEntries": [
           "V32-S17"
         ]
+      },
+      {
+        "id": "v3-3",
+        "roundKind": "feature-round",
+        "date": "2026-09-16",
+        "baselineBeforeBytes": 328476,
+        "baselineAfterBytes": 349880,
+        "ceilingBeforeBytes": 344899,
+        "ceilingAfterBytes": 367374,
+        "assertionNonRemovalEntries": [
+          "V33-S1",
+          "V33-S5",
+          "V33-S7",
+          "V33-S9",
+          "V33-MR-01",
+          "V33-MR-06"
+        ]
+      },
+      {
+        "id": "v3-3-fix",
+        "roundKind": "registry-fidelity-round",
+        "date": "2026-09-16",
+        "baselineBeforeBytes": 349880,
+        "baselineAfterBytes": 349925,
+        "ceilingBeforeBytes": 367374,
+        "ceilingAfterBytes": 367421,
+        "assertionNonRemovalEntries": [
+          "V33F-S1",
+          "V33F-S2",
+          "V33F-S5",
+          "V33F-S6"
+        ]
       }
     ],
     "growthBreakdown": {
-      "method": "esbuild metafile bytesInOutput；v3-1 树（cf2af32）vs **当前树**（v3-2 修复轮 + 收口轮工作树），同一 absWorkingDir 几何 + web-cli-base 同源拷贝（累计口径；收口轮自身 +811 B 另见 size-baseline 的 closeoutRoundRows）",
-      "reproduceCommand": "npm run size:attribution --workspace @lgdl/web-cli-plugin -- --rev cf2af32 --rev 615bd0f",
-      "deltaBytes": 33251,
-      "newRequiredModuleBytes": 26913,
-      "wiringBytes": 5888,
-      "attributionShiftBytes": 220,
-      "unattributedHelperDeltaBytes": 230,
-      "duplicationCheck": "输入模块 41 → 47，路径互不相同（无重复模块）；共享 v2 模块 src/ui/tree/tree-receipt.ts Δ=0 B、src/insight/tree-model.ts Δ=0 B —— 局部树/回执/判定复用 v2 模块而非复制实现",
-      "conclusion": "增长来自本叶 spec 必需模块（新必需模块 26,913 B = 80.9% + 接线 5,888 B = 17.7%，合计 98.6%），无冗余/重复代码"
+      "method": "esbuild metafile bytesInOutput；v3-1 树（cf2af32）vs **当前树**（v3-3 修复轮工作树），同一 absWorkingDir 几何 + web-cli-base 同源拷贝（累计口径；`afterBytes` 取自真实 `dist/build-meta.json`，逐模块由 test/size-growth-evidence.test.ts 机器比对）。",
+      "reproduceCommand": "npm run size:attribution --workspace @lgdl/web-cli-plugin -- --rev cf2af32 --rev WORKTREE",
+      "deltaBytes": 54700,
+      "newRequiredModuleBytes": 43528,
+      "wiringBytes": 10488,
+      "attributionShiftBytes": 265,
+      "unattributedHelperDeltaBytes": 419,
+      "duplicationCheck": "输入模块数 **52**（真实 `dist/build-meta.json` 实测；v3-1 为 41，v3-2 为 47），路径互不相同（无重复模块）；共享 v2 模块 src/ui/tree/tree-receipt.ts Δ=0 B、src/insight/tree-model.ts Δ=0 B —— 局部树/回执/判定复用 v2 模块而非复制实现",
+      "conclusion": "增长来自本叶 spec 必需模块（新必需模块 43,528 B = 79.6% + 接线 10,488 B = 19.2%，合计 98.75%），另有 265 B 归因位移与 419 B 未归因胶水（合计 684 B < 1,000 B）；无冗余/重复代码",
+      "previous": {
+        "method": "esbuild metafile bytesInOutput；v3-1 树（cf2af32）vs **当前树**（v3-2 修复轮 + 收口轮工作树），同一 absWorkingDir 几何 + web-cli-base 同源拷贝（累计口径；收口轮自身 +811 B 另见 size-baseline 的 closeoutRoundRows）",
+        "reproduceCommand": "npm run size:attribution --workspace @lgdl/web-cli-plugin -- --rev cf2af32 --rev 615bd0f",
+        "deltaBytes": 33251,
+        "newRequiredModuleBytes": 26913,
+        "wiringBytes": 5888,
+        "attributionShiftBytes": 220,
+        "unattributedHelperDeltaBytes": 230,
+        "duplicationCheck": "输入模块 41 → 47，路径互不相同（无重复模块）；共享 v2 模块 src/ui/tree/tree-receipt.ts Δ=0 B、src/insight/tree-model.ts Δ=0 B —— 局部树/回执/判定复用 v2 模块而非复制实现",
+        "conclusion": "增长来自本叶 spec 必需模块（新必需模块 26,913 B = 80.9% + 接线 5,888 B = 17.7%，合计 98.6%），无冗余/重复代码"
+      },
+      "v33FixRound": {
+        "baselineBeforeBytes": 349880,
+        "baselineAfterBytes": 349925,
+        "deltaBytes": 45,
+        "note": "修复轮 +45 B 全部来自 I-01（逐目标 `aria-controls`：`l0/status-bar.ts` 1,649 → 1,694 B）；其余模块字节不变（死代码 `catalogCounts()` 已被树摇，删除后 Δ=0）。"
+      }
     },
     "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP_RECORD / SIDEPANEL_RE_REGISTRATIONS / SIDEPANEL_GROWTH_BREAKDOWN / evaluateConsecutiveReRegistrationGrowth）；门禁 test/size-budget.test.ts + test/size-growth-evidence.test.ts",
-    "note": "volume 与 test/size-baseline.ts 同源（机器比对）。v3-3（2026-09-16，leaf specs-tree-v3-3-l2-on-demand-views）：L2 四视图 + 视图替换 + 真值计数 + 树归属迁移，产物 328,476 → **349,880 B**（+21,404 B，+6.52%），ceiling 由公式抬高 floor(349,880 × 1.05) = **367,374 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null。前值 328,476 / 327,679 / 295,225 / 291,523 / 266,500 全保留在体积登记的 TIMELINE 与重登记登记册。"
+    "note": "volume 与 test/size-baseline.ts 同源（机器比对：registeredBaselineBytes / ceilingBytes 由 test/density-thresholds.test.ts 断言）。v3-3（2026-09-16，leaf specs-tree-v3-3-l2-on-demand-views）：L2 四视图 + 视图替换 + 真值计数 + 树归属迁移，产物 328,476 → **349,880 B**（+21,404 B，+6.52%）；**v3-3 修复轮**（同叶，审查 R1 后）：F-01 反证订正 + I-01 逐目标 aria-controls + expectFailPattern 防呆，产物按实测重登记为 **349,925 B**（+45 B；`roundKind=registry-fidelity-round`，功能轮口径不变）；ceiling 由公式抬高 floor(349,925 × 1.05) = **367,421 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null。前值 349,880 / 328,476 / 327,679 / 295,225 / 291,523 / 266,500 全保留在体积登记的 TIMELINE 与重登记登记册。本文件**不再**独立承载 growthBreakdown 的历史值（旧值逐字保留在同条目 `growthBreakdown.previous` 内），避免同一事实两处漂移（审查 I-03⑤）。"
   },
   "fixtureAsymmetry": {
     "status": "FIXED（收口轮 2026-09-16）",

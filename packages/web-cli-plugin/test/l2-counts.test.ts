@@ -303,3 +303,54 @@ test('audit: stripUrlParams 只保留 scheme://host/path，非 URL 一律降级�
   assert.equal(stripUrlParams(42), '');
   assert.equal(stripUrlParams(''), '');
 });
+
+test('audit: AUDIT_FIELD_WHITELIST 与 toAuditRow 的真实输入面逐项一致（登记常量不得与实际字段漂移）', () => {
+  // I-05② (v3-3 fix round): `AUDIT_FIELD_WHITELIST` used to be read **only** by this
+  // test file — the implementation picked its fields by hand (`ev.tool`,
+  // `ev.subcommand`, …), so the registered "only these fields are read" claim could
+  // drift away from `toAuditRow` without anything failing. The guard below makes the
+  // constant load-bearing in both directions, derived from the constant itself:
+  //   ① every whitelisted key must really change the rendered row (a decorative
+  //      entry would be caught);
+  //   ② every non-whitelisted key must be **constructively dropped** (mutating it
+  //      cannot change any rendered column).
+  const BASE: Record<string, unknown> = {
+    tool: 'tabs',
+    subcommand: 'list',
+    type: 'origin-authorize',
+    decision: 'allow',
+    ok: true,
+    durationMs: 12,
+    ts: Date.UTC(2026, 8, 16, 3, 4, 5),
+    origin: 'https://a.test/path?token=SECRET#frag',
+  };
+  const PROBE: Record<string, unknown> = {
+    tool: 'PROBE-tool',
+    subcommand: 'PROBE-sub',
+    type: 'PROBE-type',
+    decision: 'PROBE-decision',
+    ok: false,
+    durationMs: 999,
+    ts: Date.UTC(2025, 0, 2, 3, 4, 5),
+    origin: 'https://PROBE.test/y?secret=1#f',
+  };
+  const drift: string[] = [];
+  for (const key of AUDIT_FIELD_WHITELIST) {
+    // `ok` only carries the result when no explicit decision is present (that is the
+    // documented precedence), so drop `decision` for that one key.
+    const base = key === 'ok' ? { ...BASE, decision: undefined } : BASE;
+    const before = toAuditRow(base, 0);
+    const after = toAuditRow({ ...base, [key]: PROBE[key] }, 0);
+    if (JSON.stringify(before) === JSON.stringify(after)) {
+      drift.push(`${key}: 白名单声明该字段被读取，但改动它不改变任何渲染列（常量与实现漂移 / 白名单条目失效）`);
+    }
+  }
+  for (const key of ['argsSummary', 'detail', 'reason', 'trust', 'args', 'clipboard', 'apiKey', 'url']) {
+    const base = toAuditRow(BASE, 0);
+    const after = toAuditRow({ ...BASE, [key]: 'apiKey=sk-live-SECRET 剪贴板正文' }, 0);
+    if (JSON.stringify(base) !== JSON.stringify(after)) {
+      drift.push(`${key}: 非白名单字段影响了渲染行（构造性丢弃失效）`);
+    }
+  }
+  assert.deepEqual(drift, [], `审计字段白名单与实现不一致（I-05②）：\n${drift.join('\n')}`);
+});

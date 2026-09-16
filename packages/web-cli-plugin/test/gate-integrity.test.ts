@@ -81,6 +81,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -104,6 +105,9 @@ function packageRoot(): string {
 }
 
 const PKG = packageRoot();
+
+/** Repository root (the ledger / judge paths in the R4 checks are repo-relative). */
+const REPO = resolve(PKG, '..', '..');
 
 /**
  * The roots the audit runs against. Default = the real package. `SDC_GATES_ROOT`
@@ -134,6 +138,8 @@ export const CHROMIUM_GATES = [
 export const EXPECTED_AUDITED_FILES = [
   ...CHROMIUM_GATES,
   'test/ui/l1-reverse.mjs',
+  // v3-3 fix round: the versioned L2 reverse-proof harness (F-01 订正 + expectFailPattern).
+  'test/ui/l2-reverse.mjs',
   'test/ui/_v3-helpers.mjs',
 ] as const;
 
@@ -805,4 +811,165 @@ test('元门禁：动态证伪覆盖如实登记（哪些门禁只有静态覆�
   console.log(
     `  ℹ 动态证伪覆盖：binding.mjs（F-01 反证）+ l1.mjs（RP-L1-A~H/C2）；仅静态覆盖（如实登记）：${STATIC_ONLY_GATES.join(', ')}`,
   );
+});
+
+// ── 5. R4（v3-3 fix round）：反证必须「因该红而红」────────────────────────────
+/**
+ * Review R1 (F-01) found the *class* of defect the first four rules cannot see:
+ * `RP-V33-03`'s「delete one assertion ⇒ the ledger floor FAILS」reverse proof was red
+ * because the **invocation was broken** (`node --test <test> --files-override <copy>`
+ * made node execute the copy as a test file → `ERR_MODULE_NOT_FOUND`), not because the
+ * floor judgement fired. A reverse proof must therefore declare the failure text it
+ * expects (**`expectFailPattern`**) and be judged by
+ * `test/reverse-proof-judge.mjs`, which rejects any red a launch/loading error can
+ * explain — so「因错而红」can never again masquerade as evidence.
+ *
+ * R4a  **declaration** — every registered reverse-proof harness must declare at least
+ *      its floor number of cases, each carrying a non-empty `expectFailPattern`.
+ * R4b  **enforcement** — the harness must import the shared judge and call it (a
+ *      declared pattern nobody judges is decoration), and the judge itself must carry
+ *      the rejection texts/markers that make the "red-because-wrong" verdict possible.
+ * R4c  **self-proof (dynamic)** — the judge's own `--selftest` is executed here: the
+ *      **historical F-01 shape** must be judged INVALID, a real override failure VALID
+ *      and a green run INVALID. If the anti-foolproof cannot fail, this test fails.
+ * R4d  **honest exceptions** — reverse proofs whose failure text is environment-bound
+ *      (or whose driver is not in the repository) must be registered as an
+ *      **exception with a reason**; the set is printed, never silently allowed.
+ */
+export const REVERSE_PROOF_HARNESSES = [
+  {
+    file: 'test/ui/l1-reverse.mjs',
+    /** RP-L1-A~H + RP-L1-C2 — one `expectFailPattern` each. */
+    caseFloor: 9,
+    driver: 'artifact perturbation (dist/sidepanel.js|html) + test/ui/l1.mjs',
+  },
+  {
+    file: 'test/ui/l2-reverse.mjs',
+    /** v3-3: RP-V33-01/02/03/03-NEG/04/05 — one `expectFailPattern` each. */
+    caseFloor: 6,
+    driver: 'artifact/source perturbation + test/ui/l2.mjs / supersession / meta-gate / size guard',
+  },
+] as const;
+
+/**
+ * Registered exceptions (R4d). Each entry needs a **reason**; the meta-gate asserts the
+ * reason is non-empty and prints the whole set, so "we cannot declare a pattern" can
+ * never be an implicit, invisible allowance.
+ */
+export const REVERSE_PROOF_EXCEPTIONS = [
+  {
+    id: 'in-gate-RP-V3-01/04/05/08/09 · density.mjs',
+    reason:
+      'FAIL 段文本由门禁**自身**在同一 Chromium 进程内断言（`test/ui/density.mjs` 的 `check("RP-V3-0X (FAIL 段) …")` 正是 expectFailPattern 的等价物，正则/字面量逐字写在门禁里），' +
+      '从外部再驱动一次需要每个 RP 一次 Chromium 运行（内存 ~1.5 GB、NFR-V3-012 串行纪律）。登记为「in-gate 形态」：模式断言**必须存在于门禁源码中**（下方 R4b 机器核对）。',
+  },
+  {
+    id: 'in-gate-RP-L0-06b · l0.mjs',
+    reason: '同上（`check("⑥ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出")` 在门禁内断言 FAIL 段文本）。',
+  },
+  {
+    id: 'in-gate-D1 · l1.mjs',
+    reason: '同上（l1.mjs ⑧ D1 反证在门禁内断言「判据不是恒真」，FAIL 段文本随断言名固定）。',
+  },
+  {
+    id: 'build-round /tmp 脚本（v3-1 RP-I1·RP-V3-05·RP-V3-06；v3-2/v3-3 rp-*.sh）',
+    reason:
+      '历史构建轮的反证驱动脚本落在 `/tmp/opencode/...`（**非版本化**，元门禁无法扫描；且 `rp-v33-03.sh` 的调用形态本身即 F-01 的根因）。' +
+      '处置：v3-3 修复轮把本叶反证**收编**为版本化 harness `test/ui/l2-reverse.mjs`（逐条 expectFailPattern + 共享判定器 + 负控），' +
+      '此后 **不得**再以 /tmp 脚本作为唯一证据；历史 /tmp 日志仅作旁证（原文在 build.md §6.2 逐字保留）。',
+  },
+] as const;
+
+const REVERSE_JUDGE = 'packages/web-cli-plugin/test/reverse-proof-judge.mjs';
+const JUDGE_IMPORT_RE = /from\s+['"]\.\.\/reverse-proof-judge\.mjs['"]/;
+const JUDGE_CALL_RE = /judgeReverseProof(?:Invalid)?\s*\(/;
+/** `expectFailPattern: '…'` / `expectFailPattern: /…/` — a non-empty declaration. */
+const EXPECT_FAIL_PATTERN_RE = /expectFailPattern:\s*(\/[^/\n]+\/|'[^'\n]+'|"[^"\n]+")/g;
+
+test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern 并真的接上有效性判定器', () => {
+  for (const harness of REVERSE_PROOF_HARNESSES) {
+    const path = resolve(PKG, harness.file);
+    assert.ok(existsSync(path), `登记的 reverse-proof harness 不存在：${harness.file}`);
+    const text = readFileSync(path, 'utf8');
+    const declared = [...text.matchAll(EXPECT_FAIL_PATTERN_RE)].map((m) => m[1]);
+    assert.ok(
+      declared.length >= harness.caseFloor,
+      `${harness.file} 只声明了 ${declared.length} 个 expectFailPattern（登记下界 ${harness.caseFloor}）—— ` +
+        '「反证必须命中预期失败文本」不得被静默放宽',
+    );
+    for (const pattern of declared) {
+      assert.ok(pattern.length > 3, `${harness.file} 的 expectFailPattern 不得为空/占位：${pattern}`);
+    }
+    assert.ok(
+      JUDGE_IMPORT_RE.test(text),
+      `${harness.file} 未接上共享判定器（import … from '../reverse-proof-judge.mjs'）—— 声明的模式必须真的被判定`,
+    );
+    assert.ok(JUDGE_CALL_RE.test(text), `${harness.file} 未调用 judgeReverseProof(…) —— 判定器是装饰品`);
+    // The harness must also be in the audited set (a reverse proof is itself a gate).
+    assert.ok(
+      (AUDITED_FILES as readonly string[]).includes(harness.file),
+      `${harness.file} 未被受审集合扫描到（R1a/R1b/R2/R3 不适用于它就等于没人审它）`,
+    );
+  }
+
+  // The judge must carry the two rejections that make「因错而红」impossible to pass:
+  // (1) the launch-error markers, (2) the "expected text missing ⇒ invalid" sentence.
+  const judge = readFileSync(resolve(REPO, REVERSE_JUDGE), 'utf8');
+  for (const marker of ['ERR_MODULE_NOT_FOUND', 'Cannot find module', 'SyntaxError']) {
+    assert.ok(judge.includes(marker), `判定器缺启动错误标记 ${marker}（因错而红将无法被识别）`);
+  }
+  assert.ok(judge.includes('未命中预期失败文本'), '判定器缺「未命中预期失败文本 ⇒ 判无效」的分支');
+  assert.ok(judge.includes('因错而红'), '判定器缺「因错而红」的判定语义（可读理由）');
+
+  // In-gate reverse proofs (the R4d exceptions) must really carry their pattern
+  // assertion in the gate source — otherwise the exception is a paper allowance.
+  const inGate: ReadonlyArray<[string, RegExp]> = [
+    ['test/ui/density.mjs', /RP-V3-01 FAIL 段诊断含「C1 8 > 7」/],
+    ['test/ui/density.mjs', /RP-V3-08 FAIL 段诊断可读（含「实测 X ≠ 登记 Y」）/],
+    ['test/ui/l0.mjs', /反证（FAIL 段）：篡改 data-count/],
+    ['test/ui/l1.mjs', /D1 反证（FAIL 段）/],
+  ];
+  for (const [file, pattern] of inGate) {
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    assert.ok(pattern.test(text), `${file} 的 in-gate 反证模式断言（${pattern}）不存在 —— 例外登记失真`);
+  }
+  console.log(
+    `  ℹ R4a/R4b：${REVERSE_PROOF_HARNESSES.map((h) => `${h.file}（≥${h.caseFloor} 条 expectFailPattern）`).join(' + ')}；` +
+      `in-gate 例外 ${REVERSE_PROOF_EXCEPTIONS.length} 条（模式断言已逐条核对）`,
+  );
+});
+
+test('元门禁 R4c（自身反证）：判定器必须把「因错而红」判无效、把真反证判有效（--selftest 实跑）', () => {
+  const judge = resolve(REPO, REVERSE_JUDGE);
+  assert.ok(existsSync(judge), `判定器不存在：${REVERSE_JUDGE}`);
+  let out = '';
+  let code = 0;
+  try {
+    out = execFileSync('node', [judge, '--selftest'], { cwd: PKG, encoding: 'utf8' });
+  } catch (err) {
+    const e = err as { status?: number; stdout?: string; stderr?: string };
+    code = e.status ?? 1;
+    out = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+  }
+  assert.equal(code, 0, `判定器 --selftest 未通过（防呆自身失效）：\n${out}`);
+  assert.match(out, /因错而红被判无效/, '--selftest 必须显式报告「因错而红被判无效」');
+  assert.match(out, /SELFTEST-2/, '--selftest 必须包含「历史形态 + 宽松期望文本仍判无效」的用例');
+  assert.match(out, /passed \/ 0 failed/, '--selftest 必须全过');
+  console.log(out.trimEnd().split('\n').slice(-2).join('\n'));
+});
+
+test('元门禁 R4d：无法声明可复现失败文本的反证必须如实登记为「例外 + 理由」（不得默认放行）', () => {
+  assert.ok(REVERSE_PROOF_EXCEPTIONS.length > 0, '例外集合不得为空（若真无例外，请改为登记一条说明该事实的条目）');
+  for (const exception of REVERSE_PROOF_EXCEPTIONS) {
+    assert.ok(exception.id.length > 0, '例外必须有 id');
+    assert.ok(exception.reason.trim().length >= 40, `${exception.id} 的例外理由过短（必须写明为何无法声明可复现失败文本 / 如何被替代覆盖）`);
+  }
+  // The registered harnesses must not silently be exceptions as well.
+  for (const harness of REVERSE_PROOF_HARNESSES) {
+    assert.ok(
+      !REVERSE_PROOF_EXCEPTIONS.some((e) => e.id.includes(harness.file)),
+      `${harness.file} 既有 expectFailPattern 又被登记为例外 —— 登记自相矛盾`,
+    );
+  }
+  console.log(`  ℹ R4d 例外登记（如实、逐条带理由）：\n      ${REVERSE_PROOF_EXCEPTIONS.map((e) => e.id).join('\n      ')}`);
 });

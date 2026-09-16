@@ -37,6 +37,7 @@ import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from '
 import { execFileSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { judgeReverseProof } from '../reverse-proof-judge.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const GATE = resolve(ROOT, 'test/ui/l1.mjs');
@@ -52,7 +53,7 @@ const backupOf = (path) => resolve(BACKUP_DIR, path.split('/').pop() + '.pristin
 
 /**
  * @typedef {{ id: string, artifact: string, assertion: string, requirement: string,
- *   from: string, to: string, count?: number, expectFail: RegExp, note: string }} Case
+ *   from: string, to: string, count?: number, expectFailPattern: RegExp, note: string }} Case
  */
 /** @type {Case[]} */
 const CASES = [
@@ -65,7 +66,7 @@ const CASES = [
     // comparison (gate-side expected string) can no longer match.
     from: '\\u76EE\\u6807\\u5143\\u7D20\\u5DF2\\u4E0D\\u5B58\\u5728',
     to: '\\u76EE\\u6807\\u5143\\u7D20\\u5DF2\\u4E0D\\u5B58\\u5728X',
-    expectFail: /可读原因指到该维（逐字）/,
+    expectFailPattern: /可读原因指到该维（逐字）/,
     note: '注入后：五维的可读原因与门禁逐字期望不再相等 → 该维 FAIL',
   },
   {
@@ -75,7 +76,7 @@ const CASES = [
     requirement: 'FR-V3-036（不确定即失效）',
     from: '\\u65E0\\u6CD5\\u786E\\u8BA4\\u5F15\\u7528',
     to: '\\u65E0\\u6CD5\\u6838\\u5BF9\\u5F15\\u7528',
-    expectFail: /可读原因写明「无法确认/,
+    expectFailPattern: /可读原因写明「无法确认/,
     note: '注入后：unknown 文案改写 → 5 个场景的原因断言 FAIL',
   },
   {
@@ -85,7 +86,7 @@ const CASES = [
     requirement: 'FR-V3-037（阻断）',
     from: 'function evaluateRefValidity(ref, env) {',
     to: 'function evaluateRefValidity(ref, env) {\n    return { verdict: "valid" };',
-    expectFail: /失效引用被阻断|判定 invalid|按失效处理/,
+    expectFailPattern: /失效引用被阻断|判定 invalid|按失效处理/,
     note: '注入后：**唯一判定权威**恒返回 valid → 阻断（以及五维/unknown 的失效判定）全部失效 → 门禁 FAIL。'
       + '注：阻断是**双层**实现（panels 侧 `isRefUsable` + ref-store 侧 `dispatch` 重新判定）；'
       + '只关掉其中一层（例如把 ref-store 的 `view.verdict !== "valid"` 改成 `false`）门禁**仍 PASS** —— '
@@ -98,7 +99,7 @@ const CASES = [
     requirement: 'FR-V3-037（非空转对照 / D1 反证）',
     from: 'sends += 1;',
     to: 'sends += 0;',
-    expectFail: /有效引用可动作/,
+    expectFailPattern: /有效引用可动作/,
     note: '注入后：放行路径不再计数 → 对照「before ≥ 1」FAIL（证明对照不是恒真）',
   },
   {
@@ -108,7 +109,7 @@ const CASES = [
     requirement: 'FR-V3-038（恢复路径①）',
     from: 'el2("l1-ref-describe").addEventListener("click", () => deps.revealFallback());',
     to: 'el2("l1-ref-describe").addEventListener("click", () => void 0);',
-    expectFail: /「改用描述」走既有 #ask 兜底输入/,
+    expectFailPattern: /「改用描述」走既有 #ask 兜底输入/,
     note: '注入后：改用描述不再打开兜底输入 → 该恢复路径 FAIL',
   },
   {
@@ -118,7 +119,7 @@ const CASES = [
     requirement: 'FR-V3-038（恢复路径②）',
     from: '        store.retireUnusable();\n        const fresh = store.create(facts);',
     to: '        store.retireUnusable();\n        const fresh = { facts: previous.facts };',
-    expectFail: /「重新拾取」产生 NEW id/,
+    expectFailPattern: /「重新拾取」产生 NEW id/,
     note: '注入后：重新拾取不再 mint 新引用（fresh = 上一条记录）→ 不产生新 id → 「NEW id」断言按名字 FAIL（N-04 收口轮把锚点从 `repick()` 头部移到 `store.create(facts)`：旧的头部锚点会先让 `fresh.facts` 抛 TypeError，令具名断言根本不执行）',
   },
   {
@@ -128,7 +129,7 @@ const CASES = [
     requirement: 'FR-V3-039（重拉为真）',
     from: 'refreshSeq += 1;',
     to: 'refreshSeq += 0;',
-    expectFail: /证据来自真实重拉/,
+    expectFailPattern: /证据来自真实重拉/,
     note: '注入后：重拉不再递增 → seq 断言 FAIL（证明「重拉为真」可被打破）',
   },
   {
@@ -139,7 +140,7 @@ const CASES = [
     from: 'data-l1-panel=',
     to: 'data-l1-panel-x=',
     count: 8,
-    expectFail: /恰好 8 个 \[data-l1-panel\]/,
+    expectFailPattern: /恰好 8 个 \[data-l1-panel\]/,
     note: '注入后：DOM 契约属性改名 → 枚举断言 FAIL（门禁读的正是这份 HTML）',
   },
   {
@@ -156,7 +157,7 @@ const CASES = [
     // 与「guard 在唯一 `sends += 1` 之前」；只关内层 ⇒ 该断言立刻 FAIL。
     from: 'if (view.verdict !== "valid") {',
     to: 'if (false) {',
-    expectFail: /内层阻断 guard 在产物字节中存在且唯一|内层 guard 位于/,
+    expectFailPattern: /内层阻断 guard 在产物字节中存在且唯一|内层 guard 位于/,
     note: '注入后：内层 guard 从产物字节中消失 ⇒ 门禁 ⑧ 的产物字节 pin FAIL（行为侧同源的 '
       + '`test/l1-ref-validity.test.ts` Node 运行时用例仍独立 pin 其行为，含「valid 放行计数真的动」的非空转对照）。',
   },
@@ -227,20 +228,28 @@ try {
     const patchedBytes = statSync(c.artifact).size;
     const failRun = runGate();
     // A check NAME shows up in the passing output too — the FAIL段 evidence must be
-    // a line carrying the gate's **failure** marker `✖` *and* matching the assertion.
+    // a line matching the case's **`expectFailPattern`**, judged by the shared
+    // validity judge (v3-3 fix round, review F-01): a red that a launch/loading error
+    // can explain (e.g. `ERR_MODULE_NOT_FOUND`) is **invalid** even when some line
+    // happens to match — "因错而红" is not a reverse proof.
+    const verdict = judgeReverseProof({
+      id: c.id,
+      expectFailPattern: c.expectFailPattern,
+      exitCode: failRun.code,
+      output: failRun.out,
+    });
     const markedFail = failRun.out.includes('✖');
-    const failHit = failRun.out
-      .split('\n')
-      .some((line) => line.includes('✖') && c.expectFail.test(line));
+    const failHit = verdict.valid;
     const failedChecks = failRun.out
       .split('\n')
       .filter((line) => line.includes('✖'))
       .map((line) => line.trim())
       .slice(0, 4);
     console.log(
-      `  · FAIL 段：exit=${failRun.code} · 断言命中=${failHit} · 出现 ✖=${markedFail}` +
+      `  · FAIL 段：exit=${failRun.code} · 判定=${verdict.valid ? '有效（因该红而红）' : '无效'} · 出现 ✖=${markedFail}` +
         (failRun.code === 0 ? ' ← 扰动未让门禁 FAIL' : ''),
     );
+    console.log(`      ${verdict.reason}`);
     for (const line of failedChecks) console.log(`      ${line}`);
 
     // ── byte-exact restore ───────────────────────────────────────────────────
@@ -270,7 +279,7 @@ try {
       note: c.note,
     });
 
-    if (failRun.code === 0 || !failHit) failures.push(`${c.id} FAIL 段未按预期失败（命中判据=false）`);
+    if (failRun.code === 0 || !failHit) failures.push(`${c.id} FAIL 段未按预期失败（expectFailPattern 未命中 / 因错而红）`);
     if (!restoreOk) failures.push(`${c.id} 还原 sha256 不一致`);
     if (!passOk) failures.push(`${c.id} 还原后门禁未 PASS`);
   }

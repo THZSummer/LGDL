@@ -154,6 +154,17 @@ const openProbe = `(() => {
       return (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
     })
     .map((el) => el.id || el.className);
+  // I-05④ (v3-3 fix round): the CSS caliber — visible containers that are *allowed* to
+  // scroll, whether or not they currently overflow (hidden containers excluded, since
+  // a replaced #log keeps overflow-y: auto in the stylesheet). A judgement that only
+  // sees already-overflowing boxes cannot catch a second scrolling container.
+  const scrollersCss = [...document.querySelectorAll('#panel-main *, #panel-main')]
+    .filter((el) => {
+      if (hiddenChain(el)) return false;
+      const style = getComputedStyle(el);
+      return style.overflowY === 'auto' || style.overflowY === 'scroll';
+    })
+    .map((el) => el.id || el.className);
   const rail = document.getElementById('risk-rail');
   const railChain = [];
   for (let n = rail; n; n = n.parentElement) railChain.push(n.id || n.tagName.toLowerCase());
@@ -174,6 +185,7 @@ const openProbe = `(() => {
     railChainHasView,
     railChain,
     scrollers,
+    scrollersCss,
     viewOverflowX: vr ? Math.round(vr.width) - Math.round(view.clientWidth) : null,
     viewOverflow: view ? view.scrollWidth - view.clientWidth : null,
     docOverflowX: de.scrollWidth - de.clientWidth,
@@ -226,6 +238,20 @@ const treeProbe = `(() => {
     allowControls,
     hardFloorCount: hardFloor.length,
     hardFloorWithControl,
+    // I-02②/③ (v3-3 fix round): the census the judgement needs, so that no term of
+    // the check is trivially true. toggleButtonCount = the number of nodes that
+    // actually render an expand affordance (button.tree-toggle, NOT the leaf
+    // span.tree-toggle-leaf bullet) — aria-expanded must be on exactly those;
+    // expandedTrueWithoutGroup = nodes claiming to be expanded but carrying no
+    // ul[role=group] child (a lie in the hierarchy semantics);
+    // controlsTotal = the real control population (anti-vacuity for the
+    // zero-control judgements).
+    toggleButtonCount: items.filter((i) => i.querySelector(':scope > .tree-node-head > button.tree-toggle')).length,
+    expandedTrue: items.filter((i) => i.getAttribute('aria-expanded') === 'true').length,
+    expandedTrueWithoutGroup: items.filter(
+      (i) => i.getAttribute('aria-expanded') === 'true' && !i.querySelector(':scope > ul[role="group"]'),
+    ).length,
+    controlsTotal: drawer.querySelectorAll('button.tree-control').length,
     groups,
     roles,
     owner,
@@ -332,7 +358,19 @@ async function main() {
     const tree = JSON.parse(await evaluate(cdp, treeProbe));
     check('⑦ 真层级树 `ul[role="tree"]` 存在', tree.hasTree === true && tree.treeRole === 'tree', JSON.stringify(tree));
     check('⑦ 每个 `li[role="treeitem"]` 都带 aria-level（≥1）', tree.itemCount > 0 && tree.allHaveLevel === true, JSON.stringify(tree.levels));
-    check('⑦ aria-expanded 只出现在可展开节点上（树的分层语义保留）', tree.expandedCount > 0, String(tree.expandedCount));
+    // I-02② (v3-3 fix round): the old judgement was `tree.expandedCount > 0` while the
+    // title claimed「aria-expanded 只出现在可展开节点上」—— the two did not match.
+    // Now it is the *bidirectional* structural fact: exactly the nodes that render an
+    // expand affordance (`button.tree-toggle`) carry `aria-expanded`, and every node
+    // that reports `true` really has a `ul[role="group"]` child.
+    check(
+      '⑦ aria-expanded 只出现在可展开节点上（与 tree-toggle 按钮一一对应；true 节点必有 role=group 子表）',
+      tree.expandedCount > 0 &&
+        tree.expandedCount === tree.toggleButtonCount &&
+        tree.expandedTrue > 0 &&
+        tree.expandedTrueWithoutGroup === 0,
+      `expanded=${tree.expandedCount} toggle=${tree.toggleButtonCount} true=${tree.expandedTrue} trueWithoutGroup=${tree.expandedTrueWithoutGroup}`,
+    );
     check('⑦ 面包屑（role=navigation / .tree-breadcrumb）可见可达', tree.hasBreadcrumb === true, JSON.stringify(tree));
     check('⑦ 检索过滤入口保留（只读过滤，不改授权）', tree.filterInput === true, JSON.stringify(tree));
     check('⑦ 命令档案子视图入口保留（v2 档案分层）', tree.archiveToggle === true, JSON.stringify(tree));
@@ -353,9 +391,9 @@ async function main() {
       JSON.stringify(distinctActions),
     );
     check(
-      '⑦ 硬底线节点零控件（不可覆盖 → 无任何 tree-control 按钮）',
-      tree.hardFloorCount >= 0 && tree.hardFloorWithControl === 0,
-      `hardFloor=${tree.hardFloorCount} withControl=${tree.hardFloorWithControl}`,
+      '⑦ 硬底线节点零控件 + 树内零 `allow` 控件（控件普查非空 = 非空转；硬底线正例由 ⑧ 目录侧断言）',
+      tree.controlsTotal > 0 && tree.hardFloorWithControl === 0 && tree.allowControls === 0,
+      `controls=${tree.controlsTotal} hardFloor=${tree.hardFloorCount} withControl=${tree.hardFloorWithControl} allow=${tree.allowControls}`,
     );
     check(
       '⑦ 树主体归属迁移到 [data-l2-view=tree] 且 role=dialog/aria-modal 已迁出（ADR-V3-028 台账项）',
@@ -383,7 +421,16 @@ async function main() {
 
     // ── ⑤ 单滚动容器 + ⑥ 风险位可见 ────────────────────────────────────
     console.log('\n▶ ⑤ 单滚动容器 + ⑥ 风险位常驻可见');
-    check('⑤ L2 打开期间面板级滚动容器恰为 1 个（#log 已被替换）', open.scrollers.length === 1, JSON.stringify(open.scrollers));
+    // I-05④ (v3-3 fix round): the census used to require `scrollHeight > clientHeight`,
+    // so a visible panel-level container that CAN scroll (CSS `overflow-y: auto`) but
+    // happens not to overflow yet was invisible to the judgement. The CSS caliber
+    // (`scrollersCss`, hidden containers excluded) is now asserted to be **exactly the
+    // same single container** — strictly stronger than the overflow-only census.
+    check(
+      '⑤ L2 打开期间面板级滚动容器恰为 1 个（#log 已被替换）且它就是唯一的可见 CSS 可滚容器',
+      open.scrollers.length === 1 && open.scrollersCss.length === 1 && open.scrollersCss[0] === open.scrollers[0],
+      JSON.stringify({ overflowing: open.scrollers, css: open.scrollersCss }),
+    );
     check('⑤ 视图内零水平溢出（长路径/长命令名/面包屑）', open.viewOverflow === 0 && open.docOverflowX === 0, JSON.stringify({ v: open.viewOverflow, d: open.docOverflowX }));
     check('⑥ L2 打开期间 #risk-rail 仍可见（高度 > 0 且无 hidden 祖先）', open.railVisible === true, JSON.stringify(open.railChain));
     check('⑥ 风险位祖先闭包无 [data-l2-view]（视图替换只发生在 #panel-main 内）', open.railChainHasView === false, JSON.stringify(open.railChain));
@@ -459,6 +506,11 @@ async function main() {
       ),
     );
     check('④ 返回后 `← 返回` 随之不可见（不再是默认档的可点元素）', backAfter.hostHidden === true && backAfter.backVisible === false, JSON.stringify(backAfter));
+    // I-05 (v3-3 fix round, 如实登记项)：返回后的 `activeElement` **不**落在入口上
+    // （实测 `document.activeElement.id === ''`）：产品路径在还原展开态时会把入口面板
+    // 重新折叠，`#l2-entry-<key>` 因而处于 `hidden` 祖先之下，`focus()` 成为 no-op。
+    // 这属于**产品行为/焦点目标**问题（改它=改 `dist` 字节 → 触发体积重登记级联），
+    // 不在本轮修复面内 → 见 build.md §F-02 的 deferred 登记（含复现命令）。
 
     // ── ⑧ 零提权 + ⑨ 零明文（catalogue / audit / settings） ─────────────
     console.log('\n▶ ⑧ 零提权控件 + clamp 不可被伪造消息突破 + ⑨ 零明文');
@@ -519,7 +571,13 @@ async function main() {
     check('⑧ 每卡都带生效值 + 可读控件说明（只读投影完整性）', catalogShape.effective === 0 && catalogShape.controlText === 0, JSON.stringify({ effective: catalogShape.effective, controlText: catalogShape.controlText }));
     check('⑧ 9 动作白名单在命令目录内也只读展示且顺序固定', JSON.stringify(catalogShape.actions) === JSON.stringify(TREE_ACTION_IDS), JSON.stringify(catalogShape.actions));
     check('⑧ 分列文案无「已全部渲染」类夸大表述', !/已全部渲染|已覆盖全部/.test(catalogShape.live), catalogShape.live.slice(0, 90));
-    check('⑤ 命令目录打开时面板级滚动容器恰为 1', catalog.scrollers.length === 1, JSON.stringify(catalog.scrollers));
+    check(
+      '⑤ 命令目录打开时面板级滚动容器恰为 1（且它必在可见 CSS 可滚容器集合内 —— 溢出普查不得漏掉不溢出的可滚容器）',
+      catalog.scrollers.length === 1 &&
+        catalog.scrollers.every((s) => catalog.scrollersCss.includes(s)) &&
+        catalog.scrollersCss.length >= catalog.scrollers.length,
+      JSON.stringify({ overflowing: catalog.scrollers, css: catalog.scrollersCss }),
+    );
 
     // A forged message must not widen a hard-floor command: the SW stores the
     // override but the projection's *effective* action stays clamped (ADR-V2-026/027
@@ -603,11 +661,20 @@ async function main() {
             viewHidden: document.getElementById('settings-view').hidden === true,
             dataL2View: document.getElementById('settings-view').getAttribute('data-l2-view'),
             backVisible: document.getElementById('settings-view').getBoundingClientRect().height > 0,
+            // I-01 (v3-3 fix round): while the settings view is OPEN, its entry must
+            // point at THAT view — the runtime used to overwrite the value declared in
+            // index.html with view-host (a false pair: a hidden target).
+            entryControls: document.getElementById('l2-entry-settings')?.getAttribute('aria-controls') ?? null,
+            entryExpanded: document.getElementById('l2-entry-settings')?.getAttribute('aria-expanded') ?? null,
           });
         })()`,
       ),
     );
-    check('⑩ 设置视图 = L2 `[data-l2-view="settings"]`（归属迁移完成）', settings.dataL2View === 'settings' && settings.viewHidden === false, JSON.stringify(settings));
+    check(
+      '⑩ 设置视图 = L2 `[data-l2-view="settings"]`（归属迁移完成）+ 其入口 `aria-controls` 指向 `settings-view`（I-01：逐目标，不是 `view-host`）',
+      settings.dataL2View === 'settings' && settings.viewHidden === false && settings.entryControls === 'settings-view',
+      JSON.stringify({ dataL2View: settings.dataL2View, viewHidden: settings.viewHidden, entryControls: settings.entryControls }),
+    );
     check('⑩ 设置分区集合 == 已登记 registry（数量与 id 逐项）', JSON.stringify(settings.sections) === JSON.stringify(registeredSectionIds()), JSON.stringify(settings.sections));
     check('⑩ 设置项集合与 v1 等价（7 个 v1 id + 迁移 details 全在）', settings.hasAllV1 === true, JSON.stringify(settings.hasAllV1));
     check('⑩ 设置入口计数 == 渲染出的分区数（入口/摘要/视图三处同源）', String(JSON.parse(await evaluate(cdp, countProbe)).derived?.settings) === String(settings.sections.length), `${JSON.stringify(JSON.parse(await evaluate(cdp, countProbe)).derived?.settings)} vs ${settings.sections.length}`);
@@ -618,8 +685,13 @@ async function main() {
     check('⑩ 退出设置视图后重回默认零占用（四视图不可见）', settingsClosed.openViews.length === 0, JSON.stringify(settingsClosed.openViews));
 
     const equiv = JSON.parse(await evaluate(cdp, countProbe));
+    // I-02① (v3-3 fix round): the title used to claim「回执三件套」as one of the eight
+    // equivalence items while the judgement never touched a receipt. The title now
+    // names exactly what is judged (seven items readable from the same truth), and
+    // points at where the receipt triple **is** asserted (v3-2's `test/ui/l1.mjs`,
+    // registered in `docs/v3-supersession-ledger.json#v3ReverseProofExpectations`).
     check(
-      '⑩ 能力集等价：命令集合 / 档位 / 四维度 / {live,baseline} / 审计条目 / 设置分区 / 9 动作 / 回执三件套 —— 八项均由真值可读',
+      '⑩ 能力集等价：命令集合 / 档位 / 四维度 / {live,baseline} / 审计条目 / 设置分区 / 9 动作 —— 七项由同一真值可读（回执三件套不在此视图：由 v3-2 test/ui/l1.mjs 断言）',
       typeof equiv.derived?.tree === 'number' &&
         typeof equiv.derived?.commands?.live === 'number' &&
         typeof equiv.derived?.commands?.baseline === 'number' &&
@@ -631,18 +703,35 @@ async function main() {
     );
 
     // ── 窄屏（320px）零水平溢出 ─────────────────────────────────────────
-    console.log('\n▶ 320px 窄栏：长路径 / 长命令名 / 面包屑零水平溢出');
+    // I-05③ (v3-3 fix round): the narrow-column probe used to cover only two views
+    // (tree / commands) — audit and settings had no 320px probe at all. The same two
+    // assertions now measure **all four** views, with an explicit anti-vacuity count
+    // (a view that was never measured must not be able to pass silently).
+    console.log('\n▶ 320px 窄栏：四个视图（tree/commands/audit/settings）长内容零水平溢出');
+    const narrowOverflow = {};
     await setViewport(cdp, 320, VIEWPORT_HEIGHT);
-    await evaluate(cdp, `window.__v3.testing.openL2View('tree'); true`);
-    await sleep(300);
-    const narrowTree = JSON.parse(await evaluate(cdp, openProbe));
-    check('320px 连接树视图零水平溢出（文档 + 视图内）', narrowTree.docOverflowX === 0 && narrowTree.viewOverflow === 0, JSON.stringify({ d: narrowTree.docOverflowX, v: narrowTree.viewOverflow }));
-    await evaluate(cdp, `window.__v3.testing.openL2View('commands'); true`);
-    await sleep(300);
-    const narrowCat = JSON.parse(await evaluate(cdp, openProbe));
-    check('320px 命令目录零水平溢出', narrowCat.docOverflowX === 0 && narrowCat.viewOverflow === 0, JSON.stringify({ d: narrowCat.docOverflowX, v: narrowCat.viewOverflow }));
+    for (const key of L2_KEYS) {
+      await evaluate(cdp, `window.__v3.testing.openL2View(${JSON.stringify(key)}); true`);
+      await sleep(320);
+      const probe = JSON.parse(await evaluate(cdp, openProbe));
+      narrowOverflow[key] = { doc: probe.docOverflowX, view: probe.viewOverflow, openViews: probe.openViews };
+    }
+    await evaluate(cdp, `document.getElementById('settings-back')?.click(); true`);
+    await sleep(200);
     await evaluate(cdp, `window.__v3.testing.closeL2View(); true`);
     await sleep(200);
+    const overflowingViews = L2_KEYS.filter((k) => narrowOverflow[k].doc !== 0 || narrowOverflow[k].view !== 0);
+    const unmeasuredViews = L2_KEYS.filter((k) => narrowOverflow[k].view === null || narrowOverflow[k].openViews[0] !== k);
+    check(
+      '320px 四视图零水平溢出（文档 + 视图内，逐视图判定）',
+      overflowingViews.length === 0,
+      JSON.stringify(narrowOverflow),
+    );
+    check(
+      '320px 四视图探针非空转（四视图均被真实打开且测到数值）',
+      unmeasuredViews.length === 0 && Object.keys(narrowOverflow).length === L2_KEYS.length,
+      JSON.stringify({ unmeasuredViews, measured: Object.keys(narrowOverflow) }),
+    );
 
     check('无未捕获页面异常（L2 渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();

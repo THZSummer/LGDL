@@ -3,7 +3,7 @@
   "featureKey": "specs-tree-v3-3-l2-on-demand-views",
   "version": "v3.0.0",
   "name": "V3-3 L2 按需视图（树/命令/审计/设置）——全局连接树 / 命令目录 122 卡 / 审计 / 设置默认一个都不出现，只留「计数 + 入口」（计数从真值派生），≤2 次交互可达的视图替换 + 「← 返回」；复用既有 tree-drawer / 命令档案 / 审计 / 设置资产（改归属 + 补摘要/计数/入口），承担 R-UI-002 取代台账最大工作量",
-  "phase": "builded",
+  "phase": "reviewed",
   "workflow": "5.build",
   "agent": "sddu-build",
   "depth": 2,
@@ -86,7 +86,10 @@
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/tasks.md",
     "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/tasks.json",
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
-    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md"
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/build.md",
+    "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/review.md",
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/review-report.md"
   },
   "dependencies": {
     "on": [
@@ -173,7 +176,12 @@
       "phase": "builded",
       "timestamp": "2026-09-16T14:20:00.000Z",
       "triggeredBy": "sddu-build（9 任务 / 5 波全部落地；全门禁串行绿；体积显式重登记 + 5 条新反证；产出 build.md）"
+    },
+    {
+      "phase": "reviewed",
+      "timestamp": "2026-09-16T15:45:00.000Z",
+      "triggeredBy": "sddu-review（R1：1 阻塞 F-01 + I-01~I-05）→ sddu-build 修复轮（F-01 订正 + expectFailPattern 防呆 + I-01~I-05 处置；门禁全绿；体积按实测重登记）"
     }
   ],
-  "phaseNote": "build 阶段完成（2026-09-16，sddu-build）：9 任务 / 5 波全部 completed。四个 L2 视图默认零占用 + 计数真值派生 + 视图替换与返回复位 + 树归属迁移（role=dialog→region、FAB 默认 hidden）+ 取代台账最大战场（insight.mjs 同编号迁移 108→116；sidepanel-view.test.ts **零 diff**，4 契约原样保留）+ 体积**显式重登记**（328,476 → 349,880 B，ceiling 367,374，含逐模块增量归因表）。门禁（严格串行）：typecheck 0 error / build ✓ / npm test 772/772 / supersession 11/11 / density 127/0（默认档 C1=7 C2=7，阈值未动）/ l0 160/0 / l1 103/0 / l2 71/0（新门禁）/ journey 167 / insight 116 / binding 192 / hardening 24 / e2e PASS / gate-integrity 9/9 / l1-reverse PASS。反证：RP-V33-01~05 全部「注入 → FAIL → sha256 逐字节还原 → PASS」。披露两条：① 从 266,500 B 起算 Feature 累计 +31.29%（>30%，已显式列出）；② 密度 22 登记格 chars 收紧 −3（tighten-only，前值保留在各格 previous）。人工面（观感 / 体感类）如实登记「未执行」，不冒充 PASS。"
+  "phaseNote": "reviewed —— 审查 R1（review.md C1~C44 + review-report.md）结论 ❌ 不通过（1 阻塞 F-01），本叶随即执行**修复轮**（sddu-build）：① F-01 订正 —— `RP-V33-03` 的调用形态改为形态 B（`node dist-test/test/supersession-ledger.test.js --files-override <同 basename 副本>`），FAIL 段实测命中 `--files-override …: 运行时 check 计数 67 < 台账下界 68 —— 删除断言未登记`、PASS 段 11/11，并新增版本化 harness `test/ui/l2-reverse.mjs`（RP-V33-01~05 全部声明 expectFailPattern + 逐字节还原）与其中立判定器 `test/reverse-proof-judge.mjs`；构建轮的无效记录在 build.md §6/§6.1 标注为「无效反证（因错而红）」并**逐字保留原文**，另附 review 的独立复现与本轮修复后原文。② 新增全局防呆（本轮最高价值项）—— 元门禁 `test/gate-integrity.test.ts` R4a/R4b/R4c/R4d：反证必须声明并命中 expectFailPattern，「因错而红」一律判无效（判定器 `--selftest` 以历史 F-01 原文为负控，实跑全过），无法声明可复现失败文本者如实登记为例外 + 理由。③ I-01（中）设置入口 `aria-controls` 改为逐目标并补 l0 断言；I-02 三处断言标题/恒真合取改写（`check(` 计数保持 68，F-01 证据文本不变）；I-03 文档/登记册数字保真 5 处逐处订正（历史值保留在 `growthBreakdown.previous`）；I-04 台账盲区补登（V33F-S12）+ 局限明写；I-05 死代码 `catalogCounts()` 删除 + 白名单漂移守卫 + 320px 四视图/单滚动 CSS 口径加强；返回后 activeElement 焦点目标问题如实 deferred。④ 门禁（严格串行，日志 /tmp/opencode/v3-gate-logs/v3-3-fix/）：typecheck 0 err / build ✓（content.js 177,076 零改动 · sidepanel.js 349,925）/ npm test 776/776 / supersession 11/11（l0 floor 72→73）/ density 127/0 / l0 164/0 / l1 103/0 / l2 71/0 / journey 167 / insight 116 / binding 192 / hardening 24 / e2e PASS / gate-integrity 12/12（含 R4）/ l1-reverse 9 条全绿 / l2-reverse 6 条全绿（含负控被判无效）+ density --reverse RP-V3-01/02/03/04/08/09 全 exit=0。⑤ 体积按实测**显式重登记** 349,880 → 349,925 B（+45 B 全部来自 I-01；ceiling 由公式抬高 367,374 → 367,421；registry-fidelity-round，功能轮口径不变 +18.51%；Feature 累计 +31.30%）。红线零改动：content.js 177,076 + sha256 52a82620…、src/content 三 hash、判定链 sha256、manifest 零 diff、无新依赖、主界面无常驻输入框、风险位不可折叠、main 2ddc922 未动。"
 }

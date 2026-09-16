@@ -69,7 +69,14 @@ export function mountStatusBar(doc: Document): StatusBarHandle {
         // (D6: every disclosure has a summary + an explicit entry point).
         btn.textContent = entry.label;
         btn.setAttribute('data-count', entry.count < 0 ? 'n/a' : String(entry.count));
-        btn.setAttribute('aria-controls', 'view-host');
+        // I-01 (v3-3 fix round): `aria-controls` must point at the entry's **own**
+        // target — `#l2-entry-settings` controls `#settings-view` (the v1 in-panel
+        // settings view), the other three control `#view-host`. One shared value for
+        // four different targets was a **false pair** (the settings entry pointed at a
+        // hidden element while its view was open); this now agrees with the value
+        // declared in `index.html` and with `syncTriggerAria()`'s per-target
+        // `aria-expanded`.
+        btn.setAttribute('aria-controls', entry.key === 'settings' ? 'settings-view' : 'view-host');
       }
       syncTriggerAria();
     },

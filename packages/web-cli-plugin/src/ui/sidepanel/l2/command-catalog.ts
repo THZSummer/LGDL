@@ -136,15 +136,6 @@ function toRow(card: ArchiveCard): CatalogRow {
 }
 
 /** `{live, baseline}` for the entry count — both numbers, from the same model. */
-export function catalogCounts(snapshot: ConnectTreeSnapshot | null): { live: number | null; baseline: number | null } {
-  if (!snapshot) return { live: null, baseline: null };
-  const model = buildArchiveModel(snapshot);
-  return {
-    live: model.header.liveCounts.cards,
-    baseline: model.coverage.baseline.tools + model.coverage.baseline.subcommands,
-  };
-}
-
 /**
  * Render the view into `host`. **Read-only**: every node is a `div` / `span` /
  * `p` — a gate asserts the rendered subtree has zero form controls.

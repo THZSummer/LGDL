@@ -423,6 +423,25 @@ async function main() {
       'ask-other',
     ];
     check('⑥ 遍历范围 = 全部 [aria-controls] 元素（未被白名单缩窄）', entries.length >= EXPECTED_TRIGGERS.length, `实测 ${entries.length} 个：${entries.map((e) => e.trigger).join(', ')}`);
+    // I-01 (v3-3 fix round): `aria-controls` must point at the trigger's **own** target.
+    // The runtime used to write `view-host` onto all four L2 entries, so
+    // `#l2-entry-settings` claimed to control the view host (hidden while the settings
+    // view is open) while `aria-expanded` tracked `#settings-view` — a false pair that
+    // the old check could not see (it only asserted「目标存在」).
+    const ARIA_TARGET_BY_ENTRY = {
+      'l2-entry-tree': 'view-host',
+      'l2-entry-commands': 'view-host',
+      'l2-entry-audit': 'view-host',
+      'l2-entry-settings': 'settings-view',
+    };
+    for (const [trigger, expectedTarget] of Object.entries(ARIA_TARGET_BY_ENTRY)) {
+      const entry = entries.find((e) => e.trigger === trigger);
+      check(
+        `⑥ ${trigger}：aria-controls 指向**自己的**目标（${expectedTarget}）且该目标存在`,
+        entry?.targetId === expectedTarget && entry?.targetExists === true,
+        JSON.stringify(entry),
+      );
+    }
     for (const trigger of EXPECTED_TRIGGERS) {
       check(`⑥ ${trigger} 在遍历范围内（可见性契约不得被漏检）`, entries.some((e) => e.trigger === trigger), entries.map((e) => e.trigger).join(', '));
     }
