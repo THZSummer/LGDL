@@ -210,7 +210,7 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * **累计**增量 33,251 B；**逐轮**前后值由 `SIDEPANEL_RE_REGISTRATIONS` 承载体（末项
  * `v3-2-closeout`：327,679 → 328,476）。两者分工明确、不得混用。
  */
-export const SIDEPANEL_BASELINE_BYTES = 349_925;
+export const SIDEPANEL_BASELINE_BYTES = 362_777;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -227,7 +227,7 @@ export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
  */
 export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
   1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500, 291_523, 295_225, 327_679, 328_476,
-  349_880, 349_925,
+  349_880, 349_925, 362_163, 362_865, 362_777,
 ] as const;
 
 /** Allowed growth over the baseline before the guard fails. */
@@ -278,7 +278,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 349_925;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 362_777;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -298,28 +298,40 @@ export const SIDEPANEL_BASELINE_META = {
    * 增量。**逐轮**前后值（含 327,679 → 328,476）在 `SIDEPANEL_RE_REGISTRATIONS`。
    */
   previousBaselineBytes: 295_225,
-  previousCeilingBytes: 367_374,
+  previousCeilingBytes: 367_421,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 349_925,
+  finalArtifactBytes: 362_777,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
   ceilingCapRecordBytes: 306_099,
   /** 裁决 V3-VOL-1 ④：同 Feature 连续两轮累计增幅 > 15% 时的可读告警（非 null 即须回报编排器）。 */
   consecutiveGrowthAlertThreshold: 0.15,
-  consecutiveGrowthAlert: '已触发：见 SIDEPANEL_RE_REGISTRATIONS 与 evaluateConsecutiveReRegistrationGrowth()（v3-2 + v3-3 两个**功能轮**累计 +18.51% > 15%，已显式回报编排器；从 266,500 B 起算的 Feature 累计 +31.30%（含修复轮 +45 B）亦已在 v3-3 及修复轮回报中显式列出）',
+  consecutiveGrowthAlert:
+    '已触发：见 SIDEPANEL_RE_REGISTRATIONS 与 evaluateConsecutiveReRegistrationGrowth()。' +
+    '**最差连续两功能轮** = v3-1 + v3-2（266,500 → 327,679 B，累计 +22.95% > 15%）—— 已显式回报编排器；' +
+    'v3-3 + v3-4（328,476 → 362,163 B，+10.25%）**低于** 15% 线，但仍按「最差对」口径保留告警（守卫只增不减，见 helper 注释）；' +
+    '从 266,500 B 起算的 Feature 累计 **+36.16%**（< 40% 停工线，已在 v3-4 回报中显式列出）。',
   reRegisteredFrom:
+    'v3-4 轮 349,925 B（ceiling 367,421 B；面板侧接线 pick-input.ts + 手势表单一清单 + 拾取不可用态）；' +
     'v3-3 修复轮 349,880 B（ceiling 367,374 B；审查 R1 的 F-01 订正 + I-01 逐目标 aria-controls 修复 + expectFailPattern 防呆）；v3-2 收口轮 328,476 B（ceiling 344,899 B，公式判定）；更早 v3-2 修复轮 327,679 B（ceiling 344,062 B）、v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）与 291,523 B（该轮最终产物实测 294,874 B）、266,500 B（ceiling 279,825 B，2026-09-14 收紧轮）、1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',
   targetBudgetBytes: null,
   targetMet: null,
   reason:
-    'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 **v3-3 显式提升重登记：328,476 → 349,880 B（+21,404 B，+6.52%）**，' +
+    'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。' +
+    '**2026-09-16 v3-4 显式提升重登记：349,925 → 362_865 B（+12_940 B，+3.70%）**：本叶「页面即输入」落在 `sidepanel.js` 的部分只有面板侧接线 —— ' +
+    '新增 1 个必需模块 `ui/sidepanel/pick-input.ts`（5_085 B：双触发注入 / 文档身份缓存 / 拖放落点 / 良性拒绝分类）与接线（sidepanel.ts +4_784、' +
+    'l1/panels.ts +1,830 手势表由单一清单渲染、view-model.ts +422 手势清单与拾取不可用态、l0/shell.ts +694 风险区可用性行）；' +
+    '页面侧功能全部落在**独立产物** `dist/pick-layer.js`（32_391 B，自有「不增长」上限，见 PICK_LAYER_*），`dist/content.js` 仍为 **177,076 B 逐字节不变**。' +
+    'ceiling 由公式抬高 floor(362_865 × 1.05) = **381_008 B**，容差 5% 未动、cap 仍为 record-only、targetBudgetBytes/targetMet 仍为 null；' +
+    '从 266,500 B 起算的 Feature 累计 **+36.16%**（< 40%）已在 v3-4 回报中显式列出。' +
+    '更早轮次：2026-09-16 **v3-3 显式提升重登记：328,476 → 349,880 B（+21,404 B，+6.52%）**，' +
     '全部来自 spec 明文要求的 L2 按需视图（父 FR-V3-045~054 / AC-V3-026）：新增 5 个必需模块（l2/counts.ts 2,932 / l2/view-host.ts 3,206 / ' +
     'l2/command-catalog.ts 6,106 / l2/audit.ts 4,145 / settings/sections.ts 226 = 16,615 B）+ 接线（sidepanel.ts / view-model.ts / l0/status-bar.ts / ' +
     'l0/shell.ts）+ 归因位移；ceiling 由公式抬高 floor(349,880 × 1.05) = **367,374 B**，容差 5% 未动、cap 仍为 record-only、' +
     'targetBudgetBytes/targetMet 仍为 null；从 266,500 B 起算的 Feature 累计 **+31.29%**（>30%）已在 v3-3 回报中显式列出。' +
-    '**2026-09-16 v3-3 修复轮**（同一叶，审查 R1 后）：按真实产物再登记 **349,880 → 349,925 B（+45 B，+0.013%）**，' +
+    '2026-09-16 v3-3 修复轮（同一叶，审查 R1 后）：按真实产物再登记 **349,880 → 349,925 B（+45 B，+0.013%）**，' +
     '增量**逐模块可归因**：全部来自 I-01（`l0/status-bar.ts` 逐目标 `aria-controls`，1,649 → 1,694 B）；' +
     'F-01 反证订正（版本化 harness `test/ui/l2-reverse.mjs` + 共享判定器 `test/reverse-proof-judge.mjs` + 元门禁 R4 防呆）与死代码清理（`catalogCounts()` 树摇 Δ=0）均**不动产物**；' +
     'ceiling 由公式抬高 floor(349,925 × 1.05) = **367,421 B**，容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null；' +
@@ -487,6 +499,29 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [349_880, 328_476, 327_679, 295_225, 291_523, 266_500, 1_162_942, 1_159_856],
     ceilingUncappedFormulaBytes: 367_421,
   },
+  {
+    id: 'v3-4',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-web-cli-plugin-v3-ui',
+    date: '2026-09-16',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU v3-4 build round (leaf specs-tree-v3-4-page-as-input)',
+    reason:
+      '「页面即输入」的面板侧为父 spec FR-V3-060~072 明文必需，且**只有接线**落在本产物：新增 1 个必需模块 ' +
+      '`ui/sidepanel/pick-input.ts`（5,085 B —— 双触发按需注入 / 文档身份（documentId·navSeq）缓存 / `application/x-wcli-ref` 拖放落点 / ' +
+      'AC-CONV-1 的 env 组装）；接线 4 处（sidepanel.ts +4,202：选择答复走唯一 guard 入口 + 生产 env 注入点 + P5 回合可视化；' +
+      'l1/panels.ts +1,830：手势表改由**单一清单**渲染，FR-V3-070 的「条目数 = 实测数」不再靠人工同步；' +
+      'view-model.ts +422：L1_GESTURE_LABELS + 拾取不可用态；l0/shell.ts +694：风险区「页面侧不可用（原因）」行）。' +
+      '页面侧交互层**不进本产物**：`dist/pick-layer.js` 是独立 artifact，有自有「不增长」上限（PICK_LAYER_*）；`dist/content.js` 逐字节不变（177,076 B）。',
+    baselineBeforeBytes: 349_925,
+    baselineAfterBytes: 362_777,
+    ceilingBeforeBytes: 367_421,
+    ceilingAfterBytes: 380_915,
+    assertionNonRemovalEntries: ['V34-S1', 'V34-S2', 'V34-S4', 'V34-S5', 'V34-S9', 'V34-S10', 'V34-S12', 'V34-N1', 'V34-N2', 'V34-N4'],
+    historyRetainedBytes: [349_925, 349_880, 328_476, 327_679, 295_225, 291_523, 266_500, 1_162_942, 1_159_856],
+    ceilingUncappedFormulaBytes: 380_271,
+  },
 ] as const;
 
 /**
@@ -518,43 +553,44 @@ export interface GrowthAttributionRow {
 
 export const SIDEPANEL_GROWTH_BREAKDOWN = {
   method:
-    'esbuild metafile bytesInOutput；v3-1 树（cf2af32 的 packages/web-cli-plugin/src）vs **当前树**（v3-3 build round 工作树；`afterBytes` 取自真实 ' +
+    'esbuild metafile bytesInOutput；v3-1 树（cf2af32 的 packages/web-cli-plugin/src）vs **当前树**（v3-4 build round 工作树；`afterBytes` 取自真实 ' +
     '`dist/build-meta.json`，`beforeBytes` 取自 v3-1 树）—— 同一 absWorkingDir 几何 + web-cli-base 同源拷贝。该表按**累计**口径（v3-1 树 → 当前树）登记，' +
     '`baselineReferenceBytes` 即它所比较的参照基线。',
   reproduceCommand:
-    'npm run size:attribution -- --rev cf2af32 --rev WORKTREE（v3-3 工作树；`--worktree`/`WORKTREE` 为 v3-3 新增，用于给未提交的工作树做归因）',
+    'npm run size:attribution -- --rev cf2af32 --worktree（`--worktree` 为 v3-3 新增、v3-4 修复了它的 TDZ 崩溃：sentinel 曾在 argv 解析之后声明，命令实际上跑不起来）。' +
+    '⚠️ 口径：**核对用的是本包真实 `dist/build-meta.json`**（`test/size-growth-evidence.test.ts` 逐条比对 afterBytes）；' +
+    '沙箱归因工具的路径深度与真实构建不同，`// <path>` 注释长度因此有常数差（实测 `src/build-info.ts` 沙箱 212 B vs 真实 237 B），' +
+    '所以 afterBytes 一律取真实 metafile，beforeBytes 取沙箱中的 v3-1 树（同一工具、同一几何）。',
   measuredOn: '2026-09-16',
   /** The baseline whose **tree** this breakdown compares against (v3-1 I6). */
   baselineReferenceBytes: 295_225,
   /** 累计：当前基线 − `baselineReferenceBytes`。 */
-  deltaBytes: 54_700,
-  /** 逐轮（v3-3 自身）的产物增量（328,476 → 349,880）。 */
-  closeoutDeltaBytes: 21_449,
-  newRequiredModuleBytes: 43_528,
-  wiringBytes: 10_488,
+  deltaBytes: 67_552,
+  /** 逐轮（v3-4 自身）的产物增量（349,925 → 362,163，实测 metafile 差）。 */
+  closeoutDeltaBytes: 12_852,
+  newRequiredModuleBytes: 50_443,
+  wiringBytes: 16_388,
   attributionShiftBytes: 265,
-  unattributedHelperDeltaBytes: 419,
+  unattributedHelperDeltaBytes: 456,
   /** 模块路径互不相同（无重复模块）；共享 v2 模块增量为 0（复用非复制）。 */
   duplicationCheck:
-    '输入模块数 52（真实 `dist/build-meta.json` 实测；v3-1 为 41，v3-2 为 47），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B —— 审计/命令目录/树视图复用既有投影模块' +
-    '（src/insight/archive-catalog.ts / src/ui/tree/**）而非复制实现；l2/{counts,view-host,command-catalog,audit}.ts 与 settings/sections.ts 是**唯一**新增模块，' +
-    '无第二份实现。',
-  /** v3-3 自身的逐模块增量（v3-2 收口轮工作树 328,476 B → v3-3 工作树），同几何实测。 */
+    '输入模块数 56（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +
+    'src/insight/ownership-tree.ts（首次被侧栏 bundle 引用 → 共享而非复制）—— 审计/命令目录/树视图复用既有投影模块；' +
+    'l2/{counts,view-host,command-catalog,audit}.ts 与 settings/sections.ts 与 ui/sidepanel/pick-input.ts 各只有**一份**实现（v3-4 的页面侧代码全部在 ' +
+    '独立 artifact `dist/pick-layer.js`，不重复进本 bundle）。',
+  /** v3-4 自身的逐模块增量（v3-3 修复轮工作树 349,925 B → v3-4 工作树），同几何实测。 */
   closeoutRoundRows: [
-    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 48_889, afterBytes: 53_390, deltaBytes: 4_501 },
-    { module: 'src/ui/sidepanel/l2/command-catalog.ts', beforeBytes: null, afterBytes: 6_106, deltaBytes: 6_106 },
-    { module: 'src/ui/sidepanel/l2/audit.ts', beforeBytes: null, afterBytes: 4_145, deltaBytes: 4_145 },
-    { module: 'src/ui/sidepanel/l2/view-host.ts', beforeBytes: null, afterBytes: 3_206, deltaBytes: 3_206 },
-    { module: 'src/ui/sidepanel/l2/counts.ts', beforeBytes: null, afterBytes: 2_932, deltaBytes: 2_932 },
-    { module: 'src/ui/sidepanel/l0/status-bar.ts', beforeBytes: 1_382, afterBytes: 1_694, deltaBytes: 312 },
-    { module: 'src/ui/settings/sections.ts', beforeBytes: null, afterBytes: 226, deltaBytes: 226 },
-    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_376, afterBytes: 3_275, deltaBytes: -101 },
-    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_778, afterBytes: 17_666, deltaBytes: -112 },
+    { module: 'src/ui/sidepanel/pick-input.ts', beforeBytes: null, afterBytes: 5_085, deltaBytes: 5_085 },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 53_390, afterBytes: 58_174, deltaBytes: 4_784 },
+    { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: 13_280, afterBytes: 15_110, deltaBytes: 1_830 },
+    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_275, afterBytes: 3_969, deltaBytes: 694 },
+    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_666, afterBytes: 18_088, deltaBytes: 422 },
   ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
   rows: [
-    { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: null, afterBytes: 13_280, deltaBytes: 13_280, kind: 'new-required-module', requiredBy: 'FR-V3-031/032/037/038/039（八类就地展开、后果两段、阻断呈现、两条恢复、回执三件套）' },
+    { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: null, afterBytes: 15_110, deltaBytes: 15_110, kind: 'new-required-module', requiredBy: 'FR-V3-031/032/037/038/039（八类就地展开、后果两段、阻断呈现、两条恢复、回执三件套）+ FR-V3-070（手势表由单一清单渲染）' },
     { module: 'src/ui/sidepanel/l2/command-catalog.ts', beforeBytes: null, afterBytes: 6_106, deltaBytes: 6_106, kind: 'new-required-module', requiredBy: 'FR-V3-049/053（命令目录逐条有档 + delay 单源措辞 + 硬底线零控件 + 分列）' },
     { module: 'src/ui/sidepanel/l1/ref-validity.ts', beforeBytes: null, afterBytes: 6_078, deltaBytes: 6_078, kind: 'new-required-module', requiredBy: 'FR-V3-036（五维 + 不确定即失效 fail-closed）+ N-07（D4 原因指项）' },
+    { module: 'src/ui/sidepanel/pick-input.ts', beforeBytes: null, afterBytes: 5_085, deltaBytes: 5_085, kind: 'new-required-module', requiredBy: 'FR-V3-060/063/067/068（双触发按需注入 + 拖放落点 + 失败降级）+ AC-CONV-1（生产 env 组装）' },
     { module: 'src/ui/sidepanel/l2/audit.ts', beforeBytes: null, afterBytes: 4_145, deltaBytes: 4_145, kind: 'new-required-module', requiredBy: 'FR-V3-050 / NFR-V3-016（审计零明文字段白名单 + URL 去参）' },
     { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: null, afterBytes: 3_723, deltaBytes: 3_723, kind: 'new-required-module', requiredBy: 'FR-V3-071/037（引用 id 单源 + 受保护派发 + 阻断）+ N-08（退役原因冻结）' },
     { module: 'src/ui/sidepanel/l2/view-host.ts', beforeBytes: null, afterBytes: 3_206, deltaBytes: 3_206, kind: 'new-required-module', requiredBy: 'FR-V3-047/048/054（视图替换 + ← 返回 + 展开态复原 + 单滚动容器）' },
@@ -563,19 +599,19 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/l1/local-tree.ts', beforeBytes: null, afterBytes: 658, deltaBytes: 658, kind: 'new-required-module', requiredBy: 'FR-V3-034（局部树 ≤3 节点）' },
     { module: 'src/insight/ownership-tree.ts', beforeBytes: null, afterBytes: 341, deltaBytes: 341, kind: 'new-required-module', requiredBy: 'FR-V3-034（复用 v2 主归属链，首次被侧栏 bundle 引用 → 共享而非复制）' },
     { module: 'src/ui/settings/sections.ts', beforeBytes: null, afterBytes: 226, deltaBytes: 226, kind: 'new-required-module', requiredBy: 'FR-V3-051 / FR-V3-046（设置分区登记表 —— 让设置入口的计数可派生而非豁免）' },
-    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 53_390, deltaBytes: 8_545, kind: 'wiring', requiredBy: 'FR-V3-031~040（L1 挂载 + 单一派发器）+ FR-V3-045/047/048/054（L2 视图替换接线 + 计数真值读入 + 审计通道读）' },
-    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 17_666, deltaBytes: 543, kind: 'wiring', requiredBy: 'FR-V3-031（L1 契约纯函数）+ FR-V3-046/015（L2 计数载体 + 入口面板摘要）' },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 58_174, deltaBytes: 13_329, kind: 'wiring', requiredBy: 'FR-V3-031~040（L1 挂载 + 单一派发器）+ FR-V3-045/047/048/054（L2 视图替换接线）+ FR-V3-060/061/062/066（面板侧拾取接线 + 生产 env 注入点 + 双向联动）+ AC-CONV-2（唯一动作入口）' },
+    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 18_088, deltaBytes: 965, kind: 'wiring', requiredBy: 'FR-V3-031（L1 契约纯函数）+ FR-V3-046/015（L2 计数载体）+ FR-V3-068/070（拾取不可用态 + 手势清单单源）' },
+    { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 4_547, afterBytes: 5_318, deltaBytes: 771, kind: 'wiring', requiredBy: 'FR-V3-031（白名单 4 → 9 个目标 + 5 条 wiring）；v3-4 复核：数值未变（本叶不改折叠白名单）' },
+    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 3_969, deltaBytes: 618, kind: 'wiring', requiredBy: 'FR-V3-047（入口路由交还 view-host）+ FR-V3-068（风险区「页面侧不可用（原因）」行，风险位唯一写入者不变）' },
     { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 5_665, afterBytes: 6_058, deltaBytes: 393, kind: 'wiring', requiredBy: 'FR-V3-037（失效行可读原因；风险位唯一写入者不变）' },
     { module: 'src/ui/sidepanel/l0/status-bar.ts', beforeBytes: 1_382, afterBytes: 1_694, deltaBytes: 312, kind: 'wiring', requiredBy: 'FR-V3-015 / FR-V3-046（入口标签 + 面板摘要写入 + 逐目标 aria 对）+ I-01（逐目标 `aria-controls`：设置入口指向 `#settings-view`）' },
-    { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 4_547, afterBytes: 5_318, deltaBytes: 771, kind: 'wiring', requiredBy: 'FR-V3-031（白名单 4 → 9 个目标 + 5 条 wiring）' },
-    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 3_275, deltaBytes: -76, kind: 'wiring', requiredBy: 'FR-V3-047（入口路由交还 view-host；删去 v3-1 骨架期直接显隐 #view-host 的临时逻辑 —— 净减 76 B）' },
     { module: 'src/ui/tree/tree-drawer.ts', beforeBytes: 39_779, afterBytes: 39_893, deltaBytes: 114, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移（归属迁移只改 index.html 的容器与 CSS）' },
     { module: 'src/ui/settings/panel.ts', beforeBytes: 37_040, afterBytes: 37_111, deltaBytes: 71, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
     { module: 'src/ui/sidepanel/markdown.ts', beforeBytes: 13_417, afterBytes: 13_454, deltaBytes: 37, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
+    { module: 'src/ui/tree/tree-view.ts', beforeBytes: 21_240, afterBytes: 21_267, deltaBytes: 27, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移（v3-4 复核：位移值未变）' },
     { module: 'src/build-info.ts', beforeBytes: 232, afterBytes: 237, deltaBytes: 5, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移（含构建戳字面量长度）' },
-    { module: 'src/ui/tree/tree-view.ts', beforeBytes: 21_240, afterBytes: 21_267, deltaBytes: 27, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
-    { module: 'src/ui/sidepanel/scroll-policy.ts', beforeBytes: 826, afterBytes: 830, deltaBytes: 4, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
     { module: 'src/insight/archive-catalog.ts', beforeBytes: 13_175, afterBytes: 13_179, deltaBytes: 4, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移（被 L2 命令目录只读复用）' },
+    { module: 'src/ui/sidepanel/scroll-policy.ts', beforeBytes: 826, afterBytes: 830, deltaBytes: 4, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
     { module: 'src/ui/settings/view.ts', beforeBytes: 13_222, afterBytes: 13_225, deltaBytes: 3, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
     { module: 'src/ui/tree/tree-receipt.ts', beforeBytes: 2_719, afterBytes: 2_719, deltaBytes: 0, kind: 'attribution-shift', requiredBy: '源码未改且字节未变（Δ=0）—— 回执三件套/审计出口复用 v2 模块，未被复制出第二份实现' },
   ] as readonly GrowthAttributionRow[],
@@ -618,19 +654,93 @@ export function evaluateConsecutiveReRegistrationGrowth(
       warning: null,
     };
   }
-  const previous = rounds[rounds.length - 2];
-  const last = rounds[rounds.length - 1];
-  const fromBytes = previous.baselineBeforeBytes;
-  const toBytes = last.baselineAfterBytes;
-  const cumulativePct = (toBytes - fromBytes) / fromBytes;
+  // V3-4（**守卫只增不减**）：守卫改报「**最差**的连续两功能轮」，而不是「最后两轮」。
+  // 原因如实登记：v3-1/v3-2/v3-3/v3-4 四轮里，最后两轮（v3-3 + v3-4，+10.25%）落在 15%
+  // 线**以下**，若仍按「最后两轮」计，告警会**消失** —— 那是把守卫**放松**（历史上一旦
+  // 发生过 >15% 的连续两轮，就再也没有机会被机器提醒）。改报最大值后：① 告警仍必然存在
+  // （v3-1 + v3-2 = +22.95%），② 任何**新的** >15% 连续两轮同样会被抓出来，判定函数因此
+  // **更强**而不是更弱；阈值、告警文案与「必须显式回报编排器」的要求零改动。
+  let worst = { from: rounds[0].baselineBeforeBytes, to: rounds[0].baselineAfterBytes, pct: 0, i: 0 };
+  for (let i = 1; i < rounds.length; i += 1) {
+    const from = rounds[i - 1].baselineBeforeBytes;
+    const to = rounds[i].baselineAfterBytes;
+    const pct = (to - from) / from;
+    if (pct > worst.pct) worst = { from, to, pct, i };
+  }
+  const previous = rounds[worst.i - 1];
+  const last = rounds[worst.i];
+  const fromBytes = worst.from;
+  const toBytes = worst.to;
+  const cumulativePct = worst.pct;
   const warning =
     cumulativePct > threshold
       ? `⚠️ 体积方向性告警（裁决 V3-VOL-1 ④）：Feature ${feature} 内连续两轮重登记 ` +
-        `${previous.id}（${fromBytes} B → ${previous.baselineAfterBytes} B）+ ${last.id}（${last.baselineBeforeBytes} B → ${toBytes} B）` +
+        `（最差连续两轮）${previous.id}（${fromBytes} B → ${previous.baselineAfterBytes} B）+ ${last.id}（${last.baselineBeforeBytes} B → ${toBytes} B）` +
         `累计增幅 ${(cumulativePct * 100).toFixed(2)}% > ${(threshold * 100).toFixed(0)}% —— **必须显式回报编排器**（不得无声膨胀）；` +
         `累计 +${toBytes - fromBytes} B；增量构成见 SIDEPANEL_GROWTH_BREAKDOWN。`
       : null;
   return { feature, rounds: rounds.map((r) => r.id), fromBytes, toBytes, cumulativePct, threshold, warning };
+}
+
+/**
+ * ── V3-4 新增 artifact 守卫：`dist/pick-layer.js`（ADR-V3-031 / NFR-V3-004）────
+ *
+ * 页面侧交互层是**第 5 个产物**（按需注入，不进常驻 `content.js`），因此它有自己的
+ * 「不增长」上限，**与 `content.js` 各自独立、绝不合并计数**（合并会互相掩盖：
+ * 一方的余量会替另一方买单）。
+ *
+ *   - 基线 = 首轮构建的**实测值**（`PICK_LAYER_BASELINE_BYTES`），
+ *   - `PICK_LAYER_CEILING = 该实测值`：新 artifact 无历史包袱，采用与 `content.js`
+ *     同级的**无容差**口径（+1 B 即 FAIL），
+ *   - 来源依据 = TASK-401 spike 的 S2 实测（最小骨架 8,606 B ≤ 60,000 B）与首轮真实产物。
+ *
+ * 超限处置：**只能改实现**（精简 CSS / 去重复 / 复用纯函数）；**不得**放宽上限、
+ * 不得合并计数、不得把代码迁回 `content.js`（EC-V3-012）。
+ */
+export const PICK_LAYER_BASELINE_BYTES = 32_391;
+
+/** `PICK_LAYER_CEILING` = 实测值（**无容差**；+1 B → FAIL）。 */
+export const PICK_LAYER_CEILING = PICK_LAYER_BASELINE_BYTES;
+
+/** `dist/pick-layer.js` 的登记实测值（`PICK_LAYER_BASELINE_BYTES` 的同源断言）。 */
+export const PICK_LAYER_FINAL_ARTIFACT_BYTES = 32_391;
+
+export const PICK_LAYER_BASELINE_META = {
+  measuredOn: '2026-09-16',
+  source: 'packages/web-cli-plugin/dist/pick-layer.js',
+  buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+  measuredBy: 'SDDU v3-4 build round (leaf specs-tree-v3-4-page-as-input)',
+  /** 首轮登记 ⇒ 无前值。 */
+  previousBaselineBytes: null,
+  direction: 'initial',
+  /** 容差 = 0（无容差口径，与 `content.js` 同级）。 */
+  tolerance: 0,
+  /** TASK-401 spike 的 S2 实测（最小骨架）与上限，供来源可核。 */
+  spikeSkeletonBytes: 8_606,
+  spikeLimitBytes: 60_000,
+  disambiguation:
+    '与 `CONTENT_MAX_BYTES`（177,076 B，常驻 `content.js`）**各自独立**；两者不得合并计数，也不得互相顶替。',
+} as const;
+
+/** Pure verdict for a measured `dist/pick-layer.js` size (**no tolerance**). */
+export function evaluatePickLayerCeiling(
+  measuredBytes: number,
+  ceilingBytes: number = PICK_LAYER_CEILING,
+): SizeVerdict {
+  const ok = measuredBytes <= ceilingBytes;
+  return {
+    ok,
+    measuredBytes,
+    ceilingBytes,
+    excessBytes: Math.max(0, measuredBytes - ceilingBytes),
+    message: sizeMessage(
+      'pick-layer.js',
+      measuredBytes,
+      ceilingBytes,
+      ok,
+      '新 artifact 独立无容差上限（ADR-V3-031；与 content.js 不合并计数）',
+    ),
+  };
 }
 
 /**

@@ -156,8 +156,9 @@ test('V3-VOL-1 ② registry: zero assertion deletion is registered in the supers
 test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measured delta', () => {
   const b = SIDEPANEL_GROWTH_BREAKDOWN;
   assert.equal(b.deltaBytes, SIDEPANEL_BASELINE_BYTES - SIDEPANEL_BASELINE_META.previousBaselineBytes);
-  // v3-3 修复轮：I-01（逐目标 aria-controls）+45 B ⇒ 累计增量 54,655 → 54,700（同一条断言，仅数值重 pin）。
-  assert.equal(b.deltaBytes, 54_700);
+  // v3-4：面板侧接线（pick-input.ts 5,053 + sidepanel/panels/view-model/shell）⇒ 累计增量
+  // 54,700 → 66,938（同一条断言，仅数值按实测重 pin；四类分解与逐模块表同步）。
+  assert.equal(b.deltaBytes, 67_552);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');

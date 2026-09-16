@@ -116,6 +116,24 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     // V3-2 (FR-V3-037): the invalidation row carries the dimension-specific
     // readable reason produced by the single judge (`l1/ref-validity.ts`).
     renderRiskRail(doc, view.risks, view.staleRef ?? undefined);
+    // V3-4 (ADR-V3-030 §5): the page-side availability row. It is appended AFTER the
+    // rail's single writer has cleared and filled the rail, so the five v3-1 classes
+    // keep their owner and the row stays inside the never-folding risk zone. When the
+    // page side is available the node is not even created → zero density footprint.
+    const rail = doc.getElementById('risk-rail');
+    if (rail) {
+      const id = 'l0-page-unavailable';
+      rail.querySelector(`#${id}`)?.remove();
+      if (view.pick.unavailable) {
+        const row = doc.createElement('div');
+        row.id = id;
+        row.className = 'risk-row';
+        row.setAttribute('data-risk-class', 'pageUnavailable');
+        row.setAttribute('data-risk-severity', 'warn');
+        row.textContent = `页面侧不可用：${view.pick.unavailable}（「从页面拾取」已禁用；不静默失败）`;
+        rail.appendChild(row);
+      }
+    }
 
     // L2 entries (counts realise FR-V3-015 / FR-V3-046's mechanism: the labels come
     // straight from the ONE derivation `l2/counts.ts`, shared with the view host).

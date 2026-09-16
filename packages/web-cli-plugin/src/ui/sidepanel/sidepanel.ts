@@ -59,6 +59,9 @@ import type { L0Input, L0View } from './view-model.js';
 import { mountL1, type L1Handle, type L1Input } from './l1/panels.js';
 import type { OwnershipTree } from '../../insight/ownership-tree.js';
 import type { RefResolution } from './l1/ref-validity.js';
+// V3-4 (ADR-V3-030 / AC-CONV-1): the panel side of「页面即输入」— the two injection
+// triggers, the document identity the page reports, and the drop target.
+import { mountPickInput, type PickInputHandle } from './pick-input.js';
 // V3-3 (ADR-V3-025~029): the L2 on-demand views. Additive: the views REUSE the
 // existing read-only projections (`archive-catalog` / the audit channel / the v2
 // tree drawer); no existing handler is rewritten.
@@ -337,7 +340,37 @@ let l2AuditEvents: readonly unknown[] = [];
  */
 /** `force` = show a class whose real transition lands in a later leaf; `off` =
  *  hide a class so the gate can measure the pure risk increment. */
-const v3TestState = { refCount: 0, lastStaleRef: '', riskMode: {} as Record<string, 'force' | 'off'> };
+const v3TestState = {
+  refCount: 0,
+  lastStaleRef: '',
+  riskMode: {} as Record<string, 'force' | 'off'>,
+  /**
+   * V3-4: set when the L1 gate injects an env through the test seam. The production
+   * env sync (`syncRefEnv`, AC-CONV-1) must then step aside — otherwise every
+   * `render()` would overwrite the dimension the gate just injected and the five
+   * validity dimensions could no longer be observed one by one. Production never sets
+   * it; a real capture clears it (real facts supersede a fixture).
+   */
+  envOverride: false,
+};
+
+/**
+ * V3-4: the page-side availability + declaration facts the reference judge needs.
+ *
+ * `pageUnavailable` is the **readable** reason the page side is missing (injection
+ * refused, a restricted page, an unauthorized origin, a torn-down layer). `null` means
+ * "available" — it is never used as a synonym for "unknown", because the L0 risk zone
+ * must be able to tell「没有问题」from「没有页面」，and the pick entry's disabled state
+ * comes from the same field.
+ */
+const pickFacts = {
+  pageUnavailable: null as string | null,
+  declaration: null as { hash: string; version?: string } | null,
+};
+/** The reference the pending decision round was minted from (AC-CONV-2's binding). */
+let pendingRefId: string | null = null;
+/** V3-4: the page-side input adapter (injection triggers / identity / drop target). */
+let pickInput: PickInputHandle | null = null;
 
 /** Derive the pure L0 view-model input straight from the panel state. */
 function l0Input(): L0Input {
@@ -378,6 +411,9 @@ function l0Input(): L0Input {
       : null,
     refCount: refs.length || v3TestState.refCount,
     refStale: staleRefs.length > 0,
+    // V3-4 (FR-V3-068): the readable page-side availability reason (null = available).
+    // Forcing it through the testing seam lets the gate drive both directions.
+    pickUnavailable: v3TestState.riskMode.pageUnavailable === 'off' ? null : pickFacts.pageUnavailable,
     // V3-3 (FR-V3-046): the four counts come from the ONE derivation, fed by real
     // truth reads (`state.insight.counts` + the existing audit channel). No literal.
     l2Counts: currentL2Counts(),
@@ -521,6 +557,7 @@ function installV3TestHooks(): void {
       reset() {
         v3TestState.refCount = 0;
         v3TestState.riskMode = {};
+        v3TestState.envOverride = false;
         // V3-2: the L1 layer's real state (references / receipt / history) is
         // cleared too, so every fixture cell starts from the same default state.
         l1?.store().reset();
@@ -555,6 +592,7 @@ function installV3TestHooks(): void {
           case 'ref':
             return handle.injectRef(args[0] as Parameters<typeof handle.injectRef>[0]);
           case 'env':
+            v3TestState.envOverride = true;
             handle.setEnv(args[0] as never, Boolean(args[1]));
             return handle.judge();
           case 'res':
@@ -563,7 +601,10 @@ function installV3TestHooks(): void {
           case 'judge':
             return handle.judge();
           case 'act':
-            return handle.dispatchRefAction(String(args[0]), String(args[1] ?? 'ref-action'));
+            // AC-CONV-2: the seam calls the production entry point itself (`applyRefAction`)
+            // instead of `dispatchRefAction` directly — a second call site here would be
+            // exactly the bypass the wiring gate forbids.
+            return applyRefAction(String(args[0]), String(args[1] ?? 'ref-action'));
           case 'repick':
             // N-04: fresh facts + the caller's page-side observation (both from the
             // caller — the panel no longer fabricates `resolved`).
@@ -792,6 +833,10 @@ function render(): void {
   renderDiscoveryNotice();
   renderSession();
   renderAutoAuth();
+  // V3-4 / AC-CONV-1: the ONE production env injection point. It runs on every render
+  // (state change, navigation report, capture) with the facts the product really has;
+  // a missing fact stays missing so the judge blocks instead of passing.
+  syncRefEnv();
   // V3-1 (ADR-V3-013): the ONE decision card + the three-things skeleton.
   const l0View = l0?.update(l0Input()) ?? null;
   // V3-2 (ADR-V3-021~023): the L1 layer. Repainted AFTER the L0 skeleton because
@@ -948,11 +993,89 @@ async function refreshLlmStatus(): Promise<void> {
    only the rendering location changed (the card is now L0, and everything past the
    first option plus the terminal 「其他…（我来描述）」 lives behind `#l0-more`). */
 
+/**
+ * V3-4 / **AC-CONV-2** — the ONE production entrance that turns a reference into an
+ * action.
+ *
+ * Its first statement is `l1.dispatchRefAction`, whose own first statement is the
+ * `isRefUsable` guard (v3-2's fail-closed judge). Nothing else in the product may
+ * dispatch a reference-driven command: a second call site would be a bypass, and the
+ * runtime gate (`test/ref-wiring.test.ts` + `test/ui/page-input.mjs`) asserts both
+ * that this is the only `dispatchRefAction(` call site outside its definition and that
+ * enumerating every visible control while a reference is unusable never advances the
+ * command counter.
+ */
+function applyRefAction(refId: string, action: string): { allowed: boolean; reason: string; verdict: string; sent: boolean } {
+  const outcome = l1?.dispatchRefAction(refId, action);
+  if (!outcome) {
+    return { allowed: false, reason: '引用层未就绪（按失效处理）', verdict: 'unknown', sent: false };
+  }
+  if (!outcome.allowed) {
+    dispatch({ type: 'notice', text: `✖ ${outcome.reason}` });
+    return outcome;
+  }
+  return outcome;
+}
+
+/**
+ * V3-4 / **AC-CONV-1** — the production env injection point for the reference judge.
+ *
+ * Called from `render()` (and therefore after every state read / navigation report /
+ * capture). It is the *only* production `setEnv` call site: the test seam's `l1('env')`
+ * op remains for the node gates, which is exactly why the wiring gate asserts the call
+ * sites are **not limited** to `installV3TestHooks()`.
+ */
+function syncRefEnv(): void {
+  if (v3TestState.envOverride) return;
+  l1?.setEnv(pickInput ? pickInput.judgeEnv() : {});
+}
+
+/**
+ * V3-4 (FR-V3-061 / FR-V3-065 / FR-V3-071) — one captured reference becomes
+ * 「1 个引用 chip + 1 道选择题」and nothing else. The page never supplies a verdict and
+ * never mints an id: `injectRef` is v3-2's single id source, the observation travels
+ * with it (N-04: the panel never asserts `resolved` on its own), and the id is written
+ * back onto the page element as the identity mark D1 compares against.
+ */
+function acceptCapture(facts: Record<string, unknown>, resolution: { status: string; refMark?: string; nodeCount?: number }): void {
+  v3TestState.envOverride = false; // a real capture ⇒ production facts own the env again
+  const record = l1?.injectRef(facts as never);
+  l1?.setResolution(resolution as RefResolution);
+  const judged = l1?.judge() ?? [];
+  const refId = record?.facts.refId ?? '';
+  if (!refId) return;
+  // The identity mark + the ordinal badge: the page renders the id the panel minted, so
+  // the chip, the badge, the evidence row and the risk row all carry one ordinal.
+  void pickInput?.highlight(refId, String(facts.selector ?? ''), 'mark');
+  pendingRefId = refId;
+  const verdict = judged.find((r) => r.facts.refId === refId)?.verdict ?? 'unknown';
+  const paths = [
+    facts.selector ? `选择器 ${String(facts.selector)}` : '',
+    facts.semanticPath ? `语义路径 ${String(facts.semanticPath)}` : '',
+  ].filter(Boolean);
+  dispatch({
+    type: 'ask',
+    requestId: `ref-round-${refId}`,
+    kind: 'choice',
+    prompt: `已捕获引用 ${refId}${paths.length ? `（${paths.join(' · ')}）` : ''}：要用它做什么？（判定：${verdict}）`,
+    options: ['纳入下一步（作为上下文）', '用这里作为操作目标', '先看引用证据（选择器 / 语义路径）'],
+  });
+}
+
 /** Send the user's answer back to the background and clear the prompt (R7). */
 function submitAsk(value: string | undefined, canceled: boolean): void {
+  // V3-4 / AC-CONV-2: a round minted from a reference is answered by *acting on the
+  // reference*, so the answer goes through the ONE guarded entry instead of being sent
+  // as free text. Rounds that came from the background are untouched (the `refId` is
+  // `null` for them), which is why the existing ask gates keep their exact behaviour.
+  const refId = pendingRefId;
+  pendingRefId = null;
   const res = resolveAsk(state, value, canceled);
-  if (res) void send(makeMessage('ask-user-response', { ...res }));
+  if (res && !refId) void send(makeMessage('ask-user-response', { ...res }));
   dispatch({ type: 'ask-resolved' });
+  if (refId && !canceled && typeof value === 'string' && value.trim()) {
+    applyRefAction(refId, value.trim());
+  }
 }
 
 function dispatch(action: Parameters<typeof reduce>[1]): void {
@@ -1180,6 +1303,19 @@ async function refreshState(): Promise<void> {
     l2Truth.insightCounts = insightCounts;
     refreshL2Counts();
   }
+  // V3-4 (AC-CONV-1): the adopted declaration's digest/version. Without it the judge
+  // reports「无法确认声明是否变化」for every reference — fail-closed but useless, so the
+  // production env must carry it.
+  const decl = res.data.declaration;
+  pickFacts.declaration =
+    decl && typeof decl.declarationHash === 'string' && decl.declarationHash
+      ? { hash: decl.declarationHash, ...(decl.declarationVersion ? { version: decl.declarationVersion } : {}) }
+      : decl && !decl.declarationHash
+        ? { hash: '' }
+        : null;
+  // V3-4 trigger ①: the panel is present on an authorized origin ⇒ ensure the layer
+  // exists (idempotent; a failure is reported readably through `onUnavailable`).
+  void pickInput?.ensureInjected();
   // TASK-033: keep the settings view's origin-scoped auto-authorization in sync
   // (the chat view's own controls are rendered from the same state).
   settingsHandle?.setActiveOrigin(state.activeOrigin);
@@ -1441,6 +1577,42 @@ function wire(): void {
     now: () => Date.now(),
   });
   installV3TestHooks();
+  pickInput = mountPickInput({
+    doc: document,
+    send: (message) => send(message as PluginMessage) as Promise<{ ok: boolean; error?: string; data?: unknown }>,
+    envInput: () => ({
+      activeOrigin: state.activeOrigin ?? '',
+      authorized: state.authorized,
+      declaration: pickFacts.declaration,
+    }),
+    onCapture: (facts, resolution) => acceptCapture(facts as unknown as Record<string, unknown>, resolution),
+    onPageHover: (refId) => {
+      // FR-V3-066: hovering the page badge lights the side-panel chip (the same ordinal).
+      // The attribute IS the channel (one writer, no shadow state to drift).
+      document.getElementById('l0-ref-toggle')?.setAttribute('data-ref-hover', refId);
+      render();
+    },
+    onUnavailable: (reason) => {
+      if (pickFacts.pageUnavailable === reason) return;
+      pickFacts.pageUnavailable = reason;
+      render();
+    },
+    notify: (text) => dispatch({ type: 'notice', text }),
+  });
+
+  // V3-4 (FR-V3-060 / ADR-V3-030): the TWO injection triggers.
+  // ① the「从页面拾取」entry (the pick layer IS the input — no resident composer).
+  $('l0-pick').addEventListener('click', () => void pickInput?.startPick());
+  // ② the panel is present on an authorized origin ⇒ the layer exists, so the
+  //    right-click menu is available without the user entering pick mode first.
+  // FR-V3-066: hovering the side-panel chip flashes the page-side target.
+  $('l0-ref-toggle').addEventListener('pointerenter', () => {
+    const last = l1?.store().all().slice(-1)[0];
+    if (last) void pickInput?.highlight(last.facts.refId, last.facts.selector, 'flash');
+  });
+  // The layer lives only while the panel does (ADR-V3-030 §4). The port disconnect in
+  // the background covers the hard close; this covers a panel unload/reload.
+  window.addEventListener('pagehide', () => pickInput?.teardown());
 
   // TASK-033: the settings entry opens an in-panel view in the SAME document.
   // It never opens the options page and never opens a new tab.
@@ -1495,6 +1667,15 @@ function wire(): void {
     // if the user had scrolled up before sending.
     scrollFollow.userSent();
     dispatch({ type: 'user', text });
+    // V3-4 P5 (FR-V3-060 / design baseline P5):「回合进行中」与页面侧的执行可视化是同一
+    // 个信号 —— 回合开始时把最后一个引用目标闪动一下并标记 chip 状态，`chat-result done`
+    // 到达后翻转为「已处理」。
+    const active = l1?.store().all().slice(-1)[0];
+    const chip = document.getElementById('l0-ref-toggle');
+    if (active) {
+      void pickInput?.highlight(active.facts.refId, active.facts.selector, 'flash');
+      chip?.setAttribute('data-turn', 'running');
+    }
     void send(makeMessage('chat', { user: text }));
   });
 
@@ -1584,6 +1765,9 @@ function wire(): void {
 
   chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const msg = raw as PluginMessage;
+    // V3-4 (ADR-V3-030): the page-side layer's facts. `accept` returns `false` for every
+    // other kind, so the v1 routing below is byte-for-byte unchanged.
+    if (pickInput?.accept(raw)) return undefined;
     if (msg.kind === 'clipboard-op') {
       // FR-055 (TASK-039): the service worker has no `navigator.clipboard`, so it
       // forwards the clipboard op to an extension page. Shared with options.ts.
@@ -1603,7 +1787,11 @@ function wire(): void {
           ...(typeof msg.ms === 'number' ? { ms: msg.ms } : {}),
         });
       } else if (variant === 'command') dispatch({ type: 'command', text });
-      else if (variant === 'done') dispatch({ type: 'pending', value: false });
+      else if (variant === 'done') {
+        dispatch({ type: 'pending', value: false });
+        // P5: the page-side flash has finished being the「进行中」signal.
+        document.getElementById('l0-ref-toggle')?.setAttribute('data-turn', 'done');
+      }
       else if (text) dispatch({ type: 'assistant', text });
       return undefined;
     }

@@ -60,6 +60,17 @@ async function main() {
     format: 'iife',
   });
 
+  // V3-4 (ADR-V3-030/031): the page-side pick layer is its OWN artifact. It is
+  // injected on demand (`chrome.scripting.executeScript({files:['pick-layer.js']})`)
+  // and has its own no-growth ceiling (`PICK_LAYER_BASELINE_BYTES`). It must never
+  // be folded into `content.js`, whose 177,076 B budget has zero headroom.
+  await build({
+    ...common,
+    entryPoints: [resolve(root, 'src/content/pick-layer.ts')],
+    outfile: resolve(dist, 'pick-layer.js'),
+    format: 'iife',
+  });
+
   const sidepanel = await build({
     ...common,
     entryPoints: [resolve(root, 'src/ui/sidepanel/sidepanel.ts')],

@@ -84,6 +84,8 @@ import {
   type PluginResponse,
 } from './messaging.js';
 import { isInsightMessage } from './insight-protocol.js';
+import { isPickLayerMessage } from '../content/pick-protocol.js';
+import { sha256Hex } from '../protocol/trust.js';
 import { providerChat, providerById } from '../llm/providers.js';
 import { createKeyStore } from '../llm/key-store.js';
 import { toLlmStatusSummary } from '../llm/status.js';
@@ -927,6 +929,105 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
 }
 
 /**
+ * V3-4 (ADR-V3-030 / TASK-403) — resolve the tab the on-demand pick layer belongs to.
+ *
+ * The bound session wins (that is the site the user is working on); otherwise the
+ * active tab is used so「从页面拾取」works before any handshake. A restricted page
+ * (`chrome://`, the web store, …) has no stable origin and is refused readably —
+ * never silently.
+ */
+/**
+ * URLs the extension can never inject into (the `pick-layer.js` load would fail, or the
+ * page is not a site at all). `file:` is included because the extension holds no
+ * `file://` host permission — and because a local file is「没有站点」rather than a site
+ * whose page side is broken.
+ */
+const NON_INJECTABLE_URL = /^(chrome|edge|devtools|about|view-source|chrome-extension|moz-extension|file|filesystem|data|blob):/i;
+
+async function pickLayerTarget(
+  s: Singletons,
+): Promise<{ tabId: number; origin: string } | { error: string; benign: boolean }> {
+  // Candidate order: the bound session's tab first (that is the site the user is working
+  // on), then the active tab. **Every** candidate is verified against its REAL tab URL:
+  // a bound session can outlive a navigation, and an extension page's tab is never
+  // injectable — attempting the load there would produce a Chrome-level error about an
+  // unrelated page and the panel would misreport「页面侧不可用」for an idle panel.
+  const bound = s.controller.get();
+  const [active] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+  const candidates: Array<{ tabId: number; expect?: string; url?: string }> = [];
+  if (bound && bound.tabId !== undefined && bound.origin) {
+    candidates.push({ tabId: bound.tabId, expect: bound.origin });
+  }
+  if (active?.id !== undefined) candidates.push({ tabId: active.id, url: active.url ?? '' });
+
+  for (const candidate of candidates) {
+    const info = await chrome.tabs.get(candidate.tabId).catch(() => null);
+    const url = info?.url ?? candidate.url ?? '';
+    if (!url) continue;
+    // `benign: true` =「此处没有页面侧」: no site tab to attach to. The panel shows
+    // nothing alarming; the pick entry is already gated by authorization/probing.
+    if (NON_INJECTABLE_URL.test(url)) continue;
+    const origin = normalizeStableOrigin(url);
+    if (!origin) continue;
+    if (candidate.expect && origin !== candidate.expect) continue; // the tab moved away
+    return { tabId: candidate.tabId, origin };
+  }
+  return { error: '当前没有可注入的站点标签页（请先打开并切换到目标站点）', benign: true };
+}
+
+/**
+ * V3-4 / AC-CONV-1 — the declaration facts the **page** cannot observe by itself.
+ *
+ * The digest is computed from the *adopted* descriptor's stable projection (never
+ * from a remembered literal), so a site changing its declaration really does flip
+ * the judge's D4 dimension. `declarationVersion` is the declared protocol version.
+ * An origin with no adopted declaration yields `declarationHash: ''`, which makes the
+ * judge report `missing-fact` → the reference stays unusable (fail-closed), exactly
+ * as intended: "no declaration" must never read as "unchanged declaration".
+ */
+async function declarationEnv(
+  s: Singletons,
+  origin: string,
+): Promise<{ origin: string; authorized: boolean; declarationHash: string; declarationVersion?: string }> {
+  const authorized = await s.origins.isAuthorized(origin);
+  const descriptor = s.host.activeOrigin() === origin ? s.host.activeDescriptor() : undefined;
+  if (!descriptor) return { origin, authorized, declarationHash: '' };
+  const projection = JSON.stringify({
+    protocolVersion: descriptor.protocolVersion,
+    siteName: descriptor.siteName ?? '',
+    tools: descriptor.tools.map((tool) => ({
+      id: tool.id,
+      summary: tool.summary,
+      subcommands: tool.subcommands ?? [],
+      riskHint: tool.riskHint ?? '',
+    })),
+    transport: descriptor.transport,
+  });
+  const digest = await sha256Hex(projection).catch(() => '');
+  return {
+    origin,
+    authorized,
+    declarationHash: digest ? digest.slice(0, 16) : '',
+    ...(descriptor.protocolVersion ? { declarationVersion: descriptor.protocolVersion } : {}),
+  };
+}
+
+/**
+ * V3-4 — take the page-side layer down (panel closed/卸載, authorization revoked).
+ * Best-effort and idempotent: the layer's own marker makes a missed teardown
+ * harmless (the next injection reuses the live instance instead of stacking one).
+ */
+async function teardownPickLayer(s: Singletons): Promise<void> {
+  const target = await pickLayerTarget(s);
+  if ('error' in target) return;
+  try {
+    await chrome.tabs.sendMessage(target.tabId, { kind: 'pick-layer-teardown' });
+  } catch {
+    /* no layer in that tab (never injected / already gone) — nothing to take down */
+  }
+}
+
+/**
  * TASK-020 任务 B: non-sensitive projection of the current active tab. Used by
  * `state` (so the panel can explain "无活跃站点") and `rebind`.
  */
@@ -1726,8 +1827,15 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         // V2-3 R2: additive `overrideCount` (old consumers ignore the unknown field).
         insight: summarizeInsight(await buildInsightSnapshot(s), { overrideCount: s.commandPolicy.list().length }),
       });
+      // V3-4 (AC-CONV-1): the adopted declaration's digest + version, so the panel can
+      // inject a COMPLETE env into the reference judge on a real production path.
+      const declaration = session ? await declarationEnv(s, session.origin) : undefined;
       // D-064: carry (and consume) the one-shot readable notice.
-      return okResponse({ ...payload, panelNotice: takePanelNotice() });
+      return okResponse({
+        ...payload,
+        panelNotice: takePanelNotice(),
+        ...(declaration ? { declaration } : {}),
+      });
     }
     case 'insight-tree': {
       // V2-1 (ADR-V2-001/004): pull the full deterministic ConnectTreeSnapshot.
@@ -1830,6 +1938,10 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       const revoked = await s.origins.revoke(origin);
       // TASK-032: revoking the bound origin stops the automatic probe immediately.
       if (s.controller.get()?.origin === origin) s.autoProbe.stop();
+      // V3-4 (ADR-V3-030 §4): authorization loss is a lifecycle end for the page-side
+      // layer too — it is torn down right after the existing revoke flow, so a revoked
+      // origin keeps zero page-side listeners (never "injected but inert").
+      await teardownPickLayer(s);
       // V2-3 (FR-V2-030; 编排器代作者决策 D-V23-01): revocation is a tightening —
       // the revoked origin's declared tools must leave `deriveTools()` immediately
       // (not merely fail S1 at dispatch). This reuses the existing `deactivateSite`
@@ -1849,6 +1961,57 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // V2-1: authorization changed → trigger re-projection (no sensitive payload).
       pushInsightChanged();
       return okResponse({ revoked, hostPermissionRemoved, contentScript });
+    }
+    case 'pick-layer-inject': {
+      // V3-4 (ADR-V3-030): the on-demand injection trigger — `#l0-pick` ("触发 2")
+      // and the panel-presence path ("触发 1") both land here, so the injection is
+      // **idempotent by construction**: the layer's own marker (`window.__wcliPickLayer`)
+      // makes a second run a no-op, and the authorization is re-checked HERE as well
+      // (the panel's view is a hint, the OriginStore is the gate).
+      const target = await pickLayerTarget(s);
+      if ('error' in target) {
+        // `benign` travels in `data` so the panel can tell「这里没有页面侧」from
+        // 「页面侧本该可用却失败了」(the latter must reach the risk zone).
+        return { ...errorResponse(target.error), data: { benign: target.benign === true } };
+      }
+      const env = await declarationEnv(s, target.origin);
+      if (!env.authorized) {
+        // Structural zero-injection: an unauthorized origin never gets the layer, so
+        // it also never gets a right-click interceptor (AC-V3-018 / NFR-V3-007).
+        return errorResponse(`未授权站点 ${target.origin}：页面侧零注入（不注册 / 不注入 / 不拦截右键）`);
+      }
+      try {
+        await chrome.scripting.executeScript({ target: { tabId: target.tabId }, files: ['pick-layer.js'] });
+      } catch (err) {
+        // Readable degradation (never silent): the panel shows this text and disables
+        // the pick entry (`#l0-page-unavailable`).
+        const reason = err instanceof Error ? err.message : String(err);
+        return errorResponse(`页面侧不可用：${reason}`);
+      }
+      // The declaration facts the page cannot read itself (AC-CONV-1's hash/version).
+      await chrome.tabs.sendMessage(target.tabId, { kind: 'pick-layer-env', ...env }).catch(() => {});
+      return okResponse({ injected: true, tabId: target.tabId, ...env });
+    }
+    case 'ref-highlight': {
+      // V3-4 (FR-V3-066): the panel's highlight/flash request travels panel → SW → layer.
+      // The SW is a router here, it never decides anything about the reference.
+      const target = await pickLayerTarget(s);
+      if ('error' in target) return okResponse({ highlighted: false, reason: target.error });
+      await chrome.tabs
+        .sendMessage(target.tabId, {
+          kind: 'ref-highlight',
+          ...(typeof message.refId === 'string' ? { refId: message.refId } : {}),
+          ...(typeof message.selector === 'string' ? { selector: message.selector } : {}),
+          ...(typeof message.mode === 'string' ? { mode: message.mode } : {}),
+        })
+        .catch(() => undefined);
+      return okResponse({ highlighted: true, tabId: target.tabId });
+    }
+    case 'pick-layer-teardown': {
+      const target = await pickLayerTarget(s);
+      if ('error' in target) return okResponse({ tornDown: false, reason: target.error });
+      await teardownPickLayer(s);
+      return okResponse({ tornDown: true, tabId: target.tabId });
     }
     case 'set-trust': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
@@ -2304,7 +2467,7 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   // V2-1 (ADR-V2-004): accept the additive `insight-*` kinds without adding them
   // to the shared KIND_SET (that set is bundled into content.js, which must not grow).
-  if (!isPluginMessage(raw) && !isInsightMessage(raw)) return undefined;
+  if (!isPluginMessage(raw) && !isInsightMessage(raw) && !isPickLayerMessage(raw)) return undefined;
   void handleMessage(raw, sender).then(
     (res) => sendResponse(res),
     (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),
@@ -2329,6 +2492,9 @@ chrome.runtime.onConnect.addListener((port) => {
     void (async () => {
       const s = await init();
       s.autoProbe.setFocused(false);
+      // V3-4 (ADR-V3-030 §4): the layer lives only while the panel does — closing the
+      // panel unloads it (all listeners gone, shadow host gone).
+      await teardownPickLayer(s);
     })();
   });
 });

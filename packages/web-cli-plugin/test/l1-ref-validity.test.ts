@@ -271,7 +271,9 @@ test('v3-2 view-model: L1 八类清单 + 破坏性过滤 + 历史计数标签（
     [...L1_PANEL_IDS],
     ['l1-status', 'l1-consequences', 'l1-ref-evidence', 'l1-local-tree', 'l1-history', 'l1-receipt', 'l1-gestures', 'l1-more'],
   );
-  assert.equal(L1_GESTURE_COUNT, 4);
+  // V3-4 (FR-V3-070): v3-2 shipped 4 gestures; this leaf completes the implemented set
+  // to 6 and renders the table FROM the list, so the count and the table cannot drift.
+  assert.equal(L1_GESTURE_COUNT, 6);
   // The destructive filter is the structural rule behind FR-V3-032's「破坏性选项」.
   assert.equal(isDestructiveOption('删除这条记录'), true);
   assert.equal(isDestructiveOption('清空工作台'), true);

@@ -39,7 +39,7 @@
  * @module l1/panels
  */
 import type { DisclosureController } from '../disclosure.js';
-import { L1_GESTURE_COUNT, decisionHistoryLabel, isDestructiveOption } from '../view-model.js';
+import { L1_GESTURE_COUNT, L1_GESTURE_LABELS, decisionHistoryLabel, isDestructiveOption } from '../view-model.js';
 import type { DecisionRound } from '../view-model.js';
 import { buildLocalTree } from './local-tree.js';
 import type { LocalTreeView } from './local-tree.js';
@@ -78,6 +78,16 @@ export const L1_TRIGGERS: Readonly<Record<string, string>> = {
   'l1-gestures': 'l1-gestures-toggle',
   'l1-more': 'l0-more',
 };
+/** The readable effect per gesture (same keys as `L1_GESTURE_LABELS`). */
+const GESTURE_EFFECTS: Readonly<Record<string, string>> = Object.freeze({
+  'Alt + 悬停': '唯一描边 + 语义路径/选择器/摘要；Esc 或松开 Alt 即撤销（零命令）',
+  'Alt + 拖动': '跟随胶囊；拖到侧栏生成引用，未落到侧栏 ⇒ 已取消（零副作用）',
+  右键: '自绘菜单：纳入引用 / 作为操作目标 / 引用选中文本 / 在此处拾取 / 交给页面原生菜单',
+  拖选文本: '选区右下气泡「引用选中内容（N 字）」→ 点击生成引用（输入框内禁用）',
+  '双击（G1）': '双击元素直接生成引用（同一捕获路径）',
+  '悬停 600ms ⊕（G2）': '目标出现 ⊕ 角标 → 点击生成引用（同一捕获路径）',
+});
+
 /** The original pick label — restored as soon as nothing is stale. */
 export const PICK_LABEL = '从页面拾取';
 /** The rewritten pick label while references are unusable (FR-V3-037). */
@@ -180,6 +190,7 @@ export function mountL1(deps: L1Deps): L1Handle {
   const refBadge = el('l0-ref-badge');
   const pick = el<HTMLButtonElement>('l0-pick');
   const topbar = el('topbar');
+  const gestureRows = el('l1-gestures-rows');
 
   const store = createRefStore();
   let env: RefEnv = {};
@@ -269,6 +280,21 @@ export function mountL1(deps: L1Deps): L1Handle {
     doc.getElementById('l1-history-toggle')!.textContent = decisionHistoryLabel(rounds.length);
     el('l1-gestures-toggle').textContent = `页面交互说明（${L1_GESTURE_COUNT} 个手势）`;
     doc.getElementById('l1-consequences-toggle')!.textContent = `选项后果与影响预演（${counts['l1-consequences']} 个选项）`;
+    // V3-4 (FR-V3-070): the table is BUILT from the single list, so「条目数 = 实测数」can
+    // no longer drift — plus the row's readable effect. Written once (idempotent), never
+    // re-created per render, so the density footprint of the table stays fixed.
+    if (gestureRows.childElementCount !== L1_GESTURE_LABELS.length) {
+      gestureRows.textContent = '';
+      for (const label of L1_GESTURE_LABELS) {
+        const tr = doc.createElement('tr');
+        const th = doc.createElement('td');
+        th.textContent = label;
+        const td = doc.createElement('td');
+        td.textContent = GESTURE_EFFECTS[label] ?? '生成 1 个引用 + 1 道选择题';
+        tr.append(th, td);
+        gestureRows.appendChild(tr);
+      }
+    }
     doc.getElementById('l1-local-tree-toggle')!.textContent = `归属（局部树）· ${counts['l1-local-tree']} 个节点`;
     doc.getElementById('l1-receipt-toggle')!.textContent = `回执证据（${counts['l1-receipt']} 行）`;
     // ④ local tree: ≤3 labels + cross-reference badges + the static L2 entry.

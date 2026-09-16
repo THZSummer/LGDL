@@ -20,10 +20,12 @@
     "test:l2": "node test/ui/l2.mjs",
     "test:l1-reverse": "node test/ui/l1-reverse.mjs",
     "test:l2-reverse": "node test/ui/l2-reverse.mjs",
+    "test:page-input": "node test/ui/page-input.mjs",
+    "test:zero-injection": "node test/ui/zero-injection.mjs",
     "size:attribution": "node test/size-attribution.mjs",
     "test:supersession": "node --test dist-test/test/supersession-ledger.test.js",
     "test:gate-integrity": "node --test dist-test/test/gate-integrity.test.js",
-    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:density && npm run test:l0 && npm run test:l1 && npm run test:l2 && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e && npm run test:gate-integrity && npm run test:l1-reverse && npm run test:l2-reverse"
+    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:zero-injection && npm run test:page-input && npm run test:density && npm run test:l0 && npm run test:l1 && npm run test:l2 && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e && npm run test:gate-integrity && npm run test:l1-reverse && npm run test:l2-reverse"
   },
   "dependencies": {
     "@lgdl/web-cli-base": "^0.7.0"

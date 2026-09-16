@@ -575,7 +575,10 @@ async function main() {
     );
     const d = JSON.parse(discover);
     check('⑪ 8 个 L1 入口都有非空文字标签 + data-count（无「只有图标」入口）', Object.values(d.entries).every((e) => e.text.length > 0 && /^\d+$/.test(e.count)), discover);
-    check('⑪ 计数与真值同源（手势表行数 ≡ 常量 ≡ 触发器等）', d.gestureRows === d.gestures && /4 个手势/.test(d.entries['l1-gestures'].text), discover);
+    // V3-4（FR-V3-070）：手势表由**单一清单**渲染（`L1_GESTURE_LABELS`），实现补齐到
+    // 6 项后此处同编号重 pin 为 6 —— 断言结构不变、且比原来更强（行数 ≡ 常量 ≡ 标签文本
+    // 三者必须同时相等，任何一处漂移都会红灯）。
+    check('⑪ 计数与真值同源（手势表行数 ≡ 常量 ≡ 触发器等）', d.gestureRows === d.gestures && d.gestures === 6 && /6 个手势/.test(d.entries['l1-gestures'].text), discover);
     check('⑪ 后果面板计数 = 真实选项数（4）', d.entries['l1-consequences'].count === '4' && /4 个选项/.test(d.consequencesToggle), discover);
     check('⑪ 回执证据计数 = 真实行数（8）', d.entries['l1-receipt'].count === '8', discover);
     check('⑪ 证据层写入控件 = 0（只读投影，含零提权控件）', d.writeControls === 0 && d.allWrite === 0, discover);

@@ -1198,16 +1198,16 @@
             </div>
           </div>
 
-          <button id="l1-gestures-toggle" type="button" data-disclose="l1-gestures" aria-expanded="false" aria-controls="l1-gestures">页面交互说明（4 个手势）</button>
+          <button id="l1-gestures-toggle" type="button" data-disclose="l1-gestures" aria-expanded="false" aria-controls="l1-gestures">页面交互说明（6 个手势）</button>
           <div id="l1-gestures" data-l1-panel="l1-gestures" hidden>
+            <!-- V3-4 FR-V3-070: the rows are rendered from the ONE list
+                 (`view-model.ts#L1_GESTURE_LABELS`) by `l1/panels.ts`, and the page
+                 side implements exactly those six. G3~G5 of the design baseline are
+                 deliberately absent: a row for an unimplemented gesture is the drift
+                 this requirement forbids. -->
             <table>
               <thead><tr><th>手势</th><th>作用</th></tr></thead>
-              <tbody>
-                <tr><td>Alt + 悬停</td><td>高亮页面元素并显示引用序号（不改变页面）</td></tr>
-                <tr><td>Alt + 拖动</td><td>拖选区域，生成文本引用</td></tr>
-                <tr><td>右键</td><td>自绘菜单：拾取为引用 / 加入选区</td></tr>
-                <tr><td>拖选文本</td><td>出现气泡：作为上下文 / 作为操作目标</td></tr>
-              </tbody>
+              <tbody id="l1-gestures-rows"></tbody>
             </table>
           </div>
         </div>

@@ -37,6 +37,14 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = resolve(ROOT, '..', '..');
 
+/**
+ * V3-4 fix: `WORKTREE` used to be declared *below* the argv parsing, so `--worktree`
+ * died with a TDZ `ReferenceError` and the reproduce command registered in
+ * `SIDEPANEL_GROWTH_BREAKDOWN.reproduceCommand` could not be run at all. The sentinel
+ * is now defined before first use.
+ */
+const WORKTREE = 'WORKTREE';
+
 const argv = process.argv.slice(2);
 const revs = [];
 for (let i = 0; i < argv.length; i += 1) {
@@ -64,8 +72,8 @@ const nodeStubPlugin = {
  * instead of a git revision, so a leaf can attribute its own uncommitted diff
  * against the reference tree (`npm run size:attribution -- --rev cf2af32 --rev WORKTREE`).
  * Geometry is identical to the rev path (same sandbox shape, same base copy).
+ * (Declaration lives at the top of the module — see the note there.)
  */
-const WORKTREE = 'WORKTREE';
 
 /** Materialise `rev`'s sidepanel sources + a shared web-cli-base copy into a sandbox. */
 function materialise(rev, name) {

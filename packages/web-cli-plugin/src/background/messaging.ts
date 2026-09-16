@@ -71,7 +71,19 @@ export type PluginMessageKind =
   // red line); validation lives in `insight-protocol.ts`.
   | 'command-policy'
   | 'command-policy-set'
-  | 'command-policy-reset';
+  | 'command-policy-reset'
+  // V3-4 (ADR-V3-030/032): the on-demand pick layer's face. **Type-only** — like the
+  // `command-policy` family these are deliberately NOT in `KIND_SET`, because that set
+  // is bundled into the injected `content.js` (177,076 B, zero headroom: adding six
+  // strings to it measured +307 B, a red-line breach). Runtime validation lives in
+  // `content/pick-protocol.ts` and is applied by the service worker's routing gate;
+  // `content.js` never references these kinds.
+  | 'pick-layer-inject'
+  | 'pick-layer-teardown'
+  | 'pick-layer-env'
+  | 'pick-layer-state'
+  | 'ref-captured'
+  | 'ref-highlight';
 
 export interface PluginMessage {
   kind: PluginMessageKind;

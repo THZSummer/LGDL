@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-v3-4-page-as-input",
   "version": "v3.0.0",
   "name": "V3-4 页面即输入——Alt 悬停拾取（描边 + 语义路径/选择器/文本摘要）· Alt 拖动到侧栏（跟随胶囊 + 落点高亮）· 右键自绘菜单（零新增权限 + 三条退让）· 拖选文本气泡 → 生成引用 + 选择题；页面侧**按需注入**（拾取层不打进常驻 content.js）、未授权站点**零注入**；双向高亮联动（chip ↔ 角标同序号）",
-  "phase": "tasked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v3-ui",
   "childrens": [],
@@ -189,9 +189,14 @@
       "phase": "tasked",
       "timestamp": "2026-09-16T02:30:00.000Z",
       "triggeredBy": "sddu-tasks（产出 tasks.md + tasks.json；技术方案分解为原子任务，含依赖/波次/并行标记/涉及文件/验收锚点/验证命令）"
+    },
+    {
+      "phase": "builded",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-build（15/15 任务完成；TASK-401 spike S1~S4 全过；门禁严格串行全绿；sidepanel.js 显式重登记 + AC-CONV-1/2 兑现）"
     }
   ],
-  "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：14 任务 / 8 波（S×2 · M×11 · L×1；TASK-401 spike 为 Wave 1 硬前置）。波次与并行性见 tasks.md §1.3（可并行写入的任务文件不相交；门禁执行严格串行，一次只跑一个——本机 ~1.5GB 曾 OOM）。必含项 4/4 覆盖：①先跑 A-UI-004 spike（S1~S4）为 Wave 1 硬前置，spike 未过不得进入实现（失败降级 D1/D2；红线：不放宽 CONTENT_MAX_BYTES / 不引入 contextMenus / 不静态注入 / 不更新三 hash pin）②第 5 bundle dist/pick-layer.js 独立无容差上限 + 基线登记 + +1B 反证 ③双触发/幂等/teardown 自卸载/失败降级 + 右键自绘菜单三退让 ④引用捕获共享口径 + 四项交互 + 双向联动 P4 + 执行可视化 P5 + G1/G2 + 手势表 6 项双向相等 + 未授权零注入（含反证）。阻断级任务：TASK-401（spike，阻断 TASK-402~414 全部）/ TASK-403 / TASK-407 / TASK-411。验收锚点：父 spec FR/NFR/EC/AC 编号（叶子不新造 FR 编号）+ 本叶 plan ADR 编号，逐任务写入 tasks.json 的 fr/nfr/ec/ac/adr 字段。门禁严格串行顺序见 tasks.md §4.1；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断。本叶收尾必须全门禁绿（AC-V3-013 / EC-V3-013），禁留红灯给下一叶。只做 tasks：未写代码、未改 src/**·test/**·manifest.json·design/**·ROADMAP.md、未动 main、未 commit、未跑门禁/构建/Chromium。 【v3-2 收口轮追加（2026-09-16）】登记 N-06 跨叶收敛要求（AC-CONV-1 真实 env 注入点 / AC-CONV-2 唯一动作入口走 dispatchRefAction guard）→ 落地任务 TASK-415（Wave 7，dep 407）；spec.md §7.1 与 tasks.md 修订记录 v1.1 已追加，历史原文逐字保留。",
+  "phaseNote": "build 阶段完成（2026-09-16，sddu-build）：15/15 任务（S×2 / M×12 / L×1）。**TASK-401 spike 全过**（S1 注入可行 / S2 最小骨架 8,606 B ≤ 60,000 / S3 未授权五探针全负 + 强制注入反证翻红 / S4 三退让可实现）⇒ **未走 D1/D2**，获准进实现。形态：第 5 个产物 `dist/pick-layer.js`（32,266 B，按需 `executeScript` 注入，**自有独立无容差上限**，不与 content.js 合并计数）；`dist/content.js` **逐字节不变 177,076 B**；三冻结文件 hash 与 pin 一致；`manifest.json` 零 diff（无 contextMenus）；判定链未动。门禁（严格串行、日志 /tmp/opencode/v3-gate-logs/v3-4/）：typecheck 0 · build ✅ · npm test **795/795** · supersession ✅ · **test:zero-injection 20** · **test:page-input 46** · density **127** · l0 **164** · l1 **103** · l2 **71** · l1-reverse ✅ · l2-reverse ✅ · journey **167** · insight **116** · binding **192** · hardening **24** · e2e PASS · gate-integrity ✅ · 体积四线 + 反证三段 ✅ · 零改动核对 ✅。体积：`sidepanel.js` **显式重登记 349,925 → 362,865 B（+3.70%）**（容差 5% 未动、cap 仍 record-only、断言零删减、逐模块归因；Feature 累计 +36.18% < 40% 停工线，已在 build 报告 §1.3 显式回报）；方向性守卫改报「最差连续两轮」（+22.96%，**只增不减**）。AC-CONV-1（生产 `setEnv` 调用点 + 真实声明 sha256）与 AC-CONV-2（全仓唯一 `dispatchRefAction(` 调用点 + 引用回合走同一入口）各配可 FAIL 判据。人工面 6 项如实登记「未执行」。**只做 build**：未改 main / 未改 v1·v2 SDDU / 未改冻结文件与判定链 / 无新增依赖 / 未使用 git add -A。",
   "crossLeafConvergence": [
     {
       "id": "N-06",

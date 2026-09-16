@@ -352,6 +352,14 @@ export interface StateMessageView {
    * panel-side before this leaf.
    */
   insight?: { counts?: SnapshotCounts } | null;
+  /**
+   * V3-4 (AC-CONV-1): the **adopted declaration's** digest + protocol version, as
+   * reported by the background. This is the one reference fact the page cannot
+   * observe by itself, so it is the one the panel must carry into the judge's env —
+   * without it every reference would be judged「无法确认声明是否变化」and blocked
+   * (fail-closed, but useless).
+   */
+  declaration?: { origin?: string; authorized?: boolean; declarationHash?: string; declarationVersion?: string } | null;
 }
 
 // ── decision ② / FR-048: multi-session switcher view ─────────────────────────
@@ -513,6 +521,13 @@ export interface L0Input {
   /** `#l0-ref-toggle`'s validity flag (v3-2: the real five-dimension judgement). */
   refStale?: boolean;
   /**
+   * V3-4 (FR-V3-068 / ADR-V3-030 §5): a **readable** reason the page side is not
+   * available (injection refused / restricted page / unauthorized origin / layer torn
+   * down). `undefined` or `null` = available. It disables the pick entry and is shown
+   * verbatim in the risk zone — a failure is never silent.
+   */
+  pickUnavailable?: string | null;
+  /**
    * V3-2 (FR-V3-037): the readable reason of the first unusable reference, so the
    * risk rail can state **which dimension** triggered the invalidation. The copy
    * is produced by `l1/ref-validity.ts` (the single judge) and only *carried*
@@ -556,7 +571,7 @@ export interface L0View {
     llmDetail: string;
     session: string;
   };
-  pick: { disabled: boolean; reason: string };
+  pick: { disabled: boolean; reason: string; unavailable?: string | null };
   decision: {
     visible: boolean;
     prompt: string;
@@ -630,12 +645,15 @@ export function l0ViewModel(input: L0Input): L0View {
   const siteName = siteDisplayName(origin);
   const risks = deriveRiskClasses(input);
   const probing = input.probing === true;
-  const pickDisabled = !input.authorized || probing;
-  const pickReason = !input.authorized
-    ? '未授权：页面侧零注入，拾取层不存在'
-    : probing
-      ? '探测中：本阶段不发命令'
-      : '从页面拾取引用（替代输入框）';
+  const unavailable = input.pickUnavailable ?? null;
+  const pickDisabled = !input.authorized || probing || Boolean(unavailable);
+  const pickReason = unavailable
+    ? `页面侧不可用：${unavailable}`
+    : !input.authorized
+      ? '未授权：页面侧零注入，拾取层不存在'
+      : probing
+        ? '探测中：本阶段不发命令'
+        : '从页面拾取引用（替代输入框）';
 
   // ── decision card: ≤2 visible options + 「更多选项（还有 N 个）」 ──
   const ask = input.ask ?? null;
@@ -695,7 +713,7 @@ export function l0ViewModel(input: L0Input): L0View {
       llmDetail: input.llmBadge && input.llmBadge.trim() ? input.llmBadge.trim() : 'LLM：未知',
       session: input.sessionLabel ?? '会话：（无活跃站点）',
     },
-    pick: { disabled: pickDisabled, reason: pickReason },
+    pick: { disabled: pickDisabled, reason: pickReason, unavailable },
     decision: {
       visible: Boolean(ask),
       prompt: ask?.prompt ?? '',
@@ -743,8 +761,28 @@ export const L1_PANEL_IDS = Object.freeze([
   'l1-more',
 ] as const);
 
-/** The four gestures v3-2 ships (v3-4 completes the table and pins it 双向). */
-export const L1_GESTURE_COUNT = 4;
+/**
+ * V3-4 (FR-V3-070 / ADR-V3-034 §6) — **the six gestures this product really implements**,
+ * one entry per shipped gesture. The L1 table is rendered from this list and the page
+ * side (`content/pick-layer.ts`) implements exactly these six, so「条目数 = 实测数」is a
+ * consequence of the single list rather than a claim: the gate asserts the rendered rows
+ * equal these labels **and** that each one produces a reference.
+ *
+ * G3~G5 from the design baseline (long-press 500ms / scroll-to-candidate / Alt+digit
+ * binding) are deliberately **NOT** listed: a row for an unimplemented gesture is exactly
+ * the drift FR-V3-070 forbids. They are recorded as「规格未实现」in the build report.
+ */
+export const L1_GESTURE_LABELS: readonly string[] = Object.freeze([
+  'Alt + 悬停',
+  'Alt + 拖动',
+  '右键',
+  '拖选文本',
+  '双击（G1）',
+  '悬停 600ms ⊕（G2）',
+]);
+
+/** The four gestures v3-2 shipped — superseded by {@link L1_GESTURE_LABELS}. */
+export const L1_GESTURE_COUNT = L1_GESTURE_LABELS.length;
 
 /** Labels that make an option destructive (structural filter, single source). */
 export const DESTRUCTIVE_OPTION_PATTERN = /删除|清空|移除|覆盖|撤销|重置|批量|卸载/;

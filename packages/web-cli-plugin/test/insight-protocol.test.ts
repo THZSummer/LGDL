@@ -21,6 +21,8 @@ import {
   isInsightMessage,
 } from '../src/background/insight-protocol.js';
 import { isPluginMessage } from '../src/background/messaging.js';
+// V3-4: the third (independently validated) message face — see `content/pick-protocol.ts`.
+import { isPickLayerMessage } from '../src/content/pick-protocol.js';
 
 /** An independent oracle re-deriving the documented validation strength. */
 function oracle(value: unknown): boolean {
@@ -167,16 +169,25 @@ test('W2 insight-protocol: validation strength is equivalent to the shared KIND_
 
 test('W2 insight-protocol: the SW entry guard has no unvalidated pass-through', () => {
   const sw = readFileSync(new URL('../../src/background/service-worker.ts', import.meta.url), 'utf8');
-  // The union guard must reject anything that neither predicate accepts.
+  // The union guard must reject anything that **no** predicate accepts. V3-4 added a
+  // third, independently-validated face (the on-demand pick layer, kept out of the
+  // shared `KIND_SET` because that set is bundled into the frozen `content.js`), so the
+  // guard now names three predicates — the claim is unchanged and strictly stronger
+  // (it used to admit two faces, it now admits exactly the three that have validators).
   assert.match(
     sw,
-    /if\s*\(\s*!isPluginMessage\(raw\)\s*&&\s*!isInsightMessage\(raw\)\s*\)\s*return\s+undefined;/,
-    'service-worker must reject raw messages that fail both validators (no unvalidated pass-through)',
+    /if\s*\(\s*!isPluginMessage\(raw\)\s*&&\s*!isInsightMessage\(raw\)\s*&&\s*!isPickLayerMessage\(raw\)\s*\)\s*return\s+undefined;/,
+    'service-worker must reject raw messages that fail every validator (no unvalidated pass-through)',
   );
   assert.match(sw, /import\s*\{\s*isInsightMessage\s*\}\s*from\s*'\.\/insight-protocol\.js';/);
+  assert.match(sw, /import\s*\{\s*isPickLayerMessage\s*\}\s*from\s*'\.\.\/content\/pick-protocol\.js';/);
   // Re-derive the guard for a malformed corpus: all rejected.
-  const unionGuard = (v: unknown) => isPluginMessage(v) || isInsightMessage(v);
+  const unionGuard = (v: unknown) => isPluginMessage(v) || isInsightMessage(v) || isPickLayerMessage(v);
   for (const bad of [null, undefined, {}, { kind: 1 }, { kind: 'nope' }, { kind: 'insight-tree ' }]) {
     assert.equal(unionGuard(bad), false, `${JSON.stringify(bad)} must not pass the SW entry guard`);
   }
+  // 反证：三个校验器都必须真的参与 —— 任一被移除，本语料里的某一条就会漏进来。
+  assert.equal(isPickLayerMessage({ kind: 'pick-layer-inject' }), true, '拾取层 kind 必须由它自己的校验器接受');
+  assert.equal(isPluginMessage({ kind: 'pick-layer-inject' }), false, '拾取层 kind 不在 KIND_SET 里（否则 content.js 会被撑大）');
+  assert.equal(isInsightMessage({ kind: 'pick-layer-inject' }), false);
 });
