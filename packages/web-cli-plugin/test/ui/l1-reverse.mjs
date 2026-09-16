@@ -163,6 +163,35 @@ const CASES = [
   },
 ];
 
+/**
+ * Closeout round (2026-09-16, validate R1 N-03): the meta-gate must be able to check
+ * the **case inventory** instead of counting `expectFailPattern:` declarations in the
+ * source text (comments and string literals satisfied that count, and a loose pattern
+ * passed the `length > 3` filter). `--list-cases` prints the authoritative list as
+ * JSON — id + the declared failure text — so R4a executes this file and verifies the
+ * list, not a regex over its bytes.
+ */
+// Entry-point guard: the inventory mode must not fire when this module is
+// imported (the flag would leak in through `process.argv`).
+const IS_ENTRY = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (IS_ENTRY && process.argv.includes('--list-cases')) {
+  console.log(
+    JSON.stringify(
+      CASES.map((c) => ({
+        id: c.id,
+        expectFailPattern: String(c.expectFailPattern),
+        assertion: c.assertion,
+        requirement: c.requirement,
+        negativeControl: false,
+      })),
+      null,
+      2,
+    ),
+  );
+  process.exit(0);
+}
+
 function runGate() {
   try {
     const out = execFileSync('node', [GATE], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });

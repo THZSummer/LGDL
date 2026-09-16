@@ -845,8 +845,11 @@ export const REVERSE_PROOF_HARNESSES = [
   },
   {
     file: 'test/ui/l2-reverse.mjs',
-    /** v3-3: RP-V33-01/02/03/03-NEG/04/05 — one `expectFailPattern` each. */
-    caseFloor: 6,
+    /**
+     * v3-3: RP-V33-01/02/03/03-NEG/04/05 + closeout RP-V33-06 (N-09 leaf segment) and
+     * RP-V33-07/08/09 (one self-proof per judge hardening, N-01 / N-02 / criterion c).
+     */
+    caseFloor: 10,
     driver: 'artifact/source perturbation + test/ui/l2.mjs / supersession / meta-gate / size guard',
   },
 ] as const;
@@ -886,20 +889,92 @@ const JUDGE_CALL_RE = /judgeReverseProof(?:Invalid)?\s*\(/;
 /** `expectFailPattern: '…'` / `expectFailPattern: /…/` — a non-empty declaration. */
 const EXPECT_FAIL_PATTERN_RE = /expectFailPattern:\s*(\/[^/\n]+\/|'[^'\n]+'|"[^"\n]+")/g;
 
+/**
+ * Pattern **specificity** (closeout round, N-03 ②). The round-1 rule was
+ * `pattern.length > 3`, which accepted `/./`, `'/../'` and `'✖ '` — an unconstrained
+ * expression that matches any line is not a declared failure text.
+ *
+ * The judge is the only consumer that can be *executed*, so the rule is applied to the
+ * inventory the harness prints (`--list-cases`), plus the comment-stripped source as a
+ * second, independent reading.
+ */
+function patternSpecificity(declared: string, negativeControl: boolean): string | null {
+  const body = declared.replace(/^[/'"]|[/'"]$/g, '');
+  const meaningful = (body.match(/[\p{L}\p{N}]/gu) ?? []).length;
+  const floor = negativeControl ? 4 : 6;
+  if (declared.length < 8) return `声明过短（${declared.length} < 8）：${declared}`;
+  if (meaningful < floor) return `声明的实义字符只有 ${meaningful} 个（下界 ${floor}）：${declared}`;
+  if (/^[.\s*+?^$|\\/'"-]*$/.test(body)) return `声明是「匹配任意行」式模式：${declared}`;
+  return null;
+}
+
+/** The ledger the meta-gate cross-checks the *executed* inventory against. */
+function readReverseProofLedger(): {
+  harnesses?: Array<{ file: string; cases: number }>;
+} {
+  const path = resolve(REPO, 'packages/web-cli-plugin/docs/v3-supersession-ledger.json');
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
+    v3ReverseProofExpectations?: { harnesses?: Array<{ file: string; cases: number }> };
+  };
+  return parsed.v3ReverseProofExpectations ?? {};
+}
+
+/** Execute a harness's own `--list-cases` inventory (N-03 ③ — check the list, not the text). */
+function listHarnessCases(
+  file: string,
+): Array<{ id: string; expectFailPattern: string; negativeControl?: boolean; expectValid?: boolean }> {
+  const out = execFileSync('node', [resolve(PKG, file), '--list-cases'], { cwd: PKG, encoding: 'utf8' });
+  const parsed = JSON.parse(out) as Array<{
+    id: string;
+    expectFailPattern: string;
+    negativeControl?: boolean;
+    expectValid?: boolean;
+  }>;
+  assert.ok(Array.isArray(parsed) && parsed.length > 0, `${file} --list-cases 必须输出非空清单`);
+  return parsed;
+}
+
 test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern 并真的接上有效性判定器', () => {
+  const ledgerHarnesses = readReverseProofLedger().harnesses ?? [];
+  assert.ok(ledgerHarnesses.length > 0, '台账 v3ReverseProofExpectations.harnesses 不得为空（登记册是本判据的对照物）');
   for (const harness of REVERSE_PROOF_HARNESSES) {
     const path = resolve(PKG, harness.file);
     assert.ok(existsSync(path), `登记的 reverse-proof harness 不存在：${harness.file}`);
     const text = readFileSync(path, 'utf8');
-    const declared = [...text.matchAll(EXPECT_FAIL_PATTERN_RE)].map((m) => m[1]);
+
+    // ── N-03 ③: check the EXECUTED inventory ──────────────────────────────────
+    const inventory = listHarnessCases(harness.file);
     assert.ok(
-      declared.length >= harness.caseFloor,
-      `${harness.file} 只声明了 ${declared.length} 个 expectFailPattern（登记下界 ${harness.caseFloor}）—— ` +
+      inventory.length >= harness.caseFloor,
+      `${harness.file} 的 --list-cases 清单只有 ${inventory.length} 条（登记下界 ${harness.caseFloor}）—— ` +
         '「反证必须命中预期失败文本」不得被静默放宽',
     );
-    for (const pattern of declared) {
-      assert.ok(pattern.length > 3, `${harness.file} 的 expectFailPattern 不得为空/占位：${pattern}`);
+    const ids = inventory.map((c) => c.id);
+    assert.equal(new Set(ids).size, ids.length, `${harness.file} 的用例 id 必须唯一：${ids.join(', ')}`);
+    const weak: string[] = [];
+    for (const entry of inventory) {
+      const reason = patternSpecificity(entry.expectFailPattern, Boolean(entry.negativeControl));
+      if (reason !== null) weak.push(`${entry.id}: ${reason}`);
     }
+    assert.deepEqual(weak, [], `${harness.file} 的 expectFailPattern 存在占位/过宽声明：\n${weak.join('\n')}`);
+    // The ledger's registered case count must equal the executable inventory (a
+    // registration that lags the harness is a rubber stamp).
+    const registered = ledgerHarnesses.find((h) => h.file.endsWith(harness.file));
+    assert.ok(registered, `${harness.file} 未在台账 v3ReverseProofExpectations.harnesses 登记`);
+    assert.equal(
+      registered.cases,
+      inventory.length,
+      `${harness.file} 台账登记 ${registered.cases} 条 ≠ --list-cases 实测 ${inventory.length} 条`,
+    );
+
+    // ── N-03 ①: the source-text reading must also survive comments being stripped ──
+    const declared = [...stripComments(text).matchAll(EXPECT_FAIL_PATTERN_RE)].map((m) => m[1]);
+    assert.ok(
+      declared.length >= harness.caseFloor,
+      `${harness.file} 剥离注释后只声明了 ${declared.length} 个 expectFailPattern（登记下界 ${harness.caseFloor}）—— ` +
+        '注释 / 字符串字面量不得充当声明',
+    );
+
     assert.ok(
       JUDGE_IMPORT_RE.test(text),
       `${harness.file} 未接上共享判定器（import … from '../reverse-proof-judge.mjs'）—— 声明的模式必须真的被判定`,
@@ -912,14 +987,48 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     );
   }
 
-  // The judge must carry the two rejections that make「因错而红」impossible to pass:
-  // (1) the launch-error markers, (2) the "expected text missing ⇒ invalid" sentence.
+  // The judge must carry the rejections that make「因错而红」impossible to pass:
+  // (1) the launch-error markers — now including the Chromium/CDP/port/OOM classes and
+  //     matched case-insensitively, (2) the "expected text missing ⇒ invalid" sentence,
+  // (3) the failure-line anchoring (N-01) and (4) the completion marker (criterion c).
   const judge = readFileSync(resolve(REPO, REVERSE_JUDGE), 'utf8');
-  for (const marker of ['ERR_MODULE_NOT_FOUND', 'Cannot find module', 'SyntaxError']) {
-    assert.ok(judge.includes(marker), `判定器缺启动错误标记 ${marker}（因错而红将无法被识别）`);
+  const judgeFolded = judge.toLowerCase();
+  for (const marker of [
+    'ERR_MODULE_NOT_FOUND',
+    'Cannot find module',
+    'SyntaxError',
+    'EADDRINUSE',
+    'ECONNREFUSED',
+    'EACCES',
+    'heap out of memory',
+    'FATAL ERROR',
+    'CDP socket not open',
+    'Failed to launch',
+    'Target closed',
+  ]) {
+    assert.ok(
+      judgeFolded.includes(marker.toLowerCase()),
+      `判定器缺启动/环境错误标记 ${marker}（因错而红将无法被识别，N-02）`,
+    );
   }
+  assert.ok(/toLowerCase\(\)/.test(judge), '判定器必须大小写折叠后再比对标记（N-02 ②：小写标记也是同一个标记）');
   assert.ok(judge.includes('未命中预期失败文本'), '判定器缺「未命中预期失败文本 ⇒ 判无效」的分支');
   assert.ok(judge.includes('因错而红'), '判定器缺「因错而红」的判定语义（可读理由）');
+  assert.ok(judge.includes('lineHasFailureMarker'), '判定器缺「命中行本身必须是失败行」的判据（N-01）');
+  assert.ok(judge.includes('COMPLETION_MARKERS'), '判定器缺「门禁必须正常走完」的完成标记判据');
+
+  // The judge's own inventory is executable too: `--list-cases` must expose every
+  // adversarial shape validate drove, and the negative controls may never shrink.
+  const judgeCases = listHarnessCases('test/reverse-proof-judge.mjs');
+  const judgeNegative = judgeCases.filter((c) => c.expectValid === false).length;
+  assert.ok(judgeCases.length >= 15, `判定器 --selftest 清单只有 ${judgeCases.length} 条（下界 15）`);
+  assert.ok(
+    judgeNegative >= 13,
+    `判定器负控只有 ${judgeNegative} 条（下界 13）—— validate 的对抗形态不得被静默删除`,
+  );
+  const judgeRegistered = ledgerHarnesses.find((h) => h.file.endsWith('reverse-proof-judge.mjs'));
+  assert.ok(judgeRegistered, '判定器自身未在台账 harnesses 登记');
+  assert.equal(judgeRegistered.cases, judgeCases.length, `判定器台账登记 ${judgeRegistered.cases} 条 ≠ 实测 ${judgeCases.length} 条`);
 
   // In-gate reverse proofs (the R4d exceptions) must really carry their pattern
   // assertion in the gate source — otherwise the exception is a paper allowance.
@@ -934,7 +1043,8 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     assert.ok(pattern.test(text), `${file} 的 in-gate 反证模式断言（${pattern}）不存在 —— 例外登记失真`);
   }
   console.log(
-    `  ℹ R4a/R4b：${REVERSE_PROOF_HARNESSES.map((h) => `${h.file}（≥${h.caseFloor} 条 expectFailPattern）`).join(' + ')}；` +
+    `  ℹ R4a/R4b：${REVERSE_PROOF_HARNESSES.map((h) => `${h.file}（--list-cases ${h.caseFloor}+ 条，台账逐条对齐）`).join(' + ')}；` +
+      `判定器清单 ${judgeCases.length} 条（负控 ${judgeNegative}）；` +
       `in-gate 例外 ${REVERSE_PROOF_EXCEPTIONS.length} 条（模式断言已逐条核对）`,
   );
 });
@@ -955,7 +1065,34 @@ test('元门禁 R4c（自身反证）：判定器必须把「因错而红」判�
   assert.match(out, /因错而红被判无效/, '--selftest 必须显式报告「因错而红被判无效」');
   assert.match(out, /SELFTEST-2/, '--selftest 必须包含「历史形态 + 宽松期望文本仍判无效」的用例');
   assert.match(out, /passed \/ 0 failed/, '--selftest 必须全过');
-  console.log(out.trimEnd().split('\n').slice(-2).join('\n'));
+  // Every adversarial shape validate drove must still be present and still be a
+  // negative control — a hardening round that silently drops one has not happened.
+  const selftestCases = listHarnessCases('test/reverse-proof-judge.mjs');
+  const negativeIds = selftestCases.filter((c) => c.expectValid === false).map((c) => c.id);
+  for (const label of [
+    'SELFTEST-6',
+    'SELFTEST-7',
+    'SELFTEST-8',
+    'SELFTEST-9',
+    'SELFTEST-10',
+    'SELFTEST-11',
+    'SELFTEST-12',
+    'SELFTEST-14',
+    'SELFTEST-15',
+  ]) {
+    assert.ok(negativeIds.some((id) => id.includes(label)), `判定器缺少负控 ${label}（validate 的对抗形态必须常驻）`);
+  }
+  const positiveIds = selftestCases.filter((c) => c.expectValid === true).map((c) => c.id);
+  assert.ok(
+    positiveIds.some((id) => id.includes('SELFTEST-3')),
+    '真阳性用例 SELFTEST-3 必须存在（否则「全部判无效」也能让负控全绿）',
+  );
+  assert.ok(
+    positiveIds.some((id) => id.includes('SELFTEST-13')),
+    '真阳性用例 SELFTEST-13（命中失败行 + 连带第二条失败）必须存在',
+  );
+  assert.match(out, /判定器反证清单：\d+ 条（负控 \d+ 条/, '--selftest 必须打印清单计数（负控数可被核对）');
+  console.log(out.trimEnd().split('\n').slice(-3).join('\n'));
 });
 
 test('元门禁 R4d：无法声明可复现失败文本的反证必须如实登记为「例外 + 理由」（不得默认放行）', () => {

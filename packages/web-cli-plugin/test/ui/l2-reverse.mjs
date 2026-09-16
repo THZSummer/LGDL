@@ -50,6 +50,21 @@ const COUNTS_TS = resolve(ROOT, 'src/ui/sidepanel/l2/counts.ts');
 const SUPERSESSION = resolve(ROOT, 'dist-test/test/supersession-ledger.test.js');
 const SIZE_BUDGET = resolve(ROOT, 'dist-test/test/size-budget.test.js');
 const GATE_INTEGRITY = resolve(ROOT, 'dist-test/test/gate-integrity.test.js');
+/**
+ * The RP-V33-06 (N-09) victim: a **gate** file whose registered per-line judge is the
+ * supersession ledger. The injected line must be an *existing* line that the ledger's
+ * base (c2c0e0d) never saw — i.e. introduced by v3-1/v3-2 and still present — so that
+ * removing it is invisible to the base-relative judge and can only be caught by the
+ * new leaf-segment judgement (`leafBases`).
+ */
+const LEAF_LEDGER_VICTIM = resolve(ROOT, 'test/ui/l0.mjs');
+const LEAF_LEDGER_VICTIM_LINE = '    // ── ⑥b FR-V3-015: each of the ≤4 L2 entries must carry a REAL count ──────';
+/**
+ * The shared judge's own source — perturbed by the RP-V33-07/08/09 **self-proofs**
+ * (one per hardening: failure-line anchoring, case-folded marker table, completion
+ * marker). The meta-gate reads it from the worktree, so it is a restore target too.
+ */
+const JUDGE_MJS = resolve(ROOT, 'test/reverse-proof-judge.mjs');
 
 const sha = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
 const backupOf = (path) => resolve(BACKUP_DIR, `${path.split('/').pop()}.pristine`);
@@ -57,7 +72,8 @@ const backupOf = (path) => resolve(BACKUP_DIR, `${path.split('/').pop()}.pristin
 /**
  * @typedef {{ id: string, assertion: string, requirement: string, note: string,
  *   expectFailPattern: string | RegExp, expectAlsoPresent?: string[],
- *   negativeControl?: boolean, restoreRebuild?: boolean }} Case
+ *   negativeControl?: boolean, restoreRebuild?: boolean, leafSegment?: boolean,
+ *   judgeRevert?: { label: string, from: string, to: string } }} Case
  */
 /** @type {Case[]} */
 const CASES = [
@@ -103,7 +119,13 @@ const CASES = [
     id: 'RP-V33-04',
     assertion: '元门禁 R1a（失败块内第一条独立 await 前未定死退出码）',
     requirement: 'NFR-V3-013 · v3-2 F-01 的类别（门禁自身完整性）',
-    expectFailPattern: '[R1a]',
+    // Closeout round (N-01): the round-1 pattern was `[R1a]`, which node:test prints on
+    // a *continuation* line of the assertion message — i.e. NOT on a failure-marked
+    // line. Now that the judge requires the hit to sit on a failure line (which is what
+    // makes ATK-02/03/12 impossible), the declared text is the assertion's own header
+    // (`AssertionError [ERR_ASSERTION]: 门禁自身完整性缺陷 @ …`), a strictly *more*
+    // precise anchor that still proves the R1a detector fired.
+    expectFailPattern: '门禁自身完整性缺陷',
     note: '注入：把 `test/ui/l2.mjs` 复制到注入根并加入 F-01 形态（失败块内 `await` 抢在退出码前），`SDC_GATES_ROOT` 指向它 ⇒ 元门禁必须红；真实根仍 9/9 PASS。',
   },
   {
@@ -115,7 +137,87 @@ const CASES = [
       '注入：`dist/sidepanel.js` 追加 1 字节 ⇒ size 守卫（`test/size-budget.test.js` —— 该门禁的真读产物断言在此文件）必须红；' +
       '还原产物（sha256 逐字节）后必须 PASS。',
   },
+  {
+    id: 'RP-V33-06',
+    assertion:
+      '取代台账**叶段**判据（`leafBases=bf5773d`）：在 v3-3 叶起点之后删除一条未登记的既有行 ⇒ 台账必须红',
+    requirement: 'AC-V3-011 / AC-V3-012 · 收口轮 N-09（base 相对判据的叶相对盲区）',
+    expectFailPattern: '叶段（leafBase bf5773d）删除行未逐条命中台账',
+    note:
+      '注入：从 `test/ui/l0.mjs` 删除一条**既有**（非空白）行 —— 该行在 base(c2c0e0d)→HEAD 的判据里根本不是「删除行」' +
+      '（它由 v3-1/v3-2 引入，v3-3 之前就在文件里），只在 `bf5773d` 叶段可见 ⇒ 旧判据完全看不到，新叶段判据必须红。' +
+      '还原（sha256 逐字节）后台账必须 PASS。',
+    leafSegment: true,
+  },
+  // ── N-01 / N-02 / 判据 c 的**自身反证**（收口轮）────────────────────────────
+  // 「防呆必须能失败」：把判定器的每条加固逐条**回退**（只改判定器源码，不改夹具），
+  // 元门禁 R4c（它实跑 `--selftest`）必须因此变红；还原后必须再次变绿。三条加固各一条。
+  {
+    id: 'RP-V33-07',
+    assertion: 'N-01 加固自身反证：判定器回退「命中行必须本身是失败行」⇒ 元门禁必须红',
+    requirement: 'NFR-V3-013 · validate R1 N-01（ATK-02/03/12 的判据）',
+    expectFailPattern: '判定器 --selftest 未通过',
+    judgeRevert: {
+      label: 'matchLine 去掉 `&& lineHasFailureMarker(line)`（恢复 ATK-02/03/12 可绕过形态）',
+      from: 'for (const line of output.split(\'\\n\')) if (re.test(line) && lineHasFailureMarker(line)) return line.trim();',
+      to: 'for (const line of output.split(\'\\n\')) if (re.test(line)) return line.trim();',
+    },
+    note: '回退后 SELFTEST-6/7/8（ATK-02/03/12 负控）会被判为有效 ⇒ `--selftest` exit=1 ⇒ R4c 断言「--selftest 未通过」变红。',
+  },
+  {
+    id: 'RP-V33-08',
+    assertion: 'N-02 加固自身反证：判定器回退「大小写折叠」⇒ 元门禁必须红',
+    requirement: 'NFR-V3-013 · validate R1 N-02（ATK-06 的判据）',
+    expectFailPattern: '判定器 --selftest 未通过',
+    judgeRevert: {
+      label: 'lineLaunchErrorKind 恢复大小写敏感比对（恢复 ATK-06 可绕过形态）',
+      from:
+        '  const folded = line.toLowerCase();\n' +
+        "  for (const marker of LAUNCH_ERROR_MARKERS) if (folded.includes(marker.toLowerCase())) return marker;",
+      to: '  for (const marker of LAUNCH_ERROR_MARKERS) if (line.includes(marker)) return marker;',
+    },
+    note: '回退后 SELFTEST-9（小写 `err_module_not_found`）会被判为有效 ⇒ `--selftest` exit=1 ⇒ R4c 变红。',
+  },
+  {
+    id: 'RP-V33-09',
+    assertion: '判据 c 自身反证：判定器回退「门禁必须正常走完」⇒ 元门禁必须红',
+    requirement: 'NFR-V3-013 · validate R1 N-02 ③（中途被杀不得冒充断言失败）',
+    expectFailPattern: '判定器 --selftest 未通过',
+    judgeRevert: {
+      label: 'hasCompletionMarker 恒真（恢复「中途被杀也能冒充反证」形态）',
+      from: '  return COMPLETION_MARKERS.some((re) => re.test(output));',
+      to: '  return COMPLETION_MARKERS.some((re) => re.test(output)) || true;',
+    },
+    note: '回退后 SELFTEST-14（命中失败行但无完成标记）会被判为有效 ⇒ `--selftest` exit=1 ⇒ R4c 变红。',
+  },
 ];
+
+/**
+ * Closeout round (2026-09-16, validate R1 N-03): `--list-cases` is the **authoritative
+ * inventory** the meta-gate executes (id + declared failure text + negative-control
+ * flag) — a source-text regex count could be satisfied by a comment or a string
+ * literal, which is exactly how R4a used to be decoratable.
+ */
+// Entry-point guard: the inventory mode must not fire when this module is
+// imported (the flag would leak in through `process.argv`).
+const IS_ENTRY = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (IS_ENTRY && process.argv.includes('--list-cases')) {
+  console.log(
+    JSON.stringify(
+      CASES.map((c) => ({
+        id: c.id,
+        expectFailPattern: String(c.expectFailPattern),
+        assertion: c.assertion,
+        requirement: c.requirement,
+        negativeControl: Boolean(c.negativeControl),
+      })),
+      null,
+      2,
+    ),
+  );
+  process.exit(0);
+}
 
 /** Run a command, capturing stdout+stderr and the exit code (never throws). */
 function run(command, args, options = {}) {
@@ -154,7 +256,10 @@ if (selected.length === 0) {
 }
 
 // ── pristine state (byte-exact restore targets) ──────────────────────────────
-const ARTIFACTS = [HTML, JS, COUNTS_TS];
+// `LEAF_LEDGER_VICTIM` is included because RP-V33-06 perturbs a *gate source* (the
+// supersession ledger's per-line judge reads it from the worktree), not a build
+// artifact — it must be restored byte-for-byte like the rest.
+const ARTIFACTS = [HTML, JS, COUNTS_TS, LEAF_LEDGER_VICTIM, JUDGE_MJS];
 for (const path of ARTIFACTS) {
   if (!existsSync(path)) {
     console.error(`✖ 前置失败：${path} 不存在（先 npm run build / npm test 生成 dist 与 dist-test）`);
@@ -168,11 +273,14 @@ const restoreAll = () => {
 };
 const restoredExactly = () => ARTIFACTS.every((p) => sha(p) === pristine[p].sha);
 
-console.log(`▶ 反证注入面（门禁真读的产物 + 真值源）：`);
+console.log(`▶ 反证注入面（门禁真读的产物 + 真值源 + 台账逐行判据的受审门禁源）：`);
 console.log(`  · dist/sidepanel.html ${pristine[HTML].bytes} B sha256=${pristine[HTML].sha.slice(0, 16)}…`);
 console.log(`  · dist/sidepanel.js   ${pristine[JS].bytes} B sha256=${pristine[JS].sha.slice(0, 16)}…`);
 console.log(`  · src/.../counts.ts   ${pristine[COUNTS_TS].bytes} B sha256=${pristine[COUNTS_TS].sha.slice(0, 16)}…`);
-console.log(`▶ 判定器：test/reverse-proof-judge.mjs（expectFailPattern 必须命中，且「因错而红」一律判无效）`);
+console.log(`  · test/ui/l0.mjs      ${pristine[LEAF_LEDGER_VICTIM].bytes} B sha256=${pristine[LEAF_LEDGER_VICTIM].sha.slice(0, 16)}…`);
+console.log(`  · test/reverse-proof-judge.mjs ${pristine[JUDGE_MJS].bytes} B sha256=${pristine[JUDGE_MJS].sha.slice(0, 16)}…`);
+console.log(`▶ 判定器：test/reverse-proof-judge.mjs（expectFailPattern 必须在**失败行**命中；启动/环境/CDP/OOM 错误 + 中途被杀一律判无效）`);
+console.log(`▶ 判定器清单：node test/reverse-proof-judge.mjs --list-cases（元门禁执行并核对，不数源码声明）`);
 console.log(`▶ 日志目录：${LOG_DIR}\n`);
 
 // The judge's own reverse proof first: if the anti-foolproof cannot fail, nothing below
@@ -256,7 +364,7 @@ try {
         // the test process, so this prefix is the falsifiable evidence.
         test.expectAlsoPresent = ['--files-override ', copy];
         failRun = { id: test.id, ...run('node', [SUPERSESSION, '--files-override', copy]) };
-      } else {
+    } else {
         console.log('  · 形态 A（历史错误形态，负控）：node --test dist-test/test/supersession-ledger.test.js --files-override <副本>');
         failRun = { id: test.id, ...run('node', ['--test', SUPERSESSION, '--files-override', copy]) };
       }
@@ -291,6 +399,41 @@ try {
       failRun = { id: test.id, ...run('node', ['--test', SIZE_BUDGET]) };
       restoreAll();
       passRun = { id: test.id, ...run('node', ['--test', SIZE_BUDGET]) };
+    } else if (test.id === 'RP-V33-06') {
+      // ── N-09 reverse proof: an UNREGISTERED deletion that only the LEAF segment can
+      // see. The line was introduced *after* the ledger's base (c2c0e0d) and is present
+      // in the worktree, so the base-relative judge (diff base→worktree) is structurally
+      // blind to its removal — precisely the 28-line blind spot validate found. The new
+      // `leafBases` judgement must catch it, and the restore must be byte-exact.
+      const pristineText = readFileSync(LEAF_LEDGER_VICTIM, 'utf8');
+      const removed = `${LEAF_LEDGER_VICTIM_LINE}\n`;
+      const hits = pristineText.split(removed).length - 1;
+      if (hits !== 1) {
+        failures.push(`${test.id} 注入锚点命中 ${hits} 次（期望 1）—— l0.mjs 的判据注释行已变`);
+      }
+      writeFileSync(LEAF_LEDGER_VICTIM, pristineText.replace(removed, ''), 'utf8');
+      console.log(
+        `  · 注入：test/ui/l0.mjs 删除 1 条**叶段**既有行（base 从未见过它）—— ${LEAF_LEDGER_VICTIM_LINE.trim().slice(0, 56)}…`,
+      );
+      failRun = { id: test.id, ...run('node', ['--test', SUPERSESSION]) };
+      console.log('  · 形态：node --test dist-test/test/supersession-ledger.test.js（叶段判据必须红）');
+      restoreAll();
+      passRun = { id: test.id, ...run('node', ['--test', SUPERSESSION]) };
+    } else if (test.judgeRevert) {
+      // ── N-01 / N-02 / criterion c **self-proofs**: revert one hardening in the judge
+      // and the meta-gate (which really executes `--selftest`) must go red. Only the
+      // judge's own source is patched — the fixtures are untouched, so a green result
+      // would mean the fixture cannot fail.
+      const pristineJudge = readFileSync(JUDGE_MJS, 'utf8');
+      const hits = pristineJudge.split(test.judgeRevert.from).length - 1;
+      if (hits !== 1) {
+        failures.push(`${test.id} 判定器锚点命中 ${hits} 次（期望 1）—— 判定器源码已变`);
+      }
+      writeFileSync(JUDGE_MJS, pristineJudge.replace(test.judgeRevert.from, test.judgeRevert.to), 'utf8');
+      console.log(`  · 注入：判定器加固回退 —— ${test.judgeRevert.label}`);
+      failRun = { id: test.id, ...run('node', ['--test', GATE_INTEGRITY]) };
+      restoreAll();
+      passRun = { id: test.id, ...run('node', ['--test', GATE_INTEGRITY]) };
     } else {
       failures.push(`${test.id} 未实现驱动`);
       continue;

@@ -41,7 +41,7 @@
       "featureKey": "specs-tree-v3-3-l2-on-demand-views",
       "name": "V3-3 L2 按需视图（树/命令/审计/设置）",
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/",
-      "phase": "tasked",
+      "phase": "validated",
       "status": "tracked",
       "depth": 2,
       "leaf": true,
@@ -49,7 +49,7 @@
       "deliveryOrder": 3,
       "covers": "Q-UI-002 / Q-UI-004",
       "role": "四类底账默认一个都不出现，只留「计数 + 入口」（计数从真值派生），≤2 次交互可达的视图替换 + 「← 返回」；复用既有 tree-drawer / 命令档案 / 审计 / 设置资产；承担 R-UI-002 取代台账最大工作量",
-      "note": "前置 V3-1；与 V3-2 可并行分解但门禁执行必须串行"
+      "note": "前置 V3-1；与 V3-2 可并行分解但门禁执行必须串行 ｜ **收口轮（2026-09-16，sddu-build）**：判定器加固 N-01/N-02/N-03（各配能 FAIL 的自身反证）+ 台账 `leafBases` 叶段双段审计（97 条逐字 + RP-V33-06）+ N-04~N-10 处置；16 项门禁全绿、计数只增不减、红线零改动；**phase 保持 validated**。详见该叶 build.md §10。"
     },
     {
       "featureKey": "specs-tree-v3-4-page-as-input",
@@ -97,6 +97,12 @@
       "at": "2026-09-16",
       "agent": "sddu-build（v3-1 叶子收口轮：F1~F9 处置 + 体积 AC 显式订正）",
       "note": "子叶 `specs-tree-v3-1-l0-shell-density` 的 validate 收口轮完成，父状态同步记录：① **F8 订正**（不豁免）：本叶 spec.md §5 NFR-V3-005 / §7 AC-V3-016、本叶 state.json#gateSet、**父 spec.md 3 处**（§90 现状表 / NFR-V3-005 / AC-V3-016）、**父 plan.md 5 处**（§75 体积硬线 / §222 C / §226 增量预测 / §396 R3-04 / §720 重登记条件）、**父 state.json#evidenceFacts.sizeGuards** 的 sidepanel ≤279,825（基线 266,500）→ ≤306,099（基线 295,225）；每处逐字保留历史（`~~279,825~~ → 306,099`、`~~266,500~~ → 295,225`）；容差 5% 未变、SIDEPANEL_CEILING_CAP 只降不升、断言零删减，密度阈值 7/15 · 9/20 · 17/35 未动。② 子叶 F1~F7/F9 处置完成（按行台账判定 + 补登 3 行 / 台账与 build.md 数字订正 / 阶段 F 格数与检查名 / FR-V3-015 真值计数三处同源断言与豁免登记 / 风险探针补 visibility+opacity 判定 + RP-V3-09）。③ 夹具确定性 + `default@320` 由 194/18/6 重登记为 223/19/7（历史保留）。④ 收口轮门禁严格串行全 0，计数只增不减（density 105→127 / l0 134→137），红线零漂移（判定链与 src/content/** sha256 = pin、content.js 177,076、manifest 0 diff、main 未动）。⑤ **未**改动的同类残留（超出裁决范围，已在子叶 deferred 登记）：三个兄弟叶（v3-2/v3-3/v3-4）的 spec/state/tasks 与父 discovery.md 仍含旧 ceiling 279,825，建议各叶开工时按同一订正方式同步。"
+    },
+    {
+      "phase": "tracked",
+      "at": "2026-09-16",
+      "agent": "sddu-build（v3-3 叶子收口轮：validate R1 N-01~N-10 处置；判定器加固 + 台账叶段审计）",
+      "note": "子叶 `specs-tree-v3-3-l2-on-demand-views` 的**收口轮**完成，父状态同步记录：① 反证判定器加固三条（N-01 命中行必须是失败行 / N-02 启动·环境·CDP·OOM 标记扩表 + 大小写折叠 + 完成标记 / N-03 元门禁改**执行** harness 的 `--list-cases` 清单 + 声明具体性下限 + 剥注释计数），**每条加固各配一条「回退该加固 ⇒ 元门禁必须红」的自身反证**（RP-V33-07/08/09 实跑记录在 `test/ui/l2-reverse.mjs`，10 条全绿）；② 取代台账新增 `leafBases`（`leafBase=bf5773d`，scope 由规则复算 23 门禁源文件；97 条叶段未被 `entries[].oldTitle` 覆盖的删除行**逐字**登记并带理由），逐行判据由此**两段都算**（base 相对 + 叶相对），端到端反证 RP-V33-06（真删一条叶段既有行 ⇒ 台账红 ⇒ sha256 还原后 PASS）—— validate N-09 的 28 条盲区已纳入判据；③ N-04（`feature` 追加 + `featureHistory`）、N-05/N-06（build.md 就地订正 + 现值指针，历史值逐字保留）、N-07（密度册 `knownLimitations`）、N-08（本叶 spec §10 边界登记）、N-10（骨架期豁免原文逐字补登）全部落地；**不改实现的两项（N-07/N-08）只做登记**。门禁（严格串行、一次一个、全量日志 `/tmp/opencode/v3-gate-logs/v3-3-closeout/`）：typecheck 0 · build 0 · npm test 0（**779/779/0**）· supersession 0（**14/14**）· density 0（127/0）· l0 0（164/0）· l1 0（103/0）· l2 0（71/0）· ui 0（167）· insight 0（116）· binding 0（192）· hardening 0（24）· e2e 0 · gate-integrity 0（12/12，`--selftest` 15/0）· l1-reverse 0（9 条）· l2-reverse 0（**10 条**）；体积三线 `content.js 177,076`（sha 52a82620…，无容差）/ `sidepanel.js 349,925` ≤ 367,421；零改动核对全 0 diff；红线：阈值逐字 7/15·9/20·17/35、判定链 sha256 不变、manifest 0 diff、main 未动、无新依赖、未用 `git add -A`。**计数只增不减**（776→779 / 11→14 / 6→10 / selftest 5→15）。环境披露：首条链因 /tmp tmpfs 被 576 个遗留 Chromium profile 占满（约 2.9GB）而 CDP 超时，清理后同链全绿（未改产品代码）。"
     }
   ],
   "dependencies": {

@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-v3-3-l2-on-demand-views",
   "version": "v3.0.0",
   "name": "V3-3 L2 按需视图（树/命令/审计/设置）——全局连接树 / 命令目录 122 卡 / 审计 / 设置默认一个都不出现，只留「计数 + 入口」（计数从真值派生），≤2 次交互可达的视图替换 + 「← 返回」；复用既有 tree-drawer / 命令档案 / 审计 / 设置资产（改归属 + 补摘要/计数/入口），承担 R-UI-002 取代台账最大工作量",
-  "phase": "reviewed",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v3-ui",
   "childrens": [],
@@ -89,7 +89,10 @@
     "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md",
     "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/build.md",
     "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/review.md",
-    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/review-report.md"
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/review-report.md",
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/validate-report.md",
+    "gateLogs": "/tmp/opencode/v3-validate-v33/（validate R1 的独立复现日志与探针；非版本化）"
   },
   "dependencies": {
     "on": [
@@ -181,7 +184,81 @@
       "phase": "reviewed",
       "timestamp": "2026-09-16T15:45:00.000Z",
       "triggeredBy": "sddu-review（R1：1 阻塞 F-01 + I-01~I-05）→ sddu-build 修复轮（F-01 订正 + expectFailPattern 防呆 + I-01~I-05 处置；门禁全绿；体积按实测重登记）"
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-16T17:30:00.000Z",
+      "triggeredBy": "sddu-validate（R1：⚠️ 有条件通过 / **0 阻塞**；V1~V16 逐项独立复现 + 主动攻击新防呆；探针只落 /tmp/opencode/v3-validate-v33/）",
+      "disposition": {
+        "结论": "⚠️ 有条件通过（0 阻塞）—— 实质交付在**我自己的复现**下全部成立；F-01 修复经四重独立确认；未判「通过」的唯一原因是非阻塞的防呆强化空间与文档/登记册残留。",
+        "F-01 独立复现": "自建同 basename 副本（删 1 条 `check(` ⇒ 68→67）+ 形态 B `node dist-test/test/supersession-ledger.test.js --files-override <我的副本>` → **EXIT=1**，FAIL 段逐字含 `--files-override /tmp/opencode/v3-validate-v33/rp-f01/l2.mjs: 运行时 check 计数 67 < 台账下界 68 —— 删除断言未登记`（override 分支真执行的证据 = 副本路径前缀）；启动错误标记扫描 **0 命中**（不是因错而红）；形态 A（历史错误调用）复现 `ERR_MODULE_NOT_FOUND` 且真文件仍打印 `68 ≥ 68`（证伪 build 轮原归因）；还原后 `11/11 exit=0`；真文件 `check(` 仍 68 且 git 零改动。",
+        "新防呆对抗（本轮重点）": "我自写 14 条对抗样本直判（`attack-judge.mjs`）→ **9 条可绕过**，其中：命中行不必是失败行（ATK-02/03/12）、Chromium/CDP/OOM 类启动错误不在标记表（ATK-08/09/10）、标记匹配大小写敏感（ATK-06）、声明过宽模式（ATK-04/05）；不可绕过的 5 条为：同输出含启动错误（ATK-01）、换行拆断（ATK-07）、无失败标记（ATK-11）、真反证（ATK-13）、负控包装（ATK-14）。R4a 声明侧攻击（`attack-r4a.mjs`）：注释/块注释/字符串字面量/`/../`/`'✖ '` **全部被算作合法声明**（仅 `length>3`）。**本轮证据未被污染**：我自跑的 `test:l2-reverse` 6 条命中行逐条为**目标断言自身的 `✖`/`AssertionError`**，负控 `RP-V33-03-NEG` 如期被判无效。判定器 `--selftest` **5/5**。",
+        "计数真值": "自写双向实验：新增 1 个已授权站点 → `sites 2→3` / `Σ 115→117` / `tree 115→117`（**Δ 相等**），`live` 不污染；`audit` 计数 == 既有 `audit-export` 回包长度（`0→7`）；`settings` 计数 == 渲染出的 `.wc-section`（7）；渲染目录卡数 **94 == `deriveCounts().commands.live`**。写死路径搜索：唯一常量为**对账基线** `CATALOG_BASELINE_META`（被 `insight-archive.test.ts` A7 pin 到 `loadBaseline()`）与**分区登记表** `SETTINGS_SECTION_IDS`（被 `l2-counts.test.ts` 双向守卫）；未读真值一律 `null`（渲染 `…`，不冒充 0）；快照缺失时渲染显式不可用文案（不显示陈旧态）。",
+        "语义迁移": "`#tree-fab` 默认 hidden / 视图内揭示；`#tree-drawer` `role=region` + `aria-modal` 移除 + `aria-haspopup` 全仓 0 命中 + `position:static`；`#I-*` 集合 **LOST=0 / NEW=8**（逐字与声称一致）；`sidepanel-view.test.ts` 本叶区间 **0 行 diff**；阈值 `488 / 54.0 / [0,8]` 逐字未动；`checkLayout` 与 `checkL2OpenLayout` **各 7 条**且关态几何断言原样保留。",
+        "密度 chars −3": "`git diff cf2af32..HEAD -- test/ui/density-metrics.mjs` = **0 行**（测量源码零改动）；−3 精确来自 `#l0-statusbar-text` 自身文本 16→13；`previous.chars=223` 逐格保留 + 方向 `tighten-only`；被移出的计数确实在默认 `hidden` 的 `#l2-entries` 内（实测 `entriesHidden=true`）。**我自写口径 6 格逐格对上**（default 7/7/19/6 chars 220 三视口相等；firstRun 7/12/25/6 chars 384）。",
+        "体积": "`content.js 177,076`（sha 52a82620… 与 pin 相等）+ `sidepanel.js 349,925` == 登记 ≤ 公式 ceiling `367,421`；自跑 `--rev cf2af32 --rev WORKTREE` → `Δ=54,700`（`43,528 + 10,488 + 265 + 419`）；`Σ per-module 54,281 + 419 = 54,700`；必需占比 `98.75%`；未解释 `684 B`；Feature 累计 `+31.30%`（时间线含全部六轮，无漏算）。",
+        "台账": "base 相对：受审 34 文件、**未覆盖删除行 = 0**（与门禁一致）；`newTitle` 62/62 可定位；两个 `protectedRanges` 字节 hash **独立复算相等**；两条 `v3SkeletonExemptions` 的 `removalCondition` **均被本叶交付物满足** ⇒ 删除合规且 `SKELETON_EXEMPT_TARGETS=[]` / `L2_COUNT_EXEMPT=[]` 被断言为空；`V33F-S12`（v3RevealComposer 有界重试）逐字补登。叶相对（`bf5773d..HEAD`）42 条门禁文件删除行中 28 条落在 `entries` 之外（注释/判据管道行）→ 该盲区**已被台账 note + build.md §F-02 如实登记**。",
+        "零改动红线": "`content.js` 177,076 + sha256 52a82620…；`src/content/**` 三 hash（a7290031… / 7df782b3… / 5737c40a…）；判定链 `policy.ts bfcb2ede…` / `auto-authorize.ts 1096d065…`；`manifest.json` 本叶区间 0 diff 且 `contextMenus` 0 命中；仅 3 条 script 新增（依赖零新增）；阈值 `7/15 · 9/20 · 17/35`；主界面可见文本输入框 0 + `#composer` 默认 hidden；`#risk-rail` 在 `NEVER_FOLDABLE` 且不在 `COLLAPSIBLE_TARGETS`。",
+        "门禁复跑（严格串行，日志 /tmp/opencode/v3-validate-v33/gates/）": "typecheck 0 · build 0（content.js 177,076 零改动 · sidepanel.js 349,925）· npm test **776**/776 · supersession **11**/11 · density **127**/0 · l0 **164**/0 · l1 **103**/0 · l2 **71**/0 · journey **167** · insight **116** · binding **192** · hardening **24** · e2e **PASS** · gate-integrity **12**/12 · l1-reverse **9/9** · l2-reverse **6/6** —— **16/16 项 exit=0，与声称逐项一致（零不一致）**。",
+        "新发现（非阻塞）": "N-01（中）判定器不要求命中行本身是失败行 ⇒「无关位置 + 另一处真失败」可被判有效；N-02（中）启动错误标记表遗漏 Chromium/CDP/OOM 整类（正是 v3-2 F-01 的同形域）+ 大小写敏感；N-03（低）元门禁 R4a 以源码正则计数声明，注释/字符串字面量/过宽模式可满足；N-04（低）台账 `feature` 字段未含 v3-3；N-05（低）`build.md:124` 残留 `l0 158`（同文件已订正为 160/164，实测 164）；N-06（低）`build.md §1/§5.1` 未就地指向 §9.5 的 `349,925/367,421`；N-07（信息）密度门禁未测「L2 入口面板打开」态（本次 −3 把文本移入该未测态）；N-08（信息）设置视图走 v1 `body.settings-open` 开关、不在 `#view-host` 替换契约内（与 FR-V3-051 一致但未在 spec/plan 显式登记）；N-09（信息）台账 base 相对判据的叶相对盲区（已被文档登记）；N-10（低）两条骨架期豁免的原始登记文本未逐字保留（只留摘要，删除本身合规）。",
+        "未验证项（如实登记）": "人工面（树逐层展开观感 / 窄栏长路径观感 / 键盘体感 / 明暗主题观感 / 读屏）→ `⏳ 未执行`；`density.mjs --reverse` 6 条 RP → `⏭️ 未复跑`（v3-3 未改该门禁）；`HARDENING_C4` 子阶段 → `⏭️ 未执行`；「返回后 activeElement 回焦」→ build 轮已 deferred（本轮确认仍登记）。",
+        "前置条件说明": "`review-report.md` 的 R1 为 ❌ 不通过（1 阻塞 F-01），其后 build 修复轮已处置且 `phase=reviewed`；本轮**没有** R2 审查报告独立确认 F-01 的关闭 —— **本轮 validate 的独立复现（V2）即该确认**，故以 0 阻塞推进到 `validated`。",
+        "纪律": "未修改任何源码/测试/文档/配置（本阶段仅产出 `validate.md` + `validate-report.md` + 本 state.json）；未 `git add`/`commit`/`push`；`main 2ddc922` 未动；`HEAD 97f9e42` 未变；Chromium 一次一个（无并发）；探针只落 `/tmp/opencode/v3-validate-v33/`。"
+      }
     }
   ],
-  "phaseNote": "reviewed —— 审查 R1（review.md C1~C44 + review-report.md）结论 ❌ 不通过（1 阻塞 F-01），本叶随即执行**修复轮**（sddu-build）：① F-01 订正 —— `RP-V33-03` 的调用形态改为形态 B（`node dist-test/test/supersession-ledger.test.js --files-override <同 basename 副本>`），FAIL 段实测命中 `--files-override …: 运行时 check 计数 67 < 台账下界 68 —— 删除断言未登记`、PASS 段 11/11，并新增版本化 harness `test/ui/l2-reverse.mjs`（RP-V33-01~05 全部声明 expectFailPattern + 逐字节还原）与其中立判定器 `test/reverse-proof-judge.mjs`；构建轮的无效记录在 build.md §6/§6.1 标注为「无效反证（因错而红）」并**逐字保留原文**，另附 review 的独立复现与本轮修复后原文。② 新增全局防呆（本轮最高价值项）—— 元门禁 `test/gate-integrity.test.ts` R4a/R4b/R4c/R4d：反证必须声明并命中 expectFailPattern，「因错而红」一律判无效（判定器 `--selftest` 以历史 F-01 原文为负控，实跑全过），无法声明可复现失败文本者如实登记为例外 + 理由。③ I-01（中）设置入口 `aria-controls` 改为逐目标并补 l0 断言；I-02 三处断言标题/恒真合取改写（`check(` 计数保持 68，F-01 证据文本不变）；I-03 文档/登记册数字保真 5 处逐处订正（历史值保留在 `growthBreakdown.previous`）；I-04 台账盲区补登（V33F-S12）+ 局限明写；I-05 死代码 `catalogCounts()` 删除 + 白名单漂移守卫 + 320px 四视图/单滚动 CSS 口径加强；返回后 activeElement 焦点目标问题如实 deferred。④ 门禁（严格串行，日志 /tmp/opencode/v3-gate-logs/v3-3-fix/）：typecheck 0 err / build ✓（content.js 177,076 零改动 · sidepanel.js 349,925）/ npm test 776/776 / supersession 11/11（l0 floor 72→73）/ density 127/0 / l0 164/0 / l1 103/0 / l2 71/0 / journey 167 / insight 116 / binding 192 / hardening 24 / e2e PASS / gate-integrity 12/12（含 R4）/ l1-reverse 9 条全绿 / l2-reverse 6 条全绿（含负控被判无效）+ density --reverse RP-V3-01/02/03/04/08/09 全 exit=0。⑤ 体积按实测**显式重登记** 349,880 → 349,925 B（+45 B 全部来自 I-01；ceiling 由公式抬高 367,374 → 367,421；registry-fidelity-round，功能轮口径不变 +18.51%；Feature 累计 +31.30%）。红线零改动：content.js 177,076 + sha256 52a82620…、src/content 三 hash、判定链 sha256、manifest 零 diff、无新依赖、主界面无常驻输入框、风险位不可折叠、main 2ddc922 未动。"
+  "phaseNote": "reviewed —— 审查 R1（review.md C1~C44 + review-report.md）结论 ❌ 不通过（1 阻塞 F-01），本叶随即执行**修复轮**（sddu-build）：① F-01 订正 —— `RP-V33-03` 的调用形态改为形态 B（`node dist-test/test/supersession-ledger.test.js --files-override <同 basename 副本>`），FAIL 段实测命中 `--files-override …: 运行时 check 计数 67 < 台账下界 68 —— 删除断言未登记`、PASS 段 11/11，并新增版本化 harness `test/ui/l2-reverse.mjs`（RP-V33-01~05 全部声明 expectFailPattern + 逐字节还原）与其中立判定器 `test/reverse-proof-judge.mjs`；构建轮的无效记录在 build.md §6/§6.1 标注为「无效反证（因错而红）」并**逐字保留原文**，另附 review 的独立复现与本轮修复后原文。② 新增全局防呆（本轮最高价值项）—— 元门禁 `test/gate-integrity.test.ts` R4a/R4b/R4c/R4d：反证必须声明并命中 expectFailPattern，「因错而红」一律判无效（判定器 `--selftest` 以历史 F-01 原文为负控，实跑全过），无法声明可复现失败文本者如实登记为例外 + 理由。③ I-01（中）设置入口 `aria-controls` 改为逐目标并补 l0 断言；I-02 三处断言标题/恒真合取改写（`check(` 计数保持 68，F-01 证据文本不变）；I-03 文档/登记册数字保真 5 处逐处订正（历史值保留在 `growthBreakdown.previous`）；I-04 台账盲区补登（V33F-S12）+ 局限明写；I-05 死代码 `catalogCounts()` 删除 + 白名单漂移守卫 + 320px 四视图/单滚动 CSS 口径加强；返回后 activeElement 焦点目标问题如实 deferred。④ 门禁（严格串行，日志 /tmp/opencode/v3-gate-logs/v3-3-fix/）：typecheck 0 err / build ✓（content.js 177,076 零改动 · sidepanel.js 349,925）/ npm test 776/776 / supersession 11/11（l0 floor 72→73）/ density 127/0 / l0 164/0 / l1 103/0 / l2 71/0 / journey 167 / insight 116 / binding 192 / hardening 24 / e2e PASS / gate-integrity 12/12（含 R4）/ l1-reverse 9 条全绿 / l2-reverse 6 条全绿（含负控被判无效）+ density --reverse RP-V3-01/02/03/04/08/09 全 exit=0。⑤ 体积按实测**显式重登记** 349,880 → 349,925 B（+45 B 全部来自 I-01；ceiling 由公式抬高 367,374 → 367,421；registry-fidelity-round，功能轮口径不变 +18.51%；Feature 累计 +31.30%）。红线零改动：content.js 177,076 + sha256 52a82620…、src/content 三 hash、判定链 sha256、manifest 零 diff、无新依赖、主界面无常驻输入框、风险位不可折叠、main 2ddc922 未动。\n\n**收口轮（2026-09-16，sddu-build）**：validate R1 的 N-01~N-10 全部处置 —— N-01/N-02/N-03 判定器加固（失败行锚点 / 启动·环境·CDP·OOM 标记扩表 + 大小写折叠 / 完成标记 / R4a 改执行 `--list-cases` 清单 + 具体性下限 + 剥注释计数），每条加固各配**能 FAIL 的自身反证**（RP-V33-07/08/09；判定器 selftest 5 → 15，负控 13）；台账新增 `leafBases` 把逐行判据扩到叶段（97 条逐字登记 + RP-V33-06 真删反证）；N-04/N-05/N-06 就地订正，N-07/N-08 边界登记（不改实现），N-10 原文逐字补登；16 项门禁 + 体积三线 + 零改动 + 反证全套全绿，计数只增不减（779 / 14 / 127 / 164 / 103 / 71 / 167 / 116 / 192 / 24 / 12 / 9 / 10）；红线零改动。**phase 保持 validated**（收口轮不改变验证结论）。详见 build.md §10。",
+  "closeoutRounds": [
+    {
+      "round": "v3-3 closeout round（收口轮）",
+      "roundKind": "hardening-round（判据加固 + 登记保真；无新功能 / 无阈值变更 / 无判定链改动）",
+      "date": "2026-09-16",
+      "trigger": "validate-report.md（R1）⚠️ 有条件通过（0 阻塞）+ 新发现 N-01~N-10（2 中 / 4 低 / 4 信息）",
+      "phaseAfterRound": "validated（保持不变；本轮只加固判据与登记，不改变验证结论）",
+      "n01n03Disposition": {
+        "N-01": "✅ 已修 —— 判定器 `matchLine` 要求「命中行本身是失败行」（新增 `lineHasFailureMarker`），validate 的 ATK-02/03/12 形态成为常驻负控 SELFTEST-6/7/8；自身反证 RP-V33-07（回退该加固 ⇒ 元门禁 R4c 红，还原后绿）",
+        "N-02": "✅ 已修 —— 启动/环境标记表扩到 Chromium/CDP/端口/OOM 类 + 大小写折叠（`lineLaunchErrorKind`）+ 新增第三条判据「FAIL 段必须出现门禁正常走完的完成标记」；负控 SELFTEST-9/10/11/12/14；自身反证 RP-V33-08 / RP-V33-09",
+        "N-03": "✅ 已修 —— 两条 harness 与判定器各自暴露 `--list-cases`（入口点守卫），元门禁 R4a **执行**清单并核对（条数 == 台账登记数 / id 唯一 / 声明具体性下限 / 剥注释后源码计数作第二读法）"
+      },
+      "n04n10Disposition": {
+        "N-04": "✅ 台账 `feature` 追加 v3-3 叶名 + 新增 `featureHistory.previous`（历史保留）；门禁断言只增不弱",
+        "N-05": "✅ build.md §4 就地订正 `l0 158→164` / `gate-integrity 9→12`（历史估值保留在方括号）",
+        "N-06": "✅ build.md §1.1/§5.1 行尾追加「修复轮 → 349,925 / 367,421，见 §9.5」指针（原值逐字保留）",
+        "N-07": "✅ 登记（不改实现）—— 密度册新增 `knownLimitations[]`：L2 入口面板打开态未测量 + 理由 + 后续可选做法",
+        "N-08": "✅ 登记（不改实现）—— 本叶 spec.md 追加 §10 边界登记：单滚动容器判据适用范围 = `#view-host` 三视图；设置视图走 v1 `body.settings-open` + `#settings-back`",
+        "N-09": "✅ 已修 —— 台账新增 `leafBases`（leafBase=bf5773d，scope 由规则复算 23 文件；97 条叶段未覆盖删除行逐字登记，带理由）；门禁新增 3 用例（schema/scope 复算、逐字集合相等、注入反证）；端到端反证 RP-V33-06",
+        "N-10": "✅ 已修 —— `v3SkeletonExemptions._removedInV33.originalText`（sourceCommit=bf5773d）逐字补登两条豁免原文"
+      },
+      "deferred": [
+        "返回后 `activeElement` 回焦目标（沿用修复轮 I-05⑤ 的 deferred，未新增/未放宽断言）",
+        "`test/ui/density.mjs --reverse` 的 6 条 v3-1 承继 RP 未复跑（本轮未改 density.mjs；in-gate 例外形态）",
+        "`test:binding` 的 HARDENING_C4 子阶段（上游默认跳过；本轮未改该门禁）",
+        "人工面（观感 / 键盘体感 / 明暗 / 读屏）：⏳ 未执行（如实登记，不冒充 PASS）"
+      ],
+      "gates": {
+        "typecheck": "0",
+        "build": "0",
+        "npm-test": "0（779/779/0）",
+        "supersession": "0（14/14）",
+        "density": "0（127/0）",
+        "l0": "0（164/0）",
+        "l1": "0（103/0）",
+        "l2": "0（71/0）",
+        "ui": "0（167）",
+        "insight": "0（116）",
+        "binding": "0（192）",
+        "hardening": "0（24）",
+        "e2e": "0（R8 E2E PASS）",
+        "gate-integrity": "0（12/12；--selftest 15/0）",
+        "l1-reverse": "0（9 条全绿）",
+        "l2-reverse": "0（10 条全绿）",
+        "体积三线": "0（content.js 177,076 / sidepanel.js 349,925 ≤ 367,421）",
+        "零改动核对": "0（全部 0 diff）"
+      },
+      "countsDelta": "插件 776→779 · supersession 11→14 · l2-reverse 6→10 · 判定器 selftest 5→15（负控 13）· 台账叶段登记 0→97；其余计数持平。**只增不减**",
+      "redLines": "密度阈值逐字 7/15·9/20·17/35 · content.js 177,076（sha 52a82620…，无容差）· 判定链 sha256 不变（policy.ts bfcb2ede… / auto-authorize.ts 1096d065…）· src/content/** 三 hash 不变 · manifest.json 0 diff / 无 contextMenus · main 未动 · 无新依赖 · 未用 git add -A · 主界面无常驻输入框 · 风险位不可折叠",
+      "envNote": "第一次串行链在 test:density 起连续 CDP 超时；根因 = /tmp（3.7GB tmpfs）被 576 个遗留 Chromium 临时 profile（约 2.9GB）占满 → 清理后 available 524MB→2953MB，同一条链从 01 起全绿。未因此改动任何产品代码或判据",
+      "evidence": "build.md §10（含逐条根因/修法/证据/可 FAIL 反证）；门禁全量日志 /tmp/opencode/v3-gate-logs/v3-3-closeout/"
+    }
+  ]
 }

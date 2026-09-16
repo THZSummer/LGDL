@@ -131,6 +131,33 @@ interface Ledger {
   modifiedRanges: ModifiedRange[];
   entries: LedgerEntry[];
   zeroDiffFiles: string[];
+  /**
+   * Closeout round (validate R1 N-09): per-leaf build start commits. The base-relative
+   * per-line judge cannot see a line that was **introduced after `base` and removed
+   * inside the leaf** (it is neither an addition nor a deletion in `base→worktree`);
+   * registering each leaf's start commit lets the gate judge `leafBase→worktree` too.
+   */
+  leafBases?: LeafBase[];
+}
+
+interface LeafBase {
+  leaf: string;
+  leafBase: string;
+  leafBaseLabel?: string;
+  leafBaseCommitSubject?: string;
+  registeredOn?: string;
+  registeredBy?: string;
+  why: string;
+  scope: { rule: string; files: string[]; why: string };
+  registeredUncoveredLines: Array<{
+    file: string;
+    leafDeletions?: number;
+    registeredUncoveredLines: string[];
+    count: number;
+    reason: string;
+  }>;
+  summary?: { filesWithUnregisteredLeafDeletions: number; unregisteredLeafDeletionLines: number; note: string };
+  reverseProof?: string;
 }
 
 const ledger = JSON.parse(readFileSync(LEDGER_PATH, 'utf8')) as Ledger;
@@ -154,8 +181,8 @@ const diffText = (file: string) => runGit(['diff', '-U0', ledger.base, '--', fil
 const countChecks = (text: string) => (text.match(/\bcheck\(/g) ?? []).length;
 
 /** `-U0` hunks that delete or rewrite at least one line. */
-function deletionHunks(file: string) {
-  const diff = diffText(file);
+function deletionHunks(file: string, rev: string = ledger.base) {
+  const diff = runGit(['diff', '-U0', rev, '--', file]);
   const hunks: Array<{ oldStart: number; oldCount: number; deleted: string[] }> = [];
   let cur: { oldStart: number; oldCount: number; deleted: string[] } | null = null;
   for (const line of diff.split('\n')) {
@@ -179,9 +206,9 @@ function deletionHunks(file: string) {
  * not hunk extents. `-U0` hunks only contain deletions, so within a hunk the
  * i-th `-` line is `oldStart + i`.
  */
-function deletionLines(file: string): Array<{ line: number; text: string }> {
+function deletionLines(file: string, rev: string = ledger.base): Array<{ line: number; text: string }> {
   const out: Array<{ line: number; text: string }> = [];
-  for (const hunk of deletionHunks(file)) {
+  for (const hunk of deletionHunks(file, rev)) {
     hunk.deleted.forEach((text, i) => out.push({ line: hunk.oldStart + i, text }));
   }
   return out;
@@ -191,6 +218,15 @@ function deletionLines(file: string): Array<{ line: number; text: string }> {
 test('ledger: schema 完整，口径显式分层（运行期 check / 运行期 node 用例 / 静态 test(）', () => {
   assert.equal(ledger.version, 'v3');
   assert.ok(ledger.feature.includes('v3-1'), ledger.feature);
+  // N-04 (收口轮): the string must name **every** contributing leaf, not just the first
+  // one — the assertion above is kept verbatim (only strengthened, never relaxed).
+  for (const leaf of ['v3-1', 'v3-2', 'v3-3']) {
+    assert.ok(ledger.feature.includes(leaf), `台账 feature 未登记贡献叶 ${leaf}：${ledger.feature}`);
+  }
+  assert.ok(
+    (ledger as unknown as { featureHistory?: { previous?: string } }).featureHistory?.previous?.includes('v3-2'),
+    'feature 的历史值必须原样保留在 featureHistory.previous（只追加，不改写历史）',
+  );
   assert.equal(ledger.base, 'c2c0e0d', '台账 base 必须是本轮起点 c2c0e0d');
   // I4③ fix round: the r2-style「countMethod 只有一种合法值」套话被替换为**显式分口径**：
   // 每个 counts / staticCalibers 条目声明的 countMethod 必须能在 countCalibers 里找到定义，
@@ -463,6 +499,160 @@ test('ledger: --files-override 未提供时，本门禁覆盖全部 v3 新增门
     Object.keys(ledger.v3CaliberPins).some((key) => key.endsWith('density-metrics.mjs')),
     'density-metrics.mjs 必须登记为字面量 pin 集合',
   );
+});
+
+// ── 8. leaf segment: the base-relative judge's blind spot (N-09) ─────────────
+/**
+ * A line that was **introduced after `base`** and is **deleted inside the leaf** is
+ * invisible to `diff base→worktree` (it is neither an addition nor a deletion there).
+ * validate R1 measured the blind spot at 28 lines (insight 13 / l0 15 of 42 leaf
+ * deletions). `ledger.leafBases` registers each leaf's start commit and the exact set
+ * of leaf-segment deletions that the `entries[].oldTitle` judgement does not carry, so
+ * the judge below can run **both segments** — and the registration is a *verbatim set
+ * equality*, not a range allowance.
+ */
+const LEAF_SCOPE_RULE = (file: string) =>
+  file.startsWith('packages/web-cli-plugin/test/') && (file.endsWith('.mjs') || file.endsWith('.ts'));
+
+/** The file set the leaf judge must cover — recomputed from the ledger, never taken on trust. */
+function leafScopeFiles(): string[] {
+  const registered = new Set<string>([
+    ...ledger.modifiedRanges.map((r) => r.file),
+    ...ledger.entries.map((e) => e.file).filter((f) => !f.includes('*')),
+    ...ledger.protectedRanges.map((r) => r.file),
+  ]);
+  return [...registered].filter(LEAF_SCOPE_RULE).sort();
+}
+
+/**
+ * The leaf-segment judge, stage 1: every deletion line of `file` in `leafBase→worktree`
+ * that the `entries[].oldTitle` supersession judgement does **not** carry. These are
+ * precisely the lines the registration must enumerate.
+ *
+ * `extraLines` is the injection seam used by the reverse proof below.
+ */
+function leafUncoveredByEntries(leafBase: string, file: string, extraLines: string[] = []): string[] {
+  const titles = ledger.entries.filter((e) => e.file === file).map((e) => e.oldTitle);
+  const lines = [...deletionLines(file, leafBase).map((d) => d.text), ...extraLines];
+  return lines.filter((text) => !titles.some((t) => t !== null && text.includes(t)));
+}
+
+/**
+ * The leaf-segment judge, stage 2: stage-1 lines that the **verbatim registration**
+ * does not enumerate — i.e. the failures. Empty means the segment is fully accounted
+ * for; a single injected line must show up here (that is the N-09 reverse proof).
+ */
+function leafMisses(leafBase: string, file: string, extraLines: string[] = []): string[] {
+  const registered = new Set<string>(
+    (leafBaseEntry(leafBase)?.registeredUncoveredLines ?? [])
+      .filter((r) => r.file === file)
+      .flatMap((r) => r.registeredUncoveredLines),
+  );
+  return leafUncoveredByEntries(leafBase, file, extraLines).filter((text) => !registered.has(text));
+}
+
+function leafBaseEntry(leafBase: string): LeafBase | undefined {
+  return (ledger.leafBases ?? []).find((l) => l.leafBase === leafBase);
+}
+
+test('ledger(叶段): leafBases 登记 schema + scope 规则复算（不得手工放宽）', () => {
+  const bases = ledger.leafBases ?? [];
+  assert.ok(bases.length > 0, 'leafBases 必须至少登记一个叶起点（N-09）');
+  for (const leaf of bases) {
+    assert.ok(leaf.leaf.length > 0, 'leafBases[].leaf 必填');
+    assert.ok(leaf.why.trim().length >= 40, `${leaf.leaf} 必须写明该字段存在的理由`);
+    assert.equal(
+      runGit(['rev-parse', '--verify', `${leaf.leafBase}^{commit}`]).trim().length,
+      40,
+      `${leaf.leaf}.leafBase=${leaf.leafBase} 不是本仓库的一个 commit`,
+    );
+    assert.notEqual(leaf.leafBase, ledger.base, `${leaf.leaf}.leafBase 不得等于 base（否则叶段判据与 base 判据重合）`);
+    // The scope list must be exactly what the rule computes from the ledger's own file
+    // set — a hand-narrowed scope is how a blind spot would be re-introduced.
+    const expected = leafScopeFiles();
+    assert.deepEqual([...leaf.scope.files].sort(), expected, `${leaf.leaf}.scope.files 与规则复算结果不一致（不得手工放宽）`);
+    assert.ok(leaf.scope.why.trim().length >= 40, `${leaf.leaf}.scope 必须写明范围的判据与理由`);
+  }
+  console.log(
+    `  ℹ 叶段登记：${bases
+      .map(
+        (l) =>
+          `${l.leaf} @ ${l.leafBase}（scope ${l.scope.files.length} 文件 / 未登记删除行 ${l.summary?.unregisteredLeafDeletionLines ?? '?'} 条）`,
+      )
+      .join(' | ')}`,
+  );
+});
+
+test('ledger(叶段): 未登记删除行必须**逐字集合相等**（多一条/少一条/改一字都 FAIL）', () => {
+  const bases = ledger.leafBases ?? [];
+  assert.ok(bases.length > 0, 'leafBases 不得为空（否则本测试是空转）');
+  const failures: string[] = [];
+  let judgedFiles = 0;
+  let judgedLines = 0;
+  let registeredTotal = 0;
+  for (const leaf of bases) {
+    for (const file of leaf.scope.files) {
+      if (!existsSync(resolve(REPO, file))) continue;
+      const actual = leafUncoveredByEntries(leaf.leafBase, file);
+      const registered = (leaf.registeredUncoveredLines ?? []).filter((r) => r.file === file).flatMap((r) => r.registeredUncoveredLines);
+      judgedFiles += 1;
+      judgedLines += actual.length;
+      registeredTotal += registered.length;
+      const missing = actual.filter((t) => !registered.includes(t));
+      const phantom = registered.filter((t) => !actual.includes(t));
+      for (const t of missing) failures.push(`${leaf.leaf} ${file}: 叶段删除行未登记 → ${t.trim()}`);
+      for (const t of phantom) failures.push(`${leaf.leaf} ${file}: 登记了并非叶段删除行的文本（登记失真）→ ${t.trim()}`);
+      // The per-file counts must agree too (a count that drifts from its list is a
+      // rubber stamp even when the lists happen to match).
+      const entry = (leaf.registeredUncoveredLines ?? []).find((r) => r.file === file);
+      if (entry && entry.count !== entry.registeredUncoveredLines.length) {
+        failures.push(`${file}: count=${entry.count} ≠ 清单长度 ${entry.registeredUncoveredLines.length}`);
+      }
+      if (entry && entry.registeredUncoveredLines.length > 0 && entry.reason.trim().length < 40) {
+        failures.push(`${file}: 叶段登记必须写明理由（≥40 字符）`);
+      }
+    }
+  }
+  // Anti-vacuity: the judge must really run over files and lines.
+  assert.ok(judgedFiles > 0, '叶段判据必须真的覆盖到文件（否则是空转）');
+  assert.ok(registeredTotal > 0, '叶段登记不得为空（若真无未登记删除行，也应登记一条说明该事实的条目）');
+  assert.deepEqual(
+    failures,
+    [],
+    `叶段（leafBase ${bases.map((b) => b.leafBase).join(', ')}）删除行未逐条命中台账：\n${failures.join('\n')}`,
+  );
+  console.log(
+    `  ℹ 叶段判据：受判文件 ${judgedFiles} 个 · 未登记删除行 ${registeredTotal} 条（全部逐字登记）· 叶段删除行总数 ${judgedLines + registeredTotal}`,
+  );
+});
+
+test('ledger(叶段)反证：注入一条未登记删除行必须判 FAIL（判据不是恒真）', () => {
+  const leaf = (ledger.leafBases ?? [])[0];
+  assert.ok(leaf, 'leafBases 不得为空（反证无对象）');
+  const file = leaf.scope.files.find((f) => existsSync(resolve(REPO, f)));
+  assert.ok(file, 'leafBases[].scope.files 必须至少有一个存在的文件');
+  // (1) 未注入时必须是干净的（否则下面的反证没有对照）。
+  assert.deepEqual(leafMisses(leaf.leafBase, file), [], `${file} 在 ${leaf.leafBase} 叶段应无未登记删除行`);
+  // (2) 注入一条**台账里没有**的删除行 ⇒ 必须且只能报出它。
+  const injected = '// RP-LEAF-SEGMENT injected: an unregistered deletion (must FAIL)';
+  assert.deepEqual(
+    leafMisses(leaf.leafBase, file, [injected]),
+    [injected],
+    '注入一条未登记删除行必须被判为未覆盖（判据若恒真，N-09 的盲区就仍在）',
+  );
+  // (3) 登记过的行不得被误报（判据不是「凡删除皆报」）。
+  const registeredLine = (leaf.registeredUncoveredLines ?? []).find((r) => r.file === file)?.registeredUncoveredLines[0];
+  if (registeredLine !== undefined) {
+    assert.deepEqual(leafMisses(leaf.leafBase, file, [registeredLine]), [], '已逐字登记的行不得被误报为未登记');
+  }
+  // (4) 叶段判据不得被 base 判据替代：该文件在 base 相对判据下**看不到**这条注入行
+  //     （行文本在 base 时刻不存在），这正是 N-09 的盲区本身。
+  const baseLines = deletionLines(file, ledger.base).map((d) => d.text);
+  assert.ok(
+    !baseLines.includes(injected),
+    '注入的哨兵行不得出现在 base 相对判据里（否则反证没有刻画「叶段盲区」）',
+  );
+  console.log(`  ℹ 叶段反证：注入未登记删除行 → 判 FAIL ✔；已登记行 → 不误报 ✔（${file} @ ${leaf.leafBase}）`);
 });
 
 // ── 7. I17: the caliber pins must really be present (not a decorative floor) ─
