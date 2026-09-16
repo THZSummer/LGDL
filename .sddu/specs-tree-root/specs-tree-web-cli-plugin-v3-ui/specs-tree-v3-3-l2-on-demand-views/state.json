@@ -1,173 +1,179 @@
 {
- "feature": "V3-3 L2 按需视图（树/命令/审计/设置）（父：specs-tree-web-cli-plugin-v3-ui）",
- "featureKey": "specs-tree-v3-3-l2-on-demand-views",
- "version": "v3.0.0",
- "name": "V3-3 L2 按需视图（树/命令/审计/设置）——全局连接树 / 命令目录 122 卡 / 审计 / 设置默认一个都不出现，只留「计数 + 入口」（计数从真值派生），≤2 次交互可达的视图替换 + 「← 返回」；复用既有 tree-drawer / 命令档案 / 审计 / 设置资产（改归属 + 补摘要/计数/入口），承担 R-UI-002 取代台账最大工作量",
- "phase": "tasked",
- "workflow": "4.tasks",
- "agent": "sddu-tasks",
- "depth": 2,
- "parent": "specs-tree-web-cli-plugin-v3-ui",
- "childrens": [],
- "leaf": true,
- "createdAt": "2026-09-16",
- "updatedAt": "2026-09-16",
- "description": "跟随父 Feature specs-tree-web-cli-plugin-v3-ui 立项的叶子子 Feature（P0）。承载父 spec FR-V3-045~054：① L2 四类视图（全局连接树四维度 / 命令目录 122 卡 + L1/L2/L3 归档 / 审计 / 设置）**默认一个都不出现**（内容全在 `hidden` 子树内）；② 入口只以「**计数 + 入口**」形态存在于 L0 状态栏入口面板，**计数必须从真值派生**（改真值→计数变；硬编码即 FAIL）；③ 视图为**同一内容区的视图替换**（不是浮层、不引入第二个滚动容器）+ 顶部「← 返回」+ 返回后回到进入前的展开状态；④ L2 ≤2 次交互可达，且打开期间**风险位仍常驻可见**；⑤ 命令目录：逐条处置档（allow/ask/deny）+ 来源 + 生效值，硬底线不可覆盖档零控件 + 原因可读，`delay` 与 `deny` 同处并标，实时面与对账基线口径**分列如实**；⑥ 审计视图零明文纪律（通知/剪贴板/书签内容零明文，只记长度/路径/basename；URL 去参）；⑦ 设置视图复用 v1 既有实现与项语义（不改 options.html，只改默认可见性）；⑧ 全局连接树复用 v2 真层级树（role=tree/treeitem + aria-expanded/aria-level + 键盘 + 面包屑），保留 9 个树内动作白名单（固定序）与只读投影；⑨ L2 关闭后 L0 密度复位到默认档；⑩ 能力集等价（全展开态四类底账逐项等价）。权威条文见父 spec §5.4 / §8.3 / §10。",
- "scope": {
-  "in": [
-   "L2 四类视图默认零占用（可见计数 = 0；全部在 hidden 子树内；不得用 CSS 隐身或移出视口假装不出现）",
-   "「计数 + 入口」只存在于 L0 状态栏入口面板；计数从真值派生（可与真值逐项相等被机器验证）",
-   "视图替换契约：单滚动容器（不引入第二个滚动容器 / 不引入浮层）+ 顶部「← 返回」+ 返回后回到进入前的 L0 展开状态",
-   "可达性：L2 ≤2 次交互；L2 打开期间风险位仍常驻可见（不得被视图替换覆盖）",
-   "命令目录：逐条处置档 + 来源 + 生效值；硬底线不可覆盖档零控件 + 原因可读；delay 与 deny 同处并标；实时面 vs 对账基线口径分列如实登记",
-   "审计视图：条目列表 + 零审计明文（通知/剪贴板/书签内容只记长度/路径/basename；URL 默认去参）",
-   "设置视图：复用 v1 设置面板既有实现与项语义（不删项、不改语义、不改 options.html），只改默认可见性",
-   "全局连接树：复用 v2 真层级树（role=tree/treeitem + aria-expanded/aria-level + 键盘可达 + 面包屑）；保留 9 个树内动作白名单（固定序）",
-   "L2 视图内零提权/放宽控件（只读投影）；仅允许 v2 既有覆盖控件，clamp 仍在 SW 侧强制（伪造消息不能突破）",
-   "L2 关闭后 L0 密度复位到默认档（不残留额外常驻元素）",
-   "能力集等价：全展开态下四类底账与改造前逐项等价（数量与内容不减，差异显式登记）",
-   "取代台账本叶闭合：受保护文件删除行必须命中台账；计数不减（journey ≥167 / insight ≥108 / binding ≥192 / sidepanel-view ≥38 / test( ≥646）"
+  "feature": "V3-3 L2 按需视图（树/命令/审计/设置）（父：specs-tree-web-cli-plugin-v3-ui）",
+  "featureKey": "specs-tree-v3-3-l2-on-demand-views",
+  "version": "v3.0.0",
+  "name": "V3-3 L2 按需视图（树/命令/审计/设置）——全局连接树 / 命令目录 122 卡 / 审计 / 设置默认一个都不出现，只留「计数 + 入口」（计数从真值派生），≤2 次交互可达的视图替换 + 「← 返回」；复用既有 tree-drawer / 命令档案 / 审计 / 设置资产（改归属 + 补摘要/计数/入口），承担 R-UI-002 取代台账最大工作量",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v3-ui",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-16",
+  "updatedAt": "2026-09-16",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v3-ui 立项的叶子子 Feature（P0）。承载父 spec FR-V3-045~054：① L2 四类视图（全局连接树四维度 / 命令目录 122 卡 + L1/L2/L3 归档 / 审计 / 设置）**默认一个都不出现**（内容全在 `hidden` 子树内）；② 入口只以「**计数 + 入口**」形态存在于 L0 状态栏入口面板，**计数必须从真值派生**（改真值→计数变；硬编码即 FAIL）；③ 视图为**同一内容区的视图替换**（不是浮层、不引入第二个滚动容器）+ 顶部「← 返回」+ 返回后回到进入前的展开状态；④ L2 ≤2 次交互可达，且打开期间**风险位仍常驻可见**；⑤ 命令目录：逐条处置档（allow/ask/deny）+ 来源 + 生效值，硬底线不可覆盖档零控件 + 原因可读，`delay` 与 `deny` 同处并标，实时面与对账基线口径**分列如实**；⑥ 审计视图零明文纪律（通知/剪贴板/书签内容零明文，只记长度/路径/basename；URL 去参）；⑦ 设置视图复用 v1 既有实现与项语义（不改 options.html，只改默认可见性）；⑧ 全局连接树复用 v2 真层级树（role=tree/treeitem + aria-expanded/aria-level + 键盘 + 面包屑），保留 9 个树内动作白名单（固定序）与只读投影；⑨ L2 关闭后 L0 密度复位到默认档；⑩ 能力集等价（全展开态四类底账逐项等价）。权威条文见父 spec §5.4 / §8.3 / §10。",
+  "scope": {
+    "in": [
+      "L2 四类视图默认零占用（可见计数 = 0；全部在 hidden 子树内；不得用 CSS 隐身或移出视口假装不出现）",
+      "「计数 + 入口」只存在于 L0 状态栏入口面板；计数从真值派生（可与真值逐项相等被机器验证）",
+      "视图替换契约：单滚动容器（不引入第二个滚动容器 / 不引入浮层）+ 顶部「← 返回」+ 返回后回到进入前的 L0 展开状态",
+      "可达性：L2 ≤2 次交互；L2 打开期间风险位仍常驻可见（不得被视图替换覆盖）",
+      "命令目录：逐条处置档 + 来源 + 生效值；硬底线不可覆盖档零控件 + 原因可读；delay 与 deny 同处并标；实时面 vs 对账基线口径分列如实登记",
+      "审计视图：条目列表 + 零审计明文（通知/剪贴板/书签内容只记长度/路径/basename；URL 默认去参）",
+      "设置视图：复用 v1 设置面板既有实现与项语义（不删项、不改语义、不改 options.html），只改默认可见性",
+      "全局连接树：复用 v2 真层级树（role=tree/treeitem + aria-expanded/aria-level + 键盘可达 + 面包屑）；保留 9 个树内动作白名单（固定序）",
+      "L2 视图内零提权/放宽控件（只读投影）；仅允许 v2 既有覆盖控件，clamp 仍在 SW 侧强制（伪造消息不能突破）",
+      "L2 关闭后 L0 密度复位到默认档（不残留额外常驻元素）",
+      "能力集等价：全展开态下四类底账与改造前逐项等价（数量与内容不减，差异显式登记）",
+      "取代台账本叶闭合：受保护文件删除行必须命中台账；计数不减（journey ≥167 / insight ≥108 / binding ≥192 / sidepanel-view ≥38 / test( ≥646）"
+    ],
+    "out": [
+      "不做 L0 常驻骨架本体与密度门禁（归 V3-1；本叶复用并保持其基线）",
+      "不做 L1 展开内容（后果说明/影响预演/引用证据/局部树/回执证据/手势表）→ 归 V3-2（本叶只提供被指向的视图，如审计）",
+      "不做页面侧交互（Alt 悬停/Alt 拖动/右键自绘/拖选气泡/双向联动）→ 归 V3-4",
+      "不新增判定路径 / 权限 / 提权控件；不改安全判定链（policy.ts / auto-authorize.ts 哈希不变）；不推翻 v2 覆盖层与 SW 侧 clamp",
+      "不删改 v1 设置项语义、不改 options.html（NG-V3-014）",
+      "不删除或降级既有断言（含 4 项布局/样式契约与 9 动作白名单断言）；不把「默认不出现」实现为「能力消失」",
+      "不做后端/服务端；不新增依赖；不改 v1 / v2 已验收行为；不改 packages/web-cli-base/**"
+    ]
+  },
+  "covers": [
+    "FR-V3-045",
+    "FR-V3-046",
+    "FR-V3-047",
+    "FR-V3-048",
+    "FR-V3-049",
+    "FR-V3-050",
+    "FR-V3-051",
+    "FR-V3-052",
+    "FR-V3-053",
+    "FR-V3-054"
   ],
-  "out": [
-   "不做 L0 常驻骨架本体与密度门禁（归 V3-1；本叶复用并保持其基线）",
-   "不做 L1 展开内容（后果说明/影响预演/引用证据/局部树/回执证据/手势表）→ 归 V3-2（本叶只提供被指向的视图，如审计）",
-   "不做页面侧交互（Alt 悬停/Alt 拖动/右键自绘/拖选气泡/双向联动）→ 归 V3-4",
-   "不新增判定路径 / 权限 / 提权控件；不改安全判定链（policy.ts / auto-authorize.ts 哈希不变）；不推翻 v2 覆盖层与 SW 侧 clamp",
-   "不删改 v1 设置项语义、不改 options.html（NG-V3-014）",
-   "不删除或降级既有断言（含 4 项布局/样式契约与 9 动作白名单断言）；不把「默认不出现」实现为「能力消失」",
-   "不做后端/服务端；不新增依赖；不改 v1 / v2 已验收行为；不改 packages/web-cli-base/**"
-  ]
- },
- "covers": [
-  "FR-V3-045",
-  "FR-V3-046",
-  "FR-V3-047",
-  "FR-V3-048",
-  "FR-V3-049",
-  "FR-V3-050",
-  "FR-V3-051",
-  "FR-V3-052",
-  "FR-V3-053",
-  "FR-V3-054"
- ],
- "acceptanceAnchors": [
-  "AC-V3-010",
-  "AC-V3-011",
-  "AC-V3-012",
-  "AC-V3-013",
-  "AC-V3-014",
-  "AC-V3-026",
-  "AC-V3-001",
-  "AC-V3-002",
-  "AC-V3-003",
-  "AC-V3-004",
-  "AC-V3-016",
-  "AC-V3-017",
-  "AC-V3-019",
-  "AC-V3-025"
- ],
- "coversIssues": [
-  "Q-UI-002",
-  "Q-UI-004",
-  "Q-UI-008"
- ],
- "artifacts": [
-  "spec.md",
-  "plan.md",
-  "tasks.md",
-  "tasks.json"
- ],
- "files": {
-  "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/spec.md",
-  "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/state.json",
-  "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/TREE.md",
-  "plan": "/home/usb/wks/gits/GitHub/LGDL/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/plan.md",
-  "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/tasks.md",
-  "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/tasks.json",
-  "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
-  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md"
- },
- "dependencies": {
-  "on": [
-   "specs-tree-web-cli-plugin-v3-ui（父，phase=specified / status=tracked；权威条文 §5.4 / §8.3 / §10）",
-   "specs-tree-v3-1-l0-shell-density（前置叶子：状态栏入口面板 / 计数 / 折叠器契约）",
-   "packages/web-cli-plugin v1 + v2 已验收实现（只读复用：tree-drawer 真层级树 / 命令档案 / 审计 / 设置面板；零改写）"
+  "acceptanceAnchors": [
+    "AC-V3-010",
+    "AC-V3-011",
+    "AC-V3-012",
+    "AC-V3-013",
+    "AC-V3-014",
+    "AC-V3-026",
+    "AC-V3-001",
+    "AC-V3-002",
+    "AC-V3-003",
+    "AC-V3-004",
+    "AC-V3-016",
+    "AC-V3-017",
+    "AC-V3-019",
+    "AC-V3-025"
   ],
-  "blocking": [
-   "specs-tree-v3-2-l1-disclosure-refs（V3-2 的「审计出口」指向本叶的审计视图）"
-  ]
- },
- "deliveryOrder": {
-  "position": 3,
-  "note": "第 3 位；前置 = V3-1。与 V3-2 可并行分解，但门禁执行必须严格串行。本叶是取代台账最大战场"
- },
- "independence": {
-  "changeSurface": "仅侧栏侧（L2 视图挂载与归属调整 + 计数派生 + 状态栏入口面板对接）；复用既有树/档案/审计/设置实现；不碰 src/content/**、不碰权限、不碰判定链",
-  "supersessionLoad": "最大：test/ui/insight.mjs 108 与 test/ui/binding.mjs 192 中的树/回执/确认类断言大量落在此叶；取代必须在本叶内闭合（台账 + 新断言同叶完成）",
-  "canReachAllGreen": true,
-  "gateSet": [
-   "typecheck",
-   "plugin npm test",
-   "test:insight ≥108",
-   "test:ui ≥167",
-   "test:hardening 24",
-   "test:binding ≥192",
-   "test:e2e",
-   "取代台账门禁（含删 1 条 → FAIL 反证）",
-   "V3-1 密度门禁（返回后复位）",
-   "体积守卫（sidepanel ~~≤279,825~~ → **≤306,099**（基线 ~~266,500~~ → **295,225**），经显式重登记订正，2026-09-16）"
+  "coversIssues": [
+    "Q-UI-002",
+    "Q-UI-004",
+    "Q-UI-008"
   ],
-  "gateDiscipline": "严格串行（禁并发 Chromium）+ 完整日志落盘（禁 tail 截断）+ 反证必须实跑"
- },
- "openPoints": [
-  {
-   "id": "V33-O-1",
-   "topic": "「计数从真值派生」的真值源（命令目录实时面 vs parity 基线；树节点计数口径）",
-   "status": "open",
-   "needs": "plan（父 EC-V3-016 已定「分列如实」，不阻塞）"
+  "artifacts": [
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "tasks.json",
+    "build.md"
+  ],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/TREE.md",
+    "plan": "/home/usb/wks/gits/GitHub/LGDL/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-3-l2-on-demand-views/tasks.json",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md"
   },
-  {
-   "id": "V33-O-2",
-   "topic": "L2 视图替换的挂载方式（与 v1 三区 flex 布局的关系：复用 #panel-main 或新增容器）",
-   "status": "open",
-   "needs": "plan"
+  "dependencies": {
+    "on": [
+      "specs-tree-web-cli-plugin-v3-ui（父，phase=specified / status=tracked；权威条文 §5.4 / §8.3 / §10）",
+      "specs-tree-v3-1-l0-shell-density（前置叶子：状态栏入口面板 / 计数 / 折叠器契约）",
+      "packages/web-cli-plugin v1 + v2 已验收实现（只读复用：tree-drawer 真层级树 / 命令档案 / 审计 / 设置面板；零改写）"
+    ],
+    "blocking": [
+      "specs-tree-v3-2-l1-disclosure-refs（V3-2 的「审计出口」指向本叶的审计视图）"
+    ]
   },
-  {
-   "id": "V33-O-3",
-   "topic": "既有 #tree-fab / #tree-drawer（v2 悬浮入口 + 覆盖式抽屉）在新层级下的归属：保留为 L2 入口 vs 改为状态栏入口（不得推翻 v2 已验收行为）",
-   "status": "open",
-   "needs": "plan（需显式登记取舍理由）"
+  "deliveryOrder": {
+    "position": 3,
+    "note": "第 3 位；前置 = V3-1。与 V3-2 可并行分解，但门禁执行必须严格串行。本叶是取代台账最大战场"
   },
-  {
-   "id": "V33-O-4",
-   "topic": "sidepanel.js 体积重登记的预期增量与是否拆分",
-   "status": "open",
-   "needs": "plan"
-  }
- ],
- "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.4 / §8.3 / §10）。范围 = L2 四类视图默认零占用 + 「计数 + 入口」（计数从真值派生）+ 视图替换与返回 + 可达性 + 命令目录口径分列 + 审计零明文 + 设置语义复用 + 树 ARIA 与 9 动作保留 + 返回密度复位 + 能力集等价 + 取代台账本叶闭合；不做 L0 骨架本体、L1 内容、页面侧交互、任何提权/判定路径/设置语义改动。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-025~029）。**范围**：L2 四类视图（全局连接树 / 命令目录 / 审计 / 设置）默认零占用 + 「计数 + 入口」+ 视图替换（#log ↔ #view-host 二选一，单面板级滚动容器）+「← 返回」+ ≤2 次交互 + L2 期间风险位仍可见 + 返回密度复位 + 命令目录口径**分列**（实时面 / 对账基线，EC-V3-016）+ delay=deny 措辞单源 + 硬底线零控件 + 零提权 + 零明文审计 + 设置项语义复用 + 树 ARIA / 9 动作固定序保留 + 能力集等价 8 项 + **取代台账最大战场的批量登记**。**开放点裁决**：V33-O-1（计数真值源：命令目录 {live, baseline} 分列）/ V33-O-2（#view-host 与 #log 二选一，风险位不被替换）/ V33-O-3（#tree-fab / #tree-drawer 保留 id 与内容、归属迁 L2、FAB 默认 hidden，role=dialog → role=region 迁移入台账，取舍显式登记）/ V33-O-4（不拆模块；超 ceiling 则本叶内显式重登记）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。",
- "status": "tracked",
- "phaseHistory": [
-  {
-   "phase": "registered",
-   "timestamp": "2026-09-16T00:00:00.000Z",
-   "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v3-ui 创建叶子目录）"
+  "independence": {
+    "changeSurface": "仅侧栏侧（L2 视图挂载与归属调整 + 计数派生 + 状态栏入口面板对接）；复用既有树/档案/审计/设置实现；不碰 src/content/**、不碰权限、不碰判定链",
+    "supersessionLoad": "最大：test/ui/insight.mjs 108 与 test/ui/binding.mjs 192 中的树/回执/确认类断言大量落在此叶；取代必须在本叶内闭合（台账 + 新断言同叶完成）",
+    "canReachAllGreen": true,
+    "gateSet": [
+      "typecheck",
+      "plugin npm test",
+      "test:insight ≥108",
+      "test:ui ≥167",
+      "test:hardening 24",
+      "test:binding ≥192",
+      "test:e2e",
+      "取代台账门禁（含删 1 条 → FAIL 反证）",
+      "V3-1 密度门禁（返回后复位）",
+      "体积守卫（sidepanel ~~≤279,825~~ → **≤306,099**（基线 ~~266,500~~ → **295,225**），经显式重登记订正，2026-09-16）"
+    ],
+    "gateDiscipline": "严格串行（禁并发 Chromium）+ 完整日志落盘（禁 tail 截断）+ 反证必须实跑"
   },
-  {
-   "phase": "specified",
-   "timestamp": "2026-09-16T00:00:00.000Z",
-   "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成）"
-  },
-  {
-   "phase": "planned",
-   "timestamp": "2026-09-16T01:30:00.000Z",
-   "triggeredBy": "sddu-plan（产出 plan.md；技术方案与 ADR 定稿）"
-  },
-  {
-   "phase": "tasked",
-   "timestamp": "2026-09-16T02:30:00.000Z",
-   "triggeredBy": "sddu-tasks（产出 tasks.md + tasks.json；技术方案分解为原子任务，含依赖/波次/并行标记/涉及文件/验收锚点/验证命令）"
-  }
- ],
- "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：9 任务 / 5 波（S×3 · M×5 · L×1）。波次与并行性见 tasks.md §1.3（可并行写入的任务文件不相交；门禁执行严格串行，一次只跑一个——本机 ~1.5GB 曾 OOM）。必含项 3/3 覆盖：①四个 L2 视图默认零占用（只有计数 + 入口，计数从真值派生、硬编码即 FAIL）②≤2 次交互 + ← 返回复位（展开态与密度）③能力集等价 8 项（AC-V3-026）+ 取代台账最大战场（sidepanel-view.test.ts 4 契约增强式迁移）在本叶内闭合。阻断级任务：TASK-301 / TASK-305 / TASK-307（取代最大战场未闭合则台账门禁红）。验收锚点：父 spec FR/NFR/EC/AC 编号（叶子不新造 FR 编号）+ 本叶 plan ADR 编号，逐任务写入 tasks.json 的 fr/nfr/ec/ac/adr 字段。门禁严格串行顺序见 tasks.md §4.1；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断。本叶收尾必须全门禁绿（AC-V3-013 / EC-V3-013），禁留红灯给下一叶。只做 tasks：未写代码、未改 src/**·test/**·manifest.json·design/**·ROADMAP.md、未动 main、未 commit、未跑门禁/构建/Chromium。"
+  "openPoints": [
+    {
+      "id": "V33-O-1",
+      "topic": "「计数从真值派生」的真值源（命令目录实时面 vs parity 基线；树节点计数口径）",
+      "status": "open",
+      "needs": "plan（父 EC-V3-016 已定「分列如实」，不阻塞）"
+    },
+    {
+      "id": "V33-O-2",
+      "topic": "L2 视图替换的挂载方式（与 v1 三区 flex 布局的关系：复用 #panel-main 或新增容器）",
+      "status": "open",
+      "needs": "plan"
+    },
+    {
+      "id": "V33-O-3",
+      "topic": "既有 #tree-fab / #tree-drawer（v2 悬浮入口 + 覆盖式抽屉）在新层级下的归属：保留为 L2 入口 vs 改为状态栏入口（不得推翻 v2 已验收行为）",
+      "status": "open",
+      "needs": "plan（需显式登记取舍理由）"
+    },
+    {
+      "id": "V33-O-4",
+      "topic": "sidepanel.js 体积重登记的预期增量与是否拆分",
+      "status": "open",
+      "needs": "plan"
+    }
+  ],
+  "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.4 / §8.3 / §10）。范围 = L2 四类视图默认零占用 + 「计数 + 入口」（计数从真值派生）+ 视图替换与返回 + 可达性 + 命令目录口径分列 + 审计零明文 + 设置语义复用 + 树 ARIA 与 9 动作保留 + 返回密度复位 + 能力集等价 + 取代台账本叶闭合；不做 L0 骨架本体、L1 内容、页面侧交互、任何提权/判定路径/设置语义改动。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-025~029）。**范围**：L2 四类视图（全局连接树 / 命令目录 / 审计 / 设置）默认零占用 + 「计数 + 入口」+ 视图替换（#log ↔ #view-host 二选一，单面板级滚动容器）+「← 返回」+ ≤2 次交互 + L2 期间风险位仍可见 + 返回密度复位 + 命令目录口径**分列**（实时面 / 对账基线，EC-V3-016）+ delay=deny 措辞单源 + 硬底线零控件 + 零提权 + 零明文审计 + 设置项语义复用 + 树 ARIA / 9 动作固定序保留 + 能力集等价 8 项 + **取代台账最大战场的批量登记**。**开放点裁决**：V33-O-1（计数真值源：命令目录 {live, baseline} 分列）/ V33-O-2（#view-host 与 #log 二选一，风险位不被替换）/ V33-O-3（#tree-fab / #tree-drawer 保留 id 与内容、归属迁 L2、FAB 默认 hidden，role=dialog → role=region 迁移入台账，取舍显式登记）/ V33-O-4（不拆模块；超 ceiling 则本叶内显式重登记）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。",
+  "status": "tracked",
+  "phaseHistory": [
+    {
+      "phase": "registered",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v3-ui 创建叶子目录）"
+    },
+    {
+      "phase": "specified",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成）"
+    },
+    {
+      "phase": "planned",
+      "timestamp": "2026-09-16T01:30:00.000Z",
+      "triggeredBy": "sddu-plan（产出 plan.md；技术方案与 ADR 定稿）"
+    },
+    {
+      "phase": "tasked",
+      "timestamp": "2026-09-16T02:30:00.000Z",
+      "triggeredBy": "sddu-tasks（产出 tasks.md + tasks.json；技术方案分解为原子任务，含依赖/波次/并行标记/涉及文件/验收锚点/验证命令）"
+    },
+    {
+      "phase": "builded",
+      "timestamp": "2026-09-16T14:20:00.000Z",
+      "triggeredBy": "sddu-build（9 任务 / 5 波全部落地；全门禁串行绿；体积显式重登记 + 5 条新反证；产出 build.md）"
+    }
+  ],
+  "phaseNote": "build 阶段完成（2026-09-16，sddu-build）：9 任务 / 5 波全部 completed。四个 L2 视图默认零占用 + 计数真值派生 + 视图替换与返回复位 + 树归属迁移（role=dialog→region、FAB 默认 hidden）+ 取代台账最大战场（insight.mjs 同编号迁移 108→116；sidepanel-view.test.ts **零 diff**，4 契约原样保留）+ 体积**显式重登记**（328,476 → 349,880 B，ceiling 367,374，含逐模块增量归因表）。门禁（严格串行）：typecheck 0 error / build ✓ / npm test 772/772 / supersession 11/11 / density 127/0（默认档 C1=7 C2=7，阈值未动）/ l0 160/0 / l1 103/0 / l2 71/0（新门禁）/ journey 167 / insight 116 / binding 192 / hardening 24 / e2e PASS / gate-integrity 9/9 / l1-reverse PASS。反证：RP-V33-01~05 全部「注入 → FAIL → sha256 逐字节还原 → PASS」。披露两条：① 从 266,500 B 起算 Feature 累计 +31.29%（>30%，已显式列出）；② 密度 22 登记格 chars 收紧 −3（tighten-only，前值保留在各格 previous）。人工面（观感 / 体感类）如实登记「未执行」，不冒充 PASS。"
 }
