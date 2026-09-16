@@ -136,6 +136,13 @@ async function captureRuntimeSummary() {
 }
 
 async function dumpDiagnostics(reason) {
+  // F-01 ②（2026-09-16）：诊断是 best-effort，**绝不允许**阻塞退出路径。这条 15s
+  // 硬上限让被 await 的调用**自带终点**（即便仍有某处 CDP 往返挂住也会以失败退出，
+  // 且此时 `process.exitCode` 已被调用方提前置 1）。
+  const __hardStop = setTimeout(() => {
+    console.error('✖ binding 诊断超时（15s 硬上限）→ 立即以失败退出（退出码已定）');
+    process.exit(1);
+  }, 15_000);
   try {
     mkdirSync(R2_LOG_DIR, { recursive: true });
     const summary = await captureRuntimeSummary();
@@ -145,6 +152,8 @@ async function dumpDiagnostics(reason) {
     console.error(JSON.stringify(summary, null, 2));
   } catch (err) {
     console.error('binding 诊断落盘失败（不影响断言结论）:', err instanceof Error ? err.message : String(err));
+  } finally {
+    clearTimeout(__hardStop);
   }
 }
 
@@ -169,11 +178,30 @@ async function connectCdp(wsUrl) {
     }
     if (msg.method) for (const fn of listeners.get(msg.method) ?? []) fn(msg.params);
   });
+  // F-01 ③（2026-09-16）：socket 关闭必须**立刻**拒结所有 pending。此前对 CLOSED
+  // socket 调 `send()` 时消息永不到达（`ws.send()` 也不抛），Promise **永不 settle**，
+  // 于是调用方的 `await` 永久挂起、失败无法传进退出码（虚绿的根因之一）。
+  ws.addEventListener('close', () => {
+    for (const [, p] of pending) p.reject(new Error('CDP socket closed'));
+    pending.clear();
+  });
   return {
     send(method, params = {}) {
       return new Promise((res, rej) => {
+        // F-01 ③：非 OPEN 直接拒答（不挂起）+ 20s 往返硬上限（超时拒答）。
+        if (ws.readyState !== 1 /* WebSocket.OPEN */) {
+          rej(new Error(`CDP socket not open (readyState=${ws.readyState}): ${method}`));
+          return;
+        }
         const id = ++seq;
         pending.set(id, { resolve: res, reject: rej });
+        // 计时器 `unref()`：settle 后不再持有事件循环；超时只在真的没答复时生效。
+        setTimeout(() => {
+          if (pending.has(id)) {
+            pending.delete(id);
+            rej(new Error(`CDP timeout 20000ms: ${method}`));
+          }
+        }, 20000).unref?.();
         ws.send(JSON.stringify({ id, method, params }));
       });
     },
@@ -2300,6 +2328,10 @@ async function main() {
   if (failures.length) {
     console.error(`binding FAILED (${failures.length}):`);
     for (const f of failures) console.error(`  - ${f}`);
+    // F-01 ①（2026-09-16）：退出码必须在**任何可能挂死的 await 之前**定死。
+    // 此前 `await dumpDiagnostics(...)` 在前，挂在 CLOSED 的 CDP socket 上 ⇒
+    // `process.exit(1)` 不可达 ⇒ 事件循环耗尽后 Node 以 0 自然退出 ⇒ 失败被打成绿。
+    process.exitCode = 1;
     // T4: full stacks + failure-time DOM/panel snapshot for the next triage.
     await dumpDiagnostics('main: assertions failed');
     process.exit(1);
@@ -2309,6 +2341,8 @@ async function main() {
 
 main().catch(async (err) => {
   console.error(err);
+  // F-01 ①（2026-09-16）：与断言失败分支同一漏洞 —— 退出码先定死，再跑诊断。
+  process.exitCode = 1;
   await dumpDiagnostics(`main: uncaught ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });

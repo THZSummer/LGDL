@@ -25,6 +25,9 @@
  *   RP-L1-F 恢复路径②「重新拾取」产生 NEW id + 回到 valid FR-V3-038
  *   RP-L1-G 回执三件套「重拉为真」（refreshSeq 1→2） FR-V3-039
  *   RP-L1-H 8 类就地展开「≤1 次交互」（DOM 契约）   FR-V3-031
+ *   RP-L1-C2 内层阻断 guard 的产物字节 pin（只关内层 ⇒ 门禁必须 FAIL） FR-V3-037 内层 / NFR-V3-013
+ *            （I-02：内层的**行为**在唯一调用点下不可观测，故运行期 pin 落在产物字节结构 +
+ *             `test/l1-ref-validity.test.ts` 的 Node 运行时行为用例；本条把该 pin 的可失败性做实）
  *
  * Usage: `npm run test:l1-reverse` / `node test/ui/l1-reverse.mjs [RP-L1-X ...]`
  * Logs: prints the exact perturbation + the failing check + the restore hash.
@@ -138,6 +141,24 @@ const CASES = [
     count: 8,
     expectFail: /恰好 8 个 \[data-l1-panel\]/,
     note: '注入后：DOM 契约属性改名 → 枚举断言 FAIL（门禁读的正是这份 HTML）',
+  },
+  {
+    id: 'RP-L1-C2',
+    artifact: JS,
+    assertion: '⑧ 内层阻断 guard（ref-store.dispatch 侧）存在于产物字节中且位于唯一 sends 自增之前',
+    requirement: 'FR-V3-037（双层阻断的内层）+ NFR-V3-013（门禁必须能 FAIL）',
+    // I-02（R1 修复轮）：只弱化**内层**在**行为上不可观测** —— 外层
+    // `panels.dispatchRefAction` 的 `isRefUsable()` 与内层 `store.dispatch()` 的
+    // `evaluateRefValidity()` 在产品的唯一调用点下同源同参（同一函数、同一 env、
+    // 同一 record），且外层先判先返回。因此「内层被删/被弱化」不会被任何行为断言
+    // 看到（这正是 RP-L1-C 必须从两层共同依赖的判定权威入手的原因）。
+    // 本反证把内层**结构**纳入运行时门禁：门禁 ⑧ 直接读产物字节核对 guard 的形状
+    // 与「guard 在唯一 `sends += 1` 之前」；只关内层 ⇒ 该断言立刻 FAIL。
+    from: 'if (view.verdict !== "valid") {',
+    to: 'if (false) {',
+    expectFail: /内层阻断 guard 在产物字节中存在且唯一|内层 guard 位于/,
+    note: '注入后：内层 guard 从产物字节中消失 ⇒ 门禁 ⑧ 的产物字节 pin FAIL（行为侧同源的 '
+      + '`test/l1-ref-validity.test.ts` Node 运行时用例仍独立 pin 其行为，含「valid 放行计数真的动」的非空转对照）。',
   },
 ];
 

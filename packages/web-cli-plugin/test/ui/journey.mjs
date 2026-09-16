@@ -114,11 +114,27 @@ async function connectCdp(wsUrl) {
     }
     if (msg.method) for (const fn of listeners.get(msg.method) ?? []) fn(msg.params);
   });
+  // F-01 ③（2026-09-16，同 binding.mjs）：socket 关闭 ⇒ 立刻拒结所有 pending；
+  // 非 OPEN / 超时一律拒答（不再出现「await 永不 settle」的挂死形态）。
+  ws.addEventListener('close', () => {
+    for (const [, p] of pending) p.reject(new Error('CDP socket closed'));
+    pending.clear();
+  });
   return {
     send(method, params = {}) {
       return new Promise((res, rej) => {
+        if (ws.readyState !== 1 /* WebSocket.OPEN */) {
+          rej(new Error(`CDP socket not open (readyState=${ws.readyState}): ${method}`));
+          return;
+        }
         const id = ++seq;
         pending.set(id, { resolve: res, reject: rej });
+        setTimeout(() => {
+          if (pending.has(id)) {
+            pending.delete(id);
+            rej(new Error(`CDP timeout 20000ms: ${method}`));
+          }
+        }, 20000).unref?.();
         ws.send(JSON.stringify({ id, method, params }));
       });
     },

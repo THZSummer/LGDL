@@ -36,10 +36,10 @@
     },
     "nodeTestRuntime": {
       "baselineRuntime": 646,
-      "currentRuntime": 754,
+      "currentRuntime": 760,
       "countMethod": "runtime-node-tests",
       "floor": 646,
-      "note": "node 运行期用例 646 → **732**（只增不减；v3-1 新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件，修复轮又新增台账/基线保真用例）。口径 = `npm test` 日志的 `ℹ tests`（2026-09-16 收口轮实测 732；复现：`npm test --workspace @lgdl/web-cli-plugin` 后 `grep \"^ℹ tests\"`）。validate R1（F2）指出旧登记值 731 与实测差 1 → 本轮按实测订正为 732（仍 ≥ 646 下界，方向不越界）。与静态口径（staticCalibers.nodeTestStatic）分别登记，不得混用（I4③）。 v3-2（2026-09-16）：新增 `test/l1-ref-validity.test.ts`（11 个用例：三态/五维/不确定即失效/截断口径/id 单调/阻断/局部树/回执/白名单）→ 运行期用例 732 → **743**（`npm test` 日志 `ℹ tests 743`；仍 ≥ 646 下界）。 v3-2 修复轮（2026-09-16）：新增 `test/size-growth-evidence.test.ts`（替代守卫 ②③④，9 个用例）+ 三处重 pin（size-budget / insight-archive / density-thresholds）→ 运行期用例 743 → **754**（`npm test` 日志 `ℹ tests 754`；仍 ≥ 646 下界；静态口径 readings 同步复算为 754/765/858）。"
+      "note": "node 运行期用例 646 → **732**（只增不减；v3-1 新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件，修复轮又新增台账/基线保真用例）。口径 = `npm test` 日志的 `ℹ tests`（2026-09-16 收口轮实测 732；复现：`npm test --workspace @lgdl/web-cli-plugin` 后 `grep \"^ℹ tests\"`）。validate R1（F2）指出旧登记值 731 与实测差 1 → 本轮按实测订正为 732（仍 ≥ 646 下界，方向不越界）。与静态口径（staticCalibers.nodeTestStatic）分别登记，不得混用（I4③）。 v3-2（2026-09-16）：新增 `test/l1-ref-validity.test.ts`（11 个用例：三态/五维/不确定即失效/截断口径/id 单调/阻断/局部树/回执/白名单）→ 运行期用例 732 → **743**（`npm test` 日志 `ℹ tests 743`；仍 ≥ 646 下界）。 v3-2 修复轮（2026-09-16）：新增 `test/size-growth-evidence.test.ts`（替代守卫 ②③④，9 个用例）+ 三处重 pin（size-budget / insight-archive / density-thresholds）→ 运行期用例 743 → **754**（`npm test` 日志 `ℹ tests 754`；仍 ≥ 646 下界；静态口径 readings 同步复算为 754/765/858）。 v3-2 修复轮 R2（2026-09-16）：新增 `test/gate-integrity.test.ts`（**元门禁**，6 个用例：受审集合完整性 / R1a-R1b-R2-R3 真实门禁全过 / 合成夹具反证 ×2 / 真实副本注入反证 / 覆盖限缩如实登记）→ 运行期用例 754 → **760**（`npm test` 日志 `ℹ tests 760 / pass 760 / fail 0 / skipped 0`；仍 ≥ 646 下界；静态口径 readings 同步复算为 760/771/884，70 份文件）。"
     }
   },
   "gateFloors": {
@@ -52,15 +52,15 @@
   "v3GateFloors": {
     "packages/web-cli-plugin/test/ui/l0.mjs": 68,
     "packages/web-cli-plugin/test/ui/density.mjs": 60,
-    "packages/web-cli-plugin/test/ui/l1.mjs": 55
+    "packages/web-cli-plugin/test/ui/l1.mjs": 60
   },
   "protectedRanges": [
     {
       "file": "packages/web-cli-plugin/test/ui/journey.mjs",
       "startAnchor": "    const layout = await evaluate(sp, `(() => {",
       "endAnchor": "#15q",
-      "startByte": 42062,
-      "endByte": 53300,
+      "startByte": 42766,
+      "endByte": 54004,
       "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
       "lineCount": 185
     },
@@ -68,8 +68,8 @@
       "file": "packages/web-cli-plugin/test/ui/binding.mjs",
       "startAnchor": "    // ── #22a~#22j V2-3 R2 command-level override chain",
       "endAnchor": "#22l",
-      "startByte": 105871,
-      "endByte": 114021,
+      "startByte": 107420,
+      "endByte": 115570,
       "sha256": "be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936",
       "lineCount": 184
     }
@@ -1345,13 +1345,83 @@
       "reason": "v3-2 修复轮**纯插入**（相对 base 仍零删除行，`check(` 计数保持 68 == v3GateFloors 下界）：⑥b 的内联反证（篡改 `data-count` → 立刻复读）在 CPU 争用下会与尚未完成的重渲染赛跑（重渲染把常驻计数写回 ⇒ 篡改在复读前被还原 ⇒ 负载相关**假红** `[]`；v3-2 修复轮串行链实测 1 次、单跑 3/3 绿）。插入内容 = 篡改前先等 `#l0-statusbar` 子树 DOM 静默（MutationObserver + 200ms 静默 + 1500ms 硬上限，绝不挂死）。判据本体、断言数量与阈值均未改动/未削弱。",
       "replacementExists": true,
       "modificationType": "pure-addition"
+    },
+    {
+      "id": "V32-S12",
+      "file": "packages/web-cli-plugin/test/ui/l1.mjs",
+      "gate": "L1 运行时门禁断言强化（v3-2 修复轮 R2）",
+      "oldId": "V32-S12",
+      "oldTitle": null,
+      "newId": "V32-S12",
+      "newTitle": "⑧ 内层阻断 guard 在产物字节中存在且唯一",
+      "reason": "修复轮 R2（review I-01/I-02/I-07/I-08 处置）**纯插入**（相对 base 仍零删除行）：① I-01 —— 原恒真占位断言 `check(..., true, ...)` 被替换为**真断言**（父链尾部切片 + truncated），`check(` 调用点数不变（55 → 60 含新增 4 条）；② I-02 —— 新增两条产物字节级 pin（内层 `ref-store.dispatch` guard 存在且唯一 + guard 位于唯一 `sends += 1` 之前），行为侧仍由 `test/l1-ref-validity.test.ts` 的 Node 运行时用例 pin，可失败性由 RP-L1-C2 动态证明；③ I-07 —— 用已采集的 `aria-expanded` 补显式无障碍断言（8 类）；④ I-08 —— 补 EC-V3-015 断言（确认态折叠披露层后风险行与确认选项仍常驻可见）。断言只增不减、判据只强不弱。",
+      "replacementExists": true,
+      "modificationType": "pure-addition"
+    },
+    {
+      "id": "V32-S13",
+      "file": "packages/web-cli-plugin/test/ui/hardening.mjs",
+      "gate": "门禁自身完整性：CDP send 有界化（v3-2 修复轮 R2 / F-01③）",
+      "oldId": "V32-S12",
+      "oldTitle": null,
+      "newId": "V32-S13",
+      "newTitle": "// F-01 ③（2026-09-16，同 binding.mjs）：socket 关闭 ⇒ 立刻拒结所有 pending；",
+      "reason": "原登记于 zeroDiffFiles（v3-1 轮：该文件从未改动）。修复轮 R2 为满足「所有 CDP `send()` 必须带 readyState/超时/close 拒结保护」（元门禁 R3）对其**纯插入**加固：`check(` 计数、断言集合、判据、阈值、夹具全部未动（+16 行 / -0 行）。因此本条从 zeroDiffFiles 移入 pureAdditionFiles 逐条登记 —— 唯一改动是「不再静默挂死」，属加固而非放宽。",
+      "replacementExists": true,
+      "modificationType": "pure-addition"
+    },
+    {
+      "id": "V32-S14",
+      "file": "packages/web-cli-plugin/test/e2e/fullchain.mjs",
+      "gate": "门禁自身完整性：CDP send 有界化（v3-2 修复轮 R2 / F-01③）",
+      "oldId": "V32-S13",
+      "oldTitle": null,
+      "newId": "V32-S14",
+      "newTitle": "// F-01 ③（2026-09-16，同 binding.mjs）：socket 关闭 ⇒ 立刻拒结所有 pending；",
+      "reason": "同 V32-S13：e2e 门禁的 CDP 客户端按元门禁 R3 **纯插入**加固（+16 行 / -0 行），断言/判据/夹具未动；从 zeroDiffFiles 移入 pureAdditionFiles 逐条登记。",
+      "replacementExists": true,
+      "modificationType": "pure-addition"
+    },
+    {
+      "id": "V32-S15",
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "gate": "F-01 修复：失败必须传进退出码（v3-2 修复轮 R2）",
+      "oldId": "V32-S14",
+      "oldTitle": null,
+      "newId": "V32-S15",
+      "newTitle": "// F-01 ①（2026-09-16）：退出码必须在**任何可能挂死的 await 之前**定死。",
+      "reason": "review R1 F-01（跨叶真缺陷，预先存在于 v2 R2 `02ee715`）：`await dumpDiagnostics(...)` 挂在 CLOSED 的 CDP socket 上 ⇒ `process.exit(1)` 不可达 ⇒ Node 以 0 退出 ⇒ 断言失败被打成绿。修复 = **纯插入**（相对 base 仍零删除行、`check(` 计数 192 不变）：① `process.exitCode = 1;` 提到两处 `await dumpDiagnostics(...)` 之前（断言失败分支 + `main().catch`）；② `dumpDiagnostics` 自带 15s 硬上限（`setTimeout` → `process.exit(1)` + `finally clearTimeout`）⇒ 被 await 的调用自终止；③ `connectCdp().send()` 加 readyState 拒答 + 20s 超时拒答 + socket `close` 拒结全部 pending。同时把历史从未成功过的「诊断已落盘」设施修活（实跑证据见 build.md §10）。",
+      "replacementExists": true,
+      "modificationType": "pure-addition"
+    },
+    {
+      "id": "V32-S16",
+      "file": "packages/web-cli-plugin/test/gate-integrity.test.ts",
+      "gate": "元门禁：门禁自身完整性（v3-2 修复轮 R2）",
+      "oldId": "V32-S15",
+      "oldTitle": null,
+      "newId": "V32-S16",
+      "newTitle": "export function auditGateSource(file: string, source: string): Violation[] {",
+      "reason": "新增**元门禁**（无 Chromium，入 `npm test`）：R1a 退出码优先 / R1b 诊断有界 / R2 失败计数耦合退出码 / R3 CDP send 有界，逐条静态审计 8 个 Chromium 门禁 + `l1-reverse.mjs` + `_v3-helpers.mjs`；可失败性由「合成夹具 + 真实脚本副本注入 + `SDC_GATES_ROOT` 外部反证」三重证明（F-01 形态注入副本 ⇒ 本门禁 exit=1；真实根 ⇒ PASS）。目的：让 F-01 这一类缺陷无法再回来。",
+      "replacementExists": true,
+      "modificationType": "pure-addition"
+    },
+    {
+      "id": "V32-S17",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "门禁自身完整性：CDP send 有界化（v3-2 修复轮 R2 / F-01③）+ A4 新增行逐条归属",
+      "oldId": "V32-S16",
+      "oldTitle": null,
+      "newId": "V32-S17",
+      "newTitle": "  // F-01 ③（2026-09-16，同 binding.mjs）：socket 关闭 ⇒ 立刻拒结所有 pending；\n  // 非 OPEN / 超时一律拒答（不再出现「await 永不 settle」的挂死形态）。\n  ws.addEventListener('close', () => {\n    for (const [, p] of pending) p.reject(new Error('CDP socket closed'));\n    pending.clear();\n  });\n  return {\n    send(method, params = {}) {\n      return new Promise((res, rej) => {\n        if (ws.readyState !== 1 /* WebSocket.OPEN */) {\n          rej(new Error(`CDP socket not open (readyState=${ws.readyState}): ${method}`));\n          return;\n        }\n        const id = ++seq;\n        pending.set(id, { resolve: res, reject: rej });\n        setTimeout(() => {\n          if (pending.has(id)) {\n            pending.delete(id);\n            rej(new Error(`CDP timeout 20000ms: ${method}`));\n          }\n        }, 20000).unref?.();\n        ws.send(JSON.stringify({ id, method, params }));\n      });\n    },",
+      "reason": "`test/insight-tree-hierarchy.test.ts` 的 A4 判据要求「journey.mjs 的每一条非注释新增行都必须由 v3 台账 entries 覆盖（`t.includes(line)`）」。修复轮 R2 为满足元门禁 R3「所有 CDP `send()` 必须带 readyState / 超时 / close 拒结保护」在 journey.mjs 的**内联** CDP 客户端上做**纯插入**加固 —— 该文件按 ADR-V3-003 第 5 条**刻意保留自己的副本**（不抽共享模块，以免改动四个既有门禁的字节），故这些行既不是「披露前置展开」（`V3_PRE_STEP`）也不是结构胶水（`GLUE`）。本条把整段插入逐字登记为 newTitle（**纯插入**：`git diff -u0 HEAD -- …/journey.mjs` 零删除行；`check(` 计数 167 不变；断言逻辑、选择器、判据全未动），A4 的「未登记新增行」判据因此逐行命中且仍可失败。零删除行这一实质条款未被放宽。",
+      "replacementExists": true,
+      "modificationType": "pure-addition"
     }
   ],
   "zeroDiffFiles": [
-    "packages/web-cli-plugin/test/ui/hardening.mjs",
     "packages/web-cli-plugin/test/sidepanel-view.test.ts",
     "packages/web-cli-plugin/test/perf-budget.test.ts",
-    "packages/web-cli-plugin/test/e2e/fullchain.mjs",
     "packages/web-cli-plugin/manifest.json",
     "packages/web-cli-plugin/src/ui/options/index.html",
     "packages/web-cli-plugin/src/content/content-script.ts",
@@ -1370,25 +1440,25 @@
     "nodeTestStatic": {
       "countMethod": "static-node-test-registrations",
       "baselineStatic": 646,
-      "currentStatic": 765,
+      "currentStatic": 771,
       "floor": 646,
-      "note": "静态复算（2026-09-16 收口轮，`test/*.test.ts` 全 67 份文件拼接后逐正则计数；复现：`cat test/*.test.ts | grep -o -P '<regex>' | wc -l`）：① `\\btest\\(`（任意词边界，**会把正则方法调用也算进来**）= **833**；② `(?<![\\w.])test\\(`（排除点号前缀）= **741** ← `currentStatic` 采用此读法；③ `^test\\(`（多行、仅行首顶格注册）= **732**，与运行期 `ℹ tests` 732 **逐值相等**（跨口径交叉印证，非口径混用）。三种读法都 ≥ 下界 646，故「只增不减」在任一读法下均成立。validate R1（F3）指出旧登记 830 / 740 不可复现（实测 833 / 741）且未给出可复算的正则 → 本轮按实测订正，并把三个读法的**确切正则**写入 `readings` 由门禁机器复算（`test/supersession-ledger.test.ts`）。**不得**用 732/741/833（静态）与 646/725/731/732（运行期）互相相减——口径不同（I4③）。 v3-2（2026-09-16，68 份文件重算）：三读法按实测复算并写回 readings；`currentStatic` 仍采用 excludingDottedPrefix。 v3-2 修复轮（69 份文件重算）：新增 size-growth-evidence.test.ts 与三处重 pin（size-budget / insight-archive / density-thresholds）后按实测复算写回 readings —— anyWordBoundary=858 / excludingDottedPrefix=765 / topLevelColumnZero=754；全部 ≥ 下界 646，currentStatic 仍采用 excludingDottedPrefix。",
+      "note": "静态复算（2026-09-16 收口轮，`test/*.test.ts` 全 67 份文件拼接后逐正则计数；复现：`cat test/*.test.ts | grep -o -P '<regex>' | wc -l`）：① `\\btest\\(`（任意词边界，**会把正则方法调用也算进来**）= **833**；② `(?<![\\w.])test\\(`（排除点号前缀）= **741** ← `currentStatic` 采用此读法；③ `^test\\(`（多行、仅行首顶格注册）= **732**，与运行期 `ℹ tests` 732 **逐值相等**（跨口径交叉印证，非口径混用）。三种读法都 ≥ 下界 646，故「只增不减」在任一读法下均成立。validate R1（F3）指出旧登记 830 / 740 不可复现（实测 833 / 741）且未给出可复算的正则 → 本轮按实测订正，并把三个读法的**确切正则**写入 `readings` 由门禁机器复算（`test/supersession-ledger.test.ts`）。**不得**用 732/741/833（静态）与 646/725/731/732（运行期）互相相减——口径不同（I4③）。 v3-2（2026-09-16，68 份文件重算）：三读法按实测复算并写回 readings；`currentStatic` 仍采用 excludingDottedPrefix。 v3-2 修复轮（69 份文件重算）：新增 size-growth-evidence.test.ts 与三处重 pin（size-budget / insight-archive / density-thresholds）后按实测复算写回 readings —— anyWordBoundary=858 / excludingDottedPrefix=765 / topLevelColumnZero=754；全部 ≥ 下界 646，currentStatic 仍采用 excludingDottedPrefix。（**v3-2 修复轮 R2，2026-09-16**：新增 `test/gate-integrity.test.ts`（元门禁，6 个用例）后按实测复算并写回 readings —— anyWordBoundary=**884** / excludingDottedPrefix=**771** / topLevelColumnZero=**760**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。）",
       "readings": {
         "anyWordBoundary": {
           "regex": "\\btest\\(",
-          "count": 858,
+          "count": 884,
           "includesRegexMethodCalls": true,
           "note": "含 92 处 `正则.test(...)` 方法调用（如 insight-no-escalation.test.ts 的 21 处），故不是「用例数」口径。"
         },
         "excludingDottedPrefix": {
           "regex": "(?<![\\w.])test\\(",
-          "count": 765,
+          "count": 771,
           "includesRegexMethodCalls": false,
           "note": "currentStatic 采用此读法：排除了点号前缀的方法调用。"
         },
         "topLevelColumnZero": {
           "regex": "^test\\(",
-          "count": 754,
+          "count": 760,
           "includesRegexMethodCalls": false,
           "note": "多行模式、仅行首顶格注册 → 与运行期 `ℹ tests`（732）逐值相等，是最贴近「用例注册数」的静态读法；因与运行期口径数值相同，**不作为** currentStatic（台账要求两口径数字必须分列，见 schema 用例）。"
         }
@@ -1402,10 +1472,12 @@
     "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
     "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
     "packages/web-cli-plugin/test/size-attribution.mjs",
-    "packages/web-cli-plugin/test/ui/l1-reverse.mjs"
+    "packages/web-cli-plugin/test/ui/l1-reverse.mjs",
+    "packages/web-cli-plugin/test/ui/hardening.mjs",
+    "packages/web-cli-plugin/test/e2e/fullchain.mjs"
   ],
-  "pureAdditionNote": "经真实 `git diff -U0 c2c0e0d` 复算：这两份受保护门禁相对本轮起点**只新增、零删除**（journey +27/-0、binding +45/-0）。因此「每个删除/改写 hunk 必须命中台账」的逐 hunk 校验对它们**天然空转**（旧台账把它们列进 hunk 集合，看起来有覆盖、实际恒真 —— review I4②）。本表把它们单独归类：门禁改为 ① 断言其删除行数确实为 0（「纯新增」这一事实本身受检），② 不再对其假装做逐 hunk 校验；真正有删除行的文件（insight.mjs / size-baseline.ts / size-budget.test.ts / insight-archive.test.ts / insight-tree-hierarchy.test.ts）保留逐 hunk 覆盖。 v3-2（2026-09-16）：新增 `test/ui/l1.mjs`（L1 运行时门禁）与 `test/l1-ref-validity.test.ts`（判定/存储纯单测）亦为纯新增（0 删除行），其 \"0 removed lines\" 本身由本节断言。 v3-2 修复轮追加 3 个纯新增文件（size-growth-evidence.test.ts / size-attribution.mjs / ui/l1-reverse.mjs）：相对 base 零删除行，故按 1b 用例断言「0 删除行」并由 entries 提供 newTitle 定位。",
-  "v3GateFloorsNote": "下界按**运行期 `check(` 调用点**计（与旧值同口径，`--files-override` 的判据；RP-V3-05 靠「下界 == 实测调用点数」保持敏感 —— 删掉任意一条断言即低于下界而 FAIL）。历史：l0.mjs 50 → 65（修复轮）→ **68**（收口轮 F6：FR-V3-015 三处同源断言 + 反证 FAIL/还原两段）；density.mjs 40 → 54（修复轮）→ **60**（收口轮 F7：RP-V3-09 六条 + 夹具稳态相关断言）。下界**只增不减**，故按本轮实测登记（收口轮实测：l0.mjs 68 / density.mjs 60；来源：门禁启动时的 `ℹ 计数核对` 行）。",
+  "pureAdditionNote": "经真实 `git diff -U0 c2c0e0d` 复算：这两份受保护门禁相对本轮起点**只新增、零删除**（journey +27/-0、binding +45/-0）。因此「每个删除/改写 hunk 必须命中台账」的逐 hunk 校验对它们**天然空转**（旧台账把它们列进 hunk 集合，看起来有覆盖、实际恒真 —— review I4②）。本表把它们单独归类：门禁改为 ① 断言其删除行数确实为 0（「纯新增」这一事实本身受检），② 不再对其假装做逐 hunk 校验；真正有删除行的文件（insight.mjs / size-baseline.ts / size-budget.test.ts / insight-archive.test.ts / insight-tree-hierarchy.test.ts）保留逐 hunk 覆盖。 v3-2（2026-09-16）：新增 `test/ui/l1.mjs`（L1 运行时门禁）与 `test/l1-ref-validity.test.ts`（判定/存储纯单测）亦为纯新增（0 删除行），其 \"0 removed lines\" 本身由本节断言。 v3-2 修复轮追加 3 个纯新增文件（size-growth-evidence.test.ts / size-attribution.mjs / ui/l1-reverse.mjs）：相对 base 零删除行，故按 1b 用例断言「0 删除行」并由 entries 提供 newTitle 定位。 v3-2 修复轮 R2（2026-09-16）：① 追加 `test/gate-integrity.test.ts`（元门禁）；② **把 `test/ui/hardening.mjs` 与 `test/e2e/fullchain.mjs` 从 zeroDiffFiles 移入本表** —— 二者原本零改动，本轮为满足元门禁 R3「所有 CDP `send()` 必须带 readyState / 超时 / close 拒结保护」做了**纯插入**加固（各 +16 行 / -0 行，`check(` 计数、断言集合、判据、阈值、夹具全部未动），移入本表后其「0 删除行」由 1b 用例继续断言，且新增 entries `V32-S13`/`V32-S14` 提供 newTitle 定位。**红线未后退**：`zeroDiffFiles` 中真正的红线文件（`src/content/**` 三冻结文件、`src/security/{policy,auto-authorize}.ts`、`manifest.json`、`options.html`、`sidepanel-view.test.ts`、`perf-budget.test.ts`）**全部保留且仍为 0 行 diff**；被移出的两个是**测试驱动脚本**（门禁自身硬化，非产品面），且改动方向是「不再静默挂死」——属加固。",
+  "v3GateFloorsNote": "下界按**运行期 `check(` 调用点**计（与旧值同口径，`--files-override` 的判据；RP-V3-05 靠「下界 == 实测调用点数」保持敏感 —— 删掉任意一条断言即低于下界而 FAIL）。历史：l0.mjs 50 → 65（修复轮）→ **68**（收口轮 F6：FR-V3-015 三处同源断言 + 反证 FAIL/还原两段）；density.mjs 40 → 54（修复轮）→ **60**（收口轮 F7：RP-V3-09 六条 + 夹具稳态相关断言）；l1.mjs 55 → **60**（v3-2 修复轮 R2：I-01 真断言替换恒真占位 + I-02 内层 guard 字节 pin ×2 + I-07 aria-expanded ×1 + I-08 EC-V3-015 ×1，见 entries `V32-S12`）。下界**只增不减**，故按本轮实测登记（v3-2 修复轮 R2 实测：l0.mjs 68 / density.mjs 60 / l1.mjs 60）。",
   "v3CaliberPins": {
     "packages/web-cli-plugin/test/ui/density-metrics.mjs": {
       "countMethod": "literal-content-pins",

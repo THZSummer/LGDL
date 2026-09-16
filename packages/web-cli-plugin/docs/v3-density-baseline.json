@@ -1,6 +1,6 @@
 {
   "version": "v3",
-  "feature": "specs-tree-v3-1-l0-shell-density",
+  "feature": "specs-tree-web-cli-plugin-v3-ui（父 Feature；本文件自 v3-2 起由多叶共用 —— I-06 订正，原值 specs-tree-v3-1-l0-shell-density 逐字保留于此）",
   "measuredOn": "2026-09-16",
   "source": "packages/web-cli-plugin/dist/sidepanel.html + dist/sidepanel.js（真实构建产物）",
   "buildCommand": "npm run build --workspace @lgdl/web-cli-plugin",
@@ -277,7 +277,7 @@
     "sameSourceProof": "option-e-progressive.html 自带的 window.__density() 与我们的 DENSITY_MEASURE_SOURCE 在同一 DOM 上**逐项相等**（clickables/lines/blocks/regions/chars 全部相等）——同源证明成立。公布值落差来自稿件修订/Node 垫片条件差异，已如实登记（指令：实测值优先于设计稿数字）。"
   },
   "volumeBaselineSeparation": {
-    "note": "密度基线与体积基线**分开登记**（ADR-V3-011 第 4 条）：本文件不写体积明细；sidepanel.js 体积登记在 test/size-baseline.ts（2026-09-16 I6 修复轮按真实产物重登记 291,523 → 295,225 B，ceiling 仍 306,099 B 未被抬高）。下面的 volume 段只做**交叉引用**，供门禁做机器比对（不得在此单独放宽）。"
+    "note": "密度基线与体积基线**分开登记**（ADR-V3-011 第 4 条）：本文件不写体积明细；sidepanel.js 体积登记在 test/size-baseline.ts。**订正记录（I-06，2026-09-16 修复轮 R2）**：本 note 原写「2026-09-16 I6 修复轮按真实产物重登记 291,523 → 295,225 B，ceiling 仍 306,099 B 未被抬高」——该表述是 **v3-1 I6 轮的当时状态**，在编排器裁决 **V3-VOL-1** 之后**已失真**，且与本文件 `volume` 段（327,679 / 344,062 / cap record-only）自相矛盾。订正后的当前状态以 `volume` 段为准：基线 327,679 B、ceiling = `floor(327,679 × 1.05)` = **344,062 B**（公式判定）、`SIDEPANEL_CEILING_CAP`（306,099 B）**降级为纯记录**、四条替代守卫（公式 / 显式重登记登记册 / 增长正当性证据 / >15% 方向性告警）取代 cap。历史值 291,523 / 295,225 / 306,099 逐字保留于 size-baseline 的 HISTORY/TIMELINE。下面的 volume 段只做**交叉引用**，供门禁做机器比对（不得在此单独放宽）。"
   },
   "volume": {
     "artifact": "dist/sidepanel.js",

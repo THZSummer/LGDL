@@ -49,6 +49,9 @@ import {
   VIEWPORT_HEIGHT,
 } from './_v3-helpers.mjs';
 import { DENSITY_MEASURE_SOURCE, DENSITY_LIMITS, evaluateDensity } from './density-metrics.mjs';
+// I-02（R1 修复）：运行时门禁直接核对**产物字节**里的内层 guard 结构（dist/sidepanel.js）。
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const FIXTURE_ORIGIN = 'https://v3-l1.test';
 const LLM_KEY = 'web-cli:web-cli:llm';
@@ -196,6 +199,9 @@ async function main() {
       );
       const p = JSON.parse(probe);
       check(`① ${cls}：默认 hidden → 1 次点击（${ENTRY[cls]}）后可见且有非空内容`, p.before === true && p.afterHidden === false && p.visible === true && p.text > 0, probe);
+      // I-07（R1 修复，2026-09-16）：`aria` 此前**采集即弃**（NFR-V3-009/011 的
+      // 「触发器 aria-expanded 切换正确」没有直接断言）—— 现按已采集值补显式判据。
+      check(`① ${cls}：1 次点击后触发器 aria-expanded=true（ARIA 状态与可见性同步）`, p.aria === 'true', probe);
     }
     // the status group opens all five classes with that ONE click (not just one)
     const groupOpen = await evaluate(
@@ -367,6 +373,65 @@ async function main() {
       blocked,
     );
 
+    // ── I-02（R1 修复）：把**内层**阻断（ref-store.dispatch 的重新判定）纳入运行时门禁 ──
+    // 为什么不能靠行为扰动 pin：阻断是双层实现（外层 `panels.dispatchRefAction` 的
+    // `isRefUsable` + 内层 `store.dispatch` 的 `evaluateRefValidity`）。在产品的**唯一调用点**
+    // 下两者同源同参（同一函数、同一 env、同一 record），因此「只弱化内层」的行为扰动在运行时
+    // **不可观测** —— 这一点由 `RP-L1-C2` 做成机器事实（注入后门禁必须能 FAIL，正是靠下方断言）。
+    // 故运行时 pin = 产物字节里的**内层 guard 结构**（下方两条，可被 RP-L1-C2 打红）+
+    // 内层 guard 的**行为**由 `test/l1-ref-validity.test.ts` 的 Node 运行时用例 pin（含
+    // 「valid 放行计数真的动」的非空转对照）。两层合起来：结构存在 + 行为正确 + 可失败。
+    const sidepanelJs = readFileSync(join(DIST, 'sidepanel.js'), 'utf8');
+    const innerGuard = /if \(view\.verdict !== ["']valid["']\) \{\s*return \{ allowed: false,[\s\S]{0,240}?sends \+= 1;/.exec(sidepanelJs);
+    const innerGuardHits = (sidepanelJs.match(/if \(view\.verdict !== ["']valid["']\) \{/g) ?? []).length;
+    check(
+      '⑧ 内层阻断 guard 在产物字节中存在且唯一（ref-store.dispatch：verdict !== "valid" → allowed:false，且 sends+=1 在其后）',
+      innerGuard !== null && innerGuardHits === 1,
+      `guardHits=${innerGuardHits} matched=${innerGuard !== null}`,
+    );
+    const guardIdx = sidepanelJs.indexOf('if (view.verdict !== "valid") {');
+    const sendsIdx = sidepanelJs.indexOf('sends += 1;');
+    const sendsHits = (sidepanelJs.match(/sends \+= 1;/g) ?? []).length;
+    check(
+      '⑧ 内层 guard 位于**唯一的** `sends += 1` 自增之前（守卫是第一句，先判后发）',
+      guardIdx >= 0 && sendsIdx > guardIdx && sendsHits === 1,
+      `guard@${guardIdx} sends@${sendsIdx} sendsHits=${sendsHits}`,
+    );
+
+    // ── EC-V3-015（I-08 补齐）：破坏性确认期间折叠披露层，风险行与确认选项仍在 L0 可见 ──
+    console.log('\n▶ EC-V3-015：确认态 + 折叠全部披露层 → 风险行与确认选项仍常驻可见');
+    await evaluate(cdp, `window.__v3.testing.collapseAll(); window.__v3.testing.setRisk('confirm', 'force'); true`);
+    await sleep(250);
+    const ec15 = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.collapseAll();
+        const visible = (el) => { if (!el) return false; let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+        const confirm = document.getElementById('confirm');
+        const rail = document.getElementById('risk-rail');
+        const confirmRow = rail ? rail.querySelector('.risk-row[data-risk-class="confirm"]') : null;
+        const options = confirm ? [...confirm.querySelectorAll('button')] : [];
+        const l1Hidden = [...document.querySelectorAll('[data-l1-panel]')].every((p) => p.hidden === true);
+        return JSON.stringify({
+          l1AllHidden: l1Hidden,
+          confirmVisible: visible(confirm),
+          options: options.length,
+          optionsVisible: options.length > 0 && options.every(visible),
+          railVisible: visible(rail),
+          confirmRowVisible: visible(confirmRow),
+          railInFoldable: (() => { let n = rail; while (n) { if (n.hasAttribute && n.hasAttribute('data-l1-panel')) return true; n = n.parentElement; } return false; })(),
+        });
+      })()`,
+    );
+    const e15 = JSON.parse(ec15);
+    check(
+      'EC-V3-015 确认期间折叠披露层后：L1 面板全 hidden，确认选项 + 风险行（confirm）仍在 L0 常驻可见',
+      e15.l1AllHidden === true && e15.confirmVisible === true && e15.optionsVisible === true && e15.railVisible === true && e15.confirmRowVisible === true && e15.railInFoldable === false,
+      ec15,
+    );
+    await evaluate(cdp, `window.__v3.testing.setRisk('confirm', 'off'); true`);
+    await sleep(150);
+
     // ── ⑨ two recovery paths ───────────────────────────────────────────────
     console.log('\n▶ ⑨ 两条恢复路径：#l1-ref 内的「重新拾取」与「改用描述」');
     const recovery = await evaluate(
@@ -470,7 +535,6 @@ async function main() {
     check('⑪ 证据四要素齐备（选择器 / 语义路径 / 文本摘要 / 捕获时间）', ['稳定选择器', '语义路径', '文本摘要', '捕获时间'].every((k) => d.evidenceRows.some((r) => r.includes(k))), JSON.stringify(d.evidenceRows));
     check('⑪ 局部树节点数 ≤3（硬上限）', d.localTree <= 3, String(d.localTree));
     check('⑪ 「查看全局树」入口存在且指向 L2（2 次交互可达）', d.globalEntry === true && /全局树/.test(d.globalLabel), discover);
-    check('⑪ 局部树注入：≤3 节点且含父链（由 ⑫ 的注入断言覆盖）', true, '见下方 inject 段');
 
     // local tree injection (real v2 snapshot shape) + history round-trip
     const treeHist = await evaluate(
@@ -506,6 +570,20 @@ async function main() {
     );
     const th = JSON.parse(treeHist);
     check('⑪ 注入快照后局部树 ≤3 节点且含当前节点与父链', th.view.count <= 3 && th.view.labels.length === th.view.count && th.rows.length === th.view.count, JSON.stringify(th.view));
+    // I-01（R1 修复，2026-09-16）：原为恒真占位断言 `check(…, true, …)`（且括注「由 ⑫ 覆盖」
+    // 指向错误段）—— 现改为**真断言**，判据就是「含父链」本身：注入 v2 形状快照后，局部树必须
+    // 是主归属链的**尾部切片**（祖先在前、当前节点在末位），链长超硬上限时必须标记 `truncated`。
+    // 注入事实：`cmd` 的 path 为 4 段（连接树 › 能力面 › 浏览器能力 › bookmarks.create）⇒
+    // 上限 3 ⇒ labels = ['能力面','浏览器能力','bookmarks.create'] 且 truncated=true。
+    check(
+      '⑪ 局部树注入：确为父链尾部切片（祖先在前、当前节点在末位）且超限标记 truncated',
+      th.view.labels[th.view.labels.length - 1] === 'bookmarks.create'
+        && th.view.labels[0] === '能力面'
+        && th.view.labels.includes('浏览器能力')
+        && th.view.truncated === true
+        && th.view.empty === false,
+      JSON.stringify(th.view),
+    );
     check('⑪ 交叉引用以徽标呈现（不复制节点）', th.view.crossRefs.length > 0, JSON.stringify(th.view));
     check('⑪ 「已决策 N 步」的 N 可复算（1 → 2，与 rounds 数组长度一致）', th.afterFirst === th.beforeHistory + 1 && th.afterSecond === th.afterFirst + 1 && th.rounds.length === th.afterSecond, treeHist);
     check('⑪ 改选被标记（同一 prompt 二次决策 → changed=true）', th.rounds.some((r) => r.changed === true), JSON.stringify(th.rounds));
