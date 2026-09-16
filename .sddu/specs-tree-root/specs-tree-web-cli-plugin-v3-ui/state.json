@@ -21,7 +21,7 @@
       "deliveryOrder": 1,
       "covers": "Q-UI-001 / Q-UI-002 / Q-UI-003 / Q-UI-004（主干）",
       "role": "L0 常驻骨架（我在哪 · 谁在管我 · 下一步做什么 = 当前一张卡 + 「从页面拾取」入口 + 一行可点开状态栏）+ 五类风险位独立常驻（永不折叠）+ 密度四项口径与机器门禁（含反证）+ 首轮真实产物基线登记",
-      "note": "首个开工；其余三叶的共同基线"
+      "note": "首个开工；其余三叶的共同基线 ｜ **收口轮（2026-09-16，sddu-build）**：处置 validate R1 的 F1~F9（F1 台账判定改**按行包含**并补登 3 行 / F2~F5·F9 逐条订正为可复现值 / F7 风险探针上移为口径单源并补 `visibility`+`opacity` 判定 + 新增 RP-V3-09 / **F8 按裁决订正不豁免**：本叶 spec/plan/state + 父 spec/plan/state 共 6 文件 15 处 ceiling 数字订正，历史逐字保留）+ 夹具改确定性两遍 + `default@320` 重登记 194/18/6 → 223/19/7（历史保留；A6 张力如实上报）；门禁严格串行全 0，计数只增不减（density 105→127 / l0 134→137 / supersession 8→11）；**phase 保持 validated**。详见该叶 build.md §6。"
     },
     {
       "featureKey": "specs-tree-v3-2-l1-disclosure-refs",
@@ -35,7 +35,7 @@
       "deliveryOrder": 2,
       "covers": "Q-UI-003（就地解释层）/ Q-UI-011（引用失效提示位）",
       "role": "≤1 次交互的就地展开（8 类内容：状态与连接详情 · 后果说明与影响预演 · 引用 chip 证据 · 局部树 2~3 节点 · 已决策历史含改选 · 回执三件套证据 · 手势表 · 「更多选项」其余项）+ 引用失效判定（fail-closed 五维 + 不确定即失效）与常驻提示位 + 两条恢复路径",
-      "note": "前置 V3-1；O-UI-002 裁决已在父 spec 定死"
+      "note": "前置 V3-1；O-UI-002 裁决已在父 spec 定死 ｜ **收口轮（2026-09-16，sddu-build）**：处置 validate R1 的 N-01~N-13 —— ①元门禁三处盲区自修（N-01 块级扫描 / N-02 剥离注释 + 真实缩进函数体 / N-03 逐处 `send()` + 同作用域 `pending` 拒结）+ N-12 受审集合改扫目录推导，7 形态注入全部 `exit=1`、真实根 `exit=0`；②**F-01 修复**（`binding.mjs` 失败分支 `await dumpDiagnostics` 挂在 CLOSED CDP socket ⇒ `process.exit(1)` 不可达 ⇒ **退出码 0 把失败打成绿**，即 binding 门禁**虚绿**）；③N-04/N-05/N-07/N-08 修实现并按 V3-VOL-1 显式重登记 `sidepanel.js` 327,679 → **328,476 B**（ceiling 344,062 → 344,899 B，容差 5% 未动、cap 仍 record-only）；④N-11 `binding.mjs` 三处 `cp` 加 `dereference: true`；⑤**N-06 收敛到 v3-4**（未改本叶实现）；⑥N-10 原文逐字补登。全门禁串行 13/13 `exit=0`（764 / 11 / 127 / 157 / 103 / 167 / 108 / 192 / 24 / 9 / e2e PASS）；**phase 保持 validated**。详见该叶 build.md §11。"
     },
     {
       "featureKey": "specs-tree-v3-3-l2-on-demand-views",
@@ -103,6 +103,12 @@
       "at": "2026-09-16",
       "agent": "sddu-build（v3-3 叶子收口轮：validate R1 N-01~N-10 处置；判定器加固 + 台账叶段审计）",
       "note": "子叶 `specs-tree-v3-3-l2-on-demand-views` 的**收口轮**完成，父状态同步记录：① 反证判定器加固三条（N-01 命中行必须是失败行 / N-02 启动·环境·CDP·OOM 标记扩表 + 大小写折叠 + 完成标记 / N-03 元门禁改**执行** harness 的 `--list-cases` 清单 + 声明具体性下限 + 剥注释计数），**每条加固各配一条「回退该加固 ⇒ 元门禁必须红」的自身反证**（RP-V33-07/08/09 实跑记录在 `test/ui/l2-reverse.mjs`，10 条全绿）；② 取代台账新增 `leafBases`（`leafBase=bf5773d`，scope 由规则复算 23 门禁源文件；97 条叶段未被 `entries[].oldTitle` 覆盖的删除行**逐字**登记并带理由），逐行判据由此**两段都算**（base 相对 + 叶相对），端到端反证 RP-V33-06（真删一条叶段既有行 ⇒ 台账红 ⇒ sha256 还原后 PASS）—— validate N-09 的 28 条盲区已纳入判据；③ N-04（`feature` 追加 + `featureHistory`）、N-05/N-06（build.md 就地订正 + 现值指针，历史值逐字保留）、N-07（密度册 `knownLimitations`）、N-08（本叶 spec §10 边界登记）、N-10（骨架期豁免原文逐字补登）全部落地；**不改实现的两项（N-07/N-08）只做登记**。门禁（严格串行、一次一个、全量日志 `/tmp/opencode/v3-gate-logs/v3-3-closeout/`）：typecheck 0 · build 0 · npm test 0（**779/779/0**）· supersession 0（**14/14**）· density 0（127/0）· l0 0（164/0）· l1 0（103/0）· l2 0（71/0）· ui 0（167）· insight 0（116）· binding 0（192）· hardening 0（24）· e2e 0 · gate-integrity 0（12/12，`--selftest` 15/0）· l1-reverse 0（9 条）· l2-reverse 0（**10 条**）；体积三线 `content.js 177,076`（sha 52a82620…，无容差）/ `sidepanel.js 349,925` ≤ 367,421；零改动核对全 0 diff；红线：阈值逐字 7/15·9/20·17/35、判定链 sha256 不变、manifest 0 diff、main 未动、无新依赖、未用 `git add -A`。**计数只增不减**（776→779 / 11→14 / 6→10 / selftest 5→15）。环境披露：首条链因 /tmp tmpfs 被 576 个遗留 Chromium profile 占满（约 2.9GB）而 CDP 超时，清理后同链全绿（未改产品代码）。"
+    },
+    {
+      "phase": "tracked",
+      "at": "2026-09-17",
+      "agent": "sddu-build（v3-ui 父收口：整体收口，编排器代作者决策）",
+      "note": "**v3-ui 父收口（整体收口，第 1 轮）**：父 Feature **保持轻量规范容器**——phase 仍 `tasked` / workflow `4.tasks` / agent `sddu-tasks`，**不进入 build/review/validate**（与 v2 父先例一致，两代口径统一：父为规范容器，阶段语义由四叶承载）。四叶子 Feature phase 全部 = `validated`（`status=tracked`，无回退）。本轮**纯文档/状态收口**：ROADMAP 按方案 A 最小消解登记 F-28（v0.9.0 双主题并列；文档版本 1.25.0 → 1.26.0）+ 新建本目录 `closeout.md`（全 Feature 总账）+ 父 state.json 追加 `closeout` 记录与 childrens v3-1/v3-2 收口注 + `evidenceFacts.head` 由 `c2c0e0d` 订正为 `dab23ac` + TREE.md 目录导航同步；**零 `src/`、零 `test/`、零四叶产物改动**；未跑任何门禁/构建/Chromium（零代码变更 ⇒ 以 `git diff --quiet` 零 diff 核实）；关键数字取自四叶 build/validate 实测值（抽查 3 个与 `test/size-baseline.ts` 核对）；**未合 main、未发布**；**F-29（A2A 候选）保持原样不动**。详见 `closeout` 键。"
     }
   ],
   "dependencies": {
@@ -213,10 +219,10 @@
   ],
   "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出父 spec.md v1.0（轻量规范容器）+ 4 个叶子 spec.md v1.0 + 4 个叶子 state.json（均 phase=specified / status=tracked）。**只做 spec**：零 src/ 改动、零 test/ 改动、零设计稿改动、未 commit、未跑任何门禁/构建/Chromium（按纪律：本机内存紧张约 1.5GB 曾 OOM，spec 阶段不需要门禁）。核心产出：编号命名空间声明确认（FR-V3 / NFR-V3 / EC-V3 / AC-V3 / NG-V3，与 v1/v2 零冲突）+ **FR 65 / NFR 18 / EC 17 / AC 27 / NG 17 / G-V3 6 / US-V3 10**；**最大原创贡献 = 父 §9 密度口径（四项机器可复算定义 + 三档阈值 × 三档视口 + 反作弊规则 + 6 条反证）与父 §10 取代策略与台账（journey 167 零 diff 优先 / insight 108 新文件 / binding 192 零删改 / sidepanel-view 38 含 4 项布局契约 / 计数只增不减 / 每叶全门禁绿）**。**关键裁决落地**：O-UI-002（引用失效五维 + fail-closed，进 FR-V3-036~038 / EC-V3-001 / EC-V3-006 / AC-V3-023）、O-UI-003（按需注入为 NFR 硬约束 NFR-V3-004，不可行才允许显式重登记，禁放宽上限换功能）、O-UI-004（design/** 纳入版本库 = FR-V3-005，提交由编排器统一执行）、O-UI-005（版本位 v0.9.0 已裁决；ROADMAP 文本消解待执行，父 §2.6 给出三方案，**推荐方案 A 双主题并列·最小消解**，备选方案 B v0.8 同批第三 Feature）。**非阻塞开放项**：O-UI-001（外部竞品调研未完成，Provider 在发出业务请求之前因本地配置/脚本缺陷失败，原始错误逐字保留于 discovery §4.1；如实保留为 open，不编造）。**不做的边界**：不写 plan/ADR/tasks/代码、不改 v1/v2 SDDU 目录、不改 ROADMAP、不改源码/测试、不动 main、不 commit/push、不跑门禁。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。**父 Feature 的本阶段定位**：父 plan.md = 接口与契约的定义者（跨叶 ADR + 门禁口径 + 三元组守线 + 叶子边界），**不是实施载体**（不排任务、不写代码）；父仍**不产出** tasks.md / tasks.json、**不承接** build / review / validate（FR-V3-002 的可操作内核遵守）。**偏差显式登记**：FR-V3-002 字面为「父不产出 plan.md」，本轮编排器指令要求产出父 plan.md → 已登记为 ADR-V3-002 + §1「偏差登记 1」，并给出可核验理由（11 项跨叶议题需单点定义，否则 4 叶各自发明）。**产出**：父 plan.md + 4 叶 plan.md；**ADR-V3-001~036**（父承 001~012，v3-1 承 013~019，v3-2 承 020~024，v3-3 承 025~029，v3-4 承 030~036）。**覆盖编排器 11 项议题**（父 plan §2.8 逐项索引）。**关键裁决**：密度门禁三段式（口径单源 test/ui/density-metrics.mjs + Chromium test/ui/density.mjs + 无 Chromium test/density-thresholds.test.ts）与 6 条反证判据 / 风险位永不折叠的三层结构保证 / 引用失效 fail-closed 的唯一放行点 / 页面侧第 5 bundle dist/pick-layer.js 按需注入（content.js 字节与 CONTENT_SOURCE_SHA256 全不变）/ 取代台账 docs/v3-supersession-ledger.json 的 hunk ↔ 台账映射与 counts.countMethod 唯一口径 / id 零重命名 + 54 id 归属映射 / 叶子顺序 v3-1→{v3-2,v3-3}→v3-4 + v3-4 前置 spike / 体积重登记流程（content.js 无容差不可放宽）/ ROADMAP 方案 A 最小消解（只登记，执行放收口）。**测量根口径适配**：设计稿 #panel ≙ 真实产物 document.body（ADR-V3-001，语义等价断言机器化）。**只做 plan**：未写 tasks、未写代码、未改 src/**·test/**·manifest.json·design/**·ROADMAP、未改 v1/v2 SDDU 目录、未动 main、未 commit/push、**未跑任何门禁 / 构建 / Chromium**。",
   "status": "tracked",
-  "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：父 Feature 维持**轻量规范容器**定位（FR-V3-002 / ADR-V3-002）。4 个叶子各产出 `tasks.md` + `tasks.json`，并全部推进到 **phase=tasked**：V3-1 15 任务/7 波（S×5·M×8·L×2）· V3-2 10 任务/6 波（S×4·M×6）· V3-3 9 任务/5 波（S×3·M×5·L×1）· V3-4 14 任务/8 波（S×2·M×11·L×1）→ **合计 48 任务 / 26 叶内波次（S×14·M×30·L×4）**。叶间顺序 `v3-1 → {v3-2, v3-3} → v3-4`（可并行分解、门禁执行严格串行）；**每叶收尾必须全门禁绿**（AC-V3-013 / EC-V3-013），禁留红灯。**V3-4 的 TASK-401 A-UI-004 spike（S1~S4）为硬前置**，未过不得进入实现（失败降级 D1 形态降级 / D2 范围降级 + 回报编排器）。**门禁严格串行**（18 项清单见父 tasks.md §2.2；一次只跑一个，本机 ~1.5GB 曾 OOM；日志 tee 落盘禁 tail 截断）。**计数下界只增不减**：journey ≥167 / insight union ≥108 / binding ≥192 / sidepanel-view ≥38（含 4 契约）/ node `test(` ≥646。**三条关键任务**：取代台账 = V3-1 TASK-108（AC-V3-011/012/014）；密度反证 = V3-1 TASK-111（AC-V3-006/014/015）；体积重登记 = V3-4 TASK-411（pick-layer.js 独立基线）+ V3-1 TASK-114 / V3-3 TASK-308 / V3-4 TASK-413（sidepanel.js 条件重登记，AC-V3-015/016）。**偏差登记 3**：按编排器指令产出父 `tasks.md`（**仅总览与叶子映射**），明确 FR-V3-002 / ADR-V3-002 的可操作内核仍被遵守——父**不产出** `tasks.json`、**不列可执行任务**、**不承接** build/review/validate。下一步：`@sddu-build TASK-101`（V3-1 首个任务）。 【v3-2 收口轮同步（2026-09-16，sddu-build）】子叶 `specs-tree-v3-2-l1-disclosure-refs` 处置 validate R1 的 N-01~N-13 后**保持 `phase=validated`**（收口非新阶段）；新增：元门禁三处盲区自修（N-01 块级扫描 / N-02 剥离注释 / N-03 逐处 send + 同作用域 pending 拒结）与 N-12 扫目录推导，均以注入形态反证；N-04/N-05/N-07/N-08 修实现并按 V3-VOL-1 显式重登记 `sidepanel.js` 327,679 → **328,476 B**（ceiling 344,062 → **344,899 B**，容差 5% 未动、cap 仍 record-only）；N-11 `binding.mjs` 三处 `cp` 加 `dereference: true`；**N-06 收敛到 v3-4**（`spec.md §7.1` AC-CONV-1/AC-CONV-2 + `tasks.md` TASK-415 + v3-4 `state.json`），本叶**未改实现**。全门禁串行复跑 13/13 `exit=0`（764 / 11 / 127 / 157 / 103 / 167 / 108 / 192 / 24 / 9 / e2e PASS）。父级子叶 phase 已按各叶 `state.json` 同步。 v3-4 收口轮（2026-09-17，sddu-build）：子叶 `specs-tree-v3-4-page-as-input` 处置 validate R1 的 F1~F7（F4 生产可达 / F3 去 flaky / F1 归因实测订正 / F2 / F5 / F7 已修；F6 因 `pick-layer.js` 33,900 B 零容差钉死而 deferred）后**保持 `phase=validated`**（收口非新阶段）；本叶 childrens 的 v3-4 phase 已按子叶 state.json 同步为 validated。",
+  "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：父 Feature 维持**轻量规范容器**定位（FR-V3-002 / ADR-V3-002）。4 个叶子各产出 `tasks.md` + `tasks.json`，并全部推进到 **phase=tasked**：V3-1 15 任务/7 波（S×5·M×8·L×2）· V3-2 10 任务/6 波（S×4·M×6）· V3-3 9 任务/5 波（S×3·M×5·L×1）· V3-4 14 任务/8 波（S×2·M×11·L×1）→ **合计 48 任务 / 26 叶内波次（S×14·M×30·L×4）**。叶间顺序 `v3-1 → {v3-2, v3-3} → v3-4`（可并行分解、门禁执行严格串行）；**每叶收尾必须全门禁绿**（AC-V3-013 / EC-V3-013），禁留红灯。**V3-4 的 TASK-401 A-UI-004 spike（S1~S4）为硬前置**，未过不得进入实现（失败降级 D1 形态降级 / D2 范围降级 + 回报编排器）。**门禁严格串行**（18 项清单见父 tasks.md §2.2；一次只跑一个，本机 ~1.5GB 曾 OOM；日志 tee 落盘禁 tail 截断）。**计数下界只增不减**：journey ≥167 / insight union ≥108 / binding ≥192 / sidepanel-view ≥38（含 4 契约）/ node `test(` ≥646。**三条关键任务**：取代台账 = V3-1 TASK-108（AC-V3-011/012/014）；密度反证 = V3-1 TASK-111（AC-V3-006/014/015）；体积重登记 = V3-4 TASK-411（pick-layer.js 独立基线）+ V3-1 TASK-114 / V3-3 TASK-308 / V3-4 TASK-413（sidepanel.js 条件重登记，AC-V3-015/016）。**偏差登记 3**：按编排器指令产出父 `tasks.md`（**仅总览与叶子映射**），明确 FR-V3-002 / ADR-V3-002 的可操作内核仍被遵守——父**不产出** `tasks.json`、**不列可执行任务**、**不承接** build/review/validate。下一步：`@sddu-build TASK-101`（V3-1 首个任务）。 【v3-2 收口轮同步（2026-09-16，sddu-build）】子叶 `specs-tree-v3-2-l1-disclosure-refs` 处置 validate R1 的 N-01~N-13 后**保持 `phase=validated`**（收口非新阶段）；新增：元门禁三处盲区自修（N-01 块级扫描 / N-02 剥离注释 / N-03 逐处 send + 同作用域 pending 拒结）与 N-12 扫目录推导，均以注入形态反证；N-04/N-05/N-07/N-08 修实现并按 V3-VOL-1 显式重登记 `sidepanel.js` 327,679 → **328,476 B**（ceiling 344,062 → **344,899 B**，容差 5% 未动、cap 仍 record-only）；N-11 `binding.mjs` 三处 `cp` 加 `dereference: true`；**N-06 收敛到 v3-4**（`spec.md §7.1` AC-CONV-1/AC-CONV-2 + `tasks.md` TASK-415 + v3-4 `state.json`），本叶**未改实现**。全门禁串行复跑 13/13 `exit=0`（764 / 11 / 127 / 157 / 103 / 167 / 108 / 192 / 24 / 9 / e2e PASS）。父级子叶 phase 已按各叶 `state.json` 同步。 v3-4 收口轮（2026-09-17，sddu-build）：子叶 `specs-tree-v3-4-page-as-input` 处置 validate R1 的 F1~F7（F4 生产可达 / F3 去 flaky / F1 归因实测订正 / F2 / F5 / F7 已修；F6 因 `pick-layer.js` 33,900 B 零容差钉死而 deferred）后**保持 `phase=validated`**（收口非新阶段）；本叶 childrens 的 v3-4 phase 已按子叶 state.json 同步为 validated。 【v3-ui 父收口（2026-09-17，第 1 轮整体收口，sddu-build 代行；编排器代作者决策）】父 Feature **仍为轻量规范容器**——`phase` 保持 **`tasked`** / `workflow` 保持 `4.tasks` / `agent` 保持 `sddu-tasks`，**不进入 build/review/validate**（与 v2 先例一致，两代口径统一：**父为规范容器，阶段语义由四叶承载**；父目录仅承载聚合报告：本轮新增 `closeout.md` = 全 Feature 总账）。四叶子 Feature phase 全部 = **`validated`**（`status=tracked`），**无回退**。本轮为**纯文档/状态收口：零 `src/`、零 `test/` 改动 → 未跑任何门禁/构建/Chromium**（以 `git diff --quiet -- packages/web-cli-plugin/src packages/web-cli-plugin/test` 零 diff 核实，如实标注）；关键数字一律取自四叶 build/validate 产物实测值（抽查 3 个与源文件 `packages/web-cli-plugin/test/size-baseline.ts` 核对一致）。ROADMAP 按**方案 A 最小消解**执行：v0.9.0 主题扩写为「UI 渐进式披露升级〔F-28〕+ 工程质量与文档对齐」双主题并列，**原内容逐字保留、不顺延、不删除**；文档版本 1.25.0 → 1.26.0；**F-29（A2A 候选）一字未动**。详见 `closeout` 键与 `closeout.md`。",
   "evidenceFacts": {
     "branch": "feature/web-cli-plugin",
-    "head": "c2c0e0d",
+    "head": "dab23ac",
     "mainHead": "2ddc922",
     "mergePolicy": "不合 main、不发布",
     "designBaseline": "packages/web-cli-plugin/design/ui-redesign/option-e-progressive.html",
@@ -361,7 +367,8 @@
       "testHardening": 24,
       "testBinding": 192,
       "e2e": "PASS",
-      "discipline": "零删除、零降级"
+      "discipline": "零删除、零降级",
+      "note": "**本节为 spec 阶段（2026-09-16）的基线快照，原值逐字保留不作改写**；四叶交付后的**末轮实测值**见 `closeout.gates`（插件单测 796 · journey 167 · insight 116 · binding 192 · hardening 24 · e2e PASS · gate-integrity 12（selftest 15）· l0 164 · l1 103 · l2 71 · zero-injection 27 · page-input 92 · density 127 · supersession 14 · l1-reverse 9 · l2-reverse 10）——计数只增不减，无下降项。"
     },
     "existingDomAssertionCoupling": {
       "journey": {
@@ -493,5 +500,148 @@
       "status": "closed",
       "needs": "无（作者已授权编排器代决 D1~D4，直接作为约束记录，不再重新讨论）"
     }
-  ]
+  ],
+  "closeout": {
+    "round": "v3-ui 父收口（整体收口，第 1 轮）",
+    "date": "2026-09-17",
+    "authorization": "编排器代作者决策（2026-09-17）",
+    "conclusion": "✅ v3-ui 完成：父 + 四叶全部收口，四叶 phase=validated（status=tracked），全门禁绿（四叶各自收尾全门禁绿，实现未再变更）；本轮为纯文档/状态收口，不改 src/、test/、main、v1/v2 SDDU、design/。",
+    "containerDiscipline": "父 Feature 仍为轻量规范容器：phase=tasked / workflow=4.tasks / agent=sddu-tasks，**不进入 build/review/validate**（与 v2 父先例一致——两代统一口径：父为规范容器，阶段语义由四叶承载）；父目录仅承载聚合产物（本轮新增 closeout.md = 全 Feature 总账）。",
+    "leaves": [
+      {
+        "featureKey": "specs-tree-v3-1-l0-shell-density",
+        "name": "V3-1 L0 骨架与密度门禁",
+        "priority": "P0",
+        "deliveryOrder": 1,
+        "taskCount": 15,
+        "phase": "validated",
+        "status": "tracked",
+        "closeoutCommits": [
+          "098739a",
+          "e45ca53"
+        ]
+      },
+      {
+        "featureKey": "specs-tree-v3-2-l1-disclosure-refs",
+        "name": "V3-2 L1 就地展开与引用/回执",
+        "priority": "P0",
+        "deliveryOrder": 2,
+        "taskCount": 10,
+        "phase": "validated",
+        "status": "tracked",
+        "closeoutCommits": [
+          "305b91b",
+          "bf5773d"
+        ]
+      },
+      {
+        "featureKey": "specs-tree-v3-3-l2-on-demand-views",
+        "name": "V3-3 L2 按需视图（树/命令/审计/设置）",
+        "priority": "P0",
+        "deliveryOrder": 3,
+        "taskCount": 9,
+        "phase": "validated",
+        "status": "tracked",
+        "closeoutCommits": [
+          "e528563"
+        ]
+      },
+      {
+        "featureKey": "specs-tree-v3-4-page-as-input",
+        "name": "V3-4 页面即输入",
+        "priority": "P0",
+        "deliveryOrder": 4,
+        "taskCount": 14,
+        "phase": "validated",
+        "status": "tracked",
+        "closeoutCommits": [
+          "dab23ac"
+        ]
+      }
+    ],
+    "taskTotal": 48,
+    "validate": {
+      "verdict": "四叶均 ⚠️ 有条件通过（0 阻塞）",
+      "perLeaf": {
+        "v3-1": "⚠️ 有条件通过（0 阻塞；1 项 spec↔产物数值矛盾经显式重登记 + 7 项低severity 已处置）",
+        "v3-2": "⚠️ 有条件通过（0 阻塞；13 条独立发现 N-01~N-13 已处置）",
+        "v3-3": "⚠️ 有条件通过（0 阻塞；判定器 2 处可绕过形态已加固，N-01~N-10 已处置）",
+        "v3-4": "⚠️ 有条件通过（0 阻塞；7 项非阻塞发现 F1~F7 已处置，其中 F6 deferred）"
+      }
+    },
+    "gates": {
+      "pluginUnit": 796,
+      "journey": 167,
+      "insight": 116,
+      "binding": 192,
+      "hardening": 24,
+      "e2e": "PASS",
+      "gateIntegrity": 12,
+      "judgeSelftest": 15,
+      "l0": 164,
+      "l1": 103,
+      "l2": 71,
+      "zeroInjection": 27,
+      "pageInput": 92,
+      "density": 127,
+      "supersession": 14,
+      "l1Reverse": 9,
+      "l2Reverse": 10,
+      "note": "取四叶 build/validate 产物实测值（末轮 = v3-4 收口轮，2026-09-17）；计数只增不减，断言零删除零降级。"
+    },
+    "sizes": {
+      "contentJs": "177,076 B（无容差；全程未动，sha256 52a82620… 逐字节不变）",
+      "pickLayerJs": "33,900 B（显式重登记 1 次：32,391 → 33,900，+1,509 B / +4.66%）",
+      "sidepanelJs": "266,500 → 362,777 B（显式重登记 4 次，全部五要素披露；ceil(sidepanel) = 380,915 B = floor(362,777 × 1.05)；容差 5% 未动）",
+      "cumulativeGrowth": "+36.13%",
+      "worstAdjacentPairs": "+22.96%（v3-1+v3-2；已显式告警并回报编排器）",
+      "density": "三档阈值 ≤7/15 · ≤9/20 · ≤17/35 × 320/400/520 三视口；实测默认档 7 可点 / 7 行（三视口逐项相等）、firstRun 7/12、risk worst 9/13"
+    },
+    "realProblemsCaught": [
+      "binding 门禁虚绿（F-01，v3-2）：失败分支的 `await dumpDiagnostics` 挂在 CLOSED CDP socket ⇒ `process.exit(1)` 不可达 ⇒ 退出码 0 把失败打成绿",
+      "元门禁自身 3 处盲区（N-01/N-02/N-03，v3-2 收口轮）已自修 + 7 形态注入反证",
+      "反证判定器 9/14 攻击可绕过（v3-3，validate 实证）→ N-01 失败行锚点 / N-02 启动·环境标记扩表 + 大小写折叠 + 完成标记 / N-03 `--list-cases` 清单核对 + 具体性下限；判定器 selftest 5 → 15（负控 13）",
+      "v3-3 反证「因错而红」（三处加固均配「回退该加固 ⇒ 元门禁必须红」的自身反证 + `expectFailPattern` 全局防呆）",
+      "v3-4 BLOCK-1：`normalizeStableOrigin` 把完整 URL 当 origin ⇒ 真实带路径页面全不可用",
+      "v3-4 F4：页面侧自检在生产路径无 `env(authorized:false)` 发送点 ⇒ `revoke` 改为**先** `denotifyPickLayer` 下发去授权**再** `teardownPickLayer`，真正闭合「teardown 丢失」hole",
+      "v3-4 F1：逐文件归因把 R1 预估分布 `615/504/307/83` 当成受控实验实测 ⇒ 按实测订正 `661/389/376/83` + 新增「四项之和 == 总增幅（Σ == +1,509）」机器断言（登记失真）",
+      "v3-1 I8 首次运行即抓出真实登记错误（`risk(staleRef)` lines 登记 7 ≠ 实测 8）→ 按实测订正 + 新增静态自洽断言（`lines = ⌈chars ÷ 34⌉`）",
+      "v3-1 F7 风险可见性探针判据缺 `visibility:hidden` / `opacity:0`（CSS 隐身仍应计入）→ 探针上移为口径单源 + 补判定 + RP-V3-09",
+      "v3-3 N-09 台账盲区：post-base 行删除不可见 → 新增 `leafBases`（97 条叶段逐字登记 + 双段审计 + RP-V33-06 真删反证）"
+    ],
+    "deferred": [
+      "F6（v3-4）菜单焦点脱离 DOM：`pick-menu.ts#restoreFocus` 的 `prev?.focus?.()` 在 `previousFocus` 已脱离 DOM 时静默无效（焦点落回 BODY）；一行修法会让 `pick-layer.js` 超过 V3-VOL-2 钉死的 33,900 B（零容差）⇒ 需**新的显式重登记裁决**，本轮未动该产物",
+      "返回后 `activeElement` 回焦（v3-3 I-05⑤ / N-04 登记）：产品在还原展开态时把入口面板重新折叠 ⇒ `#l2-entry-<key>` 处于 hidden 祖先下 ⇒ `trigger.focus()` 成为 no-op；属产品焦点目标变更（触发体积重登记级联），未新增/未放宽任何断言",
+      "A6 夹具 notice（v3-1）：`#notice` 在夹具会话内持续存在 ⇒ `default@320` 与 400/520 曾非对称（194/18/6 vs 223/19/7）；已改确定性两遍 + 重登记 + 逐格稳态断言，但「无 `#notice` 会话态」的测量能力**未做**（需 `src/**` 增加清除通路 ⇒ 破坏 A1 钉死的体积）",
+      "元门禁对 6 个门禁仅静态覆盖（v3-2 §10.8/§11.7）：`journey`/`insight`/`l0`/`density`/`hardening`/`e2e` 已硬编码登记为 `STATIC_ONLY_GATES` 并在日志打印；未做「逐门禁强制变红」的 Chromium 实跑（~4 min/次 × 6）",
+      "`/tmp` profile 风险（v3-3 收口轮环境事实，非产品缺陷）：`/tmp` 为 3.7 GB tmpfs，曾被 576 个遗留 Chromium 临时 profile（约 2.9 GB）占满 ⇒ CDP 超时；清理后同一条链全绿，未改任何产品代码或判据",
+      "密度「L2 入口面板打开」态未测（v3-3 N-07 / `docs/v3-density-baseline.json#knownLimitations` 登记为 `L2-ENTRY-PANEL-OPEN-NOT-MEASURED`）：三档只测**面板关闭**态；不构成违规（常驻足迹确实下降 + 打开态是用户显式交互后的临时态），但「密度不回归」不覆盖打开态",
+      "设置视图不在替换契约（v3-3 N-08，只登记不改实现）：`FR-V3-047` 单滚动容器判据适用范围 = `#view-host` 三视图；设置视图走 v1 `body.settings-open` + `#settings-back`",
+      "v3-1 R3 承前 deferred：RP-02b/03/04 读取侧为副本（反证独立性为中，不冒充强）、`package.json` 台账覆盖面、7px 几何薄余量",
+      "v3-4 R2-1 承前方法论风险：「只断言 `ok`」形态在其它门禁已由 validate 专项清扫（13 个 Chromium 门禁 0 处可蒙混），但清扫结论为**一次性核对**、未固化为常驻门禁"
+    ],
+    "humanFacesNotExecuted": {
+      "note": "headless（Chrome for Testing 151）不可合成真实手势/权限弹窗/人工观感 —— 四叶人工面一律如实登记为 `⏳ 未执行`，**不得冒充 PASS**；共 18 项（v3-1 6 + v3-2 3 + v3-3 5 + v3-4 6，其中读屏体感跨叶复记）",
+      "v3_1": "主题观感（明暗两套真实视觉）/ 动画体感（过渡·滚动手感）/ 窄栏真实体感（320px 真实侧栏拖拽）/ 多显示器·高 DPI / 原生权限弹窗的真实键盘鼠标体感 / 真实 Chromium 侧栏（非 tab 打开）中的输入法·焦点真实体感",
+      "v3_2": "展开·收起动画体感 / 引用高亮（页面侧）体感 / 读屏真实体感",
+      "v3_3": "树逐层展开观感 / 窄栏长路径体感 / 键盘体感 / 明暗观感 / 读屏",
+      "v3_4": "拾取观感（描边·标签在真实站点的可读性）/ 拖动体感（真实 HTML5 拖放到侧栏）/ 右键菜单观感（与真实站点右键的冲突体感）/ 真实宿主兼容（真实 SPA·全屏元素·复杂 CSS；门禁只覆盖确定性夹具 + 污染夹具）/ 多显示器·高 DPI / Alt 在 Windows 上聚焦浏览器菜单栏（E 稿已列为固有限制）"
+    },
+    "commitChain": "v3-1: 3e370fd（feat）→ 76d4154（review 修复轮）→ 098739a（收口轮）→ e45ca53（build.md 计数订正）｜ v3-2: 615bd0f（feat）→ 4483fe6（体积显式重登记）→ 305b91b（收口轮）→ bf5773d（TREE 同步）｜ v3-3: 42e409d（build 产物登记）→ 2f6442e（修复轮）→ e528563（收口轮）｜ v3-4: be54b70（feat + N-06 收敛）→ 1e1b798（修复轮）→ 1e2e1a1（修复轮 R2 / 裁决 V3-VOL-2）→ dab23ac（收口轮）｜ 均在 feature/web-cli-plugin",
+    "roadmap": {
+      "dispositionOption": "A（最小消解·编排器裁决）",
+      "docVersion": "1.25.0 → 1.26.0",
+      "themeExpansion": "v0.9.0 主题扩写为「UI 渐进式披露升级〔F-28〕+ 工程质量与文档对齐」双主题并列；原内容逐字保留、不顺延、不删除（方案 B/C 未采用）",
+      "featureNumber": "F-28（discovery 已核查 0 占用；本版收口实测复核仍 0 占用）",
+      "f29Untouched": true,
+      "touchPoints": [
+        "头部 v1.26.0 素材增补行",
+        "§二 v0.9.0 标题主题扩写 + v1.26.0 追加注 + Feature 表追加 F-28 行 + 「v0.9.0 同批 Feature（F-28）」段",
+        "版本总览表追加 v0.9.0/F-28 行（原 v0.9.0 行逐字保留）",
+        "文档版本 1.25.0 → 1.26.0 + 修订记录行 `v1.26.0`"
+      ]
+    },
+    "thisRoundGuard": "纯文档/状态收口（只改 ROADMAP.md / 父 state.json / 新建 closeout.md / 父 TREE.md）；零 src/、零 test/、零四叶产物改动；未跑任何门禁/构建/Chromium（原因：零代码/测试变更），以 `git diff --quiet -- packages/web-cli-plugin/src packages/web-cli-plugin/test` 零 diff 核实；数字一律取自四叶产物实测值并抽查 3 个与源文件核对（`content.js` 177,076 / `sidepanel.js` 362,777 / `pick-layer.js` 33,900 ↔ `test/size-baseline.ts`）",
+    "merge": "不合入 main、不发布（v1/v2/v3 均在 feature/web-cli-plugin，合入/发布由作者决定）"
+  }
 }

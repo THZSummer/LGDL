@@ -7,6 +7,7 @@ web-cli-plugin v3「UI 渐进式披露升级」需求规范 —— 把侧栏默�
 ```
 specs-tree-web-cli-plugin-v3-ui/
 ├── TREE.md          # 本文件 - 目录导航
+├── closeout.md          # F-28 web-cli-plugin v3「UI 渐进式披露升级」——全 Feature 总账（父收口）
 ├── discovery.md          # 问题挖掘报告：specs-tree-web-cli-plugin-v3-ui
 ├── plan.md          # 技术计划：specs-tree-web-cli-plugin-v3-ui（web-cli-plugin v3「UI 渐进式披露升级」；父 Feature 统领性技术方案）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v3-ui（web-cli-plugin v3「UI 渐进式披露升级」）
@@ -21,6 +22,7 @@ specs-tree-web-cli-plugin-v3-ui/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
+| closeout.md | F-28 web-cli-plugin v3「UI 渐进式披露升级」——全 Feature 总账（父收口） — 1. **默认首屏从「全部能力平铺」变为「随用随取」的三层披露**（L0 常驻 / L1 就地展开 / L2 按需视图）：默认档 **≤7 可点元素 / ... | ✅ 存在 |
 | discovery.md | 问题挖掘报告：specs-tree-web-cli-plugin-v3-ui — web-cli-plugin v3「UI 渐进式披露升级」问题挖掘报告 —— 把侧栏默认首屏从「全部能力平铺」（实测 80 可点元素 / 4,870 可见... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v3-ui（web-cli-plugin v3「UI 渐进式披露升级」；父 Feature 统领性技术方案） — web-cli-plugin v3 技术方案 —— 把侧栏默认首屏从「全部能力平铺」改为「随用随取」的三层披露（L0 常驻 / L1 就地展开 / L2 ... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v3-ui（web-cli-plugin v3「UI 渐进式披露升级」） — web-cli-plugin v3「UI 渐进式披露升级」需求规范 —— 把侧栏默认首屏从「全部能力平铺」（现状口径 80 可点元素 / 4,870 可见... | ✅ 存在 |
