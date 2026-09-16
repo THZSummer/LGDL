@@ -42,6 +42,7 @@ const revs = [];
 for (let i = 0; i < argv.length; i += 1) {
   if (argv[i] === '--rev' && argv[i + 1]) revs.push(argv[i + 1]);
 }
+if (argv.includes('--worktree')) revs.push(WORKTREE);
 if (revs.length === 0) revs.push('HEAD');
 
 const SANDBOX = resolve('/tmp/opencode/size-attribution');
@@ -58,16 +59,30 @@ const nodeStubPlugin = {
   },
 };
 
+/**
+ * V3-3 addition: `WORKTREE` (or `--worktree`) measures the **live working tree**
+ * instead of a git revision, so a leaf can attribute its own uncommitted diff
+ * against the reference tree (`npm run size:attribution -- --rev cf2af32 --rev WORKTREE`).
+ * Geometry is identical to the rev path (same sandbox shape, same base copy).
+ */
+const WORKTREE = 'WORKTREE';
+
 /** Materialise `rev`'s sidepanel sources + a shared web-cli-base copy into a sandbox. */
 function materialise(rev, name) {
   const dir = resolve(SANDBOX, name);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(resolve(dir, 'packages/web-cli-plugin/src'), { recursive: true });
-  const archive = execFileSync('git', ['-C', REPO, 'archive', rev, 'packages/web-cli-plugin/src'], {
-    encoding: 'buffer',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  execFileSync('tar', ['-x', '-C', dir], { input: archive });
+  if (rev === WORKTREE) {
+    cpSync(resolve(REPO, 'packages/web-cli-plugin/src'), resolve(dir, 'packages/web-cli-plugin/src'), {
+      recursive: true,
+    });
+  } else {
+    const archive = execFileSync('git', ['-C', REPO, 'archive', rev, 'packages/web-cli-plugin/src'], {
+      encoding: 'buffer',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    execFileSync('tar', ['-x', '-C', dir], { input: archive });
+  }
   // Same dependency copy on both sides keeps esbuild's module-comment paths equal.
   cpSync(resolve(REPO, 'packages/web-cli-base'), resolve(dir, 'packages/web-cli-base'), {
     recursive: true,
