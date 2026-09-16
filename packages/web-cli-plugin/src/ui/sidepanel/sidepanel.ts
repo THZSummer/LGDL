@@ -444,7 +444,10 @@ function installV3TestHooks(): void {
         // V3-2: the L1 layer's real state (references / receipt / history) is
         // cleared too, so every fixture cell starts from the same default state.
         l1?.store().reset();
-        l1?.setEnv({});
+        // N-05（2026-09-16 收口轮）：`replace=true` 才真的**清空** env；旧的
+        // `setEnv({})` 是合并语义、什么也不清 → 上一场景的 env 残留会掩盖
+        // 「env 缺失 ⇒ unknown」类夹具（validate R1 实测）。
+        l1?.setEnv({}, true);
         l1?.setResolution(undefined);
         l1?.setSnapshot(null, null);
         render();
@@ -472,7 +475,7 @@ function installV3TestHooks(): void {
           case 'ref':
             return handle.injectRef(args[0] as Parameters<typeof handle.injectRef>[0]);
           case 'env':
-            handle.setEnv(args[0] as never);
+            handle.setEnv(args[0] as never, Boolean(args[1]));
             return handle.judge();
           case 'res':
             handle.setResolution(args[0] as RefResolution | undefined);
@@ -482,7 +485,9 @@ function installV3TestHooks(): void {
           case 'act':
             return handle.dispatchRefAction(String(args[0]), String(args[1] ?? 'ref-action'));
           case 'repick':
-            return handle.repick();
+            // N-04: fresh facts + the caller's page-side observation (both from the
+            // caller — the panel no longer fabricates `resolved`).
+            return handle.repick(args[0] as never, args[1] as never);
           case 'receipt':
             return handle.pullReceipt(args[0] as never);
           case 'tree':

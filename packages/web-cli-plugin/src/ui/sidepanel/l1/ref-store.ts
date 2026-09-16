@@ -112,6 +112,14 @@ function decorate(facts: RefFacts, view: RefVerdictView, retired: boolean): RefR
 export function createRefStore(): RefStore {
   const records: RefRecord[] = [];
   const retired = new Set<string>();
+  /**
+   * N-08（2026-09-16 收口轮）：退役记录的**最后一次失效原因被冻结**。
+   * 退役只表示「已被显式重拾取代」，但后续 `judge()` 仍会重算这条记录 —— 旧实现会把
+   * `readableReason` 一起改写，于是事后审计看到的原因**不是退役当时那一个**
+   * （实测：`ref_22` 由「目标元素已不存在」变成「已被同类新元素替换」）。
+   * 记录本身不丢弃（FR-V3-037「不得静默丢弃」），原因也保持退役时的快照。
+   */
+  const frozenReason = new Map<string, string>();
   let seq = 0;
   let sends = 0;
   const find = (refId: string): RefRecord | undefined => records.find((r) => r.facts.refId === refId);
@@ -141,13 +149,22 @@ export function createRefStore(): RefStore {
     get: find,
     judge(env) {
       for (let i = 0; i < records.length; i += 1) {
-        records[i] = decorate(records[i].facts, evaluateRefValidity(records[i].facts, env), retired.has(records[i].facts.refId));
+        const id = records[i].facts.refId;
+        const next = decorate(records[i].facts, evaluateRefValidity(records[i].facts, env), retired.has(id));
+        // N-08: a retired record keeps the reason it was retired with (the verdict
+        // itself is still re-judged), so the audit trail shows the original cause.
+        const frozen = frozenReason.get(id);
+        records[i] = frozen && next.verdict !== 'valid' ? { ...next, readableReason: frozen } : next;
       }
       return [...records];
     },
     stale: () => records.filter((r) => r.verdict !== 'valid' && !r.retired),
     retireUnusable() {
-      for (const r of records) if (r.verdict !== 'valid') retired.add(r.facts.refId);
+      for (const r of records) {
+        if (r.verdict === 'valid') continue;
+        retired.add(r.facts.refId);
+        if (r.readableReason) frozenReason.set(r.facts.refId, r.readableReason);
+      }
     },
     dispatch(refId, env) {
       const index = records.findIndex((r) => r.facts.refId === refId);
@@ -165,6 +182,7 @@ export function createRefStore(): RefStore {
     reset() {
       records.length = 0;
       retired.clear();
+      frozenReason.clear();
       sends = 0;
     },
   };

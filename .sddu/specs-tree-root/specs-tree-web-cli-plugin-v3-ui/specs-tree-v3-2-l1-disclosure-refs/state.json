@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v3-2-l1-disclosure-refs",
   "version": "v3.0.0",
   "name": "V3-2 L1 就地展开与引用/回执——≤1 次交互的就地展开（状态与连接详情 · 后果说明与影响预演 · 引用 chip 证据 · 局部树 2~3 节点 · 已决策历史含改选 · 回执三件套完整证据 · 页面交互说明手势表 · 「更多选项」其余项）+ 引用失效判定（fail-closed 五维 + 不确定即失效）与常驻提示位 + 两条恢复路径",
-  "phase": "reviewed",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-build（收口轮）",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v3-ui",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-16",
-  "updatedAt": "2026-09-16T09:45:00.000Z",
+  "updatedAt": "2026-09-16T11:40:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v3-ui 立项的叶子子 Feature（P0）。承载父 spec FR-V3-030~040：① 纯 L0 → L1 的**就地展开**（展开不遮挡 L0 决策卡与风险位；每类内容 ≤1 次交互可达；入口带文字标签 + 摘要/计数）；② 8 类 L1 内容齐备：状态与连接详情 / 选项的后果说明与影响预演（「会发生什么」+「不会发生什么」两段，破坏性选项含不可逆性声明）/ 引用 chip 证据（选择器 + 语义路径 + 文本摘要 + 捕获时间，只读）/ 局部树（当前对象所在 2~3 节点 + 归属链 + 「查看全局树」入口）/ 已决策历史（「已决策 N 步」+ 改选记录，回看零副作用）/ 回执三件套完整证据 / 页面交互说明手势表 / 「更多选项」其余项；③ **引用失效判定（O-UI-002 裁决，fail-closed）**：五维任一成立即失效（元素从 DOM 消失 / origin 变更 / 页面导航含 SPA / 站点声明版本变化 / 授权被撤销）+ 不确定即失效；失效进 L0 风险位（永不折叠）+ 可读原因（哪一维触发）+ chip 标记失效 + **阻断动作**（不得静默沿用）+ 「重新拾取」（≤1 次交互）与「改用描述」两条恢复路径；④ 回执三件套：摘要常驻 L0 + 完整证据与审计出口在 L1。权威条文见父 spec §5.3 / §8.2。",
   "scope": {
     "in": [
@@ -89,7 +89,10 @@
     "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md",
     "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/build.md",
     "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/review.md",
-    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/review-report.md"
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/review-report.md",
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/validate-report.md",
+    "closeoutLogs": "/tmp/opencode/v3-gate-logs/v3-2-closeout/"
   },
   "dependencies": {
     "on": [
@@ -191,7 +194,73 @@
       "at": "2026-09-16",
       "triggeredBy": "sddu-review R1（结论：有条件通过、本叶 0 阻塞；F-01 为跨叶真缺陷、I-01~I-10）+ sddu-build 修复轮 R2（F-01 与 I-01~I-10 处置）",
       "note": "修复轮 R2（2026-09-16，sddu-build）—— 处置 review R1 的 F-01 + I-01~I-10。**F-01（跨叶真缺陷，最高优先）**：`test/ui/binding.mjs` 的失败分支把 `await dumpDiagnostics(...)` 放在 `process.exit(1)` 之前，而 `dumpDiagnostics → captureRuntimeSummary → evaluate → connectCdp().send()` 对 CLOSED 的 CDP socket **永不 settle** ⇒ `exit(1)` 不可达 ⇒ Node 以 **0** 自然退出 ⇒ 断言失败被打成绿。修复（四条最小修复，全部**纯插入**、相对 base 仍零删除行、`check(` 计数 192 不变）：① `process.exitCode = 1;` 提到两处 `await dumpDiagnostics(...)` 之前（断言失败分支 + `main().catch`）；② `dumpDiagnostics` 自带 15s 硬上限（`setTimeout` → `process.exit(1)` + `finally clearTimeout`）；③ `connectCdp().send()` 非 OPEN 直接拒答 + 20s 超时拒答 + socket `close` 拒结全部 pending；④ **验收实跑**：副本注入 1 条必红断言 → `binding FAILED (4)` 且 **EXIT=1**（原文 `/tmp/opencode/v3-gate-logs/v3-2-fix2/f01-forced-red.log`）；还原（sha256 `62e5ad0d…` 逐字）→ **PASS 192 / EXIT=0**（`f01-restored-pass.log`）；「诊断已落盘」设施**修活**并经实跑验证（失败轮真落盘 `/tmp/opencode/r2-3/logs/binding-diagnostics-1789520473394.log`，3037 B，且上下文摘要显示 `ERR:CDP socket not open (readyState=3)`）。**新增元门禁**（防复发）：`test/gate-integrity.test.ts`（无 Chromium，入 `npm test`，6 用例）—— R1a 退出码优先 / R1b 诊断有界 / R2 失败计数耦合退出码 / R3 CDP send 有界，静态审计 8 个 Chromium 门禁 + `l1-reverse.mjs` + `_v3-helpers.mjs`；可失败性三重证明（合成夹具 + 真实脚本副本注入 + `SDC_GATES_ROOT` 外部反证：注入「await 挡在 exit 前」→ **元门禁 exit=1**；真实根 → PASS）。**I-01~I-10**：I-01 恒真占位断言 → 真断言（父链尾部切片 + truncated）；I-02 内层阻断纳入运行时 pin（产物字节结构 pin ×2 + 新增 RP-L1-C2 动态证伪）+ 既有 Node 行为单测；I-03 spec.md NFR-V3-005 与父 spec/plan 按「~~旧值~~ → 新值」显式订正（历史逐字保留）；I-04 build.md `build-info.ts` 行按 HEAD 版工具实测订正 `232→237` ⇒ `207→212`（Δ 同 5）；I-05 §2.2 回填修复轮 4 文件（13 → 17）；I-06 density 登记册 stale note + `feature` 字段订正；I-07 `aria-expanded` 采集改用（8 类）；I-08 补 EC-V3-015 断言；I-09 `reset()` 语义 **deferred**（生产路径不调用，`store().reset()` 仅存在于测试 seam ⇒ 无静默丢弃面）；I-10 `_v3-helpers.send()` 同法加固（并把 journey/insight/hardening/e2e 的 CDP 客户端一并加固，满足元门禁 R3）。**门禁（严格串行，一次一个；日志 `/tmp/opencode/v3-gate-logs/v3-2-fix2/`）**：全绿 —— typecheck ✅ / build ✅（`content.js` **177,076**、`sidepanel.js` **327,679**，均未变）/ `npm test` **760/760/0**（754 → 只增）/ supersession **11/0** / density **127/0**（三档×三视口全过、22 格零漂移、产物 ≤ 344,062）/ l0 **157/0** / l1 **99/0**（88 → 只增）/ journey **167** / insight **108** / binding **192** / hardening **24** / e2e ✅ / **gate-integrity 6/6/0（新）**；零改动核对：`content.js` sha256 `52a82620…`、三冻结文件 hash、判定链 `bfcb2ede…`/`1096d065…`、`manifest.json` `57e6407e…` 全部逐字不变。**反证全套**：RP-L1-A~H + **RP-L1-C2（新）** 9/9（注入 → FAIL 段 exit=1 → sha256 逐字还原 → PASS；`13-rp-l1-reverse.log`）+ RP-V3-01/03/04/08/09 + RP-V3-05/06 + I1 + F-01 反证 + 元门禁反证。"
+    },
+    {
+      "phase": "validated",
+      "workflow": "7.validate",
+      "agent": "sddu-validate",
+      "at": "2026-09-16",
+      "triggeredBy": "sddu-validate R1（独立验证：F-01 副本证伪 + 元门禁 3 规则触红 + 自写口径密度 21 格 + fail-closed 12 未知场景 + 回执重拉消息计数 + 台账自写审计 + 门禁串行 13/13）",
+      "note": "validate 阶段完成（2026-09-16，sddu-validate）—— **独立验证（R1）**：产出 `validate.md`（V1~V18 策略矩阵）+ `validate-report.md`（逐项实测）。**结论：⚠️ 有条件通过（0 阻塞）**。核心声称全部**由我独立复现**：① **F-01 独立证伪**：自建 `/tmp` 副本注入 1 条必红断言 → `EXIT=1` + 诊断真落盘（976 B，含 `ERR:CDP socket not open (readyState=3)`，正是历史挂死条件）；还原（sha256 `62e5ad0d…` 逐字）→ `PASS 192 / ✖ 0 / EXIT=0`；② **元门禁三条规则独立触红**（自建副本 + `SDC_GATES_ROOT`）：R1a `exit=1` / R3 `exit=1` / R2 `exit=1`，真实根与还原副本 `exit=0`；③ **自写口径密度 21 格逐格等于声称**（default `7/7·7/15·19·6`、firstRun `7/9·12/20·25·6`、risk worst `9/17·13/35·25·6`；每格幂等；稳态 `#notice` 29 字符）；④ **fail-closed**：五维 7 例（含 D4 hash/version 两子情形）全 `invalid` + 维度命中 + 原因逐字；**12 个不确定场景全部 `unknown` 且阻断**；有效对照 `sendsΔ=1`；**失效态穷举点击 40 个控件（含确认允许/拒绝、撤销授权、两条恢复入口）→ `commandSends 0 → 0`，未找到绕过路径**；⑤ **回执「重拉为真」**：包装 `chrome.runtime.sendMessage` 计数 —— 一次 `pullReceipt` 使 `insight-tree` 往返 **0 → 1**（非自增计数器自证）；`pieces {summary,evidence,audit}` 全 true；L0 摘要常驻；审计出口到 L2 宿主；⑥ **台账自写 python 审计**：`zeroDiffFiles` 9/9 真 0 行、`pureAdditionFiles` 9/9 真 `+N/−0`（`hardening.mjs`/`e2e/fullchain.mjs` 各 **+16/−0**）、删除行逐行命中（未覆盖 **0**）、`newTitle` 全部可定位、`protectedRanges` hash+起始偏移复原、**未登记却被修改的受保护区间 = 0**；⑦ **门禁串行复跑 13/13 `exit=0`**（日志 `/tmp/opencode/v3-validate-v32/`）：typecheck 0 / build ✅ / `npm test` **760/760/0** / supersession **11/0** / density **127/0**（22 格零漂移、495≥488、327,679 ≤ 344,062）/ l0 **157/0** / l1 **99/0** / journey **167** / insight **108** / binding **192** / hardening **24** / e2e PASS / gate-integrity **6/6/0**；⑧ **体积裁决合规独立复核**：`SIDEPANEL_CEILING_CAP` 零判定用法（`344,063 → 不 ok`、`306,100（cap+1）→ ok`）；自跑 `size:attribution` 复现 `Δ=32,454`、新必需 **26,156 = 80.60%**、接线 5,848、位移 220、未归因 230；`sidepanel.js` 字节跨两次构建稳定 327,679；⑨ **红线零改动**：`content.js` 177,076/`52a82620…`、三内容 hash、判定链两 hash、`manifest.json` 零 diff + `contextMenus` 0、阈值逐字、依赖段零 diff、`#composer hidden`。**独立发现的新问题 13 条（N-01~N-13，全部非阻塞）**，其中最受关注的是**元门禁自身覆盖盲区**（实证）：N-01 R1a 被「中间语句」绕过（删 `process.exitCode=1` + 插入一行 `console.error` + 删硬上限 → 元门禁仍 **6/6 PASS / exit=0**）；N-02 R1b 由**注释**满足（删真实 `setTimeout` 只留注释 → 仍 6/6 PASS）；N-03 R3 只查第一处 `send()` 且 close 检查可被「拒结无关对象」满足；N-06 **引用能力尚未接线到生产**（`setEnv`/`dispatchRefAction` 唯一调用点均在测试 seam；线上引用恒 `unknown`，方向安全但须由 v3-4 以硬性 AC 收敛）；另有 N-04 `repick()` 硬编码 `resolution=resolved`（潜在 fail-open 面）、N-05 `testing.reset()` 不清空 env（会掩盖「env 缺失」类测试）、N-07 D4 仅版本变化时可读原因渲染成「（decl-1 → decl-1）」等。**未能验证项（如实登记）**：人工面 3 项 `⏳ 未执行`；`test:l1-reverse` 未重跑（用户清单未含；其结论仅作引用，不作我的独立证据）；L1 展开态的主题/320–560px 溢出无独立探针（NFR-V3-009/010/011 记为「门禁级」）。**方法学自披露**：我最初把 `/tmp` 沙箱 `dist` 做成符号链接，`cp()` 会复制链接本身 → 门禁临时 manifest 改写穿透写回真实 `dist/manifest.json`（N-11），第二轮出现 13 条与产品无关的失败；已 `npm run build` 复原并改用真实目录副本重做 F-01 两次运行，结论均取自修正后运行，未把自伤结果登记为产品缺陷。**纪律**：HEAD `a22bfb8` 未变、`main` 未动（`2ddc9229…`）、未 `git add/commit/push`、未改任何 `src/**`·`test/**`·`docs/**`（例外：本状态文件按协议推进 + 新增 `validate.md`/`validate-report.md`）；`TREE.md` 目录导航**未更新**（本轮边界禁改文档）→ 待编排器/sddu-tree 补两行 + Phase。注：`/tool sddu_update_state` 本会话不可见 → state.json 由 Agent 直接写入并在此披露。"
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-16T11:40:00.000Z",
+      "triggeredBy": "sddu-build 收口轮（validate R1 的 N-01~N-13 处置；phase 保持 validated）"
     }
   ],
-  "phaseNote": "修复轮 R2（2026-09-16，sddu-build）—— 处置 review R1 的 F-01 + I-01~I-10。**F-01（跨叶真缺陷，最高优先）**：`test/ui/binding.mjs` 的失败分支把 `await dumpDiagnostics(...)` 放在 `process.exit(1)` 之前，而 `dumpDiagnostics → captureRuntimeSummary → evaluate → connectCdp().send()` 对 CLOSED 的 CDP socket **永不 settle** ⇒ `exit(1)` 不可达 ⇒ Node 以 **0** 自然退出 ⇒ 断言失败被打成绿。修复（四条最小修复，全部**纯插入**、相对 base 仍零删除行、`check(` 计数 192 不变）：① `process.exitCode = 1;` 提到两处 `await dumpDiagnostics(...)` 之前（断言失败分支 + `main().catch`）；② `dumpDiagnostics` 自带 15s 硬上限（`setTimeout` → `process.exit(1)` + `finally clearTimeout`）；③ `connectCdp().send()` 非 OPEN 直接拒答 + 20s 超时拒答 + socket `close` 拒结全部 pending；④ **验收实跑**：副本注入 1 条必红断言 → `binding FAILED (4)` 且 **EXIT=1**（原文 `/tmp/opencode/v3-gate-logs/v3-2-fix2/f01-forced-red.log`）；还原（sha256 `62e5ad0d…` 逐字）→ **PASS 192 / EXIT=0**（`f01-restored-pass.log`）；「诊断已落盘」设施**修活**并经实跑验证（失败轮真落盘 `/tmp/opencode/r2-3/logs/binding-diagnostics-1789520473394.log`，3037 B，且上下文摘要显示 `ERR:CDP socket not open (readyState=3)`）。**新增元门禁**（防复发）：`test/gate-integrity.test.ts`（无 Chromium，入 `npm test`，6 用例）—— R1a 退出码优先 / R1b 诊断有界 / R2 失败计数耦合退出码 / R3 CDP send 有界，静态审计 8 个 Chromium 门禁 + `l1-reverse.mjs` + `_v3-helpers.mjs`；可失败性三重证明（合成夹具 + 真实脚本副本注入 + `SDC_GATES_ROOT` 外部反证：注入「await 挡在 exit 前」→ **元门禁 exit=1**；真实根 → PASS）。**I-01~I-10**：I-01 恒真占位断言 → 真断言（父链尾部切片 + truncated）；I-02 内层阻断纳入运行时 pin（产物字节结构 pin ×2 + 新增 RP-L1-C2 动态证伪）+ 既有 Node 行为单测；I-03 spec.md NFR-V3-005 与父 spec/plan 按「~~旧值~~ → 新值」显式订正（历史逐字保留）；I-04 build.md `build-info.ts` 行按 HEAD 版工具实测订正 `232→237` ⇒ `207→212`（Δ 同 5）；I-05 §2.2 回填修复轮 4 文件（13 → 17）；I-06 density 登记册 stale note + `feature` 字段订正；I-07 `aria-expanded` 采集改用（8 类）；I-08 补 EC-V3-015 断言；I-09 `reset()` 语义 **deferred**（生产路径不调用，`store().reset()` 仅存在于测试 seam ⇒ 无静默丢弃面）；I-10 `_v3-helpers.send()` 同法加固（并把 journey/insight/hardening/e2e 的 CDP 客户端一并加固，满足元门禁 R3）。**门禁（严格串行，一次一个；日志 `/tmp/opencode/v3-gate-logs/v3-2-fix2/`）**：全绿 —— typecheck ✅ / build ✅（`content.js` **177,076**、`sidepanel.js` **327,679**，均未变）/ `npm test` **760/760/0**（754 → 只增）/ supersession **11/0** / density **127/0**（三档×三视口全过、22 格零漂移、产物 ≤ 344,062）/ l0 **157/0** / l1 **99/0**（88 → 只增）/ journey **167** / insight **108** / binding **192** / hardening **24** / e2e ✅ / **gate-integrity 6/6/0（新）**；零改动核对：`content.js` sha256 `52a82620…`、三冻结文件 hash、判定链 `bfcb2ede…`/`1096d065…`、`manifest.json` `57e6407e…` 全部逐字不变。**反证全套**：RP-L1-A~H + **RP-L1-C2（新）** 9/9（注入 → FAIL 段 exit=1 → sha256 逐字还原 → PASS；`13-rp-l1-reverse.log`）+ RP-V3-01/03/04/08/09 + RP-V3-05/06 + I1 + F-01 反证 + 元门禁反证。"
+  "phaseNote": "validate 阶段完成（2026-09-16，sddu-validate）—— **独立验证（R1）**：产出 `validate.md`（V1~V18 策略矩阵）+ `validate-report.md`（逐项实测）。**结论：⚠️ 有条件通过（0 阻塞）**。核心声称全部**由我独立复现**：① **F-01 独立证伪**：自建 `/tmp` 副本注入 1 条必红断言 → `EXIT=1` + 诊断真落盘（976 B，含 `ERR:CDP socket not open (readyState=3)`，正是历史挂死条件）；还原（sha256 `62e5ad0d…` 逐字）→ `PASS 192 / ✖ 0 / EXIT=0`；② **元门禁三条规则独立触红**（自建副本 + `SDC_GATES_ROOT`）：R1a `exit=1` / R3 `exit=1` / R2 `exit=1`，真实根与还原副本 `exit=0`；③ **自写口径密度 21 格逐格等于声称**（default `7/7·7/15·19·6`、firstRun `7/9·12/20·25·6`、risk worst `9/17·13/35·25·6`；每格幂等；稳态 `#notice` 29 字符）；④ **fail-closed**：五维 7 例（含 D4 hash/version 两子情形）全 `invalid` + 维度命中 + 原因逐字；**12 个不确定场景全部 `unknown` 且阻断**；有效对照 `sendsΔ=1`；**失效态穷举点击 40 个控件（含确认允许/拒绝、撤销授权、两条恢复入口）→ `commandSends 0 → 0`，未找到绕过路径**；⑤ **回执「重拉为真」**：包装 `chrome.runtime.sendMessage` 计数 —— 一次 `pullReceipt` 使 `insight-tree` 往返 **0 → 1**（非自增计数器自证）；`pieces {summary,evidence,audit}` 全 true；L0 摘要常驻；审计出口到 L2 宿主；⑥ **台账自写 python 审计**：`zeroDiffFiles` 9/9 真 0 行、`pureAdditionFiles` 9/9 真 `+N/−0`（`hardening.mjs`/`e2e/fullchain.mjs` 各 **+16/−0**）、删除行逐行命中（未覆盖 **0**）、`newTitle` 全部可定位、`protectedRanges` hash+起始偏移复原、**未登记却被修改的受保护区间 = 0**；⑦ **门禁串行复跑 13/13 `exit=0`**（日志 `/tmp/opencode/v3-validate-v32/`）：typecheck 0 / build ✅ / `npm test` **760/760/0** / supersession **11/0** / density **127/0**（22 格零漂移、495≥488、327,679 ≤ 344,062）/ l0 **157/0** / l1 **99/0** / journey **167** / insight **108** / binding **192** / hardening **24** / e2e PASS / gate-integrity **6/6/0**；⑧ **体积裁决合规独立复核**：`SIDEPANEL_CEILING_CAP` 零判定用法（`344,063 → 不 ok`、`306,100（cap+1）→ ok`）；自跑 `size:attribution` 复现 `Δ=32,454`、新必需 **26,156 = 80.60%**、接线 5,848、位移 220、未归因 230；`sidepanel.js` 字节跨两次构建稳定 327,679；⑨ **红线零改动**：`content.js` 177,076/`52a82620…`、三内容 hash、判定链两 hash、`manifest.json` 零 diff + `contextMenus` 0、阈值逐字、依赖段零 diff、`#composer hidden`。**独立发现的新问题 13 条（N-01~N-13，全部非阻塞）**，其中最受关注的是**元门禁自身覆盖盲区**（实证）：N-01 R1a 被「中间语句」绕过（删 `process.exitCode=1` + 插入一行 `console.error` + 删硬上限 → 元门禁仍 **6/6 PASS / exit=0**）；N-02 R1b 由**注释**满足（删真实 `setTimeout` 只留注释 → 仍 6/6 PASS）；N-03 R3 只查第一处 `send()` 且 close 检查可被「拒结无关对象」满足；N-06 **引用能力尚未接线到生产**（`setEnv`/`dispatchRefAction` 唯一调用点均在测试 seam；线上引用恒 `unknown`，方向安全但须由 v3-4 以硬性 AC 收敛）；另有 N-04 `repick()` 硬编码 `resolution=resolved`（潜在 fail-open 面）、N-05 `testing.reset()` 不清空 env（会掩盖「env 缺失」类测试）、N-07 D4 仅版本变化时可读原因渲染成「（decl-1 → decl-1）」等。**未能验证项（如实登记）**：人工面 3 项 `⏳ 未执行`；`test:l1-reverse` 未重跑（用户清单未含；其结论仅作引用，不作我的独立证据）；L1 展开态的主题/320–560px 溢出无独立探针（NFR-V3-009/010/011 记为「门禁级」）。**方法学自披露**：我最初把 `/tmp` 沙箱 `dist` 做成符号链接，`cp()` 会复制链接本身 → 门禁临时 manifest 改写穿透写回真实 `dist/manifest.json`（N-11），第二轮出现 13 条与产品无关的失败；已 `npm run build` 复原并改用真实目录副本重做 F-01 两次运行，结论均取自修正后运行，未把自伤结果登记为产品缺陷。**纪律**：HEAD `a22bfb8` 未变、`main` 未动（`2ddc9229…`）、未 `git add/commit/push`、未改任何 `src/**`·`test/**`·`docs/**`（例外：本状态文件按协议推进 + 新增 `validate.md`/`validate-report.md`）；`TREE.md` 目录导航**未更新**（本轮边界禁改文档）→ 待编排器/sddu-tree 补两行 + Phase。注：`/tool sddu_update_state` 本会话不可见 → state.json 由 Agent 直接写入并在此披露。 【收口轮（2026-09-16，sddu-build）】处置 validate R1 的 N-01~N-13：元门禁三处盲区（N-01 块级扫描 / N-02 剥离注释 / N-03 逐处 send + 同作用域 pending）与 N-12（扫目录推导）已自修并用注入形态反证（exit=1 → 还原 PASS）；N-04/N-05/N-07/N-08 修实现（+797 B，按 V3-VOL-1 显式重登记 328,476 / ceiling 344,899）、N-09 口径入实现注释、N-10 文档订正、N-11 binding cp 加 dereference；**N-06 收敛到 v3-4**（spec.md §7.1 AC-CONV-1/2 + tasks.md TASK-415）。全门禁串行复跑 13/13 exit=0（764/11/127/157/103/167/108/192/24/9/e2e）。**phase 保持 validated**（收口非新阶段）。",
+  "closeoutRound": {
+    "id": "v3-2-closeout",
+    "trigger": "validate R1（validate-report.md）新发现 N-01~N-13",
+    "executedAt": "2026-09-16",
+    "by": "SDDU Build Agent（sddu-build 收口轮）",
+    "metaGateFix": {
+      "N-01": "R1a 改为块级/窗口级扫描（失败块内第一条独立 await 之前必须已定死退出码）—— 实证可 FAIL",
+      "N-02": "检测前剥离注释 + 被 await 函数体改为真实缩进区间 —— 实证可 FAIL",
+      "N-03": "R3 逐处检查每个 send() + close 拒结限定到同作用域 pending Map —— 实证可 FAIL",
+      "N-12": "受审集合改为扫目录推导（自动纳入新门禁）+ EXPECTED 字面量「只增不减」断言"
+    },
+    "dispositions": {
+      "N-01": "fixed",
+      "N-02": "fixed",
+      "N-03": "fixed",
+      "N-04": "fixed（repick(facts, observed)，面板不再自证 resolved；无观测 ⇒ unknown）",
+      "N-05": "fixed（setEnv(patch, replace=true) + reset 清空 env + 门禁断言）",
+      "N-06": "converged-to-v3-4（spec.md §7.1 AC-CONV-1/AC-CONV-2 + tasks.md TASK-415 + v3-4 state.json 登记；本叶未改实现）",
+      "N-07": "fixed（D4 原因写明 hash/version 哪一项变化 + 单测/门禁文案同步）",
+      "N-08": "fixed（退役记录冻结退役时可读原因 + 单测）",
+      "N-09": "fixed（身份判据 = refMark；nodeCount 为辅判据 —— 口径写进实现注释）",
+      "N-10": "fixed（build.md §1.1 加「建设轮口径」标注；review-report 末尾回填 R2 已修复指针）",
+      "N-11": "fixed（binding.mjs 三处 cp 加 dereference: true + 台账 V32-S18；dist/manifest.json 与源逐字节一致已复核）",
+      "N-12": "fixed（见 metaGateFix）",
+      "N-13": "info（无需修复）"
+    },
+    "volumeReRegistration": {
+      "round": "v3-2-closeout（registry-fidelity-round）",
+      "sidepanelBeforeBytes": 327679,
+      "sidepanelAfterBytes": 328476,
+      "deltaBytes": 797,
+      "ceilingBeforeBytes": 344062,
+      "ceilingAfterBytes": 344899,
+      "contentJs": "177,076 B / sha256 52a82620… 不变（无容差）",
+      "disclosure": "test/size-baseline.ts 的 SIDEPANEL_RE_REGISTRATIONS / SIDEPANEL_GROWTH_BREAKDOWN（含 closeoutRoundRows）+ docs/v3-density-baseline.json#volume 同步；容差 5% 未动；cap 仍 record-only"
+    },
+    "gateChain": "/tmp/opencode/v3-gate-logs/v3-2-closeout/（summary.txt：01..13 全 exit=0）",
+    "counts": {
+      "npmTest": 764,
+      "supersession": 11,
+      "density": 127,
+      "l0": 157,
+      "l1": 103,
+      "journey": 167,
+      "insight": 108,
+      "binding": 192,
+      "hardening": 24,
+      "gateIntegrity": 9,
+      "e2e": "PASS"
+    },
+    "reverseProofs": "RP-V3-01/03/05/06/08/09 + I1 + RP-L1-A~H/C2（9/9）+ F-01（强制变红 EXIT=1 → 还原 PASS 192）+ 元门禁 7 形态注入（含 N-01/N-02/N-03）全部 exit=1、真实根 exit=0",
+    "ledgerUpdates": "V32-S17（元门禁收口加固；pure-addition）/ V32-S18（binding cp dereference；superseding，oldTitle=await cp(dist, extDir, { recursive: true });）/ protectedRanges.binding startByte 107420→107780（sha256 不变）/ counts.nodeTestRuntime 760→764 / staticCalibers.readings 896/775/764 / v3GateFloors.l1.mjs 60→64 / pureAdditionFiles 移出 binding.mjs"
+  }
 }

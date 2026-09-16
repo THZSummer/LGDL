@@ -85,7 +85,14 @@ test('v3-2 judge: 可读原因逐维逐字（模板 = plan §2.3(4)，{n} 用序
   assert.equal(reasonFor(FACTS, 'navigated', good()), '引用 1 捕获后页面已导航（含单页路由切换），目标可能已重建');
   assert.equal(
     reasonFor(FACTS, 'declaration-changed', good({ declarationHash: 'h2' })),
-    '引用 1 捕获后站点声明已变化（h1 → h2），目标语义可能已改变',
+    '引用 1 捕获后站点声明已变化（hash h1 → h2），目标语义可能已改变',
+  );
+  // N-07（2026-09-16 收口轮）：D4 的另一个子判据（version）必须渲染成 version 变化，
+  // 而不是把 hash 前后相同的 `h1 → h1` 当成「变化」展示给用户。
+  const versioned: RefFacts = { ...FACTS, declarationVersion: 'v1' };
+  assert.equal(
+    reasonFor(versioned, 'declaration-changed', good({ declarationVersion: 'v2' })),
+    '引用 1 捕获后站点声明已变化（version v1 → v2），目标语义可能已改变',
   );
   assert.equal(reasonFor(FACTS, 'authorization-revoked', good()), '引用 1 所在站点已被撤销授权');
   // the `unknown` template must state the fail-closed rule
@@ -169,6 +176,22 @@ test('v3-2 store: dispatch 是唯一放行点（失效态零发送，含非空�
 });
 
 // ── local tree / receipt / view model ───────────────────────────────────────
+test('v3-2 store: N-08 退役记录冻结退役当时的可读原因（后续 judge 不改写审计轨迹）', () => {
+  const store = createRefStore();
+  const rec = store.create({ ...FACTS, selector: '#t', textDigest: 't', semanticPath: 'p' });
+  store.judge(good({ resolution: { status: 'missing' } }));
+  const original = store.get(rec.facts.refId)?.readableReason ?? '';
+  assert.ok(original.includes('目标元素已不存在'), `退役前的原因必须是 dom-gone：${original}`);
+  store.retireUnusable();
+  // 退役后判据变了（元素被同类新元素替换）→ 记录不丢弃（retired 保留），但原因必须是
+  // 退役当时那一个 —— 旧实现会被这次 judge 改写成「已被同类新元素替换」（N-08）。
+  store.judge(good({ resolution: { status: 'resolved', refMark: 'ref_999', nodeCount: 1 } }));
+  const kept = store.get(rec.facts.refId);
+  assert.equal(kept?.retired, true, '退役记录必须保留（不得静默丢弃）');
+  assert.equal(kept?.readableReason, original, '退役原因不得被后续 judge 改写');
+  assert.equal(store.stale().length, 0, '退役记录不再计入失效告警');
+  assert.notEqual(kept?.readableReason, 'x', '非空转对照：原因必须真的存在');
+});
 test('v3-2 local-tree: 主归属链裁剪 ≤3 且不复制节点', () => {
   const node = (nodeId: string, label: string, path: string[], crossRefLabels: string[] = []) => ({
     id: `n-${nodeId}`,

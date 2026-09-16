@@ -21,6 +21,14 @@
 
 ### 1.1 门禁结果（逐条串行，日志见 `/tmp/opencode/v3-gate-logs/v3-2/`）
 
+> **⚠️ 口径标注（N-10①，2026-09-16 收口轮追加）**：**本节起至 §8 的计数均为「建设轮」口径**
+> （`npm test` 743 / `l1` 88 / `density` 126+1 等），其中体积一条当时**如实 FAIL**（§5.2）。
+> 这些数字**已被后续修复轮取代**，不得作为当前状态引用 —— 当前值为：
+> `npm test` **764** / `l1` **103** / `density` **127** / `supersession` **11** / `l0` **157** /
+> `journey` **167** / `insight` **108** / `binding` **192** / `hardening` **24** /
+> `gate-integrity` **9** / `e2e` PASS / `sidepanel.js` **328,476**（ceiling **344,899**）/ `content.js` **177,076**。
+> 最终口径见 **§9（修复轮 V3-VOL-1）**、**§10（修复轮 R2）**、**§11（validate R1 收口轮）**。
+
 | 门禁 | 结果 | 计数 / 说明 |
 |------|------|-------------|
 | `npm run typecheck` | ✅ 0 error | — |
@@ -522,10 +530,154 @@ $ node --test dist-test/test/gate-integrity.test.js; echo $?      # 真实根 �
 
 ---
 
+## 11. 收口轮（2026-09-16，**validate R1 的 N-01~N-13 处置**）
+
+> **触发**：`validate-report.md`（R1）结论「⚠️ 有条件通过、0 阻塞」+ §5.1 新发现 **N-01~N-13**。本轮**不新增功能**，只做「修盲区 / 收敛接线 / 订正文档」。
+> **不变量**：`phase` 保持 `validated`（收口轮**不是**新阶段）；密度阈值 `7/15 · 9/20 · 17/35` 逐字未动；`content.js` **177,076 B / `52a82620…`** 未动；`manifest.json` 零 diff、无 `contextMenus`；判定链两 hash 未动；`main`/v1/v2 SDDU 产物/`web-cli-base/**`/`src/content/**`/`design/**`/`.opencode/opencode.json` 未动；无新增依赖；未用 `git add -A`。
+
+### 11.1 元门禁三处盲区（N-01/N-02/N-03）+ N-12（**最高优先级**）
+
+| # | 盲区根因（validate 实证） | 本轮修法 | 反证（注入 → 元门禁必须红 → 还原 PASS） |
+|:--:|---------------------------|----------|------------------------------------------|
+| **N-01** | R1a 只看 `process.exit*` 的**紧邻前一行**是否为独立 `await` ⇒ 在 `await` 与 `exit` 之间插一行 `console.error` 即绕过（`meta-caseF-gap2.log`：6/6 PASS、exit=0） | R1a 增加**块级/窗口级**扫描：对每个失败块开口（`if (…failures.length…) {` / `main().catch(async …) {`）取**缩进界定的块窗口**，要求「块内**第一条独立 await 之前**必须已出现 `process.exitCode = 1` / `process.exit(1)` / `finish()`」；原「紧邻前一行」判据作为第二子句保留，同一条 await 去重只报一次 | `meta-R1a-N01-stmt-between.log` → **exit=1**：`test/ui/binding.mjs:2344 [R1a] 失败块（第 2337 行起）内第一条独立 await 之前未定死退出码（await dumpDiagnostics('main: assertions failed');）`；合成夹具 `synthetic-n01.mjs` 断言「恰好 1 条 R1a」 |
+| **N-02** | `calleeIsSelfBounding` 直接正则原始源码且用 4000 字符固定窗口 ⇒ 把真实 15s 硬上限删掉、只留一行**注释**含同字面量即可满足（`meta-caseG-comment.log`：6/6 PASS、exit=0） | 检测前**剥离注释**（保留行结构，字符串/模板内容保留以便 `'close'` 判定），并把握窗口改为**真实缩进界定的函数体**（`indentedBody`），只在函数体内找「`setTimeout(` 后 400 字符内出现 `process.exit(`」 | `meta-R1b-N02-comment-only.log` → **exit=1**：`[R1b] binding.mjs:2342 / 2352 ... dumpDiagnostics() 自身没有 setTimeout 硬上限（注释内同字面量不算）`；合成夹具断言「恰好 1 条 R1b」 |
+| **N-03** | ① R3 只审计文件内**第一处** `send(method, params` 的 1400 字符窗口 ⇒ 第二个无界 `send()` 不被发现；② `addEventListener('close'…reject(` 是**文件级**正则 ⇒ 拒结**无关对象**也能满足 | ① R3 **逐处**遍历所有 `send(method, params`（每处按缩进取方法体，查 `readyState` + `setTimeout`）；② close 判据限定到**该 send 所属具名函数作用域**：必须存在 `pending` Map，且 `close` 监听体的 300 字符窗口内同时出现 `pending` 与 `reject(` | `meta-R3-N03-second-unbounded-send.log` → **exit=1**（诱饵客户端报 **3 条** R3：缺 readyState / 缺 setTimeout / close 未拒结）；`meta-R3-N03-unrelated-close-reject.log` → **exit=1**（恰 **1 条** R3：「close 监听未拒结**本作用域的 pending**（拒结无关对象不算）」） |
+| **N-12** | 「受审集合完整」断言近乎恒真：`AUDITED_FILES` 由 `CHROMIUM_GATES` **派生** ⇒ 新增第 9 个门禁不会被要求入集合 | 新增 `discoverGateFiles(root)`：扫描 `test/ui/*.mjs` + `test/e2e/*.mjs`，凡含 `send(method, params` / `failures.push(` / 共享 `_v3-helpers.mjs` 标记者**自动纳入**；另以**字面量** `EXPECTED_AUDITED_FILES` 断言「集合只增不减」（改名/删除已知门禁 ⇒ FAIL）；纯口径模块 `density-metrics.mjs` 断言**不得**被误纳入 | 单测「目录中新增一个『有失败计数、无退出码』的门禁 ⇒ 自动纳入且必须报红」（`test/ui/zzz-ninth-gate.mjs` 写入临时根 → 扫描命中 → 报 R2）；真实根扫描 = 10 文件（8 门禁 + `l1-reverse` + `_v3-helpers`）且 `exit=0` |
+
+**元门禁形态注入总表**（`SDC_GATES_ROOT` 指向自建副本；日志 `meta-*.log`）：
+
+| 注入形态 | 元门禁退出码 | 命中规则（原文摘录） |
+|----------|:--:|----------------------|
+| `R1a-validate-caseA`（`await` 挡在退出码前） | **1** | `[R1a] binding.mjs:2343 失败块…第一条独立 await 之前未定死退出码` |
+| `R1a-N01-stmt-between`（中间插语句） | **1** | `[R1a] binding.mjs:2344 失败块（第 2337 行起）…` |
+| `R1b-N02-comment-only`（注释充当硬上限） | **1** | `[R1b] binding.mjs:2342 / 2352 … 没有 setTimeout 硬上限（注释内同字面量不算）` |
+| `R3-validate-caseB`（`send()` 无超时） | **1** | `[R3] _v3-helpers.mjs:106 第 106 行的 send() 缺 setTimeout 超时拒答` |
+| `R3-N03-second-unbounded-send` | **1** | `[R3] journey.mjs:1610` ×3（readyState / setTimeout / close） |
+| `R3-N03-unrelated-close-reject` | **1** | `[R3] journey.mjs:1612 close 监听未拒结**本作用域的 pending**（拒结无关对象不算）` |
+| `R2-validate-caseC`（失败计数与退出码脱钩） | **1** | `[R2] l0.mjs:1 存在失败计数标记…但没有可用的退出码路径` |
+| **真实根（无注入）** | **0** | 无违规（`meta-baseline-real-root.log`） |
+
+### 11.2 N-04~N-11 逐条处置
+
+| # | 级别 | 处置 | 修法（文件） | 证据 / 可 FAIL 反证 |
+|:--:|:--:|:--:|--------------|---------------------|
+| **N-04** | 中 | ✅ **已修** | `l1/panels.ts#repick(facts, observed)`：**不再**自写 `resolution = { status:'resolved', refMark: 新id, nodeCount: 1 }`；新鲜事实由调用方传入，页面侧观测由调用方传入，未传入时 `resolution = observed`（**清空**）⇒ 新引用保持 `unknown`（fail-closed） | `test/ui/l1.mjs` ⑨b 三条新断言（日志 `07-l1.log`）：`无观测 ⇒ unknown` / `调用方观测 ⇒ valid` / `新 id 不重用`；`RP-L1-F` 锚点随实现改为 `store.create(facts)`（旧头部锚点会先抛 TypeError 使具名断言不执行）→ **注入后仍按名字 FAIL（exit=1）**、还原 PASS（`25-RP-L1-A-H.log`，9/9） |
+| **N-05** | 中低 | ✅ **已修** | `l1/panels.ts#setEnv(patch, replace?)`（`replace=true` 才**替换**而非合并）；`sidepanel.ts#testing.reset()` 改调 `setEnv({}, true)` | `07-l1.log` ⑨c：先设 env（`valid`）→ `reset()` → 新建引用必须 `unknown`（且第二次 `res` 已注入观测，证明 unknown 来自 **env 被清空**而非缺 resolution）；单测/门禁计数 103 |
+| **N-06** | 中低 | ⏭ **收敛到 v3-4（不改本叶实现）** | **v3-4 `spec.md`** 追加 §4 一行 + §7 一行 + **§7.1 跨叶收敛项**（**AC-CONV-1** 真实 env 注入点 / **AC-CONV-2** 唯一动作入口走 `dispatchRefAction` guard，二者缺一不得收口）；**v3-4 `tasks.md`** 追加红线第 6 条 + 总览行 + **TASK-415**（Wave 7，dep 407）+ §3.1/§3.2 映射 + 修订记录 v1.1；**v3-4 `state.json`** 追加 `crossLeafConvergence[N-06]` + `AC-CONV-1/2`；**父/本叶 state.json** 同步登记 | 追加原文见 §11.5；**历史保留**：v3-2 的 `spec.md`/`plan.md`/`tasks.md` **已完成产物零改动**（`git diff` 仅 v3-4 三文件 + state） |
+| **N-07** | 低 | ✅ **已修** | `l1/ref-validity.ts`：`declaration-changed` 模板改用 `{what}`，由 `reasonFor()` 按**真正变化的那一项**渲染（`hash h1 → h2` 或 `version v1 → v2`，hash 优先） | 单测逐字（`test/l1-ref-validity.test.ts`：hash 版 + **version 版**）；`test/ui/l1.mjs` 的 `REASON` 同步为 `（hash decl-1 → decl-2）`；`07-l1.log` ⑦ 段逐字通过 |
+| **N-08** | 低 | ✅ **已修** | `l1/ref-store.ts`：新增 `frozenReason` Map，`retireUnusable()` 冻结退役当时的 `readableReason`，`judge()` 对**已退役且非 valid** 的记录保留该原因（判据仍重算）；`reset()` 清空 | 新增单测：退役（`dom-gone`）→ 判据变化（`replaced`）后 `readableReason` **逐字不变**且 `retired=true`；`stale()=0`（非空转对照） |
+| **N-09** | 低（信息） | ✅ **口径入实现注释** | `l1/ref-validity.ts#evaluateRefValidity` 在 resolution 判据处写明：**身份判据 = `refMark` 相等**；`nodeCount` 是**辅判据**（仅当给出且 ≠1 时判歧义，缺省不构成歧义）；并注明 v3-4 若以 `nodeCount` 为唯一判据会产生语义漂移 | 纯注释（esbuild 不产出）⇒ 行为与体积不变；口径与既有 `test/l1-ref-validity.test.ts` 的 `resolved-without-nodeCount → valid` 一致 |
+| **N-10** | 低 | ✅ **已修** | ① `build.md §1.1` 顶部加**「建设轮口径」标注**（743/88/126+1 已被后续轮取代 → 列当前值：764/103/127/157/167/108/192/24/9/e2e/328,476/344,899/177,076）；② `review-report.md` 末尾追加**回填指针**（R2 已修复 I-03/I-04/I-05/I-06 + 本轮 N-01~N-13 去向） | `build.md` §1.1（本轮新增块）+ `review-report.md` 修订记录/末尾行 |
+| **N-11** | 低（方法论） | ✅ **已修** | `test/ui/binding.mjs` **三处** `cp(dist, extDir, { recursive: true })` → `{ recursive: true, dereference: true }`（+3 行注释说明）。`dist` 为符号链接时不再复制链接本身 ⇒ 不再穿透写回真实 `dist/manifest.json`；正常（真实目录）布局行为不变 | `29-N11-manifest-check.log`：`manifest.json` 与 `dist/manifest.json` sha256 同为 `57e6407e…`（`cmp` IDENTICAL）、`sidepanel.html` 同源一致、`contextMenus` 命中 0；台账 `V32-S18`（`oldTitle = await cp(dist, extDir, { recursive: true });`）；`protectedRanges` binding `startByte 107420 → 107780`（**区段 sha256 不变**：`be9ad0e8…`） |
+| **N-13** | 信息（正面） | ✅ **无需修复** | —（validate 独立复测确认稳态锚点 `#notice` 恒存在、`default` 三视口逐项相等） | 本轮 `05-density.log`：`F 22 个登记格实测 == 基线登记值`、`几何下界 495 ≥ 488`、`产物 328476 ≤ 344899` |
+
+### 11.3 体积显式重登记（裁决 V3-VOL-1 ②③ 的披露要求）
+
+收口轮的四处实现改动（N-04/N-05/N-07/N-08）全部落在 `src/ui/sidepanel/**` ⇒ 产物**按要求显式重登记**（**未放宽上限、未删断言、`content.js` 无容差保持**）：
+
+| 项 | 前值 | 后值 | 说明 |
+|----|:--:|:--:|------|
+| `dist/sidepanel.js` | 327,679 B | **328,476 B** | **+797 B（+0.24%）**；逐模块：`l1/ref-validity.ts` +823 / `l1/ref-store.ts` +383 / `sidepanel.ts` +40 / `l1/panels.ts` **−449**（删除自证代码与复制事实块） |
+| `SIDEPANEL_CEILING` | 344,062 B | **344,899 B** | `floor(328,476 × 1.05)`；容差 **5% 未动**；`SIDEPANEL_CEILING_CAP` 仍为 `record-only`（306,099 B，不参与判定） |
+| `dist/content.js` | 177,076 B | **177,076 B** | **零改动**（`sha256 52a82620…` 逐字不变） |
+
+- 登记册：`SIDEPANEL_RE_REGISTRATIONS` 追加 `v3-2-closeout`（`roundKind='registry-fidelity-round'`，同一叶内更正轮 ⇒ ④ 的「连续两个**功能轮**」告警口径不变，累计仍 **22.96%**）；`SIDEPANEL_GROWTH_BREAKDOWN` 改为**累计口径**（v3-1 树 → 当前树：Δ **33,265 → 33,251 B**，新必需 26,156 → **26,913 B** / 接线 **5,888 B** / 位移 **220 B** / 未归因 **230 B**，98.6% 由必需模块+接线解释；另新增 `closeoutRoundRows` 逐模块登记本轮 +797 B）；`docs/v3-density-baseline.json#volume` 同步（`registeredBaselineBytes/finalArtifactBytes/ceilingBytes` + `reRegistrations` + `growthBreakdown` + `note`）。
+- 方向敏感断言按新实测值**重新 pin**（`test/size-budget.test.ts` / `test/size-growth-evidence.test.ts` / `test/size-baseline.ts`），**零删减**；台账新增 `V32-S17`（元门禁收口加固）/`V32-S18`（binding cp），并把 `V31-S6/V31-S7/V31-S10/V32-S1` 的 `newTitle` 由 `327_679` 重 pin 到 `328_476`（**结构未变**，历史值保留在 TIMELINE/登记册）。
+
+### 11.4 门禁（严格串行、一次一个；全量日志 `tee` 落盘，**禁 tail 截断**）
+
+```text
+$ bash /tmp/opencode/v3-gate-logs/v3-2-closeout/run-gates.sh      # cwd = packages/web-cli-plugin
+01-typecheck          exit=0  elapsed=9s
+02-build              exit=0  elapsed=5s
+03-npm-test           exit=0  elapsed=72s     → ℹ tests 764 / pass 764 / fail 0
+04-supersession       exit=0  elapsed=1s      → ℹ tests 11 / pass 11 / fail 0
+05-density            exit=0  elapsed=123s    → 127 passed / 0 failed（22 格零漂移；495 ≥ 488；328476 ≤ 344899）
+06-l0                 exit=0  elapsed=23s     → 157 passed / 0 failed
+07-l1                 exit=0  elapsed=14s     → 103 passed / 0 failed
+08-ui-journey         exit=0  elapsed=35s     → 167 assertions PASS
+09-insight            exit=0  elapsed=16s     → 108 assertions PASS
+10-binding            exit=0  elapsed=173s    → 192 assertions PASS
+11-hardening          exit=0  elapsed=81s     → 24 assertions PASS
+12-e2e                exit=0  elapsed=45s     → R8 E2E PASS
+13-gate-integrity     exit=0  elapsed=1s      → ℹ tests 9 / pass 9 / fail 0
+（日志：/tmp/opencode/v3-gate-logs/v3-2-closeout/{01..13}-*.log + summary.txt；完整未截断）
+```
+
+**计数只增不减核对**（对照编排器给的基线）：插件 760 → **764** ✅ · supersession 11 → **11** ✅ · density 127 → **127** ✅ · l0 157 → **157** ✅ · l1 99 → **103** ✅ · journey 167 → **167** ✅ · insight 108 → **108** ✅ · binding 192 → **192** ✅ · hardening 24 → **24** ✅ · gate-integrity 6 → **9** ✅ · e2e PASS → **PASS** ✅。台账：`counts.nodeTestRuntime` 760 → **764**、`staticCalibers.readings` 884/771/760 → **896/775/764**（70 份文件）、`v3GateFloors.l1.mjs` 60 → **64**（下界 == 实测，RP-V3-05 的敏感性保持）。
+
+> **如实披露（一次 flake）**：本轮链条**首次**跑到 `03-npm-test` 时 `test/perf-budget.test.js` 的「50 次派发 ≤ 250ms」实测 **317ms** 而 FAIL（`03-npm-test.log` 首版）。该文件在 `zeroDiffFiles` 内（本轮零改动），单独复跑 3/3 通过（`ℹ pass 7 / fail 0`），补跑 `npm test` **764/764/0**（`03-npm-test-rerun.log`），随后整链重跑 **13/13 exit=0**。判定：**机器负载抖动的时序型 flake**，非本轮改动引入；**未放宽阈值、未改该测试**。
+
+### 11.5 N-06 收敛原文（写入 v3-4；**追加 + 历史保留**）
+
+`specs-tree-v3-4-page-as-input/spec.md` v1.1（§7.1，追加）：
+
+```text
+## 7.1 跨叶收敛项（N-06，来自 v3-2 收口轮；**硬性 AC，追加保留**）
+
+| # | 硬性收敛项（AC） | 判据（可 FAIL） | 对应任务 |
+| **AC-CONV-1** | **真实 env 注入点**：生产路径（非测试 seam）把 currentOrigin / authorized /
+                 documentId / navSeq / 声明 hash(±version) 注入 v3-2 判定入口，并在导航 / 授权变更 /
+                 SW 恢复后更新 | …生产注入后缺任一必需字段 ⇒ unknown 且被阻断；字段齐备 + 观测匹配 ⇒ valid；
+                 并断言 setEnv 的调用点**不止** installV3TestHooks() | TASK-415 |
+| **AC-CONV-2** | **唯一动作入口走 guard**：由引用发起动作的唯一入口调用 dispatchRefAction
+                 （首句 isRefUsable，fail-closed），无绕过路径 | 全仓唯一调用点断言 + 对抗探针：
+                 失效/未知态穷举可见控件 ⇒ 命令发送计数增量恒 0；绕过 guard 的直接发送必须使门禁 FAIL | TASK-415 |
+```
+
+`tasks.md` v1.1：红线表第 6 条 + 总览 `TASK-415`（M，dep **407**，Wave 7）+ TASK-415 完整任务块（含涉及文件与 5 条验收标准）+ `TASK-413` 依赖追加 `415` + `TASK-414` 收口清单追加 AC-CONV 门禁项 + §3.1/§3.2 映射 + 任务总数 14 → **15**。
+`state.json`：`acceptanceAnchors += [AC-CONV-1, AC-CONV-2]`、新增 `crossLeafConvergence[N-06]`（`hardACs` / `task: TASK-415` / `specSection: spec.md §7.1` / `blocking: true` / `historyPreserved`）。
+**历史保留证据**：v3-2 的 `spec.md` / `plan.md` / `tasks.md` 已完成产物**逐字未改**；本叶与 v3-4 均为**追加**（各自修订记录新增 v1.1 行，旧行逐字保留）。
+
+### 11.6 反证（本轮实跑）
+
+| 反证 | 形态 | 结果 | 日志 |
+|------|------|------|------|
+| **RP-V3-01** | 默认档注入 +1 可点元素 → 必须 FAIL → 还原 → PASS | ✅ `exit=0`（FAIL 段含 `C1 8 > 7`） | `RP-V3-01.log` |
+| **RP-V3-03** | CSS 隐身（display/visibility/opacity/pointerEvents）⇒ C1 不下降；`hidden=true` 是唯一豁免 | ✅ `exit=0`（7/7 断言） | `RP-V3-03.log` |
+| **RP-V3-08** | 篡改基线登记值 ⇒ 比对必须 FAIL ⇒ 还原（sha256 复原）⇒ PASS | ✅ `exit=0` | `RP-V3-08.log` |
+| **RP-V3-09** | 祖先 `visibility:hidden` / `opacity:0` ⇒ 风险行必须判不可见（旧判据对照仍「通过」） | ✅ `exit=0` | `RP-V3-09.log` |
+| **RP-V3-05** | 复制 `l0.mjs` 删 1 条 `check(` → 台账门禁必须 FAIL → 未改动副本（同名 + sha256 相同）→ PASS | ✅ FAIL 段 `exit=1`（`运行时 check 计数 67 < 台账下界 68`）；PASS 段 `exit=0`（`68 ≥ 68`） | `15-RP-V3-05-fail.log` / `16-RP-V3-05-pass.log` |
+| **RP-V3-06** | `dist/content.js` **+1 B** ⇒ 体积守卫必须 FAIL ⇒ 重建还原（sha 复原）⇒ PASS | ✅ FAIL 段 `exit=1`（`177,077`）；PASS 段 `exit=0`；还原后 `177,076 / 52a82620…` | `17-RP-V3-06.log` / `18-RP-V3-06-pass.log` |
+| **I1** | `decision-card.ts` 注入「提前 return」形态 ⇒ `test:l0` 必须 FAIL ⇒ 逐字节还原 ⇒ PASS | ✅ FAIL 段 `156 passed / 1 failed`（exit=1）；`sha256 -c OK`；PASS 段 `157 / 0`（exit=0） | `22-I1-fail.log` / `24-I1-pass.log` |
+| **本叶 RP-L1-A~H + C2** | 逐条扰动 `dist/sidepanel.js|html` ⇒ 9 条断言必须 FAIL ⇒ 逐字节还原（sha256 复原）⇒ PASS | ✅ `9/9`（每条 `FAIL 段 exit=1 · 断言命中=true`；最终产物复原 ✔） | `25-RP-L1-A-H.log`（`npm run test:l1-reverse` exit=0） |
+| **F-01** | `binding.mjs` 强制必红（`AP#7` 改 `false && …`）⇒ `EXIT=1` + 诊断真落盘 ⇒ 还原（sha256 复核）⇒ `PASS 192 / EXIT=0` | ✅ FAIL 段 `binding FAILED (1)`、诊断 **1,443 B** 落盘、`exit=1`；还原 `sha256 OK` → `binding PASS — 192 assertions`、`exit=0` | `26-F01-forced-red.log` / `28-F01-restored-pass.log` |
+| **元门禁 N-01/N-02/N-03（新）+ R1a/R3/R2（validate 三形态）+ N-12** | 见 §11.1 总表（7 形态注入 + 真实根对照） | ✅ 7/7 注入 `exit=1` 且命中对应规则；真实根 `exit=0` | `meta-*.log` |
+
+### 11.7 本轮未完成 / deferred / 风险项（如实）
+
+1. **N-06 未在本叶接线（有意收敛，非遗漏）**：本叶**不改实现** —— `setEnv` / `dispatchRefAction` 的唯一调用点仍只在测试 seam（线上引用仍 `unknown` / fail-closed）。**已按硬性 AC 收敛到 v3-4**（§11.5），并在 v3-4 的 spec/tasks/state 三处登记（`TASK-415`，Wave 7，dep 407）。**风险**：在 v3-4 落地前，引用能力在真实环境**未被覆盖**（方向安全但无功能）。
+2. **人工面 3 项**（展开动画体感 / 引用高亮体感 / 读屏真实体感）：⏳ **未执行**（headless 不可合成；与 build/state 一致，不冒充 PASS）。
+3. **元门禁仍是静态分析**（结构性识别，不执行门禁本体）：`journey`/`insight`/`l0`/`density`/`hardening`/`e2e` 仍只有静态覆盖（`STATIC_ONLY_GATES` 打印在日志）；`binding`/`l1` 有真实动态反证。
+4. **`test:l1-reverse` 未纳入 13 条门禁链**（编排器清单未列）：本轮**单独实跑**并留全日志（9/9 + 产物复原），其 `RP-L1-F` 锚点随 N-04 实现变更同步更新（否则旧锚点会先抛 TypeError 使具名断言不执行 —— 这会**削弱**反证，已修）。
+5. **`perf-budget` 时序 flake**（见 §11.4 披露）：非本轮引入、未改阈值；如需根治应单独裁决（属既有测试的机器敏感性）。
+6. **`sidepanel.js` sha256 跨构建不可比**（含构建戳）：体积判据是**字节数**；本轮多次重建（含 I1/RP-L1 反证的还原重建）后字节数恒定 **328,476**。
+7. **`binding.mjs` 站点发现抖动**（既有，非本轮引入）：本轮强制变红轮 `binding FAILED (1)` 只含注入项、无 `#3d/#3e/#3f` 抖动；还原后 192/0 绿。
+
+### 11.8 红线核验（本轮，日志 `30-redlines.log`）
+
+| 红线 | 实测 | 结论 |
+|------|------|:--:|
+| 密度阈值逐字 `7/15 · 9/20 · 17/35` | `density-metrics.mjs` 三档字面量 + `CHARS_PER_LINE = 34` + `LOG_CLIENT_HEIGHT_FLOOR = 488` 均未动（该文件 **zero-diff**） | ✅ |
+| `content.js` 177,076（无容差）+ 三冻结文件零改动 | `177,076 / 52a82620…`；三 hash = pin（`a7290031…` / `7df782b3…` / `5737c40a…`）；`git diff src/content/**` 空 | ✅ |
+| `manifest.json` 零新增权限、无 `contextMenus` | sha `57e6407e…`；`contextMenus` 命中 **0**；零 diff | ✅ |
+| 判定链两 hash | `policy.ts bfcb2ede…` / `auto-authorize.ts 1096d065…` | ✅ |
+| 测试只增不减、断言只强不弱 | 764/11/127/157/103/167/108/192/24/9（≥ 基线） | ✅ |
+| 风险位仍 L0 常驻不可折叠 | `disclosure.ts` 白名单仍**排除** `#risk-rail`（永不折叠）；`test:l0`/`test:density` 15 格全绿 | ✅ |
+| 主界面**无常驻输入框** | `src/ui/sidepanel/index.html` 本轮**零 diff**；`test:l0`/`test:l1` 的 `#composer hidden` / 「无新输入框」断言全绿 | ✅ |
+| 无新增依赖 | `package.json`（插件）本轮零 diff | ✅ |
+| 冻结用 sha256 内容 pin（禁 `git diff --quiet HEAD`） | 全部以 `sha256sum` / `CONTENT_SOURCE_SHA256` / 台账 pin 判定 | ✅ |
+| 未用 `git add -A` | 逐文件 path-limited `git add`（清单见提交说明） | ✅ |
+| 不改 `main` / v1 / v2 SDDU 产物 / `web-cli-base/**` / `src/content/**` / 判定链 / `manifest.json` 权限段 / `.opencode/opencode.json` / `design/**` | `main == origin/main == 2ddc9229…`；上述路径 `git diff` 全空 | ✅ |
+| 门禁串行（内存 ~1.5GB） | `run-gates.sh` 严格串行（一次一个 Chromium） | ✅ |
+| 推送方式 | `git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-plugin`（不改 remote、不 force push） | ✅ |
+
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.3 | **收口轮（validate R1 的 N-01~N-13 处置；`phase` 保持 `validated`）**：① **元门禁三处盲区自修**（N-01 R1a 改块级/窗口级扫描；N-02 剥离注释 + 真实缩进函数体；N-03 R3 逐处 `send()` + close 限定同作用域 `pending`）与 **N-12**（受审集合改扫目录推导 + 字面量「只增不减」断言），7 形态注入全部 `exit=1`、真实根 `exit=0`；② **N-04** `repick(facts, observed)` 不再自证 `resolved`（无观测 ⇒ `unknown`）、**N-05** `setEnv(patch, replace=true)` + `reset()` 真清空 env、**N-07** D4 原因写明 hash/version 哪项变、**N-08** 退役原因冻结、**N-09** 身份=refMark 口径入注释；③ **N-11** `binding.mjs` 三处 `cp` 加 `dereference: true`（`dist/manifest.json` 与源逐字节一致）；④ **N-10** 文档订正（§1.1 建设轮口径标注 + review-report 回填指针）；⑤ **N-06 收敛到 v3-4**（spec §7.1 AC-CONV-1/2 + tasks TASK-415 + state，v3-2 已完成产物零改动）；⑥ 体积按裁决 V3-VOL-1 显式重登记 `327,679 → 328,476 B`（ceiling 344,062 → **344,899 B**，容差 5% 未动、cap 仍 record-only、`content.js` 177,076 不变）；⑦ 全门禁串行 13/13 `exit=0`（**764/11/127/157/103/167/108/192/24/9/e2e**）+ 反证全套（RP-V3-01/03/05/06/08/09 + I1 + RP-L1-A~H/C2 9/9 + F-01 + 元门禁 7 形态）；⑧ 一次 `perf-budget` 时序 flake 如实披露（未改阈值）。 | 2026-09-16 | SDDU Build Agent |
 | v1.2 | **修复轮 R2（review R1 的 F-01 + I-01~I-10）**：① **F-01 修复**（`binding.mjs` 失败分支的 `await dumpDiagnostics` 挂在 CLOSED CDP socket 上 ⇒ `process.exit(1)` 不可达 ⇒ 退出码 0 把失败打成绿）：`process.exitCode = 1` 提到两处 await 之前 + `dumpDiagnostics` 15s 硬上限 + `send()` readyState/20s 超时/`close` 拒结（**纯插入、相对 base 0 删除行、`check(` 192 不变**）；**实跑验收** 强制变红 → `EXIT=1`、还原 → PASS 192 / `EXIT=0`，并把历史从未成功过的「诊断已落盘」修活；② **新增元门禁** `test/gate-integrity.test.ts`（+ `test:gate-integrity`）：R1a 退出码优先 / R1b 诊断有界 / R2 失败计数耦合退出码 / R3 CDP send 有界，审计 8 个 Chromium 门禁 + 反证驱动 + 共享 CDP 客户端；四重可失败性证明（合成夹具 / 真实副本注入 / `SDC_GATES_ROOT` 外部反证 exit=1 / 真实根 PASS）；③ **I-01~I-10** 逐条处置（I-01 真断言、I-02 内层 pin + 新反证 RP-L1-C2、I-03 spec/plan 显式订正、I-04/05/06/07/08/10 修复、I-09 deferred 附理由）；④ 全门禁串行复跑至绿（**760/11/127/157/99/167/108/192/24/e2e/6**）+ 反证全套（RP-L1-A~H+C2 9/9、RP-V3-01/03/04/05/06/08/09、I1、F-01、元门禁）；计数只增不减、红线零改动 | 2026-09-16 | SDDU Build Agent |
 | v1.0 | 初始创建：10 任务实施完成、6 波按序、门禁串行实跑（l1 88/0、l0 157/0、supersession 11/0、npm test 743 中 742 绿）、密度唯一漂移 = staleRef `chars` 244→254（阈值与默认档零漂移）、体积按真实产物显式重登记（327,679 / ceiling 未抬高）并**如实上报红线冲突 +21,580 B** | 2026-09-16 | SDDU Build Agent |
 | v1.1 | **修复轮（执行编排器裁决 V3-VOL-1）**：① cap 撤销（降级为纯记录字段），判定恢复公式 `floor(baseline × 1.05)` = 344,062 B；② 四条替代守卫落地（公式 / 显式重登记登记册 / 增长正当性证据 + `npm run size:attribution` / >15% 方向性告警——**已触发 +22.96% 并已回报**）；③ 补齐**逐断言反证**（RP-L1-A~H：注入 → FAIL（逐条 `✖` 留证）→ sha256 逐字节还原 → PASS）+ 既有反证全套复跑（RP-V3-01/03/04/05/06/08/09 + I1 + RP-V3-VOL-1①）；④ 全门禁复跑至绿（754/11/127/157/88/167/108/192/24/e2e，**0 红灯**），计数只增不减；⑤ `dist` 增量构成分析表（+32,454 B 逐模块归因，98.6% 由必需模块/接线解释，无重复代码）；⑥ 密度订正 244→254 保留 | 2026-09-16 | SDDU Build Agent |

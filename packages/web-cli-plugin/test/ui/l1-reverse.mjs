@@ -116,10 +116,10 @@ const CASES = [
     artifact: JS,
     assertion: '⑨ 「重新拾取」产生 NEW id（失效 id 不重用）+ 恢复后 valid',
     requirement: 'FR-V3-038（恢复路径②）',
-    from: 'repick() {\n        const previous = store.all().slice(-1)[0];',
-    to: 'repick() {\n        return void 0;\n        const previous = store.all().slice(-1)[0];',
+    from: '        store.retireUnusable();\n        const fresh = store.create(facts);',
+    to: '        store.retireUnusable();\n        const fresh = { facts: previous.facts };',
     expectFail: /「重新拾取」产生 NEW id/,
-    note: '注入后：重新拾取不动 → 不产生新 id、也不回到 valid → 两条断言 FAIL',
+    note: '注入后：重新拾取不再 mint 新引用（fresh = 上一条记录）→ 不产生新 id → 「NEW id」断言按名字 FAIL（N-04 收口轮把锚点从 `repick()` 头部移到 `store.create(facts)`：旧的头部锚点会先让 `fresh.facts` 抛 TypeError，令具名断言根本不执行）',
   },
   {
     id: 'RP-L1-G',

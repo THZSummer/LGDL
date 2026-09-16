@@ -121,7 +121,10 @@ export const REASON_TEMPLATES: Readonly<Record<RefDimension | 'unknown', string>
   'dom-gone': '引用 {n} 的目标元素已不存在（选择器解析失败或元素被替换）',
   'origin-changed': '引用 {n} 属于 {origin}，当前站点已是 {now} —— 跨站引用不可用',
   navigated: '引用 {n} 捕获后页面已导航（含单页路由切换），目标可能已重建',
-  'declaration-changed': '引用 {n} 捕获后站点声明已变化（{old} → {new}），目标语义可能已改变',
+  // N-07（2026-09-16 收口轮）：D4 有两个子判据（hash / version）。此前模板只填 hash，
+  // 于是「仅 version 变化」会渲染成 `（decl-1 → decl-1）` —— 用户看不出到底哪一项变了。
+  // `{what}` 由 {@link reasonFor} 按**真正变化的那一项**渲染（hash 优先，其次 version）。
+  'declaration-changed': '引用 {n} 捕获后站点声明已变化（{what}），目标语义可能已改变',
   'authorization-revoked': '引用 {n} 所在站点已被撤销授权',
   unknown: '无法确认引用 {n} 的目标是否仍然有效（{reason}）—— 按失效处理',
 });
@@ -170,12 +173,18 @@ function shortHash(hash: string | undefined): string {
 
 /** The readable reason for one `'invalid'` dimension. */
 export function reasonFor(ref: RefFacts, dimension: RefDimension, env: RefEnv): string {
+  const hashChanged = has(env.declarationHash) && env.declarationHash !== ref.declarationHash;
   return fill(REASON_TEMPLATES[dimension], {
     n: refOrdinal(ref.refId),
     origin: ref.origin,
     now: env.currentOrigin ?? '（未知站点）',
     old: shortHash(ref.declarationHash),
     new: shortHash(env.declarationHash ?? ref.declarationHash),
+    // N-07: name the field that actually changed, so「仅 version 变化」不再渲染成
+    // `decl-1 → decl-1`（旧模板只填 hash，用户看不出是哪一项变了）。
+    what: hashChanged
+      ? `hash ${shortHash(ref.declarationHash)} → ${shortHash(env.declarationHash)}`
+      : `version ${shortHash(ref.declarationVersion)} → ${shortHash(env.declarationVersion)}`,
   });
 }
 
@@ -230,6 +239,10 @@ export function evaluateRefValidity(ref: RefFacts, env: RefEnv): RefVerdictView 
   if (!res || res.status === 'unreachable') return unknown(ref, 'page-unreachable');
   if (res.status === 'ambiguous') return unknown(ref, 'ambiguous', { n: String(res.nodeCount ?? 2) });
   if (res.status === 'missing') return invalid(ref, 'dom-gone', env);
+  // N-09（2026-09-16 收口轮，把口径明写进实现）：`resolved` 的**身份判据 = `refMark` 相等**
+  // （`data-wcli-ref` 是捕获时写下的唯一标记）；`nodeCount` 是**辅判据** —— 只在**给出且
+  // ≠ 1** 时判歧义，缺省不构成歧义。v3-4 若把 `nodeCount` 当作唯一/必需判据，会产生
+  // 语义漂移（会把「标记匹配但未报计数」误判为不可用）。
   if (res.nodeCount !== undefined && res.nodeCount !== 1) return unknown(ref, 'ambiguous', { n: String(res.nodeCount) });
   if (res.refMark !== ref.refId) return unknown(ref, 'replaced');
   return { verdict: 'valid' };

@@ -1,193 +1,212 @@
 {
- "feature": "V3-4 页面即输入（拾取层按需注入 + 右键自绘菜单 + 双向联动）（父：specs-tree-web-cli-plugin-v3-ui）",
- "featureKey": "specs-tree-v3-4-page-as-input",
- "version": "v3.0.0",
- "name": "V3-4 页面即输入——Alt 悬停拾取（描边 + 语义路径/选择器/文本摘要）· Alt 拖动到侧栏（跟随胶囊 + 落点高亮）· 右键自绘菜单（零新增权限 + 三条退让）· 拖选文本气泡 → 生成引用 + 选择题；页面侧**按需注入**（拾取层不打进常驻 content.js）、未授权站点**零注入**；双向高亮联动（chip ↔ 角标同序号）",
- "phase": "tasked",
- "workflow": "4.tasks",
- "agent": "sddu-tasks",
- "depth": 2,
- "parent": "specs-tree-web-cli-plugin-v3-ui",
- "childrens": [],
- "leaf": true,
- "createdAt": "2026-09-16",
- "updatedAt": "2026-09-16",
- "description": "跟随父 Feature specs-tree-web-cli-plugin-v3-ui 立项的叶子子 Feature（P0，**最后开工**：R-UI-001 / R-UI-004 / R-UI-008 三条风险全部集中于此）。承载父 spec FR-V3-060~072：① 四项交互（Alt 悬停拾取 / Alt 拖动到侧栏 / 右键自绘菜单 / 拖选文本气泡）逐项可用且每项生成 1 引用 + 1 道选择题（不是自由输入框；自由文本只在末项「其他…（我来描述）」）；② 副作用约束：Alt 悬停唯一高亮 + Esc/释放即撤销 + **拾取期间零命令发送**；Alt 拖动落点两路径（落侧栏 / 未落，未落零副作用）；右键自绘**三退让**（仅已授权站点生效 / 保留「交给页面原生菜单」出口 / Esc 与点击空白即关）；③ 双向高亮联动：侧栏 chip ↔ 页面角标同序号，引用 id 贯穿「页面角标 / 侧栏 chip / 证据层 / 失效风险行」四处；④ **注入模型**：页面侧按需注入（拾取层不打进常驻 `content.js`，守住 177,076 B 无容差）+ 未授权站点零注入 + 页面侧 UI 只在已授权站点存在；⑤ **零新增权限**（不引入 contextMenus、不扩大 host_permissions、不新增静态权限、不改 manifest）；⑥ 宿主样式污染下自绘 UI 仍可读且不破坏宿主交互；⑦ 手势表条目数 = 实现手势数。权威条文见父 spec §5.5 / §8.4。",
- "scope": {
-  "in": [
-   "Alt 悬停拾取：唯一高亮描边 + 语义路径 / 选择器 / 文本摘要；Esc 或释放 Alt 即撤销；拾取期间零命令发送",
-   "Alt 拖动到侧栏：跟随胶囊显示目标摘要 + 落点高亮；未落到侧栏时零副作用",
-   "右键自绘菜单：content script 自绘（零新增权限）；三条退让（仅已授权站点生效 / 保留「交给页面原生菜单」出口 / Esc 与点击空白即关）",
-   "拖选文本气泡：选中文本后出现气泡（≥1 动作候选）→ 生成引用 + 选择题",
-   "拾取结果 = 引用 chip + 一道选择题（不出现常驻输入框；自由文本只在「其他…（我来描述）」）",
-   "双向高亮联动：chip ↔ 页面角标同序号；hover 任一侧高亮另一侧；引用 id 贯穿四处一致",
-   "页面侧**按需注入**：拾取层不打进常驻 content.js；未授权站点零注入（不注册监听 / 不渲染拾取 UI / 不拦截右键）",
-   "未授权 / 探测中状态在 L0 风险位明示「页面侧零注入」；「从页面拾取」入口禁用",
-   "宿主兼容：自绘 UI 在样式污染下仍可读（隔离或高 z-index，具体由 plan 定）；不吞宿主非目标键盘/点击事件",
-   "手势清单一致性：L1 手势表条目数 = 实际实现并验证的手势数（不得多列未实现项）",
-   "页面侧产生的失效事件（元素消失 / 导航 / origin 变更 / 声明变化）按 V3-2 契约上报，由 V3-2 判定与呈现"
+  "feature": "V3-4 页面即输入（拾取层按需注入 + 右键自绘菜单 + 双向联动）（父：specs-tree-web-cli-plugin-v3-ui）",
+  "featureKey": "specs-tree-v3-4-page-as-input",
+  "version": "v3.0.0",
+  "name": "V3-4 页面即输入——Alt 悬停拾取（描边 + 语义路径/选择器/文本摘要）· Alt 拖动到侧栏（跟随胶囊 + 落点高亮）· 右键自绘菜单（零新增权限 + 三条退让）· 拖选文本气泡 → 生成引用 + 选择题；页面侧**按需注入**（拾取层不打进常驻 content.js）、未授权站点**零注入**；双向高亮联动（chip ↔ 角标同序号）",
+  "phase": "tasked",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v3-ui",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-16",
+  "updatedAt": "2026-09-16",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v3-ui 立项的叶子子 Feature（P0，**最后开工**：R-UI-001 / R-UI-004 / R-UI-008 三条风险全部集中于此）。承载父 spec FR-V3-060~072：① 四项交互（Alt 悬停拾取 / Alt 拖动到侧栏 / 右键自绘菜单 / 拖选文本气泡）逐项可用且每项生成 1 引用 + 1 道选择题（不是自由输入框；自由文本只在末项「其他…（我来描述）」）；② 副作用约束：Alt 悬停唯一高亮 + Esc/释放即撤销 + **拾取期间零命令发送**；Alt 拖动落点两路径（落侧栏 / 未落，未落零副作用）；右键自绘**三退让**（仅已授权站点生效 / 保留「交给页面原生菜单」出口 / Esc 与点击空白即关）；③ 双向高亮联动：侧栏 chip ↔ 页面角标同序号，引用 id 贯穿「页面角标 / 侧栏 chip / 证据层 / 失效风险行」四处；④ **注入模型**：页面侧按需注入（拾取层不打进常驻 `content.js`，守住 177,076 B 无容差）+ 未授权站点零注入 + 页面侧 UI 只在已授权站点存在；⑤ **零新增权限**（不引入 contextMenus、不扩大 host_permissions、不新增静态权限、不改 manifest）；⑥ 宿主样式污染下自绘 UI 仍可读且不破坏宿主交互；⑦ 手势表条目数 = 实现手势数。权威条文见父 spec §5.5 / §8.4。",
+  "scope": {
+    "in": [
+      "Alt 悬停拾取：唯一高亮描边 + 语义路径 / 选择器 / 文本摘要；Esc 或释放 Alt 即撤销；拾取期间零命令发送",
+      "Alt 拖动到侧栏：跟随胶囊显示目标摘要 + 落点高亮；未落到侧栏时零副作用",
+      "右键自绘菜单：content script 自绘（零新增权限）；三条退让（仅已授权站点生效 / 保留「交给页面原生菜单」出口 / Esc 与点击空白即关）",
+      "拖选文本气泡：选中文本后出现气泡（≥1 动作候选）→ 生成引用 + 选择题",
+      "拾取结果 = 引用 chip + 一道选择题（不出现常驻输入框；自由文本只在「其他…（我来描述）」）",
+      "双向高亮联动：chip ↔ 页面角标同序号；hover 任一侧高亮另一侧；引用 id 贯穿四处一致",
+      "页面侧**按需注入**：拾取层不打进常驻 content.js；未授权站点零注入（不注册监听 / 不渲染拾取 UI / 不拦截右键）",
+      "未授权 / 探测中状态在 L0 风险位明示「页面侧零注入」；「从页面拾取」入口禁用",
+      "宿主兼容：自绘 UI 在样式污染下仍可读（隔离或高 z-index，具体由 plan 定）；不吞宿主非目标键盘/点击事件",
+      "手势清单一致性：L1 手势表条目数 = 实际实现并验证的手势数（不得多列未实现项）",
+      "页面侧产生的失效事件（元素消失 / 导航 / origin 变更 / 声明变化）按 V3-2 契约上报，由 V3-2 判定与呈现"
+    ],
+    "out": [
+      "不做 L0 常驻骨架 / L1 展开内容 / L2 按需视图（归 V3-1 / V3-2 / V3-3；本叶只消费其契约：选择题、引用 chip、折叠器）",
+      "不做引用失效**判定逻辑本体**（归 V3-2，父 FR-V3-036~038）；本叶只负责产生失效事件并上报",
+      "不引入 contextMenus、不新增或扩大任何权限（host_permissions 6 域不变）、不新增静态 content_scripts（不得改为静态注入）",
+      "**不放宽 `CONTENT_MAX_BYTES`（无容差）**、不静默更新 CONTENT_SOURCE_SHA256、不删除既有 src/content/** 能力",
+      "不删除或降级既有断言（binding 192 页面侧断言须走取代台账）",
+      "不做后端/服务端；不新增依赖；不改 v1 / v2 已验收行为；不改 packages/web-cli-base/**"
+    ]
+  },
+  "covers": [
+    "FR-V3-060",
+    "FR-V3-061",
+    "FR-V3-062",
+    "FR-V3-063",
+    "FR-V3-064",
+    "FR-V3-065",
+    "FR-V3-066",
+    "FR-V3-067",
+    "FR-V3-068",
+    "FR-V3-069",
+    "FR-V3-070",
+    "FR-V3-071",
+    "FR-V3-072"
   ],
-  "out": [
-   "不做 L0 常驻骨架 / L1 展开内容 / L2 按需视图（归 V3-1 / V3-2 / V3-3；本叶只消费其契约：选择题、引用 chip、折叠器）",
-   "不做引用失效**判定逻辑本体**（归 V3-2，父 FR-V3-036~038）；本叶只负责产生失效事件并上报",
-   "不引入 contextMenus、不新增或扩大任何权限（host_permissions 6 域不变）、不新增静态 content_scripts（不得改为静态注入）",
-   "**不放宽 `CONTENT_MAX_BYTES`（无容差）**、不静默更新 CONTENT_SOURCE_SHA256、不删除既有 src/content/** 能力",
-   "不删除或降级既有断言（binding 192 页面侧断言须走取代台账）",
-   "不做后端/服务端；不新增依赖；不改 v1 / v2 已验收行为；不改 packages/web-cli-base/**"
+  "acceptanceAnchors": [
+    "AC-V3-015",
+    "AC-V3-016",
+    "AC-V3-017",
+    "AC-V3-018",
+    "AC-V3-022",
+    "AC-V3-023",
+    "AC-V3-011",
+    "AC-V3-012",
+    "AC-V3-013",
+    "AC-V3-014",
+    "AC-V3-019",
+    "AC-V3-001",
+    "AC-V3-002",
+    "AC-V3-003",
+    "AC-V3-004",
+    "AC-V3-025",
+    "AC-CONV-1",
+    "AC-CONV-2"
+  ],
+  "coversIssues": [
+    "Q-UI-005",
+    "Q-UI-006",
+    "Q-UI-007",
+    "Q-UI-009",
+    "Q-UI-012"
+  ],
+  "artifacts": [
+    "spec.md",
+    "plan.md",
+    "tasks.md",
+    "tasks.json"
+  ],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/TREE.md",
+    "plan": "/home/usb/wks/gits/GitHub/LGDL/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/tasks.json",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md"
+  },
+  "dependencies": {
+    "on": [
+      "specs-tree-web-cli-plugin-v3-ui（父，phase=specified / status=tracked；权威条文 §5.5 / §8.4 / NFR-V3-003~007）",
+      "specs-tree-v3-1-l0-shell-density（选择题 + 引用 chip + 折叠器契约）",
+      "specs-tree-v3-2-l1-disclosure-refs（引用证据 + 失效呈现契约；本叶产生的失效事件由 V3-2 判定与呈现）",
+      "packages/web-cli-plugin v1 已验收实现（登记式零注入 content-script-registry；只读复用、零改写）"
+    ],
+    "blocking": []
+  },
+  "deliveryOrder": {
+    "position": 4,
+    "note": "**最后开工**：R-UI-001（content.js 余量 0）/ R-UI-004（contextMenus 缺失）/ R-UI-008（零注入红线）三条风险全部集中于此；需 A-UI-004 前置 spike 通过后再动，且**不得**以放宽体积上限换取功能"
+  },
+  "independence": {
+    "changeSurface": "唯一触碰 src/content/**（+ 可能的按需注入登记机制）与侧栏侧引用 chip / 角标联动逻辑的叶子；不碰权限、不碰判定链、不改 options.html",
+    "riskConcentration": [
+      "R-UI-001（content.js 177,076 B 余量 0、无容差）",
+      "R-UI-004（无 contextMenus → 只能自绘 + 三退让）",
+      "R-UI-008（零注入红线）"
+    ],
+    "canReachAllGreen": true,
+    "gateSet": [
+      "typecheck",
+      "plugin npm test",
+      "test:insight ≥108",
+      "test:ui ≥167",
+      "test:hardening 24",
+      "test:binding ≥192",
+      "test:e2e",
+      "体积门禁（content ≤177,076 无容差 + +1B 反证；sidepanel ~~≤279,825~~ → **≤306,099**（基线 ~~266,500~~ → **295,225**），经显式重登记订正，2026-09-16）",
+      "零注入门禁（未授权站点零注册/零监听/零 UI/零右键拦截）",
+      "V3-1 密度门禁不回归"
+    ],
+    "gateDiscipline": "严格串行（禁并发 Chromium）+ 完整日志落盘（禁 tail 截断）+ 反证必须实跑",
+    "redLines": [
+      "不得放宽 CONTENT_MAX_BYTES（无容差）",
+      "不得引入 contextMenus 或任何新权限",
+      "不得改为静态注入（必须登记式按需注入）",
+      "不得静默沿用失效引用"
+    ]
+  },
+  "openPoints": [
+    {
+      "id": "V34-O-1",
+      "topic": "按需注入的可行性与形态（拾取层如何在不进常驻 content.js 的前提下可用：独立 bundle / 运行时注入 / 消息驱动加载）——**A-UI-004 前置 spike 必须先做**",
+      "status": "open",
+      "needs": "plan / spike（O-UI-003 原则已定：不可行才允许显式重登记基线，前后值+日期+来源+理由+历史保留）"
+    },
+    {
+      "id": "V34-O-2",
+      "topic": "自绘菜单与气泡的隔离策略（shadow DOM / 高 z-index / 命名空间前缀）",
+      "status": "open",
+      "needs": "plan（父 §12.2 #1）"
+    },
+    {
+      "id": "V34-O-3",
+      "topic": "「语义路径」生成算法与稳定性（须与 V3-2 引用证据口径一致）",
+      "status": "open",
+      "needs": "plan / 与 V3-2 协调"
+    },
+    {
+      "id": "V34-O-4",
+      "topic": "拖选的最小触发长度与在输入框/可编辑区域内的禁用策略",
+      "status": "open",
+      "needs": "plan（不得干扰宿主输入行为）"
+    },
+    {
+      "id": "V34-O-5",
+      "topic": "若按需注入不可行：重登记的体积前后值与拆分方案（须显式登记 + 回报编排器）",
+      "status": "open",
+      "needs": "spike 结论；**禁止**放宽 CONTENT_MAX_BYTES"
+    }
+  ],
+  "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.5 / §8.4 / NFR-V3-003~007）。范围 = 四项页面侧交互（含右键自绘 + 三退让）+ 引用 + 选择题 + 双向联动同序号 + 按需注入 + 零注入 + 零新增权限 + 宿主兼容 + 手势表一致；不做 L0/L1/L2 内容、不做引用失效判定本体、不放宽体积上限、不改静态注入。**唯一触碰 src/content/** 的叶子，最后开工（三条高风险集中）**。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-030~036）。**范围**：页面即输入四项交互（Alt 悬停拾取 / Alt 拖动入侧栏 / 右键自绘菜单 / 拖选文本气泡）+ 拾取即选择题 + 唯一高亮可撤销 + 拾取期间零命令 + 双向高亮联动（同序号 ref_<n>）+ **页面侧按需注入（第 5 个 esbuild entry dist/pick-layer.js + executeScript 双触发：面板在场 + 拾取点击，幂等 + teardown 自卸载 + 失败降级不静默）** + **未授权站点零注入** + 零新增权限（不引入 contextMenus）+ 宿主兼容（open Shadow DOM 双向隔离 + 事件不吞五规则）+ 手势表双向一致（6 项）+ 引用捕获口径共享（src/content/ref-capture.ts，稳定优先语义路径 + data-wcli-ref 身份标记）。**开放点裁决**：V34-O-1（按需注入形态 + A-UI-004 spike 硬前置）/ V34-O-2（open Shadow DOM 隔离）/ V34-O-3（语义路径稳定优先 + 身份标记 + 截断 120）/ V34-O-4（拖选最小 2 字符、输入区禁用、1.8s 淡出）/ V34-O-5（**不接受**放宽 CONTENT_MAX_BYTES；降级 = 第二个登记式 content script 或回报编排器）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。",
+  "status": "tracked",
+  "phaseHistory": [
+    {
+      "phase": "registered",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v3-ui 创建叶子目录）"
+    },
+    {
+      "phase": "specified",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成）"
+    },
+    {
+      "phase": "planned",
+      "timestamp": "2026-09-16T01:30:00.000Z",
+      "triggeredBy": "sddu-plan（产出 plan.md；技术方案与 ADR 定稿）"
+    },
+    {
+      "phase": "tasked",
+      "timestamp": "2026-09-16T02:30:00.000Z",
+      "triggeredBy": "sddu-tasks（产出 tasks.md + tasks.json；技术方案分解为原子任务，含依赖/波次/并行标记/涉及文件/验收锚点/验证命令）"
+    }
+  ],
+  "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：14 任务 / 8 波（S×2 · M×11 · L×1；TASK-401 spike 为 Wave 1 硬前置）。波次与并行性见 tasks.md §1.3（可并行写入的任务文件不相交；门禁执行严格串行，一次只跑一个——本机 ~1.5GB 曾 OOM）。必含项 4/4 覆盖：①先跑 A-UI-004 spike（S1~S4）为 Wave 1 硬前置，spike 未过不得进入实现（失败降级 D1/D2；红线：不放宽 CONTENT_MAX_BYTES / 不引入 contextMenus / 不静态注入 / 不更新三 hash pin）②第 5 bundle dist/pick-layer.js 独立无容差上限 + 基线登记 + +1B 反证 ③双触发/幂等/teardown 自卸载/失败降级 + 右键自绘菜单三退让 ④引用捕获共享口径 + 四项交互 + 双向联动 P4 + 执行可视化 P5 + G1/G2 + 手势表 6 项双向相等 + 未授权零注入（含反证）。阻断级任务：TASK-401（spike，阻断 TASK-402~414 全部）/ TASK-403 / TASK-407 / TASK-411。验收锚点：父 spec FR/NFR/EC/AC 编号（叶子不新造 FR 编号）+ 本叶 plan ADR 编号，逐任务写入 tasks.json 的 fr/nfr/ec/ac/adr 字段。门禁严格串行顺序见 tasks.md §4.1；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断。本叶收尾必须全门禁绿（AC-V3-013 / EC-V3-013），禁留红灯给下一叶。只做 tasks：未写代码、未改 src/**·test/**·manifest.json·design/**·ROADMAP.md、未动 main、未 commit、未跑门禁/构建/Chromium。 【v3-2 收口轮追加（2026-09-16）】登记 N-06 跨叶收敛要求（AC-CONV-1 真实 env 注入点 / AC-CONV-2 唯一动作入口走 dispatchRefAction guard）→ 落地任务 TASK-415（Wave 7，dep 407）；spec.md §7.1 与 tasks.md 修订记录 v1.1 已追加，历史原文逐字保留。",
+  "crossLeafConvergence": [
+    {
+      "id": "N-06",
+      "source": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-2-l1-disclosure-refs/validate-report.md（R1 §5.1 N-06）",
+      "registeredBy": "v3-2 收口轮（2026-09-16，SDDU Build Agent）",
+      "registeredAt": "2026-09-16",
+      "requirement": "引用能力必须接线到生产路径：① 真实 env 注入点（currentOrigin / authorized / documentId / navSeq / 声明 hash ± version）；② 唯一动作入口必须调用 dispatchRefAction（首句 isRefUsable guard）。测试 seam 内的 setEnv 不算接线。",
+      "hardACs": [
+        "AC-CONV-1",
+        "AC-CONV-2"
+      ],
+      "task": "TASK-415",
+      "specSection": "spec.md §7.1（v1.1 追加）",
+      "historyPreserved": "以「追加 + 历史保留」方式登记：v3-2 的 spec/plan/tasks 已完成产物未改动；本叶 spec.md/tasks.md 只追加（修订记录 v1.1），v1.0 原文逐字保留。",
+      "blocking": true
+    }
   ]
- },
- "covers": [
-  "FR-V3-060",
-  "FR-V3-061",
-  "FR-V3-062",
-  "FR-V3-063",
-  "FR-V3-064",
-  "FR-V3-065",
-  "FR-V3-066",
-  "FR-V3-067",
-  "FR-V3-068",
-  "FR-V3-069",
-  "FR-V3-070",
-  "FR-V3-071",
-  "FR-V3-072"
- ],
- "acceptanceAnchors": [
-  "AC-V3-015",
-  "AC-V3-016",
-  "AC-V3-017",
-  "AC-V3-018",
-  "AC-V3-022",
-  "AC-V3-023",
-  "AC-V3-011",
-  "AC-V3-012",
-  "AC-V3-013",
-  "AC-V3-014",
-  "AC-V3-019",
-  "AC-V3-001",
-  "AC-V3-002",
-  "AC-V3-003",
-  "AC-V3-004",
-  "AC-V3-025"
- ],
- "coversIssues": [
-  "Q-UI-005",
-  "Q-UI-006",
-  "Q-UI-007",
-  "Q-UI-009",
-  "Q-UI-012"
- ],
- "artifacts": [
-  "spec.md",
-  "plan.md",
-  "tasks.md",
-  "tasks.json"
- ],
- "files": {
-  "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/spec.md",
-  "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/state.json",
-  "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/TREE.md",
-  "plan": "/home/usb/wks/gits/GitHub/LGDL/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/plan.md",
-  "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/tasks.md",
-  "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/tasks.json",
-  "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
-  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md"
- },
- "dependencies": {
-  "on": [
-   "specs-tree-web-cli-plugin-v3-ui（父，phase=specified / status=tracked；权威条文 §5.5 / §8.4 / NFR-V3-003~007）",
-   "specs-tree-v3-1-l0-shell-density（选择题 + 引用 chip + 折叠器契约）",
-   "specs-tree-v3-2-l1-disclosure-refs（引用证据 + 失效呈现契约；本叶产生的失效事件由 V3-2 判定与呈现）",
-   "packages/web-cli-plugin v1 已验收实现（登记式零注入 content-script-registry；只读复用、零改写）"
-  ],
-  "blocking": []
- },
- "deliveryOrder": {
-  "position": 4,
-  "note": "**最后开工**：R-UI-001（content.js 余量 0）/ R-UI-004（contextMenus 缺失）/ R-UI-008（零注入红线）三条风险全部集中于此；需 A-UI-004 前置 spike 通过后再动，且**不得**以放宽体积上限换取功能"
- },
- "independence": {
-  "changeSurface": "唯一触碰 src/content/**（+ 可能的按需注入登记机制）与侧栏侧引用 chip / 角标联动逻辑的叶子；不碰权限、不碰判定链、不改 options.html",
-  "riskConcentration": [
-   "R-UI-001（content.js 177,076 B 余量 0、无容差）",
-   "R-UI-004（无 contextMenus → 只能自绘 + 三退让）",
-   "R-UI-008（零注入红线）"
-  ],
-  "canReachAllGreen": true,
-  "gateSet": [
-   "typecheck",
-   "plugin npm test",
-   "test:insight ≥108",
-   "test:ui ≥167",
-   "test:hardening 24",
-   "test:binding ≥192",
-   "test:e2e",
-   "体积门禁（content ≤177,076 无容差 + +1B 反证；sidepanel ~~≤279,825~~ → **≤306,099**（基线 ~~266,500~~ → **295,225**），经显式重登记订正，2026-09-16）",
-   "零注入门禁（未授权站点零注册/零监听/零 UI/零右键拦截）",
-   "V3-1 密度门禁不回归"
-  ],
-  "gateDiscipline": "严格串行（禁并发 Chromium）+ 完整日志落盘（禁 tail 截断）+ 反证必须实跑",
-  "redLines": [
-   "不得放宽 CONTENT_MAX_BYTES（无容差）",
-   "不得引入 contextMenus 或任何新权限",
-   "不得改为静态注入（必须登记式按需注入）",
-   "不得静默沿用失效引用"
-  ]
- },
- "openPoints": [
-  {
-   "id": "V34-O-1",
-   "topic": "按需注入的可行性与形态（拾取层如何在不进常驻 content.js 的前提下可用：独立 bundle / 运行时注入 / 消息驱动加载）——**A-UI-004 前置 spike 必须先做**",
-   "status": "open",
-   "needs": "plan / spike（O-UI-003 原则已定：不可行才允许显式重登记基线，前后值+日期+来源+理由+历史保留）"
-  },
-  {
-   "id": "V34-O-2",
-   "topic": "自绘菜单与气泡的隔离策略（shadow DOM / 高 z-index / 命名空间前缀）",
-   "status": "open",
-   "needs": "plan（父 §12.2 #1）"
-  },
-  {
-   "id": "V34-O-3",
-   "topic": "「语义路径」生成算法与稳定性（须与 V3-2 引用证据口径一致）",
-   "status": "open",
-   "needs": "plan / 与 V3-2 协调"
-  },
-  {
-   "id": "V34-O-4",
-   "topic": "拖选的最小触发长度与在输入框/可编辑区域内的禁用策略",
-   "status": "open",
-   "needs": "plan（不得干扰宿主输入行为）"
-  },
-  {
-   "id": "V34-O-5",
-   "topic": "若按需注入不可行：重登记的体积前后值与拆分方案（须显式登记 + 回报编排器）",
-   "status": "open",
-   "needs": "spike 结论；**禁止**放宽 CONTENT_MAX_BYTES"
-  }
- ],
- "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.5 / §8.4 / NFR-V3-003~007）。范围 = 四项页面侧交互（含右键自绘 + 三退让）+ 引用 + 选择题 + 双向联动同序号 + 按需注入 + 零注入 + 零新增权限 + 宿主兼容 + 手势表一致；不做 L0/L1/L2 内容、不做引用失效判定本体、不放宽体积上限、不改静态注入。**唯一触碰 src/content/** 的叶子，最后开工（三条高风险集中）**。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-030~036）。**范围**：页面即输入四项交互（Alt 悬停拾取 / Alt 拖动入侧栏 / 右键自绘菜单 / 拖选文本气泡）+ 拾取即选择题 + 唯一高亮可撤销 + 拾取期间零命令 + 双向高亮联动（同序号 ref_<n>）+ **页面侧按需注入（第 5 个 esbuild entry dist/pick-layer.js + executeScript 双触发：面板在场 + 拾取点击，幂等 + teardown 自卸载 + 失败降级不静默）** + **未授权站点零注入** + 零新增权限（不引入 contextMenus）+ 宿主兼容（open Shadow DOM 双向隔离 + 事件不吞五规则）+ 手势表双向一致（6 项）+ 引用捕获口径共享（src/content/ref-capture.ts，稳定优先语义路径 + data-wcli-ref 身份标记）。**开放点裁决**：V34-O-1（按需注入形态 + A-UI-004 spike 硬前置）/ V34-O-2（open Shadow DOM 隔离）/ V34-O-3（语义路径稳定优先 + 身份标记 + 截断 120）/ V34-O-4（拖选最小 2 字符、输入区禁用、1.8s 淡出）/ V34-O-5（**不接受**放宽 CONTENT_MAX_BYTES；降级 = 第二个登记式 content script 或回报编排器）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。",
- "status": "tracked",
- "phaseHistory": [
-  {
-   "phase": "registered",
-   "timestamp": "2026-09-16T00:00:00.000Z",
-   "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v3-ui 创建叶子目录）"
-  },
-  {
-   "phase": "specified",
-   "timestamp": "2026-09-16T00:00:00.000Z",
-   "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成）"
-  },
-  {
-   "phase": "planned",
-   "timestamp": "2026-09-16T01:30:00.000Z",
-   "triggeredBy": "sddu-plan（产出 plan.md；技术方案与 ADR 定稿）"
-  },
-  {
-   "phase": "tasked",
-   "timestamp": "2026-09-16T02:30:00.000Z",
-   "triggeredBy": "sddu-tasks（产出 tasks.md + tasks.json；技术方案分解为原子任务，含依赖/波次/并行标记/涉及文件/验收锚点/验证命令）"
-  }
- ],
- "phaseNote": "tasks 阶段完成（2026-09-16，sddu-tasks）：14 任务 / 8 波（S×2 · M×11 · L×1；TASK-401 spike 为 Wave 1 硬前置）。波次与并行性见 tasks.md §1.3（可并行写入的任务文件不相交；门禁执行严格串行，一次只跑一个——本机 ~1.5GB 曾 OOM）。必含项 4/4 覆盖：①先跑 A-UI-004 spike（S1~S4）为 Wave 1 硬前置，spike 未过不得进入实现（失败降级 D1/D2；红线：不放宽 CONTENT_MAX_BYTES / 不引入 contextMenus / 不静态注入 / 不更新三 hash pin）②第 5 bundle dist/pick-layer.js 独立无容差上限 + 基线登记 + +1B 反证 ③双触发/幂等/teardown 自卸载/失败降级 + 右键自绘菜单三退让 ④引用捕获共享口径 + 四项交互 + 双向联动 P4 + 执行可视化 P5 + G1/G2 + 手势表 6 项双向相等 + 未授权零注入（含反证）。阻断级任务：TASK-401（spike，阻断 TASK-402~414 全部）/ TASK-403 / TASK-407 / TASK-411。验收锚点：父 spec FR/NFR/EC/AC 编号（叶子不新造 FR 编号）+ 本叶 plan ADR 编号，逐任务写入 tasks.json 的 fr/nfr/ec/ac/adr 字段。门禁严格串行顺序见 tasks.md §4.1；日志 tee 落盘 /tmp/opencode/v3-gate-logs/，禁 tail 截断。本叶收尾必须全门禁绿（AC-V3-013 / EC-V3-013），禁留红灯给下一叶。只做 tasks：未写代码、未改 src/**·test/**·manifest.json·design/**·ROADMAP.md、未动 main、未 commit、未跑门禁/构建/Chromium。"
 }

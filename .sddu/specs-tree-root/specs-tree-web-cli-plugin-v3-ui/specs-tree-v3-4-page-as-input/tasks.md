@@ -32,6 +32,7 @@
 | 3 | **不静态注入 / 不扩 `host_permissions`** | `manifest.json` 零 diff + 零注入门禁（AC-V3-018） |
 | 4 | **不更新三 hash pin**（本叶不改冻结三文件） | `CONTENT_SOURCE_SHA256` 三项 pin 核对 |
 | 5 | **不静默沿用失效引用** | v3-2 `isRefUsable` 唯一放行点 + 「拾取期间命令发送 = 0」 |
+| 6 | **引用能力必须接线到生产**（v3-2 收口轮 N-06 收敛；**测试 seam 内的 `setEnv` 不算接线**） | **TASK-415** 的运行时门禁（AC-CONV-1 / AC-CONV-2：真实 env 注入点 + 唯一动作入口走 `dispatchRefAction` guard） |
 
 ---
 
@@ -54,6 +55,7 @@
 | TASK-409 | 页面即输入门禁 `test/ui/page-input.mjs`（四项交互 + 三退让 + 零命令 + 双向同序号 + 宿主零影响） | M | 408 | 6 | gate |
 | TASK-412 | 既有 `binding.mjs` 页面侧条目同编号最小改写 + 台账追加 | M | 409 | 6 | implementation |
 | TASK-413 | `sidepanel.js` 体积核对 + 显式重登记（**条件触发**，披露要求见 §4.4） | S | 409, 412 | 7 | gate |
+| TASK-415 | **引用能力生产接线（N-06 收敛，硬性）**：① 真实 env 注入点（origin / 授权 / documentId / navSeq / 声明 hash）② 唯一动作入口走 `dispatchRefAction` guard + 运行时可 FAIL 门禁 | M | 407 | 7 | implementation + gate |
 | TASK-414 | **收口：全门禁绿串行验证 + 人工面如实登记** | M | 413 | 8 | gate |
 
 ### 1.2 依赖拓扑（spike 门 → 串行主轴 + 并行组）
@@ -85,7 +87,8 @@ Wave 6 ── 并行组 ④
   TASK-412 [M] binding.mjs 同编号最小改写 + 台账       （dep 409）
 
 Wave 7 ── 串行
-  TASK-413 [S] sidepanel.js 体积核对 / 条件重登记（dep 409, 412）
+  TASK-415 [M] 引用生产接线（真实 env 注入点 + 唯一动作入口走 guard）  （dep 407）
+  TASK-413 [S] sidepanel.js 体积核对 / 条件重登记（dep 409, 412, 415）
 
 Wave 8 ── 串行收口
   TASK-414 [M] 全门禁绿 + 人工面登记（dep 413）
@@ -596,6 +599,7 @@ cd packages/web-cli-plugin && npm run build && node -e "const fs=require('fs');f
 - [ ] 零改动核对全部通过（6 类文件零 diff）
 - [ ] 人工面逐项标注「未执行 / PASS」
 - [ ] 收口结论含体积三线实测值与各门禁断言数
+- [ ] **AC-CONV-1 / AC-CONV-2 门禁绿**（TASK-415：真实 env 注入点存在且被生产路径调用 + 唯一动作入口调用 `dispatchRefAction`）；未接线 ⇒ **不得收口**
 
 **验证命令**:
 ```bash
@@ -623,13 +627,51 @@ echo ALL-GREEN
 
 ---
 
+### TASK-415: **引用能力生产接线（N-06 收敛，硬性）**
+> AC-CONV-1 / AC-CONV-2（本叶 `spec.md` §7.1，v1.1 追加）；来源 = v3-2 `validate-report.md` R1 §5.1 **N-06**
+
+| 属性 | 值 |
+|-----|-----|
+| **复杂度** | M |
+| **前置依赖** | TASK-407（四项交互接线 —— 页面侧捕获回调就位后才有真实事实可注入） |
+| **执行波次** | Wave 7（与体积核对同波；**TASK-413 依赖本任务**） |
+| **对应 FR / AC / ADR** | FR-V3-036 / FR-V3-037（父）· **AC-CONV-1 / AC-CONV-2**（本叶 §7.1）· AC-V3-023 · NFR-V3-012 / NFR-V3-014 |
+
+**描述**: v3-2 交付了判定纯函数 + 状态机 + 呈现，但 `setEnv` / `dispatchRefAction` 的**唯一调用点都在 `installV3TestHooks()` 测试 seam 内** ⇒ 生产路径既不注入页面侧事实、也没有「用引用发起动作」的入口（线上引用恒 `unknown`，方向安全但**未被真实覆盖**）。本任务把引用能力**接线到生产**，两件都必须做：
+
+1. **真实 env 注入点（AC-CONV-1）**：在生产路径（SW / 侧栏消息处理 / 导航与授权变更 / SW 恢复）把 `currentOrigin` / `authorized` / `documentId` / `navSeq` / 声明 `hash`(±`version`) 注入 v3-2 判定入口（`l1.setEnv` 或等价契约）。**测试 seam 内的注入不算接线**（门禁须断言 `setEnv` 的调用点不止 `installV3TestHooks()`）。
+2. **唯一动作入口走 guard（AC-CONV-2）**：由引用发起动作的**唯一**入口调用 v3-2 `dispatchRefAction`（首句 `isRefUsable`）；不得直接 `store.dispatch`、不得绕过判定发命令；页面侧拾取 / 捕获回调**只上报事实**，不产出判定。
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts`（生产 env 注入 + 唯一动作入口；**替换**而非并列第二套实现） |
+| MODIFY | `packages/web-cli-plugin/src/background/service-worker.ts` / `messaging.ts`（导航 / 授权变更 / SW 恢复时的 env 更新消息，如需） |
+| NEW | `packages/web-cli-plugin/test/ref-wiring.test.ts`（调用点唯一性 + 生产路径注入的 node 级断言） |
+| MODIFY | `packages/web-cli-plugin/test/ui/page-input.mjs`（运行时断言：缺字段 ⇒ `unknown` 阻断；观测匹配 ⇒ `valid` 放行；绕过 guard 直发 ⇒ FAIL） |
+
+**验收标准**:
+- [ ] **AC-CONV-1**：生产路径存在真实 env 注入点；`setEnv` 调用点**不止** `installV3TestHooks()`（全仓调用点断言，可 FAIL）
+- [ ] **AC-CONV-1**：缺任一必需字段 ⇒ 引用 `unknown` 且被阻断；字段齐备 + 观测匹配 ⇒ `valid`（运行时断言，两类都必须实跑）
+- [ ] **AC-CONV-2**：唯一动作入口调用 `dispatchRefAction`（guard 首句）；全仓唯一调用点断言 + 失效态穷举控件 ⇒ 命令发送计数增量恒 0
+- [ ] **AC-CONV-2**：绕过 guard 直接发送的注入形态 ⇒ 门禁 **FAIL**（反证实跑、日志留原文）
+- [ ] 断言只增不减；计数对照（journey/insight/binding/sidepanel-view/node）不减
+
+**验证命令**:
+```bash
+cd packages/web-cli-plugin && npm run typecheck && node --test dist-test/test/ref-wiring.test.js && npm run test:page-input
+```
+
+---
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
 |--------|:--:|
-| 总任务数 | **14** |
+| 总任务数 | **15**（v1.1 追加 TASK-415） |
 | S 级 (简单) | 2（406 / 413） |
-| M 级 (中等) | 11（401 / 402 / 403 / 404 / 405 / 408 / 409 / 410 / 411 / 412 / 414） |
+| M 级 (中等) | 12（401 / 402 / 403 / 404 / 405 / 408 / 409 / 410 / 411 / 412 / 414 / **415**） |
 | L 级 (复杂) | 1（**407** 集成核心） |
 | 执行波次 | **8** |
 
@@ -657,6 +699,7 @@ echo ALL-GREEN
 | AC-V3-017 / 018（权限 / 零注入） | TASK-410 / 414 |
 | AC-V3-022 / 023（页面即输入 / 引用失效） | TASK-409 |
 | AC-V3-013 / 024 / 025 / 027（全绿 / 日志 / 人工面 / 不做项） | TASK-414 |
+| **FR-V3-036 / FR-V3-037 生产接线（N-06 收敛：AC-CONV-1 真实 env 注入点 / AC-CONV-2 唯一动作入口走 guard）** | **TASK-415** |
 
 ### 3.2 交付门槛矩阵（本叶）
 
@@ -670,6 +713,7 @@ echo ALL-GREEN
 | 台账 | `npm run test:supersession` | 412 | `#21*`/`#22*` hash 不变；hunk 全命中；union ≥108 |
 | 既有门禁 | `test:ui` / `test:insight` / `test:binding` / `test:hardening` / `test:e2e` | 414 | ≥167 / union ≥108 / ≥192 / 24 / PASS |
 | 零改动 | `git diff --numstat` | 414 | `manifest.json` / `src/security/**` / 冻结三文件 / `base` / `options.html` / `design/**` 零 diff |
+| **引用生产接线（N-06）** | `npm run test:page-input` + `node --test dist-test/test/ref-wiring.test.js` | **415** | AC-CONV-1/2：真实 env 注入点存在、唯一动作入口走 `dispatchRefAction`、缺字段 ⇒ 阻断、绕过 guard ⇒ FAIL |
 
 ### 3.3 断言只增不减（具体保证方式）
 
@@ -757,4 +801,5 @@ TASK-401 spike  ── S1 注入可行 ──┐
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.1 | **追加**（历史保留：v1.0 原文未改）：承接 v3-2 收口轮的 validate R1 **N-06** —— 红线表增第 6 条；新增 **TASK-415「引用能力生产接线（N-06 收敛，硬性）」**（Wave 7，dep 407；**AC-CONV-1 真实 env 注入点 / AC-CONV-2 唯一动作入口走 `dispatchRefAction` guard**）；TASK-413 依赖追加 415；TASK-414 收口清单追加 AC-CONV 门禁项；§3.1 / §3.2 追加映射；任务总数 14 → **15**。 | 2026-09-16 | SDDU Build Agent（v3-2 收口轮） |
 | v1.0 | 初始创建：V3-4 任务分解（14 任务 / 8 波；S×2 / M×11 / L×1）。**覆盖编排器必含项**：①**先跑 A-UI-004 spike（S1~S4）为 Wave 1 硬前置**——**spike 未过不得进入实现**，失败走 D1（形态降级 = 第二个登记式 content script）/ D2（范围降级 + 回报编排器），红线为**不放宽 `CONTENT_MAX_BYTES` / 不引入 `contextMenus` / 不静态注入 / 不更新三 hash pin**；②**第 5 bundle `dist/pick-layer.js`（独立无容差上限 + 基线登记 + 反证 + 不合并计数）**；③双触发 / 幂等 / teardown 自卸载 / 失败降级；④右键自绘菜单路线 1 + **三退让** + `role="menu"` 键盘；⑤Shadow DOM 双向隔离 + 宿主事件不吞五规则；⑥引用捕获共享口径（稳定优先语义路径 + `data-wcli-ref` + 截断 80/120）；⑦四项交互 + **双向高亮联动（P4）** + **执行可视化（P5）** + G1/G2 + 手势表 6 项双向相等；⑧**未授权零注入门禁（含反证）**；⑨`binding.mjs` 页面侧条目同编号最小改写（`#21*`/`#22*` 字节零改）。**门禁严格串行**（15 步链式，一次一个）。**只做 tasks**：未写代码、未改 `src/**`·`test/**`·`manifest.json`·`design/**`·`ROADMAP.md`、未动 `main`、未 commit、**未跑门禁/构建/Chromium**。 | 2026-09-16 | SDDU Tasks Agent |

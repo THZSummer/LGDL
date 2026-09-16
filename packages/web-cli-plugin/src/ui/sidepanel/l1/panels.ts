@@ -46,7 +46,7 @@ import type { LocalTreeView } from './local-tree.js';
 import { buildL1Receipt, receiptPiecesPresent } from './receipt.js';
 import type { L1Receipt } from './receipt.js';
 import { createRefStore } from './ref-store.js';
-import type { RefRecord, RefStore } from './ref-store.js';
+import type { RawRefFacts, RefRecord, RefStore } from './ref-store.js';
 import { isRefUsable } from './ref-validity.js';
 import type { RefEnv, RefResolution, RefVerdict } from './ref-validity.js';
 import type { OwnershipTree } from '../../../insight/ownership-tree.js';
@@ -107,12 +107,18 @@ export interface L1Handle {
   update(input: L1Input): void;
   store(): RefStore;
   env(): RefEnv;
-  setEnv(patch: Partial<RefEnv>): void;
+  /** `replace=true` **replaces** the env instead of merging (N-05: clearing). */
+  setEnv(patch: Partial<RefEnv>, replace?: boolean): void;
   injectRef(raw: Parameters<RefStore['create']>[0]): RefRecord;
   judge(): RefRecord[];
   setResolution(resolution: RefResolution | undefined): void;
   dispatchRefAction(refId: string, action: string): { allowed: boolean; reason: string; verdict: RefVerdict; sent: boolean };
-  repick(): RefRecord | undefined;
+  /**
+   * Mint a NEW reference from the facts the caller **observed** (real re-pick —
+   * v3-4 owns the page-side capture). The page-side `resolution` observation is
+   * supplied by the caller; this method never asserts it itself (N-04).
+   */
+  repick(facts: RawRefFacts, resolution?: RefResolution): RefRecord | undefined;
   pullReceipt(input: {
     ok: boolean;
     text: string;
@@ -326,8 +332,11 @@ export function mountL1(deps: L1Deps): L1Handle {
     },
     store: () => store,
     env: envNow,
-    setEnv(patch) {
-      env = { ...env, ...patch };
+    setEnv(patch, replace) {
+      // N-05（2026-09-16 收口轮）：`replace` 变体让调用方能**清空** env。合并语义下
+      // `setEnv({})` 什么也不清，于是测试夹具的 env 会跨场景残留，掩盖「env 缺失 ⇒
+      // unknown」这一类用例（validate R1 实测：省略 currentOrigin 仍被判 valid 放行）。
+      env = replace ? { ...patch } : { ...env, ...patch };
     },
     injectRef(raw) {
       const record = store.create(raw);
@@ -364,26 +373,27 @@ export function mountL1(deps: L1Deps): L1Handle {
       paint();
       return { ...outcome, sent: outcome.allowed };
     },
-    repick() {
+    repick(facts, observed) {
       // Page-side re-pick (v3-4 owns the real capture): a NEW reference is minted
-      // from FRESH facts, so the invalidated id is never reused (ADR-V3-023 §1).
+      // from the facts the caller observed, so the invalidated id is never reused
+      // (ADR-V3-023 §1).
       const previous = store.all().slice(-1)[0];
-      if (!previous) return undefined;
+      if (!previous || !facts) return undefined;
       // The superseded (unusable) references are RETIRED, not deleted: the explicit
       // recovery clears the warning, while the record keeps its readable reason and
       // its id is never reused (ADR-V3-023 §1 / FR-V3-037「不得静默丢弃」).
+      //
+      // N-04（2026-09-16 收口轮）：这里**不再**自己写
+      // `resolution = { status:'resolved', refMark: fresh.facts.refId, nodeCount: 1 }`。
+      // 那是**断言**「重拾成功」而不是**观测**它 —— v3-4 若在真实捕获失败时调用它，
+      // 会把失败伪造成 `valid`（fail-open 面）。观测只由调用方传入（`observed`），
+      // 面板只负责判定；未传入时新引用保持 `unknown`（fail-closed）。
       store.retireUnusable();
-      const fresh = store.create({
-        selector: previous.facts.selector,
-        semanticPath: previous.facts.semanticPath,
-        textDigest: previous.facts.textDigest,
-        origin: env.currentOrigin ?? previous.facts.origin,
-        documentId: env.documentId ?? previous.facts.documentId,
-        navSeq: env.navSeq ?? previous.facts.navSeq,
-        declarationHash: env.declarationHash ?? previous.facts.declarationHash,
-        capturedAt: deps.now(),
-      });
-      resolution = { status: 'resolved', refMark: fresh.facts.refId, nodeCount: 1 };
+      const fresh = store.create(facts);
+      // 观测由调用方传入；未传入时**清空**（而不是沿用上一次观测）⇒ 新引用保持
+      // `unknown`（fail-closed）。沿用旧观测会把「上一个目标的观测」当成新目标的
+      // 观测来源 —— 那同样是自证的一种形态。
+      resolution = observed;
       store.judge(envNow());
       paintRefs();
       paint();

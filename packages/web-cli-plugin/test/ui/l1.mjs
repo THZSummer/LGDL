@@ -92,7 +92,7 @@ const REASON = {
   'dom-gone': '引用 1 的目标元素已不存在（选择器解析失败或元素被替换）',
   'origin-changed': '引用 1 属于 https://v3-l1.test，当前站点已是 https://other.test —— 跨站引用不可用',
   navigated: '引用 1 捕获后页面已导航（含单页路由切换），目标可能已重建',
-  'declaration-changed': '引用 1 捕获后站点声明已变化（decl-1 → decl-2），目标语义可能已改变',
+  'declaration-changed': '引用 1 捕获后站点声明已变化（hash decl-1 → decl-2），目标语义可能已改变',
   'authorization-revoked': '引用 1 所在站点已被撤销授权',
 };
 
@@ -449,7 +449,11 @@ async function main() {
         const badgeVisible = document.getElementById('l0-ref-badge').hidden === false;
         document.getElementById('l1-ref-describe').click();
         const fallbackOpen = document.getElementById('ask-fallback').hidden === false;
-        window.__v3.testing.l1('repick');
+        // N-04（2026-09-16 收口轮）：面板不再自己写「{status:'resolved', refMark:新id}」。
+        // 重拾由「调用方传入新鲜事实」发起，页面侧观测（这里由门禁扮演调用方）在拿到
+        // 新 id 之后注入 —— 观测驱动，而不是断言驱动。
+        const fresh = window.__v3.testing.l1('repick', ${JSON.stringify(REF_FACTS)});
+        window.__v3.testing.l1('res', { status: 'resolved', refMark: fresh.facts.refId, nodeCount: 1 });
         const after = window.__v3.testing.l1('report');
         return JSON.stringify({
           beforeStale: before.stale, actionsVisible, reason, badgeVisible, fallbackOpen,
@@ -465,6 +469,49 @@ async function main() {
     check('⑨ 「改用描述」走既有 #ask 兜底输入（不新造输入框）', rec9.fallbackOpen === true, recovery);
     check('⑨ 「重新拾取」产生 NEW id（失效 id 不重用）', rec9.repickCount === rec9.beforeIds.length + 1 && !rec9.beforeIds.includes(rec9.afterIds[rec9.afterIds.length - 1]), recovery);
     check('⑨ 恢复后引用回到 valid 态（判据重跑，不是缓存）', rec9.verdicts[rec9.verdicts.length - 1] === 'valid' && rec9.stale === 0, recovery);
+
+    // ── ⑨b N-04：repick 不自证「重拾成功」（观测驱动，未观测 ⇒ fail-closed） ──
+    console.log('\n▶ ⑨b N-04 重拾不再自证：无观测 ⇒ unknown；调用方给出观测 ⇒ valid');
+    const n04 = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.collapseAll();
+        window.__v3.testing.reset();
+        const rec = window.__v3.testing.l1('ref', ${JSON.stringify(REF_FACTS)});
+        window.__v3.testing.l1('env', ${JSON.stringify(GOOD_ENV)});
+        window.__v3.testing.l1('res', { status: 'missing' });
+        const staleBefore = window.__v3.testing.l1('report').stale;
+        const fresh = window.__v3.testing.l1('repick', ${JSON.stringify(REF_FACTS)});
+        const noObs = window.__v3.testing.l1('report').refs.slice(-1)[0].verdict;
+        window.__v3.testing.l1('res', { status: 'resolved', refMark: fresh.facts.refId, nodeCount: 1 });
+        const withObs = window.__v3.testing.l1('report').refs.slice(-1)[0].verdict;
+        return JSON.stringify({ staleBefore, noObs, withObs, oldId: rec.facts.refId, newId: fresh.facts.refId });
+      })()`,
+    );
+    const rn = JSON.parse(n04);
+    check('⑨b N-04 重拾无观测 ⇒ 新引用保持 unknown（面板不再自己断言 resolved）', rn.noObs === 'unknown', n04);
+    check('⑨b N-04 调用方给出真实观测 ⇒ 同一条引用转为 valid（观测驱动而非自证）', rn.withObs === 'valid', n04);
+    check('⑨b N-04 重拾产生 NEW id（旧 id 不重用）', /^ref_\d+$/.test(rn.newId) && rn.newId !== rn.oldId, n04);
+
+    // ── ⑨c N-05：reset() 必须真的清空 env（合并语义会掩盖「env 缺失」） ──────
+    console.log('\n▶ ⑨c N-05 reset() 清空 env：残留 env 不得把「env 缺失」掩盖成 valid');
+    const n05 = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.reset();
+        const r1 = window.__v3.testing.l1('ref', ${JSON.stringify(REF_FACTS)});
+        window.__v3.testing.l1('env', ${JSON.stringify(GOOD_ENV)});
+        window.__v3.testing.l1('res', { status: 'resolved', refMark: r1.facts.refId, nodeCount: 1 });
+        const before = window.__v3.testing.l1('report').refs.slice(-1)[0].verdict;
+        window.__v3.testing.reset();
+        const r2 = window.__v3.testing.l1('ref', ${JSON.stringify(REF_FACTS)});
+        window.__v3.testing.l1('res', { status: 'resolved', refMark: r2.facts.refId, nodeCount: 1 });
+        const after = window.__v3.testing.l1('report').refs.slice(-1)[0].verdict;
+        return JSON.stringify({ before, after, id1: r1.facts.refId, id2: r2.facts.refId });
+      })()`,
+    );
+    const r5 = JSON.parse(n05);
+    check('⑨c N-05 reset() 清空 env：设置过 env 后 reset + 新建引用必须 unknown（判据为 env 缺失，而非 resolution）', r5.before === 'valid' && r5.after === 'unknown' && r5.id2 !== r5.id1, n05);
 
     // ── ⑩ receipt triple + real re-pull ───────────────────────────────────
     console.log('\n▶ ⑩ 回执三件套：摘要常驻 L0 + 证据/审计出口在 L1 + 重拉实测');

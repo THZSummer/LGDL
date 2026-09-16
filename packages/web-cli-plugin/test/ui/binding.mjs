@@ -757,7 +757,10 @@ async function phase1(mock) {
   console.log(`\n▶ 阶段 1：真站点全链路（绑定 → 注入 → 发现 → 授权 → 发送可用 → mock 对话）`);
   const work = await mkdtemp(join(tmpdir(), 'web-cli-binding-ext-'));
   const extDir = join(work, 'ext');
-  await cp(dist, extDir, { recursive: true });
+  // N-11（2026-09-16 收口轮）：`dist` 若是符号链接，Node `cp()` 默认复制**链接本身**
+  // ⇒ 对 `extDir/manifest.json` 的临时改写会**穿透写回真实 dist**（validate R1 实测发生）。
+  // `dereference: true` 复制链接目标的内容，杜绝穿透；正常（真实目录）布局下行为不变。
+  await cp(dist, extDir, { recursive: true, dereference: true });
   // DISCLOSURE ②: pre-grant the site host permission in a temp manifest copy so
   // the *real* #authorize click path can be exercised (headless cannot show the
   // native prompt). dist JS is byte-identical to the release build.
@@ -2024,7 +2027,10 @@ async function phase2(mock) {
   console.log(`\n▶ 阶段 2：自动探测（授权后免点图标自动绑定）`);
   const work = await mkdtemp(join(tmpdir(), 'web-cli-binding-auto-'));
   const extDir = join(work, 'ext');
-  await cp(dist, extDir, { recursive: true });
+  // N-11（2026-09-16 收口轮）：`dist` 若是符号链接，Node `cp()` 默认复制**链接本身**
+  // ⇒ 对 `extDir/manifest.json` 的临时改写会**穿透写回真实 dist**（validate R1 实测发生）。
+  // `dereference: true` 复制链接目标的内容，杜绝穿透；正常（真实目录）布局下行为不变。
+  await cp(dist, extDir, { recursive: true, dereference: true });
   const manifest = JSON.parse(await readFile(join(extDir, 'manifest.json'), 'utf8'));
   manifest.host_permissions = [...manifest.host_permissions, SITE_PATTERN];
   await writeFile(join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
@@ -2210,7 +2216,10 @@ async function phaseAutoProbe() {
   const delayed = await startDelayedSite(3);
   const work = await mkdtemp(join(tmpdir(), 'web-cli-autoprobe-'));
   const extDir = join(work, 'ext');
-  await cp(dist, extDir, { recursive: true });
+  // N-11（2026-09-16 收口轮）：`dist` 若是符号链接，Node `cp()` 默认复制**链接本身**
+  // ⇒ 对 `extDir/manifest.json` 的临时改写会**穿透写回真实 dist**（validate R1 实测发生）。
+  // `dereference: true` 复制链接目标的内容，杜绝穿透；正常（真实目录）布局下行为不变。
+  await cp(dist, extDir, { recursive: true, dereference: true });
   const manifest = JSON.parse(await readFile(join(extDir, 'manifest.json'), 'utf8'));
   manifest.host_permissions = [...manifest.host_permissions, 'http://127.0.0.1/*'];
   await writeFile(join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2));

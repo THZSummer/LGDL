@@ -184,7 +184,33 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  *
  * `content.js` 177,076 B（无容差、不可重登记）与密度阈值在本轮**零改动**。
  */
-export const SIDEPANEL_BASELINE_BYTES = 327_679;
+/**
+ * ── v3-2 收口轮（2026-09-16，**validate R1 之后的收口轮**）─────────────────────
+ *
+ * 收口轮处置 validate R1 的 N-04/N-05/N-07/N-08（引用重拾不再自证、`reset()` 真清空
+ * env、D4 原因写明哪一项变化、退役原因冻结）—— 四处都在 `src/ui/sidepanel/**`，因此
+ * 产物**显式增重** +797 B：
+ *
+ *   - `dist/content.js` ..... 177,076 B（**UNCHANGED** —— 收口轮不碰 `src/content/**`，
+ *     无容差硬上限逐字节保持）
+ *   - `dist/sidepanel.js` ... 327,679 → **328,476 B**（+797 B，+0.24%）
+ *
+ * 方向 = **提升**（同一叶内的更正轮：`roundKind: 'registry-fidelity-round'`，故 ④ 的
+ * 「连续两个**功能轮**」告警口径不变）。重登记按裁决 V3-VOL-1 ② 的披露要求逐项登记：
+ *
+ *   - 前值 327,679 B 保留在 `SIDEPANEL_RE_REGISTRATIONS` 链条 /
+ *     `SIDEPANEL_BASELINE_BYTES_TIMELINE` / `reRegisteredFrom`；
+ *   - 容差 **5% 不变**；`targetBudgetBytes` / `targetMet` 仍为 **null**；
+ *   - ceiling 仍由**公式**给出：`floor(328,476 × 1.05)` = **344,899 B**（cap 保持
+ *     `record-only`，不参与判定）；
+ *   - 断言零删减：方向敏感断言按新实测值重新 pin，并登记台账条目 `V32-S17`。
+ *
+ * `previousBaselineBytes` **有意保留 295,225 B**：它是 {@link SIDEPANEL_GROWTH_BREAKDOWN}
+ * 所比较的那棵树（v3-1 I6 轮的树）的基线，`deltaBytes` 因此仍是「v3-1 树 → 当前树」的
+ * **累计**增量 33,251 B；**逐轮**前后值由 `SIDEPANEL_RE_REGISTRATIONS` 承载体（末项
+ * `v3-2-closeout`：327,679 → 328,476）。两者分工明确、不得混用。
+ */
+export const SIDEPANEL_BASELINE_BYTES = 328_476;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -200,7 +226,7 @@ export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
  * appending is the only allowed edit (history may never be rewritten).
  */
 export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
-  1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500, 291_523, 295_225, 327_679,
+  1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500, 291_523, 295_225, 327_679, 328_476,
 ] as const;
 
 /** Allowed growth over the baseline before the guard fails. */
@@ -251,7 +277,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 327_679;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 328_476;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -264,12 +290,17 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU v3-2 build round + fix round (2026-09-16, leaf specs-tree-v3-2-l1-disclosure-refs): re-measured on the final artifact of the L1 layer (eight in-place content classes + the fail-closed five-dimension reference judge + the receipt triple + the local-tree slice). The fix round executes orchestrator ruling V3-VOL-1: the baseline is EXPLICITLY re-registered at the measured 327,679 B and the ceiling is the plain formula floor(baseline × 1.05) = 344,062 B (the self-imposed SIDEPANEL_CEILING_CAP hard-cap mechanism is REVOKED and demoted to a record-only field). Previous registered baseline 295,225 B (v3-1 I6 round); before that 291,523 B (whose final artifact measured 294,874 B — the discrepancy the I6 round fixed); before that 266,500 B (tighten round 2026-09-14, ceiling 279,825 B); before that 1,159,856 B (R2, ceiling 1,217,848 B); R2 closeout measurement 1,162,942 B; V2-4 1,132,748 B; V2-3 1,110,744 B; V2-2 1,085,389 B; v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE.',
+    'SDDU v3-2 build round + fix round + closeout round (2026-09-16, leaf specs-tree-v3-2-l1-disclosure-refs): re-measured on the final artifact of the L1 layer (eight in-place content classes + the fail-closed five-dimension reference judge + the receipt triple + the local-tree slice). The fix round executed orchestrator ruling V3-VOL-1 (baseline explicitly re-registered at 327,679 B, ceiling = the plain formula, self-imposed SIDEPANEL_CEILING_CAP hard cap REVOKED and demoted to a record-only field). The CLOSEOUT round dispositions validate R1 findings N-04/N-05/N-07/N-08 in `src/ui/sidepanel/**` and re-registers the measured 328,476 B (+797 B) as a registry-fidelity round. Previous registered baselines: 327,679 B (v3-2 fix round) / 295,225 B (v3-1 I6 round; also the reference tree of SIDEPANEL_GROWTH_BREAKDOWN) / 291,523 B (whose final artifact measured 294,874 B — the discrepancy the I6 round fixed) / 266,500 B (tighten round 2026-09-14, ceiling 279,825 B) / 1,159,856 B (R2, ceiling 1,217,848 B) / R2 closeout 1,162,942 B / V2-4 1,132,748 B / V2-3 1,110,744 B / V2-2 1,085,389 B / v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE / SIDEPANEL_RE_REGISTRATIONS.',
+  /**
+   * ⚠️ 语义（收口轮明写）：本字段 = {@link SIDEPANEL_GROWTH_BREAKDOWN} 所比较的**参照树**
+   * 的基线（v3-1 I6 轮 295,225 B），因此 `deltaBytes` 是「v3-1 树 → 当前树」的**累计**
+   * 增量。**逐轮**前后值（含 327,679 → 328,476）在 `SIDEPANEL_RE_REGISTRATIONS`。
+   */
   previousBaselineBytes: 295_225,
   previousCeilingBytes: 306_099,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 327_679,
+  finalArtifactBytes: 328_476,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -278,12 +309,12 @@ export const SIDEPANEL_BASELINE_META = {
   consecutiveGrowthAlertThreshold: 0.15,
   consecutiveGrowthAlert: '已触发：见 SIDEPANEL_RE_REGISTRATIONS 与 evaluateConsecutiveReRegistrationGrowth()（累计 +22.96% > 15%，已显式回报编排器）',
   reRegisteredFrom:
-    'v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）；更早 291,523 B（该轮最终产物实测 294,874 B）与 266,500 B（ceiling 279,825 B，2026-09-14 收紧轮），再早 1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',
+    'v3-2 修复轮 327,679 B（ceiling 344,062 B，公式判定）；更早 v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）与 291,523 B（该轮最终产物实测 294,874 B）、266,500 B（ceiling 279,825 B，2026-09-14 收紧轮）、1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',
   targetBudgetBytes: null,
   targetMet: null,
   reason:
-    'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-2 显式**提升**重登记：L1 八类就地展开 + 引用失效 fail-closed 判定 + 回执三件套 + 局部树为 spec 明文要求的**必需增重**（父 spec FR-V3-030~040 / AC-V3-008~010 / AC-V3-022/023），实测 327,679 B（前值 295,225 B，+32,454 B）。修复轮按裁决 V3-VOL-1 ② 撤销自加 cap（该 cap 非 spec/作者要求），判定恢复为公式值 floor(baseline × 1.05) = **344,062 B** —— 即本轮 ceiling 由公式抬高，而不是靠「放宽容差」或「删断言」达成；容差 5% 未动。增量构成见 §SIDEPANEL_GROWTH_BREAKDOWN（新必需模块 26,156 B / 接线 5,848 B / 归因位移 220 B / 未归因胶水 230 B = +32,454 B，无重复或冗余代码）。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 / 266,500 / 291,523 / 295,225 全保留；断言零删减（方向敏感断言按新实测值重新 pin，见 docs/v3-supersession-ledger.json 的 V32-S1~S6 / V32-MR-FIX）；targetBudgetBytes/targetMet 保持 null；+1 B 反证在**当前 ceiling** 上重跑。',
-  note: '（保留字段名与历史断言连续性；本轮语义已由 reason 承载）sidepanel.js 回归基线**提升**重登记至 327,679 B（前值 295,225 B；更早 291,523 B 的产物实测 294,874 B；再早 266,500 B）。修复轮撤销自加 cap → ceiling = floor(baseline × 1.05) = 344,062 B。历史值全保留，容差 5% 不变，断言零删减。',
+    'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。2026-09-16 v3-2 显式**提升**重登记：L1 八类就地展开 + 引用失效 fail-closed 判定 + 回执三件套 + 局部树为 spec 明文要求的**必需增重**（父 spec FR-V3-030~040 / AC-V3-008~010 / AC-V3-022/023），实测 327,679 B（前值 295,225 B，+32,454 B）。修复轮按裁决 V3-VOL-1 ② 撤销自加 cap（该 cap 非 spec/作者要求），判定恢复为公式值。**收口轮**再 +797 B 至 **328,476 B**（前值 327,679 B）：四处改动都在 `src/ui/sidepanel/**`，逐条对应 validate R1 的 N-04（`repick()` 不再自证 `resolved`，观测由调用方传入）/ N-05（`setEnv({}, replace=true)` 真清空 env）/ N-07（D4 原因写明 hash 或 version 哪一项变化）/ N-08（退役记录冻结退役时的可读原因），无冗余或重复代码；ceiling 仍由公式给出 floor(328,476 × 1.05) = **344,899 B** —— 由公式抬高，而不是靠「放宽容差」或「删断言」达成；容差 5% 未动。累计增量构成见 §SIDEPANEL_GROWTH_BREAKDOWN（v3-1 树 → 当前树：新必需模块 26,913 B / 接线 5,888 B / 归因位移 220 B / 未归因胶水 230 B = +33,251 B）。历史值 1,068,165 / 1,085,389 / 1,110,744 / 1,132,748 / 1,159,856 / 1,162,942 / 266,500 / 291,523 / 295,225 / 327,679 全保留；断言零删减（方向敏感断言按新实测值重新 pin，见 docs/v3-supersession-ledger.json 的 V32-S1~S6 / V32-S17 / V32-MR-FIX）；targetBudgetBytes/targetMet 保持 null；+1 B 反证在**当前 ceiling** 上重跑。',
+  note: '（保留字段名与历史断言连续性；本轮语义已由 reason 承载）sidepanel.js 回归基线**提升**重登记至 328,476 B（前值 327,679 B；更早 295,225 / 291,523 的产物实测 294,874 / 266,500）。修复轮撤销自加 cap → ceiling = floor(baseline × 1.05) = 344,899 B。历史值全保留，容差 5% 不变，断言零删减。',
 } as const;
 
 /**
@@ -385,6 +416,24 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [295_225, 291_523, 266_500, 1_162_942, 1_159_856],
     ceilingUncappedFormulaBytes: 344_062,
   },
+  {
+    id: 'v3-2-closeout',
+    roundKind: 'registry-fidelity-round',
+    feature: 'specs-tree-web-cli-plugin-v3-ui',
+    date: '2026-09-16',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU v3-2 closeout round (leaf specs-tree-v3-2-l1-disclosure-refs, after validate R1)',
+    reason:
+      'validate R1 的 N-04/N-05/N-07/N-08 处置全部落在 `src/ui/sidepanel/**`（重拾观测化 / env 真清空 / D4 原因指项 / 退役原因冻结），产物按实测 328,476 B 显式重登记（+797 B，+0.24%）。同一叶内的更正轮 → registry-fidelity-round（④ 的「连续两个功能轮」口径不变）。',
+    baselineBeforeBytes: 327_679,
+    baselineAfterBytes: 328_476,
+    ceilingBeforeBytes: 344_062,
+    ceilingAfterBytes: 344_899,
+    assertionNonRemovalEntries: ['V32-S17'],
+    historyRetainedBytes: [327_679, 295_225, 291_523, 266_500, 1_162_942, 1_159_856],
+    ceilingUncappedFormulaBytes: 344_899,
+  },
 ] as const;
 
 /**
@@ -416,34 +465,46 @@ export interface GrowthAttributionRow {
 
 export const SIDEPANEL_GROWTH_BREAKDOWN = {
   method:
-    'esbuild metafile bytesInOutput；v3-1 树（git archive cf2af32 packages/web-cli-plugin/src）vs v3-2 树（615bd0f，同一 absWorkingDir 几何 + web-cli-base 同源拷贝）',
-  reproduceCommand: 'npm run size:attribution -- --rev cf2af32 --rev 615bd0f',
+    'esbuild metafile bytesInOutput；v3-1 树（cf2af32 的 packages/web-cli-plugin/src）vs **当前树**（v3-2 修复轮 + 收口轮工作树，同一 absWorkingDir 几何 + web-cli-base 同源拷贝）。该表按**累计**口径（v3-1 树 → 当前树）登记，`baselineReferenceBytes` 即它所比较的参照基线；收口轮自身的 +797 B 另行逐模块登记在 `closeoutRoundRows`。',
+  reproduceCommand: 'npm run size:attribution -- --rev cf2af32 --rev 615bd0f（v3-2 轮）；收口轮的逐模块差见 closeoutRoundRows（同几何：HEAD 树 vs 收口轮工作树）',
   measuredOn: '2026-09-16',
-  deltaBytes: 32_454,
-  newRequiredModuleBytes: 26_156,
-  wiringBytes: 5_848,
+  /** The baseline whose **tree** this breakdown compares against (v3-1 I6). */
+  baselineReferenceBytes: 295_225,
+  /** 累计：当前基线 − `baselineReferenceBytes`。 */
+  deltaBytes: 33_251,
+  /** 收口轮自身的产物增量（327,679 → 328,476）。 */
+  closeoutDeltaBytes: 797,
+  newRequiredModuleBytes: 26_913,
+  wiringBytes: 5_888,
   attributionShiftBytes: 220,
   unattributedHelperDeltaBytes: 230,
   /** 47 个输入模块路径互不相同（无重复模块）；共享 v2 模块增量为 0（复用非复制）。 */
   duplicationCheck:
-    '输入模块数 47（v3-1 为 41），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B、src/insight/tree-model.ts Δ=0 B —— 局部树/回执复用 v2 模块而非复制实现',
+    '输入模块数 47（v3-1 为 41），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B、src/insight/tree-model.ts Δ=0 B —— 局部树/回执复用 v2 模块而非复制实现。收口轮**未新增模块**（47 → 47），改动只落在既有 4 个模块内（见 closeoutRoundRows），无第二份实现。',
+  /** 收口轮（HEAD 树 → 收口轮工作树）的逐模块增量，同几何实测。 */
+  closeoutRoundRows: [
+    { module: 'src/ui/sidepanel/l1/ref-validity.ts', beforeBytes: 5_255, afterBytes: 6_078, deltaBytes: 823 },
+    { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: 3_340, afterBytes: 3_723, deltaBytes: 383 },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 48_849, afterBytes: 48_889, deltaBytes: 40 },
+    { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: 13_729, afterBytes: 13_280, deltaBytes: -449 },
+  ] as readonly { module: string; beforeBytes: number; afterBytes: number; deltaBytes: number }[],
   rows: [
-    { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: null, afterBytes: 13_729, deltaBytes: 13_729, kind: 'new-required-module', requiredBy: 'FR-V3-031/032/037/038/039（八类就地展开、后果两段、阻断呈现、两条恢复、回执三件套）' },
-    { module: 'src/ui/sidepanel/l1/ref-validity.ts', beforeBytes: null, afterBytes: 5_255, deltaBytes: 5_255, kind: 'new-required-module', requiredBy: 'FR-V3-036（五维 + 不确定即失效 fail-closed）' },
-    { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: null, afterBytes: 3_340, deltaBytes: 3_340, kind: 'new-required-module', requiredBy: 'FR-V3-071/037（引用 id 单源 + 受保护派发 + 阻断）' },
+    { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: null, afterBytes: 13_280, deltaBytes: 13_280, kind: 'new-required-module', requiredBy: 'FR-V3-031/032/037/038/039（八类就地展开、后果两段、阻断呈现、两条恢复、回执三件套）' },
+    { module: 'src/ui/sidepanel/l1/ref-validity.ts', beforeBytes: null, afterBytes: 6_078, deltaBytes: 6_078, kind: 'new-required-module', requiredBy: 'FR-V3-036（五维 + 不确定即失效 fail-closed）+ N-07（D4 原因指项）' },
+    { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: null, afterBytes: 3_723, deltaBytes: 3_723, kind: 'new-required-module', requiredBy: 'FR-V3-071/037（引用 id 单源 + 受保护派发 + 阻断）+ N-08（退役原因冻结）' },
     { module: 'src/ui/sidepanel/l1/receipt.ts', beforeBytes: null, afterBytes: 2_833, deltaBytes: 2_833, kind: 'new-required-module', requiredBy: 'FR-V3-039 + NFR-V3-008/016（回执三件套 + 零明文）' },
     { module: 'src/ui/sidepanel/l1/local-tree.ts', beforeBytes: null, afterBytes: 658, deltaBytes: 658, kind: 'new-required-module', requiredBy: 'FR-V3-034（局部树 ≤3 节点）' },
     { module: 'src/insight/ownership-tree.ts', beforeBytes: null, afterBytes: 341, deltaBytes: 341, kind: 'new-required-module', requiredBy: 'FR-V3-034（复用 v2 主归属链，首次被侧栏 bundle 引用 → 共享而非复制）' },
-    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 48_849, deltaBytes: 4_004, kind: 'wiring', requiredBy: 'FR-V3-031~040（L1 挂载 + 单一派发器；测试面在 test/**）' },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 48_889, deltaBytes: 4_044, kind: 'wiring', requiredBy: 'FR-V3-031~040（L1 挂载 + 单一派发器；测试面在 test/**）+ N-05（reset 清空 env）' },
     { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 4_547, afterBytes: 5_318, deltaBytes: 771, kind: 'wiring', requiredBy: 'FR-V3-031（白名单 4 → 9 个目标 + 5 条 wiring）' },
     { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 17_778, deltaBytes: 655, kind: 'wiring', requiredBy: 'FR-V3-031/037/040（L1 契约纯函数 + staleRef 载体）' },
     { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 5_665, afterBytes: 6_058, deltaBytes: 393, kind: 'wiring', requiredBy: 'FR-V3-037（失效行可读原因；风险位唯一写入者不变）' },
     { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 3_376, deltaBytes: 25, kind: 'wiring', requiredBy: 'FR-V3-037（risk-rail 调用透传 staleRef）' },
     { module: 'src/ui/tree/tree-receipt.ts', beforeBytes: 2_719, afterBytes: 2_719, deltaBytes: 0, kind: 'attribution-shift', requiredBy: '源码未改且字节未变（Δ=0）—— 回执三件套复用 v2 模块，未被复制出第二份实现' },
-    { module: 'src/ui/tree/tree-drawer.ts', beforeBytes: 39_779, afterBytes: 39_887, deltaBytes: 108, kind: 'attribution-shift', requiredBy: '源码未改（git diff cf2af32..615bd0f 无此文件）；esbuild 分摊位移' },
+    { module: 'src/ui/tree/tree-drawer.ts', beforeBytes: 39_779, afterBytes: 39_887, deltaBytes: 108, kind: 'attribution-shift', requiredBy: '源码未改（git diff cf2af32..当前树 无此文件）；esbuild 分摊位移' },
     { module: 'src/ui/settings/panel.ts', beforeBytes: 37_040, afterBytes: 37_111, deltaBytes: 71, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
     { module: 'src/ui/tree/tree-view.ts', beforeBytes: 21_240, afterBytes: 21_267, deltaBytes: 27, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
-    { module: 'src/build-info.ts', beforeBytes: 232, afterBytes: 237, deltaBytes: 5, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
+    { module: 'src/build-info.ts', beforeBytes: 232, afterBytes: 237, deltaBytes: 5, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移（含构建戳字面量长度）' },
     { module: 'src/insight/archive-catalog.ts', beforeBytes: 13_175, afterBytes: 13_179, deltaBytes: 4, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
     { module: 'src/ui/settings/view.ts', beforeBytes: 13_222, afterBytes: 13_225, deltaBytes: 3, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
     { module: 'src/ui/sidepanel/markdown.ts', beforeBytes: 13_417, afterBytes: 13_419, deltaBytes: 2, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },
