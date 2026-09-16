@@ -10,6 +10,11 @@ import type { LlmStatusSummary } from '../../llm/status.js';
 import type { ActiveTabView } from '../../background/state-message.js';
 import { AUTO_AUTH_DEFAULTS, autoAuthBadge, type AutoAuthSettings } from '../../security/auto-authorize.js';
 import type { SidepanelState } from './chat-state.js';
+import type { SnapshotCounts } from '../../insight/tree-model.js';
+// V3-3 (FR-V3-046): the L2 counts are derived in ONE place (`l2/counts.ts`) and
+// carried here as an opaque value — this module never invents a count of its own.
+import { L2_VIEW_KEYS, L2_VIEW_TITLES, l2EntryCount, l2EntryLabel, l2StatusBarText } from './l2/counts.js';
+import type { L2Counts } from './l2/counts.js';
 
 // ── F-2: LLM configuration status ─────────────────────────────────────────
 
@@ -340,6 +345,13 @@ export interface StateMessageView {
   autoAuth?: AutoAuthSettings;
   /** TASK-032: automatic discovery-probe projection (retry count / reason). */
   probe?: ProbeView | null;
+  /**
+   * V3-3 (FR-V3-046): the additive insight summary the background has always sent
+   * (`InsightSummary`, counts/badges only). The L2 entry panel derives its three
+   * real counts from `counts` — the structural field was simply not declared
+   * panel-side before this leaf.
+   */
+  insight?: { counts?: SnapshotCounts } | null;
 }
 
 // ── decision ② / FR-048: multi-session switcher view ─────────────────────────
@@ -509,8 +521,12 @@ export interface L0Input {
   staleRefReason?: string;
   /** The `ref_<n>` id the reason belongs to (the risk row's identity channel). */
   staleRefId?: string;
-  /** Real counts for the L2 entry panel (v3-3 fills the catalog/audit views). */
-  counts?: { tree?: number; commands?: number; audit?: number };
+  /**
+   * V3-3 (FR-V3-046): the四类 L2 counts, derived from real truth by
+   * `l2/counts.ts#deriveCounts` (the entry panel, the status bar and every view
+   * title share this ONE value). `null` = not read yet ⇒ `…`, never a false `0`.
+   */
+  l2Counts?: L2Counts | null;
   /**
    * Test-only risk projection controls (`window.__v3.testing`): `force` shows a
    * risk class whose real transition lands in a later leaf, `off` hides a class so
@@ -552,9 +568,25 @@ export interface L0View {
   ref: { count: number; stale: boolean; label: string };
   /** V3-2: the dynamic invalidation row (null ⇒ the rail uses its generic copy). */
   staleRef: { reason: string; refId: string } | null;
-  statusbar: { text: string; entries: Array<{ key: string; label: string; count: number }> };
+  statusbar: {
+    /** The count-free one-line bar label (stable measured footprint). */
+    text: string;
+    /** The counted summary shown INSIDE the entry panel (same source as `entries`). */
+    summary: string;
+    entries: Array<{ key: string; label: string; count: number }>;
+  };
   risks: L0RiskClass[];
 }
+
+/**
+ * V3-3 (FR-V3-015 / FR-V3-046): the ONE-LINE bar label. Deliberately **count-free**:
+ * the numbers live in the entry panel's own summary (`statusbar.summary` + the four
+ * entry labels, all from `l2/counts.ts`). A count-bearing resident line would put a
+ * live number (the audit ring grows while the panel is used) into the measured
+ * default tier, where the density caliber requires identical cells for one steady
+ * state (see `test/ui/density.mjs` F2/K-1).
+ */
+export const L2_BAR_TEXT = '状态：按需视图 · 点开看计数';
 
 /** The terminal escape hatch — must match `l0/risk-rail.ts#OTHER_OPTION_LABEL`. */
 export const OTHER_OPTION_LABEL = '其他…（我来描述）';
@@ -618,11 +650,25 @@ export function l0ViewModel(input: L0Input): L0View {
   const foldedCount = foldedOptions.length + 1;
 
   const refCount = Math.max(0, input.refCount ?? 0);
-  const counts = {
-    tree: Math.max(0, input.counts?.tree ?? 0),
-    commands: Math.max(0, input.counts?.commands ?? 0),
-    audit: Math.max(0, input.counts?.audit ?? 0),
-  };
+  // V3-3: the four L2 counts come from the ONE derivation (`l2/counts.ts`). When it
+  // has not been read yet the labels/`data-count`s are explicitly unknown (`n/a`),
+  // never a fabricated zero (FR-V3-046).
+  const l2Counts = input.l2Counts ?? null;
+  const statusbar = l2Counts
+    ? {
+        text: L2_BAR_TEXT,
+        summary: l2StatusBarText(l2Counts),
+        entries: L2_VIEW_KEYS.map((key) => ({
+          key: key as string,
+          label: l2EntryLabel(key, l2Counts),
+          count: l2EntryCount(key, l2Counts) ?? -1,
+        })),
+      }
+    : {
+        text: L2_BAR_TEXT,
+        summary: '状态：读取中…',
+        entries: L2_VIEW_KEYS.map((key) => ({ key: key as string, label: `${L2_VIEW_TITLES[key]} · …`, count: -1 })),
+      };
 
   return {
     band: {
@@ -666,15 +712,7 @@ export function l0ViewModel(input: L0Input): L0View {
       input.refStale === true && input.staleRefReason
         ? { reason: input.staleRefReason, refId: input.staleRefId ?? 'ref_?' }
         : null,
-    statusbar: {
-      text: `状态：树 ${counts.tree} · 命令 ${counts.commands} · 审计 ${counts.audit} · 设置`,
-      entries: [
-        { key: 'tree', label: `连接树 · ${counts.tree}`, count: counts.tree },
-        { key: 'commands', label: `命令目录 · ${counts.commands}`, count: counts.commands },
-        { key: 'audit', label: `审计 · ${counts.audit}`, count: counts.audit },
-        { key: 'settings', label: '设置', count: -1 },
-      ],
-    },
+    statusbar,
     risks,
   };
 }

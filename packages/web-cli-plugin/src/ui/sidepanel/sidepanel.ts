@@ -59,6 +59,20 @@ import type { L0Input, L0View } from './view-model.js';
 import { mountL1, type L1Handle, type L1Input } from './l1/panels.js';
 import type { OwnershipTree } from '../../insight/ownership-tree.js';
 import type { RefResolution } from './l1/ref-validity.js';
+// V3-3 (ADR-V3-025~029): the L2 on-demand views. Additive: the views REUSE the
+// existing read-only projections (`archive-catalog` / the audit channel / the v2
+// tree drawer); no existing handler is rewritten.
+import { deriveCounts, type L2Counts, type L2ViewKey } from './l2/counts.js';
+import { mountViewHost, type ViewHostHandle } from './l2/view-host.js';
+import { buildCatalogView, renderCommandCatalog } from './l2/command-catalog.js';
+import { buildAuditRows, renderAudit } from './l2/audit.js';
+import { buildArchiveModel } from '../../insight/archive-catalog.js';
+// The parity baseline is a **pure runtime constant** (the same single source the
+// SW injects as `snapshot.catalogMeta`) — importing it is what keeps the second
+// count honest instead of hard-coded.
+import { CATALOG_BASELINE_META } from '../../insight/catalog-meta.js';
+import { SETTINGS_SECTION_IDS } from '../settings/sections.js';
+import type { SnapshotCounts } from '../../insight/tree-model.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -271,6 +285,45 @@ let l0: L0Handle | null = null;
 /** V3-2: the L1 layer handle (mounted once in `wire()`, repainted by `render()`). */
 let l1: L1Handle | null = null;
 
+/** V3-3: the L2 view host (view replacement; mounted once in `wire()`). */
+let viewHost: ViewHostHandle | null = null;
+
+/**
+ * V3-3 (FR-V3-046) — the L2 count truth inputs. Both come from **existing**
+ * channels and are never invented here:
+ *   - `insightCounts` = `state.insight.counts` (the SW-pushed snapshot counts; the
+ *     same projection the tree / catalogue render from). When the state reply does
+ *     not carry it, the lazily pulled `insight-tree` snapshot's `meta.counts` is
+ *     used instead — still the same truth, never a literal.
+ *   - `auditEntries` = the length of the existing `audit-export` reply.
+ * `l2Counts` is the ONE derived value the entry panel, the status bar and the view
+ * headers all read.
+ */
+const l2Truth: { insightCounts: SnapshotCounts | null; auditEntries: number | null } = {
+  insightCounts: null,
+  auditEntries: null,
+};
+let l2Counts = deriveCounts({
+  insightCounts: null,
+  catalogMeta: CATALOG_BASELINE_META,
+  auditEntries: null,
+  settingsSections: SETTINGS_SECTION_IDS,
+});
+const currentL2Counts = (): L2Counts => l2Counts;
+function refreshL2Counts(): void {
+  l2Counts = deriveCounts({
+    insightCounts: l2Truth.insightCounts,
+    catalogMeta: CATALOG_BASELINE_META,
+    auditEntries: l2Truth.auditEntries,
+    settingsSections: SETTINGS_SECTION_IDS,
+  });
+}
+
+/** The lazily pulled full snapshot — used ONLY for the catalogue's per-card data. */
+let l2Snapshot: ConnectTreeSnapshot | null = null;
+/** Raw audit channel reply (zero-plaintext projection happens in `l2/audit.ts`). */
+let l2AuditEvents: readonly unknown[] = [];
+
 /**
  * V3-1 test seams for the two risk projections that have no sidepanel-side
  * receipt path yet:
@@ -325,7 +378,9 @@ function l0Input(): L0Input {
       : null,
     refCount: refs.length || v3TestState.refCount,
     refStale: staleRefs.length > 0,
-    counts: { tree: 0, commands: 0, audit: state.auditCount },
+    // V3-3 (FR-V3-046): the four counts come from the ONE derivation, fed by real
+    // truth reads (`state.insight.counts` + the existing audit channel). No literal.
+    l2Counts: currentL2Counts(),
   };
 }
 
@@ -407,10 +462,35 @@ function installV3TestHooks(): void {
       collapseAll() {
         installDisclosure().collapseAll();
       },
-      /** Open the L2 entry panel + reveal the global-tree entry point. */
+      /**
+       * Open the L2 entry panel + ENTER the global-tree view.
+       *
+       * V3-3: deliberately stops at the view (the tree body is NOT opened) so the
+       * existing gates keep driving the v2 `#tree-fab` control themselves — the
+       * product path (`#l2-entry-tree` click) opens the body immediately, which is
+       * how the ≤2-interaction reachability requirement is met.
+       */
       openTreeView() {
         installDisclosure().open('l2-entries');
-        l0?.openL2('tree');
+        openL2View('tree', { openTreeBody: false });
+      },
+      /** V3-3: enter any L2 view (the product path, incl. the tree body). */
+      openL2View(key: string) {
+        installDisclosure().open('l2-entries');
+        openL2View(key as L2ViewKey);
+      },
+      /** V3-3: return to the transcript through the product's own back button. */
+      closeL2View() {
+        const back = document.getElementById('l2-back');
+        if (back) back.click();
+      },
+      /** V3-3 (FR-V3-046): the derived counts the panel is showing right now. */
+      l2Counts() {
+        return currentL2Counts();
+      },
+      /** V3-3: re-read the existing audit channel (count + view share this truth). */
+      async refreshAudit() {
+        return refreshAuditView();
       },
       setRefCount(count: number) {
         v3TestState.refCount = Math.max(0, count);
@@ -718,6 +798,9 @@ function render(): void {
   // the stale-reference mark on the chip / pick entry is the judge's verdict and
   // must win over the L0 skeleton's optimistic defaults.
   l1?.update(l1Input(l0View));
+  // V3-3: the open view's header count comes from the SAME derivation as the entry
+  // panel / status bar, so the three can never disagree (FR-V3-046).
+  viewHost?.syncCounts();
   // FR-V3-012: a free-text ask has no choices, so its fallback input opens at once.
   if (state.ask?.kind === 'text') l0?.revealFallback();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
@@ -1089,6 +1172,14 @@ async function refreshState(): Promise<void> {
   // W1: sync the persisted authorization too — otherwise a reload/reopen shows
   // a false "未授权" and the authorize button becomes clickable again.
   dispatch(stateActionFromPayload(res.data));
+  // V3-3 (FR-V3-046): the snapshot counts are the tree/command truth the L2 entry
+  // panel must show. They arrive with the state reply (additive `insight`), so no
+  // extra pull is needed; the derived value is refreshed before the repaint below.
+  const insightCounts = res.data.insight?.counts ?? null;
+  if (insightCounts) {
+    l2Truth.insightCounts = insightCounts;
+    refreshL2Counts();
+  }
   // TASK-033: keep the settings view's origin-scoped auto-authorization in sync
   // (the chat view's own controls are rendered from the same state).
   settingsHandle?.setActiveOrigin(state.activeOrigin);
@@ -1223,15 +1314,118 @@ async function rebindCurrentTab(): Promise<void> {
   }
 }
 
+// ══ V3-3 (ADR-V3-025~029): the L2 on-demand views ═══════════════════════════
+//
+// The four views are REUSED assets, never rewrites: `#tree-drawer` (v2 tree),
+// `archive-catalog` (command catalogue), the v1 audit channel and the v1 settings
+// panel. What this leaf adds is the *view replacement* (`l2/view-host.ts`), the
+// *count derivation* (`l2/counts.ts`) and the two read-only projections.
+
+/** Pull the full snapshot for the catalogue view (lazy: only when it is opened). */
+async function pullInsightSnapshot(): Promise<ConnectTreeSnapshot | null> {
+  try {
+    const res = await send<ConnectTreeSnapshot>(makeMessage('insight-tree'));
+    if (!res.ok || !res.data) return null;
+    l2Snapshot = res.data;
+    // Fallback truth for the counts when the state reply did not carry `insight`.
+    // Same projection, never a literal (FR-V3-046).
+    if (!l2Truth.insightCounts && l2Snapshot.meta?.counts) {
+      l2Truth.insightCounts = l2Snapshot.meta.counts;
+      refreshL2Counts();
+      render();
+    }
+    return l2Snapshot;
+  } catch {
+    return null;
+  }
+}
+
+/** Render the command catalogue (read-only projection; zero form controls). */
+async function refreshCatalogView(force = false): Promise<void> {
+  const host = document.getElementById('l2-catalog-host');
+  if (!host) return;
+  // Always fresh when the view is opened by the user: the catalogue is a read-only
+  // projection of the CURRENT truth (a stored override / a new authorisation must
+  // show up immediately).
+  const snapshot = force || !l2Snapshot ? await pullInsightSnapshot() : l2Snapshot;
+  if (!snapshot) {
+    host.textContent = '命令目录不可用：未能取得连接树快照（不显示陈旧状态）。';
+    return;
+  }
+  renderCommandCatalog(document, host, buildCatalogView(buildArchiveModel(snapshot)));
+}
+
+/** Render the audit view from the **existing** audit read channel. */
+function renderAuditView(): void {
+  const host = document.getElementById('l2-audit-host');
+  if (!host) return;
+  renderAudit(document, host, buildAuditRows(l2AuditEvents));
+}
+
+/** Re-read the audit channel (also refreshes the entry's count — same truth). */
+async function refreshAuditView(): Promise<number | null> {
+  try {
+    const res = await send<unknown[]>(makeMessage('audit-export'));
+    const events = Array.isArray(res.data) ? res.data : [];
+    l2AuditEvents = events;
+    l2Truth.auditEntries = events.length;
+    refreshL2Counts();
+    // The v1 audit counter is derived from the same reply (still one channel).
+    dispatch({ type: 'audit-count', count: events.length });
+    renderAuditView();
+    return events.length;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Open an L2 view (the product path, reached in ≤2 interactions:
+ * `#l0-statusbar` → one `#l2-entry-*`).
+ *
+ * `openTreeBody` is the ONLY difference between the product path and the test
+ * hook: the product path opens the tree body immediately (so the view is complete
+ * in ≤2 interactions, FR-V3-048), while `window.__v3.testing.openTreeView()`
+ * deliberately stops at the view so the existing gates can drive the v2 FAB
+ * control themselves.
+ */
+function openL2View(which: L2ViewKey, opts: { openTreeBody?: boolean } = {}): void {
+  // FR-V3-047 round-trip determinism: the entry menu is always FOLDED before the view
+  // opens, so the expansion snapshot the view host takes on entry is "everything the
+  // user had open, minus the menu itself" — restoring it cannot re-open the menu.
+  installDisclosure().close('l2-entries');
+  if (which === 'settings') {
+    // One L2 view at a time (FR-V3-045/047): the settings view is a *replacement*
+    // too, so the host view must be folded first — otherwise a previously opened
+    // catalogue/audit view would stay "open" behind the settings switch.
+    viewHost?.close();
+    void openSettingsView();
+    return;
+  }
+  const opened = viewHost?.open(which);
+  if (!opened) return;
+  if (which === 'tree') {
+    // ADR-V3-028: the FAB keeps its id/semantics; it is revealed with the view
+    // (never resident in the default tier — the 7-clickable budget is untouched).
+    $('tree-fab').hidden = false;
+    if (opts.openTreeBody !== false) void treeDrawer?.open();
+  }
+  if (which === 'commands') void refreshCatalogView(true);
+  if (which === 'audit') void refreshAuditView();
+}
+
 function wire(): void {
   // V3-1 (ADR-V3-016): one disclosure controller owns every collapse; the risk
   // rail is deliberately NOT in its whitelist.
   const disclosure = installDisclosure();
+  $('l2-back').addEventListener('click', () => viewHost?.close());
   l0 = mountL0({
     doc: document,
     disclosure,
     onAnswer: (label) => submitAsk(label, false),
     onOpenSettings: () => void openSettingsView(),
+    onOpenL2: (which) => openL2View(which),
+    getCounts: currentL2Counts,
   });
   l1 = mountL1({
     doc: document,
@@ -1496,6 +1690,21 @@ function wire(): void {
       if (node) node.textContent = text;
     },
   });
+  // V3-3 (ADR-V3-025): the view host is mounted AFTER the tree drawer on purpose —
+  // both listen for `Escape` on `document`, and the INNER component must win: the
+  // drawer's handler calls `preventDefault()` when it closes itself, which is what
+  // tells the host to stay open (see `l2/view-host.ts`).
+  viewHost = mountViewHost({
+    doc: document,
+    disclosure,
+    getCounts: currentL2Counts,
+    onClosed: () => {
+      // Leaving the view also folds the tree body: the next entry starts from a
+      // clean, count-truthful state (the view opens, then the body follows).
+      treeDrawer?.close();
+      render();
+    },
+  });
   chrome.runtime.onMessage.addListener((raw) => {
     const msg = raw as PluginMessage;
     if (
@@ -1549,6 +1758,9 @@ if (typeof document !== 'undefined') {
     wire();
     renderConsent();
     render();
+    // V3-3 (FR-V3-046): the audit count must be the real ring-buffer length from the
+    // first paint, not a placeholder `0` — one read of the existing channel.
+    void refreshAuditView();
     void refreshState();
     void refreshLlmStatus();
     // TASK-028: auto-test the current model config once per panel load and render

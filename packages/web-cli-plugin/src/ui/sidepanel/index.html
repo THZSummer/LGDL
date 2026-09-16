@@ -558,46 +558,53 @@
         #settings-root { padding: 8px; }
       }
 
-      /* ── V2-2 (ADR-V2-005): floating connection tree — FAB + overlay drawer ──
-         Both are **absolute children of #panel-main** (already `position:
-         relative`). They therefore never participate in the flex flow: #log keeps
-         `flex:1 1 auto` and #composer stays the last element of #panel-bottom, so
-         the tree can never push the composer out of the viewport (D-079) nor
-         shrink the message zone. Closed state is `display:none` → zero cost. ── */
+      /* ── V3-3 (ADR-V3-028): the tree entry + tree body, now the L2 「连接树」视图
+         主体. Both ids and all rendering/ARIA/keyboard/breadcrumb/9-action
+         behaviour are unchanged — only the OWNERSHIP moved:
+           ① `#tree-fab` is an in-flow toolbar control at the top of the tree view
+              (it used to float over `#log`); default `hidden`, revealed when the
+              L2 tree view opens (so the default tier stays at 7 clickables).
+           ② `#tree-drawer` is the view BODY (in-flow, full width, the view's only
+              local scroller) instead of an absolute overlay over `#log`; its
+              container semantics migrate `role="dialog"`+`aria-modal` →
+              `role="region"` (the view is a view, not a dialog). ── */
       #tree-fab {
-        position: absolute;
-        left: 12px;
-        bottom: 12px;
-        z-index: 6;
+        flex: 0 0 auto;
+        align-self: flex-start;
+        margin: 6px 10px 0;
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 5px 12px;
+        padding: 4px 10px;
         border-radius: 999px;
         background: var(--bg-elevated);
         border-color: var(--border-strong);
         font-weight: 600;
-        box-shadow: var(--shadow);
-        max-width: calc(100% - 24px);
+        max-width: calc(100% - 20px);
       }
       #tree-fab[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
       #tree-drawer {
-        position: absolute;
-        inset: 0 0 0 auto;
-        width: min(340px, 100%);
-        max-height: 100%;
+        position: static;
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+        max-height: none;
         min-width: 0;
         display: flex;
         flex-direction: column;
         overflow-y: auto;
         overflow-x: hidden;
-        z-index: 7;
         background: var(--bg-elevated);
-        border-left: 1px solid var(--border);
-        box-shadow: var(--shadow);
         overflow-wrap: anywhere;
       }
       #tree-drawer[hidden] { display: none; }
+      /* V3-3: the drawer is the view BODY now (in-flow scroller), and its header
+         stays sticky inside it. Without a scroll margin, a programmatic
+         `scrollIntoView` — and keyboard focus moving through the tree — can park a
+         row *underneath* the sticky header (measured: a 107px-tall body + a 59px
+         sticky header hid the filter input). The margin is the worst-case header
+         height plus a gap, so the target is always fully readable. */
+      #tree-drawer * { scroll-margin-block-start: 72px; }
       #tree-drawer .tree-header {
         position: sticky;
         top: 0;
@@ -961,15 +968,83 @@
         border-top: 1px solid var(--border);
       }
       #l2-entries button { font-size: 11.5px; }
-      /* V3-1: the L2 host is a *skeleton* — while it is empty it must not steal
-         space from the transcript (opening the L2 entry panel alone must not move
-         the geometry). v3-3 owns the real view-replacement switch (FR-V3-047:
-         hide `#log`, let the host take the content area). */
+      /* V3-3 (FR-V3-046): the COUNTS live in the entry panel's own summary line.
+         The one-line bar above stays count-free on purpose: its text is part of the
+         measured default tier, and the audit count is a *live* number (the ring
+         buffer grows while the panel is used), so a count-bearing resident line
+         could not satisfy the density caliber's "same steady state ⇒ identical
+         cells" rule. The counts are one interaction away, exactly as designed. */
+      #l2-entries .l2-entries-summary {
+        flex: 1 0 100%;
+        margin: 0 0 2px;
+        font-size: 11.5px;
+        color: var(--text-muted);
+        overflow-wrap: anywhere;
+      }
+      /* V3-3 (ADR-V3-025): `#view-host` is the view-replacement host — a SIBLING
+         of `#log`, `flex:1 1 auto`, `hidden` by default. While a view is open
+         `#log` is `hidden`, so the panel-level scroller census stays at exactly 1
+         (the open view's own local scroll block). It never steals a pixel in the
+         default state (`hidden` ⇒ `display:none`). */
       #view-host {
-        flex: 0 0 auto;
+        flex: 1 1 auto;
         min-height: 0;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
+        background: var(--bg-subtle);
+        position: relative;
+      }
+      .l2-header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+      }
+      .l2-header .l2-title { flex: 1 1 auto; min-width: 0; margin: 0; font-weight: 600; font-size: 13px; }
+      .l2-header .l2-title:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .l2-header .l2-count { flex: 0 0 auto; font-size: 11.5px; color: var(--text-muted); }
+      .l2-views { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+      .l2-view { flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+      /* The ONE local scroll block of a view (never a second panel-level scroller). */
+      .l2-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .l2-body .l2-hint, .l2-body .l2-note { margin: 0; font-size: 11.5px; line-height: 1.55; overflow-wrap: anywhere; }
+      .l2-body .l2-hint { color: var(--text-muted); }
+      .l2-note-no-escalation { border-left: 3px solid var(--danger-border); padding-left: 6px; color: var(--danger-text); }
+      .l2-catalog-card, .l2-audit-row {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 5px 7px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .l2-catalog-card .l2-row { margin: 0; font-size: 11.5px; line-height: 1.5; overflow-wrap: anywhere; }
+      .l2-catalog-card .l2-row-name { font-weight: 600; }
+      .l2-action-whitelist { margin: 2px 0 0; padding-inline-start: 18px; font-size: 11px; line-height: 1.5; }
+      .l2-audit-row { flex-direction: row; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
+      .l2-audit-cell { font-size: 11.5px; overflow-wrap: anywhere; }
+      .l2-audit-id { color: var(--text-muted); }
+      .l2-empty { margin: 0; font-size: 11.5px; color: var(--text-muted); }
+      /* EC-V3-008: at 320px the views wrap and truncate; nothing is deleted. */
+      @media (max-width: 380px) {
+        .l2-body { padding: 6px 6px; }
+        .l2-header { padding: 5px 6px; }
       }
       /* EC-V3-008: at 320px nothing is deleted — the zones wrap and truncate. */
       @media (max-width: 380px) {
@@ -1218,44 +1293,70 @@
       </div>
       <div id="log" aria-label="会话记录"></div>
       <button id="scroll-bottom" type="button" title="新消息在下方" hidden>回到底部 ↓</button>
-      <!-- V2-2 (ADR-V2-005): connection-tree entry (FAB) + overlay drawer.
-           V3-1 (ADR-V3-017): both are L2 — hidden until the L2 view is opened
-           from the status-bar entry panel (≤2 interactions, FR-V3-048). -->
-      <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" aria-haspopup="dialog" title="连接树：四维度总览与撤销入口" hidden>连接树</button>
-      <!-- AC-V3-010 / D6: a collapsed disclosure must carry a readable summary.
-           `mountTreeDrawer()` replaces this line when the drawer is first opened
-           (`root.replaceChildren()`), so the summary is *always* present — before
-           the first pull the drawer is never a clue-less void. -->
-      <aside id="tree-drawer" hidden aria-label="连接树" role="dialog" aria-modal="false"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。</div></aside>
-      <!-- V3-1: L2 host (command catalog / audit / global tree / settings land
-           here in v3-3). Default `hidden` — one of the four L2 views is never
-           resident.
-           AC-V3-010 / review I5: in the v3-1 SKELETON phase this host is empty by
-           design, so its summary requirement is an **explicitly registered
-           exemption** (`test/ui/l0.mjs` ⑥ + ledger `v3SkeletonExemptions`): the
-           discoverability burden is carried by the four `#l2-entry-*` triggers
-           (non-empty labels + real counts) and the trigger↔host ARIA pair. v3-3
-           fills the host with the real view and drops the exemption. The host is
-           deliberately kept EMPTY: its content would otherwise change the panel
-           geometry the moment the L2 view is opened (insight #I-20j/#I-14c). -->
-      <div id="view-host" aria-label="按需视图" hidden></div>
+
+      <!-- ── V3-3 (ADR-V3-025 / ADR-V3-028): the L2 **view replacement** host.
+           `#view-host` is a SIBLING of `#log` inside `#panel-main`, so opening a
+           view hides `#log` (hidden attribute) and shows the host — one content
+           area, one panel-level scroller, never a second one and never a浮层.
+           Exactly ONE `[data-l2-view]` container is visible at a time; all four
+           are `hidden` in the default state (zero occupancy, FR-V3-045).
+           The v3-1 skeleton exemption (`v3SkeletonExemptions#view-host`) is
+           REMOVED by this leaf: the host now carries real content, so the
+           "collapsed disclosure must carry a readable summary" rule applies to it
+           unconditionally (`test/ui/l0.mjs` ⑥). ── -->
+      <div id="view-host" hidden>
+        <div class="l2-header">
+          <button id="l2-back" type="button" data-l2-back title="返回对话（返回后展开态与密度复原）">← 返回</button>
+          <h2 id="l2-title" class="l2-title" tabindex="-1"></h2>
+          <span id="l2-count" class="l2-count" data-count=""></span>
+        </div>
+        <div class="l2-views">
+          <!-- ① 全局连接树：`#tree-fab` + `#tree-drawer` 原样迁入（ADR-V3-028）：
+               id 零重命名、`role=tree/treeitem` / `aria-expanded` / `aria-level` /
+               roving tabindex / 键盘 / 面包屑 / 每层 allow-ask-deny 控件 / 9 动作
+               固定序全部保留；只有**归属**与容器语义变化（覆盖式抽屉 →
+               视图主体；`role="dialog"`+`aria-modal` → `role="region"`，台账登记）。 -->
+          <div class="l2-view" data-l2-view="tree" role="region" aria-label="全局连接树（四维度）" hidden>
+            <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" title="连接树：四维度总览与撤销入口（收起/展开树主体）" hidden>连接树</button>
+            <!-- AC-V3-010 / D6: a collapsed disclosure must carry a readable summary.
+                 `mountTreeDrawer()` replaces this line when the drawer is first opened
+                 (`root.replaceChildren()`), so the summary is *always* present. -->
+            <aside id="tree-drawer" hidden aria-label="连接树" role="region"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。</div></aside>
+          </div>
+          <!-- ② 命令目录：只读投影（`l2/command-catalog.ts`），零控件。 -->
+          <div class="l2-view" data-l2-view="commands" role="region" aria-label="命令目录（逐条有档，只读）" hidden>
+            <div class="l2-body" id="l2-catalog-host" aria-live="off"></div>
+          </div>
+          <!-- ③ 审计：零明文白名单投影（`l2/audit.ts`），导出复用既有通道。 -->
+          <div class="l2-view" data-l2-view="audit" role="region" aria-label="审计（零明文）" hidden>
+            <div class="l2-body" id="l2-audit-host" aria-live="off"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ── V3-1 (FR-V3-015): the ONE-LINE status bar; its entry panel holds the
          ≤4 L2 entries with real counts. ── -->
     <button id="l0-statusbar" type="button" aria-expanded="false" aria-controls="l2-entries">
-      <span id="l0-statusbar-text">状态：树 0 · 命令 0 · 审计 0 · 设置</span>
+      <span id="l0-statusbar-text">状态：按需视图 · 点开看计数</span>
       <span class="l0-statusbar-caret">▴</span>
     </button>
     <div id="l2-entries" data-disclose-panel="l2-entries" hidden>
       <!-- AC-V3-010 (I5 fix round): every `[aria-controls]` element must carry
            the pair `aria-expanded` + `aria-controls`, not just the four L0
-           triggers — these four L2 entries address `#view-host`, so they carry
-           `aria-expanded` too (kept in sync by `l0/status-bar.ts#syncTriggerAria`). -->
-      <button id="l2-entry-tree" type="button" aria-expanded="false" aria-controls="view-host">连接树 · 0</button>
-      <button id="l2-entry-commands" type="button" aria-expanded="false" aria-controls="view-host">命令目录 · 0</button>
-      <button id="l2-entry-audit" type="button" aria-expanded="false" aria-controls="view-host">审计 · 0</button>
-      <button id="l2-entry-settings" type="button" aria-expanded="false" aria-controls="view-host">设置</button>
+           triggers — these four L2 entries carry `aria-expanded` too, kept in sync
+           by `l0/status-bar.ts#syncTriggerAria`.
+           V3-3: the first three (`#view-host`-bound) track the view host; the
+           settings entry points at its own view (`#settings-view`) and tracks the
+           v1 settings switch — the pair is per-target, not one shared value.
+           Every entry carries a count (FR-V3-015): tree / commands {live,baseline}
+           / audit come from `l2/counts.ts`, settings from the rendered-section
+           registry — the `settings` count exemption is REMOVED by this leaf. -->
+      <p id="l2-entry-summary" class="l2-entries-summary">状态：读取中…</p>
+      <button id="l2-entry-tree" type="button" aria-expanded="false" aria-controls="view-host">连接树 · …</button>
+      <button id="l2-entry-commands" type="button" aria-expanded="false" aria-controls="view-host">命令目录 · …</button>
+      <button id="l2-entry-audit" type="button" aria-expanded="false" aria-controls="view-host">审计 · …</button>
+      <button id="l2-entry-settings" type="button" aria-expanded="false" aria-controls="settings-view">设置 · …</button>
     </div>
 
     <!-- ── zone 3: hints (never scrolls; composer is last) ── -->
@@ -1284,8 +1385,12 @@
 
     <!-- ── TASK-033: in-panel settings view (same document, zero navigation).
          The chat zones above are only hidden, never rebuilt, so messages /
-         scroll position / composer draft survive a round-trip. ── -->
-    <section id="settings-view" aria-label="设置" hidden>
+         scroll position / composer draft survive a round-trip.
+         V3-3 (FR-V3-051): this IS the fourth L2 view (`data-l2-view="settings"`)
+         — its default visibility is the only thing that changed (it was already
+         `hidden` until opened); the v1 view switch (`body.settings-open` +
+         `#settings-back`) and every setting's semantics are untouched. ── -->
+    <section id="settings-view" data-l2-view="settings" aria-label="设置" hidden>
       <div id="settings-header">
         <button id="settings-back" type="button">← 返回对话</button>
         <span class="sh-title">设置</span>

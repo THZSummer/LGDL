@@ -17,10 +17,12 @@ import type { L0View } from '../view-model.js';
 export interface StatusBarHandle {
   render(view: L0View): void;
   /**
-   * Re-sync the four L2 entries' `aria-expanded` with `#view-host`'s state.
+   * Re-sync the four L2 entries' `aria-expanded` with **their own** target state.
    * AC-V3-010 applies to **every** `[aria-controls]` element, not just the four
-   * L0 triggers — the L2 entries carry `aria-controls="view-host"` and were
-   * missing the paired `aria-expanded` (review I5).
+   * L0 triggers — the L2 entries were missing the paired `aria-expanded`
+   * (v3-1 review I5). V3-3: the three `#view-host`-bound entries track the view
+   * host, while `#l2-entry-settings` tracks `#settings-view` (its real target) —
+   * one shared value for four different targets would be a false pair.
    */
   syncTriggerAria(): void;
 }
@@ -32,7 +34,10 @@ export function mountStatusBar(doc: Document): StatusBarHandle {
   const bar = doc.getElementById('l0-statusbar');
   const text = doc.getElementById('l0-statusbar-text');
   const entriesHost = doc.getElementById('l2-entries');
-  if (!bar || !text || !entriesHost) throw new Error('status-bar: 缺少 DOM 契约（#l0-statusbar / #l2-entries）');
+  const summary = doc.getElementById('l2-entry-summary');
+  if (!bar || !text || !entriesHost || !summary) {
+    throw new Error('status-bar: 缺少 DOM 契约（#l0-statusbar / #l2-entries / #l2-entry-summary）');
+  }
 
   const buttonFor = (key: string): HTMLButtonElement | null => {
     const id = `l2-entry-${key}`;
@@ -41,18 +46,22 @@ export function mountStatusBar(doc: Document): StatusBarHandle {
   };
 
   const syncTriggerAria = (): void => {
-    const expanded = doc.getElementById('view-host')?.hidden === false ? 'true' : 'false';
+    const hostOpen = doc.getElementById('view-host')?.hidden === false;
+    const settingsOpen = doc.getElementById('settings-view')?.hidden === false;
     for (const key of L2_ENTRY_FIELDS) {
       const btn = buttonFor(key);
       if (!btn) continue;
-      btn.setAttribute('aria-expanded', expanded);
+      btn.setAttribute('aria-expanded', String(key === 'settings' ? settingsOpen : hostOpen));
     }
   };
 
   return {
     syncTriggerAria,
     render(view: L0View): void {
+      // V3-3: the bar stays count-free (stable measured footprint); the counted
+      // summary lives inside the entry panel, next to the entries it summarises.
       text.textContent = view.statusbar.text;
+      summary.textContent = view.statusbar.summary;
       for (const entry of view.statusbar.entries) {
         const btn = buttonFor(entry.key);
         if (!btn) continue;

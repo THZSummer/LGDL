@@ -15,10 +15,10 @@
     },
     "insight": {
       "baselineRuntime": 108,
-      "currentRuntime": 108,
+      "currentRuntime": 116,
       "countMethod": "runtime-check-calls",
       "floor": 108,
-      "note": "insight 断言数不变（108）；几何三连按 ADR-V3-019 V31-S3 **同编号同结构**迁移，锚点 589/65.0% 按首轮实测下界重 pin（488/54.0%），断言零删除；union 口径无需启用。"
+      "note": "v3-3（2026-09-16，leaf specs-tree-v3-3-l2-on-demand-views）：L2 视图替换落地后，test/ui/insight.mjs 的运行期 check 由 108 → **116**（只增不减）；#I-05~10(开)/#I-20i/#I-20j/#I-20k(×2)/#I-14b/#I-14c/#I-19h 按**同编号**迁移为「视图替换 + 往返复原」契约（逐条见 entries V33-S1~S9），并新增 #I-01e2/#I-01e3/#I-13a0/#I-13a1/#I-13a2/#I-19a1/#I-14c0/#I-14d 八条（净 +8）。断言零删除：迁移是同编号改写，语义更强（额外证明替换可逆）。"
     },
     "binding": {
       "baselineRuntime": 192,
@@ -36,10 +36,10 @@
     },
     "nodeTestRuntime": {
       "baselineRuntime": 646,
-      "currentRuntime": 764,
+      "currentRuntime": 772,
       "countMethod": "runtime-node-tests",
       "floor": 646,
-      "note": "node 运行期用例 646 → **732**（只增不减；v3-1 新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件，修复轮又新增台账/基线保真用例）。口径 = `npm test` 日志的 `ℹ tests`（2026-09-16 收口轮实测 732；复现：`npm test --workspace @lgdl/web-cli-plugin` 后 `grep \"^ℹ tests\"`）。validate R1（F2）指出旧登记值 731 与实测差 1 → 本轮按实测订正为 732（仍 ≥ 646 下界，方向不越界）。与静态口径（staticCalibers.nodeTestStatic）分别登记，不得混用（I4③）。 v3-2（2026-09-16）：新增 `test/l1-ref-validity.test.ts`（11 个用例：三态/五维/不确定即失效/截断口径/id 单调/阻断/局部树/回执/白名单）→ 运行期用例 732 → **743**（`npm test` 日志 `ℹ tests 743`；仍 ≥ 646 下界）。 v3-2 修复轮（2026-09-16）：新增 `test/size-growth-evidence.test.ts`（替代守卫 ②③④，9 个用例）+ 三处重 pin（size-budget / insight-archive / density-thresholds）→ 运行期用例 743 → **754**（`npm test` 日志 `ℹ tests 754`；仍 ≥ 646 下界；静态口径 readings 同步复算为 754/765/858）。 v3-2 修复轮 R2（2026-09-16）：新增 `test/gate-integrity.test.ts`（**元门禁**，6 个用例：受审集合完整性 / R1a-R1b-R2-R3 真实门禁全过 / 合成夹具反证 ×2 / 真实副本注入反证 / 覆盖限缩如实登记）→ 运行期用例 754 → **760**（`npm test` 日志 `ℹ tests 760 / pass 760 / fail 0 / skipped 0`；仍 ≥ 646 下界；静态口径 readings 同步复算为 760/771/884，70 份文件）。 v3-2 收口轮（2026-09-16）：`test/gate-integrity.test.ts` 由 6 → **9** 用例（N-01/N-02 合成反证 + N-03 合成反证 + 目录推导自动纳入反证）与 `test/l1-ref-validity.test.ts` 由 11 → **12**（N-08 退役原因冻结）→ 运行期用例 760 → **764**（`npm test` 日志 `ℹ tests 764 / pass 764 / fail 0`；仍 ≥ 646 下界）。"
+      "note": "node 运行期用例 646 → **732**（只增不减；v3-1 新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件，修复轮又新增台账/基线保真用例）。口径 = `npm test` 日志的 `ℹ tests`（2026-09-16 收口轮实测 732；复现：`npm test --workspace @lgdl/web-cli-plugin` 后 `grep \"^ℹ tests\"`）。validate R1（F2）指出旧登记值 731 与实测差 1 → 本轮按实测订正为 732（仍 ≥ 646 下界，方向不越界）。与静态口径（staticCalibers.nodeTestStatic）分别登记，不得混用（I4③）。 v3-2（2026-09-16）：新增 `test/l1-ref-validity.test.ts`（11 个用例：三态/五维/不确定即失效/截断口径/id 单调/阻断/局部树/回执/白名单）→ 运行期用例 732 → **743**（`npm test` 日志 `ℹ tests 743`；仍 ≥ 646 下界）。 v3-2 修复轮（2026-09-16）：新增 `test/size-growth-evidence.test.ts`（替代守卫 ②③④，9 个用例）+ 三处重 pin（size-budget / insight-archive / density-thresholds）→ 运行期用例 743 → **754**（`npm test` 日志 `ℹ tests 754`；仍 ≥ 646 下界；静态口径 readings 同步复算为 754/765/858）。 v3-2 修复轮 R2（2026-09-16）：新增 `test/gate-integrity.test.ts`（**元门禁**，6 个用例：受审集合完整性 / R1a-R1b-R2-R3 真实门禁全过 / 合成夹具反证 ×2 / 真实副本注入反证 / 覆盖限缩如实登记）→ 运行期用例 754 → **760**（`npm test` 日志 `ℹ tests 760 / pass 760 / fail 0 / skipped 0`；仍 ≥ 646 下界；静态口径 readings 同步复算为 760/771/884，70 份文件）。 v3-2 收口轮（2026-09-16）：`test/gate-integrity.test.ts` 由 6 → **9** 用例（N-01/N-02 合成反证 + N-03 合成反证 + 目录推导自动纳入反证）与 `test/l1-ref-validity.test.ts` 由 11 → **12**（N-08 退役原因冻结）→ 运行期用例 760 → **764**（`npm test` 日志 `ℹ tests 764 / pass 764 / fail 0`；仍 ≥ 646 下界）。 v3-3（2026-09-16）：新增 `test/l2-counts.test.ts`（8 个用例：计数真值派生双向/分列不退化/未知≠0/入口-摘要-标签三处同源/设置分区登记表/命令目录 delay 单源 + 9 动作固定序/审计白名单 + URL 去参）→ 运行期用例 764 → **772**（`npm test` 日志 `ℹ tests 772 / pass 772`；仍 ≥ 646 下界）。静态口径读数同步复算为 905 / 783 / 772。"
     }
   },
   "gateFloors": {
@@ -50,9 +50,10 @@
     "nodeTestRuntime": 646
   },
   "v3GateFloors": {
-    "packages/web-cli-plugin/test/ui/l0.mjs": 68,
+    "packages/web-cli-plugin/test/ui/l0.mjs": 72,
     "packages/web-cli-plugin/test/ui/density.mjs": 60,
-    "packages/web-cli-plugin/test/ui/l1.mjs": 64
+    "packages/web-cli-plugin/test/ui/l1.mjs": 64,
+    "packages/web-cli-plugin/test/ui/l2.mjs": 68
   },
   "protectedRanges": [
     {
@@ -1027,6 +1028,215 @@
       ],
       "oldId": "V32-MR",
       "reason": "v3-2 受控改写：把「基线与上限自洽」重 pin 为「产物如实超出冻结 ceiling」（红线冲突的机器证据）"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        458,
+        458
+      ],
+      "newRange": [
+        581,
+        600
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "    check(initial.drawerPosition === 'absolute', '#I-01e 抽屉为 absolute（不参与 flex 流，结构上不挤压 #log）', initial.drawerPosition);"
+      ],
+      "addedLinesText": [
+        "    check(initial.drawerPosition === 'static', ...（#I-01e + #I-01e2 + #I-01e3）"
+      ],
+      "oldId": "V33-MR-01",
+      "reason": "v3-3（V33-S1）：抽屉归属迁移 → #I-01e 由 absolute 断言改写为 static + 归属/语义三项断言（逐条见 entries V33-S1）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1034,
+        1041
+      ],
+      "newRange": [
+        1256,
+        1262
+      ],
+      "deletedLines": 4,
+      "deletedLinesText": [
+        "    checkLayout(deepExpanded, '#I-20i(树深展开)');",
+        "    const deepDrift = [...]",
+        "      (f) => deepExpanded[f] !== closedLayout[f],",
+        "    );"
+      ],
+      "addedLinesText": [
+        "    checkL2OpenLayout(deepExpanded, '#I-20i(树深展开)');",
+        "    const deepDrift = L2_STABLE_FIELDS.filter((f) => deepExpanded[f] !== l2OpenLayout[f]);"
+      ],
+      "oldId": "V33-MR-02",
+      "reason": "v3-3（V33-S3/S4）：#I-20i 与 #I-20j 迁移为 L2 打开态契约（逐条见 entries）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1047,
+        1054
+      ],
+      "newRange": [
+        1267,
+        1273
+      ],
+      "deletedLines": 2,
+      "deletedLinesText": [
+        "    checkLayout(collapsedState, '#I-20k(树收起)');",
+        "    const collapsedDrift = [...]"
+      ],
+      "addedLinesText": [
+        "    checkL2OpenLayout(collapsedState, '#I-20k(树收起)');",
+        "    const collapsedDrift = L2_STABLE_FIELDS.filter((f) => collapsedState[f] !== deepExpanded[f]);"
+      ],
+      "oldId": "V33-MR-03",
+      "reason": "v3-3（V33-S5）：#I-20k 两条（checkLayout + drift）迁移为 L2 打开态契约。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1063,
+        1072
+      ],
+      "newRange": [
+        1281,
+        1300
+      ],
+      "deletedLines": 2,
+      "deletedLinesText": [
+        "    checkLayout(openLayout, '#I-05~10(开)');",
+        "    check(openLayout.drawerHidden === false, '#I-14b 开态抽屉可见（覆盖层，不挤压 #log）', JSON.stringify(openLayout));"
+      ],
+      "addedLinesText": [
+        "    checkL2OpenLayout(openLayout, '#I-05~10(开)');",
+        "    check(openLayout.drawerHidden === false, '#I-14b 开态树主体可见（L2 视图主体；#log 已被视图替换）', ...);",
+        "    // #I-14c0/#I-14c 视图往返复原 + #I-14d 重入一致"
+      ],
+      "oldId": "V33-MR-04",
+      "reason": "v3-3（V33-S6/S7）：#I-05~10(开)、#I-14b、#I-14c 迁移为「视图替换 + 往返复原」（语义更强：证明可逆）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1320,
+        1320
+      ],
+      "newRange": [
+        1457,
+        1459
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "    checkLayout(archiveLayout, '#I-19h(开档案)');"
+      ],
+      "addedLinesText": [
+        "    checkL2OpenLayout(archiveLayout, '#I-19h(开档案)');"
+      ],
+      "oldId": "V33-MR-05",
+      "reason": "v3-3（V33-S8）：#I-19h 同为 L2 打开态，随 #I-05~10(开) 一并迁移。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1480,
+        1480
+      ],
+      "newRange": [
+        1620,
+        1620
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "    `UI insight PASS — ${passes} assertions: ... 多状态布局守卫（#log ≥589px / composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；关/开/深展开/收起 drift=0）...`,"
+      ],
+      "addedLinesText": [
+        "    `UI insight PASS — ${passes} assertions: ... v3-3 起 L2 打开态改用视图替换契约 ...`,"
+      ],
+      "oldId": "V33-MR-06",
+      "reason": "v3-3（V33-S9）：PASS 摘要文案随契约迁移同步（不得留 v2 「覆盖层 drift=0」旧叙述）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        113,
+        113
+      ],
+      "newRange": [
+        213,
+        213
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "export const SIDEPANEL_BASELINE_BYTES = 328_476;"
+      ],
+      "addedLinesText": [
+        "export const SIDEPANEL_BASELINE_BYTES = 349_880;"
+      ],
+      "oldId": "V33-S10",
+      "reason": "v3-3 显式重登记（ADR-V3-011 ⑤）：基线 328,476 → 349,880 B（L2 按需视图必需增重）；ceiling 由公式抬高。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        239,
+        239
+      ],
+      "newRange": [
+        239,
+        239
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "  assert.equal(SIDEPANEL_BASELINE_BYTES, 328_476);"
+      ],
+      "addedLinesText": [
+        "  assert.equal(SIDEPANEL_BASELINE_BYTES, 349_880);"
+      ],
+      "oldId": "V33-S11",
+      "reason": "v3-3 方向敏感断言按新实测值重新 pin（断言零删减：同一条断言，仅数值重 pin）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        53,
+        53
+      ],
+      "newRange": [
+        53,
+        53
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "  assert.equal(SIDEPANEL_CEILING, 344_899, 'ceiling = floor(328,490 × 1.05)（收口轮 +811 B 后由公式抬高）');"
+      ],
+      "addedLinesText": [
+        "  assert.equal(SIDEPANEL_CEILING, 367_374, 'ceiling = floor(349,880 × 1.05)（v3-3 L2 视图轮后由公式抬高）');"
+      ],
+      "oldId": "V33-S12",
+      "reason": "v3-3 重登记后 ceiling 由公式抬高到 367,374 B（cap 仍不参与判定）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        240,
+        240
+      ],
+      "newRange": [
+        240,
+        240
+      ],
+      "deletedLines": 1,
+      "deletedLinesText": [
+        "  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 306_099);"
+      ],
+      "addedLinesText": [
+        "  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 344_899);"
+      ],
+      "oldId": "V33-S13",
+      "reason": "v3-3：previousCeilingBytes 指向上一轮（v3-2 收口轮）的 344,899 B。"
     }
   ],
   "entries": [
@@ -1097,11 +1307,12 @@
       "oldId": "SIDEPANEL_BASELINE_BYTES = 266_500",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 266_500;",
       "newId": "SIDEPANEL_BASELINE_BYTES = 266_500",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 328_476;",
-      "reason": "ADR-V3-011 显式**提升**重登记：L0 骨架 + 折叠控制器是有意增重（+25,023 B）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。 | I6 修复轮：ADR-V3-011 显式重登记（v3-1 提升轮 266,500 → 291,523；I6 修复轮按真实产物再登记 → **295,225**）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。本条目的 newTitle 随 I6 更新为当前值（取代链见 V31-S10）。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。）",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 349_880;",
+      "reason": "ADR-V3-011 显式**提升**重登记：L0 骨架 + 折叠控制器是有意增重（+25,023 B）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。 | I6 修复轮：ADR-V3-011 显式重登记（v3-1 提升轮 266,500 → 291,523；I6 修复轮按真实产物再登记 → **295,225**）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。本条目的 newTitle 随 I6 更新为当前值（取代链见 V31-S10）。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。",
       "replacementExists": true,
       "modificationType": "registered-supersession",
-      "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。"
+      "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。",
+      "reRegisteredOn": "2026-09-16"
     },
     {
       "id": "V31-S7",
@@ -1110,11 +1321,12 @@
       "oldId": "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
       "oldTitle": "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
       "newId": "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
-      "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 328_476);",
-      "reason": "尺寸守卫把基线值钉死为常量，故提升重登记必须同步重 pin（同编号、同结构、断言零删除）；方向断言由「收紧」改为「提升」，并保留「上一轮基线仍 PASS + 本轮实测超出上一轮 ceiling」的张力证明。 | I6 修复轮：尺寸守卫把基线值钉死为常量，故每次重登记都必须同步重 pin（同编号、同结构、断言零删除）；I6 修复轮：值 → 295,225，且方向断言由「baseline > 上一轮 ceiling」改为更强的「ceiling ≤ 上一轮 ceiling（只降不升）」（取代链见 V31-S11）。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。）",
+      "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 349_880);",
+      "reason": "尺寸守卫把基线值钉死为常量，故提升重登记必须同步重 pin（同编号、同结构、断言零删除）；方向断言由「收紧」改为「提升」，并保留「上一轮基线仍 PASS + 本轮实测超出上一轮 ceiling」的张力证明。 | I6 修复轮：尺寸守卫把基线值钉死为常量，故每次重登记都必须同步重 pin（同编号、同结构、断言零删除）；I6 修复轮：值 → 295,225，且方向断言由「baseline > 上一轮 ceiling」改为更强的「ceiling ≤ 上一轮 ceiling（只降不升）」（取代链见 V31-S11）。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该断言随显式重登记重 pin 至 349,880（历史理由逐字保留）。",
       "replacementExists": true,
       "modificationType": "registered-supersession",
-      "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。"
+      "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。",
+      "reRegisteredOn": "2026-09-16"
     },
     {
       "id": "V31-S8",
@@ -1148,11 +1360,12 @@
       "oldId": "SIDEPANEL_BASELINE_BYTES = 291_523（该轮最终产物实测 294,874 —— 登记失真）",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 291_523;",
       "newId": "SIDEPANEL_BASELINE_BYTES = 295_225（= 修复轮最终构建实测产物）",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 328_476;",
-      "reason": "I6：按**真实产物**重登记。ceiling **不抬高**：新增 SIDEPANEL_CEILING_CAP = 306,099（上一轮 ceiling），SIDEPANEL_CEILING 改为 min(floor(baseline × 1.05), cap)，evaluateSidepanelSize 同步 cap-aware → 只降不升（未被采用的公式值 309,986 已显式记录为 SIDEPANEL_CEILING_UNCAPPED）；容差 5% 不变；历史值以 TIMELINE + previousBaselineBytes 保留。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。）",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 349_880;",
+      "reason": "I6：按**真实产物**重登记。ceiling **不抬高**：新增 SIDEPANEL_CEILING_CAP = 306,099（上一轮 ceiling），SIDEPANEL_CEILING 改为 min(floor(baseline × 1.05), cap)，evaluateSidepanelSize 同步 cap-aware → 只降不升（未被采用的公式值 309,986 已显式记录为 SIDEPANEL_CEILING_UNCAPPED）；容差 5% 不变；历史值以 TIMELINE + previousBaselineBytes 保留。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。",
       "replacementExists": true,
       "modificationType": "registered-supersession",
-      "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。"
+      "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。",
+      "reRegisteredOn": "2026-09-16"
     },
     {
       "id": "V31-S11",
@@ -1185,10 +1398,12 @@
       "oldId": "#log ≥589px（PASS 摘要文案漂移）",
       "oldTitle": "    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（#log ≥589px / composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；关/开/深展开/收起 drift=0）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,",
       "newId": "#log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源）",
-      "newTitle": "    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（#log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；关/开/深展开/收起 drift=0）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,",
-      "reason": "I7：PASS 摘要仍打印 v1 时代的 589px，与同文件实际断言的 LOG_CLIENT_HEIGHT_FLOOR（488）漂移；改为从单一常量插值，避免文档再次漂移。断言本体零改动（108 条不变）。",
+      "newTitle": "    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2 关态 #log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；v3-3 起 L2 打开态改用视图替换契约： #log 被替换 + 单滚动容器 + 恰一视图可见 + composer 贴底，返回后逐字段复原）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,",
+      "reason": "I7：PASS 摘要仍打印 v1 时代的 589px，与同文件实际断言的 LOG_CLIENT_HEIGHT_FLOOR（488）漂移；改为从单一常量插值，避免文档再次漂移。断言本体零改动（108 条不变）。 v3-3（2026-09-16）**订正**：该 newTitle 于本叶被 V33-S9 再次改写（L2 打开态改用视图替换契约），原登记文本已不存在 → 为防止「防橡皮图章」判定失真，此处按**当前真实文本**重新钉住，并显式登记后继条目 `supersededBy: V33-S9`（历史理由逐字保留）。",
       "replacementExists": true,
-      "modificationType": "registered-supersession"
+      "modificationType": "registered-supersession",
+      "supersededBy": "V33-S9",
+      "reRegisteredOn": "2026-09-16"
     },
     {
       "id": "V31-S14",
@@ -1221,10 +1436,11 @@
       "oldId": "V32-S",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 295_225;",
       "newId": "V32-S1",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 328_476;",
-      "reason": "v3-2 显式重登记：按真实产物重 pin 基线（295,225 → 327,679 B）；修复轮按裁决 V3-VOL-1 ① 批准该登记值、② 撤销自加 cap → ceiling 恢复为公式值 floor(327,679 × 1.05) = 344,062 B；断言零删减、容差 5% 未变；增量构成（+32,454 B：新必需模块 26,156 / 接线 5,848 / 归因位移 220 / 未归因胶水 230）见 SIDEPANEL_GROWTH_BREAKDOWN。（修复轮订正：本条目原记为 327,639 B / 21,540 B，系笔误，实测与登记值均为 327,679 B / 21,580 B。）（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。）",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 349_880;",
+      "reason": "v3-2 显式重登记：按真实产物重 pin 基线（295,225 → 327,679 B）；修复轮按裁决 V3-VOL-1 ① 批准该登记值、② 撤销自加 cap → ceiling 恢复为公式值 floor(327,679 × 1.05) = 344,062 B；断言零删减、容差 5% 未变；增量构成（+32,454 B：新必需模块 26,156 / 接线 5,848 / 归因位移 220 / 未归因胶水 230）见 SIDEPANEL_GROWTH_BREAKDOWN。（修复轮订正：本条目原记为 327,639 B / 21,540 B，系笔误，实测与登记值均为 327,679 B / 21,580 B。）（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。",
       "replacementExists": true,
-      "modificationType": "registered-supersession"
+      "modificationType": "registered-supersession",
+      "reRegisteredOn": "2026-09-16"
     },
     {
       "id": "V32-S2",
@@ -1441,6 +1657,174 @@
       "reason": "validate R1 N-11：`cp(dist, extDir)` 在 `dist` 为**符号链接**时（验证沙箱实测）会复制链接本身，于是对 `extDir/manifest.json` 的临时改写**穿透写回真实 `dist/manifest.json`**。三处 cp 全部加 `dereference: true`（复制链接目标内容），正常（真实目录）布局行为不变；`check(` 计数 192 不变、断言集合与受保护区段 sha256 均未改（`protectedRanges` 的 start/endByte 因上方新增注释行而重算，hash 不变）。",
       "replacementExists": true,
       "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S1",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-01e（v2 覆盖式抽屉：position=absolute）",
+      "oldTitle": "    check(initial.drawerPosition === 'absolute', '#I-01e 抽屉为 absolute（不参与 flex 流，结构上不挤压 #log）', initial.drawerPosition);",
+      "newId": "#I-01e / #I-01e2 / #I-01e3（归属迁移三连，断言数 +2）",
+      "newTitle": "      initial.drawerPosition === 'static',",
+      "reason": "ADR-V3-028：抽屉由「覆盖 #log 的绝对定位浮层」迁为「[data-l2-view=\"tree\"] 的视图主体」。同一断言位改为更严格的三条：position=static、归属容器可回读、role=dialog→region + aria-modal 移除的台账项。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S2",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-20i（checkLayout：要求开态 #log ≥488px）",
+      "oldTitle": "    checkLayout(deepExpanded, '#I-20i(树深展开)');",
+      "newId": "#I-20i（checkL2OpenLayout：7 条视图替换契约）",
+      "newTitle": "    checkL2OpenLayout(deepExpanded, '#I-20i(树深展开)');",
+      "reason": "L2 打开期间 #log 被视图替换（FR-V3-047），v2 的「#log 高度」在开态无定义（=0）。同编号 7 条断言改为断言替换契约本身（#log hidden / host 可见 / 恰一视图 / 零溢出 / 单滚动容器 / composer 贴底 / 无水平溢出），条数不变。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S3",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-20j（drift 基线 = 关态 closedLayout）",
+      "oldTitle": "      '#I-20j 树深展开（站点面 + 命令面 + dom 子树）不改变稳态几何（drift=0）',",
+      "newId": "#I-20j（drift 基线 = L2 打开态 l2OpenLayout）",
+      "newTitle": "      '#I-20j 树深展开（站点面 + 命令面 + dom 子树）不改变 L2 打开态稳态几何（drift=0）',",
+      "reason": "drift 的参照物从「关态 #log 几何」改为「进入视图后的开态基线」（L2_STABLE_FIELDS）—— 在视图替换下这是唯一有意义的稳定性声明。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S4",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-20k（checkLayout：树收起）",
+      "oldTitle": "    checkLayout(collapsedState, '#I-20k(树收起)');",
+      "newId": "#I-20k（checkL2OpenLayout：树收起）",
+      "newTitle": "    checkL2OpenLayout(collapsedState, '#I-20k(树收起)');",
+      "reason": "同上：同编号 7 条改为视图替换契约。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S5",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-20k（drift：收起 vs 关态）",
+      "oldTitle": "      '#I-20k 树收起（一级分组折叠）不改变稳态几何（drift=0）',",
+      "newId": "#I-20k（drift：收起 vs 深展开）",
+      "newTitle": "      '#I-20k 树收起（一级分组折叠）不改变 L2 打开态稳态几何（drift=0）',",
+      "reason": "收起态与深展开态逐字段相等（同一开态内的稳定性），取代「与关态相等」。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S6",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-05~10(开)（checkLayout 七条）",
+      "oldTitle": "    checkLayout(openLayout, '#I-05~10(开)');",
+      "newId": "#I-05~10(开)（checkL2OpenLayout 七条）",
+      "newTitle": "    checkL2OpenLayout(openLayout, '#I-05~10(开)');",
+      "reason": "开态几何由「#log 仍在且够高」改为「视图替换契约」；七条断言一一对应，条数不变。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S7",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-14b + #I-14c（覆盖层开态 + 开/关 drift=0）",
+      "oldTitle": "    check(openLayout.drawerHidden === false, '#I-14b 开态抽屉可见（覆盖层，不挤压 #log）', JSON.stringify(openLayout));",
+      "newId": "#I-14b（标签订正）+ #I-14c0（#log 复原）+ #I-14c（往返 drift=0）+ #I-14d（重入一致）",
+      "newTitle": "    check(returned.logHidden === false, '#I-14c0 返回后 #log 重新可见（视图替换可逆）', JSON.stringify(returned.logHidden));",
+      "reason": "#I-14b 的**条件不变**（drawer.hidden === false），仅订正括号内的旧语义（「覆盖层，不挤压 #log」→「L2 视图主体」）。#I-14c 由「开/关逐字段相等」升级为「**进入前 == 返回后**逐字段复原」（严格更强：额外证明替换可逆），并新增 #I-14c0 / #I-14d 两条（断言数净增）。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S8",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "#I-19h(开档案)（checkLayout）",
+      "oldTitle": "    checkLayout(archiveLayout, '#I-19h(开档案)');",
+      "newId": "#I-19h(开档案)（checkL2OpenLayout）",
+      "newTitle": "    checkL2OpenLayout(archiveLayout, '#I-19h(开档案)');",
+      "reason": "档案子视图同样开在 L2 视图内，随 #I-05~10(开) 一并迁移（同编号）。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S9",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "PASS 摘要文案（「关/开/深展开/收起 drift=0」）",
+      "oldTitle": "    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（#log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；关/开/深展开/收起 drift=0）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,",
+      "newId": "PASS 摘要（视图替换契约）",
+      "newTitle": "    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2 关态 #log ≥${LOG_MIN_HEIGHT}px",
+      "reason": "摘要不得滞留 v2「覆盖层 drift=0」叙述（文档数字与实测不符是 v3-1 I7 已发生过一次的问题）。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S10",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "npm test（size-budget + size-growth-evidence）",
+      "oldId": "基线 328,476 B（v3-2 收口轮）",
+      "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 328_476;",
+      "newId": "基线 349,880 B（v3-3 build 轮）",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 349_880;",
+      "reason": "ADR-V3-011 ⑤ / EC-V3-013：本叶内完成显式重登记（前值 328,476 B 保留在 _TIMELINE / 重登记登记册 / reRegisteredFrom；披露五要素齐备 + 增量归因表；容差 5% 未动；targetBudgetBytes/targetMet 仍 null；断言零删减）。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S11",
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "gate": "npm test",
+      "oldId": "基线断言 328,476",
+      "oldTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 328_476);",
+      "newId": "基线断言 349,880",
+      "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 349_880);",
+      "reason": "同一条方向敏感断言按新实测值重新 pin（不是删除、不是放宽）。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S12",
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "gate": "npm test",
+      "oldId": "ceiling 断言 344,899",
+      "oldTitle": "  assert.equal(SIDEPANEL_CEILING, 344_899, 'ceiling = floor(328,490 × 1.05)（收口轮 +811 B 后由公式抬高）');",
+      "newId": "ceiling 断言 367,374",
+      "newTitle": "  assert.equal(SIDEPANEL_CEILING, 367_374, 'ceiling = floor(349,880 × 1.05)（v3-3 L2 视图轮后由公式抬高）');",
+      "reason": "判定公式未变（floor(baseline × 1.05)），基线重登记后公式值随之抬高；cap 仍 record-only。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S13",
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "gate": "npm test",
+      "oldId": "previousCeilingBytes 断言 306,099",
+      "oldTitle": "  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 306_099);",
+      "newId": "previousCeilingBytes 断言 344,899",
+      "newTitle": "  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 344_899);",
+      "reason": "v3-3：previous* 的语义是「上一轮」，上一轮（v3-2 收口轮）的 ceiling 是 344,899 B。",
+      "replacementExists": true,
+      "modificationType": "superseding"
+    },
+    {
+      "id": "V33-S14",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test:insight",
+      "oldId": "（无 — 纯新增插入）",
+      "oldTitle": null,
+      "newId": "v3OpenTreeView + v3CloseTreeView + settleDrawer + checkL2OpenLayout",
+      "newTitle": "const v3CloseTreeView = async (page) => {",
+      "reason": "v3-3：入口 helper **纯新增**（v3CloseTreeView / settleDrawer / checkL2OpenLayout），没有删除任何既有文本 —— 按 v3-1 I4① 的口径登记为 pure-addition（oldTitle 必须为 null）。",
+      "replacementExists": true,
+      "modificationType": "pure-addition"
     }
   ],
   "zeroDiffFiles": [
@@ -1464,25 +1848,25 @@
     "nodeTestStatic": {
       "countMethod": "static-node-test-registrations",
       "baselineStatic": 646,
-      "currentStatic": 775,
+      "currentStatic": 783,
       "floor": 646,
-      "note": "静态复算（2026-09-16 收口轮，`test/*.test.ts` 全 67 份文件拼接后逐正则计数；复现：`cat test/*.test.ts | grep -o -P '<regex>' | wc -l`）：① `\\btest\\(`（任意词边界，**会把正则方法调用也算进来**）= **833**；② `(?<![\\w.])test\\(`（排除点号前缀）= **741** ← `currentStatic` 采用此读法；③ `^test\\(`（多行、仅行首顶格注册）= **732**，与运行期 `ℹ tests` 732 **逐值相等**（跨口径交叉印证，非口径混用）。三种读法都 ≥ 下界 646，故「只增不减」在任一读法下均成立。validate R1（F3）指出旧登记 830 / 740 不可复现（实测 833 / 741）且未给出可复算的正则 → 本轮按实测订正，并把三个读法的**确切正则**写入 `readings` 由门禁机器复算（`test/supersession-ledger.test.ts`）。**不得**用 732/741/833（静态）与 646/725/731/732（运行期）互相相减——口径不同（I4③）。 v3-2（2026-09-16，68 份文件重算）：三读法按实测复算并写回 readings；`currentStatic` 仍采用 excludingDottedPrefix。 v3-2 修复轮（69 份文件重算）：新增 size-growth-evidence.test.ts 与三处重 pin（size-budget / insight-archive / density-thresholds）后按实测复算写回 readings —— anyWordBoundary=858 / excludingDottedPrefix=765 / topLevelColumnZero=754；全部 ≥ 下界 646，currentStatic 仍采用 excludingDottedPrefix。（**v3-2 修复轮 R2，2026-09-16**：新增 `test/gate-integrity.test.ts`（元门禁，6 个用例）后按实测复算并写回 readings —— anyWordBoundary=**884** / excludingDottedPrefix=**771** / topLevelColumnZero=**760**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。）（**v3-2 收口轮，2026-09-16**：按实测复算写回 —— anyWordBoundary=**896** / excludingDottedPrefix=**775** / topLevelColumnZero=**764**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。）",
+      "note": "静态复算（2026-09-16 收口轮，`test/*.test.ts` 全 67 份文件拼接后逐正则计数；复现：`cat test/*.test.ts | grep -o -P '<regex>' | wc -l`）：① `\\btest\\(`（任意词边界，**会把正则方法调用也算进来**）= **833**；② `(?<![\\w.])test\\(`（排除点号前缀）= **741** ← `currentStatic` 采用此读法；③ `^test\\(`（多行、仅行首顶格注册）= **732**，与运行期 `ℹ tests` 732 **逐值相等**（跨口径交叉印证，非口径混用）。三种读法都 ≥ 下界 646，故「只增不减」在任一读法下均成立。validate R1（F3）指出旧登记 830 / 740 不可复现（实测 833 / 741）且未给出可复算的正则 → 本轮按实测订正，并把三个读法的**确切正则**写入 `readings` 由门禁机器复算（`test/supersession-ledger.test.ts`）。**不得**用 732/741/833（静态）与 646/725/731/732（运行期）互相相减——口径不同（I4③）。 v3-2（2026-09-16，68 份文件重算）：三读法按实测复算并写回 readings；`currentStatic` 仍采用 excludingDottedPrefix。 v3-2 修复轮（69 份文件重算）：新增 size-growth-evidence.test.ts 与三处重 pin（size-budget / insight-archive / density-thresholds）后按实测复算写回 readings —— anyWordBoundary=858 / excludingDottedPrefix=765 / topLevelColumnZero=754；全部 ≥ 下界 646，currentStatic 仍采用 excludingDottedPrefix。（**v3-2 修复轮 R2，2026-09-16**：新增 `test/gate-integrity.test.ts`（元门禁，6 个用例）后按实测复算并写回 readings —— anyWordBoundary=**884** / excludingDottedPrefix=**771** / topLevelColumnZero=**760**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。）（**v3-2 收口轮，2026-09-16**：按实测复算写回 —— anyWordBoundary=**896** / excludingDottedPrefix=**775** / topLevelColumnZero=**764**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。） v3-3（2026-09-16）：新增 test/l2-counts.test.ts（8 个 test( 注册）→ 三读法分别 896→905 / 775→783 / 764→772；currentStatic 采用 excludingDottedPrefix 读法 = **783**，与运行期 772 分列（两种口径不互借）。",
       "readings": {
         "anyWordBoundary": {
           "regex": "\\btest\\(",
-          "count": 896,
+          "count": 905,
           "includesRegexMethodCalls": true,
           "note": "含 92 处 `正则.test(...)` 方法调用（如 insight-no-escalation.test.ts 的 21 处），故不是「用例数」口径。"
         },
         "excludingDottedPrefix": {
           "regex": "(?<![\\w.])test\\(",
-          "count": 775,
+          "count": 783,
           "includesRegexMethodCalls": false,
           "note": "currentStatic 采用此读法：排除了点号前缀的方法调用。"
         },
         "topLevelColumnZero": {
           "regex": "^test\\(",
-          "count": 764,
+          "count": 772,
           "includesRegexMethodCalls": false,
           "note": "多行模式、仅行首顶格注册 → 与运行期 `ℹ tests`（732）逐值相等，是最贴近「用例注册数」的静态读法；因与运行期口径数值相同，**不作为** currentStatic（台账要求两口径数字必须分列，见 schema 用例）。"
         }
@@ -1500,7 +1884,7 @@
     "packages/web-cli-plugin/test/e2e/fullchain.mjs"
   ],
   "pureAdditionNote": "经真实 `git diff -U0 c2c0e0d` 复算：这两份受保护门禁相对本轮起点**只新增、零删除**（journey +27/-0、binding +45/-0）。因此「每个删除/改写 hunk 必须命中台账」的逐 hunk 校验对它们**天然空转**（旧台账把它们列进 hunk 集合，看起来有覆盖、实际恒真 —— review I4②）。本表把它们单独归类：门禁改为 ① 断言其删除行数确实为 0（「纯新增」这一事实本身受检），② 不再对其假装做逐 hunk 校验；真正有删除行的文件（insight.mjs / size-baseline.ts / size-budget.test.ts / insight-archive.test.ts / insight-tree-hierarchy.test.ts）保留逐 hunk 覆盖。 v3-2（2026-09-16）：新增 `test/ui/l1.mjs`（L1 运行时门禁）与 `test/l1-ref-validity.test.ts`（判定/存储纯单测）亦为纯新增（0 删除行），其 \"0 removed lines\" 本身由本节断言。 v3-2 修复轮追加 3 个纯新增文件（size-growth-evidence.test.ts / size-attribution.mjs / ui/l1-reverse.mjs）：相对 base 零删除行，故按 1b 用例断言「0 删除行」并由 entries 提供 newTitle 定位。 v3-2 修复轮 R2（2026-09-16）：① 追加 `test/gate-integrity.test.ts`（元门禁）；② **把 `test/ui/hardening.mjs` 与 `test/e2e/fullchain.mjs` 从 zeroDiffFiles 移入本表** —— 二者原本零改动，本轮为满足元门禁 R3「所有 CDP `send()` 必须带 readyState / 超时 / close 拒结保护」做了**纯插入**加固（各 +16 行 / -0 行，`check(` 计数、断言集合、判据、阈值、夹具全部未动），移入本表后其「0 删除行」由 1b 用例继续断言，且新增 entries `V32-S13`/`V32-S14` 提供 newTitle 定位。**红线未后退**：`zeroDiffFiles` 中真正的红线文件（`src/content/**` 三冻结文件、`src/security/{policy,auto-authorize}.ts`、`manifest.json`、`options.html`、`sidepanel-view.test.ts`、`perf-budget.test.ts`）**全部保留且仍为 0 行 diff**；被移出的两个是**测试驱动脚本**（门禁自身硬化，非产品面），且改动方向是「不再静默挂死」——属加固。 v3-2 收口轮（2026-09-16）：**`test/ui/binding.mjs` 移出本表** —— N-11（validate R1）对三处 `cp(dist, extDir, { recursive: true })` 加了 `dereference: true` 保护（`dist` 是符号链接时会穿透写回真实 `dist/manifest.json`），因此该文件相对 base **不再零删除行**；其 3 条删除行（base 703 / 1954 / 2140）由条目 `V32-S18` 的 `oldTitle` 按行命中。红线未后退：`zeroDiffFiles` 中的真正红线文件全部保留。",
-  "v3GateFloorsNote": "下界按**运行期 `check(` 调用点**计（与旧值同口径，`--files-override` 的判据；RP-V3-05 靠「下界 == 实测调用点数」保持敏感 —— 删掉任意一条断言即低于下界而 FAIL）。历史：l0.mjs 50 → 65（修复轮）→ **68**（收口轮 F6：FR-V3-015 三处同源断言 + 反证 FAIL/还原两段）；density.mjs 40 → 54（修复轮）→ **60**（收口轮 F7：RP-V3-09 六条 + 夹具稳态相关断言）；l1.mjs 55 → **60**（v3-2 修复轮 R2：I-01 真断言替换恒真占位 + I-02 内层 guard 字节 pin ×2 + I-07 aria-expanded ×1 + I-08 EC-V3-015 ×1，见 entries `V32-S12`）。下界**只增不减**，故按本轮实测登记（v3-2 修复轮 R2 实测：l0.mjs 68 / density.mjs 60 / l1.mjs 60）。 v3-2 收口轮（2026-09-16）实测：l0.mjs 68 / density.mjs 60 / **l1.mjs 64**（N-04 三条 + N-05 一条：重拾无观测 ⇒ unknown / 调用方观测 ⇒ valid / 新 id 不重用 / reset 清空 env）。下界只增不减。",
+  "v3GateFloorsNote": "下界按**运行期 `check(` 调用点**计（与旧值同口径，`--files-override` 的判据；RP-V3-05 靠「下界 == 实测调用点数」保持敏感 —— 删掉任意一条断言即低于下界而 FAIL）。历史：l0.mjs 50 → 65（修复轮）→ **68**（收口轮 F6：FR-V3-015 三处同源断言 + 反证 FAIL/还原两段）；density.mjs 40 → 54（修复轮）→ **60**（收口轮 F7：RP-V3-09 六条 + 夹具稳态相关断言）；l1.mjs 55 → **60**（v3-2 修复轮 R2：I-01 真断言替换恒真占位 + I-02 内层 guard 字节 pin ×2 + I-07 aria-expanded ×1 + I-08 EC-V3-015 ×1，见 entries `V32-S12`）。下界**只增不减**，故按本轮实测登记（v3-2 修复轮 R2 实测：l0.mjs 68 / density.mjs 60 / l1.mjs 60）。 v3-2 收口轮（2026-09-16）实测：l0.mjs 68 / density.mjs 60 / **l1.mjs 64**（N-04 三条 + N-05 一条：重拾无观测 ⇒ unknown / 调用方观测 ⇒ valid / 新 id 不重用 / reset 清空 env）。下界只增不减。 v3-3（2026-09-16）：l0.mjs 68 → **72**（⑥ 的豁免删除后改断「L2 视图目标默认 hidden」四条 + 反证真值非零一条，`check(` 计数实测 72）；新增 `test/ui/l2.mjs` = **68**（L2 运行时门禁，`check(` 计数实测 68；RP-V3-05 可用同 basename 覆盖驱动）。",
   "v3CaliberPins": {
     "packages/web-cli-plugin/test/ui/density-metrics.mjs": {
       "countMethod": "literal-content-pins",
@@ -1533,21 +1917,14 @@
     }
   },
   "v3SkeletonExemptions": {
-    "view-host": {
-      "ac": "AC-V3-010（可发现性）",
-      "registeredOn": "2026-09-16",
-      "why": "v3-1 只交付 L2 宿主骨架（#view-host 为空 div），视图内容归 v3-3；因此「目标含非空摘要」对它是骨架期豁免。豁免**已登记且被断言为唯一**（test/ui/l0.mjs ⑥ 的 SKELETON_EXEMPT_TARGETS），并额外要求：宿主默认 hidden、四条 #l2-entry-* 入口自带非空标签（连接树 · N / 命令目录 · N / 审计 · N / 设置）、trigger↔host 的 aria-expanded/aria-controls 成对。",
-      "notExempt": "入口文字、ARIA 成对、目标存在性、L2 ≤2 次可达 —— 这些要求对 view-host 同样生效，不豁免。",
-      "removalCondition": "v3-3 用真实视图填充 #view-host 后必须删除该豁免（并把摘要断言恢复为对所有目标生效）。",
-      "whyNotContent": "曾尝试在 #view-host 内放一行摘要文案：`test/ui/insight.mjs` #I-20j/#I-20k/#I-14c 的 drift=0 断言随即失败（宿主可见时 #log 534→492px），因为 v3-1 的几何契约要求 L2 视图打开不改变稳态几何。故按编排器指示改为**显式登记豁免**，不改动几何。"
-    },
-    "settings-count": {
-      "ac": "FR-V3-015（≤4 个 L2 入口**各带计数**）/ AC-V3-010",
-      "registeredOn": "2026-09-16",
-      "why": "`#l2-entry-settings` 的 `data-count=\"n/a\"`、标签为纯文本「设置」。收口轮（validate R1 F6）优先尝试「补真值计数」：在 L0 层**派生不出**真值 —— `l0ViewModel()` 是纯函数，而设置视图（`#settings-view` / `src/ui/settings/panel.ts`）是**首次打开才挂载**的懒加载 DOM（`sidepanel.ts`: `settingsHandle` 懒挂载），故 L0 渲染时刻没有可读的设置项数；唯一替代是写死魔数（禁止）或改 `src/**` 增加计数通路 —— 后者会改变 `dist/sidepanel.js` 的字节数，使编排器已裁决钉死的体积登记值 295,225 B（validate F8）失效。故按 `#view-host` 同法**登记豁免**，并让门禁断言豁免边界（豁免集合 ⊆ 登记集合且数量不得增长）。",
-      "notExempt": "入口文字、ARIA 成对、入口数量 ≤4、`data-count` 属性必须存在（豁免入口必须显式写作 `n/a`，不得留空冒充有计数）—— 这些要求对 settings 入口同样生效；其余三个入口（连接树 / 命令目录 / 审计）必须带**真值**计数，且「入口标签 ≡ data-count ≡ 状态栏一行摘要」三处同源。",
-      "removalCondition": "v3-3 交付设置视图（L2）并给出可派生的设置项数后必须删除该豁免，把 settings 入口纳入「三处同源」断言。",
-      "where": "test/ui/l0.mjs §⑥b（`L2_COUNT_EXEMPT` 常量 + `l2CountJudge()` + 内联反证实跑 FAIL→还原→PASS）"
+    "_removedInV33": {
+      "removedOn": "2026-09-16",
+      "removedBy": "v3-3（specs-tree-v3-3-l2-on-demand-views）",
+      "why": "两个 v3-1 骨架期豁免都按其自身 `removalCondition` 在本叶**删除**：① `view-host` 已被四个真实视图填充，「目标含非空摘要」对它同样生效（test/ui/l0.mjs ⑥ 的 SKELETON_EXEMPT_TARGETS 清空为 [] 并被断言为空）；② `settings-count` 的计数已可从单一来源派生（src/ui/settings/sections.ts#SETTINGS_SECTION_IDS = 7 个 `.wc-section`），入口 data-count ≡ 摘要 ≡ 渲染出的分区数三处同源（test/ui/l0.mjs ⑥b 的 L2_COUNT_EXEMPT 清空为 []），并由 test/ui/l2.mjs ⑩ 与渲染后的 `#settings-root > .wc-section` 集合机器比对。",
+      "history": {
+        "view-host": "v3-1 登记（骨架期）：#view-host 为空 div，摘要豁免；v3-3 填充后删除。",
+        "settings-count": "v3-1 收口轮登记（F6）：#l2-entry-settings 无真值计数；v3-3 给出登记表来源后删除。"
+      }
     }
   }
 }

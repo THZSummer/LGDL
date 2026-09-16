@@ -4,7 +4,7 @@
   "measuredOn": "2026-09-16",
   "source": "packages/web-cli-plugin/dist/sidepanel.html + dist/sidepanel.js（真实构建产物）",
   "buildCommand": "npm run build --workspace @lgdl/web-cli-plugin",
-  "measuredBy": "v3-1 第 1 轮 + v3-2 build（2026-09-16）：风险 staleRef 三格按真实五维可读原因重登记（chars 244→254）；默认档 / 首装档 / 其余风险格与 worst 逐项未变（阶段 B/C 实测与登记值逐格相等）。",
+  "measuredBy": "v3-1 第 1 轮 + v3-2 build + **v3-3 build（2026-09-16）**：v3-3 把 L2 计数从常驻一行状态栏移入 L0 入口面板（`#l2-entry-summary` + 四个入口标签，全部由 `l2/counts.ts` 从真值派生），常驻文本因此**逐格 −3 chars**（22 格全为 tighten 方向，C1/C2/C3/C4 与阈值逐项未动）。前值逐格保留在各格 `previous`。",
   "measurementRoot": "document.body（父 ADR-V3-001：真实产物不新增 #panel 包裹层；设计稿口径的等价根是 #panel）",
   "caliber": {
     "C1": "可点元素：非 hidden 祖先 ∧ (tag ∈ {BUTTON,A,INPUT,SELECT,TEXTAREA} ∨ tabindex ≠ -1)；display/visibility/opacity/pointer-events/视口位置/aria-hidden 一律不豁免",
@@ -27,7 +27,7 @@
     }
   },
   "direction": "tighten-only",
-  "directionNote": "本文件是**首轮真实产物基线**：后续任何变更只允许**收紧**（实测值 ≤ 已登记值）；放宽必须由作者/编排器裁决并显式登记（前后值 + 日期 + 理由 + 历史保留），且不得以放宽上限换功能（NG-V3-010）。",
+  "directionNote": "本文件是**首轮真实产物基线**：后续任何变更只允许**收紧**（实测值 ≤ 已登记值）；放宽必须由作者/编排器裁决并显式登记（前后值 + 日期 + 理由 + 历史保留），且不得以放宽上限换功能（NG-V3-010）。 v3-3（2026-09-16）：本文件按 tighten-only 方向**再次收紧**（chars 逐格 −3；无任何放宽），前值保留在各格 `previous`。",
   "tiers": {
     "default": {
       "state": "已绑定 + 已授权 + 探测完成 + 无待确认 + onboarding 与 discovery-notice 已终结（含一张待答决策卡 → 可点预算被完整占用）",
@@ -36,31 +36,48 @@
         "lines": 7,
         "blocks": 19,
         "regions": 6,
-        "chars": 223,
+        "chars": 220,
         "previous": {
-          "clickables": 7,
-          "lines": 6,
-          "blocks": 18,
-          "regions": 6,
-          "chars": 194
+          "chars": 223,
+          "reRegisteredOn": "2026-09-16",
+          "reRegisteredBy": "v3-3 build round"
         },
         "reRegisteredOn": "2026-09-16",
-        "reRegisteredBy": "收口轮（validate R1 F2 / K-1 + 编排器裁决）。旧登记值 194/18/6 是**夹具非对称**的产物：它是 `default@320` 作为阶段 B **第一格**时的测量值，此时会话尚未绑定到面板自身标签页，因此 `#notice` 还不存在。从第二个夹具周期起（含 400/520 与全部 risk 格）`#notice` 常驻，320 也变成 223/19/7。夹具改为**两遍**（`fixturePass()` ×2）后每格都处于同一稳态，三视口逐项相等（新增断言 `默认档夹具确定性：三视口逐项相等`）。",
-        "reRegistrationReason": "订正理由 = 测量真值（稳态）而非放宽阈值：`#notice`（29 字符 / +1 块 / +1 行）在会话内**持续存在**（validate R1 独立复测确认，非文档原先写的「瞬时」）。三条档位上限 7/15 · 9/20 · 17/35 与 ceiling 一律未动；本格数值由 194/18/6 → 223/19/7 是**登记真值订正**（前一值为夹具未稳态的欠测），已按「显式重登记」流程登记前后值 + 日期 + 来源 + 理由，历史值逐字保留在 previous。下一行的 `restore` 说明为何不能反向「压低」：见 fixtureAsymmetry。"
+        "reRegisteredBy": "v3-3（specs-tree-v3-3-l2-on-demand-views）",
+        "reRegistrationReason": "v3-3 收紧：常驻一行状态栏（`#l0-statusbar-text`）不再承载计数 —— 计数改为在 L0 入口面板（`#l2-entries`，含 `#l2-entry-summary` 摘要 + 四个 `#l2-entry-*` 标签）内展示，全部由 `src/ui/sidepanel/l2/counts.ts#deriveCounts()` 从真值派生（FR-V3-046 / FR-V3-015）。理由（可机器复现）：`审计` 计数来自既有 audit ring buffer，会随面板使用**单调增长**，把它放进被测量的常驻文本会让同一稳态在不同格之间不再相等（阶段 A 的「三视口逐项相等」判据）。故常驻文本改为无数字的稳定摘要（chars 逐格 −3，方向 = tighten-only，见本文件 `direction: tighten-only`）。阈值 7/15 · 9/20 · 17/35 与 C1/C2/C3/C4 逐项未动。",
+        "note": "| v3-3（2026-09-16）：chars 由 223 收紧为 220（常驻状态栏文本去计数）。"
       },
       "400": {
         "clickables": 7,
         "lines": 7,
         "blocks": 19,
         "regions": 6,
-        "chars": 223
+        "chars": 220,
+        "previous": {
+          "chars": 223,
+          "reRegisteredOn": "2026-09-16",
+          "reRegisteredBy": "v3-3 build round"
+        },
+        "reRegisteredOn": "2026-09-16",
+        "reRegisteredBy": "v3-3（specs-tree-v3-3-l2-on-demand-views）",
+        "reRegistrationReason": "v3-3 收紧：常驻一行状态栏（`#l0-statusbar-text`）不再承载计数 —— 计数改为在 L0 入口面板（`#l2-entries`，含 `#l2-entry-summary` 摘要 + 四个 `#l2-entry-*` 标签）内展示，全部由 `src/ui/sidepanel/l2/counts.ts#deriveCounts()` 从真值派生（FR-V3-046 / FR-V3-015）。理由（可机器复现）：`审计` 计数来自既有 audit ring buffer，会随面板使用**单调增长**，把它放进被测量的常驻文本会让同一稳态在不同格之间不再相等（阶段 A 的「三视口逐项相等」判据）。故常驻文本改为无数字的稳定摘要（chars 逐格 −3，方向 = tighten-only，见本文件 `direction: tighten-only`）。阈值 7/15 · 9/20 · 17/35 与 C1/C2/C3/C4 逐项未动。",
+        "note": "| v3-3（2026-09-16）：chars 由 223 收紧为 220（常驻状态栏文本去计数）。"
       },
       "520": {
         "clickables": 7,
         "lines": 7,
         "blocks": 19,
         "regions": 6,
-        "chars": 223
+        "chars": 220,
+        "previous": {
+          "chars": 223,
+          "reRegisteredOn": "2026-09-16",
+          "reRegisteredBy": "v3-3 build round"
+        },
+        "reRegisteredOn": "2026-09-16",
+        "reRegisteredBy": "v3-3（specs-tree-v3-3-l2-on-demand-views）",
+        "reRegistrationReason": "v3-3 收紧：常驻一行状态栏（`#l0-statusbar-text`）不再承载计数 —— 计数改为在 L0 入口面板（`#l2-entries`，含 `#l2-entry-summary` 摘要 + 四个 `#l2-entry-*` 标签）内展示，全部由 `src/ui/sidepanel/l2/counts.ts#deriveCounts()` 从真值派生（FR-V3-046 / FR-V3-015）。理由（可机器复现）：`审计` 计数来自既有 audit ring buffer，会随面板使用**单调增长**，把它放进被测量的常驻文本会让同一稳态在不同格之间不再相等（阶段 A 的「三视口逐项相等」判据）。故常驻文本改为无数字的稳定摘要（chars 逐格 −3，方向 = tighten-only，见本文件 `direction: tighten-only`）。阈值 7/15 · 9/20 · 17/35 与 C1/C2/C3/C4 逐项未动。",
+        "note": "| v3-3（2026-09-16）：chars 由 223 收紧为 220（常驻状态栏文本去计数）。"
       },
       "previous": null,
       "note": "C1 恰为 7 且逐项可追溯：#l0-status-band / #l0-pick / 2 个推荐选项 / #l0-more / #l0-ref-toggle / #l0-statusbar（ADR-V3-013 §2）。 收口轮（2026-09-16）：320 格的登记值由 194/18/6 订正为 223/19/7 —— 它是夹具**未稳态**（第一格）造成的欠测，而非视口差异；夹具改为两遍后三视口逐项相等（223/19/7）。"
@@ -72,21 +89,48 @@
         "lines": 12,
         "blocks": 25,
         "regions": 6,
-        "chars": 387
+        "chars": 384,
+        "previous": {
+          "chars": 387,
+          "reRegisteredOn": "2026-09-16",
+          "reRegisteredBy": "v3-3 build round"
+        },
+        "reRegisteredOn": "2026-09-16",
+        "reRegisteredBy": "v3-3（specs-tree-v3-3-l2-on-demand-views）",
+        "reRegistrationReason": "v3-3 收紧：常驻一行状态栏（`#l0-statusbar-text`）不再承载计数 —— 计数改为在 L0 入口面板（`#l2-entries`，含 `#l2-entry-summary` 摘要 + 四个 `#l2-entry-*` 标签）内展示，全部由 `src/ui/sidepanel/l2/counts.ts#deriveCounts()` 从真值派生（FR-V3-046 / FR-V3-015）。理由（可机器复现）：`审计` 计数来自既有 audit ring buffer，会随面板使用**单调增长**，把它放进被测量的常驻文本会让同一稳态在不同格之间不再相等（阶段 A 的「三视口逐项相等」判据）。故常驻文本改为无数字的稳定摘要（chars 逐格 −3，方向 = tighten-only，见本文件 `direction: tighten-only`）。阈值 7/15 · 9/20 · 17/35 与 C1/C2/C3/C4 逐项未动。",
+        "note": "| v3-3（2026-09-16）：chars 由 387 收紧为 384（常驻状态栏文本去计数）。"
       },
       "400": {
         "clickables": 7,
         "lines": 12,
         "blocks": 25,
         "regions": 6,
-        "chars": 387
+        "chars": 384,
+        "previous": {
+          "chars": 387,
+          "reRegisteredOn": "2026-09-16",
+          "reRegisteredBy": "v3-3 build round"
+        },
+        "reRegisteredOn": "2026-09-16",
+        "reRegisteredBy": "v3-3（specs-tree-v3-3-l2-on-demand-views）",
+        "reRegistrationReason": "v3-3 收紧：常驻一行状态栏（`#l0-statusbar-text`）不再承载计数 —— 计数改为在 L0 入口面板（`#l2-entries`，含 `#l2-entry-summary` 摘要 + 四个 `#l2-entry-*` 标签）内展示，全部由 `src/ui/sidepanel/l2/counts.ts#deriveCounts()` 从真值派生（FR-V3-046 / FR-V3-015）。理由（可机器复现）：`审计` 计数来自既有 audit ring buffer，会随面板使用**单调增长**，把它放进被测量的常驻文本会让同一稳态在不同格之间不再相等（阶段 A 的「三视口逐项相等」判据）。故常驻文本改为无数字的稳定摘要（chars 逐格 −3，方向 = tighten-only，见本文件 `direction: tighten-only`）。阈值 7/15 · 9/20 · 17/35 与 C1/C2/C3/C4 逐项未动。",
+        "note": "| v3-3（2026-09-16）：chars 由 387 收紧为 384（常驻状态栏文本去计数）。"
       },
       "520": {
         "clickables": 7,
         "lines": 12,
         "blocks": 25,
         "regions": 6,
-        "chars": 387
+        "chars": 384,
+        "previous": {
+          "chars": 387,
+          "reRegisteredOn": "2026-09-16",
+          "reRegisteredBy": "v3-3 build round"
+        },
+        "reRegisteredOn": "2026-09-16",
+        "reRegisteredBy": "v3-3（specs-tree-v3-3-l2-on-demand-views）",
+        "reRegistrationReason": "v3-3 收紧：常驻一行状态栏（`#l0-statusbar-text`）不再承载计数 —— 计数改为在 L0 入口面板（`#l2-entries`，含 `#l2-entry-summary` 摘要 + 四个 `#l2-entry-*` 标签）内展示，全部由 `src/ui/sidepanel/l2/counts.ts#deriveCounts()` 从真值派生（FR-V3-046 / FR-V3-015）。理由（可机器复现）：`审计` 计数来自既有 audit ring buffer，会随面板使用**单调增长**，把它放进被测量的常驻文本会让同一稳态在不同格之间不再相等（阶段 A 的「三视口逐项相等」判据）。故常驻文本改为无数字的稳定摘要（chars 逐格 −3，方向 = tighten-only，见本文件 `direction: tighten-only`）。阈值 7/15 · 9/20 · 17/35 与 C1/C2/C3/C4 逐项未动。",
+        "note": "| v3-3（2026-09-16）：chars 由 387 收紧为 384（常驻状态栏文本去计数）。"
       },
       "previous": null,
       "note": "spec 新建档（设计稿未覆盖）：首轮实测 7/12，显著低于档位上限 9/20 → 按只允许收紧登记为基线（7/12），后续不得高于此值；不反向放宽。"
@@ -98,86 +142,123 @@
         "lines": 13,
         "blocks": 25,
         "regions": 6,
-        "chars": 428
+        "chars": 425,
+        "previous": {
+          "chars": 428
+        }
       },
       "subs": {
         "unauthorized": {
           "320": {
             "clickables": 7,
             "lines": 13,
-            "chars": 428
+            "chars": 425,
+            "previous": {
+              "chars": 428
+            }
           },
           "400": {
             "clickables": 7,
             "lines": 13,
-            "chars": 428
+            "chars": 425,
+            "previous": {
+              "chars": 428
+            }
           },
           "520": {
             "clickables": 7,
             "lines": 13,
-            "chars": 428
+            "chars": 425,
+            "previous": {
+              "chars": 428
+            }
           }
         },
         "probing": {
           "320": {
             "clickables": 7,
             "lines": 8,
-            "chars": 253
+            "chars": 250,
+            "previous": {
+              "chars": 253
+            }
           },
           "400": {
             "clickables": 7,
             "lines": 8,
-            "chars": 253
+            "chars": 250,
+            "previous": {
+              "chars": 253
+            }
           },
           "520": {
             "clickables": 7,
             "lines": 8,
-            "chars": 253
+            "chars": 250,
+            "previous": {
+              "chars": 253
+            }
           }
         },
         "hardline": {
           "320": {
             "clickables": 7,
             "lines": 8,
-            "chars": 249
+            "chars": 246,
+            "previous": {
+              "chars": 249
+            }
           },
           "400": {
             "clickables": 7,
             "lines": 8,
-            "chars": 249
+            "chars": 246,
+            "previous": {
+              "chars": 249
+            }
           },
           "520": {
             "clickables": 7,
             "lines": 8,
-            "chars": 249
+            "chars": 246,
+            "previous": {
+              "chars": 249
+            }
           }
         },
         "confirm": {
           "320": {
             "clickables": 9,
             "lines": 8,
-            "chars": 272
+            "chars": 269,
+            "previous": {
+              "chars": 272
+            }
           },
           "400": {
             "clickables": 9,
             "lines": 8,
-            "chars": 272
+            "chars": 269,
+            "previous": {
+              "chars": 272
+            }
           },
           "520": {
             "clickables": 9,
             "lines": 8,
-            "chars": 272
+            "chars": 269,
+            "previous": {
+              "chars": 272
+            }
           }
         },
         "staleRef": {
           "320": {
             "clickables": 7,
             "lines": 8,
-            "chars": 254,
+            "chars": 251,
             "previous": {
-              "clickables": 7,
-              "lines": 8,
-              "chars": 244
+              "chars": 254
             },
             "reRegisteredOn": "2026-09-16",
             "reRegisteredBy": "SDDU v3-2 build（npm run test:density 阶段 C，单 Chromium 串行）",
@@ -186,11 +267,9 @@
           "400": {
             "clickables": 7,
             "lines": 8,
-            "chars": 254,
+            "chars": 251,
             "previous": {
-              "clickables": 7,
-              "lines": 8,
-              "chars": 244
+              "chars": 254
             },
             "reRegisteredOn": "2026-09-16",
             "reRegisteredBy": "SDDU v3-2 build（npm run test:density 阶段 C，单 Chromium 串行）",
@@ -199,11 +278,9 @@
           "520": {
             "clickables": 7,
             "lines": 8,
-            "chars": 254,
+            "chars": 251,
             "previous": {
-              "clickables": 7,
-              "lines": 8,
-              "chars": 244
+              "chars": 254
             },
             "reRegisteredOn": "2026-09-16",
             "reRegisteredBy": "SDDU v3-2 build（npm run test:density 阶段 C，单 Chromium 串行）",
@@ -281,18 +358,18 @@
   },
   "volume": {
     "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 328476,
-    "finalArtifactBytes": 328476,
-    "ceilingBytes": 344899,
+    "registeredBaselineBytes": 349880,
+    "finalArtifactBytes": 349880,
+    "ceilingBytes": 367374,
     "ceilingFormula": "floor(baseline × (1 + tolerance))",
     "tolerance": 0.05,
     "ceilingCapRole": "record-only",
     "ceilingCapRecordBytes": 306099,
-    "previousBaselineBytes": 327679,
-    "previousCeilingBytes": 344062,
+    "previousBaselineBytes": 328476,
+    "previousCeilingBytes": 344899,
     "ceilingDirection": "raised-formula",
     "directionAlertThreshold": 0.15,
-    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：Feature specs-tree-web-cli-plugin-v3-ui 内连续两轮**功能轮**重登记 v3-1（266,500 B → 295,225 B）+ v3-2（295,225 B → 327,679 B）累计增幅 22.96% > 15% —— **必须显式回报编排器**（不得无声膨胀）。收口轮为同一叶内的 registry-fidelity 更正轮（327,679 → 328,476，+0.24%），不计入「连续两个功能轮」口径。增量构成见 growthBreakdown。",
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：Feature specs-tree-web-cli-plugin-v3-ui 内连续两个**功能轮**（v3-1 266,500→295,225 与 v3-2 295,225→327,679、v3-3 328,476→349,880）累计增幅 **+18.51%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；另：从 266,500 B 起算的 Feature 累计增幅 **+31.29%**（>30%）亦已在 v3-3 build 回报中显式列出。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。",
     "reRegistrations": [
       {
         "id": "v3-1",
@@ -363,7 +440,7 @@
       "conclusion": "增长来自本叶 spec 必需模块（新必需模块 26,913 B = 80.9% + 接线 5,888 B = 17.7%，合计 98.6%），无冗余/重复代码"
     },
     "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP_RECORD / SIDEPANEL_RE_REGISTRATIONS / SIDEPANEL_GROWTH_BREAKDOWN / evaluateConsecutiveReRegistrationGrowth）；门禁 test/size-budget.test.ts + test/size-growth-evidence.test.ts",
-    "note": "v3-2 修复轮 + 收口轮（2026-09-16，编排器裁决 V3-VOL-1）：登记值**必须等于实测产物**（由 test/size-budget.test.ts 与 test/ui/density.mjs 阶段 F 双向机器比对）。**收口轮**（validate R1 之后）处置 N-04/N-05/N-07/N-08（全在 src/ui/sidepanel/**）→ 新实测 dist/sidepanel.js = **328,476 B**（前值 327,679 B，+797 B，+0.24%）。**裁决 ①** 批准基线显式重登记（收口轮按 registry-fidelity-round 登记）；**裁决 ②** SIDEPANEL_CEILING_CAP 保持纯记录、不参与判定 → ceiling = floor(328,476 × 1.05) = **344,899 B**（容差 5% 不变；cap 值 306,099 B 仍为 record-only）。**裁决 ③** 增长正当性证据见 growthBreakdown（逐模块分解 + 无重复代码判据）。**裁决 ④** 方向性守卫维持已触发状态（见 directionalAlert）。密度侧：risk(staleRef) 三格 chars 254 的显式订正**予以保留**（裁决 ⑤ 接受；阈值/口径未动、风险增量归属违规 0、默认档零漂移）。"
+    "note": "volume 与 test/size-baseline.ts 同源（机器比对）。v3-3（2026-09-16，leaf specs-tree-v3-3-l2-on-demand-views）：L2 四视图 + 视图替换 + 真值计数 + 树归属迁移，产物 328,476 → **349,880 B**（+21,404 B，+6.52%），ceiling 由公式抬高 floor(349,880 × 1.05) = **367,374 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null。前值 328,476 / 327,679 / 295,225 / 291,523 / 266,500 全保留在体积登记的 TIMELINE 与重登记登记册。"
   },
   "fixtureAsymmetry": {
     "status": "FIXED（收口轮 2026-09-16）",

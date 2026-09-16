@@ -426,15 +426,16 @@ async function main() {
     for (const trigger of EXPECTED_TRIGGERS) {
       check(`⑥ ${trigger} 在遍历范围内（可见性契约不得被漏检）`, entries.some((e) => e.trigger === trigger), entries.map((e) => e.trigger).join(', '));
     }
-    // Skeleton-phase exemption (review I5, orchestrator-sanctioned): the ONE
-    // target that legitimately has no readable summary yet. It is *registered*
-    // (ledger `v3SkeletonExemptions`), asserted to be exactly this set, and the
-    // host itself must be `hidden` by default with its trigger carrying a count —
-    // so the exemption cannot silently grow into the old 4-element whitelist.
-    const SKELETON_EXEMPT_TARGETS = ['view-host'];
+    // V3-3: the v3-1 skeleton-phase exemption is **REMOVED**, exactly as its
+    // registered `removalCondition` required (ledger `v3SkeletonExemptions`):
+    // `#view-host` now carries the four real views, so it has a readable summary
+    // like every other target and no target is exempt any more. The set is kept as
+    // an explicitly-empty constant (and asserted empty) so a future "temporary"
+    // exemption cannot be reintroduced silently.
+    const SKELETON_EXEMPT_TARGETS = [];
     check(
-      '⑥ 骨架期豁免集合被显式登记且只有 view-host（v3-3 补齐后必须删除该豁免）',
-      JSON.stringify(SKELETON_EXEMPT_TARGETS) === JSON.stringify(['view-host']),
+      '⑥ 骨架期豁免集合已按登记条件清空（v3-3 用真实视图填充 #view-host 后不得再豁免）',
+      JSON.stringify(SKELETON_EXEMPT_TARGETS) === JSON.stringify([]),
       JSON.stringify(SKELETON_EXEMPT_TARGETS),
     );
     for (const entry of entries) {
@@ -448,6 +449,17 @@ async function main() {
         continue;
       }
       check(`⑥ ${entry.trigger}：目标含非空摘要或计数`, entry.summaryInTarget === true || entry.countInTarget !== '', JSON.stringify(entry));
+      // V3-3: the v3-1 exempt branch additionally required the skeleton host to be
+      // `hidden` by default. That requirement is NOT dropped — it is now asserted
+      // for BOTH L2 view targets (FR-V3-045 默认零占用: a view that is resident in
+      // the default state would be a regression no matter how good its summary is).
+      if (entry.targetId === 'view-host' || entry.targetId === 'settings-view') {
+        check(
+          `⑥ ${entry.trigger}：L2 视图目标默认 hidden（FR-V3-045 默认零占用）`,
+          entry.targetHidden === true,
+          JSON.stringify(entry),
+        );
+      }
     }
     const emptyTargets = [...new Set(entries.filter((e) => !e.summaryInTarget && e.countInTarget === '').map((e) => e.targetId))];
     check(
@@ -465,11 +477,16 @@ async function main() {
     // digit in the entry's own label, its `data-count` attribute and the L1
     // one-line status-bar summary all come from the same `l0ViewModel()` values, so
     // the three must agree — and a missing count must be an explicitly REGISTERED
-    // exemption (`#l2-entry-settings`, ledger `v3SkeletonExemptions#settings-count`),
-    // whose set may never grow.
+    // exemption — V3-3 removed it: `#l2-entry-settings` now derives its count from
+    // the rendered-section registry (`src/ui/settings/sections.ts`), so all four
+    // entries participate in the three-way same-source judgement.
     const L2_KEYS = ['tree', 'commands', 'audit', 'settings'];
-    /** The ONE registered L2 entry with no derivable count. */
-    const L2_COUNT_EXEMPT = ['settings'];
+    /**
+     * V3-3: no L2 entry is exempt any more (the settings count is derived from
+     * `settings/sections.ts#SETTINGS_SECTION_IDS`, cross-checked against the
+     * rendered `.wc-section` set by `test/ui/l2.mjs`). Empty set, asserted empty.
+     */
+    const L2_COUNT_EXEMPT = [];
     const l2ProbeExpr = `(() => {
       const entries = ${JSON.stringify(L2_KEYS)}.map((key) => {
         const btn = document.getElementById('l2-entry-' + key);
@@ -483,8 +500,18 @@ async function main() {
           ariaControls: btn.getAttribute('aria-controls'),
         };
       });
+      // V3-3: the COUNTS live in the entry panel's own summary line
+      // (#l2-entry-summary); the one-line bar above is deliberately count-free
+      // (its text is part of the measured default tier, and the audit count is a
+      // live number — see view-model.ts#L2_BAR_TEXT). The three-way judgement is
+      // unchanged: entry label ≡ data-count ≡ the summary the panel shows.
+      const summaryEl = document.getElementById('l2-entry-summary');
       const bar = document.getElementById('l0-statusbar-text');
-      return JSON.stringify({ entries, summary: bar ? (bar.textContent || '').trim() : '' });
+      return JSON.stringify({
+        entries,
+        summary: summaryEl ? (summaryEl.textContent || '').trim() : '',
+        barText: bar ? (bar.textContent || '').trim() : '',
+      });
     })()`;
     /**
      * The FR-V3-015 judge, as a pure function so the counter-proof below can drive
@@ -497,7 +524,7 @@ async function main() {
         return m ? Number(m[1]) : null;
       };
       if (l2.entries.length !== 4 || l2.entries.some((e) => e.missing === true)) failures.push('L2 入口数 ≠ 4');
-      for (const [label, key] of [['树', 'tree'], ['命令', 'commands'], ['审计', 'audit']]) {
+      for (const [label, key] of [['树', 'tree'], ['命令', 'commands'], ['审计', 'audit'], ['设置', 'settings']]) {
         const entry = l2.entries.find((e) => e.key === key);
         if (!/^\d+$/.test(String(entry?.dataCount))) failures.push(`${key}: data-count 不是数字（${entry?.dataCount}）`);
         else if (entry.labelCount !== Number(entry.dataCount) || Number(entry.dataCount) !== summaryCount(label)) {
@@ -508,11 +535,35 @@ async function main() {
       if (!unCounted.every((k) => L2_COUNT_EXEMPT.includes(k)) || unCounted.length > L2_COUNT_EXEMPT.length) {
         failures.push(`无计数入口超出登记豁免集合：${JSON.stringify(unCounted)}`);
       }
-      if (l2.entries.find((e) => e.key === 'settings')?.dataCount !== 'n/a') failures.push('豁免入口缺少显式 n/a 标记');
+      // V3-3 (was the registered `settings-count` exemption): the settings entry
+      // must carry a REAL, numeric count that equals the rendered-section registry
+      // length — the exemption's removal condition, now enforced.
+      const settingsCount = Number(l2.entries.find((e) => e.key === 'settings')?.dataCount);
+      if (!Number.isInteger(settingsCount) || settingsCount <= 0) {
+        failures.push(`settings: data-count 必须是可派生的正整数（实测 ${l2.entries.find((e) => e.key === 'settings')?.dataCount}）`);
+      }
       return failures;
     };
     const l2Raw = await evaluate(cdp, l2ProbeExpr);
-    const l2Failures = l2CountJudge(JSON.parse(l2Raw));
+    const l2Parsed = JSON.parse(l2Raw);
+    // V3-3 (F2/K-1 determinism): the resident one-line bar must carry NO digits —
+    // the audit ring grows while the panel is used, so a count-bearing resident line
+    // would make the density caliber's "one steady state ⇒ identical cells" rule
+    // unprovable. The counts are one interaction away, in the panel summary.
+    check(
+      '⑥ 常驻一行状态栏文本不含数字（计数在入口面板摘要内，默认档足迹稳定）',
+      !/\d/.test(l2Parsed.barText ?? ''),
+      JSON.stringify(l2Parsed.barText),
+    );
+    check(
+      '⑥ 入口面板摘要（#l2-entry-summary）确实带着四类计数（不是空的摘要）',
+      /树\s*\d/.test(l2Parsed.summary ?? '') &&
+        /命令\s*\d/.test(l2Parsed.summary ?? '') &&
+        /审计\s*\d/.test(l2Parsed.summary ?? '') &&
+        /设置\s*\d/.test(l2Parsed.summary ?? ''),
+      JSON.stringify(l2Parsed.summary),
+    );
+    const l2Failures = l2CountJudge(l2Parsed);
     check(
       '⑥ FR-V3-015 ≤4 个 L2 入口**各带真值计数**（入口标签 ≡ data-count ≡ 状态栏摘要，三处同源）',
       l2Failures.length === 0,
@@ -539,6 +590,13 @@ async function main() {
         mo.observe(root, { subtree: true, childList: true, attributes: true, characterData: true });
       })`,
     );
+    // V3-3: the restore value is the entry's OWN pre-tamper value, not a literal
+    // `0` — the v3-1 skeleton shipped zeros, so "restore to 0" used to be the same
+    // thing as "restore to truth". With real derived counts that would silently
+    // turn the restore segment into a second tamper (and it must stay a genuine
+    // restore: read → perturb → restore the captured value → judge empty again).
+    const l2Before = JSON.parse(await evaluate(cdp, l2ProbeExpr));
+    const l2TrueTreeCount = l2Before.entries.find((e) => e.key === 'tree')?.dataCount ?? '';
     await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', '99'); true`);
     const l2Tampered = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
     check(
@@ -546,7 +604,15 @@ async function main() {
       l2Tampered.some((f) => f.includes('tree')),
       JSON.stringify(l2Tampered),
     );
-    await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', '0'); true`);
+    check(
+      '⑥ FR-V3-015 反证用的真值确实来自运行期派生（不是 0 / 不是空值）',
+      /^\d+$/.test(String(l2TrueTreeCount)) && Number(l2TrueTreeCount) > 0,
+      `tree data-count=${l2TrueTreeCount} | ${JSON.stringify(l2Before.entries)}`,
+    );
+    await evaluate(
+      cdp,
+      `document.getElementById('l2-entry-tree').setAttribute('data-count', ${JSON.stringify(String(l2TrueTreeCount))}); true`,
+    );
     const l2Restored = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
     check(
       '⑥ FR-V3-015 反证（还原段）：还原真值后判据必须再次为空',

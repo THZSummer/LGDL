@@ -17,11 +17,12 @@
     "test:density": "node test/ui/density.mjs",
     "test:l0": "node test/ui/l0.mjs",
     "test:l1": "node test/ui/l1.mjs",
+    "test:l2": "node test/ui/l2.mjs",
     "test:l1-reverse": "node test/ui/l1-reverse.mjs",
     "size:attribution": "node test/size-attribution.mjs",
     "test:supersession": "node --test dist-test/test/supersession-ledger.test.js",
     "test:gate-integrity": "node --test dist-test/test/gate-integrity.test.js",
-    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:density && npm run test:l0 && npm run test:l1 && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e && npm run test:gate-integrity && npm run test:l1-reverse"
+    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:density && npm run test:l0 && npm run test:l1 && npm run test:l2 && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e && npm run test:gate-integrity && npm run test:l1-reverse"
   },
   "dependencies": {
     "@lgdl/web-cli-base": "^0.7.0"

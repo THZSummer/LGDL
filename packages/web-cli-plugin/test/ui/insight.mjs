@@ -59,12 +59,76 @@ import { LOG_CLIENT_HEIGHT_FLOOR } from './density-metrics.mjs';
 // transcript. These two helpers step through the product's own controller so the
 // existing assertions keep their exact selectors and structure.
 const v3RevealComposer = async (page) => {
-  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.revealFallback(); true');
-  await sleep(300);
+  // V3-3 (registered): the fallback state is cleared by any repaint that lands while
+  // there is no decision card (product behaviour: 「No card → no fallback state」).
+  // This leaf adds read-path repaints (the audit channel read), so the reveal is
+  // re-asserted until it sticks — bounded, and it never weakens a v1 geometry
+  // assertion (it only guarantees the state those assertions are defined in).
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.revealFallback(); true');
+    await sleep(250);
+    const hidden = await evaluate(page, `document.getElementById('composer').hidden === true`);
+    if (hidden !== true) return;
+  }
 };
 const v3OpenTreeView = async (page) => {
   await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.openTreeView(); true');
   await sleep(300);
+};
+/**
+ * V3-3 (registered supersession): leave the L2 view through the product's own
+ * `← 返回` control (`window.__v3.testing.closeL2View()` clicks `#l2-back`, i.e. the
+ * same path a user takes). Used by the round-trip geometry assertion (#I-14c).
+ */
+const v3CloseTreeView = async (page) => {
+  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.closeL2View(); true');
+  await sleep(300);
+};
+
+/**
+ * V3-3 (registered supersession V33-S4): the v2 「打开抽屉不挤压 #log」 geometry
+ * assertions are replaced by the **view-replacement** contract they became:
+ * while an L2 view is open `#log` is *replaced* (`hidden`), the host + exactly one
+ * `[data-l2-view]` are visible, the open view is the ONLY scroller inside
+ * `#panel-main`, the composer still sits flush at the bottom (D-079 unchanged), and
+ * the document never overflows horizontally. Seven assertions — the same count as
+ * the v2 `checkLayout()` it replaces, all strictly about the new contract.
+ */
+/**
+ * V3-3 (registered): wait for the tree drawer's DOM to go quiet before a *real*
+ * click inside it. The drawer re-projects whenever the panel regains focus
+ * (`window` focus → `treeDrawer.refresh()`), and the in-flow view body scrolls, so
+ * a click measured a moment before that re-render can land on a moved row. This is
+ * a gate-side settling wait (hard-capped), never a product change.
+ */
+const settleDrawer = async (page) => {
+  await evaluate(
+    page,
+    `new Promise((res) => {
+      const root = document.getElementById('tree-drawer') ?? document.body;
+      let t = null;
+      const done = () => { clearTimeout(t); clearTimeout(cap); mo.disconnect(); res(true); };
+      const mo = new MutationObserver(() => { clearTimeout(t); t = setTimeout(done, 200); });
+      const cap = setTimeout(done, 1500);
+      t = setTimeout(done, 200);
+      mo.observe(root, { subtree: true, childList: true, attributes: true, characterData: true });
+    })`,
+  );
+};
+
+const L2_STABLE_FIELDS = ['composerGapToBottom', 'docOverflowX', 'logOverflowX', 'viewHostHeight', 'openViewCount', 'panelScrollerCount'];
+const checkL2OpenLayout = (metrics, prefix) => {
+  check(metrics.logHidden === true, `${prefix} #log 已被视图替换（hidden，禁止 CSS 隐身）`, JSON.stringify(metrics.logHidden));
+  check(metrics.viewHostHidden === false, `${prefix} #view-host 可见（唯一主区）`, JSON.stringify(metrics.viewHostHidden));
+  check(metrics.openViewCount === 1, `${prefix} 恰有一个 [data-l2-view] 可见（四视图不叠加）`, String(metrics.openViewCount));
+  check(metrics.viewOverflow === 0, `${prefix} 打开的视图零水平溢出（长路径 / 长命令名 / 面包屑）`, String(metrics.viewOverflow));
+  check(metrics.panelScrollerCount === 1, `${prefix} 面板级滚动容器恰为 1 个（视图内局部滚动块）`, JSON.stringify(metrics.viewScrollers));
+  check(
+    metrics.composerGapToBottom >= COMPOSER_GAP[0] && metrics.composerGapToBottom <= COMPOSER_GAP[1],
+    `${prefix} #composer 仍贴底 ∈ [${COMPOSER_GAP[0]}, +${COMPOSER_GAP[1]}]px（D-079 不变）`,
+    `${metrics.composerGapToBottom}px`,
+  );
+  check(metrics.docOverflowX === 0, `${prefix} 文档级水平溢出 = 0`, `${metrics.docOverflowX}px`);
 };
 
 const VIEWPORT = { width: 400, height: 900 };
@@ -308,6 +372,18 @@ const MEASURE = `(() => {
     logOverflowX: log.scrollWidth - log.clientWidth,
     drawerOverflowX: drawer.scrollWidth - drawer.clientWidth,
     drawerHidden: drawer.hidden,
+    // V3-3 additive diagnostics for the view-replacement contract (no v2 field
+    // changes; checkL2OpenLayout reads these instead of the #log height).
+    logHidden: log.hidden,
+    viewHostHidden: document.getElementById('view-host').hidden,
+    viewHostHeight: Math.round(document.getElementById('view-host').getBoundingClientRect().height),
+    openViewCount: [...document.querySelectorAll('[data-l2-view]')].filter((el) => !el.hidden).length,
+    viewOverflow: (() => { const v = document.querySelector('[data-l2-view]:not([hidden])'); return v ? v.scrollWidth - v.clientWidth : -1; })(),
+    viewScrollers: [...document.querySelectorAll('#panel-main *, #panel-main')]
+      .filter((el) => { const st = getComputedStyle(el); return (st.overflowY === 'auto' || st.overflowY === 'scroll') && el.scrollHeight > el.clientHeight; })
+      .map((el) => el.id || el.className),
+    panelScrollerCount: [...document.querySelectorAll('#panel-main *, #panel-main')]
+      .filter((el) => { const st = getComputedStyle(el); return (st.overflowY === 'auto' || st.overflowY === 'scroll') && el.scrollHeight > el.clientHeight; }).length,
     fabExpanded: fab.getAttribute('aria-expanded'),
     // v3-1 additive diagnostic: zone heights make a geometry regression explainable
     // at a glance (no assertion reads this field).
@@ -493,13 +569,34 @@ async function main() {
           ariaExpanded: fab.getAttribute('aria-expanded'),
           drawerPosition: getComputedStyle(drawer).position,
           drawerInFlexFlow: drawer.offsetParent !== null && drawer.hidden === false,
+          drawerOwner: drawer.closest('[data-l2-view]') ? drawer.closest('[data-l2-view]').dataset.l2View : null,
+          drawerRole: drawer.getAttribute('role'),
+          drawerModal: drawer.getAttribute('aria-modal'),
         };
       })()`,
     );
     check(initial.fabInsideMain === true && initial.drawerInsideMain === true, '#I-01b FAB/抽屉位于 #panel-main 内（非页面注入）', JSON.stringify(initial));
     check(initial.drawerHidden === true, '#I-01c 抽屉默认收起（O-V2-001）', JSON.stringify(initial));
     check(initial.ariaControls === 'tree-drawer' && initial.ariaExpanded === 'false', '#I-01d FAB aria-controls/aria-expanded 同步（收起）', JSON.stringify(initial));
-    check(initial.drawerPosition === 'absolute', '#I-01e 抽屉为 absolute（不参与 flex 流，结构上不挤压 #log）', initial.drawerPosition);
+    // V3-3 (registered supersession V33-S1): the drawer's ownership moved from an
+    // absolute overlay over `#log` to the L2 「连接树」 view body (ADR-V3-028). Same
+    // assertion slot, stricter statement: it must NOT be a floating overlay any
+    // more — it is in the document flow of its view container.
+    check(
+      initial.drawerPosition === 'static',
+      '#I-01e 抽屉已归属 L2 视图主体（position=static，不再是覆盖 #log 的浮动层）',
+      initial.drawerPosition,
+    );
+    check(
+      initial.drawerOwner === 'tree',
+      '#I-01e2 抽屉挂在 [data-l2-view="tree"] 内（归属迁移可机器回读）',
+      String(initial.drawerOwner),
+    );
+    check(
+      initial.drawerRole === 'region' && initial.drawerModal === null,
+      '#I-01e3 容器语义已由 role=dialog/aria-modal 迁移为 role=region（ADR-V3-028 台账项）',
+      JSON.stringify({ role: initial.drawerRole, modal: initial.drawerModal }),
+    );
 
     // 5. closed-state layout
     // V3-1 pre-step (registered): reveal the fallback composer so every geometry
@@ -574,6 +671,10 @@ async function main() {
       })()`,
     );
     check(openState.hidden === false && openState.ariaExpanded === 'true', '#I-01f 打开后 aria-expanded=true 且抽屉可见', JSON.stringify(openState));
+    // V3-3: the L2-open steady baseline the deep-expand / collapse Drift checks
+    // compare against (the view replaced `#log`; these are the fields that must not
+    // move while the tree is being drilled).
+    const l2OpenLayout = await evaluate(sp, MEASURE);
 
     // 7. drawer content
     const content = await evaluate(
@@ -632,7 +733,78 @@ async function main() {
     );
 
     // 8. read-only filter narrows the render set (真实键入)
+    // V3-3 (registered): the drawer is now the L2 view body (in-flow + scrolling),
+    // so settle it before a real click — see `settleDrawer`.
+    await settleDrawer(sp);
+    // V3-3 (registered): precondition — the input must be unique, laid out (non-zero
+    // box) and not inside a hidden subtree, so a failed typing can never be blamed on
+    // a silently invisible target.
+    const inputBox = await evaluate(
+      sp,
+      `(() => {
+        const all = document.querySelectorAll('#tree-filter-input');
+        const el = all[0];
+        if (!el) return JSON.stringify({ count: all.length });
+        const r = el.getBoundingClientRect();
+        let hiddenAncestor = null;
+        for (let n = el; n; n = n.parentElement) if (n.hidden === true) { hiddenAncestor = n.id || n.tagName; break; }
+        return JSON.stringify({
+          count: all.length,
+          w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top), left: Math.round(r.left),
+          hiddenAncestor, disabled: el.disabled, drawerHidden: document.getElementById('tree-drawer').hidden,
+          drawerScrollTop: Math.round(document.getElementById('tree-drawer').scrollTop),
+          viewport: window.innerHeight,
+        });
+      })()`,
+    );
+    const ib = JSON.parse(inputBox);
+    check(
+      ib.count === 1 && ib.w > 0 && ib.h > 0 && ib.hiddenAncestor === null && ib.drawerHidden === false,
+      '#I-13a0 过滤输入框唯一、已布局（>0×0）且不在 hidden 子树内（真实点击的前置条件）',
+      inputBox,
+    );
+    // V3-3 (registered): "not covered" — the point the real click will use must
+    // actually resolve to the input (this is what an overlay/向 viewport 外的回归
+    // looks like from the gate's side).
+    const hitTest = await evaluate(
+      sp,
+      `(() => {
+        const el = document.getElementById('tree-filter-input');
+        el.scrollIntoView({ block: 'center' });
+        const r = el.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        const drawer = document.getElementById('tree-drawer');
+        const head = drawer.querySelector('.tree-header');
+        const dr = drawer.getBoundingClientRect();
+        const hr = head ? head.getBoundingClientRect() : null;
+        return JSON.stringify({
+          x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2),
+          hitId: top ? (top.id || top.className || top.tagName) : null,
+          isInput: top === el,
+          rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+          drawer: [Math.round(dr.left), Math.round(dr.top), Math.round(dr.width), Math.round(dr.height)],
+          drawerScroll: [Math.round(drawer.scrollTop), drawer.clientHeight, drawer.scrollHeight],
+          header: hr ? [Math.round(hr.top), Math.round(hr.height), getComputedStyle(head).position] : null,
+          inputOffsetTop: Math.round(el.offsetTop),
+          viewport: [window.innerWidth, window.innerHeight],
+          zones: ['risk-rail', 'panel-top', 'panel-main', 'l0-decision', 'view-host', 'l0-statusbar', 'l2-entries', 'panel-bottom']
+            .map((id) => { const z = document.getElementById(id); return id + (z && z.hidden ? ':hidden' : ':' + Math.round(z.getBoundingClientRect().height)); }),
+          composerHidden: document.getElementById('composer').hidden === true,
+          viewHeight: (() => { const v = document.querySelector('[data-l2-view="tree"]'); return v ? Math.round(v.getBoundingClientRect().height) : null; })(),
+        });
+      })()`,
+    );
+    check(JSON.parse(hitTest).isInput === true, '#I-13a2 过滤输入框中心点未被任何元素遮挡（elementFromPoint 命中自身）', hitTest);
     await realClick(sp, '#tree-filter-input');
+    const afterFilterClick = await evaluate(
+      sp,
+      `JSON.stringify({ active: document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null })`,
+    );
+    check(
+      JSON.parse(afterFilterClick).active === 'tree-filter-input',
+      '#I-13a1 真实点击后焦点落在过滤输入框（可键入）',
+      afterFilterClick,
+    );
     await typeText(sp, 'zzz-no-such-row-zzz');
     const filtered = await waitFor(
       sp,
@@ -1081,27 +1253,23 @@ async function main() {
     // ── Multi-state layout guard (AC-V2-002): deep-expanded + collapsed states must
     // keep the exact same steady geometry as the closed state (absolute overlay).
     const deepExpanded = await evaluate(sp, MEASURE);
-    checkLayout(deepExpanded, '#I-20i(树深展开)');
-    const deepDrift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'].filter(
-      (f) => deepExpanded[f] !== closedLayout[f],
-    );
+    checkL2OpenLayout(deepExpanded, '#I-20i(树深展开)');
+    const deepDrift = L2_STABLE_FIELDS.filter((f) => deepExpanded[f] !== l2OpenLayout[f]);
     check(
       deepDrift.length === 0,
-      '#I-20j 树深展开（站点面 + 命令面 + dom 子树）不改变稳态几何（drift=0）',
-      `drift=${JSON.stringify(deepDrift.map((f) => [f, closedLayout[f], deepExpanded[f]]))}`,
+      '#I-20j 树深展开（站点面 + 命令面 + dom 子树）不改变 L2 打开态稳态几何（drift=0）',
+      `drift=${JSON.stringify(deepDrift.map((f) => [f, l2OpenLayout[f], deepExpanded[f]]))}`,
     );
     // Collapse a mid-level group → still zero drift.
     await toggleByLabel('系统内置命令');
     await sleep(150);
     const collapsedState = await evaluate(sp, MEASURE);
-    checkLayout(collapsedState, '#I-20k(树收起)');
-    const collapsedDrift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'].filter(
-      (f) => collapsedState[f] !== closedLayout[f],
-    );
+    checkL2OpenLayout(collapsedState, '#I-20k(树收起)');
+    const collapsedDrift = L2_STABLE_FIELDS.filter((f) => collapsedState[f] !== deepExpanded[f]);
     check(
       collapsedDrift.length === 0,
-      '#I-20k 树收起（一级分组折叠）不改变稳态几何（drift=0）',
-      `drift=${JSON.stringify(collapsedDrift.map((f) => [f, closedLayout[f], collapsedState[f]]))}`,
+      '#I-20k 树收起（一级分组折叠）不改变 L2 打开态稳态几何（drift=0）',
+      `drift=${JSON.stringify(collapsedDrift.map((f) => [f, deepExpanded[f], collapsedState[f]]))}`,
     );
     // Re-expand for the downstream steps (session state keeps the explicit expand).
     await expandNode('系统内置命令');
@@ -1111,16 +1279,41 @@ async function main() {
     await sleep(200);
     const openLayout = await evaluate(sp, MEASURE);
     console.log(`  · [观测] 开态 zones=${JSON.stringify(openLayout.zones)}`);
-    checkLayout(openLayout, '#I-05~10(开)');
-    check(openLayout.drawerHidden === false, '#I-14b 开态抽屉可见（覆盖层，不挤压 #log）', JSON.stringify(openLayout));
-    // The decisive V2-2 no-regression proof: opening the overlay must not change
-    // ANY steady geometry field vs the closed state (they are absolute children).
-    const stableFields = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'];
-    const drift = stableFields.filter((f) => openLayout[f] !== closedLayout[f]);
+    checkL2OpenLayout(openLayout, '#I-05~10(开)');
+    check(openLayout.drawerHidden === false, '#I-14b 开态树主体可见（L2 视图主体；#log 已被视图替换）', JSON.stringify(openLayout));
+    // The decisive V2-2 no-regression proof, migrated to view replacement: the
+    // overlay was replaced by a view, so the property to prove is the **round-trip**
+    // one — leaving the view must restore every steady field measured before entry,
+    // and the transcript must be visible again (strictly stronger than "the overlay
+    // did not move anything": it also proves the replacement is reversible).
+    await v3CloseTreeView(sp);
+    // The composer is the v1 fallback channel: re-assert it so BOTH sides of the
+    // drift comparison are measured in the identical (fallback-revealed) state —
+    // exactly the state `closedLayout` was taken in at step 5.
+    await v3RevealComposer(sp);
+    const returned = await evaluate(sp, MEASURE);
+    check(returned.logHidden === false, '#I-14c0 返回后 #log 重新可见（视图替换可逆）', JSON.stringify(returned.logHidden));
+    const drift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'].filter(
+      (f) => returned[f] !== closedLayout[f],
+    );
     check(
       drift.length === 0,
-      '#I-14c 开抽屉不改变稳态几何（开/关逐字段相等：flex-grow / #log 高 / 占比 / composer / 溢出）',
-      `drift=${JSON.stringify(drift.map((f) => [f, closedLayout[f], openLayout[f]]))}`,
+      '#I-14c 视图往返后稳态几何逐字段复原（进入前 == 返回后：flex-grow / #log 高 / 占比 / composer / 溢出）',
+      `drift=${JSON.stringify(drift.map((f) => [f, closedLayout[f], returned[f]]))}`,
+    );
+    // Re-enter for the downstream archive steps (they drive real clicks inside the
+    // tree body, which must be visible again).
+    await v3OpenTreeView(sp);
+    await settleDrawer(sp);
+    await realClick(sp, '#tree-fab');
+    await waitFor(sp, `document.getElementById('tree-drawer').hidden ? '' : 'open'`, 40, 150);
+    await sleep(250);
+    const reentered = await evaluate(sp, MEASURE);
+    const reentryDrift = L2_STABLE_FIELDS.filter((f) => reentered[f] !== l2OpenLayout[f]);
+    check(
+      reentryDrift.length === 0,
+      '#I-14d 重新进入同一视图后布局与首次进入逐字段相等（进入路径可重复）',
+      `drift=${JSON.stringify(reentryDrift.map((f) => [f, l2OpenLayout[f], reentered[f]]))}`,
     );
 
     // 9b. V2-4 (TASK-006): read-only command archive sub-view (#I-19a…h).
@@ -1151,6 +1344,24 @@ async function main() {
       JSON.stringify(archiveBefore),
     );
 
+    // V3-3 (registered): same settling + not-covered precondition as the filter click
+    // (the drawer is the L2 view body now, so it scrolls under a real click).
+    await settleDrawer(sp);
+    const archiveHit = await evaluate(
+      sp,
+      `(() => {
+        const el = document.getElementById('tree-archive-toggle');
+        el.scrollIntoView({ block: 'center' });
+        const r = el.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return JSON.stringify({ isToggle: top === el, w: Math.round(r.width), h: Math.round(r.height), hit: top ? (top.id || top.className) : null });
+      })()`,
+    );
+    check(
+      JSON.parse(archiveHit).isToggle === true && JSON.parse(archiveHit).w > 0,
+      '#I-19a1 档案开关中心点未被遮挡且已布局（真实点击的前置条件）',
+      archiveHit,
+    );
     await realClick(sp, '#tree-archive-toggle');
     const archiveReady = await waitFor(sp, `document.querySelector('.tree-archive') ? 'ready' : ''`, 60, 150);
     check(archiveReady === 'ready', '#I-19a2 真实点击后档案子视图出现（.tree-archive）', String(archiveReady));
@@ -1368,7 +1579,9 @@ async function main() {
     await sleep(200);
 
     const archiveLayout = await evaluate(sp, MEASURE);
-    checkLayout(archiveLayout, '#I-19h(开档案)');
+    // V3-3 (registered supersession V33-S4): same assertion slot, the view-replacement
+    // contract instead of the v2 overlay geometry (see `checkL2OpenLayout`).
+    checkL2OpenLayout(archiveLayout, '#I-19h(开档案)');
     // restore the default (archive OFF) state for the downstream narrow-viewport step
     await realClick(sp, '#tree-archive-toggle');
     await waitFor(sp, `document.querySelector('.tree-archive') ? '' : 'off'`, 40, 150);
@@ -1529,7 +1742,7 @@ async function main() {
     process.exit(1);
   }
   console.log(
-    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（#log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；关/开/深展开/收起 drift=0）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
+    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2 关态 #log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；v3-3 起 L2 打开态改用视图替换契约： #log 被替换 + 单滚动容器 + 恰一视图可见 + composer 贴底，返回后逐字段复原）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
   );
 }
 

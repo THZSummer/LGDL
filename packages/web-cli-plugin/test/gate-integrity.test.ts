@@ -119,6 +119,8 @@ export const CHROMIUM_GATES = [
   'test/ui/binding.mjs',
   'test/ui/l0.mjs',
   'test/ui/l1.mjs',
+  // v3-3: the L2 on-demand-views gate (same shared base, one Chromium instance).
+  'test/ui/l2.mjs',
   'test/ui/density.mjs',
   'test/ui/hardening.mjs',
   'test/e2e/fullchain.mjs',
@@ -140,6 +142,7 @@ export const STATIC_ONLY_GATES = [
   'test/ui/journey.mjs',
   'test/ui/insight.mjs',
   'test/ui/l0.mjs',
+  'test/ui/l2.mjs',
   'test/ui/density.mjs',
   'test/ui/hardening.mjs',
   'test/e2e/fullchain.mjs',
@@ -516,7 +519,7 @@ test('元门禁：受审集合由目录扫描推导（新门禁自动纳入；�
       assert.ok(!discovered.includes(file), `${file} 是纯口径模块（无门禁体），不得被误纳入受审集合`);
     }
   }
-  assert.equal(CHROMIUM_GATES.length, 8, 'Chromium 门禁必须恰好 8 个（journey/insight/binding/l0/l1/density/hardening/e2e）');
+  assert.equal(CHROMIUM_GATES.length, 9, 'Chromium 门禁必须恰好 9 个（journey/insight/binding/l0/l1/l2/density/hardening/e2e；v3-3 新增 l2）');
 });
 
 // ── 0b. N-12's own reverse proof: a fresh gate file is auto-audited ──────────
