@@ -1,6 +1,6 @@
 # LGDL 版本 Roadmap
 
-> **文档版本**: 1.24.0
+> **文档版本**: 1.25.0
 > **创建日期**: 2026-08-31
 > **状态**: 规划中（v0.6.0 已正式发布 2026-09-05；**v0.7 = web-cli-base 完备化〔F-25 v2 + v3 + F-26 v4〕——SDDU 全流程已 validate（2026-09-08）——已发布（2026-09-10：合入 main `2ddc922`、标签 `v0.7.0` 已推送、npm 8 包 0.7.0）**；作者裁决 2026-09-06：原 v0.7 工程质量与文档对齐内容后移；**作者裁决 2026-09-10：开启 v0.8 = 浏览器插件孵化〔F-14 web-cli-plugin 由 v1.1 提前至 v0.8 作该版主题〕，原 v0.8 工程质量 → v0.9.0、原 v0.9 AI 增强 → v0.10.0、v1.1 仅留 F-13 ② 开源；F-14 已立项（specs-tree-web-cli-plugin）并完成 SDDU P0 全流程 validate（2026-09-11，⚠️ 有条件通过 0 阻塞）；**F-14 已全流程完成并 validated（2026-09-12，基础 16/16 任务；review R3 ✅ 通过 0 阻塞 / validate R2 ✅ 通过 0 阻塞；FR 46/46 · NFR 10/10 · EC 16/16 · AC 12/12；TASK-016 Gate-D 内置助手下线已执行 + 发布渠道就绪）；其后为 post-validate additive 轮（TASK-017~040，任务总数 40）——已完成 **review R5 与 validate R4（均 ⚠️ 有条件通过 0 阻塞）**，**phase=validated（第 9 轮收口，2026-09-13；不合 main、不发布）**；本轮修掉 1 项虚绿门禁（perf-budget）+ 4 处文档漂移，NFR-007 `content.js` 1.07MB 超 64KB 预算 ≈16× 如实登记为未达成（D31）**、代码在分支 feature/web-cli-plugin 未合入发布**）；**作者裁决 2026-09-13：开启 web-cli-plugin v2〔主题「any insight」，登记为 F-27〕= v0.8 同一版本位内第二 Feature（同批叠加，v2 继续在 feature/web-cli-plugin 分支上堆，随其一起合入发布）——「把能力做出来」（v1）→「把能力变得可见/可控」（v2）；连接树落地载体 = 侧栏常驻悬浮入口 + 树抽屉；连接树为新增独立悬浮面（不放进设置面板、亦不取代 v1 设置面板）；`delay` = 现有 `deny` 的作者口径别名；撤销粒度为站点级 + 能力级。** 详见 §二 v0.8「F-27」（含作者原始诉求逐字留存）/ §3.1 F-27 行 / §8.1 作者裁决事实行；**v2 已立项并完成 spec 阶段（2026-09-13，Feature 目录 `specs-tree-web-cli-plugin-v2-insight`＝父 + 4 叶子子 Feature；FR-V2-001~065（43 条 FR）· NFR-V2-001~010 · EC-V2-001~016 · AC-V2-001~012，与 v1 编号零冲突；phase=specified / status=tracked；v1 记录原样保留）**
 > **规划基准**: 工作区 `feature/group-as-node` @ `0610458`（2026-08-31，v1.0.0 首版基线；该分支已随 v0.6.0 于 2026-09-05 合入 main @ `c92bf3d` 并删除，仓库现仅 main，见 v1.6.0 素材增补）；素材扫描基准 `.sddu/docs-tree-root/` @ `15e5b6b`（2026-08-30）；v1.4.0 素材基准增补：`docs/research/archify/lessons-for-lgdl.md` v1.1（2026-09-02，作者指令转正，见下方 v1.4.0 素材增补）
@@ -887,6 +887,30 @@ lgdl-cli render --file <① 存成的 .lgdl 文件> -o out.svg --format svg
 
 ---
 
+## 未来方向候选（未立项）
+
+> **性质声明**：本节登记**未来方向候选**——**不立项、不排期、不构成任何版本的发布承诺**，不得写入任何版本的承诺列表或 Milestones。候选编号沿用 §3.1 统一编号空间（见 §3.1 编号规则）；`F-28` 预留给 v3-ui 收口时登记，故本节首条候选为 **F-29**。
+
+### F-29（候选 · 未立项 · 未排期 · 不构成承诺）— A2A：Agent 生态双向互通
+> 提出人：作者，2026-09-16
+
+**作者原话**：
+> 「A2A：web-cli-plugin 不止提供给人类用户在浏览器直接使用，也 1）支持提供给本地操作系统的其他 Agent 去适用，2）支持调用本地操作系统的 Agent，达到真正意义上的一站式，既可以操作本地，也可以操作浏览器，在同一个地方完成。」
+
+**方向**：双向 A2A —— ① 对外暴露：插件能力可被本地 OS 的其他 Agent 调用（本地 Agent 作为客户端）；② 对内调用：插件可调用本地 OS Agent 的能力 → 本地 + 浏览器在同一处完成操作。
+
+**价值定位**：从「人的浏览器助手」扩展为「Agent 生态的浏览器能力节点」。与既有资产天然衔接：命令目录（34 工具 / 142 子命令）、allow/ask/deny 策略档、审计、回执三件套、权限纪律（optional_permissions + 用时请求）。
+
+**立项前必须回答的关键问题**：
+1. 信任模型变化（第一问题）：现有安全设计全部围绕「人类操作者」—— ask-user 确认卡面向人、per-origin 授权、树内动作白名单 9 个、硬底线（evaluate / 未授权 origin / 未知 risk 不可覆盖）、clamp 在 SW 侧强制。Agent 调用方引入后，Agent 身份/授权/审计须成为一等维度；确认策略需要机器可读的确认协议（人或其代理如何批准）。
+2. 硬底线不变：无论调用方是人还是 Agent，硬底线语义原样保持（既定裁决）。
+3. 攻击面：本地 Agent ↔ 扩展通道是新的攻击面（本机恶意进程伪装、通道劫持、越权调用），需通道认证与最小暴露面。
+4. 权限纪律延续：新能力仍走 optional_permissions + 用时请求；静态 permissions 零新增继续适用。
+5. 技术通道未定：Native Messaging / MCP / 本地 daemon / WebSocket 均为候选，本条目不做选型（选型属未来 spec/plan）。
+6. 与 v3 的关系：v3-ui（渐进式披露）收口后才考虑立项；本条目不改变 v3 范围与排期。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -916,3 +940,4 @@ lgdl-cli render --file <① 存成的 .lgdl 文件> -o out.svg --format svg
 | v1.22.0 | 增量更新：**F-27 web-cli-plugin v2「any insight」整体收口（2026-09-13，@sddu-build 代行，编排器代作者决策 2026-09-13 授权；最小追加，零删改既有叙述）**——①**四个叶子子 Feature（V2-1 连接树数据模型与状态投影 / V2-2 悬浮连接树 UI 与交互 / V2-3 撤销与取消授权操作面 / V2-4 命令档案浏览器）phase 全部 = `validated`**（`status=tracked`；父 Feature 仍为轻量规范容器 phase=tasked / workflow=4.tasks / agent=sddu-tasks）；②**review**：P0 R1 ⚠️ 有条件通过 0 阻塞（`39cd0a1`）/ V2-4 R1 ⚠️ 有条件通过 0 阻塞（`be44295`）；**validate**：P0 R1 ✅ 通过 0 阻塞（`9f55d1b..ccf621d`）/ V2-4 R1 ✅ 通过 0 阻塞（`983790a`/`4d15cff`）；③**测试基线**：`tsc` 0 error、插件 **646/646·0 fail**、`test:insight` **70**、`test:ui` **167**、`test:hardening` **24**、`test:binding` **180 ×3**、`test:e2e` PASS、全仓 **1629 tests / 1628 pass / 0 fail / 1 skip**（base 483 零回归）；④**体积**：`content.js` **1,073,453 B（零增长）**、`sidepanel.js` **1,132,748 B**（ceiling 1,189,385）、`background.js` **1,403,170 B**；⑤**flakes**：修 `test:binding` `#AP#5b` 相位窗口 flake（谓词限定 `phase==='waiting'`；编号沿用、断言不减；未改 `src/discovery/auto-probe.ts` 可观察行为）+ **新观测修复** tabs `#7m3/#7m4/#7o/#7o2`（先等自建标签页 `status==='complete'` 再操作；无断言增删）+ legacy `git diff HEAD` 弱冻结加注释保留（W4）；`docs/dev.md` §6.1 新增「门禁日志完整落盘」纪律（D-V24-06）；⑥**人工面 13 项**（V2-H-A~D / V2-H-1~6 / V2-H-7~9）+ **T1 缺口** 未执行（headless 不可合成，如实登记不冒充 PASS）；⑦**口径登记** D-V24-01/02/08；⑧**不合 main、不发布**（v2 与 v1 均在 `feature/web-cli-plugin`，合入/发布由作者决定）。 | 2026-09-13 | sddu-build Agent（代行收口） |
 | v1.23.0 | 增量更新：**F-27 web-cli-plugin v2「any insight」R2 修订轮结论与 R2 收口（2026-09-14，@sddu-build 代行，编排器代作者决策（2026-09-13 授权）+ R2；最小追加，零删改既有叙述）**——①**作者两诉求达成**：连接树 = **真层级树**（`role=tree/treeitem` + `aria-level`/`aria-expanded` + 键盘/面包屑/惰性渲染 + 多归属主链不复制节点）+ **逐层可操作**（allow/ask/deny 三态覆盖控件，放宽类二次确认）；②**验证 ✅ 通过 0 阻塞**（validate R2 `a0d2629`；全链 `a955a7f`→`7617687`→`76d0d61`→`ce60fd1`/`493f9d0`/`e35d852`/`ff32683`→`5d9e6f1`（review ⚠️ 有条件通过 0 阻塞）→`02ee715`/`fa062ab`/`649f746`→`a0d2629`）；③**关键安全设计**：覆盖层 clamp **在 SW 侧强制**、`policy.ts`/`auto-authorize.ts` **判定链零改动**（哈希 pin 不变）、`ui`/`state`/`external`/破坏性档**只可收紧**（ask/deny 无 allow）、`evaluate`/S1/S3 **不可覆盖档**（零控件 + 原因可读）、**`content.js` 零增长**（1,073,453 B）；④**取代台账机制**（`docs/r2-supersession-ledger.json` S1~S20 + 门禁 `test/insight-tree-hierarchy.test.ts`：删除行须命中台账 / `journey.mjs` 零 diff / `test(` ≥ 646；`literalRemovedZero=false` 如实）；⑤**测试基线**：`tsc` 0 error、插件 **693·0 fail**、`test:insight` **108**、`test:ui` 167、`test:hardening` 24、`test:binding` **192**、`test:e2e` PASS、全仓 EXIT=0（base 483 零回归）、`sidepanel.js` **1,162,942 B**（ceiling 1,217,848）；⑥**3 处低龄偏差订正/登记**（`test:insight` **102→108**〔历史保留、以现状为准〕；台账 `counts.nodeTests` 补**跨口径说明**〔646=排除正则静态 / 690=同口径 / 693=运行期；门禁下界=646；数字不改〕；legacy bare `catch` 登记为已知项〔`src/**` 14 处 + v1 `journey.mjs:589`，非 R2 引入〕）；⑦**人工面待执行、如实登记不冒充 PASS**（`V2-H-10~14` + 承前 `V2-H-A~D`/`V2-H-1~6`/`V2-H-7~9` + `H0~H10` + T1 缺口，全部 `⏳ 未执行（headless 不可合成）`）；⑧**本轮纯文档/状态收口：零 `src/`、零 `test/` 改动 → 未跑 Chromium 门禁**（零 diff 核实，如实标注）；⑨**phase 不回退**（父 `tasked` / 四叶 `validated`）；**未合 main、未发布**（`NG-V2-009` 保持，合入/发布由作者执行）。 | 2026-09-14 | sddu-build Agent（代行收口） |
 | v1.24.0 | 增量更新：**F-27 web-cli-plugin v2 —— 性能根因修复 + 体积守卫收紧（2026-09-14，sddu-build 代行；最小追加，零删改既有叙述）**——①**根因消除**：base LLM SDK 惰性化（commit `0df2273`；作者 2026-09-14 显式授权、仅限本修复）——`packages/web-cli-base/src/llm.ts` 顶层静态 `import OpenAI/@anthropic-ai/sdk` → `import type` + `chat()` 内按需 `await import(...)`，修 base barrel（`index.ts`）急切拉入两个重 SDK 的共同根因（lgdl-web dev 首屏 + 插件 `content.js` 膨胀）；公开 API/行为零变化；②**体积改善**：`content.js` **1,073,453 → 177,076 B**（−83.5%）、`sidepanel.js` **1,162,942 → 266,500 B**（−77.1%）、`options.js` **978,471 → 82,093 B**（−91.6%）、`background.js` **1,432,228 → 1,587,839 B**（+10.9%，如实登记：惰性命名空间挡住 tree-shaking，换后台仅真正调用时才求值）；③**守卫收紧（只准更严）**：`CONTENT_MAX_BYTES` / `CONTENT_BUNDLE_BASELINE_BYTES` → **177,076 B**、`SIDEPANEL_BASELINE_BYTES` → **266,500 B** / ceiling **279,825 B**（历史值全保留 + 反证同步更新并实跑仍 FAIL）；④**D31 现状**：**64 KiB 目标仍未达成（16.4× → 2.70×）**，`targetMet` 仍 `false`（如实保留，不宣布达成）；根因已消除 + 剩余差距登记；⑤门禁串行全绿（插件 **696·0 fail**、insight 108、ui 167、hardening 24、binding 192、e2e PASS、base **490**、全仓 **1686/1685 pass / 0 fail / 1 skip**）；**本轮 base 零改动、未合 main、未发布**（合入/发布由作者执行）。 | 2026-09-14 | sddu-build Agent |
+| v1.25.0 | 追加 F-29 候选条目（A2A 双向），未立项未排期 | 2026-09-16 | SDDU Team |
