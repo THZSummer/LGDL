@@ -667,11 +667,16 @@ export function evaluateConsecutiveReRegistrationGrowth(
     };
   }
   // V3-4（**守卫只增不减**）：守卫改报「**最差**的连续两功能轮」，而不是「最后两轮」。
-  // 原因如实登记：v3-1/v3-2/v3-3/v3-4 四轮里，最后两轮（v3-3 + v3-4，+10.25%）落在 15%
+  // 原因如实登记：v3-1/v3-2/v3-3/v3-4 四轮里，最后两轮（v3-3 + v3-4，+10.44%）落在 15%
   // 线**以下**，若仍按「最后两轮」计，告警会**消失** —— 那是把守卫**放松**（历史上一旦
   // 发生过 >15% 的连续两轮，就再也没有机会被机器提醒）。改报最大值后：① 告警仍必然存在
-  // （v3-1 + v3-2 = +22.95%），② 任何**新的** >15% 连续两轮同样会被抓出来，判定函数因此
+  // （v3-1 + v3-2 = +22.96%），② 任何**新的** >15% 连续两轮同样会被抓出来，判定函数因此
   // **更强**而不是更弱；阈值、告警文案与「必须显式回报编排器」的要求零改动。
+  // **收口轮订正（validate R1 **F2**，2026-09-17）**：本注释原登记 `+10.25%` / `+22.95%`
+  // （估读），与实测算术不符 —— `(362777−328476)/328476 = +10.44%`、
+  // `(327679−266500)/266500 = +22.956% → +22.96%`（与同文件 `:324/:325` 及
+  // `docs/v3-density-baseline.json#volume.directionalAlert` 逐字一致）。数值按实测订正；
+  // **历史值逐字保留**：订正前的两个数分别是 `+10.25%`（v3-3+v3-4）与 `+22.95%`（v3-1+v3-2）。
   let worst = { from: rounds[0].baselineBeforeBytes, to: rounds[0].baselineAfterBytes, pct: 0, i: 0 };
   for (let i = 1; i < rounds.length; i += 1) {
     const from = rounds[i - 1].baselineBeforeBytes;
@@ -717,8 +722,14 @@ export function evaluateConsecutiveReRegistrationGrowth(
  * `authorized` 自检、卸载不上报 `gone`、广播 teardown 的单 tab 缺口（I-01②③ / I-01①）。
  * 这些修复只能落在 `src/content/pick-{overlay,menu,layer,bridge}.ts`，而按 ADR-V3-031
  * 「登记值 == 实测产物（零容差）」的纪律，字节增长必须**显式重登记**而不是靠压缩凑数。
- * 逐文件归因（受控实验：逐文件回退到 HEAD 后 `npm run build`，读 `dist/pick-layer.js`）：
- * pick-overlay +615 / pick-menu +504 / pick-layer +307 / pick-bridge +83 = **+1,509 B**；
+ * 逐文件归因（受控实验：逐文件回退到 **R2 前 `1e1b798`** 后 `npm run build`，读 `dist/pick-layer.js`）：
+ * pick-overlay +661 / pick-menu +389 / pick-layer +376 / pick-bridge +83 = **+1,509 B**
+ *（Σ 与「交付态 − 全部回退态」逐字节相等，且与 `baselineAfterBytes − baselineBeforeBytes` 相等；
+ * validate R1 独立复现同值。`test/pick-layer-budget.test.ts` 对「四项之和 == 总增幅」有机器断言）
+ * **收口轮订正（validate R1 **F1**，2026-09-17）**：本节曾把逐文件分布登记为
+ * `+615` / `+504` / `+307` / `+83`（同序：pick-overlay / pick-menu / pick-layer / pick-bridge），
+ * 并把它描述成「受控实验…实测」—— 那其实是 **R1 当时的预估值**被当成「实测」登记，属
+ * **登记失真**（历史值在上句逐字保留）。现按实测订正为 `+661 / +389 / +376 / +83`。
  * 前后值、日期、来源、理由与「历史值逐字保留」（{@link PICK_LAYER_BASELINE_BYTES_HISTORY}
  * 的 32,391）登记在 {@link PICK_LAYER_RE_REGISTRATIONS}。**不放宽项**：`content.js`
  * 177,076 B 仍不可动；容差仍为 0（`+1 B` @ 33,901 必 FAIL）。
@@ -778,8 +789,11 @@ export const PICK_LAYER_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
       '挂载后卸载会**复活** Shadow host：DOMContentLoaded 追加未被清除）、I-03（打开自绘菜单即夺走宿主焦点且 ' +
       '关闭不还原）、I-01②（层不按 `env().authorized` 自检 ⇒ 丢失 teardown 后继续拦右键）、I-01③（`pushState(\'gone\')` ' +
       '从未调用 ⇒ 面板 `gone` 分支是死路径、卸载后仍视为 injected）、I-10（`history.__wcliPickWrapped` 死判据 + ' +
-      '`flash()` 未跟踪定时器）。逐文件归因（受控实验：逐文件回退到 HEAD 后 `npm run build`，`stat` 读产物）：' +
-      'pick-overlay +615 / pick-menu +504 / pick-layer +307 / pick-bridge +83 = +1,509 B。' +
+      '`flash()` 未跟踪定时器）。逐文件归因（受控实验：逐文件回退到 R2 前 `1e1b798` 后 `npm run build`，`stat` 读产物）：' +
+      'pick-overlay +661 / pick-menu +389 / pick-layer +376 / pick-bridge +83 = +1,509 B（实测；' +
+      'Σ == baselineAfterBytes − baselineBeforeBytes，由 test/pick-layer-budget.test.ts 机器断言）。' +
+      '**收口轮订正（validate R1 F1）**：本条曾登记 `+615` / `+504` / `+307` / `+83`（R1 预估值被当成' +
+      '「受控实验实测」，属登记失真；历史值即此逐字保留），现按实测订正。' +
       '处置：**显式重登记**（而非压缩 CSS / 调空白凑字节），前值 32,391 B 逐字保留在 ' +
       'PICK_LAYER_BASELINE_BYTES_HISTORY；容差仍为 **0**，`+1 B`（33,901）反证必须 FAIL；' +
       '`content.js` 177,076 B 与 `sidepanel.js` 362,777 B 本轮**零改动**。',

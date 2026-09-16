@@ -33,6 +33,19 @@
  *       Shadow host；I-10 overlay 定时器被跟踪（`op('timers')`）；I-01② 失去授权后
  *       下一次交互即自行卸载；I-01③ 卸载把 `gone` 事实推给面板（R2 / 裁决 V3-VOL-2）
  *
+ * ── 收口轮（validate R1 的 F1~F7，2026-09-17）─────────────────────────────────
+ *
+ *   ⑬  **F3 去 flaky**：I-01②/I-01③ 的载体换成**非 bound / 非 active 的同 origin 第二个
+ *       已授权 tab**（`appTab`）+ 静止前置（自动探测进入饱和退避 ≥15s 或终态，连续两次
+ *       读数）—— 覆盖路径（`refreshState → ensureInjected` 重推 `authorized:true`）对载体
+ *       结构上不存在；本门禁要求**连跑 ≥5 次 5/5 绿**（build.md 收口轮小节）。
+ *   ⑭  **F4 生产可达**：`revoke` 现在**先**广播 `pick-layer-env{authorized:false}`（去授权
+ *       事实）**再**广播 teardown。夹具把 siteTab 的那份 teardown **吞掉**（模拟广播丢失），
+ *       断言该 tab 仍必须在收到 env(false) 后自行卸载 —— 回退该修复即翻红。
+ *   ⑮  **F5 目标 tab**：同 origin 切 tab 的窗口内（bound = 上一个 tab ∧ 活动 tab = 新 tab），
+ *       `pick-layer-inject` 必须落在**活动** tab；构造用内容脚本 `hello` 路径改 bound，
+ *       与「哪个 tab 是活动 tab」无关，因此不依赖竞态。
+ *
  * Run: node test/ui/page-input.mjs   (one Chromium instance, serial)
  */
 import { createServer } from 'node:http';
@@ -584,10 +597,109 @@ async function main() {
     const timersAfter = await op(siteTab, 'timers');
     check('I-10：flash 定时器触发后自行从跟踪集合移除（归 0，不泄漏）', timersAfter === 0, String(timersAfter));
 
+    // ── F5（validate R1）：同 origin 切 tab 的窗口内，注入必须落在**活动** tab ─────
+    // 机制：`pickLayerTarget` 的候选序原本是「bound 优先」，而 `followActiveTab` 的重绑是
+    // **异步**的 ⇒「用户切到同 origin 的兄弟 tab」与「绑定落地」之间存在一个窗口，此时 bound
+    // 仍是刚离开的那个 tab，注入 / 高亮于是落到**非预期目标**上（validate 一次运行实测回包
+    // tabId = 另一个同 origin tab）。
+    // 构造是**确定性**的，不靠竞态取胜：① 先让 bound = appTab（活动 tab 也是 appTab）；
+    // ② 再用内容脚本的 `hello` 路径把 bound 换回 siteTab —— `hello` 绑的是**发送者 tab**，
+    // 与「哪个 tab 是活动 tab」无关。于是得到「bound = siteTab ∧ 活动 tab = appTab ∧ 同 origin」。
+    const stateActive = () =>
+      evaluate(
+        pCdp,
+        `chrome.runtime.sendMessage({ kind: 'state' }).then((r) => (r && r.data && r.data.active ? { tabId: r.data.active.tabId, origin: r.data.active.origin } : null))`,
+      );
+    const activeTabId = () =>
+      evaluate(swCdp, `chrome.tabs.query({ active: true, currentWindow: true }).then(([t]) => (t ? t.id : -1))`);
+    // 「等状态」而不是「加长 sleep」：tab-follow 的重绑是异步的，固定 sleep 只是把 flake 概率
+    // 从 1 挪到 0.01（run4 实测就红在这里）。这里改为**有界轮询**目标状态本身。
+    const waitBoundTab = async (tabId, tries = 24) => {
+      let seen = null;
+      for (let i = 0; i < tries; i += 1) {
+        seen = await stateActive();
+        if (seen?.tabId === tabId && seen?.origin === site.origin) return seen;
+        await sleep(250);
+      }
+      return seen;
+    };
+
+    await evaluate(swCdp, `chrome.tabs.update(${appTab}, { active: true }).then(() => true)`);
+    const boundToApp = await waitBoundTab(appTab);
+    check(
+      'F5 前置（负控）：bind 已落在 appTab（活动 tab 也是 appTab）',
+      boundToApp?.tabId === appTab && boundToApp?.origin === site.origin,
+      JSON.stringify(boundToApp),
+    );
+    const helloBound = await iso(
+      siteTab,
+      `chrome.runtime.sendMessage({ kind: 'hello', origin: ${JSON.stringify(site.origin)} }).then((r) => Boolean(r && r.data && r.data.bound))`,
+    );
+    check('F5 前置：内容脚本 hello 把 bound 换到 siteTab（**不**切换活动 tab）', helloBound === true, String(helloBound));
+    const f5Bound = await stateActive();
+    const f5Active = await activeTabId();
+    check(
+      'F5 前置（窗口态）：bound = siteTab 而活动 tab = appTab（同 origin）',
+      f5Bound?.tabId === siteTab && f5Bound?.origin === site.origin && f5Active === appTab,
+      JSON.stringify({ bound: f5Bound, active: f5Active }),
+    );
+    const f5Inject = await evaluate(
+      pCdp,
+      `chrome.runtime.sendMessage({ kind: 'pick-layer-inject' }).then((r) => ({ ok: Boolean(r && r.ok), tabId: r && r.data && r.data.tabId, origin: r && r.data && r.data.origin }))`,
+    );
+    check(
+      'F5：同 origin 切 tab 的窗口内，注入必须落在**活动** tab（不得落回上一个 tab）',
+      f5Inject?.ok === true && f5Inject?.tabId === appTab && f5Inject?.origin === site.origin,
+      JSON.stringify(f5Inject),
+    );
+    // 还原：bound 与活动 tab 都回到 siteTab（后续用例的既定前置）；同样按状态等待而不是定长 sleep。
+    await evaluate(swCdp, `chrome.tabs.update(${siteTab}, { active: true }).then(() => true)`);
+    const boundBack = await waitBoundTab(siteTab);
+    check('F5 还原（负控）：bound 与活动 tab 已回到 siteTab', boundBack?.tabId === siteTab, JSON.stringify(boundBack));
+    await evaluate(pCdp, `window.__v3.testing.refresh(); true`);
+    await sleep(1400);
+
     // ── I-01②：失去授权后，层必须在**下一次交互**自检并卸载 ──────────────────────
     // 旧实现从不读 `env().authorized`：teardown 消息一旦丢失（撤销与拆卸竞态 / SW 重启），
     // 已失去授权的层会一直拦着宿主右键。`envReady()` 保证「从未收到 env」≠「被撤销」，
     // 因此 zero-injection 的强制注入负控不会被这条自检致盲（那是它自己的负控前提）。
+    //
+    // F3（validate R1 收口轮）—— 去掉本段的 flaky（**不减弱任何断言**）：
+    //   · 载体从 bound/active 的 `siteTab` 换成**同 origin 的第二个已授权 tab** `appTab`。
+    //     flake 机制（validate 独立复现：5 次 2 红 = 76/2 ↔ 78/0）：窗口期内任何一次
+    //     `refreshState → ensureInjected → pick-layer-inject` 都会向 bound/active 的 tab
+    //     **无条件重推 `authorized:true`**，把刚下发的 env(false) 覆盖掉，层于是不再自检卸载。
+    //     `pickLayerTarget` 的候选序里**没有**「非 bound / 非 active」的 tab，所以这条覆盖路径
+    //     对载体**结构上不存在** —— flake 被消除，而不是被 sleep 掩盖。
+    //   · 静止前置：等自动探测进入**饱和退避**（`nextDelayMs ≥ 15000` ⇒ ≥15s 内不会再发
+    //     `probe-changed` → `refreshState`）或已终态（`ready` / `blocked`），且需**连续两次读数**
+    //     一致。读的是状态机的相位与下次退避（可观测），不是「加长等待」。
+    const probeQuiet = async (maxMs = 60_000) => {
+      const started = Date.now();
+      let last = null;
+      let streak = 0;
+      while (Date.now() - started < maxMs) {
+        last = await evaluate(
+          pCdp,
+          `chrome.runtime.sendMessage({ kind: 'state' }).then((r) => (r && r.data && r.data.probe ? { phase: r.data.probe.phase, retries: r.data.probe.retries, nextDelayMs: r.data.probe.nextDelayMs === undefined ? null : r.data.probe.nextDelayMs } : null))`,
+        );
+        const quiet =
+          last != null &&
+          (last.phase === 'ready' ||
+            last.phase === 'blocked' ||
+            (last.phase === 'waiting' && Number(last.nextDelayMs) >= 15000));
+        streak = quiet ? streak + 1 : 0;
+        if (streak >= 2) return { ...last, quiet: true, waitedMs: Date.now() - started };
+        await sleep(400);
+      }
+      return { ...(last ?? {}), quiet: false, waitedMs: Date.now() - started };
+    };
+    const quietBefore = await probeQuiet();
+    check(
+      'I-01② 前置（静止）：窗口期内不会再发 probe-changed → refreshState（饱和退避 ≥15s 或终态，连续两次读数）',
+      quietBefore?.quiet === true,
+      JSON.stringify(quietBefore),
+    );
     const layerProbe = (tabId) =>
       iso(
         tabId,
@@ -606,20 +718,20 @@ async function main() {
            return out;
          })()`,
       );
-    const preSelfCheck = await layerProbe(siteTab);
+    const preSelfCheck = await layerProbe(appTab);
     check(
-      'I-01② 前置（负控）：撤销前层在场且拦右键（自检若恒真则此断言也恒真）',
-      preSelfCheck?.marker === 'object' && preSelfCheck?.intercepted === true,
+      'I-01② 前置（负控）：载体 tab（appTab = 同 origin 的非 bound / 非 active tab）撤销前层在场、唯一 host 且拦右键',
+      preSelfCheck?.marker === 'object' && preSelfCheck?.intercepted === true && preSelfCheck?.shadowHosts === 1,
       JSON.stringify(preSelfCheck),
     );
     const envPushed = await evaluate(
       swCdp,
-      `chrome.tabs.sendMessage(${siteTab}, { kind: 'pick-layer-env', origin: ${JSON.stringify(site.origin)}, authorized: false, declarationHash: '' })
+      `chrome.tabs.sendMessage(${appTab}, { kind: 'pick-layer-env', origin: ${JSON.stringify(site.origin)}, authorized: false, declarationHash: '' })
          .then(() => true).catch((e) => String(e))`,
     );
     check('I-01② 前置：去授权的 env 已下发到层（envReady 置真）', envPushed === true, String(envPushed));
     await sleep(250);
-    const selfCheck = await layerProbe(siteTab);
+    const selfCheck = await layerProbe(appTab);
     check(
       'I-01②：失去授权后第一次交互（右键）即**自行卸载**（marker / host / 拦截全零）',
       selfCheck?.marker === 'undefined' && selfCheck?.shadowHosts === 0 && selfCheck?.intercepted === false,
@@ -678,14 +790,119 @@ async function main() {
       preRevokeRoot?.marker === 'object' && preRevokeRoot?.intercepted === true && preRevokeApp?.marker === 'object' && preRevokeApp?.intercepted === true,
       JSON.stringify({ siteTab: preRevokeRoot, appTab: preRevokeApp }),
     );
+    // ── F4（validate R1 收口轮）：撤销必须**先下发去授权事实**，teardown 丢失也能自卸 ──
+    // 原始 hole：层侧自检（I-01②）读的是 `pick-layer-env{authorized:false}`，但撤销路径上
+    // **没有**这个事实的生产发送点（`pick-layer-inject` 对未授权 origin 提前 return；
+    // `pick-layer-env` 的唯一生产调用者 `startPick()` 只在 inject 成功后执行）⇒ 自检只能在
+    // 门禁自己 `tabs.sendMessage` 的测试通道上成立，它声称要保护的「teardown 丢失」场景
+    // （撤销与拆卸竞态 / SW 重启）其实无人保护。
+    // 证伪夹具：把 **teardown 广播**在 SW 侧吞掉（只吞 siteTab 那一份，其余消息照常）——
+    // 这就是「teardown 丢失」本身。修复前撤销路径不产生 env(false) ⇒ 层继续拦右键；
+    // 修复后 `denotifyPickLayer` 先发事实 ⇒ 下一次交互自行卸载（断言必然翻红/翻绿）。
+    // F4 静止前置（与 F3 同法，**结构上**去掉在途 inject 的竞态）：等自动探测进入饱和退避
+    // （≥15s 内不再发 `probe-changed` → `refreshState` → `ensureInjected` → `pick-layer-inject`）
+    // 或终态，连续两次读数一致。否则一个**在途**的 inject 可能在撤销落地之后才把 env 推回层，
+    // 把刚下发的 env(false) 覆盖掉（实测失败形态：assert 里 marker:'object' + intercepted:true）。
+    // 产品侧同时加固：`pick-layer-inject` 现在在 `executeScript` 之后**重新**现算 env 再下发
+    // （见 src/background/service-worker.ts），因此该竞态在生产路径上也已闭合；本前置让门禁的
+    // **观察**同样稳定。
+    const f4Quiet = await probeQuiet();
+    check(
+      'F4 前置（静止）：窗口期内不会再发 probe-changed → refreshState（饱和退避 ≥15s 或终态，连续两次读数）',
+      f4Quiet?.quiet === true,
+      JSON.stringify(f4Quiet),
+    );
+    // 三条可观测性前置（都是负控，判据不是恒真）：
+    //   ①tab 侧收据 `__wcliF4Seen`：env(false) 必须**真的送达**该 tab 的隔离世界（发送 ≠ 送达）；
+    //   ②SW 侧 `settled`：每条 sendMessage 的落定结果（ok / err 原文）随日志登记；
+    //   ③mount 身份标记：层实例的 `state.__f4tag`（实例被重挂载 ⇒ tag 变化，可与「同一实例
+    //     的 env 缓存被覆盖」区分开）。
+    const f4Arm = await iso(
+      siteTab,
+      `(() => {
+         window.__wcliF4Seen = [];
+         chrome.runtime.onMessage.addListener((m) => {
+           window.__wcliF4Seen.push({
+             kind: (m && m.kind) || '',
+             authorized: m && m.authorized,
+             marker: typeof window.__wcliPickLayer,
+           });
+         });
+         window.__wcliPickLayer.state.__f4tag = 'tag-' + Math.random().toString(36).slice(2, 8);
+         return window.__wcliPickLayer.state.__f4tag;
+       })()`,
+    );
+    check('F4 夹具前置（负控）：tab 侧收据与 mount 身份标记已装好（可观测）', typeof f4Arm === 'string' && f4Arm.startsWith('tag-'), String(f4Arm));
+    const f4Patched = await evaluate(
+      swCdp,
+      `(() => {
+         const api = chrome.tabs;
+         api.__wcliF4 = { log: [], dropped: 0, orig: api.sendMessage.bind(api) };
+         api.sendMessage = (tabId, msg, ...rest) => {
+           const kind = msg && msg.kind;
+           const entry = { tabId, kind, authorized: msg && msg.authorized, settled: 'pending' };
+           api.__wcliF4.log.push(entry);
+           if (kind === 'pick-layer-teardown' && tabId === ${siteTab}) {
+             api.__wcliF4.dropped += 1;
+             entry.settled = 'dropped(simulated)';
+             return Promise.reject(new Error('simulated: teardown broadcast lost (F4 fixture)'));
+           }
+           const p = api.__wcliF4.orig(tabId, msg, ...rest);
+           p.then(
+             () => { entry.settled = 'ok'; },
+             (e) => { entry.settled = 'err:' + String((e && e.message) || e); },
+           );
+           return p;
+         };
+         // 自检：夹具必须真的被调用过（否则「吞包」是静默失效，断言将无对象）。
+         // 用一个**不存在的** tabId（≥0）走 wrapper：它会先记账再委托，因此只留下
+         // 日志行、不会向任何真实 tab 投递未知 kind。
+         try {
+           chrome.tabs.sendMessage(999999, { kind: '__wcli-f4-selfcheck__' }).catch(() => {});
+         } catch {
+           /* 无效 tabId 的同步抛错同样不影响记账（记账发生在委托之前） */
+         }
+         return Boolean(chrome.tabs.__wcliF4) && chrome.tabs.__wcliF4.log.some((e) => e.kind === '__wcli-f4-selfcheck__');
+       })()`,
+    );
+    check('F4 夹具前置（负控）：SW 侧 sendMessage 吞包夹具确实生效（可观测，非静默失效）', f4Patched === true, String(f4Patched));
     const revokeRes = await evaluate(
       pCdp,
       `chrome.runtime.sendMessage({ kind: 'revoke', origin: ${JSON.stringify(site.origin)} }).then((r) => ({ ok: Boolean(r && r.ok), revoked: r && r.revoked }))`,
     );
     check('I-01 前置：撤销消息被接受', revokeRes?.ok === true, JSON.stringify(revokeRes));
     await sleep(900);
+    const f4Log = (await evaluate(swCdp, `chrome.tabs.__wcliF4.log.map((e) => ({ tabId: e.tabId, kind: e.kind, authorized: e.authorized, settled: e.settled }))`)) ?? [];
+    const f4Dropped = await evaluate(swCdp, `chrome.tabs.__wcliF4.dropped`);
+    const f4Seen = (await iso(siteTab, `window.__wcliF4Seen`)) ?? [];
+    const firstIndex = (pred) => f4Log.findIndex(pred);
+    check(
+      'F4 夹具负控：teardown 广播确有一份被吞掉（「丢失」模拟真的发生，否则断言无对象）',
+      Number(f4Dropped) >= 1,
+      String(f4Dropped),
+    );
+    check(
+      'F4 负控：去授权事实**送达**被测 tab 的隔离世界（发送 ≠ 送达；发送失败必须可见）',
+      f4Seen.some((m) => m.kind === 'pick-layer-env' && m.authorized === false && m.marker === 'object'),
+      JSON.stringify({ seen: f4Seen.slice(-4), log: f4Log.slice(-4) }),
+    );
+    check(
+      'F4：撤销路径**先**下发去授权事实，再拆（每个受影响 tab 的 env(authorized:false) 都先于其 teardown 尝试）',
+      [siteTab, appTab].every((tabId) => {
+        const envAt = firstIndex((e) => e.tabId === tabId && e.kind === 'pick-layer-env' && e.authorized === false);
+        const tearAt = firstIndex((e) => e.tabId === tabId && e.kind === 'pick-layer-teardown');
+        return envAt >= 0 && tearAt >= 0 && envAt < tearAt;
+      }),
+      JSON.stringify(f4Log.slice(-8)),
+    );
     const postRevokeRoot = await layerProbe(siteTab);
     const postRevokeApp = await layerProbe(appTab);
+    const f4Tag = await iso(siteTab, `(() => (window.__wcliPickLayer ? window.__wcliPickLayer.state.__f4tag : 'unmounted'))()`);
+    check(
+      'F4：**teardown 丢失**（被夹具吞掉）的 bound tab 仍在收到 env(false) 后自行卸载（marker/host/拦截全零）',
+      postRevokeRoot?.marker === 'undefined' && postRevokeRoot?.shadowHosts === 0 && postRevokeRoot?.intercepted === false,
+      JSON.stringify({ probe: postRevokeRoot, mountTag: f4Tag, armTag: f4Arm, seen: f4Seen.slice(-3), log: f4Log.slice(-4) }),
+    );
     check(
       'I-01 ①：撤销后**另一个 tab**（非 bound/active）也零残留（marker/host/拦截全零）',
       postRevokeApp?.marker === 'undefined' && postRevokeApp?.shadowHosts === 0 && postRevokeApp?.intercepted === false,
@@ -696,6 +913,17 @@ async function main() {
       postRevokeRoot?.marker === 'undefined' && postRevokeRoot?.shadowHosts === 0 && postRevokeRoot?.intercepted === false,
       JSON.stringify(postRevokeRoot),
     );
+    const f4Restored = await evaluate(
+      swCdp,
+      `(() => {
+         if (chrome.tabs.__wcliF4) {
+           chrome.tabs.sendMessage = chrome.tabs.__wcliF4.orig;
+           delete chrome.tabs.__wcliF4;
+         }
+         return !('__wcliF4' in chrome.tabs);
+       })()`,
+    );
+    check('F4 夹具还原：SW 侧 sendMessage 已还原（后续用例不被夹具污染）', f4Restored === true, String(f4Restored));
     const goneReadback = await (async () => {
       await evaluate(pCdp, `window.__v3.testing.refresh(); true`);
       await sleep(1300);

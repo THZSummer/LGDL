@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-v3-4-page-as-input",
   "version": "v3.0.0",
   "name": "V3-4 页面即输入——Alt 悬停拾取（描边 + 语义路径/选择器/文本摘要）· Alt 拖动到侧栏（跟随胶囊 + 落点高亮）· 右键自绘菜单（零新增权限 + 三条退让）· 拖选文本气泡 → 生成引用 + 选择题；页面侧**按需注入**（拾取层不打进常驻 content.js）、未授权站点**零注入**；双向高亮联动（chip ↔ 角标同序号）",
-  "phase": "reviewed",
-  "workflow": "6.review",
-  "agent": "sddu-build",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v3-ui",
   "childrens": [],
@@ -85,7 +85,9 @@
     "tasks.json",
     "build.md",
     "review.md",
-    "review-report.md"
+    "review-report.md",
+    "validate.md",
+    "validate-report.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/spec.md",
@@ -99,7 +101,9 @@
     "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/build.md",
     "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/review.md",
     "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/review-report.md",
-    "gateLogs": "/tmp/opencode/v3-gate-logs/v3-4/（build 轮）与 /tmp/opencode/v3-gate-logs/v3-4-fix/（修复轮；含 BLOCK-1 两段证伪 RP-BLOCK1-reverted.log / page-input.log）—— 非版本化"
+    "gateLogs": "/tmp/opencode/v3-gate-logs/v3-4/（build 轮）与 /tmp/opencode/v3-gate-logs/v3-4-fix/（修复轮；含 BLOCK-1 两段证伪 RP-BLOCK1-reverted.log / page-input.log）—— 非版本化 与 /tmp/opencode/v3-gate-logs/v3-4-closeout/（**收口轮**：F1~F7 处置；含 RP-F4b-reverted.log（F4 回退段 88/4 EXIT=1）/ page-input-f1..f5.log（5/5 绿 92/0）/ RP-F1-sigma*.log / plus1b.txt / REDLINES.txt / SUMMARY.txt）—— 非版本化",
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/validate-report.md"
   },
   "dependencies": {
     "on": [
@@ -174,7 +178,7 @@
       "needs": "spike 结论；**禁止**放宽 CONTENT_MAX_BYTES"
     }
   ],
-  "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.5 / §8.4 / NFR-V3-003~007）。范围 = 四项页面侧交互（含右键自绘 + 三退让）+ 引用 + 选择题 + 双向联动同序号 + 按需注入 + 零注入 + 零新增权限 + 宿主兼容 + 手势表一致；不做 L0/L1/L2 内容、不做引用失效判定本体、不放宽体积上限、不改静态注入。**唯一触碰 src/content/** 的叶子，最后开工（三条高风险集中）**。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-030~036）。**范围**：页面即输入四项交互（Alt 悬停拾取 / Alt 拖动入侧栏 / 右键自绘菜单 / 拖选文本气泡）+ 拾取即选择题 + 唯一高亮可撤销 + 拾取期间零命令 + 双向高亮联动（同序号 ref_<n>）+ **页面侧按需注入（第 5 个 esbuild entry dist/pick-layer.js + executeScript 双触发：面板在场 + 拾取点击，幂等 + teardown 自卸载 + 失败降级不静默）** + **未授权站点零注入** + 零新增权限（不引入 contextMenus）+ 宿主兼容（open Shadow DOM 双向隔离 + 事件不吞五规则）+ 手势表双向一致（6 项）+ 引用捕获口径共享（src/content/ref-capture.ts，稳定优先语义路径 + data-wcli-ref 身份标记）。**开放点裁决**：V34-O-1（按需注入形态 + A-UI-004 spike 硬前置）/ V34-O-2（open Shadow DOM 隔离）/ V34-O-3（语义路径稳定优先 + 身份标记 + 截断 120）/ V34-O-4（拖选最小 2 字符、输入区禁用、1.8s 淡出）/ V34-O-5（**不接受**放宽 CONTENT_MAX_BYTES；降级 = 第二个登记式 content script 或回报编排器）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。",
+  "notes": "spec 阶段完成（2026-09-16，sddu-spec）：产出本叶子 spec.md v1.0（切片；权威条文见父 spec §5.5 / §8.4 / NFR-V3-003~007）。范围 = 四项页面侧交互（含右键自绘 + 三退让）+ 引用 + 选择题 + 双向联动同序号 + 按需注入 + 零注入 + 零新增权限 + 宿主兼容 + 手势表一致；不做 L0/L1/L2 内容、不做引用失效判定本体、不放宽体积上限、不改静态注入。**唯一触碰 src/content/** 的叶子，最后开工（三条高风险集中）**。**只做 spec**：未写 plan/tasks/代码、未改任何源码/测试、未跑任何门禁/构建/Chromium、未 commit。\n\nplan 阶段完成（2026-09-16，sddu-plan）：按 SDDU 模板产出 plan.md（父 plan.md = 统领性技术方案，含 §1 前置检查 / §2 架构分析 / §3 方案对比 / §4 推荐方案 / §5 文件影响分析 / §6 风险评估 / §7 生成的 ADR / §8 修订记录）。本叶产出 plan.md（ADR-ADR-V3-030~036）。**范围**：页面即输入四项交互（Alt 悬停拾取 / Alt 拖动入侧栏 / 右键自绘菜单 / 拖选文本气泡）+ 拾取即选择题 + 唯一高亮可撤销 + 拾取期间零命令 + 双向高亮联动（同序号 ref_<n>）+ **页面侧按需注入（第 5 个 esbuild entry dist/pick-layer.js + executeScript 双触发：面板在场 + 拾取点击，幂等 + teardown 自卸载 + 失败降级不静默）** + **未授权站点零注入** + 零新增权限（不引入 contextMenus）+ 宿主兼容（open Shadow DOM 双向隔离 + 事件不吞五规则）+ 手势表双向一致（6 项）+ 引用捕获口径共享（src/content/ref-capture.ts，稳定优先语义路径 + data-wcli-ref 身份标记）。**开放点裁决**：V34-O-1（按需注入形态 + A-UI-004 spike 硬前置）/ V34-O-2（open Shadow DOM 隔离）/ V34-O-3（语义路径稳定优先 + 身份标记 + 截断 120）/ V34-O-4（拖选最小 2 字符、输入区禁用、1.8s 淡出）/ V34-O-5（**不接受**放宽 CONTENT_MAX_BYTES；降级 = 第二个登记式 content script 或回报编排器）。**未通过项登记**：无（本阶段不跑门禁）；「每叶收尾必须全门禁绿」为**实现阶段**硬约束。**只做 plan**：未写 tasks/代码、未改源码与测试、未跑门禁/构建/Chromium、未 commit。\n\n收口轮完成（2026-09-17，sddu-build；**phase 保持 `validated`** —— 收口非新阶段）：处置 validate R1 的 F1~F7。**F4（中，最高优先）⇒ 生产可达**：`revoke` 改为**先** `denotifyPickLayer`（逐受影响 tab 广播 `pick-layer-env{authorized:false}`）**再** `teardownPickLayer`，并让 `pick-layer-inject` 在 `executeScript` **之后**重算 env 再下发（在途 inject 不得把已撤销 origin 复活成 `authorized:true`）；**只改 `src/background/**`** ⇒ `content.js` 177,076 / `pick-layer.js` 33,900 / `sidepanel.js` 362,777 三受 pin 产物**逐字节不变**。两段证伪：回退 ⇒ `88 passed / 4 failed` EXIT=1（`seen:[]` + `{intercepted:true,marker:'object',shadowHosts:1}`，即 F4 原始 hole 形状）；修复 ⇒ `92 passed / 0 failed` EXIT=0。**F3（中）⇒ 去 flaky**：I-01②/I-01③ 载体换成同 origin 的**非 bound / 非 active** tab（`appTab`）+ 静止前置（探测饱和退避 ≥15s 或终态、连续两次读数），**连跑 5 次 5/5 绿（92/0）**，断言零减弱。**F1（中）⇒ 登记保真**：逐文件归因三处落点（`size-baseline.ts` JSDoc / `PICK_LAYER_RE_REGISTRATIONS['v3-4-fix2'].reason` / 台账 `featureHistory.v3-4-fix2.perFileAttribution`）按实测订正为 `661/389/376/83`，新增机器断言「四项之和 == 总增幅（Σ == +1,509）」并配两段反证（`+661→+615` ⇒ FAIL；台账 `totalBytes 1509→1508` ⇒ FAIL；还原 ⇒ PASS）；诚实订正注写明 R2 曾把 R1 预估登记为「受控实验实测」= **登记失真**。**F2**：`+10.25%/+22.95% → +10.44%/+22.96%`（含台账 V34-S4~S8 的 5 条 reason），历史值逐字保留。**F5**：`pickLayerTarget` 在 bound 与 active 同 origin 时以 **active** 为准（确定性断言：用内容脚本 `hello` 改 bound，不依赖竞态）。**F7**：in-gate 清单条数文案订正（原文 `4→9` 实为 `8→13`；本轮 `13→17`）。**F6 ⇒ deferred（如实登记）**：`pick-menu.ts#restoreFocus` 对已脱离 DOM 的 `previousFocus` 静默无效，修法会让 `dist/pick-layer.js` 超过 V3-VOL-2 钉死的 33,900 B（零容差）⇒ 按红线「波及即停」，需新的显式重登记裁决；本轮不动该产物。登记：台账新增 `V34R3-S1~S5`（取代登记）+ `v3_4_closeoutNote` + `featureHistory.v3-4-closeout`（只追加，旧值逐字保留）。门禁 21 项严格串行全绿（`test:binding` 首跑环境性红 —— 与本叶改动前的 `binding-diagnostics-1789520473394.log` 同签名 `CDP socket not open`；复跑 `binding PASS — 192 assertions`，已如实登记）；计数只增不减：node **795→796**、page-input **78→92**，其余 14 项持平；`+1B` 双反证（33,901 / 177,077）FAIL→逐字节还原 PASS。",
   "status": "tracked",
   "phaseHistory": [
     {
@@ -211,9 +215,53 @@
       "phase": "reviewed",
       "timestamp": "2026-09-17T02:45:00.000Z",
       "triggeredBy": "sddu-build（修复轮 R2：执行裁决 V3-VOL-2 —— pick-layer 显式重登记 32,391→33,900 B + 落地 I-01②③/I-02/I-03/I-10 五项 + 复活路径复测 + 两段证伪；phase 保持 reviewed，待 review 复跑）"
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-17T04:00:00.000Z",
+      "triggeredBy": "sddu-validate（R1：⚠️ 有条件通过 / **0 阻塞**；V1~V16 逐项独立复现，自写探针 41+19 断言全绿；探针只落 /tmp/opencode/v3-validate-v34/，Chromium 一次一个、profile 自清）",
+      "disposition": {
+        "结论": "⚠️ 有条件通过（0 阻塞）",
+        "FR覆盖": "FR-V3-060~072 13/13 + AC-CONV-1/2",
+        "门禁": "19 项串行复跑：18 项 EXIT=0；test:page-input flaky（5 次 2 红 76/2 ↔ 78/0）",
+        "新发现": [
+          "F1 登记册逐文件归因用 R1 预估冒充「受控实验实测」（实测 +661/+389/+376/+83）",
+          "F2 散文残留 +10.25%/+22.95%（实测 +10.44%/+22.96%）",
+          "F3 page-input 的 I-01②/I-01③ 断言 flaky（ensureInjected 无条件重推 authorized:true）",
+          "F4 I-01② 自检在撤销路径上没有 env(authorized:false) 生产发送点（未闭合原 hole）",
+          "F5 pickLayerTarget bound 优先 ⇒ 同 origin 切 tab 窗口内落点可能滞后",
+          "F6 previousFocus 可能已脱离 DOM（还原静默无效）",
+          "F7 in-gate 清单条数文案 4→9 实际 8→13"
+        ],
+        "未验证": [
+          "人工面 6 项 ⏳",
+          "真实第三方站点",
+          "risk 其余 4 子场景（硬线：hardline 已自测）",
+          "EC-V3-007 SW 回收实验",
+          "页面脚本 tamper 可利用性"
+        ],
+        "证据": "/tmp/opencode/v3-validate-v34/{gates,plus1b,probes}（非版本化）"
+      }
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-17T05:30:00.000Z",
+      "triggeredBy": "sddu-build（收口轮：处置 validate R1 的 F1~F7；**phase 保持 validated** —— 收口非新阶段）",
+      "disposition": {
+        "F4": "已修（生产可达）：revoke 先下发 env(authorized:false) 再广播 teardown（denotifyPickLayer）+ pick-layer-inject 注入后重算 env；只改 src/background/**；两段证伪 88/4 EXIT=1 ↔ 92/0 EXIT=0",
+        "F3": "已修（去 flaky）：载体换成非 bound/非 active 的同 origin tab + 静止前置；连跑 5 次 5/5 绿（92/0）；断言零减弱",
+        "F1": "已修：逐文件归因三处落点按实测订正 661/389/376/83 + 新增「Σ == +1,509」机器断言（两段反证）",
+        "F2": "已修：+10.44% / +22.96%（size-baseline 注释 + 台账 5 条 reason），历史值逐字保留",
+        "F5": "已修：pickLayerTarget 同 origin 时 active 优先 + 确定性断言",
+        "F6": "deferred（如实登记）：修法落在 src/content/pick-menu.ts ⇒ dist/pick-layer.js 必须增长，而该产物按 V3-VOL-2 零容差钉死 33,900 B；需新的显式重登记裁决",
+        "F7": "已订正：in-gate 清单文案 4→9 实为 8→13；本轮 13→17",
+        "门禁": "21 项严格串行全绿（binding 首跑环境性红 ⇒ 复跑 192 全绿，已如实登记）",
+        "计数": "node 795→796 · page-input 78→92 · 其余持平（只增不减）",
+        "红线": "content.js 177,076（无容差）/ pick-layer.js 33,900 / sidepanel.js 362,777 三者逐字节不变；manifest 零新增权限；判定链 zero-diff；无新增依赖"
+      }
     }
   ],
-  "phaseNote": "build 阶段完成（2026-09-16，sddu-build）：15/15 任务（S×2 / M×12 / L×1）。**TASK-401 spike 全过**（S1 注入可行 / S2 最小骨架 8,606 B ≤ 60,000 / S3 未授权五探针全负 + 强制注入反证翻红 / S4 三退让可实现）⇒ **未走 D1/D2**，获准进实现。形态：第 5 个产物 `dist/pick-layer.js`（32,266 B，按需 `executeScript` 注入，**自有独立无容差上限**，不与 content.js 合并计数）；`dist/content.js` **逐字节不变 177,076 B**；三冻结文件 hash 与 pin 一致；`manifest.json` 零 diff（无 contextMenus）；判定链未动。门禁（严格串行、日志 /tmp/opencode/v3-gate-logs/v3-4/）：typecheck 0 · build ✅ · npm test **795/795** · supersession ✅ · **test:zero-injection 20** · **test:page-input 46** · density **127** · l0 **164** · l1 **103** · l2 **71** · l1-reverse ✅ · l2-reverse ✅ · journey **167** · insight **116** · binding **192** · hardening **24** · e2e PASS · gate-integrity ✅ · 体积四线 + 反证三段 ✅ · 零改动核对 ✅。体积：`sidepanel.js` **显式重登记 349,925 → 362,865 B（+3.70%）**（容差 5% 未动、cap 仍 record-only、断言零删减、逐模块归因；Feature 累计 +36.18% < 40% 停工线，已在 build 报告 §1.3 显式回报）；方向性守卫改报「最差连续两轮」（+22.96%，**只增不减**）。AC-CONV-1（生产 `setEnv` 调用点 + 真实声明 sha256）与 AC-CONV-2（全仓唯一 `dispatchRefAction(` 调用点 + 引用回合走同一入口）各配可 FAIL 判据。人工面 6 项如实登记「未执行」。**只做 build**：未改 main / 未改 v1·v2 SDDU / 未改冻结文件与判定链 / 无新增依赖 / 未使用 git add -A。\n\n---\n\n**reviewed（2026-09-17，修复轮）**：review R1 判 **❌ 不通过**（43 项 = 34 ✅ / 6 ⚠️ / 3 ❌；2 阻塞）。**BLOCK-1 已修**：`src/background/service-worker.ts#pickLayerTarget` 的 `normalizeStableOrigin(url)` → **`tabOrigin(url)`**（一行；`normalizeStableOrigin` 的导入保留，`:1789` 仍用于授权集合比对）—— 此前完整 URL 被当作 origin，`http://h:p/app` 恒判「未授权」⇒ 带路径的真实页面全部不可用。回归证据：`test/ui/page-input.mjs` 新增 5 条（原 46 → **61**，含 review 指定的 `/app` 上 `window.__wcliPickLayer === 'object'` 隔离世界探针 + 行为级右键接管 + 根路径对照）；`test/ui/zero-injection.mjs` 加带路径变体（20 → **27**）。**两段证伪**：回退该行 → `57 passed / 4 failed`（`/app` marker `undefined` / shadowHosts `0` / `intercepted:false`，EXIT=1）；修复 → `61 passed / 0 failed`（EXIT=0）；sha256 还原（`e044be3c…5af851`）。**BLOCK-2 已修**：登记/审计事实层收敛到 `349,925 → 362,777（+12,852 / +3.67%）`、`ceiling = floor(362,777×1.05) = 380,915`、Feature 累计 `+36.13%`、worst-pair `+22.96%`、`pick-input.ts 5,085 B`、累计 `67,552 B`；`ceilingUncappedFormulaBytes 380,271 → 380,915` 并新增机器断言（逐轮 `=== floor(baselineAfterBytes×1.05)`，退回即 FAIL）；两个中间测量值 `362,163/362,865` 移出 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 但**不静默消失**（`SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS` + 台账 `featureHistory.v3-4.intermediateBuildSnapshots`）；ledger 16 处幽灵值改写；补登 `V34-S3/S3b/S3c/S3d`（`insight-protocol.test.ts` 4 行删除首次可见）+ `V34F-S1`。**顺手修**：I-01①（撤销按 origin 广播 teardown，run 门禁覆盖「另一 tab 全零」）、I-04（两门禁 `/app` 变体 + 站点自带 contextmenu 并存断言）、I-05（删除行判据文件集合 = 台账 ∪ 实测 diff）、I-06（SW 新增 `pick-layer-env` 真实路由）、I-07（open shadow = CSS 隔离而非脚本隔离，文档化）、I-08（元门禁注释订正）、I-09（`t.skip` → `assert.fail`）、I-11（build.md §2.2 两条 MODIFY 失真订正 + 文件计数口径 18）。**deferred（红线冲突，如实回报）**：I-01②（层自检 authorized）/ I-01③（`pushState('gone')`）/ I-02（`DOMContentLoaded` 复活 Shadow host，已实证）/ I-03（菜单关闭还原宿主焦点，已实证）/ I-10（死判据 + 未跟踪定时器）—— 修法只能落在 `src/content/pick-{layer,bridge,menu,overlay}.ts`，而 `pick-layer.js` 本轮红线为 **32,391 零容差不得增长**（`assert.equal(size, PICK_LAYER_FINAL_ARTIFACT_BYTES)`）。受控实测代价：overlay +615 / menu +504 / layer +307 / bridge +83 = **+1,509 B（+4.66%）**。按红线「功能需要增长 ⇒ 停下回报」处置：**未**抬高上限、**未**靠压缩凑字节、**未**为未交付行为新增断言，4 个文件改动全部回退（产物仍 32,391 逐字节不变）。若编排器批准一次显式重登记（`32,391 → 33,900`，披露五要素齐备），可在下一轮一次性落地。**门禁（严格串行、一次一个，日志 `/tmp/opencode/v3-gate-logs/v3-4-fix/`，无 tail 截断，profile 自清）**：typecheck 0 · build ✅（`177076 / 32391 / 362777`）· npm test **795/795/0 skipped** · supersession **14/14** · density **127/0** · l0 **164/0** · l1 **103/0** · l2 **71/0** · l1-reverse 9/9 · l2-reverse 10/10 · page-input **61/0** · zero-injection **27/0** · journey **167** · insight **116** · binding **192** · hardening **24** · e2e PASS · gate-integrity **12/12** · 体积四线 + ceiling 机器断言 ✅ · 零改动核对 ✅ · 反证全套 ✅（RP-V3-01/02/03/04/08/09 各 EXIT=0 + BLOCK-1 两段证伪 + 新断言 in-gate 模式登记 `RP-BLOCK1-01/02`、`RP-I01-01`）。**计数只增不减**。**红线**：`content.js` 177,076 · `pick-layer.js` 32,391 · `sidepanel.js` 362,777（三者均等于登记值）；三冻结 hash = pin；`manifest.json` 零 diff、无 `contextMenus`；判定链未动；`main` 停留在 `2ddc922`；无新增依赖；未用 `git add -A`；主界面无常驻输入框；风险位不可折叠；未授权站点零注入。\n\n---\n\n**reviewed（2026-09-17，修复轮 R2 / 裁决 V3-VOL-2）**：执行编排器裁决 V3-VOL-2。**① 显式重登记**：`dist/pick-layer.js` **32,391 → 33,900 B**（+1,509 / +4.66%）—— 该上限是本 Feature **自建的首轮实测值**（与 content.js 产品硬约束性质不同），本次增长承载 **正确性 / 安全性修复**；披露五要素齐备（前后值 / 日期 2026-09-17 / 来源 `npm run build` + `stat` / 理由 / 历史逐字保留：新增 `PICK_LAYER_BASELINE_BYTES_HISTORY = [32_391]` 与 `PICK_LAYER_RE_REGISTRATIONS`（首轮 + 本轮链条，由 `pick-layer-budget.test.ts` 机器断言））；逐文件实测归因 overlay +661 / menu +389 / layer +376 / bridge +83 = **+1,509 B**（与裁决增幅逐字节相等，分布按本轮实测登记）；**`+1 B` @ 33,901 反证实跑 FAIL**（`登记 33900B ≠ 实测 33901B`，2 tests/1 pass，EXIT=1）⇒ 还原后 sha256 一致 ⇒ 2/2 PASS。**② 5 项 deferred 全部落地**：I-02（延迟追加可移除 + `disposed`，复活 host 消除）/ I-03（`open()` 记录 previousFocus、`close()` 还原宿主焦点）/ I-01②（`stillAuthorized()` + 3 个交互处理器自检；`pick-bridge` 新增 `envReady()` 区分「撤销」与「从未收到 env」）/ I-01③（`unmount()` 先 `pushState('gone')` 再摘监听）/ I-10（删除 `history.__wcliPickWrapped` 死判据；`flash()` 定时器纳入跟踪集合 + `op('timers')` 门禁缝）。**③ 复活路径复测**（review 探针 B 形态）：document_start 挂载 → 立刻 unmount → 加载完成 ⇒ **`shadowHosts` 必须 0**（探针载体改用未授权 hostname `localhost`，避免「面板在场 ⇒ 自动注入」污染）。**④ 两段证伪**：回退 4 个源文件（产物 32,391）⇒ `page-input` **71 passed / 7 failed** EXIT=1（7 条红各命中预期文本）→ 修复（产物 33,900）⇒ **78 passed / 0 failed** EXIT=0（page-input 61 → **78**）。**⑤ 门禁 21 项严格串行全绿**（日志 `/tmp/opencode/v3-gate-logs/v3-4-fix2/`，无 tail 截断，profile 自清）：typecheck 0 · build `177076/33900/362777` · npm test **795/795/0 skipped** · supersession **14/14**（叶段 30 文件 / 97 条逐字登记）· density **127/0** · l0 **164/0** · l1 **103/0** · l2 **71/0** · l1-reverse 9/9 · l2-reverse 10/10 · page-input **78/0** · zero-injection **27/0** · journey **167** · insight **116** · binding **192** · hardening **24** · e2e PASS · gate-integrity **12/12** · 体积四线 + 登记一致性 ✅ · 零改动核对 ✅ · 反证全套 ✅（RP-V3-01/02/03/04/08/09 各 EXIT=0 + pick-layer +1B@33,901 + content.js +1B@177,077 + R2 两段证伪 + 5 条 in-gate 登记）。**计数只增不减**（page-input 61→78，其余逐项相等；断言零删减，META 断言按新事实重 pin）。**红线**：`content.js` **177,076** 零改动 · `sidepanel.js` **362,777** 零改动 · `pick-layer.js` **33,900 == 登记值**；三冻结 hash = pin；`manifest.json` 零 diff、无 `contextMenus`；判定链未动；`main` 停留 `2ddc922`；无新增依赖；**未用 `git add -A`**；主界面无常驻输入框；风险位不可折叠；未授权零注入；密度阈值 `7/15·9/20·17/35` 未动。**风险（登记给 validate 专项）**：「只断言 `ok`」形态可能存在于其它门禁（R1 自报方法论风险，本轮**未做全仓清扫**）；I-10 的 `__wcliPickWrapped` 半边无行为级 FAIL 探针（由 I-02 同 hunk 回退承载）。**phase 保持 `reviewed`**（本叶交付轮：修复后应交由 review 复跑，不重置为 builded）",
+  "phaseNote": "validated —— 验证 R1（sddu-validate）：**⚠️ 有条件通过 / 0 阻塞**。独立复现（不复用被验证方脚本作唯一证据）：① BLOCK-1 tabOrigin 修复为真（授权 /app 页 ok:true + 回包 tabId 的 tab 持层 + 隔离世界 marker=object + Shadow host=1 + 右键接管；未授权 /app 结构性零注入）；② 零注入五探针 + 强制注入反证 + 两条未覆盖态（撤销广播两 tab 全零 / 面板披露自洽且不误拆已授权 tab）；③ I-02 复活路径（document_start 挂载→卸载→加载完成 shadowHosts=0）；④ 三条退让 + I-03 焦点还原（Esc 后 activeElement=host-input）+ 宿主自带 contextmenu 共存；⑤ 密度自写口径 9 格逐格零漂移；⑥ 体积四线 + pick-layer/content.js 双 +1B 反证（FAIL→sha256 还原 PASS）+ 逐文件归因独立复现（+661/+389/+376/+83）；⑦ R2-1 专项：13 个 Chromium 门禁静态清扫（CLASS_A 7 处全为实体定位前置、ok-only 29 处逐条判定）⇒ 0 处可蒙混。门禁 19 项串行复跑：18 项 EXIT=0（795/14/127/164/103/71/167/116/192/24/12/27/9/10）；**test:page-input flaky 被独立复现（5 次 2 红：76/2 ↔ 78/0）**。新发现 7 项（F1 登记册归因冒充实测 / F2 数字残留 / F3 门禁 flaky / F4 自检生产不可达 / F5 目标 tab 窗口 / F6 焦点目标脱离 DOM / F7 清单条数文案）—— 均非阻塞，建议 F1/F3/F4 收口前处置。",
   "crossLeafConvergence": [
     {
       "id": "N-06",
@@ -230,5 +278,37 @@
       "historyPreserved": "以「追加 + 历史保留」方式登记：v3-2 的 spec/plan/tasks 已完成产物未改动；本叶 spec.md/tasks.md 只追加（修订记录 v1.1），v1.0 原文逐字保留。",
       "blocking": true
     }
-  ]
+  ],
+  "closeout": {
+    "round": "收口轮（validate R1 的 F1~F7 处置）",
+    "by": "sddu-build",
+    "date": "2026-09-17",
+    "head": "1e2e1a1",
+    "phaseKept": "validated（收口非新阶段）",
+    "dispositions": {
+      "F1": "已修（登记保真：实测 661/389/376/83 + Σ 机器断言 + 诚实订正注）",
+      "F2": "已修（+10.44% / +22.96%，历史值逐字保留）",
+      "F3": "已修（去 flaky：换载体 + 静止前置；5/5 绿）",
+      "F4": "已修（生产可达：先 env(false) 后 teardown + 注入后重算 env；只改 src/background/**）",
+      "F5": "已修（同 origin 窗口内 active 优先 + 断言）",
+      "F6": "deferred（pick-layer.js 33,900 B 零容差钉死；需新的显式重登记裁决）—— 复现路径已登记",
+      "F7": "已订正（in-gate 清单 4→9 实为 8→13；本轮 13→17）"
+    },
+    "evidence": {
+      "F4TwoStage": "回退 ⇒ 88 passed / 4 failed EXIT=1；修复 ⇒ 92 passed / 0 failed EXIT=0（/tmp/opencode/v3-gate-logs/v3-4-closeout/RP-F4b-reverted.log / page-input-f1.log）",
+      "F3Stability": "page-input 连跑 5 次 5/5 绿（92/0）：page-input-f1..f5.log",
+      "F1SigmaCounterProof": "reason +661→+615 ⇒ FAIL；台账 totalBytes 1509→1508 ⇒ FAIL；还原 ⇒ PASS（RP-F1-sigma*.log）",
+      "gates": "21 项串行（SUMMARY.txt）；binding 首跑环境性红 ⇒ 复跑 192 全绿（已如实登记）",
+      "logDir": "/tmp/opencode/v3-gate-logs/v3-4-closeout/（非版本化）"
+    },
+    "redLines": {
+      "contentJsBytes": 177076,
+      "pickLayerJsBytes": 33900,
+      "sidepanelJsBytes": 362777,
+      "manifestDiff": "零",
+      "newPermissions": "无",
+      "dependencyAdded": "无",
+      "gitAddAll": "未使用（逐文件 path-limited add）"
+    }
+  }
 }

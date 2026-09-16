@@ -947,18 +947,32 @@ const NON_INJECTABLE_URL = /^(chrome|edge|devtools|about|view-source|chrome-exte
 async function pickLayerTarget(
   s: Singletons,
 ): Promise<{ tabId: number; origin: string } | { error: string; benign: boolean }> {
-  // Candidate order: the bound session's tab first (that is the site the user is working
-  // on), then the active tab. **Every** candidate is verified against its REAL tab URL:
-  // a bound session can outlive a navigation, and an extension page's tab is never
-  // injectable — attempting the load there would produce a Chrome-level error about an
-  // unrelated page and the panel would misreport「页面侧不可用」for an idle panel.
+  // Candidate order: the **active tab** when it is the bound origin the user is already
+  // working on, otherwise the bound session's tab first, then the active tab. **Every**
+  // candidate is verified against its REAL tab URL: a bound session can outlive a
+  // navigation, and an extension page's tab is never injectable — attempting the load
+  // there would produce a Chrome-level error about an unrelated page and the panel would
+  // misreport「页面侧不可用」for an idle panel.
   const bound = s.controller.get();
   const [active] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
   const candidates: Array<{ tabId: number; expect?: string; url?: string }> = [];
+  const activeId = active?.id;
+  const boundOrigin = bound?.origin;
+  const activeOrigin = tabOrigin(active?.url);
+  // F5 (validate R1): two tabs of the SAME origin. `followActiveTab` rebinds on
+  // `tabs.onActivated`, but that path is asynchronous — between「the user switches to the
+  // sibling tab」and「the bind lands」there is a window in which the bound tab is still the
+  // one the user just left. With a bound-first candidate order, an injection / highlight
+  // issued in that window lands on the **wrong** (same-origin) tab: a behaviour on a
+  // non-intended target. When bound and active share an origin the active tab is
+  // therefore the better target (it is where the user's attention is *now*), and the
+  // bound tab stays the immediate fallback so nothing else changes.
+  const preferActive = activeId !== undefined && Boolean(boundOrigin) && activeOrigin === boundOrigin;
+  if (activeId !== undefined && preferActive) candidates.push({ tabId: activeId, url: active.url ?? '' });
   if (bound && bound.tabId !== undefined && bound.origin) {
     candidates.push({ tabId: bound.tabId, expect: bound.origin });
   }
-  if (active?.id !== undefined) candidates.push({ tabId: active.id, url: active.url ?? '' });
+  if (activeId !== undefined && !preferActive) candidates.push({ tabId: activeId, url: active.url ?? '' });
 
   for (const candidate of candidates) {
     const info = await chrome.tabs.get(candidate.tabId).catch(() => null);
@@ -1038,13 +1052,7 @@ async function declarationEnv(
 async function teardownPickLayer(s: Singletons, origin?: string): Promise<void> {
   const targets: number[] = [];
   if (origin) {
-    // `tab.url` is readable thanks to the `tabs` permission, so the candidates come
-    // from the browser, not from a remembered injection list (no stale tabIds).
-    const tabs = await chrome.tabs.query({}).catch(() => []);
-    for (const tab of tabs) {
-      if (tab.id === undefined) continue;
-      if (tabOrigin(tab.url) === origin) targets.push(tab.id);
-    }
+    targets.push(...(await pickLayerOriginTabs(origin)));
   } else {
     const target = await pickLayerTarget(s);
     if ('error' in target) return;
@@ -1056,6 +1064,53 @@ async function teardownPickLayer(s: Singletons, origin?: string): Promise<void> 
     } catch {
       /* no layer in that tab (never injected / already gone) — nothing to take down */
     }
+  }
+}
+
+/**
+ * Every tab of `origin`. `tab.url` is readable thanks to the `tabs` permission, so the
+ * candidates come from the browser, not from a remembered injection list (no stale tabIds).
+ * Single source for the two origin-wide broadcasts (`denotifyPickLayer` /
+ * `teardownPickLayer`) so the「去授权事实」and the teardown always address the same set.
+ */
+async function pickLayerOriginTabs(origin: string): Promise<number[]> {
+  const tabs = await chrome.tabs.query({}).catch(() => []);
+  const ids: number[] = [];
+  for (const tab of tabs) {
+    if (tab.id === undefined) continue;
+    if (tabOrigin(tab.url) === origin) ids.push(tab.id);
+  }
+  return ids;
+}
+
+/**
+ * V3-4 closeout round (validate R1 **F4**) — push the **de-authorization fact** to every
+ * page-side layer of `origin`, *before* the teardown broadcast.
+ *
+ * Why the order is the whole point: the layer's self-check (`stillAuthorized()`, I-01②)
+ * acts on `pick-layer-env{authorized:false}`. The revoke path used to have **no production
+ * sender** for that fact — `pick-layer-inject` returns early for an unauthorized origin
+ * (it never reaches its env push), and `pick-layer-env`'s only production caller is
+ * `startPick()`, which runs after a *successful* inject. The self-check therefore only
+ * ever fired from a test channel (`tabs.sendMessage`), i.e. it did **not** close the hole
+ * it claims to close: with the teardown broadcast lost (revoke/teardown race, service
+ * worker restart), a revoked origin's layer kept hijacking `contextmenu` — a literal
+ * breach of FR-V3-067 / AC-V3-018 (the judge chain stays fail-closed meanwhile, which is
+ * why this was non-blocking, but「已撤销站点的层继续接管右键」is still wrong).
+ *
+ * Facts first, teardown second: a layer that never saw the teardown still removes itself
+ * on its next interaction. The values come from the single declaration-facts producer
+ * (`declarationEnv`) and `authorized` is pinned to `false` explicitly, so a future
+ * reordering of the revoke steps cannot silently turn this back into a no-op.
+ */
+async function denotifyPickLayer(s: Singletons, origin: string): Promise<void> {
+  const env = await declarationEnv(s, origin);
+  for (const tabId of await pickLayerOriginTabs(origin)) {
+    await chrome.tabs
+      .sendMessage(tabId, { kind: 'pick-layer-env', ...env, authorized: false })
+      .catch(() => {
+        /* no layer in that tab (never injected / already gone) — nothing to de-authorize */
+      });
   }
 }
 
@@ -1975,6 +2030,11 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // origin keeps zero page-side listeners (never "injected but inert").
       // I-01: by **origin**, not just the bound tab — every tab of the revoked origin
       // loses its layer (otherwise a second tab keeps hijacking `contextmenu`).
+      // F4 (validate R1, closeout round): the **de-authorization fact** goes out FIRST
+      // (`denotifyPickLayer`) and the teardown second. A lost teardown then still leaves
+      // zero interception, because the layer self-check (I-01②) unloads on its next
+      // interaction — see `denotifyPickLayer` for why the old order only *looked* closed.
+      await denotifyPickLayer(s, origin);
       await teardownPickLayer(s, origin);
       // V2-3 (FR-V2-030; 编排器代作者决策 D-V23-01): revocation is a tightening —
       // the revoked origin's declared tools must leave `deriveTools()` immediately
@@ -2023,8 +2083,16 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         return errorResponse(`页面侧不可用：${reason}`);
       }
       // The declaration facts the page cannot read itself (AC-CONV-1's hash/version).
-      await chrome.tabs.sendMessage(target.tabId, { kind: 'pick-layer-env', ...env }).catch(() => {});
-      return okResponse({ injected: true, tabId: target.tabId, ...env });
+      // F4 (validate R1, closeout round): they are re-derived **after** the `executeScript`
+      // await rather than reusing the pre-injection snapshot. `executeScript` is an await
+      // point, so a `revoke` can land while the injection is in flight; pushing the stale
+      // `authorized:true` would then overwrite the `authorized:false` the revoke just
+      // delivered and re-open the very hole the revoke ordering closes (a lost teardown
+      // would leave a revoked origin's layer intercepting `contextmenu` indefinitely).
+      // The pre-injection snapshot still gates the injection (single producer, fail-closed).
+      const envAfterInject = await declarationEnv(s, target.origin);
+      await chrome.tabs.sendMessage(target.tabId, { kind: 'pick-layer-env', ...envAfterInject }).catch(() => {});
+      return okResponse({ injected: true, tabId: target.tabId, ...envAfterInject });
     }
     case 'ref-highlight': {
       // V3-4 (FR-V3-066): the panel's highlight/flash request travels panel → SW → layer.

@@ -1062,6 +1062,13 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     ['test/ui/page-input.mjs', /I-01②：失去授权后第一次交互（右键）即\*\*自行卸载\*\*/],
     ['test/ui/page-input.mjs', /I-01③：面板收到卸载事实/],
     ['test/ui/page-input.mjs', /I-10：flash 高亮期间 overlay 定时器被\*\*跟踪\*\*/],
+    // v3-4 收口轮（validate R1 的 F3/F4/F5，2026-09-17）—— 同样逐条在门禁源码里带上
+    // 自己的 FAIL 形态（两段证伪原文见 build.md §13：F4 回退 ⇒ `88 passed / 4 failed`
+    // EXIT=1；修复 ⇒ `92 passed / 0 failed` EXIT=0，且连跑 ≥5 次 5/5 绿）。
+    ['test/ui/page-input.mjs', /I-01② 前置（静止）：窗口期内不会再发 probe-changed/],
+    ['test/ui/page-input.mjs', /F5：同 origin 切 tab 的窗口内，注入必须落在\*\*活动\*\* tab/],
+    ['test/ui/page-input.mjs', /F4：撤销路径\*\*先\*\*下发去授权事实/],
+    ['test/ui/page-input.mjs', /F4：\*\*teardown 丢失\*\*（被夹具吞掉）的 bound tab 仍在收到 env\(false\) 后自行卸载/],
   ];
   for (const [file, pattern] of inGate) {
     const text = readFileSync(resolve(PKG, file), 'utf8');

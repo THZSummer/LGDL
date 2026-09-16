@@ -146,3 +146,53 @@ test('V3-4 size: content.js 仍 ≤177,076 B（无容差）且冻结三文件 ha
     assert.equal(sha256(text), pinned, `${file} 内容 hash 与 pin 不一致（本叶不得改冻结文件）`);
   }
 });
+
+/**
+ * V3-4 收口轮（validate R1 **F1**，2026-09-17）— 逐文件归因的**保真**判据。
+ *
+ * R1 的登记失真：`size-baseline.ts` 的 JSDoc / `PICK_LAYER_RE_REGISTRATIONS['v3-4-fix2'].reason`
+ * 与台账 `featureHistory.v3-4-fix2.perFileAttribution` 三处都把 **R1 的预估分布**
+ * （`615 / 504 / 307 / 83`）写成「受控实验实测」。实测分布是 `661 / 389 / 376 / 83`
+ * （validate R1 独立复现 + `build.md §12.1`，Σ 与「交付态 − 全部回退态」逐字节相等）。
+ *
+ * 本用例把「三处同源 + 四项之和 == 总增幅」变成机器事实：不一致即 FAIL（不是靠人眼比对）。
+ */
+test('V3-4 size: 逐文件归因三处同源且四项之和 == 总增幅（Σ == +1,509，validate F1）', () => {
+  const fix2 = PICK_LAYER_RE_REGISTRATIONS.find((r) => r.id === 'v3-4-fix2');
+  assert.ok(fix2, '登记册必须含 v3-4-fix2 这一轮');
+  const delta = fix2.baselineAfterBytes - fix2.baselineBeforeBytes;
+  assert.equal(delta, 1_509, '本轮总增幅必须仍是 +1,509 B');
+  // 实测分布（受控实验：逐文件回退到 R2 前 1e1b798 后重建；validate R1 独立复现同值）。
+  const MEASURED: Record<string, number> = { overlay: 661, menu: 389, layer: 376, bridge: 83 };
+  const parsed: Record<string, number> = {};
+  for (const m of fix2.reason.matchAll(/pick-(overlay|menu|layer|bridge)\s*\+\s*([\d,]+)/g)) {
+    parsed[m[1]] = Number(m[2].replace(/,/g, ''));
+  }
+  assert.equal(Object.keys(parsed).length, 4, `reason 必须逐文件给出四项归因（实测 ${Object.keys(parsed).join(' / ') || '空'}）`);
+  assert.deepEqual(parsed, MEASURED, 'reason 的逐文件分布必须是实测值（不是 R1 预估值）');
+  const sum = Object.values(parsed).reduce((a, b) => a + b, 0);
+  assert.equal(sum, delta, `逐文件归因之和 ${sum} ≠ 总增幅 ${delta}（Σ 断言）`);
+  // 第二处落点：JSDoc 必须写实测分布，并保留 F1 订正说明与历史（预估）分布。
+  const src = readFileSync(new URL('../../test/size-baseline.ts', import.meta.url), 'utf8');
+  assert.ok(
+    src.includes('pick-overlay +661 / pick-menu +389 / pick-layer +376 / pick-bridge +83 = **+1,509 B**'),
+    'JSDoc 的逐文件归因必须 == 实测分布',
+  );
+  assert.match(src, /收口轮订正（validate R1 \*\*F1\*\*/, 'JSDoc 必须写明 F1 订正（登记失真）');
+  assert.match(src, /`\+615` \/ `\+504` \/ `\+307` \/ `\+83`/, 'F1 订正必须逐字保留历史（预估）分布，不得静默消失');
+  // 第三处落点：台账必须同源。
+  const ledger = JSON.parse(readFileSync(new URL('../../docs/v3-supersession-ledger.json', import.meta.url), 'utf8')) as {
+    featureHistory?: { 'v3-4-fix2'?: { perFileAttribution?: Record<string, number | string> } };
+  };
+  const attr = ledger.featureHistory?.['v3-4-fix2']?.perFileAttribution;
+  assert.ok(attr, '台账 featureHistory.v3-4-fix2.perFileAttribution 必须存在');
+  const ledgerAttr = {
+    overlay: attr['src/content/pick-overlay.ts'],
+    menu: attr['src/content/pick-menu.ts'],
+    layer: attr['src/content/pick-layer.ts'],
+    bridge: attr['src/content/pick-bridge.ts'],
+  };
+  assert.deepEqual(ledgerAttr, MEASURED, '台账逐文件归因必须 == 实测分布');
+  assert.equal(attr.totalBytes, delta, '台账 totalBytes 必须 == 总增幅');
+  assert.equal(sum, attr.totalBytes, 'reason 四项之和 == 台账 totalBytes == 总增幅（三处同源）');
+});
