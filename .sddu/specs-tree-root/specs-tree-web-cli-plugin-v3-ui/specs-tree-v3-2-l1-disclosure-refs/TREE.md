@@ -7,10 +7,12 @@
 ```
 specs-tree-v3-2-l1-disclosure-refs/
 ├── TREE.md          # 本文件 - 目录导航
-├── build.md         # 构建报告（含 §9 修复轮：编排器裁决 V3-VOL-1 执行记录）
+├── build.md         # 构建报告（§9 修复轮：裁决 V3-VOL-1 执行记录；§10 修复轮 R2：F-01 + 元门禁 + I-01~I-10）
 ├── plan.md          # 技术计划：specs-tree-v3-2-l1-disclosure-refs（V3-2 L1 就地展开与引用 / 回执）
+├── review.md        # 审查清单（C1~C38 + 五维度 + 门禁可失败性专项）
+├── review-report.md # 审查报告 R1（有条件通过 0 阻塞；F-01 跨叶真缺陷；I-01~I-10）
 ├── spec.md          # Feature Specification：specs-tree-v3-2-l1-disclosure-refs（V3-2 L1 就地展开与引用 / 回执）
-├── state.json          # 状态文件 (🟢 tracked [builded])
+├── state.json          # 状态文件 (🟢 tracked [reviewed])
 ├── tasks.json          # 任务清单 (机器可读)
 └── tasks.md          # 任务分解：specs-tree-v3-2-l1-disclosure-refs（V3-2 L1 就地展开与引用 / 回执）
 ```
@@ -20,17 +22,19 @@ specs-tree-v3-2-l1-disclosure-refs/
 |------|------|------|
 | plan.md | 技术计划：specs-tree-v3-2-l1-disclosure-refs（V3-2 L1 就地展开与引用 / 回执） — type RefVerdict = 'valid' | 'invalid' | 'unknown'; | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v3-2-l1-disclosure-refs（V3-2 L1 就地展开与引用 / 回执） — 父问题的第三面：**五类高后果信息与普通信息同密度并列、无永不折叠常驻位**（Q-UI-003）。E 稿的处理方式是「**就地展开**」：与当前任务强相关... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [builded] |
+| state.json | 状态文件（含 files.build/review/reviewReport 登记） | 🟢 tracked [reviewed] |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
-| build.md | 构建报告：10 任务 / 6 波实施记录 + §9 修复轮（裁决 V3-VOL-1：撤销自加 cap → 四条替代守卫；逐断言反证 RP-L1-A~H；全门禁串行复跑至绿 / 体积 content.js 177,076 · sidepanel.js 327,679 ≤ 344,062） | ✅ 存在 |
+| build.md | 构建报告：10 任务 / 6 波实施记录 + §9 修复轮（裁决 V3-VOL-1：撤销自加 cap → 四条替代守卫；逐断言反证 RP-L1-A~H）+ **§10 修复轮 R2**（F-01 门禁不可 FAIL 的四条修复与实跑验收 + 新增元门禁 `test/gate-integrity.test.ts` + I-01~I-10 逐条处置；全门禁串行复跑至绿 760/11/127/157/99/167/108/192/24/e2e/6） | ✅ 存在 |
+| review.md | 审查清单（C1~C38 + 五维度 + 门禁可失败性专项） | ✅ 存在 |
+| review-report.md | 审查报告 R1（结论：**有条件通过、本叶 0 阻塞**；F-01 跨叶真缺陷；I-01~I-10） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-v3-2-l1-disclosure-refs（V3-2 L1 就地展开与引用 / 回执） — Wave 1 ── 无依赖，4 路并行写入（文件不相交，纯函数/纯数据模块） | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 实施构建 (5/7) |
-| Status | 🟢 tracked [builded] |
+| Phase | 实施构建→审查 (5/7 → 6/7；本轮按编排器指令置 `phase=reviewed`) |
+| Status | 🟢 tracked [reviewed] |
 
 ## 上级目录
 - [返回上级](../TREE.md)
