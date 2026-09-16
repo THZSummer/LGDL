@@ -52,6 +52,15 @@ export interface BridgeDeps {
 
 export interface Bridge {
   env(): LayerEnv;
+  /**
+   * I-01② (review R1): has any `pick-layer-env` ever arrived? The layer's
+   * self-check must tell「the panel says this origin is no longer authorized」
+   * apart from「nobody ever told us anything」(a bare evaluation with no extension
+   * runtime — the zero-injection gate's forced-injection negative control). Only
+   * the former is a revocation; an absent env is missing facts, and treating it as
+   * a revocation would blind the gate's own probe.
+   */
+  envReady(): boolean;
   /** Push the document identity (and a readable reason when leaving). */
   pushState(phase: 'ready' | 'update' | 'gone', reason?: string): void;
   /** Push one captured reference. */
@@ -69,6 +78,7 @@ function runtime(): typeof chrome.runtime | undefined {
 
 export function createBridge(deps: BridgeDeps): Bridge {
   let env: LayerEnv = { origin: '', declarationHash: '', authorized: false };
+  let envReady = false;
   const send = (kind: string, payload: Record<string, unknown>): void => {
     try {
       void runtime()?.sendMessage?.({ kind, ...payload });
@@ -95,6 +105,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
         ...(typeof m.declarationVersion === 'string' ? { declarationVersion: m.declarationVersion } : {}),
       };
       deps.onEnv(env);
+      envReady = true;
       return true;
     }
     if (kind === 'ref-highlight') {
@@ -110,6 +121,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
   }
   return {
     env: () => ({ ...env }),
+    envReady: () => envReady,
     pushState(phase, reason) {
       const id = deps.identity();
       send('pick-layer-state', {

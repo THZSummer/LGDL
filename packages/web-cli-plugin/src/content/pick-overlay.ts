@@ -90,6 +90,8 @@ export interface OverlayHandle {
   clearBadges(): void;
   /** One node's label text (semantic path › selector › digest). */
   describe(el: Element): string;
+  /** I-10: pending tracked timers (`later()` set; ≥1 right after `flash()`, 0 drained). */
+  pendingTimers(): number;
   unmount(): void;
 }
 
@@ -113,12 +115,33 @@ export function createOverlay(doc: Document = document): OverlayHandle {
   // (and `unmount()` removes exactly this node). A `document_start` injection has no
   // `documentElement` yet, so the append is deferred to `DOMContentLoaded` — the layer
   // is still installed (its listeners and marker are up), it simply has no画布 yet.
+  //
+  // I-02 (review R1, probe B): that deferred append used to **outlive `unmount()`** —
+  // a `document_start` mount that was torn down before `DOMContentLoaded` still got
+  // its Shadow host appended, resurrecting a dead layer as a bare DOM residue. The
+  // listener is now removed and `disposed` is the belt to that braces: once unmounted
+  // the mount closure can never append anything again.
+  let disposed = false;
+  /** I-02: was the deferred (`DOMContentLoaded`) append actually armed? */
+  let mountPending = false;
+  /** I-10: every overlay timer lives here, so `unmount()` cannot leave one behind. */
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const later = (fn: () => void, ms: number): void => {
+    const id = setTimeout(() => {
+      timers.delete(id);
+      fn();
+    }, ms);
+    timers.add(id);
+  };
   const mountHost = (): void => {
+    if (disposed) return;
     const parent = doc.documentElement ?? doc.body;
     if (parent) {
+      mountPending = false;
       parent.appendChild(host);
       return;
     }
+    mountPending = true;
     doc.addEventListener('DOMContentLoaded', mountHost, { once: true });
   };
   mountHost();
@@ -173,7 +196,7 @@ export function createOverlay(doc: Document = document): OverlayHandle {
       // Re-trigger the animation on a repeated highlight of the same element.
       void outline.offsetWidth;
       outline.classList.add('flash');
-      setTimeout(() => outline.classList.remove('flash'), FLASH_MS * 2);
+      later(() => outline.classList.remove('flash'), FLASH_MS * 2);
     },
     reveal(el) {
       // `scrollIntoView` moves the page's viewport, never its layout. Guarded so a
@@ -230,6 +253,7 @@ export function createOverlay(doc: Document = document): OverlayHandle {
     },
     hideBubble() {
       if (bubbleTimer) clearTimeout(bubbleTimer);
+      bubbleTimer = undefined;
       bubble.hidden = true;
       bubble.onclick = null;
     },
@@ -260,7 +284,19 @@ export function createOverlay(doc: Document = document): OverlayHandle {
       const parts = [semanticPathFor(node), selectorFor(node), textDigestFor(node)].filter((p) => p.length > 0);
       return parts.join(' › ');
     },
+    pendingTimers() {
+      return timers.size;
+    },
     unmount() {
+      // I-02: `disposed` first, so the deferred mount can never re-append even if the
+      // listener were somehow already queued; then the listener itself goes away.
+      disposed = true;
+      if (mountPending) {
+        doc.removeEventListener('DOMContentLoaded', mountHost);
+        mountPending = false;
+      }
+      for (const id of timers) clearTimeout(id);
+      timers.clear();
       if (bubbleTimer) clearTimeout(bubbleTimer);
       badgeNodes.clear();
       host.remove();

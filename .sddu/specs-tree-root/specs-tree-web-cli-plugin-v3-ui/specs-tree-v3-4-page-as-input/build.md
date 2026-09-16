@@ -487,9 +487,226 @@ git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-p
 
 ---
 
+## 12. 修复轮 R2（review R1 后；编排器裁决 **V3-VOL-2**，2026-09-17）
+
+> 起点 HEAD `1e1b798`。R1 修复轮把 I-01②/I-01③/I-02/I-03/I-10 五项判为 **deferred**（`pick-layer.js`
+> 32,391 B 零容差红线；实测需 +1,509 B ⇒ 按红线「停下回报」）。编排器据此**批准显式重登记**
+> 32,391 → **33,900 B**，并要求五项一次性落地 + 复活路径复测 + 全套反证。本轮即该裁决的执行。
+
+### 12.1 显式重登记（裁决 V3-VOL-2）——披露五要素
+
+**单一事实**：`packages/web-cli-plugin/dist/pick-layer.js` = **33,900 B**（前值 **32,391 B**，**+1,509 B / +4.66%**）。
+
+| 要素 | 内容（可复现） |
+|------|------|
+| **前后值** | 32,391 → **33,900** B（+1,509 B，+4.66%）；`PICK_LAYER_BASELINE_BYTES` / `PICK_LAYER_FINAL_ARTIFACT_BYTES` / `PICK_LAYER_CEILING` 三者仍相等 |
+| **日期** | 2026-09-17（`PICK_LAYER_BASELINE_META.measuredOn`） |
+| **来源** | `npm run build --workspace @lgdl/web-cli-plugin` + `stat -c %s dist/pick-layer.js` → `33900 dist/pick-layer.js`（日志 `/tmp/opencode/v3-gate-logs/v3-4-fix2/REDLINES.txt`） |
+| **理由** | 本上限是**本 Feature 自建的首轮实测值**（与 `content.js` 的产品硬约束性质不同）；本次增长承载的是**正确性 / 安全性修复**（卸载后 host 复活、菜单焦点还原、授权自检、`gone` 上报、死判据/未跟踪定时器），属必要代价 |
+| **历史逐字保留** | 该 artifact 此前**没有** `_TIMELINE`（首轮登记即单值），本轮**新增** `PICK_LAYER_BASELINE_BYTES_HISTORY = [32_391]`（逐字保留）＋ 同构于 `SIDEPANEL_RE_REGISTRATIONS` 的**重登记登记册** `PICK_LAYER_RE_REGISTRATIONS`（首轮 `v3-4` + 本轮 `v3-4-fix2`，链条首尾相接、末项 == 当前登记值），并由 `test/pick-layer-budget.test.ts` **逐条机器断言**（不止是文档） |
+
+**逐文件归因（本轮重测，受控实验：逐文件 `git checkout HEAD -- <file>` → `npm run build` → `stat`）**：
+
+| 文件 | 回退后产物字节 | 该文件贡献 | R1 预估值 |
+|------|:--:|:--:|:--:|
+| （全部保留 = 交付态） | **33,900** | — | 33,900 |
+| `src/content/pick-overlay.ts` | 33,239 | **+661** | +615 |
+| `src/content/pick-menu.ts` | 33,511 | **+389** | +504 |
+| `src/content/pick-layer.ts` | 33,524 | **+376** | +307 |
+| `src/content/pick-bridge.ts` | 33,817 | **+83** | +83 |
+| （全部回退 = 前值） | **32,391** | 0 | 32,391 |
+
+> 合计 **+1,509 B** 与裁决批准的增幅**逐字节相等**；**逐文件**分布与 R1 预估略有差异（R1 的分布是在**当时那版准备实现**上测的，代码形状已不同），故按本轮实测登记，**不**沿用预估分布。
+
+**`+1 B` 反证在新值（33,901）上重跑（原文）**：
+
+```text
+$ printf ' ' >> dist/pick-layer.js && stat -c %s dist/pick-layer.js
+33901
+$ node --test dist-test/test/pick-layer-budget.test.js        # 日志 RP-R2-picklayer-plus1B.log
+✖ V3-4 size: dist/pick-layer.js 独立无容差上限（+1 B 反证）且不与 content.js 合并计数 (1.987834ms)
+  AssertionError [ERR_ASSERTION]: 登记 33900B ≠ 实测 33901B（按真实产物登记）
+✔ V3-4 size: content.js 仍 ≤177,076 B（无容差）且冻结三文件 hash 不变 (2.503032ms)
+ℹ tests 2 / pass 1 / fail 1
+EXIT=1
+
+$ cp /tmp/pl.orig dist/pick-layer.js                              # 逐字节还原
+$ sha256sum dist/pick-layer.js dist/content.js > RP-R2-sha-after.txt
+$ diff RP-R2-sha-before.txt RP-R2-sha-after.txt && echo SHA256_RESTORED_IDENTICAL
+SHA256_RESTORED_IDENTICAL
+$ node --test dist-test/test/pick-layer-budget.test.js        # 日志 RP-R2-restored.log
+ℹ tests 2 / pass 2 / fail 0
+EXIT=0
+```
+
+**`content.js` 不放宽**（同类反证，同轮实跑）：`printf ' ' >> dist/content.js` ⇒ `177077` ⇒
+`AssertionError: content.js 177077B ≠ 177076B —— 本叶必须是逐字节零改动`（2 tests / 1 pass，EXIT=1）；
+还原后 sha256 一致 ⇒ 2/2 PASS。`sidepanel.js` 本轮**零改动**（两次 `stat` 均为 362,777）。
+
+### 12.2 五项 deferred 逐条落地（修法 + 断言 + 反证）
+
+| # | 状态 | 修法（文件） | 落地断言（能 FAIL） |
+|:--:|:--:|------|------|
+| **I-02** | ✅ 已修 | `pick-overlay.ts`：`mountHost` 的延迟追加改为**可移除**（`mountPending` 记录是否武装了 `DOMContentLoaded` 监听，`unmount()` 里 `removeEventListener`）+ `let disposed` 双保险（`mountHost` 首句 `if (disposed) return;`，`unmount()` 先置 `disposed = true`） | `page-input` 新增 5 条：document_start 前置负控（`documentElement === null`）×2 + 卸载无异常 + **加载完成后 `shadowHosts` 必须 0** + 主世界 marker 必须 `undefined` |
+| **I-03** | ✅ 已修 | `pick-menu.ts`：`open()` 在 **`move(1, 0)` 之前**记录 `doc.activeElement`（`previousFocus` + `wasOpen`），`close()` 调 `restoreFocus()` 把焦点还给宿主（`{preventScroll:true}`）；`wasOpen` 保证「从未打开就 `close()`」的路径（如 `exitPick()`）**不会抢焦点** | `page-input` 新增 4 条：输入框可聚焦（负控）+ 菜单确实打开 + 打开后焦点确实已被自绘 UI 接管（否则断言无对象）+ **Esc 关闭后 `activeElement.id === 'host-input'`** |
+| **I-01②** | ✅ 已修 | `pick-layer.ts` `stillAuthorized()`（`bridge.env().authorized \|\| !bridge.envReady()`）+ 三个交互处理器（`onContextMenu`/`onPointerOver`/`onDblClick`）首句自检，失去授权即 `unmount()`；`pick-bridge.ts` 新增 `envReady()`（**区分「面板说不再授权」与「从未收到 env」**——后者是 zero-injection 强制注入负控的存活前提） | `page-input` 新增 3 条：撤销前层在场且拦右键（负控）+ 去授权 env 已下发 + **第一次右键即自行卸载（marker/host/拦截全零）** |
+| **I-01③** | ✅ 已修 | `pick-layer.ts` `unmount()`：`bridge.pushState('gone', '页面侧已卸载')` **先于** `bridge.unmount()`（面板侧既有 `phase === 'gone'` 分支从死路径变活） | `page-input` 新增 1 条：面板风险区出现「页面侧不可用：页面侧已卸载」（有界等待 ≤1.6s，覆盖异步消息） |
+| **I-10** | ✅ 已修 | `pick-overlay.ts`：`flash()` 的 `setTimeout` 收进被跟踪集合（`timers` + `later()`，`unmount()` 统一 `clearTimeout` + `clear()`）；`hideBubble()` 归零 `bubbleTimer`；暴露 `overlay.pendingTimers()` 与 `op('timers')` 门禁缝。`pick-layer.ts`：删除 `history.__wcliPickWrapped` 死判据（只读不写 ⇒ 幂等实际由 `window.__wcliPickLayer` marker 保证，注释写明） | `page-input` 新增 3 条：flash 前 **0**（负控）+ flash 期间 **≥1**（跟踪已建立）+ 定时器触发后自行移除 **归 0** |
+
+**口径如实登记（不夸大）**：I-10 的另一半（`history.__wcliPickWrapped` 死判据删除）**没有可观测的行为差**
+（该守卫从未被写入过），因此它没有独立的行为级 FAIL 探针 —— 其反证由**同一 hunk** 的 I-02 回退实跑承载
+（见 §12.4 的回退段：overlay 的 `disposed`/`later`/`timers` 与 `history.__wcliPickWrapped` 同轮回退）。
+
+### 12.3 I-02「复活路径」复测（review 探针 B 形态，原文）
+
+**复测设计**：把真实产物 `dist/pick-layer.js` 注册到**新文档创建时**执行（= `document_start`：
+`document.documentElement` 仍为 `null` ⇒ 延迟追加被武装），脚本执行后**立刻** `unmount()`，
+再让文档正常加载完成；加载完成后 Shadow host 必须恒为 0。
+载体用**未授权** hostname `localhost`（同一 fixture 服务器）——**第一版探针正是被「面板在场 ⇒ 自动注入」
+污染**：那个活动 tab 上出现了正常注入的宿主节点（主世界 `marker: 'undefined'` 而 `shadowHosts: 1`），
+探针失去区分力；改用未授权 hostname 后注入被结构性拒绝，探针只可能看见「复活残留」。
+
+```text
+# 交付态（日志 page-input.log）
+  ✔ I-02 前置：空白页可被定位（探针载体）
+  ✔ I-02 前置（负控）：脚本在 document_start 执行（documentElement 尚为 null）
+  ✔ I-02 前置：document_start 时层已挂载、卸载无异常（延迟追加确实被武装过）
+  ✔ I-02：卸载后**文档加载完成** Shadow host 仍必须为 0（不再复活残留节点）
+  ✔ I-02：复活残留也不得留下层标记（装载点的 marker 已删除）
+
+# 回退 I-02 修复后（日志 RP-R2-reverted.log）
+  ✖ I-02：卸载后**文档加载完成** Shadow host 仍必须为 0（不再复活残留节点）
+    — {"docElAtStart":true,"mountedAtStart":true,"unmountedAtStart":true,"unmountError":"",
+       "shadowHosts":1,"marker":"undefined","readyState":"complete"}
+```
+
+> 回退段的 `shadowHosts:1 / marker:'undefined'` 与 review R1 探针 B 的实测形态**逐字一致**
+> （纯残留节点：无监听、不拦截）。
+
+### 12.4 两段证伪（回退 ⇒ 必须红；修复 ⇒ 必须绿）
+
+```text
+# ① 回退段：`git checkout HEAD -- src/content/pick-{overlay,layer,menu,bridge}.ts`（= 修复前）
+#    `npm run build` ⇒ dist/pick-layer.js = 32391；`node test/ui/page-input.mjs`
+#    日志：/tmp/opencode/v3-gate-logs/v3-4-fix2/RP-R2-reverted.log
+  ✖ I-03：Esc 关闭菜单后宿主焦点回到原元素（不再静默丢到 BODY）
+    — {"during":{"id":"","menuOpen":true,"tag":"DIV"},"after":{"id":"","menuOpen":false,"tag":"BODY"}}
+  ✖ I-02：卸载后**文档加载完成** Shadow host 仍必须为 0（不再复活残留节点） — {"shadowHosts":1,…}
+  ✖ I-10 前置（负控）：flash 之前没有挂起的 overlay 定时器 — null
+  ✖ I-10：flash 高亮期间 overlay 定时器被**跟踪**（≥1；只 setTimeout 不跟踪就无法清除） — null
+  ✖ I-10：flash 定时器触发后自行从跟踪集合移除（归 0，不泄漏） — null
+  ✖ I-01②：失去授权后第一次交互（右键）即**自行卸载**（marker / host / 拦截全零）
+    — {"intercepted":true,"marker":"object","shadowHosts":1}
+  ✖ I-01③：面板收到卸载事实（风险区出现「页面侧不可用：页面侧已卸载」） —
+▶ v3-4 页面即输入门禁: 71 passed / 7 failed
+EXIT=1
+
+# ② 修复段：还原 4 个源文件（sha256 记录在 §12.6）→ `npm run build` ⇒ 33900
+#    `node test/ui/page-input.mjs`（日志 page-input.log）
+▶ v3-4 页面即输入门禁: 78 passed / 0 failed
+✔ v3-4 页面即输入门禁 PASS
+EXIT=0
+```
+
+> **7 条 FAIL 各自命中预期文本**（`expectFailPattern` 已登记进台账
+> `v3ReverseProofExpectations.inGate` 的 `RP-I02-01`/`RP-I03-01`/`RP-I01b-01`/`RP-I01c-01`/`RP-I10-01`，
+> 并在元门禁 `test/gate-integrity.test.ts` 的 **in-gate 模式断言清单**里逐条机器核对（该清单 4 → **9** 条；
+`REVERSE_PROOF_EXCEPTIONS` 例外登记仍为 4 条、未增删））。
+> 回退段没有任何启动/环境错误形态（Chromium 正常走完 78 个 check、只红 7 条）⇒ 判「因该红而红」。
+
+### 12.5 门禁（**严格串行、一次一个**；全量日志 `/tmp/opencode/v3-gate-logs/v3-4-fix2/`，**无 tail 截断**；每门禁 `finally` 自清 profile）
+
+| # | 门禁 | 退出码 | 计数 / 原文 | 对照下界 |
+|:--:|------|:--:|------|:--:|
+| ① | `npm run typecheck` | 0 | 0 error | — |
+| ② | `npm run build` | 0 | `177076 / 33900 / 362777`（content / pick-layer / sidepanel） | 三线 = 登记值 |
+| ③ | `npm test` | 0 | `ℹ tests 795 / pass 795 / fail 0 / skipped 0` | 795（只增不减） |
+| ④ | `npm run test:supersession` | 0 | `ℹ tests 14 / pass 14 / fail 0`；叶段 30 文件 / 97 条逐字登记 | 14 |
+| ⑤ | `npm run test:density` | 0 | `density 门禁: 127 passed / 0 failed` | 127 |
+| ⑥ | `npm run test:l0` | 0 | `164 passed / 0 failed` | 164 |
+| ⑦ | `npm run test:l1` | 0 | `103 passed / 0 failed` | 103 |
+| ⑧ | `npm run test:l2` | 0 | `71 passed / 0 failed` | 71 |
+| ⑨ | `npm run test:l1-reverse` | 0 | 9 条「注入 → FAIL → sha256 复原 → PASS」 | 9 |
+| ⑩ | `npm run test:l2-reverse` | 0 | 10 条全过 + 产物 sha256 复原 | 10 |
+| ⑪ | `npm run test:page-input` | 0 | **78 passed / 0 failed**（原 61；本轮 +17） | 61 |
+| ⑫ | `npm run test:zero-injection` | 0 | `27 passed / 0 failed` | 27 |
+| ⑬ | `npm run test:ui`（journey） | 0 | `UI journey PASS — 167 assertions` | 167 |
+| ⑭ | `npm run test:insight` | 0 | `UI insight PASS — 116 assertions` | 116 |
+| ⑮ | `npm run test:binding` | 0 | `binding PASS — 192 assertions` | 192 |
+| ⑯ | `npm run test:hardening` | 0 | `hardening PASS — 24 assertions` | 24 |
+| ⑰ | `npm run test:e2e` | 0 | `R8 E2E PASS — real dist full chain` | PASS |
+| ⑱ | `npm run test:gate-integrity` | 0 | `ℹ tests 12 / pass 12 / fail 0`（in-gate 模式断言清单 4 → 9 条已逐条核对；例外登记仍 4 条） | 12 |
+| ⑲ | 体积四线 + 登记一致性 | 0 | `177076 / 33900 / 362777` + `ceiling === baseline === 实测` + `PICK_LAYER_RE_REGISTRATIONS` 链条 | 见 §12.1 |
+| ⑳ | 零改动核对 | 0 | 见 §12.6 | — |
+| ㉑ | 反证全套 | 0 | RP-V3-01/02/03/04/08/09（`density --reverse`，各 EXIT=0）+ RP-V3-05（`l2-reverse#RP-V33-03`）+ RP-V3-06（`size-budget`/`pick-layer-budget` 内建）+ **R2 两段证伪**（§12.4）+ **pick-layer +1B @ 33,901** + **content.js +1B @ 177,077**（§12.1） | 全过 |
+
+**计数只增不减**：journey 167→167 · insight 116→116 · binding 192→192 · hardening 24→24 · node 795→795 ·
+density 127→127 · l0 164→164 · l1 103→103 · l2 71→71 · gate-integrity 12→12 · supersession 14→14 ·
+zero-injection 27→27 · **page-input 61→78**（+17）。**断言零删减**：本轮的改写都在**同编号/同用例内加严**
+（`PICK_LAYER_BASELINE_META.previousBaselineBytes` 由 `null` → `32_391`、`direction` 由 `initial` → `raised`，
+是「按新事实重 pin」而非删除；登记册/历史/反证断言全部**新增**）。
+
+### 12.6 红线核验（逐条原文，日志 `REDLINES.txt`）
+
+```text
+177076 packages/web-cli-plugin/dist/content.js        # 无容差、逐字节不变
+33900  packages/web-cli-plugin/dist/pick-layer.js      # == 登记值（V3-VOL-2 显式重登记）
+362777 packages/web-cli-plugin/dist/sidepanel.js       # == 登记值（本轮零改动）
+
+a72900313ab77c018961aa2b8e02bb1b630a9960c1b622f2a85addf543f99e82  src/content/content-script.ts
+7df782b349b32839d0ec25fa515ee293441f85f75242083dae37e5ccfd601e0f  src/content/dom-agent.ts
+5737c40a2014e7adf2bf4091a31a347af6600ecfea80f8882d52e9407191f4ac  src/content/page-bridge.ts
+（与 test/size-baseline.ts#CONTENT_SOURCE_SHA256 三项逐字相等）
+
+$ git status --porcelain -- packages/web-cli-plugin/manifest.json     → （空 = 零 diff）
+$ grep -c contextMenus packages/web-cli-plugin/manifest.json          → 0
+$ git status --porcelain -- .../src/ui/sidepanel/l1/ref-validity.ts   → （空 = 判定链未动）
+$ git log --oneline -1 main                                           → 2ddc922（未动）
+$ git status --porcelain -- packages/web-cli-base packages/lgdl-web-cli/src/web-cli-host \
+      .opencode/opencode.json packages/web-cli-plugin/design          → （空）
+$ git diff HEAD --stat -- packages/web-cli-plugin/package.json        → （空 = 无新增依赖）
+
+改动集合（`git status --porcelain`，9 个文件；**无** `git add -A`）：
+ M packages/web-cli-plugin/docs/v3-supersession-ledger.json
+ M packages/web-cli-plugin/src/content/pick-bridge.ts
+ M packages/web-cli-plugin/src/content/pick-layer.ts
+ M packages/web-cli-plugin/src/content/pick-menu.ts
+ M packages/web-cli-plugin/src/content/pick-overlay.ts
+ M packages/web-cli-plugin/test/gate-integrity.test.ts
+ M packages/web-cli-plugin/test/pick-layer-budget.test.ts
+ M packages/web-cli-plugin/test/size-baseline.ts
+ M packages/web-cli-plugin/test/ui/page-input.mjs
+
+密度阈值（未动）：default {clickables:7, lines:15} · firstRun {9, 20} · risk {17, 35}
+主界面无常驻输入框：#composer 默认 hidden（density 127 断言 + journey/insight 布局守卫覆盖）
+风险位 L0 常驻不可折叠：density 127/0 + RP-V3-04（本轮实跑 EXIT=0）
+未授权站点零注入：test:zero-injection 27/0（含带路径变体与强制注入负控）
+```
+
+### 12.7 提交与推送
+
+```text
+（逐文件 path-limited git add，禁用 git add -A）
+git add <9 个显式文件>
+git commit -m "fix(web-cli-plugin): v3-4 修复轮 R2（裁决 V3-VOL-2：pick-layer 显式重登记 32391→33900 + 落地复活路径/焦点/广播自检 5 项）"
+git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-plugin
+```
+
+### 12.8 风险登记（供 validate 阶段专项核查）
+
+| # | 风险 | 说明 | 建议核查方式 |
+|:--:|------|------|------|
+| **R2-1** | **「只断言 `ok`」形态可能存在于其它门禁**（R1 自报的方法论风险） | R1 的 BLOCK-1 之所以能全绿溜过，是因为旧断言只断言了 `ok === true` 而没断言**行为级事实**（`/app` 上 marker/host/拦截）。`page-input`/`zero-injection` 已在 R1 修掉这一形态；但**其它门禁**（journey/insight/density/l0/l1/l2/binding/hardening/e2e）**本轮未做全仓清扫**（编排器明确留给 validate）。 | validate 专项：对每个门禁抽样「外层 `ok`/布尔返回」型断言，检查其**内层**是否有行为级判据（拒绝原因 / DOM 事实 / 计数三处同源）；**若发现同类形态，按 R1 的 BLOCK-1 方式补行为级断言 + 两段证伪**，不得只在文案上标注 |
+| **R2-2** | I-10 的「死判据」半边无行为级 FAIL 探针 | `history.__wcliPickWrapped` 从未被写入 ⇒ 删除它没有可观测行为差（详见 §12.2 口径登记）；该 hunk 的反证由 I-02 的复活复测承载 | 若要求正面证明，可在 validate 阶段以**源码面**判据核对（全仓 0 处 `__wcliPickWrapped`） |
+| **R2-3** | `pendingTimers()` 是**新增门禁缝**（`op('timers')`） | 它只覆盖 `later()` 跟踪集合（`flash` 定时器），`showBubble` 的淡出定时器走 `bubbleTimer` 变量（`unmount()` 亦清除，但不在该计数内） | validate 可核对 `showBubble`/`hideBubble`/`unmount` 三条路径的清理一致性 |
+| **R2-4** | 人工面 6 项仍为 `⏳ 未执行`（无真人观察） | 与 R1 相同，如实登记，不冒充 PASS | 见 §8 |
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.2 | **修复轮 R2（裁决 V3-VOL-2）**：`pick-layer.js` **显式重登记 32,391 → 33,900 B**（+1,509 / +4.66%，逐文件实测 +661/+389/+376/+83；五要素披露 + 新增 `PICK_LAYER_BASELINE_BYTES_HISTORY`/`PICK_LAYER_RE_REGISTRATIONS` 机器断言；`+1 B` @ 33,901 反证实跑 FAIL、还原后 sha256 一致 PASS；`content.js` 177,076 与 `sidepanel.js` 362,777 零改动）；落地 5 项 deferred（I-02 复活 host / I-03 焦点还原 / I-01② 授权自检 + `envReady()` / I-01③ `pushState('gone')` / I-10 死判据 + 定时器跟踪）；`page-input` 61 → **78** 断言；**两段证伪**：回退 `71 passed / 7 failed` EXIT=1 → 修复 `78 passed / 0 failed` EXIT=0；台账 `V34R2-S1/S2/S3` + `featureHistory.v3-4-fix2` + 5 条 in-gate 反证登记；门禁 21 项严格串行全绿（计数只增不减）。 | 2026-09-17 | SDDU Build Agent |
 | v1.1 | **修复轮（review R1 后）**：BLOCK-1 一行修复（`tabOrigin(url)`）+ 5 条可 FAIL 回归断言 + 两段证伪（回退 57/4 EXIT=1 → 修复 61/0 EXIT=0）；BLOCK-2 登记数字一次性对齐（`362,777 / 380,915 / +12,852 / +3.67% / +36.13% / 22.96% / 5,085 / 67,552`）+ `ceilingUncappedFormulaBytes` 机器断言 + 中间快照移出 TIMELINE（保留在 `INTERMEDIATE_SNAPSHOTS`）+ `V34-S3/S3b/S3c/S3d`/`V34F-S1` 补登；I-01①/I-04/I-05/I-06/I-07/I-08/I-09/I-11 已修，**I-01②③/I-02/I-03/I-10 deferred**（`pick-layer.js` 32,391 零容差，实测需 +1,509 B ⇒ 停下回报，未擅自抬高上限）；§2.2 两条 MODIFY 失真订正（实际零 diff）+ 文件计数口径改为文件数（18）。门禁 21 项严格串行全绿（含计数只增不减）。 | 2026-09-17 | SDDU Build Agent |
 | v1.0 | 初始创建：15/15 任务完成；TASK-401 spike S1~S4 全过（未走 D1/D2）；门禁 21 项严格串行全绿（node 795 / density 127 / l0 164 / l1 103 / l2 71 / journey 167 / insight 116 / binding 192 / hardening 24 / e2e PASS / 新门禁 20 + 46）；体积四线 + 反证三段；`sidepanel.js` 显式重登记（349,925 → 362,777，+3.67%）与 Feature 累计 +36.13% 已披露；AC-CONV-1/2 兑现并各有可 FAIL 判据；人工面 6 项如实登记「未执行」。 | 2026-09-16 | SDDU Build Agent |

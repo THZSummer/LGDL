@@ -26,6 +26,13 @@
  *   ⑨  the host page's own interactions are untouched (click / input / selection)
  *   ⑩  the gesture table has exactly the 6 implemented gestures
  *
+ * ── The review fix rounds' residue probes (R1 BLOCK-1 · R2 deferred items) ───
+ *
+ *   ⑪  `app`（带路径）页面同样可用（BLOCK-1 回归；R1）
+ *   ⑫  I-03 菜单关闭还原宿主焦点；I-02 `document_start` 挂载被卸载后**不再复活**
+ *       Shadow host；I-10 overlay 定时器被跟踪（`op('timers')`）；I-01② 失去授权后
+ *       下一次交互即自行卸载；I-01③ 卸载把 `gone` 事实推给面板（R2 / 裁决 V3-VOL-2）
+ *
  * Run: node test/ui/page-input.mjs   (one Chromium instance, serial)
  */
 import { createServer } from 'node:http';
@@ -459,13 +466,180 @@ async function main() {
     await sCdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
     await sleep(200);
 
-    // ── I-03 / I-02 / I-01②③ / I-10：**本轮 deferred**（红线：pick-layer.js 32,391 无容差）──
-    // 这四项的修法都必须落在 `src/content/pick-{layer,menu,overlay,bridge}.ts`，而
-    // `test/pick-layer-budget.test.ts` 要求「登记值 == 实测产物」且上限 **零容差**（ADR-V3-031）。
-    // 实测新增字节：overlay 615 + menu 504 + layer 307 + bridge 83 = **1,509 B（+4.66%）**，
-    // 与本轮红线「pick-layer.js 不得增长，功能需要增长则停下回报」冲突 ⇒ **在此停下并如实回报**，
-    // 不擅自抬高上限、不靠压缩 CSS 去凑字节数（那只是把限制藏起来）。详见 build.md §修复轮 deferred。
-    // 因此本轮**不新增**任何依赖这些未实现行为的断言（断言只增不减，但不得为未交付行为伪造判据）。
+    // ── I-03：菜单关闭必须还原宿主焦点（review R1 探针 B 实证：旧实现丢到 BODY）────
+    // `open()` 末句 `move(1, 0)` 会把焦点抢到自绘菜单的第一行（`document.activeElement`
+    // 因此被重定向到影子宿主），旧实现在关闭（Esc / 点空白 / 选中项）后**不还原** ⇒
+    // 宿主页面静默丢焦点。这条断言必须在回退修复时变红（见 build.md §12.4）。
+    // 注意右键落点选在**输入框**上：真实 mousedown 会先把它聚焦（宿主自身行为），
+    // 因此「菜单打开时谁有焦点」= 输入框 —— 与 review 要求的判据逐字一致。
+    const focusState = () =>
+      iso(
+        siteTab,
+        `(() => ({
+           id: document.activeElement ? document.activeElement.id : '',
+           tag: document.activeElement ? document.activeElement.tagName : '',
+           menuOpen: Boolean(document.querySelector('[data-wcli-pick-root]') && document.querySelector('[data-wcli-pick-root]').shadowRoot.querySelector('.menu:not([hidden])')),
+         }))()`,
+      );
+    const inputCenter = await iso(
+      siteTab,
+      `(() => { const r = document.getElementById('host-input').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`,
+    );
+    const focusBefore = await iso(
+      siteTab,
+      `(() => { const i = document.getElementById('host-input'); i.focus(); return { id: document.activeElement.id }; })()`,
+    );
+    check('I-03 前置（负控）：宿主输入框可被聚焦（起始焦点可观测）', focusBefore?.id === 'host-input', JSON.stringify(focusBefore));
+    await sCdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: inputCenter.x, y: inputCenter.y, button: 'right', clickCount: 1 });
+    await sCdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: inputCenter.x, y: inputCenter.y, button: 'right', clickCount: 1 });
+    await sleep(250);
+    const focusDuring = await focusState();
+    check('I-03 前置：右键菜单确实打开（旧实现正是在这里抢走宿主焦点）', focusDuring?.menuOpen === true, JSON.stringify(focusDuring));
+    check('I-03 前置：打开菜单后焦点已被自绘 UI 接管（否则本断言没有对象）', focusDuring?.id !== 'host-input', JSON.stringify(focusDuring));
+    await sCdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await sCdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await sleep(250);
+    const focusAfter = await focusState();
+    check(
+      'I-03：Esc 关闭菜单后宿主焦点回到原元素（不再静默丢到 BODY）',
+      focusAfter?.id === 'host-input' && focusAfter?.menuOpen === false,
+      JSON.stringify({ during: focusDuring, after: focusAfter }),
+    );
+
+    // ── I-02：document_start 挂载 → 卸载 → 文档加载完成 ⇒ Shadow host 必须恒 0 ────
+    // review R1 探针 B 的形态：`mountHost` 的 `DOMContentLoaded` 监听不在 `unmount()` 里
+    // 清除 ⇒ `document_start` 注入后卸载，加载完成时那次延迟追加会把**已死的层复活**成
+    // 一个纯残留 Shadow host（实测 shadowHosts: 1，无监听、不拦截，但它就是残留）。
+    // 这里把真实产物注册到**新文档创建时**执行（document_start），执行后立刻 unmount，
+    // 再让文档正常加载完成 —— host 必须仍然是 0。
+    // 载体用 `localhost` 这个**未授权** hostname（同一 fixture 服务器）：否则「面板在场 ⇒
+    // 自动注入」会把真层注入到这个活动 tab 上，宿主节点就不再是「复活残留」而是正常层，
+    // 探针将失去区分力（第一版实测就是这样被污染的：shadowHosts=1 但主世界无 marker）。
+    const reviveBase = site.origin.replace('127.0.0.1', 'localhost');
+    const reviveTab = await evaluate(swCdp, `chrome.tabs.create({ url: 'about:blank' }).then((t) => t.id)`);
+    const reviveTarget = await findTarget(chrome.base, (t) => t.type === 'page' && t.url === 'about:blank');
+    check('I-02 前置：空白页可被定位（探针载体）', Boolean(reviveTarget));
+    const rCdp = await connectCdp(reviveTarget.webSocketDebuggerUrl);
+    await rCdp.send('Runtime.enable');
+    await rCdp.send('Page.enable');
+    const reviveBundle = await readFile(join(DIST, 'pick-layer.js'), 'utf8');
+    await rCdp.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `${reviveBundle}
+        window.__reviveDocElAtStart = document.documentElement === null;
+        window.__reviveMounted = typeof window.__wcliPickLayer;
+        try { window.__wcliPickLayer.unmount(); } catch (e) { window.__reviveUnmountError = String(e); }
+        window.__reviveAfterUnmount = typeof window.__wcliPickLayer;`,
+    });
+    await rCdp.send('Page.navigate', { url: `${reviveBase}/revive` });
+    await sleep(1400);
+    const revival = await evaluate(
+      rCdp,
+      `(() => ({
+         docElAtStart: window.__reviveDocElAtStart === true,
+         mountedAtStart: window.__reviveMounted === 'object',
+         unmountedAtStart: window.__reviveAfterUnmount === 'undefined',
+         unmountError: String(window.__reviveUnmountError ?? ''),
+         shadowHosts: document.querySelectorAll('[data-wcli-pick-root]').length,
+         marker: typeof window.__wcliPickLayer,
+         readyState: document.readyState,
+       }))()`,
+    );
+    // 前置负控：脚本必须真的在 document_start 跑（`documentElement` 尚为 null），否则
+    // 「延迟追加」这条路径根本不会被走到，断言就成了恒真的空转。
+    check('I-02 前置（负控）：脚本在 document_start 执行（documentElement 尚为 null）', revival?.docElAtStart === true, JSON.stringify(revival));
+    check(
+      'I-02 前置：document_start 时层已挂载、卸载无异常（延迟追加确实被武装过）',
+      revival?.mountedAtStart === true && revival?.unmountedAtStart === true && revival?.unmountError === '',
+      JSON.stringify(revival),
+    );
+    check(
+      'I-02：卸载后**文档加载完成** Shadow host 仍必须为 0（不再复活残留节点）',
+      revival?.readyState === 'complete' && revival?.shadowHosts === 0,
+      JSON.stringify(revival),
+    );
+    check('I-02：复活残留也不得留下层标记（装载点的 marker 已删除）', revival?.marker === 'undefined', JSON.stringify(revival));
+    await evaluate(swCdp, `chrome.tabs.remove(${reviveTab}).then(() => true)`);
+    rCdp.close();
+    // 探针载体是临时 tab（创建即激活）：显式切回夹具页，让面板的绑定回到被测站点。
+    await evaluate(swCdp, `chrome.tabs.update(${siteTab}, { active: true }).then(() => true)`);
+    await sleep(800);
+
+    // ── I-10：overlay 定时器被跟踪（否则 `unmount()` 无法清干净）──────────────────
+    // 先确定性地把层拉回来（上面的探针载体 tab 已关闭，面板可能在切回时重新注入）：
+    // `ensureInjected` 幂等，且会把 env（authorized:true）重新下发。
+    await evaluate(pCdp, `window.__v3.testing.refresh(); true`);
+    await sleep(1400);
+    check('I-10 前置：层在场（唯一 Shadow host，重新注入幂等）', (await op(siteTab, 'snapshot'))?.shadowHosts === 1);
+    await op(siteTab, 'reset');
+    const timersBefore = await op(siteTab, 'timers');
+    check('I-10 前置（负控）：flash 之前没有挂起的 overlay 定时器', timersBefore === 0, String(timersBefore));
+    await evaluate(
+      swCdp,
+      `chrome.tabs.sendMessage(${siteTab}, { kind: 'ref-highlight', refId: 'ref_1', selector: '#box', mode: 'flash' }).then(() => true)`,
+    );
+    await sleep(200);
+    const timersDuring = await op(siteTab, 'timers');
+    check('I-10：flash 高亮期间 overlay 定时器被**跟踪**（≥1；只 setTimeout 不跟踪就无法清除）', Number(timersDuring) >= 1, String(timersDuring));
+    await sleep(2700); // FLASH_MS × 2 = 2400ms
+    const timersAfter = await op(siteTab, 'timers');
+    check('I-10：flash 定时器触发后自行从跟踪集合移除（归 0，不泄漏）', timersAfter === 0, String(timersAfter));
+
+    // ── I-01②：失去授权后，层必须在**下一次交互**自检并卸载 ──────────────────────
+    // 旧实现从不读 `env().authorized`：teardown 消息一旦丢失（撤销与拆卸竞态 / SW 重启），
+    // 已失去授权的层会一直拦着宿主右键。`envReady()` 保证「从未收到 env」≠「被撤销」，
+    // 因此 zero-injection 的强制注入负控不会被这条自检致盲（那是它自己的负控前提）。
+    const layerProbe = (tabId) =>
+      iso(
+        tabId,
+        `(() => {
+           const el = document.createElement('button');
+           el.id = 'teardown-probe';
+           document.body.appendChild(el);
+           const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+           el.dispatchEvent(ev);
+           const out = {
+             marker: typeof window.__wcliPickLayer,
+             shadowHosts: document.querySelectorAll('[data-wcli-pick-root]').length,
+             intercepted: ev.defaultPrevented,
+           };
+           el.remove();
+           return out;
+         })()`,
+      );
+    const preSelfCheck = await layerProbe(siteTab);
+    check(
+      'I-01② 前置（负控）：撤销前层在场且拦右键（自检若恒真则此断言也恒真）',
+      preSelfCheck?.marker === 'object' && preSelfCheck?.intercepted === true,
+      JSON.stringify(preSelfCheck),
+    );
+    const envPushed = await evaluate(
+      swCdp,
+      `chrome.tabs.sendMessage(${siteTab}, { kind: 'pick-layer-env', origin: ${JSON.stringify(site.origin)}, authorized: false, declarationHash: '' })
+         .then(() => true).catch((e) => String(e))`,
+    );
+    check('I-01② 前置：去授权的 env 已下发到层（envReady 置真）', envPushed === true, String(envPushed));
+    await sleep(250);
+    const selfCheck = await layerProbe(siteTab);
+    check(
+      'I-01②：失去授权后第一次交互（右键）即**自行卸载**（marker / host / 拦截全零）',
+      selfCheck?.marker === 'undefined' && selfCheck?.shadowHosts === 0 && selfCheck?.intercepted === false,
+      JSON.stringify(selfCheck),
+    );
+
+    // ── I-01③：卸载必须把 `gone` 事实推给面板（此前面板侧 `phase==='gone'` 是死路径）──
+    // 不调用 refresh（那会立刻重新注入并覆盖状态）：直接在面板 DOM 上读它收到的事实。
+    // 收消息是异步的，因此等待有界（≤1.6s）而不是固定一次读。
+    let gonePanel = await panel.dom();
+    for (let i = 0; i < 8 && !/页面侧已卸载/.test(String(gonePanel.pageUnavailable ?? '')); i += 1) {
+      await sleep(200);
+      gonePanel = await panel.dom();
+    }
+    check(
+      'I-01③：面板收到卸载事实（风险区出现「页面侧不可用：页面侧已卸载」）',
+      /页面侧已卸载/.test(String(gonePanel.pageUnavailable ?? '')),
+      String(gonePanel.pageUnavailable),
+    );
+
     // ── 失败降级（真实路径：注入在执行时失败 ⇒ 必须可读上报）────────────────
     // The origin stays AUTHORIZED (so the entry is enabled and the click runs the real
     // product path) while the bundle becomes unloadable — the deterministic stand-in for
@@ -488,24 +662,7 @@ async function main() {
     // ── I-01：撤销后**同 origin 的另一 tab** 也必须被拆干净（origin 广播 teardown）──
     // 旧实现只对 bound/active 的那**一个** tab 发 teardown，于是「A/B 两 tab 同 origin
     // → 撤销 → 只拆 B」这个态里，另一个 tab 继续拦截右键 —— 而旧夹具从不构造第二个 tab。
-    const layerProbe = (tabId) =>
-      iso(
-        tabId,
-        `(() => {
-           const el = document.createElement('button');
-           el.id = 'teardown-probe';
-           document.body.appendChild(el);
-           const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
-           el.dispatchEvent(ev);
-           const out = {
-             marker: typeof window.__wcliPickLayer,
-             shadowHosts: document.querySelectorAll('[data-wcli-pick-root]').length,
-             intercepted: ev.defaultPrevented,
-           };
-           el.remove();
-           return out;
-         })()`,
-      );
+    // （`layerProbe` 定义在上方 I-01② 段：同一探针在两处复用，不重复实现。）
     // 恢复注入载荷（上一条用例把它删了）并让两个 tab 各自持有活层。
     await cp(join(DIST, 'pick-layer.js'), join(extDir, 'pick-layer.js'));
     for (const tabId of [appTab, siteTab]) {

@@ -1054,6 +1054,14 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     ['test/ui/page-input.mjs', /BLOCK-1 回归：\/app 页面上的活层确实接管右键/],
     ['test/ui/page-input.mjs', /I-01 ①：撤销后\*\*另一个 tab\*\*/],
     ['test/ui/zero-injection.mjs', /BLOCK-1 回归：未授权 \/app 页面五探针全零/],
+    // v3-4 fix round R2（裁决 V3-VOL-2）—— 5 项 deferred 逐条落地后，每条新断言都必须
+    // 在门禁源码里带着自己的 FAIL 形态（两段证伪原文见 build.md §12.4：
+    // 回退 ⇒ 71 passed / 7 failed EXIT=1；修复 ⇒ 78 passed / 0 failed EXIT=0）。
+    ['test/ui/page-input.mjs', /I-02：卸载后\*\*文档加载完成\*\* Shadow host 仍必须为 0/],
+    ['test/ui/page-input.mjs', /I-03：Esc 关闭菜单后宿主焦点回到原元素/],
+    ['test/ui/page-input.mjs', /I-01②：失去授权后第一次交互（右键）即\*\*自行卸载\*\*/],
+    ['test/ui/page-input.mjs', /I-01③：面板收到卸载事实/],
+    ['test/ui/page-input.mjs', /I-10：flash 高亮期间 overlay 定时器被\*\*跟踪\*\*/],
   ];
   for (const [file, pattern] of inGate) {
     const text = readFileSync(resolve(PKG, file), 'utf8');

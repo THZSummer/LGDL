@@ -102,10 +102,29 @@ export function createMenu(deps: MenuDeps, doc: Document = document): MenuHandle
   deps.shadow.appendChild(host);
   const rows: HTMLElement[] = [];
   let items: MenuItem[] = [];
+  /** I-03: whatever the host page had focused when the menu took focus. */
+  let previousFocus: HTMLElement | null = null;
+  let wasOpen = false;
+
+  /**
+   * I-03 (review R1, probe B): `open()` focuses the first row (roving `tabindex`),
+   * which retargets `document.activeElement` to our shadow host — so the host page
+   * silently lost its focus and never got it back. `close()` now hands focus back,
+   * but only when the menu really held it: `close()` also runs on paths where the
+   * menu was never opened (e.g. `exitPick()`), and those must not steal focus.
+   */
+  const restoreFocus = (): void => {
+    if (!wasOpen) return;
+    wasOpen = false;
+    const prev = previousFocus;
+    previousFocus = null;
+    prev?.focus?.({ preventScroll: true });
+  };
 
   const close = (): void => {
     host.hidden = true;
     for (const row of rows) row.setAttribute('data-active', 'false');
+    restoreFocus();
   };
 
   const activate = (index: number): void => {
@@ -173,6 +192,11 @@ export function createMenu(deps: MenuDeps, doc: Document = document): MenuHandle
   return {
     isOpen: () => host.hidden === false,
     open(x, y, ctx) {
+      if (!wasOpen) {
+        // Capture BEFORE `move(1, 0)` retargets focus to our own shadow host.
+        wasOpen = true;
+        previousFocus = (doc.activeElement as HTMLElement | null) ?? null;
+      }
       items = menuItems(ctx.hasSelection);
       host.textContent = '';
       rows.length = 0;

@@ -334,7 +334,7 @@ export const SIDEPANEL_BASELINE_META = {
     '**2026-09-16 v3-4 显式提升重登记：349,925 → 362,777 B（+12,852 B，+3.67%）**：本叶「页面即输入」落在 `sidepanel.js` 的部分只有面板侧接线 —— ' +
     '新增 1 个必需模块 `ui/sidepanel/pick-input.ts`（5_085 B：双触发注入 / 文档身份缓存 / 拖放落点 / 良性拒绝分类）与接线（sidepanel.ts +4_784、' +
     'l1/panels.ts +1,830 手势表由单一清单渲染、view-model.ts +422 手势清单与拾取不可用态、l0/shell.ts +694 风险区可用性行）；' +
-    '页面侧功能全部落在**独立产物** `dist/pick-layer.js`（32_391 B，自有「不增长」上限，见 PICK_LAYER_*），`dist/content.js` 仍为 **177,076 B 逐字节不变**。' +
+    '页面侧功能全部落在**独立产物** `dist/pick-layer.js`（登记值 **33,900 B** —— 2026-09-17 经编排器裁决 V3-VOL-2 显式重登记：首轮 32,391 B → +1,509 B，承载 I-02/I-03/I-01②③/I-10 的正确性修复；自有「不增长」上限、容差 0，见 PICK_LAYER_*），`dist/content.js` 仍为 **177,076 B 逐字节不变**。' +
     'ceiling 由公式抬高 floor(362,777 × 1.05) = **380,915 B**，容差 5% 未动、cap 仍为 record-only、targetBudgetBytes/targetMet 仍为 null；' +
     '从 266,500 B 起算的 Feature 累计 **+36.13%**（< 40%）已在 v3-4 回报中显式列出。' +
     '（构建过程中的中间测量值 362,163 / 362,865 **不是**已发布基线，已从 TIMELINE 移出并保留在 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS。）' +
@@ -708,23 +708,100 @@ export function evaluateConsecutiveReRegistrationGrowth(
  *
  * 超限处置：**只能改实现**（精简 CSS / 去重复 / 复用纯函数）；**不得**放宽上限、
  * 不得合并计数、不得把代码迁回 `content.js`（EC-V3-012）。
+ *
+ * ── 2026-09-17 显式重登记（编排器裁决 **V3-VOL-2**）：32,391 → 33,900 B ──────────
+ *
+ * 与 `content.js`（产品硬约束、历史沿用的上限）不同，本上限是**本 Feature 自建的
+ * 首轮实测值**；本次 +1,509 B（+4.66%）承载的是**正确性 / 安全性修复**（而非新功能）：
+ * ① 卸载后 Shadow host 复活（I-02）；② 菜单关闭不还原宿主焦点（I-03）；③ 层不按
+ * `authorized` 自检、卸载不上报 `gone`、广播 teardown 的单 tab 缺口（I-01②③ / I-01①）。
+ * 这些修复只能落在 `src/content/pick-{overlay,menu,layer,bridge}.ts`，而按 ADR-V3-031
+ * 「登记值 == 实测产物（零容差）」的纪律，字节增长必须**显式重登记**而不是靠压缩凑数。
+ * 逐文件归因（受控实验：逐文件回退到 HEAD 后 `npm run build`，读 `dist/pick-layer.js`）：
+ * pick-overlay +615 / pick-menu +504 / pick-layer +307 / pick-bridge +83 = **+1,509 B**；
+ * 前后值、日期、来源、理由与「历史值逐字保留」（{@link PICK_LAYER_BASELINE_BYTES_HISTORY}
+ * 的 32,391）登记在 {@link PICK_LAYER_RE_REGISTRATIONS}。**不放宽项**：`content.js`
+ * 177,076 B 仍不可动；容差仍为 0（`+1 B` @ 33,901 必 FAIL）。
  */
-export const PICK_LAYER_BASELINE_BYTES = 32_391;
+export const PICK_LAYER_BASELINE_BYTES = 33_900;
 
 /** `PICK_LAYER_CEILING` = 实测值（**无容差**；+1 B → FAIL）。 */
 export const PICK_LAYER_CEILING = PICK_LAYER_BASELINE_BYTES;
 
 /** `dist/pick-layer.js` 的登记实测值（`PICK_LAYER_BASELINE_BYTES` 的同源断言）。 */
-export const PICK_LAYER_FINAL_ARTIFACT_BYTES = 32_391;
+export const PICK_LAYER_FINAL_ARTIFACT_BYTES = 33_900;
+
+/**
+ * **历史值逐字保留**（重登记纪律：历史只可追加，不得改写）。
+ * 32,391 = 首轮（v3-4 build 轮）发表的实测基线，被 2026-09-17 的 V3-VOL-2 重登记取代。
+ */
+export const PICK_LAYER_BASELINE_BYTES_HISTORY = [32_391] as const;
+
+/**
+ * 重登记披露登记册（与 {@link SIDEPANEL_RE_REGISTRATIONS} 同构、同纪律）。
+ *
+ * 每次重登记都必须显式登记「前后值 + 日期 + 来源 + buildCommand + measuredBy + 理由 +
+ * 断言零删减的台账条目 + 历史值逐字保留 + 该轮 ceiling 候选值」；`pick-layer-budget.test.ts`
+ * 逐条断言字段齐备且链条首尾相接（上一轮 after == 下一轮 before，最后一项 == 当前登记值）。
+ */
+export const PICK_LAYER_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
+  {
+    id: 'v3-4',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-v3-4-page-as-input',
+    date: '2026-09-16',
+    source: 'packages/web-cli-plugin/dist/pick-layer.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU v3-4 build round (leaf specs-tree-v3-4-page-as-input)',
+    reason:
+      '首轮登记：页面侧交互层作为第 5 个产物（按需注入，不进常驻 content.js）的实测值，' +
+      '自有「不增长」上限（容差 0，+1 B → FAIL），与 content.js 各自独立、不合并计数。',
+    baselineBeforeBytes: 0,
+    baselineAfterBytes: 32_391,
+    ceilingBeforeBytes: 0,
+    ceilingAfterBytes: 32_391,
+    assertionNonRemovalEntries: ['V34-N2'],
+    historyRetainedBytes: [],
+    ceilingUncappedFormulaBytes: 32_391,
+  },
+  {
+    id: 'v3-4-fix2',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-v3-4-page-as-input',
+    date: '2026-09-17',
+    source: 'packages/web-cli-plugin/dist/pick-layer.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU v3-4 fix round R2 (leaf specs-tree-v3-4-page-as-input, orchestrator ruling V3-VOL-2)',
+    reason:
+      '**显式重登记（+1,509 B / +4.66%）**：本上限是**本 Feature 自建的首轮实测值**（不是 content.js ' +
+      '那样的产品硬约束），本轮增长承载的是**正确性 / 安全性修复**的 5 项落地 —— I-02（`document_start` ' +
+      '挂载后卸载会**复活** Shadow host：DOMContentLoaded 追加未被清除）、I-03（打开自绘菜单即夺走宿主焦点且 ' +
+      '关闭不还原）、I-01②（层不按 `env().authorized` 自检 ⇒ 丢失 teardown 后继续拦右键）、I-01③（`pushState(\'gone\')` ' +
+      '从未调用 ⇒ 面板 `gone` 分支是死路径、卸载后仍视为 injected）、I-10（`history.__wcliPickWrapped` 死判据 + ' +
+      '`flash()` 未跟踪定时器）。逐文件归因（受控实验：逐文件回退到 HEAD 后 `npm run build`，`stat` 读产物）：' +
+      'pick-overlay +615 / pick-menu +504 / pick-layer +307 / pick-bridge +83 = +1,509 B。' +
+      '处置：**显式重登记**（而非压缩 CSS / 调空白凑字节），前值 32,391 B 逐字保留在 ' +
+      'PICK_LAYER_BASELINE_BYTES_HISTORY；容差仍为 **0**，`+1 B`（33,901）反证必须 FAIL；' +
+      '`content.js` 177,076 B 与 `sidepanel.js` 362,777 B 本轮**零改动**。',
+    baselineBeforeBytes: 32_391,
+    baselineAfterBytes: 33_900,
+    ceilingBeforeBytes: 32_391,
+    ceilingAfterBytes: 33_900,
+    assertionNonRemovalEntries: ['V34R2-S1', 'V34R2-S2'],
+    historyRetainedBytes: [32_391],
+    ceilingUncappedFormulaBytes: 33_900,
+  },
+];
 
 export const PICK_LAYER_BASELINE_META = {
-  measuredOn: '2026-09-16',
+  measuredOn: '2026-09-17',
   source: 'packages/web-cli-plugin/dist/pick-layer.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
-  measuredBy: 'SDDU v3-4 build round (leaf specs-tree-v3-4-page-as-input)',
-  /** 首轮登记 ⇒ 无前值。 */
-  previousBaselineBytes: null,
-  direction: 'initial',
+  measuredBy: 'SDDU v3-4 fix round R2 (leaf specs-tree-v3-4-page-as-input, orchestrator ruling V3-VOL-2)',
+  /** 前值（首轮 v3-4 实测）：32,391 B —— 逐字保留在 PICK_LAYER_BASELINE_BYTES_HISTORY。 */
+  previousBaselineBytes: 32_391,
+  /** 方向：**显式提升**重登记（32,391 → 33,900，+1,509 B / +4.66%）。 */
+  direction: 'raised',
   /** 容差 = 0（无容差口径，与 `content.js` 同级）。 */
   tolerance: 0,
   /** TASK-401 spike 的 S2 实测（最小骨架）与上限，供来源可核。 */
@@ -732,6 +809,14 @@ export const PICK_LAYER_BASELINE_META = {
   spikeLimitBytes: 60_000,
   disambiguation:
     '与 `CONTENT_MAX_BYTES`（177,076 B，常驻 `content.js`）**各自独立**；两者不得合并计数，也不得互相顶替。',
+  /** 五要素披露的第二份落点（登记册 {@link PICK_LAYER_RE_REGISTRATIONS} 是权威值）。 */
+  reRegisteredFrom: 'v3-4 build 轮 32,391 B（2026-09-16 首轮实测，容差 0）；2026-09-17 V3-VOL-2 显式重登记为 33,900 B。',
+  reason:
+    '2026-09-17 显式重登记（编排器裁决 V3-VOL-2）：32,391 → 33,900 B（+1,509 B / +4.66%）。' +
+    '理由 = 本次增长承载**正确性 / 安全性修复**（复活 host / 焦点还原 / 授权自检 / gone 上报 / 定时器与死判据清理），' +
+    '不是新功能扩张；本上限是本 Feature 自建的首轮实测值，与 content.js 的产品硬约束性质不同。' +
+    '来源 = `npm run build --workspace @lgdl/web-cli-plugin` + `stat -c %s dist/pick-layer.js`（33,900）；' +
+    '前值 32,391 逐字保留在 PICK_LAYER_BASELINE_BYTES_HISTORY；容差仍 0（+1 B @ 33,901 必 FAIL）。',
 } as const;
 
 /** Pure verdict for a measured `dist/pick-layer.js` size (**no tolerance**). */

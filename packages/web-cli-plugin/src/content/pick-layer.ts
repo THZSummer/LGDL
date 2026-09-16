@@ -208,6 +208,25 @@ export function mount(doc: Document = document, win: Window = window): PickLayer
     }, PLUS_DWELL_MS);
   };
 
+  // ── I-01②：授权自检（失去授权必须自行卸载）──────────────────────────────────
+  /**
+   * The panel pushes `pick-layer-env` with its authorization view on every inject
+   * and re-push. If that fact turns to `authorized:false` (a revoke racing the
+   * teardown message, a service-worker restart, …) the layer must not keep
+   * intercepting the page's right-click until someone remembers to tear it down —
+   * the next interaction removes it.
+   *
+   * `envReady()` keeps this honest: a bare evaluation with no extension runtime
+   * (the zero-injection gate's forced-injection control) never receives an env, and
+   * absence of facts is not a revocation — treating it as one would make that
+   * negative control unable to ever be positive.
+   */
+  const stillAuthorized = (): boolean => {
+    if (bridge.env().authorized || !bridge.envReady()) return true;
+    unmount();
+    return false;
+  };
+
   // ── the menu (③) ────────────────────────────────────────────────────────────
   const menu = createMenu(
     {
@@ -256,6 +275,7 @@ export function mount(doc: Document = document, win: Window = window): PickLayer
 
   // ── ③ right-click ───────────────────────────────────────────────────────────
   const onContextMenu = (ev: MouseEvent): void => {
+    if (!stillAuthorized()) return;
     if (state.nativeOnce) {
       // Concession ②: this right-click belongs to the page (one shot).
       state.nativeOnce = false;
@@ -295,6 +315,7 @@ export function mount(doc: Document = document, win: Window = window): PickLayer
     // Rule ②: outside pick mode there is no hover behaviour at all — which is also
     // why the layer is invisible to an ordinary page visit.
     if (!state.pickMode || state.dragging) return;
+    if (!stillAuthorized()) return;
     const el = ev.target as Element | null;
     if (!el || el === state.target) return;
     paint(el);
@@ -343,6 +364,7 @@ export function mount(doc: Document = document, win: Window = window): PickLayer
   // ── ⑤ G1 double click / ⑥ (see armPlus) ─────────────────────────────────────
   const onDblClick = (ev: MouseEvent): void => {
     if (!state.pickMode) return;
+    if (!stillAuthorized()) return;
     const el = ev.target as Element | null;
     if (!el || isEditableTarget(el)) return;
     emit(el);
@@ -353,9 +375,13 @@ export function mount(doc: Document = document, win: Window = window): PickLayer
     navSeq += 1;
     bridge.pushState('update');
   };
-  const history = win.history as (History & { __wcliPickWrapped?: boolean }) | undefined;
+  const history = win.history;
   const patchHistory = (name: 'pushState' | 'replaceState'): (() => void) => {
-    if (!history || history.__wcliPickWrapped) return () => {};
+    // I-10 (review R1): the old `history.__wcliPickWrapped` guard was read but never
+    // written — a dead judgement that protected nothing. Idempotence is guaranteed by
+    // the module marker (`window.__wcliPickLayer`, see the install block below), and
+    // `unmount()` restores the originals.
+    if (!history) return () => {};
     const original = history[name].bind(history);
     history[name] = ((...args: Parameters<History['pushState']>) => {
       const out = original(...args);
@@ -409,6 +435,11 @@ export function mount(doc: Document = document, win: Window = window): PickLayer
     restorePush();
     restoreReplace();
     overlay.unmount();
+    // I-01③ (review R1): `pick-input` already had a `phase === 'gone'` branch, but
+    // nothing ever pushed it — a torn-down layer left the panel believing the page
+    // side was still `injected` (and its judge env kept a stale document identity).
+    // Report *before* the bridge drops its listener.
+    bridge.pushState('gone', '页面侧已卸载');
     bridge.unmount();
     delete (win as unknown as Record<string, unknown>).__wcliPickLayer;
   }
@@ -463,6 +494,10 @@ export function mount(doc: Document = document, win: Window = window): PickLayer
         case 'dragCancel':
           onPointerUp({} as PointerEvent);
           return true;
+        case 'timers':
+          // I-10 seam: proves the overlay really *tracks* its timers (the precondition
+          // for `unmount()` clearing them) — ≥1 right after a flash, 0 once drained.
+          return overlay.pendingTimers();
         case 'mark':
           if (args[0] && args[1]) markRef(args[0] as Element, String(args[1]));
           return true;

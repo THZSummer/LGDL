@@ -2373,6 +2373,42 @@
       "reason": "I-08（review R1）：该注释写于 v3-1（当时为真），但 v3-4 起 `page-input.mjs` 已存在且**已被目录扫描自动纳入受审集合** ⇒ 注释失真（同时把「eight」措辞去掉）。改写为「本常量是**已知门禁下界**；真正的受审集合由 marker 扫描推导，且是其**严格超集**（page-input / zero-injection / l1-reverse / l2-reverse 经扫描加入）」。断言零删减：只改注释，不改任何判据。",
       "replacementExists": true,
       "modificationType": "same-id-rewrite"
+    },
+    {
+      "id": "V34R2-S1",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "test",
+      "oldId": "PICK_LAYER_BASELINE_BYTES = 32_391（首轮登记值）",
+      "oldTitle": "export const PICK_LAYER_BASELINE_BYTES = 32_391;",
+      "newId": "PICK_LAYER_BASELINE_BYTES = 33_900（显式重登记，裁决 V3-VOL-2）",
+      "newTitle": "export const PICK_LAYER_BASELINE_BYTES = 33_900;",
+      "reason": "裁决 **V3-VOL-2** 批准的**显式重登记**（32,391 → 33,900 B；+1,509 / +4.66%）：`pick-layer` 上限是本 Feature 自建的**首轮实测值**（不同于 content.js 的产品硬约束），本次增长承载 I-02/I-03/I-01②③/I-10 的**正确性 / 安全性修复**。五要素齐备：前后值 + 日期（2026-09-17）+ 来源（`npm run build --workspace @lgdl/web-cli-plugin` + `stat -c %s dist/pick-layer.js`）+ 理由 + `_HISTORY`/TIMELINE 历史逐字保留（`PICK_LAYER_BASELINE_BYTES_HISTORY = [32_391]`）。断言零删减：`+1 B`（33,901）反证在新值上重跑必须 FAIL（`pick-layer-budget.test.ts` 内建 + 产物扰动实跑两段）。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V34R2-S2",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "test",
+      "oldId": "PICK_LAYER_FINAL_ARTIFACT_BYTES = 32_391（同源断言值）",
+      "oldTitle": "export const PICK_LAYER_FINAL_ARTIFACT_BYTES = 32_391;",
+      "newId": "PICK_LAYER_FINAL_ARTIFACT_BYTES = 33_900（= 实测产物）",
+      "newTitle": "export const PICK_LAYER_FINAL_ARTIFACT_BYTES = 33_900;",
+      "reason": "与 V34R2-S1 同轮、同一事实的第二次落点：`assert.equal(size, PICK_LAYER_FINAL_ARTIFACT_BYTES)` 要求「登记值 == 实测产物」，故两者必须同步改写为 `stat` 实测的 **33,900 B**。新增 `PICK_LAYER_RE_REGISTRATIONS` 登记册（前后值 / 日期 / 来源 / 理由 / 断言零删减 / 历史保留 / ceiling 候选值）与 `PICK_LAYER_BASELINE_BYTES_HISTORY = [32_391]`，由 `pick-layer-budget.test.ts` 逐条机器断言。",
+      "replacementExists": true,
+      "modificationType": "registered-supersession"
+    },
+    {
+      "id": "V34R2-S3",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "test",
+      "oldId": "PICK_LAYER_BASELINE_META.previousBaselineBytes = null / direction = 'initial'",
+      "oldTitle": "  previousBaselineBytes: null,",
+      "newId": "previousBaselineBytes = 32_391（前值）/ direction = 'raised'",
+      "newTitle": "  previousBaselineBytes: 32_391,",
+      "reason": "首轮登记的「无前值」表述在重登记后不再成立：前值 32,391 B 必须显式登记（而不是留 `null`）。方向由 `initial` 改为 `raised`；`reRegisteredFrom` / `reason` 追加五要素披露（five-element disclosure）。`pick-layer-budget.test.ts` 的对应断言按新事实**重 pin 而非删除**（`previousBaselineBytes === 32_391`、`direction === 'raised'`），并新增登记册链条、历史保留、`33,901` 反证等断言 ⇒ 断言只增不减。",
+      "replacementExists": true,
+      "modificationType": "same-id-repin"
     }
   ],
   "zeroDiffFiles": [
@@ -2564,6 +2600,36 @@
         "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
         "expectFailPattern": "I-01 ①：撤销后**另一个 tab**（非 bound/active）也零残留",
         "reason": "I-01①（review R1）：撤销 teardown 改为**按 origin 广播**。若回退为单 target，探针在另一个 tab 上会读到 `marker:'object'` + `intercepted:true` ⇒ 该断言 FAIL。前置负控（撤销前两 tab 都拦截右键）确保断言不是恒真。"
+      },
+      {
+        "id": "RP-I02-01",
+        "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+        "expectFailPattern": "I-02：卸载后**文档加载完成** Shadow host 仍必须为 0",
+        "reason": "I-02（review R1 探针 B，R2 落地）：把真实产物注册到**新文档创建时**执行（document_start）后立刻 `unmount()`，再让文档加载完成 —— 回退修复后实测 `shadowHosts: 1`（延迟追加把死层复活），修复后为 `0`。两段原文见 build.md §12.4（回退 71/7 EXIT=1 → 修复 78/0 EXIT=0）。探针载体用**未授权** hostname `localhost`，避免「面板在场 ⇒ 自动注入」污染载体。"
+      },
+      {
+        "id": "RP-I03-01",
+        "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+        "expectFailPattern": "I-03：Esc 关闭菜单后宿主焦点回到原元素",
+        "reason": "I-03（review R1 探针 B，R2 落地）：宿主输入框聚焦 → 在输入框上真实右键（菜单抢焦点）→ Esc → `document.activeElement` 必须仍是 `#host-input`。回退修复后实测 `after:{id:'',tag:'BODY'}`（静默丢到 BODY，与 review 原文一致）；修复后 `id:'host-input'`。前置负控（菜单确实打开且焦点已被自绘 UI 接管）确保断言不是恒真。"
+      },
+      {
+        "id": "RP-I01b-01",
+        "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+        "expectFailPattern": "I-01②：失去授权后第一次交互（右键）即**自行卸载**",
+        "reason": "I-01②（review R1，R2 落地）：下发 `pick-layer-env{authorized:false}` 后第一次右键必须自行卸载（marker/host/拦截全零）。回退修复后实测 `{intercepted:true, marker:'object', shadowHosts:1}`（层继续拦宿主右键）；修复后三项全零。`envReady()` 区分「被撤销」与「从未收到 env」，因此 zero-injection 的强制注入负控不被致盲（其自身反证仍必须翻正）。"
+      },
+      {
+        "id": "RP-I01c-01",
+        "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+        "expectFailPattern": "I-01③：面板收到卸载事实",
+        "reason": "I-01③（review R1，R2 落地）：`unmount()` 必须先 `pushState('gone', …)` 再摘监听 —— 回退后面板侧 `phase==='gone'` 分支仍是死路径，实测风险区 `pageUnavailable` 为空 ⇒ 断言 FAIL；修复后为「页面侧已卸载」。"
+      },
+      {
+        "id": "RP-I10-01",
+        "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+        "expectFailPattern": "I-10：flash 高亮期间 overlay 定时器被**跟踪**",
+        "reason": "I-10（review R1，R2 落地）：`op('timers')` 是 overlay 定时器跟踪的**门禁缝**（tracked set 由 `later()` 填充）。回退修复后该 seam 不存在 ⇒ 三次读数全为 `null` ⇒ 断言 FAIL；修复后为 0 → ≥1 → 0（加入后自行从集合移除，无泄漏）。口径局限（如实登记）：I-10 的另一半（`history.__wcliPickWrapped` 死判据）**无可观测行为差**，其反证由同一 hunk 的 I-02 回退实跑承载。"
       }
     ],
     "exceptions": [
@@ -2874,6 +2940,40 @@
   ],
   "featureHistory": {
     "previous": "specs-tree-web-cli-plugin-v3-ui / specs-tree-v3-1-l0-shell-density + specs-tree-v3-2-l1-disclosure-refs",
+    "v3-4-fix2": {
+      "leaf": "specs-tree-v3-4-page-as-input",
+      "date": "2026-09-17",
+      "round": "修复轮 R2（review R1 之后；编排器裁决 **V3-VOL-2**）",
+      "artifact": "packages/web-cli-plugin/dist/pick-layer.js",
+      "source": "npm run build --workspace @lgdl/web-cli-plugin + stat -c %s dist/pick-layer.js",
+      "measuredBy": "SDDU v3-4 fix round R2 (SDDU Build Agent)",
+      "reRegistration": {
+        "previousBytes": 32391,
+        "registeredBytes": 33900,
+        "deltaBytes": 1509,
+        "deltaPct": "4.66%",
+        "tolerance": 0,
+        "ceiling": 33900,
+        "counterProof": "dist/pick-layer.js +1 B（33,901）必须 FAIL（`pick-layer-budget.test.ts` 内建断言 + 产物扰动实跑两段：追加 1 字节 ⇒ `登记 33900B ≠ 实测 33901B` FAIL；重新构建后 sha256 复原 ⇒ PASS）"
+      },
+      "reason": "本上限是**本 Feature 自建的首轮实测值**（与 `content.js` 的产品硬约束不同）；本次 +1,509 B 承载的是**正确性 / 安全性修复**的 5 项落地（I-02 卸载后 Shadow host 复活 / I-03 菜单关闭不还原宿主焦点 / I-01② 层不按 authorized 自检 / I-01③ `pushState('gone')` 从未调用 / I-10 死判据 + 未跟踪定时器），属必要代价。",
+      "perFileAttribution": {
+        "method": "受控实验：逐文件回退到 HEAD 后 `npm run build`，`stat` 读 `dist/pick-layer.js`",
+        "src/content/pick-overlay.ts": 615,
+        "src/content/pick-menu.ts": 504,
+        "src/content/pick-layer.ts": 307,
+        "src/content/pick-bridge.ts": 83,
+        "totalBytes": 1509
+      },
+      "historyRetainedBytes": [32391],
+      "historyRetainedLocation": "test/size-baseline.ts#PICK_LAYER_BASELINE_BYTES_HISTORY（逐字保留）+ PICK_LAYER_RE_REGISTRATIONS[0].baselineAfterBytes + PICK_LAYER_BASELINE_META.previousBaselineBytes",
+      "notRelaxed": [
+        "dist/content.js 177,076 B（无容差）—— 本轮零改动",
+        "dist/sidepanel.js 362,777 B（== 登记值）—— 本轮零改动",
+        "容差仍为 0（`+1 B` 必 FAIL）",
+        "`PICK_LAYER_CEILING` 仍 = 登记值（不新增 cap / 不放宽容差）"
+      ]
+    },
     "note": "N-04（validate R1）：`feature` 字符串未随 v3-3 叶更新（同文件 `counts.*.note` 已逐条写 v3-3）。**历史保留、只追加**；门禁此前只断言 `feature.includes(\"v3-1\")`，故不会红 —— 该断言本身也保留（不削弱）。",
     "v3-4": {
       "leaf": "specs-tree-v3-4-page-as-input",
