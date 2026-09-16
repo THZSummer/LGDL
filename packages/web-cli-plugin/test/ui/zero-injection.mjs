@@ -203,6 +203,50 @@ async function main() {
     check('AC-V3-018：「从页面拾取」入口被禁用（未授权）', l0?.pickDisabled === true, JSON.stringify(l0));
     check('AC-V3-018：禁用原因可读', /未授权|页面侧不可用/.test(String(l0?.pickReason ?? '')), String(l0?.pickReason));
     check('未授权时侧栏自身也不带拾取层', l0?.layerMarker === 'undefined', String(l0?.layerMarker));
+
+    // ── BLOCK-1 / I-04 回归：**带路径**的未授权页面同样零注入 ───────────────────
+    // 旧夹具的未授权页只走 `${origin}/`（根路径），而真实站点几乎总带路径。这一条把
+    // 「零注入」的覆盖从根路径扩到深层路径 —— 与 page-input 的 /app 变体成对存在。
+    const unauthorizedPathUrl = `${unauthorized.origin}/app`;
+    const unauthorizedPathTab = await mkTab(unauthorizedPathUrl);
+    await sleep(1200);
+    const injectAttemptPath = await evaluate(
+      swCdp,
+      `chrome.scripting.executeScript({ target: { tabId: ${unauthorizedPathTab} }, files: ['pick-layer.js'] })
+         .then(() => ({ ok: true })).catch((e) => ({ ok: false, reason: String((e && e.message) || e) }))`,
+    );
+    check('BLOCK-1 回归：未授权 origin 的**带路径**页面注入同样被 Chrome 拒绝', injectAttemptPath?.ok === false, JSON.stringify(injectAttemptPath));
+    await evaluate(swCdp, `chrome.tabs.update(${unauthorizedPathTab}, { active: true }).then(() => true)`);
+    await sleep(900);
+    const swInjectPath = await evaluate(
+      pCdp,
+      `chrome.runtime.sendMessage({ kind: 'pick-layer-inject' }).then((res) => ({ ok: res && res.ok, error: (res && res.error) || '' }))`,
+    );
+    check('BLOCK-1 回归：SW 对未授权带路径页面返回可读拒绝（不因路径误判）', swInjectPath?.ok === false, JSON.stringify(swInjectPath));
+    check(
+      'BLOCK-1 回归：拒绝文案点明「未授权」或「页面侧不可用」（带路径页亦然）',
+      /未授权|页面侧不可用/.test(String(swInjectPath?.error ?? '')),
+      String(swInjectPath?.error),
+    );
+    const unPathPage = await findTarget(chrome.base, (t) => t.type === 'page' && t.url === unauthorizedPathUrl);
+    check('BLOCK-1 回归：未授权带路径 fixture 页可被定位', Boolean(unPathPage));
+    const upCdp = await connectCdp(unPathPage.webSocketDebuggerUrl);
+    await upCdp.send('Runtime.enable');
+    const pathProbes = await evaluate(upCdp, PROBES);
+    check(
+      'BLOCK-1 回归：未授权 /app 页面五探针全零（marker / Shadow host / 右键未被拦截）',
+      pathProbes?.marker === 'undefined' && pathProbes?.shadowHosts === 0 && pathProbes?.rightClickIntercepted === false,
+      JSON.stringify(pathProbes),
+    );
+    // 负控：同一带路径页面强制注入后，探针必须翻正（否则该探针恒真）。
+    const pathBundle = await readFile(join(extDir, 'pick-layer.js'), 'utf8');
+    await evaluate(upCdp, `${pathBundle}\n//# sourceURL=v3-zero-injection-path-forced.js`);
+    const pathForced = await evaluate(upCdp, PROBES);
+    check('BLOCK-1 反证：带路径页面强制注入后探针翻正（该探针可 FAIL）', pathForced?.marker === 'object' && (pathForced?.shadowHosts ?? 0) >= 1, JSON.stringify(pathForced));
+    await evaluate(upCdp, `(window.__wcliPickLayer && window.__wcliPickLayer.unmount(), true)`);
+    const pathAfter = await evaluate(upCdp, PROBES);
+    check('BLOCK-1 反证收尾：带路径页面 unmount 后归零', pathAfter?.shadowHosts === 0 && pathAfter?.rightClickIntercepted === false, JSON.stringify(pathAfter));
+    upCdp.close();
     pCdp.close();
   } finally {
     try {

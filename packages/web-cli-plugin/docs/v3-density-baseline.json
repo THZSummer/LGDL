@@ -369,7 +369,7 @@
     "previousCeilingBytes": 367421,
     "ceilingDirection": "raised-formula",
     "directionAlertThreshold": 0.15,
-    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.95%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362865 B，+10.25%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 362865 B 从 266,500 B 起算的 Feature 累计增幅 **+36.16%**（< 40% 停工线），已在 v3-4 build 回报中显式列出。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。",
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 362,777 B 从 266,500 B 起算的 Feature 累计增幅 **+36.13%**（< 40% 停工线），已在 v3-4 build 回报中显式列出。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。",
     "reRegistrations": [
       {
         "id": "v3-1",
@@ -467,7 +467,7 @@
         "baselineAfterBytes": 362777,
         "ceilingBeforeBytes": 367421,
         "ceilingAfterBytes": 380915,
-        "reason": "「页面即输入」的面板侧接线（pick-input.ts 5,053 B 新模块 + sidepanel/panels/view-model/shell），页面侧交互层落在独立产物 dist/pick-layer.js。"
+        "reason": "「页面即输入」的面板侧接线（pick-input.ts 5,085 B 新模块 + sidepanel/panels/view-model/shell），页面侧交互层落在独立产物 dist/pick-layer.js。"
       }
     ],
     "growthBreakdown": {
@@ -499,7 +499,7 @@
       }
     },
     "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP_RECORD / SIDEPANEL_RE_REGISTRATIONS / SIDEPANEL_GROWTH_BREAKDOWN / evaluateConsecutiveReRegistrationGrowth）；门禁 test/size-budget.test.ts + test/size-growth-evidence.test.ts",
-    "note": "volume 与 test/size-baseline.ts 同源（机器比对：registeredBaselineBytes / ceilingBytes 由 test/density-thresholds.test.ts 断言）。v3-3（2026-09-16，leaf specs-tree-v3-3-l2-on-demand-views）：L2 四视图 + 视图替换 + 真值计数 + 树归属迁移，产物 328,476 → **349,880 B**（+21,404 B，+6.52%）；**v3-3 修复轮**（同叶，审查 R1 后）：F-01 反证订正 + I-01 逐目标 aria-controls + expectFailPattern 防呆，产物按实测重登记为 **349,925 B**（+45 B；`roundKind=registry-fidelity-round`，功能轮口径不变）；ceiling 由公式抬高 floor(349,925 × 1.05) = **367,421 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null。前值 349,880 / 328,476 / 327,679 / 295,225 / 291,523 / 266,500 全保留在体积登记的 TIMELINE 与重登记登记册。本文件**不再**独立承载 growthBreakdown 的历史值（旧值逐字保留在同条目 `growthBreakdown.previous` 内），避免同一事实两处漂移（审查 I-03⑤）。 **v3-4（2026-09-16，leaf specs-tree-v3-4-page-as-input）**：面板侧接线按真实产物重登记 349,925 → **362865 B**（+12940 B，+3.50%；`roundKind=feature-round`）；ceiling 由公式抬高 floor(362,163 × 1.05) = **381008 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null；前值全部保留在 size-baseline 的 TIMELINE 与重登记登记册。本文件同时保留旧值：`growthBreakdown.previous`（若有）与 `volume.previous*`。",
+    "note": "volume 与 test/size-baseline.ts 同源（机器比对：registeredBaselineBytes / ceilingBytes 由 test/density-thresholds.test.ts 断言）。v3-3（2026-09-16，leaf specs-tree-v3-3-l2-on-demand-views）：L2 四视图 + 视图替换 + 真值计数 + 树归属迁移，产物 328,476 → **349,880 B**（+21,404 B，+6.52%）；**v3-3 修复轮**（同叶，审查 R1 后）：F-01 反证订正 + I-01 逐目标 aria-controls + expectFailPattern 防呆，产物按实测重登记为 **349,925 B**（+45 B；`roundKind=registry-fidelity-round`，功能轮口径不变）；ceiling 由公式抬高 floor(349,925 × 1.05) = **367,421 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null。前值 349,880 / 328,476 / 327,679 / 295,225 / 291,523 / 266,500 全保留在体积登记的 TIMELINE 与重登记登记册。本文件**不再**独立承载 growthBreakdown 的历史值（旧值逐字保留在同条目 `growthBreakdown.previous` 内），避免同一事实两处漂移（审查 I-03⑤）。 **v3-4（2026-09-16，leaf specs-tree-v3-4-page-as-input）**：面板侧接线按真实产物重登记 349,925 → **362777 B**（+12852 B，+3.67%；`roundKind=feature-round`）；ceiling 由公式抬高 floor(362,777 × 1.05) = **380915 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null；前值全部保留在 size-baseline 的 TIMELINE 与重登记登记册（构建过程中的中间测量值 362163 / 362865 **不是**已发布基线，已从 TIMELINE 移出并保留在 `SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS`）。本文件同时保留旧值：`growthBreakdown.previous`（若有）与 `volume.previous*`。",
     "previous": {
       "registeredBaselineBytes": 349925,
       "finalArtifactBytes": 349925,

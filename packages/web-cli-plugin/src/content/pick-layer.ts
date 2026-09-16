@@ -27,6 +27,13 @@
  *      bubble's own click stops propagation), and it never appears inside an input,
  *      a textarea or a `[contenteditable]`.
  *
+ * ── I-07：这是 **CSS** 隔离，不是**脚本**隔离 ────────────────────────────────
+ *
+ * open shadow + 普通属性 ⇒ 页面脚本可读改绘自绘 UI、可合成 `dblclick`/`contextmenu`/
+ * `mouseup` 驱动捕获（因此**不**加 `isTrusted` 过滤：过滤会同时致盲门禁自身与零注入
+ * 负控探针）。越权不可能 —— 本模块**没有命令通道**（见下）。后续 ADR 不得假设
+ * 「页面脚本不可及」。
+ *
  * ── What this file must never do ─────────────────────────────────────────────
  *
  * It reports **facts**. It never decides whether a reference is usable (that is

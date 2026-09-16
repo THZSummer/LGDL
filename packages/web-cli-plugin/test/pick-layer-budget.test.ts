@@ -45,8 +45,12 @@ function sizeOf(url: URL): number | undefined {
 test('V3-4 size: dist/pick-layer.js 独立无容差上限（+1 B 反证）且不与 content.js 合并计数', (t) => {
   const size = sizeOf(distArtifact('pick-layer.js'));
   if (size === undefined) {
-    t.skip('dist/pick-layer.js not present — build first to measure the new artifact budget');
-    return;
+    // I-09 (review R1): a missing artifact must **FAIL**, not skip. `t.skip` passes the
+    // test without judging anything, so an unbuilt tree would silently have no size
+    // guard at all (`npm test` does not build by itself). `npm run test:v3` builds
+    // first, so this branch only ever fires when the guard would otherwise be vacuous.
+    t.diagnostic('dist/pick-layer.js not present — run `npm run build --workspace @lgdl/web-cli-plugin` first');
+    assert.fail('dist/pick-layer.js 不存在：体积守卫必须失败而不是跳过（先 npm run build）');
   }
   // ① the registered value IS the shipped artifact (same discipline as sidepanel/content).
   assert.equal(size, PICK_LAYER_FINAL_ARTIFACT_BYTES, `登记 ${PICK_LAYER_FINAL_ARTIFACT_BYTES}B ≠ 实测 ${size}B（按真实产物登记）`);
@@ -83,8 +87,9 @@ test('V3-4 size: dist/pick-layer.js 独立无容差上限（+1 B 反证）且不
 test('V3-4 size: content.js 仍 ≤177,076 B（无容差）且冻结三文件 hash 不变', (t) => {
   const content = sizeOf(distArtifact('content.js'));
   if (content === undefined) {
-    t.skip('dist/content.js not present — build first');
-    return;
+    // I-09: same caliber as the pick-layer guard — a missing artifact is a FAIL.
+    t.diagnostic('dist/content.js not present — run `npm run build --workspace @lgdl/web-cli-plugin` first');
+    assert.fail('dist/content.js 不存在：content.js 冻结守卫必须失败而不是跳过（先 npm run build）');
   }
   assert.equal(content, CONTENT_MAX_BYTES, `content.js ${content}B ≠ ${CONTENT_MAX_BYTES}B —— 本叶必须是逐字节零改动`);
   assert.equal(evaluateContentCeiling(content).ok, true);

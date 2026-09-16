@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v3-4-page-as-input",
   "version": "v3.0.0",
   "name": "V3-4 页面即输入——Alt 悬停拾取（描边 + 语义路径/选择器/文本摘要）· Alt 拖动到侧栏（跟随胶囊 + 落点高亮）· 右键自绘菜单（零新增权限 + 三条退让）· 拖选文本气泡 → 生成引用 + 选择题；页面侧**按需注入**（拾取层不打进常驻 content.js）、未授权站点**零注入**；双向高亮联动（chip ↔ 角标同序号）",
-  "phase": "builded",
-  "workflow": "5.build",
+  "phase": "reviewed",
+  "workflow": "6.review",
   "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v3-ui",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-16",
-  "updatedAt": "2026-09-16",
+  "updatedAt": "2026-09-17",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v3-ui 立项的叶子子 Feature（P0，**最后开工**：R-UI-001 / R-UI-004 / R-UI-008 三条风险全部集中于此）。承载父 spec FR-V3-060~072：① 四项交互（Alt 悬停拾取 / Alt 拖动到侧栏 / 右键自绘菜单 / 拖选文本气泡）逐项可用且每项生成 1 引用 + 1 道选择题（不是自由输入框；自由文本只在末项「其他…（我来描述）」）；② 副作用约束：Alt 悬停唯一高亮 + Esc/释放即撤销 + **拾取期间零命令发送**；Alt 拖动落点两路径（落侧栏 / 未落，未落零副作用）；右键自绘**三退让**（仅已授权站点生效 / 保留「交给页面原生菜单」出口 / Esc 与点击空白即关）；③ 双向高亮联动：侧栏 chip ↔ 页面角标同序号，引用 id 贯穿「页面角标 / 侧栏 chip / 证据层 / 失效风险行」四处；④ **注入模型**：页面侧按需注入（拾取层不打进常驻 `content.js`，守住 177,076 B 无容差）+ 未授权站点零注入 + 页面侧 UI 只在已授权站点存在；⑤ **零新增权限**（不引入 contextMenus、不扩大 host_permissions、不新增静态权限、不改 manifest）；⑥ 宿主样式污染下自绘 UI 仍可读且不破坏宿主交互；⑦ 手势表条目数 = 实现手势数。权威条文见父 spec §5.5 / §8.4。",
   "scope": {
     "in": [
@@ -82,7 +82,10 @@
     "spec.md",
     "plan.md",
     "tasks.md",
-    "tasks.json"
+    "tasks.json",
+    "build.md",
+    "review.md",
+    "review-report.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/spec.md",
@@ -92,7 +95,11 @@
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/tasks.md",
     "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/tasks.json",
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/spec.md",
-    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md"
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/discovery.md",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/build.md",
+    "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/review.md",
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v3-ui/specs-tree-v3-4-page-as-input/review-report.md",
+    "gateLogs": "/tmp/opencode/v3-gate-logs/v3-4/（build 轮）与 /tmp/opencode/v3-gate-logs/v3-4-fix/（修复轮；含 BLOCK-1 两段证伪 RP-BLOCK1-reverted.log / page-input.log）—— 非版本化"
   },
   "dependencies": {
     "on": [
@@ -194,9 +201,14 @@
       "phase": "builded",
       "timestamp": "2026-09-16T00:00:00.000Z",
       "triggeredBy": "sddu-build（15/15 任务完成；TASK-401 spike S1~S4 全过；门禁严格串行全绿；sidepanel.js 显式重登记 + AC-CONV-1/2 兑现）"
+    },
+    {
+      "phase": "reviewed",
+      "timestamp": "2026-09-17T01:30:00.000Z",
+      "triggeredBy": "sddu-review（R1：❌ 不通过；43 项 = 34 通过 / 6 警告 / 3 失败 / 2 阻塞 BLOCK-1+BLOCK-2）→ sddu-build 修复轮（BLOCK-1 一行 `tabOrigin(url)` + 5 条可 FAIL 回归断言 + 两段证伪；BLOCK-2 登记数字一次性对齐 + `ceilingUncappedFormulaBytes` 机器断言 + V34-S3 系列补登；I-01①/I-04/I-05/I-06/I-07/I-08/I-09/I-11 已修；I-01②③/I-02/I-03/I-10 **deferred**：pick-layer.js 32,391 零容差红线，实测需 +1,509 B ⇒ 停下回报，未抬高上限）；门禁 21 项严格串行全绿（page-input 61、zero-injection 27、计数只增不减）"
     }
   ],
-  "phaseNote": "build 阶段完成（2026-09-16，sddu-build）：15/15 任务（S×2 / M×12 / L×1）。**TASK-401 spike 全过**（S1 注入可行 / S2 最小骨架 8,606 B ≤ 60,000 / S3 未授权五探针全负 + 强制注入反证翻红 / S4 三退让可实现）⇒ **未走 D1/D2**，获准进实现。形态：第 5 个产物 `dist/pick-layer.js`（32,266 B，按需 `executeScript` 注入，**自有独立无容差上限**，不与 content.js 合并计数）；`dist/content.js` **逐字节不变 177,076 B**；三冻结文件 hash 与 pin 一致；`manifest.json` 零 diff（无 contextMenus）；判定链未动。门禁（严格串行、日志 /tmp/opencode/v3-gate-logs/v3-4/）：typecheck 0 · build ✅ · npm test **795/795** · supersession ✅ · **test:zero-injection 20** · **test:page-input 46** · density **127** · l0 **164** · l1 **103** · l2 **71** · l1-reverse ✅ · l2-reverse ✅ · journey **167** · insight **116** · binding **192** · hardening **24** · e2e PASS · gate-integrity ✅ · 体积四线 + 反证三段 ✅ · 零改动核对 ✅。体积：`sidepanel.js` **显式重登记 349,925 → 362,865 B（+3.70%）**（容差 5% 未动、cap 仍 record-only、断言零删减、逐模块归因；Feature 累计 +36.18% < 40% 停工线，已在 build 报告 §1.3 显式回报）；方向性守卫改报「最差连续两轮」（+22.96%，**只增不减**）。AC-CONV-1（生产 `setEnv` 调用点 + 真实声明 sha256）与 AC-CONV-2（全仓唯一 `dispatchRefAction(` 调用点 + 引用回合走同一入口）各配可 FAIL 判据。人工面 6 项如实登记「未执行」。**只做 build**：未改 main / 未改 v1·v2 SDDU / 未改冻结文件与判定链 / 无新增依赖 / 未使用 git add -A。",
+  "phaseNote": "build 阶段完成（2026-09-16，sddu-build）：15/15 任务（S×2 / M×12 / L×1）。**TASK-401 spike 全过**（S1 注入可行 / S2 最小骨架 8,606 B ≤ 60,000 / S3 未授权五探针全负 + 强制注入反证翻红 / S4 三退让可实现）⇒ **未走 D1/D2**，获准进实现。形态：第 5 个产物 `dist/pick-layer.js`（32,266 B，按需 `executeScript` 注入，**自有独立无容差上限**，不与 content.js 合并计数）；`dist/content.js` **逐字节不变 177,076 B**；三冻结文件 hash 与 pin 一致；`manifest.json` 零 diff（无 contextMenus）；判定链未动。门禁（严格串行、日志 /tmp/opencode/v3-gate-logs/v3-4/）：typecheck 0 · build ✅ · npm test **795/795** · supersession ✅ · **test:zero-injection 20** · **test:page-input 46** · density **127** · l0 **164** · l1 **103** · l2 **71** · l1-reverse ✅ · l2-reverse ✅ · journey **167** · insight **116** · binding **192** · hardening **24** · e2e PASS · gate-integrity ✅ · 体积四线 + 反证三段 ✅ · 零改动核对 ✅。体积：`sidepanel.js` **显式重登记 349,925 → 362,865 B（+3.70%）**（容差 5% 未动、cap 仍 record-only、断言零删减、逐模块归因；Feature 累计 +36.18% < 40% 停工线，已在 build 报告 §1.3 显式回报）；方向性守卫改报「最差连续两轮」（+22.96%，**只增不减**）。AC-CONV-1（生产 `setEnv` 调用点 + 真实声明 sha256）与 AC-CONV-2（全仓唯一 `dispatchRefAction(` 调用点 + 引用回合走同一入口）各配可 FAIL 判据。人工面 6 项如实登记「未执行」。**只做 build**：未改 main / 未改 v1·v2 SDDU / 未改冻结文件与判定链 / 无新增依赖 / 未使用 git add -A。\n\n---\n\n**reviewed（2026-09-17，修复轮）**：review R1 判 **❌ 不通过**（43 项 = 34 ✅ / 6 ⚠️ / 3 ❌；2 阻塞）。**BLOCK-1 已修**：`src/background/service-worker.ts#pickLayerTarget` 的 `normalizeStableOrigin(url)` → **`tabOrigin(url)`**（一行；`normalizeStableOrigin` 的导入保留，`:1789` 仍用于授权集合比对）—— 此前完整 URL 被当作 origin，`http://h:p/app` 恒判「未授权」⇒ 带路径的真实页面全部不可用。回归证据：`test/ui/page-input.mjs` 新增 5 条（原 46 → **61**，含 review 指定的 `/app` 上 `window.__wcliPickLayer === 'object'` 隔离世界探针 + 行为级右键接管 + 根路径对照）；`test/ui/zero-injection.mjs` 加带路径变体（20 → **27**）。**两段证伪**：回退该行 → `57 passed / 4 failed`（`/app` marker `undefined` / shadowHosts `0` / `intercepted:false`，EXIT=1）；修复 → `61 passed / 0 failed`（EXIT=0）；sha256 还原（`e044be3c…5af851`）。**BLOCK-2 已修**：登记/审计事实层收敛到 `349,925 → 362,777（+12,852 / +3.67%）`、`ceiling = floor(362,777×1.05) = 380,915`、Feature 累计 `+36.13%`、worst-pair `+22.96%`、`pick-input.ts 5,085 B`、累计 `67,552 B`；`ceilingUncappedFormulaBytes 380,271 → 380,915` 并新增机器断言（逐轮 `=== floor(baselineAfterBytes×1.05)`，退回即 FAIL）；两个中间测量值 `362,163/362,865` 移出 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 但**不静默消失**（`SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS` + 台账 `featureHistory.v3-4.intermediateBuildSnapshots`）；ledger 16 处幽灵值改写；补登 `V34-S3/S3b/S3c/S3d`（`insight-protocol.test.ts` 4 行删除首次可见）+ `V34F-S1`。**顺手修**：I-01①（撤销按 origin 广播 teardown，run 门禁覆盖「另一 tab 全零」）、I-04（两门禁 `/app` 变体 + 站点自带 contextmenu 并存断言）、I-05（删除行判据文件集合 = 台账 ∪ 实测 diff）、I-06（SW 新增 `pick-layer-env` 真实路由）、I-07（open shadow = CSS 隔离而非脚本隔离，文档化）、I-08（元门禁注释订正）、I-09（`t.skip` → `assert.fail`）、I-11（build.md §2.2 两条 MODIFY 失真订正 + 文件计数口径 18）。**deferred（红线冲突，如实回报）**：I-01②（层自检 authorized）/ I-01③（`pushState('gone')`）/ I-02（`DOMContentLoaded` 复活 Shadow host，已实证）/ I-03（菜单关闭还原宿主焦点，已实证）/ I-10（死判据 + 未跟踪定时器）—— 修法只能落在 `src/content/pick-{layer,bridge,menu,overlay}.ts`，而 `pick-layer.js` 本轮红线为 **32,391 零容差不得增长**（`assert.equal(size, PICK_LAYER_FINAL_ARTIFACT_BYTES)`）。受控实测代价：overlay +615 / menu +504 / layer +307 / bridge +83 = **+1,509 B（+4.66%）**。按红线「功能需要增长 ⇒ 停下回报」处置：**未**抬高上限、**未**靠压缩凑字节、**未**为未交付行为新增断言，4 个文件改动全部回退（产物仍 32,391 逐字节不变）。若编排器批准一次显式重登记（`32,391 → 33,900`，披露五要素齐备），可在下一轮一次性落地。**门禁（严格串行、一次一个，日志 `/tmp/opencode/v3-gate-logs/v3-4-fix/`，无 tail 截断，profile 自清）**：typecheck 0 · build ✅（`177076 / 32391 / 362777`）· npm test **795/795/0 skipped** · supersession **14/14** · density **127/0** · l0 **164/0** · l1 **103/0** · l2 **71/0** · l1-reverse 9/9 · l2-reverse 10/10 · page-input **61/0** · zero-injection **27/0** · journey **167** · insight **116** · binding **192** · hardening **24** · e2e PASS · gate-integrity **12/12** · 体积四线 + ceiling 机器断言 ✅ · 零改动核对 ✅ · 反证全套 ✅（RP-V3-01/02/03/04/08/09 各 EXIT=0 + BLOCK-1 两段证伪 + 新断言 in-gate 模式登记 `RP-BLOCK1-01/02`、`RP-I01-01`）。**计数只增不减**。**红线**：`content.js` 177,076 · `pick-layer.js` 32,391 · `sidepanel.js` 362,777（三者均等于登记值）；三冻结 hash = pin；`manifest.json` 零 diff、无 `contextMenus`；判定链未动；`main` 停留在 `2ddc922`；无新增依赖；未用 `git add -A`；主界面无常驻输入框；风险位不可折叠；未授权站点零注入。",
   "crossLeafConvergence": [
     {
       "id": "N-06",

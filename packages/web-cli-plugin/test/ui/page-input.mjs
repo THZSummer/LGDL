@@ -48,7 +48,12 @@ function serve() {
         <div id="box" style="width:180px;height:70px">box</div>
         <script>
           window.__hostClicks = 0;
+          window.__hostCtx = 0;
           document.getElementById('host-btn').addEventListener('click', () => { window.__hostClicks += 1; });
+          // I-04: the fixture carries a *site-owned* contextmenu handler so the gate can
+          // prove the two coexisting (we swallow the default menu, the page's own
+          // listener still sees the event) instead of only covering "no host handler".
+          document.addEventListener('contextmenu', () => { window.__hostCtx += 1; });
         </script>
       </body></html>`);
     });
@@ -117,6 +122,7 @@ async function main() {
              fallbackHidden: document.getElementById('ask-fallback')?.hidden !== false,
              optionKeys: Array.from(document.querySelectorAll('#l0-decision button')).map((b) => b.getAttribute('data-key') || b.id),
              pageUnavailable: document.getElementById('l0-page-unavailable')?.textContent ?? '',
+             riskRail: document.getElementById('risk-rail')?.textContent ?? '',
              pickDisabled: Boolean(document.getElementById('l0-pick')?.disabled),
              pickReason: document.getElementById('l0-pick')?.getAttribute('data-disabled-reason') ?? '',
              gestureRows: Array.from(document.querySelectorAll('#l1-gestures-rows tr td:first-child')).map((td) => td.textContent),
@@ -371,6 +377,95 @@ async function main() {
     check('⑩ 手势表条目数 = 6（实现数）', table.gestureRows.length === 6, JSON.stringify(table.gestureRows));
     check('⑩ 手势表与实现的 6 项**集合相等**（不许多列未实现手势）', JSON.stringify(table.gestureRows) === JSON.stringify(GESTURE_LABELS), JSON.stringify(table.gestureRows));
 
+    // ── BLOCK-1 回归（review R1）：**带路径**的真实页面必须同样可用 ───────────
+    // 上一轮的 `pickLayerTarget` 用 `normalizeStableOrigin(完整URL)` 当 origin ⇒
+    // `http://h:p/app` 永远是「未授权站点」。旧夹具只走 `${origin}/`，所以 46 条断言
+    // 全绿也看不见它 —— 这个断言存在的唯一目的就是让那个缺陷**不可能再溜过去**：
+    // 它必须能 FAIL（先回退修复实测为红，见 build.md 修复轮 §1）。
+    const appUrl = `${site.origin}/app`;
+    const appTab = await evaluate(swCdp, `chrome.tabs.create({ url: ${JSON.stringify(appUrl)} }).then((t) => t.id)`);
+    await evaluate(swCdp, `chrome.tabs.update(${appTab}, { active: true }).then(() => true)`);
+    await sleep(900);
+    await evaluate(pCdp, `window.__v3.testing.refresh(); true`);
+    await sleep(1500);
+    const injectOnPath = await evaluate(
+      pCdp,
+      // 信封是 `{ok, data}` —— payload 在 `data` 里（只读 `r.tabId` 会永远是 undefined，
+      // 那正是「断言看似存在、实际恒假」的形态；这里显式取 `r.data.*`）。
+      `chrome.runtime.sendMessage({ kind: 'pick-layer-inject' })
+         .then((r) => ({ ok: Boolean(r && r.ok), tabId: r && r.data && r.data.tabId, origin: r && r.data && r.data.origin, error: (r && r.error) || '' }))`,
+    );
+    check(
+      'BLOCK-1 回归：授权 origin 的**带路径**页面 /app 上 pick-layer-inject 必须 ok:true',
+      injectOnPath?.ok === true,
+      JSON.stringify(injectOnPath),
+    );
+    check(
+      'BLOCK-1 回归：注入目标的 origin 是真 origin（不含路径段）',
+      injectOnPath?.origin === site.origin,
+      JSON.stringify(injectOnPath?.origin),
+    );
+    // 关键判据（review 指定）：/app 的**隔离世界**里层必须真的在。
+    // 只断言 `ok` 是不够的 —— 回退修复的实测里 `ok:true` 仍然成立（注入落到了根路径那个
+    // tab），而 /app 上是零注入；下面三条把「层真的在 /app 上且可用」钉死。
+    const pathMarker = await iso(appTab, `typeof window.__wcliPickLayer`);
+    check('BLOCK-1 回归：/app 页面隔离世界内 window.__wcliPickLayer === object', pathMarker === 'object', String(pathMarker));
+    const pathHosts = await iso(appTab, `document.querySelectorAll('[data-wcli-pick-root]').length`);
+    check('BLOCK-1 回归：/app 页面确实挂上了拾取画布（Shadow host）', pathHosts === 1, String(pathHosts));
+    const pathCtx = await iso(
+      appTab,
+      `(() => {
+         const el = document.createElement('button');
+         document.body.appendChild(el);
+         const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+         el.dispatchEvent(ev);
+         const out = { intercepted: ev.defaultPrevented };
+         el.remove();
+         return out;
+       })()`,
+    );
+    check('BLOCK-1 回归：/app 页面上的活层确实接管右键（行为级，不只是 marker）', pathCtx?.intercepted === true, JSON.stringify(pathCtx));
+    // 对照：根路径仍必须可用（新断言只增不减，原来覆盖的这一条也保留）。
+    await evaluate(swCdp, `chrome.tabs.update(${siteTab}, { active: true }).then(() => true)`);
+    await sleep(700);
+    await evaluate(pCdp, `window.__v3.testing.refresh(); true`);
+    await sleep(1400);
+    const injectOnRoot = await evaluate(
+      pCdp,
+      `chrome.runtime.sendMessage({ kind: 'pick-layer-inject' }).then((r) => ({ ok: Boolean(r && r.ok), origin: r && r.data && r.data.origin, tabId: r && r.data && r.data.tabId }))`,
+    );
+    check(
+      'BLOCK-1 对照：根路径 / 上 pick-layer-inject 同样 ok:true（新断言不是替代而是并列）',
+      injectOnRoot?.ok === true,
+      JSON.stringify(injectOnRoot),
+    );
+    const rootMarker = await iso(siteTab, `typeof window.__wcliPickLayer`);
+    check('BLOCK-1 对照：根路径页面 window.__wcliPickLayer === object', rootMarker === 'object', String(rootMarker));
+
+    // ── I-04：站点自带 contextmenu（两门禁并存）──────────────────────────────
+    // 我方的自绘菜单只 `preventDefault`，不 `stopPropagation` —— 站点自己的监听器
+    // 仍然收到事件。旧夹具没有站点侧监听器，因此这一事实从未被断言过。
+    const ctxBefore = await evaluate(sCdp, `window.__hostCtx`);
+    await rightClick();
+    await sleep(200);
+    const ctxAfter = await evaluate(sCdp, `window.__hostCtx`);
+    check(
+      'I-04：站点自带 contextmenu 监听器仍收到事件（不吞宿主非目标事件）',
+      ctxAfter === ctxBefore + 1,
+      `${ctxBefore} → ${ctxAfter}`,
+    );
+    check('I-04：同时我方自绘菜单仍然打开（两者并存）', (await op(siteTab, 'snapshot'))?.menuOpen === true);
+    await sCdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await sCdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await sleep(200);
+
+    // ── I-03 / I-02 / I-01②③ / I-10：**本轮 deferred**（红线：pick-layer.js 32,391 无容差）──
+    // 这四项的修法都必须落在 `src/content/pick-{layer,menu,overlay,bridge}.ts`，而
+    // `test/pick-layer-budget.test.ts` 要求「登记值 == 实测产物」且上限 **零容差**（ADR-V3-031）。
+    // 实测新增字节：overlay 615 + menu 504 + layer 307 + bridge 83 = **1,509 B（+4.66%）**，
+    // 与本轮红线「pick-layer.js 不得增长，功能需要增长则停下回报」冲突 ⇒ **在此停下并如实回报**，
+    // 不擅自抬高上限、不靠压缩 CSS 去凑字节数（那只是把限制藏起来）。详见 build.md §修复轮 deferred。
+    // 因此本轮**不新增**任何依赖这些未实现行为的断言（断言只增不减，但不得为未交付行为伪造判据）。
     // ── 失败降级（真实路径：注入在执行时失败 ⇒ 必须可读上报）────────────────
     // The origin stays AUTHORIZED (so the entry is enabled and the click runs the real
     // product path) while the bundle becomes unloadable — the deterministic stand-in for
@@ -389,6 +484,76 @@ async function main() {
     check('失败降级：风险区明示「页面侧不可用（原因）」', /页面侧不可用/.test(degraded.pageUnavailable), degraded.pageUnavailable);
     check('失败降级：「从页面拾取」入口被禁用（不静默失败）', degraded.pickDisabled === true, JSON.stringify(degraded.pickDisabled));
     check('失败降级：入口的禁用原因 = 页面侧不可用（用户看得到原因）', /页面侧不可用/.test(String(degraded.pickReason ?? '')), String(degraded.pickReason));
+
+    // ── I-01：撤销后**同 origin 的另一 tab** 也必须被拆干净（origin 广播 teardown）──
+    // 旧实现只对 bound/active 的那**一个** tab 发 teardown，于是「A/B 两 tab 同 origin
+    // → 撤销 → 只拆 B」这个态里，另一个 tab 继续拦截右键 —— 而旧夹具从不构造第二个 tab。
+    const layerProbe = (tabId) =>
+      iso(
+        tabId,
+        `(() => {
+           const el = document.createElement('button');
+           el.id = 'teardown-probe';
+           document.body.appendChild(el);
+           const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+           el.dispatchEvent(ev);
+           const out = {
+             marker: typeof window.__wcliPickLayer,
+             shadowHosts: document.querySelectorAll('[data-wcli-pick-root]').length,
+             intercepted: ev.defaultPrevented,
+           };
+           el.remove();
+           return out;
+         })()`,
+      );
+    // 恢复注入载荷（上一条用例把它删了）并让两个 tab 各自持有活层。
+    await cp(join(DIST, 'pick-layer.js'), join(extDir, 'pick-layer.js'));
+    for (const tabId of [appTab, siteTab]) {
+      await evaluate(swCdp, `chrome.tabs.update(${tabId}, { active: true }).then(() => true)`);
+      await sleep(600);
+      await evaluate(pCdp, `window.__v3.testing.refresh(); true`);
+      await sleep(1300);
+    }
+    const preRevokeRoot = await layerProbe(siteTab);
+    const preRevokeApp = await layerProbe(appTab);
+    check(
+      'I-01 前置（负控）：撤销前两个 tab 都有活层且都拦截右键',
+      preRevokeRoot?.marker === 'object' && preRevokeRoot?.intercepted === true && preRevokeApp?.marker === 'object' && preRevokeApp?.intercepted === true,
+      JSON.stringify({ siteTab: preRevokeRoot, appTab: preRevokeApp }),
+    );
+    const revokeRes = await evaluate(
+      pCdp,
+      `chrome.runtime.sendMessage({ kind: 'revoke', origin: ${JSON.stringify(site.origin)} }).then((r) => ({ ok: Boolean(r && r.ok), revoked: r && r.revoked }))`,
+    );
+    check('I-01 前置：撤销消息被接受', revokeRes?.ok === true, JSON.stringify(revokeRes));
+    await sleep(900);
+    const postRevokeRoot = await layerProbe(siteTab);
+    const postRevokeApp = await layerProbe(appTab);
+    check(
+      'I-01 ①：撤销后**另一个 tab**（非 bound/active）也零残留（marker/host/拦截全零）',
+      postRevokeApp?.marker === 'undefined' && postRevokeApp?.shadowHosts === 0 && postRevokeApp?.intercepted === false,
+      JSON.stringify(postRevokeApp),
+    );
+    check(
+      'I-01 ①：bound tab 同样零残留（原本覆盖的那一半不得回退）',
+      postRevokeRoot?.marker === 'undefined' && postRevokeRoot?.shadowHosts === 0 && postRevokeRoot?.intercepted === false,
+      JSON.stringify(postRevokeRoot),
+    );
+    const goneReadback = await (async () => {
+      await evaluate(pCdp, `window.__v3.testing.refresh(); true`);
+      await sleep(1300);
+      return panel.dom();
+    })();
+    check(
+      'AC-V3-018（撤销态）：撤销后 L0 风险位明示「页面侧零注入」',
+      /零注入/.test(String(goneReadback.riskRail ?? '')),
+      String(goneReadback.riskRail).slice(0, 140),
+    );
+    check(
+      'AC-V3-018（撤销态）：撤销后「从页面拾取」入口被禁用（可读原因，不静默）',
+      goneReadback.pickDisabled === true,
+      JSON.stringify({ disabled: goneReadback.pickDisabled, reason: goneReadback.pickReason }),
+    );
     sCdp.close();
     pCdp.close();
   } finally {

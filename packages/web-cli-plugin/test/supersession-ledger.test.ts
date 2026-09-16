@@ -177,6 +177,22 @@ const runGit = (args: string[]) => {
 
 const diffText = (file: string) => runGit(['diff', '-U0', ledger.base, '--', file]);
 
+/**
+ * I-05 (review R1): the files `git diff <rev>` really touches under `test/`.
+ *
+ * The per-line deletion judge used to take its file set from the ledger alone, which
+ * made「未登记文件里的删除行」永久不可见（C41(b)：v3-4 删改了
+ * `test/insight-protocol.test.ts` 的 4 行而台账零出现）。Union-ing this measured set
+ * into the judge closes that loop without relaxing anything: every line the judge already
+ * covered stays covered, and files that were invisible now have to be registered.
+ */
+function measuredTestFiles(rev: string = ledger.base): string[] {
+  return runGit(['diff', '--name-only', rev, '--', 'packages/web-cli-plugin/test'])
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 /** Count runtime `check(...)` calls in a gate file (the ledger's single metric). */
 const countChecks = (text: string) => (text.match(/\bcheck\(/g) ?? []).length;
 
@@ -357,6 +373,13 @@ test('ledger: 既有门禁文件零删除——**每一条删除行**必须逐�
     ...ledger.modifiedRanges.map((r) => r.file),
     ...ledger.entries.map((e) => e.file).filter((f) => !f.includes('*')),
     ...ledger.protectedRanges.map((r) => r.file),
+    // I-05 (review R1): the set used to be derived **only** from the ledger itself, so a
+    // deletion inside a file the ledger never mentioned was structurally invisible
+    // (v3-4 deleted 4 lines in `insight-protocol.test.ts` and the judge could not see
+    // them — the coverage claim was stronger than the coverage). Union with what
+    // `git diff <base>` **actually touches** under `test/`: an omission from the ledger
+    // can no longer double as an excuse for not judging the file.
+    ...measuredTestFiles(),
   ]);
   const failures: string[] = [];
   let checkedFiles = 0;

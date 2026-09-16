@@ -17,8 +17,8 @@
 |------|:--:|
 | 完成任务数 | **15 / 15**（TASK-401~415，含 spike 门与 N-06 收敛） |
 | 复杂度分布 | S×2（406 / 413）· M×12（401/402/403/404/405/408/409/410/411/412/414/415）· L×1（407） |
-| 新增文件 | **13**（源码 7 + 测试 6） |
-| 修改文件 | **16** |
+| 新增文件 | **13**（插件：源码 7 + 测试 6）+ 1 SDDU 产物（`build.md`） |
+| 修改文件 | **18**（插件 18 + SDDU 产物 2：`TREE.md`/`state.json`；口径 = **文件数**，不是表格行数 —— §2.2 表内合并了 2 文件行与 3 文件行，见 I-11 订正） |
 | 新增产物 | **`dist/pick-layer.js` 32,391 B**（第 5 个 esbuild entry，按需注入，自有**无容差**上限） |
 | 红线不变项 | `dist/content.js` **177,076 B 逐字节不变** · 三冻结文件 hash 不变 · `manifest.json` 零 diff · 判定链未动 |
 
@@ -93,7 +93,7 @@
 | NEW | `packages/web-cli-plugin/test/ui/zero-injection.mjs` | 410 | Chromium 门禁（20 断言）：未授权五探针 + 负控 + L0 文案 + 入口禁用 |
 | NEW | `packages/web-cli-plugin/test/ui/page-input.mjs` | 409 | Chromium 门禁（46 断言）：十项验收（见 §4） |
 
-### 2.2 修改（16）
+### 2.2 修改（18；表内 15 行，其中 1 行合并 2 文件、1 行合并 3 文件）
 
 | 操作 | 文件路径 | 对应任务 | 说明 |
 |:--:|------|:--:|------|
@@ -106,9 +106,9 @@
 | MODIFY | `src/ui/sidepanel/view-model.ts` | 407/408 | `L1_GESTURE_LABELS`/`L1_GESTURE_COUNT`（4→6）· `pickUnavailable` 态 · `StateMessageView.declaration` |
 | MODIFY | `src/ui/sidepanel/index.html` | 408 | 手势表 tbody 改为清单渲染；标签 4→6 个手势 |
 | MODIFY | `test/size-baseline.ts` | 411/413 | `PICK_LAYER_*`（新 artifact 无容差上限 + meta + `evaluatePickLayerCeiling`）· `SIDEPANEL_*` 显式重登记 · `SIDEPANEL_GROWTH_BREAKDOWN` 按真实 metafile 重算 · ②③④ 守卫 |
-| MODIFY | `test/size-budget.test.ts` · `test/size-growth-evidence.test.ts` | 413 | 方向敏感断言按新实测值**重新 pin**（结构零改） |
-| MODIFY | `test/l1-ref-validity.test.ts` · `test/ui/l1.mjs` · `test/insight-protocol.test.ts` | 408/403 | 同编号重 pin：手势 4→6（三者同时相等）· SW 入口守门**三校验器**（更强） |
-| MODIFY | `test/insight-archive.test.ts`（阈值同源）· `test/density-thresholds.test.ts`（自动同源） | 413 | 体积登记同步（无删减） |
+| MODIFY | `test/size-budget.test.ts` · `test/size-growth-evidence.test.ts`（**2 个文件合并一行**） | 413 | 方向敏感断言按新实测值**重新 pin**（结构零改） |
+| MODIFY | `test/l1-ref-validity.test.ts` · `test/ui/l1.mjs` · `test/insight-protocol.test.ts`（**3 个文件合并一行**） | 408/403 | 同编号重 pin：手势 4→6（三者同时相等）· SW 入口守门**三校验器**（更强） |
+| MODIFY | ~~`test/insight-archive.test.ts` · `test/density-thresholds.test.ts`~~ | — | **订正（C30/I-11）**：这两个文件在本 commit **零 diff**（`git diff --name-status e528563..be54b70` 无此项）。体积登记对它们**自动同源**（导入同一常量），因此无需改动 —— 原表把它记为 MODIFY 是**清单失真**，本轮删除该行 |
 | MODIFY | `test/size-attribution.mjs` | 401 | 修复 `--worktree` 的 TDZ 崩溃（否则登记的复现命令跑不起来） |
 | MODIFY | `docs/v3-supersession-ledger.json` | 412 | **只追加**：V34-S1..S13（取代）+ V34-N1..N14（新声明）；v3-3 叶段 `registeredUncoveredLines` **追加** 12 行（未改写任何既有行） |
 | MODIFY | `docs/v3-density-baseline.json` | 413 | `volume` 与体积登记同源更新（前值逐字保留在 `previous`） |
@@ -259,8 +259,237 @@ manifest.json 权限段：permissions / optional_permissions / host_permissions 
 
 ---
 
+## 11. 修复轮（review R1 后，2026-09-17）
+
+> 输入：本叶 `review-report.md`（**❌ 不通过**，43 项 = 34 通过 / 6 警告 / 3 失败；2 阻塞）+ `review.md`（C1~C43）。
+> 结论口径：**BLOCK-1 / BLOCK-2 已修**；I-01① / I-04 / I-05 / I-06 / I-07 / I-08 / I-09 / I-11 已修；
+> **I-01②③ / I-02 / I-03 / I-10 deferred**（红线冲突，见 §11.4）。
+
+### 11.1 BLOCK-1（高）：`normalizeStableOrigin(完整URL)` 当 origin ⇒ 带路径的真实页面全部不可用
+
+**根因**（`src/background/service-worker.ts#pickLayerTarget`）：`normalizeStableOrigin()` 只做 `trim + 去尾斜杠 + toLowerCase`，喂它整条 URL（`http://h:p/app`）得到的就是「含路径的 origin 字符串」。于是①与 `candidate.expect`（真 origin）比对失败（bound 候选被跳过）、②`origins.isAuthorized('http://h:p/app')` 恒 false ⇒ `pick-layer-inject` 拒绝并**误报「未授权站点 …/app」**，`ref-highlight` / `pick-layer-teardown` 同样解析失败。真实站点普遍带路径 ⇒ 本叶核心能力在生产上不可达。
+
+**一行修复**（`git diff` 原文）：
+
+```diff
+--- a/packages/web-cli-plugin/src/background/service-worker.ts
++++ b/packages/web-cli-plugin/src/background/service-worker.ts
+@@
+     if (NON_INJECTABLE_URL.test(url)) continue;
+-    const origin = normalizeStableOrigin(url);
++    const origin = tabOrigin(url);
+     if (!origin) continue;
+```
+
+`tabOrigin`（`:53` 已导入，`session-follow.ts` 导出）对 http(s) 返回 `new URL(url).origin`、其余返回 `null` ——
+与 `OriginStore` 说的是同一套口径；非 http(s) 已由 `NON_INJECTABLE_URL` 先跳过，`null` 即「不可解析 ⇒ continue」。
+`normalizeStableOrigin` 的导入**保留**（`:1789` 仍在 `isOriginAuthorized` 用于授权集合比对）。
+
+**回归断言（必须可 FAIL）** —— `test/ui/page-input.mjs` 新增 5 条（原 46 → **61**）：
+
+| # | 断言 | 为什么必须存在 |
+|:--:|------|------|
+| ① | 授权 origin 的 **`${origin}/app`** 上 `pick-layer-inject` 必须 `ok:true` | 生产触发路径 |
+| ② | 该响应 `data.origin` 必须是**真 origin**（不含路径段） | 直接钉死根因 |
+| ③ | `/app` 页面**隔离世界**内 `window.__wcliPickLayer === 'object'`（经 SW `executeScript({func})` 探测） | review 指定判据 |
+| ④ | `/app` 页面 `[data-wcli-pick-root]` Shadow host === 1 | 「层真的挂上了」 |
+| ⑤ | `/app` 页面上活层**确实接管右键**（`defaultPrevented === true`） | 行为级，排除「marker 在但层不可用」 |
+
+并保留一条**根路径对照**（`/` 上同样 `ok:true` + marker `object`）—— 新断言与旧覆盖**并列**，不是替代。
+`test/ui/zero-injection.mjs` 同步新增 **7 条**「带路径变体」（未授权 `${origin}/app`：Chrome 层拒绝 + SW 可读拒绝 + 五探针全零 + 强制注入负控翻正 + unmount 归零），原 20 → **27**。
+> 这条夹具缺口（只测根路径）正是 review C39/C1 判定的「46+20 全绿也看不见缺陷」的成因；两个门禁现在都有 `/app` 变体。
+
+**两段证伪原文（先回退 ⇒ 红；再修复 ⇒ 绿；sha256 还原）**：
+
+```text
+# ① 回退段（把 tabOrigin(url) 改回 normalizeStableOrigin(url)，npm run build 后跑）
+#    日志：/tmp/opencode/v3-gate-logs/v3-4-fix/RP-BLOCK1-reverted.log
+  ✖ BLOCK-1 回归：授权 origin 的**带路径**页面 /app 上 pick-layer-inject 必须 ok:true（且目标就是该 tab） — {"ok":true,"tabId":1832236740,"origin":"http://127.0.0.1:37141","error":"","expectedTab":1832236742}
+  ✔ BLOCK-1 回归：注入目标的 origin 是真 origin（不含路径段）
+  ✖ BLOCK-1 回归：/app 页面隔离世界内 window.__wcliPickLayer === object — undefined
+  ✖ BLOCK-1 回归：/app 页面确实挂上了拾取画布（Shadow host） — 0
+  ✖ BLOCK-1 回归：/app 页面上的活层确实接管右键（行为级，不只是 marker） — {"intercepted":false}
+  ✔ BLOCK-1 对照：根路径 / 上 pick-layer-inject 同样 ok:true（新断言不是替代而是并列）
+  ✔ BLOCK-1 对照：根路径页面 window.__wcliPickLayer === object
+▶ v3-4 页面即输入门禁: 57 passed / 4 failed      （EXIT=1）
+
+# ② 修复段（sha256 还原 src/background/service-worker.ts = e044be3c…5af851，npm run build 后跑）
+#    日志：/tmp/opencode/v3-gate-logs/v3-4-fix/page-input.log
+  ✔ BLOCK-1 回归：授权 origin 的**带路径**页面 /app 上 pick-layer-inject 必须 ok:true
+  ✔ BLOCK-1 回归：注入目标的 origin 是真 origin（不含路径段）
+  ✔ BLOCK-1 回归：/app 页面隔离世界内 window.__wcliPickLayer === object
+  ✔ BLOCK-1 回归：/app 页面确实挂上了拾取画布（Shadow host）
+  ✔ BLOCK-1 回归：/app 页面上的活层确实接管右键（行为级，不只是 marker）
+  ✔ BLOCK-1 对照：根路径 / 上 pick-layer-inject 同样 ok:true（新断言不是替代而是并列）
+  ✔ BLOCK-1 对照：根路径页面 window.__wcliPickLayer === object
+▶ v3-4 页面即输入门禁: 61 passed / 0 failed      （EXIT=0）
+```
+
+> 回退段的 `ok:true` 是**假绿**：注入落到了根路径那个 tab（`tabId 1832236740 ≠ expectedTab 1832236742`），
+> `/app` 上**零注入**。因此①这条断言也把目标 tab 钉进判据（只断言 `ok` 会被这个假绿蒙混过关）。
+
+### 11.2 BLOCK-2（中）：登记/审计事实层的数字保真
+
+对齐后**单一事实**：`349,925 → 362,777 B`（`+12,852 B` / **`+3.67%`**）、`ceiling = floor(362,777 × 1.05) = 380,915 B`、
+Feature 累计 `(362,777 − 266,500) / 266,500 = ` **`+36.13%`**、最差连续两功能轮 `v3-1 + v3-2` = **`+22.96%`**、
+v3-3 + v3-4 = `+10.44%`；`pick-input.ts` 归因 **5,085 B**；累计增量 **67,552 B**。
+
+| # | 文件 | 改动 |
+|:--:|------|------|
+| ① | `test/size-baseline.ts` | `reason`：`349,925 → 362,777`（`+12,852 / +3.67%`）、`floor(362,777 × 1.05) = 380,915`、Feature 累计 `+36.13%`；`consecutiveGrowthAlert`：worst-pair `+22.96%`、v3-3+v3-4 `328,476 → 362,777（+10.44%）`、累计 `+36.13%`；`reRegisteredFrom` 与 `note` 同步；`SIDEPANEL_GROWTH_BREAKDOWN.closeoutDeltaBytes` 注释 `349,925 → 362,777` |
+| ② | `test/size-baseline.ts:523` | `ceilingUncappedFormulaBytes: 380_271 → **380_915**`（= `floor(362,777 × 1.05)`） |
+| ③ | `test/size-baseline.ts` `SIDEPANEL_BASELINE_BYTES_TIMELINE` | 移出两个**中间测量值** `362_163` / `362_865`（既非前值也非登记值，不该进「已发布基线」时间线）；**不静默消失**：新增 `SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS = [362_163, 362_865]` 并写明它们是中间**构建快照**，同时逐字保留在 `docs/v3-supersession-ledger.json#featureHistory.v3-4.intermediateBuildSnapshots` |
+| ④ | `docs/v3-density-baseline.json` | `volume.directionalAlert` / `volume.note` / `growthBreakdown.reason` 同步（`362777 / 380915 / +12,852 / +3.67% / +36.13% / 22.96% / 5,085`）；并注明中间值已移出 TIMELINE |
+| ⑤ | `docs/v3-supersession-ledger.json` | **16 处** `362,163` / `380,271` 按「定位串随轮次重 pin」约定改写为 `362,777` / `380,915`（`V34-S10/S11/S12` 的 `newTitle` + 11 条 `reason`）；历史值保留在 `featureHistory.v3-4.intermediateBuildSnapshots.supersededValues` |
+| ⑥ | `test/size-budget.test.ts`（3 处注释）· `test/size-growth-evidence.test.ts`（注释 `5,053/66,938 → 5,085/67,552`） | 散文与实测同源 |
+
+**新增机器断言**（`test/size-growth-evidence.test.ts`，挂在既有用例内、**不新增 `test(` 注册** ⇒ 静态口径计数不漂移）：
+
+```ts
+for (const r of rounds) {
+  assert.equal(r.ceilingUncappedFormulaBytes, Math.floor(r.baselineAfterBytes * 1.05),
+    `${r.id}: ceilingUncappedFormulaBytes 必须 = floor(baselineAfterBytes × 1.05)（不得与基线脱钩）`);
+  assert.ok(r.ceilingAfterBytes === r.ceilingUncappedFormulaBytes || r.ceilingAfterBytes === SIDEPANEL_CEILING_CAP_RECORD,
+    `${r.id}: ceilingAfterBytes 既不是公式值也不是记录 cap（同一事实不得有两个 ceiling）`);
+}
+```
+> 该断言对**全部 7 轮**逐轮成立（v3-1 306,099 / v3-1-i6 309,986 / v3-2 344,062 / v3-2-closeout 344,899 /
+> v3-3 367,374 / v3-3-fix 367,421 / v3-4 380,915）：若退回 `380,271` 必 FAIL。
+
+**V34-S3 系列补登（review C41(b) / BLOCK-2 建议同轮）**：`test/insight-protocol.test.ts` 在本 commit 有 **4 行**删除
+（不是 2 行：注释 1 + 正则 1 + 断言文案 1 + `unionGuard` 构造 1），而删除行判据的文件集合由台账自身推导 ⇒ 该删除**结构性不可见**。
+本轮补登 **`V34-S3` / `V34-S3b` / `V34-S3c` / `V34-S3d`** 四条 `same-id-rewrite`（逐行 `oldTitle` + `newTitle` 可定位），
+并按 I-05 把判据文件集合改为「台账集合 ∪ `git diff <base> --name-only -- test/**` 实测集合」——`insight-protocol.test.ts`
+首次进入 `leafBases[0].scope.files`，叶段判据随之覆盖。`V34F-S1` 承接本轮 I-08 的注释改写。
+
+### 11.3 顺手修逐条（I-01~I-11）
+
+| # | 状态 | 根因 / 修法 / 证据 |
+|:--:|:--:|------|
+| **I-01①**（origin 广播 teardown） | ✅ 已修 | **根因**：`teardownPickLayer()` 只对 bound/active 的**一个** tab 发 teardown ⇒ 同 origin 的另一 tab 撤销后仍留活层并继续拦右键。**修法**（`service-worker.ts` → `background.js`，**非** pinned 产物）：`teardownPickLayer(s, origin?)` —— 传入 origin 时 `chrome.tabs.query({})` 按 `tabOrigin(tab.url) === origin` 逐个 `sendMessage(teardown)`；不传时保持原单 target 行为（面板关闭路径零改动）；`revoke` 调用点改为 `teardownPickLayer(s, origin)`。**证据**：`page-input.mjs` 新增「负控（撤销前两 tab 都拦截）→ revoke → 两 tab 全零」4 条断言（`marker/host/intercepted` 三零），并配 `AC-V3-018（撤销态）` 两条面板侧断言（L0 明示「零注入」+ 入口禁用）。 |
+| **I-01②**（层自检 authorized） | ⛔ **deferred** | 见 §11.4 |
+| **I-01③**（`pushState('gone')` 死路径） | ⛔ **deferred** | 见 §11.4 |
+| **I-02**（`DOMContentLoaded` 复活 host） | ⛔ **deferred** | 见 §11.4 |
+| **I-03**（菜单焦点还原） | ⛔ **deferred** | 见 §11.4 |
+| **I-04**（夹具 `/app` + 站点自带 contextmenu） | ✅ 已修 | 两个门禁都加 `/app` 带路径变体（见 §11.1）；`page-input.mjs` 夹具加站点自有 `contextmenu` 监听器，新增 2 条断言：真实右键后**站点监听器仍 +1**（我们只 `preventDefault`、不 `stopPropagation`）且**我方菜单同时打开**（两门禁并存）。 |
+| **I-05**（删除行判据的文件集合） | ✅ 已修 | `supersession-ledger.test.ts` 新增 `measuredTestFiles()`，判据文件集合 = 台账集合 ∪ 实测 diff 集合。修后实测：集合从 29 → 30（+`insight-protocol.test.ts`），`base` 段与叶段两处判据都覆盖它。 |
+| **I-06**（`pick-layer-env` 死路径 + 契约漂移） | ✅ 已修（选「SW 路由」路线） | **根因**：面板 `startPick()` 发 `{kind:'pick-layer-env', …PickEnvInput}`，SW 无该 case（落 `default` → 「未知消息类型」，返回值被丢弃），且字段名（`activeOrigin`/`declaration`）与层 `accept()` 期望（`origin`/`declarationHash`）不符。**修法**：在 SW 增加真实路由 `case 'pick-layer-env'`，用 `declarationEnv()` 重新派生四元组后下发（**声明事实仍只有一个生产者**，缺声明仍是 `declarationHash: ''` fail-closed）；`pick-protocol.ts` 文档改写为「① inject 通路 ② 面板 re-push（已路由）」两个触发、一个来源。**为什么不删该 send**：面板侧改动会落在 `sidepanel.js`（**登记值 == 实测产物**，362,777），删一行即 -93 B ⇒ 需要「下调重登记」，与本轮「登记对齐」目标相反且违反「断言只强不弱」（`dir === 'up'`）。 |
+| **I-07**（open shadow / `isTrusted` 文档化） | ✅ 已修（文档） | `pick-layer.ts` 头部新增 I-07 段：明写「这是 **CSS** 隔离，不是**脚本**隔离」；页面脚本可读改自绘 UI、可合成事件驱动捕获；**故意不加 `isTrusted` 过滤**并给出理由（过滤会同时致盲门禁探针与零注入负控，且无命令通道 ⇒ 不越权）。**不**改行为：加过滤会让两处既有断言（`page-input` ⑥ 的合成 `contextmenu` 二次拦截、`zero-injection` 强制注入负控）变成假绿/失效 —— 属「断言只强不弱」的反面。 |
+| **I-08**（`gate-integrity.test.ts:119` 注释失真） | ✅ 已修 | 注释改写为「本常量是**已知门禁下界**；真正的受审集合由 marker 扫描推导且是**严格超集**（`page-input`/`zero-injection`/`l1-reverse`/`l2-reverse` 经扫描加入）」，「eight」措辞去掉；台账 `V34F-S1` 登记该改写。 |
+| **I-09**（`pick-layer-budget.test.ts` 的 `t.skip`） | ✅ 已修 | 两处产物缺失分支由 `t.skip` 改为 `t.diagnostic(...) + assert.fail(...)`：未 build 的树上**必须失败**而不是静默通过（`npm test` 自身不 build）。 |
+| **I-10**（死判据 / 未跟踪定时器） | ⛔ **deferred** | 见 §11.4 |
+| **I-11**（build.md 清单口径 + `tasks.json` 状态） | ✅ 已修 | §1 表：新增 13（插件）+1 SDDU 产物、修改 **18**（口径 = 文件数，非表行数）；§2.2 标题注明「表内 15 行，其中 1 行合并 2 文件、1 行合并 3 文件」；**删除** `insight-archive.test.ts` / `density-thresholds.test.ts` 那条**失真 MODIFY**（实测零 diff，体积登记自动同源）；`tasks.json` 不含 `status` 字段这一事实已在此明写（完成态见 §3 表 + `state.json`）。 |
+
+### 11.4 deferred（如实登记，**非**「已修」）
+
+| # | 项 | 为什么 deferred（理由原文） |
+|:--:|------|------|
+| **I-01②** | 层自检 `authorized`（失去授权自行卸载） | 修法必须落在 `src/content/pick-layer.ts`（层内自检）与 `pick-bridge.ts`（`envReady` 门槛） |
+| **I-01③** | `unmount()` 里 `bridge.pushState('gone', …)` 消除 `pick-input` 死分支 | 同上（`pick-layer.ts`） |
+| **I-02** | `mountHost` 的 `DOMContentLoaded` 监听纳入 teardown（**已实证复活** Shadow host） | 修法必须落在 `src/content/pick-overlay.ts` |
+| **I-03** | 菜单关闭还原宿主焦点（**已实证**丢到 BODY） | 修法必须落在 `src/content/pick-menu.ts` |
+| **I-10** | `history.__wcliPickWrapped` 死判据 + `flash()` 未跟踪定时器 | 分别落在 `pick-layer.ts` / `pick-overlay.ts` |
+
+**冲突本体（红线逐字）**：「`pick-layer.js` **32,391** 独立无容差上限（本轮**不得**增长，若功能需要增长 → **停下回报**）」，
+且 `test/pick-layer-budget.test.ts` 要求「登记值 == 实测产物」（`assert.equal(size, PICK_LAYER_FINAL_ARTIFACT_BYTES)`，**零容差**，ADR-V3-031）。
+
+**逐文件实测代价**（受控实验：逐个文件回退到 HEAD 后 `npm run build`，读 `dist/pick-layer.js` 字节）：
+
+| 文件 | 回退后产物字节 | 该文件贡献 | 备注 |
+|------|:--:|:--:|------|
+| （全部保留 = 当前） | **33,900** | — | 相对登记值 **+1,509 B（+4.66%）** |
+| `src/content/pick-bridge.ts` | 33,817 | +83 | `envReady()` 三处 |
+| `src/content/pick-layer.ts` | 33,593 | +307 | `stillAuthorized()` + 3 个调用点 + `pushState('gone')` |
+| `src/content/pick-menu.ts` | 33,396 | +504 | `restoreFocus()` / `previousFocus` / `wasOpen` |
+| `src/content/pick-overlay.ts` | 33,285 | +615 | `disposed` / `domReady` / `timers` / `later()` / 新 `unmount()` |
+| （全部回退 = 登记值） | **32,391** | 0 | `stat` 复核 |
+
+**处置（按红线「停下回报」）**：
+1. **不擅自抬高上限**、**不**改 `PICK_LAYER_FINAL_ARTIFACT_BYTES`、**不**重登记；
+2. **不**用「压缩 CSS / 调空白凑字节」把限制藏起来（那只是把红线变成运气）；
+3. **不**为未交付的行为新增断言（断言只增不减，但也不得为未实现行为伪造判据）——因此 `page-input.mjs` 中
+   依赖 I-01②/I-03 的两段断言**未加入**，并在源码位置留下 TODO 级注释说明归属；
+4. 上述 4 个文件的**全部**改动已在提交前**回退**：`dist/pick-layer.js` 仍为 **32,391 B 逐字节不变**。
+
+> **建议给编排器的决策点**：若接受一次**显式重登记**（`32,391 → 33,900 B`，+4.66%，ADR-V3-031 的登记机制要求「前后值 + 日期 + 来源 + 理由 + 断言零删减」全披露），
+> 这 5 项可在下一轮一次性落地（修法与实测代价已如上表给出，无需重新设计）。
+
+### 11.5 修复轮门禁（严格串行、一次一个；全量日志 `/tmp/opencode/v3-gate-logs/v3-4-fix/`，**无 tail 截断**；每个门禁 `finally` 自清 profile）
+
+| # | 门禁 | 退出码 | 计数 / 原文 | 对照下界 |
+|:--:|------|:--:|------|:--:|
+| ① | `npm run typecheck` | 0 | 0 error | — |
+| ② | `npm run build` | 0 | `177076 / 32391 / 362777` | 三线不变 |
+| ③ | `npm test` | 0 | `ℹ tests 795 / pass 795 / fail 0 / skipped 0` | 795（只增不减） |
+| ④ | `npm run test:supersession` | 0 | `ℹ tests 14 / pass 14 / fail 0` | 14 |
+| ⑤ | `npm run test:density` | 0 | `▶ density 门禁: 127 passed / 0 failed` | 127 |
+| ⑥ | `npm run test:l0` | 0 | `164 passed / 0 failed` | 164 |
+| ⑦ | `npm run test:l1` | 0 | `103 passed / 0 failed` | 103 |
+| ⑧ | `npm run test:l2` | 0 | `71 passed / 0 failed` | 71 |
+| ⑨ | `npm run test:l1-reverse` | 0 | 9 条反证「注入 → FAIL → sha256 复原 → PASS」 | 9 |
+| ⑩ | `npm run test:l2-reverse` | 0 | 10 条反证全过 + 产物 sha256 复原 | 10 |
+| ⑪ | `npm run test:page-input` | 0 | **61 passed / 0 failed**（原 46；BLOCK-1/I-04/I-01① 新增） | 46 |
+| ⑫ | `npm run test:zero-injection` | 0 | **27 passed / 0 failed**（原 20；带路径变体新增 7） | 20 |
+| ⑬ | `npm run test:ui`（journey） | 0 | `UI journey PASS — 167 assertions` | 167 |
+| ⑭ | `npm run test:insight` | 0 | `UI insight PASS — 116 assertions` | 116 |
+| ⑮ | `npm run test:binding` | 0 | `binding PASS — 192 assertions` | 192 |
+| ⑯ | `npm run test:hardening` | 0 | `hardening PASS — 24 assertions` | 24 |
+| ⑰ | `npm run test:e2e` | 0 | `R8 E2E PASS — real dist full chain` | PASS |
+| ⑱ | `npm run test:gate-integrity` | 0 | `ℹ tests 12 / pass 12 / fail 0`（含新增 4 条 in-gate 反证模式核对） | 12 |
+| ⑲ | 体积四线 + ceiling 机器断言 | 0 | `177076 / 32391 / 362777` + `ceilingUncappedFormulaBytes === floor(baselineAfterBytes×1.05)` 逐轮成立 | 见 §11.6 |
+| ⑳ | 零改动核对 | 0 | 见 §11.6 | — |
+| ㉑ | 反证全套 | 0 | RP-V3-01/02/03/04/08/09（`density --reverse`，各 EXIT=0）+ RP-V3-05（`l2-reverse#RP-V33-03`）+ RP-V3-06（`pick-layer-budget`/`size-budget` 内建）+ **BLOCK-1 两段证伪**（§11.1）+ 新断言 in-gate 模式登记（`RP-BLOCK1-01/02`、`RP-I01-01`） | 全过 |
+
+**密度默认档仍 ≤7 零漂移**：阶段 A~F 全过（默认档恰好 7 可点、三视口逐项相等）。
+**计数只增不减**：journey 167→167 · insight 116→116 · binding 192→192 · hardening 24→24 · node 795→795 · density 127→127 · l0 164→164 · l1 103→103 · l2 71→71 · gate-integrity 12→12；**新增**：page-input 46→**61**、zero-injection 20→**27**。
+
+### 11.6 红线核验（逐条原文）
+
+```text
+$ stat -c '%s %n' dist/content.js dist/pick-layer.js dist/sidepanel.js
+177076 dist/content.js        # 无容差、逐字节不变
+32391 dist/pick-layer.js      # 无容差、逐字节不变（deferred 的 4 个文件已回退）
+362777 dist/sidepanel.js      # == 登记值（BALANCE：改动只落在 background.js）
+
+$ sha256sum src/content/content-script.ts src/content/dom-agent.ts src/content/page-bridge.ts
+a72900313ab77c018961aa2b8e02bb1b630a9960c1b622f2a85addf543f99e82  src/content/content-script.ts
+7df782b349b32839d0ec25fa515ee293441f85f75242083dae37e5ccfd601e0f  src/content/dom-agent.ts
+5737c40a2014e7adf2bf4091a31a347af6600ecfea80f8882d52e9407191f4ac  src/content/page-bridge.ts
+（与 test/size-baseline.ts#CONTENT_SOURCE_SHA256 三项逐字相等）
+
+$ git status --porcelain -- packages/web-cli-plugin/manifest.json     → （空 = 零 diff）
+$ grep -c contextMenus packages/web-cli-plugin/manifest.json          → 0
+$ git status --porcelain -- .../src/ui/sidepanel/l1/ref-validity.ts   → （空 = 判定链未动）
+$ git log --oneline -1 main                                           → 2ddc922（未动）
+$ git status --porcelain -- packages/web-cli-base packages/lgdl-web-cli/src/web-cli-host \
+      .opencode/opencode.json packages/web-cli-plugin/design          → （空）
+
+密度阈值（逐字，test/ui/density-metrics.mjs#DENSITY_LIMITS）：
+  default: { clickables: 7,  lines: 15 }
+  firstRun: { clickables: 9,  lines: 20 }
+  risk:     { clickables: 17, lines: 35 }     ← 7/15 · 9/20 · 17/35 未动
+
+主界面无常驻输入框：#composer 默认 hidden（src/ui/sidepanel/index.html:1380 <form id="composer" hidden>）
+风险位 L0 常驻不可折叠：#risk-rail 为 body-direct 常驻区（density 127 断言 + RP-V3-04 覆盖）
+未授权站点零注入：test:zero-injection 27/0（含带路径变体与强制注入负控）
+无新增依赖：package.json `dependencies`/`devDependencies` 零 diff（仅 scripts）
+未使用 git add -A：逐文件 path-limited add（见 §11.7 命令原文）
+```
+
+### 11.7 提交与推送
+
+```text
+（逐文件 path-limited git add，禁用 git add -A）
+git add <显式文件清单>
+git commit -m "fix(web-cli-plugin): v3-4 修复轮（BLOCK-1 tabOrigin 回归 + BLOCK-2 登记数字对齐 + teardown/焦点/夹具加固）"
+git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-plugin
+```
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.1 | **修复轮（review R1 后）**：BLOCK-1 一行修复（`tabOrigin(url)`）+ 5 条可 FAIL 回归断言 + 两段证伪（回退 57/4 EXIT=1 → 修复 61/0 EXIT=0）；BLOCK-2 登记数字一次性对齐（`362,777 / 380,915 / +12,852 / +3.67% / +36.13% / 22.96% / 5,085 / 67,552`）+ `ceilingUncappedFormulaBytes` 机器断言 + 中间快照移出 TIMELINE（保留在 `INTERMEDIATE_SNAPSHOTS`）+ `V34-S3/S3b/S3c/S3d`/`V34F-S1` 补登；I-01①/I-04/I-05/I-06/I-07/I-08/I-09/I-11 已修，**I-01②③/I-02/I-03/I-10 deferred**（`pick-layer.js` 32,391 零容差，实测需 +1,509 B ⇒ 停下回报，未擅自抬高上限）；§2.2 两条 MODIFY 失真订正（实际零 diff）+ 文件计数口径改为文件数（18）。门禁 21 项严格串行全绿（含计数只增不减）。 | 2026-09-17 | SDDU Build Agent |
 | v1.0 | 初始创建：15/15 任务完成；TASK-401 spike S1~S4 全过（未走 D1/D2）；门禁 21 项严格串行全绿（node 795 / density 127 / l0 164 / l1 103 / l2 71 / journey 167 / insight 116 / binding 192 / hardening 24 / e2e PASS / 新门禁 20 + 46）；体积四线 + 反证三段；`sidepanel.js` 显式重登记（349,925 → 362,777，+3.67%）与 Feature 累计 +36.13% 已披露；AC-CONV-1/2 兑现并各有可 FAIL 判据；人工面 6 项如实登记「未执行」。 | 2026-09-16 | SDDU Build Agent |

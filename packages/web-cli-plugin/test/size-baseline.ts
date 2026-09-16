@@ -227,8 +227,19 @@ export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
  */
 export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
   1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500, 291_523, 295_225, 327_679, 328_476,
-  349_880, 349_925, 362_163, 362_865, 362_777,
+  349_880, 349_925, 362_777,
 ] as const;
+
+/**
+ * 中间**测量**快照 —— **不是**登记基线（BLOCK-2，review R1）。
+ *
+ * v3-4 构建轮在收敛到最终登记值之前先后测到过 `362,163` 与 `362,865`（两者都出现在
+ * 构建过程中，既非上一轮基线也非最终登记值）。它们**不属于**「已发布基线」链条，因此
+ * 已于本轮从 {@link SIDEPANEL_BASELINE_BYTES_TIMELINE} 移出 —— 中间测量值留在时间线里
+ * 会让「同一事实多版本」（v3-3 审查 I-03⑤ 立过的规矩）复发。它们**没有被静默删除**：
+ * 逐字保留在此处与 `docs/v3-supersession-ledger.json` 的历史 `reason` 文本中，供审计。
+ */
+export const SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS = [362_163, 362_865] as const;
 
 /** Allowed growth over the baseline before the guard fails. */
 export const SIDEPANEL_BASELINE_TOLERANCE = 0.05;
@@ -310,9 +321,9 @@ export const SIDEPANEL_BASELINE_META = {
   consecutiveGrowthAlertThreshold: 0.15,
   consecutiveGrowthAlert:
     '已触发：见 SIDEPANEL_RE_REGISTRATIONS 与 evaluateConsecutiveReRegistrationGrowth()。' +
-    '**最差连续两功能轮** = v3-1 + v3-2（266,500 → 327,679 B，累计 +22.95% > 15%）—— 已显式回报编排器；' +
-    'v3-3 + v3-4（328,476 → 362,163 B，+10.25%）**低于** 15% 线，但仍按「最差对」口径保留告警（守卫只增不减，见 helper 注释）；' +
-    '从 266,500 B 起算的 Feature 累计 **+36.16%**（< 40% 停工线，已在 v3-4 回报中显式列出）。',
+    '**最差连续两功能轮** = v3-1 + v3-2（266,500 → 327,679 B，累计 +22.96% > 15%）—— 已显式回报编排器；' +
+    'v3-3 + v3-4（328,476 → 362,777 B，+10.44%）**低于** 15% 线，但仍按「最差对」口径保留告警（守卫只增不减，见 helper 注释）；' +
+    '从 266,500 B 起算的 Feature 累计 **+36.13%**（< 40% 停工线，已在 v3-4 回报中显式列出）。',
   reRegisteredFrom:
     'v3-4 轮 349,925 B（ceiling 367,421 B；面板侧接线 pick-input.ts + 手势表单一清单 + 拾取不可用态）；' +
     'v3-3 修复轮 349,880 B（ceiling 367,374 B；审查 R1 的 F-01 订正 + I-01 逐目标 aria-controls 修复 + expectFailPattern 防呆）；v3-2 收口轮 328,476 B（ceiling 344,899 B，公式判定）；更早 v3-2 修复轮 327,679 B（ceiling 344,062 B）、v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）与 291,523 B（该轮最终产物实测 294,874 B）、266,500 B（ceiling 279,825 B，2026-09-14 收紧轮）、1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',
@@ -320,12 +331,13 @@ export const SIDEPANEL_BASELINE_META = {
   targetMet: null,
   reason:
     'sidepanel.js 无字节目标；本值为「不得回退」回归基线（基线 ≠ 目标预算）。' +
-    '**2026-09-16 v3-4 显式提升重登记：349,925 → 362_865 B（+12_940 B，+3.70%）**：本叶「页面即输入」落在 `sidepanel.js` 的部分只有面板侧接线 —— ' +
+    '**2026-09-16 v3-4 显式提升重登记：349,925 → 362,777 B（+12,852 B，+3.67%）**：本叶「页面即输入」落在 `sidepanel.js` 的部分只有面板侧接线 —— ' +
     '新增 1 个必需模块 `ui/sidepanel/pick-input.ts`（5_085 B：双触发注入 / 文档身份缓存 / 拖放落点 / 良性拒绝分类）与接线（sidepanel.ts +4_784、' +
     'l1/panels.ts +1,830 手势表由单一清单渲染、view-model.ts +422 手势清单与拾取不可用态、l0/shell.ts +694 风险区可用性行）；' +
     '页面侧功能全部落在**独立产物** `dist/pick-layer.js`（32_391 B，自有「不增长」上限，见 PICK_LAYER_*），`dist/content.js` 仍为 **177,076 B 逐字节不变**。' +
-    'ceiling 由公式抬高 floor(362_865 × 1.05) = **381_008 B**，容差 5% 未动、cap 仍为 record-only、targetBudgetBytes/targetMet 仍为 null；' +
-    '从 266,500 B 起算的 Feature 累计 **+36.16%**（< 40%）已在 v3-4 回报中显式列出。' +
+    'ceiling 由公式抬高 floor(362,777 × 1.05) = **380,915 B**，容差 5% 未动、cap 仍为 record-only、targetBudgetBytes/targetMet 仍为 null；' +
+    '从 266,500 B 起算的 Feature 累计 **+36.13%**（< 40%）已在 v3-4 回报中显式列出。' +
+    '（构建过程中的中间测量值 362,163 / 362,865 **不是**已发布基线，已从 TIMELINE 移出并保留在 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS。）' +
     '更早轮次：2026-09-16 **v3-3 显式提升重登记：328,476 → 349,880 B（+21,404 B，+6.52%）**，' +
     '全部来自 spec 明文要求的 L2 按需视图（父 FR-V3-045~054 / AC-V3-026）：新增 5 个必需模块（l2/counts.ts 2,932 / l2/view-host.ts 3,206 / ' +
     'l2/command-catalog.ts 6,106 / l2/audit.ts 4,145 / settings/sections.ts 226 = 16,615 B）+ 接线（sidepanel.ts / view-model.ts / l0/status-bar.ts / ' +
@@ -520,7 +532,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     ceilingAfterBytes: 380_915,
     assertionNonRemovalEntries: ['V34-S1', 'V34-S2', 'V34-S4', 'V34-S5', 'V34-S9', 'V34-S10', 'V34-S12', 'V34-N1', 'V34-N2', 'V34-N4'],
     historyRetainedBytes: [349_925, 349_880, 328_476, 327_679, 295_225, 291_523, 266_500, 1_162_942, 1_159_856],
-    ceilingUncappedFormulaBytes: 380_271,
+    ceilingUncappedFormulaBytes: 380_915,
   },
 ] as const;
 
@@ -566,7 +578,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   baselineReferenceBytes: 295_225,
   /** 累计：当前基线 − `baselineReferenceBytes`。 */
   deltaBytes: 67_552,
-  /** 逐轮（v3-4 自身）的产物增量（349,925 → 362,163，实测 metafile 差）。 */
+  /** 逐轮（v3-4 自身）的产物增量（349,925 → 362,777，实测 metafile 差）。 */
   closeoutDeltaBytes: 12_852,
   newRequiredModuleBytes: 50_443,
   wiringBytes: 16_388,

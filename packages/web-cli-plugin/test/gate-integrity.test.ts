@@ -116,7 +116,17 @@ const REPO = resolve(PKG, '..', '..');
  */
 const ROOTS = (process.env.SDC_GATES_ROOT ?? PKG).split(':').filter((s) => s.length > 0);
 
-/** The eight Chromium gate scripts (the user's list; `page-input.mjs` never existed). */
+/**
+ * The Chromium gate scripts — a **literal** list, kept because deriving it from the
+ * directory scan would make「a gate was renamed/removed」invisible.
+ *
+ * I-08 (review R1): the old comment read "the user's list; `page-input.mjs` never
+ * existed" — true when it was written (v3-1), false from v3-4 on: `page-input.mjs`
+ * now exists and is auto-audited. It is deliberately NOT in this constant (this list
+ * is the *known gate* floor; the scanned set is the real audited set and is a strict
+ * superset — `page-input.mjs` / `zero-injection.mjs` / `l1-reverse.mjs` /
+ * `l2-reverse.mjs` all join via the marker scan).
+ */
 export const CHROMIUM_GATES = [
   'test/ui/journey.mjs',
   'test/ui/insight.mjs',
@@ -1037,6 +1047,13 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     ['test/ui/density.mjs', /RP-V3-08 FAIL 段诊断可读（含「实测 X ≠ 登记 Y」）/],
     ['test/ui/l0.mjs', /反证（FAIL 段）：篡改 data-count/],
     ['test/ui/l1.mjs', /D1 反证（FAIL 段）/],
+    // v3-4 fix round (review R1) — the new BLOCK-1 / I-01 / I-04 assertions must carry
+    // their own FAIL shape in the gate source, so the two-stage falsification记录 is
+    // anchored to code that can actually go red (not a paper allowance).
+    ['test/ui/page-input.mjs', /BLOCK-1 回归：\/app 页面隔离世界内 window\.__wcliPickLayer === object/],
+    ['test/ui/page-input.mjs', /BLOCK-1 回归：\/app 页面上的活层确实接管右键/],
+    ['test/ui/page-input.mjs', /I-01 ①：撤销后\*\*另一个 tab\*\*/],
+    ['test/ui/zero-injection.mjs', /BLOCK-1 回归：未授权 \/app 页面五探针全零/],
   ];
   for (const [file, pattern] of inGate) {
     const text = readFileSync(resolve(PKG, file), 'utf8');

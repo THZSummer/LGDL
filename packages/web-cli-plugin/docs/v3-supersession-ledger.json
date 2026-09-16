@@ -1308,7 +1308,7 @@
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 266_500;",
       "newId": "SIDEPANEL_BASELINE_BYTES = 266_500",
       "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 362_777;",
-      "reason": "ADR-V3-011 显式**提升**重登记：L0 骨架 + 折叠控制器是有意增重（+25,023 B）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。 | I6 修复轮：ADR-V3-011 显式重登记（v3-1 提升轮 266,500 → 291,523；I6 修复轮按真实产物再登记 → **295,225**）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。本条目的 newTitle 随 I6 更新为当前值（取代链见 V31-S10）。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "ADR-V3-011 显式**提升**重登记：L0 骨架 + 折叠控制器是有意增重（+25,023 B）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。 | I6 修复轮：ADR-V3-011 显式重登记（v3-1 提升轮 266,500 → 291,523；I6 修复轮按真实产物再登记 → **295,225**）。容差 5% 不变、targetBudgetBytes/targetMet 保持 null、断言零删减、+1B 反证在新 ceiling 上重跑。本条目的 newTitle 随 I6 更新为当前值（取代链见 V31-S10）。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "registered-supersession",
       "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。",
@@ -1323,7 +1323,7 @@
       "oldTitle": "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
       "newId": "assert.equal(SIDEPANEL_BASELINE_BYTES, 266_500);",
       "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 362_777);",
-      "reason": "尺寸守卫把基线值钉死为常量，故提升重登记必须同步重 pin（同编号、同结构、断言零删除）；方向断言由「收紧」改为「提升」，并保留「上一轮基线仍 PASS + 本轮实测超出上一轮 ceiling」的张力证明。 | I6 修复轮：尺寸守卫把基线值钉死为常量，故每次重登记都必须同步重 pin（同编号、同结构、断言零删除）；I6 修复轮：值 → 295,225，且方向断言由「baseline > 上一轮 ceiling」改为更强的「ceiling ≤ 上一轮 ceiling（只降不升）」（取代链见 V31-S11）。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该断言随显式重登记重 pin 至 349,880（历史理由逐字保留）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "尺寸守卫把基线值钉死为常量，故提升重登记必须同步重 pin（同编号、同结构、断言零删除）；方向断言由「收紧」改为「提升」，并保留「上一轮基线仍 PASS + 本轮实测超出上一轮 ceiling」的张力证明。 | I6 修复轮：尺寸守卫把基线值钉死为常量，故每次重登记都必须同步重 pin（同编号、同结构、断言零删除）；I6 修复轮：值 → 295,225，且方向断言由「baseline > 上一轮 ceiling」改为更强的「ceiling ≤ 上一轮 ceiling（只降不升）」（取代链见 V31-S11）。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该断言随显式重登记重 pin 至 349,880（历史理由逐字保留）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "registered-supersession",
       "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。",
@@ -1363,7 +1363,7 @@
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 291_523;",
       "newId": "SIDEPANEL_BASELINE_BYTES = 295_225（= 修复轮最终构建实测产物）",
       "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 362_777;",
-      "reason": "I6：按**真实产物**重登记。ceiling **不抬高**：新增 SIDEPANEL_CEILING_CAP = 306,099（上一轮 ceiling），SIDEPANEL_CEILING 改为 min(floor(baseline × 1.05), cap)，evaluateSidepanelSize 同步 cap-aware → 只降不升（未被采用的公式值 309,986 已显式记录为 SIDEPANEL_CEILING_UNCAPPED）；容差 5% 不变；历史值以 TIMELINE + previousBaselineBytes 保留。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "I6：按**真实产物**重登记。ceiling **不抬高**：新增 SIDEPANEL_CEILING_CAP = 306,099（上一轮 ceiling），SIDEPANEL_CEILING 改为 min(floor(baseline × 1.05), cap)，evaluateSidepanelSize 同步 cap-aware → 只降不升（未被采用的公式值 309,986 已显式记录为 SIDEPANEL_CEILING_UNCAPPED）；容差 5% 不变；历史值以 TIMELINE + previousBaselineBytes 保留。（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "registered-supersession",
       "note_v3_2": "v3-2（2026-09-16）把本条钉死值**再次显式重登记**：同一行按真实产物 327,679 B 重新 pin（前后值/日期/理由见 `test/size-baseline.ts` 的 v3-2 段与 `docs/v3-density-baseline.json#volume`）；v3-1 的中间值 295,225 B 仍保留在 META.previousBaselineBytes / TIMELINE / reRegisteredFrom。",
@@ -1440,7 +1440,7 @@
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 295_225;",
       "newId": "V32-S1",
       "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 362_777;",
-      "reason": "v3-2 显式重登记：按真实产物重 pin 基线（295,225 → 327,679 B）；修复轮按裁决 V3-VOL-1 ① 批准该登记值、② 撤销自加 cap → ceiling 恢复为公式值 floor(327,679 × 1.05) = 344,062 B；断言零删减、容差 5% 未变；增量构成（+32,454 B：新必需模块 26,156 / 接线 5,848 / 归因位移 220 / 未归因胶水 230）见 SIDEPANEL_GROWTH_BREAKDOWN。（修复轮订正：本条目原记为 327,639 B / 21,540 B，系笔误，实测与登记值均为 327,679 B / 21,580 B。）（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "v3-2 显式重登记：按真实产物重 pin 基线（295,225 → 327,679 B）；修复轮按裁决 V3-VOL-1 ① 批准该登记值、② 撤销自加 cap → ceiling 恢复为公式值 floor(327,679 × 1.05) = 344,062 B；断言零删减、容差 5% 未变；增量构成（+32,454 B：新必需模块 26,156 / 接线 5,848 / 归因位移 220 / 未归因胶水 230）见 SIDEPANEL_GROWTH_BREAKDOWN。（修复轮订正：本条目原记为 327,639 B / 21,540 B，系笔误，实测与登记值均为 327,679 B / 21,580 B。）（v3-2 收口轮 2026-09-16：该 newTitle 随显式重登记重 pin 到 328,490 B —— 同一断言的**结构未变**，只更新被 pin 的实测值；历史值 327,679 保留在 SIDEPANEL_BASELINE_BYTES_TIMELINE 与 SIDEPANEL_RE_REGISTRATIONS。） v3-3（2026-09-16）：该行随本叶**显式重登记**再次改值（328,476 → 349,880），按 v3-2 同法把本条 newTitle 重钉到当前真实文本（历史理由逐字保留）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "registered-supersession",
       "reRegisteredOn": "2026-09-16",
@@ -1778,7 +1778,7 @@
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 328_476;",
       "newId": "基线 349,925 B（v3-3 build 轮）",
       "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 362_777;",
-      "reason": "ADR-V3-011 ⑤ / EC-V3-013：本叶内完成显式重登记（前值 328,476 B 保留在 _TIMELINE / 重登记登记册 / reRegisteredFrom；披露五要素齐备 + 增量归因表；容差 5% 未动；targetBudgetBytes/targetMet 仍 null；断言零删减）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "ADR-V3-011 ⑤ / EC-V3-013：本叶内完成显式重登记（前值 328,476 B 保留在 _TIMELINE / 重登记登记册 / reRegisteredFrom；披露五要素齐备 + 增量归因表；容差 5% 未动；targetBudgetBytes/targetMet 仍 null；断言零删减）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "superseding",
       "supersededBy": "V33F-S1/V33F-S3（v3-3 修复轮重登记）"
@@ -1791,7 +1791,7 @@
       "oldTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 328_476);",
       "newId": "基线断言 349,925",
       "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 362_777);",
-      "reason": "同一条方向敏感断言按新实测值重新 pin（不是删除、不是放宽）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "同一条方向敏感断言按新实测值重新 pin（不是删除、不是放宽）。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "superseding",
       "supersededBy": "V33F-S1/V33F-S3（v3-3 修复轮重登记）"
@@ -1804,7 +1804,7 @@
       "oldTitle": "  assert.equal(SIDEPANEL_CEILING, 344_899, 'ceiling = floor(328,490 × 1.05)（收口轮 +811 B 后由公式抬高）');",
       "newId": "ceiling 断言 367,421",
       "newTitle": "  assert.equal(SIDEPANEL_CEILING, 380_915, 'ceiling = floor(362,777 × 1.05)（v3-4 重登记后由公式抬高）');",
-      "reason": "判定公式未变（floor(baseline × 1.05)），基线重登记后公式值随之抬高；cap 仍 record-only。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4：定位串随重登记再次重 pin（367,421 → 380,271）。】",
+      "reason": "判定公式未变（floor(baseline × 1.05)），基线重登记后公式值随之抬高；cap 仍 record-only。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4：定位串随重登记再次重 pin（367,421 → 380,915）。】",
       "replacementExists": true,
       "modificationType": "superseding",
       "supersededBy": "V33F-S1/V33F-S3（v3-3 修复轮重登记）"
@@ -1817,7 +1817,7 @@
       "oldTitle": "  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 306_099);",
       "newId": "previousCeilingBytes 断言 344,899",
       "newTitle": "  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 367_421);",
-      "reason": "v3-3：previous* 的语义是「上一轮」，上一轮（v3-2 收口轮）的 ceiling 是 344,899 B。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "v3-3：previous* 的语义是「上一轮」，上一轮（v3-2 收口轮）的 ceiling 是 344,899 B。 | （v3-3 修复轮 2026-09-16：该行随**显式重登记**再次改值（349,880 → 349,925 B；ceiling 367,374 → 367,421 B），按 v3-2/v3-3 同法把本条 newTitle 重钉到当前真实文本 —— 同一断言、同结构、仅数值重 pin；历史理由逐字保留。） 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "superseding",
       "supersededBy": "V33F-S1/V33F-S3（v3-3 修复轮重登记）"
@@ -1842,7 +1842,7 @@
       "oldTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 349_880);",
       "newId": "基线断言 349,925（v3-3 修复轮重登记）",
       "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 362_777);",
-      "reason": "I-01 修复（逐目标 aria-controls）使产物 +45 B ⇒ 按真实产物重登记（349,880 → 349,925）。同一条断言、同结构，仅数值重 pin（断言零删减）。 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "I-01 修复（逐目标 aria-controls）使产物 +45 B ⇒ 按真实产物重登记（349,880 → 349,925）。同一条断言、同结构，仅数值重 pin（断言零删减）。 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "same-id-repin"
     },
@@ -1866,7 +1866,7 @@
       "oldTitle": "  assert.equal(SIDEPANEL_CEILING, 367_374, 'ceiling = floor(349,880 × 1.05)（cap 已撤销）');",
       "newId": "ceiling 断言 367,421",
       "newTitle": "  assert.equal(SIDEPANEL_CEILING, 380_915, 'ceiling = floor(362,777 × 1.05)（未加 cap 的公式值，v3-4 重登记）');",
-      "reason": "ceiling 由公式抬高 floor(349,925 × 1.05) = 367,421 B；容差 5% 未动、cap 仍 record-only。 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "ceiling 由公式抬高 floor(349,925 × 1.05) = 367,421 B；容差 5% 未动、cap 仍 record-only。 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "same-id-repin"
     },
@@ -1878,7 +1878,7 @@
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 349_880;",
       "newId": "基线 349,925 B（v3-3 修复轮）",
       "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 362_777;",
-      "reason": "ADR-V3-011 ⑤ 显式重登记：按真实产物登记 349,925 B（+45 B，registry-fidelity-round v3-3-fix）；TIMELINE / _RE_REGISTRATIONS / META 同步，历史值逐字保留。 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,163 / 380,271（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
+      "reason": "ADR-V3-011 ⑤ 显式重登记：按真实产物登记 349,925 B（+45 B，registry-fidelity-round v3-3-fix）；TIMELINE / _RE_REGISTRATIONS / META 同步，历史值逐字保留。 【v3-4 重登记（2026-09-16）：本条的**定位串**随基线值重 pin 到 362,777 / 380,915（语义与取代关系零改动，仅值变了）—— 这是本仓库既有的「值钉死条目随轮次重 pin 定位串」约定。】",
       "replacementExists": true,
       "modificationType": "same-id-repin"
     },
@@ -2027,6 +2027,54 @@
       "modificationType": "same-id-repin"
     },
     {
+      "id": "V34-S3",
+      "file": "packages/web-cli-plugin/test/insight-protocol.test.ts",
+      "gate": "node-test",
+      "oldId": "SW 入口联合守卫：两个校验器",
+      "oldTitle": "/if\\s*\\(\\s*!isPluginMessage\\(raw\\)\\s*&&\\s*!isInsightMessage\\(raw\\)\\s*\\)\\s*return\\s+undefined;/,",
+      "newId": "SW 入口联合守卫：三个校验器（含拾取层）",
+      "newTitle": "!isPluginMessage\\(raw\\)\\s*&&\\s*!isInsightMessage\\(raw\\)\\s*&&\\s*!isPickLayerMessage\\(raw\\)\\s*\\)\\s*return\\s+undefined;/,",
+      "reason": "C41(b)（review R1）：该文件在本 commit 被删改 2 行却**零登记**，而「删除行判据」的文件集合正是由台账自身推导 ⇒ 该删除结构性不可见。本条目（连同 V34-S3b/S3c/S3d）承接同一次改写：V3-4 为 SW 入口引入了第三张**独立校验**的消息面（按需拾取层，因 `KIND_SET` 会被打进冻结的 `content.js` 而刻意不入该集合），联合守卫从「两个校验器」改为「三个校验器」——同一断言、语义**更强**（原来只拒绝两张面都不认的消息，现在拒绝三张面都不认的消息）。",
+      "replacementExists": true,
+      "modificationType": "same-id-rewrite"
+    },
+    {
+      "id": "V34-S3b",
+      "file": "packages/web-cli-plugin/test/insight-protocol.test.ts",
+      "gate": "node-test",
+      "oldId": "断言消息：fail both validators",
+      "oldTitle": "'service-worker must reject raw messages that fail both validators (no unvalidated pass-through)',",
+      "newId": "断言消息：fail every validator",
+      "newTitle": "'service-worker must reject raw messages that fail every validator (no unvalidated pass-through)',",
+      "reason": "同 V34-S3 的同一处改写：断言文案随校验器数量从 2 → 3 同步（「both」→「every」），断言语义不变（仍要求联合守卫拒绝一切不被任何校验器接受的消息）。",
+      "replacementExists": true,
+      "modificationType": "same-id-rewrite"
+    },
+    {
+      "id": "V34-S3c",
+      "file": "packages/web-cli-plugin/test/insight-protocol.test.ts",
+      "gate": "node-test",
+      "oldId": "畸形语料重导出的联合守卫（两校验器）",
+      "oldTitle": "const unionGuard = (v: unknown) => isPluginMessage(v) || isInsightMessage(v);",
+      "newId": "畸形语料重导出的联合守卫（三校验器）",
+      "newTitle": "const unionGuard = (v: unknown) => isPluginMessage(v) || isInsightMessage(v) || isPickLayerMessage(v);",
+      "reason": "同 V34-S3：测试侧重导出的守卫必须与生产守卫同名同形（否则该用例只证明了一个不存在的函数）。新增 `isPickLayerMessage` 后仍逐条拒绝原畸形语料，并新增三条**反证**（拾取层 kind 只被它自己的校验器接受、不被 KIND_SET 接受）。",
+      "replacementExists": true,
+      "modificationType": "same-id-rewrite"
+    },
+    {
+      "id": "V34-S3d",
+      "file": "packages/web-cli-plugin/test/insight-protocol.test.ts",
+      "gate": "node-test",
+      "oldId": "联合守卫注释：neither predicate",
+      "oldTitle": "// The union guard must reject anything that neither predicate accepts.",
+      "newId": "联合守卫注释：no predicate（并说明为何第三张面独立校验）",
+      "newTitle": "// The union guard must reject anything that **no** predicate accepts.",
+      "reason": "同 V34-S3：注释随校验器数量改写，并写明第三张面被刻意排除在共享 `KIND_SET` 之外的理由（该集合会被打进冻结的 `content.js`）。注释不承载判据，但它与断言一起构成该用例的可读契约。",
+      "replacementExists": true,
+      "modificationType": "same-id-rewrite"
+    },
+    {
       "id": "V34-S4",
       "file": "packages/web-cli-plugin/test/size-baseline.ts",
       "gate": "size-budget",
@@ -2105,8 +2153,8 @@
       "oldId": "反证注释：旧重登记值",
       "oldTitle": "// 裁决 V3-VOL-1 ②：cap 已撤销 → ceiling = 公式值 344,062（**不是** 306,099）。",
       "newId": "反证注释：v3-4 重登记值",
-      "newTitle": "// 裁决 V3-VOL-1 ②：cap 已撤销 → ceiling = 公式值（v3-4 后为 380,271，**不是** 306,099）。",
-      "reason": "注释随 v3-4 显式重登记（349,925 → 362,163 B，ceiling 380,271 B）同步；反证结构与断言条数零改动（仅钉死值重 pin）。",
+      "newTitle": "// 裁决 V3-VOL-1 ②：cap 已撤销 → ceiling = 公式值（v3-4 后为 380,915，**不是** 306,099）。",
+      "reason": "注释随 v3-4 显式重登记（349,925 → 362,777 B，ceiling 380,915 B）同步；反证结构与断言条数零改动（仅钉死值重 pin）。",
       "replacementExists": true,
       "modificationType": "same-id-repin"
     },
@@ -2118,7 +2166,7 @@
       "oldTitle": "// v3-2 修复轮（2026-09-16，裁决 V3-VOL-1）：cap 撤销 → ceiling = 公式值 344,062；",
       "newId": "反证注释：v3-4 重登记值",
       "newTitle": "// v3-2 修复轮（2026-09-16，裁决 V3-VOL-1）：cap 撤销 → ceiling = 公式值；",
-      "reason": "注释随 v3-4 显式重登记（349,925 → 362,163 B，ceiling 380,271 B）同步；反证结构与断言条数零改动（仅钉死值重 pin）。",
+      "reason": "注释随 v3-4 显式重登记（349,925 → 362,777 B，ceiling 380,915 B）同步；反证结构与断言条数零改动（仅钉死值重 pin）。",
       "replacementExists": true,
       "modificationType": "same-id-repin"
     },
@@ -2129,8 +2177,8 @@
       "oldId": "反证注释：旧重登记值",
       "oldTitle": "// 重登记后的产物 327,679 B **在**判定之内（红线冲突已由裁决解除）。",
       "newId": "反证注释：v3-4 重登记值",
-      "newTitle": "// v3-4 重登记后的产物 362,163 B **在**判定之内（红线冲突已由裁决解除）。",
-      "reason": "注释随 v3-4 显式重登记（349,925 → 362,163 B，ceiling 380,271 B）同步；反证结构与断言条数零改动（仅钉死值重 pin）。",
+      "newTitle": "// v3-4 重登记后的产物 362,777 B **在**判定之内（红线冲突已由裁决解除）。",
+      "reason": "注释随 v3-4 显式重登记（349,925 → 362,777 B，ceiling 380,915 B）同步；反证结构与断言条数零改动（仅钉死值重 pin）。",
       "replacementExists": true,
       "modificationType": "same-id-repin"
     },
@@ -2313,6 +2361,18 @@
       "reason": "FR-V3-070：实现补齐到 6 项后同编号重 pin，并**收紧**为「行数 ≡ 常量 ≡ 标签文本」三处同时相等（原来只断言两处 + 文案）。断言只强不弱。",
       "replacementExists": true,
       "modificationType": "same-id-rewrite"
+    },
+    {
+      "id": "V34F-S1",
+      "file": "packages/web-cli-plugin/test/gate-integrity.test.ts",
+      "gate": "meta",
+      "oldId": "注释：eight Chromium gate scripts（并称 page-input.mjs 从未存在）",
+      "oldTitle": "/** The eight Chromium gate scripts (the user's list; `page-input.mjs` never existed). */",
+      "newId": "注释：Chromium 门禁清单（I-08 订正：常量是下界，受审集合由扫描推导）",
+      "newTitle": "I-08 (review R1): the old comment read",
+      "reason": "I-08（review R1）：该注释写于 v3-1（当时为真），但 v3-4 起 `page-input.mjs` 已存在且**已被目录扫描自动纳入受审集合** ⇒ 注释失真（同时把「eight」措辞去掉）。改写为「本常量是**已知门禁下界**；真正的受审集合由 marker 扫描推导，且是其**严格超集**（page-input / zero-injection / l1-reverse / l2-reverse 经扫描加入）」。断言零删减：只改注释，不改任何判据。",
+      "replacementExists": true,
+      "modificationType": "same-id-rewrite"
     }
   ],
   "zeroDiffFiles": [
@@ -2486,6 +2546,24 @@
         "file": "packages/web-cli-plugin/test/ui/l1.mjs",
         "expectFailPattern": "门禁内 check 标题（⑧ D1 反证（FAIL 段）…）",
         "reason": "同上（in-gate 形态）。"
+      },
+      {
+        "id": "RP-BLOCK1-01",
+        "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+        "expectFailPattern": "BLOCK-1 回归：/app 页面隔离世界内 window.__wcliPickLayer === object",
+        "reason": "BLOCK-1（review R1，本修复轮）：把 `pickLayerTarget` 的 `tabOrigin(url)` 回退为 `normalizeStableOrigin(url)` 后，该断言的 FAIL 段实测产出 `— undefined`（/app 上半注入都没有），修复后产 `✔ object`；两段原文见 build.md §修复轮 1 与 /tmp/opencode/v3-gate-logs/v3-4-fix/RP-BLOCK1-reverted.log。行为级配套：同一 tab 的右键探针 `intercepted:false → true`。"
+      },
+      {
+        "id": "RP-BLOCK1-02",
+        "file": "packages/web-cli-plugin/test/ui/zero-injection.mjs",
+        "expectFailPattern": "BLOCK-1 回归：未授权 /app 页面五探针全零",
+        "reason": "BLOCK-1 / I-04（review R1）：夹具此前只走根路径，未授权侧同样只覆盖 `${origin}/`。该断言要求**带路径**的未授权页同样零注入，并用同页强制注入作负控（探针可 FAIL）。"
+      },
+      {
+        "id": "RP-I01-01",
+        "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+        "expectFailPattern": "I-01 ①：撤销后**另一个 tab**（非 bound/active）也零残留",
+        "reason": "I-01①（review R1）：撤销 teardown 改为**按 origin 广播**。若回退为单 target，探针在另一个 tab 上会读到 `marker:'object'` + `intercepted:true` ⇒ 该断言 FAIL。前置负控（撤销前两 tab 都拦截右键）确保断言不是恒真。"
       }
     ],
     "exceptions": [
@@ -2568,11 +2646,12 @@
       "registeredBy": "v3-3 收口轮（validate R1 N-09）",
       "why": "validate R1 N-09：既有逐行判据以 `base=c2c0e0d` 为基准（base→worktree 的 diff），**叶段盲区**是「在 base 之后引入、又在叶内被删除/改写」的行 —— 它们在 base→worktree 的 diff 里既不是新增也不是删除，因此完全不在判据覆盖内（v3-3 实测 42 条 insight/l0 删除行中 28 条落在 `entries[].oldTitle` 之外）。本字段把**每叶的 build 起点**登记下来，门禁改为**叶段判据**（`leafBase`→worktree）与 base 相对判据并存，两段合起来才是完整覆盖。",
       "scope": {
-        "rule": "台账登记文件集（modifiedRanges ∪ entries ∪ protectedRanges 的文件）∩ `packages/web-cli-plugin/test/**/*.{mjs,ts}`",
+        "rule": "台账登记文件集（modifiedRanges ∪ entries ∪ protectedRanges 的文件）∩ `packages/web-cli-plugin/test/**/*.{mjs,ts}`；文件集**由台账自身推导**，不得手工放宽。I-05（review R1）：`insight-protocol.test.ts` 因 V34-S3/V34-S3b/V34-S3c/V34-S3d 的登记而首次进入该集合 （此前它既不在台账、也不受删除行判据覆盖 —— C41(b) 的结构性盲区），故叶段判据随之覆盖它。",
         "files": [
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
@@ -2799,7 +2878,19 @@
     "v3-4": {
       "leaf": "specs-tree-v3-4-page-as-input",
       "date": "2026-09-16",
-      "note": "V3-4「页面即输入」：页面侧交互层落在**独立产物** `dist/pick-layer.js`（按需注入，自有 PICK_LAYER_* 无容差上限），常驻 `content.js` 逐字节不变；台账只追加（V34-S1~S12 取代 + V34-N1~N14 新声明），并在 v3-3 叶段 registeredUncoveredLines **追加** 12 行 v3-4 重 pin 行（未改写任何既有行）。"
+      "note": "V3-4「页面即输入」：页面侧交互层落在**独立产物** `dist/pick-layer.js`（按需注入，自有 PICK_LAYER_* 无容差上限），常驻 `content.js` 逐字节不变；台账只追加（V34-S1~S13 取代 + V34-N1~N14 新声明），并在 v3-3 叶段 registeredUncoveredLines **追加** 12 行 v3-4 重 pin 行（未改写任何既有行）。",
+      "intermediateBuildSnapshots": {
+        "note": "BLOCK-2（review R1）：本条目原来把构建过程中的**中间测量值**当作「已发布基线」写进定位串 —— `362,163`（sidepanel.js 的中间构建快照）与 `380,271` = floor(362,163 × 1.05)（另一个 ceiling），另有一个中间值 `362,865`。同一产物因此出现三个「终值」与两个 ceiling，是与实测的保真冲突。本轮按「定位串随轮次重 pin」约定把当前条目改写为 `362,777` / `380,915`（= floor(362,777 × 1.05)）；**历史值不静默消失**：逐字保留在此处（并保留在 test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS）。",
+        "supersededValues": [
+          362163,
+          362865,
+          380271
+        ],
+        "registeredValues": [
+          362777,
+          380915
+        ]
+      }
     }
   }
 }

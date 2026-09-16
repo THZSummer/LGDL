@@ -16,9 +16,22 @@
  *
  * ── The six kinds ────────────────────────────────────────────────────────────
  *
- *   panel → SW → layer : `pick-layer-inject` · `pick-layer-teardown` · `pick-layer-env`
+ *   panel → SW → layer : `pick-layer-inject` · `pick-layer-teardown` · `ref-highlight`
  *   layer → panel/SW   : `pick-layer-state` · `ref-captured`
- *   panel → SW → layer : `ref-highlight`   (P4/P5 highlight + flash)
+ *   SW → layer         : `pick-layer-env`   (the declaration hash/version facts)
+ *
+ * I-06 (review R1): `pick-layer-env` reaches the layer from **two** triggers that must
+ * not drift —
+ *   ① the service worker right after an `executeScript` load (`pick-layer-inject`),
+ *      which is where the layer normally learns its four fields (`origin` /
+ *      `declarationHash` / `declarationVersion` / `authorized`);
+ *   ② the panel's「拾取入口」re-push. That one used to have **no SW route** (it fell
+ *      through to「未知消息类型」and its reply was discarded) and a *different* field
+ *      vocabulary (`activeOrigin` / `declaration` vs the layer's). It is now routed
+ *      (`service-worker.ts#pick-layer-env`) and the facts are re-derived there with
+ *      `declarationEnv()` — so the declaration facts still have exactly **one**
+ *      source, and the only shape travelling down is the one the layer's `accept()`
+ *      reads (a missing declaration stays `declarationHash: ''`, fail-closed).
  *
  * @module content/pick-protocol
  */

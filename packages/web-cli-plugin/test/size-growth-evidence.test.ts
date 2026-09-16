@@ -110,6 +110,26 @@ test('V3-VOL-1 ② registry: the round chain is continuous and ends at the curre
   );
   assert.equal(rounds[rounds.length - 1].baselineAfterBytes, SIDEPANEL_FINAL_ARTIFACT_BYTES);
   assert.equal(rounds[rounds.length - 1].ceilingAfterBytes, SIDEPANEL_CEILING, '末项 ceiling 必须等于当前 ceiling');
+  //
+  // ── BLOCK-2 (review R1) machine assertion ──────────────────────────────────
+  // The v3-4 round shipped `ceilingUncappedFormulaBytes = 380,271` — the formula
+  // evaluated over an **intermediate build measurement** (362,163) instead of the
+  // registered baseline (362,777). Nothing judged it, so the registry carried two
+  // mutually exclusive ceilings for one artifact. From now on the field is derived,
+  // not typed: it must equal `floor(baselineAfterBytes × 1.05)` for EVERY round, and a
+  // round's ceiling may only ever be that formula value or the (retired, record-only)
+  // cap — never a third number.
+  for (const r of rounds) {
+    assert.equal(
+      r.ceilingUncappedFormulaBytes,
+      Math.floor(r.baselineAfterBytes * 1.05),
+      `${r.id}: ceilingUncappedFormulaBytes 必须 = floor(baselineAfterBytes × 1.05)（不得与基线脱钩）`,
+    );
+    assert.ok(
+      r.ceilingAfterBytes === r.ceilingUncappedFormulaBytes || r.ceilingAfterBytes === SIDEPANEL_CEILING_CAP_RECORD,
+      `${r.id}: ceilingAfterBytes ${r.ceilingAfterBytes} 既不是公式值 ${r.ceilingUncappedFormulaBytes} 也不是记录 cap ${SIDEPANEL_CEILING_CAP_RECORD}（同一事实不得有两个 ceiling）`,
+    );
+  }
 });
 
 test('V3-VOL-1 ② registry: `_HISTORY` / TIMELINE retain every disclosed value verbatim', () => {
@@ -156,8 +176,10 @@ test('V3-VOL-1 ② registry: zero assertion deletion is registered in the supers
 test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measured delta', () => {
   const b = SIDEPANEL_GROWTH_BREAKDOWN;
   assert.equal(b.deltaBytes, SIDEPANEL_BASELINE_BYTES - SIDEPANEL_BASELINE_META.previousBaselineBytes);
-  // v3-4：面板侧接线（pick-input.ts 5,053 + sidepanel/panels/view-model/shell）⇒ 累计增量
-  // 54,700 → 66,938（同一条断言，仅数值按实测重 pin；四类分解与逐模块表同步）。
+  // v3-4：面板侧接线（pick-input.ts 5,085 + sidepanel/panels/view-model/shell）⇒ 累计增量
+  // 54,700 → 67,552（同一条断言，仅数值按实测重 pin；四类分解与逐模块表同步）。
+  // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
+  // （与实测 67,552 不符）—— 注释与实测必须同源。
   assert.equal(b.deltaBytes, 67_552);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;

@@ -239,9 +239,9 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
   // v3-3 修复轮（同叶，审查 R1 后）：F-01 反证订正 + I-01 逐目标 aria-controls + expectFailPattern
   // 防呆 → 按真实产物再登记为 349,925 B（+45 B，registry-fidelity-round），ceiling floor(349,925 × 1.05) = 367,421 B。
   // v3-4 build 轮（2026-09-16，leaf specs-tree-v3-4-page-as-input）：按真实产物**显式提升**至
-  // 362,777 B（+12,852 B，+3.67%）：面板侧接线（pick-input.ts 5,053 B 新模块 + sidepanel/panels/view-model/shell 接线），
+  // 362,777 B（+12,852 B，+3.67%）：面板侧接线（pick-input.ts 5,085 B 新模块 + sidepanel/panels/view-model/shell 接线），
   // 页面侧交互层落在独立产物 pick-layer.js（自有 PICK_LAYER_* 无容差上限）；content.js 仍 177,076 B 逐字节不变。
-  // ceiling 由公式抬高 floor(362,163 × 1.05) = 380,271 B；容差 5% 未动、cap 仍 record-only、+1 B 反证在新 ceiling 上重跑。
+  // ceiling 由公式抬高 floor(362,777 × 1.05) = 380,915 B；容差 5% 未动、cap 仍 record-only、+1 B 反证在新 ceiling 上重跑。
   assert.equal(SIDEPANEL_BASELINE_BYTES, 362_777);
   assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 295_225);
   assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 367_421);
@@ -272,7 +272,7 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
     SIDEPANEL_BASELINE_BYTES > SIDEPANEL_BASELINE_META.previousBaselineBytes,
     '本轮为「提升」重登记：当前基线必须严格大于前值',
   );
-  // 裁决 V3-VOL-1 ②：cap 已撤销 → ceiling = 公式值（v3-4 后为 380,271，**不是** 306,099）。
+  // 裁决 V3-VOL-1 ②：cap 已撤销 → ceiling = 公式值（v3-4 后为 380,915，**不是** 306,099）。
   assert.equal(SIDEPANEL_CEILING, 380_915, 'ceiling = floor(362,777 × 1.05)（未加 cap 的公式值，v3-4 重登记）');
   assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only', 'cap 只能作记录（裁决 V3-VOL-1 ②）');
   assert.equal(SIDEPANEL_CEILING_CAP_RECORD, 306_099, 'cap 的历史值保留为记录');
@@ -290,7 +290,7 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
 
 test('W4 size REVERSE PROOF: the tightened ceiling still FAILS on one byte over', () => {
   // v3-2 修复轮（2026-09-16，裁决 V3-VOL-1）：cap 撤销 → ceiling = 公式值；
-  // v3-4 重登记后的产物 362,163 B **在**判定之内（红线冲突已由裁决解除）。
+  // v3-4 重登记后的产物 362,777 B **在**判定之内（红线冲突已由裁决解除）。
   assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, true);
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false, '新 ceiling + 1 必须 FAIL');

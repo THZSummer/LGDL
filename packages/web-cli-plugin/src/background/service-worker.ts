@@ -967,7 +967,17 @@ async function pickLayerTarget(
     // `benign: true` =「此处没有页面侧」: no site tab to attach to. The panel shows
     // nothing alarming; the pick entry is already gated by authorization/probing.
     if (NON_INJECTABLE_URL.test(url)) continue;
-    const origin = normalizeStableOrigin(url);
+    // BLOCK-1 (review R1): this must be the **real origin**, not a normalised
+    // *string*. `normalizeStableOrigin()` only trims / lower-cases / strips a
+    // trailing slash, so feeding it a full URL (`https://site/app`) yields a
+    // value that contains a path — which then fails BOTH `candidate.expect`
+    // (a true origin) and every `origins.isAuthorized()` lookup, making the
+    // whole「页面即输入」feature unusable on every real page below the site root
+    // (and misreporting an authorized site as「未授权站点 …/app」).
+    // `tabOrigin()` is the same caliber the OriginStore speaks (`new URL(url).origin`
+    // for http(s), `null` otherwise) — the non-http(s) cases are already skipped by
+    // `NON_INJECTABLE_URL`, so `null` here means an unparseable URL ⇒ skip.
+    const origin = tabOrigin(url);
     if (!origin) continue;
     if (candidate.expect && origin !== candidate.expect) continue; // the tab moved away
     return { tabId: candidate.tabId, origin };
@@ -1016,14 +1026,36 @@ async function declarationEnv(
  * V3-4 — take the page-side layer down (panel closed/卸載, authorization revoked).
  * Best-effort and idempotent: the layer's own marker makes a missed teardown
  * harmless (the next injection reuses the live instance instead of stacking one).
+ *
+ * I-01 (review R1) — **origin-wide broadcast**. A revocation is a lifecycle end for
+ * the whole *origin*, not just for the tab that happened to be bound: with the old
+ * single-target teardown, two tabs of the same origin could both hold a layer, the
+ * user revokes, and only one of them is unloaded — the other keeps intercepting
+ * `contextmenu` for a site that is no longer authorized (EC-V3-003 violated in the
+ * one state the gate could not see). With `origin`, every tab of that origin is torn
+ * down; without it (panel closed) the previous bound/active-target behaviour stands.
  */
-async function teardownPickLayer(s: Singletons): Promise<void> {
-  const target = await pickLayerTarget(s);
-  if ('error' in target) return;
-  try {
-    await chrome.tabs.sendMessage(target.tabId, { kind: 'pick-layer-teardown' });
-  } catch {
-    /* no layer in that tab (never injected / already gone) — nothing to take down */
+async function teardownPickLayer(s: Singletons, origin?: string): Promise<void> {
+  const targets: number[] = [];
+  if (origin) {
+    // `tab.url` is readable thanks to the `tabs` permission, so the candidates come
+    // from the browser, not from a remembered injection list (no stale tabIds).
+    const tabs = await chrome.tabs.query({}).catch(() => []);
+    for (const tab of tabs) {
+      if (tab.id === undefined) continue;
+      if (tabOrigin(tab.url) === origin) targets.push(tab.id);
+    }
+  } else {
+    const target = await pickLayerTarget(s);
+    if ('error' in target) return;
+    targets.push(target.tabId);
+  }
+  for (const tabId of targets) {
+    try {
+      await chrome.tabs.sendMessage(tabId, { kind: 'pick-layer-teardown' });
+    } catch {
+      /* no layer in that tab (never injected / already gone) — nothing to take down */
+    }
   }
 }
 
@@ -1941,7 +1973,9 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // V3-4 (ADR-V3-030 §4): authorization loss is a lifecycle end for the page-side
       // layer too — it is torn down right after the existing revoke flow, so a revoked
       // origin keeps zero page-side listeners (never "injected but inert").
-      await teardownPickLayer(s);
+      // I-01: by **origin**, not just the bound tab — every tab of the revoked origin
+      // loses its layer (otherwise a second tab keeps hijacking `contextmenu`).
+      await teardownPickLayer(s, origin);
       // V2-3 (FR-V2-030; 编排器代作者决策 D-V23-01): revocation is a tightening —
       // the revoked origin's declared tools must leave `deriveTools()` immediately
       // (not merely fail S1 at dispatch). This reuses the existing `deactivateSite`
@@ -2012,6 +2046,21 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       if ('error' in target) return okResponse({ tornDown: false, reason: target.error });
       await teardownPickLayer(s);
       return okResponse({ tornDown: true, tabId: target.tabId });
+    }
+    case 'pick-layer-env': {
+      // I-06 (review R1): the panel's re-push of the declaration env used to have **no
+      // route at all** — it fell through to `default`（未知消息类型）, its reply was
+      // discarded, and the layer never saw it (the payload even used a different field
+      // vocabulary: `activeOrigin`/`declaration` vs the layer's `origin`/
+      // `declarationHash`). Either the kind is real or it is dead code; this makes it
+      // real. The values are re-derived here (`declarationEnv`) instead of trusting the
+      // panel's copy, so there is exactly **one** producer of the declaration facts —
+      // and a missing declaration still yields `declarationHash: ''` (fail-closed).
+      const target = await pickLayerTarget(s);
+      if ('error' in target) return { ...errorResponse(target.error), data: { benign: target.benign === true } };
+      const env = await declarationEnv(s, target.origin);
+      await chrome.tabs.sendMessage(target.tabId, { kind: 'pick-layer-env', ...env }).catch(() => {});
+      return okResponse({ forwarded: true, tabId: target.tabId, ...env });
     }
     case 'set-trust': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
