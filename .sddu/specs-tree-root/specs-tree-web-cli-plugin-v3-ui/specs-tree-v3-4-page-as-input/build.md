@@ -1081,7 +1081,9 @@ git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-p
 `test:binding` **实测抓出真实回归**（非测试放宽）：面板驱动的后台刷新会重读 `state`，而 SW 的 `state` 回复会**消费一次性 `panelNotice`**
 ⇒ 该信号会把「已切换标签页…」提示在用户看到之前吞掉（`#9b` FAIL，191/1）。处置 = **移除该信号与 SW 侧 `port.onMessage` 处理**，
 恢复能力由既有 `kick` 触发器承担：标签页激活/导航（`followActiveTab → kickDiscovery → kick`）与面板(重)开（`onConnect → kickBoundProbe`）。
-证据：移除后 `test:binding` **192/0 PASS**（`15b-binding-novis.log`），并已写入代码注释（`sidepanel.ts:2005-2015`）。
+证据：① 失败现场 = `RP-R2-D-binding-diagnostics-1789665266781.json`（`passes: 191 / failures: ["#9b 侧栏可读提示「已切换标签页，请点插件图标」"]`）；
+② 移除后 `test:binding` **`binding PASS — 192 assertions`（EXIT=0）** = 最终串行运行的 `15-binding.log`（同一断言 `#9b` 在该日志中为 ✔）。
+该结论也已写入代码注释（`sidepanel.ts:2005-2015`）。
 
 ### 15.3 反证（全部可 FAIL；扰动 → FAIL → sha256 还原 → PASS）
 
@@ -1090,7 +1092,7 @@ git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-p
 | A | **退避回退为恒 15 s** | `auto-probe.ts` 终态分支改 `nextDelayMs = DECLARATION_BACKOFF_MS[0]`（恒 15 s，即 R2 前的行为） | 新断言必须 FAIL | ✅ `EXIT=1`，`ℹ tests 815 / pass 811 / fail 4`；失败原文：`15s→30s→60s→120s→5min 封顶`（actual `[15000,15000,…]`）、`退避等待期必须带稳态标记（面板据此渲染稳态文案）`、`退避重置回第一步`（`15000 !== 120000`）、`结论变化 ⇒ attempt 重置`（`15000 !== 60000`）；还原后 sha256 == `74a6a52f…` PASS |
 | B | **稳态标记回退**（退避期不再广播 `steady`） | `auto-probe.ts#snapshot()` 改 `steady: false` | 新断言必须 FAIL | ✅ `EXIT=1`，`ℹ tests 815 / pass 814 / fail 1`；失败原文：`退避等待期必须带稳态标记（面板据此渲染稳态文案）` / `false !== true`；还原后 sha256 == `74a6a52f…` PASS |
 | C | **稳态行回退**（面板不再渲染稳态文案） | `view-model.ts#probingSteadyView` 判定反置（`probe.steady === true ⇒ null`） | 新断言必须 FAIL | ✅ `EXIT=1`，`ℹ tests 815 / pass 813 / fail 2`；失败原文：`terminal 退避等待期必须给出稳态行`、`L0View 必须把稳态行交给风险位渲染器`；还原后 sha256 == `2d80dc19…` PASS |
-| D | **（门禁反证，实测有价值）** 可见性信号回归 | 保留 `panel-visible` 信号 | 既有门禁必须抓出 | ✅ `test:binding` `EXIT=1`，`191 passed / 1 failed`（`#9b 侧栏可读提示「已切换标签页，请点插件图标」`）；处置见 §15.2 |
+| D | **（门禁反证，实测有价值）** 可见性信号回归 | 保留 `panel-visible` 信号 | 既有门禁必须抓出 | ✅ `test:binding` `EXIT=1`，`191 passed / 1 failed`（`#9b 侧栏可读提示「已切换标签页，请点插件图标」），现场 `RP-R2-D-binding-diagnostics-1789665266781.json`；处置见 §15.2（移除后 `15-binding.log` `binding PASS — 192 assertions`） |
 
 > **「因错而红」防呆**：反证 C 的首版扰动写成 `return null;` 尾巴 ⇒ `tsc` 报 `TS18049: 'probe' is possibly 'null' or 'undefined'`，
 > 构建期即失败（`EXIT=2`）—— 按仓库纪律**判为无效并作废**，改用「判定反置」形态重跑（无效证据 `RP-R2-C-INVALID-builderror.log` 逐字留档）。
