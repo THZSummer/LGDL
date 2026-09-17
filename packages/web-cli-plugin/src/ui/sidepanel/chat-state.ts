@@ -16,6 +16,10 @@ export interface ProbeState {
   lastClass?: 'temporary' | 'terminal';
   lastKind?: string;
   nextDelayMs?: number;
+  /** R2 (2026-09-17): consecutive terminal (declaration) attempts for the origin. */
+  declarationAttempt?: number;
+  /** R2: `true` while waiting on a terminal declaration backoff (no fetch in flight). */
+  steady?: boolean;
 }
 
 export interface ChatEntry {

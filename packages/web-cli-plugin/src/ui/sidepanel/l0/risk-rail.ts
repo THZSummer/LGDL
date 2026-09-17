@@ -180,16 +180,24 @@ export function renderRiskRow(
  * second template — `renderRiskRow` still owns the three channels, and the
  * override participates in the repaint signature so a changed reason repaints.
  *
+ * R2 (2026-09-17) adds a second override of the same kind, `probeSteady`: while the
+ * background sits in the terminal declaration backoff (no fetch in flight) the
+ * `probing` row shows the steady「低频自动复查中」copy instead of the in-flight
+ * 「探测中」line — same class, same three channels, no flicker. When the override is
+ * absent (e.g. the density gate's forced `probing` cell, or a real in-flight fetch)
+ * the static {@link RISK_COPY.probing} copy is used, unchanged.
+ *
  * Returns the number of rows written, for gates/diagnostics.
  */
 export function renderRiskRail(
   doc: RailDoc,
   active: readonly RiskClass[],
   staleRef?: { reason: string; refId: string },
+  probeSteady?: { text: string; badge: string; icon: string },
 ): number {
   const rail = doc.getElementById('risk-rail');
   if (!rail) throw new RiskRowError('renderRiskRail: #risk-rail 不存在（风险位必须常驻）');
-  const signature = `${RISK_CLASSES.filter((c) => active.includes(c)).join('|')}::${staleRef?.reason ?? ''}`;
+  const signature = `${RISK_CLASSES.filter((c) => active.includes(c)).join('|')}::${staleRef?.reason ?? ''}::${probeSteady?.text ?? ''}`;
   if (signature === lastRiskSignature && renderedRows.length > 0) return renderedRows.length;
   lastRiskSignature = signature;
   // Clear previous rows without innerHTML (no HTML injection surface at all).
@@ -211,6 +219,18 @@ export function renderRiskRail(
             badge: RISK_COPY.staleRef.badge,
             icon: RISK_COPY.staleRef.icon,
             riskClass: 'staleRef',
+          }),
+        );
+        continue;
+      }
+      // R2: the steady probing variant — same class/badge-channel rule, data-driven copy.
+      if (cls === 'probing' && probeSteady) {
+        rows.push(
+          renderRiskRow(doc, {
+            text: probeSteady.text,
+            badge: probeSteady.badge,
+            icon: probeSteady.icon,
+            riskClass: 'probing',
           }),
         );
         continue;

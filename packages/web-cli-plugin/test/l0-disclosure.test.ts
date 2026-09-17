@@ -380,3 +380,102 @@ test('risk-rail: 硬底线被拦时零「允许 / 放行」控件', () => {
   assert.match(copy, /不提供「允许」选项/);
   assert.ok(!/提供「允许」/.test(copy.replace('不提供「允许」选项', '')), '文案不得自相矛盾地提供允许入口');
 });
+
+// ── R2 (2026-09-17): 风险位稳态行（探测退避等待期不闪烁） ─────────────────────
+test('risk-rail R2: 稳态行走同一 override 通道——同类、三通道齐备、签名可重绘', () => {
+  const doc = buildPanel();
+  const steady = {
+    text: '（低频自动复查中）站点声明存在但无效：本阶段不发命令、不改授权；站点修复/刷新页面/切换标签页时立即重试，否则按 15 秒→5 分钟退避自动复查。',
+    badge: '低频复查',
+    icon: 'search',
+  };
+  assert.equal(renderRiskRail(doc as never, ['probing'], undefined, steady), 1);
+  const rail = doc.getElementById('risk-rail')!;
+  assert.equal(rail.children.length, 1);
+  const row = rail.children[0];
+  // Still class ② of the five, still never folded — only the text variant changed.
+  assert.equal(row.getAttribute('data-risk-class'), 'probing');
+  assert.equal(row.getAttribute('data-risk-severity'), 'risk');
+  assert.deepEqual(row.children.map((c) => c.className), ['risk-icon', 'risk-text', 'risk-badge']);
+  assert.equal(row.children[1].textContent, steady.text);
+  assert.equal(row.children[2].textContent, '低频复查');
+  assert.ok(row.children[0].children.length > 0, '图标通道有 path');
+
+  // The override participates in the repaint signature: a changed text must repaint.
+  const changed = { ...steady, text: '（低频自动复查中）协议版本不匹配：本阶段不发命令、不改授权。' };
+  renderRiskRail(doc as never, ['probing'], undefined, changed);
+  assert.equal(doc.getElementById('risk-rail')!.children[0].children[1].textContent, changed.text);
+
+  // Absent override ⇒ the static in-flight copy, unchanged (the density gate's
+  // forced `probing` cell must not drift).
+  renderRiskRail(doc as never, ['probing']);
+  assert.equal(doc.getElementById('risk-rail')!.children[0].children[1].textContent, RISK_COPY.probing.text);
+
+  // An empty steady text is still rejected by the three-channel rule.
+  assert.throws(() => renderRiskRail(doc as never, ['probing'], undefined, { text: '  ', badge: '低频复查', icon: 'search' }), RiskRowError);
+});
+
+// R2 (2026-09-17): the steady probing copy is a view-model derivation; importing it in a
+// second statement keeps the original import block byte-identical (pure addition).
+import {
+  PROBING_STEADY_BADGE,
+  deriveRiskClasses,
+  discoveryNotice,
+  probingSteadyText,
+  probingSteadyView,
+} from '../src/ui/sidepanel/view-model.js';
+
+test('R2 steady probing copy: 退避等待期给出稳定「低频自动复查中」行，且不再声称「探测中」', () => {
+  // Not steady (in flight / ready / transient wait) → no steady variant at all.
+  assert.equal(probingSteadyView(undefined), null);
+  assert.equal(probingSteadyView(null), null);
+  assert.equal(probingSteadyView({ phase: 'probing' }), null);
+  assert.equal(probingSteadyView({ phase: 'waiting', lastClass: 'temporary', steady: false }), null);
+  assert.equal(probingSteadyView({ phase: 'waiting', lastClass: 'terminal' }), null, '缺少显式 steady 标记 ⇒ 不启用稳态文案');
+
+  const invalid = probingSteadyView({ phase: 'waiting', lastClass: 'terminal', lastKind: 'invalid-declaration', steady: true });
+  assert.ok(invalid, 'terminal 退避等待期必须给出稳态行');
+  assert.equal(invalid!.badge, PROBING_STEADY_BADGE);
+  assert.equal(invalid!.badge, '低频复查');
+  assert.equal(invalid!.icon, 'search');
+  assert.match(invalid!.text, /站点声明存在但无效/);
+  assert.match(invalid!.text, /低频自动复查中/);
+  assert.match(invalid!.text, /不发命令、不改授权/);
+  assert.match(invalid!.text, /15 秒→5 分钟退避自动复查/);
+  assert.equal(/正在读取站点声明/.test(invalid!.text), false, '退避等待期不得声称正在读取声明');
+  assert.equal(/探测中/.test(invalid!.text), false, '退避等待期不得自称「探测中」');
+  // The copy follows the real terminal kind (absent ≠ invalid ≠ version mismatch).
+  assert.match(probingSteadyText('no-declaration'), /当前站点未声明 web-cli 协议/);
+  assert.match(probingSteadyText('version-mismatch'), /协议版本不匹配/);
+  assert.match(probingSteadyText(undefined), /站点声明存在问题/);
+});
+
+test('R2 steady row wiring: `probing` 风险类在退避期保持激活；拾取只在真正 fetch 时禁用', () => {
+  const steady = probingSteadyView({ phase: 'waiting', lastClass: 'terminal', lastKind: 'invalid-declaration', steady: true });
+  const withSteady = l0ViewModel({ activeOrigin: 'https://a.test', authorized: true, discoveryState: 'unknown', probeSteady: steady });
+  assert.ok(withSteady.risks.includes('probing'), '退避等待期风险位仍须常驻（五类不折叠）');
+  assert.deepEqual(withSteady.probeSteady, steady, 'L0View 必须把稳态行交给风险位渲染器');
+  // …and it must NOT disable the pick entry: no fetch is in flight, so picking and
+  // references stay available (only an in-flight fetch blocks it — unchanged rule).
+  assert.equal(withSteady.pick.disabled, false);
+  assert.equal(withSteady.pick.reason, '从页面拾取引用（替代输入框）');
+
+  const inflight = l0ViewModel({ activeOrigin: 'https://a.test', authorized: true, discoveryState: 'unknown', probing: true });
+  assert.ok(inflight.risks.includes('probing'));
+  assert.equal(inflight.pick.disabled, true);
+  assert.equal(inflight.pick.reason, '探测中：本阶段不发命令');
+  assert.equal(inflight.probeSteady, null, '没有稳态标记 ⇒ 风险位使用静态「探测中」文案');
+
+  assert.deepEqual(deriveRiskClasses({ authorized: true }), []);
+  assert.deepEqual(deriveRiskClasses({ authorized: true, probeSteady: steady }), ['probing']);
+  assert.deepEqual(deriveRiskClasses({ authorized: false, probeSteady: steady }), ['unauthorized', 'probing']);
+});
+
+test('R2 retry copy: 用户可见文案改为退避描述（旧「每 15 秒低频软重试」逐字移除）', () => {
+  for (const notice of [discoveryNotice('unsupported'), discoveryNotice('unknown', '站点声明存在但无效：JSON 解析失败', { lastClass: 'terminal', lastKind: 'invalid-declaration' }), discoveryNotice('unknown', '声明文件获取失败：HTTP 500', { lastClass: 'temporary', retries: 3 })]) {
+    assert.equal(notice.visible, true);
+    assert.match(notice.detail, /15 秒→5 分钟退避自动复查/);
+    assert.equal(/每 15 秒低频软重试/.test(notice.detail), false, '旧「每 15 秒低频软重试」文案必须移除');
+    assert.equal(notice.autoRetry, true, '自动重试语义不变（仍无需手动操作）');
+  }
+});

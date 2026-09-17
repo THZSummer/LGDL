@@ -78,6 +78,18 @@ export interface ProbeView {
   lastClass?: 'temporary' | 'terminal';
   lastKind?: string;
   nextDelayMs?: number;
+  /**
+   * R2: consecutive terminal (declaration) attempts for the bound origin.
+   * `0`/absent = the current wait is not a declaration backoff.
+   */
+  declarationAttempt?: number;
+  /**
+   * R2: the **steady marker** — `true` while the background is waiting on a terminal
+   * declaration problem (no fetch in flight; a low-frequency re-check is scheduled).
+   * The panel renders the steady copy for this state, so the risk zone no longer
+   * blinks between「探测中」and the terminal notice every retry.
+   */
+  steady?: boolean;
 }
 
 export interface DiscoveryNoticeView {
@@ -92,7 +104,13 @@ export interface DiscoveryNoticeView {
   autoRetry: boolean;
 }
 
-const AUTO_RETRY_LINE = '插件会自动重试——站点修复/刷新页面/切换标签页时立即重试，否则每 15 秒低频软重试，无需手动操作。';
+/**
+ * TASK-032 / R2: the automatic-retry explanation. R2 (2026-09-17) replaced the old
+ *「每 15 秒低频软重试」claim — which was both the flicker source and a lie for a
+ * permanently-invalid declaration — with the real schedule: immediate on repair /
+ * refresh / tab switch, otherwise an exponential 15 s → 5 min backoff.
+ */
+const AUTO_RETRY_LINE = '插件会自动重试——站点修复/刷新页面/切换标签页时立即重试，否则按 15 秒→5 分钟退避自动复查，无需手动操作。';
 
 /** Precise, actionable terminal title (never an internal state-machine name). */
 function terminalTitle(kind: string | undefined): string {
@@ -100,6 +118,36 @@ function terminalTitle(kind: string | undefined): string {
   if (kind === 'invalid-declaration') return '站点声明存在但无效';
   if (kind === 'no-declaration') return '当前站点未声明 web-cli 协议';
   return '站点声明存在问题';
+}
+
+/** R2: the steady probing risk-row copy — badge + icon (same class, stable identity). */
+export const PROBING_STEADY_BADGE = '低频复查';
+
+/**
+ * R2 (2026-09-17, author ruling「退避+稳态显示」) — the **steady** copy of the
+ * `probing` risk row.
+ *
+ * While the background sits in the terminal (declaration) backoff, no fetch is in
+ * flight, so「探测中：正在读取站点声明…」would be a lie — and, because it blinked back
+ * on every retry, it read as a hang. This copy states the real, unchanged conclusion
+ * plus the real re-check schedule and the undisturbed「只读、不发命令、不改授权」
+ * guarantee. The row keeps the `probing` risk class (five classes, never folded) and
+ * the three channels — only the text is the steady variant.
+ */
+export function probingSteadyText(kind: string | undefined): string {
+  return `（低频自动复查中）${terminalTitle(kind)}：本阶段不发命令、不改授权；站点修复/刷新页面/切换标签页时立即重试，否则按 15 秒→5 分钟退避自动复查。`;
+}
+
+/**
+ * R2: derive the steady probing row from the background projection, or `null` when the
+ * current wait is not a terminal declaration backoff. Pure, so the copy is
+ * node-testable and the rail can be asserted character-for-character.
+ */
+export function probingSteadyView(
+  probe?: ProbeView | null,
+): { text: string; badge: string; icon: string } | null {
+  if (!probe || probe.steady !== true) return null;
+  return { text: probingSteadyText(probe.lastKind), badge: PROBING_STEADY_BADGE, icon: 'search' };
 }
 
 /** Fallback classification when the background did not attach a probe status. */
@@ -518,6 +566,15 @@ export interface L0Input {
   sessionLabel?: string;
   /** Site declaration read in flight (no command dispatched). */
   probing?: boolean;
+  /**
+   * R2 (2026-09-17): the **steady probing row** — the declaration read is NOT in
+   * flight; the site sits in the low-frequency terminal backoff. Carries the readable
+   * copy (three channels) so the rail renders a stable line instead of blinking away
+   * between probes. `undefined`/`null` = no steady row. It also keeps the `probing`
+   * risk class active (five classes, never folded) but, like the current waiting
+   * state, does NOT disable「从页面拾取」— only a real in-flight fetch does.
+   */
+  probeSteady?: { text: string; badge: string; icon: string } | null;
   /** Raw discovery state — the band keeps the v1 `发现=<state>` contract text. */
   discoveryState?: string;
   /** Hard-floor blocks observed this session (evaluate / unknown risk / …). */
@@ -595,6 +652,11 @@ export interface L0View {
   ref: { count: number; stale: boolean; label: string };
   /** V3-2: the dynamic invalidation row (null ⇒ the rail uses its generic copy). */
   staleRef: { reason: string; refId: string } | null;
+  /**
+   * R2: the steady probing row override (null ⇒ the rail uses the static「探测中」
+   * copy). Data, never a second template — `renderRiskRow` still owns the channels.
+   */
+  probeSteady: { text: string; badge: string; icon: string } | null;
   statusbar: {
     /** The count-free one-line bar label (stable measured footprint). */
     text: string;
@@ -628,7 +690,10 @@ export const L0_KICKER = '下一步做什么';
 export function deriveRiskClasses(input: L0Input): L0RiskClass[] {
   const risks: L0RiskClass[] = [];
   if (input.authorized !== true) risks.push('unauthorized');
-  if (input.probing === true) risks.push('probing');
+  // R2: the `probing` class is active both while a fetch is in flight (`probing`) and
+  // while the terminal backoff waits (`probeSteady`) — the row never disappears
+  // between retries, which is what removes the 15 s flicker.
+  if (input.probing === true || input.probeSteady) risks.push('probing');
   if ((input.hardlineCount ?? 0) > 0) risks.push('hardline');
   if (input.confirmPending === true) risks.push('confirm');
   if ((input.staleRefCount ?? 0) > 0) risks.push('staleRef');
@@ -742,6 +807,10 @@ export function l0ViewModel(input: L0Input): L0View {
       input.refStale === true && input.staleRefReason
         ? { reason: input.staleRefReason, refId: input.staleRefId ?? 'ref_?' }
         : null,
+    // R2: the steady probing row (declaration backoff). `null` ⇒ the rail keeps its
+    // static「探测中」copy (e.g. the density gate's forced `probing` cell), so this
+    // variant can never leak into an unrelated cell.
+    probeSteady: input.probeSteady ?? null,
     statusbar,
     risks,
   };

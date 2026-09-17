@@ -61,7 +61,7 @@ import type { ConnectTreeSnapshot } from '../../insight/tree-model.js';
 // controller. Both are additive: no existing render branch or handler is removed.
 import { installDisclosure } from './disclosure.js';
 import { mountL0, type L0Handle } from './l0/shell.js';
-import type { L0Input, L0View } from './view-model.js';
+import { probingSteadyView, type L0Input, type L0View } from './view-model.js';
 // V3-2 (ADR-V3-020~023): the L1 layer — eight in-place content classes, the
 // fail-closed reference judge and the receipt triple. Additive: the L0 skeleton
 // keeps its ownership and no existing handler is rewritten.
@@ -405,7 +405,13 @@ function l0Input(): L0Input {
     // band to「探测中」: that would make the L0 status flicker on a 15s timer while
     // the site is working. The transient state is still surfaced as a RISK row
     // (`probing`) whenever the site is not (yet) discovered.
+    // R2 (2026-09-17): the same rule now covers the whole retry cycle — during the
+    // terminal backoff the risk row shows the steady copy (`probeSteady`) instead of
+    // blinking away, and only a real in-flight fetch reads「探测中」.
     probing: state.probe?.phase === 'probing' && state.discoveryState !== 'supported',
+    ...(state.probe?.steady === true && state.discoveryState !== 'supported'
+      ? { probeSteady: probingSteadyView(state.probe) }
+      : {}),
     discoveryState: state.discoveryState ?? (state.probe?.phase === 'probing' ? '探测中' : '未知'),
     hardlineCount: receiptHardLines,
     // V3-2: the real judge's verdict replaces v3-1's zero projection — the chip's
@@ -2002,6 +2008,16 @@ if (typeof document !== 'undefined') {
     window.addEventListener('focus', () => void refreshLlmStatus());
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void refreshLlmStatus();
+      // R2 (2026-09-17): deliberately **no** panel-visibility probe signal here.
+      // The first version posted `{kind:'panel-visible'}` on the panel port; the
+      // binding gate caught the consequence (real-product regression, not a test
+      // relaxation): a panel-driven background refresh re-read `state`, and the
+      // SW's `state` reply consumes the **one-shot** `panelNotice` — so becoming
+      // visible could swallow the「已切换标签页…」notice before the user ever saw it.
+      // Recovery on visibility change stays intact through the existing `kick`
+      // signals: tab activation / navigation (`followActiveTab → kickDiscovery`) and
+      // panel (re)open (`onConnect → kickBoundProbe`), both of which reset the
+      // declaration backoff. See build.md §15.
     });
   }
 }

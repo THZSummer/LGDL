@@ -115,7 +115,9 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     // 风险位 — its ONLY writer, always resident, never folded (D3).
     // V3-2 (FR-V3-037): the invalidation row carries the dimension-specific
     // readable reason produced by the single judge (`l1/ref-validity.ts`).
-    renderRiskRail(doc, view.risks, view.staleRef ?? undefined);
+    // R2 (2026-09-17): the steady probing variant (declaration backoff, no fetch in
+    // flight) rides the same override channel — never a second rail writer.
+    renderRiskRail(doc, view.risks, view.staleRef ?? undefined, view.probeSteady ?? undefined);
     // V3-4 (ADR-V3-030 §5): the page-side availability row. It is appended AFTER the
     // rail's single writer has cleared and filled the rail, so the five v3-1 classes
     // keep their owner and the row stays inside the never-folding risk zone. When the

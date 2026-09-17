@@ -10,25 +10,67 @@
  *
  * Design constraints (see tasks.md TASK-032):
  *  - **Dedupe per origin**: an in-flight probe is never started twice.
- *  - **Bounded backoff**: 500ms → 1s → 2s → 4s → 8s → 15s steady (never a
- *    tight loop; never a background-wide poll).
+ *  - **Bounded backoff**: transient failures keep the fast schedule
+ *    500ms → 1s → 2s → 4s → 8s → 15s steady (never a tight loop; never a
+ *    background-wide poll).
  *  - **Stop conditions**: success / origin change / panel close / revoke.
- *  - **Temporary vs terminal**: both keep retrying (terminal at the 15s soft
- *    floor once the schedule saturates), but the readable copy differs.
+ *  - **Temporary vs terminal**: both keep retrying, but the readable copy and the
+ *    schedule differ — see the R2 note below.
+ *
+ * ── R2 (2026-09-17, post-closeout defect-fix round) ─────────────────────────
+ *
+ * Author's real-device report at HEAD `6d9ed5d`: on a site whose declaration is
+ * **permanently invalid** (deepseek returns HTML), the coordinator re-probed every
+ * 15 s forever. Two visible symptoms: the risk zone flipped「探测中」↔「站点声明存在
+ * 但无效」every 15 s (looks like a hang), and an eternally-invalid site got a
+ * never-ending pointless retry.
+ *
+ * Adjudicated fix (author's ruling "修：退避+稳态显示", 2026-09-17):
+ *  1. **Terminal failures get their own exponential schedule**
+ *     `15s → 30s → 60s → 120s → 300s` (cap), counted **per origin** and reset the
+ *     moment the terminal conclusion changes. Transient failures keep the fast
+ *     schedule above — a page that is still loading must not wait 15 s for its
+ *     first retry.
+ *  2. **Steady marker**: while waiting on a terminal failure the status carries
+ *     `steady: true` + `declarationAttempt`, and no `phase: 'probing'` is emitted
+ *     (the fetch itself is the only thing that is ever「探测中」). The panel renders
+ *     a stable「低频自动复查中」line instead of blinking to nothing.
+ *  3. **Recovery is not weakened**: navigation / refresh / tab switch / content-script
+ *     hello / authorize / panel (re)visible all still `kick()` → immediate probe and
+ *     the backoff restarts from the first step.
  *
  * Pure + dependency-injected (`probe`, timers) so the whole decision table is
  * node-testable with a controllable clock — no `chrome.*` / no real timers.
  */
 
-/** Backoff schedule for the first retries (ms). */
+/** Backoff schedule for the first transient retries (ms). */
 export const BACKOFF_MS: readonly number[] = [500, 1000, 2000, 4000, 8000];
-/** Steady-state cap: never retry faster than this (ms). */
+/** Steady-state cap for transient failures: never retry faster than this (ms). */
 export const BACKOFF_CAP_MS = 15000;
 
-/** Delay before retry number `retryNo` (1-based). Saturated at {@link BACKOFF_CAP_MS}. */
+/** Delay before transient retry number `retryNo` (1-based). Saturated at {@link BACKOFF_CAP_MS}. */
 export function delayForRetry(retryNo: number): number {
   if (!Number.isFinite(retryNo) || retryNo < 1) return BACKOFF_MS[0];
   return retryNo <= BACKOFF_MS.length ? BACKOFF_MS[retryNo - 1] : BACKOFF_CAP_MS;
+}
+
+/**
+ * R2: the **declaration** (terminal) backoff schedule — 15 s → 5 min cap. The last
+ * entry IS the cap, so `declarationDelayForAttempt` can index directly.
+ */
+export const DECLARATION_BACKOFF_MS: readonly number[] = [15000, 30000, 60000, 120000, 300000];
+/** R2: the declaration backoff cap (5 min) — the last {@link DECLARATION_BACKOFF_MS} step. */
+export const DECLARATION_BACKOFF_CAP_MS = 300000;
+
+/**
+ * R2: delay before declaration attempt number `attemptNo` (1-based, where 1 is the
+ * FIRST terminal failure and therefore schedules 15 s). Saturated at
+ * {@link DECLARATION_BACKOFF_CAP_MS}.
+ */
+export function declarationDelayForAttempt(attemptNo: number): number {
+  if (!Number.isFinite(attemptNo) || attemptNo < 1) return DECLARATION_BACKOFF_MS[0];
+  const index = Math.min(Math.floor(attemptNo), DECLARATION_BACKOFF_MS.length) - 1;
+  return DECLARATION_BACKOFF_MS[index];
 }
 
 export type ProbeFailureClass = 'temporary' | 'terminal';
@@ -65,6 +107,20 @@ export interface AutoProbeStatus {
   lastKind?: string;
   /** Delay (ms) of the currently scheduled retry, when `phase === 'waiting'`. */
   nextDelayMs?: number;
+  /**
+   * R2: consecutive terminal attempts for the current origin (0 when the current
+   * wait is not a declaration backoff). Keyed by origin + terminal conclusion, so it
+   * never leaks across origins and resets when the conclusion changes.
+   */
+  declarationAttempt: number;
+  /**
+   * R2 — the steady marker. `true` exactly while the coordinator is **waiting on a
+   * terminal declaration failure** (no fetch in flight, low-frequency re-check
+   * scheduled). The panel renders the steady「站点声明存在但无效（低频自动复查中）」
+   * line for this state; a `phase: 'probing'` status is emitted only when a fetch is
+   * actually issued.
+   */
+  steady: boolean;
 }
 
 export interface AutoProbeDeps {
@@ -108,6 +164,15 @@ export function classifyFailure(outcome: ProbeOutcome): ProbeFailureClass {
   return 'temporary';
 }
 
+/**
+ * R2: the identity of a terminal conclusion. Two consecutive terminal failures
+ * extend the same backoff only when this key is unchanged; any other key (or a
+ * non-terminal outcome) restarts the schedule.
+ */
+function terminalKey(outcome: ProbeOutcome): string {
+  return outcome.failureKind ?? outcome.state;
+}
+
 export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
   let target: { origin: string; tabId: number } | null = null;
   let focused = false;
@@ -121,6 +186,31 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
   let nextDelayMs: number | undefined;
   let timer: unknown = null;
   let lastReported = '';
+  /**
+   * R2: consecutive terminal attempts, **keyed by origin** (never shared between
+   * origins) plus the conclusion each count belongs to, so a changed conclusion
+   * restarts the schedule instead of inheriting a long delay.
+   */
+  const declarationAttempts = new Map<string, number>();
+  const declarationKinds = new Map<string, string>();
+
+  function declarationAttemptFor(origin: string | null): number {
+    return (origin && declarationAttempts.get(origin)) || 0;
+  }
+
+  /** R2: a changed terminal conclusion resets the count; the same one extends it. */
+  function bumpDeclarationAttempt(origin: string, kind: string): number {
+    const next = declarationKinds.get(origin) === kind ? declarationAttemptFor(origin) + 1 : 1;
+    declarationKinds.set(origin, kind);
+    declarationAttempts.set(origin, next);
+    return next;
+  }
+
+  /** R2: success / transient / blocked / fresh signal ⇒ the terminal backoff restarts. */
+  function clearDeclarationAttempt(origin: string): void {
+    declarationAttempts.delete(origin);
+    declarationKinds.delete(origin);
+  }
 
   function snapshot(): AutoProbeStatus {
     return {
@@ -134,6 +224,10 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
       ...(lastClass ? { lastClass } : {}),
       ...(lastKind ? { lastKind } : {}),
       ...(phase === 'waiting' && nextDelayMs !== undefined ? { nextDelayMs } : {}),
+      declarationAttempt: declarationAttemptFor(target?.origin ?? null),
+      // R2: the steady marker is exactly "waiting on a terminal declaration
+      // problem" — never true while a fetch is in flight.
+      steady: phase === 'waiting' && lastClass === 'terminal',
     };
   }
 
@@ -161,6 +255,8 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
     lastClass = undefined;
     lastKind = undefined;
     nextDelayMs = undefined;
+    // R2: a newly focused origin starts from the first step — its backoff is its own.
+    clearDeclarationAttempt(origin);
   }
 
   function sameTarget(origin: string, tabId: number): boolean {
@@ -204,6 +300,8 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
       lastClass = undefined;
       lastKind = undefined;
       nextDelayMs = undefined;
+      // R2: the site fixed its declaration → a future failure starts at 15 s again.
+      clearDeclarationAttempt(probeTarget.origin);
       report();
       return;
     }
@@ -215,6 +313,7 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
       lastClass = undefined;
       lastKind = undefined;
       nextDelayMs = undefined;
+      clearDeclarationAttempt(probeTarget.origin);
       report();
       return;
     }
@@ -223,7 +322,18 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
     lastKind = outcome.failureKind;
     lastReason = outcome.reason;
     retries += 1;
-    nextDelayMs = delayForRetry(retries);
+    if (lastClass === 'terminal') {
+      // R2: a terminal (declaration invalid / absent / version mismatch) failure gets
+      // the exponential declaration schedule — 15 s → 30 s → 60 s → 120 s → 300 s cap.
+      // The count is per origin + per conclusion: a changed conclusion restarts it.
+      const attemptNo = bumpDeclarationAttempt(probeTarget.origin, terminalKey(outcome));
+      nextDelayMs = declarationDelayForAttempt(attemptNo);
+    } else {
+      // Transient (page / content script / network not ready) keeps the fast schedule
+      // so a still-loading page is re-probed quickly.
+      clearDeclarationAttempt(probeTarget.origin);
+      nextDelayMs = delayForRetry(retries);
+    }
     phase = 'waiting';
     clearTimer();
     timer = deps.setTimer(() => {
@@ -257,10 +367,12 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
     kick(origin, tabId) {
       if (!origin) return;
       if (!sameTarget(origin, tabId)) resetTarget(origin, tabId);
-      // A fresh signal (refresh / tab switch / hello / authorize) restarts the
-      // backoff from the first step but never overlaps an in-flight probe.
+      // A fresh signal (refresh / tab switch / hello / authorize / panel re-visible)
+      // restarts the backoff from the first step but never overlaps an in-flight probe.
+      // R2: this is also what keeps「站点修复后立即恢复」true under the longer schedule.
       retries = 0;
       nextDelayMs = undefined;
+      clearDeclarationAttempt(origin);
       if (!focused) {
         report();
         return;
@@ -278,6 +390,7 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
         lastClass = undefined;
         lastKind = undefined;
         nextDelayMs = undefined;
+        clearDeclarationAttempt(origin);
         report();
         return;
       }
@@ -287,12 +400,16 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
       if (outcome.blocked) {
         phase = 'blocked';
         lastReason = outcome.reason;
+        clearDeclarationAttempt(origin);
         report();
         return;
       }
       lastClass = classifyFailure(outcome);
       lastKind = outcome.failureKind;
       lastReason = outcome.reason;
+      // R2: an out-of-band content-script report is a *fresh* signal — like `kick`, it
+      // restarts the declaration schedule rather than inheriting a long delay.
+      clearDeclarationAttempt(origin);
       report();
     },
     stop() {
@@ -305,6 +422,8 @@ export function createAutoProbe(deps: AutoProbeDeps): AutoProbe {
       lastClass = undefined;
       lastKind = undefined;
       nextDelayMs = undefined;
+      declarationAttempts.clear();
+      declarationKinds.clear();
       report();
     },
     status: snapshot,

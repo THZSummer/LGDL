@@ -1037,10 +1037,141 @@ git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-p
 | 3 | `pick-menu.ts#restoreFocus`（F6，需 `pick-layer.js` 重登记裁决） | ⛔ 仍 deferred | 与 §13.8 一致，本轮未动该产物 |
 | 4 | busy 残留的**真实**复现（后台提问被拾取取代） | ⏳ 未实跑端到端 | 根因与修法在代码层明确（§14.5），并有纯判据可 FAIL 断言；端到端需要「mock LLM 主动提问 + 拾取」的夹具，本轮未新增该夹具（如实登记） |
 
+## 15. 收口后缺陷修复轮 R2（2026-09-17，作者裁决「修：退避 + 稳态显示」）
+
+> **来源**：作者真机反馈（HEAD `6d9ed5d`，`https://platform.deepseek.com/usage`）：
+> 「deepseek 站点声明**永远无效**（返回 HTML）⇒ SW 每 15 秒软重试一轮 ⇒ 风险位每 15 秒在
+> 「探测中」↔「站点声明存在但无效」之间**闪烁**，视觉上像卡死」。
+> **编排器裁决**（2026-09-17，作者选定方案）：「**修：退避 + 稳态显示**」——
+> ① 指数退避 `15s → 30s → 60s → 120s → 封顶 300s`（**按 origin 独立计数**）；
+> ② 退避等待期风险位显示**稳态文案**（「低频自动复查中」），只有真正发起 fetch 的短暂窗口才显示「探测中」；
+> ③ 「页面导航 / 刷新」「标签页切换」「可见性变化」仍**立即重试并重置退避**（恢复能力不打折）；
+> ④ 用户可见文案由「每 15 秒低频软重试」改为真实退避描述。
+> **轮次性质**：同一 Feature 内的**缺陷修复轮** ⇒ `roundKind: 'registry-fidelity-round'`（④ 的「连续两个功能轮」口径不变）。
+
+### 15.1 根因（精确到行）
+
+| 步 | 文件:行（R2 前） | 事实 |
+|:--:|------------------|------|
+| ① | `src/discovery/auto-probe.ts:229-232`（重试循环唯一落点） | `timer = deps.setTimer(() => { timer = null; void run(); }, nextDelayMs)` —— **唯一**的「何时再查」实现 |
+| ② | `src/discovery/auto-probe.ts:225-226` | `retries += 1; nextDelayMs = delayForRetry(retries)`；`delayForRetry` 在 `BACKOFF_MS=[500,1000,2000,4000,8000]` 之后**饱和于 15000 恒定**（`BACKOFF_CAP_MS`）⇒ 终态（声明 invalid）**永远**每 15 s 一次 |
+| ③ | `src/discovery/auto-probe.ts:174-176` | `phase = 'probing'; report()` —— 每次 fetch 都广播一次 `probing`；`waiting` 期广播 `waiting` |
+| ④ | `src/background/service-worker.ts:770`（`onStatus`） | `probe-changed` → 面板 `refreshState()`（`sidepanel.ts:1864-1868`）⇒ 风险位每 15 s 重绘一次 |
+| ⑤ | `src/ui/sidepanel/sidepanel.ts:411`（R2 前为 408） | `probing: state.probe?.phase === 'probing' && state.discoveryState !== 'supported'` ⇒ 只有在 fetch **在飞**时风险行存在；退避等待期该行**消失** |
+| ⑥ | `src/ui/sidepanel/l0/risk-rail.ts:44` | 风险行文案唯一来源 `RISK_COPY.probing.text`（「探测中：正在读取站点声明（web-cli/x.y）…」） |
+| ⑦ | `src/ui/sidepanel/view-model.ts:95`（R2 前） | `AUTO_RETRY_LINE` = 「…否则**每 15 秒低频软重试**…」—— 与 ② 的恒定 15 s 一致，但正是闪烁源与「永久无意义重试」的用户可见表述 |
+
+**综合症状**：③⑤⑥ 让风险行在每轮 fetch 时**出现**、等待期**消失**（0.5 s 出现 / 15 s 消失的闪烁），⑦ 把该行为写成文案；② 让永不声明的站点被**永久**重试。
+
+### 15.2 修法（diff 摘要）
+
+| 层 | 文件 | 改动 |
+|----|------|------|
+| 退避表 | `src/discovery/auto-probe.ts` | 新增 `DECLARATION_BACKOFF_MS = [15000, 30000, 60000, 120000, 300000]` + `DECLARATION_BACKOFF_CAP_MS = 300000` + `declarationDelayForAttempt(attemptNo)`（`min(attemptNo, 5)` 索引，封顶 300 s）。**瞬态失败仍走旧的快速表**（`500ms→8s→15s`，`delayForRetry` 一字未动）—— 页面还在加载的站点不该等 15 s 才重试 |
+| 按 origin 计数 | 同上 | `declarationAttempts: Map<origin, number>` + `declarationKinds: Map<origin, string>`；`bumpDeclarationAttempt(origin, terminalKey(outcome))` 只在「**同 origin 且同一终态结论**」时递增，**结论变化 ⇒ 重置为 1**；`clearDeclarationAttempt(origin)` 在 supported / blocked / 瞬态 / `kick` / `note` / `resetTarget` / `stop` 调用 |
+| 稳态广播 | 同上 | `AutoProbeStatus` 新增 `declarationAttempt: number` 与 `steady: boolean`；`steady = (phase === 'waiting' && lastClass === 'terminal')` —— **只有真正发起 fetch 才进入 `probing`**；退避等待期广播的是 `waiting + steady:true`（等价于裁决要求的「稳态标记」） |
+| 重置三触发器 | 同上 | `kick(origin, tabId)` = 导航/刷新/切标签页/内容脚本 hello/授权/面板(重)开 的统一入口：`retries = 0` + `clearDeclarationAttempt(origin)` + 立即 `run()`；结论变化由 `bumpDeclarationAttempt` 的 key 判定；结论变好由 `supported` 分支清理 |
+| 面板（稳态显示） | `src/ui/sidepanel/view-model.ts` | 新增 `PROBING_STEADY_BADGE='低频复查'` / `probingSteadyText(kind)` / `probingSteadyView(probe)`（纯函数，`steady !== true` ⇒ `null`）；`L0Input.probeSteady` / `L0View.probeSteady` 新契约；`deriveRiskClasses` 在 `probing === true \|\| probeSteady` 时都激活 `probing` 类（五类不折叠）；`AUTO_RETRY_LINE` 改为「…否则按 **15 秒→5 分钟退避自动复查**…」 |
+| 风险位渲染 | `src/ui/sidepanel/l0/risk-rail.ts` | `renderRiskRail(doc, active, staleRef?, probeSteady?)`：稳态行**复用既有 override 通道**（数据、非第二模板），仍是 `data-risk-class="probing"`、仍走 `renderRiskRow` 三通道、override 文本参与重绘签名；**缺省回落静态「探测中」文案** |
+| 接线 | `src/ui/sidepanel/l0/shell.ts` / `sidepanel.ts` | override 透传；`l0Input()` 在 `state.probe.steady === true && discoveryState !== 'supported'` 时注入稳态行 |
+| 拾取可用性 | `src/ui/sidepanel/view-model.ts` | **不变**：只有真正 fetch 在飞（`probing`）才 `pickDisabled`；退避等待期（`probeSteady`）**不**禁用拾取 —— 引用/拾取不受声明探测影响 |
+| SW 触发 | `src/background/service-worker.ts` | 新增 `kickBoundProbe(s)`（`setFocused(true)` + `kick`），面板端口 **onConnect** 用它替原 `focusBoundProbe`（面板打开 = 新鲜信号）；`state` 回复路径**仍用** `ensure`（否则每次重绘都重置退避 ⇒ 空转） |
+
+**可见性信号的实测回退（如实登记）**：初版还在面板 `visibilitychange→visible` 时通过面板端口发 `{kind:'panel-visible'}`。
+`test:binding` **实测抓出真实回归**（非测试放宽）：面板驱动的后台刷新会重读 `state`，而 SW 的 `state` 回复会**消费一次性 `panelNotice`**
+⇒ 该信号会把「已切换标签页…」提示在用户看到之前吞掉（`#9b` FAIL，191/1）。处置 = **移除该信号与 SW 侧 `port.onMessage` 处理**，
+恢复能力由既有 `kick` 触发器承担：标签页激活/导航（`followActiveTab → kickDiscovery → kick`）与面板(重)开（`onConnect → kickBoundProbe`）。
+证据：移除后 `test:binding` **192/0 PASS**（`15b-binding-novis.log`），并已写入代码注释（`sidepanel.ts:2005-2015`）。
+
+### 15.3 反证（全部可 FAIL；扰动 → FAIL → sha256 还原 → PASS）
+
+| # | 反证 | 扰动（合法语法） | 期望 | 实测 |
+|:-:|------|------------------|------|------|
+| A | **退避回退为恒 15 s** | `auto-probe.ts` 终态分支改 `nextDelayMs = DECLARATION_BACKOFF_MS[0]`（恒 15 s，即 R2 前的行为） | 新断言必须 FAIL | ✅ `EXIT=1`，`ℹ tests 815 / pass 811 / fail 4`；失败原文：`15s→30s→60s→120s→5min 封顶`（actual `[15000,15000,…]`）、`退避等待期必须带稳态标记（面板据此渲染稳态文案）`、`退避重置回第一步`（`15000 !== 120000`）、`结论变化 ⇒ attempt 重置`（`15000 !== 60000`）；还原后 sha256 == `74a6a52f…` PASS |
+| B | **稳态标记回退**（退避期不再广播 `steady`） | `auto-probe.ts#snapshot()` 改 `steady: false` | 新断言必须 FAIL | ✅ `EXIT=1`，`ℹ tests 815 / pass 814 / fail 1`；失败原文：`退避等待期必须带稳态标记（面板据此渲染稳态文案）` / `false !== true`；还原后 sha256 == `74a6a52f…` PASS |
+| C | **稳态行回退**（面板不再渲染稳态文案） | `view-model.ts#probingSteadyView` 判定反置（`probe.steady === true ⇒ null`） | 新断言必须 FAIL | ✅ `EXIT=1`，`ℹ tests 815 / pass 813 / fail 2`；失败原文：`terminal 退避等待期必须给出稳态行`、`L0View 必须把稳态行交给风险位渲染器`；还原后 sha256 == `2d80dc19…` PASS |
+| D | **（门禁反证，实测有价值）** 可见性信号回归 | 保留 `panel-visible` 信号 | 既有门禁必须抓出 | ✅ `test:binding` `EXIT=1`，`191 passed / 1 failed`（`#9b 侧栏可读提示「已切换标签页，请点插件图标」`）；处置见 §15.2 |
+
+> **「因错而红」防呆**：反证 C 的首版扰动写成 `return null;` 尾巴 ⇒ `tsc` 报 `TS18049: 'probe' is possibly 'null' or 'undefined'`，
+> 构建期即失败（`EXIT=2`）—— 按仓库纪律**判为无效并作废**，改用「判定反置」形态重跑（无效证据 `RP-R2-C-INVALID-builderror.log` 逐字留档）。
+
+### 15.4 门禁（严格串行，18 步全绿；计数只增不减）
+
+| 门禁 | 实测 | 基线（R1 后） |
+|------|:--:|:--:|
+| `01 typecheck` / `02 build` | `0 error` / `EXIT=0` | — |
+| `03 npm test`（插件单测） | **`ℹ tests 815 / pass 815 / fail 0`** | 803 → **815**（+12：退避/稳态/重置三触发器/按 origin 独立计数 7 + 稳态文案与风险类接线 4 + 重绘签名 1） |
+| `04 test:supersession` | **14 / 0** | 14 |
+| `05 test:density` | **127 / 0**（22 登记格**逐项相等**） | 127 |
+| `06/07/08 l0 / l1 / l2` | **164 / 103 / 71**，0 failed | 同 |
+| `09/10 l1-reverse / l2-reverse` | **9 条 / 10 条**（注入→FAIL→sha256 复原→PASS） | 同 |
+| `11 page-input` | **93 / 0** | 93 |
+| `12 zero-injection` | **27 / 0** | 27 |
+| `13/14/15/16 journey / insight / binding / hardening` | **167 / 116 / 192 / 24** | 同 |
+| `17 e2e` | **R8 E2E PASS**（real dist full chain） | PASS |
+| `18 gate-integrity` | **12 / 12** | 12 |
+| 体积四线 | `content.js 177,076`（sha `52a82620…` **不变**）· `pick-layer.js 33,900`（sha `5f567d7e…` **不变**）· `sidepanel.js 368,529` ≤ ceiling **386,955** · `+1 B` 反证在新 ceiling 上重跑（`npm test` 内） | — |
+
+日志全量落盘：`/tmp/opencode/v3-gate-logs/defect-r2-probe-backoff/`（`01-*` … `18-*`、`SERIAL.txt`、`RP-R2-A/B/C*`、`REDLINES-BEFORE/AFTER.txt`）。
+
+**如实登记的环境性 flaky（1 次）**：文档/台账写入后复核 `npm test` 时，`perf-budget.test.ts` 的
+`NFR-007: sequential authorized read dispatches stay within the per-call budget` 实测
+`50 dispatches took 251ms (> 250ms budget)` ⇒ `EXIT=1 / fail 1`（`03b-npmtest-after-docs.log`）；
+**单独复跑同一命令 ⇒ `815/815 pass`、`201.2ms`（`03c-npmtest-rerun.log`）**。该断言是**时间预算类**判据
+（250 ms / 50 dispatch），与本轮改动无因果关系（本轮未触碰该路径），且首次 18 步串行运行时该项为绿 ——
+按仓库纪律**如实登记为环境性抖动**，不改阈值、不删断言。
+
+### 15.5 密度影响：**零漂移**（无须重登记）
+
+裁决预判「稳态文案若进入被测格会触发 density 漂移」。实测**不漂移**，原因是两条口径边界：
+
+- **风险位强制格（risk 子场景 `probing`）**用 `window.__v3.testing.setRisk('probing','force')` 驱动，**没有** `probeSteady` override
+  ⇒ 渲染的仍是静态 `RISK_COPY.probing.text`（fetch 文案，本轮逐字未改）。这也正是 `renderRiskRail` 把稳态行做成 **override（缺省回落）** 的原因。
+- **`#discovery-notice`** 承载 `AUTO_RETRY_LINE` 的新文案，但三档夹具的 `discoveryState` 均为 `supported` ⇒ 该节点 `hidden=true`，不进 C2/C3 计数。
+
+`test:density` 阶段 F 机器比对结论：**`F 22 个登记格实测 == 基线登记值（漂移即 FAIL）` PASS**、`F 阈值同源` PASS、`F 产物字节 == 体积登记值` PASS。
+⇒ **本轮密度对照表为空**（无格变更、无阈值改动；`7/15 · 9/20 · 17/35` 逐字未动）。
+
+### 15.6 体积与重登记（五要素披露）
+
+| 项 | 值 |
+|----|----|
+| 前值 → 后值 | `366,755 → 368,529 B`（**+1,774 B / +0.48%**） |
+| 逐模块归因（真实 metafile `bytesInOutput`，Σ == 总增幅） | `view-model.ts +1,006` · `sidepanel.ts +388` · `l0/risk-rail.ts +352` · `l0/shell.ts +28`；退避调度器在 `src/discovery/auto-probe.ts` ⇒ **service-worker bundle**，不进本产物 |
+| ceiling | 公式抬高 `floor(368,529 × 1.05) = 386,955 B`（容差 5% 未动、cap 仍 `record-only`、`previousCeilingBytes = 385,092`） |
+| 累计口径 | `SIDEPANEL_GROWTH_BREAKDOWN.deltaBytes = 73,304`（368,529 − 295,225）；新必需 53,185 + 接线 19,398 + 位移 265 + 未归因胶水 456 = 73,304（必需占比 99.02%） |
+| Feature 累计 | 从 266,500 B 起算 **+38.28%**（< 40% 停工线；最差相邻两功能轮 +22.96% 的告警仍在） |
+| 零改动 | `content.js` 177,076（sha 不变）· `pick-layer.js` 33,900（sha 不变）· 三冻结源 hash == pin · 判定链 pin 零改动 |
+| 登记落点 | `test/size-baseline.ts`（`SIDEPANEL_RE_REGISTRATIONS['v3-4-r2']` / `SIDEPANEL_GROWTH_BREAKDOWN` / TIMELINE 末项）· `test/size-budget.test.ts`（数值重 pin）· `test/size-growth-evidence.test.ts`（`deltaBytes`）· `docs/v3-density-baseline.json#volume` · `docs/v3-supersession-ledger.json`（`V34R2-S1~S8` + 两种口径读数 `962/826/815` 与 `currentRuntime 815` + `featureHistory['v3-4-r2']`） |
+
+### 15.7 零改动核对（红线）
+
+| 红线 | 实测 | 结论 |
+|------|------|:--:|
+| `dist/content.js` 逐字节不变 | `177,076` · sha `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6` | ✅ |
+| `dist/pick-layer.js` 逐字节不变 | `33,900` · sha `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59` | ✅ |
+| `src/content/**` 零改动 | 三冻结源 sha == `CONTENT_SOURCE_SHA256`（`a7290031…` / `7df782b3…` / `5737c40a…`）；`git diff --stat HEAD -- src/content` 空 | ✅ |
+| 判定链 pin（`policy.ts` / `auto-authorize.ts`） | `bfcb2ede…` / `1096d065…`；`git diff --stat HEAD -- src/security` 空 | ✅ |
+| `manifest.json` / `index.html` / `package.json` | 零 diff；`manifest` 零新增权限（零注入门禁 27/0） | ✅ |
+| 密度阈值 `7/15 · 9/20 · 17/35` | 未动（`test:density` 127/0，阶段 F 阈值同源 PASS） | ✅ |
+| 风险位五类不折叠 / 未授权零注入 | `test:l0` 164/0（`probing` 类在退避期**仍常驻**）· `test:zero-injection` 27/0 | ✅ |
+| 测试只增不减、断言只强不弱 | `803 → 815`；既有断言零删除（台账 `V34R2-S1~S8` 登记 2 处取代 + 1 处纯新增） | ✅ |
+| 不用 `git add -A` / 门禁串行 / 日志全量落盘 | 逐文件 path-limited add；`run-gates-r2.sh` 严格串行；日志全量落盘 | ✅ |
+
+### 15.8 未完成 / 人工面（如实登记）
+
+| # | 项 | 状态 | 说明 |
+|:-:|----|:--:|------|
+| 1 | **真机观察「不再闪烁」**（作者：在 deepseek 站点观察风险位是否稳定显示稳态文案、且不在每 15 s 闪一次） | ⏳ **未执行** | headless 夹具能证明退避序列 / 稳态标记 / 三触发器 / 文案与风险位接线**全部**为真，但「视觉上不再闪烁」的观感只能在真机确认（本轮**不冒充 PASS**） |
+| 2 | 真机确认「站点修好后立即恢复」（改站点声明 → 刷新/切标签页 → 应立刻进入正常态，不等 5 min） | ⏳ 未执行 | 逻辑由「`kick` 重置 + supported 分支清理」与 §15.3 反证 A 覆盖；真机端到端仍待作者复测 |
+| 3 | 长退避（>2 min）在真实 SW 生命周期（MV3 可能休眠）下的行为 | ⏳ 未实测 | 退避定时器由 `deps.setTimer` 注入（现为 `setTimeout`）；MV3 SW 休眠会丢定时器，重唤醒依赖面板端口/标签事件（与既有 `ensure` 路径一致）。本轮**未**新增 alarm 保活（越界），如实登记为已知边界 |
+| 4 | 拾取观感 / 拖动体感 / 菜单观感 / 宿主真实兼容 / 多显示器 / 高 DPI（6 项人工面）· `pick-menu.ts#restoreFocus`（F6）· busy 残留端到端 | ⏳ / ⛔ | 与 §8 / §13.8 / §14.8 一致，本轮未动 |
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.5 | **收口后缺陷修复轮 R2（作者裁决「修：退避 + 稳态显示」，2026-09-17）**：终态（声明 invalid / absent / version-mismatch）探测改走**独立指数退避** `15s→30s→60s→120s→300s（封顶）`（**按 origin + 按结论**计数，结论变化即重置；瞬态失败保持既有的 `500ms→15s` 快速表不改）；退避等待期广播 `steady:true` 稳态标记，面板风险位显示「（低频自动复查中）…」**稳态行**，只有真正 fetch 才显示「探测中」（消除每 15 s 闪烁）；`kick`（导航/刷新/切标签页/hello/授权/面板重开）仍**立即重试 + 重置退避**；用户可见文案改为真实退避描述。**实测回退**：初版的「面板可见性 → `panel-visible`」信号被 `test:binding` 抓出真实回归（面板刷新重读 `state` 会吞掉一次性 `panelNotice`）⇒ 移除该信号，恢复能力由既有 `kick` 触发（§15.2）。反证 A/B/C 三段（退避回退 / 稳态标记回退 / 稳态行回退，全部 `EXIT=1` + 命中预期文本 + sha256 逐字节还原 + PASS）+ 门禁反证 D（binding `#9b`）；「因错而红」防呆：反证 C 首版扰动为 TS 编译错 ⇒ 作废重跑。门禁 18 步严格串行全绿（单测 **815** · supersession 14 · density **127（22 登记格零漂移）** · l0/l1/l2 164/103/71 · l1/l2-reverse 9/10 · page-input 93 · zero-injection 27 · journey/insight/binding/hardening 167/116/192/24 · e2e PASS · gate-integrity 12）；`sidepanel.js` 显式重登记 **366,755 → 368,529 B**（+1,774 / +0.48%，逐模块可归因；ceiling → **386,955**；容差 5% 未动、cap 仍 record-only）；`content.js` 177,076 与 `pick-layer.js` 33,900 **逐字节不变**（sha 复核）；测试只增不减（803 → 815）。 | 2026-09-17 | SDDU Build Agent |
 | v1.4 | **收口后缺陷修复轮 R1（作者真机反馈，2026-09-17）**：修「普通站点拾取的引用出生即死」**两个缺口** —— ① D4 口径由「必须有 `declarationHash`」改为「**捕获时声明状态 vs 当刻状态一致**」（SW `declarationEnv` 新增 `declarationStatus` 单一事实源 + 面板摄取 `withDeclaration()` 补全捕获事实；任何状态变化 ⇒ 失效并要求重拾；旧记录逐分支维持原判；fail-closed 逐分支论证见 v3-2 build.md §12.3）；② **D1 身份观测晚于身份标记**（标记由面板铸造 id 后才写回页面 ⇒ 新拾取的引用被判「已被同类新元素替换」）：`ref-highlight` 的 `mark` 分支由 SW 在写标记**之后**重读一次身份观测（`observeIdentity()`，只读 DOM）并交回面板重判（面板**不自证** `resolved`）。另修次要现象 busy 残留（引用回合取代后台提问 ⇒ 该提问只能等 60 s 超时，期间发送键显示「上一条指令仍在处理中」）：`supersededAsk()` + 结算为 canceled（≤10 行 + 可 FAIL 断言）。反证三条：①a 回退摄取补全 ⇒ `page-input` 失败原因**逐字等于作者原文**（`缺失 declarationHash`）· ①b 回退新观测回写 ⇒ 失败原因为「身份标记不匹配」· ② 状态变更 ⇒ invalid + 提示重拾 · ③ 旧数据（无 hash 无 status）⇒ 仍失效；**「因错而红」防呆**：①a 的首版扰动造成语法错误（构建失败）⇒ 判为无效并作废，改用恒等函数形态重跑（证据逐字留档）。门禁 21 项串行全绿（单测 **803** · density 127 · l0 164 · l1 103 · l2 71 · page-input **93（连跑 5/5）** · zero-injection 27 · journey 167 · insight 116 · binding 192 · hardening 24 · e2e PASS · gate-integrity 12 · l1/l2-reverse 9/10）；`sidepanel.js` 显式重登记 **362,777 → 366,755 B**（+3,978 / +1.10%，逐模块可归因；ceiling → **385,092**；容差 5% 未动、cap 仍 record-only）；`content.js` 177,076 与 `pick-layer.js` 33,900 **逐字节不变**（sha 复核）；测试只增不减（796 → 803）。 | 2026-09-17 | SDDU Build Agent |
 | v1.3 | **收口轮（validate R1 的 F1~F7）**：**F4（最高优先）实现生产可达** —— `revoke` **先** `denotifyPickLayer`（逐 tab 广播 `pick-layer-env{authorized:false}`）**再** `teardownPickLayer`，且 `pick-layer-inject` 在 `executeScript` 后**重算** env 再下发（在途 inject 不得复活已撤销授权）；改动只在 `src/background/**`，三受 pin 产物逐字节不变。**F3 去 flaky**：I-01②/I-01③ 载体换成同 origin 的非 bound/active tab + 静止前置（饱和退避 ≥15s 或终态、连续两次读数），**连跑 5 次 5/5 绿**（92/0），断言零减弱。**F1 登记保真**：逐文件归因三处落点按实测订正 `661/389/376/83` + 新增「四项之和 == 总增幅（Σ == +1,509）」机器断言（两段反证：`+661→+615` ⇒ FAIL；台账 `totalBytes 1509→1508` ⇒ FAIL）。**F2**：`+10.25%/+22.95% → +10.44%/+22.96%`（含台账 5 条 reason），历史值逐字保留。**F5**：`pickLayerTarget` 同 origin 时 active 优先 + 确定性断言。**F7**：in-gate 清单文案订正（`4→9` 实为 `8→13`；本轮 `13→17`）。**F6 deferred**（修法落在钉死的 `pick-layer.js` 上，需新的显式重登记裁决）。门禁 21 项严格串行全绿（`binding` 首跑环境性红 ⇒ 复跑 192 全绿，已如实登记）；计数只增不减（node 795→796 / page-input 78→92）。 | 2026-09-17 | SDDU Build Agent |
 | v1.2 | **修复轮 R2（裁决 V3-VOL-2）**：`pick-layer.js` **显式重登记 32,391 → 33,900 B**（+1,509 / +4.66%，逐文件实测 +661/+389/+376/+83；五要素披露 + 新增 `PICK_LAYER_BASELINE_BYTES_HISTORY`/`PICK_LAYER_RE_REGISTRATIONS` 机器断言；`+1 B` @ 33,901 反证实跑 FAIL、还原后 sha256 一致 PASS；`content.js` 177,076 与 `sidepanel.js` 362,777 零改动）；落地 5 项 deferred（I-02 复活 host / I-03 焦点还原 / I-01② 授权自检 + `envReady()` / I-01③ `pushState('gone')` / I-10 死判据 + 定时器跟踪）；`page-input` 61 → **78** 断言；**两段证伪**：回退 `71 passed / 7 failed` EXIT=1 → 修复 `78 passed / 0 failed` EXIT=0；台账 `V34R2-S1/S2/S3` + `featureHistory.v3-4-fix2` + 5 条 in-gate 反证登记；门禁 21 项严格串行全绿（计数只增不减）。 | 2026-09-17 | SDDU Build Agent |

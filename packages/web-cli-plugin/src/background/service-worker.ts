@@ -831,6 +831,26 @@ function focusBoundProbe(s: Singletons): void {
   s.autoProbe.ensure(bound.origin, bound.tabId);
 }
 
+/**
+ * R2 (2026-09-17, post-closeout defect-fix round): **fresh panel-presence signal**.
+ *
+ * A panel that (re)appears / becomes visible is a recovery opportunity, exactly like
+ * a navigation or a tab switch: probe now and restart the declaration backoff from
+ * its first step. Under R2's longer schedule (15 s → 5 min cap) `ensure()` alone
+ * would make a just-reopened panel wait out the remaining delay — i.e. the author's
+ *「切回来看一眼立刻要准」would silently degrade. `kick()` keeps that capability
+ * intact while the *steady* marker keeps the UI from blinking (see `auto-probe.ts`).
+ *
+ * Deliberately NOT used by the `state` reply path (`focusBoundProbe`), which fires on
+ * every panel re-render: kicking there would reset the backoff in a loop.
+ */
+function kickBoundProbe(s: Singletons): void {
+  const bound = s.controller.get();
+  if (!bound) return;
+  s.autoProbe.setFocused(true);
+  s.autoProbe.kick(bound.origin, bound.tabId);
+}
+
 async function persistChatHistory(s: Singletons, sessionId: string | null = s.currentSessionId): Promise<void> {
   if (!sessionId) return;
   try {
@@ -2679,7 +2699,9 @@ chrome.runtime.onConnect.addListener((port) => {
   panelClients += 1;
   void (async () => {
     const s = await init();
-    focusBoundProbe(s);
+    // R2: a (re)appearing panel is a fresh probe signal (immediate re-check + backoff
+    // restart), not merely「ensure」— see `kickBoundProbe`.
+    kickBoundProbe(s);
   })();
   port.onDisconnect.addListener(() => {
     panelClients = Math.max(0, panelClients - 1);
