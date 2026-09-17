@@ -206,6 +206,18 @@ async function main() {
     let snap = await panel.snapshot();
     let dom = await panel.dom();
     check('① 交互 1（Alt 悬停）：生成 1 个引用', (snap?.l1?.counts ?? 0) === 1, JSON.stringify(snap?.l1));
+    // ── R1 复现反证（2026-09-17，编排器裁决）────────────────────────────────
+    // 本夹具站点**没有 web-cli 声明**（正是作者真机 deepseek 的场景）。修复前，
+    // 页面侧（冻结）只能写 `declarationHash: ''` ⇒ 判定链读作「捕获事实缺失
+    // declarationHash」⇒ 引用出生即死（unknown）。R1 由 SW 的单一事实源补
+    // `declarationStatus`、面板摄取时写入捕获事实，判定改为「状态一致」。
+    // 回退「摄取时补全捕获事实」后该引用回落到旧口径 ⇒ 本条立刻翻红。
+    const firstRef = (snap?.l1?.refs ?? [])[0] ?? null;
+    check(
+      'R1 反证：无有效声明站点拾取的引用在声明不变期间判 valid（回退修复即 FAIL）',
+      firstRef?.verdict === 'valid' && !firstRef?.reason,
+      JSON.stringify(firstRef),
+    );
     check('① 交互 1：同一次拾取生成 1 道选择题', dom.askVisible === true && dom.askPrompt.length > 0, JSON.stringify(dom.askPrompt));
     check('② 拾取结果不是常驻输入框（#ask-fallback 保持隐藏）', dom.fallbackHidden === true, JSON.stringify(dom.fallbackHidden));
     check('① chip 文案反映引用条数', /引用 1 条/.test(dom.chip), dom.chip);

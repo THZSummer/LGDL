@@ -5,7 +5,16 @@
  * per-origin authorization, second-confirmation prompt and audit view. All state
  * transitions go through the pure reducer in `chat-state.ts`.
  */
-import { createInitialState, reduce, resolveAsk, resolveConfirm, type ChatRole, type SidepanelState } from './chat-state.js';
+import {
+  REF_ROUND_PREFIX,
+  createInitialState,
+  reduce,
+  resolveAsk,
+  resolveConfirm,
+  supersededAsk,
+  type ChatRole,
+  type SidepanelState,
+} from './chat-state.js';
 import { renderMarkdown } from './markdown.js';
 import { createScrollFollow, isNearBottom, type ScrollMetrics } from './scroll-policy.js';
 import {
@@ -58,7 +67,7 @@ import type { L0Input, L0View } from './view-model.js';
 // keeps its ownership and no existing handler is rewritten.
 import { mountL1, type L1Handle, type L1Input } from './l1/panels.js';
 import type { OwnershipTree } from '../../insight/ownership-tree.js';
-import type { RefResolution } from './l1/ref-validity.js';
+import type { DeclarationStatus, RefResolution } from './l1/ref-validity.js';
 // V3-4 (ADR-V3-030 / AC-CONV-1): the panel side of「页面即输入」— the two injection
 // triggers, the document identity the page reports, and the drop target.
 import { mountPickInput, type PickInputHandle } from './pick-input.js';
@@ -365,7 +374,12 @@ const v3TestState = {
  */
 const pickFacts = {
   pageUnavailable: null as string | null,
-  declaration: null as { hash: string; version?: string } | null,
+  /**
+   * R1: the declaration **state** travels too (`valid` / `invalid` / `absent`), so a
+   * site that never declares web-cli can still produce usable references — the state
+   * (not a digest) is the fact D4 compares. Single source: the SW's `declarationEnv`.
+   */
+  declaration: null as { status: DeclarationStatus; hash: string; version?: string } | null,
 };
 /** The reference the pending decision round was minted from (AC-CONV-2's binding). */
 let pendingRefId: string | null = null;
@@ -1039,27 +1053,48 @@ function syncRefEnv(): void {
  */
 function acceptCapture(facts: Record<string, unknown>, resolution: { status: string; refMark?: string; nodeCount?: number }): void {
   v3TestState.envOverride = false; // a real capture ⇒ production facts own the env again
+  // R1 (2026-09-17): a reference round REPLACES `state.ask`, so a pending *background*
+  // question would never be answered by the panel — its bridge would only expire on the
+  // 60 s timeout, leaving the turn「处理中」(composer: 上一条指令仍在处理中). Settle it as
+  // canceled so the background turn can finish; the user is told, not silently dropped.
+  const superseded = supersededAsk(state);
+  if (superseded) {
+    void send(makeMessage('ask-user-response', { ...superseded, canceled: true }));
+    dispatch({ type: 'notice', text: '已放弃上一条提问（你先在页面上拾取了引用）。' });
+  }
   const record = l1?.injectRef(facts as never);
   l1?.setResolution(resolution as RefResolution);
-  const judged = l1?.judge() ?? [];
   const refId = record?.facts.refId ?? '';
   if (!refId) return;
-  // The identity mark + the ordinal badge: the page renders the id the panel minted, so
-  // the chip, the badge, the evidence row and the risk row all carry one ordinal.
-  void pickInput?.highlight(refId, String(facts.selector ?? ''), 'mark');
   pendingRefId = refId;
-  const verdict = judged.find((r) => r.facts.refId === refId)?.verdict ?? 'unknown';
   const paths = [
     facts.selector ? `选择器 ${String(facts.selector)}` : '',
     facts.semanticPath ? `语义路径 ${String(facts.semanticPath)}` : '',
   ].filter(Boolean);
-  dispatch({
-    type: 'ask',
-    requestId: `ref-round-${refId}`,
-    kind: 'choice',
-    prompt: `已捕获引用 ${refId}${paths.length ? `（${paths.join(' · ')}）` : ''}：要用它做什么？（判定：${verdict}）`,
-    options: ['纳入下一步（作为上下文）', '用这里作为操作目标', '先看引用证据（选择器 / 语义路径）'],
-  });
+  const ask = (verdict: string): void => {
+    dispatch({
+      type: 'ask',
+      requestId: `${REF_ROUND_PREFIX}${refId}`,
+      kind: 'choice',
+      prompt: `已捕获引用 ${refId}${paths.length ? `（${paths.join(' · ')}）` : ''}：要用它做什么？（判定：${verdict}）`,
+      options: ['纳入下一步（作为上下文）', '用这里作为操作目标', '先看引用证据（选择器 / 语义路径）'],
+    });
+  };
+  // The identity mark + the ordinal badge: the page renders the id the panel minted, so
+  // the chip, the badge, the evidence row and the risk row all carry one ordinal.
+  //
+  // R1 (2026-09-17): the mark is written by this round-trip, so the **capture-time**
+  // observation structurally cannot carry it — D1 read「身份标记不匹配」and denied every
+  // freshly picked reference. The mark write returns a fresh page observation; re-judging
+  // with it is what makes the reference usable (and it stays fail-closed: no observation
+  // ⇒ the older fact stands, which denies).
+  void (async () => {
+    const fresh = await pickInput?.highlight(refId, String(facts.selector ?? ''), 'mark');
+    if (fresh) l1?.setResolution(fresh);
+    const judged = l1?.judge() ?? [];
+    render();
+    ask(judged.find((r) => r.facts.refId === refId)?.verdict ?? 'unknown');
+  })();
 }
 
 /** Send the user's answer back to the background and clear the prompt (R7). */
@@ -1306,13 +1341,20 @@ async function refreshState(): Promise<void> {
   // V3-4 (AC-CONV-1): the adopted declaration's digest/version. Without it the judge
   // reports「无法确认声明是否变化」for every reference — fail-closed but useless, so the
   // production env must carry it.
+  // R1: the **state** is part of the fact (a non-declaring site must still be usable).
   const decl = res.data.declaration;
-  pickFacts.declaration =
-    decl && typeof decl.declarationHash === 'string' && decl.declarationHash
-      ? { hash: decl.declarationHash, ...(decl.declarationVersion ? { version: decl.declarationVersion } : {}) }
-      : decl && !decl.declarationHash
-        ? { hash: '' }
-        : null;
+  pickFacts.declaration = decl
+    ? {
+        status:
+          decl.declarationStatus === 'valid'
+            ? 'valid'
+            : decl.declarationStatus === 'absent'
+              ? 'absent'
+              : 'invalid',
+        hash: typeof decl.declarationHash === 'string' ? decl.declarationHash : '',
+        ...(decl.declarationVersion ? { version: decl.declarationVersion } : {}),
+      }
+    : null;
   // V3-4 trigger ①: the panel is present on an authorized origin ⇒ ensure the layer
   // exists (idempotent; a failure is reported readably through `onUnavailable`).
   void pickInput?.ensureInjected();

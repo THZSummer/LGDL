@@ -197,6 +197,34 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
 }
 
 /**
+ * R1 (2026-09-17) — the request-id prefix the panel's own **reference rounds** use.
+ *
+ * A reference round is answered *locally* (`submitAsk` routes it into
+ * `applyRefAction` instead of `ask-user-response`), so it must be distinguishable from
+ * a background question; that distinction is the whole basis of
+ * {@link supersededAsk}.
+ */
+export const REF_ROUND_PREFIX = 'ref-round-';
+
+/**
+ * R1 (2026-09-17) — the pending **background** question a new reference round
+ * supersedes, or `null`.
+ *
+ * Why it matters: `acceptCapture()` dispatches its own `ask` round, which *replaces*
+ * `state.ask`. If a background question was the one being replaced, the panel will
+ * never answer it (the ref round's reply goes to the reference entry, not to
+ * `ask-user-response`), so its ask-bridge only expires on the 60 s timeout — the turn
+ * stays「处理中」and the composer keeps reading「发送已禁用：上一条指令仍在处理中」long
+ * after the user has moved on to picking. The caller settles the returned id as
+ * canceled (readable, fail-closed) so the turn can finish.
+ */
+export function supersededAsk(state: SidepanelState): { requestId: string } | null {
+  const ask = state.ask;
+  if (!ask || ask.requestId.startsWith(REF_ROUND_PREFIX)) return null;
+  return { requestId: ask.requestId };
+}
+
+/**
  * Resolve a pending confirmation. Timeout / cancel both deny (EC-005).
  * Returns the action to send back to the background, or null when nothing pending.
  */

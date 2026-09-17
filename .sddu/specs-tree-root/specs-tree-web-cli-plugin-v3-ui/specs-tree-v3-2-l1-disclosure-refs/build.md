@@ -681,3 +681,87 @@ $ bash /tmp/opencode/v3-gate-logs/v3-2-closeout/run-gates.sh      # cwd = packag
 | v1.2 | **修复轮 R2（review R1 的 F-01 + I-01~I-10）**：① **F-01 修复**（`binding.mjs` 失败分支的 `await dumpDiagnostics` 挂在 CLOSED CDP socket 上 ⇒ `process.exit(1)` 不可达 ⇒ 退出码 0 把失败打成绿）：`process.exitCode = 1` 提到两处 await 之前 + `dumpDiagnostics` 15s 硬上限 + `send()` readyState/20s 超时/`close` 拒结（**纯插入、相对 base 0 删除行、`check(` 192 不变**）；**实跑验收** 强制变红 → `EXIT=1`、还原 → PASS 192 / `EXIT=0`，并把历史从未成功过的「诊断已落盘」修活；② **新增元门禁** `test/gate-integrity.test.ts`（+ `test:gate-integrity`）：R1a 退出码优先 / R1b 诊断有界 / R2 失败计数耦合退出码 / R3 CDP send 有界，审计 8 个 Chromium 门禁 + 反证驱动 + 共享 CDP 客户端；四重可失败性证明（合成夹具 / 真实副本注入 / `SDC_GATES_ROOT` 外部反证 exit=1 / 真实根 PASS）；③ **I-01~I-10** 逐条处置（I-01 真断言、I-02 内层 pin + 新反证 RP-L1-C2、I-03 spec/plan 显式订正、I-04/05/06/07/08/10 修复、I-09 deferred 附理由）；④ 全门禁串行复跑至绿（**760/11/127/157/99/167/108/192/24/e2e/6**）+ 反证全套（RP-L1-A~H+C2 9/9、RP-V3-01/03/04/05/06/08/09、I1、F-01、元门禁）；计数只增不减、红线零改动 | 2026-09-16 | SDDU Build Agent |
 | v1.0 | 初始创建：10 任务实施完成、6 波按序、门禁串行实跑（l1 88/0、l0 157/0、supersession 11/0、npm test 743 中 742 绿）、密度唯一漂移 = staleRef `chars` 244→254（阈值与默认档零漂移）、体积按真实产物显式重登记（327,679 / ceiling 未抬高）并**如实上报红线冲突 +21,580 B** | 2026-09-16 | SDDU Build Agent |
 | v1.1 | **修复轮（执行编排器裁决 V3-VOL-1）**：① cap 撤销（降级为纯记录字段），判定恢复公式 `floor(baseline × 1.05)` = 344,062 B；② 四条替代守卫落地（公式 / 显式重登记登记册 / 增长正当性证据 + `npm run size:attribution` / >15% 方向性告警——**已触发 +22.96% 并已回报**）；③ 补齐**逐断言反证**（RP-L1-A~H：注入 → FAIL（逐条 `✖` 留证）→ sha256 逐字节还原 → PASS）+ 既有反证全套复跑（RP-V3-01/03/04/05/06/08/09 + I1 + RP-V3-VOL-1①）；④ 全门禁复跑至绿（754/11/127/157/88/167/108/192/24/e2e，**0 红灯**），计数只增不减；⑤ `dist` 增量构成分析表（+32,454 B 逐模块归因，98.6% 由必需模块/接线解释，无重复代码）；⑥ 密度订正 244→254 保留 | 2026-09-16 | SDDU Build Agent |
+
+---
+
+## 12. 判定链语义修正（收口后缺陷修复轮 R1，2026-09-17）
+
+> **来源**：作者真机反馈（HEAD `870cb6e`，`https://platform.deepseek.com/usage`）；**编排器裁决**：「fail-closed 不放松——
+> 「不确定即失效」保留；修的是「捕获事实不完整」，不是「判定太严」」。
+> **范围**：`src/ui/sidepanel/l1/ref-validity.ts`（**本叶的产物**，D4 维度）+ `l1/ref-store.ts`（事实透传）+ `pick-input.ts` /
+> `sidepanel.ts` / `view-model.ts` / `service-worker.ts`（摄取与单一事实源）。
+> **不在 pin 内**：`ref-validity.ts` 不属于 `policy.ts` / `auto-authorize.ts` 判定链 sha pin（那两个文件本轮 **零改动**，
+> sha256 复核 `bfcb2ede…` / `1096d065…`）；但它是 fail-closed 核心，故本轮**逐分支论证**（§12.3）。
+
+### 12.1 缺陷（本叶 D4 的「必须有 hash」口径 + v3-4 的摄取缺口的集成缺陷）
+
+原文（作者真机）：
+
+```text
+无法确认引用 N 的目标是否仍然有效（引用捕获事实不完整：缺失 declarationHash）—— 按失效处理
+```
+
+**根因（精确到行）**：
+
+| 步 | 文件:行 | 事实 |
+|:--:|---------|------|
+| ① | `src/content/ref-capture.ts:304`（**冻结**） | 页面侧组装捕获事实：`declarationHash: env.declarationHash` —— 没有声明时是 `''` |
+| ② | `src/content/pick-bridge.ts:80`（**冻结**） | `LayerEnv` 初值 `declarationHash: ''`；SW 下发的 `pick-layer-env` 对无声明站点也是 `''`（`service-worker.ts#declarationEnv`） |
+| ③ | `src/ui/sidepanel/pick-input.ts#accept()` → `sidepanel.ts#acceptCapture()` → `l1/ref-store.ts:137` | 摄取时 `declarationHash: raw.declarationHash ?? ''` —— **没有第二处可以补全的落点**（`declaration` 事实当时不存在） |
+| ④ | `src/ui/sidepanel/l1/ref-validity.ts:142-149`（R1 前） | `REQUIRED_REF_FACTS` **含 `declarationHash`** ⇒ `''` 被判「捕获事实缺失」 |
+| ⑤ | `src/ui/sidepanel/l1/ref-validity.ts:224-225`（R1 前） | `missing.length > 0 ⇒ unknown(ref, 'missing-fact')` ⇒ 渲染成作者看到的原文 |
+
+**为什么真实站点整体不可用**：站点声明（web-cli 协议）是**站点工具面**机制（决定插件能对该站点「操作什么」），
+**不是**「用户拾取」的前提（拾取只依赖 `src/content/pick-layer.ts` 的按需注入 + 授权）。第三方站点绝大多数没有声明
+⇒ 页面侧永远只能写 `declarationHash: ''` ⇒ **引用出生即死**。夹具盲区：v3-2/v3-4 的门禁夹具（LGDL）都是**声明有效**的页面，
+从未覆盖「无有效声明站点的拾取」。
+
+### 12.2 修法（D4 语义：从「必须有 hash」到「捕获时状态 vs 当刻状态一致」）
+
+| 层 | 改动 |
+|----|------|
+| 捕获事实 | `RefFacts.declaration?: { status: 'valid' \| 'invalid' \| 'absent'; hash?; version? }` —— **status 本身是完整事实**（`valid` 才带 hash/version） |
+| 单一事实源 | `src/background/service-worker.ts#declarationEnv()` 新增 `declarationStatus`（由既有声明状态机派生：`supported→valid` / `unsupported→absent` / 其余（invalid-declaration / version-mismatch / 尚未探测）`→invalid`；`valid` 只在有采纳 descriptor（即真有摘要）时返回） |
+| 摄取 | `src/ui/sidepanel/pick-input.ts#withDeclaration()`：两条摄取落点（点击捕获 / 拖放入侧栏）都补全 `declaration`；**页面侧零改动**（冻结产物只能写 hash 这一事实未变） |
+| env | `RefEnv.declarationStatus`（`pick-input.ts#judgeEnv()` 从 `state` 回复的同一 SW 值透传）；`currentDeclarationStatus(env)` 对「只有 hash 的旧 env」蕴含 `valid`（旧口径不退化） |
+| 判定（D4） | 捕获时**有 status**：`valid` ⇒ 当刻必须 `valid` ∧ 摘要相等（∧ 双方已知的 version 相等）；`invalid`/`absent` ⇒ 当刻状态必须相同；**任何变化 ⇒ `invalid` + 文案「（请在页面上重新拾取）」**。捕获时**无 status**（修复前的旧记录）⇒ **逐分支维持原判** |
+| 文案 | 状态变化渲染 `声明状态 无效 → 有效`（N-07 的 `hash h1 → h2` / `version v1 → v2` 逐字保留给摘要/版本变化）；`REQUIRED_REF_FACTS` 去掉 `declarationHash`（其缺失在无声明站点是**正常**的） |
+
+### 12.3 fail-closed 逐分支论证（新增出口全部是 invalid / unknown；`valid` 的唯一路径）
+
+```text
+D4（新）:
+  cap = ref.declaration
+  ├─ cap 存在
+  │   ├─ 当刻状态读不到（env 无 status 且无 hash）      → unknown(env-unavailable)   ← 阻断
+  │   ├─ 当刻状态 ≠ 捕获状态（出现/消失/变更）          → invalid(declaration-changed) ← 阻断 + 提示重拾
+  │   └─ cap.status === 'valid'
+  │        ├─ 当刻无摘要                                 → unknown(env-unavailable)   ← 阻断
+  │        ├─ 摘要不等                                   → invalid(declaration-changed) ← 阻断
+  │        └─ 双方已知的 version 不等                    → invalid(declaration-changed) ← 阻断
+  │        └─ 其余                                       → 落到 D1（身份判据）后 valid
+  └─ cap 不存在（R1 前的旧记录）
+      ├─ ref 自身无 hash                                 → unknown(missing-fact)       ← 阻断（与 R1 前逐字同）
+      ├─ 当刻无 hash 且无 version                        → unknown(missing-fact)       ← 阻断（同前）
+      ├─ 摘要不等 / version 不等                         → invalid(declaration-changed) ← 阻断（同前）
+      └─ 其余                                            → 落到 D1 后 valid
+```
+
+**结论**：新增的三类出口（`unknown(env-unavailable)` / `invalid(declaration-changed)` 的状态分支）**全部阻断**；
+`isRefUsable()` 仍是「只接受显式 `valid`」的单一放行点（`ref-validity.ts:259-261` 未改语义）。**旧数据不迁移**：
+既无 hash 也无 status 的记录走 legacy 分支，与 R1 前的判定**逐分支等价**（门禁用例逐条对照，见 v3-4 build.md §14.3）。
+
+### 12.4 反证（本叶 D4 面）
+
+| # | 反证 | 期望 | 实测 |
+|:-:|------|------|------|
+| ② | 捕获 `invalid` → 当刻 `valid`（站点后来修好声明） | 引用必须失效 + 文案提示重拾 | ✅ `test/l1-ref-validity.test.ts`「R1 judge: 声明状态变更 ⇒ invalid 且可读原因提示重新拾取」；`invalid→valid` / `absent→invalid` / `valid→absent` 三向 |
+| ③ | 捕获事实既无 hash 也无 status（旧数据） | 仍失效（unknown） | ✅ 同文件「R1 judge fail-closed」用例：旧记录 × 三档 env + `valid` 缺摘要 + 捕获无摘要，全部被阻断 |
+| ① | 回退「摄取时补全捕获事实」 | 真实站点拾取的引用必须翻红 | ✅ 端到端在 `test/ui/page-input.mjs`（无声明夹具站点）+ 布线级在 `test/ref-wiring.test.ts`（见 v3-4 build.md §14.3） |
+
+### 12.5 未改动的面（本叶）
+
+- `REASON_TEMPLATES` / `UNKNOWN_CAUSE_TEXT` 的既有逐字文案**零改动**（`errorFor` / `reasonUnknown` 的签名与既有语义不变）；
+- 五维编号与维度名（`dom-gone` / `origin-changed` / `navigated` / `declaration-changed` / `authorization-revoked`）**零改动**；
+- 判定顺序（1 事实完备 → 2 env → 3 D2 → 4 D5 → 5 D3 → 6 D4 → 7 D1）**零改动**；
+- `isRefUsable()` 仍只接受显式 `valid`（fail-closed 的**结构性**保障未动）。

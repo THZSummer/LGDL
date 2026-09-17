@@ -146,7 +146,9 @@ export function discoveryNotice(
       visible: true,
       kind: 'probe-terminal',
       title: terminalTitle(kind),
-      detail: `${trimmed || '站点声明的问题需要站点侧修复。'}站点侧修复后，刷新页面或切换标签页会自动重试。${AUTO_RETRY_LINE}`,
+      detail: `${trimmed || '站点声明的问题需要站点侧修复。'}站点侧修复后，刷新页面或切换标签页会自动重试。` +
+        '未声明（或声明无效）的站点不影响「从页面拾取」与引用。' +
+        AUTO_RETRY_LINE,
       autoRetry: true,
     };
   }
@@ -358,8 +360,18 @@ export interface StateMessageView {
    * observe by itself, so it is the one the panel must carry into the judge's env —
    * without it every reference would be judged「无法确认声明是否变化」and blocked
    * (fail-closed, but useless).
+   *
+   * R1: `declarationStatus` is the declaration's **state** (`valid` / `invalid` /
+   * `absent`) — the fact the judge compares. A site that declares nothing yields
+   * `absent` with no digest, which must stay a usable reference.
    */
-  declaration?: { origin?: string; authorized?: boolean; declarationHash?: string; declarationVersion?: string } | null;
+  declaration?: {
+    origin?: string;
+    authorized?: boolean;
+    declarationHash?: string;
+    declarationVersion?: string;
+    declarationStatus?: string;
+  } | null;
 }
 
 // ── decision ② / FR-048: multi-session switcher view ─────────────────────────

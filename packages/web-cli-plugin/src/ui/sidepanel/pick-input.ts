@@ -24,7 +24,7 @@
  * @module ui/sidepanel/pick-input
  */
 
-import type { RefEnv } from './l1/ref-validity.js';
+import type { DeclarationStatus, RefEnv, RefResolution } from './l1/ref-validity.js';
 import type { RawRefFacts } from './l1/ref-store.js';
 
 /** The `application/x-wcli-ref` payload a page-side drag carries. */
@@ -34,7 +34,7 @@ export interface PickEnvInput {
   activeOrigin: string;
   authorized: boolean;
   /** Adopted declaration digest (+ protocol version) as reported by the background. */
-  declaration: { hash: string; version?: string } | null;
+  declaration: { status: DeclarationStatus; hash: string; version?: string } | null;
 }
 
 export interface PickInputDeps {
@@ -57,8 +57,14 @@ export interface PickInputHandle {
   startPick(): Promise<void>;
   /** AC-CONV-1: report the complete judge env, still fail-closed while incomplete. */
   judgeEnv(): RefEnv;
-  /** Ask the page to flash/reveal/mark one reference (P4/P5). */
-  highlight(refId: string, selector: string, mode: 'flash' | 'mark' | 'outline'): Promise<void>;
+  /**
+   * Ask the page to flash/reveal/mark one reference (P4/P5).
+   *
+   * R1: `mark` returns a **fresh page identity observation** (the SW reads it *after*
+   * the mark write) — without it D1 can never confirm a freshly picked reference.
+   * `undefined` = no new observation (the judge keeps the previous, fail-closed fact).
+   */
+  highlight(refId: string, selector: string, mode: 'flash' | 'mark' | 'outline'): Promise<RefResolution | undefined>;
   /** Route one inbound message; `true` when it was ours. */
   accept(raw: unknown): boolean;
   teardown(): void;
@@ -91,8 +97,34 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
       authorized: base.authorized,
       documentId: state.documentId,
       navSeq: state.navSeq,
-      ...(base.declaration ? { declarationHash: base.declaration.hash } : {}),
+      // R1: the *state* is the fact (a site without a usable declaration still has a
+      // complete, comparable state). The digest only exists while the state is `valid`.
+      ...(base.declaration ? { declarationStatus: base.declaration.status } : {}),
+      ...(base.declaration?.hash ? { declarationHash: base.declaration.hash } : {}),
       ...(base.declaration?.version ? { declarationVersion: base.declaration.version } : {}),
+    };
+  };
+
+  /**
+   * R1 (2026-09-17) — **complete the capture fact at ingestion**.
+   *
+   * The page side is frozen (`src/content/**` + `dist/pick-layer.js` are byte-pinned),
+   * so a capture can only carry `declarationHash`; on a site without an adopted
+   * declaration that is `''`, which the judge's completeness check used to read as
+   * "fact missing" ⇒ **every reference picked on such a site was born dead**. The
+   * status comes from the background's single declaration source (the `state` reply),
+   * i.e. no second state machine is introduced here.
+   */
+  const withDeclaration = (facts: RawRefFacts): RawRefFacts => {
+    const d = deps.envInput().declaration;
+    if (!d) return facts;
+    return {
+      ...facts,
+      declaration: {
+        status: d.status,
+        ...(d.hash ? { hash: d.hash } : {}),
+        ...(d.version ? { version: d.version } : {}),
+      },
     };
   };
 
@@ -117,9 +149,17 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
     return true;
   };
 
-  const highlight = async (refId: string, selector: string, mode: 'flash' | 'mark' | 'outline'): Promise<void> => {
+  const highlight = async (
+    refId: string,
+    selector: string,
+    mode: 'flash' | 'mark' | 'outline',
+  ): Promise<RefResolution | undefined> => {
     state.highlights += 1;
-    await deps.send({ kind: 'ref-highlight', refId, selector, mode });
+    const res = await deps.send({ kind: 'ref-highlight', refId, selector, mode });
+    // R1: only the identity-marking round-trip returns a fresh observation; every other
+    // mode stays a pure side effect (the surface is unchanged for the hover/flash paths).
+    if (mode !== 'mark' || !res.ok) return undefined;
+    return (res.data as { resolution?: RefResolution } | undefined)?.resolution;
   };
 
   const accept = (raw: unknown): boolean => {
@@ -148,7 +188,7 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
       };
       if (!m.facts || typeof m.facts !== 'object') return true;
       state.captures += 1;
-      deps.onCapture(m.facts, m.resolution ?? { status: 'unreachable' });
+      deps.onCapture(withDeclaration(m.facts), m.resolution ?? { status: 'unreachable' });
       return true;
     }
     if (kind === 'ref-highlight') {
@@ -190,7 +230,9 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
       deps.notify('✖ 拖入的内容不是有效的引用负载（按取消处理）');
       return;
     }
-    deps.onCapture(facts, { status: 'resolved' });
+    // The drag payload is minted page-side (frozen) ⇒ it has the same blind spot as a
+    // click capture and goes through the same completion.
+    deps.onCapture(withDeclaration(facts), { status: 'resolved' });
   };
   doc.addEventListener('dragover', onDragOver as EventListener, true);
   doc.addEventListener('dragleave', onDragLeave as EventListener, true);

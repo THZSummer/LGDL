@@ -26,9 +26,21 @@
  *   D2 `origin-changed`        current bound origin ≠ `ref.origin` (EC-V3-014)
  *   D3 `navigated`             `documentId` / `navSeq` changed (incl. SPA routes:
  *                              the document was replaced)
- *   D4 `declaration-changed`   site declaration `hash` **or** `version` differs
- *                              (V32-O-1: either one ⇒ invalid; both unavailable
- *                              ⇒ unknown)
+ *   D4 `declaration-changed`   the site's declaration **state** changed since capture.
+ *                              `valid` ⇒ the digest (and the version, when both are
+ *                              known) must still match; `invalid` / `absent` ⇒ the
+ *                              state must still be the same one. **Any** movement
+ *                              (declaration appears / disappears / becomes broken ⇒
+ *                              a re-pick is required) is invalid; a current state the
+ *                              panel cannot read is unknown.
+ *                              *Defect fix R1 (2026-09-17)*: the caliber used to be
+ *                              "a `declarationHash` must exist", which made every
+ *                              reference picked on a site **without a usable
+ *                              declaration** (i.e. almost every real site — the
+ *                              declaration is a *site tool surface*, not a
+ *                              precondition for picking) still-born. The state, not
+ *                              the digest, is the fact; a status is a *complete*
+ *                              fact even when there is no hash.
  *   D5 `authorization-revoked` the origin left the authorized set
  *
  * ── "Uncertain" is a first-class verdict, not a missing feature ──────────────
@@ -64,6 +76,30 @@ export type RefDimension =
 export type RefUnknownCause = 'missing-fact' | 'env-unavailable' | 'page-unreachable' | 'ambiguous' | 'replaced';
 
 /**
+ * The declaration state machine's three states — the **same** triple is used for the
+ * captured fact and for "now", so D4 can compare two values of one vocabulary
+ * (`valid` = the SW has adopted a declaration; `invalid` = a declaration exists but
+ * does not validate; `absent` = the site declares nothing). The single producer is the
+ * service worker's `declarationEnv()`; the panel never mints one.
+ */
+export type DeclarationStatus = 'valid' | 'invalid' | 'absent';
+
+/**
+ * The declaration as **captured** (defect fix R1, 2026-09-17).
+ *
+ * Added because `declarationHash: ''` could not distinguish "this site has no
+ * declaration" (normal, must stay usable) from "the capture fact was lost" (abnormal,
+ * must be denied) — the old completeness check collapsed both into `missing-fact`, so
+ * a reference picked on an undeclared site was born dead. The `status` is a complete
+ * fact on its own; `hash` is present only while the status is `valid`.
+ */
+export interface RefDeclaration {
+  status: DeclarationStatus;
+  hash?: string;
+  version?: string;
+}
+
+/**
  * The capture facts (ADR-V3-023 decision 3): **raw facts only** — the set carries
  * no verdict field, so a page-side message can never ship a conclusion. `refId`
  * is assigned by `l1/ref-store.ts` (the single id source).
@@ -78,6 +114,8 @@ export interface RefFacts {
   navSeq: number;
   declarationHash: string;
   declarationVersion?: string;
+  /** Defect fix R1: the capture-time declaration state (absent on pre-fix records). */
+  declaration?: RefDeclaration;
   capturedAt: number;
 }
 
@@ -101,6 +139,8 @@ export interface RefEnv {
   navSeq?: number;
   declarationHash?: string;
   declarationVersion?: string;
+  /** The declaration state **now** (single source: the SW's `declarationEnv()`). */
+  declarationStatus?: DeclarationStatus;
   resolution?: RefResolution;
 }
 
@@ -138,14 +178,36 @@ export const UNKNOWN_CAUSE_TEXT: Readonly<Record<RefUnknownCause, string>> = Obj
   replaced: '目标元素已被同类新元素替换（身份标记不匹配）',
 });
 
-/** Required capture facts for a *decidable* reference (anything else ⇒ unknown). */
+/** Readable status name for the D4 reason (a state change names both ends). */
+export const DECLARATION_STATUS_TEXT: Readonly<Record<DeclarationStatus, string>> = Object.freeze({
+  valid: '有效',
+  invalid: '无效',
+  absent: '未声明',
+});
+
+/**
+ * The declaration state "now", as the judge reads it. `Valid` is *implied* by a known
+ * digest so that an env produced by an older wiring (hash only) keeps the historical
+ * caliber instead of silently becoming unknown. Anything unreadable ⇒ `undefined`
+ * (⇒ unknown ⇒ blocked).
+ */
+export function currentDeclarationStatus(env: RefEnv): DeclarationStatus | undefined {
+  if (env.declarationStatus !== undefined) return env.declarationStatus;
+  return has(env.declarationHash) ? 'valid' : undefined;
+}
+
+/**
+ * Required capture facts for a *decidable* reference (anything else ⇒ unknown).
+ * `declarationHash` is deliberately **not** here any more (defect fix R1): its absence
+ * is normal on an undeclared site, and D4 below is what tells "nothing to compare"
+ * (legacy record ⇒ fail-closed) from "state compared" (R1 record).
+ */
 export const REQUIRED_REF_FACTS: readonly (keyof RefFacts)[] = Object.freeze([
   'refId',
   'selector',
   'origin',
   'documentId',
   'navSeq',
-  'declarationHash',
 ]);
 
 /** `ref_<n>` → `n` (the ordinal the page badge / chip / risk row share). */
@@ -173,8 +235,11 @@ function shortHash(hash: string | undefined): string {
 
 /** The readable reason for one `'invalid'` dimension. */
 export function reasonFor(ref: RefFacts, dimension: RefDimension, env: RefEnv): string {
+  const cap = ref.declaration;
+  const now = currentDeclarationStatus(env);
+  const statusChanged = cap !== undefined && now !== undefined && now !== cap.status;
   const hashChanged = has(env.declarationHash) && env.declarationHash !== ref.declarationHash;
-  return fill(REASON_TEMPLATES[dimension], {
+  const base = fill(REASON_TEMPLATES[dimension], {
     n: refOrdinal(ref.refId),
     origin: ref.origin,
     now: env.currentOrigin ?? '（未知站点）',
@@ -182,10 +247,19 @@ export function reasonFor(ref: RefFacts, dimension: RefDimension, env: RefEnv): 
     new: shortHash(env.declarationHash ?? ref.declarationHash),
     // N-07: name the field that actually changed, so「仅 version 变化」不再渲染成
     // `decl-1 → decl-1`（旧模板只填 hash，用户看不出是哪一项变了）。
-    what: hashChanged
-      ? `hash ${shortHash(ref.declarationHash)} → ${shortHash(env.declarationHash)}`
-      : `version ${shortHash(ref.declarationVersion)} → ${shortHash(env.declarationVersion)}`,
+    // R1: a **state** change is named as such（capture status → current status）; the
+    // digest/version wording stays for legacy records and for a changed digest.
+    what: statusChanged
+      ? `声明状态 ${DECLARATION_STATUS_TEXT[cap.status]} → ${DECLARATION_STATUS_TEXT[now]}`
+      : hashChanged
+        ? `hash ${shortHash(ref.declarationHash)} → ${shortHash(env.declarationHash)}`
+        : `version ${shortHash(ref.declarationVersion)} → ${shortHash(env.declarationVersion)}`,
   });
+  // A changed state is not a silent invalidation: the objective semantics may have been
+  // re-anchored, so the only honest recovery is a fresh pick (FR-V3-038's second path).
+  return statusChanged && dimension === 'declaration-changed'
+    ? `${base}（请在页面上重新拾取）`
+    : base;
 }
 
 /** The readable reason for an `'unknown'` verdict. */
@@ -230,11 +304,32 @@ export function evaluateRefValidity(ref: RefFacts, env: RefEnv): RefVerdictView 
   if (env.authorized !== true) return invalid(ref, 'authorization-revoked', env);
   if (!has(env.documentId) || !has(env.navSeq)) return unknown(ref, 'page-unreachable');
   if (env.documentId !== ref.documentId || env.navSeq !== ref.navSeq) return invalid(ref, 'navigated', env);
-  const hashKnown = has(env.declarationHash);
-  const versionKnown = has(env.declarationVersion) && has(ref.declarationVersion);
-  if (!hashKnown && !versionKnown) return unknown(ref, 'missing-fact', { f: '站点声明 hash / version' });
-  if (hashKnown && env.declarationHash !== ref.declarationHash) return invalid(ref, 'declaration-changed', env);
-  if (versionKnown && env.declarationVersion !== ref.declarationVersion) return invalid(ref, 'declaration-changed', env);
+  // ── D4 站点声明一致性（defect fix R1：状态一致，而不是「必须有 hash」）─────────
+  // 捕获时记录了声明状态 ⇒ 比状态：valid 还须摘要（及双方已知的 version）相等；
+  // invalid / absent 只比状态本身。任何一种「变化」（出现 / 消失 / 变更）⇒ invalid，
+  // 并提示重新拾取 —— 这是 fail-closed 的完整保留，不是放松。
+  const cap = ref.declaration;
+  if (cap) {
+    const now = currentDeclarationStatus(env);
+    if (now === undefined) return unknown(ref, 'env-unavailable', { f: '站点声明状态' });
+    if (now !== cap.status) return invalid(ref, 'declaration-changed', env);
+    if (cap.status === 'valid') {
+      if (!has(env.declarationHash)) return unknown(ref, 'env-unavailable', { f: '站点声明 hash' });
+      if (env.declarationHash !== cap.hash) return invalid(ref, 'declaration-changed', env);
+      if (has(env.declarationVersion) && has(cap.version) && env.declarationVersion !== cap.version) {
+        return invalid(ref, 'declaration-changed', env);
+      }
+    }
+  } else {
+    // 修复前捕获的旧记录（既无 status 也无 hash）**逐分支维持原判**：ref 自身没有摘要
+    // ⇒ 无法比较（unknown，与修复前的 REQUIRED 检查同结果）；有摘要则照旧比摘要 / 版本。
+    if (!has(ref.declarationHash)) return unknown(ref, 'missing-fact', { f: 'declarationHash' });
+    const hashKnown = has(env.declarationHash);
+    const versionKnown = has(env.declarationVersion) && has(ref.declarationVersion);
+    if (!hashKnown && !versionKnown) return unknown(ref, 'missing-fact', { f: '站点声明 hash / version' });
+    if (hashKnown && env.declarationHash !== ref.declarationHash) return invalid(ref, 'declaration-changed', env);
+    if (versionKnown && env.declarationVersion !== ref.declarationVersion) return invalid(ref, 'declaration-changed', env);
+  }
   const res = env.resolution;
   if (!res || res.status === 'unreachable') return unknown(ref, 'page-unreachable');
   if (res.status === 'ambiguous') return unknown(ref, 'ambiguous', { n: String(res.nodeCount ?? 2) });

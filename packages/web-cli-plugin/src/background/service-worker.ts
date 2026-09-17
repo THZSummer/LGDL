@@ -1000,22 +1000,91 @@ async function pickLayerTarget(
 }
 
 /**
+ * R1（2026-09-17）— read the page's **current** identity observation for `selector`
+ * (read-only DOM read in the tab's isolated world, the same world the injected bundle
+ * runs in). The shape is the one `l1/ref-validity.ts#RefResolution` consumes:
+ * `missing` (0 nodes) / `ambiguous` (>1) / `resolved` + the `data-wcli-ref` mark.
+ *
+ * Why it exists: the identity mark is written by the panel **after** the capture report
+ * (the panel mints the id), so the capture-time report structurally cannot carry it —
+ * without a fresh read, D1 denies every freshly picked reference. A failed read returns
+ * `undefined`, which the panel treats as "no new observation" ⇒ the judge stays
+ * fail-closed on the older fact.
+ */
+async function observeIdentity(
+  tabId: number,
+  selector: string,
+): Promise<{ status: 'resolved' | 'missing' | 'ambiguous'; refMark?: string; nodeCount?: number } | undefined> {
+  const results = await chrome.scripting
+    .executeScript({
+      target: { tabId },
+      func: (sel: string) => {
+        let nodes: Element[];
+        try {
+          nodes = Array.from(document.querySelectorAll(sel));
+        } catch {
+          return { status: 'missing' as const };
+        }
+        if (nodes.length === 0) return { status: 'missing' as const };
+        if (nodes.length !== 1) return { status: 'ambiguous' as const, nodeCount: nodes.length };
+        const mark = nodes[0].getAttribute('data-wcli-ref');
+        return { status: 'resolved' as const, nodeCount: 1, ...(mark ? { refMark: mark } : {}) };
+      },
+      args: [selector],
+    })
+    .catch(() => undefined);
+  const result = results?.[0]?.result;
+  return result && typeof result === 'object' ? (result as { status: 'resolved' }) : undefined;
+}
+
+/**
+ * Defect fix R1 (2026-09-17) — the declaration **state** for `origin`, derived from the
+ * existing declaration state machine (bound session's discovery state + the automatic
+ * probe's last failure kind). No new state is introduced: `supported` ⇒ `valid`,
+ * `unsupported` ⇒ `absent`, anything else (`unknown`: invalid declaration / version
+ * mismatch / not probed yet) ⇒ `invalid`. `valid` is only ever returned alongside the
+ * adopted descriptor's real digest (see {@link declarationEnv}), so a state can never
+ * claim "valid" without the digest that goes with it.
+ *
+ * The pick layer burns this into every captured reference; because a change of state
+ * invalidates the reference, the mapping is deliberately conservative — an unreadable
+ * origin reads as "no usable declaration", never as "valid".
+ */
+function declarationStatusOf(s: Singletons, origin: string): 'valid' | 'invalid' | 'absent' {
+  const bound = s.controller.get();
+  if (bound && bound.origin === origin) {
+    if (s.host.activeOrigin() === origin && s.host.activeDescriptor()) return 'valid';
+    return bound.discoveryState === 'unsupported' ? 'absent' : 'invalid';
+  }
+  return s.autoProbe.status()?.lastKind === 'no-declaration' ? 'absent' : 'invalid';
+}
+
+/**
  * V3-4 / AC-CONV-1 — the declaration facts the **page** cannot observe by itself.
  *
  * The digest is computed from the *adopted* descriptor's stable projection (never
  * from a remembered literal), so a site changing its declaration really does flip
  * the judge's D4 dimension. `declarationVersion` is the declared protocol version.
- * An origin with no adopted declaration yields `declarationHash: ''`, which makes the
- * judge report `missing-fact` → the reference stays unusable (fail-closed), exactly
- * as intended: "no declaration" must never read as "unchanged declaration".
+ * An origin with no adopted declaration yields `declarationStatus` (R1: `absent` /
+ * `invalid` — a **complete** fact) with `declarationHash: ''`, so the reference judge
+ * can distinguish「站点没有可用声明」(normal, references stay usable) from「声明变了」
+ * (re-pick required) instead of treating both as a missing fact.
  */
 async function declarationEnv(
   s: Singletons,
   origin: string,
-): Promise<{ origin: string; authorized: boolean; declarationHash: string; declarationVersion?: string }> {
+): Promise<{
+  origin: string;
+  authorized: boolean;
+  declarationStatus: 'valid' | 'invalid' | 'absent';
+  declarationHash: string;
+  declarationVersion?: string;
+}> {
   const authorized = await s.origins.isAuthorized(origin);
   const descriptor = s.host.activeOrigin() === origin ? s.host.activeDescriptor() : undefined;
-  if (!descriptor) return { origin, authorized, declarationHash: '' };
+  if (!descriptor) {
+    return { origin, authorized, declarationStatus: declarationStatusOf(s, origin), declarationHash: '' };
+  }
   const projection = JSON.stringify({
     protocolVersion: descriptor.protocolVersion,
     siteName: descriptor.siteName ?? '',
@@ -1031,6 +1100,7 @@ async function declarationEnv(
   return {
     origin,
     authorized,
+    declarationStatus: digest ? 'valid' : declarationStatusOf(s, origin),
     declarationHash: digest ? digest.slice(0, 16) : '',
     ...(descriptor.protocolVersion ? { declarationVersion: descriptor.protocolVersion } : {}),
   };
@@ -2099,15 +2169,23 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // The SW is a router here, it never decides anything about the reference.
       const target = await pickLayerTarget(s);
       if ('error' in target) return okResponse({ highlighted: false, reason: target.error });
+      const mode = typeof message.mode === 'string' ? message.mode : '';
+      const selector = typeof message.selector === 'string' ? message.selector : '';
       await chrome.tabs
         .sendMessage(target.tabId, {
           kind: 'ref-highlight',
           ...(typeof message.refId === 'string' ? { refId: message.refId } : {}),
-          ...(typeof message.selector === 'string' ? { selector: message.selector } : {}),
-          ...(typeof message.mode === 'string' ? { mode: message.mode } : {}),
+          ...(selector ? { selector } : {}),
+          ...(mode ? { mode } : {}),
         })
         .catch(() => undefined);
-      return okResponse({ highlighted: true, tabId: target.tabId });
+      // R1（2026-09-17）— the **fresh identity observation**, read *after* the mark write
+      // above. The capture-time report cannot carry an identity mark that does not exist
+      // yet (the panel mints the id), so D1 would judge every fresh pick as「目标元素已被
+      // 同类新元素替换」→ unknown → the reference stays unusable on real sites. The
+      // observation is still page-produced (never the panel asserting `resolved`).
+      const resolution = mode === 'mark' && selector ? await observeIdentity(target.tabId, selector) : undefined;
+      return okResponse({ highlighted: true, tabId: target.tabId, ...(resolution ? { resolution } : {}) });
     }
     case 'pick-layer-teardown': {
       const target = await pickLayerTarget(s);

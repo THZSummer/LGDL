@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createInitialState, reduce, resolveAsk, resolveConfirm } from '../src/ui/sidepanel/chat-state.js';
+import { REF_ROUND_PREFIX, createInitialState, reduce, resolveAsk, resolveConfirm, supersededAsk } from '../src/ui/sidepanel/chat-state.js';
 import { CAPABILITY_BOUNDARY, CONSENT_RISKS, consentSummary } from '../src/ui/sidepanel/sidepanel.js';
 import {
   BOTTOM_THRESHOLD_PX,
@@ -186,4 +186,21 @@ test('scroll: a fresh panel starts anchored (empty list)', () => {
   const p = createScrollFollow();
   assert.equal(p.anchored, true);
   assert.equal(p.shouldFollow(), true);
+});
+
+// ── R1（2026-09-17）：引用回合不得让后台提问的回合卡在「处理中」───────────────
+test('R1 ask: 引用回合（ref-round-*）取代后台提问时必须可判定（supersededAsk）', () => {
+  // Nothing pending → nothing to settle.
+  assert.equal(supersededAsk(createInitialState()), null);
+  // A background question is pending → the new reference round supersedes it.
+  let s = createInitialState();
+  s = reduce(s, { type: 'ask', requestId: 'ask-7', kind: 'choice', prompt: '继续吗？', options: ['是', '否'] });
+  assert.deepEqual(supersededAsk(s), { requestId: 'ask-7' });
+  // The panel's own reference round is NOT a background question (its answer goes to the
+  // reference entry) → nothing must be settled twice.
+  s = reduce(s, { type: 'ask', requestId: `${REF_ROUND_PREFIX}ref_2`, kind: 'choice', prompt: '用它做什么？' });
+  assert.equal(supersededAsk(s), null);
+  // Non-vacuous: the discriminator is the prefix, so a background id cannot slip through.
+  assert.equal(supersededAsk(reduce(s, { type: 'ask', requestId: 'ask-8', kind: 'text', prompt: '再来一个' }))?.requestId, 'ask-8');
+  assert.equal(REF_ROUND_PREFIX, 'ref-round-');
 });

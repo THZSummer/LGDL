@@ -906,10 +906,142 @@ git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-p
 | `risk` 档其余 4 子场景 | `unauthorized` / `probing` / `confirm` / `staleRef` | ⏳ 由门禁携带 | 与 validate §7.3 一致（本轮未增/未减该面） |
 
 
+## 14. 收口后缺陷修复轮 R1（2026-09-17，作者真机反馈）
+
+> **来源**：作者真机反馈（HEAD `870cb6e`，`https://platform.deepseek.com/usage`）：
+> 「在普通站点拾取 2 条引用，稳定选择器 / 语义路径 / 文本摘要 / 捕获时间全部采到，但两条引用都被判失效 ——
+> `无法确认引用 N 的目标是否仍然有效（引用捕获事实不完整：缺失 declarationHash）—— 按失效处理`」；
+> 作者结论：**「拾取的效果不好，几乎完全不可用」**。
+> **编排器裁决**（本轮的授权与设计）：fail-closed **不放松**——「不确定即失效」保留；修的是「**捕获事实不完整**」，
+> 不是「判定太严」。修法必须落在**非冻结**产物（`src/content/**` + `dist/content.js` + `dist/pick-layer.js` 逐字节不变）。
+> **轮次性质**：同一 Feature 内的**缺陷修复轮** ⇒ `roundKind: 'registry-fidelity-round'`（④ 的「连续两个功能轮」告警口径不变）。
+
+### 14.1 根因（两个缺口，同一症状）
+
+**缺口 ①：D4 的口径是「必须有 declarationHash」**（作者原文即是此分支）
+
+| 步 | 文件:行（R1 前） | 事实 |
+|:--:|------------------|------|
+| ① | `src/content/ref-capture.ts:304`（**冻结**） | `declarationHash: env.declarationHash` —— 站点无声明时是 `''` |
+| ② | `src/content/pick-bridge.ts:80` + SW `declarationEnv()`（**冻结 + 背景**） | 无采纳声明时下发 `declarationHash: ''` |
+| ③ | `src/ui/sidepanel/pick-input.ts#accept()` → `sidepanel.ts#acceptCapture()` → `l1/ref-store.ts:137` | 摄取时 `declarationHash: raw.declarationHash ?? ''`（**当时没有第二个可补全的落点**） |
+| ④ | `src/ui/sidepanel/l1/ref-validity.ts:142-149` | `REQUIRED_REF_FACTS` **含 `declarationHash`** ⇒ `''` 被判「捕获事实缺失」 |
+| ⑤ | `src/ui/sidepanel/l1/ref-validity.ts:224-225` | `missing ⇒ unknown(missing-fact)` ⇒ 作者看到的原文 |
+
+**站点声明是「站点工具面」机制，不是「用户拾取」的前提**：没有声明的站点，页面侧（冻结）只能写 `''`
+⇒ **引用出生即死**。夹具盲区：v3-2/v3-4 的门禁夹具（LGDL / 自建夹具）都是**声明有效**的页面。
+
+**缺口 ②：D1 的身份观测晚于身份标记**（修完 ① 才暴露）
+
+`l1/ref-validity.ts:247` 的 D1 身份判据是 `res.refMark === ref.refId`（身份 = 捕获时写下的 `data-wcli-ref` 标记）。
+但**标记由面板铸造 id 之后才写回页面**（`pick-layer.ts:103-111` 的 `mark` 分支）⇒ **捕获时刻的观测结构上不可能带上它**
+⇒ 每一条新拾取的引用被判「目标元素已被同类新元素替换」⇒ 真实站点上**仍然不可用**。
+缺口 ①/② 是同一症状的两个原因（D4 在判定顺序上先于 D1，所以作者先看到 `缺失 declarationHash`）。
+
+### 14.2 修法（全部落在非冻结文件）
+
+| 层 | 文件 | 改动 |
+|----|------|------|
+| 单一事实源 | `src/background/service-worker.ts` | `declarationEnv()` 新增 `declarationStatus`（`valid`/`invalid`/`absent`，由既有声明状态机派生：`supported→valid`、`unsupported→absent`、其余→`invalid`；`valid` 只在真有采纳 descriptor（真有摘要）时返回）；新增 `declarationStatusOf()` |
+| 身份观测（缺口②） | `src/background/service-worker.ts` | 新增 `observeIdentity(tabId, selector)`：在 tab 的隔离世界**只读**读 DOM（`querySelectorAll` 计数 + `data-wcli-ref`），返回与 `RefResolution` 同形的观测；`ref-highlight` 的 **`mark` 分支在写标记之后**带上 `resolution` 回传 |
+| 摄取 | `src/ui/sidepanel/pick-input.ts` | `withDeclaration()`：两条摄取落点（点击 / 拖放）都补全 `declaration: { status, hash? }`；`judgeEnv()` 增 `declarationStatus`；`highlight(mark)` 把新观测交回调用方 |
+| 捕获事实 | `src/ui/sidepanel/l1/ref-store.ts` | `declaration` 事实透传（`create()`） |
+| 判定（缺口①） | `src/ui/sidepanel/l1/ref-validity.ts` | `RefFacts.declaration?: { status, hash?, version? }` + `RefEnv.declarationStatus?`；**D4 = 捕获时状态 vs 当刻状态一致**（`valid` 还须摘要相等、双方已知的 version 相等；任何变化 ⇒ `invalid` + 文案「（请在页面上重新拾取）」）；`REQUIRED_REF_FACTS` 去掉 `declarationHash`；状态变化渲染 `声明状态 无效 → 有效`（`hash h1 → h2` / `version v1 → v2` 的 N-07 逐字模板**保留**） |
+| 重判（缺口②） | `src/ui/sidepanel/sidepanel.ts` | `acceptCapture()`：标记回程返回**新观测** ⇒ `setResolution(fresh)` + `judge()` + `render()`，随后才把「判定：X」写进选择题（观测只能来自页面，面板**不自证** `resolved`） |
+| 文案 | `src/ui/sidepanel/view-model.ts` | 风险位终端说明补一行：「未声明（或声明无效）的站点不影响「从页面拾取」与引用。」 |
+| busy 残留 | `src/ui/sidepanel/chat-state.ts` + `sidepanel.ts` | `REF_ROUND_PREFIX` + `supersededAsk()`：引用回合取代**后台提问**时，把被取代的提问结算为 `canceled`（可读通知）——否则该提问只能等 ask-bridge 的 60 s 超时，期间 `pending` 让发送键一直显示「上一条指令仍在处理中」（见 §14.5） |
+
+**fail-closed 逐分支论证**（新增出口全部是 `invalid` / `unknown`；`valid` 的**唯一**路径）见 v3-2 `build.md §12.3`
+（D4 属 v3-2 的判定链产物）。缺口② 一侧同样安全：**观测读失败 ⇒ 保持旧事实 ⇒ 判 fail-closed（unknown）**，
+面板从不自证 `resolved`（`test/ref-wiring.test.ts` 的静态反证钉死）。
+
+### 14.3 反证（三条，逐条可 FAIL）
+
+| # | 反证 | 扰动 | 期望 | 实测 |
+|:-:|------|------|------|------|
+| ①a | **复现反证（D4）** | `pick-input.ts#withDeclaration` 退化为恒等函数（摄取不再补声明状态，**语法合法**）→ 重建 → `node test/ui/page-input.mjs` | 新断言必须 FAIL | ✅ `EXIT=1`，`92 passed / 1 failed`，失败原因**逐字等于作者原文**：`无法确认引用 1 的目标是否仍然有效（引用捕获事实不完整：缺失 declarationHash）—— 按失效处理`；还原后 `93 passed / 0 failed`（`RP-R1-A2.log` / `RP-R1-A2.exit`） |
+| ①b | **复现反证（D1）** | `sidepanel.ts#acceptCapture` 去掉「新观测回写」（`if (fresh) l1?.setResolution(fresh);` → `void fresh;`）→ 重建 → 同一门禁 | 新断言必须 FAIL | ✅ `EXIT=1`，`92 passed / 1 failed`，失败原因：`目标元素已被同类新元素替换（身份标记不匹配）`（`RP-R1-B.log` / `RP-R1-B.exit`） |
+| ② | **状态变更反证** | 纯 Node：捕获 `invalid` → 当刻 `valid`（站点后来修好声明）/ `absent→invalid` / `valid→absent` | 必须 `invalid` + 文案提示重拾 | ✅ `test/l1-ref-validity.test.ts`「R1 judge: 声明**状态变更** ⇒ invalid 且可读原因提示重新拾取」；摘要变化仍走 `hash h1 → h2`（不加「重新拾取」，N-07 措辞不被覆盖） |
+| ③ | **fail-closed 反证** | 纯 Node：捕获事实**既无 hash 也无 status**（修复前的旧数据）× 三档 env；`valid` 声明缺摘要；捕获侧缺摘要 | 必须仍失效（unknown），不得因 R1 放行 | ✅ 同文件「R1 judge fail-closed（反证③）」；旧记录的 legacy 分支与 R1 前**逐分支等价**（原有 12 个用例零改动、全绿） |
+
+> **「因错而红」防呆**：①a 的第一版扰动把 `onCapture(withDeclaration(…)` 改成 `onCapture(…)` 造成**语法错误** ⇒
+> 构建失败（`Expected ";" but found ")"`），该次 `EXIT=1` 是**构建错误**而非判据的红 —— 已按仓库既有纪律**判为无效并作废**，
+> 改用「恒等函数」形态重跑（§14.3 表内为有效证据；无效证据 `RP-R1-A.log` / `RP-R1-A-build.log` 逐字留档）。
+
+### 14.4 门禁（严格串行，全绿；计数只增不减）
+
+| 门禁 | 实测 | 基线（收口时） |
+|------|:--:|:--:|
+| `npm run typecheck` / `npm run build` | `0 error` / `EXIT=0` | — |
+| `npm test`（插件单测） | **`ℹ tests 803 / pass 803 / fail 0 / skipped 0`** | 796 → **803**（+7：判定链 4 + 布线反证 2 + busy 1） |
+| `test:supersession` | **14 / 0** | 14（叶段登记 104 条） |
+| `test:density` | **127 / 0** | 127 |
+| `test:l0` / `test:l1` / `test:l2` | **164 / 103 / 71**，0 failed | 164 / 103 / 71 |
+| `test:l1-reverse` / `test:l2-reverse` | **9 条 / 10 条**（注入→FAIL→sha256 复原→PASS） | 同 |
+| `test:page-input` | **93 / 0**（**连跑 5 次 5/5 绿**，每次 `93 passed / 0 failed`） | 92 → **93**（R1 断言） |
+| `test:zero-injection` | **27 / 0** | 27 |
+| `test:ui` / `test:insight` / `test:binding` / `test:hardening` | **167 / 116 / 192 / 24** | 同 |
+| `test:e2e` | **PASS** | PASS |
+| `test:gate-integrity` | **12 / 12** | 12 |
+| 体积四线 | `content.js 177,076`（sha `52a82620…` 不变）· `pick-layer.js 33,900`（sha `5f567d7e…` 不变）· `sidepanel.js 366,755` ≤ ceiling **385,092** · `+1 B` 反证在**新** ceiling 上重跑 | — |
+
+日志全量落盘：`/tmp/opencode/v3-gate-logs/defect-r1-ref-declaration/`（`01-*` … `18-*`、`RP-*`、`REDLINES.txt`）。
+
+### 14.5 busy 残留诊断（次要现象，**已修**）
+
+原文：`发送已禁用：上一条指令仍在处理中，请稍候。`
+
+**根因（精确到行）**：`sidepanel.ts#acceptCapture()` 无条件 `dispatch({ type: 'ask', requestId: 'ref-round-<refId>' })`
+—— 该回合**覆盖** `state.ask`（`chat-state.ts:169-179`）。若被覆盖的是**后台提问**（`ask-user-request`），
+`submitAsk()` 的 `if (res && !refId)` 分支**不会**把答复发回后台（`sidepanel.ts:1074`）⇒ 该提问的 `askBridge` 只能等
+`DEFAULT_ASK_TIMEOUT_MS = 60000` 超时（`ask-bridge.ts`）；期间 `state.pending` 仍为 `true`（`view-model.ts:243`
+渲染该文案），而它只由 `chat-result done` / `error` / `history` 清除。
+
+**修法（≤10 行，非冻结文件）**：`chat-state.ts` 新增 `REF_ROUND_PREFIX` + `supersededAsk(state)`（纯判据）：
+`acceptCapture()` 在派发引用回合**之前**把被取代的后台提问结算为 `canceled`，并给用户一句可读通知
+（「已放弃上一条提问（你先在页面上拾取了引用）。」）。**可 FAIL 断言**：`test/sidepanel.test.ts` 的
+「R1 ask: 引用回合（ref-round-*）取代后台提问时必须可判定（supersededAsk）」——判据是「后台 id ⇒ 返回它 / 自己人的
+引用回合 ⇒ `null` / 无提问 ⇒ `null`」，并有「把 id 换成 `ask-8` 仍返回后台 id」的非空转对照。
+
+### 14.6 体积与重登记（五要素披露）
+
+| 项 | 值 |
+|----|----|
+| 前值 → 后值 | `362,777 → 366,755 B`（**+3,978 B / +1.10%**） |
+| 逐模块归因（同几何实测，Σ == 总增幅） | `l1/ref-validity.ts +1,762` · `sidepanel.ts +854` · `pick-input.ts +724` · `l1/ref-store.ts +256` · `chat-state.ts +220` · `view-model.ts +162` |
+| ceiling | 公式抬高 `floor(366,755 × 1.05) = 385,092 B`（容差 5% 未动、cap 仍 `record-only`） |
+| Feature 累计 | 从 `266,500 B` 起算 **+37.62%**（< 40% 停工线；**最差相邻对 +22.96%** 的告警仍在） |
+| 零改动 | `content.js` 177,076（sha 不变）· `pick-layer.js` 33,900（sha 不变）· 三冻结源 hash == pin |
+| 登记落点 | `test/size-baseline.ts`（`SIDEPANEL_RE_REGISTRATIONS['v3-4-r1']` / `SIDEPANEL_GROWTH_BREAKDOWN` / TIMELINE）· `docs/v3-density-baseline.json#volume` · `docs/v3-supersession-ledger.json`（`V34R1-S1~S4` + `featureHistory.v3-4-r1`） |
+
+### 14.7 零改动核对（红线）
+
+| 红线 | 实测 | 结论 |
+|------|------|:--:|
+| `dist/content.js` 逐字节不变 | `177,076` · sha `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6` | ✅ |
+| `dist/pick-layer.js` 逐字节不变 | `33,900` · sha `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59` | ✅ |
+| `src/content/**` 零改动 | 三冻结源 sha == `CONTENT_SOURCE_SHA256`（`a7290031…` / `7df782b3…` / `5737c40a…`）；`git diff --stat HEAD -- src/content` 空 | ✅ |
+| 判定链 pin（`policy.ts` / `auto-authorize.ts`） | `bfcb2ede…` / `1096d065…`；`git diff --stat HEAD -- src/security` 空 | ✅ |
+| `manifest.json` / `package.json` | 零 diff；`contextMenus` 命中 **0** | ✅ |
+| 密度阈值 `7/15 · 9/20 · 17/35` | 未动（`test:density` 127/0） | ✅ |
+| 风险位不可折叠 / 未授权零注入 | `test:l0` / `test:zero-injection` 27/0 全绿 | ✅ |
+| 测试只增不减、断言只强不弱 | `796 → 803`；`page-input 92 → 93`；既有断言零删除（台账 `V34R1-S1~S4` 登记取代/新增） | ✅ |
+| 不用 `git add -A` / 门禁串行 / 日志全量落盘 | 逐文件 path-limited add；`run-gates3.sh` 严格串行；日志全量落盘 | ✅ |
+
+### 14.8 未完成 / 人工面（如实登记）
+
+| # | 项 | 状态 | 说明 |
+|:-:|----|:--:|------|
+| 1 | **真实第三方站点复测**（作者真机：在 deepseek 页重新拾取 → 引用应有效且声明不变期间保持有效） | ⏳ **未执行** | headless 夹具只能证明「无声明站点 + 稳定选择器」的判定链与摄取闭合；真机观感/真实 SPA 仍需作者复测（本轮**不冒充 PASS**） |
+| 2 | 拾取观感 / 拖动体感 / 菜单观感 / 宿主真实兼容 / 多显示器 / 高 DPI（6 项人工面） | ⏳ 未执行 | 与 §8 / §13.8 一致 |
+| 3 | `pick-menu.ts#restoreFocus`（F6，需 `pick-layer.js` 重登记裁决） | ⛔ 仍 deferred | 与 §13.8 一致，本轮未动该产物 |
+| 4 | busy 残留的**真实**复现（后台提问被拾取取代） | ⏳ 未实跑端到端 | 根因与修法在代码层明确（§14.5），并有纯判据可 FAIL 断言；端到端需要「mock LLM 主动提问 + 拾取」的夹具，本轮未新增该夹具（如实登记） |
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.4 | **收口后缺陷修复轮 R1（作者真机反馈，2026-09-17）**：修「普通站点拾取的引用出生即死」**两个缺口** —— ① D4 口径由「必须有 `declarationHash`」改为「**捕获时声明状态 vs 当刻状态一致**」（SW `declarationEnv` 新增 `declarationStatus` 单一事实源 + 面板摄取 `withDeclaration()` 补全捕获事实；任何状态变化 ⇒ 失效并要求重拾；旧记录逐分支维持原判；fail-closed 逐分支论证见 v3-2 build.md §12.3）；② **D1 身份观测晚于身份标记**（标记由面板铸造 id 后才写回页面 ⇒ 新拾取的引用被判「已被同类新元素替换」）：`ref-highlight` 的 `mark` 分支由 SW 在写标记**之后**重读一次身份观测（`observeIdentity()`，只读 DOM）并交回面板重判（面板**不自证** `resolved`）。另修次要现象 busy 残留（引用回合取代后台提问 ⇒ 该提问只能等 60 s 超时，期间发送键显示「上一条指令仍在处理中」）：`supersededAsk()` + 结算为 canceled（≤10 行 + 可 FAIL 断言）。反证三条：①a 回退摄取补全 ⇒ `page-input` 失败原因**逐字等于作者原文**（`缺失 declarationHash`）· ①b 回退新观测回写 ⇒ 失败原因为「身份标记不匹配」· ② 状态变更 ⇒ invalid + 提示重拾 · ③ 旧数据（无 hash 无 status）⇒ 仍失效；**「因错而红」防呆**：①a 的首版扰动造成语法错误（构建失败）⇒ 判为无效并作废，改用恒等函数形态重跑（证据逐字留档）。门禁 21 项串行全绿（单测 **803** · density 127 · l0 164 · l1 103 · l2 71 · page-input **93（连跑 5/5）** · zero-injection 27 · journey 167 · insight 116 · binding 192 · hardening 24 · e2e PASS · gate-integrity 12 · l1/l2-reverse 9/10）；`sidepanel.js` 显式重登记 **362,777 → 366,755 B**（+3,978 / +1.10%，逐模块可归因；ceiling → **385,092**；容差 5% 未动、cap 仍 record-only）；`content.js` 177,076 与 `pick-layer.js` 33,900 **逐字节不变**（sha 复核）；测试只增不减（796 → 803）。 | 2026-09-17 | SDDU Build Agent |
 | v1.3 | **收口轮（validate R1 的 F1~F7）**：**F4（最高优先）实现生产可达** —— `revoke` **先** `denotifyPickLayer`（逐 tab 广播 `pick-layer-env{authorized:false}`）**再** `teardownPickLayer`，且 `pick-layer-inject` 在 `executeScript` 后**重算** env 再下发（在途 inject 不得复活已撤销授权）；改动只在 `src/background/**`，三受 pin 产物逐字节不变。**F3 去 flaky**：I-01②/I-01③ 载体换成同 origin 的非 bound/active tab + 静止前置（饱和退避 ≥15s 或终态、连续两次读数），**连跑 5 次 5/5 绿**（92/0），断言零减弱。**F1 登记保真**：逐文件归因三处落点按实测订正 `661/389/376/83` + 新增「四项之和 == 总增幅（Σ == +1,509）」机器断言（两段反证：`+661→+615` ⇒ FAIL；台账 `totalBytes 1509→1508` ⇒ FAIL）。**F2**：`+10.25%/+22.95% → +10.44%/+22.96%`（含台账 5 条 reason），历史值逐字保留。**F5**：`pickLayerTarget` 同 origin 时 active 优先 + 确定性断言。**F7**：in-gate 清单文案订正（`4→9` 实为 `8→13`；本轮 `13→17`）。**F6 deferred**（修法落在钉死的 `pick-layer.js` 上，需新的显式重登记裁决）。门禁 21 项严格串行全绿（`binding` 首跑环境性红 ⇒ 复跑 192 全绿，已如实登记）；计数只增不减（node 795→796 / page-input 78→92）。 | 2026-09-17 | SDDU Build Agent |
 | v1.2 | **修复轮 R2（裁决 V3-VOL-2）**：`pick-layer.js` **显式重登记 32,391 → 33,900 B**（+1,509 / +4.66%，逐文件实测 +661/+389/+376/+83；五要素披露 + 新增 `PICK_LAYER_BASELINE_BYTES_HISTORY`/`PICK_LAYER_RE_REGISTRATIONS` 机器断言；`+1 B` @ 33,901 反证实跑 FAIL、还原后 sha256 一致 PASS；`content.js` 177,076 与 `sidepanel.js` 362,777 零改动）；落地 5 项 deferred（I-02 复活 host / I-03 焦点还原 / I-01② 授权自检 + `envReady()` / I-01③ `pushState('gone')` / I-10 死判据 + 定时器跟踪）；`page-input` 61 → **78** 断言；**两段证伪**：回退 `71 passed / 7 failed` EXIT=1 → 修复 `78 passed / 0 failed` EXIT=0；台账 `V34R2-S1/S2/S3` + `featureHistory.v3-4-fix2` + 5 条 in-gate 反证登记；门禁 21 项严格串行全绿（计数只增不减）。 | 2026-09-17 | SDDU Build Agent |
 | v1.1 | **修复轮（review R1 后）**：BLOCK-1 一行修复（`tabOrigin(url)`）+ 5 条可 FAIL 回归断言 + 两段证伪（回退 57/4 EXIT=1 → 修复 61/0 EXIT=0）；BLOCK-2 登记数字一次性对齐（`362,777 / 380,915 / +12,852 / +3.67% / +36.13% / 22.96% / 5,085 / 67,552`）+ `ceilingUncappedFormulaBytes` 机器断言 + 中间快照移出 TIMELINE（保留在 `INTERMEDIATE_SNAPSHOTS`）+ `V34-S3/S3b/S3c/S3d`/`V34F-S1` 补登；I-01①/I-04/I-05/I-06/I-07/I-08/I-09/I-11 已修，**I-01②③/I-02/I-03/I-10 deferred**（`pick-layer.js` 32,391 零容差，实测需 +1,509 B ⇒ 停下回报，未擅自抬高上限）；§2.2 两条 MODIFY 失真订正（实际零 diff）+ 文件计数口径改为文件数（18）。门禁 21 项严格串行全绿（含计数只增不减）。 | 2026-09-17 | SDDU Build Agent |

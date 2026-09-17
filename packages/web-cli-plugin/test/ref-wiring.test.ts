@@ -148,3 +148,68 @@ test('AC-CONV-2：引用回合的选择答复走同一入口（不经自由文�
   assert.match(hook, /return applyRefAction\(String\(args\[0\]\), String\(args\[1\] \?\? 'ref-action'\)\);/);
   assert.ok(!/case 'act':\s*\n\s*return handle\.dispatchRefAction\(/.test(hook), '测试 seam 不得直接调用 guard 方法（那会是第二套实现）');
 });
+
+// ── R1（2026-09-17）：摄取时补全捕获事实的**布线反证** ────────────────────────
+/**
+ * 缺陷：普通站点（无有效声明）拾取的引用出生即死 —— 页面侧是**冻结**产物，只能写
+ * `declarationHash: ''`；若摄取点不补上声明**状态**，判定链只能读到「缺失事实」。
+ * 本判据是布线级的复现反证（端到端那一条在 `test/ui/page-input.mjs`）：把
+ * `onCapture(withDeclaration(` 改回 `onCapture(`（= 回退修复）⇒ 计数归零 ⇒ FAIL。
+ */
+export function captureCompletionSites(source: string): number {
+  return (codeOnly(source).match(/onCapture\(withDeclaration\(/g) ?? []).length;
+}
+
+test('R1：拾取摄取点补全声明状态（两条落点各一次；回退修复即 FAIL）', () => {
+  const pickInput = read('src/ui/sidepanel/pick-input.ts');
+  // ① clicking a reference and ② dropping one on the panel are the two ingestion paths.
+  assert.equal(captureCompletionSites(pickInput), 2, '两条摄取落点都必须经过 withDeclaration()');
+  const forged = pickInput.replaceAll('onCapture(withDeclaration(', 'onCapture(');
+  assert.equal(captureCompletionSites(forged), 0, '反证：回退摄取补全 ⇒ 判据必须归零（非恒真）');
+  assert.match(pickInput, /const withDeclaration = \(facts: RawRefFacts\): RawRefFacts => \{/, '补全必须是显式具名步骤');
+  assert.match(pickInput, /status: d\.status/, '写入的必须是 SW 单一事实源给出的状态');
+  // The judge env must carry the state (not just the digest).
+  const envFn = pickInput.slice(pickInput.indexOf('const judgeEnv = (): RefEnv => {'), pickInput.indexOf('const inject = async'));
+  assert.ok(envFn.includes('declarationStatus:'), 'env 必须携带 declarationStatus');
+  assert.ok(envFn.includes('declarationHash:'), 'env 仍须携带 declarationHash（valid 声明的摘要）');
+  // The single source of the state is the SW's declaration environment.
+  const sw = read('src/background/service-worker.ts');
+  assert.match(sw, /function declarationStatusOf\(/, '状态必须由 SW 从既有声明状态机派生');
+  assert.match(sw, /declarationStatus: 'valid' \| 'invalid' \| 'absent'/, 'declarationEnv 必须回传三态');
+  // 面板侧不得自造状态机（只透传 SW 的值）。
+  const sidepanel = read('src/ui/sidepanel/sidepanel.ts');
+  assert.match(sidepanel, /decl\.declarationStatus === 'valid'/, '面板只做 SW 状态的映射/透传');
+});
+
+// ── R1（2026-09-17）：身份观测必须晚于身份标记（D1 的第二个「出生即死」缺口）────
+/**
+ * 缺陷：身份标记（`data-wcli-ref`）由**面板铸造 id 之后**才写回页面，因此**捕获时刻**
+ * 的观测结构上不可能带上它 ⇒ D1 把每一条新拾取的引用判成「目标元素已被同类新元素
+ * 替换」⇒ 真实站点上引用**仍然不可用**（与「缺失 declarationHash」是同一症状的两个
+ * 缺口）。修法：标记回程（面板 → SW → 页面写标记）由 SW 在**写标记之后**重新读一次
+ * 身份观测并交回面板，面板用它重判。本判据是布线级反证：回退新观测回写 ⇒ 计数归零。
+ */
+export function rejudgeSites(source: string): number {
+  return (codeOnly(source).match(/if \(fresh\) l1\?\.setResolution\(fresh\)/g) ?? []).length;
+}
+
+test('R1：标记回程带回**新**身份观测并重判（回退即 FAIL；面板不得自证 resolved）', () => {
+  const sidepanel = read('src/ui/sidepanel/sidepanel.ts');
+  assert.equal(rejudgeSites(sidepanel), 1, '标记回程的新观测必须回写并重判');
+  assert.equal(
+    rejudgeSites(sidepanel.replace('if (fresh) l1?.setResolution(fresh);', '')),
+    0,
+    '反证：回退「新观测回写」⇒ 判据必须归零（非恒真）',
+  );
+  const pickInput = read('src/ui/sidepanel/pick-input.ts');
+  assert.match(pickInput, /if \(mode !== 'mark' \|\| !res\.ok\) return undefined;/, '只有身份标记回程带回观测');
+  assert.match(pickInput, /Promise<RefResolution \| undefined>/, 'highlight 必须把观测交回调用方');
+  const sw = read('src/background/service-worker.ts');
+  assert.match(sw, /async function observeIdentity\(/, '新观测必须由 SW 从页面读取');
+  assert.match(sw, /mode === 'mark' && selector \? await observeIdentity\(target\.tabId, selector\)/, 'ref-highlight 的 mark 分支必须带新观测');
+  assert.match(sw, /getAttribute\('data-wcli-ref'\)/, '身份判据必须是 `data-wcli-ref`（与 D1 同一判据）');
+  assert.ok(
+    !/setResolution\(\{\s*status: 'resolved'/.test(sidepanel),
+    '生产路径不得自证 resolved（观测只能来自页面）',
+  );
+});

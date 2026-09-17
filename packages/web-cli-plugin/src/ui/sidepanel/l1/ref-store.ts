@@ -136,6 +136,9 @@ export function createRefStore(): RefStore {
         navSeq: Number(raw.navSeq ?? Number.NaN),
         declarationHash: raw.declarationHash ?? '',
         ...(raw.declarationVersion !== undefined ? { declarationVersion: raw.declarationVersion } : {}),
+        // Defect fix R1: the capture-time declaration **state** is carried verbatim (the
+        // panel's ingestion stamps it from the SW's single declaration source).
+        ...(raw.declaration !== undefined ? { declaration: raw.declaration } : {}),
         capturedAt: Number(raw.capturedAt ?? 0),
       };
       // A brand-new reference has not been judged against a real environment yet, so

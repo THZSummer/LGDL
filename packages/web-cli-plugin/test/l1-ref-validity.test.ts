@@ -11,7 +11,9 @@ import assert from 'node:assert/strict';
 
 import {
   REASON_TEMPLATES,
+  REQUIRED_REF_FACTS,
   UNKNOWN_CAUSE_TEXT,
+  currentDeclarationStatus,
   evaluateRefValidity,
   isRefUsable,
   reasonFor,
@@ -291,4 +293,107 @@ test('v3-2 disclosure: L1 面板进入白名单，但 #risk-rail 仍结构性不
   assert.equal(assertFoldable('l1-history'), 'l1-history');
   assert.throws(() => assertFoldable('#risk-rail'), DisclosureError, '风险位永不可折叠');
   assert.throws(() => assertFoldable('l0-decision'), DisclosureError);
+});
+
+// ── R1（2026-09-17，收口后缺陷修复轮）────────────────────────────────────────
+//
+// 作者真机反馈：在**没有有效站点声明**的普通站点（deepseek 的 usage 页）拾取的引用
+// **出生即死**（「引用捕获事实不完整：缺失 declarationHash —— 按失效处理」）。根因是
+// D4 的口径曾是「必须有 declarationHash」，而站点声明是**站点工具面**机制，不是用户
+// 拾取的前提。R1 把 D4 改为「捕获时**状态** vs 当刻状态一致」——fail-closed **不放松**：
+// 新增的每个出口仍是 invalid / unknown，`valid` 只可能在状态相同（valid 时还要求摘要
+// 与 version 相同）时出现；修复前的旧记录维持原判。
+
+/** A capture on a site that declares nothing (the normal case on third-party sites). */
+const ABSENT_FACTS: RefFacts = { ...FACTS, declarationHash: '', declaration: { status: 'absent' } };
+/** A capture on a site whose declaration exists but does not validate. */
+const INVALID_FACTS: RefFacts = { ...FACTS, declarationHash: '', declaration: { status: 'invalid' } };
+/** A capture on a site with an adopted declaration (status + real digest). */
+const VALID_FACTS: RefFacts = { ...FACTS, declaration: { status: 'valid', hash: 'h1' } };
+
+test('R1 judge: 无有效声明的站点拾取的引用在声明状态不变时有效（缺陷复现——回退即 FAIL）', () => {
+  const absentEnv = good({ declarationStatus: 'absent', declarationHash: undefined });
+  assert.equal(evaluateRefValidity(ABSENT_FACTS, absentEnv).verdict, 'valid', 'absent → absent 必须放行');
+  assert.equal(isRefUsable(ABSENT_FACTS, absentEnv), true);
+  const invalidEnv = good({ declarationStatus: 'invalid', declarationHash: undefined });
+  assert.equal(evaluateRefValidity(INVALID_FACTS, invalidEnv).verdict, 'valid', 'invalid → invalid 必须放行');
+  assert.equal(isRefUsable(INVALID_FACTS, invalidEnv), true);
+  // The pre-R1 caliber (`declarationHash: ''` ⇒ missing fact) is exactly the defect:
+  // 同一条事实在没有 declaration 时仍是 unknown（历史记录口径不变，见下一条用例）。
+  assert.equal(evaluateRefValidity({ ...ABSENT_FACTS, declaration: undefined }, absentEnv).verdict, 'unknown');
+  // valid 声明：状态 + 摘要一致才放行。
+  const validEnv = good({ declarationStatus: 'valid', declarationHash: 'h1' });
+  assert.equal(evaluateRefValidity(VALID_FACTS, validEnv).verdict, 'valid');
+  // 状态是**完整事实**：快照口径不再要求 declarationHash 出现在必需事实里。
+  assert.equal(REQUIRED_REF_FACTS.includes('declarationHash' as never), false);
+  assert.equal(currentDeclarationStatus(validEnv), 'valid');
+  assert.equal(currentDeclarationStatus(good({ declarationHash: 'h1' })), 'valid', '只有 hash 的旧 env 蕴含 valid');
+  assert.equal(currentDeclarationStatus(good({ declarationHash: undefined })), undefined, '读不到 ⇒ undefined（⇒ unknown）');
+});
+
+test('R1 judge: 声明**状态变更** ⇒ invalid 且可读原因提示重新拾取（反证②）', () => {
+  const cases: Array<[string, RefFacts, RefEnv, string]> = [
+    ['捕获 invalid → 当刻 valid（站点后来修好了声明）', INVALID_FACTS, good({ declarationStatus: 'valid', declarationHash: 'h9' }), '声明状态 无效 → 有效'],
+    ['捕获 absent → 当刻 invalid', ABSENT_FACTS, good({ declarationStatus: 'invalid', declarationHash: undefined }), '声明状态 未声明 → 无效'],
+    ['捕获 valid → 当刻 absent（声明消失）', VALID_FACTS, good({ declarationStatus: 'absent', declarationHash: undefined }), '声明状态 有效 → 未声明'],
+  ];
+  for (const [label, ref, env, what] of cases) {
+    const view = evaluateRefValidity(ref, env);
+    assert.equal(view.verdict, 'invalid', `${label} 必须判失效`);
+    assert.equal(view.dimension, 'declaration-changed', `${label} 的维度必须是 declaration-changed`);
+    assert.ok((view.readableReason ?? '').includes(what), `${label} 的原因必须写明状态两端：${view.readableReason}`);
+    assert.ok((view.readableReason ?? '').includes('重新拾取'), `${label} 的原因必须提示重新拾取：${view.readableReason}`);
+    assert.equal(isRefUsable(ref, env), false, `${label} 必须被阻断`);
+  }
+  // 摘要变化仍走既有的 hash 措辞（N-07 的逐字模板不得被状态措辞覆盖）。
+  const digest = evaluateRefValidity(VALID_FACTS, good({ declarationStatus: 'valid', declarationHash: 'h2' }));
+  assert.equal(digest.verdict, 'invalid');
+  assert.match(digest.readableReason ?? '', /hash h1 → h2/);
+  assert.ok(!(digest.readableReason ?? '').includes('重新拾取'), '状态未变（仅摘要变）时不加「重新拾取」后缀');
+});
+
+test('R1 judge fail-closed（反证③）：旧记录 / 读不到当刻状态 / valid 缺摘要 三者都必须被阻断', () => {
+  // ③ 修复前捕获的旧记录（既无 hash 也无 status）→ 维持原判（unknown ⇒ 按失效）。
+  const legacy = { ...FACTS, declarationHash: '' };
+  const legacyCases: Array<[string, RefEnv]> = [
+    ['旧记录 + 旧 env（无 status 无 hash）', good({ declarationHash: undefined })],
+    ['旧记录 + 状态 env（无 hash）', good({ declarationStatus: 'absent', declarationHash: undefined })],
+    ['旧记录 + 空 env', {}],
+  ];
+  for (const [label, env] of legacyCases) {
+    const view = evaluateRefValidity(legacy, env);
+    assert.equal(view.verdict, 'unknown', `${label} 必须判 unknown（不得因 R1 而放行）`);
+    assert.equal(isRefUsable(legacy, env), false, `${label} 必须被阻断`);
+    assert.ok((view.readableReason ?? '').includes('按失效处理'));
+  }
+  // 有状态但读不到当刻状态 ⇒ unknown（缺的仍是「事实」）。
+  const noNow = evaluateRefValidity(ABSENT_FACTS, good({ declarationStatus: undefined, declarationHash: undefined }));
+  assert.equal(noNow.verdict, 'unknown');
+  assert.match(noNow.readableReason ?? '', /按失效处理/);
+  assert.equal(isRefUsable(ABSENT_FACTS, good({ declarationStatus: undefined, declarationHash: undefined })), false);
+  // valid 声明但**当刻没有摘要** ⇒ 不得放行（状态对不上「可确认未变」）。
+  const noDigest = evaluateRefValidity(VALID_FACTS, good({ declarationStatus: 'valid', declarationHash: undefined }));
+  assert.notEqual(noDigest.verdict, 'valid', 'valid 声明缺摘要时不得放行');
+  assert.equal(isRefUsable(VALID_FACTS, good({ declarationStatus: 'valid', declarationHash: undefined })), false);
+  // 捕获 valid 但**捕获时没有摘要**（异常数据）⇒ 亦不得放行。
+  const noCapDigest = evaluateRefValidity({ ...FACTS, declaration: { status: 'valid' } }, good({ declarationStatus: 'valid', declarationHash: 'h1' }));
+  assert.equal(noCapDigest.verdict, 'invalid');
+  assert.equal(isRefUsable({ ...FACTS, declaration: { status: 'valid' } }, good({ declarationStatus: 'valid', declarationHash: 'h1' })), false);
+});
+
+test('R1 store: 捕获时的 declaration 事实被原样保留（摄取补全的事实不丢）', () => {
+  const store = createRefStore();
+  const rec = store.create({ ...ABSENT_FACTS, selector: '#t' });
+  assert.deepEqual(rec.facts.declaration, { status: 'absent' }, '摄取补全的 declaration 必须进入捕获事实');
+  const env = good({ declarationStatus: 'absent', declarationHash: undefined });
+  store.judge(env);
+  assert.equal(store.get(rec.facts.refId)?.verdict, 'valid');
+  assert.equal(store.dispatch(rec.facts.refId, env).allowed, true);
+  // 状态一变即失效（派发被阻断，计数不增）。
+  const changed = good({ declarationStatus: 'valid', declarationHash: 'h1' });
+  assert.equal(store.dispatch(rec.facts.refId, changed).allowed, false);
+  assert.equal(store.commandSends(), 1);
+  // 未带 declaration 的旧式 RawRefFacts 不得凭空得到状态。
+  const legacy = store.create({ ...FACTS, selector: '#t2', declarationHash: '' });
+  assert.equal('declaration' in legacy.facts, false);
 });
