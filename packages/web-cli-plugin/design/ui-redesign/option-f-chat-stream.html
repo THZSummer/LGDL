@@ -1,0 +1,1927 @@
+<!doctype html>
+<!--
+═══════════════════════════════════════════════════════════════════════════
+  web-cli plugin · 侧边栏布局重构 · 方案 F
+  「聊天流统一承载」（Chat Stream as the Single Interaction Surface）
+═══════════════════════════════════════════════════════════════════════════
+
+  ① 立项依据：作者真机反馈（2026-09-17，逐字保留）
+  ───────────────────────────────────────────────────────────────────────────
+  · 「所有过程性的问答，建议放到聊天框里面，同时也方便看到授权记录，不要放到上面，
+     丢失过程信息，每一步交互，尽可能都在聊天框留痕，作为事实依据，包括推荐的
+     下一步操作，都放到聊天框里面」
+  · 「整体布局简化，工具栏、聊天框、状态栏」
+  · 「聊天框包含：AI答复聊天、下一步推荐、问答、权限申请」
+
+  真机现场（原样进设计，不美化）：
+    AI 用 ask-user 问了三个编号问题 → 用户答「页面原地翻译」→ 引用 1 失效
+    （目标元素已不存在）→「重新拾取 / 改用描述」→ AI 又追问一轮。
+    这些过程当时**全散落在聊天框之外的上层**，过程链条断了。
+    F 稿把它们全部收进流：见 S3（问答留痕）与 S5（引用失效 → 重拾）两个场景。
+
+  ② 与 E 的关系（不推翻视觉语言，只改交互模型）
+  ───────────────────────────────────────────────────────────────────────────
+  · 继承 E 的 :root 设计令牌、组件样式语言（卡片 / chip / badge / 按钮形态）、
+    字体系统、滚动条样式、字体缩放口径。
+  · E 的「渐进式披露三层模型」（L0 常驻 / L1 就地展开 / L2 按需视图）**保留**，
+    但 L0 的「当前那一张决策卡」不再是屏幕上的一个独占槽位，而是**流里的最新一条消息**；
+    对话历史从「L1 已决策历史」升级为**流本身**（流 = 会话审计线索）。
+  · E 的「主界面无常驻输入框」**保留并强化**：法四，输入按需出现在 ask-user 卡内。
+
+  ③ 三区法则（本稿骨架，可作为重构规格直接引用）
+  ───────────────────────────────────────────────────────────────────────────
+  ┌ 工具栏（顶部，一行，常驻）───────────────────────────────────────────┐
+  │ 只放两样东西：① 站点摘要（origin + 授权态）② 常驻导航（树 / 命令 / 审计 / 设置）。│
+  │ 可点元素合计 ≤5（4 个视图入口 + 1 个主题切换）；站点摘要为只读 status，不可点。 │
+  │ 禁止：任何一次性交互（问答 / 授权 / 推荐）出现在工具栏。                    │
+  └───────────────────────────────────────────────────────────────────┘
+  ┌ 聊天流（主体，唯一交互面）─────────────────────────────────────────┐
+  │ 追加式消息流，正序排列，自动滚到底，可上滚回看（=留痕）。                  │
+  │ 一切交互皆 7 类消息卡之一（见 ④）。                                     │
+  └───────────────────────────────────────────────────────────────────┘
+  ┌ 状态栏（底部，常驻，永不折叠）───────────────────────────────────────┐
+  │ ① 连接状态一行（只读）② 活跃风险 chips（5 类风险位压缩为 chip 形态，       │
+  │   有则显示、无则不占行）。点 chip → 展开详情 + 滚动定位到流内相关卡。        │
+  │ 永不折叠：状态栏本体不带 hidden，风险 chip 不参与任何展开/收起。           │
+  └───────────────────────────────────────────────────────────────────┘
+
+  ④ 卡类型契约（7 类，缺一不可；每类都在本稿有真实样例）
+  ───────────────────────────────────────────────────────────────────────────
+  #  选择器                          语义                     固化规则
+  1  [data-msg-type="ai"]             AI 回复                    只追加
+  2  [data-msg-type="user"]           用户发言                   只追加
+  3  [data-msg-type="nextstep"]       下一步推荐（chips 即指令）     点击即发起，chip 记录已选
+  4  [data-msg-type="askuser"]        ask-user 问答（choice / text） 应答/取消后**固化不可逆**
+  5  [data-msg-type="auth"]           权限/授权申请                批准/拒绝后**固化不可逆**
+  6  [data-msg-type="system"]         系统事件行（单行+时间戳）       只追加
+  7  [data-msg-type="ref"]            页面引用（有效 / 失效）        失效卡保留，新引用序号递增
+  固化态统一契约：data-* 状态属性 + [hidden] 切换表单/固化区 + `.ts` 时间戳，
+  固化区类名 `.card-fixed`；不存在「撤销回答」「撤销批准」的控件 —— 撤销本身
+  是一条新的系统事件行（法二）。
+
+  ⑤ 五条设计法则（法一~法五，逐条可验证）
+  ───────────────────────────────────────────────────────────────────────────
+  法一 一切交互皆消息：问答 / 授权 / 推荐 / 系统事件一律入流；
+       一次性交互禁止出现在工具栏或浮层（工具栏与状态栏内无此类控件，可静态核验）。
+  法二 留痕即事实：卡片只固化不撤销（回答 / 批准 / 失效都是既成事实），
+       流 = 会话审计线索；完整台账仍走工具栏「审计」视图。
+  法三 三区各司其职：工具栏只放常驻导航与站点摘要；状态栏只放常驻状态与风险；
+       一切「过程」进流。
+  法四 输入按需出现：无常驻输入框（沿用 E 的「页面即输入」主线）；
+       ask-user text 型的输入框只在问题卡内出现，卡内还有「其他…（我来描述）」兜底输入。
+  法五 默认密度继承：默认屏可点元素 = 工具栏 + 状态栏合计 ≤7；
+       聊天流内容随会话增长，**不计入**默认密度（它是记录，不是控件预算）。
+       本稿顶部演示控制台实时实测该数字（口径见页脚）。
+
+  ⑥ 自检
+  ───────────────────────────────────────────────────────────────────────────
+  · 零外链：全部样式与图标内联（图标一律内联 SVG），无远程资源、无网络请求；
+    下载后双击即可打开，无需服务器、无构建。
+  · 内联 JS 仅用于演示：场景切换（S1~S7）/ 三档宽度 / 双主题 / 视图切换 /
+    问答与授权的「操作前 → 操作后固化」/ 风险 chip 详情 / 页面拾取。
+  · 顶部「演示控制台」与底部「口径说明」不属于交付 UI（不在 #panel 内，
+    不参与密度统计）。
+  · 结构语义：header[role=toolbar] > main[role=log] > footer[role=contentinfo]。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>web-cli plugin · 方案 F 聊天流统一承载（设计稿）</title>
+    <style>
+      /* ── 令牌 / 基础（与 A~E 同源，本块逐字继承自 option-e-progressive.html） ── */
+      :root {
+        color-scheme: light dark;
+
+        /* 面板内（与现状一致） */
+        --bg: #ffffff;
+        --bg-subtle: #f6f8fb;
+        --bg-elevated: #ffffff;
+        --text: #1e293b;
+        --text-muted: #64748b;
+        --border: #e5e9f0;
+        --border-strong: #cbd5e1;
+        --accent: #4f46e5;
+        --accent-weak: #eef2ff;
+        --accent-text: #4338ca;
+        --brand-a: #4f46e5;
+        --brand-b: #3b82f6;
+        --tool-bg: #0f172a;
+        --tool-text: #cbd5e1;
+        --tool-border: #1e293b;
+        --warn-bg: #fffbeb;
+        --warn-border: #fde68a;
+        --warn-text: #92400e;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --danger-border: #fecaca;
+        --danger-text: #991b1b;
+        --ok: #15803d;
+        --ok-bg: rgba(21, 128, 61, 0.12);
+        --accent-hover: #4338ca;
+        --warn: #92400e;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        --focus: 0 0 0 2px rgba(79, 70, 229, 0.35);
+
+        /* 演示舞台（面板之外，仅供评审） */
+        --stage-bg: #eceff5;
+        --stage-panel: #ffffff;
+        --stage-text: #334155;
+        --stage-muted: #64748b;
+        --stage-border: #d7dde8;
+        --page-bg: #f8fafc;
+
+        /* 版面尺寸（宽度切换器改写 --panel-w） */
+        --panel-w: 400px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) {
+          --bg: #0b1120;
+          --bg-subtle: #0f172a;
+          --bg-elevated: #101a30;
+          --text: #e2e8f0;
+          --text-muted: #94a3b8;
+          --border: #1e293b;
+          --border-strong: #334155;
+          --accent: #818cf8;
+          --accent-weak: #1e1b4b;
+          --accent-text: #c7d2fe;
+          --tool-bg: #050a16;
+          --tool-text: #cbd5e1;
+          --tool-border: #1e293b;
+          --warn-bg: #3b2f10;
+          --warn-border: #78500f;
+          --warn-text: #fcd34d;
+          --danger: #f87171;
+          --danger-bg: #3f1414;
+          --danger-border: #7f1d1d;
+          --danger-text: #fca5a5;
+          --ok: #4ade80;
+          --ok-bg: rgba(74, 222, 128, 0.14);
+          --accent-hover: #a5b4fc;
+          --warn: #fcd34d;
+          --stage-bg: #070b14;
+          --stage-panel: #0b1120;
+          --stage-text: #cbd5e1;
+          --stage-muted: #94a3b8;
+          --stage-border: #24304a;
+          --page-bg: #0d1424;
+        }
+      }
+
+      /* 手动深色（覆盖系统浅色） */
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0b1120;
+        --bg-subtle: #0f172a;
+        --bg-elevated: #101a30;
+        --text: #e2e8f0;
+        --text-muted: #94a3b8;
+        --border: #1e293b;
+        --border-strong: #334155;
+        --accent: #818cf8;
+        --accent-weak: #1e1b4b;
+        --accent-text: #c7d2fe;
+        --tool-bg: #050a16;
+        --tool-text: #cbd5e1;
+        --tool-border: #1e293b;
+        --warn-bg: #3b2f10;
+        --warn-border: #78500f;
+        --warn-text: #fcd34d;
+        --danger: #f87171;
+        --danger-bg: #3f1414;
+        --danger-border: #7f1d1d;
+        --danger-text: #fca5a5;
+        --ok: #4ade80;
+        --ok-bg: rgba(74, 222, 128, 0.14);
+        --accent-hover: #a5b4fc;
+        --warn: #fcd34d;
+        --stage-bg: #070b14;
+        --stage-panel: #0b1120;
+        --stage-text: #cbd5e1;
+        --stage-muted: #94a3b8;
+        --stage-border: #24304a;
+        --page-bg: #0d1424;
+      }
+
+      /* 手动浅色（覆盖系统深色） */
+      html[data-theme="light"] { color-scheme: light; }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      /* 演示开关用 hidden 切显隐：必须有 !important 才不会被 display:flex 反超 */
+      [hidden] { display: none !important; }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--stage-bg);
+        color: var(--stage-text);
+        overflow-wrap: anywhere;
+      }
+
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      /* ── 通用控件（与 E 同源） ─────────────────────────────────────── */
+      button {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 10px;
+        cursor: pointer;
+        max-width: 100%;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-primary { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+      .btn-primary:hover:not(:disabled) { background: var(--accent-hover); color: #fff; }
+      .btn-danger { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger-text); }
+      .btn-danger:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-bg); color: var(--danger-text); }
+      .mini-btn { font-size: 10.5px; padding: 2px 8px; border-radius: 999px; }
+      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+      .muted { color: var(--text-muted); font-size: 11.5px; }
+      .hint { margin: 5px 0 0; color: var(--text-muted); font-size: 10.5px; line-height: 1.55; }
+      code {
+        font-family: var(--mono);
+        font-size: 11px;
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0 3px;
+      }
+      input, select, textarea {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 8px;
+        min-width: 0;
+        max-width: 100%;
+      }
+      input::placeholder, textarea::placeholder { color: var(--text-muted); }
+      input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; box-shadow: var(--focus); }
+      .ico { width: 14px; height: 14px; flex: 0 0 auto; display: block; }
+      .ico-lg { width: 16px; height: 16px; flex: 0 0 auto; display: block; }
+
+      /* ── 徽标 / chip（一律带文字，不靠颜色单独传达） ───────────────── */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-subtle);
+        color: var(--text-muted);
+        font-size: 10px;
+        line-height: 1.65;
+        white-space: normal;
+      }
+      .badge.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); font-weight: 600; }
+      .badge.ask { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); font-weight: 600; }
+      .badge.deny { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); font-weight: 600; }
+      .badge.accent { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); font-weight: 600; }
+      .badge.mono { font-family: var(--mono); }
+      .ts { font-family: var(--mono); font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+
+      /* ═══════════════════════════════════════════════════════════════
+         演示舞台（非交付 UI）
+         ═══════════════════════════════════════════════════════════════ */
+      .stage { max-width: 1180px; margin: 0 auto; padding: 16px 16px 48px; }
+
+      .demo-bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+        padding: 10px 12px;
+        margin-bottom: 14px;
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      }
+      .demo-bar-title { font-size: 12px; font-weight: 700; display: flex; flex-direction: column; gap: 2px; }
+      .demo-bar-note { font-weight: 400; font-size: 10.5px; color: var(--stage-muted); max-width: 380px; line-height: 1.5; }
+      .demo-group { display: flex; flex-direction: column; gap: 3px; }
+      .demo-label { font-size: 10px; font-weight: 700; color: var(--stage-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+      .seg { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 2px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 999px; }
+      .seg [role="radio"] { border: 1px solid transparent; background: transparent; border-radius: 999px; padding: 3px 9px; font-size: 11px; color: var(--text-muted); }
+      .seg [role="radio"]:hover { border-color: var(--accent); color: var(--accent-text); background: var(--bg); }
+      .seg [role="radio"][aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+      .metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--stage-text); }
+      .metrics b { font-family: var(--mono); }
+      .m-ok { color: var(--ok); font-weight: 700; }
+      .m-bad { color: var(--danger); font-weight: 700; }
+
+      /* ── 模拟浏览器窗口 ─────────────────────────────────────────── */
+      .browser {
+        border: 1px solid var(--stage-border);
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--page-bg);
+        box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1);
+      }
+      .browser-chrome {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--tool-bg);
+        color: var(--tool-text);
+        font-size: 11px;
+        border-bottom: 1px solid var(--tool-border);
+      }
+      .chrome-dots { display: inline-flex; gap: 4px; }
+      .chrome-dots i { width: 8px; height: 8px; border-radius: 50%; background: #475569; display: block; }
+      .chrome-tab { padding: 2px 8px; background: rgba(148, 163, 184, 0.16); border-radius: 6px 6px 0 0; white-space: nowrap; }
+      .chrome-url { flex: 1 1 auto; min-width: 0; padding: 2px 8px; background: rgba(148, 163, 184, 0.1); border-radius: 999px; font-family: var(--mono); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .browser-body { display: flex; align-items: stretch; gap: 0; min-height: 600px; }
+
+      .page-area { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; background: var(--page-bg); }
+      .pickbar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        padding: 7px 10px; border-bottom: 1px solid var(--stage-border);
+        background: var(--stage-panel); font-size: 11px;
+      }
+      .pick-state { font-family: var(--mono); font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--stage-border); color: var(--stage-muted); }
+      .pick-state[data-on="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+      .page-scroll { flex: 1 1 auto; overflow: auto; padding: 14px; }
+      .doc { max-width: 560px; }
+      .doc h1 { font-size: 20px; margin: 0 0 4px; color: var(--stage-text); }
+      .doc-meta { margin: 0 0 14px; font-size: 11px; color: var(--stage-muted); }
+      .doc h2 { font-size: 14px; margin: 18px 0 6px; color: var(--stage-text); }
+      .doc p { font-size: 12px; color: var(--stage-text); margin: 0 0 8px; }
+      .doc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+      .doc-actions button { font-size: 11.5px; }
+      .pickable { position: relative; border-radius: 6px; transition: box-shadow 0.15s, outline-color 0.15s; outline: 1px dashed transparent; }
+      #panel[data-pick-mode="on"] ~ * .pickable,
+      .page-area[data-pick-mode="on"] .pickable { outline-color: var(--accent); }
+      .pickable.is-picked { outline: 2px solid var(--accent); box-shadow: 0 0 0 4px var(--accent-weak); }
+
+      /* ═══════════════════════════════════════════════════════════════
+         交付 UI：侧栏面板（三区）
+         ═══════════════════════════════════════════════════════════════ */
+      .sidebar { flex: 0 0 auto; width: var(--panel-w); max-width: 100%; min-width: 0; display: flex; }
+
+      .panel {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        min-width: 0;
+        height: 600px;
+        background: var(--bg);
+        border-left: 1px solid var(--border);
+        color: var(--text);
+        overflow: hidden;
+      }
+
+      /* ── 区一：工具栏（常驻，一行，可点 ≤5） ─────────────────────── */
+      .toolbar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        padding: 7px 8px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+        min-width: 0;
+      }
+      .site-summary {
+        flex: 1 1 108px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .site-summary .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+      .panel[data-scene="S6"] .site-summary .dot { background: var(--warn-text); }
+      .site-summary .site-name { font-weight: 700; white-space: nowrap; }
+      .site-summary .site-origin {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-muted);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .view-nav { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+      .view-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 7px;
+        font-size: 11px;
+        border-radius: var(--radius-sm);
+      }
+      .view-btn .badge { padding: 0 4px; font-size: 9.5px; }
+      .view-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+      #theme-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; font-size: 11px; }
+
+      /* ── 区二：聊天流（唯一交互面） ──────────────────────────────── */
+      .stream-wrap {
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 10px 9px 14px;
+        background: var(--bg-subtle);
+        scrollbar-width: thin;
+      }
+      .stream-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+      .stream-wrap::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+      .stream-wrap::-webkit-scrollbar-track { background: transparent; }
+
+      .stream { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+      .msg { display: flex; gap: 6px; min-width: 0; align-items: flex-start; }
+
+      .msg-avatar {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--accent-weak);
+        color: var(--accent-text);
+        border: 1px solid var(--accent);
+      }
+      .msg-who {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-strong);
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text-muted);
+      }
+
+      .bubble {
+        min-width: 0;
+        max-width: 100%;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 8px 9px;
+        font-size: 12px;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+      .bubble > *:first-child { margin-top: 0; }
+      .bubble > *:last-child { margin-bottom: 0; }
+
+      /* 卡头标签（统一语言） */
+      .card-tag {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin: 0 0 6px;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text-muted);
+      }
+      .card-tag .ico { width: 12px; height: 12px; }
+
+      /* 1. AI 答复卡 */
+      .msg-ai .bubble { flex: 1 1 auto; }
+      .bubble ol, .bubble ul { margin: 6px 0; padding-inline-start: 20px; }
+      .bubble li { margin: 2px 0; }
+      .bubble h4 { margin: 8px 0 4px; font-size: 12px; }
+      .mini-table { width: 100%; border-collapse: collapse; margin: 6px 0 2px; font-size: 11px; }
+      .mini-table caption { text-align: left; color: var(--text-muted); font-size: 10px; padding-bottom: 3px; }
+      .mini-table th, .mini-table td { border: 1px solid var(--border); padding: 3px 5px; text-align: left; vertical-align: top; }
+      .mini-table th { background: var(--bg-subtle); font-weight: 700; }
+
+      /* 2. 用户消息卡 */
+      .msg-user { justify-content: flex-end; }
+      .msg-user .bubble { background: var(--accent-weak); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+      .msg-user .msg-who { order: 2; margin-left: 2px; }
+
+      /* 3. 下一步推荐卡 */
+      .msg-next .bubble { flex: 1 1 auto; border-left: 3px solid var(--accent); }
+      .next-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+      .next-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 9px; border-radius: 999px; }
+      .next-chip.is-chosen { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+
+      /* 4. ask-user 问答卡 */
+      .msg-ask .bubble { flex: 1 1 auto; border-left: 3px solid var(--warn-text); border-color: var(--warn-border); background: var(--bg-elevated); }
+      .ask-q { margin: 0 0 7px; font-weight: 600; }
+      .ask-form { display: flex; flex-direction: column; gap: 6px; }
+      .ask-input { width: 100%; }
+      .ask-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+      .ask-choices { display: flex; flex-direction: column; gap: 5px; }
+      .choice {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        justify-content: flex-start;
+        text-align: left;
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
+      }
+      .choice .choice-main { flex: 1 1 auto; min-width: 0; }
+      .ask-other { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+      /* 固化区（回答 / 批准 / 拒绝 的既成事实） */
+      .card-fixed {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px;
+        margin-top: 6px;
+        padding: 5px 7px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .card-fixed .ico { color: var(--ok); }
+      .card-fixed.is-no { }
+      .card-fixed.is-no .ico { color: var(--danger); }
+      .card-fixed b { color: var(--text); }
+      .msg-ask[data-answered="true"] .bubble { border-left-color: var(--ok); }
+      .msg-ask[data-answered="cancelled"] .bubble { border-left-color: var(--text-muted); }
+      .msg-auth[data-decision="approved"] .bubble { border-left-color: var(--ok); }
+      .msg-auth[data-decision="rejected"] .bubble { border-left-color: var(--danger); }
+
+      /* 5. 权限 / 授权申请卡 */
+      .msg-auth .bubble { flex: 1 1 auto; border-left: 3px solid var(--accent); border-color: var(--border-strong); }
+      .auth-scope { margin: 6px 0; padding-inline-start: 18px; font-size: 11px; color: var(--text); }
+      .auth-scope li { margin: 2px 0; }
+      .auth-preview {
+        margin: 6px 0;
+        padding: 6px 8px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+      }
+      .auth-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+
+      /* 6. 系统事件行 */
+      .msg-system {
+        gap: 6px;
+        padding: 2px 0 2px 28px;
+        font-size: 11px;
+        color: var(--text-muted);
+        align-items: baseline;
+      }
+      .msg-system .sys-bullet { flex: 0 0 auto; color: var(--border-strong); }
+      .msg-system .sys-text { min-width: 0; }
+      .msg-system .sys-text b { color: var(--text); }
+      .msg-system.is-flash { animation: flash 1.6s ease-out 1; border-radius: var(--radius-sm); }
+      @keyframes flash { from { background: var(--accent-weak); } to { background: transparent; } }
+
+      /* 7. 引用卡 */
+      .msg-ref .bubble { flex: 1 1 auto; border-left: 3px solid var(--brand-b); }
+      .ref-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+      .ref-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-subtle);
+        font-size: 10.5px;
+        min-width: 0;
+      }
+      .ref-chip.mono { font-family: var(--mono); font-size: 10px; }
+      .msg-ref[data-ref-state="stale"] .bubble { border-left-color: var(--danger); border-color: var(--danger-border); }
+      .ref-stale-why {
+        margin: 6px 0;
+        padding: 6px 8px;
+        border: 1px solid var(--danger-border);
+        background: var(--danger-bg);
+        color: var(--danger-text);
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+      }
+      .ref-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+      .ref-describe { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 5px; }
+
+      /* ── 按需视图层（L2：树 / 命令 / 审计 / 设置）────────────────── */
+      .view-layer { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+      .view-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .view-title { font-size: 12px; font-weight: 700; }
+      .view-body { border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--bg-elevated); padding: 8px; font-size: 11px; }
+      .view-body h4 { margin: 0 0 5px; font-size: 11.5px; }
+      .view-body ul { margin: 4px 0; padding-inline-start: 18px; }
+      .view-body li { margin: 2px 0; }
+
+      /* ── 区三：状态栏（常驻，永不折叠） ──────────────────────────── */
+      .statusbar {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 6px 8px;
+        background: var(--bg-elevated);
+        border-top: 1px solid var(--border);
+        min-width: 0;
+      }
+      .status-line {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        font-size: 10.5px;
+        color: var(--text-muted);
+        min-width: 0;
+      }
+      .status-line .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+      .panel[data-scene="S6"] .status-line .dot { background: var(--warn-text); }
+      .status-line .sb-main { min-width: 0; }
+      .risk-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+      .risk-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+      .risk-chip[data-risk="ref"] { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger-text); }
+      .risk-chip[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); }
+      .risk-detail { display: flex; flex-direction: column; gap: 5px; }
+      .risk-detail-line {
+        margin: 0;
+        padding: 5px 7px;
+        border: 1px dashed var(--warn-border);
+        border-radius: var(--radius-sm);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 10.5px;
+        line-height: 1.55;
+      }
+      .risk-detail-line b { color: var(--text); }
+
+      /* ── 底部口径说明（非交付 UI） ──────────────────────────────── */
+      .spec {
+        margin-top: 18px;
+        padding: 14px;
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        border-radius: 12px;
+        font-size: 12px;
+        line-height: 1.65;
+      }
+      .spec h2 { margin: 0 0 8px; font-size: 14px; }
+      .spec h3 { margin: 12px 0 4px; font-size: 12px; }
+      .spec ul { margin: 4px 0; padding-inline-start: 20px; }
+      .spec table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 11.5px; }
+      .spec th, .spec td { border: 1px solid var(--stage-border); padding: 4px 6px; text-align: left; vertical-align: top; }
+      .spec th { background: var(--bg-subtle); }
+      .spec .table-scroll { overflow-x: auto; }
+
+      /* ── 窄屏兜底（320px 面板零水平溢出） ───────────────────────── */
+      .panel[data-width="320"] .view-btn .view-label { display: none; }
+      .panel[data-width="320"] .site-summary .site-origin { max-width: 96px; }
+      @media (max-width: 900px) {
+        .browser-body { flex-direction: column; }
+        .sidebar { width: 100% !important; }
+        .panel { height: 620px; border-left: 0; border-top: 1px solid var(--border); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <!-- ═══ 演示控制台（非交付 UI，不在 #panel 内 → 不参与密度统计） ═══ -->
+      <nav class="demo-bar" aria-label="演示控制台（非交付 UI）">
+        <div class="demo-bar-title">
+          <span>演示控制台 · 方案 F（聊天流统一承载）</span>
+          <span class="demo-bar-note">
+            场景 S1~S7 可切换 · 三档宽度与双主题在任意场景下都可切 ·
+            点「从页面拾取」开启拾取态后，点左侧页面元素可触发 S2
+          </span>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-scene">场景态（7）</span>
+          <div class="seg" id="scene-switch" role="radiogroup" aria-labelledby="lb-scene">
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-scene-set="S1">S1 默认首屏</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S2">S2 拾取·引用·推荐</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S3">S3 问答流转（留痕）</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S4">S4 授权申请</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S5">S5 引用失效</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S6">S6 风险稳态</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S7">S7 全卡型 · 320×暗色</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-width">侧栏宽度</span>
+          <div class="seg" id="width-switch" role="radiogroup" aria-labelledby="lb-width">
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="320">320px</button>
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-width-set="400">400px</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="520">520px</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-theme">主题</span>
+          <div class="seg" id="theme-switch" role="radiogroup" aria-labelledby="lb-theme">
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-theme-set="auto">跟随系统</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-set="light">浅色</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-set="dark">深色</button>
+          </div>
+        </div>
+
+        <div class="demo-group metrics-group">
+          <span class="demo-label">密度实测（法五口径：#panel 内非 hidden 子树的 button/a/input/select/textarea/[tabindex]）</span>
+          <div class="metrics" id="metrics">
+            <span>工具栏可点 <b id="m-toolbar">–</b> <span class="muted">/ ≤5</span></span>
+            <span>状态栏可点 <b id="m-statusbar">–</b></span>
+            <span>默认屏合计 <b id="m-total">–</b> <span class="muted">/ ≤7</span></span>
+            <span>流内消息 <b id="m-msgs">–</b> <span class="muted">（不计入预算）</span></span>
+            <span id="m-verdict" class="m-ok">—</span>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ═══ 模拟浏览器窗口：左 = 宿主页面，右 = 插件侧栏 ═══ -->
+      <div class="browser" aria-label="模拟浏览器窗口（左：宿主页面 · 右：web-cli plugin 侧栏）">
+        <div class="browser-chrome">
+          <span class="chrome-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="chrome-tab">LGDL Workbench · 接口文档</span>
+          <span class="chrome-url"><span>http://localhost:5173/lgdl/docs</span></span>
+          <span class="chrome-tab">web-cli plugin（侧栏）</span>
+        </div>
+        <div class="browser-body">
+          <!-- 页面侧（宿主页；拾取入口在页面里，不占面板密度预算） -->
+          <div class="page-area" id="page-area">
+            <div class="pickbar" role="region" aria-label="页面拾取状态">
+              <button type="button" id="pick-toggle" aria-pressed="false">拾取模式：关</button>
+              <span class="pick-state" id="pick-state" data-on="false" role="status">未开启</span>
+              <span class="muted">Alt 悬停 / Alt+拖动入侧栏 / 右键引用 / 拖选文本（完整手势表见 E 稿，本稿不重复）</span>
+            </div>
+            <div class="page-scroll">
+              <article class="doc" aria-label="LGDL Workbench 接口文档（宿主页面样例）">
+                <h1 class="pickable" data-pickable data-pick-name="页面标题「LGDL Workbench · 接口文档」">LGDL Workbench · 接口文档</h1>
+                <p class="doc-meta">站点声明 <code>web-cli/0.2</code> · 12 个接口节点 · 更新于 2026-09-12 14:12</p>
+
+                <h2 class="pickable" data-pickable data-pick-name="小节标题「接口清单」">接口清单</h2>
+                <p class="pickable" data-pickable data-pick-name="段落「本文档列出…」">本文档列出 LGDL Workbench 的 12 个接口节点，含请求参数、响应结构与错误码。</p>
+
+                <div class="doc-actions" id="doc-actions">
+                  <button type="button" class="btn-primary pickable" data-pickable data-pick-name="「导出」按钮" id="doc-export">导出</button>
+                  <button type="button" class="pickable" data-pickable data-pick-name="「复制链接」按钮">复制链接</button>
+                  <button type="button" class="pickable" data-pickable data-pick-name="「查看变更」按钮">查看变更</button>
+                </div>
+
+                <h2 class="pickable" data-pickable data-pick-name="小节标题「错误码」">错误码</h2>
+                <p class="pickable" data-pickable data-pick-name="段落「401/403/429 …」">401 未认证 · 403 无权限 · 429 触发限流 · 500 服务端异常。</p>
+
+                <p class="hint">
+                  演示：点上方「拾取模式：关」开启拾取 → 面板进入拾取态；再点任一虚框元素 →
+                  面板跳转到 S2（拾取 → 引用 → 推荐）。此交互属页面侧，不计入面板默认密度。
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <!-- 侧栏：交付 UI -->
+          <div class="sidebar" id="sidebar">
+            <div
+              class="panel"
+              id="panel"
+              data-width="400"
+              data-scene="S1"
+              data-pick-mode="off"
+              role="region"
+              aria-label="web-cli plugin 侧边栏（方案 F · 聊天流统一承载）"
+            >
+              <!-- ═══════════════════════════════════════════════════════
+                   区一 工具栏（常驻，一行）
+                   · 站点摘要（只读 status，不可点）
+                   · 四视图入口（树 / 命令 / 审计 / 设置，带计数徽标）
+                   · 主题切换
+                   可点元素合计 = 4 + 1 = 5 ≤ 5
+                   ═══════════════════════════════════════════════════════ -->
+              <header class="toolbar" id="region-toolbar" data-region="toolbar" role="toolbar" aria-label="工具栏（常驻）">
+                <div class="site-summary" role="status" aria-label="站点摘要">
+                  <span class="dot" aria-hidden="true"></span>
+                  <span class="site-name">LGDL Workbench</span>
+                  <span class="site-origin">http://localhost:5173</span>
+                  <span class="badge ok" data-scenes="S1 S2 S3 S4 S5 S7">已授权 · supported</span>
+                  <span class="badge ask" data-scenes="S6">声明无效 · 只读</span>
+                </div>
+
+                <nav class="view-nav" aria-label="四视图入口（L2 按需视图）">
+                  <button type="button" class="view-btn" data-open-view="tree" aria-pressed="false" title="全局连接树（4 维）">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="5.6" y="1.2" width="4.8" height="2.6" rx="1" />
+                      <path d="M8 3.8v2.4" />
+                      <path d="M8 6.2H4v2.2" />
+                      <path d="M8 6.2h4v2.2" />
+                      <rect x="1.4" y="8.4" width="5.2" height="2.6" rx="1" />
+                      <rect x="9.4" y="8.4" width="5.2" height="2.6" rx="1" />
+                    </svg>
+                    <span class="view-label">树</span>
+                    <span class="badge">4</span>
+                  </button>
+                  <button type="button" class="view-btn" data-open-view="commands" aria-pressed="false" title="命令目录（122 卡）">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M2.6 5l2.6 3-2.6 3" />
+                      <path d="M8 11h5.2" />
+                    </svg>
+                    <span class="view-label">命令</span>
+                    <span class="badge">122</span>
+                  </button>
+                  <button type="button" class="view-btn" data-open-view="audit" aria-pressed="false" title="审计（12 条）">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M2.6 4.2h6.4" />
+                      <path d="M2.6 8h6.4" />
+                      <path d="M2.6 11.8h4" />
+                      <path d="M10.4 11.2l1.6 1.6 2.6-3.2" />
+                    </svg>
+                    <span class="view-label">审计</span>
+                    <span class="badge">12</span>
+                  </button>
+                  <button type="button" class="view-btn" data-open-view="settings" aria-pressed="false" title="设置（4 分区）">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="8" cy="8" r="2.1" />
+                      <path d="M8 1.6v1.7M8 12.7v1.7M1.6 8h1.7M12.7 8h1.7M3.5 3.5l1.2 1.2M11.3 11.3l1.2 1.2M12.5 3.5l-1.2 1.2M4.7 11.3l-1.2 1.2" />
+                    </svg>
+                    <span class="view-label">设置</span>
+                  </button>
+                </nav>
+
+                <button type="button" id="theme-toggle" aria-label="切换主题（当前：跟随系统）" title="切换主题">
+                  <svg class="ico" id="ico-theme-auto" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="8" cy="8" r="3.1" />
+                    <path d="M8 1.4v1.8M8 12.8v1.8M1.4 8h1.8M12.8 8h1.8M3.3 3.3l1.3 1.3M11.4 11.4l1.3 1.3M12.7 3.3l-1.3 1.3M4.6 11.4l-1.3 1.3" />
+                  </svg>
+                  <svg class="ico" id="ico-theme-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                    <path d="M13.2 9.6A5.4 5.4 0 0 1 6.4 2.8a5.2 5.2 0 1 0 6.8 6.8z" />
+                  </svg>
+                  <span class="sr-only" id="theme-toggle-text">主题</span>
+                </button>
+              </header>
+
+              <!-- ═══════════════════════════════════════════════════════
+                   区二 聊天流（唯一交互面）
+                   · <ol role="log"> 追加式消息流，正序，自动滚到底
+                   · 一切交互皆 7 类消息卡之一
+                   ═══════════════════════════════════════════════════════ -->
+              <main class="stream-wrap" id="region-stream" data-region="stream" aria-label="聊天流（唯一交互面）">
+                <!-- 按需视图层（L2）：默认 hidden，打开后替换流内容（同一内容区，不是浮层） -->
+                <div class="view-layer" id="view-layer" hidden>
+                  <div class="view-head">
+                    <button type="button" id="view-back">← 返回聊天流</button>
+                    <span class="view-title" id="view-title">视图</span>
+                    <span class="muted">完整台账在这里；流里只留过程线索（法二）</span>
+                  </div>
+                  <div class="view-body" id="view-tree" hidden>
+                    <h4>全局连接树（4 维）</h4>
+                    <ul>
+                      <li><b>站点</b>：localhost:5173 → 声明 <code>web-cli/0.2</code></li>
+                      <li><b>会话</b>：会话 #7（本标签页）</li>
+                      <li><b>对象</b>：文档 → 接口清单 → 导出按钮</li>
+                      <li><b>权限</b>：读自动 / 写 ask 保底 / evaluate 硬底线 deny</li>
+                    </ul>
+                  </div>
+                  <div class="view-body" id="view-commands" hidden>
+                    <h4>命令目录（122 卡 · 显示前 6 条）</h4>
+                    <ul>
+                      <li><code>dom.query</code> · allow · 只读</li>
+                      <li><code>dom.text</code> · allow · 只读</li>
+                      <li><code>dom.click</code> · ask 保底 · 写</li>
+                      <li><code>dom.setValue</code> · ask · 写</li>
+                      <li><code>page.navigate</code> · ask · 导航</li>
+                      <li><code>evaluate</code> · <b>deny 硬底线</b> · 永不执行、不提供「允许」</li>
+                    </ul>
+                  </div>
+                  <div class="view-body" id="view-audit" hidden>
+                    <h4>审计（12 条 · 显示最近 4 条）</h4>
+                    <ul>
+                      <li>14:22:07 拾取 → 引用 ①「导出」按钮（只读）</li>
+                      <li>14:23:41 ask-user 已答「页面原地翻译」</li>
+                      <li>14:25:10 授权批准 <code>dom.click</code>（单次）</li>
+                      <li>14:26:02 引用 ① 失效（目标元素已不存在）</li>
+                    </ul>
+                  </div>
+                  <div class="view-body" id="view-settings" hidden>
+                    <h4>设置（4 分区）</h4>
+                    <ul>
+                      <li>授权与策略档（本站点写操作自动=关）</li>
+                      <li>LLM 连接（火山方舟 · deepseek-v3 · 已配置）</li>
+                      <li>页面交互手势（8 个）</li>
+                      <li>留痕与台账（流保留策略 / 审计导出）</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- 消息流本体 -->
+                <ol class="stream" id="stream" role="log" aria-label="会话消息流（一切交互皆消息，只追加）">
+                  <!-- ── 1. AI 答复卡 ── -->
+                  <li class="msg msg-ai" id="msg-welcome" data-msg-type="ai" data-scenes="S1 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" />
+                        <path d="M12.6 10.4l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6z" />
+                      </svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">
+                        <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                        AI 答复 · 欢迎
+                      </p>
+                      <p>我在这个站点上可用：<code>localhost:5173</code> 声明了 <code>web-cli/0.2</code>，共 12 个工具。</p>
+                      <p>我不会主动动页面 —— <b>你指哪，我做什么</b>。所有问答、授权、推荐和系统事件都会留在这条聊天流里，作为事实依据。</p>
+                      <p class="hint">要开始，先在页面上「指」一个元素（或用下面的推荐卡）。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（S1 示例：引导从页面拾取开始） ── -->
+                  <li class="msg msg-next" id="msg-welcome-next" data-msg-type="nextstep" data-scenes="S1 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 点一下就是一条指令</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-command="从页面拾取">
+                          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                            <circle cx="8" cy="8" r="3.1" /><path d="M8 1.5v2.8M8 11.7v2.8M1.5 8h2.8M11.7 8h2.8" />
+                          </svg>
+                          从页面拾取
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-command="看命令目录">看命令目录（122）</button>
+                        <button type="button" class="next-chip" data-act="next" data-command="看审计">看审计（12）</button>
+                      </div>
+                      <p class="hint">推荐不是自动执行 —— 你点了才会做；点了会把「已选」记在这张卡上。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 1. AI 答复卡（富文本：编号列表 / 代码 / 表格摘要） ── -->
+                  <li class="msg msg-ai" id="msg-richtext" data-msg-type="ai" data-scenes="S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">AI 答复 · 富文本样例（编号列表 / 代码 / 表格摘要）</p>
+                      <p>本稿的 AI 答复卡支持以下内容形态：</p>
+                      <ol>
+                        <li>编号列表（像本行一样），用于分步骤说明；</li>
+                        <li>行内代码 <code>dom.click</code> 与代码块；</li>
+                        <li>表格摘要，用于「命令 → 权限档 → 是否可逆」这类对照。</li>
+                      </ol>
+                      <table class="mini-table">
+                        <caption>表格摘要示例：本会话涉及的命令</caption>
+                        <thead>
+                          <tr><th scope="col">命令</th><th scope="col">权限档</th><th scope="col">可逆</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr><th scope="row"><code>dom.text</code></th><td>allow</td><td>是</td></tr>
+                          <tr><th scope="row"><code>dom.click</code></th><td>ask 保底</td><td>否（会下载）</td></tr>
+                          <tr><th scope="row"><code>evaluate</code></th><td>deny 硬底线</td><td>否（永不执行）</td></tr>
+                        </tbody>
+                      </table>
+                      <p class="hint">表格只做摘要，不留横向滚动条；超宽时按列降级为行内 <code>键:值</code>。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 7. 引用卡（有效） ── -->
+                  <li class="msg msg-ref" id="ref-card-1" data-msg-type="ref" data-ref-state="valid" data-ref-num="1" data-scenes="S2 S3 S4 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3.2 2.6h9.6v10.8H3.2z" />
+                        <path d="M5.6 6h4.8M5.6 9.4h3.2" />
+                      </svg>
+                    </span>
+                    <article class="bubble ref-card">
+                      <p class="card-tag">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.1" /><path d="M8 1.5v2.8M8 11.7v2.8M1.5 8h2.8M11.7 8h2.8" /></svg>
+                        页面引用 · ① · 证据只读
+                      </p>
+                      <div class="ref-chips">
+                        <span class="ref-chip"><b>①</b>「导出」按钮</span>
+                        <span class="ref-chip mono">#doc-actions &gt; button.btn-primary</span>
+                        <span class="ref-chip">捕获于 14:22:07</span>
+                        <span class="ref-chip">元素仍在页面上</span>
+                      </div>
+                      <p class="hint">引用只是指向页面的一个「地址」，不会复制页面数据；页面变了它可能失效 —— 失效会作为系统事件留在流里。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 1. AI 答复卡（引用确认） ── -->
+                  <li class="msg msg-ai" id="msg-ref-ack" data-msg-type="ai" data-scenes="S2 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">AI 答复 · 引用已登记</p>
+                      <p>已引用 <b>①</b>「导出」按钮（<code>#doc-actions &gt; button.btn-primary</code>，捕获于 14:22:07）。</p>
+                      <p>你想对它做什么？下面给几个常用动作，也可以直接说别的。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（引用动作） ── -->
+                  <li class="msg msg-next" id="msg-ref-next" data-msg-type="nextstep" data-scenes="S2 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 作用于引用 ①</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-command="点击它">点击它 <span class="badge ask">写 · 需授权</span></button>
+                        <button type="button" class="next-chip" data-act="next" data-command="读它的文本">读它的文本 <span class="badge ok">只读</span></button>
+                        <button type="button" class="next-chip" data-act="next" data-command="复制选择器">复制选择器</button>
+                        <button type="button" class="next-chip" data-act="next" data-command="改用描述">改用描述（不用引用）</button>
+                      </div>
+                      <p class="hint">写操作会先弹出授权申请卡（见 S4），批准记录同样留在流里。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 1. AI 答复卡（S3 提问引入：真机现场的三问） ── -->
+                  <li class="msg msg-ai" id="msg-ask-intro" data-msg-type="ai" data-scenes="S3 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">AI 答复 · 先确认三件事</p>
+                      <p>为了不改错地方，我先确认三件事（一问一答都会留在这条流里）：</p>
+                      <ol>
+                        <li>你想翻译什么？</li>
+                        <li>译文写回哪里？</li>
+                        <li>术语风格用哪一档？</li>
+                      </ol>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（text 型 · 已答固化） ── -->
+                  <li class="msg msg-ask" id="ask-0" data-msg-type="askuser" data-ask-kind="text" data-answered="true" data-scenes="S3 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · 1/3 · text 型 · 已回答</p>
+                      <p class="ask-q" id="ask-0-q">1/3 你想翻译什么？可以在页面上指一段，也可以直接说。</p>
+                      <div class="ask-form" hidden>
+                        <label class="sr-only" for="ask-0-input">回答 1/3</label>
+                        <input id="ask-0-input" class="ask-input" type="text" placeholder="例如：把「接口清单」这节翻成英文" />
+                        <div class="ask-actions">
+                          <button type="button" class="btn-primary" data-act="answer" data-ask="ask-0">回答</button>
+                          <button type="button" data-act="cancel" data-ask="ask-0">取消</button>
+                          <span class="hint">取消 = 回答被取消（不代填默认值）</span>
+                        </div>
+                      </div>
+                      <div class="ask-fixed card-fixed">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：页面原地翻译</b>
+                        <span class="ts ask-fixed-time">14:23:41</span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 2. 用户消息卡 ── -->
+                  <li class="msg msg-user" id="msg-user-1" data-msg-type="user" data-scenes="S3 S7">
+                    <span class="msg-who" aria-hidden="true">我</span>
+                    <article class="bubble">页面原地翻译</article>
+                  </li>
+
+                  <!-- ── 1. AI 答复卡（追问） ── -->
+                  <li class="msg msg-ai" id="msg-ask-follow" data-msg-type="ai" data-scenes="S3 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">AI 答复 · 第 2 问</p>
+                      <p>收到：「页面原地翻译」= 译文替换原文，不动版式。</p>
+                      <p>那第 2 问：译文写回哪里？下面给三个备选（也可以点最后一个自己描述）。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（choice 型 · 未答，含「其他…」兜底输入） ── -->
+                  <li class="msg msg-ask" id="ask-2" data-msg-type="askuser" data-ask-kind="choice" data-answered="false" data-scenes="S3 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · 2/3 · choice 型 · 待你回答</p>
+                      <p class="ask-q" id="ask-2-q">2/3 译文写回哪里？</p>
+                      <div class="ask-form">
+                        <div class="ask-choices" role="group" aria-labelledby="ask-2-q">
+                          <button type="button" class="choice" data-act="choose" data-ask="ask-2" data-choice="原文替换（原地写回）">
+                            <span class="choice-main">原文替换（原地写回）</span>
+                            <span class="badge ask">写操作</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose" data-ask="ask-2" data-choice="插入到下方（保留原文）">
+                            <span class="choice-main">插入到下方（保留原文）</span>
+                            <span class="badge ask">写操作</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose" data-ask="ask-2" data-choice="只给我译文，先不写回">
+                            <span class="choice-main">只给我译文，先不写回</span>
+                            <span class="badge ok">只读</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose-other" data-ask="ask-2">
+                            <span class="choice-main">其他…（我来描述）</span>
+                          </button>
+                        </div>
+                        <div class="ask-other" hidden>
+                          <label class="sr-only" for="ask-2-other">补充描述写回位置</label>
+                          <input id="ask-2-other" class="ask-input" type="text" placeholder="用一句话描述写回位置" />
+                          <button type="button" class="btn-primary" data-act="answer" data-ask="ask-2" data-source="ask-2-other">用这句回答</button>
+                          <button type="button" data-act="cancel" data-ask="ask-2">取消</button>
+                        </div>
+                      </div>
+                      <div class="ask-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：</b>
+                        <span class="ts ask-fixed-time"></span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（text 型 · 未答，供交互演示与垫片断言） ── -->
+                  <li class="msg msg-ask" id="ask-1" data-msg-type="askuser" data-ask-kind="text" data-answered="false" data-scenes="S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · text 型 · 待你回答（演示：回答后固化）</p>
+                      <p class="ask-q" id="ask-1-q">术语风格用哪一档？可以直接描述，比如「保留英文原词，只在首次出现时给中文」。</p>
+                      <div class="ask-form">
+                        <label class="sr-only" for="ask-1-input">回答</label>
+                        <input id="ask-1-input" class="ask-input" type="text" placeholder="例如：保留英文原词，首次出现给中文" />
+                        <div class="ask-actions">
+                          <button type="button" class="btn-primary" data-act="answer" data-ask="ask-1">回答</button>
+                          <button type="button" data-act="cancel" data-ask="ask-1">取消</button>
+                          <span class="hint">取消 = 回答被取消（不代填默认值）</span>
+                        </div>
+                      </div>
+                      <div class="ask-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：</b>
+                        <span class="ts ask-fixed-time"></span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（text 型 · 未答，供取消留痕演示） ── -->
+                  <li class="msg msg-ask" id="ask-3" data-msg-type="askuser" data-ask-kind="text" data-answered="false" data-scenes="S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · text 型 · 待你回答（演示：取消也留痕）</p>
+                      <p class="ask-q" id="ask-3-q">3/3 这次要不要顺带把相邻的「错误码」小节也翻？</p>
+                      <div class="ask-form">
+                        <label class="sr-only" for="ask-3-input">回答</label>
+                        <input id="ask-3-input" class="ask-input" type="text" placeholder="要 / 不要，或补充说明" />
+                        <div class="ask-actions">
+                          <button type="button" class="btn-primary" data-act="answer" data-ask="ask-3">回答</button>
+                          <button type="button" data-act="cancel" data-ask="ask-3">取消</button>
+                          <span class="hint">取消 = 回答被取消（不代填默认值）</span>
+                        </div>
+                      </div>
+                      <div class="ask-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：</b>
+                        <span class="ts ask-fixed-time"></span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 5. 权限 / 授权申请卡（待批） ── -->
+                  <li class="msg msg-auth" id="auth-1" data-msg-type="auth" data-decision="pending" data-scenes="S4 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8 1.8l5 1.9v4.1c0 3-2.2 5.2-5 6.4-2.8-1.2-5-3.4-5-6.4V3.7z" />
+                        <path d="M5.9 8.1l1.5 1.5 2.9-3.2" />
+                      </svg>
+                    </span>
+                    <article class="bubble auth-card">
+                      <p class="card-tag">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3.4" y="7" width="9.2" height="6.4" rx="1.5" /><path d="M5.8 7V5.2a2.2 2.2 0 0 1 4.4 0V7" /></svg>
+                        权限申请 · 待你批准
+                      </p>
+                      <p class="ask-q">我想点击页面元素，需要你批准。</p>
+                      <ul class="auth-scope">
+                        <li>命令：<code>dom.click</code> · 权限档 <span class="badge ask">ask 保底</span></li>
+                        <li>站点：http://localhost:5173（已授权）</li>
+                        <li>目标：引用 ①「导出」按钮 · <code>#doc-actions &gt; button.btn-primary</code></li>
+                        <li>范围：仅这一次 · 只点击，不读数据、不写回</li>
+                      </ul>
+                      <div class="auth-preview">
+                        <b>后果预演：</b>点击会触发浏览器<b>下载</b>（文件名由站点决定）；不会提交表单；不会改动页面其他内容。
+                        若元素在点击前被移除，会失败并记一条系统事件。
+                      </div>
+                      <div class="auth-actions">
+                        <button type="button" class="btn-primary" data-act="approve" data-auth="auth-1" data-mode="once">批准这一次</button>
+                        <button type="button" data-act="approve" data-auth="auth-1" data-mode="session">本次会话都允许</button>
+                        <button type="button" class="btn-danger" data-act="reject" data-auth="auth-1">拒绝</button>
+                      </div>
+                      <div class="auth-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="auth-fixed-text">已批准：</b>
+                        <span class="ts auth-fixed-time"></span>
+                        <span class="muted">· 记录已写入审计</span>
+                        <button type="button" class="mini-btn" data-act="next" data-command="查看审计">查看审计</button>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 5. 权限 / 授权申请卡（已批准固化态，用于两态对比） ── -->
+                  <li class="msg msg-auth" id="auth-2" data-msg-type="auth" data-decision="approved" data-scenes="S4 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8 1.8l5 1.9v4.1c0 3-2.2 5.2-5 6.4-2.8-1.2-5-3.4-5-6.4V3.7z" />
+                        <path d="M5.9 8.1l1.5 1.5 2.9-3.2" />
+                      </svg>
+                    </span>
+                    <article class="bubble auth-card">
+                      <p class="card-tag">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3.4" y="7" width="9.2" height="6.4" rx="1.5" /><path d="M5.8 7V5.2a2.2 2.2 0 0 1 4.4 0V7" /></svg>
+                        权限申请 · 已批准（固化，操作前形态已收起）
+                      </p>
+                      <p class="ask-q">已批准 <code>dom.click</code>（单次）→ 正在执行。</p>
+                      <div class="auth-actions" hidden>
+                        <button type="button" class="btn-primary" data-act="approve" data-auth="auth-2" data-mode="once">批准这一次</button>
+                        <button type="button" class="btn-danger" data-act="reject" data-auth="auth-2">拒绝</button>
+                      </div>
+                      <div class="auth-fixed card-fixed">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="auth-fixed-text">已批准（单次）</b>
+                        <span class="ts auth-fixed-time">14:25:10</span>
+                        <span class="muted">· 记录已写入审计</span>
+                        <button type="button" class="mini-btn" data-act="next" data-command="查看审计">查看审计</button>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 5. 权限 / 授权申请卡（待批，供拒绝固化演示） ── -->
+                  <li class="msg msg-auth" id="auth-3" data-msg-type="auth" data-decision="pending" data-scenes="S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8 1.8l5 1.9v4.1c0 3-2.2 5.2-5 6.4-2.8-1.2-5-3.4-5-6.4V3.7z" />
+                      </svg>
+                    </span>
+                    <article class="bubble auth-card">
+                      <p class="card-tag">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3.4" y="7" width="9.2" height="6.4" rx="1.5" /><path d="M5.8 7V5.2a2.2 2.2 0 0 1 4.4 0V7" /></svg>
+                        权限申请 · 待你批准（演示：拒绝后固化）
+                      </p>
+                      <p class="ask-q">我想把译文写回页面（替换原文），需要你批准。</p>
+                      <ul class="auth-scope">
+                        <li>命令：<code>dom.setValue</code> · 权限档 <span class="badge ask">ask 保底</span></li>
+                        <li>目标：引用 ①「接口清单」小节 · 不可逆（原文会被替换）</li>
+                        <li>范围：仅这一次</li>
+                      </ul>
+                      <div class="auth-preview"><b>后果预演：</b>原文会被替换为译文；本会话内不提供「撤销」按钮，撤销是一次新的写操作，同样需要授权。</div>
+                      <div class="auth-actions">
+                        <button type="button" class="btn-primary" data-act="approve" data-auth="auth-3" data-mode="once">批准这一次</button>
+                        <button type="button" class="btn-danger" data-act="reject" data-auth="auth-3">拒绝</button>
+                      </div>
+                      <div class="auth-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="auth-fixed-text">已批准：</b>
+                        <span class="ts auth-fixed-time"></span>
+                        <span class="muted">· 记录已写入审计</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（引用失效） ── -->
+                  <li class="msg msg-system" id="msg-sys-stale" data-msg-type="system" data-scenes="S5 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.2l5.4 9.6H2.6z" /><path d="M8 6.1v2.9" /><path d="M8 10.9h.01" /></svg>
+                    </span>
+                    <span class="ts sys-time">14:26:02</span>
+                    <span class="sys-text">引用 <b>①</b> 的目标元素已不存在（页面重渲染移除了 <code>#doc-actions</code>）。本阶段不发命令、不改授权。</span>
+                  </li>
+
+                  <!-- ── 7. 引用卡（失效态：失效原因 + 卡内「重新拾取 / 改用描述」） ── -->
+                  <li class="msg msg-ref" id="ref-card-1-stale" data-msg-type="ref" data-ref-state="stale" data-ref-num="1" data-scenes="S5 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="5.4" /><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2" /></svg>
+                    </span>
+                    <article class="bubble ref-card">
+                      <p class="card-tag">页面引用 · ① · 已失效（旧卡保留，序号不复用）</p>
+                      <div class="ref-chips">
+                        <span class="ref-chip"><b>①</b>「导出」按钮</span>
+                        <span class="ref-chip mono">#doc-actions &gt; button.btn-primary</span>
+                        <span class="ref-chip">捕获于 14:22:07</span>
+                        <span class="ref-chip">失效于 14:26:02</span>
+                      </div>
+                      <p class="ref-stale-why">
+                        <b>失效原因：</b>目标元素已不存在 —— 页面重渲染移除了 <code>#doc-actions</code>，选择器已匹配不到任何节点。
+                        旧引用不会被悄悄删掉，它留在这里作为事实记录。
+                      </p>
+                      <div class="ref-actions">
+                        <button type="button" class="btn-primary" data-act="repick" data-ref="1">重新拾取</button>
+                        <button type="button" data-act="describe" data-ref="1">改用描述</button>
+                      </div>
+                      <div class="ref-describe" id="ref-1-describe" hidden>
+                        <label class="sr-only" for="ref-1-desc-input">用描述代替引用</label>
+                        <input id="ref-1-desc-input" type="text" placeholder="例如：页面右上角那一排按钮里的第一个" />
+                        <button type="button" class="btn-primary" data-act="next" data-command="改用描述">用这句继续</button>
+                      </div>
+                      <p class="hint">不会自动重试 —— 重试与否由你决定（避免在失效目标上反复发命令）。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（重拾成功） ── -->
+                  <li class="msg msg-system" id="msg-sys-repick" data-msg-type="system" data-scenes="S5 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.1" /><path d="M8 1.5v2.8M8 11.7v2.8M1.5 8h2.8M11.7 8h2.8" /></svg>
+                    </span>
+                    <span class="ts sys-time">14:26:31</span>
+                    <span class="sys-text">重新拾取成功：引用 <b>②</b> 已登记（新的选择器 <code>#doc-actions &gt; button:nth-child(1)</code>），引用 ① 永久保留为失效记录。</span>
+                  </li>
+
+                  <!-- ── 7. 引用卡（重拾后的新引用，序号递增） ── -->
+                  <li class="msg msg-ref" id="ref-card-2" data-msg-type="ref" data-ref-state="valid" data-ref-num="2" data-scenes="S5 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3.2 2.6h9.6v10.8H3.2z" />
+                        <path d="M5.6 6h4.8M5.6 9.4h3.2" />
+                      </svg>
+                    </span>
+                    <article class="bubble ref-card">
+                      <p class="card-tag">页面引用 · ② · 证据只读</p>
+                      <div class="ref-chips">
+                        <span class="ref-chip"><b>②</b>「导出」按钮</span>
+                        <span class="ref-chip mono">#doc-actions &gt; button:nth-child(1)</span>
+                        <span class="ref-chip">捕获于 14:26:31</span>
+                        <span class="ref-chip">元素仍在页面上</span>
+                      </div>
+                      <p class="hint">序号递增（① → ②）而不是复用 ①，这样流里任何一条历史消息说的「引用 ①」永远指同一个对象。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行 + 1. AI 答复卡 + 3. 推荐卡（S6 风险稳态：声明无效） ── -->
+                  <li class="msg msg-system" id="msg-sys-decl" data-msg-type="system" data-scenes="S6 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.2l5.4 9.6H2.6z" /><path d="M8 6.1v2.9" /><path d="M8 10.9h.01" /></svg>
+                    </span>
+                    <span class="ts sys-time">14:31:08</span>
+                    <span class="sys-text">站点声明校验失败：<code>web-cli/0.2</code> → <b>0.1</b>，<b>声明无效</b>，进入低频复查（每 30 分钟一次）。</span>
+                  </li>
+
+                  <li class="msg msg-ai" id="msg-ai-decl" data-msg-type="ai" data-scenes="S6 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">AI 答复 · 风险说明</p>
+                      <p>这个站点的声明现在是<b>无效</b>状态（声明版本与探测结果不一致）。<b>本阶段不发命令、不改授权</b>，我只做低频复查。</p>
+                      <p>你要么等复查通过，要么在工具栏「设置」里把本站点降级为「仅只读」；我不会自己选。</p>
+                    </article>
+                  </li>
+
+                  <li class="msg msg-next" id="msg-next-decl" data-msg-type="nextstep" data-scenes="S6 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 声明无效时</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-command="立刻复查一次">立刻复查一次</button>
+                        <button type="button" class="next-chip" data-act="next" data-command="降级为仅只读">降级为仅只读</button>
+                        <button type="button" class="next-chip" data-act="next" data-command="看声明差异">看声明差异（声明 0.2 vs 实测 0.1）</button>
+                      </div>
+                      <p class="hint">风险态下推荐卡仍在流里 —— 它不给「允许 evaluate」这类入口。</p>
+                    </article>
+                  </li>
+                </ol>
+              </main>
+
+              <!-- ═══════════════════════════════════════════════════════
+                   区三 状态栏（常驻，永不折叠）
+                   · 连接状态一行（只读，不可点）
+                   · 活跃风险 chips（5 类风险位压缩为 chip，有则显示、无则不占行）
+                   · 点 chip → 展开详情 + 滚动定位到流内相关卡
+                   ═══════════════════════════════════════════════════════ -->
+              <footer class="statusbar" id="region-statusbar" data-region="statusbar" role="contentinfo" aria-label="状态栏（常驻，永不折叠）">
+                <div class="status-line" role="status">
+                  <span class="dot" aria-hidden="true"></span>
+                  <span class="sb-main" data-scenes="S1 S2 S3 S4 S5 S7">已连接 · supported（声明 <code>web-cli/0.2</code>）· 队列 0</span>
+                  <span class="sb-main" data-scenes="S6">已连接 · <b>声明无效</b>（低频复查中）· 队列 0</span>
+                </div>
+                <div class="risk-chips" id="risk-chips" aria-label="活跃风险">
+                  <button type="button" class="risk-chip" data-risk="decl" data-scenes="S6 S7" aria-expanded="false">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.2l5.4 9.6H2.6z" /><path d="M8 6.1v2.9" /><path d="M8 10.9h.01" /></svg>
+                    声明无效（低频复查中）
+                  </button>
+                  <button type="button" class="risk-chip" data-risk="ref" data-scenes="S6 S7" aria-expanded="false">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="5.4" /><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2" /></svg>
+                    引用失效 ①
+                  </button>
+                </div>
+                <div class="risk-detail" id="risk-detail" hidden>
+                  <p class="risk-detail-line" data-risk-detail="decl" hidden>
+                    <b>声明无效</b>：站点声明的 <code>web-cli/0.2</code> 与实测 0.1 不一致（14:31:08 检出）。
+                    <b>本阶段不发命令、不改授权</b>，仅低频复查（每 30 分钟一次）。详情在流内「14:31:08 声明校验失败」一条。
+                  </p>
+                  <p class="risk-detail-line" data-risk-detail="ref" hidden>
+                    <b>引用失效</b>：引用 ① 的目标元素已被页面移除（14:26:02），已用引用 ② 重拾。
+                    <b>本阶段不发命令、不改授权</b>，重试与否由你决定。相关卡：流内「页面引用 · ① · 已失效」。
+                  </p>
+                </div>
+              </footer>
+
+              <p class="sr-only" id="live-region" role="status" aria-live="polite"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ 口径说明（非交付 UI） ═══ -->
+      <section class="spec" aria-label="密度口径与 F / E 差异（非交付 UI）">
+        <h2>密度口径（可复现）与 F / E 差异</h2>
+        <h3>法五口径</h3>
+        <ul>
+          <li><b>可点元素</b> = <code>#panel</code> 内、非 <code>[hidden]</code> 子树中的
+            <code>button</code> / <code>a</code> / <code>input</code> / <code>select</code> / <code>textarea</code> /
+            带 <code>tabindex</code>（且非 -1）的元素。</li>
+          <li><b>默认屏预算</b> = 工具栏可点 + 状态栏可点 ≤ <b>7</b>（本稿：S1 = 5 + 0 = 5；S6 = 5 + 2 = 7）。</li>
+          <li><b>不计入</b>：聊天流内消息（记录，不是控件预算）、演示控制台（在 <code>#panel</code> 之外）、页面侧拾取入口。</li>
+        </ul>
+        <h3>相对 E 的变化点（只列 5 条）</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th scope="col">#</th><th scope="col">E（渐进式披露）</th><th scope="col">F（聊天流统一承载）</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">1</th><td>L0 只有「当前那一张决策卡」独占一个槽位，历史收进 L1「已决策历史」</td><td>对话历史 = 流本身；当前题就是流里最新一条消息，旧卡原样留在上方</td></tr>
+              <tr><th scope="row">2</th><td>问答在决策卡槽位里就地完成，未入流</td><td>ask-user 卡内联在流中，应答/取消后<b>固化不可逆</b>（已答：… + 时间戳）</td></tr>
+              <tr><th scope="row">3</th><td>授权批准就地发生，事后在审计里查</td><td>权限申请卡入流，批准/拒绝固化 + 时间戳 + 「查看审计」跳转；授权记录可见</td></tr>
+              <tr><th scope="row">4</th><td>引用失效住在 <code>#risk-rail</code>（常驻风险位）</td><td>失效 = 系统事件行 + 失效引用卡（卡内「重新拾取 / 改用描述」）+ 状态栏 chip，三处呼应</td></tr>
+              <tr><th scope="row">5</th><td>状态栏是「入口按钮」：点开是 L2 入口面板</td><td>状态栏右移为常驻状态 + 风险 chip；四个视图入口上移到工具栏（一行 5 个可点）</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>已知取舍</h3>
+        <ul>
+          <li>流会随会话变长 —— 靠「自动滚到底 + 可上滚回看 + 系统事件行轻量化」控制感知重量；长会话的折叠/摘要策略留给重构。</li>
+          <li>工具栏只有 5 个可点位置，因此「宽度切换」「场景切换」在交付 UI 里<b>不存在</b>（它们只在演示控制台）。</li>
+          <li>风险 chip 的详情是<b>状态栏内联展开</b>，不是浮层 —— 避免与「法一：一次性交互禁止浮层」擦边。</li>
+        </ul>
+      </section>
+    </div>
+
+    <script>
+      (function () {
+        'use strict';
+
+        var docEl = document.documentElement;
+        var panel = document.getElementById('panel');
+        var live = document.getElementById('live-region');
+        var TH = ['auto', 'light', 'dark'];
+        var THEME_LABEL = { auto: '跟随系统', light: '浅色', dark: '深色' };
+        var SCENE_LABEL = {
+          S1: 'S1 默认首屏',
+          S2: 'S2 拾取 → 引用 → 推荐',
+          S3: 'S3 问答流转（留痕）',
+          S4: 'S4 授权申请',
+          S5: 'S5 引用失效',
+          S6: 'S6 风险稳态',
+          S7: 'S7 全卡型总览'
+        };
+        var state = { scene: 'S1', theme: 'auto', width: '400' };
+        var clock = 14 * 3600 + 23 * 60 + 41;
+
+        function $(id) { return document.getElementById(id); }
+        function $$(sel, root) {
+          var list = (root || document).querySelectorAll(sel);
+          return Array.prototype.slice.call(list);
+        }
+        function say(text) { if (live) live.textContent = text; }
+        function tick() {
+          clock += 17;
+          var h = Math.floor(clock / 3600) % 24;
+          var m = Math.floor(clock / 60) % 60;
+          var s = clock % 60;
+          function p(n) { return (n < 10 ? '0' : '') + n; }
+          return p(h) + ':' + p(m) + ':' + p(s);
+        }
+
+        /* ── 1. 主题（双主题真实可切；auto 走 prefers-color-scheme） ─── */
+        function setTheme(value) {
+          state.theme = value;
+          if (value === 'auto') docEl.removeAttribute('data-theme');
+          else docEl.setAttribute('data-theme', value);
+          $$('#theme-switch [role="radio"]').forEach(function (n) {
+            n.setAttribute('aria-checked', String(n.getAttribute('data-theme-set') === value));
+            n.tabIndex = n.getAttribute('data-theme-set') === value ? 0 : -1;
+          });
+          var sun = $('ico-theme-auto');
+          var moon = $('ico-theme-moon');
+          var isDark = value === 'dark';
+          if (sun) sun.hidden = isDark;
+          if (moon) moon.hidden = !isDark;
+          var btn = $('theme-toggle');
+          if (btn) btn.setAttribute('aria-label', '切换主题（当前：' + THEME_LABEL[value] + '）');
+          var txt = $('theme-toggle-text');
+          if (txt) txt.textContent = '主题：' + THEME_LABEL[value];
+          updateMetrics();
+        }
+        function cycleTheme() {
+          var i = TH.indexOf(state.theme);
+          setTheme(TH[(i + 1) % TH.length]);
+          say('主题已切换为「' + THEME_LABEL[state.theme] + '」');
+        }
+
+        /* ── 2. 宽度（320 / 400 / 520） ─────────────────────────────── */
+        function setWidth(px) {
+          state.width = String(px);
+          panel.setAttribute('data-width', state.width);
+          docEl.style.setProperty('--panel-w', state.width + 'px');
+          $$('#width-switch [role="radio"]').forEach(function (n) {
+            n.setAttribute('aria-checked', String(n.getAttribute('data-width-set') === state.width));
+            n.tabIndex = n.getAttribute('data-width-set') === state.width ? 0 : -1;
+          });
+          updateMetrics();
+        }
+
+        /* ── 3. 场景（S1~S7；所有 [data-scenes] 元素按场景显隐） ────── */
+        function setScene(key) {
+          state.scene = key;
+          panel.setAttribute('data-scene', key);
+          $$('[data-scenes]').forEach(function (el) {
+            var list = (el.getAttribute('data-scenes') || '').split(/\s+/);
+            el.hidden = list.indexOf(key) === -1;
+          });
+          $$('#scene-switch [role="radio"]').forEach(function (n) {
+            n.setAttribute('aria-checked', String(n.getAttribute('data-scene-set') === key));
+            n.tabIndex = n.getAttribute('data-scene-set') === key ? 0 : -1;
+          });
+          closeRiskDetail();
+          autoScroll();
+          updateMetrics();
+          say('场景已切换为：' + (SCENE_LABEL[key] || key));
+        }
+
+        /* ── 4. L2 按需视图（替换流内容，不是浮层） ─────────────────── */
+        var VIEW_TITLE = { tree: '全局连接树（4 维）', commands: '命令目录（122 卡）', audit: '审计（12 条）', settings: '设置（4 分区）' };
+        function openView(name) {
+          var layer = $('view-layer');
+          var stream = $('stream');
+          if (!layer || !stream) return;
+          layer.hidden = false;
+          stream.hidden = true;
+          ['tree', 'commands', 'audit', 'settings'].forEach(function (k) {
+            var body = $('view-' + k);
+            if (body) body.hidden = k !== name;
+          });
+          var title = $('view-title');
+          if (title) title.textContent = VIEW_TITLE[name] || '视图';
+          $$('[data-open-view]').forEach(function (b) {
+            b.setAttribute('aria-pressed', String(b.getAttribute('data-open-view') === name));
+          });
+          updateMetrics();
+          say('已打开视图：' + (VIEW_TITLE[name] || name) + '（完整台账在这里；流里只留过程线索）');
+        }
+        function closeView() {
+          var layer = $('view-layer');
+          var stream = $('stream');
+          if (layer) layer.hidden = true;
+          if (stream) stream.hidden = false;
+          $$('[data-open-view]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+          autoScroll();
+          updateMetrics();
+          say('已返回聊天流');
+        }
+
+        /* ── 5. ask-user 卡：应答 / 取消 → 固化（不可逆） ───────────── */
+        function fixAsk(card, kind, text) {
+          var form = card.querySelector('.ask-form');
+          var fixed = card.querySelector('.ask-fixed');
+          var textEl = card.querySelector('.ask-fixed-text');
+          var timeEl = card.querySelector('.ask-fixed-time');
+          if (textEl) textEl.textContent = text;
+          if (timeEl) timeEl.textContent = tick();
+          if (form) form.hidden = true;
+          if (fixed) fixed.hidden = false;
+          card.setAttribute('data-answered', kind);
+          if (kind === 'cancelled' && fixed) fixed.classList.add('is-no');
+        }
+        function answerAsk(id, text) {
+          var card = $(id);
+          if (!card) return false;
+          var done = card.getAttribute('data-answered');
+          if (done === 'true' || done === 'cancelled') return false;
+          var value = text;
+          if (value == null || value === '') {
+            var input = card.querySelector('.ask-input');
+            value = input ? input.value : '';
+          }
+          value = String(value || '').replace(/^\s+|\s+$/g, '');
+          if (value === '') value = '（空回答）';
+          fixAsk(card, 'true', '已答：' + value);
+          autoScroll();
+          updateMetrics();
+          say('问答已固化：已答：' + value + '（这条记录不会消失）');
+          return true;
+        }
+        function cancelAsk(id) {
+          var card = $(id);
+          if (!card) return false;
+          var done = card.getAttribute('data-answered');
+          if (done === 'true' || done === 'cancelled') return false;
+          fixAsk(card, 'cancelled', '已取消（不代填默认值）');
+          autoScroll();
+          updateMetrics();
+          say('问答已固化：已取消（不代填默认值）');
+          return true;
+        }
+
+        /* ── 6. 授权卡：批准 / 拒绝 → 固化（不可逆） ────────────────── */
+        function decideAuth(id, decision) {
+          var card = $(id);
+          if (!card) return false;
+          if (card.getAttribute('data-decision') !== 'pending') return false;
+          var actions = card.querySelector('.auth-actions');
+          var fixed = card.querySelector('.auth-fixed');
+          var textEl = card.querySelector('.auth-fixed-text');
+          var timeEl = card.querySelector('.auth-fixed-time');
+          var kind = decision === 'rejected' ? 'rejected' : 'approved';
+          var label = kind === 'rejected'
+            ? '已拒绝（不执行）'
+            : (decision === 'session' ? '已批准（本次会话）' : '已批准（单次）');
+          if (textEl) textEl.textContent = label;
+          if (timeEl) timeEl.textContent = tick();
+          if (actions) actions.hidden = true;
+          if (fixed) {
+            fixed.hidden = false;
+            if (kind === 'rejected') fixed.classList.add('is-no');
+          }
+          card.setAttribute('data-decision', kind);
+          autoScroll();
+          updateMetrics();
+          say('授权已固化：' + label + '（记录已写入审计，可在工具栏「审计」查看）');
+          return true;
+        }
+
+        /* ── 7. 风险 chip：内联详情 + 滚动定位到流内相关卡 ───────────── */
+        function closeRiskDetail() {
+          var detail = $('risk-detail');
+          if (detail) detail.hidden = true;
+          $$('[data-risk-detail]').forEach(function (p) { p.hidden = true; });
+          $$('[data-risk]').forEach(function (c) { c.setAttribute('aria-expanded', 'false'); });
+        }
+        function focusRisk(kind) {
+          var detail = $('risk-detail');
+          var line = null;
+          $$('[data-risk-detail]').forEach(function (p) {
+            var on = p.getAttribute('data-risk-detail') === kind;
+            p.hidden = !on;
+            if (on) line = p;
+          });
+          if (detail) detail.hidden = false;
+          $$('[data-risk]').forEach(function (c) {
+            c.setAttribute('aria-expanded', String(c.getAttribute('data-risk') === kind));
+          });
+          var target = kind === 'ref' ? $('ref-card-1-stale') : $('msg-sys-decl');
+          if (target) {
+            target.classList.add('is-flash');
+            if (target.scrollIntoView) target.scrollIntoView({ block: 'center' });
+          }
+          say(kind === 'ref'
+            ? '风险详情：引用失效 —— 本阶段不发命令、不改授权'
+            : '风险详情：声明无效 —— 本阶段不发命令、不改授权');
+        }
+
+        /* ── 8. 自动滚到底（追加式流的默认行为） ────────────────────── */
+        function autoScroll() {
+          var wrap = $('region-stream');
+          if (wrap) wrap.scrollTop = wrap.scrollHeight;
+        }
+
+        /* ── 9. 密度实测（法五口径；供页脚与外部脚本共用） ──────────── */
+        function isVisible(el) {
+          var n = el;
+          while (n && n.hasAttribute) {
+            if (n.hasAttribute('hidden')) return false;
+            n = n.parentNode;
+          }
+          return true;
+        }
+        function clickables(root) {
+          if (!root) return [];
+          return $$('button, a, input, select, textarea, [tabindex]', root).filter(function (el) {
+            if (el.hasAttribute('tabindex') && el.getAttribute('tabindex') === '-1') return false;
+            if (el.tagName === 'INPUT' && el.getAttribute('type') === 'hidden') return false;
+            return isVisible(el);
+          });
+        }
+        function updateMetrics() {
+          var tb = clickables($('region-toolbar')).length;
+          var sb = clickables($('region-statusbar')).length;
+          var total = tb + sb;
+          var msgs = $$('[data-msg-type]').filter(function (m) { return isVisible(m); }).length;
+          var set = function (id, v) { var el = $(id); if (el) el.textContent = String(v); };
+          set('m-toolbar', tb);
+          set('m-statusbar', sb);
+          set('m-total', total);
+          set('m-msgs', msgs);
+          var verdict = $('m-verdict');
+          if (verdict) {
+            var ok = tb <= 5 && total <= 7;
+            verdict.textContent = ok ? '✓ 命中密度预算' : '✗ 超出密度预算';
+            verdict.className = ok ? 'm-ok' : 'm-bad';
+          }
+        }
+
+        function density() {
+          var tb = clickables($('region-toolbar')).length;
+          var sb = clickables($('region-statusbar')).length;
+          return {
+            toolbar: tb,
+            statusbar: sb,
+            total: tb + sb,
+            scene: state.scene,
+            theme: state.theme,
+            width: state.width,
+            panelWidthVar: panel ? panel.getAttribute('data-width') : null,
+            toolbarBudget: 5,
+            defaultBudget: 7
+          };
+        }
+
+        /* ── 10. 事件接线（全部走真实点击路径） ─────────────────────── */
+        $$('#scene-switch [role="radio"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { setScene(btn.getAttribute('data-scene-set')); });
+        });
+        $$('#width-switch [role="radio"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { setWidth(btn.getAttribute('data-width-set')); });
+        });
+        $$('#theme-switch [role="radio"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { setTheme(btn.getAttribute('data-theme-set')); });
+        });
+        var themeBtn = $('theme-toggle');
+        if (themeBtn) themeBtn.addEventListener('click', cycleTheme);
+
+        $$('[data-open-view]').forEach(function (btn) {
+          btn.addEventListener('click', function () { openView(btn.getAttribute('data-open-view')); });
+        });
+        var backBtn = $('view-back');
+        if (backBtn) backBtn.addEventListener('click', closeView);
+
+        $$('[data-act="answer"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var card = $(btn.getAttribute('data-ask'));
+            var src = btn.getAttribute('data-source');
+            var input = src ? $(src) : (card ? card.querySelector('.ask-input') : null);
+            answerAsk(btn.getAttribute('data-ask'), input ? input.value : '');
+          });
+        });
+        $$('[data-act="cancel"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { cancelAsk(btn.getAttribute('data-ask')); });
+        });
+        $$('[data-act="choose"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            answerAsk(btn.getAttribute('data-ask'), btn.getAttribute('data-choice'));
+          });
+        });
+        $$('[data-act="choose-other"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var card = $(btn.getAttribute('data-ask'));
+            var other = card ? card.querySelector('.ask-other') : null;
+            if (other) other.hidden = false;
+            say('已展开「其他…（我来描述）」输入框 —— 输入框只在问题卡内按需出现（法四）');
+          });
+        });
+        $$('[data-act="approve"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            decideAuth(btn.getAttribute('data-auth'), btn.getAttribute('data-mode') === 'session' ? 'session' : 'approved');
+          });
+        });
+        $$('[data-act="reject"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { decideAuth(btn.getAttribute('data-auth'), 'rejected'); });
+        });
+        $$('[data-act="repick"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            say('已重新拾取：引用 ② 入流（引用 ① 永久保留为失效记录）');
+            var c = $('ref-card-2');
+            if (c) { c.classList.add('is-flash'); if (c.scrollIntoView) c.scrollIntoView({ block: 'center' }); }
+          });
+        });
+        $$('[data-act="describe"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var box = $('ref-' + btn.getAttribute('data-ref') + '-describe');
+            if (box) box.hidden = false;
+            say('已展开「改用描述」输入框（引用不变，只是这一轮不用它）');
+          });
+        });
+        $$('[data-act="next"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            btn.classList.add('is-chosen');
+            say('推荐已选中并作为指令发出：' + btn.getAttribute('data-command') + '（该次选择记在这张卡上）');
+          });
+        });
+        $$('[data-risk]').forEach(function (chip) {
+          chip.addEventListener('click', function () {
+            var kind = chip.getAttribute('data-risk');
+            var open = chip.getAttribute('aria-expanded') === 'true';
+            if (open) { closeRiskDetail(); say('已收起风险详情'); }
+            else focusRisk(kind);
+          });
+        });
+
+        /* 页面侧拾取（不在 #panel 内，不参与面板密度统计） */
+        var pickBtn = $('pick-toggle');
+        var pickState = $('pick-state');
+        function setPickMode(on) {
+          panel.setAttribute('data-pick-mode', on ? 'on' : 'off');
+          document.getElementById('page-area').setAttribute('data-pick-mode', on ? 'on' : 'off');
+          if (pickBtn) {
+            pickBtn.setAttribute('aria-pressed', String(on));
+            pickBtn.textContent = '拾取模式：' + (on ? '开' : '关');
+          }
+          if (pickState) {
+            pickState.setAttribute('data-on', String(on));
+            pickState.textContent = on ? '拾取中…' : '未开启';
+          }
+          say(on ? '拾取模式已开启：在页面上点一个元素即生成引用（流会跳到 S2）' : '拾取模式已关闭');
+        }
+        if (pickBtn) pickBtn.addEventListener('click', function () {
+          setPickMode(panel.getAttribute('data-pick-mode') !== 'on');
+        });
+        $$('[data-pickable]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            if (panel.getAttribute('data-pick-mode') !== 'on') return;
+            el.classList.add('is-picked');
+            setPickMode(false);
+            setScene('S2');
+            say('已拾取「' + el.getAttribute('data-pick-name') + '」并登记为引用 ①');
+          });
+        });
+
+        /* ── 11. 初始化 ─────────────────────────────────────────────── */
+        window.__demo = {
+          setScene: setScene,
+          setWidth: setWidth,
+          setTheme: setTheme,
+          cycleTheme: cycleTheme,
+          openView: openView,
+          closeView: closeView,
+          answerAsk: answerAsk,
+          cancelAsk: cancelAsk,
+          decideAuth: decideAuth,
+          focusRisk: focusRisk,
+          closeRiskDetail: closeRiskDetail,
+          snapshots: function () { return { scene: state.scene, theme: state.theme, width: state.width }; }
+        };
+        window.__density = density;
+        /* 垫片契约：暴露纯函数口径，便于 Node 侧用同一实现复核 */
+        window.__clickables = clickables;
+        window.__isVisible = isVisible;
+
+        setTheme('auto');
+        setWidth('400');
+        setScene('S1');
+        autoScroll();
+        updateMetrics();
+      })();
+    </script>
+  </body>
+</html>
