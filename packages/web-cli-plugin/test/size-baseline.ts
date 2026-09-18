@@ -397,7 +397,26 @@ export const SIDEPANEL_BASELINE_META = {
     '已触发：见 SIDEPANEL_RE_REGISTRATIONS 与 evaluateConsecutiveReRegistrationGrowth()。' +
     '**最差连续两功能轮** = v3-1 + v3-2（266,500 → 327,679 B，累计 +22.96% > 15%）—— 已显式回报编排器；' +
     'v3-3 + v3-4（328,476 → 362,777 B，+10.44%）**低于** 15% 线，但仍按「最差对」口径保留告警（守卫只增不减，见 helper 注释）；' +
-    '从 266,500 B 起算的 Feature 累计 **+40.75%**（**R3 后越过已登记的 40% 停工线**：38.28% → 40.75%，已在 R3 回报中**显式列出并如实上报**，未以任何方式放宽口径）。',
+    '从 266,500 B 起算的 Feature 累计 **+40.75%**（**R3 后越过已登记的 40% 停工线**：38.28% → 40.75%，已在 R3 回报中**显式列出并如实上报**，未以任何方式放宽口径）。' +
+    // ── 裁决 V3-VOL-3（2026-09-18，作者选 B）：该 40% 停工线被**显式撤销** ──────────
+    // 历史事实（上句）**逐字保留**；撤销以「显式登记」方式追加，绝不是静默绕过。
+    '⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：' +
+    '266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%）—— ' +
+    '本轮起**不再作为停工/放行判据**；撤销出处见 `SIDEPANEL_SIZE_RULING_V3_VOL_3` / ' +
+    '`evaluateFeatureCumulativeStopWorkLine()`（`enforced: false`）/ `PENDING_ABSOLUTE_CAP`，' +
+    '反证「恢复该线 ⇒ 当前产物 375,102 B（+40.75%）必然 FAIL」由 `test/size-ruling-vol3.test.ts` 机器重跑。' +
+    '**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露（前后值/日期/来源/理由/历史保留）· ' +
+    '相邻两轮 >15% 告警 · `ceiling = floor(当前值 × 1.05)`。' +
+    '**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时，必须**重新定 sidepanel 体积基线并设绝对值上限**。',
+  /** 裁决 V3-VOL-3（2026-09-18，选 B）：Feature 级 40% 累计停工线已**显式撤销**（40.75% 不再触线）。 */
+  cumulativeStopWorkLineStatus: 'revoked-by-V3-VOL-3',
+  /**
+   * 裁决 V3-VOL-3 的新增义务（硬约束）：方案 F 重构（聊天流统一承载）落地收口时，必须
+   * **重新定 sidepanel 体积基线 + 设绝对值上限**（绝对值，不再用 266,500 基线口径的百分比线）。
+   * 机器标记与「防静默删除」断言见 {@link PENDING_ABSOLUTE_CAP} / {@link evaluatePendingAbsoluteCap}。
+   */
+  pendingAbsoluteCapObligation:
+    '方案 F 重构（聊天流统一承载）落地收口时，必须重新定 sidepanel 体积基线并设置绝对值上限',
   reRegisteredFrom:
     'R2 缺陷修复轮 368,529 B（ceiling 386,955 B；声明探测退避 + 稳态显示）；' +
     'R1 缺陷修复轮 366,755 B（ceiling 385,092 B；无有效声明站点的引用出生即死修复 + 身份标记回程观测）；' +
@@ -1168,4 +1187,293 @@ export function evaluateContentCeiling(
 /** Read `dist/...` relative to this module (works from `dist-test/test/`). */
 export function distArtifact(relative: string): URL {
   return new URL(`../../dist/${relative}`, import.meta.url);
+}
+
+// ---------------------------------------------------------------------------
+// ── 作者裁决 **V3-VOL-3**（2026-09-18，选 **B**）：撤销 Feature 级 40% 累计停工线 ──
+//
+// 性质 = **工程纪律裁决的代码化**（不是功能变更；`dist/*` 零字节变化）。
+//
+//   - **撤销**：「Feature 累计增幅 40% 停工线」（口径 = 从 266,500 B 基线起算的百分比）。
+//     理由（作者原话要点）：该百分比线在活跃开发期已无参照意义 —— R3 后实际 **+40.75%** 越过该线。
+//   - **保留**：单轮 5% 容差 · 重登记五要素披露（前后值/日期/来源/理由/历史保留）·
+//     相邻两轮 >15% 告警 · `ceiling = floor(当前值 × 1.05)`。
+//   - **新增义务（硬约束）**：**方案 F 重构（聊天流统一承载）落地收口时，必须重新定
+//     sidepanel 体积基线并设置绝对值上限** —— 机器标记 {@link PENDING_ABSOLUTE_CAP}
+//     （`resolved === false` 存续 + 「不可静默删除」断言），F 收口置 `true` 时必须同时给出
+//     新基线与绝对上限值（该断言本轮已写好，F 收口时自然生效）。
+//   - **历史只追加**：各轮 `reason` 里提到 40% 线的文本**逐字保留**（那是历史事实）；
+//     `SIDEPANEL_BASELINE_META.consecutiveGrowthAlert` 亦保留原句并**追加**撤销登记。
+//
+// ── 诊断（只读先行，如实登记）───────────────────────────────────────────────
+// 裁决前，该 40% 线在仓库里是**登记口径的纪律文本**（`consecutiveGrowthAlert` +
+// 各轮 `reason` + `docs/closeout.md §9B-8`），**没有**对应的机器常量/断言 —— 所以「撤销」
+// 不能靠删一行代码完成，也不能靠静默删文本了事。本轮把它做成**可判定的历史规则模型**：
+// `enforced: false` + `revokedBy: 'V3-VOL-3'`（撤销出处必须可读），并保留可 FAIL 的反证：
+// `enforced: true`（= 恢复裁决前口径）时，对当前真实产物 375,102 B（+40.75%）**必然 FAIL**。
+// ---------------------------------------------------------------------------
+
+/** 裁决记录（结构化、可被门禁断言；不参与运行期判定）。 */
+export interface SizeRulingRecord {
+  readonly id: string;
+  readonly date: string;
+  readonly decidedBy: string;
+  /** 作者裁决所选项（本裁决 = `B`：接受增长并改军规）。 */
+  readonly choice: string;
+  readonly title: string;
+  readonly nature: string;
+  readonly artifactImpact: string;
+  readonly revokedRule: string;
+  readonly revokeReason: string;
+  /** 明确保留、零改动的守卫项。 */
+  readonly retained: readonly string[];
+  /** 新增义务（硬约束，带机器标记）。 */
+  readonly newObligation: string;
+  readonly diagnostic: string;
+  readonly reverseProof: string;
+}
+
+export const SIDEPANEL_SIZE_RULING_V3_VOL_3: SizeRulingRecord = {
+  id: 'V3-VOL-3',
+  date: '2026-09-18',
+  decidedBy: 'author',
+  choice: 'B',
+  title: '接受增长并改军规 —— 撤销「Feature 累计增幅 40% 停工线」',
+  nature: 'engineering-discipline-codification（工程纪律裁决的代码化，不是功能变更）',
+  artifactImpact:
+    'zero-byte —— dist/content.js 177,076 B / pick-layer.js 33,900 B / sidepanel.js 375,102 B 三产物 sha256 前后一致',
+  revokedRule: 'Feature 级累计增幅 40% 停工线（口径 = 从 266,500 B 基线起算的百分比）',
+  revokeReason:
+    '266,500 B 基线口径的百分比线在活跃开发期已无参照意义：R3 后实际 +40.75% 越过该线，' +
+    '而该线既不阻断构建也不对应任何产品约束（单轮 5% 容差 + 相邻两轮 >15% 告警已覆盖「无声膨胀」风险）。',
+  retained: [
+    '单轮 5% 容差（SIDEPANEL_BASELINE_TOLERANCE = 0.05，未动）',
+    '重登记五要素披露（前后值 / 日期 / 来源 / 理由 / 历史保留）',
+    '相邻两轮 >15% 告警（evaluateConsecutiveReRegistrationGrowth，未动）',
+    'ceiling 公式 floor(当前值 × 1.05)（SIDEPANEL_CEILING，未动）',
+  ],
+  newObligation:
+    '方案 F 重构（聊天流统一承载）落地收口时，必须**重新定 sidepanel 体积基线并设置绝对值上限**' +
+    '（机器标记 PENDING_ABSOLUTE_CAP：resolved 必须由 false 变 true 且同时给出新基线 + 绝对上限）。',
+  diagnostic:
+    '裁决前，该线只是登记口径的纪律文本（consecutiveGrowthAlert + 各轮 reason + docs/closeout.md §9B-8），' +
+    '本文件没有对应的机器常量/断言。为满足「撤销要干净、不是静默绕过」，本轮建立可判定的历史规则模型' +
+    '（enforced=false + revokedBy=V3-VOL-3 + wouldFail 真值），使「该线真实存在过」可被机器反证。',
+  reverseProof:
+    'test/size-ruling-vol3.test.ts：① 恢复该线（enforced=true）⇒ 375,102 B（+40.75%）判定 FAIL' +
+    '（assert.throws 命中「停工」）；② 还原裁决（enforced=false）⇒ PASS 且 message 必带撤销出处「V3-VOL-3」。',
+};
+
+/** 已撤销规则的**判定模型**（`enforced=false` 即不参与任何现行判定）。 */
+export interface FeatureCumulativeStopWorkRule {
+  /** 历史阈值（0.40 = 40%）。 */
+  readonly threshold: number;
+  /** 累计起点（266,500 B = 2026-09-14 惰性化收紧轮后的实测值，R3 起算口径）。 */
+  readonly fromBytes: number;
+  /** 是否**仍在判定**：`false` = 已被 {@link SIDEPANEL_SIZE_RULING_V3_VOL_3} 撤销。 */
+  readonly enforced: boolean;
+  /** 撤销它的裁决 id（`enforced=false` 时必填；判定路径不读它，仅供撤销出处可读）。 */
+  readonly revokedBy: string;
+  readonly revokedOn: string;
+}
+
+/** 历史登记值（**已撤销**）：40% / 从 266,500 B 起算。 */
+export const SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE: FeatureCumulativeStopWorkRule = {
+  threshold: 0.4,
+  fromBytes: 266_500,
+  enforced: false,
+  revokedBy: 'V3-VOL-3',
+  revokedOn: '2026-09-18',
+};
+
+export interface FeatureCumulativeStopWorkVerdict {
+  /** 现行判定结果：撤销后恒 `true`（该线不再阻断）。 */
+  readonly ok: boolean;
+  readonly enforced: boolean;
+  readonly revokedBy: string;
+  readonly measuredBytes: number;
+  readonly fromBytes: number;
+  readonly cumulativePct: number;
+  readonly threshold: number;
+  /** 若按**裁决前**口径（该线仍在判定）是否越线 —— 与 `enforced` 无关，永远给出真值。 */
+  readonly wouldFail: boolean;
+  readonly message: string;
+}
+
+/**
+ * 撤销规则的判定模型。`enforced=false`（现行）⇒ `ok=true` 且 message 必带撤销出处
+ * （**显式登记，不是静默绕过**）；`enforced=true`（反证复现裁决前口径）⇒ 按历史阈值判定。
+ */
+export function evaluateFeatureCumulativeStopWorkLine(
+  measuredBytes: number = SIDEPANEL_FINAL_ARTIFACT_BYTES,
+  rule: FeatureCumulativeStopWorkRule = SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE,
+): FeatureCumulativeStopWorkVerdict {
+  const cumulativePct = (measuredBytes - rule.fromBytes) / rule.fromBytes;
+  const wouldFail = cumulativePct > rule.threshold;
+  const pctText = `${(cumulativePct * 100).toFixed(2)}%`;
+  const thresholdText = `${(rule.threshold * 100).toFixed(0)}%`;
+  const lineText = `Feature 累计 ${pctText}（从 ${rule.fromBytes}B 起算，历史阈值 ${thresholdText}）`;
+  if (!rule.enforced) {
+    return {
+      ok: true,
+      enforced: false,
+      revokedBy: rule.revokedBy,
+      measuredBytes,
+      fromBytes: rule.fromBytes,
+      cumulativePct,
+      threshold: rule.threshold,
+      wouldFail,
+      message:
+        `${lineText}：该停工线已由作者裁决 ${rule.revokedBy}（${rule.revokedOn}，选 B）**显式撤销**，` +
+        '本轮起不参与停工/放行判定（显式登记，非静默绕过）。' +
+        (wouldFail ? `（历史口径下本值会 FAIL：${pctText} > ${thresholdText}）` : ''),
+    };
+  }
+  const ok = !wouldFail;
+  return {
+    ok,
+    enforced: true,
+    revokedBy: rule.revokedBy,
+    measuredBytes,
+    fromBytes: rule.fromBytes,
+    cumulativePct,
+    threshold: rule.threshold,
+    wouldFail,
+    message: ok
+      ? `${lineText}：未越线，历史停工线口径下 PASS。`
+      : `${lineText}：越过历史「40% 停工线」—— 按裁决前口径**必须停工/上报**` +
+        `（该口径已由 ${rule.revokedBy} 撤销；此处为反证复现，不是现行判定）。`,
+  };
+}
+
+/**
+ * ── 新增义务（硬约束）：方案 F 重构收口必须「重定基线 + 设绝对上限」──────────────
+ *
+ * 裁决 V3-VOL-3 明文要求该义务**登记得足够显眼**，保证 F 立项时被带进其 spec 验收、
+ * 不会被遗忘。因此它不是一句文档：{@link evaluatePendingAbsoluteCap} 是配套的可 FAIL 断言——
+ *   - 标记**缺失** ⇒ FAIL（防静默删除）；
+ *   - `resolved === false` ⇒ 待办存续（且不得预填新基线/绝对上限，避免伪闭合）；
+ *   - `resolved === true` ⇒ **必须**同时给出 `newBaselineBytes` / `absoluteCeilingBytes` /
+ *     `resolvedOn` 且 `absoluteCeilingBytes >= newBaselineBytes`，否则 FAIL。
+ */
+export interface PendingAbsoluteCap {
+  /** 义务来源裁决 id。 */
+  readonly since: string;
+  readonly obligation: string;
+  readonly resolved: boolean;
+  /** F 收口时登记的新基线（未闭合时必须为 `null`）。 */
+  readonly newBaselineBytes: number | null;
+  /** F 收口时登记的**绝对值上限**（不是百分比；未闭合时必须为 `null`）。 */
+  readonly absoluteCeilingBytes: number | null;
+  readonly resolvedOn: string | null;
+}
+
+export const PENDING_ABSOLUTE_CAP: PendingAbsoluteCap = {
+  since: 'V3-VOL-3',
+  obligation: '方案 F 重构（聊天流统一承载）落地收口时，必须重新定 sidepanel 体积基线并设置绝对值上限',
+  resolved: false,
+  newBaselineBytes: null,
+  absoluteCeilingBytes: null,
+  resolvedOn: null,
+};
+
+export interface PendingAbsoluteCapVerdict {
+  readonly ok: boolean;
+  readonly resolved: boolean;
+  readonly message: string;
+}
+
+/** 纯判定：PENDING 标记存续 / 闭合是否合规（缺失或伪闭合都 FAIL）。 */
+export function evaluatePendingAbsoluteCap(
+  marker: PendingAbsoluteCap | null | undefined = PENDING_ABSOLUTE_CAP,
+): PendingAbsoluteCapVerdict {
+  if (marker === undefined || marker === null) {
+    return {
+      ok: false,
+      resolved: false,
+      message:
+        'PENDING_ABSOLUTE_CAP 标记缺失 —— 方案 F 收口义务被静默删除（裁决 V3-VOL-3 明文禁止）：' +
+        '该标记必须存在且 resolved=false，直到 F 收口置 true 并给出新基线 + 绝对上限。',
+    };
+  }
+  if (!marker.resolved) {
+    const problems: string[] = [];
+    if (marker.since.trim().length === 0) problems.push('since 为空');
+    if (marker.obligation.trim().length < 20) problems.push('obligation 必填且非套话');
+    if (marker.newBaselineBytes !== null || marker.absoluteCeilingBytes !== null) {
+      problems.push('resolved=false 时不得预填新基线/绝对上限（避免伪闭合）');
+    }
+    return {
+      ok: problems.length === 0,
+      resolved: false,
+      message:
+        problems.length === 0
+          ? `待办未闭合（${marker.since} 起生效）：${marker.obligation}`
+          : `PENDING_ABSOLUTE_CAP 登记失真：${problems.join(' / ')}`,
+    };
+  }
+  const problems: string[] = [];
+  if (typeof marker.newBaselineBytes !== 'number' || !(marker.newBaselineBytes > 0)) {
+    problems.push('newBaselineBytes 必填且 > 0');
+  }
+  if (typeof marker.absoluteCeilingBytes !== 'number' || !(marker.absoluteCeilingBytes > 0)) {
+    problems.push('absoluteCeilingBytes 必填且 > 0');
+  }
+  if (
+    typeof marker.newBaselineBytes === 'number' &&
+    typeof marker.absoluteCeilingBytes === 'number' &&
+    marker.absoluteCeilingBytes < marker.newBaselineBytes
+  ) {
+    problems.push('absoluteCeilingBytes 不得小于 newBaselineBytes');
+  }
+  if (marker.resolvedOn === null || !/^\d{4}-\d{2}-\d{2}$/.test(marker.resolvedOn)) {
+    problems.push('resolvedOn 必填（YYYY-MM-DD）');
+  }
+  return {
+    ok: problems.length === 0,
+    resolved: true,
+    message:
+      problems.length === 0
+        ? `F 收口义务已闭合：新基线 ${marker.newBaselineBytes}B + 绝对上限 ${marker.absoluteCeilingBytes}B（${marker.resolvedOn}）`
+        : `resolved=true 但缺少闭合证据：${problems.join(' / ')}`,
+  };
+}
+
+/**
+ * ── 保留项的可 FAIL 机器判据：重登记五要素披露 ────────────────────────────────
+ *
+ * 裁决 V3-VOL-3 **保留**了 V3-VOL-1 ② 的披露纪律。此纯函数把它变成可复用判据：
+ * 返回**违规清单**（空 = 全部合规）。`test/size-ruling-vol3.test.ts` 用它做守恒自检
+ * （真实登记册零违规 + 缺 `reason` 的合成条目必须报违规）。
+ */
+export interface DisclosureViolation {
+  readonly id: string;
+  readonly field: string;
+  readonly message: string;
+}
+
+export function validateReRegistrationDisclosure(
+  entries: readonly SizeReRegistration[],
+): readonly DisclosureViolation[] {
+  const violations: DisclosureViolation[] = [];
+  for (const r of entries) {
+    const id = r.id.trim().length > 0 ? r.id : '(missing-id)';
+    const push = (field: string, message: string) => violations.push({ id, field, message });
+    if (r.id.trim().length === 0) push('id', '轮次标识必填');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) push('date', `日期必填且为 YYYY-MM-DD（实测 "${r.date}"）`);
+    if (r.source.trim().length === 0) push('source', '来源必填（被测产物路径）');
+    if (r.buildCommand.trim().length === 0) push('buildCommand', 'buildCommand 必填');
+    if (r.measuredBy.trim().length === 0) push('measuredBy', 'measuredBy 必填');
+    if (r.reason.trim().length < 20) push('reason', '理由必填且非套话（≥20 字符）');
+    if (!(r.baselineAfterBytes > r.baselineBeforeBytes)) {
+      push('baseline', '必须显式增重：baselineAfterBytes > baselineBeforeBytes');
+    }
+    if (r.historyRetainedBytes.length === 0 && r.baselineBeforeBytes > 0) {
+      push('historyRetainedBytes', '必须列出本轮逐字保留的历史值');
+    }
+    if (r.assertionNonRemovalEntries.length === 0) {
+      push('assertionNonRemovalEntries', '必须登记「断言零删减」台账条目');
+    }
+  }
+  return violations;
 }

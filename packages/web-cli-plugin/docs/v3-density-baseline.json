@@ -369,7 +369,26 @@
     "previousCeilingBytes": 386955,
     "ceilingDirection": "raised-formula",
     "directionAlertThreshold": 0.15,
-    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 375,102 B 从 266,500 B 起算的 Feature 累计增幅 **+40.75%** —— **R3 后越过已登记的 40% 停工线**（38.28% → 40.75%），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。",
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 375,102 B 从 266,500 B 起算的 Feature 累计增幅 **+40.75%** —— **R3 后越过已登记的 40% 停工线**（38.28% → 40.75%），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。",
+    "cumulativeStopWorkLineStatus": "revoked-by-V3-VOL-3",
+    "cumulativeStopWorkLine": {
+      "rule": "Feature 级累计增幅 40% 停工线（口径 = 从 266,500 B 基线起算的百分比）",
+      "threshold": 0.4,
+      "fromBytes": 266500,
+      "enforced": false,
+      "revokedBy": "V3-VOL-3",
+      "revokedOn": "2026-09-18",
+      "note": "已撤销，仅作历史留档；判定模型与反证见 test/size-baseline.ts#evaluateFeatureCumulativeStopWorkLine 与 test/size-ruling-vol3.test.ts。"
+    },
+    "pendingAbsoluteCap": {
+      "since": "V3-VOL-3",
+      "obligation": "方案 F 重构（聊天流统一承载）落地收口时，必须重新定 sidepanel 体积基线并设置绝对值上限",
+      "resolved": false,
+      "newBaselineBytes": null,
+      "absoluteCeilingBytes": null,
+      "resolvedOn": null,
+      "note": "防静默删除：标记必须存在且 resolved=false，直到 F 收口置 true 并同时给出新基线与绝对上限（断言见 test/size-ruling-vol3.test.ts）。"
+    },
     "reRegistrations": [
       {
         "id": "v3-1",
@@ -540,7 +559,7 @@
       }
     },
     "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP_RECORD / SIDEPANEL_RE_REGISTRATIONS / SIDEPANEL_GROWTH_BREAKDOWN / evaluateConsecutiveReRegistrationGrowth）；门禁 test/size-budget.test.ts + test/size-growth-evidence.test.ts",
-    "note": "volume 与 test/size-baseline.ts 同源（机器比对：registeredBaselineBytes / ceilingBytes 由 test/density-thresholds.test.ts 断言）。**R3 缺陷修复轮（2026-09-17，收口后；作者真机确认 HEAD 131f546）**：deepseek SPA 重渲染后选择器断链但文字仍可见 ⇒ 引用 dom-gone 死亡；修法 = SW 只读文本候选定位（与摘要同源归一化）+ dom-gone 失效原因的 payload 元数据（0 候选维持原文案）+ 一键重锚仅唯一候选∧路径未变（经同一摄取管线生成新引用、旧引用零改动）+ 多候选/跨路径不自动锚定 + 救援限同 origin 且已授权；产物 368529 → **375102 B**（+6573 B，+1.78%）；ceiling 由公式抬高 floor(375,102 × 1.05) = **393857 B**；从 266,500 B 起算的 Feature 累计 **+40.75%**（越过 40% 停工线，已如实上报）。**R2 缺陷修复轮（2026-09-17，收口后；作者裁决「修：退避+稳态显示」HEAD 6d9ed5d）**：站点声明永久无效时 SW 每 15s 软重试 ⇒ 风险位每 15s 闪烁；修法 = 终态声明探测指数退避 15s→5min 封顶（按 origin 独立计数、结论变化即重置）+ 退避等待期稳态「低频自动复查中」风险行 + 导航/切标签/面板可见性立即重试并重置退避 + 文案改真实退避描述；产物 366755 → **368529 B**（+1774 B，+0.48%）；ceiling 由公式抬高 floor(368,529 × 1.05) = **386955 B**。**R1 缺陷修复轮（2026-09-17，收口后；作者真机反馈 HEAD 870cb6e）**：修「无有效站点声明的站点拾取引用出生即死」（SW declarationStatus 单一事实源 + 面板摄取补全捕获事实 + D4 状态一致性，fail-closed 不放松）+ D1 观测时序缺口（身份标记回程重读观测）+ 引用回合 busy 残留；产物 362777 → **366755 B**（+3978 B，+1.10%；`roundKind=registry-fidelity-round`，④ 的功能轮口径不变）；ceiling 由公式抬高 floor(366,755 × 1.05) = **385092 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null；content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变。前值全部保留在 size-baseline 的 TIMELINE 与重登记登记册；本文件同时保留旧值：`volume.previous` 与 `growthBreakdown.previous`。",
+    "note": "volume 与 test/size-baseline.ts 同源（机器比对：registeredBaselineBytes / ceilingBytes 由 test/density-thresholds.test.ts 断言）。**R3 缺陷修复轮（2026-09-17，收口后；作者真机确认 HEAD 131f546）**：deepseek SPA 重渲染后选择器断链但文字仍可见 ⇒ 引用 dom-gone 死亡；修法 = SW 只读文本候选定位（与摘要同源归一化）+ dom-gone 失效原因的 payload 元数据（0 候选维持原文案）+ 一键重锚仅唯一候选∧路径未变（经同一摄取管线生成新引用、旧引用零改动）+ 多候选/跨路径不自动锚定 + 救援限同 origin 且已授权；产物 368529 → **375102 B**（+6573 B，+1.78%）；ceiling 由公式抬高 floor(375,102 × 1.05) = **393857 B**；从 266,500 B 起算的 Feature 累计 **+40.75%**（越过 40% 停工线，已如实上报）。**R2 缺陷修复轮（2026-09-17，收口后；作者裁决「修：退避+稳态显示」HEAD 6d9ed5d）**：站点声明永久无效时 SW 每 15s 软重试 ⇒ 风险位每 15s 闪烁；修法 = 终态声明探测指数退避 15s→5min 封顶（按 origin 独立计数、结论变化即重置）+ 退避等待期稳态「低频自动复查中」风险行 + 导航/切标签/面板可见性立即重试并重置退避 + 文案改真实退避描述；产物 366755 → **368529 B**（+1774 B，+0.48%）；ceiling 由公式抬高 floor(368,529 × 1.05) = **386955 B**。**R1 缺陷修复轮（2026-09-17，收口后；作者真机反馈 HEAD 870cb6e）**：修「无有效站点声明的站点拾取引用出生即死」（SW declarationStatus 单一事实源 + 面板摄取补全捕获事实 + D4 状态一致性，fail-closed 不放松）+ D1 观测时序缺口（身份标记回程重读观测）+ 引用回合 busy 残留；产物 362777 → **366755 B**（+3978 B，+1.10%；`roundKind=registry-fidelity-round`，④ 的功能轮口径不变）；ceiling 由公式抬高 floor(366,755 × 1.05) = **385092 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null；content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变。前值全部保留在 size-baseline 的 TIMELINE 与重登记登记册；本文件同时保留旧值：`volume.previous` 与 `growthBreakdown.previous`。 **裁决 V3-VOL-3（2026-09-18，作者选 B；工程纪律裁决的代码化，零体积变化）**：撤销 Feature 级 40% 累计停工线（266,500 B 基线口径的百分比线在活跃开发期已无参照意义——R3 后实际 +40.75%）；保留单轮 5% 容差 / 五要素披露 / 相邻两轮 >15% 告警 / ceiling=floor(当前值×1.05)；新增义务 = 方案 F 重构收口必须重定基线 + 设绝对上限（`pendingAbsoluteCap`，resolved=false 存续）。登记值 375102 / ceiling 393857 / 容差 0.05 **零改动**（本裁决不触碰任何体积数值）。",
     "previous": {
       "registeredBaselineBytes": 366755,
       "finalArtifactBytes": 366755,

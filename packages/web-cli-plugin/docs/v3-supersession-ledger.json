@@ -36,10 +36,10 @@
     },
     "nodeTestRuntime": {
       "baselineRuntime": 646,
-      "currentRuntime": 826,
+      "currentRuntime": 832,
       "countMethod": "runtime-node-tests",
       "floor": 646,
-      "note": "node 运行期用例 646 → **732**（只增不减；v3-1 新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件，修复轮又新增台账/基线保真用例）。口径 = `npm test` 日志的 `ℹ tests`（2026-09-16 收口轮实测 732；复现：`npm test --workspace @lgdl/web-cli-plugin` 后 `grep \"^ℹ tests\"`）。validate R1（F2）指出旧登记值 731 与实测差 1 → 本轮按实测订正为 732（仍 ≥ 646 下界，方向不越界）。与静态口径（staticCalibers.nodeTestStatic）分别登记，不得混用（I4③）。 v3-2（2026-09-16）：新增 `test/l1-ref-validity.test.ts`（11 个用例：三态/五维/不确定即失效/截断口径/id 单调/阻断/局部树/回执/白名单）→ 运行期用例 732 → **743**（`npm test` 日志 `ℹ tests 743`；仍 ≥ 646 下界）。 v3-2 修复轮（2026-09-16）：新增 `test/size-growth-evidence.test.ts`（替代守卫 ②③④，9 个用例）+ 三处重 pin（size-budget / insight-archive / density-thresholds）→ 运行期用例 743 → **754**（`npm test` 日志 `ℹ tests 754`；仍 ≥ 646 下界；静态口径 readings 同步复算为 754/765/858）。 v3-2 修复轮 R2（2026-09-16）：新增 `test/gate-integrity.test.ts`（**元门禁**，6 个用例：受审集合完整性 / R1a-R1b-R2-R3 真实门禁全过 / 合成夹具反证 ×2 / 真实副本注入反证 / 覆盖限缩如实登记）→ 运行期用例 754 → **760**（`npm test` 日志 `ℹ tests 760 / pass 760 / fail 0 / skipped 0`；仍 ≥ 646 下界；静态口径 readings 同步复算为 760/771/884，70 份文件）。 v3-2 收口轮（2026-09-16）：`test/gate-integrity.test.ts` 由 6 → **9** 用例（N-01/N-02 合成反证 + N-03 合成反证 + 目录推导自动纳入反证）与 `test/l1-ref-validity.test.ts` 由 11 → **12**（N-08 退役原因冻结）→ 运行期用例 760 → **764**（`npm test` 日志 `ℹ tests 764 / pass 764 / fail 0`；仍 ≥ 646 下界）。 v3-3（2026-09-16）：新增 `test/l2-counts.test.ts`（8 个用例：计数真值派生双向/分列不退化/未知≠0/入口-摘要-标签三处同源/设置分区登记表/命令目录 delay 单源 + 9 动作固定序/审计白名单 + URL 去参）→ 运行期用例 764 → **772**（`npm test` 日志 `ℹ tests 772 / pass 772`；仍 ≥ 646 下界）。静态口径读数同步复算为 905 / 783 / 772。 v3-3 修复轮（2026-09-16，审查 R1 后）：`test/l2-counts.test.ts` +1（AUDIT_FIELD_WHITELIST 与实现输入面的漂移守卫）与 `test/gate-integrity.test.ts` +3（R4a/R4b、R4c 自身反证、R4d 例外登记）→ 运行期用例 772 → **776**（`npm test` 日志 `ℹ tests 776 / pass 776 / fail 0`；仍 ≥ 646 下界）。静态口径 readings 同步复算为 912 / 787 / 776（71 份文件）。 v3-4（2026-09-16）：新增 `test/ref-capture.test.ts`（7 用例：截断口径与 v3-2 ref-store 逐字相等 / 边界值 / 稳定性 / 稳定优先路径 / 事实字段集 / 输入区识别与身份标记 / resolveRef 只报观测）、`test/pick-layer-budget.test.ts`（2 用例：新 artifact 无容差上限 + 反证 / content.js 与三 hash pin 复核）、`test/zero-injection.test.ts`（3 用例：manifest 静态面 / 结构面 / 源码面）、`test/ref-wiring.test.ts`（4 用例：AC-CONV-1 生产 setEnv 调用点 + env 字段来源 / AC-CONV-2 唯一动作入口 + 引用回合走同一入口）→ 运行期用例 776 → **795**（`npm test` 日志 `ℹ tests 795`；仍 ≥ 646 下界）。静态口径 readings 同步复算为 938 / 806 / 795（71 份文件）。 **v3-4 收口轮**（2026-09-17）：新增 `test/pick-layer-budget.test.ts` 的 1 个用例（逐文件归因三处同源 + Σ == 总增幅，validate R1 F1）→ 运行期用例 795 → **796**（`npm test` 日志 `ℹ tests 796 / pass 796 / fail 0`；仍 ≥ 646 下界）。静态口径 readings 同步复算为 939 / 807 / 796；历史值 938/806/795 逐字保留在前句。 **R1 缺陷修复轮**（2026-09-17，收口后）：新增 7 个 node 用例（`l1-ref-validity.test.ts` 的 R1 四例 + `ref-wiring.test.ts` 的一例布线反证 + `sidepanel.test.ts` 的一例 `supersededAsk`）→ 运行期用例 796 → **803**（`npm test` 日志 `ℹ tests 803 / pass 803 / fail 0`；仍 ≥ 646 下界）；静态口径 readings 同步复算为 947 / 814 / 803；历史值 939/807/796 逐字保留在前句。 **R2 缺陷修复轮**（2026-09-17，收口后；作者裁决「修：退避+稳态显示」）：新增 12 个 node 用例（`auto-probe.test.ts` 的 7 例退避/稳态/重置三触发器/按 origin 独立计数 + `l0-disclosure.test.ts` 的 4 例稳态文案与风险类接线 + 1 例重绘签名）→ 运行期用例 803 → **815**（`npm test` 日志 `ℹ tests 815 / pass 815 / fail 0`；仍 ≥ 646 下界）；静态口径 readings 同步复算为 962 / 826 / 815（71 份文件）；历史值 947/814/803 逐字保留在前句。 **R3 缺陷修复轮**（2026-09-17，收口后；作者真机确认 HEAD 131f546）：新增 `test/ref-rescue.test.ts` （11 个用例：文本候选三态 / 与冻结 capture 口径同源 / 救援 payload 只作 dom-gone 元数据 / 一键重锚边界 / 重锚走同一摄取管线 / 追加式新引用旧引用零改动 / SW 路由逐出口 fail-closed / kind 不入 KIND_SET / rescuePathOf）→ 运行期用例 815 → **826**（`npm test` 日志 `ℹ tests 826`；仍 ≥ 646 下界）；静态口径 readings 同步复算为 974 / 837 / 826；历史值 962/826/815 逐字保留在前句。"
+      "note": "node 运行期用例 646 → **732**（只增不减；v3-1 新增 density-thresholds / l0-disclosure / supersession-ledger 三个测试文件，修复轮又新增台账/基线保真用例）。口径 = `npm test` 日志的 `ℹ tests`（2026-09-16 收口轮实测 732；复现：`npm test --workspace @lgdl/web-cli-plugin` 后 `grep \"^ℹ tests\"`）。validate R1（F2）指出旧登记值 731 与实测差 1 → 本轮按实测订正为 732（仍 ≥ 646 下界，方向不越界）。与静态口径（staticCalibers.nodeTestStatic）分别登记，不得混用（I4③）。 v3-2（2026-09-16）：新增 `test/l1-ref-validity.test.ts`（11 个用例：三态/五维/不确定即失效/截断口径/id 单调/阻断/局部树/回执/白名单）→ 运行期用例 732 → **743**（`npm test` 日志 `ℹ tests 743`；仍 ≥ 646 下界）。 v3-2 修复轮（2026-09-16）：新增 `test/size-growth-evidence.test.ts`（替代守卫 ②③④，9 个用例）+ 三处重 pin（size-budget / insight-archive / density-thresholds）→ 运行期用例 743 → **754**（`npm test` 日志 `ℹ tests 754`；仍 ≥ 646 下界；静态口径 readings 同步复算为 754/765/858）。 v3-2 修复轮 R2（2026-09-16）：新增 `test/gate-integrity.test.ts`（**元门禁**，6 个用例：受审集合完整性 / R1a-R1b-R2-R3 真实门禁全过 / 合成夹具反证 ×2 / 真实副本注入反证 / 覆盖限缩如实登记）→ 运行期用例 754 → **760**（`npm test` 日志 `ℹ tests 760 / pass 760 / fail 0 / skipped 0`；仍 ≥ 646 下界；静态口径 readings 同步复算为 760/771/884，70 份文件）。 v3-2 收口轮（2026-09-16）：`test/gate-integrity.test.ts` 由 6 → **9** 用例（N-01/N-02 合成反证 + N-03 合成反证 + 目录推导自动纳入反证）与 `test/l1-ref-validity.test.ts` 由 11 → **12**（N-08 退役原因冻结）→ 运行期用例 760 → **764**（`npm test` 日志 `ℹ tests 764 / pass 764 / fail 0`；仍 ≥ 646 下界）。 v3-3（2026-09-16）：新增 `test/l2-counts.test.ts`（8 个用例：计数真值派生双向/分列不退化/未知≠0/入口-摘要-标签三处同源/设置分区登记表/命令目录 delay 单源 + 9 动作固定序/审计白名单 + URL 去参）→ 运行期用例 764 → **772**（`npm test` 日志 `ℹ tests 772 / pass 772`；仍 ≥ 646 下界）。静态口径读数同步复算为 905 / 783 / 772。 v3-3 修复轮（2026-09-16，审查 R1 后）：`test/l2-counts.test.ts` +1（AUDIT_FIELD_WHITELIST 与实现输入面的漂移守卫）与 `test/gate-integrity.test.ts` +3（R4a/R4b、R4c 自身反证、R4d 例外登记）→ 运行期用例 772 → **776**（`npm test` 日志 `ℹ tests 776 / pass 776 / fail 0`；仍 ≥ 646 下界）。静态口径 readings 同步复算为 912 / 787 / 776（71 份文件）。 v3-4（2026-09-16）：新增 `test/ref-capture.test.ts`（7 用例：截断口径与 v3-2 ref-store 逐字相等 / 边界值 / 稳定性 / 稳定优先路径 / 事实字段集 / 输入区识别与身份标记 / resolveRef 只报观测）、`test/pick-layer-budget.test.ts`（2 用例：新 artifact 无容差上限 + 反证 / content.js 与三 hash pin 复核）、`test/zero-injection.test.ts`（3 用例：manifest 静态面 / 结构面 / 源码面）、`test/ref-wiring.test.ts`（4 用例：AC-CONV-1 生产 setEnv 调用点 + env 字段来源 / AC-CONV-2 唯一动作入口 + 引用回合走同一入口）→ 运行期用例 776 → **795**（`npm test` 日志 `ℹ tests 795`；仍 ≥ 646 下界）。静态口径 readings 同步复算为 938 / 806 / 795（71 份文件）。 **v3-4 收口轮**（2026-09-17）：新增 `test/pick-layer-budget.test.ts` 的 1 个用例（逐文件归因三处同源 + Σ == 总增幅，validate R1 F1）→ 运行期用例 795 → **796**（`npm test` 日志 `ℹ tests 796 / pass 796 / fail 0`；仍 ≥ 646 下界）。静态口径 readings 同步复算为 939 / 807 / 796；历史值 938/806/795 逐字保留在前句。 **R1 缺陷修复轮**（2026-09-17，收口后）：新增 7 个 node 用例（`l1-ref-validity.test.ts` 的 R1 四例 + `ref-wiring.test.ts` 的一例布线反证 + `sidepanel.test.ts` 的一例 `supersededAsk`）→ 运行期用例 796 → **803**（`npm test` 日志 `ℹ tests 803 / pass 803 / fail 0`；仍 ≥ 646 下界）；静态口径 readings 同步复算为 947 / 814 / 803；历史值 939/807/796 逐字保留在前句。 **R2 缺陷修复轮**（2026-09-17，收口后；作者裁决「修：退避+稳态显示」）：新增 12 个 node 用例（`auto-probe.test.ts` 的 7 例退避/稳态/重置三触发器/按 origin 独立计数 + `l0-disclosure.test.ts` 的 4 例稳态文案与风险类接线 + 1 例重绘签名）→ 运行期用例 803 → **815**（`npm test` 日志 `ℹ tests 815 / pass 815 / fail 0`；仍 ≥ 646 下界）；静态口径 readings 同步复算为 962 / 826 / 815（71 份文件）；历史值 947/814/803 逐字保留在前句。 **R3 缺陷修复轮**（2026-09-17，收口后；作者真机确认 HEAD 131f546）：新增 `test/ref-rescue.test.ts` （11 个用例：文本候选三态 / 与冻结 capture 口径同源 / 救援 payload 只作 dom-gone 元数据 / 一键重锚边界 / 重锚走同一摄取管线 / 追加式新引用旧引用零改动 / SW 路由逐出口 fail-closed / kind 不入 KIND_SET / rescuePathOf）→ 运行期用例 815 → **826**（`npm test` 日志 `ℹ tests 826`；仍 ≥ 646 下界）；静态口径 readings 同步复算为 974 / 837 / 826；历史值 962/826/815 逐字保留在前句。 **V3-VOL-3 裁决落地（2026-09-18）**：新增 `test/size-ruling-vol3.test.ts`（6 个用例）⇒ 运行期用例 826 → **832**（`npm test` 日志 `ℹ tests 832 / pass 832 / fail 0`；仍 ≥ 646 下界）；静态口径 readings 同步复算为 980 / 843 / 832（`currentStatic` = excludingDottedPrefix = 843）；历史值 974/837/826 逐字保留在前句。"
     }
   },
   "gateFloors": {
@@ -2609,7 +2609,7 @@
       "oldId": "counts.nodeTestRuntime.currentRuntime = 803",
       "oldTitle": "\"currentRuntime\": 803,",
       "newId": "counts.nodeTestRuntime.currentRuntime = 815 / staticCalibers 读数（962 / 826 / 815）",
-      "newTitle": "\"currentRuntime\": 826,",
+      "newTitle": "\"currentRuntime\": 832,",
       "reason": "R2 的 12 个新 node 用例与 12 处 `test(` 注册使两种口径同时上升：运行期 803 → 815、静态 947/814/803 → 962/826/815（currentStatic = excludingDottedPrefix = 826，与运行期 815 分列，两口径不互借）。历史值逐字保留在各 `note` 中。",
       "replacementExists": true,
       "modificationType": "same-id-rewrite"
@@ -2705,7 +2705,7 @@
       "oldId": "counts.nodeTestRuntime.currentRuntime = 815",
       "oldTitle": "\"currentRuntime\": 815,",
       "newId": "counts.nodeTestRuntime.currentRuntime = 826（静态 readings 974 / 837 / 826）",
-      "newTitle": "\"currentRuntime\": 826,",
+      "newTitle": "\"currentRuntime\": 832,",
       "reason": "R3：新增 test/ref-rescue.test.ts（11 用例）+ 若干重 pin ⇒ 运行期 815 → 826、静态 readings 962/826/815 → 974/837/826（currentStatic = excludingDottedPrefix = 837）；历史值逐字保留在 note。",
       "replacementExists": true,
       "modificationType": "same-id-rewrite"
@@ -2732,6 +2732,40 @@
       "reason": "R3：`ref-rescue` 是 panel⇄SW 的第四类消息；其校验器落在 background-only 模块（`background/ref-rescue.ts`），既不进 `content/pick-protocol.ts`（冻结面）也不进 `KIND_SET`（会打进 content.js）。本断言按同一强度升级为「四校验器并集」并新增「ref-rescue 只被自己的校验器接受、且能通过入口守卫」的正反例 —— 断言只增不减。",
       "replacementExists": true,
       "modificationType": "same-id-rewrite"
+    },
+    {
+      "id": "V3VOL3-S1",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "node",
+      "oldId": "Feature 级 40% 累计停工线（登记口径的纪律文本；无机器断言）",
+      "oldTitle": null,
+      "newId": "裁决 V3-VOL-3：撤销该线（enforced=false + revokedBy=V3-VOL-3）+ 建立撤销规则的可判定模型 + PENDING_ABSOLUTE_CAP 义务标记",
+      "newTitle": "export const SIDEPANEL_SIZE_RULING_V3_VOL_3: SizeRulingRecord = {",
+      "reason": "作者裁决 V3-VOL-3（2026-09-18，选 B）：撤销「Feature 累计增幅 40% 停工线」（266,500 B 基线口径的百分比线在活跃开发期已无参照意义——R3 后实际 +40.75%）。保留项零改动：单轮 5% 容差 / 重登记五要素披露 / 相邻两轮 >15% 告警 / ceiling=floor(当前值×1.05)。新增义务（硬约束）：方案 F 重构（聊天流统一承载）落地收口必须重定 sidepanel 基线 + 设绝对上限（PENDING_ABSOLUTE_CAP，resolved 必须由 false→true 且带新基线与绝对上限）。诊断如实登记：裁决前该线**没有**机器常量/断言（只是 `consecutiveGrowthAlert` + 各轮 reason + closeout.md §9B-8 的纪律文本），故撤销不能靠删代码完成；本轮把它做成可判定的历史规则模型（enforced 开关），并保留可 FAIL 的反证：enforced=true（恢复裁决前口径）时 375,102 B（+40.75%）必然 FAIL。历史只追加：各轮 reason 与活动登记里的 40%/40.75% 原文逐字保留。dist/* 零字节变化。",
+      "modificationType": "pure-addition"
+    },
+    {
+      "id": "V3VOL3-S2",
+      "file": "packages/web-cli-plugin/docs/v3-supersession-ledger.json",
+      "gate": "meta",
+      "oldId": "counts.nodeTestRuntime.currentRuntime = 826",
+      "oldTitle": "\"currentRuntime\": 826,",
+      "newId": "counts.nodeTestRuntime.currentRuntime = 832（静态 readings 980 / 843 / 832）",
+      "newTitle": "\"currentRuntime\": 832,",
+      "reason": "V3-VOL-3：新增 test/size-ruling-vol3.test.ts（6 用例）⇒ 运行期 826 → 832、静态 readings 974/837/826 → 980/843/832（currentStatic = excludingDottedPrefix = 843）；历史值逐字保留在 note。V34R2-S8 / V34DR3-S8 的 newTitle 同步跟随为 832（沿用 R3「value change ⇒ 旧条目 newTitle 跟到新值 + 新增条目登记迁移」的先例，旧值只由 oldTitle 与 note 承载）。",
+      "replacementExists": true,
+      "modificationType": "same-id-rewrite"
+    },
+    {
+      "id": "V3VOL3-S3",
+      "file": "packages/web-cli-plugin/docs/v3-density-baseline.json",
+      "gate": "density",
+      "oldId": null,
+      "oldTitle": null,
+      "newId": "volume 登记撤销后的口径（cumulativeStopWorkLineStatus / revokedRule / pendingAbsoluteCap）+ directionalAlert 追加裁决 V3-VOL-3 处置",
+      "newTitle": "\"cumulativeStopWorkLineStatus\": \"revoked-by-V3-VOL-3\",",
+      "reason": "V3-VOL-3（工程纪律裁决的代码化，零体积变化）：volume 登记册同步登记「Feature 级 40% 累计停工线已撤销」（阈值 0.40 / 起点 266,500 B / enforced=false / revokedBy=V3-VOL-3）与新增义务 PENDING_ABSOLUTE_CAP；directionalAlert 的历史文本（+22.96% 告警、+40.75% 越线）逐字保留，仅**追加**撤销与保留项说明。",
+      "modificationType": "pure-addition"
     }
   ],
   "zeroDiffFiles": [
@@ -2755,25 +2789,25 @@
     "nodeTestStatic": {
       "countMethod": "static-node-test-registrations",
       "baselineStatic": 646,
-      "currentStatic": 837,
+      "currentStatic": 843,
       "floor": 646,
-      "note": "静态复算（2026-09-16 收口轮，`test/*.test.ts` 全 67 份文件拼接后逐正则计数；复现：`cat test/*.test.ts | grep -o -P '<regex>' | wc -l`）：① `\\btest\\(`（任意词边界，**会把正则方法调用也算进来**）= **833**；② `(?<![\\w.])test\\(`（排除点号前缀）= **741** ← `currentStatic` 采用此读法；③ `^test\\(`（多行、仅行首顶格注册）= **732**，与运行期 `ℹ tests` 732 **逐值相等**（跨口径交叉印证，非口径混用）。三种读法都 ≥ 下界 646，故「只增不减」在任一读法下均成立。validate R1（F3）指出旧登记 830 / 740 不可复现（实测 833 / 741）且未给出可复算的正则 → 本轮按实测订正，并把三个读法的**确切正则**写入 `readings` 由门禁机器复算（`test/supersession-ledger.test.ts`）。**不得**用 732/741/833（静态）与 646/725/731/732（运行期）互相相减——口径不同（I4③）。 v3-2（2026-09-16，68 份文件重算）：三读法按实测复算并写回 readings；`currentStatic` 仍采用 excludingDottedPrefix。 v3-2 修复轮（69 份文件重算）：新增 size-growth-evidence.test.ts 与三处重 pin（size-budget / insight-archive / density-thresholds）后按实测复算写回 readings —— anyWordBoundary=858 / excludingDottedPrefix=765 / topLevelColumnZero=754；全部 ≥ 下界 646，currentStatic 仍采用 excludingDottedPrefix。（**v3-2 修复轮 R2，2026-09-16**：新增 `test/gate-integrity.test.ts`（元门禁，6 个用例）后按实测复算并写回 readings —— anyWordBoundary=**884** / excludingDottedPrefix=**771** / topLevelColumnZero=**760**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。）（**v3-2 收口轮，2026-09-16**：按实测复算写回 —— anyWordBoundary=**896** / excludingDottedPrefix=**775** / topLevelColumnZero=**764**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。） v3-3（2026-09-16）：新增 test/l2-counts.test.ts（8 个 test( 注册）→ 三读法分别 896→905 / 775→783 / 764→772；currentStatic 采用 excludingDottedPrefix 读法 = **783**，与运行期 772 分列（两种口径不互借）。 **v3-3 修复轮**（2026-09-16，71 份文件重算）：新增 l2-counts.test.ts 的 1 个用例与 gate-integrity.test.ts 的 3 个 R4 用例（F-01 防呆）后按实测复算写回 —— anyWordBoundary=**912** / excludingDottedPrefix=**787** / topLevelColumnZero=**776**；`currentStatic` 仍采用 excludingDottedPrefix 读法 = **787**，与运行期 776 分列（两种口径不互借）。 **v3-3 收口轮**（2026-09-16，71 份文件重算）：新增 `test/supersession-ledger.test.ts` 的 3 个叶段判据用例（N-09）+ `test/gate-integrity.test.ts` 的 2 处 `正则.test(` 方法调用（R4a 加固）后按实测复算写回 —— anyWordBoundary=**917** / excludingDottedPrefix=**790** / topLevelColumnZero=**779**（+3 用例注册，另 +2 为方法调用）；`currentStatic` 仍采用 excludingDottedPrefix 读法 = **790**，与运行期 779 分列（两种口径不互借）。历史值 646/725/731/732/741/754/760/764/771/772/775/776/783/787/830/833/858/884/896/905/912 全保留。 v3-4（2026-09-16，71 份文件重算）：新增 ref-capture / pick-layer-budget / zero-injection / ref-wiring 四个测试文件后按实测复算写回 readings —— anyWordBoundary=938 / excludingDottedPrefix=806 / topLevelColumnZero=795；全部 ≥ 下界 646。 **v3-4 收口轮**（2026-09-17，validate R1 的 F1/F2 处置 + 新增 1 个 node 用例「逐文件归因三处同源且四项之和 == 总增幅」，71 份文件重算）：anyWordBoundary=939 / excludingDottedPrefix=807 / topLevelColumnZero=796；`currentStatic` 仍采用 excludingDottedPrefix 读法 = 807（与运行期 796 分列，两口径不互借）。历史值 938/806/795 逐字保留在本句。 **R1 缺陷修复轮**（2026-09-17）：新增 7 个 `test(` 注册（4 例判定链语义 + 2 例布线反证 + 1 例 busy 残留）后按实测复算写回 readings —— anyWordBoundary=947 / excludingDottedPrefix=814 / topLevelColumnZero=803；`currentStatic` 仍采用 excludingDottedPrefix 读法 = 814（与运行期 803 分列，两口径不互借）。 **R2 缺陷修复轮**（2026-09-17，收口后）：新增 12 个 `test(` 注册（`auto-probe.test.ts` 退避/稳态/重置三触发器/按 origin 独立计数 7 例 + `l0-disclosure.test.ts` 稳态文案与风险类接线 4 例 + 重绘签名 1 例）后按实测复算写回 readings —— anyWordBoundary=962 / excludingDottedPrefix=826 / topLevelColumnZero=815（71 份文件，文件数不变）；`currentStatic` 仍采用 excludingDottedPrefix 读法 = 826（与运行期 815 分列，两口径不互借）。历史值 947/814/803 逐字保留在本句。 **R3 缺陷修复轮**（2026-09-17）：新增 `test/ref-rescue.test.ts`（11 个用例）→ 三种读法各 +12/（任何词边界 +11？按实测）—— 实测复算为 ① 974 / ② 837 / ③ 826；`currentStatic` = ②（excludingDottedPrefix）= **837**；历史值 962 / 826 / 815 逐字保留在前句。",
+      "note": "静态复算（2026-09-16 收口轮，`test/*.test.ts` 全 67 份文件拼接后逐正则计数；复现：`cat test/*.test.ts | grep -o -P '<regex>' | wc -l`）：① `\\btest\\(`（任意词边界，**会把正则方法调用也算进来**）= **833**；② `(?<![\\w.])test\\(`（排除点号前缀）= **741** ← `currentStatic` 采用此读法；③ `^test\\(`（多行、仅行首顶格注册）= **732**，与运行期 `ℹ tests` 732 **逐值相等**（跨口径交叉印证，非口径混用）。三种读法都 ≥ 下界 646，故「只增不减」在任一读法下均成立。validate R1（F3）指出旧登记 830 / 740 不可复现（实测 833 / 741）且未给出可复算的正则 → 本轮按实测订正，并把三个读法的**确切正则**写入 `readings` 由门禁机器复算（`test/supersession-ledger.test.ts`）。**不得**用 732/741/833（静态）与 646/725/731/732（运行期）互相相减——口径不同（I4③）。 v3-2（2026-09-16，68 份文件重算）：三读法按实测复算并写回 readings；`currentStatic` 仍采用 excludingDottedPrefix。 v3-2 修复轮（69 份文件重算）：新增 size-growth-evidence.test.ts 与三处重 pin（size-budget / insight-archive / density-thresholds）后按实测复算写回 readings —— anyWordBoundary=858 / excludingDottedPrefix=765 / topLevelColumnZero=754；全部 ≥ 下界 646，currentStatic 仍采用 excludingDottedPrefix。（**v3-2 修复轮 R2，2026-09-16**：新增 `test/gate-integrity.test.ts`（元门禁，6 个用例）后按实测复算并写回 readings —— anyWordBoundary=**884** / excludingDottedPrefix=**771** / topLevelColumnZero=**760**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。）（**v3-2 收口轮，2026-09-16**：按实测复算写回 —— anyWordBoundary=**896** / excludingDottedPrefix=**775** / topLevelColumnZero=**764**（70 份文件）；全部 ≥ 下界 646，`currentStatic` 仍采用 excludingDottedPrefix。） v3-3（2026-09-16）：新增 test/l2-counts.test.ts（8 个 test( 注册）→ 三读法分别 896→905 / 775→783 / 764→772；currentStatic 采用 excludingDottedPrefix 读法 = **783**，与运行期 772 分列（两种口径不互借）。 **v3-3 修复轮**（2026-09-16，71 份文件重算）：新增 l2-counts.test.ts 的 1 个用例与 gate-integrity.test.ts 的 3 个 R4 用例（F-01 防呆）后按实测复算写回 —— anyWordBoundary=**912** / excludingDottedPrefix=**787** / topLevelColumnZero=**776**；`currentStatic` 仍采用 excludingDottedPrefix 读法 = **787**，与运行期 776 分列（两种口径不互借）。 **v3-3 收口轮**（2026-09-16，71 份文件重算）：新增 `test/supersession-ledger.test.ts` 的 3 个叶段判据用例（N-09）+ `test/gate-integrity.test.ts` 的 2 处 `正则.test(` 方法调用（R4a 加固）后按实测复算写回 —— anyWordBoundary=**917** / excludingDottedPrefix=**790** / topLevelColumnZero=**779**（+3 用例注册，另 +2 为方法调用）；`currentStatic` 仍采用 excludingDottedPrefix 读法 = **790**，与运行期 779 分列（两种口径不互借）。历史值 646/725/731/732/741/754/760/764/771/772/775/776/783/787/830/833/858/884/896/905/912 全保留。 v3-4（2026-09-16，71 份文件重算）：新增 ref-capture / pick-layer-budget / zero-injection / ref-wiring 四个测试文件后按实测复算写回 readings —— anyWordBoundary=938 / excludingDottedPrefix=806 / topLevelColumnZero=795；全部 ≥ 下界 646。 **v3-4 收口轮**（2026-09-17，validate R1 的 F1/F2 处置 + 新增 1 个 node 用例「逐文件归因三处同源且四项之和 == 总增幅」，71 份文件重算）：anyWordBoundary=939 / excludingDottedPrefix=807 / topLevelColumnZero=796；`currentStatic` 仍采用 excludingDottedPrefix 读法 = 807（与运行期 796 分列，两口径不互借）。历史值 938/806/795 逐字保留在本句。 **R1 缺陷修复轮**（2026-09-17）：新增 7 个 `test(` 注册（4 例判定链语义 + 2 例布线反证 + 1 例 busy 残留）后按实测复算写回 readings —— anyWordBoundary=947 / excludingDottedPrefix=814 / topLevelColumnZero=803；`currentStatic` 仍采用 excludingDottedPrefix 读法 = 814（与运行期 803 分列，两口径不互借）。 **R2 缺陷修复轮**（2026-09-17，收口后）：新增 12 个 `test(` 注册（`auto-probe.test.ts` 退避/稳态/重置三触发器/按 origin 独立计数 7 例 + `l0-disclosure.test.ts` 稳态文案与风险类接线 4 例 + 重绘签名 1 例）后按实测复算写回 readings —— anyWordBoundary=962 / excludingDottedPrefix=826 / topLevelColumnZero=815（71 份文件，文件数不变）；`currentStatic` 仍采用 excludingDottedPrefix 读法 = 826（与运行期 815 分列，两口径不互借）。历史值 947/814/803 逐字保留在本句。 **R3 缺陷修复轮**（2026-09-17）：新增 `test/ref-rescue.test.ts`（11 个用例）→ 三种读法各 +12/（任何词边界 +11？按实测）—— 实测复算为 ① 974 / ② 837 / ③ 826；`currentStatic` = ②（excludingDottedPrefix）= **837**；历史值 962 / 826 / 815 逐字保留在前句。 **V3-VOL-3 裁决落地（2026-09-18，作者裁决选 B；工程纪律裁决的代码化，dist/* 零字节变化）**：新增 `test/size-ruling-vol3.test.ts`（6 个用例：撤销登记 / 恢复 40% 线的反证 / 单轮 5% 守恒 / 五要素披露守恒 / PENDING_ABSOLUTE_CAP 防静默删除 / 历史保真）⇒ 三种读法按实测复算并写回：① anyWordBoundary=**980** / ② excludingDottedPrefix=**843**（`currentStatic` 采用此读法）/ ③ topLevelColumnZero=**832**（= 运行期 `ℹ tests` 832，逐值相等）；历史值 974/837/826 逐字保留在前句。",
       "readings": {
         "anyWordBoundary": {
           "regex": "\\btest\\(",
-          "count": 974,
+          "count": 980,
           "includesRegexMethodCalls": true,
           "note": "含 109 处 `正则.test(...)` 方法调用（如 insight-no-escalation.test.ts 的 21 处 + 收口轮新增的 2 处），故不是「用例数」口径。"
         },
         "excludingDottedPrefix": {
           "regex": "(?<![\\w.])test\\(",
-          "count": 837,
+          "count": 843,
           "includesRegexMethodCalls": false,
           "note": "currentStatic 采用此读法：排除了点号前缀的方法调用。"
         },
         "topLevelColumnZero": {
           "regex": "^test\\(",
-          "count": 826,
+          "count": 832,
           "includesRegexMethodCalls": false,
           "note": "多行模式、仅行首顶格注册 → 与运行期 `ℹ tests`（收口轮实测 779）逐值相等，是最贴近「用例注册数」的静态读法；因与运行期口径数值相同，**不作为** currentStatic（台账要求两口径数字必须分列，见 schema 用例）。"
         }
@@ -3049,7 +3083,21 @@
       }
     ],
     "v3_4_closeoutNote": "**v3-4 收口轮（2026-09-17）**：处置 validate R1 的 F1~F7 —— F4（去授权事实的生产可达性：`revoke` 先 env(false) 后 teardown + 注入后重算 env；两段证伪见 build.md §13）/ F3（去 flaky：换载体 + 静止前置，连跑 ≥5 次 5/5 绿）/ F1（逐文件归因按实测订正 + 「四项之和 == 总增幅」机器断言）/ F2（+10.44% / +22.96% 订正 + 历史保留）/ F5（同 origin 窗口内 active 优先 + 断言）/ F7（in-gate 清单条数文案订正 8→13 ⇒ 本轮 13→17）；F6 如实登记为 **deferred**（修法落在 `src/content/pick-menu.ts` ⇒ `dist/pick-layer.js` 必须增长，而该产物按 V3-VOL-2 口径零容差钉死 33,900 B，需新的显式重登记裁决）。旧值全部逐字保留（只追加）。",
-    "closeoutNote": "validate R1 的对抗 harness（14 条，`/tmp` 探针）中 **9 条可绕过**判定器，其中 7 条（N-01 三条 + N-02 四条）已作为**常驻负控**固化进 `--selftest`；声明侧 6 条假声明（注释/块注释/字符串字面量/过宽模式）由 R4a 的 `--list-cases` 清单核对 + 具体性下限 + 剥注释计数三处封堵。负控计数**只增不减**：元门禁断言 `--list-cases` 条数 ≥14、负控 ≥12，并逐条点名 SELFTEST-6/7/8/9/10/11/12/14。 判定器三条加固各配一条**自身反证**（RP-V33-07 N-01 锚点 / RP-V33-08 大小写折叠 / RP-V33-09 完成标记）：回退单条加固后元门禁必须红（`判定器 --selftest 未通过`），还原后必须绿 —— 「负控夹具」与「夹具本身能失败」两件事都有实跑证据。 另：**引用 vs 运行时报错**的区分已固化 —— 整段输出扫描跳过「缩进且非运行时报告形状」的行（判定器自己的判决理由会**点名**启动错误标记，元门禁把它嵌进断言消息），但**命中行**始终无条件检查启动错误标记（ATK-01 / SELFTEST-15），故该细化不放宽「命中文本即启动错误」的拒绝。"
+    "closeoutNote": "validate R1 的对抗 harness（14 条，`/tmp` 探针）中 **9 条可绕过**判定器，其中 7 条（N-01 三条 + N-02 四条）已作为**常驻负控**固化进 `--selftest`；声明侧 6 条假声明（注释/块注释/字符串字面量/过宽模式）由 R4a 的 `--list-cases` 清单核对 + 具体性下限 + 剥注释计数三处封堵。负控计数**只增不减**：元门禁断言 `--list-cases` 条数 ≥14、负控 ≥12，并逐条点名 SELFTEST-6/7/8/9/10/11/12/14。 判定器三条加固各配一条**自身反证**（RP-V33-07 N-01 锚点 / RP-V33-08 大小写折叠 / RP-V33-09 完成标记）：回退单条加固后元门禁必须红（`判定器 --selftest 未通过`），还原后必须绿 —— 「负控夹具」与「夹具本身能失败」两件事都有实跑证据。 另：**引用 vs 运行时报错**的区分已固化 —— 整段输出扫描跳过「缩进且非运行时报告形状」的行（判定器自己的判决理由会**点名**启动错误标记，元门禁把它嵌进断言消息），但**命中行**始终无条件检查启动错误标记（ATK-01 / SELFTEST-15），故该细化不放宽「命中文本即启动错误」的拒绝。",
+    "v3Vol3Note": "**V3-VOL-3 反证（node 级，非 Chromium in-gate）**：① 恢复 40% 累计线（`enforced=true`）⇒ 对当前真实产物 375,102 B（+40.75%）判定 **FAIL**（`assert.throws` 命中「停工」）；② 还原裁决（`enforced=false`）⇒ PASS 且 message 必带撤销出处「V3-VOL-3」。两段都在 `test/size-ruling-vol3.test.ts`（同一次 `npm test` 机器重跑），故不占用 Chromium `harnesses` 登记（in-gate 清单口径不变）。",
+    "nodeReverseProofs": [
+      {
+        "rule": "V3-VOL-3",
+        "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+        "cases": [
+          "恢复 40% 累计线 ⇒ 375,102 B 判定 FAIL",
+          "还原裁决 ⇒ PASS 且带撤销出处",
+          "单轮 +6% 重登记 ⇒ FAIL",
+          "缺 reason 的重登记 ⇒ 披露违规",
+          "PENDING_ABSOLUTE_CAP 缺失/伪闭合 ⇒ FAIL"
+        ]
+      }
+    ]
   },
   "leafBases": [
     {
@@ -3397,6 +3445,7 @@
         "dist/sidepanel.js 362,777 B（== 登记值）—— 本轮零改动",
         "manifest 零新增权限（无 contextMenus）· 判定链 sha256 不变 · 无新增依赖"
       ]
-    }
+    },
+    "v3-vol-3": "**裁决 V3-VOL-3 落地（2026-09-18，作者选 B；工程纪律裁决的代码化，不是功能变更）**：撤销「Feature 累计增幅 40% 停工线」（266,500 B 基线口径的百分比线在活跃开发期已无参照意义——R3 后实际 +40.75%）。**保留**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · ceiling=floor(当前值×1.05)（全部零改动，由 size-ruling-vol3.test.ts 的守恒自检机器守住）。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时，必须重定 sidepanel 体积基线并设**绝对值上限** —— 机器标记 `PENDING_ABSOLUTE_CAP`（`resolved=false` 存续 + 防静默删除 + 闭合时必须给出新基线与绝对上限，断言本轮先写好）。**撤销方式**：显式登记（`SIDEPANEL_SIZE_RULING_V3_VOL_3` / `SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE.enforced=false` + `revokedBy`），不是静默删除；诊断如实登记：裁决前该线没有机器断言（只是 `consecutiveGrowthAlert` + 各轮 reason + closeout.md §9B-8 的纪律文本），本轮把它做成可判定模型并保留反证（恢复该线 ⇒ 375,102 B / +40.75% 必然 FAIL）。**产物**：`dist/content.js` 177,076 B / `dist/pick-layer.js` 33,900 B / `dist/sidepanel.js` 375,102 B 三产物 sha256 前后一致（零字节变化）。**计数**：运行期 826 → 832（新增 6 用例）；静态 readings 974/837/826 → 980/843/832（currentStatic = 843）。"
   }
 }
