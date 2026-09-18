@@ -1,0 +1,511 @@
+{
+  "meta": {
+    "feature": "V4-1 三区骨架与密度重定标（父：specs-tree-web-cli-plugin-v4-chat）",
+    "featureKey": "specs-tree-v4-1-zone-shell-density",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-18",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V4-017~023）+ 父 plan.md v1.0（ADR-V4-001~016；§2.8 12 项必答 / §6 R4-17~20 / ADR-V4-008 八步 / ADR-V4-011 第 2 条 / ADR-V4-016 spike）",
+    "sourceSpec": "父 spec.md FR-CHAT-004/010~017/036/070~075/080~085/094 · AC-CHAT-004~009/017/022/023/025 + 本叶 spec.md §7 验收锚点",
+    "taskCount": 15,
+    "waveCount": 8,
+    "complexity": { "S": 1, "M": 10, "L": 4 },
+    "typeBreakdown": { "implementation": 9, "gate": 4, "spike": 1, "doc": 1, "human": 0 },
+    "numbering": {
+      "globalBlock": "TASK-501~515（v3 已占 1xx~4xx + TASK-415；v4 沿用「每叶独立百位段」先例，使用 5xx~8xx）",
+      "leafAlias": "V41-01~V41-15",
+      "ledgerId": "V41-SPIKE-401（spike 证据在 v4 台账 entries[] 的登记 id，非任务 id）"
+    }
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-501"], "strategy": "**串行闸门**：12 格全 ≥0.650 才放行 Wave 2；任一 <0.650 ⇒ 停工上报编排器 + 全部冻结（含下游三叶）" },
+    { "wave": 2, "tasks": ["TASK-502", "TASK-503"], "strategy": "并行（文件不相交：密度口径单源与判定器 ∥ index.html 三区骨架）" },
+    { "wave": 3, "tasks": ["TASK-504", "TASK-505", "TASK-506"], "strategy": "并行（toolbar+theme ∥ statusbar+risk-rail+disclosure ∥ l0 shell/status-bar + view-host）" },
+    { "wave": 4, "tasks": ["TASK-507"], "strategy": "串行（三区接线汇聚单点：#log→#stream 选择器全量迁移）" },
+    { "wave": 5, "tasks": ["TASK-508", "TASK-509", "TASK-510", "TASK-511"], "strategy": "写入可并行；**门禁运行严格串行**（l0 → l1 → l2 → density，一次一个 Chromium）" },
+    { "wave": 6, "tasks": ["TASK-512", "TASK-513"], "strategy": "并行（v4 密度基线首轮实测登记 ∥ journey 保护段八步新 pin）" },
+    { "wave": 7, "tasks": ["TASK-514"], "strategy": "串行（v4 取代台账汇聚 + 双台账门禁 + 元门禁追加 + shim 60 门禁化）" },
+    { "wave": 8, "tasks": ["TASK-515"], "strategy": "串行收口（18 项门禁含 l0/l1/l2 + RP-V4-01~08 + 五要素中间重登记）" }
+  ],
+  "p0MinimalSet": ["TASK-501", "TASK-503", "TASK-507", "TASK-508", "TASK-509", "TASK-510", "TASK-511", "TASK-513", "TASK-515"],
+  "spikeGate": {
+    "task": "TASK-501",
+    "acceptance": [
+      "12 格（3 宽度 320/400/520 × 2 主题明/暗 × 2 风险态无风险/#risk-detail 展开）逐格 #region-stream rect.height / innerHeight ≥ 0.650",
+      "测量载体二选一并记录 sha256（/tmp/opencode/v4-spike/ 原型 或 design/ui-redesign/option-f-chat-stream.html）",
+      "12 格实测表 + 最差格 + 占用归因（工具栏/状态栏/chips 详情 px）登记入 docs/v4-density-baseline.json#streamRatioSpike + v4 台账 entries[id=V41-SPIKE-401]",
+      "结论先于 TASK-513 的 #15b 落断言（≥65.0%）与 Wave 2 开工"
+    ],
+    "passCriteria": "12 格全部 ≥0.650 ⇒ PASS，放行 TASK-502 及后续叶",
+    "failHandling": "任一格 <0.650 ⇒ **立即停工上报编排器**：TASK-502~515 与 v4-2/3/4 全部冻结；上报附 ① 12 格实测表 ② 占用归因 ③ 可选项 A 显式取代（old→new + 理由）或 B 参数微调（状态栏压单行 / chips 详情默认不占位），由编排器裁决",
+    "redLines": [
+      "静默把阈值下调到实测值",
+      "用「内容高度」替代 rect 高度凑数",
+      "删除该断言",
+      "把 #region-stream 之外元素算入占比分子",
+      "把 spike 后置到本叶实现之后"
+    ],
+    "gateRule": "spike 未通过前不得进入 Wave 2（父 ADR-V4-016 第 2/5 条 + ADR-V4-023 第 4 条）"
+  },
+  "crossLeafCheckpoints": {
+    "CP-0": "spike 闸门（TASK-501）——本叶 + v4-2/3/4 的共同前置",
+    "CP-1": "v4-1 收口全 18 门禁绿（TASK-515）+ 台账/基线存在 + density-scope.ts 单源 + data-transitional-host >0 ⇒ 才放行 v4-2 TASK-601"
+  },
+  "testConservation": {
+    "l0": { "baseline": 164, "expected": ">=164", "mode": "整文件重写（登记型取代）" },
+    "l1": { "baseline": 103, "expected": ">=103", "mode": "入口机制重写（同编号重锚 + 前置展开）" },
+    "l2": { "baseline": 71, "expected": ">=71", "mode": "入口位置迁移（同编号重锚）" },
+    "density": { "baseline": 127, "expected": ">=127", "mode": "换口径重定标 + 31 格 + in-gate RP-V4-01~07" },
+    "journey": { "baseline": 167, "expected": ">=167", "mode": "保护段 #15a~#15q 同编号改写 + 新 pin" },
+    "insight": { "baseline": 116, "expected": ">=116", "mode": "同编号重锚" },
+    "binding": { "baseline": 192, "expected": "192", "mode": "零改动（保护段 2 keep）" },
+    "sidepanelView": { "baseline": 38, "expected": ">=38", "mode": "4 契约等价/更强改写" },
+    "nodeTestRuntime": { "ledger": 832, "v34LastMeasured": 795, "expected": ">=max(646, 实测)", "mode": "新增 design-contract.test.ts；跨口径差须以实测订正" }
+  },
+  "serialGates": {
+    "policy": "严格串行、一次一个 Chromium（本机 ~1.5GB，曾 OOM）；日志 tee 落盘 /tmp/opencode/v4-gate-logs/v4-1/，禁 tail 截断",
+    "order": ["typecheck", "build", "npm-test", "supersession", "gate-integrity", "zero-injection", "page-input", "l0", "l1", "l2", "density", "ui(journey)", "insight", "binding", "hardening", "e2e", "design-contract"],
+    "additionsPerR4-17": ["test:l0", "test:l1", "test:l2"],
+    "countFloors": { "journey": 167, "insight": 116, "binding": 192, "l0": 164, "l1": 103, "l2": 71, "density": 127, "sidepanelView": 38, "nodeTestRuntime": "max(646, 实测)" }
+  },
+  "reverseProofs": ["RP-V4-01", "RP-V4-02", "RP-V4-03", "RP-V4-04", "RP-V4-05", "RP-V4-06", "RP-V4-07", "RP-V4-08"],
+  "transitionalHosts": {
+    "createdIn": "TASK-503",
+    "retiredIn": ["TASK-707(v4-3)", "TASK-812(v4-4)"],
+    "closingAssertion": "v4-4 TASK-812：document.querySelectorAll('[data-transitional-host]').length === 0",
+    "thisLeaf": "只建不销；TASK-515 断言 >0（存在性）"
+  },
+  "tasks": [
+    {
+      "id": "TASK-501",
+      "alias": "V41-01",
+      "name": "≥65% 流区占比可达性 12 格 spike（闸门，不可跳过/不可后置）",
+      "type": "spike",
+      "complexity": "S",
+      "dependsOn": [],
+      "wave": 1,
+      "planRef": "本叶 plan §7 ADR-V4-016/023 第 4 条；父 plan §3.7 / §4 裁决 7",
+      "fr": ["FR-CHAT-082"],
+      "ac": ["AC-CHAT-017"],
+      "adr": ["ADR-V4-016", "ADR-V4-023"],
+      "risks": ["R41-03", "R4-01"],
+      "files": [
+        { "op": "NEW", "path": "/tmp/opencode/v4-spike/", "note": "临时原型 + spike 脚本（不入版本库）" },
+        { "op": "NEW", "path": "/tmp/opencode/v4-gate-logs/v4-1/spike-stream-ratio.log", "note": "证据（不入版本库）" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-density-baseline.json#streamRatioSpike" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json#entries[id=V41-SPIKE-401]" }
+      ],
+      "acceptance": [
+        "12 格实测表齐备（载体 sha256 / 主题 / 宽度 / 风险态 / streamRatio / 工具栏·状态栏·chips 详情占用 px / 最差格）",
+        "12 格全部 ≥ 0.650 ⇒ PASS，且结论先于 TASK-513 的 #15b 与 Wave 2 开工",
+        "任一格 < 0.650 ⇒ **立即停工上报编排器**（TASK-502~515 与下游三叶全部冻结），附实测表 + 占用归因 + 两个可选项（A 显式取代 / B 参数微调）",
+        "五条禁止项逐条自证未发生（静默下调 / 内容高度凑数 / 删断言 / 流外元素入分子 / spike 后置）",
+        "git status 干净（产物全在 /tmp）；日志全量落盘禁 tail 截断"
+      ],
+      "verify": [
+        "mkdir -p /tmp/opencode/v4-gate-logs/v4-1 && node /tmp/opencode/v4-spike/spike-stream-ratio.mjs 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/spike-stream-ratio.log",
+        "git diff --numstat -- packages/web-cli-plugin/src packages/web-cli-plugin/dist packages/web-cli-plugin/test"
+      ]
+    },
+    {
+      "id": "TASK-502",
+      "alias": "V41-02",
+      "name": "密度口径单源与判定器扩展",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["TASK-501"],
+      "wave": 2,
+      "planRef": "本叶 plan §7 ADR-V4-020；父 plan ADR-V4-006/007",
+      "fr": ["FR-CHAT-070", "FR-CHAT-071", "FR-CHAT-072", "FR-CHAT-075"],
+      "ac": ["AC-CHAT-009"],
+      "adr": ["ADR-V4-020", "ADR-V4-006", "ADR-V4-007"],
+      "risks": ["R41-04", "R4-03"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/density-scope.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/density-metrics.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/density-metrics.d.mts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/density-thresholds.test.ts" }
+      ],
+      "acceptance": [
+        "DENSITY_EXCLUDED_SUBTREES 单源（density-scope.ts）+ 门禁内字面量再断言 == ['#stream']",
+        "BANNED_MEASURE_APIS 零命中；预算口径内 visibleIn 唯一且只判 hidden",
+        "assertChromeNotInStream()： #stream 子树零 [data-chrome-control] ∧ 两区非 #stream 后代",
+        "四常量齐备（MAX_CLICKABLES_PER_CARD=6 / MAX_FIRST_SCREEN_CARDS=2 / MAX_WELCOME_CARDS=1 / MAX_WELCOME_LINES=8）；evaluateFirstScreen 只约束 default 档",
+        "density-thresholds.test.ts 用例只增；v3 基线 schema 保真断言逐字保留"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin && npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/node.log"
+      ]
+    },
+    {
+      "id": "TASK-503",
+      "alias": "V41-03",
+      "name": "index.html 三区骨架 + 归属迁移 + 占位宿主",
+      "type": "implementation",
+      "complexity": "L",
+      "dependsOn": ["TASK-501"],
+      "wave": 2,
+      "planRef": "本叶 plan §2.2 / §7 ADR-V4-017/018/019；父 plan ADR-V4-005",
+      "fr": ["FR-CHAT-010", "FR-CHAT-011", "FR-CHAT-012", "FR-CHAT-013", "FR-CHAT-016", "FR-CHAT-017"],
+      "ac": ["AC-CHAT-004", "AC-CHAT-006", "AC-CHAT-008"],
+      "adr": ["ADR-V4-017", "ADR-V4-018", "ADR-V4-019", "ADR-V4-005"],
+      "risks": ["R41-01", "R4-02", "R4-18"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html" }],
+      "acceptance": [
+        "三区文档序正确且为 body 直挂（#region-statusbar 不是 #region-stream 后代 ⇒ S7）",
+        "#log → ol#stream[role=log] 是唯一 id 重命名；其余 id 零重命名（#risk-rail 保留为内层容器）",
+        "工具栏可点恰 5（只读 .site-summary 不计 + 4 入口 + 主题）；两区零 [data-msg-type=askuser|auth|nextstep]（法一）",
+        "全部占位宿主带 data-transitional-host=\"v4-3\"|\"v4-4\"；本叶不销",
+        "红线零 diff：manifest.json / src/content / src/security / src/background/messaging.ts"
+      ],
+      "verify": [
+        "git diff --numstat -- packages/web-cli-plugin/manifest.json packages/web-cli-plugin/src/content packages/web-cli-plugin/src/security packages/web-cli-plugin/src/background/messaging.ts",
+        "node -e \"const h=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/index.html','utf8');const n=(h.match(/data-transitional-host=/g)||[]).length;if(n<1)throw new Error('no transitional host');console.log('transitional hosts:',n)\""
+      ]
+    },
+    {
+      "id": "TASK-504",
+      "alias": "V41-04",
+      "name": "toolbar.ts + theme.ts（准入 ≤5 + 计数徽标同源 + 主题三态）",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["TASK-503"],
+      "wave": 3,
+      "planRef": "本叶 plan §7 ADR-V4-018/022",
+      "fr": ["FR-CHAT-011", "FR-CHAT-015", "FR-CHAT-016"],
+      "ac": ["AC-CHAT-008"],
+      "nfr": ["NFR-CHAT-004", "NFR-CHAT-008"],
+      "ec": ["EC-CHAT-014"],
+      "adr": ["ADR-V4-018", "ADR-V4-022"],
+      "risks": ["R41-07", "R4-10"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/toolbar.ts" },
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/theme.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/density-thresholds.test.ts" }
+      ],
+      "acceptance": [
+        "工具栏可点 == 5；每项带 data-toolbar-slot ∈ {view,theme}；.site-summary 非 button/a/input",
+        "4 入口徽标与视图标题计数同源（l2EntryCount）；l2/counts.ts 零改动",
+        "aria-expanded/aria-controls per-target 配对（settings → #settings-view；其余 → #view-host）",
+        "主题三态读写失败降级 auto 且不阻断；当前态不靠颜色单通道",
+        "满额 5 时新增必须显式置换并登记 toolbarAdmissions[]"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin && npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/node.log"]
+    },
+    {
+      "id": "TASK-505",
+      "alias": "V41-05",
+      "name": "statusbar.ts + l0/risk-rail.ts chip 形态与 J1~J4 判据",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["TASK-503"],
+      "wave": 3,
+      "planRef": "本叶 plan §7 ADR-V4-019",
+      "fr": ["FR-CHAT-004", "FR-CHAT-013", "FR-CHAT-017"],
+      "ac": ["AC-CHAT-007"],
+      "adr": ["ADR-V4-019"],
+      "risks": ["R41-05", "R4-04"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/statusbar.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/risk-rail.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts" }
+      ],
+      "acceptance": [
+        "J1 状态栏本体 hidden !== true；J2 有风险 ⇒ #risk-chips 无 hidden ∧ #risk-rail ≥1 可见 chip（零风险收缩 0 可点 chip）",
+        "J3 chip 祖先闭包无 hidden / 无折叠容器 / 无 [aria-expanded]；J4 打开任意视图后 chips 仍可见",
+        "chip 计入状态栏 C1；#risk-detail 默认 hidden 不计入默认密度",
+        "isRiskClassSource / riskVisibilityProbeSource 选择器零改动",
+        "assertFoldable('#region-statusbar') 必须抛错；chip 三通道（文本/徽标/图标）空文本抛错"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin && npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/node.log"]
+    },
+    {
+      "id": "TASK-506",
+      "alias": "V41-06",
+      "name": "l0/shell.ts + l0/status-bar.ts 重写 + disclosure 重定标 + view-host 绑定迁移",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["TASK-503"],
+      "wave": 3,
+      "planRef": "本叶 plan §2.2 / §7 ADR-V4-017/019/022",
+      "fr": ["FR-CHAT-014", "FR-CHAT-015", "FR-CHAT-016"],
+      "ac": ["AC-CHAT-005", "AC-CHAT-006", "AC-CHAT-007"],
+      "adr": ["ADR-V4-017", "ADR-V4-019", "ADR-V4-022"],
+      "risks": ["R41-01"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/shell.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/status-bar.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l2/view-host.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts" }
+      ],
+      "acceptance": [
+        "#stream ↔ #view-host 互斥；打开 ⇒ 恰一个 [data-l2-view] 可见 + 焦点入 #l2-title；返回 ⇒ 复原 + 回焦工具栏入口",
+        "l2/counts.ts 零改动；syncTriggerAria per-target 语义不回退",
+        "COLLAPSIBLE_TARGETS 移除退役目标且不新增对 #stream 子树的折叠",
+        "法四骨架层核验：默认屏三区内无可见常驻输入框；#composer 存在时 hidden === true"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "git diff --stat -- packages/web-cli-plugin/src/ui/sidepanel/l2/counts.ts"
+      ]
+    },
+    {
+      "id": "TASK-507",
+      "alias": "V41-07",
+      "name": "sidepanel.ts + view-model.ts 三区接线与 #log→#stream 选择器迁移",
+      "type": "implementation",
+      "complexity": "M",
+      "dependsOn": ["TASK-504", "TASK-505", "TASK-506"],
+      "wave": 4,
+      "planRef": "本叶 plan §2.4 / §7 ADR-V4-017",
+      "fr": ["FR-CHAT-010", "FR-CHAT-014"],
+      "ac": ["AC-CHAT-007"],
+      "adr": ["ADR-V4-017"],
+      "risks": ["R41-01"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts" }
+      ],
+      "acceptance": [
+        "全仓 src/ui/sidepanel 内 getElementById('log') / '#log' 命中数为 0（已登记改写除外）",
+        "三区在空态 / 有消息态 / 风险态各一次可正常渲染（日志留痕）",
+        "新增视图模型函数为纯函数（无 DOM、无 Date.now()）",
+        "sendDisabledReason 文本与来源不改（本叶不动回合语义）"
+      ],
+      "verify": [
+        "grep -rn \"getElementById('log')\\|#log\\b\" packages/web-cli-plugin/src/ui/sidepanel/ | tee /tmp/opencode/v4-gate-logs/v4-1/log-id-residual.log",
+        "npm run typecheck --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-508",
+      "alias": "V41-08",
+      "name": "test/ui/l0.mjs 整文件重写",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["TASK-507"],
+      "wave": 5,
+      "planRef": "父 plan ADR-V4-011 第 3 条；本叶 plan ADR-V4-023",
+      "ac": ["AC-CHAT-004", "AC-CHAT-007", "AC-CHAT-008", "AC-CHAT-023"],
+      "fr": ["FR-CHAT-004", "FR-CHAT-011", "FR-CHAT-013"],
+      "adr": ["ADR-V4-011", "ADR-V4-023"],
+      "risks": ["R41-02"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l0.mjs" }],
+      "acceptance": [
+        "运行期 check 计数 ≥ 164（v3 末轮实测基线；保留文件名以同名叠加 v3GateFloors 73）",
+        "三区结构 / 工具栏 == 5 / J1~J4 / 祖先闭包 / 豁免清单 / 可发现性 / 320px 零溢出均有断言",
+        "零删除既有语义断言；整文件重写属登记型取代，逐条命中 v4 台账 entries[]",
+        "CSS 隐身（display/visibility/opacity）不豁免"
+      ],
+      "verify": ["npm run test:l0 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/l0.log"]
+    },
+    {
+      "id": "TASK-509",
+      "alias": "V41-09",
+      "name": "test/ui/l1.mjs 入口机制重写",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["TASK-507"],
+      "wave": 5,
+      "planRef": "父 plan ADR-V4-011 第 3 条",
+      "fr": ["FR-CHAT-016"],
+      "ac": ["AC-CHAT-006", "AC-CHAT-023"],
+      "adr": ["ADR-V4-011"],
+      "risks": ["R41-02"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l1.mjs" }],
+      "acceptance": [
+        "运行期计数 ≥ 103（v3 末轮实测基线；同时 ≥ v3GateFloors 64）",
+        "引用判定 / 回执 / 局部树 / 手势四组内容契约语义不变（只改入口与前置展开）",
+        "#l1-ref-repick 复用点断言改为「经 requestPick() 可达」的过渡形态",
+        "零删除断言；改写逐条命中 v4 台账"
+      ],
+      "verify": ["npm run test:l1 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/l1.log"]
+    },
+    {
+      "id": "TASK-510",
+      "alias": "V41-10",
+      "name": "test/ui/l2.mjs 入口迁移 + sidepanel-view.test.ts 4 契约等价改写",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["TASK-507"],
+      "wave": 5,
+      "planRef": "父 plan ADR-V4-011 第 3 条；本叶 ADR-V4-022",
+      "fr": ["FR-CHAT-015"],
+      "ac": ["AC-CHAT-023"],
+      "adr": ["ADR-V4-011", "ADR-V4-022"],
+      "risks": ["R41-02"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l2.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/sidepanel-view.test.ts" }
+      ],
+      "acceptance": [
+        "l2.mjs 运行期计数 ≥ 71（≥ v3GateFloors 68）",
+        "sidepanel-view.test.ts 用例数 ≥ 38；4 契约逐条有等价/更强论证",
+        "契约 ② body{display:flex} 保留；契约 ③ 断言「默认屏无可见常驻输入框」",
+        "零删除断言；逐条命中台账"
+      ],
+      "verify": [
+        "npm run test:l2 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/l2.log",
+        "npm test --workspace @lgdl/web-cli-plugin 2>&1 | grep -E \"sidepanel-view|^ℹ (tests|pass|fail)\" | tee /tmp/opencode/v4-gate-logs/v4-1/node-sidepanel-view.log"
+      ]
+    },
+    {
+      "id": "TASK-511",
+      "alias": "V41-11",
+      "name": "test/ui/density.mjs 换口径 + 31 格 + 阶段 F → v4 基线 + in-gate RP-V4-01~07",
+      "type": "gate",
+      "complexity": "L",
+      "dependsOn": ["TASK-502", "TASK-507"],
+      "wave": 5,
+      "planRef": "本叶 plan ADR-V4-020/021；父 plan ADR-V4-007",
+      "fr": ["FR-CHAT-070", "FR-CHAT-071", "FR-CHAT-074", "FR-CHAT-075"],
+      "ac": ["AC-CHAT-009"],
+      "adr": ["ADR-V4-020", "ADR-V4-021"],
+      "risks": ["R41-04", "R4-03"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/density.mjs" }],
+      "acceptance": [
+        "运行期计数 ≥ 127（≥ v3GateFloors 60）；阈值 7/15 · 9/20 · 17/35 逐字不变",
+        "31 登记格（9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + worst）逐格 3 条判定；档位互斥 risk > firstRun > default；空态/详情展开独立成格",
+        "--reverse RP-V4-01~07 七条逐个实跑 FAIL → 还原 → PASS，expectFailPattern 逐条声明",
+        "阶段 F 读 v4 基线；v3 基线不参与判定",
+        "evaluateDelta 稳定键在新布局下成立（缺键 ⇒ FAIL）"
+      ],
+      "verify": [
+        "npm run test:density --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/density.log",
+        "for r in 01 02 03 04 05 06 07; do node packages/web-cli-plugin/test/ui/density.mjs --reverse RP-V4-$r 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/density-reverse-RP-V4-$r.log; done"
+      ]
+    },
+    {
+      "id": "TASK-512",
+      "alias": "V41-12",
+      "name": "docs/v4-density-baseline.json + .md 首轮实测登记",
+      "type": "doc",
+      "complexity": "M",
+      "dependsOn": ["TASK-511"],
+      "wave": 6,
+      "planRef": "本叶 plan ADR-V4-021",
+      "fr": ["FR-CHAT-074"],
+      "ac": ["AC-CHAT-009", "AC-CHAT-022"],
+      "adr": ["ADR-V4-021"],
+      "risks": ["R4-19"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/docs/v4-density-baseline.json" },
+        { "op": "NEW", "path": "packages/web-cli-plugin/docs/v4-density-baseline.md" }
+      ],
+      "acceptance": [
+        "31 格首轮实测值登记（measuredOn/source/buildCommand/measuredBy）+ 最差格",
+        "designCaliber.published 与 measuredByOurs 分列 + deltas（设计稿不作验收依据）",
+        "differencesFromV3 逐条 + 方向声明「换口径重定标，非放宽」",
+        "docs/v3-density-baseline.json 零 diff",
+        "countMethod = runtime-check-calls"
+      ],
+      "verify": [
+        "git diff --stat -- packages/web-cli-plugin/docs/v3-density-baseline.json",
+        "node -e \"const d=require('./packages/web-cli-plugin/docs/v4-density-baseline.json');if(d.version!=='v4')throw new Error('version');console.log('ok')\""
+      ]
+    },
+    {
+      "id": "TASK-513",
+      "alias": "V41-13",
+      "name": "journey 保护段显式取代 + 新 pin（父 ADR-V4-008 八步）",
+      "type": "gate",
+      "complexity": "L",
+      "dependsOn": ["TASK-501", "TASK-507", "TASK-511"],
+      "wave": 6,
+      "planRef": "父 plan ADR-V4-008 第 1~8 步；本叶 ADR-V4-023 第 3 条",
+      "fr": ["FR-CHAT-081", "FR-CHAT-082"],
+      "ac": ["AC-CHAT-017"],
+      "ec": ["EC-CHAT-012"],
+      "adr": ["ADR-V4-008", "ADR-V4-016"],
+      "risks": ["R4-01", "R41-03"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/journey.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" }
+      ],
+      "acceptance": [
+        "#15a~#15q 同编号（不拆不删）；#15b 新断言 ≥0.65；#15c = 法四（无可见常驻输入框）",
+        "运行期计数 ≥ 167；countMethod = runtime-check-calls",
+        "新 pin 写入且 status=active；人为改 1 字节 ⇒ 台账门禁 FAIL",
+        "binding 段 107780..115930 字节零改（decision=keep）",
+        "删除行逐条命中 modifiedRanges/entries"
+      ],
+      "verify": [
+        "npm run test:ui --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/journey.log",
+        "npm run test:supersession --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/supersession.log"
+      ]
+    },
+    {
+      "id": "TASK-514",
+      "alias": "V41-14",
+      "name": "v4 取代台账新建 + 双台账判定 + 元门禁追加 + shim 60 断言门禁化",
+      "type": "gate",
+      "complexity": "M",
+      "dependsOn": ["TASK-503", "TASK-513"],
+      "wave": 7,
+      "planRef": "父 plan ADR-V4-009 / ADR-V4-011 第 5~6 条",
+      "fr": ["FR-CHAT-080", "FR-CHAT-083", "FR-CHAT-084", "FR-CHAT-085", "FR-CHAT-036"],
+      "ac": ["AC-CHAT-023", "AC-CHAT-025"],
+      "adr": ["ADR-V4-009", "ADR-V4-011"],
+      "risks": ["R4-14", "R4-16", "R4-20"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/supersession-ledger.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" },
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/design-contract.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/package.json" }
+      ],
+      "acceptance": [
+        "台账字段齐备（takesOverFrom/entries/modifiedRanges/protectedRanges/counts/gateFloors/v4GateFloors/leafBases/toolbarAdmissions）；countMethod 唯一合法值 runtime-check-calls",
+        "v3 台账逐字冻结（git diff 为空）",
+        "CHROMIUM_GATES.length === 9 不动；本叶不追加 EXPECTED_AUDITED_FILES；in-gate 例外文本追加且 expectFailPattern 声明数只增",
+        "design-contract.test.ts：shim 退出码 0 ∧ 60 passed/0 failed ∧ check( == 60 ∧ 60 行映射表 ∧ sha256 冻结",
+        "RP-V4-08 三情形实跑 FAIL → 还原 → PASS"
+      ],
+      "verify": [
+        "npm run test:supersession --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/supersession.log",
+        "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/gate-integrity.log",
+        "npm run test:design-contract --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-1/design-contract.log"
+      ]
+    },
+    {
+      "id": "TASK-515",
+      "alias": "V41-15",
+      "name": "本叶收口（18 门禁串行 + 反证 + 五要素中间重登记）",
+      "type": "gate",
+      "complexity": "L",
+      "dependsOn": ["TASK-508", "TASK-509", "TASK-510", "TASK-511", "TASK-512", "TASK-513", "TASK-514"],
+      "wave": 8,
+      "planRef": "本叶 plan ADR-V4-023 第 1/2/6 条；父 plan ADR-V4-010 第 2 条",
+      "fr": ["FR-CHAT-094"],
+      "ac": ["AC-CHAT-023", "AC-CHAT-018(中间态)"],
+      "nfr": ["NFR-CHAT-006", "NFR-CHAT-007", "NFR-CHAT-009"],
+      "adr": ["ADR-V4-023", "ADR-V4-010"],
+      "risks": ["R41-02", "R4-09", "R4-15"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" },
+        { "op": "NEW", "path": "/tmp/opencode/v4-gate-logs/v4-1/*.log", "note": "临时日志（不入版本库）" }
+      ],
+      "acceptance": [
+        "18 项门禁全绿（含增补的 test:l0/l1/l2）；日志全量落盘禁 tail 截断",
+        "计数只增：journey ≥167 / insight ≥116 / binding 192 / l0 ≥164 / l1 ≥103 / l2 ≥71 / density ≥127 / sidepanel-view ≥38 / nodeTestRuntime ≥ max(646, 实测)",
+        "五要素齐备；容差 5% 不变；targetBudgetBytes/targetMet = null；PENDING_ABSOLUTE_CAP 保持 resolved:false 且不预填",
+        "不动面核对：content.js 177,076 / pick-layer.js 33,900 / KIND_SET 零 diff / manifest 零 diff / 判定链 pin 不变",
+        "test/ui/l0.mjs 内含 data-transitional-host 存在性断言（>0；清零断言在 v4-4 TASK-812）"
+      ],
+      "verify": [
+        "for s in typecheck build test test:supersession test:gate-integrity test:zero-injection test:page-input test:l0 test:l1 test:l2 test:density test:ui test:insight test:binding test:hardening test:e2e test:design-contract; do npm run $s --workspace @lgdl/web-cli-plugin 2>&1 | tee \"/tmp/opencode/v4-gate-logs/v4-1/${s//:/-}.log\" || exit 1; done",
+        "stat -c %s packages/web-cli-plugin/dist/sidepanel.js"
+      ]
+    }
+  ],
+  "blockers": [
+    { "id": "BLK-1", "type": "spike-gate", "task": "TASK-501", "desc": "12 格任一 <0.650 ⇒ 停工上报编排器；TASK-502~515 与 v4-2/3/4 全部冻结" },
+    { "id": "BLK-2", "type": "handoff", "task": "TASK-515", "desc": "全 18 门禁未绿 ⇒ v4-2 TASK-601 不得开工（EC-CHAT-013）" },
+    { "id": "BLK-3", "type": "caliber", "task": "TASK-515", "desc": "nodeTestRuntime 跨口径差（台账 832 vs 末轮实测 795）须以实测值重登，禁沿用" }
+  ],
+  "note": "V4-1 15 任务 / 8 波：**spike 闸门**（Wave 1）→（口径 ∥ 骨架）→（工具栏 ∥ 状态栏 ∥ shell·view-host）→ 接线 → 四门禁重定标（l0/l1/l2/density）→（基线 ∥ journey 八步）→ 台账·元门禁·shim 门禁化 → 收口。**红线**：id 重命名仅 #log→#stream / 工具栏 ==5 / 豁免单源 / 风险永不折叠 J1~J4 / 保护段八步 / PENDING_ABSOLUTE_CAP 不预填 / 门禁严格串行。",
+  "serialWithinWaveNote": "Wave 5 四个门禁写入可并行，但**运行严格串行**（一次一个 Chromium）；Wave 2 起全部任务在 TASK-501 PASS 之前不得开工。"
+}

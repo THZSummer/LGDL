@@ -1,0 +1,196 @@
+{
+ "feature": "V4-2 聊天流 append-only 事件模型与卡渲染（父：specs-tree-web-cli-plugin-v4-chat）",
+ "featureKey": "specs-tree-v4-2-chat-stream-model",
+ "version": "v4.0.0",
+ "name": "V4-2 聊天流 append-only 事件模型与卡渲染——不可变 / 单调 / 可回放的事件流 + 7 主类 + 过程卡族渲染 + 统一固化契约（data-* + [hidden] + .ts + .card-fixed）",
+ "phase": "tasked",
+ "workflow": "3.plan",
+ "agent": "sddu-plan",
+ "depth": 2,
+ "parent": "specs-tree-web-cli-plugin-v4-chat",
+ "childrens": [],
+ "leaf": true,
+ "createdAt": "2026-09-18",
+ "updatedAt": "2026-09-18T06:00:00.000Z",
+ "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**模型与渲染地基**，v4-3 / v4-4 的共同地基）。承载父 FR-CHAT-020~026（STREAM 组）与 FR-CHAT-030~037（CARD 组）：① 流事件模型不可变、id 单调（统一 nextId 口径）、可回放；删除「解析即置 null 从界面消失」路径；② 流条目类型集合 = 7 主类（ai/user/nextstep/askuser/auth/system/ref）+ 过程卡族（tool/command/thinking/error/notice，AI 消息族子形态），全部 append-only 留痕；③ 统一固化契约（data-* 状态属性 + [hidden] 切换表单/固化区 + .ts 时间戳 + .card-fixed）；删除「撤销回答/撤销批准」控件，撤销 = 新系统事件行；④ 会话切换（history 动作）不丢工具卡元数据（tool/ok/ms）与过程条目，截断规则显式登记；⑤ 留痕完备性 + 可回放；⑥ 新增 SW↔面板 kind 不进 KIND_SET（沿用独立校验器模式，先例 insight-protocol.ts / content/pick-protocol.ts）；⑦ 既有 5 种过程形态零丢失归位，工具卡保留工具名 + ✓/✖ + 耗时(ms) + 预览 + 折叠记忆（480 字符 / 10 行）；⑧ 卡可访问语义（role + .ts 可读 + 流 role=log）。不依赖 SW 契约变更（可先用既有 5 条通道喂数据）。权威条文见父 spec.md §5.3 / §5.4。",
+ "scope": {
+  "in": [
+   "流事件模型：不可变、id 单调（统一 nextId）、可回放；删除「置 null 消失」路径；模型层单测",
+   "流条目类型集合：7 主类 + 过程卡族；类型集合单一登记",
+   "统一固化契约：data-* 状态属性 + [hidden] 切换表单/固化区 + .ts 时间戳 + .card-fixed",
+   "只固化不撤销：无撤销控件；撤销 = 新系统事件行",
+   "会话切换不丢过程元数据（tool/ok/ms）；截断规则显式登记",
+   "留痕完备性 + 可回放（问答/授权决策/引用生命周期/系统事件/推荐 五类条目完备）",
+   "新增 kind 不进 KIND_SET；沿用独立校验器模式",
+   "7 主类卡渲染（ai/user/nextstep 骨架/askuser 骨架/auth 骨架/system/ref 骨架）挂在 #stream 的 li 上",
+   "过程卡族 5 形态（工具卡/命令行/思考指示/错误条目/工具通知）归位 + 工具卡信息字段保留",
+   "分类学登记；CARD_TYPES 扩展须登记设计契约变更",
+   "卡可访问语义（role + 时间戳可读；流 role=log）",
+   "滚动跟随/回看（scroll-policy 48px）+ 320px 流内长卡换行"
+  ],
+  "out": [
+   "不做 ask-user / 授权卡的流内化与业务逻辑（choice/text 提交、批准/拒绝、60s 超时、supersededAsk）→ 归 v4-3（本叶只提供 askuser/auth 卡渲染骨架与固化契约）",
+   "不做引用卡的引用判定/重锚业务（ref-store 五维判定、R3 救援）→ 归 v4-4（本叶提供 ref 卡渲染骨架与序号递增投影接口）",
+   "不做系统事件 6+ 通道归并业务与推荐卡生产者 → 归 v4-4（本叶提供 system/nextstep 卡渲染骨架）",
+   "不做三区骨架与密度门禁（v4-1）、不做体积绝对上限闭合（父收口锚）",
+   "不改判定链、不新增权限、不碰 src/content/**、不降级既有断言"
+  ]
+ },
+ "covers": [
+  "FR-CHAT-020",
+  "FR-CHAT-021",
+  "FR-CHAT-022",
+  "FR-CHAT-023",
+  "FR-CHAT-024",
+  "FR-CHAT-025",
+  "FR-CHAT-026",
+  "FR-CHAT-030",
+  "FR-CHAT-031",
+  "FR-CHAT-032",
+  "FR-CHAT-033",
+  "FR-CHAT-034",
+  "FR-CHAT-035",
+  "FR-CHAT-036",
+  "FR-CHAT-037"
+ ],
+ "acceptanceAnchors": [
+  "AC-CHAT-001",
+  "AC-CHAT-002",
+  "AC-CHAT-003",
+  "AC-CHAT-005",
+  "AC-CHAT-010",
+  "AC-CHAT-011",
+  "AC-CHAT-020",
+  "AC-CHAT-022",
+  "AC-CHAT-023",
+  "AC-CHAT-025"
+ ],
+ "coversIssues": [
+  "Q-CHAT-001",
+  "Q-CHAT-005",
+  "Q-CHAT-007",
+  "Q-CHAT-009"
+ ],
+ "coversRisks": [
+  "R-CHAT-003",
+  "R-CHAT-006",
+  "R-CHAT-013",
+  "R-CHAT-014",
+  "R-CHAT-015",
+  "R-CHAT-016"
+ ],
+ "dependencies": {
+  "on": [
+   "specs-tree-web-cli-plugin-v4-chat（父，phase=specified / status=tracked；权威条文 §5.3 / §5.4）",
+   "specs-tree-v4-1-zone-shell-density（三区骨架 + 密度新口径基线）",
+   "packages/web-cli-plugin v1 + v2 + v3 已验收实现（只读复用：消息渲染 / 工具卡折叠 / scroll-policy / l1/ref-store append-only 先例）"
+  ],
+  "blocking": []
+ },
+ "deliveryOrder": {
+  "position": 2,
+  "note": "前置 v4-1；本叶产出事件模型与固化契约，是 v4-3 / v4-4 的共同地基"
+ },
+ "independence": {
+  "changeSurface": "侧栏侧模型（chat-state 及新增流 reducer）+ 渲染层（sidepanel）+ 新增模型单测；不碰 src/content/**、不碰权限、不碰判定链",
+  "supersessionLoad": "高：#log 的渲染与 entries 单槽 ask/confirm 契约被取代 → 走取代台账；test/sidepanel-view.test.ts 布局契约等价改写",
+  "canReachAllGreen": true,
+  "gateSet": [
+   "typecheck",
+   "plugin npm test（含新增模型单测）",
+   "test:ui journey ≥167",
+   "test:insight ≥108",
+   "test:binding ≥192",
+   "test:hardening 24",
+   "test:e2e",
+   "test:supersession",
+   "test:gate-integrity",
+   "test:density（v4-1 基线不回退）",
+   "体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 中间重登记）",
+   "test:zero-injection 27",
+   "test:page-input 102"
+  ],
+  "gateDiscipline": "严格串行（禁并发 Chromium）；日志完整落盘（禁 tail 截断）；反证必须实跑 FAIL → 还原 → PASS 且声明 expectFailPattern；每叶收尾全门禁绿"
+ },
+ "openPoints": [
+  {
+   "id": "V42-O-1",
+   "topic": "流事件的持久化范围（是否落 chrome.storage.session；配额与零明文边界）",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V42-O-2",
+   "topic": "过程卡族的具体 DOM/类名契约（tool/command/thinking/error/notice 标记方式）",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V42-O-3",
+   "topic": "渲染不整树重建的实现方式（增量渲染 / keyed diff 等）",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V42-O-4",
+   "topic": "会话切换的截断规则取值（保留全部 / 保留 N 轮）",
+   "status": "open",
+   "needs": "plan + 显式登记"
+  },
+  {
+   "id": "V42-O-5",
+   "topic": "新增 kind（若有）的独立校验器落点",
+   "status": "open",
+   "needs": "plan"
+  }
+ ],
+ "files": {
+  "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/spec.md",
+  "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/state.json",
+  "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/discovery.md",
+  "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/plan.md",
+  "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/plan.md",
+  "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/tasks.md",
+  "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/tasks.json",
+  "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
+  "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json"
+ },
+ "status": "tracked",
+ "phaseHistory": [
+  {
+   "phase": "registered",
+   "timestamp": "2026-09-18T00:00:00.000Z",
+   "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v4-chat 创建叶子目录）"
+  },
+  {
+   "phase": "specified",
+   "timestamp": "2026-09-18T00:00:00.000Z",
+   "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成；权威条文见父 spec.md §5.3 / §5.4）"
+  },
+  {
+   "phase": "planned",
+   "timestamp": "2026-09-18T03:00:00.000Z",
+   "triggeredBy": "sddu-plan（产出本叶 plan.md v1.0；ADR-V4-024~029（6 条））"
+  },
+  {
+   "phase": "tasked",
+   "timestamp": "2026-09-18T06:00:00.000Z",
+   "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0；12 任务 / 7 波）"
+  }
+ ],
+ "phaseNote": "phase=planned（status=tracked）。产出本叶 `plan.md` v1.0（**ADR-V4-024~029（6 条）**）。本叶 = 模型与渲染地基。ADR-V4-024 `StreamEvent{seq,ts,kind,cardId,sessionId,payload,terminal?}` 不可变 + `appendEvent`/`boundStreamEvents`/`project()` 纯投影 + **终态冻结不变式** + `chat-state` 最小半径迁移（12 个 action 零删除；`entries+nextId` 保留为派生视图）；ADR-V4-025 **keyed 增量渲染**（append / patch（仅未终态）/ remove（仅 bound）；终态 DOM 冻结；`children === project().length`；复用 `scroll-policy` 48px；不用虚拟列表）；ADR-V4-026 卡契约 `li[data-msg-type][data-card-key]` + `.ts` + `.card-fixed`（`data-*` 为规范入口、v1 类名为样式载体，并存）+ `cards/index.ts` 单源 `CARD_TYPES`（12 项 = 7 主类 + 5 过程族）；ADR-V4-027 过程族 5 形态归位 + 工具卡字段逐项保留 + 折叠阈值 480/10 单源 + 固化卡与系统事件行**不压缩** + `thinking` 两事件一卡终态；ADR-V4-028 会话切换 = 内存段保留（`seq` 不重置）+ **面板侧摘要落库**（零明文白名单 + LRU 20 + `boundStreamEvents(2000)` 只淘汰已终结轻量行 + 淘汰计数入状态栏）+ 降级重建显式登记；ADR-V4-029 `KIND_SET` **零 diff** + 独立校验器模式（若必须新增 kind ⇒ 停下上报）+ `CARD_TYPES` 扩展登记。 **本叶收尾门禁（严格串行、一次一个 Chromium、日志落盘禁 tail 截断）**：typecheck · build · `npm test`（含新增 `test/stream-model.test.ts` / `test/stream-persistence.test.ts`）· `test:supersession` · `test:gate-integrity`（`EXPECTED_AUDITED_FILES` 追加 `test/ui/stream.mjs`）· `test:zero-injection`(27) · `test:page-input`(102) · `test:l0` · `test:l1` · `test:l2` · `test:density`（v4-1 基线不回退）· `test:ui`(≥167) · `test:insight`(≥108) · `test:binding`(≥192) · `test:hardening` · `test:e2e` · **`test:stream`（新增 Chromium 门禁）** · 体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 五要素中间重登记）· `perf-budget`（追加长会话增量渲染不回退）。 权威跨叶契约见父 `../plan.md`（ADR-V4-001~016）。**本阶段只做 plan**：未写 tasks/代码、未改 `src/**`·`test/**`·`dist/**`·`manifest.json`·ROADMAP、未动 `main`、未 commit/push、**未跑任何门禁/构建/Chromium**。下一阶段：@sddu-tasks specs-tree-v4-2-chat-stream-model。\n\ntasks 阶段完成（2026-09-18，sddu-tasks）：产出本叶 tasks.md v1.0 + tasks.json v1.0 —— 12 任务 / 7 波（别名 V42-01~12，全局编号 TASK-601~612），含每任务的可验证验收（引用 FR/AC/ADR/R 编号）、触碰面（NEW/MODIFY/RETIRE 文件组）、波次与检查点、D-005 式测试守恒账（新增/取代/重写计数）。门禁：新增 test:stream（TASK-610）；真实产物侧 shim 等价断言落本叶 Chromium 门禁（R4-20）。纪律：只写本 Feature 目录、零生产代码改动、未跑门禁/构建/Chromium、未 commit/push。",
+ "tasks": {
+  "range": "TASK-601~612",
+  "alias": "V42-01~12",
+  "count": 12,
+  "waves": 7,
+  "complexity": {
+   "S": 0,
+   "M": 7,
+   "L": 5
+  },
+  "gateNote": "新增 test:stream（TASK-610）；真实产物侧 shim 等价断言落本叶 Chromium 门禁（R4-20）",
+  "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/tasks.md"
+ }
+}

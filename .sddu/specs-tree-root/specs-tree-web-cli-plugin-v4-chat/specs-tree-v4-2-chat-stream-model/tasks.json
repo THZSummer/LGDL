@@ -1,0 +1,294 @@
+{
+  "meta": {
+    "feature": "V4-2 聊天流 append-only 事件模型与卡渲染（父：specs-tree-web-cli-plugin-v4-chat）",
+    "featureKey": "specs-tree-v4-2-chat-stream-model",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-18",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V4-024~029）+ 父 plan.md v1.0（ADR-V4-002/004/012/013/011；§2.8 ①②⑩⑨）",
+    "sourceSpec": "父 spec.md FR-CHAT-020~026 / 030~037 · AC-CHAT-001~003 / 005 / 010 / 011 / 020 / 022 / 023 / 025 · NFR-CHAT-001/003/004/010/011/012 + 本叶 spec.md §7",
+    "taskCount": 12,
+    "waveCount": 7,
+    "complexity": { "S": 0, "M": 7, "L": 5 },
+    "typeBreakdown": { "implementation": 7, "gate": 4, "spike": 0, "doc": 1, "human": 0 },
+    "numbering": { "globalBlock": "TASK-601~612", "leafAlias": "V42-01~V42-12" },
+    "leafPrecondition": "v4-1 收口（TASK-515）全 18 门禁绿 + 占位宿主 data-transitional-host 存在（CP-1）",
+    "covers": "FR-CHAT-020~026 / FR-CHAT-030~037（AC-CHAT-001~003 / 005 / 010 / 011 / 020 / 022 / 023 / 025）"
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-601"], "strategy": "串行：模型地基（全部卡与渲染的唯一前置）" },
+    { "wave": 2, "tasks": ["TASK-602", "TASK-605"], "strategy": "并行（分类学单源 ∥ 摘要落库；文件不相交）" },
+    { "wave": 3, "tasks": ["TASK-603", "TASK-604", "TASK-606"], "strategy": "并行（卡组件 ∥ 渲染器 ∥ 会话切换语义）" },
+    { "wave": 4, "tasks": ["TASK-607"], "strategy": "串行（chat-state/sidepanel 汇聚单点）" },
+    { "wave": 5, "tasks": ["TASK-608", "TASK-609", "TASK-610"], "strategy": "写入可并行；运行严格串行（node → node → Chromium）" },
+    { "wave": 6, "tasks": ["TASK-611"], "strategy": "串行（联动门禁 + 元门禁只追加）" },
+    { "wave": 7, "tasks": ["TASK-612"], "strategy": "串行收口（17 门禁 + 台账 counts + 五要素重登记）" }
+  ],
+  "p0MinimalSet": ["TASK-601", "TASK-602", "TASK-604", "TASK-607", "TASK-610", "TASK-611", "TASK-612"],
+  "testConservation": {
+    "newGates": ["test/ui/stream.mjs", "test/stream-model.test.ts", "test/stream-persistence.test.ts", "test/perf-budget.test.ts(追加用例)"],
+    "l0": { "baseline": 164, "expected": ">=164", "mode": "追加 1~2 条，不重命名" },
+    "sidepanelView": { "baseline": 38, "expected": ">=38", "mode": "契约 ④ 等价改写（①②③ 在 v4-1）" },
+    "nodeTestRuntime": { "ledger": 832, "v34LastMeasured": 795, "expected": ">=max(646, 实测)", "mode": "新增 2 个 node 文件" },
+    "untouched": { "journey": 167, "l1": 103, "l2": 71, "density": 127, "insight": 116, "binding": 192 }
+  },
+  "serialGates": {
+    "policy": "严格串行、一次一个 Chromium；日志 /tmp/opencode/v4-gate-logs/v4-2/，禁 tail 截断",
+    "order": ["typecheck", "build", "npm-test", "supersession", "gate-integrity", "zero-injection", "page-input", "l0", "l1", "l2", "density", "ui(journey)", "insight", "binding", "hardening", "e2e", "stream"]
+  },
+  "tasks": [
+    {
+      "id": "TASK-601", "alias": "V42-01",
+      "name": "stream-model.ts 事件模型 + 纯投影 + 终态冻结不变式",
+      "type": "implementation", "complexity": "L", "dependsOn": [], "wave": 1,
+      "planRef": "本叶 plan §2.2 / ADR-V4-024；父 plan ADR-V4-002/012",
+      "fr": ["FR-CHAT-020", "FR-CHAT-021", "FR-CHAT-025"], "ac": ["AC-CHAT-010"], "nfr": ["NFR-CHAT-001"],
+      "adr": ["ADR-V4-024", "ADR-V4-002", "ADR-V4-012"], "risks": ["R42-01", "R42-04", "R4-05"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-model.ts" }],
+      "acceptance": [
+        "StreamEvent 全 readonly（seq/ts/kind/cardId/sessionId/payload/terminal?）；project() 纯函数零副作用",
+        "同一 StreamEvent[] ⇒ 同一 CardView[]（回放等价）",
+        "终态冻结：同 cardId 追加后续事件后 terminal/terminalSeq 不变",
+        "无「解析即置 null 消失」路径：取消/超时/取代后原卡仍在 project() 结果",
+        "boundStreamEvents(cap=2000) 只淘汰最旧已终结 system/notice；ask/auth 终态卡 + tool 卡 + ref 卡 + 当前段永不淘汰；dropped 可见"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-602", "alias": "V42-02",
+      "name": "cards/index.ts 分类学单源 + 固化契约/DOM 契约",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-601"], "wave": 2,
+      "planRef": "本叶 plan §2.4 / ADR-V4-026；父 plan ADR-V4-013",
+      "fr": ["FR-CHAT-021", "FR-CHAT-022", "FR-CHAT-036"], "ac": ["AC-CHAT-002", "AC-CHAT-003"],
+      "adr": ["ADR-V4-026", "ADR-V4-013"], "risks": ["R42-05", "R4-12"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/index.ts" }],
+      "acceptance": [
+        "CARD_TYPES = 12 项（7 主类 + 5 过程族），7 主类与 shim CARD_TYPES 逐字一致",
+        "固化契约单源（li[data-msg-type][data-card-key] + data-* + [hidden] + .ts + .card-fixed）",
+        "过程族与主类同一套 DOM 契约（v1 类名保留用于样式复用）",
+        "CARD_TYPES 变更路径写入注释（改 shim + design-contract 常量 + 台账 designContractChanges[]，禁静默）",
+        "appendSystem 仅面板内使用（不进 KIND_SET）"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "node packages/web-cli-plugin/design/ui-redesign/option-f-shim.mjs 2>&1 | tail -3"]
+    },
+    {
+      "id": "TASK-603", "alias": "V42-03",
+      "name": "卡组件实现（7 主类 + 过程族 5 + 四类骨架）",
+      "type": "implementation", "complexity": "L", "dependsOn": ["TASK-602"], "wave": 3,
+      "planRef": "本叶 plan §2.3/§2.4 / ADR-V4-027；父 plan ADR-V4-013",
+      "fr": ["FR-CHAT-030", "FR-CHAT-031", "FR-CHAT-032", "FR-CHAT-033", "FR-CHAT-034", "FR-CHAT-035", "FR-CHAT-037"],
+      "ac": ["AC-CHAT-002", "AC-CHAT-005", "AC-CHAT-011"], "nfr": ["NFR-CHAT-011", "NFR-CHAT-004"],
+      "adr": ["ADR-V4-026", "ADR-V4-027"], "risks": ["R42-05", "R4-12", "R4-13"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/{ai,user,system,tool,command,thinking,error,notice}.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/index.ts" }
+      ],
+      "acceptance": [
+        "5 种既有过程形态零丢失（工具卡/.cmd/.msg-thinking/.entry-error/.msg-notice 各有存在性断言）",
+        "工具卡字段逐项保留（工具名 + ok + ms + 预览 + 折叠记忆 480 字符/10 行单一常量）",
+        "固化卡与系统事件行不压缩；过程族可折叠",
+        "thinking = 两事件一卡（thinking → thinking-done → terminal completed），无 append 后 remove",
+        "每卡模板结构性限制可点元素 ≤6（choice 5 / text 3 / auth 3）"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/node.log"]
+    },
+    {
+      "id": "TASK-604", "alias": "V42-04",
+      "name": "stream-render.ts keyed 增量渲染 + 终态 DOM 冻结",
+      "type": "implementation", "complexity": "L", "dependsOn": ["TASK-601"], "wave": 3,
+      "planRef": "本叶 plan §2.3 / ADR-V4-025；父 plan ADR-V4-004",
+      "fr": ["FR-CHAT-022", "FR-CHAT-023", "FR-CHAT-037"], "ac": ["AC-CHAT-005", "AC-CHAT-022"],
+      "nfr": ["NFR-CHAT-003", "NFR-CHAT-011"],
+      "adr": ["ADR-V4-025", "ADR-V4-004"], "risks": ["R42-02", "R4-13"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-render.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }
+      ],
+      "acceptance": [
+        "静态零命中 textContent='' / replaceChildren(",
+        "同一 cardId 的 DOM 节点引用在后续渲染后不变；cardCount(rendered) === cardCount(project())",
+        "终态卡 outerHTML 在后续渲染后逐字不变",
+        "上滚期间追加不抢滚动（scrollFollow.shouldFollow() 权威）；#scroll-bottom hidden 切换正确",
+        "320px 长卡/长 URL 零水平溢出"
+      ],
+      "verify": [
+        "grep -nE \"textContent\\s*=\\s*''|replaceChildren\\(\" packages/web-cli-plugin/src/ui/sidepanel/stream-render.ts | tee /tmp/opencode/v4-gate-logs/v4-2/render-clear.log",
+        "npm run typecheck --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-605", "alias": "V42-05",
+      "name": "stream-digest.ts 摘要落库（零明文白名单 + LRU + 降级重建）",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-601"], "wave": 2,
+      "planRef": "本叶 plan §2.6 / ADR-V4-028；父 plan ADR-V4-003",
+      "fr": ["FR-CHAT-024", "FR-CHAT-025"], "ac": ["AC-CHAT-010"], "nfr": ["NFR-CHAT-012"], "ec": ["EC-CHAT-003"],
+      "adr": ["ADR-V4-028", "ADR-V4-003"], "risks": ["R42-03", "R4-07"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-digest.ts" }],
+      "acceptance": [
+        "DigestEntry 类型层面无自由文本字段；label 走截断 + 净化（复用 l1/receipt.ts#assertNoPlaintext 口径）",
+        "零新增权限（只用已有 storage）；SW 侧 session-store/chat-session/KIND_SET 零 diff",
+        "LRU 20 按 sessionId 独立；写入幂等 upsert",
+        "降级重建不编造正文；降级规则登记入 v4 台账 entries[]",
+        "反向用例：注入 URL query / 命令参数体 ⇒ 抛错"
+      ],
+      "verify": [
+        "git diff --numstat -- packages/web-cli-plugin/src/background/session-store.ts packages/web-cli-plugin/src/background/chat-session.ts packages/web-cli-plugin/src/background/messaging.ts",
+        "npm run typecheck --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-606", "alias": "V42-06",
+      "name": "会话切换语义（seq 不重置 + 分段 + 内存段保留 + bound 登记）",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-605"], "wave": 3,
+      "planRef": "本叶 plan §2.6 / ADR-V4-028；父 plan ADR-V4-003",
+      "fr": ["FR-CHAT-024", "FR-CHAT-025"], "ac": ["AC-CHAT-010"], "ec": ["EC-CHAT-003", "EC-CHAT-006"],
+      "adr": ["ADR-V4-028", "ADR-V4-003"], "risks": ["R42-04", "R42-07"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/chat-state.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-model.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-digest.ts" }
+      ],
+      "acceptance": [
+        "切换后 seq 严格大于切换前最大值（不重置）；切换路径不重建 StreamState",
+        "切换前段 tool/ok/ms 切换后仍可读（内存段保留）",
+        "截断规则与 boundStreamEvents 参数写入 v4 台账；淘汰计数在状态栏可读（不静默）",
+        "pending 切换时复位；未终态 ask 结算路径留痕（不静默丢弃）"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin && npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/node.log"]
+    },
+    {
+      "id": "TASK-607", "alias": "V42-07",
+      "name": "chat-state.ts 迁移 + render() 切换 + 折叠记忆键迁移",
+      "type": "implementation", "complexity": "L", "dependsOn": ["TASK-603", "TASK-604", "TASK-606"], "wave": 4,
+      "planRef": "本叶 plan §2.2 第 4 条 / ADR-V4-024/029",
+      "fr": ["FR-CHAT-020", "FR-CHAT-022", "FR-CHAT-026"], "ac": ["AC-CHAT-010", "AC-CHAT-020"],
+      "adr": ["ADR-V4-024", "ADR-V4-029"], "risks": ["R42-06", "R4-08"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/chat-state.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts" }
+      ],
+      "acceptance": [
+        "12 个既有 action 零删除；既有 reduce case 语义不改（只追加分支）",
+        "render() 内无 textContent='' / replaceChildren(；流渲染段切到 streamRender(project(...))",
+        "KIND_SET 零 diff（新 kind 零新增）；entries/nextId 派生视图保留",
+        "toolOpenState 键改 cardId 后折叠记忆行为等价",
+        "会话切换 / 视图往返后 cardCount(rendered) === cardCount(project()) 仍成立"
+      ],
+      "verify": [
+        "git diff --numstat -- packages/web-cli-plugin/src/background/messaging.ts",
+        "grep -rnE \"textContent\\s*=\\s*''|replaceChildren\\(\" packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts | tee /tmp/opencode/v4-gate-logs/v4-2/clear-path.log"
+      ]
+    },
+    {
+      "id": "TASK-608", "alias": "V42-08",
+      "name": "test/stream-model.test.ts（node）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-601", "TASK-607"], "wave": 5,
+      "planRef": "本叶 plan ADR-V4-024 第 3~6 条",
+      "fr": ["FR-CHAT-020", "FR-CHAT-025"], "ac": ["AC-CHAT-010"], "nfr": ["NFR-CHAT-001"],
+      "adr": ["ADR-V4-024"], "risks": ["R42-01", "R42-04"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/stream-model.test.ts" }],
+      "acceptance": [
+        "六组用例齐备（不可变 / seq 单调不复用 / 回放等价 / 终态冻结 / 无 null 消失 / bound）",
+        "回放等价为双向断言",
+        "bound 用例逐类断言 ask/auth 终态卡 + tool 卡 + ref 卡 + 当前段不被淘汰",
+        "npm test 运行期用例只增"
+      ],
+      "verify": ["npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/node.log"]
+    },
+    {
+      "id": "TASK-609", "alias": "V42-09",
+      "name": "test/stream-persistence.test.ts（node，零明文 + 降级）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-605", "TASK-606"], "wave": 5,
+      "planRef": "本叶 plan ADR-V4-028 第 3 条",
+      "fr": ["FR-CHAT-024"], "ac": ["AC-CHAT-010", "AC-CHAT-021"], "nfr": ["NFR-CHAT-012"], "ec": ["EC-CHAT-003"],
+      "adr": ["ADR-V4-028"], "risks": ["R42-03", "R4-07"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/stream-persistence.test.ts" }],
+      "acceptance": [
+        "白名单逐字段断言（多一个自由文本字段 ⇒ FAIL）",
+        "反向用例 ≥2（URL query / 命令参数体）⇒ 抛错",
+        "降级重建显示「（历史摘要）」+ seq/ts/terminal 保留、不编造正文",
+        "LRU 与既有 MAX_SESSIONS=20 对齐断言"
+      ],
+      "verify": ["npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/node.log"]
+    },
+    {
+      "id": "TASK-610", "alias": "V42-10",
+      "name": "test/ui/stream.mjs（Chromium；真实产物侧等价断言）",
+      "type": "gate", "complexity": "L", "dependsOn": ["TASK-607"], "wave": 5,
+      "planRef": "父 plan ADR-V4-011 第 4/7 条（真实产物 vs 设计稿分列）",
+      "fr": ["FR-CHAT-030", "FR-CHAT-031", "FR-CHAT-032", "FR-CHAT-033", "FR-CHAT-034", "FR-CHAT-035", "FR-CHAT-037"],
+      "ac": ["AC-CHAT-001", "AC-CHAT-002", "AC-CHAT-003", "AC-CHAT-005", "AC-CHAT-011", "AC-CHAT-022", "AC-CHAT-025"],
+      "adr": ["ADR-V4-025", "ADR-V4-026", "ADR-V4-027", "ADR-V4-011"], "risks": ["R42-02", "R4-20"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/ui/stream.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/package.json" }
+      ],
+      "acceptance": [
+        "12 卡型逐型存在性 + data-msg-type 正确；过程族 5 形态信息零丢失",
+        "增量渲染三条：无清空 API 调用 / 节点引用不变 / 终态 outerHTML 不变",
+        "固化契约：操作前 data-* 初值 + 表单可见；操作后表单 hidden + 固化区可见 + .ts 为 HH:MM:SS",
+        "三宽度零水平溢出；长会话（≈320 li）追加不整层重建",
+        "与 shim B/C/D/E 分组的等价断言逐组存在（首轮实测计数登记入 v4 台账）"
+      ],
+      "verify": ["npm run build --workspace @lgdl/web-cli-plugin && node packages/web-cli-plugin/test/ui/stream.mjs 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/stream.log"]
+    },
+    {
+      "id": "TASK-611", "alias": "V42-11",
+      "name": "联动门禁（l0 追加 / sidepanel-view 契约④ / perf-budget / gate-integrity / scripts）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-610"], "wave": 6,
+      "planRef": "父 plan ADR-V4-011 第 3/6 条",
+      "fr": ["FR-CHAT-022", "FR-CHAT-023", "FR-CHAT-084"], "ac": ["AC-CHAT-023", "AC-CHAT-025"], "nfr": ["NFR-CHAT-003"],
+      "adr": ["ADR-V4-011"], "risks": ["R4-16", "R4-19", "R4-20"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l0.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/sidepanel-view.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/perf-budget.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/package.json" }
+      ],
+      "acceptance": [
+        "EXPECTED_AUDITED_FILES 含 test/ui/stream.mjs；CHROMIUM_GATES.length === 9 字面量未改",
+        "l0.mjs 计数 ≥164；sidepanel-view.test.ts ≥38（均只增）",
+        "perf-budget.test.ts 新用例断言 ≈320 li 增量渲染不回退",
+        "npm run test:stream 可串行执行；in-gate 例外文本只增"
+      ],
+      "verify": [
+        "npm run test:l0 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/l0.log",
+        "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/gate-integrity.log"
+      ]
+    },
+    {
+      "id": "TASK-612", "alias": "V42-12",
+      "name": "本叶收口（全门禁串行 + 台账 counts + 五要素中间重登记）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-608", "TASK-609", "TASK-610", "TASK-611"], "wave": 7,
+      "planRef": "父 plan ADR-V4-010 第 2 条 / ADR-V4-011 第 8 条",
+      "fr": ["FR-CHAT-094"], "ac": ["AC-CHAT-023"], "nfr": ["NFR-CHAT-006", "NFR-CHAT-007", "NFR-CHAT-009"],
+      "adr": ["ADR-V4-010", "ADR-V4-011"], "risks": ["R4-09", "R4-15", "R4-16"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" },
+        { "op": "NEW", "path": "/tmp/opencode/v4-gate-logs/v4-2/*.log", "note": "临时日志（不入版本库）" }
+      ],
+      "acceptance": [
+        "17 项门禁绿（含 test:stream）；计数只增（l0 ≥164 / journey ≥167 / density ≥127 / nodeTestRuntime ≥ max(646, 实测)）",
+        "五要素齐备；容差 5% 不变；PENDING_ABSOLUTE_CAP 保持 resolved:false 不预填",
+        "不动面：content.js 177,076 / pick-layer.js 33,900 / KIND_SET 零 diff / 判定链 pin 不变",
+        "dist/sidepanel.js 实测值重登记并写明「有意增重」功能理由"
+      ],
+      "verify": [
+        "for s in typecheck build test test:supersession test:gate-integrity test:zero-injection test:page-input test:l0 test:l1 test:l2 test:density test:ui test:insight test:binding test:hardening test:e2e test:stream; do npm run $s --workspace @lgdl/web-cli-plugin 2>&1 | tee \"/tmp/opencode/v4-gate-logs/v4-2/${s//:/-}.log\" || exit 1; done",
+        "stat -c %s packages/web-cli-plugin/dist/sidepanel.js"
+      ]
+    }
+  ],
+  "blockers": [
+    { "id": "BLK-1", "type": "handoff-in", "task": "TASK-601", "desc": "v4-1 收口（TASK-515）未全绿 ⇒ 不得开工（CP-1）" },
+    { "id": "BLK-2", "type": "red-line", "task": "TASK-602/603/607", "desc": "CARD_TYPES 扩展或新 kind 若必须 ⇒ 停下上报（禁静默改 shim / 禁进 KIND_SET）" },
+    { "id": "BLK-3", "type": "handoff-out", "task": "TASK-612", "desc": "全 17 门禁未绿 ⇒ v4-3 TASK-701 / v4-4 TASK-801 不得开工（CP-2）" }
+  ],
+  "note": "V4-2 12 任务 / 7 波：模型 → （分类学 ∥ 摘要）→ （卡 ∥ 渲染 ∥ 切换）→ 迁移 → 三门禁 → 联动 → 收口。红线：KIND_SET 零 diff / 永不清空 / seq 不重置 / 终态 DOM 冻结 / 零明文 / 12 action 零删除。",
+  "serialWithinWaveNote": "Wave 5 写入可并行，运行严格串行；Wave 6 元门禁追加须在 test/ui/stream.mjs 稳定后执行。"
+}

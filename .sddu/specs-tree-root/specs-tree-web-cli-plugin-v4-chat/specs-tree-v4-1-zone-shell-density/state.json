@@ -1,0 +1,195 @@
+{
+ "feature": "V4-1 三区骨架与密度重定标（父：specs-tree-web-cli-plugin-v4-chat）",
+ "featureKey": "specs-tree-v4-1-zone-shell-density",
+ "version": "v4.0.0",
+ "name": "V4-1 三区骨架与密度重定标——三区落定（工具栏 ≤5 可点 + 站点摘要只读 + 4 视图入口 + 主题切换；状态栏连接状态 + 风险 chips 永不折叠）+ 密度新口径与防滥用（含反证）+ 登记格重算",
+ "phase": "tasked",
+ "workflow": "3.plan",
+ "agent": "sddu-plan",
+ "depth": 2,
+ "parent": "specs-tree-web-cli-plugin-v4-chat",
+ "childrens": [],
+ "leaf": true,
+ "createdAt": "2026-09-18",
+ "updatedAt": "2026-09-18T06:00:00.000Z",
+ "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**首个开工**，其余三叶的共同承载基线）。承载父 FR-CHAT-004（风险永不折叠语义约束的新机器判据）与 FR-CHAT-010~017（ZONE 组）与 FR-CHAT-070~075（DENSITY 组）：① 三区骨架（header[role=toolbar] → main 含 ol#stream[role=log] → footer[role=contentinfo]）落定；② 工具栏准入 ≤5 可点（站点摘要只读 + 4 视图入口带计数徽标 + 主题切换），准入/置换规则显式登记；③ 工具栏/状态栏禁止一次性交互（法一可静态核验）；④ 状态栏常驻（连接状态一行 + 风险 chips，无风险收缩一行 0 chip，本体无 hidden）；⑤ 法四：默认屏无可见常驻输入框；⑥ L2 视图替换机制复用；⑦ 法则六落位（管理操作入设置/审计视图 + 首装路径可发现）；⑧ 风险位迁为状态栏 chips，永不折叠语义保留 + 新机器判据；⑨ 密度新口径（测量根 = 三区外壳、流内容不计入默认密度、豁免边界只认 hidden）+ 两条防滥用（单卡可点 ≤6 / 首屏卡片 ≤2）+ 阈值 7/15 · 9/20 · 17/35 保留 + v4 新基线文件与全部登记格重算 + 逐条反证。权威条文见父 spec.md §5.2 / §5.8 / §9 / §10。",
+ "scope": {
+  "in": [
+   "三区骨架：header#region-toolbar[role=toolbar] → main#region-stream（含 ol#stream[role=log] 容器）→ footer#region-statusbar[role=contentinfo]；顺序与语义",
+   "工具栏准入：站点摘要（只读 role=status，不计入预算）+ 4 视图入口（树/命令/审计/设置，带计数徽标，复用 l2/counts 单源）+ 主题切换 = 可点 ≤5；准入与置换规则登记",
+   "法一静态核验：工具栏/状态栏内不存在 ask-user / 授权 / 推荐类一次性交互",
+   "状态栏常驻：连接状态一行 + 风险 chips（有则显示、无则收缩一行 0 chip）；本体无 hidden、chips 容器可见",
+   "法四：默认屏无可见常驻输入框（骨架层核验）",
+   "L2 视图替换机制复用：打开视图层可见 + 流隐藏 + 标题正确；返回恢复",
+   "法则六落位：站点授权/撤销/会话与分组/隐私开关/知情同意/自动授权开关等管理操作入设置/审计视图；未授权首装路径可发现",
+   "风险位形态迁移为状态栏 chips：chip 点击展开详情 + 滚动定位流内卡；详情不占默认密度；含「本阶段不发命令、不改授权」披露语；永不折叠语义新机器判据",
+   "密度新口径：测量根 = 三区外壳；流内容不计入默认密度；豁免边界只认 hidden（display/visibility/opacity/pointer-events/视口/aria-hidden 不豁免）；口径单源",
+   "防滥用 ①：单张卡内部可点元素 ≤6；② 首屏（空流欢迎态）卡片数 ≤2",
+   "阈值 7/15 · 9/20 · 17/35 保留；v4 新基线文件 docs/v4-density-baseline.json（不改写 v3 基线）+ 9 强制格 + 15 风险格 + worst + 阶段 F 比对格重算",
+   "防滥用约束逐条配可 FAIL 反证（含 CSS 隐身不豁免 / 藏进流子树降密度滥用反证）",
+   "双主题（跟随/浅/深）+ 320–560px 零水平溢出"
+  ],
+  "out": [
+   "不做流内 7 主类 / 过程卡族的渲染与事件模型 → 归 v4-2",
+   "不做 ask-user / 授权卡流内化与固化 → 归 v4-3",
+   "不做引用卡 / 系统事件行 / 推荐卡内容 → 归 v4-4（本叶只提供状态栏 chip 容器与骨架）",
+   "不做 V3-VOL-3 体积基线重定与绝对上限闭合 → 父级收口锚，最后完成叶执行；本叶只做中间重登记（五要素）",
+   "不新增静态权限、不引入 contextMenus、不改判定链（policy.ts / auto-authorize.ts）、不碰 src/content/**",
+   "不删除或降级任何既有断言；不以放宽密度/体积上限换功能；不设自缚装置"
+  ]
+ },
+ "covers": [
+  "FR-CHAT-004",
+  "FR-CHAT-010",
+  "FR-CHAT-011",
+  "FR-CHAT-012",
+  "FR-CHAT-013",
+  "FR-CHAT-014",
+  "FR-CHAT-015",
+  "FR-CHAT-016",
+  "FR-CHAT-017",
+  "FR-CHAT-070",
+  "FR-CHAT-071",
+  "FR-CHAT-072",
+  "FR-CHAT-073",
+  "FR-CHAT-074",
+  "FR-CHAT-075"
+ ],
+ "acceptanceAnchors": [
+  "AC-CHAT-004",
+  "AC-CHAT-005",
+  "AC-CHAT-006",
+  "AC-CHAT-007",
+  "AC-CHAT-008",
+  "AC-CHAT-009",
+  "AC-CHAT-022",
+  "AC-CHAT-023",
+  "AC-CHAT-025"
+ ],
+ "coversIssues": [
+  "Q-CHAT-004",
+  "Q-CHAT-005",
+  "Q-CHAT-008",
+  "Q-CHAT-013"
+ ],
+ "coversRisks": [
+  "R-CHAT-004",
+  "R-CHAT-005",
+  "R-CHAT-011",
+  "R-CHAT-015",
+  "R-CHAT-016"
+ ],
+ "dependencies": {
+  "on": [
+   "specs-tree-web-cli-plugin-v4-chat（父，phase=specified / status=tracked；权威条文 §5.2 / §5.8 / §9 / §10）",
+   "packages/web-cli-plugin v1 + v2 + v3 已验收实现（只读复用：三区 flex 布局 / l2/counts 计数单源 / l2/view-host 视图替换 / disclosure.ts hidden 唯一折叠通道纪律）"
+  ],
+  "blocking": []
+ },
+ "deliveryOrder": {
+  "position": 1,
+  "note": "首个开工，无前置叶子；本叶产出（三区骨架 + 密度新口径基线）是 v4-2 / v4-3 / v4-4 的共同承载基线与密度基线"
+ },
+ "independence": {
+  "changeSurface": "仅侧栏侧（src/ui/sidepanel/** 与必要的 UI 视图模型）+ 新增/重定标密度门禁测试文件；不碰 src/content/**、不碰权限、不碰判定链",
+  "supersessionLoad": "中高：L0 骨架（#l0-status-band / #l0-pick / #l0-more / #l0-ref-toggle）与风险位 #risk-rail 被取代 → 走取代台账（按行判定 + 计数不减）；密度门禁换口径重定标（保留 v3 基线为历史）",
+  "canReachAllGreen": true,
+  "gateSet": [
+   "typecheck",
+   "plugin npm test",
+   "test:ui journey ≥167",
+   "test:insight ≥108",
+   "test:binding ≥192",
+   "test:hardening 24",
+   "test:e2e",
+   "test:supersession",
+   "test:gate-integrity（含 CHROMIUM_GATES.length === 9）",
+   "新密度门禁（含防滥用反证）",
+   "体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 中间重登记）",
+   "test:zero-injection 27",
+   "test:page-input 102"
+  ],
+  "gateDiscipline": "严格串行（禁并发 Chromium）；日志完整落盘（禁 tail 截断）；反证必须实跑 FAIL → 还原 → PASS 且声明 expectFailPattern；每叶收尾全门禁绿"
+ },
+ "openPoints": [
+  {
+   "id": "V41-O-1",
+   "topic": "三区骨架与 v1 既有三区 flex 布局的最小改动路径（#log/#composer 契约不外溢）",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V41-O-2",
+   "topic": "新密度口径的实现载体与豁免子树单源声明方式",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V41-O-3",
+   "topic": "首装态 ≤9/≤20 在新三区骨架下的首轮实测校准（只允许收紧）",
+   "status": "open",
+   "needs": "plan + 首轮实测登记"
+  },
+  {
+   "id": "V41-O-4",
+   "topic": "风险 chips 五类的归属判定实现（密度风险类归属重定标）",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V41-O-5",
+   "topic": "2 次交互视图替换在工具栏入口下的可达性断言迁移",
+   "status": "open",
+   "needs": "plan"
+  }
+ ],
+ "files": {
+  "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/spec.md",
+  "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/state.json",
+  "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/discovery.md",
+  "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/plan.md",
+  "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/plan.md",
+  "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/tasks.md",
+  "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/tasks.json",
+  "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
+  "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json"
+ },
+ "status": "tracked",
+ "phaseHistory": [
+  {
+   "phase": "registered",
+   "timestamp": "2026-09-18T00:00:00.000Z",
+   "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v4-chat 创建叶子目录）"
+  },
+  {
+   "phase": "specified",
+   "timestamp": "2026-09-18T00:00:00.000Z",
+   "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成；权威条文见父 spec.md §5.2 / §5.8 / §9 / §10）"
+  },
+  {
+   "phase": "planned",
+   "timestamp": "2026-09-18T03:00:00.000Z",
+   "triggeredBy": "sddu-plan（产出本叶 plan.md v1.0；ADR-V4-017~023（7 条））"
+  },
+  {
+   "phase": "tasked",
+   "timestamp": "2026-09-18T06:00:00.000Z",
+   "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0；15 任务 / 8 波）"
+  }
+ ],
+ "phaseNote": "phase=planned（status=tracked）。产出本叶 `plan.md` v1.0（**ADR-V4-017~023（7 条）**）。本叶 = 首个开工叶与共同基线。ADR-V4-017 三区骨架最小改动路径（`#log`→`#stream` 唯一重命名 + 其余 id 零重命名 + 容器元素复用 + 占位宿主）；ADR-V4-018 工具栏准入 ≤5（只读站点摘要 + 4 视图入口带计数徽标 + 主题三态）+ 准入规则 + 置换登记；ADR-V4-019 状态栏 + **嵌套双层风险容器**（外层 `#risk-chips` 设计契约 id / 内层 `#risk-rail` v3 id 保留 ⇒ 探针与 `isRiskClassSource` 零逻辑改动）+ 四条永不折叠判据 J1~J4 + chip 详情默认 hidden 不占默认密度；ADR-V4-020 密度新口径实现（`density-scope.ts` 单源排除子树 + `evaluateCardBudget`/`evaluateFirstScreen`）+ RP-V4-01~07（in-gate）；ADR-V4-021 v4 密度基线（**31 登记格** = 9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + worst；v3 22 格冻结 + 差异登记）；ADR-V4-022 四视图 `view-host`/`counts` 同构替换（只改绑定与回焦）；ADR-V4-023 本叶门禁清单（**增补 l0/l1/l2**，偏差登记）+ journey 保护段八步新 pin + **≥65% 12 格 S 级 spike 为第一任务**（不可达 → 停下上报，禁静默弱化）。 **本叶收尾门禁（严格串行、一次一个 Chromium、日志落盘禁 tail 截断）**：typecheck · build · `npm test`（含 `design-contract.test.ts`）· `test:supersession` · `test:gate-integrity` · `test:zero-injection` · `test:page-input` · **`test:l0`（≥73）** · **`test:l1`（≥64）** · **`test:l2`（≥68）** · **`test:density`（≥60）** · `test:ui`（journey ≥167，含保护段新 pin）· `test:insight`（≥108）· `test:binding`（≥192）· `test:hardening` · `test:e2e` · `test:design-contract`（shim 60/60）· 体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 五要素中间重登记）；严格串行、一次一个 Chromium、日志落盘禁 tail 截断。 权威跨叶契约见父 `../plan.md`（ADR-V4-001~016）。**本阶段只做 plan**：未写 tasks/代码、未改 `src/**`·`test/**`·`dist/**`·`manifest.json`·ROADMAP、未动 `main`、未 commit/push、**未跑任何门禁/构建/Chromium**。下一阶段：@sddu-tasks specs-tree-v4-1-zone-shell-density。\n\ntasks 阶段完成（2026-09-18，sddu-tasks）：产出本叶 tasks.md v1.0 + tasks.json v1.0 —— 15 任务 / 8 波（别名 V41-01~15，全局编号 TASK-501~515），含每任务的可验证验收（引用 FR/AC/ADR/R 编号）、触碰面（NEW/MODIFY/RETIRE 文件组）、波次与检查点、D-005 式测试守恒账（新增/取代/重写计数）。门禁：含 R4-17 增补 test:l0/l1/l2；第一任务 = S 级 spike 闸门（TASK-501）。纪律：只写本 Feature 目录、零生产代码改动、未跑门禁/构建/Chromium、未 commit/push。",
+ "tasks": {
+  "range": "TASK-501~515",
+  "alias": "V41-01~15",
+  "count": 15,
+  "waves": 8,
+  "complexity": {
+   "S": 1,
+   "M": 10,
+   "L": 4
+  },
+  "gateNote": "含 R4-17 增补 test:l0/l1/l2；第一任务 = S 级 spike 闸门（TASK-501）",
+  "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/tasks.md"
+ }
+}

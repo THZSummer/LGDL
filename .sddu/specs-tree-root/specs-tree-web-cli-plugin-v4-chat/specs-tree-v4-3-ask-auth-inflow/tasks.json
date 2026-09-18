@@ -1,0 +1,283 @@
+{
+  "meta": {
+    "feature": "V4-3 ask-user / 授权卡流内化与留痕固化（父：specs-tree-web-cli-plugin-v4-chat）",
+    "featureKey": "specs-tree-v4-3-ask-auth-inflow",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-18",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V4-030~034）+ 父 plan.md v1.0（ADR-V4-014 授权回看单一归属 / ADR-V4-012 终态冻结 / ADR-V4-011 门禁 / ADR-V4-005 占位宿主）",
+    "sourceSpec": "父 spec.md FR-CHAT-040~049 · AC-CHAT-003 / 005 / 014 / 015 / 016 / 021 / 023 / 025 + 本叶 spec.md §7",
+    "taskCount": 11,
+    "waveCount": 6,
+    "complexity": { "S": 1, "M": 7, "L": 3 },
+    "typeBreakdown": { "implementation": 7, "gate": 4, "spike": 0, "doc": 0, "human": 0 },
+    "numbering": { "globalBlock": "TASK-701~711", "leafAlias": "V43-01~V43-11" },
+    "leafPrecondition": "v4-2 收口（TASK-612）全 17 门禁绿（CP-2）",
+    "covers": "FR-CHAT-040~049（AC-CHAT-003 / 005 / 014 / 015 / 016 / 021 / 023 / 025）",
+    "singleOwner": { "ac": "AC-CHAT-016", "owner": "v4-3", "note": "v4-1 只提供设置视图入口；v4-4 只读引用契约；断言不得三处重复" }
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-701"], "strategy": "串行：终态事件 + 仲裁（状态机地基）" },
+    { "wave": 2, "tasks": ["TASK-702", "TASK-703", "TASK-704"], "strategy": "并行（ask 卡 ∥ auth 卡 ∥ 零明文；文件不相交）" },
+    { "wave": 3, "tasks": ["TASK-705", "TASK-706", "TASK-707"], "strategy": "并行（终态接线 ∥ 回合语义 ∥ 退役+宿主清零）" },
+    { "wave": 4, "tasks": ["TASK-708", "TASK-709"], "strategy": "写入可并行；运行严格串行（node → Chromium）" },
+    { "wave": 5, "tasks": ["TASK-710"], "strategy": "串行（联动门禁 + 元门禁只追加）" },
+    { "wave": 6, "tasks": ["TASK-711"], "strategy": "串行收口（16 门禁 + owner 登记 + 五要素重登记）" }
+  ],
+  "p0MinimalSet": ["TASK-701", "TASK-702", "TASK-703", "TASK-705", "TASK-706", "TASK-709", "TASK-711"],
+  "testConservation": {
+    "newGates": ["test/ui/ask-auth-inflow.mjs", "test/ask-auth-inflow.test.ts"],
+    "l0": { "baseline": 164, "expected": ">=164", "mode": "追加宿主清零断言" },
+    "l1": { "baseline": 103, "expected": ">=103", "mode": "同编号重锚" },
+    "nodeTestRuntime": { "ledger": 832, "v34LastMeasured": 795, "expected": ">=max(646, 实测)", "mode": "新增 1 个 node 文件" },
+    "untouched": { "journey": 167, "l2": 71, "density": 127, "insight": 116, "binding": 192 }
+  },
+  "serialGates": {
+    "policy": "严格串行、一次一个 Chromium；日志 /tmp/opencode/v4-gate-logs/v4-3/，禁 tail 截断",
+    "order": ["typecheck", "build", "npm-test", "supersession", "gate-integrity", "zero-injection", "page-input", "l0", "l1", "l2", "density", "ui(journey)", "insight", "binding", "hardening", "e2e", "ask-auth"]
+  },
+  "tasks": [
+    {
+      "id": "TASK-701", "alias": "V43-01",
+      "name": "终态事件类型 + openAsks + MAX_OPEN_ASKS=2 仲裁 + supersede 规则",
+      "type": "implementation", "complexity": "M", "dependsOn": [], "wave": 1,
+      "planRef": "本叶 plan §2.2/§2.3 / ADR-V4-030~032",
+      "fr": ["FR-CHAT-040", "FR-CHAT-042", "FR-CHAT-044", "FR-CHAT-048"], "ac": ["AC-CHAT-014"], "ec": ["EC-CHAT-001", "EC-CHAT-002"],
+      "adr": ["ADR-V4-030", "ADR-V4-031", "ADR-V4-032"], "risks": ["R43-01", "R43-02", "R4-06"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-model.ts" }],
+      "acceptance": [
+        "终态枚举齐备：answered / cancelled(user|timeout|superseded) / approved / rejected，各有事件类型",
+        "openAsks.length <= MAX_OPEN_ASKS(2) 恒成立；超限必 supersede 且有留痕",
+        "引用回合优先：ref-round- 前缀 ask 到达先 supersede 后台 ask（非该前缀）",
+        "supersede 不静默（必产生 ask-cancel{reason:'superseded'}）",
+        "ask/confirm 单槽保留为便捷视图（不删除旧字段语义）"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-702", "alias": "V43-02",
+      "name": "cards/askuser.ts（choice/text 两型 + 固化两态 + 不可二次）",
+      "type": "implementation", "complexity": "L", "dependsOn": ["TASK-701"], "wave": 2,
+      "planRef": "本叶 plan §2.2 / ADR-V4-030",
+      "fr": ["FR-CHAT-040", "FR-CHAT-041", "FR-CHAT-042"], "ac": ["AC-CHAT-003", "AC-CHAT-005", "AC-CHAT-015"], "ec": ["EC-CHAT-009"],
+      "adr": ["ADR-V4-030"], "risks": ["R43-04", "R43-05"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/askuser.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/index.ts" }
+      ],
+      "acceptance": [
+        "choice：选项 >=3 + 末项兜底（默认收起）+ 取消 <=6 可点；text：输入+提交+取消 = 3",
+        "操作前 data-answered=false + 表单可见 + 固化区 hidden；操作后表单收起 + 固化区可见 + .ts 为 HH:MM:SS",
+        "终态卡内 querySelectorAll('button,input,select,textarea').length === 0（shim C9）",
+        "#ask* 家族 id 以模板源保留，卡实例用 data-card-key 区分",
+        "aria-live 播报固化；收起不在 tab 序；:focus-visible 可见"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "node packages/web-cli-plugin/design/ui-redesign/option-f-shim.mjs 2>&1 | tail -3"
+      ]
+    },
+    {
+      "id": "TASK-703", "alias": "V43-03",
+      "name": "cards/auth.ts（批准/拒绝 + 范围后果预演 + 审计入口 + 两态固化）",
+      "type": "implementation", "complexity": "L", "dependsOn": ["TASK-701"], "wave": 2,
+      "planRef": "本叶 plan §2.2 / ADR-V4-030/033",
+      "fr": ["FR-CHAT-045", "FR-CHAT-046", "FR-CHAT-047"], "ac": ["AC-CHAT-016"],
+      "adr": ["ADR-V4-030", "ADR-V4-033"], "risks": ["R43-04"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/auth.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/index.ts" }
+      ],
+      "acceptance": [
+        "预演 = 静态三段模板（#l1-consequence-tpl）+ 选项标签；零新增数据依赖；不含命令参数体",
+        "data-decision 三态逐字（pending / approved / rejected，shim D2/D3/D5）",
+        "终态卡零操作控件（shim D6 不可重复决策）",
+        "审计入口可达（复用 #l1-receipt-audit 出口）且与审计视图分工明确",
+        "auth 卡可点 = 3（<=6）"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "node packages/web-cli-plugin/design/ui-redesign/option-f-shim.mjs 2>&1 | tail -3"
+      ]
+    },
+    {
+      "id": "TASK-704", "alias": "V43-04",
+      "name": "流内留痕零明文（固化文案 / 预演 / 系统行）",
+      "type": "implementation", "complexity": "S", "dependsOn": ["TASK-701"], "wave": 2,
+      "planRef": "本叶 plan §2.5 / ADR-V4-034",
+      "fr": ["FR-CHAT-049"], "ac": ["AC-CHAT-021"], "nfr": ["NFR-CHAT-005", "NFR-CHAT-012"],
+      "adr": ["ADR-V4-034"], "risks": ["R43-03", "R4-07"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-model.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/askuser.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/auth.ts" }
+      ],
+      "acceptance": [
+        "固化文案模板单源（卡内主 + 系统行辅不打架）；{value} 仅来自用户主动输入",
+        "auth 固化文案 = 决策 + 时间戳 + 范围摘要（不含命令参数体）",
+        "系统行只接受已净化文本；渲染前再过一遍白名单",
+        "反向用例（URL query / 命令参数体）=> assertNoPlaintext 抛错"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin && npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-3/node.log"]
+    },
+    {
+      "id": "TASK-705", "alias": "V43-05",
+      "name": "supersededAsk 升级 + 终态事件接线 + 60 s cancelled 投影",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-702", "TASK-703", "TASK-704"], "wave": 3,
+      "planRef": "本叶 plan §2.3 / ADR-V4-031/032",
+      "fr": ["FR-CHAT-042", "FR-CHAT-043", "FR-CHAT-044"], "ac": ["AC-CHAT-014", "AC-CHAT-015"], "ec": ["EC-CHAT-001", "EC-CHAT-002"],
+      "adr": ["ADR-V4-031", "ADR-V4-032"], "risks": ["R43-02", "R43-07"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/chat-state.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }
+      ],
+      "acceptance": [
+        "supersede 双留痕（卡内 data-answered=cancelled 主 + >=1 条 system 行辅），文案模板单源",
+        "60 s cancelled 到达 => cancelled(timeout) 终态 + 留痕 + 不代填默认值；ask-bridge.ts 零 diff",
+        "ask/confirm 单槽置 null 不再是「卡消失」信号",
+        "无出口状态不存在（每条未终态卡三条确定出口）"
+      ],
+      "verify": [
+        "git diff --numstat -- packages/web-cli-plugin/src/background/ask-bridge.ts",
+        "npm run typecheck --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-706", "alias": "V43-06",
+      "name": "回合语义（pending 与未答卡解耦 + openAsks 计数）",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-701"], "wave": 3,
+      "planRef": "本叶 plan §2.4 / ADR-V4-032",
+      "fr": ["FR-CHAT-048"], "ac": ["AC-CHAT-014"],
+      "adr": ["ADR-V4-032"], "risks": ["R43-01", "R4-06"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }
+      ],
+      "acceptance": [
+        "未终态卡从 composer 门控条件中排除（解耦可断言）；sendDisabledReason 文本/来源零改",
+        "openAsks 计数暴露给视图模型（<=2）",
+        "「不答 + 不取消 + 等超时」=> pending 最终回落（无「永远处理中」）",
+        "会话切换 => pending=false 且未终态卡结算留痕"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin && npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-3/node.log"]
+    },
+    {
+      "id": "TASK-707", "alias": "V43-07",
+      "name": "rounds[] 退役 + 证据层/回执迁移 + decision-card.ts 退役 + 本叶宿主清零",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-702", "TASK-703"], "wave": 3,
+      "planRef": "本叶 plan §2.5 / ADR-V4-033；父 plan ADR-V4-005 第 6 条",
+      "fr": ["FR-CHAT-040", "FR-CHAT-047"], "ac": ["AC-CHAT-016"],
+      "adr": ["ADR-V4-033", "ADR-V4-005"], "risks": ["R4-18", "R4-14"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/panels.ts" },
+        { "op": "RETIRE", "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/decision-card.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" }
+      ],
+      "acceptance": [
+        "l0/decision-card.ts 从构建入口移除且台账登记 old->new；无运行时引用残留",
+        "rounds[] 推断退役后可经事件流复现同等历史视图（断言存在）",
+        "index.html 内 data-transitional-host=\"v4-3\" 计数 = 0（v4-4 宿主保留）",
+        "独占决策槽契约移除逐条命中台账（FR-CHAT-040）"
+      ],
+      "verify": [
+        "node -e \"const h=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/index.html','utf8');const n=(h.match(/data-transitional-host=\\\"v4-3\\\"/g)||[]).length;if(n!==0)throw new Error('v4-3 host residual: '+n);console.log('v4-3 hosts: 0')\"",
+        "grep -rn \"decision-card\" packages/web-cli-plugin/src/ui/sidepanel/ | tee /tmp/opencode/v4-gate-logs/v4-3/decision-card-residual.log"
+      ]
+    },
+    {
+      "id": "TASK-708", "alias": "V43-08",
+      "name": "test/ask-auth-inflow.test.ts（node，状态机全终态 + 零明文）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-705", "TASK-706"], "wave": 4,
+      "planRef": "本叶 plan §2.2~§2.5 / ADR-V4-030~034",
+      "fr": ["FR-CHAT-042", "FR-CHAT-043", "FR-CHAT-044", "FR-CHAT-048", "FR-CHAT-049"],
+      "ac": ["AC-CHAT-014", "AC-CHAT-015", "AC-CHAT-021"], "ec": ["EC-CHAT-001", "EC-CHAT-002"],
+      "adr": ["ADR-V4-030", "ADR-V4-031", "ADR-V4-032", "ADR-V4-034"], "risks": ["R43-01", "R43-03"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/ask-auth-inflow.test.ts" }],
+      "acceptance": [
+        "六类终态逐类用例 + supersede 后留痕与 data-answered=cancelled 断言",
+        "openAsks <= 2 不变量用例（含第 3 张到达路径）",
+        "「不答 + 不取消 + 等超时」=> pending 回落用例",
+        "零明文正/反向用例双跑（URL query / 命令参数体 => 抛错）"
+      ],
+      "verify": ["npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-3/node.log"]
+    },
+    {
+      "id": "TASK-709", "alias": "V43-09",
+      "name": "test/ui/ask-auth-inflow.mjs（Chromium，AC-CHAT-016 全断言）",
+      "type": "gate", "complexity": "L", "dependsOn": ["TASK-707"], "wave": 4,
+      "planRef": "本叶 plan §2.2~§2.5 / ADR-V4-033；父 plan ADR-V4-014（唯一归属）",
+      "fr": ["FR-CHAT-041", "FR-CHAT-042", "FR-CHAT-043", "FR-CHAT-045", "FR-CHAT-046", "FR-CHAT-047", "FR-CHAT-049"],
+      "ac": ["AC-CHAT-003", "AC-CHAT-005", "AC-CHAT-014", "AC-CHAT-015", "AC-CHAT-016", "AC-CHAT-021", "AC-CHAT-025"],
+      "adr": ["ADR-V4-033", "ADR-V4-030"], "risks": ["R4-20", "R43-04"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/ui/ask-auth-inflow.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/package.json" }
+      ],
+      "acceptance": [
+        "shim C5~C10 / D2~D6 逐条等价断言（真实产物侧；与设计稿分列）",
+        "终态卡零操作控件（DOM 计数 = 0）；aria-live 播报；收起不在 tab 序",
+        "超时/取消/取代三类留痕在流内可读（.ts + 固化文案 + 系统行）",
+        "AC-CHAT-016 全套（批准/拒绝固化 + 时间戳 + 审计入口 + 与审计视图分工 + 站点授权在设置视图可发现可读）",
+        "三宽度零溢出；单卡可点 <=6"
+      ],
+      "verify": ["npm run build --workspace @lgdl/web-cli-plugin && node packages/web-cli-plugin/test/ui/ask-auth-inflow.mjs 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-3/ask-auth-inflow.log"]
+    },
+    {
+      "id": "TASK-710", "alias": "V43-10",
+      "name": "联动门禁（宿主清零断言 + gate-integrity 追加 + scripts）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-709"], "wave": 5,
+      "planRef": "父 plan ADR-V4-011 第 6 条",
+      "fr": ["FR-CHAT-084"], "ac": ["AC-CHAT-023", "AC-CHAT-025"],
+      "adr": ["ADR-V4-011"], "risks": ["R4-16", "R4-19"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l0.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l1.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/package.json" }
+      ],
+      "acceptance": [
+        "EXPECTED_AUDITED_FILES 含 test/ui/ask-auth-inflow.mjs；CHROMIUM_GATES.length === 9 未改",
+        "l0.mjs >=164 / l1.mjs >=103（只增）；v4-3 宿主清零断言存在",
+        "npm run test:ask-auth 可串行执行；in-gate 例外文本只增"
+      ],
+      "verify": [
+        "npm run test:l0 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-3/l0.log",
+        "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-3/gate-integrity.log"
+      ]
+    },
+    {
+      "id": "TASK-711", "alias": "V43-11",
+      "name": "本叶收口（全门禁串行 + AC-CHAT-016 owner 登记 + 五要素）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-708", "TASK-709", "TASK-710"], "wave": 6,
+      "planRef": "父 plan ADR-V4-033 第 5 条 / ADR-V4-010 第 2 条",
+      "fr": ["FR-CHAT-094"], "ac": ["AC-CHAT-023"], "nfr": ["NFR-CHAT-006", "NFR-CHAT-007", "NFR-CHAT-009"],
+      "adr": ["ADR-V4-033", "ADR-V4-010"], "risks": ["R4-09", "R4-15"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" },
+        { "op": "NEW", "path": "/tmp/opencode/v4-gate-logs/v4-3/*.log", "note": "临时日志（不入版本库）" }
+      ],
+      "acceptance": [
+        "16 项门禁绿（含 test:ask-auth）；计数只增（l0 >=164 / l1 >=103 / journey >=167 / density >=127 / nodeTestRuntime >= max(646, 实测)）",
+        "AC-CHAT-016 断言只在 ask-auth-inflow 两文件内，台账标 owner:\"v4-3\"",
+        "五要素齐备；容差 5% 不变；PENDING_ABSOLUTE_CAP 保持 resolved:false 不预填",
+        "不动面：ask-bridge.ts 零 diff / content.js 177,076 / pick-layer.js 33,900 / KIND_SET 零 diff"
+      ],
+      "verify": [
+        "for s in typecheck build test test:supersession test:gate-integrity test:zero-injection test:page-input test:l0 test:l1 test:l2 test:density test:ui test:insight test:binding test:hardening test:e2e test:ask-auth; do npm run $s --workspace @lgdl/web-cli-plugin 2>&1 | tee \"/tmp/opencode/v4-gate-logs/v4-3/${s//:/-}.log\" || exit 1; done",
+        "git diff --numstat -- packages/web-cli-plugin/src/background/ask-bridge.ts",
+        "stat -c %s packages/web-cli-plugin/dist/sidepanel.js"
+      ]
+    }
+  ],
+  "blockers": [
+    { "id": "BLK-1", "type": "handoff-in", "task": "TASK-701", "desc": "v4-2 收口（TASK-612）未绿 => 不得开工（CP-2）" },
+    { "id": "BLK-2", "type": "red-line", "task": "TASK-705/711", "desc": "ask-bridge.ts 60 s 语义零 diff；改动即停下上报" },
+    { "id": "BLK-3", "type": "handoff-gate", "task": "TASK-711", "desc": "v4-4 门禁执行须在本叶收口绿之后（CP-3：可并行分解、门禁串行）" }
+  ],
+  "note": "V4-3 11 任务 / 6 波：终态事件与仲裁 -> （ask 卡 ∥ auth 卡 ∥ 零明文）-> （终态接线 ∥ 回合语义 ∥ 退役+宿主清零）-> 两门禁 -> 联动 -> 收口。红线：ask-bridge 零 diff / 无「永远处理中」/ pending 与未答卡解耦 / 全终态留痕 / 终态卡零操作控件 / 零明文。AC-CHAT-016 = 本叶唯一验收。",
+  "serialWithinWaveNote": "Wave 3 中 TASK-705 与 TASK-706 同时改 sidepanel.ts（本叶内串行化：705 先落 terminal 接线，706 后改门控）；Wave 4 运行严格串行。"
+}

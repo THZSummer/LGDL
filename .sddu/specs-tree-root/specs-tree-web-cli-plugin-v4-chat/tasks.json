@@ -1,0 +1,181 @@
+{
+  "meta": {
+    "feature": "specs-tree-web-cli-plugin-v4-chat",
+    "featureKey": "specs-tree-web-cli-plugin-v4-chat",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-18",
+    "version": "1.0.0",
+    "scope": "总览（不承接执行）",
+    "sourcePlan": "父 plan.md v1.0（ADR-V4-001~016）+ 4 叶 plan.md v1.0（ADR-V4-017~040）",
+    "sourceSpec": "父 spec.md v1.0（FR-CHAT-001~094 / NFR-CHAT-001~012 / EC-CHAT-001~014 / AC-CHAT-001~025 / NG-CHAT-001~011）+ 4 叶 spec.md v1.0",
+    "totalTasks": 50,
+    "totalWaves": 27,
+    "complexity": { "S": 2, "M": 29, "L": 19 },
+    "deviation": {
+      "id": "ADR-V4-001 承接",
+      "desc": "父 Feature 定位为轻量容器（不承接 tasks/build/review/validate）；本轮按编排器指令产出总览型 tasks（无一条可执行任务），偏差显式登记、可整篇作废而不牵连叶子"
+    },
+    "numbering": {
+      "measuredMaxAllocated": "TASK-415（v3-4 tasks.md v1.1；其 tasks.json 为 v1.0 未同步，属 v3 自身 stale）",
+      "occupied": { "0xx": "TASK-001~040", "1xx": "TASK-101~115", "2xx": "TASK-201~210", "3xx": "TASK-301~309", "4xx": "TASK-401~415" },
+      "v4Blocks": { "v4-1": "TASK-501~515", "v4-2": "TASK-601~612", "v4-3": "TASK-701~711", "v4-4": "TASK-801~812" },
+      "leafAliases": { "v4-1": "V41-01~15", "v4-2": "V42-01~12", "v4-3": "V43-01~11", "v4-4": "V44-01~12" },
+      "deviationNote": "编排器建议「全局 TASK-4xx 序列」实测不可用（4xx 已用至 415）⇒ 改用 5xx~8xx 百位段（零冲突，保守）"
+    }
+  },
+  "leaves": [
+    {
+      "order": 1,
+      "featureKey": "specs-tree-v4-1-zone-shell-density",
+      "taskRange": "TASK-501~515",
+      "taskCount": 15,
+      "waveCount": 8,
+      "complexity": { "S": 1, "M": 10, "L": 4 },
+      "role": "三区骨架 + 工具栏准入 + 状态栏与风险 chips + 密度新口径与 31 格 + 五门禁重定标（含 journey 保护段新 pin）",
+      "gateSet": ["typecheck", "build", "npm-test", "supersession", "gate-integrity", "zero-injection", "page-input", "l0", "l1", "l2", "density", "ui(journey)", "insight", "binding", "hardening", "e2e", "design-contract"],
+      "gateSetNote": "**R4-17 修正**：在叶子 spec §8 原清单上增补 test:l0 / test:l1 / test:l2（父 ADR-V4-011 第 2 条）",
+      "p0": ["TASK-501", "TASK-503", "TASK-507", "TASK-508", "TASK-509", "TASK-510", "TASK-511", "TASK-513", "TASK-515"]
+    },
+    {
+      "order": 2,
+      "featureKey": "specs-tree-v4-2-chat-stream-model",
+      "taskRange": "TASK-601~612",
+      "taskCount": 12,
+      "waveCount": 7,
+      "complexity": { "S": 0, "M": 7, "L": 5 },
+      "role": "append-only 事件模型 + 纯投影 + keyed 增量渲染 + 7 主类 + 过程卡族 + 摘要落库（零明文）",
+      "gateSet": ["typecheck", "build", "npm-test", "supersession", "gate-integrity", "zero-injection", "page-input", "l0", "l1", "l2", "density", "ui(journey)", "insight", "binding", "hardening", "e2e", "stream"],
+      "p0": ["TASK-601", "TASK-602", "TASK-604", "TASK-607", "TASK-610", "TASK-611", "TASK-612"]
+    },
+    {
+      "order": 3,
+      "featureKey": "specs-tree-v4-3-ask-auth-inflow",
+      "taskRange": "TASK-701~711",
+      "taskCount": 11,
+      "waveCount": 6,
+      "complexity": { "S": 1, "M": 7, "L": 3 },
+      "role": "ask/授权卡流内化 + 全终态留痕 + MAX_OPEN_ASKS=2 + 回合语义解耦 + 零明文（AC-CHAT-016 唯一验收叶）",
+      "gateSet": ["typecheck", "build", "npm-test", "supersession", "gate-integrity", "zero-injection", "page-input", "l0", "l1", "l2", "density", "ui(journey)", "insight", "binding", "hardening", "e2e", "ask-auth"],
+      "singleOwner": { "ac": "AC-CHAT-016", "owner": "v4-3" },
+      "p0": ["TASK-701", "TASK-702", "TASK-703", "TASK-705", "TASK-706", "TASK-709", "TASK-711"]
+    },
+    {
+      "order": 4,
+      "featureKey": "specs-tree-v4-4-ref-system-nextstep",
+      "taskRange": "TASK-801~812",
+      "taskCount": 12,
+      "waveCount": 6,
+      "complexity": { "S": 0, "M": 5, "L": 7 },
+      "role": "引用卡 + 系统事件行（6+ 通道归并）+ 推荐卡 + 拾取入口迁移 + **V3-VOL-3 父级收口锚**",
+      "gateSet": ["typecheck", "build", "npm-test", "supersession", "gate-integrity", "zero-injection", "page-input", "l0", "l1", "l2", "density", "ui(journey)", "insight", "binding", "hardening", "e2e", "stream", "ask-auth", "recommendation", "design-contract", "size-ruling-vol3"],
+      "gateSetNote": "ADR-V4-040 记「20 项」（未含 size-ruling-vol3）；实测清单 21 项（只增不减，差异如实登记）",
+      "closeoutAnchor": true,
+      "p0": ["TASK-801", "TASK-802", "TASK-804", "TASK-806", "TASK-809", "TASK-810", "TASK-811", "TASK-812"]
+    }
+  ],
+  "crossLeafOrder": {
+    "sequence": "v4-1 -> v4-2 -> {v4-3, v4-4}",
+    "policy": "后两叶可并行**分解**，门禁执行**串行**（v4-3 先、v4-4 后）",
+    "case": "v4-1 第一任务 = S 级 spike（不可跳过/不可后置）；v4-4 末任务 = V3-VOL-3 收口锚"
+  },
+  "checkpoints": [
+    {
+      "id": "CP-0",
+      "name": "spike 闸门",
+      "task": "TASK-501",
+      "pass": "3 宽度 x 2 主题 x 风险 chips 展开态 = 12 格全部 >= 0.650",
+      "fail": "任一 <0.650 => 立即停工上报编排器；TASK-502~812（49 个）与 v4-2/3/4 全部冻结；五条禁止项（静默下调 / 内容高度凑数 / 删断言 / 流外入分子 / spike 后置）任一出现即失败",
+      "blocks": "TASK-502~515 及 v4-2/3/4 全部"
+    },
+    {
+      "id": "CP-1",
+      "name": "v4-1 -> v4-2 交接",
+      "task": "TASK-515",
+      "pass": "18 项门禁全绿（含 test:l0/l1/l2）+ v4 台账/基线存在 + density-scope.ts 单源 + data-transitional-host > 0",
+      "fail": "未绿 => v4-2 TASK-601 不得开工（EC-CHAT-013）"
+    },
+    {
+      "id": "CP-2",
+      "name": "v4-2 -> {v4-3,v4-4} 交接",
+      "task": "TASK-612",
+      "pass": "17 项门禁全绿 + StreamEvent/project/CARD_TYPES(12)/stream-render 契约冻结 + KIND_SET 零 diff",
+      "fail": "未绿 => v4-3 TASK-701 / v4-4 TASK-801 不得开工"
+    },
+    {
+      "id": "CP-3",
+      "name": "v4-3 / v4-4 门禁串行",
+      "task": "TASK-711 先；TASK-811/812 后",
+      "pass": "v4-3 收口绿（含 test:ask-auth）后才执行 v4-4 门禁链（一次一个 Chromium）",
+      "fail": "并发 Chromium => 流程违规须重跑（R4-15 OOM）"
+    },
+    {
+      "id": "CP-4",
+      "name": "V3-VOL-3 收口锚",
+      "task": "TASK-811 + TASK-812",
+      "pass": "PENDING_ABSOLUTE_CAP 三值齐备 + 作者确认 + ceilTo50KB(B_final)x1.10 + min() 判定 + 3 反证 + 宿主计数=0 + 21 门禁绿",
+      "fail": "作者未确认 => 保持 resolved:false 如实登记（禁伪闭合）；宿主 != 0 => 不得收口（R4-18）"
+    }
+  ],
+  "orchestratorRequirements": [
+    { "n": 1, "requirement": "v4-1 第一任务 = S 级 spike（不可跳过、不可后置）；不可达 => 停工上报", "tasks": ["TASK-501"] },
+    { "n": 2, "requirement": "叶间依赖 v4-1 -> v4-2 -> {v4-3,v4-4}；后两叶并行分解、门禁串行（v4-3 先）", "tasks": ["TASK-515", "TASK-612", "TASK-711", "TASK-811"] },
+    { "n": 3, "requirement": "每叶收尾全门禁绿（R4-17 修正：v4-1 集合必须含 test:l0/l1/l2）", "tasks": ["TASK-515", "TASK-612", "TASK-711", "TASK-812"] },
+    { "n": 4, "requirement": "v4-4 末任务 = V3-VOL-3 闭合（重定基线 + 绝对上限带值 + 作者确认推导值）", "tasks": ["TASK-811", "TASK-812"] },
+    { "n": 5, "requirement": "journey 保护段八步取代流程拆成 v4-1 内有序任务链", "tasks": ["TASK-513", "TASK-501", "TASK-514"] },
+    { "n": 6, "requirement": "密度 31 格重定标 = v4-1 登记任务 + RP-V4-01~07 反证任务", "tasks": ["TASK-511", "TASK-512"] },
+    { "n": 7, "requirement": "测试守恒 D-005 式记录（每叶新增/取代/重写计数账）", "tasks": ["TASK-515", "TASK-612", "TASK-711", "TASK-812"] },
+    { "n": 8, "requirement": "占位宿主：v4-1 建（data-transitional-host）；退役在 v4-3/v4-4；v4-4 收口含宿主计数=0 断言", "tasks": ["TASK-503", "TASK-707", "TASK-810", "TASK-812"] },
+    { "n": 9, "requirement": "新 Chromium 门禁加入 EXPECTED_AUDITED_FILES（v4-2/3/4）+ 保留门禁文件名 + nodeTestRuntime >= max(646, 实测)", "tasks": ["TASK-611", "TASK-710", "TASK-810"] },
+    { "n": 10, "requirement": "shim 60 断言门禁化落 v4-1；真实产物等价断言落各叶 Chromium 门禁（双列分登）", "tasks": ["TASK-514", "TASK-610", "TASK-709", "TASK-809"] }
+  ],
+  "testConservationTotals": {
+    "baselineSource": "v3-4 build.md/validate-report.md 末轮日志 + docs/v3-supersession-ledger.json#counts",
+    "cells": {
+      "l0": { "baseline": 164, "ledgerFloor": 73, "mode": "整文件重写", "owner": "v4-1", "expected": ">=164" },
+      "l1": { "baseline": 103, "ledgerFloor": 64, "mode": "入口机制重写", "owner": "v4-1", "expected": ">=103" },
+      "l2": { "baseline": 71, "ledgerFloor": 68, "mode": "入口迁移", "owner": "v4-1", "expected": ">=71" },
+      "density": { "baseline": 127, "ledgerFloor": 60, "mode": "换口径重定标 + 31 格 + RP-V4-01~07", "owner": "v4-1", "expected": ">=127" },
+      "journey": { "baseline": 167, "mode": "保护段同编号改写 + 新 pin", "owner": "v4-1", "expected": ">=167" },
+      "insight": { "baseline": 116, "ledgerFloor": 108, "mode": "同编号重锚", "owner": "v4-1", "expected": ">=116" },
+      "binding": { "baseline": 192, "mode": "零改动", "owner": "-", "expected": "192" },
+      "pageInput": { "baseline": 61, "mode": "只增", "owner": "v4-4", "expected": ">=61" },
+      "zeroInjection": { "baseline": 27, "mode": "零改动", "owner": "-", "expected": "27" },
+      "hardening": { "baseline": 24, "mode": "零改动", "owner": "-", "expected": "24" },
+      "sidepanelView": { "baseline": 38, "mode": "4 契约等价/更强改写", "owner": "v4-1(1,2,3) + v4-2(4)", "expected": ">=38" },
+      "gateIntegrity": { "baseline": 12, "mode": "追加期望集合（CHROMIUM_GATES.length===9 不动）", "owner": "四叶", "expected": "只增" },
+      "supersession": { "baseline": 14, "mode": "双台账判定", "owner": "v4-1", "expected": "只增" },
+      "nodeTestRuntime": { "ledger": 832, "v34LastMeasured": 795, "mode": "新增 6 个 node 文件；跨口径差须实测订正", "owner": "四叶", "expected": ">=max(646, 实测)" }
+    },
+    "newGates": {
+      "chromium": ["test/ui/stream.mjs", "test/ui/ask-auth-inflow.mjs", "test/ui/recommendation.mjs"],
+      "node": ["test/design-contract.test.ts", "test/stream-model.test.ts", "test/stream-persistence.test.ts", "test/ask-auth-inflow.test.ts", "test/recommendation-sources.test.ts", "test/ref-pick-wiring.test.ts"]
+    }
+  },
+  "findings": [
+    { "id": "F-1", "severity": "high", "issue": "nodeTestRuntime 跨口径差：台账 832 vs v3-4 末轮实测 795", "evidence": "docs/v3-supersession-ledger.json#counts vs specs-tree-v3-4-page-as-input/build.md:51 / validate-report.md:37", "mitigation": "各叶收口以实测值重登（countMethod=runtime-check-calls）" },
+    { "id": "F-2", "severity": "medium", "issue": "v3-4 tasks.json 落后 tasks.md（14 vs 15，缺 TASK-415）", "evidence": "specs-tree-v3-4-page-as-input/tasks.json#meta.taskCount vs tasks.md:58", "mitigation": "编号占用按 tasks.md 口径取 415；v4 用 5xx~8xx" },
+    { "id": "F-3", "severity": "medium", "issue": "编排器建议的全局 TASK-4xx 序列不可用（已用至 415）", "evidence": "本文 meta.numbering.occupied", "mitigation": "改用 TASK-501~812 百位段，偏差登记" },
+    { "id": "F-4", "severity": "medium", "issue": "ADR-V4-040 记「20 项」收尾门禁，实测为 21 项（漏计 size-ruling-vol3）", "evidence": "specs-tree-v4-4-.../plan.md:426", "mitigation": "TASK-812 按 21 项执行并登记差异" },
+    { "id": "F-5", "severity": "low", "issue": "父 plan ADR-V4-005 代码块 #risk-detail 重复出现两次（疑似笔误，重复 id 风险）", "evidence": "plan.md:678-679", "mitigation": "v4-1 TASK-503/505 明确 #risk-detail 唯一；建议编排器勘误 plan（本阶段不改）" },
+    { "id": "F-6", "severity": "medium", "issue": "v4-1 叶子 spec §8 门禁集合缺 test:l0/l1/l2", "evidence": "specs-tree-v4-1-.../spec.md §8 vs 父 plan ADR-V4-011 第 2 条", "mitigation": "TASK-508/509/510 承载 + TASK-515 收口链显式含三者" },
+    { "id": "F-7", "severity": "low", "issue": "无 test:v4 串行链脚本（v3 有 test:v3）", "evidence": "packages/web-cli-plugin/package.json#scripts.test:v3", "mitigation": "各叶收口 verify 给出串行命令清单；建议 build 阶段新增 test:v4" }
+  ],
+  "blockers": [
+    { "id": "BLK-G1", "type": "spike-gate", "task": "TASK-501", "desc": "12 格任一 <0.650 => 50 任务全部冻结 + 上报编排器" },
+    { "id": "BLK-G2", "type": "nested-approval", "task": "TASK-811", "desc": "作者确认未获 => PENDING_ABSOLUTE_CAP 保持 resolved:false（禁伪闭合）" },
+    { "id": "BLK-G3", "type": "host-clearance", "task": "TASK-812", "desc": "data-transitional-host 计数 != 0 => 不得收口（R4-18）" }
+  ],
+  "note": "父总览（不承接执行）：4 叶 / 50 任务 / 27 波 / S2·M29·L19。执行权威 = 各叶 tasks.md + tasks.json。跨叶检查点 CP-0（spike 闸门）~ CP-4（V3-VOL-3 收口锚）；编排器 10 条硬要求逐项映射；D-005 守恒总账 14 项基线 + 9 个新门禁；7 条发现如实登记。",
+  "artifacts": [
+    "specs-tree-v4-1-zone-shell-density/tasks.md",
+    "specs-tree-v4-1-zone-shell-density/tasks.json",
+    "specs-tree-v4-2-chat-stream-model/tasks.md",
+    "specs-tree-v4-2-chat-stream-model/tasks.json",
+    "specs-tree-v4-3-ask-auth-inflow/tasks.md",
+    "specs-tree-v4-3-ask-auth-inflow/tasks.json",
+    "specs-tree-v4-4-ref-system-nextstep/tasks.md",
+    "specs-tree-v4-4-ref-system-nextstep/tasks.json"
+  ]
+}

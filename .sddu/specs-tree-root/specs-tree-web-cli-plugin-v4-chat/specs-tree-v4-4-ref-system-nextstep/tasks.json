@@ -1,0 +1,336 @@
+{
+  "meta": {
+    "feature": "V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移（父：specs-tree-web-cli-plugin-v4-chat）",
+    "featureKey": "specs-tree-v4-4-ref-system-nextstep",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-18",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V4-035~040）+ 父 plan.md v1.0（ADR-V4-014/015/010/007/009/011；D-P-V4-06 收口锚归最后完成叶）",
+    "sourceSpec": "父 spec.md FR-CHAT-050~064 / 090~094 · AC-CHAT-011/012/013/016/018/020/021/023/025 + 本叶 spec.md §7",
+    "taskCount": 12,
+    "waveCount": 6,
+    "complexity": { "S": 0, "M": 5, "L": 7 },
+    "typeBreakdown": { "implementation": 8, "gate": 3, "spike": 0, "doc": 1, "human": 1 },
+    "numbering": { "globalBlock": "TASK-801~812", "leafAlias": "V44-01~V44-12" },
+    "leafPrecondition": "v4-2 收口（TASK-612）绿（CP-2）；门禁执行须在 v4-3 收口（TASK-711）之后（CP-3：可并行分解、门禁串行）",
+    "covers": "FR-CHAT-050~064 / FR-CHAT-090~094（AC-CHAT-011 / 012 / 013 / 016 / 018 / 020 / 021 / 023 / 025）",
+    "closeoutAnchor": {
+      "task": "TASK-811 / TASK-812",
+      "desc": "V3-VOL-3 父级收口锚（D-P-V4-06）：重定基线 + 绝对上限带值闭合 + 作者确认 + min() 判定 + 宿主计数=0"
+    }
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-801"], "strategy": "串行（引用生命周期入流：ref 卡 + 投影接口）" },
+    { "wave": 2, "tasks": ["TASK-802", "TASK-804"], "strategy": "并行（系统事件单通道 ∥ 推荐生产者；文件不相交）" },
+    { "wave": 3, "tasks": ["TASK-803", "TASK-805", "TASK-806", "TASK-807"], "strategy": "并行；805 与 807 共享 cards/index.ts+sidepanel.ts ⇒ 本叶内串行化（807 后于 805）" },
+    { "wave": 4, "tasks": ["TASK-808", "TASK-809"], "strategy": "写入可并行；运行严格串行（node → Chromium）" },
+    { "wave": 5, "tasks": ["TASK-810", "TASK-811"], "strategy": "串行（联动门禁 → V3-VOL-3 八步；811 须在门禁全绿后取 B_final）" },
+    { "wave": 6, "tasks": ["TASK-812"], "strategy": "串行（父级收口锚：21 项门禁 + 宿主清零 + 不动面复核 + 台账收口）" }
+  ],
+  "p0MinimalSet": ["TASK-801", "TASK-802", "TASK-804", "TASK-806", "TASK-809", "TASK-810", "TASK-811", "TASK-812"],
+  "testConservation": {
+    "newGates": ["test/ui/recommendation.mjs", "test/recommendation-sources.test.ts", "test/ref-pick-wiring.test.ts"],
+    "l0": { "baseline": 164, "expected": ">=164", "mode": "追加「宿主计数=0」收口断言" },
+    "l1": { "baseline": 103, "expected": ">=103", "mode": "证据层/恢复路径/回执同编号重锚" },
+    "pageInput": { "baseline": 61, "expected": ">=61", "mode": "页面侧可达断言只增" },
+    "journey": { "baseline": 167, "expected": "167", "mode": "零改动（保护段已在 v4-1 新 pin）" },
+    "l2": { "baseline": 71, "expected": "71", "mode": "零改动" },
+    "density": { "baseline": 127, "expected": "127", "mode": "零改动（收口轮复测登记）" },
+    "insight": { "baseline": 116, "expected": "116", "mode": "零改动" },
+    "binding": { "baseline": 192, "expected": "192", "mode": "零改动" },
+    "sidepanelView": { "baseline": 38, "expected": "38", "mode": "零改动" },
+    "nodeTestRuntime": { "ledger": 832, "v34LastMeasured": 795, "expected": ">=max(646, 实测)", "mode": "新增 2 个 node 文件" },
+    "sizeRulingVol3": { "mode": "只增（min() 优先级 + 3 反证）" }
+  },
+  "serialGates": {
+    "policy": "严格串行、一次一个 Chromium；日志 /tmp/opencode/v4-gate-logs/v4-4/，禁 tail 截断",
+    "order": ["typecheck", "build", "npm-test", "supersession", "gate-integrity", "zero-injection", "page-input", "l0", "l1", "l2", "density", "ui(journey)", "insight", "binding", "hardening", "e2e", "stream", "ask-auth", "recommendation", "design-contract", "size-ruling-vol3"],
+    "count": 21,
+    "planReferenceNote": "ADR-V4-040 第 2 条记为「20 项」（未含 size-ruling-vol3）；本清单含之 ⇒ 21 项（只增不减，差异如实登记）"
+  },
+  "tasks": [
+    {
+      "id": "TASK-801", "alias": "V44-01",
+      "name": "cards/ref.ts + ref-store 投影接口 + 引用生命周期入流",
+      "type": "implementation", "complexity": "L", "dependsOn": [], "wave": 1,
+      "planRef": "本叶 plan §2.2 / ADR-V4-035",
+      "fr": ["FR-CHAT-050", "FR-CHAT-051", "FR-CHAT-052"], "ac": ["AC-CHAT-012"], "ec": ["EC-CHAT-005"],
+      "adr": ["ADR-V4-035"], "risks": ["R44-05", "R4-11"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/ref.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/ref-store.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/index.ts" }
+      ],
+      "acceptance": [
+        "投影点恰三处（页面角标 / 流内 ref 卡 / 状态栏风险 chip），总数不增",
+        "ref-store 判定/序号/退役语义零变更（isRefUsable 仍在 ref-validity.ts）",
+        "重拾后旧卡 data-ref-state 保持 stale 且 DOM 不变；新卡 refNum+1",
+        "两条恢复路径齐备（重新拾取 → requestPick()；改用描述 → 兜底默认收起）",
+        "失效时状态栏「引用失效」风险 chip 可见（J2 联动）"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "git diff --stat -- packages/web-cli-plugin/src/ui/sidepanel/l1/ref-validity.ts"
+      ]
+    },
+    {
+      "id": "TASK-802", "alias": "V44-02",
+      "name": "system-events.ts appendSystem 单通道 + cards/system.ts + stream-plaintext.ts",
+      "type": "implementation", "complexity": "L", "dependsOn": ["TASK-801"], "wave": 2,
+      "planRef": "本叶 plan §2.3 / ADR-V4-036",
+      "fr": ["FR-CHAT-053"], "ac": ["AC-CHAT-011"], "nfr": ["NFR-CHAT-011", "NFR-CHAT-012"],
+      "adr": ["ADR-V4-036"], "risks": ["R44-03", "R44-04", "R4-07"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/system-events.ts" },
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/system.ts" },
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-plaintext.ts" }
+      ],
+      "acceptance": [
+        "appendSystem 是 system 事件行的唯一写入入口（静态断言）",
+        "四步管线齐备（净化 / 去重窗口 5 s / 速率上限 20 行每分钟 / 追加）",
+        "dropped 计数在状态栏可读（不静默）",
+        "只追加不覆盖（同一 key 不覆盖既有行；#notice 覆盖语义消失）",
+        "零明文反向用例（URL query / 页面文本）=> 抛错"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin && npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/node.log"]
+    },
+    {
+      "id": "TASK-803", "alias": "V44-03",
+      "name": "6+ 通道归并接线 + #panel-bottom 移除 + 首装卡",
+      "type": "implementation", "complexity": "L", "dependsOn": ["TASK-802"], "wave": 3,
+      "planRef": "本叶 plan §2.3 / ADR-V4-036",
+      "fr": ["FR-CHAT-054"], "ac": ["AC-CHAT-011"], "ec": ["EC-CHAT-003", "EC-CHAT-006", "EC-CHAT-007"],
+      "adr": ["ADR-V4-036"], "risks": ["R44-03", "R4-18"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts" }
+      ],
+      "acceptance": [
+        "归并矩阵逐行落地（env-guard / site-hint / onboarding / discovery-notice / notice / send-reason / 导航失效 / 探测态 / 会话切换 / 超时取代 / 引用失效重锚）",
+        "onboarding 与 discovery-notice 可终结条件保留；R2 退避 + 稳态语义零改动",
+        "#panel-bottom 与 6 strips 容器从 index.html 移除（台账登记）",
+        "首装卡计入 firstRun 档（不与 default 混算）；欢迎卡 <=1 张且 <=8 行",
+        "探测态只在相位变化追加（稳态不刷屏）"
+      ],
+      "verify": [
+        "node -e \"const h=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/index.html','utf8');if(h.includes('panel-bottom'))throw new Error('panel-bottom residual');console.log('panel-bottom: removed')\"",
+        "npm run typecheck --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-804", "alias": "V44-04",
+      "name": "recommend.ts（真值白名单 + 规则表 + 优先级 + 上限 + 安全边界）",
+      "type": "implementation", "complexity": "L", "dependsOn": [], "wave": 2,
+      "planRef": "本叶 plan §2.4 / ADR-V4-037；父 plan ADR-V4-015",
+      "fr": ["FR-CHAT-060", "FR-CHAT-062", "FR-CHAT-064"], "ac": ["AC-CHAT-013"], "ec": ["EC-CHAT-008"],
+      "adr": ["ADR-V4-037", "ADR-V4-015"], "risks": ["R44-01", "R44-06"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/recommend.ts" }],
+      "acceptance": [
+        "导入集合 ⊆ 白名单模块集合（静态可断言）；零 settings / deriveCounts(…).settings 引用",
+        "规则表以常量导出且可复算（4 条优先级 + MAX_NEXTSTEP_CARDS_PER_ROUND=1 / MAX_CHIPS_PER_CARD=3 / NEXTSTEP_MIN_INTERVAL_MS=10000）",
+        "无候选 => 空集（不渲染空卡）",
+        "四个产生时机齐备（拾取后 / 引用失效后 / 空闲时 / 首装）",
+        "零新增 LLM 调用 / 零新增网络面"
+      ],
+      "verify": [
+        "grep -rn \"\\.settings\\|deriveCounts\" packages/web-cli-plugin/src/ui/sidepanel/recommend.ts | tee /tmp/opencode/v4-gate-logs/v4-4/recommend-settings.log",
+        "npm run typecheck --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-805", "alias": "V44-05",
+      "name": "cards/nextstep.ts（chips 即指令 + pending 门控 + 无候选不渲染）",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-804"], "wave": 3,
+      "planRef": "本叶 plan §2.4 / ADR-V4-037",
+      "fr": ["FR-CHAT-061", "FR-CHAT-062", "FR-CHAT-063"], "ac": ["AC-CHAT-013"], "ec": ["EC-CHAT-008"],
+      "adr": ["ADR-V4-037"], "risks": ["R44-02", "R44-06"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/nextstep.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }
+      ],
+      "acceptance": [
+        "单卡 chips <=3；单卡可点 <=6",
+        "chip 点击走同一生产入口 requestTurn（无旁路 handler；布线可断言）",
+        "pending 期间 chips disabled + aria-disabled 且不生成新卡；pending 结束重新评估",
+        "无候选不渲染（无「下一步：无」式假推荐）",
+        "文案零明文（静态文案 / 结构化字段拼接）"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "node packages/web-cli-plugin/design/ui-redesign/option-f-shim.mjs 2>&1 | tail -3"
+      ]
+    },
+    {
+      "id": "TASK-806", "alias": "V44-06",
+      "name": "requestPick() 单一生产入口 + 未授权引导（零注入）",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-801"], "wave": 3,
+      "planRef": "本叶 plan §2.5 / ADR-V4-038",
+      "fr": ["FR-CHAT-055"], "ac": ["AC-CHAT-012", "AC-CHAT-020"], "ec": ["EC-CHAT-007"],
+      "adr": ["ADR-V4-038"], "risks": ["R44-05", "R4-11"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/pick-input.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/panels.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html" }
+      ],
+      "acceptance": [
+        "requestPick() 为唯一生产入口（startPick() 只被它调用）",
+        "全仓无指向 #l0-pick 的 DOM 引用残留；页面侧入口保持可达（pick-layer.ts 零改动）",
+        "未授权零注入（test:zero-injection 27 断言保持）",
+        "可发现性三路径齐备（页面侧入口 / 流内卡与推荐 chip / 未授权设置视图引导）"
+      ],
+      "verify": [
+        "grep -rn \"l0-pick\" packages/web-cli-plugin/src/ui/sidepanel/ | tee /tmp/opencode/v4-gate-logs/v4-4/l0-pick-residual.log",
+        "git diff --stat -- packages/web-cli-plugin/src/content/pick-layer.ts",
+        "npm run test:zero-injection --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/zero-injection.log"
+      ]
+    },
+    {
+      "id": "TASK-807", "alias": "V44-07",
+      "name": "卡注册 + 状态栏事件源 + 视图模型",
+      "type": "implementation", "complexity": "M", "dependsOn": ["TASK-801", "TASK-802", "TASK-805"], "wave": 3,
+      "planRef": "本叶 plan §2.2/§2.3/§2.4",
+      "fr": ["FR-CHAT-050", "FR-CHAT-053", "FR-CHAT-054"], "ac": ["AC-CHAT-011", "AC-CHAT-012"],
+      "adr": ["ADR-V4-035", "ADR-V4-036"], "risks": ["R44-09"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/index.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/statusbar.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts" }
+      ],
+      "acceptance": [
+        "CARD_TYPES 仍为 12 项（不新增卡型）",
+        "风险 chip 与系统事件行同源（失效/重锚一次一处事实 + 一处展示）",
+        "新增视图模型函数为纯函数",
+        "与 v4-3 文件级分工明确（本叶不动 ask/auth 卡与终态事件类型）"
+      ],
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin && npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/node.log"]
+    },
+    {
+      "id": "TASK-808", "alias": "V44-08",
+      "name": "test/recommendation-sources.test.ts + test/ref-pick-wiring.test.ts（node）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-804", "TASK-806"], "wave": 4,
+      "planRef": "本叶 plan §2.4/§2.5 / ADR-V4-037/038",
+      "fr": ["FR-CHAT-060", "FR-CHAT-062", "FR-CHAT-055"], "ac": ["AC-CHAT-013", "AC-CHAT-012", "AC-CHAT-021"],
+      "adr": ["ADR-V4-037", "ADR-V4-038"], "risks": ["R44-01", "R44-05"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/recommendation-sources.test.ts" },
+        { "op": "NEW", "path": "packages/web-cli-plugin/test/ref-pick-wiring.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/package.json" }
+      ],
+      "acceptance": [
+        "导入集合静态断言（⊆ 白名单；出现 settings => FAIL）",
+        "规则表 4 条逐条可复算断言；上限与间隔断言",
+        "requestPick() 唯一入口断言（startPick() 调用点唯一）",
+        "无 #l0-pick 引用残留断言（源码 + DOM）"
+      ],
+      "verify": ["npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/node.log"]
+    },
+    {
+      "id": "TASK-809", "alias": "V44-09",
+      "name": "test/ui/recommendation.mjs（Chromium）",
+      "type": "gate", "complexity": "L", "dependsOn": ["TASK-805", "TASK-807"], "wave": 4,
+      "planRef": "本叶 plan §2.3/§2.4 / ADR-V4-036/037",
+      "fr": ["FR-CHAT-053", "FR-CHAT-061", "FR-CHAT-062", "FR-CHAT-063", "FR-CHAT-064"],
+      "ac": ["AC-CHAT-011", "AC-CHAT-013", "AC-CHAT-025"],
+      "adr": ["ADR-V4-037", "ADR-V4-036"], "risks": ["R44-02", "R44-03"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/ui/recommendation.mjs" }],
+      "acceptance": [
+        "chips 点击经同一入口发起回合（与 composer 路径一致，可断言）",
+        "pending 期间 chips disabled + aria-disabled 且不生成新卡",
+        "系统事件行：去重窗口内不追加 + 窗口后前缀「持续」+ 超速率 dropped +1 且状态栏可读",
+        "shim E1~E5 + B4 等价断言（真实产物侧）",
+        "无候选 => nextstep 卡不存在"
+      ],
+      "verify": ["npm run build --workspace @lgdl/web-cli-plugin && node packages/web-cli-plugin/test/ui/recommendation.mjs 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/recommendation.log"]
+    },
+    {
+      "id": "TASK-810", "alias": "V44-10",
+      "name": "联动门禁（l1/l0/page-input 重锚 + gate-integrity 追加 + scripts）",
+      "type": "gate", "complexity": "M", "dependsOn": ["TASK-809"], "wave": 5,
+      "planRef": "父 plan ADR-V4-011 第 6 条；本叶 plan ADR-V4-040 第 3 条",
+      "fr": ["FR-CHAT-084"], "ac": ["AC-CHAT-020", "AC-CHAT-023"], "nfr": ["NFR-CHAT-007"],
+      "adr": ["ADR-V4-011", "ADR-V4-040"], "risks": ["R4-16", "R4-18", "R4-19"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l1.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l0.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/page-input.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/package.json" }
+      ],
+      "acceptance": [
+        "test/ui/l0.mjs 含 querySelectorAll('[data-transitional-host]').length === 0 断言",
+        "EXPECTED_AUDITED_FILES 含 test/ui/recommendation.mjs；CHROMIUM_GATES.length === 9 未改",
+        "page-input.mjs >=61（只增）；页面侧可达断言保留",
+        "l1.mjs >=103；l0.mjs >=164"
+      ],
+      "verify": [
+        "npm run test:l0 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/l0.log",
+        "npm run test:page-input --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/page-input.log",
+        "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/gate-integrity.log"
+      ]
+    },
+    {
+      "id": "TASK-811", "alias": "V44-11",
+      "name": "V3-VOL-3 收口 8 步（重定基线 + 绝对上限带值 + 作者确认推导值）",
+      "type": "gate", "complexity": "L", "dependsOn": ["TASK-810"], "wave": 5,
+      "planRef": "本叶 plan §2.6 / ADR-V4-039/040；父 plan ADR-V4-010 第 3/5 条",
+      "fr": ["FR-CHAT-090", "FR-CHAT-091", "FR-CHAT-092", "FR-CHAT-093", "FR-CHAT-094"],
+      "ac": ["AC-CHAT-018"], "nfr": ["NFR-CHAT-006"], "ec": ["EC-CHAT-011"],
+      "adr": ["ADR-V4-039", "ADR-V4-040", "ADR-V4-010"], "risks": ["R44-07", "R4-09"],
+      "human": true,
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" }
+      ],
+      "acceptance": [
+        "B_final 为实测（build 后 stat），五要素齐备（_HISTORY + _TIMELINE + SIDEPANEL_RE_REGISTRATIONS）",
+        "absoluteCeilingBytes = ceilTo50KB(B_final) x 1.10 且 ceilTo50KB(x) = ceil(x/51200)*51200",
+        "作者确认写入 v3Vol3Closeout.authorConfirmation（日期 + 结论）；未确认 => 保持 resolved:false 且如实登记（不伪闭合）",
+        "PENDING_ABSOLUTE_CAP = {resolved:true, newBaselineBytes, absoluteCeilingBytes, resolvedOn:YYYY-MM-DD}；evaluatePendingAbsoluteCap() 通过",
+        "三条反证实跑（超绝对上限 / <=绝对上限但>5% / <=5%但>绝对上限 均 FAIL）；还原 PASS",
+        "SIDEPANEL_CEILING_CAP 零判定用法；size-ruling-vol3.test.ts 断言只增"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin && stat -c %s packages/web-cli-plugin/dist/sidepanel.js",
+        "npm run test:size-ruling-vol3 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-4/size-ruling-vol3.log"
+      ]
+    },
+    {
+      "id": "TASK-812", "alias": "V44-12",
+      "name": "父级收口（宿主计数 = 0 + 21 项门禁 + 不动面复核 + 台账收口）",
+      "type": "gate", "complexity": "L", "dependsOn": ["TASK-811"], "wave": 6,
+      "planRef": "本叶 plan ADR-V4-040 第 2/3/4/6/8 条；父 plan D-P-V4-06",
+      "fr": ["FR-CHAT-090", "FR-CHAT-091", "FR-CHAT-092", "FR-CHAT-093", "FR-CHAT-094"],
+      "ac": ["AC-CHAT-018", "AC-CHAT-020", "AC-CHAT-023"], "nfr": ["NFR-CHAT-005", "NFR-CHAT-006", "NFR-CHAT-007", "NFR-CHAT-009"],
+      "adr": ["ADR-V4-040", "ADR-V4-011", "ADR-V4-009"], "risks": ["R4-18", "R4-15", "R44-10"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-density-baseline.json" },
+        { "op": "NEW", "path": "/tmp/opencode/v4-gate-logs/v4-4/*.log", "note": "临时日志（不入版本库）" }
+      ],
+      "acceptance": [
+        "21 项门禁全绿（含 stream/ask-auth/recommendation/design-contract/size-ruling-vol3）；日志全量落盘",
+        "document.querySelectorAll('[data-transitional-host]').length === 0",
+        "计数只增：journey >=167 / insight >=116 / binding 192 / l0 >=164 / l1 >=103 / l2 >=71 / density >=127 / sidepanel-view >=38 / page-input >=61 / nodeTestRuntime >= max(646, 实测)",
+        "不动面逐项复核（content.js 177,076 / pick-layer.js 33,900 / manifest 零 diff / KIND_SET 零 diff / 判定链 pin / src/content 三 hash / web-cli-base 零 diff / v1v2v3 SDDU 零 diff）",
+        "台账 v3Vol3Closeout + counts（countMethod 唯一合法值）+ leafBases 四段齐备"
+      ],
+      "verify": [
+        "node -e \"const h=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/index.html','utf8');const n=(h.match(/data-transitional-host/g)||[]).length;if(n!==0)throw new Error('transitional host residual: '+n);console.log('transitional hosts: 0')\"",
+        "for s in typecheck build test test:supersession test:gate-integrity test:zero-injection test:page-input test:l0 test:l1 test:l2 test:density test:ui test:insight test:binding test:hardening test:e2e test:stream test:ask-auth test:recommendation test:design-contract test:size-ruling-vol3; do npm run $s --workspace @lgdl/web-cli-plugin 2>&1 | tee \"/tmp/opencode/v4-gate-logs/v4-4/${s//:/-}.log\" || exit 1; done",
+        "stat -c %s packages/web-cli-plugin/dist/content.js packages/web-cli-plugin/dist/pick-layer.js packages/web-cli-plugin/dist/sidepanel.js"
+      ]
+    }
+  ],
+  "blockers": [
+    { "id": "BLK-1", "type": "handoff-in", "task": "TASK-801", "desc": "v4-2 收口（TASK-612）未绿 => 不得开工（CP-2）" },
+    { "id": "BLK-2", "type": "serial-gate", "task": "TASK-811/812", "desc": "门禁执行须在 v4-3 收口（TASK-711）之后（CP-3）" },
+    { "id": "BLK-3", "type": "external", "task": "TASK-811", "desc": "作者确认未获 => PENDING_ABSOLUTE_CAP 保持 resolved:false 并如实登记（禁伪闭合）" },
+    { "id": "BLK-4", "type": "red-line", "task": "TASK-812", "desc": "宿主计数 != 0 或不动面任一 diff => 不得收口（EC-CHAT-013）" }
+  ],
+  "note": "V4-4 12 任务 / 6 波：引用入流 -> （系统通道 ∥ 推荐生产者）-> （通道接线 ∥ 推荐卡 ∥ 拾取入口 ∥ 注册）-> 两门禁 -> （联动 + V3-VOL-3 八步）-> 父级收口。红线：投影点三处不增 / system 只追加 / 推荐白名单 / requestPick 唯一入口 / 绝对上限带值闭合不伪闭合 / 宿主计数=0。",
+  "serialWithinWaveNote": "Wave 3 内 805 → 807（共享 cards/index.ts 与 sidepanel.ts）；Wave 5 内 810 → 811（811 需门禁全绿后取 B_final）。"
+}

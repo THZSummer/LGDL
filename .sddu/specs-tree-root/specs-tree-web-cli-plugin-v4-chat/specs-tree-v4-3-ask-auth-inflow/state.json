@@ -1,0 +1,186 @@
+{
+ "feature": "V4-3 ask-user / 授权卡流内化与留痕固化（父：specs-tree-web-cli-plugin-v4-chat）",
+ "featureKey": "specs-tree-v4-3-ask-auth-inflow",
+ "version": "v4.0.0",
+ "name": "V4-3 ask-user / 授权卡流内化与留痕固化——独占决策槽迁入流内 + 固化不可逆 + 60s 超时/取消/supersededAsk 留痕 + 授权记录流内可回看 + 零明文边界",
+ "phase": "tasked",
+ "workflow": "3.plan",
+ "agent": "sddu-plan",
+ "depth": 2,
+ "parent": "specs-tree-web-cli-plugin-v4-chat",
+ "childrens": [],
+ "leaf": true,
+ "createdAt": "2026-09-18",
+ "updatedAt": "2026-09-18T06:00:00.000Z",
+ "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**作者主诉的直接兑现**：Q-CHAT-001 承载层 / Q-CHAT-002 / Q-CHAT-007）。承载父 FR-CHAT-040~049（FLOW 组）：① ask-user（choice/text 两型）从流之上的独占决策槽（#l0-decision > #ask）迁入流内卡，删除「同时只允许一张、旧卡不滞留」独占语义；② ask 卡操作前/后固化（未答表单可见 + 固化区 hidden → 回答后 data-answered=true + 表单收起 + 固化区「已答：+ 内容」+ 时间戳）；③ 已固化卡不可二次回答；取消也留痕（「已取消（不代填默认值）」）；④ 60s 超时 → canceled 留痕、不代填默认值（fail-closed）；⑤ supersededAsk 从「只取消不留痕」（R1）升级为「取消 + 留痕」；⑥ 破坏性二次确认（confirm）迁入流内 auth 卡（data-decision=approved/rejected），含范围与后果预演 + 审计入口，已决策不可重复、旧卡不消失；⑦ 授权记录流内可回看（流 = 会话审计线索，审计视图 = 完整台账）；⑧ busy/回合语义规则（多张未答卡是否并存、pending 门控、与拾取/会话切换关系），不得出现「回合永远卡在处理中」；⑨ 流内留痕零明文边界（不把命令参数体 / URL query / 页面文本带进留痕）。权威条文见父 spec.md §5.5。",
+ "scope": {
+  "in": [
+   "ask-user（choice/text）迁入流内卡；独占决策槽 #l0-decision > #ask 移除",
+   "ask 卡操作前/后固化（data-answered + 表单收起 + 固化文案「已答：+ 内容」+ 时间戳）",
+   "已固化卡不可二次回答；取消留痕（不代填默认值）",
+   "60s 超时 → canceled 留痕",
+   "supersededAsk 升级为「取消 + 留痕」",
+   "confirm 迁入流内 auth 卡；批准/拒绝固化（data-decision）",
+   "授权卡含范围/后果预演 + 审计入口；不可重复决策；旧卡不消失（两态并存）",
+   "授权记录流内可回看 + 与审计视图分工",
+   "busy / 回合语义规则（未答卡并存、pending 门控、与拾取/会话切换关系）",
+   "流内留痕零明文边界（命令参数体 / URL query / 页面文本不入留痕）"
+  ],
+  "out": [
+   "不做事件模型与卡渲染基础 → 归 v4-2",
+   "不做引用/系统/推荐卡 → 归 v4-4",
+   "不做站点级授权 / 撤销 / 会话与分组 / 隐私开关 / 知情同意 / 自动授权开关的归属实现（法则六 → 设置/审计视图，归 v4-1 工具栏准入 + 设置视图）；本叶只处理单次操作授权卡（confirm）与会话上下文内的问答",
+   "不改判定链（policy.ts / auto-authorize.ts）、不新增权限、不碰 src/content/**、不降级既有安全断言",
+   "不做体积绝对上限闭合（父收口锚）"
+  ]
+ },
+ "covers": [
+  "FR-CHAT-040",
+  "FR-CHAT-041",
+  "FR-CHAT-042",
+  "FR-CHAT-043",
+  "FR-CHAT-044",
+  "FR-CHAT-045",
+  "FR-CHAT-046",
+  "FR-CHAT-047",
+  "FR-CHAT-048",
+  "FR-CHAT-049"
+ ],
+ "acceptanceAnchors": [
+  "AC-CHAT-003",
+  "AC-CHAT-005",
+  "AC-CHAT-014",
+  "AC-CHAT-015",
+  "AC-CHAT-016",
+  "AC-CHAT-021",
+  "AC-CHAT-023",
+  "AC-CHAT-025"
+ ],
+ "coversIssues": [
+  "Q-CHAT-001",
+  "Q-CHAT-002",
+  "Q-CHAT-007",
+  "Q-CHAT-013"
+ ],
+ "coversRisks": [
+  "R-CHAT-001",
+  "R-CHAT-007",
+  "R-CHAT-008",
+  "R-CHAT-015",
+  "R-CHAT-016"
+ ],
+ "dependencies": {
+  "on": [
+   "specs-tree-web-cli-plugin-v4-chat（父，phase=specified / status=tracked；权威条文 §5.5）",
+   "specs-tree-v4-2-chat-stream-model（事件模型 + 卡渲染 + 固化契约）",
+   "packages/web-cli-plugin v1 + v2 + v3 已验收实现（只读复用：ask-bridge 60s 超时 / receipt 零明文白名单 / audit 字段白名单）"
+  ],
+  "blocking": []
+ },
+ "deliveryOrder": {
+  "position": 3,
+  "note": "前置 v4-2；依赖事件模型与卡渲染，但不依赖 ref/system 两类卡迁移；与 v4-4 可并行分解（门禁串行）"
+ },
+ "independence": {
+  "changeSurface": "侧栏侧（#l0-decision/#ask/#confirm 相关 UI 与状态机 + 新增流内 ask/auth 渲染）+ 相关单测；不碰判定链语义、不碰权限、不碰 src/content/**",
+  "supersessionLoad": "高：l0 的「唯一决策卡」契约、l1 的三个 L0 触发器契约大面积失效 → 走取代台账（按行判定 + 计数不减）；test/sidepanel-view.test.ts 相关契约等价改写",
+  "canReachAllGreen": true,
+  "gateSet": [
+   "typecheck",
+   "plugin npm test",
+   "test:ui journey ≥167",
+   "test:insight ≥108",
+   "test:binding ≥192",
+   "test:hardening 24",
+   "test:e2e",
+   "test:supersession",
+   "test:gate-integrity",
+   "test:l0 ≥73 / test:l1 ≥64（重写后）",
+   "test:density（不回退）",
+   "体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 中间重登记）",
+   "test:zero-injection 27"
+  ],
+  "gateDiscipline": "严格串行（禁并发 Chromium）；日志完整落盘（禁 tail 截断）；反证必须实跑 FAIL → 还原 → PASS 且声明 expectFailPattern；每叶收尾全门禁绿"
+ },
+ "openPoints": [
+  {
+   "id": "V43-O-1",
+   "topic": "「未答卡并存」的具体上限与仲裁规则（多张未答卡 × pending 组合空间）",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V43-O-2",
+   "topic": "ask/auth 流条目的持久化范围与审计视图的分工边界",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V43-O-3",
+   "topic": "固化态 aria-live 的播报粒度（逐卡 / 汇总）",
+   "status": "open",
+   "needs": "plan"
+  },
+  {
+   "id": "V43-O-4",
+   "topic": "站点级授权动作在设置视图的首装可发现性呈现方式",
+   "status": "open",
+   "needs": "plan / v4-1"
+  },
+  {
+   "id": "V43-O-5",
+   "topic": "supersededAsk 留痕条目的文案与类型（system 事件行 vs ask 卡固化态）",
+   "status": "open",
+   "needs": "plan"
+  }
+ ],
+ "files": {
+  "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/spec.md",
+  "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/state.json",
+  "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/discovery.md",
+  "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/plan.md",
+  "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/plan.md",
+  "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.md",
+  "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.json",
+  "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
+  "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json"
+ },
+ "status": "tracked",
+ "phaseHistory": [
+  {
+   "phase": "registered",
+   "timestamp": "2026-09-18T00:00:00.000Z",
+   "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v4-chat 创建叶子目录）"
+  },
+  {
+   "phase": "specified",
+   "timestamp": "2026-09-18T00:00:00.000Z",
+   "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成；权威条文见父 spec.md §5.5）"
+  },
+  {
+   "phase": "planned",
+   "timestamp": "2026-09-18T03:00:00.000Z",
+   "triggeredBy": "sddu-plan（产出本叶 plan.md v1.0；ADR-V4-030~034（5 条））"
+  },
+  {
+   "phase": "tasked",
+   "timestamp": "2026-09-18T06:00:00.000Z",
+   "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0；11 任务 / 6 波）"
+  }
+ ],
+ "phaseNote": "phase=planned（status=tracked）。产出本叶 `plan.md` v1.0（**ADR-V4-030~034（5 条）**）。本叶 = 作者主诉的直接兑现。ADR-V4-030 ask/confirm **事件化状态机**（终态 `answered`/`cancelled`/`approved`/`rejected`；`data-answered` 三值 + `data-decision` 三值；**终态卡结构性不渲染操作控件**；`#ask*`/`#confirm*` id 保留为模板源；`rounds[]` 差分推断退役；**删除「解析即置 null 消失」路径**）；ADR-V4-031 超时/取消/取代 = **SW 60 s 语义零变更 + 面板投影三留痕**（用户/超时/取代各一条 `ask-cancel`，后两者加 `system` 行）+ `supersededAsk` 升级为「取消 + 留痕」（卡内主 + 系统行辅）+ fail-closed 不代填；ADR-V4-032 回合语义 = `MAX_OPEN_ASKS=2`（R1 现场观测上限）+ **引用回合优先**（`ref-round-` 前缀）+ 超限 supersede 最旧并留痕 + **`pending` 与未答卡解耦**（`pending` 只门控新回合与推荐 chip；`sendDisabledReason` 文本/来源不改）+ **无「永远处理中」**；ADR-V4-033 授权回看 = **AC-CHAT-016 唯一验收叶**（流 = 会话审计线索 / 审计 = 完整台账；站点级授权在设置视图可发现可读；不新增第 8 类卡；SW 零改动）；ADR-V4-034 零明文 = 复用 `assertNoPlaintext` + 新增 `stream-plaintext.ts`（字段白名单 + `label` 工厂）+ 摘要无自由文本 + 正/反向用例。 **本叶收尾门禁（严格串行、一次一个 Chromium、日志落盘禁 tail 截断）**：typecheck · build · `npm test`（含新增 `test/ask-auth-inflow.test.ts`）· `test:supersession` · `test:gate-integrity`（追加 `test/ui/ask-auth-inflow.mjs`）· `test:zero-injection`(27) · `test:page-input`(102) · `test:l0` · `test:l1` · `test:l2` · `test:density`（不回退；逐卡可点 ≤6 复算）· `test:ui`(≥167) · `test:insight`(≥108) · `test:binding`(≥192) · `test:hardening` · `test:e2e` · **`test:ask-auth`（新增 Chromium 门禁）** · 体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 五要素中间重登记）。 权威跨叶契约见父 `../plan.md`（ADR-V4-001~016）。**本阶段只做 plan**：未写 tasks/代码、未改 `src/**`·`test/**`·`dist/**`·`manifest.json`·ROADMAP、未动 `main`、未 commit/push、**未跑任何门禁/构建/Chromium**。下一阶段：@sddu-tasks specs-tree-v4-3-ask-auth-inflow。\n\ntasks 阶段完成（2026-09-18，sddu-tasks）：产出本叶 tasks.md v1.0 + tasks.json v1.0 —— 11 任务 / 6 波（别名 V43-01~11，全局编号 TASK-701~711），含每任务的可验证验收（引用 FR/AC/ADR/R 编号）、触碰面（NEW/MODIFY/RETIRE 文件组）、波次与检查点、D-005 式测试守恒账（新增/取代/重写计数）。门禁：新增 test:ask-auth（TASK-709）；AC-CHAT-016 唯一验收叶（台账 owner=v4-3）。纪律：只写本 Feature 目录、零生产代码改动、未跑门禁/构建/Chromium、未 commit/push。",
+ "tasks": {
+  "range": "TASK-701~711",
+  "alias": "V43-01~11",
+  "count": 11,
+  "waves": 6,
+  "complexity": {
+   "S": 1,
+   "M": 7,
+   "L": 3
+  },
+  "gateNote": "新增 test:ask-auth（TASK-709）；AC-CHAT-016 唯一验收叶（台账 owner=v4-3）",
+  "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.md"
+ }
+}
