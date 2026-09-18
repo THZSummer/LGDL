@@ -3,15 +3,15 @@
  "featureKey": "specs-tree-v4-1-zone-shell-density",
  "version": "v4.0.0",
  "name": "V4-1 三区骨架与密度重定标——三区落定（工具栏 ≤5 可点 + 站点摘要只读 + 4 视图入口 + 主题切换；状态栏连接状态 + 风险 chips 永不折叠）+ 密度新口径与防滥用（含反证）+ 登记格重算",
- "phase": "builded",
- "workflow": "5.build",
- "agent": "sddu-build",
+ "phase": "reviewed",
+ "workflow": "6.review",
+ "agent": "sddu-review",
  "depth": 2,
  "parent": "specs-tree-web-cli-plugin-v4-chat",
  "childrens": [],
  "leaf": true,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-19T00:00:00.000Z",
+ "updatedAt": "2026-09-19T06:00:00.000Z",
  "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**首个开工**，其余三叶的共同承载基线）。承载父 FR-CHAT-004（风险永不折叠语义约束的新机器判据）与 FR-CHAT-010~017（ZONE 组）与 FR-CHAT-070~075（DENSITY 组）：① 三区骨架（header[role=toolbar] → main 含 ol#stream[role=log] → footer[role=contentinfo]）落定；② 工具栏准入 ≤5 可点（站点摘要只读 + 4 视图入口带计数徽标 + 主题切换），准入/置换规则显式登记；③ 工具栏/状态栏禁止一次性交互（法一可静态核验）；④ 状态栏常驻（连接状态一行 + 风险 chips，无风险收缩一行 0 chip，本体无 hidden）；⑤ 法四：默认屏无可见常驻输入框；⑥ L2 视图替换机制复用；⑦ 法则六落位（管理操作入设置/审计视图 + 首装路径可发现）；⑧ 风险位迁为状态栏 chips，永不折叠语义保留 + 新机器判据；⑨ 密度新口径（测量根 = 三区外壳、流内容不计入默认密度、豁免边界只认 hidden）+ 两条防滥用（单卡可点 ≤6 / 首屏卡片 ≤2）+ 阈值 7/15 · 9/20 · 17/35 保留 + v4 新基线文件与全部登记格重算 + 逐条反证。权威条文见父 spec.md §5.2 / §5.8 / §9 / §10。",
  "scope": {
   "in": [
@@ -153,7 +153,10 @@
   "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/tasks.md",
   "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/tasks.json",
   "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
-  "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json"
+  "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json",
+  "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/build.md",
+  "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/review.md",
+  "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/review-report.md"
  },
  "status": "tracked",
  "phaseHistory": [
@@ -176,6 +179,16 @@
    "phase": "tasked",
    "timestamp": "2026-09-18T06:00:00.000Z",
    "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0；15 任务 / 8 波）"
+  },
+  {
+   "phase": "builded",
+   "timestamp": "2026-09-19T00:00:00.000Z",
+   "triggeredBy": "sddu-build（R3 终收轮：TASK-501~515 全闭环；19 项串行门禁 + RP-V4-01~07 全绿；体积五要素中间重登记 385,319 B）"
+  },
+  {
+   "phase": "reviewed",
+   "timestamp": "2026-09-19T06:00:00.000Z",
+   "triggeredBy": "sddu-review（R1 静态审查：C1~C8 逐项；结论 ⚠️ 有条件通过（0 阻塞 / 13 改进项）；复跑 npm test 849、supersession 20、gate-integrity 12、design-contract 6、density 169、journey 167；产出 review.md + review-report.md）"
   }
  ],
  "phaseNote": "phase=planned（status=tracked）。产出本叶 `plan.md` v1.0（**ADR-V4-017~023（7 条）**）。本叶 = 首个开工叶与共同基线。ADR-V4-017 三区骨架最小改动路径（`#log`→`#stream` 唯一重命名 + 其余 id 零重命名 + 容器元素复用 + 占位宿主）；ADR-V4-018 工具栏准入 ≤5（只读站点摘要 + 4 视图入口带计数徽标 + 主题三态）+ 准入规则 + 置换登记；ADR-V4-019 状态栏 + **嵌套双层风险容器**（外层 `#risk-chips` 设计契约 id / 内层 `#risk-rail` v3 id 保留 ⇒ 探针与 `isRiskClassSource` 零逻辑改动）+ 四条永不折叠判据 J1~J4 + chip 详情默认 hidden 不占默认密度；ADR-V4-020 密度新口径实现（`density-scope.ts` 单源排除子树 + `evaluateCardBudget`/`evaluateFirstScreen`）+ RP-V4-01~07（in-gate）；ADR-V4-021 v4 密度基线（**31 登记格** = 9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + worst；v3 22 格冻结 + 差异登记）；ADR-V4-022 四视图 `view-host`/`counts` 同构替换（只改绑定与回焦）；ADR-V4-023 本叶门禁清单（**增补 l0/l1/l2**，偏差登记）+ journey 保护段八步新 pin + **≥65% 12 格 S 级 spike 为第一任务**（不可达 → 停下上报，禁静默弱化）。 **本叶收尾门禁（严格串行、一次一个 Chromium、日志落盘禁 tail 截断）**：typecheck · build · `npm test`（含 `design-contract.test.ts`）· `test:supersession` · `test:gate-integrity` · `test:zero-injection` · `test:page-input` · **`test:l0`（≥73）** · **`test:l1`（≥64）** · **`test:l2`（≥68）** · **`test:density`（≥60）** · `test:ui`（journey ≥167，含保护段新 pin）· `test:insight`（≥108）· `test:binding`（≥192）· `test:hardening` · `test:e2e` · `test:design-contract`（shim 60/60）· 体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 五要素中间重登记）；严格串行、一次一个 Chromium、日志落盘禁 tail 截断。 权威跨叶契约见父 `../plan.md`（ADR-V4-001~016）。**本阶段只做 plan**：未写 tasks/代码、未改 `src/**`·`test/**`·`dist/**`·`manifest.json`·ROADMAP、未动 `main`、未 commit/push、**未跑任何门禁/构建/Chromium**。下一阶段：@sddu-tasks specs-tree-v4-1-zone-shell-density。\n\ntasks 阶段完成（2026-09-18，sddu-tasks）：产出本叶 tasks.md v1.0 + tasks.json v1.0 —— 15 任务 / 8 波（别名 V41-01~15，全局编号 TASK-501~515），含每任务的可验证验收（引用 FR/AC/ADR/R 编号）、触碰面（NEW/MODIFY/RETIRE 文件组）、波次与检查点、D-005 式测试守恒账（新增/取代/重写计数）。门禁：含 R4-17 增补 test:l0/l1/l2；第一任务 = S 级 spike 闸门（TASK-501）。纪律：只写本 Feature 目录、零生产代码改动、未跑门禁/构建/Chromium、未 commit/push。",
