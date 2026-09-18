@@ -51,7 +51,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -85,13 +85,27 @@ interface V4LedgerShape {
   leafBases?: V4LeafBase[];
   entries?: Array<{ id: string; file: string; oldTitle: string | null; newTitle: string; reason: string; modificationType: string }>;
   modifiedRanges?: Array<{ file: string; reason: string; oldRange?: [number, number]; newRange?: [number, number] }>;
-  protectedRanges?: Array<{ file: string; startByte: number; endByte: number; sha256: string; status: string }>;
+  protectedRanges?: Array<{
+    file: string;
+    startAnchor: string;
+    endAnchor: string;
+    startByte: number;
+    endByte: number;
+    sha256: string;
+    status: string;
+    /** V4-1（ADR-V4-008 八步 ⑤）：被本 pin 取代的旧 pin sha256（换锚声明）。 */
+    supersededFrom?: string;
+    /** V4-1：旧 pin 的复核版本（`git show <leafBase>:<file>`）。 */
+    leafBase?: string;
+  }>;
   protectedSupersession?: { old: { file: string; sha256: string }; decision: string; eightSteps?: string[] };
   redlineRemap?: Array<{ redline: string; from: string; to: string; reason: string }>;
   zeroDiffFiles?: string[];
   pureAdditionFiles?: string[];
   toolbarAdmissions?: unknown[];
   unfrozenZeroDiffFiles?: Array<{ file: string; reason: string }>;
+  /** V4-1：v3「纯新增」归类可被 v4 段显式重新归类（换段判定，必须写明理由）。 */
+  unfrozenPureAdditionFiles?: Array<{ file: string; reason: string }>;
   staticCalibers?: { nodeTestStatic?: { readings?: Record<string, { regex: string; count: number }> } };
   counts?: Record<string, { currentRuntime: number }>;
   v4GateFloors?: Record<string, number>;
@@ -263,8 +277,7 @@ function measuredTestFiles(rev: string = ledger.base): string[] {
 const countChecks = (text: string) => (text.match(/\bcheck\(/g) ?? []).length;
 
 /** `-U0` hunks that delete or rewrite at least one line. */
-function deletionHunks(file: string, rev: string = ledger.base) {
-  const diff = runGit(['diff', '-U0', rev, '--', file]);
+function parseDeletionHunks(diff: string) {
   const hunks: Array<{ oldStart: number; oldCount: number; deleted: string[] }> = [];
   let cur: { oldStart: number; oldCount: number; deleted: string[] } | null = null;
   for (const line of diff.split('\n')) {
@@ -279,6 +292,20 @@ function deletionHunks(file: string, rev: string = ledger.base) {
   }
   if (cur) hunks.push(cur);
   return hunks.filter((h) => h.deleted.length > 0);
+}
+
+function deletionHunks(file: string, rev: string = ledger.base) {
+  return parseDeletionHunks(runGit(['diff', '-U0', rev, '--', file]));
+}
+
+/**
+ * V4-1（ADR-V4-009 双台账）：`base → v4 leafBase` 这一**段的**删除 hunk。
+ *
+ * v3 台账的「纯新增」归类只对 v3 段成立；v4 段可以显式重新归类（见
+ * `unfrozenPureAdditionFiles`），此时判据**换段而不放宽**：v3 段仍必须 0 删除行。
+ */
+function deletionHunksBetween(file: string, from: string, to: string) {
+  return parseDeletionHunks(runGit(['diff', '-U0', from, to, '--', file]));
 }
 
 /**
@@ -403,8 +430,33 @@ test('ledger: 计数只增不减（currentRuntime ≥ gateFloors）', () => {
 test('ledger: 纯新增（0 删除行）文件单独归类——hunk↔台账校验对其不适用，且「0 删除行」本身受断言', () => {
   assert.ok(Array.isArray(ledger.pureAdditionFiles) && ledger.pureAdditionFiles.length > 0, '必须显式登记纯新增文件集合');
   assert.ok((ledger.pureAdditionNote ?? '').length > 0, '纯新增归类必须写明理由（不得只给一个空数组）');
+  // V4-1 双台账：v3 的「纯新增」归类只对 **v3 段**成立。v4 段可显式重新归类
+  // （`unfrozenPureAdditionFiles[]`，必须写明理由 ≥40 字符），此时判据**换段而不放宽**：
+  // `base → v4 leafBase` 仍必须 0 删除行，而 v4 段的删除行由 v4 叶段判据逐条判定。
+  const v4ForPure = existsSync(V4_LEDGER_PATH) ? readV4Ledger() : null;
+  const reclassified = new Map<string, string>(
+    ((v4ForPure as { unfrozenPureAdditionFiles?: Array<{ file: string; reason: string }> } | null)
+      ?.unfrozenPureAdditionFiles ?? []).map((u) => [u.file, u.reason]),
+  );
   for (const file of ledger.pureAdditionFiles) {
     assert.ok(existsSync(resolve(REPO, file)), `${file} 不存在`);
+    const reason = reclassified.get(file);
+    if (reason !== undefined) {
+      assert.ok(reason.trim().length >= 40, `v4 段重新归类 ${file} 必须写明理由（≥40 字符）`);
+      const leafBase = (v4ForPure?.leafBases ?? [])[0]?.leafBase;
+      assert.ok(leafBase, 'v4 段重新归类必须能取到 leafBase（否则换段判据不成立）');
+      assert.deepEqual(
+        deletionHunksBetween(file, ledger.base, leafBase),
+        [],
+        `${file} 在 v3 段（${ledger.base} → ${leafBase}）必须仍是 0 删除行 —— 换段判据不得被用作放宽`,
+      );
+      assert.ok(
+        (v4ForPure?.entries ?? []).some((e) => e.file === file) ||
+          (v4ForPure?.modifiedRanges ?? []).some((r) => r.file === file),
+        `${file} v4 段重新归类后必须有台账条目（newTitle 可定位）`,
+      );
+      continue;
+    }
     // The registered fact *is* the assertion: a pure-addition file must really
     // delete nothing. If it ever deletes a line, the classification is wrong and
     // the file must move back into the per-hunk covered set.
@@ -502,7 +554,39 @@ test('ledger: 既有门禁文件零删除——**每一条删除行**必须逐�
 });
 
 // ── 2. protected byte ranges ────────────────────────────────────────────────
-test('ledger: protectedRanges 字节区间 hash 不变（禁行号锚定）', () => {
+/**
+ * V4-1 TASK-513 八步 ⑤/⑧ — the protected-range pin judge, factored out so the
+ * reverse proof below can drive it on a **perturbed string** without touching the
+ * repository (`protectedPinFailures` is the single implementation; the runtime
+ * judgement reads the real file and the RP-V4-08 in-gate proof reads a mutation).
+ */
+const sha256Of = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
+const byteOffsetOf = (text: string, charIndex: number) => Buffer.byteLength(text.slice(0, charIndex), 'utf8');
+
+function protectedPinFailures(
+  range: { startAnchor: string; endAnchor: string; startByte: number; endByte: number; sha256: string },
+  text: string,
+): string[] {
+  const failures: string[] = [];
+  const i = text.indexOf(range.startAnchor);
+  const j = text.indexOf(range.endAnchor, i);
+  if (i < 0 || j < 0) return [`锚点已变化（start=${i} end=${j}）`];
+  const end = j + range.endAnchor.length;
+  const chunk = text.slice(i, end);
+  if (sha256Of(chunk) !== range.sha256) {
+    failures.push(`受保护区间字节已变（sha ${sha256Of(chunk)} ≠ 登记 ${range.sha256}）`);
+  }
+  if (byteOffsetOf(text, i) !== range.startByte) {
+    failures.push(`起始字节偏移变化（${byteOffsetOf(text, i)} ≠ ${range.startByte}）`);
+  }
+  if (byteOffsetOf(text, end) !== range.endByte) {
+    failures.push(`结束字节偏移变化（${byteOffsetOf(text, end)} ≠ ${range.endByte}）`);
+  }
+  return failures;
+}
+
+test('ledger: protectedRanges 字节区间 hash 不变（禁行号锚定；v4 显式取代经台账换锚）', () => {
+  const v4 = existsSync(V4_LEDGER_PATH) ? readV4Ledger() : null;
   for (const range of ledger.protectedRanges) {
     const path = resolve(REPO, range.file);
     assert.ok(existsSync(path), `${range.file} 不存在`);
@@ -511,17 +595,129 @@ test('ledger: protectedRanges 字节区间 hash 不变（禁行号锚定）', ()
     const j = text.indexOf(range.endAnchor, i);
     assert.ok(i >= 0 && j >= 0, `${range.file} 的锚点已变化（start=${i} end=${j}）`);
     const chunk = text.slice(i, j + range.endAnchor.length);
+    // V4-1（ADR-V4-008 八步 ⑤）：v3 pin 可被 v4 台账**显式取代**（`status:"active"` +
+    // `supersededFrom` == 本 pin 的 sha256）。这不是「放宽」，而是换锚 + 补一条**更强**的
+    // 机核：旧 pin 仍必须能从 v4 台账的 `leafBase` 版本逐字节复算出来（历史事实不是纸面
+    // 声明），且当前字节必须命中 v4 的新 pin（旧 pin 与当前字节的关系被显式声明为「已被取代」）。
+    const superseder = (v4?.protectedRanges ?? []).find(
+      (r) => r.file === range.file && r.status === 'active' && r.supersededFrom === range.sha256,
+    );
+    if (!superseder) {
+      assert.equal(
+        sha256Of(chunk),
+        range.sha256,
+        `${range.file} 受保护区间字节已变（v3 pin 仍在生效；${range.startAnchor.slice(0, 30)}…${range.endAnchor.slice(-30)}）`,
+      );
+      assert.equal(
+        byteOffsetOf(text, i),
+        range.startByte,
+        `${range.file} 受保护区间起始字节偏移变化（v3 pin 仍在生效）`,
+      );
+      continue;
+    }
+    // (1) 旧 pin 必须可机核：从 leafBase 版本按同一锚点复算。
+    const leafBase = (superseder as { leafBase?: string }).leafBase;
+    assert.ok(leafBase, `${range.file} 的 v4 取代条目必须写明 leafBase（旧 pin 的复核版本）`);
+    const oldText = runGit(['show', `${leafBase}:${range.file}`]);
+    assert.ok(oldText.length > 0, `无法从 ${leafBase} 取出 ${range.file}（旧 pin 复核失败）`);
+    const oi = oldText.indexOf(range.startAnchor);
+    const oj = oldText.indexOf(range.endAnchor, oi);
+    assert.ok(oi >= 0 && oj >= 0, `${range.file} 的锚点在 ${leafBase} 版本中已变化`);
     assert.equal(
-      createHash('sha256').update(chunk, 'utf8').digest('hex'),
+      createHash('sha256').update(oldText.slice(oi, oj + range.endAnchor.length), 'utf8').digest('hex'),
       range.sha256,
-      `${range.file} 受保护区间字节已变（${range.startAnchor.slice(0, 30)}…${range.endAnchor.slice(-30)}）`,
+      `${range.file} 的 v3 旧 pin 无法从 ${leafBase} 复核 —— 「已被取代」的历史事实失真`,
     );
     assert.equal(
-      Buffer.byteLength(text.slice(0, i), 'utf8'),
+      Buffer.byteLength(oldText.slice(0, oi), 'utf8'),
       range.startByte,
-      `${range.file} 受保护区间起始字节偏移变化`,
+      `${range.file} 的 v3 起始字节偏移无法从 ${leafBase} 复核`,
+    );
+    // (2) 当前字节必须命中 v4 的新 pin（换锚后仍逐字节受保护）。
+    assert.deepEqual(
+      protectedPinFailures(superseder as never, text),
+      [],
+      `${range.file} 的 v4 新 pin 未命中当前字节（显式取代后保护段仍必须逐字节锁定）`,
     );
   }
+});
+
+test('ledger(V4 段): v4 protectedRanges 新 pin（status:active）必须命中当前字节', () => {
+  const v4 = readV4Ledger();
+  const ranges = v4.protectedRanges ?? [];
+  assert.ok(ranges.length > 0, 'v4 protectedRanges 不得为空');
+  let judged = 0;
+  for (const range of ranges) {
+    assert.equal(range.status, 'active', `${range.file} 必须是 active 的新 pin`);
+    const path = resolve(REPO, range.file);
+    assert.ok(existsSync(path), `${range.file} 不存在`);
+    assert.deepEqual(
+      protectedPinFailures(range as never, readFileSync(path, 'utf8')),
+      [],
+      `${range.file} 的 v4 保护段 pin 未命中当前字节`,
+    );
+    judged += 1;
+  }
+  assert.ok(judged > 0, '本判据必须真的判到至少一个保护段');
+  console.log(`  ℹ v4 保护段新 pin：${judged} 段逐字节命中（含 journey 的 supersededFrom 换锚）`);
+});
+
+/**
+ * RP-V4-08 (TASK-513 八步 ⑧) — **the protected-pin judge must be able to go red
+ * for the right reason, and only for the right reason.**
+ *
+ * Two halves, both driven through the SAME `protectedPinFailures` implementation
+ * the runtime judgement uses (not a copy): a 1-byte change **inside** the range must
+ * FAIL; a 1-byte change **outside** it must not turn red (the pin anchors the range,
+ * not the whole file). The real file is restored byte-for-byte and its sha256 is
+ * re-checked, so a failed restore cannot go unnoticed.
+ */
+test('ledger(V4 段)反证 RP-V4-08：保护段内改 1 字节 ⇒ FAIL；段外改 1 字节 ⇒ 不红；还原逐字节复核', () => {
+  const v4 = readV4Ledger();
+  const range = (v4.protectedRanges ?? [])[0];
+  assert.ok(range, 'v4 protectedRanges[0] 必须存在（反证无对象）');
+  const path = resolve(REPO, range.file);
+  const original = readFileSync(path);
+  const shaBefore = createHash('sha256').update(original).digest('hex');
+  const text = original.toString('utf8');
+  try {
+    // (0) 未扰动时必须干净（否则下面的反证没有对照）。
+    assert.deepEqual(protectedPinFailures(range as never, text), [], '未扰动时保护段 pin 必须不红');
+
+    // (1) 段内改 1 字节（改保护段**内部**的一个标签字符，锚点本身保持完整）⇒ 必须 FAIL。
+    const insideToken = '#15a 消息区为 flex 填充';
+    assert.ok(text.includes(insideToken), '段内扰动锚点必须存在（判据真的能改到保护段）');
+    const insideMutated = text.replace(insideToken, '#15A 消息区为 flex 填充');
+    assert.notEqual(insideMutated, text, '段内扰动必须真的改变文件字节（否则 FAIL 段是空转）');
+    const insideFails = protectedPinFailures(range as never, insideMutated);
+    assert.ok(insideFails.length > 0, `RP-V4-08 (FAIL 段) 保护段内改 1 字节必须判 FAIL（实测 ${JSON.stringify(insideFails)}）`);
+    assert.ok(
+      insideFails.some((f) => /受保护区间字节已变/.test(f)),
+      `RP-V4-08 FAIL 段诊断必须指出区间字节已变：${insideFails.join(' | ')}`,
+    );
+
+    // (2) 段外改 1 字节（文件头注释）⇒ 必须**不红**（判据只锚保护段，不是「凡改皆红」）。
+    const headerToken = '/**\n * UI 旅程测试';
+    assert.ok(text.includes(headerToken), '段外扰动锚点必须存在');
+    const outsideMutated = text.replace(headerToken, headerToken.replace('UI', 'Ui'));
+    assert.deepEqual(
+      protectedPinFailures(range as never, outsideMutated),
+      [],
+      'RP-V4-08 (不红段) 保护段外改 1 字节不得把 pin 判据判红（否则判据锚的不是保护段）',
+    );
+
+    // (2b) 段外扰动必须**真的改到了文件**（否则「不红」是空转）。
+    assert.notEqual(sha256Of(outsideMutated), sha256Of(text), '段外扰动必须真的改变文件字节（否则不红段是空转）');
+  } finally {
+    // (3) 逐字节还原 + sha 复核（写回原文，绝不留下扰动）。
+    writeFileSync(path, original);
+    assert.equal(
+      createHash('sha256').update(readFileSync(path)).digest('hex'),
+      shaBefore,
+      'RP-V4-08 还原失败：journey.mjs 未逐字节复原',
+    );
+  }
+  assert.deepEqual(protectedPinFailures(range as never, readFileSync(path, 'utf8')), [], 'RP-V4-08 还原后必须 PASS');
 });
 
 // ── 3. zero-diff set ────────────────────────────────────────────────────────

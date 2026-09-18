@@ -877,6 +877,15 @@ export const REVERSE_PROOF_EXCEPTIONS = [
       '从外部再驱动一次需要每个 RP 一次 Chromium 运行（内存 ~1.5 GB、NFR-V3-012 串行纪律）。登记为「in-gate 形态」：模式断言**必须存在于门禁源码中**（下方 R4b 机器核对）。',
   },
   {
+    id: 'in-gate-RP-V4-01~07 · density.mjs（v4-1 防滥用反证）',
+    reason:
+      'ADR-V4-020 第 3 条 / ADR-V4-023 第 5 条把 v4-1 的七条防滥用反证登记为 **in-gate 形态**（`test/ui/density.mjs --reverse RP-V4-0X`）：' +
+      'FAIL 段文本由门禁**自身**在同一 Chromium 进程内断言（每条驱动都断言「注入 → FAIL」与「还原 → PASS」两半，且 FAIL 半带字面诊断断言），' +
+      '从外部再驱动一次需要每个 RP 一次 Chromium 运行（内存 ~1.5 GB、NFR-V3-012 串行纪律）。' +
+      '与 v3 同类例外一致：模式断言**必须存在于门禁源码中**（下方 R4b 机器核对逐条校验）；' +
+      '**不改** `readReverseProofLedger()` 的硬编码台账路径（ADR-V4-023 第 7 条），也未新增 Chromium 门禁文件（`CHROMIUM_GATES.length === 9` 与 `EXPECTED_AUDITED_FILES` 均不动）。',
+  },
+  {
     id: 'in-gate-RP-L0-06b · l0.mjs',
     reason: '同上（`check("⑥ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出")` 在门禁内断言 FAIL 段文本）。',
   },
@@ -1045,6 +1054,16 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
   const inGate: ReadonlyArray<[string, RegExp]> = [
     ['test/ui/density.mjs', /RP-V3-01 FAIL 段诊断含「C1 8 > 7」/],
     ['test/ui/density.mjs', /RP-V3-08 FAIL 段诊断可读（含「实测 X ≠ 登记 Y」）/],
+    // v4-1（ADR-V4-020 第 3 条 / ADR-V4-023 第 5 条）—— 七条防滥用反证逐条在门禁源码里
+    // 带上自己的 FAIL 形态（两段证伪日志见 build.md；`--reverse RP-V4-0X` 实跑 EXIT=0）。
+    ['test/ui/density.mjs', /RP-V4-01 FAIL 段诊断含「卡内可点 7 > 6」/],
+    ['test/ui/density.mjs', /RP-V4-02 FAIL 段诊断含「首屏可见卡 3 > 2」/],
+    ['test/ui/density.mjs', /RP-V4-03 FAIL 段 a 诊断含「欢迎卡 2 > 1」/],
+    ['test/ui/density.mjs', /RP-V4-03 FAIL 段 b 诊断含「文本行 9 > 8」/],
+    ['test/ui/density.mjs', /RP-V4-04 hidden=true 是唯一豁免通道 → C1 必须下降 1/],
+    ['test/ui/density.mjs', /RP-V4-05 FAIL 段诊断含「超出 1 B」/],
+    ['test/ui/density.mjs', /RP-V4-06 \(FAIL 段\) 工具栏控件移入 #stream 后豁免守卫必须抛错/],
+    ['test/ui/density.mjs', /RP-V4-07 \(FAIL 段\) chip 被移入 hidden 容器后探针必须 FAIL/],
     ['test/ui/l0.mjs', /反证（FAIL 段）：篡改 data-count/],
     ['test/ui/l1.mjs', /D1 反证（FAIL 段）/],
     // v3-4 fix round (review R1) — the new BLOCK-1 / I-01 / I-04 assertions must carry

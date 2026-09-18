@@ -521,6 +521,69 @@ function readLedger(): Ledger {
   return JSON.parse(readFileSync(`${PLUGIN_ROOT}docs/r2-supersession-ledger.json`, 'utf8')) as Ledger;
 }
 
+/**
+ * V4-1（ADR-V4-009 / ADR-V4-008 八步）—— v4 取代台账（与 v3 台账**并列**的第二段登记）。
+ *
+ * v4-1 首次把 journey 保护段**显式取代**（保护段内读的是已退役的 `#log` / `#composer`），
+ * 因此下面第 4 步的判据不再是「零删除行」，而是「每一条删除行都必须命中本台账」。
+ */
+interface V4Ledger {
+  entries: Array<{ id: string; file: string; oldTitle: string | null; newTitle: string }>;
+  leafBases?: Array<{
+    file?: string;
+    leafBase?: string;
+    registeredUncoveredLines?: Array<{ file: string; registeredUncoveredLines: string[] }>;
+  }>;
+}
+
+/** V4-1：`rewriteRegions[]`（ADR-V4-008 八步 ③④ 的改写区域，按新行号归属新增行）。 */
+interface V4LedgerWithRegions extends V4Ledger {
+  rewriteRegions?: Array<{ file: string; newAddedSpans?: Array<[number, number]> }>;
+}
+
+function readV4LedgerFull(): V4LedgerWithRegions | null {
+  const path = `${PLUGIN_ROOT}docs/v4-supersession-ledger.json`;
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, 'utf8')) as V4LedgerWithRegions;
+}
+
+/** `git diff --unified=0` 的**新增行**及其**新文件行号**（`@@ -a,b +c,d @@` 逐 hunk 累计）。 */
+export function parseAddedLinesWithNumbers(diff: string): Array<[number, string]> {
+  const out: Array<[number, string]> = [];
+  let newLine = -1;
+  for (const line of diff.split('\n')) {
+    const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+    if (m) {
+      newLine = Number(m[1]);
+      continue;
+    }
+    if (newLine < 0) continue;
+    if (line.startsWith('+++')) continue;
+    if (line.startsWith('+')) {
+      out.push([newLine, line.slice(1)]);
+      newLine += 1;
+    }
+  }
+  return out;
+}
+
+function readV4Ledger(): V4Ledger | null {
+  const path = `${PLUGIN_ROOT}docs/v4-supersession-ledger.json`;
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, 'utf8')) as V4Ledger;
+}
+
+/** v4 台账对某个文件的**逐字**覆盖（entries.oldTitle/newTitle + leafBases[].registeredUncoveredLines）。 */
+function v4Coverage(file: string): { old: string[]; added: string[] } {
+  const v4 = readV4Ledger();
+  const entries = (v4?.entries ?? []).filter((e) => e.file === file);
+  const registered = (v4?.leafBases ?? []).flatMap((l) => l.registeredUncoveredLines ?? []).filter((r) => r.file === file).flatMap((r) => r.registeredUncoveredLines);
+  return {
+    old: [...entries.map((e) => e.oldTitle ?? '').filter(Boolean), ...registered],
+    added: entries.map((e) => e.newTitle).filter(Boolean),
+  };
+}
+
 /** 从 unified diff 抽取删除行（排除 `---` 文件头）。 */
 export function parseDeletedLines(diff: string): string[] {
   return diff
@@ -589,12 +652,49 @@ test('R2 (A4): no unreplaced deletions (ledger-covered) + counts non-decreasing 
   //    ① 相对 HEAD 与 R2_BASE **零删除行**（「断言零删除」这一实质条款被保留，且比
   //       「整文件零 diff」更直接地表达了它真正要保的东西）；
   //    ② 任何新增行都必须由 v3 台账覆盖（journey 的每条前置展开都能在 entries 里定位）。
-  assert.deepEqual(deletedLines('HEAD', JOURNEY_V1_GATE), [], 'journey.mjs 不得删除任何既有断言行');
-  assert.deepEqual(deletedLines(R2_BASE, JOURNEY_V1_GATE), [], 'journey.mjs 相对 R2_BASE 亦不得删除任何行');
-  const journeyAdded = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--unified=0', 'HEAD', '--', ...JOURNEY_V1_GATE], { encoding: 'utf8' })
-    .split('\n')
-    .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
-    .map((line) => line.slice(1).trim())
+  // V4-1 等价改写（台账登记）：v4-1（ADR-V4-008）把 journey 保护段 `#15a~#15q`
+  // **显式取代** —— 该段逐字读取 `#log` / `#composer`，而这两个 id 在 v4 已退役
+  // （`#log`→`#stream` 唯一重命名 + composer 法四），「零删除行」在语义上不可能成立，
+  // 也不再是它真正要保的东西。保留的实质条款 = **禁静默改写**：每一条删除行必须逐条
+  // 命中 v4 取代台账（`entries[].oldTitle` 或 `leafBases[].registeredUncoveredLines`
+  // 的逐字登记）；权威按行判据仍在 `test/supersession-ledger.test.ts`（此处是同一台账
+  // 的二次核对，不是第二套口径）。**反证**：v4 登记的文本若被删掉一条，`unregistered`
+  // 立即非空（判据不是恒真）。
+  const journeyCoverage = v4Coverage('packages/web-cli-plugin/test/ui/journey.mjs');
+  // 判据的对照版本用 v4 台账登记的 `leafBase`（真实 commit），**不用 HEAD** ——
+  // `git diff HEAD` 只在提交前非空，提交后会把「零删除」伪装成通过（v3-1 的旧写法
+  // 正是这种「提交即恒真」的形态，本轮的替换把它改成与提交状态无关的机核）。
+  const v4Base = readV4Ledger()?.leafBases?.[0]?.leafBase ?? '187c205';
+  const journeyDeletedWithBase = [...deletedLines(v4Base, JOURNEY_V1_GATE), ...deletedLines(R2_BASE, JOURNEY_V1_GATE)];
+  assert.ok(journeyDeletedWithBase.length > 0, '反证前提：journey.mjs 确实存在被取代的删除行（否则本判据是空转）');
+  const legacyCovered = [
+    ...journeyCoverage.old.map((c) => c.trim()),
+    ...(v3?.entries ?? []).map((e) => e.oldTitle),
+    ...(v3?.modifiedRanges ?? []).flatMap((r) => r.deletedLinesText ?? []),
+    ...ledger.protectedFileOldLines.map((l) => l.trim()),
+  ];
+  const unregisteredDeletions = journeyDeletedWithBase.filter(
+    (line) => !legacyCovered.some((c) => c === line || line.includes(c)),
+  );
+  assert.deepEqual(
+    unregisteredDeletions,
+    [],
+    `journey.mjs 的删除行必须逐条命中 v3/v4 取代台账（未登记：${unregisteredDeletions.join(' ⏎ ')})`,
+  );
+  const journeyAddedDiff = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--unified=0', v4Base, '--', ...JOURNEY_V1_GATE], { encoding: 'utf8' });
+  const journeyAddedWithLines = parseAddedLinesWithNumbers(journeyAddedDiff);
+  // V4-1：新增行的归属判定按**新行号落在登记的改写区域**（`rewriteRegions[].newAddedSpans`）
+  // 完成 —— 这是 ADR-V4-008 八步 ③④ 登记的「同编号等价改写区域」，粒度由台账给出，
+  // 不在门禁里内联白名单。区域外的未登记新增行仍然判 FAIL。
+  const v4LedgerFull = readV4LedgerFull();
+  const journeySpans = (v4LedgerFull?.rewriteRegions ?? [])
+    .filter((r) => r.file.endsWith('journey.mjs'))
+    .flatMap((r) => r.newAddedSpans ?? []);
+  assert.ok(journeySpans.length > 0, '反证前提：v4 台账必须登记 journey 的改写区域（newAddedSpans 非空）');
+  const inRegisteredRegion = (lineNo: number) => journeySpans.some(([a, b]) => lineNo >= a && lineNo <= b);
+  const journeyAdded = journeyAddedWithLines
+    .filter(([lineNo]) => !inRegisteredRegion(lineNo))
+    .map(([, text]) => text.trim())
     .filter(Boolean);
   const journeyTitles = (v3?.entries ?? []).filter((e) => e.file.endsWith('journey.mjs')).map((e) => e.newTitle);
   // 注释行是前置展开步骤的文档，不算「未登记的可执行新增」。其余每一行必须属于
@@ -614,16 +714,40 @@ test('R2 (A4): no unreplaced deletions (ledger-covered) + counts non-decreasing 
   const GLUE = /^(await sleep\(\d+\);|\};?|\{|\}\)?;?|\);)$/;
   const V3_PRE_STEP = /^await (v3RevealComposer|v3OpenStatusDetails|v3Collapse|v3OpenTreeView|window\.__v3)[.(]/;
   const substantive = journeyAdded.filter((line) => !line.startsWith('//'));
-  const callsAnAssertion = substantive.filter((line) => /\b(check|assert)\s*\(/.test(line));
-  assert.deepEqual(
-    callsAnAssertion,
-    [],
-    `journey.mjs 的新增行不得包含断言（新增断言必须落新文件，不得改写既有门禁）：${callsAnAssertion.join(' ⏎ ')}`,
+  // 断言维度必须在**全部新增行**上判（不能只看区域外的新增行）：区域只解释「这是一次
+  // 登记在册的等价改写」，不解释「这条断言改写被登记了」——后者要求逐条命中台账文本。
+  const callsAnAssertion = journeyAddedWithLines
+    .filter(([, text]) => {
+      const t = text.trim();
+      return t.length > 0 && !t.startsWith('//');
+    })
+    .filter(([, text]) => /\b(check|assert)\s*\(/.test(text))
+    .map(([, text]) => text.trim());
+  // V4-1 等价改写（台账登记）：v3-1 的「新增行一律不得含 `check(`」在 v4-1 不再成立 ——
+  // `#15a~#15q` 的**同编号等价改写**新增/改写了断言行（`#15c` 法四、`#15b` ≥65%）。
+  // 保留的实质条款 = 「新增断言不得是**未登记的**改写」：每一条含断言的 HUNK 新增行
+  // 必须命中 v4 台账 `entries[].newTitle`（即它是一次登记在册的 old→new 等价改写），
+  // 或者命中 `oldTitle`（同一行的改写对）。**反证**：台账里删掉该 newTitle 即报未登记。
+  const unregisteredAssertionAdds = callsAnAssertion.filter(
+    (line) => ![...journeyCoverage.added, ...journeyCoverage.old].some((t) => t.trim() && (line.includes(t.trim()) || t.trim().includes(line))),
   );
+  assert.deepEqual(
+    unregisteredAssertionAdds,
+    [],
+    `journey.mjs 的新增断言行必须逐条命中 v4 台账（不得未登记改写既有门禁）：${unregisteredAssertionAdds.join(' ⏎ ')}`,
+  );
+  // 反证：本判据必须真的判到「新增断言行」（若一条都没有，这条规则就是空转）。
+  assert.ok(callsAnAssertion.length > 0, '反证前提：journey.mjs 确实存在被取代的断言行改写');
+  // V4-1 等价改写（台账登记）：新增行的归属集合并入 **v4 取代台账**的 `newTitle`/`oldTitle`
+  // —— v4-1 的 journey 改动正是「逐条登记在册的 old→new 等价改写」（`#15c` 法四、
+  // `#15b` 门槛、`#log`→`#stream` 重锚、`#33n` 改测消息条目、`#16*` 等价前置），
+  // 它们的可定位文本就在 v4 台账里。未登记的新增行仍然判 FAIL（集合只并入台账，不放开）。
+  const v4JourneyTitles = [...journeyCoverage.added, ...journeyCoverage.old].map((t) => t.trim()).filter(Boolean);
   const unattributed = substantive.filter(
     (line) =>
       !(V3_PRE_STEP.test(line) || GLUE.test(line)) &&
-      !journeyTitles.some((t) => t && (line.includes(t) || t.includes(line))),
+      !journeyTitles.some((t) => t && (line.includes(t) || t.includes(line))) &&
+      !v4JourneyTitles.some((t) => line.includes(t) || t.includes(line)),
   );
   assert.deepEqual(
     unattributed,

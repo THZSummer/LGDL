@@ -3,15 +3,15 @@
  "featureKey": "specs-tree-v4-1-zone-shell-density",
  "version": "v4.0.0",
  "name": "V4-1 三区骨架与密度重定标——三区落定（工具栏 ≤5 可点 + 站点摘要只读 + 4 视图入口 + 主题切换；状态栏连接状态 + 风险 chips 永不折叠）+ 密度新口径与防滥用（含反证）+ 登记格重算",
- "phase": "tasked",
- "workflow": "3.plan",
- "agent": "sddu-plan",
+ "phase": "builded",
+ "workflow": "5.build",
+ "agent": "sddu-build",
  "depth": 2,
  "parent": "specs-tree-web-cli-plugin-v4-chat",
  "childrens": [],
  "leaf": true,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-18T06:00:00.000Z",
+ "updatedAt": "2026-09-19T00:00:00.000Z",
  "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**首个开工**，其余三叶的共同承载基线）。承载父 FR-CHAT-004（风险永不折叠语义约束的新机器判据）与 FR-CHAT-010~017（ZONE 组）与 FR-CHAT-070~075（DENSITY 组）：① 三区骨架（header[role=toolbar] → main 含 ol#stream[role=log] → footer[role=contentinfo]）落定；② 工具栏准入 ≤5 可点（站点摘要只读 + 4 视图入口带计数徽标 + 主题切换），准入/置换规则显式登记；③ 工具栏/状态栏禁止一次性交互（法一可静态核验）；④ 状态栏常驻（连接状态一行 + 风险 chips，无风险收缩一行 0 chip，本体无 hidden）；⑤ 法四：默认屏无可见常驻输入框；⑥ L2 视图替换机制复用；⑦ 法则六落位（管理操作入设置/审计视图 + 首装路径可发现）；⑧ 风险位迁为状态栏 chips，永不折叠语义保留 + 新机器判据；⑨ 密度新口径（测量根 = 三区外壳、流内容不计入默认密度、豁免边界只认 hidden）+ 两条防滥用（单卡可点 ≤6 / 首屏卡片 ≤2）+ 阈值 7/15 · 9/20 · 17/35 保留 + v4 新基线文件与全部登记格重算 + 逐条反证。权威条文见父 spec.md §5.2 / §5.8 / §9 / §10。",
  "scope": {
   "in": [
@@ -191,5 +191,6 @@
   },
   "gateNote": "含 R4-17 增补 test:l0/l1/l2；第一任务 = S 级 spike 闸门（TASK-501）",
   "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/tasks.md"
- }
+ },
+ "buildNote": "2026-09-19 R3 终收轮：TASK-501~515 全闭环；19 项严格串行门禁 + RP-V4-01~07 全绿；journey 保护段显式取代（新 pin 43054..55259 / sha e2b500df…；redlineRemap 三条 landed；RP-V4-08 三情形）；密度 31 格实跑（含 3 空态 + 3 风险详情展开）；design-contract 门禁化（shim 60/60 + sha256 冻结 + 60 行映射表）；counts 实测填充（l0 203 / l1 108 / l2 73 / density 169 / journey 167 / insight 116 / binding 192 / hardening 24 / sidepanelView 38 / nodeTestRuntime 849）；体积 385,319 B ≤ 404,584；不动面逐字节不变。详见 build.md 附录 B。"
 }

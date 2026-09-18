@@ -191,6 +191,52 @@
         "regions": 4,
         "chars": 227
       }
+    },
+    "empty": {
+      "320": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 184
+      },
+      "400": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 184
+      },
+      "520": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 187
+      }
+    },
+    "riskDetailOpen": {
+      "320": {
+        "clickables": 6,
+        "lines": 8,
+        "blocks": 18,
+        "regions": 4,
+        "chars": 239
+      },
+      "400": {
+        "clickables": 6,
+        "lines": 8,
+        "blocks": 18,
+        "regions": 4,
+        "chars": 239
+      },
+      "520": {
+        "clickables": 6,
+        "lines": 8,
+        "blocks": 18,
+        "regions": 4,
+        "chars": 239
+      }
     }
   },
   "volume": {
@@ -201,7 +247,7 @@
     "ceilingCapRole": "record-only",
     "ceilingCapRecordBytes": 306099,
     "ceilingFormula": "floor(baseline × (1 + tolerance))",
-    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 375,102 B 从 266,500 B 起算的 Feature 累计增幅 **+40.75%** —— **R3 后越过已登记的 40% 停工线**（38.28% → 40.75%），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。"
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 **385,319 B**（R2 中间重登记的实测值；R3 收口轮复测同值）从 266,500 B 起算的 Feature 累计增幅 **+44.58%** —— **R3 后越过已登记的 40% 停工线**（历史文本中的 375,102 B / +40.75% 是上一轮登记值，逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_META.note` 的历史段），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。"
   },
   "designCaliber": {
     "published": {
@@ -382,24 +428,36 @@
   },
   "counts": {
     "countMethod": "runtime-check-calls",
-    "cells": 25,
-    "note": "9 强制 + 15 风险 + 1 worst；v4 目标 31 格，缺口见 knownLimitations。"
+    "cells": 31,
+    "composition": "9 强制（3 档 × 3 视口；risk 档那一行由 15 个风险子场景格承载）+ 15 风险子场景 + 3 空态（empty）+ 3 风险详情展开（riskDetailOpen）+ 1 worst = 31",
+    "note": "TASK-511/512 收口：31 格全部**实跑**登记（禁推测值）；6 个新增格于 2026-09-19 实测（empty 184/184/187 · riskDetailOpen 239×3）。"
   },
   "knownLimitations": [
-    "TASK-511 未完成：3 个空态格 + 3 个风险详情展开格尚未实跑登记（禁推测值）；in-gate RP-V4-01~07 尚未落地。",
-    "TASK-512 的 designCaliber.measuredByOurs / deltas 尚未实测填充。"
+    "过渡形态的卡口径：v4-1 的 `#l0-decision` 仍是被取代容器的内容体（v4-3 换成 `askuser`/`auth` 卡），本叶**不**把它计为「卡」，因此 RP-V4-01/02/03 以注入 `[data-msg-type]` 卡来证明单卡/首屏预算真的会红；v4-2 落 7 主类卡后，本口径必须重审（v4 收口时 `data-transitional-host` 清零，见 ADR-V4-005 第 6 条）。",
+    "empty 档的 `chars` 跨视口差 3（184→187）：与 default 档同因（站点摘要 `nowrap+ellipsis`），非产品漂移；empty 档不参与「default 三视口结构逐项相等」的确定性判据（后者只对 default 档生效）。",
+    "风险子场景 `staleRef` 的 `chars` 对视口不敏感（203×3），但该格对**夹具序**敏感：新增登记格必须在既有 A/B/C 之后执行（density.mjs 已如此排布），否则会静默改变既有格的实测值。"
   ],
   "differencesFromV3": [
     "测量根：v3 = #panel-main（已退役）→ v4 = document.body（三区骨架 + 状态栏为 body 直挂）。",
-    "豁免子树：新增 DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]（流本体不计入密度预算；单源 density-scope.ts）。",
+    "豁免子树：新增 DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]（流本体不计入密度预算；单源 density-scope.ts），并以「单卡 ≤6 / 首屏 ≤2」两条防滥用 + RP-V4-01~03 补偿控制。",
     "几何口径：v3 = 「#log ≥ 589px 像素下界」→ v4 = 「#stream clientHeight ≥ 488px ∧ #region-stream 高度占比 ≥ 0.65」（比例下界取代像素下界，只允许上调）。",
-    "格集：v3 = 9 强制 + 15 风险 + 1 worst；v4 目标 = 31 格（+3 空态 + 3 风险详情展开；本文件当前登记 25 格，缺口见 knownLimitations）。",
-    "composer：v3 = 常驻贴底（D-079）→ v4 = 法四（默认屏无可见常驻输入框；#composer 存在时必须 hidden，展开态位于 #stream 流内占位宿主）。"
+    "格集：v3 = 9 强制 + 15 风险 + 1 worst（22 格）→ v4 = 31 格（9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst）；v3 的 22 格冻结在 v3-density-baseline.json，不再参与判定。",
+    "composer：v3 = 常驻贴底（D-079）→ v4 = 法四（默认屏无可见常驻输入框；#composer 存在时必须 hidden，展开态位于 #stream 流内占位宿主）。",
+    "方向声明：以上全部是**换口径重定标**（收紧或等价），逐格数值与 v3 不可直接比较；v4 的 6 个新增格只增加登记面，不放松任何阈值（7/15 · 9/20 · 17/35 逐字不变）。"
   ],
   "measuredOn": "2026-09-19",
-  "measuredBy": "SDDU v4-1 build round (leaf specs-tree-v4-1-zone-shell-density), TASK-511/512 首轮实测",
+  "measuredBy": "SDDU v4-1 build round R3 (leaf specs-tree-v4-1-zone-shell-density), TASK-511/512 收口实测",
   "source": "packages/web-cli-plugin/dist/sidepanel.js",
   "buildCommand": "npm run build --workspace @lgdl/web-cli-plugin",
   "countMethod": "runtime-check-calls",
-  "registeredCells": 25
+  "registeredCells": 31,
+  "perCardBudget": {
+    "limit": 6,
+    "firstScreenLimit": 2,
+    "welcomeCardLimit": 1,
+    "welcomeLineLimit": 8,
+    "caliber": "一张「卡」= #stream 内**可见的** [data-msg-type]（v4-2 的 7 主类卡）或空态欢迎占位 (.log-empty-text)；li[data-transitional-host] 是过渡宿主、不是卡；#l0-decision 在 v4-1 仍是骨架占位宿主的内容体（v4-3 才换成 askuser/auth 卡），本叶不计为卡（见 knownLimitations）。",
+    "dynamicCells": "每档每视口逐格跑 evaluateCardBudget / evaluateFirstScreen（default / empty 档），只登记违规数 0（不登记逐卡明细，避免把动态格伪装成静态格）。",
+    "registeredViolations": 0
+  }
 }

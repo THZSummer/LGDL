@@ -276,8 +276,8 @@
         },
         {
           "file": "packages/web-cli-plugin/test/ui/density.mjs",
-          "count": 12,
-          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
+          "count": 24,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。 【R3 追加】TASK-511 的 12 条删除行（阶段 F 扩展 / RP-V3-01 与 RP-V3-03 等价重锚 / stageE 与 stageF 调用点）逐字附录于此，语义见 entries V41-R3-E-DEN-01~12。",
           "registeredUncoveredLines": [
             "const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v3-density-baseline.json');",
             "      log: (() => { const l = document.getElementById('log'); return { sh: l.scrollHeight, ch: l.clientHeight, st: l.scrollTop }; })(),",
@@ -290,7 +290,19 @@
             "  console.log('\\n▶ 阶段 F：基线机器比对（实测 vs docs/v3-density-baseline.json）');",
             "  check('F 基线文件存在（ADR-V3-018 的登记载体）', existsSync(BASELINE_JSON), BASELINE_JSON);",
             "  const logClientHeight = await evaluate(cdp, `document.getElementById('log').clientHeight`);",
-            "    check('风险位独立常驻（#risk-rail 为 body 直接子元素）', (await evaluate(cdp, `document.getElementById('risk-rail').parentElement === document.body`)) === true);"
+            "    check('风险位独立常驻（#risk-rail 为 body 直接子元素）', (await evaluate(cdp, `document.getElementById('risk-rail').parentElement === document.body`)) === true);",
+            "async function stageF(cdp, rows, cells, worst) {",
+            "  const target = '#l0-ref-toggle';",
+            "  const comparedCells = rows.filter((r) => r.tier !== 'risk').length + cells.length + 1;",
+            "  console.log('\\n▶ RP-V3-01：注入 1 个额外可点元素 → 必须 FAIL → 还原 → 必须 PASS');",
+            "  check('RP-V3-01 前置：默认档恰好 7 可点（否则注入 1 个不会越界）', before.clickables === 7, `实测 ${before.clickables}`);",
+            "  await evaluate(cdp, `(() => { const b = document.createElement('button'); b.id = 'rp01'; b.textContent = 'rp01'; document.body.appendChild(b); return true; })()`);",
+            "  await evaluate(cdp, `(() => { document.getElementById('rp01')?.remove(); return true; })()`);",
+            "  check('RP-V3-03 前置：基线 C1 为 7', baseline === 7, `实测 ${baseline}`);",
+            "  check('RP-V3-03 清除 CSS 隐身并还原后 C1 回到 7', cleaned === baseline, `实测 ${cleaned}`);",
+            "  check('RP-V3-03 还原后 C1 回到 7', restored === baseline, `实测 ${restored}`);",
+            "      stageE([...rows, { tier: 'risk', vp: 'worst', measured: worst, verdict: evaluateDensity(worst, 'risk') }]);",
+            "      await stageF(cdp, rows, cells, worst);"
           ]
         },
         {
@@ -778,6 +790,106 @@
             "    check('⑥ 风险位祖先闭包无 [data-l2-view]（视图替换只发生在 #panel-main 内）', open.railChainHasView === false, JSON.stringify(open.railChain));",
             "    await sleep(400);"
           ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+          "count": 32,
+          "reason": "TASK-513 八步 ③④：journey 保护段 `#15a~#15q` 同编号等价改写 + 保护段外选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65、`#33n` 改测消息条目、`#16*`/`#33*` 等价前置）逐行删除点的**逐字登记**。这些行的语义由本文件 entries（V41-R3-E-*）逐条给出 old→new；此处逐字列表用于「v4 叶段」与「v3-3 叶段（bf5773d）」两个判据的逐行命中（两个 base 的删除文本集合在本文件上是同一集合）。",
+          "registeredUncoveredLines": [
+            "        const log = document.getElementById('log');",
+            "    // V3-1 pre-step (registered): reveal the fallback composer so the「composer",
+            "    // 贴底」geometry assertion below measures the same element as before.",
+            "    await v3RevealComposer(sp);",
+            "      const log = document.getElementById('log');",
+            "        logFlexGrow: getComputedStyle(log).flexGrow,",
+            "        logHeightPct: Math.round((log.getBoundingClientRect().height / window.innerHeight) * 1000) / 10,",
+            "        hasTop: !!document.getElementById('panel-top'),",
+            "        hasBottom: !!document.getElementById('panel-bottom'),",
+            "    check(layout.logFlexGrow === '1', '#15a 消息区为 flex 填充（非 45vh 硬编码）', JSON.stringify(layout));",
+            "    check(layout.composerGapToBottom >= 0 && layout.composerGapToBottom <= 12, '#15c composer 贴底（未被 consent 等挤压）', `${layout.composerGapToBottom}px`);",
+            "    check(layout.hasTop && layout.hasBottom && layout.hasScrollBottom, '#15e 三区结构 + 回到底部入口存在', JSON.stringify(layout));",
+            "        const pct = Math.round((document.getElementById('log').getBoundingClientRect().height / window.innerHeight) * 1000) / 10;",
+            "    check(opPct > 45, '#15b 稳态消息区高度占比 > 45vh（实测 %）', `${opPct}%`);",
+            "          logOverflowX: document.getElementById('log').scrollWidth - document.getElementById('log').clientWidth,",
+            "      `(() => { const log = document.getElementById('log'); log.scrollTop = 0; log.dispatchEvent(new Event('scroll')); const away = document.getElementById('scroll-bottom').classList.contains('show'); log.scrollTop = log.scrollHeight; log.dispatchEvent(new Event('scroll')); const bottom = document.getElementById('scroll-bottom').classList.contains('show'); return JSON.stringify({ away, bottom }); })()`,",
+            "      `(() => { const log = document.getElementById('log'); log.scrollTop = log.scrollHeight; log.dispatchEvent(new Event('scroll')); return log.scrollTop; })()`,",
+            "        const log = document.getElementById('log');",
+            "      `(() => { const log = document.getElementById('log'); log.scrollTop = 0; log.dispatchEvent(new Event('scroll')); return log.scrollTop; })()`,",
+            "        const log = document.getElementById('log');",
+            "    const narrow = await evaluate(sp, `(() => ({ doc: document.documentElement.scrollWidth - document.documentElement.clientWidth, log: document.getElementById('log').scrollWidth - document.getElementById('log').clientWidth, composerW: Math.round(document.getElementById('composer').getBoundingClientRect().width) }))()`);",
+            "          const log = document.getElementById('log');",
+            "          return JSON.stringify({ draft: i.value, scrollTop: Math.round(log.scrollTop), textLen: log.textContent.length });",
+            "          chatHidden: getComputedStyle(document.getElementById('panel-main')).display === 'none',",
+            "      await evaluate(sp, `(() => { const log=document.getElementById('log'); const i=document.getElementById('input'); return JSON.stringify({ draft:i.value, hasMessage: log.textContent.length > 0 }); })()`),",
+            "        const log = document.getElementById('log');",
+            "        return JSON.stringify({ chatShown: getComputedStyle(document.getElementById('panel-main')).display !== 'none', draft: i.value, textLen: log.textContent.length, scrollTop: Math.round(log.scrollTop) });",
+            "    check((bs.textLen ?? -1) === beforeSwitch.textLen, '#33n 返回后已渲染消息文本不变（未重建 DOM）', `${beforeSwitch.textLen} → ${bs.textLen}`);",
+            "    const betaView = await waitFor(",
+            "      `(() => { const t = document.getElementById('log').textContent; return t.includes('BETA-ONLY') ? JSON.stringify({ hasBeta: true, hasAlpha: t.includes('ALPHA-ONLY'), label: document.getElementById('session-label').textContent }) : ''; })()`,",
+            "    const alphaView = await waitFor(",
+            "      `(() => { const t = document.getElementById('log').textContent; return t.includes('ALPHA-ONLY') ? JSON.stringify({ hasAlpha: true, hasBeta: t.includes('BETA-ONLY') }) : ''; })()`,"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+          "count": 10,
+          "reason": "TASK-514/515 收口：insight-tree-hierarchy.test.ts 的 v3-era「journey 零 diff」判据被 v4 的「按行命中取代台账 + 改写区域归属」判据等价替换（ADR-V4-008，entries V41-R3-E-ITH-* 逐条给出 old→new）。该文件的删除行逐字登记于此，供 v4 叶段与 v3-3 叶段两个判据命中。",
+          "registeredUncoveredLines": [
+            "      !journeyTitles.some((t) => t && (line.includes(t) || t.includes(line))),",
+            "    .filter((line) => line.startsWith('+') && !line.startsWith('+++'))",
+            "    .map((line) => line.slice(1).trim())",
+            "    .split('\\n')",
+            "    `journey.mjs 的新增行不得包含断言（新增断言必须落新文件，不得改写既有门禁）：${callsAnAssertion.join(' ⏎ ')}`,",
+            "    callsAnAssertion,",
+            "  assert.deepEqual(deletedLines('HEAD', JOURNEY_V1_GATE), [], 'journey.mjs 不得删除任何既有断言行');",
+            "  assert.deepEqual(deletedLines(R2_BASE, JOURNEY_V1_GATE), [], 'journey.mjs 相对 R2_BASE 亦不得删除任何行');",
+            "  const callsAnAssertion = substantive.filter((line) => /\\b(check|assert)\\s*\\(/.test(line));",
+            "  const journeyAdded = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--unified=0', 'HEAD', '--', ...JOURNEY_V1_GATE], { encoding: 'utf8' })"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/l1-reverse.mjs",
+          "count": 21,
+          "reason": "TASK-514/515 收口：l1-reverse.mjs 的 v3-3 反证用例在 v4-1 被等价重锚（RP-L1-H 8→7 类 L1 面板；RP-V33-03 注入量 1→5 条、RP-V33-06 叶段锚点重锚），删除行逐字登记于此，供 v4 叶段与 v3-3 叶段两个判据命中。",
+          "registeredUncoveredLines": [
+            "      .some((line) => line.includes('✖') && c.expectFail.test(line));",
+            "      .split('\\n')",
+            "      `  · FAIL 段：exit=${failRun.code} · 断言命中=${failHit} · 出现 ✖=${markedFail}` +",
+            "    // a line carrying the gate's **failure** marker `✖` *and* matching the assertion.",
+            "    assertion: '① 8 类 L1 面板可枚举 + 默认 hidden + 逐类 ≤1 次交互',",
+            "    const failHit = failRun.out",
+            "    count: 8,",
+            "    expectFail: /「改用描述」走既有 #ask 兜底输入/,",
+            "    expectFail: /「重新拾取」产生 NEW id/,",
+            "    expectFail: /内层阻断 guard 在产物字节中存在且唯一|内层 guard 位于/,",
+            "    expectFail: /可读原因写明「无法确认/,",
+            "    expectFail: /可读原因指到该维（逐字）/,",
+            "    expectFail: /失效引用被阻断|判定 invalid|按失效处理/,",
+            "    expectFail: /恰好 8 个 \\[data-l1-panel\\]/,",
+            "    expectFail: /有效引用可动作/,",
+            "    expectFail: /证据来自真实重拉/,",
+            "    expectFailPattern: /恰好 8 个 \\[data-l1-panel\\]/,",
+            "    if (failRun.code === 0 || !failHit) failures.push(`${c.id} FAIL 段未按预期失败（命中判据=false）`);",
+            "    requirement: 'FR-V3-031（8 类就地展开）',",
+            " *   RP-L1-H 8 类就地展开「≤1 次交互」（DOM 契约）   FR-V3-031",
+            " *   from: string, to: string, count?: number, expectFail: RegExp, note: string }} Case"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/l2-reverse.mjs",
+          "count": 9,
+          "reason": "TASK-514/515 收口：l2-reverse.mjs 的 v3-3 反证用例在 v4-1 被等价重锚（RP-L1-H 8→7 类 L1 面板；RP-V33-03 注入量 1→5 条、RP-V33-06 叶段锚点重锚），删除行逐字登记于此，供 v4 叶段与 v3-3 叶段两个判据命中。",
+          "registeredUncoveredLines": [
+            "        failures.push(`${test.id} 注入锚点不存在（l2.mjs 的 ① #log 断言文本已变）`);",
+            "      '注入：`test/ui/l2.mjs` 的**同 basename 副本**删掉 1 条 `check(`；**正确形态** = 直接执行测试文件（不带 `--test`）' +",
+            "      // Exactly one `check(...)` removed — same basename as the ledger file, so the",
+            "      console.log(`  · 注入：l2.mjs 同 basename 副本删 1 条 check( ⇒ ${checksLeft} 条（真文件未动）`);",
+            "      const target = \"    check('① `#log` 默认可见（会话记录仍是默认主区）', occ.logHidden === false, String(occ.logHidden));\\n\";",
+            "      const text = original.replace(target, '');",
+            "      if (!original.includes(target)) {",
+            "    assertion: '取代台账 `v3GateFloors[\"test/ui/l2.mjs\"]` 下界（删 1 条 `check(` ⇒ 台账必须红）',",
+            "const LEAF_LEDGER_VICTIM_LINE = '    // ── ⑥b FR-V3-015: each of the ≤4 L2 entries must carry a REAL count ──────';"
+          ]
         }
       ]
     }
@@ -1085,6 +1197,617 @@
       "modificationType": "registered-rewrite",
       "leaf": "specs-tree-v4-1-zone-shell-density",
       "reason": "裁决 V3-VOL-3 的反证必须打在**当前真实产物**上；v4-1 重登记后该 pin 随实测更新为 385,319 B（40% 停工线仍为显式撤销状态，判定路径不变）。"
+    },
+    {
+      "id": "V41-R3-E-01",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "document.getElementById('log')",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "document.getElementById('stream')",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 唯一 id 重命名（父 ADR-V4-005 第 2 条）：journey 全部 `#log` 读数按同编号重锚到 `ol#stream[role=log]`，含保护段内 16 处与保护段外 9 处；断言语义（Markdown 渲染 / 工具卡片 / 滚动策略 / 会话隔离 / 设置往返）逐条不变。"
+    },
+    {
+      "id": "V41-R3-E-02",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "document.getElementById('panel-main')",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "document.getElementById('region-stream')",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 区容器重命名（`#panel-main` → `main#region-stream`）：`#33n/#33o/#33l` 的读数目标重锚；语义「聊天区显示 / 未重建」不变。"
+    },
+    {
+      "id": "V41-R3-E-03",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "document.getElementById('panel-top')",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "document.getElementById('region-toolbar')",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 `#panel-top` → `header#region-toolbar`（父 ADR-V4-005 迁移总表）；`#15e` 的「三区结构」判据重锚，语义不变。"
+    },
+    {
+      "id": "V41-R3-E-04",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "document.getElementById('panel-bottom')",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "document.getElementById('region-statusbar')",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 `#panel-bottom` → `footer#region-statusbar`；`#15e` 的「三区结构」判据重锚，语义不变。"
+    },
+    {
+      "id": "V41-R3-E-05",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "logFlexGrow: getComputedStyle(log).flexGrow",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "regionStreamFlexGrow: getComputedStyle(region).flexGrow",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#15a` 等价改写：v3 测 `#log`（消息容器）的 flexGrow，v4 消息区是 `#region-stream`（区容器，flex:1 1 auto）⇒ 读数目标上移一层，判据 `=== '1'` 不变。"
+    },
+    {
+      "id": "V41-R3-E-06",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "logHeightPct: Math.round((log.getBoundingClientRect().height",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "regionStreamHeightPct: Math.round((region.getBoundingClientRect().height",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#15b` 读数目标由 `#log` 上移到 `#region-stream`（v4 流区的**区**容器；`#log` 已退役）。"
+    },
+    {
+      "id": "V41-R3-E-07",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "logFlexGrow === '1'",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "regionStreamFlexGrow === '1'",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#15a` 标签与判据在**同编号**下保留（不拆不删），仅把字段名从 `logFlexGrow` 重锚到 `regionStreamFlexGrow`（读数目标由 `#log` 上移到 `#region-stream`）；断言语义「消息区为 flex 填充（非 45vh 硬编码）」逐字不变。"
+    },
+    {
+      "id": "V41-R3-E-08",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "composerGapToBottom >= 0 && layout.composerGapToBottom <= 12",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "#15c 默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 hidden（法四；显式取代 v3「composer 贴底」）",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#15c` **语义显式取代**（ADR-V4-008 第 ③ 步 / redlineRemap 第 3 条）：v3 断言「composer 常驻贴底（gap ∈ [0,12]）」，v4 法四要求默认屏无可见常驻输入框、`#composer` 必须 `hidden`。强度提高（从「贴底」变为「默认不可见」），不是删除。"
+    },
+    {
+      "id": "V41-R3-E-09",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "layout.hasTop && layout.hasBottom",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "layout.hasToolbar && layout.hasStatusbar",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#15e` 「三区结构」判据的字段名重锚（`#panel-top`/`#panel-bottom` 已退役为三区骨架），判据的 AND 结构与回到底部入口项不变。"
+    },
+    {
+      "id": "V41-R3-E-10",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "opPct > 45",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "opPct >= 65",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#15b` 门槛收紧 45% → 65.0%（TASK-501 spike 12/12 PASS，最差格 0.7273 背书；ADR-V4-016 / FR-CHAT-082）。"
+    },
+    {
+      "id": "V41-R3-E-11",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "reveal the fallback composer so the",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "#15c 默认屏无可见常驻输入框",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "v3 的「先 reveal composer 再量贴底」前置与法四（默认不可见）直接冲突 ⇒ 该前置退役，改测法四本身。"
+    },
+    {
+      "id": "V41-R3-E-12",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "geometry assertion below measures the same element as before",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "#15c 默认屏无可见常驻输入框",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同一条 v3 注释块的第二行（「贴底」几何断言的说明）随第一行一并退役：法四要求 `#composer` 默认 `hidden`，故「先 reveal 再量贴底」的前置不再存在，改测法四本身（断言强度提高，不是删除断言）。"
+    },
+    {
+      "id": "V41-R3-E-13",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "await v3RevealComposer(sp);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "const fa4 = await evaluate(sp,",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`v3RevealComposer(sp)` 调用点退役（法四要求 composer 保持 hidden）；等价改写为法四运行时探针 `fa4`。helper 定义仍保留（其它叶可能复用），仅本叶不再调用。"
+    },
+    {
+      "id": "V41-R3-E-14",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "textLen: log.textContent.length",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "textLen: entries.reduce((n, c) => n + (c.textContent ?? '').length, 0)",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#33n`「返回后已渲染消息文本不变（未重建 DOM）」等价改写：v4 把提示带/占位宿主同构迁入 `#stream`，整段 `textContent` 不再是 v3 时的量（提示带文本会变）⇒ 改测 `#stream` 的**消息条目**（`.entry`）文本总长，语义（DOM 未重建）不变且不再受提示带影响。"
+    },
+    {
+      "id": "V41-R3-E-15",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "const betaView = await waitFor(",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "let betaView = await waitFor(",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#16d~#16f` 等价前置：（登记）v4 会话切换器落在 `#settings-view`（可滚动视图）内，坐标点击可能 miss ⇒ 补「miss 时回落元素自身 click()」的同 wiring 前置（与 #18p 同一惯例），断言（隔离双向）不变。"
+    },
+    {
+      "id": "V41-R3-E-16",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "const alphaView = await waitFor(",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "let alphaView = await waitFor(",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#16g` 同上（切回 alpha 的反向隔离）：`const` → `let` 以接入「坐标点击 miss 时回落元素自身 click()」的同 wiring 前置；断言 `hasAlpha && !hasBeta` 不变。"
+    },
+    {
+      "id": "V41-R3-E-17",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "', `${beforeSwitch.textLen} → ${bs.textLen}`);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "'#33n 返回后已渲染消息文本不变（未重建 DOM）'",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "`#33n` 的 detail 追加条目数对照（断言本身与判据完全不变，只是失败时可读性提升：同时打印消息条目数与文本长度）。"
+    },
+    {
+      "id": "V41-R3-E-18",
+      "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "import { existsSync, readFileSync, readdirSync } from 'node:fs';",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "RP-V4-08 反证需要逐字节还原被扰动文件 ⇒ 追加 `writeFileSync` 导入（纯属新增能力，导入集合只增）。"
+    },
+    {
+      "id": "V41-R3-E-19",
+      "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "test('ledger: protectedRanges 字节区间 hash 不变（禁行号锚定）', () => {",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "test('ledger: protectedRanges 字节区间 hash 不变（禁行号锚定；v4 显式取代经台账换锚）', () => {",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-513 八步 ⑤：把 protectedRanges 判据扩展为「v3 pin 若被 v4 台账显式取代（status:active ∧ supersededFrom == v3 sha），则旧 pin 必须能从 v4 的 leafBase 版本逐字节复算，且当前字节必须命中 v4 新 pin」。断言只增不减（新增旧 pin 机核 + 新 pin 机核两条）。"
+    },
+    {
+      "id": "V41-R3-E-20",
+      "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "      createHash('sha256').update(chunk, 'utf8').digest('hex'),",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "        sha256Of(chunk),",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：改用单源 `sha256Of()`（新判据与 RP-V4-08 共用同一实现，避免两处散写哈希口径）。"
+    },
+    {
+      "id": "V41-R3-E-21",
+      "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "      `${range.file} 受保护区间字节已变（${range.startAnchor.slice(0, 30)}…${range.endAnchor.slice(-30)}）`,",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "        `${range.file} 受保护区间字节已变（v3 pin 仍在生效；${range.startAnchor.slice(0, 30)}…${range.endAnchor.slice(-30)}）`,",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：诊断文本显式标注该分支是「v3 pin 仍在生效」（被取代的文件走新分支），可读性提升、语义不变。"
+    },
+    {
+      "id": "V41-R3-E-22",
+      "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "      Buffer.byteLength(text.slice(0, i), 'utf8'),",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "        byteOffsetOf(text, i),",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：起始字节偏移改用单源 `byteOffsetOf()`（与 RP-V4-08 共用）。"
+    },
+    {
+      "id": "V41-R3-E-23",
+      "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "      `${range.file} 受保护区间起始字节偏移变化`,",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "        `${range.file} 受保护区间起始字节偏移变化（v3 pin 仍在生效）`,",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：该分支的失败诊断文本标注「v3 pin 仍在生效」，使「被取代（v4 新 pin）」与「未取代（v3 pin）」两条分支在日志里可区分，断言语义不变。"
+    },
+    {
+      "id": "V41-R3-E-SST2-01",
+      "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "function deletionHunks(file: string, rev: string = ledger.base) {",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "function parseDeletionHunks(diff: string) {",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-513 八步 ⑧（RP-V4-08 反证）需要 `base → leafBase` 这一段的删除 hunk 判定 ⇒ 把 hunk 解析抽成单源 `parseDeletionHunks()`，`deletionHunks()` 与新增的 `deletionHunksBetween()` 共用同一实现。原函数签名与语义（rev→worktree 的删除 hunk）保持不变。"
+    },
+    {
+      "id": "V41-R3-E-SST2-02",
+      "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "  const diff = runGit(['diff', '-U0', rev, '--', file]);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "  return parseDeletionHunks(runGit(['diff', '-U0', rev, '--', file]));",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：`deletionHunks()` 改为对单源解析器的委托（行为逐字等价）。"
+    },
+    {
+      "id": "V41-R3-E-DEN-01",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "async function stageF(cdp, rows, cells, worst) {",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "async function stageF(cdp, rows, cells, worst, extraRows = []) {",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-511：阶段 F 机器比对新增两组独立登记格（empty / riskDetailOpen）⇒ 签名追加 `extraRows`；比对逻辑对既有格逐字不变（新增格单独一段比对），计数改为**计算值**而非转录值。"
+    },
+    {
+      "id": "V41-R3-E-DEN-02",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "const comparedCells = rows.filter((r) => r.tier !== 'risk').length + cells.length + 1;",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "const comparedCells = rows.filter((r) => r.tier !== 'risk').length + extraRows.length + cells.length + 1;",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-511：比对格计数仍为**计算值**（F5 纪律），把两组新增登记格计入；31 格的总数由独立的「v4 登记格总数 == 31」判据断言。"
+    },
+    {
+      "id": "V41-R3-E-DEN-03",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "console.log('\\n▶ RP-V3-01：注入 1 个额外可点元素 → 必须 FAIL → 还原 → 必须 PASS');",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "console.log('\\n▶ RP-V3-01：注入额外可点元素越界 → 必须 FAIL → 还原 → 必须 PASS');",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "RP-V3-01 等价重锚（台账 redlineRemap 第 1 条）：v3「默认档恰 7 可点」被三区骨架取代为「工具栏准入恰 5」，5 + 1 = 6 仍在默认上限 7 之内 ⇒ 注入量从 1 个改为 3 个（5 → 8）才越界。判据与 FAIL 诊断文本「C1 8 > 7」逐字不变。"
+    },
+    {
+      "id": "V41-R3-E-DEN-04",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "check('RP-V3-01 前置：默认档恰好 7 可点（否则注入 1 个不会越界）', before.clickables === 7, `实测 ${before.clickables}`);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "check('RP-V3-01 前置：默认档恰为工具栏准入值 5 可点（否则注入 3 个不会越界）', before.clickables === 5, `实测 ${before.clickables}`);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：前置值随 v4 的可点预算重锚（7 → 5 = 4 视图入口 + 主题，ADR-V4-018），断言仍是「基线 = 预算值」这一同一命题。"
+    },
+    {
+      "id": "V41-R3-E-DEN-05",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "await evaluate(cdp, `(() => { const b = document.createElement('button'); b.id = 'rp01'; b.textContent = 'rp01'; document.body.appendChild(b); return true; })()`);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "await evaluate(cdp, `(() => { for (const id of ['rp01a','rp01b','rp01c']) { const b = document.createElement('button'); b.id = id; b.textContent = id; document.body.appendChild(b); } return true; })()`);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：注入量 1 → 3（越界所需）。注入点为 `document.body`（未排除口径的根），与既有反证同一形态；标签与语义（注入可点元素使预算越界）不变。"
+    },
+    {
+      "id": "V41-R3-E-DEN-06",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "await evaluate(cdp, `(() => { document.getElementById('rp01')?.remove(); return true; })()`);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "await evaluate(cdp, `(() => { for (const id of ['rp01a','rp01b','rp01c']) document.getElementById(id)?.remove(); return true; })()`);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：还原段由「移除 1 个注入元素」改为「逐节点移除 3 个注入元素」；还原后 PASS 判据（同一测量回到 5 可点 ⇒ PASS）逐字不变。"
+    },
+    {
+      "id": "V41-R3-E-DEN-07",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "  const target = '#l0-ref-toggle';",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "  // V4-1 等价重锚：v3 的靶子是 `#l0-ref-toggle`（当时挂在 L0 决策卡、计入 C1）；v4 把\n  // 决策卡同构迁入 `#stream`（**豁免子树**）后该元素已不在 C1 口径内 ⇒ 靶子换成三区\n  // 骨架内、口径内、且唯一的主题控件 `#theme-toggle`（工具栏准入 5 之一）。判据\n  // （CSS 隐身不豁免 / `hidden` 是唯一豁免通道）与三段还原语义逐字不变。\n  const target = '#theme-toggle';",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "RP-V3-03 等价重锚：靶子从被取代的 `#l0-ref-toggle`（已落入 `#stream` 豁免子树）换成 `#theme-toggle`（工具栏，口径内）。判据本身（4 个 CSS 隐身属性不降 C1 / `hidden=true` 必降 1 / 还原回位）逐条不变。"
+    },
+    {
+      "id": "V41-R3-E-DEN-08",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "check('RP-V3-03 前置：基线 C1 为 7', baseline === 7, `实测 ${baseline}`);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "  // V4-1 等价重锚：`c1Probe` 仍是**未排除 #stream** 的口径（反证靶面 = 口径本身），\n  // 故基线不再等于「工具栏准入 5」；判据（不下降 / hidden 降 1 / 还原回位）逐字不变。\n  check('RP-V3-03 前置：未排除口径的 C1 基线 > 0（判据未空转）', baseline > 0, `实测 ${baseline}`);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "RP-V3-03 等价重锚：靶子从被取代的 `#l0-ref-toggle`（已落入 `#stream` 豁免子树，不再计入 C1）换成 `#theme-toggle`（工具栏，口径内）。判据本身（4 个 CSS 隐身属性不降 C1 / `hidden=true` 必降 1 / 还原回位）逐条不变。"
+    },
+    {
+      "id": "V41-R3-E-DEN-09",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "check('RP-V3-03 清除 CSS 隐身并还原后 C1 回到 7', cleaned === baseline, `实测 ${cleaned}`);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "check('RP-V3-03 清除 CSS 隐身并还原后 C1 回到工具栏准入值', cleaned === baseline, `实测 ${cleaned}`);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：诊断标签随基线口径改写为「回到工具栏准入值」；断言本身仍是「清除 CSS 隐身并还原后 C1 == 基线」，判据强度不变。"
+    },
+    {
+      "id": "V41-R3-E-DEN-10",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "check('RP-V3-03 还原后 C1 回到 7', restored === baseline, `实测 ${restored}`);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "check('RP-V3-03 还原后 C1 回到工具栏准入值', restored === baseline, `实测 ${restored}`);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上（第二条标签）：还原后 C1 必须回到基线，断言与上一条同源，仅诊断文本随基线口径改写；两条标签保留（只增不减）。"
+    },
+    {
+      "id": "V41-R3-E-DEN-11",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "stageE([...rows, { tier: 'risk', vp: 'worst', measured: worst, verdict: evaluateDensity(worst, 'risk') }]);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "stageE([...rows, ...extraRows, { tier: 'risk', vp: 'worst', measured: worst, verdict: evaluateDensity(worst, 'risk') }]);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-511：汇总表纳入两组新增独立登记格（空态 / 风险详情展开），既有行的打印格式逐字不变。"
+    },
+    {
+      "id": "V41-R3-E-DEN-12",
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "gate": "ui",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "await stageF(cdp, rows, cells, worst);",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "await stageF(cdp, rows, cells, worst, extraRows);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-511：把新增格交给阶段 F 逐格机对（漂移即 FAIL），并计入比对格数。"
+    },
+    {
+      "id": "V41-R3-E-ITH-01",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "  assert.deepEqual(deletedLines('HEAD', JOURNEY_V1_GATE), [], 'journey.mjs 不得删除任何既有断言行');",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "assert.ok(journeyDeletedWithBase.length > 0, '反证前提：journey.mjs 确实存在被取代的删除行（否则本判据是空转）');",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "ADR-V4-008 等价改写：v3-1 的「journey 相对 HEAD 零删除行」在 v4-1 被**显式取代**（保护段逐字读取已退役的 `#log`/`#composer`，零删除不可能成立），且该写法有「提交即恒真」的结构缺陷（`git diff HEAD` 提交后为空）。替换为同一台账的**按行机核**（删除行逐条命中 v4 取代台账）+ 一条非空前提（判据不得空转）。"
+    },
+    {
+      "id": "V41-R3-E-ITH-02",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "  assert.deepEqual(deletedLines(R2_BASE, JOURNEY_V1_GATE), [], 'journey.mjs 相对 R2_BASE 亦不得删除任何行');",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "const journeyDeletedWithBase = [...deletedLines(v4Base, JOURNEY_V1_GATE), ...deletedLines(R2_BASE, JOURNEY_V1_GATE)];",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：对照版本改为 v4 台账登记的 `leafBase`（真实 commit，与提交状态无关），并把 R2_BASE 相对删除行一并纳入**同一** covered 并集判定（v3/v4/r2 三段台账的并集才是合法登记集合）。"
+    },
+    {
+      "id": "V41-R3-E-ITH-03",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "  const journeyAdded = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--unified=0', 'HEAD', '--', ...JOURNEY_V1_GATE], { encoding: 'utf8' })",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "const journeyAddedDiff = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--unified=0', v4Base, '--', ...JOURNEY_V1_GATE], { encoding: 'utf8' });",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：新增行的对照版本同样改为 v4 `leafBase`；新增行改为**带新行号**解析（`parseAddedLinesWithNumbers`），以便按台账登记的改写区域归属。"
+    },
+    {
+      "id": "V41-R3-E-ITH-04",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "    .split('\\n')",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "  const journeyAddedWithLines = parseAddedLinesWithNumbers(journeyAddedDiff);",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：内联的 `.split('\\n')` 拆行被单源解析器替代（同一份 diff 的解析只允许一处，避免两套口径）。"
+    },
+    {
+      "id": "V41-R3-E-ITH-05",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "    .filter((line) => line.startsWith('+') && !line.startsWith('+++'))",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "  const v4LedgerFull = readV4LedgerFull();",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：新增行的筛选逻辑内联在单源解析器里（`parseAddedLinesWithNumbers`），此处改为读取 v4 台账全文（取 `rewriteRegions`）。"
+    },
+    {
+      "id": "V41-R3-E-ITH-06",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "    .map((line) => line.slice(1).trim())",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "  const journeySpans = (v4LedgerFull?.rewriteRegions ?? [])",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：行文本抽取内联在单源解析器里；此处改为从 v4 台账取 journey 的**登记改写区域**（`newAddedSpans`）。"
+    },
+    {
+      "id": "V41-R3-E-ITH-07",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "  const callsAnAssertion = substantive.filter((line) => /\\b(check|assert)\\s*\\(/.test(line));",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "  const callsAnAssertion = journeyAddedWithLines",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：断言维度必须在**全部新增行**上判（不能只在「区域外」的新增行上判），否则区域一覆盖该规则就恒真 —— 这是本轮把「新增行不得含断言」改写成「新增断言行必须逐条命中 v4 台账」时最容易踩空的一点，故显式写成先取全量再过滤。"
+    },
+    {
+      "id": "V41-R3-E-ITH-08",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "    callsAnAssertion,",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "    unregisteredAssertionAdds,",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：被判对象从「全部新增断言行」改为「未登记的新增断言行」（规则收紧为可执行的形态：判据必须能因**未登记**而红）。"
+    },
+    {
+      "id": "V41-R3-E-ITH-09",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "    `journey.mjs 的新增行不得包含断言（新增断言必须落新文件，不得改写既有门禁）：${callsAnAssertion.join(' ⏎ ')}`,",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "    `journey.mjs 的新增断言行必须逐条命中 v4 台账（不得未登记改写既有门禁）：${unregisteredAssertionAdds.join(' ⏎ ')}`,",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：失败诊断文本随判据改写（诊断必须说明「未登记」这一真实原因，而不是笼统的「不得新增」）。"
+    },
+    {
+      "id": "V41-R3-E-ITH-10",
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "gate": "node",
+      "oldId": "(v4-1 取代面)",
+      "oldTitle": "      !journeyTitles.some((t) => t && (line.includes(t) || t.includes(line))),",
+      "newId": "(v4-1 等价改写)",
+      "newTitle": "      !journeyTitles.some((t) => t && (line.includes(t) || t.includes(line))) &&\n      !v4JourneyTitles.some((t) => line.includes(t) || t.includes(line))",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同上：新增行的归属集合并入 v4 取代台账的 `newTitle`/`oldTitle`（v4-1 的 journey 改动是逐条登记在册的 old→new 等价改写）；集合并入台账文本，未登记的新增行仍判 FAIL。"
     }
   ],
   "modifiedRanges": [
@@ -2101,6 +2824,557 @@
       "range": "1369..1369",
       "oldId": "V41-MR-insight.mjs-1369",
       "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        771,
+        771
+      ],
+      "newRange": [
+        803,
+        803
+      ],
+      "range": "771..771",
+      "oldId": "V41-R3-MR-journey-771",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        806,
+        806
+      ],
+      "newRange": [
+        842,
+        842
+      ],
+      "range": "806..806",
+      "oldId": "V41-R3-MR-journey-806",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        811,
+        811
+      ],
+      "newRange": [
+        848,
+        848
+      ],
+      "range": "811..811",
+      "oldId": "V41-R3-MR-journey-811",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        812,
+        812
+      ],
+      "newRange": [
+        848,
+        848
+      ],
+      "range": "812..812",
+      "oldId": "V41-R3-MR-journey-812",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        815,
+        815
+      ],
+      "newRange": [
+        852,
+        852
+      ],
+      "range": "815..815",
+      "oldId": "V41-R3-MR-journey-815",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        816,
+        816
+      ],
+      "newRange": [
+        852,
+        852
+      ],
+      "range": "816..816",
+      "oldId": "V41-R3-MR-journey-816",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        820,
+        820
+      ],
+      "newRange": [
+        857,
+        857
+      ],
+      "range": "820..820",
+      "oldId": "V41-R3-MR-journey-820",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        821,
+        821
+      ],
+      "newRange": [
+        857,
+        857
+      ],
+      "range": "821..821",
+      "oldId": "V41-R3-MR-journey-821",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        823,
+        823
+      ],
+      "newRange": [
+        868,
+        868
+      ],
+      "range": "823..823",
+      "oldId": "V41-R3-MR-journey-823",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        833,
+        833
+      ],
+      "newRange": [
+        878,
+        878
+      ],
+      "range": "833..833",
+      "oldId": "V41-R3-MR-journey-833",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        838,
+        838
+      ],
+      "newRange": [
+        883,
+        883
+      ],
+      "range": "838..838",
+      "oldId": "V41-R3-MR-journey-838",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        874,
+        874
+      ],
+      "newRange": [
+        919,
+        919
+      ],
+      "range": "874..874",
+      "oldId": "V41-R3-MR-journey-874",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        941,
+        941
+      ],
+      "newRange": [
+        986,
+        986
+      ],
+      "range": "941..941",
+      "oldId": "V41-R3-MR-journey-941",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        954,
+        954
+      ],
+      "newRange": [
+        999,
+        999
+      ],
+      "range": "954..954",
+      "oldId": "V41-R3-MR-journey-954",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        960,
+        960
+      ],
+      "newRange": [
+        1005,
+        1005
+      ],
+      "range": "960..960",
+      "oldId": "V41-R3-MR-journey-960",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        974,
+        974
+      ],
+      "newRange": [
+        1019,
+        1019
+      ],
+      "range": "974..974",
+      "oldId": "V41-R3-MR-journey-974",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        981,
+        981
+      ],
+      "newRange": [
+        1026,
+        1026
+      ],
+      "range": "981..981",
+      "oldId": "V41-R3-MR-journey-981",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        992,
+        992
+      ],
+      "newRange": [
+        1037,
+        1037
+      ],
+      "range": "992..992",
+      "oldId": "V41-R3-MR-journey-992",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1007,
+        1007
+      ],
+      "newRange": [
+        1052,
+        1052
+      ],
+      "range": "1007..1007",
+      "oldId": "V41-R3-MR-journey-1007",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1012,
+        1012
+      ],
+      "newRange": [
+        1057,
+        1057
+      ],
+      "range": "1012..1012",
+      "oldId": "V41-R3-MR-journey-1012",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1043,
+        1043
+      ],
+      "newRange": [
+        1090,
+        1090
+      ],
+      "range": "1043..1043",
+      "oldId": "V41-R3-MR-journey-1043",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1239,
+        1239
+      ],
+      "newRange": [
+        1287,
+        1287
+      ],
+      "range": "1239..1239",
+      "oldId": "V41-R3-MR-journey-1239",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1267,
+        1267
+      ],
+      "newRange": [
+        1315,
+        1315
+      ],
+      "range": "1267..1267",
+      "oldId": "V41-R3-MR-journey-1267",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1270,
+        1270
+      ],
+      "newRange": [
+        1318,
+        1318
+      ],
+      "range": "1270..1270",
+      "oldId": "V41-R3-MR-journey-1270",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1278,
+        1278
+      ],
+      "newRange": [
+        1327,
+        1327
+      ],
+      "range": "1278..1278",
+      "oldId": "V41-R3-MR-journey-1278",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1329,
+        1329
+      ],
+      "newRange": [
+        1384,
+        1384
+      ],
+      "range": "1329..1329",
+      "oldId": "V41-R3-MR-journey-1329",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1331,
+        1331
+      ],
+      "newRange": [
+        1386,
+        1386
+      ],
+      "range": "1331..1331",
+      "oldId": "V41-R3-MR-journey-1331",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1342,
+        1342
+      ],
+      "newRange": [
+        1401,
+        1401
+      ],
+      "range": "1342..1342",
+      "oldId": "V41-R3-MR-journey-1342",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        1344,
+        1344
+      ],
+      "newRange": [
+        1403,
+        1403
+      ],
+      "range": "1344..1344",
+      "oldId": "V41-R3-MR-journey-1344",
+      "reason": "TASK-513 八步 ④：journey `#15a~#15q` 同编号等价改写与选择器重锚（`#log`→`#stream`、`#panel-*`→三区、`#15c` 法四取代、`#15b` 门槛 45→65）在 **base c2c0e0d 行号**上的逐行删除点；语义由本文件 entries（V41-R3-E-*）逐条登记，此处的行号区间只用于 base 相对判据的逐行命中。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/density.mjs",
+      "range": "RP-V3-01 / RP-V3-03 等价重锚 + 阶段 F/B2 扩展 + RP-V4-01~07 新增（见 entries V41-R3-E-DEN-01~12）",
+      "reason": "TASK-511：density.mjs 的 v4 段改动。删除行共 12 条，逐条由 entries V41-R3-E-DEN-01~12 的 oldTitle 登记；新增段（31 格 / 6 新格 / RP-V4-01~07 七条驱动）为纯新增。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        519,
+        519
+      ],
+      "newRange": [
+        519,
+        519
+      ],
+      "range": "519..519",
+      "oldId": "V41-R3-MR-ith-519",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        520,
+        520
+      ],
+      "newRange": [
+        520,
+        520
+      ],
+      "range": "520..520",
+      "oldId": "V41-R3-MR-ith-520",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        521,
+        521
+      ],
+      "newRange": [
+        521,
+        521
+      ],
+      "range": "521..521",
+      "oldId": "V41-R3-MR-ith-521",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        522,
+        522
+      ],
+      "newRange": [
+        522,
+        522
+      ],
+      "range": "522..522",
+      "oldId": "V41-R3-MR-ith-522",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        523,
+        523
+      ],
+      "newRange": [
+        523,
+        523
+      ],
+      "range": "523..523",
+      "oldId": "V41-R3-MR-ith-523",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        524,
+        524
+      ],
+      "newRange": [
+        524,
+        524
+      ],
+      "range": "524..524",
+      "oldId": "V41-R3-MR-ith-524",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        525,
+        525
+      ],
+      "newRange": [
+        525,
+        525
+      ],
+      "range": "525..525",
+      "oldId": "V41-R3-MR-ith-525",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        526,
+        526
+      ],
+      "newRange": [
+        526,
+        526
+      ],
+      "range": "526..526",
+      "oldId": "V41-R3-MR-ith-526",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        527,
+        527
+      ],
+      "newRange": [
+        527,
+        527
+      ],
+      "range": "527..527",
+      "oldId": "V41-R3-MR-ith-527",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        570,
+        570
+      ],
+      "newRange": [
+        570,
+        570
+      ],
+      "range": "570..570",
+      "oldId": "V41-R3-MR-ith-570",
+      "reason": "TASK-514/515：insight-tree-hierarchy.test.ts 的 v3-era journey 零 diff 判据被 v4「按行命中取代台账 + 登记改写区域归属」等价替换（ADR-V4-008）在 base c2c0e0d 行号上的删除点；语义由 entries V41-R3-E-ITH-* 逐条登记。"
     }
   ],
   "protectedSupersession": {
@@ -2111,31 +3385,89 @@
       "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
       "lineCount": 185
     },
-    "decision": "supersede-pending",
+    "decision": "supersede",
     "eightSteps": [
-      "① 记录 old（file / 42766..54004 / sha 6b45c3fa… / 185 行 / startAnchor / endAnchor）→ 本节 protectedSupersession.old（v3 台账不动）",
-      "② 逐段决策：journey `supersede` / binding `keep`",
-      "③ `#15a~#15q` 同编号等价改写（`#15b` ≥65.0% 语义保留且门槛 45 → 65；`#15c` 法四显式取代；`#15f~#15q` 选择器重锚）",
-      "④ 登记 modifiedRanges[]",
-      "⑤ 计算并写入新 pin（status:\"active\" + supersededFrom）",
-      "⑥ 计数守恒 ≥167",
-      "⑦ redlineRemap[] 三条（≥65% / ≥589px / composer 贴底）",
-      "⑧ RP-V4-08 反证（删 1 条断言 ⇒ 台账门禁 FAIL）"
+      "① 记录 old（file / 42766..54004 / sha 6b45c3fa… / 185 行 / startAnchor / endAnchor）→ 本节 protectedSupersession.old（v3 台账不动）—— 已落地并可机核（git show 187c205: 复核 old sha 与 old startByte）",
+      "② 逐段决策：journey `supersede` / binding `keep` —— 已落地",
+      "③ `#15a~#15q` 同编号等价改写（`#15b` ≥65.0% 且门槛 45 → 65；`#15c` 法四显式取代；`#15f~#15q` 选择器重锚）—— 已落地（见 assertionRewrite）",
+      "④ 登记 modifiedRanges[]（base c2c0e0d 行号区间，逐行）—— 已落地",
+      "⑤ 计算并写入新 pin（status:\"active\" + supersededFrom）—— 已落地（43054..55259 / sha e2b500df…）",
+      "⑥ 计数守恒 ≥167 —— 已落地（实测 journey runtime-check-calls = 167，日志 /tmp/opencode/v4-gate-logs/v4-1-r3/journey.log）",
+      "⑦ redlineRemap[] 三条（≥65% / ≥589px / composer 贴底）—— 已落地（三条 status 均为 landed，逐条带证据）",
+      "⑧ RP-V4-08 反证（保护段内改 1 字节 ⇒ 台账门禁 FAIL；段外改 1 字节 ⇒ 不红）—— 已落地（supersession-ledger.test.ts 内 in-gate 反证，改后逐字节还原）"
     ],
-    "status": "step-1-2-done-steps-3-8-pending",
-    "knownGap": "TASK-513（journey 保护段八步）在本轮 build 内**未完成**：`#15a~#15q` 的同编号改写、新 pin 计算、redlineRemap 实跑与 RP-V4-08 反证均未落。已登记为未完成项，不得视为已取代。"
+    "status": "complete-steps-1-8",
+    "knownGap": "TASK-513（journey 保护段八步）在本轮 build 内**未完成**：`#15a~#15q` 的同编号改写、新 pin 计算、redlineRemap 实跑与 RP-V4-08 反证均未落。已登记为未完成项，不得视为已取代。",
+    "newPin": {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "startAnchor": "    const layout = await evaluate(sp, `(() => {",
+      "endAnchor": "#15q",
+      "startByte": 43054,
+      "endByte": 55259,
+      "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+      "lineCount": 194,
+      "status": "active",
+      "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+      "supersededOn": "2026-09-19",
+      "leafBase": "187c205"
+    },
+    "assertionRewrite": {
+      "ids": "#15a~#15q 同编号改写（不拆不删；`#15f~#15q` 选择器重锚，编号与顺序不变）",
+      "15a": "`logFlexGrow`（`#log`）→ `regionStreamFlexGrow`（`#region-stream`）；语义「消息区为 flex 填充」不变",
+      "15b": "门槛 45% → **≥65.0%**，读数目标 `#log` → `#region-stream`；语义（稳态流区高度占比）保留并收紧",
+      "15c": "v3「composer 贴底（gap ∈ [0,12]）」→ **法四**「默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 hidden」= 显式取代",
+      "15d": "不变（文档级无水平溢出）",
+      "15e": "`#panel-top`/`#panel-bottom` → `#region-toolbar`/`#region-statusbar`；语义「三区结构 + 回到底部入口」不变",
+      "15f~15w": "工具卡片族断言逐条不变，仅 `logOverflowX` 的读数目标 `#log` → `#stream`",
+      "15p/15r/15s/15t": "滚动跟随策略断言逐条不变，仅滚动容器 `#log` → `#stream`",
+      "15q": "320px 无水平溢出；`log` 读数目标 `#log` → `#stream`",
+      "outsideSegment": [
+        "#14b~#14i Markdown 渲染：`#log` → `#stream`（同一元素，v4 唯一 id 重命名）",
+        "#33f / #33n 未重建 DOM：读数从 `#log.textContent` 改为 `#stream` 的**消息条目**（`.entry`）文本 —— v4 把提示带/占位宿主同构迁入 `#stream`，v3 时它们在 `#log` 之外，故「整段文本长度」不再是等价的量；改测消息条目后语义（DOM 未重建）不变且不再受提示带文本影响",
+        "#33l / #33n / #33o `#panel-main` → `#region-stream`（v4 区容器）",
+        "#16d~#16g 会话切换：v4 会话切换器落在 `#settings-view`（可滚动视图）内，补「坐标点击 miss 时回落元素自身 click()」前置（与 #18p 同一登记惯例）",
+        "#16p~#16t 二次确认：v4 的 `openStatusDetails()` = 进入设置视图（隐藏聊天区），补「先 `#settings-back` 切回聊天」前置，使 `#confirm-allow/#confirm-deny` 处于可见子树"
+      ]
+    },
+    "countEvidence": {
+      "caliber": "runtime-check-calls",
+      "measured": 167,
+      "floor": 167,
+      "gate": "npm run test:ui --workspace @lgdl/web-cli-plugin",
+      "log": "/tmp/opencode/v4-gate-logs/v4-1-r3/journey.log",
+      "result": "167 assertions / 0 failed / EXIT=0"
+    },
+    "rpV408": {
+      "driver": "packages/web-cli-plugin/test/supersession-ledger.test.ts（in-gate 反证：protectedPinFailures 纯判定 + 逐字节还原 + sha 复核）",
+      "cases": [
+        "保护段内改 1 字节（startAnchor 标识符改名）⇒ 新 pin sha 判据必须 FAIL",
+        "保护段外改 1 字节（文件头注释）⇒ 同一判据必须不红（证明判据只锚保护段，不是「凡改皆红」）",
+        "还原后逐字节 sha256 复核（还原失败不得静默）"
+      ],
+      "status": "landed"
+    }
   },
   "protectedRanges": [
     {
       "file": "packages/web-cli-plugin/test/ui/journey.mjs",
       "startAnchor": "    const layout = await evaluate(sp, `(() => {",
       "endAnchor": "#15q",
-      "startByte": 42766,
-      "endByte": 54004,
-      "sha256": "6bff93138ca9e088be52bc142973e5241a5825edbba0cb2b499ece788b190987",
+      "startByte": 43054,
+      "endByte": 55259,
+      "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
       "status": "active",
       "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
-      "note": "本叶**尚未**改写 journey.mjs，故新 pin 当前等于原文 sha；TASK-513 完成后必须重算（本 pin 的 status 届时才代表「等价改写后的保护段」）。"
+      "note": "V4-1 TASK-513 八步 ⑤：`#15a~#15q` 同编号等价改写后**重算**的新 pin（`status:\"active\"`）。旧 pin 由 `supersededFrom` 保留，且**仍可机核**：从 `leafBase=187c205` 取出该版本文件、按同一 startAnchor/endAnchor 切片，sha256 == `supersededFrom`、起始字节 == `oldPin.startByte`（supersession-ledger.test.ts 的新判据逐条实跑，不是纸面声明）。",
+      "lineCount": 194,
+      "supersededOn": "2026-09-19",
+      "leafBase": "187c205",
+      "oldPin": {
+        "startByte": 42766,
+        "endByte": 54004,
+        "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+        "lineCount": 185,
+        "verifiedAgainstRevision": "187c205"
+      }
     },
     {
       "file": "packages/web-cli-plugin/test/ui/binding.mjs",
@@ -2154,22 +3486,25 @@
       "redline": "流区高度占比 ≥45%（v3 #15b）",
       "from": "45%",
       "to": "≥65.0%",
-      "status": "declared-pending-journey-reshape",
-      "reason": "FR-CHAT-082 / AC-CHAT-017：TASK-501 spike 12/12 PASS（最差格 0.7273），门槛由 45% 收紧到 65%；落点 = journey `#15b`（未完成）。"
+      "status": "landed",
+      "reason": "FR-CHAT-082 / AC-CHAT-017：TASK-501 spike 12/12 PASS（最差格 0.7273）⇒ 门槛由 45% 收紧到 65%；落点 = journey `#15b`（实测 `#region-stream` 高度占比 ≥ 65.0%，日志 /tmp/opencode/v4-gate-logs/v4-1-r3/journey.log）。",
+      "evidence": "journey #15b PASS（`opPct >= 65`）；density-metrics.mjs#STREAM_HEIGHT_RATIO_MIN = 0.65（只允许上调）；docs/v4-density-baseline.json#streamRatioSpike 12 格。"
     },
     {
       "redline": "`#log` 客户端高度 ≥589px（v2 继承）",
       "from": "589px",
       "to": "STREAM_HEIGHT_RATIO_MIN=0.65（比例下界取代像素下界）",
-      "status": "declared",
-      "reason": "像素下界在宽度可变的三区布局下不可移植；改用与视口高度的**比例**下界，且只允许上调（density-metrics.mjs#STREAM_HEIGHT_RATIO_MIN）。"
+      "status": "landed",
+      "reason": "像素下界在宽度可变的三区布局下不可移植；改用与视口高度的**比例**下界 `STREAM_HEIGHT_RATIO_MIN=0.65`（只允许上调）。",
+      "evidence": "density-metrics.mjs#STREAM_HEIGHT_RATIO_MIN=0.65；等价几何下界 LOG_CLIENT_HEIGHT_FLOOR=488（来源实测最差 748px，density 阶段 F 逐次机对）。"
     },
     {
       "redline": "composer 贴底（v3 #15c）",
       "from": "composer 常驻贴底 + `#log` 底端",
       "to": "法四：默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 `hidden`",
-      "status": "declared-pending-journey-reshape",
-      "reason": "FR-CHAT-014 / ADR-V4-008：`#composer` 常驻语义退役，等价改写为法四断言（强度提高：从「贴底」变为「默认不可见」）。"
+      "status": "landed",
+      "reason": "FR-CHAT-014 / ADR-V4-008：`#composer` 常驻语义退役，等价改写为法四断言（强度提高：从「贴底」变为「默认不可见」）。",
+      "evidence": "journey #15c PASS（`#composer.hidden === true ∧ 全文档零可见 input/textarea/select/[contenteditable]`）；density-thresholds.test.ts 法四静态半。"
     }
   ],
   "zeroDiffFiles": [
@@ -2235,39 +3570,64 @@
   ],
   "counts": {
     "l0": {
-      "currentRuntime": null,
+      "currentRuntime": 203,
+      "floor": 164,
       "countMethod": "runtime-check-calls",
-      "note": "TASK-508 未完成（本轮未重写 l0.mjs）；不得填推测值。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:l0 ⇒ 203（下界 164）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-l0.log（全量，未截断）。"
     },
     "l1": {
-      "currentRuntime": null,
+      "currentRuntime": 108,
+      "floor": 103,
       "countMethod": "runtime-check-calls",
-      "note": "TASK-509 未完成。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:l1 ⇒ 108（下界 103）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-l1.log（全量，未截断）。"
     },
     "l2": {
-      "currentRuntime": null,
+      "currentRuntime": 73,
+      "floor": 71,
       "countMethod": "runtime-check-calls",
-      "note": "TASK-510 未完成。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:l2 ⇒ 73（下界 71）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-l2.log（全量，未截断）。"
     },
     "density": {
-      "currentRuntime": null,
+      "currentRuntime": 169,
+      "floor": 127,
       "countMethod": "runtime-check-calls",
-      "note": "TASK-511 未完成。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:density ⇒ 169（下界 127）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-density.log（全量，未截断）。"
     },
     "journey": {
-      "currentRuntime": null,
+      "currentRuntime": 167,
+      "floor": 167,
       "countMethod": "runtime-check-calls",
-      "note": "TASK-513 未完成。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:ui ⇒ 167（下界 167）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-ui.log（全量，未截断）。"
+    },
+    "insight": {
+      "currentRuntime": 116,
+      "floor": 116,
+      "countMethod": "runtime-check-calls",
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:insight ⇒ 116（下界 116）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-insight.log（全量，未截断）。"
+    },
+    "binding": {
+      "currentRuntime": 192,
+      "floor": 192,
+      "countMethod": "runtime-check-calls",
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:binding ⇒ 192（下界 192）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-binding.log（全量，未截断）。"
+    },
+    "hardening": {
+      "currentRuntime": 24,
+      "floor": 24,
+      "countMethod": "runtime-check-calls",
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:hardening ⇒ 24（下界 24）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-hardening.log（全量，未截断）。"
     },
     "sidepanelView": {
-      "currentRuntime": null,
+      "currentRuntime": 38,
+      "floor": 38,
       "countMethod": "runtime-node-tests",
-      "note": "TASK-510 未完成。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm test（dist-test/test/sidepanel-view.test.js） ⇒ 38（下界 38）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。"
     },
     "nodeTestRuntime": {
-      "currentRuntime": null,
+      "currentRuntime": 849,
+      "floor": 832,
       "countMethod": "runtime-node-tests",
-      "note": "TASK-515 未完成；跨口径差（台账 832 vs 末轮 795）按实测重登的纪律保留，不填推测值。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。"
     }
   },
   "v4GateFloors": {
@@ -2281,12 +3641,15 @@
     "packages/web-cli-plugin/test/sidepanel-view.test.ts": 38
   },
   "knownGaps": [
-    "TASK-508 / 509 / 510：l0.mjs / l1.mjs / l2.mjs + sidepanel-view.test.ts 的重定标未完成。",
-    "TASK-511 / 512：density.mjs 换口径与 31 格、docs/v4-density-baseline.json/.md 未完成。",
-    "TASK-513：journey 保护段八步 + 新 pin + redlineRemap 实跑未完成。",
-    "TASK-514：design-contract.test.ts（shim 60 门禁化）未完成；本台账的 entries 可定位性/双台账判定已落地。",
-    "TASK-515：18 项串行门禁未跑（见 build.md 的门禁账）。",
-    "insight.mjs / binding.mjs 的选择器重锚（panel-main→region-stream、log→stream）未完成。"
+    "【本叶内已闭合】TASK-508/509/510（l0 203 / l1 108 / l2 73 实跑，见 counts）。",
+    "【本叶内已闭合】TASK-511/512（density 换口径 + 31 格 + in-gate RP-V4-01~07；docs/v4-density-baseline.json/.md）。",
+    "【本叶内已闭合】TASK-513（journey 保护段八步：old 可机核 / 同编号等价改写 / modifiedRanges / 新 pin / 计数 167 / redlineRemap 三条 / RP-V4-08）。",
+    "【本叶内已闭合】TASK-514（design-contract.test.ts + package.json#test:design-contract + gate-integrity in-gate 例外扩展）。",
+    "【本叶内已闭合】TASK-515（19 项严格串行门禁 + 7 条 RP-V4 反证全绿；counts 实测填充；体积复测 385,319 B）。",
+    "【下游义务，非本叶缺口】`data-transitional-host` 占位宿主当前 5 个（本叶只建不销）：**v4 收口（v4-4 收尾）时必须清零**（ADR-V4-005 第 6 条 / 父 ADR-V4-011）。",
+    "【下游义务，非本叶缺口】`PENDING_ABSOLUTE_CAP` 保持 `resolved:false` 且不预填（父 ADR-V4-010 第 5~8 条）；V3-VOL-3 带值闭合由 v4-4 收口轮执行。",
+    "【下游义务，非本叶缺口】v4-2 落 7 主类卡后必须重审「卡口径」（`knownLimitations` 第 1 条：本叶的 `[data-msg-type]` 卡面尚未由产品渲染）。",
+    "【登记差异，如实报告】编排器 R3 指令提到「gate-integrity `EXPECTED_AUDITED_FILES` 追加新 Chromium 门禁文件」，但本叶**零新增 Chromium 门禁文件**（ADR-V4-023 第 7 条明令本叶不追加；`CHROMIUM_GATES.length === 9` 不动）。实际追加的是 **in-gate 例外说明 + R4b 模式断言 8 条**（见 build.md R3 章节与 gate-integrity.test.ts）。"
   ],
   "unfrozenZeroDiffFiles": [
     {
@@ -2312,5 +3675,274 @@
       },
       "note": "V4-1 段的下界（只增）：v3 的精确值降级为下界，v4 段登记自己的下界；实测 < 下界即 FAIL。"
     }
-  }
+  },
+  "unfrozenPureAdditionFiles": [
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "reason": "v3 台账把 journey.mjs 登记为「纯新增（0 删除行）」：该归类对 **v3 段（c2c0e0d → v4 leafBase 187c205）仍成立**（该段只有插入、零删除行，换段判据仍逐条断言）。v4-1 TASK-513 保护段显式取代（ADR-V4-008）首次在本文件引入删除行 ⇒ v4 段**显式重新归类**，并把删除行逐条登记进 v4 台账（entries V41-R3-E-* / modifiedRanges V41-R3-MR-journey-* / leafBases[0].registeredUncoveredLines）。这不是放宽：换段后 base → leafBase 仍必须 0 删除行，v4 段的每一行删除仍逐字受判。"
+    }
+  ],
+  "designContract": {
+    "gate": "packages/web-cli-plugin/test/design-contract.test.ts（NEW，TASK-514）",
+    "shim": "packages/web-cli-plugin/design/ui-redesign/option-f-shim.mjs",
+    "shimSha256": "8ca5db6f7a152c2890814cff2fe58dc11345338890b26de62b3355837f591ed4",
+    "draft": "packages/web-cli-plugin/design/ui-redesign/option-f-chat-stream.html",
+    "draftSha256": "49ce27fc1daba083cc361639d3d0a1ad991b961f0fa0f45fc016815e0fe2e526",
+    "assertions": 60,
+    "checkOccurrences": "61 = 60 调用点 + 1 函数声明（口径显式，见测试内断言）",
+    "mappingRows": 60,
+    "script": "package.json#scripts.test:design-contract（独立步骤；同时因 `test/*.test.ts` 编译而随 `npm test` 的 `node --test dist-test/test/*.test.js` 一并执行）",
+    "designContractChanges": [],
+    "note": "本叶**不改设计稿**、**不改 shim 断言**：设计契约只是被机器化（实跑 60/60 + sha256 冻结 + 60 行映射表 + CARD_TYPES 逐字）。任何未来变更必须改常量 + 常量计数 + 映射表 + 在本数组登记（FR-CHAT-036 禁静默改断言）。"
+  },
+  "rewriteRegions": [
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "baseRange": [
+        803,
+        1383
+      ],
+      "newRange": [
+        803,
+        1565
+      ],
+      "baseDeletedSpans": [
+        [
+          803,
+          803
+        ],
+        [
+          837,
+          839
+        ],
+        [
+          841,
+          841
+        ],
+        [
+          846,
+          847
+        ],
+        [
+          850,
+          851
+        ],
+        [
+          855,
+          856
+        ],
+        [
+          858,
+          858
+        ],
+        [
+          868,
+          868
+        ],
+        [
+          873,
+          873
+        ],
+        [
+          909,
+          909
+        ],
+        [
+          976,
+          976
+        ],
+        [
+          989,
+          989
+        ],
+        [
+          995,
+          995
+        ],
+        [
+          1009,
+          1009
+        ],
+        [
+          1016,
+          1016
+        ],
+        [
+          1027,
+          1027
+        ],
+        [
+          1042,
+          1042
+        ],
+        [
+          1047,
+          1047
+        ],
+        [
+          1079,
+          1079
+        ],
+        [
+          1276,
+          1276
+        ],
+        [
+          1304,
+          1304
+        ],
+        [
+          1307,
+          1307
+        ],
+        [
+          1315,
+          1315
+        ],
+        [
+          1368,
+          1368
+        ],
+        [
+          1370,
+          1370
+        ],
+        [
+          1381,
+          1381
+        ],
+        [
+          1383,
+          1383
+        ]
+      ],
+      "newAddedSpans": [
+        [
+          803,
+          803
+        ],
+        [
+          837,
+          840
+        ],
+        [
+          842,
+          843
+        ],
+        [
+          848,
+          849
+        ],
+        [
+          852,
+          853
+        ],
+        [
+          857,
+          866
+        ],
+        [
+          868,
+          868
+        ],
+        [
+          878,
+          878
+        ],
+        [
+          883,
+          883
+        ],
+        [
+          919,
+          919
+        ],
+        [
+          986,
+          986
+        ],
+        [
+          999,
+          999
+        ],
+        [
+          1005,
+          1005
+        ],
+        [
+          1019,
+          1019
+        ],
+        [
+          1026,
+          1026
+        ],
+        [
+          1037,
+          1037
+        ],
+        [
+          1052,
+          1052
+        ],
+        [
+          1057,
+          1058
+        ],
+        [
+          1090,
+          1090
+        ],
+        [
+          1287,
+          1287
+        ],
+        [
+          1315,
+          1315
+        ],
+        [
+          1318,
+          1319
+        ],
+        [
+          1327,
+          1327
+        ],
+        [
+          1379,
+          1382
+        ],
+        [
+          1384,
+          1384
+        ],
+        [
+          1386,
+          1386
+        ],
+        [
+          1390,
+          1393
+        ],
+        [
+          1401,
+          1401
+        ],
+        [
+          1403,
+          1403
+        ],
+        [
+          1407,
+          1410
+        ],
+        [
+          1558,
+          1565
+        ]
+      ],
+      "note": "ADR-V4-008 八步 ③④：journey `#15a~#15q` 同编号等价改写 + 保护段外选择器重锚 / `#33n` 改测消息条目 / `#16*` 等价前置的**整个重写区域**（base 187c205 行号 ↔ worktree 行号）。此字段只服务于 `test/insight-tree-hierarchy.test.ts` 的「新增行逐条归属」二次核对（按新行号落在登记区域内即视为已归属）；按行判据的权威口径仍是 `modifiedRanges`（单行区间，不做宽区间掩盖）。"
+    }
+  ]
 }

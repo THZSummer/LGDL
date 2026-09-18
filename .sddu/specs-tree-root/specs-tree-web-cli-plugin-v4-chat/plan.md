@@ -676,9 +676,9 @@ F 稿与 shim A1~A6 要求 `header#region-toolbar[role=toolbar]` → `main#regio
        <div id="risk-rail" aria-live="polite">…风险 chips（文字 + 徽标 + 图标）…</div>
      </div>
      <div id="risk-detail" hidden>…chip 详情 + 「本阶段不发命令、不改授权」披露语…</div>
-     <div id="risk-detail" hidden>…chip 详情 + 「本阶段不发命令、不改授权」披露语…</div>
    </footer>
    ```
+   > **勘误（2026-09-19，v4-1 build R3，tasks 阶段发现 #5）**：上方的 `#risk-detail` 曾**重复**出现两次（同一 id 两行），系笔误。实现按 **`#risk-detail` 唯一**落地（`src/ui/sidepanel/index.html` 110 个 id 零重复，`test/density-thresholds.test.ts` 有静态断言；`test/design-contract.test.ts` 另有 shim H6/H7 的设计契约判据）。本处已删除重复行，**规范语义不变**（状态栏只保留一个详情容器）。
 2. **DOM 迁移总表（逐 id 归属，`id` 零重命名，唯一例外 `#log`→`#stream`）**：
 
    | 现状 id / 结构 | v4 归属 | 处置 |
@@ -1041,4 +1041,5 @@ ADR-V4-008 把 v2 的「流区高度占比 ≥65%」作为**语义保留**的等
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.0.1 | **勘误一行**（v4-1 build R3 收口，tasks 阶段发现 #5）：ADR-V4-005 第 1 条的规范骨架代码块中 `#risk-detail` **重复出现两次**（同一 id 两行，笔误），已删除重复行并就地加注勘误说明；规范语义不变（状态栏只保留一个风险详情容器），实现按唯一 id 落地且已有静态契约断言。**只改本勘误，不改任何决策/ADR 正文**。 | 2026-09-19 | SDDU Build Agent |
 | v1.0 | 初始创建：v4「聊天流统一承载」**统领性技术方案**（父 + 4 叶同批）。**产出**：父 `plan.md`（本文件，含 §1~§8）+ 4 叶 `plan.md`；**ADR-V4-001~040**（父承 001~016，叶子承 017~023 / 024~029 / 030~034 / 035~040）。**覆盖编排器 12 项技术设计必答**（§2.8 逐项索引）与 **7 条 spec 新风险裁决**（§4 逐条 → ADR）。**关键裁决**：① 事件流模型 = 事件不可变 + 投影可变至终态（append-only + 终态冻结；`seq` 全局单调、`sessionId` 分段、内存段保留）；② 持久化 = **摘要落库 + 内存全量**（面板侧 `chrome.storage.local`，零 SW 改动 / `KIND_SET` 零 diff）；③ 渲染 = **keyed 增量渲染**（永不清空，append/patch/remove(bound) 三件事）；④ 三区骨架 = **同构迁入 + 占位宿主**（`data-transitional-host` + 收口清零门禁），`#log`→`#stream` 为唯一 id 重命名；⑤ 密度 = 「`document.body` 表达式根 + `DENSITY_EXCLUDED_SUBTREES=['#stream']` 单源排除」+ **31 登记格** + 三条防滥用（单卡 ≤6 / 首屏 ≤2 / 欢迎卡 ≤1 且 ≤8 行）+ 旧 22 格冻结为 v3 历史；⑥ journey 保护段 = **显式取代 + 新 pin 八步流程**（`#15b` ≥65% 语义保留、`#15c` composer 贴底 → 法四），binding 段保留零改；⑦ v4 取代台账 = `docs/v4-supersession-ledger.json`（`takesOverFrom` 接管声明 + 按行判定 + `leafBases` 双段 + `countMethod` 唯一合法值）；⑧ 体积 = 每叶五要素中间重登记 + 收口带值闭合 `PENDING_ABSOLUTE_CAP` + **`min(绝对上限, floor(基线×1.05))`** 优先级；⑨ 测试架构 = **保留门禁文件名** + v4-1 门禁集合**增补 l0/l1/l2** + 新门禁加入 `EXPECTED_AUDITED_FILES`（`CHROMIUM_GATES` 保持 9）+ in-gate 反证 + shim 60 断言门禁化。**偏差显式登记**：父 `plan.md` 产出与否（ADR-V4-001）、v4-1 门禁集合增补（ADR-V4-011）、journey 保护段取代（ADR-V4-008）、三区骨架的同构迁入取舍（ADR-V4-005）。**新发现执行层风险**：R4-17（v4-1 门禁集合缺 l0/l1/l2）/ R4-18（占位宿主生命期）/ R4-19（跨台账口径漂移）/ R4-20（设计契约与真实产物双实现漂移）。**本阶段只做 plan**：不写 tasks、不写代码、不改 `src/**`·`test/**`·`manifest.json`·`design/**`·`dist/**`·ROADMAP、不改 v1/v2/v3 SDDU 目录、不动 `main`、不 commit/push、**未跑任何门禁 / 构建 / Chromium**、**未调用任何受管 Provider**。 | 2026-09-18 | SDDU Plan Agent |

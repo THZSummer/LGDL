@@ -24,7 +24,7 @@
  *   RP-L1-E 恢复路径①「改用描述」打开既有兜底输入   FR-V3-038
  *   RP-L1-F 恢复路径②「重新拾取」产生 NEW id + 回到 valid FR-V3-038
  *   RP-L1-G 回执三件套「重拉为真」（refreshSeq 1→2） FR-V3-039
- *   RP-L1-H 8 类就地展开「≤1 次交互」（DOM 契约）   FR-V3-031
+ *   RP-L1-H 7 类就地展开「≤1 次交互」（DOM 契约；v4-1 退役 l1-status）   FR-V3-031
  *   RP-L1-C2 内层阻断 guard 的产物字节 pin（只关内层 ⇒ 门禁必须 FAIL） FR-V3-037 内层 / NFR-V3-013
  *            （I-02：内层的**行为**在唯一调用点下不可观测，故运行期 pin 落在产物字节结构 +
  *             `test/l1-ref-validity.test.ts` 的 Node 运行时行为用例；本条把该 pin 的可失败性做实）
@@ -135,12 +135,16 @@ const CASES = [
   {
     id: 'RP-L1-H',
     artifact: HTML,
-    assertion: '① 8 类 L1 面板可枚举 + 默认 hidden + 逐类 ≤1 次交互',
-    requirement: 'FR-V3-031（8 类就地展开）',
+    // V4-1 等价重锚（ADR-V4-005 / ADR-V4-017 第 5 条）：v3 的第八类 L1 面板 `l1-status`
+    // 的宿主是 `#l0-status-band`，该容器在三区骨架里已退役（站点摘要变只读、入口迁工具栏）
+    // ⇒ v4 的 `[data-l1-panel]` 恰为 **7** 个。反证语义（属性改名 ⇒ 枚举断言必须红）不变，
+    // 注入次数与期望失败文本随**同一契约**的新基数改写；`l1.mjs` 的断言已同步为 7。
+    assertion: '① 7 类 L1 面板可枚举 + 默认 hidden + 逐类 ≤1 次交互',
+    requirement: 'FR-V3-031（v4：7 类就地展开；`l1-status` 随 #l0-status-band 退役）',
     from: 'data-l1-panel=',
     to: 'data-l1-panel-x=',
-    count: 8,
-    expectFailPattern: /恰好 8 个 \[data-l1-panel\]/,
+    count: 7,
+    expectFailPattern: /恰好 7 个 \[data-l1-panel\]/,
     note: '注入后：DOM 契约属性改名 → 枚举断言 FAIL（门禁读的正是这份 HTML）',
   },
   {

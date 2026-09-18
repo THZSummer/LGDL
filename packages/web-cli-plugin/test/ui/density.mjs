@@ -60,15 +60,22 @@ import {
 } from './_v3-helpers.mjs';
 import {
   DENSITY_LIMITS,
+  DENSITY_MATRIX_SIZE,
   DENSITY_MEASURE_SOURCE,
   DENSITY_TIER_ORDER,
   DENSITY_VIEWPORTS,
   LOG_CLIENT_HEIGHT_FLOOR,
+  MAX_CLICKABLES_PER_CARD,
+  MAX_FIRST_SCREEN_CARDS,
+  MAX_WELCOME_CARDS,
+  MAX_WELCOME_LINES,
   RISK_SUBSCENARIOS,
   bannedApisInMeasureSource,
   compareBaselineCells,
+  evaluateCardBudget,
   evaluateDelta,
   evaluateDensity,
+  evaluateFirstScreen,
   measureSourceForRoot,
   riskVisibilityProbeSource,
 } from './density-metrics.mjs';
@@ -91,6 +98,79 @@ const draftDeltas = [];
 
 const argv = process.argv.slice(2);
 const REVERSE = argv.includes('--reverse') ? argv[argv.indexOf('--reverse') + 1] : null;
+
+/**
+ * V4-1（ADR-V4-021 第 2 条 / FR-CHAT-072 / FR-CHAT-073）—— v4 的**两组新增独立登记格**。
+ *
+ * 31 格 = 9 强制（3 档 × 3 视口）+ 15 风险子场景 + **3 空态** + **3 风险详情展开** + 1 worst。
+ * 这两档**不与 default 混算**：它们各自的 fixture 状态不同，档位互斥优先级依旧是
+ * `risk > firstRun > default`，故上限显式取自 {@link DENSITY_LIMITS}（阈值 `7/15 · 9/20 · 17/35`
+ * 逐字不变 —— 本叶不新增也不改写阈值）。
+ */
+const V4_EXTRA_TIERS = Object.freeze([
+  Object.freeze({ key: 'empty', limits: DENSITY_LIMITS.default, why: '空态（无消息、无待决）：与 default 同为「低密度」态，但 fixture 与首屏卡集不同，独立成格' }),
+  Object.freeze({ key: 'riskDetailOpen', limits: DENSITY_LIMITS.risk, why: '风险详情展开态：仍是风险档，但 #risk-detail 展开后 C2 增量真实存在，独立成格' }),
+]);
+
+/**
+ * 卡的运行期口径（v4-1 过渡形态，登记于 `docs/v4-density-baseline.json#perCardBudget.caliber`）。
+ *
+ * 一张「卡」= `#stream` 内**可见的** `[data-msg-type]`（v4-2 的 7 主类卡）或空态欢迎占位
+ * (`.log-empty-text`)。`li[data-transitional-host]` 是**过渡宿主**（v4-3/v4-4 退役），
+ * 本身不是卡；`#l0-decision` 在 v4-1 仍是骨架占位宿主的内容体（v4-3 才换成 `askuser`/
+ * `auth` 卡），故本叶**不**把它计为卡 —— 这一点显式登记在 `knownLimitations`，
+ * 并由 RP-V4-01/02/03 注入 `[data-msg-type]` 卡来证明判据真的会红。
+ */
+const STREAM_CARDS_FN = `() => {
+  const visibleIn = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+  const CHARS_PER_LINE = 34;
+  const stream = document.getElementById('stream');
+  const cards = [];
+  let seq = 0;
+  for (const el of Array.from(stream.querySelectorAll('[data-msg-type], .log-empty-text'))) {
+    if (!visibleIn(el)) continue;
+    seq += 1;
+    let clickables = 0;
+    let chars = 0;
+    for (const node of [el].concat(Array.from(el.querySelectorAll('*')))) {
+      if (!visibleIn(node)) continue;
+      const tag = node.tagName || '';
+      if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(tag) || (node.hasAttribute('tabindex') && node.getAttribute('tabindex') !== '-1')) clickables += 1;
+      let own = '';
+      for (const child of Array.from(node.childNodes)) if (child.nodeType === 3) own += child.textContent;
+      chars += own.replace(/\\s+/g, '').length;
+    }
+    const welcome = el.classList.contains('log-empty-text');
+    const key = welcome ? 'welcome' : (el.id || el.getAttribute('data-card-key') || (el.getAttribute('data-msg-type') + '#' + seq));
+    cards.push({ key, clickables, chars, lines: Math.ceil(chars / CHARS_PER_LINE), welcome });
+  }
+  return cards;
+}`;
+
+/** The probe as a standalone expression (used by the stage measurements). */
+const streamCardsProbe = `JSON.stringify((${STREAM_CARDS_FN})())`;
+
+/**
+ * **Atomic** perturbation probe — perturb, read the card list, restore, all inside ONE
+ * `Runtime.evaluate`. This is what makes RP-V4-01/02/03 re-render-proof: the product
+ * repaints `#stream` on every state push (`render()` drops non-host children), so a
+ * perturbation that survives a `sleep()` and a separate probe call is a race, not a
+ * proof. With the three steps in one synchronous block no repaint can interleave.
+ */
+const atomicCardsProbe = (perturb, restore) =>
+  `(() => { ${perturb} const cards = (${STREAM_CARDS_FN})(); ${restore} return JSON.stringify(cards); })()`;
+
+/** Read the card list and judge it (per-card budget + first-screen budget). */
+async function judgeCards(cdp, tier) {
+  const raw = await evaluate(cdp, streamCardsProbe);
+  const cards = JSON.parse(raw);
+  return {
+    raw,
+    cards,
+    cardBudget: evaluateCardBudget(cards),
+    firstScreen: evaluateFirstScreen(cards, tier === 'empty' ? 'empty' : 'default'),
+  };
+}
 
 // ── in-page probes ───────────────────────────────────────────────────────────
 
@@ -455,6 +535,12 @@ async function stageB(cdp) {
           fp.scrollBottomHidden === true,
           `scrollBottomHidden=${fp.scrollBottomHidden} log=${JSON.stringify(fp.log)}`,
         );
+        const defaultCards = await judgeCards(cdp, 'default');
+        check(
+          `default@${vp} 单卡可点 ≤${MAX_CLICKABLES_PER_CARD} ∧ 首屏卡 ≤${MAX_FIRST_SCREEN_CARDS}（逐卡动态格）`,
+          defaultCards.cardBudget.ok && defaultCards.firstScreen.ok,
+          `${[...defaultCards.cardBudget.violations, ...defaultCards.firstScreen.violations].join(' / ')} | ${defaultCards.raw}`,
+        );
       }
       if (tier === 'firstRun') {
         check(`firstRun@${vp} 首装态确实生效（onboarding 或 discovery-notice 可见）`, fp.onboardingHidden === false || fp.discoveryHidden === false, JSON.stringify(fp));
@@ -488,6 +574,93 @@ async function stageB(cdp) {
     charsSpread <= 8,
     `spread=${charsSpread}（${defaultRows.map((r) => `@${r.vp}=${r.measured.chars}`).join(' ')}）`,
   );
+  return rows;
+}
+
+// ── stage B2: the v4 extra registered cells (empty × 3 + riskDetailOpen × 3) ─
+/**
+ * V4-1（ADR-V4-021 第 2 条）：31 格里的两组**新增独立登记格** —— 空态（`#stream.empty`
+ * + 欢迎占位）与风险详情展开（`#risk-detail` 可见）。它们**不与 default 混算**：
+ * 每格有自己的 fixture、自己的上限来源（`empty ⇒ DENSITY_LIMITS.default` /
+ * `riskDetailOpen ⇒ DENSITY_LIMITS.risk`），并逐格跑「单卡 ≤6」与「首屏 ≤2」两条防滥用判据。
+ */
+async function stageB2(cdp) {
+  console.log('\n▶ 阶段 B2：v4 新增独立登记格（空态 3 + 风险详情展开 3 = 6 格）');
+  const rows = [];
+  for (const tier of V4_EXTRA_TIERS) {
+    for (const vp of DENSITY_VIEWPORTS) {
+      await setViewport(cdp, vp, VIEWPORT_HEIGHT);
+      if (tier.key === 'empty') {
+        await resetFixture(cdp, { authorized: true, ask: false });
+        await sleep(250);
+        const st = JSON.parse(
+          await evaluate(
+            cdp,
+            `(() => {
+              const s = document.getElementById('stream');
+              const w = s.querySelector('.log-empty-text');
+              return JSON.stringify({ empty: s.classList.contains('empty'), welcome: Boolean(w), welcomeChars: (w?.textContent ?? '').replace(/\\s+/g, '').length });
+            })()`,
+          ),
+        );
+        check(`empty@${vp} 空态确实生效（#stream.empty ∧ 欢迎占位存在）`, st.empty === true && st.welcome === true, JSON.stringify(st));
+        check(
+          `empty@${vp} 欢迎卡 ≤1 张且 ≤${MAX_WELCOME_LINES} 行（320px ⇒ ≤${MAX_WELCOME_LINES * 34} 字符）`,
+          st.welcomeChars <= MAX_WELCOME_LINES * 34,
+          `实测 ${st.welcomeChars} 字符（上限 ${MAX_WELCOME_LINES * 34}）`,
+        );
+      } else {
+        await resetFixture(cdp, { authorized: true, ask: true });
+        await setRisk(cdp, 'hardline', 'force');
+        await sleep(250);
+        const openedRaw = await evaluate(
+          cdp,
+          `(() => {
+            const chip = document.querySelector('#risk-rail .risk-row[data-risk-class="hardline"]');
+            if (!chip) return JSON.stringify({ chip: false });
+            chip.click();
+            const d = document.getElementById('risk-detail');
+            return JSON.stringify({ chip: true, hidden: d ? d.hidden : null, expanded: chip.getAttribute('aria-expanded'), lines: d ? d.querySelectorAll('.risk-detail-line').length : 0, text: (d?.textContent ?? '') });
+          })()`,
+        );
+        const o = JSON.parse(openedRaw);
+        check(
+          `riskDetailOpen@${vp} 风险详情确实展开（chip 点击 → #risk-detail 可见）`,
+          o.chip === true && o.hidden === false && o.expanded === 'true' && o.lines >= 1,
+          openedRaw,
+        );
+        check(
+          `riskDetailOpen@${vp} 详情含「本阶段不发命令、不改授权」披露语`,
+          /本阶段不发命令、不改授权/.test(o.text ?? ''),
+          openedRaw,
+        );
+      }
+      await assertFixtureSettled(cdp, `${tier.key}@${vp}`);
+      const measured = await measure(cdp);
+      const verdict = evaluateDensity(measured, tier.key === 'empty' ? 'default' : 'risk');
+      const judgeTier = tier.key === 'empty' ? 'default' : 'risk';
+      const cards = await judgeCards(cdp, tier.key);
+      check(`${tier.key}@${vp} C1/C2 ≤ 上限（${tier.key} 档独立判定，阈值 7/15 · 9/20 · 17/35 逐字不变）`, verdict.ok, verdict.message);
+      check(
+        `${tier.key}@${vp} 单卡可点 ≤${MAX_CLICKABLES_PER_CARD}（逐卡动态格）`,
+        cards.cardBudget.ok,
+        `${cards.cardBudget.violations.join(' / ')} | ${cards.raw}`,
+      );
+      check(
+        `${tier.key}@${vp} 首屏卡 ≤${MAX_FIRST_SCREEN_CARDS} ∧ 欢迎卡 ≤${MAX_WELCOME_CARDS} 张`,
+        cards.firstScreen.ok,
+        `${cards.firstScreen.violations.join(' / ')} | ${cards.raw}`,
+      );
+      // 与 stage C 同一纪律：一格结束后必须撤掉风险投影，绝不把状态泄漏到下一格。
+      if (tier.key === 'riskDetailOpen') await setRisk(cdp, 'hardline', 'off');
+      rows.push({ tier: tier.key, vp, measured, verdict, cards, judgeTier });
+      const worstCard = cards.cards.reduce((n, c) => Math.max(n, c.clickables), 0);
+      console.log(
+        `  · ${tier.key}@${vp}: ${fmt(measured)} → ${verdict.ok ? 'PASS' : 'FAIL'} | 卡 ${cards.cards.length} 张（最坏单卡可点 ${worstCard}）| 首屏违规 ${cards.firstScreen.violations.length}`,
+      );
+    }
+  }
+  check('v4 新增独立登记格数 == 6（空态 3 + 风险详情展开 3）', rows.length === 6, String(rows.length));
   return rows;
 }
 
@@ -584,7 +757,7 @@ function readBaselineRegistry() {
 }
 
 // ── stage F: registry machine comparison (ADR-V3-018 决策 2 / review I8) ─────
-async function stageF(cdp, rows, cells, worst) {
+async function stageF(cdp, rows, cells, worst, extraRows = []) {
   console.log('\n▶ 阶段 F：基线机器比对（实测 vs docs/v4-density-baseline.json）');
   check('F 基线文件存在（父 ADR-V4-010 的登记载体）', existsSync(BASELINE_JSON), BASELINE_JSON);
   if (!existsSync(BASELINE_JSON)) return { diffs: ['基线文件缺失'] };
@@ -592,6 +765,10 @@ async function stageF(cdp, rows, cells, worst) {
   const diffs = [];
   for (const row of rows) {
     if (row.tier === 'risk') continue;
+    diffs.push(...compareBaselineCells(row.measured, baseline.tiers?.[row.tier]?.[String(row.vp)], () => `${row.tier}@${row.vp}`));
+  }
+  // V4-1：两组新增独立登记格（empty / riskDetailOpen）同样逐格机对（漂移即 FAIL）。
+  for (const row of extraRows) {
     diffs.push(...compareBaselineCells(row.measured, baseline.tiers?.[row.tier]?.[String(row.vp)], () => `${row.tier}@${row.vp}`));
   }
   for (const cell of cells) {
@@ -607,7 +784,7 @@ async function stageF(cdp, rows, cells, worst) {
   // the 3 risk viewport cells that only ever exist as members of the 15-cell
   // sub-scenario set (9 mandatory + 15 risk + 1 worst ≠ the 22 cells actually
   // compared: 6 non-risk rows + 15 risk sub-cells + 1 worst).
-  const comparedCells = rows.filter((r) => r.tier !== 'risk').length + cells.length + 1;
+  const comparedCells = rows.filter((r) => r.tier !== 'risk').length + extraRows.length + cells.length + 1;
   check(
     `F ${comparedCells} 个登记格实测 == 基线登记值（漂移即 FAIL）`,
     diffs.length === 0,
@@ -699,18 +876,22 @@ function stageE(summary) {
 
 // ── reverse counter-proofs (TASK-111) ───────────────────────────────────────
 async function reverseRp01(cdp) {
-  console.log('\n▶ RP-V3-01：注入 1 个额外可点元素 → 必须 FAIL → 还原 → 必须 PASS');
+  console.log('\n▶ RP-V3-01：注入额外可点元素越界 → 必须 FAIL → 还原 → 必须 PASS');
   await resetFixture(cdp);
   await setViewport(cdp, 400, VIEWPORT_HEIGHT);
   const before = await measure(cdp);
-  check('RP-V3-01 前置：默认档恰好 7 可点（否则注入 1 个不会越界）', before.clickables === 7, `实测 ${before.clickables}`);
-  await evaluate(cdp, `(() => { const b = document.createElement('button'); b.id = 'rp01'; b.textContent = 'rp01'; document.body.appendChild(b); return true; })()`);
+  // V4-1 等价重锚（台账 redlineRemap 第 1 条）：v3 的「默认档恰 7 可点」被三区骨架
+  // 取代为「工具栏准入恰 5」（4 入口 + 主题，ADR-V4-018）。注入量随之从 1 个改为 3 个
+  // —— 因为 5 + 1 = 6 仍在 7 的默认上限之内，注入 1 个已不再越界（这正是「恰 7」被
+  // 取代的直接后果）。判据、FAIL 诊断文本（「C1 8 > 7」）与还原/PASS 两段逐字不变。
+  check('RP-V3-01 前置：默认档恰为工具栏准入值 5 可点（否则注入 3 个不会越界）', before.clickables === 5, `实测 ${before.clickables}`);
+  await evaluate(cdp, `(() => { for (const id of ['rp01a','rp01b','rp01c']) { const b = document.createElement('button'); b.id = id; b.textContent = id; document.body.appendChild(b); } return true; })()`);
   await sleep(150);
   const injected = await measure(cdp);
   const verdict = evaluateDensity(injected, 'default');
   check('RP-V3-01 (FAIL 段) 注入后密度门禁必须 FAIL', verdict.ok === false, `ok=${verdict.ok} ${verdict.message}`);
   check('RP-V3-01 FAIL 段诊断含「C1 8 > 7」', verdict.exceeds.includes('C1 可点元素 8 > 7'), verdict.exceeds.join(' / '));
-  await evaluate(cdp, `(() => { document.getElementById('rp01')?.remove(); return true; })()`);
+  await evaluate(cdp, `(() => { for (const id of ['rp01a','rp01b','rp01c']) document.getElementById(id)?.remove(); return true; })()`);
   await sleep(150);
   const restored = await measure(cdp);
   const verdict2 = evaluateDensity(restored, 'default');
@@ -749,7 +930,11 @@ async function reverseRp03(cdp) {
   console.log('\n▶ RP-V3-03：CSS 隐身不算豁免 → 计数不得下降；hidden=true 才下降 1');
   await resetFixture(cdp);
   await setViewport(cdp, 400, VIEWPORT_HEIGHT);
-  const target = '#l0-ref-toggle';
+  // V4-1 等价重锚：v3 的靶子是 `#l0-ref-toggle`（当时挂在 L0 决策卡、计入 C1）；v4 把
+  // 决策卡同构迁入 `#stream`（**豁免子树**）后该元素已不在 C1 口径内 ⇒ 靶子换成三区
+  // 骨架内、口径内、且唯一的主题控件 `#theme-toggle`（工具栏准入 5 之一）。判据
+  // （CSS 隐身不豁免 / `hidden` 是唯一豁免通道）与三段还原语义逐字不变。
+  const target = '#theme-toggle';
   const setStyle = (style) =>
     evaluate(
       cdp,
@@ -757,7 +942,9 @@ async function reverseRp03(cdp) {
     );
   const clear = () => evaluate(cdp, `(() => { const el = document.querySelector(${JSON.stringify(target)}); el.style.cssText = ''; el.hidden = false; return true; })()`);
   const baseline = await evaluate(cdp, c1Probe);
-  check('RP-V3-03 前置：基线 C1 为 7', baseline === 7, `实测 ${baseline}`);
+  // V4-1 等价重锚：`c1Probe` 仍是**未排除 #stream** 的口径（反证靶面 = 口径本身），
+  // 故基线不再等于「工具栏准入 5」；判据（不下降 / hidden 降 1 / 还原回位）逐字不变。
+  check('RP-V3-03 前置：未排除口径的 C1 基线 > 0（判据未空转）', baseline > 0, `实测 ${baseline}`);
   for (const style of [{ display: 'none' }, { visibility: 'hidden' }, { opacity: '0' }, { pointerEvents: 'none' }]) {
     await setStyle(style);
     await sleep(120);
@@ -767,7 +954,7 @@ async function reverseRp03(cdp) {
   await clear();
   await sleep(120);
   const cleaned = await evaluate(cdp, c1Probe);
-  check('RP-V3-03 清除 CSS 隐身并还原后 C1 回到 7', cleaned === baseline, `实测 ${cleaned}`);
+  check('RP-V3-03 清除 CSS 隐身并还原后 C1 回到工具栏准入值', cleaned === baseline, `实测 ${cleaned}`);
   await evaluate(cdp, `(() => { document.querySelector(${JSON.stringify(target)}).hidden = true; return true; })()`);
   await sleep(120);
   const dropped = await evaluate(cdp, c1Probe);
@@ -775,7 +962,7 @@ async function reverseRp03(cdp) {
   await evaluate(cdp, `(() => { document.querySelector(${JSON.stringify(target)}).hidden = false; return true; })()`);
   await sleep(120);
   const restored = await evaluate(cdp, c1Probe);
-  check('RP-V3-03 还原后 C1 回到 7', restored === baseline, `实测 ${restored}`);
+  check('RP-V3-03 还原后 C1 回到工具栏准入值', restored === baseline, `实测 ${restored}`);
 }
 
 async function reverseRp04(cdp) {
@@ -933,6 +1120,257 @@ async function reverseRp08(cdp) {
   check('RP-V3-08 还原后基线文件 sha256 复原', sha(BASELINE_JSON) === shaBefore, `${shaBefore} → ${sha(BASELINE_JSON)}`);
 }
 
+// ── V4-1 in-gate counter-proofs（TASK-511 / ADR-V4-020 第 3 条 / ADR-V4-023 第 5 条）──
+/**
+ * RP-V4-01~07 — the v4 anti-abuse counter-proofs, driven **inside this gate** (in-gate
+ * form, registered in `test/gate-integrity.test.ts#REVERSE_PROOF_EXCEPTIONS`).
+ *
+ * Every driver asserts BOTH halves —「注入后必须 FAIL」and「还原后必须 PASS」— and the
+ * FAIL half carries a literal diagnostic assertion, so a driver that cannot go red for
+ * the right reason is not a counter-proof (NFR-V3-013 / NFR-CHAT-007).
+ *
+ * File-level perturbations (RP-V4-05) restore byte-for-byte and re-verify sha256.
+ * DOM-level perturbations remove the injected node and re-measure.
+ */
+const SIZE_BASELINE_TS = resolve(PACKAGE_ROOT, 'test/size-baseline.ts');
+
+/** Read a numeric constant from `size-baseline.ts` (single source, no second literal). */
+function readSizeConstant(name) {
+  const src = readFileSync(SIZE_BASELINE_TS, 'utf8');
+  const m = new RegExp(`export const ${name}\\s*(?::[^=]*)?=\\s*([0-9_]+)\\s*;`).exec(src);
+  if (!m) throw new Error(`size-baseline.ts 缺少常量 ${name}`);
+  return Number(m[1].replace(/_/g, ''));
+}
+
+const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
+
+/** RP-V4-01（FR-CHAT-072）：单卡第 7 个可点 ⇒ 单卡预算必须 FAIL；移除后 PASS。 */
+async function reverseRpV401(cdp) {
+  console.log('\n▶ RP-V4-01：卡内注入第 7 个可点元素 → 单卡预算必须 FAIL → 还原 → 必须 PASS');
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  await resetFixture(cdp, { authorized: true, ask: false });
+  await sleep(200);
+  const before = await judgeCards(cdp, 'empty');
+  check('RP-V4-01 前置：基线单卡可点 ≤ 上限（判据未恒真）', before.cardBudget.ok === true, `${before.cardBudget.violations.join(' / ')} | ${before.raw}`);
+  // 原子化（见 atomicCardsProbe）：注入 → 读卡集 → 还原 在同一个同步块内完成，
+  // 任何一次 `render()` 重绘都无法与之间插（否则「注入后仍能量到」只是竞态巧合）。
+  const injectedRaw = await evaluate(
+    cdp,
+    atomicCardsProbe(
+      `const stream = document.getElementById('stream');
+       const card = document.createElement('li');
+       card.id = 'rp401-card';
+       card.setAttribute('data-msg-type', 'nextstep');
+       for (let i = 0; i < 7; i += 1) { const b = document.createElement('button'); b.textContent = 'opt' + i; card.appendChild(b); }
+       stream.appendChild(card);`,
+      `document.getElementById('rp401-card')?.remove();`,
+    ),
+  );
+  const injectedBudget = evaluateCardBudget(JSON.parse(injectedRaw));
+  check('RP-V4-01 (FAIL 段) 卡内第 7 个可点必须被单卡预算判 FAIL', injectedBudget.ok === false, `${injectedBudget.violations.join(' / ')} | ${injectedRaw}`);
+  check('RP-V4-01 FAIL 段诊断含「卡内可点 7 > 6」', injectedBudget.violations.some((v) => /卡内可点 7 > 6/.test(v)), injectedBudget.violations.join(' / '));
+  const restored = await judgeCards(cdp, 'empty');
+  check('RP-V4-01 (还原后 PASS 段) 移除注入卡后单卡预算必须 PASS', restored.cardBudget.ok === true, `${restored.cardBudget.violations.join(' / ')} | ${restored.raw}`);
+}
+
+/** RP-V4-02（FR-CHAT-073）：空态首屏第 3 张卡 ⇒ 首屏预算必须 FAIL；移除后 PASS。 */
+async function reverseRpV402(cdp) {
+  console.log('\n▶ RP-V4-02：空态首屏注入到 3 张卡 → 首屏预算必须 FAIL → 还原 → 必须 PASS');
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  await resetFixture(cdp, { authorized: true, ask: false });
+  await sleep(200);
+  const before = await judgeCards(cdp, 'empty');
+  check('RP-V4-02 前置：空态首屏卡 ≤2（判据未恒真）', before.firstScreen.ok === true, `${before.firstScreen.violations.join(' / ')} | ${before.raw}`);
+  const injectedRaw = await evaluate(
+    cdp,
+    atomicCardsProbe(
+      `const stream = document.getElementById('stream');
+       for (const id of ['rp402-a', 'rp402-b']) {
+         const card = document.createElement('li');
+         card.id = id;
+         card.setAttribute('data-msg-type', 'system');
+         card.textContent = id;
+         stream.appendChild(card);
+       }`,
+      `for (const id of ['rp402-a','rp402-b']) document.getElementById(id)?.remove();`,
+    ),
+  );
+  const injectedFirstScreen = evaluateFirstScreen(JSON.parse(injectedRaw), 'empty');
+  check('RP-V4-02 (FAIL 段) 首屏第 3 张卡必须被首屏预算判 FAIL', injectedFirstScreen.ok === false, `${injectedFirstScreen.violations.join(' / ')} | ${injectedRaw}`);
+  check('RP-V4-02 FAIL 段诊断含「首屏可见卡 3 > 2」', injectedFirstScreen.violations.some((v) => /首屏可见卡 3 > 2/.test(v)), injectedFirstScreen.violations.join(' / '));
+  const restored = await judgeCards(cdp, 'empty');
+  check('RP-V4-02 (还原后 PASS 段) 移除注入卡后首屏预算必须 PASS', restored.firstScreen.ok === true, `${restored.firstScreen.violations.join(' / ')} | ${restored.raw}`);
+}
+
+/** RP-V4-03（ADR-V4-007 第 4 条）：第 2 张欢迎卡 或 欢迎文本 >8 行 ⇒ 必须 FAIL；还原后 PASS。 */
+async function reverseRpV403(cdp) {
+  console.log('\n▶ RP-V4-03：注入第 2 张欢迎卡 / 欢迎文本 >8 行 → 必须 FAIL → 还原 → 必须 PASS');
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  await resetFixture(cdp, { authorized: true, ask: false });
+  await sleep(200);
+  const before = await judgeCards(cdp, 'empty');
+  check('RP-V4-03 前置：空态欢迎卡恰 1 张且 ≤8 行（判据未恒真）', before.firstScreen.ok === true && before.firstScreen.welcomeCards === 1, `${before.firstScreen.violations.join(' / ')} | ${before.raw}`);
+
+  const twoRaw = await evaluate(
+    cdp,
+    atomicCardsProbe(
+      `const stream = document.getElementById('stream');
+       const extra = document.createElement('p');
+       extra.id = 'rp403-welcome';
+       extra.className = 'log-empty-text';
+       extra.textContent = '第二张欢迎卡';
+       stream.appendChild(extra);`,
+      `document.getElementById('rp403-welcome')?.remove();`,
+    ),
+  );
+  const twoWelcome = evaluateFirstScreen(JSON.parse(twoRaw), 'empty');
+  check('RP-V4-03 (FAIL 段 a) 第 2 张欢迎卡必须被判 FAIL', twoWelcome.ok === false, `${twoWelcome.violations.join(' / ')} | ${twoRaw}`);
+  check('RP-V4-03 FAIL 段 a 诊断含「欢迎卡 2 > 1」', twoWelcome.violations.some((v) => /欢迎卡 2 > 1/.test(v)), twoWelcome.violations.join(' / '));
+  const backToOne = await judgeCards(cdp, 'empty');
+  check('RP-V4-03 (还原后 PASS 段 a) 移除第 2 张欢迎卡后必须 PASS', backToOne.firstScreen.ok === true, `${backToOne.firstScreen.violations.join(' / ')} | ${backToOne.raw}`);
+
+  const longRaw = await evaluate(
+    cdp,
+    atomicCardsProbe(
+      `const wp = document.querySelector('#stream .log-empty-text');
+       if (wp) wp.textContent = 'x'.repeat(300);`,
+      `const wr = document.querySelector('#stream .log-empty-text');
+       if (wr) wr.textContent = ${JSON.stringify('还没有对话。先在上方配置模型，然后打开目标站点并授权。')};`,
+    ),
+  );
+  const longWelcome = evaluateFirstScreen(JSON.parse(longRaw), 'empty');
+  check('RP-V4-03 (FAIL 段 b) 欢迎文本 >8 行必须被判 FAIL', longWelcome.ok === false, `${longWelcome.violations.join(' / ')} | ${longRaw}`);
+  check('RP-V4-03 FAIL 段 b 诊断含「文本行 9 > 8」', longWelcome.violations.some((v) => /文本行 9 > 8/.test(v)), longWelcome.violations.join(' / '));
+  const restored = await judgeCards(cdp, 'empty');
+  check('RP-V4-03 (还原后 PASS 段 b) 还原欢迎文本后必须 PASS', restored.firstScreen.ok === true, `${restored.firstScreen.violations.join(' / ')} | ${restored.raw}`);
+}
+
+/** RP-V4-04（FR-CHAT-071）：CSS 隐身不豁免（C1 不降）；`hidden` 是唯一豁免通道（降 1）。 */
+async function reverseRpV404(cdp) {
+  console.log('\n▶ RP-V4-04：CSS 隐身不降 C1；`hidden` 必须降 1 → 还原 → 必须复原');
+  await resetFixture(cdp);
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  const target = '#theme-toggle';
+  const setStyle = (style) =>
+    evaluate(cdp, `(() => { const el = document.querySelector(${JSON.stringify(target)}); Object.assign(el.style, ${JSON.stringify(style)}); return true; })()`);
+  const baseline = await evaluate(cdp, c1Probe);
+  // 口径说明：`c1Probe` 是**未排除 #stream** 的口径（与 ADR-V4-020 §3 的反证靶面一致 ——
+  // 「CSS 隐身不豁免」要判的正是「整页可见元素计数」这条口径本身），故基线不是 5（5 是
+  // 排除 #stream 后的密度口径）。这里只断言基线非空，真正的判据是「不下降 / hidden 降 1」。
+  check('RP-V4-04 前置：未排除口径的 C1 基线 > 0（判据未空转）', baseline > 0, `实测 ${baseline}`);
+  for (const style of [{ display: 'none' }, { visibility: 'hidden' }, { opacity: '0' }, { pointerEvents: 'none' }]) {
+    await setStyle(style);
+    await sleep(120);
+    const after = await evaluate(cdp, c1Probe);
+    check(`RP-V4-04 CSS 隐身 ${JSON.stringify(style)} 后 C1 不下降（豁免只认 hidden）`, after === baseline, `${baseline} → ${after}`);
+  }
+  await evaluate(cdp, `(() => { const el = document.querySelector(${JSON.stringify(target)}); el.style.cssText = ''; return true; })()`);
+  await sleep(120);
+  const cleaned = await evaluate(cdp, c1Probe);
+  check('RP-V4-04 清除 CSS 隐身并还原后 C1 回到基线', cleaned === baseline, `实测 ${cleaned}`);
+  await evaluate(cdp, `(() => { document.querySelector(${JSON.stringify(target)}).hidden = true; return true; })()`);
+  await sleep(120);
+  const dropped = await evaluate(cdp, c1Probe);
+  check('RP-V4-04 hidden=true 是唯一豁免通道 → C1 必须下降 1', dropped === baseline - 1, `${baseline} → ${dropped}`);
+  await evaluate(cdp, `(() => { document.querySelector(${JSON.stringify(target)}).hidden = false; return true; })()`);
+  await sleep(120);
+  const restored = await evaluate(cdp, c1Probe);
+  check('RP-V4-04 (还原后 PASS 段) 还原后 C1 必须回到基线', restored === baseline, `实测 ${restored}`);
+}
+
+/** RP-V4-05（ADR-V4-010 不动面）：`dist/pick-layer.js` +1 B ⇒ 无容差上限必须 FAIL；逐字节还原。 */
+async function reverseRpV405(cdp) {
+  console.log('\n▶ RP-V4-05：dist/pick-layer.js +1 B → 无容差上限判据必须 FAIL → 还原 → sha256 复核');
+  const pickPath = resolve(PACKAGE_ROOT, 'dist/pick-layer.js');
+  const registered = readSizeConstant('PICK_LAYER_BASELINE_BYTES');
+  const src = readFileSync(SIZE_BASELINE_TS, 'utf8');
+  check('RP-V4-05 前置：无容差上限与登记值同源（PICK_LAYER_CEILING = PICK_LAYER_BASELINE_BYTES）', /export const PICK_LAYER_CEILING = PICK_LAYER_BASELINE_BYTES;/.test(src), `登记值 ${registered}`);
+  check('RP-V4-05 前置：dist/pick-layer.js 存在', existsSync(pickPath), pickPath);
+  const original = readFileSync(pickPath);
+  const shaBefore = sha256File(pickPath);
+  const before = statSync(pickPath).size;
+  check('RP-V4-05 前置：实测字节 == 登记值（无容差）', before === registered, `${before} vs ${registered}`);
+  let failExcess = -1;
+  try {
+    writeFileSync(pickPath, Buffer.concat([original, Buffer.from(' ')]));
+    const after = statSync(pickPath).size;
+    failExcess = after - registered;
+    check('RP-V4-05 (FAIL 段) +1 B 后无容差上限必须 FAIL', after > registered, `${after} > ${registered}`);
+    check('RP-V4-05 FAIL 段诊断含「超出 1 B」', failExcess === 1, `超出 ${failExcess} B`);
+  } finally {
+    writeFileSync(pickPath, original);
+  }
+  check('RP-V4-05 还原后逐字节 sha256 复核（还原失败不得静默）', sha256File(pickPath) === shaBefore, `${shaBefore} → ${sha256File(pickPath)}`);
+  check('RP-V4-05 (还原后 PASS 段) 还原后必须 PASS', statSync(pickPath).size <= registered, `实测 ${statSync(pickPath).size}`);
+}
+
+/** RP-V4-06（FR-CHAT-075）：把工具栏控件移入 `#stream` ⇒ 豁免守卫必须 FAIL 且 C1 不得下降。 */
+async function reverseRpV406(cdp) {
+  console.log('\n▶ RP-V4-06：工具栏控件移入 #stream → assertChromeNotInStream() 必须 FAIL 且 C1 不得下降');
+  await resetFixture(cdp);
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  const guard = () =>
+    evaluate(
+      cdp,
+      `(() => { try { window.__v3.testing.assertChromeNotInStream(); return 'pass'; } catch (e) { return 'throw:' + (e && e.message ? e.message : String(e)); } })()`,
+    );
+  const beforeGuard = await guard();
+  check('RP-V4-06 前置：#stream 子树零 [data-chrome-control]（guard PASS）', beforeGuard === 'pass', beforeGuard);
+  const beforeC1 = await evaluate(cdp, c1Probe);
+  await evaluate(
+    cdp,
+    `(() => { const t = document.getElementById('theme-toggle'); document.getElementById('stream').appendChild(t); return true; })()`,
+  );
+  await sleep(150);
+  const movedGuard = await guard();
+  check('RP-V4-06 (FAIL 段) 工具栏控件移入 #stream 后豁免守卫必须抛错', /^throw:/.test(movedGuard), movedGuard);
+  const afterC1 = await evaluate(cdp, c1Probe);
+  check('RP-V4-06 FAIL 段：豁免子树不得吞掉可点计数（C1 不得下降）', afterC1 === beforeC1, `${beforeC1} → ${afterC1}`);
+  await evaluate(
+    cdp,
+    `(() => { const t = document.getElementById('theme-toggle'); document.getElementById('region-toolbar').appendChild(t); return true; })()`,
+  );
+  await sleep(150);
+  const restoredGuard = await guard();
+  check('RP-V4-06 (还原后 PASS 段) 还原后豁免守卫必须 PASS', restoredGuard === 'pass', restoredGuard);
+  const restoredC1 = await evaluate(cdp, c1Probe);
+  check('RP-V4-06 还原后 C1 回到基线', restoredC1 === beforeC1, `${beforeC1} → ${restoredC1}`);
+}
+
+/** RP-V4-07（FR-CHAT-013 / J3）：风险 chip 被移入 `hidden` 容器 ⇒ 可见性探针必须 FAIL。 */
+async function reverseRpV407(cdp) {
+  console.log('\n▶ RP-V4-07：风险 chip 移入 hidden 容器 → 风险可见性探针必须 FAIL → 还原 → PASS');
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  await resetFixture(cdp);
+  await setRisk(cdp, 'hardline', 'force');
+  await sleep(200);
+  const before = await evaluate(cdp, riskVisibleExpr('hardline'));
+  check('RP-V4-07 前置：风险 chip 可见（基线 PASS）', before.ok === true, JSON.stringify(before));
+  await evaluate(
+    cdp,
+    `(() => {
+      const chip = document.querySelector('#risk-rail .risk-row[data-risk-class="hardline"]');
+      const holder = document.createElement('div');
+      holder.id = 'rp407-holder';
+      holder.hidden = true;
+      document.body.appendChild(holder);
+      holder.appendChild(chip);
+      return true;
+    })()`,
+  );
+  await sleep(150);
+  const hidden = await evaluate(cdp, riskVisibleExpr('hardline'));
+  check('RP-V4-07 (FAIL 段) chip 被移入 hidden 容器后探针必须 FAIL', hidden.ok === false, JSON.stringify(hidden));
+  await evaluate(
+    cdp,
+    `(() => { const h = document.getElementById('rp407-holder'); const rail = document.getElementById('risk-rail'); while (h.firstChild) rail.appendChild(h.firstChild); h.remove(); return true; })()`,
+  );
+  await sleep(150);
+  const restored = await evaluate(cdp, riskVisibleExpr('hardline'));
+  check('RP-V4-07 (还原后 PASS 段) 还原后风险可见性探针必须 PASS', restored.ok === true, JSON.stringify(restored));
+  await setRisk(cdp, 'hardline', 'off');
+}
+
 // ── main ────────────────────────────────────────────────────────────────────
 async function main() {
   console.log(`▶ chrome: ${CHROME}`);
@@ -970,11 +1408,24 @@ async function main() {
       await stageA(browserCdp, base);
       const rows = await stageB(cdp);
       const { cells, worst } = await stageC(cdp);
+      // V4-1：两组新增独立登记格在**既有 A/B/C 之后**执行 —— fixture 顺序对既有格
+      // （尤其 width 敏感的 `.site-summary` 截断）是有影响的，新增格不得改变既有格的
+      // 夹具序（换口径不是放松，既有 25 格的实测值必须逐格复现）。
+      const extraRows = await stageB2(cdp);
       stageD();
-      stageE([...rows, { tier: 'risk', vp: 'worst', measured: worst, verdict: evaluateDensity(worst, 'risk') }]);
+      stageE([...rows, ...extraRows, { tier: 'risk', vp: 'worst', measured: worst, verdict: evaluateDensity(worst, 'risk') }]);
       console.log(`\n  · 风险 15 登记格：${cells.length} 格`);
       check('风险登记格数 == 15', cells.length === 15, String(cells.length));
-      await stageF(cdp, rows, cells, worst);
+      // V4-1（ADR-V4-021 第 2 条）：31 登记格 = 9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst。
+      // 9 强制 = `DENSITY_MATRIX_SIZE`（3 档 × 3 视口）；其中 risk 档那一行由 15 个风险
+      // 子场景格承载（不另立行），故 31 = 9 + 15 + 3(空态) + 3(风险详情展开) + 1(worst)。
+      const registeredCells = DENSITY_MATRIX_SIZE + cells.length + extraRows.length + 1;
+      check(
+        'v4 登记格总数 == 31（9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst）',
+        registeredCells === 31,
+        `实测 ${registeredCells}（强制矩阵 ${DENSITY_MATRIX_SIZE} + 风险 ${cells.length} + 新增 ${extraRows.length} + worst 1）`,
+      );
+      await stageF(cdp, rows, cells, worst, extraRows);
     } else {
       switch (REVERSE) {
         case 'RP-V3-01':
@@ -994,6 +1445,27 @@ async function main() {
           break;
         case 'RP-V3-09':
           await reverseRp09(cdp);
+          break;
+        case 'RP-V4-01':
+          await reverseRpV401(cdp);
+          break;
+        case 'RP-V4-02':
+          await reverseRpV402(cdp);
+          break;
+        case 'RP-V4-03':
+          await reverseRpV403(cdp);
+          break;
+        case 'RP-V4-04':
+          await reverseRpV404(cdp);
+          break;
+        case 'RP-V4-05':
+          await reverseRpV405(cdp);
+          break;
+        case 'RP-V4-06':
+          await reverseRpV406(cdp);
+          break;
+        case 'RP-V4-07':
+          await reverseRpV407(cdp);
           break;
         default:
           throw new Error(`未知反证：${REVERSE}`);

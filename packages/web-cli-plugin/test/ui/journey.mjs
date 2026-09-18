@@ -800,7 +800,7 @@ async function main() {
     const mdRaw = await waitFor(
       sp,
       `(() => {
-        const log = document.getElementById('log');
+        const log = document.getElementById('stream');
         if (!log || !log.querySelector('h1')) return '';
         return JSON.stringify({
           h1: log.querySelectorAll('h1').length,
@@ -834,28 +834,38 @@ async function main() {
     // Pin a deterministic side-panel viewport (400×900) for the layout metrics.
     await sp.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });
     await sleep(300);
-    // V3-1 pre-step (registered): reveal the fallback composer so the「composer
-    // 贴底」geometry assertion below measures the same element as before.
-    await v3RevealComposer(sp);
+    // V4-1（ADR-V4-008 八步 ③，同编号等价改写）：v3 的「先 reveal composer 再量贴底」前置已退役
+    // —— 法四要求**默认屏无可见常驻输入框**（`#composer` 必须 hidden），reveal 前置与法四冲突。
+    // 读数目标从被取代的 `#log`(div) / `#panel-top` / `#panel-bottom` 重锚到三区骨架元素；
+    // 断言测的语义（flex 填充 / 无水平溢出 / 三区结构 / 回到底部入口）逐条不变。
     const layout = await evaluate(sp, `(() => {
-      const log = document.getElementById('log');
+      const log = document.getElementById('stream');
+      const region = document.getElementById('region-stream');
       const composer = document.getElementById('composer');
       const de = document.documentElement;
       const cr = composer.getBoundingClientRect();
       return {
-        logFlexGrow: getComputedStyle(log).flexGrow,
-        logHeightPct: Math.round((log.getBoundingClientRect().height / window.innerHeight) * 1000) / 10,
+        regionStreamFlexGrow: getComputedStyle(region).flexGrow,
+        regionStreamHeightPct: Math.round((region.getBoundingClientRect().height / window.innerHeight) * 1000) / 10,
         composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
         docOverflowX: de.scrollWidth - de.clientWidth,
-        hasTop: !!document.getElementById('panel-top'),
-        hasBottom: !!document.getElementById('panel-bottom'),
+        hasToolbar: !!document.getElementById('region-toolbar'),
+        hasStatusbar: !!document.getElementById('region-statusbar'),
         hasScrollBottom: !!document.getElementById('scroll-bottom'),
       };
     })()`);
-    check(layout.logFlexGrow === '1', '#15a 消息区为 flex 填充（非 45vh 硬编码）', JSON.stringify(layout));
-    check(layout.composerGapToBottom >= 0 && layout.composerGapToBottom <= 12, '#15c composer 贴底（未被 consent 等挤压）', `${layout.composerGapToBottom}px`);
+    check(layout.regionStreamFlexGrow === '1', '#15a 消息区为 flex 填充（非 45vh 硬编码）', JSON.stringify(layout));
+    const fa4 = await evaluate(sp, `(() => {
+      const composer = document.getElementById('composer');
+      const visibleIn = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+      const visibleInputs = [...document.querySelectorAll('input, textarea, select, [contenteditable="true"]')]
+        .filter(visibleIn).map((el) => el.id || el.tagName);
+      return JSON.stringify({ composerExists: Boolean(composer), composerHidden: composer ? composer.hidden === true : null, visibleInputs });
+    })()`);
+    const f4 = JSON.parse(fa4);
+    check(f4.composerExists === true && f4.composerHidden === true && f4.visibleInputs.length === 0, '#15c 默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 hidden（法四；显式取代 v3「composer 贴底」）', `${fa4} | gap=${layout.composerGapToBottom}px`);
     check(layout.docOverflowX === 0, '#15d 文档级无水平溢出', `${layout.docOverflowX}`);
-    check(layout.hasTop && layout.hasBottom && layout.hasScrollBottom, '#15e 三区结构 + 回到底部入口存在', JSON.stringify(layout));
+    check(layout.hasToolbar && layout.hasStatusbar && layout.hasScrollBottom, '#15e 三区结构 + 回到底部入口存在', JSON.stringify(layout));
 
     // #15b: steady-state (first-run strips hidden) the message zone takes the
     // flexible majority — measured with the strips hidden because this hermetic
@@ -865,12 +875,12 @@ async function main() {
       `(() => {
         const ids = ['site-hint','onboarding','discovery-notice'];
         const prev = ids.map((id) => { const el = document.getElementById(id); const p = el ? el.style.display : ''; if (el) el.style.display = 'none'; return p; });
-        const pct = Math.round((document.getElementById('log').getBoundingClientRect().height / window.innerHeight) * 1000) / 10;
+        const pct = Math.round((document.getElementById('region-stream').getBoundingClientRect().height / window.innerHeight) * 1000) / 10;
         ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });
         return pct;
       })()`,
     );
-    check(opPct > 45, '#15b 稳态消息区高度占比 > 45vh（实测 %）', `${opPct}%`);
+    check(opPct >= 65, '#15b 稳态聊天流（#region-stream）高度占比 ≥ 65.0%（v4 三区骨架；TASK-501 spike 12/12 最差格 0.7273 背书，门槛 45→65 收紧）', `${opPct}%`);
 
     // inject a long tool result (with hostile HTML), a command line and an error
     const longTool = JSON.stringify(
@@ -906,7 +916,7 @@ async function main() {
           hasCommand: !!document.querySelector('.cmd .cmd-text'),
           commandText: document.querySelector('.cmd .cmd-text')?.textContent ?? '',
           hasError: !!document.querySelector('.entry-error.msg-system'),
-          logOverflowX: document.getElementById('log').scrollWidth - document.getElementById('log').clientWidth,
+          logOverflowX: document.getElementById('stream').scrollWidth - document.getElementById('stream').clientWidth,
         });
       })()`,
       60,
@@ -973,7 +983,7 @@ async function main() {
     // #15p scroll policy:「回到底部」appears when scrolled away, hidden at bottom
     const scrollHint = await evaluate(
       sp,
-      `(() => { const log = document.getElementById('log'); log.scrollTop = 0; log.dispatchEvent(new Event('scroll')); const away = document.getElementById('scroll-bottom').classList.contains('show'); log.scrollTop = log.scrollHeight; log.dispatchEvent(new Event('scroll')); const bottom = document.getElementById('scroll-bottom').classList.contains('show'); return JSON.stringify({ away, bottom }); })()`,
+      `(() => { const log = document.getElementById('stream'); log.scrollTop = 0; log.dispatchEvent(new Event('scroll')); const away = document.getElementById('scroll-bottom').classList.contains('show'); log.scrollTop = log.scrollHeight; log.dispatchEvent(new Event('scroll')); const bottom = document.getElementById('scroll-bottom').classList.contains('show'); return JSON.stringify({ away, bottom }); })()`,
     );
     const sh = JSON.parse(scrollHint);
     check(sh.away === true && sh.bottom === false, '#15p 上滚显示「回到底部」、贴底隐藏', scrollHint);
@@ -986,13 +996,13 @@ async function main() {
     // #15r: at the bottom → a long appended assistant reply keeps us pinned.
     await evaluate(
       sp,
-      `(() => { const log = document.getElementById('log'); log.scrollTop = log.scrollHeight; log.dispatchEvent(new Event('scroll')); return log.scrollTop; })()`,
+      `(() => { const log = document.getElementById('stream'); log.scrollTop = log.scrollHeight; log.dispatchEvent(new Event('scroll')); return log.scrollTop; })()`,
     );
     await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'assistant', text: ${JSON.stringify(longReply)} }).catch(() => {})`);
     const followed = await waitFor(
       sp,
       `(() => {
-        const log = document.getElementById('log');
+        const log = document.getElementById('stream');
         const d = Math.round(log.scrollHeight - log.scrollTop - log.clientHeight);
         return d <= 48 && !document.getElementById('scroll-bottom').classList.contains('show')
           ? JSON.stringify({ residual: d, shown: false })
@@ -1006,14 +1016,14 @@ async function main() {
     // #15s/#15t: explicit scroll-up wins — appended content must not yank the view.
     await evaluate(
       sp,
-      `(() => { const log = document.getElementById('log'); log.scrollTop = 0; log.dispatchEvent(new Event('scroll')); return log.scrollTop; })()`,
+      `(() => { const log = document.getElementById('stream'); log.scrollTop = 0; log.dispatchEvent(new Event('scroll')); return log.scrollTop; })()`,
     );
     await evaluate(sw, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'assistant', text: ${JSON.stringify(longReply2)} }).catch(() => {})`);
     await sleep(500);
     const stayed = await evaluate(
       sp,
       `(() => {
-        const log = document.getElementById('log');
+        const log = document.getElementById('stream');
         return JSON.stringify({ scrollTop: Math.round(log.scrollTop), shown: document.getElementById('scroll-bottom').classList.contains('show') });
       })()`,
     );
@@ -1024,7 +1034,7 @@ async function main() {
     // #15q narrow side panel (320px) → still no horizontal overflow
     await sp.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: false });
     await sleep(300);
-    const narrow = await evaluate(sp, `(() => ({ doc: document.documentElement.scrollWidth - document.documentElement.clientWidth, log: document.getElementById('log').scrollWidth - document.getElementById('log').clientWidth, composerW: Math.round(document.getElementById('composer').getBoundingClientRect().width) }))()`);
+    const narrow = await evaluate(sp, `(() => ({ doc: document.documentElement.scrollWidth - document.documentElement.clientWidth, log: document.getElementById('stream').scrollWidth - document.getElementById('stream').clientWidth, composerW: Math.round(document.getElementById('composer').getBoundingClientRect().width) }))()`);
     check(narrow.doc === 0 && narrow.log === 0, '#15q 320px 窄侧栏无水平溢出', JSON.stringify(narrow));
     await sp.send('Emulation.clearDeviceMetricsOverride');
 
@@ -1039,12 +1049,13 @@ async function main() {
       await evaluate(
         sp,
         `(() => {
-          const log = document.getElementById('log');
+          const log = document.getElementById('stream');
           log.scrollTop = Math.max(0, Math.round(log.scrollHeight / 3));
           log.dispatchEvent(new Event('scroll'));
           const i = document.getElementById('input');
           i.value = 'draft-preserve-033';
-          return JSON.stringify({ draft: i.value, scrollTop: Math.round(log.scrollTop), textLen: log.textContent.length });
+          const entries = [...log.children].filter((c) => c.classList.contains('entry'));
+          return JSON.stringify({ draft: i.value, scrollTop: Math.round(log.scrollTop), textLen: entries.reduce((n, c) => n + (c.textContent ?? '').length, 0), entryCount: entries.length });
         })()`,
       ),
     );
@@ -1076,7 +1087,7 @@ async function main() {
         return JSON.stringify({
           shown: true,
           url: location.href,
-          chatHidden: getComputedStyle(document.getElementById('panel-main')).display === 'none',
+          chatHidden: getComputedStyle(document.getElementById('region-stream')).display === 'none',
           sections: sections.every((id) => !!document.getElementById(id)),
           providerOptions: provider.options.length,
           hasSave: !!document.getElementById('settings-save'),
@@ -1273,7 +1284,7 @@ async function main() {
     }
 
     const preservedWhileOpen = JSON.parse(
-      await evaluate(sp, `(() => { const log=document.getElementById('log'); const i=document.getElementById('input'); return JSON.stringify({ draft:i.value, hasMessage: log.textContent.length > 0 }); })()`),
+      await evaluate(sp, `(() => { const log=document.getElementById('stream'); const i=document.getElementById('input'); return JSON.stringify({ draft:i.value, hasMessage: log.textContent.length > 0 }); })()`),
     );
     check(
       preservedWhileOpen.draft === 'draft-preserve-033' && preservedWhileOpen.hasMessage === true,
@@ -1301,10 +1312,11 @@ async function main() {
       sp,
       `(() => {
         const v = document.getElementById('settings-view');
-        const log = document.getElementById('log');
+        const log = document.getElementById('stream');
         const i = document.getElementById('input');
         if (!v || v.classList.contains('show')) return '';
-        return JSON.stringify({ chatShown: getComputedStyle(document.getElementById('panel-main')).display !== 'none', draft: i.value, textLen: log.textContent.length, scrollTop: Math.round(log.scrollTop) });
+        const entries = [...log.children].filter((c) => c.classList.contains('entry'));
+        return JSON.stringify({ chatShown: getComputedStyle(document.getElementById('region-stream')).display !== 'none', draft: i.value, textLen: entries.reduce((n, c) => n + (c.textContent ?? '').length, 0), entryCount: entries.length, scrollTop: Math.round(log.scrollTop) });
       })()`,
       40,
       200,
@@ -1312,7 +1324,7 @@ async function main() {
     const bs = backState ? JSON.parse(backState) : {};
     check(bs.chatShown === true, '#33l 点「← 返回对话」回到聊天视图', backState ?? '');
     check(bs.draft === 'draft-preserve-033', '#33m 返回后输入框草稿仍在', String(bs.draft));
-    check((bs.textLen ?? -1) === beforeSwitch.textLen, '#33n 返回后已渲染消息文本不变（未重建 DOM）', `${beforeSwitch.textLen} → ${bs.textLen}`);
+    check((bs.textLen ?? -1) === beforeSwitch.textLen, '#33n 返回后已渲染消息文本不变（未重建 DOM）', `${beforeSwitch.textLen} → ${bs.textLen} | entries ${beforeSwitch.entryCount} → ${bs.entryCount}`);
     check(Math.abs((bs.scrollTop ?? -1) - beforeSwitch.scrollTop) <= 2, '#33o 返回后消息滚动位置被保留', `${beforeSwitch.scrollTop} → ${bs.scrollTop}`);
 
     // ── #16 decision ② / FR-048: multi-session switcher + history isolation ──
@@ -1364,13 +1376,21 @@ async function main() {
     check(sl.ids.includes('https://alpha.test') && sl.ids.includes('https://beta.test'), '#16c 会话以域名为键（alpha/beta）', JSON.stringify(sl.ids));
 
     // switch to beta → the panel must show beta's history and NOT alpha's (no串台)
+    // V4-1 等价前置（ADR-V4-017 登记）：会话切换器在 v4 落在 `#settings-view`「站点与授权」
+    // 分区内（v3 的 `#topbar` 折叠层位置 → 视图位置）。设置视图独立可滚动，会话条目可能
+    // 落在可视区外 ⇒ 坐标点击会 miss。与 #18p 同一登记惯例：miss 时回落到元素自身的
+    // click()（同一 wiring）—— 断言测的是行为，不是 hit-test。
     await realClick(sp, '#session-list .session-item[data-session-id="https://beta.test"]');
-    const betaView = await waitFor(
+    let betaView = await waitFor(
       sp,
-      `(() => { const t = document.getElementById('log').textContent; return t.includes('BETA-ONLY') ? JSON.stringify({ hasBeta: true, hasAlpha: t.includes('ALPHA-ONLY'), label: document.getElementById('session-label').textContent }) : ''; })()`,
+      `(() => { const t = document.getElementById('stream').textContent; return t.includes('BETA-ONLY') ? JSON.stringify({ hasBeta: true, hasAlpha: t.includes('ALPHA-ONLY'), label: document.getElementById('session-label').textContent }) : ''; })()`,
       60,
       200,
     );
+    if (!betaView) {
+      await evaluate(sp, `document.querySelector('#session-list .session-item[data-session-id="https://beta.test"]').click()`);
+      betaView = await waitFor(sp, `(() => { const t = document.getElementById('stream').textContent; return t.includes('BETA-ONLY') ? JSON.stringify({ hasBeta: true, hasAlpha: t.includes('ALPHA-ONLY'), label: document.getElementById('session-label').textContent }) : ''; })()`, 40, 200);
+    }
     const bv = betaView ? JSON.parse(betaView) : {};
     check(bv.hasBeta === true, '#16d 切换到 beta 会话后回显 beta 的历史', betaView);
     check(bv.hasAlpha === false, '#16e beta 会话不显示 alpha 的历史（不串台）', betaView);
@@ -1378,12 +1398,16 @@ async function main() {
 
     // switch back to alpha → the reverse must hold
     await realClick(sp, '#session-list .session-item[data-session-id="https://alpha.test"]');
-    const alphaView = await waitFor(
+    let alphaView = await waitFor(
       sp,
-      `(() => { const t = document.getElementById('log').textContent; return t.includes('ALPHA-ONLY') ? JSON.stringify({ hasAlpha: true, hasBeta: t.includes('BETA-ONLY') }) : ''; })()`,
+      `(() => { const t = document.getElementById('stream').textContent; return t.includes('ALPHA-ONLY') ? JSON.stringify({ hasAlpha: true, hasBeta: t.includes('BETA-ONLY') }) : ''; })()`,
       60,
       200,
     );
+    if (!alphaView) {
+      await evaluate(sp, `document.querySelector('#session-list .session-item[data-session-id="https://alpha.test"]').click()`);
+      alphaView = await waitFor(sp, `(() => { const t = document.getElementById('stream').textContent; return t.includes('ALPHA-ONLY') ? JSON.stringify({ hasAlpha: true, hasBeta: t.includes('BETA-ONLY') }) : ''; })()`, 40, 200);
+    }
     const av = alphaView ? JSON.parse(alphaView) : {};
     check(av.hasAlpha === true && av.hasBeta === false, '#16g 切回 alpha 会话后仅回显 alpha 历史（隔离双向成立）', alphaView);
 
@@ -1530,6 +1554,14 @@ async function main() {
     // The readable-origin path must NOT have run the restricted/stale degradation.
     const newStatusProbe = await evaluate(sp, `(() => { const t = document.getElementById('status')?.textContent ?? ''; return t.includes(${JSON.stringify(newOrigin)}) ? 'followed' : t; })()`);
     check(newStatusProbe === 'followed', '#16o 面板未落入「未授权即失效」死路（会话已跟随）', String(newStatusProbe));
+
+    // ── V4-1 等价前置（ADR-V4-008 / ADR-V4-017，登记）：v3 的 `openStatusDetails()` 只展开
+    // `#topbar` 折叠层（聊天区仍可见），v4 的同一调用 = **进入设置视图**（三区骨架下
+    // `#region-stream` 被 `display:none` 隐藏）。因此「面板内 close 二次确认」这一步必须
+    // 先把视图切回聊天（`#settings-back`），否则 `#confirm-allow/#confirm-deny` 落在隐藏子树里，
+    // 几何断言测的是不可见元素（断言强度不降，只补一次视图切换前置）。
+    await realClick(sp, '#settings-back');
+    await sleep(400);
 
     // ── author reversal (2026-09-13): the side-panel confirmation flow must
     // render a `tabs close` ask — including the concrete target (title +
