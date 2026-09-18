@@ -141,6 +141,15 @@ function buildPanel() {
   doc.add('risk-rail').hidden = false;
   doc.add('confirm').hidden = true;
   doc.add('l0-decision').hidden = false;
+  // V4-1: the three-zone shell the never-foldable set now names.
+  doc.add('region-toolbar');
+  doc.add('region-stream');
+  doc.add('region-statusbar');
+  doc.add('stream');
+  doc.add('view-host').hidden = true;
+  doc.add('settings-view').hidden = true;
+  doc.add('risk-chips').hidden = true;
+  doc.add('risk-detail').hidden = true;
   return doc;
 }
 
@@ -162,24 +171,31 @@ const stripComments = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 // ── 1. whitelist: the risk rail / confirm card / decision area cannot fold ───
-test('disclosure: 白名单外目标（含 #risk-rail）一律抛错', () => {
-  assert.ok(COLLAPSIBLE_TARGETS.includes('topbar'));
+test('disclosure: 白名单外目标（含 #risk-rail / #region-statusbar）一律抛错', () => {
+  assert.ok(COLLAPSIBLE_TARGETS.includes('l1-local-tree'));
+  // V4-1: the two v3 targets that retired as foldable panels must now be OUT.
+  assert.equal(isFoldable('topbar'), false, 'V4-1: #topbar 迁入设置视图，不再是可折叠面板');
+  assert.equal(isFoldable('l2-entries'), false, 'V4-1: #l2-entries 成为常驻工具栏入口');
   for (const forbidden of NEVER_FOLDABLE) {
     assert.equal(isFoldable(forbidden), false, `${forbidden} 必须在白名单外`);
     assert.throws(() => assertFoldable(forbidden), DisclosureError, `assertFoldable(#${forbidden}) 必须抛错`);
   }
   assert.equal(normalizeId('#risk-rail'), 'risk-rail');
-  assert.equal(assertFoldable('topbar'), 'topbar');
+  assert.equal(assertFoldable('l1-local-tree'), 'l1-local-tree');
   assert.equal(assertFoldable('#l1-more'), 'l1-more');
+  // V4-1 负向断言（ADR-V4-019 第 7 条）：状态栏本体必须抛错。
+  assert.throws(() => assertFoldable('#region-statusbar'), DisclosureError, 'assertFoldable(#region-statusbar) 必须抛错');
+  assert.throws(() => assertFoldable('#risk-chips'), DisclosureError);
+  assert.throws(() => assertFoldable('#stream'), DisclosureError);
 });
 
 test('disclosure: collapseAll() 折叠白名单内目标且 #risk-rail 完全不受影响', () => {
   const doc = buildPanel();
   const rail = doc.getElementById('risk-rail')!;
   const controller = createDisclosure(doc);
-  controller.open('topbar');
+  controller.open('l1-local-tree');
   controller.open('l1-more');
-  controller.open('l2-entries');
+  controller.open('l1-receipt');
   controller.collapseAll();
   for (const id of COLLAPSIBLE_TARGETS) {
     assert.equal(doc.getElementById(id)!.hidden, true, `#${id} 应被收起（hidden 属性）`);
@@ -207,11 +223,11 @@ test('disclosure: 收起一律用 hidden 属性；源码零 CSS 隐身折叠', (
 test('disclosure: aria-expanded / aria-controls 必须成对，缺一即抛错', () => {
   const doc = buildPanel();
   const controller = createDisclosure(doc);
-  controller.open('topbar');
-  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-expanded'), 'true');
-  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-controls'), 'topbar');
-  controller.close('topbar');
-  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-expanded'), 'false');
+  controller.open('l1-local-tree');
+  assert.equal(doc.getElementById('l1-local-tree-toggle')!.getAttribute('aria-expanded'), 'true');
+  assert.equal(doc.getElementById('l1-local-tree-toggle')!.getAttribute('aria-controls'), 'l1-local-tree');
+  controller.close('l1-local-tree');
+  assert.equal(doc.getElementById('l1-local-tree-toggle')!.getAttribute('aria-expanded'), 'false');
 
   const broken = buildPanel();
   broken.getElementById('l0-more')!.attrs.delete('aria-expanded');
@@ -222,32 +238,30 @@ test('disclosure: aria-expanded / aria-controls 必须成对，缺一即抛错',
 test('disclosure: 展开态记忆往返（open → 切走 → 返回后相等）', () => {
   const doc = buildPanel();
   const controller = createDisclosure(doc);
-  controller.open('topbar');
+  controller.open('l1-local-tree');
   controller.close('l1-more');
-  controller.open('l2-entries');
+  controller.open('l1-receipt');
   const before = controller.snapshot();
   // V3-2 extended the whitelist with the five L1 content panels (ADR-V3-021); the
   // expected map is re-pinned to the FULL whitelist (a superset check, never a
   // narrowed one) so the round-trip claim still covers every foldable target.
   assert.deepEqual(before, {
-    topbar: true,
     'l1-more': false,
     'l1-ref': false,
-    'l2-entries': true,
     'l1-consequences': false,
-    'l1-local-tree': false,
+    'l1-local-tree': true,
     'l1-history': false,
-    'l1-receipt': false,
+    'l1-receipt': true,
     'l1-gestures': false,
   });
   assert.equal(Object.keys(before).length, COLLAPSIBLE_TARGETS.length, '快照必须覆盖白名单全部目标');
   // simulate: enter an L2 view (everything folds) then come back
   controller.collapseAll();
-  assert.equal(controller.isOpen('topbar'), false);
+  assert.equal(controller.isOpen('l1-local-tree'), false);
   controller.restore(before);
   assert.deepEqual(controller.snapshot(), before, '返回后展开态必须与进入前相等');
   assert.ok(controller.expandMemory instanceof Map);
-  assert.equal(controller.expandMemory.get('topbar'), true);
+  assert.equal(controller.expandMemory.get('l1-local-tree'), true);
   // wiring is the single source for trigger ↔ target pairs
   assert.equal(DISCLOSURE_WIRING.length, COLLAPSIBLE_TARGETS.length);
 });
@@ -296,15 +310,24 @@ test('risk-rail: 三通道非空——文字为空即抛错', () => {
   assert.equal(RISK_CLASSES.length, 5);
 });
 
-test('risk-rail: 五类风险渲染到 #risk-rail，无风险时给出平静摘要', () => {
+test('risk-rail: 五类风险渲染为 chip 到 #risk-rail，无风险时收缩为 0 可点 chip', () => {
   const doc = buildPanel();
-  assert.equal(renderRiskRail(doc as never, []), 1);
+  // V4-1 (ADR-V4-019 / shim F3)：零风险 ⇒ chips 容器收缩、rail 零 chip。
+  assert.equal(renderRiskRail(doc as never, []), 0);
   const rail = doc.getElementById('risk-rail')!;
-  assert.equal(rail.children.length, 1);
-  assert.equal(rail.children[0].getAttribute('data-risk-severity'), 'calm');
+  assert.equal(rail.children.length, 0, '零风险时 #risk-rail 不得渲染任何行');
+  assert.equal(doc.getElementById('risk-chips')!.hidden, true, '零风险时 #risk-chips 必须收缩');
   assert.equal(renderRiskRail(doc as never, ['hardline', 'staleRef']), 2);
   assert.equal(rail.children.length, 2);
   assert.equal(rail.children[0].getAttribute('data-risk-class'), 'hardline');
+  assert.equal(doc.getElementById('risk-chips')!.hidden, false, '有风险时 #risk-chips 必须可见（J2）');
+  // 三通道齐备 + chip 是可点 button（永久不可折叠语义不变：disclosure 白名单仍排除它）。
+  const chip = rail.children[0];
+  assert.equal(chip.getAttribute('aria-controls'), 'risk-detail');
+  assert.equal(chip.getAttribute('data-chrome-control'), 'statusbar', 'chip 是常驻 chrome 控件（不得进 #stream 豁免子树）');
+  const classes = [...(chip.children ?? [])].map((c) => String(c.className));
+  assert.ok(classes.includes('risk-text') && classes.includes('risk-badge') && classes.includes('risk-icon'), 'chips 必须三通道齐备（文字/徽标/图标）');
+  assert.equal(isFoldable('risk-rail'), false);
   const empty = new StubDoc();
   assert.throws(() => renderRiskRail(empty as never, []), RiskRowError, '#risk-rail 缺失必须抛错');
 });

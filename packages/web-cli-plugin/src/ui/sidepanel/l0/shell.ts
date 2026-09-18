@@ -1,14 +1,17 @@
 /**
- * V3-1 TASK-106 (ADR-V3-013 / ADR-V3-017) — the L0 skeleton shell.
+ * V4-1 TASK-506 (ADR-V4-017 / ADR-V4-019 / ADR-V4-022) — the三区 skeleton shell.
  *
  * Owns the three things the default screen answers, and nothing else:
- *   ① 我在哪 + ② 谁在管我  → `#panel-top` (`#l0-status-band` is its only clickable)
- *   ③ 下一步做什么        → `#l0-decision` (decision card + pick + reference chip)
- *   plus `#risk-rail` (never folds, see `l0/risk-rail.ts`) and `#l0-statusbar`.
+ *   ① 我在哪 + ② 谁在管我  → `.site-summary`（**只读** `role=status`；v3 的
+ *      `#l0-status-band` 一整条可点带退役 —— 工具栏现在只承载 4 入口 + 主题）
+ *   ③ 下一步做什么        → `#l0-decision`（决策卡 + 拾取 + 引用 chip；同构迁入
+ *      `#stream` 内的 `li[data-transitional-host="v4-3"]`，id / ARIA 全保留）
+ *   plus `#risk-rail`（永不折叠，唯一写入者仍是 `l0/risk-rail.ts`）与
+ *   `#region-statusbar`（`statusbar.ts`）。
  *
  * The shell is deliberately a thin writer:
  *   - every number/label it shows comes from `l0ViewModel()` (pure, node-tested);
- *   - it never touches `#log`, `#composer`'s own behaviour, or any v1 handler;
+ *   - it never touches `#stream`'s own behaviour or any v1 handler;
  *   - collapse goes through the `disclosure` controller, and the risk rail is
  *     written only by `renderRiskRail()`.
  *
@@ -21,6 +24,7 @@ import type { L0Input, L0View } from '../view-model.js';
 import { renderRiskRail } from './risk-rail.js';
 import { mountDecisionCard } from './decision-card.js';
 import { mountStatusBar } from './status-bar.js';
+import { mountStatusBar as mountStatusZone, riskActiveOf } from '../statusbar.js';
 
 export interface L0Handle {
   /** Re-derive and repaint the whole L0 skeleton. */
@@ -60,7 +64,7 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     return el as T;
   };
 
-  const band = get('l0-status-band');
+  const summary = doc.querySelector('.site-summary');
   const status = get('status');
   const llmStatus = get('llm-status');
   const sessionLabel = get('session-label');
@@ -70,6 +74,7 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   const refToggle = get<HTMLButtonElement>('l0-ref-toggle');
   const refSummary = get('l1-ref-summary');
   const statusBar = mountStatusBar(doc);
+  const statusZone = mountStatusZone(doc);
   const card = mountDecisionCard({ doc, onAnswer: deps.onAnswer });
 
   // The policy badge is a read-only third channel next to the status text; it is
@@ -77,7 +82,7 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   // density budget cannot drift with render count).
   policyBadge.className = 'l0-band-badge';
   policyBadge.id = 'l0-policy-badge';
-  band.insertBefore(policyBadge, status);
+  if (summary) summary.insertBefore(policyBadge, status);
 
   let current: L0View | null = null;
 
@@ -91,8 +96,10 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     sessionLabel.textContent = view.band.session;
     policyBadge.textContent = view.band.policy;
     policyBadge.setAttribute('data-tone', view.band.statusDot);
-    band.setAttribute('data-status-dot', view.band.statusDot);
-    band.setAttribute('title', view.band.origin ? `完整 origin：${view.band.origin}` : '无活跃站点');
+    if (summary) {
+      summary.setAttribute('data-status-dot', view.band.statusDot);
+      summary.setAttribute('title', view.band.origin ? `完整 origin：${view.band.origin}` : '无活跃站点');
+    }
 
     // ③ decision card
     kicker.textContent = view.decision.visible ? '下一步做什么' : '下一步做什么（等待任务）';
@@ -139,23 +146,22 @@ export function mountL0(deps: MountL0Deps): L0Handle {
 
     // L2 entries (counts realise FR-V3-015 / FR-V3-046's mechanism: the labels come
     // straight from the ONE derivation `l2/counts.ts`, shared with the view host).
+    // V4-1: these four writers live in the toolbar now; `#region-statusbar`'s line +
+    // J1/J2 container invariants are asserted by `statusbar.ts` from the same view.
     statusBar.render(view);
+    statusZone.render(view, { riskActive: riskActiveOf(view) });
   };
 
   const openL2 = (which: L2ViewKey): void => {
     if (which === 'settings') {
       deps.onOpenSettings?.();
       statusBar.syncTriggerAria();
-      disclosure.close('l2-entries');
       return;
     }
-    // Choosing an entry closes the entry menu (one interaction, one outcome) — the
-    // L2 view itself stays open, and the geometry returns to the closed state: the
-    // panel is a menu, not resident chrome. It is folded BEFORE the view opens so
-    // the expansion snapshot the view host takes on entry is already menu-free.
-    disclosure.close('l2-entries');
-    // V3-3: `l2/view-host.ts` owns the replacement (`#log` ↔ `#view-host`), the
-    // header and the focus move. This module only routes the click.
+    // V4-1: the four entries are **always visible** toolbar entries (the v3 entry
+    // menu `#l2-entries` retired as a foldable panel), so there is nothing to fold
+    // on entry any more — the expansion snapshot the view host takes is menu-free
+    // by construction.
     deps.onOpenL2?.(which);
     // AC-V3-010 (I5): the four `#l2-entry-*` triggers must keep a truthful
     // `aria-expanded` pair with their own target (three track `#view-host`, the

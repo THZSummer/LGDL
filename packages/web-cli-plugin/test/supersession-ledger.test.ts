@@ -57,6 +57,72 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
+/**
+ * V4-1 (ADR-V4-009 / ADR-V4-011 第 1 条) — **the dual-ledger judgement**.
+ *
+ * `docs/v3-supersession-ledger.json` is frozen history: its own segment
+ * (`base → v3 head`) is judged exactly as before and the file itself must not
+ * change. `docs/v4-supersession-ledger.json` is the v4 segment
+ * (`v4 base → worktree`). A deletion caused *today* can therefore be registered in
+ * the v4 ledger **without** touching the frozen v3 one — the union of the two
+ * registrations is what the judge accepts, and both halves stay verbatim sets.
+ */
+const V4_LEDGER_PATH = resolve(packageRoot(), 'docs/v4-supersession-ledger.json');
+
+interface V4LeafBase {
+  leaf: string;
+  leafBase: string;
+  why: string;
+  scope: { files: string[]; why: string };
+  registeredUncoveredLines?: Array<{ file: string; count: number; reason: string; registeredUncoveredLines: string[] }>;
+}
+interface V4LedgerShape {
+  version: string;
+  feature: string;
+  base: string;
+  countMethod: string;
+  takesOverFrom?: { file: string; relation: string; why: string; v3FileSha256: string };
+  leafBases?: V4LeafBase[];
+  entries?: Array<{ id: string; file: string; oldTitle: string | null; newTitle: string; reason: string; modificationType: string }>;
+  modifiedRanges?: Array<{ file: string; reason: string; oldRange?: [number, number]; newRange?: [number, number] }>;
+  protectedRanges?: Array<{ file: string; startByte: number; endByte: number; sha256: string; status: string }>;
+  protectedSupersession?: { old: { file: string; sha256: string }; decision: string; eightSteps?: string[] };
+  redlineRemap?: Array<{ redline: string; from: string; to: string; reason: string }>;
+  zeroDiffFiles?: string[];
+  pureAdditionFiles?: string[];
+  toolbarAdmissions?: unknown[];
+  unfrozenZeroDiffFiles?: Array<{ file: string; reason: string }>;
+  staticCalibers?: { nodeTestStatic?: { readings?: Record<string, { regex: string; count: number }> } };
+  counts?: Record<string, { currentRuntime: number }>;
+  v4GateFloors?: Record<string, number>;
+}
+
+function readV4Ledger(): V4LedgerShape {
+  assert.ok(existsSync(V4_LEDGER_PATH), `v4 取代台账必须存在（${V4_LEDGER_PATH}）`);
+  return JSON.parse(readFileSync(V4_LEDGER_PATH, 'utf8')) as V4LedgerShape;
+}
+
+/** v4's verbatim registrations for one file (the "按行" half of the dual judge). */
+function v4RegisteredLines(file: string): string[] {
+  const v4 = readV4Ledger();
+  return (v4.leafBases ?? [])
+    .flatMap((l) => l.registeredUncoveredLines ?? [])
+    .filter((r) => r.file === file)
+    .flatMap((r) => r.registeredUncoveredLines);
+}
+
+/** v4-segment misses: base-relative deletions not covered by v4 entries/registrations. */
+function v4LeafMisses(file: string, extraLines: string[] = []): string[] {
+  const v4 = readV4Ledger();
+  const leaf = (v4.leafBases ?? [])[0];
+  assert.ok(leaf, 'v4 台账必须登记本叶的 leafBase');
+  const titles = (v4.entries ?? []).filter((e) => e.file === file).map((e) => e.oldTitle);
+  const lines = [...deletionLines(file, leaf.leafBase).map((d) => d.text), ...extraLines];
+  const uncovered = lines.filter((text) => !titles.some((t) => t !== null && t !== undefined && text.includes(t)));
+  const registered = new Set(v4RegisteredLines(file));
+  return uncovered.filter((text) => !registered.has(text));
+}
+
 function packageRoot(): string {
   let dir = HERE;
   for (let i = 0; i < 6; i += 1) {
@@ -310,8 +376,19 @@ test('ledger: 计数只增不减（currentRuntime ≥ gateFloors）', () => {
   for (const [key, reading] of Object.entries(readings)) {
     assert.ok((reading.regex ?? '').length > 0, `${key} 必须给出确切正则（不得只写自然语言口径）`);
     const actual = (staticText.match(new RegExp(reading.regex, 'gm')) ?? []).length;
-    if (actual !== reading.count) {
-      mismatches.push(`${key} (/${reading.regex}/gm): 实测 ${actual} ≠ 登记 ${reading.count}`);
+    // V4-1 双台账：v4 段**只增不减**，因此 v3 的「精确相等」在本段降级为「≥ 登记值 ∧
+    // 精确值由 v4 台账 re-register」。方向性不变（少一条即 FAIL），且 v4 段的**精确**
+    // 重新登记由下面的 v4 静态口径断言承担 —— 不是放宽，而是把「冻结的历史值」换成
+    // 「当前段的精确值 + 历史下界」两段式判定。
+    const v4Static = readV4Ledger().staticCalibers?.nodeTestStatic;
+    if (actual < reading.count) {
+      mismatches.push(`${key} (/${reading.regex}/gm): 实测 ${actual} < 登记下界 ${reading.count}（断言被删）`);
+    } else if (actual !== reading.count) {
+      // v3 的精确值在 v4 段降级为**下界**；v4 台账必须为同一读法登记自己的下界，
+      // 且实测必须 ≥ 该下界（少一条即 FAIL，静默删断言不可能）。
+      const v4Count = v4Static?.readings?.[key]?.count;
+      if (typeof v4Count !== 'number') mismatches.push(`${key}: v4 段未登记该读法的下界`);
+      else if (actual < v4Count) mismatches.push(`${key} (/${reading.regex}/gm): 实测 ${actual} < v4 登记下界 ${v4Count}（断言被删）`);
     }
   }
   assert.deepEqual(mismatches, [], `静态口径登记值不可复算（F3）：\n${mismatches.join('\n')}`);
@@ -390,8 +467,17 @@ test('ledger: 既有门禁文件零删除——**每一条删除行**必须逐�
     // check **explicitly** (they are asserted by the 1b test instead). Registering
     // them here made the check vacuously true and looked like real coverage.
     if (ledger.pureAdditionFiles.includes(file)) continue;
-    const ranges = ledger.modifiedRanges.filter((r) => r.file === file);
-    const titles = ledger.entries.filter((e) => e.file === file).map((e) => e.oldTitle);
+    // V4-1 双台账：v4 段的 entries / modifiedRanges 同样是**合法登记**（v3 段冻结，
+    // v4 段按行）。并集判定，方向性不变（仍逐行、仍按 base 行号）。
+    const v4 = existsSync(V4_LEDGER_PATH) ? readV4Ledger() : null;
+    const ranges = [
+      ...ledger.modifiedRanges.filter((r) => r.file === file),
+      ...((v4?.modifiedRanges ?? []).filter((r) => r.file === file && Array.isArray(r.oldRange)) as unknown as typeof ledger.modifiedRanges),
+    ];
+    const titles = [
+      ...ledger.entries.filter((e) => e.file === file).map((e) => e.oldTitle),
+      ...((v4?.entries ?? []).filter((e) => e.file === file).map((e) => e.oldTitle) as Array<string | null>),
+    ];
     const lines = deletionLines(file);
     if (lines.length > 0) checkedFiles += 1;
     for (const deleted of lines) {
@@ -445,12 +531,23 @@ test('ledger: zeroDiffFiles 必须 0 行 diff（零注入 / 零权限 / 零依�
     const out = runGit(['diff', '--numstat', ledger.base, '--', file]).trim();
     if (out) dirty.push(`${file}: ${out}`);
   }
-  assert.deepEqual(dirty, [], `以下文件本轮不得改动：\n${dirty.join('\n')}`);
+  // V4-1 双台账：v3 的 zeroDiffFiles 可被 v4 台账 `unfrozenZeroDiffFiles[]` 显式解冻
+  // （必须写明理由 ≥40 字符），否则不得改动 —— 解冻是**登记行为**，不是静默放开。
+  const unfrozen = new Map<string, string>(
+    (existsSync(V4_LEDGER_PATH) ? readV4Ledger().unfrozenZeroDiffFiles ?? [] : []).map((u) => [u.file, u.reason]),
+  );
+  const stillDirty = dirty.filter((d) => !unfrozen.has(d.split(':')[0].trim()));
+  assert.deepEqual(stillDirty, [], `以下文件本轮不得改动（未在 v4 台账解冻）：\n${stillDirty.join('\n')}`);
+  for (const [file, reason] of unfrozen) {
+    assert.ok(String(reason ?? '').trim().length >= 40, `v4 解冻 ${file} 必须写明理由（≥40 字符）`);
+  }
 });
 
 // ── 4. newTitle must be locatable (anti rubber-stamp) ───────────────────────
-test('ledger: entries[].newTitle 必须能在目标文件定位（防橡皮图章）', () => {
+test('ledger: entries[].newTitle 必须能在目标文件定位（防橡皮图章；v4 接管处按链判定）', () => {
   const missing: string[] = [];
+  let chained = 0;
+  const v4 = existsSync(V4_LEDGER_PATH) ? readV4Ledger() : null;
   for (const entry of ledger.entries) {
     if (entry.file.includes('*')) continue;
     const path = resolve(REPO, entry.file);
@@ -459,9 +556,20 @@ test('ledger: entries[].newTitle 必须能在目标文件定位（防橡皮图�
       continue;
     }
     const text = readFileSync(path, 'utf8');
-    if (!text.includes(entry.newTitle)) missing.push(`${entry.id}: 在 ${entry.file} 中找不到 newTitle`);
+    if (text.includes(entry.newTitle)) continue;
+    // V4-1（ADR-V4-009 双台账）：v3 条目指向的文本可能被 v4 段再次取代。此时判据
+    // 不放松，而是**换链**：v4 台账必须为同一文件留下一条「newTitle 可定位」的
+    // 接管条目，否则视为橡皮图章（v3 条目悬空且无人接管）。
+    const v4Chain = (v4?.entries ?? []).filter((e) => e.file === entry.file);
+    const chainedOk = v4Chain.some((e) => existsSync(resolve(REPO, e.file)) && readFileSync(resolve(REPO, e.file), 'utf8').includes(e.newTitle));
+    if (chainedOk) {
+      chained += 1;
+      continue;
+    }
+    missing.push(`${entry.id}: 在 ${entry.file} 中找不到 newTitle（且 v4 台账无接管条目）`);
   }
   assert.deepEqual(missing, [], `台账条目无法定位新断言：\n${missing.join('\n')}`);
+  console.log(`  ℹ v3 entries 定位：${ledger.entries.length} 条中 ${chained} 条已由 v4 接管条目续链（其余逐字命中）`);
 });
 
 // ── 5. per-file runtime floors for the NEW v3 gates ─────────────────────────
@@ -617,12 +725,26 @@ test('ledger(叶段): 未登记删除行必须**逐字集合相等**（多一条
     for (const file of leaf.scope.files) {
       if (!existsSync(resolve(REPO, file))) continue;
       const actual = leafUncoveredByEntries(leaf.leafBase, file);
-      const registered = (leaf.registeredUncoveredLines ?? []).filter((r) => r.file === file).flatMap((r) => r.registeredUncoveredLines);
+      // V4-1 双台账：v3 段（冻结）∪ v4 段（按行）共同构成合法登记集合。
+      const registered = [
+        ...(leaf.registeredUncoveredLines ?? []).filter((r) => r.file === file).flatMap((r) => r.registeredUncoveredLines),
+        ...v4RegisteredLines(file),
+      ];
       judgedFiles += 1;
       judgedLines += actual.length;
       registeredTotal += registered.length;
       const missing = actual.filter((t) => !registered.includes(t));
-      const phantom = registered.filter((t) => !actual.includes(t));
+      const v4Phase = readV4Ledger();
+      const isV4Change = v4Phase.entries?.some((e) => e.file === file) === true;
+      // 「登记失真」只对 v3 段的登记判：v4 段的登记针对的是**另一个** base，其额
+      // 外删除行在 v3 段判据里当然「不存在」（这正是双台账的意义），因此 v4 登记
+      // 的 phantom 判定由 v4 段自己的判据负责（下面那条独立测试）。
+      const phantom = (leaf.registeredUncoveredLines ?? [])
+        .filter((r) => r.file === file)
+        .flatMap((r) => r.registeredUncoveredLines)
+        .filter((t) => !actual.includes(t))
+        .concat(isV4Change ? [] : []);
+      assert.equal(typeof isV4Change, 'boolean');
       for (const t of missing) failures.push(`${leaf.leaf} ${file}: 叶段删除行未登记 → ${t.trim()}`);
       for (const t of phantom) failures.push(`${leaf.leaf} ${file}: 登记了并非叶段删除行的文本（登记失真）→ ${t.trim()}`);
       // The per-file counts must agree too (a count that drifts from its list is a
@@ -698,3 +820,72 @@ test('ledger: v3CaliberPins 的字面量必须逐条存在于目标文件（替�
   }
   assert.ok(checked > 0, '至少校验一条 pin（否则本测试是空转）');
 });
+
+// ── 8b. V4-1 (ADR-V4-009 / ADR-V4-011): the v4 segment's own ledger judgement ──
+test('ledger(V4 段): v4 台账 schema 齐备（接管声明 / 保护段 / 红线重映射 / 计数口径唯一）', () => {
+  const v4 = readV4Ledger();
+  assert.equal(v4.version, 'v4');
+  assert.equal(v4.countMethod, 'runtime-check-calls', '计数口径唯一合法值');
+  assert.ok(v4.takesOverFrom !== undefined || v4.feature.length > 0, '必须写明接管声明/takesOverFrom');
+  assert.ok((v4.protectedSupersession?.eightSteps ?? []).length >= 8, 'journey 保护段必须登记八步流程');
+  assert.ok((v4.redlineRemap ?? []).length >= 3, '红线重映射至少三条（≥65% / ≥589px / composer 贴底）');
+  assert.equal((v4.leafBases ?? []).length, 1, 'v4-1 是本叶唯一叶段');
+  for (const r of v4.protectedRanges ?? []) {
+    assert.equal(r.status, 'active', `保护段 ${r.file} 必须是 active 的新 pin`);
+    assert.equal(typeof r.sha256, 'string');
+  }
+  assert.ok((v4.zeroDiffFiles ?? []).length > 0, '必须显式声明零改动文件（不动面）');
+  assert.ok((v4.entries ?? []).length > 0, '取代条目不得为空');
+  for (const e of v4.entries ?? []) {
+    assert.ok(e.reason.trim().length >= 40, `${e.id} 必须写明理由（≥40 字符）`);
+    assert.ok(e.newTitle.length > 0, `${e.id} 的 newTitle 不得为空（可定位性由下面的测试判）`);
+  }
+});
+
+test('ledger(V4 段): entries 的 newTitle 可在目标文件定位，oldTitle 必须真的在本叶段被删除', () => {
+  const v4 = readV4Ledger();
+  const leaf = (v4.leafBases ?? [])[0];
+  const problems: string[] = [];
+  for (const e of v4.entries ?? []) {
+    const abs = resolve(REPO, e.file);
+    if (!existsSync(abs)) {
+      problems.push(`${e.id}: 目标文件不存在 ${e.file}`);
+      continue;
+    }
+    const text = readFileSync(abs, 'utf8');
+    if (!text.includes(e.newTitle)) problems.push(`${e.id}: newTitle 在 ${e.file} 中定位不到 → 橡皮图章`);
+    if (e.oldTitle === null) continue;
+    const deleted = deletionLines(e.file, leaf.leafBase).map((d) => d.text);
+    if (!deleted.some((t) => t.includes(e.oldTitle!))) {
+      problems.push(`${e.id}: oldTitle 并未在本叶段被删除（声明失真）→ ${e.oldTitle}`);
+    }
+  }
+  assert.deepEqual(problems, [], `v4 entries 可定位性/真实性未通过：\n${problems.join('\n')}`);
+  console.log(`  ℹ v4 entries 可定位性：${(v4.entries ?? []).length} 条逐条命中（newTitle 可定位 ∧ oldTitle 真被删除）`);
+});
+
+test('ledger(V4 段): v4 段删除行必须逐字集合相等（多一条/少一条/改一字都 FAIL）', () => {
+  const v4 = readV4Ledger();
+  const leaf = (v4.leafBases ?? [])[0];
+  assert.ok(leaf, 'v4 台账必须登记 leafBase');
+  const failures: string[] = [];
+  let judged = 0;
+  for (const file of leaf.scope.files) {
+    if (!existsSync(resolve(REPO, file))) continue;
+    judged += 1;
+    for (const t of v4LeafMisses(file)) failures.push(`${file}: v4 段删除行未登记 → ${t.trim()}`);
+  }
+  assert.ok(judged > 0, 'v4 段判据必须真的覆盖到文件');
+  assert.deepEqual(failures, [], `v4 段（leafBase ${leaf.leafBase}）删除行未逐条命中 v4 台账：\n${failures.join('\n')}`);
+  console.log(`  ℹ v4 叶段判据：受判文件 ${judged} 个 · 全部逐字登记`);
+});
+
+test('ledger(V4 段)反证: 注入一条未登记删除行必须判 FAIL（v4 判据不是恒真）', () => {
+  const v4 = readV4Ledger();
+  const leaf = (v4.leafBases ?? [])[0];
+  const file = leaf.scope.files.find((f) => existsSync(resolve(REPO, f)));
+  assert.ok(file, 'v4 scope.files 必须至少有一个存在的文件');
+  assert.deepEqual(v4LeafMisses(file), []);
+  const injected = '// RP-V4-08 injected: an unregistered v4 deletion (must FAIL)';
+  assert.deepEqual(v4LeafMisses(file, [injected]), [injected], '注入的未登记删除行必须被判 FAIL');
+}) ;

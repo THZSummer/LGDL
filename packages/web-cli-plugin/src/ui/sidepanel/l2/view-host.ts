@@ -2,10 +2,10 @@
  * V3-3 TASK-302 (FR-V3-047 / FR-V3-048 / FR-V3-054 / NFR-V3-011 — ADR-V3-025) — the
  * **L2 view host**: the view *replacement* mechanism.
  *
- * `#view-host` is a **sibling of `#log` inside `#panel-main`** (index.html). Opening
+ * `#view-host` is a **sibling of `#stream` inside `#region-stream`** (index.html). Opening
  * an L2 view therefore:
  *
- *   1. hides `#log` (`hidden` attribute — never `display:none` / `opacity` / a
+ *   1. hides `#stream` (`hidden` attribute — never `display:none` / `opacity` / a
  *      "moved out of the viewport" trick, EC-V3-010) and reveals `#view-host`;
  *   2. reveals exactly ONE `[data-l2-view]` container (the other three stay
  *      `hidden`, so the four views cost nothing in the default state);
@@ -15,17 +15,17 @@
  *
  * Returning (`← 返回` / `Esc`) reverses all of it **and** restores the disclosure
  * expansion snapshot taken on entry (`disclosure.restore`), so a round-trip into a
- * view comes back exactly as it was (FR-V3-047 / FR-V3-054). `#log` keeps its own
+ * view comes back exactly as it was (FR-V3-047 / FR-V3-054). `#stream` keeps its own
  * scroll position / draft because it is only hidden, never rebuilt (the v1
  * settings round-trip contract, reused).
  *
  * Two structural guarantees:
  *
- *   * **One panel-level scroller.** While a view is open `#log` is `hidden`, so the
- *     only scroller inside `#panel-main` is the open view's own local scroll block
+ *   * **One panel-level scroller.** While a view is open `#stream` is `hidden`, so the
+ *     only scroller inside `#region-stream` is the open view's own local scroll block
  *     — no second panel-level container is introduced (FR-V3-047).
- *   * **The risk rail is never replaced.** `#risk-rail` (and `#l0-statusbar`) are
- *     `body` children, not descendants of `#panel-main`, so view replacement
+ *   * **The risk rail is never replaced.** `#region-statusbar` / `#risk-rail` are
+ *     `body` children, not descendants of `#region-stream`, so view replacement
  *     cannot reach them (FR-V3-048).
  *
  * @module l2/view-host
@@ -70,7 +70,7 @@ function forced<T extends HTMLElement>(doc: Document, selector: string, what: st
 export function mountViewHost(deps: MountViewHostDeps): ViewHostHandle {
   const { doc, disclosure } = deps;
   const host = forced<HTMLElement>(doc, '#view-host', '视图宿主');
-  const log = forced<HTMLElement>(doc, '#log', '会话记录区（被替换的主区）');
+  const stream = forced<HTMLElement>(doc, '#stream', '聊天流（被替换的主区）');
   const title = forced<HTMLElement>(doc, '#l2-title', '视图标题');
   const count = forced<HTMLElement>(doc, '#l2-count', '视图计数');
   const views = new Map<Exclude<L2ViewKey, 'settings'>, HTMLElement>();
@@ -116,7 +116,7 @@ export function mountViewHost(deps: MountViewHostDeps): ViewHostHandle {
     if (current === null) {
       // Entry: snapshot the expansion state ONCE, then replace the content area.
       snapshot = disclosure.snapshot();
-      log.hidden = true;
+      stream.hidden = true;
       host.hidden = false;
     }
     for (const [k, el] of views) el.hidden = k !== key;
@@ -135,13 +135,13 @@ export function mountViewHost(deps: MountViewHostDeps): ViewHostHandle {
     host.hidden = true;
     host.removeAttribute('data-view');
     for (const [, el] of views) el.hidden = true;
-    log.hidden = false;
+    stream.hidden = false;
     if (snapshot) {
       disclosure.restore(snapshot);
       snapshot = null;
     }
     // Focus returns to the entry that opened the view (its disclosure trigger).
-    const trigger = doc.getElementById(previous ? `l2-entry-${previous}` : 'l0-statusbar');
+    const trigger = doc.getElementById(previous ? `l2-entry-${previous}` : 'l2-entry-tree');
     if (trigger && typeof trigger.focus === 'function') trigger.focus();
     syncAria();
     if (previous !== null) deps.onClosed?.();

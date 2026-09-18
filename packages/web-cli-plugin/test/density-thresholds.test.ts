@@ -67,7 +67,17 @@ const BASELINE_JSON = resolve(PKG, 'docs/v3-density-baseline.json');
  * `index.html` must remain a superset: renaming an id is a hard FAIL, because
  * three existing browser gates address these ids directly and are protected by
  * the supersession ledger.
+ *
+ * **V4-1 (ADR-V4-017) registers exactly four retirements and one rename**:
+ *   · retired containers — `panel-top` (element reused as `#region-toolbar`),
+ *     `panel-main` (reused as `#region-stream`), `panel-bottom` (its children moved
+ *     into `#stream` hosts / the status bar), `log` (**renamed** to `stream`);
+ *   · everything else keeps its id. The two lists below make both halves a machine
+ *     fact: a *fifth* retirement or a *second* rename fails immediately.
  */
+const V4_RETIRED_IDS: readonly string[] = Object.freeze(['panel-top', 'panel-main', 'panel-bottom']);
+const V4_ID_RENAMES: Readonly<Record<string, string>> = Object.freeze({ log: 'stream' });
+
 const V1_ID_BASELINE: readonly string[] = Object.freeze([
   'panel-top', 'status', 'llm-status', 'session-label', 'topbar', 'open-settings', 'authorize',
   'more-actions', 'revoke', 'rebind', 'audit', 'audit-count', 'session-box', 'session-list',
@@ -84,7 +94,7 @@ const V1_ID_BASELINE: readonly string[] = Object.freeze([
 const C1_TAGS = ['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA'] as const;
 
 /** v3 L0 containers that must exist and stay foldable-independent. */
-const L0_CONTAINERS = ['risk-rail', 'l0-decision', 'l0-statusbar', 'view-host', 'l0-status-band', 'l1-more', 'l1-ref', 'l2-entries'];
+const L0_CONTAINERS = ['risk-rail', 'risk-chips', 'risk-detail', 'l0-decision', 'view-host', 'l1-more', 'l1-ref', 'l2-entries', 'region-toolbar', 'region-stream', 'region-statusbar', 'stream', 'statusbar-text', 'theme-toggle'];
 
 // ── a tiny, dependency-free tag scanner (good enough for our own HTML) ───────
 interface TagInfo {
@@ -228,60 +238,111 @@ test('density 反作弊: 测量源码零命中 getComputedStyle / offsetParent /
 });
 
 // ── ⑤ static DOM contract of index.html ────────────────────────────────────
-test('index.html: 54 个 v1 id 全部保留（零重命名）且新增容器齐备', () => {
+test('index.html: v1 id 基线除 4 处登记退役外全部保留（唯一重命名 #log → #stream）', () => {
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
   assert.equal(new Set(ids).size, ids.length, 'id 不得重复');
-  const missing = V1_ID_BASELINE.filter((id) => !ids.includes(id));
-  assert.deepEqual(missing, [], `v1 的 54 个 id 必须全部保留：缺失 ${missing.join(', ')}`);
-  for (const id of L0_CONTAINERS) assert.ok(ids.includes(id), `缺少 v3 容器 #${id}`);
+  const survivors = V1_ID_BASELINE.filter((id) => !V4_RETIRED_IDS.includes(id) && !(id in V4_ID_RENAMES));
+  const missing = survivors.filter((id) => !ids.includes(id));
+  assert.deepEqual(missing, [], `v1 的 id 必须全部保留（除登记退役外）：缺失 ${missing.join(', ')}`);
+  // 反证：退役项必须真的不在文档里（否则「退役」是空话）。
+  for (const id of V4_RETIRED_IDS) assert.equal(ids.includes(id), false, `#${id} 必须已退役（id 零残留）`);
+  for (const [oldId, next] of Object.entries(V4_ID_RENAMES)) {
+    assert.equal(ids.includes(oldId), false, `#${oldId} 必须已被重命名`);
+    assert.ok(ids.includes(next), `重命名目标 #${next} 必须存在`);
+  }
+  // 唯一性：v1 基线里除 log 外的每一个 id 都不允许被改写成别的名字。
+  assert.equal(Object.keys(V4_ID_RENAMES).length, 1, 'V4-1 只允许一个 id 重命名');
+  for (const id of L0_CONTAINERS) assert.ok(ids.includes(id), `缺少容器 #${id}`);
 });
 
-test('index.html: 风险位祖先闭包无 hidden / 无折叠触发器，且是 body 直接子元素', () => {
+test('index.html: V4 三区骨架（body 直挂 / 文档序 / 状态栏非流后代）与风险位的静态归属', () => {
+  // ── 三区必须是 body 直挂，且文档序 = 工具栏 → 聊天流 → 状态栏（S7 结构保证） ──
+  const zones = ['region-toolbar', 'region-stream', 'region-statusbar'];
+  for (const id of zones) {
+    const index = parsed.idsIndex.get(id);
+    assert.notEqual(index, undefined, `#${id} 必须存在`);
+    assert.equal(parsed.tags[index!].parent, parsed.bodyIndex, `#${id} 必须是 body 直接子元素`);
+  }
+  const bodyOrder = parsed.tags[parsed.bodyIndex].children
+    .map((c) => parsed.tags[c].attrs.id)
+    .filter((id): id is string => typeof id === 'string');
+  const zoneOrder = bodyOrder.filter((id) => zones.includes(id));
+  assert.deepEqual(zoneOrder, zones, 'body 文档序必须是 工具栏 → 聊天流 → 状态栏');
+  // ── S7：状态栏不是 #stream 的后代（打开任意视图也触达不到风险位） ──
+  const streamIndex = parsed.idsIndex.get('stream');
+  assert.notEqual(streamIndex, undefined, '#stream 必须存在');
+  const statusIndex = parsed.idsIndex.get('region-statusbar')!;
+  assert.equal(ancestors(statusIndex).includes(streamIndex!), false, '#region-statusbar 不得是 #stream 的后代');
+  // ── 风险 chips 双层容器：外层 #risk-chips（设计契约 id）> 内层 #risk-rail（v3 id 保留） ──
+  const chipsIndex = parsed.idsIndex.get('risk-chips');
   const railIndex = parsed.idsIndex.get('risk-rail');
-  assert.notEqual(railIndex, undefined, '#risk-rail 必须存在');
-  const chain = [railIndex!, ...ancestors(railIndex!)];
-  for (const index of chain) {
-    const info = parsed.tags[index];
-    assert.equal('hidden' in info.attrs, false, `#risk-rail 祖先 <${info.tag}> 不得带 hidden`);
-    assert.equal('aria-expanded' in info.attrs, false, `#risk-rail 祖先 <${info.tag}> 不得带 aria-expanded`);
+  assert.notEqual(chipsIndex, undefined, '#risk-chips 必须存在');
+  assert.notEqual(railIndex, undefined, '#risk-rail 必须存在（v3 探针/归属判据的选择器入口）');
+  assert.equal(ancestors(railIndex!).includes(chipsIndex!), true, '#risk-rail 必须是 #risk-chips 的后代');
+  assert.equal(ancestors(chipsIndex!).includes(statusIndex), true, '#risk-chips 必须在 #region-statusbar 内');
+  // ── J1（静态半）：状态栏本体永不带 hidden；#risk-chips 的 hidden 表达「零风险收缩」──
+  assert.equal('hidden' in parsed.tags[statusIndex].attrs, false, '#region-statusbar 本体不得带 hidden（J1）');
+  assert.equal('hidden' in parsed.tags[chipsIndex!].attrs, true, '#risk-chips 默认 hidden（零风险收缩为一行）');
+  assert.equal('hidden' in parsed.tags[parsed.idsIndex.get('risk-detail')!].attrs, true, '#risk-detail 默认 hidden（不占默认密度）');
+  // ── J3（静态半）：chips 的祖先闭包既无折叠容器、也无 aria-expanded 触发器 ──
+  for (const index of [chipsIndex!, railIndex!]) {
+    for (const ancestor of ancestors(index)) {
+      const info = parsed.tags[ancestor];
+      assert.equal('data-l1-panel' in info.attrs, false, 'chips 不得位于 L1 面板内');
+      assert.equal('data-l2-view' in info.attrs, false, 'chips 不得位于 L2 视图内');
+      assert.equal('data-disclose-panel' in info.attrs, false, 'chips 不得位于折叠面板内');
+      assert.equal('aria-expanded' in info.attrs, false, 'chips 的祖先不得是折叠触发器');
+    }
   }
-  assert.equal(parsed.tags[railIndex!].parent, parsed.bodyIndex, '#risk-rail 必须是 body 直接子元素');
-  // L0 ↔ L1/L2 must not interleave
-  for (const index of descendants(railIndex!)) {
-    const info = parsed.tags[index];
-    assert.equal('data-l1-panel' in info.attrs, false, '风险位内不得出现 L1 面板');
-    assert.equal('data-l2-view' in info.attrs, false, '风险位内不得出现 L2 视图');
+  // ── 流内不得出现常驻控件（豁免子树不可承载 chrome；RP-V4-06 的静态半）──
+  for (const index of [streamIndex!, ...descendants(streamIndex!)]) {
+    assert.equal(
+      'data-chrome-control' in parsed.tags[index].attrs,
+      false,
+      `#stream 子树内不得出现 [data-chrome-control]（<${parsed.tags[index].tag}>）`,
+    );
   }
-  for (const id of ['l0-decision', 'l0-statusbar', 'l0-status-band']) {
-    for (const index of ancestors(parsed.idsIndex.get(id)!)) {
-      const info = parsed.tags[index];
-      assert.equal('data-l1-panel' in info.attrs, false, `#${id} 不得位于 L1 面板内`);
-      assert.equal('data-l2-view' in info.attrs, false, `#${id} 不得位于 L2 视图内`);
+  // ── 占位宿主：被取代容器必须带 data-transitional-host（父 ADR-V4-005 第 6 条）──
+  const hosts = descendants(streamIndex!).filter((i) => 'data-transitional-host' in parsed.tags[i].attrs);
+  assert.ok(hosts.length >= 1, '#stream 内必须存在 ≥1 个 data-transitional-host 占位宿主（本叶只建不销）');
+  // ── 法一静态半：工具栏/状态栏内零一次性交互卡 ──
+  for (const zone of ['region-toolbar', 'region-statusbar']) {
+    for (const index of descendants(parsed.idsIndex.get(zone)!)) {
+      const type = parsed.tags[index].attrs['data-msg-type'];
+      assert.equal(
+        typeof type === 'string' && ['askuser', 'auth', 'nextstep'].includes(type),
+        false,
+        `#${zone} 内不得出现一次性交互卡（法一）`,
+      );
     }
   }
 });
 
-test('index.html: 收起一律 hidden 属性；composer 默认 hidden 且仍是底区末元素；三区文档序不变', () => {
-  for (const id of ['topbar', 'l1-more', 'l1-ref', 'l2-entries', 'view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'ask', 'confirm', 'scroll-bottom']) {
+test('index.html: 收起一律 hidden 属性；composer 保持 hidden 且落在流内占位宿主；body 仍是 flex 列', () => {
+  for (const id of ['l1-more', 'l1-ref', 'view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'ask', 'confirm', 'scroll-bottom', 'risk-chips', 'risk-detail']) {
     const index = parsed.idsIndex.get(id)!;
     assert.ok(index !== undefined, `#${id} 必须存在`);
     assert.equal('hidden' in parsed.tags[index].attrs, true, `#${id} 必须默认带 hidden 属性（不得用 CSS 隐身）`);
   }
-  const bottom = parsed.idsIndex.get('panel-bottom')!;
-  const bottomChildren = parsed.tags[bottom].children;
-  const lastChild = parsed.tags[bottomChildren[bottomChildren.length - 1]].attrs.id;
-  assert.equal(lastChild, 'composer', '#composer 必须仍是 #panel-bottom 的末元素');
-  const body = parsed.tags[parsed.bodyIndex];
-  const zoneOrder = body.children
-    .map((c) => parsed.tags[c].attrs.id)
-    .filter((id): id is string => typeof id === 'string');
-  assert.deepEqual(
-    zoneOrder.filter((id) => ['panel-top', 'panel-main', 'panel-bottom', 'risk-rail', 'l0-statusbar'].includes(id)),
-    ['risk-rail', 'panel-top', 'panel-main', 'l0-statusbar', 'panel-bottom'],
-    'body 文档序：风险位最上层 → 三区 → 状态栏（composer 贴底契约不变）',
-  );
+  // 法四骨架层：composer 默认 hidden，且它现在挂在 #stream 内的占位宿主里
+  const composerIndex = parsed.idsIndex.get('composer')!;
+  const streamIndex = parsed.idsIndex.get('stream')!;
+  assert.equal(ancestors(composerIndex).includes(streamIndex), true, '#composer 必须落在 #stream 内的占位宿主（V4-1 法四）');
+  // 法四：默认屏不得出现可见常驻输入框 —— 静态半（唯一非 hidden 的 input 不允许存在）
+  for (const index of descendants(streamIndex)) {
+    if (parsed.tags[index].tag !== 'input') continue;
+    const hiddenOnPath = [index, ...ancestors(index)].some((i) => 'hidden' in parsed.tags[i].attrs);
+    assert.equal(hiddenOnPath, true, '默认屏不得出现非 hidden 的输入框（法四静态半）');
+  }
   assert.match(html, /body\s*\{[^}]*display:\s*flex/, 'body 必须仍是 flex 容器');
+  assert.match(html, /body\s*\{[^}]*flex-direction:\s*column/, 'body 必须仍是 flex 列（三区纵向堆叠）');
   assert.match(html, /body\s*\{[^}]*overflow:\s*hidden/, 'body 必须仍是 overflow:hidden');
+  // 工具栏可点 == 5（静态半）：4 个 data-toolbar-slot="view" + 1 个 "theme"
+  const slots = [...html.matchAll(/data-toolbar-slot="(view|theme)"/g)].map((m) => m[1]);
+  assert.equal(slots.filter((s) => s === 'view').length, 4, '4 个视图入口必须带 data-toolbar-slot="view"');
+  assert.equal(slots.filter((s) => s === 'theme').length, 1, '恰好 1 个主题控件带 data-toolbar-slot="theme"');
+  assert.equal(slots.length, 5, '工具栏准入总数（可点）必须恰好 5');
+  assert.match(html, /class="site-summary"[^>]*role="status"/, '站点摘要必须是只读 role=status');
 });
 
 test('index.html: 新增 token 在 :root 与暗色 @media 双处对称', () => {
@@ -479,4 +540,95 @@ test('ledger I17: 口径单源模块以字面量 pin 代替无意义的 count fl
   }
   // 反证：pin 必须真的能 FAIL（改一个字符即命中不了）。
   assert.equal(source.includes('export const LOG_CLIENT_HEIGHT_FLOOR = 489;'), false);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// V4-1 TASK-502 (ADR-V4-020) — the exemption scope + the anti-abuse budgets.
+//
+// These are the *static* halves of FR-CHAT-070~075. The runtime halves live in
+// `test/ui/density.mjs` (31 cells + RP-V4-01~07).
+// ══════════════════════════════════════════════════════════════════════════════
+import {
+  CANONICAL_EXCLUDED_SUBTREES,
+  CANONICAL_SHELL_ROOTS,
+  DENSITY_EXCLUDED_SUBTREES,
+  DENSITY_SCOPE_TS,
+  DENSITY_SHELL_ROOTS,
+  MAX_CLICKABLES_PER_CARD,
+  MAX_FIRST_SCREEN_CARDS,
+  MAX_WELCOME_CARDS,
+  MAX_WELCOME_LINES,
+  STREAM_HEIGHT_RATIO_MIN,
+  evaluateCardBudget,
+  evaluateFirstScreen,
+  readDensityScopeSource,
+} from './ui/density-metrics.mjs';
+
+test('V4 S2: 豁免子树单源（density-scope.ts）且字面量 == [\'#stream\']', () => {
+  assert.deepEqual([...DENSITY_EXCLUDED_SUBTREES], ['#stream'], '豁免子树只能是 #stream');
+  assert.deepEqual([...DENSITY_EXCLUDED_SUBTREES], [...CANONICAL_EXCLUDED_SUBTREES]);
+  assert.deepEqual([...DENSITY_SHELL_ROOTS], [...CANONICAL_SHELL_ROOTS], '三区外壳常量必须逐字一致');
+  // 单源：豁免集合的**字面量数组**只允许在 density-scope.ts 里出现一次。其他文件
+  // 只能通过派生（从单源源码文本抽取）得到它 —— `Object.freeze(['#stream'])` 这类
+  // 字面量声明一旦在别处出现，就是第二声明点，必须 FAIL（RP-V4-06 的静态半）。
+  const literalDeclaration = /DENSITY_EXCLUDED_SUBTREES\s*(?::[^=]*)?=\s*Object\.freeze\(\[/g;
+  const scopeSource = readDensityScopeSource();
+  assert.equal((scopeSource.match(literalDeclaration) ?? []).length, 1, 'density-scope.ts 内字面量声明恰好一次');
+  const violations: string[] = [];
+  for (const rel of ['test/ui/density-metrics.mjs', 'test/density-thresholds.test.ts']) {
+    const src = readFileSync(resolve(PKG, rel), 'utf8');
+    const literal = src.replace(/readDensityScopeSource\(\)[\s\S]*?`/g, '');
+    if (literalDeclaration.test(literal)) violations.push(rel);
+    literalDeclaration.lastIndex = 0;
+  }
+  assert.deepEqual(violations, [], `以下文件出现了第二声明点（只允许从单源读取）→ ${violations.join(', ')}`);
+  assert.ok(existsSync(DENSITY_SCOPE_TS), '单源文件必须存在');
+});
+
+test('V4 S1/S5: assertChromeNotInStream 存在 + 四个防滥用常量逐字', () => {
+  const scopeSource = readDensityScopeSource();
+  assert.match(scopeSource, /export function assertChromeNotInStream/, 'S1 的机器断言必须由产品承载');
+  assert.match(scopeSource, /data-chrome-control/, 'S1 的标记属性必须写死在单源里');
+  assert.equal(MAX_CLICKABLES_PER_CARD, 6, 'FR-CHAT-072: 单卡可点 ≤6');
+  assert.equal(MAX_FIRST_SCREEN_CARDS, 2, 'FR-CHAT-073: 首屏卡片 ≤2');
+  assert.equal(MAX_WELCOME_CARDS, 1, '§12 裁决 4: 欢迎卡 ≤1');
+  assert.equal(MAX_WELCOME_LINES, 8, '§12 裁决 4: 欢迎卡 ≤8 行');
+  // 反证：把一个常量改一位即必须失败（该段不是恒真检查）。
+  const tampered = scopeSource.replace('export const MAX_CLICKABLES_PER_CARD = 6;', 'export const MAX_CLICKABLES_PER_CARD = 7;');
+  assert.notEqual(tampered, scopeSource, '反证：常量必须逐字可定位');
+});
+
+test('V4 RP-V4-01/02/03（纯判定）: 单卡第 7 可点 / 首屏第 3 卡 / 第 2 欢迎卡 或 >8 行 ⇒ FAIL', () => {
+  const cards = [
+    { key: '#card-1', clickables: 6, lines: 3 },
+    { key: '#card-2', clickables: 1, lines: 2 },
+  ];
+  assert.equal(evaluateCardBudget(cards).ok, true);
+  assert.equal(evaluateCardBudget([{ key: '#card-1', clickables: 7, lines: 3 }]).ok, false, 'RP-V4-01：第 7 个可点必须 FAIL');
+  assert.equal(evaluateCardBudget([{ key: null, clickables: 1, lines: 1 }]).ok, false, '无稳定键的卡必须 FAIL');
+  assert.equal(evaluateFirstScreen([{ key: 'a' }, { key: 'b' }], 'default').ok, true);
+  assert.equal(evaluateFirstScreen([{ key: 'a' }, { key: 'b' }, { key: 'c' }], 'default').ok, false, 'RP-V4-02：第 3 卡必须 FAIL');
+  const twoWelcome = [{ key: 'w1', welcome: true, lines: 2 }, { key: 'w2', welcome: true, lines: 2 }];
+  assert.equal(evaluateFirstScreen(twoWelcome, 'empty').ok, false, 'RP-V4-03：第 2 张欢迎卡必须 FAIL');
+  const longWelcome = [{ key: 'w1', welcome: true, lines: MAX_WELCOME_LINES + 1 }];
+  assert.equal(evaluateFirstScreen(longWelcome, 'empty').ok, false, 'RP-V4-03：>8 行必须 FAIL');
+  assert.equal(evaluateFirstScreen(twoWelcome, 'risk').skipped, true, 'first-screen 判定只对 default / empty 档生效');
+});
+
+test('V4 FR-CHAT-082: ≥65% 的流区占比下界来自 TASK-501 spike（只允许上调）', () => {
+  assert.equal(STREAM_HEIGHT_RATIO_MIN, 0.65, '阈值逐字为 0.65（spike 12/12 PASS 后的结论）');
+  assert.ok(STREAM_HEIGHT_RATIO_MIN >= 0.65, '只允许上调，禁止静默下调');
+});
+
+test('V4 AC-V3-007 冻结: v3 密度基线 schema 保真断言逐字保留（v4 不参与判定）', () => {
+  // V4 只允许**新增**基线文件；v3 的 schema 保真断言（前面 ⑦ 段）继续生效。
+  const baseline = JSON.parse(readFileSync(BASELINE_JSON, 'utf8'));
+  assert.equal(baseline.version, 'v3', 'v3 基线必须逐字冻结为历史');
+  assert.equal(baseline.direction, 'tighten-only');
+  const v4 = resolve(PKG, 'docs/v4-density-baseline.json');
+  if (existsSync(v4)) {
+    const next = JSON.parse(readFileSync(v4, 'utf8'));
+    assert.equal(next.version, 'v4', 'v4 基线必须自带版本号（口径不混）');
+    assert.ok(next.differencesFromV3?.length > 0, '必须逐条登记与 v3 的口径差异（换口径不是放宽）');
+  }
 });

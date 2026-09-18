@@ -145,17 +145,50 @@
       .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
       .muted { color: var(--text-muted); font-size: 11.5px; }
 
-      /* ── zone 1: top (fixed, non-scrolling) ──────────────────────────── */
-      #panel-top {
+      /* ── 区一（V4-1 / ADR-V4-017/018）：工具栏（常驻，一行，可点 ≤5） ─────
+         构成 = 站点摘要（只读，不计预算）+ 4 个视图入口（#l2-entry-*）+ 主题
+         切换 = 5 个可点。管理操作（授权 / 撤销 / 会话 / 分组 / 隐私 / 同意 /
+         自动授权 / LLM 测试）一律迁入 #settings-view 的「站点与授权」分区
+         （法则六），工具栏不承载任何一次性交互（法一）。 ── */
+      #region-toolbar {
         flex: 0 0 auto;
         display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 8px 10px;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        padding: 7px 8px;
         background: var(--bg-elevated);
         border-bottom: 1px solid var(--border);
         min-width: 0;
       }
+      .site-summary {
+        flex: 1 1 108px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .site-summary .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+      .site-summary .site-name { font-weight: 700; white-space: nowrap; }
+      .site-summary .site-origin {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-muted);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .view-nav { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; flex-wrap: wrap; }
+      .view-btn { display: inline-flex; align-items: center; gap: 3px; padding: 3px 7px; font-size: 11px; border-radius: var(--radius-sm); }
+      .view-btn .badge {
+        padding: 0 4px; font-size: 9.5px; font-weight: 600;
+        border: 1px solid currentColor; border-radius: 999px; color: var(--text-muted);
+      }
+      .view-btn[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+      #theme-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; font-size: 11px; }
       .status-bar { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; min-width: 0; }
       #status { font-weight: 600; font-size: 12px; min-width: 0; }
       #llm-status { min-width: 0; }
@@ -209,13 +242,15 @@
       #group-name { flex: 1 1 auto; min-width: 0; }
       #group-select { flex: 1 1 auto; min-width: 0; }
 
-      /* ── zone 2: message list (flex fill, the only scroller) ─────────── */
-      /* V3-1: `#panel-main` stacks its children now — `#l0-decision` sits above
-         `#log` (the decision card must be read before the transcript), and `#log`
-         stays the only scroller. Before v3-1 the zone had a single child, so the
-         default `row` direction happened to look identical. */
-      #panel-main { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-      #log {
+      /* ── 区二（V4-1 / ADR-V4-017）：聊天流（flex 填充，唯一滚动容器） ─────
+         `#region-stream` 是**区**（flex 容器，不滚动）；`ol#stream[role=log]` 是
+         流本体与唯一滚动容器（`#log` → `#stream` 是本叶唯一 id 重命名）。
+         `#stream` 之上的 `#l0-decision`（决策卡）经 `data-transitional-host`
+         占位宿主落在流内 `li` 上，由 v4-3/v4-4 换实现。 ── */
+      #region-stream { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+      #stream {
+        list-style: none;
+        margin: 0;
         flex: 1 1 auto;
         min-height: 0;
         min-width: 0;
@@ -227,8 +262,11 @@
         padding: 12px 10px;
         background: var(--bg-subtle);
       }
-      /* D-043: centering applies *only* when #log has no rendered entry elements. */
-      #log.empty:not(:has(> *)) {
+      /* 占位宿主（父 ADR-V4-005 第 6 条）：被取代但尚未换实现的容器同构迁入
+         流内 li；内容 / id / ARIA 全保留。退役在 v4-3 / v4-4，v4 收口断言计数 = 0。 */
+      #stream > li[data-transitional-host] { list-style: none; display: block; min-width: 0; }
+      /* D-043: centering applies *only* while the transcript has no rendered entry. */
+      #stream.empty:not(:has(.entry)) {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -389,16 +427,47 @@
       }
       #scroll-bottom:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
 
-      /* ── zone 3: bottom (fixed, non-scrolling) — composer is last ─────── */
-      #panel-bottom {
+      /* ── 区三（V4-1 / ADR-V4-019）：状态栏（常驻，永不折叠，body 直挂） ────
+         构成 = 连接状态一行（只读）+ `#risk-chips`（外层设计契约容器；其
+         `hidden` 表达「零风险收缩为一行 0 chip」）> `#risk-rail`（**v3 id 保留**
+         的内层风险行容器 —— 探针 / `isRiskClassSource` / 风险类归属判据的选择器
+         入口零改动）> 风险 chip（文字 + 徽标 + 图标**三通道**）。`#region-statusbar`
+         本体**永不带 hidden**（J1）；`#risk-detail` 默认 `hidden`（不占默认密度）。
+         S7：状态栏是 `body` 直挂 ⇒ 打开任意视图也触达不到风险位。 ── */
+      #region-statusbar {
         flex: 0 0 auto;
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        padding: 8px 10px;
+        gap: 5px;
+        padding: 6px 8px;
         background: var(--bg-elevated);
         border-top: 1px solid var(--border);
         min-width: 0;
+      }
+      .status-line { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 10.5px; color: var(--text-muted); min-width: 0; }
+      .status-line .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+      #statusbar-text { min-width: 0; }
+      #risk-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+      #risk-rail { display: flex; flex-wrap: wrap; gap: 4px; }
+      .risk-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+      .risk-row[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); }
+      #risk-detail { display: flex; flex-direction: column; gap: 5px; }
+      .risk-detail-line {
+        margin: 0; padding: 5px 7px;
+        border: 1px dashed var(--warn-border); border-radius: var(--radius-sm);
+        background: var(--warn-bg); color: var(--warn-text);
+        font-size: 10.5px; line-height: 1.55;
       }
       .strips { display: flex; flex-direction: column; gap: 6px; max-height: 34vh; overflow-y: auto; min-width: 0; }
       #env-guard {
@@ -534,9 +603,9 @@
         overflow-x: hidden;
         background: var(--bg);
       }
-      body.settings-open #panel-top,
-      body.settings-open #panel-main,
-      body.settings-open #panel-bottom { display: none; }
+      body.settings-open #region-toolbar,
+      body.settings-open #region-stream,
+      body.settings-open #region-statusbar { display: none; }
       #settings-header {
         position: sticky;
         top: 0;
@@ -553,8 +622,8 @@
 
       @media (max-width: 380px) {
         .msg-content { max-width: 100%; }
-        #panel-top, #panel-bottom { padding: 6px 8px; }
-        #log { padding: 10px 8px; }
+        #region-toolbar, #panel-bottom { padding: 6px 8px; }
+        #stream { padding: 10px 8px; }
         #settings-root { padding: 8px; }
       }
 
@@ -562,10 +631,10 @@
          主体. Both ids and all rendering/ARIA/keyboard/breadcrumb/9-action
          behaviour are unchanged — only the OWNERSHIP moved:
            ① `#tree-fab` is an in-flow toolbar control at the top of the tree view
-              (it used to float over `#log`); default `hidden`, revealed when the
+              (it used to float over `#stream`); default `hidden`, revealed when the
               L2 tree view opens (so the default tier stays at 7 clickables).
            ② `#tree-drawer` is the view BODY (in-flow, full width, the view's only
-              local scroller) instead of an absolute overlay over `#log`; its
+              local scroller) instead of an absolute overlay over `#stream`; its
               container semantics migrate `role="dialog"`+`aria-modal` →
               `role="region"` (the view is a view, not a dialog). ── */
       #tree-fab {
@@ -843,41 +912,20 @@
         background: var(--accent-weak);
       }
 
-      /* ══ V3-1 (ADR-V3-013 / ADR-V3-017 / ADR-V3-018): L0 skeleton ═════════
-         Design baseline = option-e-progressive.html. Three things, three zones:
-           ① 我在哪 + ② 谁在管我 → #l0-status-band (single clickable in #panel-top)
-           ③ 下一步做什么      → #l0-decision (#panel-main, sibling of #log)
-           plus #risk-rail + #l0-statusbar (body-direct; #risk-rail never folds).
-         Everything else (the former #topbar toolbar, the composer, the
-         settings view, the tree overlay) is disclosure, not L0. ── */
-      #risk-rail {
-        flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 6px 10px;
-        min-width: 0;
-        background: var(--l0-rail-bg);
-        border-bottom: 1px solid var(--l0-rail-border);
-      }
-      #risk-rail .risk-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: 3px 6px;
-        min-width: 0;
-        border: 1px solid var(--risk-border);
-        background: var(--risk-bg);
-        color: var(--risk-text);
-        border-radius: var(--radius-sm);
-        padding: 4px 7px;
-      }
-      #risk-rail .risk-row[data-risk-severity="calm"] {
-        border-color: var(--l0-rail-border);
-        background: transparent;
-        color: var(--text-muted);
-      }
-      #risk-rail .risk-text { min-width: 0; font-size: 11.5px; line-height: 1.5; }
+      /* ══ V4-1 (ADR-V4-017 / ADR-V4-018 / ADR-V4-019): 三区骨架 ═══════════
+         Design baseline = design/ui-redesign/option-f-chat-stream.html (D-P-V4-01).
+         Three zones, body-direct, in document order:
+           ① header#region-toolbar   站点摘要（只读）+ 4 视图入口 + 主题 = 可点 5
+           ② main#region-stream      ol#stream[role=log] + #view-host + #scroll-bottom
+           ③ footer#region-statusbar 连接状态一行 + #risk-chips > #risk-rail
+         `#log` → `#stream` is the ONLY id rename of this leaf; the retired
+         containers (`#panel-top` / `#panel-main` / `#panel-bottom` /
+         `#l0-status-band` / `#l0-statusbar`) are element-reused or moved into
+         `li[data-transitional-host]` hosts. Management controls (法则六) live in
+         `#settings-view`'s「站点与授权」section. ── */
+      /* v3 的 `#risk-rail` 是 body 直挂独立 section；v4 把它改为状态栏内层容器
+         （外层 `#risk-chips` 是设计契约 id）。选择器入口不变 ⇒ 探针与风险类归属
+         判据零逻辑改动（ADR-V4-019 第 1 条）。 */
       #risk-rail .risk-badge {
         flex: 0 0 auto;
         font-size: 10.5px;
@@ -890,25 +938,12 @@
       /* the risk rail must never look foldable: no disclosure affordance here */
       #risk-rail > * { flex: 0 0 auto; }
 
-      #l0-status-band {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: 2px 8px;
-        width: 100%;
-        min-width: 0;
-        text-align: left;
-        font-size: 12px;
-        background: var(--l0-band-bg);
-        border: 1px solid var(--l0-band-border);
-        border-radius: var(--radius-sm);
-        padding: 6px 8px;
-      }
-      #l0-status-band .l0-band-label { font-weight: 600; }
-      #l0-status-band #status,
-      #l0-status-band #llm-status,
-      #l0-status-band #session-label { min-width: 0; }
-      #l0-status-band .l0-band-caret { margin-left: auto; color: var(--text-muted); font-size: 10px; }
+      /* V4-1: `#l0-status-band`（v3 的「一整条可点带」）退役 —— 站点摘要是只读的
+         `.site-summary[role=status]`（非 button/a/input ⇒ 不计入可点预算，shim F5），
+         其文本由 `#status` / `#llm-status` / `#session-label` 的原 id 承载。 */
+      .site-summary #status,
+      .site-summary #llm-status,
+      .site-summary #session-label { min-width: 0; }
 
       #l0-decision {
         flex: 0 0 auto;
@@ -941,49 +976,21 @@
       #l1-more .l1-entry { font-size: 11.5px; line-height: 1.55; color: var(--text-muted); }
       #l1-more .row { gap: 4px; }
       #ask-fallback { border-top: 1px dashed var(--border); padding-top: 6px; }
-      #l0-statusbar {
-        flex: 0 0 auto;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: 4px 8px;
-        width: 100%;
-        min-width: 0;
-        text-align: left;
-        font-size: 11.5px;
-        color: var(--text-muted);
-        background: var(--bg-subtle);
-        border-top: 1px solid var(--border);
-        border-radius: 0;
-        padding: 5px 10px;
-      }
-      #l0-statusbar .l0-statusbar-caret { margin-left: auto; }
-      #l2-entries {
-        flex: 0 0 auto;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        padding: 6px 10px;
-        background: var(--bg-subtle);
-        border-top: 1px solid var(--border);
-      }
-      #l2-entries button { font-size: 11.5px; }
-      /* V3-3 (FR-V3-046): the COUNTS live in the entry panel's own summary line.
-         The one-line bar above stays count-free on purpose: its text is part of the
-         measured default tier, and the audit count is a *live* number (the ring
-         buffer grows while the panel is used), so a count-bearing resident line
-         could not satisfy the density caliber's "same steady state ⇒ identical
-         cells" rule. The counts are one interaction away, exactly as designed. */
-      #l2-entries .l2-entries-summary {
+      /* V4-1: `#l0-statusbar`（v3 的底部一行可点带）退役；4 个视图入口上迁到工具栏
+         的 `#l2-entries`（id 零重命名，只改归属容器）。旧「计数只在一层交互之外」
+         的取舍被 v4 取代：工具栏徽标与视图标题计数同源（`l2/counts.ts` 单源，
+         ADR-V4-022 第 2 条）。 */
+      #l2-entries { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; min-width: 0; }
+      .l2-entries-summary {
         flex: 1 0 100%;
         margin: 0 0 2px;
-        font-size: 11.5px;
+        font-size: 11px;
         color: var(--text-muted);
         overflow-wrap: anywhere;
       }
       /* V3-3 (ADR-V3-025): `#view-host` is the view-replacement host — a SIBLING
-         of `#log`, `flex:1 1 auto`, `hidden` by default. While a view is open
-         `#log` is `hidden`, so the panel-level scroller census stays at exactly 1
+         of `#stream`, `flex:1 1 auto`, `hidden` by default. While a view is open
+         `#stream` is `hidden`, so the panel-level scroller census stays at exactly 1
          (the open view's own local scroll block). It never steals a pixel in the
          default state (`hidden` ⇒ `display:none`). */
       #view-host {
@@ -1046,14 +1053,17 @@
         .l2-body { padding: 6px 6px; }
         .l2-header { padding: 5px 6px; }
       }
-      /* EC-V3-008: at 320px nothing is deleted — the zones wrap and truncate. */
+      /* EC-V3-008 / EC-CHAT-004: at 320px nothing is deleted — the zones wrap and
+         truncate. V4-1: the retired `#l0-status-band` / `#l0-statusbar` selectors
+         are replaced by the toolbar summary + the status bar's own line. */
       @media (max-width: 380px) {
-        #l0-status-band,
+        #region-toolbar,
+        #region-statusbar,
         #risk-rail .risk-row,
-        #l0-statusbar,
         #l2-entries { padding-left: 6px; padding-right: 6px; }
-        #l0-status-band #status,
-        #l0-status-bar-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .site-summary .site-origin { max-width: 96px; }
+        .view-btn .view-label { display: none; }
+        #statusbar-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       }
 
       /* ══ V3-2 (ADR-V3-021 / ADR-V3-022 / ADR-V3-023): the L1 in-place layer ══
@@ -1067,9 +1077,10 @@
          evidence, one on `#l0-more` reveals the remaining options + consequences. */
       .l1-group { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; }
       .l1-group > button { font-size: 11.5px; text-align: left; }
-      /* L1-local scroll block: the group can hold five panels, so `#topbar` gets a
-         bounded height. It lives in `#panel-top` (NOT `#panel-main`), so the
-         panel-level scroller census (`#log` is the only one) is unaffected. */
+      /* L1-local scroll block: the group can hold five panels, so its container gets
+         a bounded height. V4-1: the group lives in a `data-transitional-host="v4-4"`
+         host inside `#stream` (not in a zone), so the panel-level scroller census
+         (`#stream` is the only scroller) is unaffected. */
       #topbar { max-height: 40vh; overflow-y: auto; overflow-x: hidden; }
       #l1-status-detail,
       #l1-local-tree,
@@ -1120,30 +1131,239 @@
     </style>
   </head>
   <body>
-    <!-- ── V3-1 (FR-V3-016 / ADR-V3-006, D3 iron rule): the risk rail is an
-         INDEPENDENT zone, permanently resident at the very top, and it NEVER
-         folds. `l0/risk-rail.ts` is its only writer; `disclosure.ts` refuses it
-         (assertFoldable throws); its ancestor closure contains no `hidden` and
-         no disclosure trigger. ── -->
-    <section id="risk-rail" role="status" aria-live="polite" aria-label="风险位（常驻，永不折叠）"></section>
-
-    <!-- ── zone 1: ① 我在哪 + ② 谁在管我 — ONE clickable band.
-         Everything that used to live in the toolbar is now L1 (`#topbar`,
-         ≤1 interaction away, default `hidden`). ── -->
-    <header id="panel-top">
-      <button id="l0-status-band" type="button" aria-expanded="false" aria-controls="topbar">
-        <span class="l0-band-label">当前站点</span>
+    <!-- ══ 区一（V4-1 / ADR-V4-017 / ADR-V4-018）：工具栏（常驻，文档序第一） ══
+         构成 = `.site-summary`（**只读** `role=status`，非 button/a/input ⇒ 不计入
+         可点预算）+ 4 个视图入口（`#l2-entry-*`，带计数徽标，与视图标题计数同源）
+         + `#theme-toggle`（主题三态：跟随系统 → 浅色 → 深色） = **可点 5**。
+         法一：本区与状态栏内**零**一次性交互（`[data-msg-type=askuser|auth|nextstep]`）。
+         法则六：授权 / 撤销 / 重绑 / 审计 / 会话 / 分组 / 隐私与知情同意 / 自动授权 /
+         LLM 测试等管理操作全部落在 `#settings-view` 的「站点与授权」分区。 ── -->
+    <header id="region-toolbar" data-region="toolbar" role="toolbar" aria-label="工具栏（常驻）">
+      <div class="site-summary" role="status" aria-label="站点摘要">
+        <span class="dot" aria-hidden="true"></span>
         <span id="status">无活跃站点</span>
         <span id="llm-status" class="muted">LLM：检测中…</span>
         <span id="session-label" class="muted">会话：（无活跃站点）</span>
-        <span class="l0-band-caret">▾</span>
-      </button>
-      <div class="toolbar row" id="topbar" data-l1-panel="l1-status" hidden>
+        <p id="l2-entry-summary" class="l2-entries-summary">状态：读取中…</p>
+      </div>
+      <nav id="l2-entries" class="view-nav" aria-label="四视图入口（L2 按需视图）">
+        <!-- AC-V3-010：每个 [aria-controls] 元素必须成对带 aria-expanded；
+             per-target 语义（#l2-entry-settings → #settings-view，其余 → #view-host）
+             由 `l0/status-bar.ts#syncTriggerAria` 保持（v3-3 I5 修复不回退）。 -->
+        <button id="l2-entry-tree" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="全局连接树（四维度）" data-chrome-control="toolbar">连接树 <span class="badge" data-count="">…</span></button>
+        <button id="l2-entry-commands" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="命令目录（逐条有档，只读）" data-chrome-control="toolbar">命令目录 <span class="badge" data-count="">…</span></button>
+        <button id="l2-entry-audit" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="审计（零明文）" data-chrome-control="toolbar">审计 <span class="badge" data-count="">…</span></button>
+        <button id="l2-entry-settings" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="settings-view" title="设置（含站点与授权）" data-chrome-control="toolbar">设置 <span class="badge" data-count="">…</span></button>
+      </nav>
+      <button id="theme-toggle" type="button" data-toolbar-slot="theme" aria-expanded="false" aria-pressed="false" data-theme-state="auto" aria-label="切换主题（当前：跟随系统）" title="切换主题：跟随系统 → 浅色 → 深色" data-chrome-control="toolbar">主题</button>
+    </header>
+
+    <!-- ══ 区二（V4-1 / ADR-V4-017）：聊天流（唯一交互面） ══════════════════
+         `#region-stream` 是**区**（flex 容器，不滚动）；`ol#stream[role=log]` 是流
+         本体与唯一滚动容器（`#log` → `#stream` 是本叶**唯一** id 重命名）。
+         被取代但尚未换实现的容器同构迁入流内 `li[data-transitional-host]` 占位宿主
+         （id / 类名 / ARIA 对全保留；退役在 v4-3 / v4-4，v4 收口断言宿主计数 = 0）。 ── -->
+    <main id="region-stream" data-region="stream" aria-label="聊天流（唯一交互面）">
+      <ol id="stream" role="log" aria-label="会话记录" aria-live="polite">
+        <!-- ── 占位宿主 v4-3：决策卡（含 #ask / #confirm 与证据层）。
+             V3-1 (ADR-V3-013 / ADR-V3-014)：**唯一**决策卡；#ask / #confirm 原样
+             复用（零 id 重命名）；末项「其他…（我来描述）」与未推荐选项在 `#l1-more`
+             内，兜底输入 `#ask-fallback` 默认 `hidden`（法四：无常驻输入框）。 ── -->
+        <li data-transitional-host="v4-3" data-host="decision">
+          <div id="l0-decision">
+            <div class="l0-kicker" id="l0-kicker">下一步做什么</div>
+            <div id="ask" hidden>
+              <div id="ask-prompt"></div>
+              <div id="ask-options" class="row"></div>
+              <div id="ask-fallback" hidden>
+                <div class="row">
+                  <input id="ask-input" type="text" placeholder="输入回答…" autocomplete="off" />
+                  <button id="ask-submit" type="button">回答</button>
+                  <button id="ask-cancel" type="button">取消</button>
+                </div>
+                <span class="muted">取消 = 回答被取消（不代填默认值）</span>
+              </div>
+            </div>
+            <div class="row">
+              <button id="l0-pick" type="button">从页面拾取</button>
+              <button id="l0-more" type="button" aria-expanded="false" aria-controls="l1-more">更多选项（还有 0 个）</button>
+            </div>
+            <!-- FR-V3-039 ①: the receipt SUMMARY is the resident L0 piece. `hidden` until
+                 a real receipt exists → zero impact on the measured default tier. -->
+            <div id="l0-receipt-summary" hidden></div>
+            <button id="l0-ref-toggle" type="button" aria-expanded="false" aria-controls="l1-ref">引用 0 条</button>
+            <!-- FR-V3-037: the chip's failure mark is a sibling (not a child) of the chip. -->
+            <span class="ref-stale-badge" id="l0-ref-badge" hidden>失效</span>
+            <div id="l1-more" data-l1-panel="l1-more" hidden>
+              <div class="row" id="l1-more-options"></div>
+              <div class="l1-entry">末项固定为「其他…（我来描述）」；选中它就地展开输入框。</div>
+              <!-- ── V3-2 FR-V3-031 ②: consequences & impact preview. ── -->
+              <button id="l1-consequences-toggle" type="button" data-disclose="l1-consequences" aria-expanded="false" aria-controls="l1-consequences">选项后果与影响预演（0 个选项）</button>
+              <div id="l1-consequences" data-l1-panel="l1-consequences" hidden></div>
+            </div>
+            <div id="l1-ref" data-l1-panel="l1-ref-evidence" hidden>
+              <div class="l1-entry" id="l1-ref-summary">引用条：选择器 / 语义路径 / 文本摘要 / 捕获时间（证据层只读）。</div>
+              <!-- FR-V3-033: the four evidence elements as a READ-ONLY projection. -->
+              <div class="l1-rows" id="l1-ref-rows"></div>
+              <!-- FR-V3-038: the two recovery paths（+ R3 的条件重锚）。 -->
+              <div class="row" id="l1-ref-actions" hidden>
+                <button id="l1-ref-repick" type="button">重新拾取</button>
+                <button id="l1-ref-describe" type="button">改用描述</button>
+                <button id="l1-ref-rescue" type="button" data-rescue="none" hidden>一键重锚（文本唯一匹配）</button>
+                <span class="l1-hint" id="l1-ref-reason"></span>
+              </div>
+            </div>
+            <!-- FR-V3-032: the two mandatory paragraphs ship as MARKUP and are cloned. -->
+            <template id="l1-consequence-tpl">
+              <div class="l1-row" data-tpl>会发生什么：选中「{{label}}」后本轮按该选项推进；含子命令时逐条写入审计（命令名 / 动作 id / 结果 / 耗时，零明文）。</div>
+              <div class="l1-row" data-tpl>不会发生什么：不会放宽策略档、不会自动放行 evaluate、不会改动授权集合；确认前零命令下发。</div>
+              <div class="l1-row" data-tpl data-irreversible>不可逆性声明：该选项含破坏性子命令，执行后无法从插件侧撤销（审计保留记录，不保留明文）。</div>
+            </template>
+            <!-- 破坏性确认：落在 #l0-decision 直系、不参与折叠（FR-V3-018 / EC-V3-015） -->
+            <div id="confirm" hidden data-destructive-option="confirm">
+              <div>敏感操作需二次确认：</div>
+              <div id="confirm-summary"></div>
+              <div class="row">
+                <button id="confirm-allow" type="button" data-destructive-option="confirm-allow">允许</button>
+                <button id="confirm-deny" type="button" data-destructive-option="confirm-deny">拒绝</button>
+                <span class="muted">超时/取消 = 拒绝</span>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <!-- ── 占位宿主 v4-3：composer（法四：`#composer` 常驻语义退役，保持 hidden；
+             v4-3 把它换成流内卡内输入）。 ── -->
+        <li data-transitional-host="v4-3" data-host="composer">
+          <form id="composer" hidden>
+            <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />
+            <button id="send" type="submit">发送</button>
+          </form>
+        </li>
+
+        <!-- ── 占位宿主 v4-4：L1 内容层（局部树 / 已决策历史 / 回执证据 / 手势说明）。
+             八个 L1 内容类默认全部 `hidden`（C1/C2 只豁免 hidden 祖先），触发器与目标
+             的 aria-expanded / aria-controls 成对属性原样保留。 ── -->
+        <li data-transitional-host="v4-4" data-host="l1-panels">
+          <div class="l1-group" id="l1-group">
+            <button id="l1-local-tree-toggle" type="button" data-disclose="l1-local-tree" aria-expanded="false" aria-controls="l1-local-tree">归属（局部树）· 0 个节点</button>
+            <div id="l1-local-tree" data-l1-panel="l1-local-tree" hidden>
+              <div class="l1-rows" id="l1-local-tree-rows"></div>
+              <div class="l1-hint" id="l1-local-tree-hint">暂无归属快照：在「连接树」里打开一次后，这里会就地显示当前对象所在的最多 3 个节点。</div>
+              <div class="row"><button id="l1-local-tree-global" type="button">查看全局树</button></div>
+            </div>
+
+            <button id="l1-history-toggle" type="button" data-disclose="l1-history" aria-expanded="false" aria-controls="l1-history">已决策 0 步</button>
+            <div id="l1-history" data-l1-panel="l1-history" hidden>
+              <div class="l1-rows" id="l1-history-rows"></div>
+              <div class="l1-hint">回看只读：不重放、不改变任何已执行动作（零副作用）。</div>
+            </div>
+
+            <button id="l1-receipt-toggle" type="button" data-disclose="l1-receipt" aria-expanded="false" aria-controls="l1-receipt">回执证据（0 行）</button>
+            <div id="l1-receipt" data-l1-panel="l1-receipt" hidden>
+              <div class="l1-rows" id="l1-receipt-rows"></div>
+              <div class="l1-audit">
+                <button id="l1-receipt-audit" type="button">查看审计（完整审计视图）</button>
+                <span class="l1-hint" id="l1-receipt-audit-summary"></span>
+              </div>
+            </div>
+
+            <button id="l1-gestures-toggle" type="button" data-disclose="l1-gestures" aria-expanded="false" aria-controls="l1-gestures">页面交互说明（6 个手势）</button>
+            <div id="l1-gestures" data-l1-panel="l1-gestures" hidden>
+              <!-- V3-4 FR-V3-070: the rows are rendered from the ONE list
+                   (`view-model.ts#L1_GESTURE_LABELS`) by `l1/panels.ts`. -->
+              <table>
+                <thead><tr><th>手势</th><th>作用</th></tr></thead>
+                <tbody id="l1-gestures-rows"></tbody>
+              </table>
+            </div>
+          </div>
+        </li>
+
+        <!-- ── 占位宿主 v4-4：三条提示带（env-guard / site-hint / onboarding /
+             discovery-notice / notice）。语义归并由 v4-4 落；本叶只保证断言仍可解析。 ── -->
+        <li data-transitional-host="v4-4" data-host="strips">
+          <div class="strips">
+            <div id="env-guard" role="alert" hidden></div>
+            <div id="site-hint" role="status" aria-live="polite" hidden>
+              <div class="sh-title" id="site-hint-title"></div>
+              <div class="sh-detail" id="site-hint-detail"></div>
+              <div class="sh-action" id="site-hint-action"></div>
+            </div>
+            <div id="onboarding" hidden></div>
+            <div id="discovery-notice" role="status" aria-live="polite" hidden>
+              <div class="dn-title" id="discovery-title"></div>
+              <div class="dn-detail" id="discovery-detail"></div>
+            </div>
+            <div id="notice" role="status" aria-live="polite" hidden></div>
+          </div>
+        </li>
+      </ol>
+
+      <!-- ── V3-3 (ADR-V3-025 / ADR-V3-028/ADR-V4-022): the L2 **view replacement**
+           host. `#view-host` is a SIBLING of `#stream` inside `#region-stream`:
+           opening a view hides `#stream` and shows the host — one content area,
+           one panel-level scroller, never a second one and never a 浮层. Exactly
+           ONE `[data-l2-view]` container is visible at a time. ── -->
+      <div id="view-host" hidden>
+        <div class="l2-header">
+          <button id="l2-back" type="button" data-l2-back title="返回对话（返回后展开态与密度复原）">← 返回</button>
+          <h2 id="l2-title" class="l2-title" tabindex="-1"></h2>
+          <span id="l2-count" class="l2-count" data-count=""></span>
+        </div>
+        <div class="l2-views">
+          <div class="l2-view" data-l2-view="tree" role="region" aria-label="全局连接树（四维度）" hidden>
+            <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" title="连接树：四维度总览与撤销入口（收起/展开树主体）" hidden>连接树</button>
+            <aside id="tree-drawer" hidden aria-label="连接树" role="region"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。</div></aside>
+          </div>
+          <!-- ② 命令目录：只读投影（`l2/command-catalog.ts`），零控件。 -->
+          <div class="l2-view" data-l2-view="commands" role="region" aria-label="命令目录（逐条有档，只读）" hidden>
+            <div class="l2-body" id="l2-catalog-host" aria-live="off"></div>
+          </div>
+          <!-- ③ 审计：零明文白名单投影（`l2/audit.ts`），导出复用既有通道。 -->
+          <div class="l2-view" data-l2-view="audit" role="region" aria-label="审计（零明文）" hidden>
+            <div class="l2-body" id="l2-audit-host" aria-live="off"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- "back to bottom" — 只有用户上滚离开底部时才出现；常态是 `hidden` 属性
+           （绝不用 display:none / .show），因此闲置时不占密度预算；`position:absolute`
+           挂在 `#region-stream`（不参与流区高度计算）。 -->
+      <button id="scroll-bottom" type="button" title="新消息在下方" hidden>回到底部 ↓</button>
+    </main>
+
+    <!-- ══ 区三（V4-1 / ADR-V4-019）：状态栏（常驻，永不折叠，body 直挂） ════
+         S7：状态栏是 `body` 直挂（**不是** `#region-stream` 的后代）⇒ 打开任意视图
+         也触达不到风险位。J1：`#region-statusbar` 本体永不带 `hidden`。
+         J2：任一类风险生效时 `#risk-chips` 无 `hidden` 且 `#risk-rail` 含 ≥1 可见
+         chip；零风险时收缩为一行 0 可点 chip。J3/J4 见 `test/ui/l0.mjs`。 ── -->
+    <footer id="region-statusbar" data-region="statusbar" role="contentinfo" aria-label="状态栏（常驻，永不折叠）">
+      <div class="status-line" role="status">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="statusbar-text">状态：连接中…</span>
+        <span id="send-reason" class="muted" role="status" aria-live="polite"></span>
+      </div>
+      <div id="risk-chips" data-chrome-control="statusbar" hidden aria-label="活跃风险">
+        <div id="risk-rail" role="status" aria-live="polite" aria-label="风险位（常驻，永不折叠）"></div>
+      </div>
+      <div id="risk-detail" hidden aria-label="风险详情"></div>
+    </footer>
+
+    <!-- ── TASK-033 / V3-3 (FR-V3-051) / V4-1 (法则六): in-panel settings view.
+         The chat zones above are only hidden, never rebuilt, so messages / scroll
+         position / composer draft survive a round-trip. `#topbar`（站点与授权）
+         迁入本视图：管理操作不再占用工具栏（法一 / 法则六）。 ── -->
+    <section id="settings-view" data-l2-view="settings" aria-label="设置" hidden>
+      <div id="settings-header">
+        <button id="settings-back" type="button">← 返回对话</button>
+        <span class="sh-title">设置</span>
+      </div>
+      <div id="topbar" class="toolbar row" aria-label="站点与授权">
         <button id="open-settings" class="primary" type="button">⚙ 设置</button>
         <button id="authorize" type="button">授权当前站点</button>
         <!-- V3-1: "谁在管我" details (consent text + per-origin auto-auth switches)
-             are appended here by `renderConsent()`. They are L1: the default
-             screen must not spend density budget on them. -->
+             are appended here by `renderConsent()`. -->
         <div id="l1-status-extra"></div>
         <details class="more" id="more-actions">
           <summary>更多</summary>
@@ -1167,248 +1387,17 @@
             </div>
           </div>
         </details>
-        <!-- V3-1: the LLM connection status is a *detail* of「谁在管我」— it lives in
-             the L1 status panel, not on the default screen. Its text is still read by
-             the existing gates (they assert `textContent`, never visibility). -->
+        <!-- V3-1: the LLM connection status is a *detail* of「谁在管我」. Its text is
+             still read by the existing gates (they assert `textContent`). -->
         <div id="llm-test-result" class="muted" role="status" aria-live="polite"></div>
-        <!-- ── V3-2 FR-V3-031 ① is THIS panel: 状态与连接详情 = `#topbar`'s own
-             content (settings / authorize / consent / auto-auth / session / LLM).
-             ── V3-2 FR-V3-031 ④⑤⑥⑦: the L1 detail group. Each class owns a
-             `[data-l1-panel]` container (default `hidden`) AND a labelled trigger with
-             the `aria-expanded`/`aria-controls` pair; ONE click on `#l0-status-band`
-             reveals all five at once (that is the ≤1-interaction path the gate drives),
-             and each trigger collapses/expands its own class afterwards. ── -->
-        <div class="l1-group" id="l1-group">
-          <button id="l1-local-tree-toggle" type="button" data-disclose="l1-local-tree" aria-expanded="false" aria-controls="l1-local-tree">归属（局部树）· 0 个节点</button>
-          <div id="l1-local-tree" data-l1-panel="l1-local-tree" hidden>
-            <div class="l1-rows" id="l1-local-tree-rows"></div>
-            <div class="l1-hint" id="l1-local-tree-hint">暂无归属快照：在「连接树」里打开一次后，这里会就地显示当前对象所在的最多 3 个节点。</div>
-            <div class="row"><button id="l1-local-tree-global" type="button">查看全局树</button></div>
-          </div>
-
-          <button id="l1-history-toggle" type="button" data-disclose="l1-history" aria-expanded="false" aria-controls="l1-history">已决策 0 步</button>
-          <div id="l1-history" data-l1-panel="l1-history" hidden>
-            <div class="l1-rows" id="l1-history-rows"></div>
-            <div class="l1-hint">回看只读：不重放、不改变任何已执行动作（零副作用）。</div>
-          </div>
-
-          <button id="l1-receipt-toggle" type="button" data-disclose="l1-receipt" aria-expanded="false" aria-controls="l1-receipt">回执证据（0 行）</button>
-          <div id="l1-receipt" data-l1-panel="l1-receipt" hidden>
-            <div class="l1-rows" id="l1-receipt-rows"></div>
-            <div class="l1-audit">
-              <button id="l1-receipt-audit" type="button">查看审计（完整审计视图）</button>
-              <span class="l1-hint" id="l1-receipt-audit-summary"></span>
-            </div>
-          </div>
-
-          <button id="l1-gestures-toggle" type="button" data-disclose="l1-gestures" aria-expanded="false" aria-controls="l1-gestures">页面交互说明（6 个手势）</button>
-          <div id="l1-gestures" data-l1-panel="l1-gestures" hidden>
-            <!-- V3-4 FR-V3-070: the rows are rendered from the ONE list
-                 (`view-model.ts#L1_GESTURE_LABELS`) by `l1/panels.ts`, and the page
-                 side implements exactly those six. G3~G5 of the design baseline are
-                 deliberately absent: a row for an unimplemented gesture is the drift
-                 this requirement forbids. -->
-            <table>
-              <thead><tr><th>手势</th><th>作用</th></tr></thead>
-              <tbody id="l1-gestures-rows"></tbody>
-            </table>
-          </div>
-        </div>
       </div>
-    </header>
-
-    <!-- ── zone 2: message list (flex fill, the only scroller) + ③ 下一步做什么 ── -->
-    <div id="panel-main">
-      <!-- ── V3-1 (ADR-V3-013 / ADR-V3-014): the ONE decision card.
-           #ask / #confirm are reused verbatim (zero id renames); the terminal
-           option 「其他…（我来描述）」 and the non-recommended options live in
-           the L1 `#l1-more` panel, and the fallback input `#ask-fallback` is
-           `hidden` until that terminal option is chosen (FR-V3-012 /
-           FR-V3-013 — no permanently resident text input). ── -->
-      <div id="l0-decision">
-        <div class="l0-kicker" id="l0-kicker">下一步做什么</div>
-        <div id="ask" hidden>
-          <div id="ask-prompt"></div>
-          <div id="ask-options" class="row"></div>
-          <div id="ask-fallback" hidden>
-            <div class="row">
-              <input id="ask-input" type="text" placeholder="输入回答…" autocomplete="off" />
-              <button id="ask-submit" type="button">回答</button>
-              <button id="ask-cancel" type="button">取消</button>
-            </div>
-            <span class="muted">取消 = 回答被取消（不代填默认值）</span>
-          </div>
-        </div>
-        <div class="row">
-          <button id="l0-pick" type="button">从页面拾取</button>
-          <button id="l0-more" type="button" aria-expanded="false" aria-controls="l1-more">更多选项（还有 0 个）</button>
-        </div>
-        <!-- FR-V3-039 ①: the receipt SUMMARY is the resident L0 piece. `hidden` until
-             a real receipt exists → zero impact on the measured default tier. -->
-        <div id="l0-receipt-summary" hidden></div>
-        <button id="l0-ref-toggle" type="button" aria-expanded="false" aria-controls="l1-ref">引用 0 条</button>
-        <!-- FR-V3-037: the chip's failure mark is a sibling (not a child) of the chip:
-             `l0/shell.ts` rewrites the chip's text on every render, and a badge inside
-             it would be wiped. `hidden` unless a reference is unusable, so the measured
-             default tier is unaffected. -->
-        <span class="ref-stale-badge" id="l0-ref-badge" hidden>失效</span>
-        <div id="l1-more" data-l1-panel="l1-more" hidden>
-          <div class="row" id="l1-more-options"></div>
-          <div class="l1-entry">末项固定为「其他…（我来描述）」；选中它就地展开输入框。</div>
-          <!-- ── V3-2 FR-V3-031 ②: consequences & impact preview. ONE click on
-               `#l0-more` reveals this together with the remaining options, so both
-               classes are ≤1 interaction from the default state. ── -->
-          <button id="l1-consequences-toggle" type="button" data-disclose="l1-consequences" aria-expanded="false" aria-controls="l1-consequences">选项后果与影响预演（0 个选项）</button>
-          <div id="l1-consequences" data-l1-panel="l1-consequences" hidden></div>
-        </div>
-        <div id="l1-ref" data-l1-panel="l1-ref-evidence" hidden>
-          <div class="l1-entry" id="l1-ref-summary">引用条：选择器 / 语义路径 / 文本摘要 / 捕获时间（证据层只读）。</div>
-          <!-- FR-V3-033: the four evidence elements as a READ-ONLY projection — this
-               container must never hold an input/button/select. -->
-          <div class="l1-rows" id="l1-ref-rows"></div>
-          <!-- FR-V3-038: the two recovery paths (only shown while a reference is
-               unusable). `重新拾取` reuses `#l0-pick`; `改用描述` reuses the `#ask`
-               terminal fallback input — no new input box anywhere. -->
-          <div class="row" id="l1-ref-actions" hidden>
-            <button id="l1-ref-repick" type="button">重新拾取</button>
-            <button id="l1-ref-describe" type="button">改用描述</button>
-            <!-- R3: the conditional third path — a one-click re-anchor onto the unique
-                 text candidate. `hidden` unless the rescue observation is
-                「文本唯一匹配 ∧ 页面路径未变」; the old reference is never mutated. -->
-            <button id="l1-ref-rescue" type="button" data-rescue="none" hidden>一键重锚（文本唯一匹配）</button>
-            <span class="l1-hint" id="l1-ref-reason"></span>
-          </div>
-        </div>
-        <!-- FR-V3-032: the two mandatory paragraphs (＋ the irreversibility
-             declaration for destructive options) ship as MARKUP and are cloned per
-             option — the copy is static, only the label is substituted. -->
-        <template id="l1-consequence-tpl">
-          <div class="l1-row" data-tpl>会发生什么：选中「{{label}}」后本轮按该选项推进；含子命令时逐条写入审计（命令名 / 动作 id / 结果 / 耗时，零明文）。</div>
-          <div class="l1-row" data-tpl>不会发生什么：不会放宽策略档、不会自动放行 evaluate、不会改动授权集合；确认前零命令下发。</div>
-          <div class="l1-row" data-tpl data-irreversible>不可逆性声明：该选项含破坏性子命令，执行后无法从插件侧撤销（审计保留记录，不保留明文）。</div>
-        </template>
-        <!-- 破坏性确认：落在 #l0-decision 直系、不参与折叠（FR-V3-018 / EC-V3-015） -->
-        <div id="confirm" hidden data-destructive-option="confirm">
-          <div>敏感操作需二次确认：</div>
-          <div id="confirm-summary"></div>
-          <div class="row">
-            <button id="confirm-allow" type="button" data-destructive-option="confirm-allow">允许</button>
-            <button id="confirm-deny" type="button" data-destructive-option="confirm-deny">拒绝</button>
-            <span class="muted">超时/取消 = 拒绝</span>
-          </div>
-        </div>
-      </div>
-      <div id="log" aria-label="会话记录"></div>
-      <button id="scroll-bottom" type="button" title="新消息在下方" hidden>回到底部 ↓</button>
-
-      <!-- ── V3-3 (ADR-V3-025 / ADR-V3-028): the L2 **view replacement** host.
-           `#view-host` is a SIBLING of `#log` inside `#panel-main`, so opening a
-           view hides `#log` (hidden attribute) and shows the host — one content
-           area, one panel-level scroller, never a second one and never a浮层.
-           Exactly ONE `[data-l2-view]` container is visible at a time; all four
-           are `hidden` in the default state (zero occupancy, FR-V3-045).
-           The v3-1 skeleton exemption (`v3SkeletonExemptions#view-host`) is
-           REMOVED by this leaf: the host now carries real content, so the
-           "collapsed disclosure must carry a readable summary" rule applies to it
-           unconditionally (`test/ui/l0.mjs` ⑥). ── -->
-      <div id="view-host" hidden>
-        <div class="l2-header">
-          <button id="l2-back" type="button" data-l2-back title="返回对话（返回后展开态与密度复原）">← 返回</button>
-          <h2 id="l2-title" class="l2-title" tabindex="-1"></h2>
-          <span id="l2-count" class="l2-count" data-count=""></span>
-        </div>
-        <div class="l2-views">
-          <!-- ① 全局连接树：`#tree-fab` + `#tree-drawer` 原样迁入（ADR-V3-028）：
-               id 零重命名、`role=tree/treeitem` / `aria-expanded` / `aria-level` /
-               roving tabindex / 键盘 / 面包屑 / 每层 allow-ask-deny 控件 / 9 动作
-               固定序全部保留；只有**归属**与容器语义变化（覆盖式抽屉 →
-               视图主体；`role="dialog"`+`aria-modal` → `role="region"`，台账登记）。 -->
-          <div class="l2-view" data-l2-view="tree" role="region" aria-label="全局连接树（四维度）" hidden>
-            <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" title="连接树：四维度总览与撤销入口（收起/展开树主体）" hidden>连接树</button>
-            <!-- AC-V3-010 / D6: a collapsed disclosure must carry a readable summary.
-                 `mountTreeDrawer()` replaces this line when the drawer is first opened
-                 (`root.replaceChildren()`), so the summary is *always* present. -->
-            <aside id="tree-drawer" hidden aria-label="连接树" role="region"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。</div></aside>
-          </div>
-          <!-- ② 命令目录：只读投影（`l2/command-catalog.ts`），零控件。 -->
-          <div class="l2-view" data-l2-view="commands" role="region" aria-label="命令目录（逐条有档，只读）" hidden>
-            <div class="l2-body" id="l2-catalog-host" aria-live="off"></div>
-          </div>
-          <!-- ③ 审计：零明文白名单投影（`l2/audit.ts`），导出复用既有通道。 -->
-          <div class="l2-view" data-l2-view="audit" role="region" aria-label="审计（零明文）" hidden>
-            <div class="l2-body" id="l2-audit-host" aria-live="off"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── V3-1 (FR-V3-015): the ONE-LINE status bar; its entry panel holds the
-         ≤4 L2 entries with real counts. ── -->
-    <button id="l0-statusbar" type="button" aria-expanded="false" aria-controls="l2-entries">
-      <span id="l0-statusbar-text">状态：按需视图 · 点开看计数</span>
-      <span class="l0-statusbar-caret">▴</span>
-    </button>
-    <div id="l2-entries" data-disclose-panel="l2-entries" hidden>
-      <!-- AC-V3-010 (I5 fix round): every `[aria-controls]` element must carry
-           the pair `aria-expanded` + `aria-controls`, not just the four L0
-           triggers — these four L2 entries carry `aria-expanded` too, kept in sync
-           by `l0/status-bar.ts#syncTriggerAria`.
-           V3-3: the first three (`#view-host`-bound) track the view host; the
-           settings entry points at its own view (`#settings-view`) and tracks the
-           v1 settings switch — the pair is per-target, not one shared value.
-           Every entry carries a count (FR-V3-015): tree / commands {live,baseline}
-           / audit come from `l2/counts.ts`, settings from the rendered-section
-           registry — the `settings` count exemption is REMOVED by this leaf. -->
-      <p id="l2-entry-summary" class="l2-entries-summary">状态：读取中…</p>
-      <button id="l2-entry-tree" type="button" aria-expanded="false" aria-controls="view-host">连接树 · …</button>
-      <button id="l2-entry-commands" type="button" aria-expanded="false" aria-controls="view-host">命令目录 · …</button>
-      <button id="l2-entry-audit" type="button" aria-expanded="false" aria-controls="view-host">审计 · …</button>
-      <button id="l2-entry-settings" type="button" aria-expanded="false" aria-controls="settings-view">设置 · …</button>
-    </div>
-
-    <!-- ── zone 3: hints (never scrolls; composer is last) ── -->
-    <div id="panel-bottom">
-      <div class="strips">
-        <div id="env-guard" role="alert" hidden></div>
-        <div id="site-hint" role="status" aria-live="polite" hidden>
-          <div class="sh-title" id="site-hint-title"></div>
-          <div class="sh-detail" id="site-hint-detail"></div>
-          <div class="sh-action" id="site-hint-action"></div>
-        </div>
-        <div id="onboarding" hidden></div>
-        <div id="discovery-notice" role="status" aria-live="polite" hidden>
-          <div class="dn-title" id="discovery-title"></div>
-          <div class="dn-detail" id="discovery-detail"></div>
-        </div>
-        <div id="notice" role="status" aria-live="polite" hidden></div>
-      </div>
-      <div id="send-reason" class="muted" role="status" aria-live="polite"></div>
       <div id="consent-slot"></div>
-      <form id="composer" hidden>
-        <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />
-        <button id="send" type="submit">发送</button>
-      </form>
-    </div>
-
-    <!-- ── TASK-033: in-panel settings view (same document, zero navigation).
-         The chat zones above are only hidden, never rebuilt, so messages /
-         scroll position / composer draft survive a round-trip.
-         V3-3 (FR-V3-051): this IS the fourth L2 view (`data-l2-view="settings"`)
-         — its default visibility is the only thing that changed (it was already
-         `hidden` until opened); the v1 view switch (`body.settings-open` +
-         `#settings-back`) and every setting's semantics are untouched. ── -->
-    <section id="settings-view" data-l2-view="settings" aria-label="设置" hidden>
-      <div id="settings-header">
-        <button id="settings-back" type="button">← 返回对话</button>
-        <span class="sh-title">设置</span>
-      </div>
       <div id="settings-root"></div>
     </section>
     <!-- V3-1: the script stays the last element of <body>. It is a `display:none`
          element (Chrome's UA sheet), so it costs no layout — but it IS a non-hidden
          direct child of <body>, i.e. it is counted by C4 (常驻分区数). C4 has no
-         ceiling and is registration-only (see the density baseline), and moving the
-         tag would have forced a byte edit into an existing layout contract test. -->
+         ceiling and is registration-only (see the density baseline). -->
     <script src="sidepanel.js"></script>
   </body>
 </html>

@@ -140,8 +140,17 @@ function buildIcon(doc: RailDoc, name: string): RailElement {
 }
 
 /**
- * The single risk-row template. `cls` selects the copy; an explicit `spec`
- * override is only used by the calm summary.
+ * The single risk-**chip** template (V4-1 / ADR-V4-019 第 4 条).
+ *
+ * v3 rendered a `div.risk-row`; v4 renders a `button.risk-row` chip so a risk is
+ * *clickable* (expand `#risk-detail` + scroll to the stream card). The three
+ * channels are unchanged and still mandatory — an empty text channel throws, so
+ * "icon only" / "colour only" cannot be expressed.
+ *
+ * The class name stays `risk-row` **on purpose**: `test/ui/density.mjs`
+ * (`riskVisibilityProbeSource`) and `density-metrics.mjs#isRiskClassSource` key off
+ * `.risk-row[data-risk-class=…]` / `closest('#risk-rail')`, so the chip form is a
+ * template change with **zero** probe/attribution change.
  */
 export function renderRiskRow(
   doc: RailDoc,
@@ -153,10 +162,19 @@ export function renderRiskRow(
       : { severity: 'risk' as const, ...input };
   assertThreeChannels(spec.text, spec.badge, spec.icon);
 
-  const row = doc.createElement('div');
+  const calm = (spec.severity ?? 'risk') === 'calm';
+  const row = doc.createElement(calm ? 'div' : 'button');
   row.className = 'risk-row';
   row.setAttribute?.('data-risk-severity', spec.severity ?? 'risk');
   if (spec.riskClass) row.setAttribute?.('data-risk-class', spec.riskClass);
+  if (!calm) {
+    // A chip is chrome: it must never be reachable from inside the exempt
+    // `#stream` subtree (FR-CHAT-075 / RP-V4-06).
+    row.setAttribute?.('data-chrome-control', 'statusbar');
+    row.setAttribute?.('type', 'button');
+    row.setAttribute?.('aria-controls', 'risk-detail');
+    row.setAttribute?.('aria-expanded', 'false');
+  }
 
   const icon = buildIcon(doc, spec.icon);
   const text = doc.createElement('span');
@@ -197,20 +215,29 @@ export function renderRiskRail(
 ): number {
   const rail = doc.getElementById('risk-rail');
   if (!rail) throw new RiskRowError('renderRiskRail: #risk-rail 不存在（风险位必须常驻）');
-  const signature = `${RISK_CLASSES.filter((c) => active.includes(c)).join('|')}::${staleRef?.reason ?? ''}::${probeSteady?.text ?? ''}`;
-  if (signature === lastRiskSignature && renderedRows.length > 0) return renderedRows.length;
-  lastRiskSignature = signature;
-  // Clear previous rows without innerHTML (no HTML injection surface at all).
-  // `textContent = ''` drops every child node; the rail node itself stays put
-  // (its id, its position at the top of the panel, its non-foldability).
-  for (const row of renderedRows) row.remove?.();
-  renderedRows = [];
-  rail.textContent = '';
-  const rows: RailElement[] = [];
+  const shell = doc.getElementById('risk-chips');
+  const detail = doc.getElementById('risk-detail');
   const uniq = RISK_CLASSES.filter((c) => active.includes(c));
-  if (uniq.length === 0) {
-    rows.push(renderRiskRow(doc, { text: RISK_CALM_TEXT, badge: RISK_CALM_BADGE, icon: 'shield', severity: 'calm' }));
-  } else {
+  const signature = `${uniq.join('|')}::${staleRef?.reason ?? ''}::${probeSteady?.text ?? ''}::${uniq.length === 0 ? 'calm' : 'risk'}`;
+  const paint = (): number => {
+    // Clear previous rows without innerHTML (no HTML injection surface at all).
+    for (const row of renderedRows) row.remove?.();
+    renderedRows = [];
+    rail.textContent = '';
+    if (detail) {
+      detail.textContent = '';
+      detail.hidden = true;
+    }
+    const rows: RailElement[] = [];
+    if (uniq.length === 0) {
+      // J2 / shim F3: zero risk ⇒ the chips container collapses to NOTHING
+      // (0 clickable chips). The one-line「无风险」statement lives in the status
+      // bar's own text, not in a chip.
+      if (shell) shell.hidden = true;
+      renderedRows = [];
+      return 0;
+    }
+    if (shell) shell.hidden = false;
     for (const cls of uniq) {
       if (cls === 'staleRef' && staleRef) {
         rows.push(
@@ -237,10 +264,31 @@ export function renderRiskRail(
       }
       rows.push(renderRiskRow(doc, cls));
     }
-  }
-  for (const row of rows) rail.appendChild?.(row);
-  renderedRows = rows;
-  return rows.length;
+    for (const row of rows) rail.appendChild?.(row);
+    if (detail) {
+      for (const cls of uniq) {
+        const line = doc.createElement('p');
+        line.className = 'risk-detail-line';
+        line.setAttribute?.('data-risk-detail', cls);
+        line.textContent = `${RISK_COPY[cls].badge}：${uniq.length > 0 ? '详见流内对应卡。' : ''}本阶段不发命令、不改授权。`;
+        detail.appendChild?.(line);
+      }
+    }
+    // chip → expand `#risk-detail` + scroll to the stream card. Wired here because
+    // this module is the ONLY writer of the rail (no caller can relocate it).
+    for (const row of rows) {
+      row.addEventListener?.('click', () => {
+        const open = row.getAttribute?.('aria-expanded') === 'true';
+        row.setAttribute?.('aria-expanded', String(!open));
+        if (detail) detail.hidden = open;
+      });
+    }
+    renderedRows = rows;
+    return rows.length;
+  };
+  if (signature === lastRiskSignature && renderedRows.length > 0) return renderedRows.length;
+  lastRiskSignature = signature;
+  return paint();
 }
 
 /** Rows written by the last `renderRiskRail` call (module-local, never global). */

@@ -1,84 +1,30 @@
 /**
- * V3-1 TASK-106 (FR-V3-015 / FR-V3-046) — the ONE-LINE status bar and its L2
- * entry panel.
+ * V4-1 TASK-506 / ADR-V4-018 / ADR-V4-022 — the **L2 entry writer** (relocated).
  *
- *   - `#l0-statusbar` is a **single line** whose text carries the L2 counts
- *     (tree / commands / audit) — a summary, not the views themselves.
- *   - Expanding it reveals `#l2-entries`: **≤4 entries, each with a count**.
- *     v3-1 ships the skeleton (labels + counts from the view model); v3-3 fills
- *     the four L2 views behind it. Nothing here hard-codes a count: the labels
- *     come straight from `l0ViewModel()`, so changing a real value changes the
- *     label (FR-V3-046's mechanism, proven here for the skeleton).
+ * v3 called this the「一行状态栏 + 入口面板」writer. v4 moves both halves:
+ *
+ *   · the one-line status bar becomes the real **`#region-statusbar`** zone,
+ *     owned by `statusbar.ts` (TASK-505);
+ *   · the four `#l2-entry-*` entries move **up into the toolbar**
+ *     (`#region-toolbar`), owned by `toolbar.ts` (TASK-504).
+ *
+ * This module survives as the *name-stable* seam the v3 gates and the leaf's
+ * D-005 ledger keyed on: `L2_ENTRY_FIELDS` and `syncTriggerAria()` keep their
+ * meaning, and `mountStatusBar()` now returns the toolbar handle so no caller
+ * needs to know about the relocation. `l2/counts.ts` (the ONE count source) is
+ * untouched — the entries' badge values still come from `deriveCounts()` via
+ * `L0View.statusbar.entries`.
  *
  * @module l0/status-bar
  */
-import type { L0View } from '../view-model.js';
+import { TOOLBAR_ENTRY_KEYS, mountToolbar, type ToolbarHandle } from '../toolbar.js';
 
-export interface StatusBarHandle {
-  render(view: L0View): void;
-  /**
-   * Re-sync the four L2 entries' `aria-expanded` with **their own** target state.
-   * AC-V3-010 applies to **every** `[aria-controls]` element, not just the four
-   * L0 triggers — the L2 entries were missing the paired `aria-expanded`
-   * (v3-1 review I5). V3-3: the three `#view-host`-bound entries track the view
-   * host, while `#l2-entry-settings` tracks `#settings-view` (its real target) —
-   * one shared value for four different targets would be a false pair.
-   */
-  syncTriggerAria(): void;
-}
+/** L2 entries are capped at four (FR-CHAT-015). Same value, new home. */
+export const L2_ENTRY_FIELDS = TOOLBAR_ENTRY_KEYS;
 
-/** L2 entries are capped at four (FR-V3-015). */
-export const L2_ENTRY_FIELDS = ['tree', 'commands', 'audit', 'settings'] as const;
+export type StatusBarHandle = ToolbarHandle;
 
-export function mountStatusBar(doc: Document): StatusBarHandle {
-  const bar = doc.getElementById('l0-statusbar');
-  const text = doc.getElementById('l0-statusbar-text');
-  const entriesHost = doc.getElementById('l2-entries');
-  const summary = doc.getElementById('l2-entry-summary');
-  if (!bar || !text || !entriesHost || !summary) {
-    throw new Error('status-bar: 缺少 DOM 契约（#l0-statusbar / #l2-entries / #l2-entry-summary）');
-  }
-
-  const buttonFor = (key: string): HTMLButtonElement | null => {
-    const id = `l2-entry-${key}`;
-    const existing = doc.getElementById(id);
-    return existing instanceof HTMLButtonElement ? existing : null;
-  };
-
-  const syncTriggerAria = (): void => {
-    const hostOpen = doc.getElementById('view-host')?.hidden === false;
-    const settingsOpen = doc.getElementById('settings-view')?.hidden === false;
-    for (const key of L2_ENTRY_FIELDS) {
-      const btn = buttonFor(key);
-      if (!btn) continue;
-      btn.setAttribute('aria-expanded', String(key === 'settings' ? settingsOpen : hostOpen));
-    }
-  };
-
-  return {
-    syncTriggerAria,
-    render(view: L0View): void {
-      // V3-3: the bar stays count-free (stable measured footprint); the counted
-      // summary lives inside the entry panel, next to the entries it summarises.
-      text.textContent = view.statusbar.text;
-      summary.textContent = view.statusbar.summary;
-      for (const entry of view.statusbar.entries) {
-        const btn = buttonFor(entry.key);
-        if (!btn) continue;
-        // label carries the count, so the entry is discoverable *before* opening
-        // (D6: every disclosure has a summary + an explicit entry point).
-        btn.textContent = entry.label;
-        btn.setAttribute('data-count', entry.count < 0 ? 'n/a' : String(entry.count));
-        // I-01 (v3-3 fix round): `aria-controls` must point at the entry's **own**
-        // target — `#l2-entry-settings` controls `#settings-view` (the v1 in-panel
-        // settings view), the other three control `#view-host`. One shared value for
-        // four different targets was a **false pair** (the settings entry pointed at a
-        // hidden element while its view was open); this now agrees with the value
-        // declared in `index.html` and with `syncTriggerAria()`'s per-target
-        // `aria-expanded`.
-        btn.setAttribute('aria-controls', entry.key === 'settings' ? 'settings-view' : 'view-host');
-      }
-      syncTriggerAria();
-    },
-  };
+/** Mount the (relocated) four-entry writer. */
+export function mountStatusBar(doc: Document): ToolbarHandle {
+  return mountToolbar(doc);
 }

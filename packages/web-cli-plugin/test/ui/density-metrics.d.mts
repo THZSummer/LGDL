@@ -75,6 +75,8 @@ export interface DensityMeasurement {
   lines: number;
   blocks: number;
   regions: number;
+  excludedElements?: number;
+  excludedSelectors?: readonly string[];
   elementsWithKeys?: DensityElementSample[];
 }
 
@@ -102,8 +104,62 @@ export declare function evaluateDelta(
 export declare const BANNED_MEASURE_APIS: readonly string[];
 export declare function bannedApisInMeasureSource(): string[];
 
+/* ── V4-1 (TASK-502 / ADR-V4-020): exemption scope + anti-abuse budgets ────── */
+
+/** The scope module's own path / source (single declaration point). */
+export declare const PACKAGE_ROOT_DIR: string;
+export declare const DENSITY_SCOPE_TS: string;
+export declare function readDensityScopeSource(): string;
+export declare function extractFrozenStringArray(source: string, name: string): string[];
+export declare function extractNumberConstant(source: string, name: string): number;
+
+/** Exempt subtrees, read from `src/ui/sidepanel/density-scope.ts` (never copied). */
+export declare const DENSITY_EXCLUDED_SUBTREES: readonly string[];
+/** The three zone shells (C4 / attribution only). */
+export declare const DENSITY_SHELL_ROOTS: readonly string[];
+/** The canonical values the gates re-assert against the extracted ones. */
+export declare const CANONICAL_EXCLUDED_SUBTREES: readonly string[];
+export declare const CANONICAL_SHELL_ROOTS: readonly string[];
+
+export declare const MAX_CLICKABLES_PER_CARD: number;
+export declare const MAX_FIRST_SCREEN_CARDS: number;
+export declare const MAX_WELCOME_CARDS: number;
+export declare const MAX_WELCOME_LINES: number;
+
+export interface StreamCardSample {
+  key?: string | null;
+  clickables?: number;
+  lines?: number;
+  welcome?: boolean;
+}
+
+export declare function evaluateCardBudget(
+  cards: readonly StreamCardSample[] | undefined,
+  limitOverride?: number,
+): { ok: boolean; limit: number; count: number; violations: string[] };
+
+export declare function evaluateFirstScreen(
+  cards: readonly StreamCardSample[] | undefined,
+  tier?: string,
+): {
+  ok: boolean;
+  skipped: boolean;
+  tier: string;
+  reason?: string;
+  count?: number;
+  welcomeCards?: number;
+  limits?: { maxFirstScreenCards: number; maxWelcomeCards: number; maxWelcomeLines: number };
+  violations: string[];
+};
+
 /** First-round measured floor for `#log`'s client height (review I7 source). */
 export declare const LOG_CLIENT_HEIGHT_FLOOR: 488;
+
+/**
+ * V4-1 spike-derived lower bound (tighten-only): the stream zone must keep
+ * ≥65.0% of the viewport height. Spike: 12/12 PASS, worst 0.7273.
+ */
+export declare const STREAM_HEIGHT_RATIO_MIN: number;
 
 /** Registry-comparison keys (ADR-V3-018 decision 2 / review I8). */
 export declare const BASELINE_COMPARE_KEYS: readonly string[];

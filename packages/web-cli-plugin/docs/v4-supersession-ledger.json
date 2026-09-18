@@ -1,0 +1,618 @@
+{
+  "version": "v4",
+  "feature": "specs-tree-web-cli-plugin-v4-chat / specs-tree-v4-1-zone-shell-density",
+  "base": "187c205",
+  "metric": "runtime-check-calls",
+  "countMethod": "runtime-check-calls",
+  "takesOverFrom": {
+    "file": "packages/web-cli-plugin/docs/v3-supersession-ledger.json",
+    "relation": "append-only-segment",
+    "why": "v3 台账（base c2c0e0d → v3 head）逐字冻结为历史，本文件登记 v4 段（base 187c205 → worktree）。双台账判定：v3 段（冻结）按行 + v4 段按行，两者取并集才是合法登记集合（ADR-V4-009 / ADR-V4-011 第 1 条）。",
+    "v3FileSha256": "b0219ea71d74f9f17bf698b1d8af48df76a3c6d07832bd16ed1602e6f357df30"
+  },
+  "leafBases": [
+    {
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "leafBase": "187c205",
+      "why": "v4-1 是本 Feature 的首个开工叶；其 leafBase = v4 build 起点的分支 HEAD（187c205）。本叶段判据覆盖「v4-1 相对 187c205 的 test/** 删除行」，与 v3 台账的 base 判据互补（N-09 盲区的 v4 段承接）。",
+      "scope": {
+        "files": [
+          "packages/web-cli-plugin/test/density-thresholds.test.ts",
+          "packages/web-cli-plugin/test/l0-disclosure.test.ts",
+          "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+          "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+          "packages/web-cli-plugin/test/ui/density-metrics.mjs"
+        ],
+        "why": "与 v3 同一规则：`packages/web-cli-plugin/test/**` 且后缀为 .mjs/.ts，逐个从 git diff 复算（不手工放宽、不手工收窄）。"
+      },
+      "summary": {
+        "unregisteredLeafDeletionLines": 0,
+        "registeredLines": 90
+      },
+      "registeredUncoveredLines": [
+        {
+          "file": "packages/web-cli-plugin/test/density-thresholds.test.ts",
+          "count": 38,
+          "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
+          "registeredUncoveredLines": [
+            "const L0_CONTAINERS = ['risk-rail', 'l0-decision', 'l0-statusbar', 'view-host', 'l0-status-band', 'l1-more', 'l1-ref', 'l2-entries'];",
+            "test('index.html: 54 个 v1 id 全部保留（零重命名）且新增容器齐备', () => {",
+            "  const missing = V1_ID_BASELINE.filter((id) => !ids.includes(id));",
+            "  assert.deepEqual(missing, [], `v1 的 54 个 id 必须全部保留：缺失 ${missing.join(', ')}`);",
+            "  for (const id of L0_CONTAINERS) assert.ok(ids.includes(id), `缺少 v3 容器 #${id}`);",
+            "test('index.html: 风险位祖先闭包无 hidden / 无折叠触发器，且是 body 直接子元素', () => {",
+            "  assert.notEqual(railIndex, undefined, '#risk-rail 必须存在');",
+            "  const chain = [railIndex!, ...ancestors(railIndex!)];",
+            "  for (const index of chain) {",
+            "    const info = parsed.tags[index];",
+            "    assert.equal('hidden' in info.attrs, false, `#risk-rail 祖先 <${info.tag}> 不得带 hidden`);",
+            "    assert.equal('aria-expanded' in info.attrs, false, `#risk-rail 祖先 <${info.tag}> 不得带 aria-expanded`);",
+            "  assert.equal(parsed.tags[railIndex!].parent, parsed.bodyIndex, '#risk-rail 必须是 body 直接子元素');",
+            "  // L0 ↔ L1/L2 must not interleave",
+            "  for (const index of descendants(railIndex!)) {",
+            "    const info = parsed.tags[index];",
+            "    assert.equal('data-l1-panel' in info.attrs, false, '风险位内不得出现 L1 面板');",
+            "    assert.equal('data-l2-view' in info.attrs, false, '风险位内不得出现 L2 视图');",
+            "  for (const id of ['l0-decision', 'l0-statusbar', 'l0-status-band']) {",
+            "    for (const index of ancestors(parsed.idsIndex.get(id)!)) {",
+            "      const info = parsed.tags[index];",
+            "      assert.equal('data-l1-panel' in info.attrs, false, `#${id} 不得位于 L1 面板内`);",
+            "      assert.equal('data-l2-view' in info.attrs, false, `#${id} 不得位于 L2 视图内`);",
+            "test('index.html: 收起一律 hidden 属性；composer 默认 hidden 且仍是底区末元素；三区文档序不变', () => {",
+            "  for (const id of ['topbar', 'l1-more', 'l1-ref', 'l2-entries', 'view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'ask', 'confirm', 'scroll-bottom']) {",
+            "  const bottom = parsed.idsIndex.get('panel-bottom')!;",
+            "  const bottomChildren = parsed.tags[bottom].children;",
+            "  const lastChild = parsed.tags[bottomChildren[bottomChildren.length - 1]].attrs.id;",
+            "  assert.equal(lastChild, 'composer', '#composer 必须仍是 #panel-bottom 的末元素');",
+            "  const body = parsed.tags[parsed.bodyIndex];",
+            "  const zoneOrder = body.children",
+            "    .map((c) => parsed.tags[c].attrs.id)",
+            "    .filter((id): id is string => typeof id === 'string');",
+            "  assert.deepEqual(",
+            "    zoneOrder.filter((id) => ['panel-top', 'panel-main', 'panel-bottom', 'risk-rail', 'l0-statusbar'].includes(id)),",
+            "    ['risk-rail', 'panel-top', 'panel-main', 'l0-statusbar', 'panel-bottom'],",
+            "    'body 文档序：风险位最上层 → 三区 → 状态栏（composer 贴底契约不变）',",
+            "  );"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/l0-disclosure.test.ts",
+          "count": 22,
+          "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
+          "registeredUncoveredLines": [
+            "test('disclosure: 白名单外目标（含 #risk-rail）一律抛错', () => {",
+            "  assert.ok(COLLAPSIBLE_TARGETS.includes('topbar'));",
+            "  assert.equal(assertFoldable('topbar'), 'topbar');",
+            "  controller.open('topbar');",
+            "  controller.open('l2-entries');",
+            "  controller.open('topbar');",
+            "  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-expanded'), 'true');",
+            "  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-controls'), 'topbar');",
+            "  controller.close('topbar');",
+            "  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-expanded'), 'false');",
+            "  controller.open('topbar');",
+            "  controller.open('l2-entries');",
+            "    topbar: true,",
+            "    'l2-entries': true,",
+            "    'l1-local-tree': false,",
+            "    'l1-receipt': false,",
+            "  assert.equal(controller.isOpen('topbar'), false);",
+            "  assert.equal(controller.expandMemory.get('topbar'), true);",
+            "test('risk-rail: 五类风险渲染到 #risk-rail，无风险时给出平静摘要', () => {",
+            "  assert.equal(renderRiskRail(doc as never, []), 1);",
+            "  assert.equal(rail.children.length, 1);",
+            "  assert.equal(rail.children[0].getAttribute('data-risk-severity'), 'calm');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+          "count": 18,
+          "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
+          "registeredUncoveredLines": [
+            "  assert.match(html, /#log\\.empty:not\\(:has\\(> \\*\\)\\)/);",
+            "  assert.match(html, /#panel-main \\{ position: relative; flex: 1 1 auto; min-height: 0;/);",
+            "  assert.match(html, /#log \\{[\\s\\S]*?flex: 1 1 auto;[\\s\\S]*?min-height: 0;[\\s\\S]*?overflow-y: auto;/);",
+            "test('TASK-023 layout: three zones (top / scrolling messages / fixed bottom)', () => {",
+            "  // zone order in the document",
+            "  const top = html.indexOf('id=\"panel-top\"');",
+            "  const main = html.indexOf('id=\"panel-main\"');",
+            "  const bottom = html.indexOf('id=\"panel-bottom\"');",
+            "  assert.ok(top > 0 && main > top && bottom > main, 'top → main → bottom zone order');",
+            "  // no zone may scroll the whole document; only #log scrolls",
+            "  // composer is the last child of the bottom zone (nothing wedges below it)",
+            "  const bottomChunk = html.slice(bottom, html.indexOf('<script'));",
+            "  assert.ok(",
+            "    bottomChunk.lastIndexOf('id=\"composer\"') > bottomChunk.lastIndexOf('id=\"consent-slot\"'),",
+            "    'consent sits above the composer; the composer is last',",
+            "  );",
+            "  // the composer itself is flex-shrink:0 (bottom zone is not scrolled)",
+            "  assert.match(html, /#panel-bottom \\{[\\s\\S]*?flex: 0 0 auto;/);"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+          "count": 9,
+          "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
+          "registeredUncoveredLines": [
+            "    if (actual !== reading.count) {",
+            "      mismatches.push(`${key} (/${reading.regex}/gm): 实测 ${actual} ≠ 登记 ${reading.count}`);",
+            "    const ranges = ledger.modifiedRanges.filter((r) => r.file === file);",
+            "    const titles = ledger.entries.filter((e) => e.file === file).map((e) => e.oldTitle);",
+            "  assert.deepEqual(dirty, [], `以下文件本轮不得改动：\\n${dirty.join('\\n')}`);",
+            "test('ledger: entries[].newTitle 必须能在目标文件定位（防橡皮图章）', () => {",
+            "    if (!text.includes(entry.newTitle)) missing.push(`${entry.id}: 在 ${entry.file} 中找不到 newTitle`);",
+            "      const registered = (leaf.registeredUncoveredLines ?? []).filter((r) => r.file === file).flatMap((r) => r.registeredUncoveredLines);",
+            "      const phantom = registered.filter((t) => !actual.includes(t));"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+          "count": 3,
+          "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
+          "registeredUncoveredLines": [
+            " * (parent ADR-V3-001 — the panel has no `#panel` wrapper).",
+            "export const DENSITY_MEASURE_SOURCE = DENSITY_MEASURE_TEMPLATE.replace('__V3_ROOT__', 'document.body');",
+            "  return DENSITY_MEASURE_TEMPLATE.replace('__V3_ROOT__', rootExpression);"
+          ]
+        }
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "V41-E-01",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/index.html",
+      "gate": "dom",
+      "oldId": "panel-top",
+      "oldTitle": "<header id=\"panel-top\">",
+      "newId": "region-toolbar",
+      "newTitle": "<header id=\"region-toolbar\" data-region=\"toolbar\"",
+      "replacementExists": true,
+      "modificationType": "dom-relocation",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 / ADR-V4-017 第 3 条：`#panel-top` 的 header 元素**复用于**三区工具栏。四个退役容器（panel-top / panel-main / panel-bottom / log→stream）是父 ADR-V4-005 迁移总表登记的唯一取代面；其余 50 个 v1 id 零重命名。"
+    },
+    {
+      "id": "V41-E-02",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/index.html",
+      "gate": "dom",
+      "oldId": "log",
+      "oldTitle": "<div id=\"log\" aria-label=\"会话记录\"></div>",
+      "newId": "stream",
+      "newTitle": "<ol id=\"stream\" role=\"log\"",
+      "replacementExists": true,
+      "modificationType": "rename",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "本叶**唯一** id 重命名：`#log`(div) → `ol#stream[role=log]`（父 ADR-V4-005 第 2 条）。134 处引用同编号重锚，语义不变；`.empty` 空态语义迁到 `#stream`。"
+    },
+    {
+      "id": "V41-E-03",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts",
+      "gate": "node",
+      "oldId": "topbar",
+      "oldTitle": "  'topbar',",
+      "newId": "l1-more",
+      "newTitle": "  'l1-more',",
+      "replacementExists": true,
+      "modificationType": "whitelist-shrink",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 / ADR-V4-018 第 8 条（法则六）：管理工具栏迁入 `#settings-view`「站点与授权」分区后**不再是可折叠面板**；`l2-entries` 同因退役（四个入口改为常驻工具栏按钮）。白名单从 9 缩到 7，`assertFoldable` 的抛错语义不变。"
+    },
+    {
+      "id": "V41-E-04",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts",
+      "gate": "node",
+      "oldId": "l0-status-band",
+      "oldTitle": "  Object.freeze({ triggerId: 'l0-status-band', targetId: 'topbar', summary: '状态与连接详情' }),",
+      "newId": "l0-more",
+      "newTitle": "  Object.freeze({ triggerId: 'l0-more', targetId: 'l1-more', summary: '其余选项' }),",
+      "replacementExists": true,
+      "modificationType": "wiring-removal",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "两对退役触发器（`#l0-status-band → #topbar`、`#l0-statusbar → #l2-entries`）随目标一并移除：触发器元素本身已退役，保留幽灵 wiring 会让 `createDisclosure()` 在启动时抛错。"
+    },
+    {
+      "id": "V41-E-05",
+      "file": "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+      "gate": "density",
+      "oldId": "DENSITY_MEASURE_SOURCE",
+      "oldTitle": "export const DENSITY_MEASURE_SOURCE = DENSITY_MEASURE_TEMPLATE.replace('__V3_ROOT__', 'document.body');",
+      "newId": "DENSITY_MEASURE_SOURCE",
+      "newTitle": "export const DENSITY_MEASURE_SOURCE = withExemptions(DENSITY_MEASURE_TEMPLATE.replace('__V3_ROOT__', 'document.body'));",
+      "replacementExists": true,
+      "modificationType": "caliber-extension",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 / ADR-V4-020 第 1 条：测量根仍是 `document.body`，新增「豁免子树」一步（`#stream` 子树整体跳过）。豁免值从 `src/ui/sidepanel/density-scope.ts` 的**字面量**读取（单一声明点），门禁内不复制。"
+    },
+    {
+      "id": "V41-E-06",
+      "file": "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+      "gate": "density",
+      "oldId": "measureSourceForRoot",
+      "oldTitle": "  return DENSITY_MEASURE_TEMPLATE.replace('__V3_ROOT__', rootExpression);",
+      "newId": "measureSourceForRoot",
+      "newTitle": "  return withExemptions(DENSITY_MEASURE_TEMPLATE.replace('__V3_ROOT__', rootExpression));",
+      "replacementExists": true,
+      "modificationType": "caliber-extension",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "设计稿对账（阶段 A）与真实产物必须用**同一条**口径字符串（含同一豁免集合），否则「同源可交叉复算」不成立（NFR-CHAT-010）。"
+    },
+    {
+      "id": "V41-E-07",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/l0/risk-rail.ts",
+      "gate": "node",
+      "oldId": "renderRiskRow",
+      "oldTitle": "  const row = doc.createElement('div');",
+      "newId": "renderRiskRow",
+      "newTitle": "  const row = doc.createElement(calm ? 'div' : 'button');",
+      "replacementExists": true,
+      "modificationType": "template-change",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 / ADR-V4-019 第 4 条：风险行 → 风险 **chip**（可点）。类名仍是 `risk-row`、三通道（.risk-text/.risk-badge/.risk-icon）与 `data-risk-class` 全保留 ⇒ `riskVisibilityProbeSource` / `isRiskClassSource` **零逻辑改动**。"
+    },
+    {
+      "id": "V41-E-08",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/l2/view-host.ts",
+      "gate": "node",
+      "oldId": "log",
+      "oldTitle": "  const log = forced<HTMLElement>(doc, '#log', '会话记录区（被替换的主区）');",
+      "newId": "stream",
+      "newTitle": "  const stream = forced<HTMLElement>(doc, '#stream', '聊天流（被替换的主区）');",
+      "replacementExists": true,
+      "modificationType": "selector-reanchor",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 / ADR-V4-022 第 1 条：`view-host` 同构替换 —— 只改绑定（`#log`→`#stream`）与返回回焦（退役的 `#l0-statusbar` → `#l2-entry-tree`）。`open()` 的语义（隐藏流 / 恰一个视图可见 / 计数同源 / 焦点入标题）逐条不变。"
+    },
+    {
+      "id": "V41-E-09",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/l0/shell.ts",
+      "gate": "node",
+      "oldId": "l0-status-band",
+      "oldTitle": "  const band = get('l0-status-band');",
+      "newId": "site-summary",
+      "newTitle": "  const summary = doc.querySelector('.site-summary');",
+      "replacementExists": true,
+      "modificationType": "dom-relocation",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 / ADR-V4-018 第 7 条：`#l0-status-band` 一整条可点带退役，①②（我在哪/谁在管我）改由**只读** `.site-summary[role=status]` 承载（不计入可点预算，shim F5）；`#status`/`#llm-status`/`#session-label` id 零重命名。"
+    },
+    {
+      "id": "V41-E-10",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts",
+      "gate": "node",
+      "oldId": "log",
+      "oldTitle": "    syncScrollAnchor(document.getElementById('log'));",
+      "newId": "stream",
+      "newTitle": "    syncScrollAnchor(document.getElementById('stream'));",
+      "replacementExists": true,
+      "modificationType": "selector-reanchor",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 TASK-507：`#log` → `#stream` 的**全部**选择器迁移（本文件 8 处），逐处同编号重锚、语义不变；`#stream` 仍是唯一滚动容器。"
+    },
+    {
+      "id": "V41-E-11",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts",
+      "gate": "node",
+      "oldId": "risks",
+      "oldTitle": null,
+      "newId": "riskChips",
+      "newTitle": "  riskChips: {",
+      "replacementExists": true,
+      "modificationType": "pure-addition",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 TASK-507：**纯新增** `riskChips` 纯投影（状态栏渲染输入），无任何既有行被取代。纯新增条目 oldTitle 必须为 null（ADR-V3-019 第 6 条：不得伪造“被取代的文本”）。"
+    },
+    {
+      "id": "V41-E-12",
+      "file": "packages/web-cli-plugin/test/l0-disclosure.test.ts",
+      "gate": "node",
+      "oldId": "COLLAPSIBLE_TARGETS",
+      "oldTitle": "test('disclosure: 白名单外目标（含 #risk-rail）一律抛错', () => {",
+      "newId": "COLLAPSIBLE_TARGETS",
+      "newTitle": "test('disclosure: 白名单外目标（含 #risk-rail / #region-statusbar）一律抛错', () => {",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 TASK-506：白名单移除 topbar / l2-entries，NEVER_FOLDABLE 扩展三区骨架。本文件是 disclosure 契约的唯一 Node 判据，必须同叶等价改写（断言只增：新增 region-statusbar / risk-chips / stream 三条负向断言）。"
+    },
+    {
+      "id": "V41-E-13",
+      "file": "packages/web-cli-plugin/test/l0-disclosure.test.ts",
+      "gate": "node",
+      "oldId": "risk-rail-calm",
+      "oldTitle": "test('risk-rail: 五类风险渲染到 #risk-rail，无风险时给出平静摘要', () => {",
+      "newId": "risk-rail-chip",
+      "newTitle": "test('risk-rail: 五类风险渲染为 chip 到 #risk-rail，无风险时收缩为 0 可点 chip', () => {",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 / ADR-V4-019 第 4 条：风险行 → chip（可点 button + 三通道 + aria-controls=risk-detail）；零风险不再渲染平静行，而是收缩 chips 容器（0 可点 chip，shim F3 逐字要求）。断言只增（新增 aria-controls / 三通道 / 容器 hidden 三条）。"
+    },
+    {
+      "id": "V41-E-14",
+      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "gate": "node",
+      "oldId": "TASK-023 layout",
+      "oldTitle": "test('TASK-023 layout: three zones (top / scrolling messages / fixed bottom)', () => {",
+      "newId": "V4-1 layout",
+      "newTitle": "test('V4-1 layout: three zones (toolbar / scrolling stream / resident statusbar)', () => {",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "V4-1 TASK-510：三区文档序从 panel-top/main/bottom 重锚到 region-toolbar/region-stream/region-statusbar；`#panel-bottom{flex:0 0 auto}` 重锚到工具栏与状态栏；`#log.empty` 空态判据重锚到 `#stream.empty:not(:has(.entry))`（流内恒有占位宿主）。契约强度不降（新增状态栏三容器齐备 + composer 默认 hidden 两条）。"
+    },
+    {
+      "id": "V41-E-15",
+      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "gate": "node",
+      "oldId": "empty-log centering",
+      "oldTitle": "assert.match(html, /#log\\.empty:not",
+      "newId": "empty-stream centering",
+      "newTitle": "test('empty-log centering is gated on #log having no entry elements (D-043 / TASK-023)', () => {",
+      "replacementExists": true,
+      "modificationType": "selector-reanchor",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同一条测试内的选择器重锚（#log → #stream / #panel-main → #region-stream）；测试名保留以便台账与人眼双向定位（newTitle 取该保留名本身）。"
+    }
+  ],
+  "modifiedRanges": [
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/index.html",
+      "range": "1133..1424",
+      "reason": "三区骨架落地：工具栏（只读摘要 + 4 入口 + 主题）/ ol#stream 流本体与占位宿主 / 状态栏（连接行 + #risk-chips > #risk-rail + #risk-detail）；管理操作迁入 #settings-view。id 改动面 = 3 退役 + 1 重命名（见 entries V41-E-01/02）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts",
+      "range": "COLLAPSIBLE_TARGETS / DISCLOSURE_WIRING / NEVER_FOLDABLE",
+      "reason": "白名单移除退役目标（topbar / l2-entries），NEVER_FOLDABLE 扩展为三区骨架（region-statusbar / risk-chips / risk-detail / stream / view-host / settings-view）；`assertFoldable` 抛错语义不变。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/l0/risk-rail.ts",
+      "range": "renderRiskRow / renderRiskRail",
+      "reason": "行模板 → chip 模板（button + data-chrome-control + aria-controls=risk-detail）；零风险时 chips 容器收缩（0 可点 chip，J2/F3）。写入目标仍是 #risk-rail（选择器入口零改动）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+      "range": "DENSITY_MEASURE_TEMPLATE + 新增判定函数",
+      "reason": "换口径：豁免子树（单源读取）+ evaluateCardBudget / evaluateFirstScreen + STREAM_HEIGHT_RATIO_MIN（spike 派生下界），阈值 7/15·9/20·17/35 逐字不变。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "oldRange": [
+        131,
+        135
+      ],
+      "newRange": [
+        127,
+        131
+      ],
+      "deletedLines": 3,
+      "oldId": "TASK-023 log zone",
+      "reason": "V4-1 TASK-510 ①④：`#log.empty:not(:has(> *))` → `#stream.empty:not(:has(.entry))`、`#panel-main` → `#region-stream`、`#log` → `#stream`（选择器重锚，语义不变）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "oldRange": [
+        601,
+        618
+      ],
+      "newRange": [
+        597,
+        614
+      ],
+      "deletedLines": 15,
+      "oldId": "TASK-023 three zones",
+      "reason": "V4-1 TASK-510 ①③：三区文档序与 `#panel-bottom{flex:0 0 auto}` 判据重锚到 `#region-toolbar` / `#region-stream` / `#region-statusbar`；composer 贴底判据取代为法四「存在但默认 hidden」。"
+    }
+  ],
+  "protectedSupersession": {
+    "old": {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "startByte": 42766,
+      "endByte": 54004,
+      "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+      "lineCount": 185
+    },
+    "decision": "supersede-pending",
+    "eightSteps": [
+      "① 记录 old（file / 42766..54004 / sha 6b45c3fa… / 185 行 / startAnchor / endAnchor）→ 本节 protectedSupersession.old（v3 台账不动）",
+      "② 逐段决策：journey `supersede` / binding `keep`",
+      "③ `#15a~#15q` 同编号等价改写（`#15b` ≥65.0% 语义保留且门槛 45 → 65；`#15c` 法四显式取代；`#15f~#15q` 选择器重锚）",
+      "④ 登记 modifiedRanges[]",
+      "⑤ 计算并写入新 pin（status:\"active\" + supersededFrom）",
+      "⑥ 计数守恒 ≥167",
+      "⑦ redlineRemap[] 三条（≥65% / ≥589px / composer 贴底）",
+      "⑧ RP-V4-08 反证（删 1 条断言 ⇒ 台账门禁 FAIL）"
+    ],
+    "status": "step-1-2-done-steps-3-8-pending",
+    "knownGap": "TASK-513（journey 保护段八步）在本轮 build 内**未完成**：`#15a~#15q` 的同编号改写、新 pin 计算、redlineRemap 实跑与 RP-V4-08 反证均未落。已登记为未完成项，不得视为已取代。"
+  },
+  "protectedRanges": [
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "startAnchor": "    const layout = await evaluate(sp, `(() => {",
+      "endAnchor": "#15q",
+      "startByte": 42766,
+      "endByte": 54004,
+      "sha256": "6bff93138ca9e088be52bc142973e5241a5825edbba0cb2b499ece788b190987",
+      "status": "active",
+      "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+      "note": "本叶**尚未**改写 journey.mjs，故新 pin 当前等于原文 sha；TASK-513 完成后必须重算（本 pin 的 status 届时才代表「等价改写后的保护段」）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "startAnchor": "    // ── #22a~#22j V2-3 R2 command-level override chain",
+      "endAnchor": "#22l",
+      "startByte": 107780,
+      "endByte": 115930,
+      "sha256": "be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936",
+      "status": "active",
+      "supersededFrom": null,
+      "note": "decision = keep（v4-1 不改 #22a~#22l 的任何字节）。"
+    }
+  ],
+  "redlineRemap": [
+    {
+      "redline": "流区高度占比 ≥45%（v3 #15b）",
+      "from": "45%",
+      "to": "≥65.0%",
+      "status": "declared-pending-journey-reshape",
+      "reason": "FR-CHAT-082 / AC-CHAT-017：TASK-501 spike 12/12 PASS（最差格 0.7273），门槛由 45% 收紧到 65%；落点 = journey `#15b`（未完成）。"
+    },
+    {
+      "redline": "`#log` 客户端高度 ≥589px（v2 继承）",
+      "from": "589px",
+      "to": "STREAM_HEIGHT_RATIO_MIN=0.65（比例下界取代像素下界）",
+      "status": "declared",
+      "reason": "像素下界在宽度可变的三区布局下不可移植；改用与视口高度的**比例**下界，且只允许上调（density-metrics.mjs#STREAM_HEIGHT_RATIO_MIN）。"
+    },
+    {
+      "redline": "composer 贴底（v3 #15c）",
+      "from": "composer 常驻贴底 + `#log` 底端",
+      "to": "法四：默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 `hidden`",
+      "status": "declared-pending-journey-reshape",
+      "reason": "FR-CHAT-014 / ADR-V4-008：`#composer` 常驻语义退役，等价改写为法四断言（强度提高：从「贴底」变为「默认不可见」）。"
+    }
+  ],
+  "zeroDiffFiles": [
+    "packages/web-cli-plugin/docs/v3-density-baseline.json",
+    "packages/web-cli-plugin/docs/v3-supersession-ledger.json",
+    "packages/web-cli-plugin/manifest.json",
+    "packages/web-cli-plugin/src/content/**",
+    "packages/web-cli-plugin/src/security/policy.ts",
+    "packages/web-cli-plugin/src/security/auto-authorize.ts",
+    "packages/web-cli-plugin/src/background/messaging.ts",
+    "packages/web-cli-plugin/test/ui/hardening.mjs",
+    "packages/web-cli-plugin/test/ui/zero-injection.mjs"
+  ],
+  "pureAdditionFiles": [
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/density-scope.ts",
+      "reason": "豁免子树与四条防滥用常量的**唯一声明点**（新文件，零删除行）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/toolbar.ts",
+      "reason": "工具栏准入 ≤5 的渲染与机器断言入口。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/statusbar.ts",
+      "reason": "状态栏常驻 + J1/J2 容器不变量。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/theme.ts",
+      "reason": "主题三态控制器（已有 storage 权限，零新增权限）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/design-contract.test.ts",
+      "reason": "shim 60 断言门禁化（TASK-514，本轮未完成）。",
+      "status": "pending"
+    }
+  ],
+  "toolbarAdmissions": [
+    {
+      "slot": "view",
+      "ids": [
+        "l2-entry-tree",
+        "l2-entry-commands",
+        "l2-entry-audit",
+        "l2-entry-settings"
+      ],
+      "added": null,
+      "removed": null,
+      "reason": "四视图入口由底部 `#l0-statusbar` 上迁到工具栏（id 零重命名）；准入规则保持「与单次会话无关 ∧ 属于四视图/主题/站点摘要三类」。",
+      "date": "2026-09-18",
+      "leaf": "specs-tree-v4-1-zone-shell-density"
+    },
+    {
+      "slot": "theme",
+      "ids": [
+        "theme-toggle"
+      ],
+      "added": "theme-toggle",
+      "removed": null,
+      "reason": "主题三态是新增可点（FR-CHAT-011）；满额 5 = 4 入口 + 1 主题，故**未置换**、也未超出准入上限。",
+      "date": "2026-09-18",
+      "leaf": "specs-tree-v4-1-zone-shell-density"
+    }
+  ],
+  "counts": {
+    "l0": {
+      "currentRuntime": null,
+      "countMethod": "runtime-check-calls",
+      "note": "TASK-508 未完成（本轮未重写 l0.mjs）；不得填推测值。"
+    },
+    "l1": {
+      "currentRuntime": null,
+      "countMethod": "runtime-check-calls",
+      "note": "TASK-509 未完成。"
+    },
+    "l2": {
+      "currentRuntime": null,
+      "countMethod": "runtime-check-calls",
+      "note": "TASK-510 未完成。"
+    },
+    "density": {
+      "currentRuntime": null,
+      "countMethod": "runtime-check-calls",
+      "note": "TASK-511 未完成。"
+    },
+    "journey": {
+      "currentRuntime": null,
+      "countMethod": "runtime-check-calls",
+      "note": "TASK-513 未完成。"
+    },
+    "sidepanelView": {
+      "currentRuntime": null,
+      "countMethod": "runtime-node-tests",
+      "note": "TASK-510 未完成。"
+    },
+    "nodeTestRuntime": {
+      "currentRuntime": null,
+      "countMethod": "runtime-node-tests",
+      "note": "TASK-515 未完成；跨口径差（台账 832 vs 末轮 795）按实测重登的纪律保留，不填推测值。"
+    }
+  },
+  "v4GateFloors": {
+    "packages/web-cli-plugin/test/ui/l0.mjs": 164,
+    "packages/web-cli-plugin/test/ui/l1.mjs": 103,
+    "packages/web-cli-plugin/test/ui/l2.mjs": 71,
+    "packages/web-cli-plugin/test/ui/density.mjs": 127,
+    "packages/web-cli-plugin/test/ui/journey.mjs": 167,
+    "packages/web-cli-plugin/test/ui/insight.mjs": 116,
+    "packages/web-cli-plugin/test/ui/binding.mjs": 192,
+    "packages/web-cli-plugin/test/sidepanel-view.test.ts": 38
+  },
+  "knownGaps": [
+    "TASK-508 / 509 / 510：l0.mjs / l1.mjs / l2.mjs + sidepanel-view.test.ts 的重定标未完成。",
+    "TASK-511 / 512：density.mjs 换口径与 31 格、docs/v4-density-baseline.json/.md 未完成。",
+    "TASK-513：journey 保护段八步 + 新 pin + redlineRemap 实跑未完成。",
+    "TASK-514：design-contract.test.ts（shim 60 门禁化）未完成；本台账的 entries 可定位性/双台账判定已落地。",
+    "TASK-515：18 项串行门禁未跑（见 build.md 的门禁账）。",
+    "insight.mjs / binding.mjs 的选择器重锚（panel-main→region-stream、log→stream）未完成。"
+  ],
+  "unfrozenZeroDiffFiles": [
+    {
+      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "reason": "V4-1 TASK-510 明令改写该文件的 4 项布局契约（① 三区文档序 ② body{display:flex} 保留 ③ #panel-bottom/#composer → 法四 ④ #log.empty → #stream 空态）；父 ADR-V4-005 的取代面必然触及该文件，故显式解冻并登记（不是静默放开）。"
+    }
+  ],
+  "staticCalibers": {
+    "nodeTestStatic": {
+      "readings": {
+        "anyWordBoundary": {
+          "regex": "\\btest\\(",
+          "count": 990
+        },
+        "excludingDottedPrefix": {
+          "regex": "(?<![\\w.])test\\(",
+          "count": 852
+        },
+        "topLevelColumnZero": {
+          "regex": "^test\\(",
+          "count": 841
+        }
+      },
+      "note": "V4-1 段的下界（只增）：v3 的精确值降级为下界，v4 段登记自己的下界；实测 < 下界即 FAIL。"
+    }
+  }
+}

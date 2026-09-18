@@ -665,6 +665,16 @@ export interface L0View {
     entries: Array<{ key: string; label: string; count: number }>;
   };
   risks: L0RiskClass[];
+  /**
+   * V4-1 (TASK-507 / FR-CHAT-004): the pure projection the status bar renders —
+   * the active risk classes (already de-duplicated, priority-ordered) plus the two
+   * data-driven copy overrides. Pure: no DOM, no clock.
+   */
+  riskChips: {
+    classes: L0RiskClass[];
+    staleRef: { reason: string; refId: string } | null;
+    probeSteady: { text: string; badge: string; icon: string } | null;
+  };
 }
 
 /**
@@ -813,6 +823,16 @@ export function l0ViewModel(input: L0Input): L0View {
     probeSteady: input.probeSteady ?? null,
     statusbar,
     risks,
+    // V4-1: the status bar's chip projection (pure — carries the same values the
+    // rail has always used; the rail stays the only DOM writer).
+    riskChips: {
+      classes: risks,
+      staleRef:
+        input.refStale === true && input.staleRefReason
+          ? { reason: input.staleRefReason, refId: input.staleRefId ?? 'ref_?' }
+          : null,
+      probeSteady: input.probeSteady ?? null,
+    },
   };
 }
 

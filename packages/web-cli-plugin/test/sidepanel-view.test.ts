@@ -128,11 +128,13 @@ test('empty-log centering is gated on #log having no entry elements (D-043 / TAS
   const html = read('../../src/ui/sidepanel/index.html');
   // The empty-state flex centering must not leak onto real entries when the
   // `.empty` class is stale (e.g. audit scripts inject children directly).
-  assert.match(html, /#log\.empty:not\(:has\(> \*\)\)/);
+  // V4-1 (TASK-510 ①): `#log` → `#stream`; the gate is now keyed on「无 .entry」，
+  // 因为流内恒有 `li[data-transitional-host]` 占位宿主（它们不是消息条目）。
+  assert.match(html, /#stream\.empty:not\(:has\(\.entry\)\)/);
   // TASK-023: the fixed `45vh` height is replaced by a flex-fill message zone.
   assert.equal(/height: 45vh/.test(html), false, 'the 45vh hardcoded log height must be gone (TASK-023)');
-  assert.match(html, /#panel-main \{ position: relative; flex: 1 1 auto; min-height: 0;/);
-  assert.match(html, /#log \{[\s\S]*?flex: 1 1 auto;[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/);
+  assert.match(html, /#region-stream \{ position: relative; flex: 1 1 auto; min-height: 0;/);
+  assert.match(html, /#stream \{[\s\S]*?flex: 1 1 auto;[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/);
   // text wrapping / long-word safety is preserved
   assert.match(html, /white-space: pre-wrap;/);
   assert.match(html, /overflow-wrap: anywhere;/);
@@ -598,24 +600,25 @@ test('TASK-020 A / TASK-033: shared saved-key state marker + saved placeholder',
 
 // ── TASK-023: three-zone layout contract + trust projection ────────────────
 
-test('TASK-023 layout: three zones (top / scrolling messages / fixed bottom)', () => {
+test('V4-1 layout: three zones (toolbar / scrolling stream / resident statusbar)', () => {
   const html = read('../../src/ui/sidepanel/index.html');
-  // zone order in the document
-  const top = html.indexOf('id="panel-top"');
-  const main = html.indexOf('id="panel-main"');
-  const bottom = html.indexOf('id="panel-bottom"');
-  assert.ok(top > 0 && main > top && bottom > main, 'top → main → bottom zone order');
-  // no zone may scroll the whole document; only #log scrolls
+  // ① 三区文档序（V4-1 / ADR-V4-017）：工具栏 → 聊天流 → 状态栏。
+  const toolbar = html.indexOf('id="region-toolbar"');
+  const stream = html.indexOf('id="region-stream"');
+  const statusbar = html.indexOf('id="region-statusbar"');
+  assert.ok(toolbar > 0 && stream > toolbar && statusbar > stream, 'toolbar → stream → statusbar zone order');
+  // ② 只有 #stream 滚动（状态栏与工具栏都是 flex: 0 0 auto）。
   assert.match(html, /body \{[\s\S]*?display: flex;[\s\S]*?overflow: hidden;/);
-  // composer is the last child of the bottom zone (nothing wedges below it)
-  const bottomChunk = html.slice(bottom, html.indexOf('<script'));
-  assert.ok(
-    bottomChunk.lastIndexOf('id="composer"') > bottomChunk.lastIndexOf('id="consent-slot"'),
-    'consent sits above the composer; the composer is last',
-  );
+  assert.match(html, /#region-toolbar \{[\s\S]*?flex: 0 0 auto;/);
+  assert.match(html, /#region-statusbar \{[\s\S]*?flex: 0 0 auto;/);
+  // ③ 状态栏含连接状态一行 + chips 双层容器 + 详情（J1/J2 的载体齐备）。
+  const statusChunk = html.slice(statusbar, html.indexOf('id="settings-view"'));
+  assert.ok(statusChunk.includes('id="statusbar-text"'), '状态栏必须有一行连接状态');
+  assert.ok(statusChunk.includes('id="risk-chips"') && statusChunk.includes('id="risk-rail"'), '状态栏必须嵌套 #risk-chips > #risk-rail');
+  assert.ok(statusChunk.includes('id="risk-detail"'), '状态栏必须带 #risk-detail（默认 hidden）');
+  // ④ 法四（TASK-510 ③）：composer 存在但默认 hidden，且不再贴底常驻。
   assert.match(html, /id="scroll-bottom"/);
-  // the composer itself is flex-shrink:0 (bottom zone is not scrolled)
-  assert.match(html, /#panel-bottom \{[\s\S]*?flex: 0 0 auto;/);
+  assert.match(html, /<form id="composer" hidden>/);
 });
 
 test('TASK-023 messages: role bubbles + collapsible tool card styles exist', () => {

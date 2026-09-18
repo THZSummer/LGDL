@@ -76,6 +76,8 @@ import { mountPickInput, type PickInputHandle } from './pick-input.js';
 // tree drawer); no existing handler is rewritten.
 import { deriveCounts, type L2Counts, type L2ViewKey } from './l2/counts.js';
 import { mountViewHost, type ViewHostHandle } from './l2/view-host.js';
+import { mountTheme, type ThemeHandle } from './theme.js';
+import { assertChromeNotInStream } from './density-scope.js';
 import { buildCatalogView, renderCommandCatalog } from './l2/command-catalog.js';
 import { buildAuditRows, renderAudit } from './l2/audit.js';
 import { buildArchiveModel } from '../../insight/archive-catalog.js';
@@ -293,6 +295,8 @@ let settingsHandle: SettingsPanelHandle | null = null;
 
 /** V3-1: the L0 skeleton handle (mounted once in `wire()`, repainted by `render()`). */
 let l0: L0Handle | null = null;
+/** V4-1: the three-state theme controller (mounted once in ). */
+let themeToggle: ThemeHandle | null = null;
 
 /** V3-2: the L1 layer handle (mounted once in `wire()`, repainted by `render()`). */
 let l1: L1Handle | null = null;
@@ -465,6 +469,19 @@ function installV3TestHooks(): void {
   win.__v3 = {
     ...(win.__v3 ?? {}),
     testing: {
+      /**
+       * V4-1 (FR-CHAT-075 / RP-V4-06): the product's own S1 assertion. The density
+       * gate injects a violation and expects this to **throw**; a silent `false`
+       * would be exactly the failure mode the exemption rule exists to prevent.
+       */
+      assertChromeNotInStream(): true {
+        assertChromeNotInStream(document);
+        return true;
+      },
+      /** V4-1: the current theme state (diagnostics only — never a security input). */
+      themeState(): string {
+        return themeToggle?.state ?? 'auto';
+      },
       setRisk(cls: string, mode: 'force' | 'off' | 'natural' = 'force') {
         if (!['unauthorized', 'probing', 'hardline', 'confirm', 'staleRef'].includes(cls)) {
           throw new Error(`未知风险类：${cls}`);
@@ -527,12 +544,12 @@ function installV3TestHooks(): void {
        * how the ≤2-interaction reachability requirement is met.
        */
       openTreeView() {
-        installDisclosure().open('l2-entries');
+        
         openL2View('tree', { openTreeBody: false });
       },
       /** V3-3: enter any L2 view (the product path, incl. the tree body). */
       openL2View(key: string) {
-        installDisclosure().open('l2-entries');
+        
         openL2View(key as L2ViewKey);
       },
       /** V3-3: return to the transcript through the product's own back button. */
@@ -685,11 +702,11 @@ const settingsViewSwitch = createViewSwitch({
     if (view) view.hidden = true;
     // Re-measure the list after it becomes visible again and keep the anchor
     // honest, so the next appended message follows correctly.
-    syncScrollAnchor(document.getElementById('log'));
+    syncScrollAnchor(document.getElementById('stream'));
   },
-  getScrollTop: () => document.getElementById('log')?.scrollTop ?? 0,
+  getScrollTop: () => document.getElementById('stream')?.scrollTop ?? 0,
   setScrollTop: (value) => {
-    const log = document.getElementById('log');
+    const log = document.getElementById('stream');
     if (log) log.scrollTop = value;
   },
   getDraft: () => (document.getElementById('input') as HTMLInputElement | null)?.value ?? '',
@@ -757,7 +774,7 @@ function metricsOf(el: HTMLElement): ScrollMetrics {
 
 /** Re-read the message list and refresh the follow anchor from live layout. */
 function syncScrollAnchor(el?: HTMLElement | null): void {
-  const log = el ?? document.getElementById('log');
+  const log = el ?? document.getElementById('stream');
   if (log) scrollFollow.observe(metricsOf(log));
 }
 
@@ -768,7 +785,7 @@ function isAtBottom(el: HTMLElement): boolean {
 
 /** Show the "back to bottom" affordance only while scrolled away. */
 function updateScrollHint(): void {
-  const log = document.getElementById('log');
+  const log = document.getElementById('stream');
   const btn = document.getElementById('scroll-bottom');
   if (!log || !btn) return;
   const show = !isAtBottom(log);
@@ -807,7 +824,7 @@ function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
 }
 
 function render(): void {
-  const log = $('log');
+  const log = $('stream');
   // Regression fix: the follow decision comes from the live anchor maintained by
   // `scroll` events (post-layout), not from a `scrollTop`/`scrollHeight` read
   // taken before the append. The user's own send forces a follow one-shot.
@@ -1655,7 +1672,7 @@ function openL2View(which: L2ViewKey, opts: { openTreeBody?: boolean } = {}): vo
   // FR-V3-047 round-trip determinism: the entry menu is always FOLDED before the view
   // opens, so the expansion snapshot the view host takes on entry is "everything the
   // user had open, minus the menu itself" — restoring it cannot re-open the menu.
-  installDisclosure().close('l2-entries');
+  
   if (which === 'settings') {
     // One L2 view at a time (FR-V3-045/047): the settings view is a *replacement*
     // too, so the host view must be folded first — otherwise a previously opened
@@ -1680,6 +1697,11 @@ function wire(): void {
   // V3-1 (ADR-V3-016): one disclosure controller owns every collapse; the risk
   // rail is deliberately NOT in its whitelist.
   const disclosure = installDisclosure();
+  // V4-1 (TASK-504 / NFR-CHAT-008): the three-state theme controller. `load()` is
+  // fire-and-forget: a storage failure degrades to「跟随系统」without blocking the
+  // panel (EC-CHAT-014).
+  themeToggle = mountTheme(document);
+  void themeToggle.load();
   $('l2-back').addEventListener('click', () => viewHost?.close());
   l0 = mountL0({
     doc: document,
@@ -1809,7 +1831,7 @@ function wire(): void {
 
   // TASK-023: keep the「回到底部」affordance + follow anchor in sync with the
   // user's real scroll position (post-layout metrics, not stale pre-append reads).
-  $('log').addEventListener(
+  $('stream').addEventListener(
     'scroll',
     () => {
       syncScrollAnchor();
@@ -1818,7 +1840,7 @@ function wire(): void {
     { passive: true },
   );
   $('scroll-bottom').addEventListener('click', () => {
-    const log = $('log');
+    const log = $('stream');
     log.scrollTop = log.scrollHeight;
     scrollFollow.returnedToBottom();
     updateScrollHint();
