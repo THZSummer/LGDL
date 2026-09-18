@@ -74,7 +74,9 @@ import {
 } from './density-metrics.mjs';
 
 const DESIGN_DIR = resolve(PACKAGE_ROOT, 'design/ui-redesign');
-const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v3-density-baseline.json');
+const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v4-density-baseline.json');
+/** v3 基线：冻结的历史载体（schema 保真断言仍在 density-thresholds.test.ts）。 */
+const V3_BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v3-density-baseline.json');
 const DRAFT_E = resolve(DESIGN_DIR, 'option-e-progressive.html');
 const DRAFT_D = resolve(DESIGN_DIR, 'option-d-choice-guided.html');
 
@@ -309,7 +311,7 @@ async function fingerprint(cdp) {
       disclosure: window.__v3.disclosure.snapshot(),
       risks: [...document.querySelectorAll('#risk-rail .risk-row')].map((r) => r.getAttribute('data-risk-class') ?? 'calm'),
       scrollBottomHidden: document.getElementById('scroll-bottom')?.hidden ?? null,
-      log: (() => { const l = document.getElementById('log'); return { sh: l.scrollHeight, ch: l.clientHeight, st: l.scrollTop }; })(),
+      log: (() => { const l = document.getElementById('stream'); return l ? { sh: l.scrollHeight, ch: l.clientHeight, st: l.scrollTop } : null; })(),
     }))()`,
   );
 }
@@ -440,7 +442,14 @@ async function stageB(cdp) {
       check(`${tier}@${vp} C1/C2 ≤ 上限`, verdict.ok, verdict.message);
       if (tier === 'default') {
         check(`default@${vp} 常驻分区数（C4）已登记`, Number.isFinite(measured.regions), `regions=${measured.regions}`);
-        check(`default@${vp} 可点预算恰为 7（配平可追溯）`, measured.clickables === DENSITY_LIMITS.default.clickables, `实测 ${measured.clickables}`);
+        // V4-1 显式取代（redlineRemap：v3「default 恰 7 可点」）：三区骨架把 L1 入口面板与
+        // 状态带整体退役，可点准入 = **工具栏 4 入口 + 主题 = 恰 5**（ADR-V4-018；#region-statusbar
+        // 内零常驻可点，chips 只在风险态出现）。等价改写为「default 档可点 == 工具栏准入值」。
+        check(
+          `default@${vp} 可点预算恰为工具栏准入值（v4-1 取代 v3「恰 7」：4 入口 + 主题 = 5）`,
+          measured.clickables === 5 && measured.clickables <= DENSITY_LIMITS.default.clickables,
+          `实测 ${measured.clickables}`,
+        );
         check(
           `default@${vp} 「回到底部」不在 L0 常驻（未上滚时必须 hidden）`,
           fp.scrollBottomHidden === true,
@@ -458,16 +467,26 @@ async function stageB(cdp) {
   // 400/520 = 223/19/7) is exactly what this assertion FAILS on.
   const defaultRows = rows.filter((r) => r.tier === 'default');
   const firstMeasured = defaultRows[0]?.measured;
-  const drift = defaultRows
+  // V4-1 显式取代（redlineRemap）：v4 里站点摘要在窄栏 `nowrap + ellipsis`（FR-CHAT-082），
+  // 520px 比 320px 多显示 3 个字符（184 vs 181）—— `chars` 因此**不再**是视口无关量。
+  // 断言按 v4 的真实不变量重锚：结构三项（C1/C2/C3）+ 分区数（C4）必须逐项相等，
+  // 且 `chars` 的跨视口差必须 ≤ 8（摘要省略号，已登记），而不是假装它恒等。
+  const structDrift = defaultRows
     .filter((r) => r.measured.clickables !== firstMeasured.clickables
       || r.measured.lines !== firstMeasured.lines
       || r.measured.blocks !== firstMeasured.blocks
-      || r.measured.chars !== firstMeasured.chars)
+      || r.measured.regions !== firstMeasured.regions)
     .map((r) => `default@${r.vp}: ${fmt(r.measured)} ≠ default@${defaultRows[0].vp}: ${fmt(firstMeasured)}`);
+  const charsSpread = Math.max(...defaultRows.map((r) => r.measured.chars)) - Math.min(...defaultRows.map((r) => r.measured.chars));
   check(
-    '默认档夹具确定性：三视口逐项相等（可点/行/块/chars，同一稳态 ⇒ 无视口差异）',
-    Boolean(firstMeasured) && defaultRows.length === DENSITY_VIEWPORTS.length && drift.length === 0,
-    drift.join(' | ') || `rows=${defaultRows.length}`,
+    '默认档夹具确定性：三视口结构逐项相等（可点/行/块/分区；v4-1：chars 受摘要 ellipsis 影响，见下条）',
+    Boolean(firstMeasured) && defaultRows.length === DENSITY_VIEWPORTS.length && structDrift.length === 0,
+    structDrift.join(' | ') || `rows=${defaultRows.length}`,
+  );
+  check(
+    '默认档 chars 跨视口差 ≤ 8（v4-1 登记：站点摘要 nowrap+ellipsis 在窄栏少显示 3 字，非产品漂移）',
+    charsSpread <= 8,
+    `spread=${charsSpread}（${defaultRows.map((r) => `@${r.vp}=${r.measured.chars}`).join(' ')}）`,
   );
   return rows;
 }
@@ -566,8 +585,8 @@ function readBaselineRegistry() {
 
 // ── stage F: registry machine comparison (ADR-V3-018 决策 2 / review I8) ─────
 async function stageF(cdp, rows, cells, worst) {
-  console.log('\n▶ 阶段 F：基线机器比对（实测 vs docs/v3-density-baseline.json）');
-  check('F 基线文件存在（ADR-V3-018 的登记载体）', existsSync(BASELINE_JSON), BASELINE_JSON);
+  console.log('\n▶ 阶段 F：基线机器比对（实测 vs docs/v4-density-baseline.json）');
+  check('F 基线文件存在（父 ADR-V4-010 的登记载体）', existsSync(BASELINE_JSON), BASELINE_JSON);
   if (!existsSync(BASELINE_JSON)) return { diffs: ['基线文件缺失'] };
   const baseline = readBaselineRegistry();
   const diffs = [];
@@ -608,7 +627,7 @@ async function stageF(cdp, rows, cells, worst) {
   // the worst case (default tier, 400×900, pending decision card) on this build.
   await setViewport(cdp, 400, VIEWPORT_HEIGHT);
   await resetFixture(cdp);
-  const logClientHeight = await evaluate(cdp, `document.getElementById('log').clientHeight`);
+  const logClientHeight = await evaluate(cdp, `document.getElementById('stream').clientHeight`);
   check(
     'F 几何下界来源实测 == 登记来源值（I7：来源 498→495 的机器比对）',
     logClientHeight === baseline.logClientHeightMeasuredWorst,
@@ -936,7 +955,16 @@ async function main() {
     const { cdp } = await openSidePanel(sw.cdp, base);
     await setViewport(cdp, 400, VIEWPORT_HEIGHT);
     check('v3 测试钩子 window.__v3 可用', (await evaluate(cdp, `Boolean(window.__v3 && window.__v3.disclosure && window.__v3.testing)`)) === true);
-    check('风险位独立常驻（#risk-rail 为 body 直接子元素）', (await evaluate(cdp, `document.getElementById('risk-rail').parentElement === document.body`)) === true);
+    // V4-1 重锚：`#risk-rail` 由 body 直挂改为 `#region-statusbar` 内的 chips 行（J2 契约）。
+    check(
+      '风险位三区骨架内独立常驻（#region-statusbar 为 body 直挂 ∧ #risk-rail 是其后代且非折叠容器内）',
+      (await evaluate(
+        cdp,
+        `(() => { const bar = document.getElementById('region-statusbar'); const rail = document.getElementById('risk-rail');
+          return bar.parentElement === document.body && Boolean(rail) && bar.contains(rail)
+            && window.__v3.disclosure.snapshot && !rail.closest('[data-disclose-panel],[data-l2-view]'); })()`,
+      )) === true,
+    );
 
     if (!REVERSE) {
       await stageA(browserCdp, base);

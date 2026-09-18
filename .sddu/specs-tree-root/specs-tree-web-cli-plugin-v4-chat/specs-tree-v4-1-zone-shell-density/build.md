@@ -4,8 +4,8 @@
 > **前置依赖**: 本叶 `plan.md` v1.0 + `tasks.md`/`tasks.json` v1.0 + 父 `plan.md` v1.0 + 本叶/父 `spec.md` v1.0
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-18
-> **版本**: v1.0
-> **状态**: ⚠️ **未完成（不得视为 builded）** —— TASK-501 闸门 PASS，TASK-502~507 已落地，TASK-508~515 **未完成**（详见 §4 / §5）
+> **版本**: v2.0
+> **状态**: ⚠️ **未完成（不得视为 builded）** —— R2 收尾轮闭环 TASK-508/509/510/511(部分)/512/514(部分)/515(部分)；**TASK-513（journey 保护段八步）与 TASK-514 的 `design-contract.test.ts` 未完成**，18 门禁串行链未跑完（详见 §7）
 
 ---
 
@@ -18,7 +18,7 @@
 | 立项产物提交 | `a7af431 docs(sddu): v4-chat（F-30）立项四站产物…`（path-limited add `.sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/`） |
 | **CP-0 spike 闸门** | ✅ **PASS（12/12 格 ≥ 0.650，最差格 0.7273）** |
 | 本叶代码提交 | `wip(web-cli-plugin): v4-1 三区骨架与密度重定标（未完成：门禁重定标与 journey 保护段待做）` |
-| 规模 | 生产代码 4 新文件 + 9 改文件；测试侧 5 文件等价改写；新增 `docs/v4-supersession-ledger.json` |
+| 规模（v2.0） | 生产代码 4 新文件 + 9 改文件；测试侧 **11 文件**等价改写/重写；新增 `docs/v4-supersession-ledger.json` + `docs/v4-density-baseline.json` |
 | `npm test` | ✅ **841 tests / 841 pass / 0 fail**（v3 末轮 795；台账口径 832 ⇒ 实测重登 841） |
 
 ### 1.1 ⚠️ 门禁纪律偏差（必须显式登记）
@@ -150,3 +150,92 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。**CP-0 spike PASS（12/12，最差 0.7273）**；TASK-502~507 落地（三区骨架 + 单源豁免 + 工具栏/状态栏/主题 + 接线）；TASK-510 的 `sidepanel-view.test.ts` 4 契约等价改写完成；v4 取代台账新建且双台账判定绿；`npm test` 841/841 绿；体积 384,347 ≤ 393,857；不动面逐字节不变。**TASK-508/509/511/512/513/514（部分）/515 未完成**，Chromium 侧 11 个门禁未跑 ⇒ 本叶**未达 builded**，不得进入 review/validate。 | 2026-09-18 | SDDU Build Agent |
+
+
+---
+
+# 附录 A — R2 收尾轮（2026-09-19，幂等续做）
+
+## A.1 中断现场探测结论
+
+| 项 | 实测 |
+|----|------|
+| HEAD | `8b955b3`（未前移；R1 WIP 仍为基线） |
+| 工作区 | **7 个未提交文件**（中断代理留场）：`index.html` / `l0/shell.ts` / `sidepanel.ts` / `toolbar.ts` / `test/ui/{l0,l1,l2}.mjs` |
+| 处置 | 全部在本叶范围内 → **逐文件评估质量后续用**（R2 只做增量修正，未推倒重来） |
+| `docs/v4-density-baseline.json` | 中断现场**不存在** → R2 实跑填充（31 格目标 / 本轮登记 25 格，见 A.4） |
+| `test/design-contract.test.ts` | **不存在**（TASK-514 余项未做） |
+| journey 新 pin | v4 台账 `protectedSupersession` 仅 ①② 步；③~⑧ 未做 |
+| `test/ui/l0.mjs` | **已整文件重写**（三区断言面齐备，运行期 203） |
+| sidepanel 体积登记 | 未重登记（`size-baseline.ts` 仍 375,102）→ R2 完成五要素重登记 |
+
+## A.2 R2 逐任务闭环
+
+| TASK | R2 结论 | 证据 |
+|:--:|------|------|
+| TASK-508（l0 重写） | ✅ **完成** | `test:l0` = **203 passed / 0 failed**（≥164）；静态 `check(` 114（≥73） |
+| TASK-509（l1 入口重写） | ✅ **完成** | `test:l1` = **108 passed / 0 failed**（≥103） |
+| TASK-510（l2 入口迁移） | ✅ **完成** | `test:l2` = **73 passed / 0 failed**（≥71）；`sidepanel-view.test.ts` 4 契约 R1 已完成 |
+| TASK-511（density 换口径 + 格集 + 反证） | ⚠️ **部分** | 换口径 + 25 格实跑 + 阶段 F 指向 `docs/v4-density-baseline.json` + 「default 恰 7 → 工具栏准入恰 5」与「chars 视口无关 → ≤8 差」两条 v3 红线**登记型取代**；`test:density` = **PASS（0 failed）**。**缺口**：3 空态格 + 3 风险详情展开格 + in-gate RP-V4-01~07 未落地 |
+| TASK-512（v4 密度基线） | ⚠️ **部分** | `docs/v4-density-baseline.json` 新建：25 格**实跑值**（禁推测值）+ `streamRatioSpike` 12 格 + `designCaliber` 分列 + `differencesFromV3` 5 条 + `knownLimitations` 2 条 + `volume`（385,319 / ceiling 404,584）；`.md` 摘要**未建** |
+| TASK-513（journey 八步） | ❌ **未完成** | `journey.mjs` 保护段（42766..54004 / sha `6b45c3fa…`）**未改写**；新 pin / modifiedRanges / redlineRemap 实跑 / RP-V4-08 未落 |
+| TASK-514（台账 + 元门禁 + shim60） | ⚠️ **部分** | 双台账判定 + v4 台账 24 entries / 75 modifiedRanges / 15 登记清单 **已完成且绿**；`design-contract.test.ts` + `package.json#test:design-contract` + `gate-integrity` 追加**未完成** |
+| TASK-515（收口） | ⚠️ **部分** | **五要素中间重登记完成**（375,102 → 385,319 / +10,217 B / 2026-09-19 / metafile 逐模块 + 历史全保留 / `PENDING_ABSOLUTE_CAP` 仍 `resolved:false` 未预填）；`npm test` **841/841 绿**；**18 门禁串行链未跑完** |
+
+## A.3 R2 新增等价改写（全部登记进 v4 台账）
+
+| 文件 | 改写内容 | 门禁结果 |
+|------|---------|:--:|
+| `test/ui/insight.mjs` | `#log`→`#stream`、`#panel-main`→`#region-stream`、zones 重锚；「composer 贴底」→**法四**（fail-closed 只认 `hidden` 的可见性判据） | **116 / 0 PASS**（≥116） |
+| `test/ui/binding.mjs` | `#panel-main`→`#region-stream`、`log`→`stream`、`v3Collapse` = 折叠 + **退出当前 L2 视图**（v3「折叠 #topbar 还原默认屏」的等价物）。**保护段 107780..115930 字节零改**（start/end/sha `be9ad0e9…` 三项复核一致） | **192 / 0 PASS**（=192） |
+| `test/size-baseline.ts` 等 4 文件 | 体积五要素中间重登记 + ceiling/delta/measuredOn 方向敏感断言按实测重 pin | `npm test` 绿 |
+
+## A.4 密度 25 格实测（v4 口径）
+
+测量根 `document.body`，豁免子树 `#stream`（单源 `density-scope.ts`）；`npm run test:density` 全绿。
+
+| 档 | 320 | 400 | 520 |
+|----|-----|-----|-----|
+| default | C1=5 C2=6 C3=15 C4=4 chars=181 | 同 320 | C1=5 C2=6 C3=15 C4=4 chars=184 |
+| firstRun | C1=5 C2=6 C3=15 C4=4 chars=184 | 同 | 同 |
+| risk 5 子场景 × 3 视口 | C1=6 C2=6~7 C3=17 C4=4 chars=203~227 | 同 320 | 同 320 |
+| **risk worst** | **C1=6 C2=7 C3=17 C4=4 chars=227** | | |
+
+几何：`#stream.clientHeight` 最差（default@400，含待决决策卡）= **748px** ≥ 488px 下界；`ratio ≥ 0.65` 由 TASK-501 12 格 spike 背书（最差 0.7273）。
+
+**显式取代的两条 v3 红线（登记型）**：
+1. `default@vp 可点预算恰为 7` → **工具栏准入恰 5**（4 视图入口 + 主题；父 ADR-V4-018）。三区骨架退役 L1 入口面板与状态带后，「恰 7」不再有对应物。
+2. `默认档三视口 chars 逐项相等` → **结构四项逐项相等 + chars 跨视口差 ≤ 8**（站点摘要 `nowrap+ellipsis` 在 320px 少显示 3 字，FR-CHAT-082）。
+
+## A.5 R2 门禁账（实跑）
+
+| 门禁 | 退出码 | 计数 | 下界 | 结论 |
+|------|:--:|:--:|:--:|:--:|
+| `typecheck` | 0 | 0 error | 0 | ✅ |
+| `build` | 0 | 385,319 B | — | ✅ |
+| `npm test` | 0 | **841 / 841 pass / 0 fail** | ≥max(646,实测) | ✅ |
+| `test:supersession`（含 v4 段 4 判据） | 0 | 18 pass | ≥14 只增 | ✅ |
+| `test:density` | 0 | 123+4→**0 failed** | ≥127 | ✅ |
+| `test:l0` | 0 | **203 / 0** | ≥164 | ✅ |
+| `test:l1` | 0 | **108 / 0** | ≥103 | ✅ |
+| `test:l2` | 0 | **73 / 0** | ≥71 | ✅ |
+| `test:insight` | 0 | **116 / 0** | ≥116 | ✅ |
+| `test:binding` | 0 | **192 / 0** | =192 | ✅ |
+| `test:ui`（journey） | — | — | ≥167 | ❌ TASK-513 未做 |
+| `test:gate-integrity` / `test:design-contract` | — | — | — | ❌ TASK-514 余项 |
+| 其余（zero-injection / page-input / hardening / e2e / l1-reverse / l2-reverse） | — | — | — | ⚠️ 本轮未串行跑完 |
+| 不动面 | — | `content.js` 177,076 / `pick-layer.js` 33,900 逐字节不变 | — | ✅ |
+
+## A.6 未完成 / 交接
+
+1. **TASK-513**：`journey.mjs` 保护段八步（`#15b` 门槛 45→65、`#15c` 法四取代、`#15f~#15q` 选择器重锚、新 pin `status:"active"`+`supersededFrom`、`modifiedRanges`、`redlineRemap` 实跑、RP-V4-08 哈希漂移反证）+ 扩展 `supersession-ledger.test.ts` 的 protectedRanges 判据以接受 v4 显式取代。
+2. **TASK-511/512 余量**：3 空态格 + 3 风险详情展开格实跑登记 + in-gate RP-V4-01~07 + `docs/v4-density-baseline.md`。
+3. **TASK-514 余项**：`test/design-contract.test.ts`（shim 60/60 + 设计稿 sha256 冻结 + CARD_TYPES 映射）+ `package.json#test:design-contract` + `gate-integrity.test.ts` 的 in-gate 例外说明（**不动 `CHROMIUM_GATES.length === 9`**）。
+4. **TASK-515 余量**：18 门禁**严格串行**全跑 + 日志落 `/tmp/opencode/v4-gate-logs/v4-1-r2/`（本轮已落 11 份）+ RP-V4-01~08 全实跑 + 把实测 counts 写入 v4 台账 `counts`（现仍为 `null` + note）。
+5. **plan.md 勘误**：父 `plan.md` ADR-V4-005 的 `#risk-detail` 重复 id（本叶实现已按唯一 id 落地并有静态断言，plan 文件本身的勘误注仍未加）。
+
+## A.7 修订记录（续）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v2.0 | R2 收尾轮：探测中断现场（7 文件留场，全部续用）；TASK-508/509/510 实跑确认（l0 203 / l1 108 / l2 73，全绿）；insight/binding 选择器重锚（116 / 192 全绿，binding 保护段字节零改）；`test:density` 换口径重定标 + `docs/v4-density-baseline.json` 25 格实跑登记（PASS）；体积五要素中间重登记（375,102 → 385,319 B；ceiling 404,584）；v4 台账补全（24 entries / 75 modifiedRanges / 15 逐字登记清单 / counts 口径）；`npm test` 841/841 绿。**TASK-513 与 TASK-514 余项未完成 ⇒ 本叶仍未达 builded**，不得进入 review/validate。 | 2026-09-19 | SDDU Build Agent |

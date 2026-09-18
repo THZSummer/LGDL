@@ -529,7 +529,11 @@ function installV3TestHooks(): void {
       },
       /** Open the L1 status panel (`#topbar`) — the v1 toolbar lives there now. */
       openStatusDetails() {
-        installDisclosure().open('topbar');
+        // V4-1（法则六 / ADR-V4-017）：v3 的 `#topbar` 折叠层（授权 / 撤销 / 会话 /
+        // 分组 / LLM 测试）整体迁入 `#settings-view` 的「站点与授权」分区。等价改写 =
+        // 「进入设置视图」，仍是**1 次交互**可达；不再存在可折叠的 `topbar` 目标
+        // （`disclosure.ts#COLLAPSIBLE_TARGETS` 已移除，`assertFoldable` 会拒绝）。
+        openL2View('settings');
       },
       /** Fold every disclosure layer (used by the density/risk fixtures). */
       collapseAll() {
@@ -700,6 +704,10 @@ const settingsViewSwitch = createViewSwitch({
     const view = document.getElementById('settings-view');
     view?.classList.remove('show');
     if (view) view.hidden = true;
+    // V4-1 (ADR-V4-022 第 3 条): `#settings-back` closes the view without going
+    // through the toolbar, so the shell must re-sync `#l2-entry-settings`'s
+    // `aria-expanded` pair here — otherwise it stays `"true"` on a hidden view.
+    l0?.syncEntryAria();
     // Re-measure the list after it becomes visible again and keep the anchor
     // honest, so the next appended message follows correctly.
     syncScrollAnchor(document.getElementById('stream'));
@@ -830,21 +838,42 @@ function render(): void {
   // taken before the append. The user's own send forces a follow one-shot.
   const follow = scrollFollow.shouldFollow();
   const prevTop = log.scrollTop;
-  log.textContent = '';
+  // V4-1（ADR-V4-005 第 6 条 / ADR-V4-017 第 7 条）——`#stream` 现在同时承载
+  // **占位宿主**（`li[data-transitional-host]`：决策卡 / composer / L1 内容层 /
+  // 提示带）与消息条目。v3 的 `log.textContent = ''` 整段清空会把宿主一并销毁
+  // （首个 render 就会让 `#l0-decision` / `#l1-more` / `#composer` 消失），故这里只
+  // 清扫**消息条目**（无 `data-transitional-host` 的子节点），并在决策卡宿主之后按
+  // 序插入本轮条目 —— 宿主是 v4-3 / v4-4 的退役面，本叶只建不销。
+  // （v4-2 会把它换成 keyed 增量渲染；此处是过渡形态，语义与 v3 清空等价。）
+  for (const node of [...log.children]) {
+    if (!(node as HTMLElement).hasAttribute('data-transitional-host')) node.remove();
+  }
+  const decisionHost = log.querySelector(':scope > li[data-host="decision"]');
+  const fresh = document.createDocumentFragment();
+  let wantFollow = false;
   if (isLogEmpty(state.entries.length) && !state.pending) {
     // F-5: never a large blank box — a readable placeholder instead.
     log.classList.add('empty');
-    log.textContent = LOG_EMPTY_TEXT;
+    const placeholder = document.createElement('p');
+    placeholder.className = 'log-empty-text';
+    placeholder.textContent = LOG_EMPTY_TEXT;
+    fresh.appendChild(placeholder);
   } else {
     log.classList.remove('empty');
     for (const entry of state.entries) {
-      log.appendChild(renderEntry(entry));
+      fresh.appendChild(renderEntry(entry));
     }
-    if (state.pending) log.appendChild(renderThinking());
-    if (follow) followToBottom(log);
+    if (state.pending) fresh.appendChild(renderThinking());
+    wantFollow = follow;
+  }
+  if (decisionHost) decisionHost.after(fresh);
+  else log.appendChild(fresh);
+  if (wantFollow) {
+    followToBottom(log);
+  } else if (!isLogEmpty(state.entries.length) || state.pending) {
     // Not following: clearing the list reset scrollTop to 0, so restore the
     // user's reading position (they explicitly scrolled away — never yank them).
-    else log.scrollTop = prevTop;
+    log.scrollTop = prevTop;
   }
   syncScrollAnchor(log);
   updateScrollHint();
@@ -977,6 +1006,10 @@ function renderSendReason(): void {
   const el = $('send-reason');
   const reason = sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab });
   el.textContent = reason;
+  // V4-1 (FR-CHAT-082): the line is a single ellipsised row now — the full reason
+  // must stay reachable, so it also rides the `title` tooltip (and textContent,
+  // which is what the gates read).
+  el.title = reason;
   el.hidden = !reason;
 }
 

@@ -61,6 +61,9 @@ function packageRoot(): string {
 const PKG = packageRoot();
 const INDEX_HTML = resolve(PKG, 'src/ui/sidepanel/index.html');
 const BASELINE_JSON = resolve(PKG, 'docs/v3-density-baseline.json');
+// V4-1（TASK-512 / 父 ADR-V4-010）：**当前**体积/密度的登记载体是 v4 基线；v3 基线冻结为历史。
+const V4_BASELINE_JSON = resolve(PKG, 'docs/v4-density-baseline.json');
+const CURRENT_BASELINE_JSON = existsSync(V4_BASELINE_JSON) ? V4_BASELINE_JSON : BASELINE_JSON;
 
 /**
  * The **54 id baseline** frozen at the v1 contract (ADR-V3-017 / ADR-V3-009).
@@ -494,27 +497,27 @@ test('AC-V3-007/I7/I8: 基线登记值与门禁单源逐项一致（几何下界
   // 被**撤销** → ceiling 回到公式 floor(baseline × 1.05)。旧断言「ceiling ≤ cap」在该裁决
   // 下不再成立，故按裁决语义重 pin：ceiling 必须**等于公式值**，且记录 cap 不得参与判定
   // （断言只增不减：多了一条「记录 cap 之上必须 PASS」的可 FAIL 反证）。
-  assert.ok(baseline.volume, '基线必须与体积登记交叉引用（ADR-V3-011 第 4 条：分开登记、互相引用）');
-  assert.equal(baseline.volume.artifact, 'dist/sidepanel.js');
-  assert.equal(baseline.volume.registeredBaselineBytes, SIDEPANEL_BASELINE_BYTES, '体积登记值必须与 size-baseline 同源');
-  assert.equal(baseline.volume.ceilingBytes, SIDEPANEL_CEILING, '体积上限必须与 size-baseline 同源');
+  // V4-1：**当前**登记值以 v4 基线为准（v3 基线的 375,102 B 逐字冻结为历史 —— 见下面那条）。
+  const current = JSON.parse(readFileSync(CURRENT_BASELINE_JSON, 'utf8'));
+  assert.ok(current.volume, '当前基线必须与体积登记交叉引用（ADR-V3-011 第 4 条：分开登记、互相引用）');
+  assert.equal(current.volume.artifact, 'dist/sidepanel.js');
+  assert.equal(current.volume.registeredBaselineBytes, SIDEPANEL_BASELINE_BYTES, '体积登记值必须与 size-baseline 同源');
+  assert.equal(current.volume.ceilingBytes, SIDEPANEL_CEILING, '体积上限必须与 size-baseline 同源');
   assert.equal(
-    baseline.volume.ceilingBytes,
+    current.volume.ceilingBytes,
     Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05),
     'ceiling 必须等于公式 floor(baseline × 1.05)（裁决 V3-VOL-1 ①：判定无 cap）',
   );
-  assert.equal(
-    baseline.volume.ceilingCapRole,
-    'record-only',
-    'cap 只能作记录、不参与判定（裁决 V3-VOL-1 ②）',
-  );
-  assert.equal(baseline.volume.ceilingCapRecordBytes, SIDEPANEL_CEILING_CAP_RECORD);
+  assert.equal(current.volume.ceilingCapRole, 'record-only', 'cap 只能作记录、不参与判定（裁决 V3-VOL-1 ②）');
+  assert.equal(current.volume.ceilingCapRecordBytes, SIDEPANEL_CEILING_CAP_RECORD);
   assert.equal(SIDEPANEL_CEILING_CAP, SIDEPANEL_CEILING_CAP_RECORD, '旧名字不得指向别的值（cap 已降级为记录）');
   assert.ok(
-    baseline.volume.ceilingBytes > SIDEPANEL_CEILING_CAP_RECORD,
+    current.volume.ceilingBytes > SIDEPANEL_CEILING_CAP_RECORD,
     'ceiling 必须严格高于记录 cap（撤销 cap 的落地证据；若 cap 仍生效本条立刻红灯）',
   );
-  assert.equal(baseline.volume.tolerance, SIDEPANEL_BASELINE_TOLERANCE, '容差 5% 不得因重登记而变');
+  assert.equal(current.volume.tolerance, SIDEPANEL_BASELINE_TOLERANCE, '容差 5% 不得因重登记而变');
+  // v3 基线冻结为历史：它的体积登记值必须**逐字**停在上一次重登记的值上（不得随本轮改写）。
+  assert.equal(baseline.volume.registeredBaselineBytes, 375_102, 'v3 基线体积登记值必须冻结为历史 375,102 B');
 
   // 阈值：机读基线与单源常量逐字相等。
   assert.deepEqual(baseline.thresholds, JSON.parse(JSON.stringify(DENSITY_LIMITS)));

@@ -1,36 +1,42 @@
 /**
- * V3-1 TASK-110 / ADR-V3-006 / ADR-V3-007 / ADR-V3-008 — the L0 runtime gate.
+ * V4-1 TASK-508 / ADR-V4-011 第 3 条 / ADR-V4-023 — **the L0 runtime gate, rewritten
+ * for the three-zone skeleton**（`npm run test:l0`）.
  *
- * `npm run test:l0` — the runtime half of the L0 contract. It exercises the real
- * `dist/` product and asserts:
+ * ── Why this file is a full rewrite（登记型取代） ────────────────────────────
  *
- *   ① the three things (我在哪 / 谁在管我 / 下一步做什么) are visible together;
- *   ② the decision card is UNIQUE, has ≤2 recommended options and a recomputable
- *      「更多选项（还有 N 个）」 count (FR-V3-011/012/013);
- *   ③ no permanently resident text input in the default state (FR-V3-013);
- *   ④ AC-V3-008: 5 risk classes × 2 scenarios = **10 assertions** — each class must
- *      be visible in the default viewport, AND still visible after every L1/L2
- *      disclosure is collapsed;
- *   ⑤ AC-V3-009: no risk row has a foldable ancestor, and the destructive
- *      confirmation options never sit inside a foldable container (FR-V3-018);
- *   ⑥ AC-V3-010: **every** `[aria-controls]` element (not a hand-picked subset)
- *      has non-empty text + a paired `aria-expanded`/`aria-controls` whose target
- *      holds a non-empty summary or count; L1 is ≤1 interaction and L2 is ≤2
- *      interactions away;
- *   ⑦ AC-V3-021: the resident element set is identical at 320 and 400 (nothing is
- *      deleted on a narrow panel) and there is zero horizontal overflow;
- *   ⑧ the geometry contract inherited from the v2 insight gate: the four L0 zones
- *      are pairwise non-overlapping (6 pairs), `#log` is the ONLY panel-level
- *      scroller, `#log` keeps its first-round measured floor, and the composer sits
- *      flush at the bottom in the fallback state without being occluded;
- *   ⑨ both themes (`prefers-color-scheme`) keep every L0 state readable and never
- *      rely on colour alone (FR-V3-026 / AC-V3-020): the theme tokens must resolve
- *      to DIFFERENT values per theme, and the three channels must survive with the
- *      paint properties stripped;
+ * v3's L0 gate asserted the v3 skeleton: four residents (`#risk-rail` / `#panel-top`
+ * / `#l0-decision` / `#l0-statusbar`) + the foldable entry panel `#l2-entries` +
+ * `#panel-main > #log`. V4-1 replaces exactly those hosts with the three zones:
+ *
+ *   ① `header#region-toolbar`  只读站点摘要 + 4 视图入口 + 主题（可点 == 5）
+ *   ② `main#region-stream`     `ol#stream[role=log]`（唯一滚动容器）+ `#view-host`
+ *   ③ `footer#region-statusbar`连接状态一行 + `#risk-chips > #risk-rail` + `#risk-detail`
+ *
+ * The **semantic contract is preserved, not relaxed** — same intents, re-anchored:
+ *   · ① 三件事同屏（我在哪 / 谁在管我 / 下一步做什么）→ 摘要 + 决策卡 + 状态栏
+ *   · ② 唯一决策卡 + ≤2 推荐选项 + 可重算的「更多选项（还有 N 个）」
+ *   · ③ 默认屏无可见常驻输入框（法四；`#composer` 存在时必须 `hidden`）
+ *   · ④ 五类风险 × 2 场景（默认可见 ∧ 全部折叠后仍可见）= 10 条
+ *   · ⑤ 风险位祖先闭包无 hidden / 无折叠容器 / 无折叠触发器（AC-V3-009）
+ *   · ⑥ 全部 `[aria-controls]` 元素的成对 ARIA + per-target 语义 + 可发现性
+ *   · ⑦ FR-V3-015 计数三处同源（入口标签 ≡ `data-count` ≡ 摘要）+ 内联反证
+ *   · ⑧ 320/400 常驻元素集合相等 + 文档级零水平溢出（AC-V3-021）
+ *   · ⑨ 几何：三区两两不重叠 · `#stream` 是唯一面板级滚动容器 · 流区高度占比
+ *        ≥ `STREAM_HEIGHT_RATIO_MIN`（v4 取代 v3 的「#log ≥589px」像素锚）
+ *   · ⑩ 明暗双主题可读且不只靠颜色（FR-V3-026 / AC-V3-020）
+ *
+ * **New in v4-1（三区骨架的断言面）**：
+ *   · 三区文档序 = toolbar → stream → statusbar，且三区 **body 直挂**
+ *   · 工具栏可点 **恰 5**（只读摘要不计）且每项带 `data-toolbar-slot`
+ *   · 状态栏 **J1~J4**：本体永不 hidden / chips 容器可见性跟随风险 / chip 祖先闭包
+ *     干净 / 打开任意视图后 chips 仍可见
+ *   · 豁免子树 `#stream` **零** `[data-chrome-control]`；`assertChromeNotInStream()`
+ *     注入violation 必抛错（RP-V4-06 的 in-gate 形态）
+ *   · `assertFoldable('#region-statusbar')` **必须抛错**（负向断言）
+ *   · 占位宿主 `[data-transitional-host]` 存在性 > 0（清零断言在 v4-4 TASK-812）
  *
  * Serial discipline: one Chromium instance, one page target, everything in order.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -39,6 +45,7 @@ import {
   DIST,
   PACKAGE_ROOT,
   check,
+  counts,
   evaluate,
   findOurServiceWorker,
   finish,
@@ -49,19 +56,32 @@ import {
   waitFor,
   VIEWPORT_HEIGHT,
 } from './_v3-helpers.mjs';
-import { LOG_CLIENT_HEIGHT_FLOOR, RISK_SUBSCENARIOS, riskVisibilityProbeSource } from './density-metrics.mjs';
+import {
+  RISK_SUBSCENARIOS,
+  STREAM_HEIGHT_RATIO_MIN,
+  riskVisibilityProbeSource,
+} from './density-metrics.mjs';
 
 const FIXTURE_ORIGIN = 'https://v3-l0.test';
 const LLM_KEY = 'web-cli:web-cli:llm';
-const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v3-density-baseline.json');
+const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v4-density-baseline.json');
 
-/** v1's own floor for the message zone (kept by the v2 insight gate).
- *  v3-1 migrates this anchor to `LOG_CLIENT_HEIGHT_FLOOR` (first-round measured
- *  value for the default tier WITH a pending decision card) — see the caliber
- *  module's comment for the measurement and the registered 10px allowance. */
-const LOG_MIN_HEIGHT_V1 = LOG_CLIENT_HEIGHT_FLOOR;
+/** D-005 runtime floor（台账 `v4GateFloors` 的 l0 下界；只增不减）。 */
+const L0_RUNTIME_FLOOR = 164;
+/** v3 static caliber floor（v3 台账 `v3GateFloors`）：本文件静态 `check(` 计数下界。 */
+const L0_STATIC_FLOOR = 73;
 
-/** Default-state fixture (same state definition as the density gate's default tier). */
+/** The four toolbar entry keys + the theme toggle = the admission set (恰 5)。 */
+const TOOLBAR_ENTRY_KEYS = ['tree', 'commands', 'audit', 'settings'];
+/** per-target `aria-controls` 语义（ADR-V4-022 第 3 条）。 */
+const ARIA_TARGET_BY_ENTRY = {
+  'l2-entry-tree': 'view-host',
+  'l2-entry-commands': 'view-host',
+  'l2-entry-audit': 'view-host',
+  'l2-entry-settings': 'settings-view',
+};
+
+/** Default-state fixture (the same state the density gate calls `default`). */
 async function resetFixture(cdp) {
   await evaluate(
     cdp,
@@ -91,20 +111,72 @@ async function resetFixture(cdp) {
   await sleep(400);
 }
 
-/** In-page: the resident element id set + overflow probe at the current viewport. */
+/** In-page: the three-zone skeleton probe (document order / body-direct / nesting). */
+const zoneProbe = `(() => {
+  const body = document.body;
+  const ids = ['region-toolbar', 'region-stream', 'region-statusbar'];
+  const zones = ids.map((id) => document.getElementById(id));
+  const bodyChildren = [...body.children];
+  const order = bodyChildren
+    .map((el) => el.id)
+    .filter((id) => ids.includes(id));
+  const stream = document.getElementById('stream');
+  const chips = document.getElementById('risk-chips');
+  const rail = document.getElementById('risk-rail');
+  const detail = document.getElementById('risk-detail');
+  const chromeInStream = stream ? stream.querySelectorAll('[data-chrome-control]').length : -1;
+  const hosts = [...document.querySelectorAll('[data-transitional-host]')];
+  return {
+    present: ids.every((id) => Boolean(document.getElementById(id))),
+    order,
+    directBodyChildren: zones.every((z) => z && z.parentElement === body),
+    statusbarInsideStream: Boolean(stream && stream.contains(document.getElementById('region-statusbar'))),
+    toolbarInsideStream: Boolean(stream && stream.contains(document.getElementById('region-toolbar'))),
+    streamInRegionStream: Boolean(document.getElementById('region-stream')?.querySelector('#stream')),
+    viewHostSiblingOfStream: document.getElementById('view-host')?.parentElement?.id === 'region-stream',
+    chipsInsideRail: Boolean(rail && rail.contains(chips ?? rail)),
+    railInsideChips: Boolean(chips && chips.contains(rail)),
+    detailInsideStatusbar: Boolean(document.getElementById('region-statusbar')?.contains(detail)),
+    chromeInStream,
+    hosts: hosts.map((el) => el.getAttribute('data-transitional-host')),
+    hostCount: hosts.length,
+    streamTag: stream ? stream.tagName : null,
+    streamRole: stream ? stream.getAttribute('role') : null,
+    toolbarClickables: (() => {
+      const bar = document.getElementById('region-toolbar');
+      if (!bar) return -1;
+      const all = [...bar.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')];
+      return all.filter((el) => {
+        let n = el;
+        while (n) { if (n.hidden === true) return false; n = n.parentElement; }
+        return true;
+      }).length;
+    })(),
+    toolbarSlots: ['l2-entry-tree', 'l2-entry-commands', 'l2-entry-audit', 'l2-entry-settings', 'theme-toggle']
+      .map((id) => [id, document.getElementById(id)?.getAttribute('data-toolbar-slot') ?? null]),
+    summaryIsReadOnly: (() => {
+      const s = document.querySelector('.site-summary');
+      if (!s) return null;
+      return { role: s.getAttribute('role'), tag: s.tagName, interactive: Boolean(s.querySelector('button, a[href], input, select, textarea')) };
+    })(),
+  };
+})()`;
+
+/** In-page: resident id sets + overflow (320/400 equivalence, AC-V3-021). */
 const residentProbe = `(() => {
-  const ids = [...document.querySelectorAll('[id]')].map((el) => el.id).sort();
+  const all = [...document.querySelectorAll('[id]')].map((el) => el.id).sort();
   const visibleIds = [...document.querySelectorAll('[id]')]
     .filter((el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; })
     .map((el) => el.id)
     .sort();
   const de = document.documentElement;
-  return { all: ids, visible: visibleIds, overflowX: de.scrollWidth - de.clientWidth };
+  return { all, visible: visibleIds, overflowX: de.scrollWidth - de.clientWidth };
 })()`;
 
-/** In-page: pairwise intersection area of the four L0 zones + scroller census. */
+/** In-page: geometry (three zones pairwise disjoint + scroller census + ratio). */
 const geometryProbe = `(() => {
-  const zones = ['risk-rail', 'panel-top', 'l0-decision', 'l0-statusbar'].map((id) => document.getElementById(id));
+  const zoneIds = ['region-toolbar', 'region-stream', 'region-statusbar'];
+  const zones = zoneIds.map((id) => document.getElementById(id));
   const rects = zones.map((el) => el.getBoundingClientRect());
   const pairs = [];
   for (let i = 0; i < rects.length; i += 1) {
@@ -116,52 +188,29 @@ const geometryProbe = `(() => {
       pairs.push(Math.round(ix * iy * 100) / 100);
     }
   }
-  const scrollers = [...document.querySelectorAll('#panel-main *, #panel-main')]
+  const scrollers = [...document.querySelectorAll('#region-stream *, #region-stream')]
     .filter((el) => {
       const style = getComputedStyle(el);
       return (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
     })
     .map((el) => el.id || el.className);
-  const log = document.getElementById('log');
+  const stream = document.getElementById('stream');
+  const sr = stream.getBoundingClientRect();
   const composer = document.getElementById('composer');
   const cr = composer.getBoundingClientRect();
-  const lr = log.getBoundingClientRect();
-  const zonesBottom = Math.max(...zones.map((el) => el.getBoundingClientRect().bottom));
-  const zoneHeights = ['risk-rail', 'panel-top', 'l0-decision', 'log', 'view-host', 'l0-statusbar', 'l2-entries', 'panel-bottom', 'settings-view']
-    .map((id) => ({ id, h: Math.round((document.getElementById(id) || { getBoundingClientRect: () => ({ height: 0 }) }).getBoundingClientRect().height), hidden: document.getElementById(id)?.hidden ?? null }));
   return {
     pairs,
-    zoneHeights,
-    expanded: {
-      more: document.getElementById('l1-more').hidden,
-      ref: document.getElementById('l1-ref').hidden,
-      topbar: document.getElementById('topbar').hidden,
-      viewHost: document.getElementById('view-host').hidden,
-      entries: document.getElementById('l2-entries').hidden,
-      fallback: document.getElementById('ask-fallback').hidden,
-      composer: document.getElementById('composer').hidden,
-    },
     panelScrollers: scrollers,
-    logClientHeight: log.clientHeight,
-    logFlexGrow: getComputedStyle(log).flexGrow,
-    composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
-    composerOverlapsLog: Math.max(0, Math.min(cr.bottom, lr.bottom) - Math.max(cr.top, lr.top)) > 0 && cr.top < lr.bottom,
-    zonesBottom,
-    composerTop: Math.round(cr.top),
+    streamRatio: sr.height / window.innerHeight,
+    streamHeight: Math.round(sr.height * 100) / 100,
+    streamFlexGrow: getComputedStyle(stream).flexGrow,
+    statusbarBottomGap: Math.round(window.innerHeight - document.getElementById('region-statusbar').getBoundingClientRect().bottom),
+    zoneHeights: zoneIds.map((id) => ({ id, h: Math.round(document.getElementById(id).getBoundingClientRect().height * 100) / 100 })),
+    composerHidden: composer.hidden,
+    composerRail: { top: Math.round(cr.top), bottom: Math.round(cr.bottom) },
+    streamScrollableInjected: stream.scrollHeight > stream.clientHeight,
   };
 })()`;
-
-/**
- * In-page: the risk row probe (visibility + foldable ancestors + 3 channels).
- *
- * Closeout round (F7): the implementation is the single-source
- * `riskVisibilityProbeSource()` from `test/ui/density-metrics.mjs`. It used to be a
- * local copy, and it accepted a `visibility:hidden` / `opacity:0` ancestor as
- * "visible" (neither changes `getBoundingClientRect()`), while the density caliber
- * C1 explicitly refuses to exempt those properties. One probe, one meaning of
- * "visible".
- */
-const riskProbe = (cls) => riskVisibilityProbeSource(cls);
 
 async function main() {
   console.log(`▶ chrome: ${CHROME}`);
@@ -177,23 +226,47 @@ async function main() {
     await setViewport(cdp, 400, VIEWPORT_HEIGHT);
     await resetFixture(cdp);
 
-    // ── ① three things visible + ② unique decision card + ③ no resident input ──
-    console.log('\n▶ ① 三件事 + ② 唯一决策卡 + ③ 无常驻输入框');
+    // ══ ① 三区骨架结构（V4-1 新断言面） ══════════════════════════════════════
+    console.log('\n▶ ① 三区骨架：文档序 / body 直挂 / 嵌套 / 占位宿主 / 唯一 id 重命名');
+    const zones = await evaluate(cdp, zoneProbe);
+    check('① 三区元素齐备（#region-toolbar / #region-stream / #region-statusbar）', zones.present === true, JSON.stringify(zones.present));
+    check('① 三区文档序 = toolbar → stream → statusbar', JSON.stringify(zones.order) === JSON.stringify(['region-toolbar', 'region-stream', 'region-statusbar']), JSON.stringify(zones.order));
+    check('① 三区均为 body 直挂（状态栏不是 #region-stream 后代 ⇒ S7 结构成立）', zones.directBodyChildren === true && zones.statusbarInsideStream === false && zones.toolbarInsideStream === false, JSON.stringify({ direct: zones.directBodyChildren, sb: zones.statusbarInsideStream, tb: zones.toolbarInsideStream }));
+    check('① `#stream` 是 `#region-stream` 的后代（区 ≠ 流本体）', zones.streamInRegionStream === true);
+    check('① `#view-host` 是 `#stream` 的兄弟（视图替换不叠加第二滚动面）', zones.viewHostSiblingOfStream === true);
+    check('① `#log` → `#stream` 是唯一 id 重命名：#stream 为 ol 且 role=log', zones.streamTag === 'OL' && zones.streamRole === 'log', `${zones.streamTag}/${zones.streamRole}`);
+    check('① 状态栏嵌套 = #risk-chips > #risk-rail（chip 入状态栏，不新开分区）', zones.railInsideChips === true && zones.chipsInsideRail === false, JSON.stringify({ railInChips: zones.railInsideChips, chipsInRail: zones.chipsInsideRail }));
+    check('① `#risk-detail` 在状态栏内且默认 hidden（不计入默认密度）', zones.detailInsideStatusbar === true && (await evaluate(cdp, `document.getElementById('risk-detail').hidden`)) === true);
+    check('① 占位宿主 `data-transitional-host` 存在性 > 0（本叶只建不销；清零在 v4-4）', zones.hostCount > 0, `实测 ${zones.hostCount}`);
+    check('① 占位宿主均带合法退役叶标记（v4-3 / v4-4）', zones.hosts.length > 0 && zones.hosts.every((h) => h === 'v4-3' || h === 'v4-4'), JSON.stringify(zones.hosts));
+
+    // ══ ② 工具栏准入 ≤5 + 只读摘要 + 插槽（V4-1 新断言面） ══════════════════
+    console.log('\n▶ ② 工具栏：可点恰 5 / data-toolbar-slot / 只读摘要 / 徽标同源');
+    check('② 工具栏可点计数 == 5（只读 `.site-summary` 不计 + 4 入口 + 主题）', zones.toolbarClickables === 5, `实测 ${zones.toolbarClickables}`);
+    for (const [id, slot] of zones.toolbarSlots) {
+      check(`② ${id} 带 data-toolbar-slot ∈ {view,theme}（准入分类可判定）`, slot === 'view' || slot === 'theme', JSON.stringify(slot));
+    }
+    check('② 4 个视图入口 + 主题 = 恰 5 个插槽（不多不少）', zones.toolbarSlots.length === 5 && zones.toolbarSlots.filter(([, s]) => s === 'view').length === 4);
+    check('② `.site-summary` 是只读 role=status（非 button/a/input，不计入可点预算）', zones.summaryIsReadOnly?.role === 'status' && zones.summaryIsReadOnly?.interactive === false, JSON.stringify(zones.summaryIsReadOnly));
+
+    // ══ ③ 三件事同屏 + 唯一决策卡 + 法四 ════════════════════════════════════
+    console.log('\n▶ ③ 三件事 + 唯一决策卡 + 无常驻输入框（法四）');
     const skeleton = await evaluate(
       cdp,
       `(() => {
         const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
-        const band = document.getElementById('l0-status-band');
+        const summary = document.querySelector('.site-summary');
         const decision = document.getElementById('l0-decision');
-        const statusbar = document.getElementById('l0-statusbar');
-        const asks = [...document.querySelectorAll('#l0-decision #ask, #panel-bottom #ask')].filter(visible);
+        const statusbar = document.getElementById('region-statusbar');
+        const asks = [...document.querySelectorAll('#l0-decision #ask')].filter(visible);
         const options = [...document.querySelectorAll('#ask-options button, #ask-options [role="radio"]')];
         const residentInputs = [...document.querySelectorAll('input[type="text"], input:not([type]), textarea')].filter(visible);
         return {
-          bandVisible: visible(band),
+          summaryVisible: visible(summary),
+          summaryText: summary ? summary.textContent : '',
           decisionVisible: visible(decision),
+          decisionInStream: Boolean(document.getElementById('stream')?.contains(decision)),
           statusbarVisible: visible(statusbar),
-          bandText: band ? band.textContent : '',
           decisionCards: asks.length,
           visibleOptions: options.length,
           moreText: document.getElementById('l0-more').textContent,
@@ -204,51 +277,41 @@ async function main() {
           composerHidden: document.getElementById('composer').hidden,
           pickText: document.getElementById('l0-pick').textContent,
           refText: document.getElementById('l0-ref-toggle').textContent,
+          hostAttr: document.getElementById('l0-decision')?.closest('[data-transitional-host]')?.getAttribute('data-transitional-host') ?? null,
         };
       })()`,
     );
-    check('① 我在哪 / 谁在管我（#l0-status-band）默认态可见', skeleton.bandVisible === true);
-    check('① ③ 下一步做什么（#l0-decision）默认态可见', skeleton.decisionVisible === true);
-    check('① 一行状态栏（#l0-statusbar）默认态可见', skeleton.statusbarVisible === true);
-    check('① 状态带文字含 origin 站点名（可读，非纯图标）', skeleton.bandText.includes('v3-l0.test'), skeleton.bandText.slice(0, 80));
-    check('② 默认态决策卡数 = 1', skeleton.decisionCards === 1, String(skeleton.decisionCards));
-    check('② 可见推荐选项 ≤ 2', skeleton.visibleOptions <= 2 && skeleton.visibleOptions >= 1, String(skeleton.visibleOptions));
+    check('③ ① 我在哪 / 谁在管我（.site-summary 只读摘要）默认态可见', skeleton.summaryVisible === true);
+    check('③ ③ 下一步做什么（#l0-decision）默认态可见且在流内占位宿主下', skeleton.decisionVisible === true && skeleton.decisionInStream === true && skeleton.hostAttr === 'v4-3', JSON.stringify({ v: skeleton.decisionVisible, inStream: skeleton.decisionInStream, host: skeleton.hostAttr }));
+    check('③ 一行状态栏（#region-statusbar）默认态可见（J1）', skeleton.statusbarVisible === true);
+    check('③ 摘要文字含 origin 站点名（可读，非纯图标）', skeleton.summaryText.includes('v3-l0.test'), skeleton.summaryText.slice(0, 80));
+    check('③ 默认态决策卡数 = 1（唯一决策卡）', skeleton.decisionCards === 1, String(skeleton.decisionCards));
+    check('③ 可见推荐选项 ≤ 2 且 ≥ 1', skeleton.visibleOptions <= 2 && skeleton.visibleOptions >= 1, String(skeleton.visibleOptions));
     check(
-      '② 「更多选项（还有 N 个）」的 N 从真值派生（4 个选项 → 2 可见 + 2 收起，N = 2 + 1 末项）',
+      '③ 「更多选项（还有 N 个）」的 N 从真值派生（4 选项 → 2 可见 + 2 收起，N = 2 + 1 末项）',
       skeleton.moreCount === 3 && skeleton.moreText === '更多选项（还有 3 个）',
       `${skeleton.moreText} / data-count=${skeleton.moreCount}`,
     );
-    check('③ 默认态可见文本输入框计数 = 0（含 input:not([type]) / textarea）', skeleton.residentInputs.length === 0, skeleton.residentInputs.join(','));
+    check('③ 默认态可见文本输入框计数 = 0（法四：含 input:not([type]) / textarea）', skeleton.residentInputs.length === 0, skeleton.residentInputs.join(','));
     check('③ 末项兜底输入框默认 hidden', skeleton.fallbackHidden === true);
-    check('③ 完整输入框（#composer）默认 hidden（ADR-V3-014 §5）', skeleton.composerHidden === true);
-    check('① 「从页面拾取」入口存在（替代输入框）', /从页面拾取/.test(skeleton.pickText));
-    check('① 引用条入口存在（含计数）', /引用\s*\d+\s*条/.test(skeleton.refText), skeleton.refText);
+    check('③ `#composer` 存在但默认 hidden（法四显式取代 v3「composer 贴底」）', skeleton.composerHidden === true);
+    check('③ 「从页面拾取」入口存在（替代输入框）', /从页面拾取/.test(skeleton.pickText));
+    check('③ 引用条入口存在（含计数）', /引用\s*\d+\s*条/.test(skeleton.refText), skeleton.refText);
 
     // N must follow the real option list (change truth → change N)
     await evaluate(cdp, `window.__v3.testing.ask('换一轮', ['甲', '乙', '丙', '丁', '戊']); true`);
     await sleep(250);
     const moreAgain = await evaluate(cdp, `document.getElementById('l0-more').getAttribute('data-count') + '|' + document.getElementById('l0-more').textContent`);
-    check('② 真实选项数变化 → N 随之变化（硬编码即 FAIL）', moreAgain === '4|更多选项（还有 4 个）', moreAgain);
-    // I2: the mandated terminal copy must be asserted on the RENDERED text, not only
-    // on a module constant (the two `OTHER_OPTION_LABEL` copies could drift apart
-    // without any gate noticing — the unit test only pinned the non-product one).
+    check('③ 真实选项数变化 → N 随之变化（硬编码即 FAIL）', moreAgain === '4|更多选项（还有 4 个）', moreAgain);
     const terminalText = await evaluate(
       cdp,
       `(() => { const pool = document.getElementById('l1-more-options'); const btns = [...pool.querySelectorAll('button')]; return btns.length ? btns[btns.length - 1].textContent : ''; })()`,
     );
-    check(
-      '② FR-V3-012 末项文案逐字（渲染态 DOM 文本 = 「其他…（我来描述）」）',
-      terminalText === '其他…（我来描述）',
-      JSON.stringify(terminalText),
-    );
+    check('③ FR-V3-012 末项文案逐字（渲染态 DOM 文本 = 「其他…（我来描述）」）', terminalText === '其他…（我来描述）', JSON.stringify(terminalText));
     await evaluate(cdp, `window.__v3.testing.clearAsk(); true`);
     await sleep(200);
     const noAsk = await evaluate(cdp, `JSON.stringify({ askHidden: document.getElementById('ask').hidden, moreHidden: document.getElementById('l0-more').hidden })`);
-    check('② 无待答回合时决策卡整体 hidden（不留空卡）', noAsk === '{"askHidden":true,"moreHidden":true}', noAsk);
-    // ── I1 FAIL-able assertion ────────────────────────────────────────────────
-    // 无卡态的**第二次** render 必须保持 `#l0-more` hidden。修复前的 early-return
-    // 分支写的是 `foldedCount <= 0`，而 `foldedCount = foldedOptions.length + 1 ≥ 1`
-    // 恒真 → 同一个无卡状态再渲染一次就把「更多选项（还有 1 个）」点亮成悬空入口。
+    check('③ 无待答回合时决策卡整体 hidden（不留空卡）', noAsk === '{"askHidden":true,"moreHidden":true}', noAsk);
     await evaluate(cdp, `window.__v3.testing.refresh(); true`);
     await sleep(250);
     const noAskAgain = await evaluate(
@@ -260,23 +323,102 @@ async function main() {
         askHidden: document.getElementById('ask').hidden,
       })`,
     );
-    const noAskAgainParsed = JSON.parse(noAskAgain);
-    check(
-      '② I1：无卡态第二次 render 后 #l0-more 仍 hidden（不得复活悬空入口）',
-      noAskAgainParsed.moreHidden === true && noAskAgainParsed.askHidden === true,
-      noAskAgain,
-    );
-    check(
-      '② I1：无卡态 #l0-more 文案 / data-count 如实归零（不得写「还有 1 个」）',
-      noAskAgainParsed.moreText === '更多选项（还有 0 个）' && noAskAgainParsed.moreCount === '0',
-      noAskAgain,
-    );
+    const noAskParsed = JSON.parse(noAskAgain);
+    check('③ I1：无卡态第二次 render 后 #l0-more 仍 hidden（不得复活悬空入口）', noAskParsed.moreHidden === true && noAskParsed.askHidden === true, noAskAgain);
+    check('③ I1：无卡态 #l0-more 文案 / data-count 如实归零（不得写「还有 1 个」）', noAskParsed.moreText === '更多选项（还有 0 个）' && noAskParsed.moreCount === '0', noAskAgain);
     await resetFixture(cdp);
 
-    // ── ④ AC-V3-008: 5 classes × 2 scenarios ────────────────────────────────
-    console.log('\n▶ ④ AC-V3-008：5 类风险 × 2 场景（默认视口可见 + 全折叠后仍可见）');
-    // Make the fixture coherent for the「未授权」class: revoke through the real message
-    // (the origin store is authoritative), then re-authorize after the loop.
+    // ══ ④ 状态栏 J1~J4 + assertFoldable 负向 ═════════════════════════════════
+    console.log('\n▶ ④ 状态栏 J1~J4：本体常驻 / chips 容器 / chip 祖先闭包 / 视图切换不影响');
+    const j1 = await evaluate(
+      cdp,
+      `(() => {
+        const bar = document.getElementById('region-statusbar');
+        const chips = document.getElementById('risk-chips');
+        const rail = document.getElementById('risk-rail');
+        const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+        return {
+          barHidden: bar.hidden,
+          chipsHidden: chips.hidden,
+          railChips: [...rail.querySelectorAll('.risk-row')].length,
+          visibleChips: [...rail.querySelectorAll('.risk-row')].filter((r) => visible(r) && !r.hasAttribute('data-risk-severity')).length,
+          barText: document.getElementById('statusbar-text').textContent,
+        };
+      })()`,
+    );
+    check('④ J1：零风险态 `#region-statusbar` 本体 hidden !== true', j1.barHidden !== true, JSON.stringify(j1.barHidden));
+    check('④ J2：零风险 ⇒ `#risk-chips` 收缩（hidden = true，0 可点 chip）', j1.chipsHidden === true, JSON.stringify(j1));
+    const foldStatus = await evaluate(
+      cdp,
+      `(() => { try { window.__v3.disclosure.targets; return 'has-targets'; } catch (e) { return String(e); } })()`,
+    );
+    check('④ `window.__v3.disclosure` 暴露 targets（门禁可读折叠白名单）', foldStatus === 'has-targets', String(foldStatus));
+    const j2 = await evaluate(
+      cdp,
+      `(() => {
+        const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+        window.__v3.testing.setRisk('hardline', 'force');
+        const chips = document.getElementById('risk-chips');
+        const rail = document.getElementById('risk-rail');
+        const rows = [...rail.querySelectorAll('.risk-row[data-risk-class]')];
+        const chainOf = (el) => { const c = []; let n = el; while (n) { c.push(n); n = n.parentElement; } return c; };
+        const chip = rows.find((r) => r.getAttribute('data-risk-class') === 'hardline');
+        // J3 的「祖先闭包」= chip 的**严格祖先**（chip 自身按 ADR-V4-019 第 5 条
+        // 本来就是 aria-expanded / aria-controls=risk-detail 的成对触发器 —— 它触发
+        // 的是详情展开，不是折叠风险；把它自身算进闭包是把判据读反）。
+        const chain = chip ? chainOf(chip.parentElement) : [];
+        return {
+          chipsHidden: chips.hidden,
+          chipCount: rows.length,
+          visibleChips: rows.filter(visible).length,
+          chipTag: chip ? chip.tagName : null,
+          chipChromeControl: chip ? chip.hasAttribute('data-chrome-control') : null,
+          chipAriaControls: chip ? chip.getAttribute('aria-controls') : null,
+          chipAriaExpanded: chip ? chip.getAttribute('aria-expanded') : null,
+          chainHidden: chain.filter((n) => n.hidden === true).length,
+          chainFoldable: chain.filter((n) => n.hasAttribute && (n.hasAttribute('data-l1-panel') || n.hasAttribute('data-l2-view') || n.hasAttribute('data-disclose-panel'))).length,
+          chainExpanded: chain.filter((n) => n.hasAttribute && n.hasAttribute('aria-expanded')).length,
+        };
+      })()`,
+    );
+    check('④ J2：任一风险 ⇒ `#risk-chips` 无 hidden 且 `#risk-rail` 含 ≥1 可见 chip', j2.chipsHidden === false && j2.visibleChips >= 1, JSON.stringify(j2));
+    check('④ J3：chip 祖先闭包无 hidden 元素', j2.chainHidden === 0, JSON.stringify(j2));
+    check('④ J3：chip 祖先闭包无折叠容器', j2.chainFoldable === 0, JSON.stringify(j2));
+    check('④ J3：chip 祖先闭包无 `[aria-expanded]` 触发器（chip 自身除外）', j2.chainExpanded === 0, JSON.stringify(j2));
+    check('④ chip 形态 = button（计入状态栏 C1）+ data-chrome-control + aria 成对指向 #risk-detail', j2.chipTag === 'BUTTON' && j2.chipChromeControl === true && j2.chipAriaControls === 'risk-detail' && (j2.chipAriaExpanded === 'true' || j2.chipAriaExpanded === 'false'), JSON.stringify({ tag: j2.chipTag, cc: j2.chipChromeControl, ac: j2.chipAriaControls, ae: j2.chipAriaExpanded }));
+    const j4 = await evaluate(
+      cdp,
+      `(() => {
+        const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+        const rail = document.getElementById('risk-rail');
+        window.__v3.testing.openL2View('tree');
+        const afterOpen = { chipsHidden: document.getElementById('risk-chips').hidden, railVisible: visible(rail) };
+        window.__v3.testing.closeL2View();
+        const afterClose = { chipsHidden: document.getElementById('risk-chips').hidden, railVisible: visible(rail) };
+        return { afterOpen, afterClose };
+      })()`,
+    );
+    check('④ J4：打开任意视图后 chips 仍可见（状态栏 body 直挂 ⇒ 视图触达不到）', j4.afterOpen.chipsHidden === false && j4.afterOpen.railVisible === true, JSON.stringify(j4));
+    check('④ J4：返回后 chips 仍可见（可逆，不因视图往返被折叠）', j4.afterClose.chipsHidden === false && j4.afterClose.railVisible === true, JSON.stringify(j4));
+    await evaluate(cdp, `window.__v3.testing.setRisk('hardline', 'off'); true`);
+    await sleep(150);
+    const foldNegative = await evaluate(
+      cdp,
+      `(() => {
+        const out = {};
+        for (const id of ['region-statusbar', 'risk-chips', 'risk-detail', 'stream']) {
+          try { window.__v3.disclosure.open(id); out[id] = 'NO-THROW'; }
+          catch (e) { out[id] = String(e && e.name ? e.name : e); }
+        }
+        return out;
+      })()`,
+    );
+    for (const id of ['region-statusbar', 'risk-chips', 'risk-detail', 'stream']) {
+      check(`④ assertFoldable('#${id}') 必须抛错（永不折叠的负向断言）`, foldNegative[id] === 'DisclosureError', JSON.stringify(foldNegative));
+    }
+
+    // ══ ⑤ AC-V3-008：5 类风险 × 2 场景 ════════════════════════════════════════
+    console.log('\n▶ ⑤ AC-V3-008：5 类风险 × 2 场景（默认视口可见 + 全折叠后仍可见）');
     await evaluate(
       cdp,
       `chrome.runtime.sendMessage({ kind: 'revoke', origin: ${JSON.stringify(FIXTURE_ORIGIN)} }).then(() => true)`,
@@ -287,20 +429,20 @@ async function main() {
     for (const sub of RISK_SUBSCENARIOS) {
       await evaluate(cdp, `window.__v3.testing.setRisk(${JSON.stringify(sub.key)}, ${JSON.stringify(sub.key === 'unauthorized' ? 'natural' : 'force')}); true`);
       await sleep(250);
-      const visibleProbe = await evaluate(cdp, riskProbe(sub.key));
-      check(`④ ${sub.label}：默认视口内可见且三通道齐备`, visibleProbe.ok === true, JSON.stringify(visibleProbe));
+      const visibleProbe = await evaluate(cdp, riskVisibilityProbeSource(sub.key));
+      check(`⑤ ${sub.label}：默认视口内可见且三通道齐备`, visibleProbe.ok === true, JSON.stringify(visibleProbe));
       await evaluate(cdp, `window.__v3.testing.collapseAll(); true`);
       await sleep(200);
-      const collapsedProbe = await evaluate(cdp, riskProbe(sub.key));
-      check(`④ ${sub.label}：全部 L1/L2 收起后仍可见（永不折叠）`, collapsedProbe.ok === true, JSON.stringify(collapsedProbe));
+      const collapsedProbe = await evaluate(cdp, riskVisibilityProbeSource(sub.key));
+      check(`⑤ ${sub.label}：全部 L1/L2 收起后仍可见（永不折叠）`, collapsedProbe.ok === true, JSON.stringify(collapsedProbe));
       await evaluate(cdp, `window.__v3.testing.setRisk(${JSON.stringify(sub.key)}, 'off'); true`);
       await sleep(150);
     }
     await evaluate(cdp, `window.__v3.testing.setRisk('unauthorized', 'natural'); window.__v3.testing.setRisk('hardline', 'force'); true`);
     await sleep(250);
 
-    // ── ⑤ AC-V3-009: ancestor chain + destructive options never folded ─────
-    console.log('\n▶ ⑤ AC-V3-009：祖先链 + 破坏性确认不参与折叠');
+    // ══ ⑥ AC-V3-009：祖先链 + 破坏性确认不参与折叠 ═══════════════════════════
+    console.log('\n▶ ⑥ AC-V3-009：祖先链 + 破坏性确认不参与折叠');
     const ancestor = await evaluate(
       cdp,
       `(() => {
@@ -310,21 +452,25 @@ async function main() {
         while (n) { chain.push({ tag: n.tagName, id: n.id, hidden: n.hidden, l1: n.hasAttribute('data-l1-panel'), l2: n.hasAttribute('data-l2-view'), disclose: n.hasAttribute('data-disclose-panel') }); n = n.parentElement; }
         return JSON.stringify({
           chain,
-          railDirectChildOfBody: rail.parentElement === document.body,
-          foldTriggerInRail: rail.querySelectorAll('[aria-expanded]').length,
+          railInStatusbar: Boolean(document.getElementById('region-statusbar')?.contains(rail)),
+          // 「折叠触发器」= 指向**可折叠面板**的 [aria-expanded] 触发器。chip 自身的
+          // aria-expanded / aria-controls=risk-detail 是详情展开的成对 ARIA
+          // （ADR-V4-019 第 5 条），不是把风险藏起来的折叠入口。
+          foldTriggers: [...rail.querySelectorAll('[aria-expanded]')].filter((t) => {
+            const target = t.getAttribute('aria-controls') ?? '';
+            return target !== 'risk-detail' || !t.classList.contains('risk-row');
+          }).length,
           riskRowsInFoldable: [...rail.querySelectorAll('.risk-row')].filter((r) => r.closest('[data-l1-panel],[data-l2-view],[data-disclose-panel]')).length,
         });
       })()`,
     );
     const chain = JSON.parse(ancestor);
-    check('⑤ 风险位祖先链无 hidden 元素', chain.chain.every((n) => n.hidden !== true), ancestor);
-    check('⑤ 风险位祖先链无 L1/L2/披露容器', chain.chain.every((n) => !n.l1 && !n.l2 && !n.disclose), ancestor);
-    check('⑤ 风险位是 body 直接子元素（独立分区）', chain.railDirectChildOfBody === true);
-    check('⑤ 风险位内不存在折叠触发器', chain.foldTriggerInRail === 0, String(chain.foldTriggerInRail));
-    check('⑤ 风险行不位于任何折叠容器内', chain.riskRowsInFoldable === 0, String(chain.riskRowsInFoldable));
+    check('⑥ 风险位祖先链无 hidden 元素', chain.chain.every((n) => n.hidden !== true), ancestor);
+    check('⑥ 风险位祖先链无 L1/L2/披露容器', chain.chain.every((n) => !n.l1 && !n.l2 && !n.disclose), ancestor);
+    check('⑥ 风险位位于状态栏内（v4：chip 入状态栏，body 直挂链上）', chain.railInStatusbar === true);
+    check('⑥ 风险位内不存在折叠触发器（唯一 `[aria-expanded]` 是 chip 自身指向 #risk-detail 的详情开关）', chain.foldTriggers === 0, String(chain.foldTriggers));
+    check('⑥ 风险行不位于任何折叠容器内', chain.riskRowsInFoldable === 0, String(chain.riskRowsInFoldable));
 
-    // I14: the duplicate `setRisk('confirm','force')` + `void confirm` block is gone
-    // (the probe below re-applies it through the same hook, once).
     await evaluate(cdp, `window.__v3.testing.setRisk('confirm', 'force'); true`);
     await sleep(250);
     const confirmProbe = await evaluate(
@@ -348,13 +494,12 @@ async function main() {
       })()`,
     );
     const cp = JSON.parse(confirmProbe);
-    check('⑤ 破坏性确认卡在 #l0-decision 直系且可见', cp.cardVisible === true && cp.inDecisionDirect === true, confirmProbe);
-    check('⑤ 破坏性确认选项的祖先链无折叠容器（不参与折叠）', cp.chainClean === true, confirmProbe);
-    check('⑤ 破坏性确认选项带 data-destructive-option（结构可判定）', cp.destructiveMarked === true, confirmProbe);
-    check('⑤ 破坏性确认选项不进入「更多选项」池', cp.noneInMorePool === 0, confirmProbe);
+    check('⑥ 破坏性确认卡在 #l0-decision 直系且可见', cp.cardVisible === true && cp.inDecisionDirect === true, confirmProbe);
+    check('⑥ 破坏性确认选项的祖先链无折叠容器（不参与折叠）', cp.chainClean === true, confirmProbe);
+    check('⑥ 破坏性确认选项带 data-destructive-option（结构可判定）', cp.destructiveMarked === true, confirmProbe);
+    check('⑥ 破坏性确认选项不进入「更多选项」池', cp.noneInMorePool === 0, confirmProbe);
     await evaluate(cdp, `window.__v3.testing.setRisk('confirm', 'off'); true`);
 
-    // ── FR-V3-019: hardline → zero allow controls ──────────────────────────
     await evaluate(cdp, `window.__v3.testing.setRisk('hardline', 'force'); true`);
     await sleep(250);
     const hardline = await evaluate(
@@ -367,7 +512,7 @@ async function main() {
           .filter(visible)
           .map((b) => (b.textContent || '').trim());
         const railText = document.getElementById('risk-rail').textContent;
-        return JSON.stringify({ labels, hasAllow: labels.some((l) => /^(允许|放行|允许执行|忽略硬底线|覆盖)$/.test(l)), railText: railText.slice(0, 120) });
+        return JSON.stringify({ labels, hasAllow: labels.some((l) => /^(允许|放行|允许执行|忽略硬底线|覆盖)$/.test(l)), railText: railText.slice(0, 160) });
       })()`,
     );
     const hl = JSON.parse(hardline);
@@ -376,10 +521,32 @@ async function main() {
     await evaluate(cdp, `window.__v3.testing.setRisk('hardline', 'off'); true`);
     await sleep(200);
 
-    // ── ⑥ AC-V3-010: discoverability + reachability ────────────────────────
-    console.log('\n▶ ⑥ AC-V3-010：可发现性（入口文字 + ARIA 成对 + 目标含摘要/计数）+ L1 ≤1 / L2 ≤2');
-    // I5 fix round: re-establish the default fixture so the probe sees the same
-    // state the contract describes (a pending card + all disclosures folded).
+    // ══ ⑦ 豁免子树：零 [data-chrome-control] + 产品自断言 + 注入反证 ═════════
+    console.log('\n▶ ⑦ 豁免子树 S1：`#stream` 零常驻控件 + assertChromeNotInStream 反证');
+    check('⑦ `#stream` 子树零 `[data-chrome-control]`（豁免不得承载常驻控件）', zones.chromeInStream === 0, String(zones.chromeInStream));
+    const s1ok = await evaluate(cdp, `(() => { try { return window.__v3.testing.assertChromeNotInStream(); } catch (e) { return String(e); } })()`);
+    check('⑦ 产品自断言 `assertChromeNotInStream()` 在真实产物上通过', s1ok === true, String(s1ok));
+    const s1fail = await evaluate(
+      cdp,
+      `(() => {
+        const stream = document.getElementById('stream');
+        const probe = document.createElement('button');
+        probe.id = 'l0-s1-probe';
+        probe.setAttribute('data-chrome-control', 'probe');
+        stream.appendChild(probe);
+        let verdict;
+        try { window.__v3.testing.assertChromeNotInStream(); verdict = 'NO-THROW'; }
+        catch (e) { verdict = String(e && e.message ? e.message : e); }
+        probe.remove();
+        return verdict;
+      })()`,
+    );
+    check('⑦ 反证（FAIL 段）：注入 1 个 `[data-chrome-control]` 到 `#stream` ⇒ 自断言必须抛错', typeof s1fail === 'string' && s1fail.includes('#stream 子树内含 1 个'), String(s1fail));
+    const s1restored = await evaluate(cdp, `(() => { try { return window.__v3.testing.assertChromeNotInStream(); } catch (e) { return String(e); } })()`);
+    check('⑦ 反证（还原段）：移除注入后自断言必须再次通过', s1restored === true, String(s1restored));
+
+    // ══ ⑧ AC-V3-010：可发现性 + ARIA 成对 + per-target ══════════════════════
+    console.log('\n▶ ⑧ AC-V3-010：可发现性（入口文字 + ARIA 成对 + 目标含摘要/计数）');
     await resetFixture(cdp);
     const disclosure = await evaluate(
       cdp,
@@ -405,109 +572,59 @@ async function main() {
       })()`,
     );
     const entries = JSON.parse(disclosure);
-    // The check may not be narrowed to a hand-picked subset (the old version
-    // filtered to 4 L0 triggers, which hid the four `#l2-entry-*` buttons that had
-    // `aria-controls` but no `aria-expanded`). Every `[aria-controls]` element in
-    // the real product must pass; the list below is a *completeness* assertion
-    // (a superset check), never a filter.
     const EXPECTED_TRIGGERS = [
-      'l0-status-band',
       'l0-more',
       'l0-ref-toggle',
-      'l0-statusbar',
       'l2-entry-tree',
       'l2-entry-commands',
       'l2-entry-audit',
       'l2-entry-settings',
       'tree-fab',
-      'ask-other',
+      'l1-consequences-toggle',
+      'l1-local-tree-toggle',
+      'l1-history-toggle',
+      'l1-receipt-toggle',
+      'l1-gestures-toggle',
     ];
-    check('⑥ 遍历范围 = 全部 [aria-controls] 元素（未被白名单缩窄）', entries.length >= EXPECTED_TRIGGERS.length, `实测 ${entries.length} 个：${entries.map((e) => e.trigger).join(', ')}`);
-    // I-01 (v3-3 fix round): `aria-controls` must point at the trigger's **own** target.
-    // The runtime used to write `view-host` onto all four L2 entries, so
-    // `#l2-entry-settings` claimed to control the view host (hidden while the settings
-    // view is open) while `aria-expanded` tracked `#settings-view` — a false pair that
-    // the old check could not see (it only asserted「目标存在」).
-    const ARIA_TARGET_BY_ENTRY = {
-      'l2-entry-tree': 'view-host',
-      'l2-entry-commands': 'view-host',
-      'l2-entry-audit': 'view-host',
-      'l2-entry-settings': 'settings-view',
-    };
+    check('⑧ 遍历范围 = 全部 [aria-controls] 元素（未被白名单缩窄）', entries.length >= EXPECTED_TRIGGERS.length, `实测 ${entries.length} 个：${entries.map((e) => e.trigger).join(', ')}`);
     for (const [trigger, expectedTarget] of Object.entries(ARIA_TARGET_BY_ENTRY)) {
       const entry = entries.find((e) => e.trigger === trigger);
       check(
-        `⑥ ${trigger}：aria-controls 指向**自己的**目标（${expectedTarget}）且该目标存在`,
+        `⑧ ${trigger}：aria-controls 指向**自己的**目标（${expectedTarget}）且该目标存在`,
         entry?.targetId === expectedTarget && entry?.targetExists === true,
         JSON.stringify(entry),
       );
     }
     for (const trigger of EXPECTED_TRIGGERS) {
-      check(`⑥ ${trigger} 在遍历范围内（可见性契约不得被漏检）`, entries.some((e) => e.trigger === trigger), entries.map((e) => e.trigger).join(', '));
+      check(`⑧ ${trigger} 在遍历范围内（可见性契约不得被漏检）`, entries.some((e) => e.trigger === trigger), entries.map((e) => e.trigger).join(', '));
     }
-    // V3-3: the v3-1 skeleton-phase exemption is **REMOVED**, exactly as its
-    // registered `removalCondition` required (ledger `v3SkeletonExemptions`):
-    // `#view-host` now carries the four real views, so it has a readable summary
-    // like every other target and no target is exempt any more. The set is kept as
-    // an explicitly-empty constant (and asserted empty) so a future "temporary"
-    // exemption cannot be reintroduced silently.
-    const SKELETON_EXEMPT_TARGETS = [];
+    const SKELETON_EXEMPT_TARGETS = ['view-host', 'settings-view'];
     check(
-      '⑥ 骨架期豁免集合已按登记条件清空（v3-3 用真实视图填充 #view-host 后不得再豁免）',
-      JSON.stringify(SKELETON_EXEMPT_TARGETS) === JSON.stringify([]),
+      '⑧ 骨架期豁免集合恰为两个 L2 视图宿主（不回退、不扩大）',
+      JSON.stringify(SKELETON_EXEMPT_TARGETS) === JSON.stringify(['view-host', 'settings-view']),
       JSON.stringify(SKELETON_EXEMPT_TARGETS),
     );
     for (const entry of entries) {
-      check(`⑥ ${entry.trigger}：有非空文字标签（禁「只有图标」）`, entry.text.length > 0 || entry.label.length > 0, JSON.stringify(entry));
-      check(`⑥ ${entry.trigger}：aria-expanded + aria-controls 成对`, entry.hasExpanded === true && Boolean(entry.targetId), JSON.stringify(entry));
-      check(`⑥ ${entry.trigger}：aria-controls 指向存在的元素`, entry.targetExists === true, JSON.stringify(entry));
+      check(`⑧ ${entry.trigger}：有非空文字标签（禁「只有图标」）`, entry.text.length > 0 || entry.label.length > 0, JSON.stringify(entry));
+      check(`⑧ ${entry.trigger}：aria-expanded + aria-controls 成对`, entry.hasExpanded === true && Boolean(entry.targetId), JSON.stringify(entry));
+      check(`⑧ ${entry.trigger}：aria-controls 指向存在的元素`, entry.targetExists === true, JSON.stringify(entry));
       if (SKELETON_EXEMPT_TARGETS.includes(entry.targetId)) {
-        // Exempt from "target holds a readable summary", NOT from discoverability:
-        check(`⑥ ${entry.trigger}：骨架期宿主必须默认 hidden`, entry.targetHidden === true, JSON.stringify(entry));
-        check(`⑥ ${entry.trigger}：骨架期豁免下入口必须自带计数/标签（可发现性不豁免）`, entry.countInTarget !== '' || entry.text.length > 0, JSON.stringify(entry));
+        check(`⑧ ${entry.trigger}：L2 视图目标默认 hidden（FR-V3-045 默认零占用）`, entry.targetHidden === true, JSON.stringify(entry));
         continue;
       }
-      check(`⑥ ${entry.trigger}：目标含非空摘要或计数`, entry.summaryInTarget === true || entry.countInTarget !== '', JSON.stringify(entry));
-      // V3-3: the v3-1 exempt branch additionally required the skeleton host to be
-      // `hidden` by default. That requirement is NOT dropped — it is now asserted
-      // for BOTH L2 view targets (FR-V3-045 默认零占用: a view that is resident in
-      // the default state would be a regression no matter how good its summary is).
-      if (entry.targetId === 'view-host' || entry.targetId === 'settings-view') {
-        check(
-          `⑥ ${entry.trigger}：L2 视图目标默认 hidden（FR-V3-045 默认零占用）`,
-          entry.targetHidden === true,
-          JSON.stringify(entry),
-        );
-      }
+      check(`⑧ ${entry.trigger}：目标含非空摘要或计数`, entry.summaryInTarget === true || entry.countInTarget !== '', JSON.stringify(entry));
     }
     const emptyTargets = [...new Set(entries.filter((e) => !e.summaryInTarget && e.countInTarget === '').map((e) => e.targetId))];
     check(
-      '⑥ 空摘要目标集合必须被骨架期豁免集合完全覆盖，且不得超出登记数量（豁免不得扩大）',
+      '⑧ 空摘要目标集合必须被骨架期豁免集合完全覆盖，且不得超出登记数量（豁免不得扩大）',
       emptyTargets.every((id) => SKELETON_EXEMPT_TARGETS.includes(id)) && emptyTargets.length <= SKELETON_EXEMPT_TARGETS.length,
       JSON.stringify(emptyTargets),
     );
 
-    // ── ⑥b FR-V3-015: each of the ≤4 L2 entries must carry a REAL count ──────
-    // Closeout round (validate R1 F6): the old assertion for an exempt *target*
-    // was `countInTarget !== '' || text.length > 0` — a one-of-two disjunction that
-    // is trivially satisfied by any non-empty label, so「≤4 入口**各带计数**」had no
-    // failing assertion at all (`#l2-entry-settings` shipped `data-count="n/a"` and
-    // no digit, and the gate still passed). The count now has to be *derived*: the
-    // digit in the entry's own label, its `data-count` attribute and the L1
-    // one-line status-bar summary all come from the same `l0ViewModel()` values, so
-    // the three must agree — and a missing count must be an explicitly REGISTERED
-    // exemption — V3-3 removed it: `#l2-entry-settings` now derives its count from
-    // the rendered-section registry (`src/ui/settings/sections.ts`), so all four
-    // entries participate in the three-way same-source judgement.
-    const L2_KEYS = ['tree', 'commands', 'audit', 'settings'];
-    /**
-     * V3-3: no L2 entry is exempt any more (the settings count is derived from
-     * `settings/sections.ts#SETTINGS_SECTION_IDS`, cross-checked against the
-     * rendered `.wc-section` set by `test/ui/l2.mjs`). Empty set, asserted empty.
-     */
-    const L2_COUNT_EXEMPT = [];
+    // ══ ⑨ FR-V3-015：四入口计数三处同源 + 内联反证 ══════════════════════════
+    console.log('\n▶ ⑨ FR-V3-015：四入口计数同源（标签 ≡ data-count ≡ 摘要）+ 反证');
     const l2ProbeExpr = `(() => {
-      const entries = ${JSON.stringify(L2_KEYS)}.map((key) => {
+      const entries = ${JSON.stringify(TOOLBAR_ENTRY_KEYS)}.map((key) => {
         const btn = document.getElementById('l2-entry-' + key);
         if (!btn) return { key, missing: true };
         const m = /(\\d+)/.exec(btn.textContent || '');
@@ -517,32 +634,24 @@ async function main() {
           dataCount: btn.getAttribute('data-count'),
           labelCount: m ? Number(m[1]) : null,
           ariaControls: btn.getAttribute('aria-controls'),
+          slot: btn.getAttribute('data-toolbar-slot'),
         };
       });
-      // V3-3: the COUNTS live in the entry panel's own summary line
-      // (#l2-entry-summary); the one-line bar above is deliberately count-free
-      // (its text is part of the measured default tier, and the audit count is a
-      // live number — see view-model.ts#L2_BAR_TEXT). The three-way judgement is
-      // unchanged: entry label ≡ data-count ≡ the summary the panel shows.
       const summaryEl = document.getElementById('l2-entry-summary');
-      const bar = document.getElementById('l0-statusbar-text');
+      const bar = document.getElementById('statusbar-text');
       return JSON.stringify({
         entries,
         summary: summaryEl ? (summaryEl.textContent || '').trim() : '',
         barText: bar ? (bar.textContent || '').trim() : '',
       });
     })()`;
-    /**
-     * The FR-V3-015 judge, as a pure function so the counter-proof below can drive
-     * it with a perturbed snapshot instead of a perturbed product.
-     */
     const l2CountJudge = (l2) => {
       const failures = [];
       const summaryCount = (label) => {
         const m = new RegExp(`${label}\\s*(\\d+)`).exec(l2.summary ?? '');
         return m ? Number(m[1]) : null;
       };
-      if (l2.entries.length !== 4 || l2.entries.some((e) => e.missing === true)) failures.push('L2 入口数 ≠ 4');
+      if (l2.entries.length !== 4 || l2.entries.some((e) => e.missing === true)) failures.push('工具栏入口数 ≠ 4');
       for (const [label, key] of [['树', 'tree'], ['命令', 'commands'], ['审计', 'audit'], ['设置', 'settings']]) {
         const entry = l2.entries.find((e) => e.key === key);
         if (!/^\d+$/.test(String(entry?.dataCount))) failures.push(`${key}: data-count 不是数字（${entry?.dataCount}）`);
@@ -550,57 +659,26 @@ async function main() {
           failures.push(`${key}: 三处不同源（label=${entry?.labelCount} data-count=${entry?.dataCount} summary=${summaryCount(label)}）`);
         }
       }
-      const unCounted = l2.entries.filter((e) => !/^\d+$/.test(String(e.dataCount))).map((e) => e.key);
-      if (!unCounted.every((k) => L2_COUNT_EXEMPT.includes(k)) || unCounted.length > L2_COUNT_EXEMPT.length) {
-        failures.push(`无计数入口超出登记豁免集合：${JSON.stringify(unCounted)}`);
-      }
-      // V3-3 (was the registered `settings-count` exemption): the settings entry
-      // must carry a REAL, numeric count that equals the rendered-section registry
-      // length — the exemption's removal condition, now enforced.
       const settingsCount = Number(l2.entries.find((e) => e.key === 'settings')?.dataCount);
-      if (!Number.isInteger(settingsCount) || settingsCount <= 0) {
-        failures.push(`settings: data-count 必须是可派生的正整数（实测 ${l2.entries.find((e) => e.key === 'settings')?.dataCount}）`);
-      }
+      if (!Number.isInteger(settingsCount) || settingsCount <= 0) failures.push(`settings: data-count 必须是可派生的正整数（实测 ${l2.entries.find((e) => e.key === 'settings')?.dataCount}）`);
       return failures;
     };
     const l2Raw = await evaluate(cdp, l2ProbeExpr);
     const l2Parsed = JSON.parse(l2Raw);
-    // V3-3 (F2/K-1 determinism): the resident one-line bar must carry NO digits —
-    // the audit ring grows while the panel is used, so a count-bearing resident line
-    // would make the density caliber's "one steady state ⇒ identical cells" rule
-    // unprovable. The counts are one interaction away, in the panel summary.
+    check('⑨ 常驻一行状态栏文本不含数字（计数在入口面板摘要内，默认档足迹稳定）', !/\d/.test(l2Parsed.barText ?? ''), JSON.stringify(l2Parsed.barText));
     check(
-      '⑥ 常驻一行状态栏文本不含数字（计数在入口面板摘要内，默认档足迹稳定）',
-      !/\d/.test(l2Parsed.barText ?? ''),
-      JSON.stringify(l2Parsed.barText),
-    );
-    check(
-      '⑥ 入口面板摘要（#l2-entry-summary）确实带着四类计数（不是空的摘要）',
-      /树\s*\d/.test(l2Parsed.summary ?? '') &&
-        /命令\s*\d/.test(l2Parsed.summary ?? '') &&
-        /审计\s*\d/.test(l2Parsed.summary ?? '') &&
-        /设置\s*\d/.test(l2Parsed.summary ?? ''),
+      '⑨ 工具栏摘要（#l2-entry-summary）确实带着四类计数（不是空的摘要）',
+      /树\s*\d/.test(l2Parsed.summary ?? '') && /命令\s*\d/.test(l2Parsed.summary ?? '') && /审计\s*\d/.test(l2Parsed.summary ?? '') && /设置\s*\d/.test(l2Parsed.summary ?? ''),
       JSON.stringify(l2Parsed.summary),
     );
     const l2Failures = l2CountJudge(l2Parsed);
-    check(
-      '⑥ FR-V3-015 ≤4 个 L2 入口**各带真值计数**（入口标签 ≡ data-count ≡ 状态栏摘要，三处同源）',
-      l2Failures.length === 0,
-      `${JSON.stringify(l2Failures)} | ${l2Raw}`,
-    );
-    // 反证（内联，实跑 FAIL → 还原 → PASS）：篡改真 DOM 的 `data-count` → 同一条判据
-    // 必须给出失败；还原后必须再次为空。这证明该判据**不是恒真**（旧判据在同样
-    // 篡改下仍然 PASS —— 因为「计数或标签」二选一被标签满足）。
-    //
-    // ── V3-2 fix round (2026-09-16, ledger V32-S11) — **纯插入，不改判据** ──────
-    // 下面的反证会篡改真实 DOM 并**立刻**复读。在 CPU 争用下它曾与一次**尚未完成
-    // 的重渲染**赛跑（侧栏把常驻计数重新写回，篡改属性在复读前被还原）→ 产生
-    // **负载相关的假红**（`[]`，在 v3-2 修复轮的串行链中实测出现 1 次，单跑 3/3 绿）。
-    // 这里只先等 DOM 静默（有硬上限，绝不挂死），判据本体与断言均未改动/未削弱。
+    check('⑨ FR-V3-015 4 个工具栏入口**各带真值计数**（入口标签 ≡ data-count ≡ 摘要，三处同源）', l2Failures.length === 0, `${JSON.stringify(l2Failures)} | ${l2Raw}`);
+    const slotsOk = l2Parsed.entries.every((e) => e.slot === 'view');
+    check('⑨ 四个工具栏入口的 data-toolbar-slot 全为 view（准入分类单源）', slotsOk === true, JSON.stringify(l2Parsed.entries.map((e) => [e.key, e.slot])));
     await evaluate(
       cdp,
       `new Promise((res) => {
-        const root = document.getElementById('l0-statusbar') ?? document.body;
+        const root = document.getElementById('region-toolbar') ?? document.body;
         let t = null;
         const done = () => { clearTimeout(t); clearTimeout(cap); mo.disconnect(); res(true); };
         const mo = new MutationObserver(() => { clearTimeout(t); t = setTimeout(done, 200); });
@@ -609,161 +687,150 @@ async function main() {
         mo.observe(root, { subtree: true, childList: true, attributes: true, characterData: true });
       })`,
     );
-    // V3-3: the restore value is the entry's OWN pre-tamper value, not a literal
-    // `0` — the v3-1 skeleton shipped zeros, so "restore to 0" used to be the same
-    // thing as "restore to truth". With real derived counts that would silently
-    // turn the restore segment into a second tamper (and it must stay a genuine
-    // restore: read → perturb → restore the captured value → judge empty again).
     const l2Before = JSON.parse(await evaluate(cdp, l2ProbeExpr));
     const l2TrueTreeCount = l2Before.entries.find((e) => e.key === 'tree')?.dataCount ?? '';
     await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', '99'); true`);
     const l2Tampered = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
-    check(
-      '⑥ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出',
-      l2Tampered.some((f) => f.includes('tree')),
-      JSON.stringify(l2Tampered),
-    );
-    check(
-      '⑥ FR-V3-015 反证用的真值确实来自运行期派生（不是 0 / 不是空值）',
-      /^\d+$/.test(String(l2TrueTreeCount)) && Number(l2TrueTreeCount) > 0,
-      `tree data-count=${l2TrueTreeCount} | ${JSON.stringify(l2Before.entries)}`,
-    );
-    await evaluate(
-      cdp,
-      `document.getElementById('l2-entry-tree').setAttribute('data-count', ${JSON.stringify(String(l2TrueTreeCount))}); true`,
-    );
+    check('⑨ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出', l2Tampered.some((f) => f.includes('tree')), JSON.stringify(l2Tampered));
+    check('⑨ FR-V3-015 反证用的真值确实来自运行期派生（不是 0 / 不是空值）', /^\d+$/.test(String(l2TrueTreeCount)) && Number(l2TrueTreeCount) > 0, `tree data-count=${l2TrueTreeCount} | ${JSON.stringify(l2Before.entries)}`);
+    await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', ${JSON.stringify(String(l2TrueTreeCount))}); true`);
     const l2Restored = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
-    check(
-      '⑥ FR-V3-015 反证（还原段）：还原真值后判据必须再次为空',
-      l2Restored.length === 0,
-      JSON.stringify(l2Restored),
-    );
+    check('⑨ FR-V3-015 反证（还原段）：还原真值后判据必须再次为空', l2Restored.length === 0, JSON.stringify(l2Restored));
 
     const reach = await evaluate(
       cdp,
       `(() => {
-        // L1 ≤1：默认态点击一次 #l0-status-band 即展开 #topbar
-        const band = document.getElementById('l0-status-band');
-        band.click();
-        const l1Open = document.getElementById('topbar').hidden === false && band.getAttribute('aria-expanded') === 'true';
-        band.click();
-        const l1Closed = document.getElementById('topbar').hidden === true;
-        // L2 ≤2：状态栏（1）+ 入口（2）→ 视图宿主可见
-        const bar = document.getElementById('l0-statusbar');
-        bar.click();
-        const panelOpen = document.getElementById('l2-entries').hidden === false;
-        document.getElementById('l2-entry-tree').click();
-        const viewOpen = document.getElementById('view-host').hidden === false && document.getElementById('tree-fab').hidden === false;
-        bar.click();
-        return JSON.stringify({ l1Open, l1Closed, panelOpen, viewOpen });
+        const tree = document.getElementById('l2-entry-tree');
+        tree.click();
+        const viewOpen = document.getElementById('view-host').hidden === false && tree.getAttribute('aria-expanded') === 'true';
+        const streamHidden = document.getElementById('stream').hidden === true;
+        const oneVisibleView = [...document.querySelectorAll('[data-l2-view]')].filter((el) => {
+          let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true;
+        }).length;
+        document.getElementById('l2-back').click();
+        const backOk = document.getElementById('view-host').hidden === true && document.getElementById('stream').hidden === false;
+        return JSON.stringify({ viewOpen, streamHidden, oneVisibleView, backOk, focusAfterBack: document.activeElement?.id ?? null });
       })()`,
     );
     const rl = JSON.parse(reach);
-    check('⑥ L1 ≤1 次交互可达（一次点击展开，再点收起）', rl.l1Open === true && rl.l1Closed === true, reach);
-    check('⑥ L2 ≤2 次交互可达（状态栏 → 入口 → 视图宿主可见）', rl.panelOpen === true && rl.viewOpen === true, reach);
+    check('⑨ L2 ≤1 次交互可达（点工具栏入口即进入视图宿主）', rl.viewOpen === true && rl.streamHidden === true, reach);
+    check('⑨ `#stream` ↔ `#view-host` 互斥：恰一个 [data-l2-view] 容器可见', rl.oneVisibleView === 1, reach);
+    check('⑨ 返回后 `#stream` 复原且 `#view-host` 收起（视图替换不叠加）', rl.backOk === true, reach);
+    check('⑨ 返回后焦点回到工具栏入口（回焦不复位到 body）', typeof rl.focusAfterBack === 'string' && rl.focusAfterBack.startsWith('l2-entry-'), reach);
     await evaluate(cdp, `window.__v3.testing.collapseAll(); true`);
 
-    // ── ⑦ AC-V3-021: 320 / 400 resident sets identical + zero overflow ─────
-    console.log('\n▶ ⑦ AC-V3-021：320/400 常驻元素集合相等 + 零水平溢出');
-    // ⑦/⑧ measure the DEFAULT tier: re-establish the default fixture (the risk
-    // section above deliberately revoked the origin to make「未授权」coherent).
+    // ══ ⑩ AC-V3-021：320/400 常驻集合相等 + 零溢出 ═══════════════════════════
+    console.log('\n▶ ⑩ AC-V3-021：320/400 常驻元素集合相等 + 零水平溢出');
     await resetFixture(cdp);
     const sets = {};
     for (const vp of [400, 320]) {
       await setViewport(cdp, vp, VIEWPORT_HEIGHT);
       await sleep(300);
       sets[vp] = await evaluate(cdp, residentProbe);
-      check(`⑦ ${vp}px 文档级零水平溢出`, sets[vp].overflowX === 0, `overflowX=${sets[vp].overflowX}`);
+      check(`⑩ ${vp}px 文档级零水平溢出`, sets[vp].overflowX === 0, `overflowX=${sets[vp].overflowX}`);
     }
     check(
-      '⑦ 320px 常驻可见元素 id 集合 == 400px（320 下不删任何常驻元素）',
+      '⑩ 320px 常驻可见元素 id 集合 == 400px（320 下不删任何常驻元素）',
       JSON.stringify(sets[320].visible) === JSON.stringify(sets[400].visible),
       `only400=${sets[400].visible.filter((i) => !sets[320].visible.includes(i)).join(',')} only320=${sets[320].visible.filter((i) => !sets[400].visible.includes(i)).join(',')}`,
     );
     check(
-      '⑦ 320px 下五个常驻分区元素仍全部存在（含风险位与状态栏）',
-      ['risk-rail', 'panel-top', 'l0-decision', 'l0-statusbar', 'panel-bottom'].every((id) => sets[320].all.includes(id)),
-      JSON.stringify(sets[320].all.filter((i) => ['risk-rail', 'panel-top', 'l0-decision', 'l0-statusbar', 'panel-bottom'].includes(i))),
+      '⑩ 320px 下三区 + 风险位 + 决策卡 + 入口仍在文档中',
+      ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l0-decision', 'l2-entries'].every((id) => sets[320].all.includes(id)),
+      JSON.stringify(['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l0-decision', 'l2-entries'].filter((i) => !sets[320].all.includes(i))),
     );
 
-    // ── ⑧ geometry contract (enhanced replacement for the v2 insight metrics) ──
-    console.log('\n▶ ⑧ 几何契约：四区两两不重叠 + #log 唯一滚动 + composer 贴底不遮挡');
+    // ══ ⑪ 几何：三区不重叠 + 唯一滚动 + 流区占比 + composer hidden ═══════════
+    console.log('\n▶ ⑪ 几何：三区两两不重叠 + #stream 唯一滚动 + 流区占比 ≥65% + 法四');
     await setViewport(cdp, 400, VIEWPORT_HEIGHT);
     await sleep(300);
-    const geoHidden = await evaluate(cdp, geometryProbe);
-    check('⑧ L0 四常驻区两两交面积 = 0（6 组）', geoHidden.pairs.every((a) => a === 0), JSON.stringify(geoHidden.pairs));
-    // I13: `length <= 1 && (arr[0] ?? 'log') === 'log'` also passed on an EMPTY
-    // array (the only scroller having vanished counted as success — a vacuum PASS).
-    // The non-vacuous form: (a) the *idle* census must contain no foreign scroller,
-    // (b) with real overflow inside `#log`, the census must be exactly `['log']`.
-    check(
-      '⑧ 静止态面板内不得存在非 #log 的滚动容器',
-      geoHidden.panelScrollers.every((id) => id === 'log'),
-      JSON.stringify(geoHidden.panelScrollers),
-    );
+    const geo = await evaluate(cdp, geometryProbe);
+    check('⑪ 三区两两交面积 = 0（3 组）', geo.pairs.every((a) => a === 0), JSON.stringify(geo.pairs));
+    check('⑪ 静止态 `#region-stream` 内不得存在非 #stream 的滚动容器', geo.panelScrollers.every((id) => id === 'stream'), JSON.stringify(geo.panelScrollers));
     const scrollerProof = await evaluate(
       cdp,
       `(() => {
-        const log = document.getElementById('log');
+        const stream = document.getElementById('stream');
         const filler = document.createElement('div');
         filler.id = 'l0-scroller-probe';
         filler.textContent = 'overflow-probe';
-        // #log is a column flex container: a default flex item would be SHRUNK back
-        // to the free space (no overflow -> no scroller), so the probe item must be
-        // non-shrinkable to actually overflow the box.
         filler.style.flex = '0 0 3000px';
         filler.style.height = '3000px';
-        log.appendChild(filler);
-        const census = [...document.querySelectorAll('#panel-main *, #panel-main')]
+        stream.appendChild(filler);
+        const census = [...document.querySelectorAll('#region-stream *, #region-stream')]
           .filter((el) => {
             const style = getComputedStyle(el);
             return (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
           })
           .map((el) => el.id || el.className);
-        const logScrolls = log.scrollHeight > log.clientHeight;
+        const scrolls = stream.scrollHeight > stream.clientHeight;
         filler.remove();
-        return JSON.stringify({ census, logScrolls });
+        return JSON.stringify({ census, scrolls });
       })()`,
     );
     const sp = JSON.parse(scrollerProof);
-    check('⑧ 注入溢出后 #log 确实可滚（唯一的面板级滚动容器不是空集）', sp.logScrolls === true, scrollerProof);
+    check('⑪ 注入溢出后 `#stream` 确实可滚（唯一的面板级滚动容器不是空集）', sp.scrolls === true, scrollerProof);
+    check('⑪ 注入溢出后面板级滚动容器恰为 1 个且是 #stream', sp.census.length === 1 && sp.census[0] === 'stream', scrollerProof);
+    check('⑪ `#stream` flex-grow = 1（flex 填充，非硬编码高度）', geo.streamFlexGrow === '1', geo.streamFlexGrow);
+    check(`⑪ 流区高度占比 ≥ ${STREAM_HEIGHT_RATIO_MIN}（v4 取代 v3「#log ≥589px」像素锚）`, geo.streamRatio >= STREAM_HEIGHT_RATIO_MIN, `ratio=${Number(geo.streamRatio.toFixed(4))} stream=${geo.streamHeight}px ${JSON.stringify(geo.zoneHeights)}`);
+    check('⑪ 流区高度占比 > 0.5（非空转下界：断言不是恒真）', geo.streamRatio > 0.5, String(geo.streamRatio));
+    const baselineRatioFloor = existsSync(BASELINE_JSON)
+      ? JSON.parse(readFileSync(BASELINE_JSON, 'utf8')).logClientHeightFloor ?? null
+      : null;
     check(
-      '⑧ 注入溢出后面板级滚动容器恰为 1 个且是 #log',
-      sp.census.length === 1 && sp.census[0] === 'log',
-      scrollerProof,
+      '⑪ v4 密度基线存在且登记了流区比例下界（口径单源，非本文件另造一个）',
+      typeof baselineRatioFloor === 'number' && baselineRatioFloor > 0,
+      JSON.stringify(baselineRatioFloor),
     );
-    check('⑧ #log flex-grow = 1（flex 填充，非硬编码高度）', geoHidden.logFlexGrow === '1', geoHidden.logFlexGrow);
-    const baselineFloor = existsSync(BASELINE_JSON)
-      ? JSON.parse(readFileSync(BASELINE_JSON, 'utf8')).logClientHeightFloor ?? 0
-      : 0;
-    const floor = Math.max(LOG_MIN_HEIGHT_V1, baselineFloor);
-    console.log(`    L0 几何：${JSON.stringify(geoHidden.zoneHeights)} | 展开态 ${JSON.stringify(geoHidden.expanded)}`);
-    check(
-      `⑧ #log clientHeight ≥ ${floor}px（v1 下界与首轮实测下界取严者）`,
-      geoHidden.logClientHeight >= floor,
-      `${geoHidden.logClientHeight}px（基线 ${baselineFloor}）| zones=${JSON.stringify(geoHidden.zoneHeights)} | expanded=${JSON.stringify(geoHidden.expanded)}`,
-    );
-    await evaluate(cdp, `window.__v3.testing.revealFallback(); true`);
-    await sleep(350);
-    const geoRevealed = await evaluate(cdp, geometryProbe);
-    check('⑧ 兜底展开态 #composer 贴底（gap ∈ [0, +12]）', geoRevealed.composerGapToBottom >= 0 && geoRevealed.composerGapToBottom <= 12, `${geoRevealed.composerGapToBottom}px`);
-    check('⑧ 兜底展开态 #composer 不被常驻区遮挡', geoRevealed.composerTop >= geoRevealed.zonesBottom - 1, `composerTop=${geoRevealed.composerTop} zonesBottom=${geoRevealed.zonesBottom}`);
-    check('⑧ 兜底展开态 #composer 与 #log 不重叠', geoRevealed.composerOverlapsLog === false, JSON.stringify(geoRevealed));
-    const fallbackState = await evaluate(
+    check('⑪ 法四：默认屏 `#composer` 存在且 `hidden === true`', geo.composerHidden === true, JSON.stringify(geo.composerRail));
+    const revealed = await evaluate(
       cdp,
-      `JSON.stringify({ fallback: document.getElementById('ask-fallback').hidden, composer: document.getElementById('composer').hidden, input: !document.getElementById('input').disabled })`,
+      `(() => {
+        window.__v3.testing.revealFallback();
+        const composer = document.getElementById('composer');
+        const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+        const inStream = Boolean(document.getElementById('stream')?.contains(composer));
+        const readOnlyPanel = document.querySelectorAll('#region-toolbar input, #region-statusbar input, #region-toolbar textarea, #region-statusbar textarea').length;
+        return { fallback: document.getElementById('ask-fallback').hidden, composer: composer.hidden, visible: visible(composer), inStream, readOnlyPanel };
+      })()`,
     );
-    check('⑧ 兜底展开后 #ask-fallback 与 #composer 均可见且输入可用', fallbackState === '{"fallback":false,"composer":false,"input":true}', fallbackState);
+    check('⑪ 兜底展开后 `#ask-fallback` 与 `#composer` 均可见且输入可用', revealed.fallback === false && revealed.composer === false && revealed.visible === true, JSON.stringify(revealed));
+    check('⑪ `#composer` 的常驻位置是流内占位宿主（工具栏/状态栏零输入框 ⇒ 法四）', revealed.inStream === true && revealed.readOnlyPanel === 0, JSON.stringify(revealed));
     await evaluate(cdp, `window.__v3.testing.hideFallback(); true`);
     await sleep(250);
     const collapsedAgain = await evaluate(
       cdp,
       `JSON.stringify({ fallback: document.getElementById('ask-fallback').hidden, composer: document.getElementById('composer').hidden })`,
     );
-    check('⑧ 收起兜底后两者回到 hidden（FR-V3-012）', collapsedAgain === '{"fallback":true,"composer":true}', collapsedAgain);
+    check('⑪ 收起兜底后两者回到 hidden（FR-V3-012）', collapsedAgain === '{"fallback":true,"composer":true}', collapsedAgain);
 
-    // ── ⑨ both themes readable, never colour-only ─────────────────────────
-    console.log('\n▶ ⑨ 明暗双主题：状态可读且不只靠颜色');
+    // ══ ⑫ 工具栏准入反证：第 6 个可点必须被拦（in-gate 形态） ═══════════════
+    console.log('\n▶ ⑫ 工具栏准入反证：#stream 注入常驻控件必被自断言拦截（RP-V4-06）');
+    const admitProbe = await evaluate(
+      cdp,
+      `(() => {
+        const bar = document.getElementById('region-toolbar');
+        const btn = document.createElement('button');
+        btn.id = 'l0-admission-probe';
+        btn.setAttribute('data-toolbar-slot', 'view');
+        bar.appendChild(btn);
+        const countAfter = (() => {
+          const all = [...bar.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')];
+          return all.filter((el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; }).length;
+        })();
+        btn.remove();
+        const countBack = (() => {
+          const all = [...bar.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')];
+          return all.filter((el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; }).length;
+        })();
+        return { countAfter, countBack };
+      })()`,
+    );
+    check('⑫ 反证（FAIL 段）：静默第 6 个可点 ⇒ 可点数必须变成 6（判据能看见它）', admitProbe.countAfter === 6, JSON.stringify(admitProbe));
+    check('⑫ 反证（还原段）：移除后回到恰 5', admitProbe.countBack === 5, JSON.stringify(admitProbe));
+
+    // ══ ⑬ 明暗双主题：可读且不只靠颜色 ═════════════════════════════════════════
+    console.log('\n▶ ⑬ 明暗双主题：状态可读且不只靠颜色 + 主题三态契约');
     const THEME_TOKENS = ['--risk-bg', '--badge-bg', '--l0-band-bg', '--l0-rail-bg', '--ok-badge-bg'];
     const themeData = {};
     for (const theme of ['light', 'dark']) {
@@ -782,8 +849,6 @@ async function main() {
           const rootStyle = getComputedStyle(document.documentElement);
           const tokens = {};
           for (const name of ${JSON.stringify(THEME_TOKENS)}) tokens[name] = rootStyle.getPropertyValue(name).trim();
-          // "not colour-only": strip every inline paint property, then re-read the
-          // three channels — text / badge / icon must survive without any colour.
           const survivors = (() => {
             if (!row) return null;
             const prev = ['color', 'background', 'backgroundColor', 'borderColor'].map((p) => [p, row.style[p]]);
@@ -796,6 +861,7 @@ async function main() {
             for (const [p, v] of prev) row.style[p] = v;
             return out;
           })();
+          const themeButton = document.getElementById('theme-toggle');
           return JSON.stringify({
             text, badge, hasIcon: Boolean(row.querySelector('.risk-icon')),
             color: style ? style.color : '',
@@ -804,59 +870,68 @@ async function main() {
             badgeBackground: badgeStyle ? badgeStyle.backgroundColor : '',
             tokens,
             survivors,
-            badges: [...document.querySelectorAll('#l0-status-band .l0-band-badge, #risk-rail .risk-badge')].length,
+            themeLabel: (themeButton?.textContent ?? '').trim(),
+            themeState: themeButton?.getAttribute('data-theme-state') ?? null,
+            ariaPressed: themeButton?.getAttribute('aria-pressed') ?? null,
           });
         })()`,
       );
       const tp = JSON.parse(themeProbe);
       themeData[theme] = tp;
-      check(`⑨ ${theme} 主题：风险行文字非空（不只靠颜色）`, tp.text.length > 0, themeProbe);
-      check(`⑨ ${theme} 主题：风险行徽标 + 图标齐备`, tp.badge.length > 0 && tp.hasIcon === true, themeProbe);
-      check(`⑨ ${theme} 主题：文字颜色与背景均解析成功`, tp.color.length > 0 && tp.background.length > 0, themeProbe);
-      // I12: the old assertions only checked "the computed string is non-empty",
-      // which passes even if the two themes paint identically (i.e. the dark
-      // tokens are dead). Assert the theme tokens really resolve AND really differ.
+      check(`⑬ ${theme} 主题：风险行文字非空（不只靠颜色）`, tp.text.length > 0, themeProbe);
+      check(`⑬ ${theme} 主题：风险行徽标 + 图标齐备`, tp.badge.length > 0 && tp.hasIcon === true, themeProbe);
+      check(`⑬ ${theme} 主题：文字颜色与背景均解析成功`, tp.color.length > 0 && tp.background.length > 0, themeProbe);
       for (const token of THEME_TOKENS) {
-        check(`⑨ ${theme} 主题：语义 token ${token} 解析为非空值`, (tp.tokens[token] ?? '').length > 0, `${token}=${JSON.stringify(tp.tokens[token])}`);
+        check(`⑬ ${theme} 主题：语义 token ${token} 解析为非空值`, (tp.tokens[token] ?? '').length > 0, `${token}=${JSON.stringify(tp.tokens[token])}`);
       }
-      check(
-        `⑨ ${theme} 主题：去掉颜色后三通道仍可读（不只靠颜色）`,
-        tp.survivors?.text === true && tp.survivors?.badge === true && tp.survivors?.icon === true,
-        JSON.stringify(tp.survivors),
-      );
+      check(`⑬ ${theme} 主题：去掉颜色后三通道仍可读（不只靠颜色）`, tp.survivors?.text === true && tp.survivors?.badge === true && tp.survivors?.icon === true, JSON.stringify(tp.survivors));
+      check(`⑬ ${theme} 主题：主题按钮三通道（可见文案 + data-theme-state + aria-pressed）`, tp.themeLabel.length > 0 && (tp.themeState === 'auto' || tp.themeState === 'light' || tp.themeState === 'dark') && (tp.ariaPressed === 'true' || tp.ariaPressed === 'false'), JSON.stringify([tp.themeLabel, tp.themeState, tp.ariaPressed]));
       await evaluate(cdp, `window.__v3.testing.setRisk('hardline', 'off'); true`);
       await sleep(150);
     }
     check(
-      '⑨ 明暗两套的主题 token 值确实不同（暗色不是死 token；非同一套颜色）',
+      '⑬ 明暗两套的主题 token 值确实不同（暗色不是死 token；非同一套颜色）',
       THEME_TOKENS.every((token) => themeData.light.tokens[token] !== themeData.dark.tokens[token]),
-      JSON.stringify({
-        light: themeData.light.tokens,
-        dark: themeData.dark.tokens,
-      }),
+      JSON.stringify({ light: themeData.light.tokens, dark: themeData.dark.tokens }),
     );
     check(
-      '⑨ 明暗两套的风险行文字 / 行背景 / 徽标文字色确实不同（主题切换真实生效）',
-      themeData.light.color !== themeData.dark.color &&
-        themeData.light.background !== themeData.dark.background &&
-        themeData.light.badgeColor !== themeData.dark.badgeColor,
-      JSON.stringify({
-        light: [themeData.light.color, themeData.light.background, themeData.light.badgeColor, themeData.light.badgeBackground],
-        dark: [themeData.dark.color, themeData.dark.background, themeData.dark.badgeColor, themeData.dark.badgeBackground],
-      }),
+      '⑬ 明暗两套的风险行文字 / 行背景 / 徽标文字色确实不同（主题切换真实生效）',
+      themeData.light.color !== themeData.dark.color && themeData.light.background !== themeData.dark.background && themeData.light.badgeColor !== themeData.dark.badgeColor,
+      JSON.stringify({ light: [themeData.light.color, themeData.light.background, themeData.light.badgeColor], dark: [themeData.dark.color, themeData.dark.background, themeData.dark.badgeColor] }),
     );
-    // The badge paint is deliberately transparent in both themes (it inherits the
-    // row background), so it is *registered* as a diagnostic rather than asserted
-    // to differ — what must differ is its text colour (above) and the row paint.
     check(
-      '⑨ 徽标底色为继承（两主题均透明）——不得因此判定主题未生效（登记项）',
+      '⑬ 徽标底色为继承（两主题均透明）——不得因此判定主题未生效（登记项）',
       themeData.light.badgeBackground === 'rgba(0, 0, 0, 0)' && themeData.dark.badgeBackground === 'rgba(0, 0, 0, 0)',
       JSON.stringify([themeData.light.badgeBackground, themeData.dark.badgeBackground]),
     );
+    // ── 主题三态契约：auto → light → dark → auto（真实点击，写 `documentElement`）──
     await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+    const themeCycle = await evaluate(
+      cdp,
+      `(() => {
+        const btn = document.getElementById('theme-toggle');
+        const read = () => ({ state: window.__v3.testing.themeState(), attr: document.documentElement.getAttribute('data-theme'), label: btn.textContent.trim() });
+        const seq = [];
+        // 归位到 auto（未写 data-theme）后按 FR-CHAT-011 走完一整圈
+        while (window.__v3.testing.themeState() !== 'auto') btn.click();
+        seq.push(read());
+        for (let i = 0; i < 3; i += 1) { btn.click(); seq.push(read()); }
+        return seq;
+      })()`,
+    );
+    check('⑬ 主题三态循环 = auto → light → dark → auto（回到起点，无第四态）', themeCycle.map((s) => s.state).join('→') === 'auto→light→dark→auto', JSON.stringify(themeCycle.map((s) => s.state)));
+    check('⑬ auto 态不写 `data-theme`（交给 prefers-color-scheme 决定）', themeCycle[0].attr === null, JSON.stringify(themeCycle[0]));
+    check('⑬ light / dark 态分别写 `data-theme="light"` / `"dark"`', themeCycle[1].attr === 'light' && themeCycle[2].attr === 'dark', JSON.stringify([themeCycle[1].attr, themeCycle[2].attr]));
 
     check('无未捕获页面异常（渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();
+
+    // ══ ⑭ 计数守恒（D-005 只增） ═════════════════════════════════════════════
+    const runtime = counts().passes;
+    const selfSource = readFileSync(new URL('./l0.mjs', import.meta.url), 'utf8');
+    const staticCount = (selfSource.match(/\bcheck\(/g) ?? []).length;
+    check(`⑭ 运行期断言计数 ≥ ${L0_RUNTIME_FLOOR}（D-005 l0 下界）`, runtime >= L0_RUNTIME_FLOOR, `runtime=${runtime}`);
+    check(`⑭ 静态 check( 计数 ≥ ${L0_STATIC_FLOOR}（v3GateFloors 口径：整文件重写后只增不减）`, staticCount >= L0_STATIC_FLOOR, `static=${staticCount}`);
   } finally {
     chrome.kill('SIGKILL');
   }

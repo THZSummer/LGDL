@@ -12,11 +12,10 @@
  *   → 发送按钮可用 → 输入 `11111` 跑通一轮对话。
  *
  * ── 两处如实披露（不是静默降级） ─────────────────────────────────────────────
- * ① **无法脚本触发 `chrome.action.onClicked`**：Chrome 没有暴露程序化点击工具栏图标的
- *    API。本脚本改用与 `onClicked` **同一个 `bindTab()`** 的等价绑定消息（`rebind`），
- *    并另行**实时断言**修复后的关键运行时事实：`openPanelOnActionClick === false`
- *    （这是让 `onClicked` 能触发的根因修复）+ `chrome.sidePanel.open` 可用（Chrome 116+）。
- *    图标点击→绑定 的 wiring 由 `test/binding-wiring.test.ts` 静态钉住。
+ * ① **无法脚本触发 `chrome.action.onClicked`**：Chrome 未暴露程序化点击工具栏图标 API。
+ *    改用与 `onClicked` 同一 `bindTab()` 的等价绑定消息（`rebind`），并实时断言修复后的
+ *    关键事实：`openPanelOnActionClick === false`（根因修复）+ `chrome.sidePanel.open` 可用。
+ *    图标点击→绑定的 wiring 由 `test/binding-wiring.test.ts` 静态钉住。
  * ② **headless 无法合成原生权限弹窗**：`chrome.permissions.request` 对**未授权**的
  *    optional host 会一直 pending（阶段 0 用 4s race 如实记录为 TIMEOUT）。因此主链在
  *    临时 dist 副本里把 `http://localhost:5173/*` 预先加入 `host_permissions`（**JS
@@ -61,10 +60,7 @@ const v3OpenStatusDetails = async (page) => {
  * short viewport and break unrelated later assertions, so every pre-step closes
  * what it opened.
  */
-const v3Collapse = async (page) => {
-  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.collapseAll(); true');
-  await sleep(200);
-};
+const v3Collapse = (page) => v3CollapseV4(page);
 const revealFallbackInput = async (page) => {
   await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.revealFallback(); true');
   await sleep(300);
@@ -115,7 +111,8 @@ function registerContext(name, cdp) {
   diagnosticContexts.set(name, cdp);
 }
 
-const DIAG_SELECTORS = ['tree-fab', 'tree-drawer', 'settings-view', 'panel-main', 'status', 'log', 'composer', 'tree-breadcrumb'];
+// V4-1 re-anchor（唯一 id 重命名）：#log → #stream；#panel-main → #region-stream
+const DIAG_SELECTORS = ['tree-fab', 'tree-drawer', 'settings-view', 'region-stream', 'status', 'stream', 'composer', 'tree-breadcrumb'];
 
 async function captureRuntimeSummary() {
   const out = {};
@@ -954,10 +951,11 @@ async function phase1(mock) {
     // T4: explicit readiness wait for the settings entry before clicking (so the
     // click lands on a wired control under load); the assertion below is unchanged.
     await waitFor(ext, `document.getElementById('open-settings') ? '1' : ''`, 60, 150);
-    // V3-1 pre-step (registered): #open-settings is an L1 entry now.
+    // V3-1 pre-step (registered): #open-settings is an L1 entry now. V4-1: the
+    // management surface IS #settings-view — nothing left to fold while keeping it.
+    // (v3 folded #topbar only)
     await v3OpenStatusDetails(ext);
     await realClick(ext, '#open-settings');
-    await v3Collapse(ext);
     const settingsView = await waitFor(
       ext,
       `(() => {
@@ -968,7 +966,7 @@ async function phase1(mock) {
         const sections = ['settings-llm','settings-auto-auth','settings-tabs','settings-sessions','settings-diagnostics','settings-compliance','settings-migration'];
         return JSON.stringify({
           url: location.href,
-          chatHidden: getComputedStyle(document.getElementById('panel-main')).display === 'none',
+          chatHidden: getComputedStyle(document.getElementById('region-stream')).display === 'none',
           sections: sections.every((id) => !!document.getElementById(id)),
           provider: provider.value,
           providerOptions: provider.options.length,
@@ -1019,7 +1017,7 @@ async function phase1(mock) {
     await realClick(ext, '#settings-back');
     const backToChat = await waitFor(
       ext,
-      `(() => { const v = document.getElementById('settings-view'); return v && !v.classList.contains('show') && getComputedStyle(document.getElementById('panel-main')).display !== 'none' ? 'chat' : ''; })()`,
+      `(() => { const v = document.getElementById('settings-view'); return v && !v.classList.contains('show') && getComputedStyle(document.getElementById('region-stream')).display !== 'none' ? 'chat' : ''; })()`,
       40,
       200,
     );
@@ -1081,7 +1079,7 @@ async function phase1(mock) {
     const away = await evaluate(
       ext,
       `(() => {
-        const log = document.getElementById('log');
+        const log = document.getElementById('stream');
         log.scrollTop = 0; log.dispatchEvent(new Event('scroll'));
         return JSON.stringify({
           scrollable: log.scrollHeight > log.clientHeight + 100,
@@ -1099,7 +1097,7 @@ async function phase1(mock) {
     const pinned = await waitFor(
       ext,
       `(() => {
-        const log = document.getElementById('log');
+        const log = document.getElementById('stream');
         const d = Math.round(log.scrollHeight - log.scrollTop - log.clientHeight);
         return d <= 48 && !document.getElementById('scroll-bottom').classList.contains('show') ? String(d) : '';
       })()`,
@@ -2298,6 +2296,34 @@ async function phaseAutoProbe() {
     await rm(chromeWork, { recursive: true, force: true }).catch(() => {});
     await rm(work, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+/**
+ * V4-1 -- the v3「打开 L1 管理面 → 折叠回默认屏」配对在 v4 的等价实现。
+ *
+ * v3 的 `#topbar`（授权 / 撤销 / 会话 / 分组 / LLM 测试）是**可折叠 L1 层**，一次
+ * `collapseAll()` 就把界面还原成默认屏。v4-1（ADR-V4-017 法则六）把这批管理操作整体
+ * 迁入 `#settings-view`「站点与授权」—— 管理面本身**就是一个 L2 视图**，而
+ * `COLLAPSIBLE_TARGETS` 不含视图。于是「折叠」必须显式地**离开视图**：`#stream` 是唯一
+ * 聊天面，而确认卡（`#confirm`）挂在它的决策宿主里 —— 视图不退出时 `#stream` 仍
+ * `hidden`，卡片的真实点击（CDP 坐标）落到 (0,0)，确认永远解不开。
+ *
+ * 因此：折叠白名单照旧，另加「退出当前 L2 视图」一步（仅当确有视图打开），
+ * 语义 = v3 的「还原默认屏」，强度不降。
+ */
+function v3CollapseV4(page) {
+  return (async () => {
+    await evaluate(page, `(() => {
+      const t = window.__v3 && window.__v3.testing;
+      if (t) t.collapseAll();
+      const sv = document.getElementById('settings-view');
+      const vh = document.getElementById('view-host');
+      if (sv && sv.hidden === false) { const b = document.getElementById('settings-back'); if (b) b.click(); }
+      else if (vh && vh.hidden === false) { const b = document.getElementById('l2-back'); if (b) b.click(); }
+      return true;
+    })()`);
+    await sleep(250);
+  })();
 }
 
 async function main() {

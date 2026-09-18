@@ -48,13 +48,20 @@ import {
 const LEDGER = new URL('../../docs/v3-supersession-ledger.json', import.meta.url);
 
 function ledgerEntryIds(): Set<string> {
-  const raw = JSON.parse(readFileSync(LEDGER, 'utf8')) as {
-    entries: Array<{ id: string }>;
-    modifiedRanges: Array<{ oldId: string }>;
+  // V4-1（双台账）：v4 取代台账同样是合法登记来源（`docs/v4-supersession-ledger.json`
+  // 的 entries/modifiedRanges）。判据方向不变：引用必须**真的存在**，不得悬空。
+  const read = (url: URL) => {
+    const raw = JSON.parse(readFileSync(url, 'utf8')) as {
+      entries: Array<{ id: string }>;
+      modifiedRanges: Array<{ oldId: string }>;
+    };
+    const out = new Set<string>();
+    for (const e of raw.entries) out.add(e.id);
+    for (const m of raw.modifiedRanges) out.add(m.oldId);
+    return out;
   };
-  const ids = new Set<string>();
-  for (const e of raw.entries) ids.add(e.id);
-  for (const m of raw.modifiedRanges) ids.add(m.oldId);
+  const ids = read(LEDGER);
+  for (const id of read(new URL('../../docs/v4-supersession-ledger.json', import.meta.url))) ids.add(id);
   return ids;
 }
 
@@ -185,7 +192,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // pick-input +724 / ref-store +256 / chat-state +220 / view-model +162 = +3,978）⇒ 67,552 → 71,530。
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
-  assert.equal(b.deltaBytes, 79_877);
+  assert.equal(b.deltaBytes, 90_094);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -209,11 +216,12 @@ test('V3-VOL-1 ③ growth: every new/wiring row cites the requirement that force
     if (row.kind === 'new-required-module') {
       assert.equal(row.beforeBytes, null, `${row.module}: 新必需模块在 v3-1 树中必须不存在`);
       assert.ok(row.deltaBytes > 0, `${row.module}: 新必需模块必须贡献正字节`);
-      assert.match(row.requiredBy, /FR-V3-0\d\d|NFR-V3-0\d\d/, `${row.module}: 必须引到 FR/NFR`);
+      // V4-1：引用面放宽到 v4 的 FR-CHAT/NFR-CHAT（方向不变 —— 仍必须引到一条 FR/NFR，不得是空话）。
+      assert.match(row.requiredBy, /FR-(V3|CHAT)-\d\d\d|NFR-(V3|CHAT)-\d\d\d/, `${row.module}: 必须引到 FR/NFR`);
     }
     if (row.kind === 'wiring') {
       assert.ok(row.beforeBytes !== null && row.beforeBytes > 0, `${row.module}: 接线模块必须两轮都存在`);
-      assert.match(row.requiredBy, /FR-V3-0\d\d|NFR-V3-0\d\d/, `${row.module}: 必须引到 FR/NFR`);
+      assert.match(row.requiredBy, /FR-(V3|CHAT)-\d\d\d|NFR-(V3|CHAT)-\d\d\d/, `${row.module}: 必须引到 FR/NFR`);
     }
     if (row.kind === 'attribution-shift') {
       assert.match(row.requiredBy, /源码未改/, `${row.module}: 位移行必须说明源码未改`);
@@ -298,13 +306,17 @@ test('V3-VOL-1 ③ growth: the real esbuild metafile agrees with the recorded br
 // ── ④ directional guard (>15% over two consecutive rounds ⇒ report) ─────────
 
 test('V3-VOL-1 ④ directional guard: two consecutive feature rounds >15% MUST raise a reportable alert', () => {
-  const verdict = evaluateConsecutiveReRegistrationGrowth();
+  // V4-1：守卫按 **Feature 作用域**判定（v4-chat 是另一个 Feature，不能把它的轮次并进
+  // v3-ui 的「连续两轮」）。v3-ui 的历史判定保持不变（显式传作用域 = 不放宽）。
+  const verdict = evaluateConsecutiveReRegistrationGrowth(SIDEPANEL_RE_REGISTRATIONS, 'specs-tree-web-cli-plugin-v3-ui');
   assert.equal(verdict.threshold, 0.15);
   assert.equal(verdict.feature, 'specs-tree-web-cli-plugin-v3-ui');
   assert.deepEqual(
     [...verdict.rounds],
-    SIDEPANEL_RE_REGISTRATIONS.filter((r) => r.roundKind === 'feature-round').map((r) => r.id),
-    '方向性守卫只按**功能轮**计「连续两轮」',
+    SIDEPANEL_RE_REGISTRATIONS.filter(
+      (r) => r.roundKind === 'feature-round' && r.feature === 'specs-tree-web-cli-plugin-v3-ui',
+    ).map((r) => r.id),
+    '方向性守卫只按**功能轮**计「连续两轮」（V4-1：按 Feature 作用域过滤 —— v4-chat 的轮次不并入 v3-ui）',
   );
   assert.ok(verdict.cumulativePct > 0.15, `当前累计增幅 ${(verdict.cumulativePct * 100).toFixed(2)}% 必须 >15%`);
   assert.ok(verdict.warning !== null, '>15% 时必须产出可读告警（不得无声膨胀）');
@@ -314,6 +326,10 @@ test('V3-VOL-1 ④ directional guard: two consecutive feature rounds >15% MUST r
   assert.match(SIDEPANEL_BASELINE_META.consecutiveGrowthAlert, /已触发/);
   assert.equal(SIDEPANEL_BASELINE_META.consecutiveGrowthAlertThreshold, 0.15);
   console.log(`  ℹ 方向性守卫：${verdict.warning}`);
+  // V4-1 自身（新 Feature 作用域）必须同样可判：首轮累计 +2.72%，低于 15% 线 ⇒ 不告警。
+  const v41 = evaluateConsecutiveReRegistrationGrowth(SIDEPANEL_RE_REGISTRATIONS, 'specs-tree-web-cli-plugin-v4-chat');
+  assert.deepEqual([...v41.rounds], ['v4-1'], 'v4-chat 作用域只应含 v4-1 功能轮');
+  assert.equal(v41.warning, null, '单轮 +2.72% 不应触发 >15% 告警');
 });
 
 test('V3-VOL-1 ④ directional guard REVERSE PROOF: below-threshold growth does NOT alert (non-vacuous)', () => {
@@ -359,9 +375,13 @@ test('V3-VOL-1 ④ directional guard REVERSE PROOF: below-threshold growth does 
 });
 
 test('V3-VOL-1 ④ directional guard: the alert is also surfaced in the density registry volume block', () => {
-  const registry = JSON.parse(
+  // V4-1（TASK-512）：**当前**体积登记载体是 v4 密度基线；v3 基线冻结为历史（375,102 B）。
+  const currentPath = new URL('../../docs/v4-density-baseline.json', import.meta.url);
+  const frozen = JSON.parse(
     readFileSync(new URL('../../docs/v3-density-baseline.json', import.meta.url), 'utf8'),
   ) as { volume: Record<string, unknown> };
+  assert.equal(frozen.volume.registeredBaselineBytes, 375_102, 'v3 基线体积登记值必须逐字冻结为历史');
+  const registry = JSON.parse(readFileSync(currentPath, 'utf8')) as { volume: Record<string, unknown> };
   const v = registry.volume;
   assert.equal(v.registeredBaselineBytes, SIDEPANEL_BASELINE_BYTES, '登记表基线必须与代码同源');
   assert.equal(v.ceilingBytes, SIDEPANEL_CEILING, '登记表 ceiling 必须与代码同源');

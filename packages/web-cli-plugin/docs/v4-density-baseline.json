@@ -1,0 +1,405 @@
+{
+  "version": "v4",
+  "direction": "tighten-only",
+  "caliberNote": "V4-1 换口径重定标（父 ADR-V4-020/021）：测量根 = document.body，豁免子树 = #stream（单源 src/ui/sidepanel/density-scope.ts#DENSITY_EXCLUDED_SUBTREES）；只认 hidden，CSS 隐身不豁免。**换口径，非放宽** —— v3 基线与本文件的格数/取值不可逐格直比。",
+  "thresholds": {
+    "default": {
+      "clickables": 7,
+      "lines": 15
+    },
+    "firstRun": {
+      "clickables": 9,
+      "lines": 20
+    },
+    "risk": {
+      "clickables": 17,
+      "lines": 35
+    }
+  },
+  "streamHeightRatioMin": 0.65,
+  "logClientHeightFloor": 488,
+  "logClientHeightMeasuredWorst": 748,
+  "tiers": {
+    "default": {
+      "320": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 181
+      },
+      "400": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 181
+      },
+      "520": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 184
+      }
+    },
+    "firstRun": {
+      "320": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 184
+      },
+      "400": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 184
+      },
+      "520": {
+        "clickables": 5,
+        "lines": 6,
+        "blocks": 15,
+        "regions": 4,
+        "chars": 184
+      }
+    },
+    "risk": {
+      "subs": {
+        "unauthorized": {
+          "320": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 227
+          },
+          "400": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 227
+          },
+          "520": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 227
+          }
+        },
+        "probing": {
+          "320": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 216
+          },
+          "400": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 216
+          },
+          "520": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 216
+          }
+        },
+        "hardline": {
+          "320": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 212
+          },
+          "400": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 212
+          },
+          "520": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 212
+          }
+        },
+        "confirm": {
+          "320": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 213
+          },
+          "400": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 213
+          },
+          "520": {
+            "clickables": 6,
+            "lines": 7,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 213
+          }
+        },
+        "staleRef": {
+          "320": {
+            "clickables": 6,
+            "lines": 6,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 203
+          },
+          "400": {
+            "clickables": 6,
+            "lines": 6,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 203
+          },
+          "520": {
+            "clickables": 6,
+            "lines": 6,
+            "blocks": 17,
+            "regions": 4,
+            "chars": 203
+          }
+        }
+      },
+      "worst": {
+        "clickables": 6,
+        "lines": 7,
+        "blocks": 17,
+        "regions": 4,
+        "chars": 227
+      }
+    }
+  },
+  "volume": {
+    "artifact": "dist/sidepanel.js",
+    "registeredBaselineBytes": 385319,
+    "ceilingBytes": 404584,
+    "tolerance": 0.05,
+    "ceilingCapRole": "record-only",
+    "ceilingCapRecordBytes": 306099,
+    "ceilingFormula": "floor(baseline × (1 + tolerance))",
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 375,102 B 从 266,500 B 起算的 Feature 累计增幅 **+40.75%** —— **R3 后越过已登记的 40% 停工线**（38.28% → 40.75%），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。"
+  },
+  "designCaliber": {
+    "published": {
+      "note": "设计稿自带 __density() 的公布值（仅登记，不作验收依据）",
+      "e": {
+        "clickables": 7,
+        "lines": 10,
+        "blocks": 47,
+        "regions": 6
+      },
+      "d": {
+        "clickables": 80,
+        "lines": 144,
+        "blocks": 391,
+        "regions": 5
+      }
+    },
+    "measuredByOurs": {
+      "e": {
+        "clickables": 7,
+        "lines": 12,
+        "blocks": 51,
+        "regions": 6,
+        "chars": 375
+      },
+      "d": {
+        "clickables": 79,
+        "lines": 145,
+        "blocks": 392,
+        "regions": 5,
+        "chars": 4910
+      }
+    },
+    "deltas": [
+      {
+        "draft": "E",
+        "published": {
+          "clickables": 7,
+          "lines": 10,
+          "blocks": 47,
+          "regions": 6
+        },
+        "measured": {
+          "clickables": 7,
+          "lines": 12,
+          "blocks": 51,
+          "regions": 6,
+          "chars": 375
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 2,
+          "blocks": 4,
+          "regions": 0
+        }
+      },
+      {
+        "draft": "D",
+        "published": {
+          "clickables": 80,
+          "lines": 144,
+          "blocks": 391,
+          "regions": 5
+        },
+        "measured": {
+          "clickables": 79,
+          "lines": 145,
+          "blocks": 392,
+          "regions": 5,
+          "chars": 4910
+        },
+        "delta": {
+          "clickables": -1,
+          "lines": 1,
+          "blocks": 1,
+          "regions": 0
+        }
+      }
+    ]
+  },
+  "streamRatioSpike": {
+    "carrier": "/tmp/opencode/v4-spike/proto.html",
+    "sha256": "6132e2d1e5208b9343b8092972e18703db5e944c608bf911ab79e69b9c4aca1f",
+    "threshold": 0.65,
+    "cells": [
+      {
+        "width": 320,
+        "theme": "light",
+        "risk": "none",
+        "ratio": 0.8677,
+        "pass": true
+      },
+      {
+        "width": 320,
+        "theme": "light",
+        "risk": "detail-expanded",
+        "ratio": 0.7273,
+        "pass": true
+      },
+      {
+        "width": 320,
+        "theme": "dark",
+        "risk": "none",
+        "ratio": 0.8677,
+        "pass": true
+      },
+      {
+        "width": 320,
+        "theme": "dark",
+        "risk": "detail-expanded",
+        "ratio": 0.7273,
+        "pass": true
+      },
+      {
+        "width": 400,
+        "theme": "light",
+        "risk": "none",
+        "ratio": 0.8677,
+        "pass": true
+      },
+      {
+        "width": 400,
+        "theme": "light",
+        "risk": "detail-expanded",
+        "ratio": 0.7273,
+        "pass": true
+      },
+      {
+        "width": 400,
+        "theme": "dark",
+        "risk": "none",
+        "ratio": 0.8677,
+        "pass": true
+      },
+      {
+        "width": 400,
+        "theme": "dark",
+        "risk": "detail-expanded",
+        "ratio": 0.7273,
+        "pass": true
+      },
+      {
+        "width": 520,
+        "theme": "light",
+        "risk": "none",
+        "ratio": 0.9169,
+        "pass": true
+      },
+      {
+        "width": 520,
+        "theme": "light",
+        "risk": "detail-expanded",
+        "ratio": 0.8127,
+        "pass": true
+      },
+      {
+        "width": 520,
+        "theme": "dark",
+        "risk": "none",
+        "ratio": 0.9169,
+        "pass": true
+      },
+      {
+        "width": 520,
+        "theme": "dark",
+        "risk": "detail-expanded",
+        "ratio": 0.8127,
+        "pass": true
+      }
+    ],
+    "worstCell": {
+      "width": 320,
+      "theme": "light",
+      "risk": "detail-expanded",
+      "ratio": 0.7273
+    },
+    "note": "TASK-501 spike 12/12 PASS（最差格 320px/明/详情展开 = 0.7273，余量 +0.0773）；阈值从未下调（0.650 字面量）。"
+  },
+  "counts": {
+    "countMethod": "runtime-check-calls",
+    "cells": 25,
+    "note": "9 强制 + 15 风险 + 1 worst；v4 目标 31 格，缺口见 knownLimitations。"
+  },
+  "knownLimitations": [
+    "TASK-511 未完成：3 个空态格 + 3 个风险详情展开格尚未实跑登记（禁推测值）；in-gate RP-V4-01~07 尚未落地。",
+    "TASK-512 的 designCaliber.measuredByOurs / deltas 尚未实测填充。"
+  ],
+  "differencesFromV3": [
+    "测量根：v3 = #panel-main（已退役）→ v4 = document.body（三区骨架 + 状态栏为 body 直挂）。",
+    "豁免子树：新增 DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]（流本体不计入密度预算；单源 density-scope.ts）。",
+    "几何口径：v3 = 「#log ≥ 589px 像素下界」→ v4 = 「#stream clientHeight ≥ 488px ∧ #region-stream 高度占比 ≥ 0.65」（比例下界取代像素下界，只允许上调）。",
+    "格集：v3 = 9 强制 + 15 风险 + 1 worst；v4 目标 = 31 格（+3 空态 + 3 风险详情展开；本文件当前登记 25 格，缺口见 knownLimitations）。",
+    "composer：v3 = 常驻贴底（D-079）→ v4 = 法四（默认屏无可见常驻输入框；#composer 存在时必须 hidden，展开态位于 #stream 流内占位宿主）。"
+  ],
+  "measuredOn": "2026-09-19",
+  "measuredBy": "SDDU v4-1 build round (leaf specs-tree-v4-1-zone-shell-density), TASK-511/512 首轮实测",
+  "source": "packages/web-cli-plugin/dist/sidepanel.js",
+  "buildCommand": "npm run build --workspace @lgdl/web-cli-plugin",
+  "countMethod": "runtime-check-calls",
+  "registeredCells": 25
+}

@@ -18,21 +18,35 @@
       "scope": {
         "files": [
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
+          "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+          "packages/web-cli-plugin/test/size-baseline.ts",
+          "packages/web-cli-plugin/test/size-budget.test.ts",
+          "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
           "packages/web-cli-plugin/test/supersession-ledger.test.ts",
-          "packages/web-cli-plugin/test/ui/density-metrics.mjs"
+          "packages/web-cli-plugin/test/ui/binding.mjs",
+          "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+          "packages/web-cli-plugin/test/ui/density.mjs",
+          "packages/web-cli-plugin/test/ui/insight.mjs",
+          "packages/web-cli-plugin/test/ui/journey.mjs",
+          "packages/web-cli-plugin/test/ui/l0.mjs",
+          "packages/web-cli-plugin/test/ui/l1.mjs",
+          "packages/web-cli-plugin/test/ui/l2.mjs"
         ],
         "why": "与 v3 同一规则：`packages/web-cli-plugin/test/**` 且后缀为 .mjs/.ts，逐个从 git diff 复算（不手工放宽、不手工收窄）。"
       },
       "summary": {
-        "unregisteredLeafDeletionLines": 0,
-        "registeredLines": 90
+        "filesWithUnregisteredLeafDeletions": 0,
+        "registeredLines": 630,
+        "note": "逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶全部改动均已登记。"
       },
       "registeredUncoveredLines": [
         {
           "file": "packages/web-cli-plugin/test/density-thresholds.test.ts",
-          "count": 38,
+          "count": 49,
           "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
           "registeredUncoveredLines": [
             "const L0_CONTAINERS = ['risk-rail', 'l0-decision', 'l0-statusbar', 'view-host', 'l0-status-band', 'l1-more', 'l1-ref', 'l2-entries'];",
@@ -50,7 +64,6 @@
             "  assert.equal(parsed.tags[railIndex!].parent, parsed.bodyIndex, '#risk-rail 必须是 body 直接子元素');",
             "  // L0 ↔ L1/L2 must not interleave",
             "  for (const index of descendants(railIndex!)) {",
-            "    const info = parsed.tags[index];",
             "    assert.equal('data-l1-panel' in info.attrs, false, '风险位内不得出现 L1 面板');",
             "    assert.equal('data-l2-view' in info.attrs, false, '风险位内不得出现 L2 视图');",
             "  for (const id of ['l0-decision', 'l0-statusbar', 'l0-status-band']) {",
@@ -72,36 +85,45 @@
             "    zoneOrder.filter((id) => ['panel-top', 'panel-main', 'panel-bottom', 'risk-rail', 'l0-statusbar'].includes(id)),",
             "    ['risk-rail', 'panel-top', 'panel-main', 'l0-statusbar', 'panel-bottom'],",
             "    'body 文档序：风险位最上层 → 三区 → 状态栏（composer 贴底契约不变）',",
-            "  );"
+            "  );",
+            "  assert.ok(baseline.volume, '基线必须与体积登记交叉引用（ADR-V3-011 第 4 条：分开登记、互相引用）');",
+            "  assert.equal(baseline.volume.artifact, 'dist/sidepanel.js');",
+            "  assert.equal(baseline.volume.registeredBaselineBytes, SIDEPANEL_BASELINE_BYTES, '体积登记值必须与 size-baseline 同源');",
+            "  assert.equal(baseline.volume.ceilingBytes, SIDEPANEL_CEILING, '体积上限必须与 size-baseline 同源');",
+            "    baseline.volume.ceilingBytes,",
+            "  assert.equal(",
+            "    baseline.volume.ceilingCapRole,",
+            "    'record-only',",
+            "    'cap 只能作记录、不参与判定（裁决 V3-VOL-1 ②）',",
+            "  assert.equal(baseline.volume.ceilingCapRecordBytes, SIDEPANEL_CEILING_CAP_RECORD);",
+            "    baseline.volume.ceilingBytes > SIDEPANEL_CEILING_CAP_RECORD,",
+            "  assert.equal(baseline.volume.tolerance, SIDEPANEL_BASELINE_TOLERANCE, '容差 5% 不得因重登记而变');"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/l0-disclosure.test.ts",
-          "count": 22,
+          "count": 19,
           "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
           "registeredUncoveredLines": [
-            "test('disclosure: 白名单外目标（含 #risk-rail）一律抛错', () => {",
             "  assert.ok(COLLAPSIBLE_TARGETS.includes('topbar'));",
             "  assert.equal(assertFoldable('topbar'), 'topbar');",
             "  controller.open('topbar');",
             "  controller.open('l2-entries');",
-            "  controller.open('topbar');",
             "  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-expanded'), 'true');",
             "  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-controls'), 'topbar');",
             "  controller.close('topbar');",
             "  assert.equal(doc.getElementById('l0-status-band')!.getAttribute('aria-expanded'), 'false');",
-            "  controller.open('topbar');",
-            "  controller.open('l2-entries');",
             "    topbar: true,",
             "    'l2-entries': true,",
             "    'l1-local-tree': false,",
             "    'l1-receipt': false,",
             "  assert.equal(controller.isOpen('topbar'), false);",
             "  assert.equal(controller.expandMemory.get('topbar'), true);",
-            "test('risk-rail: 五类风险渲染到 #risk-rail，无风险时给出平静摘要', () => {",
             "  assert.equal(renderRiskRail(doc as never, []), 1);",
             "  assert.equal(rail.children.length, 1);",
-            "  assert.equal(rail.children[0].getAttribute('data-risk-severity'), 'calm');"
+            "  assert.equal(rail.children[0].getAttribute('data-risk-severity'), 'calm');",
+            "test('disclosure: 白名单外目标（含 #risk-rail）一律抛错', () => {",
+            "test('risk-rail: 五类风险渲染到 #risk-rail，无风险时给出平静摘要', () => {"
           ]
         },
         {
@@ -109,10 +131,8 @@
           "count": 18,
           "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
           "registeredUncoveredLines": [
-            "  assert.match(html, /#log\\.empty:not\\(:has\\(> \\*\\)\\)/);",
             "  assert.match(html, /#panel-main \\{ position: relative; flex: 1 1 auto; min-height: 0;/);",
             "  assert.match(html, /#log \\{[\\s\\S]*?flex: 1 1 auto;[\\s\\S]*?min-height: 0;[\\s\\S]*?overflow-y: auto;/);",
-            "test('TASK-023 layout: three zones (top / scrolling messages / fixed bottom)', () => {",
             "  // zone order in the document",
             "  const top = html.indexOf('id=\"panel-top\"');",
             "  const main = html.indexOf('id=\"panel-main\"');",
@@ -126,12 +146,85 @@
             "    'consent sits above the composer; the composer is last',",
             "  );",
             "  // the composer itself is flex-shrink:0 (bottom zone is not scrolled)",
-            "  assert.match(html, /#panel-bottom \\{[\\s\\S]*?flex: 0 0 auto;/);"
+            "  assert.match(html, /#panel-bottom \\{[\\s\\S]*?flex: 0 0 auto;/);",
+            "  assert.match(html, /#log\\.empty:not\\(:has\\(> \\*\\)\\)/);",
+            "test('TASK-023 layout: three zones (top / scrolling messages / fixed bottom)', () => {"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-baseline.ts",
+          "count": 25,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
+          "registeredUncoveredLines": [
+            "  349_880, 349_925, 362_777, 366_500, 366_755, 368_529, 375_102,",
+            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 375_102;",
+            "  measuredOn: '2026-09-17',",
+            "    'SDDU defect-fix round R3 (2026-09-17, post-closeout; author real-device confirmation at HEAD 131f546): re-registered on the final artifact of the『引用重锚救援』round — a read-only text-candidate probe for a selector-broken reference (SW-injected, same normalization as the frozen text digest), the rescue payload attached to the `dom-gone` verdict as metadata only, and the user-confirmed one-click re-anchor that mints a NEW reference through the same ingestion pipeline while the old card stays untouched (append-only). The judge verdict set is unchanged (valid/invalid/unknown; fail-closed not relaxed). Previous round: SDDU defect-fix round R2 (2026-09-17, post-closeout; author adjudication「修：退避+稳态显示」at HEAD 6d9ed5d): re-registered on the final artifact of the declaration-probe exponential backoff (15s→5min cap, per-origin, conclusion-change reset) plus the steady「低频自动复查中」risk-row variant that removes the 15s flicker. Previous round: SDDU defect-fix round R1 (2026-09-17, post-closeout; author real-device report at HEAD 870cb6e): re-registered on the final artifact of the「无有效站点声明时拾取引用出生即死」fix (SW declarationStatus single source + panel ingestion completes the capture fact + D4 state-consistency caliber, plus the reference-round / background-ask supersession fix). Previous rounds: SDDU v3-3 build round (2026-09-16, leaf specs-tree-v3-3-l2-on-demand-views): re-measured on the final artifact of the L2 on-demand views (view replacement + the four views +真值计数 + the tree-ownership migration). Previous rounds: SDDU v3-2 build round + fix round + closeout round (2026-09-16, leaf specs-tree-v3-2-l1-disclosure-refs): re-measured on the final artifact of the L1 layer (eight in-place content classes + the fail-closed five-dimension reference judge + the receipt triple + the local-tree slice). The fix round executed orchestrator ruling V3-VOL-1 (baseline explicitly re-registered at 327,679 B, ceiling = the plain formula, self-imposed SIDEPANEL_CEILING_CAP hard cap REVOKED and demoted to a record-only field). The CLOSEOUT round dispositions validate R1 findings N-04/N-05/N-07/N-08 in `src/ui/sidepanel/**` and re-registers the measured 328,476 B (+797 B) as a registry-fidelity round. Previous registered baselines: 327,679 B (v3-2 fix round) / 295,225 B (v3-1 I6 round; also the reference tree of SIDEPANEL_GROWTH_BREAKDOWN) / 291,523 B (whose final artifact measured 294,874 B — the discrepancy the I6 round fixed) / 266,500 B (tighten round 2026-09-14, ceiling 279,825 B) / 1,159,856 B (R2, ceiling 1,217,848 B) / R2 closeout 1,162,942 B / V2-4 1,132,748 B / V2-3 1,110,744 B / V2-2 1,085,389 B / v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE / SIDEPANEL_RE_REGISTRATIONS.',",
+            "  previousCeilingBytes: 386_955,",
+            "  finalArtifactBytes: 375_102,",
+            "  /** 累计：当前基线 − `baselineReferenceBytes`（375,102 − 295,225）。 */",
+            "  deltaBytes: 79_877,",
+            "  /** 最近一轮（R3 缺陷修复轮自身）的产物增量（368,529 → 375,102，实测 metafile 差）。 */",
+            "  closeoutDeltaBytes: 6_573,",
+            "  newRequiredModuleBytes: 57_958,",
+            "  wiringBytes: 21_198,",
+            "  unattributedHelperDeltaBytes: 456,",
+            "    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 18_250, afterBytes: 19_256, deltaBytes: 1_006 },",
+            "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 59_028, afterBytes: 59_416, deltaBytes: 388 },",
+            "    { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 6_058, afterBytes: 6_410, deltaBytes: 352 },",
+            "    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_969, afterBytes: 3_997, deltaBytes: 28 },",
+            "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 59_416, afterBytes: 61_216, deltaBytes: 1_800 },",
+            "    { module: 'src/ui/sidepanel/l2/view-host.ts', beforeBytes: null, afterBytes: 3_206, deltaBytes: 3_206, kind: 'new-required-module', requiredBy: 'FR-V3-047/048/054（视图替换 + ← 返回 + 展开态复原 + 单滚动容器）' },",
+            "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 61_216, deltaBytes: 16_371, kind: 'wiring', requiredBy: 'FR-V3-031~040（L1 挂载 + 单一派发器）+ FR-V3-045/047/048/054（L2 视图替换接线）+ FR-V3-060/061/062/066（面板侧拾取接线 + 生产 env 注入点 + 双向联动）+ AC-CONV-2（唯一动作入口）+ R1（declarationStatus 映射 + 身份标记回程重判 + supersededAsk 结算）+ R2（稳态行接线；面板可见性信号按 binding 门禁证据回退，恢复能力由既有 kick 触发器承担）+ R3（`maybeRescue()` 只读探测触发 + `reanchorRef()` 重锚接线 + 测试 seam）' },",
+            "    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 19_256, deltaBytes: 2_133, kind: 'wiring', requiredBy: 'FR-V3-031（L1 契约纯函数）+ FR-V3-046/015（L2 计数载体）+ FR-V3-068/070（拾取不可用态 + 手势清单单源）+ R1（declarationStatus 载体 + 风险位文案一行）+ R2（`probingSteadyView`/`probingSteadyText` 稳态文案 + 退避描述 `AUTO_RETRY_LINE` + `probeSteady` 契约）' },",
+            "    { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 4_547, afterBytes: 5_318, deltaBytes: 771, kind: 'wiring', requiredBy: 'FR-V3-031（白名单 4 → 9 个目标 + 5 条 wiring）；v3-4 复核：数值未变（本叶不改折叠白名单）' },",
+            "    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 3_997, deltaBytes: 646, kind: 'wiring', requiredBy: 'FR-V3-047（入口路由交还 view-host）+ FR-V3-068（风险区「页面侧不可用（原因）」行，风险位唯一写入者不变）+ R2（稳态 override 透传，风险位唯一写入者不变）' },",
+            "    { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 5_665, afterBytes: 6_410, deltaBytes: 745, kind: 'wiring', requiredBy: 'FR-V3-037（失效行可读原因；风险位唯一写入者不变）+ R2（稳态「低频自动复查中」override：同类、三通道、参与重绘签名）' },",
+            "    { module: 'src/ui/sidepanel/l0/status-bar.ts', beforeBytes: 1_382, afterBytes: 1_694, deltaBytes: 312, kind: 'wiring', requiredBy: 'FR-V3-015 / FR-V3-046（入口标签 + 面板摘要写入 + 逐目标 aria 对）+ I-01（逐目标 `aria-controls`：设置入口指向 `#settings-view`）' },"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+          "count": 6,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
+          "registeredUncoveredLines": [
+            "  assert.equal(SIDEPANEL_BASELINE_BYTES, 375_102);",
+            "  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 386_955);",
+            "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(375_102 * 1.05), '未加 cap 的公式值必须被记录');",
+            "  assert.equal(over.ceilingBytes, 393_857);",
+            "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 393_857);",
+            "  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-17');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "count": 11,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
+          "registeredUncoveredLines": [
+            "  const raw = JSON.parse(readFileSync(LEDGER, 'utf8')) as {",
+            "    entries: Array<{ id: string }>;",
+            "    modifiedRanges: Array<{ oldId: string }>;",
+            "  const ids = new Set<string>();",
+            "  for (const e of raw.entries) ids.add(e.id);",
+            "  for (const m of raw.modifiedRanges) ids.add(m.oldId);",
+            "      assert.match(row.requiredBy, /FR-V3-0\\d\\d|NFR-V3-0\\d\\d/, `${row.module}: 必须引到 FR/NFR`);",
+            "  const verdict = evaluateConsecutiveReRegistrationGrowth();",
+            "    SIDEPANEL_RE_REGISTRATIONS.filter((r) => r.roundKind === 'feature-round').map((r) => r.id),",
+            "    '方向性守卫只按**功能轮**计「连续两轮」',",
+            "  const registry = JSON.parse("
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+          "count": 1,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
+          "registeredUncoveredLines": [
+            "  assert.equal(SIDEPANEL_BASELINE_BYTES, 375_102, '本次裁决零体积变更（基线未动）');"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
-          "count": 9,
+          "count": 13,
           "reason": "V4-1（三区骨架 + 密度重定标）对该文件的 v3 段内文本做等价改写/选择器重锚：删除行逐字登记，语义由 v4-1 entries[] 与 modifiedRanges[] 说明；断言只增不减。",
           "registeredUncoveredLines": [
             "    if (actual !== reading.count) {",
@@ -142,7 +235,33 @@
             "test('ledger: entries[].newTitle 必须能在目标文件定位（防橡皮图章）', () => {",
             "    if (!text.includes(entry.newTitle)) missing.push(`${entry.id}: 在 ${entry.file} 中找不到 newTitle`);",
             "      const registered = (leaf.registeredUncoveredLines ?? []).filter((r) => r.file === file).flatMap((r) => r.registeredUncoveredLines);",
-            "      const phantom = registered.filter((t) => !actual.includes(t));"
+            "      const phantom = registered.filter((t) => !actual.includes(t));",
+            "function deletionHunks(file: string) {",
+            "  const diff = diffText(file);",
+            "function deletionLines(file: string): Array<{ line: number; text: string }> {",
+            "  for (const hunk of deletionHunks(file)) {"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+          "count": 15,
+          "reason": "TASK-515 前置：v3 的「打开 #topbar（L1 管理面）→ collapseAll 还原默认屏」配对在 v4 退化为「进入 #settings-view 视图」—— 视图不退出时 #stream 仍 hidden，确认卡（在 #stream 决策宿主内）的真实点击落到 (0,0) 而永远解不开。等价改写为 v3Collapse = 折叠 + 退出当前 L2 视图（保护段 #22a~#22l 字节零改）。",
+          "registeredUncoveredLines": [
+            " *    API。本脚本改用与 `onClicked` **同一个 `bindTab()`** 的等价绑定消息（`rebind`），",
+            " *    并另行**实时断言**修复后的关键运行时事实：`openPanelOnActionClick === false`",
+            " *    （这是让 `onClicked` 能触发的根因修复）+ `chrome.sidePanel.open` 可用（Chrome 116+）。",
+            " *    图标点击→绑定 的 wiring 由 `test/binding-wiring.test.ts` 静态钉住。",
+            "const v3Collapse = async (page) => {",
+            "  await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.collapseAll(); true');",
+            "  await sleep(200);",
+            "};",
+            "const DIAG_SELECTORS = ['tree-fab', 'tree-drawer', 'settings-view', 'panel-main', 'status', 'log', 'composer', 'tree-breadcrumb'];",
+            "    // V3-1 pre-step (registered): #open-settings is an L1 entry now.",
+            "    await v3Collapse(ext);",
+            "          chatHidden: getComputedStyle(document.getElementById('panel-main')).display === 'none',",
+            "      `(() => { const v = document.getElementById('settings-view'); return v && !v.classList.contains('show') && getComputedStyle(document.getElementById('panel-main')).display !== 'none' ? 'chat' : ''; })()`,",
+            "        const log = document.getElementById('log');",
+            " * ① **无法脚本触发 `chrome.action.onClicked`**：Chrome 没有暴露程序化点击工具栏图标的"
           ]
         },
         {
@@ -153,6 +272,511 @@
             " * (parent ADR-V3-001 — the panel has no `#panel` wrapper).",
             "export const DENSITY_MEASURE_SOURCE = DENSITY_MEASURE_TEMPLATE.replace('__V3_ROOT__', 'document.body');",
             "  return DENSITY_MEASURE_TEMPLATE.replace('__V3_ROOT__', rootExpression);"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/density.mjs",
+          "count": 12,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
+          "registeredUncoveredLines": [
+            "const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v3-density-baseline.json');",
+            "      log: (() => { const l = document.getElementById('log'); return { sh: l.scrollHeight, ch: l.clientHeight, st: l.scrollTop }; })(),",
+            "        check(`default@${vp} 可点预算恰为 7（配平可追溯）`, measured.clickables === DENSITY_LIMITS.default.clickables, `实测 ${measured.clickables}`);",
+            "  const drift = defaultRows",
+            "      || r.measured.chars !== firstMeasured.chars)",
+            "    '默认档夹具确定性：三视口逐项相等（可点/行/块/chars，同一稳态 ⇒ 无视口差异）',",
+            "    Boolean(firstMeasured) && defaultRows.length === DENSITY_VIEWPORTS.length && drift.length === 0,",
+            "    drift.join(' | ') || `rows=${defaultRows.length}`,",
+            "  console.log('\\n▶ 阶段 F：基线机器比对（实测 vs docs/v3-density-baseline.json）');",
+            "  check('F 基线文件存在（ADR-V3-018 的登记载体）', existsSync(BASELINE_JSON), BASELINE_JSON);",
+            "  const logClientHeight = await evaluate(cdp, `document.getElementById('log').clientHeight`);",
+            "    check('风险位独立常驻（#risk-rail 为 body 直接子元素）', (await evaluate(cdp, `document.getElementById('risk-rail').parentElement === document.body`)) === true);"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+          "count": 49,
+          "reason": "TASK-515 前置：v2/v3 的 #log 像素锚与「composer 贴底」在 v4-1 三区骨架下失效 —— 按 ADR-V4-008 第三条 redlineRemap 显式取代为 #stream 比例/高度锚 + 法四（默认屏无可见常驻输入框），并以 fail-closed 只认 hidden 的可见性判据表达；断言只增不减（116）。",
+          "registeredUncoveredLines": [
+            " *   #I-06 `#log` 稳态（去镀铬，guidance/consent 隐藏）`clientHeight ≥ LOG_CLIENT_HEIGHT_FLOOR`（主断言；v3-1 起为 488px，v1 前值为 589px，见 ADR-V3-019 V31-S3）；",
+            " *   #I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）`#log ≥ 405px`（v1 自身下限，无回归，D-V22-01）；",
+            " *   #I-06c pinned v1 raw 基线（418px @ 2026-09-13，W6）回归：`#log ≥ 410px`（更敏感）；",
+            " *   #I-06d 同上占比回归：`#log ≥ 45.4%`；",
+            " *   #I-07 `#log` 稳态高度占比 `≥ LOG_MIN_RATIO`（次断言；v3-1 起为 54.0%，v1 前值为 65.0%）；",
+            " *   #I-10 文档 / `#log` / 抽屉 400px 水平溢出 `= 0`；",
+            " * V3-3 (registered supersession V33-S4): the v2 「打开抽屉不挤压 #log」 geometry",
+            " * while an L2 view is open `#log` is *replaced* (`hidden`), the host + exactly one",
+            " * `#panel-main`, the composer still sits flush at the bottom (D-079 unchanged), and",
+            "  check(metrics.logHidden === true, `${prefix} #log 已被视图替换（hidden，禁止 CSS 隐身）`, JSON.stringify(metrics.logHidden));",
+            "    metrics.composerGapToBottom >= COMPOSER_GAP[0] && metrics.composerGapToBottom <= COMPOSER_GAP[1],",
+            "    `${prefix} #composer 仍贴底 ∈ [${COMPOSER_GAP[0]}, +${COMPOSER_GAP[1]}]px（D-079 不变）`,",
+            "    `${metrics.composerGapToBottom}px`,",
+            " * 完全相同）在**今日 dist** 上实测 `#log = 418px / 46.4%`（测于 2026-09-13，来源",
+            " * `#log ≥ 418 − 8 = 410px`。容差取 **8px（≈1.9%）** 的理由：吸收跨运行的字形/滚动条",
+            " * isolated. Rationale (D-V22-01): dev.md §11.3 records the v1 `#log` 589px/65.5%",
+            "  const log = document.getElementById('log');",
+            "    // changes; checkL2OpenLayout reads these instead of the #log height).",
+            "    viewScrollers: [...document.querySelectorAll('#panel-main *, #panel-main')]",
+            "    panelScrollerCount: [...document.querySelectorAll('#panel-main *, #panel-main')]",
+            "    // at a glance (no assertion reads this field).",
+            "    zones: ['risk-rail', 'panel-top', 'panel-main', 'l0-decision', 'log', 'l0-statusbar', 'l2-entries', 'view-host', 'panel-bottom', 'settings-view']",
+            "  check(metrics.logFlexGrow === '1', `${prefix} #log 计算 flex-grow === '1'（flex 填充，非 45vh）`, JSON.stringify(metrics));",
+            "    `${prefix} #log 稳态 clientHeight ≥ ${LOG_MIN_HEIGHT}px（主断言，非回退）`,",
+            "    `${prefix} #log 稳态高度占比 ≥ ${LOG_MIN_RATIO}%（次断言）`,",
+            "    `${prefix} #composer 底边−视口底 ∈ [${COMPOSER_GAP[0]}, +${COMPOSER_GAP[1]}]px（不得为负，D-079）`,",
+            "  check(metrics.logOverflowX === 0, `${prefix} #log 水平溢出 = 0`, `${metrics.logOverflowX}px`);",
+            "      `(() => (document.getElementById('tree-fab') && document.getElementById('log') && document.getElementById('tree-drawer')) ? 'ready' : '')()`,",
+            "    check(booted === 'ready', '#I-01a 侧栏已挂载 #tree-fab / #tree-drawer / #log');",
+            "          fabInsideMain: !!fab.closest('#panel-main'),",
+            "          drawerInsideMain: !!drawer.closest('#panel-main'),",
+            "    check(initial.fabInsideMain === true && initial.drawerInsideMain === true, '#I-01b FAB/抽屉位于 #panel-main 内（非页面注入）', JSON.stringify(initial));",
+            "    // absolute overlay over `#log` to the L2 「连接树」 view body (ADR-V3-028). Same",
+            "      '#I-01e 抽屉已归属 L2 视图主体（position=static，不再是覆盖 #log 的浮动层）',",
+            "      `#I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）#log ≥ ${V1_RAW_LOG_MIN}px（v1 自身 >45vh 下限，无回归）`,",
+            "      `#I-06c pinned v1 raw 基线回归：原始口径 #log ≥ ${V1_RAW_LOG_BASELINE_PX - V1_RAW_LOG_BASELINE_TOLERANCE_PX}px（钉死 ${V1_RAW_LOG_BASELINE_PX}px @ ${V1_RAW_LOG_BASELINE_META.measuredOn}，容差 ${V1_RAW_LOG_BASELINE_TOLERANCE_PX}px）`,",
+            "      `#I-06d pinned v1 raw 基线占比回归：原始口径 #log ≥ ${(V1_RAW_LOG_BASELINE_RATIO - V1_RAW_LOG_BASELINE_RATIO_TOLERANCE).toFixed(1)}%（钉死 ${V1_RAW_LOG_BASELINE_RATIO}%）`,",
+            "      rawOpenClose.composerGapToBottom >= COMPOSER_GAP[0] && rawOpenClose.composerGapToBottom <= COMPOSER_GAP[1],",
+            "      '#I-08b 原始口径 #composer 仍贴底 ∈[0, +8]px',",
+            "      `${rawOpenClose.composerGapToBottom}px`,",
+            "    // compare against (the view replaced `#log`; these are the fields that must not",
+            "          zones: ['risk-rail', 'panel-top', 'panel-main', 'l0-decision', 'view-host', 'l0-statusbar', 'l2-entries', 'panel-bottom']",
+            "    check(openLayout.drawerHidden === false, '#I-14b 开态树主体可见（L2 视图主体；#log 已被视图替换）', JSON.stringify(openLayout));",
+            "    check(returned.logHidden === false, '#I-14c0 返回后 #log 重新可见（视图替换可逆）', JSON.stringify(returned.logHidden));",
+            "      '#I-14c 视图往返后稳态几何逐字段复原（进入前 == 返回后：flex-grow / #log 高 / 占比 / composer / 溢出）',",
+            "      '#I-16a 320px 窄侧栏关态零水平溢出（文档 + #log）',",
+            "      '#I-16b 320px 窄侧栏开态零水平溢出（文档 + #log + 抽屉）',",
+            "    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2 关态 #log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；v3-3 起 L2 打开态改用视图替换契约： #log 被替换 + 单滚动容器 + 恰一视图可见 + composer 贴底，返回后逐字段复原）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,",
+            " *   #I-05 `#log` 计算 `flex-grow === '1'`；"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/l0.mjs",
+          "count": 367,
+          "reason": "TASK-508 整文件重写为三区骨架门禁（三区结构/文档序 + 工具栏 ≤5 + J1~J4 风险永不折叠 + 豁免子树 + 可发现性 + 三宽度双主题）；同编号语义全部保留并重锚到 #region-* / #stream，属**登记型取代**（整文件重写）。",
+          "registeredUncoveredLines": [
+            " * `npm run test:l0` — the runtime half of the L0 contract. It exercises the real",
+            " * `dist/` product and asserts:",
+            " *   ① the three things (我在哪 / 谁在管我 / 下一步做什么) are visible together;",
+            " *   ② the decision card is UNIQUE, has ≤2 recommended options and a recomputable",
+            " *      「更多选项（还有 N 个）」 count (FR-V3-011/012/013);",
+            " *   ③ no permanently resident text input in the default state (FR-V3-013);",
+            " *   ④ AC-V3-008: 5 risk classes × 2 scenarios = **10 assertions** — each class must",
+            " *      be visible in the default viewport, AND still visible after every L1/L2",
+            " *      disclosure is collapsed;",
+            " *   ⑤ AC-V3-009: no risk row has a foldable ancestor, and the destructive",
+            " *      confirmation options never sit inside a foldable container (FR-V3-018);",
+            " *   ⑥ AC-V3-010: **every** `[aria-controls]` element (not a hand-picked subset)",
+            " *      has non-empty text + a paired `aria-expanded`/`aria-controls` whose target",
+            " *      holds a non-empty summary or count; L1 is ≤1 interaction and L2 is ≤2",
+            " *      interactions away;",
+            " *   ⑦ AC-V3-021: the resident element set is identical at 320 and 400 (nothing is",
+            " *      deleted on a narrow panel) and there is zero horizontal overflow;",
+            " *   ⑧ the geometry contract inherited from the v2 insight gate: the four L0 zones",
+            " *      are pairwise non-overlapping (6 pairs), `#log` is the ONLY panel-level",
+            " *      scroller, `#log` keeps its first-round measured floor, and the composer sits",
+            " *      flush at the bottom in the fallback state without being occluded;",
+            " *   ⑨ both themes (`prefers-color-scheme`) keep every L0 state readable and never",
+            " *      rely on colour alone (FR-V3-026 / AC-V3-020): the theme tokens must resolve",
+            " *      to DIFFERENT values per theme, and the three channels must survive with the",
+            " *      paint properties stripped;",
+            "import { createHash } from 'node:crypto';",
+            "import { LOG_CLIENT_HEIGHT_FLOOR, RISK_SUBSCENARIOS, riskVisibilityProbeSource } from './density-metrics.mjs';",
+            "const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v3-density-baseline.json');",
+            "/** v1's own floor for the message zone (kept by the v2 insight gate).",
+            " *  v3-1 migrates this anchor to `LOG_CLIENT_HEIGHT_FLOOR` (first-round measured",
+            " *  value for the default tier WITH a pending decision card) — see the caliber",
+            " *  module's comment for the measurement and the registered 10px allowance. */",
+            "const LOG_MIN_HEIGHT_V1 = LOG_CLIENT_HEIGHT_FLOOR;",
+            "/** Default-state fixture (same state definition as the density gate's default tier). */",
+            "/** In-page: the resident element id set + overflow probe at the current viewport. */",
+            "  const ids = [...document.querySelectorAll('[id]')].map((el) => el.id).sort();",
+            "  return { all: ids, visible: visibleIds, overflowX: de.scrollWidth - de.clientWidth };",
+            "/** In-page: pairwise intersection area of the four L0 zones + scroller census. */",
+            "  const zones = ['risk-rail', 'panel-top', 'l0-decision', 'l0-statusbar'].map((id) => document.getElementById(id));",
+            "  const scrollers = [...document.querySelectorAll('#panel-main *, #panel-main')]",
+            "  const log = document.getElementById('log');",
+            "  const lr = log.getBoundingClientRect();",
+            "  const zonesBottom = Math.max(...zones.map((el) => el.getBoundingClientRect().bottom));",
+            "  const zoneHeights = ['risk-rail', 'panel-top', 'l0-decision', 'log', 'view-host', 'l0-statusbar', 'l2-entries', 'panel-bottom', 'settings-view']",
+            "    .map((id) => ({ id, h: Math.round((document.getElementById(id) || { getBoundingClientRect: () => ({ height: 0 }) }).getBoundingClientRect().height), hidden: document.getElementById(id)?.hidden ?? null }));",
+            "    zoneHeights,",
+            "    expanded: {",
+            "      more: document.getElementById('l1-more').hidden,",
+            "      ref: document.getElementById('l1-ref').hidden,",
+            "      topbar: document.getElementById('topbar').hidden,",
+            "      viewHost: document.getElementById('view-host').hidden,",
+            "      entries: document.getElementById('l2-entries').hidden,",
+            "      fallback: document.getElementById('ask-fallback').hidden,",
+            "      composer: document.getElementById('composer').hidden,",
+            "    },",
+            "    logClientHeight: log.clientHeight,",
+            "    logFlexGrow: getComputedStyle(log).flexGrow,",
+            "    composerGapToBottom: Math.round(window.innerHeight - cr.bottom),",
+            "    composerOverlapsLog: Math.max(0, Math.min(cr.bottom, lr.bottom) - Math.max(cr.top, lr.top)) > 0 && cr.top < lr.bottom,",
+            "    zonesBottom,",
+            "    composerTop: Math.round(cr.top),",
+            "/**",
+            " * In-page: the risk row probe (visibility + foldable ancestors + 3 channels).",
+            " *",
+            " * Closeout round (F7): the implementation is the single-source",
+            " * `riskVisibilityProbeSource()` from `test/ui/density-metrics.mjs`. It used to be a",
+            " * local copy, and it accepted a `visibility:hidden` / `opacity:0` ancestor as",
+            " * \"visible\" (neither changes `getBoundingClientRect()`), while the density caliber",
+            " * C1 explicitly refuses to exempt those properties. One probe, one meaning of",
+            " * \"visible\".",
+            " */",
+            "const riskProbe = (cls) => riskVisibilityProbeSource(cls);",
+            "",
+            "    // ── ① three things visible + ② unique decision card + ③ no resident input ──",
+            "    console.log('\\n▶ ① 三件事 + ② 唯一决策卡 + ③ 无常驻输入框');",
+            "        const band = document.getElementById('l0-status-band');",
+            "        const statusbar = document.getElementById('l0-statusbar');",
+            "        const asks = [...document.querySelectorAll('#l0-decision #ask, #panel-bottom #ask')].filter(visible);",
+            "          bandVisible: visible(band),",
+            "          bandText: band ? band.textContent : '',",
+            "    check('① 我在哪 / 谁在管我（#l0-status-band）默认态可见', skeleton.bandVisible === true);",
+            "    check('① ③ 下一步做什么（#l0-decision）默认态可见', skeleton.decisionVisible === true);",
+            "    check('① 一行状态栏（#l0-statusbar）默认态可见', skeleton.statusbarVisible === true);",
+            "    check('① 状态带文字含 origin 站点名（可读，非纯图标）', skeleton.bandText.includes('v3-l0.test'), skeleton.bandText.slice(0, 80));",
+            "    check('② 默认态决策卡数 = 1', skeleton.decisionCards === 1, String(skeleton.decisionCards));",
+            "    check('② 可见推荐选项 ≤ 2', skeleton.visibleOptions <= 2 && skeleton.visibleOptions >= 1, String(skeleton.visibleOptions));",
+            "      '② 「更多选项（还有 N 个）」的 N 从真值派生（4 个选项 → 2 可见 + 2 收起，N = 2 + 1 末项）',",
+            "    check('③ 默认态可见文本输入框计数 = 0（含 input:not([type]) / textarea）', skeleton.residentInputs.length === 0, skeleton.residentInputs.join(','));",
+            "    check('③ 完整输入框（#composer）默认 hidden（ADR-V3-014 §5）', skeleton.composerHidden === true);",
+            "    check('① 「从页面拾取」入口存在（替代输入框）', /从页面拾取/.test(skeleton.pickText));",
+            "    check('① 引用条入口存在（含计数）', /引用\\s*\\d+\\s*条/.test(skeleton.refText), skeleton.refText);",
+            "    check('② 真实选项数变化 → N 随之变化（硬编码即 FAIL）', moreAgain === '4|更多选项（还有 4 个）', moreAgain);",
+            "    // I2: the mandated terminal copy must be asserted on the RENDERED text, not only",
+            "    // on a module constant (the two `OTHER_OPTION_LABEL` copies could drift apart",
+            "    // without any gate noticing — the unit test only pinned the non-product one).",
+            "    check(",
+            "      '② FR-V3-012 末项文案逐字（渲染态 DOM 文本 = 「其他…（我来描述）」）',",
+            "      terminalText === '其他…（我来描述）',",
+            "      JSON.stringify(terminalText),",
+            "    );",
+            "    check('② 无待答回合时决策卡整体 hidden（不留空卡）', noAsk === '{\"askHidden\":true,\"moreHidden\":true}', noAsk);",
+            "    // ── I1 FAIL-able assertion ────────────────────────────────────────────────",
+            "    // 无卡态的**第二次** render 必须保持 `#l0-more` hidden。修复前的 early-return",
+            "    // 分支写的是 `foldedCount <= 0`，而 `foldedCount = foldedOptions.length + 1 ≥ 1`",
+            "    // 恒真 → 同一个无卡状态再渲染一次就把「更多选项（还有 1 个）」点亮成悬空入口。",
+            "    const noAskAgainParsed = JSON.parse(noAskAgain);",
+            "      '② I1：无卡态第二次 render 后 #l0-more 仍 hidden（不得复活悬空入口）',",
+            "      noAskAgainParsed.moreHidden === true && noAskAgainParsed.askHidden === true,",
+            "      noAskAgain,",
+            "      '② I1：无卡态 #l0-more 文案 / data-count 如实归零（不得写「还有 1 个」）',",
+            "      noAskAgainParsed.moreText === '更多选项（还有 0 个）' && noAskAgainParsed.moreCount === '0',",
+            "    await resetFixture(cdp);",
+            "    // ── ④ AC-V3-008: 5 classes × 2 scenarios ────────────────────────────────",
+            "    console.log('\\n▶ ④ AC-V3-008：5 类风险 × 2 场景（默认视口可见 + 全折叠后仍可见）');",
+            "    // Make the fixture coherent for the「未授权」class: revoke through the real message",
+            "    // (the origin store is authoritative), then re-authorize after the loop.",
+            "      const visibleProbe = await evaluate(cdp, riskProbe(sub.key));",
+            "      check(`④ ${sub.label}：默认视口内可见且三通道齐备`, visibleProbe.ok === true, JSON.stringify(visibleProbe));",
+            "      const collapsedProbe = await evaluate(cdp, riskProbe(sub.key));",
+            "      check(`④ ${sub.label}：全部 L1/L2 收起后仍可见（永不折叠）`, collapsedProbe.ok === true, JSON.stringify(collapsedProbe));",
+            "    // ── ⑤ AC-V3-009: ancestor chain + destructive options never folded ─────",
+            "    console.log('\\n▶ ⑤ AC-V3-009：祖先链 + 破坏性确认不参与折叠');",
+            "          railDirectChildOfBody: rail.parentElement === document.body,",
+            "          foldTriggerInRail: rail.querySelectorAll('[aria-expanded]').length,",
+            "    check('⑤ 风险位祖先链无 hidden 元素', chain.chain.every((n) => n.hidden !== true), ancestor);",
+            "    check('⑤ 风险位祖先链无 L1/L2/披露容器', chain.chain.every((n) => !n.l1 && !n.l2 && !n.disclose), ancestor);",
+            "    check('⑤ 风险位是 body 直接子元素（独立分区）', chain.railDirectChildOfBody === true);",
+            "    check('⑤ 风险位内不存在折叠触发器', chain.foldTriggerInRail === 0, String(chain.foldTriggerInRail));",
+            "    check('⑤ 风险行不位于任何折叠容器内', chain.riskRowsInFoldable === 0, String(chain.riskRowsInFoldable));",
+            "    // I14: the duplicate `setRisk('confirm','force')` + `void confirm` block is gone",
+            "    // (the probe below re-applies it through the same hook, once).",
+            "    check('⑤ 破坏性确认卡在 #l0-decision 直系且可见', cp.cardVisible === true && cp.inDecisionDirect === true, confirmProbe);",
+            "    check('⑤ 破坏性确认选项的祖先链无折叠容器（不参与折叠）', cp.chainClean === true, confirmProbe);",
+            "    check('⑤ 破坏性确认选项带 data-destructive-option（结构可判定）', cp.destructiveMarked === true, confirmProbe);",
+            "    check('⑤ 破坏性确认选项不进入「更多选项」池', cp.noneInMorePool === 0, confirmProbe);",
+            "    // ── FR-V3-019: hardline → zero allow controls ──────────────────────────",
+            "        return JSON.stringify({ labels, hasAllow: labels.some((l) => /^(允许|放行|允许执行|忽略硬底线|覆盖)$/.test(l)), railText: railText.slice(0, 120) });",
+            "    // ── ⑥ AC-V3-010: discoverability + reachability ────────────────────────",
+            "    console.log('\\n▶ ⑥ AC-V3-010：可发现性（入口文字 + ARIA 成对 + 目标含摘要/计数）+ L1 ≤1 / L2 ≤2');",
+            "    // I5 fix round: re-establish the default fixture so the probe sees the same",
+            "    // state the contract describes (a pending card + all disclosures folded).",
+            "    // The check may not be narrowed to a hand-picked subset (the old version",
+            "    // filtered to 4 L0 triggers, which hid the four `#l2-entry-*` buttons that had",
+            "    // `aria-controls` but no `aria-expanded`). Every `[aria-controls]` element in",
+            "    // the real product must pass; the list below is a *completeness* assertion",
+            "    // (a superset check), never a filter.",
+            "      'l0-status-band',",
+            "      'l0-statusbar',",
+            "      'ask-other',",
+            "    check('⑥ 遍历范围 = 全部 [aria-controls] 元素（未被白名单缩窄）', entries.length >= EXPECTED_TRIGGERS.length, `实测 ${entries.length} 个：${entries.map((e) => e.trigger).join(', ')}`);",
+            "    // I-01 (v3-3 fix round): `aria-controls` must point at the trigger's **own** target.",
+            "    // The runtime used to write `view-host` onto all four L2 entries, so",
+            "    // `#l2-entry-settings` claimed to control the view host (hidden while the settings",
+            "    // view is open) while `aria-expanded` tracked `#settings-view` — a false pair that",
+            "    // the old check could not see (it only asserted「目标存在」).",
+            "    const ARIA_TARGET_BY_ENTRY = {",
+            "      'l2-entry-tree': 'view-host',",
+            "      'l2-entry-commands': 'view-host',",
+            "      'l2-entry-audit': 'view-host',",
+            "      'l2-entry-settings': 'settings-view',",
+            "    };",
+            "        `⑥ ${trigger}：aria-controls 指向**自己的**目标（${expectedTarget}）且该目标存在`,",
+            "      check(`⑥ ${trigger} 在遍历范围内（可见性契约不得被漏检）`, entries.some((e) => e.trigger === trigger), entries.map((e) => e.trigger).join(', '));",
+            "    // V3-3: the v3-1 skeleton-phase exemption is **REMOVED**, exactly as its",
+            "    // registered `removalCondition` required (ledger `v3SkeletonExemptions`):",
+            "    // `#view-host` now carries the four real views, so it has a readable summary",
+            "    // like every other target and no target is exempt any more. The set is kept as",
+            "    // an explicitly-empty constant (and asserted empty) so a future \"temporary\"",
+            "    // exemption cannot be reintroduced silently.",
+            "    const SKELETON_EXEMPT_TARGETS = [];",
+            "      '⑥ 骨架期豁免集合已按登记条件清空（v3-3 用真实视图填充 #view-host 后不得再豁免）',",
+            "      JSON.stringify(SKELETON_EXEMPT_TARGETS) === JSON.stringify([]),",
+            "      check(`⑥ ${entry.trigger}：有非空文字标签（禁「只有图标」）`, entry.text.length > 0 || entry.label.length > 0, JSON.stringify(entry));",
+            "      check(`⑥ ${entry.trigger}：aria-expanded + aria-controls 成对`, entry.hasExpanded === true && Boolean(entry.targetId), JSON.stringify(entry));",
+            "      check(`⑥ ${entry.trigger}：aria-controls 指向存在的元素`, entry.targetExists === true, JSON.stringify(entry));",
+            "        // Exempt from \"target holds a readable summary\", NOT from discoverability:",
+            "        check(`⑥ ${entry.trigger}：骨架期宿主必须默认 hidden`, entry.targetHidden === true, JSON.stringify(entry));",
+            "        check(`⑥ ${entry.trigger}：骨架期豁免下入口必须自带计数/标签（可发现性不豁免）`, entry.countInTarget !== '' || entry.text.length > 0, JSON.stringify(entry));",
+            "      check(`⑥ ${entry.trigger}：目标含非空摘要或计数`, entry.summaryInTarget === true || entry.countInTarget !== '', JSON.stringify(entry));",
+            "      // V3-3: the v3-1 exempt branch additionally required the skeleton host to be",
+            "      // `hidden` by default. That requirement is NOT dropped — it is now asserted",
+            "      // for BOTH L2 view targets (FR-V3-045 默认零占用: a view that is resident in",
+            "      // the default state would be a regression no matter how good its summary is).",
+            "      if (entry.targetId === 'view-host' || entry.targetId === 'settings-view') {",
+            "        check(",
+            "          `⑥ ${entry.trigger}：L2 视图目标默认 hidden（FR-V3-045 默认零占用）`,",
+            "          entry.targetHidden === true,",
+            "          JSON.stringify(entry),",
+            "        );",
+            "      }",
+            "      '⑥ 空摘要目标集合必须被骨架期豁免集合完全覆盖，且不得超出登记数量（豁免不得扩大）',",
+            "    // ── ⑥b FR-V3-015: each of the ≤4 L2 entries must carry a REAL count ──────",
+            "    // Closeout round (validate R1 F6): the old assertion for an exempt *target*",
+            "    // was `countInTarget !== '' || text.length > 0` — a one-of-two disjunction that",
+            "    // is trivially satisfied by any non-empty label, so「≤4 入口**各带计数**」had no",
+            "    // failing assertion at all (`#l2-entry-settings` shipped `data-count=\"n/a\"` and",
+            "    // no digit, and the gate still passed). The count now has to be *derived*: the",
+            "    // digit in the entry's own label, its `data-count` attribute and the L1",
+            "    // one-line status-bar summary all come from the same `l0ViewModel()` values, so",
+            "    // the three must agree — and a missing count must be an explicitly REGISTERED",
+            "    // exemption — V3-3 removed it: `#l2-entry-settings` now derives its count from",
+            "    // the rendered-section registry (`src/ui/settings/sections.ts`), so all four",
+            "    // entries participate in the three-way same-source judgement.",
+            "    const L2_KEYS = ['tree', 'commands', 'audit', 'settings'];",
+            "    /**",
+            "     * V3-3: no L2 entry is exempt any more (the settings count is derived from",
+            "     * `settings/sections.ts#SETTINGS_SECTION_IDS`, cross-checked against the",
+            "     * rendered `.wc-section` set by `test/ui/l2.mjs`). Empty set, asserted empty.",
+            "     */",
+            "    const L2_COUNT_EXEMPT = [];",
+            "      const entries = ${JSON.stringify(L2_KEYS)}.map((key) => {",
+            "      // V3-3: the COUNTS live in the entry panel's own summary line",
+            "      // (#l2-entry-summary); the one-line bar above is deliberately count-free",
+            "      // (its text is part of the measured default tier, and the audit count is a",
+            "      // live number — see view-model.ts#L2_BAR_TEXT). The three-way judgement is",
+            "      // unchanged: entry label ≡ data-count ≡ the summary the panel shows.",
+            "      const bar = document.getElementById('l0-statusbar-text');",
+            "     * The FR-V3-015 judge, as a pure function so the counter-proof below can drive",
+            "     * it with a perturbed snapshot instead of a perturbed product.",
+            "      if (l2.entries.length !== 4 || l2.entries.some((e) => e.missing === true)) failures.push('L2 入口数 ≠ 4');",
+            "      const unCounted = l2.entries.filter((e) => !/^\\d+$/.test(String(e.dataCount))).map((e) => e.key);",
+            "      if (!unCounted.every((k) => L2_COUNT_EXEMPT.includes(k)) || unCounted.length > L2_COUNT_EXEMPT.length) {",
+            "        failures.push(`无计数入口超出登记豁免集合：${JSON.stringify(unCounted)}`);",
+            "      // V3-3 (was the registered `settings-count` exemption): the settings entry",
+            "      // must carry a REAL, numeric count that equals the rendered-section registry",
+            "      // length — the exemption's removal condition, now enforced.",
+            "      if (!Number.isInteger(settingsCount) || settingsCount <= 0) {",
+            "        failures.push(`settings: data-count 必须是可派生的正整数（实测 ${l2.entries.find((e) => e.key === 'settings')?.dataCount}）`);",
+            "    // V3-3 (F2/K-1 determinism): the resident one-line bar must carry NO digits —",
+            "    // the audit ring grows while the panel is used, so a count-bearing resident line",
+            "    // would make the density caliber's \"one steady state ⇒ identical cells\" rule",
+            "    // unprovable. The counts are one interaction away, in the panel summary.",
+            "      '⑥ 常驻一行状态栏文本不含数字（计数在入口面板摘要内，默认档足迹稳定）',",
+            "      !/\\d/.test(l2Parsed.barText ?? ''),",
+            "      JSON.stringify(l2Parsed.barText),",
+            "      '⑥ 入口面板摘要（#l2-entry-summary）确实带着四类计数（不是空的摘要）',",
+            "      /树\\s*\\d/.test(l2Parsed.summary ?? '') &&",
+            "        /命令\\s*\\d/.test(l2Parsed.summary ?? '') &&",
+            "        /审计\\s*\\d/.test(l2Parsed.summary ?? '') &&",
+            "        /设置\\s*\\d/.test(l2Parsed.summary ?? ''),",
+            "      '⑥ FR-V3-015 ≤4 个 L2 入口**各带真值计数**（入口标签 ≡ data-count ≡ 状态栏摘要，三处同源）',",
+            "      l2Failures.length === 0,",
+            "      `${JSON.stringify(l2Failures)} | ${l2Raw}`,",
+            "    // 反证（内联，实跑 FAIL → 还原 → PASS）：篡改真 DOM 的 `data-count` → 同一条判据",
+            "    // 必须给出失败；还原后必须再次为空。这证明该判据**不是恒真**（旧判据在同样",
+            "    // 篡改下仍然 PASS —— 因为「计数或标签」二选一被标签满足）。",
+            "    //",
+            "    // ── V3-2 fix round (2026-09-16, ledger V32-S11) — **纯插入，不改判据** ──────",
+            "    // 下面的反证会篡改真实 DOM 并**立刻**复读。在 CPU 争用下它曾与一次**尚未完成",
+            "    // 的重渲染**赛跑（侧栏把常驻计数重新写回，篡改属性在复读前被还原）→ 产生",
+            "    // **负载相关的假红**（`[]`，在 v3-2 修复轮的串行链中实测出现 1 次，单跑 3/3 绿）。",
+            "    // 这里只先等 DOM 静默（有硬上限，绝不挂死），判据本体与断言均未改动/未削弱。",
+            "        const root = document.getElementById('l0-statusbar') ?? document.body;",
+            "    // V3-3: the restore value is the entry's OWN pre-tamper value, not a literal",
+            "    // `0` — the v3-1 skeleton shipped zeros, so \"restore to 0\" used to be the same",
+            "    // thing as \"restore to truth\". With real derived counts that would silently",
+            "    // turn the restore segment into a second tamper (and it must stay a genuine",
+            "    // restore: read → perturb → restore the captured value → judge empty again).",
+            "      '⑥ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出',",
+            "      l2Tampered.some((f) => f.includes('tree')),",
+            "      JSON.stringify(l2Tampered),",
+            "      '⑥ FR-V3-015 反证用的真值确实来自运行期派生（不是 0 / 不是空值）',",
+            "      /^\\d+$/.test(String(l2TrueTreeCount)) && Number(l2TrueTreeCount) > 0,",
+            "      `tree data-count=${l2TrueTreeCount} | ${JSON.stringify(l2Before.entries)}`,",
+            "    await evaluate(",
+            "      cdp,",
+            "      `document.getElementById('l2-entry-tree').setAttribute('data-count', ${JSON.stringify(String(l2TrueTreeCount))}); true`,",
+            "      '⑥ FR-V3-015 反证（还原段）：还原真值后判据必须再次为空',",
+            "      l2Restored.length === 0,",
+            "      JSON.stringify(l2Restored),",
+            "        // L1 ≤1：默认态点击一次 #l0-status-band 即展开 #topbar",
+            "        band.click();",
+            "        const l1Open = document.getElementById('topbar').hidden === false && band.getAttribute('aria-expanded') === 'true';",
+            "        const l1Closed = document.getElementById('topbar').hidden === true;",
+            "        // L2 ≤2：状态栏（1）+ 入口（2）→ 视图宿主可见",
+            "        const bar = document.getElementById('l0-statusbar');",
+            "        bar.click();",
+            "        const panelOpen = document.getElementById('l2-entries').hidden === false;",
+            "        document.getElementById('l2-entry-tree').click();",
+            "        const viewOpen = document.getElementById('view-host').hidden === false && document.getElementById('tree-fab').hidden === false;",
+            "        return JSON.stringify({ l1Open, l1Closed, panelOpen, viewOpen });",
+            "    check('⑥ L1 ≤1 次交互可达（一次点击展开，再点收起）', rl.l1Open === true && rl.l1Closed === true, reach);",
+            "    check('⑥ L2 ≤2 次交互可达（状态栏 → 入口 → 视图宿主可见）', rl.panelOpen === true && rl.viewOpen === true, reach);",
+            "    // ── ⑦ AC-V3-021: 320 / 400 resident sets identical + zero overflow ─────",
+            "    console.log('\\n▶ ⑦ AC-V3-021：320/400 常驻元素集合相等 + 零水平溢出');",
+            "    // ⑦/⑧ measure the DEFAULT tier: re-establish the default fixture (the risk",
+            "    // section above deliberately revoked the origin to make「未授权」coherent).",
+            "      check(`⑦ ${vp}px 文档级零水平溢出`, sets[vp].overflowX === 0, `overflowX=${sets[vp].overflowX}`);",
+            "      '⑦ 320px 常驻可见元素 id 集合 == 400px（320 下不删任何常驻元素）',",
+            "      '⑦ 320px 下五个常驻分区元素仍全部存在（含风险位与状态栏）',",
+            "      ['risk-rail', 'panel-top', 'l0-decision', 'l0-statusbar', 'panel-bottom'].every((id) => sets[320].all.includes(id)),",
+            "      JSON.stringify(sets[320].all.filter((i) => ['risk-rail', 'panel-top', 'l0-decision', 'l0-statusbar', 'panel-bottom'].includes(i))),",
+            "    // ── ⑧ geometry contract (enhanced replacement for the v2 insight metrics) ──",
+            "    console.log('\\n▶ ⑧ 几何契约：四区两两不重叠 + #log 唯一滚动 + composer 贴底不遮挡');",
+            "    const geoHidden = await evaluate(cdp, geometryProbe);",
+            "    check('⑧ L0 四常驻区两两交面积 = 0（6 组）', geoHidden.pairs.every((a) => a === 0), JSON.stringify(geoHidden.pairs));",
+            "    // I13: `length <= 1 && (arr[0] ?? 'log') === 'log'` also passed on an EMPTY",
+            "    // array (the only scroller having vanished counted as success — a vacuum PASS).",
+            "    // The non-vacuous form: (a) the *idle* census must contain no foreign scroller,",
+            "    // (b) with real overflow inside `#log`, the census must be exactly `['log']`.",
+            "      '⑧ 静止态面板内不得存在非 #log 的滚动容器',",
+            "      geoHidden.panelScrollers.every((id) => id === 'log'),",
+            "      JSON.stringify(geoHidden.panelScrollers),",
+            "        const log = document.getElementById('log');",
+            "        // #log is a column flex container: a default flex item would be SHRUNK back",
+            "        // to the free space (no overflow -> no scroller), so the probe item must be",
+            "        // non-shrinkable to actually overflow the box.",
+            "        log.appendChild(filler);",
+            "        const census = [...document.querySelectorAll('#panel-main *, #panel-main')]",
+            "        const logScrolls = log.scrollHeight > log.clientHeight;",
+            "        return JSON.stringify({ census, logScrolls });",
+            "    check('⑧ 注入溢出后 #log 确实可滚（唯一的面板级滚动容器不是空集）', sp.logScrolls === true, scrollerProof);",
+            "      '⑧ 注入溢出后面板级滚动容器恰为 1 个且是 #log',",
+            "      sp.census.length === 1 && sp.census[0] === 'log',",
+            "      scrollerProof,",
+            "    check('⑧ #log flex-grow = 1（flex 填充，非硬编码高度）', geoHidden.logFlexGrow === '1', geoHidden.logFlexGrow);",
+            "    const baselineFloor = existsSync(BASELINE_JSON)",
+            "      ? JSON.parse(readFileSync(BASELINE_JSON, 'utf8')).logClientHeightFloor ?? 0",
+            "      : 0;",
+            "    const floor = Math.max(LOG_MIN_HEIGHT_V1, baselineFloor);",
+            "    console.log(`    L0 几何：${JSON.stringify(geoHidden.zoneHeights)} | 展开态 ${JSON.stringify(geoHidden.expanded)}`);",
+            "      `⑧ #log clientHeight ≥ ${floor}px（v1 下界与首轮实测下界取严者）`,",
+            "      geoHidden.logClientHeight >= floor,",
+            "      `${geoHidden.logClientHeight}px（基线 ${baselineFloor}）| zones=${JSON.stringify(geoHidden.zoneHeights)} | expanded=${JSON.stringify(geoHidden.expanded)}`,",
+            "    await evaluate(cdp, `window.__v3.testing.revealFallback(); true`);",
+            "    await sleep(350);",
+            "    const geoRevealed = await evaluate(cdp, geometryProbe);",
+            "    check('⑧ 兜底展开态 #composer 贴底（gap ∈ [0, +12]）', geoRevealed.composerGapToBottom >= 0 && geoRevealed.composerGapToBottom <= 12, `${geoRevealed.composerGapToBottom}px`);",
+            "    check('⑧ 兜底展开态 #composer 不被常驻区遮挡', geoRevealed.composerTop >= geoRevealed.zonesBottom - 1, `composerTop=${geoRevealed.composerTop} zonesBottom=${geoRevealed.zonesBottom}`);",
+            "    check('⑧ 兜底展开态 #composer 与 #log 不重叠', geoRevealed.composerOverlapsLog === false, JSON.stringify(geoRevealed));",
+            "    const fallbackState = await evaluate(",
+            "      `JSON.stringify({ fallback: document.getElementById('ask-fallback').hidden, composer: document.getElementById('composer').hidden, input: !document.getElementById('input').disabled })`,",
+            "    check('⑧ 兜底展开后 #ask-fallback 与 #composer 均可见且输入可用', fallbackState === '{\"fallback\":false,\"composer\":false,\"input\":true}', fallbackState);",
+            "    check('⑧ 收起兜底后两者回到 hidden（FR-V3-012）', collapsedAgain === '{\"fallback\":true,\"composer\":true}', collapsedAgain);",
+            "    // ── ⑨ both themes readable, never colour-only ─────────────────────────",
+            "    console.log('\\n▶ ⑨ 明暗双主题：状态可读且不只靠颜色');",
+            "          // \"not colour-only\": strip every inline paint property, then re-read the",
+            "          // three channels — text / badge / icon must survive without any colour.",
+            "            badges: [...document.querySelectorAll('#l0-status-band .l0-band-badge, #risk-rail .risk-badge')].length,",
+            "      check(`⑨ ${theme} 主题：风险行文字非空（不只靠颜色）`, tp.text.length > 0, themeProbe);",
+            "      check(`⑨ ${theme} 主题：风险行徽标 + 图标齐备`, tp.badge.length > 0 && tp.hasIcon === true, themeProbe);",
+            "      check(`⑨ ${theme} 主题：文字颜色与背景均解析成功`, tp.color.length > 0 && tp.background.length > 0, themeProbe);",
+            "      // I12: the old assertions only checked \"the computed string is non-empty\",",
+            "      // which passes even if the two themes paint identically (i.e. the dark",
+            "      // tokens are dead). Assert the theme tokens really resolve AND really differ.",
+            "        check(`⑨ ${theme} 主题：语义 token ${token} 解析为非空值`, (tp.tokens[token] ?? '').length > 0, `${token}=${JSON.stringify(tp.tokens[token])}`);",
+            "      check(",
+            "        `⑨ ${theme} 主题：去掉颜色后三通道仍可读（不只靠颜色）`,",
+            "        tp.survivors?.text === true && tp.survivors?.badge === true && tp.survivors?.icon === true,",
+            "        JSON.stringify(tp.survivors),",
+            "      );",
+            "      '⑨ 明暗两套的主题 token 值确实不同（暗色不是死 token；非同一套颜色）',",
+            "      JSON.stringify({",
+            "        light: themeData.light.tokens,",
+            "        dark: themeData.dark.tokens,",
+            "      }),",
+            "      '⑨ 明暗两套的风险行文字 / 行背景 / 徽标文字色确实不同（主题切换真实生效）',",
+            "      themeData.light.color !== themeData.dark.color &&",
+            "        themeData.light.background !== themeData.dark.background &&",
+            "        themeData.light.badgeColor !== themeData.dark.badgeColor,",
+            "        light: [themeData.light.color, themeData.light.background, themeData.light.badgeColor, themeData.light.badgeBackground],",
+            "        dark: [themeData.dark.color, themeData.dark.background, themeData.dark.badgeColor, themeData.dark.badgeBackground],",
+            "    // The badge paint is deliberately transparent in both themes (it inherits the",
+            "    // row background), so it is *registered* as a diagnostic rather than asserted",
+            "    // to differ — what must differ is its text colour (above) and the row paint.",
+            "      '⑨ 徽标底色为继承（两主题均透明）——不得因此判定主题未生效（登记项）',",
+            " * V3-1 TASK-110 / ADR-V3-006 / ADR-V3-007 / ADR-V3-008 — the L0 runtime gate."
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/l1.mjs",
+          "count": 28,
+          "reason": "TASK-509 入口机制重写：v3 的 L1_TRIGGERS（#l0-status-band/#l0-more/#l0-ref-toggle）已随三区骨架退役，入口改为工具栏/状态栏/流内占位宿主；引用判定/回执/局部树/手势四组内容契约语义不变，属同编号等价改写。",
+          "registeredUncoveredLines": [
+            "  'l1-status',",
+            "  'l1-status': 'l0-status-band',",
+            "  'l1-local-tree': 'l0-status-band',",
+            "  'l1-history': 'l0-status-band',",
+            "  'l1-receipt': 'l0-status-band',",
+            "  'l1-gestures': 'l0-status-band',",
+            "    check('① 恰好 8 个 [data-l1-panel] 且 id 集合与契约一致', JSON.stringify([...en.ids].sort()) === JSON.stringify([...CLASSES].sort()), enumerated);",
+            "    check('① 8 个 L1 面板默认全部 hidden（折叠只用 hidden 属性）', en.allHidden === true, enumerated);",
+            "    // the status group opens all five classes with that ONE click (not just one)",
+            "        document.getElementById('l0-status-band').click();",
+            "        const ids = ['topbar', 'l1-local-tree', 'l1-history', 'l1-receipt', 'l1-gestures'];",
+            "        return JSON.stringify(ids.map((id) => [id, document.getElementById(id).hidden]));",
+            "    check('① 一次点击 #l0-status-band 同时展开 ①④⑤⑥⑦ 五类（L0 可点预算 7/7 满额，故入口复用）', JSON.parse(groupOpen).every(([, hidden]) => hidden === false), groupOpen);",
+            "        const open = () => { window.__v3.testing.collapseAll(); document.getElementById('l0-status-band').click(); };",
+            "        const rail = document.getElementById('risk-rail').getBoundingClientRect();",
+            "        const group = document.getElementById('topbar').getBoundingClientRect();",
+            "        const scrollers = [...document.querySelectorAll('#panel-main *, #panel-main')]",
+            "          railInView: inView(rail), cardInView: inView(card),",
+            "          railCard: inter(rail, card), railGroup: inter(rail, group), cardGroup: inter(card, group),",
+            "          logId: document.getElementById('log').id,",
+            "    check('② 展开后 #risk-rail 仍在视口内', g.railInView === true, geo);",
+            "    check('② 展开后决策卡（#l0-decision）仍在视口内', g.cardInView === true, geo);",
+            "    check('② 展开区与风险位 / 决策卡交面积 = 0', g.railGroup === 0 && g.cardGroup === 0, geo);",
+            "    check('② 展开后 #panel-main 内滚动容器仍只有 #log（L1 的滚动块在 #panel-top 内）', g.panelScrollers.every((id) => id === 'log'), JSON.stringify(g.panelScrollers));",
+            "        document.getElementById('l0-statusbar').click();",
+            "        const openAll = () => { document.getElementById('l0-status-band').click(); document.getElementById('l0-more').click(); document.getElementById('l0-ref-toggle').click(); };",
+            "        const closeAll = () => { document.getElementById('l0-status-band').click(); document.getElementById('l0-more').click(); document.getElementById('l0-ref-toggle').click(); };",
+            "/** class → the L0 trigger whose ONE click must reveal it (ADR-V3-021 §2). */"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/l2.mjs",
+          "count": 14,
+          "reason": "TASK-510 入口迁移：L2 四视图入口由底部 #l2-entries 一行迁入工具栏 #l2-entry-*，断言重锚到「工具栏入口 + #stream ↔ #view-host 互斥 + 计数同源」；能力集等价判定零删减。",
+          "registeredUncoveredLines": [
+            "  const scrollers = [...document.querySelectorAll('#panel-main *, #panel-main')]",
+            "  const scrollersCss = [...document.querySelectorAll('#panel-main *, #panel-main')]",
+            "    railVisible: rail ? !hiddenChain(rail) && rail.getBoundingClientRect().height > 0 : false,",
+            "    barText: (document.getElementById('l0-statusbar-text')?.textContent ?? '').trim(),",
+            "    // ── ② ≤2 次交互可达（状态栏 1 → 入口 2） ─────────────────────────────",
+            "    console.log('\\n▶ ② ≤2 次交互可达 + §③ 计数真值派生');",
+            "    // ② tree (real clicks: exactly two interactions from the default state)",
+            "    await realClick(cdp, '#l0-statusbar');",
+            "    const panelOpen = await evaluate(cdp, `document.getElementById('l2-entries').hidden === false`);",
+            "    check('② 1 次交互只展开入口面板（尚未替换主区）', panelOpen === true, String(panelOpen));",
+            "      '② 2 次交互后连接树视图打开（#log 被替换 + 目标视图可见 + ← 返回可见）',",
+            "    check('⑥ L2 打开期间 #risk-rail 仍可见（高度 > 0 且无 hidden 祖先）', open.railVisible === true, JSON.stringify(open.railChain));",
+            "    check('⑥ 风险位祖先闭包无 [data-l2-view]（视图替换只发生在 #panel-main 内）', open.railChainHasView === false, JSON.stringify(open.railChain));",
+            "    await sleep(400);"
           ]
         }
       ]
@@ -353,6 +977,114 @@
       "modificationType": "selector-reanchor",
       "leaf": "specs-tree-v4-1-zone-shell-density",
       "reason": "同一条测试内的选择器重锚（#log → #stream / #panel-main → #region-stream）；测试名保留以便台账与人眼双向定位（newTitle 取该保留名本身）。"
+    },
+    {
+      "id": "V41-R2-1",
+      "file": "packages/web-cli-plugin/test/ui/l0.mjs",
+      "gate": "test/ui/l0.mjs",
+      "oldId": "V4-1/TASK-508~515",
+      "oldTitle": " * V3-1 TASK-110 / ADR-V3-006 / ADR-V3-007 / ADR-V3-008 — the L0 runtime gate.",
+      "newId": "V4-1 三区骨架（重锚）",
+      "newTitle": "const L0_RUNTIME_FLOOR = 164;",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-508 整文件重写为三区骨架门禁（三区结构/文档序 + 工具栏 ≤5 + J1~J4 风险永不折叠 + 豁免子树 + 可发现性 + 三宽度双主题）；同编号语义全部保留并重锚到 #region-* / #stream，属**登记型取代**（整文件重写）。"
+    },
+    {
+      "id": "V41-R2-2",
+      "file": "packages/web-cli-plugin/test/ui/l1.mjs",
+      "gate": "test/ui/l1.mjs",
+      "oldId": "V4-1/TASK-508~515",
+      "oldTitle": "/** class → the L0 trigger whose ONE click must reveal it (ADR-V3-021 §2). */",
+      "newId": "V4-1 三区骨架（重锚）",
+      "newTitle": "const L1_RUNTIME_FLOOR = 103;",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-509 入口机制重写：v3 的 L1_TRIGGERS（#l0-status-band/#l0-more/#l0-ref-toggle）已随三区骨架退役，入口改为工具栏/状态栏/流内占位宿主；引用判定/回执/局部树/手势四组内容契约语义不变，属同编号等价改写。"
+    },
+    {
+      "id": "V41-R2-3",
+      "file": "packages/web-cli-plugin/test/ui/l2.mjs",
+      "gate": "test/ui/l2.mjs",
+      "oldId": "V4-1/TASK-508~515",
+      "oldTitle": "    logHidden: document.getElementById('log').hidden === true,",
+      "newId": "V4-1 三区骨架（重锚）",
+      "newTitle": "const L2_RUNTIME_FLOOR = 71;",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-510 入口迁移：L2 四视图入口由底部 #l2-entries 一行迁入工具栏 #l2-entry-*，断言重锚到「工具栏入口 + #stream ↔ #view-host 互斥 + 计数同源」；能力集等价判定零删减。"
+    },
+    {
+      "id": "V41-R2-4",
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "gate": "test/ui/insight.mjs",
+      "oldId": "V4-1/TASK-508~515",
+      "oldTitle": " *   #I-05 `#log` 计算 `flex-grow === '1'`；",
+      "newId": "V4-1 三区骨架（重锚）",
+      "newTitle": "const COMPOSER_GAP = [0, 8];",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-515 前置：v2/v3 的 #log 像素锚与「composer 贴底」在 v4-1 三区骨架下失效 —— 按 ADR-V4-008 第三条 redlineRemap 显式取代为 #stream 比例/高度锚 + 法四（默认屏无可见常驻输入框），并以 fail-closed 只认 hidden 的可见性判据表达；断言只增不减（116）。"
+    },
+    {
+      "id": "V41-R2-5",
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "gate": "test/ui/binding.mjs",
+      "oldId": "V4-1/TASK-508~515",
+      "oldTitle": " * ① **无法脚本触发 `chrome.action.onClicked`**：Chrome 没有暴露程序化点击工具栏图标的",
+      "newId": "V4-1 三区骨架（重锚）",
+      "newTitle": "const v3Collapse = (page) => v3CollapseV4(page);",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-515 前置：v3 的「打开 #topbar（L1 管理面）→ collapseAll 还原默认屏」配对在 v4 退化为「进入 #settings-view 视图」—— 视图不退出时 #stream 仍 hidden，确认卡（在 #stream 决策宿主内）的真实点击落到 (0,0) 而永远解不开。等价改写为 v3Collapse = 折叠 + 退出当前 L2 视图（保护段 #22a~#22l 字节零改）。"
+    },
+    {
+      "id": "V41-R2-6",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "size-baseline.ts",
+      "oldId": "V4-1/TASK-515",
+      "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 375_102;",
+      "newId": "V4-1 重登记",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 385_319;",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "TASK-515 五要素中间重登记：sidepanel 体积基线 375,102 → 385,319 B（+10,217 B，+2.72%），逐模块可归因（真实 metafile）+ 前后值/日期/来源/理由/历史保留五要素齐备；`PENDING_ABSOLUTE_CAP` 保持 resolved:false 且未预填，targetBudgetBytes/targetMet 仍为 null，容差 5% 未动。"
+    },
+    {
+      "id": "V41-R2-7",
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "gate": "size-budget.test.ts",
+      "oldId": "V4-1/TASK-515",
+      "oldTitle": "assert.equal(SIDEPANEL_CEILING, 393_857,",
+      "newId": "V4-1 重登记",
+      "newTitle": "assert.equal(SIDEPANEL_CEILING, 404_584, 'ceiling = floor(385,319 × 1.05)（v4-1 三区骨架重登记后由公式抬高）');",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同轮方向敏感断言按新实测值重 pin（ceiling 393,857 → 404,584 = floor(385,319 × 1.05)）；断言零删减，cap 仍 record-only，公式判定路径不变。"
+    },
+    {
+      "id": "V41-R2-8",
+      "file": "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+      "gate": "size-growth-evidence.test.ts",
+      "oldId": "V4-1/TASK-515",
+      "oldTitle": "assert.equal(b.deltaBytes, 79_877);",
+      "newId": "V4-1 重登记",
+      "newTitle": "assert.equal(b.deltaBytes, 90_094);",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "同轮累计增量断言按新基线重 pin（79,877 → 90,094 = 385,319 − 295,225）；并让「断言零删减」登记册同时认 v4 取代台账为合法来源（双台账）。"
+    },
+    {
+      "id": "V41-R2-9",
+      "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+      "gate": "size-ruling-vol3.test.ts",
+      "oldId": "V4-1/TASK-515",
+      "oldTitle": "assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 375_102, '反证必须打在**当前真实产物**上');",
+      "newId": "V4-1 重登记",
+      "newTitle": "assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 385_319, '反证必须打在**当前真实产物**上');",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v4-1-zone-shell-density",
+      "reason": "裁决 V3-VOL-3 的反证必须打在**当前真实产物**上；v4-1 重登记后该 pin 随实测更新为 385,319 B（40% 停工线仍为显式撤销状态，判定路径不变）。"
     }
   ],
   "modifiedRanges": [
@@ -377,32 +1109,998 @@
       "reason": "换口径：豁免子树（单源读取）+ evaluateCardBudget / evaluateFirstScreen + STREAM_HEIGHT_RATIO_MIN（spike 派生下界），阈值 7/15·9/20·17/35 逐字不变。"
     },
     {
-      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
       "oldRange": [
-        131,
-        135
+        82,
+        82
       ],
       "newRange": [
-        127,
-        131
+        82,
+        82
       ],
-      "deletedLines": 3,
-      "oldId": "TASK-023 log zone",
-      "reason": "V4-1 TASK-510 ①④：`#log.empty:not(:has(> *))` → `#stream.empty:not(:has(.entry))`、`#panel-main` → `#region-stream`、`#log` → `#stream`（选择器重锚，语义不变）。"
+      "range": "82..82",
+      "oldId": "V41-MR-size-baseline.ts-82",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        90,
+        90
+      ],
+      "newRange": [
+        90,
+        90
+      ],
+      "range": "90..90",
+      "oldId": "V41-MR-size-baseline.ts-90",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        102,
+        102
+      ],
+      "newRange": [
+        102,
+        102
+      ],
+      "range": "102..102",
+      "oldId": "V41-MR-size-baseline.ts-102",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        106,
+        110
+      ],
+      "newRange": [
+        106,
+        110
+      ],
+      "range": "106..110",
+      "oldId": "V41-MR-size-baseline.ts-106",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        113,
+        113
+      ],
+      "newRange": [
+        113,
+        113
+      ],
+      "range": "113..113",
+      "oldId": "V41-MR-size-baseline.ts-113",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        164,
+        164
+      ],
+      "newRange": [
+        164,
+        164
+      ],
+      "range": "164..164",
+      "oldId": "V41-MR-size-baseline.ts-164",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "oldRange": [
+        182,
+        182
+      ],
+      "newRange": [
+        182,
+        182
+      ],
+      "range": "182..182",
+      "oldId": "V41-MR-size-baseline.ts-182",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        39,
+        39
+      ],
+      "newRange": [
+        39,
+        39
+      ],
+      "range": "39..39",
+      "oldId": "V41-MR-size-budget.test.ts-39",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        195,
+        198
+      ],
+      "newRange": [
+        195,
+        198
+      ],
+      "range": "195..198",
+      "oldId": "V41-MR-size-budget.test.ts-195",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        203,
+        203
+      ],
+      "newRange": [
+        203,
+        203
+      ],
+      "range": "203..203",
+      "oldId": "V41-MR-size-budget.test.ts-203",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        205,
+        206
+      ],
+      "newRange": [
+        205,
+        206
+      ],
+      "range": "205..206",
+      "oldId": "V41-MR-size-budget.test.ts-205",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        208,
+        208
+      ],
+      "newRange": [
+        208,
+        208
+      ],
+      "range": "208..208",
+      "oldId": "V41-MR-size-budget.test.ts-208",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        210,
+        210
+      ],
+      "newRange": [
+        210,
+        210
+      ],
+      "range": "210..210",
+      "oldId": "V41-MR-size-budget.test.ts-210",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        219,
+        219
+      ],
+      "newRange": [
+        219,
+        219
+      ],
+      "range": "219..219",
+      "oldId": "V41-MR-size-budget.test.ts-219",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        221,
+        222
+      ],
+      "newRange": [
+        221,
+        222
+      ],
+      "range": "221..222",
+      "oldId": "V41-MR-size-budget.test.ts-221",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        225,
+        226
+      ],
+      "newRange": [
+        225,
+        226
+      ],
+      "range": "225..226",
+      "oldId": "V41-MR-size-budget.test.ts-225",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        246,
+        252
+      ],
+      "newRange": [
+        246,
+        252
+      ],
+      "range": "246..252",
+      "oldId": "V41-MR-size-budget.test.ts-246",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        256,
+        256
+      ],
+      "newRange": [
+        256,
+        256
+      ],
+      "range": "256..256",
+      "oldId": "V41-MR-size-budget.test.ts-256",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        259,
+        260
+      ],
+      "newRange": [
+        259,
+        260
+      ],
+      "range": "259..260",
+      "oldId": "V41-MR-size-budget.test.ts-259",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        264,
+        264
+      ],
+      "newRange": [
+        264,
+        264
+      ],
+      "range": "264..264",
+      "oldId": "V41-MR-size-budget.test.ts-264",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        266,
+        266
+      ],
+      "newRange": [
+        266,
+        266
+      ],
+      "range": "266..266",
+      "oldId": "V41-MR-size-budget.test.ts-266",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+      "oldRange": [
+        272,
+        274
+      ],
+      "newRange": [
+        272,
+        274
+      ],
+      "range": "272..274",
+      "oldId": "V41-MR-size-budget.test.ts-272",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        763,
+        763
+      ],
+      "newRange": [
+        763,
+        763
+      ],
+      "range": "763..763",
+      "oldId": "V41-MR-insight-archive.test.ts-763",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        765,
+        766
+      ],
+      "newRange": [
+        765,
+        766
+      ],
+      "range": "765..766",
+      "oldId": "V41-MR-insight-archive.test.ts-765",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        768,
+        771
+      ],
+      "newRange": [
+        768,
+        771
+      ],
+      "range": "768..771",
+      "oldId": "V41-MR-insight-archive.test.ts-768",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        12,
+        12
+      ],
+      "newRange": [
+        12,
+        12
+      ],
+      "range": "12..12",
+      "oldId": "V41-MR-insight-tree-hierarchy.test.ts-12",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        18,
+        18
+      ],
+      "newRange": [
+        18,
+        18
+      ],
+      "range": "18..18",
+      "oldId": "V41-MR-insight-tree-hierarchy.test.ts-18",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        518,
+        518
+      ],
+      "newRange": [
+        518,
+        518
+      ],
+      "range": "518..518",
+      "oldId": "V41-MR-insight-tree-hierarchy.test.ts-518",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        520,
+        527
+      ],
+      "newRange": [
+        520,
+        527
+      ],
+      "range": "520..527",
+      "oldId": "V41-MR-insight-tree-hierarchy.test.ts-520",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        557,
+        557
+      ],
+      "newRange": [
+        557,
+        557
+      ],
+      "range": "557..557",
+      "oldId": "V41-MR-insight-tree-hierarchy.test.ts-557",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        569,
+        569
+      ],
+      "newRange": [
+        569,
+        569
+      ],
+      "range": "569..569",
+      "oldId": "V41-MR-insight-tree-hierarchy.test.ts-569",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+      "oldRange": [
+        571,
+        571
+      ],
+      "newRange": [
+        571,
+        571
+      ],
+      "range": "571..571",
+      "oldId": "V41-MR-insight-tree-hierarchy.test.ts-571",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
     },
     {
       "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
       "oldRange": [
-        601,
+        134,
+        135
+      ],
+      "newRange": [
+        134,
+        135
+      ],
+      "range": "134..135",
+      "oldId": "V41-MR-sidepanel-view.test.ts-134",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "oldRange": [
+        603,
+        608
+      ],
+      "newRange": [
+        603,
+        608
+      ],
+      "range": "603..608",
+      "oldId": "V41-MR-sidepanel-view.test.ts-603",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "oldRange": [
+        610,
+        615
+      ],
+      "newRange": [
+        610,
+        615
+      ],
+      "range": "610..615",
+      "oldId": "V41-MR-sidepanel-view.test.ts-610",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "oldRange": [
+        617,
         618
       ],
       "newRange": [
-        597,
-        614
+        617,
+        618
       ],
-      "deletedLines": 15,
-      "oldId": "TASK-023 three zones",
-      "reason": "V4-1 TASK-510 ①③：三区文档序与 `#panel-bottom{flex:0 0 auto}` 判据重锚到 `#region-toolbar` / `#region-stream` / `#region-statusbar`；composer 贴底判据取代为法四「存在但默认 hidden」。"
+      "range": "617..618",
+      "oldId": "V41-MR-sidepanel-view.test.ts-617",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "oldRange": [
+        16,
+        19
+      ],
+      "newRange": [
+        16,
+        19
+      ],
+      "range": "16..19",
+      "oldId": "V41-MR-binding.mjs-16",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "oldRange": [
+        89,
+        89
+      ],
+      "newRange": [
+        89,
+        89
+      ],
+      "range": "89..89",
+      "oldId": "V41-MR-binding.mjs-89",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "oldRange": [
+        905,
+        905
+      ],
+      "newRange": [
+        905,
+        905
+      ],
+      "range": "905..905",
+      "oldId": "V41-MR-binding.mjs-905",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "oldRange": [
+        956,
+        956
+      ],
+      "newRange": [
+        956,
+        956
+      ],
+      "range": "956..956",
+      "oldId": "V41-MR-binding.mjs-956",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "oldRange": [
+        1015,
+        1015
+      ],
+      "newRange": [
+        1015,
+        1015
+      ],
+      "range": "1015..1015",
+      "oldId": "V41-MR-binding.mjs-1015",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "oldRange": [
+        1032,
+        1032
+      ],
+      "newRange": [
+        1032,
+        1032
+      ],
+      "range": "1032..1032",
+      "oldId": "V41-MR-binding.mjs-1032",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        13,
+        17
+      ],
+      "newRange": [
+        13,
+        17
+      ],
+      "range": "13..17",
+      "oldId": "V41-MR-insight.mjs-13",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        20,
+        20
+      ],
+      "newRange": [
+        20,
+        20
+      ],
+      "range": "20..20",
+      "oldId": "V41-MR-insight.mjs-20",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        57,
+        57
+      ],
+      "newRange": [
+        57,
+        57
+      ],
+      "range": "57..57",
+      "oldId": "V41-MR-insight.mjs-57",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        63,
+        63
+      ],
+      "newRange": [
+        63,
+        63
+      ],
+      "range": "63..63",
+      "oldId": "V41-MR-insight.mjs-63",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        66,
+        66
+      ],
+      "newRange": [
+        66,
+        66
+      ],
+      "range": "66..66",
+      "oldId": "V41-MR-insight.mjs-66",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        239,
+        239
+      ],
+      "newRange": [
+        239,
+        239
+      ],
+      "range": "239..239",
+      "oldId": "V41-MR-insight.mjs-239",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        250,
+        250
+      ],
+      "newRange": [
+        250,
+        250
+      ],
+      "range": "250..250",
+      "oldId": "V41-MR-insight.mjs-250",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        285,
+        285
+      ],
+      "newRange": [
+        285,
+        285
+      ],
+      "range": "285..285",
+      "oldId": "V41-MR-insight.mjs-285",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        308,
+        308
+      ],
+      "newRange": [
+        308,
+        308
+      ],
+      "range": "308..308",
+      "oldId": "V41-MR-insight.mjs-308",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        311,
+        311
+      ],
+      "newRange": [
+        311,
+        311
+      ],
+      "range": "311..311",
+      "oldId": "V41-MR-insight.mjs-311",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        316,
+        316
+      ],
+      "newRange": [
+        316,
+        316
+      ],
+      "range": "316..316",
+      "oldId": "V41-MR-insight.mjs-316",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        320,
+        322
+      ],
+      "newRange": [
+        320,
+        322
+      ],
+      "range": "320..322",
+      "oldId": "V41-MR-insight.mjs-320",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        330,
+        330
+      ],
+      "newRange": [
+        330,
+        330
+      ],
+      "range": "330..330",
+      "oldId": "V41-MR-insight.mjs-330",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        427,
+        427
+      ],
+      "newRange": [
+        427,
+        427
+      ],
+      "range": "427..427",
+      "oldId": "V41-MR-insight.mjs-427",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        431,
+        431
+      ],
+      "newRange": [
+        431,
+        431
+      ],
+      "range": "431..431",
+      "oldId": "V41-MR-insight.mjs-431",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        445,
+        446
+      ],
+      "newRange": [
+        445,
+        446
+      ],
+      "range": "445..446",
+      "oldId": "V41-MR-insight.mjs-445",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        455,
+        455
+      ],
+      "newRange": [
+        455,
+        455
+      ],
+      "range": "455..455",
+      "oldId": "V41-MR-insight.mjs-455",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        469,
+        469
+      ],
+      "newRange": [
+        469,
+        469
+      ],
+      "range": "469..469",
+      "oldId": "V41-MR-insight.mjs-469",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        475,
+        475
+      ],
+      "newRange": [
+        475,
+        475
+      ],
+      "range": "475..475",
+      "oldId": "V41-MR-insight.mjs-475",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        480,
+        480
+      ],
+      "newRange": [
+        480,
+        480
+      ],
+      "range": "480..480",
+      "oldId": "V41-MR-insight.mjs-480",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        484,
+        486
+      ],
+      "newRange": [
+        484,
+        486
+      ],
+      "range": "484..486",
+      "oldId": "V41-MR-insight.mjs-484",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1035,
+        1037
+      ],
+      "newRange": [
+        1035,
+        1037
+      ],
+      "range": "1035..1037",
+      "oldId": "V41-MR-insight.mjs-1035",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1041,
+        1041
+      ],
+      "newRange": [
+        1041,
+        1041
+      ],
+      "range": "1041..1041",
+      "oldId": "V41-MR-insight.mjs-1041",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1048,
+        1050
+      ],
+      "newRange": [
+        1048,
+        1050
+      ],
+      "range": "1048..1050",
+      "oldId": "V41-MR-insight.mjs-1048",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1054,
+        1054
+      ],
+      "newRange": [
+        1054,
+        1054
+      ],
+      "range": "1054..1054",
+      "oldId": "V41-MR-insight.mjs-1054",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1065,
+        1068
+      ],
+      "newRange": [
+        1065,
+        1068
+      ],
+      "range": "1065..1068",
+      "oldId": "V41-MR-insight.mjs-1065",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1071,
+        1072
+      ],
+      "newRange": [
+        1071,
+        1072
+      ],
+      "range": "1071..1072",
+      "oldId": "V41-MR-insight.mjs-1071",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1360,
+        1360
+      ],
+      "newRange": [
+        1360,
+        1360
+      ],
+      "range": "1360..1360",
+      "oldId": "V41-MR-insight.mjs-1360",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "oldRange": [
+        1369,
+        1369
+      ],
+      "newRange": [
+        1369,
+        1369
+      ],
+      "range": "1369..1369",
+      "oldId": "V41-MR-insight.mjs-1369",
+      "reason": "v4-1 同编号等价改写的 base 相对删除行（逐行命中区间即可，语义由 v4 entries / leafBases 登记逐字保证）。"
     }
   ],
   "protectedSupersession": {

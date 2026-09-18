@@ -162,16 +162,31 @@
         min-width: 0;
       }
       .site-summary {
-        flex: 1 1 108px;
+        /* V4-1 (ADR-V4-016 / FR-CHAT-082)：摘要独占一行。旧的 `flex: 1 1 108px`
+           会让摘要被 4 入口 + 主题挤成 ~11px 宽的窄列，文字逐字换行 ⇒ 工具栏
+           实测 247px（320px 视口），直接把流区占比压到 0.578 < 0.65。
+           改为 `flex: 1 1 100%`：摘要一行、入口 + 主题随 wrap 落到第二行，
+           每段文字 nowrap + ellipsis ⇒ 工具栏高度与宽度解耦（不随文字长度膨胀）。 */
+        flex: 1 1 100%;
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
         font-size: 11px;
-        line-height: 1.5;
+        line-height: 1.4;
       }
       .site-summary .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
       .site-summary .site-name { font-weight: 700; white-space: nowrap; }
+      .site-summary > span,
+      .site-summary > p,
+      .site-summary .l0-band-badge {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .site-summary .site-origin {
         font-family: var(--mono);
         font-size: 10px;
@@ -181,8 +196,15 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .view-nav { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; flex-wrap: wrap; }
-      .view-btn { display: inline-flex; align-items: center; gap: 3px; padding: 3px 7px; font-size: 11px; border-radius: var(--radius-sm); }
+      /* V4-1：`#l2-entries` 由「底部一行入口带」迁入工具栏。v3 的 `flex: 0 0 auto`
+         在标签变长后不可收缩（`min-width: auto`）⇒ 整条 nav 溢出视口（320px 实测
+         +205px 文档水平溢出）。改为 `flex: 0 1 auto` + `min-width: 0` + `max-width:
+         100%`：nav 随工具栏收缩并把四个入口折行；入口内的标签允许 ellipsis。 */
+      .view-nav { display: flex; align-items: center; gap: 3px; flex: 0 1 auto; flex-wrap: wrap; min-width: 0; max-width: 100%; }
+      .view-btn { display: inline-flex; align-items: center; gap: 3px; padding: 3px 7px; font-size: 11px; border-radius: var(--radius-sm); min-width: 0; max-width: 100%; }
+      /* EC-V3-016「两个带标签的数字，未合并」的可见面：标签承载 `l2EntryLabel()`
+         （命令目录 = `实时 N 卡 / 基线 M 行`），徽标承载 `data-count` 的快速数字。 */
+      .view-btn .view-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .view-btn .badge {
         padding: 0 4px; font-size: 9.5px; font-weight: 600;
         border: 1px solid currentColor; border-radius: 999px; color: var(--text-muted);
@@ -265,11 +287,20 @@
       /* 占位宿主（父 ADR-V4-005 第 6 条）：被取代但尚未换实现的容器同构迁入
          流内 li；内容 / id / ARIA 全保留。退役在 v4-3 / v4-4，v4 收口断言计数 = 0。 */
       #stream > li[data-transitional-host] { list-style: none; display: block; min-width: 0; }
-      /* D-043: centering applies *only* while the transcript has no rendered entry. */
+      /* D-043: centering applies *only* while the transcript has no rendered entry.
+         V4-1 修订：流内**恒有** `li[data-transitional-host]` 占位宿主（决策卡 /
+         composer / L1 内容层 / 提示带），故居中只能作用于**空态占位文本本身**。
+         若继续对 `#stream` 本体做 `align-items/justify-content: center`，宿主会在
+         内容高于容器时从**顶部**溢出，而 flex 居中的起始溢出在 Chrome 里是**不可
+         滚动到达**的（`#l0-decision` 实测跑到视口上方 -511px）——占位文本用
+         `margin-block: auto` 达到同样的居中效果，宿主则正常从顶部排列。 */
       #stream.empty:not(:has(.entry)) {
         display: flex;
-        align-items: center;
-        justify-content: center;
+        flex-direction: column;
+      }
+      #stream.empty:not(:has(.entry)) > .log-empty-text {
+        margin-block: auto;
+        align-self: center;
         text-align: center;
         color: var(--text-muted);
         white-space: pre-wrap;
@@ -444,9 +475,13 @@
         border-top: 1px solid var(--border);
         min-width: 0;
       }
-      .status-line { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 10.5px; color: var(--text-muted); min-width: 0; }
+      /* V4-1 (FR-CHAT-082)：连接状态一行 —— `#send-reason` 从 60+ 字整句改为
+         单行 ellipsis（完整文案仍在 `title` 与 textContent 中，门禁零损失），
+         否则状态栏在 320px 会被这句换行撑到 ~133px，流区占比跌破 0.65。 */
+      .status-line { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; font-size: 10.5px; color: var(--text-muted); min-width: 0; }
       .status-line .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
-      #statusbar-text { min-width: 0; }
+      #statusbar-text { min-width: 0; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #send-reason { min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       #risk-chips { display: flex; flex-wrap: wrap; gap: 4px; }
       #risk-rail { display: flex; flex-wrap: wrap; gap: 4px; }
       .risk-row {
@@ -1062,7 +1097,6 @@
         #risk-rail .risk-row,
         #l2-entries { padding-left: 6px; padding-right: 6px; }
         .site-summary .site-origin { max-width: 96px; }
-        .view-btn .view-label { display: none; }
         #statusbar-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       }
 
@@ -1150,10 +1184,10 @@
         <!-- AC-V3-010：每个 [aria-controls] 元素必须成对带 aria-expanded；
              per-target 语义（#l2-entry-settings → #settings-view，其余 → #view-host）
              由 `l0/status-bar.ts#syncTriggerAria` 保持（v3-3 I5 修复不回退）。 -->
-        <button id="l2-entry-tree" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="全局连接树（四维度）" data-chrome-control="toolbar">连接树 <span class="badge" data-count="">…</span></button>
-        <button id="l2-entry-commands" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="命令目录（逐条有档，只读）" data-chrome-control="toolbar">命令目录 <span class="badge" data-count="">…</span></button>
-        <button id="l2-entry-audit" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="审计（零明文）" data-chrome-control="toolbar">审计 <span class="badge" data-count="">…</span></button>
-        <button id="l2-entry-settings" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="settings-view" title="设置（含站点与授权）" data-chrome-control="toolbar">设置 <span class="badge" data-count="">…</span></button>
+        <button id="l2-entry-tree" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="全局连接树（四维度）" data-chrome-control="toolbar"><span class="view-label">连接树</span> <span class="badge" data-count="">…</span></button>
+        <button id="l2-entry-commands" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="命令目录（逐条有档，只读）" data-chrome-control="toolbar"><span class="view-label">命令目录</span> <span class="badge" data-count="">…</span></button>
+        <button id="l2-entry-audit" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="审计（零明文）" data-chrome-control="toolbar"><span class="view-label">审计</span> <span class="badge" data-count="">…</span></button>
+        <button id="l2-entry-settings" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="settings-view" title="设置（含站点与授权）" data-chrome-control="toolbar"><span class="view-label">设置</span> <span class="badge" data-count="">…</span></button>
       </nav>
       <button id="theme-toggle" type="button" data-toolbar-slot="theme" aria-expanded="false" aria-pressed="false" data-theme-state="auto" aria-label="切换主题（当前：跟随系统）" title="切换主题：跟随系统 → 浅色 → 深色" data-chrome-control="toolbar">主题</button>
     </header>

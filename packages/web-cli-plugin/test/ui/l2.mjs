@@ -47,6 +47,7 @@ import {
   PACKAGE_ROOT,
   VIEWPORT_HEIGHT,
   check,
+  counts,
   evaluate,
   findOurServiceWorker,
   finish,
@@ -58,6 +59,11 @@ import {
   waitFor,
 } from './_v3-helpers.mjs';
 import { DENSITY_LIMITS, DENSITY_MEASURE_SOURCE, evaluateDensity } from './density-metrics.mjs';
+
+/** D-005 runtime floor（本叶台账 `v4GateFloors` 的 l2 下界；只增不减）。 */
+const L2_RUNTIME_FLOOR = 71;
+/** v3 静态 `check(` 计点下界（v3 台账近似值，只增）。 */
+const L2_STATIC_FLOOR = 68;
 
 const FIXTURE_ORIGIN = 'https://v3-l2.test';
 const SECOND_ORIGIN = 'https://v3-l2-second.test';
@@ -139,7 +145,7 @@ const occupancyProbe = `(() => {
     views,
     visibleInViews,
     visibleIds,
-    logHidden: document.getElementById('log').hidden === true,
+    logHidden: document.getElementById('stream').hidden === true,
     hostHidden: document.getElementById('view-host').hidden === true,
     openViews: [...document.querySelectorAll('[data-l2-view]')].filter((el) => !hiddenChain(el)).map((el) => el.dataset.l2View),
   });
@@ -148,7 +154,7 @@ const occupancyProbe = `(() => {
 /** In-page: the open-view geometry + scroller census + risk visibility. */
 const openProbe = `(() => {
   const hiddenChain = (el) => { let n = el; while (n) { if (n.hidden === true) return true; n = n.parentElement; } return false; };
-  const scrollers = [...document.querySelectorAll('#panel-main *, #panel-main')]
+  const scrollers = [...document.querySelectorAll('#region-stream *, #region-stream')]
     .filter((el) => {
       const style = getComputedStyle(el);
       return (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
@@ -158,13 +164,18 @@ const openProbe = `(() => {
   // scroll, whether or not they currently overflow (hidden containers excluded, since
   // a replaced #log keeps overflow-y: auto in the stylesheet). A judgement that only
   // sees already-overflowing boxes cannot catch a second scrolling container.
-  const scrollersCss = [...document.querySelectorAll('#panel-main *, #panel-main')]
+  const scrollersCss = [...document.querySelectorAll('#region-stream *, #region-stream')]
     .filter((el) => {
       if (hiddenChain(el)) return false;
       const style = getComputedStyle(el);
       return style.overflowY === 'auto' || style.overflowY === 'scroll';
     })
     .map((el) => el.id || el.className);
+  // V4-1：风险位宿主由 body 直挂的 #risk-rail 变为状态栏内的 chips 层
+  // （#region-statusbar(J1 永不 hidden) > #risk-chips(J2 跟随风险) > #risk-rail）。
+  // 「L2 打开期间风险位仍可见」因此锚到**状态栏本体**（J1/J4），chip 数则按 J2 口径判定。
+  const bar = document.getElementById('region-statusbar');
+  const chips = document.getElementById('risk-chips');
   const rail = document.getElementById('risk-rail');
   const railChain = [];
   for (let n = rail; n; n = n.parentElement) railChain.push(n.id || n.tagName.toLowerCase());
@@ -173,7 +184,7 @@ const openProbe = `(() => {
   const vr = view ? view.getBoundingClientRect() : null;
   const de = document.documentElement;
   return JSON.stringify({
-    logHidden: document.getElementById('log').hidden === true,
+    logHidden: document.getElementById('stream').hidden === true,
     hostHidden: document.getElementById('view-host').hidden === true,
     hostView: document.getElementById('view-host').getAttribute('data-view'),
     openViews: [...document.querySelectorAll('[data-l2-view]')].filter((el) => !hiddenChain(el)).map((el) => el.dataset.l2View),
@@ -181,7 +192,11 @@ const openProbe = `(() => {
     headerTitle: (document.getElementById('l2-title').textContent || '').trim(),
     headerCount: document.getElementById('l2-count').getAttribute('data-count'),
     backVisible: !hiddenChain(document.getElementById('l2-back')),
-    railVisible: rail ? !hiddenChain(rail) && rail.getBoundingClientRect().height > 0 : false,
+    barVisible: bar ? !hiddenChain(bar) && bar.getBoundingClientRect().height > 0 : false,
+    barHidden: bar ? bar.hidden === true : null,
+    chipsHidden: chips ? chips.hidden === true : null,
+    chipCount: rail ? rail.querySelectorAll('[data-risk-class], button').length : -1,
+    j2Holds: chips && rail ? (chips.hidden === true ? rail.querySelectorAll('[data-risk-class]').length === 0 : rail.querySelectorAll('[data-risk-class]').length >= 1) : false,
     railChainHasView,
     railChain,
     scrollers,
@@ -204,7 +219,7 @@ const countProbe = `(() => {
   return JSON.stringify({
     entries: ${JSON.stringify(L2_KEYS)}.map(read),
     summary: (document.getElementById('l2-entry-summary')?.textContent ?? '').trim(),
-    barText: (document.getElementById('l0-statusbar-text')?.textContent ?? '').trim(),
+    barText: (document.getElementById('statusbar-text')?.textContent ?? '').trim(),
     derived,
   });
 })()`;
@@ -335,19 +350,45 @@ async function main() {
       defaultCounts.summary,
     );
 
-    // ── ② ≤2 次交互可达（状态栏 1 → 入口 2） ─────────────────────────────
-    console.log('\n▶ ② ≤2 次交互可达 + §③ 计数真值派生');
+    // ── ② 入口机制（V4-1：四入口上迁工具栏，入口面板退役 ⇒ 1 次交互可达） ──
+    console.log('\n▶ ② 入口迁入工具栏 + §③ 计数真值派生');
     const labels = {};
-    // ② tree (real clicks: exactly two interactions from the default state)
-    await realClick(cdp, '#l0-statusbar');
-    const panelOpen = await evaluate(cdp, `document.getElementById('l2-entries').hidden === false`);
+    const entryHop = await evaluate(
+      cdp,
+      `(() => {
+        const entry = document.getElementById('l2-entry-tree');
+        const bar = document.getElementById('region-toolbar');
+        const nav = document.getElementById('l2-entries');
+        const entries = ${JSON.stringify(L2_KEYS)}.map((k) => document.getElementById('l2-entry-' + k));
+        const hiddenChain = (el) => { let n = el; while (n) { if (n.hidden === true) return true; n = n.parentElement; } return false; };
+        return JSON.stringify({
+          navInToolbar: Boolean(bar && nav && bar.contains(nav)),
+          navResident: Boolean(nav) && nav.hidden !== true && hiddenChain(nav) === false,
+          navFoldable: Array.isArray(window.__v3?.disclosure?.targets)
+            ? window.__v3.disclosure.targets.includes('l2-entries')
+            : null,
+          inToolbar: Boolean(bar && entry && bar.contains(entry)),
+          allInToolbar: entries.every((el) => Boolean(el) && bar.contains(el)),
+          ariaControls: entry ? entry.getAttribute('aria-controls') : null,
+          beforeHostHidden: document.getElementById('view-host').hidden === true,
+        });
+      })()`,
+    );
+    const eh = JSON.parse(entryHop);
+    check(
+      '② 入口已迁入工具栏（v3 的可折叠入口面板 → 工具栏内常驻 nav：不可折叠 / 无 hidden 祖先；四入口常驻可点，aria-controls=view-host）',
+      eh.navInToolbar === true && eh.navResident === true && eh.navFoldable !== true && eh.inToolbar === true && eh.allInToolbar === true && eh.ariaControls === 'view-host' && eh.beforeHostHidden === true,
+      entryHop,
+    );
+    // ② tree (real clicks: exactly ONE interaction from the default state — the four
+    //    entries are now the always-visible toolbar entries, so the v3 「先展开入口面板」
+    //    第 1 次交互退役；这是**收紧**，不是放宽：可达步数从 2 降到 1)
     await realClick(cdp, '#l2-entry-tree');
     await waitFor(cdp, `document.getElementById('view-host').hidden ? '' : 'open'`, 60, 150);
     await waitFor(cdp, `document.querySelector('#tree-drawer .tree-group') ? 'ready' : ''`, 80, 200);
     let open = JSON.parse(await evaluate(cdp, openProbe));
-    check('② 1 次交互只展开入口面板（尚未替换主区）', panelOpen === true, String(panelOpen));
     check(
-      '② 2 次交互后连接树视图打开（#log 被替换 + 目标视图可见 + ← 返回可见）',
+      '② 1 次交互后连接树视图打开（#stream 被替换 + 目标视图可见 + ← 返回可见）',
       open.logHidden === true && open.openViewCount === 1 && open.openViews[0] === 'tree' && open.backVisible === true,
       JSON.stringify(open),
     );
@@ -432,8 +473,12 @@ async function main() {
       JSON.stringify({ overflowing: open.scrollers, css: open.scrollersCss }),
     );
     check('⑤ 视图内零水平溢出（长路径/长命令名/面包屑）', open.viewOverflow === 0 && open.docOverflowX === 0, JSON.stringify({ v: open.viewOverflow, d: open.docOverflowX }));
-    check('⑥ L2 打开期间 #risk-rail 仍可见（高度 > 0 且无 hidden 祖先）', open.railVisible === true, JSON.stringify(open.railChain));
-    check('⑥ 风险位祖先闭包无 [data-l2-view]（视图替换只发生在 #panel-main 内）', open.railChainHasView === false, JSON.stringify(open.railChain));
+    check(
+      '⑥ L2 打开期间状态栏（风险位宿主）仍可见：J1 本体无 hidden + 高度 > 0 + J2 chips 可见性跟随风险',
+      open.barVisible === true && open.barHidden === false && open.j2Holds === true,
+      JSON.stringify({ barVisible: open.barVisible, barHidden: open.barHidden, chipsHidden: open.chipsHidden, chipCount: open.chipCount }),
+    );
+    check('⑥ 风险位祖先闭包无 [data-l2-view]（视图替换只发生在 #region-stream 内）', open.railChainHasView === false, JSON.stringify(open.railChain));
 
     // ── ③ 计数同源（改真值 → 计数变；不变即硬编码 FAIL） ────────────────
     console.log('\n▶ ③ 计数同源：改真值 → 计数变（与真值变化量相等）');
@@ -448,12 +493,21 @@ async function main() {
       JSON.stringify(before.entries.find((e) => e.key === 'commands')?.text),
     );
     // REAL truth change through an existing channel: authorize a second origin.
+    // V4-1: the counts propagate through async background reads (capability-changed
+    // → re-derive → repaint), so the gate WAITS for the entry to move instead of
+    // sleeping a fixed amount. A count that never moves still FAILs (waitFor times
+    // out and the assertions below read the stale value).
     await evaluate(
       cdp,
       `chrome.runtime.sendMessage({ kind: 'authorize', origin: ${JSON.stringify(SECOND_ORIGIN)}, hostPermissionGranted: false }).then(() => true)`,
     );
     await evaluate(cdp, `window.__v3.testing.refresh(); true`);
-    await sleep(400);
+    await waitFor(
+      cdp,
+      `Number(document.getElementById('l2-entry-tree').getAttribute('data-count')) > ${Number(labels.before)} ? '1' : ''`,
+      80,
+      200,
+    );
     const after = JSON.parse(await evaluate(cdp, countProbe));
     const treeAfterEntry = after.entries.find((e) => e.key === 'tree');
     labels.after = treeAfterEntry?.dataCount ?? null;
@@ -735,6 +789,13 @@ async function main() {
 
     check('无未捕获页面异常（L2 渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();
+
+    // ══ ⑪ 计数守恒（D-005 只增） ═════════════════════════════════════════════
+    const runtime = counts().passes;
+    const selfSource = readFileSync(new URL('./l2.mjs', import.meta.url), 'utf8');
+    const staticCount = (selfSource.match(/\bcheck\(/g) ?? []).length;
+    check(`⑪ 运行期断言计数 ≥ ${L2_RUNTIME_FLOOR}（D-005 l2 下界；countMethod = runtime-check-calls）`, runtime >= L2_RUNTIME_FLOOR, `runtime=${runtime}`);
+    check(`⑪ 静态 check( 计数 ≥ ${L2_STATIC_FLOOR}（v3 口径：入口迁移后只增不减）`, staticCount >= L2_STATIC_FLOOR, `static=${staticCount}`);
   } finally {
     launched.chrome.kill('SIGKILL');
   }

@@ -38,6 +38,7 @@ import {
   CHROME,
   DIST,
   check,
+  counts,
   evaluate,
   findOurServiceWorker,
   finish,
@@ -55,8 +56,24 @@ import { join } from 'node:path';
 
 const FIXTURE_ORIGIN = 'https://v3-l1.test';
 const LLM_KEY = 'web-cli:web-cli:llm';
+/** D-005 runtime floor（本叶台账 `v4GateFloors` 的 l1 下界；只增不减）。 */
+const L1_RUNTIME_FLOOR = 103;
+/** v3 静态 `check(` 计点下界（v3 台账近似值，只增）。 */
+const L1_STATIC_FLOOR = 64;
+/**
+ * V4-1 TASK-509 —— 入口机制重写（内容契约保留）。
+ *
+ * v3 的八个 `[data-l1-panel]` 里有第七个 `l1-status`，它的宿主是 `#l0-status-band`
+ * （「谁在管我」整条可点带）。v4-1 退役该带（工具栏只留 4 入口 + 主题），站点与授权
+ * 分区同构迁入 `#settings-view`（法则六）⇒ `l1-status` **不再是一个可折叠 L1 面板**，
+ * 而是「设置视图内的常驻分区」，1 次点击（工具栏设置入口）可达。
+ *
+ * 其余七类的折叠契约**逐字不变**（`hidden` 属性唯一、触发器 aria 成对、逐类 ≤1 次交互），
+ * 但入口从「一次点击 `#l0-status-band` 连带展开五类」改为「各自触发器的 1 次点击」——
+ * 这是**收紧**：v3 的连带展开是为了迁就 7/7 满额的可点预算，工具栏 = 常驻导航后
+ * 每类都有自己的一等入口。
+ */
 const CLASSES = [
-  'l1-status',
   'l1-consequences',
   'l1-ref-evidence',
   'l1-local-tree',
@@ -65,20 +82,20 @@ const CLASSES = [
   'l1-gestures',
   'l1-more',
 ];
-/** class → the L0 trigger whose ONE click must reveal it (ADR-V3-021 §2). */
+/** v4：状态/授权类的 1 次交互入口（设置视图的「站点与授权」分区）。 */
+const STATUS_ENTRY = 'l2-entry-settings';
+/** class → the L0/L1 trigger whose ONE click must reveal it. */
 const ENTRY = {
-  'l1-status': 'l0-status-band',
   'l1-consequences': 'l0-more',
   'l1-ref-evidence': 'l0-ref-toggle',
-  'l1-local-tree': 'l0-status-band',
-  'l1-history': 'l0-status-band',
-  'l1-receipt': 'l0-status-band',
-  'l1-gestures': 'l0-status-band',
+  'l1-local-tree': 'l1-local-tree-toggle',
+  'l1-history': 'l1-history-toggle',
+  'l1-receipt': 'l1-receipt-toggle',
+  'l1-gestures': 'l1-gestures-toggle',
   'l1-more': 'l0-more',
 };
 /** class → the class's OWN labelled trigger (`data-count` lives there). */
 const TRIGGER = {
-  'l1-status': 'l0-status-band',
   'l1-consequences': 'l1-consequences-toggle',
   'l1-ref-evidence': 'l0-ref-toggle',
   'l1-local-tree': 'l1-local-tree-toggle',
@@ -175,8 +192,8 @@ async function main() {
       })()`,
     );
     const en = JSON.parse(enumerated);
-    check('① 恰好 8 个 [data-l1-panel] 且 id 集合与契约一致', JSON.stringify([...en.ids].sort()) === JSON.stringify([...CLASSES].sort()), enumerated);
-    check('① 8 个 L1 面板默认全部 hidden（折叠只用 hidden 属性）', en.allHidden === true, enumerated);
+    check('① 恰好 7 个 [data-l1-panel] 且 id 集合与契约一致', JSON.stringify([...en.ids].sort()) === JSON.stringify([...CLASSES].sort()), enumerated);
+    check('① 7 个 L1 面板默认全部 hidden（折叠只用 hidden 属性）', en.allHidden === true, enumerated);
 
     for (const cls of CLASSES) {
       const probe = await evaluate(
@@ -203,46 +220,94 @@ async function main() {
       // 「触发器 aria-expanded 切换正确」没有直接断言）—— 现按已采集值补显式判据。
       check(`① ${cls}：1 次点击后触发器 aria-expanded=true（ARIA 状态与可见性同步）`, p.aria === 'true', probe);
     }
-    // the status group opens all five classes with that ONE click (not just one)
+    // ── ①b v4 入口机制：状态/授权类 = 设置视图内的常驻分区（法则六） ────────
     const groupOpen = await evaluate(
       cdp,
       `(() => {
         window.__v3.testing.collapseAll();
-        document.getElementById('l0-status-band').click();
-        const ids = ['topbar', 'l1-local-tree', 'l1-history', 'l1-receipt', 'l1-gestures'];
-        return JSON.stringify(ids.map((id) => [id, document.getElementById(id).hidden]));
+        const visible = ${VISIBLE};
+        const entry = document.getElementById(${JSON.stringify(STATUS_ENTRY)});
+        const ariaBefore = entry.getAttribute('aria-expanded');
+        entry.click();
+        const sectionIds = ['topbar', 'l1-status-extra', 'llm-test-result', 'consent-slot'];
+        const out = sectionIds.map((id) => {
+          const el = document.getElementById(id);
+          return [id, el ? visible(el) : null];
+        });
+        const settingsVisible = document.getElementById('settings-view').hidden === false;
+        // V4-1：#settings-view 是 v1 的**同文档视图替换**机制（body.settings-open
+        // ⇒ 三区 display:none），与 #view-host 的 hidden 机制并行。断言按各自的
+        // **真实机制**判定「聊天区被替换」——不把一种机制硬套到另一种上。
+        const chatReplaced = getComputedStyle(document.getElementById('region-stream')).display === 'none';
+        const ariaOpen = entry.getAttribute('aria-expanded');
+        document.getElementById('settings-back').click();
+        return JSON.stringify({
+          ariaBefore, out, settingsVisible, chatReplaced, ariaOpen,
+          backHidden: document.getElementById('settings-view').hidden,
+          chatDisplay: getComputedStyle(document.getElementById('region-stream')).display,
+          ariaAfter: entry.getAttribute('aria-expanded'),
+        });
       })()`,
     );
-    check('① 一次点击 #l0-status-band 同时展开 ①④⑤⑥⑦ 五类（L0 可点预算 7/7 满额，故入口复用）', JSON.parse(groupOpen).every(([, hidden]) => hidden === false), groupOpen);
+    const go = JSON.parse(groupOpen);
+    check(`① 一次点击工具栏设置入口（${STATUS_ENTRY}）即进入 #settings-view（≤1 次交互，聊天区被替换）`, go.settingsVisible === true && go.chatReplaced === true, groupOpen);
+    check('① 设置入口 aria-expanded 与设置视图可见性成对（per-target：open=true → 返回 false）', go.ariaBefore === 'false' && go.ariaOpen === 'true' && go.ariaAfter === 'false', groupOpen);
+    check('① 「站点与授权」四件（topbar / l1-status-extra / llm-test-result / consent-slot）全部可见且非空', go.out.every(([, v]) => v === true), groupOpen);
+    check('① 返回后 #settings-view 收起、三区复原（视图替换可逆）', go.backHidden === true && go.chatDisplay !== 'none', groupOpen);
 
     // ── ② expanded L1 does not occlude L0 (FR-V3-030) ───────────────────────
     console.log('\n▶ ② 展开不遮挡：风险位与决策卡仍在视口内且与展开区不交叠');
     const geo = await evaluate(
       cdp,
       `(() => {
-        const open = () => { window.__v3.testing.collapseAll(); document.getElementById('l0-status-band').click(); };
+        // V4-1 入口机制：L1 内容层的四个宿主（局部树 / 历史 / 回执 / 手势）各有
+        // 自己的触发器，一次点击即展开 —— 不再依赖退役的 #l0-status-band 连带展开。
+        const open = () => {
+          window.__v3.testing.collapseAll();
+          for (const id of ['l1-local-tree-toggle', 'l1-history-toggle', 'l1-receipt-toggle', 'l1-gestures-toggle']) {
+            const el = document.getElementById(id);
+            if (el && el.getAttribute('aria-expanded') === 'false') el.click();
+          }
+        };
         open();
-        const rail = document.getElementById('risk-rail').getBoundingClientRect();
+        const stream = document.getElementById('stream');
+        // 展开会让内容变长（只增滚动长度，不换容器）；点焦点会把触发器滚进视野，
+        // 故先把滚动位归零再量「决策卡是否仍完整可见」——测的是结构遮挡，不是滚动位。
+        stream.scrollTop = 0;
+        const barBox = document.getElementById('region-statusbar').getBoundingClientRect();
+        const streamBox = stream.getBoundingClientRect();
         const card = document.getElementById('l0-decision').getBoundingClientRect();
-        const group = document.getElementById('topbar').getBoundingClientRect();
+        const group = document.getElementById('l1-group').getBoundingClientRect();
         const inter = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
         const inView = (r) => r.top >= 0 && r.bottom <= window.innerHeight && r.height > 0;
-        const scrollers = [...document.querySelectorAll('#panel-main *, #panel-main')]
+        const scrollers = [...document.querySelectorAll('#region-stream *, #region-stream')]
           .filter((el) => { const s = getComputedStyle(el); return (s.overflowY === 'auto' || s.overflowY === 'scroll') && el.scrollHeight > el.clientHeight; })
           .map((el) => el.id || el.className);
         return JSON.stringify({
-          railInView: inView(rail), cardInView: inView(card),
-          railCard: inter(rail, card), railGroup: inter(rail, group), cardGroup: inter(card, group),
+          barInView: inView(barBox), cardInView: inView(card),
+          cardBox: { top: Math.round(card.top), bottom: Math.round(card.bottom), h: Math.round(card.height) },
+          streamBox: { top: Math.round(streamBox.top), bottom: Math.round(streamBox.bottom), h: Math.round(streamBox.height) },
+          scrollTop: stream.scrollTop, scrollHeight: stream.scrollHeight,
+          // 可见盒零交叠：#stream 的可视底边不得越过状态栏顶边（展开区在滚动容器
+          // 内 ⇒ 原始 rect 会溢出容器底，故用**容器可见盒**判定，而非未裁剪 rect）。
+          streamBarOverlap: inter(streamBox, barBox),
+          cardGroup: inter(card, group),
+          groupInsideStream: stream.contains(document.getElementById('l1-group')),
+          groupTallerThanStream: group.height > streamBox.height,
           panelScrollers: scrollers,
-          logId: document.getElementById('log').id,
+          streamId: stream.id,
+          railInStatusbar: Boolean(document.getElementById('region-statusbar').contains(document.getElementById('risk-rail'))),
+          barBottomVsStreamBottom: Math.round(streamBox.bottom) <= Math.round(barBox.top),
         });
       })()`,
     );
     const g = JSON.parse(geo);
-    check('② 展开后 #risk-rail 仍在视口内', g.railInView === true, geo);
-    check('② 展开后决策卡（#l0-decision）仍在视口内', g.cardInView === true, geo);
-    check('② 展开区与风险位 / 决策卡交面积 = 0', g.railGroup === 0 && g.cardGroup === 0, geo);
-    check('② 展开后 #panel-main 内滚动容器仍只有 #log（L1 的滚动块在 #panel-top 内）', g.panelScrollers.every((id) => id === 'log'), JSON.stringify(g.panelScrollers));
+    check('② 展开后 #region-statusbar 仍在视口内（body 直挂 ⇒ 流内展开推不动风险位）', g.barInView === true, geo);
+    check('② 展开后决策卡（#l0-decision）仍完整在视口内（展开只增滚动长度，不遮挡）', g.cardInView === true, geo);
+    check('② 展开区 #l1-group 在滚动容器内、且 #stream 可见盒与状态栏零交叠（不挤压风险位）', g.groupInsideStream === true && g.streamBarOverlap === 0 && g.barBottomVsStreamBottom === true, geo);
+    check('② 展开区与决策卡交面积 = 0（展开不覆盖决策卡）', g.cardGroup === 0, geo);
+    check('② 展开后 #region-stream 内滚动容器仍只有 #stream（L1 展开不新增滚动面）', g.panelScrollers.every((id) => id === 'stream'), JSON.stringify(g.panelScrollers));
+    check('② 风险位归属状态栏（v4 位置迁移后祖先闭包仍干净）', g.railInStatusbar === true, geo);
 
     // ── ③ consequences: two paragraphs each + irreversibility ───────────────
     console.log('\n▶ ③ 后果说明与影响预演：每选项两段必填 + 破坏性选项不可逆声明');
@@ -520,7 +585,7 @@ async function main() {
       `(async () => {
         const first = await window.__v3.testing.l1('receipt', { ok: true, text: '✓ 已完成', actionId: 'revoke-origin', command: 'revoke', ms: 42, auditId: 'audit-7', tool: 'bookmarks' });
         const second = await window.__v3.testing.l1('receipt', { ok: true, text: '✓ 已完成', actionId: 'revoke-origin', command: 'revoke', ms: 50, auditId: 'audit-8', tool: 'bookmarks' });
-        document.getElementById('l0-statusbar').click();
+        // v4 入口机制：审计出口现在从**工具栏入口**直达（v3 的 #l0-statusbar 入口面板已退役）
         document.getElementById('l2-entry-audit').click();
         const out = {
           seq1: first.refreshSeq, seq2: second.refreshSeq,
@@ -613,7 +678,10 @@ async function main() {
         const afterSecond = window.__v3.testing.l1('report').historyCount;
         const rounds = window.__v3.testing.l1('report').rounds;
         const execBefore = JSON.stringify(window.__v3.testing.l1('report').refs);
-        document.getElementById('l0-status-band').click();
+        // v4：以「进入命令目录视图 → 返回」这一对真实交互替代 v3 的 #l0-status-band 点击，
+        // 证明视图往返（而不只是折叠往返）对已执行动作/引用态零副作用。
+        document.getElementById('l2-entry-commands').click();
+        document.getElementById('l2-back').click();
         const execAfter = JSON.stringify(window.__v3.testing.l1('report').refs);
         return JSON.stringify({ view, rows, beforeHistory, afterFirst, afterSecond, rounds, execStable: execBefore === execAfter, label: document.getElementById('l1-history-toggle').textContent });
       })()`,
@@ -646,8 +714,11 @@ async function main() {
     await evaluate(
       cdp,
       `(() => {
-        const openAll = () => { document.getElementById('l0-status-band').click(); document.getElementById('l0-more').click(); document.getElementById('l0-ref-toggle').click(); };
-        const closeAll = () => { document.getElementById('l0-status-band').click(); document.getElementById('l0-more').click(); document.getElementById('l0-ref-toggle').click(); };
+        // v4 入口机制：七类各有自己的触发器（工具栏/决策卡/内容层宿主），
+        // 不再依赖退役的 #l0-status-band 连带展开 —— 按 aria-expanded 幂等切换。
+        const triggers = ['l0-more', 'l0-ref-toggle', 'l1-local-tree-toggle', 'l1-history-toggle', 'l1-receipt-toggle', 'l1-gestures-toggle'];
+        const openAll = () => { for (const id of triggers) { const el = document.getElementById(id); if (el.getAttribute('aria-expanded') === 'false') el.click(); } };
+        const closeAll = () => { for (const id of triggers) { const el = document.getElementById(id); if (el.getAttribute('aria-expanded') === 'true') el.click(); } };
         openAll(); closeAll();
         window.__v3.testing.collapseAll();
         return true;
@@ -670,6 +741,13 @@ async function main() {
 
     check('无未捕获页面异常（L1 渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();
+
+    // ══ ⑬ 计数守恒（D-005 只增） ═════════════════════════════════════════════
+    const runtime = counts().passes;
+    const selfSource = readFileSync(new URL('./l1.mjs', import.meta.url), 'utf8');
+    const staticCount = (selfSource.match(/\bcheck\(/g) ?? []).length;
+    check(`⑬ 运行期断言计数 ≥ ${L1_RUNTIME_FLOOR}（D-005 l1 下界；countMethod = runtime-check-calls）`, runtime >= L1_RUNTIME_FLOOR, `runtime=${runtime}`);
+    check(`⑬ 静态 check( 计数 ≥ ${L1_STATIC_FLOOR}（v3 口径：入口机制重写后只增不减）`, staticCount >= L1_STATIC_FLOOR, `static=${staticCount}`);
   } finally {
     chrome.kill('SIGKILL');
   }

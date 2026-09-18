@@ -87,9 +87,25 @@ export function mountToolbar(doc: Document): ToolbarHandle {
       for (const entry of view.statusbar.entries) {
         const btn = buttonFor(entry.key);
         if (!btn) continue;
+        // Two visible channels, exactly as v3 had them on the entry panel:
+        //   · `.view-label` = the readable label (`连接树 · 113`,
+        //     `命令目录 · 实时 94 卡 / 基线 176 行`) — this is what keeps
+        //     EC-V3-016's 「两个带标签的数字，未合并」 true for `commands`;
+        //   · `.badge` = the numeric channel (`data-count`), which the three-way
+        //     parity judge (`labelCount ≡ data-count ≡ summary`) reads.
+        // v3's label wording is produced by `l2/counts.ts#l2EntryLabel()` and is
+        // handed to us pre-rendered in `L0View.statusbar.entries[].label` — this
+        // module still contains no counting logic.
+        const badge = btn.querySelector('.badge');
+        let label = btn.querySelector('.view-label');
+        if (!label) {
+          label = doc.createElement('span');
+          label.className = 'view-label';
+          btn.insertBefore(label, badge ?? null);
+        }
+        label.textContent = entry.label;
         // The badge is the visible count; the label stays stable so the toolbar
         // footprint does not jitter between renders (the C2 caliber measures text).
-        const badge = btn.querySelector('.badge');
         const text = entry.count < 0 ? 'n/a' : String(entry.count);
         if (badge) badge.textContent = text;
         else btn.textContent = `${entry.label} · ${text}`;

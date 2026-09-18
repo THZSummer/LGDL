@@ -9,15 +9,15 @@
  *   #I-02 抽屉真层级树：根 + 四维度面默认展开（R2 取代 S16）；四维度可见；
  *   #I-03 状态徽标存在；
  *   #I-04 空态/降级可读（`.tree-degradation` / `.tree-empty`）；
- *   #I-05 `#log` 计算 `flex-grow === '1'`；
- *   #I-06 `#log` 稳态（去镀铬，guidance/consent 隐藏）`clientHeight ≥ LOG_CLIENT_HEIGHT_FLOOR`（主断言；v3-1 起为 488px，v1 前值为 589px，见 ADR-V3-019 V31-S3）；
- *   #I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）`#log ≥ 405px`（v1 自身下限，无回归，D-V22-01）；
- *   #I-06c pinned v1 raw 基线（418px @ 2026-09-13，W6）回归：`#log ≥ 410px`（更敏感）；
- *   #I-06d 同上占比回归：`#log ≥ 45.4%`；
- *   #I-07 `#log` 稳态高度占比 `≥ LOG_MIN_RATIO`（次断言；v3-1 起为 54.0%，v1 前值为 65.0%）；
+ *   #I-05 `#stream` 计算 `flex-grow === '1'`（v4-1 重锚：v3 的 `#log` 已重命名为 `#stream`）；
+ *   #I-06 `#stream` 稳态（去镀铬，guidance/consent 隐藏）`clientHeight ≥ LOG_CLIENT_HEIGHT_FLOOR`（主断言；v3-1 起为 488px，v1 前值为 589px，见 ADR-V3-019 V31-S3）；
+ *   #I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）`#stream ≥ 405px`（v1 自身下限，无回归，D-V22-01）；
+ *   #I-06c pinned v1 raw 基线（418px @ 2026-09-13，W6）回归：`#stream ≥ 410px`（更敏感）；
+ *   #I-06d 同上占比回归：`#stream ≥ 45.4%`；
+ *   #I-07 `#stream` 稳态高度占比 `≥ LOG_MIN_RATIO`（次断言；v3-1 起为 54.0%，v1 前值为 65.0%）；
  *   #I-08 `#composer` 底边 − 视口底 `∈ [0, +8px]`（不得为负，D-079）；
  *   #I-09 `#tree-fab` ∩ `#composer` 交面积 `= 0`；
- *   #I-10 文档 / `#log` / 抽屉 400px 水平溢出 `= 0`；
+ *   #I-10 文档 / `#stream` / 抽屉 400px 水平溢出 `= 0`；
  *   #I-11 R2 两通路文案 + 归属层级树声明 + `delay`(=`deny`) 消歧（取代 S13）；
  *   #I-12a/b R2 deny 分层：硬底线零控件 + 原因可读；可覆盖行 allow/ask/deny（取代 S14）；
  *   #I-13 过滤只读：检索收窄展示集合、不改真值；
@@ -86,11 +86,11 @@ const v3CloseTreeView = async (page) => {
 };
 
 /**
- * V3-3 (registered supersession V33-S4): the v2 「打开抽屉不挤压 #log」 geometry
+ * V3-3 (registered supersession V33-S4): the v2 「打开抽屉不挤压 #stream」 geometry
  * assertions are replaced by the **view-replacement** contract they became:
- * while an L2 view is open `#log` is *replaced* (`hidden`), the host + exactly one
+ * while an L2 view is open `#stream` is *replaced* (`hidden`), the host + exactly one
  * `[data-l2-view]` are visible, the open view is the ONLY scroller inside
- * `#panel-main`, the composer still sits flush at the bottom (D-079 unchanged), and
+ * `#region-stream`, the composer still sits flush at the bottom (D-079 unchanged), and
  * the document never overflows horizontally. Seven assertions — the same count as
  * the v2 `checkLayout()` it replaces, all strictly about the new contract.
  */
@@ -118,15 +118,15 @@ const settleDrawer = async (page) => {
 
 const L2_STABLE_FIELDS = ['composerGapToBottom', 'docOverflowX', 'logOverflowX', 'viewHostHeight', 'openViewCount', 'panelScrollerCount'];
 const checkL2OpenLayout = (metrics, prefix) => {
-  check(metrics.logHidden === true, `${prefix} #log 已被视图替换（hidden，禁止 CSS 隐身）`, JSON.stringify(metrics.logHidden));
+  check(metrics.logHidden === true, `${prefix} #stream 已被视图替换（hidden，禁止 CSS 隐身）`, JSON.stringify(metrics.logHidden));
   check(metrics.viewHostHidden === false, `${prefix} #view-host 可见（唯一主区）`, JSON.stringify(metrics.viewHostHidden));
   check(metrics.openViewCount === 1, `${prefix} 恰有一个 [data-l2-view] 可见（四视图不叠加）`, String(metrics.openViewCount));
   check(metrics.viewOverflow === 0, `${prefix} 打开的视图零水平溢出（长路径 / 长命令名 / 面包屑）`, String(metrics.viewOverflow));
   check(metrics.panelScrollerCount === 1, `${prefix} 面板级滚动容器恰为 1 个（视图内局部滚动块）`, JSON.stringify(metrics.viewScrollers));
   check(
-    metrics.composerGapToBottom >= COMPOSER_GAP[0] && metrics.composerGapToBottom <= COMPOSER_GAP[1],
-    `${prefix} #composer 仍贴底 ∈ [${COMPOSER_GAP[0]}, +${COMPOSER_GAP[1]}]px（D-079 不变）`,
-    `${metrics.composerGapToBottom}px`,
+    metrics.composerVisible === false,
+    `${prefix} 法四（v4-1 显式取代 v3 「#composer 贴底」红线）：视图打开态默认屏**无可见常驻输入框**（#composer 被 hidden 的 #stream 祖先闭包遮蔽；fail-closed 只认 hidden）`,
+    JSON.stringify({ visible: metrics.composerVisible, ownHidden: metrics.composerHidden, gap: metrics.composerGapToBottom }),
   );
   check(metrics.docOverflowX === 0, `${prefix} 文档级水平溢出 = 0`, `${metrics.docOverflowX}px`);
 };
@@ -148,10 +148,10 @@ const V1_RAW_LOG_MIN = 405; // v1 journey.mjs #15b's own floor (`>45vh` at 900px
  * W6 修复轮（2026-09-13）：v1 同条件 raw 基线 pinned。
  *
  * v1 口径（仅隐藏 `site-hint`/`onboarding`/`discovery-notice`，与 `journey.mjs` #15b
- * 完全相同）在**今日 dist** 上实测 `#log = 418px / 46.4%`（测于 2026-09-13，来源
+ * 完全相同）在**今日 dist** 上实测 `#stream = 418px / 46.4%`（测于 2026-09-13，来源
  * `test/ui/journey.mjs` #15b 的测量条件）。原断言仅 `≥ 405px`（余量 13px）→ 存在
  * 「小幅回退仍绿」盲区。这里钉死 raw 基线并加一条**更敏感**的回归断言：
- * `#log ≥ 418 − 8 = 410px`。容差取 **8px（≈1.9%）** 的理由：吸收跨运行的字形/滚动条
+ * `#stream ≥ 418 − 8 = 410px`。容差取 **8px（≈1.9%）** 的理由：吸收跨运行的字形/滚动条
  * 亚像素舍入波动，同时仍能捕获任何 ≥9px 的有意/无意回退（例如新增镀铬挤压消息区）。
  * **不降低**既有 405px 下限（只加不减）。
  */
@@ -340,7 +340,7 @@ async function waitFor(cdp, expression, tries = 120, gapMs = 200) {
  * Steady-state layout measurement at 400×900, **de-chromed**: first-run guidance
  * strips + the always-present consent disclosure (`#consent-slot`) + the
  * send-disabled banner are hidden so the message zone's flex allocation is
- * isolated. Rationale (D-V22-01): dev.md §11.3 records the v1 `#log` 589px/65.5%
+ * isolated. Rationale (D-V22-01): dev.md §11.3 records the v1 `#stream` 589px/65.5%
  * *before* the FR-052 per-origin auto-authorization block + `#risk-status` +
  * `#llm-test-result` chrome landed; on today's dist the same panel yields 418px
  * with only the guidance strips hidden (v1 `journey.mjs` #15b asserts `>45%` and
@@ -351,7 +351,10 @@ async function waitFor(cdp, expression, tries = 120, gapMs = 200) {
 const MEASURE = `(() => {
   const ids = ['site-hint', 'onboarding', 'discovery-notice', 'consent-slot', 'send-reason'];
   const prev = ids.map((id) => { const el = document.getElementById(id); const p = el ? el.style.display : ''; if (el) el.style.display = 'none'; return p; });
-  const log = document.getElementById('log');
+  // V4-1 (registered supersession): the message zone was renamed #log -> #stream
+  // (the leaf's ONLY id rename, 父 ADR-V4-005). Same assertion slot, same semantics:
+  // #stream is the one panel-level scroller and keeps flex: 1 1 auto.
+  const log = document.getElementById('stream');
   const composer = document.getElementById('composer');
   const fab = document.getElementById('tree-fab');
   const drawer = document.getElementById('tree-drawer');
@@ -367,27 +370,38 @@ const MEASURE = `(() => {
     logClientHeight: log.clientHeight,
     logRatio: Math.round((log.clientHeight / window.innerHeight) * 1000) / 10,
     composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
+    // V4-1 (法四 / ADR-V4-008 第 3 条 redlineRemap): the composer lost its resident
+    // semantics -- it now lives inside a li[data-transitional-host] in #stream
+    // and is hidden unless the fallback is explicitly revealed. Recorded here so
+    // the two layout checkers can assert the v4 statement instead of the v3
+    // "贴底" band (COMPOSER_GAP).
+    composerInStream: composer ? !!composer.closest('#stream') : false,
+    composerHidden: composer ? composer.hidden === true : null,
+    // V4-1 法四 fail-closed 可见性：只认 hidden（CSS 隐身不豁免，与 RP-V4-04 / density 同口径）。
+    composerVisible: composer ? composer.closest('[hidden]') === null : false,
     fabComposerArea: Math.round(ix * iy * 100) / 100,
     docOverflowX: de.scrollWidth - de.clientWidth,
     logOverflowX: log.scrollWidth - log.clientWidth,
     drawerOverflowX: drawer.scrollWidth - drawer.clientWidth,
     drawerHidden: drawer.hidden,
     // V3-3 additive diagnostics for the view-replacement contract (no v2 field
-    // changes; checkL2OpenLayout reads these instead of the #log height).
+    // changes; checkL2OpenLayout reads these instead of the #stream height).
     logHidden: log.hidden,
     viewHostHidden: document.getElementById('view-host').hidden,
     viewHostHeight: Math.round(document.getElementById('view-host').getBoundingClientRect().height),
     openViewCount: [...document.querySelectorAll('[data-l2-view]')].filter((el) => !el.hidden).length,
     viewOverflow: (() => { const v = document.querySelector('[data-l2-view]:not([hidden])'); return v ? v.scrollWidth - v.clientWidth : -1; })(),
-    viewScrollers: [...document.querySelectorAll('#panel-main *, #panel-main')]
+    viewScrollers: [...document.querySelectorAll('#region-stream *, #region-stream')]
       .filter((el) => { const st = getComputedStyle(el); return (st.overflowY === 'auto' || st.overflowY === 'scroll') && el.scrollHeight > el.clientHeight; })
       .map((el) => el.id || el.className),
-    panelScrollerCount: [...document.querySelectorAll('#panel-main *, #panel-main')]
+    panelScrollerCount: [...document.querySelectorAll('#region-stream *, #region-stream')]
       .filter((el) => { const st = getComputedStyle(el); return (st.overflowY === 'auto' || st.overflowY === 'scroll') && el.scrollHeight > el.clientHeight; }).length,
     fabExpanded: fab.getAttribute('aria-expanded'),
     // v3-1 additive diagnostic: zone heights make a geometry regression explainable
-    // at a glance (no assertion reads this field).
-    zones: ['risk-rail', 'panel-top', 'panel-main', 'l0-decision', 'log', 'l0-statusbar', 'l2-entries', 'view-host', 'panel-bottom', 'settings-view']
+    // at a glance (no assertion reads this field). V4-1 re-anchors the id list to the
+    // three zones + the surviving in-flow hosts (panel-main/panel-top/panel-bottom
+    // are retired; log -> stream).
+    zones: ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l0-decision', 'stream', 'view-host', 'settings-view']
       .map((id) => { const el = document.getElementById(id); const r = el ? el.getBoundingClientRect() : null; return id + (el && el.hidden ? ':hidden' : ':' + Math.round(r.height)); }),
   };
   ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });
@@ -402,7 +416,7 @@ const MEASURE = `(() => {
 const RAW_MEASURE = `(() => {
   const ids = ['site-hint', 'onboarding', 'discovery-notice'];
   const prev = ids.map((id) => { const el = document.getElementById(id); const p = el ? el.style.display : ''; if (el) el.style.display = 'none'; return p; });
-  const log = document.getElementById('log');
+  const log = document.getElementById('stream');
   const composer = document.getElementById('composer');
   const fab = document.getElementById('tree-fab');
   const de = document.documentElement;
@@ -416,6 +430,10 @@ const RAW_MEASURE = `(() => {
     logClientHeight: log.clientHeight,
     logRatio: Math.round((log.clientHeight / window.innerHeight) * 1000) / 10,
     composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
+    composerInStream: composer ? !!composer.closest('#stream') : false,
+    composerHidden: composer ? composer.hidden === true : null,
+    // V4-1 法四 fail-closed 可见性：只认 hidden（CSS 隐身不豁免，与 RP-V4-04 / density 同口径）。
+    composerVisible: composer ? composer.closest('[hidden]') === null : false,
     fabComposerArea: Math.round(ix * iy * 100) / 100,
     docOverflowX: de.scrollWidth - de.clientWidth,
     logOverflowX: log.scrollWidth - log.clientWidth,
@@ -425,21 +443,21 @@ const RAW_MEASURE = `(() => {
 })()`;
 
 function checkLayout(metrics, prefix) {
-  check(metrics.logFlexGrow === '1', `${prefix} #log 计算 flex-grow === '1'（flex 填充，非 45vh）`, JSON.stringify(metrics));
+  check(metrics.logFlexGrow === '1', `${prefix} #stream 计算 flex-grow === '1'（flex 填充，非 45vh）`, JSON.stringify(metrics));
   check(
     metrics.logClientHeight >= LOG_MIN_HEIGHT,
-    `${prefix} #log 稳态 clientHeight ≥ ${LOG_MIN_HEIGHT}px（主断言，非回退）`,
+    `${prefix} #stream 稳态 clientHeight ≥ ${LOG_MIN_HEIGHT}px（主断言，非回退）`,
     `${metrics.logClientHeight}px`,
   );
   check(
     metrics.logRatio >= LOG_MIN_RATIO,
-    `${prefix} #log 稳态高度占比 ≥ ${LOG_MIN_RATIO}%（次断言）`,
+    `${prefix} #stream 稳态高度占比 ≥ ${LOG_MIN_RATIO}%（次断言）`,
     `${metrics.logRatio}%`,
   );
   check(
-    metrics.composerGapToBottom >= COMPOSER_GAP[0] && metrics.composerGapToBottom <= COMPOSER_GAP[1],
-    `${prefix} #composer 底边−视口底 ∈ [${COMPOSER_GAP[0]}, +${COMPOSER_GAP[1]}]px（不得为负，D-079）`,
-    `${metrics.composerGapToBottom}px`,
+    metrics.composerVisible === true && metrics.composerInStream === true && metrics.composerGapToBottom >= 0,
+    `${prefix} 法四（v4-1 显式取代 v3 「#composer 贴底」红线）：兜底展开态 #composer 位于 #stream 流内占位宿主，可见且不越出视口（gap ≥ 0）`,
+    `visible=${metrics.composerVisible} inStream=${metrics.composerInStream} gap=${metrics.composerGapToBottom}`,
   );
   check(
     metrics.fabComposerArea === 0,
@@ -447,7 +465,7 @@ function checkLayout(metrics, prefix) {
     `area=${metrics.fabComposerArea}`,
   );
   check(metrics.docOverflowX === 0, `${prefix} 文档级水平溢出 = 0`, `${metrics.docOverflowX}px`);
-  check(metrics.logOverflowX === 0, `${prefix} #log 水平溢出 = 0`, `${metrics.logOverflowX}px`);
+  check(metrics.logOverflowX === 0, `${prefix} #stream 水平溢出 = 0`, `${metrics.logOverflowX}px`);
 }
 
 /** Closed-state steady metrics, echoed in the final summary. */
@@ -544,11 +562,11 @@ async function main() {
 
     const booted = await waitFor(
       sp,
-      `(() => (document.getElementById('tree-fab') && document.getElementById('log') && document.getElementById('tree-drawer')) ? 'ready' : '')()`,
+      `(() => (document.getElementById('tree-fab') && document.getElementById('stream') && document.getElementById('tree-drawer')) ? 'ready' : '')()`,
       100,
       200,
     );
-    check(booted === 'ready', '#I-01a 侧栏已挂载 #tree-fab / #tree-drawer / #log');
+    check(booted === 'ready', '#I-01a 侧栏已挂载 #tree-fab / #tree-drawer / #stream（v4-1 唯一 id 重命名）');
     if (booted !== 'ready') throw new Error('side panel did not boot');
 
     // 3. deterministic viewport
@@ -562,8 +580,8 @@ async function main() {
         const fab = document.getElementById('tree-fab');
         const drawer = document.getElementById('tree-drawer');
         return {
-          fabInsideMain: !!fab.closest('#panel-main'),
-          drawerInsideMain: !!drawer.closest('#panel-main'),
+          fabInsideMain: !!fab.closest('#region-stream'),
+          drawerInsideMain: !!drawer.closest('#region-stream'),
           drawerHidden: drawer.hidden,
           ariaControls: fab.getAttribute('aria-controls'),
           ariaExpanded: fab.getAttribute('aria-expanded'),
@@ -575,16 +593,16 @@ async function main() {
         };
       })()`,
     );
-    check(initial.fabInsideMain === true && initial.drawerInsideMain === true, '#I-01b FAB/抽屉位于 #panel-main 内（非页面注入）', JSON.stringify(initial));
+    check(initial.fabInsideMain === true && initial.drawerInsideMain === true, '#I-01b FAB/抽屉位于 #region-stream 内（非页面注入；v4-1 重锚）', JSON.stringify(initial));
     check(initial.drawerHidden === true, '#I-01c 抽屉默认收起（O-V2-001）', JSON.stringify(initial));
     check(initial.ariaControls === 'tree-drawer' && initial.ariaExpanded === 'false', '#I-01d FAB aria-controls/aria-expanded 同步（收起）', JSON.stringify(initial));
     // V3-3 (registered supersession V33-S1): the drawer's ownership moved from an
-    // absolute overlay over `#log` to the L2 「连接树」 view body (ADR-V3-028). Same
+    // absolute overlay over `#stream` to the L2 「连接树」 view body (ADR-V3-028). Same
     // assertion slot, stricter statement: it must NOT be a floating overlay any
     // more — it is in the document flow of its view container.
     check(
       initial.drawerPosition === 'static',
-      '#I-01e 抽屉已归属 L2 视图主体（position=static，不再是覆盖 #log 的浮动层）',
+      '#I-01e 抽屉已归属 L2 视图主体（position=static，不再是覆盖 #stream 的浮动层）',
       initial.drawerPosition,
     );
     check(
@@ -610,24 +628,24 @@ async function main() {
     const rawOpenClose = await evaluate(sp, RAW_MEASURE);
     check(
       rawOpenClose.logFlexGrow === '1' && rawOpenClose.logClientHeight >= V1_RAW_LOG_MIN,
-      `#I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）#log ≥ ${V1_RAW_LOG_MIN}px（v1 自身 >45vh 下限，无回归）`,
+      `#I-06b 原始（仅导航条隐藏，v1 journey #15b 口径）#stream ≥ ${V1_RAW_LOG_MIN}px（v1 自身 >45vh 下限，无回归）`,
       JSON.stringify(rawOpenClose),
     );
     // W6: a MORE SENSITIVE regression assertion against the pinned v1 raw baseline.
     check(
       rawOpenClose.logClientHeight >= V1_RAW_LOG_BASELINE_PX - V1_RAW_LOG_BASELINE_TOLERANCE_PX,
-      `#I-06c pinned v1 raw 基线回归：原始口径 #log ≥ ${V1_RAW_LOG_BASELINE_PX - V1_RAW_LOG_BASELINE_TOLERANCE_PX}px（钉死 ${V1_RAW_LOG_BASELINE_PX}px @ ${V1_RAW_LOG_BASELINE_META.measuredOn}，容差 ${V1_RAW_LOG_BASELINE_TOLERANCE_PX}px）`,
+      `#I-06c pinned v1 raw 基线回归：原始口径 #stream ≥ ${V1_RAW_LOG_BASELINE_PX - V1_RAW_LOG_BASELINE_TOLERANCE_PX}px（钉死 ${V1_RAW_LOG_BASELINE_PX}px @ ${V1_RAW_LOG_BASELINE_META.measuredOn}，容差 ${V1_RAW_LOG_BASELINE_TOLERANCE_PX}px）`,
       JSON.stringify(rawOpenClose),
     );
     check(
       rawOpenClose.logRatio >= V1_RAW_LOG_BASELINE_RATIO - V1_RAW_LOG_BASELINE_RATIO_TOLERANCE,
-      `#I-06d pinned v1 raw 基线占比回归：原始口径 #log ≥ ${(V1_RAW_LOG_BASELINE_RATIO - V1_RAW_LOG_BASELINE_RATIO_TOLERANCE).toFixed(1)}%（钉死 ${V1_RAW_LOG_BASELINE_RATIO}%）`,
+      `#I-06d pinned v1 raw 基线占比回归：原始口径 #stream ≥ ${(V1_RAW_LOG_BASELINE_RATIO - V1_RAW_LOG_BASELINE_RATIO_TOLERANCE).toFixed(1)}%（钉死 ${V1_RAW_LOG_BASELINE_RATIO}%）`,
       `${rawOpenClose.logRatio}%`,
     );
     check(
-      rawOpenClose.composerGapToBottom >= COMPOSER_GAP[0] && rawOpenClose.composerGapToBottom <= COMPOSER_GAP[1],
-      '#I-08b 原始口径 #composer 仍贴底 ∈[0, +8]px',
-      `${rawOpenClose.composerGapToBottom}px`,
+      rawOpenClose.composerVisible === true && rawOpenClose.composerInStream === true && rawOpenClose.composerGapToBottom >= 0,
+      '#I-08b 原始口径 法四（v4-1 取代「贴底」红线）：#composer 在 #stream 流内、可见且不越出视口',
+      `visible=${rawOpenClose.composerVisible} inStream=${rawOpenClose.composerInStream} gap=${rawOpenClose.composerGapToBottom}`,
     );
     check(rawOpenClose.fabComposerArea === 0, '#I-09b 原始口径 FAB∩composer 仍为 0', `area=${rawOpenClose.fabComposerArea}`);
 
@@ -672,7 +690,7 @@ async function main() {
     );
     check(openState.hidden === false && openState.ariaExpanded === 'true', '#I-01f 打开后 aria-expanded=true 且抽屉可见', JSON.stringify(openState));
     // V3-3: the L2-open steady baseline the deep-expand / collapse Drift checks
-    // compare against (the view replaced `#log`; these are the fields that must not
+    // compare against (the view replaced `#stream`; these are the fields that must not
     // move while the tree is being drilled).
     const l2OpenLayout = await evaluate(sp, MEASURE);
 
@@ -787,7 +805,7 @@ async function main() {
           header: hr ? [Math.round(hr.top), Math.round(hr.height), getComputedStyle(head).position] : null,
           inputOffsetTop: Math.round(el.offsetTop),
           viewport: [window.innerWidth, window.innerHeight],
-          zones: ['risk-rail', 'panel-top', 'panel-main', 'l0-decision', 'view-host', 'l0-statusbar', 'l2-entries', 'panel-bottom']
+          zones: ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l0-decision', 'view-host', 'settings-view']
             .map((id) => { const z = document.getElementById(id); return id + (z && z.hidden ? ':hidden' : ':' + Math.round(z.getBoundingClientRect().height)); }),
           composerHidden: document.getElementById('composer').hidden === true,
           viewHeight: (() => { const v = document.querySelector('[data-l2-view="tree"]'); return v ? Math.round(v.getBoundingClientRect().height) : null; })(),
@@ -1280,7 +1298,7 @@ async function main() {
     const openLayout = await evaluate(sp, MEASURE);
     console.log(`  · [观测] 开态 zones=${JSON.stringify(openLayout.zones)}`);
     checkL2OpenLayout(openLayout, '#I-05~10(开)');
-    check(openLayout.drawerHidden === false, '#I-14b 开态树主体可见（L2 视图主体；#log 已被视图替换）', JSON.stringify(openLayout));
+    check(openLayout.drawerHidden === false, '#I-14b 开态树主体可见（L2 视图主体；#stream 已被视图替换）', JSON.stringify(openLayout));
     // The decisive V2-2 no-regression proof, migrated to view replacement: the
     // overlay was replaced by a view, so the property to prove is the **round-trip**
     // one — leaving the view must restore every steady field measured before entry,
@@ -1292,13 +1310,13 @@ async function main() {
     // exactly the state `closedLayout` was taken in at step 5.
     await v3RevealComposer(sp);
     const returned = await evaluate(sp, MEASURE);
-    check(returned.logHidden === false, '#I-14c0 返回后 #log 重新可见（视图替换可逆）', JSON.stringify(returned.logHidden));
+    check(returned.logHidden === false, '#I-14c0 返回后 #stream 重新可见（视图替换可逆）', JSON.stringify(returned.logHidden));
     const drift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'].filter(
       (f) => returned[f] !== closedLayout[f],
     );
     check(
       drift.length === 0,
-      '#I-14c 视图往返后稳态几何逐字段复原（进入前 == 返回后：flex-grow / #log 高 / 占比 / composer / 溢出）',
+      '#I-14c 视图往返后稳态几何逐字段复原（进入前 == 返回后：flex-grow / #stream 高 / 占比 / composer / 溢出）',
       `drift=${JSON.stringify(drift.map((f) => [f, closedLayout[f], returned[f]]))}`,
     );
     // Re-enter for the downstream archive steps (they drive real clicks inside the
@@ -1621,7 +1639,7 @@ async function main() {
     const narrowClosed = await evaluate(sp, MEASURE);
     check(
       narrowClosed.docOverflowX === 0 && narrowClosed.logOverflowX === 0,
-      '#I-16a 320px 窄侧栏关态零水平溢出（文档 + #log）',
+      '#I-16a 320px 窄侧栏关态零水平溢出（文档 + #stream）',
       JSON.stringify(narrowClosed),
     );
     await v3OpenTreeView(sp);
@@ -1631,7 +1649,7 @@ async function main() {
     const narrowOpen = await evaluate(sp, MEASURE);
     check(
       narrowOpen.docOverflowX === 0 && narrowOpen.logOverflowX === 0 && narrowOpen.drawerOverflowX === 0,
-      '#I-16b 320px 窄侧栏开态零水平溢出（文档 + #log + 抽屉）',
+      '#I-16b 320px 窄侧栏开态零水平溢出（文档 + #stream + 抽屉）',
       JSON.stringify(narrowOpen),
     );
     // close again for a clean exit
@@ -1742,7 +1760,7 @@ async function main() {
     process.exit(1);
   }
   console.log(
-    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2 关态 #log ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；v3-3 起 L2 打开态改用视图替换契约： #log 被替换 + 单滚动容器 + 恰一视图可见 + composer 贴底，返回后逐字段复原）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
+    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2/关态 #stream ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；v3-3 起 L2 打开态改用视图替换契约： #stream 被替换 + 单滚动容器 + 恰一视图可见 + composer 贴底，返回后逐字段复原）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
   );
 }
 

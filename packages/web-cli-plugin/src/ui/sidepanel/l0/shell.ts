@@ -36,6 +36,13 @@ export interface L0Handle {
   hideFallback(): void;
   /** L2 entry point (v3-3: the real view replacement / settings view). */
   openL2(which: L2ViewKey): void;
+  /**
+   * V4-1 (ADR-V4-022 第 3 条): re-sync the four `#l2-entry-*` triggers'
+   * per-target `aria-expanded` pair. The panel calls this when a view closes
+   * through a path the shell does not own (e.g. `#settings-back`), so the pair
+   * can never go stale (`aria-expanded="true"` on a hidden view).
+   */
+  syncEntryAria(): void;
 }
 
 export interface MountL0Deps {
@@ -185,6 +192,7 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     revealFallback: () => card.revealFallback(),
     hideFallback: () => card.hideFallback(),
     openL2,
+    syncEntryAria: () => statusBar.syncTriggerAria(),
   };
 }
 
