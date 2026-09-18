@@ -83,7 +83,10 @@ export type PluginMessageKind =
   | 'pick-layer-env'
   | 'pick-layer-state'
   | 'ref-captured'
-  | 'ref-highlight';
+  | 'ref-highlight'
+  // R3 (2026-09-17): the read-only rescue probe / one-click re-anchor face. Type-only
+  // (same reason as the rest of this family — `content.js` must not carry the strings).
+  | 'ref-rescue';
 
 export interface PluginMessage {
   kind: PluginMessageKind;

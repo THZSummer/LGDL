@@ -67,7 +67,7 @@ import { probingSteadyView, type L0Input, type L0View } from './view-model.js';
 // keeps its ownership and no existing handler is rewritten.
 import { mountL1, type L1Handle, type L1Input } from './l1/panels.js';
 import type { OwnershipTree } from '../../insight/ownership-tree.js';
-import type { DeclarationStatus, RefResolution } from './l1/ref-validity.js';
+import type { DeclarationStatus, RefRescue, RefResolution } from './l1/ref-validity.js';
 // V3-4 (ADR-V3-030 / AC-CONV-1): the panel side of「页面即输入」— the two injection
 // triggers, the document identity the page reports, and the drop target.
 import { mountPickInput, type PickInputHandle } from './pick-input.js';
@@ -586,6 +586,10 @@ function installV3TestHooks(): void {
         // 「env 缺失 ⇒ unknown」类夹具（validate R1 实测）。
         l1?.setEnv({}, true);
         l1?.setResolution(undefined);
+        // R3: the rescue observation + the「already re-anchored」记忆 are per-fixture too.
+        l1?.setRescue(undefined);
+        rescueProbedId = null;
+        anchoredRefIds.clear();
         l1?.setSnapshot(null, null);
         render();
       },
@@ -617,6 +621,11 @@ function installV3TestHooks(): void {
             return handle.judge();
           case 'res':
             handle.setResolution(args[0] as RefResolution | undefined);
+            return handle.judge();
+          case 'rescue':
+            // R3: inject a rescue observation (same shape the background probe returns) and
+            // re-judge — the gate drives the REAL judge, not a shadow projection.
+            handle.setRescue(args[0] as Parameters<typeof handle.setRescue>[0]);
             return handle.judge();
           case 'judge':
             return handle.judge();
@@ -863,6 +872,8 @@ function render(): void {
   // the stale-reference mark on the chip / pick entry is the judge's verdict and
   // must win over the L0 skeleton's optimistic defaults.
   l1?.update(l1Input(l0View));
+  // R3: the read-only rescue probe for a `dom-gone` reference (once per reference).
+  maybeRescue();
   // V3-3: the open view's header count comes from the SAME derivation as the entry
   // panel / status bar, so the three can never disagree (FR-V3-046).
   viewHost?.syncCounts();
@@ -1048,6 +1059,73 @@ function applyRefAction(refId: string, action: string): { allowed: boolean; reas
 function syncRefEnv(): void {
   if (v3TestState.envOverride) return;
   l1?.setEnv(pickInput ? pickInput.judgeEnv() : {});
+}
+
+/**
+ * R3（2026-09-17）— the read-only rescue probe trigger.
+ *
+ * Whenever the judge reports a `dom-gone` reference (selector resolution failed), the
+ * panel asks the background for a **read-only** text-candidate observation and stores it
+ * as the judge's `rescue` payload. The probe runs **once per reference** (no polling
+ * loop), never writes the page, and a missing observation keeps the reference exactly as
+ * fail-closed as before. Only a unique match on an unchanged path turns on the
+ * one-click re-anchor; the user must still confirm it.
+ */
+let rescueProbedId: string | null = null;
+/** References the user already re-anchored — never re-offer the button for them. */
+const anchoredRefIds = new Set<string>();
+
+function maybeRescue(): void {
+  if (!pickInput || !l1) return;
+  const target = l1.store().stale()[0];
+  if (!target || target.dimension !== 'dom-gone') {
+    rescueProbedId = null;
+    return;
+  }
+  const facts = target.facts;
+  if (anchoredRefIds.has(facts.refId) || rescueProbedId === facts.refId) return;
+  if (!facts.origin || !facts.textDigest) return;
+  rescueProbedId = facts.refId;
+  void pickInput
+    .rescue({ refId: facts.refId, selector: facts.selector, textDigest: facts.textDigest, origin: facts.origin })
+    .then((observation) => {
+      if (!observation) return;
+      l1?.setRescue({ refId: facts.refId, ...observation });
+      // Re-judge so the payload actually lands on the record (`update()` alone paints the
+      // previous verdict) — the judge remains the single writer of `readableReason`.
+      l1?.judge();
+      render();
+    });
+}
+
+/**
+ * R3 — the user-confirmed one-click re-anchor. The panel only forwards the reference's
+ * captured facts; the real work (fresh read-only probe + identity mark + new reference)
+ * lives in `pick-input.ts` so it shares the **manual pick ingestion pipeline**. The old
+ * reference is untouched: only a new record is appended.
+ */
+function reanchorRef(refId: string): void {
+  const record = l1?.store().get(refId);
+  if (!record) return;
+  if (!state.authorized) {
+    dispatch({ type: 'notice', text: '✖ 未授权站点：救援不生效（页面侧零注入）。' });
+    return;
+  }
+  void pickInput
+    ?.reanchor({
+      refId,
+      selector: record.facts.selector,
+      textDigest: record.facts.textDigest,
+      origin: record.facts.origin,
+    })
+    .then((ok) => {
+      if (!ok) return;
+      anchoredRefIds.add(refId);
+      rescueProbedId = null;
+      l1?.setRescue(undefined);
+      l1?.judge();
+      render();
+    });
 }
 
 /**
@@ -1616,6 +1694,8 @@ function wire(): void {
     disclosure,
     openL2: (which) => l0?.openL2(which),
     revealFallback: () => l0?.revealFallback(),
+    // R3: the one-click re-anchor seam (the real work is in pick-input.ts).
+    reanchor: (refId) => reanchorRef(refId),
     // A REAL re-pull of `insight-tree`: the receipt's tool-surface evidence must
     // describe this pull, never a remembered value (ADR-V2-009 semantics).
     refreshSnapshot: async () => {

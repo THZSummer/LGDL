@@ -1114,6 +1114,9 @@
       }
       #l0-ref-toggle[data-ref-stale="true"] { color: var(--danger-text); border-color: var(--danger-border); }
       #l1-ref-actions[hidden] { display: none !important; }
+      /* R3: the conditional re-anchor control — `hidden` is the only on/off channel
+         (a `display` toggle would spend density budget / be measured as visible). */
+      #l1-ref-rescue[hidden] { display: none !important; }
     </style>
   </head>
   <body>
@@ -1269,6 +1272,10 @@
           <div class="row" id="l1-ref-actions" hidden>
             <button id="l1-ref-repick" type="button">重新拾取</button>
             <button id="l1-ref-describe" type="button">改用描述</button>
+            <!-- R3: the conditional third path — a one-click re-anchor onto the unique
+                 text candidate. `hidden` unless the rescue observation is
+                「文本唯一匹配 ∧ 页面路径未变」; the old reference is never mutated. -->
+            <button id="l1-ref-rescue" type="button" data-rescue="none" hidden>一键重锚（文本唯一匹配）</button>
             <span class="l1-hint" id="l1-ref-reason"></span>
           </div>
         </div>

@@ -671,6 +671,158 @@ async function main() {
     await evaluate(pCdp, `window.__v3.testing.refresh(); true`);
     await sleep(1400);
 
+    // ── R3（2026-09-17，作者真机确认 HEAD 131f546）：引用重锚救援 ───────────────
+    // 缺陷：SPA 重渲染 / 插入兄弟节点后位置链选择器断链，但目标文字仍在页面上 ⇒ 冻结判定链
+    // 判 `dom-gone`、引用死亡，只能手动重拾。修法（fail-closed 不放松）：SW 侧**只读**文本
+    // 候选定位（与摘要同源归一化）→ 失效原因挂 payload 元数据 → **唯一候选 ∧ 路径未变**时给
+    // 一键重锚；重锚经与手工拾取**同一条**摄取管线生成新引用，旧引用零改动。
+    console.log('\n▶ R3 引用重锚救援（选择器断链、文字仍在）');
+    // 夹具站点上 `#host-btn` 的文字「宿主按钮」是唯一的 —— 正是「选择器断了、文字还在」的形态。
+    await evaluate(pCdp, `window.__v3.testing.reset(); true`);
+    const refRescueFixtures = await evaluate(
+      pCdp,
+      `(() => {
+         const origin = ${JSON.stringify(site.origin)};
+         const rec = window.__v3.testing.l1('ref', {
+           selector: 'div.__broken:nth-of-type(9) > span.__gone:nth-of-type(7)',
+           semanticPath: 'body › div › span',
+           textDigest: '宿主按钮',
+           origin,
+           documentId: 'doc-rescue',
+           navSeq: 1,
+           declarationHash: '',
+           declaration: { status: 'absent' },
+           capturedAt: Date.now(),
+         });
+         window.__v3.testing.l1('env', {
+           currentOrigin: origin, authorized: true, documentId: 'doc-rescue', navSeq: 1, declarationStatus: 'absent',
+         }, true);
+         const judged = window.__v3.testing.l1('res', { status: 'missing' });
+         return JSON.stringify({ refId: rec.facts.refId, verdict: judged.slice(-1)[0].verdict, dimension: judged.slice(-1)[0].dimension });
+       })()`,
+    );
+    const fx = JSON.parse(refRescueFixtures);
+    check(
+      'R3 前置（负控）：故障形态可构造——选择器解析失败 ⇒ 判定 invalid/dom-gone',
+      fx.verdict === 'invalid' && fx.dimension === 'dom-gone',
+      refRescueFixtures,
+    );
+    // 只读探测是异步的：有界轮询 `l1-report`（≤3s），而不是固定 sleep。
+    let rescueReport = null;
+    for (let i = 0; i < 15; i += 1) {
+      rescueReport = (await panel.snapshot())?.l1 ?? null;
+      if (rescueReport?.rescue) break;
+      await sleep(200);
+    }
+    check(
+      'R3：只读文本候选定位给出 payload 元数据（唯一匹配 ⇒ unique）',
+      rescueReport?.rescue?.candidates === 1 && rescueReport?.rescue?.unique === true && rescueReport?.rescue?.urlChanged === false,
+      JSON.stringify(rescueReport?.rescue),
+    );
+    check(
+      'R3：失效原因增强为「目标疑似仍在（文本唯一匹配）—— 可一键重锚」',
+      /文本唯一匹配/.test(String(rescueReport?.refs?.[0]?.reason ?? '')) && /可一键重锚/.test(String(rescueReport?.refs?.[0]?.reason ?? '')),
+      String(rescueReport?.refs?.[0]?.reason),
+    );
+    // 打开引用证据层，按真实 UI 路径点击「一键重锚」。
+    await evaluate(pCdp, `document.getElementById('l0-ref-toggle').click(); true`);
+    await sleep(200);
+    const rescueUi = await evaluate(
+      pCdp,
+      `JSON.stringify({
+         actionsVisible: document.getElementById('l1-ref-actions').hidden === false,
+         btnHidden: document.getElementById('l1-ref-rescue').hidden,
+         label: document.getElementById('l1-ref-rescue').textContent,
+       })`,
+    );
+    const rui = JSON.parse(rescueUi);
+    check(
+      'R3：唯一候选时「一键重锚」按钮可见（且仅在唯一匹配时）',
+      rui.actionsVisible === true && rui.btnHidden === false && /一键重锚/.test(rui.label),
+      rescueUi,
+    );
+    const beforeAnchor = (await panel.snapshot())?.l1?.counts ?? 0;
+    await evaluate(pCdp, `document.getElementById('l1-ref-rescue').click(); true`);
+    // 重锚是异步的（探测 → 摄取 → 身份标记 → 重判）：有界轮询引用数 +1。
+    let afterAnchor = null;
+    for (let i = 0; i < 20; i += 1) {
+      afterAnchor = (await panel.snapshot())?.l1 ?? null;
+      if ((afterAnchor?.counts ?? 0) === beforeAnchor + 1 && afterAnchor?.refs?.slice(-1)[0]?.verdict === 'valid') break;
+      await sleep(250);
+    }
+    check(
+      'R3：一键重锚生成**新引用**并判 valid（旧引用零改动，append-only）',
+      (afterAnchor?.counts ?? 0) === beforeAnchor + 1 &&
+        afterAnchor?.refs?.slice(-1)[0]?.verdict === 'valid' &&
+        afterAnchor?.refs?.[0]?.refId === fx.refId,
+      JSON.stringify({ before: beforeAnchor, after: afterAnchor?.counts, verdicts: afterAnchor?.refs?.map((r) => r.verdict) }),
+    );
+    // 新引用的身份标记必须真的写回**新** id（D1 的身份判据），且目标就是文字所在的元素。
+    const newRefId = String(afterAnchor?.refs?.slice(-1)[0]?.refId ?? '');
+    const markedBack = await iso(siteTab, `document.getElementById('host-btn').getAttribute('data-wcli-ref')`);
+    check(
+      'R3：身份标记写回页面且等于**新**引用 id（不是旧 id）',
+      newRefId.length > 0 && markedBack === newRefId && newRefId !== fx.refId,
+      `${markedBack} vs ${newRefId}（旧 ${fx.refId}）`,
+    );
+    const newSelectorRow = await evaluate(pCdp, `document.getElementById('l1-ref-rows').textContent || ''`);
+    check(
+      'R3：新引用带**全新**捕获事实（证据行里的选择器落到真实元素 #host-btn，不再是断链位置链）',
+      /host-btn/.test(String(newSelectorRow)),
+      String(newSelectorRow).slice(0, 200),
+    );
+    // 多候选 / 跨路径**不提供**一键重锚（fail-closed：歧义 = 不确定）。
+    const multiProbe = await evaluate(
+      pCdp,
+      `(() => {
+         window.__v3.testing.reset();
+         const origin = ${JSON.stringify(site.origin)};
+         window.__v3.testing.l1('ref', {
+           selector: '#nope', semanticPath: 'x', textDigest: '宿主按钮', origin,
+           documentId: 'doc-rescue', navSeq: 1, declarationHash: '', declaration: { status: 'absent' }, capturedAt: Date.now(),
+         });
+         window.__v3.testing.l1('env', { currentOrigin: origin, authorized: true, documentId: 'doc-rescue', navSeq: 1, declarationStatus: 'absent' }, true);
+         window.__v3.testing.l1('res', { status: 'missing' });
+         const rec = window.__v3.testing.l1('report');
+         window.__v3.testing.l1('rescue', { refId: rec.refs.slice(-1)[0].refId, candidates: 2, unique: false, urlChanged: false });
+         const multi = window.__v3.testing.l1('report');
+         document.getElementById('l0-ref-toggle').click();
+         const btnHidden = document.getElementById('l1-ref-rescue').hidden;
+         return JSON.stringify({ reason: multi.refs.slice(-1)[0].reason, btnHidden });
+       })()`,
+    );
+    const mp = JSON.parse(multiProbe);
+    check(
+      'R3 反证面：多候选 ⇒ 提示多处匹配且**不提供**一键重锚',
+      /文本多处匹配 2 处/.test(String(mp.reason)) && mp.btnHidden === true,
+      multiProbe,
+    );
+    const pathProbe = await evaluate(
+      pCdp,
+      `(() => {
+         window.__v3.testing.reset();
+         const origin = ${JSON.stringify(site.origin)};
+         window.__v3.testing.l1('ref', {
+           selector: '#nope', semanticPath: 'x', textDigest: '宿主按钮', origin,
+           documentId: 'doc-rescue', navSeq: 1, declarationHash: '', declaration: { status: 'absent' }, capturedAt: Date.now(),
+         });
+         window.__v3.testing.l1('env', { currentOrigin: origin, authorized: true, documentId: 'doc-rescue', navSeq: 1, declarationStatus: 'absent' }, true);
+         window.__v3.testing.l1('res', { status: 'missing' });
+         const rec = window.__v3.testing.l1('report');
+         window.__v3.testing.l1('rescue', { refId: rec.refs.slice(-1)[0].refId, candidates: 1, unique: true, urlChanged: true });
+         const moved = window.__v3.testing.l1('report');
+         document.getElementById('l0-ref-toggle').click();
+         const btnHidden = document.getElementById('l1-ref-rescue').hidden;
+         return JSON.stringify({ reason: moved.refs.slice(-1)[0].reason, btnHidden });
+       })()`,
+    );
+    const pp = JSON.parse(pathProbe);
+    check(
+      'R3 反证面：跨路径 ⇒ 带「页面路径已变化」提示且**不提供**一键重锚',
+      /页面路径已变化/.test(String(pp.reason)) && pp.btnHidden === true,
+      pathProbe,
+    );
+
     // ── I-01②：失去授权后，层必须在**下一次交互**自检并卸载 ──────────────────────
     // 旧实现从不读 `env().authorized`：teardown 消息一旦丢失（撤销与拆卸竞态 / SW 重启），
     // 已失去授权的层会一直拦着宿主右键。`envReady()` 保证「从未收到 env」≠「被撤销」，

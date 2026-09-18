@@ -27,7 +27,7 @@
  * @module l1/ref-store
  */
 import { evaluateRefValidity } from './ref-validity.js';
-import type { RefEnv, RefFacts, RefVerdict, RefVerdictView } from './ref-validity.js';
+import type { RefEnv, RefFacts, RefRescue, RefVerdict, RefVerdictView } from './ref-validity.js';
 
 /** `textDigest` truncation length (V32-O-2, pinned). */
 export const TEXT_DIGEST_MAX = 80;
@@ -54,6 +54,8 @@ export interface RefRecord {
   dimension?: string;
   readableReason?: string;
   unknownCause?: string;
+  /** R3: the read-only rescue observation attached to a `dom-gone` verdict (if any). */
+  rescue?: RefRescue;
   /** `true` whenever the verdict is not `'valid'` — the chip's `aria-disabled`. */
   ariaDisabled: boolean;
   /** `true` once an explicit re-pick superseded it (kept on record, not active). */
@@ -101,6 +103,9 @@ function decorate(facts: RefFacts, view: RefVerdictView, retired: boolean): RefR
     ...(view.dimension ? { dimension: view.dimension } : {}),
     ...(view.readableReason ? { readableReason: view.readableReason } : {}),
     ...(view.unknownCause ? { unknownCause: view.unknownCause } : {}),
+    // R3: the rescue payload travels with the record so the L1 layer / gate can read
+    // the observation the judge attached (metadata only — never a verdict).
+    ...(view.rescue ? { rescue: view.rescue } : {}),
   };
 }
 

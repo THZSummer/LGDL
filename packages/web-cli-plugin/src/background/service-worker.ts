@@ -85,6 +85,7 @@ import {
 } from './messaging.js';
 import { isInsightMessage } from './insight-protocol.js';
 import { isPickLayerMessage } from '../content/pick-protocol.js';
+import { isRefRescueMessage, rescuePathOf, rescueProbe, type RescueProbeReport } from './ref-rescue.js';
 import { sha256Hex } from '../protocol/trust.js';
 import { providerChat, providerById } from '../llm/providers.js';
 import { createKeyStore } from '../llm/key-store.js';
@@ -1056,6 +1057,36 @@ async function observeIdentity(
   const result = results?.[0]?.result;
   return result && typeof result === 'object' ? (result as { status: 'resolved' }) : undefined;
 }
+
+/**
+ * R3（2026-09-17）— the **read-only** text-candidate probe for a `dom-gone` reference.
+ *
+ * The injected function (`background/ref-rescue.ts#rescueProbe`) is self-contained and
+ * performs no DOM write: it only reads `textContent` / attributes and returns the
+ * candidate count (+ the unique candidate's fresh facts when asked). A failed injection
+ * returns `undefined`, which the handler reports as「页面侧不可达」— never as "0
+ * candidates" (that would be an unobserved negative presented as a fact).
+ */
+async function rescueProbeInTab(tabId: number, digest: string): Promise<RescueProbeReport | undefined> {
+  const results = await chrome.scripting
+    .executeScript({ target: { tabId }, func: rescueProbe, args: [digest] })
+    .catch(() => undefined);
+  const result = results?.[0]?.result;
+  return result && typeof result === 'object' ? (result as RescueProbeReport) : undefined;
+}
+
+/**
+ * R3 — the **capture-time page path** per reference, recorded when the identity mark is
+ * written (the mark round-trip happens immediately after the panel mints the id, so this
+ * *is* the capture path). Used only to tell「同一路径上的元素断链」apart from「页面路径
+ * 已变化」; an unknown prior leaves `urlChanged:false` (never a fabricated warning).
+ *
+ * Ephemeral by design: a service-worker restart simply loses the hints (the rescue stays
+ * readable/actionable; only the path-change note is omitted). Bounded so a long session
+ * cannot grow it without limit.
+ */
+const REF_MARK_PATHS = new Map<string, string>();
+const REF_MARK_PATHS_MAX = 200;
 
 /**
  * Defect fix R1 (2026-09-17) — the declaration **state** for `origin`, derived from the
@@ -2205,7 +2236,50 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // 同类新元素替换」→ unknown → the reference stays unusable on real sites. The
       // observation is still page-produced (never the panel asserting `resolved`).
       const resolution = mode === 'mark' && selector ? await observeIdentity(target.tabId, selector) : undefined;
+      // R3: remember where (which path) this reference was marked — the capture path.
+      if (mode === 'mark' && typeof message.refId === 'string') {
+        const info = await chrome.tabs.get(target.tabId).catch(() => null);
+        const markedPath = rescuePathOf(info?.url);
+        if (markedPath !== null) {
+          REF_MARK_PATHS.set(message.refId, markedPath);
+          if (REF_MARK_PATHS.size > REF_MARK_PATHS_MAX) {
+            const oldest = REF_MARK_PATHS.keys().next().value;
+            if (oldest !== undefined) REF_MARK_PATHS.delete(oldest);
+          }
+        }
+      }
       return okResponse({ highlighted: true, tabId: target.tabId, ...(resolution ? { resolution } : {}) });
+    }
+    case 'ref-rescue': {
+      // R3（2026-09-17）— the read-only rescue route. Fail-closed at **every** exit:
+      // missing facts / cross-origin / unauthorized / unreachable all report
+      // `candidates: 0` (i.e.「真没了」) rather than a fabricated candidate. The route
+      // never writes the page and never mints a reference; the one-click re-anchor the
+      // panel offers is a *separate* user action that goes through `ref-highlight{mode:
+      // 'mark'}` + the normal ingestion pipeline.
+      const noRescue = (reason: string) =>
+        okResponse({ rescue: { candidates: 0, unique: false, urlChanged: false }, reason });
+      const refOrigin = typeof message.origin === 'string' ? message.origin : '';
+      const refId = typeof message.refId === 'string' ? message.refId : '';
+      const digest = typeof message.textDigest === 'string' ? message.textDigest : '';
+      if (!refOrigin || !digest) return noRescue('引用缺少可救援的捕获事实（文本摘要 / 站点）');
+      const target = await pickLayerTarget(s);
+      if ('error' in target) return noRescue(target.error);
+      // 同 origin 是硬前提：引用属于别的站点时**不救援**（不把结果算到当前页上）。
+      if (target.origin !== refOrigin) return noRescue('引用所属站点不是当前页面（跨站不救援）');
+      const env = await declarationEnv(s, target.origin);
+      if (!env.authorized) return noRescue(`未授权站点 ${target.origin}：救援零注入`);
+      const probe = await rescueProbeInTab(target.tabId, digest);
+      if (!probe) return noRescue('页面侧不可达（探测失败，按失效处理）');
+      const priorPath = REF_MARK_PATHS.get(refId);
+      const nowPath = rescuePathOf(probe.url);
+      const urlChanged = priorPath !== undefined && nowPath !== null && priorPath !== nowPath;
+      const unique = probe.candidates === 1;
+      const wantFacts = message.anchor === true;
+      return okResponse({
+        rescue: { candidates: probe.candidates, unique, urlChanged },
+        ...(wantFacts && unique && !urlChanged && probe.facts ? { facts: probe.facts } : {}),
+      });
     }
     case 'pick-layer-teardown': {
       const target = await pickLayerTarget(s);
@@ -2682,7 +2756,11 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   // V2-1 (ADR-V2-004): accept the additive `insight-*` kinds without adding them
   // to the shared KIND_SET (that set is bundled into content.js, which must not grow).
-  if (!isPluginMessage(raw) && !isInsightMessage(raw) && !isPickLayerMessage(raw)) return undefined;
+  // R3: `ref-rescue` is a panel⇄SW kind; its validator lives on a background-only
+  // module (`background/ref-rescue.ts`) so neither frozen bundle grows a byte.
+  if (!isPluginMessage(raw) && !isInsightMessage(raw) && !isPickLayerMessage(raw) && !isRefRescueMessage(raw)) {
+    return undefined;
+  }
   void handleMessage(raw, sender).then(
     (res) => sendResponse(res),
     (err) => sendResponse(errorResponse(err instanceof Error ? err.message : String(err))),

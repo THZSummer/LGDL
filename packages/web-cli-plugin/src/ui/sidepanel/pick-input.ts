@@ -65,10 +65,47 @@ export interface PickInputHandle {
    * `undefined` = no new observation (the judge keeps the previous, fail-closed fact).
    */
   highlight(refId: string, selector: string, mode: 'flash' | 'mark' | 'outline'): Promise<RefResolution | undefined>;
+  /**
+   * R3: one **read-only** text-candidate probe for an unusable reference. Returns the
+   * observation (`candidates` / `unique` / `urlChanged`) or `undefined` when the page
+   * side is unreachable — it never mints or mutates anything.
+   */
+  rescue(input: RescueInput): Promise<RescueObservation | undefined>;
+  /**
+   * R3: the user-confirmed one-click re-anchor. Re-probes (fresh facts, no TOCTOU),
+   * then feeds the **unique** candidate through the SAME ingestion pipeline as a manual
+   * pick (`withDeclaration()` + `onCapture`), which mints a new reference and writes the
+   * identity mark. The old reference is untouched (append-only). `false` = refused
+   * (ambiguous / moved path / page unreachable) — fail-closed, with a readable notice.
+   */
+  reanchor(input: RescueInput): Promise<boolean>;
   /** Route one inbound message; `true` when it was ours. */
   accept(raw: unknown): boolean;
   teardown(): void;
   state(): Record<string, unknown>;
+}
+
+/** R3: what the panel needs to describe one reference to the read-only rescue probe. */
+export interface RescueInput {
+  refId: string;
+  selector: string;
+  textDigest: string;
+  origin: string;
+}
+
+/** R3: the rescue observation as reported by the background (facts only, no verdict). */
+export interface RescueObservation {
+  candidates: number;
+  unique: boolean;
+  urlChanged: boolean;
+}
+
+/** R3: the fresh DOM facts of the unique candidate (the background computed them read-only). */
+export interface RescueFacts {
+  selector: string;
+  semanticPath: string;
+  textDigest: string;
+  capturedAt: number;
 }
 
 export function mountPickInput(deps: PickInputDeps): PickInputHandle {
@@ -160,6 +197,39 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
     // mode stays a pure side effect (the surface is unchanged for the hover/flash paths).
     if (mode !== 'mark' || !res.ok) return undefined;
     return (res.data as { resolution?: RefResolution } | undefined)?.resolution;
+  };
+
+  /**
+   * R3 — the read-only rescue round-trip (panel → SW → page text search → panel).
+   * `anchor: true` additionally asks for the fresh capture facts of the unique
+   * candidate; the read-only default never returns facts the caller could misuse.
+   */
+  const probeRescue = async (
+    input: RescueInput,
+    anchor: boolean,
+  ): Promise<{ observation: RescueObservation; facts?: RescueFacts } | undefined> => {
+    const res = await deps.send({
+      kind: 'ref-rescue',
+      refId: input.refId,
+      selector: input.selector,
+      textDigest: input.textDigest,
+      origin: input.origin,
+      ...(anchor ? { anchor: true } : {}),
+    });
+    if (!res.ok) return undefined;
+    const data = res.data as
+      | { rescue?: Partial<RescueObservation>; facts?: RescueFacts; reason?: string }
+      | undefined;
+    const r = data?.rescue;
+    if (!r || typeof r.candidates !== 'number') return undefined;
+    return {
+      observation: {
+        candidates: r.candidates,
+        unique: r.unique === true || r.candidates === 1,
+        urlChanged: r.urlChanged === true,
+      },
+      ...(data?.facts ? { facts: data.facts } : {}),
+    };
   };
 
   const accept = (raw: unknown): boolean => {
@@ -262,6 +332,47 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
     },
     judgeEnv,
     highlight,
+    async rescue(input) {
+      return (await probeRescue(input, false))?.observation;
+    },
+    async reanchor(input) {
+      // The mark write below is the identity D1 compares against, so the layer must be
+      // live. A failed injection ⇒ refuse readably instead of minting a dead reference.
+      if (!(await inject())) {
+        deps.notify(`✖ 重锚失败：页面侧不可用（${state.unavailable ?? '注入失败'}）`);
+        return false;
+      }
+      // Re-probe at click time (fresh facts): the first probe only drove the UI, so
+      // reusing its facts would be a TOCTOU — the element may have moved since.
+      const probe = await probeRescue(input, true);
+      const obs = probe?.observation;
+      if (!obs || !obs.unique || obs.urlChanged || !probe?.facts) {
+        deps.notify(
+          obs
+            ? `✖ 无法一键重锚（${obs.candidates > 1 ? `文本多处匹配 ${obs.candidates} 处` : '页面路径已变化'}）：请手动重新拾取或改用描述。`
+            : '✖ 无法一键重锚：页面侧不可达（按失效处理）。',
+        );
+        return false;
+      }
+      // The SAME ingestion pipeline as a manual pick: the panel's own origin / document
+      // identity / declaration snapshot are completed here (the page could not know them),
+      // and `onCapture` mints the new id + writes the mark + re-judges. The old reference
+      // is deliberately left untouched (append-only, FR contract).
+      const facts: RawRefFacts = {
+        selector: probe.facts.selector,
+        semanticPath: probe.facts.semanticPath,
+        textDigest: probe.facts.textDigest,
+        origin: deps.envInput().activeOrigin || input.origin,
+        documentId: state.documentId,
+        navSeq: state.navSeq,
+        // Same caliber as a page capture: the digest exists only while the adopted
+        // declaration is valid; the *state* snapshot is added by `withDeclaration()`.
+        declarationHash: deps.envInput().declaration?.hash ?? '',
+        capturedAt: probe.facts.capturedAt,
+      };
+      deps.onCapture(withDeclaration(facts), { status: 'resolved', nodeCount: 1 });
+      return true;
+    },
     accept,
     teardown() {
       doc.removeEventListener('dragover', onDragOver as EventListener, true);

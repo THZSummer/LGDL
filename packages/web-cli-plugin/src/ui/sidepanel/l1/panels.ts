@@ -48,7 +48,7 @@ import type { L1Receipt } from './receipt.js';
 import { createRefStore } from './ref-store.js';
 import type { RawRefFacts, RefRecord, RefStore } from './ref-store.js';
 import { isRefUsable } from './ref-validity.js';
-import type { RefEnv, RefResolution, RefVerdict } from './ref-validity.js';
+import type { RefEnv, RefRescue, RefResolution, RefVerdict } from './ref-validity.js';
 import type { OwnershipTree } from '../../../insight/ownership-tree.js';
 import type { TreeReceipt } from '../../tree/tree-receipt.js';
 
@@ -95,6 +95,18 @@ export function repickLabel(staleCount: number): string {
   return staleCount > 1 ? `重新拾取（引用 ${staleCount} 条失效）` : '重新拾取（引用 1 已失效）';
 }
 
+/**
+ * R3 (fail-closed) — may the one-click re-anchor be offered for this rescue?
+ *
+ * Only a **unique** text match on an **unchanged page path** qualifies: multiple matches
+ * are ambiguous and a moved path is uncertain, and both are exactly the cases where an
+ * automatic re-anchor could silently land on the wrong element. Those keep the two
+ * manual recovery paths. Pure, so the boundary is unit-testable without a DOM.
+ */
+export function canReanchor(rescue: RefRescue | undefined): boolean {
+  return Boolean(rescue && rescue.unique && !rescue.urlChanged && rescue.candidates === 1);
+}
+
 export interface L1Input {
   ask: { prompt: string; options: string[] } | null;
   foldedOptions: readonly string[];
@@ -110,6 +122,12 @@ export interface L1Deps {
   revealFallback(): void;
   /** Real `insight-tree` re-pull (never a cache) — the receipt evidence path. */
   refreshSnapshot(): Promise<{ tools?: string[] } | null | undefined>;
+  /**
+   * R3: one-click re-anchor of the currently unusable reference onto its unique text
+   * candidate. The real work (read-only probe + the single ingestion pipeline) belongs
+   * to the panel's pick-input owner — this is only the wiring seam.
+   */
+  reanchor(refId: string): void;
   now(): number;
 }
 
@@ -122,6 +140,8 @@ export interface L1Handle {
   injectRef(raw: Parameters<RefStore['create']>[0]): RefRecord;
   judge(): RefRecord[];
   setResolution(resolution: RefResolution | undefined): void;
+  /** R3: the read-only rescue observation for one reference (`undefined` clears it). */
+  setRescue(rescue: RefRescue | undefined): void;
   dispatchRefAction(refId: string, action: string): { allowed: boolean; reason: string; verdict: RefVerdict; sent: boolean };
   /**
    * Mint a NEW reference from the facts the caller **observed** (real re-pick —
@@ -183,6 +203,7 @@ export function mountL1(deps: L1Deps): L1Handle {
   const refRows = el('l1-ref-rows');
   const refActions = el('l1-ref-actions');
   const refReason = el('l1-ref-reason');
+  const refRescue = el<HTMLButtonElement>('l1-ref-rescue');
   const consHost = el('l1-consequences');
   const consTpl = doc.getElementById('l1-consequence-tpl') as HTMLTemplateElement | null;
   const receiptSummary = el('l0-receipt-summary');
@@ -195,6 +216,10 @@ export function mountL1(deps: L1Deps): L1Handle {
   const store = createRefStore();
   let env: RefEnv = {};
   let resolution: RefResolution | undefined;
+  /** R3: the read-only rescue observation the judge attaches to a `dom-gone` verdict. */
+  let rescue: RefRescue | undefined;
+  /** The reference the rescue button currently targets (`null` = no one-click anchor). */
+  let rescueTargetId: string | null = null;
   let tree: OwnershipTree | null = null;
   let localTree = buildLocalTree(null, null);
   let receipt: L1Receipt | null = null;
@@ -205,7 +230,11 @@ export function mountL1(deps: L1Deps): L1Handle {
   let last: L1Input = { ask: null, foldedOptions: [], lastUserText: null };
 
   /** The env the judge sees. Missing facts stay missing → `unknown` → blocked. */
-  const envNow = (): RefEnv => ({ ...(resolution ? { resolution } : {}), ...env });
+  const envNow = (): RefEnv => ({
+    ...(resolution ? { resolution } : {}),
+    ...(rescue ? { rescue } : {}),
+    ...env,
+  });
 
   // ── one click on an L0 disclosure reveals its whole class group ────────────
   const mirror = (panelId: string, classes: readonly string[]): void => {
@@ -229,6 +258,12 @@ export function mountL1(deps: L1Deps): L1Handle {
   // ── the two recovery paths (FR-V3-038): reuse the existing entries ─────────
   el('l1-ref-repick').addEventListener('click', () => pick.click());
   el('l1-ref-describe').addEventListener('click', () => deps.revealFallback());
+  // R3: the third, conditional path — a one-click re-anchor onto the unique text
+  // candidate. It is only ever reachable while the rescue says「文本唯一匹配 ∧ 路径未变」;
+  // the probe itself is read-only and the action mints a NEW reference (old card kept).
+  refRescue.addEventListener('click', () => {
+    if (rescueTargetId) deps.reanchor(rescueTargetId);
+  });
   el('l1-local-tree-global').addEventListener('click', () => deps.openL2('tree'));
   el('l1-receipt-audit').addEventListener('click', () => deps.openL2('audit'));
 
@@ -246,6 +281,18 @@ export function mountL1(deps: L1Deps): L1Handle {
     const bad = stale.length > 0;
     refActions.hidden = !bad;
     refReason.textContent = bad ? (stale[0].readableReason ?? '引用不可用（按失效处理）') : '';
+    // R3 (fail-closed): the one-click re-anchor is offered **only** for a unique text
+    // match on an unchanged page path. Multiple candidates (ambiguous) or a moved path
+    // (uncertain) keep the two manual recovery paths and never auto-anchor.
+    const rescueOf = stale[0]?.rescue;
+    const target = stale[0];
+    const canAnchor = canReanchor(rescueOf);
+    rescueTargetId = target && canAnchor ? target.facts.refId : null;
+    refRescue.hidden = !canAnchor;
+    refRescue.setAttribute(
+      'data-rescue',
+      canAnchor ? 'unique' : rescueOf ? (rescueOf.candidates > 1 ? 'multiple' : 'path-changed') : 'none',
+    );
     refBadge.hidden = !bad;
     refToggle.setAttribute('aria-disabled', String(bad));
     // The chip, its badge and the rewritten pick entry are all part of the SAME
@@ -378,6 +425,9 @@ export function mountL1(deps: L1Deps): L1Handle {
     setResolution(next) {
       resolution = next;
     },
+    setRescue(next) {
+      rescue = next;
+    },
     dispatchRefAction(refId, action) {
       void action;
       const envCurrent = envNow();
@@ -464,7 +514,7 @@ export function mountL1(deps: L1Deps): L1Handle {
     report() {
       const all = store.all();
       return {
-        refs: all.map((r) => ({ refId: r.facts.refId, glyph: r.glyph, verdict: r.verdict, reason: r.readableReason ?? '' })),
+        refs: all.map((r) => ({ refId: r.facts.refId, glyph: r.glyph, verdict: r.verdict, reason: r.readableReason ?? '', ...(r.rescue ? { rescue: r.rescue } : {}) })),
         verdicts: store.judge(envNow()).map((r) => r.verdict),
         counts: all.length,
         stale: store.stale().length,
@@ -475,6 +525,9 @@ export function mountL1(deps: L1Deps): L1Handle {
         rounds: [...rounds],
         localTree: localTree.count,
         gestures: L1_GESTURE_COUNT,
+        /** R3: the rescue payload the L1 layer currently holds (gate-readable). */
+        rescue: rescue ?? null,
+        canAnchor: rescueTargetId !== null,
       };
     },
   };

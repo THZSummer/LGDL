@@ -177,13 +177,15 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   const b = SIDEPANEL_GROWTH_BREAKDOWN;
   assert.equal(b.deltaBytes, SIDEPANEL_BASELINE_BYTES - SIDEPANEL_BASELINE_META.previousBaselineBytes);
   // R2 缺陷修复轮：四处既有模块的接线（view-model +1,006 / sidepanel +388 / risk-rail +352 /
-  // shell +28 = +1,774，退避调度器在 service-worker bundle 不计入本产物）⇒ 累计增量 71,530 → 73,304
+  // shell +28 = +1,774，退避调度器在 service-worker bundle 不计入本产物）⇒ 累计增量 71,530 → 73,304；
+  // R3 缺陷修复轮：五处既有模块的救援接线（pick-input +2,450 / sidepanel +1,762 / ref-validity +1,057 /
+  // panels +1,007 / ref-store +222 = +6,498，只读探测模块在 service-worker bundle 不计入）⇒ 73,304 → 79,877。
   // （同一条断言，仅数值按实测重 pin；四类分解与逐模块表同步，Σ 由真实 metafile 双向核对）。
   // R1 缺陷修复轮（历史值逐字保留）：六处既有模块的修复（ref-validity +1,762 / sidepanel +854 /
   // pick-input +724 / ref-store +256 / chat-state +220 / view-model +162 = +3,978）⇒ 67,552 → 71,530。
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
-  assert.equal(b.deltaBytes, 73_304);
+  assert.equal(b.deltaBytes, 79_877);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');

@@ -129,6 +129,27 @@ export interface RefResolution {
 }
 
 /**
+ * Defect fix round **R3**（2026-09-17）— the **read-only rescue observation** attached
+ * to a `dom-gone` verdict. Facts only, produced by the background's text-candidate
+ * probe (`background/ref-rescue.ts`); the panel never mints one.
+ *
+ * It is **payload metadata**, not a fourth verdict: `RefVerdict` still has exactly
+ * `valid | invalid | unknown`, and a rescue can never turn an `invalid` reference into
+ * a usable one. Acting on the rescued target always mints a **new** reference through a
+ * user click; the old one keeps its facts and its verdict (append-only).
+ */
+export interface RefRescue {
+  /** The reference this observation belongs to (a rescue is per-reference). */
+  refId: string;
+  /** Inner-most elements whose flattened text equals the captured digest. */
+  candidates: number;
+  /** `candidates === 1` — the only case a one-click re-anchor is offered. */
+  unique: boolean;
+  /** The current page path differs from the capture-time path (`document.URL` moved). */
+  urlChanged: boolean;
+}
+
+/**
  * Everything the judge needs about "now". **Every field is optional on purpose**:
  * a missing field is not a default value, it is an unknown — and unknown blocks.
  */
@@ -142,6 +163,8 @@ export interface RefEnv {
   /** The declaration state **now** (single source: the SW's `declarationEnv()`). */
   declarationStatus?: DeclarationStatus;
   resolution?: RefResolution;
+  /** R3: the read-only text-candidate observation for one reference (facts only). */
+  rescue?: RefRescue;
 }
 
 /** The judge's answer. */
@@ -150,6 +173,11 @@ export interface RefVerdictView {
   dimension?: RefDimension;
   readableReason?: string;
   unknownCause?: RefUnknownCause;
+  /**
+   * R3: rescue payload metadata for a `dom-gone` verdict (present only when the
+   * background actually observed text candidates). It never changes `verdict`.
+   */
+  rescue?: RefRescue;
 }
 
 /**
@@ -184,6 +212,23 @@ export const DECLARATION_STATUS_TEXT: Readonly<Record<DeclarationStatus, string>
   invalid: '无效',
   absent: '未声明',
 });
+
+/**
+ * R3 — the readable rescue fragments appended to a `dom-gone` reason. Pinned verbatim
+ * (the unit test and the runtime gate compare the rendered strings character for
+ * character). `{n}` = the number of matching elements.
+ */
+export const RESCUE_REASON = Object.freeze({
+  unique: '（目标疑似仍在：文本唯一匹配 —— 可一键重锚）',
+  multiple: '（目标疑似仍在：文本多处匹配 {n} 处 —— 请手动重新拾取）',
+  urlChanged: '；页面路径已变化',
+});
+
+/** The rescue observation that belongs to **this** reference (per-reference env fact). */
+export function refRescueFor(ref: RefFacts, env: RefEnv): RefRescue | undefined {
+  const rescue = env.rescue;
+  return rescue && rescue.refId === ref.refId ? rescue : undefined;
+}
 
 /**
  * The declaration state "now", as the judge reads it. `Valid` is *implied* by a known
@@ -257,9 +302,19 @@ export function reasonFor(ref: RefFacts, dimension: RefDimension, env: RefEnv): 
   });
   // A changed state is not a silent invalidation: the objective semantics may have been
   // re-anchored, so the only honest recovery is a fresh pick (FR-V3-038's second path).
-  return statusChanged && dimension === 'declaration-changed'
-    ? `${base}（请在页面上重新拾取）`
-    : base;
+  if (statusChanged && dimension === 'declaration-changed') {
+    return `${base}（请在页面上重新拾取）`;
+  }
+  // R3（2026-09-17）：selector 断链、但文本摘要仍在页面上有候选 ⇒ 失效原因带只读救援
+  // 元数据（0 候选维持原文案 —— 「真没了」）。判定结论不受影响（仍是 invalid/dom-gone）。
+  const rescue = dimension === 'dom-gone' ? refRescueFor(ref, env) : undefined;
+  if (rescue && rescue.candidates > 0) {
+    const suffix =
+      (rescue.unique ? RESCUE_REASON.unique : fill(RESCUE_REASON.multiple, { n: String(rescue.candidates) })) +
+      (rescue.urlChanged ? RESCUE_REASON.urlChanged : '');
+    return `${base}${suffix}`;
+  }
+  return base;
 }
 
 /** The readable reason for an `'unknown'` verdict. */
@@ -333,7 +388,13 @@ export function evaluateRefValidity(ref: RefFacts, env: RefEnv): RefVerdictView 
   const res = env.resolution;
   if (!res || res.status === 'unreachable') return unknown(ref, 'page-unreachable');
   if (res.status === 'ambiguous') return unknown(ref, 'ambiguous', { n: String(res.nodeCount ?? 2) });
-  if (res.status === 'missing') return invalid(ref, 'dom-gone', env);
+  if (res.status === 'missing') {
+    // R3: the rescue is **payload metadata on the dom-gone verdict** — the conclusion
+    // itself is untouched (`invalid`), and no other dimension can carry one.
+    const view = invalid(ref, 'dom-gone', env);
+    const rescue = refRescueFor(ref, env);
+    return rescue ? { ...view, rescue } : view;
+  }
   // N-09（2026-09-16 收口轮，把口径明写进实现）：`resolved` 的**身份判据 = `refMark` 相等**
   // （`data-wcli-ref` 是捕获时写下的唯一标记）；`nodeCount` 是**辅判据** —— 只在**给出且
   // ≠ 1** 时判歧义，缺省不构成歧义。v3-4 若把 `nodeCount` 当作唯一/必需判据，会产生

@@ -358,18 +358,18 @@
   },
   "volume": {
     "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 368529,
-    "finalArtifactBytes": 368529,
-    "ceilingBytes": 386955,
+    "registeredBaselineBytes": 375102,
+    "finalArtifactBytes": 375102,
+    "ceilingBytes": 393857,
     "ceilingFormula": "floor(baseline × (1 + tolerance))",
     "tolerance": 0.05,
     "ceilingCapRole": "record-only",
     "ceilingCapRecordBytes": 306099,
     "previousBaselineBytes": 295225,
-    "previousCeilingBytes": 385092,
+    "previousCeilingBytes": 386955,
     "ceilingDirection": "raised-formula",
     "directionAlertThreshold": 0.15,
-    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 368,529 B 从 266,500 B 起算的 Feature 累计增幅 **+38.28%**（< 40% 停工线），已在 R2 缺陷修复轮回报中显式列出。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。",
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 375,102 B 从 266,500 B 起算的 Feature 累计增幅 **+40.75%** —— **R3 后越过已登记的 40% 停工线**（38.28% → 40.75%），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。",
     "reRegistrations": [
       {
         "id": "v3-1",
@@ -488,18 +488,28 @@
         "ceilingBeforeBytes": 385092,
         "ceilingAfterBytes": 386955,
         "reason": "收口后缺陷修复轮 R2（作者裁决「修：退避+稳态显示」，HEAD 6d9ed5d）：站点声明永久无效（deepseek 返回 HTML）时 SW 每 15s 软重试 ⇒ 风险位每 15s 闪烁。修法 = ① 终态声明探测改用指数退避 15s→30s→60s→120s→300s（封顶，按 origin 独立计数，结论变化即重置）；② 退避等待期风险位显示稳态「低频自动复查中」文案，只有真正发起 fetch 才显示「探测中」；③ 导航/刷新/切标签页/内容脚本 hello/授权/面板可见性变化一律立即重试并重置退避；④ 用户可见文案改为真实退避描述。逐模块 +1,774 B（view-model +1,006 / sidepanel +388 / risk-rail +352 / shell +28；退避调度器在 service-worker bundle，不进本产物）；content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变。"
+      },
+      {
+        "id": "v3-4-r3",
+        "roundKind": "registry-fidelity-round",
+        "date": "2026-09-17",
+        "baselineBeforeBytes": 368529,
+        "baselineAfterBytes": 375102,
+        "ceilingBeforeBytes": 386955,
+        "ceilingAfterBytes": 393857,
+        "reason": "收口后缺陷修复轮 R3（作者真机确认，HEAD 131f546）：deepseek SPA 重渲染后位置链选择器断链、目标文字仍可见 ⇒ 引用被判 dom-gone 死亡。修法（fail-closed 不放松，结论枚举不扩）：① SW 侧只读文本候选定位（background/ref-rescue.ts#rescueProbe 注入，与摘要同源归一化；不碰冻结 src/content/**）；② 救援信息只作 dom-gone 失效原因的 payload 元数据 rescue:{candidates,unique,urlChanged}，0 候选维持原文案；③ 一键重锚仅唯一候选 ∧ 路径未变，用户显式确认后 SW 只读计算全新捕获事实并经同一摄取管线（withDeclaration）生成新引用（新 id），旧引用零改动（append-only）；④ 多候选/跨路径不提供自动锚定，救援限定同 origin 且已授权（未授权零注入）。逐模块 +6,573 B（pick-input +2,450 / sidepanel +1,800 / ref-validity +1,057 / panels +1,044 / ref-store +222；只读探测模块在 service-worker bundle，不进本产物）；content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变。⚠️ 从 266,500 B 起算的 Feature 累计由 38.28% 升至 40.75%，越过已登记的 40% 停工线，已在 R3 回报中如实上报。"
       }
     ],
     "growthBreakdown": {
-      "method": "esbuild metafile bytesInOutput；v3-1 树（cf2af32）vs **当前树**（R2 缺陷修复轮工作树），同一 absWorkingDir 几何 + web-cli-base 同源拷贝（累计口径；`afterBytes` 取自真实 `dist/build-meta.json`，逐模块由 test/size-growth-evidence.test.ts 机器比对）。",
+      "method": "esbuild metafile bytesInOutput；v3-1 树（cf2af32）vs **当前树**（R3 缺陷修复轮工作树），同一 absWorkingDir 几何 + web-cli-base 同源拷贝（累计口径；`afterBytes` 取自真实 `dist/build-meta.json`，逐模块由 test/size-growth-evidence.test.ts 机器比对）。",
       "reproduceCommand": "npm run size:attribution --workspace @lgdl/web-cli-plugin -- --rev cf2af32 --rev WORKTREE",
-      "deltaBytes": 73304,
-      "newRequiredModuleBytes": 53185,
-      "wiringBytes": 19398,
+      "deltaBytes": 79802,
+      "newRequiredModuleBytes": 57921,
+      "wiringBytes": 21160,
       "attributionShiftBytes": 265,
       "unattributedHelperDeltaBytes": 456,
-      "duplicationCheck": "输入模块数 **53**（真实 `dist/build-meta.json` 实测；v3-1 为 41，v3-2 为 47，v3-3 为 52，v3-4 为 53；R2 仍为 53），路径互不相同（无重复模块）；共享 v2 模块 src/ui/tree/tree-receipt.ts Δ=0 B —— 局部树/回执/判定复用 v2 模块而非复制实现；R2 只改既有 4 个模块（view-model / sidepanel / risk-rail / shell），退避调度器在 src/discovery/auto-probe.ts（service-worker bundle，不进本产物）—— 无第二份实现",
-      "conclusion": "增长来自本 Feature 必需模块（新必需模块 53,185 B = 72.6% + 接线 19,398 B = 26.5%，合计 99.02%），另有 265 B 归因位移与 456 B 未归因胶水（合计 721 B < 1,000 B）；无冗余/重复代码",
+      "duplicationCheck": "输入模块数 **53**（真实 `dist/build-meta.json` 实测；v3-1 为 41，v3-2 为 47，v3-3 为 52，v3-4 为 53；R2 / R3 仍为 53 —— 不新增模块），路径互不相同（无重复模块）；共享 v2 模块 src/ui/tree/tree-receipt.ts Δ=0 B —— 局部树/回执/判定复用 v2 模块而非复制实现；R2 只改既有 4 个模块，退避调度器在 src/discovery/auto-probe.ts（service-worker bundle，不进本产物）；R3 只改既有 5 个模块（pick-input / sidepanel / ref-validity / panels / ref-store），只读探测在 src/background/ref-rescue.ts（service-worker bundle，不进本产物）—— 均无第二份实现",
+      "conclusion": "增长来自本 Feature 必需模块（新必需模块 57,921 B = 72.6% + 接线 21,160 B = 26.5%，合计 99.1%），另有 265 B 归因位移与 456 B 未归因胶水（合计 721 B < 1,000 B）；无冗余/重复代码",
       "previous": {
         "method": "esbuild metafile bytesInOutput；v3-1 树（cf2af32）vs **当前树**（v3-3 修复轮工作树），同一 absWorkingDir 几何 + web-cli-base 同源拷贝（累计口径；`afterBytes` 取自真实 `dist/build-meta.json`，逐模块由 test/size-growth-evidence.test.ts 机器比对）。",
         "reproduceCommand": "npm run size:attribution --workspace @lgdl/web-cli-plugin -- --rev cf2af32 --rev WORKTREE",
@@ -530,7 +540,7 @@
       }
     },
     "crossRef": "test/size-baseline.ts（SIDEPANEL_BASELINE_BYTES / SIDEPANEL_CEILING / SIDEPANEL_CEILING_CAP_RECORD / SIDEPANEL_RE_REGISTRATIONS / SIDEPANEL_GROWTH_BREAKDOWN / evaluateConsecutiveReRegistrationGrowth）；门禁 test/size-budget.test.ts + test/size-growth-evidence.test.ts",
-    "note": "volume 与 test/size-baseline.ts 同源（机器比对：registeredBaselineBytes / ceilingBytes 由 test/density-thresholds.test.ts 断言）。**R2 缺陷修复轮（2026-09-17，收口后；作者裁决「修：退避+稳态显示」HEAD 6d9ed5d）**：站点声明永久无效时 SW 每 15s 软重试 ⇒ 风险位每 15s 闪烁；修法 = 终态声明探测指数退避 15s→5min 封顶（按 origin 独立计数、结论变化即重置）+ 退避等待期稳态「低频自动复查中」风险行 + 导航/切标签/面板可见性立即重试并重置退避 + 文案改真实退避描述；产物 366755 → **368529 B**（+1774 B，+0.48%）；ceiling 由公式抬高 floor(368,529 × 1.05) = **386955 B**。**R1 缺陷修复轮（2026-09-17，收口后；作者真机反馈 HEAD 870cb6e）**：修「无有效站点声明的站点拾取引用出生即死」（SW declarationStatus 单一事实源 + 面板摄取补全捕获事实 + D4 状态一致性，fail-closed 不放松）+ D1 观测时序缺口（身份标记回程重读观测）+ 引用回合 busy 残留；产物 362777 → **366755 B**（+3978 B，+1.10%；`roundKind=registry-fidelity-round`，④ 的功能轮口径不变）；ceiling 由公式抬高 floor(366,755 × 1.05) = **385092 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null；content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变。前值全部保留在 size-baseline 的 TIMELINE 与重登记登记册；本文件同时保留旧值：`volume.previous` 与 `growthBreakdown.previous`。",
+    "note": "volume 与 test/size-baseline.ts 同源（机器比对：registeredBaselineBytes / ceilingBytes 由 test/density-thresholds.test.ts 断言）。**R3 缺陷修复轮（2026-09-17，收口后；作者真机确认 HEAD 131f546）**：deepseek SPA 重渲染后选择器断链但文字仍可见 ⇒ 引用 dom-gone 死亡；修法 = SW 只读文本候选定位（与摘要同源归一化）+ dom-gone 失效原因的 payload 元数据（0 候选维持原文案）+ 一键重锚仅唯一候选∧路径未变（经同一摄取管线生成新引用、旧引用零改动）+ 多候选/跨路径不自动锚定 + 救援限同 origin 且已授权；产物 368529 → **375102 B**（+6573 B，+1.78%）；ceiling 由公式抬高 floor(375,102 × 1.05) = **393857 B**；从 266,500 B 起算的 Feature 累计 **+40.75%**（越过 40% 停工线，已如实上报）。**R2 缺陷修复轮（2026-09-17，收口后；作者裁决「修：退避+稳态显示」HEAD 6d9ed5d）**：站点声明永久无效时 SW 每 15s 软重试 ⇒ 风险位每 15s 闪烁；修法 = 终态声明探测指数退避 15s→5min 封顶（按 origin 独立计数、结论变化即重置）+ 退避等待期稳态「低频自动复查中」风险行 + 导航/切标签/面板可见性立即重试并重置退避 + 文案改真实退避描述；产物 366755 → **368529 B**（+1774 B，+0.48%）；ceiling 由公式抬高 floor(368,529 × 1.05) = **386955 B**。**R1 缺陷修复轮（2026-09-17，收口后；作者真机反馈 HEAD 870cb6e）**：修「无有效站点声明的站点拾取引用出生即死」（SW declarationStatus 单一事实源 + 面板摄取补全捕获事实 + D4 状态一致性，fail-closed 不放松）+ D1 观测时序缺口（身份标记回程重读观测）+ 引用回合 busy 残留；产物 362777 → **366755 B**（+3978 B，+1.10%；`roundKind=registry-fidelity-round`，④ 的功能轮口径不变）；ceiling 由公式抬高 floor(366,755 × 1.05) = **385092 B**；容差 5% 未动、cap 仍 record-only、targetBudgetBytes/targetMet 仍为 null；content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变。前值全部保留在 size-baseline 的 TIMELINE 与重登记登记册；本文件同时保留旧值：`volume.previous` 与 `growthBreakdown.previous`。",
     "previous": {
       "registeredBaselineBytes": 366755,
       "finalArtifactBytes": 366755,

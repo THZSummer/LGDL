@@ -1169,10 +1169,151 @@ git push https://github.com/THZSummer/LGDL.git HEAD:refs/heads/feature/web-cli-p
 | 3 | 长退避（>2 min）在真实 SW 生命周期（MV3 可能休眠）下的行为 | ⏳ 未实测 | 退避定时器由 `deps.setTimer` 注入（现为 `setTimeout`）；MV3 SW 休眠会丢定时器，重唤醒依赖面板端口/标签事件（与既有 `ensure` 路径一致）。本轮**未**新增 alarm 保活（越界），如实登记为已知边界 |
 | 4 | 拾取观感 / 拖动体感 / 菜单观感 / 宿主真实兼容 / 多显示器 / 高 DPI（6 项人工面）· `pick-menu.ts#restoreFocus`（F6）· busy 残留端到端 | ⏳ / ⛔ | 与 §8 / §13.8 / §14.8 一致，本轮未动 |
 
+## 16. 收口后缺陷修复轮 R3（2026-09-17，作者真机确认「选择器断链、文字仍在」）
+
+> **来源**：作者真机确认（HEAD `131f546`，deepseek SPA 页）：拾取的引用被判失效
+> ——「目标元素已不存在（选择器解析失败或元素被替换）」，**但目标文字仍然可见**。
+> 位置链选择器（`div._06da35f:nth-of-type(2) > div._03a4574:nth-of-type(2) > …`）在 SPA
+> 重渲染 / 插入兄弟节点后**断链**（文字没变、位置索引变了）；当前 fail-closed 不做模糊重定位
+> ⇒ 引用死亡，用户只能手动重新拾取（手势成本高）。
+>
+> **编排器裁决**（2026-09-17，修复设计，**fail-closed 不放松**）：
+> **判定结论不变（选择器失败 = 失效），加的是「失效后的只读救援 + 用户显式确认的一键重锚」。
+> 系统只提议，用户确认才落锚。**
+> ① **文本候选定位（只读）**：SW 侧 `chrome.scripting.executeScript` 注入只读函数
+> （R1 的 `observeIdentity()` 先例，**不碰冻结面**），按与摘要生成**同源**的归一化匹配；
+> 0 候选 ⇒ 维持现文案；唯一候选 ⇒ 失效原因增强为「目标疑似仍在（文本唯一匹配）—— 可一键重锚」；
+> 多候选 ⇒ 「多处匹配 N 处」且**不提供**一键重锚（歧义 = 不确定 = fail-closed）；救援限定**同 origin**，
+> 路径变化带提示。
+> ② **一键重锚（仅唯一候选）**：SW 侧只读计算**全新捕获事实**，走与手工拾取**同一摄取管线**
+> （含 `withDeclaration()`）生成**新引用**（新 id、序号递增）；**旧引用零改动**（append-only）。
+> ③ 多候选 / 跨路径不自动锚定；「重新拾取 / 改用描述」保持不变。
+> ④ `ref-validity.ts` 的**结论枚举不扩**（仍 `valid/invalid/unknown`）—— 救援信息作为
+> `dom-gone` 失效原因的 **payload 元数据**（`rescue: {candidates, unique, urlChanged}`）。
+> **轮次性质**：同一 Feature 内的**缺陷修复轮** ⇒ `roundKind: 'registry-fidelity-round'`
+> （④ 的「连续两个功能轮」口径不变）。
+
+### 16.1 诊断（只读先行，file:line 原文）
+
+| # | 关注点 | 位置（R3 前 → 现） | 事实 |
+|:-:|--------|---------------------|------|
+| 1 | 「目标元素不存在」判定与消息生成 | `src/ui/sidepanel/l1/ref-validity.ts:189`（`REASON_TEMPLATES['dom-gone']`）· `:282`（`reasonFor`）· `:391`（`evaluateRefValidity` 的 `res.status === 'missing'` 分支） | 判定链是**纯函数**、结论只有 `valid/invalid/unknown`；`dom-gone` 的文案逐字 pin（被测格与单测逐字符比对） |
+| 2 | selector → 元素的解析链 | `src/background/service-worker.ts:1035` `observeIdentity()`（R1 只读观测）· `:2207` `ref-highlight` 的 `mark` 分支 | 选择器解析发生在**页面隔离世界**；SW 只报原始观测，不判定 |
+| 3 | 文本摘要的生成 / 归一化 | `src/content/ref-capture.ts:40`（`TEXT_DIGEST_MAX=80`）· `:106` `flatten`（去空白）· `:111` `truncate`（超长补 `…`）· `:270` `textDigestFor` | 摘要 = `truncate(textContent, 80)`；页面侧**冻结**，SW 注入函数不能 `import`，故 `background/ref-rescue.ts` 内联**等价**归一化 |
+| 4 | mark 写入机制 | `src/content/pick-layer.ts:103`（`if (msg.mode === 'mark' && msg.refId && msg.selector)` → `query(msg.selector)` → `markRef(marked, msg.refId)` → 角标）；`observeIdentity` 读 `data-wcli-ref` | 既有 mark 契约**按 selector 定位**（`query(msg.selector)` 用 `querySelector`），因此可复用；`pin` 的 `data-wcli-ref` 是 D1 的身份判据 |
+| 5 | 摄取管线 | `src/ui/sidepanel/pick-input.ts:155` `withDeclaration()` → `:261/:305/:373` `onCapture(...)` → `src/ui/sidepanel/sidepanel.ts:1138` `acceptCapture()` → `src/ui/sidepanel/l1/ref-store.ts::create` | 三条落点（点击 / 拖放 / **R3 一键重锚**）共用同一条补全 + 铸造 + 标记回程管线 |
+| 6 | 夹具 / 登记 | `test/ui/page-input.mjs`（R3 新段落，`#host-btn` 文案「宿主按钮」）· `test/size-baseline.ts`（`SIDEPANEL_BASELINE_BYTES` / `SIDEPANEL_GROWTH_BREAKDOWN`） | R3 前：单测 815 · page-input 93 · sidepanel `368,529 ≤ 386,955`（余量 18,426） |
+
+### 16.2 修法（diff 摘要）
+
+| 层 | 文件（**全部非冻结**） | 改动 |
+|----|------------------------|------|
+| 只读候选定位 | `src/background/ref-rescue.ts`（**新增**，service-worker bundle） | `rescueProbe(digest, root?, href?)`：`querySelectorAll('*')` → 与摘要**同源**归一化匹配 → 只保留**最内层**（父/子同文本去重，避免伪「多处匹配」）→ 唯一候选时用**与 `ref-capture.ts` 等价**的 `selectorFor` / `semanticPathFor` / `textDigestFor` 计算全新事实；`rescuePathOf(url)` 只取 `pathname`；`isRefRescueMessage` / `REF_RESCUE_KIND` 供 SW 入口守卫（**不**进 `content/pick-protocol.ts`，也**不**进 `KIND_SET`） |
+| SW 路由 | `src/background/service-worker.ts` | 新增 `case 'ref-rescue'`：**同 origin / 已授权**双闸门 + `executeScript({func: rescueProbe})`；`REF_MARK_PATHS`（mark 时记录的捕获路径，§诊断 3）用于 `urlChanged`；`mark` 分支追加「记录捕获路径」；入口守卫加 `isRefRescueMessage` |
+| kind 类型面 | `src/background/messaging.ts` | `PluginMessageKind` 增 `'ref-rescue'`（**类型面 only**；`KIND_SET` 一字未动 ⇒ `content.js` 零增长） |
+| 判定链（结论枚举不扩） | `src/ui/sidepanel/l1/ref-validity.ts` | 新增 `RefRescue` + `RESCUE_REASON` + `refRescueFor()`；`RefEnv.rescue` / `RefVerdictView.rescue`（**payload 元数据**）；`dom-gone` 分支把匹配的观测挂上；`reasonFor` 按 0 / 唯一 / 多候选 / 跨路径渲染增强文案。**`RefVerdict` 三元组逐字未变；fail-closed 逐分支论证**：救援**从不**改变 `verdict`，也不参与 `isRefUsable()` 的 `valid` 判定 |
+| 记录透传 | `src/ui/sidepanel/l1/ref-store.ts` | `RefRecord.rescue` + `decorate()` 从判定视图透传（仍**判定链是唯一写原因者**） |
+| L1 条件按钮 | `src/ui/sidepanel/l1/panels.ts` · `src/ui/sidepanel/index.html` | `canReanchor(rescue)` 纯判据（唯一 ∧ 路径未变 ∧ 恰一条匹配）；`#l1-ref-rescue`（默认 `hidden`，`[hidden]{display:none!important}` 与 `#l1-ref-actions` 同法，**不进默认档密度**）；`setRescue()`；`report()` 暴露 `rescue` / `canAnchor` |
+| 摄取 + 重锚 | `src/ui/sidepanel/pick-input.ts` | `rescue()`（只读，不摄取）/ `reanchor()`（`inject()` 保证身份标记可写 → **点击时重探**（无 TOCTOU）→ 唯一 ∧ 路径未变才 `onCapture(withDeclaration(facts), {status:'resolved',nodeCount:1})`；否则可读拒绝）；三条 `onCapture(withDeclaration(...))` 落点共用同一管线 |
+| 接线 | `src/ui/sidepanel/sidepanel.ts` | `maybeRescue()`（**每个引用至多一次**只读探测；`dom-gone` 才发；`setRescue` 后 `judge()` 重判，判定链仍是唯一原因写入者）；`reanchorRef()`（未授权直接拒绝；成功后 `anchoredRefIds` 记忆 + 清 rescue 并重判）；测试 seam `l1('rescue', ...)`；`reset()` 清 rescue/记忆 |
+
+**mark 选型论证（裁决 §2 的「诊断阶段确认 mark 的写入机制」）**：
+优先复用 `pick-layer.ts` 既有 mark 消息契约 —— 其 `onHighlight` 的 `mark` 分支**按 `selector` 定位**（`query(msg.selector)`），
+而 R3 的全新捕获事实**恰好就是**候选元素的（唯一）selector。因此「重锚后的身份标记」无需任何新消息、无需写属性、无需动冻结面：
+面板照常发 `ref-highlight{mode:'mark', refId:新id, selector:新selector}` → 页面写 `data-wcli-ref=新id` → SW `observeIdentity()` 在**写入之后**读回 → 新引用判 `valid`。
+**两种备选都未采用**（并在此论证）：① **SW 注入函数写属性** —— 会引入一次**页面写**，与「救援 = 只读探测」的边界冲突，且需要 origin 授权以外的自检；② **降级（重锚后登记为「未标记」，首次交互补标）** —— 会让重锚后的引用在首次交互前保持 `unknown`（fail-closed 但体验倒退）。
+实际选型 = **复用既有 mark 契约**（零新增 write 路径、零冻结面改动、与手工拾取同一 D1 身份链）。
+
+### 16.3 证据（门禁与实测原文）
+
+- **单测（新增文件 `test/ref-rescue.test.ts`，11 例）**：`ℹ tests 826 / pass 826 / fail 0`（基线 815 → **826**）。
+- **page-input（新增 R3 段落，9 条断言）**：`▶ v3-4 页面即输入门禁: 102 passed / 0 failed`（基线 93 → **102**）。其中：
+  - `R3 前置（负控）：故障形态可构造——选择器解析失败 ⇒ 判定 invalid/dom-gone` ✔
+  - `R3：只读文本候选定位给出 payload 元数据（唯一匹配 ⇒ unique）` ✔
+  - `R3：失效原因增强为「目标疑似仍在（文本唯一匹配）—— 可一键重锚」` ✔
+  - `R3：唯一候选时「一键重锚」按钮可见（且仅在唯一匹配时）` ✔
+  - `R3：一键重锚生成**新引用**并判 valid（旧引用零改动，append-only）` ✔
+  - `R3：身份标记写回页面且等于**新**引用 id（不是旧 id）` ✔
+  - `R3：新引用带**全新**捕获事实（证据行里的选择器落到真实元素 #host-btn）` ✔
+  - `R3 反证面：多候选 ⇒ 提示多处匹配且**不提供**一键重锚` ✔ / `R3 反证面：跨路径 ⇒ 带「页面路径已变化」提示且**不提供**一键重锚` ✔
+- **同源对拍**：`rescueProbe` 对同一棵树给出的 `selector` / `semanticPath` / `textDigest` 与冻结 `ref-capture.ts#selectorFor/semanticPathFor/textDigestFor` **逐字符相等**（`test/ref-rescue.test.ts` §②）。
+- **未授权 / 跨站**：`test:zero-injection` 27/0（结构面不变）；`ref-rescue` 路由的四条 `noRescue` 出口由布线级断言钉死（缺事实 / 跨站 / 未授权 / 不可达）。
+
+### 16.4 反证（「回退 ⇒ 必须红；还原 ⇒ 必须绿」，逐条 sha256 复原）
+
+| # | 反证 | 扰动 | 实测 FAIL 原文 | 还原 |
+|:-:|------|------|----------------|------|
+| A | **回退救援（候选定位短路）** | `src/background/ref-rescue.ts` 匹配条件改 `if (false && …)`（候选恒 0） | 单测 `EXIT=1`：`✖ R3 救援①：文本候选三态…`、`✖ R3 救援②同源…`（`tests 11 / pass 9 / fail 2`）；`test:page-input` `EXIT=1`，**6 条 R3 断言全红**（原文：`{"refId":"ref_6","candidates":0,"unique":false,…}`；`96 passed / 6 failed`） | `sha256sum -c` OK（源逐字节复原）→ 单测 `11/11 pass`；重建后 page-input 复绿 |
+| B | **回退重锚（一键变无操作）** | `src/ui/sidepanel/pick-input.ts` 的 anchor 探测改 `false ? await probeRescue(...) : undefined` | 单测 `EXIT=1`：`✖ R3 摄取④：一键重锚走同一摄取管线…`（`tests 11 / pass 10 / fail 1`）；`test:page-input` `EXIT=1`，**3 条 R3 断言红**（`{"before":1,"after":1,"verdicts":["invalid"]}`；`99 passed / 3 failed`） | `sha256sum -c` OK（源逐字节复原）→ 单测 `11/11 pass`；重建后 page-input 复绿 |
+
+日志：`/tmp/opencode/v3-gate-logs/defect-r3-ref-rescue/19-reverse-A-unit.log` · `20-reverse-A-page-input.log` · `21-reverse-A-restored.log` · `22-reverse-B-unit.log` · `23-reverse-B-page-input.log`。
+
+### 16.5 门禁（**严格串行**，18 步全绿；计数只增不减）
+
+日志全量落盘 `/tmp/opencode/v3-gate-logs/defect-r3-ref-rescue/`（`01-*` … `18-*`）。
+
+| 门禁 | 实测 | 基线（R2 后） |
+|------|:--:|:--:|
+| `01 typecheck` / `02 build` | `0 error` / `EXIT=0` | — |
+| `03 npm test`（插件单测） | **`ℹ tests 826 / pass 826 / fail 0 / skipped 0`** | 815 → **826**（+11：`test/ref-rescue.test.ts`） |
+| `04 test:supersession` | **14 / 0** | 14 |
+| `05 test:density` | **127 / 0**（22 登记格**逐项相等**；`F 产物字节 == 体积登记值` PASS） | 127 |
+| `06/07/08 l0 / l1 / l2` | **164 / 103 / 71**，0 failed | 同 |
+| `09/10 l1-reverse / l2-reverse` | **9 条 / 10 条**（注入→FAIL→sha256 复原→PASS） | 同 |
+| `11 page-input` | **102 / 0** | 93 → **102**（+9：R3 救援/重锚/两反证面） |
+| `12 zero-injection` | **27 / 0** | 27 |
+| `13/14/15/16 journey / insight / binding / hardening` | **167 / 116 / 192 / 24** | 同 |
+| `17 e2e` | **R8 E2E PASS**（real dist full chain） | PASS |
+| `18 gate-integrity` | **12 / 12** | 12 |
+| 体积四线 | `content.js 177,076`（sha `52a82620…` **不变**）· `pick-layer.js 33,900`（sha `5f567d7e…` **不变**）· `sidepanel.js 375,102 ≤ 393,857` · `+1 B` 反证在新 ceiling 上重跑（`npm test` 内） | — |
+
+### 16.6 密度影响：**零漂移**（无须重登记密度表）
+
+- `#l1-ref-rescue` 默认 `hidden`（`[hidden]{display:none!important}`），且位于 L1 引用证据层（`#l1-ref`，默认折叠）
+  ⇒ 不进默认档可点/行数计数；`staleRef` 风险档夹具的 `textDigest='引用目标文本摘要'` 在夹具页面上**不存在** ⇒ 只读探测恒返回 0 候选 ⇒ 原因文案不变、按钮不显示。
+- `test:density` 阶段 F：`F 22 个登记格实测 == 基线登记值（漂移即 FAIL）` PASS、`F 阈值同源` PASS、`F 产物字节 == 体积登记值` PASS。
+- ⇒ 阈值 `7/15 · 9/20 · 17/35` **逐字未动**；**本轮密度对照表为空**。
+
+### 16.7 体积与重登记（五要素披露）
+
+| 项 | 值 |
+|----|----|
+| 前值 → 后值 | `368,529 → 375,102 B`（**+6,573 B / +1.78%**） |
+| 逐模块归因（真实 metafile `bytesInOutput`，Σ == 总增幅） | `pick-input.ts +2,450` · `sidepanel.ts +1,800` · `l1/ref-validity.ts +1,057` · `l1/panels.ts +1,044` · `l1/ref-store.ts +222`；只读探测模块 `src/background/ref-rescue.ts` ⇒ **service-worker bundle**，不进本产物 |
+| ceiling | 公式抬高 `floor(375,102 × 1.05) = 393,857 B`（容差 5% 未动、cap 仍 `record-only`、`previousCeilingBytes = 386,955`） |
+| 累计口径 | `SIDEPANEL_GROWTH_BREAKDOWN.deltaBytes = 79,877`（375,102 − 295,225）；新必需 57,958 + 接线 21,198 + 位移 265 + 未归因胶水 456 = 79,877（必需占比 99.07%） |
+| Feature 累计 | 从 266,500 B 起算 **+40.75%** —— **R3 后越过已登记的 40% 停工线**，已在回报中**显式列出并如实上报**（未放宽任何口径） |
+| 零改动 | `content.js` 177,076（sha 不变）· `pick-layer.js` 33,900（sha 不变）· 三冻结源 hash == pin · 判定链 pin 零改动 |
+| 登记落点 | `test/size-baseline.ts`（`SIDEPANEL_RE_REGISTRATIONS['v3-4-r3']` / `SIDEPANEL_GROWTH_BREAKDOWN` / `r3RoundRows` / TIMELINE 末项）· `test/size-budget.test.ts`（数值重 pin）· `test/size-growth-evidence.test.ts`（`deltaBytes`）· `docs/v3-density-baseline.json#volume` · `docs/v3-supersession-ledger.json`（`V34DR3-S1~S9` + `V34DR3-N1` + 两口径读数 `974/837/826` 与 `currentRuntime 826`） |
+
+### 16.8 零改动核对（红线）
+
+| 红线 | 实测 | 结论 |
+|------|------|:--:|
+| `dist/content.js` 逐字节不变 | `177,076` · sha `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6` | ✅ |
+| `dist/pick-layer.js` 逐字节不变 | `33,900` · sha `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59` | ✅ |
+| `src/content/**` 零改动 | 三冻结源 sha == `CONTENT_SOURCE_SHA256`（`a7290031…` / `7df782b3…` / `5737c40a…`）；`git status` 无 `src/content/**` 改动 | ✅ |
+| 判定链 pin（`policy.ts` / `auto-authorize.ts`）+ `ref-validity` 结论枚举 | `bfcb2ede…` / `1096d065…`；`RefVerdict` 仍 `valid\|invalid\|unknown`，救援为 payload 元数据 | ✅ |
+| `manifest.json` 零新增权限 | 零 diff；`test:zero-injection` 27/0 | ✅ |
+| 密度阈值 `7/15 · 9/20 · 17/35` | 未动（`test:density` 127/0） | ✅ |
+| 风险位五类不折叠 / 未授权零注入 | `test:l0` 164/0 · `test:zero-injection` 27/0；`ref-rescue` 对未授权 origin `noRescue` | ✅ |
+| 测试只增不减、断言只强不弱 | 单测 815 → **826**；page-input 93 → **102**；既有断言零删除（台账 `V34DR3-S1~S9` 登记取代 + `V34DR3-N1` 纯新增） | ✅ |
+| 不用 `git add -A` / 门禁串行 / 日志全量落盘 | 逐文件 path-limited add；严格串行；日志全量落盘 | ✅ |
+
+### 16.9 未完成 / 人工面（如实登记）
+
+| # | 项 | 状态 | 说明 |
+|:-:|----|:--:|------|
+| 1 | **真机验证**：deepseek 页让文字可见但选择器断链的场景 → 一键重锚成功 | ⏳ **未执行（人工面）** | headless 夹具能证明**只读探测 / payload / 唯一候选按钮 / 重锚新引用 + 新标记 + 旧引用零改动 / 多候选与跨路径不提供**全部为真；真机端到端仍待作者复测（本轮**不冒充 PASS**） |
+| 2 | 「页面路径已变化」提示的真机观感 | ⏳ 未执行 | 逻辑由 `REF_MARK_PATHS`（mark 时记录捕获路径）+ `rescuePathOf` 覆盖，并由单测/布线断言钉死；SW 重启会丢提示（**已知边界**：只丢提示、不丢救援） |
+| 3 | `REF_MARK_PATHS` 的上限 200 条与 MV3 SW 生命周期 | ⏳ 未实测 | 纯记录性提示缓存，越界只影响提示；如实登记 |
+| 4 | 拾取观感 / 拖动体感 / 菜单观感 / 宿主真实兼容 / 多显示器 / 高 DPI（6 项人工面）· `pick-menu.ts#restoreFocus`（F6） | ⏳ / ⛔ | 与 §8 / §13.8 / §14.8 / §15.8 一致，本轮未动 |
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.6 | **收口后缺陷修复轮 R3（作者真机确认，2026-09-17）**：SPA 重渲染后位置链选择器断链、文字仍在 ⇒ 引用被判 `dom-gone` 死亡、只能手动重拾。修法（**fail-closed 不放松，结论枚举不扩**）：SW 侧**只读**文本候选定位（`background/ref-rescue.ts#rescueProbe`，与摘要生成**同源**归一化；**不碰冻结面**，kind 走 background-only 校验器）→ 救援信息只作 `dom-gone` 失效原因的 **payload 元数据** `rescue:{candidates,unique,urlChanged}`（0 候选维持原文案）→ **一键重锚仅唯一候选 ∧ 路径未变**（用户显式确认；SW 只读计算全新捕获事实 → 经与手工拾取**同一条**摄取管线 `withDeclaration()` 生成**新引用** + 复用既有 mark 契约写身份标记；**旧引用零改动**）→ 多候选/跨路径**不提供**自动锚定、救援限**同 origin 且已授权**。反证 A（回退救援 ⇒ 单测 2 红 + page-input 6 红）/ B（回退重锚 ⇒ 单测 1 红 + page-input 3 红），均 sha256 逐字节还原 → PASS。门禁 18 步严格串行全绿（单测 **826** · supersession 14 · density **127（22 格零漂移、阈值未动）** · l0/l1/l2 164/103/71 · l1/l2-reverse 9/10 · page-input **102** · zero-injection 27 · journey/insight/binding/hardening 167/116/192/24 · e2e PASS · gate-integrity 12）；`sidepanel.js` 显式重登记 **368,529 → 375,102 B**（+6,573 / +1.78%，逐模块可归因；ceiling → **393,857**；容差 5% 未动、cap 仍 record-only）；Feature 累计 **+40.75%**，**越过已登记的 40% 停工线**（**已如实上报**，未放宽任何口径）；`content.js` 177,076 与 `pick-layer.js` 33,900 **逐字节不变**（sha 复核）；测试只增不减（815 → 826 / 93 → 102）。 | 2026-09-17 | SDDU Build Agent |
 | v1.5 | **收口后缺陷修复轮 R2（作者裁决「修：退避 + 稳态显示」，2026-09-17）**：终态（声明 invalid / absent / version-mismatch）探测改走**独立指数退避** `15s→30s→60s→120s→300s（封顶）`（**按 origin + 按结论**计数，结论变化即重置；瞬态失败保持既有的 `500ms→15s` 快速表不改）；退避等待期广播 `steady:true` 稳态标记，面板风险位显示「（低频自动复查中）…」**稳态行**，只有真正 fetch 才显示「探测中」（消除每 15 s 闪烁）；`kick`（导航/刷新/切标签页/hello/授权/面板重开）仍**立即重试 + 重置退避**；用户可见文案改为真实退避描述。**实测回退**：初版的「面板可见性 → `panel-visible`」信号被 `test:binding` 抓出真实回归（面板刷新重读 `state` 会吞掉一次性 `panelNotice`）⇒ 移除该信号，恢复能力由既有 `kick` 触发（§15.2）。反证 A/B/C 三段（退避回退 / 稳态标记回退 / 稳态行回退，全部 `EXIT=1` + 命中预期文本 + sha256 逐字节还原 + PASS）+ 门禁反证 D（binding `#9b`）；「因错而红」防呆：反证 C 首版扰动为 TS 编译错 ⇒ 作废重跑。门禁 18 步严格串行全绿（单测 **815** · supersession 14 · density **127（22 登记格零漂移）** · l0/l1/l2 164/103/71 · l1/l2-reverse 9/10 · page-input 93 · zero-injection 27 · journey/insight/binding/hardening 167/116/192/24 · e2e PASS · gate-integrity 12）；`sidepanel.js` 显式重登记 **366,755 → 368,529 B**（+1,774 / +0.48%，逐模块可归因；ceiling → **386,955**；容差 5% 未动、cap 仍 record-only）；`content.js` 177,076 与 `pick-layer.js` 33,900 **逐字节不变**（sha 复核）；测试只增不减（803 → 815）。 | 2026-09-17 | SDDU Build Agent |
 | v1.4 | **收口后缺陷修复轮 R1（作者真机反馈，2026-09-17）**：修「普通站点拾取的引用出生即死」**两个缺口** —— ① D4 口径由「必须有 `declarationHash`」改为「**捕获时声明状态 vs 当刻状态一致**」（SW `declarationEnv` 新增 `declarationStatus` 单一事实源 + 面板摄取 `withDeclaration()` 补全捕获事实；任何状态变化 ⇒ 失效并要求重拾；旧记录逐分支维持原判；fail-closed 逐分支论证见 v3-2 build.md §12.3）；② **D1 身份观测晚于身份标记**（标记由面板铸造 id 后才写回页面 ⇒ 新拾取的引用被判「已被同类新元素替换」）：`ref-highlight` 的 `mark` 分支由 SW 在写标记**之后**重读一次身份观测（`observeIdentity()`，只读 DOM）并交回面板重判（面板**不自证** `resolved`）。另修次要现象 busy 残留（引用回合取代后台提问 ⇒ 该提问只能等 60 s 超时，期间发送键显示「上一条指令仍在处理中」）：`supersededAsk()` + 结算为 canceled（≤10 行 + 可 FAIL 断言）。反证三条：①a 回退摄取补全 ⇒ `page-input` 失败原因**逐字等于作者原文**（`缺失 declarationHash`）· ①b 回退新观测回写 ⇒ 失败原因为「身份标记不匹配」· ② 状态变更 ⇒ invalid + 提示重拾 · ③ 旧数据（无 hash 无 status）⇒ 仍失效；**「因错而红」防呆**：①a 的首版扰动造成语法错误（构建失败）⇒ 判为无效并作废，改用恒等函数形态重跑（证据逐字留档）。门禁 21 项串行全绿（单测 **803** · density 127 · l0 164 · l1 103 · l2 71 · page-input **93（连跑 5/5）** · zero-injection 27 · journey 167 · insight 116 · binding 192 · hardening 24 · e2e PASS · gate-integrity 12 · l1/l2-reverse 9/10）；`sidepanel.js` 显式重登记 **362,777 → 366,755 B**（+3,978 / +1.10%，逐模块可归因；ceiling → **385,092**；容差 5% 未动、cap 仍 record-only）；`content.js` 177,076 与 `pick-layer.js` 33,900 **逐字节不变**（sha 复核）；测试只增不减（796 → 803）。 | 2026-09-17 | SDDU Build Agent |
 | v1.3 | **收口轮（validate R1 的 F1~F7）**：**F4（最高优先）实现生产可达** —— `revoke` **先** `denotifyPickLayer`（逐 tab 广播 `pick-layer-env{authorized:false}`）**再** `teardownPickLayer`，且 `pick-layer-inject` 在 `executeScript` 后**重算** env 再下发（在途 inject 不得复活已撤销授权）；改动只在 `src/background/**`，三受 pin 产物逐字节不变。**F3 去 flaky**：I-01②/I-01③ 载体换成同 origin 的非 bound/active tab + 静止前置（饱和退避 ≥15s 或终态、连续两次读数），**连跑 5 次 5/5 绿**（92/0），断言零减弱。**F1 登记保真**：逐文件归因三处落点按实测订正 `661/389/376/83` + 新增「四项之和 == 总增幅（Σ == +1,509）」机器断言（两段反证：`+661→+615` ⇒ FAIL；台账 `totalBytes 1509→1508` ⇒ FAIL）。**F2**：`+10.25%/+22.95% → +10.44%/+22.96%`（含台账 5 条 reason），历史值逐字保留。**F5**：`pickLayerTarget` 同 origin 时 active 优先 + 确定性断言。**F7**：in-gate 清单文案订正（`4→9` 实为 `8→13`；本轮 `13→17`）。**F6 deferred**（修法落在钉死的 `pick-layer.js` 上，需新的显式重登记裁决）。门禁 21 项严格串行全绿（`binding` 首跑环境性红 ⇒ 复跑 192 全绿，已如实登记）；计数只增不减（node 795→796 / page-input 78→92）。 | 2026-09-17 | SDDU Build Agent |

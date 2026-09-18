@@ -160,10 +160,11 @@ export function captureCompletionSites(source: string): number {
   return (codeOnly(source).match(/onCapture\(withDeclaration\(/g) ?? []).length;
 }
 
-test('R1：拾取摄取点补全声明状态（两条落点各一次；回退修复即 FAIL）', () => {
+test('R1/R3：拾取摄取点补全声明状态（三条落点各一次；回退修复即 FAIL）', () => {
   const pickInput = read('src/ui/sidepanel/pick-input.ts');
-  // ① clicking a reference and ② dropping one on the panel are the two ingestion paths.
-  assert.equal(captureCompletionSites(pickInput), 2, '两条摄取落点都必须经过 withDeclaration()');
+  // ① clicking a reference, ② dropping one on the panel, ③ R3's one-click re-anchor are
+  // the three ingestion paths — all of them must complete the capture fact.
+  assert.equal(captureCompletionSites(pickInput), 3, '三条摄取落点都必须经过 withDeclaration()');
   const forged = pickInput.replaceAll('onCapture(withDeclaration(', 'onCapture(');
   assert.equal(captureCompletionSites(forged), 0, '反证：回退摄取补全 ⇒ 判据必须归零（非恒真）');
   assert.match(pickInput, /const withDeclaration = \(facts: RawRefFacts\): RawRefFacts => \{/, '补全必须是显式具名步骤');
