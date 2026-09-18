@@ -1370,37 +1370,60 @@ async function reverseRpV405(cdp) {
   check('RP-V4-05 (还原后 PASS 段) 还原后必须 PASS', statSync(pickPath).size <= registered, `实测 ${statSync(pickPath).size}`);
 }
 
-/** RP-V4-06（FR-CHAT-075）：把工具栏控件移入 `#stream` ⇒ 豁免守卫必须 FAIL 且 C1 不得下降。 */
+/**
+ * RP-V4-06（FR-CHAT-075）—— 把工具栏控件移入 `#stream`：豁免守卫必须 FAIL，且**产品口径**下的密度 C1 必须真的下降 1。
+ *
+ * 〖N-01（收口轮）〗原 FAIL 段的第二半用 `c1Probe`（**未排除 `#stream`** 的整页可点计数）断言
+ * 「C1 不得下降」——**在同一页面内移动元素不可能改变该计数**（`#theme-toggle` 仍是 `body` 的
+ * 后代且可见），故该半段**恒真、不可证伪**（validate R1 实测 14 → 14）。现在主判据改用**产品
+ * 口径**（`DENSITY_MEASURE_SOURCE` = 排除 `#stream` 的三区外壳口径）：注入后 C1 必须由 5 降为
+ * **4** —— 这正是「把常驻控件塞进豁免子树 ⇒ 静默降密度」的滥用形态本身，唯一拦截点是
+ * `assertChromeNotInStream()` 抛错；未排除口径则降级为**归因对照**（整页计数必须不变 ⇒ 证明
+ * 控件仍挂在文档上、仍可见，「降 1」只可能由豁免造成，而不是元素消失）。
+ *
+ * 〖同一收口轮，竞态修复〗原实现「注入 → `sleep(150)` → 单独一次探针调用」是**竞态**：产品在
+ * 状态推送时 `render()` 会丢弃 `#stream` 的非宿主子节点（注释见 `atomicCardsProbe`），注入的
+ * 节点可能在两次调用之间被摘掉 —— 实测表现为「守卫 `pass` + 还原时 `#theme-toggle` 已不在
+ * 文档中」。现改为**同一个同步块**内完成「前置读数 → 注入 → 读数 → 守卫 → 还原 → 还原读数」
+ * （与 RP-V4-01/02/03 的 `atomicCardsProbe` 同一纪律），任何重绘都无法插入。
+ */
 async function reverseRpV406(cdp) {
-  console.log('\n▶ RP-V4-06：工具栏控件移入 #stream → assertChromeNotInStream() 必须 FAIL 且 C1 不得下降');
+  console.log('\n▶ RP-V4-06：工具栏控件移入 #stream → assertChromeNotInStream() 必须 FAIL 且（排除口径）C1 必须下降 1');
   await resetFixture(cdp);
   await setViewport(cdp, 400, VIEWPORT_HEIGHT);
-  const guard = () =>
-    evaluate(
-      cdp,
-      `(() => { try { window.__v3.testing.assertChromeNotInStream(); return 'pass'; } catch (e) { return 'throw:' + (e && e.message ? e.message : String(e)); } })()`,
-    );
-  const beforeGuard = await guard();
-  check('RP-V4-06 前置：#stream 子树零 [data-chrome-control]（guard PASS）', beforeGuard === 'pass', beforeGuard);
-  const beforeC1 = await evaluate(cdp, c1Probe);
-  await evaluate(
-    cdp,
-    `(() => { const t = document.getElementById('theme-toggle'); document.getElementById('stream').appendChild(t); return true; })()`,
+  const atomicProbe = `(() => {
+    const measure = () => (${DENSITY_MEASURE_SOURCE});
+    const whole = () => (${c1Probe});
+    const guard = () => { try { window.__v3.testing.assertChromeNotInStream(); return 'pass'; } catch (e) { return 'throw:' + (e && e.message ? e.message : String(e)); } };
+    const toggle = document.getElementById('theme-toggle');
+    const stream = document.getElementById('stream');
+    const toolbar = document.getElementById('region-toolbar');
+    if (!toggle || !stream || !toolbar) return JSON.stringify({ error: 'fixture missing', toggle: !!toggle, stream: !!stream, toolbar: !!toolbar });
+    const before = { scoped: measure().clickables, whole: whole(), guard: guard() };
+    stream.appendChild(toggle);
+    const injected = { scoped: measure().clickables, whole: whole(), guard: guard() };
+    toolbar.appendChild(toggle);
+    const restored = { scoped: measure().clickables, whole: whole(), guard: guard() };
+    return JSON.stringify({ before, injected, restored });
+  })()`;
+  const res = JSON.parse(await evaluate(cdp, atomicProbe));
+  if (res.error) throw new Error(`RP-V4-06 夹具缺失：${JSON.stringify(res)}`);
+  const { before, injected, restored } = res;
+  check('RP-V4-06 前置：#stream 子树零 [data-chrome-control]（guard PASS）', before.guard === 'pass', before.guard);
+  check('RP-V4-06 前置：排除口径 C1 == 工具栏准入值 5（判据不空转）', before.scoped === 5, `实测 ${before.scoped}`);
+  check('RP-V4-06 (FAIL 段) 工具栏控件移入 #stream 后豁免守卫必须抛错', /^throw:/.test(injected.guard), injected.guard);
+  check(
+    'RP-V4-06 (FAIL 段) 豁免子树吞掉常驻可点 ⇒ 排除口径 C1 必须下降 1（滥用形态被观测到）',
+    injected.scoped === before.scoped - 1,
+    `${before.scoped} → ${injected.scoped}`,
   );
-  await sleep(150);
-  const movedGuard = await guard();
-  check('RP-V4-06 (FAIL 段) 工具栏控件移入 #stream 后豁免守卫必须抛错', /^throw:/.test(movedGuard), movedGuard);
-  const afterC1 = await evaluate(cdp, c1Probe);
-  check('RP-V4-06 FAIL 段：豁免子树不得吞掉可点计数（C1 不得下降）', afterC1 === beforeC1, `${beforeC1} → ${afterC1}`);
-  await evaluate(
-    cdp,
-    `(() => { const t = document.getElementById('theme-toggle'); document.getElementById('region-toolbar').appendChild(t); return true; })()`,
+  check(
+    'RP-V4-06 归因对照：未排除口径的整页计数不得变化（证明控件仍挂在文档上，降 1 只由豁免造成）',
+    injected.whole === before.whole,
+    `${before.whole} → ${injected.whole}`,
   );
-  await sleep(150);
-  const restoredGuard = await guard();
-  check('RP-V4-06 (还原后 PASS 段) 还原后豁免守卫必须 PASS', restoredGuard === 'pass', restoredGuard);
-  const restoredC1 = await evaluate(cdp, c1Probe);
-  check('RP-V4-06 还原后 C1 回到基线', restoredC1 === beforeC1, `${beforeC1} → ${restoredC1}`);
+  check('RP-V4-06 (还原后 PASS 段) 还原后豁免守卫必须 PASS', restored.guard === 'pass', restored.guard);
+  check('RP-V4-06 还原后排除口径 C1 回到基线', restored.scoped === before.scoped, `${before.scoped} → ${restored.scoped}`);
 }
 
 /** RP-V4-07（FR-CHAT-013 / J3）：风险 chip 被移入 `hidden` 容器 ⇒ 可见性探针必须 FAIL。 */

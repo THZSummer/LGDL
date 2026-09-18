@@ -117,8 +117,40 @@ interface V4LedgerShape {
   /** V4-1：v3「纯新增」归类可被 v4 段显式重新归类（换段判定，必须写明理由）。 */
   unfrozenPureAdditionFiles?: Array<{ file: string; reason: string }>;
   staticCalibers?: { nodeTestStatic?: { readings?: Record<string, { regex: string; count: number }> } };
-  counts?: Record<string, { currentRuntime: number }>;
+  /** 收口轮 N-04：每个 counts 条目可带 `source`（门禁 + 日志 + 正则 + 观测行），使「计数 == 门禁实测」可机核。 */
+  counts?: Record<string, V4Count>;
   v4GateFloors?: Record<string, number>;
+  /** 收口轮 N-01~N-08：validate R1 观察项的处置登记（disposition + 可定位锚点）。 */
+  validateFindings?: ValidateFinding[];
+  /** 收口轮 N-02/N-07/N-08：登记型局限（双层防线 / flake 复跑纪律 / sha 非不变量）。 */
+  knownLimitations?: Array<{ id: string; topic: string; note: string }>;
+}
+
+/** 收口轮 N-04：`counts.<key>.source` —— 数字的来源必须可机核，不得只有散文。 */
+interface CountSource {
+  gate: string;
+  log: string;
+  pattern: string;
+  observedLine: string;
+  observed: number;
+  measuredOn: string;
+}
+interface V4Count {
+  currentRuntime: number;
+  floor?: number;
+  countMethod?: string;
+  note?: string;
+  source?: CountSource;
+}
+
+/** 收口轮 N-01~N-08：validate 观察项的处置登记。 */
+interface ValidateFinding {
+  id: string;
+  severity: string;
+  disposition: string;
+  title: string;
+  evidence: string;
+  anchor: { file: string; contains: string };
 }
 
 function readV4Ledger(): V4LedgerShape {
@@ -1207,5 +1239,276 @@ test('ledger(V4 段)反证: pureAdditionFiles 的 status 枚举判据必须能�
   assert.ok(
     pureAdditionProblems([{ file: 'packages/web-cli-plugin/test/design-contract.test.ts', reason: '短', status: 'complete' }]).length > 0,
     '过短理由必须被判出',
+  );
+});
+
+// ── 9. N-04（收口轮）：counts 必须与门禁日志同源（抽样机核） ────────────────────
+/**
+ * 〖N-04（收口轮，v4-1 validate R1）〗
+ *
+ * `counts.<key>.currentRuntime` 此前是**纯散文登记**：validate 复跑实测 `l0 = 210`，台账却
+ * 一直写 `203`（R3 现场值），**没有任何门禁会因此变红**（floor 164 太低兜不住这类漂移）。
+ * 处置：① 按实测订正（l0 203 → 210、density 169 → 171、nodeTestRuntime / supersession 重登）；
+ * ② 抽样条目带 `source`（门禁 + 日志路径 + 正则 + **观测行**），由本判据机核「台账 == 日志实测」。
+ *
+ * 判据分两层（缺一不可）：
+ *   · **恒在层**（任何机器都跑）：`source.pattern` 必须在 `source.observedLine` 上命中，且解析值
+ *     == `source.observed` == `counts.<key>.currentRuntime`，并 ≥ `floor` —— 登记内部不得自相矛盾；
+ *   · **同源层**（门禁日志在该路径存在时强制）：`pattern` 在**真实日志**上命中的值必须 == 台账值；
+ *     日志不存在（如另一台机器 / 日志已清理）⇒ 显式 `skip`，不静默通过也不误报。
+ */
+const SAMPLED_COUNT_KEYS = ['l0', 'density', 'nodeTestRuntime', 'supersession'] as const;
+
+function countSourceProblems(
+  counts: Record<string, V4Count>,
+  readLog: (path: string) => string | null,
+): { problems: string[]; checked: string[]; skipped: string[] } {
+  const problems: string[] = [];
+  const checked: string[] = [];
+  const skipped: string[] = [];
+  for (const [key, count] of Object.entries(counts)) {
+    const src = count.source;
+    if (!src) {
+      // 只有被抽样的四个口径强制带 source（其余口径的登记边界见 note）。
+      if ((SAMPLED_COUNT_KEYS as readonly string[]).includes(key)) {
+        problems.push(`${key}: 抽样口径必须带可核 source（数字不得只有散文）`);
+      }
+      continue;
+    }
+    if (src.pattern.trim().length === 0) problems.push(`${key}: source.pattern 不得为空`);
+    let parsed: number | null = null;
+    try {
+      const m = src.observedLine.match(new RegExp(src.pattern));
+      if (!m) problems.push(`${key}: source.pattern 在登记的 observedLine 上不命中（口径悬空）`);
+      else parsed = Number(m[1]);
+    } catch (err) {
+      problems.push(`${key}: source.pattern 非法正则（${String(err)}）`);
+    }
+    if (parsed !== null) {
+      if (parsed !== src.observed) problems.push(`${key}: observedLine 解析 ${parsed} ≠ source.observed ${src.observed}`);
+      if (Number.isNaN(parsed)) problems.push(`${key}: observedLine 解析值不是数字（${src.observedLine}）`);
+    }
+    if (src.observed !== count.currentRuntime) {
+      problems.push(`${key}: source.observed ${src.observed} ≠ currentRuntime ${count.currentRuntime}（抽样与计数脱钩）`);
+    }
+    if (typeof count.floor === 'number' && count.currentRuntime < count.floor) {
+      problems.push(`${key}: currentRuntime ${count.currentRuntime} < floor ${count.floor}（计数下降）`);
+    }
+    if (src.gate.trim().length === 0) problems.push(`${key}: source.gate 不得为空（必须说明是哪条门禁）`);
+    const logText = readLog(src.log);
+    if (logText === null) {
+      skipped.push(key);
+      continue;
+    }
+    const lm = logText.match(new RegExp(src.pattern, 'm'));
+    if (!lm) problems.push(`${key}: 门禁日志 ${src.log} 中找不到 source.pattern（日志与口径不对应）`);
+    else if (Number(lm[1]) !== count.currentRuntime) {
+      problems.push(`${key}: 日志实测 ${lm[1]} ≠ 台账 ${count.currentRuntime}（${src.log}）`);
+    } else checked.push(key);
+  }
+  return { problems, checked, skipped };
+}
+
+test('ledger(V4 段): counts 抽样口径必须与门禁日志同源（N-04，非空转）', () => {
+  const v4 = readV4Ledger();
+  const counts = v4.counts ?? {};
+  for (const key of SAMPLED_COUNT_KEYS) {
+    assert.ok(counts[key], `counts 缺抽样口径 ${key}`);
+    assert.ok(counts[key]!.source, `${key} 必须带 source（门禁 + 日志 + 正则 + 观测行）`);
+  }
+  const readLog = (path: string): string | null => {
+    try {
+      return existsSync(path) ? readFileSync(path, 'utf8') : null;
+    } catch {
+      return null;
+    }
+  };
+  const { problems, checked, skipped } = countSourceProblems(counts, readLog);
+  assert.deepEqual(problems, [], `counts 与门禁实测不同源（N-04）：\n${problems.join('\n')}`);
+  // 抽样必须真的判到（日志在时逐条同源；不在时如实 skip，不得用 skip 兜成「通过」）。
+  assert.ok(
+    checked.length + skipped.length === SAMPLED_COUNT_KEYS.length,
+    '抽样口径必须逐条落到「已同源核验」或「日志缺失显式 skip」两类之一',
+  );
+  if (skipped.length > 0) {
+    console.log(`  · counts 同源核验：skip ${skipped.join(', ')}（日志不在本机；已同源核验：${checked.join(', ') || '无'}）`);
+  }
+  console.log(
+    `  ℹ counts 同源机核：${checked.length} 项与门禁日志逐条相等${skipped.length ? ` · ${skipped.length} 项因日志缺失 skip` : ''}`,
+  );
+});
+
+test('ledger(V4 段)反证: counts 同源判据必须能红（抽样脱钩 / 日志不符 / 缺 source 都 FAIL）', () => {
+  const mk = (over: Partial<CountSource>, currentRuntime: number): Record<string, V4Count> => ({
+    l0: {
+      currentRuntime,
+      floor: 1,
+      source: {
+        gate: 'npm run test:l0',
+        log: '/tmp/nonexistent.log',
+        pattern: '▶ L0 运行时门禁: (\\d+) passed',
+        observedLine: '▶ L0 运行时门禁: 210 passed / 0 failed',
+        observed: 210,
+        measuredOn: '2026-09-19',
+        ...over,
+      },
+    },
+  });
+  const readNone = () => null;
+  assert.deepEqual(countSourceProblems(mk({}, 210), readNone).problems, [], '自洽且日志缺失时不得判红（只 skip）');
+  assert.equal(countSourceProblems(mk({}, 210), readNone).skipped.length, 1, '日志缺失必须显式 skip');
+  assert.ok(
+    countSourceProblems(mk({}, 203), readNone).problems.some((p) => /脱钩/.test(p)),
+    'source.observed 与 currentRuntime 不一致必须判红（正是 N-04 的漂移形态）',
+  );
+  assert.ok(
+    countSourceProblems(mk({ observedLine: '▶ 别的门禁: 210 passed' }, 210), readNone).problems.some((p) => /不命中/.test(p)),
+    'observedLine 不匹配 pattern 必须判红',
+  );
+  assert.ok(
+    countSourceProblems(mk({ pattern: '▶ L0 运行时门禁: (\\d+) passed' }, 999), readNone).problems.some((p) => /脱钩/.test(p)),
+    '台账值与观测行解析值不一致必须判红',
+  );
+  assert.ok(
+    countSourceProblems(
+      mk({ log: '/tmp/nonexistent.log' }, 210),
+      () => '▶ L0 运行时门禁: 209 passed / 0 failed\n',
+    ).problems.some((p) => /日志实测 209/.test(p)),
+    '日志实测与台账不一致必须判红（同源层的核心判据）',
+  );
+  assert.ok(
+    countSourceProblems({ l0: { currentRuntime: 210, floor: 164 } }, readNone).problems.some((p) => /必须带可核 source/.test(p)),
+    '抽样口径缺 source 必须判红',
+  );
+});
+
+// ── 10. N-01~N-08（收口轮）：validate 观察项的处置登记必须可机核 ────────────────
+/**
+ * 〖收口轮（v4-1 validate R1 的 N-01~N-08）〗
+ *
+ * 收口轮最怕的不是「有 8 项没做完」，而是「**报告里写了处置、台账里查不到、门禁也不会红**」。
+ * 因此 8 项观察项的处置被登记成结构化条目：`disposition` 必须在枚举内（fixed / registered /
+ * handed-over），且每条必须给出 **file + contains 锚点**（跨文件，不得自引用台账本身），
+ * 门禁逐条打开该文件确认锚点真的存在 —— 修法/登记/移交都必须留下可定位的落点。
+ */
+const VALIDATE_FINDING_IDS = ['N-01', 'N-02', 'N-03', 'N-04', 'N-05', 'N-06', 'N-07', 'N-08'] as const;
+const FINDING_DISPOSITIONS = ['fixed', 'registered', 'handed-over'] as const;
+const FINDING_SEVERITIES = ['low', 'medium', 'high'] as const;
+
+function validateFindingProblems(
+  findings: ValidateFinding[] | undefined,
+  readText: (file: string) => string | null,
+): string[] {
+  const problems: string[] = [];
+  const list = findings ?? [];
+  const ids = list.map((f) => f.id);
+  for (const expected of VALIDATE_FINDING_IDS) {
+    if (!ids.includes(expected)) problems.push(`缺少 ${expected} 的处置登记（不得漏项）`);
+  }
+  for (const id of new Set(ids)) {
+    if (ids.filter((x) => x === id).length > 1) problems.push(`${id}: 重复登记`);
+  }
+  for (const f of list) {
+    if (!VALIDATE_FINDING_IDS.includes(f.id as (typeof VALIDATE_FINDING_IDS)[number])) {
+      problems.push(`${f.id}: 不在 validate R1 的观察项集合内（不得塞入无关项）`);
+    }
+    if (!FINDING_DISPOSITIONS.includes(f.disposition as (typeof FINDING_DISPOSITIONS)[number])) {
+      problems.push(`${f.id}: 非法 disposition「${f.disposition}」（枚举 ${FINDING_DISPOSITIONS.join(' | ')}）`);
+    }
+    if (!FINDING_SEVERITIES.includes(f.severity as (typeof FINDING_SEVERITIES)[number])) {
+      problems.push(`${f.id}: 非法 severity「${f.severity}」`);
+    }
+    if ((f.title ?? '').trim().length < 10) problems.push(`${f.id}: title 过短（必须能认出是哪一项）`);
+    if ((f.evidence ?? '').trim().length < 40) {
+      problems.push(`${f.id}: evidence 过短（≥40 字符：必须写明修法/登记/移交的可核证据）`);
+    }
+    const anchor = f.anchor;
+    if (!anchor || !anchor.file || (anchor.contains ?? '').trim().length < 8) {
+      problems.push(`${f.id}: 必须给出 anchor{file, contains}（≥8 字符的可定位锚点）`);
+      continue;
+    }
+    const text = readText(anchor.file);
+    if (text === null) problems.push(`${f.id}: 锚点文件不存在 ${anchor.file}`);
+    else if (!text.includes(anchor.contains)) {
+      problems.push(`${f.id}: 锚点「${anchor.contains}」在 ${anchor.file} 中定位不到（橡皮图章）`);
+    }
+  }
+  return problems;
+}
+
+test('ledger(V4 段): validate R1 的 N-01~N-08 处置必须逐项登记且锚点可定位', () => {
+  const v4 = readV4Ledger();
+  const findings = v4.validateFindings;
+  assert.ok(Array.isArray(findings), 'v4 台账必须登记 validateFindings[]（收口轮证据）');
+  assert.equal(findings!.length, VALIDATE_FINDING_IDS.length, `N-01~N-08 必须恰好 ${VALIDATE_FINDING_IDS.length} 条`);
+  const readText = (file: string): string | null => {
+    try {
+      const abs = resolve(REPO, file);
+      return existsSync(abs) ? readFileSync(abs, 'utf8') : null;
+    } catch {
+      return null;
+    }
+  };
+  assert.deepEqual(
+    validateFindingProblems(findings, readText),
+    [],
+    'N-01~N-08 的处置登记不合法（disposition / evidence / 锚点）',
+  );
+  const byDisposition = new Map<string, number>();
+  for (const f of findings!) byDisposition.set(f.disposition, (byDisposition.get(f.disposition) ?? 0) + 1);
+  console.log(
+    `  ℹ validateFindings：${findings!.length} 项 → ${[...byDisposition].map(([k, n]) => `${k}=${n}`).join(' / ')}（锚点逐条可定位）`,
+  );
+  // 移交项必须点名目标文件（跨叶移交不得只写在散文里）。
+  const handedOver = findings!.filter((f) => f.disposition === 'handed-over');
+  assert.ok(handedOver.length >= 1, 'N-03 的跨叶移交必须登记为 handed-over');
+  for (const f of handedOver) assert.match(f.anchor.file, /specs-tree-v4-2-chat-stream-model/, `${f.id} 的移交目标必须是 v4-2 的产物`);
+});
+
+test('ledger(V4 段)反证: validateFindings 判据必须能红（漏项 / 非法处置 / 锚点定位不到 都 FAIL）', () => {
+  const good: ValidateFinding = {
+    id: 'N-01',
+    severity: 'low',
+    disposition: 'fixed',
+    title: 'RP-V4-06 的第二半改用排除口径',
+    evidence: 'x'.repeat(60),
+    anchor: { file: 'packages/web-cli-plugin/test/ui/density.mjs', contains: 'N-01（收口轮）' },
+  };
+  const readGood = () => '…N-01（收口轮）…';
+  const all = VALIDATE_FINDING_IDS.map((id) => ({ ...good, id }));
+  assert.deepEqual(validateFindingProblems(all, readGood), [], '合法集合（8 项、锚点命中）不得误报');
+  assert.ok(
+    validateFindingProblems(all.filter((f) => f.id !== 'N-03'), readGood).some((p) => /缺少 N-03/.test(p)),
+    '漏一项必须判红',
+  );
+  assert.ok(
+    validateFindingProblems([...all, { ...good, id: 'N-99' }], readGood).some((p) => /不在 validate R1 的观察项集合内/.test(p)),
+    '塞入无关项必须判红',
+  );
+  assert.ok(
+    validateFindingProblems(all.map((f) => (f.id === 'N-02' ? { ...f, disposition: 'maybe' } : f)), readGood).some((p) =>
+      /非法 disposition/.test(p),
+    ),
+    '非法 disposition 必须判红',
+  );
+  assert.ok(
+    validateFindingProblems(all.map((f) => (f.id === 'N-04' ? { ...f, evidence: 'too short' } : f)), readGood).some((p) =>
+      /evidence 过短/.test(p),
+    ),
+    '过短证据必须判红',
+  );
+  assert.ok(
+    validateFindingProblems(all, () => 'another text').some((p) => /定位不到/.test(p)),
+    '锚点定位不到必须判红（防橡皮图章）',
+  );
+  assert.ok(
+    validateFindingProblems(all, () => null).some((p) => /锚点文件不存在/.test(p)),
+    '锚点文件缺失必须判红',
+  );
+  assert.ok(
+    validateFindingProblems(all.map((f) => (f.id === 'N-05' ? { ...f, anchor: { file: 'a.ts', contains: 'short' } } : f)), readGood).some(
+      (p) => /必须给出 anchor/.test(p),
+    ),
+    '锚点过短必须判红',
   );
 });

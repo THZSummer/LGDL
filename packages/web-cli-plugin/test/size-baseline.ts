@@ -850,26 +850,44 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    */
   duplicationCheckInputModuleCount: 57,
   /**
-   * **最近一轮（R1 缺陷修复轮）自身的逐模块增量**（870cb6e 工作树 → R1 工作树），同几何实测
-   * （`npm run size:attribution -- --rev 870cb6e --rev WORKTREE`；Σ = +3,623 B == 真实产物差）。
+   * **收口后缺陷修复轮 R2 自身的逐模块增量**（R1 工作树 → R2 工作树）：366,755 → 368,529 B（+1,774 B），
+   * 与 `SIDEPANEL_RE_REGISTRATIONS['v3-4-r2']` 的 `baselineAfterBytes − baselineBeforeBytes` **逐字节相等**
+   * （四行 Δ 之和 == 1,774，无未归因胶水；退避调度器在 service-worker bundle，不进本产物）。
    * v3-4 功能轮自身的增量（pick-input null→5,085 / sidepanel 53,390→58,174 / panels 13,280→15,110 /
    * shell 3,275→3,969 / view-model 17,666→18,088）保留在该轮 `SIDEPANEL_RE_REGISTRATIONS['v3-4'].reason`。
+   *
+   * 〖N-05（收口轮，v4-1 validate R1）—— 两处登记失真已订正〗
+   *  ① **注释张冠李戴**：本字段自 `a0b93c9`（R2 轮）起装的是 **R2 轮**的行，注释却一直写
+   *     「最近一轮（**R1** 缺陷修复轮）… Σ = +3,623 B」（R1 轮的真实登记增量是 **+3,978 B**，
+   *     见 `SIDEPANEL_RE_REGISTRATIONS['v3-4-r1']`；+3,623 是 R1 受控归因实验的**模块和**，
+   *     两者本就不等 —— 该 Σ 值自 `0b60951`（R1）起即与 R1 登记增量不符，行内容则自 `a0b93c9`
+   *     起与「R1」标签不符）。现按实际内容改正为 R2 轮。
+   *  ② **`5cf1ba8`（v4-1 R2 收尾轮）机械改写污染**：该提交把 4 行的 `afterBytes`/`deltaBytes`
+   *     替换成**累计口径**（`rows` 表的当前值），使 4 行**全部** `deltaBytes ≠ afterBytes − beforeBytes`
+   *     （实测 5 处不自洽：本组 4 处 + `r3RoundRows` 的 sidepanel 行）。本轮按本叶 `leafBase` `187c205`
+   *     的既有值**逐字复原**（历史值优先，不改写历史），并由 `size-growth-evidence.test.ts`
+   *     新增「每行 Δ 自洽 ∧ Σ == 该轮登记总增量」断言永久机核（含反证）。
    */
   closeoutRoundRows: [
-    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 18_250, afterBytes: 19654, deltaBytes: 2531 },
-    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 59_028, afterBytes: 62393, deltaBytes: 17548 },
-    { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 6_058, afterBytes: 7698, deltaBytes: 2033 },
-    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_969, afterBytes: 4158, deltaBytes: 807 },
+    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 18_250, afterBytes: 19_256, deltaBytes: 1_006 },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 59_028, afterBytes: 59_416, deltaBytes: 388 },
+    { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 6_058, afterBytes: 6_410, deltaBytes: 352 },
+    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_969, afterBytes: 3_997, deltaBytes: 28 },
   ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
   /**
    * R3 缺陷修复轮自身的逐模块增量（R2 工作树 → R3 工作树），真实 metafile 差（Σ == +6,573 B ==
-   * `SIDEPANEL_BASELINE_BYTES` 与本轮前值之差）：ref-validity +1,057 / ref-store +222 /
-   * panels +1,044 / pick-input +2,450 / sidepanel +1,800；`src/background/ref-rescue.ts`
-   * 落在 service-worker bundle，不计入本产物。
+   * `SIDEPANEL_RE_REGISTRATIONS['v3-4-r3']` 的 `baselineAfterBytes − baselineBeforeBytes`）：
+   * ref-validity +1,057 / ref-store +222 / panels +1,044 / pick-input +2,450 / sidepanel +1,800；
+   * `src/background/ref-rescue.ts` 落在 service-worker bundle，不计入本产物。
+   *
+   * 〖N-05（收口轮）〗sidepanel 行原为 `59_416 → 61_216 / Δ 1_800`（R3 正确值），`5cf1ba8` 把它
+   * 改写成累计口径的 `62_393 / 17_548`（既不等于 after−before，也让 Σ 脱离 6,573）—— 本轮按
+   * `187c205` / `3bff311` 的既有值复原（`v41RoundRows` 的 sidepanel `beforeBytes = 61_216`
+   * 与复原值**互相吻合**：R3 末值 == v4-1 初值）。
    */
   r3RoundRows: [
     { module: 'src/ui/sidepanel/pick-input.ts', beforeBytes: 5_809, afterBytes: 8_259, deltaBytes: 2_450 },
-    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 59_416, afterBytes: 62393, deltaBytes: 17548 },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 59_416, afterBytes: 61_216, deltaBytes: 1_800 },
     { module: 'src/ui/sidepanel/l1/ref-validity.ts', beforeBytes: 7_840, afterBytes: 8_897, deltaBytes: 1_057 },
     { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: 15_110, afterBytes: 16_154, deltaBytes: 1_044 },
     { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: 3_979, afterBytes: 4_201, deltaBytes: 222 },
@@ -907,6 +925,17 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
   /** v4-1 轮的未归因运行时胶水（Σ 模块增量之外的余量）；断言见 size-growth-evidence.test.ts。 */
   v41RoundUnattributedGlueBytes: 142,
+  /**
+   * 〖N-05（收口轮）〗逐轮 rows 组 ↔ `SIDEPANEL_RE_REGISTRATIONS` 条目的**机核映射**：
+   * 每组 rows 的 Σ(deltaBytes) + 该组未归因胶水 必须等于该轮登记的
+   * `baselineAfterBytes − baselineBeforeBytes`（登记值不得与逐模块归因脱钩）。
+   * 由 `size-growth-evidence.test.ts` 的「全部 round rows 必须自洽」断言逐组实跑。
+   */
+  roundRowRegistrationIds: {
+    closeoutRoundRows: 'v3-4-r2',
+    r3RoundRows: 'v3-4-r3',
+    v41RoundRows: 'v4-1',
+  } as Readonly<Record<string, string>>,
   rows: [
     { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: null, afterBytes: 16_154, deltaBytes: 16_154, kind: 'new-required-module', requiredBy: 'FR-V3-031/032/037/038/039（八类就地展开、后果两段、阻断呈现、两条恢复、回执三件套）+ FR-V3-070（手势表由单一清单渲染）+ R3（条件式「一键重锚」按钮 + `canReanchor()` 纯判据 + 报告）' },
     { module: 'src/ui/sidepanel/l2/command-catalog.ts', beforeBytes: null, afterBytes: 6_106, deltaBytes: 6_106, kind: 'new-required-module', requiredBy: 'FR-V3-049/053（命令目录逐条有档 + delay 单源措辞 + 硬底线零控件 + 分列）' },

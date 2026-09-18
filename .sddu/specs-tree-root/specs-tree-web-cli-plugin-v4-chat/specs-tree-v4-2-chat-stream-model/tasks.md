@@ -54,6 +54,9 @@ Wave 6 ── (联动门禁)
 
 Wave 7 ── (收口)
   TASK-612 [M] 全门禁串行 + 台账 counts + 五要素中间重登记
+
+跨叶移交（约束型验收，不另立波次；与 TASK-602/603 同轮交付）
+  TASK-613 [M] 卡预算 × 常驻入口准入重审（裁决或收紧）← 来源 N-03 / v4-1 validate R1
 ```
 
 ## 2. 任务列表
@@ -110,6 +113,7 @@ npm run typecheck --workspace @lgdl/web-cli-plugin
 - [ ] 过程族与主类**同一套** DOM 契约（`data-msg-type` 区分；v1 类名保留用于样式复用）
 - [ ] 扩展路径写入注释：任何 `CARD_TYPES` 变更须改 shim + `design-contract.test.ts` 常量 + 台账 `designContractChanges[]`（禁静默）
 - [ ] `appendSystem` 仅面板内使用（**不进 `KIND_SET`**）
+- [ ] **⚠️ 跨叶移交（来源 N-03 / v4-1 validate R1）：卡预算 × 常驻入口准入必须重审** —— 见 **TASK-613**（本卡分类学是「卡」的定义点，卡内可点预算与「常驻导航入口」的判定口径在同处定稿；**不得默认沿用 v4-1 的过渡卡口径**）
 
 **验证命令**:
 ```bash
@@ -418,6 +422,43 @@ for s in typecheck build test test:supersession test:gate-integrity test:zero-in
 stat -c %s packages/web-cli-plugin/dist/sidepanel.js
 ```
 
+### TASK-613（跨叶移交，来源 N-03 / v4-1 validate R1）: 卡预算 × 常驻入口准入重审（裁决或收紧，禁默认沿用）
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | M |
+| **前置依赖** | TASK-602 / TASK-603（7 主类卡落地后） |
+| **执行波次** | 与 TASK-602/603 同轮（验收型，不另立波次） |
+| **对应 FR / AC** | FR-CHAT-072 / 073 / 075（v4-1 定义）+ FR-CHAT-021/022/030（本叶 7 主类卡）· AC-CHAT-023 / 025 |
+| **ADR / 风险** | 父 ADR-V4-020（密度新口径与两条防滥用）· R42-05 |
+| **登记来源** | 横切登记（非本叶原生任务）：`.sddu/.../specs-tree-v4-1-zone-shell-density/validate-report.md` §5 **N-03**（severity 中）+ 本叶 v4-1 `build.md` 收口轮小节 |
+
+**描述（移交义务，原文要点）**: v4-1 的密度豁免口径为「`#stream` 子树不计入密度」，两条防滥用为「单卡可点 ≤6」与「首屏（空流欢迎态）卡 ≤2」。validate R1 以对抗探针实测：一张流内 `[data-msg-type]` 卡装 **6 个**常驻入口时 **guard 不抛、单卡预算 PASS、首屏预算 PASS、密度 C1 不变** ⇒ **无门禁变红**（7 个才红）；理论上「首屏 2 卡 × 每卡 6 可点 = **12 个常驻入口**」可全部落在豁免子树内（v3 全局面板上限为 7）。v4-1 之所以不拦，是因为其卡面是**过渡卡口径**（`#l0-decision` 等占位宿主的内容体，`data-transitional-host` 尚未清零，本叶才落 7 主类卡）。
+
+**本叶必须交付（二选一，不得沉默）**:
+1. **裁决并落地判定**：明确「卡内可点 = 内容交互（不计常驻导航入口）」与「常驻导航入口（工具栏/状态栏/固定视图入口）不得进入 `#stream`」的**可判定标记/形态判据**（如 `data-toolbar-slot` / `.view-btn` / `data-chrome-control` 的形态或位置判定），并在 `test/ui/density.mjs` 的防滥用反证里加一条**真会红**的注入；
+2. **收紧**：给「首屏可见卡内常驻可点总量」设上限（≤ 现状实测值），并把上限与反证一并登记进 `docs/v4-density-baseline.json`（阈值/上限只允许收紧，禁放宽）。
+
+**验收标准**:
+- [ ] 给出显式裁决文本（写入本叶 `build.md`），或给出收紧后的机器判据 —— **二者必居其一，禁止「沿用 v4-1 过渡口径」**
+- [ ] 新增/变更的判据配**可 FAIL 反证**（注入 → 必红 → 还原 → 必绿），日志落 `/tmp/opencode/v4-gate-logs/v4-2/`
+- [ ] `docs/v4-density-baseline.json#knownLimitations[0]`（「v4-2 落 7 主类卡后必须重审」）在本任务完成后更新为「已重审 + 结论」，不得留着旧状态
+- [ ] 断言只增不减；阈值 `7/15 · 9/20 · 17/35` 与 §v4 体积口径零放宽
+
+**涉及文件**:
+
+| 操作 | 文件路径 |
+|:--:|------|
+| MODIFY | `packages/web-cli-plugin/test/ui/density.mjs`（防滥用判据/反证） |
+| MODIFY | `packages/web-cli-plugin/docs/v4-density-baseline.json`（上限与 knownLimitations 结论） |
+| MODIFY（必要时） | `packages/web-cli-plugin/src/ui/sidepanel/density-scope.ts`（若裁决需要新常量/标记） |
+
+**验证命令**:
+```bash
+npm run typecheck --workspace @lgdl/web-cli-plugin
+npm run test:density --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/density.log
+npm run test:density --workspace @lgdl/web-cli-plugin -- --reverse <新增反证编号> 2>&1 | tee /tmp/opencode/v4-gate-logs/v4-2/density-reverse.log
+```
+
 ## 3. 任务汇总
 
 | 统计项 | 数值 |
@@ -427,6 +468,7 @@ stat -c %s packages/web-cli-plugin/dist/sidepanel.js
 | M 级 | 7 |
 | L 级 | 5（TASK-601 / 603 / 604 / 607 / 610） |
 | 执行波次 | **7** |
+| **跨叶移交任务** | **1**（TASK-613，来源 **N-03 / v4-1 validate R1**；不计入上表 12 任务与 7 波次 —— 它是**约束型验收任务**，必须与 TASK-602/603 同轮交付裁决或收紧） |
 
 ## 4. 执行策略
 
@@ -458,3 +500,4 @@ stat -c %s packages/web-cli-plugin/dist/sidepanel.js
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。12 任务 / 7 波；模型（601）→ 分类学与摘要（602/605）→ 卡/渲染/切换（603/604/606）→ 迁移（607）→ 三门禁（608/609/610）→ 联动（611）→ 收口（612）。含 D-005 守恒账与 R4-19/R4-20 的落点（`countMethod` 显式 + 设计稿/真产物分列）。 | 2026-09-18 | SDDU Tasks Agent |
+| v1.1 | **跨叶移交追加（编排器授权的登记，非本叶重排）**：追加 **TASK-613**（卡预算 × 常驻入口准入重审 —— 裁决或收紧，禁默认沿用 v4-1 过渡卡口径），来源 = 叶 `specs-tree-v4-1-zone-shell-density` 的 `validate-report.md` §5 **N-03（中）**（流内卡 6 个常驻入口不被任何门禁拦，7 个才红；理论 2 卡 × 6 = 12 常驻入口可落入豁免子树）。同步：TASK-602 验收标准加注该约束、§3 汇总表加「跨叶移交任务」一行。**不改变**原 12 任务 / 7 波的结构与计数；阈值与体积口径零放宽。 | 2026-09-19 | SDDU Build Agent（v4-1 收口轮，N-03 移交） |

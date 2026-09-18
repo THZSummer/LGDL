@@ -13,15 +13,15 @@
    "featureKey": "specs-tree-v4-1-zone-shell-density",
    "name": "V4-1 三区骨架与密度重定标",
    "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/",
-   "phase": "tasked",
-   "status": "tracked",
+   "phase": "validated",
+   "status": "completed",
    "depth": 2,
    "leaf": true,
    "priority": "P0",
    "deliveryOrder": 1,
    "covers": "FR-CHAT-004 / FR-CHAT-010~017 / FR-CHAT-070~075（AC-CHAT-004~009 / 022 / 023 / 025）",
    "role": "三区骨架（工具栏 ≤5 可点 + 站点摘要只读 + 4 视图入口 + 主题切换；状态栏连接状态 + 风险 chips 永不折叠）+ 密度新口径与防滥用（含反证）+ 登记格重算",
-   "note": "首个开工，无前置叶子；产出三区骨架 + 密度新口径基线，是 v4-2/3/4 的共同基线与承载容器",
+   "note": "首个开工，无前置叶子；产出三区骨架 + 密度新口径基线，是 v4-2/3/4 的共同基线与承载容器 〖2026-09-19 同步〗叶子已走完 spec→plan→tasks→build（R3 + review 修复轮 I1~I13）→review（R1 有条件通过 / 0 阻塞）→**validate（R1 ✅ 通过 / 0 阻塞 / 8 观察项）**→**收口轮**（N-01~N-08 处置完毕：修 4 / 登记 3 / 移交 1 到 v4-2 TASK-613）；phase=validated + status=completed，可开 v4-2。",
    "tasksArtifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-1-zone-shell-density/tasks.md"
   },
   {
@@ -36,7 +36,7 @@
    "deliveryOrder": 2,
    "covers": "FR-CHAT-020~026 / FR-CHAT-030~037（AC-CHAT-001~003 / 005 / 010 / 011 / 020 / 022 / 023 / 025）",
    "role": "append-only 事件模型（不可变 / 单调 / 可回放）+ 7 主类 + 过程卡族渲染 + 统一固化契约 + 工具卡信息保留",
-   "note": "前置 v4-1；产出事件模型与固化契约，是 v4-3 / v4-4 的共同地基",
+   "note": "前置 v4-1；产出事件模型与固化契约，是 v4-3 / v4-4 的共同地基 〖2026-09-19 跨叶移交登记〗v4-1 validate R1 的 **N-03**（流内卡 ≤6 × 首屏 ≤2 ⇒ 理论 12 个常驻入口可落在豁免子树内而不被拦）已作为 **TASK-613** 追加进本叶 `tasks.md`：落 7 主类卡时必须重审卡预算与常驻入口准入（给出裁决或收紧，禁默认沿用 v4-1 过渡卡口径）。",
    "tasksArtifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/tasks.md"
   },
   {
@@ -72,7 +72,7 @@
  ],
  "leaf": false,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-18T06:00:00.000Z",
+ "updatedAt": "2026-09-19T20:00:00.000Z",
  "description": "作者 2026-09-17 真机反馈立项（逐字：「所有过程性的问答，建议放到聊天框里面，同时也方便看到授权记录，不要放到上面，丢失过程信息，每一步交互，尽可能都在聊天框留痕，作为事实依据，包括推荐的下一步操作，都放到聊天框里面」/「整体布局简化，工具栏、聊天框、状态栏」/「聊天框包含：AI答复聊天、下一步推荐、问答、权限申请」），2026-09-18 作者确认「开启重构的SDDU流程」。ROADMAP 编号 F-30（本轮实测 0 占用；F-29 为 A2A 候选保留），版本落点建议 = v0.9.0 同批叠加第三 Feature（F-27/F-28 先例）。设计基准 = packages/web-cli-plugin/design/ui-redesign/option-f-chat-stream.html（1,927 行，S1~S7 场景）+ option-f-shim.mjs（60 断言；本轮实跑 60/60）。核心问题 = 过程性交互（ask-user 问答 / 破坏性确认 / 站点授权 / 系统事件 / 引用生命周期 / 下一步推荐）全部落在聊天流之外（流之上的独占决策槽 + 底部 6 条瞬时提示条 + 顶部永不折叠风险带 + 3 处引用投影），解析即消失、无时间戳、不可回看。发现阶段产出：discovery.md v1.0（Q-CHAT-001~013 · A-CHAT-001~009 · R-CHAT-001~016 · O-CHAT-001~009 + 现状基线 §7.1 全量 file:line 证据 + 取代/保留清单草案 + 门禁影响面预判 + 4 叶拆分建议）。",
  "scope": {
   "in": [

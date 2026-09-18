@@ -479,3 +479,93 @@ test('V3-VOL-1 ④ directional guard: the alert is also surfaced in the density 
   assert.match(String(v.directionalAlert ?? ''), /回报编排器/, '登记表必须带上方向性告警（可读、可核）');
   assert.equal(v.ceilingFormula, 'floor(baseline × (1 + tolerance))');
 });
+
+// ── ③d 全部 round rows 的「Δ 自洽 + Σ == 该轮登记总增量」（N-05 收口轮） ──────
+/**
+ * 〖N-05（收口轮，v4-1 validate R1）〗
+ *
+ * I9 只给 `v41RoundRows` 加了自洽断言；**历史两组 round rows**（`closeoutRoundRows` /
+ * `r3RoundRows`）既无 Δ 自洽断言、也无「Σ == 登记总增量」断言，结果 `5cf1ba8` 的一处机械
+ * 改写把它们改成累计口径却**没有任何门禁变红**（5 处 `deltaBytes ≠ afterBytes − beforeBytes`）。
+ * 本判据把 I9 的口径**推广到全部 round rows**：
+ *   ① 每行 `deltaBytes == afterBytes − (beforeBytes ?? 0)`；
+ *   ② 每行 `beforeBytes` 非空时必须是正数（历史轮次两轮都在）；
+ *   ③ 每组 rows 的 `Σ(deltaBytes) + 该组未归因胶水` == `SIDEPANEL_RE_REGISTRATIONS[登记 id]`
+ *      的 `baselineAfterBytes − baselineBeforeBytes`（**登记值与逐模块归因不得脱钩**）。
+ * 组 ↔ 登记 id 的映射登记在基线自身（`roundRowRegistrationIds`），不在测试里写魔数。
+ */
+interface RoundRow {
+  readonly module: string;
+  readonly beforeBytes: number | null;
+  readonly afterBytes: number;
+  readonly deltaBytes: number;
+}
+
+function roundRowProblems(
+  groupName: string,
+  rows: readonly RoundRow[],
+  expectedTotalBytes: number,
+  glueBytes = 0,
+): string[] {
+  const problems: string[] = [];
+  if (rows.length === 0) problems.push(`${groupName}: rows 不得为空`);
+  for (const row of rows) {
+    const expected = row.afterBytes - (row.beforeBytes ?? 0);
+    if (row.deltaBytes !== expected) {
+      problems.push(`${groupName}/${row.module}: Δ ${row.deltaBytes} ≠ after − before = ${expected}（口径混用）`);
+    }
+    if (row.beforeBytes !== null && row.beforeBytes <= 0) {
+      problems.push(`${groupName}/${row.module}: beforeBytes 必须为正数（实测 ${row.beforeBytes}）`);
+    }
+  }
+  const sum = rows.reduce((s, r) => s + r.deltaBytes, 0);
+  if (sum + glueBytes !== expectedTotalBytes) {
+    problems.push(
+      `${groupName}: Σ(Δ)=${sum} + glue=${glueBytes} ≠ 该轮登记总增量 ${expectedTotalBytes}（逐模块归因与登记值脱钩）`,
+    );
+  }
+  return problems;
+}
+
+test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮登记总增量（含 closeout/r3 历史组）', () => {
+  const b = SIDEPANEL_GROWTH_BREAKDOWN;
+  const groups: Array<{ name: string; rows: readonly RoundRow[]; glue: number }> = [
+    { name: 'closeoutRoundRows', rows: b.closeoutRoundRows, glue: 0 },
+    { name: 'r3RoundRows', rows: b.r3RoundRows, glue: 0 },
+    { name: 'v41RoundRows', rows: b.v41RoundRows, glue: b.v41RoundUnattributedGlueBytes },
+  ];
+  const problems: string[] = [];
+  for (const g of groups) {
+    const id = b.roundRowRegistrationIds[g.name];
+    assert.ok(typeof id === 'string' && id.length > 0, `${g.name} 必须登记对应的 SIDEPANEL_RE_REGISTRATIONS 条目 id`);
+    const registration = SIDEPANEL_RE_REGISTRATIONS.find((r) => r.id === id);
+    assert.ok(registration, `${g.name} 登记的 ${id} 在 SIDEPANEL_RE_REGISTRATIONS 中不存在（悬空登记）`);
+    const total = registration!.baselineAfterBytes - registration!.baselineBeforeBytes;
+    problems.push(...roundRowProblems(g.name, g.rows, total, g.glue));
+  }
+  assert.deepEqual(problems, [], `round rows 与登记值不自洽（N-05）：\n${problems.join('\n')}`);
+  // 三组都必须真的被判（否则本断言可被空集合空转）。
+  assert.equal(groups.length, 3);
+  console.log(
+    `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
+  );
+});
+
+test('V3-VOL-1 ③(N-05) REVERSE PROOF: round-row 判据必须能红（Δ 混用 / Σ 脱钩 / 空组）', () => {
+  const rows: RoundRow[] = [
+    { module: 'a.ts', beforeBytes: 100, afterBytes: 150, deltaBytes: 50 },
+    { module: 'b.ts', beforeBytes: 200, afterBytes: 260, deltaBytes: 60 },
+  ];
+  assert.deepEqual(roundRowProblems('g', rows, 110), [], '自洽且 Σ == 登记总增量时不得误报');
+  assert.ok(
+    roundRowProblems('g', [{ module: 'a.ts', beforeBytes: 100, afterBytes: 150, deltaBytes: 999 }], 999).length > 0,
+    'Δ ≠ after − before 必须判红（这正是 5cf1ba8 的污染形态）',
+  );
+  assert.ok(roundRowProblems('g', rows, 111).length > 0, 'Σ + glue ≠ 登记总增量必须判红（脱钩）');
+  assert.ok(roundRowProblems('g', rows, 110, 7).length > 0, 'glue 不匹配必须判红');
+  assert.ok(roundRowProblems('g', [], 0).length > 0, '空 rows 组必须判红（否则断言可空转）');
+  assert.ok(
+    roundRowProblems('g', [{ module: 'a.ts', beforeBytes: -1, afterBytes: 1, deltaBytes: 2 }], 2).length > 0,
+    'beforeBytes ≤ 0 必须判红',
+  );
+});

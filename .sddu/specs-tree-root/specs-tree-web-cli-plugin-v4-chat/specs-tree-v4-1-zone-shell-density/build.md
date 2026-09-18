@@ -423,7 +423,7 @@
 | **I2** | 中 | **修 + 门禁** | 台账 `pureAdditionFiles` 的 `test/design-contract.test.ts` 由 `status:"pending"` 改 `"complete"` + 理由更新。新增 `pureAdditionProblems()` + `PURE_ADDITION_STATUSES` 枚举断言 + 「R3 收口后不得再有 pending」+ `design-contract.test.ts` 存在性断言 + 合成反证 | `test:supersession` 24/24；反证 `status:'half-done'` / 过短理由 均判红 ✔ |
 | **I3** | 中 | **修（订正）** | `docs/v4-density-baseline.json#differencesFromV3`：① 测量根「v3 = #panel-main」失实 → 订正为「测量根不变（v3/v4 皆 `document.body`，见 v3 基线 `caliber.measurementRoot`）；真实差异是 v4 新增豁免子树 `#stream`」；② 几何口径 589px → **488px**（v3 末轮登记值；589 仅作 v1 历史锚）。两条均带〖订正注〗说明原文与依据 | 文件 JSON 合法；与 `docs/v3-density-baseline.json#caliber.measurementRoot` / `#logClientHeightFloor` 逐字一致（只读核对） |
 | **I4** | 中 | **修 + 反证** | `l0.mjs ⑫b` 新增：注入第 6 个可点 → **驱动真实 render**（`window.__v3.testing.setRefCount(0)` 直调 `render()`）→ 断言抛错且诊断含「工具栏可点 6 > 5」+「禁静默第 6 个可点」→ 移除后再 render 必须恢复 | 见 C.2 的 FAIL 段原文；`test:l0` 实跑通过（计数只增） |
-| **I5** | 中 | **修（新增测试）** | 新增 `test/theme.test.ts`（18 条 `test(`）：`isThemeState`/`nextTheme` 边界、`applyTheme` 三态 + 三通道、`mountTheme` load/set/cycle/click、`chromeThemeStorage` 适配器；**EC-CHAT-014** 三条降级用例（读抛错 ⇒ `load()` resolve `auto`；写抛错 ⇒ `set` 不 reject 且 DOM 仍更新；写失败时点击不抛） | `npm test` 全绿（新增文件随 `test/*.test.ts` 编译执行）；EC-CHAT-014 覆盖率由 0 → 3 条可 FAIL 用例 |
+| **I5** | 中 | **修（新增测试）** | 新增 `test/theme.test.ts`（**19** 条 `test(`〖N-06（收口轮）〗原记 18 条系笔误，`grep -c '^test(' = 19`，实跑 19/19）：`isThemeState`/`nextTheme` 边界、`applyTheme` 三态 + 三通道、`mountTheme` load/set/cycle/click、`chromeThemeStorage` 适配器；**EC-CHAT-014** 三条降级用例（读抛错 ⇒ `load()` resolve `auto`；写抛错 ⇒ `set` 不 reject 且 DOM 仍更新；写失败时点击不抛） | `npm test` 全绿（新增文件随 `test/*.test.ts` 编译执行）；EC-CHAT-014 覆盖率由 0 → 3 条可 FAIL 用例 |
 | **I6** | 中 | **修（实测定根因 + 收紧 + 补登记）** | ① 新增 `charsAttribution()` 逐格真值诊断（阶段 B/B2）与 `elementsWithKeys.chars` diff 诊断；② 实测根因 = **审计计数跨位数**（default 审计 2→6→10、empty 92→96→100 ⇒ 摘要/`.view-label`/`.badge` 各 +1 字符 = 差 3），**推翻**原「`nowrap+ellipsis`」归因；③ 容差 `8 → 3`（`CHARS_SPREAD_MAX`，与基线 `counts.charsSpreadMax` 机器同源断言）；④ v4 台账 `redlineRemap` **补登记第 4 条**（v3「chars 逐项相等」被取代）并订正 eightSteps ⑦ / build.md | 见 C.2 的诊断原文；`test:density` 实跑通过；基线 `knownLimitations[1]` 归因同步订正 |
 | **I7** | 低 | **修（订正 + 门禁收紧）** | `l0.mjs` 断言由 `hostCount > 0` 改为 `=== REGISTERED_TRANSITIONAL_HOSTS(=4)`；build.md §2/§4/§5/§B.10 与 v4 台账 `knownGaps` 的「5 个」订正为 **4**（第 5 处是 CSS 注释误计） | `test:l0` 实跑：占位宿主计数 == 4 ✔；`grep -c 'data-transitional-host='` 的 1 处注释命中已显式说明 |
 | **I8** | 低 | **修 + 门禁** | `size-baseline.ts#duplicationCheck` 的「输入模块数 53」订正为 **57** 并写明 v4-1 新增 4 必需模块；新增机核字段 `duplicationCheckInputModuleCount = 57` + `size-growth-evidence.test.ts` 断言「真实 metafile `Object.keys(inputs).length` == 登记数」 | `npm test` 绿；`dist/build-meta.json` inputs = 57（实测） |
@@ -483,3 +483,87 @@ chars 跨视口差异元素： #l2-entry-summary@320=24,400=24,520=25
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v4.0 | review 修复轮：I1~I13 全处置（13/13），新增可 FAIL 断言 6 处（I1×2 / I2×2 / I4 / I8 / I9×2 / I10×1 / I12 / I6 收紧）/ 新增 node 测试文件 1 个（`theme.test.ts`）/ 台账与基线与 build.md 数字订正 12 处；红线零改、阈值零放宽、断言只增不减。 | 2026-09-19 | SDDU Build Agent |
+
+---
+
+# 附录 D — 收口轮（2026-09-19，处置 validate R1 的 N-01~N-08）
+
+> **输入**：`validate-report.md` R1（结论 ✅ 通过 / **0 阻塞** / 8 观察项：中 1 低 7）。
+> **性质**：**收口轮** —— **不降级**（phase 保持 `validated`）、**不动生产代码**（本轮零 `src/**` 改动）、**不放宽任何阈值/上限**、**测试只增不减**。全部处置 = 台账/文档数字订正 + 断言补强（含反证）+ 两处登记型局限 + 一处跨叶移交。
+> **红线**：`content.js` 177,076 B / `pick-layer.js` 33,900 B 逐字节不变；`manifest.json` / 判定链 / `src/background/**` / `docs/v3-*` 零 diff；体积登记值 385,319 B 与 ceiling 404,584 B 不变（本轮零 TS/产物改动）。
+
+## D.1 逐项处置（N-01~N-08）
+
+| # | 级别 | 处置 | 落点（可机核） | 证据 / 反证 |
+|:--:|:--:|:--:|------|------|
+| **N-01** | 低 | ✅ **修（断言可证伪化 + 竞态修复）** | `test/ui/density.mjs#reverseRpV406`（改为**原子探针** + 归因对照） | 原 FAIL 段第二半用**未排除 `#stream`** 的 `c1Probe` 断言「C1 不得下降」—— 页面内移动元素不可能改变整页计数 ⇒ **恒真**（validate 实测 14 → 14）。现主判据改用**产品口径** `DENSITY_MEASURE_SOURCE`：注入后 C1 必须 **5 → 4**（滥用形态被观测到，诊断逐字 `5 → 4`）；未排除口径降级为**归因对照**（整页计数必须**不变** ⇒ 证明控件仍挂在文档上、仍可见，「降 1」只可能由豁免造成，而非元素消失）。**同时修复夹具竞态**：原实现「注入 → `sleep(150)` → 另一次探针调用」是竞态（产品 `render()` 会丢弃 `#stream` 的非宿主子节点 ⇒ 实测出现过「守卫 `pass` + 还原时 `#theme-toggle` 已不在文档中」），现把「前置读数 → 注入 → 读数 → 守卫 → 还原 → 还原读数」压进**同一个同步块**（与 RP-V4-01/02/03 的 `atomicCardsProbe` 同一纪律）；连跑 3 次均 9/9 绿。**演示红**：期望值临时改错（`before.scoped - 2`）⇒ 必红（`exit=1`，诊断 `5 → 4`），还原后逐字节一致 + 复跑绿（见 D.3）。**口径双轨期说明**登记进 `docs/v4-density-baseline.json#knownLimitations`。 |
+| **N-02** | 低 | 📌 **登记（双层防线；不修的理由 = 动产品字节）** | `docs/v4-density-baseline.json#knownLimitations` + v4 台账 `validateFindings[N-02]` | guard/静态半只认 `[data-chrome-control]`；抹掉标记后移入 `#stream` ⇒ guard `pass`（validate P1b 实测）。**第二层已实测兜底**：validate A2-1 真门禁静态注入 ⇒ `167 passed / 4 failed`（`default@320/400/520 可点实测 4 ≠ 5` + 阶段 F `clickables 4≠5` / `blocks 13≠15` / `chars 176≠181`）。补「形态/位置反向判定」需改 `src/ui/sidepanel/toolbar.ts`（产品字节）⇒ 本轮按红线**只登记不修**，留待下游有产品改动时一并落地。 |
+| **N-03** | 中 | 🔁 **移交（跨叶登记，编排器授权）** | v4-2 `tasks.md` **TASK-613**（+ TASK-602 验收标准加注 + §1 拓扑 + §3 汇总「跨叶移交任务」行 + 修订记录 v1.1） | 原文：v4-1 豁免口径下「流内卡每卡 ≤6 可点 × 首屏 ≤2 卡 ⇒ 理论最多 **12 个常驻入口**可落在豁免子树内而不被任何门禁拦」（6 个实测全绿、7 个才红）。**不是本叶缺陷**（本叶卡面是过渡卡口径），故移交 v4-2 —— 落 7 主类卡时**必须**给出裁决或收紧（禁默认沿用），并在完成时更新 `knownLimitations[0]` 状态。移交落点由台账 `validateFindings[N-03].anchor` 打开 v4-2 `tasks.md` 定位 `TASK-613` 机核。 |
+| **N-04** | 低 | ✅ **修 + 机核断言** | v4 台账 `counts`（l0 203→**210**、density 169→**171**、supersession 新登记 **28**、nodeTestRuntime 875→**881**；历史值保留在 note 内）+ `test/supersession-ledger.test.ts` 两条新判据 | 抽样四项各带 `source`（门禁 + 日志路径 + 正则 + **观测行**）；判据两层：**恒在层**（pattern 在 observedLine 上命中 ∧ 解析值 == observed == currentRuntime ≥ floor）与**同源层**（真实门禁日志解析值必须相等；日志缺失才显式 skip，不得用 skip 兜成通过）；另配反证（observed 脱钩 / observedLine 不命中 / 日志不符 / 缺 source 均判红）。validate 原文「floor 164 不受影响；同类 I 项未收口」已由本项闭合。 |
+| **N-05** | 低 | ✅ **修 + 机核断言** | `test/size-baseline.ts`（5 行复原 + `roundRowRegistrationIds` 新字段）+ `test/size-growth-evidence.test.ts` 两条新判据 | 5 处 `deltaBytes ≠ afterBytes − beforeBytes` 全部复原到 `leafBase 187c205` 的既有值：`closeoutRoundRows` 4 行（恢复 R2 轮真值，Σ = **1,774** == `SIDEPANEL_RE_REGISTRATIONS['v3-4-r2']` 的 366,755 → 368,529）与 `r3RoundRows` 的 sidepanel 行（**59,416 → 61,216 / Δ 1,800**，与 `v41RoundRows` 的 `beforeBytes = 61_216` 互证）；同时订正张冠李戴的注释（该组实为 **R2** 轮，原注释写 R1 且 Σ 值取自 R1 归因实验的模块和 3,623 —— 两处历史错配一并说明）。新判据：每行 Δ 自洽 ∧ Σ + glue == 该轮登记总增量（组 ↔ 登记 id 映射在基线自身，测试零魔数）+ 反证（Δ 混用 / Σ 脱钩 / glue 不符 / 空组 / before ≤ 0 均判红）。 |
+| **N-06** | 低 | ✅ **修（订正）** | `build.md` §C.1 I5 行 + v4 台账 `counts.nodeTestRuntime.note` | 「18 条」→ **19 条**（`grep -c '^test(' test/theme.test.ts` = 19，实跑 19/19），两处均带订正注说明原值为笔误。纯登记保真，不影响任何验收锚点。 |
+| **N-07** | 低（环境） | 📌 **登记（复跑纪律）N-07（收口轮）** | v4 台账 `knownLimitations[KL-N-07]` + 本附录 | `test:page-input` 首轮 98/4（并发残留 Chromium）→ **隔离复跑 102/0 ×2**、历史 9 次全绿 ⇒ 判为环境 flake。纪律：串行链一次一个 Chromium；首轮异常**必须**隔离复跑 ×2 并以复跑结果为准；日志全量落盘禁 tail 截断；与 `test:binding` 的宿主敏感性同类处理（R3 已登记）。本轮不改该门禁语义（避免越权修改既有门禁）。 |
+| **N-08** | 低 | 📌 **登记（不变量口径）N-08（收口轮）** | v4 台账 `knownLimitations[KL-N-08]` + 本附录 | `build.mjs` 把 `__BUILD_STAMP__ = new Date().toISOString()` 注入 bundle ⇒ 同一源码两次构建 **sha 不同、字节同**（R3 `d92935f2…` → 复构建 `6fbd16c2…`，均 385,319 B）。故跨构建不变量 = **字节数 + metafile 逐模块归因 + 门禁**；sha 只在**同一构建会话内**有效 —— 这正是 hardening `C#2`（诊断显示构建标记）/`C#3`（页面构建 ≠ background 构建时给出「重新加载」提示）所依赖的事实。`content.js` / `pick-layer.js` 无构建戳，其 sha 仍是稳定不变量。 |
+
+**汇总**：修 = 4（N-01 / N-04 / N-05 / N-06）· 登记 = 3（N-02 / N-07 / N-08）· 移交 = 1（N-03）· 未处置 = **0** · 放宽阈值/上限 = **0** · 删除断言 = **0**。
+
+## D.2 本轮新增断言与登记（只增不减）
+
+| 文件 | 新增内容 | 计数影响 |
+|------|---------|:--:|
+| `test/ui/density.mjs` | RP-V4-06 由「注入 → `sleep` → 另一次调用」（竞态 + 半段恒真）改为**同一同步块的原子探针**：前置 `guard PASS` ∧ 口径 C1 == 5 → 注入后 `guard` 必须抛错 ∧ 口径 C1 必须 **5 → 4** ∧ 未排除口径整页计数**不变**（归因对照）→ 还原后 `guard PASS` ∧ C1 回 5（共 7 条判据） | 反证模式专用（正常 `test:density` 计数不变 = 171） |
+| `test/size-baseline.ts` | `roundRowRegistrationIds` 映射（closeoutRoundRows→`v3-4-r2`、r3RoundRows→`v3-4-r3`、v41RoundRows→`v4-1`）+ 5 行历史值复原 + 两处订正注 | — |
+| `test/size-growth-evidence.test.ts` | 「全部 round rows 自洽 ∧ Σ == 登记总增量」+ 反证 | +2 node 用例 |
+| `test/supersession-ledger.test.ts` | counts↔门禁日志同源判据（含 `countSourceProblems` 纯函数 + 反证）+ validateFindings 处置登记判据（含 `validateFindingProblems` 纯函数 + 反证） | +4 node 用例 |
+| `docs/v4-supersession-ledger.json` | `counts` 实测订正 + 四项 `source`（R3 现场原文逐字保留在 `noteHistory`）；新增 `supersession` 计数；新增 `validateFindings[]`（N-01~N-08）与 `knownLimitations[]`（KL-N-02/N-07/N-08）；`leafBases[0].registeredUncoveredLines` 追加 5 条逐字行（N-05 注释改写）+ `summary` 口径订正；`staticCalibers` 读数复算 1045/892/881 | — |
+| `docs/v4-density-baseline.json` | `knownLimitations` 追加 2 条（N-01 口径双轨期说明 / N-02 双层防线）+ `closeoutNote` | —（31 格实测值与阈值逐字不变） |
+| `.sddu/.../specs-tree-v4-2-chat-stream-model/tasks.md` | **TASK-613** 跨叶移交任务（+ 602 加注 + 拓扑/汇总/修订记录） | 非本叶产物 |
+
+## D.3 反证与「演示红」记录（N-01 / N-04 / N-05）
+
+| # | 判据 | 演示红（注入/期望值错） | 还原后 |
+|:--:|------|------|------|
+| N-01 | 「注入 ⇒ 产品口径 C1 必须 5 → 4」 | 期望值临时改为 `before.scoped - 2` ⇒ `test:density --reverse RP-V4-06` **必红**（`exit=1`，诊断 `5 → 4`；日志 `density-reverse-RP-V4-06-demo-red.log`） | 还原期望值 ⇒ 逐字节一致（`diff -q` 通过）+ RP-V4-06 **9/9 绿**（连跑 3 次） |
+| N-01（附带） | 竞态可复现性 | 原「注入 + `sleep(150)` + 另一次调用」形态实测出现过：守卫 `pass` + 还原时 `#theme-toggle` 不在文档中（`appendChild ... not of type 'Node'`）—— 证明跨调用注入是竞态而非证明 | 改为**同一同步块**原子探针后连跑 3 次全绿（`density-reverse-RP-V4-06{,run2,run3}.log`） |
+| N-04 | counts 与门禁日志同源 | 合成反证（in-gate，随 `npm test` 执行）：observed 与 currentRuntime 脱钩 / observedLine 不命中 pattern / 日志实测不符 / 缺 source ⇒ 逐条判红 | 真实台账必绿：本轮 `npm test` 实录 **「counts 同源机核：4 项与门禁日志逐条相等」** |
+| N-05 | round rows Δ 自洽 ∧ Σ == 登记总增量 | 合成反证（in-gate）：Δ=999 ≠ after−before / Σ+glue 脱钩 / glue 不符 / 空组 / beforeBytes ≤ 0 ⇒ 逐条判红 | 三组真实 rows 必绿（Σ = 1,774 / 6,573 / 10,075+142） |
+| N-01~N-08（登记完整性） | 8 项处置逐条登记 ∧ 跨文件锚点可定位 | 合成反证（in-gate）：漏项 / 塞入无关项 / 非法 disposition / 过短证据 / 锚点定位不到 / 锚点文件缺失 / 锚点过短 ⇒ 逐条判红 | 真实台账必绿：`npm test` 实录 **「validateFindings：8 项 → fixed=4 / registered=3 / handed-over=1（锚点逐条可定位）」** |
+| N-04/N-05 的**污染形态回放** | 实证判据能抓住 `5cf1ba8` 那类改写 | 合成反证里的 `Δ=999` 用例正是「把 deltaBytes 换成累计口径」的形态；counts 脱钩用例正是「l0 203 vs 实测 210」的形态 | — |
+
+## D.4 门禁复跑（受影响门禁 + 全量确认；日志 `/tmp/opencode/v4-gate-logs/v4-1-closeout/`）
+
+| 门禁 | 退出码 | 计数 | 下界 | 结论 |
+|------|:--:|:--:|:--:|:--:|
+| `typecheck` | 0 | 0 error | 0 | ✅ |
+| `build` | 0 | sidepanel 385,319 B（零 TS 改动 ⇒ 字节不变） | — | ✅ |
+| `npm test` | 0 | **881 / 881 pass / 0 fail / 0 skipped** | ≥ max(646, 875) | ✅（round-rows + counts 同源 + validateFindings 共 +6 条；validate R1 的 875 → 881） |
+| `test:supersession` | 0 | **28 / 28** | ≥24 只增 | ✅（+4：N-04 ×2 / N-01~N-08 ×2） |
+| `test:density` | 0 | **171 / 0**（+ `--reverse RP-V4-06` 实跑） | ≥127 | ✅（阈值 `7/15 · 9/20 · 17/35` 逐字不变；容差 3 不变） |
+| `test:l0` | 0 | **210 / 0** | ≥164 | ✅（台账 counts 已同步） |
+| 其余门禁（`gate-integrity` / `zero-injection` / `page-input` / `l1` / `l2` / `journey` / `insight` / `binding` / `hardening` / `e2e` / `design-contract` / `l1-reverse` / `l2-reverse`） | 0 | 12 / 27 / 102 / 108 / 73 / 167 / 116 / 192 / 24 / PASS / 6 / 9 / 10 | 逐项下界 | ✅（详细逐项见 D.5 的汇总日志） |
+| 不动面 | — | `content.js` 177,076 / `pick-layer.js` 33,900 逐字节不变；本轮 `src/**` 零改动 | — | ✅ |
+| 红线 | — | 密度阈值 / 体积上限 / `CHROMIUM_GATES.length === 9` / `EXPECTED_AUDITED_FILES` / `docs/v3-*` 均零改动 | — | ✅ |
+| RP-V4-01~07（`--reverse`，逐条实跑） | 0 ×7 | 7/7 全绿（RP-V4-06 改为原子探针后连跑 3 次 9/9；含 N-01 的演示红→还原→绿） | 7 | ✅ |
+
+## D.5 counts 实测与台账同源（抽样 4 项）
+
+| 口径 | 台账（订正后） | R3/validate 现场值 | 门禁日志 | 同源机核 |
+|---|--:|--:|---|:--:|
+| `l0` | **210** | 203（R3）→ 210（validate） | `test-l0.log`（`▶ L0 运行时门禁: 210 passed / 0 failed`） | ✅ 机核 |
+| `density` | **171** | 169（R3）→ 171（validate） | `test-density.log`（`▶ density 门禁: 171 passed / 0 failed`） | ✅ 机核 |
+| `nodeTestRuntime` | **881** | 875（validate） | `test.log`（`ℹ tests 881`） | ✅ 机核 |
+| `supersession` | **28** | 24（validate） | `test-supersession.log`（`ℹ tests 28`） | ✅ 机核 |
+
+> 同源机核 = `test/supersession-ledger.test.ts` 的 counts↔日志判据在本轮 `npm test` 内**实跑**（日志在该路径存在时强制逐条相等；不存在才显式 skip）。台账 `counts` 与门禁日志因此不再可能静默脱钩。
+
+## D.6 未完成 / 交接
+
+- **本叶内：无未完成项**（N-01~N-08 处置率 8/8）。phase 保持 `validated`（收口不降级）。
+- **下游义务（本叶已登记，非本叶缺口）**：① **N-03 → v4-2 TASK-613**（卡预算 × 常驻入口准入重审：裁决或收紧，禁默认沿用；完成时必须更新 `knownLimitations[0]` 状态）；② `data-transitional-host` 占位宿主 4 个待 v4-4 清零；③ `PENDING_ABSOLUTE_CAP` 待 v4-4 带值闭合；④ N-02 的「第一层形态/位置反向判定」需改 `toolbar.ts` 时一并落地。
+- **风险**：`test:page-input` / `test:binding` 的宿主环境敏感性（N-07 / R3 已登记）—— 隔离复跑纪律已写入台账 `knownLimitations`。
+
+## D.7 修订记录（续）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v5.0 | **收口轮（处置 validate R1 的 N-01~N-08）**：N-01 RP-V4-06 半段改用产品口径（+对照段，演示红）；N-02 双层防线登记；N-03 移交 v4-2（TASK-613）；N-04 台账 counts 实测订正 + counts↔门禁日志同源机核；N-05 round rows 5 处复原 + Σ==登记总增量机核；N-06 theme.test.ts 18→19；N-07 page-input flake 复跑纪律登记；N-08 sidepanel sha 非不变量登记。新增 node 用例 6 条（含 3 条反证），`npm test` 875 → **881**；`test:supersession` 24 → 28；`test:density` 171 / `test:l0` 210 与台账同源。**零生产代码改动、零阈值放宽、零断言删除**。 | 2026-09-19 | SDDU Build Agent（v4-1 收口轮） |
