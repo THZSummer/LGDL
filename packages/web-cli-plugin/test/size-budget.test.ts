@@ -247,12 +247,23 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
   // 本产物只承载面板侧接线（view-model / sidepanel / risk-rail / shell）。
   // R1 缺陷修复轮（2026-09-17，收口后）：按真实产物**显式提升**至 366,755 B（+3,978 B，+1.10%）——
   // 「无有效站点声明时拾取引用出生即死」的修复（SW declarationStatus + 摄取补全捕获事实 + D4 状态一致性）
-  // 与引用回合 busy 残留修复，六处改动全在既有模块（逐模块归因见 SIDEPANEL_GROWTH_BREAKDOWN.closeoutRoundRows）；
+  // 与引用回合 busy 残留修复；**该轮**六处改动全在既有模块（逐模块归因见
+  // SIDEPANEL_GROWTH_BREAKDOWN.closeoutRoundRows —— 注意：那是 **R1 轮**的表，不是当前轮）；
   // content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变（sha256 复核）。
-  // ceiling 由公式抬高 floor(368,529 × 1.05) = 386,955 B；容差 5% 未动、cap 仍 record-only、+1 B 反证在新 ceiling 上重跑。
+  // ceiling 由公式抬高 floor(368,529 × 1.05) = 386,955 B；容差 5% 未动、cap 仍 record-only。
+  // 〖review 修复轮 I13③〗本注释块是**历史链**（R1 → R2 → R3 → v4-1），此前停在 R1、
+  // 且上一轮 ceiling 说明仍写 R1 的 385,092 B，容易被误读成「当前轮」；现补全 v4-1 轮并订正。
+  // R2 缺陷修复轮（2026-09-17）：366,755 → 368,529 B（退避 + 稳态显示；四处既有模块接线）。
+  // R3 缺陷修复轮（2026-09-17）：368,529 → 375,102 B（引用重锚救援；五处既有模块接线，
+  // 逐模块归因见 SIDEPANEL_GROWTH_BREAKDOWN.r3RoundRows）。
+  // v4-1 三区骨架轮（2026-09-19，leaf specs-tree-v4-1-zone-shell-density）：375,102 → **385,319 B**
+  // （+10,217 B，+2.72%）：三区骨架 + 工具栏/状态栏/主题 + 密度口径单源（4 个新必需模块 + 7 处接线
+  // / 2 处退役面收缩，逐模块归因见 SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows）；
+  // content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变（sha256 复核）。
   assert.equal(SIDEPANEL_BASELINE_BYTES, 385_319);
   // previousBaselineBytes 是 GROWTH_BREAKDOWN 的**参照树**基线（v3-1 I6 的 295,225 B），不是上一轮登记值；
-  // previousCeilingBytes 是**本轮之前**的 ceiling（R1 的 385,092 B）。
+  // previousCeilingBytes 是**本轮（v4-1）之前**的 ceiling = **393,857 B**（R3 缺陷修复轮的
+  // floor(375,102 × 1.05)）。〖review 修复轮 I13③〗原注释写「R1 的 385,092 B」是过时链（已订正）。
   assert.equal(SIDEPANEL_BASELINE_META.previousBaselineBytes, 295_225);
   assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 393_857);
   assert.equal(SIDEPANEL_BASELINE_META.direction, 'raised');

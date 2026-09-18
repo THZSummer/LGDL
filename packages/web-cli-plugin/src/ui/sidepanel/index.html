@@ -1189,7 +1189,12 @@
         <button id="l2-entry-audit" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="view-host" title="审计（零明文）" data-chrome-control="toolbar"><span class="view-label">审计</span> <span class="badge" data-count="">…</span></button>
         <button id="l2-entry-settings" class="view-btn" type="button" data-toolbar-slot="view" aria-expanded="false" aria-controls="settings-view" title="设置（含站点与授权）" data-chrome-control="toolbar"><span class="view-label">设置</span> <span class="badge" data-count="">…</span></button>
       </nav>
-      <button id="theme-toggle" type="button" data-toolbar-slot="theme" aria-expanded="false" aria-pressed="false" data-theme-state="auto" aria-label="切换主题（当前：跟随系统）" title="切换主题：跟随系统 → 浅色 → 深色" data-chrome-control="toolbar">主题</button>
+      <!-- 主题按钮是**循环**按钮（auto→light→dark），不是展开器：只带
+           `aria-pressed` + `data-theme-state` + 可见文案三通道，**不带** `aria-expanded`
+           （review 修复轮 I12：原 `aria-expanded="false"` 无 `aria-controls`，
+           是悬空/失真 ARIA；由 l0.mjs ⑧b 的「凡 aria-expanded 必有可解析 aria-controls」
+           反向断言机器守护）。 -->
+      <button id="theme-toggle" type="button" data-toolbar-slot="theme" aria-pressed="false" data-theme-state="auto" aria-label="切换主题（当前：跟随系统）" title="切换主题：跟随系统 → 浅色 → 深色" data-chrome-control="toolbar">主题</button>
     </header>
 
     <!-- ══ 区二（V4-1 / ADR-V4-017）：聊天流（唯一交互面） ══════════════════

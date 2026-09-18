@@ -835,13 +835,20 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   unattributedHelperDeltaBytes: 598,
   /** 模块路径互不相同（无重复模块）；共享 v2 模块增量为 0（复用非复制）。 */
   duplicationCheck:
-    '输入模块数 53（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53；R2 仍是 53 —— 不新增模块），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +
+    '输入模块数 **57**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows 的 new-required-module 行），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +
     'src/insight/ownership-tree.ts（首次被侧栏 bundle 引用 → 共享而非复制）—— 审计/命令目录/树视图复用既有投影模块；' +
     'l2/{counts,view-host,command-catalog,audit}.ts 与 settings/sections.ts 与 ui/sidepanel/pick-input.ts 各只有**一份**实现（v3-4 的页面侧代码全部在 ' +
     '独立 artifact `dist/pick-layer.js`，不重复进本 bundle）；R1 不新增模块 —— 六处改动全部落在既有模块（ref-validity / sidepanel / pick-input / ref-store / chat-state / view-model），' +
     '声明状态的**唯一**生产者仍是 SW 的 `declarationEnv()`（面板只透传，无第二套状态机）；' +
     'R2 只改既有 4 个模块（view-model / sidepanel / risk-rail / shell），退避调度器在 `src/discovery/auto-probe.ts`（**service-worker bundle**，不进本产物）—— 没有任何被复制的第二份实现；' +
-    'R3 只改既有 5 个模块（pick-input / sidepanel / ref-validity / panels / ref-store，输入模块数仍 53 —— 不新增模块），只读探测在 `src/background/ref-rescue.ts`（**service-worker bundle**，不进本产物）—— 同样没有任何被复制的第二份实现。',
+    'R3 只改既有 5 个模块（pick-input / sidepanel / ref-validity / panels / ref-store；R3 段输入模块数仍 53 —— 不新增模块），只读探测在 `src/background/ref-rescue.ts`（**service-worker bundle**，不进本产物）—— 同样没有任何被复制的第二份实现。' +
+    '〖review 修复轮 I8〗本字段原记「输入模块数 53 … R2 仍是 53」而真实 metafile 的 inputs 已随 v4-1 变为 **57**；已按实测订正，并由 `test/size-growth-evidence.test.ts` 增加「`Object.keys(inputs).length` == 登记输入模块数」的联动断言（登记值与真实 metafile 不得脱钩）。',
+  /**
+   * 真实 `dist/build-meta.json` 的 `inputs` 条目数（**机核值**，review 修复轮 I8）。
+   * `duplicationCheck` 的散文里写「输入模块数 57」；这个字段让数字可被 metafile 直接核对
+   * （`size-growth-evidence.test.ts`：`Object.keys(inputs).length === duplicationCheckInputModuleCount`）。
+   */
+  duplicationCheckInputModuleCount: 57,
   /**
    * **最近一轮（R1 缺陷修复轮）自身的逐模块增量**（870cb6e 工作树 → R1 工作树），同几何实测
    * （`npm run size:attribution -- --rev 870cb6e --rev WORKTREE`；Σ = +3,623 B == 真实产物差）。
@@ -867,6 +874,39 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: 15_110, afterBytes: 16_154, deltaBytes: 1_044 },
     { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: 3_979, afterBytes: 4_201, deltaBytes: 222 },
   ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
+  /**
+   * **v4-1 三区骨架轮自身的逐模块增量**（R3 工作树 375,102 B → v4-1 工作树 385,319 B），
+   * 与真实 metafile 同几何实测：
+   *
+   *   · 四个**新必需模块**（beforeBytes=null）：toolbar +3,111 / theme +2,937 /
+   *     density-scope +1,783 / statusbar +976 = **+8,807**；
+   *   · 既有模块接线：sidepanel +1,177 / view-model +398 / risk-rail +1,288 / shell +161 /
+   *     l2/view-host +1 = +3,025；
+   *   · 退役面收缩：disclosure −130 / l0/status-bar −1,627 = **−1,757**；
+   *   · Σ 模块增量 = **+10,075**，加未归因胶水 **+142** == {@link SIDEPANEL_GROWTH_BREAKDOWN.closeoutDeltaBytes} **+10,217**
+   *     （== 385,319 − 375,102）。
+   *
+   * **review 修复轮 I9**：这一组数字此前只出现在 `SIDEPANEL_BASELINE_META.reason` 的
+   * 叙述里、**没有任何门禁断言**（`size-growth-evidence.test.ts` 当时只核 `rows` 累计口径的
+   * `afterBytes`）。现在登记为 `v41RoundRows` + `v41RoundUnattributedGlueBytes`，并由该
+   * 测试逐条机核：Σ(deltaBytes) + glue == `closeoutDeltaBytes`，且每行 `afterBytes` 必须等于
+   * 真实 `dist/build-meta.json` 的 `bytesInOutput`。
+   */
+  v41RoundRows: [
+    { module: 'src/ui/sidepanel/toolbar.ts', beforeBytes: null, afterBytes: 3_111, deltaBytes: 3_111 },
+    { module: 'src/ui/sidepanel/theme.ts', beforeBytes: null, afterBytes: 2_937, deltaBytes: 2_937 },
+    { module: 'src/ui/sidepanel/density-scope.ts', beforeBytes: null, afterBytes: 1_783, deltaBytes: 1_783 },
+    { module: 'src/ui/sidepanel/statusbar.ts', beforeBytes: null, afterBytes: 976, deltaBytes: 976 },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 61_216, afterBytes: 62_393, deltaBytes: 1_177 },
+    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 19_256, afterBytes: 19_654, deltaBytes: 398 },
+    { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 6_410, afterBytes: 7_698, deltaBytes: 1_288 },
+    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_997, afterBytes: 4_158, deltaBytes: 161 },
+    { module: 'src/ui/sidepanel/l2/view-host.ts', beforeBytes: 3_206, afterBytes: 3_207, deltaBytes: 1 },
+    { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 5_318, afterBytes: 5_188, deltaBytes: -130 },
+    { module: 'src/ui/sidepanel/l0/status-bar.ts', beforeBytes: 1_694, afterBytes: 67, deltaBytes: -1_627 },
+  ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
+  /** v4-1 轮的未归因运行时胶水（Σ 模块增量之外的余量）；断言见 size-growth-evidence.test.ts。 */
+  v41RoundUnattributedGlueBytes: 142,
   rows: [
     { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: null, afterBytes: 16_154, deltaBytes: 16_154, kind: 'new-required-module', requiredBy: 'FR-V3-031/032/037/038/039（八类就地展开、后果两段、阻断呈现、两条恢复、回执三件套）+ FR-V3-070（手势表由单一清单渲染）+ R3（条件式「一键重锚」按钮 + `canReanchor()` 纯判据 + 报告）' },
     { module: 'src/ui/sidepanel/l2/command-catalog.ts', beforeBytes: null, afterBytes: 6_106, deltaBytes: 6_106, kind: 'new-required-module', requiredBy: 'FR-V3-049/053（命令目录逐条有档 + delay 单源措辞 + 硬底线零控件 + 分列）' },

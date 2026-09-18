@@ -303,6 +303,92 @@ test('V3-VOL-1 ③ growth: the real esbuild metafile agrees with the recorded br
   );
 });
 
+// ── ③c V4-1 round rows + input-module count (review fix round I8/I9) ─────────
+
+test('V3-VOL-1 ③(V4-1) growth: the v4-1 round rows sum to `closeoutDeltaBytes` (I9)', () => {
+  const b = SIDEPANEL_GROWTH_BREAKDOWN;
+  assert.ok(Array.isArray(b.v41RoundRows) && b.v41RoundRows.length > 0, 'v4-1 轮的逐模块增量必须登记（不得只在 reason 叙述里）');
+  for (const row of b.v41RoundRows) {
+    assert.ok(row.module.endsWith('.ts'), `${row.module}: 必须是源码模块路径`);
+    assert.equal(
+      row.deltaBytes,
+      row.afterBytes - (row.beforeBytes ?? 0),
+      `${row.module}: Δ 必须自洽（after − before）`,
+    );
+  }
+  const rowSum = b.v41RoundRows.reduce((s, r) => s + r.deltaBytes, 0);
+  assert.equal(
+    rowSum + b.v41RoundUnattributedGlueBytes,
+    b.closeoutDeltaBytes,
+    'v4-1 轮逐模块增量之和 + 未归因胶水必须 == closeoutDeltaBytes（本轮数字不得无断言）',
+  );
+  // 本轮增量必须自洽于「基线 − 前值」：closeoutDeltaBytes == 385,319 − 375,102。
+  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 375_102);
+  // 新必需模块（beforeBytes=null）恰好 4 个（toolbar / theme / density-scope / statusbar）。
+  const newModules = b.v41RoundRows.filter((r) => r.beforeBytes === null);
+  assert.equal(newModules.length, 4, `v4-1 新增必需模块必须恰为 4 个（实测 ${newModules.length}）`);
+});
+
+test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real metafile (I9)', (t) => {
+  const metaPath = distArtifact('build-meta.json');
+  let exists = false;
+  try {
+    exists = existsSync(metaPath);
+  } catch {
+    exists = false;
+  }
+  if (!exists) {
+    t.skip('dist/build-meta.json not present — run `npm run build` to emit the esbuild metafile');
+    return;
+  }
+  const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as {
+    outputs: Record<string, { bytes: number; inputs: Record<string, { bytesInOutput: number }> }>;
+  };
+  const outKey = Object.keys(meta.outputs).find((k) => k.endsWith('sidepanel.js'));
+  assert.ok(outKey, 'metafile 必须含 sidepanel.js 输出');
+  const inputs = meta.outputs[outKey as string].inputs;
+  const paths = Object.keys(inputs);
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows) {
+    const key = paths.find((p) => p.endsWith(row.module));
+    assert.ok(key, `metafile 缺少 v4-1 轮模块 ${row.module}`);
+    assert.equal(
+      inputs[key as string].bytesInOutput,
+      row.afterBytes,
+      `${row.module}: 真实 metafile bytesInOutput ${inputs[key as string].bytesInOutput} ≠ v4-1 轮登记 ${row.afterBytes}`,
+    );
+  }
+});
+
+test('V3-VOL-1 ③ growth: the registered input-module count equals the real metafile inputs (I8)', (t) => {
+  // review 修复轮 I8：`duplicationCheck` 曾写「输入模块数 53」而真实 metafile 已随 v4-1 变为 57。
+  // 散文里的数字必须是可核的：登记值 == `Object.keys(inputs).length`（登记 ↔ 实测 不得脱钩）。
+  const registered = SIDEPANEL_GROWTH_BREAKDOWN.duplicationCheckInputModuleCount;
+  assert.equal(typeof registered, 'number', '必须登记可核的输入模块数（不得只写在散文里）');
+  assert.match(SIDEPANEL_GROWTH_BREAKDOWN.duplicationCheck, new RegExp(String(registered)), '散文里的模块数必须与登记值一致');
+  const metaPath = distArtifact('build-meta.json');
+  let exists = false;
+  try {
+    exists = existsSync(metaPath);
+  } catch {
+    exists = false;
+  }
+  if (!exists) {
+    t.skip('dist/build-meta.json not present — run `npm run build` to emit the esbuild metafile');
+    return;
+  }
+  const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as {
+    outputs: Record<string, { bytes: number; inputs: Record<string, { bytesInOutput: number }> }>;
+  };
+  const outKey = Object.keys(meta.outputs).find((k) => k.endsWith('sidepanel.js'));
+  assert.ok(outKey, 'metafile 必须含 sidepanel.js 输出');
+  const paths = Object.keys(meta.outputs[outKey as string].inputs);
+  assert.equal(
+    paths.length,
+    registered,
+    `真实 metafile inputs=${paths.length} ≠ 登记输入模块数 ${registered}（登记值与实测脱钩）`,
+  );
+});
+
 // ── ④ directional guard (>15% over two consecutive rounds ⇒ report) ─────────
 
 test('V3-VOL-1 ④ directional guard: two consecutive feature rounds >15% MUST raise a reportable alert', () => {

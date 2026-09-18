@@ -429,18 +429,23 @@
   "counts": {
     "countMethod": "runtime-check-calls",
     "cells": 31,
+    "machineComparedCells": 28,
+    "nominalCells": 3,
     "composition": "9 强制（3 档 × 3 视口；risk 档那一行由 15 个风险子场景格承载）+ 15 风险子场景 + 3 空态（empty）+ 3 风险详情展开（riskDetailOpen）+ 1 worst = 31",
-    "note": "TASK-511/512 收口：31 格全部**实跑**登记（禁推测值）；6 个新增格于 2026-09-19 实测（empty 184/184/187 · riskDetailOpen 239×3）。"
+    "nominalNote": "〖review 修复轮 I10〗**31 登记格 = 28 实测机对 + 3 名义**：`risk` 档在 3 档 × 3 视口矩阵里占 3 格（risk@320/400/520），但这 3 格不与 default/firstRun 行同构 —— 它们由 15 个风险子场景格（5 子场景 × 3 视口）承载，**不另立测量**。因此 density.mjs 阶段 F 实际逐格机对的是 28 格（default×3 + firstRun×3 + 15 风险子场景 + riskDetailOpen×3 + empty×3 + worst×1），另 3 格是登记口径的名义格。",
+    "charsSpreadMax": 3,
+    "charsSpreadRootCause": "〖review 修复轮 I6 实测根因〗默认档 `chars` 跨视口差 = **审计计数跨位数**：default 审计 2 → 6 → 10（第 3 格由 1 位变 2 位）、empty 审计 92 → 96 → 100（第 3 格由 2 位变 3 位）；`#l2-entry-summary` / `#l2-entry-audit .view-label` / `#l2-entry-audit .badge` 三处各 +1 字符 ⇒ 差 3。**不是**几何/`nowrap+ellipsis`（CSS ellipsis 不改 `textContent`）；证据 = density.mjs `charsAttribution()` 的逐格真值日志（阶段 B / B2）。容差因此取实测上界 3（原 8 偏松，已收紧）。",
+    "note": "TASK-511/512 收口：31 格全部**实跑**登记（禁推测值）；6 个新增格于 2026-09-19 实测（empty 184/184/187 · riskDetailOpen 239×3）。〖review 修复轮 I10〗机对格数以 `machineComparedCells` 显式分列，消除「31 vs 28」双数并存。"
   },
   "knownLimitations": [
     "过渡形态的卡口径：v4-1 的 `#l0-decision` 仍是被取代容器的内容体（v4-3 换成 `askuser`/`auth` 卡），本叶**不**把它计为「卡」，因此 RP-V4-01/02/03 以注入 `[data-msg-type]` 卡来证明单卡/首屏预算真的会红；v4-2 落 7 主类卡后，本口径必须重审（v4 收口时 `data-transitional-host` 清零，见 ADR-V4-005 第 6 条）。",
-    "empty 档的 `chars` 跨视口差 3（184→187）：与 default 档同因（站点摘要 `nowrap+ellipsis`），非产品漂移；empty 档不参与「default 三视口结构逐项相等」的确定性判据（后者只对 default 档生效）。",
+    "empty 档的 `chars` 跨视口差 3（184→187）：与 default 档**同因** —— 审计计数跨位数（empty 实测 92 → 96 → 100），非几何/省略号导致的漂移（〖review 修复轮 I6〗原归因「站点摘要 `nowrap+ellipsis`」不成立：CSS ellipsis 不改 `textContent`；实测根因见 counts.charsSpreadRootCause）；empty 档不参与「default 三视口结构逐项相等」的确定性判据（后者只对 default 档生效）。",
     "风险子场景 `staleRef` 的 `chars` 对视口不敏感（203×3），但该格对**夹具序**敏感：新增登记格必须在既有 A/B/C 之后执行（density.mjs 已如此排布），否则会静默改变既有格的实测值。"
   ],
   "differencesFromV3": [
-    "测量根：v3 = #panel-main（已退役）→ v4 = document.body（三区骨架 + 状态栏为 body 直挂）。",
+    "测量根：**不变**（v3 = document.body，见 docs/v3-density-baseline.json#caliber.measurementRoot；v4 = document.body）。真实差异是 v4 新增**豁免子树** DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]。〖订正注（review 修复轮 I3）〗本条曾误写「v3 = #panel-main（已退役）」——#panel-main 是 v3 的**区容器**，不是测量根；v3 的测量根自 v2 起即为 document.body（父 ADR-V3-001 明文），此处**订正为与 v3 基线逐字一致**，历史误述不在本文件保留（其原文见 git 历史）。",
     "豁免子树：新增 DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]（流本体不计入密度预算；单源 density-scope.ts），并以「单卡 ≤6 / 首屏 ≤2」两条防滥用 + RP-V4-01~03 补偿控制。",
-    "几何口径：v3 = 「#log ≥ 589px 像素下界」→ v4 = 「#stream clientHeight ≥ 488px ∧ #region-stream 高度占比 ≥ 0.65」（比例下界取代像素下界，只允许上调）。",
+    "几何口径：v3 = 「#log ≥ 488px 像素下界」（v3 末轮登记值：docs/v3-density-baseline.json#logClientHeightFloor = 488；**589px 是 v1 历史锚**，在 v3-1 已被取代）→ v4 = 「#stream clientHeight ≥ 488px ∧ #region-stream 高度占比 ≥ 0.65」（比例下界取代像素下界，只允许上调）。〖订正注（review 修复轮 I3/I13）〗本条曾误以 589px 指代 v3 几何锚 —— 已按 v3 基线实测值订正；589px 表述仅作为 v1 历史锚保留在上述括注内。",
     "格集：v3 = 9 强制 + 15 风险 + 1 worst（22 格）→ v4 = 31 格（9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst）；v3 的 22 格冻结在 v3-density-baseline.json，不再参与判定。",
     "composer：v3 = 常驻贴底（D-079）→ v4 = 法四（默认屏无可见常驻输入框；#composer 存在时必须 hidden，展开态位于 #stream 流内占位宿主）。",
     "方向声明：以上全部是**换口径重定标**（收紧或等价），逐格数值与 v3 不可直接比较；v4 的 6 个新增格只增加登记面，不放松任何阈值（7/15 · 9/20 · 17/35 逐字不变）。"

@@ -153,8 +153,8 @@
         },
         {
           "file": "packages/web-cli-plugin/test/size-baseline.ts",
-          "count": 25,
-          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
+          "count": 27,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。 〖review 修复轮〗I3/I6/I8/I9/I10/I13 的注释与断言订正新增的叶段删除行（旧文本被等价改写/订正，语义与断言只增不减：见 build.md「review 修复轮」小节）。",
           "registeredUncoveredLines": [
             "  349_880, 349_925, 362_777, 366_500, 366_755, 368_529, 375_102,",
             "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 375_102;",
@@ -180,20 +180,25 @@
             "    { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 4_547, afterBytes: 5_318, deltaBytes: 771, kind: 'wiring', requiredBy: 'FR-V3-031（白名单 4 → 9 个目标 + 5 条 wiring）；v3-4 复核：数值未变（本叶不改折叠白名单）' },",
             "    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 3_997, deltaBytes: 646, kind: 'wiring', requiredBy: 'FR-V3-047（入口路由交还 view-host）+ FR-V3-068（风险区「页面侧不可用（原因）」行，风险位唯一写入者不变）+ R2（稳态 override 透传，风险位唯一写入者不变）' },",
             "    { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 5_665, afterBytes: 6_410, deltaBytes: 745, kind: 'wiring', requiredBy: 'FR-V3-037（失效行可读原因；风险位唯一写入者不变）+ R2（稳态「低频自动复查中」override：同类、三通道、参与重绘签名）' },",
-            "    { module: 'src/ui/sidepanel/l0/status-bar.ts', beforeBytes: 1_382, afterBytes: 1_694, deltaBytes: 312, kind: 'wiring', requiredBy: 'FR-V3-015 / FR-V3-046（入口标签 + 面板摘要写入 + 逐目标 aria 对）+ I-01（逐目标 `aria-controls`：设置入口指向 `#settings-view`）' },"
+            "    { module: 'src/ui/sidepanel/l0/status-bar.ts', beforeBytes: 1_382, afterBytes: 1_694, deltaBytes: 312, kind: 'wiring', requiredBy: 'FR-V3-015 / FR-V3-046（入口标签 + 面板摘要写入 + 逐目标 aria 对）+ I-01（逐目标 `aria-controls`：设置入口指向 `#settings-view`）' },",
+            "    '输入模块数 53（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53；R2 仍是 53 —— 不新增模块），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +",
+            "    'R3 只改既有 5 个模块（pick-input / sidepanel / ref-validity / panels / ref-store，输入模块数仍 53 —— 不新增模块），只读探测在 `src/background/ref-rescue.ts`（**service-worker bundle**，不进本产物）—— 同样没有任何被复制的第二份实现。',"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/size-budget.test.ts",
-          "count": 6,
-          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
+          "count": 9,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。 〖review 修复轮〗I3/I6/I8/I9/I10/I13 的注释与断言订正新增的叶段删除行（旧文本被等价改写/订正，语义与断言只增不减：见 build.md「review 修复轮」小节）。",
           "registeredUncoveredLines": [
             "  assert.equal(SIDEPANEL_BASELINE_BYTES, 375_102);",
             "  assert.equal(SIDEPANEL_BASELINE_META.previousCeilingBytes, 386_955);",
             "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(375_102 * 1.05), '未加 cap 的公式值必须被记录');",
             "  assert.equal(over.ceilingBytes, 393_857);",
             "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 393_857);",
-            "  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-17');"
+            "  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-17');",
+            "  // 与引用回合 busy 残留修复，六处改动全在既有模块（逐模块归因见 SIDEPANEL_GROWTH_BREAKDOWN.closeoutRoundRows）；",
+            "  // ceiling 由公式抬高 floor(368,529 × 1.05) = 386,955 B；容差 5% 未动、cap 仍 record-only、+1 B 反证在新 ceiling 上重跑。",
+            "  // previousCeilingBytes 是**本轮之前**的 ceiling（R1 的 385,092 B）。"
           ]
         },
         {
@@ -276,8 +281,8 @@
         },
         {
           "file": "packages/web-cli-plugin/test/ui/density.mjs",
-          "count": 24,
-          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。 【R3 追加】TASK-511 的 12 条删除行（阶段 F 扩展 / RP-V3-01 与 RP-V3-03 等价重锚 / stageE 与 stageF 调用点）逐字附录于此，语义见 entries V41-R3-E-DEN-01~12。",
+          "count": 29,
+          "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。 【R3 追加】TASK-511 的 12 条删除行（阶段 F 扩展 / RP-V3-01 与 RP-V3-03 等价重锚 / stageE 与 stageF 调用点）逐字附录于此，语义见 entries V41-R3-E-DEN-01~12。 〖review 修复轮〗I3/I6/I8/I9/I10/I13 的注释与断言订正新增的叶段删除行（旧文本被等价改写/订正，语义与断言只增不减：见 build.md「review 修复轮」小节）。",
           "registeredUncoveredLines": [
             "const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v3-density-baseline.json');",
             "      log: (() => { const l = document.getElementById('log'); return { sh: l.scrollHeight, ch: l.clientHeight, st: l.scrollTop }; })(),",
@@ -302,7 +307,12 @@
             "  check('RP-V3-03 清除 CSS 隐身并还原后 C1 回到 7', cleaned === baseline, `实测 ${cleaned}`);",
             "  check('RP-V3-03 还原后 C1 回到 7', restored === baseline, `实测 ${restored}`);",
             "      stageE([...rows, { tier: 'risk', vp: 'worst', measured: worst, verdict: evaluateDensity(worst, 'risk') }]);",
-            "      await stageF(cdp, rows, cells, worst);"
+            "      await stageF(cdp, rows, cells, worst);",
+            " *      measured cell (9 mandatory + 15 risk + worst), the geometry floor AND its",
+            " *      source measurement, and the shipped artifact bytes are compared against",
+            " *      `docs/v3-density-baseline.json`; any divergence is a FAIL with a readable",
+            " *      diff (the registry can no longer drift silently).",
+            " * (`docs/v3-density-baseline.json`) and the judgement goes through the SAME"
           ]
         },
         {
@@ -3393,11 +3403,12 @@
       "④ 登记 modifiedRanges[]（base c2c0e0d 行号区间，逐行）—— 已落地",
       "⑤ 计算并写入新 pin（status:\"active\" + supersededFrom）—— 已落地（43054..55259 / sha e2b500df…）",
       "⑥ 计数守恒 ≥167 —— 已落地（实测 journey runtime-check-calls = 167，日志 /tmp/opencode/v4-gate-logs/v4-1-r3/journey.log）",
-      "⑦ redlineRemap[] 三条（≥65% / ≥589px / composer 贴底）—— 已落地（三条 status 均为 landed，逐条带证据）",
+      "⑦ redlineRemap[] 四条（≥65% / ≥488px / composer 贴底 / chars 跨视口相等被取代）—— 已落地（四条 status 均为 landed，逐条带证据；第 4 条为 review 修复轮 I6 补登记）",
       "⑧ RP-V4-08 反证（保护段内改 1 字节 ⇒ 台账门禁 FAIL；段外改 1 字节 ⇒ 不红）—— 已落地（supersession-ledger.test.ts 内 in-gate 反证，改后逐字节还原）"
     ],
     "status": "complete-steps-1-8",
-    "knownGap": "TASK-513（journey 保护段八步）在本轮 build 内**未完成**：`#15a~#15q` 的同编号改写、新 pin 计算、redlineRemap 实跑与 RP-V4-08 反证均未落。已登记为未完成项，不得视为已取代。",
+    "knownGap": "R3 已闭环（残余：无）。八步 ①~⑧ 全部落地并各有可机核证据（见 eightSteps[] / countEvidence / rpV408）；本字段在 status=complete-steps-1-8 时**必须为空或仅声明闭环**，不得再保留 R2 阶段的未竟现场（review 修复轮 I1：由 test/supersession-ledger.test.ts 新增 status↔knownGap 一致性断言机器强制，矛盾即 FAIL）。",
+    "knownGapHistory": "〖历史现场，逐字保留（review 修复轮 I1；R2 阶段原文，已被 R3 取代）〗TASK-513（journey 保护段八步）在本轮 build 内**未完成**：`#15a~#15q` 的同编号改写、新 pin 计算、redlineRemap 实跑与 RP-V4-08 反证均未落。已登记为未完成项，不得视为已取代。",
     "newPin": {
       "file": "packages/web-cli-plugin/test/ui/journey.mjs",
       "startAnchor": "    const layout = await evaluate(sp, `(() => {",
@@ -3491,11 +3502,11 @@
       "evidence": "journey #15b PASS（`opPct >= 65`）；density-metrics.mjs#STREAM_HEIGHT_RATIO_MIN = 0.65（只允许上调）；docs/v4-density-baseline.json#streamRatioSpike 12 格。"
     },
     {
-      "redline": "`#log` 客户端高度 ≥589px（v2 继承）",
-      "from": "589px",
+      "redline": "`#log` 客户端高度 ≥488px（v3 末轮登记值；589px 为 v1 历史锚，v3-1 已被取代）",
+      "from": "488px（v1 历史锚 589px）",
       "to": "STREAM_HEIGHT_RATIO_MIN=0.65（比例下界取代像素下界）",
       "status": "landed",
-      "reason": "像素下界在宽度可变的三区布局下不可移植；改用与视口高度的**比例**下界 `STREAM_HEIGHT_RATIO_MIN=0.65`（只允许上调）。",
+      "reason": "像素下界在宽度可变的三区布局下不可移植；改用与视口高度的**比例**下界 `STREAM_HEIGHT_RATIO_MIN=0.65`（只允许上调）。〖review 修复轮 I13〗本条 from 原写 589px 并以「v2 继承」指代 v3 锚 —— 与事实不符（v3 末轮登记值为 488px，见 docs/v3-density-baseline.json#logClientHeightFloor = 488）；已订正，589px 仅作 v1 历史锚保留。",
       "evidence": "density-metrics.mjs#STREAM_HEIGHT_RATIO_MIN=0.65；等价几何下界 LOG_CLIENT_HEIGHT_FLOOR=488（来源实测最差 748px，density 阶段 F 逐次机对）。"
     },
     {
@@ -3505,6 +3516,14 @@
       "status": "landed",
       "reason": "FR-CHAT-014 / ADR-V4-008：`#composer` 常驻语义退役，等价改写为法四断言（强度提高：从「贴底」变为「默认不可见」）。",
       "evidence": "journey #15c PASS（`#composer.hidden === true ∧ 全文档零可见 input/textarea/select/[contenteditable]`）；density-thresholds.test.ts 法四静态半。"
+    },
+    {
+      "redline": "默认档三视口 `chars` 逐项相等（v3 density.mjs 夹具确定性断言的 chars 分量，0 容差）",
+      "from": "`chars` 逐项相等（0 容差）",
+      "to": "结构四项（C1/C2/C3/C4）逐项相等 ∧ `chars` 跨视口差 ≤ 3（实测上界）",
+      "status": "landed",
+      "reason": "〖review 修复轮 I6〗该语义变更原先**只落在实现里、未登记进 redlineRemap/entries**（登记缺失）。本轮补登记，并给出**实测根因**：`chars` 跨视口差 = 审计计数跨位数（default 审计 2→6→10、empty 92→96→100 ⇒ `#l2-entry-summary` / `#l2-entry-audit .view-label` / `.badge` 各 +1 字符 = 差 3）。v4-1 原注释的「站点摘要 `nowrap+ellipsis` 少显示 3 字」归因**不成立**（CSS ellipsis 不改 `textContent`）。方向不是放宽：容差由 8 **收紧**到实测上界 3，且结构四项仍逐项相等；v3 侧无对应断言面（v3 chars 相等是 v3 内部不变量，被 v4 的计数增长现实取代）。",
+      "evidence": "density.mjs#CHARS_SPREAD_MAX=3（与 `docs/v4-density-baseline.json#counts.charsSpreadMax` 机器同源断言）；阶段 B 的逐格真值日志 `charsAttribution()`（审计 2/6/10）+ `elementsWithKeys.chars` diff 诊断（3 个元素各 +1 字符）；阶段 F 对 default@320/400/520 的 `chars` 逐格机对（漂移即 FAIL）。"
     }
   ],
   "zeroDiffFiles": [
@@ -3537,8 +3556,8 @@
     },
     {
       "file": "packages/web-cli-plugin/test/design-contract.test.ts",
-      "reason": "shim 60 断言门禁化（TASK-514，本轮未完成）。",
-      "status": "pending"
+      "reason": "shim 60 断言门禁化（TASK-514，R3 终收轮已完成：6 条判据 + shim 实跑 60/60 + sha256 冻结 + 60 行映射表 + CARD_TYPES 逐字；package.json#test:design-contract 已入脚本）。〖review 修复轮 I2〗原 status:\"pending\" 是 R2 现场残留，已订正为 complete。",
+      "status": "complete"
     }
   ],
   "toolbarAdmissions": [
@@ -3621,13 +3640,14 @@
       "currentRuntime": 38,
       "floor": 38,
       "countMethod": "runtime-node-tests",
-      "note": "TASK-515 收口实测（R3，2026-09-19）：npm test（dist-test/test/sidepanel-view.test.js） ⇒ 38（下界 38）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm test（dist-test/test/sidepanel-view.test.js） ⇒ 38（下界 38）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮复核〗38 不变（本轮未改 sidepanel-view 断言）。"
     },
     "nodeTestRuntime": {
-      "currentRuntime": 849,
+      "currentRuntime": 875,
       "floor": 832,
       "countMethod": "runtime-node-tests",
-      "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮〗新增 `test/theme.test.ts`（18 条）+ `supersession-ledger.test.ts` 4 条（I1/I2）+ `size-growth-evidence.test.ts` 2 条（I8/I9）⇒ 实测 849 → **875**（floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-1-reviewfix/test.log（全量，未截断）。",
+      "previousRuntime": 849
     }
   },
   "v4GateFloors": {
@@ -3646,7 +3666,7 @@
     "【本叶内已闭合】TASK-513（journey 保护段八步：old 可机核 / 同编号等价改写 / modifiedRanges / 新 pin / 计数 167 / redlineRemap 三条 / RP-V4-08）。",
     "【本叶内已闭合】TASK-514（design-contract.test.ts + package.json#test:design-contract + gate-integrity in-gate 例外扩展）。",
     "【本叶内已闭合】TASK-515（19 项严格串行门禁 + 7 条 RP-V4 反证全绿；counts 实测填充；体积复测 385,319 B）。",
-    "【下游义务，非本叶缺口】`data-transitional-host` 占位宿主当前 5 个（本叶只建不销）：**v4 收口（v4-4 收尾）时必须清零**（ADR-V4-005 第 6 条 / 父 ADR-V4-011）。",
+    "【下游义务，非本叶缺口】`data-transitional-host` 占位宿主当前 4 个（`index.html` 的 `li[data-transitional-host]` 实测：v4-3 × 2 = decision / composer，v4-4 × 2 = l1-panels / strips；本叶只建不销）：**v4 收口（v4-4 收尾）时必须清零**（ADR-V4-005 第 6 条 / 父 ADR-V4-011）。〖review 修复轮 I7〗原记「5 个」是把 `grep -c 'data-transitional-host='` 命中的 1 处 CSS 注释（index.html:1115）误计为宿主；已订正为 4，并由 l0.mjs 断言「hostCount == 登记宿主数」机核（不再是 `> 0`）。",
     "【下游义务，非本叶缺口】`PENDING_ABSOLUTE_CAP` 保持 `resolved:false` 且不预填（父 ADR-V4-010 第 5~8 条）；V3-VOL-3 带值闭合由 v4-4 收口轮执行。",
     "【下游义务，非本叶缺口】v4-2 落 7 主类卡后必须重审「卡口径」（`knownLimitations` 第 1 条：本叶的 `[data-msg-type]` 卡面尚未由产品渲染）。",
     "【登记差异，如实报告】编排器 R3 指令提到「gate-integrity `EXPECTED_AUDITED_FILES` 追加新 Chromium 门禁文件」，但本叶**零新增 Chromium 门禁文件**（ADR-V4-023 第 7 条明令本叶不追加；`CHROMIUM_GATES.length === 9` 不动）。实际追加的是 **in-gate 例外说明 + R4b 模式断言 8 条**（见 build.md R3 章节与 gate-integrity.test.ts）。"
@@ -3662,18 +3682,21 @@
       "readings": {
         "anyWordBoundary": {
           "regex": "\\btest\\(",
-          "count": 990
+          "count": 1027,
+          "previousCount": 990
         },
         "excludingDottedPrefix": {
           "regex": "(?<![\\w.])test\\(",
-          "count": 852
+          "count": 886,
+          "previousCount": 852
         },
         "topLevelColumnZero": {
           "regex": "^test\\(",
-          "count": 841
+          "count": 875,
+          "previousCount": 841
         }
       },
-      "note": "V4-1 段的下界（只增）：v3 的精确值降级为下界，v4 段登记自己的下界；实测 < 下界即 FAIL。"
+      "note": "V4-1 段的下界（只增）：v3 的精确值降级为下界，v4 段登记自己的下界；实测 < 下界即 FAIL。 〖review 修复轮〗读数按当前 `test/*.test.ts` 全量复算（新增 theme.test.ts 等 ⇒ 1027 / 886 / 875）；v3 段的三个原值（990 / 852 / 841）降级为**下界**保留在上述 previousCount，实测 < 原值仍 FAIL。"
     }
   },
   "unfrozenPureAdditionFiles": [

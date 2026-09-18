@@ -98,10 +98,20 @@ interface V4LedgerShape {
     /** V4-1：旧 pin 的复核版本（`git show <leafBase>:<file>`）。 */
     leafBase?: string;
   }>;
-  protectedSupersession?: { old: { file: string; sha256: string }; decision: string; eightSteps?: string[] };
-  redlineRemap?: Array<{ redline: string; from: string; to: string; reason: string }>;
+  protectedSupersession?: {
+    old: { file: string; sha256: string };
+    decision: string;
+    eightSteps?: string[];
+    /** review 修复轮 I1：与 `knownGap` 必须一致的完成度标记。 */
+    status?: string;
+    knownGap?: string;
+    /** review 修复轮 I1：历史现场（R2 阶段）逐字保留字段。 */
+    knownGapHistory?: string;
+  };
+  redlineRemap?: Array<{ redline: string; from: string; to: string; reason: string; status?: string; evidence?: string }>;
   zeroDiffFiles?: string[];
-  pureAdditionFiles?: string[];
+  /** review 修复轮 I2：条目既可以是纯字符串，也可以是带 status 的对象。 */
+  pureAdditionFiles?: Array<string | { file: string; reason?: string; status?: string }>;
   toolbarAdmissions?: unknown[];
   unfrozenZeroDiffFiles?: Array<{ file: string; reason: string }>;
   /** V4-1：v3「纯新增」归类可被 v4 段显式重新归类（换段判定，必须写明理由）。 */
@@ -1024,7 +1034,7 @@ test('ledger(V4 段): v4 台账 schema 齐备（接管声明 / 保护段 / 红�
   assert.equal(v4.countMethod, 'runtime-check-calls', '计数口径唯一合法值');
   assert.ok(v4.takesOverFrom !== undefined || v4.feature.length > 0, '必须写明接管声明/takesOverFrom');
   assert.ok((v4.protectedSupersession?.eightSteps ?? []).length >= 8, 'journey 保护段必须登记八步流程');
-  assert.ok((v4.redlineRemap ?? []).length >= 3, '红线重映射至少三条（≥65% / ≥589px / composer 贴底）');
+  assert.ok((v4.redlineRemap ?? []).length >= 3, '红线重映射至少三条（≥65% / ≥488px / composer 贴底 / chars 跨视口）');
   assert.equal((v4.leafBases ?? []).length, 1, 'v4-1 是本叶唯一叶段');
   for (const r of v4.protectedRanges ?? []) {
     assert.equal(r.status, 'active', `保护段 ${r.file} 必须是 active 的新 pin`);
@@ -1085,3 +1095,117 @@ test('ledger(V4 段)反证: 注入一条未登记删除行必须判 FAIL（v4 �
   const injected = '// RP-V4-08 injected: an unregistered v4 deletion (must FAIL)';
   assert.deepEqual(v4LeafMisses(file, [injected]), [injected], '注入的未登记删除行必须被判 FAIL');
 }) ;
+
+// ── 8c. review 修复轮 I1/I2：台账字段的 status ↔ 内容一致性 ─────────────────
+/**
+ * review 修复轮 **I1**：`protectedSupersession` 曾同时带着 `status:"complete-steps-1-8"`
+ * 与一条写「TASK-513 … **未完成** … 不得视为已取代」的 `knownGap` —— 同一对象自相矛盾，
+ * 且没有任何门禁校验。下面的纯函数是唯一实现：真实台账与合成矛盾都用它判，因此
+ * 「矛盾即 FAIL」是可驱动的，而不是纸面声明。
+ */
+function protectedSupersessionConflicts(ps: { status?: string; knownGap?: string } | undefined): string[] {
+  const problems: string[] = [];
+  if (!ps) return ['protectedSupersession 缺失'];
+  const status = ps.status;
+  if (typeof status !== 'string' || status.length === 0) problems.push('status 缺失');
+  else if (!['complete-steps-1-8', 'incomplete'].includes(status)) problems.push(`status 非法值 ${status}`);
+  if (status === 'complete-steps-1-8') {
+    const gap = ps.knownGap ?? '';
+    if (gap.trim().length === 0) problems.push('status=complete 时 knownGap 不得为空（必须显式声明闭环）');
+    if (/未完成/.test(gap)) problems.push('status=complete-steps-1-8 与 knownGap 的「未完成」表述自相矛盾');
+    else if (!/闭环|残余：无/.test(gap)) problems.push('status=complete 时 knownGap 必须写明闭环（含「闭环」或「残余：无」）');
+  } else if (status === 'incomplete') {
+    if ((ps.knownGap ?? '').trim().length < 10) problems.push('status=incomplete 时必须写明缺口');
+  }
+  return problems;
+}
+
+test('ledger(V4 段): protectedSupersession.status ↔ knownGap 必须一致（矛盾即 FAIL，I1）', () => {
+  const v4 = readV4Ledger();
+  const ps = v4.protectedSupersession;
+  assert.deepEqual(
+    protectedSupersessionConflicts(ps),
+    [],
+    `protectedSupersession 状态与缺口描述矛盾：${JSON.stringify(ps)}`,
+  );
+  // 历史现场不得被静默删除：R2 阶段的「未完成」原文必须逐字保留在独立字段里。
+  assert.ok(
+    typeof ps?.knownGapHistory === 'string' && ps.knownGapHistory.includes('未完成'),
+    'R2 阶段的历史现场（knownGap 原文）必须逐字保留在 knownGapHistory，不得静默删除',
+  );
+});
+
+test('ledger(V4 段)反证: protectedSupersession 一致性判据必须能红（I1 判据不是恒真）', () => {
+  assert.ok(
+    protectedSupersessionConflicts({ status: 'complete-steps-1-8', knownGap: 'TASK-513 在本轮 build 内**未完成**，不得视为已取代。' }).length > 0,
+    'status=complete ∧ knownGap 含「未完成」必须 FAIL',
+  );
+  assert.ok(
+    protectedSupersessionConflicts({ status: 'incomplete', knownGap: '' }).length > 0,
+    'status=incomplete ∧ 空 knownGap 必须 FAIL',
+  );
+  assert.ok(
+    protectedSupersessionConflicts({ status: 'half-done', knownGap: '闭环' }).length > 0,
+    '非法 status 必须 FAIL',
+  );
+  assert.deepEqual(
+    protectedSupersessionConflicts({ status: 'complete-steps-1-8', knownGap: 'R3 已闭环（残余：无）。' }),
+    [],
+    '合法组合不得误报',
+  );
+});
+
+/**
+ * review 修复轮 **I2**：`pureAdditionFiles` 的 `design-contract.test.ts` 在 R3 完成后
+ * 仍带 `status:"pending"`。判据：status 必须在枚举内，且本叶收口后不得再有 pending。
+ */
+const PURE_ADDITION_STATUSES = ['complete', 'pending'];
+function pureAdditionProblems(entries: Array<string | { file: string; reason?: string; status?: string }>): string[] {
+  const problems: string[] = [];
+  for (const entry of entries) {
+    const file = typeof entry === 'string' ? entry : entry.file;
+    const status = typeof entry === 'string' ? 'complete' : entry.status ?? 'complete';
+    if (!file || file.length === 0) {
+      problems.push('条目缺少 file');
+      continue;
+    }
+    if (!PURE_ADDITION_STATUSES.includes(status)) problems.push(`${file}: 非法 status「${status}」（枚举 ${PURE_ADDITION_STATUSES.join(' | ')}）`);
+    if (typeof entry !== 'string' && (entry.reason ?? '').trim().length < 20) {
+      problems.push(`${file}: 必须写明理由（≥20 字符）`);
+    }
+    if (file.startsWith('packages/') && !existsSync(resolve(REPO, file))) problems.push(`${file}: 登记的文件不存在`);
+  }
+  return problems;
+}
+
+test('ledger(V4 段): pureAdditionFiles 的 status 枚举合法，且 R3 收口后无 pending（I2）', () => {
+  const v4 = readV4Ledger();
+  const files = v4.pureAdditionFiles ?? [];
+  assert.ok(files.length > 0, 'pureAdditionFiles 不得为空');
+  assert.deepEqual(pureAdditionProblems(files), [], 'pureAdditionFiles 的 status/reason 必须合法');
+  const pending = files
+    .map((e) => ({ file: typeof e === 'string' ? e : e.file, status: typeof e === 'string' ? 'complete' : e.status ?? 'complete' }))
+    .filter((e) => e.status === 'pending')
+    .map((e) => e.file);
+  assert.deepEqual(
+    pending,
+    [],
+    `R3 终收轮已闭环全部任务，纯新增文件不得再留 pending：${pending.join(', ')}`,
+  );
+  // design-contract.test.ts 必须真的落地（status=complete 的前提）。
+  assert.ok(
+    existsSync(resolve(REPO, 'packages/web-cli-plugin/test/design-contract.test.ts')),
+    'design-contract.test.ts 必须存在（status=complete 的事实前提）',
+  );
+});
+
+test('ledger(V4 段)反证: pureAdditionFiles 的 status 枚举判据必须能红（I2 判据不是恒真）', () => {
+  assert.ok(
+    pureAdditionProblems([{ file: 'packages/web-cli-plugin/test/design-contract.test.ts', reason: 'y'.repeat(30), status: 'half-done' }]).length > 0,
+    '非法 status 必须被判出',
+  );
+  assert.ok(
+    pureAdditionProblems([{ file: 'packages/web-cli-plugin/test/design-contract.test.ts', reason: '短', status: 'complete' }]).length > 0,
+    '过短理由必须被判出',
+  );
+});

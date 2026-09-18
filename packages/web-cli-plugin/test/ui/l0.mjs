@@ -22,7 +22,7 @@
  *   · ⑦ FR-V3-015 计数三处同源（入口标签 ≡ `data-count` ≡ 摘要）+ 内联反证
  *   · ⑧ 320/400 常驻元素集合相等 + 文档级零水平溢出（AC-V3-021）
  *   · ⑨ 几何：三区两两不重叠 · `#stream` 是唯一面板级滚动容器 · 流区高度占比
- *        ≥ `STREAM_HEIGHT_RATIO_MIN`（v4 取代 v3 的「#log ≥589px」像素锚）
+ *        ≥ `STREAM_HEIGHT_RATIO_MIN`（v4 取代 v3 的「#log ≥488px」像素锚）
  *   · ⑩ 明暗双主题可读且不只靠颜色（FR-V3-026 / AC-V3-020）
  *
  * **New in v4-1（三区骨架的断言面）**：
@@ -73,6 +73,14 @@ const L0_STATIC_FLOOR = 73;
 
 /** The four toolbar entry keys + the theme toggle = the admission set (恰 5)。 */
 const TOOLBAR_ENTRY_KEYS = ['tree', 'commands', 'audit', 'settings'];
+/**
+ * 登记占位宿主数（review 修复轮 I7）：真实 `li[data-transitional-host]` = **4**
+ * （v4-3 × 2 = decision / composer；v4-4 × 2 = l1-panels / strips）。原断言只判 `> 0`，
+ * 而 `grep -c 'data-transitional-host='` 会把 1 处 CSS 注释（index.html:1115）误计为宿主
+ * ⇒ 台账/build.md 曾记「5 个」。现在断言**等于登记值**：新增/误删宿主都会 FAIL，且
+ * v4-4 收口时的「清零义务」只需把本常量改为 0（分母可见，不再靠 `> 0` 蒙混）。
+ */
+const REGISTERED_TRANSITIONAL_HOSTS = 4;
 /** per-target `aria-controls` 语义（ADR-V4-022 第 3 条）。 */
 const ARIA_TARGET_BY_ENTRY = {
   'l2-entry-tree': 'view-host',
@@ -162,6 +170,25 @@ const zoneProbe = `(() => {
   };
 })()`;
 
+/**
+ * In-page: the **reverse** ARIA probe (review 修复轮 I12) — every `[aria-expanded]`
+ * element, with whether its `aria-controls` resolves and whether it is a legitimate
+ * WAI-ARIA `treeitem` (which expresses expansion without `aria-controls`).
+ */
+const ARIA_EXPANDED_PROBE = `(() => {
+  const all = [...document.querySelectorAll('[aria-expanded]')];
+  return all.map((el) => {
+    const controls = el.getAttribute('aria-controls');
+    return {
+      key: el.id || el.className || el.tagName,
+      hasControls: Boolean(controls),
+      targetResolvable: controls ? Boolean(document.getElementById(controls)) : false,
+      isTreeitem: el.getAttribute('role') === 'treeitem',
+      inTree: Boolean(el.closest('[role="tree"]')),
+    };
+  });
+})`;
+
 /** In-page: resident id sets + overflow (320/400 equivalence, AC-V3-021). */
 const residentProbe = `(() => {
   const all = [...document.querySelectorAll('[id]')].map((el) => el.id).sort();
@@ -237,7 +264,7 @@ async function main() {
     check('① `#log` → `#stream` 是唯一 id 重命名：#stream 为 ol 且 role=log', zones.streamTag === 'OL' && zones.streamRole === 'log', `${zones.streamTag}/${zones.streamRole}`);
     check('① 状态栏嵌套 = #risk-chips > #risk-rail（chip 入状态栏，不新开分区）', zones.railInsideChips === true && zones.chipsInsideRail === false, JSON.stringify({ railInChips: zones.railInsideChips, chipsInRail: zones.chipsInsideRail }));
     check('① `#risk-detail` 在状态栏内且默认 hidden（不计入默认密度）', zones.detailInsideStatusbar === true && (await evaluate(cdp, `document.getElementById('risk-detail').hidden`)) === true);
-    check('① 占位宿主 `data-transitional-host` 存在性 > 0（本叶只建不销；清零在 v4-4）', zones.hostCount > 0, `实测 ${zones.hostCount}`);
+    check(`① 占位宿主 \`data-transitional-host\` 计数 == 登记值 ${REGISTERED_TRANSITIONAL_HOSTS}（本叶只建不销；清零在 v4-4 TASK-812）`, zones.hostCount === REGISTERED_TRANSITIONAL_HOSTS, `实测 ${zones.hostCount}`);
     check('① 占位宿主均带合法退役叶标记（v4-3 / v4-4）', zones.hosts.length > 0 && zones.hosts.every((h) => h === 'v4-3' || h === 'v4-4'), JSON.stringify(zones.hosts));
 
     // ══ ② 工具栏准入 ≤5 + 只读摘要 + 插槽（V4-1 新断言面） ══════════════════
@@ -620,6 +647,55 @@ async function main() {
       emptyTargets.every((id) => SKELETON_EXEMPT_TARGETS.includes(id)) && emptyTargets.length <= SKELETON_EXEMPT_TARGETS.length,
       JSON.stringify(emptyTargets),
     );
+    // ── ⑧b 反向 ARIA 断言（review 修复轮 I12）────────────────────────────────
+    // 既有 ⑧ 只遍历**有** `aria-controls` 的元素，因此「有 aria-expanded 却没有
+    // aria-controls」的悬空 expander 结构上看不见（#theme-toggle 就漏在这里）。
+    // 反向判据：**凡** `[aria-expanded]` 元素必须 (a) 其 `aria-controls` 可解析到存在的元素；
+    // (b) 或者属于 WAI-ARIA **treeitem** 模式（`role=treeitem` 且位于 `role=tree` 内）——
+    // 该模式按规范本就不用 `aria-controls`（展开态由 `aria-expanded` 单独表达）。
+    // 豁免面窄且可核：任何非 treeitem 的「无 controls」expander 都会 FAIL。
+    const ariaReverseProbe = await evaluate(cdp, `JSON.stringify((${ARIA_EXPANDED_PROBE})())`);
+    const ariaRows = JSON.parse(ariaReverseProbe);
+    const ariaViolations = (rows) => rows
+      .filter((r) => (r.hasControls ? !r.targetResolvable : !(r.isTreeitem && r.inTree)))
+      .map((r) => r.key);
+    const ariaExempt = ariaRows.filter((r) => !r.hasControls);
+    check('⑧b 反向：至少扫描到一个 `[aria-expanded]` 元素（判据非空转）', ariaRows.length > 0, `实测 ${ariaRows.length} 个`);
+    check(
+      '⑧b 反向：凡 `[aria-expanded]` 必有可解析的 `aria-controls`（treeitem 模式除外）',
+      ariaViolations(ariaRows).length === 0,
+      `悬空 expander：${ariaViolations(ariaRows).join(', ') || '（无）'} | ${ariaReverseProbe}`,
+    );
+    check(
+      '⑧b 反向：无 controls 的豁免面只允许 treeitem 模式（豁免不扩大）',
+      ariaExempt.every((r) => r.isTreeitem && r.inTree),
+      JSON.stringify(ariaExempt),
+    );
+    // in-gate 反证（FAIL 段）：注入一个「有 aria-expanded、无 aria-controls」的按钮 ⇒ 判据必须报出它。
+    const ariaFailRaw = await evaluate(
+      cdp,
+      `(() => {
+        const probe = ${ARIA_EXPANDED_PROBE};
+        const before = probe();
+        const b = document.createElement('button');
+        b.id = 'l0-aria-reverse-probe';
+        b.setAttribute('aria-expanded', 'false');
+        document.getElementById('region-toolbar').appendChild(b);
+        const during = probe();
+        b.remove();
+        const after = probe();
+        return JSON.stringify({ before, during, after });
+      })()`,
+    );
+    const ariaFail = JSON.parse(ariaFailRaw);
+    // 诊断（非断言）：把悬空 expander 的判据读数打进日志（I12 反证的原始证据）。
+    console.log(`    I12 反证诊断：violations(during) = ${JSON.stringify(ariaViolations(ariaFail.during))}`);
+    check(
+      '⑧b 反证（FAIL 段）：注入「aria-expanded 无 aria-controls」⇒ 反向判据必须报出该元素',
+      ariaViolations(ariaFail.during).includes('l0-aria-reverse-probe'),
+      ariaFailRaw,
+    );
+    check('⑧b 反证（对照段）：未注入 / 还原后判据必须为空', ariaViolations(ariaFail.before).length === 0 && ariaViolations(ariaFail.after).length === 0, ariaFailRaw);
 
     // ══ ⑨ FR-V3-015：四入口计数三处同源 + 内联反证 ══════════════════════════
     console.log('\n▶ ⑨ FR-V3-015：四入口计数同源（标签 ≡ data-count ≡ 摘要）+ 反证');
@@ -772,7 +848,7 @@ async function main() {
     check('⑪ 注入溢出后 `#stream` 确实可滚（唯一的面板级滚动容器不是空集）', sp.scrolls === true, scrollerProof);
     check('⑪ 注入溢出后面板级滚动容器恰为 1 个且是 #stream', sp.census.length === 1 && sp.census[0] === 'stream', scrollerProof);
     check('⑪ `#stream` flex-grow = 1（flex 填充，非硬编码高度）', geo.streamFlexGrow === '1', geo.streamFlexGrow);
-    check(`⑪ 流区高度占比 ≥ ${STREAM_HEIGHT_RATIO_MIN}（v4 取代 v3「#log ≥589px」像素锚）`, geo.streamRatio >= STREAM_HEIGHT_RATIO_MIN, `ratio=${Number(geo.streamRatio.toFixed(4))} stream=${geo.streamHeight}px ${JSON.stringify(geo.zoneHeights)}`);
+    check(`⑪ 流区高度占比 ≥ ${STREAM_HEIGHT_RATIO_MIN}（v4 取代 v3「#log ≥488px」像素锚；589px 为 v1 历史锚）`, geo.streamRatio >= STREAM_HEIGHT_RATIO_MIN, `ratio=${Number(geo.streamRatio.toFixed(4))} stream=${geo.streamHeight}px ${JSON.stringify(geo.zoneHeights)}`);
     check('⑪ 流区高度占比 > 0.5（非空转下界：断言不是恒真）', geo.streamRatio > 0.5, String(geo.streamRatio));
     const baselineRatioFloor = existsSync(BASELINE_JSON)
       ? JSON.parse(readFileSync(BASELINE_JSON, 'utf8')).logClientHeightFloor ?? null
@@ -805,7 +881,7 @@ async function main() {
     check('⑪ 收起兜底后两者回到 hidden（FR-V3-012）', collapsedAgain === '{"fallback":true,"composer":true}', collapsedAgain);
 
     // ══ ⑫ 工具栏准入反证：第 6 个可点必须被拦（in-gate 形态） ═══════════════
-    console.log('\n▶ ⑫ 工具栏准入反证：#stream 注入常驻控件必被自断言拦截（RP-V4-06）');
+    console.log('\n▶ ⑫ 工具栏准入反证：#stream 注入常驻控件必被自断言拦截（RP-V4-06）+ 第 6 可点被 render() 抛错拦下');
     const admitProbe = await evaluate(
       cdp,
       `(() => {
@@ -828,6 +904,43 @@ async function main() {
     );
     check('⑫ 反证（FAIL 段）：静默第 6 个可点 ⇒ 可点数必须变成 6（判据能看见它）', admitProbe.countAfter === 6, JSON.stringify(admitProbe));
     check('⑫ 反证（还原段）：移除后回到恰 5', admitProbe.countBack === 5, JSON.stringify(admitProbe));
+    // ── ⑫b 真实拦截点：`toolbar.ts#render()` 超限抛错（review 修复轮 I4）──────
+    // 上面两条只证明「计数能看见第 6 个可点」，**没有**驱动任何 render —— 而产品里真正的
+    // 拦截点是 `toolbar.ts:116-121`：每次 render 后自数可点，> MAX_TOOLBAR_CLICKABLES 即抛错。
+    // density 的默认上限仍是 7，6 个可点不会在别处变红 ⇒ 该守卫此前**无 FAIL 段**。
+    // 这里注入第 6 个可点 → 驱动一次真实 render（`setRefCount(0)` 直调 render()）→ 断言抛错 →
+    // 移除 → 再次 render 必须恢复（两步都在同一个同步块内，且不改任何产品状态）。
+    const admitRenderRaw = await evaluate(
+      cdp,
+      `(() => {
+        const bar = document.getElementById('region-toolbar');
+        const btn = document.createElement('button');
+        btn.id = 'l0-admission-render-probe';
+        btn.setAttribute('data-toolbar-slot', 'view');
+        btn.textContent = '越界入口';
+        bar.appendChild(btn);
+        let injected = 'NO-THROW';
+        try { window.__v3.testing.setRefCount(0); }
+        catch (e) { injected = String(e && e.message ? e.message : e); }
+        let removed = 'NO-THROW';
+        try { btn.remove(); window.__v3.testing.setRefCount(0); }
+        catch (e) { removed = String(e && e.message ? e.message : e); }
+        return JSON.stringify({ injected, removed, count: (() => {
+          const all = [...bar.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')];
+          return all.filter((el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; }).length;
+        })() });
+      })()`,
+    );
+    const admitRender = JSON.parse(admitRenderRaw);
+    // 诊断（非断言）：把守卫抛出的原文打进日志 —— 「真的因该红而红」可被读日志复核。
+    console.log(`    I4 反证诊断：injected = ${JSON.stringify(admitRender.injected)}`);
+    console.log(`    I4 反证诊断：restored = ${JSON.stringify(admitRender.removed)} / clickables = ${admitRender.count}`);
+    check(
+      '⑫b 反证（FAIL 段）：注入第 6 个可点后驱动 render() ⇒ 工具准入守卫必须抛错（含「工具栏可点 6 > 5」+「禁静默第 6 个可点」）',
+      admitRender.injected !== 'NO-THROW' && /工具栏可点\s*6\s*>\s*5/.test(admitRender.injected) && /禁静默第 6 个可点/.test(admitRender.injected),
+      admitRenderRaw,
+    );
+    check('⑫b 反证（还原段）：移除第 6 个可点后再 render ⇒ 不再抛错且可点回到恰 5', admitRender.removed === 'NO-THROW' && admitRender.count === 5, admitRenderRaw);
 
     // ══ ⑬ 明暗双主题：可读且不只靠颜色 ═════════════════════════════════════════
     console.log('\n▶ ⑬ 明暗双主题：状态可读且不只靠颜色 + 主题三态契约');

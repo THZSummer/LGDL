@@ -19,7 +19,7 @@
 
 ## 2. 31 登记格（全部实跑，禁推测值）
 
-`9 强制（3 档 × 3 视口；risk 档那一行由 15 个风险子场景格承载）+ 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst = 31`
+`9 强制（3 档 × 3 视口；risk 档那一行由 15 个风险子场景格承载）+ 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst = 31`；其中 **28 格由阶段 F 逐格实测机对**，另 3 格（`risk@320/400/520`）是登记口径的**名义格**（由 15 个风险子场景承载，不另立测量）。
 
 | 档 | 320 | 400 | 520 |
 |---|---|---|---|
@@ -32,7 +32,7 @@
 
 - `empty` 档 = `#stream.empty` + `.log-empty-text` 欢迎占位（1 张欢迎卡 / 1 行 ≤ 8 行上限）；
 - `riskDetailOpen` 档 = 风险 chip 点击后 `#risk-detail` 可见（`#risk` 上限适用，增量真实存在）；
-- `chars` 的 3 字跨视口差 = 站点摘要 `nowrap + ellipsis`（FR-CHAT-082），非产品漂移。
+- `chars` 的 3 字跨视口差 = **审计计数跨位数**（`default` 审计 2→6→10；`empty` 92→96→100 ⇒ 摘要 / `#l2-entry-audit .view-label` / `.badge` 各 +1 字符），〖review 修复轮 I6 实测根因〗**不是**站点摘要 `nowrap + ellipsis`（CSS ellipsis 不改 `textContent`）。容差登记为**实测上界 3**（原 8 已收紧），证据 = `density.mjs#charsAttribution()` 日志 + 机读 `counts.charsSpreadRootCause`。
 
 ## 3. 几何与流区占比
 

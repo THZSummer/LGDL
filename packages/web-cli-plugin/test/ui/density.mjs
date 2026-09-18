@@ -18,10 +18,11 @@
  *      `getComputedStyle` / `offsetParent` / `getBoundingClientRect` / `aria-hidden`;
  *   E  the summary table (tier | viewport | caliber | measured | ceiling);
  *   F  **registry machine comparison** (ADR-V3-018 decision 2, review I8) — every
- *      measured cell (9 mandatory + 15 risk + worst), the geometry floor AND its
- *      source measurement, and the shipped artifact bytes are compared against
- *      `docs/v3-density-baseline.json`; any divergence is a FAIL with a readable
- *      diff (the registry can no longer drift silently).
+ *      measured cell (28 machine-compared cells, see below), the geometry floor AND
+ *      its source measurement, and the shipped artifact bytes are compared against
+ *      `docs/v4-density-baseline.json` (v4-1 起；`docs/v3-density-baseline.json` 已冻结为
+ *      历史，只由 density-thresholds.test.ts 做 schema 保真断言）；any divergence is a
+ *      FAIL with a readable diff (the registry can no longer drift silently).
  *
  * Closeout round (2026-09-16, validate R1): the fixture runs in TWO passes so every
  * cell reaches the same settled session state (`assertFixtureSettled()` asserts it
@@ -98,6 +99,23 @@ const draftDeltas = [];
 
 const argv = process.argv.slice(2);
 const REVERSE = argv.includes('--reverse') ? argv[argv.indexOf('--reverse') + 1] : null;
+
+/**
+ * 默认档 `chars` 的跨视口容差（review 修复轮 **I6**）。
+ *
+ * v3 把 `chars` 当作视口无关量（逐项相等，0 容差）。I6 的**实测根因实验**（本文件
+ * `charsAttribution()` 把摘要/审计入口的真实文本打进日志）证明：v4-1 的 `chars` 跨视口差
+ * **不是**几何/摘要省略号造成的（原注释的「`nowrap+ellipsis` 少显示 3 字」归因不成立 ——
+ * CSS ellipsis 不改 `textContent`），而是**审计计数在逐格运行时单调增长并跨位数**：
+ *
+ *   default  审计 2 → 6 → 10（第 3 格由 1 位变 2 位）
+ *   empty    审计 92 → 96 → 100（第 3 格由 2 位变 3 位）
+ *
+ * 摘要 / `.view-label` / `.badge` 三处各多 1 字符 ⇒ 跨视口差恰为 **3**。因此该断言的
+ * 正确形态是「结构四项逐项相等 ∧ chars 跨视口差 ≤ **实测上界 3**」（原实现取 8，偏松；
+ * 收紧只减不增），并在 v4 取代台账 `redlineRemap` 显式登记「v3 chars 相等断言被取消」。
+ */
+const CHARS_SPREAD_MAX = 3;
 
 /**
  * V4-1（ADR-V4-021 第 2 条 / FR-CHAT-072 / FR-CHAT-073）—— v4 的**两组新增独立登记格**。
@@ -376,6 +394,30 @@ async function measure(cdp) {
   return raw;
 }
 
+/**
+ * review 修复轮 **I6** 归因诊断（**非断言**，只打日志）：`chars` 跨视口差异的根因证据。
+ *
+ * v4-1 原注释把 default 的 `chars` 差 3 归因为「站点摘要 `nowrap+ellipsis` 少显示 3 字」——
+ * 该归因不成立（CSS ellipsis 不改变 `textContent`，且同视口下 default 与 empty 也差 3）。
+ * 本诊断把工具栏摘要 / 审计入口标签 / 审计徽标 / `data-count` 的真实文本打进日志，让
+ * 「跨视口差 3」是**数据量（审计计数跨位数）**还是**几何**可被直接读出。
+ */
+async function charsAttribution(cdp, label) {
+  const raw = await evaluate(
+    cdp,
+    `JSON.stringify({
+      summary: (document.getElementById('l2-entry-summary')?.textContent ?? '').trim(),
+      auditLabel: (document.getElementById('l2-entry-audit')?.querySelector('.view-label')?.textContent ?? '').trim(),
+      auditBadge: (document.getElementById('l2-entry-audit')?.querySelector('.badge')?.textContent ?? '').trim(),
+      auditCount: document.getElementById('l2-entry-audit')?.getAttribute('data-count') ?? null,
+      treeCount: document.getElementById('l2-entry-tree')?.getAttribute('data-count') ?? null,
+      commandsCount: document.getElementById('l2-entry-commands')?.getAttribute('data-count') ?? null,
+      settingsCount: document.getElementById('l2-entry-settings')?.getAttribute('data-count') ?? null,
+    })`,
+  );
+  console.log(`    I6 归因（${label}）：${raw}`);
+}
+
 /** Structural fingerprint printed per cell (R31-07: no silent cross-cell bleed). */
 async function fingerprint(cdp) {
   return evaluate(
@@ -521,6 +563,7 @@ async function stageB(cdp) {
       console.log(`  · ${tier}@${vp}: ${fmt(measured)} → ${verdict.ok ? 'PASS' : 'FAIL'} | 指纹 pickDisabled=${fp.pickDisabled} onboardingHidden=${fp.onboardingHidden} discoveryHidden=${fp.discoveryHidden} askHidden=${fp.askHidden} scrollBottomHidden=${fp.scrollBottomHidden} log=${JSON.stringify(fp.log)} risks=${fp.risks.join(',') || 'none'} disclosure=${JSON.stringify(fp.disclosure)}`);
       check(`${tier}@${vp} C1/C2 ≤ 上限`, verdict.ok, verdict.message);
       if (tier === 'default') {
+        await charsAttribution(cdp, `default@${vp}`);
         check(`default@${vp} 常驻分区数（C4）已登记`, Number.isFinite(measured.regions), `regions=${measured.regions}`);
         // V4-1 显式取代（redlineRemap：v3「default 恰 7 可点」）：三区骨架把 L1 入口面板与
         // 状态带整体退役，可点准入 = **工具栏 4 入口 + 主题 = 恰 5**（ADR-V4-018；#region-statusbar
@@ -553,10 +596,16 @@ async function stageB(cdp) {
   // 400/520 = 223/19/7) is exactly what this assertion FAILS on.
   const defaultRows = rows.filter((r) => r.tier === 'default');
   const firstMeasured = defaultRows[0]?.measured;
-  // V4-1 显式取代（redlineRemap）：v4 里站点摘要在窄栏 `nowrap + ellipsis`（FR-CHAT-082），
-  // 520px 比 320px 多显示 3 个字符（184 vs 181）—— `chars` 因此**不再**是视口无关量。
-  // 断言按 v4 的真实不变量重锚：结构三项（C1/C2/C3）+ 分区数（C4）必须逐项相等，
-  // 且 `chars` 的跨视口差必须 ≤ 8（摘要省略号，已登记），而不是假装它恒等。
+  // ── V4-1 显式取代（redlineRemap #4：v3「默认档三视口 chars 逐项相等」）──────────
+  // v3 的确定性断言把 `chars` 也放进「逐项相等」集合（0 容差）。v4-1 的实测根因（I6）：
+  // `chars` 会随**审计计数跨位数**变化（default 2→6→10 时摘要/标签/徽标各 +1 字符 = +3），
+  // 因此 `chars` 不是视口无关量。取代后的判据：结构四项（C1/C2/C3/C4）必须逐项相等，
+  // 且 `chars` 的跨视口差必须 ≤ **实测上界 3**（`CHARS_SPREAD_MAX`）。
+  //
+  // review 修复轮 I6：原实现取 ≤ 8（偏松且归因未证实），且该「v3 红线被取消」的事实
+  // **未登记进 redlineRemap/entries**（登记缺失）。本轮两件都补齐：
+  //   ① 容差由 8 收紧到实测上界 3；
+  //   ② v4 取代台账新增 redlineRemap 条目（v3 chars 相等 → 结构相等 ∧ chars 差 ≤3）。
   const structDrift = defaultRows
     .filter((r) => r.measured.clickables !== firstMeasured.clickables
       || r.measured.lines !== firstMeasured.lines
@@ -564,15 +613,30 @@ async function stageB(cdp) {
       || r.measured.regions !== firstMeasured.regions)
     .map((r) => `default@${r.vp}: ${fmt(r.measured)} ≠ default@${defaultRows[0].vp}: ${fmt(firstMeasured)}`);
   const charsSpread = Math.max(...defaultRows.map((r) => r.measured.chars)) - Math.min(...defaultRows.map((r) => r.measured.chars));
+  // I6 归因证据（**诊断输出，非断言**）：逐元素 dump `elementsWithKeys.chars`，把跨视口
+  // 有差异的元素与读数打进日志 —— 让「差 3」的根因可复核，而不是靠注释里的推测。
+  const charsByKey = defaultRows.map((r) => new Map((r.measured.elementsWithKeys ?? []).map((e) => [e.key, e.chars])));
+  const charsDiffs = [...new Set(charsByKey.flatMap((m) => [...m.keys()]))]
+    .filter((key) => new Set(charsByKey.map((m) => m.get(key) ?? null)).size > 1)
+    .map((key) => `${key}@${defaultRows.map((r, i) => `${r.vp}=${charsByKey[i].get(key) ?? '∅'}`).join(',')}`);
+  console.log(`    chars 跨视口差异元素（I6 归因，诊断非断言）：${charsDiffs.length ? charsDiffs.join(' | ') : '无（逐元素相等）'}`);
   check(
-    '默认档夹具确定性：三视口结构逐项相等（可点/行/块/分区；v4-1：chars 受摘要 ellipsis 影响，见下条）',
+    '默认档夹具确定性：三视口结构逐项相等（可点/行/块/分区；v4-1：chars 受摘要本身文本影响，见下条）',
     Boolean(firstMeasured) && defaultRows.length === DENSITY_VIEWPORTS.length && structDrift.length === 0,
     structDrift.join(' | ') || `rows=${defaultRows.length}`,
   );
   check(
-    '默认档 chars 跨视口差 ≤ 8（v4-1 登记：站点摘要 nowrap+ellipsis 在窄栏少显示 3 字，非产品漂移）',
-    charsSpread <= 8,
-    `spread=${charsSpread}（${defaultRows.map((r) => `@${r.vp}=${r.measured.chars}`).join(' ')}）`,
+    `默认档 chars 跨视口差 ≤ ${CHARS_SPREAD_MAX}（v4-1 登记：审计计数跨位数 ⇒ 摘要/标签/徽标各 +1 字符；review 修复轮 I6 由 8 收紧到实测上界）`,
+    charsSpread <= CHARS_SPREAD_MAX,
+    `spread=${charsSpread}（${defaultRows.map((r) => `@${r.vp}=${r.measured.chars}`).join(' ')}）| 差异元素：${charsDiffs.join(' | ') || '无'}`,
+  );
+  const baselineCharsSpread = existsSync(BASELINE_JSON)
+    ? JSON.parse(readFileSync(BASELINE_JSON, 'utf8')).counts?.charsSpreadMax ?? null
+    : null;
+  check(
+    '默认档 chars 容差与机读基线同源（口径单源 `counts.charsSpreadMax`，非本文件另造）',
+    baselineCharsSpread === CHARS_SPREAD_MAX,
+    `${JSON.stringify(baselineCharsSpread)} vs ${CHARS_SPREAD_MAX}`,
   );
   return rows;
 }
@@ -636,6 +700,7 @@ async function stageB2(cdp) {
         );
       }
       await assertFixtureSettled(cdp, `${tier.key}@${vp}`);
+      await charsAttribution(cdp, `${tier.key}@${vp}`);
       const measured = await measure(cdp);
       const verdict = evaluateDensity(measured, tier.key === 'empty' ? 'default' : 'risk');
       const judgeTier = tier.key === 'empty' ? 'default' : 'risk';
@@ -1069,7 +1134,8 @@ async function reverseRp09(cdp) {
  * RP-V3-08 (review I8) — **the registry comparison must be able to fail**.
  *
  * The perturbation is applied to the REAL registry file that stage F reads
- * (`docs/v3-density-baseline.json`) and the judgement goes through the SAME
+ * (`docs/v4-density-baseline.json`；v4-1 起 stage F 的 `BASELINE_JSON` 已切到 v4，
+ * review 修复轮 I13② 订正本注释原写的 v3 文件名）and the judgement goes through the SAME
  * `compareBaselineCells()` + the same `readBaselineRegistry()`, so this is not a
  * copy-driven proof. The file is restored byte-for-byte and the sha256 is
  * re-checked, so a failed restore cannot go unnoticed.
@@ -1419,11 +1485,23 @@ async function main() {
       // V4-1（ADR-V4-021 第 2 条）：31 登记格 = 9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst。
       // 9 强制 = `DENSITY_MATRIX_SIZE`（3 档 × 3 视口）；其中 risk 档那一行由 15 个风险
       // 子场景格承载（不另立行），故 31 = 9 + 15 + 3(空态) + 3(风险详情展开) + 1(worst)。
+      //
+      // review 修复轮 I10：**31 登记格 = 28 实测机对 + 3 名义**。`risk` 档在矩阵里占 3 格
+      // （risk@320/400/520），但这 3 格不与 default/firstRun 行同构 —— 阶段 F 实际逐格机对
+      // 的是 28 格（default×3 + firstRun×3 + 15 风险子场景 + empty×3 + riskDetailOpen×3 + worst×1）。
+      // 下面同时断言 28 与 31，消除「双数并存」且不改变任何格的可测性。
       const registeredCells = DENSITY_MATRIX_SIZE + cells.length + extraRows.length + 1;
+      const nominalRiskRowCells = 3;
+      const machineComparedCells = registeredCells - nominalRiskRowCells;
       check(
-        'v4 登记格总数 == 31（9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst）',
+        'v4 登记格总数 == 31（9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst；其中 3 格为 risk 行名义格）',
         registeredCells === 31,
         `实测 ${registeredCells}（强制矩阵 ${DENSITY_MATRIX_SIZE} + 风险 ${cells.length} + 新增 ${extraRows.length} + worst 1）`,
+      );
+      check(
+        'v4 实机对格数 == 28（31 − 3 名义：risk 行的 3 个视口格由 15 子场景承载，不另立测量）',
+        machineComparedCells === 28,
+        `实测 ${machineComparedCells}（登记 ${registeredCells} − 名义 ${nominalRiskRowCells}）`,
       );
       await stageF(cdp, rows, cells, worst, extraRows);
     } else {
