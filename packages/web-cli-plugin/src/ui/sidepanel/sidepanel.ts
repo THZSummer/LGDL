@@ -1734,14 +1734,34 @@ function maybeRescue(): void {
  * re-anchor necessarily produces a NEW card with `refNum+1` while the old card's DOM
  * is untouched. `projectedRefState` only suppresses *repeats of the same fact* (the
  * append-only log must not grow on every render), never a real state change.
+ *
+ * ── F-01（validate R1 收口轮）— 投影唯一性的键是 `refNum + 状态` ────────────────
+ *
+ * 现场：`dom-gone` 引用的**救援观察**落地时，同一事实被投影两次 —— 捕获时一次
+ * （`acceptCapture`，带失效行）与救援落地时一次（`maybeRescue().then`，也带失效行）。
+ * 旧守卫 `if (!systemText && …) return` 让「本次要写一行可读系统行」**顺带**把
+ * `ref` 卡的抑制绕开（`systemText` 只是行，不是新事实），于是流内出现两张同序号失效卡
+ * （validate 探针实测 `data-ref-num=["1","1"]`）。
+ *
+ * 收口口径：**唯一性按 `refNum + 状态`** —— 同一 `(序号, 状态)` 只允许一张**活卡**。
+ * 被抑制时**仍然照写可读系统行**（事实不静默丢弃，去重/限速仍由唯一通道负责），
+ * 只是不再 mint 第二张卡。真正的状态迁移（`refNum:valid` → `refNum:stale`，即引用在
+ * 原位失效）键不同，因此照旧投影新卡 —— 抑制只针对**完全相同的**（序号, 状态）事实。
  */
 const projectedRefState = new Map<string, string>();
 function projectRef(refId: string, systemText?: string): void {
   const projection = l1?.store().cardProjection(refId);
   if (!projection) return;
-  const marker = `${projection.refState}:${projection.refNum}`;
-  if (!systemText && projectedRefState.get(refId) === marker) return;
+  const marker = `${projection.refNum}:${projection.refState}`;
+  const liveCard = projectedRefState.get(refId) === marker;
   projectedRefState.set(refId, marker);
+  if (liveCard) {
+    // F-01: the same `(refNum, state)` fact is already on a live card. The readable
+    // row still goes through the ONE system channel (never a silent drop); the card
+    // is not minted twice.
+    if (systemText !== undefined) dispatch({ type: 'system', kind: 'ref', text: systemText });
+    return;
+  }
   dispatch({
     type: 'ref',
     refNum: projection.refNum,

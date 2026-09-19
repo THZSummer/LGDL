@@ -490,3 +490,92 @@ diff**、失败签名与 **R2 之前**的历史现场同签名、失败点互异
 | 首装入口的**时序面** | 入口在「`llm-status` ∧ `state` 双落地」后求值一次；若面板在双落地前即进入首装（真·首装路径），两处求值点可覆盖两种情况，但未另设「半加载面板不得产卡」的独立 Chromium 断言（本轮以代码前置判据 + ⑬ 的真实首装断言覆盖） |
 | I-10 判据的**覆盖边界** | 只对写了 canonical 披露元组的轮次生效（v4 起的各轮）；v3-x 及更早的 reason 无元组 ⇒ 无对象可判（已在判据注释与 build.md 显式声明，未伪称「全册覆盖」） |
 | I-11 | ADR 正文按其「已完成产物」纪律**未改写**，只在 `plan.md` 修订记录订正注；若后续轮次要正式重述 ADR，应由 spec/plan 阶段处理 |
+
+# 附 3：收口轮（2026-09-20，validate R1 的 F-01 + N-01~N-05）
+
+> 起点 HEAD `4a1be39`（validate R1 产物已提交；`phase=validated`）。本轮是**收口轮**：修 F-01（低，唯一功能观察项）+ 登记 N-01~N-05 + 补 state closeout 记录。
+> 红线不变：`content.js` 177,076 / `pick-layer.js` 33,900 逐字节不变；SW / `KIND_SET` / 判定链 / manifest / journey / binding 零触碰；测试**只增不减**；禁 `git add -A`。
+> 日志：`/tmp/opencode/v4-gate-logs/v4-4-closeout/`（24 项串行 + `summary.txt` + 两段证伪两段日志）。
+
+## 1. F-01（低）：同序号引用卡重复投影 ⇒ 修复（唯一 `src` 改动）
+
+**现场（validate R1 独立探针实测）**：`dom-gone` 引用的**只读救援观察**落地时，同一事实被投影两次 —— 捕获时 `acceptCapture` 一次、救援落地 `maybeRescue().then` 一次；`projectRef` 的「同一事实不重复投影」抑制被 `if (!systemText && projectedRefState.get(refId) === marker) return;` **绕过**（`systemText` 只是「顺带要写一行可读系统行」，不是新事实），于是流内出现两张同序号失效卡（`data-ref-num = ["1","1"]`）。
+
+**修法**（`src/ui/sidepanel/sidepanel.ts#projectRef`）：投影唯一性的键 = **`refNum + 状态`**。
+
+- `const marker = ${projection.refNum}:${projection.refState};`（序号在前、状态在后）；
+- 同一 `(序号, 状态)` **只允许一张活卡**：命中既有 marker 时不再 `dispatch({type:'ref'})`；
+- 但被抑制的投影**仍然照写可读系统行**（改走 `dispatch({ type:'system', kind:'ref', text })` —— 唯一系统通道，去重/限速/`dropped` 记账不变），事实**不静默丢弃**；
+- **真正的状态迁移**（`refNum:valid` → `refNum:stale`，即引用在原位失效）键不同 ⇒ 照旧投影新卡。抑制只针对**完全相同的** `(序号, 状态)` 事实。
+
+**两段证伪（Chromium，真实产品路径；脚本 `/tmp/opencode/v4-gate-logs/v4-4-closeout/f01-falsify.sh`）**
+
+| 段 | 动作 | 实测 |
+|---|---|---|
+| A（红侧） | 把 `projectRef` 回退成旧守卫（`if (!systemText && …) return`）+ 重建（产物 **478,897 B** == 回退前的登记基线，证明差异只来自本修复） | `test:page-input` **rc=1 / 104 passed · 2 failed**，逐字：`{"refId":"ref_10","ordinal":10,"dom":{"cards":2,"nums":["10","10"],"states":["stale","stale"],"thisOrdinal":2,"staleCards":2,"staleRows":1}}` ⇒ 复现 validate 的重复投影 |
+| B（绿侧） | 逐字节还原 `sidepanel.ts`（sha256 `03af7188…` 注入前后**相同**）+ 重建（产物 **479,021 B**） | `test:page-input` **rc=0 / 106 passed · 0 failed**，F-01 四断言全绿 |
+
+**新断言（`test/ui/page-input.mjs` ⑯，纯新增）**：① 前置负控「只读救援观察**真的**经 SW→页面→面板往返落地（`candidates=1 ∧ unique=true`）」；② 前置负控「救援事实在面板可读（失效原因含『文本唯一匹配』）」；③ **「救援观察落地后同序号引用卡恰 1 张」**（唯一性键 = `refNum + 状态`）；④ 「被抑制的第二次投影仍然照写系统行（流内『已失效』行 ≥1，事实不静默丢弃）」。夹具只用真实产品路径：真实 `pick-layer-state` 上线消息给面板定页面事实（`acceptCapture` 会把 env 交回生产来源）、SW→面板的真实 `ref-captured`、真实 `ref-rescue` 往返（SW 侧同源归一化文本搜索 + 页面侧文字唯一匹配）。
+
+## 2. N-01~N-05 处置（全部零字节 + 台账登记）
+
+| # | 处置 | 落地 |
+|:--:|---|---|
+| N-01 | **登记终态说明**（未新增注释 —— 见下） | `knownLimitations[KL-V44CL-N01]`：产品路径**零调用**由 `test:ref-pick-wiring` I-02 机核（扫描 `src/ui/sidepanel/**`，禁止产品侧 `switchStreamSession(`）；「导出仅测试可见」语义**已由既有 doc-comment 逐字承载**（`stream-model.ts#switchStreamSession`：「Legacy model API (pure unit tests)」+「⚠️ The PRODUCT must not call this」）。**未再加一行注释的理由（本构建的可复现事实）**：esbuild 未 minify ⇒ **注释会进产物字节**（实测产物内可见 `//` 注释），新增一行会改变体积登记值并在同一轮内触发第二次五要素重登记；收益纯注释、代价登记面漂移 ⇒ 按「既有声明 + 机核门禁」口径处置。残余面（跨包直接 import 纯模型 API）如实登记 |
+| N-02 | **登记**（与 **KL-N-08 同源既有事实**，引用即可） | `knownLimitations[KL-V44CL-N02]`：`BUILD_STAMP` ⇒ sha 变、**字节数恒定**（本轮 479,021 B == 登记值）；红线产物无构建戳 ⇒ sha 仍是稳定不变量（本轮复核 `52a82620…` / `5f567d7e…`） |
+| N-03 | **登记**（与 **KL-N-10 同源**） | `knownLimitations[KL-V44CL-N03]`：本轮三次实测 —— 串行链首轮 `#6l residual=undefined`（红）→ 隔离 retry1 `#8d/#8e no confirm` + harness `selector not found: #confirm-allow`（红）→ 隔离 **retry2 / retry3 均 192/192 绿**；`binding.mjs` 零 diff、失败项互异 ⇒ 环境性时序抖动 |
+| N-04 | **登记**（I-04 严格序无关性无独立门禁） | `knownLimitations[KL-V44CL-N04]`：机制面**已消除**（`testing.reset()` 清空 `projectedRefState`；登记顺序下 density 175/175 ∧ l1 111/111 绿）；**独立门禁属增量可选**（需跨夹具顺序置换断言，本轮不新增 —— 与 F-01 新断言重叠同一机制），升级条件写明 |
+| N-05 | **口径裁决登记**（编排器裁决，2026-09-20） | `knownLimitations[KL-V44CL-N05]`：spec FR-CHAT-052 的「卡内」按「**恢复路径可达即可**（L1 面板与卡内二选一）」读 —— 一键重锚按钮 `#l1-ref-rescue` 在 L1 引用证据面板（唯一文本匹配时可见），失效卡引导至该面板 ⇒ **功能等价**，**登记为已知偏差**（不改实现：搬进卡内会新增可点控件，须重审卡预算/密度登记格）。升级条件：真机反馈需要卡内按钮 ⇒ 小改进项 |
+
+## 3. 门禁全账（24 项严格串行 + 一次全量确认；日志 `/tmp/opencode/v4-gate-logs/v4-4-closeout/`）
+
+| # | 门禁 | 结果 | 计数（validate R1 → 本轮） |
+|:--:|---|:--:|---|
+| 1 | `npm run typecheck` | ✔ | exit=0 |
+| 2 | `npm run build` | ✔ | 产物 **479,021 B** |
+| 3 | `npm test`（node 全量） | ✔ | 992 → **992/992**（本叶只加 Chromium 断言；node 计数不变） |
+| 4 | `test:supersession` | ✔ | 33/33（换锚 30 条 + 新条目 2 条 + KL ×5） |
+| 5 | `test:gate-integrity` | ✔ | 12/12 |
+| 6 | `test:design-contract` | ✔ | 6/6 |
+| 7 | `test:ref-pick-wiring` | ✔ | 11/11（I-02 禁止产品直呼 `switchStreamSession` 仍在判） |
+| 8 | `test:size-ruling-vol3` | ✔ | 10/10（ceiling 502,841 → 502,972 重 pin；档位/绝对上限未变） |
+| 9 | `test:stream` | ✔ | 63/63 |
+| 10 | `test:ask-auth` | ✔ | 61/61 |
+| 11 | `test:l0` | ✔ | 221/221 |
+| 12 | `test:l1` | ✔ | 111/111 |
+| 13 | `test:l2` | ✔ | 73/73 |
+| 14 | `test:density` | ✔ | 175/175（31 格机对零漂移；产物 479,021 == 登记 ≤ 502,972） |
+| 15 | `test:page-input` | ✔ | 102 → **106/106**（新增 ⑯ 四条） |
+| 16 | `test:zero-injection` | ✔ | 27/27 |
+| 17 | `test:recommendation` | ✔ | 49/49 |
+| 18 | `test:ui`（journey，保护段） | ✔ | 167 assertions（零 diff） |
+| 19 | `test:insight` | ✔ | 116 assertions |
+| 20 | `test:hardening` | ✔ | 24 assertions |
+| 21 | `test:binding`（保护段） | ✔ | 串行链首轮红（`#6l`）→ 隔离 retry2/retry3 **192/192**（见 N-03） |
+| 22 | `test:e2e` | ✔ | PASS |
+| 23 | `test:l1-reverse` | ✔ | 9/9（注入 → FAIL → sha256 复原 → PASS，全套） |
+| 24 | `test:l2-reverse` | ✔ | 10/10 |
+
+**计数纪律（只增不减）**：npm 992（不变）· page-input 102 → **106** · recommendation 49 · l0 221 · density 175 · supersession 33 · ref-pick-wiring 11 · size-ruling-vol3 10 · l1 111 · l2 73 · stream 63 · ask-auth 61 · zero-injection 27 · journey 167 · insight 116 · hardening 24 · binding 192 · l1-reverse 9 · l2-reverse 10 —— **无一项下降，无一条断言被删除或放宽**。
+
+## 4. 红线核验 + 体积 + V3-VOL-3（本轮）
+
+| 项 | 值 |
+|---|---|
+| `dist/content.js` | **177,076 B** · sha256 `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6`（逐字节不变） |
+| `dist/pick-layer.js` | **33,900 B** · sha256 `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59`（逐字节不变） |
+| `src/content/**` / `src/background/**` / `manifest.json` / `KIND_SET` / 判定链（`l1/ref-validity.ts`）/ `test/ref-wiring.test.ts` | **零 diff**（`git diff --stat` 空） |
+| `test/ui/journey.mjs` / `test/ui/binding.mjs` | **零 diff**（保护段未改） |
+| 唯一 `src` 改动 | `src/ui/sidepanel/sidepanel.ts`（`projectRef`，F-01） |
+| `dist/sidepanel.js` | **479,021 B**（基线 478,897 → **+124 B / +0.03%**；逐模块归因 `sidepanel.ts` 79,626 → 79,750，Σ 124 + glue 0） |
+| 轮内 ceiling | `floor(479,021 × 1.05) = ` **502,972 B**（≤ 绝对上限 563,200） |
+| V3-VOL-3 档位 / 绝对上限 | `ceilTo50KB(479,021) = ` **512,000 B**（未跨档） / **563,200 B**（未变） |
+| V3-VOL-3 三值 | `newBaselineBytes=479,021`（随现行基线**同源前移**）/ `absoluteCeilingBytes=563,200` / `resolvedOn=2026-09-19`（走**作者确认占位**规则重登；`authorConfirmation.status` 仍 `pending-author-line`，**不伪称已确认**；台账 ⑤/⑥ 字段本轮与注**同步订正**，消除上一轮「字段 478,163 vs 注 478,897」的同事实两版本） |
+| 五要素重登记 | 新轮 `v4-4-closeout`（前后值 / 日期 / 来源 / 构建命令 / 理由 + TIMELINE 只追加 `479_021` + 逐模块归因 `v44CloseoutRows`） |
+| 变更文件面 | 8 个：`src/ui/sidepanel/sidepanel.ts` + `test/ui/page-input.mjs` + `test/size-{baseline,budget,size-growth-evidence,ruling-vol3}.ts` + `docs/v4-density-baseline.json` + `docs/v4-supersession-ledger.json`（**无 `git add -A`**） |
+
+## 5. 收尾
+
+- 提交：`fix(web-cli-plugin): v4-4 收口轮——F-01 同序号重复投影修复 + N-01~N-05 登记（含 N-05 重锚按钮位置口径裁决）`
+- state：`state.json` 补 `closeoutRounds` 记录 + `phaseNote` 追加收口轮段；父 state `childrens[3].note` 同步「_validated + 收口完成_」。
+- 本叶终态：**validated（保持）+ 收口完成**（四叶全闭环，可进父收口）。

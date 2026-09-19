@@ -46,6 +46,13 @@
  *       `pick-layer-inject` 必须落在**活动** tab；构造用内容脚本 `hello` 路径改 bound，
  *       与「哪个 tab 是活动 tab」无关，因此不依赖竞态。
  *
+ * ── 收口轮（validate R1 的 F-01，2026-09-20）─────────────────────────────────
+ *
+ *   ⑯  **F-01 同序号投影唯一**：选择器断链的引用在捕获时投影一张失效卡 + 一条「已失效」行，
+ *       只读救援观察落地（`maybeRescue().then`）曾**再投影一张同序号卡**（validate 探针实测
+ *       `data-ref-num = ["1","1"]`）。本段用真实 `ref-captured`（SW→面板）+ 真实 `ref-rescue`
+ *       往返驱动，断言救援落地后同序号卡恰 1 张；回退 `projectRef` 的修复即翻红。
+ *
  * Run: node test/ui/page-input.mjs   (one Chromium instance, serial)
  */
 import { createServer } from 'node:http';
@@ -825,6 +832,93 @@ async function main() {
       /页面路径已变化/.test(String(pp.reason)) && pp.btnHidden === true,
       pathProbe,
     );
+
+    // ── F-01（validate R1 收口轮）：救援观察落地后**同序号引用卡恰 1 张** ──────────
+    // 现场：选择器断链的引用在**捕获时**投影一张失效卡 + 一条「已失效」行，只读救援观察
+    // 落地（`maybeRescue().then`）又投影一次同一事实 ⇒ 流内两张同序号卡（validate 探针
+    // 实测 `data-ref-num = ["1","1"]`）。旧守卫 `if (!systemText && …)` 让「这次要写一行
+    // 可读系统行」**顺带**把 `ref` 卡的抑制绕开 —— 行不是新事实。收口后唯一性按
+    // `refNum + 状态`：同一 `(序号, 状态)` 只允许一张活卡；被抑制的投影仍照走唯一系统
+    // 通道（不静默丢弃），只是不再 mint 第二张卡。
+    //
+    // 夹具只用**真实产品路径**：面板的页面事实由真实的 `pick-layer-state` 上线消息给出
+    // （与层自己上线时报的同一条消息；`acceptCapture` 会把 env 交回生产来源，所以夹具
+    // 不 override env，而是让面板**自己的** env 与捕获事实天然同源），捕获走 SW→面板的
+    // 真实 `ref-captured`，救援走真实 `ref-rescue` 往返（SW 侧同源归一化文本搜索）。
+    console.log('\n▶ F-01 收口：救援观察落地后同序号引用卡恰 1 张');
+    const f01DocId = 'doc-f01';
+    await evaluate(pCdp, `window.__v3.testing.reset(); true`);
+    // ① 两个真实上线消息（gone ⇒ ready）各触发一次 render ⇒ `syncRefEnv()` 把面板 env 同步
+    //    成本夹具的 documentId / navSeq（生产来源，不是 override）。
+    await evaluate(
+      swCdp,
+      `chrome.runtime.sendMessage({ kind: 'pick-layer-state', phase: 'gone', reason: 'f01 fixture bounce' }).catch(() => {})`,
+    );
+    await sleep(150);
+    await evaluate(
+      swCdp,
+      `chrome.runtime.sendMessage({ kind: 'pick-layer-state', phase: 'ready', documentId: ${JSON.stringify(f01DocId)}, navSeq: 1 }).catch(() => {})`,
+    );
+    await sleep(250);
+    await evaluate(
+      swCdp,
+      `chrome.runtime.sendMessage({ kind: 'ref-captured',
+         facts: { selector: 'div.__broken:nth-of-type(9) > span.__gone:nth-of-type(7)', semanticPath: 'body › div › span', textDigest: '宿主按钮', origin: ${JSON.stringify(site.origin)}, documentId: ${JSON.stringify(f01DocId)}, navSeq: 1, declarationHash: '', declaration: { status: 'absent' }, capturedAt: Date.now() },
+         resolution: { status: 'missing' } }).catch(() => {})`,
+    );
+    // 有界等待：捕获投影落地 ⇒ 只读救援观察回包（`l1-report` 出现 rescue）⇒ 再让 `.then`
+    // 里的第二次投影跑完。判据读的是**救援事实本身**，不是「等够时间」。
+    let f01Report = null;
+    for (let i = 0; i < 30; i += 1) {
+      f01Report = (await panel.snapshot())?.l1 ?? null;
+      if (f01Report?.rescue && (f01Report?.counts ?? 0) > 0) break;
+      await sleep(200);
+    }
+    await sleep(700);
+    f01Report = (await panel.snapshot())?.l1 ?? null;
+    const f01RefId = String(f01Report?.refs?.slice(-1)?.[0]?.refId ?? '');
+    const f01Ordinal = Number(/^ref_(\d+)$/.exec(f01RefId)?.[1]);
+    const f01Dom = JSON.parse(
+      await evaluate(
+        pCdp,
+        `(() => {
+           const cards = [...document.querySelectorAll('#stream [data-msg-type="ref"]')];
+           const nums = cards.map((c) => c.getAttribute('data-ref-num'));
+           const rows = [...document.querySelectorAll('#stream [data-msg-type="system"]')].map((r) => (r.textContent || '').trim());
+           return JSON.stringify({
+             cards: cards.length,
+             nums,
+             states: cards.map((c) => c.getAttribute('data-ref-state')),
+             thisOrdinal: nums.filter((n) => n === '${f01Ordinal}').length,
+             staleCards: cards.filter((c) => c.getAttribute('data-ref-state') === 'stale').length,
+             staleRows: rows.filter((t) => t.includes('已失效')).length,
+           });
+         })()`,
+      ),
+    );
+    // 前置（负控）：救援观察**真的**经 SW→页面→面板往返落地（唯一匹配）——否则本用例空转。
+    check(
+      'F-01 前置（负控）：只读救援观察**真的**落地（candidates=1 ∧ unique=true，不是空转）',
+      f01Report?.rescue?.candidates === 1 && f01Report?.rescue?.unique === true,
+      JSON.stringify(f01Report?.rescue ?? null),
+    );
+    check(
+      'F-01 前置（负控）：救援事实在面板可读（失效原因含「文本唯一匹配」）',
+      /文本唯一匹配/.test(String(f01Report?.refs?.slice(-1)?.[0]?.reason ?? '')),
+      JSON.stringify(String(f01Report?.refs?.slice(-1)?.[0]?.reason ?? '')),
+    );
+    check(
+      'F-01：救援观察落地后**同序号引用卡恰 1 张**（唯一性键 = refNum + 状态；回退修复即出现 ["1","1"] 重复 ⇒ 红）',
+      f01Ordinal >= 1 && f01Dom.thisOrdinal === 1 && f01Dom.cards === 1,
+      JSON.stringify({ refId: f01RefId, ordinal: f01Ordinal, dom: f01Dom }),
+    );
+    check(
+      'F-01：被抑制的第二次投影**仍然照写系统行**（流内「已失效」行 ≥1，事实不静默丢弃）',
+      f01Dom.staleCards === 1 && f01Dom.staleRows >= 1,
+      JSON.stringify(f01Dom),
+    );
+    // 还原到「生产 env 可再同步」的干净态（下游用例的既有前置：envOverride=false）。
+    await evaluate(pCdp, `window.__v3.testing.reset(); true`);
 
     // ── I-01②：失去授权后，层必须在**下一次交互**自检并卸载 ──────────────────────
     // 旧实现从不读 `env().authorized`：teardown 消息一旦丢失（撤销与拆卸竞态 / SW 重启），
