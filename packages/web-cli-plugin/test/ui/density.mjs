@@ -760,27 +760,104 @@ async function stageC(cdp) {
       const probe = await evaluate(cdp, riskVisibleExpr(sub.key));
       // stability: re-measure the *base* after the risk window; a drift means the
       // fixture (not the product) moved, and it must be reported as such.
+      // V4-4 R2: the expected drift is **registered** (see `riskExpectationFor`) —
+      // `staleRef`'s risk step legitimately appends a real `ref` card (append-only,
+      // FR-CHAT-050), which at 320px reveals the `#scroll-bottom` affordance. The judge
+      // stays two-directional: the drift must equal the registered values EXACTLY (the
+      // other 14 cells are registered as zero drift, i.e. the R1 judge verbatim).
       await setRisk(cdp, sub.key, 'off');
       await sleep(200);
       const baseAgain = await measure(cdp);
-      const stable =
-        base.clickables === baseAgain.clickables &&
-        base.lines === baseAgain.lines &&
-        base.blocks === baseAgain.blocks &&
-        base.chars === baseAgain.chars;
+      const expected = riskExpectationFor(sub.key, vp);
+      const keySets = deltaKeySets(base, measured, baseAgain);
+      // ── V4-4 R2（KL-V44-01 裁决②/④：显式重锚）──────────────────────────────
+      // 稳定性判据从「漂移必须为 0」重锚为「漂移必须**逐项等于登记值**」：登记表里
+      // 只有 `staleRef@320` 一格有非零登记（风险步自身的流内副作用让 `#scroll-bottom`
+      // 从 base 到 baseAgain 出现），其余 14 格登记值为 0（判据与 R1 完全一致）。
+      // 双向：多漂、少漂、漂移键不符都 FAIL —— 登记的是**实测真值**，不是「允许漂移」。
+      const drift = {
+        clickables: baseAgain.clickables - base.clickables,
+        lines: baseAgain.lines - base.lines,
+        blocks: baseAgain.blocks - base.blocks,
+        chars: baseAgain.chars - base.chars,
+      };
+      const driftRegistered = JSON.stringify(drift) === JSON.stringify(expected.baseWindowDrift);
+      // 漂移键集合（可点 ∪ 文本块去重后排序）—— 与登记键逐字比较。
+      const driftKeyList = [...new Set([...keySets.driftClickables, ...keySets.driftBlocks])].sort();
+      const driftKeysRegistered =
+        expected.driftKeys.length === 0
+          ? driftKeyList.length === 0
+          : JSON.stringify(driftKeyList) === JSON.stringify([...expected.driftKeys].sort());
+      const stable = driftRegistered && driftKeysRegistered;
       check(
-        `risk(${sub.key})@${vp} 夹具跨风险窗口稳定（base 复测逐项相等）`,
+        `risk(${sub.key})@${vp} 夹具跨风险窗口稳定（base 复测逐项等于登记漂移${
+          expected.registered ? `：${JSON.stringify(expected.baseWindowDrift)} / 键 ${JSON.stringify(expected.driftKeys)}` : ' 0'
+        }）`,
         stable,
-        `${fmt(base)} vs ${fmt(baseAgain)} | base 文本 ${baseText}`,
+        `${fmt(base)} vs ${fmt(baseAgain)} | 漂移 ${JSON.stringify(drift)} | 漂移键 ${JSON.stringify(driftKeyList)} | base 文本 ${baseText}`,
       );
       if (!stable) console.log(`    漂移明细：base=${JSON.stringify(base.elementsWithKeys?.filter((e) => e.clickable || e.block).slice(0, 40))}`);
       cells.push({ sub: sub.key, vp, measured, verdict, delta, probe });
+      // V4-4 R2（KL-V44-01 裁决④）—— **归因诊断（非断言）**：把三种状态的可点 / 文本块
+      // 逐键差异打进日志，让「谁占了风险增量预算」可复核而不是靠注释推测（与阶段 B 的
+      // `charsAttribution` 同一纪律）。登记格每次都打印（登记项是审查入口），其余格仅在
+      // 出现漂移或增量违规时打印。
+      if (!stable || delta.violations.length > 0 || expected.registered) {
+        console.log(`    增量归因（非断言）：base 可点=${keySets.basePick.join(' | ')}`);
+        console.log(`                   risk 可点=${keySets.measuredPick.join(' | ')}`);
+        console.log(`                   baseAgain 可点=${keySets.againPick.join(' | ')}`);
+        console.log(`                   risk∖base 可点=${keySets.newClickables.join(' | ') || '（无）'}`);
+        console.log(`                   risk∖base 非风险可点=${keySets.newNonRiskClickables.join(' | ') || '（无）'}`);
+        console.log(`                   baseAgain∖base 可点=${keySets.driftClickables.join(' | ') || '（无）'}`);
+        console.log(`                   risk∖base 文本块=${keySets.newBlocks.join(' | ') || '（无）'}`);
+        console.log(`                   baseAgain∖base 文本块=${keySets.driftBlocks.join(' | ') || '（无）'}`);
+        console.log(`                   登记期望：违规=${JSON.stringify(expected.expectedViolations)} 漂移=${JSON.stringify(expected.baseWindowDrift)} 漂移键=${JSON.stringify(expected.driftKeys)}`);
+      }
       console.log(`  · risk(${sub.key})@${vp}: ${fmt(measured)} → ${verdict.ok ? 'PASS' : 'FAIL'} | 增量违规 ${delta.violations.length} | 风险行可见 ${probe.ok ? 'YES' : `NO(${probe.why})`} | base 文本 ${baseText}`);
       check(`risk(${sub.key})@${vp} C1/C2 ≤ 风险档上限`, verdict.ok, verdict.message);
       check(`risk(${sub.key})@${vp} 风险行在 L0 可见且三通道齐备`, probe.ok === true, JSON.stringify(probe));
-      check(`risk(${sub.key})@${vp} 风险增量只被风险类元素占用`, delta.violations.length === 0, delta.violations.join(' / '));
+      // ── V4-4 R2：双向精确期望（登记外的任何新增/减少都 FAIL；未登记格仍要求 0 违规）──
+      check(
+        `risk(${sub.key})@${vp} 风险增量只被风险类元素占用（实测违规必须逐字等于登记期望${
+          expected.expectedViolations.length ? `：${JSON.stringify(expected.expectedViolations)}` : ' 0'
+        }）`,
+        JSON.stringify(delta.violations) === JSON.stringify(expected.expectedViolations),
+        `实测 ${JSON.stringify(delta.violations)} ≠ 登记 ${JSON.stringify(expected.expectedViolations)}`,
+      );
       await setRisk(cdp, sub.key, 'off');
     }
+  }
+  // ── V4-4 R2（KL-V44-01 裁决④）：登记表**非空转**且**覆盖完整** ─────────────────
+  // ① 覆盖：登记表的 `coverage` 必须与夹具矩阵（5 子场景 × 3 视口）逐项一致 —— 夹具
+  //    增删一格而登记不更新即 FAIL（「新测量未登记」，与阶段 F 同一纪律；未列出的格一律
+  //    适用 `defaultExpectation`，即「0 违规 ∧ 0 漂移」，与 R1 判据逐字一致）。
+  // ② 非空转：每个**非默认**登记条目都必须在本次运行真实出现（登记格存在 ∧ 违规逐字命中），
+  //    否则一条过期豁免会永久留在登记表里而没人发现。
+  const coverage = RISK_INCREMENT_REGISTRY.coverage ?? {};
+  const subsOk = JSON.stringify(coverage.subscenarios ?? []) === JSON.stringify(RISK_SUBSCENARIOS.map((s) => s.key));
+  const vpsOk = JSON.stringify(coverage.viewports ?? []) === JSON.stringify([...DENSITY_VIEWPORTS]);
+  check(
+    'riskIncrementRegistry.coverage 与夹具矩阵逐项一致（5 风险子场景 × 3 视口；夹具增删格必须同步登记）',
+    subsOk && vpsOk,
+    `子场景一致=${subsOk} 视口一致=${vpsOk} | 登记 ${JSON.stringify(coverage)} vs 实测 ${JSON.stringify({
+      subscenarios: RISK_SUBSCENARIOS.map((s) => s.key),
+      viewports: [...DENSITY_VIEWPORTS],
+    })}`,
+  );
+  const defaultExpectation = RISK_INCREMENT_REGISTRY.defaultExpectation ?? {
+    expectedViolations: [],
+    baseWindowDrift: { clickables: 0, lines: 0, blocks: 0, chars: 0 },
+    driftKeys: [],
+  };
+  for (const [label, entry] of Object.entries(RISK_INCREMENT_REGISTRY.cells ?? {})) {
+    const cell = cells.find((c) => `risk(${c.sub})@${c.vp}` === label);
+    const registered = JSON.stringify(entry ?? {}) !== JSON.stringify(defaultExpectation);
+    const produced = cell !== undefined && JSON.stringify(cell.delta.violations) === JSON.stringify(entry?.expectedViolations ?? []);
+    check(
+      `riskIncrementRegistry 登记项非空转（${label}：非默认登记 ∧ 登记格实测存在 ∧ 增量违规逐字命中）`,
+      registered && produced,
+      `非默认=${registered} 登记格存在=${cell !== undefined} 违规命中=${produced} 实测=${JSON.stringify(cell?.delta.violations ?? null)} 登记=${JSON.stringify(entry?.expectedViolations ?? [])}`,
+    );
   }
   // V4-4 TASK-806 (FR-V3-014 等价重锚): the panel-side `#l0-pick` is retired, so
   //「未授权 / 探测中不得有可点的拾取入口」is now proven structurally (the element is
@@ -827,7 +904,78 @@ function readBaselineRegistry() {
   return JSON.parse(readFileSync(BASELINE_JSON, 'utf8'));
 }
 
-// ── stage F: registry machine comparison (ADR-V3-018 决策 2 / review I8) ─────
+/**
+ * V4-4 R2（KL-V44-01 裁决②/④：**显式重锚**，不新增豁免类别）—— 风险增量的
+ * **登记期望值**（机读，单源 = `docs/v4-density-baseline.json#riskIncrementRegistry`）。
+ *
+ * 为什么需要它：`staleRef` 的风险步骤**本身是产品行为**（失效引用会追加一张真实 `ref` 卡
+ * 与一条 `system` 行；卡片只追加、按 FR-CHAT-050 永不移除）。当该副作用让 320px 的
+ * `#stream` 越过折线时，`#scroll-bottom`（滚动提示，**非风险类**）出现，于是：
+ *   ① `evaluateDelta`（AC-V3-003）把它报成「非风险类新增可点占用风险增量预算」；
+ *   ② 跨风险窗口的 base 复测与 base 差一个 `#scroll-bottom`（夹具序，不是产品漂移）。
+ *
+ * 处置（编排器裁决，选②：显式重锚）：**不新增豁免类别、不放宽方向** ——
+ *   · `#scroll-bottom` 照旧计入 C1（实测 7）并与登记格**逐格机对**（阶段 F，无豁免）；
+ *   · 增量归属判据改成**双向精确期望**：本格实测违规必须**逐字等于**登记值（登记外的任何
+ *     新增/减少都 FAIL），其余 14 格登记值为空数组（判据与 R1 完全一致）；
+ *   · 跨窗口稳定性判据同样改成**双向精确期望**：漂移必须**逐项等于**登记值且漂移键集合
+ *     逐字等于登记键（未登记者仍要求 0 漂移）；
+ *   · 登记表**非空转**：每个登记条目都必须在本次运行真实出现（否则 FAIL）。
+ */
+const RISK_INCREMENT_REGISTRY = (() => {
+  if (!existsSync(BASELINE_JSON)) return { cells: {} };
+  return readBaselineRegistry().riskIncrementRegistry ?? { cells: {} };
+})();
+
+/** The registered expectation for one `risk(<sub>)@<vp>` cell (default = 空期望). */
+function riskExpectationFor(sub, vp) {
+  const label = `risk(${sub})@${vp}`;
+  const entry = RISK_INCREMENT_REGISTRY.cells?.[label];
+  const fallback = RISK_INCREMENT_REGISTRY.defaultExpectation ?? {
+    expectedViolations: [],
+    baseWindowDrift: { clickables: 0, lines: 0, blocks: 0, chars: 0 },
+    driftKeys: [],
+  };
+  const effective = entry ?? fallback;
+  return {
+    label,
+    registered: Boolean(entry),
+    entry,
+    expectedViolations: effective.expectedViolations ?? [],
+    baseWindowDrift: effective.baseWindowDrift ?? { clickables: 0, lines: 0, blocks: 0, chars: 0 },
+    driftKeys: effective.driftKeys ?? [],
+  };
+}
+
+/** The per-element key sets an attribution judgement needs (pure, no assertion). */
+function deltaKeySets(base, measured, baseAgain) {
+  const keysOf = (m, pred) => new Set((m.elementsWithKeys ?? []).filter(pred).map((e) => `${e.key}${e.risk ? ' [risk]' : ''}`));
+  const pick = (m) => keysOf(m, (e) => e.clickable);
+  const block = (m) => keysOf(m, (e) => e.block);
+  const diff = (a, b) => [...a].filter((k) => !b.has(k)).sort();
+  const basePick = pick(base);
+  const baseBlock = block(base);
+  const measuredPick = pick(measured);
+  const measuredBlock = block(measured);
+  const againPick = pick(baseAgain);
+  const againBlock = block(baseAgain);
+  const newPick = diff(measuredPick, basePick);
+  return {
+    newClickables: newPick,
+    newNonRiskClickables: newPick.filter((k) => !k.endsWith(' [risk]')),
+    newBlocks: diff(measuredBlock, baseBlock),
+    newNonRiskBlocks: diff(measuredBlock, baseBlock).filter((k) => !k.endsWith(' [risk]')),
+    driftClickables: diff(againPick, basePick),
+    driftBlocks: diff(againBlock, baseBlock),
+    basePick: [...basePick],
+    measuredPick: [...measuredPick],
+    againPick: [...againPick],
+  };
+}
+
+/**
+ * ── stage F: registry machine comparison (ADR-V3-018 决策 2 / review I8) ─────
+ */
 async function stageF(cdp, rows, cells, worst, extraRows = []) {
   console.log('\n▶ 阶段 F：基线机器比对（实测 vs docs/v4-density-baseline.json）');
   check('F 基线文件存在（父 ADR-V4-010 的登记载体）', existsSync(BASELINE_JSON), BASELINE_JSON);

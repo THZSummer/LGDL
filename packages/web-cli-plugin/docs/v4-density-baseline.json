@@ -162,11 +162,11 @@
     },
     "staleRef": {
      "320": {
-      "clickables": 6,
-      "lines": 6,
-      "blocks": 17,
+      "clickables": 7,
+      "lines": 7,
+      "blocks": 18,
       "regions": 4,
-      "chars": 203
+      "chars": 208
      },
      "400": {
       "clickables": 6,
@@ -185,9 +185,9 @@
     }
    },
    "worst": {
-    "clickables": 6,
+    "clickables": 7,
     "lines": 7,
-    "blocks": 17,
+    "blocks": 18,
     "regions": 4,
     "chars": 227
    }
@@ -241,15 +241,15 @@
  },
  "volume": {
   "artifact": "dist/sidepanel.js",
-  "registeredBaselineBytes": 465000,
-  "ceilingBytes": 488250,
+  "registeredBaselineBytes": 465277,
+  "ceilingBytes": 488540,
   "tolerance": 0.05,
   "ceilingCapRole": "record-only",
   "ceilingCapRecordBytes": 306099,
   "ceilingFormula": "floor(baseline × (1 + tolerance))",
-  "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 **425,094 B**（v4-2 聊天流事件模型轮 + review 修复轮重登记的实测值，2026-09-19）从 266,500 B 起算的 Feature 累计增幅 **+59.53%**（425,094 / 266,500 − 1）；〖review 修复轮〗同轮的**中间登记值 425,442 B / +59.64%** 作为历史逐字保留于下行 v4-2 段 —— **R3 后越过已登记的 40% 停工线**（历史文本中的 375,102 B / +40.75% 是上一轮登记值，逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_META.note` 的历史段），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。 〖v4-2（2026-09-19）〗基线 385,319 → **425,442 B**（+40,123 B，+10.41%，十二个新必需模块 stream-* ×3 + cards/* ×9 = +34,044 B + 四个既有模块接线 +5,617 B + 未归因胶水 +462 B）；ceiling = floor(425,442 × 1.05) = **446,714 B**；容差 5% 未动、cap 仍 record-only。**v4-1 + v4-2 相邻两轮累计 +13.42%（<15% 线，仍如实登记）。** 〖v4-2 review 修复轮（2026-09-19，I-01~I-12 全处置后按**最终实测产物**订正）〗基线 **425,442 → 425,094 B**（−348 B，死代码/死 CSS 移除 + 空态单一投影源 + stream-merge 双键去重；Σ 模块 +39,381 + 未归因胶水 +394 == +39,775 == 425,094 − 385,319）；ceiling = floor(425,094 × 1.05) = **446,348 B**（≤ 上一登记 ceiling 446,714，方向为**下调**，不是放宽容差）；中间登记值 425,442 B / ceiling 446,714 B 逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v4-2'].reason`；**v4-1 + v4-2 相邻两轮累计 +13.33%（<15% 线，仍如实登记）**。 〖v4-2 收口轮（2026-09-19，处置 validate R1 的 F-01/F-02/F-03 + N-02）〗体积按**最终实测产物**再登记：425,094 → **426,487 B**（+1,393 B，+0.33%；F-01 stream-model +910 / F-02 chat-state +539 / F-03 stream-digest −33 / N-02 sidepanel −23，未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**（容差 5% 未动、cap 仍 record-only）；中间登记值 425,094 / 446,348 与 build 轮的 425,442 / 446,714 均逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；v4-1 + v4-2 相邻两轮累计 **+13.70%**（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖v4-3 build 轮（2026-09-19，TASK-711）〗按**最终实测产物**再登记：426,487 → **440,698 B**（+14,211 B，+3.33%）；ceiling = floor(440,698 × 1.05) = **462,732 B**；容差 5% 未动、cap 仍 record-only。v4-2 + v4-3 相邻两轮累计 +3.33%（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖v4-3 审查修复轮（2026-09-19）〗基线 440,698 → **444,962 B**（+4,264 B，+0.97%，逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.v43ReviewfixRows`）；ceiling = floor(445,300 × 1.05) = **467,565 B**；容差 5% 未动、cap 仍 record-only；相邻两轮（v4-3 + v4-3 审查修复轮）+0.97%（<15% 线，仍如实登记）。 〖v4-4 收口轮（2026-09-19，TASK-811，V3-VOL-3 带值闭合）〗基线 445,300 → **465,000 B**（+19,700 B，+4.42%），ceiling = floor(465,000 × 1.05) = **488,250 B**；**绝对上限带值闭合** = ceilTo50KB(464,491) × 1.10 = **563,200 B**，判定 = min(563,200, 488,250) = 488,250；容差 5% 未动、cap 仍 record-only；相邻两轮（v4-3 审查修复轮 + v4-4）+4.42%（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。",
+  "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 **425,094 B**（v4-2 聊天流事件模型轮 + review 修复轮重登记的实测值，2026-09-19）从 266,500 B 起算的 Feature 累计增幅 **+59.53%**（425,094 / 266,500 − 1）；〖review 修复轮〗同轮的**中间登记值 425,442 B / +59.64%** 作为历史逐字保留于下行 v4-2 段 —— **R3 后越过已登记的 40% 停工线**（历史文本中的 375,102 B / +40.75% 是上一轮登记值，逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_META.note` 的历史段），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。 〖v4-2（2026-09-19）〗基线 385,319 → **425,442 B**（+40,123 B，+10.41%，十二个新必需模块 stream-* ×3 + cards/* ×9 = +34,044 B + 四个既有模块接线 +5,617 B + 未归因胶水 +462 B）；ceiling = floor(425,442 × 1.05) = **446,714 B**；容差 5% 未动、cap 仍 record-only。**v4-1 + v4-2 相邻两轮累计 +13.42%（<15% 线，仍如实登记）。** 〖v4-2 review 修复轮（2026-09-19，I-01~I-12 全处置后按**最终实测产物**订正）〗基线 **425,442 → 425,094 B**（−348 B，死代码/死 CSS 移除 + 空态单一投影源 + stream-merge 双键去重；Σ 模块 +39,381 + 未归因胶水 +394 == +39,775 == 425,094 − 385,319）；ceiling = floor(425,094 × 1.05) = **446,348 B**（≤ 上一登记 ceiling 446,714，方向为**下调**，不是放宽容差）；中间登记值 425,442 B / ceiling 446,714 B 逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v4-2'].reason`；**v4-1 + v4-2 相邻两轮累计 +13.33%（<15% 线，仍如实登记）**。 〖v4-2 收口轮（2026-09-19，处置 validate R1 的 F-01/F-02/F-03 + N-02）〗体积按**最终实测产物**再登记：425,094 → **426,487 B**（+1,393 B，+0.33%；F-01 stream-model +910 / F-02 chat-state +539 / F-03 stream-digest −33 / N-02 sidepanel −23，未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**（容差 5% 未动、cap 仍 record-only）；中间登记值 425,094 / 446,348 与 build 轮的 425,442 / 446,714 均逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；v4-1 + v4-2 相邻两轮累计 **+13.70%**（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖v4-3 build 轮（2026-09-19，TASK-711）〗按**最终实测产物**再登记：426,487 → **440,698 B**（+14,211 B，+3.33%）；ceiling = floor(440,698 × 1.05) = **462,732 B**；容差 5% 未动、cap 仍 record-only。v4-2 + v4-3 相邻两轮累计 +3.33%（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖v4-3 审查修复轮（2026-09-19）〗基线 440,698 → **444,962 B**（+4,264 B，+0.97%，逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.v43ReviewfixRows`）；ceiling = floor(445,300 × 1.05) = **467,565 B**；容差 5% 未动、cap 仍 record-only；相邻两轮（v4-3 + v4-3 审查修复轮）+0.97%（<15% 线，仍如实登记）。 〖v4-4 收口轮（2026-09-19，TASK-811，V3-VOL-3 带值闭合）〗基线 445,300 → **465,000 B**（+19,700 B，+4.42%），ceiling = floor(465,000 × 1.05) = **488,250 B**；**绝对上限带值闭合** = ceilTo50KB(464,491) × 1.10 = **563,200 B**，判定 = min(563,200, 488,250) = 488,250；容差 5% 未动、cap 仍 record-only；相邻两轮（v4-3 审查修复轮 + v4-4）+4.42%（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖V4-4 R2（2026-09-19，编排器 KL-V44-01 选②）〗基线 465,000 → **465,277 B**（+277 B，+0.06%；唯一改动模块 `chat-state.ts`），ceiling = floor(465,277 × 1.05) = **488,540 B**（容差 5% 未动、cap 仍 record-only）；相邻两轮（v4-4 + v4-4-r2）+0.06%（<15% 线，仍如实登记）；**档位 512,000 / 绝对上限 563,200 未变**（`ceilTo50KB(465,277)` 与 `ceilTo50KB(465,000)` 同档）。",
   "absoluteCeilingBytes": 563200,
-  "effectiveCeilingRule": "min(absoluteCeilingBytes 563,200, floor(465,000 × 1.05) = 488,250) = 488,250"
+  "effectiveCeilingRule": "min(absoluteCeilingBytes 563,200, floor(465,277 × 1.05) = 488,540) = 488,540 〖V4-4 R2〗档位 ceilTo50KB(465,277) 仍是 512,000、绝对上限仍是 563,200（三值中的后两值未动）"
  },
  "designCaliber": {
   "published": {
@@ -442,12 +442,65 @@
  "knownLimitations": [
   "〖V4-2 TASK-613 重审完成（2026-09-19）—— 裁决：**保留单卡 ≤6 + 新增首屏合计 ≤8 + 常驻导航入口形态判据**〗v4-1 的过渡卡口径按约重审：v4-1 的 `#l0-decision` 已不再是唯一卡面，v4-2 落的 **12 类卡（7 主类 + 5 过程族）** 全部由 `cards/index.ts#CARD_TYPES` 单源登记并逐型渲染。重审实测：产品 12 类卡的单卡可点上限 = **5**（ask-user choice：≤3 选项 +「其他…」+ 取消；text=3；auth=2；ref-stale=2；nextstep≤3；其余 0），首屏可见卡 ≤2（FR-CHAT-073）∧ 既有法一「一次恰一张决策卡」（FR-V3-011）⇒ 合法最坏首屏 = 1 张 ask 卡（5）+ 1 张 nextstep 卡（3）= **8**；default/empty 档实测合计 **0**。v4-1 的理论上限「2 卡 × 6 = 12」高于 v3 全局 7 且无判据可拦，故本轮**收紧**而非沿用：① **形态判据**：`[data-chrome-control]` / `[data-toolbar-slot]` / `.view-btn` 任一出现在 `#stream` ⇒ `assertChromeNotInStream()` 抛错（v4-1 validate **N-02** 指出、当时「只登记不修」的第一层反向判定已落地）；② **合计上限**：首屏卡合计可点 ≤ **8**（`MAX_STREAM_RESIDENT_CLICKABLES`，单源 `density-scope.ts`），纳入 `evaluateFirstScreen()`。两条判据各配真会红的 in-gate 反证 **RP-V4-09**（`test/ui/density.mjs --reverse RP-V4-09`：注入 2 卡×5 可点 ⇒「流内卡合计可点 10 > 8」FAIL 且单卡预算仍 PASS；注入 `[data-toolbar-slot]` 控件 ⇒ 守卫抛「常驻导航入口」；还原后双绿）。**阈值零放宽**：单卡 6 / 首屏 2 / 欢迎 1·8 行 / 密度阈值 7·15 · 9·20 · 17·35 逐字不变；新增的 8 是**收紧**上限。v4-1 原文保留（历史）：过渡形态的卡口径：v4-1 的 `#l0-decision` 仍是被取代容器的内容体（v4-3 换成 `askuser`/`auth` 卡），本叶**不**把它计为「卡」，因此 RP-V4-01/02/03 以注入 `[data-msg-type]` 卡来证明单卡/首屏预算真的会红；v4-2 落 7 主类卡后，本口径必须重审（v4 收口时 `data-transitional-host` 清零，见 ADR-V4-005 第 6 条）。",
   "empty 档的 `chars` 跨视口差 3（184→187）：与 default 档**同因** —— 审计计数跨位数（empty 实测 92 → 96 → 100），非几何/省略号导致的漂移（〖review 修复轮 I6〗原归因「站点摘要 `nowrap+ellipsis`」不成立：CSS ellipsis 不改 `textContent`；实测根因见 counts.charsSpreadRootCause）；empty 档不参与「default 三视口结构逐项相等」的确定性判据（后者只对 default 档生效）。",
-  "风险子场景 `staleRef` 的 `chars` 对视口不敏感（203×3），但该格对**夹具序**敏感：新增登记格必须在既有 A/B/C 之后执行（density.mjs 已如此排布），否则会静默改变既有格的实测值。",
+  "风险子场景 `staleRef` 的 `chars` 对视口不敏感（203×3），但该格对**夹具序**敏感：新增登记格必须在既有 A/B/C 之后执行（density.mjs 已如此排布），否则会静默改变既有格的实测值。 〖V4-4 R2 订正（2026-09-19，KL-V44-01 裁决落地轮）〗本条的数值与口径按重测**订正**（历史文本逐字保留在上文）：① `risk(staleRef)` 的 `chars` 不再是 203×3 —— **320px = 208**、400/520 = 203（三视口重测；差 = 320px 的 `#scroll-bottom` 因该子场景自身的只追加流内副作用而出现，+5 字符/+1 可点/+1 文本块）；② 登记格随之为 320 = **7/7/18/208**（原 6/6/17/203）、400/520 = 6/6/17/203（零漂移）、`risk.worst` = clickables 7 / blocks 18（原 6/17）；③ 「对夹具序敏感」这一事实**不变**（新增格仍必须排在既有 A/B/C 之后），R2 未改动夹具序；④ 该子场景的**风险步骤有流内副作用**（失效引用追加真实 `ref` 卡 + `system` 行，只追加不删除）因此其 base/风险窗口天然存在**已登记**的差量：跨窗口稳定性与增量归属判据改为机读**双向精确期望**（`riskIncrementRegistry`），登记外的任何新增/减少仍 FAIL；`#scroll-bottom` 仍全额计入 C1（无豁免类别）。",
   "〖N-01（收口轮，v4-1 validate R1）—— 口径双轨期说明〗密度口径有**两条并存**的测量表达式：① **产品口径** `DENSITY_MEASURE_SOURCE`（排除 `#stream` 的三区外壳口径，阶段 B/C/F 与 RP-V4-01~07 用）；② **未排除口径** `c1Probe`（`density.mjs` 内联，整页可见可点计数 —— RP-V3-03 / RP-V4-04 用它判「CSS 隐身不豁免 / hidden 是唯一豁免通道」，那里判的正是这条口径**本身**）。N-01 指出的是**误用**：RP-V4-06 曾在产品口径的反证里用未排除口径断言「C1 不得下降」——页面内移元素不可能改变整页计数，故恒真（实测 14 → 14）。现已改为产品口径（注入后必须 5 → 4）+ 对照段（移入非豁免 `#region-statusbar` ⇒ C1 不变）；未排除口径的既有用途（RP-V3-03/RP-V4-04）保持不变。",
   "〖N-02（收口轮，v4-1 validate R1）—— 豁免守卫是双层防线（两层都已实测）〗① **guard 即时拦**：`src/ui/sidepanel/density-scope.ts#assertChromeNotInStream()` 只认 `[data-chrome-control]` 标记，带标记控件被移入 `#stream` 时抛错（validate P1 实测 throw；`density.mjs --reverse RP-V4-06` in-gate 实跑）。② **阶段 F 基线兜底**：抹掉标记后的移入不会被 guard 拦住（`pass`），但**阶段 F 逐格比对**必然判红 —— validate A2-1 在真门禁上静态注入实测 `167 passed / 4 failed`（`default@320/400/520 可点实测 4 ≠ 5` + 阶段 F `clickables 4≠5` / `blocks 13≠15` / `chars 176≠181`）。因此「未标记控件移入豁免子树」不是未覆盖面，而是**第二层承担**的形态；补齐基于形态（`data-toolbar-slot`/`.view-btn`）或位置（三区外壳）的第一层反向判定需改产品代码（`toolbar.ts` 字节）—— 收口轮按红线只登记不修，留待下游在有产品改动时一并落地。",
   "〖V4-3 前置义务（v4-2 review I-05 跨叶移交，2026-09-19）—— 必须在 v4-3 复算，禁默认沿用〗「首屏可见卡**合计**可点 ≤ 8」（`perCardBudget.streamResidentClickableLimit` / `aggregateLimit`）的推导前提是**首屏 = 1 张 askuser（5 可点）+ 1 张 nextstep（3 可点）**。该组合在本轮（v4-2）成立，因为 v4-2 **不把 ask 流入 `#stream`**（ask/confirm 仍由 `#l0-decision` 占位宿主承载，见 `test/size-baseline.ts` 与 build.md §11 偏差 3）。**但 v4-3 会把 ask-user（含破坏性确认）流内化**：届时若首屏同时可见**两张 askuser 卡**，每张各 5 可点（单卡 ≤6 各自合规）⇒ 合计 **10 > 8**，按现行判据必 FAIL。因此 v4-3 必须：① 用真实产品态复算首屏合计上限（而不是沿用 8）；② 若「两张 ask 卡 = 10」被判定为**合法**产品态，则必须显式裁决（提高 `aggregateLimit` 并同时给出单卡/首屏/合计三者的新推导，或由形态/位置判据禁止两张 ask 卡同屏），并在本文件与`docs/v4-supersession-ledger.json` 同步登记 —— **禁静默沿用 8 或静默放宽**；③ 复跑 `npm run test:density -- --reverse RP-V4-09` 证明判据仍会红。移交落点：`.sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.md`（跨叶移交登记，编排器授权）。",
   "〖I-03（v4-3 审查修复轮，2026-09-19）—— HO-1 展开态裁决：**收紧（互斥披露）**，不设预算豁免〗v4-3 复算的「最坏合计 = 4 + 4 = 8」只在**收起态**成立：choice ask 卡点开「其他…（我来描述）」后，3 个选项 + 末项按钮 + 输入 + 提交 + 取消 = **7 可点 > MAX_CLICKABLES_PER_CARD(6)**；两张展开卡合计 **14 > MAX_STREAM_RESIDENT_CLICKABLES(8)**。裁决：**收紧**而不是登记豁免 —— `cards/askuser.ts#setAskFallbackOpen()` 做**互斥披露**（展开兜底即 `hidden` 掉选项行；关闭兜底即恢复选项行），因此展开态单卡 = 4（输入 + 提交 + 取消 + 切换按钮）、两卡展开合计 = 8 ≤ 8，与收起态**同一口径**（无需「临时态」豁免，也不需要「展开态登记格」这类不参与判定的格）。可判定判据落在 `test/ui/ask-auth-inflow.mjs` ⑪（展开态单卡 ≤6 ∧ 两卡合计 ≤8，判据用与 `density.mjs` 同源的可见性/可点口径）+ 同段 in-gate 反证（注入「选项行不收起」⇒ 该判据必须 FAIL，还原后 PASS）；`l0/shell.ts#revealFallback`（L1「改用描述」入口）走同一函数，使两处入口产出的 DOM 状态一致。附带修正的失真注释（原 `cards/askuser.ts` 称「实际只有一张 open ask 卡」）与 v4-2 I-05 移交义务的 ③（`test:density -- --reverse RP-V4-09` 仍会红）一并满足。"
  ],
+ "riskIncrementRegistry": {
+  "caliberNote": "〖V4-4 R2（2026-09-19，KL-V44-01 裁决②：**显式重锚**，不新增豁免类别）〗风险增量归属（AC-V3-003 / evaluateDelta）与跨风险窗口稳定性（base 复测）两条判据的**精确期望值**（机读；单源 = 本键）。**为何需要**：`staleRef` 的风险步骤本身是产品行为 —— 失效引用会追加一张真实 `ref` 卡（`FR-CHAT-050`：卡片只追加、永不移除）与一条 `system` 行；当该副作用让 320px 的 `#stream` 越过折线时，`#scroll-bottom`（滚动提示，**非风险类**）出现。**处置（不是放宽）**：① `#scroll-bottom` 照旧计入 C1（实测 7）并与登记格逐格机对（阶段 F，无豁免）；② 增量归属判据改为**双向精确期望** —— 实测违规必须逐字等于登记值（多一条、少一条、文字不符都 FAIL），未登记格一律适用 `defaultExpectation`（= 0 违规，与 R1 判据逐字一致）；③ 稳定性判据同样双向精确（漂移逐项等于登记值 ∧ 漂移键逐字等于 `driftKeys`）；④ 登记表**非空转**：每个非默认条目都必须在本轮真实出现，`coverage` 必须与夹具矩阵（5 子场景 × 3 视口）逐项一致 —— 夹具增删格而登记不更新即 FAIL。阈值 7/15 · 9/20 · 17/35 与豁免口径（只认 `hidden`）**逐字未动**。",
+  "coverage": {
+   "subscenarios": [
+    "unauthorized",
+    "probing",
+    "hardline",
+    "confirm",
+    "staleRef"
+   ],
+   "viewports": [
+    320,
+    400,
+    520
+   ]
+  },
+  "defaultExpectation": {
+   "expectedViolations": [],
+   "baseWindowDrift": {
+    "clickables": 0,
+    "lines": 0,
+    "blocks": 0,
+    "chars": 0
+   },
+   "driftKeys": []
+  },
+  "cells": {
+   "risk(staleRef)@320": {
+    "expectedViolations": [
+     "非风险类新增可点+文本块占用风险增量预算：#scroll-bottom"
+    ],
+    "baseWindowDrift": {
+     "clickables": 1,
+     "lines": 0,
+     "blocks": 1,
+     "chars": 5
+    },
+    "driftKeys": [
+     "#scroll-bottom"
+    ],
+    "before": {
+     "clickables": 6,
+     "lines": 6,
+     "blocks": 17,
+     "regions": 4,
+     "chars": 203
+    },
+    "reason": "〖显式重锚 · 五要素〗**前置**：R1 登记格 risk(staleRef)@320 = 6/6/17/203 / 增量违规 0 / base 复测 0 漂移。**改为**：登记格 7/7/18/208 / 增量违规 = 恰一条「非风险类新增可点+文本块占用风险增量预算：#scroll-bottom」/ base→baseAgain 漂移 = +1 可点 +1 文本块 +5 字符（键 `#scroll-bottom`）。**来源**：`npm run test:density` 实测（Chromium，2026-09-19 R2 轮），逐键归因见门禁「增量归因」日志：risk∖base 可点 = `#scroll-bottom`（非风险）+ `>footer[2]/div[1]/div[0]/button[0]`（**风险类**救援控件，`isRiskClass` 命中 `#risk-rail` 祖先 ⇒ 不违规）。**理由**：`#scroll-bottom` 是滚动提示（产品 affordance），其出现由风险步自身的**只追加**流内副作用（失效引用 ⇒ 新 `ref` 卡 ⇒ `#stream` 越过折线）触发，非风险内容本身；据编排器裁决 KL-V44-01 选②（显式重锚，不新增豁免类别）—— 元素仍全额计入 C1 并与登记格机对，仅把**增量归属的期望值**按新真值精确登记。**历史登记值 6/6/17/203 逐字保留于本键 `before`**。",
+    "measuredOn": "2026-09-19",
+    "source": "npm run test:density（阶段 C 实测 + 阶段 F 机对）"
+   }
+  }
+ },
  "differencesFromV3": [
   "测量根：**不变**（v3 = document.body，见 docs/v3-density-baseline.json#caliber.measurementRoot；v4 = document.body）。真实差异是 v4 新增**豁免子树** DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]。〖订正注（review 修复轮 I3）〗本条曾误写「v3 = #panel-main（已退役）」——#panel-main 是 v3 的**区容器**，不是测量根；v3 的测量根自 v2 起即为 document.body（父 ADR-V3-001 明文），此处**订正为与 v3 基线逐字一致**，历史误述不在本文件保留（其原文见 git 历史）。",
   "豁免子树：新增 DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]（流本体不计入密度预算；单源 density-scope.ts），并以「单卡 ≤6 / 首屏 ≤2」两条防滥用 + RP-V4-01~03 补偿控制。",
@@ -475,5 +528,5 @@
   "aggregateCaliber": "V4-2 TASK-613 ③（收紧）：首屏（default / empty 档）可见卡**合计**可点 ≤ 8 —— 单卡 ≤6 之外的第二条上限；判据 `evaluateStreamResidentBudget()`，纳入 `evaluateFirstScreen()`（RP-V4-09 ① 真会红：两卡各 5 可点 = 10 ⇒ FAIL，且单卡预算仍 PASS）。",
   "aggregateLimit": 8
  },
- "closeoutNote": "〖收口轮（2026-09-19，处置 v4-1 validate R1 的 N-01~N-08）〗本基线文件除新增上述两条 knownLimitations 外**零改动**：31 格实测值、阈值 7/15·9/20·17/35、几何下界 488px、体积登记 385,319 / 404,584、designCaliber 分列均逐字不变（阈值与上限只允许收紧，本轮无任何放宽）。密度门禁复跑实测 **171 passed / 0 failed**（R3 现场 169 → 171，为 review 修复轮 I6/I10 新增断言所致，已同步 v4 取代台账 counts.density）。 〖V4-2 build 轮（2026-09-19，TASK-613）〗本文件新增 `perCardBudget.streamResidentClickableLimit=8` / `aggregateCaliber` / `residentNavFormCriterion` 三项登记并把 `knownLimitations[0]` 从「v4-2 必须重审」更新为「已重审 + 结论」；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（体积字节重登记见 §volume 与 `test/size-baseline.ts`）。 〖V4-2 review 修复轮（2026-09-19，I-01~I-12）〗`volume` 按**最终实测产物**订正为 425,094 B / ceiling 446,348 B（中间值 425,442 / 446,714 逐字保留）；`knownLimitations` 追加 **v4-3 前置义务**（首屏合计 ≤8 的前提须在 v4-3 复算）；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖v4-2 收口轮（2026-09-19，处置 validate R1 的 F-01/F-02/F-03 + N-02）〗体积按**最终实测产物**再登记：425,094 → **426,487 B**（+1,393 B，+0.33%；F-01 stream-model +910 / F-02 chat-state +539 / F-03 stream-digest −33 / N-02 sidepanel −23，未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**（容差 5% 未动、cap 仍 record-only）；中间登记值 425,094 / 446,348 与 build 轮的 425,442 / 446,714 均逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；v4-1 + v4-2 相邻两轮累计 **+13.70%**（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。"
+ "closeoutNote": "〖收口轮（2026-09-19，处置 v4-1 validate R1 的 N-01~N-08）〗本基线文件除新增上述两条 knownLimitations 外**零改动**：31 格实测值、阈值 7/15·9/20·17/35、几何下界 488px、体积登记 385,319 / 404,584、designCaliber 分列均逐字不变（阈值与上限只允许收紧，本轮无任何放宽）。密度门禁复跑实测 **171 passed / 0 failed**（R3 现场 169 → 171，为 review 修复轮 I6/I10 新增断言所致，已同步 v4 取代台账 counts.density）。 〖V4-2 build 轮（2026-09-19，TASK-613）〗本文件新增 `perCardBudget.streamResidentClickableLimit=8` / `aggregateCaliber` / `residentNavFormCriterion` 三项登记并把 `knownLimitations[0]` 从「v4-2 必须重审」更新为「已重审 + 结论」；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（体积字节重登记见 §volume 与 `test/size-baseline.ts`）。 〖V4-2 review 修复轮（2026-09-19，I-01~I-12）〗`volume` 按**最终实测产物**订正为 425,094 B / ceiling 446,348 B（中间值 425,442 / 446,714 逐字保留）；`knownLimitations` 追加 **v4-3 前置义务**（首屏合计 ≤8 的前提须在 v4-3 复算）；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖v4-2 收口轮（2026-09-19，处置 validate R1 的 F-01/F-02/F-03 + N-02）〗体积按**最终实测产物**再登记：425,094 → **426,487 B**（+1,393 B，+0.33%；F-01 stream-model +910 / F-02 chat-state +539 / F-03 stream-digest −33 / N-02 sidepanel −23，未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**（容差 5% 未动、cap 仍 record-only）；中间登记值 425,094 / 446,348 与 build 轮的 425,442 / 446,714 均逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；v4-1 + v4-2 相邻两轮累计 **+13.70%**（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖V4-4 R2 裁决落地轮（2026-09-19，编排器 KL-V44-01 选② **显式重锚**）〗体积按**最终实测产物**再登记：465,000 → **465,277 B**（+277 B，+0.06%；唯一改动模块 `chat-state.ts` 15,838 → 16,115 = +277 B，未归因胶水 0），ceiling = floor(465,277 × 1.05) = **488,540 B**（容差 5% 未动、cap 仍 record-only）；`PENDING_ABSOLUTE_CAP.newBaselineBytes` 随现行基线同源前移（**档位 512,000 / 绝对上限 563,200 / resolvedOn 均未变**）。同轮：`riskIncrementRegistry` 新增（风险增量归属 + 跨风险窗口稳定性的**双向精确期望**机读登记）、`risk(staleRef)@320` 登记格 6/6/17/203 → **7/7/18/208**（`#scroll-bottom` 因该子场景自身的只追加流内副作用而出现）、`risk.worst` clickables 6→7 / blocks 17→18；三视口重测（320/400/520）中 **400/520 零漂移**，其余 30 格零漂移。**阈值 7/15 · 9/20 · 17/35 与豁免口径（只认 `hidden`）逐字未动，无新增豁免类别。**"
 }

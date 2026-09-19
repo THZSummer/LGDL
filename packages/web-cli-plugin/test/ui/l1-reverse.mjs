@@ -62,10 +62,17 @@ const CASES = [
     artifact: JS,
     assertion: '⑦ 五维 → 可读原因逐字（`r.text === REASON[dim]`）',
     requirement: 'FR-V3-036 / FR-V3-037',
-    // `目标元素已不存在` — append one byte inside the reason literal so the verbatim
-    // comparison (gate-side expected string) can no longer match.
-    from: '\\u76EE\\u6807\\u5143\\u7D20\\u5DF2\\u4E0D\\u5B58\\u5728',
-    to: '\\u76EE\\u6807\\u5143\\u7D20\\u5DF2\\u4E0D\\u5B58\\u5728X',
+    // `引用 {n} 的目标元素已不存在` — append one byte inside the **REASON template**
+    // so the verbatim comparison (gate-side expected string) can no longer match.
+    //
+    // 〖V4-4 R2（2026-09-19，KL-V44-01 裁决落地轮）〗锚点从 `目标元素已不存在` 扩到带模板前缀
+    // （`引用 {n} 的目标元素已不存在`）：R1（8ae971e）在 `sidepanel.ts` 的 ref 卡片投影里加了同字面量
+    // 的兜底参数（`target.readableReason ?? '目标元素已不存在'`），使旧锚点在产物里**命中 2 次**
+    // （`patch()` 于是抛错，本 harness 无法进入任何一条反证）。这是**反证锚点唯一性**的修复
+    // （`patch()` 的 count 语义零改动、扰动语义零改动：依然是「在理由字面量里插一个字节 ⇒ 逐字比较必然不等」），
+    // 不是放宽判据；实测 `dist/sidepanel.js` 命中 1 次（唯一）。
+    from: '\\u5F15\\u7528 {n} \\u7684\\u76EE\\u6807\\u5143\\u7D20\\u5DF2\\u4E0D\\u5B58\\u5728',
+    to: '\\u5F15\\u7528 {n} \\u7684\\u76EE\\u6807\\u5143\\u7D20\\u5DF2\\u4E0D\\u5B58\\u5728X',
     expectFailPattern: /可读原因指到该维（逐字）/,
     note: '注入后：五维的可读原因与门禁逐字期望不再相等 → 该维 FAIL',
   },

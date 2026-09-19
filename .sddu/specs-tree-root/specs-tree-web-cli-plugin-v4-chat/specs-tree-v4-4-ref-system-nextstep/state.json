@@ -179,9 +179,19 @@
       "phase": "tasked",
       "timestamp": "2026-09-18T06:00:00.000Z",
       "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0；12 任务 / 6 波）"
+    },
+    {
+      "phase": "builded",
+      "timestamp": "2026-09-19T12:39:25.000Z",
+      "triggeredBy": "sddu-build（R1：12 任务代码落地 + V3-VOL-3 八步带值闭合；残留 1 项登记偏差 KL-V44-01 + density ✘ + binding 未复验）"
+    },
+    {
+      "phase": "builded",
+      "timestamp": "2026-09-19T13:59:02.000Z",
+      "triggeredBy": "sddu-build（R2 轮：编排器裁决 KL-V44-01 选②落地 = 启用「导航失效 / #notice 自动归并」+ risk(staleRef)@320 显式重锚五要素 + 增量归属/跨窗口稳定性改机读双向精确期望；density 173/173 转绿、binding 隔离复跑 192/192×2、l1-reverse 锚点修复 9/9、全部 23 门禁收完；测试只增不减 968→978；体积 465,277 / ceiling 488,540（档位 512,000 与绝对上限 563,200 未变）；红线 content.js 177,076 / pick-layer.js 33,900 逐字节不变）"
     }
   ],
-  "phaseNote": "builded（⚠️ 1 项登记偏差 + 2 项门禁未绿）。12 任务代码落地；node 968/968；已实跑 Chromium 门禁 l0 217 / l1 111 / l2 73 / stream 63 / page-input 102 / zero-injection 27 / ask-auth 61 / recommendation 37 / journey(ui) / insight / hardening / e2e 全绿。**V3-VOL-3 八步带值闭合**：B_final=465,000 → 档位 512,000 → 绝对上限 563,200；min(563,200, 488,250)=488,250；PENDING_ABSOLUTE_CAP resolved:true 三值齐备（authorConfirmation = 作者确认占位，标注可一行否决）。宿主清零：index.html data-transitional-host=0。红线：content.js 177,076 / pick-layer.js 33,900 逐字节不变。residual：① KL-V44-01（TASK-803 的导航失效/#notice 自动归并未启用——追加该行会让 320px risk(staleRef) 夹具的 #scroll-bottom 常驻，触发已冻结的 evaluateDelta 与跨窗口确定性判据；需一次密度口径裁决，见 docs/v4-supersession-ledger.json#knownLimitations[KL-V44-01]）② test:density ✘ ③ test:binding 未复验（首轮 #8d 未出现 #confirm；二次复跑 SW 不可达抖动，门禁文件零 diff）。产物：build.md v1.0。",
+  "phaseNote": "builded（R2 轮：**KL-V44-01 已裁决落地并关闭**，无登记偏差、无未绿门禁）。12 任务 = 12/12 完成（TASK-803 补完自动归并、TASK-812 收口）。**门禁全账（23 项，串行 + 日志 /tmp/opencode/v4-gate-logs/v4-4-r2/）**：typecheck ✔ · build ✔ · node **978/978**（968→978，新增 test/system-merge.test.ts 10 用例）· supersession 33/33 · gate-integrity 12/12 · ref-pick-wiring 7/7 · size-ruling-vol3 8/8 · design-contract 6/6 · l0 217 · l1 111 · l2 73 · stream 63 · page-input 102 · zero-injection 27 · ask-auth 61 · recommendation 37 · journey(ui) 167 · insight 116 · hardening 24 · e2e ✔ · **density 173/173 转绿** · binding **192/192（隔离复跑 ×2）** · l1-reverse 9/9（原 ✘：R1 遗留锚点重复，已修）· l2-reverse 10/10。**裁决落地**：① 启用「导航失效 / #notice 自动归并」系统事件行（唯一通道；`nav` + `notice` 两条）② `risk(staleRef)@320` 登记格 6/6/17/203 → **7/7/18/208**（五要素；400/520 零漂移；`risk.worst` clickables 6→7 / blocks 17→18）③ 增量归属与跨窗口稳定性改成机读**双向精确期望**（`docs/v4-density-baseline.json#riskIncrementRegistry` + 两条新判据）④ 目录口径零改（阈值 7/15·9/20·17/35 与「只认 hidden」逐字不动，**无新增豁免类别**）。**根因订正**：R1 把 density ✘ 归因为「启用归并」，R2 用 A/B 实测证明**自动归并测量中性**（R1/R2 产物同为 7/7/18/208 + 同一违规），真实根因 = `staleRef` 风险步自身的只追加流内副作用（ref 卡 ⇒ 320px 溢出 ⇒ `#scroll-bottom` 出现）。**体积**：465,000 → **465,277 B**（+277，单一模块 chat-state.ts 可归因），ceiling 488,540，V3-VOL-3 三值 newBaselineBytes 同源前移 465,277、档位 512,000 / 绝对上限 563,200 / resolvedOn 未变。**红线**：content.js 177,076 / pick-layer.js 33,900 逐字节不变（sha256 复核）；journey/binding 保护段零 diff；manifest / SW / KIND_SET / 判定链零 diff。产物：build.md v2.0。",
   "tasks": {
     "range": "TASK-801~812",
     "alias": "V44-01~12",

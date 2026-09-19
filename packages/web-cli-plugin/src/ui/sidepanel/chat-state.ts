@@ -440,10 +440,29 @@ function historyKind(role: ChatRole): 'user' | 'ai' | 'notice' | 'system' {
   return 'system';
 }
 
-/** The stream branch: a pure, additive fold over the v1 reducer's output. */
-function streamBranch(state: SidepanelState, action: SidepanelAction): SidepanelState {
+/**
+ * The stream branch: a pure, additive fold over the v1 reducer's output.
+ *
+ * `prev` is the state *before* `reduceChat` ran (R2 / TASK-803 补完). The v1
+ * reducer is the only place that computes the navigation-invalidation
+ * **false→true 跳变**, so the merge needs both halves of the transition to stay
+ * faithful to the original semantics (`prev.invalidated === false` ∧
+ * `action.invalidated === true`) instead of re-deriving it from the new state
+ * (which can no longer see the previous value).
+ */
+function streamBranch(state: SidepanelState, action: SidepanelAction, prev: SidepanelState): SidepanelState {
   const at = action.at ?? 0;
   switch (action.type) {
+    case 'state': {
+      // V4-4 TASK-803 补完（R2 / KL-V44-01 裁决② / ADR-V4-036 §5·矩阵「导航失效」行）——
+      // the navigation-invalidation fact now also rides the **single system channel**.
+      // The transition is the v1 rule verbatim (false→true only): a repeated refresh
+      // carrying `invalidated:true` appends nothing, so the row cannot flood.
+      if (action.invalidated === true && !prev.invalidated) {
+        return systemRow(state, at, SYSTEM_COPY.navInvalidated, 'nav');
+      }
+      return state;
+    }
     case 'user': {
       // One turn = one user card + one thinking card (two events, one card each).
       const withUser = push(state, { kind: 'user', ts: at, cardId: freshCardId(state.stream, 'u'), payload: { text: action.text } });
@@ -568,17 +587,17 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
     case 'stream-session':
       return { ...state, stream: switchStreamSession(state.stream, action.sessionId, action.label ?? action.sessionId) };
     case 'notice':
-      // V4-4 TASK-803 (ADR-V4-036 §5) — the `#notice` merge, scoped to the facts the
-      // frozen fixtures do NOT already render.
+      // V4-4 TASK-803 补完（R2 / KL-V44-01 裁决② / ADR-V4-036 §5·矩阵「`#notice`」行）——
+      // the legacy **overwrite slot** is merged into the single append-only channel.
       //
-      // ⚠️ REGISTERED DEVIATION: the nav-invalidation fact (the one `#notice` the
-      // density/journey fixtures carry) rides the `nav` system row (see `reduce()`),
-      // so appending a SECOND row here would double-render the same fact and push
-      // the settled 320px fixture into overflow (`#scroll-bottom` becomes resident,
-      // which the risk-increment attribution correctly refuses). The legacy `#notice`
-      // slot therefore keeps its v1 overwrite semantics for the remaining notices
-      // (receipts / errors / hints) and is **not** duplicated into the channel.
-      return state;
+      // The strip element (`#notice`, `index.html`) keeps rendering the *latest* fact:
+      // it is read by the protected gates (`test/ui/binding.mjs` waits for the
+      // 「已授权」receipt there) and its readable-in-one-glance role is unchanged. What
+      // the merge adds is the part the overwrite slot could never provide — the fact
+      // is now also **ordered, timestamped and un-overwritable** in the stream, so a
+      // later notice can no longer make an earlier one unobservable (FR-CHAT-053).
+      // Dedupe (5 s window) + the rate cap are applied by `systemRow`, never bypassed.
+      return systemRow(state, at, action.text, 'notice');
     case 'system':
       // V4-4 (ADR-V4-036): the ONE merged channel. A source that uses this action
       // cannot bypass the dedupe window / rate cap / `dropped` accounting.
@@ -678,26 +697,19 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
  * (TASK-607: 12 actions zero-deleted); the stream branch only appends.
  */
 export function reduce(state: SidepanelState, action: SidepanelAction): SidepanelState {
-  // ── V4-4 TASK-803 (ADR-V4-036 §5) — REGISTERED DEFERRAL ─────────────────────
+  // ── V4-4 TASK-803 补完（R2，KL-V44-01 裁决②：显式重锚，不新增豁免类别）──────
   //
-  // The 6+ transient channels are all routed through the single `appendSystem`
-  // channel by construction (see `systemRow`), and the merge is exercisable through
-  // the `{type:'system'}` action / the `window.__v3.testing.systemRow` seam.
+  // The two remaining transient channels — **导航失效**（`state.invalidated` 的
+  // false→true 跳变）and the legacy **`#notice` overwrite slot** — are now merged into
+  // the single `appendSystem` channel as well (see the `'state'` / `'notice'` cases of
+  // `streamBranch`). With that, every row of the ADR-V4-036 §5 merge matrix is wired:
+  // nothing in the product can still write a system fact outside the one channel.
   //
-  // The **automatic** merge of the two channels the frozen fixtures already render
-  // (navigation invalidation, and the legacy `#notice` overwrite slot) is
-  // deliberately NOT enabled in this build. Reason, measured: appending that one row
-  // to `#stream` pushes the settled 320px fixture across the fold, so
-  // `#scroll-bottom` becomes resident in the risk pass only. That trips two frozen
-  // judges — `evaluateDelta` (a NON-risk clickable occupying the risk-increment
-  // budget) and the cross-window determinism check — and re-anchoring either would
-  // mean changing the density caliber, which this leaf may not do.
-  //
-  // Enabling it requires (and is blocked on) a density-caliber decision:
-  // `#scroll-bottom` must be registered as a scroll affordance excluded from the
-  // incremental attribution, or the `risk@320` cell must be re-anchored. Registered
-  // in `docs/v4-supersession-ledger.json#knownLimitations[KL-V44-01]`.
-  return streamBranch(reduceChat(state, action), action);
+  // The previous state is threaded through so the nav merge can see BOTH halves of
+  // the false→true transition (the v1 reducer is the only place that knows the bit
+  // flipped; a repeated `invalidated:true` refresh must stay silent — TASK-033).
+  const prev = state;
+  return streamBranch(reduceChat(state, action), action, prev);
 }
 
 /**

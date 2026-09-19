@@ -58,7 +58,7 @@
    "featureKey": "specs-tree-v4-4-ref-system-nextstep",
    "name": "V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移",
    "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/",
-   "phase": "tasked",
+   "phase": "builded",
    "status": "tracked",
    "depth": 2,
    "leaf": true,
@@ -66,7 +66,7 @@
    "deliveryOrder": 4,
    "covers": "FR-CHAT-050~064 / FR-CHAT-090~094（AC-CHAT-011 / 012 / 013 / 016 / 018 / 020 / 021 / 023 / 025）",
    "role": "引用卡 + 系统事件行（6+ 通道归并）+ 推荐卡（真值派生 + chips 即指令）+ 拾取入口迁移后的可发现性与救援路径重锚；**执行 V3-VOL-3 父级收口锚**",
-   "note": "最后完成；前置 v4-2，建议在 v4-3 之后串行门禁；V3-VOL-3 带值闭合由本叶收口轮执行",
+   "note": "最后完成；前置 v4-2，建议在 v4-3 之后串行门禁；V3-VOL-3 带值闭合由本叶收口轮执行 〖2026-09-19 R2 同步（sddu-build）〗叶子 phase 已同步为 **builded**：编排器裁决 KL-V44-01 选②落地 （启用「导航失效 / #notice 自动归并」+ `risk(staleRef)@320` 显式重锚五要素 + 增量归属/跨窗口稳定性改机读双向精确期望）；**23 门禁全绿**（node 978/978 · density 173/173 · binding 192/192 隔离复跑 ×2 · l1-reverse 9/9（修复 R1 遗留锚点重复）· 其余见叶 build.md v2.0 §5）；测试只增不减（968→978）；体积 465,277 B / ceiling 488,540（V3-VOL-3 三值中后两值未变）；红线 content.js 177,076 / pick-layer.js 33,900 逐字节不变；KL-V44-01 已闭合（并补齐 R1 未真正写入台账的登记缺口）。",
    "tasksArtifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.md"
   }
  ],
