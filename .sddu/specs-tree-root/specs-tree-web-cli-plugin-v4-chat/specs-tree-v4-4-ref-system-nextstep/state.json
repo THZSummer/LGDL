@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v4-4-ref-system-nextstep",
   "version": "v4.0.0",
   "name": "V4-4 引用卡 / 系统事件行 / 推荐卡流内化 + 页面侧拾取入口迁移——引用生命周期入流 + 6+ 系统事件通道归并 + 推荐卡（真值派生 + chips 即指令）+ 拾取可发现性与救援路径重锚 + V3-VOL-3 收口锚（重定基线 + 绝对上限带值闭合）",
-  "phase": "builded",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "reviewed",
+  "workflow": "6.review",
+  "agent": "sddu-review",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v4-chat",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-18",
-  "updatedAt": "2026-09-19",
+  "updatedAt": "2026-09-19T22:10:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**最后完成的叶**，承载 V3-VOL-3 父级收口锚）。承载父 FR-CHAT-050~064（TRACE / NEXT 组）与 FR-CHAT-090~094（VOL 组）：① 引用生命周期在流内以 ref 卡呈现（有效/失效；失效卡保留；新引用序号递增）；② 重拾/重锚生成新引用卡（新 id + 序号递增）+ 旧引用零改动（沿用 R3 append-only 先例）；③ 失效卡含原因 + 恢复路径（「重新拾取」/「改用描述」，兜底默认收起）；④ 系统事件行（单行 + HH:MM:SS 时间戳 + 只追加不被覆盖）；⑤ 6+ 瞬时通道归并（#env-guard/#site-hint/#onboarding/#discovery-notice/#notice/#send-reason + 导航失效 + 探测态），既有语义不丢；⑥ 拾取入口迁移后的可发现性与救援路径重锚（页面侧可达、未授权路径可发现、#l0-pick.click() 复用点断裂处置）；⑦ 推荐卡（真值派生不新增 LLM 产物 + chips 即指令 + 规则表/优先级/上限 + 无候选不渲染 + 与 pending 门控一致 + 安全边界）；⑧ **V3-VOL-3 收口锚**：重定 sidepanel 基线（五要素）+ 绝对上限带值闭合（PENDING_ABSOLUTE_CAP resolved:true + 三值齐备；推导规则 = 重构落地实测值向上取整到 50KB 档 + 10% 余量，作者一句确认；不预填、不静默删除、不设自缚装置）。权威条文见父 spec.md §5.6 / §5.7 / §5.10 / §10.4。",
   "scope": {
     "in": [
@@ -156,7 +156,10 @@
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.md",
     "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.json",
     "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
-    "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json"
+    "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/build.md",
+    "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/review.md",
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/review-report.md"
   },
   "status": "tracked",
   "phaseHistory": [
@@ -189,9 +192,14 @@
       "phase": "builded",
       "timestamp": "2026-09-19T13:59:02.000Z",
       "triggeredBy": "sddu-build（R2 轮：编排器裁决 KL-V44-01 选②落地 = 启用「导航失效 / #notice 自动归并」+ risk(staleRef)@320 显式重锚五要素 + 增量归属/跨窗口稳定性改机读双向精确期望；density 173/173 转绿、binding 隔离复跑 192/192×2、l1-reverse 锚点修复 9/9、全部 23 门禁收完；测试只增不减 968→978；体积 465,277 / ceiling 488,540（档位 512,000 与绝对上限 563,200 未变）；红线 content.js 177,076 / pick-layer.js 33,900 逐字节不变）"
+    },
+    {
+      "phase": "reviewed",
+      "timestamp": "2026-09-19T22:10:00.000Z",
+      "triggeredBy": "sddu-review（R1 审查：review.md（C1~C15 策略）+ review-report.md（❌ 不通过：3 阻塞 / 8 改进）；11 项门禁复跑 + KL-V44-01 独立 A/B 复现；未改 src/）"
     }
   ],
-  "phaseNote": "builded（R2 轮：**KL-V44-01 已裁决落地并关闭**，无登记偏差、无未绿门禁）。12 任务 = 12/12 完成（TASK-803 补完自动归并、TASK-812 收口）。**门禁全账（23 项，串行 + 日志 /tmp/opencode/v4-gate-logs/v4-4-r2/）**：typecheck ✔ · build ✔ · node **978/978**（968→978，新增 test/system-merge.test.ts 10 用例）· supersession 33/33 · gate-integrity 12/12 · ref-pick-wiring 7/7 · size-ruling-vol3 8/8 · design-contract 6/6 · l0 217 · l1 111 · l2 73 · stream 63 · page-input 102 · zero-injection 27 · ask-auth 61 · recommendation 37 · journey(ui) 167 · insight 116 · hardening 24 · e2e ✔ · **density 173/173 转绿** · binding **192/192（隔离复跑 ×2）** · l1-reverse 9/9（原 ✘：R1 遗留锚点重复，已修）· l2-reverse 10/10。**裁决落地**：① 启用「导航失效 / #notice 自动归并」系统事件行（唯一通道；`nav` + `notice` 两条）② `risk(staleRef)@320` 登记格 6/6/17/203 → **7/7/18/208**（五要素；400/520 零漂移；`risk.worst` clickables 6→7 / blocks 17→18）③ 增量归属与跨窗口稳定性改成机读**双向精确期望**（`docs/v4-density-baseline.json#riskIncrementRegistry` + 两条新判据）④ 目录口径零改（阈值 7/15·9/20·17/35 与「只认 hidden」逐字不动，**无新增豁免类别**）。**根因订正**：R1 把 density ✘ 归因为「启用归并」，R2 用 A/B 实测证明**自动归并测量中性**（R1/R2 产物同为 7/7/18/208 + 同一违规），真实根因 = `staleRef` 风险步自身的只追加流内副作用（ref 卡 ⇒ 320px 溢出 ⇒ `#scroll-bottom` 出现）。**体积**：465,000 → **465,277 B**（+277，单一模块 chat-state.ts 可归因），ceiling 488,540，V3-VOL-3 三值 newBaselineBytes 同源前移 465,277、档位 512,000 / 绝对上限 563,200 / resolvedOn 未变。**红线**：content.js 177,076 / pick-layer.js 33,900 逐字节不变（sha256 复核）；journey/binding 保护段零 diff；manifest / SW / KIND_SET / 判定链零 diff。产物：build.md v2.0。",
+  "phaseNote": "reviewed（R1 = ❌ 不通过）。sddu-review 静态审查 15 项（C1~C15）→ **5 ✅ / 7 ⚠️ / 3 ❌**；**3 阻塞**：BLOCK-01 推荐卡生产链路未接线（`recommendNextStep` 仅测试 seam 一个调用点，生产中 `nextstep` 卡恒 0 张 ⇒ FR-CHAT-060~064 / AC-CHAT-013 不可达）；BLOCK-02 FR-CHAT-054「6+ 通道归并」只落 nav/notice 两条（`#env-guard`/`#site-hint`/`#onboarding`/`#discovery-notice`/`#send-reason` 仍在，`firstRunCard()` 零调用）+「过渡宿主清零」由**移除 `data-transitional-host` 属性**达成 ⇒ `l0.mjs`/`density-thresholds` 清零判据空转且新判据反向要求宿主保留；BLOCK-03 失效卡「改用描述」兜底提交（`describe-submit`）无处理分支 ⇒ 死控件。**8 改进**：I-01 去重窗口把 N 卡同一文案合并为 1 行（留痕回归，已复现 2 ask+切换 ⇒ 1 行）/ I-02 `switchStreamSession` 绕过唯一通道 / I-03 ADR-V4-035 决策 1 未落实（投影点 ≥4、证据层双实现）/ I-04 `projectedRefState` 跨夹具不清空（疑为 §7.4「夹具序敏感」真因）/ I-05 死代码与 `startPick` 未封口 / I-06 作者确认占位无机器判据 / I-07 `riskIncrementRegistry` 无溯源门槛 / I-08 `test:v3` 未纳入 3 个新脚本。**独立复核（已通过）**：11 项门禁复跑全绿且计数与 build.md 逐项对账（npm test 978 · density 173 · l0 217 · zero-injection 27 · l1-reverse 9 · size-ruling-vol3 8 · ref-pick-wiring 7 · supersession 33 · gate-integrity 12 · design-contract 6 · recommendation 37）；产物 465,277 B == 登记基线；V3-VOL-3 三值/`ceilTo50KB(465,277)=512,000`/`min()` 复算成立；**KL-V44-01 独立 A/B 复现**（worktree 取 `8ae971e` 重跑 density ⇒ 同样 7/7/18/208 + 同一违规）证明根因订正诚实；红线 content.js 177,076 / pick-layer.js 33,900 与 manifest/content/background/journey/binding 零 diff。结论：需先处置 BLOCK-01~03 再进 validate。产物：review.md + review-report.md。",
   "tasks": {
     "range": "TASK-801~812",
     "alias": "V44-01~12",
