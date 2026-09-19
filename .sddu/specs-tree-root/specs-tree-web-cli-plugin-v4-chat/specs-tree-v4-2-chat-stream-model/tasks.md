@@ -501,3 +501,16 @@ npm run test:density --workspace @lgdl/web-cli-plugin -- --reverse <新增反证
 |------|---------|------|--------|
 | v1.0 | 初始创建。12 任务 / 7 波；模型（601）→ 分类学与摘要（602/605）→ 卡/渲染/切换（603/604/606）→ 迁移（607）→ 三门禁（608/609/610）→ 联动（611）→ 收口（612）。含 D-005 守恒账与 R4-19/R4-20 的落点（`countMethod` 显式 + 设计稿/真产物分列）。 | 2026-09-18 | SDDU Tasks Agent |
 | v1.1 | **跨叶移交追加（编排器授权的登记，非本叶重排）**：追加 **TASK-613**（卡预算 × 常驻入口准入重审 —— 裁决或收紧，禁默认沿用 v4-1 过渡卡口径），来源 = 叶 `specs-tree-v4-1-zone-shell-density` 的 `validate-report.md` §5 **N-03（中）**（流内卡 6 个常驻入口不被任何门禁拦，7 个才红；理论 2 卡 × 6 = 12 常驻入口可落入豁免子树）。同步：TASK-602 验收标准加注该约束、§3 汇总表加「跨叶移交任务」一行。**不改变**原 12 任务 / 7 波的结构与计数；阈值与体积口径零放宽。 | 2026-09-19 | SDDU Build Agent（v4-1 收口轮，N-03 移交） |
+
+---
+
+## 5. 构建完成状态（sddu-build，2026-09-19）
+
+| 任务 | 状态 | 证据 |
+|------|:--:|------|
+| TASK-601~612 | ✅ completed | 源文件/测试见 `build.md` §2；门禁账 §8；体积五要素 §9 |
+| **TASK-613（跨叶移交）** | ✅ completed | 裁决原文 + RP-V4-09 真会红反证 + `knownLimitations[0]` 更新见 `build.md` §7 |
+
+- 门禁 20 项串行全绿（基线 19 + 新增 `test:stream`）；日志 `/tmp/opencode/v4-gate-logs/v4-2/`。
+- 体积：`dist/sidepanel.js` 385,319 → **425,442 B**（五要素中间重登记）；`content.js` 177,076 / `pick-layer.js` 33,900 / `KIND_SET` 零 diff。
+- 下一阶段：`@sddu-review specs-tree-v4-2-chat-stream-model`。
