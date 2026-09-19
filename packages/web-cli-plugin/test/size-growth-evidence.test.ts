@@ -192,7 +192,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // pick-input +724 / ref-store +256 / chat-state +220 / view-model +162 = +3,978）⇒ 67,552 → 71,530。
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
-  assert.equal(b.deltaBytes, 129_869);
+  assert.equal(b.deltaBytes, 131_262);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -234,9 +234,9 @@ test('V3-VOL-1 ③ growth: every new/wiring row cites the requirement that force
     `必需增量占比必须 >95%（实测 ${((explained / SIDEPANEL_GROWTH_BREAKDOWN.deltaBytes) * 100).toFixed(1)}%）`,
   );
   // V4-2 重登记：绝对口径 1,000 → 1,500 B（esbuild 共享胶水随输入模块数 57 → 69 自然增长，
-  // 实测 1,060 B），**同时新增更严的相对口径 <2%**（实测 (265+1,060)/129,869 = 1.02%）——
+  // 实测 1,060 B），**同时新增更严的相对口径 <2%**（实测 (265+1,060)/131,262 = 1.01%）——
   // 阈值不是纯放宽：相对判据是本轮新增的收紧面。〖v4-2 review 修复轮 I-02〗分母按最终基线订正
-  // （130,217 → 129,869），分子不变（修复轮减重全部落在 rows 上，胶水口径回到 1,060）。
+  // （130,217 → 129,869 → 131,262），分子不变（修复轮减重全部落在 rows 上，胶水口径回到 1,060）。
   assert.ok(
     SIDEPANEL_GROWTH_BREAKDOWN.attributionShiftBytes + SIDEPANEL_GROWTH_BREAKDOWN.unattributedHelperDeltaBytes <
       1_500,
@@ -362,10 +362,10 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   assert.ok(outKey, 'metafile 必须含 sidepanel.js 输出');
   const inputs = meta.outputs[outKey as string].inputs;
   const paths = Object.keys(inputs);
-  // V4-2 泛化：本断言打的是**最新一轮**的 rows（其 `afterBytes` 必须等于真实 metafile）；
-  // v4-1 轮的历史值不再等于当前产物（density-scope 2,284 / chat-state 9,304 等已被 v4-2 重登记），
-  // 其 Σ/Δ 自洽由 N-05 的 `roundRowProblems` 组判据承担。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v42RoundRows) {
+  // V4-2 泛化 / 收口轮：本断言打的是**最新一轮**的 rows（其 `afterBytes` 必须等于真实 metafile）；
+  // v4-1 与 v4-2（build+review 修复轮）的历史值不再等于当前产物，其 Σ/Δ 自洽由 N-05 的
+  // `roundRowProblems` 组判据承担。〖v4-2 收口轮〗最新一轮 = `v42CloseoutRows`（4 行，Σ +1,393）。
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v42CloseoutRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -551,6 +551,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'r3RoundRows', rows: b.r3RoundRows, glue: 0 },
     { name: 'v41RoundRows', rows: b.v41RoundRows, glue: b.v41RoundUnattributedGlueBytes },
     { name: 'v42RoundRows', rows: b.v42RoundRows, glue: b.v42RoundUnattributedGlueBytes },
+    { name: 'v42CloseoutRows', rows: b.v42CloseoutRows, glue: b.v42CloseoutUnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -563,7 +564,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   }
   assert.deepEqual(problems, [], `round rows 与登记值不自洽（N-05）：\n${problems.join('\n')}`);
   // 四组都必须真的被判（否则本断言可被空集合空转）。
-  assert.equal(groups.length, 4);
+  assert.equal(groups.length, 5);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );

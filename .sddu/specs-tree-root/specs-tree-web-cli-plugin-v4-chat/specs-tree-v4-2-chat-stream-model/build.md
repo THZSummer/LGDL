@@ -268,7 +268,7 @@
 | `dist/content.js` 177,076 B（无容差） | `stat` = 177,076；`src/background/**`、`src/content/**`、`manifest.json` **零 diff** | ✅ |
 | `dist/pick-layer.js` 33,900 B | `stat` = 33,900 | ✅ |
 | `KIND_SET` 零 diff（`background/messaging.ts`） | `git diff HEAD -- src/background/` **空**；**零新增 kind** | ✅ |
-| 判定链 pin / R1R2R3 语义 | `test:binding`/`test:supersession` protectedRanges 全绿；journey 保护段字节零改 | ✅ |
+| 判定链 pin / R1R2R3 语义 | `test:binding`/`test:supersession` protectedRanges 全绿；journey 保护段 **active pin `43054..55259`**（sha `e2b500df…`）字节零改；旧 pin `42766..54004`（sha `6b45c3fa…`）仅作 `supersededFrom` 历史留档 —— 〖N-03 订正：§10 原文只写「保护段字节零改」未带号，收口轮补上 active/旧 pin 的区分口径〗 | ✅ |
 | sidepanel ≤ ceiling | **425,094 ≤ 446,348**（review 修复轮按最终实测值重登记后；构建轮为 425,442 ≤ 446,714） | ✅ |
 | 测试只增不减 | node 881 → 918（build 轮）→ **920**（review 修复轮 +2：`truncationRules` 判据 + 反证）；l0 210 → **212**；density/journey/insight/binding/hardening/l1/l2/page-input/zero-injection/supersession/gate-integrity/design-contract **逐项不减**；新增 stream 63。**零删除断言** | ✅ |
 | 零明文边界 | 摘要白名单 11 字段 + 反向注入 3 例必红；journey#16r close 摘要零 query 仍绿 | ✅ |
@@ -391,7 +391,133 @@
 **台账同源机核（N-04）**：`counts` 抽样四键（l0 / density / nodeTestRuntime / supersession）**全部 checked（4 项与门禁日志逐条相等）**，无 skip。
 > ⚠️ 修复轮踩到并已登记的口径纪律：`counts.*.source.log` **不得指向门禁运行时自己的 tee 目标** —— 门禁在自己的读取时刻尚未写出汇总行（`ℹ pass`），会误判「找不到 pattern」。修复轮把登记路径改为 `registry/` 快照（一次完整绿 run 的日志副本，运行期间不被截断），实时日志留在上级目录；该纪律已写入台账 `counts.nodeTestRuntime.note` / `counts.supersession.note`。
 
-**红线复验（逐字节）**：`dist/content.js` **177,076 B** / sha256 `52a826205553b4…`、`dist/pick-layer.js` **33,900 B** / sha256 `5f567d7ededc…`（= v4-1 pin，逐字节未变）；`dist/sidepanel.js` 425,094 B（构建戳变、字节数 == 登记值）；`git diff 203261e -- src/content/** src/background/** manifest.json design/** src/security/** src/ui/options/** test/ui/{hardening,page-input,zero-injection}.mjs` **全空**（`KIND_SET` / SW / manifest 零 diff）；journey 保护段 `42766..54004` 与 binding `107780..115930` 由 `protectedRanges` 字节 sha 判据复跑**零改**（supersession 30/0 内含）。
+**红线复验（逐字节）**：`dist/content.js` **177,076 B** / sha256 `52a826205553b4…`、`dist/pick-layer.js` **33,900 B** / sha256 `5f567d7ededc…`（= v4-1 pin，逐字节未变）；`dist/sidepanel.js` 425,094 B（构建戳变、字节数 == 登记值）；`git diff 203261e -- src/content/** src/background/** manifest.json design/** src/security/** src/ui/options/** test/ui/{hardening,page-input,zero-injection}.mjs` **全空**（`KIND_SET` / SW / manifest 零 diff）；journey 保护段 **active pin `43054..55259`**（194 行 / sha256 `e2b500df…`）与 binding `107780..115930`（sha256 `be9ad0e9…`）由 `protectedRanges` 字节 sha 判据复跑**零改**（supersession 30/0 内含）。
+
+> 〖**N-03 订正**（v4-2 收口轮，validate R1）〗本行原文写作「journey 保护段 `42766..54004`」—— 那是 **v4-1 已显式取代的 `supersededFrom` 旧 pin**（185 行 / sha `6b45c3fa…`，仅作历史留档），**不是** 台账 `protectedRanges` 里的 active pin。active pin 由 v4-1 TASK-513 第 ⑤ 步写入：`{file: test/ui/journey.mjs, status: 'active', startByte: 43054, endByte: 55259, lineCount: 194, sha256: 'e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f', supersededFrom: '6b45c3fa…'}`。**口径**：`active`（受判、必须逐字节命中）与 `supersededFrom`（历史、只读留档）是**两个 pin**，不得混引 —— 见 `docs/v4-supersession-ledger.json#protectedRanges[0]`。原文（旧 pin）在本订正注中逐字保留。
+
+---
+
+## 16. 收口轮（v4-2 closeout：处置 validate R1 的 **F-01~F-03 + N-01~N-03**，2026-09-19）
+
+> **来源**：本叶 `validate-report.md` R1（⚠️ 有条件通过 / **0 阻塞** / 3 项发现 F + 3 项备注 N）。
+> **纪律**：收口**不降级** —— `state.json` 的 `phase` 保持 **`validated`**（本小节只记录处置与证据，不改阶段语义）。
+> **性质**：validate → build 回环的**第 2 轮**（第 1 轮 = review 修复轮 §15）。本轮只处置 validate 的 F/N，**不动** spec/plan/tasks。
+
+### 16.1 F-01~F-03 修法与反证（回退 → 红 ∧ 还原 → 绿）
+
+**F-01（中，必修）— `payload.options` / `payload.chips` 数组深冻结**
+
+| 项 | 内容 |
+|----|------|
+| validate 复现 | `probe-appendonly.mjs` ①：`Object.freeze` 是**浅**冻结 ⇒ 嵌套数组可经 **① 事件引用 ② `project()` 的 `CardView` ③ 调用方原数组** 三处改写，实测改写后 `project()` 输出随之改变 |
+| 修法 | `src/ui/sidepanel/stream-model.ts` 新增模块私有 **`deepFreeze()`**（copy-and-freeze：数组逐元素重建、纯对象逐 own-key 重建、每层 `Object.freeze`）；**入**口 `appendEvent`：`payload: deepFreeze({ ...(input.payload ?? {}) })`；**出**口 `project()`：`payload: deepFreeze({ ...acc.payload })`。copy 语义同时解决两件事：冻结不副作用到调用方对象 ∧ 事件不再别名调用方数组 |
+| 三条路径逐条断言 | ① 事件：`options[0]=` / `options.push()` ⇒ **TypeError** 且值不变；② `CardView`：`view.payload.options[0]=` / `project(s)[1].payload.chips[0]=` ⇒ **TypeError**；③ caller：`options[0]='HACK'` / `chips.push('HACK')` ⇒ 事件与投影**值均不变**（不共享引用）；另加嵌套数组逐层冻结用例（`[['内层']]`，事件侧 + 投影侧均 `Object.isFrozen(inner)===true`） |
+| **反证（回退 → 红）** | 把 `deepFreeze(...)` 两处回退为 `Object.freeze(...)`（浅冻结）⇒ `node --test dist-probe/test/stream-model.test.js` = **`tests 20 / pass 18 / fail 2`**，失败原文：`✖ v4-2 ① F-01 深冻结：payload.options/chips 的三条改写路径全部堵死` → `AssertionError [ERR_ASSERTION]: 事件载荷的 options 数组必须被冻结（F-01）`；`✖ v4-2 ① F-01 深冻结：嵌套数组/对象逐层冻结（不遗留可写内层）` |
+| **反证（还原 → 绿）** | 还原后 **`tests 20 / pass 20 / fail 0`**；`stream-model.ts` sha256 = `68996245060314f10c40c5cb35bb7f2306f03e2016a0a368b6144b2f2dd8815c`（与回退前备份逐字节相同，`sha256sum` 双算对比） |
+| 测试落点 | `test/stream-model.test.ts` ① 组 2 条（三条路径 + 嵌套逐层） |
+
+**F-02（低，修）— `stream-merge` 只接纳 `seq > 已知最大值`**
+
+| 项 | 内容 |
+|----|------|
+| validate 复现 | `probe-appendonly.mjs` ③：I-06 的双键去重只拦「**已占用**」的 `cardId`/`seq`；对「**小于当前最大值且未占用**」的 `seq`（实测注入 `0`）仍接纳 ⇒ 事件数组逆序（实测 `1,2,3,0,9`），破坏「单调不复用」排序不变式 |
+| 修法 | `src/ui/sidepanel/chat-state.ts#stream-merge`：候选**按 `seq` 升序**应用，只接纳 `seq > max(已知 seq)` 且 `cardId` 未占用者；被拒候选计入 **`StreamState.mergeSkipped`**（`stream-model.ts` 新增该字段，`createStreamState` 置 0）—— **不静默丢弃、不重编号**（stale 摘要行宁可丢，也不改写成另一事实） |
+| **反证（回退 → 红）** | 把 `chat-state.ts` 回退到 HEAD（双键去重）⇒ `node --test dist-probe/test/sidepanel.test.js` = **`tests 20 / pass 19 / fail 1`**，失败原文：`AssertionError [ERR_ASSERTION]: 低于已知最大值的 seq 必须被拒（实测 1,2,3,0,9）`（与 validate 复现**逐字同形**） |
+| **反证（还原 → 绿）** | 还原后 **`tests 20 / pass 20 / fail 0`**；`chat-state.ts` sha256 = `7666fd8d76612343183bbd0928775566c4d0829c5b457be83f58e52aa5caf1e` |
+| 测试落点 | `test/sidepanel.test.ts`：逆序注入 ⇒ 数组 `1,2,3,9` 严格单调 ∧ `mergeSkipped===1` ∧ 被拒卡不得混入；重复合并幂等（`mergeSkipped===3`）；合法前向追加仍工作（`seq 10` 入列、`state.seq===11`、计数不增）—— 判据不恒真也不恒假 |
+
+**F-03（低，修）— `sanitizeLabel` 顺序反转为「先全串扫描再截断」**
+
+| 项 | 内容 |
+|----|------|
+| validate 复现 | `probe-zero-plaintext.mjs` V3-②b / **F-V3-01**：`'x'.repeat(71) + 'sk-ABCDEFGHIJKLMNOP'` ⇒ 旧顺序（先 `slice(0,80)` 再扫描）落库 80 字符、尾部含 **`sk-ABCDEF`**（= 密钥前 9 字符；`SECRET` 正则要求 `sk-` 后 ≥8 字符，故前缀片段不触发） |
+| 修法 | `src/ui/sidepanel/stream-digest.ts#sanitizeLabel`：`assertNoPlaintext([firstLine])` 移到 `slice(0, DIGEST_LABEL_MAX)` **之前** —— 敏感触发子判定在**完整 label** 上做，截断只决定落库长度 |
+| **反证（回退 → 红）** | 回退为「截断后扫描」⇒ `node --test dist-probe/test/stream-persistence.test.js` = **`tests 19 / pass 18 / fail 1`**，失败原文：`AssertionError [ERR_ASSERTION]: 跨界密钥不得以任何形式落库（旧实现落库 80 字符且尾部含 'sk-ABCDEF'；实测 "xxxxxxx…sk-ABCDEF"）`（validate 复现**逐字命中**） |
+| **反证（还原 → 绿）** | 还原后 **`tests 19 / pass 19 / fail 0`**；`stream-digest.ts` sha256 = `231e570c8a016d967c5f064c8b58f793fc56f13940d59124213cb59c81254020` |
+| **口径收紧（显式登记，非放宽）** | 完整串命中即抛错 ⇒ ① 80 内完整密钥：仍抛错（不变）；② **71 位跨界**：由「落库前缀」变为**抛错**（收紧）；③ 触发子**完全在 80 之外**：旧行为是「截掉不落库」，现为**抛错**（fail-closed 半径扩大）。因此 validate 探针 V3-②b/②c 的 `rec`（断言「**不抛错** ∧ 落库 80」）在收口后**按设计不再成立** —— 它们的 finding（F-V3-01）不再复现；本轮以新单测承接**同一复现输入**，判据改写为「不抛错则不得含 `sk-`」∧「完整串命中必抛错」。无触发子的长串仍按 80 截断（`'y'.repeat(400)` ⇒ 80，判据不恒真） |
+| 测试落点 | `test/stream-persistence.test.ts`：71 位跨界（validate 复现）、79/80/81 位起点、60 位完整命中、80 位界外触发子、长串正常截断、多行取首行 |
+
+### 16.2 N-01~N-03 处置
+
+| # | validate 原文 | 收口轮处置 | 登记落点 |
+|:--:|------|------|------|
+| **N-01** | `test:binding` 3 次独立重跑均失败且**失败项互异**（R1 `#54B10 下载记录` / R2 `#3d/#3e/#3f discovery` / R3 `#7d/#7e tabs list --full`）；`binding.mjs` 对基线零 diff、今日 build/reviewfix 均绿、历史 `v4-1-r2` 同现象 | **登记为环境性已知限制**：`docs/v4-supersession-ledger.json#knownLimitations` 新增 **`KL-N-10`**（现象 + 4 条证据链 + **复跑纪律**「串行 / 首轮异常隔离复跑 ≥2 / 日志全量 / 仍红如实记录不阻塞收口」+ 建议「三处时序断言加就绪等待或有界重试」）。**收口轮复跑结果见 §16.4 尾注** | `KL-N-10`；本轮日志 `…/v4-2-closeout/runA/14-binding.log` 与 `…/gates/14-binding.log` |
+| **N-02** | `stream-model.ts#hasSegment` 导出无消费者（`chat-state.ts#history` 内联了等价 `events.some(...)`） | **接线（wiring），不删除**：`src/ui/sidepanel/sidepanel.ts#restoreStreamDigest` 的内联 `state.stream.events.some((e) => e.sessionId === sid)` 改为 `hasSegment(state.stream, sid)`（与 `switchStreamSession` doc 引用的语义**同一谓词**），孤儿导出变为生产消费者在用的模型判据（该路径由 `test/stream.test` 的摘要重开场景 + `test/stream-model.test.ts` ② 组「切回不重复追加」共同覆盖） | `sidepanel.ts`（含 N-02 注释）；台账 `V42-E-SEQ-1` 同轮条目 |
+| **N-03** | `build.md` §10 / §15.3 引用 journey 保护段 `42766..54004`（v4-1 的 `supersededFrom` **旧 pin**），而台账 **active pin** 为 `43054..55259` | **订正为 active pin**：§15.3 红线行改写为 `active pin 43054..55259`（194 行 / sha `e2b500df…`），旧 pin `42766..54004`（185 行 / sha `6b45c3fa…`）显式标注为 `supersededFrom` **历史留档**；§10 行补 active/旧 pin 区分口径；**原文逐字保留于订正注** | `build.md` §10 + §15.3；`docs/v4-supersession-ledger.json#protectedRanges[0]` |
+
+### 16.3 收口轮体积五要素重登记（TASK-612 纪律沿用）
+
+> F-01/F-02/F-03/N-02 动了**源文件字节** ⇒ 按「登记值 == 实测产物」的既有判据（`test/size-budget.test.ts`）**必须**重登记；容差 **5% 未动**，**禁压缩凑数**（本轮的 F-03/N-02 恰好是**减重**，如实保留负号）。
+
+| 要素 | 值 |
+|------|------|
+| ① 来源 | `packages/web-cli-plugin/dist/sidepanel.js`（真实产物 `stat` + `dist/build-meta.json` metafile 双向核对） |
+| ② 前值 → 后值 | **425,094 → 426,487 B**（**+1,393 B，+0.33%**） |
+| ③ 日期 / 命令 / 测量人 | 2026-09-19 · `npm run build --workspace @lgdl/web-cli-plugin` · SDDU v4-2 **closeout round**（leaf `specs-tree-v4-2-chat-stream-model`） |
+| ④ 理由（逐模块可归因，Σ 模块 == 真实产物差，未归因胶水 **0**） | F-01 `stream-model` 5,998 → **6,908**（+910）/ F-02 `chat-state` 9,414 → **9,953**（+539）/ F-03 `stream-digest` 6,253 → **6,220**（**−33**）/ N-02 `sidepanel` 62,712 → **62,689**（**−23**）== **+1,393**。对应 validate **F-01 / F-02 / F-03 / N-02** |
+| ⑤ 历史保留 | `SIDEPANEL_BASELINE_BYTES_TIMELINE` 追加 **426,487**（前值 385,319 / 425,442 / 425,094 逐字保留）；新增 `SIDEPANEL_RE_REGISTRATIONS['v4-2-closeout']`（`roundKind: 'registry-fidelity-round'`，含 before/after + ceiling + 日期 + 来源 + `buildCommand` + `measuredBy` + reason + 断言零删减台账条目 `V42-E-SVOL-1/2` + `V42-E-DFREEZE-1` + `V42-E-SEQ-1` + 历史值）；新增 `v42CloseoutRows`（最新一轮 rows，机核真实 metafile）+ `v42CloseoutUnattributedGlueBytes: 0`；`rows` 累计口径同步（`deltaBytes` 129,869 → **131,262**、`newRequiredModuleBytes` 100,937 → **101,814**、`wiringBytes` 27,607 → **28,123**、未归因胶水 **1,060 不变**）；`closeoutDeltaBytes` 39,775 → **41,168** |
+
+- ceiling：`floor(426,487 × 1.05)` = **447,811 B**（上一轮 446,348 **由公式抬高**，不是放宽容差）；cap 仍 `record-only`。
+- ⚠️ **相邻两轮告警**：v4-1 + v4-2（build + review 修复轮 + 收口轮）= 375,102 → 426,487（累计 **+13.70%**），**低于 15% 线**，仍按「最差相邻对」口径如实回报（最差对仍是 v3-1 + v3-2 = +22.96%）。
+- `content.js` **177,076 B** 与 `pick-layer.js` **33,900 B** 逐字节不变（sha256 `52a82620…` / `5f567d7e…`，本轮前后两次采样相同）。
+- `docs/v4-density-baseline.json#volume` 同步：`registeredBaselineBytes` **426,487** / `ceilingBytes` **447,811**（`directionalAlert` / `closeoutNote` 追加收口轮段，历史文字逐字保留）。
+- 断言零删减：node **920 → 924**（+4），其余 18 项**逐项不减**（见 §16.4）。
+
+### 16.4 收口轮门禁复跑（20 项严格串行 + RP-V4-09；日志 `/tmp/opencode/v4-gate-logs/v4-2-closeout/`）
+
+> **串行纪律**：`run-gates.sh` 一次一条命令、一次一个 Chromium，`finally` 自清 profile；日志**全量落盘**（禁 tail 截断）。
+> **两轮全量**：`runA/`（首轮，含 1 项环境性抖动）与 `gates/`（复跑，**21/21 rc=0**）。`registry/` 是计数同源判据所用的「一次完整绿 run 日志副本」。
+
+| # | 门禁 | 命令 | 实测（**run B，最终**） | run A | 基线 | 变动 |
+|:--:|------|------|------|:--:|:--:|------|
+| 1 | 类型 | `npm run typecheck` | 0 error | 0 | 0 | 不变 |
+| 2 | 构建 | `npm run build` | 5 artifacts / sidepanel **426,487 B** | 同 | 425,094 | **+1,393 B**（五要素重登记，§16.3） |
+| 3 | node 全量 | `npm test` | **924 / 0 / skipped 0** | 同 | 920 | **+4**（F-01×2 / F-02×1 / F-03×1） |
+| 4 | 取代台账 | `npm run test:supersession` | **30 / 0** | 同 | 30 | 不变（含 v4 段删除行逐字集合相等 / 双台账 / 截断规则 / counts 同源） |
+| 5 | 元门禁 | `npm run test:gate-integrity` | **12 / 0** | 同 | 12 | 不变 |
+| 6 | 零注入 | `npm run test:zero-injection` | **27 / 0** | 同 | 27 | 不变 |
+| 7 | 页面即输入 | `npm run test:page-input` | **102 / 0** | 同 | 102 | 不变 |
+| 8 | L0 外壳 | `npm run test:l0` | **212 / 0** | 同 | 212 | 不变 |
+| 9 | L1 | `npm run test:l1` | **108 / 0** | 同 | 108 | 不变 |
+| 10 | L2 | `npm run test:l2` | **73 / 0** | 同 | 73 | 不变 |
+| 11 | 密度 | `npm run test:density` | **171 / 0**（产物 426,487 == 登记 ∧ ≤ ceiling 447,811） | 同 | 171 | 不变 |
+| 12 | journey | `npm run test:ui` | PASS — **167 assertions** | 同 | 167 | 不变 |
+| 13 | insight | `npm run test:insight` | PASS — **116 assertions** | 同 | 116 | 不变 |
+| 14 | binding | `npm run test:binding` | **PASS — 192 assertions** | **FAILED (2)：`#7d tabs list --full` / `#7e --full query 可见`** | 192 | 不变（run A 抖动 → **N-01 / KL-N-10**） |
+| 15 | hardening | `npm run test:hardening` | PASS — **24 assertions** | 同 | 24 | 不变 |
+| 16 | e2e | `npm run test:e2e` | PASS（real dist full chain：fixture + Workbench） | 同 | PASS | 不变 |
+| 17 | 设计契约 | `npm run test:design-contract` | **6 / 0**（shim 60） | 同 | 6 | 不变 |
+| 18 | L1 反证 | `npm run test:l1-reverse` | **9 条**：注入→FAIL→sha256 逐字节还原→PASS | 同 | 9 | 不变 |
+| 19 | L2 反证 | `npm run test:l2-reverse` | **10 条** 同口径（含叶段台账 expectFailPattern） | 同 | 10 | 不变 |
+| 20 | 流 | `npm run test:stream` | **63 / 0** | 同 | 63 | 不变 |
+| — | 密度反证（in-gate） | `npm run test:density -- --reverse RP-V4-09` | **9 / 0** | 同 | 9 | 不变 |
+
+**N-01 收口轮复跑结论（如实记录）**：
+
+- **run A（首轮全量）**：`#14 binding` **rc=1**，失败项 `✖ #7d tabs list --full 显式返回完整 URL` / `✖ #7e --full 模式下 query 可见（显式选项，已披露）`，诊断栈落盘 `/tmp/opencode/r2-3/logs/binding-diagnostics-1789788594429.log`（原文见 `runA/14-binding.log`）。
+- **run B（全量复跑，同一工作树、同一天、串行）**：`#14 binding` **rc=0 / 192 assertions PASS**（`gates/14-binding.log`）。
+- ⇒ 与 validate R1 的 3 次失败（失败项互异）**同形**，且**同一产物在 1 小时内先红后绿**，构成「**环境性宿主时序抖动、非本叶回归**」的直接证据；现象、纪律与建议已登记 `docs/v4-supersession-ledger.json#knownLimitations[KL-N-10]`。
+- **计数只增不减**：node 920 → **924**（+4）；supersession 30 / gate-integrity 12 / zero-injection 27 / page-input 102 / l0 212 / l1 108 / l2 73 / density 171 / journey 167 / insight 116 / binding 192 / hardening 24 / design-contract 6 / l1-reverse 9 / l2-reverse 10 / stream 63 / RP-V4-09 9 **逐项不减**。
+
+### 16.5 红线核验（收口轮，逐字节）
+
+| 红线 | 实测 | 结论 |
+|------|------|:--:|
+| `dist/content.js` **177,076 B**（无容差） | `stat` = 177,076；sha256 `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6`（**run A/B 前后两次采样相同**） | ✅ |
+| `dist/pick-layer.js` **33,900 B** | `stat` = 33,900；sha256 `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59`（同上不变） | ✅ |
+| `KIND_SET` / SW / `manifest.json` 零 diff | `git status` 无 `src/background/**` / `src/content/**` / `manifest.json` 改动；`test:zero-injection` 27/0 | ✅ |
+| 判定链 pin / 保护段 | journey **active pin** `43054..55259`（sha `e2b500df…`）与 binding `107780..115930`（sha `be9ad0e9…`）由 `test:supersession` 30/0 内含的字节 sha 判据复跑零改（N-03 已订正引用口径） | ✅ |
+| sidepanel ≤ ceiling | **426,487 ≤ 447,811**（`floor(426,487 × 1.05)`；容差 5% 未动、cap 仍 record-only） | ✅ |
+| 测试只增不减 | node **+4**；其余 18 项逐项不减；**零删除断言** | ✅ |
+| 门禁串行 + 日志全量 | `…/v4-2-closeout/runA/`（首轮）+ `…/gates/`（复跑 21/21）+ `…/registry/`（计数同源快照）；`manifest.tsv` 逐项记 rc | ✅ |
+| 不 `git add -A` | 提交按显式路径清单（见 §16.6） | ✅ |
+
+### 16.6 收口轮台账/证据落点（显式路径）
+
+- 源码 4：`src/ui/sidepanel/stream-model.ts`（F-01 + `StreamState.mergeSkipped`）、`chat-state.ts`（F-02）、`stream-digest.ts`（F-03）、`sidepanel.ts`（N-02）。
+- 测试 3：`test/stream-model.test.ts`（+2）、`test/sidepanel.test.ts`（+1）、`test/stream-persistence.test.ts`（+1，并补 `mergeSkipped` 到一处 `StreamState` 字面量）。
+- 体积/台账：`test/size-baseline.ts`（baseline/ceiling/TIMELINE/`RE_REGISTRATIONS['v4-2-closeout']`/`v42CloseoutRows`/`rows`/`GROWTH_BREAKDOWN` 累计口径）、`test/size-budget.test.ts`、`test/size-ruling-vol3.test.ts`、`test/size-growth-evidence.test.ts`、`docs/v4-supersession-ledger.json`（`entries` 新增 4 + 既有 6 条 `newTitle`/reason 重 pin + `counts` 4 源 + `knownLimitations[KL-N-10]`）、`docs/v4-density-baseline.json#volume`。
+- 文档：本 `build.md`（§16 + §10/§15.3 的 N-03 订正）、`state.json`（`closeoutRounds`）。
 
 ---
 
@@ -401,3 +527,4 @@
 |------|---------|------|--------|
 | v1.0 | 初始创建：V4-2 全叶构建（13 任务 / 7 波 / 20 门禁串行全绿）。事件模型（601）→ 分类学与摘要（602/605）→ 卡/渲染/切换（603/604/606）→ 迁移（607）→ 三门禁（608/609/610）→ 联动（611）→ 收口（612）+ 跨叶移交 **TASK-613 卡预算裁决（形态判据 + 合计 ≤8 + RP-V4-09 真会红 + knownLimitations 更新）**。体积 385,319 → **425,442 B**（五要素重登记，逐模块归因 Σ+39,661 + 胶水 462 == 轮增量 40,123）；`content.js` 177,076 / `pick-layer.js` 33,900 / `KIND_SET` 零 diff。 | 2026-09-19 | SDDU Build Agent |
 | **v1.1** | **review 修复轮（I-01~I-12 全量处置）**：新增 **§15**（处置表 + 悬空引用修复 + 门禁复跑）；§1/§5/§9/§10/§11/§14 按最终实测产物与台账事实订正 —— 体积 **425,094 B**（五要素，含修复轮归因；ceiling 446,348）、截断规则**已入台账**（I-01）、三条计划交付物偏差**已登记**（I-03）、KL-N-02 **终态**（I-04）、v4-3 **前置义务移交**（I-05）、`closeoutDeltaBytes` 订正 39,775（I-10）、**KL-N-09** 真建（I-11 悬空引用）。**两段完成如实标注**：第一段 I-06/07/08/09/11/12（代码级，随 425,094 重建）；第二段 I-01~I-05 + I-10 + 悬空 + 体积订正 + 门禁全量复跑。 | 2026-09-19 | SDDU Build Agent（v4-2 review 修复轮） |
+| **v1.2** | **收口轮（处置 validate R1 的 F-01~F-03 + N-01~N-03，phase 保持 `validated` 不降级）**：新增 **§16**；**F-01** `payload.options/chips` 深冻结（`deepFreeze` 入/出口，三条改写路径全堵死 + 2 条反证用例）、**F-02** `stream-merge` 只接纳 `seq > 已知最大值`（+`mergeSkipped` 计数）、**F-03** `sanitizeLabel` 顺序反转为「先全串扫描再截断」；**N-01** 登记 `KL-N-10` + 复跑、**N-02** `hasSegment` 接线（不删）、**N-03** journey 保护段订正为 **active pin `43054..55259`**。体积 **425,094 → 426,487 B**（五要素重登记，ceiling **447,811**；Σ 模块 +1,393 + 胶水 0）；node **920 → 924**；20 项门禁串行复跑 + RP-V4-09（binding 环境性抖动，见 N-01/KL-N-10）；红线 `content.js` 177,076 / `pick-layer.js` 33,900 逐字节不变。 | 2026-09-19 | SDDU Build Agent（v4-2 收口轮） |

@@ -154,12 +154,24 @@ export function assertNoPlaintext(texts: readonly string[]): void {
   }
 }
 
-/** Truncate to {@link DIGEST_LABEL_MAX} then scan (injection ⇒ THROW, never silent strip). */
+/**
+ * Take the first non-empty line, **scan it in full**, then truncate to
+ * {@link DIGEST_LABEL_MAX} (injection ⇒ THROW, never silent strip).
+ *
+ * F-03 (v4-2 closeout, validate R1): the order is **scan-then-truncate**. The old
+ * order was truncate-then-scan, so a trigger that straddled the 80-character
+ * boundary left its *prefix* in the stored label — validate's repro
+ * (`'x'.repeat(71) + 'sk-ABCDEFGHIJKLMNOP'`) persisted `sk-ABCDEF` (= the first 9
+ * characters of a key) because the `SECRET` pattern needs ≥8 characters after `sk-`.
+ * The sensitive-substring judgement therefore runs on the **complete** line and
+ * truncation only decides how much is stored. Consequence, registered on purpose:
+ * a trigger located *beyond* the truncation bound now **also** throws (fail-closed)
+ * instead of being silently dropped.
+ */
 export function sanitizeLabel(raw: string): string {
   const firstLine = raw.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? '';
-  const truncated = firstLine.slice(0, DIGEST_LABEL_MAX);
-  assertNoPlaintext([truncated]);
-  return truncated;
+  assertNoPlaintext([firstLine]);
+  return firstLine.slice(0, DIGEST_LABEL_MAX);
 }
 
 /** Assert the entry is whitelist-pure AND plaintext-free. */

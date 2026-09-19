@@ -24,6 +24,14 @@
  *  · **There is no "parse → set null → the card disappears" path.** Cancellation /
  *    timeout / supersession are terminal events on the *same* card, so the card
  *    stays in `project()`'s output (TASK-601 acceptance).
+ *  · **The immutability is DEEP, not one level deep.** `Object.freeze` is shallow, so
+ *    a nested array (`payload.options` / `payload.chips`) would stay writable through
+ *    three different handles (the event, the projection, the caller's original array).
+ *    {@link deepFreeze} therefore **copies and freezes every level** on the way into
+ *    an event ({@link appendEvent}) and on the way out of a projection ({@link project}):
+ *    a payload array is never aliased to the caller's object, so no outer mutation can
+ *    reach the log, and no write through a card view can reach either. F-01, v4-2
+ *    closeout round (validate R1) — see `test/stream-model.test.ts` ① group.
  *
  * The module has zero DOM and zero clock references (`ts` always comes from the
  * event), which is what makes `project()` replay-equivalent and node-testable.
@@ -194,6 +202,14 @@ export interface StreamState {
   readonly openAsks: readonly string[];
   /** How many events the bound dropped (readable in the status bar — never silent). */
   readonly dropped: number;
+  /**
+   * How many `stream-merge` candidates were **rejected** because they were not
+   * strictly newer than the log's current maximum `seq` (or duplicated an existing
+   * `cardId`). F-02, v4-2 closeout round (validate R1): the degraded rebuild may
+   * only ever append forward; a skipped candidate is counted here (never silent and
+   * never renumbered — see `chat-state.ts#stream-merge`).
+   */
+  readonly mergeSkipped: number;
 }
 
 /** `boundStreamEvents` default cap (parent ADR-V4-003 decision 3). */
@@ -212,6 +228,33 @@ export interface StreamEventInput {
  * 3. Construction / append
  * ──────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * **Deep** freeze (copy-on-freeze): recursively copies and freezes plain arrays and
+ * objects, so no nested value of a payload stays reachable-and-writable.
+ *
+ * F-01 (v4-2 closeout, validate R1): `Object.freeze` is shallow, so
+ * `payload.options` / `payload.chips` were writable through the event reference, the
+ * `CardView` projection **and** the caller's original array. Two properties matter
+ * here and both come from the *copy*: ① the frozen structure is the model's own, so
+ * freezing it never mutates a caller-owned object as a side effect; ② the caller's
+ * array is no longer aliased, so a later `push`/`splice` on it cannot reach the log.
+ *
+ * Only plain data travels in a payload (strings / numbers / booleans / readonly
+ * arrays): primitives pass through, arrays are re-created element-wise, and plain
+ * objects are re-created own-key-wise. `Date` / class instances / cycles are not part
+ * of the payload contract and are copied as plain own-key objects (never mutated).
+ */
+function deepFreeze<T>(value: T): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((item) => deepFreeze(item))) as unknown as T;
+  }
+  const source = value as Record<string, unknown>;
+  const copy: Record<string, unknown> = {};
+  for (const key of Object.keys(source)) copy[key] = deepFreeze(source[key]);
+  return Object.freeze(copy) as T;
+}
+
 /** Create the initial stream slice. **Call once** per panel (never on a switch). */
 export function createStreamState(sessionId = ''): StreamState {
   return Object.freeze({
@@ -220,6 +263,7 @@ export function createStreamState(sessionId = ''): StreamState {
     sessionId,
     openAsks: Object.freeze([] as string[]),
     dropped: 0,
+    mergeSkipped: 0,
   });
 }
 
@@ -242,7 +286,9 @@ export function appendEvent(state: StreamState, input: StreamEventInput): Stream
     kind: input.kind,
     cardId,
     sessionId: state.sessionId,
-    payload: Object.freeze({ ...(input.payload ?? {}) }),
+    // F-01: DEEP freeze (copy) — a nested `options`/`chips` array must not stay
+    // writable through the event, and must not alias the caller's array.
+    payload: deepFreeze({ ...(input.payload ?? {}) }),
     ...(input.terminal !== undefined ? { terminal: input.terminal } : {}),
   });
   const openAsks = nextOpenAsks(state.openAsks, event);
@@ -441,7 +487,10 @@ export function project(state: StreamState, deps: ProjectDeps = {}): CardView[] 
       firstSeq: acc.firstSeq,
       lastSeq: acc.lastSeq,
       ts: acc.ts,
-      payload: Object.freeze({ ...acc.payload }),
+      // F-01: the projection hands out its OWN deep-frozen copy — writing through a
+      // `CardView` (e.g. `view.payload.options[0] = …`) must throw, and the card must
+      // not share a nested array with the events it was folded from.
+      payload: deepFreeze({ ...acc.payload }),
       frozen,
       ...(acc.terminal !== undefined ? { terminal: acc.terminal, terminalSeq: acc.terminalSeq, terminalTs: acc.terminalTs } : {}),
     }) as CardView;

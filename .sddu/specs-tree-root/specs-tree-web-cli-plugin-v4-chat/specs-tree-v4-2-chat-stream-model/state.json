@@ -5,13 +5,13 @@
  "name": "V4-2 聊天流 append-only 事件模型与卡渲染——不可变 / 单调 / 可回放的事件流 + 7 主类 + 过程卡族渲染 + 统一固化契约（data-* + [hidden] + .ts + .card-fixed）",
  "phase": "validated",
  "workflow": "7.validate",
- "agent": "sddu-validate",
+ "agent": "sddu-build（收口轮；phase 保持 validated 不降级）",
  "depth": 2,
  "parent": "specs-tree-web-cli-plugin-v4-chat",
  "childrens": [],
  "leaf": true,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-19T10:50:00.000Z",
+ "updatedAt": "2026-09-19T12:10:00.000Z",
  "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**模型与渲染地基**，v4-3 / v4-4 的共同地基）。承载父 FR-CHAT-020~026（STREAM 组）与 FR-CHAT-030~037（CARD 组）：① 流事件模型不可变、id 单调（统一 nextId 口径）、可回放；删除「解析即置 null 从界面消失」路径；② 流条目类型集合 = 7 主类（ai/user/nextstep/askuser/auth/system/ref）+ 过程卡族（tool/command/thinking/error/notice，AI 消息族子形态），全部 append-only 留痕；③ 统一固化契约（data-* 状态属性 + [hidden] 切换表单/固化区 + .ts 时间戳 + .card-fixed）；删除「撤销回答/撤销批准」控件，撤销 = 新系统事件行；④ 会话切换（history 动作）不丢工具卡元数据（tool/ok/ms）与过程条目，截断规则显式登记；⑤ 留痕完备性 + 可回放；⑥ 新增 SW↔面板 kind 不进 KIND_SET（沿用独立校验器模式，先例 insight-protocol.ts / content/pick-protocol.ts）；⑦ 既有 5 种过程形态零丢失归位，工具卡保留工具名 + ✓/✖ + 耗时(ms) + 预览 + 折叠记忆（480 字符 / 10 行）；⑧ 卡可访问语义（role + .ts 可读 + 流 role=log）。不依赖 SW 契约变更（可先用既有 5 条通道喂数据）。权威条文见父 spec.md §5.3 / §5.4。",
  "scope": {
   "in": [
@@ -231,39 +231,99 @@
    },
    "gates": "20 项串行复跑 + RP-V4-09 复验；日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/",
    "redlines": "content.js 177,076 / pick-layer.js 33,900 / KIND_SET / SW / manifest / 判定链 / journey·binding 保护段 零改",
-    "phaseAfter": "reviewed（保持；修复轮不改阶段，等待 @sddu-validate）"
-   }
-  ],
-  "validateRounds": [
-   {
-    "round": "v4-2 validate R1（sddu-validate）",
-    "date": "2026-09-19",
-    "head": "24da8b3",
-    "baseline": "203261e",
-    "artifacts": [
-     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/validate.md",
-     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/validate-report.md"
-    ],
-    "gates": "20 项独立串行复跑 + RP-V4-09：20/21 rc=0；binding 环境性抖动（3 次失败项互异；binding.mjs 零 diff；历史同现象）；日志 /tmp/opencode/v4-validate-v4-2/gates/",
-    "countsReconciled": "17/18 与台账 counts.currentRuntime 同源（node 920 / supersession 30 / stream 63 / l0 212 / l1 108 / l2 73 / density 171 / journey 167 / insight 116 / hardening 24 / sidepanelView 38 / gate-integrity 12 / zero-injection 27 / page-input 102 / design-contract 6 / l1-reverse 9 / l2-reverse 10 / RP-V4-09 9）；binding 192 未复现",
-    "coverage": {
-     "fr": "16/16",
-     "nfr": "7/7"
+   "phaseAfter": "reviewed（保持；修复轮不改阶段，等待 @sddu-validate）"
+  }
+ ],
+ "validateRounds": [
+  {
+   "round": "v4-2 validate R1（sddu-validate）",
+   "date": "2026-09-19",
+   "head": "24da8b3",
+   "baseline": "203261e",
+   "artifacts": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-2-chat-stream-model/validate-report.md"
+   ],
+   "gates": "20 项独立串行复跑 + RP-V4-09：20/21 rc=0；binding 环境性抖动（3 次失败项互异；binding.mjs 零 diff；历史同现象）；日志 /tmp/opencode/v4-validate-v4-2/gates/",
+   "countsReconciled": "17/18 与台账 counts.currentRuntime 同源（node 920 / supersession 30 / stream 63 / l0 212 / l1 108 / l2 73 / density 171 / journey 167 / insight 116 / hardening 24 / sidepanelView 38 / gate-integrity 12 / zero-injection 27 / page-input 102 / design-contract 6 / l1-reverse 9 / l2-reverse 10 / RP-V4-09 9）；binding 192 未复现",
+   "coverage": {
+    "fr": "16/16",
+    "nfr": "7/7"
+   },
+   "findings": [
+    "F-01（中）payload.options/chips 数组未冻结 → 破「不可变/可回放」字面；v4-3 前须处置",
+    "F-02（低）stream-merge 接纳「小于最大值且未占用」的 seq → 数组逆序（I-06 残余）",
+    "F-03（低）sanitizeLabel 截断边界残留密钥前缀（启发式边界）"
+   ],
+   "notes": [
+    "N-01（环境/中）binding 门禁时序抖动，非 v4-2 回归",
+    "N-02（低）hasSegment 导出无消费者",
+    "N-03（低）build 文档引用 journey 旧保护段 pin"
+   ],
+   "blocking": 0,
+   "verdict": "⚠️ 有条件通过",
+   "phaseAfter": "validated → status=completed",
+   "redlines": "content.js 177,076 / pick-layer.js 33,900 / KIND_SET / SW / manifest / design/security/options 零 diff；保护段 active pin sha 命中"
+  }
+ ],
+ "closeoutRounds": [
+  {
+   "round": "v4-2 收口轮（sddu-build，validate R1 的 F/N 处置）",
+   "date": "2026-09-19",
+   "head": "95ad611（收口轮起点）",
+   "source": "validate-report.md R1（⚠️ 有条件通过 / 0 阻塞 / F-01~F-03 + N-01~N-03）",
+   "phaseDiscipline": "phase 保持 validated（收口不降级）；status=tracked",
+   "dispositions": [
+    "F-01（中，必修）`payload.options`/`chips` 深冻结：`stream-model.ts` 新增 `deepFreeze`（copy-and-freeze，逐层），`appendEvent` 入口 + `project()` 出口各一次；三条改写路径（事件 / CardView / caller）全堵死；反证 = 回退 ⇒ 2 条 node 用例判红（18/2）∧ 还原 sha 相同 ⇒ 20/0。测试 +2",
+    "F-02（低，修）`stream-merge` 只接纳 `seq > 已知最大值`（候选按 seq 升序）+ `StreamState.mergeSkipped` 计数（不静默、不重编号）；反证 = 回退 ⇒ 实测数组 1,2,3,0,9 判红（19/1）∧ 还原 ⇒ 20/0。测试 +1",
+    "F-03（低，修）`sanitizeLabel` 顺序反转为「先全串扫描再截断」（截断只影响落库长度）；反证 = 回退 ⇒ 落库尾部 'sk-ABCDEF' 判红（18/1）∧ 还原 ⇒ 19/0。测试 +1；口径收紧（80 界外触发子亦 fail-closed）已显式登记",
+    "N-01（环境）binding 宿主时序抖动登记 `docs/v4-supersession-ledger.json#knownLimitations[KL-N-10]`（现象 + 证据链 + 复跑纪律 + 建议）；收口轮 runA 红（#7d/#7e tabs list --full）→ runB 全量复跑绿（192/0）⇒ 同产物先红后绿，环境性实证",
+    "N-02（低）`hasSegment` 接线（不删除）：`sidepanel.ts#restoreStreamDigest` 的内联等价谓词改为调用它，孤儿导出消除",
+    "N-03（低）build.md §10/§15.3 的 journey 保护段引用订正为 active pin `43054..55259`（旧 pin `42766..54004` 标注为 supersededFrom 历史留档，原文逐字保留）"
+   ],
+   "volume": {
+    "before": 425094,
+    "after": 426487,
+    "ceiling": 447811,
+    "deltaBytes": 1393,
+    "unattributedGlueBytes": 0,
+    "modules": {
+     "stream-model": "5,998 → 6,908 (+910)",
+     "chat-state": "9,414 → 9,953 (+539)",
+     "stream-digest": "6,253 → 6,220 (−33)",
+     "sidepanel": "62,712 → 62,689 (−23)"
     },
-    "findings": [
-     "F-01（中）payload.options/chips 数组未冻结 → 破「不可变/可回放」字面；v4-3 前须处置",
-     "F-02（低）stream-merge 接纳「小于最大值且未占用」的 seq → 数组逆序（I-06 残余）",
-     "F-03（低）sanitizeLabel 截断边界残留密钥前缀（启发式边界）"
-    ],
-    "notes": [
-     "N-01（环境/中）binding 门禁时序抖动，非 v4-2 回归",
-     "N-02（低）hasSegment 导出无消费者",
-     "N-03（低）build 文档引用 journey 旧保护段 pin"
-    ],
-    "blocking": 0,
-    "verdict": "⚠️ 有条件通过",
-    "phaseAfter": "validated → status=completed",
-    "redlines": "content.js 177,076 / pick-layer.js 33,900 / KIND_SET / SW / manifest / design/security/options 零 diff；保护段 active pin sha 命中"
-   }
-  ]
+    "registration": "SIDEPANEL_RE_REGISTRATIONS['v4-2-closeout'] + v42CloseoutRows + TIMELINE 追加 426,487；docs/v4-density-baseline.json#volume 同步"
+   },
+   "gates": "20 项严格串行 + RP-V4-09：runA 20/21（binding 环境性抖动）→ runB（更新 counts 同源路径后）**21/21 rc=0**；日志 /tmp/opencode/v4-gate-logs/v4-2-closeout/{runA,gates,registry,reverse}/",
+   "counts": {
+    "nodeTestRuntime": 924,
+    "supersession": 30,
+    "gateIntegrity": 12,
+    "zeroInjection": 27,
+    "pageInput": 102,
+    "l0": 212,
+    "l1": 108,
+    "l2": 73,
+    "density": 171,
+    "journey": 167,
+    "insight": 116,
+    "binding": 192,
+    "hardening": 24,
+    "designContract": 6,
+    "l1Reverse": 9,
+    "l2Reverse": 10,
+    "stream": 63,
+    "rpV409": 9,
+    "direction": "只增不减（node 920 → 924；其余逐项不减）"
+   },
+   "redlines": "content.js 177,076 B / sha 52a82620… · pick-layer.js 33,900 B / sha 5f567d7e…（runA/runB 前后两次采样相同）；KIND_SET / SW / manifest 零 diff；journey active pin 43054..55259 与 binding 107780..115930 字节 sha 零改；sidepanel 426,487 ≤ 447,811",
+   "artifacts": [
+    "build.md §16（收口轮：F/N 处置 + 反证原文 + 体积五要素 + 门禁复跑 + 红线）",
+    "validate-report.md R1 未改（validate 产物只读）"
+   ],
+   "phaseAfter": "validated（保持；收口完成，可开 v4-3）",
+   "next": "v4-3（ask/auth 流内化 + 业务态）：承接 F-01 已处置（options/chips 成为真实 payload 时深冻结已就位）与 I-01/I-05 的跨叶义务（truncationRules scopeLimit 放宽 / 首屏合计 ≤8 前提复算）"
+  }
+ ]
 }

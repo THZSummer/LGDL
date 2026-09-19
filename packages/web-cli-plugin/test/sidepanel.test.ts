@@ -204,3 +204,53 @@ test('R1 ask: 引用回合（ref-round-*）取代后台提问时必须可判定�
   assert.equal(supersededAsk(reduce(s, { type: 'ask', requestId: 'ask-8', kind: 'text', prompt: '再来一个' }))?.requestId, 'ask-8');
   assert.equal(REF_ROUND_PREFIX, 'ref-round-');
 });
+
+// ── F-02（v4-2 收口轮，validate R1）：降级重建只允许「严格向前追加」───────────
+test('F-02 stream-merge: 只接纳 seq > 已知最大值（逆序 seq 被拒且计数，数组保持严格单调）', () => {
+  const digestEvent = (seq: number, cardId: string) =>
+    Object.freeze({
+      seq,
+      ts: seq,
+      kind: 'askuser' as const,
+      cardId,
+      sessionId: 'https://stale.test',
+      payload: Object.freeze({ label: '历史摘要' }),
+      terminal: 'answered' as const,
+    });
+  let s = createInitialState();
+  s = reduce(s, { type: 'user', text: 'a' }); // seq 1 (user) + 2 (thinking)
+  s = reduce(s, { type: 'assistant', text: 'b' }); // seq 3
+  const known = s.stream.events.map((e) => e.seq);
+  assert.deepEqual(known, [1, 2, 3], '前置：已知事件 seq 必须为 1..3');
+  assert.equal(s.stream.mergeSkipped, 0, '初始无跳过计数');
+
+  // validate R1 复现：`seq = 0` 小于当前最大值且**未被占用** —— 旧实现会接纳它，数组随即逆序。
+  s = reduce(s, { type: 'stream-merge', events: [digestEvent(0, 'old-card'), digestEvent(9, 'new-card')] });
+  const seqs = s.stream.events.map((e) => e.seq);
+  assert.deepEqual(seqs, [1, 2, 3, 9], `低于已知最大值的 seq 必须被拒（实测 ${seqs.join(',')}）`);
+  assert.ok(
+    seqs.every((v, i) => i === 0 || v > seqs[i - 1]),
+    '合并后事件数组必须严格单调递增（F-02）',
+  );
+  assert.equal(s.stream.mergeSkipped, 1, '被拒候选必须计数（不得静默丢弃）');
+  assert.equal(
+    s.stream.events.some((e) => e.cardId === 'old-card'),
+    false,
+    '被拒的摘要行不得以任何重编号形式混入（禁静默改写）',
+  );
+
+  // 幂等：同一批再次合并 ⇒ 仍无重复且计数继续累加（seq=9 已占用）。
+  s = reduce(s, { type: 'stream-merge', events: [digestEvent(0, 'old-card'), digestEvent(9, 'new-card')] });
+  assert.deepEqual(
+    s.stream.events.map((e) => e.seq),
+    [1, 2, 3, 9],
+    '重复合并不得产生第二份事件',
+  );
+  assert.equal(s.stream.mergeSkipped, 3, '两次合并共拒 2 条（seq=0 与已占用的 seq=9）+ 首次 1 条');
+
+  // 合法前向追加仍然工作（判据不恒假）。
+  s = reduce(s, { type: 'stream-merge', events: [digestEvent(10, 'fresh-card')] });
+  assert.equal(s.stream.events.at(-1)?.cardId, 'fresh-card');
+  assert.equal(s.stream.seq, 11, '新最大值之后 seq 指针必须前进');
+  assert.equal(s.stream.mergeSkipped, 3, '合法合并不增加跳过计数');
+});

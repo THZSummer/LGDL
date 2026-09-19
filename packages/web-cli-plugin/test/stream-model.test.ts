@@ -76,6 +76,75 @@ test('v4-2 ① 不可变：appendEvent 返回新 state，旧 state/旧事件不�
   assert.equal(s1.events[0].seq, 1, '写入尝试必须无效');
 });
 
+/**
+ * F-01（v4-2 收口轮，validate R1）—— `Object.freeze` 是**浅**冻结，所以
+ * `payload.options` / `payload.chips` 这类数组曾经可以被**三处**改写：① 事件引用
+ * ② `project()` 返回的 `CardView` ③ 调用方持有的原数组（validate 已逐条证明）。
+ * 本用例对三条路径逐条设卡；`deepFreeze` 被回退（改回 `Object.freeze` 浅冻结）时
+ * 三条断言均会判红。
+ */
+test('v4-2 ① F-01 深冻结：payload.options/chips 的三条改写路径全部堵死', () => {
+  const options = ['选项一', '选项二'];
+  const chips = ['site_notes-list', 'tabs list'];
+  let s = createStreamState('s1');
+  s = appendEvent(s, { kind: 'askuser', ts: 1, cardId: 'q1', payload: { prompt: '继续？', options } });
+  s = appendEvent(s, { kind: 'nextstep', ts: 2, cardId: 'n1', payload: { chips } });
+
+  // ① 事件引用（appendEvent 之后事件里的数组必须是冻结的**自有副本**）
+  const ev = s.events[0];
+  assert.equal(Object.isFrozen(ev.payload.options), true, '事件载荷的 options 数组必须被冻结（F-01）');
+  assert.equal(Object.isFrozen(s.events[1].payload.chips), true, '事件载荷的 chips 数组必须被冻结（F-01）');
+  assert.throws(() => {
+    (ev.payload.options as string[])[0] = 'HACK';
+  }, TypeError, '写事件里的 options[0] 必须抛 TypeError');
+  assert.throws(() => {
+    (ev.payload.options as string[]).push('HACK');
+  }, TypeError, 'push 事件里的 options 必须抛 TypeError');
+  assert.deepEqual([...ev.payload.options!], ['选项一', '选项二'], '值必须不变');
+
+  // ② CardView 投影（project 交出的是它自己的深冻结副本）
+  const view = project(s)[0];
+  assert.equal(Object.isFrozen(view.payload.options), true, 'CardView.payload.options 必须被冻结（F-01）');
+  assert.throws(() => {
+    (view.payload.options as string[])[0] = 'HACK';
+  }, TypeError, '写 CardView 里的 options[0] 必须抛 TypeError');
+  assert.throws(() => {
+    (project(s)[1].payload.chips as string[])[0] = 'HACK';
+  }, TypeError, '写 CardView 里的 chips[0] 必须抛 TypeError');
+  assert.equal(project(s)[0].payload.options![0], '选项一', '投影值必须不变');
+
+  // ③ 调用方持有的原数组（事件不得别名调用方的对象）
+  options[0] = 'HACK';
+  chips.push('HACK');
+  assert.equal(ev.payload.options![0], '选项一', '事件不得与调用方数组共享引用（F-01③）');
+  assert.deepEqual([...project(s)[0].payload.options!], ['选项一', '选项二'], '投影不得随调用方改写而变');
+  assert.deepEqual([...project(s)[1].payload.chips!], ['site_notes-list', 'tabs list'], 'chips 同理');
+});
+
+test('v4-2 ① F-01 深冻结：嵌套数组/对象逐层冻结（不遗留可写内层）', () => {
+  // The payload type only admits scalars / `readonly string[]`; the freeze chain must
+  // nevertheless be DEEP (arrays of arrays / plain objects), so this drives it at runtime.
+  let s = createStreamState('s1');
+  s = appendEvent(s, {
+    kind: 'askuser',
+    ts: 1,
+    payload: { options: [['内层']] } as never,
+  });
+  const inner = (s.events[0].payload.options as unknown as string[][])[0];
+  assert.equal(Object.isFrozen(s.events[0].payload.options), true);
+  assert.equal(Object.isFrozen(inner), true, '数组元素（嵌套数组）也必须逐层冻结（F-01）');
+  assert.throws(() => {
+    inner[0] = 'HACK';
+  }, TypeError, '写嵌套内层必须抛 TypeError');
+  assert.equal(inner[0], '内层', '嵌套内层值必须不变');
+  const projected = project(s)[0].payload.options as unknown as string[][];
+  assert.equal(Object.isFrozen(projected), true);
+  assert.equal(Object.isFrozen(projected[0]), true, '投影侧同样逐层冻结');
+  assert.throws(() => {
+    projected[0][0] = 'HACK';
+  }, TypeError);
+});
+
 // ── ② seq 单调不复用（含跨会话切换） ──────────────────────────────────────────
 
 test('v4-2 ② seq 单调递增、永不复用', () => {

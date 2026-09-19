@@ -1207,10 +1207,10 @@
    "oldId": "V4-1/TASK-515",
    "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 375_102;",
    "newId": "V4-1 重登记",
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 425_094;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 426_487;",
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-1-zone-shell-density",
-   "reason": "TASK-515 五要素中间重登记：sidepanel 体积基线 375,102 → 385,319 B（+10,217 B，+2.72%），逐模块可归因（真实 metafile）+ 前后值/日期/来源/理由/历史保留五要素齐备；`PENDING_ABSOLUTE_CAP` 保持 resolved:false 且未预填，targetBudgetBytes/targetMet 仍为 null，容差 5% 未动。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02（2026-09-19）〗本条目按**最终实测产物**再次重 pin：425,442 → **425,094 B**（−348 B，I-06/07/08/12 移除死代码与死 CSS 后重测；Σ 模块 +39,381 + 未归因胶水 +394 == 39,775 == 425,094 − 385,319）；ceiling = floor(425,094 × 1.05) = **446,348 B**；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,442 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE`。"
+   "reason": "TASK-515 五要素中间重登记：sidepanel 体积基线 375,102 → 385,319 B（+10,217 B，+2.72%），逐模块可归因（真实 metafile）+ 前后值/日期/来源/理由/历史保留五要素齐备；`PENDING_ABSOLUTE_CAP` 保持 resolved:false 且未预填，targetBudgetBytes/targetMet 仍为 null，容差 5% 未动。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02（2026-09-19）〗本条目按**最终实测产物**再次重 pin：425,442 → **425,094 B**（−348 B，I-06/07/08/12 移除死代码与死 CSS 后重测；Σ 模块 +39,381 + 未归因胶水 +394 == 39,775 == 425,094 − 385,319）；ceiling = floor(425,094 × 1.05) = **446,348 B**；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,442 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE`。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。"
   },
   {
    "id": "V41-R2-7",
@@ -1219,10 +1219,10 @@
    "oldId": "V4-1/TASK-515",
    "oldTitle": "assert.equal(SIDEPANEL_CEILING, 393_857,",
    "newId": "V4-1 重登记",
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 446_348, 'ceiling = floor(425,094 × 1.05)（v4-2 聊天流事件模型 + review 修复轮重登记后由公式抬高）');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 447_811, 'ceiling = floor(426,487 × 1.05)（v4-2 收口轮重登记后由公式抬高）');",
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-1-zone-shell-density",
-   "reason": "同轮方向敏感断言按新实测值重 pin（ceiling 393,857 → 404,584 = floor(385,319 × 1.05)）；断言零删减，cap 仍 record-only，公式判定路径不变。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗同轮方向敏感断言按最终实测值再 pin（446,714 → 446,348）；断言零删减，cap 仍 record-only，公式判定路径不变。"
+   "reason": "同轮方向敏感断言按新实测值重 pin（ceiling 393,857 → 404,584 = floor(385,319 × 1.05)）；断言零删减，cap 仍 record-only，公式判定路径不变。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗同轮方向敏感断言按最终实测值再 pin（446,714 → 446,348）；断言零删减，cap 仍 record-only，公式判定路径不变。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。"
   },
   {
    "id": "V41-R2-8",
@@ -1231,10 +1231,10 @@
    "oldId": "V4-1/TASK-515",
    "oldTitle": "assert.equal(b.deltaBytes, 79_877);",
    "newId": "V4-1 重登记",
-   "newTitle": "  assert.equal(b.deltaBytes, 129_869);",
+   "newTitle": "  assert.equal(b.deltaBytes, 131_262);",
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-1-zone-shell-density",
-   "reason": "同轮累计增量断言按新基线重 pin（79,877 → 90,094 = 385,319 − 295,225）；并让「断言零删减」登记册同时认 v4 取代台账为合法来源（双台账）。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗累计增量断言按最终基线再 pin（130,217 → 129,869 == 425,094 − 295,225）；同时 `closeoutDeltaBytes` 由 40,123 订正为 39,775（I-10：其 doc-comment 原先仍写 v4-1 轮，现改written为「最新一轮 = 当前基线 − 385,319」并与本断言同源机核）。"
+   "reason": "同轮累计增量断言按新基线重 pin（79,877 → 90,094 = 385,319 − 295,225）；并让「断言零删减」登记册同时认 v4 取代台账为合法来源（双台账）。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗累计增量断言按最终基线再 pin（130,217 → 129,869 == 425,094 − 295,225）；同时 `closeoutDeltaBytes` 由 40,123 订正为 39,775（I-10：其 doc-comment 原先仍写 v4-1 轮，现改written为「最新一轮 = 当前基线 − 385,319」并与本断言同源机核）。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。"
   },
   {
    "id": "V41-R2-9",
@@ -1243,10 +1243,10 @@
    "oldId": "V4-1/TASK-515",
    "oldTitle": "assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 375_102, '反证必须打在**当前真实产物**上');",
    "newId": "V4-1 重登记",
-   "newTitle": "assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 425_094, '反证必须打在**当前真实产物**上');",
+   "newTitle": "assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 426_487, '反证必须打在**当前真实产物**上');",
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-1-zone-shell-density",
-   "reason": "裁决 V3-VOL-3 的反证必须打在**当前真实产物**上；v4-1 重登记后该 pin 随实测更新为 385,319 B（40% 停工线仍为显式撤销状态，判定路径不变）。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗V3-VOL-3 的反证按最终真实产物再 pin（425,442 → 425,094 B）；撤销状态与判定路径不变。"
+   "reason": "裁决 V3-VOL-3 的反证必须打在**当前真实产物**上；v4-1 重登记后该 pin 随实测更新为 385,319 B（40% 停工线仍为显式撤销状态，判定路径不变）。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗V3-VOL-3 的反证按最终真实产物再 pin（425,442 → 425,094 B）；撤销状态与判定路径不变。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。"
   },
   {
    "id": "V41-R3-E-01",
@@ -1911,17 +1911,49 @@
    "id": "V42-E-VOL-2",
    "file": "packages/web-cli-plugin/test/size-baseline.ts",
    "oldTitle": null,
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 425_094;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 426_487;",
    "modificationType": "pure-addition",
-   "reason": "V4-2 TASK-612 体积五要素中间重登记：注册基线 385,319 → 425,442 B（十二个新必需模块 + 四个接线模块，逐模块归因见 v42RoundRows）。v3 段 V31-S6/V31-S10/V32-S1/V33-S10 的 newTitle 由本条目续链。 〖v4-2 review 修复轮 I-01~I-12（2026-09-19）〗按最终实测产物订正为 **425,094 B**（build 轮登记值 425,442 B 作为历史逐字保留于 TIMELINE 与 `SIDEPANEL_RE_REGISTRATIONS['v4-2'].reason`）。v3 段 V31-S6/V31-S10/V32-S1/V33-S10 的 newTitle 仍由本条目续链。"
+   "reason": "V4-2 TASK-612 体积五要素中间重登记：注册基线 385,319 → 425,442 B（十二个新必需模块 + 四个接线模块，逐模块归因见 v42RoundRows）。v3 段 V31-S6/V31-S10/V32-S1/V33-S10 的 newTitle 由本条目续链。 〖v4-2 review 修复轮 I-01~I-12（2026-09-19）〗按最终实测产物订正为 **425,094 B**（build 轮登记值 425,442 B 作为历史逐字保留于 TIMELINE 与 `SIDEPANEL_RE_REGISTRATIONS['v4-2'].reason`）。v3 段 V31-S6/V31-S10/V32-S1/V33-S10 的 newTitle 仍由本条目续链。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。"
   },
   {
    "id": "V42-E-VOL-3",
    "file": "packages/web-cli-plugin/test/size-budget.test.ts",
    "oldTitle": null,
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 446_348, 'ceiling = floor(425,094 × 1.05)（v4-2 聊天流事件模型 + review 修复轮重登记后由公式抬高）');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 447_811, 'ceiling = floor(426,487 × 1.05)（v4-2 收口轮重登记后由公式抬高）');",
    "modificationType": "pure-addition",
-   "reason": "V4-2 TASK-612：体积守卫按真实产物重登记（ceiling 404,584 → 446,714 = floor(425,442 × 1.05)，cap 仍 record-only）。v3 段 V31-S7/V33-S11 的 newTitle 由本条目续链。 〖v4-2 review 修复轮 I-02〗ceiling 按最终实测值订正为 446,348（= floor(425,094 × 1.05)）；v3 段 V31-S7/V33-S11 的 newTitle 仍由本条目续链。"
+   "reason": "V4-2 TASK-612：体积守卫按真实产物重登记（ceiling 404,584 → 446,714 = floor(425,442 × 1.05)，cap 仍 record-only）。v3 段 V31-S7/V33-S11 的 newTitle 由本条目续链。 〖v4-2 review 修复轮 I-02〗ceiling 按最终实测值订正为 446,348（= floor(425,094 × 1.05)）；v3 段 V31-S7/V33-S11 的 newTitle 仍由本条目续链。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。"
+  },
+  {
+   "id": "V42-E-DFREEZE-1",
+   "file": "packages/web-cli-plugin/src/ui/sidepanel/stream-model.ts",
+   "oldTitle": null,
+   "newTitle": "    payload: deepFreeze({ ...(input.payload ?? {}) }),",
+   "modificationType": "pure-addition",
+   "reason": "V4-2 收口轮 F-01（validate R1）：`sequence` 冻结链补 `deepFreeze`（浅 `Object.freeze` 无法保护 `payload.options` / `payload.chips` 数组）。`appendEvent` 入口 + `project()` 出口各一次，堵死「事件引用 / CardView / 调用方原数组」三条改写路径；配可 FAIL 反证（回退 ⇒ 2 条 node 用例判红，还原 ⇒ 20/20 绿）。零删除。"
+  },
+  {
+   "id": "V42-E-SEQ-1",
+   "file": "packages/web-cli-plugin/src/ui/sidepanel/chat-state.ts",
+   "oldTitle": null,
+   "newTitle": "        if (knownCards.has(e.cardId) || e.seq <= maxKnownSeq) {",
+   "modificationType": "pure-addition",
+   "reason": "V4-2 收口轮 F-02（validate R1）：`stream-merge` 从「双键去重」收紧为「只接纳 `seq > 已知最大值`」（候选按 seq 升序应用），逆序 seq 不再破坏事件数组的严格单调；被拒候选计入 `StreamState.mergeSkipped`（不静默、不重编号）。配可 FAIL 反证（回退 ⇒ 实测数组 1,2,3,0,9，判红）。"
+  },
+  {
+   "id": "V42-E-SVOL-1",
+   "file": "packages/web-cli-plugin/test/size-baseline.ts",
+   "oldTitle": null,
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 426_487;",
+   "modificationType": "registered-rewrite",
+   "reason": "V4-2 收口轮体积五要素重登记（F-01/F-02/F-03 + N-02 的必需增重）：425,094 → **426,487 B**（+1,393 B，+0.33%，逐模块可归因、未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**；新增 `v4-2-closeout` 登记轮 + `v42CloseoutRows`（最新一轮 rows，机核真实 metafile）；TIMELINE / 历史值逐字保留，断言零删减。"
+  },
+  {
+   "id": "V42-E-SVOL-2",
+   "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+   "oldTitle": null,
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 447_811, 'ceiling = floor(426,487 × 1.05)（v4-2 收口轮重登记后由公式抬高）');",
+   "modificationType": "registered-rewrite",
+   "reason": "V4-2 收口轮：方向敏感断言按收口轮实测值重 pin（ceiling 446,348 → **447,811**）；判定路径不变（cap 仍 record-only，公式 = floor(baseline × 1.05)），断言零删减。"
   }
  ],
  "modifiedRanges": [
@@ -3836,10 +3868,10 @@
    "currentRuntime": 212,
    "floor": 164,
    "countMethod": "runtime-check-calls",
-   "note": "〖N-04（收口轮，v4-1 validate R1）〗按**实测**订正：R3 现场值 203 → 210（review 修复轮 I4/I7/I12 新增 7 条后实跑 210，validate R1 独立复跑一致）。R3 现场原文（203）**逐字保留**在同条目的 `noteHistory` 字段（只追加不改写历史）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-l0.log（全量，未截断）；同源机核见 test/supersession-ledger.test.ts 的 counts↔日志抽样判据。 〖v4-2（2026-09-19）〗TASK-611 追加 §⑮ 两条（`#stream` 内卡不污染外壳密度 + 反向「该卡真的带 3 可点」）后实测 **212**（210 → 212，只增）。",
+   "note": "〖N-04（收口轮，v4-1 validate R1）〗按**实测**订正：R3 现场值 203 → 210（review 修复轮 I4/I7/I12 新增 7 条后实跑 210，validate R1 独立复跑一致）。R3 现场原文（203）**逐字保留**在同条目的 `noteHistory` 字段（只追加不改写历史）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-l0.log（全量，未截断）；同源机核见 test/supersession-ledger.test.ts 的 counts↔日志抽样判据。 〖v4-2（2026-09-19）〗TASK-611 追加 §⑮ 两条（`#stream` 内卡不污染外壳密度 + 反向「该卡真的带 3 可点」）后实测 **212**（210 → 212，只增）。 〖v4-2 收口轮〗212（不变；来源日志重登记到收口轮 registry/ 快照）。",
    "source": {
     "gate": "npm run test:l0",
-    "log": "/tmp/opencode/v4-gate-logs/v4-2/test-l0.log",
+    "log": "/tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-l0.log",
     "pattern": "▶ L0 运行时门禁: (\\d+) passed",
     "observedLine": "▶ L0 运行时门禁: 212 passed / 0 failed",
     "observed": 212,
@@ -3863,10 +3895,10 @@
    "currentRuntime": 171,
    "floor": 127,
    "countMethod": "runtime-check-calls",
-   "note": "〖N-04（收口轮，v4-1 validate R1）〗按**实测**订正：R3 现场值 169 → 171（review 修复轮 I6/I10 新增 2 条后实跑 171，validate R1 独立复跑一致）。R3 现场原文（169）**逐字保留**在同条目的 `noteHistory` 字段（只追加不改写历史）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-density.log（全量，未截断）。本口径的**反证**（RP-V4-01~07）由 `test/ui/density.mjs --reverse RP-V4-0X` 单独驱动，不计入本数。 〖v4-2（2026-09-19）〗TASK-613 追加 RP-V4-09（形态判据 + 首屏合计上限，8 passed）与体积重登记后实测 **171 / 0**。",
+   "note": "〖N-04（收口轮，v4-1 validate R1）〗按**实测**订正：R3 现场值 169 → 171（review 修复轮 I6/I10 新增 2 条后实跑 171，validate R1 独立复跑一致）。R3 现场原文（169）**逐字保留**在同条目的 `noteHistory` 字段（只追加不改写历史）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-density.log（全量，未截断）。本口径的**反证**（RP-V4-01~07）由 `test/ui/density.mjs --reverse RP-V4-0X` 单独驱动，不计入本数。 〖v4-2（2026-09-19）〗TASK-613 追加 RP-V4-09（形态判据 + 首屏合计上限，8 passed）与体积重登记后实测 **171 / 0**。 〖v4-2 收口轮〗171（不变；来源日志重登记到收口轮 registry/ 快照；体积登记 426,487 / ceiling 447,811）。",
    "source": {
     "gate": "npm run test:density",
-    "log": "/tmp/opencode/v4-gate-logs/v4-2/test-density.log",
+    "log": "/tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-density.log",
     "pattern": "▶ density 门禁: (\\d+) passed",
     "observedLine": "▶ density 门禁: 171 passed / 0 failed",
     "observed": 171,
@@ -3905,17 +3937,17 @@
    "note": "TASK-515 收口实测（R3，2026-09-19）：npm test（dist-test/test/sidepanel-view.test.js） ⇒ 38（下界 38）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮复核〗38 不变（本轮未改 sidepanel-view 断言）。 〖v4-2（2026-09-19）〗38 不变（3 条静态断言等价重锚到 cards/*，test( 注册数不变）。"
   },
   "nodeTestRuntime": {
-   "currentRuntime": 920,
+   "currentRuntime": 924,
    "floor": 832,
    "countMethod": "runtime-node-tests",
-   "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮〗新增 `test/theme.test.ts`（18 条）+ `supersession-ledger.test.ts` 4 条（I1/I2）+ `size-growth-evidence.test.ts` 2 条（I8/I9）⇒ 实测 849 → **875**（floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-1-reviewfix/test.log（全量，未截断）。 〖N-04（收口轮，v4-1 validate R1）〗本轮收口新增 6 条（N-05 round-rows 自洽断言 + 反证；N-04 counts 同源判据 + 反证；N-01~N-08 处置登记判据 + 反证）⇒ 实测 **881**（只增不减）。另：validate R1 指出的「`test/theme.test.ts`（18 条）」为笔误，实测 `^test(` = **19** 条 —— 已在同源注中订正。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test.log（全量，未截断）。 〖v4-2（2026-09-19）〗新增 3 个 node 文件（stream-model.test / stream-persistence.test / perf-budget 追加长会话用例）共 +37 条 ⇒ 881 → **918**（0 fail）。 〖v4-2 review 修复轮（2026-09-19）〗`test/supersession-ledger.test.ts` 新增 2 条（I-01 的 `truncationRules` 判据 + 反证）⇒ 实测 918 → **920**（0 fail；floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。",
+   "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮〗新增 `test/theme.test.ts`（18 条）+ `supersession-ledger.test.ts` 4 条（I1/I2）+ `size-growth-evidence.test.ts` 2 条（I8/I9）⇒ 实测 849 → **875**（floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-1-reviewfix/test.log（全量，未截断）。 〖N-04（收口轮，v4-1 validate R1）〗本轮收口新增 6 条（N-05 round-rows 自洽断言 + 反证；N-04 counts 同源判据 + 反证；N-01~N-08 处置登记判据 + 反证）⇒ 实测 **881**（只增不减）。另：validate R1 指出的「`test/theme.test.ts`（18 条）」为笔误，实测 `^test(` = **19** 条 —— 已在同源注中订正。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test.log（全量，未截断）。 〖v4-2（2026-09-19）〗新增 3 个 node 文件（stream-model.test / stream-persistence.test / perf-budget 追加长会话用例）共 +37 条 ⇒ 881 → **918**（0 fail）。 〖v4-2 review 修复轮（2026-09-19）〗`test/supersession-ledger.test.ts` 新增 2 条（I-01 的 `truncationRules` 判据 + 反证）⇒ 实测 918 → **920**（0 fail；floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮（2026-09-19，validate R1 的 F-01/F-02/F-03 + N-02）〗新增 4 条 node 用例（F-01 深冻结 2 条 / F-02 stream-merge 严格单调 1 条 / F-03 sanitizeLabel 边界 1 条）⇒ 实测 920 → **924**（0 fail）。日志 /tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。",
    "previousRuntime": 918,
    "source": {
     "gate": "npm test",
-    "log": "/tmp/opencode/v4-gate-logs/v4-2-reviewfix/registry/test-run.log",
+    "log": "/tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-run.log",
     "pattern": "ℹ pass (\\d+)",
-    "observedLine": "ℹ pass 920",
-    "observed": 920,
+    "observedLine": "ℹ pass 924",
+    "observed": 924,
     "measuredOn": "2026-09-19"
    }
   },
@@ -3923,10 +3955,10 @@
    "currentRuntime": 30,
    "floor": 24,
    "countMethod": "runtime-node-tests",
-   "note": "〖N-04（收口轮，v4-1 validate R1）〗验 R1 抽样口径之一：`npm run test:supersession` 实测 24（R3 20 + review 修复轮 I1/I2 四条）。本轮收口新增 N-04 counts↔日志同源判据与 N-01~N-08 处置登记判据（各含一条反证）⇒ 实测 **28**（只增不减；floor 24 = validate R1 实测下界）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-supersession.log（全量，未截断）。 〖v4-2 review 修复轮（2026-09-19）〗新增 **I-01 判据两条**（`truncationRules` ↔ `DIGEST_FIELDS` 逐字段机核 + 反证）⇒ 实测 28 → **30 / 0**（floor 24 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-supersession-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。",
+   "note": "〖N-04（收口轮，v4-1 validate R1）〗验 R1 抽样口径之一：`npm run test:supersession` 实测 24（R3 20 + review 修复轮 I1/I2 四条）。本轮收口新增 N-04 counts↔日志同源判据与 N-01~N-08 处置登记判据（各含一条反证）⇒ 实测 **28**（只增不减；floor 24 = validate R1 实测下界）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-supersession.log（全量，未截断）。 〖v4-2 review 修复轮（2026-09-19）〗新增 **I-01 判据两条**（`truncationRules` ↔ `DIGEST_FIELDS` 逐字段机核 + 反证）⇒ 实测 28 → **30 / 0**（floor 24 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-supersession-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮〗30 条（不变；本轮只重登记来源日志到收口轮快照 registry/，口径纪律同 nodeTestRuntime：登记路径不得指向门禁运行时的实时 tee 目标）。",
    "source": {
     "gate": "npm run test:supersession",
-    "log": "/tmp/opencode/v4-gate-logs/v4-2-reviewfix/registry/test-supersession-run.log",
+    "log": "/tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-supersession-run.log",
     "pattern": "ℹ pass (\\d+)",
     "observedLine": "ℹ pass 30",
     "observed": 30,
@@ -4376,6 +4408,12 @@
    "topic": "摘要侧与回执侧各有一份 `assertNoPlaintext`（按设计不同，非共享单源）+ `askRequestId` 不截断（业务键，非自由文本）",
    "status": "registered",
    "note": "〖v4-2 review I-11（2026-09-19）—— `src/ui/sidepanel/stream-digest.ts:81-93` 与本条为同一事实的两处落点〗本仓**故意保留两份** `assertNoPlaintext`，差别必须显式而非隐含：① `src/ui/sidepanel/l1/receipt.ts#assertNoPlaintext`（v3-2 冻结口径）扫的是**已构造的回执串**（`summary` / `label+value` 行 / `audit.summary`）——标签都是常量，所以它的禁集是只能经**值**进来的窄集：密钥（`sk-`/`ghp-`/`xox*`/`api_key=`/`bearer`）与 URL query；② `src/ui/sidepanel/stream-digest.ts#assertNoPlaintext` 扫的是 `digestEntryOf()` 产出的**摘要字段**，其中 `label` 可能回显调用方输入，因此它是前者口径的**严格超集**，另加两类「流泄漏会长的形状」：命令行参数体（`--flag value` / `-H \"...\"`）与原始标记（`< > \\``）。**为什么不合并**：合并只能二选一 —— 要么放宽 v3-2 冻结门禁的语义（为一个 v4 关切改一条已验收口径），要么把流侧的 fail-closed 形状削掉两类；两者都是净放宽，故**按设计分列**并在两侧源码交叉引用（`stream-digest.ts` 的 doc-comment 与 `l1/receipt.ts` 的 doc-comment 互指）。③ `askRequestId`（=`payload.requestId`，面板↔SW 协议的 `ask-<n>` / `ref-round-<n>`）**不截断**：它不是展示用自由文本而是**业务键** —— 重开路径拿它与 `openAsks` 做**身份相等**比较，截断会让重开匹配错位。它仍与其它白名单字符串一起过 `assertNoPlaintext`：一个被污染的 id（带 URL query 或密钥形状）会**抛错**而不是落库。断言落点：`test/stream-persistence.test.ts`（白名单逐字段 + 零明文 3 反向用例）、`test/supersession-ledger.test.ts#truncationRules`（`kept` ↔ `DIGEST_FIELDS` 机核）。"
+  },
+  {
+   "id": "KL-N-10",
+   "topic": "`test:binding`（V1 门禁 #14）的宿主时序抖动：三次独立重跑失败项互异，非本叶回归",
+   "status": "registered",
+   "note": "〖v4-2 validate R1 N-01 / 收口轮复跑登记（2026-09-19）〗`npm run test:binding` 在本叶 validate R1 的三次独立重跑中**均失败且失败项互异**（R1 `#54B10 下载记录`；R2 `#3d/#3e/#3f discovery`；R3 `#7d/#7e tabs list --full`）。判据与证据链：① `test/ui/binding.mjs` 对基线 `203261e` **零 diff**，其保护段 active pin **逐字节命中**（旧 pin 由 `supersededFrom` 保留）；② 同一门禁在**今日** v4-2 build 轮（08:32）与 review 修复轮（09:58）跑**均绿**（192/0）；③ 历史 `v4-1-r2` 亦曾 FAILED(7)，同现象；④ 无一项固定失败 ⇒ 环境性时序抖动，不是本叶回归。**复跑纪律**：串行链一次一个 Chromium；首轮异常必须隔离复跑（≥2 次）并以复跑结果为准；日志全量落盘（禁 tail 截断）；仍红则**如实记录**、不阻塞收口（不计入本叶失败）。**建议**（未在本轮实施，属门禁稳定性事项）：`binding.mjs` 三处时序断言（下载读取 / discovery / tabs --list --full）加显式就绪等待或有界重试。收口轮复跑结果见 build.md §16 与 `/tmp/opencode/v4-gate-logs/v4-2-closeout/`。"
   }
  ],
  "truncationRules": [

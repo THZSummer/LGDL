@@ -382,17 +382,42 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
       // invariant the whole model rests on. Conflicts are skipped, never renumbered
       // — a digest event that cannot be appended cleanly must not be silently
       // relabelled as a different fact.
+      //
+      // F-02 (v4-2 closeout, validate R1): the double-key filter only rejected
+      // seqs that were **already occupied**. A digest event with a *free but
+      // smaller* `seq` (validate's repro: `seq = 0` while the log was at 1..n) was
+      // still accepted, so the merged array went backwards — the log's strict
+      // monotonicity is a model invariant, not just a "no duplicates" rule. The
+      // merge now accepts **only `seq > max(known seq)`** (candidates are applied in
+      // ascending order so the accepted set is monotonic by construction); every
+      // rejected candidate is counted in `mergeSkipped` (never silent, and still
+      // never renumbered — a stale digest row is dropped, not rewritten).
+      let maxKnownSeq = 0;
       const knownCards = new Set(state.stream.events.map((e) => e.cardId));
-      const knownSeqs = new Set(state.stream.events.map((e) => e.seq));
-      const added = action.events.filter((e) => !knownCards.has(e.cardId) && !knownSeqs.has(e.seq));
-      if (added.length === 0) return state;
-      const seq = Math.max(state.stream.seq, ...added.map((e) => e.seq + 1));
+      for (const e of state.stream.events) if (e.seq > maxKnownSeq) maxKnownSeq = e.seq;
+      const accepted: StreamEvent[] = [];
+      let skipped = state.stream.mergeSkipped;
+      for (const e of [...action.events].sort((a, b) => a.seq - b.seq)) {
+        if (knownCards.has(e.cardId) || e.seq <= maxKnownSeq) {
+          skipped += 1;
+          continue;
+        }
+        knownCards.add(e.cardId);
+        maxKnownSeq = e.seq;
+        accepted.push(e);
+      }
+      if (accepted.length === 0) {
+        if (skipped === state.stream.mergeSkipped) return state;
+        return { ...state, stream: Object.freeze({ ...state.stream, mergeSkipped: skipped }) };
+      }
+      const seq = Math.max(state.stream.seq, ...accepted.map((e) => e.seq + 1));
       return {
         ...state,
         stream: Object.freeze({
           ...state.stream,
-          events: Object.freeze([...state.stream.events, ...added]),
+          events: Object.freeze([...state.stream.events, ...accepted]),
           seq,
+          mergeSkipped: skipped,
         }),
       };
     }

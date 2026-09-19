@@ -18,7 +18,7 @@ import {
 import { createScrollFollow, isNearBottom, type ScrollMetrics } from './scroll-policy.js';
 // V4-2 (TASK-604 / TASK-605 / TASK-607): the append-only stream — the model +
 // projection, the keyed incremental renderer and the zero-plaintext digest.
-import { appendEvent, createStreamState, liveCardIds, project } from './stream-model.js';
+import { appendEvent, createStreamState, hasSegment, liveCardIds, project } from './stream-model.js';
 import type { StreamEventKind } from './stream-model.js';
 import { createStreamRender, type StreamRenderHandle } from './stream-render.js';
 import {
@@ -219,7 +219,10 @@ async function persistStreamDigest(sid: string | null): Promise<void> {
 async function restoreStreamDigest(sid: string | null): Promise<void> {
   if (!sid) return;
   if (state.entries.length > 0) return;
-  if (state.stream.events.some((e) => e.sessionId === sid)) return;
+  // N-02 (v4-2 closeout, validate R1): `hasSegment()` used to be an orphan export
+  // with this exact predicate inlined here. It is now the single consumer — the
+  // helper is the model's own "does this segment already hold rows?" judgement.
+  if (hasSegment(state.stream, sid)) return;
   try {
     const entries = await readDigest(streamDigestStore(), sid);
     // Narrowed restore surface (registered): the digest keeps every whitelisted
