@@ -23,7 +23,7 @@ specs-tree-v4-4-ref-system-nextstep/
 | build.md | 构建报告：specs-tree-v4-4-ref-system-nextstep — 唯一通道的纪律对两条自动来源同样生效：净化（明文 ⇒ 抛错，⑨）、去重窗口（⑧/⑥）、速率上限（`dropped` +1 且不追加，⑧）。**归并矩阵的 ... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v4-4-ref-system-nextstep（V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移） — 本叶 = v4 的**过程全景收口**：把引用生命周期、系统事件（6+ 瞬时通道归并）、下一步推荐三类过程全部涌入流内，并处置「面板侧拾取入口消失」带来的... | ✅ 存在 |
 | review.md | 审查报告：specs-tree-v4-4-ref-system-nextstep（V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移） — 1. **代码质量** — 可读性、职责单一性、错误处理、无硬编码、无冗余 | ✅ 存在 |
-| review-report.md | 审查报告 v2.0（R1 ❌ 不通过 → **R2 复审 ✅ 通过**）：R1 三阻塞 3/3 closed（BLOCK-01 三时机真实接线 + 不经 seam 产品路径门禁 / BLOCK-02 结构宿主注册表非空转判据 + 五通道事件化 / BLOCK-03 `describe-submit` 真实结算）+ I-01/I-03/I-06/I-07 抽检 + 新发现 I-09/I-10/I-11（0 阻塞）；R1 原文保留于附录 A | ✅ 存在 |
+| review-report.md | 审查报告 v2.0（R1 ❌ 不通过 → **R2 复审 ✅ 通过**）：R1 三阻塞 3/3 closed（BLOCK-01 三时机真实接线 + 不经 seam 产品路径门禁 / BLOCK-02 结构宿主注册表非空转判据 + 五通道事件化 / BLOCK-03 `describe-submit` 真实结算）+ I-01/I-03/I-06/I-07 抽检 + 新发现 I-09/I-10/I-11（0 阻塞，快修轮已全处置）；R1 原文保留于附录 A | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v4-4-ref-system-nextstep（V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移） — 本叶 = v4 的**过程全景收口**：把引用生命周期、系统事件（6+ 通道归并）、下一步推荐三类过程全部涌入流内，并处置「面板侧拾取入口消失」带来的可发... | ✅ 存在 |
 | state.json | 状态文件 | 🟢 tracked [reviewed] |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
