@@ -35,6 +35,7 @@ import {
   evaluateFeatureCumulativeStopWorkLine,
   evaluatePendingAbsoluteCap,
   evaluateSidepanelSize,
+  disclosureArithmeticProblems,
   validateReRegistrationDisclosure,
   type FeatureCumulativeStopWorkRule,
   type SizeReRegistration,
@@ -78,7 +79,7 @@ test('V3-VOL-3: the Feature-level 40% cumulative stop-work line is explicitly RE
 });
 
 test('V3-VOL-3 REVERSE PROOF: restoring the 40% cumulative line FAILS on the real artifact 375,102 B (+40.75%)', () => {
-  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 478_163, '反证必须打在**当前真实产物**上（v4-4 审查修复轮重登记）');
+  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 478_897, '反证必须打在**当前真实产物**上（v4-4 快修轮重登记）');
   // ① 回退裁决（恢复 40% 累计线原样：enforced=true）⇒ 必须 FAIL
   const revived: FeatureCumulativeStopWorkRule = {
     ...SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE,
@@ -206,16 +207,16 @@ test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）——
 });
 
 test('V3-VOL-3 ⑥: 判定的 min() 优先级（绝对上限 = 硬墙，5% 公式 = 轮内软纪律）', () => {
-  // 现网：min(563,200, floor(465,277 × 1.05) = 488,540) = 488,540（软纪律更紧）。
+  // 现网：min(563,200, floor(478,897 × 1.05) = 502,841) = 502,841（软纪律更紧）。
   const live = evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES);
-  assert.equal(live.ceilingBytes, 502_071, '生效上限 = min(绝对上限, 5% 公式)');
+  assert.equal(live.ceilingBytes, 502_841, '生效上限 = min(绝对上限, 5% 公式)');
   assert.equal(live.ceilingBytes, Math.min(563_200, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
   // 硬墙比公式紧时必须取硬墙：给一个极小的绝对上限，判定必须跟着收紧。
   // （用合成的 marker 驱动纯函数，不改动现行标记。）
   const tight = evaluateSidepanelSize(530_000);
   assert.equal(tight.ok, false, '5% 公式之上必须 FAIL（轮内软纪律）');
-  assert.equal(evaluateSidepanelSize(502_071).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
-  assert.equal(evaluateSidepanelSize(502_072).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
+  assert.equal(evaluateSidepanelSize(502_841).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
+  assert.equal(evaluateSidepanelSize(502_842).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
 });
 
 test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PASS）', () => {
@@ -227,7 +228,7 @@ test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PA
   assert.equal(Math.min(absWall, formula), absWall, '取小 ⇒ 硬墙生效');
   assert.equal(300_001 <= Math.min(absWall, formula), false, '超过绝对上限必须 FAIL（硬墙生效）');
   // ② ≤ 绝对上限但 > 5% 公式 ⇒ FAIL（软纪律仍生效）。
-  const softCase = 502_128; // > floor(478,163 × 1.05) = 502,071，仍 < 563,200
+  const softCase = 502_898; // > floor(478,897 × 1.05) = 502,841，仍 < 563,200
   assert.ok(softCase <= PENDING_ABSOLUTE_CAP.absoluteCeilingBytes!);
   assert.equal(evaluateSidepanelSize(softCase).ok, false, '≤ 绝对上限但 > 5% 公式必须 FAIL（软纪律生效）');
   // ③ ≤ 5% 公式但 > 绝对上限 ⇒ FAIL（硬墙优先）——用假 marker 驱动同一公式。
@@ -253,7 +254,7 @@ test('V3-VOL-3 历史保真：各轮 reason 里的「40% 停工线」逐字保�
   assert.match(SIDEPANEL_BASELINE_META.reason, /40% 停工线/);
   assert.match(SIDEPANEL_BASELINE_META.reason, /\+36\.13%/, 'v3-4 轮的 +36.13% 历史登记保留');
   // 撤销只许追加：HISTORY / TIMELINE 与登记链条数值不得因本次裁决变动。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 478_163, 'v4-4 审查修复轮重登记后的当前基线');
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 478_897, 'v4-4 快修轮重登记后的当前基线');
   assert.equal(
     SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1].baselineAfterBytes,
     SIDEPANEL_BASELINE_BYTES,
@@ -304,5 +305,63 @@ test('I-06: PENDING_ABSOLUTE_CAP.resolved=true ⇒ 作者确认必须存在且 s
   assert.ok(
     evaluate(PENDING_ABSOLUTE_CAP, { authorConfirmation: { status: 'pending-author-line', date: '2026/09/19', conclusion: '作者确认占位：占位理由足够长以通过判据。' } }).some((p) => p.includes('YYYY-MM-DD')),
     '非法日期必须被判红',
+  );
+});
+
+// ── I-10（V4-4 快修轮）：披露**算术**的机器判据 ───────────────────────────────
+/**
+ * review R2 的 I-10：`v4-4-reviewfix` 的披露子句写「465,277 → 478,163 B（+12,683 B，+2.73%）」，
+ * 而登记字段与实测都是 **+12,886 B / +2.77%** —— 旧判据只查「非空 ∧ before < after」，所以
+ * 任何算术错误都无人发现（`build.md §6` 与同轮 glue 注释同样脱钩）。
+ *
+ * 本用例把 **canonical 披露元组**（`before → after B（+Δ B，+P%）`）纳入机核：
+ *   · 真实登记册：零算术违规（每个写了元组的轮次都必须自洽）；
+ *   · `META.measuredBy` 的**首个**元组必须与末条登记（= 当前轮）逐项同源；
+ *   · 反证：把元组里的 Δ / 百分比改错 ⇒ 同一判据必须抛出（判据不是恒真）。
+ */
+test('I-10: 披露元组的算术必须与登记字段逐项相等（Δ = after − before ∧ P = round(Δ/before×100, 2)）', () => {
+  const arithmetic = validateReRegistrationDisclosure(SIDEPANEL_RE_REGISTRATIONS).filter(
+    (v) => v.field === 'reasonArithmetic',
+  );
+  assert.deepEqual([...arithmetic], [], `真实登记册的披露算术必须逐条自洽：\n${arithmetic.map((v) => `${v.id}: ${v.message}`).join('\n')}`);
+  // 判据必须真的判到了（否则本用例可被「一个元组都没有」空转）。
+  const withClause = SIDEPANEL_RE_REGISTRATIONS.filter((r) => r.reason.replace(/\*/g, '').includes('→'));
+  assert.ok(withClause.length >= 8, `写了 canonical 元组的轮次必须 ≥8（实测 ${withClause.length}），否则判据覆盖面失真`);
+  // `META.measuredBy` 的最新一轮元组必须与末条登记同源（同一事实不得有两个版本）。
+  const latest = SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1];
+  const metaProblems = disclosureArithmeticProblems(
+    SIDEPANEL_BASELINE_META.measuredBy,
+    { beforeBytes: latest.baselineBeforeBytes, afterBytes: latest.baselineAfterBytes },
+    { firstTupleOnly: true },
+  );
+  assert.deepEqual([...metaProblems], [], `META.measuredBy 的最新一轮披露必须与末条登记逐项同源：\n${metaProblems.join('\n')}`);
+  assert.equal(latest.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES);
+  // 反证 ①：Δ 写错（I-10 的原缺陷形态：+12,683 而不是 +12,886）⇒ 必须判红。
+  const forgedDelta = { ...latest, reason: `**显式提升重登记：478,163 → 478,897 B（+12,683 B，+0.15%）**` };
+  const deltaViolations = validateReRegistrationDisclosure([forgedDelta]);
+  assert.ok(
+    deltaViolations.some((v) => v.field === 'reasonArithmetic' && v.message.includes('Δ')),
+    `伪造 Δ 必须报 reasonArithmetic 违规，实际 ${JSON.stringify(deltaViolations)}`,
+  );
+  assert.throws(
+    () => assert.deepEqual([...deltaViolations], [], '伪造 Δ 应当违规'),
+    '伪造 Δ 的重登记必须让披露断言抛错（判据可 FAIL）',
+  );
+  // 反证 ②：百分比写错 ⇒ 必须判红；③ before/after 写错 ⇒ 必须判红。
+  assert.ok(
+    disclosureArithmeticProblems('478,163 → 478,897 B（+734 B，+2.73%）', { beforeBytes: 478_163, afterBytes: 478_897 })
+      .some((m) => m.includes('百分比')),
+    '伪造百分比必须判红',
+  );
+  assert.ok(
+    disclosureArithmeticProblems('478,163 → 478,000 B（+734 B，+0.15%）', { beforeBytes: 478_163, afterBytes: 478_897 })
+      .some((m) => m.includes('after')),
+    '伪造 after 必须判红',
+  );
+  // ④ 未采用 canonical 元组的历史轮次不判违规（覆盖口径如实声明，不是「静默放过」）：
+  //    v3-x 之前的 reason 没有元组 ⇒ 无对象可判（判据只覆盖元组内部，元组内部零容忍）。
+  assert.deepEqual(
+    [...disclosureArithmeticProblems('历史轮：无 canonical 元组，仅叙述。', { beforeBytes: 1, afterBytes: 2 })],
+    [],
   );
 });

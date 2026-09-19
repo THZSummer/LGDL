@@ -15,6 +15,7 @@
  *   ⑦ 引用卡：有效=证据层只读；失效=原因 + 两条恢复路径 + 兜底默认收起
  *   ⑧ 宿主清零：`[data-transitional-host]` 计数 = 0（v4 收口）
  *   ⑨ 无未捕获异常 + 零横向溢出 + 计数守恒（D-005 只增）
+ *   ⑬ 首装路径（I-09 快修轮）：真·首装 ⇒ `onboarding` 规则的 nextstep 卡出现（**不经 seam**）
  *
  * Serial discipline: exactly ONE Chromium instance, one page target (NFR-CHAT-009).
  */
@@ -74,6 +75,49 @@ async function main() {
 
     await setViewport(cdp, 400, VIEWPORT_HEIGHT);
     await waitFor(cdp, `document.getElementById('stream') ? '1' : ''`, 80, 200);
+
+    // ══ ⑬ I-09（V4-4 快修轮）：**首装推荐时机**（真·首装态，不经 seam）═════════
+    // 此处是**本门禁的第一个断言段**，面板还没绑定/授权过任何站点、也没有模型配置
+    // ⇒ 真实首装态。断言的驱动源是**产品自身的启动路径**（`refreshState()` /
+    // `refreshLlmStatus()` 落地后的 firstRun 入口），**不调用** `window.__v3.testing.*`：
+    // 驱动/判定都只看真实 DOM（`#onboarding` 可见 ∧ 流内出现 `onboarding` 规则的
+    // nextstep 卡）；`lastRecommend()` 仅作**诊断输出**（`trigger='firstRun'` 是「生产入口
+    // 跑过」的旁证，不是判定依据）。
+    console.log('\n▶ ⑬ I-09 首装路径（不经 seam）：真·首装 ⇒ onboarding 规则的 nextstep 卡');
+    const firstRunEntry = await waitFor(
+      cdp,
+      `document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]') ? '1' : ''`,
+      80,
+      200,
+    );
+    const firstRunRaw = await evaluate(
+      cdp,
+      `(() => {
+         const card = document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]');
+         const onboard = document.getElementById('onboarding');
+         const chips = card ? [...card.querySelectorAll('button.next-chip')] : [];
+         return JSON.stringify({
+           onboardVisible: onboard ? onboard.hidden === false : null,
+           card: Boolean(card),
+           rule: card ? card.getAttribute('data-nextstep-rule') : null,
+           chips: chips.map((c) => c.textContent),
+           acts: chips.map((c) => c.getAttribute('data-act')),
+           label: card ? (card.textContent || '').trim() : '',
+           last: window.__v3.testing.lastRecommend(),
+         });
+       })()`,
+    );
+    const firstRun = JSON.parse(firstRunRaw);
+    check('⑬ 前置：面板确实处于首装态（#onboarding 可见）', firstRun.onboardVisible === true, firstRunRaw);
+    check('⑬ 首装 ⇒ 流内出现推荐卡（不经 seam 驱动）', firstRunEntry === '1' && firstRun.card === true, firstRunRaw);
+    check('⑬ 卡规则 = onboarding（R-ONBOARDING）', firstRun.rule === 'onboarding', firstRunRaw);
+    check('⑬ 卡带可点 chip（chips 即指令的进入面）', firstRun.chips.length >= 1 && firstRun.acts.every((a) => typeof a === 'string' && a.length > 0), firstRunRaw);
+    check(
+      '⑬ 生产入口（非 seam）证据：lastRecommend().trigger === firstRun',
+      firstRun.last && firstRun.last.trigger === 'firstRun' && firstRun.last.rule === 'onboarding',
+      `${firstRunRaw} | last=${JSON.stringify(firstRun.last)}`,
+    );
+
     await authorizeFixture(cdp);
 
     // ── ① chips 即指令（同一生产入口） ────────────────────────────────────────

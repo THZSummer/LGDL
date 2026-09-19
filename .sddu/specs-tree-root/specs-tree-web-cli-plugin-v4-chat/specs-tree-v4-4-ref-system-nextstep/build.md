@@ -202,13 +202,19 @@
 从**面板级真值**（`l1/store` + `stream.project` 的 ref 计数 + 授权/信任 + `CATALOG_BASELINE_META` +
 probe + 风险 + `firstRunCard`）构造 `RecommendInput`，经 `recommendNextStep` 产卡后走真实 reducer
 动作 `{type:'nextstep'}`；`lastNextstepProducedAt` 把 `NEXTSTEP_MIN_INTERVAL_MS` 落到生产状态。
-三个**真实时机**：
+**本轮真实接线的是三个时机**：
 
 | 时机 | 生产调用点 | 说明 |
 |---|---|---|
 | 拾取后 | `acceptCapture()` 的异步尾部 | 摄取 + 判定 + 投影 + 提问之后 |
 | 引用失效后 | `maybeRescue()` 的 `.then()` 内（`projectRef(stale)` 之后） | 救援观测落地即触发 |
 | 空闲（回合结束且无 open ask） | `chat-result variant 'done'` / `'error'` 处理分支 | `pending:false` 之后；`openAsks===0` 才跑 |
+
+> ⚠️ **订正（review R2 的 I-09，2026-09-20）**：本表标题与上一段当时的措辞（「三个**真实时机**」+
+> 把 `firstRun` 与三者并列写在类型里）**读起来像四个时机都已接**，但 `maybeRecommend('firstRun')`
+> **当时全仓无生产调用点** ⇒ `R-ONBOARDING` 的推荐卡在产品内不可达（仅测试 seam ⑥ 可达）。
+> 本节原文的「已接」表述**如实订正为上表的三时机**；第四时机（首装）已在 **快修轮**真实接线，
+> 证据与证伪见文末「附 2：快修轮 §1」。
 
 **顺带修掉的产品级缺陷**：`chat-state.ts` 的 `nextstep` 分支原把 `rule` 送进零明文 `label()` 工厂 ——
 `risk-recovery` 命中 `sk-`+8 字符的密钥形状 ⇒ **产品路径产出的恢复推荐卡整体抛错**（seam 只产出
@@ -371,3 +377,116 @@ diff**、失败签名与 **R2 之前**的历史现场同签名、失败点互异
 | `switchStreamSession`（纯模型 API） | 产品路径已改为 `openSessionSegment` + 唯一通道，并由布线门禁禁止产品直呼；该纯函数仍作为 `stream-model.test.ts` 的模型契约存在（残余：未来若被产品误用，布线门禁会红） |
 | I-04 夹具**严格序无关性** | `projectedRefState` 跨夹具泄漏的**机制**已消除（reset 清空）；本轮按登记顺序重跑绿，未另设「乱序夹具」门禁（如实登记） |
 | 环境性 flake | 见 §7（binding 时序面；与本轮改动无因果关系证据，签名与历史一致） |
+
+---
+
+# 附 2：快修轮（2026-09-20，review R2 的 I-09~I-11 全处置）
+
+> 输入：本叶 `review-report.md` v2.0（R2 复审 = ✅ 通过 / 0 阻塞 / 3 改进项：I-09 中 · I-10 低 · I-11 低；
+> HEAD `d1bfe54`）。本轮只动 `src/ui/sidepanel/sidepanel.ts`（**一处 `src` 改动**）+ 既有门禁/登记载体 +
+> 本叶 `plan.md` 修订记录；`content.js` / `pick-layer.js` / journey / binding / SW / `KIND_SET` / 判定链 /
+> manifest **零触碰**。产物 478,163 → **478,897 B**（+734 B，+0.15%）。
+
+## 1. I-09（中）：`maybeRecommend('firstRun')` 无生产调用点 ⇒ 首装路径真实接线
+
+| 项 | 处置 |
+|---|---|
+| 缺陷 | `maybeRecommend('firstRun')` **全仓无生产调用点**（`firstRun` 只在 `RecommendTrigger` 与输入装配分支里出现），`R-ONBOARDING` 的推荐卡在产品内不可达（仅测试 seam ⑥）；而注释与 build.md §1 的表述读起来像「首装时机已接」 |
+| 修法（src） | 新增 `maybeRecommendFirstRunEntry()`：在 `firstRun` 通道的**事件化点**（`eventizeChannels()` 尾部）与 `refreshLlmStatus()` 落地后各求值一次；判定要求**两条事实都已到位**（`llmLoaded`：`configured` 权威；`stateReplyApplied`：已应用过一次 `state` 回包，`authorized` / `activeOrigin` 权威）⇒ 半加载面板不会给已配置用户推荐「完成首次设置」。入口为**事件**（每次面板生命至多消费一次，`firstRunEntryHandled`），不是重试循环；生产者自身的 `pending` / `NEXTSTEP_MIN_INTERVAL_MS` / 无候选门控仍是最后一道 |
+| 注释订正 | `sidepanel.ts` 的 BLOCK-01 段头（原「three real timings … plus the first-run onboarding transition」）与 §BLOCK-02 的 rows 注释（原「rows are collected during `render()`」—— 实际入口是 `refreshState()` 尾部的 `eventizeChannels` / 一次性 `applyEnvGuard`，且**立即** flush）均已按实现改为如实 |
+| `build.md §1` 订正 | 附 1 §1 的时机表标题由「三个**真实时机**」上下文中的「四时机并列」改为**三个已接时机**，并附 ⚠️ 订正说明（原文的「已接」读法与事实不符；第四时机在本轮接线）。**先改如实、接线后改为已接**两段都落在文中，历史原文以引用形式保留 |
+| Chromium 证据（不经 seam） | `test/ui/recommendation.mjs` **⑬**：在 `authorizeFixture()` **之前**（真·首装态：无模型配置 / 无绑定站点 / 无会话）断言 `#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]` 出现 ∧ 带可点 chip；判定**不调用** `window.__v3.testing.*`（`lastRecommend()` 仅诊断输出，`trigger==='firstRun'` ∧ `rule==='onboarding'` 作为「生产入口跑过」的旁证） |
+| 两段证伪（实跑） | 见下方原文（`RP-V4-4-I09`） |
+
+**两段证伪原文（`/tmp/opencode/v4-gate-logs/v4-4-i09fix/rp-v44-i09.log`）**：
+
+```
+▶ pristine dist/sidepanel.js 478897 B sha256=d313493a511f9127cbd6efe3d33a5cb11b32d133980b900a4c26a58cddced088
+  inject: "maybeRecommend(\"firstRun\")" → "void 0 /* RP-V4-4-I09: 首装入口断开 */" (命中 1 次)
+  FAIL 段 exit=1 · ⑬ 命中预期断言=true
+      ✖ ⑬ 首装 ⇒ 流内出现推荐卡（不经 seam 驱动） — {"onboardVisible":true,"card":false,"rule":null,"chips":[],"acts":[],"label":"","last":null}
+      ✖ ⑬ 卡规则 = onboarding（R-ONBOARDING） — {…}
+      ✖ ⑬ 卡带可点 chip（chips 即指令的进入面） — {…}
+      ✖ ⑬ 生产入口（非 seam）证据：lastRecommend().trigger === firstRun — {…} | last=null
+      ▶ V4-4 引用卡 / 系统事件行 / 推荐卡门禁: 45 passed / 4 failed
+  restore sha256 复原=true (478897 B)
+  PASS 段 exit=0
+      ▶ V4-4 引用卡 / 系统事件行 / 推荐卡门禁: 49 passed / 0 failed
+```
+
+**接线后的真实性旁证**（`/tmp/opencode/v4-gate-logs/v4-4-i09fix/test-recommendation.log`）：
+⑬ 五条判据全绿（`onboardVisible=true` ∧ `rule=onboarding` ∧ chips ≥1 ∧ `last.trigger=firstRun`）。
+
+## 2. I-10（低）：体积披露文案算术不一致 ⇒ 订正 + **算术机核**
+
+| 项 | 处置 |
+|---|---|
+| 缺陷 | `v4-4-reviewfix` 的 reason / `META.measuredBy` 写「465,277 → 478,163 B（**+12,683 B，+2.73%**）」而登记字段与实测均为 **+12,886 B / +2.77%**；同轮 glue 注释写「12,723 − 12,683」（实测 Σ 逐模块 12,846 + glue 40 = 12,886）。旧判据只查「非空 ∧ before < after」⇒ 机核发现不了 |
+| 订正（三处） | ① `SIDEPANEL_RE_REGISTRATIONS['v4-4-reviewfix'].reason`：+12,683 → **+12,886**、+2.73% → **+2.77%**；② `META.measuredBy` 同轮段：同上；③ `v44ReviewfixUnattributedGlueBytes` 注释：「12,723 − 12,683」→「12,886 − Σ 12,846」 |
+| 机核（新增判据） | `validateReRegistrationDisclosure` 新增 **canonical 披露元组**（`<before> → <after> B（+Δ B，+P%）`，接受 ASCII 括号/逗号、先剥 `*`）的**算术判据**：`before`/`after`/`Δ`/`P` 必须与登记字段逐项相等（`Δ == after − before` ∧ `P == round(Δ/before×100, 2)`），违规字段 = `reasonArithmetic`。未采用该元组的历史轮次无对象可判（**覆盖口径如实声明**，元组内部零容忍） |
+| 同源扩展 | 同一 helper 以 `firstTupleOnly` 驱动 `META.measuredBy` 的**首个**元组（= 最新一轮）与**末条登记**逐项同源（同一事实不得有两个版本） |
+| 反证（实跑） | 见下方原文（`RP-V4-4-I10`）：真实登记册零违规；把缺陷文本还原 ⇒ Δ 与百分比双双判红；`META` 元组改错 ⇒ 判红 |
+
+```
+▶ /tmp/opencode/v4-gate-logs/v4-4-i09fix/rp-v44-i10.log
+  ✔ 段 1：真实登记册的披露算术零违规
+  ✔ 段 2 前置：v4-4-reviewfix 条目存在 / 缺陷文本确实被注入
+      · 披露元组的 Δ 12683 ≠ 登记字段 Δ 12886（465,277 → 478,163 B（+12,683 B，+2.73%））
+      · 披露元组的百分比 2.73% ≠ 登记字段复算 2.77%（…）
+  ✔ 段 2：还原原缺陷文本 ⇒ Δ 与百分比都必须判违规（判据非恒真）
+  ✔ 段 3：META.measuredBy 最新一轮披露与末条登记同源
+  ✔ 段 3 反证：把 META 元组改错 ⇒ 必须报违规
+▶ RP-V4-4-I10：两段证伪全绿（判据可 FAIL ∧ 真实数据零违规）
+```
+
+## 3. I-11（低）：ADR 口径 / 注释漂移 ⇒ 修订记录订正注（ADR 正文零改写）
+
+| 项 | 处置 |
+|---|---|
+| ① ADR-V4-036「6 strips 容器移除」 | 实现保留 5 条 strips 容器本体（注册为**永久结构宿主** + 理由 + 通道绑定，因为 journey / binding 的保护门禁确实读这些 id）⇒ 与 ADR §后果 的「移除」口径不一致。**不改写 ADR 正文**（plan 属已完成产物），在 `plan.md` 修订记录追加 **v1.1 订正注**（显式登记「取代/收窄」：容器保留为只读投影 + 事件化，宿主注册表为判据） |
+| ② ADR-V4-035 决策 1「L0 chip / L1 面板**吸入** ref 卡」 | 实现里 `#l0-ref-toggle` / `#l0-ref-badge` / `#l1-ref` 仍在（由 `paintRefs` 重绘，归类「同源只读回看」），`REF_PROJECTION_POINTS` 为**自声明 3 点** ⇒ 口径较 ADR 更窄。同上：`plan.md` 修订记录追加订正注（`REF_PROJECTION_POINTS` 为自声明常量，未对 DOM 做投影点计数） |
+| ③ `sidepanel.ts:1170` 陈旧注释 | 原文「The rows are collected during `render()` and flushed AFTER it, so a channel that changes as a consequence of a render cannot re-enter the renderer.」与实现不符（入口是 `refreshState()` 尾部的 `eventizeChannels()` 与一次性 `applyEnvGuard()`，且在同一函数内立即 flush）⇒ 已改为如实描述 |
+| 字节影响 | **零字节**（仅注释与 `plan.md`/`build.md` 文档） |
+
+## 4. 门禁全账（本轮受影响全量 + 一次 `npm test`，严格串行、一次一个 Chromium；日志目录 `/tmp/opencode/v4-gate-logs/v4-4-i09fix/`）
+
+| # | 门禁 | 结果 | 计数（上一轮 → 本轮） |
+|:--:|---|:--:|---|
+| 1 | `npm run typecheck` | ✔ | exit=0 |
+| 2 | `npm run build` | ✔ | 产物 **478,897 B** |
+| 3 | `npm test`（node 全量） | ✔ | 991 → **992/992**（只增；新增披露算术用例） |
+| 4 | `test:supersession` | ✔ | 33/33（台账换锚 30 条 + 2 条新条目；`v4 entries 可定位性：160 条逐条命中`） |
+| 5 | `test:ref-pick-wiring` | ✔ | 11/11 |
+| 6 | `test:size-ruling-vol3` | ✔ | 9 → **10/10**（新增披露算术用例） |
+| 7 | `test:l0` | ✔ | 221/221（与上一轮同值；首装卡在 l0 夹具被 `reset()` 清空 ⇒ 零漂移） |
+| 8 | `test:recommendation` | ✔ | 44 → **49/49**（新增 ⑬ 五条） |
+| 9 | `test:density` | ✔ | 175/175（31 格逐格机对，**零漂移**；产物 478,897 == 登记值 ≤ 上限 502,841） |
+| 10 | `test:stream` | ✔ | 63/63（引导期的首装卡被夹具 `streamReset()` 清空 ⇒ 零影响） |
+| 11 | `test:ask-auth` | ✔ | 61/61 |
+| 12 | `test:ui`（journey，保护段） | ✔ | 167 assertions（`journey.mjs` 零 diff） |
+| 13 | `test:insight` | ✔ | 116 assertions |
+| 14 | `test:binding`（保护段） | ✔ | **192/192**（本轮一次通过，未复现历史环境性 flake；`binding.mjs` 零 diff） |
+| — | `test:gate-integrity` / `test:design-contract` / `test:system-merge` / `test:density-thresholds` 等 | ✔ | 均已含在 `npm test`（992/992）内 |
+
+## 5. 红线核验 + 体积 + V3-VOL-3（本轮）
+
+| 项 | 值 |
+|---|---|
+| `dist/content.js` | **177,076 B**（逐字节不变） |
+| `dist/pick-layer.js` | **33,900 B**（逐字节不变） |
+| `test/ui/journey.mjs` / `test/ui/binding.mjs` | **零 diff**（vs `d1bfe54`；保护段未改） |
+| `manifest.json` / `src/content/**` / `src/background/**` / `KIND_SET` / 判定链 | **零 diff**（本轮唯一 `src` 改动 = `src/ui/sidepanel/sidepanel.ts`） |
+| `dist/sidepanel.js` | **478,897 B**（基线 478,163 → +734 B / +0.15%） |
+| 轮内 ceiling | `floor(478,897 × 1.05) = ` **502,841 B**（≤ 绝对上限 563,200） |
+| V3-VOL-3 档位 / 绝对上限 | `ceilTo50KB(478,897) = ` **512,000 B**（未跨档） / **563,200 B**（未变） |
+| V3-VOL-3 三值 | `newBaselineBytes=478,897`（随现行基线**同源前移**）/ `absoluteCeilingBytes=563,200` / `resolvedOn=2026-09-19`（走**作者确认占位**规则重登；`authorConfirmation.status` 仍 `pending-author-line`，**不伪称已确认**） |
+| 五要素重登记 | 新轮 `v4-4-i09fix`（前后值/日期/来源/构建命令/理由 + TIMELINE 只追加 + 逐模块归因 `v44I09fixRows`：`sidepanel.ts` 78,892 → 79,626，Σ 734 + glue 0 == 登记增量） |
+| 计数纪律 | node 991→992 · recommendation 44→49 · size-ruling-vol3 9→10 · l0 221 · density 175 · ref-pick-wiring 11（**只增不减**） |
+
+## 6. 残余（如实登记）
+
+| 项 | 说明 |
+|---|---|
+| 首装入口的**时序面** | 入口在「`llm-status` ∧ `state` 双落地」后求值一次；若面板在双落地前即进入首装（真·首装路径），两处求值点可覆盖两种情况，但未另设「半加载面板不得产卡」的独立 Chromium 断言（本轮以代码前置判据 + ⑬ 的真实首装断言覆盖） |
+| I-10 判据的**覆盖边界** | 只对写了 canonical 披露元组的轮次生效（v4 起的各轮）；v3-x 及更早的 reason 无元组 ⇒ 无对象可判（已在判据注释与 build.md 显式声明，未伪称「全册覆盖」） |
+| I-11 | ADR 正文按其「已完成产物」纪律**未改写**，只在 `plan.md` 修订记录订正注；若后续轮次要正式重述 ADR，应由 spec/plan 阶段处理 |

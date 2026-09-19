@@ -834,6 +834,13 @@ function installV3TestHooks(): void {
         // BLOCK-01: the recommendation anti-flicker clock is per-fixture state.
         lastNextstepProducedAt = undefined;
         lastRecommendOutcome = null;
+        // I-09: `firstRunEntryHandled` is deliberately **NOT** cleared here —— it is a
+        // panel-LIFETIME fact (「首装」happens once per panel), not fixture state. A
+        // fixture that reloads the page (which is what the panel fixtures do) gets a
+        // fresh module and therefore a fresh entry anyway; clearing it here would let a
+        // late `probe-changed` → `refreshState()` re-mint a first-run card *after*
+        // `reset()`, which would silently move a registered density cell.
+        // (`stateReplyApplied` likewise stays — it is a「已经拿到过 state」fact.)
         streamRender?.reset();
         render();
       },
@@ -1167,8 +1174,11 @@ function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
  * loads must not flood the stream); only a CHANGE appends a row — exactly the
  * `send-reason` rule (「只在原因变化时追加」) generalized to all five.
  *
- * The rows are collected during `render()` and flushed AFTER it, so a channel that
- * changes as a consequence of a render cannot re-enter the renderer.
+ * The rows are collected at the point the FACTS are applied — `eventizeChannels()`
+ * (called at the tail of `refreshState()`) and the one-shot `applyEnvGuard()` — and
+ * flushed immediately inside that same function (`flushChannelRows()`), NOT during
+ * `render()`. That is what keeps a channel that merely changes *while painting* from
+ * appending a row the fixture never asked for (see the `eventizeChannels` doc below).
  * ──────────────────────────────────────────────────────────────────────────── */
 /** Last observed value per channel (module state — cleared by `testing.reset()`). */
 const channelMemory = new Map<string, string>();
@@ -1195,11 +1205,17 @@ function flushChannelRows(): void {
  *
  * `recommendNextStep` used to be reachable only from the test seam, so the whole
  * recommendation surface was unreachable in the product (FR-CHAT-060~064 /
- * AC-CHAT-013). The producer is now called at the three real timings (pick / stale
- * / idle = turn end with no open ask) plus the first-run onboarding transition; it
- * reads ONLY panel-level facts (the 7-item truth whitelist) and mints the card
- * through the real reducer action (whose `pending` / empty-card gates stay the last
- * word).
+ * AC-CHAT-013). The producer is now called at the **four** real timings — pick /
+ * stale / idle (= turn end with no open ask) here in the render path, and the
+ * first-run entry through {@link maybeRecommendFirstRunEntry} at the `firstRun`
+ * channel's eventization point (`eventizeChannels`); it reads ONLY panel-level facts
+ * (the 7-item truth whitelist) and mints the card through the real reducer action
+ * (whose `pending` / empty-card gates stay the last word).
+ *
+ * I-09（v4-4 快修轮）：the `'firstRun'` trigger used to have **no production call
+ * site** at all（`R-ONBOARDING` 的卡只在测试 seam 里可达）—— the merge/eventization
+ * round only read the onboarding view for the CHANNEL row. The entry is wired now
+ * (see the dedicated block below), so「首装 ⇒ 下一步推荐卡」is reachable in-product.
  * ──────────────────────────────────────────────────────────────────────────── */
 type RecommendTrigger = 'pick' | 'stale' | 'idle' | 'firstRun';
 /** Anti-flicker memory: the producer's interval is measured against the last card. */
@@ -1265,6 +1281,52 @@ function maybeRecommend(trigger: RecommendTrigger): string | null {
   });
   if (log && anchored) followToBottom(log);
   return card.rule;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * I-09（v4-4 快修轮）— the **first-run entry** of the recommendation producer.
+ *
+ * Why a dedicated helper: the review found that `maybeRecommend('firstRun')` had
+ * **zero production call sites**. The onboarding view was only READ (for the
+ * `firstRun` channel row), so `R-ONBOARDING`'s card was reachable from the test seam
+ * only — while the comment and `build.md` claimed the timing was connected.
+ *
+ * Where the timing really lives: a fresh install boots the panel **straight into**
+ * the first-run onboarding (no model configured, no site bound, no conversation), so
+ * the entry is「the first moment the SETTLED panel reads a live first-run step」— that
+ * is the `firstRun` channel's eventization point, plus any later hidden→visible
+ * transition (e.g. a configuration reset). A second `dispatch` would only pile up
+ * duplicate cards, so the entry is consumed at most once per panel life. The entry is
+ * an EVENT, not a retry loop: it is consumed whether or not the producer minted a card
+ * here (a `pending` / interval suppression is a real answer, and `R-ONBOARDING` may
+ * only fire while steps remain) — the other three timings keep carrying the surface.
+ *
+ * Both facts must be authoritative before「首装」can be judged: the LLM status
+ * (`configured`) and one applied `state` reply (`authorized` / `activeOrigin`).
+ * Judging on a half-loaded panel would recommend「完成首次设置」to an already-configured
+ * user for the few frames before the two replies land.
+ * ──────────────────────────────────────────────────────────────────────────── */
+/** The「首装」entry is an event: consumed at most once per panel life. */
+let firstRunEntryHandled = false;
+/** One `state` reply has been applied (⇒ `authorized` / `activeOrigin` are live). */
+let stateReplyApplied = false;
+
+/** Produce the「首装」recommendation once, when the settled panel is in first-run. */
+function maybeRecommendFirstRunEntry(): void {
+  if (firstRunEntryHandled) return;
+  if (!llmLoaded || !stateReplyApplied) return;
+  const firstRun = firstRunCard(
+    buildOnboarding({
+      configured: llmLoaded && Boolean(llmSummary?.configured),
+      hasOrigin: Boolean(state.activeOrigin),
+      discovered: state.discoveryState !== undefined,
+      authorized: state.authorized,
+      hasConversation: state.entries.length > 0,
+    }),
+  );
+  if (!firstRun.visible) return;
+  firstRunEntryHandled = true;
+  maybeRecommend('firstRun');
 }
 
 function render(): void {
@@ -1556,6 +1618,10 @@ function eventizeChannels(): void {
   );
   observeChannel('firstRun', firstRun.visible ? `${firstRun.title}｜${firstRun.lines.join('｜')}` : '');
   flushChannelRows();
+  // I-09（v4-4 快修轮）：the first-run recommendation timing is produced at THIS
+  // eventization point (the same place the `firstRun` channel row is derived), so the
+  // 「首装 ⇒ 下一步推荐」card is reachable in-product and not only from the test seam.
+  maybeRecommendFirstRunEntry();
 }
 
 /** F-2: fetch the non-sensitive LLM summary from the background (never the key). */
@@ -1567,6 +1633,10 @@ async function refreshLlmStatus(): Promise<void> {
     llmSummary = null;
   }
   llmLoaded = true;
+  // I-09: `configured` only becomes authoritative here, and the LLM reply can land
+  // BEFORE the first `state` reply (and vice versa) — so the first-run entry is
+  // re-evaluated on both arrivals, never on a half-loaded panel.
+  maybeRecommendFirstRunEntry();
   render();
 }
 
@@ -2127,6 +2197,9 @@ async function refreshState(): Promise<void> {
   // W1: sync the persisted authorization too — otherwise a reload/reopen shows
   // a false "未授权" and the authorize button becomes clickable again.
   dispatch(stateActionFromPayload(res.data));
+  // I-09: from here on `authorized` / `activeOrigin` are this panel's real facts, so
+  // the「首装」judgement may read them (see `maybeRecommendFirstRunEntry`).
+  stateReplyApplied = true;
   // V3-3 (FR-V3-046): the snapshot counts are the tree/command truth the L2 entry
   // panel must show. They arrive with the state reply (additive `insight`), so no
   // extra pull is needed; the derived value is refreshed before the repaint below.
