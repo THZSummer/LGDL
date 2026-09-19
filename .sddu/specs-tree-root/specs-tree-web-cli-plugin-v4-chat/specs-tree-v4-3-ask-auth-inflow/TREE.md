@@ -12,9 +12,11 @@ specs-tree-v4-3-ask-auth-inflow/
 ├── review.md          # 审查报告：specs-tree-v4-3-ask-auth-inflow
 ├── review-report.md          # 审查报告：specs-tree-v4-3-ask-auth-inflow
 ├── spec.md          # Feature Specification：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化）
-├── state.json          # 状态文件 (🟢 tracked [reviewed])
+├── state.json          # 状态文件 (✅ 已完成)
 ├── tasks.json          # 任务清单 (机器可读)
-└── tasks.md          # 任务分解：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化）
+├── tasks.md          # 任务分解：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化）
+├── validate.md          # 验证报告：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化）
+└── validate-report.md          # 验证报告：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化）
 ```
 
 ## 文件说明
@@ -25,16 +27,18 @@ specs-tree-v4-3-ask-auth-inflow/
 | review.md | 审查报告：specs-tree-v4-3-ask-auth-inflow — 1. **证据优先**：每条结论必须落到 `file:line` 或可复跑命令/脚本输出；无证据的推断一律降级为「未能验证」。 | ✅ 存在 |
 | review-report.md | 审查报告：specs-tree-v4-3-ask-auth-inflow — `/tmp/opencode/v4-gate-logs/v4-3-r2/summary.txt`：22 行逐项 `exit=0`，末行 `---- FAI... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化） — 本叶 = v4 的**承载层内化**：把 `ask-user`（choice/text）与破坏性二次确认从「流之上的独占决策槽」迁入**流内卡**并固化不... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [reviewed] |
+| state.json | 状态文件 | ✅ 已完成 |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化） — [前置] v4-2 收口绿（CP-2：TASK-612） | ✅ 存在 |
+| validate.md | 验证报告：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化） — 验证报告：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化） | ✅ 存在 |
+| validate-report.md | 验证报告：specs-tree-v4-3-ask-auth-inflow（V4-3 ask-user / 授权卡流内化与留痕固化） — 日志路径：`/tmp/opencode/v4-validate-v4-3/logs/`（`01`~`20` 逐项落盘） | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 审查完成 (6/7) |
-| Status | 🟢 tracked [reviewed] |
+| Phase | 验证完成 (7/7) |
+| Status | ✅ 已完成 |
 
 ## 上级目录
 - [返回上级](../TREE.md)
