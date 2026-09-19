@@ -45,7 +45,7 @@ import { buildLocalTree } from './local-tree.js';
 import type { LocalTreeView } from './local-tree.js';
 import { buildL1Receipt, receiptPiecesPresent } from './receipt.js';
 import type { L1Receipt } from './receipt.js';
-import { createRefStore } from './ref-store.js';
+import { createRefStore, refEvidenceRows } from './ref-store.js';
 import type { RawRefFacts, RefRecord, RefStore } from './ref-store.js';
 import { isRefUsable } from './ref-validity.js';
 import type { RefEnv, RefRescue, RefResolution, RefVerdict } from './ref-validity.js';
@@ -287,8 +287,11 @@ export function mountL1(deps: L1Deps): L1Handle {
     const stale = store.stale();
     const rows: [string, string][] = [];
     for (const r of all) {
-      const f = r.facts;
-      rows.push([`${r.glyph} 稳定选择器`, f.selector], [`${r.glyph} 语义路径`, f.semanticPath], [`${r.glyph} 文本摘要`, f.textDigest], [`${r.glyph} 捕获时间`, new Date(f.capturedAt).toISOString()]);
+      // I-03 (v4-4 review): the L1 evidence panel is a **read-only view of the ONE
+      // evidence construction** (`ref-store.ts#refEvidenceRows`) — the same source
+      // `projectRefCard` (the in-flow `ref` card) reads. The panel only adds the
+      // ordinal glyph to the label; it never re-derives a row.
+      for (const [label, value] of refEvidenceRows(r)) rows.push([`${r.glyph} ${label}`, value]);
       if (r.verdict !== 'valid') rows.push([`${r.glyph} 失效原因`, r.readableReason ?? '（无原因）']);
     }
     fill(doc, refRows, rows);

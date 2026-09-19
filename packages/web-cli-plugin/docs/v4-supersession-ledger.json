@@ -58,8 +58,8 @@
     "why": "与 v3 同一规则：`packages/web-cli-plugin/test/**` 且后缀为 .mjs/.ts，逐个从 git diff 复算（不手工放宽、不手工收窄）。 〖v4-3（TASK-711 R2）〗本列表原为 18 文件（手工收窄），按同一规则复算订正为**全集**（33 文件）——收窄会让 `ref-wiring.test.ts` / `sidepanel.test.ts` 等文件的删除行结构性不可见，属 N-09 盲区的同族形态；订正后逐文件判定（新可见的删除行由 `V43-E-*` entries 与 v4-3 叶段登记承接）。"
    },
    "summary": {
-    "filesWithUnregisteredLeafDeletions": 19,
-    "registeredLines": 761,
+    "filesWithUnregisteredLeafDeletions": 22,
+    "registeredLines": 850,
     "caliber": "registeredLines = Σ 各文件 `registeredUncoveredLines` 组的逐字行数之和；filesWithUnregisteredLeafDeletions = 有非空登记的**文件数**（需逐字登记的删除面文件数，与 v3 台账 `leafBases[].summary` 同一口径，v3-3 段 = 8）。两读数由 `test/supersession-ledger.test.ts` 的「leafBases[].summary 读数必须 == 分项之和」判据机核（滞后即 FAIL，反证可红）。",
     "note": "〖v4-3 收口轮（N-01 订正，2026-09-19）〗validate R1 指出本段自描述读数**滞后**于分项：`registeredLines` 729 → **761**（19 个有非空登记的文件的逐字行数之和，按 `registeredUncoveredLines` 逐组实测复算），`filesWithUnregisteredLeafDeletions` 0 → **19**（旧值 0 是「剩余未登记文件数」的旧读法，而 v4-3 段用的是「需登记文件数」读法 ⇒ 两叶段口径分裂；本轮统一为 v3 台账既有的「需逐字登记的删除面文件数」口径，逐段复算）。历史值 729 / 0 逐字保留在 `noteHistory`。逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶全部改动均已登记。",
     "noteHistory": "逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶全部改动均已登记。〖N-05（收口轮）〗`registeredLines` 的口径 = 各文件 `registeredUncoveredLines` 组的逐字行数之和（本轮追加 5 条 ⇒ 729；此前登记的 630 与各组分项之和不符，属旧口径残留，现按分项之和如实重算）。"
@@ -187,7 +187,7 @@
     },
     {
      "file": "packages/web-cli-plugin/test/size-baseline.ts",
-     "count": 49,
+     "count": 74,
      "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。 〖review 修复轮〗I3/I6/I8/I9/I10/I13 的注释与断言订正新增的叶段删除行（旧文本被等价改写/订正，语义与断言只增不减：见 build.md「review 修复轮」小节）。 〖N-05（收口轮）〗追加 5 条 = `closeoutRoundRows` 注释块（「最近一轮（R1 缺陷修复轮）…」原文）在收口轮被改写为 R2 轮的准确描述时删除的行；它们全部来自 v4-1 R2 收尾轮的注释写入（非 R2/R3 轮现场），逐字保留以保证「多一条/少一条/改一字都 FAIL」的集合判据仍成立。 〖v4-2 build 轮（TASK-606/607/611/612/613）〗本叶在 packages/web-cli-plugin/test/size-baseline.ts 的删除行（共 17 条）逐字登记：消息渲染器从 sidepanel.ts 迁到 cards/*（同语义重锚）、体积五要素重登记、perf-budget 追加长会话断言与未解释字节相对口径。",
      "registeredUncoveredLines": [
       "  349_880, 349_925, 362_777, 366_500, 366_755, 368_529, 375_102,",
@@ -238,7 +238,32 @@
       "    { module: 'src/ui/tree/tree-view.ts', beforeBytes: 21_240, afterBytes: 21_267, deltaBytes: 27, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移（v3-4 复核：位移值未变）' },",
       "    { module: 'src/insight/archive-catalog.ts', beforeBytes: 13_175, afterBytes: 13_179, deltaBytes: 4, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移（被 L2 命令目录只读复用）' },",
       "    { module: 'src/ui/settings/view.ts', beforeBytes: 13_222, afterBytes: 13_225, deltaBytes: 3, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移' },",
-      "    { module: 'src/ui/tree/tree-receipt.ts', beforeBytes: 2_719, afterBytes: 2_719, deltaBytes: 0, kind: 'attribution-shift', requiredBy: '源码未改且字节未变（Δ=0）—— 回执三件套/审计出口复用 v2 模块，未被复制出第二份实现' },"
+      "    { module: 'src/ui/tree/tree-receipt.ts', beforeBytes: 2_719, afterBytes: 2_719, deltaBytes: 0, kind: 'attribution-shift', requiredBy: '源码未改且字节未变（Δ=0）—— 回执三件套/审计出口复用 v2 模块，未被复制出第二份实现' },",
+      "export const SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS = [362_163, 362_865] as const;",
+      "    '**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时，必须**重新定 sidepanel 体积基线并设绝对值上限**。',",
+      "  const ceilingBytes = Math.floor(baselineBytes * (1 + tolerance));",
+      "      `基线 ${baselineBytes}B × ${(1 + tolerance).toFixed(2)} 容差（公式判定，无 cap —— 裁决 V3-VOL-1 ②）；基线 ≠ 目标预算`,",
+      "  resolved: false,",
+      "  newBaselineBytes: null,",
+      "  absoluteCeilingBytes: null,",
+      "  resolvedOn: null,",
+      " *     ceiling 279,825 → 306,099 B = floor(291,523 × 1.05)",
+      " *   - `SIDEPANEL_CEILING` ......... **306,099 B, UNCHANGED**: the ceiling is now",
+      " *     `floor(295,225 × 1.05) = 309,986 > 306,099` would have widened the guard by",
+      " * `SIDEPANEL_CEILING_CAP = 306,099 B` 是**只降不升**的冻结上限（v3-1 I6 轮设立，",
+      " * 306,099 B，而本轮产物实测 **327,679 B** → 产物**超出被冻结的 ceiling 21,580 B**，",
+      " *      （`SIDEPANEL_CEILING_CAP_RECORD`，值仍 306,099 B，附 `…_ROLE = 'record-only'`），",
+      " * v3-1 的 I6 轮曾把这个值（306,099 B = 当时的 ceiling）当成「只降不升」的硬上限",
+      "export const SIDEPANEL_CEILING_CAP_RECORD = 306_099;",
+      "  ceilingCapRecordBytes: 306_099,",
+      "    'v3-3 修复轮 349,880 B（ceiling 367,374 B；审查 R1 的 F-01 订正 + I-01 逐目标 aria-controls 修复 + expectFailPattern 防呆）；v3-2 收口轮 328,476 B（ceiling 344,899 B，公式判定）；更早 v3-2 修复轮 327,679 B（ceiling 344,062 B）、v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）与 291,523 B（该轮最终产物实测 294,874 B）、266,500 B（ceiling 279,825 B，2026-09-14 收紧轮）、1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',",
+      "    ceilingAfterBytes: 306_099,",
+      "    ceilingUncappedFormulaBytes: 306_099,",
+      "    ceilingBeforeBytes: 306_099,",
+      "    ceilingAfterBytes: 306_099,",
+      "    ceilingBeforeBytes: 306_099,",
+      " *   - `dist/sidepanel.js` ... 266,500 → 291,523 B (+25,023 B, +9.4%)",
+      " *   - `dist/sidepanel.js` ... 327,679 → **328,476 B**（+797 B，+0.24%）"
      ],
      "leafDeletions": 45
     },
@@ -282,10 +307,37 @@
     },
     {
      "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
-     "count": 1,
+     "count": 28,
      "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。",
      "registeredUncoveredLines": [
-      "  assert.equal(SIDEPANEL_BASELINE_BYTES, 375_102, '本次裁决零体积变更（基线未动）');"
+      "  assert.equal(SIDEPANEL_BASELINE_BYTES, 375_102, '本次裁决零体积变更（基线未动）');",
+      "test('V3-VOL-3: PENDING_ABSOLUTE_CAP 存续（防静默删除）；F 收口必须带新基线 + 绝对上限', () => {",
+      "  // ── 标记必须存在且未闭合（禁静默删除）─────────────────────────────────────",
+      "  assert.equal(PENDING_ABSOLUTE_CAP.resolved, false, 'F 尚未收口 ⇒ 必须仍为未闭合');",
+      "  assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, null, '未闭合时不得预填新基线（避免伪闭合）');",
+      "  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, null);",
+      "  const pending = evaluatePendingAbsoluteCap();",
+      "  assert.equal(pending.ok, true, pending.message);",
+      "  assert.equal(pending.resolved, false);",
+      "  assert.match(pending.message, /待办未闭合/);",
+      "  // 静默删除/被清空 ⇒ FAIL（这就是「不可静默删除」的机器判据）。",
+      "  // 注：`undefined` 会命中默认参数（= 现行标记），因此**删除**用显式 `null` 表达",
+      "  //     （未类型化的 JS 调用方传入的非对象同样落到这一支）。",
+      "  const fakeClosure = { ...PENDING_ABSOLUTE_CAP, resolved: true };",
+      "  // ── 真闭合（F 收口时）⇒ PASS：断言本轮先写好，届时自然生效 ────────────────",
+      "  const closed = {",
+      "    ...PENDING_ABSOLUTE_CAP,",
+      "    resolved: true,",
+      "    newBaselineBytes: 420_000,",
+      "    absoluteCeilingBytes: 441_000,",
+      "    resolvedOn: '2027-01-15',",
+      "  };",
+      "  const closedVerdict = evaluatePendingAbsoluteCap(closed);",
+      "  assert.equal(closedVerdict.ok, true, closedVerdict.message);",
+      "  assert.equal(closedVerdict.resolved, true);",
+      "  assert.match(closedVerdict.message, /420,000|420000/);",
+      "    evaluatePendingAbsoluteCap({ ...closed, absoluteCeilingBytes: 410_000 }).ok,",
+      "  assert.equal(evaluatePendingAbsoluteCap({ ...closed, resolvedOn: null }).ok, false);"
      ]
     },
     {
@@ -342,7 +394,7 @@
     },
     {
      "file": "packages/web-cli-plugin/test/ui/density.mjs",
-     "count": 29,
+     "count": 46,
      "reason": "v4-1 同编号等价改写的叶段删除行（逐字集合相等；多一条/少一条/改一字即 FAIL）。 【R3 追加】TASK-511 的 12 条删除行（阶段 F 扩展 / RP-V3-01 与 RP-V3-03 等价重锚 / stageE 与 stageF 调用点）逐字附录于此，语义见 entries V41-R3-E-DEN-01~12。 〖review 修复轮〗I3/I6/I8/I9/I10/I13 的注释与断言订正新增的叶段删除行（旧文本被等价改写/订正，语义与断言只增不减：见 build.md「review 修复轮」小节）。",
      "registeredUncoveredLines": [
       "const BASELINE_JSON = resolve(PACKAGE_ROOT, 'docs/v3-density-baseline.json');",
@@ -373,7 +425,24 @@
       " *      source measurement, and the shipped artifact bytes are compared against",
       " *      `docs/v3-density-baseline.json`; any divergence is a FAIL with a readable",
       " *      diff (the registry can no longer drift silently).",
-      " * (`docs/v3-density-baseline.json`) and the judgement goes through the SAME"
+      " * (`docs/v3-density-baseline.json`) and the judgement goes through the SAME",
+      "      authorized: !document.getElementById('l0-pick')?.disabled || true,",
+      "      pickDisabled: document.getElementById('l0-pick')?.disabled ?? null,",
+      "      const stable =",
+      "        base.clickables === baseAgain.clickables &&",
+      "        base.lines === baseAgain.lines &&",
+      "        base.blocks === baseAgain.blocks &&",
+      "        base.chars === baseAgain.chars;",
+      "        `risk(${sub.key})@${vp} 夹具跨风险窗口稳定（base 复测逐项相等）`,",
+      "        `${fmt(base)} vs ${fmt(baseAgain)} | base 文本 ${baseText}`,",
+      "      check(`risk(${sub.key})@${vp} 风险增量只被风险类元素占用`, delta.violations.length === 0, delta.violations.join(' / '));",
+      "  // `#l0-pick` must be disabled while unauthorized / probing (FR-V3-014)",
+      "      unauthorized: document.getElementById('l0-pick').disabled,",
+      "      title: document.getElementById('l0-pick').getAttribute('title'),",
+      "  check('unauthorized 时「从页面拾取」禁用', pickState.unauthorized === true, JSON.stringify(pickState));",
+      "  const pickProbing = await evaluate(cdp, `document.getElementById('l0-pick').disabled`);",
+      "  check('probing 时「从页面拾取」禁用', pickProbing === true, String(pickProbing));",
+      "// ── stage F: registry machine comparison (ADR-V3-018 决策 2 / review I8) ─────"
      ]
     },
     {
@@ -434,7 +503,7 @@
     },
     {
      "file": "packages/web-cli-plugin/test/ui/l0.mjs",
-     "count": 367,
+     "count": 368,
      "reason": "TASK-508 整文件重写为三区骨架门禁（三区结构/文档序 + 工具栏 ≤5 + J1~J4 风险永不折叠 + 豁免子树 + 可发现性 + 三宽度双主题）；同编号语义全部保留并重锚到 #region-* / #stream，属**登记型取代**（整文件重写）。",
      "registeredUncoveredLines": [
       " * `npm run test:l0` — the runtime half of the L0 contract. It exercises the real",
@@ -803,12 +872,13 @@
       "    // row background), so it is *registered* as a diagnostic rather than asserted",
       "    // to differ — what must differ is its text colour (above) and the row paint.",
       "      '⑨ 徽标底色为继承（两主题均透明）——不得因此判定主题未生效（登记项）',",
-      " * V3-1 TASK-110 / ADR-V3-006 / ADR-V3-007 / ADR-V3-008 — the L0 runtime gate."
+      " * V3-1 TASK-110 / ADR-V3-006 / ADR-V3-007 / ADR-V3-008 — the L0 runtime gate.",
+      "          pickText: document.getElementById('l0-pick').textContent,"
      ]
     },
     {
      "file": "packages/web-cli-plugin/test/ui/l1.mjs",
-     "count": 28,
+     "count": 31,
      "reason": "TASK-509 入口机制重写：v3 的 L1_TRIGGERS（#l0-status-band/#l0-more/#l0-ref-toggle）已随三区骨架退役，入口改为工具栏/状态栏/流内占位宿主；引用判定/回执/局部树/手势四组内容契约语义不变，属同编号等价改写。",
      "registeredUncoveredLines": [
       "  'l1-status',",
@@ -838,7 +908,10 @@
       "        document.getElementById('l0-statusbar').click();",
       "        const openAll = () => { document.getElementById('l0-status-band').click(); document.getElementById('l0-more').click(); document.getElementById('l0-ref-toggle').click(); };",
       "        const closeAll = () => { document.getElementById('l0-status-band').click(); document.getElementById('l0-more').click(); document.getElementById('l0-ref-toggle').click(); };",
-      "/** class → the L0 trigger whose ONE click must reveal it (ADR-V3-021 §2). */"
+      "/** class → the L0 trigger whose ONE click must reveal it (ADR-V3-021 §2). */",
+      "          return JSON.stringify({ exists: Boolean(row), text: row ? (row.querySelector('.risk-text')?.textContent || '').trim() : '', badge: row ? (row.querySelector('.risk-badge')?.textContent || '').trim() : '', icon: row ? Boolean(row.querySelector('.risk-icon')) : false, aria: document.getElementById('l0-ref-toggle').getAttribute('aria-disabled'), repick: document.getElementById('l0-pick').textContent });",
+      "      check(`⑦ ${dimension} → chip 标记失效 + 「从页面拾取」改写为「重新拾取」`, r.aria === 'true' && /^重新拾取/.test(r.repick), rail);",
+      "          railVisible: visible(rail),"
      ]
     },
     {
@@ -920,7 +993,7 @@
     },
     {
      "file": "packages/web-cli-plugin/test/ui/l1-reverse.mjs",
-     "count": 21,
+     "count": 25,
      "reason": "TASK-514/515 收口：l1-reverse.mjs 的 v3-3 反证用例在 v4-1 被等价重锚（RP-L1-H 8→7 类 L1 面板；RP-V33-03 注入量 1→5 条、RP-V33-06 叶段锚点重锚），删除行逐字登记于此，供 v4 叶段与 v3-3 叶段两个判据命中。",
      "registeredUncoveredLines": [
       "      .some((line) => line.includes('✖') && c.expectFail.test(line));",
@@ -943,7 +1016,11 @@
       "    if (failRun.code === 0 || !failHit) failures.push(`${c.id} FAIL 段未按预期失败（命中判据=false）`);",
       "    requirement: 'FR-V3-031（8 类就地展开）',",
       " *   RP-L1-H 8 类就地展开「≤1 次交互」（DOM 契约）   FR-V3-031",
-      " *   from: string, to: string, count?: number, expectFail: RegExp, note: string }} Case"
+      " *   from: string, to: string, count?: number, expectFail: RegExp, note: string }} Case",
+      "    // `目标元素已不存在` — append one byte inside the reason literal so the verbatim",
+      "    // comparison (gate-side expected string) can no longer match.",
+      "    from: '\\\\u76EE\\\\u6807\\\\u5143\\\\u7D20\\\\u5DF2\\\\u4E0D\\\\u5B58\\\\u5728',",
+      "    to: '\\\\u76EE\\\\u6807\\\\u5143\\\\u7D20\\\\u5DF2\\\\u4E0D\\\\u5B58\\\\u5728X',"
      ]
     },
     {
@@ -960,6 +1037,39 @@
       "      if (!original.includes(target)) {",
       "    assertion: '取代台账 `v3GateFloors[\"test/ui/l2.mjs\"]` 下界（删 1 条 `check(` ⇒ 台账必须红）',",
       "const LEAF_LEDGER_VICTIM_LINE = '    // ── ⑥b FR-V3-015: each of the ≤4 L2 entries must carry a REAL count ──────';"
+     ]
+    },
+    {
+     "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+     "count": 6,
+     "reason": "V4-4 审查修复轮（review R1 BLOCK-01~03 + I-01~I-08 全处置）：本叶段该文件的删除行逐字登记（等价重锚：只换数值/文案锚点，方向与边界语义零改动）。",
+     "registeredUncoveredLines": [
+      "             pickDisabled: Boolean(document.getElementById('l0-pick')?.disabled),",
+      "             pickReason: document.getElementById('l0-pick')?.getAttribute('data-disabled-reason') ?? '',",
+      "    check('失败降级：「从页面拾取」入口被禁用（不静默失败）', degraded.pickDisabled === true, JSON.stringify(degraded.pickDisabled));",
+      "    check('失败降级：入口的禁用原因 = 页面侧不可用（用户看得到原因）', /页面侧不可用/.test(String(degraded.pickReason ?? '')), String(degraded.pickReason));",
+      "      goneReadback.pickDisabled === true,",
+      "      JSON.stringify({ disabled: goneReadback.pickDisabled, reason: goneReadback.pickReason }),"
+     ]
+    },
+    {
+     "file": "packages/web-cli-plugin/test/ui/zero-injection.mjs",
+     "count": 5,
+     "reason": "V4-4 审查修复轮（review R1 BLOCK-01~03 + I-01~I-08 全处置）：本叶段该文件的删除行逐字登记（等价重锚：只换数值/文案锚点，方向与边界语义零改动）。",
+     "registeredUncoveredLines": [
+      "         const pick = document.getElementById('l0-pick');",
+      "           pickDisabled: Boolean(pick && pick.disabled),",
+      "           pickReason: pick ? (pick.getAttribute('data-disabled-reason') || '') : '',",
+      "    check('AC-V3-018：「从页面拾取」入口被禁用（未授权）', l0?.pickDisabled === true, JSON.stringify(l0));",
+      "    check('AC-V3-018：禁用原因可读', /未授权|页面侧不可用/.test(String(l0?.pickReason ?? '')), String(l0?.pickReason));"
+     ]
+    },
+    {
+     "file": "packages/web-cli-plugin/test/gate-integrity.test.ts",
+     "count": 1,
+     "reason": "V4-4 审查修复轮（review R1 BLOCK-01~03 + I-01~I-08 全处置）：本叶段该文件的删除行逐字登记（等价重锚：只换数值/文案锚点，方向与边界语义零改动）。",
+     "registeredUncoveredLines": [
+      "    ['test/ui/page-input.mjs', /F4：\\*\\*teardown 丢失\\*\\*（被夹具吞掉）的 bound tab 仍在收到 env\\(false\\) 后自行卸载/],"
      ]
     }
    ]
@@ -1019,9 +1129,10 @@
      "file": "packages/web-cli-plugin/test/gate-integrity.test.ts",
      "leafDeletions": 1,
      "registeredUncoveredLines": [
-      "    ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 10 > 8」/],"
+      "    ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 10 > 8」/],",
+      "    ['test/ui/page-input.mjs', /F4：\\*\\*teardown 丢失\\*\\*（被夹具吞掉）的 bound tab 仍在收到 env\\(false\\) 后自行卸载/],"
      ],
-     "count": 1,
+     "count": 2,
      "reason": "V4-3（TASK-711 R2）本叶对既有门禁的等价改写/重 pin：删除行逐字登记，语义与断言计数不变。  叶段（0f8a1fb → worktree）删除行逐字登记；语义由同轮 V43-E-* entries 说明。"
     },
     {
@@ -1081,9 +1192,37 @@
       "    { module: 'src/ui/sidepanel/cards/shared.ts', beforeBytes: null, afterBytes: 2_172, deltaBytes: 2_172, kind: 'new-required-module', requiredBy: 'FR-CHAT-022（卡 DOM 契约唯一语言：`card-head`/`card-col`/`.ts`/`.card-fixed` + 折叠阈值 480/10 单源）· ADR-V4-026/027' },",
       "    { module: 'src/ui/sidepanel/cards/system.ts', beforeBytes: null, afterBytes: 1_035, deltaBytes: 1_035, kind: 'new-required-module', requiredBy: 'FR-CHAT-032/035（系统事件行单行 + `HH:MM:SS` 只追加；命令行 `.cmd` 紧凑样式）' },",
       "    { module: 'src/ui/sidepanel/cards/tool.ts', beforeBytes: null, afterBytes: 2_784, deltaBytes: 2_784, kind: 'new-required-module', requiredBy: 'FR-CHAT-035 + FR-050/EC-023（工具卡字段逐项保留：工具名/✓✖/ms/预览/折叠记忆；失败卡 `.entry-error`）· ADR-V4-027' },",
-      "    { module: 'src/ui/sidepanel/cards/thinking.ts', beforeBytes: null, afterBytes: 1_636, deltaBytes: 1_636, kind: 'new-required-module', requiredBy: 'FR-CHAT-035 + NG-CHAT-006（思考两事件一卡 → 终态「已思考 N.Ns」；无 append 后 remove）· ADR-V4-027' },"
+      "    { module: 'src/ui/sidepanel/cards/thinking.ts', beforeBytes: null, afterBytes: 1_636, deltaBytes: 1_636, kind: 'new-required-module', requiredBy: 'FR-CHAT-035 + NG-CHAT-006（思考两事件一卡 → 终态「已思考 N.Ns」；无 append 后 remove）· ADR-V4-027' },",
+      "export const SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS = [362_163, 362_865] as const;",
+      "    '**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时，必须**重新定 sidepanel 体积基线并设绝对值上限**。',",
+      "   * `duplicationCheck` 的散文里写「输入模块数 57」；这个字段让数字可被 metafile 直接核对",
+      "    { module: 'src/ui/sidepanel/pick-input.ts', beforeBytes: null, afterBytes: 8259, deltaBytes: 8259, kind: 'new-required-module', requiredBy: 'FR-V3-060/063/067/068（双触发按需注入 + 拖放落点 + 失败降级）+ AC-CONV-1（生产 env 组装）+ R1（摄取时补全捕获事实 withDeclaration()）+ R3（只读 rescue 往返 + `reanchor()`：唯一候选经同一摄取管线生成新引用）' },",
+      "    { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: null, afterBytes: 4201, deltaBytes: 4201, kind: 'new-required-module', requiredBy: 'FR-V3-071/037（引用 id 单源 + 受保护派发 + 阻断）+ N-08（退役原因冻结）+ R1（declaration 事实透传）+ R3（救援 payload 透传到记录，供 L1 / 门禁读取）' },",
+      "  const ceilingBytes = Math.floor(baselineBytes * (1 + tolerance));",
+      "      `基线 ${baselineBytes}B × ${(1 + tolerance).toFixed(2)} 容差（公式判定，无 cap —— 裁决 V3-VOL-1 ②）；基线 ≠ 目标预算`,",
+      "  resolved: false,",
+      "  newBaselineBytes: null,",
+      "  absoluteCeilingBytes: null,",
+      "  resolvedOn: null,",
+      " *     ceiling 279,825 → 306,099 B = floor(291,523 × 1.05)",
+      " *   - `SIDEPANEL_CEILING` ......... **306,099 B, UNCHANGED**: the ceiling is now",
+      " *     `floor(295,225 × 1.05) = 309,986 > 306,099` would have widened the guard by",
+      " * `SIDEPANEL_CEILING_CAP = 306,099 B` 是**只降不升**的冻结上限（v3-1 I6 轮设立，",
+      " * 306,099 B，而本轮产物实测 **327,679 B** → 产物**超出被冻结的 ceiling 21,580 B**，",
+      " *      （`SIDEPANEL_CEILING_CAP_RECORD`，值仍 306,099 B，附 `…_ROLE = 'record-only'`），",
+      " * v3-1 的 I6 轮曾把这个值（306,099 B = 当时的 ceiling）当成「只降不升」的硬上限",
+      "export const SIDEPANEL_CEILING_CAP_RECORD = 306_099;",
+      "  ceilingCapRecordBytes: 306_099,",
+      "    'v3-3 修复轮 349,880 B（ceiling 367,374 B；审查 R1 的 F-01 订正 + I-01 逐目标 aria-controls 修复 + expectFailPattern 防呆）；v3-2 收口轮 328,476 B（ceiling 344,899 B，公式判定）；更早 v3-2 修复轮 327,679 B（ceiling 344,062 B）、v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）与 291,523 B（该轮最终产物实测 294,874 B）、266,500 B（ceiling 279,825 B，2026-09-14 收紧轮）、1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',",
+      "    ceilingAfterBytes: 306_099,",
+      "    ceilingUncappedFormulaBytes: 306_099,",
+      "    ceilingBeforeBytes: 306_099,",
+      "    ceilingAfterBytes: 306_099,",
+      "    ceilingBeforeBytes: 306_099,",
+      " *   - `dist/sidepanel.js` ... 266,500 → 291,523 B (+25,023 B, +9.4%)",
+      " *   - `dist/sidepanel.js` ... 327,679 → **328,476 B**（+797 B，+0.24%）"
      ],
-     "count": 33,
+     "count": 61,
      "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 叶段（0f8a1fb → worktree）删除行逐字登记；语义由同轮 V43-E-* entries 说明。"
     },
     {
@@ -1121,9 +1260,26 @@
       " *    FAIL，且失败原因必须是**合计**而非单卡（归因：单卡预算仍 PASS）。",
       "    'RP-V4-09 (FAIL 段 ①) 首屏两卡合计 10 可点 ⇒ 首屏预算必须 FAIL',",
       "    'RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 10 > 8」',",
-      "    agg.firstScreen.violations.some((v) => /流内卡合计可点 10 > 8/.test(v)),"
+      "    agg.firstScreen.violations.some((v) => /流内卡合计可点 10 > 8/.test(v)),",
+      "      authorized: !document.getElementById('l0-pick')?.disabled || true,",
+      "      pickDisabled: document.getElementById('l0-pick')?.disabled ?? null,",
+      "      const stable =",
+      "        base.clickables === baseAgain.clickables &&",
+      "        base.lines === baseAgain.lines &&",
+      "        base.blocks === baseAgain.blocks &&",
+      "        base.chars === baseAgain.chars;",
+      "        `risk(${sub.key})@${vp} 夹具跨风险窗口稳定（base 复测逐项相等）`,",
+      "        `${fmt(base)} vs ${fmt(baseAgain)} | base 文本 ${baseText}`,",
+      "      check(`risk(${sub.key})@${vp} 风险增量只被风险类元素占用`, delta.violations.length === 0, delta.violations.join(' / '));",
+      "  // `#l0-pick` must be disabled while unauthorized / probing (FR-V3-014)",
+      "      unauthorized: document.getElementById('l0-pick').disabled,",
+      "      title: document.getElementById('l0-pick').getAttribute('title'),",
+      "  check('unauthorized 时「从页面拾取」禁用', pickState.unauthorized === true, JSON.stringify(pickState));",
+      "  const pickProbing = await evaluate(cdp, `document.getElementById('l0-pick').disabled`);",
+      "  check('probing 时「从页面拾取」禁用', pickProbing === true, String(pickProbing));",
+      "// ── stage F: registry machine comparison (ADR-V3-018 决策 2 / review I8) ─────"
      ],
-     "count": 5,
+     "count": 22,
      "reason": "V4-3（TASK-711 R2）RP-V4-09 反证的期望值重 pin：v4-3 的 ask/auth 卡成为流内一等公民后，基线首屏合计可点不再为 0，期望值从硬编码 10 改为**动态** `基线合计 + 10`（判据与归因不变：注入 2×5 ⇒ 合计越界必须 FAIL，且红的必须是合计规则）。 叶段（0f8a1fb → worktree）删除行逐字登记；语义由同轮 V43-E-* entries 说明。"
     },
     {
@@ -1160,9 +1316,17 @@
       "    check('⑥ 破坏性确认卡在 #l0-decision 直系且可见', cp.cardVisible === true && cp.inDecisionDirect === true, confirmProbe);",
       "    check('⑥ 破坏性确认选项的祖先链无折叠容器（不参与折叠）', cp.chainClean === true, confirmProbe);",
       "    check('⑥ 破坏性确认选项带 data-destructive-option（结构可判定）', cp.destructiveMarked === true, confirmProbe);",
-      "    check('⑥ 破坏性确认选项不进入「更多选项」池', cp.noneInMorePool === 0, confirmProbe);"
+      "    check('⑥ 破坏性确认选项不进入「更多选项」池', cp.noneInMorePool === 0, confirmProbe);",
+      " * 登记占位宿主数（review 修复轮 I7）：真实 `li[data-transitional-host]` = **4**",
+      " * （v4-3 × 2 = decision / composer；v4-4 × 2 = l1-panels / strips）。原断言只判 `> 0`，",
+      " * 而 `grep -c 'data-transitional-host='` 会把 1 处 CSS 注释（index.html:1115）误计为宿主",
+      " * ⇒ 台账/build.md 曾记「5 个」。现在断言**等于登记值**：新增/误删宿主都会 FAIL，且",
+      " * v4-4 收口时的「清零义务」只需把本常量改为 0（分母可见，不再靠 `> 0` 蒙混）。",
+      "    check('① 占位宿主均带合法退役叶标记（v4-3 / v4-4）', zones.hosts.length > 0 && zones.hosts.every((h) => h === 'v4-3' || h === 'v4-4'), JSON.stringify(zones.hosts));",
+      "          pickText: document.getElementById('l0-pick').textContent,",
+      "    check('③ 「从页面拾取」入口存在（替代输入框）', /从页面拾取/.test(skeleton.pickText));"
      ],
-     "count": 22,
+     "count": 30,
      "reason": "V4-3（TASK-707/710）l0 门禁的等价重锚：确认/提问决策面从 `#l0-decision` 独占槽迁入 `#stream` 流内卡（`#ask*`/`#confirm*` 改由卡按需铸造），断言语义与计数（216）不变，只改选择器、宿主计数基线与载体字段名。 叶段（0f8a1fb → worktree）删除行逐字登记；语义由同轮 V43-E-* entries 说明。"
     },
     {
@@ -1177,27 +1341,58 @@
       "          railVisible: visible(rail),",
       "      'EC-V3-015 确认期间折叠披露层后：L1 面板全 hidden，确认选项 + 风险行（confirm）仍在 L0 常驻可见',",
       "      e15.l1AllHidden === true && e15.confirmVisible === true && e15.optionsVisible === true && e15.railVisible === true && e15.confirmRowVisible === true && e15.railInFoldable === false,",
-      "        const fallbackOpen = document.getElementById('ask-fallback').hidden === false;"
+      "        const fallbackOpen = document.getElementById('ask-fallback').hidden === false;",
+      "          return JSON.stringify({ exists: Boolean(row), text: row ? (row.querySelector('.risk-text')?.textContent || '').trim() : '', badge: row ? (row.querySelector('.risk-badge')?.textContent || '').trim() : '', icon: row ? Boolean(row.querySelector('.risk-icon')) : false, aria: document.getElementById('l0-ref-toggle').getAttribute('aria-disabled'), repick: document.getElementById('l0-pick').textContent });",
+      "      check(`⑦ ${dimension} → chip 标记失效 + 「从页面拾取」改写为「重新拾取」`, r.aria === 'true' && /^重新拾取/.test(r.repick), rail);"
      ],
-     "count": 9,
+     "count": 11,
      "reason": "V4-3（TASK-710）l1 门禁的等价重锚：内联 confirm 卡退役（改由 `test/ui/ask-auth-inflow.mjs` 覆盖），折叠期判据改为「确认风险行常驻 + 决策区零旁路控件」；`#ask-fallback` 因按需铸造改为空安全读取（RP-L1-E 注入靶重 pin），断言计数（108）不变。 叶段（0f8a1fb → worktree）删除行逐字登记；语义由同轮 V43-E-* entries 说明。"
     },
     {
      "file": "packages/web-cli-plugin/test/density-thresholds.test.ts",
-     "count": 2,
+     "count": 4,
      "reason": "v4-3（I-05 审查修复轮，2026-09-19）：叶段 scope 由「台账文件集」改为「register 集 ∪ 本叶段 git diff 真实删除面」后，这些文件由**未登记**变为**受判**，其删除行按逐字集合相等登记（断言只增不减；同编号重锚/机械重 pin，语义由对应 v4 entries 与本组说明承担）。",
      "registeredUncoveredLines": [
       "const V4_RETIRED_IDS: readonly string[] = Object.freeze(['panel-top', 'panel-main', 'panel-bottom']);",
-      "  for (const id of ['l1-more', 'l1-ref', 'view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'ask', 'confirm', 'scroll-bottom', 'risk-chips', 'risk-detail']) {"
+      "  for (const id of ['l1-more', 'l1-ref', 'view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'ask', 'confirm', 'scroll-bottom', 'risk-chips', 'risk-detail']) {",
+      "  // ── 占位宿主：被取代容器必须带 data-transitional-host（父 ADR-V4-005 第 6 条）──",
+      "  assert.ok(hosts.length >= 1, '#stream 内必须存在 ≥1 个 data-transitional-host 占位宿主（本叶只建不销）');"
      ]
     },
     {
      "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
-     "count": 2,
+     "count": 29,
      "reason": "v4-3（I-05 审查修复轮，2026-09-19）：叶段 scope 由「台账文件集」改为「register 集 ∪ 本叶段 git diff 真实删除面」后，这些文件由**未登记**变为**受判**，其删除行按逐字集合相等登记（断言只增不减；同编号重锚/机械重 pin，语义由对应 v4 entries 与本组说明承担）。",
      "registeredUncoveredLines": [
       "  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 426_487, '反证必须打在**当前真实产物**上');",
-      "  assert.equal(SIDEPANEL_BASELINE_BYTES, 426_487, 'v4-2 收口轮重登记后的当前基线');"
+      "  assert.equal(SIDEPANEL_BASELINE_BYTES, 426_487, 'v4-2 收口轮重登记后的当前基线');",
+      "test('V3-VOL-3: PENDING_ABSOLUTE_CAP 存续（防静默删除）；F 收口必须带新基线 + 绝对上限', () => {",
+      "  // ── 标记必须存在且未闭合（禁静默删除）─────────────────────────────────────",
+      "  assert.equal(PENDING_ABSOLUTE_CAP.resolved, false, 'F 尚未收口 ⇒ 必须仍为未闭合');",
+      "  assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, null, '未闭合时不得预填新基线（避免伪闭合）');",
+      "  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, null);",
+      "  const pending = evaluatePendingAbsoluteCap();",
+      "  assert.equal(pending.ok, true, pending.message);",
+      "  assert.equal(pending.resolved, false);",
+      "  assert.match(pending.message, /待办未闭合/);",
+      "  // 静默删除/被清空 ⇒ FAIL（这就是「不可静默删除」的机器判据）。",
+      "  // 注：`undefined` 会命中默认参数（= 现行标记），因此**删除**用显式 `null` 表达",
+      "  //     （未类型化的 JS 调用方传入的非对象同样落到这一支）。",
+      "  const fakeClosure = { ...PENDING_ABSOLUTE_CAP, resolved: true };",
+      "  // ── 真闭合（F 收口时）⇒ PASS：断言本轮先写好，届时自然生效 ────────────────",
+      "  const closed = {",
+      "    ...PENDING_ABSOLUTE_CAP,",
+      "    resolved: true,",
+      "    newBaselineBytes: 420_000,",
+      "    absoluteCeilingBytes: 441_000,",
+      "    resolvedOn: '2027-01-15',",
+      "  };",
+      "  const closedVerdict = evaluatePendingAbsoluteCap(closed);",
+      "  assert.equal(closedVerdict.ok, true, closedVerdict.message);",
+      "  assert.equal(closedVerdict.resolved, true);",
+      "  assert.match(closedVerdict.message, /420,000|420000/);",
+      "    evaluatePendingAbsoluteCap({ ...closed, absoluteCeilingBytes: 410_000 }).ok,",
+      "  assert.equal(evaluatePendingAbsoluteCap({ ...closed, resolvedOn: null }).ok, false);"
      ]
     },
     {
@@ -1249,11 +1444,47 @@
       "          hiddenAttr: (() => { const c = document.querySelector('[data-card-key=\"q1\"]'); return c.querySelector('.ask-form').hidden === true; })(),",
       "    check('⑦ 收起一律用 hidden（非 display:none）', a11y.hiddenAttr === true, a11yRaw);"
      ]
+    },
+    {
+     "file": "packages/web-cli-plugin/test/ui/l1-reverse.mjs",
+     "count": 4,
+     "reason": "V4-4 审查修复轮（review R1 BLOCK-01~03 + I-01~I-08 全处置）：本叶段该文件的删除行逐字登记（等价重锚：只换数值/文案锚点，方向与边界语义零改动）。",
+     "registeredUncoveredLines": [
+      "    // `目标元素已不存在` — append one byte inside the reason literal so the verbatim",
+      "    // comparison (gate-side expected string) can no longer match.",
+      "    from: '\\\\u76EE\\\\u6807\\\\u5143\\\\u7D20\\\\u5DF2\\\\u4E0D\\\\u5B58\\\\u5728',",
+      "    to: '\\\\u76EE\\\\u6807\\\\u5143\\\\u7D20\\\\u5DF2\\\\u4E0D\\\\u5B58\\\\u5728X',"
+     ]
+    },
+    {
+     "file": "packages/web-cli-plugin/test/ui/page-input.mjs",
+     "count": 6,
+     "reason": "V4-4 审查修复轮（review R1 BLOCK-01~03 + I-01~I-08 全处置）：本叶段该文件的删除行逐字登记（等价重锚：只换数值/文案锚点，方向与边界语义零改动）。",
+     "registeredUncoveredLines": [
+      "             pickDisabled: Boolean(document.getElementById('l0-pick')?.disabled),",
+      "             pickReason: document.getElementById('l0-pick')?.getAttribute('data-disabled-reason') ?? '',",
+      "    check('失败降级：「从页面拾取」入口被禁用（不静默失败）', degraded.pickDisabled === true, JSON.stringify(degraded.pickDisabled));",
+      "    check('失败降级：入口的禁用原因 = 页面侧不可用（用户看得到原因）', /页面侧不可用/.test(String(degraded.pickReason ?? '')), String(degraded.pickReason));",
+      "      goneReadback.pickDisabled === true,",
+      "      JSON.stringify({ disabled: goneReadback.pickDisabled, reason: goneReadback.pickReason }),"
+     ]
+    },
+    {
+     "file": "packages/web-cli-plugin/test/ui/zero-injection.mjs",
+     "count": 5,
+     "reason": "V4-4 审查修复轮（review R1 BLOCK-01~03 + I-01~I-08 全处置）：本叶段该文件的删除行逐字登记（等价重锚：只换数值/文案锚点，方向与边界语义零改动）。",
+     "registeredUncoveredLines": [
+      "         const pick = document.getElementById('l0-pick');",
+      "           pickDisabled: Boolean(pick && pick.disabled),",
+      "           pickReason: pick ? (pick.getAttribute('data-disabled-reason') || '') : '',",
+      "    check('AC-V3-018：「从页面拾取」入口被禁用（未授权）', l0?.pickDisabled === true, JSON.stringify(l0));",
+      "    check('AC-V3-018：禁用原因可读', /未授权|页面侧不可用/.test(String(l0?.pickReason ?? '')), String(l0?.pickReason));"
+     ]
     }
    ],
    "summary": {
-    "filesWithUnregisteredLeafDeletions": 14,
-    "registeredLines": 127,
+    "filesWithUnregisteredLeafDeletions": 17,
+    "registeredLines": 227,
     "caliber": "registeredLines = Σ 各文件 `registeredUncoveredLines` 组的逐字行数之和；filesWithUnregisteredLeafDeletions = 有非空登记的**文件数**（需逐字登记的删除面文件数；与 v3 台账 `leafBases[].summary` 及本册 v4-1 段同一口径）。两读数由 `test/supersession-ledger.test.ts` 的「leafBases[].summary 读数必须 == 分项之和」判据机核（滞后即 FAIL，反证可红）。",
     "note": "〖v4-3 收口轮（N-01 订正，2026-09-19）〗validate R1 指出本叶段自描述读数**滞后**于分项：`registeredLines` 72 → **127**、`filesWithUnregisteredLeafDeletions` 10 → **14**（+55 行 / +4 文件全部来自 review 修复轮 **I-05**：`gate-integrity.test.ts` 1 / `ref-wiring.test.ts` 4 / `sidepanel.test.ts` 1 / `size-baseline.ts` 33 / `size-budget.test.ts` 7 / `size-growth-evidence.test.ts` 4 / `ui/density.mjs` 5 / `ui/insight.mjs` 1 / `ui/l0.mjs` 22 / `ui/l1.mjs` 9 / `density-thresholds.test.ts` 2 / `size-ruling-vol3.test.ts` 2 / `supersession-ledger.test.ts` 28 / `ui/stream.mjs` 8；登记行写入时未回填 summary，且门禁当时只判每组 `count == 清单长度`）。历史值 72 / 10 逐字保留在 `noteHistory`。逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶段删除行已逐条登记。",
     "noteHistory": "逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶段登记 72 条（10 个文件）。口径 = 各文件 `registeredUncoveredLines` 组的逐字行数之和。"
@@ -1320,7 +1551,7 @@
     },
     {
      "file": "packages/web-cli-plugin/test/size-baseline.ts",
-     "count": 31,
+     "count": 50,
      "reason": "V4-4（TASK-801~812）行级登记：本叶删除的每一行逐字登记在此（判据「多一条/少一条/改一字都 FAIL」）。删除动机 = 面板侧拾取入口 #l0-pick 退役（ADR-V4-038）+ 过渡宿主清零（ADR-V4-040 §3，断言反向为 =0）+ 系统事件单通道 / 引用卡 / 推荐卡的等价重锚（同编号、同语义，只换锚点）。 〖V4-4 R2（2026-09-19，KL-V44-01 裁决落地轮）〗R2 把本文件在本叶段内删除的行逐字追加到本组：`chat-state.ts` 的自动归并接线未触及本文件；本文件被删的行来自**判据重锚本身** —— ① `density.mjs`：风险增量归属 / 跨风险窗口稳定性的期望值改为机读 `riskIncrementRegistry` 的**双向精确期望**（原「漂移必须为 0 ∧ 违规必须为 0」的硬编码分支被登记表驱动取代，判据**未删未放宽**，反而新增「登记项非空转」「coverage 与夹具矩阵逐项一致」两条）；② `size-baseline.ts`：体积五要素按 R2 实测产物 465,277 B 重登记（含 `deltaBytes` 注释行与 `consecutiveGrowthAlert` 尾句的追加）。逐字集合相等（多一条/少一条/改一字都 FAIL）。",
      "registeredUncoveredLines": [
       "export const SIDEPANEL_BASELINE_BYTES = 445_300;",
@@ -1353,7 +1584,26 @@
       "  absoluteCeilingBytes: null,",
       "  resolvedOn: null,",
       "    '**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时，必须**重新定 sidepanel 体积基线并设绝对值上限**。',",
-      "  /** 累计：当前基线 − `baselineReferenceBytes`（445,300 − 295,225）。 */"
+      "  /** 累计：当前基线 − `baselineReferenceBytes`（445,300 − 295,225）。 */",
+      "  attributionShiftBytes: -1_975,",
+      "    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9727, deltaBytes: 9727, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },",
+      " *     ceiling 279,825 → 306,099 B = floor(291,523 × 1.05)",
+      " *   - `SIDEPANEL_CEILING` ......... **306,099 B, UNCHANGED**: the ceiling is now",
+      " *     `floor(295,225 × 1.05) = 309,986 > 306,099` would have widened the guard by",
+      " * `SIDEPANEL_CEILING_CAP = 306,099 B` 是**只降不升**的冻结上限（v3-1 I6 轮设立，",
+      " * 306,099 B，而本轮产物实测 **327,679 B** → 产物**超出被冻结的 ceiling 21,580 B**，",
+      " *      （`SIDEPANEL_CEILING_CAP_RECORD`，值仍 306,099 B，附 `…_ROLE = 'record-only'`），",
+      " * v3-1 的 I6 轮曾把这个值（306,099 B = 当时的 ceiling）当成「只降不升」的硬上限",
+      "export const SIDEPANEL_CEILING_CAP_RECORD = 306_099;",
+      "  ceilingCapRecordBytes: 306_099,",
+      "    'v3-3 修复轮 349,880 B（ceiling 367,374 B；审查 R1 的 F-01 订正 + I-01 逐目标 aria-controls 修复 + expectFailPattern 防呆）；v3-2 收口轮 328,476 B（ceiling 344,899 B，公式判定）；更早 v3-2 修复轮 327,679 B（ceiling 344,062 B）、v3-1 I6 轮 295,225 B（ceiling 306,099 B，cap 只降不升）与 291,523 B（该轮最终产物实测 294,874 B）、266,500 B（ceiling 279,825 B，2026-09-14 收紧轮）、1,159,856 B（ceiling 1,217,848 B）与 R2 收口实测 1,162,942 B',",
+      "    ceilingAfterBytes: 306_099,",
+      "    ceilingUncappedFormulaBytes: 306_099,",
+      "    ceilingBeforeBytes: 306_099,",
+      "    ceilingAfterBytes: 306_099,",
+      "    ceilingBeforeBytes: 306_099,",
+      " *   - `dist/sidepanel.js` ... 266,500 → 291,523 B (+25,023 B, +9.4%)",
+      " *   - `dist/sidepanel.js` ... 327,679 → **328,476 B**（+797 B，+0.24%）"
      ]
     },
     {
@@ -1502,11 +1752,19 @@
       "    from: '\\\\u76EE\\\\u6807\\\\u5143\\\\u7D20\\\\u5DF2\\\\u4E0D\\\\u5B58\\\\u5728',",
       "    to: '\\\\u76EE\\\\u6807\\\\u5143\\\\u7D20\\\\u5DF2\\\\u4E0D\\\\u5B58\\\\u5728X',"
      ]
+    },
+    {
+     "file": "packages/web-cli-plugin/test/gate-integrity.test.ts",
+     "count": 1,
+     "reason": "V4-4 审查修复轮（review R1 BLOCK-01~03 + I-01~I-08 全处置）：本叶段该文件的删除行逐字登记（等价重锚：只换数值/文案锚点，方向与边界语义零改动）。",
+     "registeredUncoveredLines": [
+      "    ['test/ui/page-input.mjs', /F4：\\*\\*teardown 丢失\\*\\*（被夹具吞掉）的 bound tab 仍在收到 env\\(false\\) 后自行卸载/],"
+     ]
     }
    ],
    "summary": {
-    "filesWithUnregisteredLeafDeletions": 11,
-    "registeredLines": 117,
+    "filesWithUnregisteredLeafDeletions": 12,
+    "registeredLines": 137,
     "caliber": "registeredLines = Σ 各文件 `registeredUncoveredLines` 组的逐字行数之和；filesWithUnregisteredLeafDeletions = 有非空登记的**文件数**（与 v3 台账 `leafBases[].summary` 及本册 v4-1/v4-3 段同一口径）。两读数由 `test/supersession-ledger.test.ts` 的「leafBases[].summary 读数必须 == 分项之和」判据机核（滞后即 FAIL）。",
     "note": "〖v4-4 build（2026-09-19）〗首次登记本叶段：density-thresholds.test.ts 2 / size-baseline.ts 29 / size-budget.test.ts 7 / size-growth-evidence.test.ts 4 / size-ruling-vol3.test.ts 29 / density.mjs 8 / l0.mjs 10 / l1.mjs 2 / page-input.mjs 6 / zero-injection.mjs 5；合计 102 行 / 10 文件。逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶段删除行已逐条登记。 〖V4-4 R2（2026-09-19，KL-V44-01 裁决落地轮）〗追加本叶段内的 R2 删除行：size-baseline.ts +2 / density.mjs +9（合计 +11 ⇒ 113 行 / 仍 10 文件）；删除动机 = 风险增量归属与跨风险窗口稳定性的期望值改为机读双向精确期望（`docs/v4-density-baseline.json#riskIncrementRegistry`）+ 体积五要素按 465,277 B 重登记。判据只增不减（新增 `riskIncrementRegistry` 三条机核），断言零删除、方向零放宽。 〖V4-4 R2 追加〗`test/ui/l1-reverse.mjs` 4 行（RP-L1-A 锚点唯一性修复）；合计 117 行 / 11 文件。"
    },
@@ -1776,10 +2034,10 @@
    "oldId": "V4-1/TASK-515",
    "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 375_102;",
    "newId": "V4-1 重登记",
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 465_277;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 478_163;",
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-1-zone-shell-density",
-   "reason": "TASK-515 五要素中间重登记：sidepanel 体积基线 375,102 → 385,319 B（+10,217 B，+2.72%），逐模块可归因（真实 metafile）+ 前后值/日期/来源/理由/历史保留五要素齐备；`PENDING_ABSOLUTE_CAP` 保持 resolved:false 且未预填，targetBudgetBytes/targetMet 仍为 null，容差 5% 未动。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02（2026-09-19）〗本条目按**最终实测产物**再次重 pin：425,442 → **425,094 B**（−348 B，I-06/07/08/12 移除死代码与死 CSS 后重测；Σ 模块 +39,381 + 未归因胶水 +394 == 39,775 == 425,094 − 385,319）；ceiling = floor(425,094 × 1.05) = **446,348 B**；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,442 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE`。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。"
+   "reason": "TASK-515 五要素中间重登记：sidepanel 体积基线 375,102 → 385,319 B（+10,217 B，+2.72%），逐模块可归因（真实 metafile）+ 前后值/日期/来源/理由/历史保留五要素齐备；`PENDING_ABSOLUTE_CAP` 保持 resolved:false 且未预填，targetBudgetBytes/targetMet 仍为 null，容差 5% 未动。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02（2026-09-19）〗本条目按**最终实测产物**再次重 pin：425,442 → **425,094 B**（−348 B，I-06/07/08/12 移除死代码与死 CSS 后重测；Σ 模块 +39,381 + 未归因胶水 +394 == 39,775 == 425,094 − 385,319）；ceiling = floor(425,094 × 1.05) = **446,348 B**；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,442 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE`。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_277;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 476_834;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 477_960;\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V41-R2-7",
@@ -1788,10 +2046,10 @@
    "oldId": "V4-1/TASK-515",
    "oldTitle": "assert.equal(SIDEPANEL_CEILING, 393_857,",
    "newId": "V4-1 重登记",
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 488_540, 'v4-4 R2 裁决落地轮重登记后 ceiling = floor(465,277 × 1.05)（公式判定，cap 已撤销）');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 502_071, 'v4-4 审查修复轮重登记后 ceiling = floor(478,163 × 1.05)（公式判定，cap 已撤销）');",
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-1-zone-shell-density",
-   "reason": "同轮方向敏感断言按新实测值重 pin（ceiling 393,857 → 404,584 = floor(385,319 × 1.05)）；断言零删减，cap 仍 record-only，公式判定路径不变。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗同轮方向敏感断言按最终实测值再 pin（446,714 → 446,348）；断言零删减，cap 仍 record-only，公式判定路径不变。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(440,396 × 1.05)（v4-3 功能轮重登记后由公式抬高）');\" 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'v4-3 审查修复轮重登记后 ceiling = floor(445,300 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'v4-4 收口轮重登记后 ceiling = floor(464,491 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'v4-4 收口轮重登记后 ceiling = floor(465,000 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。"
+   "reason": "同轮方向敏感断言按新实测值重 pin（ceiling 393,857 → 404,584 = floor(385,319 × 1.05)）；断言零删减，cap 仍 record-only，公式判定路径不变。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗同轮方向敏感断言按最终实测值再 pin（446,714 → 446,348）；断言零删减，cap 仍 record-only，公式判定路径不变。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(440,396 × 1.05)（v4-3 功能轮重登记后由公式抬高）');\" 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'v4-3 审查修复轮重登记后 ceiling = floor(445,300 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'v4-4 收口轮重登记后 ceiling = floor(464,491 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'v4-4 收口轮重登记后 ceiling = floor(465,000 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_540, 'v4-4 R2 裁决落地轮重登记后 ceiling = floor(465,277 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 500_675, 'v4-4 审查修复轮重登记后 ceiling = floor(476,834 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 501_858, 'v4-4 审查修复轮重登记后 ceiling = floor(477,960 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 502_071, 'v4-4 审查修复轮重登记后 ceiling = floor(477,960 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V41-R2-8",
@@ -1800,10 +2058,10 @@
    "oldId": "V4-1/TASK-515",
    "oldTitle": "assert.equal(b.deltaBytes, 79_877);",
    "newId": "V4-1 重登记",
-   "newTitle": "  assert.equal(b.deltaBytes, 170_052);",
+   "newTitle": "  assert.equal(b.deltaBytes, 182_938);",
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-1-zone-shell-density",
-   "reason": "同轮累计增量断言按新基线重 pin（79,877 → 90,094 = 385,319 − 295,225）；并让「断言零删减」登记册同时认 v4 取代台账为合法来源（双台账）。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗累计增量断言按最终基线再 pin（130,217 → 129,869 == 425,094 − 295,225）；同时 `closeoutDeltaBytes` 由 40,123 订正为 39,775（I-10：其 doc-comment 原先仍写 v4-1 轮，现改written为「最新一轮 = 当前基线 − 385,319」并与本断言同源机核）。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 '  assert.equal(b.deltaBytes, 145_473);' 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 150_075);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 169_266);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的逐模块归因重登记（累计 deltaBytes 169,775 → 170,052；基线 465,000 → 465,277）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 169_775);\"。oldTitle 与判定方向零改动。"
+   "reason": "同轮累计增量断言按新基线重 pin（79,877 → 90,094 = 385,319 − 295,225）；并让「断言零删减」登记册同时认 v4 取代台账为合法来源（双台账）。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗累计增量断言按最终基线再 pin（130,217 → 129,869 == 425,094 − 295,225）；同时 `closeoutDeltaBytes` 由 40,123 订正为 39,775（I-10：其 doc-comment 原先仍写 v4-1 轮，现改written为「最新一轮 = 当前基线 − 385,319」并与本断言同源机核）。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 '  assert.equal(b.deltaBytes, 145_473);' 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 150_075);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 169_266);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的逐模块归因重登记（累计 deltaBytes 169,775 → 170,052；基线 465,000 → 465,277）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 169_775);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(b.deltaBytes, 170_052);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(b.deltaBytes, 181_609);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(b.deltaBytes, 182_775);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(b.deltaBytes, 182_735);\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V41-R2-9",
@@ -1812,10 +2070,10 @@
    "oldId": "V4-1/TASK-515",
    "oldTitle": "assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 375_102, '反证必须打在**当前真实产物**上');",
    "newId": "V4-1 重登记",
-   "newTitle": "  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 465_277, '反证必须打在**当前真实产物**上（v4-4 R2 裁决落地轮重登记）');",
+   "newTitle": "  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 478_163, '反证必须打在**当前真实产物**上（v4-4 审查修复轮重登记）');",
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-1-zone-shell-density",
-   "reason": "裁决 V3-VOL-3 的反证必须打在**当前真实产物**上；v4-1 重登记后该 pin 随实测更新为 385,319 B（40% 停工线仍为显式撤销状态，判定路径不变）。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗V3-VOL-3 的反证按最终真实产物再 pin（425,442 → 425,094 B）；撤销状态与判定路径不变。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 \"assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 440_698, '反证必须打在**当前真实产物**上');\" 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 445_300, '反证必须打在**当前真实产物**上');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 464_491, '反证必须打在**当前真实产物**上');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 465_000, '反证必须打在**当前真实产物**上');\"。oldTitle 与判定方向零改动。"
+   "reason": "裁决 V3-VOL-3 的反证必须打在**当前真实产物**上；v4-1 重登记后该 pin 随实测更新为 385,319 B（40% 停工线仍为显式撤销状态，判定路径不变）。 〖v4-2（2026-09-19）〗本轮再次按真实产物重 pin（425,442 B / ceiling 446,714 = floor(425,442×1.05) / deltaBytes 130,217），新值由 V42-E-VOL-2/VOL-3 同轮登记承接。 〖v4-2 review 修复轮 I-02〗V3-VOL-3 的反证按最终真实产物再 pin（425,442 → 425,094 B）；撤销状态与判定路径不变。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 \"assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 440_698, '反证必须打在**当前真实产物**上');\" 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 445_300, '反证必须打在**当前真实产物**上');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 464_491, '反证必须打在**当前真实产物**上');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 465_000, '反证必须打在**当前真实产物**上');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 465_277, '反证必须打在**当前真实产物**上（v4-4 R2 裁决落地轮重登记）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 476_834, '反证必须打在**当前真实产物**上（v4-4 审查修复轮重登记）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 477_960, '反证必须打在**当前真实产物**上（v4-4 审查修复轮重登记）');\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V41-R3-E-01",
@@ -2480,17 +2738,17 @@
    "id": "V42-E-VOL-2",
    "file": "packages/web-cli-plugin/test/size-baseline.ts",
    "oldTitle": null,
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 465_277;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 478_163;",
    "modificationType": "pure-addition",
-   "reason": "V4-2 TASK-612 体积五要素中间重登记：注册基线 385,319 → 425,442 B（十二个新必需模块 + 四个接线模块，逐模块归因见 v42RoundRows）。v3 段 V31-S6/V31-S10/V32-S1/V33-S10 的 newTitle 由本条目续链。 〖v4-2 review 修复轮 I-01~I-12（2026-09-19）〗按最终实测产物订正为 **425,094 B**（build 轮登记值 425,442 B 作为历史逐字保留于 TIMELINE 与 `SIDEPANEL_RE_REGISTRATIONS['v4-2'].reason`）。v3 段 V31-S6/V31-S10/V32-S1/V33-S10 的 newTitle 仍由本条目续链。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-2 TASK-612 体积五要素中间重登记：注册基线 385,319 → 425,442 B（十二个新必需模块 + 四个接线模块，逐模块归因见 v42RoundRows）。v3 段 V31-S6/V31-S10/V32-S1/V33-S10 的 newTitle 由本条目续链。 〖v4-2 review 修复轮 I-01~I-12（2026-09-19）〗按最终实测产物订正为 **425,094 B**（build 轮登记值 425,442 B 作为历史逐字保留于 TIMELINE 与 `SIDEPANEL_RE_REGISTRATIONS['v4-2'].reason`）。v3 段 V31-S6/V31-S10/V32-S1/V33-S10 的 newTitle 仍由本条目续链。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_277;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 476_834;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 477_960;\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V42-E-VOL-3",
    "file": "packages/web-cli-plugin/test/size-budget.test.ts",
    "oldTitle": null,
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 488_540, 'v4-4 R2 裁决落地轮重登记后 ceiling = floor(465,277 × 1.05)（公式判定，cap 已撤销）');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 502_071, 'v4-4 审查修复轮重登记后 ceiling = floor(478,163 × 1.05)（公式判定，cap 已撤销）');",
    "modificationType": "pure-addition",
-   "reason": "V4-2 TASK-612：体积守卫按真实产物重登记（ceiling 404,584 → 446,714 = floor(425,442 × 1.05)，cap 仍 record-only）。v3 段 V31-S7/V33-S11 的 newTitle 由本条目续链。 〖v4-2 review 修复轮 I-02〗ceiling 按最终实测值订正为 446,348（= floor(425,094 × 1.05)）；v3 段 V31-S7/V33-S11 的 newTitle 仍由本条目续链。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(440,396 × 1.05)（v4-3 功能轮重登记后由公式抬高）');\" 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'v4-3 审查修复轮重登记后 ceiling = floor(445,300 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'v4-4 收口轮重登记后 ceiling = floor(464,491 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'v4-4 收口轮重登记后 ceiling = floor(465,000 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-2 TASK-612：体积守卫按真实产物重登记（ceiling 404,584 → 446,714 = floor(425,442 × 1.05)，cap 仍 record-only）。v3 段 V31-S7/V33-S11 的 newTitle 由本条目续链。 〖v4-2 review 修复轮 I-02〗ceiling 按最终实测值订正为 446,348（= floor(425,094 × 1.05)）；v3 段 V31-S7/V33-S11 的 newTitle 仍由本条目续链。 〖v4-2 收口轮（2026-09-19，F-01/F-02/F-03 + N-02）〗本条目再次按**最终实测产物**重 pin：425,094 → **426,487 B**；ceiling = floor(426,487 × 1.05) = **447,811 B**；累计 deltaBytes 129,869 → **131,262**（426,487 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 425,094 / 446,348 / 129,869 逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 指向的数值已被 sidepanel 重登记（440,698 → 444,962 B）取代，按同一纪律**换锚**到当前文本（历史值 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(440,396 × 1.05)（v4-3 功能轮重登记后由公式抬高）');\" 逐字保留于本条 reason 与本轮 SIDEPANEL_RE_REGISTRATIONS['v4-3-reviewfix']）；oldTitle 与判定方向零改动，断言只增不减。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'v4-3 审查修复轮重登记后 ceiling = floor(445,300 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'v4-4 收口轮重登记后 ceiling = floor(464,491 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'v4-4 收口轮重登记后 ceiling = floor(465,000 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_540, 'v4-4 R2 裁决落地轮重登记后 ceiling = floor(465,277 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 500_675, 'v4-4 审查修复轮重登记后 ceiling = floor(476,834 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 501_858, 'v4-4 审查修复轮重登记后 ceiling = floor(477,960 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 502_071, 'v4-4 审查修复轮重登记后 ceiling = floor(477,960 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V42-E-DFREEZE-1",
@@ -2512,25 +2770,25 @@
    "id": "V42-E-SVOL-1",
    "file": "packages/web-cli-plugin/test/size-baseline.ts",
    "oldTitle": null,
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 465_277;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 478_163;",
    "modificationType": "registered-rewrite",
-   "reason": "V4-2 收口轮体积五要素重登记（F-01/F-02/F-03 + N-02 的必需增重）：425,094 → **426,487 B**（+1,393 B，+0.33%，逐模块可归因、未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**；新增 `v4-2-closeout` 登记轮 + `v42CloseoutRows`（最新一轮 rows，机核真实 metafile）；TIMELINE / 历史值逐字保留，断言零删减。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-2 收口轮体积五要素重登记（F-01/F-02/F-03 + N-02 的必需增重）：425,094 → **426,487 B**（+1,393 B，+0.33%，逐模块可归因、未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**；新增 `v4-2-closeout` 登记轮 + `v42CloseoutRows`（最新一轮 rows，机核真实 metafile）；TIMELINE / 历史值逐字保留，断言零删减。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_277;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 476_834;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 477_960;\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V42-E-SVOL-2",
    "file": "packages/web-cli-plugin/test/size-budget.test.ts",
    "oldTitle": null,
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 488_540, 'ceiling = floor(465,277 × 1.05)（v4-4 R2 裁决落地轮 KL-V44-01 显式重锚后由公式抬高）');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 502_071, 'ceiling = floor(478,163 × 1.05)（v4-4 审查修复轮重登记后由公式抬高）');",
    "modificationType": "registered-rewrite",
-   "reason": "V4-2 收口轮：方向敏感断言按收口轮实测值重 pin（ceiling 446,348 → **447,811**）；判定路径不变（cap 仍 record-only，公式 = floor(baseline × 1.05)），断言零删减。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(440,396 × 1.05)（v4-3 功能轮重登记后由公式抬高）');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'ceiling = floor(445,300 × 1.05)（v4-3 审查修复轮重登记后由公式抬高）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'ceiling = floor(464,491 × 1.05)（v4-4 收口轮 V3-VOL-3 带值闭合后由公式抬高）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'ceiling = floor(465,000 × 1.05)（v4-4 收口轮 V3-VOL-3 带值闭合后由公式抬高）');\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-2 收口轮：方向敏感断言按收口轮实测值重 pin（ceiling 446,348 → **447,811**）；判定路径不变（cap 仍 record-only，公式 = floor(baseline × 1.05)），断言零删减。 〖v4-3 功能轮（2026-09-19，TASK-711）〗本条目按**最终实测产物**再次重 pin：426,487 → **440,698 B**；ceiling = floor(440,698 × 1.05) = **462,732 B**；累计 deltaBytes 131,262 → **145,473**（440,698 − 295,225）；容差 5% 未动、cap 仍 record-only、`PENDING_ABSOLUTE_CAP` 仍 `resolved:false`。中间值 426,487 / 447,811 / 131,262 逐字保留于 TIMELINE 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；本条目 newTitle 随本轮重 pin 换锚（旧 newTitle 已被 v4-3 取代，逐字登记于 V43-E-* 的 oldTitle）。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(440,396 × 1.05)（v4-3 功能轮重登记后由公式抬高）');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'ceiling = floor(445,300 × 1.05)（v4-3 审查修复轮重登记后由公式抬高）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'ceiling = floor(464,491 × 1.05)（v4-4 收口轮 V3-VOL-3 带值闭合后由公式抬高）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'ceiling = floor(465,000 × 1.05)（v4-4 收口轮 V3-VOL-3 带值闭合后由公式抬高）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_540, 'ceiling = floor(465,277 × 1.05)（v4-4 R2 裁决落地轮 KL-V44-01 显式重锚后由公式抬高）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 500_675, 'ceiling = floor(476,834 × 1.05)（v4-4 审查修复轮重登记后由公式抬高）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 501_858, 'ceiling = floor(477,960 × 1.05)（v4-4 审查修复轮重登记后由公式抬高）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 502_071, 'ceiling = floor(477,960 × 1.05)（v4-4 审查修复轮重登记后由公式抬高）');\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-SVOL-1",
    "file": "packages/web-cli-plugin/test/size-baseline.ts",
    "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 426_487;",
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 465_277;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 478_163;",
    "modificationType": "registered-rewrite",
-   "reason": "V4-3 功能轮体积五要素重登记（ask/auth 流内化的必需增重）：426,487 → **440,698 B**（+14,211 B，+3.33%，逐模块可归因，见 `SIDEPANEL_GROWTH_BREAKDOWN.v43RoundRows`），ceiling = floor(440,698 × 1.05) = **462,732 B**；新增 v4-3 登记轮 + 三个新必需模块 rows（stream-plaintext / cards/askuser / cards/auth）；TIMELINE 追加 440,698，历史值逐字保留；断言零删减（新增 ask-auth-inflow node + Chromium 两门禁）。〖R2（2026-09-19）〗build 轮登记值 440,396 系中间测量，终稿按**最终产物**订正为 440,698（1 字节差已消除）；本条目补 `oldTitle`（build 轮留空 ⇒ 无法定位「被取代文本」）使其成为可判定的真取代条目。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3 功能轮体积五要素重登记（ask/auth 流内化的必需增重）：426,487 → **440,698 B**（+14,211 B，+3.33%，逐模块可归因，见 `SIDEPANEL_GROWTH_BREAKDOWN.v43RoundRows`），ceiling = floor(440,698 × 1.05) = **462,732 B**；新增 v4-3 登记轮 + 三个新必需模块 rows（stream-plaintext / cards/askuser / cards/auth）；TIMELINE 追加 440,698，历史值逐字保留；断言零删减（新增 ask-auth-inflow node + Chromium 两门禁）。〖R2（2026-09-19）〗build 轮登记值 440,396 系中间测量，终稿按**最终产物**订正为 440,698（1 字节差已消除）；本条目补 `oldTitle`（build 轮留空 ⇒ 无法定位「被取代文本」）使其成为可判定的真取代条目。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_277;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 476_834;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 477_960;\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-01",
@@ -2617,11 +2875,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  attributionShiftBytes: 265,",
    "newId": "V4-3 等价改写",
-   "newTitle": "  attributionShiftBytes: -1_975,",
+   "newTitle": "  wiringBytes: 54578,",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  attributionShiftBytes: -1_999,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  attributionShiftBytes: -1_975,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随最终实测产物重 pin；上一版 newTitle 逐字保留于此：\"  attributionShiftBytes: -1975,\"。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  attributionShiftBytes: -1_999,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  attributionShiftBytes: -1_975,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随最终实测产物重 pin；上一版 newTitle 逐字保留于此：\"  attributionShiftBytes: -1975,\"。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"  attributionShiftBytes: -1_975,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  wiringBytes: 53249,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  wiringBytes: 54415,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  wiringBytes: 54375,\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-08",
@@ -2630,11 +2888,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 426_487;",
    "newId": "V4-3 等价改写",
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 465_277;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 478_163;",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 'export const SIDEPANEL_BASELINE_BYTES = 440_698;' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_000;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_277;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 476_834;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 477_960;\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-09",
@@ -2656,11 +2914,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 426_487;",
    "newId": "V4-3 等价改写",
-   "newTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 465_277;",
+   "newTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 478_163;",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 'export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 440_698;' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 465_000;\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 'export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 440_698;' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 445_300;\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 464_491;\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 465_000;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 465_277;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 476_834;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 477_960;\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-11",
@@ -2669,11 +2927,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  finalArtifactBytes: 426_487,",
    "newId": "V4-3 等价改写",
-   "newTitle": "  finalArtifactBytes: 465_277,",
+   "newTitle": "  finalArtifactBytes: 478_163,",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  finalArtifactBytes: 440_698,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  finalArtifactBytes: 445_300,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  finalArtifactBytes: 464_491,\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  finalArtifactBytes: 465_000,\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  finalArtifactBytes: 440_698,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  finalArtifactBytes: 445_300,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  finalArtifactBytes: 464_491,\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  finalArtifactBytes: 465_000,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  finalArtifactBytes: 465_277,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  finalArtifactBytes: 476_834,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  finalArtifactBytes: 477_960,\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-12",
@@ -2682,11 +2940,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  deltaBytes: 131_262,",
    "newId": "V4-3 等价改写",
-   "newTitle": "  deltaBytes: 170_052,",
+   "newTitle": "  deltaBytes: 182938,",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  deltaBytes: 145_473,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  deltaBytes: 150_075,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  deltaBytes: 169_266,\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  deltaBytes: 169_775,\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  deltaBytes: 145_473,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  deltaBytes: 150_075,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  deltaBytes: 169_266,\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  deltaBytes: 169_775,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  deltaBytes: 170_052,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  deltaBytes: 181_609,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  deltaBytes: 182775,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  deltaBytes: 182735,\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-13",
@@ -2695,11 +2953,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  closeoutDeltaBytes: 41_168,",
    "newId": "V4-3 等价改写",
-   "newTitle": "  closeoutDeltaBytes: 79_958,",
+   "newTitle": "  closeoutDeltaBytes: 92_844,",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  closeoutDeltaBytes: 55_379,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  closeoutDeltaBytes: 59_981,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  closeoutDeltaBytes: 79_172,\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  closeoutDeltaBytes: 79_681,\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  closeoutDeltaBytes: 55_379,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  closeoutDeltaBytes: 59_981,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  closeoutDeltaBytes: 79_172,\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  closeoutDeltaBytes: 79_681,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08）〗本条的 newTitle 因最新一轮重登记/新组追加而被同编号取代，按「换链不放松」纪律换锚到当前文本；历史锚点逐字保留于此：\"  closeoutDeltaBytes: 79_958,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  closeoutDeltaBytes: 91_515,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  closeoutDeltaBytes: 92_681,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  closeoutDeltaBytes: 92_641,\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-14",
@@ -2708,11 +2966,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  newRequiredModuleBytes: 101_814,",
    "newId": "V4-3 等价改写",
-   "newTitle": "  newRequiredModuleBytes: 125_628,",
+   "newTitle": "  newRequiredModuleBytes: 130731,",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  newRequiredModuleBytes: 112_344,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  newRequiredModuleBytes: 114_585,\"。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  newRequiredModuleBytes: 112_344,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  newRequiredModuleBytes: 114_585,\"。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  newRequiredModuleBytes: 125_628,\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-15",
@@ -2721,11 +2979,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  wiringBytes: 28_123,",
    "newId": "V4-3 等价改写",
-   "newTitle": "  wiringBytes: 46_835,",
+   "newTitle": "  wiringBytes: 54578,",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  wiringBytes: 35_753,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  wiringBytes: 38_054,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随基线定稿重 pin；上一版 newTitle 逐字保留于此：\"  wiringBytes: 46049,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随基线定稿重 pin；上一版 newTitle 逐字保留于此：\"  wiringBytes: 46880,\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  wiringBytes: 46_558,\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  wiringBytes: 35_753,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  wiringBytes: 38_054,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随基线定稿重 pin；上一版 newTitle 逐字保留于此：\"  wiringBytes: 46049,\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随基线定稿重 pin；上一版 newTitle 逐字保留于此：\"  wiringBytes: 46880,\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  wiringBytes: 46_558,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  wiringBytes: 46_835,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  wiringBytes: 53249,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  wiringBytes: 54415,\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  wiringBytes: 54375,\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-16",
@@ -2734,11 +2992,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  unattributedHelperDeltaBytes: 1_060,",
    "newId": "V4-3 等价改写",
-   "newTitle": "  unattributedHelperDeltaBytes: -436,",
+   "newTitle": "  unattributedHelperDeltaBytes: -396,",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  unattributedHelperDeltaBytes: -625,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  unattributedHelperDeltaBytes: -589,\"。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  unattributedHelperDeltaBytes: -625,' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  unattributedHelperDeltaBytes: -589,\"。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  unattributedHelperDeltaBytes: -436,\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-17",
@@ -2747,11 +3005,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "    '输入模块数 **69**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows 的 new-required-module 行），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +",
    "newId": "V4-3 等价改写",
-   "newTitle": "    '输入模块数 **75**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +",
+   "newTitle": "    '输入模块数 **76**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**；**v4-4 审查修复轮再新增 1 个必需模块**（`host-registry.ts`：结构宿主注册表）⇒ 75 + 1 = **76**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    '输入模块数 **71**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +\"（整行替换：文字读数与 v4-4 增量说明同步追加）。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    '输入模块数 **71**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +\"（整行替换：文字读数与 v4-4 增量说明同步追加）。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08）〗本条的 newTitle 因最新一轮重登记/新组追加而被同编号取代，按「换链不放松」纪律换锚到当前文本；历史锚点逐字保留于此：\"    '输入模块数 **75**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-18",
@@ -2760,11 +3018,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  duplicationCheckInputModuleCount: 69,",
    "newId": "V4-3 等价改写",
-   "newTitle": "  duplicationCheckInputModuleCount: 75,",
+   "newTitle": "  duplicationCheckInputModuleCount: 76,",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  duplicationCheckInputModuleCount: 71,\"。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  duplicationCheckInputModuleCount: 71,\"。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  duplicationCheckInputModuleCount: 75,\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-19",
@@ -2773,11 +3031,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 62689, deltaBytes: 17844, kind: 'wiring', requiredBy: 'FR-V3-031~040（L1 挂载 + 单一派发器）+ FR-V3-045/047/048/054（L2 视图替换接线）+ FR-V3-060/061/062/066（面板侧拾取接线 + 生产 env 注入点 + 双向联动）+ AC-CONV-2（唯一动作入口）+ R1（declarationStatus 映射 + 身份标记回程重判 + supersededAsk 结算）+ R2（稳态行接线；面板可见性信号按 binding 门禁证据回退，恢复能力由既有 kick 触发器承担）+ R3（`maybeRescue()` 只读探测触发 + `reanchorRef()` 重锚接线 + 测试 seam） + v4-1（三区挂载接线 + `#log`→`#stream` 全部选择器迁移 + `mountTheme()` + `assertChromeNotInStream()` 测试 seam + 设置视图退出时 `syncEntryAria()`）—— FR-CHAT-010/014/015/016 · ADR-V4-017/022' },",
    "newId": "V4-3 等价改写",
-   "newTitle": "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 72583, deltaBytes: 27738, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },",
+   "newTitle": "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 78892, deltaBytes: 34047, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 65_099, deltaBytes: 20_254, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 66354, deltaBytes: 21509, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 71720, deltaBytes: 26875, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随最终实测产物重 pin；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 72229, deltaBytes: 27384, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 65_099, deltaBytes: 20_254, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 66354, deltaBytes: 21509, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 71720, deltaBytes: 26875, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随最终实测产物重 pin；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 72229, deltaBytes: 27384, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 72583, deltaBytes: 27738, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 78002, deltaBytes: 33157, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 78729, deltaBytes: 33884, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 78689, deltaBytes: 33844, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-20",
@@ -2786,11 +3044,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 19_586, deltaBytes: 2_463, kind: 'wiring', requiredBy: 'FR-V3-031（L1 契约纯函数）+ FR-V3-046/015（L2 计数载体）+ FR-V3-068/070（拾取不可用态 + 手势清单单源）+ R1（declarationStatus 载体 + 风险位文案一行）+ R2（`probingSteadyView`/`probingSteadyText` 稳态文案 + 退避描述 `AUTO_RETRY_LINE` + `probeSteady` 契约） + v4-1（纯新增 `L0View.riskChips`，状态栏渲染输入：无 DOM、无时钟）—— FR-CHAT-004/013' },",
    "newId": "V4-3 等价改写",
-   "newTitle": "    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 20690, deltaBytes: 3567, kind: 'wiring', requiredBy: 'FR-V3-031 + FR-V3-046/015 + FR-V3-068/070 + R1 + R2 + v4-1 + FR-CHAT-048（askFlowView 回合语义：pending 只门控新回合/推荐 chip）· ADR-V4-032' },",
+   "newTitle": "    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 21322, deltaBytes: 4199, kind: 'wiring', requiredBy: 'FR-V3-031 + FR-V3-046/015 + FR-V3-068/070 + R1 + R2 + v4-1 + FR-CHAT-048（askFlowView 回合语义：pending 只门控新回合/推荐 chip）· ADR-V4-032' },",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 19_895, deltaBytes: 2_772, kind: 'wiring', requiredBy: 'FR-V3-031 + FR-V3-046/015 + FR-V3-068/070 + R1 + R2 + v4-1 + FR-CHAT-048（askFlowView 回合语义：pending 只门控新回合/推荐 chip）· ADR-V4-032' },\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 20181, deltaBytes: 3058, kind: 'wiring', requiredBy: 'FR-V3-031 + FR-V3-046/015 + FR-V3-068/070 + R1 + R2 + v4-1 + FR-CHAT-048（askFlowView 回合语义：pending 只门控新回合/推荐 chip）· ADR-V4-032' },\"。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 19_895, deltaBytes: 2_772, kind: 'wiring', requiredBy: 'FR-V3-031 + FR-V3-046/015 + FR-V3-068/070 + R1 + R2 + v4-1 + FR-CHAT-048（askFlowView 回合语义：pending 只门控新回合/推荐 chip）· ADR-V4-032' },\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 20181, deltaBytes: 3058, kind: 'wiring', requiredBy: 'FR-V3-031 + FR-V3-046/015 + FR-V3-068/070 + R1 + R2 + v4-1 + FR-CHAT-048（askFlowView 回合语义：pending 只门控新回合/推荐 chip）· ADR-V4-032' },\"。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 20690, deltaBytes: 3567, kind: 'wiring', requiredBy: 'FR-V3-031 + FR-V3-046/015 + FR-V3-068/070 + R1 + R2 + v4-1 + FR-CHAT-048（askFlowView 回合语义：pending 只门控新回合/推荐 chip）· ADR-V4-032' },\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-21",
@@ -2799,11 +3057,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 9953, deltaBytes: 5650, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2（引用回合不得把后台提问的回合卡在「处理中」）+ R1（`REF_ROUND_PREFIX` + `supersededAsk()` 纯判据）' },",
    "newId": "V4-3 等价改写",
-   "newTitle": "    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 16115, deltaBytes: 11812, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \\'state\\'`/`case \\'notice\\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },",
+   "newTitle": "    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 16917, deltaBytes: 12614, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \\'state\\'`/`case \\'notice\\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 12_793, deltaBytes: 8_490, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 13848, deltaBytes: 9545, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随最终实测产物重 pin；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 16078, deltaBytes: 11775, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 15838, deltaBytes: 11535, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 12_793, deltaBytes: 8_490, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 13848, deltaBytes: 9545, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗等价锚点随最终实测产物重 pin；上一版 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 16078, deltaBytes: 11775, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 15838, deltaBytes: 11535, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 16115, deltaBytes: 11812, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \\\\'state\\\\'`/`case \\\\'notice\\\\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 16478, deltaBytes: 12175, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \\\\'state\\\\'`/`case \\\\'notice\\\\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-22",
@@ -2825,11 +3083,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 6_908, deltaBytes: 6_908, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025（`StreamEvent{seq,ts,kind,cardId,sessionId,payload,terminal?}` 不可变 + `appendEvent`/`boundStreamEvents`/`project()` 纯投影 + 终态冻结不变式）+ NFR-CHAT-001 · ADR-V4-024/028' },",
    "newId": "V4-3 等价改写",
-   "newTitle": "    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9727, deltaBytes: 9727, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },",
+   "newTitle": "    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9221, deltaBytes: 9221, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9_654, deltaBytes: 9_654, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积五要素按最终实测产物（440,698 B / ceiling 462,732 B）重 pin：字段旧值逐字登记，新值即 newTitle；判定路径不变（cap 仍 record-only、容差 5% 未动），断言零删减。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9_654, deltaBytes: 9_654, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9727, deltaBytes: 9727, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-24",
@@ -2864,11 +3122,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(SIDEPANEL_CEILING, 447_811, 'ceiling = floor(426,487 × 1.05)（v4-2 收口轮重登记后由公式抬高）');",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 488_540, 'ceiling = floor(465,277 × 1.05)（v4-4 R2 裁决落地轮 KL-V44-01 显式重锚后由公式抬高）');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 502_071, 'ceiling = floor(478,163 × 1.05)（v4-4 审查修复轮重登记后由公式抬高）');",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(440,396 × 1.05)（v4-3 功能轮重登记后由公式抬高）');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'ceiling = floor(445,300 × 1.05)（v4-3 审查修复轮重登记后由公式抬高）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'ceiling = floor(464,491 × 1.05)（v4-4 收口轮 V3-VOL-3 带值闭合后由公式抬高）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'ceiling = floor(465,000 × 1.05)（v4-4 收口轮 V3-VOL-3 带值闭合后由公式抬高）');\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(440,396 × 1.05)（v4-3 功能轮重登记后由公式抬高）');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'ceiling = floor(445,300 × 1.05)（v4-3 审查修复轮重登记后由公式抬高）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'ceiling = floor(464,491 × 1.05)（v4-4 收口轮 V3-VOL-3 带值闭合后由公式抬高）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'ceiling = floor(465,000 × 1.05)（v4-4 收口轮 V3-VOL-3 带值闭合后由公式抬高）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_540, 'ceiling = floor(465,277 × 1.05)（v4-4 R2 裁决落地轮 KL-V44-01 显式重锚后由公式抬高）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 500_675, 'ceiling = floor(476,834 × 1.05)（v4-4 审查修复轮重登记后由公式抬高）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 501_858, 'ceiling = floor(477,960 × 1.05)（v4-4 审查修复轮重登记后由公式抬高）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 502_071, 'ceiling = floor(477,960 × 1.05)（v4-4 审查修复轮重登记后由公式抬高）');\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-27",
@@ -2877,11 +3135,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 426_487);",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_277);",
+   "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 478_163);",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(SIDEPANEL_BASELINE_BYTES, 440_698);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 445_300);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 464_491);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_000);\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(SIDEPANEL_BASELINE_BYTES, 440_698);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 445_300);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 464_491);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_000);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_277);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 476_834);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 477_960);\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-28",
@@ -2890,11 +3148,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(SIDEPANEL_CEILING, 447_811, 'ceiling = floor(426,487 × 1.05)（未加 cap 的公式值，v4-2 收口轮重登记）');",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 488_540, 'ceiling = floor(465,277 × 1.05)（未加 cap 的公式值，v4-4 R2 裁决落地轮重登记）');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 502_071, 'ceiling = floor(478,163 × 1.05)（未加 cap 的公式值，v4-4 审查修复轮重登记）');",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(426,487 × 1.05)（未加 cap 的公式值，v4-2 收口轮重登记）');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'ceiling = floor(445,300 × 1.05)（未加 cap 的公式值，v4-3 审查修复轮重登记）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'ceiling = floor(464,491 × 1.05)（未加 cap 的公式值，v4-4 收口轮 V3-VOL-3 带值闭合重登记）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'ceiling = floor(465,000 × 1.05)（未加 cap 的公式值，v4-4 收口轮 V3-VOL-3 带值闭合重登记）');\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'ceiling = floor(426,487 × 1.05)（未加 cap 的公式值，v4-2 收口轮重登记）');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'ceiling = floor(445,300 × 1.05)（未加 cap 的公式值，v4-3 审查修复轮重登记）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'ceiling = floor(464,491 × 1.05)（未加 cap 的公式值，v4-4 收口轮 V3-VOL-3 带值闭合重登记）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'ceiling = floor(465,000 × 1.05)（未加 cap 的公式值，v4-4 收口轮 V3-VOL-3 带值闭合重登记）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_540, 'ceiling = floor(465,277 × 1.05)（未加 cap 的公式值，v4-4 R2 裁决落地轮重登记）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 500_675, 'ceiling = floor(476,834 × 1.05)（未加 cap 的公式值，v4-4 审查修复轮重登记）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 501_858, 'ceiling = floor(477,960 × 1.05)（未加 cap 的公式值，v4-4 审查修复轮重登记）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 502_071, 'ceiling = floor(477,960 × 1.05)（未加 cap 的公式值，v4-4 审查修复轮重登记）');\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-29",
@@ -2903,11 +3161,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(426_487 * 1.05), '未加 cap 的公式值必须被记录');",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(465_277 * 1.05), '未加 cap 的公式值必须被记录');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(478_163 * 1.05), '未加 cap 的公式值必须被记录');",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(440_698 * 1.05), '未加 cap 的公式值必须被记录');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(445_300 * 1.05), '未加 cap 的公式值必须被记录');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(464_491 * 1.05), '未加 cap 的公式值必须被记录');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(465_000 * 1.05), '未加 cap 的公式值必须被记录');\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(440_698 * 1.05), '未加 cap 的公式值必须被记录');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(445_300 * 1.05), '未加 cap 的公式值必须被记录');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(464_491 * 1.05), '未加 cap 的公式值必须被记录');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(465_000 * 1.05), '未加 cap 的公式值必须被记录');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(465_277 * 1.05), '未加 cap 的公式值必须被记录');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(476_834 * 1.05), '未加 cap 的公式值必须被记录');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(477_960 * 1.05), '未加 cap 的公式值必须被记录');\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-30",
@@ -2916,11 +3174,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(over.ceilingBytes, 447_811);",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(over.ceilingBytes, 488_540);",
+   "newTitle": "  assert.equal(over.ceilingBytes, 502_071);",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(over.ceilingBytes, 462_732);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(over.ceilingBytes, 467_565);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(over.ceilingBytes, 487_715);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(over.ceilingBytes, 488_250);\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(over.ceilingBytes, 462_732);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(over.ceilingBytes, 467_565);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(over.ceilingBytes, 487_715);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(over.ceilingBytes, 488_250);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(over.ceilingBytes, 488_540);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(over.ceilingBytes, 500_675);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(over.ceilingBytes, 501_858);\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-31",
@@ -2929,11 +3187,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 447_811);",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 488_540);",
+   "newTitle": "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 502_071);",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 462_732);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 467_565);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 487_715);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 488_250);\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 462_732);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 467_565);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 487_715);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 488_250);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 488_540);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 500_675);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 501_858);\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-32",
@@ -2942,11 +3200,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(SIDEPANEL_CEILING, 447_811, 'v4-2 收口轮重登记后 ceiling = 447,811（公式判定，cap 已撤销）');",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 488_540, 'v4-4 R2 裁决落地轮重登记后 ceiling = floor(465,277 × 1.05)（公式判定，cap 已撤销）');",
+   "newTitle": "  assert.equal(SIDEPANEL_CEILING, 502_071, 'v4-4 审查修复轮重登记后 ceiling = floor(478,163 × 1.05)（公式判定，cap 已撤销）');",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'v4-2 收口轮重登记后 ceiling = 447,811（公式判定，cap 已撤销）');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'v4-3 审查修复轮重登记后 ceiling = floor(445,300 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'v4-4 收口轮重登记后 ceiling = floor(464,491 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'v4-4 收口轮重登记后 ceiling = floor(465,000 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）体积守卫方向敏感断言按最终实测产物重 pin（ceiling 447,811 → 462,732 = floor(440,698 × 1.05)）：断言零删减，判定路径不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 \"  assert.equal(SIDEPANEL_CEILING, 462_732, 'v4-2 收口轮重登记后 ceiling = 447,811（公式判定，cap 已撤销）');\" 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 467_565, 'v4-3 审查修复轮重登记后 ceiling = floor(445,300 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 487_715, 'v4-4 收口轮重登记后 ceiling = floor(464,491 × 1.05)（公式判定，cap 已撤销）');\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_250, 'v4-4 收口轮重登记后 ceiling = floor(465,000 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 488_540, 'v4-4 R2 裁决落地轮重登记后 ceiling = floor(465,277 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 500_675, 'v4-4 审查修复轮重登记后 ceiling = floor(476,834 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 501_858, 'v4-4 审查修复轮重登记后 ceiling = floor(477,960 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_CEILING, 502_071, 'v4-4 审查修复轮重登记后 ceiling = floor(477,960 × 1.05)（公式判定，cap 已撤销）');\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-33",
@@ -2955,11 +3213,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(b.deltaBytes, 131_262);",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(b.deltaBytes, 170_052);",
+   "newTitle": "  assert.equal(b.deltaBytes, 182_938);",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）增长归因断言按最终实测值重 pin（最新一轮 rows 从 `v42CloseoutRows` 换成 `v43RoundRows`、组数 5 → 6、累计增量 131,262 → 145,473）：断言零删减，N-05 组自洽判据不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(b.deltaBytes, 145_473);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 150_075);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 169_266);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的逐模块归因重登记（累计 deltaBytes 169,775 → 170,052；基线 465,000 → 465,277）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 169_775);\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）增长归因断言按最终实测值重 pin（最新一轮 rows 从 `v42CloseoutRows` 换成 `v43RoundRows`、组数 5 → 6、累计增量 131,262 → 145,473）：断言零删减，N-05 组自洽判据不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(b.deltaBytes, 145_473);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 150_075);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 169_266);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的逐模块归因重登记（累计 deltaBytes 169,775 → 170,052；基线 465,000 → 465,277）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(b.deltaBytes, 169_775);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(b.deltaBytes, 170_052);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(b.deltaBytes, 181_609);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(b.deltaBytes, 182_775);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(b.deltaBytes, 182_735);\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-34",
@@ -2968,11 +3226,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v42CloseoutRows) {",
    "newId": "V4-3 等价改写",
-   "newTitle": "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v44R2Rows) {",
+   "newTitle": "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v44ReviewfixRows) {",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）增长归因断言按最终实测值重 pin（最新一轮 rows 从 `v42CloseoutRows` 换成 `v43RoundRows`、组数 5 → 6、累计增量 131,262 → 145,473）：断言零删减，N-05 组自洽判据不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v43RoundRows) {' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v43ReviewfixRows) {\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v44RoundRows) {\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）增长归因断言按最终实测值重 pin（最新一轮 rows 从 `v42CloseoutRows` 换成 `v43RoundRows`、组数 5 → 6、累计增量 131,262 → 145,473）：断言零删减，N-05 组自洽判据不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v43RoundRows) {' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v43ReviewfixRows) {\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v44RoundRows) {\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08）〗本条的 newTitle 因最新一轮重登记/新组追加而被同编号取代，按「换链不放松」纪律换锚到当前文本；历史锚点逐字保留于此：\"  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v44R2Rows) {\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-35",
@@ -2981,11 +3239,11 @@
    "oldId": "V4-3/TASK-701~711",
    "oldTitle": "  assert.equal(groups.length, 5);",
    "newId": "V4-3 等价改写",
-   "newTitle": "  assert.equal(groups.length, 9);",
+   "newTitle": "  assert.equal(groups.length, 10);",
    "replacementExists": true,
    "modificationType": "registered-rewrite",
    "leaf": "specs-tree-v4-3-ask-auth-inflow",
-   "reason": "V4-3（TASK-711）增长归因断言按最终实测值重 pin（最新一轮 rows 从 `v42CloseoutRows` 换成 `v43RoundRows`、组数 5 → 6、累计增量 131,262 → 145,473）：断言零删减，N-05 组自洽判据不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(groups.length, 6);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(groups.length, 7);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(groups.length, 8);\"。oldTitle 与判定方向零改动。"
+   "reason": "V4-3（TASK-711）增长归因断言按最终实测值重 pin（最新一轮 rows 从 `v42CloseoutRows` 换成 `v43RoundRows`、组数 5 → 6、累计增量 131,262 → 145,473）：断言零删减，N-05 组自洽判据不变。 行级登记：oldTitle 逐字 = 被删除的原文；newTitle = 当前文件中的等价锚点。 〖v4-3 审查修复轮换锚（2026-09-19）〗本条的 newTitle 在 sidepanel 重登记（440,698 → 444,962 B） / 逐模块归因表重 pin 中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；历史锚点 '  assert.equal(groups.length, 6);' 逐字保留于本条 reason。oldTitle 与判定方向零改动。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(groups.length, 7);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(groups.length, 8);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08）〗本条的 newTitle 因最新一轮重登记/新组追加而被同编号取代，按「换链不放松」纪律换锚到当前文本；历史锚点逐字保留于此：\"  assert.equal(groups.length, 9);\"。oldTitle 与判定方向零改动。"
   },
   {
    "id": "V43-E-36",
@@ -3459,17 +3717,30 @@
    "id": "V43RV-SVOL-2",
    "file": "packages/web-cli-plugin/test/size-budget.test.ts",
    "oldTitle": null,
-   "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_277);",
-   "reason": "v4-3 审查修复轮（I-05 同族）：size-baseline 重登记 440,698 → 444,962 B 后，本文件的字节 pin 断言按**同一编号重 pin**（断言结构零删减，只换数值）；本条同时是 v3 台账 V31-S7/V33-S11~S13/V33F-S1/S3/V34R1-S2/V34R2-S5/V34DR3-S2/S4 的**接管条目**——它们指向的旧文本已被本轮重 pin 取代，按双台账「换链不放松」规则由本条续链（newTitle 可定位（纯新增接管：v3 条目指向的文本由本轮的字节重 pin 取代，本条目只声明接管的新文本））。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 445_300);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 464_491);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_000);\"。oldTitle 与判定方向零改动。",
+   "newTitle": "  assert.equal(SIDEPANEL_BASELINE_BYTES, 478_163);",
+   "reason": "v4-3 审查修复轮（I-05 同族）：size-baseline 重登记 440,698 → 444,962 B 后，本文件的字节 pin 断言按**同一编号重 pin**（断言结构零删减，只换数值）；本条同时是 v3 台账 V31-S7/V33-S11~S13/V33F-S1/S3/V34R1-S2/V34R2-S5/V34DR3-S2/S4 的**接管条目**——它们指向的旧文本已被本轮重 pin 取代，按双台账「换链不放松」规则由本条续链（newTitle 可定位（纯新增接管：v3 条目指向的文本由本轮的字节重 pin 取代，本条目只声明接管的新文本））。 〖V4-4 再取代（TASK-811，2026-09-19）〗本叶按实测产物把 sidepanel 基线 445,300 → 464,491 B 重登记（V3-VOL-3 带值闭合），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 445_300);\"。 〖V4-4 再取代（TASK-811 定稿，2026-09-19）〗本叶最终构建实测产物 465,000 B（中间测量值 464,491 已移入 SIDEPANEL_BASELINE_BYTES_INTERMEDIATE_SNAPSHOTS），本行等价锚点随之前移；上一版 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 464_491);\"。 〖V4-4 R2 锚点前移（2026-09-19，KL-V44-01 裁决落地轮）〗本条的 newTitle 在 R2 的 V3-VOL-3/体积重登记（465,000 → 465,277 B；ceiling 488,250 → 488,540）中被同编号取代，按「换链不放松」纪律**换锚**到当前文本；R2 前 newTitle 逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_000);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_277);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 476_834);\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_BASELINE_BYTES, 477_960);\"。oldTitle 与判定方向零改动。",
    "modificationType": "pure-addition"
   },
   {
    "id": "V44-R2-SVOL-1",
    "file": "packages/web-cli-plugin/test/size-baseline.ts",
    "oldTitle": null,
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 465_277;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 478_163;",
    "modificationType": "registered-rewrite",
-   "reason": "V4-4 R2 裁决落地轮（2026-09-19，编排器 KL-V44-01 选②「显式重锚」）体积五要素重登记：465,000 → **465,277 B**（+277 B，+0.06%），全部来自**一处** `src` 改动 —— `chat-state.ts` 的自动归并接线（`reduce()` 透传归约前状态 + `streamBranch` 的 `case 'state'`/`case 'notice'`，两条都经 `systemRow()` 唯一通道）；真实 metafile 归因 chat-state.ts 15,838 → 16,115（见 `SIDEPANEL_GROWTH_BREAKDOWN.v44R2Rows`，Σ + glue 0 == 登记增量）。ceiling = floor(465,277 × 1.05) = **488,540 B**（容差 5% 未动、cap 仍 record-only）；`PENDING_ABSOLUTE_CAP.newBaselineBytes` 随现行基线同源前移，**档位 512,000 / 绝对上限 563,200 / resolvedOn 2026-09-19 均未变**（`ceilTo50KB(465,277)` 与 `ceilTo50KB(465,000)` 同档）。**断言零删减**：新增 node 门禁 `test/system-merge.test.ts`（10 用例）+ `density.mjs` 的 `riskIncrementRegistry` 双向精确期望（3 条新判据）；`test/size-budget.test.ts` / `size-ruling-vol3.test.ts` / `size-growth-evidence.test.ts` 的同编号断言只换数值锚点（方向、边界语义零改动）；`dist/content.js` 177,076 / `dist/pick-layer.js` 33,900 逐字节不变；manifest / `KIND_SET` / 判定链 / SW 零 diff。"
+   "reason": "V4-4 R2 裁决落地轮（2026-09-19，编排器 KL-V44-01 选②「显式重锚」）体积五要素重登记：465,000 → **465,277 B**（+277 B，+0.06%），全部来自**一处** `src` 改动 —— `chat-state.ts` 的自动归并接线（`reduce()` 透传归约前状态 + `streamBranch` 的 `case 'state'`/`case 'notice'`，两条都经 `systemRow()` 唯一通道）；真实 metafile 归因 chat-state.ts 15,838 → 16,115（见 `SIDEPANEL_GROWTH_BREAKDOWN.v44R2Rows`，Σ + glue 0 == 登记增量）。ceiling = floor(465,277 × 1.05) = **488,540 B**（容差 5% 未动、cap 仍 record-only）；`PENDING_ABSOLUTE_CAP.newBaselineBytes` 随现行基线同源前移，**档位 512,000 / 绝对上限 563,200 / resolvedOn 2026-09-19 均未变**（`ceilTo50KB(465,277)` 与 `ceilTo50KB(465,000)` 同档）。**断言零删减**：新增 node 门禁 `test/system-merge.test.ts`（10 用例）+ `density.mjs` 的 `riskIncrementRegistry` 双向精确期望（3 条新判据）；`test/size-budget.test.ts` / `size-ruling-vol3.test.ts` / `size-growth-evidence.test.ts` 的同编号断言只换数值锚点（方向、边界语义零改动）；`dist/content.js` 177,076 / `dist/pick-layer.js` 33,900 逐字节不变；manifest / `KIND_SET` / 判定链 / SW 零 diff。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 465_277;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮（2026-09-19）〗本条的 newTitle 在审查修复轮体积重登记（465,277 → 477,960 B）中被同编号取代，按「换链不放松」纪律换锚到当前文本；历史锚点逐字保留于本条 reason 与本轮 `SIDEPANEL_RE_REGISTRATIONS['v4-4-reviewfix']`。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 476_834;\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 477_960;\"。oldTitle 与判定方向零改动。"
+  },
+  {
+   "id": "V44-RF-SVOL-1",
+   "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+   "gate": "size-ruling-vol3.test.ts",
+   "oldId": "V4-4/TASK-811",
+   "oldTitle": "  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 445_300, '反证必须打在**当前真实产物**上');",
+   "newId": "V4-4 审查修复轮",
+   "newTitle": "  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 478_163, '反证必须打在**当前真实产物**上（v4-4 审查修复轮重登记）');",
+   "replacementExists": true,
+   "modificationType": "registered-rewrite",
+   "leaf": "specs-tree-v4-4-ref-system-nextstep",
+   "reason": "V4-4 审查修复轮（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）体积五要素重登记：465,277 → 478,163 B（+12,886 B，+2.77%）；同编号断言只换数值锚点（方向与边界语义零改动，断言零删减）。ceiling = floor(476,834 × 1.05) = 502,071 B（容差 5% 未动、cap 仍 record-only）；V3-VOL-3 三值同源前移（newBaselineBytes 478,163；档位 512,000 / 绝对上限 563,200 未变）。`dist/content.js` 177,076 / `dist/pick-layer.js` 33,900 逐字节不变；manifest / KIND_SET / 判定链 / SW 零 diff。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 476_834, '反证必须打在**当前真实产物**上（v4-4 审查修复轮重登记）');\"。oldTitle 与判定方向零改动。 〖V4-4 审查修复轮换锚（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗本条的 newTitle 指向的行已被同编号重登记取代，按「换链不放松」纪律**换锚**到当前文本（归一化匹配唯一）；历史锚点逐字保留于此：\"  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 477_960, '反证必须打在**当前真实产物**上（v4-4 审查修复轮重登记）');\"。oldTitle 与判定方向零改动。"
   }
  ],
  "modifiedRanges": [
@@ -6043,18 +6314,20 @@
    "④作者确认": "见 authorConfirmation",
    "⑤三值闭合": {
     "resolved": true,
-    "newBaselineBytes": 465000,
+    "newBaselineBytes": 478163,
     "absoluteCeilingBytes": 563200,
     "resolvedOn": "2026-09-19",
     "verdict": "evaluatePendingAbsoluteCap() → ok=true",
-    "r2ReRegistration": "〖V4-4 R2（2026-09-19，KL-V44-01 裁决落地轮）〗`newBaselineBytes` 随现行登记基线**同源前移**：465,000 → **465,277 B**（走「作者确认占位」规则重登，见 authorConfirmation.provisional）；**档位 `ceilTo50KB(465,277) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③ 与 `SIDEPANEL_RE_REGISTRATIONS['v4-4']`。"
+    "r2ReRegistration": "〖V4-4 R2（2026-09-19，KL-V44-01 裁决落地轮）〗`newBaselineBytes` 随现行登记基线**同源前移**：465,000 → **465,277 B**（走「作者确认占位」规则重登，见 authorConfirmation.provisional）；**档位 `ceilTo50KB(465,277) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③ 与 `SIDEPANEL_RE_REGISTRATIONS['v4-4']`。",
+    "reviewfixReRegistration": "〖V4-4 审查修复轮（2026-09-19）〗`newBaselineBytes` 随现行登记基线**同源前移**：465,277 → **477,960 B**（走「作者确认占位」规则重登）；**档位 `ceilTo50KB(477,960) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③。"
    },
    "⑥min() 判定": {
-    "formulaCeilingBytes": 488250,
+    "formulaCeilingBytes": 502071,
     "absoluteCeilingBytes": 563200,
-    "effectiveCeilingBytes": 488250,
+    "effectiveCeilingBytes": 502071,
     "rule": "effectiveCeiling = min(绝对上限, floor(当前基线 × 1.05))",
-    "r2ReRegistration": "〖V4-4 R2〗formulaCeilingBytes 488,250 → **488,540**（= floor(465,277 × 1.05)）；effectiveCeilingBytes = min(563,200, 488,540) = **488,540**；规则零改动。"
+    "r2ReRegistration": "〖V4-4 R2〗formulaCeilingBytes 488,250 → **488,540**（= floor(465,277 × 1.05)）；effectiveCeilingBytes = min(563,200, 488,540) = **488,540**；规则零改动。",
+    "reviewfixReRegistration": "〖V4-4 审查修复轮〗formulaCeilingBytes 488,540 → **501,858**（= floor(476,834 × 1.05)）；effectiveCeilingBytes = min(563,200, 501,858) = **501,858**；规则零改动。"
    },
    "⑦反证": [
     "① 超过绝对上限 ⇒ FAIL（硬墙生效）",
@@ -6069,7 +6342,8 @@
    "date": "2026-09-19",
    "provisional": "数值推导按 V3-VOL-3 规则执行（B_final 465,000 → 档位 512,000 → 余量 ×1.10 ⇒ 563,200 B）；作者事后可一行否决改值（改 `PENDING_ABSOLUTE_CAP.absoluteCeilingBytes` 并追加一次显式重登记）。",
    "conclusion": "作者确认占位：本叶按 ADR-V4-039 的推导规则（实测值上取整 50 KB 档 + 10% 余量）带值闭合，未获一句外部确认前**不伪称已确认**；占位记录在此，作者可一行否决改值（不阻塞闭合）。",
-   "r2Note": "〖V4-4 R2（2026-09-19）〗R2 按编排器裁决 KL-V44-01 选②落地（启用自动归并 + 显式重锚 `risk(staleRef)@320`），产物 465,000 → 465,277 B。按编排器裁决「`newBaselineBytes` 若因 R2 变化须同步走『作者确认占位』规则重登」，本占位随之更新为 465,277（档位 512,000 / 绝对上限 563,200 不变）；**状态仍是 `pending-author-line`**（未获一句外部确认，不伪称已确认）。作者事后可一行否决改值。"
+   "r2Note": "〖V4-4 R2（2026-09-19）〗R2 按编排器裁决 KL-V44-01 选②落地（启用自动归并 + 显式重锚 `risk(staleRef)@320`），产物 465,000 → 465,277 B。按编排器裁决「`newBaselineBytes` 若因 R2 变化须同步走『作者确认占位』规则重登」，本占位随之更新为 465,277（档位 512,000 / 绝对上限 563,200 不变）；**状态仍是 `pending-author-line`**（未获一句外部确认，不伪称已确认）。作者事后可一行否决改值。",
+   "reviewfixNote": "〖V4-4 审查修复轮（2026-09-19）〗产物 465,277 → 477,960 B（BLOCK-01~03 + I-01~I-08 落地）。按编排器裁决「newBaselineBytes 变化须同步走『作者确认占位』规则重登」，占位随之更新为 477,960（档位 512,000 / 绝对上限 563,200 未变）；状态仍 `pending-author-line`，**不伪称已确认**。机器判据见 `test/size-ruling-vol3.test.ts` 的 I-06 断言（status ∈ {pending-author-line, confirmed, overridden-by-author}，非法值/缺失 FAIL）。"
   }
  }
 }

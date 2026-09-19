@@ -24,6 +24,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createInitialState, reduce } from '../src/ui/sidepanel/chat-state.js';
+import { project } from '../src/ui/sidepanel/stream-model.js';
 import {
   SYSTEM_COPY,
   SYSTEM_CONTINUED_PREFIX,
@@ -170,4 +171,102 @@ test('V4-4 自动归并④：通道闭集覆盖归并矩阵的每一个来源（
   }
   assert.equal(SYSTEM_EVENT_KINDS.length, required.length, '通道闭集不得多于归并矩阵（未登记通道不允许存在）');
   assert.equal(new Set(SYSTEM_EVENT_KINDS).size, SYSTEM_EVENT_KINDS.length, '通道闭集不得有重复项');
+});
+
+// ── I-01 / I-02（V4-4 审查修复轮）─────────────────────────────────────────────
+
+test('V4-4 I-01（review 修复）：N 张 open ask + 会话切换 ⇒ N 行 superseded（同一文案不得吞并不同事实）', () => {
+  let s = createInitialState();
+  // 两个**不同 kind** 的未终态决策卡（askuser + auth）⇒ 都保持 open（MAX_OPEN_ASKS 仲裁期内）。
+  s = reduce(s, { type: 'ask', requestId: 'i01-ask', kind: 'text', prompt: '问题一', at: 0 });
+  s = reduce(s, { type: 'confirm', requestId: 'i01-auth', summary: '工具：敏感操作', at: 1 });
+  const openBefore = s.stream.events.filter((e) => (e.kind === 'askuser' || e.kind === 'auth') && e.terminal === undefined).length;
+  assert.equal(openBefore, 2, '前置：两张未终态卡（否则本用例空转）');
+  s = reduce(s, { type: 'history', entries: [], sessionId: 'https://next.test', sessionLabel: 'next', at: 2 });
+  const supersededRows = systemRows(s).filter((t) => t.includes('上一轮提问已被新的拾取回合取代'));
+  assert.equal(
+    supersededRows.length,
+    2,
+    `N 张卡必须留下 N 行（去重键含事实标识：cardId/requestId），实际 ${JSON.stringify(systemRows(s))}`,
+  );
+  // 反证方向：**同一事实**在窗口内重复不得变成两行（去重窗口的原始目的未丢）。
+  let t = createInitialState();
+  t = reduce(t, { type: 'ask', requestId: 'same', kind: 'text', prompt: 'p', at: 0 });
+  t = reduce(t, { type: 'ask-resolved', requestId: 'same', canceled: true, reason: 'superseded', at: 1 });
+  const once = systemRows(t).filter((x) => x.includes('上一轮提问已被新的拾取回合取代')).length;
+  assert.equal(once, 1, '同一张卡的 superseded 只留一行');
+});
+
+test('V4-4 I-01 负控（非空转）：事实标识真的进入去重键（去掉它 ⇒ 两行会塌成一行）', async () => {
+  const { systemDedupeKey } = await import('../src/ui/sidepanel/system-events.js');
+  const a = systemDedupeKey('decision', '上一轮提问已被新的拾取回合取代', 'c1');
+  const b = systemDedupeKey('decision', '上一轮提问已被新的拾取回合取代', 'c2');
+  assert.notEqual(a, b, '不同事实（cardId）必须得到不同去重键 —— 否则 N 张卡会塌成一行');
+  assert.equal(
+    systemDedupeKey('decision', '上一轮提问已被新的拾取回合取代'),
+    systemDedupeKey('decision', '上一轮提问已被新的拾取回合取代'),
+    '同一事实（无 cardId 的纯状态文案）仍按 kind+文本去重（窗口的原始目的未丢）',
+  );
+  // 非空转对照：无事实标识时键相同 ⇒ 旧实现只会留一行（正是 I-01 的缺陷形态）。
+  assert.equal(
+    systemDedupeKey('decision', 'x'),
+    systemDedupeKey('decision', 'x'),
+    '无标识时同文案同键（对照：事实标识是唯一区分手段）',
+  );
+});
+
+test('V4-4 I-02（review 修复）：会话分隔行走唯一通道（净化/去重/速率计数不可绕过）', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'user', text: 'hi', at: 0 });
+  const totalBefore = s.systemChannel.total;
+  s = reduce(s, { type: 'stream-session', sessionId: 'https://b.test', label: 'b.test', at: 10 });
+  const rows = systemRows(s).filter((t) => t.includes('会话已切换'));
+  assert.equal(rows.length, 1, `会话切换必须留一行，实际 ${JSON.stringify(systemRows(s))}`);
+  assert.equal(rows[0], '会话已切换：b.test', '文案取 SYSTEM_COPY.sessionSwitched 单源 + 会话标签');
+  assert.equal(s.systemChannel.total, totalBefore + 1, '该行必须计入唯一通道的 total（不是第二个构造点）');
+  // 同一会话重入 ⇒ 不追加（纯 re-activation）。
+  const lengthBefore = s.stream.events.length;
+  s = reduce(s, { type: 'stream-session', sessionId: 'https://b.test', label: 'b.test', at: 20 });
+  assert.equal(s.stream.events.length, lengthBefore, '同会话重入不得追加分隔行');
+});
+
+test('V4-4 I-02（review 修复）：会话分隔行的净化 fail-closed（明文标签不得入流）', () => {
+  let s = createInitialState();
+  s = reduce(s, { type: 'user', text: 'hi', at: 0 }); // 有事件才走分隔行（空日志不追加）
+  assert.throws(
+    () => reduce(s, { type: 'stream-session', sessionId: 'https://b.test', label: 'https://evil.test/cb?token=SECRET', at: 0 }),
+    '含 URL query 的会话标签必须在构造系统行时抛错（唯一通道的净化步骤不可绕过）',
+  );
+});
+
+test('V4-4 BLOCK-02（review 修复）：归并矩阵的每个 strip 通道都有生产 emitter 或唯一通道动作', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { join } = await import('node:path');
+  const { STRIP_CHANNEL_KINDS } = await import('../src/ui/sidepanel/host-registry.js');
+  const pkg = fileURLToPath(new URL('../../', import.meta.url));
+  const panel = readFileSync(join(pkg, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+  for (const binding of STRIP_CHANNEL_KINDS) {
+    const direct = panel.includes(`dispatch({ type: 'system', kind: '${binding.kind}'`);
+    const observed = panel.includes(`observeChannel('${binding.kind}'`);
+    const noticeMerged =
+      binding.kind === 'notice' &&
+      readFileSync(join(pkg, 'src/ui/sidepanel/chat-state.ts'), 'utf8').includes("systemRow(state, at, action.text, 'notice')");
+    assert.ok(
+      direct || observed || noticeMerged,
+      `通道 ${binding.id}（kind=${binding.kind}）没有生产 emitter —— 归并登记失真`,
+    );
+  }
+});
+
+test('V4-4 BLOCK-01（review 修复）：rule=risk-recovery 的推荐动作不得抛错（rule id 不经 label 工厂）', () => {
+  const s = createInitialState();
+  let out: SidepanelState | null = null;
+  assert.doesNotThrow(() => {
+    out = reduce(s, { type: 'nextstep', chips: ['重新拾取', '改用描述'], acts: ['repick', 'describe'], rule: 'risk-recovery', at: 0 });
+  }, 'rule id（sk- + 8 字符形状）不得进入零明文 label 工厂（否则产品路径的恢复推荐卡整体不可达）');
+  const cards = project(out!.stream).filter((v) => v.kind === 'nextstep');
+  assert.equal(cards.length, 1, '必须真的铸出推荐卡');
+  assert.equal(cards[0].payload.nextstepRule, 'risk-recovery', 'rule id 仍以机器可读字段保留（不持久化）');
+  assert.equal(cards[0].payload.label, '下一步推荐', '持久化 label 是安全静态文案');
 });

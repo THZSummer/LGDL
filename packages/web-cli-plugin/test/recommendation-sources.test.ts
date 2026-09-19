@@ -174,7 +174,13 @@ test('④ 上限：一轮最多 1 张卡；恢复类优先于发现类', () => {
 });
 
 test('④ 安全边界：唯一候选全是被拦命令 ⇒ 不推荐（fail-closed）', () => {
-  const chip = candidateRules(baseInput()).find((c) => c.rule === 'capability-discovery')!;
+  const discoveryInput = baseInput({
+    ref: { validCount: 0, staleCount: 0 },
+    site: { authorized: true },
+    probe: { phase: 'ready', steady: false },
+    onboarding: { firstRun: false, pendingSteps: [] },
+  });
+  const chip = candidateRules(discoveryInput).find((c) => c.rule === 'capability-discovery')!;
   const denied = chip.chips.map((c) => c.text);
   const r = recommendNextStep(
     baseInput({
@@ -204,4 +210,34 @@ test('④ 文案零明文：chips 全部经 label 工厂构造（含 `<` / `?` �
   for (const c of candidateRules(baseInput())) {
     for (const chip of c.chips) assert.equal(typeof chip.text, 'string');
   }
+});
+
+// ── C3 / BLOCK-01（V4-4 审查修复轮）───────────────────────────────────────────
+
+test('④ 安全边界（C3 修复）：候选含**任一**被拦 next chip ⇒ 整张卡不推荐（fail-closed 到 chip 级）', () => {
+  // capability-discovery 的两条 chip 都是 `next` 动作；只拦其中**一条**。
+  const chip = candidateRules(baseInput()).find((c) => c.rule === 'capability-discovery')!;
+  assert.ok(chip.chips.length >= 2, '前置：该候选必须有多条 chip（否则本用例空转）');
+  const denied = [chip.chips[0].text];
+  const r = recommendNextStep(
+    baseInput({
+      ref: { validCount: 0, staleCount: 0 },
+      site: { authorized: true },
+      deniedCommands: denied,
+      onboarding: { firstRun: false, pendingSteps: [] },
+    }),
+  );
+  assert.deepEqual(
+    r.cards,
+    [],
+    '候选内**任一** next chip 被拦 ⇒ 整卡不得渲染（旧实现用 some 会放行被拦 chip）',
+  );
+  assert.equal(r.suppression, 'safety');
+  // 非 next 本地动作不受 deny 集影响（deny 集只命名回合命令）。
+  const local = candidateRules(baseInput({ ref: { validCount: 0, staleCount: 1 } })).find((c) => c.rule === 'risk-recovery')!;
+  assert.ok(local.chips.every((c) => c.act !== 'next'), '前置：risk-recovery 全是本地动作');
+  const r2 = recommendNextStep(
+    baseInput({ ref: { validCount: 0, staleCount: 1 }, deniedCommands: local.chips.map((c) => c.text) }),
+  );
+  assert.equal(r2.cards.length, 1, '本地动作（repick/describe）不得被 deny 集误伤');
 });

@@ -79,6 +79,38 @@ function evidenceRow(tag: string, value: string): string {
   return `${tag}：${value}`;
 }
 
+/**
+ * I-03 (v4-4 review) — the **ONE evidence construction** for a record.
+ *
+ * Before this, `projectRefCard` (the stream card) and `l1/panels.ts#paintRefs` (the
+ * L1 panel) each built their own evidence rows — two implementations with a real
+ * drift surface. Both now read this single function (the card joins the pair, the
+ * panel renders `glyph + label`), so the evidence layer has exactly one source.
+ */
+export function refEvidenceRows(record: RefRecord): readonly (readonly [string, string])[] {
+  const f = record.facts;
+  const rows: Array<readonly [string, string]> = [
+    ['稳定选择器', f.selector || '（无）'],
+    ['语义路径', f.semanticPath || '（无）'],
+    ['文本摘要', f.textDigest || '（无）'],
+    ['捕获时间', f.capturedAt ? new Date(f.capturedAt).toISOString() : '（未知）'],
+  ];
+  return Object.freeze(rows.map((r) => Object.freeze(r)));
+}
+
+/**
+ * ADR-V4-035 decision 1 — **exactly three projection points** (the number must not
+ * grow). The L0 chip / badge and the L1 evidence panel are **read-only views of the
+ * same single projection** (`refEvidenceRows` / `projectRefCard`), not a fourth
+ * construction point; this constant is the machine-readable form of that claim and
+ * is asserted by `test/ref-pick-wiring.test.ts`.
+ */
+export const REF_PROJECTION_POINTS = Object.freeze([
+  'page-badge', // pick-layer.js — byte-pinned, zero change
+  'stream-ref-card', // cards/ref.ts — carries the ordinal, the evidence layer and both recovery paths
+  'statusbar-risk-chip', // the「引用失效」risk chip (同一 store 的 stale() 派生)
+] as const);
+
 /** The pure projection of a record (see {@link RefCardProjection}). */
 export function projectRefCard(record: RefRecord): RefCardProjection {
   const f = record.facts;
@@ -88,12 +120,7 @@ export function projectRefCard(record: RefRecord): RefCardProjection {
     refState: valid ? 'valid' : 'stale',
     refLabel: `${ordinalGlyph(f.refId)} ${f.selector || f.semanticPath || '（引用）'}`,
     ...(valid ? {} : { refWhy: record.readableReason ?? '引用不可用（按失效处理）' }),
-    evidence: Object.freeze([
-      evidenceRow('选择器', f.selector || '（无）'),
-      evidenceRow('语义路径', f.semanticPath || '（无）'),
-      evidenceRow('文本摘要', f.textDigest || '（无）'),
-      evidenceRow('捕获时间', f.capturedAt ? new Date(f.capturedAt).toISOString() : '（未知）'),
-    ]),
+    evidence: Object.freeze(refEvidenceRows(record).map(([tag, value]) => evidenceRow(tag, value))),
   });
 }
 

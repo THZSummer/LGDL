@@ -53,16 +53,16 @@ export interface PickInputDeps {
 export interface PickInputHandle {
   /** Trigger 1 — the panel is present (idempotent; called after every state read). */
   ensureInjected(): Promise<void>;
-  /** Trigger 2 — the「从页面拾取」entry. */
-  startPick(): Promise<void>;
   /**
    * V4-4 TASK-806 (ADR-V4-038) — the **ONLY production entry** to a page-side pick.
    *
    * The former panel-side `#l0-pick` button is retired (a one-shot interaction does
    * not belong in a toolbar / status bar), so every in-panel recovery path (the
    * `ref` card's「重新拾取」and the recommendation chip) goes through this one
-   * wrapper. `startPick()` is only ever called from here — a wiring gate asserts it,
-   * which is what makes a second bypass impossible rather than merely discouraged.
+   * wrapper. The page-side pick body is a module-local function with exactly one
+   * call site (inside this method) — a wiring gate asserts it, and
+   * `startPick()` is NOT part of the public handle at all (I-05: the old member was
+   * an un-gated bypass for any external caller).
    */
   requestPick(): Promise<void>;
   /** AC-CONV-1: report the complete judge env, still fail-closed while incomplete. */
@@ -321,8 +321,10 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
   /**
    * V4-4 TASK-806 — the page-side pick body. Declared as a local function (not an
    * object method) so it has exactly **one** call site: {@link requestPick}. The
-   * wiring gate counts the two occurrences of `startPick(` in this file
-   * (declaration + that one call) and fails on a third, i.e. on any bypass.
+   * wiring gate counts the occurrences of `startPick(` in this file (declaration +
+   * that one call) and fails on a third, i.e. on any bypass. I-05 (v4-4 review): it
+   * is deliberately NOT exported on the handle — the public surface has exactly one
+   * way in.
    */
   async function startPick(): Promise<void> {
     const ok = await inject();
@@ -347,10 +349,10 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
       }
       await inject();
     },
-    startPick,
     async requestPick() {
       // The thin, single wrapper (ADR-V4-038 §2). Behaviour is byte-identical to the
-      // v3-4 `startPick()`; what changes is that it is now the only way in.
+      // v3-4 `startPick()`; what changes is that it is now the only way in — and the
+      // body is no longer reachable through the public handle (I-05).
       await startPick();
     },
     judgeEnv,

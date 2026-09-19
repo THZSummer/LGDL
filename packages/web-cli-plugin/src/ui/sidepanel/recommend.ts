@@ -216,10 +216,19 @@ export function candidateRules(input: RecommendInput): readonly NextstepCandidat
   return Object.freeze(out);
 }
 
-/** Drop a candidate every chip of which the policy layer would deny. */
+/**
+ * Drop a candidate that carries **any** denied `next` chip.
+ *
+ * FR-CHAT-064 / C3 (v4-4 review): the old predicate used `some`, i.e. a candidate
+ * survived as long as ONE chip was allowed — the denied chip still shipped and
+ * rendered, which is exactly the「推荐被拦动作」the requirement forbids. The
+ * judgement is now **per candidate, fail-closed**: one deniable turn-command
+ * invalidates the whole card (a partial card would still guide the user into the
+ * denied command). Local acts (`repick` / `describe`) are not turn commands and are
+ * never in the deny set by construction.
+ */
 function passesSafety(c: NextstepCandidate, denied: ReadonlySet<string>): boolean {
-  if (denied.size === 0) return true;
-  return c.chips.some((chip) => chip.act !== 'next' || !denied.has(chip.text));
+  return c.chips.every((chip) => chip.act !== 'next' || !denied.has(chip.text));
 }
 
 /**

@@ -102,7 +102,11 @@ export function createRefCard(view: CardView, deps: CardDeps): HTMLLIElement {
     btn.type = 'button';
     btn.setAttribute('data-act', act);
     btn.textContent = text;
-    btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, act));
+    // BLOCK-03 (v4-4 review):「改用描述」is a card-LOCAL disclosure, not a business
+    // action — it only toggles the collapsed fallback below (the listener is attached
+    // after the loop). Routing it through `onCardAction` used to reveal a SECOND
+    // fallback input (「另铸一张 askuser 文本卡」) and left two coexisting owners.
+    if (act === 'repick') btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, act));
     row.appendChild(btn);
   }
   col.appendChild(row);
@@ -120,6 +124,9 @@ export function createRefCard(view: CardView, deps: CardDeps): HTMLLIElement {
   submit.type = 'submit';
   submit.textContent = '按描述继续';
   fallback.append(input, submit);
+  // BLOCK-03: the submission has a REAL handler (`handleCardAction('describe-submit')`
+  // → the existing text-ask fallback card is settled with the description). Before,
+  // the dispatched action had no branch and fell into the「将在 v4-4 落地」placeholder.
   fallback.addEventListener('submit', (ev) => {
     ev.preventDefault();
     const value = input.value.trim();

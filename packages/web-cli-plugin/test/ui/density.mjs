@@ -859,6 +859,28 @@ async function stageC(cdp) {
       `非默认=${registered} 登记格存在=${cell !== undefined} 违规命中=${produced} 实测=${JSON.stringify(cell?.delta.violations ?? null)} 登记=${JSON.stringify(entry?.expectedViolations ?? [])}`,
     );
   }
+  // ── I-07（V4-4 审查修复轮）：登记格的**溯源门槛** ─────────────────────────────
+  // 机制漏洞：登记表原先只要求「cells 里有一条与 defaultExpectation 不同的记录」——
+  // 于是「把任意新增控件登记进 cells」即可通过。I-07 给每个非默认登记格加上必填溯源字段
+  // （rulingId / rulingDate / approvedBy / reason≥40）；缺任一 ⇒ FAIL（登记≠自我放宽）。
+  const registryProblems = [];
+  for (const [label, entry] of Object.entries(RISK_INCREMENT_REGISTRY.cells ?? {})) {
+    const isDefault = JSON.stringify(entry ?? {}) === JSON.stringify(defaultExpectation);
+    if (isDefault) continue; // 默认格（0 违规 ∧ 0 漂移）无需裁决溯源
+    if (typeof entry?.rulingId !== 'string' || entry.rulingId.trim().length === 0) registryProblems.push(`${label}: rulingId 必填`);
+    if (typeof entry?.rulingDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(entry.rulingDate)) registryProblems.push(`${label}: rulingDate 必须为 YYYY-MM-DD`);
+    if (typeof entry?.approvedBy !== 'string' || entry.approvedBy.trim().length === 0) registryProblems.push(`${label}: approvedBy 必填`);
+    if (typeof entry?.reason !== 'string' || entry.reason.trim().length < 40) registryProblems.push(`${label}: reason 必填且 ≥40 字符`);
+  }
+  // 反证：去掉一个必填字段 ⇒ 同一判据必须能红（判据不是恒真）。
+  const forgedCells = { 'risk(forged)@400': { expectedViolations: [], baseWindowDrift: { clickables: 0, lines: 0, blocks: 0, chars: 0 }, driftKeys: ['x'] } };
+  const forgedProblems = Object.entries(forgedCells).filter(([, e]) => typeof e.rulingId !== 'string').length;
+  check(
+    'I-07 登记格溯源门槛：每个非默认登记必须带 rulingId / rulingDate / approvedBy / reason（缺失即 FAIL）',
+    registryProblems.length === 0 && forgedProblems === 1,
+    registryProblems.length ? registryProblems.join(' | ') : `缺字段的非默认登记必须被判红（反证 forgedProblems=${forgedProblems}）`,
+  );
+
   // V4-4 TASK-806 (FR-V3-014 等价重锚): the panel-side `#l0-pick` is retired, so
   //「未授权 / 探测中不得有可点的拾取入口」is now proven structurally (the element is
   // absent) plus the readable path (the settings-view guidance + the「页面侧零注入」

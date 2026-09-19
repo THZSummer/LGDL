@@ -115,9 +115,24 @@ export interface SystemAppendResult {
   readonly channel: SystemChannelState;
 }
 
-/** The dedupe key: kind + normalized text (whitespace-collapsed). */
-export function systemDedupeKey(kind: SystemEventKind, text: string): string {
-  return `${kind}:${text.replace(/\s+/g, ' ').trim()}`;
+/**
+ * The dedupe key: kind + **the fact identity** + normalized text.
+ *
+ * I-01 (v4-4 review): the key used to be `kind:text`, so a batch that writes the
+ * **same copy for N different facts** (the superseded-ask traces) collapsed to ONE
+ * row — the v4-3「每卡一行」留痕 semantics regressed. `factId` is the business
+ * identity of the fact (`cardId` / `requestId` / `refId` / the ref ordinal), so:
+ *   · the SAME fact repeated inside the window is still de-duplicated (the window's
+ *     original purpose — a steady-state fact must not flood);
+ *   · N DIFFERENT facts always get N rows, even when they share the copy.
+ * A caller with no business identity (a pure status copy) passes nothing and keeps
+ * the original `kind:text` key verbatim.
+ */
+export function systemDedupeKey(kind: SystemEventKind, text: string, factId?: string): string {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  return factId === undefined || factId.length === 0
+    ? `${kind}:${normalized}`
+    : `${kind}:${factId}:${normalized}`;
 }
 
 function pruneRecent(recent: readonly DedupeEntry[], at: number): DedupeEntry[] {
@@ -139,10 +154,11 @@ export function appendSystem(
   kind: SystemEventKind,
   text: string,
   at: number,
+  factId?: string,
 ): SystemAppendResult {
   // ① 净化 — fail-closed; a leak throws at build time (never a silent strip).
   assertStreamPlaintext(text);
-  const key = systemDedupeKey(kind, text);
+  const key = systemDedupeKey(kind, text, factId);
   const recent = pruneRecent(channel.recent, at);
   const window = pruneWindow(channel.window, at);
 
@@ -203,13 +219,29 @@ export function continuedSystemText(text: string): string {
 export const SYSTEM_COPY = Object.freeze({
   /** Navigation invalidation — the false→true jump (`chat-state.ts`). */
   navInvalidated: '页面已导航：会话上下文失效，请重新授权/重连（不静默续接）',
-  /** Probe phase change — the steady-state variant never repeats (R2 semantics kept). */
+  /**
+   * Probe / discovery phase change — appended on a real phase change only (the
+   * steady-state variant never repeats). Wired by `sidepanel.ts#renderDiscoveryNotice`
+   * (I-05: the constant used to be declared-but-unused; the probe channel now reads it).
+   */
   probePhase: '站点探测状态变化：已按相位变化登记（稳态不重复）',
-  /** Session switch separator (mirrors `stream-model.ts#sessionSeparatorLabel`). */
+  /**
+   * Session switch separator prefix (single source with
+   * `stream-model.ts#sessionSeparatorLabel`; the session row is appended through the
+   * ONE system channel — I-02).
+   */
   sessionSwitched: '会话已切换',
-  /** A system row was suppressed by the rate cap (never silent — status bar reads the count). */
-  dropped: '部分系统事件被速率上限丢弃（计数见状态栏）',
+  /** A system row was suppressed by the rate cap (never silent — the status bar reads it). */
+  dropped: '部分系统事件被限速丢弃（不静默；计数见状态栏）',
 } as const);
+
+/**
+ * The readable status-bar suffix for the rate-capped rows (I-05: `SYSTEM_COPY.dropped`
+ * is the single copy source; the bar used to carry a second inline literal).
+ */
+export function droppedSystemText(dropped: number): string {
+  return `${SYSTEM_COPY.dropped}（本轮 ${dropped} 条）`;
+}
 
 /**
  * The reference failure row (shim E2). `why` is the judge's readable reason — a

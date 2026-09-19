@@ -912,6 +912,15 @@ export const REVERSE_PROOF_EXCEPTIONS = [
     reason: '同上（`check("⑥ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出")` 在门禁内断言 FAIL 段文本）。',
   },
   {
+    id: 'in-gate-V4-4-RF · recommendation.mjs / l0.mjs / density.mjs（v4-4 审查修复轮 BLOCK-01~03 + I-07）',
+    reason:
+      'V4-4 审查修复轮把六条新断言落在**既有** Chromium 门禁内：BLOCK-01 产品路径推荐卡（`test/ui/recommendation.mjs` ⑪，驱动源是 SW 发往面板的真实 `ref-captured`，断言里不调用测试 seam）+' +
+      'BLOCK-03 兜底唯一与真实结算（⑫ 两条）、BLOCK-02 结构宿主判据（`test/ui/l0.mjs` ① 两条，查 DOM 而非属性）、I-07 登记格溯源门槛（`test/ui/density.mjs`）。' +
+      'FAIL 段文本由门禁**自身**在同一 Chromium 进程内断言（与 `check(...)` 同源），从外部再驱动一次需要每个 RP 一次 Chromium 运行（内存 ~1.5 GB、NFR-V3-012 串行纪律）；' +
+      '登记为「in-gate 形态」：模式断言**必须存在于门禁源码中**（R4b 逐条机器核对）。未新增 Chromium 门禁文件（`CHROMIUM_GATES.length === 9` 与 `EXPECTED_AUDITED_FILES` 均不动）。' +
+      '两条**真实两段证伪**（断开接线 / 断开 describe-submit 分支）以 dist 字节扰动实跑，日志见 /tmp/opencode/v4-gate-logs/v4-4-reviewfix/。',
+  },
+  {
     id: 'in-gate-D1 · l1.mjs',
     reason: '同上（l1.mjs ⑧ D1 反证在门禁内断言「判据不是恒真」，FAIL 段文本随断言名固定）。',
   },
@@ -1120,7 +1129,14 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     ['test/ui/page-input.mjs', /I-01② 前置（静止）：窗口期内不会再发 probe-changed/],
     ['test/ui/page-input.mjs', /F5：同 origin 切 tab 的窗口内，注入必须落在\*\*活动\*\* tab/],
     ['test/ui/page-input.mjs', /F4：撤销路径\*\*先\*\*下发去授权事实/],
-    ['test/ui/page-input.mjs', /F4：\*\*teardown 丢失\*\*（被夹具吞掉）的 bound tab 仍在收到 env\(false\) 后自行卸载/],
+    // V4-4 审查修复轮（BLOCK-01 / BLOCK-02 / BLOCK-03 / I-07）—— 每条新断言都带着自己的
+    // FAIL 形态（两段证伪原文见 build.md「review 修复轮」；in-gate 形态沿用同一纪律）。
+    ['test/ui/recommendation.mjs', /⑪ 产品路径（不经 seam）：生产者真实接线 ⇒ 流内出现 nextstep 卡/],
+    ['test/ui/recommendation.mjs', /⑫ 提交描述 ⇒ 真实结算/],
+    ['test/ui/recommendation.mjs', /⑫ 兜底输入唯一/],
+    ['test/ui/l0.mjs', /① 结构宿主注册表判据 = 0 问题/],
+    ['test/ui/l0.mjs', /① 已退役容器零 DOM 残留/],
+    ['test/ui/density.mjs', /I-07 登记格溯源门槛/],
   ];
   for (const [file, pattern] of inGate) {
     const text = readFileSync(resolve(PKG, file), 'utf8');

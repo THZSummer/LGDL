@@ -34,7 +34,7 @@ import {
   isRefRound,
   lastOpenCardId,
   openAskEntries,
-  switchStreamSession,
+  openSessionSegment,
 } from './stream-model.js';
 import type { AskCancelReason, OpenAskEntry, StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
 import { ASK_COPY, cancelSystemLine, label } from './stream-plaintext.js';
@@ -343,19 +343,33 @@ function cardIdForRequest(stream: StreamState, requestId: string | undefined): s
  * additionally runs the text through {@link appendSystem}, whose ① step is the same
  * fail-closed scan — so a pasted URL / page text throws **before** a row exists.
  */
-function systemRow(state: SidepanelState, at: number, text: string, kind: SystemEventKind = 'notice'): SidepanelState {
-  const { channel, text: accepted, continued, rateLimited } = appendSystem(state.systemChannel, kind, text, at);
+function systemRow(
+  state: SidepanelState,
+  at: number,
+  text: string,
+  kind: SystemEventKind = 'notice',
+  factId?: string,
+): SidepanelState {
+  const { channel, text: accepted, continued } = appendSystem(state.systemChannel, kind, text, at, factId);
   const next: SidepanelState = { ...state, systemChannel: channel };
   if (accepted === null) return next;
   const body = continued ? continuedSystemText(accepted) : accepted;
-  void rateLimited;
   return push(next, { kind: 'system', ts: at, payload: { text: body, label: label([body]) } });
 }
 
-/** One system row per superseded card — the「不静默」half of the R1 upgrade. */
+/**
+ * One system row per superseded card — the「不静默」half of the R1 upgrade.
+ *
+ * I-01 (v4-4 review): each row carries the **card's own identity**
+ * (`cardId` / `requestId`) as its dedupe fact id, so N superseded cards always
+ * produce N rows even though they share one copy string. Before this, the window
+ * collapsed「2 open ask + session switch」into a single「superseded」row.
+ */
 function traceSuperseded(state: SidepanelState, at: number, superseded: readonly OpenAskEntry[]): SidepanelState {
   let out = state;
-  for (let i = 0; i < superseded.length; i += 1) out = systemRow(out, at, ASK_COPY.supersededSystem, 'decision');
+  for (const entry of superseded) {
+    out = systemRow(out, at, ASK_COPY.supersededSystem, 'decision', entry.cardId ?? entry.requestId);
+  }
   return out;
 }
 
@@ -395,9 +409,10 @@ function settleTurnEnd(state: SidepanelState, at: number, reason: 'timeout' | 'a
     const { state: stream, closed } = closeOpenAsks(state.stream, at, reason, (entry) => !isRefRound(entry.requestId));
     out = { ...out, stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP) };
     const line = cancelSystemLine(reason);
-    if (line) for (let i = 0; i < closed.length; i += 1) out = systemRow(out, at, line, 'turn');
+    // I-01: one row per settled card (the card id is the dedupe fact id).
+    if (line) for (const cardId of closed) out = systemRow(out, at, line, 'turn', cardId);
   }
-  for (let i = 0; i < owned.length; i += 1) out = systemRow(out, at, ASK_COPY.turnEndRefPending, 'turn');
+  for (const entry of owned) out = systemRow(out, at, ASK_COPY.turnEndRefPending, 'turn', entry.cardId);
   return out;
 }
 
@@ -406,7 +421,27 @@ function closeOpenAskCards(state: SidepanelState, at: number, reason: AskCancelR
   const { state: stream, closed } = closeOpenAsks(state.stream, at, reason);
   let out: SidepanelState = { ...state, stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP) };
   const line = cancelSystemLine(reason);
-  if (line) for (let i = 0; i < closed.length; i += 1) out = systemRow(out, at, line, 'turn');
+  // I-01: one row per settled card (N cards ⇒ N rows, never a collapsed one).
+  if (line) for (const cardId of closed) out = systemRow(out, at, line, 'turn', cardId);
+  return out;
+}
+
+/**
+ * I-02 (v4-4 review) — the session switch's separator row goes through the **single
+ * channel** (`systemRow`) exactly like every other system fact.
+ *
+ * `switchStreamSession` (the pure model API) used to `appendEvent({kind:'system'})`
+ * itself — a second construction point that bypassed the dedupe window / rate cap /
+ * `dropped` accounting. The product path now opens the segment with
+ * {@link openSessionSegment} and appends the readable row here; the copy prefix is
+ * `SYSTEM_COPY.sessionSwitched` (single source with the label factory).
+ */
+function openSessionWithRow(state: SidepanelState, at: number, sessionId: string, label: string): SidepanelState {
+  const stream = openSessionSegment(state.stream, sessionId);
+  let out: SidepanelState = stream === state.stream ? state : { ...state, stream };
+  if (stream === state.stream) return out;
+  if (state.stream.events.length === 0) return out; // no separator for an empty log
+  out = systemRow(out, at, `${SYSTEM_COPY.sessionSwitched}：${label}`, 'session', sessionId);
   return out;
 }
 
@@ -569,11 +604,12 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
       if (nextSession && nextSession !== state.stream.sessionId && openAskEntries(state.stream).length > 0) {
         base = closeOpenAskCards(state, at, 'superseded');
       }
-      let stream = base.stream;
-      if (nextSession && nextSession !== stream.sessionId) {
-        stream = switchStreamSession(stream, nextSession, action.sessionLabel ?? nextSession);
+      if (nextSession && nextSession !== base.stream.sessionId) {
+        // I-02: the segment is opened by the pure model API, the separator row is
+        // appended through the ONE system channel (`openSessionWithRow`).
+        base = openSessionWithRow(base, at, nextSession, action.sessionLabel ?? nextSession);
       }
-      if (stream !== base.stream) base = { ...base, stream };
+      const stream = base.stream;
       // Duplicate-history guard: a segment that already carries real rows is
       // re-activated, never re-appended (switch-back must not duplicate).
       const segmentHasRows = stream.events.some((e) => e.sessionId === stream.sessionId && e.kind !== 'system');
@@ -585,7 +621,8 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
       return working;
     }
     case 'stream-session':
-      return { ...state, stream: switchStreamSession(state.stream, action.sessionId, action.label ?? action.sessionId) };
+      // I-02: same single-channel routing as the `history` switch above.
+      return openSessionWithRow(state, at, action.sessionId, action.label ?? action.sessionId);
     case 'notice':
       // V4-4 TASK-803 补完（R2 / KL-V44-01 裁决② / ADR-V4-036 §5·矩阵「`#notice`」行）——
       // the legacy **overwrite slot** is merged into the single append-only channel.
@@ -615,7 +652,12 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
           chips,
           nextstepActs: action.acts.slice(0, 3),
           ...(action.rule ? { nextstepRule: action.rule } : {}),
-          label: label([action.rule ?? '下一步推荐']),
+          // ⚠️ The rule id must NOT go through `label`: `risk-recovery` contains the
+          // `sk-` + 8-char shape the secret scanner flags, and the label is a
+          // user-facing string anyway (BLOCK-01 review 修复轮实测：产品路径产出的
+          // risk-recovery 卡在这里抛错 ⇒ 卡不可达)。The id stays machine-readable in
+          // `nextstepRule` (never persisted — it is not in `DIGEST_FIELDS`).
+          label: label(['下一步推荐']),
         },
       });
     }

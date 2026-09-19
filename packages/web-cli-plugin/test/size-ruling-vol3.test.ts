@@ -14,6 +14,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+// I-06（V4-4 审查修复轮）：作者确认占位的机器判据需要读台账 JSON。
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   PENDING_ABSOLUTE_CAP,
   SIDEPANEL_CEILING_CAP_RECORD,
@@ -35,6 +39,9 @@ import {
   type FeatureCumulativeStopWorkRule,
   type SizeReRegistration,
 } from './size-baseline.js';
+
+/** 本测试文件目录（台账路径以包根为基准）。 */
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 test('V3-VOL-3: the Feature-level 40% cumulative stop-work line is explicitly REVOKED (registered, not silently bypassed)', () => {
   // ── 裁决记录本身 ──────────────────────────────────────────────────────────
@@ -71,7 +78,7 @@ test('V3-VOL-3: the Feature-level 40% cumulative stop-work line is explicitly RE
 });
 
 test('V3-VOL-3 REVERSE PROOF: restoring the 40% cumulative line FAILS on the real artifact 375,102 B (+40.75%)', () => {
-  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 465_277, '反证必须打在**当前真实产物**上（v4-4 R2 裁决落地轮重登记）');
+  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 478_163, '反证必须打在**当前真实产物**上（v4-4 审查修复轮重登记）');
   // ① 回退裁决（恢复 40% 累计线原样：enforced=true）⇒ 必须 FAIL
   const revived: FeatureCumulativeStopWorkRule = {
     ...SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE,
@@ -201,14 +208,14 @@ test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）——
 test('V3-VOL-3 ⑥: 判定的 min() 优先级（绝对上限 = 硬墙，5% 公式 = 轮内软纪律）', () => {
   // 现网：min(563,200, floor(465,277 × 1.05) = 488,540) = 488,540（软纪律更紧）。
   const live = evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES);
-  assert.equal(live.ceilingBytes, 488_540, '生效上限 = min(绝对上限, 5% 公式)');
+  assert.equal(live.ceilingBytes, 502_071, '生效上限 = min(绝对上限, 5% 公式)');
   assert.equal(live.ceilingBytes, Math.min(563_200, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
   // 硬墙比公式紧时必须取硬墙：给一个极小的绝对上限，判定必须跟着收紧。
   // （用合成的 marker 驱动纯函数，不改动现行标记。）
-  const tight = evaluateSidepanelSize(500_000);
+  const tight = evaluateSidepanelSize(530_000);
   assert.equal(tight.ok, false, '5% 公式之上必须 FAIL（轮内软纪律）');
-  assert.equal(evaluateSidepanelSize(488_540).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
-  assert.equal(evaluateSidepanelSize(488_541).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
+  assert.equal(evaluateSidepanelSize(502_071).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
+  assert.equal(evaluateSidepanelSize(502_072).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
 });
 
 test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PASS）', () => {
@@ -220,7 +227,7 @@ test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PA
   assert.equal(Math.min(absWall, formula), absWall, '取小 ⇒ 硬墙生效');
   assert.equal(300_001 <= Math.min(absWall, formula), false, '超过绝对上限必须 FAIL（硬墙生效）');
   // ② ≤ 绝对上限但 > 5% 公式 ⇒ FAIL（软纪律仍生效）。
-  const softCase = 488_622; // > floor(465,277 × 1.05) = 488,540，仍 < 563,200
+  const softCase = 502_128; // > floor(478,163 × 1.05) = 502,071，仍 < 563,200
   assert.ok(softCase <= PENDING_ABSOLUTE_CAP.absoluteCeilingBytes!);
   assert.equal(evaluateSidepanelSize(softCase).ok, false, '≤ 绝对上限但 > 5% 公式必须 FAIL（软纪律生效）');
   // ③ ≤ 5% 公式但 > 绝对上限 ⇒ FAIL（硬墙优先）——用假 marker 驱动同一公式。
@@ -246,9 +253,56 @@ test('V3-VOL-3 历史保真：各轮 reason 里的「40% 停工线」逐字保�
   assert.match(SIDEPANEL_BASELINE_META.reason, /40% 停工线/);
   assert.match(SIDEPANEL_BASELINE_META.reason, /\+36\.13%/, 'v3-4 轮的 +36.13% 历史登记保留');
   // 撤销只许追加：HISTORY / TIMELINE 与登记链条数值不得因本次裁决变动。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_277, 'v4-4 R2 裁决落地轮（KL-V44-01 显式重锚）重登记后的当前基线');
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 478_163, 'v4-4 审查修复轮重登记后的当前基线');
   assert.equal(
     SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1].baselineAfterBytes,
     SIDEPANEL_BASELINE_BYTES,
+  );
+});
+
+// ── I-06（V4-4 审查修复轮）：作者确认占位的**机器判据** ────────────────────────
+/**
+ * `docs/v4-supersession-ledger.json#v3Vol3Closeout.authorConfirmation` 的占位规则此前
+ * **没有任何门禁读取**：R2 前移 `newBaselineBytes` 走「作者确认占位」重登时，只要不跨档即合法，
+ * 占位状态本身可以任意（甚至缺失）。本用例把占位纳入机核（I-06）：
+ *   · `resolved:true` ⇒ `authorConfirmation` **必须存在**；
+ *   · `status` 必须 ∈ {pending-author-line, confirmed, overridden-by-author}（非法值 / 缺失 ⇒ FAIL）；
+ *   · `date` 必须是 YYYY-MM-DD；`pending-author-line` 时必须写明占位理由（非空）。
+ * 反证：把 status 改成非法值 ⇒ 同一判据必须抛出。
+ */
+test('I-06: PENDING_ABSOLUTE_CAP.resolved=true ⇒ 作者确认必须存在且 status 合法（占位规则机核）', () => {
+  const ledgerPath = resolve(HERE, '../../docs/v4-supersession-ledger.json');
+  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8')) as {
+    v3Vol3Closeout?: { authorConfirmation?: { status?: string; date?: string; conclusion?: string } };
+  };
+  const AC_STATUSES = ['pending-author-line', 'confirmed', 'overridden-by-author'] as const;
+  const evaluate = (marker: { resolved: boolean }, closeout: typeof ledger.v3Vol3Closeout): string[] => {
+    const problems: string[] = [];
+    if (!marker.resolved) return problems; // 未闭合不要求确认（占位规则只约束闭合态）
+    const ac = closeout?.authorConfirmation;
+    if (!ac) {
+      problems.push('resolved=true 但 authorConfirmation 缺失（占位规则无机器判据 = I-06 的缺陷形态）');
+      return problems;
+    }
+    if (!AC_STATUSES.includes(ac.status as never)) {
+      problems.push(`authorConfirmation.status="${String(ac.status)}" 不在 ${JSON.stringify(AC_STATUSES)} 内`);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ac.date ?? ''))) problems.push('authorConfirmation.date 必须为 YYYY-MM-DD');
+    if (ac.status === 'pending-author-line' && (ac.conclusion ?? '').trim().length < 20) {
+      problems.push('pending-author-line 必须写明占位理由（conclusion ≥20 字符）');
+    }
+    return problems;
+  };
+  assert.equal(PENDING_ABSOLUTE_CAP.resolved, true, '前置：v4-4 收口 ⇒ 必须已闭合');
+  assert.deepEqual(evaluate(PENDING_ABSOLUTE_CAP, ledger.v3Vol3Closeout), [], '真实台账的作者确认占位必须合法');
+  // 反证：非法 status / 缺失 authorConfirmation 都必须 FAIL。
+  assert.ok(
+    evaluate(PENDING_ABSOLUTE_CAP, { authorConfirmation: { status: 'half-done', date: '2026-09-19' } }).length > 0,
+    '非法 status 必须被判红',
+  );
+  assert.ok(evaluate(PENDING_ABSOLUTE_CAP, {}).length > 0, 'authorConfirmation 缺失必须被判红');
+  assert.ok(
+    evaluate(PENDING_ABSOLUTE_CAP, { authorConfirmation: { status: 'pending-author-line', date: '2026/09/19', conclusion: '作者确认占位：占位理由足够长以通过判据。' } }).some((p) => p.includes('YYYY-MM-DD')),
+    '非法日期必须被判红',
   );
 });

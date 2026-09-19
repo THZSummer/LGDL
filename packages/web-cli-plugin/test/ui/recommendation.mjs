@@ -296,6 +296,102 @@ async function main() {
       check(`⑨ ${width}px 无横向溢出`, ov <= 1, String(ov));
     }
     check('⑨ 无未捕获页面异常', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
+
+    // ══ ⑪ BLOCK-01（V4-4 审查修复轮）：**产品路径**（不经 seam）════════════════
+    // 断言的驱动源是 SW 发往面板的真实 `ref-captured` 报文（与页面侧桥同形），面板走
+    // `acceptCapture`（真实生产函数）⇒ ref 卡 + 「拾取后/引用失效后」推荐时机；断言里
+    // **不调用** `window.__v3.testing.*`。
+    console.log('\n▶ ⑪ BLOCK-01 产品路径：真实 ref-captured ⇒ ref 卡 + nextstep 卡（不经 seam）');
+    // 生产者有 `NEXTSTEP_MIN_INTERVAL_MS = 10s` 的真实反抖间隔（ADR-V4-037）；前面的 seam
+    // 步骤刚铸过卡，这里按**产品规则**等待窗口过去，而不是绕过它。
+    await sleep(10500);
+    const productDrive = await evaluate(
+      sw.cdp,
+      `chrome.runtime
+         .sendMessage({
+           kind: 'ref-captured',
+           facts: {
+             selector: 'div.__broken:nth-of-type(9) > span.__gone:nth-of-type(7)',
+             semanticPath: 'body › div › span',
+             textDigest: '产品路径引用目标',
+             origin: 'https://v4-4.test',
+             documentId: 'doc-1', navSeq: 1, declarationHash: '', capturedAt: Date.now(),
+           },
+           resolution: { status: 'missing' },
+         })
+         .then(() => 'sent')
+         .catch((e) => 'ERR:' + String(e))`,
+    );
+    await sleep(700);
+    const productState = await evaluate(
+      cdp,
+      `(() => {
+         const refs = [...document.querySelectorAll('#stream [data-msg-type="ref"]')];
+         const cards = [...document.querySelectorAll('#stream [data-msg-type="nextstep"]')];
+         const card = cards.at(-1) ?? null;
+         return JSON.stringify({
+           refCards: refs.length,
+           nextstepCards: cards.length,
+           rule: card ? card.getAttribute('data-nextstep-rule') : null,
+           chips: card ? [...card.querySelectorAll('button.next-chip')].map((c) => c.textContent) : [],
+           last: window.__v3.testing.lastRecommend(),
+         });
+       })()`,
+    );
+    const product = JSON.parse(productState);
+    check(
+      '⑪ 产品路径（不经 seam）：真实 ref-captured ⇒ 流内出现 ref 卡',
+      product.refCards >= 1,
+      `${productDrive} | ${productState}`,
+    );
+    check(
+      '⑪ 产品路径（不经 seam）：生产者真实接线 ⇒ 流内出现 nextstep 卡（risk-recovery）',
+      product.nextstepCards >= 1 && product.rule === 'risk-recovery',
+      `${productState} | last=${JSON.stringify(product.last)}`,
+    );
+    check('⑪ 产品路径推荐卡带可点 chip（进入实时交互面）', product.chips.length >= 1, productState);
+
+    // ══ ⑫ BLOCK-03（V4-4 审查修复轮）：失效卡「改用描述」= 唯一兜底 + 真实结算 ══
+    console.log('\n▶ ⑫ BLOCK-03：「改用描述」兜底唯一且提交真实结算（不再落占位）');
+    const describeState = await evaluate(
+      cdp,
+      `(() => {
+         const stale = [...document.querySelectorAll('#stream [data-msg-type="ref"][data-ref-state="stale"]')].at(-1);
+         if (!stale) return JSON.stringify({ found: false });
+         const describe = stale.querySelector('[data-act="describe"]');
+         describe.click();
+         const fallback = stale.querySelector('.ref-fallback');
+         const askFallbackBefore = document.querySelectorAll('#ask-fallback').length;
+         const openAfterClick = fallback.hidden === false;
+         // 「两个并存兜底输入」回归：点击后不得**新增**兜底输入所有者。
+         const askFallbackAfter = document.querySelectorAll('#ask-fallback').length;
+         const askFallbackCards = askFallbackAfter - askFallbackBefore;
+         const existingAskFallback = document.querySelectorAll('#ask-fallback').length;
+         const input = fallback.querySelector('input');
+         input.value = '这个按钮是提交按钮';
+         fallback.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+         const answeredCards = [...document.querySelectorAll('#stream [data-msg-type="askuser"]')].filter(
+           (c) => (c.textContent || '').includes('这个按钮是提交按钮'),
+         );
+         const answered = answeredCards.length;
+         const answeredState = answeredCards.map((c) => c.getAttribute('data-answered') ?? '').join(',');
+         const placeholder = [...document.querySelectorAll('#stream [data-msg-type="system"]')].some((r) =>
+           (r.textContent || '').includes('将在 v4-3 / v4-4 落地'),
+         );
+         return JSON.stringify({ found: true, openAfterClick, askFallbackCards, existingAskFallback, answered, answeredState, placeholder });
+       })()`,
+    );
+    await sleep(250);
+    const describe = JSON.parse(describeState);
+    check('⑫ 前置：失效卡存在且「改用描述」就地展开卡内兜底', describe.found === true && describe.openAfterClick === true, describeState);
+    check('⑫ 兜底输入唯一（「改用描述」不再**新增**兜底输入所有者）', describe.askFallbackCards === 0, describeState);
+    check(
+      '⑫ 提交描述 ⇒ 真实结算（描述文本出现在已答的兜底卡上，不是死控件）',
+      describe.answered >= 1,
+      describeState,
+    );
+    check('⑫ 不再落「将在 v4-3 / v4-4 落地」占位通知', describe.placeholder === false, describeState);
+
     cdp.close();
 
     const runtime = counts().passes;

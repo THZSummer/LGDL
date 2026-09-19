@@ -983,30 +983,9 @@ export function decisionHistoryLabel(n: number): string {
  * projection ad hoc (which is how a second, drifting caliber would appear).
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** One system-event row as the status bar / digest needs it (no body, no DOM). */
-export interface SystemEventRow {
-  readonly cardId: string;
-  readonly ts: number;
-  readonly text: string;
-}
-
-/** Every `system` row of the projection, in stream order (V4-4 TASK-802). */
-export function systemEventRows(views: readonly CardView[]): readonly SystemEventRow[] {
-  return Object.freeze(
-    views
-      .filter((v) => v.kind === 'system')
-      .map((v) => Object.freeze({ cardId: v.cardId, ts: v.ts, text: v.payload.text ?? v.payload.label ?? '' })),
-  );
-}
-
 /** Every `ref` card of the projection, in stream order (V4-4 TASK-801). */
 export function refCards(views: readonly CardView[]): readonly CardView[] {
   return Object.freeze(views.filter((v) => v.kind === 'ref'));
-}
-
-/** Every `nextstep` card of the projection, in stream order (V4-4 TASK-805). */
-export function nextstepCards(views: readonly CardView[]): readonly CardView[] {
-  return Object.freeze(views.filter((v) => v.kind === 'nextstep'));
 }
 
 /** The usable / unusable reference split the recommendation producer reads (①). */
@@ -1040,7 +1019,9 @@ export function firstRunCard(onboarding: OnboardingView): FirstRunCardView {
   const current = onboarding.steps.find((s) => s.current);
   return Object.freeze({
     visible: open,
-    title: '首次使用：还差几步就能用了',
+    // Byte-identical to the v1 onboarding markup title (`sidepanel.ts` renders it),
+    // so the firstRun density tier's registered reading is unchanged.
+    title: '首次使用（按序完成）',
     lines: Object.freeze(current ? [current.text] : []),
     // The existing terminus: onboarding is over once it is no longer visible.
     terminable: !open,

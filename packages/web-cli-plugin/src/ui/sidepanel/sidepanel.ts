@@ -34,7 +34,13 @@ import {
 import type { CardDeps } from './cards/index.js';
 import { syncNextstepPending } from './cards/nextstep.js';
 import { recommendNextStep } from './recommend.js';
-import { createSystemChannelState } from './system-events.js';
+import { createSystemChannelState, droppedSystemText, SYSTEM_COPY } from './system-events.js';
+import {
+  REGISTERED_STRUCTURAL_HOSTS,
+  RETIRED_HOST_IDS,
+  STRIP_CHANNEL_KINDS,
+  evaluateHostRegistry,
+} from './host-registry.js';
 import {
   CONSENT_DEFAULT_OPEN,
   CONSENT_SUMMARY_TEXT,
@@ -47,6 +53,7 @@ import {
   buttonStates,
   currentSessionLabel,
   discoveryNotice,
+  firstRunCard,
   historyEntries,
   llmStatusView,
   refCounts,
@@ -202,14 +209,18 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     void pickInput?.requestPick();
     return;
   }
-  if (action === 'describe' && value) {
-    // The `ref` card's free-text fallback: reuse the existing ask fallback submit
-    // path (`submitAskFor`) — no shadow command channel.
-    submitAskFor(requestIdForCard(cardId), value, false);
+  if (action === 'describe-submit' && value) {
+    // BLOCK-03 (v4-4 review): the `ref` card's「改用描述」fallback submits through the
+    // existing ask-fallback card — the ONE owner of the free-text description. The old
+    // code dispatched `describe-submit` with no branch, so the submit silently fell
+    // into the「将在 v4-3 / v4-4 落地」placeholder (a dead control).
+    submitDescribe(value);
     return;
   }
   if (action === 'describe') {
-    // The card owns its own disclosure; reaching here means the card had no owner.
+    // A recommendation chip's「改用描述」act: reveal the free-text fallback. The `ref`
+    // card deliberately never routes its own「改用描述」button here (it toggles its
+    // LOCAL collapsed input), so exactly one fallback input exists at a time.
     revealAskFallback();
     return;
   }
@@ -811,6 +822,18 @@ function installV3TestHooks(): void {
         // the product never clears the stream.
         // V4-4: the system channel's dedupe / rate accounting is per-fixture state too.
         state = { ...state, stream: createStreamState(state.stream.sessionId), systemChannel: createSystemChannelState() };
+        // I-04 (v4-4 review): the module-level「same fact is not re-projected」memory is
+        // fixture state as well — without clearing it, a later cell that projects the
+        // SAME `refId`+state is silently skipped (the fixture-order sensitivity
+        // registered in build.md §7.4 / the density knownLimitations).
+        projectedRefState.clear();
+        // BLOCK-02: the channel memory (last observed value per channel) and the
+        // pending queue are per-fixture too — the next cell re-baselines silently.
+        channelMemory.clear();
+        pendingChannelRows.length = 0;
+        // BLOCK-01: the recommendation anti-flicker clock is per-fixture state.
+        lastNextstepProducedAt = undefined;
+        lastRecommendOutcome = null;
         streamRender?.reset();
         render();
       },
@@ -823,6 +846,10 @@ function installV3TestHooks(): void {
         dispatch({ type: 'system', kind: kind as never, text, ...(at !== undefined ? { at } : {}) });
         return state.systemChannel.dropped;
       },
+      /** BLOCK-01 diagnostics: the last producer run (`trigger` / `rule` / `suppression`). */
+      lastRecommend() {
+        return lastRecommendOutcome;
+      },
       /** V4-4: the channel's dedupe / rate read-out (total / dropped / rendered rows). */
       systemStats() {
         return {
@@ -830,6 +857,30 @@ function installV3TestHooks(): void {
           dropped: state.systemChannel.dropped,
           rows: project(state.stream).filter((v) => v.kind === 'system').length,
         };
+      },
+      /**
+       * BLOCK-02 (v4-4 review) — the **structural** transitional-host read-out.
+       *
+       * The gate must be able to tell「过渡态已闭合」from「标记被删掉」, so the product
+       * hands out the live DOM reading AND the registered registry in one call; the
+       * shared pure judge (`host-registry.ts#evaluateHostRegistry`) is what decides.
+       */
+      hosts() {
+        const presentHosts = [...document.querySelectorAll('#stream > li[data-host]')].map(
+          (el) => el.getAttribute('data-host') ?? '',
+        );
+        const retiredPresent = RETIRED_HOST_IDS.filter((id) => document.getElementById(id) !== null);
+        const reading = {
+          presentHosts,
+          transitionalCount: document.querySelectorAll('[data-transitional-host]').length,
+          retiredPresent,
+        };
+        return Object.freeze({
+          ...reading,
+          registered: REGISTERED_STRUCTURAL_HOSTS.map((h) => h.host),
+          stripChannels: STRIP_CHANNEL_KINDS.map((c) => ({ id: c.id, kind: c.kind })),
+          problems: evaluateHostRegistry(reading),
+        });
       },
       /** V4-4: project a reference through the REAL reducer action (new card each time). */
       refCard(refNum: number, refState: 'valid' | 'stale', opts?: { why?: string; systemText?: string }) {
@@ -1084,6 +1135,7 @@ function followToBottom(log: HTMLElement): void {
   if (typeof requestAnimationFrame !== 'function') {
     pin();
     syncScrollAnchor(log);
+    updateScrollHint();
     return;
   }
   requestAnimationFrame(() => {
@@ -1091,12 +1143,128 @@ function followToBottom(log: HTMLElement): void {
     requestAnimationFrame(() => {
       if (isAtBottom(log)) pin();
       syncScrollAnchor(log);
+      // BLOCK-01 (v4-4 review): a follow that happens OUTSIDE the render path (the
+      // turn-end recommendation card) must also settle the「回到底部」affordance —
+      // otherwise the hint stays visible after the pin and the「发送后无条件滚到底」
+      // invariant reads as broken for one frame window.
+      updateScrollHint();
     });
   });
 }
 
 function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
   return chrome.runtime.sendMessage(message) as Promise<PluginResponse<T>>;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V4-4 review 修复轮 **BLOCK-02** — the five remaining transient channels are
+ * EVENTIZED through the ONE system channel (ADR-V4-036 §5 merge matrix).
+ *
+ * Each channel keeps its readable DOM projection where a protection gate pins it
+ * (`#notice` / `#site-hint` / `#discovery-notice` / `#env-guard` are read by
+ * journey / binding / hardening / l0), but the FACT is now also append-recorded on
+ * every real change. The「first observation」is the baseline (a panel that simply
+ * loads must not flood the stream); only a CHANGE appends a row — exactly the
+ * `send-reason` rule (「只在原因变化时追加」) generalized to all five.
+ *
+ * The rows are collected during `render()` and flushed AFTER it, so a channel that
+ * changes as a consequence of a render cannot re-enter the renderer.
+ * ──────────────────────────────────────────────────────────────────────────── */
+/** Last observed value per channel (module state — cleared by `testing.reset()`). */
+const channelMemory = new Map<string, string>();
+const pendingChannelRows: Array<{ kind: 'env' | 'site' | 'firstRun' | 'probe' | 'send'; text: string }> = [];
+
+/** Record one channel observation; append only on a real change (never on load). */
+function observeChannel(kind: 'env' | 'site' | 'firstRun' | 'probe' | 'send', text: string): void {
+  const prev = channelMemory.get(kind);
+  if (prev === text) return;
+  channelMemory.set(kind, text);
+  if (prev === undefined || text.length === 0) return; // baseline / hidden ⇒ nothing to append
+  pendingChannelRows.push({ kind, text });
+}
+
+/** Flush the channel rows collected during a render (one `dispatch` each). */
+function flushChannelRows(): void {
+  if (pendingChannelRows.length === 0) return;
+  const rows = pendingChannelRows.splice(0, pendingChannelRows.length);
+  for (const row of rows) dispatch({ type: 'system', kind: row.kind, text: row.text });
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V4-4 review 修复轮 **BLOCK-01** — the recommendation producer wiring.
+ *
+ * `recommendNextStep` used to be reachable only from the test seam, so the whole
+ * recommendation surface was unreachable in the product (FR-CHAT-060~064 /
+ * AC-CHAT-013). The producer is now called at the three real timings (pick / stale
+ * / idle = turn end with no open ask) plus the first-run onboarding transition; it
+ * reads ONLY panel-level facts (the 7-item truth whitelist) and mints the card
+ * through the real reducer action (whose `pending` / empty-card gates stay the last
+ * word).
+ * ──────────────────────────────────────────────────────────────────────────── */
+type RecommendTrigger = 'pick' | 'stale' | 'idle' | 'firstRun';
+/** Anti-flicker memory: the producer's interval is measured against the last card. */
+let lastNextstepProducedAt: number | undefined;
+/**
+ * Diagnostics for the last producer run (the gate reads it to tell「被门控」from
+ * 「未接线」without going through the seam). Never a security input.
+ */
+let lastRecommendOutcome: { trigger: RecommendTrigger; rule: string | null; suppression: string | null } | null = null;
+
+/**
+ * Run the REAL producer against the live panel facts and mint the card when a
+ * candidate survives. Returns the produced rule (or `null` for a suppression), which
+ * is what the diagnostics seam exposes.
+ */
+function maybeRecommend(trigger: RecommendTrigger): string | null {
+  const views = project(state.stream);
+  const counts = refCounts(views);
+  const staleRefs = l1?.store().stale() ?? [];
+  const onboarding = buildOnboarding({
+    configured: llmLoaded && Boolean(llmSummary?.configured),
+    hasOrigin: Boolean(state.activeOrigin),
+    discovered: state.discoveryState !== undefined,
+    authorized: state.authorized,
+    hasConversation: state.entries.length > 0,
+  });
+  const firstRun = firstRunCard(onboarding);
+  const risks: string[] = [];
+  if (staleRefs.length > 0) risks.push('refInvalid');
+  if (state.invalidated) risks.push('declarationInvalid');
+  const input: Parameters<typeof recommendNextStep>[0] = {
+    ref: { validCount: counts.validCount, staleCount: counts.staleCount, ...(counts.latestRefNum !== undefined ? { latestRefNum: counts.latestRefNum } : {}) },
+    session: { openAsks: state.stream.openAsks.length, busy: state.pending },
+    site: { authorized: state.authorized, trust: state.trust === 'trusted' ? 'trusted' : 'untrusted' },
+    catalog: { toolCount: CATALOG_BASELINE_META.toolCount, subcommandCount: CATALOG_BASELINE_META.subcommandCount },
+    probe: { ...(state.probe?.phase ? { phase: state.probe.phase } : {}), steady: state.probe?.steady === true },
+    risks,
+    onboarding:
+      trigger === 'firstRun'
+        ? { firstRun: firstRun.visible, pendingSteps: firstRun.lines }
+        : { firstRun: false, pendingSteps: [] },
+    ...(lastNextstepProducedAt !== undefined ? { lastProducedAt: lastNextstepProducedAt } : {}),
+    now: Date.now(),
+  };
+  const result = recommendNextStep(input);
+  const card = result.cards[0];
+  lastRecommendOutcome = { trigger, rule: card?.rule ?? null, suppression: result.suppression ?? null };
+  if (!card) return null;
+  // BLOCK-01 (v4-4 review): the recommendation card is appended at a TURN BOUNDARY —
+  // if the viewport was anchored at the bottom (the user just sent / the reply was
+  // followed), the new card must not push the view away from the bottom. The render
+  // path cannot do it (this append happens outside `render()`), so the follow is
+  // explicit and only ever runs while the viewport was already anchored (`isAtBottom`)
+  // — a real scroll-up is never fought.
+  const log = document.getElementById('stream');
+  const anchored = log ? isAtBottom(log) : false;
+  lastNextstepProducedAt = Date.now();
+  dispatch({
+    type: 'nextstep',
+    chips: card.chips.map((c) => c.text),
+    acts: card.chips.map((c) => c.act),
+    rule: card.rule,
+  });
+  if (log && anchored) followToBottom(log);
+  return card.rule;
 }
 
 function render(): void {
@@ -1139,6 +1307,9 @@ function render(): void {
   ($('revoke') as HTMLButtonElement).disabled = buttons.revokeDisabled;
   ($('send') as HTMLButtonElement).disabled = buttons.sendDisabled;
 
+  // V4-4 REVIEW-FIX (BLOCK-02): the five remaining transient channels are
+  // eventized here — every render reports the channel's current readable value and
+  // `flushChannelRows()` appends a system row only when it really changed.
   renderSiteHint();
   renderSendReason();
 
@@ -1194,11 +1365,17 @@ function render(): void {
   }
   // V4-4 TASK-802/807 (FR-CHAT-053 / NFR-CHAT-011): the system channel's dropped
   // count is readable in the status bar — a rate-capped row is NEVER silent.
+  // I-05 (v4-4 review): the copy is `SYSTEM_COPY.dropped` (single source), not a
+  // second inline literal.
   const systemDropped = state.systemChannel.dropped;
   if (systemDropped > 0) {
     const bar = document.getElementById('statusbar-text');
-    if (bar) bar.textContent = `${bar.textContent} · 系统事件被限速丢弃 ${systemDropped} 条（不静默）`;
+    if (bar) bar.textContent = `${bar.textContent} · ${droppedSystemText(systemDropped)}`;
   }
+  // BLOCK-02: the channel rows observed during THIS render are appended last, so a
+  // channel change caused by the render cannot re-enter it (the queue is drained
+  // before the dispatches happen).
+  flushChannelRows();
 }
 
 /**
@@ -1301,12 +1478,16 @@ function renderOnboarding(): void {
     authorized: state.authorized,
     hasConversation: state.entries.length > 0,
   });
+  // BLOCK-02: the first-run guidance is rendered from the **firstRunCard** view
+  // (the former zero-call-site factory is now live; its title/lines stay byte-
+  // identical to the v1 markup so the density reading is unchanged).
+  const firstRun = firstRunCard(view);
   box.hidden = !view.visible;
   if (!view.visible) return;
 
   const title = document.createElement('div');
   title.className = 'onboarding-title';
-  title.textContent = '首次使用（按序完成）';
+  title.textContent = firstRun.title;
   box.appendChild(title);
 
   const list = document.createElement('ol');
@@ -1332,6 +1513,49 @@ function renderDiscoveryNotice(): void {
   if (!view.visible) return;
   $('discovery-title').textContent = view.title;
   $('discovery-detail').textContent = view.detail;
+}
+
+/**
+ * BLOCK-02 (v4-4 review) — apply the **single system channel** to the five remaining
+ * transient channels **at the point the facts are applied** (`refreshState` / the env
+ * guard), not in every paint.
+ *
+ * Why here and not in `render()`: the density gate's fixtures drive the panel through
+ * its own seams (`testing.reset()` / `setRisk()` / `ask()`), and a fact that merely
+ * changes *while painting* is not a new business fact — eventizing those would append
+ * rows the fixture never asked for and silently move the registered density cells.
+ * Every channel below is an **inbound-fact application** (a state reply / an env
+ * guard), so the row is a real event:
+ *   · `site`      — the「无活跃站点」reason (change-only);
+ *   · `probe`     — the discovery/probe phase (change-only; steady state never repeats);
+ *   · `send`      — the composer's disabled reason (change-only);
+ *   · `firstRun`  — the onboarding step (`firstRunCard` — now a live factory);
+ *   · `env`       — the non-extension guard (`applyEnvGuard`).
+ * `#notice` is already merged by R2.
+ */
+function eventizeChannels(): void {
+  const site = activeSiteNotice({ hasOrigin: Boolean(state.activeOrigin), tab: activeTab });
+  // ⚠️ Only the **markup-free** copy rides the channel: the readable detail of the
+  // discovery notice embeds a literal `<link rel="web-cli">` (a correct, useful DOM
+  // string), and the zero-plaintext caliber forbids raw markup in a system row — a
+  // system row is not a render surface. The strip keeps showing the full detail; the
+  // row records the fact (title + next action).
+  observeChannel('site', site.visible ? `${site.title}｜${site.action}` : '');
+  const disc = discoveryNotice(state.activeOrigin ? state.discoveryState : undefined, state.discoveryReason, state.probe);
+  observeChannel('probe', disc.visible ? `${SYSTEM_COPY.probePhase}｜${disc.title}` : '');
+  const flow = askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length });
+  observeChannel('send', sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab, flow }));
+  const firstRun = firstRunCard(
+    buildOnboarding({
+      configured: llmLoaded && Boolean(llmSummary?.configured),
+      hasOrigin: Boolean(state.activeOrigin),
+      discovered: state.discoveryState !== undefined,
+      authorized: state.authorized,
+      hasConversation: state.entries.length > 0,
+    }),
+  );
+  observeChannel('firstRun', firstRun.visible ? `${firstRun.title}｜${firstRun.lines.join('｜')}` : '');
+  flushChannelRows();
 }
 
 /** F-2: fetch the non-sensitive LLM summary from the background (never the key). */
@@ -1425,6 +1649,9 @@ function maybeRescue(): void {
       // V4-4 TASK-801 (shim E2): the failure is projected into the stream together
       // with its readable reason — the「解析即消失」path is gone for references.
       projectRef(facts.refId, refStaleText(parseRefOrdinal(facts.refId), target.readableReason ?? '目标元素已不存在'));
+      // BLOCK-01 (v4-4 review):「引用失效后」is one of the three production timings
+      // the recommendation producer is wired to.
+      maybeRecommend('stale');
     });
 }
 
@@ -1559,7 +1786,53 @@ function acceptCapture(facts: Record<string, unknown>, resolution: { status: str
       );
     }
     ask(self?.verdict ?? 'unknown');
+    // BLOCK-01 (v4-4 review):「拾取后」is the second production timing (a capture
+    // that produced an unusable reference yields the risk-recovery card at once).
+    maybeRecommend('pick');
   })();
+}
+
+/** The still-open LOCAL text ask card (`ref-describe`), if any (BLOCK-03). */
+function textAskCardId(): string | undefined {
+  for (let i = state.stream.events.length - 1; i >= 0; i -= 1) {
+    const e = state.stream.events[i];
+    if (e.kind !== 'askuser' || e.payload.requestId !== 'ref-describe') continue;
+    const hasTerminal = state.stream.events.some((x) => x.cardId === e.cardId && x.terminal !== undefined);
+    if (!hasTerminal) return e.cardId;
+  }
+  return undefined;
+}
+
+/**
+ * V4-3: ensure the free-text ask card exists (the ONE owner of「用文字描述…」).
+ *
+ * BLOCK-03 (v4-4 review): extracted so both the reveal path and the `ref` card's
+ * fallback submit share one construction — a second card factory would be exactly the
+ * 「两个并存的兜底输入」the review found. The presence test is on the **model**
+ * (a still-open `ref-describe` card), not on the legacy `#ask-fallback` id: another
+ * open ask card (a background question / reference round) also mints that id family,
+ * and treating it as our owner would dispatch the description at a card that cannot
+ * settle it.
+ */
+function ensureTextAskCard(): void {
+  if (textAskCardId()) return;
+  // Append a LOCAL text ask card directly (no reducer `ask` action): the single
+  // `state.ask` slot must keep the background question it already holds, so the
+  // L1 consequences panel keeps reading the real round's options.
+  const cardId = `q${state.stream.seq}`;
+  state = {
+    ...state,
+    stream: boundStreamEvents(
+      appendEvent(state.stream, {
+        kind: 'askuser',
+        ts: Date.now(),
+        cardId,
+        payload: { askKind: 'text', prompt: '用文字描述你的目标（重建引用）', requestId: 'ref-describe' },
+      }),
+      DEFAULT_STREAM_CAP,
+    ),
+  };
+  render();
 }
 
 /**
@@ -1569,26 +1842,24 @@ function acceptCapture(facts: Record<string, unknown>, resolution: { status: str
  * the reveal never silently no-ops.
  */
 function revealAskFallback(): void {
-  if (!document.getElementById('ask-fallback')) {
-    // Append a LOCAL text ask card directly (no reducer `ask` action): the single
-    // `state.ask` slot must keep the background question it already holds, so the
-    // L1 consequences panel keeps reading the real round's options.
-    const cardId = `q${state.stream.seq}`;
-    state = {
-      ...state,
-      stream: boundStreamEvents(
-        appendEvent(state.stream, {
-          kind: 'askuser',
-          ts: Date.now(),
-          cardId,
-          payload: { askKind: 'text', prompt: '用文字描述你的目标（重建引用）', requestId: 'ref-describe' },
-        }),
-        DEFAULT_STREAM_CAP,
-      ),
-    };
-    render();
-  }
+  ensureTextAskCard();
   l0?.revealFallback();
+}
+
+/**
+ * BLOCK-03 (v4-4 review) — the `ref` card's「改用描述」submission.
+ *
+ * It settles the ONE local text-ask card with the description as the answer: a real,
+ * visible留痕 (the card固化 with「已答：…」), routed through the existing ask fallback
+ * — no shadow command channel, no second input. The description is a *user text* that
+ * is NOT sent to the background (there is no bridge for `ref-describe`), and it never
+ * becomes a system-row body (the zero-plaintext caliber is not weakened).
+ */
+function submitDescribe(value: string): void {
+  const text = value.trim();
+  if (!text) return;
+  ensureTextAskCard();
+  dispatch({ type: 'ask-resolved', requestId: 'ref-describe', answer: text, canceled: false, reason: 'user' });
 }
 
 /**
@@ -1893,6 +2164,9 @@ async function refreshState(): Promise<void> {
   // notice the state reducer may have set).
   const notice = typeof res.data.panelNotice === 'string' ? res.data.panelNotice.trim() : '';
   if (notice) dispatch({ type: 'notice', text: notice });
+  // BLOCK-02 (v4-4 review): the state reply is where the transient channel facts are
+  // APPLIED — eventize them through the single channel (change-only).
+  eventizeChannels();
 }
 
 /**
@@ -2342,7 +2616,12 @@ function wire(): void {
     if (msg.kind === 'chat-result') {
       const text = typeof msg.text === 'string' ? msg.text : '';
       const variant = typeof msg.variant === 'string' ? msg.variant : 'assistant';
-      if (variant === 'error') dispatch({ type: 'error', text });
+      if (variant === 'error') {
+        dispatch({ type: 'error', text });
+        // BLOCK-01 (v4-4 review): a turn that ended on an error is「回合结束」too —
+        // the idle recommendation timing runs after the error settled the turn.
+        maybeRecommend('idle');
+      }
       else if (variant === 'tool') {
         // TASK-023: carry the tool-card metadata when the background observed it.
         dispatch({
@@ -2357,6 +2636,10 @@ function wire(): void {
         dispatch({ type: 'pending', value: false });
         // P5: the page-side flash has finished being the「进行中」signal.
         document.getElementById('l0-ref-toggle')?.setAttribute('data-turn', 'done');
+        // BLOCK-01 (v4-4 review):「空闲 = 回合结束且无 open ask」is the third
+        // production timing. The producer itself refuses to mint while `pending`, so
+        // this runs after the settle above.
+        if (state.stream.openAsks.length === 0) maybeRecommend('idle');
       }
       else if (text) dispatch({ type: 'assistant', text });
       return undefined;
@@ -2484,6 +2767,10 @@ function applyEnvGuard(env: EnvGuardResult): void {
   banner.textContent = env.banner;
   banner.hidden = env.inExtension;
   if (env.inExtension) return;
+  // BLOCK-02 (v4-4 review): the env guard is a one-shot blocking fact — it is
+  // append-recorded through the single system channel (`env` kind). The banner DOM
+  // stays: `hardening.mjs` / `sidepanel-view.test.ts` pin it as the readable alert.
+  dispatch({ type: 'system', kind: 'env', text: env.banner });
   for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-settings', 'rebind']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) el.disabled = true;

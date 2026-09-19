@@ -686,3 +686,43 @@ test('V4 AC-V3-007 冻结: v3 密度基线 schema 保真断言逐字保留（v4 
     assert.ok(next.differencesFromV3?.length > 0, '必须逐条登记与 v3 的口径差异（换口径不是放宽）');
   }
 });
+
+// ── BLOCK-02（V4-4 审查修复轮）：过渡宿主清零必须是**结构性**判据 ──────────────
+/**
+ * R2 的「清零」是通过**删掉 `data-transitional-host` 属性**达成的：容器原样留在
+ * `#stream` 里，`hosts.length === 0` 因此恒真。修复轮把判据改回结构性：登记表必须逐条
+ * 说明每个存活宿主的处置（`transitional:false` + 理由 + 通道绑定），退役容器必须**不在 DOM**
+ * 里；任何未登记宿主 / 被重新引入的退役容器都必须 FAIL。
+ */
+test('index.html: 结构宿主注册表与 DOM 逐项一致（未登记宿主 / 复活退役容器必须 FAIL）', async () => {
+  const hosts = await import('../src/ui/sidepanel/host-registry.js');
+  // ① 注册表形态：transitional 恒 false，通道 kind 必须落在 SYSTEM_EVENT_KINDS 闭集内。
+  assert.ok(hosts.REGISTERED_STRUCTURAL_HOSTS.length >= 1, '结构宿主注册表不得为空（否则判据空转）');
+  for (const h of hosts.REGISTERED_STRUCTURAL_HOSTS) {
+    assert.equal(h.transitional, false, `${h.host}: transitional 必须为 false（过渡宿主只能出现在 RETIRED_HOST_IDS）`);
+    assert.ok(h.reason.trim().length >= 20, `${h.host}: 必须写明该宿主为何不再是过渡态`);
+  }
+  const registered = new Set(hosts.REGISTERED_HOST_ATTRS);
+  const domHosts = new Set(
+    [...html.matchAll(/<li data-host="([^"]+)"/g)].map((m) => m[1]),
+  );
+  // ② 双向相等：DOM 里的宿主集合必须恰等于注册集合（多一个 / 少一个都 FAIL）。
+  assert.deepEqual([...domHosts].sort(), [...registered].sort(), 'DOM 宿主集合必须与注册表逐项一致');
+  // ③ 退役容器必须零 DOM 残留（结构性：查 id，不查属性）。
+  for (const id of hosts.RETIRED_HOST_IDS) {
+    assert.ok(!new RegExp(`id="${id}"`).test(html), `已退役容器 #${id} 仍在 index.html（删属性不改 DOM 不算退役）`);
+  }
+  // ④ 归并矩阵：每个 strip 通道（除已归并的 #notice 外）必须 id 仍在 DOM 且绑定一个 kind。
+  for (const binding of hosts.STRIP_CHANNEL_KINDS) {
+    assert.ok(new RegExp(`id="${binding.id}"`).test(html), `归并通道 ${binding.id} 的可读投影必须仍在 DOM（保护门禁读取）`);
+    assert.equal(typeof binding.kind, 'string');
+    assert.ok(binding.kind.length > 0);
+  }
+  // ⑤ 判据可 FAIL：伪造一个未登记宿主 / 复活 #l0-pick 必须被判红。
+  const forgedReading = { presentHosts: ['decision', 'forged-host'], transitionalCount: 0, retiredPresent: [] };
+  assert.ok(hosts.evaluateHostRegistry(forgedReading).length > 0, '未登记宿主必须被判红');
+  assert.ok(
+    hosts.evaluateHostRegistry({ presentHosts: [], transitionalCount: 1, retiredPresent: ['l0-pick'] }).length >= 3,
+    '复活过渡标记 / 退役容器 / 缺失宿主必须被判红',
+  );
+});

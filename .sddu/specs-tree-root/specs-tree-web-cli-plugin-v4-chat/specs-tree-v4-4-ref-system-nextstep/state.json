@@ -11,7 +11,7 @@
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-18",
-  "updatedAt": "2026-09-19T22:10:00.000Z",
+  "updatedAt": "2026-09-19T23:40:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**最后完成的叶**，承载 V3-VOL-3 父级收口锚）。承载父 FR-CHAT-050~064（TRACE / NEXT 组）与 FR-CHAT-090~094（VOL 组）：① 引用生命周期在流内以 ref 卡呈现（有效/失效；失效卡保留；新引用序号递增）；② 重拾/重锚生成新引用卡（新 id + 序号递增）+ 旧引用零改动（沿用 R3 append-only 先例）；③ 失效卡含原因 + 恢复路径（「重新拾取」/「改用描述」，兜底默认收起）；④ 系统事件行（单行 + HH:MM:SS 时间戳 + 只追加不被覆盖）；⑤ 6+ 瞬时通道归并（#env-guard/#site-hint/#onboarding/#discovery-notice/#notice/#send-reason + 导航失效 + 探测态），既有语义不丢；⑥ 拾取入口迁移后的可发现性与救援路径重锚（页面侧可达、未授权路径可发现、#l0-pick.click() 复用点断裂处置）；⑦ 推荐卡（真值派生不新增 LLM 产物 + chips 即指令 + 规则表/优先级/上限 + 无候选不渲染 + 与 pending 门控一致 + 安全边界）；⑧ **V3-VOL-3 收口锚**：重定 sidepanel 基线（五要素）+ 绝对上限带值闭合（PENDING_ABSOLUTE_CAP resolved:true + 三值齐备；推导规则 = 重构落地实测值向上取整到 50KB 档 + 10% 余量，作者一句确认；不预填、不静默删除、不设自缚装置）。权威条文见父 spec.md §5.6 / §5.7 / §5.10 / §10.4。",
   "scope": {
     "in": [
@@ -197,9 +197,14 @@
       "phase": "reviewed",
       "timestamp": "2026-09-19T22:10:00.000Z",
       "triggeredBy": "sddu-review（R1 审查：review.md（C1~C15 策略）+ review-report.md（❌ 不通过：3 阻塞 / 8 改进）；11 项门禁复跑 + KL-V44-01 独立 A/B 复现；未改 src/）"
+    },
+    {
+      "phase": "reviewed",
+      "timestamp": "2026-09-19T23:40:00.000Z",
+      "triggeredBy": "sddu-build（review 修复轮：BLOCK-01 推荐链路接线（三处真实时机 + 产品路径门禁经 SW→面板真实 ref-captured，不经 seam）+ BLOCK-02 五通道事件化（env/site/firstRun/probe/send 经 systemRow 唯一通道）+ firstRunCard 接线 + 宿主清零改回结构性（host-registry.ts 单一判据：DOM 集合 == 注册集合 ∧ 退役容器零残留 ∧ 过渡计数 0）+ BLOCK-03 describe-submit 落地 + I-01~I-08 全处置；两条 Chromium 两段证伪 + 一条 l0 两段证伪实跑；23 门禁全绿；测试只增不减 978→991；体积 478,163 / ceiling 502,071（档位 512,000 与绝对上限 563,200 未变）；红线 content.js 177,076 / pick-layer.js 33,900 逐字节不变、journey/binding 零 diff；state 保持 reviewed + 本修复记录）"
     }
   ],
-  "phaseNote": "reviewed（R1 = ❌ 不通过）。sddu-review 静态审查 15 项（C1~C15）→ **5 ✅ / 7 ⚠️ / 3 ❌**；**3 阻塞**：BLOCK-01 推荐卡生产链路未接线（`recommendNextStep` 仅测试 seam 一个调用点，生产中 `nextstep` 卡恒 0 张 ⇒ FR-CHAT-060~064 / AC-CHAT-013 不可达）；BLOCK-02 FR-CHAT-054「6+ 通道归并」只落 nav/notice 两条（`#env-guard`/`#site-hint`/`#onboarding`/`#discovery-notice`/`#send-reason` 仍在，`firstRunCard()` 零调用）+「过渡宿主清零」由**移除 `data-transitional-host` 属性**达成 ⇒ `l0.mjs`/`density-thresholds` 清零判据空转且新判据反向要求宿主保留；BLOCK-03 失效卡「改用描述」兜底提交（`describe-submit`）无处理分支 ⇒ 死控件。**8 改进**：I-01 去重窗口把 N 卡同一文案合并为 1 行（留痕回归，已复现 2 ask+切换 ⇒ 1 行）/ I-02 `switchStreamSession` 绕过唯一通道 / I-03 ADR-V4-035 决策 1 未落实（投影点 ≥4、证据层双实现）/ I-04 `projectedRefState` 跨夹具不清空（疑为 §7.4「夹具序敏感」真因）/ I-05 死代码与 `startPick` 未封口 / I-06 作者确认占位无机器判据 / I-07 `riskIncrementRegistry` 无溯源门槛 / I-08 `test:v3` 未纳入 3 个新脚本。**独立复核（已通过）**：11 项门禁复跑全绿且计数与 build.md 逐项对账（npm test 978 · density 173 · l0 217 · zero-injection 27 · l1-reverse 9 · size-ruling-vol3 8 · ref-pick-wiring 7 · supersession 33 · gate-integrity 12 · design-contract 6 · recommendation 37）；产物 465,277 B == 登记基线；V3-VOL-3 三值/`ceilTo50KB(465,277)=512,000`/`min()` 复算成立；**KL-V44-01 独立 A/B 复现**（worktree 取 `8ae971e` 重跑 density ⇒ 同样 7/7/18/208 + 同一违规）证明根因订正诚实；红线 content.js 177,076 / pick-layer.js 33,900 与 manifest/content/background/journey/binding 零 diff。结论：需先处置 BLOCK-01~03 再进 validate。产物：review.md + review-report.md。",
+  "phaseNote": "reviewed（R1 = ❌ 不通过 ⇒ 本轮已完成修复，等待复审）。**BLOCK-01**：`recommendNextStep` 三处真实时机接线（拾取后 / 引用失效后 / 空闲=回合结束无 open ask；+ firstRun），产品路径门禁由 SW 发往面板的真实 `ref-captured` 驱动（不经 seam），并修掉 `nextstep` 把 rule id 送进零明文 label 工厂导致 risk-recovery 卡抛错的产品级缺陷；两段证伪实跑（断开 `maybeRecommend('pick')` ⇒ ⑪ 红 ⇒ 逐字节还原 ⇒ 绿）。**BLOCK-02**：`#env-guard`/`#site-hint`/`#onboarding`/`#discovery-notice`/`#send-reason` 五通道经 `systemRow()` 唯一通道事件化（在 refreshState / 环境守卫处，变化才追加）、`firstRunCard()` 接线为活、宿主清零改回**结构性判据**（`host-registry.ts`：`li[data-host]` DOM 集合 == 注册集合 ∧ `data-transitional-host` 计数 0 ∧ 已退役容器 DOM 零残留 ∧ strip 通道 kind 有生产 emitter）；两段证伪实跑。**BLOCK-03**：`describe-submit` 在 `handleCardAction` 落地（唯一 text 兜底卡以描述真实结算），「改用描述」不再额外铸卡；两段证伪实跑。**I-01~I-08**：去重键加事实标识（N 卡 ⇒ N 行 + 负控）/ 会话行走唯一通道（+死常量接线）/ 证据层单一构造（`refEvidenceRows`）+ 投影点恰 3 处 / `projectedRefState` 按夹具清空（§7.4 机制消除）/ 死代码清理 + `startPick` 退出公共句柄 / `authorConfirmation` 机器判据 / `riskIncrementRegistry` 溯源门槛 / `test:v3` 纳入三条新门禁。**门禁 23 项全绿**（typecheck/build/npm test 991/supersession 33/gate-integrity 12/ref-pick-wiring 11/size-ruling-vol3 9/design-contract 6/l0 221/l1 111/l2 73/stream 63/page-input 102/zero-injection 27/ask-auth 61/recommendation 44/journey 167/insight 116/hardening 24/e2e/binding 192/l1-reverse 9/l2-reverse 10）；密度按同一纪律显式重锚 `risk(staleRef)@400` = 7/7/18/208（带 I-07 溯源字段）。**体积**：478,163 B / ceiling 502,071（档位 512,000、绝对上限 563,200 未变；三值同源前移，作者确认占位不伪称）。**红线**：content.js 177,076 / pick-layer.js 33,900 逐字节不变；journey/binding 零 diff。**残余**（如实）：纯模型 `switchStreamSession` 仅由单元测试驱动（布线门禁禁止产品直呼）；I-04 的严格序无关性未另设门禁；binding 环境性时序 flake（历史同签名，隔离复跑连续两次 192/192 绿）。",
   "tasks": {
     "range": "TASK-801~812",
     "alias": "V44-01~12",

@@ -120,3 +120,63 @@ test('零注入：拾取引导只注册一个点击监听，不注入任何脚�
   // injection by itself (the real injection stays behind `requestPick` → `ensureInjected`).
   assert.match(SIDEPANEL, /getElementById\('pick-guidance'\)\?\.addEventListener\('click', \(\) => void pickInput\?\.requestPick\(\)\)/);
 });
+
+// ── I-05 / I-02 / I-03（V4-4 审查修复轮）──────────────────────────────────────
+
+/** Every TypeScript module under `src/ui/sidepanel` (the production surface). */
+function sidepanelSources(): { file: string; source: string }[] {
+  return srcFiles(join(PKG, 'src/ui/sidepanel')).map((file) => ({ file, source: readFileSync(file, 'utf8') }));
+}
+
+test('I-05（review 修复）：`startPick` 不再是公共句柄成员（接口 / 返回对象都不得暴露）', () => {
+  assert.ok(
+    !/^\s*startPick\(\):\s*Promise<void>;/m.test(PICK_INPUT),
+    'PickInputHandle 不得再声明 startPick（唯一入口 requestPick）',
+  );
+  assert.ok(
+    !/^\s{4}startPick,$/m.test(PICK_INPUT),
+    '返回对象不得再暴露 startPick（I-05：旧成员是未拦旁路）',
+  );
+  // 唯一调用点仍在 requestPick 内（行为零变更）。
+  const sites = startPickCallSites(PICK_INPUT);
+  assert.equal(sites.length, 1, `startPick( 只允许出现在 requestPick 内，实测 ${sites.length} 处`);
+});
+
+test('I-05（review 修复）：布线门禁扩到 src/ui/sidepanel/** 全量调用点（外部 `pickInput.startPick()` 必红）', () => {
+  const offenders: string[] = [];
+  for (const { file, source } of sidepanelSources()) {
+    if (file.endsWith('pick-input.ts')) continue; // 其自身声明 + 唯一调用点由 AC-1 判
+    if (/\.startPick\s*\(/.test(source) || /\bstartPick\s*\(/.test(source)) offenders.push(file);
+  }
+  assert.deepEqual(offenders, [], `面板侧不得再有 startPick 调用点（唯一入口 requestPick）：${offenders.join(', ')}`);
+  // 反证：伪造一处外部调用 ⇒ 同一判据必红。
+  assert.ok(/\bstartPick\s*\(/.test('void pickInput?.startPick();'), '伪造调用必须被同一判据识别');
+});
+
+test('I-02（review 修复）：产品路径不得直接调用 `switchStreamSession`（唯一通道不可绕过）', () => {
+  const offenders: string[] = [];
+  for (const { file, source } of sidepanelSources()) {
+    if (file.endsWith('stream-model.ts')) continue; // 纯模型 API 自身定义（仅由其单元测试驱动）
+    const stripped = source
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('*') && !l.trim().startsWith('//') && !l.trim().startsWith('/*'))
+      .join('\n');
+    if (/\bswitchStreamSession\s*\(/.test(stripped)) offenders.push(file);
+  }
+  assert.deepEqual(offenders, [], `会话切换必须走 openSessionSegment + systemRow（唯一通道）：${offenders.join(', ')}`);
+});
+
+test('I-03（review 修复）：引用投影点恰三处；证据层单一构造（`refEvidenceRows`）', async () => {
+  const { REF_PROJECTION_POINTS, refEvidenceRows } = await import('../src/ui/sidepanel/l1/ref-store.js');
+  assert.equal(REF_PROJECTION_POINTS.length, 3, `投影点必须恰为 3 处，实测 ${JSON.stringify(REF_PROJECTION_POINTS)}`);
+  assert.equal(typeof refEvidenceRows, 'function', '证据层必须由 ref-store 的单一时机构造');
+  // 面板侧证据层必须复用该构造，不得再自建第二份（I-03 的「删重复实现之一」）。
+  assert.match(PANELS, /refEvidenceRows\(/, 'l1/panels.ts 必须复用 ref-store 的证据构造（单源）');
+  assert.ok(
+    !/rows\.push\(\[`\$\{r\.glyph\} 稳定选择器`/.test(PANELS),
+    'l1/panels.ts 不得再自建选择器证据行（重复实现已在 review 修复轮删除）',
+  );
+  // 反证：把面板侧改回自建行 ⇒ 同一判据必须能红。
+  const forged = PANELS.replace('refEvidenceRows(', 'void 0; (').replace("rows.push([`${r.glyph} 稳定选择器`", "rows.push([`${r.glyph} 稳定选择器`");
+  assert.ok(!/refEvidenceRows\(/.test(forged), '伪造后 refEvidenceRows 不再被调用 ⇒ 判据可红');
+});

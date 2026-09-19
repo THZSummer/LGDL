@@ -268,6 +268,31 @@ async function main() {
     check('① `#risk-detail` 在状态栏内且默认 hidden（不计入默认密度）', zones.detailInsideStatusbar === true && (await evaluate(cdp, `document.getElementById('risk-detail').hidden`)) === true);
     check(`① 过渡宿主清零：querySelectorAll('[data-transitional-host]').length === 0（v4 收口 / R4-18）`, zones.hostCount === 0 && zones.hostCount === REGISTERED_TRANSITIONAL_HOSTS, `实测 ${zones.hostCount}`);
     check('① 退役容器的结构标识仍在（li[data-host]，清零不等于丢锚）', zones.hostCount === 0 && zones.structuralHosts >= 1, JSON.stringify({ hosts: zones.hostCount, structural: zones.structuralHosts }));
+    // ── BLOCK-02（V4-4 审查修复轮）：**结构性**判据（删属性 ≠ 退役）─────────────
+    // 产品把「登记的宿主集合 / 实存集合 / 退役容器残留 / 过渡标记计数」一次性交出，判定由
+    // 共享纯函数 `host-registry.ts#evaluateHostRegistry` 给出（单一实现，门禁不另立口径）。
+    const hostReg = await evaluate(cdp, `JSON.stringify(window.__v3.testing.hosts())`);
+    const hostView = JSON.parse(hostReg);
+    check(
+      '① 结构宿主注册表判据 = 0 问题（登记集合 == 实存集合 ∧ 退役容器零残留 ∧ 过渡计数 0）',
+      Array.isArray(hostView.problems) && hostView.problems.length === 0,
+      hostReg,
+    );
+    check(
+      '① 结构宿主集合与注册表逐项一致（未登记宿主 / 缺失宿主都 FAIL）',
+      JSON.stringify([...hostView.presentHosts].sort()) === JSON.stringify([...hostView.registered].sort()),
+      hostReg,
+    );
+    check(
+      '① 已退役容器零 DOM 残留（查 id，不查属性 —— 判据不得空转）',
+      Array.isArray(hostView.retiredPresent) && hostView.retiredPresent.length === 0,
+      hostReg,
+    );
+    check(
+      '① 归并矩阵的 strip 通道登记齐备（每个通道绑定一个 SystemEventKind）',
+      Array.isArray(hostView.stripChannels) && hostView.stripChannels.length >= 5 && hostView.stripChannels.every((c) => typeof c.kind === 'string' && c.kind.length > 0),
+      hostReg,
+    );
 
     // ══ ② 工具栏准入 ≤5 + 只读摘要 + 插槽（V4-1 新断言面） ══════════════════
     console.log('\n▶ ② 工具栏：可点恰 5 / data-toolbar-slot / 只读摘要 / 徽标同源');

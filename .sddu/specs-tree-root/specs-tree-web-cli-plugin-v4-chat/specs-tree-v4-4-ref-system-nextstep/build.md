@@ -187,3 +187,187 @@
 |------|---------|------|--------|
 | v1.0 | 初始创建（12 任务 / 6 波；V3-VOL-3 带值闭合；含 KL-V44-01 与未复验项） | 2026-09-19 | SDDU Build Agent |
 | v2.0 | **R2 轮**：KL-V44-01 裁决落地（启用导航失效 / `#notice` 自动归并 + `risk(staleRef)@320` 显式重锚五要素 + 增量归属/跨窗口稳定性改双向精确期望）+ density 173/173 转绿 + binding 隔离复跑 192/192×2 + l1-reverse 锚点修复 9/9 + 23 门禁全账 + 测试 968→978 + 体积 465,277（ceiling 488,540）+ 根因订正（§7.1） | 2026-09-19 | SDDU Build Agent |
+
+---
+
+# 附：review 修复轮（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）
+
+> 输入：本叶 `review-report.md` v1.0（❌ 不通过：3 阻塞 / 8 改进；HEAD `b79deb0`）。本轮只动
+> `src/ui/sidepanel/**` + 既有门禁/登记载体；`content.js` / `pick-layer.js` / journey / binding / SW /
+> `KIND_SET` / 判定链 / manifest **零触碰**。产物 465,277 → **478,163 B**（+12,886 B，+2.77%）。
+
+## 1. BLOCK-01：推荐链路真实接线 + 产品路径门禁
+
+**修法**：`sidepanel.ts` 新增 `maybeRecommend(trigger)`（`pick` / `stale` / `idle` / `firstRun`），
+从**面板级真值**（`l1/store` + `stream.project` 的 ref 计数 + 授权/信任 + `CATALOG_BASELINE_META` +
+probe + 风险 + `firstRunCard`）构造 `RecommendInput`，经 `recommendNextStep` 产卡后走真实 reducer
+动作 `{type:'nextstep'}`；`lastNextstepProducedAt` 把 `NEXTSTEP_MIN_INTERVAL_MS` 落到生产状态。
+三个**真实时机**：
+
+| 时机 | 生产调用点 | 说明 |
+|---|---|---|
+| 拾取后 | `acceptCapture()` 的异步尾部 | 摄取 + 判定 + 投影 + 提问之后 |
+| 引用失效后 | `maybeRescue()` 的 `.then()` 内（`projectRef(stale)` 之后） | 救援观测落地即触发 |
+| 空闲（回合结束且无 open ask） | `chat-result variant 'done'` / `'error'` 处理分支 | `pending:false` 之后；`openAsks===0` 才跑 |
+
+**顺带修掉的产品级缺陷**：`chat-state.ts` 的 `nextstep` 分支原把 `rule` 送进零明文 `label()` 工厂 ——
+`risk-recovery` 命中 `sk-`+8 字符的密钥形状 ⇒ **产品路径产出的恢复推荐卡整体抛错**（seam 只产出
+`ref-action`/`onboarding`，所以此前测不到）。改为静态安全 label（规则 id 只留机器可读字段、不持久化），
+并新增回归用例（`test/system-merge.test.ts` 的「rule=risk-recovery 不得抛错」）。
+
+**卡追加后的滚动纪律**：推荐卡在回合边界追加，若视口原本贴底（`isAtBottom`）则显式 `followToBottom`，
+且 `followToBottom` 在最终帧补 `updateScrollHint()` —— 否则「发送后无条件滚到底」会出现一帧的
+「回到底部」假提示（binding `#6l` 的时序敏感面）。
+
+**接线证据（Chromium，不经 seam）**：`test/ui/recommendation.mjs` ⑪ 由 **SW 上下文发真实
+`ref-captured` 报文**（与页面侧桥同形）驱动面板的 `acceptCapture`，断言：ref 卡出现 ∧ `nextstep`
+卡出现（`data-nextstep-rule="risk-recovery"`）∧ 卡片带可点 chip（实测 44/44 PASS）。
+
+**两段证伪（dist 字节扰动，原文见 `/tmp/opencode/v4-gate-logs/v4-4-reviewfix/rp-v44-r*.log`）**：
+
+```
+▶ pristine dist/sidepanel.js 478163 B sha256=d6138020565d204ba3a0840bcf43c19d960e9e7099ff82bf40f665ad16159f7e
+=== RP-V4-4-R1: ⑪ 产品路径（不经 seam）：生产者真实接线 ⇒ 流内出现 nextstep 卡
+  inject: "maybeRecommend(\"pick\");" → "void 0;" (命中 1 次)
+  FAIL 段 exit=1 · 命中预期断言=true
+      ✖ ⑪ 产品路径（不经 seam）：生产者真实接线 ⇒ 流内出现 nextstep 卡（risk-recovery） — {... "last":{"trigger":"idle","rule":null,"suppression":"interval"}}
+  还原 sha256 复原=true · PASS 段 exit=0
+```
+
+## 2. BLOCK-02：五通道事件化 + firstRunCard 接线 + 宿主结构性清零
+
+**修法**（`chat-state.ts` / `sidepanel.ts` / 新 `host-registry.ts`）：
+
+| 通道 | 处置 | 唯一通道 kind | 证据 |
+|---|---|---|---|
+| `#env-guard` | `applyEnvGuard()` 非扩展态追加系统行（DOM 保留：hardening / sidepanel-view pin 它） | `env` | 静态 emitter 断言 |
+| `#site-hint` | `refreshState()` 末尾 `eventizeChannels()`：文案**变化**才追加（首见=基线，不刷屏） | `site` | 同上 |
+| `#onboarding` | 由 `firstRunCard()` 计算（原零调用工厂**接线为活**）+ 变化时追加 | `firstRun` | 静态 emitter 断言 |
+| `#discovery-notice` | 相位/文案变化才追加（稳态不重复；只带**无标记**文案 —— 该 detail 含字面 `<link …>`，系统行不是渲染面） | `probe` | 同上 |
+| `#send-reason` | 状态栏职责不变，原因**变化**才追加 | `send` | 同上 |
+
+**为什么事件化放在 `refreshState()` 而不是 `render()`**：密度夹具通过 seam（`testing.reset()` /
+`setRisk()` / `ask()`）驱动渲染，而在**绘制**中变化的状态不是新的业务事实；放进绘制会凭空向夹具
+追加未登记的行、无声移动已登记的密度格。放在「事实被应用」的入口（state 回复 / 环境守卫）后，
+每一行都是真实事件。
+
+**宿主判据改回结构性**（`host-registry.ts`，单一纯判据 `evaluateHostRegistry`）：
+
+* `REGISTERED_STRUCTURAL_HOSTS` = 4 个存活宿主（`decision`/`composer`/`l1-panels`/`strips`），逐条
+  `transitional:false` + 理由 + 通道绑定；`li[data-host]` DOM 集合必须**与注册集合逐项相等**
+  （未登记宿主 / 缺失宿主都 FAIL）；
+* `RETIRED_HOST_IDS` = `['l0-pick','l0-status-band']`，必须**零 DOM 残留**（查 id，不查属性）；
+* `[data-transitional-host]` 计数必须 0（过渡态不得重开）；
+* `STRIP_CHANNEL_KINDS` 每个 strip id 必须绑定一个 `SystemEventKind`，且 node 门禁断言该 kind 有
+  生产 emitter 调用点（「归并」不能只靠留 DOM）。
+
+**两段证伪（原文见 `rp-v44-r3.log`）**：
+
+```
+=== RP-V4-4-R3: ① 结构宿主注册表判据 = 0 问题
+  inject: "problems: evaluateHostRegistry(reading)" → "problems: (() => ['injected'])()" (命中 1 次)
+  FAIL 段 exit=1 · 命中预期断言=true
+      ✖ ① 结构宿主注册表判据 = 0 问题（…） — {… "problems":["injected"]}
+  还原 sha256 复原=true · PASS 段 exit=0
+```
+
+## 3. BLOCK-03：`describe-submit` 落地（死控件）
+
+**修法**：`cards/ref.ts` 的「改用描述」只切换**卡内**兜底输入（不再派发业务动作 ⇒ 不再额外铸
+`askuser` 文本卡）；`sidepanel.ts#handleCardAction` 新增 `describe-submit` 分支 →
+`submitDescribe(value)`：确保**唯一**的本地 text ask 卡存在（按模型 `requestId='ref-describe'`
+判存在，而非按 `#ask-fallback` id —— 任何 open ask 都会铸那族 id），再以描述作为答案**真实结算**
+该卡（可见「已答：…」留痕），不新增影子命令通道、不把用户文本写进系统行。不可达的
+`describe && value` 分支同步删除。
+
+**两段证伪（原文见 `rp-v44-r2.log`）**：
+
+```
+=== RP-V4-4-R2: ⑫ 提交描述 ⇒ 真实结算
+  inject: "submitDescribe(value);" → "void 0;" (命中 1 次)
+  FAIL 段 exit=1 · 命中预期断言=true
+      ✖ ⑫ 提交描述 ⇒ 真实结算（…） — {"answered":0}
+  还原 sha256 复原=true · PASS 段 exit=0
+```
+
+## 4. I-01~I-08 处置
+
+| # | 修法 | 证据 |
+|---|---|---|
+| I-01 | `systemDedupeKey(kind,text,factId?)` 增加**事实标识**（cardId/requestId/refId/会话 id），同一事实仍去重、不同事实必分行；`traceSuperseded`/`settleTurnEnd`/`closeOpenAskCards` 逐卡传入 | `test/system-merge.test.ts`：2 张 open ask + 切换 ⇒ **2 行**；同一卡只 1 行；负控证明键随事实标识改变 |
+| I-02 | 新增纯模型 `openSessionSegment()`；产品路径 = `openSessionSegment` + `systemRow(…,'session')`（净化/去重/速率/`dropped` 全生效）；`SYSTEM_COPY.sessionSwitched` 接线；死常量 `probePhase`/`dropped` 均接线（`droppedSystemText()`） | 会话行恰 1 行 + `systemChannel.total` +1；同会话重入不追加；URL query 标签抛错；布线门禁禁产品直呼 `switchStreamSession` |
+| I-03 | 证据层**单一构造** `ref-store.ts#refEvidenceRows`（`projectRefCard` 与 `l1/panels.ts#paintRefs` 共用）；新增 `REF_PROJECTION_POINTS`（恰 3 处：页面角标 / 流内 ref 卡 / 状态栏风险 chip），L0 chip / L1 面板 = 同源只读回看 | `test/ref-pick-wiring.test.ts`：投影点=3 ∧ `panels.ts` 必须调用 `refEvidenceRows(` ∧ 不得自建「稳定选择器」行（含伪造反证） |
+| I-04 | `testing.reset()` 清空 `projectedRefState`（+ 通道记忆 / 推荐反抖时钟），夹具隔离恢复 | `docs/v4-density-baseline.json#knownLimitations`：**机制已消除**（模块级投影记忆不再跨夹具泄漏）；密度按登记顺序重跑仍绿。严格序无关性未另设门禁（如实登记） |
+| I-05 | 删除死代码 `hasChips` / `systemEventRows` / `nextstepCards` + 不可达分支；`void rateLimited;` 去除；`startPick` 退出 `PickInputHandle` 与返回对象；布线门禁扩到 `src/ui/sidepanel/**` 全量调用点 | `test/ref-pick-wiring.test.ts`（接口/返回对象双断言 + 全量扫描 + 反证）；`test/system-merge.test.ts` 无 `void rateLimited` |
+| I-06 | `size-ruling-vol3.test.ts` 新增机核：`resolved:true` ⇒ `authorConfirmation` 必存在 ∧ `status ∈ {pending-author-line, confirmed, overridden-by-author}` ∧ 日期格式 ∧ `pending` 必带理由；非法值/缺失 FAIL（含三条反证） | `test/size-ruling-vol3.test.ts`（9/9 PASS） |
+| I-07 | `riskIncrementRegistry.cells[*]` 增加**溯源门槛**字段 `rulingId` / `rulingDate` / `approvedBy` / `reason(≥40)`；`density.mjs` 新增机核（缺失即 FAIL + 伪造反证） | `test:density` 175/175（含 I-07 判据）；`@320` 旧登记补 `rulingId=KL-V44-01-②`，`@400` 新重锚登记带 `rulingId=V4-4-BLOCK-01-reviewfix` |
+| I-08 | `test:v3` 串行链纳入 `test:recommendation` / `test:ref-pick-wiring` / `test:size-ruling-vol3`（+ 补齐 `test:design-contract`），链长 22 段 | `package.json` 单源断言（脚本内容可核） |
+
+## 5. 门禁全账（23 项，串行；日志 `/tmp/opencode/v4-gate-logs/v4-4-reviewfix/`）
+
+| # | 门禁 | 结果 | 计数（R2 → 本轮） |
+|:--:|---|:--:|---|
+| 1 | `npm run typecheck` | ✔ | exit=0 |
+| 2 | `npm run build` | ✔ | 产物 **478,163 B** |
+| 3 | `npm test`（node 全量） | ✔ | **978 → 991**（只增） |
+| 4 | `test:supersession` | ✔ | 33/33 |
+| 5 | `test:gate-integrity` | ✔ | 12/12（`CHROMIUM_GATES.length === 9` 未动） |
+| 6 | `test:ref-pick-wiring` | ✔ | 7 → **11/11** |
+| 7 | `test:size-ruling-vol3` | ✔ | 8 → **9/9** |
+| 8 | `test:design-contract` | ✔ | 6/6 |
+| 9 | `test:l0` | ✔ | 217 → **221/221** |
+| 10 | `test:l1` | ✔ | 111/111 |
+| 11 | `test:l2` | ✔ | 73/73 |
+| 12 | `test:stream` | ✔ | 63/63 |
+| 13 | `test:page-input` | ✔ | 102/102 |
+| 14 | `test:zero-injection` | ✔ | 27/27 |
+| 15 | `test:ask-auth` | ✔ | 61/61 |
+| 16 | `test:recommendation` | ✔ | 37 → **44/44** |
+| 17 | `test:ui`（journey） | ✔ | 167 assertions（保护段零 diff） |
+| 18 | `test:insight` | ✔ | 116 assertions |
+| 19 | `test:hardening` | ✔ | 24 assertions |
+| 20 | `test:e2e`（fullchain） | ✔ | PASS |
+| 21 | `test:binding` | ✔ | 192/192（见 §7 环境性 flake 登记） |
+| 22 | `test:l1-reverse` | ✔ | 9/9 |
+| 23 | `test:l2-reverse` | ✔ | 10/10 |
+
+**density（关键项）**：`▶ density 门禁: 175 passed / 0 failed ✔ PASS`；阶段 F 28 格逐格机对 ∧
+产物字节 == 登记值（478,163）∧ ≤ 机读上限（502,071）。
+
+## 6. 红线核验 + 体积 + V3-VOL-3
+
+| 项 | 值 |
+|---|---|
+| `dist/content.js` | **177,076 B**（逐字节不变） |
+| `dist/pick-layer.js` | **33,900 B**（逐字节不变） |
+| `test/ui/journey.mjs` / `test/ui/binding.mjs` | **零 diff**（vs `eb879bb`；保护段未改） |
+| `manifest.json` / `src/content/**` / `src/background/**` | **零 diff** |
+| `KIND_SET` / 判定链 / 12 类卡闭集 | 零改（`CARD_TYPES` 未扩） |
+| `dist/sidepanel.js` | **478,163 B**（基线 465,277 → +12,886 B / +2.77%） |
+| 轮内 ceiling | `floor(478,163 × 1.05) = ` **502,071 B** |
+| V3-VOL-3 档位 | `ceilTo50KB(478,163) = ` **512,000 B**（未跨档） |
+| V3-VOL-3 绝对上限 | **563,200 B**（未变） |
+| V3-VOL-3 三值 | `newBaselineBytes=478,163` / `absoluteCeilingBytes=563,200` / `resolvedOn=2026-09-19`（走**作者确认占位**规则重登；`authorConfirmation.status` 仍 `pending-author-line`，**不伪称已确认**） |
+| 五要素重登记 | 新轮 `v4-4-reviewfix`（前后值/日期/来源/构建命令/理由 + `_HISTORY`/TIMELINE/`SIDEPANEL_RE_REGISTRATIONS` 只追加 + 逐模块归因 `v44ReviewfixRows`，Σ + glue == 12,886） |
+| 计数纪律 | node 978→991 · l0 217→221 · density 173→175 · recommendation 37→44 · ref-pick-wiring 7→11 · size-ruling-vol3 8→9（**只增不减**） |
+
+**密度格子重锚（诚实登记，不是放宽）**：BLOCK-01 接线后「引用失效后」时机在该子场景追加一张
+risk-recovery 推荐卡 ⇒ `risk(staleRef)@400` 越过折线、`#scroll-bottom` 出现（@320 原有、@520 仍零
+漂移）。该格按 KL-V44-01 的**同一纪律**显式重锚为 7/7/18/208（`before=6/6/17/203` 逐字保留），并
+带 I-07 的溯源字段；`#scroll-bottom` 照旧全额计入 C1 并与登记格机对，未登记格仍一律 0 违规 ∧ 0 漂移。
+
+## 7. 环境性 flake 登记（binding）
+
+本轮批量串行跑中 `test:binding` 出现三个**历史同签名**的红：`#8d/#8e`（`#confirm-allow` 时序）与
+`#6l`（`residual=undefined`，waitFor 6s 未贴底）。处置与既有 KL-N-10 纪律一致：`binding.mjs` **零
+diff**、失败签名与 **R2 之前**的历史现场同签名、失败点互异；隔离复跑多轮命中连续两次全绿
+（`fix8`/`fix9` = 192/192 PASS，另有 retry1/2/4/6 绿）。当时宿主 load average ≈ 3.5–4.5、可用内存
+≈ 3.7 GB（多轮 Chromium 串行后）。**结论：环境性**（如实登记，不修改门禁、不放宽断言）。
+
+## 8. 未完成 / 残余
+
+| 项 | 说明 |
+|---|---|
+| `switchStreamSession`（纯模型 API） | 产品路径已改为 `openSessionSegment` + 唯一通道，并由布线门禁禁止产品直呼；该纯函数仍作为 `stream-model.test.ts` 的模型契约存在（残余：未来若被产品误用，布线门禁会红） |
+| I-04 夹具**严格序无关性** | `projectedRefState` 跨夹具泄漏的**机制**已消除（reset 清空）；本轮按登记顺序重跑绿，未另设「乱序夹具」门禁（如实登记） |
+| 环境性 flake | 见 §7（binding 时序面；与本轮改动无因果关系证据，签名与历史一致） |

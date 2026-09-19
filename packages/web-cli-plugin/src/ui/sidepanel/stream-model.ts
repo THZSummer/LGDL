@@ -546,12 +546,29 @@ export function sessionSeparatorLabel(label: string): string {
 }
 
 /**
- * Switch the active segment. The event log is **kept** (FR-CHAT-024: the old
- * segment's `tool`/`ok`/`ms` survive), `seq` is **not reset**, and a `system`
- * separator row is appended to the NEW segment.
+ * Switch the active segment **only** (no row is appended).
  *
- * Switching back to a segment that already has events is a pure re-activation:
- * no duplicate history is appended (the caller checks {@link hasSegment}).
+ * I-02 (v4-4 review): the product's session switch composes this with the single
+ * system channel (`chat-state.ts#openSessionWithRow`), so the separator row goes
+ * through `appendSystem` (de-dupe window / rate cap / `dropped` accounting). The
+ * legacy {@link switchStreamSession} keeps the old「switch + append a raw separator」
+ * shape for the pure-model unit tests only; the wiring gate forbids the product from
+ * calling it (a second construction point would be a bypass).
+ *
+ * The event log is **kept** (FR-CHAT-024: the old segment's `tool`/`ok`/`ms` survive),
+ * `seq` is **not reset**, and switching back is a pure re-activation.
+ */
+export function openSessionSegment(state: StreamState, sessionId: string): StreamState {
+  if (!sessionId || sessionId === state.sessionId) return state;
+  return Object.freeze({ ...state, sessionId });
+}
+
+/**
+ * Legacy model API (pure unit tests): switch + append a raw separator row.
+ *
+ * ⚠️ The PRODUCT must not call this — `chat-state.ts` uses {@link openSessionSegment}
+ * plus the single system channel so the separator cannot bypass the channel's
+ * de-duplication / rate-cap / `dropped` accounting (I-02, v4-4 review).
  */
 export function switchStreamSession(state: StreamState, sessionId: string, label: string): StreamState {
   if (!sessionId || sessionId === state.sessionId) return state;

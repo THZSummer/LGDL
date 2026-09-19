@@ -82,8 +82,3 @@ export function syncNextstepPending(container: ParentNode, pending: boolean): vo
     chip.setAttribute('aria-disabled', String(pending));
   }
 }
-
-/** `true` when the card carries at least one chip (the「无候选不渲染」inverse). */
-export function hasChips(view: CardView): boolean {
-  return (view.payload.chips?.length ?? 0) > 0;
-}
