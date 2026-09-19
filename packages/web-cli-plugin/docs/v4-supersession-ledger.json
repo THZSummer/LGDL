@@ -1959,9 +1959,9 @@
    "id": "V43-SVOL-1",
    "file": "packages/web-cli-plugin/test/size-baseline.ts",
    "oldTitle": null,
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 440_396;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 440_698;",
    "modificationType": "registered-rewrite",
-   "reason": "V4-3 功能轮体积五要素重登记（ask/auth 流内化的必需增重）：426,487 → **440,396 B**（+13,909 B，+3.26%，逐模块可归因），ceiling = floor(440,396 × 1.05) = **462,415 B**；新增 v4-3 登记轮 + 三个新必需模块 rows（stream-plaintext / cards/askuser / cards/auth）；TIMELINE 追加 440,396，历史值逐字保留；断言零删减（新增 ask-auth-inflow node + Chromium 两门禁）。"
+   "reason": "V4-3 功能轮体积五要素重登记（ask/auth 流内化的必需增重）：426,487 → **440,396 B**（+13,909 B，+3.26%，逐模块可归因），ceiling = floor(440,698 × 1.05) = **462,732 B**；新增 v4-3 登记轮 + 三个新必需模块 rows（stream-plaintext / cards/askuser / cards/auth）；TIMELINE 追加 440,396，历史值逐字保留；断言零删减（新增 ask-auth-inflow node + Chromium 两门禁）。"
   }
  ],
  "modifiedRanges": [

@@ -284,7 +284,7 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * ceiling 由公式抬高 floor(375,102 × 1.05) = **393,857 B**；容差 5% 未动、cap 仍 `record-only`、
  * `targetBudgetBytes` / `targetMet` 仍为 null。
  */
-export const SIDEPANEL_BASELINE_BYTES = 440_396;
+export const SIDEPANEL_BASELINE_BYTES = 440_698;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -301,7 +301,7 @@ export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
  */
 export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
   1_068_165, 1_085_389, 1_110_744, 1_132_748, 1_159_856, 1_162_942, 266_500, 291_523, 295_225, 327_679, 328_476,
-  349_880, 349_925, 362_777, 366_500, 366_755, 368_529, 375_102, 385_319, 425_442, 425_094, 426_487, 440_396,
+  349_880, 349_925, 362_777, 366_500, 366_755, 368_529, 375_102, 385_319, 425_442, 425_094, 426_487, 440_698,
 ] as const;
 
 /**
@@ -363,7 +363,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 440_396;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 440_698;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -391,7 +391,7 @@ export const SIDEPANEL_BASELINE_META = {
   previousCeilingBytes: 393_857,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 440_396,
+  finalArtifactBytes: 440_698,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -857,17 +857,17 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
     measuredBy: 'SDDU v4-3 build round (leaf specs-tree-v4-3-ask-auth-inflow)',
     reason:
-      '**显式提升重登记（功能轮）：426,487 → 440,396 B（+13,909 B，+3.26%）**。全部为 ask/auth 流内化的**必需增重**，逐模块可归因（真实 dist/build-meta.json bytesInOutput）：' +
+      '**显式提升重登记（功能轮）：426,487 → 440,698 B（+14,211 B，+3.33%）**。全部为 ask/auth 流内化的**必需增重**，逐模块可归因（真实 dist/build-meta.json bytesInOutput）：' +
       '三个新必需模块 stream-plaintext 1,961 / cards/askuser 5,595 / cards/auth 5,944（+13,500）；既有模块接线 sidepanel +2,410 / chat-state +2,840 / stream-model +2,746 / l0/shell +1,872 / view-model +309；cards/index −5,819（提取）。' +
       '**断言零删减**：新增 test/ask-auth-inflow.test.ts（12 用例）与 test/ui/ask-auth-inflow.mjs（49 断言）；content.js 177,076 / pick-layer.js 33,900 逐字节不变；ask-bridge.ts / KIND_SET / SW / manifest 零 diff。' +
-      '容差 5% 未动；ceiling = floor(440,396 × 1.05) = **462,415 B**（cap 仍 record-only）。⚠️ 相邻两轮 v4-2 + v4-3 = +3.26%（<15% 线，仍如实登记）。PENDING_ABSOLUTE_CAP 保持 resolved:false。',
+      '容差 5% 未动；ceiling = floor(440,698 × 1.05) = **462,732 B**（cap 仍 record-only）。⚠️ 相邻两轮 v4-2 + v4-3 = +3.26%（<15% 线，仍如实登记）。PENDING_ABSOLUTE_CAP 保持 resolved:false。',
     baselineBeforeBytes: 426_487,
-    baselineAfterBytes: 440_396,
+    baselineAfterBytes: 440_698,
     ceilingBeforeBytes: 447_811,
-    ceilingAfterBytes: 462_415,
+    ceilingAfterBytes: 462_732,
     assertionNonRemovalEntries: ['V43-SVOL-1'],
     historyRetainedBytes: [426_487, 425_094],
-    ceilingUncappedFormulaBytes: 462_415,
+    ceilingUncappedFormulaBytes: 462_732,
   },
 ] as const;
 
@@ -912,7 +912,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   /** The baseline whose **tree** this breakdown compares against (v3-1 I6). */
   baselineReferenceBytes: 295_225,
   /** 累计：当前基线 − `baselineReferenceBytes`（425,094 − 295,225）。 */
-  deltaBytes: 145_171,
+  deltaBytes: 145_473,
   /**
    * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 385,319`（`size-growth-evidence.test.ts` 直接机核该等式）。
    *
@@ -923,10 +923,10 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `v42RoundRows` 的注释里）。v4-1 轮自身的增量（375,102 → 385,319，Σ+10,075 + 142）
    * 逐字保留在 {@link SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows} 的注释与 `v41RoundUnattributedGlueBytes`。
    */
-  closeoutDeltaBytes: 55_077,
-  newRequiredModuleBytes: 112_241,
-  wiringBytes: 35_554,
-  attributionShiftBytes: -1999,
+  closeoutDeltaBytes: 55_379,
+  newRequiredModuleBytes: 112_344,
+  wiringBytes: 35_753,
+  attributionShiftBytes: -1_999,
   /**
    * 未归因运行时胶水：`deltaBytes − Σ(rows.deltaBytes)`（review 修复轮后实测 **1,060 B** = 累计增量 129,869 的 **0.82%**；
    * build 轮同为 1,060 B / v4-1 为 598 B）。随输入模块数（57 → 69）自然增长，仍远小于任何一层的实现字节。
@@ -1090,11 +1090,11 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   v43RoundRows: [
     { module: 'src/ui/sidepanel/stream-plaintext.ts', beforeBytes: null, afterBytes: 1_961, deltaBytes: 1_961 },
     { module: 'src/ui/sidepanel/cards/askuser.ts', beforeBytes: null, afterBytes: 5_595, deltaBytes: 5_595 },
-    { module: 'src/ui/sidepanel/cards/auth.ts', beforeBytes: null, afterBytes: 5_944, deltaBytes: 5_944 },
+    { module: 'src/ui/sidepanel/cards/auth.ts', beforeBytes: null, afterBytes: 6_047, deltaBytes: 6_047 },
     { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: 6_908, afterBytes: 9_654, deltaBytes: 2_746 },
     { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 9_953, afterBytes: 12_793, deltaBytes: 2_840 },
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 62_689, afterBytes: 65_099, deltaBytes: 2_410 },
-    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 4_158, afterBytes: 6_030, deltaBytes: 1_872 },
+    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 4_158, afterBytes: 6_229, deltaBytes: 2_071 },
     { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 19_586, afterBytes: 19_895, deltaBytes: 309 },
     { module: 'src/ui/sidepanel/cards/index.ts', beforeBytes: 9_586, afterBytes: 3_767, deltaBytes: -5_819 },
     { module: 'src/ui/sidepanel/cards/shared.ts', beforeBytes: 4_436, afterBytes: 2_172, deltaBytes: -2_264 },
@@ -1135,7 +1135,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 17_123, afterBytes: 19_895, deltaBytes: 2_772, kind: 'wiring', requiredBy: 'FR-V3-031 + FR-V3-046/015 + FR-V3-068/070 + R1 + R2 + v4-1 + FR-CHAT-048（askFlowView 回合语义：pending 只门控新回合/推荐 chip）· ADR-V4-032' },
     { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 12_793, deltaBytes: 8_490, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）· ADR-V4-030~032' },
     { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 4_547, afterBytes: 5188, deltaBytes: 641, kind: 'wiring', requiredBy: 'FR-V3-031（白名单 4 → 9 个目标 + 5 条 wiring）；v3-4 复核：数值未变（本叶不改折叠白名单） + v4-1（`COLLAPSIBLE_TARGETS` 9→7：移除退役的 topbar/l2-entries；`NEVER_FOLDABLE` 扩展为三区骨架）—— FR-CHAT-014 · ADR-V4-019' },
-    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 6_030, deltaBytes: 2_679, kind: 'wiring', requiredBy: 'FR-V3-047 + FR-V3-068 + R2 + v4-1（三区外壳）+ FR-CHAT-040/042（决策槽退役后 #l0-more / #l1-more-options 单一写入者迁入 + 流内卡兜底输入控制）· ADR-V4-030' },
+    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 6_229, deltaBytes: 2_878, kind: 'wiring', requiredBy: 'FR-V3-047 + FR-V3-068 + R2 + v4-1（三区外壳）+ FR-CHAT-040/042（决策槽退役后 #l0-more / #l1-more-options 单一写入者迁入 + 流内卡兜底输入与 composer reveal 控制）· ADR-V4-030' },
     { module: 'src/ui/sidepanel/l0/risk-rail.ts', beforeBytes: 5_665, afterBytes: 7698, deltaBytes: 2033, kind: 'wiring', requiredBy: 'FR-V3-037（失效行可读原因；风险位唯一写入者不变）+ R2（稳态「低频自动复查中」override：同类、三通道、参与重绘签名） + v4-1（行 → chip 形态：`button.risk-row` + `data-chrome-control` + `aria-controls="risk-detail"`；零风险 ⇒ 0 可点 chip；探针/归属判据零逻辑改动）—— FR-CHAT-013/017 · ADR-V4-019' },
     { module: 'src/ui/sidepanel/l0/status-bar.ts', beforeBytes: 1_382, afterBytes: 67, deltaBytes: -1315, kind: 'wiring', requiredBy: 'FR-V3-015 / FR-V3-046（入口标签 + 面板摘要写入 + 逐目标 aria 对）+ I-01（逐目标 `aria-controls`：设置入口指向 `#settings-view`） + v4-1（位置迁移为 L2 入口写入器并委托 `toolbar.ts`；模块体从 1,694 B 收缩到 67 B —— 计数徽标改由工具栏渲染，`L2_ENTRY_FIELDS`/`syncTriggerAria` 语义保持）—— FR-CHAT-011/015' },
     { module: 'src/ui/tree/tree-drawer.ts', beforeBytes: 39_779, afterBytes: 39893, deltaBytes: 114, kind: 'attribution-shift', requiredBy: '源码未改；esbuild 分摊位移（归属迁移只改 index.html 的容器与 CSS）' },
@@ -1152,7 +1152,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/cards/index.ts', beforeBytes: null, afterBytes: 3_767, deltaBytes: 3_767, kind: 'new-required-module', requiredBy: 'FR-CHAT-021/022/036（CARD_TYPES 单源 + 注册表 + 固化契约；v4-3 把 ask/auth 提取为独立模块）· ADR-V4-026/027' },
     { module: 'src/ui/sidepanel/stream-plaintext.ts', beforeBytes: null, afterBytes: 1_961, deltaBytes: 1_961, kind: 'new-required-module', requiredBy: 'FR-CHAT-049 / AC-CHAT-021（流内留痕零明文白名单 + label 工厂）· ADR-V4-034' },
     { module: 'src/ui/sidepanel/cards/askuser.ts', beforeBytes: null, afterBytes: 5_595, deltaBytes: 5_595, kind: 'new-required-module', requiredBy: 'FR-CHAT-040/041/042 + AC-CHAT-003/005（choice/text 两型 + 固化两态 + 终态零控件）· ADR-V4-030' },
-    { module: 'src/ui/sidepanel/cards/auth.ts', beforeBytes: null, afterBytes: 5_944, deltaBytes: 5_944, kind: 'new-required-module', requiredBy: 'FR-CHAT-045/046/047 + AC-CHAT-016（批准/拒绝 + 预演 + 审计入口 + 两态固化）· ADR-V4-030/033' },
+    { module: 'src/ui/sidepanel/cards/auth.ts', beforeBytes: null, afterBytes: 6_047, deltaBytes: 6_047, kind: 'new-required-module', requiredBy: 'FR-CHAT-045/046/047 + AC-CHAT-016（批准/拒绝 + 预演 + 审计入口 + 两态固化 + legacy #confirm 单一解析）· ADR-V4-030/033' },
     { module: 'src/ui/sidepanel/cards/shared.ts', beforeBytes: 4_436, afterBytes: 2_172, deltaBytes: -2_264, kind: 'attribution-shift', requiredBy: '源码未改：v4-3 提取 askuser/auth + 新增 stream-plaintext 后 esbuild 分摊位移' },
     { module: 'src/ui/sidepanel/cards/shared.ts', beforeBytes: null, afterBytes: 2_172, deltaBytes: 2_172, kind: 'new-required-module', requiredBy: 'FR-CHAT-022（卡 DOM 契约唯一语言：`card-head`/`card-col`/`.ts`/`.card-fixed` + 折叠阈值 480/10 单源）· ADR-V4-026/027' },
     { module: 'src/ui/sidepanel/cards/ai.ts', beforeBytes: null, afterBytes: 456, deltaBytes: 456, kind: 'new-required-module', requiredBy: 'FR-CHAT-031（AI 卡富文本走既有安全 `markdown.ts`）+ AC-CHAT-002' },

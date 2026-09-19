@@ -192,7 +192,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // pick-input +724 / ref-store +256 / chat-state +220 / view-model +162 = +3,978）⇒ 67,552 → 71,530。
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
-  assert.equal(b.deltaBytes, 145_171);
+  assert.equal(b.deltaBytes, 145_473);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
