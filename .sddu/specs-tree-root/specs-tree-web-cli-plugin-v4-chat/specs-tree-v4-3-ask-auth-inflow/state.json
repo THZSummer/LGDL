@@ -3,15 +3,15 @@
  "featureKey": "specs-tree-v4-3-ask-auth-inflow",
  "version": "v4.0.0",
  "name": "V4-3 ask-user / 授权卡流内化与留痕固化——独占决策槽迁入流内 + 固化不可逆 + 60s 超时/取消/supersededAsk 留痕 + 授权记录流内可回看 + 零明文边界",
- "phase": "builded",
+ "phase": "reviewed",
  "workflow": "3.plan",
- "agent": "sddu-plan",
+ "agent": "sddu-review",
  "depth": 2,
  "parent": "specs-tree-web-cli-plugin-v4-chat",
  "childrens": [],
  "leaf": true,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-19T14:00:00.000Z",
+ "updatedAt": "2026-09-19T15:30:00.000Z",
  "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**作者主诉的直接兑现**：Q-CHAT-001 承载层 / Q-CHAT-002 / Q-CHAT-007）。承载父 FR-CHAT-040~049（FLOW 组）：① ask-user（choice/text 两型）从流之上的独占决策槽（#l0-decision > #ask）迁入流内卡，删除「同时只允许一张、旧卡不滞留」独占语义；② ask 卡操作前/后固化（未答表单可见 + 固化区 hidden → 回答后 data-answered=true + 表单收起 + 固化区「已答：+ 内容」+ 时间戳）；③ 已固化卡不可二次回答；取消也留痕（「已取消（不代填默认值）」）；④ 60s 超时 → canceled 留痕、不代填默认值（fail-closed）；⑤ supersededAsk 从「只取消不留痕」（R1）升级为「取消 + 留痕」；⑥ 破坏性二次确认（confirm）迁入流内 auth 卡（data-decision=approved/rejected），含范围与后果预演 + 审计入口，已决策不可重复、旧卡不消失；⑦ 授权记录流内可回看（流 = 会话审计线索，审计视图 = 完整台账）；⑧ busy/回合语义规则（多张未答卡是否并存、pending 门控、与拾取/会话切换关系），不得出现「回合永远卡在处理中」；⑨ 流内留痕零明文边界（不把命令参数体 / URL query / 页面文本带进留痕）。权威条文见父 spec.md §5.5。",
  "scope": {
   "in": [
@@ -144,7 +144,9 @@
   "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.md",
   "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.json",
   "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
-  "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json"
+  "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json",
+  "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/review.md",
+  "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/review-report.md"
  },
  "status": "tracked",
  "phaseHistory": [
@@ -177,9 +179,14 @@
    "phase": "builded",
    "timestamp": "2026-09-19T14:00:00.000Z",
    "triggeredBy": "sddu-build（v4-3 build R2 收口轮：台账逐行登记 71 entries + 1 叶段 72 行 + 9 换锚 / RP-L1-E 与 l2-reverse 还原基线重 pin / RP-V4-09 期望值动态化 / npm test 937·0 + supersession 31·0 / 全量 21 门禁 + RP-V4-09 复验全绿）"
+  },
+  {
+   "phase": "reviewed",
+   "timestamp": "2026-09-19T15:30:00.000Z",
+   "triggeredBy": "sddu-review（R1 静态审查：C1~C13 + 4 阻塞（BLOCK-01 假批准 / BLOCK-02 假超时·引用回合被冻结 / BLOCK-03 L1 已决策历史记错答案 / BLOCK-04 审计入口不可达）+ I-01~I-08；结论 ❌ 不通过，待修复后重审）"
   }
  ],
- "phaseNote": "phase=planned（status=tracked）。产出本叶 `plan.md` v1.0（**ADR-V4-030~034（5 条）**）。本叶 = 作者主诉的直接兑现。ADR-V4-030 ask/confirm **事件化状态机**（终态 `answered`/`cancelled`/`approved`/`rejected`；`data-answered` 三值 + `data-decision` 三值；**终态卡结构性不渲染操作控件**；`#ask*`/`#confirm*` id 保留为模板源；`rounds[]` 差分推断退役；**删除「解析即置 null 消失」路径**）；ADR-V4-031 超时/取消/取代 = **SW 60 s 语义零变更 + 面板投影三留痕**（用户/超时/取代各一条 `ask-cancel`，后两者加 `system` 行）+ `supersededAsk` 升级为「取消 + 留痕」（卡内主 + 系统行辅）+ fail-closed 不代填；ADR-V4-032 回合语义 = `MAX_OPEN_ASKS=2`（R1 现场观测上限）+ **引用回合优先**（`ref-round-` 前缀）+ 超限 supersede 最旧并留痕 + **`pending` 与未答卡解耦**（`pending` 只门控新回合与推荐 chip；`sendDisabledReason` 文本/来源不改）+ **无「永远处理中」**；ADR-V4-033 授权回看 = **AC-CHAT-016 唯一验收叶**（流 = 会话审计线索 / 审计 = 完整台账；站点级授权在设置视图可发现可读；不新增第 8 类卡；SW 零改动）；ADR-V4-034 零明文 = 复用 `assertNoPlaintext` + 新增 `stream-plaintext.ts`（字段白名单 + `label` 工厂）+ 摘要无自由文本 + 正/反向用例。 **本叶收尾门禁（严格串行、一次一个 Chromium、日志落盘禁 tail 截断）**：typecheck · build · `npm test`（含新增 `test/ask-auth-inflow.test.ts`）· `test:supersession` · `test:gate-integrity`（追加 `test/ui/ask-auth-inflow.mjs`）· `test:zero-injection`(27) · `test:page-input`(102) · `test:l0` · `test:l1` · `test:l2` · `test:density`（不回退；逐卡可点 ≤6 复算）· `test:ui`(≥167) · `test:insight`(≥108) · `test:binding`(≥192) · `test:hardening` · `test:e2e` · **`test:ask-auth`（新增 Chromium 门禁）** · 体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 五要素中间重登记）。 权威跨叶契约见父 `../plan.md`（ADR-V4-001~016）。**本阶段只做 plan**：未写 tasks/代码、未改 `src/**`·`test/**`·`dist/**`·`manifest.json`·ROADMAP、未动 `main`、未 commit/push、**未跑任何门禁/构建/Chromium**。下一阶段：@sddu-tasks specs-tree-v4-3-ask-auth-inflow。\n\ntasks 阶段完成（2026-09-18，sddu-tasks）：产出本叶 tasks.md v1.0 + tasks.json v1.0 —— 11 任务 / 6 波（别名 V43-01~11，全局编号 TASK-701~711），含每任务的可验证验收（引用 FR/AC/ADR/R 编号）、触碰面（NEW/MODIFY/RETIRE 文件组）、波次与检查点、D-005 式测试守恒账（新增/取代/重写计数）。门禁：新增 test:ask-auth（TASK-709）；AC-CHAT-016 唯一验收叶（台账 owner=v4-3）。纪律：只写本 Feature 目录、零生产代码改动、未跑门禁/构建/Chromium、未 commit/push。\n\nbuild 阶段完成（2026-09-19，sddu-build）：产出 ask/auth 流内化（stream-model 仲裁 + cards/askuser + cards/auth + stream-plaintext + chat-state 终态接线 + view-model askFlowView + decision-card 退役 + v4-3 宿主清零=0）+ 两个新门禁（test/ask-auth-inflow.test.ts 12/12；test/ui/ask-auth-inflow.mjs 49/0）+ 体积五要素重登记（440,396 B / ceiling 462,415）。HO-1 裁决：维持 aggregateLimit=8（两 ask 卡同屏最坏 4+4=8）+ 反证；HO-2：scopeLimit 仍成立、未放宽、kept 不变。未绿：supersession-ledger 逐行删除登记（4 项）/ l1-reverse RP-L1-E（1 项）/ l2-reverse 还原基线（4 项）——均为门禁机械重 pin，已登记 build.md §6。\n\nbuild 阶段 R2 收口轮完成（2026-09-19，sddu-build）：**phase=builded（status=tracked），R1 登记的 3 类机械重 pin 全部闭环，另补记 1 项 R1 未登记的 RP-V4-09 反证红。**① 取代台账逐行登记：`docs/v4-supersession-ledger.json` 新增 **71 条 `V43-E-*` entries**（oldTitle 逐字 = 被删原文、newTitle = 当前文件可定位锚点、理由 ≥40 字符）+ 新增 **`leafBases[1]`（v4-3 @ 0f8a1fb）登记 72 条逐字叶段删除行（10 文件）**；v4-1 `scope.files` 由手工收窄的 18 文件按规则复算订正为 **33 文件**；**9 条既有条目换锚**（V41-R2-6/7/8/9、V42-E-VOL-2/3、V42-E-SVOL-1/2、V43-SVOL-1 补 oldTitle）；**反证**：删除 1 条已登记行 ⇒ `test:supersession` EXIT=1（30/1，诊断逐字点名该行），逐字节还原 ⇒ EXIT=0（31/0）。② l1-reverse RP-L1-E 重 pin：`#ask-fallback` 在 v4-3 起由流内 ask 卡按需铸造 ⇒ l1.mjs 改为空安全读取（断言计数 108 不变），`test:l1-reverse` 9/9 PASS（注入 ⇒ 具名断言 FAIL，非「因错而红」）。③ l2-reverse：根因是 RP-V33-03/03-NEG/06 的 PASS 段调用取代台账门禁（R1 台账红 4 项）⇒ 台账转绿后自然复原，**无需改注入靶**；`test:l2-reverse` 10/10 PASS。④ npm test：**937 / 0 全绿**（R1 为 936 中 4 红）；supersession **31 / 0**；抽样口径按实测订正（l0 212→216 / nodeTestRuntime 924→937 / supersession 30→31 / density 171），source 指向 `registry/` 快照，N-04「counts 同源机核 4 项逐条相等」。⑤ 门禁：**全量 21 项 + RP-V4-09 复验串行全绿**（typecheck/build/npm test 937·0/supersession 31·0/gate-integrity 12·0/zero-injection 27/page-input 102/l0 216/l1 108/l2 73/density 171/journey 167/insight 116/binding 192/hardening 24/e2e PASS/ask-auth 49/stream 63/design-contract 6/l1-reverse 9/l2-reverse 10 + RP-V4-09 9·0）；日志 `/tmp/opencode/v4-gate-logs/v4-3-r2/`（禁截断）。⑥ 红线：`content.js` 177,076 / `pick-layer.js` 33,900 逐字节不变；sidepanel.js **440,698 B** ≤ ceiling 462,732；SW/KIND_SET/判定链/manifest 零触碰；journey/binding 保护段字节零改；`src/**` 本轮 0 行 diff；测试只增不减；未用 `git add -A`。⑦ 产物：`build.md` v2.0（R2 逐项闭环 + 台账登记计数 + 门禁全量账）；TREE.md 定向更新。",
+ "phaseNote": "reviewed R1 结论 ❌ 不通过（4 阻塞 / 8 改进 / 规范偏差 4）——修复 BLOCK-01~04 后重跑受影响门禁并复审，再进入 validate。产物：review.md（策略 C1~C13）+ review-report.md（R1）。",
  "tasks": {
   "range": "TASK-701~711",
   "alias": "V43-01~11",
