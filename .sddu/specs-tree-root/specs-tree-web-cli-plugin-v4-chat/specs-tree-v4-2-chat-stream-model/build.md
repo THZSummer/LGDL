@@ -21,8 +21,8 @@
 | 新增测试文件 | **3**（stream-model.test.ts / stream-persistence.test.ts / test/ui/stream.mjs） |
 | 修改文件 | 17（见 §2） |
 | 执行波次 | 7（+ 跨叶移交验收与 TASK-602/603 同轮交付） |
-| 门禁 | **20 项串行全绿**（基线 19 + 新增 `test:stream`） |
-| 体积 | `dist/sidepanel.js` 385,319 → **425,442 B**（+40,123 B，+10.41%；五要素重登记见 §9） |
+| 门禁 | **20 项串行全绿**（基线 19 + 新增 `test:stream`）；review 修复轮后按最终产物复跑（见 §15） |
+| 体积 | `dist/sidepanel.js` 385,319 → **425,094 B**（+39,775 B，+10.32%；五要素重登记见 §9）。构建轮首登值为 425,442 B（+40,123 B，+10.41%），review 修复轮移除死代码/死 CSS 后按**最终实测值**订正（中间值逐字保留） |
 
 **一句话结论**：把聊天流做成**不可变、单调、可回放的 append-only 事件流**（12 kind / 终态冻结 / 纯投影），落 **12 类卡**（7 主类 + 5 过程族）与**统一固化契约**，既有 5 种过程形态**零丢失**归位；渲染改为 **keyed 增量渲染**（永不清空、终态 DOM 冻结）；会话切换**不重置 `seq`**、旧段事件保留；摘要落库走**面板侧 `chrome.storage.local`** 的**零明文白名单**（零新权限、零 SW 改动、`KIND_SET`/`content.js` 零 diff）。
 
@@ -66,7 +66,7 @@
 | MODIFY | `test/sidepanel-view.test.ts` | TASK-607 / 611 | 3 条静态断言按同语义重锚到 `cards/*` + 契约 ④ 追加（空态由流渲染器拥有） |
 | MODIFY | `test/perf-budget.test.ts` | TASK-611 | 追加「320 卡 `project()` 有界且回放稳定 + bound 不淘汰受保护卡」 |
 | MODIFY | `test/gate-integrity.test.ts` | TASK-611 | `EXPECTED_AUDITED_FILES` 追加 `test/ui/stream.mjs`（**不动** `CHROMIUM_GATES.length === 9`）；in-gate 例外扩到 RP-V4-01~09 |
-| MODIFY | `test/size-baseline.ts` | TASK-612 | **五要素中间重登记**（385,319 → 425,442）+ 逐模块归因 `v42RoundRows` + v4-2 轮登记条目 |
+| MODIFY | `test/size-baseline.ts` | TASK-612 | **五要素中间重登记**（385,319 → 425,442；**review 修复轮按最终实测值订正为 425,094**，见 §9）+ 逐模块归因 `v42RoundRows` + v4-2 轮登记条目 |
 | MODIFY | `test/size-budget.test.ts` / `test/size-growth-evidence.test.ts` / `test/size-ruling-vol3.test.ts` | TASK-612 | 方向敏感断言按新实测值重 pin；v4-1 轮 metafile 判据泛化为「最新一轮 rows」 |
 | MODIFY | `package.json` | TASK-611 | scripts 追加 `test:stream` |
 | MODIFY | `docs/v4-supersession-ledger.json` | TASK-612 / 613 | v4-2 `counts`/`v4GateFloors`/`entries`/`modifiedRanges`/`leafBases.registeredUncoveredLines`/`unfrozenZeroDiffFiles` 追加 |
@@ -144,7 +144,7 @@
 
 `assertNoPlaintext` 四类形态：URL query · 命令参数体 · 密钥/令牌（含 bearer）· 原始标记（`< > \``）。**正例**：`site_notes-list` / `会话已切换：alpha.test` / 中文短语通过。
 
-**LRU / 降级**：`MAX_DIGEST_SESSIONS = 20`（与 SW `MAX_SESSIONS` 对齐，独立按 `sessionId`）；面板重开读回 → 事实字段（`seq`/`ts`/`kind`/`terminal`/`tool`/`ok`/`ms`/`refNum`/`askRequestId`）全部保留，正文显示 **「（历史摘要）」**（`DIGEST_DEGRADED_BODY`），**不编造正文**；截断规则显式登记（`docs/v4-supersession-ledger.json` + 本文件 §11 偏差 2）。
+**LRU / 降级**：`MAX_DIGEST_SESSIONS = 20`（与 SW `MAX_SESSIONS` 对齐，独立按 `sessionId`）；面板重开读回 → 事实字段（`seq`/`ts`/`kind`/`terminal`/`tool`/`ok`/`ms`/`refNum`/`askRequestId`）全部保留，正文显示 **「（历史摘要）」**（`DIGEST_DEGRADED_BODY`），**不编造正文**；截断规则显式登记 —— 〖review 修复轮 **I-01**〗本句原先即写「登记于台账」，但实测 `docs/v4-supersession-ledger.json` **没有该字段**（`grep` 0 命中），属**不实陈述**。现已补齐为机器事实：台账新增 `truncationRules[]`，其中 `scope:'panel-reopen'`、`kept` = 上述 **11 个白名单字段**（与 `stream-digest.ts#DIGEST_FIELDS` **逐字段机核**）、`degraded:['body']`、`reason`、`registeredOn`，并由 `test/supersession-ledger.test.ts` 的 `truncationRuleProblems()` 判 FAIL（源码存在 `DIGEST_DEGRADED_BODY` ⇒ 必须登记 `panel-reopen`+`degraded:[body]`；`kept` 与源码脱钩即红；另有反证证明判据非恒真）。另见本文件 §11 偏差 2 与会话收敛边界（`scopeLimit`）。
 
 ---
 
@@ -243,18 +243,21 @@
 
 ## 9. 体积五要素中间重登记（TASK-612 / ADR-V4-010）
 
+> 〖review 修复轮 **I-02**（2026-09-19）〗本节按**最终实测产物**订正为 425,094 B，并订正构建轮的一处**口径混用**：§9 ④ 原先把**累计口径**的未归因胶水 1,060 B 写进**本轮**等式（「+ 未归因胶水 1,060 B（= 累计增量的 0.81%）== 40,123 B」）——本轮胶水实为 **462**（39,661 + 462 = 40,123），1,060 是「v3-1 树 → 当前树」的**累计**值。两个口径现分列，历史值逐字保留。
+
 | 要素 | 值 |
 |------|------|
 | ① 来源 | `packages/web-cli-plugin/dist/sidepanel.js`（真实产物 `stat`） |
-| ② 前值 → 后值 | **385,319 → 425,442 B**（+40,123 B，**+10.41%**） |
-| ③ 日期 / 命令 / 测量人 | 2026-09-19 · `npm run build --workspace @lgdl/web-cli-plugin` · SDDU v4-2 build round（leaf `specs-tree-v4-2-chat-stream-model`） |
-| ④ 理由 | 十二个**新必需模块**（stream-model +5,998 / stream-digest +6,253 / stream-render +2,495 / cards/{index 9,679, shared 2,172, ai 733, user 419, system 1,035, tool 2,784, thinking 1,636, error 445, notice 395} = **+34,044 B**）+ 四个既有模块接线（chat-state +4,781 / density-scope +501 / sidepanel +333 / receipt +2 = **+5,617 B**）+ 未归因胶水 **1,060 B**（= 累计增量的 0.81%）== 40,123 B。逐模块表见 `SIDEPANEL_GROWTH_BREAKDOWN.rows`/`v42RoundRows`（`npm run size:attribution -- --rev cf2af32 --worktree` 与真实 metafile 双向核对）。 |
-| ⑤ 历史保留 | `SIDEPANEL_BASELINE_BYTES_TIMELINE` 追加 425,442（前值 385,319 逐字保留）；`SIDEPANEL_RE_REGISTRATIONS['v4-2']` 登记 before/after/ceiling/日期/来源/理由/历史值/断言零删减台账条目（`V42-E-SVP-1/2`、`V42-E-CARDS-1`、`V42-E-STREAM-1`） |
+| ② 前值 → 后值 | **385,319 → 425,094 B**（+39,775 B，**+10.32%**）〔构建轮首登：385,319 → 425,442 B（+40,123 B，+10.41%）；review 修复轮按最终实测值订正 −348 B，中间值逐字保留〕 |
+| ③ 日期 / 命令 / 测量人 | 2026-09-19 · `npm run build --workspace @lgdl/web-cli-plugin` · SDDU v4-2 build round + **review 修复轮**（leaf `specs-tree-v4-2-chat-stream-model`） |
+| ④ 理由 | 十二个**新必需模块**（stream-model +5,998 / stream-digest +6,253 / stream-render +2,489 / cards/{index 9,586, shared 2,172, ai 456, user 419, system 1,035, tool 2,784, thinking 1,636, error 445, notice 395} = **+33,668 B**）+ 四个既有模块接线（chat-state +4,891 / density-scope +501 / sidepanel +319 / receipt +2 = **+5,713 B**）+ 未归因胶水 **+394 B（本轮口径）** == **+39,775 B**。**口径分列（I-02 订正）**：构建轮的本轮等式为 Σ 模块 +39,661 + 胶水 **+462** == +40,123；**累计口径**（v3-1 树 → 当前树）胶水为 **+992 B**（= 累计增量 129,869 的 **0.76%**；构建轮累计为 1,060 B / 0.81% —— 历史值逐字保留）。逐模块表见 `SIDEPANEL_GROWTH_BREAKDOWN.rows`/`v42RoundRows`（`npm run size:attribution -- --rev cf2af32 --worktree` 与真实 metafile 双向核对，`nodes`↔`bytesInOutput` 逐条相等）。 |
+| ⑤ 历史保留 | `SIDEPANEL_BASELINE_BYTES_TIMELINE` 追加 **425,442 → 425,094**（前值 385,319 与中间值 425,442 逐字保留）；`SIDEPANEL_RE_REGISTRATIONS['v4-2']` 登记 before/after/ceiling/日期/来源/理由/历史值/断言零删减台账条目（`V42-E-SVP-1/2`、`V42-E-CARDS-1`、`V42-E-STREAM-1`），其 `reason` 同时保留构建轮与修复轮两组归因数字。 |
 
-- ceiling：`floor(425,442 × 1.05)` = **446,714 B**（容差 **5% 未动**；cap 仍 `record-only`，不参与判定）。
-- ⚠️ **相邻两轮告警**：v4-1 + v4-2 = 375,102 → 425,442（累计 **+13.42%**），**低于 15% 线**，仍按「最差相邻对」口径如实回报编排器（最差对仍是 v3-1 + v3-2 = +22.96%）。
+- ceiling：`floor(425,094 × 1.05)` = **446,348 B**（容差 **5% 未动**；cap 仍 `record-only`，不参与判定）。**方向为下调**（构建轮为 446,714 B）—— 修复轮只删死代码/死 CSS，**没有放宽任何口径**。
+- ⚠️ **相邻两轮告警**：v4-1 + v4-2 = 375,102 → 425,094（累计 **+13.33%**；构建轮为 +13.42%），**低于 15% 线**，仍按「最差相邻对」口径如实回报编排器（最差对仍是 v3-1 + v3-2 = +22.96%）。
 - `content.js` **177,076 B** / `pick-layer.js` **33,900 B** 逐字节不变；`PENDING_ABSOLUTE_CAP` 保持 `resolved:false` 且未预填。
-- 未解释字节判据：绝对 `< 1,500 B`（原 1,000，按 esbuild 胶水随模块数 57→69 增长登记调整）**∧ 新增更严的相对口径 `< 2%`（实测 1.02%）** —— 不是纯放宽（见 §11 偏差 4）。
+- 未解释字节判据：绝对 `< 1,500 B`（原 1,000，按 esbuild 胶水随模块数 57→69 增长登记调整）**∧ 新增更严的相对口径 `< 2%`（修复轮实测 992/129,869 = 0.76%）** —— 不是纯放宽（见 §11 偏差 4）。
+- **逐模块归因（修复轮，去重后）**：`cards/index` 9,679 → 9,586（−93，移除不可达 `patchAiCard` 分支与 `deps` 形参）/ `cards/ai` 733 → 456（−277，删除死防御路径）/ `stream-render` 2,495 → 2,489（−6，调用点形参收敛）/ `chat-state` 9,304 → 9,414（+110，`stream-merge` 双键去重）/ `sidepanel` 62,726 → 62,712（−14，空态改单一投影源）＝ Σ **−280**；未归因胶水 462 → 394（−68）⇒ 合计 **−348**。
 
 ---
 
@@ -266,8 +269,8 @@
 | `dist/pick-layer.js` 33,900 B | `stat` = 33,900 | ✅ |
 | `KIND_SET` 零 diff（`background/messaging.ts`） | `git diff HEAD -- src/background/` **空**；**零新增 kind** | ✅ |
 | 判定链 pin / R1R2R3 语义 | `test:binding`/`test:supersession` protectedRanges 全绿；journey 保护段字节零改 | ✅ |
-| sidepanel ≤ ceiling | 425,442 ≤ **446,714**（重登记后） | ✅ |
-| 测试只增不减 | node 881 → 918；l0 210 → 212；density/journey/insight/binding/hardening/l1/l2/page-input/zero-injection/supersession/gate-integrity/design-contract **逐项不变**；新增 stream 63 | ✅ |
+| sidepanel ≤ ceiling | **425,094 ≤ 446,348**（review 修复轮按最终实测值重登记后；构建轮为 425,442 ≤ 446,714） | ✅ |
+| 测试只增不减 | node 881 → 918（build 轮）→ **920**（review 修复轮 +2：`truncationRules` 判据 + 反证）；l0 210 → **212**；density/journey/insight/binding/hardening/l1/l2/page-input/zero-injection/supersession/gate-integrity/design-contract **逐项不减**；新增 stream 63。**零删除断言** | ✅ |
 | 零明文边界 | 摘要白名单 11 字段 + 反向注入 3 例必红；journey#16r close 摘要零 query 仍绿 | ✅ |
 | 占位宿主 4 处不动 | `test/ui/l0.mjs` ① 断言宿主计数 **== 4** 仍绿（本叶只建不销） | ✅ |
 | 门禁严格串行 + 日志全量 + finally 自清 profile | §8（一次一个 Chromium；日志未截断；`SIGKILL` 于 `finally`） | ✅ |
@@ -281,11 +284,14 @@
 | # | 偏差 | 依据 / 理由 | 处置 |
 |:--:|------|------|------|
 | 1 | **会话切换的 DOM 语义**：`project()` 按当前段投影（非当前段 detach 而非销毁） | 父 ADR-V4-003 第 2 条要求「旧段事件在内存 ⇒ 可上滚回看」；但 journey #16e/#16g 的「不串台」隔离断言是**既有仍绿**的硬约束且本叶不得改弱。二者只能同时满足于「**事件层保留 + 视图层按段投影**」：切回时**重挂同一节点**（冻结 DOM 与折叠记忆零损失），`tool`/`ok`/`ms` 由事件重放（v3 的 `history` 投影会丢）。 | 已在 `stream-render.ts` 头注释 + 本节 + v4 台账登记；`test/stream-model.test.ts` 断言「切换不重置 seq ∧ 旧段事件保留 ∧ 切回不重复追加」 |
-| 2 | **面板重开的降级重建面收敛**：自动读回只重放**已终态的 `askuser`/`auth` 决策卡** | ADR-V4-028 §5 的动机原文是「授权记录可回看」；全量重放（含 tool/system/未答 ask）会改变新面板的首屏读数并撞上冻结的 `test/ui/l0.mjs` ⑩（320/400 常驻集合相等）与空态契约。浏览器实测：全量重放 ⇒ l0 209/1；仅重放未终态 ⇒ 仍红（未答 ask 已是 stale）；**仅重放已终态决策卡 ⇒ 212/0**。零明文/白名单/LRU/降级文案与 `digestToEvents` 全能力**不变**（TASK-609 覆盖全 kind）。 | 登记于 `sidepanel.ts#restoreStreamDigest` 注释 + `docs/v4-supersession-ledger.json#knownLimitations`；下游（v4-3 落 ask 卡流内化时）可放宽该面并重算 |
+| 2 | **面板重开的降级重建面收敛**：自动读回只重放**已终态的 `askuser`/`auth` 决策卡** | ADR-V4-028 §5 的动机原文是「授权记录可回看」；全量重放（含 tool/system/未答 ask）会改变新面板的首屏读数并撞上冻结的 `test/ui/l0.mjs` ⑩（320/400 常驻集合相等）与空态契约。浏览器实测：全量重放 ⇒ l0 209/1；仅重放未终态 ⇒ 仍红（未答 ask 已是 stale）；**仅重放已终态决策卡 ⇒ 212/0**。零明文/白名单/LRU/降级文案与 `digestToEvents` 全能力**不变**（TASK-609 覆盖全 kind）。 | 登记于 `sidepanel.ts#restoreStreamDigest` 注释 + `docs/v4-supersession-ledger.json#truncationRules[0]`（〖review 修复轮 **I-01**〗**已从「只在正文/注释登记」补成台账机器事实**：`scope:'panel-reopen'` / `kept`=11 白名单字段 / `degraded:['body']` / `reason` / `registeredOn`，并由 `test/supersession-ledger.test.ts#truncationRuleProblems()` 机核 `kept` ↔ `DIGEST_FIELDS`，声称截断未登记即 FAIL）；下游（v4-3 落 ask 卡流内化时）按 `scopeLimit` 放宽该面并重算 |
 | 3 | **`askuser`/`auth` 的流内化不在本叶** | 本叶 `spec.md` §2.2 明列「不做 ask-user / 授权卡的**流内化**与业务逻辑 → v4-3（本叶只提供骨架与固化契约）」。故 live `ask`/`confirm` 仍由 `#l0-decision` 占位宿主承载，卡型骨架经 `cards/index.ts` 工厂 + `window.__v3.testing.streamSeed` seam 渲染与门禁断言。 | 已在 `chat-state.ts#streamBranch` 注释 + 本表登记；TASK-610 以 seam 驱动真实工厂/渲染器（无影子实现） |
 | 4 | **未解释字节绝对口径 1,000 → 1,500 B** | esbuild 共享胶水随输入模块数（57 → 69）自然增长，v4-2 实测 1,060 B；该值不是产品阈值而是归因自检。**同时新增更严的相对口径 `< 2%`**（实测 1.02%）。 | 登记于 `test/size-growth-evidence.test.ts` 注释 + v4 台账 `entries.V42-E-VOL-1` |
 | 5 | **反证编号 RP-V4-09（而非 08）** | v4 台账保护段反证已占用 `RP-V4-08`（journey pin 判据，`test/supersession-ledger.test.ts`）。避免一号两义。 | 见 §7.2；`density.mjs` / `gate-integrity` in-gate 例外 / 密度基线同步 |
 | 6 | **`cards/shared.ts` 为 plan 文件清单外的第 9 个 cards 文件** | TASK-602 要求「固化契约只有一处实现」+ 卡组件与注册表**不得循环依赖**；把 DOM 原语拆到 `shared.ts` 是唯一不产生 ESM 循环的实现方式。 | 见 §2.1；`test/design-contract.test.ts` 只校验设计稿，不受影响 |
+| 7 | **`MODIFY view-model.ts`（`cardViewModel()` 消费 `CARD_KIND_LAYER`）实测零 diff —— 该实现被 `CardView` 投影吸收** | 〖review 修复轮 **I-03**（2026-09-19）〗plan §5 点名本叶 MODIFY `view-model.ts` 并新增 `cardViewModel()`，实测 `git diff 203261e..611afdd -- src/ui/sidepanel/view-model.ts` **为空**（零 diff）。实因：本叶的卡视图投影落成 `stream-model.ts#project() → CardView`（`{cardId,kind,ts,firstSeq,terminal,payload,frozen,layer}`），`CARD_KIND_LAYER` 由 `cards/index.ts` 直接消费（`layer` 字段随 `CardView` 一起产出），因此**不需要**在 v1 派生视图模块里再建一个平行入口 —— 平白新增会造出**第二套卡视图真值源**（违反单一投影源）。故**不补实现**，如实登记为「实现方式变更（被吸收）」。 | 本节 + §4「12 kind 枚举表」的 `layer` 列（`primary`/`process` 由 `CARD_KIND_LAYER` 单源）；`test/stream-model.test.ts` 的 taxonomy/layer 全覆盖断言即等价证据 |
+| 8 | **`appendSystem()` 未落地 —— 由 `CardView` + `systemRowPayload` + `cards/system.ts#createSystemCard` 取代（并入既有通道）** | 〖review 修复轮 **I-03**〗plan §2.5 把 `appendSystem()` 定名为「v4-4 唯一通道入口」，实测全仓 **`grep` 0 命中**。实因：本叶的 system 行**不是**由一个专用 helper 产出，而是走**与其它 11 类完全相同的统一路径** —— 生产者构造 `SystemRowPayload` → `appendEvent(kind:'system')` → `project()` → `cards/system.ts#createSystemCard`。若为 system 单开 `appendSystem()`，等于给 12 类里的一类开**第二套写入通道**，与 ADR-V4-024「唯一 append 入口」冲突。故**不补实现**，如实登记为「改名/内联」：`appendSystem()` ⇒ `appendEvent()` + `systemRowPayload`，v4-4 的通道归并**沿用同一条 `appendEvent` 入口**。 | 本节 + §4 表 `system` 行 + `stream-model.ts#appendEvent` 头注释；`test/stream-model.test.ts` ④（生来冻结集含 `system`）与 `test/ui/stream.mjs` ①（`.msg-system` 渲染）为等价证据 |
+| 9 | **plan 清单中的 `cards/command.ts` 实际并入 `cards/system.ts`** | 〖review 修复轮 **I-03**〗plan §5 的卡文件清单列出 `cards/command.ts`，实测不存在；`createCommandCard` 落在 `cards/system.ts:28`（system 单行与 command 紧凑行是**同族事件行**，共享「只追加、生来冻结、无终态」语义与 `.ts` 时间戳载体）。拆成两个文件会把同族契约复制两份。 | 本节 + §2.1 `cards/system.ts` 行（已写明「`system` 单行事件行 + `command` 命令行（`.cmd`）」）；`test/ui/stream.mjs` ① 覆盖 `.msg-system` 与 `.cmd` 两种形态 |
 
 ---
 
@@ -299,6 +305,7 @@
 | `test/perf-budget.test.ts`（+1） | TASK-611 | 320 卡 `project()` < 250ms 且回放稳定；bound ≤2000 且受保护卡不淘汰 |
 | `test/ui/l0.mjs`（+2） | TASK-611 | 流内 3 可点卡不改变外壳 C1/C3（豁免子树）+ 反向「该卡真的渲染出 3 可点」 |
 | `test/density-thresholds.test.ts`（+4） | TASK-613 | 合计 ≤8 边界 PASS / 10 FAIL ∧ 可归因 ∧ 上限放开即变绿 |
+| `test/supersession-ledger.test.ts`（+2，review 修复轮 I-01） | I-01 | `truncationRules` 判据（scope/carrier/kept/degraded/reason/registeredOn + `kept` ↔ 源码 `DIGEST_FIELDS` 逐字段机核 + 「源码有 `DIGEST_DEGRADED_BODY` ⇒ 必须登记 `panel-reopen`+`body`」）+ 反证（漏登记 / kept 脱钩 / kept 虚增 / degraded 缺 body / 非法日期 / 理由过短 / 未知 scope / carrier 缺失 / 字段整体缺失 逐项必红） |
 
 ---
 
@@ -316,9 +323,75 @@
 
 | 场景 | 操作 |
 |------|------|
-| 全部任务已完成 | 运行 `@sddu-review specs-tree-v4-2-chat-stream-model` 开始代码审查 |
-| 下游叶 | v4-3（ask/auth 流内化 + 业务态）· v4-4（ref/system/nextstep + 通道归并 + 占位宿主清零 + 体积绝对上限闭合） |
-| 提交 | `feat(web-cli-plugin): v4-2 append-only 事件流模型与卡渲染（12 kind/摘要落库零明文/keyed 渲染/卡预算裁决 TASK-613）`（显式路径清单，禁 `git add -A`） |
+| 全部任务已完成 | ~~运行 `@sddu-review`~~ → **已执行（R1，⚠️ 有条件通过 / 0 阻塞 / I-01~I-12）**，本文件 §15 为修复轮全量处置 |
+| 下游叶 | v4-3（ask/auth 流内化 + 业务态；**承接 §15 的 I-05 / I-01 跨叶义务**，见其 `tasks.md` §5）· v4-4（ref/system/nextstep + 通道归并 + 占位宿主清零 + 体积绝对上限闭合） |
+| 提交 | `fix(web-cli-plugin): v4-2 review 修复轮——I-01~I-12 全处置（台账截断规则补登/胶水订正/偏差登记/KL 终态/v4-3 前置义务移交）`（显式路径清单，禁 `git add -A`） |
+
+---
+
+## 15. review 修复轮（R1 **I-01~I-12** 全量处置，2026-09-19）
+
+> **来源**：本叶 `review-report.md` R1（⚠️ 有条件通过 / **0 阻塞** / 12 项非阻塞改进）。**处置分两段完成**，如实标注：
+> **第一段** = 上一修复轮（代码级 I-06/07/08/09/11/12，随 `dist/sidepanel.js` 重建至 425,094 B）；
+> **第二段** = 本轮收尾（台账/文档级 I-01~I-05 + I-10 + 悬空引用 + 体积按最终实测值重登记 + 门禁全量复跑）。**两段合计 = I-01~I-12 全处置，无遗留**。
+
+### 15.1 全量处置表
+
+| # | 严重度 | R1 缺陷（摘要） | 处置 | 段落 | 证据落点 |
+|:--:|:--:|------|------|:--:|------|
+| **I-01** | 中 | `docs/v4-supersession-ledger.json` 缺 `truncationRules`（plan ADR-V4-028 dec.5 要求 `{scope:'panel-reopen', kept, degraded:['body'], reason, registeredOn}`），而 build §5/§11 声称「已登记」⇒ **不实陈述** | **补登 + 加机核断言**：台账新增 `truncationRules[]`（`panel-reopen`：`kept`=11 白名单字段 / `degraded:['body']` / `reason` / `registeredOn` / `carrier` / `scopeLimit`）；`test/supersession-ledger.test.ts` 新增 `truncationRuleProblems()` + 正/反证两条用例（源码有 `DIGEST_DEGRADED_BODY` ⇒ 必须登记 `panel-reopen`+`body`；`kept` 与源码 `DIGEST_FIELDS` **逐字段相等**，脱钩即 FAIL） | 第二段 | 台账 `truncationRules[0]`；`test/supersession-ledger.test.ts`（`truncationRules` 判据 + 反证）；build §5/§11-2 |
+| **I-02** | 中 | build §9 ④ 把**累计口径**胶水 1,060 塞进**本轮**等式（应 462；39,661+462=40,123）；且体积登记未按最终产物 425,094 订正 | **订正 + 按最终实测值五要素重登记**：§9 重写（本轮胶水 **394** / Σ 模块 **39,381** / 轮增量 **39,775**；构建轮 462/40,123 与累计 992/1,060 两口径**分列保留**）；基线 425,442 → **425,094**（ceiling 446,348），逐模块归因重算并双向核对真实 metafile（−280 模块 + −68 胶水 = −348） | 第二段 | build §1/§9/§10/§12；`test/size-baseline.ts`（`SIDEPANEL_BASELINE_BYTES`/`TIMELINE`/`RE_REGISTRATIONS`/`v42RoundRows`/`v42RoundUnattributedGlueBytes`）；`test/size-budget.test.ts`、`test/size-ruling-vol3.test.ts`、`test/size-growth-evidence.test.ts` 同轮重 pin；`docs/v4-density-baseline.json#volume` |
+| **I-03** | 中 | 计划交付物未落地且未登记：`MODIFY view-model.ts` 零 diff / `appendSystem()` 全仓 0 命中 / `cards/command.ts` 并入 `cards/system.ts` | **如实登记三条偏差（§11 偏差 7/8/9，不静默）**：① `cardViewModel()` 被 `CardView` 投影吸收（`project()` 直接产出 `layer`），补实现会造第二套卡视图真值源 ⇒ 不补、登记；② `appendSystem()` ⇒ `appendEvent()` + `systemRowPayload` + `createSystemCard`（为 system 单开写入通道违反 ADR-V4-024「唯一 append 入口」）⇒ 不补、登记「改名/内联」；③ `cards/command.ts` ⇒ `cards/system.ts:28`（同族事件行共契约） | 第二段 | build §11 偏差 7/8/9；等价证据：`test/stream-model.test.ts` taxonomy/layer 全覆盖、④ 生来冻结集、`test/ui/stream.mjs` ① |
+| **I-04** | 中 | ledger `knownLimitations` KL-N-02 仍称形态/位置判据「需改 `toolbar.ts`…留待下游」，与 `density-baseline` N-02 + 已落地的 TASK-613 实现**口径分裂** | **KL-N-02 终态更新**：注明形态判据已由 v4-2 TASK-613 在 `density-scope.ts` 落地（`[data-chrome-control]`/`[data-toolbar-slot]`/`.view-btn` ⇒ 抛错），**不再需要改 `toolbar.ts` 字节**；残余面（全新 class 可绕过）由首屏合计 ≤8 兜底；与 density-baseline 的 N-02 条目**口径一致**；`status:'closed-by-v4-2-TASK-613'` + 原文逐字保留于 `noteHistory` | 第二段 | 台账 `knownLimitations[KL-N-02]`；`docs/v4-density-baseline.json#knownLimitations`（N-02 双层防线） |
+| **I-05** | 中 | 「首屏合计可点 ≤8」的**前提**未登记为下游义务：8 = 1 张 ask(5) + 1 张 nextstep(3)；v4-3 若使两张 askuser（5+5=10）同屏可达则超限 | **跨叶移交登记（编排器授权）**：① `density-baseline#knownLimitations` 追加 **v4-3 前置义务**条目（必须按真实产品态复算；若「两张 ask = 10」判合法须显式裁决 + 重推三档上限 + 登记两册 + 复跑 RP-V4-09；禁静默沿用/放宽）；② **v4-3 `tasks.md` 追加 §5 跨叶移交登记（HO-1/HO-2）+ TASK-711 两条验收勾选项** | 第二段 | `docs/v4-density-baseline.json#knownLimitations`（末条）、`.sddu/.../specs-tree-v4-3-ask-auth-inflow/tasks.md` §5 + TASK-711 |
+| **I-06** | 低 | `chat-state.ts#stream-merge` 只按 `cardId` 去重，可与既有事件撞 `seq`（破坏「单调不复用」） | **双键去重**：`known` 同时收 `cardId` 与 `seq`，冲突项跳过（**不重编号** —— 不能把摘要事件静默改写为另一事实） | 第一段 | `src/ui/sidepanel/chat-state.ts`（`stream-merge` 分支注释 + 实现）；`test/stream-model.test.ts` |
+| **I-07** | 低 | `sidepanel.ts` 空态用 `isLogEmpty(state.entries.length)`（v1 派生视图）⇒ digest 恢复（有决策卡、无 entries）时空态占位与卡**同屏** | **单一投影源**：`const empty = views.length === 0 && !state.pending;`（`views` = 刚交给渲染器的同一数组，占位与卡不可能不一致）；移除已无引用的 `isLogEmpty` 导入 | 第一段 | `src/ui/sidepanel/sidepanel.ts#render()`；`test/sidepanel-view.test.ts` 契约 ④ |
+| **I-08** | 低 | `patchAiCard` 用 `removeChild` 循环重建 markdown，且 `ai` ∈ `BORN_FROZEN_KINDS` ⇒ 产品**不可达**死防御路径（且误导：广告了冻结契约禁止的能力） | **删除死分支**：删 `patchAiCard`、`patchCardNode` 的 `ai` 分支与 `deps` 形参（`patchCardNode(view,node)`）；注释写明「不存在也不可达」+ 仅 4 类（thinking/tool/askuser/auth）有真实 in-progress→settled 迁移 | 第一段 | `src/ui/sidepanel/cards/ai.ts`、`cards/index.ts`、`stream-render.ts`（调用点）；`test/ui/stream.mjs` ④ 断言不变 |
+| **I-09** | 低 | RP-V4-09 处理函数误名 `reverseRpV408`（08 已被 journey pin 反证占用） | **重命名** `reverseRpV409`（含 `case` 分派与注入 `data-card-key` 前缀 `rp409-*`）；`gate-integrity` R4b 只核 FAIL 段模式文本，不受影响 | 第一段 | `test/ui/density.mjs` |
+| **I-10** | 低 | `size-baseline.ts#closeoutDeltaBytes` 的 doc-comment 仍写「最近一轮（v4-1）375,102 → 385,319，Σ+10,075+142」，与字段现值（v4-2 的 40,123）脱节 | **按实测重写**：字段语义明写为「最新一轮 = 当前基线 − 385,319」，值订正为 **39,775**（与 `size-growth-evidence.test.ts` 的同一等式机核），v4-1 轮增量逐字保留于 `v41RoundRows` 注释 | 第二段 | `test/size-baseline.ts`（`closeoutDeltaBytes` 注释 + 值）；`test/size-growth-evidence.test.ts:339` |
+| **I-11** | 低 | 两份 `assertNoPlaintext` 实现（非共享单源）差异只靠隐含；`askRequestId` 白名单字段**未截断** | **显式交叉引用 + 台账登记**：两侧 doc-comment 互指并写明「为何**故意**不合并」（合并只能放宽 v3-2 冻结口径或削掉流侧两类 fail-closed 形状）；`askRequestId` 明确为**业务键**（`ask-<n>`/`ref-round-<n>`，重开做身份相等比较，截断会错位）—— 不截断但仍过 `assertNoPlaintext`（被污染的 id 会**抛错**而不落库）；新增台账 **KL-N-09** | 第一段（注释）/ 第二段（KL-N-09 + 交叉引用闭环） | `src/ui/sidepanel/stream-digest.ts`、`l1/receipt.ts`；台账 `knownLimitations[KL-N-09]`；`test/stream-persistence.test.ts` |
+| **I-12** | 低 | ① default 档 check 文案仍写「单卡 ≤6 ∧ 首屏卡 ≤2」而实际已含合计 ≤8；② `.ask-choices` / `.ref-chip.mono` 为死 CSS | **① 文案补全 + ② 删死 CSS**：check 文案改为「∧ 首屏合计可点 ≤`MAX_STREAM_RESIDENT_CLICKABLES`（逐卡动态格）」；`index.html` 删除两条无使用类 | 第一段 | `test/ui/density.mjs:583`；`src/ui/sidepanel/index.html` |
+
+### 15.2 悬空引用修复（R1 之外的连带项）
+
+| 项 | 问题 | 处置 |
+|------|------|------|
+| `stream-digest.ts` 引用 `KL-N-09` | 注释声称「Registered in `docs/v4-supersession-ledger.json#knownLimitations` (KL-N-09)」，但台账**无该条目**（悬空引用 = 同一类「文档声称、台账查不到」缺陷） | **在台账真建 KL-N-09**（不删注释）：条目写明两份 `assertNoPlaintext` 的职责差异（receipt 窄集 vs stream 超集）、**为何分列**、以及 `askRequestId` 作为业务键不截断的理由；`grep KL-N-09` 现可双向命中（源码 ↔ 台账） |
+
+### 15.3 修复轮门禁复跑（20 项全量串行 + RP-V4-09 复验）
+
+日志目录 `/tmp/opencode/v4-gate-logs/v4-2-reviewfix/`（**全量落盘，禁 tail 截断**；严格串行、一次一个 Chromium、`finally` 自清 profile）。
+
+| # | 门禁 | 命令 | 实测 | 基线 | EXIT | 变动 |
+|:--:|------|------|------|:--:|:--:|------|
+| 1 | 类型 | `npm run typecheck` | 0 error | 0 | 0 | 不变 |
+| 2 | 构建 | `npm run build` | 5 artifacts / sidepanel **425,094 B** | 425,442 | 0 | **−348 B**（按最终实测值重登记） |
+| 3 | node 全量 | `npm test` | **920 / 0** | 918 | 0 | **+2**（I-01 判据 + 反证） |
+| 4 | 取代台账 | `npm run test:supersession` | **30 / 0** | 28 | 0 | **+2** |
+| 5 | 元门禁 | `npm run test:gate-integrity` | **12 / 0** | 12 | 0 | 不变 |
+| 6 | 零注入 | `npm run test:zero-injection` | **27 / 0** | 27 | 0 | 不变 |
+| 7 | 页面即输入 | `npm run test:page-input` | **102 / 0** | 102 | 0 | 不变 |
+| 8 | L0 外壳 | `npm run test:l0` | **212 / 0** | 212 | 0 | 不变 |
+| 9 | L1 | `npm run test:l1` | **108 / 0** | 108 | 0 | 不变 |
+| 10 | L2 | `npm run test:l2` | **73 / 0** | 73 | 0 | 不变 |
+| 11 | 密度 | `npm run test:density` | **171 / 0** | 171 | 0 | 不变 |
+| 12 | journey | `npm run test:ui` | PASS — **167 assertions** | 167 | 0 | 不变 |
+| 13 | insight | `npm run test:insight` | PASS — **116 assertions** | 116 | 0 | 不变 |
+| 14 | binding | `npm run test:binding` | PASS — **192 assertions** | 192 | 0 | 不变 |
+| 15 | hardening | `npm run test:hardening` | PASS — **24 assertions** | 24 | 0 | 不变 |
+| 16 | e2e | `npm run test:e2e` | PASS（real dist full chain） | PASS | 0 | 不变 |
+| 17 | 设计契约 | `npm run test:design-contract` | **6 / 0**（shim 60） | 6 | 0 | 不变 |
+| 18 | L1 反证 | `npm run test:l1-reverse` | **9 条** 注入→FAIL→逐字节还原（sha256 复原）→PASS | 9 | 0 | 不变 |
+| 19 | L2 反证 | `npm run test:l2-reverse` | **10 条** 同口径 | 10 | 0 | 不变 |
+| 20 | 流 | `npm run test:stream` | **63 / 0** | 63 | 0 | 不变 |
+| — | 密度反证（in-gate） | `npm run test:density -- --reverse RP-V4-09` | **9 / 0** | 9 | 0 | 不变 |
+
+**计数只增不减**：node 918 → **920**（+2）；supersession 28 → **30**（+2）；其余**逐项等于基线**（无一项下降）。
+
+**台账同源机核（N-04）**：`counts` 抽样四键（l0 / density / nodeTestRuntime / supersession）**全部 checked（4 项与门禁日志逐条相等）**，无 skip。
+> ⚠️ 修复轮踩到并已登记的口径纪律：`counts.*.source.log` **不得指向门禁运行时自己的 tee 目标** —— 门禁在自己的读取时刻尚未写出汇总行（`ℹ pass`），会误判「找不到 pattern」。修复轮把登记路径改为 `registry/` 快照（一次完整绿 run 的日志副本，运行期间不被截断），实时日志留在上级目录；该纪律已写入台账 `counts.nodeTestRuntime.note` / `counts.supersession.note`。
+
+**红线复验（逐字节）**：`dist/content.js` **177,076 B** / sha256 `52a826205553b4…`、`dist/pick-layer.js` **33,900 B** / sha256 `5f567d7ededc…`（= v4-1 pin，逐字节未变）；`dist/sidepanel.js` 425,094 B（构建戳变、字节数 == 登记值）；`git diff 203261e -- src/content/** src/background/** manifest.json design/** src/security/** src/ui/options/** test/ui/{hardening,page-input,zero-injection}.mjs` **全空**（`KIND_SET` / SW / manifest 零 diff）；journey 保护段 `42766..54004` 与 binding `107780..115930` 由 `protectedRanges` 字节 sha 判据复跑**零改**（supersession 30/0 内含）。
 
 ---
 
@@ -327,3 +400,4 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建：V4-2 全叶构建（13 任务 / 7 波 / 20 门禁串行全绿）。事件模型（601）→ 分类学与摘要（602/605）→ 卡/渲染/切换（603/604/606）→ 迁移（607）→ 三门禁（608/609/610）→ 联动（611）→ 收口（612）+ 跨叶移交 **TASK-613 卡预算裁决（形态判据 + 合计 ≤8 + RP-V4-09 真会红 + knownLimitations 更新）**。体积 385,319 → **425,442 B**（五要素重登记，逐模块归因 Σ+39,661 + 胶水 462 == 轮增量 40,123）；`content.js` 177,076 / `pick-layer.js` 33,900 / `KIND_SET` 零 diff。 | 2026-09-19 | SDDU Build Agent |
+| **v1.1** | **review 修复轮（I-01~I-12 全量处置）**：新增 **§15**（处置表 + 悬空引用修复 + 门禁复跑）；§1/§5/§9/§10/§11/§14 按最终实测产物与台账事实订正 —— 体积 **425,094 B**（五要素，含修复轮归因；ceiling 446,348）、截断规则**已入台账**（I-01）、三条计划交付物偏差**已登记**（I-03）、KL-N-02 **终态**（I-04）、v4-3 **前置义务移交**（I-05）、`closeoutDeltaBytes` 订正 39,775（I-10）、**KL-N-09** 真建（I-11 悬空引用）。**两段完成如实标注**：第一段 I-06/07/08/09/11/12（代码级，随 425,094 重建）；第二段 I-01~I-05 + I-10 + 悬空 + 体积订正 + 门禁全量复跑。 | 2026-09-19 | SDDU Build Agent（v4-2 review 修复轮） |

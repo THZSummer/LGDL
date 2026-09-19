@@ -45,7 +45,7 @@ import {
 import type { CardView, StreamEventKind } from '../stream-model.js';
 import { CARD_TAG_LABELS, clockNode, createCardShell, createFixedRegion, fixedText } from './shared.js';
 import type { CardDeps } from './shared.js';
-import { createAiCard, patchAiCard } from './ai.js';
+import { createAiCard } from './ai.js';
 import { createUserCard } from './user.js';
 import { createSystemCard, createCommandCard } from './system.js';
 import { createErrorCard } from './error.js';
@@ -311,18 +311,21 @@ export function decisionState(view: CardView): 'pending' | 'approved' | 'rejecte
  * The renderer never calls this for a card whose DOM is already frozen; the
  * answer/cancel transition itself is applied exactly once (the patch that makes the
  * card terminal), after which the node is frozen forever.
+ *
+ * Only the **four kinds with a real in-progress → settled migration** are handled
+ * (`thinking` / `tool` / `askuser` / `auth`). The eight `BORN_FROZEN_KINDS`
+ * (`ai`/`user`/`nextstep`/`system`/`ref`/`command`/`error`/`notice`) are never
+ * reachable here — `stream-render.ts` skips any `frozen` view, and `project()`
+ * marks exactly those kinds frozen when they are first built. I-08 (v4-2 review)
+ * removed the dead `ai` branch this function used to carry.
  */
-export function patchCardNode(view: CardView, node: HTMLElement, deps: CardDeps): void {
+export function patchCardNode(view: CardView, node: HTMLElement): void {
   if (view.kind === 'thinking') {
     patchThinkingCard(view, node);
     return;
   }
   if (view.kind === 'tool') {
     patchToolCard(view, node);
-    return;
-  }
-  if (view.kind === 'ai') {
-    patchAiCard(view, node, deps);
     return;
   }
   if (view.kind === 'askuser') {

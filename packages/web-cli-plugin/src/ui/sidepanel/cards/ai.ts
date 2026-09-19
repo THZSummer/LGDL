@@ -23,11 +23,15 @@ export function createAiCard(view: CardView, deps: CardDeps): HTMLLIElement {
   return li;
 }
 
-/** Patch the markdown body in place (never called for a frozen card). */
-export function patchAiCard(view: CardView, node: HTMLElement, deps: CardDeps): void {
-  const bubble = node.querySelector('.msg-content') as HTMLElement | null;
-  if (!bubble) return;
-  // No clearing API anywhere: detach the old nodes one by one (ADR-V4-025 §3).
-  for (const child of [...bubble.childNodes]) bubble.removeChild(child);
-  bubble.appendChild(renderMarkdown(view.payload.text ?? '', deps.doc));
-}
+/**
+ * **No `patchAiCard` exists — and none is reachable.**
+ *
+ * I-08 (v4-2 review): the old `patchAiCard` (a `removeChild` rebuild of the
+ * markdown body) was dead defensive code. `ai` is in
+ * `stream-model.ts#BORN_FROZEN_KINDS`, so `project()` always reports it frozen and
+ * `stream-render.ts` only patches `!frozen` cards — the branch could never be
+ * taken in the product. Its presence was actively misleading: it advertised a
+ * "patch the Markdown body" capability that the frozen-DOM contract forbids. The
+ * structural rule is enforced in `cards/index.ts#patchCardNode` (it dispatches only
+ * for the four kinds with a real in-progress → settled migration).
+ */

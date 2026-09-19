@@ -68,6 +68,7 @@ import {
   LOG_CLIENT_HEIGHT_FLOOR,
   MAX_CLICKABLES_PER_CARD,
   MAX_FIRST_SCREEN_CARDS,
+  MAX_STREAM_RESIDENT_CLICKABLES,
   MAX_WELCOME_CARDS,
   MAX_WELCOME_LINES,
   RISK_SUBSCENARIOS,
@@ -580,7 +581,7 @@ async function stageB(cdp) {
         );
         const defaultCards = await judgeCards(cdp, 'default');
         check(
-          `default@${vp} 单卡可点 ≤${MAX_CLICKABLES_PER_CARD} ∧ 首屏卡 ≤${MAX_FIRST_SCREEN_CARDS}（逐卡动态格）`,
+          `default@${vp} 单卡可点 ≤${MAX_CLICKABLES_PER_CARD} ∧ 首屏卡 ≤${MAX_FIRST_SCREEN_CARDS} ∧ 首屏合计可点 ≤${MAX_STREAM_RESIDENT_CLICKABLES}（逐卡动态格）`,
           defaultCards.cardBudget.ok && defaultCards.firstScreen.ok,
           `${[...defaultCards.cardBudget.violations, ...defaultCards.firstScreen.violations].join(' / ')} | ${defaultCards.raw}`,
         );
@@ -1470,7 +1471,7 @@ async function reverseRpV407(cdp) {
  *
  * 两半都在 ONE 同步块内完成「前置 → 注入 → 读数 → 还原 → 读数」，任何重绘都无法插入。
  */
-async function reverseRpV408(cdp) {
+async function reverseRpV409(cdp) {
   console.log('\n▶ RP-V4-09：流内常驻导航入口（形态判据）+ 首屏卡合计可点 > 8 → 必须 FAIL → 还原 → PASS');
   await resetFixture(cdp);
   await setViewport(cdp, 400, VIEWPORT_HEIGHT);
@@ -1485,7 +1486,7 @@ async function reverseRpV408(cdp) {
     for (let i = 0; i < 2; i += 1) {
       const li = document.createElement('li');
       li.setAttribute('data-msg-type', 'nextstep');
-      li.setAttribute('data-card-key', 'rp408-agg-' + i);
+      li.setAttribute('data-card-key', 'rp409-agg-' + i);
       for (let j = 0; j < 5; j += 1) { const b = document.createElement('button'); b.textContent = 'chip-' + j; li.appendChild(b); }
       stream.appendChild(li); made.push(li);
     }
@@ -1494,7 +1495,7 @@ async function reverseRpV408(cdp) {
     // ② form criterion: a toolbar/view-shaped control inside a stream card.
     const nav = document.createElement('li');
     nav.setAttribute('data-msg-type', 'nextstep');
-    nav.setAttribute('data-card-key', 'rp408-nav');
+    nav.setAttribute('data-card-key', 'rp409-nav');
     const btn = document.createElement('button');
     btn.setAttribute('data-toolbar-slot', 'view');
     btn.className = 'view-btn';
@@ -1652,7 +1653,7 @@ async function main() {
           await reverseRpV407(cdp);
           break;
         case 'RP-V4-09':
-          await reverseRpV408(cdp);
+          await reverseRpV409(cdp);
           break;
         default:
           throw new Error(`未知反证：${REVERSE}`);

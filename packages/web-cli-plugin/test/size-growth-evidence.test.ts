@@ -192,7 +192,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // pick-input +724 / ref-store +256 / chat-state +220 / view-model +162 = +3,978）⇒ 67,552 → 71,530。
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
-  assert.equal(b.deltaBytes, 130_217);
+  assert.equal(b.deltaBytes, 129_869);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -234,8 +234,9 @@ test('V3-VOL-1 ③ growth: every new/wiring row cites the requirement that force
     `必需增量占比必须 >95%（实测 ${((explained / SIDEPANEL_GROWTH_BREAKDOWN.deltaBytes) * 100).toFixed(1)}%）`,
   );
   // V4-2 重登记：绝对口径 1,000 → 1,500 B（esbuild 共享胶水随输入模块数 57 → 69 自然增长，
-  // 实测 1,060 B），**同时新增更严的相对口径 <2%**（实测 (265+1,060)/130,217 = 1.02%）——
-  // 阈值不是纯放宽：相对判据是本轮新增的收紧面。
+  // 实测 1,060 B），**同时新增更严的相对口径 <2%**（实测 (265+1,060)/129,869 = 1.02%）——
+  // 阈值不是纯放宽：相对判据是本轮新增的收紧面。〖v4-2 review 修复轮 I-02〗分母按最终基线订正
+  // （130,217 → 129,869），分子不变（修复轮减重全部落在 rows 上，胶水口径回到 1,060）。
   assert.ok(
     SIDEPANEL_GROWTH_BREAKDOWN.attributionShiftBytes + SIDEPANEL_GROWTH_BREAKDOWN.unattributedHelperDeltaBytes <
       1_500,

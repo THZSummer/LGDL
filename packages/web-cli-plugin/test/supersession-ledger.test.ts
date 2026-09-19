@@ -123,7 +123,25 @@ interface V4LedgerShape {
   /** 收口轮 N-01~N-08：validate R1 观察项的处置登记（disposition + 可定位锚点）。 */
   validateFindings?: ValidateFinding[];
   /** 收口轮 N-02/N-07/N-08：登记型局限（双层防线 / flake 复跑纪律 / sha 非不变量）。 */
-  knownLimitations?: Array<{ id: string; topic: string; note: string }>;
+  knownLimitations?: Array<{ id: string; topic: string; note: string; status?: string; noteHistory?: string }>;
+  /**
+   * v4-2 review 修复轮 I-01（plan ADR-V4-028 dec.5 / TASK-605/606 验收）：**声称截断必须登记**。
+   * 每条规则声明「哪一档降级、保留哪些事实字段、丢掉什么」，并与 `stream-digest.ts#DIGEST_FIELDS`
+   * 逐字段机核（登记与源码脱钩即 FAIL）。
+   */
+  truncationRules?: TruncationRule[];
+}
+
+/** v4-2 review I-01：一条显式登记的截断规则。 */
+interface TruncationRule {
+  scope: string;
+  carrier: string;
+  kept: string[];
+  degraded: string[];
+  reason: string;
+  registeredOn: string;
+  registeredBy?: string;
+  scopeLimit?: string;
 }
 
 /** 收口轮 N-04：`counts.<key>.source` —— 数字的来源必须可机核，不得只有散文。 */
@@ -1510,5 +1528,154 @@ test('ledger(V4 段)反证: validateFindings 判据必须能红（漏项 / 非�
       (p) => /必须给出 anchor/.test(p),
     ),
     '锚点过短必须判红',
+  );
+});
+
+// ── 11. I-01（v4-2 review）：声称截断必须登记（truncationRules ↔ 源码白名单） ──
+/**
+ * 〖v4-2 review 修复轮 **I-01**〗
+ *
+ * 缺陷形态：`plan` ADR-V4-028 dec.5 与 TASK-605/606 的验收要求把**降级重建的截断规则**
+ * 登记进 v4 取代台账（`{scope:'panel-reopen', kept, degraded:['body'], reason, registeredOn}`），
+ * 而 build.md §5/§11 声称「已登记于台账」——实测台账里**没有这个字段**，`grep` 0 命中。
+ * 也就是说：**代码降级了正文、文档说降级了正文、台账却查不到**，而没有任何门禁会红。
+ *
+ * 修法不是「补一段散文」，而是把「声称」变成机器事实：
+ *   ① 台账必须有 `truncationRules[]`，每条给出 scope / carrier / kept / degraded / reason / registeredOn；
+ *   ② 只要 `stream-digest.ts` 里存在 `DIGEST_DEGRADED_BODY`（= 产品真的会丢正文），
+ *      就必须存在 `scope:'panel-reopen'` 且 `degraded` 含 `body` 的条目（**声称截断必须登记**）；
+ *   ③ `kept` 必须与源码的 `DIGEST_FIELDS` **逐字段相等** —— 直接解析源码字面量比对，
+ *      因此「悄悄加/删一个白名单字段而不更新截断登记」会立刻 FAIL（不是存在性断言，是行为断言）。
+ */
+const TRUNCATION_SCOPES = ['panel-reopen'] as const;
+const STREAM_DIGEST_REL = 'packages/web-cli-plugin/src/ui/sidepanel/stream-digest.ts';
+
+/** 从源码解析 `DIGEST_FIELDS` 的白名单字面量（唯一事实源；解析不到即判据悬空）。 */
+function digestFieldsFromSource(text: string): string[] | null {
+  const m = text.match(/export const DIGEST_FIELDS: readonly string\[\] = Object\.freeze\(\[([\s\S]*?)\]\);/);
+  if (!m) return null;
+  return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+}
+
+function truncationRuleProblems(
+  rules: TruncationRule[] | undefined,
+  readText: (file: string) => string | null,
+): string[] {
+  const problems: string[] = [];
+  const list = rules ?? [];
+  const digest = readText(STREAM_DIGEST_REL);
+  const claimsDegradedBody = digest !== null && /DIGEST_DEGRADED_BODY/.test(digest);
+  if (digest === null) problems.push(`锚点文件不存在 ${STREAM_DIGEST_REL}（截断登记判据悬空）`);
+  if (claimsDegradedBody && !list.some((r) => r.scope === 'panel-reopen' && (r.degraded ?? []).includes('body'))) {
+    problems.push(
+      '源码声明了 DIGEST_DEGRADED_BODY（面板重开会丢正文）却未登记 scope=panel-reopen / degraded=[body]（声称截断必须登记）',
+    );
+  }
+  if (list.length === 0) problems.push('truncationRules 不得为空（凡有截断字段就必须登记）');
+  const seen = new Set<string>();
+  for (const r of list) {
+    const scope = r.scope;
+    if (!(TRUNCATION_SCOPES as readonly string[]).includes(scope)) {
+      problems.push(`${scope}: 不在已登记 scope 枚举内（${TRUNCATION_SCOPES.join(' | ')}）`);
+    }
+    if (seen.has(scope)) problems.push(`${scope}: 重复登记`);
+    seen.add(scope);
+    if ((r.carrier ?? '').trim().length < 5) problems.push(`${scope}: carrier 必填（必须指向真实落点）`);
+    if (!Array.isArray(r.kept) || r.kept.length === 0) problems.push(`${scope}: kept 必须是非空数组（保留的事实字段）`);
+    if (!Array.isArray(r.degraded) || r.degraded.length === 0) {
+      problems.push(`${scope}: degraded 必须是非空数组（丢掉什么，不得留空）`);
+    }
+    if ((r.reason ?? '').trim().length < 40) problems.push(`${scope}: reason 过短（≥40 字符：必须写明为什么这么丢）`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(r.registeredOn ?? '')) problems.push(`${scope}: registeredOn 必须是 YYYY-MM-DD`);
+    if (scope !== 'panel-reopen') continue;
+    if (!(r.degraded ?? []).includes('body')) problems.push('panel-reopen 必须显式声明 degraded 含 body（正文不落库）');
+    const fields = digest === null ? null : digestFieldsFromSource(digest);
+    if (fields === null) {
+      problems.push('无法从 stream-digest.ts 解析 DIGEST_FIELDS（登记无法与源码机核）');
+      continue;
+    }
+    const kept = r.kept ?? [];
+    const missing = fields.filter((f) => !kept.includes(f));
+    const extra = kept.filter((f) => !fields.includes(f));
+    if (missing.length > 0) problems.push(`panel-reopen.kept 缺白名单字段 ${missing.join(', ')}（登记与 DIGEST_FIELDS 脱钩）`);
+    if (extra.length > 0) problems.push(`panel-reopen.kept 含白名单外字段 ${extra.join(', ')}（登记虚增）`);
+  }
+  return problems;
+}
+
+test('ledger(V4 段): 声称截断必须登记 —— truncationRules ↔ DIGEST_FIELDS 逐字段机核（I-01）', () => {
+  const v4 = readV4Ledger();
+  const readText = (file: string): string | null => {
+    try {
+      const abs = resolve(REPO, file);
+      return existsSync(abs) ? readFileSync(abs, 'utf8') : null;
+    } catch {
+      return null;
+    }
+  };
+  assert.ok(Array.isArray(v4.truncationRules), 'v4 台账必须登记 truncationRules[]（ADR-V4-028 dec.5 / TASK-605/606 验收）');
+  assert.deepEqual(
+    truncationRuleProblems(v4.truncationRules, readText),
+    [],
+    '截断规则登记不合法（scope / kept / degraded / reason / registeredOn / 与源码脱钩）',
+  );
+  const rule = (v4.truncationRules ?? []).find((r) => r.scope === 'panel-reopen');
+  assert.ok(rule, 'panel-reopen（面板重开降级重建）必须有一条登记');
+  const srcFields = digestFieldsFromSource(readText(STREAM_DIGEST_REL) as string);
+  assert.deepEqual([...rule!.kept].sort(), [...(srcFields ?? [])].sort(), 'kept 必须 = DIGEST_FIELDS（逐字段相等）');
+  assert.ok((rule!.degraded ?? []).includes('body'), 'panel-reopen 的降级面必须含 body');
+  console.log(
+    `  ℹ truncationRules：${(v4.truncationRules ?? []).length} 条 → scope=${rule!.scope} · kept=${rule!.kept.length} 字段（== DIGEST_FIELDS）· degraded=${rule!.degraded.join('/')}`,
+  );
+});
+
+test('ledger(V4 段)反证: truncationRules 判据必须能红（漏登记 / kept 脱钩 / degraded 缺 body 都 FAIL）', () => {
+  const src = 'export const DIGEST_DEGRADED_BODY = \'（历史摘要）\';\n' +
+    'export const DIGEST_FIELDS: readonly string[] = Object.freeze([\n  \'seq\',\n  \'ts\',\n  \'kind\',\n]);';
+  const readSrc = () => src;
+  const good: TruncationRule = {
+    scope: 'panel-reopen',
+    carrier: 'src/ui/sidepanel/stream-digest.ts#digestToEvents',
+    kept: ['seq', 'ts', 'kind'],
+    degraded: ['body'],
+    reason: 'x'.repeat(60),
+    registeredOn: '2026-09-19',
+  };
+  assert.deepEqual(truncationRuleProblems([good], readSrc), [], '合法登记不得误报');
+  assert.ok(
+    truncationRuleProblems([], readSrc).some((p) => /声称截断必须登记/.test(p)),
+    '源码真的会丢正文却零登记必须判红（正是 I-01 的缺陷形态）',
+  );
+  assert.ok(
+    truncationRuleProblems([{ ...good, kept: ['seq', 'ts'] }], readSrc).some((p) => /脱钩/.test(p)),
+    'kept 与 DIGEST_FIELDS 脱钩必须判红（新增白名单字段而不更新登记即触发）',
+  );
+  assert.ok(
+    truncationRuleProblems([{ ...good, kept: [...good.kept, 'bogus'] }], readSrc).some((p) => /白名单外字段/.test(p)),
+    'kept 虚增字段必须判红',
+  );
+  assert.ok(
+    truncationRuleProblems([{ ...good, degraded: ['label'] }], readSrc).some((p) => /必须显式声明 degraded 含 body/.test(p)),
+    'panel-reopen 未声明 body 降级必须判红',
+  );
+  assert.ok(
+    truncationRuleProblems([{ ...good, registeredOn: '2026/09/19' }], readSrc).some((p) => /registeredOn/.test(p)),
+    '非法日期必须判红',
+  );
+  assert.ok(
+    truncationRuleProblems([{ ...good, reason: '太短' }], readSrc).some((p) => /reason 过短/.test(p)),
+    '过短理由必须判红',
+  );
+  assert.ok(
+    truncationRuleProblems([{ ...good, scope: 'somewhere-else' }], readSrc).some((p) => /不在已登记 scope 枚举内/.test(p)),
+    '未知 scope 必须判红',
+  );
+  assert.ok(
+    truncationRuleProblems([{ ...good, carrier: '' }], readSrc).some((p) => /carrier 必填/.test(p)),
+    'carrier 缺失必须判红',
+  );
+  assert.ok(
+    truncationRuleProblems(undefined, readSrc).some((p) => /不得为空/.test(p)),
+    '字段整体缺失必须判红（不得用「没有字段 ⇒ 没有截断」蒙混）',
   );
 });

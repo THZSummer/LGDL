@@ -78,6 +78,18 @@ export interface DigestEntry {
   readonly ok?: boolean;
   readonly ms?: number;
   readonly refNum?: number;
+  /**
+   * The ask round's **business key** (the `ask`/`confirm` `requestId` minted by the
+   * panel ↔ service-worker protocol: `ask-<n>` / `ref-round-<n>`).
+   *
+   * I-11 (v4-2 review): this is NOT a free-text field, so it is not truncated —
+   * truncating it would break the reopen path, which matches the rebuilt event's
+   * `requestId` against `openAsks` (an identity comparison, not a display string).
+   * It is still passed through {@link assertNoPlaintext} with every other
+   * whitelisted string, so a malformed id that ever carried a URL query or a secret
+   * shape would throw rather than persist. Registered in
+   * `docs/v4-supersession-ledger.json#knownLimitations` (KL-N-09).
+   */
   readonly askRequestId?: string;
 }
 
@@ -104,9 +116,26 @@ const RAW_MARKUP = /[<>`]/;
 /**
  * Fail-closed plaintext scan over every string a digest may carry.
  *
- * Reuses the `l1/receipt.ts#assertNoPlaintext` caliber (URL must be de-queryied,
- * secrets never appear) and adds the two shapes a *stream* leak would take: a
- * command argument body and raw markup. Throws — never returns `false`.
+ * ── I-11 (v4-2 review): why this is NOT the same predicate as `l1/receipt.ts` ──
+ *
+ * There are deliberately **two** `assertNoPlaintext` implementations, and the
+ * review asked for the difference to be explicit rather than implied:
+ *
+ *   · `l1/receipt.ts#assertNoPlaintext` scans **rendered receipt strings**
+ *     (`summary` / `label+value` rows / `audit.summary`). Those labels are
+ *     constructed constants, so its forbidden set is the narrow pair that could
+ *     only arrive through a *value*: API keys and URL query strings.
+ *   · this one scans **digest fields** produced by `digestEntryOf`, which may echo
+ *     a caller-supplied `label`. It is a strict **superset** of the receipt caliber
+ *     and adds the two shapes a *stream* leak would take:
+ *     a command argument body and raw markup/`< > \``.
+ *
+ * Sharing one predicate would mean either widening the receipt scan (changing a
+ * frozen v3-2 gate's semantics for a v4 concern) or narrowing this one (dropping
+ * two fail-closed shapes). The two calibers are therefore kept separate **by
+ * design**, cross-referenced here and in `l1/receipt.ts`.
+ *
+ * @see l1/receipt.ts#assertNoPlaintext
  */
 export function assertNoPlaintext(texts: readonly string[]): void {
   for (const text of texts) {

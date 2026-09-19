@@ -44,7 +44,6 @@ import {
   currentSessionLabel,
   discoveryNotice,
   historyEntries,
-  isLogEmpty,
   llmStatusView,
   sendDisabledReason,
   sortSessions,
@@ -889,7 +888,12 @@ function render(): void {
   const views = project(state.stream);
   const live = liveCardIds(state.stream);
   const { appended } = streamRenderer().render(views, live);
-  const empty = isLogEmpty(state.entries.length) && !state.pending;
+  // I-07 (v4-2 review): the empty state has ONE source — the stream projection that
+  // is actually drawn. The old `isLogEmpty(state.entries.length)` read the v1
+  // derived view, so a digest restore (decision cards in `stream`, zero `entries`)
+  // rendered the placeholder ON TOP of real cards. `views` is the same array just
+  // handed to the renderer, so placeholder and cards can never disagree.
+  const empty = views.length === 0 && !state.pending;
   streamRenderer().setEmpty(empty);
   if (appended > 0 && follow) {
     followToBottom(log);

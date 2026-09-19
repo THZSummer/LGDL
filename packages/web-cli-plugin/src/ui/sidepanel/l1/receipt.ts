@@ -67,7 +67,16 @@ export interface L1Receipt {
   audit: { exitLabel: string; target: 'l2-audit'; summary: string; entryPoint: string };
 }
 
-/** Fail-closed plaintext scan over every rendered string of a receipt. */
+/**
+ * Fail-closed plaintext scan over every rendered string of a receipt.
+ *
+ * I-11 (v4-2 review): `stream-digest.ts#assertNoPlaintext` is a **separate,
+ * deliberately wider** predicate (it also rejects command argument bodies and raw
+ * markup, because digest labels may echo caller input). This one stays narrow on
+ * purpose: receipt labels are constructed constants, so only key/URL-query shapes
+ * can arrive via a *value*. Do not merge the two without carrying both calibers —
+ * see the note on the stream-side implementation.
+ */
 export function assertNoPlaintext(texts: readonly string[]): void {
   for (const text of texts) {
     if (FORBIDDEN.test(text)) {

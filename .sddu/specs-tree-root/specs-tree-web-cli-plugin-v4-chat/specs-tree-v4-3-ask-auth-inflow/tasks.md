@@ -377,6 +377,8 @@ npm run test:gate-integrity --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/ope
 - [ ] AC-CHAT-016 断言**只在** `test/ui/ask-auth-inflow.mjs` 与 `test/ask-auth-inflow.test.ts` 内，台账标 `owner:"v4-3"`
 - [ ] 五要素齐备；容差 5% 不变；`PENDING_ABSOLUTE_CAP` 不预填
 - [ ] 不动面：`ask-bridge.ts` 零 diff / `content.js` 177,076 / `pick-layer.js` 33,900 / `KIND_SET` 零 diff
+- [ ] **[跨叶移交 · v4-2 review I-05] 首屏合计可点上限复算**：ask/auth 流内化后必须按**真实产品态**复算「首屏可见卡合计可点」上限（v4-2 登记为 **8**，其推导前提是「首屏 = 1 张 askuser(5) + 1 张 nextstep(3)」；v4-2 不把 ask 流入 `#stream` 故成立）。若 v4-3 后首屏可能出现**两张 askuser（5+5=10）**，须显式裁决（提上限并重给单卡/首屏/合计三者推导，或由形态/位置判据禁止两张 ask 同屏）、同步登记 `docs/v4-density-baseline.json#knownLimitations` 与 `docs/v4-supersession-ledger.json`，并复跑 `npm run test:density -- --reverse RP-V4-09` 证明判据仍会红。**禁静默沿用 8 或静默放宽。**
+- [ ] **[跨叶移交 · v4-2 review I-01 关联] 面板重开截断规则复算**：v4-2 登记的 `truncationRules[scope=panel-reopen]`（`kept` = 11 白名单字段 / `degraded=['body']`）带一条 `scopeLimit`——自动读回只重放**已终态**的 ask/auth 决策卡。v4-3 落 ask/auth 流内化后必须复算该收敛面并放宽，同时更新台账条目（`test/supersession-ledger.test.ts` 会机核 `kept` ↔ `DIGEST_FIELDS`，漏改即 FAIL）。
 
 **验证命令**:
 ```bash
@@ -417,8 +419,20 @@ stat -c %s packages/web-cli-plugin/dist/sidepanel.js
 | `npm test`（node 运行期） | 台账 **832** / 末轮 **795** | 新增 1 个 node 文件 | **≥ max(646, 实测)** |
 | `test/ui/journey.mjs` / `l2` / `density` / `insight` / `binding` | 167 / 71 / 127 / 116 / 192 | 零改动（本叶不触碰语义） | 不变 |
 
+## 5. 跨叶移交登记（来源：v4-2 review R1 **I-05**，2026-09-19；编排器授权）
+
+> 登记规则：v4-2 review 发现的**下游义务**必须落进下游叶的 tasks（不得只写在 v4-2 的报告里），且**只追加不改写**本文历史内容。
+
+| # | 来源 | 移交内容 | 落点 | 触发条件（何时必须处置） |
+|:--:|------|------|------|------|
+| HO-1 | v4-2 review R1 **I-05** | 「首屏可见卡**合计**可点 ≤8」（`docs/v4-density-baseline.json#perCardBudget.aggregateLimit` / `streamResidentClickableLimit`）的推导前提是**首屏 = 1 张 askuser(5 可点) + 1 张 nextstep(3 可点)**；v4-2 不把 ask 流入 `#stream` 故前提成立。v4-3 落 ask/auth 流内化后，**两张 askuser（5+5=10）** 的组合进入可达面 | TASK-711 验收标准（本文件 §2）+ `docs/v4-density-baseline.json#knownLimitations`（终态条目原文） | TASK-702/703（ask/auth 卡流内化）落地后、TASK-711 收口前 |
+| HO-2 | v4-2 review R1 **I-01**（关联） | `truncationRules[scope=panel-reopen]` 的 `scopeLimit`：自动读回只重放**已终态** ask/auth 决策卡（全量重放会撞 `l0` ⑩/空态契约）。该收敛面是 v4-2 的**临时边界**，v4-3 应放宽 | TASK-711 验收标准 + `docs/v4-supersession-ledger.json#truncationRules[0].scopeLimit` | 同上 |
+
+**处置纪律（禁静默）**：HO-1 若判定「两张 ask 卡同屏」为合法产品态，必须**显式裁决 + 重推三档上限 + 登记两册 + 复跑 RP-V4-09**；若判定为非法，须由形态/位置判据（`density-scope.ts#RESIDENT_NAV_*` 同族）机械拦截。两条路径都必须留下可机核的证据，**不许沿用旧值也不许无声放宽**。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建。11 任务 / 6 波；AC-CHAT-016 **唯一验收叶**（台账标 `owner:"v4-3"`）；`ask-bridge.ts` 零 diff；无「永远处理中」为硬验收；宿主 `v4-3` 本叶清零（清零断言在 TASK-710，v4 总清零在 v4-4 TASK-812）。 | 2026-09-18 | SDDU Tasks Agent |
+| v1.1 | **追加 §5 跨叶移交登记（HO-1 / HO-2）**：来源 v4-2 review R1 的 **I-05**（首屏合计 ≤8 的前提须在 v4-3 复算 —— 两 ask 卡 = 10 若合法须裁决）与 **I-01**（面板重开截断规则的 `scopeLimit` 须复算）；同步在 TASK-711 验收标准追加两条勾选项。**零改写历史内容**（原文逐字保留）。 | 2026-09-19 | SDDU Build Agent（v4-2 review 修复轮，编排器授权） |

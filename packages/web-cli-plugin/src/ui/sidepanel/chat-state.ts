@@ -376,8 +376,15 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
       return { ...state, stream: switchStreamSession(state.stream, action.sessionId, action.label ?? action.sessionId) };
     case 'stream-merge': {
       // Degraded rebuild from a digest: merge events that are not already present.
-      const known = new Set(state.stream.events.map((e) => e.cardId));
-      const added = action.events.filter((e) => !known.has(e.cardId));
+      // I-06 (v4-2 review): the merge is **idempotent by BOTH keys**. Deduping on
+      // `cardId` alone would let an event whose `seq` is already taken slip in
+      // (two different cards, same `seq`), which breaks the「seq 单调不复用」
+      // invariant the whole model rests on. Conflicts are skipped, never renumbered
+      // — a digest event that cannot be appended cleanly must not be silently
+      // relabelled as a different fact.
+      const knownCards = new Set(state.stream.events.map((e) => e.cardId));
+      const knownSeqs = new Set(state.stream.events.map((e) => e.seq));
+      const added = action.events.filter((e) => !knownCards.has(e.cardId) && !knownSeqs.has(e.seq));
       if (added.length === 0) return state;
       const seq = Math.max(state.stream.seq, ...added.map((e) => e.seq + 1));
       return {
