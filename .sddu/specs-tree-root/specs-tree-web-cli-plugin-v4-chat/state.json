@@ -4,8 +4,8 @@
  "version": "v4.0.0",
  "name": "web-cli-plugin v4「聊天流统一承载」（方案 F 重构）——三区（工具栏 ≤5 可点 / 聊天流唯一交互面 / 状态栏常驻风险）+ 一切交互皆消息（7 类卡：ai / user / nextstep / askuser / auth / system / ref，只追加、只固化）+ 留痕即事实（过程性问答 / 授权记录 / 系统事件 / 引用生命周期全部入流）",
  "phase": "tasked",
- "workflow": "3.plan",
- "agent": "sddu-plan",
+ "workflow": "4.tasks",
+ "agent": "sddu-tasks",
  "depth": 1,
  "parent": null,
  "childrens": [
@@ -72,7 +72,7 @@
  ],
  "leaf": false,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-20T06:00:00.000Z",
+ "updatedAt": "2026-09-20T08:00:00.000Z",
  "description": "作者 2026-09-17 真机反馈立项（逐字：「所有过程性的问答，建议放到聊天框里面，同时也方便看到授权记录，不要放到上面，丢失过程信息，每一步交互，尽可能都在聊天框留痕，作为事实依据，包括推荐的下一步操作，都放到聊天框里面」/「整体布局简化，工具栏、聊天框、状态栏」/「聊天框包含：AI答复聊天、下一步推荐、问答、权限申请」），2026-09-18 作者确认「开启重构的SDDU流程」。ROADMAP 编号 F-30（本轮实测 0 占用；F-29 为 A2A 候选保留），版本落点建议 = v0.9.0 同批叠加第三 Feature（F-27/F-28 先例）。设计基准 = packages/web-cli-plugin/design/ui-redesign/option-f-chat-stream.html（1,927 行，S1~S7 场景）+ option-f-shim.mjs（60 断言；本轮实跑 60/60）。核心问题 = 过程性交互（ask-user 问答 / 破坏性确认 / 站点授权 / 系统事件 / 引用生命周期 / 下一步推荐）全部落在聊天流之外（流之上的独占决策槽 + 底部 6 条瞬时提示条 + 顶部永不折叠风险带 + 3 处引用投影），解析即消失、无时间戳、不可回看。发现阶段产出：discovery.md v1.0（Q-CHAT-001~013 · A-CHAT-001~009 · R-CHAT-001~016 · O-CHAT-001~009 + 现状基线 §7.1 全量 file:line 证据 + 取代/保留清单草案 + 门禁影响面预判 + 4 叶拆分建议）。",
  "scope": {
   "in": [
@@ -284,7 +284,7 @@
    "triggeredBy": "sddu-build（v4-4 收口轮：F-01（低）修复 + N-01~N-05 登记 + state closeout 记录；24 门禁串行全绿；体积 479,021 ≤ 502,972；V3-VOL-3 占位规则同步；四叶全闭环 ⇒ 可进父收口）"
   }
  ],
- "phaseNote": "phase=planned（status=tracked）。产出父 plan.md v1.0（1,039 行）+ 4 叶 plan.md v1.0；**ADR-V4-001~040**（父承 ADR-V4-001~016：父 plan 定位偏差登记 / 事件流模型 + 摘要落库取舍 / 会话切换语义 / 增量渲染 / 三区骨架与 DOM 迁移总表 / 密度门禁重定标 / 31 登记格与三道防滥用 / journey 保护段八步取代 / v4 取代台账 / 体积与 V3-VOL-3 收口 + min() 优先级 / 测试架构与门禁重定标 / 过程卡族固化语义（裁决1）/ 卡分类学 / AC-CHAT-016 归属 v4-3（裁决2）/ 推荐真值白名单（裁决5）/ journey ≥65% 前置 spike（裁决7）；4 叶承 ADR-V4-017~040）。**7 条新风险裁决全部有对应 ADR**（1→ADR-V4-012；2→ADR-V4-014；3+4→ADR-V4-007；5→ADR-V4-015；6→ADR-V4-010；7→ADR-V4-016）。**关键裁决**：事件不可变 + 投影可变至终态；摘要落库 + 内存全量（面板侧，SW/`KIND_SET` 零 diff）；keyed 增量渲染（永不清空）；三区同构迁入 + 占位宿主（`data-transitional-host` + 收口清零）；密度 = 表达式根 `document.body` + `DENSITY_EXCLUDED_SUBTREES=['#stream']` 单源排除 + 31 登记格 + 三条防滥用 + v3 22 格冻结；journey `42766..54004` 显式取代 + 新 pin（`#15b` ≥65% 语义保留、`#15c` → 法四）；binding 段保留零改；体积 = 每叶五要素中间重登记 + v4-4 收口带值闭合 + `min(绝对上限, floor(基线×1.05))`。**偏差显式登记（4 条）**：① 父 plan 产出与否（ADR-V4-001）② v4-1 门禁集合**增补 l0/l1/l2**（ADR-V4-011 / 偏差登记 2，收紧非放松）③ journey 保护段取代（ADR-V4-008 / 偏差登记 3）④ 三区骨架同构迁入取舍（ADR-V4-005）。**新发现执行层风险（4 条）**：R4-17 v4-1 门禁集合缺 l0/l1/l2 · R4-18 占位宿主生命期 · R4-19 跨台账口径漂移 · R4-20 设计契约与真实产物双实现漂移。**本阶段只做 plan**：未写 tasks/代码、未改 `src/**`·`test/**`·`dist/**`·`manifest.json`·`design/**`·ROADMAP、未改 v1/v2/v3 SDDU 目录、未动 `main`、未 commit/push、**未跑任何门禁/构建/Chromium**、**未调用任何受管 Provider**（routing.v1 = local_or_compute → none）。下一阶段：@sddu-tasks（4 叶分别排任务；父不承接 tasks 执行）。\n\ntasks 阶段完成（2026-09-18，sddu-tasks）：产出父总览 tasks.md v1.0 + tasks.json v1.0（四叶任务总览 / 跨叶波次总图 / 跨叶检查点 CP-0~CP-4 / D-005 测试守恒总账 / 编排器 10 条硬要求映射）+ 四叶各自 tasks.md v1.0 + tasks.json v1.0（合计 50 任务 / 27 波，S2·M29·L19）。关键锚：v4-1 第一任务 = S 级 spike 闸门（TASK-501，12 格 >=65.0%，不可达即停工上报）；v4-4 末任务 = V3-VOL-3 收口锚（TASK-811/812）。实测编号占用：v3 已用至 TASK-415 => v4 采用 TASK-5xx~8xx 百位段（零冲突，建议偏离已登记）。7 条排布发现如实登记（含 nodeTestRuntime 跨口径差 832 vs 795）。纪律：只写本 Feature 目录、零生产代码改动、未跑门禁/构建/Chromium、未 commit/push、main 未动。",
+ "phaseNote": "phase=planned（status=tracked）。产出父 plan.md v1.0（1,039 行）+ 4 叶 plan.md v1.0；**ADR-V4-001~040**（父承 ADR-V4-001~016：父 plan 定位偏差登记 / 事件流模型 + 摘要落库取舍 / 会话切换语义 / 增量渲染 / 三区骨架与 DOM 迁移总表 / 密度门禁重定标 / 31 登记格与三道防滥用 / journey 保护段八步取代 / v4 取代台账 / 体积与 V3-VOL-3 收口 + min() 优先级 / 测试架构与门禁重定标 / 过程卡族固化语义（裁决1）/ 卡分类学 / AC-CHAT-016 归属 v4-3（裁决2）/ 推荐真值白名单（裁决5）/ journey ≥65% 前置 spike（裁决7）；4 叶承 ADR-V4-017~040）。**7 条新风险裁决全部有对应 ADR**（1→ADR-V4-012；2→ADR-V4-014；3+4→ADR-V4-007；5→ADR-V4-015；6→ADR-V4-010；7→ADR-V4-016）。**关键裁决**：事件不可变 + 投影可变至终态；摘要落库 + 内存全量（面板侧，SW/`KIND_SET` 零 diff）；keyed 增量渲染（永不清空）；三区同构迁入 + 占位宿主（`data-transitional-host` + 收口清零）；密度 = 表达式根 `document.body` + `DENSITY_EXCLUDED_SUBTREES=['#stream']` 单源排除 + 31 登记格 + 三条防滥用 + v3 22 格冻结；journey `42766..54004` 显式取代 + 新 pin（`#15b` ≥65% 语义保留、`#15c` → 法四）；binding 段保留零改；体积 = 每叶五要素中间重登记 + v4-4 收口带值闭合 + `min(绝对上限, floor(基线×1.05))`。**偏差显式登记（4 条）**：① 父 plan 产出与否（ADR-V4-001）② v4-1 门禁集合**增补 l0/l1/l2**（ADR-V4-011 / 偏差登记 2，收紧非放松）③ journey 保护段取代（ADR-V4-008 / 偏差登记 3）④ 三区骨架同构迁入取舍（ADR-V4-005）。**新发现执行层风险（4 条）**：R4-17 v4-1 门禁集合缺 l0/l1/l2 · R4-18 占位宿主生命期 · R4-19 跨台账口径漂移 · R4-20 设计契约与真实产物双实现漂移。**本阶段只做 plan**：未写 tasks/代码、未改 `src/**`·`test/**`·`dist/**`·`manifest.json`·`design/**`·ROADMAP、未改 v1/v2/v3 SDDU 目录、未动 `main`、未 commit/push、**未跑任何门禁/构建/Chromium**、**未调用任何受管 Provider**（routing.v1 = local_or_compute → none）。下一阶段：@sddu-tasks（4 叶分别排任务；父不承接 tasks 执行）。\n\ntasks 阶段完成（2026-09-18，sddu-tasks）：产出父总览 tasks.md v1.0 + tasks.json v1.0（四叶任务总览 / 跨叶波次总图 / 跨叶检查点 CP-0~CP-4 / D-005 测试守恒总账 / 编排器 10 条硬要求映射）+ 四叶各自 tasks.md v1.0 + tasks.json v1.0（合计 50 任务 / 27 波，S2·M29·L19）。关键锚：v4-1 第一任务 = S 级 spike 闸门（TASK-501，12 格 >=65.0%，不可达即停工上报）；v4-4 末任务 = V3-VOL-3 收口锚（TASK-811/812）。实测编号占用：v3 已用至 TASK-415 => v4 采用 TASK-5xx~8xx 百位段（零冲突，建议偏离已登记）。7 条排布发现如实登记（含 nodeTestRuntime 跨口径差 832 vs 795）。纪律：只写本 Feature 目录、零生产代码改动、未跑门禁/构建/Chromium、未 commit/push、main 未动。\n\n父收口轮完成（2026-09-20，sddu-build 代行，编排器代作者决策）：登记 closeout 记录（四叶终态 / 关键数字 / deferred / 人工面 / commit 链 / V3-VOL-3 闭合）；ROADMAP 文档版本 1.26.0 → 1.27.0（登记 F-30，四大触点：头部素材行 / §二 v0.9.0 追加注 + Feature 表行 + 同批 Feature（F-30）详段 / 版本总览表追加行 / 修订记录行）；父保持轻量规范容器（phase=tasked），workflow/agent 回填为 4.tasks / sddu-tasks 以对齐 v2/v3 终态。本轮零 src/、零 test/、零四叶产物改动，未跑门禁/构建/Chromium，未改 main、未改 v1/v2/v3 SDDU、未改 design/；F-29 区段一字未动。",
  "tasksSummary": {
   "totalTasks": 50,
   "totalWaves": 27,
@@ -319,5 +319,208 @@
   "closeoutAnchor": "TASK-811/812（V3-VOL-3 带值闭合 + 宿主计数=0）",
   "numbering": "v4-1 TASK-501~515 / v4-2 TASK-601~612 / v4-3 TASK-701~711 / v4-4 TASK-801~812（实测全局已用至 TASK-415）",
   "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md"
+ },
+ "closeout": {
+  "round": "v4-chat 父收口（整体收口，第 1 轮）",
+  "date": "2026-09-20",
+  "authorization": "编排器代作者决策",
+  "conclusion": "✅ v4-chat 完成：父 + 四叶全部收口，四叶 phase=validated（status=completed），全门禁绿（末轮实测 npm 992 / supersession 33 / l0 221 / l1 111 / l2 73 / density 175 / journey 167 / insight 116 / binding 192 / hardening 24 / e2e PASS / gate-integrity 12 / design-contract 6 / zero-injection 27 / page-input 106 / stream 63 / ask-auth 61 / recommendation 49 / ref-pick-wiring 11 / size-ruling-vol3 10 / l1-reverse 9 / l2-reverse 10）；V3-VOL-3 硬义务已带值闭合（新基线 479,021 / 绝对上限 563,200 / 生效 502,972；authorConfirmation 仍 pending-author-line，待作者一行确认/否决）。本轮为纯文档/状态收口：零 src/、零 test/、零四叶产物改动，不改 main、不改 v1/v2/v3 SDDU、不改 design/、未跑门禁/构建/Chromium；数字一律取自四叶 build/validate 产物实测值并抽查 3 个与源核对。",
+  "containerDiscipline": "父 Feature 仍为轻量规范容器：phase=tasked / workflow=4.tasks / agent=sddu-tasks，**不进入 build/review/validate**（与 v2/v3 父先例一致——父为规范容器，阶段语义由四叶承载）；本轮回填 workflow/agent 至 4.tasks/sddu-tasks 以对齐 v2/v3 终态；父目录仅承载聚合产物（本轮新增 closeout.md = 全 Feature 总账）。",
+  "leaves": [
+   {
+    "featureKey": "specs-tree-v4-1-zone-shell-density",
+    "name": "V4-1 三区骨架与密度重定标",
+    "priority": "P0",
+    "deliveryOrder": 1,
+    "taskCount": 15,
+    "phase": "validated",
+    "status": "completed",
+    "validateVerdict": "✅ 通过（0 阻塞 / 8 观察项）",
+    "closeoutCommits": [
+     "203261e"
+    ]
+   },
+   {
+    "featureKey": "specs-tree-v4-2-chat-stream-model",
+    "name": "V4-2 聊天流 append-only 事件模型与卡渲染",
+    "priority": "P0",
+    "deliveryOrder": 2,
+    "taskCount": 12,
+    "phase": "validated",
+    "status": "completed",
+    "validateVerdict": "⚠️ 有条件通过（0 阻塞；F-01~F-03 + N-01~N-03 收取口轮处置）",
+    "closeoutCommits": [
+     "0f8a1fb"
+    ]
+   },
+   {
+    "featureKey": "specs-tree-v4-3-ask-auth-inflow",
+    "name": "V4-3 ask-user / 授权卡流内化与留痕固化",
+    "priority": "P0",
+    "deliveryOrder": 3,
+    "taskCount": 11,
+    "phase": "validated",
+    "status": "completed",
+    "validateVerdict": "✅ 通过（0 阻塞 / 3 非阻塞登记）",
+    "closeoutCommits": [
+     "eb879bb"
+    ]
+   },
+   {
+    "featureKey": "specs-tree-v4-4-ref-system-nextstep",
+    "name": "V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移",
+    "priority": "P0",
+    "deliveryOrder": 4,
+    "taskCount": 12,
+    "phase": "validated",
+    "status": "completed",
+    "validateVerdict": "✅ 通过（0 阻塞；F-01 + N-01~N-05 收取口轮处置）",
+    "closeoutCommits": [
+     "b18c70b"
+    ]
+   }
+  ],
+  "taskTotal": 50,
+  "validate": {
+   "verdict": "v4-1 ✅ 通过（0 阻塞 / 8 观察项）；v4-2 ⚠️ 有条件通过（0 阻塞）；v4-3 ✅ 通过（0 阻塞 / 3 登记）；v4-4 ✅ 通过（0 阻塞 / F-01 + N-01~N-05）",
+   "perLeaf": {
+    "v4-1": "✅ 通过（0 阻塞 / 8 观察项，中 1 低 7；N-03 流内卡 ≤6 边界移交 v4-2 TASK-613；收口轮修 4 / 登记 3 / 移交 1）",
+    "v4-2": "⚠️ 有条件通过（0 阻塞；F-01 payload 浅冻结 / F-02 seq 可逆序 / F-03 截断夹带 + N-01~N-03，收口轮全处置）",
+    "v4-3": "✅ 通过（0 阻塞 / 3 非阻塞登记；review R1 的 4 阻塞在独立对抗下全部无法复现；终态机 10,000 序列 0 漏洞）",
+    "v4-4": "✅ 通过（0 阻塞；F-01 低 + N-01~N-05 登记；review R1 3 阻塞 → R2 复审 ✅ 通过；V3-VOL-3 闭合独立复算 + 越限必红）"
+   }
+  },
+  "gates": {
+   "pluginUnit": 992,
+   "supersession": 33,
+   "l0": 221,
+   "l1": 111,
+   "l2": 73,
+   "density": 175,
+   "journey": 167,
+   "insight": 116,
+   "binding": 192,
+   "hardening": 24,
+   "e2e": "PASS",
+   "gateIntegrity": 12,
+   "designContract": 6,
+   "zeroInjection": 27,
+   "pageInput": 106,
+   "stream": 63,
+   "askAuth": 61,
+   "recommendation": 49,
+   "refPickWiring": 11,
+   "sizeRulingVol3": 10,
+   "l1Reverse": 9,
+   "l2Reverse": 10,
+   "note": "取四叶 build/validate 产物实测值（末轮 = v4-4 收口轮，2026-09-20）；计数只增不减，断言零删除零降级（journey 保护段按 ADR-V4-008 显式取代并留台账，非静默删除）。"
+  },
+  "sizes": {
+   "contentJs": "177,076 B（无容差；v4 全程未动，sha256 52a82620… 逐字节不变）",
+   "pickLayerJs": "33,900 B（无容差；v4 全程未动，sha256 5f567d7e… 逐字节不变）",
+   "sidepanelJs": "266,500 → 479,021 B（v4 段显式五要素重登记 10 轮：v4-1 / v4-2 / v4-2-closeout / v4-3 / v4-3-reviewfix / v4-4 / v4-4-r2 / v4-4-reviewfix / v4-4-i09fix / v4-4-closeout；每轮含前后值+日期+来源+构建命令+理由+历史保留+逐模块 metafile 归因）",
+   "ceilingFormula": "floor(479,021 × 1.05) = 502,972 B（容差 5% 未动）",
+   "cumulativeGrowth": "+79.75%（= (479,021 − 266,500) ÷ 266,500）",
+   "worstAdjacentPairs": "+10.41%（v4-1 → v4-2；< 15% 告警线，仍如实登记）",
+   "growthChain": [
+    "375,102（v3 末）",
+    "385,319（v4-1）",
+    "425,442 / 425,094（v4-2 build / reviewfix）",
+    "426,487（v4-2 收口）",
+    "440,698（v4-3）",
+    "445,300（v4-3 reviewfix）",
+    "465,000（v4-4 build，V3-VOL-3 闭合）",
+    "465,277（v4-4 R2）",
+    "478,163（v4-4 reviewfix）",
+    "478,897（v4-4 i09fix）",
+    "479,021（v4-4 收口）"
+   ]
+  },
+  "v3Vol3Closure": {
+   "obligation": "方案 F 重构（聊天流统一承载）落地收口时，必须重新定 sidepanel 体积基线并设置绝对值上限（v3 收口 §9 B-补 8 的显式硬义务）",
+   "status": "已带值闭合（resolved:true）+ 作者确认占位",
+   "bFinalBytes": 465000,
+   "tierBytes": 512000,
+   "absoluteCeilingBytes": 563200,
+   "newBaselineBytes": 479021,
+   "effectiveCeilingBytes": 502972,
+   "effectiveCeilingRule": "min(absoluteCeilingBytes, floor(currentBaseline × 1.05))",
+   "resolvedOn": "2026-09-19",
+   "authorConfirmation": {
+    "status": "pending-author-line",
+    "meaning": "作者一行可否决改值 —— 未伪称已确认",
+    "machineGate": "test/size-ruling-vol3.test.ts（resolved:true ⇒ authorConfirmation 必存在 ∧ status ∈ {pending-author-line, confirmed, overridden-by-author} ∧ date 为 YYYY-MM-DD ∧ pending 必带理由）"
+   },
+   "sidepanelCeilingCap": "保持 record-only（V3-VOL-1 ② 教训：不设自缚装置）",
+   "sources": [
+    "packages/web-cli-plugin/test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES=479_021",
+    "#PENDING_ABSOLUTE_CAP",
+    "#V3_VOL3_B_FINAL_BYTES=465_000",
+    "test/size-ruling-vol3.test.ts",
+    "docs/v4-supersession-ledger.json#v3Vol3Closeout"
+   ]
+  },
+  "realProblemsCaught": [
+   "v4-3 BLOCK-01 假授权留痕：auth 卡 cancelled 终态被渲染为「已批准」+ data-decision=pending（三条真实路径均可造出）→ 修 + 门禁",
+   "v4-3 BLOCK-02 假超时事实：回合结束被当 60 s 超时结算面板自有引用回合 ask（ref-round-*），写下从未发生的超时 → 拆原因 + 面板自有 ask 不随回合结束结算 + 门禁",
+   "v4-3 BLOCK-03 答案源断裂：rounds[] 未退役且其唯一答案生产者随 decision-card 删除消失 ⇒ L1 已决策历史记错答案 → 改由流内终态卡事件派生 + 门禁",
+   "v4-3 BLOCK-04 审计死链：刚决策 auth 卡审计入口点击无反应（deps 无 onCardAction + preventDefault 拦 href）→ 透传真实 deps + 可达性门禁",
+   "v4-4 BLOCK-01 推荐链路只在测试 seam 活着（生产恒 0 张）→ 三处真实时机接线 + 产品路径门禁（不经 seam）+ 快修轮补「首装」时机（I-09）",
+   "v4-4 BLOCK-02 通道只归并 2/7 + 「过渡宿主清零」靠删属性达成 ⇒ 判据空转 → 剩余 5 通道事件化 + host-registry 结构性判据 + 5 组 forged reading 判红",
+   "v4-4 BLOCK-03 「改用描述」兜底提交为死控件 → handleCardAction 落地 submitDescribe + 断言「兜底唯一 + 提交即留痕 + 无占位」",
+   "v4-2 F-01 payload 浅冻结（append-only 缺口，事件/CardView/caller 三处可改写）→ deepFreeze 入/出口 + 反证",
+   "v4-2 F-02 stream-merge 接纳回退 seq ⇒ 事件可逆序 → 只接纳 seq > 已知最大值 + mergeSkipped 计数",
+   "v4-2 F-03 sanitizeLabel 先截断后扫描 ⇒ 71 位截断后落库含密钥前 9 字符 → 顺序反转「先全串扫描再截断」",
+   "v4-4 F-01 同序号引用卡重复投影（data-ref-num=[\"1\",\"1\"]）→ 投影唯一性键 = refNum + 状态；被抑制仍写可读系统行（事实不静默丢弃）",
+   "产品级：label() 密钥形状抛错（推荐卡风险恢复规则）→ 静态安全 label + 专门回归用例；回合边界追加后「回到底部」假提示帧 → 终帧补 updateScrollHint()",
+   "登记保真：v4-4-reviewfix 披露元组写「+12,683 B / +2.73%」而登记字段实测 +12,886 / +2.77% → 新增 validateReRegistrationDisclosure 披露算术机核",
+   "验证面（价值证明）：终态机 10,000 序列 · 240,748 断言 0 漏洞；v4-1 13 条密度对抗探针（10 自写 + 3 真门禁注入）；v4-4 86 条独立探针断言（node 49 + Chromium 37）；v4-2 62 条独立探针断言；均未采信自报数值"
+  ],
+  "deferred": [
+   "N-05（v4-4）重锚按钮位置口径裁决：一键重锚按钮 #l1-ref-rescue 在 L1 引用证据面板而非流内卡内 —— FR-CHAT-052 的「卡内」按「恢复路径可达即可」读，功能等价，登记为已知偏差；升级条件 = 真机反馈需要卡内按钮（须重审卡预算/密度登记格）",
+   "test:binding 环境性 flake（v4-2 N-01 / v4-4 N-03，KL-N-10 同源）：串行首轮偶发红且失败项每次不同，binding.mjs 零 diff、隔离复跑即绿；纪律 = 串行 / 隔离复跑 ≥2 / 日志全量 / 仍红如实记录不阻塞收口；建议加就绪等待或有界重试（本轮未做）",
+   "BUILD_STAMP 致 sidepanel.js sha 非不变量（v4-4 N-02，KL-N-08 同源）：不变量是字节（+ metafile 归因 + 门禁），不是 sha；红线产物无构建戳 ⇒ sha 仍稳定",
+   "纯模型旁路 switchStreamSession（v4-4 N-01）：产品零调用由 test:ref-pick-wiring I-02 机核拦截 + doc-comment 声明；未新增注释（注释会进产物字节 ⇒ 触发同轮第二次重登记）",
+   "staleRef 夹具序敏感（v4-4 N-04 / I-04）：机制已由 testing.reset() 消除，跨夹具顺序置换的独立门禁属增量可选，本轮未新增",
+   "未解释胶水口径（v4-2 §11 偏差 4）：绝对口径 1,000 → 1,500 B 并新增更严相对口径 < 2%（实测 0.76%）；系归因自检非产品阈值，已登记，不是纯放宽",
+   "首装入口时序面（v4-4 残余）：未另设「半加载面板不得产卡」的独立 Chromium 断言（以代码前置判据 + ⑬ 真实首装断言覆盖）",
+   "V3-VOL-3 绝对上限的作者确认仍挂起（authorConfirmation.status = pending-author-line）—— 属未闭合义务，不是已完成项",
+   "元门禁对部分门禁仅静态覆盖（承 v3：STATIC_ONLY_GATES 机制不变）；v4 新门禁纳入受审集合与 test:v3 链，但未做「逐门禁强制变红」的全量 Chromium 实跑",
+   "A2A（F-29）未立项未排期 —— 本轮 ROADMAP 对该区段一字未动",
+   "人工面未执行（见 humanFacesNotExecuted）"
+  ],
+  "humanFacesNotExecuted": {
+   "note": "四叶 validate 报告的人工面登记为 0 项（v4-1 明写「人工面 0 项；本叶无 headless 不可合成的验收面」，v4-2/v4-3/v4-4 同口径 0 / 0 / 0，v4-4 另登记 1 项「重锚新卡序号的端到端 DOM 复现」为无法执行）。父 spec AC-CHAT-024 要求人工面清单逐项标注「未执行」或「PASS」且不得冒充 PASS —— 本清单由父收口按 Feature 验收面（观感 / 体感 / 真实权限弹窗）补齐为父级清单，**全部 ⏳ 未执行**（headless 不可合成真实手势 / 权限弹窗 / 人工观感）。",
+   "items": [
+    "三区布局真机观感（工具栏 / 聊天流 / 状态栏在真实侧栏下的观感）",
+    "聊天流滚动与固化观感（追加不抢滚动 / 固化前后 / .ts 可读性 / 冻结卡不跳动）",
+    "明暗双主题观感（auto→light→dark + 跟随系统）",
+    "320px 窄栏真实体感（三区布局 / 风险 chips 收缩 / 卡内控件可点性）",
+    "拾取 → 推荐卡真机链（Alt 悬停/拖动 / 右键菜单 / 拖选气泡 → 引用卡 → 推荐卡 chips 即指令）",
+    "授权卡真实弹窗体感（破坏性确认 / 站点授权 + 后果预演 + 批准/拒绝固化观感）",
+    "系统事件行观感（6+ 通道归并后的稳态降噪与「持续：」行可读性）",
+    "键盘真实体感（Tab 序 / :focus-visible / 固化后焦点落点）",
+    "读屏真实体感（role=log / aria-live 固化播报粒度）",
+    "多显示器 / 高 DPI",
+    "重锚救援真机体感（文字可见但选择器断链 → 失效卡 → L1 面板一键重锚）",
+    "引用角标 ↔ 卡片双向高亮真机对应"
+   ],
+   "status": "⏳ 未执行（全部；未跑门禁原因 = 本轮纯文档/状态收口，零代码/测试改动）"
+  },
+  "commitChain": "v4-1: a7af431（立项四站）→ …（build R1~R3）→ 203261e（收口轮）｜ v4-2: …（build + reviewfix）→ 0f8a1fb（收口轮）｜ v4-3: b58a52d/3eea886（build R1）+ 1fb26bb（R2）→ c88811b（review 修复轮）→ eb879bb（收口轮）｜ v4-4: …（build + KL-V44-01 R2）→ 4a1be39（validate 产物）→ b18c70b（收口轮）｜ 父收口 HEAD = b18c70b；均在 feature/web-cli-plugin（main = 2ddc922 未动）",
+  "roadmap": {
+   "dispositionOption": "v0.9.0 同批第三 Feature（三主题并列：工程质量与文档对齐 + F-28 UI 渐进式披露升级 + F-30 聊天流统一承载）",
+   "docVersion": "1.26.0 → 1.27.0",
+   "featureNumber": "F-30（discovery 已核查 0 占用；本版收口实测复核登记前仍 0 占用）",
+   "f29Untouched": true,
+   "touchPoints": [
+    "头部 v1.27.0 素材增补行（F-30 · 聊天流统一承载 · 目录指向 · 关键数字）",
+    "§二 v0.9.0 v1.27.0 追加注（三主题并列说明）+ Feature 表追加 F-30 行 + 「v0.9.0 同批 Feature（F-30）」详段",
+    "版本总览表追加 v0.9.0/F-30 行（既有两行 v0.9.0 行逐字保留）",
+    "文档版本 1.26.0 → 1.27.0 + 修订记录行 v1.27.0"
+   ]
+  },
+  "thisRoundGuard": "纯文档/状态收口（只改 ROADMAP.md / 本父 state.json / 新建 closeout.md / 父 TREE.md）；零 src/、零 test/、零四叶产物改动；未跑任何门禁/构建/Chromium（原因：零代码/测试变更），以 `git diff --quiet -- packages/web-cli-plugin/src packages/web-cli-plugin/test`（等价路径核验）零 diff 佐证；数字一律取自四叶产物实测值并抽查 3 个与源文件核对（npm test 992 / sidepanel.js 479,021 / 绝对上限 563,200 ↔ test/size-baseline.ts）；禁 git add -A。",
+  "merge": "不合入 main、不发布（v1/v2/v3/v4 均在 feature/web-cli-plugin，合入/发布由作者决定）"
  }
 }
