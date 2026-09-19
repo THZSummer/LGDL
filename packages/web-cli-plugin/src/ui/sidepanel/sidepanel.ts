@@ -18,7 +18,7 @@ import {
 import { createScrollFollow, isNearBottom, type ScrollMetrics } from './scroll-policy.js';
 // V4-2 (TASK-604 / TASK-605 / TASK-607): the append-only stream — the model +
 // projection, the keyed incremental renderer and the zero-plaintext digest.
-import { appendEvent, createStreamState, hasSegment, liveCardIds, project } from './stream-model.js';
+import { appendEvent, boundStreamEvents, createStreamState, DEFAULT_STREAM_CAP, hasSegment, liveCardIds, MAX_OPEN_ASKS, project } from './stream-model.js';
 import type { StreamEventKind } from './stream-model.js';
 import { createStreamRender, type StreamRenderHandle } from './stream-render.js';
 import {
@@ -37,6 +37,7 @@ import {
   CONSENT_SUMMARY_TEXT,
   LOG_EMPTY_TEXT,
   activeSiteNotice,
+  askFlowView,
   autoAuthCheckboxState,
   autoAuthMarker,
   buildOnboarding,
@@ -148,18 +149,35 @@ function cardDeps(): CardDeps {
 }
 
 /**
- * The card skeleton actions. v4-2 deliberately does NOT implement the ask/auth/ref
- * business (that is v4-3 / v4-4): a skeleton control that has a real v1 path today
- * routes into it, everything else is a readable placeholder notice (never a silent
- * no-op).
+ * V4-3: the stream card actions. Every ask/auth control resolves the **exact**
+ * card it belongs to (by `cardId` → `payload.requestId`), so two coexisting open
+ * cards can never cross-resolve. The v1 paths (`submitAsk` / `confirm-response`)
+ * are reused — no shadow implementation.
  */
 function handleCardAction(cardId: string, action: string, value?: string): void {
-  if (action === 'answer' || action === 'cancel') {
-    submitAsk(value, action === 'cancel');
+  const requestId = requestIdForCard(cardId);
+  if (action === 'answer') {
+    submitAskFor(requestId, value, false);
+    return;
+  }
+  if (action === 'choose' && value !== undefined) {
+    submitAskFor(requestId, value, false);
+    return;
+  }
+  if (action === 'cancel') {
+    submitAskFor(requestId, undefined, true);
     return;
   }
   if (action === 'approve' || action === 'reject') {
-    dispatch({ type: 'confirm-resolved', allow: action === 'approve' });
+    const allow = action === 'approve';
+    if (requestId) void send(makeMessage('confirm-response', { requestId, allow }));
+    dispatch({ type: 'confirm-resolved', allow, ...(requestId ? { requestId } : {}) });
+    return;
+  }
+  if (action === 'audit') {
+    // ADR-V4-033 §2: the审计视图 is the complete ledger; the card is the session
+    // clue. The exit opens the existing L2 audit view (zero new channel).
+    openL2View('audit');
     return;
   }
   if (action === 'next' && value) {
@@ -168,6 +186,15 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
   }
   dispatch({ type: 'notice', text: `该卡片的「${action}」交互将在 v4-3 / v4-4 落地（本叶只固化契约）` });
   void cardId;
+}
+
+/** The business key of an ask/auth stream card (never a DOM guess). */
+function requestIdForCard(cardId: string): string | undefined {
+  for (let i = state.stream.events.length - 1; i >= 0; i -= 1) {
+    const e = state.stream.events[i];
+    if (e.cardId === cardId && (e.kind === 'askuser' || e.kind === 'auth')) return e.payload.requestId;
+  }
+  return undefined;
 }
 
 /** The keyed incremental renderer (created once, after the DOM is present). */
@@ -508,6 +535,11 @@ function installV3TestHooks(): void {
           render();
           return;
         }
+        // V4-3: `confirm` stays a **projection-only** risk fixture (like the other risk
+        // classes). It must NOT synthesize a stream card: the density gate measures the
+        // risk increment on a fixed fixture, and injecting a card would add a non-risk
+        // clickable (`#scroll-bottom`) into that budget. The real confirm → auth card
+        // path is covered by `test/ui/ask-auth-inflow.mjs`.
         if (mode === 'natural') delete v3TestState.riskMode[cls];
         else v3TestState.riskMode[cls] = mode;
         render();
@@ -522,7 +554,7 @@ function installV3TestHooks(): void {
       },
       /** Reveal the fallback input + the full-text composer (ADR-V3-014 §5). */
       revealFallback() {
-        l0?.revealFallback();
+        revealAskFallback();
       },
       hideFallback() {
         l0?.hideFallback();
@@ -612,6 +644,22 @@ function installV3TestHooks(): void {
           seq: state.stream.seq,
         };
       },
+      /**
+       * V4-3 (ADR-V4-032): the ONE turn-semantics projection. `pending` gates new
+       * turns / recommendation chips only; open ask/auth cards stay submittable.
+       */
+      askFlow() {
+        return askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length });
+      },
+      /** V4-3: the open ask/auth card ids (the arbitration invariant read-out). */
+      openAsks() {
+        return [...state.stream.openAsks];
+      },
+      /** V4-3: dispatch the 60 s timeout projection the turn-end signal drives. */
+      timeoutOpenAsks() {
+        dispatch({ type: 'pending', value: false });
+        return state.stream.openAsks.length;
+      },
       /** V4-2: a fresh event log + renderer (the fixture reset for the stream gate). */
       streamReset() {
         state = { ...state, stream: createStreamState(state.stream.sessionId) };
@@ -620,7 +668,12 @@ function installV3TestHooks(): void {
         return true;
       },
       clearAsk() {
-        dispatch({ type: 'ask-resolved' });
+        // V4-3: settle **every** open ask card (multiple can coexist under the ≤2 cap).
+        let guard = 0;
+        while (state.stream.openAsks.length > 0 && guard < MAX_OPEN_ASKS + 1) {
+          dispatch({ type: 'ask-resolved', canceled: false });
+          guard += 1;
+        }
       },
       /**
        * Injects a stale-reference event. v3-1 has no page-side reference judge
@@ -921,12 +974,18 @@ function render(): void {
   // CSS-hidden subtree, so a `display` toggle would silently spend density budget.
   notice.hidden = !state.notice;
 
-  const confirmBox = $('confirm');
-  if (confirmActive()) {
-    confirmBox.hidden = false;
-    if (state.confirm) $('confirm-summary').textContent = state.confirm.summary;
-  } else {
-    confirmBox.hidden = true;
+  // V4-3: the confirmation surface is the stream `auth` card now. Its `#confirm`
+  // node exists only while a card is open, so the lookup is optional — a forced
+  // test projection without a card must not throw.
+  const confirmBox = document.getElementById('confirm');
+  if (confirmBox) {
+    if (confirmActive()) {
+      confirmBox.hidden = false;
+      const summary = document.getElementById('confirm-summary');
+      if (summary && state.confirm) summary.textContent = state.confirm.summary;
+    } else {
+      confirmBox.hidden = true;
+    }
   }
 
   renderLlmStatus();
@@ -1226,8 +1285,12 @@ function acceptCapture(facts: Record<string, unknown>, resolution: { status: str
   // canceled so the background turn can finish; the user is told, not silently dropped.
   const superseded = supersededAsk(state);
   if (superseded) {
-    void send(makeMessage('ask-user-response', { ...superseded, canceled: true }));
-    dispatch({ type: 'notice', text: '已放弃上一条提问（你先在页面上拾取了引用）。' });
+    void send(makeMessage('ask-user-response', { requestId: superseded.requestId, canceled: true }));
+    // V4-3 (ADR-V4-031 §3): the R1 "settle without trace" is upgraded to
+    // 「取消 + 留痕」— the reducer writes `cancelled(superseded)` on the card AND a
+    // system row. The extra notice is the human-readable companion (kept).
+    dispatch({ type: 'ask-resolved', requestId: superseded.requestId, canceled: true, reason: 'superseded' });
+    dispatch({ type: 'notice', text: '已放弃上一条提问（你先在页面上拾取了引用），并已留痕。' });
   }
   const record = l1?.injectRef(facts as never);
   l1?.setResolution(resolution as RefResolution);
@@ -1264,26 +1327,74 @@ function acceptCapture(facts: Record<string, unknown>, resolution: { status: str
   })();
 }
 
+/**
+ * V4-3: open the free-text ask fallback. The stream card owns `#ask-fallback`; when
+ * no card is open (e.g. V3-4's「改用描述」before any question) a **local text ask**
+ * is created through the real reducer first, so the fallback always has an owner and
+ * the reveal never silently no-ops.
+ */
+function revealAskFallback(): void {
+  if (!document.getElementById('ask-fallback')) {
+    // Append a LOCAL text ask card directly (no reducer `ask` action): the single
+    // `state.ask` slot must keep the background question it already holds, so the
+    // L1 consequences panel keeps reading the real round's options.
+    const cardId = `q${state.stream.seq}`;
+    state = {
+      ...state,
+      stream: boundStreamEvents(
+        appendEvent(state.stream, {
+          kind: 'askuser',
+          ts: Date.now(),
+          cardId,
+          payload: { askKind: 'text', prompt: '用文字描述你的目标（重建引用）', requestId: 'ref-describe' },
+        }),
+        DEFAULT_STREAM_CAP,
+      ),
+    };
+    render();
+  }
+  l0?.revealFallback();
+}
+
+/**
+ * V4-3 — answer/cancel one **specific** ask card (by its requestId). The legacy
+ * single-slot path ({@link submitAsk}) delegates here so there is exactly one
+ * resolution implementation.
+ *
+ * A reference round (`ref-round-<refId>`) is answered by *acting on the
+ * reference* (V3-4 / AC-CONV-2); a background question is sent back as free text.
+ * Cancel / empty answer is fail-closed (`canceled`, never a default value).
+ */
+function submitAskFor(requestId: string | undefined, value: string | undefined, canceled: boolean): void {
+  const rid = requestId ?? state.ask?.requestId;
+  const isRef = (rid ?? '').startsWith(REF_ROUND_PREFIX);
+  const refId = isRef && rid ? rid.slice(REF_ROUND_PREFIX.length) : null;
+  const trimmed = value?.trim();
+  const isCanceled = canceled || !trimmed;
+  if (rid && !isRef) {
+    void send(makeMessage('ask-user-response', isCanceled ? { requestId: rid, canceled: true } : { requestId: rid, value: trimmed, canceled: false }));
+  }
+  dispatch({
+    type: 'ask-resolved',
+    ...(rid ? { requestId: rid } : {}),
+    ...(!isCanceled && trimmed !== undefined ? { answer: trimmed } : {}),
+    canceled: isCanceled,
+    reason: 'user',
+  });
+  if (refId && !isCanceled && trimmed) applyRefAction(refId, trimmed);
+}
+
 /** Send the user's answer back to the background and clear the prompt (R7). */
 function submitAsk(value: string | undefined, canceled: boolean): void {
   // V3-4 / AC-CONV-2: a round minted from a reference is answered by *acting on the
   // reference*, so the answer goes through the ONE guarded entry instead of being sent
-  // as free text. Rounds that came from the background are untouched (the `refId` is
-  // `null` for them), which is why the existing ask gates keep their exact behaviour.
+  // as free text. The card-targeted path (`submitAskFor`) is the v4-3 entry; this
+  // wrapper keeps every legacy caller (the `#ask-*` listeners / `revealFallback`) working.
   const refId = pendingRefId;
   pendingRefId = null;
   const res = resolveAsk(state, value, canceled);
-  if (res && !refId) void send(makeMessage('ask-user-response', { ...res }));
-  // V4-2: the answer is carried into the terminal event so the card's固化 region
-  // can show 「已答：<answer>」 (取消 carries the explicit cancelled terminal).
-  dispatch({
-    type: 'ask-resolved',
-    ...(res && !res.canceled && res.value !== undefined ? { answer: res.value } : {}),
-    canceled: res ? res.canceled : canceled,
-  });
-  if (refId && !canceled && typeof value === 'string' && value.trim()) {
-    applyRefAction(refId, value.trim());
-  }
+  submitAskFor(res?.requestId, res?.canceled ? undefined : res?.value, res ? res.canceled : canceled);
+  void refId; // kept for the readable R1 rationale above; routing is requestId-driven now
 }
 
 function dispatch(action: Parameters<typeof reduce>[1]): void {
@@ -1800,7 +1911,7 @@ function wire(): void {
     doc: document,
     disclosure,
     openL2: (which) => l0?.openL2(which),
-    revealFallback: () => l0?.revealFallback(),
+    revealFallback: () => revealAskFallback(),
     // R3: the one-click re-anchor seam (the real work is in pick-input.ts).
     reanchor: (refId) => reanchorRef(refId),
     // A REAL re-pull of `insight-tree`: the receipt's tool-surface evidence must
@@ -1968,15 +2079,17 @@ function wire(): void {
     });
   });
 
-  $('confirm-allow').addEventListener('click', () => {
-    const res = resolveConfirm(state, true);
-    if (res) void send(makeMessage('confirm-response', { requestId: res.requestId, allow: true }));
-    dispatch({ type: 'confirm-resolved', allow: true });
-  });
-  $('confirm-deny').addEventListener('click', () => {
-    const res = resolveConfirm(state, false);
-    if (res) void send(makeMessage('confirm-response', { requestId: res.requestId, allow: false }));
-    dispatch({ type: 'confirm-resolved', allow: false });
+  // V4-3: the ask/auth controls now live on the **stream cards** (their own
+  // listeners call `handleCardAction`). The single delegated handler below covers
+  // the Enter-to-submit gesture on any open ask's input; the v1 id listeners for
+  // `#confirm-*` / `#ask-*` were removed with the retired decision slot.
+  $('stream').addEventListener('keydown', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (!target || !target.classList.contains('ask-input')) return;
+    if ((e as KeyboardEvent).key !== 'Enter') return;
+    e.preventDefault();
+    const li = target.closest('[data-card-key]') as HTMLElement | null;
+    if (li) submitAskFor(requestIdForCard(li.getAttribute('data-card-key') ?? ''), (target as HTMLInputElement).value, false);
   });
 
   $('audit').addEventListener('click', () => {
@@ -1985,22 +2098,6 @@ function wire(): void {
       dispatch({ type: 'audit-count', count: events.length });
       dispatch({ type: 'notice', text: `审计记录已导出（${events.length} 条，零明文）` });
     });
-  });
-
-  $('ask-submit').addEventListener('click', () => {
-    submitAsk(($('ask-input') as HTMLInputElement).value, false);
-    // FR-V3-012: submitting puts the fallback input straight back to `hidden`.
-    l0?.hideFallback();
-  });
-  $('ask-cancel').addEventListener('click', () => {
-    submitAsk(undefined, true);
-    l0?.hideFallback();
-  });
-  $('ask-input').addEventListener('keydown', (e) => {
-    if ((e as KeyboardEvent).key === 'Enter') {
-      e.preventDefault();
-      submitAsk(($('ask-input') as HTMLInputElement).value, false);
-    }
   });
 
   chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {

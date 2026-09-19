@@ -52,6 +52,8 @@ import { createErrorCard } from './error.js';
 import { createNoticeCard } from './notice.js';
 import { createToolCard, patchToolCard } from './tool.js';
 import { createThinkingCard, patchThinkingCard } from './thinking.js';
+import { answeredState, createAskuserCard, patchAskuserCard } from './askuser.js';
+import { createAuthCard, decisionState, patchAuthCard } from './auth.js';
 
 export { CARD_KIND_LAYER, PROCESS_CARD_TYPES, PRIMARY_CARD_TYPES, STREAM_EVENT_KINDS, formatClock };
 export type { CardDeps } from './shared.js';
@@ -75,6 +77,10 @@ export {
   createCommandCard,
   createToolCard,
   createThinkingCard,
+  createAskuserCard,
+  createAuthCard,
+  answeredState,
+  decisionState,
 };
 
 /** 12 项 = 7 主类（前，设计契约顺序）+ 5 过程族。 */
@@ -100,117 +106,6 @@ export function createNextstepCard(view: CardView, deps: CardDeps): HTMLLIElemen
     chips.appendChild(btn);
   }
   col.appendChild(chips);
-  return li;
-}
-
-/**
- * ask-user card **skeleton** (choice ≤3 + terminal「其他…」+ 取消 = 5 clickables;
- * text = input + 回答 + 取消 = 3 clickables — both ≤6, FR-CHAT-072).
- * Business (submit / 60 s timeout / superseded) = v4-3.
- */
-export function createAskuserCard(view: CardView, deps: CardDeps): HTMLLIElement {
-  const doc = deps.doc;
-  const askKind = view.payload.askKind ?? 'text';
-  const { li, col } = createCardShell(view, deps, ['entry-assistant', 'msg', 'msg-assistant', 'msg-ask'], CARD_TAG_LABELS.askuser);
-  li.setAttribute('data-ask-kind', askKind);
-  li.setAttribute('data-answered', 'false');
-
-  const prompt = doc.createElement('p');
-  prompt.className = 'ask-q';
-  prompt.textContent = view.payload.prompt ?? '（无问题文本）';
-  col.appendChild(prompt);
-
-  const form = doc.createElement('div');
-  form.className = 'ask-form';
-  if (askKind === 'choice') {
-    for (const option of [...(view.payload.options ?? [])].slice(0, 3)) {
-      const btn = doc.createElement('button');
-      btn.type = 'button';
-      btn.className = 'choice';
-      btn.setAttribute('data-act', 'choose');
-      btn.textContent = option;
-      btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'choose', option));
-      form.appendChild(btn);
-    }
-    const other = doc.createElement('button');
-    other.type = 'button';
-    other.className = 'choice';
-    other.setAttribute('data-act', 'choose-other');
-    other.textContent = '其他…（我来描述）';
-    other.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'choose-other'));
-    form.appendChild(other);
-  } else if (askKind === 'text') {
-    const input = doc.createElement('input');
-    input.type = 'text';
-    input.className = 'ask-input';
-    input.placeholder = '输入回答…';
-    input.setAttribute('aria-label', '回答');
-    form.appendChild(input);
-    const submit = doc.createElement('button');
-    submit.type = 'button';
-    submit.className = 'btn-primary';
-    submit.setAttribute('data-act', 'answer');
-    submit.textContent = '回答';
-    submit.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'answer', input.value));
-    form.appendChild(submit);
-  }
-  const cancel = doc.createElement('button');
-  cancel.type = 'button';
-  cancel.setAttribute('data-act', 'cancel');
-  cancel.textContent = '取消';
-  cancel.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'cancel'));
-  form.appendChild(cancel);
-  const hint = doc.createElement('span');
-  hint.className = 'hint';
-  hint.textContent = '取消 = 回答被取消（不代填默认值）';
-  form.appendChild(hint);
-  col.appendChild(form);
-
-  const fixed = createFixedRegion(doc, 'ask-fixed');
-  fixed.append(fixedText(doc, 'ask-fixed-text', '已答：'), clockNode(doc, view.ts, 'ts card-fixed-time'));
-  col.appendChild(fixed);
-  return li;
-}
-
-/** Authorization card **skeleton** (批准 + 拒绝 = 2 clickables; +审计入口 at terminal). v4-3 owns the business. */
-export function createAuthCard(view: CardView, deps: CardDeps): HTMLLIElement {
-  const doc = deps.doc;
-  const { li, col } = createCardShell(view, deps, ['entry-assistant', 'msg', 'msg-assistant', 'msg-auth'], CARD_TAG_LABELS.auth);
-  li.setAttribute('data-decision', 'pending');
-
-  const scope = doc.createElement('p');
-  scope.className = 'auth-scope';
-  scope.textContent = view.payload.prompt ?? '（无范围说明）';
-  const preview = doc.createElement('p');
-  preview.className = 'auth-preview hint';
-  preview.textContent = '批准后本会话内按该范围执行；拒绝则不执行（零副作用）。';
-  col.append(scope, preview);
-
-  const actions = doc.createElement('div');
-  actions.className = 'auth-actions';
-  for (const [act, label] of [
-    ['approve', '批准'],
-    ['reject', '拒绝'],
-  ] as const) {
-    const btn = doc.createElement('button');
-    btn.type = 'button';
-    btn.setAttribute('data-act', act);
-    btn.textContent = label;
-    btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, act));
-    actions.appendChild(btn);
-  }
-  col.appendChild(actions);
-
-  const fixed = createFixedRegion(doc, 'auth-fixed');
-  fixed.append(fixedText(doc, 'auth-fixed-text', '已决策：'), clockNode(doc, view.ts, 'ts card-fixed-time'));
-  const audit = doc.createElement('button');
-  audit.type = 'button';
-  audit.className = 'audit-entry';
-  audit.setAttribute('data-act', 'audit');
-  audit.textContent = '查看审计';
-  audit.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'audit'));
-  fixed.appendChild(audit);
-  col.appendChild(fixed);
   return li;
 }
 
@@ -291,20 +186,6 @@ export function createCardNode(view: CardView, deps: CardDeps): HTMLLIElement {
  * Patch — only ever called for NON-terminal cards (ADR-V4-025 decision 2)
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** `data-answered` for an ask card. */
-export function answeredState(view: CardView): 'false' | 'true' | 'cancelled' {
-  if (view.terminal === 'answered') return 'true';
-  if (view.terminal === 'cancelled') return 'cancelled';
-  return 'false';
-}
-
-/** `data-decision` for an auth card. */
-export function decisionState(view: CardView): 'pending' | 'approved' | 'rejected' {
-  if (view.terminal === 'approved') return 'approved';
-  if (view.terminal === 'rejected') return 'rejected';
-  return 'pending';
-}
-
 /**
  * Apply a view to an existing NON-terminal card node.
  *
@@ -329,13 +210,15 @@ export function patchCardNode(view: CardView, node: HTMLElement): void {
     return;
   }
   if (view.kind === 'askuser') {
-    node.setAttribute('data-answered', answeredState(view));
-    if (view.frozen) applyFixed(node, view, writtenFixedText(view));
+    // Only the terminal transition rewrites the DOM (removing the form); a
+    // re-render of an OPEN card must never strip its live controls.
+    if (view.frozen) patchAskuserCard(view, node);
+    else node.setAttribute('data-answered', answeredState(view));
     return;
   }
   if (view.kind === 'auth') {
-    node.setAttribute('data-decision', decisionState(view));
-    if (view.frozen) applyFixed(node, view, writtenFixedText(view));
+    if (view.frozen) patchAuthCard(view, node);
+    else node.setAttribute('data-decision', decisionState(view));
     return;
   }
   if (view.kind === 'ref') {
@@ -344,24 +227,3 @@ export function patchCardNode(view: CardView, node: HTMLElement): void {
   }
 }
 
-/** Turn a skeleton's固化 region on and write its frozen text + clock. */
-function applyFixed(node: HTMLElement, view: CardView, text: string): void {
-  const fixed = node.querySelector('.card-fixed') as HTMLElement | null;
-  if (!fixed) return;
-  const form = node.querySelector('.ask-form, .auth-actions') as HTMLElement | null;
-  if (form) form.hidden = true;
-  const label = fixed.querySelector('b');
-  if (label) label.textContent = text;
-  const ts = fixed.querySelector('.card-fixed-time');
-  if (ts) ts.textContent = formatClock(view.terminalTs ?? view.ts);
-  fixed.hidden = false;
-}
-
-/** The固化 copy for an ask/auth card, derived from its terminal state only. */
-export function writtenFixedText(view: CardView): string {
-  if (view.kind === 'auth') {
-    return view.terminal === 'rejected' ? '已拒绝（不执行）' : '已批准';
-  }
-  if (view.terminal === 'cancelled') return '已取消（不代填默认值）';
-  return `已答：${view.payload.answer ?? ''}`;
-}

@@ -192,7 +192,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // pick-input +724 / ref-store +256 / chat-state +220 / view-model +162 = +3,978）⇒ 67,552 → 71,530。
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
-  assert.equal(b.deltaBytes, 131_262);
+  assert.equal(b.deltaBytes, 145_171);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -365,7 +365,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // V4-2 泛化 / 收口轮：本断言打的是**最新一轮**的 rows（其 `afterBytes` 必须等于真实 metafile）；
   // v4-1 与 v4-2（build+review 修复轮）的历史值不再等于当前产物，其 Σ/Δ 自洽由 N-05 的
   // `roundRowProblems` 组判据承担。〖v4-2 收口轮〗最新一轮 = `v42CloseoutRows`（4 行，Σ +1,393）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v42CloseoutRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v43RoundRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -552,6 +552,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'v41RoundRows', rows: b.v41RoundRows, glue: b.v41RoundUnattributedGlueBytes },
     { name: 'v42RoundRows', rows: b.v42RoundRows, glue: b.v42RoundUnattributedGlueBytes },
     { name: 'v42CloseoutRows', rows: b.v42CloseoutRows, glue: b.v42CloseoutUnattributedGlueBytes },
+    { name: 'v43RoundRows', rows: b.v43RoundRows, glue: b.v43RoundUnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -564,7 +565,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   }
   assert.deepEqual(problems, [], `round rows 与登记值不自洽（N-05）：\n${problems.join('\n')}`);
   // 四组都必须真的被判（否则本断言可被空集合空转）。
-  assert.equal(groups.length, 5);
+  assert.equal(groups.length, 6);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );

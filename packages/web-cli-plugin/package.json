@@ -16,6 +16,7 @@
     "test:binding": "node test/ui/binding.mjs",
     "test:density": "node test/ui/density.mjs",
     "test:stream": "node test/ui/stream.mjs",
+    "test:ask-auth": "node test/ui/ask-auth-inflow.mjs",
     "test:l0": "node test/ui/l0.mjs",
     "test:l1": "node test/ui/l1.mjs",
     "test:l2": "node test/ui/l2.mjs",

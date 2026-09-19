@@ -456,7 +456,7 @@ function checkLayout(metrics, prefix) {
   );
   check(
     metrics.composerVisible === true && metrics.composerInStream === true && metrics.composerGapToBottom >= 0,
-    `${prefix} 法四（v4-1 显式取代 v3 「#composer 贴底」红线）：兜底展开态 #composer 位于 #stream 流内占位宿主，可见且不越出视口（gap ≥ 0）`,
+    `${prefix} 法四（v4-1 取代 v3「#composer 贴底」红线）：兜底展开态 #composer 位于 #stream 流内占位宿主，可见且不越出视口（gap ≥ 0）`,
     `visible=${metrics.composerVisible} inStream=${metrics.composerInStream} gap=${metrics.composerGapToBottom}`,
   );
   check(

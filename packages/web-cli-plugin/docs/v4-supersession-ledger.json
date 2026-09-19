@@ -1943,7 +1943,7 @@
    "id": "V42-E-SVOL-1",
    "file": "packages/web-cli-plugin/test/size-baseline.ts",
    "oldTitle": null,
-   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 426_487;",
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 440_396;",
    "modificationType": "registered-rewrite",
    "reason": "V4-2 收口轮体积五要素重登记（F-01/F-02/F-03 + N-02 的必需增重）：425,094 → **426,487 B**（+1,393 B，+0.33%，逐模块可归因、未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**；新增 `v4-2-closeout` 登记轮 + `v42CloseoutRows`（最新一轮 rows，机核真实 metafile）；TIMELINE / 历史值逐字保留，断言零删减。"
   },
@@ -1954,6 +1954,14 @@
    "newTitle": "  assert.equal(SIDEPANEL_CEILING, 447_811, 'ceiling = floor(426,487 × 1.05)（v4-2 收口轮重登记后由公式抬高）');",
    "modificationType": "registered-rewrite",
    "reason": "V4-2 收口轮：方向敏感断言按收口轮实测值重 pin（ceiling 446,348 → **447,811**）；判定路径不变（cap 仍 record-only，公式 = floor(baseline × 1.05)），断言零删减。"
+  },
+  {
+   "id": "V43-SVOL-1",
+   "file": "packages/web-cli-plugin/test/size-baseline.ts",
+   "oldTitle": null,
+   "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 440_396;",
+   "modificationType": "registered-rewrite",
+   "reason": "V4-3 功能轮体积五要素重登记（ask/auth 流内化的必需增重）：426,487 → **440,396 B**（+13,909 B，+3.26%，逐模块可归因），ceiling = floor(440,396 × 1.05) = **462,415 B**；新增 v4-3 登记轮 + 三个新必需模块 rows（stream-plaintext / cards/askuser / cards/auth）；TIMELINE 追加 440,396，历史值逐字保留；断言零删减（新增 ask-auth-inflow node + Chromium 两门禁）。"
   }
  ],
  "modifiedRanges": [

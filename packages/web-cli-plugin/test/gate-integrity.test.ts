@@ -155,6 +155,9 @@ export const EXPECTED_AUDITED_FILES = [
   // 固化契约 + keyed incremental rendering + scroll + 320px + a11y). Additive —
   // `CHROMIUM_GATES.length === 9` stays untouched (the `page-input.mjs` precedent).
   'test/ui/stream.mjs',
+  // V4-3 (TASK-709 / TASK-710): the ask/auth inflow gate (choice/text + 固化两态 +
+  // AC-CHAT-016). Additive — the Chromium-gate count constant stays 9.
+  'test/ui/ask-auth-inflow.mjs',
 ] as const;
 
 /** Gates whose red-proof is static only (see the module doc's coverage limits). */

@@ -472,26 +472,29 @@ async function main() {
       `(() => {
         window.__v3.testing.collapseAll();
         const visible = (el) => { if (!el) return false; let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
-        const confirm = document.getElementById('confirm');
         const rail = document.getElementById('risk-rail');
         const confirmRow = rail ? rail.querySelector('.risk-row[data-risk-class="confirm"]') : null;
-        const options = confirm ? [...confirm.querySelectorAll('button')] : [];
+        // V4-3: the confirm risk class is projection-only here; the inline confirm card
+        // is retired and covered by test/ui/ask-auth-inflow.mjs. What must hold during
+        // folding is: L1 all hidden, the confirm RISK row resident, and zero bypassing
+        // allow/deny control anywhere outside the (absent) card.
+        const allowControls = [...document.querySelectorAll('#l0-decision button, #l0-decision [role="button"]')]
+          .filter(visible)
+          .filter((b) => /^(允许|放行|允许执行|忽略硬底线|覆盖)$/.test((b.textContent || '').trim()));
         const l1Hidden = [...document.querySelectorAll('[data-l1-panel]')].every((p) => p.hidden === true);
         return JSON.stringify({
           l1AllHidden: l1Hidden,
-          confirmVisible: visible(confirm),
-          options: options.length,
-          optionsVisible: options.length > 0 && options.every(visible),
-          railVisible: visible(rail),
           confirmRowVisible: visible(confirmRow),
+          allowControls: allowControls.length,
+          railVisible: visible(rail),
           railInFoldable: (() => { let n = rail; while (n) { if (n.hasAttribute && n.hasAttribute('data-l1-panel')) return true; n = n.parentElement; } return false; })(),
         });
       })()`,
     );
     const e15 = JSON.parse(ec15);
     check(
-      'EC-V3-015 确认期间折叠披露层后：L1 面板全 hidden，确认选项 + 风险行（confirm）仍在 L0 常驻可见',
-      e15.l1AllHidden === true && e15.confirmVisible === true && e15.optionsVisible === true && e15.railVisible === true && e15.confirmRowVisible === true && e15.railInFoldable === false,
+      'EC-V3-015 确认期间折叠披露层后：L1 面板全 hidden，确认风险行常驻可见 + 零旁路控件',
+      e15.l1AllHidden === true && e15.confirmRowVisible === true && e15.allowControls === 0 && e15.railVisible === true && e15.railInFoldable === false,
       ec15,
     );
     await evaluate(cdp, `window.__v3.testing.setRisk('confirm', 'off'); true`);
@@ -671,6 +674,9 @@ async function main() {
         // history: answer the current round through the real product path, then re-ask.
         window.__v3.testing.l1('history');
         const beforeHistory = window.__v3.testing.l1('report').historyCount;
+        // V4-3: the ask card is the only decision surface now — make sure a real open
+        // card exists before driving the round (the fixture may have answered the last).
+        if (!document.querySelector('#ask-options button')) window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令']);
         document.querySelector('#ask-options button').click();
         const afterFirst = window.__v3.testing.l1('report').historyCount;
         window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令']);

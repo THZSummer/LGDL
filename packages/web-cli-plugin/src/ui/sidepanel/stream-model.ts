@@ -96,6 +96,35 @@ export type StreamTerminal = (typeof STREAM_TERMINALS)[number];
 /** `primary` = 7 主类；`process` = 过程卡族（可折叠，固化卡/系统行不压缩）. */
 export type CardLayer = 'primary' | 'process';
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * 1b. v4-3 — ask/auth terminal vocabulary + the open-ask arbitration constants
+ *     (ADR-V4-030 / ADR-V4-031 / ADR-V4-032). ONE definition, asserted by
+ *     `test/ask-auth-inflow.test.ts`.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The maximum number of **simultaneously open** `askuser` / `auth` cards.
+ *
+ * Derived from the R1 field observation (`chat-state.ts` v3 comment, verbatim):
+ * the worst case ever observed is **one reference-round local ask + one background
+ * ask**. It is an observed ceiling, not an invented number (ADR-V4-032 §1).
+ */
+export const MAX_OPEN_ASKS = 2;
+
+/**
+ * The request-id prefix the panel's own **reference rounds** use. A reference
+ * round is answered locally (`submitAsk` → `applyRefAction`), so it must be
+ * distinguishable from a background question — that distinction is the basis of
+ * both `supersededAsk` (R1) and the v4-3 arbitration priority.
+ */
+export const REF_ROUND_PREFIX = 'ref-round-';
+
+/** Why an un-answered ask card reached its `cancelled` terminal (ADR-V4-031). */
+export type AskCancelReason = 'user' | 'timeout' | 'superseded';
+
+/** The closed cancel-reason list (a missing reason is a contract break). */
+export const ASK_CANCEL_REASONS: readonly AskCancelReason[] = Object.freeze(['user', 'timeout', 'superseded']);
+
 /**
  * The kinds that are **born frozen**: a single-line row by kind (ADR-V4-027
  * decision 5: `system`/`notice` have no terminal state) or an append-only
@@ -163,6 +192,8 @@ export interface StreamPayload {
   readonly requestId?: string;
   /** The frozen answer text (ask card固化区). */
   readonly answer?: string;
+  /** v4-3: why an ask card reached `cancelled` (absent for answered/approved/rejected). */
+  readonly cancelReason?: AskCancelReason;
   /** Reference business number (`ref_<n>` → ①②③…). */
   readonly refNum?: number;
   /** Reference state (v4-4 owns the judgement; v4-2 renders the projection). */
@@ -306,6 +337,137 @@ function nextOpenAsks(prev: readonly string[], event: StreamEvent): readonly str
   if (event.terminal !== undefined) return Object.freeze(prev.filter((id) => id !== event.cardId));
   if (prev.includes(event.cardId)) return prev;
   return Object.freeze([...prev, event.cardId]);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 3b. v4-3 — open-ask arbitration (MAX_OPEN_ASKS + reference-round priority)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** One open decision card, with the business key needed for arbitration. */
+export interface OpenAskEntry {
+  readonly cardId: string;
+  readonly kind: 'askuser' | 'auth';
+  readonly requestId?: string;
+}
+
+/**
+ * The open `askuser` / `auth` cards in arrival order, with their `requestId`
+ * (the business key the reference-round priority reads). Derived from the event
+ * log — never a second source of truth.
+ */
+export function openAskEntries(state: StreamState): readonly OpenAskEntry[] {
+  const opened = new Map<string, { kind: 'askuser' | 'auth'; requestId?: string }>();
+  const closed = new Set<string>();
+  for (const e of state.events) {
+    if (e.kind !== 'askuser' && e.kind !== 'auth') continue;
+    if (e.terminal !== undefined) {
+      closed.add(e.cardId);
+      opened.delete(e.cardId);
+      continue;
+    }
+    if (!opened.has(e.cardId)) {
+      opened.set(e.cardId, {
+        kind: e.kind,
+        ...(e.payload.requestId !== undefined ? { requestId: e.payload.requestId } : {}),
+      });
+    }
+  }
+  return Object.freeze(
+    [...opened.entries()]
+      .filter(([cardId]) => !closed.has(cardId))
+      .map(([cardId, meta]) => Object.freeze({ cardId, kind: meta.kind, ...(meta.requestId !== undefined ? { requestId: meta.requestId } : {}) })),
+  );
+}
+
+/** Is `requestId` a panel-owned reference round? */
+export function isRefRound(requestId: string | undefined): boolean {
+  return (requestId ?? '').startsWith(REF_ROUND_PREFIX);
+}
+
+/**
+ * Which open cards must be superseded so that the arrival of a card with
+ * `incomingRequestId` keeps `openAsks.length ≤ MAX_OPEN_ASKS`.
+ *
+ * Rules (ADR-V4-032 §2~§3), in order:
+ *   ① a **reference round** arrival supersedes every **background** ask first
+ *      (the reference round is the user's own action; a background question may
+ *      be replaced by it — the R1 semantics, kept);
+ *   ② while `open − picked ≥ MAX_OPEN_ASKS`, supersede the **oldest** remaining
+ *      card (never silent: the caller appends a `cancelled` terminal + a system row).
+ *
+ * Pure: the returned list is an order-preserving subset of {@link openAskEntries}.
+ */
+export function arbitrateOpenAsks(state: StreamState, incomingRequestId: string | undefined): readonly OpenAskEntry[] {
+  const open = openAskEntries(state);
+  if (open.length < MAX_OPEN_ASKS) return Object.freeze([]);
+  const picked: OpenAskEntry[] = [];
+  const isPicked = (cardId: string) => picked.some((p) => p.cardId === cardId);
+  if (isRefRound(incomingRequestId)) {
+    for (const entry of open) {
+      if (!isRefRound(entry.requestId)) picked.push(entry);
+    }
+  }
+  const remaining = open.filter((entry) => !isPicked(entry.cardId));
+  let i = 0;
+  while (remaining.length - i >= MAX_OPEN_ASKS) {
+    picked.push(remaining[i]);
+    i += 1;
+  }
+  return Object.freeze(picked);
+}
+
+/**
+ * The single **arbitration point** for an open `askuser` / `auth` card.
+ *
+ * Exactly one of these may be appended per new card (TASK-701 acceptance): the
+ * function ① supersedes whatever {@link arbitrateOpenAsks} says must go (a
+ * `cancelled` terminal with `cancelReason: 'superseded'` on the SAME card — the
+ * card is never removed, so 「解析即消失」 cannot come back), then ② appends the new
+ * open card. `openAsks.length ≤ MAX_OPEN_ASKS` holds on the returned state.
+ *
+ * The caller owns the readable system row (copy template single source); this
+ * function returns the superseded entries so the caller can write it **once**.
+ */
+export function appendAskEvent(
+  state: StreamState,
+  input: { readonly kind: 'askuser' | 'auth'; readonly ts: number; readonly cardId?: string; readonly payload?: StreamPayload },
+): { readonly state: StreamState; readonly superseded: readonly OpenAskEntry[] } {
+  const superseded = arbitrateOpenAsks(state, input.payload?.requestId);
+  let next = state;
+  for (const entry of superseded) {
+    next = appendEvent(next, {
+      kind: entry.kind,
+      ts: input.ts,
+      cardId: entry.cardId,
+      payload: { cancelReason: 'superseded' },
+      terminal: 'cancelled',
+    });
+  }
+  next = appendEvent(next, { kind: input.kind, ts: input.ts, ...(input.cardId !== undefined ? { cardId: input.cardId } : {}), payload: input.payload ?? {} });
+  return Object.freeze({ state: next, superseded });
+}
+
+/**
+ * Terminalise every still-open decision card (the turn-ended / session-switched
+ * projection). `askuser` cards land on `cancelled` with the given reason; `auth`
+ * cards are closed too (a pending authorization that outlived its turn is a
+ * cancel, never a silent approve). Returns the affected card ids.
+ */
+export function closeOpenAsks(state: StreamState, at: number, reason: AskCancelReason): { readonly state: StreamState; readonly closed: readonly string[] } {
+  const open = openAskEntries(state);
+  let next = state;
+  const closed: string[] = [];
+  for (const entry of open) {
+    closed.push(entry.cardId);
+    next = appendEvent(next, {
+      kind: entry.kind,
+      ts: at,
+      cardId: entry.cardId,
+      payload: { cancelReason: reason },
+      terminal: 'cancelled',
+    });
+  }
+  return Object.freeze({ state: next, closed: Object.freeze(closed) });
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

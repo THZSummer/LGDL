@@ -139,10 +139,13 @@ test('AC-CONV-2：唯一动作入口调用 dispatchRefAction（全仓唯一调�
 
 test('AC-CONV-2：引用回合的选择答复走同一入口（不经自由文本通道）', () => {
   const sidepanel = read('src/ui/sidepanel/sidepanel.ts');
-  const submit = sidepanel.slice(sidepanel.indexOf('function submitAsk('), sidepanel.indexOf('function dispatch('));
-  assert.match(submit, /const refId = pendingRefId;/, '答复必须先取回绑定的引用 id');
-  assert.match(submit, /if \(res && !refId\) void send\(makeMessage\('ask-user-response'/, '引用回合不得把动作当自由文本直接发出去');
-  assert.match(submit, /applyRefAction\(refId, value\.trim\(\)\)/, '引用回合必须经唯一入口派发');
+  // V4-3: the one resolution entry is `submitAskFor` (the legacy `submitAsk` wrapper
+  // delegates to it), so the routing assertion is read from that function.
+  const submit = sidepanel.slice(sidepanel.indexOf('function submitAskFor('), sidepanel.indexOf('function dispatch('));
+  assert.match(submit, /const isRef = \(rid \?\? ''\)\.startsWith\(REF_ROUND_PREFIX\)/, '答复必须先判定是否引用回合');
+  assert.match(submit, /if \(rid && !isRef\)/, '引用回合不得把动作当自由文本直接发出去');
+  assert.match(submit, /makeMessage\('ask-user-response'/, '后台提问仍走 ask-user-response 通道');
+  assert.match(submit, /applyRefAction\(refId, trimmed\)/, '引用回合必须经唯一入口派发');
   // The test seam routes through the SAME entry (no second implementation).
   const hook = testHookBody(sidepanel);
   assert.match(hook, /return applyRefAction\(String\(args\[0\]\), String\(args\[1\] \?\? 'ref-action'\)\);/);

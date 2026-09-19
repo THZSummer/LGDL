@@ -193,9 +193,13 @@ test('R1 ask: 引用回合（ref-round-*）取代后台提问时必须可判定�
   // Nothing pending → nothing to settle.
   assert.equal(supersededAsk(createInitialState()), null);
   // A background question is pending → the new reference round supersedes it.
+  // V4-3: the return carries `mustTrace` (never a silent settle) + the card id.
   let s = createInitialState();
   s = reduce(s, { type: 'ask', requestId: 'ask-7', kind: 'choice', prompt: '继续吗？', options: ['是', '否'] });
-  assert.deepEqual(supersededAsk(s), { requestId: 'ask-7' });
+  const sup = supersededAsk(s);
+  assert.equal(sup?.requestId, 'ask-7');
+  assert.equal(sup?.mustTrace, true, 'R1 → v4：取代必须留痕（mustTrace 契约）');
+  assert.equal(typeof sup?.cardId, 'string', '被取代的卡 id 必须随返回值给出');
   // The panel's own reference round is NOT a background question (its answer goes to the
   // reference entry) → nothing must be settled twice.
   s = reduce(s, { type: 'ask', requestId: `${REF_ROUND_PREFIX}ref_2`, kind: 'choice', prompt: '用它做什么？' });

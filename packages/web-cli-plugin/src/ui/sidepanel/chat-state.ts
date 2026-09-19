@@ -25,13 +25,20 @@
  */
 import {
   DEFAULT_STREAM_CAP,
+  REF_ROUND_PREFIX,
+  appendAskEvent,
   appendEvent,
   boundStreamEvents,
+  closeOpenAsks,
   createStreamState,
   lastOpenCardId,
+  openAskEntries,
   switchStreamSession,
 } from './stream-model.js';
-import type { StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
+import type { AskCancelReason, OpenAskEntry, StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
+import { ASK_COPY, cancelSystemLine } from './stream-plaintext.js';
+
+export { REF_ROUND_PREFIX };
 
 export type ChatRole = 'user' | 'assistant' | 'tool' | 'system';
 export type ChatKind = 'text' | 'command' | 'tool' | 'error';
@@ -70,6 +77,8 @@ export interface ConfirmState {
   requestId: string;
   summary: string;
   risk?: string;
+  /** V4-3: the stream card this confirmation is projected on (business linkage). */
+  cardId?: string;
 }
 
 /** Task-internal clarification question awaiting a user answer (FR-017 / R7). */
@@ -79,6 +88,8 @@ export interface AskState {
   prompt: string;
   options?: string[];
   default?: string;
+  /** V4-3: the stream card this ask is projected on (business linkage). */
+  cardId?: string;
 }
 
 export interface SidepanelState {
@@ -118,9 +129,9 @@ type SidepanelActionBody =
   | { type: 'pending'; value: boolean }
   | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; probe?: ProbeState; authorized?: boolean; trust?: SidepanelState['trust']; autoAuth?: { read: boolean; write: boolean }; invalidated?: boolean }
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
-  | { type: 'confirm-resolved'; allow: boolean }
+  | { type: 'confirm-resolved'; allow: boolean; requestId?: string }
   | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
-  | { type: 'ask-resolved'; answer?: string; canceled?: boolean }
+  | { type: 'ask-resolved'; answer?: string; canceled?: boolean; requestId?: string; reason?: AskCancelReason }
   | { type: 'audit-count'; count: number }
   /**
    * decision ② / FR-048: load a session's history. V4-2 appends the rows to the
@@ -278,15 +289,49 @@ function closeThinking(state: SidepanelState, at: number, terminal: StreamTermin
   return push(state, { kind: 'thinking', ts: at, cardId, payload: { ms }, terminal });
 }
 
-/** Close the currently open `askuser` / `auth` card with a terminal event. */
-function closeDecisionCard(
+/** The open `askuser` / `auth` card carrying `requestId`, if any. */
+function cardIdForRequest(stream: StreamState, requestId: string | undefined): string | undefined {
+  if (!requestId) return undefined;
+  for (let i = stream.events.length - 1; i >= 0; i -= 1) {
+    const e = stream.events[i];
+    if ((e.kind === 'askuser' || e.kind === 'auth') && e.payload.requestId === requestId && e.terminal === undefined) {
+      return e.cardId;
+    }
+  }
+  return undefined;
+}
+
+/** Append one **already-sanitised** system row (never a caller body). */
+function systemRow(state: SidepanelState, at: number, text: string): SidepanelState {
+  return push(state, { kind: 'system', ts: at, payload: { text, label: text } });
+}
+
+/** One system row per superseded card — the「不静默」half of the R1 upgrade. */
+function traceSuperseded(state: SidepanelState, at: number, superseded: readonly OpenAskEntry[]): SidepanelState {
+  let out = state;
+  for (let i = 0; i < superseded.length; i += 1) out = systemRow(out, at, ASK_COPY.supersededSystem);
+  return out;
+}
+
+/** Terminalise every still-open decision card (turn ended / session switched). */
+function closeOpenAskCards(state: SidepanelState, at: number, reason: AskCancelReason): SidepanelState {
+  const { state: stream, closed } = closeOpenAsks(state.stream, at, reason);
+  let out: SidepanelState = { ...state, stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP) };
+  const line = cancelSystemLine(reason);
+  if (line) for (let i = 0; i < closed.length; i += 1) out = systemRow(out, at, line);
+  return out;
+}
+
+/** Append the terminal event of one decision card (by requestId, else the last open). */
+function terminalDecision(
   state: SidepanelState,
   kind: 'askuser' | 'auth',
   at: number,
   terminal: StreamTerminal,
-  payload: StreamPayload = {},
+  requestId: string | undefined,
+  payload: StreamPayload,
 ): SidepanelState {
-  const cardId = lastOpenCardId(state.stream, kind);
+  const cardId = cardIdForRequest(state.stream, requestId) ?? lastOpenCardId(state.stream, kind);
   if (!cardId) return state;
   return push(state, { kind, ts: at, cardId, payload, terminal });
 }
@@ -337,36 +382,79 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
       const withError = push(state, { kind: 'error', ts: at, payload: { text: action.text } });
       return closeThinking(withError, at, 'completed');
     }
-    case 'ask':
-      // V4-2 交付 `askuser` 卡的**渲染骨架与固化契约**，但**不做流内化**：v4-2 的
-      // 实时 ask 仍由 `#l0-decision` 占位宿主承载（`spec.md` §2.2「不做 ask-user /
-      // 授权卡的流内化」→ v4-3）。因此这里**不**appends 事件；卡型经由 `cards/index.ts`
-      // 的骨架工厂 + 门禁测试 seam 渲染，契约（`data-answered` / `.card-fixed`）已固化。
-      return state;
+    case 'ask': {
+      // V4-3: a real ask is a **stream card** now (ADR-V4-030). The single slot
+      // (`state.ask`) survives only as a convenience view; its cardId links the two.
+      const cardId = freshCardId(state.stream, 'q');
+      const { state: stream, superseded } = appendAskEvent(state.stream, {
+        kind: 'askuser',
+        ts: at,
+        cardId,
+        payload: {
+          requestId: action.requestId,
+          askKind: action.kind,
+          prompt: action.prompt,
+          ...(action.options ? { options: action.options } : {}),
+        },
+      });
+      let out: SidepanelState = {
+        ...state,
+        stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP),
+        ask: state.ask ? { ...state.ask, cardId } : null,
+      };
+      out = traceSuperseded(out, at, superseded);
+      return out;
+    }
     case 'ask-resolved': {
       const terminal: StreamTerminal = action.canceled ? 'cancelled' : 'answered';
-      return closeDecisionCard(state, 'askuser', at, terminal, {
+      const reason: AskCancelReason | undefined = action.canceled ? (action.reason ?? 'user') : undefined;
+      let out = terminalDecision(state, 'askuser', at, terminal, action.requestId, {
         ...(action.answer !== undefined ? { answer: action.answer } : {}),
+        ...(reason ? { cancelReason: reason } : {}),
       });
+      const line = action.canceled ? cancelSystemLine(action.reason ?? 'user') : null;
+      if (line) out = systemRow(out, at, line);
+      return out;
     }
-    case 'confirm':
-      // 同 `ask`：`auth` 卡的流内化归 v4-3（V4-2 只交付骨架与固化契约）。
-      return state;
+    case 'confirm': {
+      const cardId = freshCardId(state.stream, 'a');
+      const { state: stream, superseded } = appendAskEvent(state.stream, {
+        kind: 'auth',
+        ts: at,
+        cardId,
+        payload: { requestId: action.requestId, askKind: 'confirm', prompt: action.summary },
+      });
+      let out: SidepanelState = {
+        ...state,
+        stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP),
+        confirm: state.confirm ? { ...state.confirm, cardId } : null,
+      };
+      out = traceSuperseded(out, at, superseded);
+      return out;
+    }
     case 'confirm-resolved':
-      return closeDecisionCard(state, 'auth', at, action.allow ? 'approved' : 'rejected');
+      return terminalDecision(state, 'auth', at, action.allow ? 'approved' : 'rejected', action.requestId, {});
     case 'pending':
-      return action.value ? state : closeThinking(state, at, 'completed');
+      return action.value ? state : closeOpenAskCards(closeThinking(state, at, 'completed'), at, 'timeout');
     case 'history': {
       const nextSession = action.sessionId;
-      let stream = state.stream;
+      // ADR-V4-028 §1 + ADR-V4-031 §2: a session switch settles every still-open
+      // ask as `cancelled(superseded)` **with a trace** — never a silent drop.
+      // Settled BEFORE the switch so the terminal events stay on the old segment.
+      let base = state;
+      if (nextSession && nextSession !== state.stream.sessionId && openAskEntries(state.stream).length > 0) {
+        base = closeOpenAskCards(state, at, 'superseded');
+      }
+      let stream = base.stream;
       if (nextSession && nextSession !== stream.sessionId) {
         stream = switchStreamSession(stream, nextSession, action.sessionLabel ?? nextSession);
       }
+      if (stream !== base.stream) base = { ...base, stream };
       // Duplicate-history guard: a segment that already carries real rows is
       // re-activated, never re-appended (switch-back must not duplicate).
       const segmentHasRows = stream.events.some((e) => e.sessionId === stream.sessionId && e.kind !== 'system');
-      if (segmentHasRows) return { ...state, stream };
-      let working: SidepanelState = { ...state, stream };
+      if (segmentHasRows) return { ...base, stream };
+      let working: SidepanelState = { ...base, stream };
       for (const row of action.entries) {
         working = push(working, { kind: historyKind(row.role), ts: at, payload: { text: row.text } });
       }
@@ -435,16 +523,6 @@ export function reduce(state: SidepanelState, action: SidepanelAction): Sidepane
 }
 
 /**
- * R1 (2026-09-17) — the request-id prefix the panel's own **reference rounds** use.
- *
- * A reference round is answered *locally* (`submitAsk` routes it into
- * `applyRefAction` instead of `ask-user-response`), so it must be distinguishable from
- * a background question; that distinction is the whole basis of
- * {@link supersededAsk}.
- */
-export const REF_ROUND_PREFIX = 'ref-round-';
-
-/**
  * R1 (2026-09-17) — the pending **background** question a new reference round
  * supersedes, or `null`.
  *
@@ -455,11 +533,17 @@ export const REF_ROUND_PREFIX = 'ref-round-';
  * stays「处理中」and the composer keeps reading「发送已禁用：上一条指令仍在处理中」long
  * after the user has moved on to picking. The caller settles the returned id as
  * canceled (readable, fail-closed) so the turn can finish.
+ *
+ * V4-3 (ADR-V4-031 §3): the return value is **widened** — `mustTrace: true` is the
+ * contract that the caller settles the ask as `cancelled(superseded)` *and* keeps
+ * the trace (the card固化 + the system row are written by the reducer itself, so
+ * the caller only has to dispatch the terminal action with `reason:'superseded'`).
+ * The `cardId` links the returned request to the exact stream card.
  */
-export function supersededAsk(state: SidepanelState): { requestId: string } | null {
+export function supersededAsk(state: SidepanelState): { requestId: string; cardId?: string; mustTrace: true } | null {
   const ask = state.ask;
   if (!ask || ask.requestId.startsWith(REF_ROUND_PREFIX)) return null;
-  return { requestId: ask.requestId };
+  return { requestId: ask.requestId, ...(ask.cardId !== undefined ? { cardId: ask.cardId } : {}), mustTrace: true };
 }
 
 /**

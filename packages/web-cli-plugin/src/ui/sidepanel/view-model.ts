@@ -10,6 +10,8 @@ import type { LlmStatusSummary } from '../../llm/status.js';
 import type { ActiveTabView } from '../../background/state-message.js';
 import { AUTO_AUTH_DEFAULTS, autoAuthBadge, type AutoAuthSettings } from '../../security/auto-authorize.js';
 import type { SidepanelState } from './chat-state.js';
+// V4-3 (ADR-V4-032): the open-ask ceiling is defined ONCE in the model.
+import { MAX_OPEN_ASKS } from './stream-model.js';
 import type { SnapshotCounts } from '../../insight/tree-model.js';
 // V3-3 (FR-V3-046): the L2 counts are derived in ONE place (`l2/counts.ts`) and
 // carried here as an opaque value — this module never invents a count of its own.
@@ -369,6 +371,48 @@ export function buttonStates(input: SidepanelButtonInput): SidepanelButtonState 
     revokeDisabled: !hasOrigin || !input.authorized,
     // Sending without a bound site cannot reach any tool — keep it honest.
     sendDisabled: input.pending || !hasOrigin,
+  };
+}
+
+/* ── V4-3 (ADR-V4-032) — the turn semantics, decoupled from the open cards ──── */
+
+export interface AskFlowInput {
+  /** The background turn is still processing. */
+  pending: boolean;
+  /** How many `askuser` / `auth` cards are still open (`stream.openAsks`). */
+  openAsks: number;
+}
+
+export interface AskFlowView {
+  /** The open-ask count as the view model sees it (≤ `MAX_OPEN_ASKS`). */
+  openAsks: number;
+  /** ① composer「发送新回合」 gate — `pending` only (the source is unchanged). */
+  sendDisabled: boolean;
+  /**
+   * ② an **already open** ask/auth card can always be submitted — `pending` does
+   *    NOT gate it (otherwise the user could not answer the card on screen).
+   */
+  canSubmitOpenAsk: boolean;
+  /** ③ recommendation chips follow `pending` (v4-4 consumes this flag). */
+  recommendDisabled: boolean;
+  /** ④ a turn is only「stuck」if it is pending AND has no open card and no reply. */
+  turnStuck: boolean;
+}
+
+/**
+ * V4-3 (ADR-V4-032 §4) — the ONE definition of what `pending` gates. The rule is
+ * deliberately narrow: `pending` gates **new turns** and **recommendation chips**,
+ * never the submission of a card that is already on screen. `sendDisabledReason`
+ * keeps its text and source (`sendDisabled` above).
+ */
+export function askFlowView(input: AskFlowInput): AskFlowView {
+  const openAsks = Math.max(0, Math.min(MAX_OPEN_ASKS, input.openAsks));
+  return {
+    openAsks,
+    sendDisabled: input.pending,
+    canSubmitOpenAsk: openAsks > 0,
+    recommendDisabled: input.pending,
+    turnStuck: input.pending && openAsks === 0,
   };
 }
 

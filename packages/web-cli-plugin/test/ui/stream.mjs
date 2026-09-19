@@ -162,7 +162,7 @@ async function main() {
           formVisible: c.querySelector('.ask-form').hidden === false,
           fixedHidden: c.querySelector('.card-fixed').hidden === true,
           choices: c.querySelectorAll('.ask-form .choice').length,
-          clickables: (() => { let n = 0; for (const el of [c].concat([...c.querySelectorAll('*')])) if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) n += 1; return n; })(),
+          clickables: (() => { let n = 0; const vis = (el) => { let x = el; while (x) { if (x.hidden === true) return false; x = x.parentElement; } return true; }; for (const el of [c].concat([...c.querySelectorAll('*')])) if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) && vis(el)) n += 1; return n; })(),
         });
       })()`,
     );
@@ -179,7 +179,7 @@ async function main() {
         const fixed = c.querySelector('.card-fixed');
         return JSON.stringify({
           answered: c.getAttribute('data-answered'),
-          formHidden: c.querySelector('.ask-form').hidden === true,
+          formGone: c.querySelector('.ask-form') === null,
           fixedVisible: fixed.hidden === false,
           fixedText: fixed.querySelector('b')?.textContent ?? '',
           fixedTs: fixed.querySelector('.card-fixed-time')?.textContent ?? '',
@@ -190,7 +190,7 @@ async function main() {
       })()`,
     );
     const askAfter = JSON.parse(askAfterRaw);
-    check('③ 操作后：data-answered=true + 表单收起 + 固化区显示', askAfter.answered === 'true' && askAfter.formHidden === true && askAfter.fixedVisible === true, askAfterRaw);
+    check('③ 操作后：data-answered=true + 表单移除（结构性不可二次）+ 固化区显示', askAfter.answered === 'true' && askAfter.formGone === true && askAfter.fixedVisible === true, askAfterRaw);
     check('③ 固化文案含「已答：+ 回答」', askAfter.fixedText.startsWith('已答：') && askAfter.fixedText.includes('原文替换'), askAfterRaw);
     check('③ 固化区带时间戳（HH:MM:SS）', /^\d{2}:\d{2}:\d{2}$/.test(askAfter.fixedTs), askAfterRaw);
     check('③ 固化区 aria-live=polite（读屏可播报）', askAfter.ariaLive === 'polite', askAfterRaw);
@@ -206,15 +206,15 @@ async function main() {
         const fixed = c.querySelector('.card-fixed');
         return JSON.stringify({
           decision: c.getAttribute('data-decision'),
-          actionsHidden: c.querySelector('.auth-actions').hidden === true,
+          actionsGone: c.querySelector('.auth-actions') === null,
           fixedVisible: fixed.hidden === false,
           fixedText: fixed.querySelector('b')?.textContent ?? '',
-          audit: fixed.querySelector('[data-act="audit"]')?.textContent ?? '',
+          audit: c.querySelector('[data-act="audit"]')?.textContent ?? '',
         });
       })()`,
     );
     const auth = JSON.parse(authRaw);
-    check('③ 授权卡：pending → approved（操作按钮收起 + 固化区显示）', auth.decision === 'approved' && auth.actionsHidden === true && auth.fixedVisible === true, authRaw);
+    check('③ 授权卡：pending → approved（操作按钮移除 + 固化区显示）', auth.decision === 'approved' && auth.actionsGone === true && auth.fixedVisible === true, authRaw);
     check('③ 批准固化文案含「已批准」+ 审计入口', auth.fixedText.includes('已批准') && /审计/.test(auth.audit), authRaw);
 
     // ── ④ keyed incremental rendering ───────────────────────────────────────
@@ -318,7 +318,7 @@ async function main() {
           allListItems: cards.every((c) => c.getAttribute('role') === 'listitem'),
           tsReadable: cards.every((c) => /^\\d{2}:\\d{2}:\\d{2}$/.test(c.querySelector('.card-head .ts')?.textContent ?? '')),
           fixedAria: cards.filter((c) => c.querySelector('.card-fixed')).every((c) => c.querySelector('.card-fixed').getAttribute('aria-live') === 'polite'),
-          hiddenAttr: (() => { const c = document.querySelector('[data-card-key="q1"]'); return c.querySelector('.ask-form').hidden === true; })(),
+          hiddenAttr: (() => { const c = document.querySelector('[data-card-key="q1"]'); return c.querySelector('.ask-form') === null && c.querySelector('.card-fixed').hidden === false; })(),
         });
       })()`,
     );
@@ -327,7 +327,7 @@ async function main() {
     check('⑦ 每卡 role=listitem', a11y.allListItems === true, a11yRaw);
     check('⑦ 每卡 `.ts` 文本可读（HH:MM:SS）', a11y.tsReadable === true, a11yRaw);
     check('⑦ 固化区 aria-live=polite', a11y.fixedAria === true, a11yRaw);
-    check('⑦ 收起一律用 hidden（非 display:none）', a11y.hiddenAttr === true, a11yRaw);
+    check('⑦ 收起一律用 hidden（非 display:none；终态卡为结构移除）', a11y.hiddenAttr === true, a11yRaw);
 
     // ── ⑧ long session ≈320 cards ───────────────────────────────────────────
     console.log('\n▶ ⑧ 长会话（≈320 卡）追加不整层重建');

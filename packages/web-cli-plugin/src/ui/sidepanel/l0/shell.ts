@@ -19,10 +19,9 @@
  */
 import type { DisclosureController } from '../disclosure.js';
 import type { L2Counts, L2ViewKey } from '../l2/counts.js';
-import { OTHER_OPTION_LABEL, l0ViewModel } from '../view-model.js';
+import { OTHER_OPTION_LABEL, l0ViewModel, moreOptionsLabel } from '../view-model.js';
 import type { L0Input, L0View } from '../view-model.js';
 import { renderRiskRail } from './risk-rail.js';
-import { mountDecisionCard } from './decision-card.js';
 import { mountStatusBar } from './status-bar.js';
 import { mountStatusBar as mountStatusZone, riskActiveOf } from '../statusbar.js';
 
@@ -82,7 +81,32 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   const refSummary = get('l1-ref-summary');
   const statusBar = mountStatusBar(doc);
   const statusZone = mountStatusZone(doc);
-  const card = mountDecisionCard({ doc, onAnswer: deps.onAnswer });
+  const more = get<HTMLButtonElement>('l0-more');
+  const moreOptions = get('l1-more-options');
+
+  // V4-3 (ADR-V4-030 decision 8 / TASK-707): `l0/decision-card.ts` is retired — the
+  // ONE decision slot is gone and the ask cards live in `#stream`. The two legacy
+  // chrome writers it owned (`#l0-more` label/count/hidden + the `#l1-more-options`
+  // pool) survive here so the disclosure contract keeps its single writer; the
+  // fallback input it used to reveal now belongs to the active stream ask card.
+  const revealFallback = (): void => {
+    const fallback = doc.getElementById('ask-fallback') as HTMLElement | null;
+    if (fallback) fallback.hidden = false;
+    // ADR-V3-014 §5 kept: `#composer` is the *secondary* full-text channel **inside**
+    // the fallback state — never resident, but revealed together with the fallback
+    // input (the existing page-input/binding flows depend on it).
+    const composer = doc.getElementById('composer') as HTMLElement | null;
+    if (composer) composer.hidden = false;
+    const other = doc.getElementById('ask-other');
+    if (other) other.setAttribute('aria-expanded', 'true');
+    (doc.getElementById('ask-input') as HTMLInputElement | null)?.focus();
+  };
+  const hideFallback = (): void => {
+    const fallback = doc.getElementById('ask-fallback') as HTMLElement | null;
+    if (fallback) fallback.hidden = true;
+    const composer = doc.getElementById('composer') as HTMLElement | null;
+    if (composer) composer.hidden = true;
+  };
 
   // The policy badge is a read-only third channel next to the status text; it is
   // created once and only its text changes (never a new node per render, so the
@@ -92,6 +116,36 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   if (summary) summary.insertBefore(policyBadge, status);
 
   let current: L0View | null = null;
+
+  const applyMore = (view: L0View): void => {
+    const count = view.decision.visible ? view.decision.foldedCount : 0;
+    more.textContent = moreOptionsLabel(count);
+    more.setAttribute('data-count', String(count));
+    const nothingBehind = view.decision.visibleOptions.length === 0 && view.decision.foldedOptions.length === 0;
+    more.hidden = !view.decision.visible || view.decision.foldedCount <= 0 || nothingBehind;
+  };
+
+  const applyMoreOptions = (view: L0View): void => {
+    moreOptions.textContent = '';
+    for (const optionLabel of view.decision.foldedOptions) {
+      const btn = doc.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-key', `ask-folded:${optionLabel}`);
+      btn.textContent = optionLabel;
+      btn.addEventListener('click', () => deps.onAnswer(optionLabel));
+      moreOptions.appendChild(btn);
+    }
+    if (view.decision.visible && (view.decision.visibleOptions.length > 0 || view.decision.foldedOptions.length > 0)) {
+      const terminal = doc.createElement('button');
+      terminal.type = 'button';
+      terminal.setAttribute('data-key', 'ask-other');
+      terminal.setAttribute('aria-expanded', 'false');
+      terminal.setAttribute('aria-controls', 'ask-fallback');
+      terminal.textContent = OTHER_OPTION_LABEL;
+      terminal.addEventListener('click', () => revealFallback());
+      moreOptions.appendChild(terminal);
+    }
+  };
 
   const applyView = (view: L0View): void => {
     current = view;
@@ -110,13 +164,15 @@ export function mountL0(deps: MountL0Deps): L0Handle {
 
     // ③ decision card
     kicker.textContent = view.decision.visible ? '下一步做什么' : '下一步做什么（等待任务）';
-    card.render(view);
+    // ③ disclosure chrome (`#l0-more` + the folded-options pool) — the ONE writer.
+    applyMore(view);
+    applyMoreOptions(view);
     pick.disabled = view.pick.disabled;
     pick.setAttribute('title', view.pick.reason);
     pick.setAttribute('data-disabled-reason', view.pick.reason);
-    // `#l0-more`'s label / `data-count` / `hidden` are written by the decision
-    // card ONLY (`l0/decision-card.ts#applyMore`) — writing them here as well
-    // re-introduced the「无卡却还有 1 个」symptom on every background re-render.
+    // `#l0-more`'s label / `data-count` / `hidden` are written by `applyMore()`
+    // ONLY (the retired decision-card writer moved here, single writer kept) — writing
+    // them from two places re-introduced the「无卡却还有 1 个」re-render symptom.
     refToggle.textContent = view.ref.label;
     refToggle.setAttribute('data-stale', String(view.ref.stale));
     // FR-V3-037: the invalidation mark is risk information, so the density caliber
@@ -189,8 +245,8 @@ export function mountL0(deps: MountL0Deps): L0Handle {
       return view;
     },
     view: () => current,
-    revealFallback: () => card.revealFallback(),
-    hideFallback: () => card.hideFallback(),
+    revealFallback,
+    hideFallback,
     openL2,
     syncEntryAria: () => statusBar.syncTriggerAria(),
   };

@@ -81,7 +81,7 @@ const TOOLBAR_ENTRY_KEYS = ['tree', 'commands', 'audit', 'settings'];
  * ⇒ 台账/build.md 曾记「5 个」。现在断言**等于登记值**：新增/误删宿主都会 FAIL，且
  * v4-4 收口时的「清零义务」只需把本常量改为 0（分母可见，不再靠 `> 0` 蒙混）。
  */
-const REGISTERED_TRANSITIONAL_HOSTS = 4;
+const REGISTERED_TRANSITIONAL_HOSTS = 2; // V4-3 (TASK-707): the two v4-3 hosts retired; the two v4-4 hosts remain
 /** per-target `aria-controls` 语义（ADR-V4-022 第 3 条）。 */
 const ARIA_TARGET_BY_ENTRY = {
   'l2-entry-tree': 'view-host',
@@ -265,7 +265,7 @@ async function main() {
     check('① `#log` → `#stream` 是唯一 id 重命名：#stream 为 ol 且 role=log', zones.streamTag === 'OL' && zones.streamRole === 'log', `${zones.streamTag}/${zones.streamRole}`);
     check('① 状态栏嵌套 = #risk-chips > #risk-rail（chip 入状态栏，不新开分区）', zones.railInsideChips === true && zones.chipsInsideRail === false, JSON.stringify({ railInChips: zones.railInsideChips, chipsInRail: zones.chipsInsideRail }));
     check('① `#risk-detail` 在状态栏内且默认 hidden（不计入默认密度）', zones.detailInsideStatusbar === true && (await evaluate(cdp, `document.getElementById('risk-detail').hidden`)) === true);
-    check(`① 占位宿主 \`data-transitional-host\` 计数 == 登记值 ${REGISTERED_TRANSITIONAL_HOSTS}（本叶只建不销；清零在 v4-4 TASK-812）`, zones.hostCount === REGISTERED_TRANSITIONAL_HOSTS, `实测 ${zones.hostCount}`);
+    check(`① 占位宿主 \`data-transitional-host\` 计数 == 登记值 ${REGISTERED_TRANSITIONAL_HOSTS}（v4-3 两处已退役；v4-4 清零在 TASK-812）`, zones.hostCount === REGISTERED_TRANSITIONAL_HOSTS, `实测 ${zones.hostCount}`);
     check('① 占位宿主均带合法退役叶标记（v4-3 / v4-4）', zones.hosts.length > 0 && zones.hosts.every((h) => h === 'v4-3' || h === 'v4-4'), JSON.stringify(zones.hosts));
 
     // ══ ② 工具栏准入 ≤5 + 只读摘要 + 插槽（V4-1 新断言面） ══════════════════
@@ -286,7 +286,8 @@ async function main() {
         const summary = document.querySelector('.site-summary');
         const decision = document.getElementById('l0-decision');
         const statusbar = document.getElementById('region-statusbar');
-        const asks = [...document.querySelectorAll('#l0-decision #ask')].filter(visible);
+        // V4-3: the ask card lives in #stream now; the open one is the "decision card".
+        const asks = [...document.querySelectorAll('[data-msg-type="askuser"][data-answered="false"]')].filter(visible);
         const options = [...document.querySelectorAll('#ask-options button, #ask-options [role="radio"]')];
         const residentInputs = [...document.querySelectorAll('input[type="text"], input:not([type]), textarea')].filter(visible);
         return {
@@ -301,7 +302,7 @@ async function main() {
           moreCount: Number(document.getElementById('l0-more').getAttribute('data-count')),
           moreHidden: document.getElementById('l0-more').hidden,
           residentInputs: residentInputs.map((el) => el.id || el.tagName),
-          fallbackHidden: document.getElementById('ask-fallback').hidden,
+          fallbackHidden: document.getElementById('ask-fallback')?.hidden ?? null,
           composerHidden: document.getElementById('composer').hidden,
           pickText: document.getElementById('l0-pick').textContent,
           refText: document.getElementById('l0-ref-toggle').textContent,
@@ -310,11 +311,15 @@ async function main() {
       })()`,
     );
     check('③ ① 我在哪 / 谁在管我（.site-summary 只读摘要）默认态可见', skeleton.summaryVisible === true);
-    check('③ ③ 下一步做什么（#l0-decision）默认态可见且在流内占位宿主下', skeleton.decisionVisible === true && skeleton.decisionInStream === true && skeleton.hostAttr === 'v4-3', JSON.stringify({ v: skeleton.decisionVisible, inStream: skeleton.decisionInStream, host: skeleton.hostAttr }));
+    // V4-3 (TASK-707): the v4-3 transitional host is retired (count = 0); the ask card
+    // now lives directly in the stream, so `#l0-decision` no longer sits under a host.
+    check('③ ③ 下一步做什么（#l0-decision）默认态可见且在流内（v4-3 占位宿主已退役）', skeleton.decisionVisible === true && skeleton.decisionInStream === true && skeleton.hostAttr === null, JSON.stringify({ v: skeleton.decisionVisible, inStream: skeleton.decisionInStream, host: skeleton.hostAttr }));
     check('③ 一行状态栏（#region-statusbar）默认态可见（J1）', skeleton.statusbarVisible === true);
     check('③ 摘要文字含 origin 站点名（可读，非纯图标）', skeleton.summaryText.includes('v3-l0.test'), skeleton.summaryText.slice(0, 80));
     check('③ 默认态决策卡数 = 1（唯一决策卡）', skeleton.decisionCards === 1, String(skeleton.decisionCards));
-    check('③ 可见推荐选项 ≤ 2 且 ≥ 1', skeleton.visibleOptions <= 2 && skeleton.visibleOptions >= 1, String(skeleton.visibleOptions));
+    // V4-3 (ADR-V4-030 decision 9): a choice card renders up to 3 options + the
+    // terminal「其他…」= ≤4 clickable options (was ≤2 in the retired decision slot).
+    check('③ 可见选项 ≤ 4 且 ≥ 1（v4-3 choice 卡 ≤3 + 末项）', skeleton.visibleOptions <= 4 && skeleton.visibleOptions >= 1, String(skeleton.visibleOptions));
     check(
       '③ 「更多选项（还有 N 个）」的 N 从真值派生（4 选项 → 2 可见 + 2 收起，N = 2 + 1 末项）',
       skeleton.moreCount === 3 && skeleton.moreText === '更多选项（还有 3 个）',
@@ -338,8 +343,8 @@ async function main() {
     check('③ FR-V3-012 末项文案逐字（渲染态 DOM 文本 = 「其他…（我来描述）」）', terminalText === '其他…（我来描述）', JSON.stringify(terminalText));
     await evaluate(cdp, `window.__v3.testing.clearAsk(); true`);
     await sleep(200);
-    const noAsk = await evaluate(cdp, `JSON.stringify({ askHidden: document.getElementById('ask').hidden, moreHidden: document.getElementById('l0-more').hidden })`);
-    check('③ 无待答回合时决策卡整体 hidden（不留空卡）', noAsk === '{"askHidden":true,"moreHidden":true}', noAsk);
+    const noAsk = await evaluate(cdp, `JSON.stringify({ openAsks: document.querySelectorAll('[data-msg-type="askuser"][data-answered="false"]').length, moreHidden: document.getElementById('l0-more').hidden })`);
+    check('③ 无待答回合时决策卡不再 open（不留空卡）', noAsk === '{"openAsks":0,"moreHidden":true}', noAsk);
     await evaluate(cdp, `window.__v3.testing.refresh(); true`);
     await sleep(250);
     const noAskAgain = await evaluate(
@@ -348,11 +353,11 @@ async function main() {
         moreHidden: document.getElementById('l0-more').hidden,
         moreText: document.getElementById('l0-more').textContent,
         moreCount: document.getElementById('l0-more').getAttribute('data-count'),
-        askHidden: document.getElementById('ask').hidden,
+        openAsks: document.querySelectorAll('[data-msg-type="askuser"][data-answered="false"]').length,
       })`,
     );
     const noAskParsed = JSON.parse(noAskAgain);
-    check('③ I1：无卡态第二次 render 后 #l0-more 仍 hidden（不得复活悬空入口）', noAskParsed.moreHidden === true && noAskParsed.askHidden === true, noAskAgain);
+    check('③ I1：无卡态第二次 render 后 #l0-more 仍 hidden（不得复活悬空入口）', noAskParsed.moreHidden === true && noAskParsed.openAsks === 0, noAskAgain);
     check('③ I1：无卡态 #l0-more 文案 / data-count 如实归零（不得写「还有 1 个」）', noAskParsed.moreText === '更多选项（还有 0 个）' && noAskParsed.moreCount === '0', noAskAgain);
     await resetFixture(cdp);
 
@@ -504,28 +509,34 @@ async function main() {
     const confirmProbe = await evaluate(
       cdp,
       `(() => {
-        const card = document.getElementById('confirm');
-        const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
-        const buttons = [...card.querySelectorAll('button')];
+        // V4-3: the confirm risk class is a projection-only fixture; the real confirm
+        // card is covered by test/ui/ask-auth-inflow.mjs. What L0 must still prove is
+        // that the confirm RISK row is resident (never folded) and the decision zone
+        // offers no bypassing allow/deny control.
+        const visible = (el) => { if (!el) return false; let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+        const rail = document.getElementById('risk-rail');
+        const confirmRow = rail ? rail.querySelector('.risk-row[data-risk-class="confirm"]') : null;
         const chain = [];
-        let n = card;
+        let n = confirmRow;
         while (n) { chain.push({ id: n.id, hidden: n.hidden, l1: n.hasAttribute('data-l1-panel'), l2: n.hasAttribute('data-l2-view') }); n = n.parentElement; }
         const moreOptions = document.getElementById('l1-more-options');
+        const allowControls = [...document.querySelectorAll('#l0-decision button, #l0-decision [role="button"]')]
+          .filter(visible)
+          .filter((b) => /^(允许|放行|允许执行|忽略硬底线|覆盖)$/.test((b.textContent || '').trim()));
         return JSON.stringify({
-          cardVisible: visible(card),
-          inDecisionDirect: card.parentElement?.id === 'l0-decision',
-          buttons: buttons.map((b) => b.textContent),
+          confirmRowVisible: visible(confirmRow),
+          railInStream: Boolean(document.getElementById('stream')?.contains(rail)),
           chainClean: chain.every((x) => x.hidden !== true && !x.l1 && !x.l2),
-          destructiveMarked: card.hasAttribute('data-destructive-option') && buttons.every((b) => b.hasAttribute('data-destructive-option')),
+          allowControls: allowControls.length,
           noneInMorePool: moreOptions ? [...moreOptions.querySelectorAll('button')].filter((b) => b.hasAttribute('data-destructive-option')).length : 0,
         });
       })()`,
     );
     const cp = JSON.parse(confirmProbe);
-    check('⑥ 破坏性确认卡在 #l0-decision 直系且可见', cp.cardVisible === true && cp.inDecisionDirect === true, confirmProbe);
-    check('⑥ 破坏性确认选项的祖先链无折叠容器（不参与折叠）', cp.chainClean === true, confirmProbe);
-    check('⑥ 破坏性确认选项带 data-destructive-option（结构可判定）', cp.destructiveMarked === true, confirmProbe);
-    check('⑥ 破坏性确认选项不进入「更多选项」池', cp.noneInMorePool === 0, confirmProbe);
+    check('⑥ 破坏性确认风险行常驻可见（风险位归状态栏，永不折叠）', cp.confirmRowVisible === true, confirmProbe);
+    check('⑥ 破坏性确认风险行的祖先链无折叠容器（不参与折叠）', cp.chainClean === true, confirmProbe);
+    check('⑥ 决策区零「允许/放行」旁路控件（结构可判定）', cp.allowControls === 0, confirmProbe);
+    check('⑥ 破坏性确认控件不进入「更多选项」池', cp.noneInMorePool === 0, confirmProbe);
     await evaluate(cdp, `window.__v3.testing.setRisk('confirm', 'off'); true`);
 
     await evaluate(cdp, `window.__v3.testing.setRisk('hardline', 'force'); true`);

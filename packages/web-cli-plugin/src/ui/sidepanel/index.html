@@ -1236,25 +1236,13 @@
          （id / 类名 / ARIA 对全保留；退役在 v4-3 / v4-4，v4 收口断言宿主计数 = 0）。 ── -->
     <main id="region-stream" data-region="stream" aria-label="聊天流（唯一交互面）">
       <ol id="stream" role="log" aria-label="会话记录" aria-live="polite">
-        <!-- ── 占位宿主 v4-3：决策卡（含 #ask / #confirm 与证据层）。
-             V3-1 (ADR-V3-013 / ADR-V3-014)：**唯一**决策卡；#ask / #confirm 原样
-             复用（零 id 重命名）；末项「其他…（我来描述）」与未推荐选项在 `#l1-more`
-             内，兜底输入 `#ask-fallback` 默认 `hidden`（法四：无常驻输入框）。 ── -->
-        <li data-transitional-host="v4-3" data-host="decision">
+        <!-- ── 宿主（v4-3 退役决策槽，保留 `#l0-decision` 容器 id 供 L1/L2 断言解析）：
+             `#ask` / `#confirm` 静态标记已移除 —— 提问与破坏性确认现在由流内
+             `askuser` / `auth` 卡承载（`cards/askuser.ts` / `cards/auth.ts` 在**打开**的
+             卡上按需铸造 `#ask*` / `#confirm*` 家族 id）。 ── -->
+        <li data-host="decision">
           <div id="l0-decision">
             <div class="l0-kicker" id="l0-kicker">下一步做什么</div>
-            <div id="ask" hidden>
-              <div id="ask-prompt"></div>
-              <div id="ask-options" class="row"></div>
-              <div id="ask-fallback" hidden>
-                <div class="row">
-                  <input id="ask-input" type="text" placeholder="输入回答…" autocomplete="off" />
-                  <button id="ask-submit" type="button">回答</button>
-                  <button id="ask-cancel" type="button">取消</button>
-                </div>
-                <span class="muted">取消 = 回答被取消（不代填默认值）</span>
-              </div>
-            </div>
             <div class="row">
               <button id="l0-pick" type="button">从页面拾取</button>
               <button id="l0-more" type="button" aria-expanded="false" aria-controls="l1-more">更多选项（还有 0 个）</button>
@@ -1290,22 +1278,13 @@
               <div class="l1-row" data-tpl>不会发生什么：不会放宽策略档、不会自动放行 evaluate、不会改动授权集合；确认前零命令下发。</div>
               <div class="l1-row" data-tpl data-irreversible>不可逆性声明：该选项含破坏性子命令，执行后无法从插件侧撤销（审计保留记录，不保留明文）。</div>
             </template>
-            <!-- 破坏性确认：落在 #l0-decision 直系、不参与折叠（FR-V3-018 / EC-V3-015） -->
-            <div id="confirm" hidden data-destructive-option="confirm">
-              <div>敏感操作需二次确认：</div>
-              <div id="confirm-summary"></div>
-              <div class="row">
-                <button id="confirm-allow" type="button" data-destructive-option="confirm-allow">允许</button>
-                <button id="confirm-deny" type="button" data-destructive-option="confirm-deny">拒绝</button>
-                <span class="muted">超时/取消 = 拒绝</span>
-              </div>
-            </div>
+            <!-- 破坏性确认：v4-3 起由流内 `auth` 卡承载（打开时铸造 `#confirm*` id）。 -->
           </div>
         </li>
 
-        <!-- ── 占位宿主 v4-3：composer（法四：`#composer` 常驻语义退役，保持 hidden；
+        <!-- ── 宿主：composer（法四：`#composer` 常驻语义退役，保持 hidden；
              v4-3 把它换成流内卡内输入）。 ── -->
-        <li data-transitional-host="v4-3" data-host="composer">
+        <li data-host="composer">
           <form id="composer" hidden>
             <input id="input" type="text" placeholder="输入指令…" autocomplete="off" />
             <button id="send" type="submit">发送</button>

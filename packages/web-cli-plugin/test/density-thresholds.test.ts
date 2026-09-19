@@ -78,7 +78,25 @@ const CURRENT_BASELINE_JSON = existsSync(V4_BASELINE_JSON) ? V4_BASELINE_JSON : 
  *   · everything else keeps its id. The two lists below make both halves a machine
  *     fact: a *fifth* retirement or a *second* rename fails immediately.
  */
-const V4_RETIRED_IDS: readonly string[] = Object.freeze(['panel-top', 'panel-main', 'panel-bottom']);
+const V4_RETIRED_IDS: readonly string[] = Object.freeze([
+  'panel-top',
+  'panel-main',
+  'panel-bottom',
+  // V4-3 (TASK-707 / ADR-V4-030 decision 6): the exclusive decision slot's static
+  // ids are retired from `index.html`. The stream `askuser` / `auth` cards mint the
+  // same id family **on the OPEN card only** (`cards/askuser.ts` / `cards/auth.ts`),
+  // so the runtime selectors still resolve while the static markup is gone.
+  'confirm',
+  'confirm-summary',
+  'confirm-allow',
+  'confirm-deny',
+  'ask',
+  'ask-prompt',
+  'ask-options',
+  'ask-input',
+  'ask-submit',
+  'ask-cancel',
+]);
 const V4_ID_RENAMES: Readonly<Record<string, string>> = Object.freeze({ log: 'stream' });
 
 const V1_ID_BASELINE: readonly string[] = Object.freeze([
@@ -322,7 +340,7 @@ test('index.html: V4 三区骨架（body 直挂 / 文档序 / 状态栏非流后
 });
 
 test('index.html: 收起一律 hidden 属性；composer 保持 hidden 且落在流内占位宿主；body 仍是 flex 列', () => {
-  for (const id of ['l1-more', 'l1-ref', 'view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'ask', 'confirm', 'scroll-bottom', 'risk-chips', 'risk-detail']) {
+  for (const id of ['l1-more', 'l1-ref', 'view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'scroll-bottom', 'risk-chips', 'risk-detail']) {
     const index = parsed.idsIndex.get(id)!;
     assert.ok(index !== undefined, `#${id} 必须存在`);
     assert.equal('hidden' in parsed.tags[index].attrs, true, `#${id} 必须默认带 hidden 属性（不得用 CSS 隐身）`);
