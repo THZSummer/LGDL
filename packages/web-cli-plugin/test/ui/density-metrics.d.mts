@@ -125,6 +125,8 @@ export declare const MAX_CLICKABLES_PER_CARD: number;
 export declare const MAX_FIRST_SCREEN_CARDS: number;
 export declare const MAX_WELCOME_CARDS: number;
 export declare const MAX_WELCOME_LINES: number;
+/** V4-2 TASK-613 ③ — the first screen's cards hold at most this many clickables in aggregate. */
+export declare const MAX_STREAM_RESIDENT_CLICKABLES: number;
 
 export interface StreamCardSample {
   key?: string | null;
@@ -148,9 +150,21 @@ export declare function evaluateFirstScreen(
   reason?: string;
   count?: number;
   welcomeCards?: number;
-  limits?: { maxFirstScreenCards: number; maxWelcomeCards: number; maxWelcomeLines: number };
+  residentClickables?: number;
+  limits?: {
+    maxFirstScreenCards: number;
+    maxWelcomeCards: number;
+    maxWelcomeLines: number;
+    maxStreamResidentClickables: number;
+  };
   violations: string[];
 };
+
+/** V4-2 TASK-613 ③ — the aggregate first-screen card budget (single judgement). */
+export declare function evaluateStreamResidentBudget(
+  cards: readonly StreamCardSample[] | undefined,
+  limitOverride?: number,
+): { ok: boolean; limit: number; total: number; violations: string[] };
 
 /** First-round measured floor for `#log`'s client height (review I7 source). */
 export declare const LOG_CLIENT_HEIGHT_FLOOR: 488;

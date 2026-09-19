@@ -559,11 +559,13 @@ import {
   DENSITY_SHELL_ROOTS,
   MAX_CLICKABLES_PER_CARD,
   MAX_FIRST_SCREEN_CARDS,
+  MAX_STREAM_RESIDENT_CLICKABLES,
   MAX_WELCOME_CARDS,
   MAX_WELCOME_LINES,
   STREAM_HEIGHT_RATIO_MIN,
   evaluateCardBudget,
   evaluateFirstScreen,
+  evaluateStreamResidentBudget,
   readDensityScopeSource,
 } from './ui/density-metrics.mjs';
 
@@ -596,6 +598,10 @@ test('V4 S1/S5: assertChromeNotInStream 存在 + 四个防滥用常量逐字', (
   assert.equal(MAX_FIRST_SCREEN_CARDS, 2, 'FR-CHAT-073: 首屏卡片 ≤2');
   assert.equal(MAX_WELCOME_CARDS, 1, '§12 裁决 4: 欢迎卡 ≤1');
   assert.equal(MAX_WELCOME_LINES, 8, '§12 裁决 4: 欢迎卡 ≤8 行');
+  // V4-2 TASK-613（收紧）：首屏卡**合计**可点上限 —— 单源常量 + 形态判据的标记集合。
+  assert.equal(MAX_STREAM_RESIDENT_CLICKABLES, 8, 'TASK-613 收紧: 首屏卡合计可点 ≤8');
+  assert.match(scopeSource, /export const RESIDENT_NAV_ATTRS/, 'TASK-613 ①: 常驻导航入口的形态判据必须由产品承载');
+  assert.match(scopeSource, /TOOLBAR_SLOT_ATTR/, 'TASK-613 ①: `data-toolbar-slot` 形态必须在单源里（N-02 第一层反向判定）');
   // 反证：把一个常量改一位即必须失败（该段不是恒真检查）。
   const tampered = scopeSource.replace('export const MAX_CLICKABLES_PER_CARD = 6;', 'export const MAX_CLICKABLES_PER_CARD = 7;');
   assert.notEqual(tampered, scopeSource, '反证：常量必须逐字可定位');
@@ -616,6 +622,25 @@ test('V4 RP-V4-01/02/03（纯判定）: 单卡第 7 可点 / 首屏第 3 卡 / �
   const longWelcome = [{ key: 'w1', welcome: true, lines: MAX_WELCOME_LINES + 1 }];
   assert.equal(evaluateFirstScreen(longWelcome, 'empty').ok, false, 'RP-V4-03：>8 行必须 FAIL');
   assert.equal(evaluateFirstScreen(twoWelcome, 'risk').skipped, true, 'first-screen 判定只对 default / empty 档生效');
+
+  // V4-2 TASK-613 ③（纯判定）：单卡全合规但**合计**超上限 ⇒ 必须 FAIL，且失败原因可归因到合计。
+  const twoFives = [
+    { key: 'a', clickables: 5, lines: 2 },
+    { key: 'b', clickables: 5, lines: 2 },
+  ];
+  assert.equal(evaluateCardBudget(twoFives).ok, true, '前置：每卡 5 ≤6（单卡规则不红）');
+  assert.equal(evaluateStreamResidentBudget(twoFives).ok, false, 'TASK-613 ③：合计 10 > 8 必须 FAIL');
+  assert.equal(evaluateStreamResidentBudget(twoFives).total, 10);
+  assert.match(evaluateStreamResidentBudget(twoFives).violations.join(' '), /流内卡合计可点 10 > 8/);
+  assert.equal(evaluateFirstScreen(twoFives, 'default').ok, false, '首屏预算必须把合计上限纳入判定');
+  const belowCap = [
+    { key: 'a', clickables: 4, lines: 2 },
+    { key: 'b', clickables: 4, lines: 2 },
+  ];
+  assert.equal(evaluateStreamResidentBudget(belowCap).ok, true, '合计 8 == 上限仍须 PASS（边界）');
+  // 反证：上限未被悄悄放宽（改一位即红）。
+  assert.equal(evaluateStreamResidentBudget(twoFives, 10).ok, true, '判据不是恒真 —— 放开上限才 PASS');
+  assert.equal(evaluateStreamResidentBudget(twoFives, 9).ok, false, '上限 9 时 10 必须 FAIL');
 });
 
 test('V4 FR-CHAT-082: ≥65% 的流区占比下界来自 TASK-501 spike（只允许上调）', () => {

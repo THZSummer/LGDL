@@ -47,8 +47,47 @@ export const DENSITY_SHELL_ROOTS: readonly string[] = Object.freeze([
  */
 export const MAX_CLICKABLES_PER_CARD = 6;
 
-/** Anti-abuse ② (FR-CHAT-073): the empty-stream welcome state shows ≤2 cards. */
+/**
+ * Anti-abuse ② (FR-CHAT-073): the empty-stream welcome state shows ≤2 cards.
+ */
 export const MAX_FIRST_SCREEN_CARDS = 2;
+
+/**
+ * Anti-abuse ③ (V4-2 TASK-613 / FR-CHAT-072 · FR-CHAT-073 重审后**收紧**) —
+ * the first screen's cards may hold at most this many clickables **in aggregate**.
+ *
+ * Why an aggregate cap on top of the per-card one: the v4 exemption removes the
+ * whole `#stream` subtree from the chrome density, so nothing in the inherited
+ * ceilings sees a stream card at all. The v4-1 caliber left the theoretical shape
+ * 「首屏 2 卡 × 每卡 6 可点 = 12 个常驻入口」inside the exempt subtree (v3's whole
+ * panel cap was 7), and validate R1 (N-03) proved a 6-entry card tripped nothing.
+ *
+ * The v4-2 re-review (TASK-613) keeps the per-card ≤6 rule **and** adds this
+ * aggregate cap; the real 12 card types render at most 5 clickables (ask-user
+ * choice: ≤3 options +「其他…」+ 取消) and the first screen shows ≤2 cards, so the
+ * product's default screen sits far below the cap — the cap only bites the abuse
+ * shape.
+ */
+export const MAX_STREAM_RESIDENT_CLICKABLES = 8;
+
+/** Chrome controls must never be reachable from inside the stream (the mark). */
+export const CHROME_CONTROL_ATTR = 'data-chrome-control';
+
+/** The toolbar/view entry marker used by the toolbar renderer (the form, ①/②). */
+export const TOOLBAR_SLOT_ATTR = 'data-toolbar-slot';
+
+/**
+ * V4-2 TASK-613 ① — the **form** criterion for「常驻导航入口」: a control carrying
+ * any of these attributes inside `#stream` is a resident navigation entry (not
+ * card-content interaction) and is rejected regardless of count.
+ */
+export const RESIDENT_NAV_ATTRS: readonly string[] = Object.freeze([
+  CHROME_CONTROL_ATTR,
+  TOOLBAR_SLOT_ATTR,
+]);
+
+/** V4-2 TASK-613 ① — the class-based half of the same form criterion. */
+export const RESIDENT_NAV_CLASSES: readonly string[] = Object.freeze(['view-btn']);
 
 /** §12 裁决 4: at most ONE welcome card. */
 export const MAX_WELCOME_CARDS = 1;
@@ -59,9 +98,6 @@ export const MAX_WELCOME_LINES = 8;
 /** The DOM attribute carried by every transitional host (parent ADR-V4-005). */
 export const TRANSITIONAL_HOST_ATTR = 'data-transitional-host';
 
-/** Chrome controls must never be reachable from inside the stream. */
-export const CHROME_CONTROL_ATTR = 'data-chrome-control';
-
 /** `#stream`'s root selector — the ONLY id renamed by this leaf (`#log` → `#stream`). */
 export const STREAM_SELECTOR = '#stream';
 
@@ -71,19 +107,27 @@ export const STREAM_SELECTOR = '#stream';
  * Throws (never returns false): a silently-false assertion is exactly the
  * failure mode this whole file exists to prevent.
  *
- *  ① `#stream` subtree contains **zero** `[data-chrome-control]` elements;
+ *  ① `#stream` subtree contains **zero** resident-navigation entries — by MARK
+ *     (`[data-chrome-control]`) **and** by FORM (V4-2 TASK-613: `[data-toolbar-slot]`
+ *     / `.view-btn`, the two shapes a toolbar/view entry is actually built from);
  *  ② `#region-toolbar` / `#region-statusbar` are **not** descendants of `#stream`
  *     (the structural half of S1 — a zone cannot hide inside the exempt subtree).
  */
 export function assertChromeNotInStream(root: ParentNode = document): void {
   const stream = root.querySelector?.(STREAM_SELECTOR) ?? null;
   if (!stream) throw new Error('assertChromeNotInStream: #stream 不存在（三区骨架未落地）');
-  const chromeInStream = stream.querySelectorAll(`[${CHROME_CONTROL_ATTR}]`);
-  if (chromeInStream.length > 0) {
-    const ids = Array.from(chromeInStream)
+  const selector = [
+    ...RESIDENT_NAV_ATTRS.map((attr) => `[${attr}]`),
+    ...RESIDENT_NAV_CLASSES.map((cls) => `.${cls}`),
+  ].join(', ');
+  const resident = stream.querySelectorAll(selector);
+  if (resident.length > 0) {
+    const ids = Array.from(resident)
       .map((el) => (el as HTMLElement).id || el.tagName.toLowerCase())
       .join(', ');
-    throw new Error(`assertChromeNotInStream: #stream 子树内含 ${chromeInStream.length} 个 [${CHROME_CONTROL_ATTR}]（${ids}）—— 豁免子树不得承载常驻控件`);
+    throw new Error(
+      `assertChromeNotInStream: #stream 子树内含 ${resident.length} 个常驻导航入口（${ids}）—— 豁免子树不得承载常驻控件（标记 + 形态双判据）`,
+    );
   }
   for (const zone of ['#region-toolbar', '#region-statusbar']) {
     const el = root.querySelector?.(zone) ?? null;
@@ -92,10 +136,11 @@ export function assertChromeNotInStream(root: ParentNode = document): void {
   }
 }
 
-/** The four anti-abuse constants, as one frozen record (gates consume this shape). */
+/** The five anti-abuse constants, as one frozen record (gates consume this shape). */
 export const CARD_BUDGET_LIMITS = Object.freeze({
   maxClickablesPerCard: MAX_CLICKABLES_PER_CARD,
   maxFirstScreenCards: MAX_FIRST_SCREEN_CARDS,
   maxWelcomeCards: MAX_WELCOME_CARDS,
   maxWelcomeLines: MAX_WELCOME_LINES,
+  maxStreamResidentClickables: MAX_STREAM_RESIDENT_CLICKABLES,
 });

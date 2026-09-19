@@ -1,471 +1,475 @@
 {
-  "version": "v4",
-  "direction": "tighten-only",
-  "caliberNote": "V4-1 换口径重定标（父 ADR-V4-020/021）：测量根 = document.body，豁免子树 = #stream（单源 src/ui/sidepanel/density-scope.ts#DENSITY_EXCLUDED_SUBTREES）；只认 hidden，CSS 隐身不豁免。**换口径，非放宽** —— v3 基线与本文件的格数/取值不可逐格直比。",
-  "thresholds": {
-    "default": {
-      "clickables": 7,
-      "lines": 15
+ "version": "v4",
+ "direction": "tighten-only",
+ "caliberNote": "V4-1 换口径重定标（父 ADR-V4-020/021）：测量根 = document.body，豁免子树 = #stream（单源 src/ui/sidepanel/density-scope.ts#DENSITY_EXCLUDED_SUBTREES）；只认 hidden，CSS 隐身不豁免。**换口径，非放宽** —— v3 基线与本文件的格数/取值不可逐格直比。",
+ "thresholds": {
+  "default": {
+   "clickables": 7,
+   "lines": 15
+  },
+  "firstRun": {
+   "clickables": 9,
+   "lines": 20
+  },
+  "risk": {
+   "clickables": 17,
+   "lines": 35
+  }
+ },
+ "streamHeightRatioMin": 0.65,
+ "logClientHeightFloor": 488,
+ "logClientHeightMeasuredWorst": 748,
+ "tiers": {
+  "default": {
+   "320": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 181
+   },
+   "400": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 181
+   },
+   "520": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 184
+   }
+  },
+  "firstRun": {
+   "320": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 184
+   },
+   "400": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 184
+   },
+   "520": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 184
+   }
+  },
+  "risk": {
+   "subs": {
+    "unauthorized": {
+     "320": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 227
+     },
+     "400": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 227
+     },
+     "520": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 227
+     }
     },
-    "firstRun": {
-      "clickables": 9,
-      "lines": 20
+    "probing": {
+     "320": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 216
+     },
+     "400": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 216
+     },
+     "520": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 216
+     }
     },
-    "risk": {
-      "clickables": 17,
-      "lines": 35
+    "hardline": {
+     "320": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 212
+     },
+     "400": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 212
+     },
+     "520": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 212
+     }
+    },
+    "confirm": {
+     "320": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 213
+     },
+     "400": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 213
+     },
+     "520": {
+      "clickables": 6,
+      "lines": 7,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 213
+     }
+    },
+    "staleRef": {
+     "320": {
+      "clickables": 6,
+      "lines": 6,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 203
+     },
+     "400": {
+      "clickables": 6,
+      "lines": 6,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 203
+     },
+     "520": {
+      "clickables": 6,
+      "lines": 6,
+      "blocks": 17,
+      "regions": 4,
+      "chars": 203
+     }
     }
+   },
+   "worst": {
+    "clickables": 6,
+    "lines": 7,
+    "blocks": 17,
+    "regions": 4,
+    "chars": 227
+   }
   },
-  "streamHeightRatioMin": 0.65,
-  "logClientHeightFloor": 488,
-  "logClientHeightMeasuredWorst": 748,
-  "tiers": {
-    "default": {
-      "320": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 181
-      },
-      "400": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 181
-      },
-      "520": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 184
-      }
-    },
-    "firstRun": {
-      "320": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 184
-      },
-      "400": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 184
-      },
-      "520": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 184
-      }
-    },
-    "risk": {
-      "subs": {
-        "unauthorized": {
-          "320": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 227
-          },
-          "400": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 227
-          },
-          "520": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 227
-          }
-        },
-        "probing": {
-          "320": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 216
-          },
-          "400": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 216
-          },
-          "520": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 216
-          }
-        },
-        "hardline": {
-          "320": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 212
-          },
-          "400": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 212
-          },
-          "520": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 212
-          }
-        },
-        "confirm": {
-          "320": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 213
-          },
-          "400": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 213
-          },
-          "520": {
-            "clickables": 6,
-            "lines": 7,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 213
-          }
-        },
-        "staleRef": {
-          "320": {
-            "clickables": 6,
-            "lines": 6,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 203
-          },
-          "400": {
-            "clickables": 6,
-            "lines": 6,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 203
-          },
-          "520": {
-            "clickables": 6,
-            "lines": 6,
-            "blocks": 17,
-            "regions": 4,
-            "chars": 203
-          }
-        }
-      },
-      "worst": {
-        "clickables": 6,
-        "lines": 7,
-        "blocks": 17,
-        "regions": 4,
-        "chars": 227
-      }
-    },
-    "empty": {
-      "320": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 184
-      },
-      "400": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 184
-      },
-      "520": {
-        "clickables": 5,
-        "lines": 6,
-        "blocks": 15,
-        "regions": 4,
-        "chars": 187
-      }
-    },
-    "riskDetailOpen": {
-      "320": {
-        "clickables": 6,
-        "lines": 8,
-        "blocks": 18,
-        "regions": 4,
-        "chars": 239
-      },
-      "400": {
-        "clickables": 6,
-        "lines": 8,
-        "blocks": 18,
-        "regions": 4,
-        "chars": 239
-      },
-      "520": {
-        "clickables": 6,
-        "lines": 8,
-        "blocks": 18,
-        "regions": 4,
-        "chars": 239
-      }
-    }
+  "empty": {
+   "320": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 184
+   },
+   "400": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 184
+   },
+   "520": {
+    "clickables": 5,
+    "lines": 6,
+    "blocks": 15,
+    "regions": 4,
+    "chars": 187
+   }
   },
-  "volume": {
-    "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 385319,
-    "ceilingBytes": 404584,
-    "tolerance": 0.05,
-    "ceilingCapRole": "record-only",
-    "ceilingCapRecordBytes": 306099,
-    "ceilingFormula": "floor(baseline × (1 + tolerance))",
-    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 **385,319 B**（R2 中间重登记的实测值；R3 收口轮复测同值）从 266,500 B 起算的 Feature 累计增幅 **+44.58%** —— **R3 后越过已登记的 40% 停工线**（历史文本中的 375,102 B / +40.75% 是上一轮登记值，逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_META.note` 的历史段），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。"
+  "riskDetailOpen": {
+   "320": {
+    "clickables": 6,
+    "lines": 8,
+    "blocks": 18,
+    "regions": 4,
+    "chars": 239
+   },
+   "400": {
+    "clickables": 6,
+    "lines": 8,
+    "blocks": 18,
+    "regions": 4,
+    "chars": 239
+   },
+   "520": {
+    "clickables": 6,
+    "lines": 8,
+    "blocks": 18,
+    "regions": 4,
+    "chars": 239
+   }
+  }
+ },
+ "volume": {
+  "artifact": "dist/sidepanel.js",
+  "registeredBaselineBytes": 425442,
+  "ceilingBytes": 446714,
+  "tolerance": 0.05,
+  "ceilingCapRole": "record-only",
+  "ceilingCapRecordBytes": 306099,
+  "ceilingFormula": "floor(baseline × (1 + tolerance))",
+  "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 **425,442 B**（v4-2 聊天流事件模型轮重登记的实测值，2026-09-19）从 266,500 B 起算的 Feature 累计增幅 **+59.64%**（425,442 / 266,500 − 1） —— **R3 后越过已登记的 40% 停工线**（历史文本中的 375,102 B / +40.75% 是上一轮登记值，逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_META.note` 的历史段），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。 〖v4-2（2026-09-19）〗基线 385,319 → **425,442 B**（+40,123 B，+10.41%，十二个新必需模块 stream-* ×3 + cards/* ×9 = +34,044 B + 四个既有模块接线 +5,617 B + 未归因胶水 −255 B 净残差）；ceiling = floor(425,442 × 1.05) = **446,714 B**；容差 5% 未动、cap 仍 record-only。**v4-1 + v4-2 相邻两轮累计 +13.42%（<15% 线，仍如实登记）。**"
+ },
+ "designCaliber": {
+  "published": {
+   "note": "设计稿自带 __density() 的公布值（仅登记，不作验收依据）",
+   "e": {
+    "clickables": 7,
+    "lines": 10,
+    "blocks": 47,
+    "regions": 6
+   },
+   "d": {
+    "clickables": 80,
+    "lines": 144,
+    "blocks": 391,
+    "regions": 5
+   }
   },
-  "designCaliber": {
+  "measuredByOurs": {
+   "e": {
+    "clickables": 7,
+    "lines": 12,
+    "blocks": 51,
+    "regions": 6,
+    "chars": 375
+   },
+   "d": {
+    "clickables": 79,
+    "lines": 145,
+    "blocks": 392,
+    "regions": 5,
+    "chars": 4910
+   }
+  },
+  "deltas": [
+   {
+    "draft": "E",
     "published": {
-      "note": "设计稿自带 __density() 的公布值（仅登记，不作验收依据）",
-      "e": {
-        "clickables": 7,
-        "lines": 10,
-        "blocks": 47,
-        "regions": 6
-      },
-      "d": {
-        "clickables": 80,
-        "lines": 144,
-        "blocks": 391,
-        "regions": 5
-      }
+     "clickables": 7,
+     "lines": 10,
+     "blocks": 47,
+     "regions": 6
     },
-    "measuredByOurs": {
-      "e": {
-        "clickables": 7,
-        "lines": 12,
-        "blocks": 51,
-        "regions": 6,
-        "chars": 375
-      },
-      "d": {
-        "clickables": 79,
-        "lines": 145,
-        "blocks": 392,
-        "regions": 5,
-        "chars": 4910
-      }
+    "measured": {
+     "clickables": 7,
+     "lines": 12,
+     "blocks": 51,
+     "regions": 6,
+     "chars": 375
     },
-    "deltas": [
-      {
-        "draft": "E",
-        "published": {
-          "clickables": 7,
-          "lines": 10,
-          "blocks": 47,
-          "regions": 6
-        },
-        "measured": {
-          "clickables": 7,
-          "lines": 12,
-          "blocks": 51,
-          "regions": 6,
-          "chars": 375
-        },
-        "delta": {
-          "clickables": 0,
-          "lines": 2,
-          "blocks": 4,
-          "regions": 0
-        }
-      },
-      {
-        "draft": "D",
-        "published": {
-          "clickables": 80,
-          "lines": 144,
-          "blocks": 391,
-          "regions": 5
-        },
-        "measured": {
-          "clickables": 79,
-          "lines": 145,
-          "blocks": 392,
-          "regions": 5,
-          "chars": 4910
-        },
-        "delta": {
-          "clickables": -1,
-          "lines": 1,
-          "blocks": 1,
-          "regions": 0
-        }
-      }
-    ]
-  },
-  "streamRatioSpike": {
-    "carrier": "/tmp/opencode/v4-spike/proto.html",
-    "sha256": "6132e2d1e5208b9343b8092972e18703db5e944c608bf911ab79e69b9c4aca1f",
-    "threshold": 0.65,
-    "cells": [
-      {
-        "width": 320,
-        "theme": "light",
-        "risk": "none",
-        "ratio": 0.8677,
-        "pass": true
-      },
-      {
-        "width": 320,
-        "theme": "light",
-        "risk": "detail-expanded",
-        "ratio": 0.7273,
-        "pass": true
-      },
-      {
-        "width": 320,
-        "theme": "dark",
-        "risk": "none",
-        "ratio": 0.8677,
-        "pass": true
-      },
-      {
-        "width": 320,
-        "theme": "dark",
-        "risk": "detail-expanded",
-        "ratio": 0.7273,
-        "pass": true
-      },
-      {
-        "width": 400,
-        "theme": "light",
-        "risk": "none",
-        "ratio": 0.8677,
-        "pass": true
-      },
-      {
-        "width": 400,
-        "theme": "light",
-        "risk": "detail-expanded",
-        "ratio": 0.7273,
-        "pass": true
-      },
-      {
-        "width": 400,
-        "theme": "dark",
-        "risk": "none",
-        "ratio": 0.8677,
-        "pass": true
-      },
-      {
-        "width": 400,
-        "theme": "dark",
-        "risk": "detail-expanded",
-        "ratio": 0.7273,
-        "pass": true
-      },
-      {
-        "width": 520,
-        "theme": "light",
-        "risk": "none",
-        "ratio": 0.9169,
-        "pass": true
-      },
-      {
-        "width": 520,
-        "theme": "light",
-        "risk": "detail-expanded",
-        "ratio": 0.8127,
-        "pass": true
-      },
-      {
-        "width": 520,
-        "theme": "dark",
-        "risk": "none",
-        "ratio": 0.9169,
-        "pass": true
-      },
-      {
-        "width": 520,
-        "theme": "dark",
-        "risk": "detail-expanded",
-        "ratio": 0.8127,
-        "pass": true
-      }
-    ],
-    "worstCell": {
-      "width": 320,
-      "theme": "light",
-      "risk": "detail-expanded",
-      "ratio": 0.7273
+    "delta": {
+     "clickables": 0,
+     "lines": 2,
+     "blocks": 4,
+     "regions": 0
+    }
+   },
+   {
+    "draft": "D",
+    "published": {
+     "clickables": 80,
+     "lines": 144,
+     "blocks": 391,
+     "regions": 5
     },
-    "note": "TASK-501 spike 12/12 PASS（最差格 320px/明/详情展开 = 0.7273，余量 +0.0773）；阈值从未下调（0.650 字面量）。"
-  },
-  "counts": {
-    "countMethod": "runtime-check-calls",
-    "cells": 31,
-    "machineComparedCells": 28,
-    "nominalCells": 3,
-    "composition": "9 强制（3 档 × 3 视口；risk 档那一行由 15 个风险子场景格承载）+ 15 风险子场景 + 3 空态（empty）+ 3 风险详情展开（riskDetailOpen）+ 1 worst = 31",
-    "nominalNote": "〖review 修复轮 I10〗**31 登记格 = 28 实测机对 + 3 名义**：`risk` 档在 3 档 × 3 视口矩阵里占 3 格（risk@320/400/520），但这 3 格不与 default/firstRun 行同构 —— 它们由 15 个风险子场景格（5 子场景 × 3 视口）承载，**不另立测量**。因此 density.mjs 阶段 F 实际逐格机对的是 28 格（default×3 + firstRun×3 + 15 风险子场景 + riskDetailOpen×3 + empty×3 + worst×1），另 3 格是登记口径的名义格。",
-    "charsSpreadMax": 3,
-    "charsSpreadRootCause": "〖review 修复轮 I6 实测根因〗默认档 `chars` 跨视口差 = **审计计数跨位数**：default 审计 2 → 6 → 10（第 3 格由 1 位变 2 位）、empty 审计 92 → 96 → 100（第 3 格由 2 位变 3 位）；`#l2-entry-summary` / `#l2-entry-audit .view-label` / `#l2-entry-audit .badge` 三处各 +1 字符 ⇒ 差 3。**不是**几何/`nowrap+ellipsis`（CSS ellipsis 不改 `textContent`）；证据 = density.mjs `charsAttribution()` 的逐格真值日志（阶段 B / B2）。容差因此取实测上界 3（原 8 偏松，已收紧）。",
-    "note": "TASK-511/512 收口：31 格全部**实跑**登记（禁推测值）；6 个新增格于 2026-09-19 实测（empty 184/184/187 · riskDetailOpen 239×3）。〖review 修复轮 I10〗机对格数以 `machineComparedCells` 显式分列，消除「31 vs 28」双数并存。"
-  },
-  "knownLimitations": [
-    "过渡形态的卡口径：v4-1 的 `#l0-decision` 仍是被取代容器的内容体（v4-3 换成 `askuser`/`auth` 卡），本叶**不**把它计为「卡」，因此 RP-V4-01/02/03 以注入 `[data-msg-type]` 卡来证明单卡/首屏预算真的会红；v4-2 落 7 主类卡后，本口径必须重审（v4 收口时 `data-transitional-host` 清零，见 ADR-V4-005 第 6 条）。",
-    "empty 档的 `chars` 跨视口差 3（184→187）：与 default 档**同因** —— 审计计数跨位数（empty 实测 92 → 96 → 100），非几何/省略号导致的漂移（〖review 修复轮 I6〗原归因「站点摘要 `nowrap+ellipsis`」不成立：CSS ellipsis 不改 `textContent`；实测根因见 counts.charsSpreadRootCause）；empty 档不参与「default 三视口结构逐项相等」的确定性判据（后者只对 default 档生效）。",
-    "风险子场景 `staleRef` 的 `chars` 对视口不敏感（203×3），但该格对**夹具序**敏感：新增登记格必须在既有 A/B/C 之后执行（density.mjs 已如此排布），否则会静默改变既有格的实测值。",
-    "〖N-01（收口轮，v4-1 validate R1）—— 口径双轨期说明〗密度口径有**两条并存**的测量表达式：① **产品口径** `DENSITY_MEASURE_SOURCE`（排除 `#stream` 的三区外壳口径，阶段 B/C/F 与 RP-V4-01~07 用）；② **未排除口径** `c1Probe`（`density.mjs` 内联，整页可见可点计数 —— RP-V3-03 / RP-V4-04 用它判「CSS 隐身不豁免 / hidden 是唯一豁免通道」，那里判的正是这条口径**本身**）。N-01 指出的是**误用**：RP-V4-06 曾在产品口径的反证里用未排除口径断言「C1 不得下降」——页面内移元素不可能改变整页计数，故恒真（实测 14 → 14）。现已改为产品口径（注入后必须 5 → 4）+ 对照段（移入非豁免 `#region-statusbar` ⇒ C1 不变）；未排除口径的既有用途（RP-V3-03/RP-V4-04）保持不变。",
-    "〖N-02（收口轮，v4-1 validate R1）—— 豁免守卫是双层防线（两层都已实测）〗① **guard 即时拦**：`src/ui/sidepanel/density-scope.ts#assertChromeNotInStream()` 只认 `[data-chrome-control]` 标记，带标记控件被移入 `#stream` 时抛错（validate P1 实测 throw；`density.mjs --reverse RP-V4-06` in-gate 实跑）。② **阶段 F 基线兜底**：抹掉标记后的移入不会被 guard 拦住（`pass`），但**阶段 F 逐格比对**必然判红 —— validate A2-1 在真门禁上静态注入实测 `167 passed / 4 failed`（`default@320/400/520 可点实测 4 ≠ 5` + 阶段 F `clickables 4≠5` / `blocks 13≠15` / `chars 176≠181`）。因此「未标记控件移入豁免子树」不是未覆盖面，而是**第二层承担**的形态；补齐基于形态（`data-toolbar-slot`/`.view-btn`）或位置（三区外壳）的第一层反向判定需改产品代码（`toolbar.ts` 字节）—— 收口轮按红线只登记不修，留待下游在有产品改动时一并落地。"
+    "measured": {
+     "clickables": 79,
+     "lines": 145,
+     "blocks": 392,
+     "regions": 5,
+     "chars": 4910
+    },
+    "delta": {
+     "clickables": -1,
+     "lines": 1,
+     "blocks": 1,
+     "regions": 0
+    }
+   }
+  ]
+ },
+ "streamRatioSpike": {
+  "carrier": "/tmp/opencode/v4-spike/proto.html",
+  "sha256": "6132e2d1e5208b9343b8092972e18703db5e944c608bf911ab79e69b9c4aca1f",
+  "threshold": 0.65,
+  "cells": [
+   {
+    "width": 320,
+    "theme": "light",
+    "risk": "none",
+    "ratio": 0.8677,
+    "pass": true
+   },
+   {
+    "width": 320,
+    "theme": "light",
+    "risk": "detail-expanded",
+    "ratio": 0.7273,
+    "pass": true
+   },
+   {
+    "width": 320,
+    "theme": "dark",
+    "risk": "none",
+    "ratio": 0.8677,
+    "pass": true
+   },
+   {
+    "width": 320,
+    "theme": "dark",
+    "risk": "detail-expanded",
+    "ratio": 0.7273,
+    "pass": true
+   },
+   {
+    "width": 400,
+    "theme": "light",
+    "risk": "none",
+    "ratio": 0.8677,
+    "pass": true
+   },
+   {
+    "width": 400,
+    "theme": "light",
+    "risk": "detail-expanded",
+    "ratio": 0.7273,
+    "pass": true
+   },
+   {
+    "width": 400,
+    "theme": "dark",
+    "risk": "none",
+    "ratio": 0.8677,
+    "pass": true
+   },
+   {
+    "width": 400,
+    "theme": "dark",
+    "risk": "detail-expanded",
+    "ratio": 0.7273,
+    "pass": true
+   },
+   {
+    "width": 520,
+    "theme": "light",
+    "risk": "none",
+    "ratio": 0.9169,
+    "pass": true
+   },
+   {
+    "width": 520,
+    "theme": "light",
+    "risk": "detail-expanded",
+    "ratio": 0.8127,
+    "pass": true
+   },
+   {
+    "width": 520,
+    "theme": "dark",
+    "risk": "none",
+    "ratio": 0.9169,
+    "pass": true
+   },
+   {
+    "width": 520,
+    "theme": "dark",
+    "risk": "detail-expanded",
+    "ratio": 0.8127,
+    "pass": true
+   }
   ],
-  "differencesFromV3": [
-    "测量根：**不变**（v3 = document.body，见 docs/v3-density-baseline.json#caliber.measurementRoot；v4 = document.body）。真实差异是 v4 新增**豁免子树** DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]。〖订正注（review 修复轮 I3）〗本条曾误写「v3 = #panel-main（已退役）」——#panel-main 是 v3 的**区容器**，不是测量根；v3 的测量根自 v2 起即为 document.body（父 ADR-V3-001 明文），此处**订正为与 v3 基线逐字一致**，历史误述不在本文件保留（其原文见 git 历史）。",
-    "豁免子树：新增 DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]（流本体不计入密度预算；单源 density-scope.ts），并以「单卡 ≤6 / 首屏 ≤2」两条防滥用 + RP-V4-01~03 补偿控制。",
-    "几何口径：v3 = 「#log ≥ 488px 像素下界」（v3 末轮登记值：docs/v3-density-baseline.json#logClientHeightFloor = 488；**589px 是 v1 历史锚**，在 v3-1 已被取代）→ v4 = 「#stream clientHeight ≥ 488px ∧ #region-stream 高度占比 ≥ 0.65」（比例下界取代像素下界，只允许上调）。〖订正注（review 修复轮 I3/I13）〗本条曾误以 589px 指代 v3 几何锚 —— 已按 v3 基线实测值订正；589px 表述仅作为 v1 历史锚保留在上述括注内。",
-    "格集：v3 = 9 强制 + 15 风险 + 1 worst（22 格）→ v4 = 31 格（9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst）；v3 的 22 格冻结在 v3-density-baseline.json，不再参与判定。",
-    "composer：v3 = 常驻贴底（D-079）→ v4 = 法四（默认屏无可见常驻输入框；#composer 存在时必须 hidden，展开态位于 #stream 流内占位宿主）。",
-    "方向声明：以上全部是**换口径重定标**（收紧或等价），逐格数值与 v3 不可直接比较；v4 的 6 个新增格只增加登记面，不放松任何阈值（7/15 · 9/20 · 17/35 逐字不变）。"
-  ],
-  "measuredOn": "2026-09-19",
-  "measuredBy": "SDDU v4-1 build round R3 (leaf specs-tree-v4-1-zone-shell-density), TASK-511/512 收口实测",
-  "source": "packages/web-cli-plugin/dist/sidepanel.js",
-  "buildCommand": "npm run build --workspace @lgdl/web-cli-plugin",
+  "worstCell": {
+   "width": 320,
+   "theme": "light",
+   "risk": "detail-expanded",
+   "ratio": 0.7273
+  },
+  "note": "TASK-501 spike 12/12 PASS（最差格 320px/明/详情展开 = 0.7273，余量 +0.0773）；阈值从未下调（0.650 字面量）。"
+ },
+ "counts": {
   "countMethod": "runtime-check-calls",
-  "registeredCells": 31,
-  "perCardBudget": {
-    "limit": 6,
-    "firstScreenLimit": 2,
-    "welcomeCardLimit": 1,
-    "welcomeLineLimit": 8,
-    "caliber": "一张「卡」= #stream 内**可见的** [data-msg-type]（v4-2 的 7 主类卡）或空态欢迎占位 (.log-empty-text)；li[data-transitional-host] 是过渡宿主、不是卡；#l0-decision 在 v4-1 仍是骨架占位宿主的内容体（v4-3 才换成 askuser/auth 卡），本叶不计为卡（见 knownLimitations）。",
-    "dynamicCells": "每档每视口逐格跑 evaluateCardBudget / evaluateFirstScreen（default / empty 档），只登记违规数 0（不登记逐卡明细，避免把动态格伪装成静态格）。",
-    "registeredViolations": 0
-  },
-  "closeoutNote": "〖收口轮（2026-09-19，处置 v4-1 validate R1 的 N-01~N-08）〗本基线文件除新增上述两条 knownLimitations 外**零改动**：31 格实测值、阈值 7/15·9/20·17/35、几何下界 488px、体积登记 385,319 / 404,584、designCaliber 分列均逐字不变（阈值与上限只允许收紧，本轮无任何放宽）。密度门禁复跑实测 **171 passed / 0 failed**（R3 现场 169 → 171，为 review 修复轮 I6/I10 新增断言所致，已同步 v4 取代台账 counts.density）。"
+  "cells": 31,
+  "machineComparedCells": 28,
+  "nominalCells": 3,
+  "composition": "9 强制（3 档 × 3 视口；risk 档那一行由 15 个风险子场景格承载）+ 15 风险子场景 + 3 空态（empty）+ 3 风险详情展开（riskDetailOpen）+ 1 worst = 31",
+  "nominalNote": "〖review 修复轮 I10〗**31 登记格 = 28 实测机对 + 3 名义**：`risk` 档在 3 档 × 3 视口矩阵里占 3 格（risk@320/400/520），但这 3 格不与 default/firstRun 行同构 —— 它们由 15 个风险子场景格（5 子场景 × 3 视口）承载，**不另立测量**。因此 density.mjs 阶段 F 实际逐格机对的是 28 格（default×3 + firstRun×3 + 15 风险子场景 + riskDetailOpen×3 + empty×3 + worst×1），另 3 格是登记口径的名义格。",
+  "charsSpreadMax": 3,
+  "charsSpreadRootCause": "〖review 修复轮 I6 实测根因〗默认档 `chars` 跨视口差 = **审计计数跨位数**：default 审计 2 → 6 → 10（第 3 格由 1 位变 2 位）、empty 审计 92 → 96 → 100（第 3 格由 2 位变 3 位）；`#l2-entry-summary` / `#l2-entry-audit .view-label` / `#l2-entry-audit .badge` 三处各 +1 字符 ⇒ 差 3。**不是**几何/`nowrap+ellipsis`（CSS ellipsis 不改 `textContent`）；证据 = density.mjs `charsAttribution()` 的逐格真值日志（阶段 B / B2）。容差因此取实测上界 3（原 8 偏松，已收紧）。",
+  "note": "TASK-511/512 收口：31 格全部**实跑**登记（禁推测值）；6 个新增格于 2026-09-19 实测（empty 184/184/187 · riskDetailOpen 239×3）。〖review 修复轮 I10〗机对格数以 `machineComparedCells` 显式分列，消除「31 vs 28」双数并存。"
+ },
+ "knownLimitations": [
+  "〖V4-2 TASK-613 重审完成（2026-09-19）—— 裁决：**保留单卡 ≤6 + 新增首屏合计 ≤8 + 常驻导航入口形态判据**〗v4-1 的过渡卡口径按约重审：v4-1 的 `#l0-decision` 已不再是唯一卡面，v4-2 落的 **12 类卡（7 主类 + 5 过程族）** 全部由 `cards/index.ts#CARD_TYPES` 单源登记并逐型渲染。重审实测：产品 12 类卡的单卡可点上限 = **5**（ask-user choice：≤3 选项 +「其他…」+ 取消；text=3；auth=2；ref-stale=2；nextstep≤3；其余 0），首屏可见卡 ≤2（FR-CHAT-073）∧ 既有法一「一次恰一张决策卡」（FR-V3-011）⇒ 合法最坏首屏 = 1 张 ask 卡（5）+ 1 张 nextstep 卡（3）= **8**；default/empty 档实测合计 **0**。v4-1 的理论上限「2 卡 × 6 = 12」高于 v3 全局 7 且无判据可拦，故本轮**收紧**而非沿用：① **形态判据**：`[data-chrome-control]` / `[data-toolbar-slot]` / `.view-btn` 任一出现在 `#stream` ⇒ `assertChromeNotInStream()` 抛错（v4-1 validate **N-02** 指出、当时「只登记不修」的第一层反向判定已落地）；② **合计上限**：首屏卡合计可点 ≤ **8**（`MAX_STREAM_RESIDENT_CLICKABLES`，单源 `density-scope.ts`），纳入 `evaluateFirstScreen()`。两条判据各配真会红的 in-gate 反证 **RP-V4-09**（`test/ui/density.mjs --reverse RP-V4-09`：注入 2 卡×5 可点 ⇒「流内卡合计可点 10 > 8」FAIL 且单卡预算仍 PASS；注入 `[data-toolbar-slot]` 控件 ⇒ 守卫抛「常驻导航入口」；还原后双绿）。**阈值零放宽**：单卡 6 / 首屏 2 / 欢迎 1·8 行 / 密度阈值 7·15 · 9·20 · 17·35 逐字不变；新增的 8 是**收紧**上限。v4-1 原文保留（历史）：过渡形态的卡口径：v4-1 的 `#l0-decision` 仍是被取代容器的内容体（v4-3 换成 `askuser`/`auth` 卡），本叶**不**把它计为「卡」，因此 RP-V4-01/02/03 以注入 `[data-msg-type]` 卡来证明单卡/首屏预算真的会红；v4-2 落 7 主类卡后，本口径必须重审（v4 收口时 `data-transitional-host` 清零，见 ADR-V4-005 第 6 条）。",
+  "empty 档的 `chars` 跨视口差 3（184→187）：与 default 档**同因** —— 审计计数跨位数（empty 实测 92 → 96 → 100），非几何/省略号导致的漂移（〖review 修复轮 I6〗原归因「站点摘要 `nowrap+ellipsis`」不成立：CSS ellipsis 不改 `textContent`；实测根因见 counts.charsSpreadRootCause）；empty 档不参与「default 三视口结构逐项相等」的确定性判据（后者只对 default 档生效）。",
+  "风险子场景 `staleRef` 的 `chars` 对视口不敏感（203×3），但该格对**夹具序**敏感：新增登记格必须在既有 A/B/C 之后执行（density.mjs 已如此排布），否则会静默改变既有格的实测值。",
+  "〖N-01（收口轮，v4-1 validate R1）—— 口径双轨期说明〗密度口径有**两条并存**的测量表达式：① **产品口径** `DENSITY_MEASURE_SOURCE`（排除 `#stream` 的三区外壳口径，阶段 B/C/F 与 RP-V4-01~07 用）；② **未排除口径** `c1Probe`（`density.mjs` 内联，整页可见可点计数 —— RP-V3-03 / RP-V4-04 用它判「CSS 隐身不豁免 / hidden 是唯一豁免通道」，那里判的正是这条口径**本身**）。N-01 指出的是**误用**：RP-V4-06 曾在产品口径的反证里用未排除口径断言「C1 不得下降」——页面内移元素不可能改变整页计数，故恒真（实测 14 → 14）。现已改为产品口径（注入后必须 5 → 4）+ 对照段（移入非豁免 `#region-statusbar` ⇒ C1 不变）；未排除口径的既有用途（RP-V3-03/RP-V4-04）保持不变。",
+  "〖N-02（收口轮，v4-1 validate R1）—— 豁免守卫是双层防线（两层都已实测）〗① **guard 即时拦**：`src/ui/sidepanel/density-scope.ts#assertChromeNotInStream()` 只认 `[data-chrome-control]` 标记，带标记控件被移入 `#stream` 时抛错（validate P1 实测 throw；`density.mjs --reverse RP-V4-06` in-gate 实跑）。② **阶段 F 基线兜底**：抹掉标记后的移入不会被 guard 拦住（`pass`），但**阶段 F 逐格比对**必然判红 —— validate A2-1 在真门禁上静态注入实测 `167 passed / 4 failed`（`default@320/400/520 可点实测 4 ≠ 5` + 阶段 F `clickables 4≠5` / `blocks 13≠15` / `chars 176≠181`）。因此「未标记控件移入豁免子树」不是未覆盖面，而是**第二层承担**的形态；补齐基于形态（`data-toolbar-slot`/`.view-btn`）或位置（三区外壳）的第一层反向判定需改产品代码（`toolbar.ts` 字节）—— 收口轮按红线只登记不修，留待下游在有产品改动时一并落地。"
+ ],
+ "differencesFromV3": [
+  "测量根：**不变**（v3 = document.body，见 docs/v3-density-baseline.json#caliber.measurementRoot；v4 = document.body）。真实差异是 v4 新增**豁免子树** DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]。〖订正注（review 修复轮 I3）〗本条曾误写「v3 = #panel-main（已退役）」——#panel-main 是 v3 的**区容器**，不是测量根；v3 的测量根自 v2 起即为 document.body（父 ADR-V3-001 明文），此处**订正为与 v3 基线逐字一致**，历史误述不在本文件保留（其原文见 git 历史）。",
+  "豁免子树：新增 DENSITY_EXCLUDED_SUBTREES=[\"#stream\"]（流本体不计入密度预算；单源 density-scope.ts），并以「单卡 ≤6 / 首屏 ≤2」两条防滥用 + RP-V4-01~03 补偿控制。",
+  "几何口径：v3 = 「#log ≥ 488px 像素下界」（v3 末轮登记值：docs/v3-density-baseline.json#logClientHeightFloor = 488；**589px 是 v1 历史锚**，在 v3-1 已被取代）→ v4 = 「#stream clientHeight ≥ 488px ∧ #region-stream 高度占比 ≥ 0.65」（比例下界取代像素下界，只允许上调）。〖订正注（review 修复轮 I3/I13）〗本条曾误以 589px 指代 v3 几何锚 —— 已按 v3 基线实测值订正；589px 表述仅作为 v1 历史锚保留在上述括注内。",
+  "格集：v3 = 9 强制 + 15 风险 + 1 worst（22 格）→ v4 = 31 格（9 强制 + 15 风险 + 3 空态 + 3 风险详情展开 + 1 worst）；v3 的 22 格冻结在 v3-density-baseline.json，不再参与判定。",
+  "composer：v3 = 常驻贴底（D-079）→ v4 = 法四（默认屏无可见常驻输入框；#composer 存在时必须 hidden，展开态位于 #stream 流内占位宿主）。",
+  "方向声明：以上全部是**换口径重定标**（收紧或等价），逐格数值与 v3 不可直接比较；v4 的 6 个新增格只增加登记面，不放松任何阈值（7/15 · 9/20 · 17/35 逐字不变）。"
+ ],
+ "measuredOn": "2026-09-19",
+ "measuredBy": "SDDU v4-1 build round R3 (leaf specs-tree-v4-1-zone-shell-density), TASK-511/512 收口实测",
+ "source": "packages/web-cli-plugin/dist/sidepanel.js",
+ "buildCommand": "npm run build --workspace @lgdl/web-cli-plugin",
+ "countMethod": "runtime-check-calls",
+ "registeredCells": 31,
+ "perCardBudget": {
+  "limit": 6,
+  "firstScreenLimit": 2,
+  "welcomeCardLimit": 1,
+  "welcomeLineLimit": 8,
+  "caliber": "一张「卡」= #stream 内**可见的** [data-msg-type]（v4-2 的 7 主类卡）或空态欢迎占位 (.log-empty-text)；li[data-transitional-host] 是过渡宿主、不是卡；#l0-decision 在 v4-1 仍是骨架占位宿主的内容体（v4-3 才换成 askuser/auth 卡），本叶不计为卡（见 knownLimitations）。",
+  "dynamicCells": "每档每视口逐格跑 evaluateCardBudget / evaluateFirstScreen（default / empty 档），只登记违规数 0（不登记逐卡明细，避免把动态格伪装成静态格）。",
+  "registeredViolations": 0,
+  "streamResidentClickableLimit": 8,
+  "residentNavFormCriterion": "V4-2 TASK-613 ①：带 [data-chrome-control] / [data-toolbar-slot] / .view-btn 的控件进入 #stream 即判为「常驻导航入口」并 FAIL（标记 + 形态双判据，`density-scope.ts#assertChromeNotInStream` 承载；反证 RP-V4-09 ②）。",
+  "aggregateCaliber": "V4-2 TASK-613 ③（收紧）：首屏（default / empty 档）可见卡**合计**可点 ≤ 8 —— 单卡 ≤6 之外的第二条上限；判据 `evaluateStreamResidentBudget()`，纳入 `evaluateFirstScreen()`（RP-V4-09 ① 真会红：两卡各 5 可点 = 10 ⇒ FAIL，且单卡预算仍 PASS）。",
+  "aggregateLimit": 8
+ },
+ "closeoutNote": "〖收口轮（2026-09-19，处置 v4-1 validate R1 的 N-01~N-08）〗本基线文件除新增上述两条 knownLimitations 外**零改动**：31 格实测值、阈值 7/15·9/20·17/35、几何下界 488px、体积登记 385,319 / 404,584、designCaliber 分列均逐字不变（阈值与上限只允许收紧，本轮无任何放宽）。密度门禁复跑实测 **171 passed / 0 failed**（R3 现场 169 → 171，为 review 修复轮 I6/I10 新增断言所致，已同步 v4 取代台账 counts.density）。 〖V4-2 build 轮（2026-09-19，TASK-613）〗本文件新增 `perCardBudget.streamResidentClickableLimit=8` / `aggregateCaliber` / `residentNavFormCriterion` 三项登记并把 `knownLimitations[0]` 从「v4-2 必须重审」更新为「已重审 + 结论」；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（体积字节重登记见 §volume 与 `test/size-baseline.ts`）。"
 }

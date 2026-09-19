@@ -1460,6 +1460,89 @@ async function reverseRpV407(cdp) {
   await setRisk(cdp, 'hardline', 'off');
 }
 
+/**
+ * RP-V4-09（V4-2 TASK-613 · 裁决：卡预算 × 常驻入口准入重审）——
+ * ① **形态判据**：带 `[data-toolbar-slot]` / `.view-btn` 的控件进入 `#stream` ⇒
+ *    `assertChromeNotInStream()` 必须抛错（这正是 v4-1 validate N-02 指出、当时
+ *    「只登记不修」的第一层反向判定，v4-2 落地）；
+ * ② **合计上限**：首屏两张卡各 5 可点（单卡 ≤6 全合规，合计 10）⇒ 首屏预算必须
+ *    FAIL，且失败原因必须是**合计**而非单卡（归因：单卡预算仍 PASS）。
+ *
+ * 两半都在 ONE 同步块内完成「前置 → 注入 → 读数 → 还原 → 读数」，任何重绘都无法插入。
+ */
+async function reverseRpV408(cdp) {
+  console.log('\n▶ RP-V4-09：流内常驻导航入口（形态判据）+ 首屏卡合计可点 > 8 → 必须 FAIL → 还原 → PASS');
+  await resetFixture(cdp);
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  const atomicProbe = `(() => {
+    const cards = () => (${STREAM_CARDS_FN})();
+    const guard = () => { try { window.__v3.testing.assertChromeNotInStream(); return 'pass'; } catch (e) { return 'throw:' + (e && e.message ? e.message : String(e)); } };
+    const stream = document.getElementById('stream');
+    const snap = () => JSON.stringify({ cards: cards(), guard: guard() });
+    const before = snap();
+    // ① aggregate: two cards × 5 clickables = 10 (per-card ≤6 holds for each).
+    const made = [];
+    for (let i = 0; i < 2; i += 1) {
+      const li = document.createElement('li');
+      li.setAttribute('data-msg-type', 'nextstep');
+      li.setAttribute('data-card-key', 'rp408-agg-' + i);
+      for (let j = 0; j < 5; j += 1) { const b = document.createElement('button'); b.textContent = 'chip-' + j; li.appendChild(b); }
+      stream.appendChild(li); made.push(li);
+    }
+    const agg = snap();
+    made.forEach((n) => n.remove());
+    // ② form criterion: a toolbar/view-shaped control inside a stream card.
+    const nav = document.createElement('li');
+    nav.setAttribute('data-msg-type', 'nextstep');
+    nav.setAttribute('data-card-key', 'rp408-nav');
+    const btn = document.createElement('button');
+    btn.setAttribute('data-toolbar-slot', 'view');
+    btn.className = 'view-btn';
+    btn.textContent = '越界入口';
+    nav.appendChild(btn); stream.appendChild(nav);
+    const navSnap = snap();
+    nav.remove();
+    const restored = snap();
+    return JSON.stringify({ before, agg, navSnap, restored });
+  })()`;
+  const res = JSON.parse(await evaluate(cdp, atomicProbe));
+  const judge = (snapJson) => {
+    const snap = JSON.parse(snapJson);
+    return {
+      guard: snap.guard,
+      firstScreen: evaluateFirstScreen(snap.cards, 'default'),
+      cardBudget: evaluateCardBudget(snap.cards),
+    };
+  };
+  const before = judge(res.before);
+  const agg = judge(res.agg);
+  const restored = judge(res.restored);
+  check('RP-V4-09 前置：基线首屏预算 PASS ∧ guard PASS（判据不恒真）', before.firstScreen.ok === true && before.guard === 'pass', res.before);
+  check(
+    'RP-V4-09 (FAIL 段 ①) 首屏两卡合计 10 可点 ⇒ 首屏预算必须 FAIL',
+    agg.firstScreen.ok === false,
+    JSON.stringify(agg.firstScreen),
+  );
+  check(
+    'RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 10 > 8」',
+    agg.firstScreen.violations.some((v) => /流内卡合计可点 10 > 8/.test(v)),
+    agg.firstScreen.violations.join(' / '),
+  );
+  check(
+    'RP-V4-09 归因：单卡预算仍 PASS（红的必须是**合计**，不是单卡规则）',
+    agg.cardBudget.ok === true,
+    JSON.stringify(agg.cardBudget.violations),
+  );
+  const navGuard = JSON.parse(res.navSnap).guard;
+  check('RP-V4-09 (FAIL 段 ②) 工具栏形态控件进入 #stream ⇒ 豁免守卫必须抛错', /^throw:/.test(navGuard), navGuard);
+  check(
+    'RP-V4-09 FAIL 段 ② 诊断含「常驻导航入口」',
+    /常驻导航入口/.test(navGuard),
+    navGuard,
+  );
+  check('RP-V4-09 (还原后 PASS 段) 还原后首屏预算 + guard 均回到 PASS', restored.firstScreen.ok === true && restored.guard === 'pass', res.restored);
+}
+
 // ── main ────────────────────────────────────────────────────────────────────
 async function main() {
   console.log(`▶ chrome: ${CHROME}`);
@@ -1567,6 +1650,9 @@ async function main() {
           break;
         case 'RP-V4-07':
           await reverseRpV407(cdp);
+          break;
+        case 'RP-V4-09':
+          await reverseRpV408(cdp);
           break;
         default:
           throw new Error(`未知反证：${REVERSE}`);

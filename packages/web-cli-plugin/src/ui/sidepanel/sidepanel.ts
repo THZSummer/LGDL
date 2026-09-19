@@ -15,8 +15,23 @@ import {
   type ChatRole,
   type SidepanelState,
 } from './chat-state.js';
-import { renderMarkdown } from './markdown.js';
 import { createScrollFollow, isNearBottom, type ScrollMetrics } from './scroll-policy.js';
+// V4-2 (TASK-604 / TASK-605 / TASK-607): the append-only stream — the model +
+// projection, the keyed incremental renderer and the zero-plaintext digest.
+import { appendEvent, createStreamState, liveCardIds, project } from './stream-model.js';
+import type { StreamEventKind } from './stream-model.js';
+import { createStreamRender, type StreamRenderHandle } from './stream-render.js';
+import {
+  DIGEST_DEGRADED_BODY,
+  createChromeDigestStore,
+  digestForViews,
+  digestToEvents,
+  evictDigests,
+  readDigest,
+  upsertDigest,
+  type DigestStore,
+} from './stream-digest.js';
+import type { CardDeps } from './cards/index.js';
 import {
   CONSENT_DEFAULT_OPEN,
   CONSENT_SUMMARY_TEXT,
@@ -102,143 +117,126 @@ const ROLE_LABEL: Record<ChatRole, string> = {
   system: '系统',
 };
 
-// TASK-023: tool-card collapse thresholds + per-entry remembered open state.
-// Long output (whole documents, CLI dumps) starts collapsed; short output is
-// expanded. Remembers explicit user toggles so a re-render (any state dispatch
-// rebuilds the list) does not reset them.
-const TOOL_LONG_CHARS = 480;
-const TOOL_LONG_LINES = 10;
-const TOOL_PREVIEW_MAX = 110;
-const toolOpenState = new Map<number, boolean>();
+// V4-2 (TASK-604 / TASK-607): the chat stream is drawn by the keyed incremental
+// renderer from `project(state.stream)`. The v1 per-entry rendering helpers
+// (`renderEntry` / `renderToolCard` / `renderCommand` / `renderThinking`) are
+// replaced by `cards/*`; the legacy class names they produced live on in the card
+// shell so the existing gates/selectors keep matching.
+//
+// The folding memory key changed from the legacy entry id to the **cardId**
+// (ADR-V4-025 decision 6) — semantically equivalent, and stable across re-renders
+// because the card's event stream owns its identity.
+const toolOpenState = new Map<string, boolean>();
 
-/** First non-empty line, trimmed + truncated, for the collapsed card summary. */
-function firstLine(text: string): string {
-  const line = text.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? '';
-  return line.length > TOOL_PREVIEW_MAX ? `${line.slice(0, TOOL_PREVIEW_MAX)}…` : line;
-}
-
-/** A command line the agent is about to run (compact monospace, not a bubble). */
-function renderCommand(entry: SidepanelState['entries'][number]): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'cmd';
-  const prompt = document.createElement('span');
-  prompt.className = 'cmd-prompt';
-  prompt.textContent = '›';
-  const code = document.createElement('code');
-  code.className = 'cmd-text';
-  code.textContent = entry.text;
-  wrap.append(prompt, code);
-  return wrap;
-}
-
-/** Collapsible tool card: header = tool name + status + duration (+ preview). */
-function renderToolCard(entry: SidepanelState['entries'][number]): HTMLElement {
-  const details = document.createElement('details');
-  details.className = 'tool-card';
-  const lineCount = entry.text.split('\n').length;
-  const isLong = entry.text.length > TOOL_LONG_CHARS || lineCount > TOOL_LONG_LINES;
-  const remembered = toolOpenState.get(entry.id);
-  details.open = remembered ?? !isLong;
-
-  const summary = document.createElement('summary');
-  summary.className = 'tool-card-head';
-
-  const name = document.createElement('span');
-  name.className = 'tool-name';
-  name.textContent = entry.tool ?? '工具';
-
-  const status = document.createElement('span');
-  status.className = `tool-status ${entry.ok === false ? 'fail' : entry.ok === true ? 'ok' : 'unknown'}`;
-  status.textContent = entry.ok === false ? '✖ 失败' : entry.ok === true ? '✓ 成功' : '完成';
-
-  summary.append(name, status);
-  if (typeof entry.ms === 'number') {
-    const ms = document.createElement('span');
-    ms.className = 'tool-ms';
-    ms.textContent = `${entry.ms} ms`;
-    summary.appendChild(ms);
+/**
+ * Injected into every card: the `<details>` memory + the v4-3/v4-4 action seam.
+ * Built lazily — the module must stay importable in node tests, where `document`
+ * does not exist (the v1 module documented the same constraint).
+ */
+let cardDepsHandle: CardDeps | null = null;
+function cardDeps(): CardDeps {
+  if (!cardDepsHandle) {
+    cardDepsHandle = {
+      doc: document,
+      toolOpen: {
+        get: (cardId) => toolOpenState.get(cardId),
+        set: (cardId, open) => toolOpenState.set(cardId, open),
+      },
+      onCardAction: (cardId, action, value) => handleCardAction(cardId, action, value),
+    };
   }
-  const preview = firstLine(entry.text);
-  if (preview) {
-    const p = document.createElement('span');
-    p.className = 'tool-preview';
-    p.textContent = preview;
-    summary.appendChild(p);
-  }
-
-  const body = document.createElement('pre');
-  body.className = 'tool-card-body';
-  body.textContent = entry.text;
-
-  details.append(summary, body);
-  details.addEventListener('toggle', () => toolOpenState.set(entry.id, details.open));
-  return details;
-}
-
-/** Thinking indicator shown while a (non-streaming) LLM call is in flight. */
-function renderThinking(): HTMLElement {
-  const block = document.createElement('div');
-  block.className = 'entry entry-assistant msg msg-assistant msg-thinking';
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-content content-assistant thinking';
-  bubble.setAttribute('role', 'status');
-  bubble.setAttribute('aria-label', '助手正在处理…');
-  for (let i = 0; i < 3; i += 1) {
-    const dot = document.createElement('span');
-    dot.className = 'thinking-dot';
-    bubble.appendChild(dot);
-  }
-  block.appendChild(bubble);
-  return block;
+  return cardDepsHandle;
 }
 
 /**
- * TASK-022/TASK-023: render one chat entry as a role-distinguished block.
- *
- * - user      → right-aligned indigo bubble (verbatim text)
- * - assistant → left-aligned slate bubble (safe Markdown)
- * - tool      → collapsible tool card when the background supplied a name,
- *               otherwise a compact dashed notice (e.g. LLM retry notice)
- * - system    → amber bubble; `kind==='error'` gets the red `.entry-error` style
- * - command   → compact monospace command line
- *
- * Legacy `.entry` / `.entry-<role>` / `.entry-error` selectors are preserved for
- * existing gates (zero regression).
+ * The card skeleton actions. v4-2 deliberately does NOT implement the ask/auth/ref
+ * business (that is v4-3 / v4-4): a skeleton control that has a real v1 path today
+ * routes into it, everything else is a readable placeholder notice (never a silent
+ * no-op).
  */
-function renderEntry(entry: SidepanelState['entries'][number]): HTMLElement {
-  const block = document.createElement('div');
-  const errCls = entry.kind === 'error' ? ' entry-error' : '';
+function handleCardAction(cardId: string, action: string, value?: string): void {
+  if (action === 'answer' || action === 'cancel') {
+    submitAsk(value, action === 'cancel');
+    return;
+  }
+  if (action === 'approve' || action === 'reject') {
+    dispatch({ type: 'confirm-resolved', allow: action === 'approve' });
+    return;
+  }
+  if (action === 'next' && value) {
+    dispatch({ type: 'notice', text: `已选：${value}（推荐卡发起在 v4-4 落地）` });
+    return;
+  }
+  dispatch({ type: 'notice', text: `该卡片的「${action}」交互将在 v4-3 / v4-4 落地（本叶只固化契约）` });
+  void cardId;
+}
 
-  if (entry.role === 'tool' && entry.tool) {
-    block.className = `entry entry-${entry.role} msg msg-${entry.role}${errCls}`;
-    block.appendChild(renderToolCard(entry));
-    return block;
-  }
-  if (entry.kind === 'command') {
-    block.className = `entry entry-${entry.role} msg msg-${entry.role} msg-command${errCls}`;
-    block.appendChild(renderCommand(entry));
-    return block;
-  }
-  if (entry.role === 'tool') {
-    block.className = `entry entry-${entry.role} msg msg-${entry.role}${errCls}`;
-    const notice = document.createElement('div');
-    notice.className = 'msg-notice content-tool';
-    notice.textContent = entry.text;
-    block.appendChild(notice);
-    return block;
-  }
+/** The keyed incremental renderer (created once, after the DOM is present). */
+let streamRender: StreamRenderHandle | null = null;
 
-  block.className = `entry entry-${entry.role} msg msg-${entry.role}${errCls}`;
-  const bubble = document.createElement('div');
-  bubble.className = `msg-content content-${entry.role}`;
-  bubble.setAttribute('aria-label', ROLE_LABEL[entry.role]);
-  if (entry.role === 'assistant') {
-    bubble.appendChild(renderMarkdown(entry.text, document));
-  } else {
-    bubble.textContent = entry.text;
+function streamRenderer(): StreamRenderHandle {
+  if (!streamRender) {
+    streamRender = createStreamRender({ container: $('stream'), doc: document, deps: cardDeps(), emptyText: LOG_EMPTY_TEXT });
   }
-  block.appendChild(bubble);
-  return block;
+  return streamRender;
+}
+
+/* ── V4-2 (TASK-605 / TASK-606): the panel-side zero-plaintext digest ──────── */
+
+/** The store is created lazily so node imports of this module need no `chrome`. */
+let digestStoreHandle: DigestStore | null = null;
+function streamDigestStore(): DigestStore {
+  if (!digestStoreHandle) digestStoreHandle = createChromeDigestStore();
+  return digestStoreHandle;
+}
+
+/**
+ * Persist a session segment as a whitelist digest (LRU 20). Best-effort: the
+ * zero-plaintext guard THROWS on a leak, and a throw must never be swallowed into
+ * a persisted value — it is reported readably and nothing is written.
+ */
+async function persistStreamDigest(sid: string | null): Promise<void> {
+  if (!sid) return;
+  try {
+    const views = project(state.stream, { sessionId: sid });
+    // Never re-persist a degraded fact: the placeholder body means the card was
+    // itself rebuilt from a digest, and persisting it again would double the
+    // entry on every reopen (a restore → persist → restore growth loop).
+    const entries = digestForViews(views.filter((v) => v.payload.text !== DIGEST_DEGRADED_BODY));
+    if (entries.length === 0) return;
+    await upsertDigest(streamDigestStore(), sid, entries, Date.now());
+    await evictDigests(streamDigestStore());
+  } catch (err) {
+    console.warn('[v4-2] 摘要落库被拒（零明文白名单 / LRU）：', err instanceof Error ? err.message : String(err));
+  }
+}
+
+/**
+ * Panel reopen: read the digest back and rebuild the fact timeline in DEGRADED
+ * form（正文 =「（历史摘要）」, `seq`/`ts`/`terminal`/`tool`/`ok`/`ms` preserved）.
+ * Only fires when the panel really has no live history for the session — a normal
+ * open never degrades anything.
+ */
+async function restoreStreamDigest(sid: string | null): Promise<void> {
+  if (!sid) return;
+  if (state.entries.length > 0) return;
+  if (state.stream.events.some((e) => e.sessionId === sid)) return;
+  try {
+    const entries = await readDigest(streamDigestStore(), sid);
+    // Narrowed restore surface (registered): the digest keeps every whitelisted
+    // fact, but the AUTOMATIC reopen rebuild only replays the **decision cards**
+    // (`askuser`/`auth`) — the「授权记录可回看」rationale of ADR-V4-028 §5. Replaying
+    // every tool/system row on boot would change the fresh-panel reading and
+    // collide with the frozen empty-log / 320-resident-set gates.
+    // Only SETTLED decisions are replayed — an open ask is stale by definition on
+    // a fresh panel and must not be re-offered as if it were still pending.
+    const decisions = entries.filter((e) => (e.kind === 'askuser' || e.kind === 'auth') && e.terminal !== undefined);
+    if (decisions.length === 0) return;
+    dispatch({ type: 'stream-session', sessionId: sid, label: sid });
+    dispatch({ type: 'stream-merge', events: digestToEvents(decisions, sid) });
+  } catch (err) {
+    console.warn('[v4-2] 摘要读回失败（按无摘要处理）：', err instanceof Error ? err.message : String(err));
+  }
 }
 
 /**
@@ -581,6 +579,44 @@ function installV3TestHooks(): void {
       ask(prompt: string, options: string[]) {
         dispatch({ type: 'ask', requestId: 'v3-test-ask', kind: 'choice', prompt, options });
       },
+      /**
+       * V4-2 (TASK-610) test seam — seed stream events through the REAL model +
+       * renderer (no shadow implementation). Used by `test/ui/stream.mjs` to drive
+       * every one of the 12 card types and the open→terminal固化 transition, which
+       * the live product only reaches through v4-3 / v4-4 business flows.
+       */
+      streamSeed(spec: Array<{ kind: StreamEventKind; cardId?: string; payload?: Record<string, unknown>; terminal?: string; ts?: number }>) {
+        for (const e of spec) {
+          state = {
+            ...state,
+            stream: appendEvent(state.stream, {
+              kind: e.kind,
+              ts: e.ts ?? Date.now(),
+              ...(e.cardId !== undefined ? { cardId: e.cardId } : {}),
+              payload: (e.payload ?? {}) as never,
+              ...(e.terminal !== undefined ? { terminal: e.terminal as never } : {}),
+            }),
+          };
+        }
+        render();
+        return state.stream.events.length;
+      },
+      /** V4-2: rendered vs projected card count (the `children === project()` proof). */
+      streamStats() {
+        return {
+          rendered: streamRender?.cardCount() ?? 0,
+          projected: project(state.stream).length,
+          dropped: state.stream.dropped,
+          seq: state.stream.seq,
+        };
+      },
+      /** V4-2: a fresh event log + renderer (the fixture reset for the stream gate). */
+      streamReset() {
+        state = { ...state, stream: createStreamState(state.stream.sessionId) };
+        streamRender?.reset();
+        render();
+        return true;
+      },
       clearAsk() {
         dispatch({ type: 'ask-resolved' });
       },
@@ -612,6 +648,13 @@ function installV3TestHooks(): void {
         rescueProbedId = null;
         anchoredRefIds.clear();
         l1?.setSnapshot(null, null);
+        // V4-2: the append-only stream is per-fixture state too. A gate fixture calls
+        // `reset()` to return to a known state; without clearing the event log the
+        // cards of the previous cell would legitimately accumulate (append-only!) and
+        // silently shift the next cell's measurement. This is the TEST seam only —
+        // the product never clears the stream.
+        state = { ...state, stream: createStreamState(state.stream.sessionId) };
+        streamRender?.reset();
         render();
       },
       snapshot() {
@@ -837,43 +880,19 @@ function render(): void {
   // `scroll` events (post-layout), not from a `scrollTop`/`scrollHeight` read
   // taken before the append. The user's own send forces a follow one-shot.
   const follow = scrollFollow.shouldFollow();
-  const prevTop = log.scrollTop;
-  // V4-1（ADR-V4-005 第 6 条 / ADR-V4-017 第 7 条）——`#stream` 现在同时承载
-  // **占位宿主**（`li[data-transitional-host]`：决策卡 / composer / L1 内容层 /
-  // 提示带）与消息条目。v3 的 `log.textContent = ''` 整段清空会把宿主一并销毁
-  // （首个 render 就会让 `#l0-decision` / `#l1-more` / `#composer` 消失），故这里只
-  // 清扫**消息条目**（无 `data-transitional-host` 的子节点），并在决策卡宿主之后按
-  // 序插入本轮条目 —— 宿主是 v4-3 / v4-4 的退役面，本叶只建不销。
-  // （v4-2 会把它换成 keyed 增量渲染；此处是过渡形态，语义与 v3 清空等价。）
-  for (const node of [...log.children]) {
-    if (!(node as HTMLElement).hasAttribute('data-transitional-host')) node.remove();
-  }
-  const decisionHost = log.querySelector(':scope > li[data-host="decision"]');
-  const fresh = document.createDocumentFragment();
-  let wantFollow = false;
-  if (isLogEmpty(state.entries.length) && !state.pending) {
-    // F-5: never a large blank box — a readable placeholder instead.
-    log.classList.add('empty');
-    const placeholder = document.createElement('p');
-    placeholder.className = 'log-empty-text';
-    placeholder.textContent = LOG_EMPTY_TEXT;
-    fresh.appendChild(placeholder);
-  } else {
-    log.classList.remove('empty');
-    for (const entry of state.entries) {
-      fresh.appendChild(renderEntry(entry));
-    }
-    if (state.pending) fresh.appendChild(renderThinking());
-    wantFollow = follow;
-  }
-  if (decisionHost) decisionHost.after(fresh);
-  else log.appendChild(fresh);
-  if (wantFollow) {
+  // V4-2 (ADR-V4-025): the message region is rendered by the keyed incremental
+  // renderer. There is NO `textContent = ''` / `replaceChildren()` and NO
+  // scrollTop 回写 — the容器 never loses its nodes, so the reading position is
+  // preserved by the browser and only an actual append may pin to the bottom.
+  // The `li[data-transitional-host]` hosts (决策卡 / composer / L1 内容层 / 提示带)
+  // stay untouched: they are retired by v4-3 / v4-4, not by this leaf.
+  const views = project(state.stream);
+  const live = liveCardIds(state.stream);
+  const { appended } = streamRenderer().render(views, live);
+  const empty = isLogEmpty(state.entries.length) && !state.pending;
+  streamRenderer().setEmpty(empty);
+  if (appended > 0 && follow) {
     followToBottom(log);
-  } else if (!isLogEmpty(state.entries.length) || state.pending) {
-    // Not following: clearing the list reset scrollTop to 0, so restore the
-    // user's reading position (they explicitly scrolled away — never yank them).
-    log.scrollTop = prevTop;
   }
   syncScrollAnchor(log);
   updateScrollHint();
@@ -926,6 +945,13 @@ function render(): void {
   // FR-V3-012: a free-text ask has no choices, so its fallback input opens at once.
   if (state.ask?.kind === 'text') l0?.revealFallback();
   $('audit-count').textContent = `审计 ${state.auditCount} 条`;
+  // TASK-606 (ADR-V4-028 decision 4): the bound's drop count is READABLE in the
+  // status bar (never silent). The suffix is only written when something was
+  // actually dropped, so the default density reading is byte-identical.
+  if (state.stream.dropped > 0) {
+    const bar = document.getElementById('statusbar-text');
+    if (bar) bar.textContent = `${bar.textContent} · 流已淘汰 ${state.stream.dropped} 条（截断规则见台账）`;
+  }
 }
 
 /**
@@ -1241,14 +1267,22 @@ function submitAsk(value: string | undefined, canceled: boolean): void {
   pendingRefId = null;
   const res = resolveAsk(state, value, canceled);
   if (res && !refId) void send(makeMessage('ask-user-response', { ...res }));
-  dispatch({ type: 'ask-resolved' });
+  // V4-2: the answer is carried into the terminal event so the card's固化 region
+  // can show 「已答：<answer>」 (取消 carries the explicit cancelled terminal).
+  dispatch({
+    type: 'ask-resolved',
+    ...(res && !res.canceled && res.value !== undefined ? { answer: res.value } : {}),
+    canceled: res ? res.canceled : canceled,
+  });
   if (refId && !canceled && typeof value === 'string' && value.trim()) {
     applyRefAction(refId, value.trim());
   }
 }
 
 function dispatch(action: Parameters<typeof reduce>[1]): void {
-  state = reduce(state, action);
+  // V4-2: the ONE clock the pure reducer may read — stamped at the dispatch
+  // boundary so `reduce`/`project` stay deterministic and replay-equivalent.
+  state = reduce(state, { ...action, at: Date.now() });
   render();
 }
 
@@ -1515,15 +1549,23 @@ async function refreshSessions(applyHistory: boolean): Promise<void> {
     groups = res.data.groups ?? [];
     const incoming = res.data.currentSessionId ?? null;
     const changed = incoming !== null && incoming !== sessionId;
+    if (changed) void persistStreamDigest(sessionId);
     if (incoming) sessionId = incoming;
     if (applyHistory || changed) {
-      dispatch({ type: 'history', entries: historyEntries(res.data.history) });
+      dispatch({ type: 'history', entries: historyEntries(res.data.history), ...sessionActionFields() });
     } else {
       render();
     }
   } catch (err) {
     dispatch({ type: 'notice', text: `✖ 读取会话列表失败：${err instanceof Error ? err.message : String(err)}` });
   }
+}
+
+/** The active-segment fields every `history` dispatch carries (V4-2 / TASK-606). */
+function sessionActionFields(): { sessionId?: string; sessionLabel?: string } {
+  const id = sessionId ?? undefined;
+  const label = sessions.find((s) => s.sessionId === sessionId)?.label ?? id;
+  return { ...(id ? { sessionId: id } : {}), ...(label ? { sessionLabel: label } : {}) };
 }
 
 /** decision ② / FR-048: switch to a session chosen in the switcher. */
@@ -1537,8 +1579,11 @@ async function switchToSession(target: string): Promise<void> {
       dispatch({ type: 'notice', text: `✖ 切换会话失败：${res.error ?? '后台无响应'}` });
       return;
     }
+    // V4-2 (TASK-606 / ADR-V4-028): flush the OLD segment's digest before the
+    // switch; the event log itself is never cleared.
+    void persistStreamDigest(sessionId);
     sessionId = res.data.sessionId ?? target;
-    dispatch({ type: 'history', entries: historyEntries(res.data.history) });
+    dispatch({ type: 'history', entries: historyEntries(res.data.history), ...sessionActionFields() });
     dispatch({ type: 'notice', text: `已切换到会话：${sessions.find((s) => s.sessionId === sessionId)?.label ?? sessionId}` });
     await refreshSessions(false);
   } catch (err) {
@@ -1795,7 +1840,12 @@ function wire(): void {
   });
   // The layer lives only while the panel does (ADR-V3-030 §4). The port disconnect in
   // the background covers the hard close; this covers a panel unload/reload.
-  window.addEventListener('pagehide', () => pickInput?.teardown());
+  window.addEventListener('pagehide', () => {
+    pickInput?.teardown();
+    // V4-2 (TASK-605): flush the active session's digest on close. `pagehide` is
+    // the reliable teardown signal for an extension page (no `beforeunload`).
+    void persistStreamDigest(sessionId);
+  });
 
   // TASK-033: the settings entry opens an in-panel view in the SAME document.
   // It never opens the options page and never opens a new tab.
@@ -2132,7 +2182,7 @@ if (typeof document !== 'undefined') {
     // V3-3 (FR-V3-046): the audit count must be the real ring-buffer length from the
     // first paint, not a placeholder `0` — one read of the existing channel.
     void refreshAuditView();
-    void refreshState();
+    void refreshState().then(() => restoreStreamDigest(sessionId));
     void refreshLlmStatus();
     // TASK-028: auto-test the current model config once per panel load and render
     // the readable status (no standalone「测试连接」button anymore).

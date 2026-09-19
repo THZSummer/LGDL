@@ -138,6 +138,13 @@ test('empty-log centering is gated on #log having no entry elements (D-043 / TAS
   // text wrapping / long-word safety is preserved
   assert.match(html, /white-space: pre-wrap;/);
   assert.match(html, /overflow-wrap: anywhere;/);
+  // V4-2 契约 ④ 追加（TASK-611）：空态由**流渲染器**拥有 —— `#stream.empty` 的切换
+  // 与 `.log-empty-text` 的创建/移除都在 `stream-render.ts`（不再由 sidepanel 直接
+  // 整段清空重建），这样宿主与卡节点在空/非空切换中都不被销毁。
+  const renderer = read('../../src/ui/sidepanel/stream-render.ts');
+  assert.match(renderer, /container\.classList\.toggle\('empty', show\)/);
+  assert.match(renderer, /p\.className = 'log-empty-text'/);
+  assert.match(renderer, /setEmpty/);
 });
 
 test('TASK-022: message blocks + safe Markdown are wired (static surface)', () => {
@@ -148,11 +155,17 @@ test('TASK-022: message blocks + safe Markdown are wired (static surface)', () =
   assert.match(html, /\.msg-content pre \{[\s\S]*?overflow-x: auto;/);
   assert.match(html, /\.msg-content table \{[\s\S]*?overflow-x: auto;/);
 
-  const ts = read('../../src/ui/sidepanel/sidepanel.ts');
-  assert.match(ts, /import \{ renderMarkdown \} from '\.\/markdown\.js';/);
-  assert.match(ts, /entry-\$\{entry\.role\} msg msg-\$\{entry\.role\}/);
-  assert.match(ts, /entry\.role === 'assistant'/);
+  // V4-2 等价改写（TASK-607 / ADR-V4-026）：消息渲染从 `sidepanel.ts` 的
+  // `renderEntry` 迁到 `cards/*`（同一套 `data-msg-type` + 旧类名载体）。断言语义不变：
+  // ① AI 卡仍走 `markdown.ts` 的安全 Markdown；② 卡挂在流里且带规范契约。
+  const ai = read('../../src/ui/sidepanel/cards/ai.ts');
+  assert.match(ai, /import \{ renderMarkdown \} from '\.\.\/markdown\.js';/);
+  assert.match(ai, /bubble\.className = 'msg-content content-assistant'/);
+  const shell = read('../../src/ui/sidepanel/cards/shared.ts');
+  assert.match(shell, /li\.setAttribute\('data-msg-type', view\.kind\)/);
+  assert.match(shell, /li\.setAttribute\('data-card-key', view\.cardId\)/);
   // The old `role: text` plain-text line must be gone.
+  const ts = read('../../src/ui/sidepanel/sidepanel.ts');
   assert.equal(/textContent = `\$\{entry\.role\}: \$\{entry\.text\}`/.test(ts), false);
 });
 
@@ -635,11 +648,17 @@ test('TASK-023 messages: role bubbles + collapsible tool card styles exist', () 
   assert.match(html, /@media \(prefers-color-scheme: dark\)/);
   assert.match(html, /color-scheme: light dark/);
 
+  // V4-2 等价改写（TASK-603 / TASK-607）：v1 的四个渲染器从 `sidepanel.ts` 迁到
+  // `cards/*`；断言逐条重锚到新模块，语义（details 折叠 + toggle 记忆 + 思考指示 +
+  // 滚动跟随判据）不变。
+  const tool = read('../../src/ui/sidepanel/cards/tool.ts');
+  assert.match(tool, /createElement\('details'\)/);
+  assert.match(tool, /details\.className = 'tool-card'/);
+  assert.match(tool, /addEventListener\('toggle'/);
+  const thinking = read('../../src/ui/sidepanel/cards/thinking.ts');
+  assert.match(thinking, /createThinkingCard/);
+  assert.match(thinking, /patchThinkingCard/);
   const ts = read('../../src/ui/sidepanel/sidepanel.ts');
-  assert.match(ts, /createElement\('details'\)/);
-  assert.match(ts, /className = 'tool-card'/);
-  assert.match(ts, /addEventListener\('toggle'/);
-  assert.match(ts, /renderThinking\(\)/);
   assert.match(ts, /isAtBottom\(/);
 });
 
@@ -681,8 +700,9 @@ test('FR-050: a failed tool result is marked kind=error (error styling), a succe
 });
 
 test('FR-050: the side panel renders failed tool cards with the error class + fail status', () => {
-  const ts = read('../../src/ui/sidepanel/sidepanel.ts');
-  // errCls is derived from kind==='error' and applied to the tool-card wrapper.
-  assert.match(ts, /entry\.kind === 'error' \? ' entry-error' : ''/);
-  assert.match(ts, /entry\.ok === false \? 'fail'/);
+  // V4-2 等价改写（TASK-603 / ADR-V4-026）：失败工具卡由 `cards/tool.ts` 产出，
+  // `entry-error` 落在卡 `<li>`（`closest('.entry')` 仍命中），状态仍是 `fail`。
+  const tool = read('../../src/ui/sidepanel/cards/tool.ts');
+  assert.match(tool, /if \(view\.payload\.ok === false\) legacy\.push\('entry-error'\)/);
+  assert.match(tool, /view\.payload\.ok === false \? 'fail'/);
 });

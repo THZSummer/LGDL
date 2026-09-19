@@ -57,6 +57,7 @@ import {
   VIEWPORT_HEIGHT,
 } from './_v3-helpers.mjs';
 import {
+  DENSITY_MEASURE_SOURCE,
   RISK_SUBSCENARIOS,
   STREAM_HEIGHT_RATIO_MIN,
   riskVisibilityProbeSource,
@@ -1035,6 +1036,33 @@ async function main() {
     check('⑬ 主题三态循环 = auto → light → dark → auto（回到起点，无第四态）', themeCycle.map((s) => s.state).join('→') === 'auto→light→dark→auto', JSON.stringify(themeCycle.map((s) => s.state)));
     check('⑬ auto 态不写 `data-theme`（交给 prefers-color-scheme 决定）', themeCycle[0].attr === null, JSON.stringify(themeCycle[0]));
     check('⑬ light / dark 态分别写 `data-theme="light"` / `"dark"`', themeCycle[1].attr === 'light' && themeCycle[2].attr === 'dark', JSON.stringify([themeCycle[1].attr, themeCycle[2].attr]));
+
+    // ══ ⑮ V4-2（TASK-611）：`#stream` 内卡不污染外壳密度（豁免子树机器复算） ══
+    // 追加断言（+2，不改既有语义）：用**产品口径**（排除 `#stream` 的三区外壳）在
+    // 注入流内卡前后复算 —— 外壳计数必须逐项不变；同时反向证明该卡**真的**带可点，
+    // 否则「不变」可能只是因为它根本没渲染（恒真判据）。
+    console.log('\n▶ ⑮ `#stream` 内卡不污染外壳密度（豁免只有 `hidden` 一条通道）');
+    const shellBefore = await evaluate(cdp, DENSITY_MEASURE_SOURCE);
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamSeed([{ kind: 'nextstep', cardId: 'l0-density-probe', payload: { chips: ['甲', '乙', '丙'] } }])`,
+    );
+    await sleep(200);
+    const shellAfter = await evaluate(cdp, DENSITY_MEASURE_SOURCE);
+    const probeClickables = await evaluate(
+      cdp,
+      `document.querySelectorAll('[data-card-key="l0-density-probe"] button').length`,
+    );
+    check(
+      '⑮ 流内新增 3 可点卡后**外壳**可点数逐项不变（`#stream` 是豁免子树，卡不入密度）',
+      shellAfter.clickables === shellBefore.clickables && shellAfter.blocks === shellBefore.blocks,
+      `before C1=${shellBefore.clickables}/C3=${shellBefore.blocks} → after C1=${shellAfter.clickables}/C3=${shellAfter.blocks}`,
+    );
+    check(
+      '⑮ 反向：该卡确实渲染出 3 个可点（「不变」不是因为卡没渲染 ⇒ 判据不恒真）',
+      probeClickables === 3,
+      `probeClickables=${probeClickables}`,
+    );
 
     check('无未捕获页面异常（渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();

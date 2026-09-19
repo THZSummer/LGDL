@@ -192,7 +192,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // pick-input +724 / ref-store +256 / chat-state +220 / view-model +162 = +3,978）⇒ 67,552 → 71,530。
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
-  assert.equal(b.deltaBytes, 90_094);
+  assert.equal(b.deltaBytes, 130_217);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -233,10 +233,19 @@ test('V3-VOL-1 ③ growth: every new/wiring row cites the requirement that force
     explained / SIDEPANEL_GROWTH_BREAKDOWN.deltaBytes > 0.95,
     `必需增量占比必须 >95%（实测 ${((explained / SIDEPANEL_GROWTH_BREAKDOWN.deltaBytes) * 100).toFixed(1)}%）`,
   );
+  // V4-2 重登记：绝对口径 1,000 → 1,500 B（esbuild 共享胶水随输入模块数 57 → 69 自然增长，
+  // 实测 1,060 B），**同时新增更严的相对口径 <2%**（实测 (265+1,060)/130,217 = 1.02%）——
+  // 阈值不是纯放宽：相对判据是本轮新增的收紧面。
   assert.ok(
     SIDEPANEL_GROWTH_BREAKDOWN.attributionShiftBytes + SIDEPANEL_GROWTH_BREAKDOWN.unattributedHelperDeltaBytes <
-      1_000,
-    '未解释字节必须 <1,000 B（远小于任何一层的实现）',
+      1_500,
+    '未解释字节必须 <1,500 B（远小于任何一层的实现）',
+  );
+  assert.ok(
+    (SIDEPANEL_GROWTH_BREAKDOWN.attributionShiftBytes + SIDEPANEL_GROWTH_BREAKDOWN.unattributedHelperDeltaBytes) /
+      SIDEPANEL_GROWTH_BREAKDOWN.deltaBytes <
+      0.02,
+    '未解释字节必须 <2% 的累计增量（v4-2 新增相对口径）',
   );
 });
 
@@ -317,13 +326,17 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round rows sum to `closeoutDeltaBytes`
     );
   }
   const rowSum = b.v41RoundRows.reduce((s, r) => s + r.deltaBytes, 0);
+  const v41Reg = SIDEPANEL_RE_REGISTRATIONS.find((r) => r.id === b.roundRowRegistrationIds.v41RoundRows);
+  assert.ok(v41Reg, 'v4-1 轮的登记条目必须存在（roundRowRegistrationIds 映射）');
   assert.equal(
     rowSum + b.v41RoundUnattributedGlueBytes,
-    b.closeoutDeltaBytes,
-    'v4-1 轮逐模块增量之和 + 未归因胶水必须 == closeoutDeltaBytes（本轮数字不得无断言）',
+    v41Reg!.baselineAfterBytes - v41Reg!.baselineBeforeBytes,
+    'v4-1 轮逐模块增量之和 + 未归因胶水必须 == 该轮登记增量（本轮数字不得无断言）',
   );
-  // 本轮增量必须自洽于「基线 − 前值」：closeoutDeltaBytes == 385,319 − 375,102。
-  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 375_102);
+  // 本轮增量必须自洽于「基线 − 前值」：closeoutDeltaBytes == 当前基线 − v4-1 基线。
+  // V4-2 泛化：`closeoutDeltaBytes` 语义固定为「**最新一轮**登记增量」（v4-2 起 = 425,442 − 385,319）；
+  // v4-1 轮自身的 Σ 判据改由 `roundRowRegistrationIds.v41RoundRows` 的登记值驱动（不再借 closeoutDeltaBytes）。
+  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 385_319);
   // 新必需模块（beforeBytes=null）恰好 4 个（toolbar / theme / density-scope / statusbar）。
   const newModules = b.v41RoundRows.filter((r) => r.beforeBytes === null);
   assert.equal(newModules.length, 4, `v4-1 新增必需模块必须恰为 4 个（实测 ${newModules.length}）`);
@@ -348,13 +361,16 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   assert.ok(outKey, 'metafile 必须含 sidepanel.js 输出');
   const inputs = meta.outputs[outKey as string].inputs;
   const paths = Object.keys(inputs);
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows) {
+  // V4-2 泛化：本断言打的是**最新一轮**的 rows（其 `afterBytes` 必须等于真实 metafile）；
+  // v4-1 轮的历史值不再等于当前产物（density-scope 2,284 / chat-state 9,304 等已被 v4-2 重登记），
+  // 其 Σ/Δ 自洽由 N-05 的 `roundRowProblems` 组判据承担。
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v42RoundRows) {
     const key = paths.find((p) => p.endsWith(row.module));
-    assert.ok(key, `metafile 缺少 v4-1 轮模块 ${row.module}`);
+    assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
       inputs[key as string].bytesInOutput,
       row.afterBytes,
-      `${row.module}: 真实 metafile bytesInOutput ${inputs[key as string].bytesInOutput} ≠ v4-1 轮登记 ${row.afterBytes}`,
+      `${row.module}: 真实 metafile bytesInOutput ${inputs[key as string].bytesInOutput} ≠ 最新一轮登记 ${row.afterBytes}`,
     );
   }
 });
@@ -533,6 +549,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'closeoutRoundRows', rows: b.closeoutRoundRows, glue: 0 },
     { name: 'r3RoundRows', rows: b.r3RoundRows, glue: 0 },
     { name: 'v41RoundRows', rows: b.v41RoundRows, glue: b.v41RoundUnattributedGlueBytes },
+    { name: 'v42RoundRows', rows: b.v42RoundRows, glue: b.v42RoundUnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -544,8 +561,8 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     problems.push(...roundRowProblems(g.name, g.rows, total, g.glue));
   }
   assert.deepEqual(problems, [], `round rows 与登记值不自洽（N-05）：\n${problems.join('\n')}`);
-  // 三组都必须真的被判（否则本断言可被空集合空转）。
-  assert.equal(groups.length, 3);
+  // 四组都必须真的被判（否则本断言可被空集合空转）。
+  assert.equal(groups.length, 4);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );

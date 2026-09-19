@@ -50,7 +50,7 @@ test('V2-2 size: sidepanel regression ceiling is floor(baseline × 1.05) — 判
     SIDEPANEL_CEILING_UNCAPPED,
     'ceiling 必须等于「未加 cap 的公式值」——判定里不得存在任何隐藏上限',
   );
-  assert.equal(SIDEPANEL_CEILING, 404_584, 'ceiling = floor(385,319 × 1.05)（v4-1 三区骨架重登记后由公式抬高）');
+  assert.equal(SIDEPANEL_CEILING, 446_714, 'ceiling = floor(425,442 × 1.05)（v4-2 聊天流事件模型重登记后由公式抬高）');
   // 裁决 V3-VOL-1 ②：cap 降级为**纯记录字段**，判定路径不得再读取它。
   assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only', 'cap 只能是记录字段');
   assert.equal(SIDEPANEL_CEILING_CAP_RECORD, 306_099, 'cap 历史值仅作记录');
@@ -260,7 +260,7 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
   // （+10,217 B，+2.72%）：三区骨架 + 工具栏/状态栏/主题 + 密度口径单源（4 个新必需模块 + 7 处接线
   // / 2 处退役面收缩，逐模块归因见 SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows）；
   // content.js 177,076 B 与 pick-layer.js 33,900 B 逐字节不变（sha256 复核）。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 385_319);
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 425_442);
   // previousBaselineBytes 是 GROWTH_BREAKDOWN 的**参照树**基线（v3-1 I6 的 295,225 B），不是上一轮登记值；
   // previousCeilingBytes 是**本轮（v4-1）之前**的 ceiling = **393,857 B**（R3 缺陷修复轮的
   // floor(375,102 × 1.05)）。〖review 修复轮 I13③〗原注释写「R1 的 385,092 B」是过时链（已订正）。
@@ -294,10 +294,10 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
     '本轮为「提升」重登记：当前基线必须严格大于前值',
   );
   // 裁决 V3-VOL-1 ②：cap 已撤销 → ceiling = 公式值（R2 后为 386,955，**不是** 306,099）。
-  assert.equal(SIDEPANEL_CEILING, 404_584, 'ceiling = floor(385,319 × 1.05)（未加 cap 的公式值，v4-1 重登记）');
+  assert.equal(SIDEPANEL_CEILING, 446_714, 'ceiling = floor(425,442 × 1.05)（未加 cap 的公式值，v4-2 重登记）');
   assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only', 'cap 只能作记录（裁决 V3-VOL-1 ②）');
   assert.equal(SIDEPANEL_CEILING_CAP_RECORD, 306_099, 'cap 的历史值保留为记录');
-  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(385_319 * 1.05), '未加 cap 的公式值必须被记录');
+  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(425_442 * 1.05), '未加 cap 的公式值必须被记录');
   assert.equal(SIDEPANEL_CEILING, SIDEPANEL_CEILING_UNCAPPED, '本轮判定必须完全等于公式值（无 cap）');
   assert.equal(SIDEPANEL_BASELINE_TOLERANCE, 0.05, '容差不得因重登记而放宽');
   // 重登记后的自洽：产物必须落在公式判定之内（红线冲突已由裁决 V3-VOL-1 解除）。
@@ -315,7 +315,7 @@ test('W4 size REVERSE PROOF: the tightened ceiling still FAILS on one byte over'
   assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, true);
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false, '新 ceiling + 1 必须 FAIL');
-  assert.equal(over.ceilingBytes, 404_584);
+  assert.equal(over.ceilingBytes, 446_714);
   assert.throws(() => assert.equal(over.ok, true, over.message), /体积回归/);
   // 方向敏感的张力证明：
   //   ① 上一轮基线（291,523 B）在新守卫下仍然 PASS —— 重登记不是「偷偷放宽」；
@@ -339,7 +339,7 @@ test('W4 size REVERSE PROOF: the tightened ceiling still FAILS on one byte over'
   );
   assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).excessBytes, 0);
   assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
-  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 404_584);
+  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 446_714);
 });
 
 // ---------------------------------------------------------------------------
@@ -433,7 +433,7 @@ test('V2-4 size: ceiling stays structurally consistent (floor(baseline × 1.05),
     Math.floor(SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE)),
     '未加 cap 的公式值必须 = floor(baseline × 1.05)',
   );
-  assert.equal(SIDEPANEL_CEILING, 404_584, 'v4-1 重登记后 ceiling = 404,584（公式判定，cap 已撤销）');
+  assert.equal(SIDEPANEL_CEILING, 446_714, 'v4-2 重登记后 ceiling = 446,714（公式判定，cap 已撤销）');
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false);
   assert.equal(

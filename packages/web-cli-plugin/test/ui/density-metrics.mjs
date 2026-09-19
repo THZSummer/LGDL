@@ -136,6 +136,8 @@ export const DENSITY_SHELL_ROOTS = Object.freeze(extractFrozenStringArray(SCOPE_
 export const MAX_CLICKABLES_PER_CARD = extractNumberConstant(SCOPE_SOURCE, 'MAX_CLICKABLES_PER_CARD');
 /** Anti-abuse ② — the empty/welcome first screen shows at most this many cards. */
 export const MAX_FIRST_SCREEN_CARDS = extractNumberConstant(SCOPE_SOURCE, 'MAX_FIRST_SCREEN_CARDS');
+/** Anti-abuse ③ (V4-2 TASK-613) — the first screen's cards hold at most this many clickables in aggregate. */
+export const MAX_STREAM_RESIDENT_CLICKABLES = extractNumberConstant(SCOPE_SOURCE, 'MAX_STREAM_RESIDENT_CLICKABLES');
 /** §12 裁决 4 — at most this many welcome cards. */
 export const MAX_WELCOME_CARDS = extractNumberConstant(SCOPE_SOURCE, 'MAX_WELCOME_CARDS');
 /** §12 裁决 4 — the welcome card text must fit this many lines. */
@@ -532,15 +534,45 @@ export function evaluateFirstScreen(cards, tier = 'default') {
       violations.push(`${card.key ?? '欢迎卡'}: 文本行 ${card.lines} > ${MAX_WELCOME_LINES}`);
     }
   }
+  // V4-2 TASK-613 ③ — the aggregate resident-clickable cap. The per-card rule is
+  // not enough: with the `#stream` exemption nothing outside ever sees these
+  // counts, so the sum is the shape that has to be capped.
+  const resident = evaluateStreamResidentBudget(list);
+  violations.push(...resident.violations);
   return {
     ok: violations.length === 0,
     skipped: false,
     tier,
     count: list.length,
     welcomeCards: welcome.length,
-    limits: { maxFirstScreenCards: MAX_FIRST_SCREEN_CARDS, maxWelcomeCards: MAX_WELCOME_CARDS, maxWelcomeLines: MAX_WELCOME_LINES },
+    residentClickables: resident.total,
+    limits: {
+      maxFirstScreenCards: MAX_FIRST_SCREEN_CARDS,
+      maxWelcomeCards: MAX_WELCOME_CARDS,
+      maxWelcomeLines: MAX_WELCOME_LINES,
+      maxStreamResidentClickables: MAX_STREAM_RESIDENT_CLICKABLES,
+    },
     violations,
   };
+}
+
+/**
+ * V4-2 TASK-613 ③ — the aggregate first-screen card budget.
+ *
+ * 「流内卡合计常驻可点 ≤ 8」: the real 12 card types render at most 5 clickables
+ * (ask-user choice), the first screen shows ≤2 cards, so the product sits well
+ * below the cap; the cap exists for the abuse shape the v4-1 caliber left open
+ * (2 cards × 6 = 12 resident entries inside the exempt subtree, v3's cap was 7).
+ */
+export function evaluateStreamResidentBudget(cards, limitOverride) {
+  const limit = limitOverride ?? MAX_STREAM_RESIDENT_CLICKABLES;
+  const list = cards ?? [];
+  const total = list.reduce((n, c) => n + Number(c?.clickables ?? 0), 0);
+  const violations = [];
+  if (total > limit) {
+    violations.push(`流内卡合计可点 ${total} > ${limit}`);
+  }
+  return { ok: violations.length === 0, limit, total, violations };
 }
 
 /** The four caliber names, for report headers and cross-checks. */

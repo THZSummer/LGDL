@@ -235,3 +235,52 @@ test('NFR-007 guard: only ENOENT is swallowed; other stat failures propagate', (
     /boom/,
   );
 });
+
+/**
+ * V4-2 (TASK-611 / NFR-CHAT-003 / NFR-CHAT-011) — the long-session proxy.
+ *
+ * The real DOM-side proof (node identity preserved across ~320 incremental
+ * appends, terminal `outerHTML` frozen) lives in `test/ui/stream.mjs` (Chromium).
+ * This node test pins the **model** half of the same claim so a regression in the
+ * projection/bound shows up without a browser:
+ *
+ *   · `project()` over a 320-card stream completes inside a generous budget and is
+ *     replay-stable (same input ⇒ same output, twice) — an accidental O(n²) or a
+ *     clock/DOM dependency would blow the budget or break equality;
+ *   · `boundStreamEvents` keeps a 40-round stream bounded without dropping any of
+ *     the protected cards (tool/ref/decision/current segment).
+ */
+test('NFR-007 / V4-2: project() over a 320-card stream is bounded and replay-stable', async () => {
+  const { appendEvent, boundStreamEvents, createStreamState, project } = await import(
+    '../src/ui/sidepanel/stream-model.js'
+  );
+  let s = createStreamState('https://perf-stream.test');
+  for (let i = 0; i < 320; i += 1) {
+    if (i % 4 === 0) {
+      s = appendEvent(s, { kind: 'user', ts: i, cardId: `u${i}`, payload: { text: `q${i}` } });
+    } else if (i % 4 === 1) {
+      s = appendEvent(s, { kind: 'tool', ts: i, cardId: `t${i}`, payload: { tool: 'bulk', ok: true, ms: i, text: 'out' }, terminal: 'completed' });
+    } else if (i % 4 === 2) {
+      s = appendEvent(s, { kind: 'ai', ts: i, cardId: `a${i}`, payload: { text: `a${i}` } });
+    } else {
+      s = appendEvent(s, { kind: 'system', ts: i, cardId: `s${i}`, payload: { label: `sys${i}` } });
+    }
+  }
+  const start = process.hrtime.bigint();
+  const first = project(s);
+  const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
+  const second = project(s);
+  assert.equal(first.length, 320, `投影必须 320 张卡（实测 ${first.length}）`);
+  assert.deepEqual(first, second, '回放必须稳定（同输入同输出）');
+  assert.ok(elapsedMs < 250, `320 卡投影耗时 ${elapsedMs.toFixed(1)}ms（> 250ms 预算 ⇒ 疑似 O(n²) 回退）`);
+
+  // Bound: a 2,100-event log is capped at 2,000 without touching protected cards.
+  const bounded = boundStreamEvents(s, 2_000);
+  assert.ok(bounded.events.length <= 2_000, `bound 必须 ≤2000（实测 ${bounded.events.length}）`);
+  const ids = new Set(bounded.events.map((e) => e.cardId));
+  for (const card of project(s)) {
+    if (card.kind === 'tool' || card.kind === 'askuser' || card.kind === 'auth' || card.kind === 'ref') {
+      assert.ok(ids.has(card.cardId), `受保护卡 ${card.cardId}（${card.kind}）不得被淘汰`);
+    }
+  }
+});

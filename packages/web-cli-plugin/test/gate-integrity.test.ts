@@ -151,6 +151,10 @@ export const EXPECTED_AUDITED_FILES = [
   // v3-3 fix round: the versioned L2 reverse-proof harness (F-01 订正 + expectFailPattern).
   'test/ui/l2-reverse.mjs',
   'test/ui/_v3-helpers.mjs',
+  // V4-2 (TASK-611 / ADR-V4-029 decision 5): the stream gate (12 card types +
+  // 固化契约 + keyed incremental rendering + scroll + 320px + a11y). Additive —
+  // `CHROMIUM_GATES.length === 9` stays untouched (the `page-input.mjs` precedent).
+  'test/ui/stream.mjs',
 ] as const;
 
 /** Gates whose red-proof is static only (see the module doc's coverage limits). */
@@ -877,9 +881,10 @@ export const REVERSE_PROOF_EXCEPTIONS = [
       '从外部再驱动一次需要每个 RP 一次 Chromium 运行（内存 ~1.5 GB、NFR-V3-012 串行纪律）。登记为「in-gate 形态」：模式断言**必须存在于门禁源码中**（下方 R4b 机器核对）。',
   },
   {
-    id: 'in-gate-RP-V4-01~07 · density.mjs（v4-1 防滥用反证）',
+    id: 'in-gate-RP-V4-01~08 · density.mjs（v4-1 防滥用反证 + v4-2 TASK-613 收紧）',
     reason:
       'ADR-V4-020 第 3 条 / ADR-V4-023 第 5 条把 v4-1 的七条防滥用反证登记为 **in-gate 形态**（`test/ui/density.mjs --reverse RP-V4-0X`）：' +
+      'v4-2 TASK-613 追加 **RP-V4-09**（卡预算 × 常驻入口准入重审的收紧判据：`[data-toolbar-slot]`/`.view-btn` 形态判据 + 首屏卡合计可点 ≤8），同一 in-gate 形态与同一纪律；' +
       'FAIL 段文本由门禁**自身**在同一 Chromium 进程内断言（每条驱动都断言「注入 → FAIL」与「还原 → PASS」两半，且 FAIL 半带字面诊断断言），' +
       '从外部再驱动一次需要每个 RP 一次 Chromium 运行（内存 ~1.5 GB、NFR-V3-012 串行纪律）。' +
       '与 v3 同类例外一致：模式断言**必须存在于门禁源码中**（下方 R4b 机器核对逐条校验）；' +
@@ -1064,6 +1069,9 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     ['test/ui/density.mjs', /RP-V4-05 FAIL 段诊断含「超出 1 B」/],
     ['test/ui/density.mjs', /RP-V4-06 \(FAIL 段\) 工具栏控件移入 #stream 后豁免守卫必须抛错/],
     ['test/ui/density.mjs', /RP-V4-07 \(FAIL 段\) chip 被移入 hidden 容器后探针必须 FAIL/],
+    // v4-2（TASK-613 裁决）：形态判据 + 首屏合计上限，两条 FAIL 形态逐条在门禁源码里。
+    ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 10 > 8」/],
+    ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ② 诊断含「常驻导航入口」/],
     ['test/ui/l0.mjs', /反证（FAIL 段）：篡改 data-count/],
     ['test/ui/l1.mjs', /D1 反证（FAIL 段）/],
     // v3-4 fix round (review R1) — the new BLOCK-1 / I-01 / I-04 assertions must carry

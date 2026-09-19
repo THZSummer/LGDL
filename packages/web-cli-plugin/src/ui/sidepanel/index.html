@@ -437,6 +437,40 @@
       .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
       @keyframes blink { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
 
+      /* ── V4-2（ADR-V4-026）：卡契约（统一 card-head / card-col / card-fixed）
+         全 12 类卡共用一套 DOM 语言；旧类名（.msg-* / .tool-card / .cmd）继续
+         作为**样式载体**，所以本段只补新契约自身的布局，不改既有选择器。 ── */
+      .card-col { display: flex; flex-direction: column; min-width: 0; max-width: 100%; flex: 1 1 auto; align-items: flex-start; }
+      .msg-user > .card-col { align-items: flex-end; }
+      .card-head { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+      .card-tag { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+      .ts { font-family: var(--mono); font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+      /* 固化区：`[hidden]` 显式复权（否则 `.card-fixed{display:flex}` 会压过 UA 的
+         `[hidden]{display:none}` —— 隐藏态必须在几何与视觉上都真的隐藏）。 */
+      .card-fixed {
+        display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        margin-top: 6px; padding: 5px 9px; max-width: 100%;
+        border: 1px solid var(--ok-border, var(--border)); border-radius: var(--radius-sm);
+        background: var(--ok-bg, var(--bg-elevated)); font-size: 12px; overflow-wrap: anywhere;
+      }
+      .card-fixed[hidden], .ask-form[hidden], .auth-actions[hidden], .ref-actions[hidden] { display: none; }
+      .card-fixed b { color: var(--text); }
+      .card-fixed .card-fixed-time { margin-left: auto; }
+      .ask-q { margin: 2px 0 6px; font-size: 13px; max-width: 100%; overflow-wrap: anywhere; }
+      .ask-form { display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
+      .ask-choices { display: flex; flex-direction: column; gap: 4px; }
+      .choice { text-align: left; }
+      .auth-actions, .ref-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+      .auth-scope { margin: 2px 0 4px; font-size: 13px; max-width: 100%; overflow-wrap: anywhere; }
+      .next-chips { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+      .ref-chips { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+      .ref-chip {
+        font-size: 11px; padding: 1px 7px; border-radius: 999px;
+        background: var(--bg-subtle); border: 1px solid var(--border); overflow-wrap: anywhere;
+      }
+      .ref-chip.mono { font-family: var(--mono); }
+      .sys-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+
       /* "back to bottom" — only while the user has scrolled away.
          V3-1: visibility is the `hidden` attribute (never `display:none`/`.show`),
          so the button is genuinely out of the density budget while idle. */
