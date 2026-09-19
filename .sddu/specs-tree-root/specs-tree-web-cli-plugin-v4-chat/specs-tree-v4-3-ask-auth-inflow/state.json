@@ -11,7 +11,7 @@
  "childrens": [],
  "leaf": true,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-19T18:30:00.000Z",
+ "updatedAt": "2026-09-19T19:00:00.000Z",
  "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**作者主诉的直接兑现**：Q-CHAT-001 承载层 / Q-CHAT-002 / Q-CHAT-007）。承载父 FR-CHAT-040~049（FLOW 组）：① ask-user（choice/text 两型）从流之上的独占决策槽（#l0-decision > #ask）迁入流内卡，删除「同时只允许一张、旧卡不滞留」独占语义；② ask 卡操作前/后固化（未答表单可见 + 固化区 hidden → 回答后 data-answered=true + 表单收起 + 固化区「已答：+ 内容」+ 时间戳）；③ 已固化卡不可二次回答；取消也留痕（「已取消（不代填默认值）」）；④ 60s 超时 → canceled 留痕、不代填默认值（fail-closed）；⑤ supersededAsk 从「只取消不留痕」（R1）升级为「取消 + 留痕」；⑥ 破坏性二次确认（confirm）迁入流内 auth 卡（data-decision=approved/rejected），含范围与后果预演 + 审计入口，已决策不可重复、旧卡不消失；⑦ 授权记录流内可回看（流 = 会话审计线索，审计视图 = 完整台账）；⑧ busy/回合语义规则（多张未答卡是否并存、pending 门控、与拾取/会话切换关系），不得出现「回合永远卡在处理中」；⑨ 流内留痕零明文边界（不把命令参数体 / URL query / 页面文本带进留痕）。权威条文见父 spec.md §5.5。",
  "scope": {
   "in": [
@@ -197,9 +197,14 @@
    "phase": "validated",
    "timestamp": "2026-09-19T18:30:00.000Z",
    "triggeredBy": "sddu-validate（独立动态验证：产出 validate.md（V1~V9 策略）+ validate-report.md；22 项门禁 + RP-V4-09 严格串行独立复跑（计数逐项对账 = build 登记）；对抗探针 240,802 断言 0 失败（V2 假留痕四攻全败 / V3 终态机 10000 序列遍历 0 漏洞 / V4 答案真值 / V5 零明文注入 / V6 展开态预算含自注入必红 / V7 R1 全链）；BLOCK-01~04 修复经 sha256 与 build 登记互证；红线零 diff / spec·plan 零漂移 / 体积五要素一致；结论 ✅ 通过，附 N-01~N-03 非阻塞登记）"
+  },
+  {
+   "phase": "validated",
+   "timestamp": "2026-09-19T19:00:00.000Z",
+   "triggeredBy": "sddu-build（v4-3 收口轮：处置 validate R1 的 N-01~N-03 —— 台账 leafBases[].summary 按分项复算订正（v4-3 72→127 / 10→14；v4-1 729→761 / 0→19，口径统一为「需逐字登记的删除面文件数」）+ 新增「summary 读数 == 分项之和」机核与反证（注入 72/10 ⇒ FAIL、还原 ⇒ PASS，sha 逐字节复原）/ §7 宿主计数订正为「2 个 <li> + 1 处注释」/ 新增 knownLimitations KL-V43CL-01（review C2 出处 + arbitrateOpenAsks 早退边界）；npm test 945 → 947、supersession 31 → 33（只增不减）；22 门禁全绿 + 红线零 diff；phase 保持 validated）"
   }
  ],
- "phaseNote": "validated（✅ 通过）。review R1 的 4 个洞在独立对抗下全部无法复现：auth 卡三路径只渲染「已取消（未授权，不执行）」、伪终端被终态冻结拒绝、回合结束不写假超时（ref-round-* 不结算）、审计入口点击后 [data-l2-view=audit] 真实可见。终态机 10,000 序列 × 240,748 断言零漏洞；V1 22 门禁独立复跑全绿且计数逐项对账一致（npm 945 / ask-auth 61 / l1 111 / supersession 31 / l0 216 …）；零明文 4 类 marker 注入全被拒；展开态预算 4/4/8 达标且自注入「选项行不收起」必红；R1 全链 10/10。红线（content.js 177,076 / pick-layer.js 33,900 / 判定链 / SW / manifest / ask-bridge）零 diff；spec.md/plan.md 自立项零修改；体积 sidepanel 445,300 ≤ ceiling 467,565。非阻塞登记：N-01（台账 leafBases[].summary.registeredLines 自描述读数滞后 72 vs 127）、N-02（build §7 v4-4 宿主计数 3 vs 实际 2 个 <li>）、N-03（ADR-V4-032 §2 字面 vs 代码早退，无功能后果）。产物：validate.md + validate-report.md。",
+ "phaseNote": "validated（✅ 通过）。review R1 的 4 个洞在独立对抗下全部无法复现：auth 卡三路径只渲染「已取消（未授权，不执行）」、伪终端被终态冻结拒绝、回合结束不写假超时（ref-round-* 不结算）、审计入口点击后 [data-l2-view=audit] 真实可见。终态机 10,000 序列 × 240,748 断言零漏洞；V1 22 门禁独立复跑全绿且计数逐项对账一致（npm 945 / ask-auth 61 / l1 111 / supersession 31 / l0 216 …）；零明文 4 类 marker 注入全被拒；展开态预算 4/4/8 达标且自注入「选项行不收起」必红；R1 全链 10/10。红线（content.js 177,076 / pick-layer.js 33,900 / 判定链 / SW / manifest / ask-bridge）零 diff；spec.md/plan.md 自立项零修改；体积 sidepanel 445,300 ≤ ceiling 467,565。非阻塞登记：N-01（台账 leafBases[].summary.registeredLines 自描述读数滞后 72 vs 127）、N-02（build §7 v4-4 宿主计数 3 vs 实际 2 个 <li>）、N-03（ADR-V4-032 §2 字面 vs 代码早退，无功能后果）。产物：validate.md + validate-report.md。 〖收口轮（sddu-build，2026-09-19）〗validate R1 的 N-01~N-03 全处置：① **N-01** 台账 `leafBases[].summary` 自描述读数按分项复算订正（v4-3 72 → **127** / 10 → **14**；v4-1 729 → **761** / 0 → **19**，口径统一为「需逐字登记的删除面文件数」+ `caliber` 口径声明 + `noteHistory` 历史逐字保留），并**新增机核**「summary 读数 == 分项之和」判据 + 反证（2 用例；注入 72/10 ⇒ rc=1 逐字报 `72 ≠ 127` / `10 ≠ 14`，还原 ⇒ rc=0，台账 sha256 注入前后**逐字节相同**）；② **N-02** build.md §7 宿主计数订正为「**2 个 `<li>` 宿主** + 1 处注释」（`grep -n 'data-transitional-host='` = 3 行 = 1297/1335 + 注释 1147；`l0.mjs` 登记口径 = 2）；③ **N-03** 新增 `knownLimitations[KL-V43CL-01]`——`arbitrateOpenAsks` 早退边界（`open < MAX_OPEN_ASKS` 时引用回合优先规则不触发 ⇒ `open=1` 两卡并存 = 2 ≤ 上限，**无功能后果**）含 review R1 **C2** 出处，plan.md 按规则不改。门禁：**22/22 rc=0**（node **947** / supersession **33**，仅此两处 +2；l0 216 / l1 111 / l2 73 / density 171 / journey 167 / insight 116 / binding 192 / hardening 24 / ask-auth 61 / stream 63 等逐项相等）；counts 同源机核 **4/4**（`ℹ counts 同源机核：4 项与门禁日志逐条相等`）；红线零 diff（content.js 177,076 / pick-layer.js 33,900 逐字节不变；src/manifest/dist 零 diff；sidepanel 445,300 ≤ 467,565）。phase **保持 validated**，收口完成 → 可开 v4-4。",
  "tasks": {
   "range": "TASK-701~711",
   "alias": "V43-01~11",
@@ -212,5 +217,53 @@
   },
   "gateNote": "新增 test:ask-auth（TASK-709）；AC-CHAT-016 唯一验收叶（台账 owner=v4-3）",
   "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.md"
- }
+ },
+ "closeoutRounds": [
+  {
+   "round": "v4-3 收口轮（sddu-build，validate R1 的 N-01~N-03 处置）",
+   "date": "2026-09-19",
+   "head": "ac10069（收口轮起点；validate.md/validate-report.md R1 ✅ 通过 / 0 阻塞）",
+   "source": "validate-report.md R1（✅ 通过 / 0 阻塞 / 3 项非阻塞登记 N-01~N-03）",
+   "phaseDiscipline": "phase 保持 validated（收口不降级）；status=tracked（父 childrens 记 completed）",
+   "dispositions": [
+    "N-01（低）`docs/v4-supersession-ledger.json#leafBases[].summary` 自描述读数滞后：按分项复算订正 v4-3 段 72 → 127 / 10 → 14、v4-1 段 729 → 761 / 0 → 19（口径统一为 v3 台账既有「需逐字登记的删除面文件数」，v3-3 段 = 8）；每段新增 `caliber`（口径声明）与 `noteHistory`（旧值/旧注逐字保留）。**新增机核**：`test/supersession-ledger.test.ts` 追加 `leafSummaryProblems()` 判据 + 反证（+2 用例），断言 `registeredLines == Σ分项 ∧ filesWithUnregisteredLeafDeletions == 非空登记文件数`，反证覆盖 72 / 10 / 0 / 缺失 / 口径悬空五形态。**两段实测**：注入 72/10 ⇒ rc=1（逐字报 72 ≠ 127、10 ≠ 14）；还原 ⇒ rc=0；台账 sha256 注入前后逐字节相同（48376d24…）",
+    "N-02（低）build.md §7「v4-4 保留 3」订正为「**2 个 `<li>` 宿主**（data-host=l1-panels / strips）+ **1 处注释提及**（index.html:1147）」，并注明 `l0.mjs#REGISTERED_TRANSITIONAL_HOSTS = 2` 才是登记口径（grep -c 会把注释计入）。实测：`grep -n 'data-transitional-host='` = 3 行 = 1297 / 1335 + 注释 1147；test:l0 判据 ① 216/0",
+    "N-03（低）`arbitrateOpenAsks` 早退边界（open < MAX_OPEN_ASKS 时「引用回合优先取代后台 ask」不触发）：**登记不改实现**（红线不动生产代码 + 禁改已完成 plan）—— 台账 knownLimitations 追加 KL-V43CL-01（含 review R1 C2 出处；边界 open=1 ⇒ 两卡并存 = 2 ≤ MAX_OPEN_ASKS 无功能后果；上限由规则 ② while 独立保证 + supersededAsk 留痕路径；残余面「必然让位」依赖当前不存在；ADR 字面按「达上限时优先取代」读）。功能面证据：test:ask-auth ② 61/0"
+   ],
+   "gates": "22 项严格串行 + RP-V4-09：**22/22 rc=0**（summary.txt 22 行 exit=0 ∧ 末行 FAIL=0）；binding 192 本轮未复现 KL-N-10 抖动；日志 /tmp/opencode/v4-gate-logs/v4-3-closeout/（registry/ = 同轮完整绿 run 副本；evidence/ = N-01 注入/还原两段 + N-04 同源核验）",
+   "counts": {
+    "nodeTestRuntime": 947,
+    "supersession": 33,
+    "gateIntegrity": 12,
+    "zeroInjection": 27,
+    "pageInput": 102,
+    "l0": 216,
+    "l1": 111,
+    "l2": 73,
+    "density": 171,
+    "journey": 167,
+    "insight": 116,
+    "binding": 192,
+    "hardening": 24,
+    "e2e": "PASS",
+    "askAuth": 61,
+    "stream": 63,
+    "designContract": 6,
+    "l1Reverse": 9,
+    "l2Reverse": 10,
+    "rpV409": 9,
+    "direction": "只增不减（node 945 → 947；supersession 31 → 33；其余 18 项逐项相等）"
+   },
+   "ledgerSync": "counts.nodeTestRuntime 945 → 947（previousRuntime 937 → 945）/ counts.supersession 31 → 33；两条 source.log 指向 v4-3-closeout/registry 快照（observedLine == 'ℹ pass 947' / 'ℹ pass 33'）；staticCalibers 读数注释追加 1127 / 958 / 947（readings[].count 保留功能轮下界 1112 / 948 / 937）。同源机核 in-gate 打印 `ℹ counts 同源机核：4 项与门禁日志逐条相等`",
+   "redlines": "dist/content.js 177,076 B（sha 52a82620…）/ dist/pick-layer.js 33,900 B（sha 5f567d7e…）逐字节不变；src/** / manifest.json / dist/** 零 diff（git status --short 仅 3 个非产品文件：台账 JSON / test 文件 / build.md）；sidepanel.js 445,300 B ≤ ceiling 467,565 B（本轮无体积变化，无重登记）；判定链 / SW / KIND_SET / ask-bridge 零改；journey·binding 保护段字节零改；未用 `git add -A`",
+   "artifacts": [
+    "build.md §11（收口轮：N-01~N-03 处置 + 22 门禁全量账 + 台账/测试增量 + 红线核验）",
+    "packages/web-cli-plugin/docs/v4-supersession-ledger.json（summary ×2 + counts ×2 + knownLimitations KL-V43CL-01 + staticCalibers note）",
+    "packages/web-cli-plugin/test/supersession-ledger.test.ts（+2 用例，纯追加）",
+    "validate-report.md R1 未改（validate 产物只读）"
+   ],
+   "phaseAfter": "validated（保持；收口完成，可开 v4-4）",
+   "next": "v4-4（ref / system / 推荐卡迁移）：承接 §7 的 2 个 `<li>` 过渡宿主清零义务（TASK-812）、ADR-V4-032 的推荐 chip 接线，以及本叶已登记口径（summary 机核 / KL-V43CL-01 / HO-1 合计 ≤8）"
+  }
+ ]
 }

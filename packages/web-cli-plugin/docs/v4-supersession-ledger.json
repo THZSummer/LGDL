@@ -58,9 +58,11 @@
     "why": "与 v3 同一规则：`packages/web-cli-plugin/test/**` 且后缀为 .mjs/.ts，逐个从 git diff 复算（不手工放宽、不手工收窄）。 〖v4-3（TASK-711 R2）〗本列表原为 18 文件（手工收窄），按同一规则复算订正为**全集**（33 文件）——收窄会让 `ref-wiring.test.ts` / `sidepanel.test.ts` 等文件的删除行结构性不可见，属 N-09 盲区的同族形态；订正后逐文件判定（新可见的删除行由 `V43-E-*` entries 与 v4-3 叶段登记承接）。"
    },
    "summary": {
-    "filesWithUnregisteredLeafDeletions": 0,
-    "registeredLines": 729,
-    "note": "逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶全部改动均已登记。〖N-05（收口轮）〗`registeredLines` 的口径 = 各文件 `registeredUncoveredLines` 组的逐字行数之和（本轮追加 5 条 ⇒ 729；此前登记的 630 与各组分项之和不符，属旧口径残留，现按分项之和如实重算）。"
+    "filesWithUnregisteredLeafDeletions": 19,
+    "registeredLines": 761,
+    "caliber": "registeredLines = Σ 各文件 `registeredUncoveredLines` 组的逐字行数之和；filesWithUnregisteredLeafDeletions = 有非空登记的**文件数**（需逐字登记的删除面文件数，与 v3 台账 `leafBases[].summary` 同一口径，v3-3 段 = 8）。两读数由 `test/supersession-ledger.test.ts` 的「leafBases[].summary 读数必须 == 分项之和」判据机核（滞后即 FAIL，反证可红）。",
+    "note": "〖v4-3 收口轮（N-01 订正，2026-09-19）〗validate R1 指出本段自描述读数**滞后**于分项：`registeredLines` 729 → **761**（19 个有非空登记的文件的逐字行数之和，按 `registeredUncoveredLines` 逐组实测复算），`filesWithUnregisteredLeafDeletions` 0 → **19**（旧值 0 是「剩余未登记文件数」的旧读法，而 v4-3 段用的是「需登记文件数」读法 ⇒ 两叶段口径分裂；本轮统一为 v3 台账既有的「需逐字登记的删除面文件数」口径，逐段复算）。历史值 729 / 0 逐字保留在 `noteHistory`。逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶全部改动均已登记。",
+    "noteHistory": "逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶全部改动均已登记。〖N-05（收口轮）〗`registeredLines` 的口径 = 各文件 `registeredUncoveredLines` 组的逐字行数之和（本轮追加 5 条 ⇒ 729；此前登记的 630 与各组分项之和不符，属旧口径残留，现按分项之和如实重算）。"
    },
    "registeredUncoveredLines": [
     {
@@ -1250,9 +1252,11 @@
     }
    ],
    "summary": {
-    "filesWithUnregisteredLeafDeletions": 10,
-    "registeredLines": 72,
-    "note": "逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶段登记 72 条（10 个文件）。口径 = 各文件 `registeredUncoveredLines` 组的逐字行数之和。"
+    "filesWithUnregisteredLeafDeletions": 14,
+    "registeredLines": 127,
+    "caliber": "registeredLines = Σ 各文件 `registeredUncoveredLines` 组的逐字行数之和；filesWithUnregisteredLeafDeletions = 有非空登记的**文件数**（需逐字登记的删除面文件数；与 v3 台账 `leafBases[].summary` 及本册 v4-1 段同一口径）。两读数由 `test/supersession-ledger.test.ts` 的「leafBases[].summary 读数必须 == 分项之和」判据机核（滞后即 FAIL，反证可红）。",
+    "note": "〖v4-3 收口轮（N-01 订正，2026-09-19）〗validate R1 指出本叶段自描述读数**滞后**于分项：`registeredLines` 72 → **127**、`filesWithUnregisteredLeafDeletions` 10 → **14**（+55 行 / +4 文件全部来自 review 修复轮 **I-05**：`gate-integrity.test.ts` 1 / `ref-wiring.test.ts` 4 / `sidepanel.test.ts` 1 / `size-baseline.ts` 33 / `size-budget.test.ts` 7 / `size-growth-evidence.test.ts` 4 / `ui/density.mjs` 5 / `ui/insight.mjs` 1 / `ui/l0.mjs` 22 / `ui/l1.mjs` 9 / `density-thresholds.test.ts` 2 / `size-ruling-vol3.test.ts` 2 / `supersession-ledger.test.ts` 28 / `ui/stream.mjs` 8；登记行写入时未回填 summary，且门禁当时只判每组 `count == 清单长度`）。历史值 72 / 10 逐字保留在 `noteHistory`。逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶段删除行已逐条登记。",
+    "noteHistory": "逐字集合相等（多一条/少一条/改一字都 FAIL）；本叶段登记 72 条（10 个文件）。口径 = 各文件 `registeredUncoveredLines` 组的逐字行数之和。"
    },
    "reverseProof": "test/supersession-ledger.test.ts 的「每个叶段注入一条未登记删除行必须判 FAIL」逐叶段驱动（注入 → 该叶段判红；未注入 → 干净）；本叶段为 `v4-3 @ 0f8a1fb`。"
   }
@@ -5203,31 +5207,31 @@
    "note": "TASK-515 收口实测（R3，2026-09-19）：npm test（dist-test/test/sidepanel-view.test.js） ⇒ 38（下界 38）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮复核〗38 不变（本轮未改 sidepanel-view 断言）。 〖v4-2（2026-09-19）〗38 不变（3 条静态断言等价重锚到 cards/*，test( 注册数不变）。"
   },
   "nodeTestRuntime": {
-   "currentRuntime": 945,
+   "currentRuntime": 947,
    "floor": 832,
    "countMethod": "runtime-node-tests",
-   "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮〗新增 `test/theme.test.ts`（18 条）+ `supersession-ledger.test.ts` 4 条（I1/I2）+ `size-growth-evidence.test.ts` 2 条（I8/I9）⇒ 实测 849 → **875**（floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-1-reviewfix/test.log（全量，未截断）。 〖N-04（收口轮，v4-1 validate R1）〗本轮收口新增 6 条（N-05 round-rows 自洽断言 + 反证；N-04 counts 同源判据 + 反证；N-01~N-08 处置登记判据 + 反证）⇒ 实测 **881**（只增不减）。另：validate R1 指出的「`test/theme.test.ts`（18 条）」为笔误，实测 `^test(` = **19** 条 —— 已在同源注中订正。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test.log（全量，未截断）。 〖v4-2（2026-09-19）〗新增 3 个 node 文件（stream-model.test / stream-persistence.test / perf-budget 追加长会话用例）共 +37 条 ⇒ 881 → **918**（0 fail）。 〖v4-2 review 修复轮（2026-09-19）〗`test/supersession-ledger.test.ts` 新增 2 条（I-01 的 `truncationRules` 判据 + 反证）⇒ 实测 918 → **920**（0 fail；floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮（2026-09-19，validate R1 的 F-01/F-02/F-03 + N-02）〗新增 4 条 node 用例（F-01 深冻结 2 条 / F-02 stream-merge 严格单调 1 条 / F-03 sanitizeLabel 边界 1 条）⇒ 实测 920 → **924**（0 fail）。日志 /tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗新增 `test/ask-auth-inflow.test.ts`（12 用例）+ 本叶收口新增 3 条（v4 叶段 schema/逐叶段判定/逐叶段反证）⇒ 实测 **937 / 0**（924 → 937，只增不减；floor 832 不变）。 〖v4-3 审查修复轮（2026-09-19，review R1 的 BLOCK-01~04 + I-01~I-08）〗`test/ask-auth-inflow.test.ts` 新增 8 条（BLOCK-01 假批准三路径 + 反向 / BLOCK-02 真超时 + 面板自有 ask 不结算 + 反向 / I-06 error 结算 / I-07 fail-closed ×2）⇒ 实测 **945 / 0**（937 → 945，只增不减；floor 832 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。",
-   "previousRuntime": 937,
+   "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮〗新增 `test/theme.test.ts`（18 条）+ `supersession-ledger.test.ts` 4 条（I1/I2）+ `size-growth-evidence.test.ts` 2 条（I8/I9）⇒ 实测 849 → **875**（floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-1-reviewfix/test.log（全量，未截断）。 〖N-04（收口轮，v4-1 validate R1）〗本轮收口新增 6 条（N-05 round-rows 自洽断言 + 反证；N-04 counts 同源判据 + 反证；N-01~N-08 处置登记判据 + 反证）⇒ 实测 **881**（只增不减）。另：validate R1 指出的「`test/theme.test.ts`（18 条）」为笔误，实测 `^test(` = **19** 条 —— 已在同源注中订正。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test.log（全量，未截断）。 〖v4-2（2026-09-19）〗新增 3 个 node 文件（stream-model.test / stream-persistence.test / perf-budget 追加长会话用例）共 +37 条 ⇒ 881 → **918**（0 fail）。 〖v4-2 review 修复轮（2026-09-19）〗`test/supersession-ledger.test.ts` 新增 2 条（I-01 的 `truncationRules` 判据 + 反证）⇒ 实测 918 → **920**（0 fail；floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮（2026-09-19，validate R1 的 F-01/F-02/F-03 + N-02）〗新增 4 条 node 用例（F-01 深冻结 2 条 / F-02 stream-merge 严格单调 1 条 / F-03 sanitizeLabel 边界 1 条）⇒ 实测 920 → **924**（0 fail）。日志 /tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗新增 `test/ask-auth-inflow.test.ts`（12 用例）+ 本叶收口新增 3 条（v4 叶段 schema/逐叶段判定/逐叶段反证）⇒ 实测 **937 / 0**（924 → 937，只增不减；floor 832 不变）。 〖v4-3 审查修复轮（2026-09-19，review R1 的 BLOCK-01~04 + I-01~I-08）〗`test/ask-auth-inflow.test.ts` 新增 8 条（BLOCK-01 假批准三路径 + 反向 / BLOCK-02 真超时 + 面板自有 ask 不结算 + 反向 / I-06 error 结算 / I-07 fail-closed ×2）⇒ 实测 **945 / 0**（937 → 945，只增不减；floor 832 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖v4-3 收口轮（2026-09-19，N-01~N-03 处置；validate R1 后）〗新增 2 条 node 用例（`test/supersession-ledger.test.ts` 的 N-01 机核：`leafBases[].summary` 读数 == 分项之和 + 反证）⇒ 实测 **947 / 0**（945 → 947，只增不减；floor 832 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-closeout/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。",
+   "previousRuntime": 945,
    "source": {
     "gate": "npm test",
-    "log": "/tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-run.log",
+    "log": "/tmp/opencode/v4-gate-logs/v4-3-closeout/registry/test-run.log",
     "pattern": "ℹ pass (\\d+)",
-    "observedLine": "ℹ pass 945",
-    "observed": 945,
+    "observedLine": "ℹ pass 947",
+    "observed": 947,
     "measuredOn": "2026-09-19"
    }
   },
   "supersession": {
-   "currentRuntime": 31,
+   "currentRuntime": 33,
    "floor": 24,
    "countMethod": "runtime-node-tests",
-   "note": "〖N-04（收口轮，v4-1 validate R1）〗验 R1 抽样口径之一：`npm run test:supersession` 实测 24（R3 20 + review 修复轮 I1/I2 四条）。本轮收口新增 N-04 counts↔日志同源判据与 N-01~N-08 处置登记判据（各含一条反证）⇒ 实测 **28**（只增不减；floor 24 = validate R1 实测下界）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-supersession.log（全量，未截断）。 〖v4-2 review 修复轮（2026-09-19）〗新增 **I-01 判据两条**（`truncationRules` ↔ `DIGEST_FIELDS` 逐字段机核 + 反证）⇒ 实测 28 → **30 / 0**（floor 24 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-supersession-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮〗30 条（不变；本轮只重登记来源日志到收口轮快照 registry/，口径纪律同 nodeTestRuntime：登记路径不得指向门禁运行时的实时 tee 目标）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗新增 **v4 叶段 schema/scope 复算**判据一条（同时把「恰好 1 个叶段」换段化为「逐叶追加 + 逐叶段判定/反证」）⇒ 实测 **31 / 0**（30 → 31，只增不减；floor 24 不变）。 〖v4-3 审查修复轮（2026-09-19，I-05）〗新增 **逐叶段 diff 驱动 scope** 判据（`leafScopeFilesFor`：把「本叶段 `git diff` 真实删除面」并入受判集，去自指）⇒ 实测 **31 / 0**（不变：新判据并入既有「逐叶段 schema/scope」与「逐叶段删除行」两条内，断言计数不变而覆盖变强；floor 24 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-supersession-run.log（全量，未截断）。",
+   "note": "〖N-04（收口轮，v4-1 validate R1）〗验 R1 抽样口径之一：`npm run test:supersession` 实测 24（R3 20 + review 修复轮 I1/I2 四条）。本轮收口新增 N-04 counts↔日志同源判据与 N-01~N-08 处置登记判据（各含一条反证）⇒ 实测 **28**（只增不减；floor 24 = validate R1 实测下界）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-supersession.log（全量，未截断）。 〖v4-2 review 修复轮（2026-09-19）〗新增 **I-01 判据两条**（`truncationRules` ↔ `DIGEST_FIELDS` 逐字段机核 + 反证）⇒ 实测 28 → **30 / 0**（floor 24 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-supersession-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮〗30 条（不变；本轮只重登记来源日志到收口轮快照 registry/，口径纪律同 nodeTestRuntime：登记路径不得指向门禁运行时的实时 tee 目标）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗新增 **v4 叶段 schema/scope 复算**判据一条（同时把「恰好 1 个叶段」换段化为「逐叶追加 + 逐叶段判定/反证」）⇒ 实测 **31 / 0**（30 → 31，只增不减；floor 24 不变）。 〖v4-3 审查修复轮（2026-09-19，I-05）〗新增 **逐叶段 diff 驱动 scope** 判据（`leafScopeFilesFor`：把「本叶段 `git diff` 真实删除面」并入受判集，去自指）⇒ 实测 **31 / 0**（不变：新判据并入既有「逐叶段 schema/scope」与「逐叶段删除行」两条内，断言计数不变而覆盖变强；floor 24 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-supersession-run.log（全量，未截断）。 〖v4-3 收口轮（2026-09-19，N-01 处置）〗新增 **`leafBases[].summary` 读数 == 分项之和** 判据 + 反证 ⇒ 实测 **33 / 0**（31 → 33，只增不减；floor 24 不变；该判据即时发现台账漂移，是本轮 N-01 的「防止再滞后」装置）。日志 /tmp/opencode/v4-gate-logs/v4-3-closeout/registry/test-supersession-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。",
    "source": {
     "gate": "npm run test:supersession",
-    "log": "/tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-supersession-run.log",
+    "log": "/tmp/opencode/v4-gate-logs/v4-3-closeout/registry/test-supersession-run.log",
     "pattern": "ℹ pass (\\d+)",
-    "observedLine": "ℹ pass 31",
-    "observed": 31,
+    "observedLine": "ℹ pass 33",
+    "observed": 33,
     "measuredOn": "2026-09-19"
    }
   },
@@ -5289,7 +5293,7 @@
      "previousCount": 920
     }
    },
-   "note": "V4-1 段的下界（只增）：v3 的精确值降级为下界，v4 段登记自己的下界；实测 < 下界即 FAIL。 〖review 修复轮〗读数按当前 `test/*.test.ts` 全量复算（新增 theme.test.ts 等 ⇒ 1027 / 886 / 875）；v3 段的三个原值（990 / 852 / 841）降级为**下界**保留在上述 previousCount，实测 < 原值仍 FAIL。 〖N-05/N-04（收口轮）〗本轮新增 6 条 node 用例 ⇒ 读数复算为 **1045 / 892 / 881**（`^'test('` = 881 = `npm test` 运行期实测，二者同源）；上一轮值降级为 `previousCount`（只增不减）。 〖v4-2（2026-09-19）〗v4-2 新增 3 个 node 文件（stream-model.test / stream-persistence.test / perf-budget 追加）共 +37 条，`^'test('` 读数即 `npm test` 运行期实测 918；读数本轮只作**下界**，故未随 build 轮更新（v4-1 末轮值 1045 / 892 / 881 作为下界保留）。 〖v4-2 review 修复轮〗再 +2 条（I-01 判据 + 反证）⇒ 全量复算 **1095 / 931 / 920**（`^'test('` = 920 = `npm test` 实测 920，**同源机核**），上一轮值降级为 `previousCount`（只增不减）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗全量复算 **1112 / 948 / 937**（`^test(` = 937 = `npm test` 实测，**同源机核**）；上一轮值降级为 `previousCount`（只增不减）。",
+   "note": "V4-1 段的下界（只增）：v3 的精确值降级为下界，v4 段登记自己的下界；实测 < 下界即 FAIL。 〖review 修复轮〗读数按当前 `test/*.test.ts` 全量复算（新增 theme.test.ts 等 ⇒ 1027 / 886 / 875）；v3 段的三个原值（990 / 852 / 841）降级为**下界**保留在上述 previousCount，实测 < 原值仍 FAIL。 〖N-05/N-04（收口轮）〗本轮新增 6 条 node 用例 ⇒ 读数复算为 **1045 / 892 / 881**（`^'test('` = 881 = `npm test` 运行期实测，二者同源）；上一轮值降级为 `previousCount`（只增不减）。 〖v4-2（2026-09-19）〗v4-2 新增 3 个 node 文件（stream-model.test / stream-persistence.test / perf-budget 追加）共 +37 条，`^'test('` 读数即 `npm test` 运行期实测 918；读数本轮只作**下界**，故未随 build 轮更新（v4-1 末轮值 1045 / 892 / 881 作为下界保留）。 〖v4-2 review 修复轮〗再 +2 条（I-01 判据 + 反证）⇒ 全量复算 **1095 / 931 / 920**（`^'test('` = 920 = `npm test` 实测 920，**同源机核**），上一轮值降级为 `previousCount`（只增不减）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗全量复算 **1112 / 948 / 937**（`^test(` = 937 = `npm test` 实测，**同源机核**）；上一轮值降级为 `previousCount`（只增不减）。 〖v4-3 收口轮（2026-09-19，N-01 处置）〗`test/supersession-ledger.test.ts` 追加 2 条用例（N-01 判据 + 反证）⇒ 全量复算 **1127 / 958 / 947**（`^test(` = 947 = `npm test` 实测 947，**同源机核**；`anyWordBoundary` 另 +4 为新用例里的 `.test(` 方法调用，故其增幅大于用例数——这正是三读法分列的意义）。`readings[].count` 仍作**下界**保留功能轮值（1112 / 948 / 937，只增不减），本段的**精确**运行期读数由 `counts.nodeTestRuntime` 承担。",
    "currentStatic": 948
   }
  },
@@ -5687,6 +5691,12 @@
    "topic": "auth 卡「范围与后果预演」代入文本的渲染面口径（I-08）",
    "note": "〖v4-3 审查修复轮（2026-09-19，review I-08）—— 处置：**登记**（不改实现）〗`cards/auth.ts#consequencePreview` 把 `payload.label ?? payload.prompt`（confirm 卡的 `prompt` = SW 摘要，形如 `将删除书签：<书签标题>（不可逆）`）代入静态 `#l1-consequence-tpl`。ADR-V4-034 §2 的表述是「范围与后果预演…不含命令参数体 / URL query / 页面文本」，而该代入值可能含页面文本 —— **口径差异如实登记**。不再改实现的两条理由（可核）：① 该文本**没有新增数据面** —— 它就是同一张卡 `#ask-prompt` 已经渲染的同一个 `payload.prompt`（同源同串，渲染前已由 `assertStreamPlaintext` 口径覆盖 `ASK_COPY`，而 `prompt` 属「用户可见的卡面内容」，不是留痕字段）；② 零明文红线的**持久化面**由 `stream-digest.ts#digestEntryOf` 独立兜住（它**不读** `prompt`/`answer`/`text`，且对 `label` 做 `sanitizeLabel` 扫描），因此代入预演不会把页面文本写进摘要。ADR-V4-034 §2 的措辞按此校准为「预演不新增页面/命令数据面（只回显本卡已显示的范围文本）」。",
    "status": "registered"
+  },
+  {
+   "id": "KL-V43CL-01",
+   "topic": "`arbitrateOpenAsks` 的早退边界：`open < MAX_OPEN_ASKS` 时「引用回合优先取代后台 ask」规则不触发（ADR-V4-032 §2 字面 vs 代码）",
+   "status": "registered",
+   "note": "〖v4-3 收口轮（2026-09-19，处置 validate R1 N-03；出处 = review R1 **C2**「注释/ADR 与代码字面不一致（无功能后果）」）—— 处置：**登记**（不改实现，红线「不动生产代码」）〗`src/ui/sidepanel/stream-model.ts#arbitrateOpenAsks` 的第一行是早退 `if (open.length < MAX_OPEN_ASKS) return Object.freeze([])`，而 `plan.md#ADR-V4-032 §2` 与函数 doc-comment 规则 ① 的字面是「**引用回合到达 ⇒ 先 supersede 所有后台 ask**」。**差异的精确边界**：当 `open = 1`（一张后台 ask）且引用回合的 ask 到达时，早退使规则 ① 不生效 ⇒ 两张卡**并存**（= 2 = `MAX_OPEN_ASKS`，仍 ≤ 上限）。**为什么无功能后果**：① 并存不超上限 —— `openAsks.length ≤ MAX_OPEN_ASKS` 的不变量由规则 ② 的 `while (remaining.length - i >= MAX_OPEN_ASKS)` 独立保证（`test/ask-auth-inflow.test.ts` ② 断言第 3 张必 supersede 最旧）；② 「引用回合优先」只在**需要腾位**时才有意义（腾位 = 有卡必须被取代），规则的语义是**取代顺序**而非「必然取代」；③ 被取代的那张后台 ask 走的是 `supersededAsk` 的可观测路径（`cancelled` 终态 + 系统行，「取消即留痕」），并非静默消失。**残余面（如实登记）**：若将来有调用方把「引用回合到达 ⇒ 后台 ask **必须**立即让位」当作契约依赖，则在 `open = 1` 的窗口里不成立 —— 该依赖当前**不存在**（面板自有引用回合与后台 ask 的 id 前缀互斥，`isRefRound` 判据见 `REF_ROUND_PREFIX`；本叶功能轮的 TASK-705/710 已把「引用回合走唯一入口」的断言锚点落在 `submitAskFor`）。**口径校准**：ADR-V4-032 §2 的字面规则按此读作「在达到上限时，引用回合到达**优先**取代后台 ask」；本轮不改 plan.md（禁改已完成 plan），以本条 + `build.md` 收口轮小节承接。反证/回归证据：`test/ask-auth-inflow.test.ts` ②（第 3 张进入时最旧被 supersede）与 22 门禁全绿；`test:supersession` 的叶段判据不受影响（本条只改台账 JSON，不碰 `test/**` 与产品字节）。"
   }
  ],
  "truncationRules": [

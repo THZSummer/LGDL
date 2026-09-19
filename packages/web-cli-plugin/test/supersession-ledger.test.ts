@@ -69,12 +69,31 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  */
 const V4_LEDGER_PATH = resolve(packageRoot(), 'docs/v4-supersession-ledger.json');
 
+/**
+ * 〖v4-3 收口轮 N-01〗`leafBases[].summary` —— 叶段的**自描述读数**。
+ *
+ * validate R1 N-01 的缺陷形态：v4-3 段 `registeredLines` 停在 72（review I-05 追加 55 行后
+ * 未回填）、v4-1 段停在 729（实际 761），而门禁当时只判「每组 `count == 清单长度`」与 scope
+ * 复算 —— **没有任何断言读这个字段**，于是自描述可以长期滞后而全绿。下面把它变成机核对象。
+ */
+interface V4LeafSummary {
+  /** 有非空 `registeredUncoveredLines` 的**文件数**（需逐字登记的删除面文件数）。 */
+  filesWithUnregisteredLeafDeletions: number;
+  /** Σ 各组 `registeredUncoveredLines.length`（逐字登记行数之和）。 */
+  registeredLines: number;
+  /** 可选：两个读数的口径声明（由下面的判据要求非空，防止「读数无口径」）。 */
+  caliber?: string;
+  note: string;
+  /** 订正历史的逐字保留（只追加，不改写历史）。 */
+  noteHistory?: string;
+}
 interface V4LeafBase {
   leaf: string;
   leafBase: string;
   why: string;
   scope: { files: string[]; why: string };
   registeredUncoveredLines?: Array<{ file: string; count: number; reason: string; registeredUncoveredLines: string[] }>;
+  summary?: V4LeafSummary;
 }
 interface V4LedgerShape {
   version: string;
@@ -1237,6 +1256,110 @@ test('ledger(V4 段): 每个叶段的 schema 与 scope 必须逐叶复算（不�
   console.log(`  ℹ v4 叶段 schema：${judged} 个叶段的 scope 逐叶复算一致（逐叶规则集 ${(v4.leafBases ?? [])
     .map((l) => leafScopeFilesFor(l.leafBase).length)
     .join(' / ')} 文件）`);
+});
+
+/**
+ * 〖v4-3 收口轮 N-01〗`leafBases[].summary` 的读数必须 == 分项之和。
+ *
+ * 判据（两个字段、逐字复算；口径写进 `summary.caliber` 并由本条要求非空）：
+ *   · `registeredLines` = Σ 各组 `registeredUncoveredLines.length`；
+ *   · `filesWithUnregisteredLeafDeletions` = 有非空登记的文件数（= v3 台账既有口径「需逐字
+ *     登记的删除面文件数」，v3-3 段 = 8）。
+ *
+ * 为什么必须有：review 修复轮 I-05 把 v4-3 段的登记从 72 条扩到 127 条、v4-1 段实际 761 条，
+ * 而 summary 仍写 72 / 729 —— **门禁全绿**（既有判据只判每组 `count` 与 scope 复算，没有一条
+ * 断言读这个字段）。在「留痕即事实」的台账里，自描述滞后就是失真，故把它变成可红：反证见下一条。
+ */
+function leafSummaryProblems(leaf: V4LeafBase): string[] {
+  const problems: string[] = [];
+  const groups = leaf.registeredUncoveredLines ?? [];
+  const expectedFiles = groups.filter((g) => g.registeredUncoveredLines.length > 0).length;
+  const expectedLines = groups.reduce((n, g) => n + g.registeredUncoveredLines.length, 0);
+  const summary = leaf.summary;
+  if (!summary) {
+    problems.push(`${leaf.leaf}: summary 缺失（自描述读数不得省略 —— 省略即漂移无从机核）`);
+    return problems;
+  }
+  if (summary.filesWithUnregisteredLeafDeletions !== expectedFiles) {
+    problems.push(
+      `${leaf.leaf}: summary.filesWithUnregisteredLeafDeletions=${summary.filesWithUnregisteredLeafDeletions}` +
+        ` ≠ 有非空登记的文件数 ${expectedFiles}（自描述滞后）`,
+    );
+  }
+  if (summary.registeredLines !== expectedLines) {
+    problems.push(`${leaf.leaf}: summary.registeredLines=${summary.registeredLines} ≠ 分项之和 ${expectedLines}（自描述滞后）`);
+  }
+  if ((summary.caliber ?? '').trim().length < 20) {
+    problems.push(`${leaf.leaf}: summary.caliber 过短（≥20 字符：读数必须声明口径，否则数字不可复算）`);
+  }
+  if ((summary.note ?? '').trim().length < 40) problems.push(`${leaf.leaf}: summary.note 过短（≥40 字符）`);
+  return problems;
+}
+
+test('ledger(V4 段): leafBases[].summary 的读数必须 == 分项之和（自描述不得滞后，N-01）', () => {
+  const v4 = readV4Ledger();
+  const leaves = v4.leafBases ?? [];
+  assert.ok(leaves.length > 0, 'v4 台账必须登记 leafBase（否则本判据悬空）');
+  const problems: string[] = [];
+  let judgedFiles = 0;
+  let judgedLines = 0;
+  for (const leaf of leaves) {
+    problems.push(...leafSummaryProblems(leaf));
+    for (const g of leaf.registeredUncoveredLines ?? []) {
+      if (g.registeredUncoveredLines.length > 0) judgedFiles += 1;
+      judgedLines += g.registeredUncoveredLines.length;
+    }
+  }
+  assert.deepEqual(problems, [], `leafBases[].summary 与分项不符（N-01：自描述滞后必须 FAIL）：\n${problems.join('\n')}`);
+  // Anti-vacuity: 判据必须真的复算到非空登记，否则它是「对空集合恒真」。
+  assert.ok(judgedFiles > 0 && judgedLines > 0, '本判据必须真的复算到非空登记（否则是空转）');
+  console.log(
+    `  ℹ 叶段自描述机核（N-01）：${leaves.length} 个叶段 · 逐字登记文件 ${judgedFiles} 个 / ${judgedLines} 行 == summary 逐项复算`,
+  );
+});
+
+test('ledger(V4 段)反证: summary 读数滞后必须判 FAIL（N-01 判据不是恒真）', () => {
+  const leaf: V4LeafBase = {
+    leaf: 'synthetic',
+    leafBase: '0f8a1fb',
+    why: 'x'.repeat(50),
+    scope: { files: [], why: 'y'.repeat(50) },
+    registeredUncoveredLines: [
+      { file: 'a.test.ts', count: 2, reason: 'z'.repeat(50), registeredUncoveredLines: ['line-1', 'line-2'] },
+    ],
+    summary: {
+      filesWithUnregisteredLeafDeletions: 1,
+      registeredLines: 2,
+      caliber: 'registeredLines = Σ 分项；files = 非空登记文件数（合成用例）',
+      note: 'n'.repeat(50),
+    },
+  };
+  assert.deepEqual(leafSummaryProblems(leaf), [], '自洽 summary 不得误报');
+  assert.ok(
+    leafSummaryProblems({ ...leaf, summary: { ...leaf.summary!, registeredLines: 72 } }).some((p) => /registeredLines=72/.test(p)),
+    'v4-3 段的真实形态（72 vs 127）必须判红',
+  );
+  assert.ok(
+    leafSummaryProblems({ ...leaf, summary: { ...leaf.summary!, filesWithUnregisteredLeafDeletions: 10 } }).some((p) =>
+      /filesWithUnregisteredLeafDeletions=10/.test(p),
+    ),
+    'v4-3 段的真实形态（10 vs 14）必须判红',
+  );
+  assert.ok(
+    leafSummaryProblems({ ...leaf, summary: { ...leaf.summary!, filesWithUnregisteredLeafDeletions: 0 } }).some((p) =>
+      /filesWithUnregisteredLeafDeletions=0/.test(p),
+    ),
+    'v4-1 段的真实形态（0 vs 19：旧读法 ≠ 现口径）必须判红',
+  );
+  assert.ok(
+    leafSummaryProblems({ ...leaf, summary: undefined }).some((p) => /summary 缺失/.test(p)),
+    'summary 缺失必须判红（不得用「没写」兜成「无漂移」）',
+  );
+  assert.ok(
+    leafSummaryProblems({ ...leaf, summary: { ...leaf.summary!, caliber: '', note: 'short' } }).length >= 2,
+    '口径缺失 + note 过短必须判红（读数不可复算 = 口径悬空）',
+  );
+  console.log('  ℹ N-01 反证：72 / 10 / 0（滞后与旧读法）→ FAIL ✔ / 缺失 → FAIL ✔ / 自洽 → 不误报 ✔');
 });
 
 test('ledger(V4 段): 每个叶段的删除行必须逐字集合相等（多一条/少一条/改一字都 FAIL）', () => {

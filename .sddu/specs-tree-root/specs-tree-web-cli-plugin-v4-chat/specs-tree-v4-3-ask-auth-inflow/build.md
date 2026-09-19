@@ -169,7 +169,7 @@
 
 | 项 | 实测 |
 |---|---|
-| `index.html` `data-transitional-host="v4-3"` 计数 | **0**（v4-4 保留 **3**） |
+| `index.html` `data-transitional-host="v4-3"` 计数 | **0**（v4-4 保留 **2 个 `<li>` 宿主** `data-host="l1-panels"` / `"strips"` + **1 处注释提及**；`l0.mjs#REGISTERED_TRANSITIONAL_HOSTS` 登记口径 = **2**，`grep -c` 会把注释计入故不可用 —— 见 §11 收口轮 N-02） |
 | `ask-bridge.ts` diff | 0 行（零 diff） |
 | `content.js` / `pick-layer.js` | **177,076 / 33,900 逐字节不变**（R2 复核） |
 | `KIND_SET` / `SW` / manifest | 零改动 |
@@ -360,6 +360,82 @@
 
 **如实登记的边界**：① BLOCK-01 的三条路径中，「会话切换」在 DOM 门禁里由模型侧（`test/ask-auth-inflow.test.ts` 用真实 `decisionState`/`authFixedText`）判定，「被取代 / 回合结束」两条另在真实渲染路径上判定 —— 未为会话切换新增渲染层 seam（避免为非产品路径扩 seam）；② `askFlowView.canSubmitOpenAsk` 的文案消费点在 composer **提示行**（`#send-reason`），推荐 chip 的接线按 ADR-V4-032 仍归 v4-4。
 
+## 11. 收口轮（validate R1 的 N-01~N-03 处置；2026-09-19）
+
+> **基线**：`validate.md` / `validate-report.md`（R1）@ HEAD `ac10069` —— 结论 **✅ 通过 / 0 阻塞 / 3 项非阻塞登记（N-01~N-03）**。
+> **红线遵守**：**不动生产代码**（`src/**` / `dist/**` / 判定链 / SW / manifest 零 diff，见 §11.4）；台账是**登记面**（订正 summary 读数 + 新增 KL 条目，旧值一律逐字保留在 `noteHistory`）；**测试只增不减**（npm **945 → 947**，supersession **31 → 33**，其余 20 项逐项不减）。
+> **本轮改动面（3 个文件）**：`docs/v4-supersession-ledger.json`（summary ×2 + counts ×2 + knownLimitations +1 + staticCalibers note）、`test/supersession-ledger.test.ts`（+2 用例，纯追加）、本文件。
+
+### 11.1 处置清单（逐项 + 可复跑证据）
+
+| # | validate R1 登记 | 处置 | 证据（可复跑） |
+|:--:|------|------|------|
+| **N-01** | `leafBases[].summary` 自描述读数**滞后**于分项（v4-3 段 72 / 10 vs 实际 127 / 14；v4-1 段 729 / 0 vs 实际 761 / 19）；门禁只判「每组 `count == 清单长度`」与 scope 复算，**没有任何断言读 summary** ⇒ 漂移可长期存活 | ① **按分项复算订正**：v4-3 `registeredLines` 72 → **127** / `filesWithUnregisteredLeafDeletions` 10 → **14**（+55 行 / +4 文件全部来自 review 修复轮 **I-05**）；v4-1 729 → **761** / 0 → **19**；口径统一为 v3 台账既有的「**需逐字登记的删除面文件数**」（v3-3 段 = 8）。② 每段新增 `caliber`（口径声明，判据要求非空）+ `noteHistory`（旧值/旧注**逐字**保留）。③ **新增机核判据 + 反证**（`test/supersession-ledger.test.ts`，+2 用例：`leafSummaryProblems()` 纯函数判 `registeredLines == Σ分项 ∧ files == 非空登记文件数`，反证覆盖 72 / 10 / 0 / 缺失 / 口径悬空五种形态） | **注入 → 还原两段实测**：把 v4-3 summary 改回 72/10 ⇒ `npm run test:supersession` **rc=1**，逐字报 `summary.registeredLines=72 ≠ 分项之和 127` 与 `summary.filesWithUnregisteredLeafDeletions=10 ≠ 有非空登记的文件数 14`；还原 ⇒ **rc=0**（`ℹ pass 33 / fail 0`），且台账 **sha256 注入前后逐字节相同**（`48376d2453c452fa4b83b3ab2d2acb68dcc7f933eda05ff9fcc02a619a5eac65`）。日志：`evidence/N01-注入漂移-supersession.log` / `evidence/N01-还原-supersession.log` / `evidence/ledger-sha-{before,after}.txt` |
+| **N-02** | 本文件 §7「`index.html` 占位宿主：v4-4 保留 **3**」与实测不符（`grep -c 'data-transitional-host='` 把 **1 处注释**计入宿主） | §7 表行订正为「**2 个 `<li>` 宿主**（`data-host="l1-panels"` / `"strips"`）+ **1 处注释提及**（`index.html:1147`）」，并注明 `l0.mjs#REGISTERED_TRANSITIONAL_HOSTS = 2` 才是登记口径（`grep -c` 口径不可用于计数） | `grep -n 'data-transitional-host=' src/ui/sidepanel/index.html` ⇒ 恰 **3** 行 = `<li>` **1297** / `<li>` **1335** + 注释 **1147**；`npm run test:l0` 判据 ① 断言实测宿主数 == 登记值 2（`216 passed / 0 failed`） |
+| **N-03** | `plan.md#ADR-V4-032 §2` 字面「新引用回合 ask 到达 ⇒ 先 supersede **所有**后台 ask」与 `arbitrateOpenAsks` 的早退 `if (open.length < MAX_OPEN_ASKS) return []` 不一致；review R1 **C2** 已登记为「注释/ADR 与代码字面不一致（无功能后果）」 | **登记、不改实现**（红线：不动生产代码；SDDU 规则：不改已完成 plan）：台账 `knownLimitations` 追加 **`KL-V43CL-01`** —— 写明 ① review C2 出处；② 差异的**精确边界**（`open = 1` 时引用回合到达 ⇒ 两卡并存 = 2 = `MAX_OPEN_ASKS`，仍 ≤ 上限；规则 ① 只在**需要腾位**时有意义）；③ 为何**无功能后果**（上限不变量由规则 ② 的 `while` 独立保证；被取代卡走 `supersededAsk` 可观测路径「取消即留痕」，非静默消失）；④ 残余面（若有调用方把「必然让位」当契约依赖则不成立 —— 当前**不存在**该依赖，id 前缀互斥 + `REF_ROUND_PREFIX` 判据）；⑤ 口径校准（ADR 字面按「达上限时**优先**取代」读） | 台账 `knownLimitations[6].id == 'KL-V43CL-01'`（含 `'C2'` 出处）；功能面：`npm run test:ask-auth` ⇒ 判据 ② 断言第 3 张进入时最旧被 supersede（`61 passed / 0 failed`）；`npm run test:supersession` 的逐叶段判据不受影响（本轮只改台账 JSON + 追加用例） |
+
+### 11.2 门禁全量账（严格串行 · 一次一个 Chromium · 日志全量落盘禁截断）
+
+日志目录：`/tmp/opencode/v4-gate-logs/v4-3-closeout/`（`summary.txt` 逐项退出码，日志名 `NN-npm.log`；`registry/` = 同轮一次完整绿 run 副本，供台账 `counts.source.log` 同源机核；`evidence/` = N-01 注入/还原两段与同源核验）
+
+| # | 门禁 | 命令 | 退出码 | 计数（原文） | 与上轮 |
+|:--:|------|------|:--:|------|:--:|
+| 1 | typecheck | `npm run typecheck` | 0 | `tsc --noEmit` 通过 | = |
+| 2 | build | `npm run build` | 0 | `dist/` 重建（sidepanel.js **445,300 B** 不变） | = |
+| 3 | npm test | `npm test` | 0 | `ℹ pass 947 / ℹ fail 0` | 945 → **947**（+2：N-01 判据 + 反证） |
+| 4 | supersession | `npm run test:supersession` | 0 | `ℹ pass 33 / ℹ fail 0`（并打印 `ℹ counts 同源机核：4 项与门禁日志逐条相等`） | 31 → **33**（+2） |
+| 5 | gate-integrity | `npm run test:gate-integrity` | 0 | `ℹ pass 12 / ℹ fail 0` | = |
+| 6 | zero-injection | `npm run test:zero-injection` | 0 | `27 passed / 0 failed` | = |
+| 7 | page-input | `npm run test:page-input` | 0 | `102 passed / 0 failed` | = |
+| 8 | l0 | `npm run test:l0` | 0 | `216 passed / 0 failed` | = |
+| 9 | l1 | `npm run test:l1` | 0 | `111 passed / 0 failed` | = |
+| 10 | l2 | `npm run test:l2` | 0 | `73 passed / 0 failed` | = |
+| 11 | density | `npm run test:density` | 0 | `171 passed / 0 failed` | = |
+| 12 | journey | `npm run test:ui` | 0 | `UI journey PASS — 167 assertions` | = |
+| 13 | insight | `npm run test:insight` | 0 | `UI insight PASS — 116 assertions` | = |
+| 14 | binding | `npm run test:binding` | 0 | `binding PASS — 192 assertions` | =（本轮**未复现** KL-N-10 抖动） |
+| 15 | hardening | `npm run test:hardening` | 0 | `hardening PASS — 24 assertions` | = |
+| 16 | e2e | `npm run test:e2e` | 0 | `R8 E2E PASS — real dist full chain` | = |
+| 17 | ask-auth | `npm run test:ask-auth` | 0 | `61 passed / 0 failed` | = |
+| 18 | stream | `npm run test:stream` | 0 | `63 passed / 0 failed` | = |
+| 19 | design-contract | `npm run test:design-contract` | 0 | `ℹ pass 6 / ℹ fail 0`（shim 60/60） | = |
+| 20 | l1-reverse | `npm run test:l1-reverse` | 0 | `反证全套 PASS：9 条断言全部「注入 → FAIL → 逐字节还原（sha256 复原）→ PASS」` | = |
+| 21 | l2-reverse | `npm run test:l2-reverse` | 0 | `L2 反证全套 PASS：10 条`（同上口径） | = |
+| 22 | RP-V4-09 复验 | `npm run test:density -- --reverse RP-V4-09` | 0 | `9 passed / 0 failed` | = |
+
+**总计**：`summary.txt` = **22 行 `exit=0`** ∧ 末行 `---- FAIL=0 ----`。
+
+**计数只增不减核对**：node 945 → **947**、supersession 31 → **33**（本轮**唯一两处增量**，均为 N-01 机核）；l0 216 / l1 111 / l2 73 / density 171 / journey 167 / insight 116 / binding 192 / hardening 24 / ask-auth 61 / stream 63 / page-input 102 / zero-injection 27 / gate-integrity 12 / design-contract 6 / sidepanelView 38 / l1-reverse 9 / l2-reverse 10 / RP-V4-09 9 **全部 `=`**（零删减）。
+
+### 11.3 台账/测试增量与同源机核
+
+| 项 | 变更 | 机核 |
+|---|---|---|
+| `counts.nodeTestRuntime` | 945 → **947**；`previousRuntime` 937 → 945（历史保留）；`source.log` → closeout `registry/test-run.log`，`observedLine == "ℹ pass 947"` | N-04 恒在层（pattern 命中 ∧ 解析值 == observed == currentRuntime ≥ floor 832）+ 同源层（日志实测 947） |
+| `counts.supersession` | 31 → **33**；`source.log` → closeout `registry/test-supersession-run.log`，`observedLine == "ℹ pass 33"` | 同上；`npm run test:supersession` 打印 **`ℹ counts 同源机核：4 项与门禁日志逐条相等`**（l0 / density / nodeTestRuntime / supersession 四条全同源，无 skip） |
+| `staticCalibers.nodeTestStatic` | note 追加收口轮读数 **1127 / 958 / 947**（`^test(` = 947 = `npm test` 实测，**同源**）；`readings[].count` 仍保留功能轮**下界** 1112 / 948 / 937（只增不减） | 静态读法判据逐正则复算；v4 段按「实测 ≥ 登记下界」判 |
+| `leafBases[].summary` ×2 | 见 §11.1 N-01；新增 `caliber` + `noteHistory`（旧值逐字保留） | **新增** `leafSummaryProblems` 判据 + 反证（本轮 +2 用例的来源） |
+| `knownLimitations` | 追加 `KL-V43CL-01`（N-03） | 条目自描述 + §11.1 功能面证据 |
+| `test/supersession-ledger.test.ts` | **纯追加** 2 用例 + `V4LeafSummary` 接口（无删行：`git diff` 无 `-` 行） | npm test 947 / supersession 33 双口径同源 |
+
+### 11.4 红线核验（收口轮改动面之外零触碰）
+
+| 红线 | 实测 |
+|---|---|
+| `dist/content.js` / `dist/pick-layer.js` | **177,076 B / 33,900 B 逐字节不变**；sha256 `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6` / `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59`（与 v4-2 收口登记一致） |
+| `src/**` / `manifest.json` / `dist/**` diff | **0 行**（`git status --short` 仅 3 个非产品文件：台账 JSON / 测试文件 / 本文件） |
+| `dist/sidepanel.js` | **445,300 B ≤ ceiling 467,565 B**（= review 修复轮登记值，本轮无体积变化 ⇒ 无重登记） |
+| 判定链 / SW / `KIND_SET` / `ask-bridge.ts` | 零改动 |
+| 保护段（journey / binding active pin） | 字节零改（`test:density` / `test:supersession` 逐字节机核通过） |
+| 测试只增不减 | 22 门禁逐项 ≥ 上轮（仅 node / supersession 两处 **+2**） |
+| `git add -A` | 未使用（逐文件 `git add`） |
+
+### 11.5 本轮未完成 / 风险
+
+**无。** N-01~N-03 三项全部处置（订正 2 项 + 文档订正 1 项 + 登记 1 项），并新增 1 条**防再犯**机核（summary 自描述读数，含反证）；22 门禁 + 反证全绿，红线零 diff。
+
+**如实登记的残余**：N-03 的「ADR 字面」按 `KL-V43CL-01` 登记**读作**「达到上限时，引用回合到达**优先**取代后台 ask」；`plan.md` 按 SDDU 规则**不修改**（已完成 plan 冻结），故字面与代码的措辞差异以台账条目 + 本节承接，而非改 plan 原文。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -367,4 +443,6 @@
 | v1.0 | 初始创建（11 任务源码产出 + 终态事件表 + HO-1 裁决/反证 + HO-2 复算 + 宿主清零 + 体积五要素；如实登记 3 类未绿门禁） | 2026-09-19 | SDDU Build Agent |
 | v2.0 | R2 收口轮：4 项机械重 pin 逐项闭环（台账 71 entries + 1 叶段 72 行 + 9 换锚；RP-L1-E 空安全重 pin；l2-reverse 还原基线复原；npm test 937/0）+ 抽样口径按实测订正 + 全量 21 门禁 + RP-V4-09 全绿 + 反证两段证据 | 2026-09-19 | SDDU Build Agent |
 | v3.0 | **review 修复轮**：BLOCK-01~04 修法 + 两段证伪原文 ×4 + I-01~I-08 逐条处置（含 I-03 裁决与展开态判据/反证、I-05 叶段 scope 去自指）+ 新增断言清单 + 22 门禁全绿 + 体积五要素重登记（445,300 / 467,565） | 2026-09-19 | SDDU Build Agent |
+| v4.0 | **收口轮（validate R1 的 N-01~N-03）**：N-01 台账 summary 按分项复算订正（127/14 + 761/19，口径统一为「需逐字登记的删除面文件数」）并新增「读数 == 分项之和」机核 + 反证（注入 72/10 ⇒ FAIL、还原 ⇒ PASS，sha 逐字节复原）；N-02 §7 宿主计数订正为「2 个 `<li>` + 1 处注释」；N-03 新增 `KL-V43CL-01`（含 review C2 出处与早退边界）；22 门禁全绿（node 947 / supersession 33）+ counts 同源 4/4 + 红线零 diff | 2026-09-19 | SDDU Build Agent |
+
 

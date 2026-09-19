@@ -51,7 +51,7 @@
    "deliveryOrder": 3,
    "covers": "FR-CHAT-040~049（AC-CHAT-003 / 005 / 014 / 015 / 016 / 021 / 023 / 025）",
    "role": "ask-user（choice/text）与破坏性确认从独占槽迁入流内 + 固化不可逆 + 60s 超时/取消/supersededAsk 留痕 + 授权记录流内可回看 + 零明文边界",
-   "note": "前置 v4-2；作者主诉的直接兑现；与 v4-4 可并行分解（门禁串行） 2026-09-19 同批同步：本叶 build R1(b58a52d/3eea886)+R2(1fb26bb) 已提交且 22 项门禁 rc=0（台账逐行登记 71 条 + leafBases[1] 72 行 + RP-V4-09 重 pin）；父 state childrens[].phase 同步为 builded。**review R1（sddu-review）结论 = ❌ 不通过**：4 阻塞（BLOCK-01 auth 卡 cancelled 终态渲染「已批准」/ BLOCK-02 回合结束被当超时结算面板自有引用回合 ask / BLOCK-03 L1 已决策历史答案源随 decision-card 删除而记错 / BLOCK-04 刚决策 auth 卡审计入口不可达）+ I-01~I-08；详见本叶 review-report.md。 2026-09-19 validate 同步：review 修复轮（c88811b）后独立动态验证 ✅ 通过——22 门禁 + RP-V4-09 独立复跑全绿且计数对账一致；240,802 对抗探针断言 0 失败（假留痕四攻全败 / 终态机 10000 序列 0 漏洞 / 零明文注入 / 展开态预算自注入必红 / R1 全链）；红线零 diff、spec·plan 零漂移；附 N-01~N-03 非阻塞登记。产物 validate.md + validate-report.md。",
+   "note": "前置 v4-2；作者主诉的直接兑现；与 v4-4 可并行分解（门禁串行） 2026-09-19 同批同步：本叶 build R1(b58a52d/3eea886)+R2(1fb26bb) 已提交且 22 项门禁 rc=0（台账逐行登记 71 条 + leafBases[1] 72 行 + RP-V4-09 重 pin）；父 state childrens[].phase 同步为 builded。**review R1（sddu-review）结论 = ❌ 不通过**：4 阻塞（BLOCK-01 auth 卡 cancelled 终态渲染「已批准」/ BLOCK-02 回合结束被当超时结算面板自有引用回合 ask / BLOCK-03 L1 已决策历史答案源随 decision-card 删除而记错 / BLOCK-04 刚决策 auth 卡审计入口不可达）+ I-01~I-08；详见本叶 review-report.md。 2026-09-19 validate 同步：review 修复轮（c88811b）后独立动态验证 ✅ 通过——22 门禁 + RP-V4-09 独立复跑全绿且计数对账一致；240,802 对抗探针断言 0 失败（假留痕四攻全败 / 终态机 10000 序列 0 漏洞 / 零明文注入 / 展开态预算自注入必红 / R1 全链）；红线零 diff、spec·plan 零漂移；附 N-01~N-03 非阻塞登记。产物 validate.md + validate-report.md。 〖2026-09-19 收口轮同步（sddu-build）〗validate R1 的 N-01~N-03 已全处置：① **N-01** 台账 `leafBases[].summary` 按分项复算订正（v4-3 72→**127** / 10→**14**；v4-1 729→**761** / 0→**19**，口径统一为「需逐字登记的删除面文件数」）并**新增机核**「summary 读数 == 分项之和」判据 + 反证（注入 72/10 ⇒ rc=1 逐字报 72 ≠ 127 / 10 ≠ 14，还原 ⇒ rc=0，sha 逐字节复原）；② **N-02** build.md §7 宿主计数订正为「**2 个 `<li>` 宿主 + 1 处注释**」（登记口径 = `l0.mjs#REGISTERED_TRANSITIONAL_HOSTS` = 2）；③ **N-03** 新增 `knownLimitations[KL-V43CL-01]`（review R1 C2 出处 + `arbitrateOpenAsks` 早退边界 `open=1` ⇒ 两卡并存 2 ≤ `MAX_OPEN_ASKS`，无功能后果；plan.md 不改）。门禁 **22/22 rc=0**（node 945 → **947** / supersession 31 → **33**，仅此两处 +2；其余逐项相等）；counts 同源机核 **4/4**；红线零 diff（content.js 177,076 / pick-layer.js 33,900 逐字节不变；src/manifest/dist 零 diff；sidepanel 445,300 ≤ 467,565）。**phase=validated + status=completed 保持，收口完成 → 可开 v4-4**（承接 §7 的 2 个过渡宿主清零 TASK-812 与 ADR-V4-032 推荐 chip 接线）。",
    "tasksArtifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.md"
   },
   {
@@ -72,7 +72,7 @@
  ],
  "leaf": false,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-19T18:30:00.000Z",
+ "updatedAt": "2026-09-19T19:00:00.000Z",
  "description": "作者 2026-09-17 真机反馈立项（逐字：「所有过程性的问答，建议放到聊天框里面，同时也方便看到授权记录，不要放到上面，丢失过程信息，每一步交互，尽可能都在聊天框留痕，作为事实依据，包括推荐的下一步操作，都放到聊天框里面」/「整体布局简化，工具栏、聊天框、状态栏」/「聊天框包含：AI答复聊天、下一步推荐、问答、权限申请」），2026-09-18 作者确认「开启重构的SDDU流程」。ROADMAP 编号 F-30（本轮实测 0 占用；F-29 为 A2A 候选保留），版本落点建议 = v0.9.0 同批叠加第三 Feature（F-27/F-28 先例）。设计基准 = packages/web-cli-plugin/design/ui-redesign/option-f-chat-stream.html（1,927 行，S1~S7 场景）+ option-f-shim.mjs（60 断言；本轮实跑 60/60）。核心问题 = 过程性交互（ask-user 问答 / 破坏性确认 / 站点授权 / 系统事件 / 引用生命周期 / 下一步推荐）全部落在聊天流之外（流之上的独占决策槽 + 底部 6 条瞬时提示条 + 顶部永不折叠风险带 + 3 处引用投影），解析即消失、无时间戳、不可回看。发现阶段产出：discovery.md v1.0（Q-CHAT-001~013 · A-CHAT-001~009 · R-CHAT-001~016 · O-CHAT-001~009 + 现状基线 §7.1 全量 file:line 证据 + 取代/保留清单草案 + 门禁影响面预判 + 4 叶拆分建议）。",
  "scope": {
   "in": [
