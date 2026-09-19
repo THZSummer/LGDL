@@ -718,6 +718,36 @@ async function main() {
     check('⑪ 改选被标记（同一 prompt 二次决策 → changed=true）', th.rounds.some((r) => r.changed === true), JSON.stringify(th.rounds));
     check('⑪ 回看历史零副作用（展开前后已执行动作/引用态逐字不变）', th.execStable === true, treeHist);
     check('⑪ 历史入口标签含真实步数', new RegExp(`已决策 ${th.afterSecond} 步`).test(th.label), th.label);
+    // ── BLOCK-03（v4-3 审查修复轮）：答案源必须来自**流内卡的终态** ────────────
+    // 修复前 `rounds[]` 由 `input.ask` 差值推断，其答案生产者随 `decision-card.ts` 一起
+    // 被删 ⇒ 每一轮都回落成上一条用户消息或「（无回答）」+ canceled:true。本段在真实产品
+    // 路径上断言「文案 = 卡的答案」，修复前必红。
+    check(
+      '⑪ BLOCK-03：已决策历史的选择文案 = 流内卡的**真实答案**',
+      th.rounds.length >= 2 &&
+        th.rounds[th.rounds.length - 1].chosen === '查看站点声明' &&
+        th.rounds[th.rounds.length - 2].chosen === '查看站点声明' &&
+        th.rounds[th.rounds.length - 1].canceled === false,
+      JSON.stringify(th.rounds),
+    );
+    const cancelledRound = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令']);
+        document.getElementById('ask-cancel').click();
+        const rounds = window.__v3.testing.l1('report').rounds;
+        const last = rounds[rounds.length - 1];
+        const hit = [...document.querySelectorAll('#l1-history-rows .l1-row')].map((r) => r.textContent).find((t) => /这一步先做什么/.test(t)) ?? '';
+        return JSON.stringify({ last, hit, count: rounds.length });
+      })()`,
+    );
+    const cr = JSON.parse(cancelledRound);
+    check(
+      '⑪ BLOCK-03：取消轮必须 canceled=true 且原因可读（不是「（无回答）」）',
+      cr.last.canceled === true && /已取消（用户）/.test(cr.last.chosen) && !/（无回答）/.test(cr.last.chosen),
+      cancelledRound,
+    );
+    check('⑪ BLOCK-03：历史行文案与卡的终态同源（渲染文本含真实答案）', /查看站点声明/.test(cr.hit), cr.hit);
 
     // ── ⑫ density does not regress after an expand/collapse round trip ─────
     console.log('\n▶ ⑫ 密度不回归：展开/收起往返后默认档仍达标（三视口，复用 v3-1 口径）');

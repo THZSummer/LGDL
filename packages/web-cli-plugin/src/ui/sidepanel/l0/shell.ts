@@ -21,6 +21,7 @@ import type { DisclosureController } from '../disclosure.js';
 import type { L2Counts, L2ViewKey } from '../l2/counts.js';
 import { OTHER_OPTION_LABEL, l0ViewModel, moreOptionsLabel } from '../view-model.js';
 import type { L0Input, L0View } from '../view-model.js';
+import { setAskFallbackOpen } from '../cards/askuser.js';
 import { renderRiskRail } from './risk-rail.js';
 import { mountStatusBar } from './status-bar.js';
 import { mountStatusBar as mountStatusZone, riskActiveOf } from '../statusbar.js';
@@ -90,20 +91,18 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   // pool) survive here so the disclosure contract keeps its single writer; the
   // fallback input it used to reveal now belongs to the active stream ask card.
   const revealFallback = (): void => {
-    const fallback = doc.getElementById('ask-fallback') as HTMLElement | null;
-    if (fallback) fallback.hidden = false;
+    // I-03 (v4-3 review): go through the ask card's own mutual-disclosure function so
+    // the「改用描述」entry point and the in-card「其他…」toggle produce the SAME DOM
+    // state (options collapsed while the fallback is open ⇒ 4 clickables ≤ 6).
+    setAskFallbackOpen(doc, true);
     // ADR-V3-014 §5 kept: `#composer` is the *secondary* full-text channel **inside**
     // the fallback state — never resident, but revealed together with the fallback
     // input (the existing page-input/binding flows depend on it).
     const composer = doc.getElementById('composer') as HTMLElement | null;
     if (composer) composer.hidden = false;
-    const other = doc.getElementById('ask-other');
-    if (other) other.setAttribute('aria-expanded', 'true');
-    (doc.getElementById('ask-input') as HTMLInputElement | null)?.focus();
   };
   const hideFallback = (): void => {
-    const fallback = doc.getElementById('ask-fallback') as HTMLElement | null;
-    if (fallback) fallback.hidden = true;
+    setAskFallbackOpen(doc, false);
     const composer = doc.getElementById('composer') as HTMLElement | null;
     if (composer) composer.hidden = true;
   };

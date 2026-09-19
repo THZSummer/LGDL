@@ -33,16 +33,29 @@ import { ASK_COPY } from '../stream-plaintext.js';
 import type { CardView } from '../stream-model.js';
 import { CARD_TAG_LABELS, createCardShell, createFixedRegion, fixedText, type CardDeps } from './shared.js';
 
-/** `data-decision` for an auth card (shim D2/D3/D5 verbatim). */
-export function decisionState(view: CardView): 'pending' | 'approved' | 'rejected' {
+/**
+ * `data-decision` for an auth card (shim D2/D3/D5 verbatim, plus BLOCK-01).
+ *
+ * ── BLOCK-01 (v4-3 review) ───────────────────────────────────────────────────
+ *
+ * A pending authorization that outlives its turn / is replaced / loses its session
+ * reaches the `cancelled` terminal. Before this round {@link decisionState} mapped
+ * that to `'pending'` and {@link authFixedText} fell through to「已批准」— i.e. the
+ * UI and the trace said the user had **approved** a destructive operation they
+ * never approved. `cancelled` is therefore its own `data-decision` value and its own
+ * copy; the「never a silent approve」rule (ADR-V4-031) is structural again.
+ */
+export function decisionState(view: CardView): 'pending' | 'approved' | 'rejected' | 'cancelled' {
   if (view.terminal === 'approved') return 'approved';
   if (view.terminal === 'rejected') return 'rejected';
+  if (view.terminal === 'cancelled') return 'cancelled';
   return 'pending';
 }
 
-/** The固化 copy of an auth card (shim D3 / D5). */
+/** The固化 copy of an auth card (shim D3 / D5 + BLOCK-01 cancelled). */
 export function authFixedText(view: CardView): string {
   if (view.terminal === 'rejected') return ASK_COPY.rejected;
+  if (view.terminal === 'cancelled') return ASK_COPY.authCancelled;
   return ASK_COPY.approved;
 }
 
@@ -183,7 +196,7 @@ export function createAuthCard(view: CardView, deps: CardDeps): HTMLLIElement {
 }
 
 /** Apply the terminal transition to an open auth card (remove the action row). */
-export function patchAuthCard(view: CardView, node: HTMLElement): void {
+export function patchAuthCard(view: CardView, node: HTMLElement, deps?: CardDeps): void {
   node.setAttribute('data-decision', decisionState(view));
   const actions = node.querySelector('.auth-actions');
   if (actions) actions.remove();
@@ -195,7 +208,12 @@ export function patchAuthCard(view: CardView, node: HTMLElement): void {
   if (summary) summary.hidden = true;
   fillAuthFixed(node, view);
   if (!node.querySelector('.auth-audit')) {
-    const deps: CardDeps = { doc: node.ownerDocument };
-    node.querySelector('.card-col')?.appendChild(auditEntry(view, deps));
+    // BLOCK-04 (v4-3 review): the audit exit must carry the REAL deps — the previous
+    // `{ doc: node.ownerDocument }` left `onCardAction` undefined while the handler
+    // still called `preventDefault()`, so「刚决策的卡 → 审计」clicked and did nothing.
+    // The renderer threads `cardDeps()` through `patchCardNode`; the ownerDocument
+    // fallback only keeps a bare-card node test from throwing.
+    const auditDeps: CardDeps = deps ?? { doc: node.ownerDocument };
+    node.querySelector('.card-col')?.appendChild(auditEntry(view, auditDeps));
   }
 }

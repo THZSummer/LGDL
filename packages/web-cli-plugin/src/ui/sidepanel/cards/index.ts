@@ -200,7 +200,7 @@ export function createCardNode(view: CardView, deps: CardDeps): HTMLLIElement {
  * marks exactly those kinds frozen when they are first built. I-08 (v4-2 review)
  * removed the dead `ai` branch this function used to carry.
  */
-export function patchCardNode(view: CardView, node: HTMLElement): void {
+export function patchCardNode(view: CardView, node: HTMLElement, deps?: CardDeps): void {
   if (view.kind === 'thinking') {
     patchThinkingCard(view, node);
     return;
@@ -217,7 +217,9 @@ export function patchCardNode(view: CardView, node: HTMLElement): void {
     return;
   }
   if (view.kind === 'auth') {
-    if (view.frozen) patchAuthCard(view, node);
+    // BLOCK-04 (v4-3 review): the terminal patch needs the REAL deps so the audit
+    // exit it appends is actually reachable (`onCardAction`); see `patchAuthCard`.
+    if (view.frozen) patchAuthCard(view, node, deps);
     else node.setAttribute('data-decision', decisionState(view));
     return;
   }

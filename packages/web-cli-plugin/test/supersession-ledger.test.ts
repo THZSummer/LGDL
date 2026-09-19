@@ -933,6 +933,39 @@ function leafScopeFiles(): string[] {
 }
 
 /**
+ * I-05 (v4-3 review) — **the diff-driven half of the scope rule**.
+ *
+ * `leafScopeFiles()` alone is **self-referential**: it is computed from the ledger's
+ * own `modifiedRanges` / `entries` / `protectedRanges`, so a file that was *never
+ * registered anywhere* can never enter the judged set — its leaf-segment deletions
+ * are structurally invisible (measured: `test/ui/stream.mjs` was created in v4-2 and
+ * had 8 lines deleted by v4-3, yet it entered no judged set and no base-relative
+ * entry; `density-thresholds` / `size-ruling-vol3` / `supersession-ledger.test.ts`
+ * were in the same hole).
+ *
+ * The scope of a leaf segment is by definition「the files this segment really deletes
+ * from」, so it is now **derived from `git diff <leafBase>` itself** and unioned with
+ * the registered set. The union (never a replacement) keeps every previously judged
+ * file judged, and the added files make the segment's real deletion surface visible.
+ */
+function testFilesWithDeletions(leafBase: string): string[] {
+  const out = runGit(['diff', '--numstat', leafBase, '--', 'packages/web-cli-plugin/test']);
+  const files: string[] = [];
+  for (const line of out.split('\n')) {
+    const [added, deleted, file] = line.split('\t');
+    if (!file || added === undefined || deleted === undefined) continue;
+    if (!/^\d+$/.test(deleted) || Number(deleted) <= 0) continue;
+    if (LEAF_SCOPE_RULE(file)) files.push(file);
+  }
+  return files;
+}
+
+/** The per-leaf scope (`leafScopeFiles()` ∪ the segment's own deletion surface). */
+function leafScopeFilesFor(leafBase: string): string[] {
+  return [...new Set([...leafScopeFiles(), ...testFilesWithDeletions(leafBase)])].sort();
+}
+
+/**
  * The leaf-segment judge, stage 1: every deletion line of `file` in `leafBase→worktree`
  * that the `entries[].oldTitle` supersession judgement does **not** carry. These are
  * precisely the lines the registration must enumerate.
@@ -1161,10 +1194,13 @@ test('ledger(V4 段): entries 的 newTitle 可在目标文件定位，oldTitle �
 
 test('ledger(V4 段): 每个叶段的 schema 与 scope 必须逐叶复算（不得手工收窄）', () => {
   const v4 = readV4Ledger();
-  const expectedScope = leafScopeFiles();
   const problems: string[] = [];
   let judged = 0;
   for (const leaf of v4.leafBases ?? []) {
+    // I-05: per-leaf scope — the registered set ∪ **this segment's own deletion surface**
+    // (`git diff <leafBase>`). A single global set is exactly the self-reference that
+    // left `test/ui/stream.mjs` (created in v4-2, 8 lines deleted by v4-3) unjudged.
+    const expectedScope = leafScopeFilesFor(leaf.leafBase);
     judged += 1;
     if (!leaf.leaf || leaf.leaf.length === 0) problems.push('leafBases[].leaf 必填');
     if ((leaf.why ?? '').trim().length < 40) problems.push(`${leaf.leaf}: why 过短（≥40 字符说明该段存在的理由）`);
@@ -1198,7 +1234,9 @@ test('ledger(V4 段): 每个叶段的 schema 与 scope 必须逐叶复算（不�
   }
   assert.ok(judged > 0, '本判据必须真的判到至少一个叶段（否则是空转）');
   assert.deepEqual(problems, [], `v4 叶段 schema/scope 未通过：\n${problems.join('\n')}`);
-  console.log(`  ℹ v4 叶段 schema：${judged} 个叶段的 scope 逐叶复算一致（规则集 ${expectedScope.length} 文件）`);
+  console.log(`  ℹ v4 叶段 schema：${judged} 个叶段的 scope 逐叶复算一致（逐叶规则集 ${(v4.leafBases ?? [])
+    .map((l) => leafScopeFilesFor(l.leafBase).length)
+    .join(' / ')} 文件）`);
 });
 
 test('ledger(V4 段): 每个叶段的删除行必须逐字集合相等（多一条/少一条/改一字都 FAIL）', () => {

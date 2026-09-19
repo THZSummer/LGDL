@@ -109,7 +109,7 @@ export function createStreamRender(options: StreamRenderOptions): StreamRenderHa
       // ② patch — an existing, non-frozen card gets the new view applied once;
       // a card that just became terminal is patched exactly once (to write its
       // 固化 region) and is then frozen forever.
-      if (!isNew && !frozen) patchCardNode(view, node);
+      if (!isNew && !frozen) patchCardNode(view, node, deps);
       if (!frozen && view.frozen) node.setAttribute('data-frozen', 'true');
     }
 

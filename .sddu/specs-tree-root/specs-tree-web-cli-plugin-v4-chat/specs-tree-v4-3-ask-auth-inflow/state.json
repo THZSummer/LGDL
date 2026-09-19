@@ -5,13 +5,13 @@
  "name": "V4-3 ask-user / 授权卡流内化与留痕固化——独占决策槽迁入流内 + 固化不可逆 + 60s 超时/取消/supersededAsk 留痕 + 授权记录流内可回看 + 零明文边界",
  "phase": "reviewed",
  "workflow": "3.plan",
- "agent": "sddu-review",
+ "agent": "sddu-build",
  "depth": 2,
  "parent": "specs-tree-web-cli-plugin-v4-chat",
  "childrens": [],
  "leaf": true,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-19T15:30:00.000Z",
+ "updatedAt": "2026-09-19T17:00:00.000Z",
  "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**作者主诉的直接兑现**：Q-CHAT-001 承载层 / Q-CHAT-002 / Q-CHAT-007）。承载父 FR-CHAT-040~049（FLOW 组）：① ask-user（choice/text 两型）从流之上的独占决策槽（#l0-decision > #ask）迁入流内卡，删除「同时只允许一张、旧卡不滞留」独占语义；② ask 卡操作前/后固化（未答表单可见 + 固化区 hidden → 回答后 data-answered=true + 表单收起 + 固化区「已答：+ 内容」+ 时间戳）；③ 已固化卡不可二次回答；取消也留痕（「已取消（不代填默认值）」）；④ 60s 超时 → canceled 留痕、不代填默认值（fail-closed）；⑤ supersededAsk 从「只取消不留痕」（R1）升级为「取消 + 留痕」；⑥ 破坏性二次确认（confirm）迁入流内 auth 卡（data-decision=approved/rejected），含范围与后果预演 + 审计入口，已决策不可重复、旧卡不消失；⑦ 授权记录流内可回看（流 = 会话审计线索，审计视图 = 完整台账）；⑧ busy/回合语义规则（多张未答卡是否并存、pending 门控、与拾取/会话切换关系），不得出现「回合永远卡在处理中」；⑨ 流内留痕零明文边界（不把命令参数体 / URL query / 页面文本带进留痕）。权威条文见父 spec.md §5.5。",
  "scope": {
   "in": [
@@ -146,7 +146,8 @@
   "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
   "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json",
   "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/review.md",
-  "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/review-report.md"
+  "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/review-report.md",
+  "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/build.md"
  },
  "status": "tracked",
  "phaseHistory": [
@@ -184,9 +185,14 @@
    "phase": "reviewed",
    "timestamp": "2026-09-19T15:30:00.000Z",
    "triggeredBy": "sddu-review（R1 静态审查：C1~C13 + 4 阻塞（BLOCK-01 假批准 / BLOCK-02 假超时·引用回合被冻结 / BLOCK-03 L1 已决策历史记错答案 / BLOCK-04 审计入口不可达）+ I-01~I-08；结论 ❌ 不通过，待修复后重审）"
+  },
+  {
+   "phase": "reviewed",
+   "timestamp": "2026-09-19T17:00:00.000Z",
+   "triggeredBy": "sddu-build（v4-3 review 修复轮：处置 review R1 的 4 阻塞（BLOCK-01 auth cancelled 假批准渲染 / BLOCK-02 回合结束假超时·面板自有 ask 被冻结 / BLOCK-03 L1 已决策历史答案源改由流内卡终态派生 / BLOCK-04 patchAuthCard deps 缺失致审计入口死链）+ I-01~I-08（label 工厂接线 + 第二份白名单删除 / askFlowView 接为 composer 真实消费点 + turnStuck 删除 / HO-1 展开态裁决：收紧为互斥披露 / #ask* id 去重 / 叶段 scope 去自指（逐叶 diff 驱动）/ error 收尾按 aborted 结算 / terminalDecision fail-closed + clearAsk 按 kind 结算 / I-08 差异登记）；sidepanel 445,300 B ≤ ceiling 467,565 B；22 门禁全绿 + BLOCK 两段证伪 ×4 + I-03 展开态反证；npm test 945 · supersession 31 · l0 216 · l1 111 · ask-auth 61 · stream 63）"
   }
  ],
- "phaseNote": "reviewed R1 结论 ❌ 不通过（4 阻塞 / 8 改进 / 规范偏差 4）——修复 BLOCK-01~04 后重跑受影响门禁并复审，再进入 validate。产物：review.md（策略 C1~C13）+ review-report.md（R1）。",
+ "phaseNote": "reviewed（R1 ❌ 不通过 → review 修复轮已全量处置，**待复审**）。R1 的 4 阻塞 + 8 改进逐条修法与两段证伪原文见 build.md 「review 修复轮」；红线零改动（content.js 177,076 / pick-layer.js 33,900 逐字节不变；SW/KIND_SET/判定链/manifest/ask-bridge 零 diff）；体积五要素重登记（440,698 → 445,300 B，ceiling 467,565）；测试只增不减（npm 937 → 945 / l1 108 → 111 / ask-auth 49 → 61）。产物：review.md + review-report.md（R1）+ build.md §10（修复轮）。",
  "tasks": {
   "range": "TASK-701~711",
   "alias": "V43-01~11",

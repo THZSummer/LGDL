@@ -894,6 +894,16 @@ export const REVERSE_PROOF_EXCEPTIONS = [
       '**不改** `readReverseProofLedger()` 的硬编码台账路径（ADR-V4-023 第 7 条），也未新增 Chromium 门禁文件（`CHROMIUM_GATES.length === 9` 与 `EXPECTED_AUDITED_FILES` 均不动）。',
   },
   {
+    id: 'in-gate-V4-3-RV · ask-auth-inflow.mjs / l1.mjs（v4-3 审查修复轮 BLOCK/I 断言 + I-03 展开态反证）',
+    reason:
+      'v4-3 审查修复轮把四条新回归断言落在**既有** Chromium 门禁内：BLOCK-01 假批准（`test/ui/ask-auth-inflow.mjs` ⑪，auth cancelled ⇒ 渲染「已取消」而非「已批准」）、' +
+      'BLOCK-04 审计入口真实可达（⑫，点击后 `[data-l2-view="audit"]` 必须可见）、I-03 展开态预算 + **in-gate 反证**（⑪：注入「选项行不收起」⇒ 单卡 7 > 6 / 合计 > 8 必须 FAIL，还原后 PASS）、' +
+      'BLOCK-03 已决策历史答案源（`test/ui/l1.mjs` ⑪：`rounds[].chosen` = 流内卡的真实答案 / 取消原因可读）。' +
+      'FAIL 段文本由门禁**自身**在同一 Chromium 进程内断言（与 `check(...)` 的 FAIL 段同源），从外部再驱动一次需要额外一次 Chromium 运行（内存 ~1.5 GB、NFR-V3-012 串行纪律）；' +
+      '登记为「in-gate 形态」：模式断言**必须存在于门禁源码中**（下方 R4b 机器核对逐条校验）。' +
+      '未新增 Chromium 门禁文件（`CHROMIUM_GATES.length === 9` 与 `EXPECTED_AUDITED_FILES` 均不动），`readReverseProofLedger()` 的硬编码台账路径不动。',
+  },
+  {
     id: 'in-gate-RP-L0-06b · l0.mjs',
     reason: '同上（`check("⑥ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出")` 在门禁内断言 FAIL 段文本）。',
   },
@@ -1077,6 +1087,12 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     // 让基线首屏合计可点不再为 0），形态断言的**位置与语义**不变，只随模板字面量换锚。
     ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 \$\{injectedTotal\} > 8」/],
     ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ② 诊断含「常驻导航入口」/],
+    // v4-3 审查修复轮（BLOCK-01 / BLOCK-03 / BLOCK-04 / I-03）—— 每条新断言都在门禁源码里
+    // 带着自己的 FAIL 形态（BLOCK 两段证伪 + I-03 展开态反证原文见 build.md「review 修复轮」）。
+    ['test/ui/ask-auth-inflow.mjs', /BLOCK-01 假批准回归：auth cancelled ⇒ 渲染「已取消」/],
+    ['test/ui/ask-auth-inflow.mjs', /BLOCK-04 回归：终态授权卡点审计/],
+    ['test/ui/ask-auth-inflow.mjs', /\(FAIL 段\) 注入「选项行不收起」⇒ 展开态判据必须 FAIL/],
+    ['test/ui/l1.mjs', /BLOCK-03：已决策历史的选择文案 = 流内卡的\*\*真实答案\*\*/],
     ['test/ui/l0.mjs', /反证（FAIL 段）：篡改 data-count/],
     ['test/ui/l1.mjs', /D1 反证（FAIL 段）/],
     // v3-4 fix round (review R1) — the new BLOCK-1 / I-01 / I-04 assertions must carry

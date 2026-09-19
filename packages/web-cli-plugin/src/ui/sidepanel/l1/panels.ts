@@ -111,6 +111,16 @@ export interface L1Input {
   ask: { prompt: string; options: string[] } | null;
   foldedOptions: readonly string[];
   lastUserText: string | null;
+  /**
+   * BLOCK-03 (v4-3 review): the「已决策历史」rows, **derived from the stream's
+   * terminal ask cards** by the caller (`sidepanel.ts#decisionRounds`). The v3
+   * implementation inferred them here by diffing `input.ask` and read the answer from
+   * a `data-key="ask-option:*"` delegation that v4-3 deleted — every stream-card
+   * answer was therefore recorded as the previous user message. The derivation is now
+   * upstream (it needs `project(state.stream)`, which this layer must not import) and
+   * this layer only renders it.
+   */
+  decisions: readonly DecisionRound[];
 }
 
 export interface L1Deps {
@@ -224,10 +234,16 @@ export function mountL1(deps: L1Deps): L1Handle {
   let localTree = buildLocalTree(null, null);
   let receipt: L1Receipt | null = null;
   let refreshSeq = 0;
-  let pendingAnswer: string | null = null;
-  const rounds: DecisionRound[] = [];
-  let open: { prompt: string; options: readonly string[] } | null = null;
-  let last: L1Input = { ask: null, foldedOptions: [], lastUserText: null };
+  /**
+   * BLOCK-03 (v4-3 review): the decided rounds are **rendered from the caller's
+   * stream-derived list** — this layer keeps no second, inference-based copy. The v3
+   * `pendingAnswer` memory and the `#l0-decision` `ask-option:`/`ask-submit`
+   * delegation that fed it were deleted together with their producers
+   * (`l0/decision-card.ts` retired in v4-3; the fallback input moved into the stream
+   * card), so they could never fire again.
+   */
+  let rounds: readonly DecisionRound[] = [];
+  let last: L1Input = { ask: null, foldedOptions: [], lastUserText: null, decisions: [] };
 
   /** The env the judge sees. Missing facts stay missing → `unknown` → blocked. */
   const envNow = (): RefEnv => ({
@@ -246,14 +262,6 @@ export function mountL1(deps: L1Deps): L1Handle {
   };
   doc.getElementById('l0-status-band')?.addEventListener('click', () => mirror('topbar', L1_STATUS_GROUP));
   doc.getElementById('l0-more')?.addEventListener('click', () => mirror('l1-more', L1_MORE_GROUP));
-
-  // ── the answer of the round being closed (additive delegation, no rewrite) ──
-  el('l0-decision').addEventListener('click', (event) => {
-    const btn = (event.target as HTMLElement | null)?.closest?.('button') as HTMLElement | null;
-    const key = btn?.getAttribute('data-key') ?? '';
-    if (key.startsWith('ask-option:') || key.startsWith('ask-folded:')) pendingAnswer = key.slice(key.indexOf(':') + 1);
-    else if (btn?.id === 'ask-submit') pendingAnswer = (doc.getElementById('ask-input') as HTMLInputElement | null)?.value.trim() ?? '';
-  });
 
   // ── the two recovery paths (FR-V3-038): reuse the existing entries ─────────
   el('l1-ref-repick').addEventListener('click', () => pick.click());
@@ -349,8 +357,10 @@ export function mountL1(deps: L1Deps): L1Handle {
     treeHint.textContent = localTree.empty
       ? treeEmpty
       : `${localTree.truncated ? '父链已截断到最近 2 个祖先 · ' : ''}${localTree.crossRefs.length > 0 ? `交叉引用：${localTree.crossRefs.join(' / ')} · ` : ''}查看全局树 = 2 次交互到达`;
-    // ⑤ decided rounds (read-only; the count is the array length).
-    fill(doc, historyRows, rounds.map((r) => [`第 ${r.n} 步${r.changed ? '（改选）' : ''}`, `${r.prompt} → ${r.canceled ? '（已取消）' : r.chosen}`] as [string, string]));
+    // ⑤ decided rounds (read-only; the count is the array length). BLOCK-03: the text
+    // comes from the stream card's own terminal state (`chosen` already carries the
+    // readable「已取消（原因）」for a cancelled round), never from an answer guess.
+    fill(doc, historyRows, rounds.map((r) => [`第 ${r.n} 步${r.changed ? '（改选）' : ''}`, `${r.prompt} → ${r.chosen}`] as [string, string]));
     // ② the two mandatory paragraphs per option, cloned from the static template.
     consHost.textContent = '';
     for (const label of last.ask?.options ?? []) {
@@ -377,23 +387,9 @@ export function mountL1(deps: L1Deps): L1Handle {
   };
 
   const observe = (input: L1Input): void => {
-    if (!input.ask && open) {
-      // The round was answered or canceled — record it with its real answer
-      // (「不得静默丢弃」: dropping it would be a silent loss).
-      const answer = (pendingAnswer ?? input.lastUserText ?? '').trim();
-      rounds.push({
-        n: rounds.length + 1,
-        prompt: open.prompt,
-        chosen: answer || '（无回答）',
-        canceled: answer.length === 0,
-        changed: rounds.some((r) => r.prompt === open?.prompt),
-      });
-      open = null;
-      pendingAnswer = null;
-    } else if (input.ask && (!open || open.prompt !== input.ask.prompt)) {
-      open = { prompt: input.ask.prompt, options: input.ask.options };
-      pendingAnswer = null;
-    }
+    // BLOCK-03: no inference — the caller derives the rounds from the event log, so a
+    // round can only ever be rendered from the fact the card actually recorded.
+    rounds = input.decisions;
     last = input;
   };
 

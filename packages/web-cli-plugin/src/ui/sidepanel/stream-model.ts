@@ -120,10 +120,10 @@ export const MAX_OPEN_ASKS = 2;
 export const REF_ROUND_PREFIX = 'ref-round-';
 
 /** Why an un-answered ask card reached its `cancelled` terminal (ADR-V4-031). */
-export type AskCancelReason = 'user' | 'timeout' | 'superseded';
+export type AskCancelReason = 'user' | 'timeout' | 'superseded' | 'aborted';
 
 /** The closed cancel-reason list (a missing reason is a contract break). */
-export const ASK_CANCEL_REASONS: readonly AskCancelReason[] = Object.freeze(['user', 'timeout', 'superseded']);
+export const ASK_CANCEL_REASONS: readonly AskCancelReason[] = Object.freeze(['user', 'timeout', 'superseded', 'aborted']);
 
 /**
  * The kinds that are **born frozen**: a single-line row by kind (ADR-V4-027
@@ -448,13 +448,26 @@ export function appendAskEvent(
 }
 
 /**
- * Terminalise every still-open decision card (the turn-ended / session-switched
+ * Terminalise still-open decision cards (the turn-ended / session-switched
  * projection). `askuser` cards land on `cancelled` with the given reason; `auth`
  * cards are closed too (a pending authorization that outlived its turn is a
  * cancel, never a silent approve). Returns the affected card ids.
+ *
+ * ── BLOCK-02 (v4-3 review): the `filter` seam ────────────────────────────────
+ *
+ * A turn ending must **not** carry expiry semantics for a card the panel owns
+ * (`ref-round-*`): that card has no ask-bridge and no 60 s timer, so closing it as
+ * `timeout` would write「提问超时未答」for a timeout that never happened (and would
+ * freeze the pick → choose link). The caller therefore passes a predicate; the
+ * default (no predicate) keeps the session-switch behaviour — settle everything.
  */
-export function closeOpenAsks(state: StreamState, at: number, reason: AskCancelReason): { readonly state: StreamState; readonly closed: readonly string[] } {
-  const open = openAskEntries(state);
+export function closeOpenAsks(
+  state: StreamState,
+  at: number,
+  reason: AskCancelReason,
+  filter?: (entry: OpenAskEntry) => boolean,
+): { readonly state: StreamState; readonly closed: readonly string[] } {
+  const open = openAskEntries(state).filter((entry) => (filter ? filter(entry) : true));
   let next = state;
   const closed: string[] = [];
   for (const entry of open) {

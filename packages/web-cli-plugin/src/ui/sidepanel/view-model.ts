@@ -286,13 +286,28 @@ export function activeSiteNotice(input: {
 /**
  * Readable reason shown next to the composer whenever `send` is disabled.
  * `''` means send is enabled (hide the hint).
+ *
+ * V4-3 (I-02): when the caller supplies the turn-semantics view
+ * ({@link askFlowView}), BOTH the disabled bit and its pending message come from it —
+ * the composer stops being a second, text-only copy of the rule. The added sentence
+ * when a card is open is the product consequence of `canSubmitOpenAsk`: a user who
+ * reads「上一条指令仍在处理中」would otherwise reasonably believe the question on
+ * screen is unanswerable.
  */
 export function sendDisabledReason(input: {
   activeOrigin?: string;
   pending: boolean;
   tab?: ActiveTabView | null;
+  /** V4-3: the ONE turn-semantics view (ADR-V4-032 §4). */
+  flow?: Pick<AskFlowView, 'sendDisabled' | 'canSubmitOpenAsk'>;
 }): string {
-  if (input.pending) return '发送已禁用：上一条指令仍在处理中，请稍候。';
+  const pending = input.flow ? input.flow.sendDisabled : input.pending;
+  if (pending) {
+    if (input.flow?.canSubmitOpenAsk) {
+      return '发送已禁用：上一条指令仍在处理中；屏幕上的提问卡仍可提交。';
+    }
+    return '发送已禁用：上一条指令仍在处理中，请稍候。';
+  }
   if (input.activeOrigin) return '';
   const notice = activeSiteNotice({ hasOrigin: false, tab: input.tab });
   return `发送已禁用：${notice.title} —— ${notice.action}`;
@@ -395,15 +410,23 @@ export interface AskFlowView {
   canSubmitOpenAsk: boolean;
   /** ③ recommendation chips follow `pending` (v4-4 consumes this flag). */
   recommendDisabled: boolean;
-  /** ④ a turn is only「stuck」if it is pending AND has no open card and no reply. */
-  turnStuck: boolean;
 }
 
 /**
  * V4-3 (ADR-V4-032 §4) — the ONE definition of what `pending` gates. The rule is
  * deliberately narrow: `pending` gates **new turns** and **recommendation chips**,
  * never the submission of a card that is already on screen. `sendDisabledReason`
- * keeps its text and source (`sendDisabled` above).
+ * consumes this view (the composer's disabled state and its readable reason are both
+ * derived from it), so the definition really is the product's — not a test-only seam.
+ *
+ * ── I-02 (v4-3 review): the retired `turnStuck` field ────────────────────────
+ *
+ * The former `turnStuck = pending && openAsks === 0` was **unused** and wrong: with
+ * no open card, `pending && openAsks === 0` is the *normal*「AI 正在回复」state, so any
+ * future consumer would have labelled a healthy turn as stuck. A correct「stuck」
+ * predicate needs「无在途回复」, which is NOT a fact this input owns (the reducer keeps
+ * `pending` precisely as that signal). The field is therefore deleted rather than
+ * re-defined on a guess.
  */
 export function askFlowView(input: AskFlowInput): AskFlowView {
   const openAsks = Math.max(0, Math.min(MAX_OPEN_ASKS, input.openAsks));
@@ -412,7 +435,6 @@ export function askFlowView(input: AskFlowInput): AskFlowView {
     sendDisabled: input.pending,
     canSubmitOpenAsk: openAsks > 0,
     recommendDisabled: input.pending,
-    turnStuck: input.pending && openAsks === 0,
   };
 }
 

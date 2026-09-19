@@ -15,6 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ASK_CANCEL_REASONS,
   MAX_OPEN_ASKS,
   REF_ROUND_PREFIX,
   arbitrateOpenAsks,
@@ -31,6 +32,7 @@ import {
 } from '../src/ui/sidepanel/chat-state.js';
 import type { SidepanelState } from '../src/ui/sidepanel/chat-state.js';
 import { ASK_COPY, assertStreamPlaintext, label } from '../src/ui/sidepanel/stream-plaintext.js';
+import { authFixedText, decisionState } from '../src/ui/sidepanel/cards/auth.js';
 import { digestEntryOf } from '../src/ui/sidepanel/stream-digest.js';
 
 const OPEN = (s: SidepanelState) => openAskEntries(s.stream);
@@ -224,9 +226,152 @@ test('v4-3 ⑤ R1 等价：拾取覆盖后台 ask ⇒ cancelled(superseded) 留�
   assert.equal(supersededAsk(r), null);
 });
 
-test('v4-3 常量单源：REF_ROUND_PREFIX / MAX_OPEN_ASKS / 三条 cancel reason', () => {
+test('v4-3 常量单源：REF_ROUND_PREFIX / MAX_OPEN_ASKS / 四条 cancel reason', () => {
   assert.equal(REF_ROUND_PREFIX, 'ref-round-');
   assert.equal(MAX_OPEN_ASKS, 2);
+  // I-06: the error-ended turn needs its own reason (never a fake timeout).
+  assert.deepEqual([...ASK_CANCEL_REASONS].sort(), ['aborted', 'superseded', 'timeout', 'user']);
   // `formatClock` stays the single `.ts` format.
   assert.match(formatClock(Date.UTC(2026, 0, 1, 12, 34, 56)), /^\d{2}:\d{2}:\d{2}$/);
+});
+
+// ── ⑥ BLOCK-01 回归：auth 卡的 cancelled 终态绝不得渲染成「已批准」────────────
+
+test('BLOCK-01 假批准回归：三条真实路径都造出 auth cancelled ⇒ 渲染「已取消」而非「已批准」', () => {
+  const authViewOf = (s: SidepanelState, requestId: string) =>
+    TERMINALS(s).find((v) => v.kind === 'auth' && v.payload.requestId === requestId)!;
+
+  // ① 会话切换（chat-state 的 history 分支）
+  let a = confirm(createInitialState(), 'cf-1');
+  a = reduce(a, { type: 'history', entries: [], sessionId: 'https://next.test', sessionLabel: 'next' });
+  const switched = authViewOf(a, 'cf-1');
+  assert.equal(switched.terminal, 'cancelled');
+  assert.equal(switched.payload.cancelReason, 'superseded');
+  assert.equal(decisionState(switched), 'cancelled', '会话切换后不得渲染成 pending/approved');
+  assert.equal(authFixedText(switched), ASK_COPY.authCancelled);
+  assert.notEqual(authFixedText(switched), ASK_COPY.approved, '取消绝不得渲染「已批准」');
+
+  // ② 被新 ask/上限取代（stream-model 的仲裁）
+  let b = confirm(createInitialState(), 'cf-2');
+  b = confirm(b, 'cf-3');
+  b = confirm(b, 'cf-4');
+  const superseded = authViewOf(b, 'cf-2');
+  assert.equal(superseded.terminal, 'cancelled');
+  assert.equal(superseded.payload.cancelReason, 'superseded');
+  assert.equal(decisionState(superseded), 'cancelled');
+  assert.equal(authFixedText(superseded), ASK_COPY.authCancelled);
+
+  // ③ 回合结束（真实 60 s 到期投影）
+  let c = confirm(createInitialState(), 'cf-5');
+  c = reduce(c, { type: 'pending', value: false });
+  const timedOut = authViewOf(c, 'cf-5');
+  assert.equal(timedOut.terminal, 'cancelled');
+  assert.equal(timedOut.payload.cancelReason, 'timeout');
+  assert.equal(decisionState(timedOut), 'cancelled');
+  assert.equal(authFixedText(timedOut), ASK_COPY.authCancelled);
+
+  // 正向对照（非恒真）：真正批准/拒绝的卡仍然按原语义渲染。
+  const approvedState = confirm(createInitialState(), 'cf-6');
+  const approved = authViewOf(reduce(approvedState, { type: 'confirm-resolved', requestId: 'cf-6', allow: true }), 'cf-6');
+  assert.equal(decisionState(approved), 'approved');
+  assert.equal(authFixedText(approved), ASK_COPY.approved);
+});
+
+test('BLOCK-01 反向：`cancelled` 不是 `auth` 之外的终态语义 —— ask 卡仍走 answeredState', () => {
+  let s = ask(createInitialState(), 'b1');
+  s = reduce(s, { type: 'ask-resolved', requestId: 'b1', canceled: true, reason: 'user' });
+  const card = TERMINALS(s).find((v) => v.payload.requestId === 'b1')!;
+  assert.equal(card.terminal, 'cancelled');
+  assert.equal(authFixedText(card), ASK_COPY.authCancelled, '同一投影上两个渲染器读同一份文案源（单源）');
+});
+
+// ── ⑦ BLOCK-02 回归：回合结束 ≠ 60 s 超时（面板自有 ask 不被误结算）────────
+
+test('BLOCK-02 真超时：后台 ask（有 60 s ask-bridge）在回合结束时结算 cancelled(timeout)', () => {
+  let s = ask(createInitialState(), 'bg-1');
+  s = reduce(s, { type: 'pending', value: false });
+  const card = TERMINALS(s).find((v) => v.payload.requestId === 'bg-1')!;
+  assert.equal(card.terminal, 'cancelled');
+  assert.equal(card.payload.cancelReason, 'timeout', '后台 ask 的回合结束 = 真实 60 s 到期的可观测形态');
+  assert.ok(
+    project(s.stream).some((v) => v.kind === 'system' && (v.payload.label ?? '').includes('超时')),
+    '真实超时必须留一条超时系统行',
+  );
+});
+
+test('BLOCK-02 回归：面板自有 ref-round ask 在回合结束时**不结算、不写假超时**，且留痕', () => {
+  // repro1.mjs 的同源路径：后台 ask → 被取代 → 引用回合 ask → done
+  let s = ask(createInitialState(), 'ask-7');
+  const sup = supersededAsk(s);
+  s = reduce(s, { type: 'ask-resolved', requestId: sup!.requestId, canceled: true, reason: 'superseded' });
+  s = reduce(s, {
+    type: 'ask',
+    requestId: `${REF_ROUND_PREFIX}ref_1`,
+    kind: 'choice',
+    prompt: '已捕获引用 ref_1：要用它做什么？',
+    options: ['纳入下一步', '作为操作目标', '先看证据'],
+  });
+  assert.equal(OPEN(s).length, 1);
+  // The background turn ends while the panel-owned question is on screen.
+  s = reduce(s, { type: 'pending', value: false });
+
+  const refCard = TERMINALS(s).find((v) => v.payload.requestId === `${REF_ROUND_PREFIX}ref_1`)!;
+  assert.equal(refCard.frozen, false, '面板自有 ask 不随回合结束冻结（否则拾取 → 选择用途的链路断掉）');
+  assert.equal(refCard.payload.cancelReason, undefined, '不得写入任何假取消原因');
+  assert.equal(OPEN(s).length, 1, '卡必须仍可答');
+  const labels = project(s.stream).filter((v) => v.kind === 'system').map((v) => v.payload.label ?? '');
+  assert.ok(!labels.some((l) => l.includes('超时')), '绝不得出现「提问超时未答」的系统行（假超时）');
+  assert.ok(labels.some((l) => l.includes('引用提问仍在等待你的选择')), '回合结束必须留下可读痕迹（留痕，不是静默）');
+});
+
+test('BLOCK-02 反向：会话切换时面板自有 ask 仍按 cancelled(superseded) 留痕结算（口径未放宽）', () => {
+  let s = ask(createInitialState(), `${REF_ROUND_PREFIX}ref_2`);
+  s = reduce(s, { type: 'history', entries: [], sessionId: 'https://next.test', sessionLabel: 'next' });
+  assert.equal(OPEN(s).length, 0);
+  const card = TERMINALS(s).find((v) => v.payload.requestId === `${REF_ROUND_PREFIX}ref_2`)!;
+  assert.equal(card.payload.cancelReason, 'superseded');
+});
+
+// ── ⑧ I-06 / I-07 回归：error 收尾结算 + requestId fail-closed ─────────────
+
+test('I-06 回归：回合以 `error` 收尾时未终态的后台 ask 按 `aborted` 结算（不是不管，也不是假超时）', () => {
+  let s = ask(createInitialState(), 'er-1');
+  s = reduce(s, { type: 'error', text: 'LLM 失败' });
+  assert.equal(s.pending, false);
+  assert.equal(OPEN(s).length, 0, 'error 收尾后不得留下未终态卡');
+  const card = TERMINALS(s).find((v) => v.payload.requestId === 'er-1')!;
+  assert.equal(card.terminal, 'cancelled');
+  assert.equal(card.payload.cancelReason, 'aborted');
+  const labels = project(s.stream).filter((v) => v.kind === 'system').map((v) => v.payload.label ?? '');
+  assert.ok(labels.some((l) => l.includes('回合因错误结束')), 'error 路径必须有自己的可读留痕');
+  assert.ok(!labels.some((l) => l.includes('超时')), 'error 不是超时（原因不得混用）');
+});
+
+test('I-07 回归：未知 requestId / 已终态卡 ⇒ 结算必须 fail-closed（不得静默结错卡）', () => {
+  // ① 未知 requestId：什么也不结算
+  let s = ask(createInitialState(), 'ok-1');
+  const ghost = reduce(s, { type: 'ask-resolved', requestId: 'ghost', canceled: true, reason: 'user' });
+  assert.equal(OPEN(ghost).length, 1, '未知 requestId 不得回退到「最后一张同 kind 的卡」');
+  assert.equal(ghost.stream.events.length, s.stream.events.length, '未知 requestId 不得追加任何事件');
+
+  // ② 已终态卡的 requestId：不得改结算另一张未终态卡
+  let t = ask(createInitialState(), 'ok-2');
+  t = ask(t, 'ok-3');
+  t = reduce(t, { type: 'ask-resolved', requestId: 'ok-2', answer: '甲', canceled: false });
+  assert.equal(OPEN(t).length, 1);
+  const late = reduce(t, { type: 'ask-resolved', requestId: 'ok-2', canceled: true, reason: 'user' });
+  assert.equal(OPEN(late).length, 1, '已终态卡的 requestId 不得把 ok-3 结掉');
+  const ok3 = TERMINALS(late).find((v) => v.payload.requestId === 'ok-3')!;
+  assert.equal(ok3.frozen, false);
+});
+
+test('I-07 回归：`clearAsk` 的 kind 集遍历契约（askuser 与 auth 都必须能被结算）', () => {
+  // 模型侧等价：显式命名 requestId 的结算必须覆盖两种 kind。
+  let s = ask(createInitialState(), 'ca-1');
+  s = confirm(s, 'ca-2');
+  assert.equal(OPEN(s).length, 2);
+  s = reduce(s, { type: 'ask-resolved', requestId: 'ca-1', canceled: true, reason: 'user' });
+  assert.equal(OPEN(s).length, 1);
+  s = reduce(s, { type: 'confirm-resolved', requestId: 'ca-2', allow: false });
+  assert.equal(OPEN(s).length, 0, 'auth 卡必须由 confirm-resolved 结算（ask-resolved 永远结不了它）');
 });

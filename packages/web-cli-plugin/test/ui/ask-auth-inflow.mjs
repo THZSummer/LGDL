@@ -268,6 +268,78 @@ async function main() {
     check('⑥ 拒绝后 data-decision=rejected + 固化「已拒绝（不执行）」（D5）', authRejected.decision === 'rejected' && authRejected.fixedText === '已拒绝（不执行）', authRejectedRaw);
     check('⑥ 拒绝终态卡零操作控件', authRejected.controls === 0, authRejectedRaw);
 
+    // ── ⑪ BLOCK-01 回归：假批准（cancelled 终态渲染） ─────────────────────────
+    // 三条真实路径（会话切换 / 被取代 / 回合结束）在模型侧由
+    // `test/ask-auth-inflow.test.ts` 的「BLOCK-01 假批准回归」逐条断言；这里在**真实渲染
+    // 路径**上覆盖其中两条（被取代 = 仲裁、回合结束 = 60 s 投影），断言终态卡渲染「已取消」
+    // 而不是「已批准」。修复前本段必红（`data-decision=pending` + 文案「已批准」）。
+    console.log('\n▶ ⑪ BLOCK-01 假批准回归：auth cancelled ⇒ 渲染「已取消」（不是「已批准」）');
+    // Two open auth cards + one more ask ⇒ the real arbitration (`appendAskEvent`,
+    // `MAX_OPEN_ASKS = 2`) supersedes the OLDEST card. `streamSeed` alone cannot drive
+    // this (it appends events directly, no arbitration), so the third card goes through
+    // the product's own `ask` seam.
+    await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.streamSeed([
+      { kind: 'auth', cardId: 'b1', payload: { askKind: 'confirm', prompt: 'tabs：关闭敏感标签页', requestId: 'b1' } },
+      { kind: 'auth', cardId: 'b2', payload: { askKind: 'confirm', prompt: 'tabs：关闭敏感标签页', requestId: 'b2' } }
+    ]); window.__v3.testing.ask('第三张（触发仲裁）', ['甲', '乙', '丙']); true`);
+    await sleep(250);
+    const fakeSupRaw = await evaluate(
+      cdp,
+      `(() => {
+        const cards = [...document.querySelectorAll('[data-msg-type="auth"]')];
+        const first = cards[0];
+        return JSON.stringify({
+          decision: first.getAttribute('data-decision'),
+          fixedText: first.querySelector('.card-fixed b')?.textContent ?? '',
+          audit: Boolean(first.querySelector('.audit-entry')),
+          cancelledCount: cards.filter((c) => c.getAttribute('data-decision') === 'cancelled').length,
+          approvedCount: cards.filter((c) => c.getAttribute('data-decision') === 'approved').length,
+        });
+      })()`,
+    );
+    const fakeSup = JSON.parse(fakeSupRaw);
+    check('⑪ 被取代的 auth 卡渲染 data-decision=cancelled（不是 pending/approved）', fakeSup.decision === 'cancelled', fakeSupRaw);
+    check('⑪ 被取代的 auth 卡固化文案「已取消（未授权，不执行）」且**不含**「已批准」', fakeSup.fixedText === '已取消（未授权，不执行）' && !/已批准/.test(fakeSup.fixedText), fakeSupRaw);
+    check(
+      '⑪ 被取代的 auth 卡恰 1 张 cancelled、0 张 approved（未决策的卡不得被算成已批准）',
+      fakeSup.cancelledCount === 1 && fakeSup.approvedCount === 0,
+      fakeSupRaw,
+    );
+
+    await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.streamSeed([{ kind: 'auth', cardId: 'to1', payload: { askKind: 'confirm', prompt: 'tabs：关闭敏感标签页', requestId: 'to1' } }]); window.__v3.testing.timeoutOpenAsks(); true`);
+    await sleep(250);
+    const fakeTimeoutRaw = await evaluate(
+      cdp,
+      `(() => {
+        const c = document.querySelector('[data-msg-type="auth"]');
+        return JSON.stringify({ decision: c.getAttribute('data-decision'), fixedText: c.querySelector('.card-fixed b')?.textContent ?? '' });
+      })()`,
+    );
+    const fakeTimeout = JSON.parse(fakeTimeoutRaw);
+    check('⑪ 回合结束（真实超时）的 auth 卡同样渲染 cancelled + 「已取消」', fakeTimeout.decision === 'cancelled' && fakeTimeout.fixedText === '已取消（未授权，不执行）', fakeTimeoutRaw);
+
+    // ── ⑫ BLOCK-04 回归：审计入口真实可达（点击后状态变化） ───────────────────
+    console.log('\n▶ ⑫ BLOCK-04 回归：终态授权卡点审计 ⇒ L2 审计视图必须真的打开');
+    await evaluate(cdp, seedAuth);
+    await sleep(200);
+    await evaluate(cdp, `document.getElementById('confirm-allow').click(); true`);
+    await sleep(200);
+    const auditClickRaw = await evaluate(
+      cdp,
+      `(() => {
+        ${VIS}
+        const before = vis(document.querySelector('[data-l2-view="audit"]'));
+        document.querySelector('[data-msg-type="auth"] .audit-entry').click();
+        const after = vis(document.querySelector('[data-l2-view="audit"]'));
+        return JSON.stringify({ before, after });
+      })()`,
+    );
+    const auditClick = JSON.parse(auditClickRaw);
+    check('⑫ 点击审计入口前审计视图不可见（判据不恒真）', auditClick.before === false, auditClickRaw);
+    check('⑫ 点击审计入口后审计视图可见（真实跳转，不是死链）', auditClick.after === true, auditClickRaw);
+    await evaluate(cdp, `window.__v3.testing.closeL2View(); true`);
+    await sleep(150);
+
     // ── ⑦ AC-CHAT-016 站点级授权可发现 / 可读 ────────────────────────────────
     console.log('\n▶ ⑦ AC-CHAT-016：设置视图「站点与授权」可发现 / 可读');
     const settingsRaw = await evaluate(
@@ -329,6 +401,85 @@ async function main() {
     check('⑨ 渲染路径无 URL query', plain.urlQuery === false, plainRaw);
     check('⑨ 渲染路径无密钥 / 令牌', plain.secret === false, plainRaw);
     check('⑨ 渲染路径无命令参数体', plain.cmdArg === false, plainRaw);
+
+    // ── ⑪ 展开态预算（I-03）：互斥披露使展开态仍 ≤6 / 两卡合计 ≤8 ─────────────
+    // 判据口径与 `test/ui/density.mjs` 同源：可见（`hidden` 链）+ BUTTON|A|INPUT|SELECT|
+    // TEXTAREA 或 tabindex≠-1。HO-1 裁决见 `docs/v4-density-baseline.json#knownLimitations`（I-03）。
+    console.log('\n▶ ⑪ 展开态预算：互斥披露（展开兜底即收起选项行）');
+    const ASK_BUDGET_FN = `(() => {
+      const vis = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
+      const count = (card) => {
+        let n = 0;
+        for (const node of [card].concat(Array.from(card.querySelectorAll('*')))) {
+          if (!vis(node)) continue;
+          const tag = node.tagName || '';
+          if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(tag) || (node.hasAttribute('tabindex') && node.getAttribute('tabindex') !== '-1')) n += 1;
+        }
+        return n;
+      };
+      const cards = [...document.querySelectorAll('#stream [data-msg-type="askuser"]')];
+      const per = cards.map(count);
+      const visibleOptions = cards.map((c) => [...c.querySelectorAll('[data-act="choose"]')].filter(vis).length);
+      return JSON.stringify({
+        per,
+        total: per.reduce((a, b) => a + b, 0),
+        visibleOptions,
+        otherExpanded: [...document.querySelectorAll('[data-act="choose-other"]')].map((b) => b.getAttribute('aria-expanded')),
+      });
+    })()`;
+    const budget = (raw) => {
+      const x = JSON.parse(raw);
+      const worst = x.per.reduce((a, b) => Math.max(a, b), 0);
+      return { x, ok: x.per.length > 0 && worst <= 6 && x.total <= 8, worst };
+    };
+
+    await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.ask('展开态预算', ['甲', '乙', '丙']); true`);
+    await sleep(200);
+    const oneCardCollapsed = budget(await evaluate(cdp, ASK_BUDGET_FN));
+    await evaluate(cdp, `document.querySelector('[data-act="choose-other"]').click(); true`);
+    await sleep(200);
+    const oneCardExpandedRaw = await evaluate(cdp, ASK_BUDGET_FN);
+    const oneCardExpanded = budget(oneCardExpandedRaw);
+    check('⑪ 收起态单卡可点 ≤6（判据不恒真：先量后判）', oneCardCollapsed.x.per.length === 1 && oneCardCollapsed.ok === true, JSON.stringify(oneCardCollapsed.x));
+    check('⑪ 展开兜底后单卡仍 ≤6（互斥披露：选项行收起）', oneCardExpanded.ok === true, oneCardExpandedRaw);
+    check('⑪ 展开兜底后可见选项行 = 0（互斥披露真的发生）', oneCardExpanded.x.visibleOptions[0] === 0, oneCardExpandedRaw);
+    // 两卡同时展开 ⇒ 合计 ≤8（HO-1 的 4 + 4）
+    await evaluate(cdp, `window.__v3.testing.streamReset();
+      window.__v3.testing.ask('两卡甲', ['甲', '乙', '丙']);
+      window.__v3.testing.ask('两卡乙', ['甲', '乙', '丙']); true`);
+    await sleep(250);
+    await evaluate(
+      cdp,
+      `(() => { for (const b of document.querySelectorAll('[data-act="choose-other"]')) b.click(); return true; })()`,
+    );
+    await sleep(250);
+    const twoRaw = await evaluate(cdp, ASK_BUDGET_FN);
+    const two = budget(twoRaw);
+    check('⑪ 两卡同开且都展开：合计可点 ≤8（不是 14）', two.ok === true && two.x.per.length === 2, twoRaw);
+
+    // in-gate 反证：注入「选项行不收起」⇒ 展开态判据必须 FAIL；还原 ⇒ PASS。
+    const reverseRaw = await evaluate(
+      cdp,
+      `(() => {
+        const injected = document.querySelector('[data-act="choose-other"]').closest('[data-card-key]');
+        const hiddenOptions = [...injected.querySelectorAll('#ask-options button, [data-act="choose"]')];
+        const restore = hiddenOptions.map((b) => b.hidden);
+        for (const b of hiddenOptions) b.hidden = false;   // 模拟「互斥披露缺失」
+        const mid = ${ASK_BUDGET_FN};
+        hiddenOptions.forEach((b, i) => { b.hidden = restore[i]; });
+        const after = ${ASK_BUDGET_FN};
+        return JSON.stringify({ injected: mid, restored: after });
+      })()`,
+    );
+    const rev = JSON.parse(reverseRaw);
+    const revInjected = budget(rev.injected);
+    const revRestored = budget(rev.restored);
+    check(
+      '⑪ (FAIL 段) 注入「选项行不收起」⇒ 展开态判据必须 FAIL（单卡 >6 / 合计 >8）',
+      revInjected.ok === false,
+      `${rev.injected} | worst=${revInjected.worst}`,
+    );
+    check('⑪ (PASS 段) 还原互斥披露后判据必须 PASS（反证非恒真）', revRestored.ok === true, rev.restored);
 
     check('无未捕获页面异常（ask/auth 全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();

@@ -14,12 +14,15 @@
  *   · {@link assertStreamPlaintext} delegates to `stream-digest.ts#assertNoPlaintext`
  *     — the deliberately **wider** caliber (URL query / secret / command argument
  *     body / raw markup), because stream labels may echo caller input.
- *   · {@link STREAM_FIELD_WHITELIST} is the closed set of fields a stream row may
- *     carry. The digest itself has no free-text field (ADR-V4-028 §3), so a card
- *     that only uses these fields **structurally cannot** persist plaintext.
+ *   · {@link STREAM_PERSISTED_FIELDS} re-exports the digest's own closed field set.
+ *     I-01 (v4-3 review) **deleted** the former second list
+ *     (`STREAM_FIELD_WHITELIST`) instead of keeping two whitelists that could
+ *     drift: the persisted projection is `stream-digest.ts#DIGEST_FIELDS`, and a
+ *     stream row can only ever persist through it (ADR-V4-028 §3 / ADR-V4-034 §5).
  *   · {@link label} is the **only** factory that may produce a `label`: it asserts
  *     the copy is plaintext-free at construction time, so a leak throws where the
- *     string is built — not in a gate a later leaf could forget to run.
+ *     string is built — not in a gate a later leaf could forget to run. I-01: it is
+ *     now the **production** path (the reducer writes every `label` through it).
  *
  * ── The ask/authorization copy is single-source here ─────────────────────────
  *
@@ -31,27 +34,19 @@
  *
  * @module ui/sidepanel/stream-plaintext
  */
-import { assertNoPlaintext } from './stream-digest.js';
+import { DIGEST_FIELDS, assertNoPlaintext } from './stream-digest.js';
 
 /**
- * The closed field whitelist a stream row / digest entry may carry (ADR-V4-034
- * §5). It is a **superset** of `stream-digest.ts#DIGEST_FIELDS` on purpose: the
- * digest is the persisted projection, this list also names the transient card
- * fields. `answer` / `prompt` / `text` are deliberately **absent** — the answer is
- * a user's own words (allowed on screen) but must never be persisted.
+ * The **persisted** field set — ONE source, no second whitelist (I-01, v4-3 review).
+ *
+ * The former `STREAM_FIELD_WHITELIST` was a hand-maintained superset of
+ * `stream-digest.ts#DIGEST_FIELDS` with **zero call sites** (including tests), so
+ * the two lists could silently drift. The persisted projection is the digest's
+ * closed set; anything a stream row may carry *but* not persist (`text` / `prompt`
+ * / `answer`) is by definition **not** whitelisted here, which is exactly the
+ * property the zero-plaintext red line rests on.
  */
-export const STREAM_FIELD_WHITELIST: readonly string[] = Object.freeze([
-  'decision',
-  'tool',
-  'ok',
-  'ms',
-  'refNum',
-  'askRequestId',
-  'seq',
-  'ts',
-  'terminal',
-  'label',
-]);
+export const STREAM_PERSISTED_FIELDS: readonly string[] = DIGEST_FIELDS;
 
 /**
  * Fail-closed plaintext scan over a stream-rendered string. Delegates to the
@@ -86,17 +81,33 @@ export const ASK_COPY = Object.freeze({
   cancelled: '已取消（不代填默认值）',
   /** The system row for a user cancel (kept, though the card alone already traces). */
   cancelledUserSystem: '提问已由用户取消（未作答，不代填默认值）',
-  /** The system row for the 60 s timeout projection. */
+  /** The system row for the 60 s timeout projection (background ask bridge expiry). */
   timeoutSystem: '提问超时未答：已按未作答取消（不代填默认值）',
   /** The system row for a superseded background question (R1 → v4 双留痕). */
   supersededSystem: '上一轮提问已被新的拾取回合取代（未作答即取消，不代填默认值）',
+  /** The system row for a turn that ended on an ERROR with a background ask open (I-06). */
+  abortedSystem: '回合因错误结束：该提问未作答即取消（不代填默认值）',
+  /**
+   * BLOCK-02: the trace written when a turn ends while a **panel-owned** reference
+   * question is still open. The card is deliberately NOT settled (it has no bridge
+   * and no 60 s timer, so turn-end carries no expiry semantics) — the row keeps the
+   * process fact without inventing a timeout that never happened.
+   */
+  turnEndRefPending: '本轮已结束：引用提问仍在等待你的选择（不随回合结束取消，不代填默认值）',
   /** auth terminal copies (shim D3 / D5). */
   approved: '已批准',
   rejected: '已拒绝（不执行）',
+  /** BLOCK-01: the auth card's `cancelled` terminal (never「已批准」). */
+  authCancelled: '已取消（未授权，不执行）',
   /** The audit-exit label (reuses the v3-2 receipt exit wording, D4). */
   auditExit: '查看审计（完整审计视图）',
   /** The audit-view division of labour sentence (AC-CHAT-016). */
   auditDivision: '流内为会话线索；完整台账在工具栏「审计」视图。',
+  /** BLOCK-03: the readable cancel reasons the L1「已决策历史」row shows. */
+  cancelReasonUser: '已取消（用户）',
+  cancelReasonTimeout: '已取消（超时未答）',
+  cancelReasonSuperseded: '已取消（被新回合取代）',
+  cancelReasonAborted: '已取消（回合因错误结束）',
 } as const);
 
 /** Assert the whole copy vocabulary is plaintext-free (fail-closed guard). */
@@ -104,9 +115,34 @@ export function assertStreamCopySafe(): void {
   assertStreamPlaintext(Object.values(ASK_COPY).join('\n'));
 }
 
+/**
+ * I-01 (v4-3 review) — the load-time consumption point of the copy vocabulary.
+ *
+ * `assertStreamCopySafe()` used to have **zero call sites outside the test file**,
+ * i.e. the layer that guarantees「固化文案 / 系统行零明文」was only ever run by a
+ * gate a later leaf could forget. Evaluating it here means the check runs on the
+ * **production import graph** (the panel bundle imports this module) and throws
+ * where the string table is defined — a pasted URL / secret / `<b>` in the copy
+ * fails at panel load instead of shipping.
+ */
+assertStreamCopySafe();
+
 /** The system row for a cancel reason (`null` = no row; user cancel is card-only). */
-export function cancelSystemLine(reason: 'user' | 'timeout' | 'superseded'): string | null {
+export function cancelSystemLine(reason: 'user' | 'timeout' | 'superseded' | 'aborted'): string | null {
   if (reason === 'timeout') return ASK_COPY.timeoutSystem;
   if (reason === 'superseded') return ASK_COPY.supersededSystem;
+  if (reason === 'aborted') return ASK_COPY.abortedSystem;
   return null;
+}
+
+/**
+ * BLOCK-03 — the readable text an L1「已决策历史」row shows for a `cancelled` card.
+ * Single source with {@link ASK_COPY}: the row can never render a reason the card
+ * itself does not know about.
+ */
+export function cancelReasonText(reason: 'user' | 'timeout' | 'superseded' | 'aborted' | undefined): string {
+  if (reason === 'timeout') return ASK_COPY.cancelReasonTimeout;
+  if (reason === 'superseded') return ASK_COPY.cancelReasonSuperseded;
+  if (reason === 'aborted') return ASK_COPY.cancelReasonAborted;
+  return ASK_COPY.cancelReasonUser;
 }

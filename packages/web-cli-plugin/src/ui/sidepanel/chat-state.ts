@@ -31,12 +31,13 @@ import {
   boundStreamEvents,
   closeOpenAsks,
   createStreamState,
+  isRefRound,
   lastOpenCardId,
   openAskEntries,
   switchStreamSession,
 } from './stream-model.js';
 import type { AskCancelReason, OpenAskEntry, StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
-import { ASK_COPY, cancelSystemLine } from './stream-plaintext.js';
+import { ASK_COPY, cancelSystemLine, label } from './stream-plaintext.js';
 
 export { REF_ROUND_PREFIX };
 
@@ -289,13 +290,16 @@ function closeThinking(state: SidepanelState, at: number, terminal: StreamTermin
   return push(state, { kind: 'thinking', ts: at, cardId, payload: { ms }, terminal });
 }
 
-/** The open `askuser` / `auth` card carrying `requestId`, if any. */
+/** The open `askuser` / `auth` card carrying `requestId`, if any (I-07: open only). */
 function cardIdForRequest(stream: StreamState, requestId: string | undefined): string | undefined {
   if (!requestId) return undefined;
   for (let i = stream.events.length - 1; i >= 0; i -= 1) {
     const e = stream.events[i];
     if ((e.kind === 'askuser' || e.kind === 'auth') && e.payload.requestId === requestId && e.terminal === undefined) {
-      return e.cardId;
+      // A terminal event for a card is not identifiable by `requestId` (the terminal
+      // event carries no requestId), so「has a terminal」is checked below instead.
+      const hasTerminal = stream.events.some((x) => x.cardId === e.cardId && x.terminal !== undefined);
+      if (!hasTerminal) return e.cardId;
     }
   }
   return undefined;
@@ -303,7 +307,11 @@ function cardIdForRequest(stream: StreamState, requestId: string | undefined): s
 
 /** Append one **already-sanitised** system row (never a caller body). */
 function systemRow(state: SidepanelState, at: number, text: string): SidepanelState {
-  return push(state, { kind: 'system', ts: at, payload: { text, label: text } });
+  // I-01 (v4-3 review): every production `label` goes through the factory, which
+  // scans the copy at construction time (`label()` → `assertStreamPlaintext`). The
+  // factory had zero production call sites before this round, so the「生成侧工厂
+  // 约束」layer was declaration-only.
+  return push(state, { kind: 'system', ts: at, payload: { text, label: label([text]) } });
 }
 
 /** One system row per superseded card — the「不静默」half of the R1 upgrade. */
@@ -313,7 +321,49 @@ function traceSuperseded(state: SidepanelState, at: number, superseded: readonly
   return out;
 }
 
-/** Terminalise every still-open decision card (turn ended / session switched). */
+/**
+ * Terminalise every still-open decision card **the panel does not own** (turn
+ * ended / error ended the turn), and leave a trace when a panel-owned reference
+ * question is still waiting.
+ *
+ * ── BLOCK-02 (v4-3 review) — the ruling, in one place ────────────────────────
+ *
+ * The panel has exactly two ask populations, and they do NOT share expiry
+ * semantics:
+ *
+ *   · a **background ask** (`ask-<n>`, minted by the service worker) is held by an
+ *     ask-bridge whose 60 s expiry is what ends the unanswered turn — so the
+ *     `pending:false` that follows IS the observable form of「真实 60 s 到期」and
+ *     the card is settled `cancelled(timeout)` (or `aborted` when the turn ended on
+ *     an error, I-06).
+ *   · a **panel-owned reference question** (`ref-round-*`, minted locally by
+ *     `acceptCapture`) has **no bridge and no timer**: the turn ending carries no
+ *     expiry semantics at all. Settling it as `timeout` would write「提问超时未答」
+ *     for a timeout that never happened **and** freeze the pick → choose link the
+ *     R1 work exists to keep alive. It is therefore **not** settled; the turn-end
+ *     fact is still traced (a system row, never a silent drop) and the card stays
+ *     answerable. Every real closure of such a card (new round supersede / session
+ *     switch) already writes a `cancelled(superseded)` trace.
+ *
+ * This is the「留痕」choice: nothing is removed silently, and no fake timeout is
+ * invented.
+ */
+function settleTurnEnd(state: SidepanelState, at: number, reason: 'timeout' | 'aborted'): SidepanelState {
+  const open = openAskEntries(state.stream);
+  const owned = open.filter((entry) => isRefRound(entry.requestId));
+  const background = open.filter((entry) => !isRefRound(entry.requestId));
+  let out = state;
+  if (background.length > 0) {
+    const { state: stream, closed } = closeOpenAsks(state.stream, at, reason, (entry) => !isRefRound(entry.requestId));
+    out = { ...out, stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP) };
+    const line = cancelSystemLine(reason);
+    if (line) for (let i = 0; i < closed.length; i += 1) out = systemRow(out, at, line);
+  }
+  for (let i = 0; i < owned.length; i += 1) out = systemRow(out, at, ASK_COPY.turnEndRefPending);
+  return out;
+}
+
+/** Terminalise every still-open decision card (session switch: settle everything). */
 function closeOpenAskCards(state: SidepanelState, at: number, reason: AskCancelReason): SidepanelState {
   const { state: stream, closed } = closeOpenAsks(state.stream, at, reason);
   let out: SidepanelState = { ...state, stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP) };
@@ -322,7 +372,15 @@ function closeOpenAskCards(state: SidepanelState, at: number, reason: AskCancelR
   return out;
 }
 
-/** Append the terminal event of one decision card (by requestId, else the last open). */
+/**
+ * Append the terminal event of one decision card.
+ *
+ * I-07 (v4-3 review) — **fail-closed on an unknown requestId**: a caller that names
+ * a `requestId` we cannot resolve to a still-open card must settle **nothing**
+ * (silently settling「the last card of that kind」would write a terminal fact onto
+ * the wrong card). The `lastOpenCardId` fallback is therefore only reachable for a
+ * caller that deliberately passes no `requestId` at all.
+ */
 function terminalDecision(
   state: SidepanelState,
   kind: 'askuser' | 'auth',
@@ -331,7 +389,7 @@ function terminalDecision(
   requestId: string | undefined,
   payload: StreamPayload,
 ): SidepanelState {
-  const cardId = cardIdForRequest(state.stream, requestId) ?? lastOpenCardId(state.stream, kind);
+  const cardId = requestId ? cardIdForRequest(state.stream, requestId) : lastOpenCardId(state.stream, kind);
   if (!cardId) return state;
   return push(state, { kind, ts: at, cardId, payload, terminal });
 }
@@ -355,7 +413,8 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
         kind: 'thinking',
         ts: at,
         cardId: freshCardId(withUser.stream, 't'),
-        payload: { label: '思考' },
+        // I-01: the label factory is the production path (scans at construction).
+        payload: { label: label(['思考']) },
       });
     }
     case 'assistant':
@@ -367,8 +426,8 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
         ...(isCard ? { tool: action.tool } : {}),
         ...(action.ok !== undefined ? { ok: action.ok } : {}),
         ...(action.ms !== undefined ? { ms: action.ms } : {}),
-        // The persisted label is the tool name (never the body).
-        ...(isCard ? { label: action.tool } : {}),
+        // The persisted label is the tool name (never the body) — via the factory.
+        ...(isCard ? { label: label([action.tool]) } : {}),
       };
       // A tool with an observed outcome is terminal on arrival; a bare retry notice
       // (`notice`) is a single-line row.
@@ -380,7 +439,12 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
       return push(state, { kind: 'command', ts: at, payload: { text: action.text } });
     case 'error': {
       const withError = push(state, { kind: 'error', ts: at, payload: { text: action.text } });
-      return closeThinking(withError, at, 'completed');
+      // I-06 (v4-3 review): the turn ended on an error ⇒ `reduceChat` already flipped
+      // `pending` to false, so the `case 'pending'` settlement below would never run.
+      // The un-settled background ask must still be settled — with its OWN reason
+      // (`aborted`), never a fake timeout. Panel-owned reference questions keep the
+      // BLOCK-02 rule (not settled, traced).
+      return settleTurnEnd(closeThinking(withError, at, 'completed'), at, 'aborted');
     }
     case 'ask': {
       // V4-3: a real ask is a **stream card** now (ADR-V4-030). The single slot
@@ -435,7 +499,10 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
     case 'confirm-resolved':
       return terminalDecision(state, 'auth', at, action.allow ? 'approved' : 'rejected', action.requestId, {});
     case 'pending':
-      return action.value ? state : closeOpenAskCards(closeThinking(state, at, 'completed'), at, 'timeout');
+      // BLOCK-02: `pending:false` = the turn ended. Only the asks whose bridge really
+      // expired are settled as `timeout`; panel-owned reference questions are traced,
+      // never settled (see `settleTurnEnd`).
+      return action.value ? state : settleTurnEnd(closeThinking(state, at, 'completed'), at, 'timeout');
     case 'history': {
       const nextSession = action.sessionId;
       // ADR-V4-028 §1 + ADR-V4-031 §2: a session switch settles every still-open

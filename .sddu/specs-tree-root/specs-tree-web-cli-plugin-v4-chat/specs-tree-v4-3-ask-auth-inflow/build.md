@@ -192,6 +192,173 @@
 | 场景 | 操作 |
 |------|------|
 | 全部任务已完成 | 运行 `@sddu-review specs-tree-v4-3-ask-auth-inflow` 开始审查 |
+| review 修复轮完成 | 运行 `@sddu-review specs-tree-v4-3-ask-auth-inflow` **复审**（R2） |
+
+---
+
+## 10. review 修复轮（R1 复审输入：BLOCK-01~04 + I-01~I-08 全量处置）
+
+> **基线**：review-report.md（R1）@ HEAD `988855f`；本轮改动 = `src/ui/sidepanel/**` 10 文件 + `test/**` 9 文件 + 台账/基线 2 文件。
+> **结论**：22 门禁全绿 + BLOCK 两段证伪 ×4 + I-03 展开态反证（in-gate + 产物级）。
+
+### 10.1 阻塞逐条修法（BLOCK-01~04）
+
+| # | 修法 | 位置 | 关键代码/契约 |
+|---|------|------|---------------|
+| **BLOCK-01** | `cancelled` 成为**独立终态语义**：`decisionState()` 返回 `'cancelled'`、`authFixedText()` 返回新常量 `ASK_COPY.authCancelled = '已取消（未授权，不执行）'`（单源）；三条路径（会话切换 `superseded` / 仲裁取代 `superseded` / 回合结束 `timeout`）都经同一映射 | `cards/auth.ts`（`decisionState` / `authFixedText`）、`stream-plaintext.ts`（新增 copy） | 「never a silent approve」重新结构性成立：`cancelled` 既不是 `pending` 也不是 `approved` |
+| **BLOCK-02** | 回合结束与 60 s 超时**分离**：新增 `settleTurnEnd(state, at, reason)` —— 后台 ask（有 ask-bridge）按 `timeout` 结算（这是真实 60 s 到期的可观测形态）；**面板自有 ref-round ask（无 bridge / 无计时器）不结算**，只写一条「本轮已结束：引用提问仍在等待你的选择（不随回合结束取消）」系统行（**留痕，不静默、不假超时**）。`closeOpenAsks` 增加 `filter` 形参（会话切换仍结算全部） | `chat-state.ts`（`settleTurnEnd` / `case 'pending'`）、`stream-model.ts`（`closeOpenAsks(filter)`）、`stream-plaintext.ts`（`turnEndRefPending`） | 拾取 → 选择用途的链路不再间歇性断掉；**留痕**口径按 FR-CHAT-024 精神选择（卡保持可答 = 过程事实不冻结） |
+| **BLOCK-03** | `rounds[]` 退役差值推断：`sidepanel.ts#decisionRounds()` 从 `project(state.stream)` 的**终态 askuser 卡**派生（`answered ⇒ payload.answer`；`cancelled ⇒ cancelReasonText(reason)`，可读）；`L1Input` 增加 `decisions`，`l1/panels.ts#observe` 只赋值不再推断；删除 `pendingAnswer` 与 `#l0-decision` 的 `ask-option:`/`ask-submit` 死委派（其生产者已随 `decision-card.ts` 退役） | `sidepanel.ts`、`l1/panels.ts`、`stream-plaintext.ts`（`cancelReasonText`） | 已决策历史 = 卡的事实，不再是 `lastUserText` / 「（无回答）」 |
+| **BLOCK-04** | `patchCardNode` / `patchAuthCard` **透传真实 deps**（`stream-render.ts` 传 `cardDeps()`），审计入口的 `onCardAction` 不再为 `undefined`；`preventDefault()` 之后真的跳转 | `cards/index.ts`、`cards/auth.ts`、`stream-render.ts` | 刚决策的卡点审计 ⇒ `openL2View('audit')` ⇒ `[data-l2-view="audit"]` 可见 |
+
+### 10.2 两段证伪原文（回退 ⇒ 红 / 修复 ⇒ 绿，逐字节还原 sha256）
+
+**BLOCK-01**（回退 `cards/auth.ts` 的 cancelled 分支；`dist-test` 重编后跑 repro2）
+
+```
+回退：npm test ⇒ rc=1，2 条 FAIL（「BLOCK-01 假批准回归：三条真实路径…」「BLOCK-01 反向…」）
+      test:ask-auth ⇒ rc=1，57 passed / 4 failed：
+        ⑪ 被取代的 auth 卡渲染 data-decision=cancelled（不是 pending/approved） — {"decision":"pending","fixedText":"已批准",…}
+        ⑪ 被取代的 auth 卡固化文案「已取消（未授权，不执行）」且不含「已批准」
+        ⑪ 被取代的 auth 卡恰 1 张 cancelled、0 张 approved
+        ⑪ 回合结束（真实超时）的 auth 卡同样渲染 cancelled + 「已取消」
+      repro2（node /tmp/opencode/v43-review/repro2.mjs）：
+        data-decision 渲染 = pending
+        固化文案渲染     = 已批准        ← 与 R1 复现脚本逐字一致
+修复：sha256(auth.ts)=cc545f27…（逐字节还原）
+      npm test ⇒ rc=0（945 / 0）；test:ask-auth ⇒ rc=0（61 passed / 0 failed）
+      repro2：data-decision 渲染 = cancelled / 固化文案渲染 = 已取消（未授权，不执行）
+日志：BLOCK01-回退-npm-test.log · BLOCK01-回退-ask-auth.log · BLOCK01-修复-*.log
+```
+
+**BLOCK-02**（回退 `chat-state.ts` 的 `case 'pending'` 为 `closeOpenAskCards(…,'timeout')`）
+
+```
+回退：npm test ⇒ rc=1，1 条 FAIL（BLOCK-02 回归：面板自有 ref-round ask 在回合结束时**不结算、不写假超时**，且留痕）
+      repro1（node /tmp/opencode/v43-review/repro1.mjs）：
+        E. done 之后: [… {"rid":"ref-round-ref_1","term":"cancelled","reason":"timeout"}] open= 0
+           SYS= […,"提问超时未答：已按未作答取消（不代填默认值）"]     ← R1 证据逐字复现（假超时）
+修复：sha256(chat-state.ts)=fdf2c125…（逐字节还原）
+      npm test ⇒ rc=0（945 / 0）
+      repro1：E. done 之后: [… {"rid":"ref-round-ref_1"}] open= 1
+             SYS= […,"本轮已结束：引用提问仍在等待你的选择（不随回合结束取消，不代填默认值）"]
+日志：BLOCK02-回退-npm-test.log · BLOCK02-修复-npm-test.log
+```
+
+**BLOCK-03**（回退 `sidepanel.ts#decisionRounds` 的答案源为 `lastUserText`）
+
+```
+回退：test:l1 ⇒ rc=1，108 passed / 3 failed：
+        ⑪ BLOCK-03：已决策历史的选择文案 = 流内卡的**真实答案** — [{…,"chosen":"（无回答）"},…]
+        ⑪ BLOCK-03：取消轮必须 canceled=true 且原因可读（不是「（无回答）」）
+        ⑪ BLOCK-03：历史行文案与卡的终态同源
+修复：sha256(sidepanel.ts)=80f995e2…（逐字节还原）
+      test:l1 ⇒ rc=0（111 passed / 0 failed）
+日志：BLOCK03-回退-l1.log · BLOCK03-修复-l1.log
+```
+
+**BLOCK-04**（回退 `patchAuthCard` 的 deps 为 `{ doc: node.ownerDocument }`）
+
+```
+回退：test:ask-auth ⇒ rc=1，60 passed / 1 failed：
+        ⑫ 点击审计入口后审计视图可见（真实跳转，不是死链） — {"before":false,"after":false}
+修复：sha256(auth.ts)=cc545f27…（逐字节还原）
+      test:ask-auth ⇒ rc=0（61 passed / 0 failed）
+日志：BLOCK04-回退-ask-auth.log · BLOCK04-修复-ask-auth.log
+```
+
+### 10.3 I-01~I-08 处置
+
+| # | 处置 | 说明 |
+|---|------|------|
+| **I-01** | **接线 + 删重**（选「接线」） | `label()` 工厂成为**生产路径**：`chat-state.ts` 的 `systemRow` / thinking / tool 三处 `label` 全部改走工厂（⇒ `assertStreamPlaintext` 有了生产消费点）；`assertStreamCopySafe()` 在 `stream-plaintext.ts` **模块求值期**执行（生产 import 即校验，fail-closed）；**删除** `STREAM_FIELD_WHITELIST`，改以 `STREAM_PERSISTED_FIELDS = DIGEST_FIELDS` 复用摘要侧唯一白名单（两份白名单不可能漂移） |
+| **I-02** | **接线 + 删除** | `askFlowView()` 接为 **composer 真实消费点**：`renderSendReason()` 用它的 `sendDisabled` 决定禁用 + 用 `canSubmitOpenAsk` 在有待答卡时把文案补成「…；屏幕上的提问卡仍可提交。」；失真且无消费者的 `turnStuck` **删除**（`pending ∧ openAsks=0` 恰是「正常回复中」，正确判据需要本层不拥有的「无在途回复」，不得凭猜重定义） |
+| **I-03** | **裁决：收紧（互斥披露），不设预算豁免** | `cards/askuser.ts#setCardFallbackOpen(cardForm, open)`：展开「其他…（我来描述）」即 `hidden` 掉选项行，收起即恢复。展开态单卡 = 4（输入+提交+取消+切换）、两卡展开合计 = 8 ≤ 8，与收起态**同一口径**。`l0/shell.ts#revealFallback`（L1「改用描述」入口）走同族函数。**可判定判据**：`test/ui/ask-auth-inflow.mjs` ⑪（收起态 ≤6 / 展开态 ≤6 / 两卡展开合计 ≤8 / 可见选项行 = 0）+ in-gate 反证；**展开态登记**：`docs/v4-density-baseline.json#knownLimitations`（HO-1 / I-03 条目）。**反证原文**见 §10.4 |
+| **I-04** | 移植 auth 的守卫 | `buildForm` 铸 id 前先剥离既有 `#ask*` 全族（`LEGACY_ASK_ID` 清单单源）⇒「最新打开的卡拥有 legacy id」；修正 `askuser.ts` 失真注释（模型允许两张 askuser 同开） |
+| **I-05** | 叶段 scope **去自指** | `test/supersession-ledger.test.ts` 新增 `testFilesWithDeletions(leafBase)`（`git diff --numstat <leafBase>` 的删除面）与 `leafScopeFilesFor(leafBase)` = 登记集 ∪ 本叶段删除面；v4 段 schema 判据改为**逐叶**复算。结果：`ui/stream.mjs`(8) / `density-thresholds.test.ts`(2) / `size-ruling-vol3.test.ts`(2) / `supersession-ledger.test.ts`(28) 由「不可见」变「受判」并逐字登记（v4-3 叶段 55 条） |
+| **I-06** | 补 error 结算 | `case 'error'` 追加 `settleTurnEnd(…, 'aborted')`；新增 `AskCancelReason = 'aborted'` + `ASK_COPY.abortedSystem`（「回合因错误结束：该提问未作答即取消」）——原因不复用 `timeout` |
+| **I-07** | 边界条件修复 | ① `cardIdForRequest` 只认**无终态事件**的卡；② `terminalDecision` 在**给了 requestId 却解析不到**时 **fail-closed**（不再回退「最后一张同 kind 的卡」）；③ `clearAsk` 按 `openAskEntries` 的种类分别派发（auth ⇒ `confirm-resolved`，askuser ⇒ `ask-resolved`），不再循环 `MAX_OPEN_ASKS+1` 后静默退出 |
+| **I-08** | **登记**（选「改 ADR 登记」一侧，因 plan.md 属已完成产物不可改） | 差异登记于 `docs/v4-supersession-ledger.json#knownLimitations`：后果预演代入的是**卡片自身已显示的范围文本**（`payload.prompt`，与 `#ask-prompt` 同源），**仅渲染、不入摘要、不新增数据面**；ADR-V4-034 §2 「不含页面文本」的措辞按此校准为「不新增页面数据面」。代码注释同步说明 |
+
+### 10.4 I-03 展开态反证（两段）
+
+```
+① in-gate（门禁内注入，§⑪ FAIL 段）：
+   注入「选项行不收起」⇒ 判据必须 FAIL；还原 ⇒ PASS
+② 产物级两段证伪（回退 setCardFallbackOpen 的收起逻辑）：
+   回退：test:ask-auth ⇒ rc=1，57 passed / 4 failed：
+        ⑪ 展开兜底后单卡仍 ≤6 — {"per":[7],"total":7,"visibleOptions":[3]}      ← HO-1 的 7 > 6
+        ⑪ 展开兜底后可见选项行 = 0
+        ⑪ 两卡同开且都展开：合计可点 ≤8 — {"per":[7,7],"total":14,…}            ← HO-1 的 14 > 8
+        ⑪ (PASS 段) 还原互斥披露后判据必须 PASS
+   修复：sha256(askuser.ts)=cad43291…（逐字节还原）⇒ rc=0（61 / 0）
+   日志：I03-回退-ask-auth.log · I03-修复-ask-auth.log
+```
+
+### 10.5 新增/变更断言清单（只增不减）
+
+| 文件 | 新增 | 说明 |
+|------|:--:|------|
+| `test/ask-auth-inflow.test.ts` | **+8 用例**（12 → 20） | BLOCK-01 假批准三路径 + 反向对照；BLOCK-02 真超时 + 面板自有 ask 不结算 + 会话切换反向；I-06 error 结算；I-07 fail-closed ×2（未知 requestId / 已终态卡 / clearAsk 种类契约）；常量单源改四条 reason |
+| `test/ui/ask-auth-inflow.mjs` | **+12 断言**（49 → 61） | ⑪ BLOCK-01 假批准回归（被取代 / 回合结束）；⑫ BLOCK-04 审计入口真实跳转（点击前不可见 + 点击后可见）；⑪ I-03 展开态预算 4 条 + in-gate 反证 2 条 |
+| `test/ui/l1.mjs` | **+3 断言**（108 → 111） | ⑪ BLOCK-03 答案源（两轮真实答案）+ 取消原因可读 + 行文案同源 |
+| `test/gate-integrity.test.ts` | **+4 条 in-gate 形态登记** + 1 条例外登记 | BLOCK-01 / BLOCK-03 / BLOCK-04 / I-03 的 FAIL 形态必须存在于门禁源码（R4b 机核） |
+| `test/supersession-ledger.test.ts` | 判据**覆盖增强**（计数不变） | 逐叶 diff 驱动 scope（I-05）；v4 段 schema 逐叶复算 |
+
+### 10.6 门禁全量账（严格串行 · 一次一个 Chromium · 日志全量落盘）
+
+日志目录：`/tmp/opencode/v4-gate-logs/v4-3-reviewfix/`（`summary.txt` 逐项记退出码；`registry/` 为同轮完整绿 run 副本，供台账 `counts.source.log` 同源机核）
+
+| # | 门禁 | 命令 | 退出码 | 计数（原文） | 与上轮 |
+|:--:|------|------|:--:|------|:--:|
+| 1 | typecheck | `npm run typecheck` | 0 | tsc --noEmit 通过 | = |
+| 2 | build | `npm run build` | 0 | `dist/` 重建（sidepanel.js 445,300 B） | +4,602 B |
+| 3 | npm test | `npm test` | 0 | `ℹ pass 945 / ℹ fail 0` | 937 → 945 |
+| 4 | supersession | `npm run test:supersession` | 0 | `ℹ pass 31 / ℹ fail 0` | = |
+| 5 | gate-integrity | `npm run test:gate-integrity` | 0 | `ℹ pass 12 / ℹ fail 0` | = |
+| 6 | zero-injection | `npm run test:zero-injection` | 0 | `27 passed / 0 failed` | = |
+| 7 | page-input | `npm run test:page-input` | 0 | `102 passed / 0 failed` | = |
+| 8 | l0 | `npm run test:l0` | 0 | `216 passed / 0 failed` | = |
+| 9 | l1 | `npm run test:l1` | 0 | `111 passed / 0 failed` | 108 → 111 |
+| 10 | l2 | `npm run test:l2` | 0 | `73 passed / 0 failed` | = |
+| 11 | density | `npm run test:density` | 0 | `171 passed / 0 failed` | = |
+| 12 | journey | `npm run test:ui` | 0 | `167 assertions` PASS | = |
+| 13 | insight | `npm run test:insight` | 0 | `116 assertions` PASS | = |
+| 14 | binding | `npm run test:binding` | 0 | `192 assertions` PASS | = |
+| 15 | hardening | `npm run test:hardening` | 0 | `24 assertions` PASS | = |
+| 16 | e2e | `npm run test:e2e` | 0 | 全链 PASS | = |
+| 17 | ask-auth | `npm run test:ask-auth` | 0 | `61 passed / 0 failed` | 49 → 61 |
+| 18 | stream | `npm run test:stream` | 0 | `63 passed / 0 failed` | = |
+| 19 | design-contract | `npm run test:design-contract` | 0 | `ℹ pass 6 / ℹ fail 0`（shim 60/60） | = |
+| 20 | l1-reverse | `npm run test:l1-reverse` | 0 | `9 条断言全部「注入 → FAIL → 还原 → PASS」` | = |
+| 21 | l2-reverse | `npm run test:l2-reverse` | 0 | `10 条全部「注入 → FAIL → 还原 → PASS」` | = |
+| 22 | RP-V4-09 复验 | `npm run test:density -- --reverse RP-V4-09` | 0 | `9 passed / 0 failed` | = |
+
+**计数只增不减核对**：node 937 → **945**；l1 108 → **111**；ask-auth 49 → **61**；l0 216 / l2 73 / density 171 / journey 167 / insight 116 / binding 192 / hardening 24 / stream 63 / page-input 102 / zero-injection 27 / supersession 31 / gate-integrity 12 / design-contract 6 全部 **=**（零删减）。
+
+### 10.7 体积五要素与红线（review 修复轮）
+
+| 要素 | 值 |
+|------|----|
+| 基线 | 440,698 → **445,300 B**（+4,602 B，+1.04%；逐模块归因 `v43ReviewfixRows` Σ 5,898 + 胶水 −1,296） |
+| ceiling | `floor(445,300 × 1.05)` = **467,565 B**（cap 仍 `record-only`） |
+| 最终产物 | `dist/sidepanel.js` = **445,300 B**（登记值 == 实测产物，机核） |
+| 历史值 | 440,698 / 426,487 / 425,094 … 全部逐字保留在 `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS`（含新条目 `v4-3-reviewfix`） |
+| 归因 | 新增 `SIDEPANEL_GROWTH_BREAKDOWN.v43ReviewfixRows`（10 行，beforeBytes = v4-3 轮 afterBytes） |
+
+| 红线 | 实测 |
+|---|---|
+| `content.js` / `pick-layer.js` | **177,076 / 33,900 逐字节不变** |
+| `src/background/**` / `src/content/**` / `manifest.json` / `policy.ts` / `auto-authorize.ts` | **零 diff** |
+| SW / `KIND_SET` / 判定链 / `ask-bridge.ts` | 零改动 |
+| journey / binding 保护段 | 字节零改（`protectedRanges` 逐字节机核通过） |
+| 台账 | `leafBases` 逐叶 scope 复算 + 逐字删除行集合相等（v4-3 段新增 55 条）；`entries` 新增 2 条 + 换锚 30 条（newTitle 定位 + oldTitle 真被删除双向机核） |
+| `git add -A` | 未使用（逐文件 `git add`） |
+
+### 10.8 本轮未完成 / 风险
+
+**无。** 12 项处置全部落地；22 门禁 + 4 组两段证伪 + I-03 反证全绿。
+
+**如实登记的边界**：① BLOCK-01 的三条路径中，「会话切换」在 DOM 门禁里由模型侧（`test/ask-auth-inflow.test.ts` 用真实 `decisionState`/`authFixedText`）判定，「被取代 / 回合结束」两条另在真实渲染路径上判定 —— 未为会话切换新增渲染层 seam（避免为非产品路径扩 seam）；② `askFlowView.canSubmitOpenAsk` 的文案消费点在 composer **提示行**（`#send-reason`），推荐 chip 的接线按 ADR-V4-032 仍归 v4-4。
 
 ## 修订记录
 
@@ -199,3 +366,5 @@
 |------|---------|------|--------|
 | v1.0 | 初始创建（11 任务源码产出 + 终态事件表 + HO-1 裁决/反证 + HO-2 复算 + 宿主清零 + 体积五要素；如实登记 3 类未绿门禁） | 2026-09-19 | SDDU Build Agent |
 | v2.0 | R2 收口轮：4 项机械重 pin 逐项闭环（台账 71 entries + 1 叶段 72 行 + 9 换锚；RP-L1-E 空安全重 pin；l2-reverse 还原基线复原；npm test 937/0）+ 抽样口径按实测订正 + 全量 21 门禁 + RP-V4-09 全绿 + 反证两段证据 | 2026-09-19 | SDDU Build Agent |
+| v3.0 | **review 修复轮**：BLOCK-01~04 修法 + 两段证伪原文 ×4 + I-01~I-08 逐条处置（含 I-03 裁决与展开态判据/反证、I-05 叶段 scope 去自指）+ 新增断言清单 + 22 门禁全绿 + 体积五要素重登记（445,300 / 467,565） | 2026-09-19 | SDDU Build Agent |
+

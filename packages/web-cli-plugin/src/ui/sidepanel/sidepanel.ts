@@ -18,7 +18,7 @@ import {
 import { createScrollFollow, isNearBottom, type ScrollMetrics } from './scroll-policy.js';
 // V4-2 (TASK-604 / TASK-605 / TASK-607): the append-only stream — the model +
 // projection, the keyed incremental renderer and the zero-plaintext digest.
-import { appendEvent, boundStreamEvents, createStreamState, DEFAULT_STREAM_CAP, hasSegment, liveCardIds, MAX_OPEN_ASKS, project } from './stream-model.js';
+import { appendEvent, boundStreamEvents, createStreamState, DEFAULT_STREAM_CAP, hasSegment, liveCardIds, openAskEntries, project } from './stream-model.js';
 import type { StreamEventKind } from './stream-model.js';
 import { createStreamRender, type StreamRenderHandle } from './stream-render.js';
 import {
@@ -49,6 +49,7 @@ import {
   sendDisabledReason,
   sortSessions,
   stateActionFromPayload,
+  type DecisionRound,
   type SessionGroupView,
   type SessionSummaryView,
   type SessionsMessageView,
@@ -62,6 +63,7 @@ import type { LlmStatusSummary } from '../../llm/status.js';
 import type { ActiveTabView } from '../../background/state-message.js';
 import type { TestConnectionResult } from '../../llm/test-connection.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
+import { cancelReasonText } from './stream-plaintext.js';
 import { requestOriginPermissionDetailed, createChromeAsyncKv } from '../../platform/extension-env.js';
 import { handleClipboardOpMessage } from '../../platform/clipboard-page.js';
 import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
@@ -487,7 +489,43 @@ function l1Input(l0View: L0View | null): L1Input {
     ask: state.ask ? { prompt: state.ask.prompt, options: state.ask.options ?? [] } : null,
     foldedOptions: l0View?.decision.foldedOptions ?? [],
     lastUserText: lastUser?.text ?? null,
+    // BLOCK-03 (v4-3 review): the「已决策历史」is derived from the stream's terminal
+    // ask cards — the ONLY place a real answer exists now.
+    decisions: decisionRounds(),
   };
+}
+
+/**
+ * BLOCK-03 (v4-3 review) — the「已决策历史」rows, derived from the event log.
+ *
+ * The v3 implementation inferred rounds by diffing `input.ask` and read the answer
+ * from a `data-key="ask-option:*"` delegation inside `#l0-decision`. v4-3 removed
+ * **both** producers (`decision-card.ts` was retired; the `#ask-submit` delegation
+ * moved into the stream card), so every round answered through a stream card was
+ * recorded as the *previous user message* or「（无回答）」+ `canceled:true` — a
+ * mis-recorded process fact, exactly what NFR-CHAT-001 forbids.
+ *
+ * The answer source is now the terminal `askuser` card itself (`answered` ⇒
+ * `payload.answer`; `cancelled` ⇒ the readable reason). No inference, no fallback to
+ * unrelated text.
+ */
+function decisionRounds(): DecisionRound[] {
+  const rounds: DecisionRound[] = [];
+  for (const view of project(state.stream)) {
+    if (view.kind !== 'askuser' || !view.frozen) continue;
+    if (view.terminal !== 'answered' && view.terminal !== 'cancelled') continue;
+    const prompt = view.payload.prompt ?? '（无问题文本）';
+    const answered = view.terminal === 'answered';
+    const chosen = answered ? (view.payload.answer ?? '（无回答）') : cancelReasonText(view.payload.cancelReason);
+    rounds.push({
+      n: rounds.length + 1,
+      prompt,
+      chosen,
+      canceled: !answered,
+      changed: rounds.some((r) => r.prompt === prompt),
+    });
+  }
+  return rounds;
 }
 
 /** Install the `window.__v3.testing` namespace used by the density/l0 gates. */
@@ -668,11 +706,18 @@ function installV3TestHooks(): void {
         return true;
       },
       clearAsk() {
-        // V4-3: settle **every** open ask card (multiple can coexist under the ≤2 cap).
-        let guard = 0;
-        while (state.stream.openAsks.length > 0 && guard < MAX_OPEN_ASKS + 1) {
-          dispatch({ type: 'ask-resolved', canceled: false });
-          guard += 1;
+        // V4-3 (I-07③, v4-3 review): settle **every** open decision card — and with the
+        // action its own kind requires. The old loop dispatched `ask-resolved` only,
+        // which can never settle an `auth` card (its terminal comes from
+        // `confirm-resolved`), so an open auth card survived every iteration and the
+        // `MAX_OPEN_ASKS + 1` guard exited silently. Each card is now named explicitly
+        // (no「settle the last card of some kind」guess).
+        for (const entry of [...openAskEntries(state.stream)]) {
+          if (entry.kind === 'auth') {
+            dispatch({ type: 'confirm-resolved', allow: false, ...(entry.requestId ? { requestId: entry.requestId } : {}) });
+          } else {
+            dispatch({ type: 'ask-resolved', canceled: true, reason: 'user', ...(entry.requestId ? { requestId: entry.requestId } : {}) });
+          }
         }
       },
       /**
@@ -1096,7 +1141,11 @@ function renderSiteHint(): void {
 /** TASK-020 任务 B: make the disable reason visible next to the composer. */
 function renderSendReason(): void {
   const el = $('send-reason');
-  const reason = sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab });
+  // V4-3 (ADR-V4-032 §4 / I-02): the composer reads the ONE turn-semantics view —
+  // `askFlowView` is now a real product consumer, not a test-only seam. The disabled
+  // bit and the readable reason both come from it (a second rule can't drift).
+  const flow = askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length });
+  const reason = sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab, flow });
   el.textContent = reason;
   // V4-1 (FR-CHAT-082): the line is a single ellipsised row now — the full reason
   // must stay reachable, so it also rides the `title` tooltip (and textContent,

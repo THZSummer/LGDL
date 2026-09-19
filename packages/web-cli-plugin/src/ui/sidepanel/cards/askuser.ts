@@ -19,17 +19,81 @@
  *
  * ── The legacy id contract (`#ask*`) is preserved on the OPEN card ───────────
  *
- * At most one open ask card exists in practice (ADR-V4-032 caps the set at 2 and
- * the second is an auth card), so the v3 selectors `#ask` / `#ask-prompt` /
- * `#ask-options` / `#ask-input` / `#ask-submit` / `#ask-cancel` / `#ask-fallback`
- * keep resolving — they now resolve to the stream card instead of the retired
- * decision slot (ADR-V4-030 decision 6). `data-card-key` is the instance identity.
+ * I-04 (v4-3 review): the model **does** allow two `askuser` cards to coexist
+ * (`MAX_OPEN_ASKS = 2`, and `test/ask-auth-inflow.test.ts` ② builds exactly that
+ * state), so the v3 selectors can no longer be minted unconditionally — duplicate
+ * HTML ids would make every legacy reader (`revealFallback`, L1) resolve to the
+ * *first* match while the user interacts with the second card. `buildForm`
+ * therefore strips the whole `#ask*` family from any earlier card before minting it
+ * on the newest one (the same「newest open card owns the legacy id」guard the auth
+ * card already had). `data-card-key` remains the instance identity.
  *
  * @module ui/sidepanel/cards/askuser
  */
 import { ASK_COPY } from '../stream-plaintext.js';
 import type { CardView } from '../stream-model.js';
 import { CARD_TAG_LABELS, createCardShell, createFixedRegion, fixedText, type CardDeps } from './shared.js';
+
+/**
+ * The `#ask*` id family the OPEN card mints (the v3 selectors). I-04: this is also
+ * the list {@link buildForm} strips from earlier cards, so the set can never drift
+ * between「what is minted」and「what is de-duplicated」.
+ */
+const LEGACY_ASK_IDS: readonly string[] = Object.freeze([
+  'ask',
+  'ask-prompt',
+  'ask-options',
+  'ask-fallback',
+  'ask-input',
+  'ask-submit',
+  'ask-cancel',
+  'ask-other',
+]);
+
+/**
+ * I-03 (v4-3 review) — the mutual disclosure of the choice card's two surfaces,
+ * **scoped to one card**.
+ *
+ * Opening the「其他…（我来描述）」fallback collapses the option rows and vice versa,
+ * so the expanded card carries input + submit + cancel + the toggle = **4** visible
+ * clickables (≤ `MAX_CLICKABLES_PER_CARD = 6`), and two expanded cards stay at
+ * 8 = `MAX_STREAM_RESIDENT_CLICKABLES`. Without it the expanded card reached 7
+ * (3 options + toggle + input + submit + cancel) and two expanded cards 14 — see
+ * `docs/v4-density-baseline.json#knownLimitations` (HO-1 / I-03) and the expanded
+ * state judgement in `test/ui/ask-auth-inflow.mjs` ⑪.
+ *
+ * The scope is the card's own `.ask-form` on purpose: since I-04 only the newest open
+ * card owns the `#ask*` legacy ids, so a document-level lookup would toggle the wrong
+ * card when two `askuser` cards coexist (measured: the two per-card clicks cancelled
+ * each other out and both cards stayed collapsed).
+ */
+export function setCardFallbackOpen(cardForm: HTMLElement, open: boolean): void {
+  const fallback = cardForm.querySelector('.ask-fallback') as HTMLElement | null;
+  if (fallback) fallback.hidden = !open;
+  const other = cardForm.querySelector('[data-act="choose-other"]') as HTMLElement | null;
+  if (other) other.setAttribute('aria-expanded', String(open));
+  for (const btn of Array.from(cardForm.querySelectorAll<HTMLElement>('[data-act="choose"]'))) {
+    btn.hidden = open;
+  }
+  if (open) (cardForm.querySelector('input') as HTMLInputElement | null)?.focus();
+}
+
+/**
+ * The **document-level** form of the same disclosure, for the panel's own「改用描述」
+ * entry (`l0/shell.ts#revealFallback`). It resolves the card that currently owns the
+ * legacy `#ask-fallback` id and delegates to {@link setCardFallbackOpen} — so both
+ * entry points produce the identical DOM state.
+ */
+export function setAskFallbackOpen(doc: Document, open: boolean): void {
+  const fallback = doc.getElementById('ask-fallback');
+  const form = fallback?.closest('.ask-form') as HTMLElement | null;
+  if (form) {
+    setCardFallbackOpen(form, open);
+    return;
+  }
+  const other = doc.getElementById('ask-other');
+  if (other) other.setAttribute('aria-expanded', String(open));
+}
 
 /** `data-answered` for an ask card (shim C5/C6/C10 verbatim). */
 export function answeredState(view: CardView): 'false' | 'true' | 'cancelled' {
@@ -87,6 +151,12 @@ function clockTextNode(doc: Document, ts: number): HTMLElement {
  */
 function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
   const doc = deps.doc;
+  // I-04: the newest open card owns the legacy id family — strip it from any earlier
+  // (still open) card first. The node being built is not in the document yet, so a
+  // document-wide query can only ever match an older card.
+  for (const stale of Array.from(doc.querySelectorAll(LEGACY_ASK_IDS.map((id) => `#${id}`).join(', ')))) {
+    stale.removeAttribute('id');
+  }
   const askKind = view.payload.askKind ?? 'text';
   const ask = doc.createElement('div');
   ask.id = 'ask';
@@ -153,9 +223,9 @@ function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
     other.setAttribute('aria-controls', 'ask-fallback');
     other.textContent = '其他…（我来描述）';
     other.addEventListener('click', () => {
-      fallback.hidden = !fallback.hidden;
-      other.setAttribute('aria-expanded', String(!fallback.hidden));
-      if (!fallback.hidden) input.focus();
+      // I-03: mutual disclosure — opening the fallback collapses the option rows
+      // (scoped to THIS card: two `askuser` cards may coexist).
+      setCardFallbackOpen(ask, fallback.hidden);
     });
     options.appendChild(other);
   }
