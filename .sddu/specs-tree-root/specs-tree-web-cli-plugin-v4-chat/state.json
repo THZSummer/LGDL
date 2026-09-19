@@ -58,21 +58,21 @@
    "featureKey": "specs-tree-v4-4-ref-system-nextstep",
    "name": "V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移",
    "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/",
-   "phase": "reviewed",
-   "status": "tracked",
+   "phase": "validated",
+   "status": "completed",
    "depth": 2,
    "leaf": true,
    "priority": "P0",
    "deliveryOrder": 4,
    "covers": "FR-CHAT-050~064 / FR-CHAT-090~094（AC-CHAT-011 / 012 / 013 / 016 / 018 / 020 / 021 / 023 / 025）",
    "role": "引用卡 + 系统事件行（6+ 通道归并）+ 推荐卡（真值派生 + chips 即指令）+ 拾取入口迁移后的可发现性与救援路径重锚；**执行 V3-VOL-3 父级收口锚**",
-   "note": "最后完成；前置 v4-2，建议在 v4-3 之后串行门禁；V3-VOL-3 带值闭合由本叶收口轮执行 〖2026-09-19 R2 同步（sddu-build）〗叶子 phase 已同步为 **builded**：编排器裁决 KL-V44-01 选②落地 （启用「导航失效 / #notice 自动归并」+ `risk(staleRef)@320` 显式重锚五要素 + 增量归属/跨窗口稳定性改机读双向精确期望）；**23 门禁全绿**（node 978/978 · density 173/173 · binding 192/192 隔离复跑 ×2 · l1-reverse 9/9（修复 R1 遗留锚点重复）· 其余见叶 build.md v2.0 §5）；测试只增不减（968→978）；体积 465,277 B / ceiling 488,540（V3-VOL-3 三值中后两值未变）；红线 content.js 177,076 / pick-layer.js 33,900 逐字节不变；KL-V44-01 已闭合（并补齐 R1 未真正写入台账的登记缺口）。 〖2026-09-19 review 同步（sddu-review）〗本叶 review R1 = **❌ 不通过**：3 阻塞（BLOCK-01 推荐卡生产链路未接线 —— `recommendNextStep` 仅测试 seam 一个调用点，生产中 `nextstep` 卡恒 0 张；BLOCK-02 FR-CHAT-054 6+ 通道归并只落 nav/notice + 「过渡宿主清零」靠移除 `data-transitional-host` 属性达成 ⇒ 清零判据空转；BLOCK-03 失效卡「改用描述」兜底提交 `describe-submit` 无处理分支）+ I-01~I-08；独立复核已通过项：11 项门禁复跑计数逐项对账（978/173/217/27/9/8/7/33/12/6/37）、产物 465,277 B == 登记基线、V3-VOL-3 三值复算成立、**KL-V44-01 根因订正经 worktree A/B 独立复现**、红线与保护段零 diff。详见本叶 review-report.md。",
+   "note": "最后完成；前置 v4-2，建议在 v4-3 之后串行门禁；V3-VOL-3 带值闭合由本叶收口轮执行 〖2026-09-19 R2 同步（sddu-build）〗叶子 phase 已同步为 **builded**：编排器裁决 KL-V44-01 选②落地 （启用「导航失效 / #notice 自动归并」+ `risk(staleRef)@320` 显式重锚五要素 + 增量归属/跨窗口稳定性改机读双向精确期望）；**23 门禁全绿**（node 978/978 · density 173/173 · binding 192/192 隔离复跑 ×2 · l1-reverse 9/9（修复 R1 遗留锚点重复）· 其余见叶 build.md v2.0 §5）；测试只增不减（968→978）；体积 465,277 B / ceiling 488,540（V3-VOL-3 三值中后两值未变）；红线 content.js 177,076 / pick-layer.js 33,900 逐字节不变；KL-V44-01 已闭合（并补齐 R1 未真正写入台账的登记缺口）。 〖2026-09-19 review 同步（sddu-review）〗本叶 review R1 = **❌ 不通过**：3 阻塞（BLOCK-01 推荐卡生产链路未接线 —— `recommendNextStep` 仅测试 seam 一个调用点，生产中 `nextstep` 卡恒 0 张；BLOCK-02 FR-CHAT-054 6+ 通道归并只落 nav/notice + 「过渡宿主清零」靠移除 `data-transitional-host` 属性达成 ⇒ 清零判据空转；BLOCK-03 失效卡「改用描述」兜底提交 `describe-submit` 无处理分支）+ I-01~I-08；独立复核已通过项：11 项门禁复跑计数逐项对账（978/173/217/27/9/8/7/33/12/6/37）、产物 465,277 B == 登记基线、V3-VOL-3 三值复算成立、**KL-V44-01 根因订正经 worktree A/B 独立复现**、红线与保护段零 diff。详见本叶 review-report.md。 〖2026-09-20 validate 同步（sddu-validate）〗叶子已走完 spec→plan→tasks→build（R1 12 任务 + R2 KL-V44-01 裁决落地）→review（R1 ❌ 3 阻塞 → 修复轮 → **R2 复审 ✅ 通过** / 0 阻塞 / I-09~I-11 快修轮全处置）→**validate（R1 ✅ 通过 / 0 阻塞）**：23 门禁 + design-contract 独立复跑全绿且计数对账 0 差异（npm 992 / recommendation 49 / l0 221 / density 175 / supersession 33 / ref-pick-wiring 11 / size-ruling-vol3 10；binding 环境性 flake 隔离复跑 192/192）；86 条对抗探针断言全绿（推荐四时机真实产品路径 / 设置派生注入后输出不变 / 首装双闸门半加载复现 / 单通道唯一 / 速率上限真跑 / I-01 N 卡 N 行 / 宿主判据 5 组伪造判红 / V3-VOL-3 三值复算 + 越限与伪造 Δ 必红）；不动面零 diff、content.js 177,076 / pick-layer.js 33,900 逐字节不变、spec 零漂移；F-01（低，非阻塞）+ N-01~N-05 登记。**phase=validated + status=completed → v4-4 为最后完成叶，v4 chat 四叶全绿。**",
    "tasksArtifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.md"
   }
  ],
  "leaf": false,
  "createdAt": "2026-09-18",
- "updatedAt": "2026-09-19T22:10:00.000Z",
+ "updatedAt": "2026-09-20T08:30:00.000Z",
  "description": "作者 2026-09-17 真机反馈立项（逐字：「所有过程性的问答，建议放到聊天框里面，同时也方便看到授权记录，不要放到上面，丢失过程信息，每一步交互，尽可能都在聊天框留痕，作为事实依据，包括推荐的下一步操作，都放到聊天框里面」/「整体布局简化，工具栏、聊天框、状态栏」/「聊天框包含：AI答复聊天、下一步推荐、问答、权限申请」），2026-09-18 作者确认「开启重构的SDDU流程」。ROADMAP 编号 F-30（本轮实测 0 占用；F-29 为 A2A 候选保留），版本落点建议 = v0.9.0 同批叠加第三 Feature（F-27/F-28 先例）。设计基准 = packages/web-cli-plugin/design/ui-redesign/option-f-chat-stream.html（1,927 行，S1~S7 场景）+ option-f-shim.mjs（60 断言；本轮实跑 60/60）。核心问题 = 过程性交互（ask-user 问答 / 破坏性确认 / 站点授权 / 系统事件 / 引用生命周期 / 下一步推荐）全部落在聊天流之外（流之上的独占决策槽 + 底部 6 条瞬时提示条 + 顶部永不折叠风险带 + 3 处引用投影），解析即消失、无时间戳、不可回看。发现阶段产出：discovery.md v1.0（Q-CHAT-001~013 · A-CHAT-001~009 · R-CHAT-001~016 · O-CHAT-001~009 + 现状基线 §7.1 全量 file:line 证据 + 取代/保留清单草案 + 门禁影响面预判 + 4 叶拆分建议）。",
  "scope": {
   "in": [
