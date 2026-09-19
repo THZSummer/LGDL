@@ -516,7 +516,12 @@ async function main() {
         const reason = document.getElementById('l1-ref-reason').textContent || '';
         const badgeVisible = document.getElementById('l0-ref-badge').hidden === false;
         document.getElementById('l1-ref-describe').click();
-        const fallbackOpen = document.getElementById('ask-fallback').hidden === false;
+        // V4-3（TASK-711 R2 / RP-L1-E 重 pin）：ask-fallback 不再常驻 —— 它由流内 ask 卡
+        // 按需铸造（revealFallback -> revealAskFallback 先建 text 卡再揭示）。
+        // 读取必须空安全：否则「改用描述」被注入为 no-op 时这里会抛 TypeError，反证变成
+        // 「因错而红」（判定器会正确判无效），而不是具名断言失败。语义不变：无兜底节点 = 未打开。
+        const fallbackNode = document.getElementById('ask-fallback');
+        const fallbackOpen = fallbackNode ? fallbackNode.hidden === false : false;
         // N-04（2026-09-16 收口轮）：面板不再自己写「{status:'resolved', refMark:新id}」。
         // 重拾由「调用方传入新鲜事实」发起，页面侧观测（这里由门禁扮演调用方）在拿到
         // 新 id 之后注入 —— 观测驱动，而不是断言驱动。

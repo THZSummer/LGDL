@@ -1073,7 +1073,9 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     ['test/ui/density.mjs', /RP-V4-06 \(FAIL 段\) 工具栏控件移入 #stream 后豁免守卫必须抛错/],
     ['test/ui/density.mjs', /RP-V4-07 \(FAIL 段\) chip 被移入 hidden 容器后探针必须 FAIL/],
     // v4-2（TASK-613 裁决）：形态判据 + 首屏合计上限，两条 FAIL 形态逐条在门禁源码里。
-    ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 10 > 8」/],
+    // v4-3 R2 重 pin：期望值从硬编码 10 改为动态 `基线合计 + 10`（v4-3 的 ask/auth 卡
+    // 让基线首屏合计可点不再为 0），形态断言的**位置与语义**不变，只随模板字面量换锚。
+    ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 \$\{injectedTotal\} > 8」/],
     ['test/ui/density.mjs', /RP-V4-09 FAIL 段 ② 诊断含「常驻导航入口」/],
     ['test/ui/l0.mjs', /反证（FAIL 段）：篡改 data-count/],
     ['test/ui/l1.mjs', /D1 反证（FAIL 段）/],

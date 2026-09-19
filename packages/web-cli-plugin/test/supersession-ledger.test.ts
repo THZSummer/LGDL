@@ -185,16 +185,37 @@ function v4RegisteredLines(file: string): string[] {
     .flatMap((r) => r.registeredUncoveredLines);
 }
 
-/** v4-segment misses: base-relative deletions not covered by v4 entries/registrations. */
+/**
+ * v4-segment misses for **one registered leaf segment**:
+ * `deletionLines(file, leafBase)` minus the v4 `entries[].oldTitle` registrations minus
+ * the verbatim `leafBases[].registeredUncoveredLines` registrations.
+ *
+ * V4-3（TASK-711 R2）: the segment is a **parameter**, not `leafBases[0]`. v4-3 appends
+ * its own `leafBase` (0f8a1fb) and the judge must run over **every** registered segment —
+ * a line introduced after `187c205` and removed inside v4-3 is invisible to the v4-1
+ * segment (N-09's blind spot), so「只判第一段」would leave the new segment unaudited.
+ */
+function v4LeafMissesFor(leafBase: string, file: string, extraLines: string[] = []): string[] {
+  const v4 = readV4Ledger();
+  const titles = (v4.entries ?? []).filter((e) => e.file === file).map((e) => e.oldTitle);
+  const lines = [...deletionLines(file, leafBase).map((d) => d.text), ...extraLines];
+  const uncovered = lines.filter((text) => !titles.some((t) => t !== null && t !== undefined && text.includes(t)));
+  const registered = new Set(v4RegisteredLines(file));
+  return uncovered.filter((text) => !registered.has(text));
+}
+
+/** Back-compat wrapper: the **first** registered leaf segment (v4-1 @ 187c205). */
 function v4LeafMisses(file: string, extraLines: string[] = []): string[] {
   const v4 = readV4Ledger();
   const leaf = (v4.leafBases ?? [])[0];
   assert.ok(leaf, 'v4 台账必须登记本叶的 leafBase');
-  const titles = (v4.entries ?? []).filter((e) => e.file === file).map((e) => e.oldTitle);
-  const lines = [...deletionLines(file, leaf.leafBase).map((d) => d.text), ...extraLines];
-  const uncovered = lines.filter((text) => !titles.some((t) => t !== null && t !== undefined && text.includes(t)));
-  const registered = new Set(v4RegisteredLines(file));
-  return uncovered.filter((text) => !registered.has(text));
+  return v4LeafMissesFor(leaf.leafBase, file, extraLines);
+}
+
+/** Every v4 leaf-segment deletion line for `file` (the union the entries must be judged against). */
+function v4SegmentDeletions(file: string): string[] {
+  const v4 = readV4Ledger();
+  return (v4.leafBases ?? []).flatMap((l) => deletionLines(file, l.leafBase).map((d) => d.text));
 }
 
 function packageRoot(): string {
@@ -1085,7 +1106,20 @@ test('ledger(V4 段): v4 台账 schema 齐备（接管声明 / 保护段 / 红�
   assert.ok(v4.takesOverFrom !== undefined || v4.feature.length > 0, '必须写明接管声明/takesOverFrom');
   assert.ok((v4.protectedSupersession?.eightSteps ?? []).length >= 8, 'journey 保护段必须登记八步流程');
   assert.ok((v4.redlineRemap ?? []).length >= 3, '红线重映射至少三条（≥65% / ≥488px / composer 贴底 / chars 跨视口）');
-  assert.equal((v4.leafBases ?? []).length, 1, 'v4-1 是本叶唯一叶段');
+  // V4-3（TASK-711 R2）：叶段是**逐叶追加**的（v4-1 起，每个开工叶登记自己的 leafBase）。
+  // 旧断言「恰好 1 个」在 v4-3 追加本叶段后必然失真。替换不是放宽：新判据要求
+  // ①叶段非空 ②v4-1 历史保留 ③leafBase 互不相同，且**下方新增**「逐叶段 schema + scope
+  // 复算」与「逐叶段逐字判定 + 逐叶段反证」三条独立判据（旧断言只数个数，新判据逐段判内容）。
+  assert.ok((v4.leafBases ?? []).length >= 1, 'v4 台账必须登记叶段（v4-1 起逐叶追加；不得为空）');
+  assert.ok(
+    (v4.leafBases ?? []).some((l) => l.leaf.includes('v4-1')),
+    'v4-1 叶段必须保留（历史不得被删除或改写）',
+  );
+  assert.equal(
+    new Set((v4.leafBases ?? []).map((l) => l.leafBase)).size,
+    (v4.leafBases ?? []).length,
+    '每个叶段的 leafBase 必须互不相同（重复登记 = 换段判据空转）',
+  );
   for (const r of v4.protectedRanges ?? []) {
     assert.equal(r.status, 'active', `保护段 ${r.file} 必须是 active 的新 pin`);
     assert.equal(typeof r.sha256, 'string');
@@ -1098,9 +1132,10 @@ test('ledger(V4 段): v4 台账 schema 齐备（接管声明 / 保护段 / 红�
   }
 });
 
-test('ledger(V4 段): entries 的 newTitle 可在目标文件定位，oldTitle 必须真的在本叶段被删除', () => {
+test('ledger(V4 段): entries 的 newTitle 可在目标文件定位，oldTitle 必须真的在**已登记叶段**被删除', () => {
   const v4 = readV4Ledger();
-  const leaf = (v4.leafBases ?? [])[0];
+  const leaves = v4.leafBases ?? [];
+  assert.ok(leaves.length > 0, 'v4 台账必须登记 leafBase（否则本判据悬空）');
   const problems: string[] = [];
   for (const e of v4.entries ?? []) {
     const abs = resolve(REPO, e.file);
@@ -1111,40 +1146,110 @@ test('ledger(V4 段): entries 的 newTitle 可在目标文件定位，oldTitle �
     const text = readFileSync(abs, 'utf8');
     if (!text.includes(e.newTitle)) problems.push(`${e.id}: newTitle 在 ${e.file} 中定位不到 → 橡皮图章`);
     if (e.oldTitle === null) continue;
-    const deleted = deletionLines(e.file, leaf.leafBase).map((d) => d.text);
+    // V4-3：oldTitle 可能在**后一叶段**被删除（v4-2 引入、v4-3 改写）—— 单看 `leafBases[0]`
+    // 看不见（N-09 盲区），因此判据取**所有已登记叶段的并集**：多一个叶段 ⇒ 多一批必须为真的删除行。
+    const deleted = v4SegmentDeletions(e.file);
     if (!deleted.some((t) => t.includes(e.oldTitle!))) {
-      problems.push(`${e.id}: oldTitle 并未在本叶段被删除（声明失真）→ ${e.oldTitle}`);
+      problems.push(`${e.id}: oldTitle 并未在任何已登记叶段被删除（声明失真）→ ${e.oldTitle}`);
     }
   }
   assert.deepEqual(problems, [], `v4 entries 可定位性/真实性未通过：\n${problems.join('\n')}`);
-  console.log(`  ℹ v4 entries 可定位性：${(v4.entries ?? []).length} 条逐条命中（newTitle 可定位 ∧ oldTitle 真被删除）`);
+  console.log(
+    `  ℹ v4 entries 可定位性：${(v4.entries ?? []).length} 条逐条命中（newTitle 可定位 ∧ oldTitle 真被删除，判据覆盖 ${leaves.length} 个叶段）`,
+  );
 });
 
-test('ledger(V4 段): v4 段删除行必须逐字集合相等（多一条/少一条/改一字都 FAIL）', () => {
+test('ledger(V4 段): 每个叶段的 schema 与 scope 必须逐叶复算（不得手工收窄）', () => {
   const v4 = readV4Ledger();
-  const leaf = (v4.leafBases ?? [])[0];
-  assert.ok(leaf, 'v4 台账必须登记 leafBase');
+  const expectedScope = leafScopeFiles();
+  const problems: string[] = [];
+  let judged = 0;
+  for (const leaf of v4.leafBases ?? []) {
+    judged += 1;
+    if (!leaf.leaf || leaf.leaf.length === 0) problems.push('leafBases[].leaf 必填');
+    if ((leaf.why ?? '').trim().length < 40) problems.push(`${leaf.leaf}: why 过短（≥40 字符说明该段存在的理由）`);
+    const resolved = runGit(['rev-parse', '--verify', `${leaf.leafBase}^{commit}`]).trim();
+    if (resolved.length !== 40) problems.push(`${leaf.leaf}: leafBase=${leaf.leafBase} 不是本仓库的 commit`);
+    // v4-1 的 leafBase 就是 v4 段起点（187c205 == base，首叶的换段判据与 base 判据重合是历史事实）；
+    // 但**追加**的叶段不得再与 base 重合 —— 否则「新叶段」是空转（判据与 base 判据完全重复）。
+    const isFirst = (v4.leafBases ?? [])[0] === leaf;
+    if (!isFirst && leaf.leafBase === v4.base) {
+      problems.push(`${leaf.leaf}: 追加叶段的 leafBase 不得等于 base（否则换段判据与 base 判据重合 = 空转）`);
+    }
+    if ((leaf.scope?.why ?? '').trim().length < 40) problems.push(`${leaf.leaf}: scope.why 过短（≥40 字符）`);
+    // The rule recomputes the file set from the ledger's own registrations — a hand-narrowed
+    // scope is exactly how a blind spot would be re-introduced.
+    assert.deepEqual(
+      [...(leaf.scope?.files ?? [])].sort(),
+      expectedScope,
+      `${leaf.leaf}.scope.files 与规则复算结果不一致（不得手工放宽/收窄）`,
+    );
+    for (const file of leaf.scope?.files ?? []) {
+      if (!existsSync(resolve(REPO, file))) problems.push(`${leaf.leaf}: scope 文件不存在 ${file}`);
+    }
+    for (const group of leaf.registeredUncoveredLines ?? []) {
+      if (group.count !== group.registeredUncoveredLines.length) {
+        problems.push(`${leaf.leaf} ${group.file}: count=${group.count} ≠ 清单长度 ${group.registeredUncoveredLines.length}`);
+      }
+      if (group.registeredUncoveredLines.length > 0 && (group.reason ?? '').trim().length < 40) {
+        problems.push(`${leaf.leaf} ${group.file}: 逐字登记必须写明理由（≥40 字符）`);
+      }
+    }
+  }
+  assert.ok(judged > 0, '本判据必须真的判到至少一个叶段（否则是空转）');
+  assert.deepEqual(problems, [], `v4 叶段 schema/scope 未通过：\n${problems.join('\n')}`);
+  console.log(`  ℹ v4 叶段 schema：${judged} 个叶段的 scope 逐叶复算一致（规则集 ${expectedScope.length} 文件）`);
+});
+
+test('ledger(V4 段): 每个叶段的删除行必须逐字集合相等（多一条/少一条/改一字都 FAIL）', () => {
+  const v4 = readV4Ledger();
+  const leaves = v4.leafBases ?? [];
+  assert.ok(leaves.length > 0, 'v4 台账必须登记 leafBase');
   const failures: string[] = [];
   let judged = 0;
-  for (const file of leaf.scope.files) {
-    if (!existsSync(resolve(REPO, file))) continue;
-    judged += 1;
-    for (const t of v4LeafMisses(file)) failures.push(`${file}: v4 段删除行未登记 → ${t.trim()}`);
+  for (const leaf of leaves) {
+    for (const file of leaf.scope.files) {
+      if (!existsSync(resolve(REPO, file))) continue;
+      judged += 1;
+      for (const t of v4LeafMissesFor(leaf.leafBase, file)) {
+        failures.push(`${leaf.leaf}(${leaf.leafBase}) ${file}: v4 段删除行未登记 → ${t.trim()}`);
+      }
+    }
   }
   assert.ok(judged > 0, 'v4 段判据必须真的覆盖到文件');
-  assert.deepEqual(failures, [], `v4 段（leafBase ${leaf.leafBase}）删除行未逐条命中 v4 台账：\n${failures.join('\n')}`);
-  console.log(`  ℹ v4 叶段判据：受判文件 ${judged} 个 · 全部逐字登记`);
+  assert.deepEqual(
+    failures,
+    [],
+    `v4 段（leafBase ${leaves.map((l) => l.leafBase).join(', ')}）删除行未逐条命中 v4 台账：\n${failures.join('\n')}`,
+  );
+  console.log(`  ℹ v4 叶段判据：${leaves.length} 个叶段 · 受判文件 ${judged} 个 · 全部逐字登记`);
 });
 
-test('ledger(V4 段)反证: 注入一条未登记删除行必须判 FAIL（v4 判据不是恒真）', () => {
+test('ledger(V4 段)反证: 每个叶段注入一条未登记删除行必须判 FAIL（v4 判据不是恒真）', () => {
   const v4 = readV4Ledger();
-  const leaf = (v4.leafBases ?? [])[0];
-  const file = leaf.scope.files.find((f) => existsSync(resolve(REPO, f)));
-  assert.ok(file, 'v4 scope.files 必须至少有一个存在的文件');
-  assert.deepEqual(v4LeafMisses(file), []);
-  const injected = '// RP-V4-08 injected: an unregistered v4 deletion (must FAIL)';
-  assert.deepEqual(v4LeafMisses(file, [injected]), [injected], '注入的未登记删除行必须被判 FAIL');
-}) ;
+  const leaves = v4.leafBases ?? [];
+  assert.ok(leaves.length > 0, 'v4 台账必须登记 leafBase（反证无对象）');
+  let proven = 0;
+  for (const leaf of leaves) {
+    const file = leaf.scope.files.find((f) => existsSync(resolve(REPO, f)));
+    assert.ok(file, `${leaf.leaf}: scope.files 必须至少有一个存在的文件`);
+    // (1) 未注入时必须干净（否则下面的反证没有对照）。
+    assert.deepEqual(v4LeafMissesFor(leaf.leafBase, file), [], `${leaf.leaf} @ ${leaf.leafBase}: ${file} 应无未登记删除行`);
+    // (2) 注入一条台账里没有的删除行 ⇒ 必须且只能报出它（**每个**叶段各自反证）。
+    const injected = `// RP-V4-08 injected: an unregistered v4 deletion (must FAIL) @ ${leaf.leafBase}`;
+    assert.deepEqual(
+      v4LeafMissesFor(leaf.leafBase, file, [injected]),
+      [injected],
+      `${leaf.leaf} @ ${leaf.leafBase}: 注入的未登记删除行必须被判 FAIL（judge 若恒真，该叶段的盲区仍在）`,
+    );
+    // (3) 该注入行不得出现在 base 相对判据里（否则它没有刻画「叶段盲区」）。
+    const baseLines = deletionLines(file, v4.base).map((d) => d.text);
+    assert.ok(!baseLines.includes(injected), `${leaf.leaf}: 注入行不得出现在 base 相对判据里`);
+    proven += 1;
+  }
+  assert.ok(proven > 0, '本反证必须真的驱动至少一个叶段');
+  console.log(`  ℹ v4 叶段反证：${proven} 个叶段各自「注入未登记删除行 → FAIL ✔ / 未注入 → 干净 ✔」`);
+});
 
 // ── 8c. review 修复轮 I1/I2：台账字段的 status ↔ 内容一致性 ─────────────────
 /**

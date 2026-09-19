@@ -1466,8 +1466,10 @@ async function reverseRpV407(cdp) {
  * ① **形态判据**：带 `[data-toolbar-slot]` / `.view-btn` 的控件进入 `#stream` ⇒
  *    `assertChromeNotInStream()` 必须抛错（这正是 v4-1 validate N-02 指出、当时
  *    「只登记不修」的第一层反向判定，v4-2 落地）；
- * ② **合计上限**：首屏两张卡各 5 可点（单卡 ≤6 全合规，合计 10）⇒ 首屏预算必须
- *    FAIL，且失败原因必须是**合计**而非单卡（归因：单卡预算仍 PASS）。
+ * ② **合计上限**：注入两张卡各 5 可点（单卡 ≤6 全合规）⇒ 合计 = **基线合计 + 10**
+ *    必须越界 ⇒ 首屏预算必须 FAIL，且失败原因必须是**合计**而非单卡（归因：单卡预算仍 PASS）。
+ *    〖V4-3 R2 重 pin〗基线不再是 0 可点：v4-3 的 choice ask 卡是流内一等公民（实测 1 张 = 4 可点，
+ *    见 HO-1 裁决），因此期望值必须**动态**取 `基线合计 + 10`，不得硬编码 10。
  *
  * 两半都在 ONE 同步块内完成「前置 → 注入 → 读数 → 还原 → 读数」，任何重绘都无法插入。
  */
@@ -1513,20 +1515,27 @@ async function reverseRpV409(cdp) {
       guard: snap.guard,
       firstScreen: evaluateFirstScreen(snap.cards, 'default'),
       cardBudget: evaluateCardBudget(snap.cards),
+      /** V4-3 重 pin：注入前后的合计可点必须**动态**读取（基线卡片随产品演进变化）。 */
+      totalClickables: (snap.cards ?? []).reduce((n, c) => n + Number(c?.clickables ?? 0), 0),
     };
   };
   const before = judge(res.before);
   const agg = judge(res.agg);
   const restored = judge(res.restored);
+  // V4-3（TASK-711 R2 / RP-V4-09 重 pin）：v4-3 的 ask/auth 卡成为流内一等公民后，
+  // 基线首屏不再只有 0 张可点卡（此处实测 1 张 choice ask 卡 = 4 可点，见 HO-1 裁决）。
+  // 反证语义不变（注入 2 张 × 5 可点 ⇒ 合计越界必须 FAIL，且归因必须是**合计**），
+  // 但「10」这个绝对值必须改为「基线合计 + 10」——否则产品演进会让这条反证变成因错而红。
+  const injectedTotal = before.totalClickables + 10;
   check('RP-V4-09 前置：基线首屏预算 PASS ∧ guard PASS（判据不恒真）', before.firstScreen.ok === true && before.guard === 'pass', res.before);
   check(
-    'RP-V4-09 (FAIL 段 ①) 首屏两卡合计 10 可点 ⇒ 首屏预算必须 FAIL',
+    `RP-V4-09 (FAIL 段 ①) 首屏卡合计 ${injectedTotal} 可点（基线 ${before.totalClickables} + 注入 2×5）⇒ 首屏预算必须 FAIL`,
     agg.firstScreen.ok === false,
     JSON.stringify(agg.firstScreen),
   );
   check(
-    'RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 10 > 8」',
-    agg.firstScreen.violations.some((v) => /流内卡合计可点 10 > 8/.test(v)),
+    `RP-V4-09 FAIL 段 ① 诊断含「流内卡合计可点 ${injectedTotal} > 8」`,
+    agg.firstScreen.violations.includes(`流内卡合计可点 ${injectedTotal} > 8`),
     agg.firstScreen.violations.join(' / '),
   );
   check(
