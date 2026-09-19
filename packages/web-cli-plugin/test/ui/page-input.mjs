@@ -143,8 +143,11 @@ async function main() {
              optionKeys: Array.from(document.querySelectorAll('#l0-decision button')).map((b) => b.getAttribute('data-key') || b.id),
              pageUnavailable: document.getElementById('l0-page-unavailable')?.textContent ?? '',
              riskRail: document.getElementById('risk-rail')?.textContent ?? '',
-             pickDisabled: Boolean(document.getElementById('l0-pick')?.disabled),
-             pickReason: document.getElementById('l0-pick')?.getAttribute('data-disabled-reason') ?? '',
+             // V4-4 TASK-806: the panel-side #l0-pick is retired. The readable
+             // unavailability fact now lives on the status bar's risk row, which is
+             // the same projection the v4-1「页面侧不可用」row renders.
+             pickRetired: document.getElementById('l0-pick') === null,
+             pickReason: document.getElementById('l0-page-unavailable')?.textContent ?? '',
              gestureRows: Array.from(document.querySelectorAll('#l1-gestures-rows tr td:first-child')).map((td) => td.textContent),
            }))()`,
         ),
@@ -932,8 +935,8 @@ async function main() {
     await sleep(1600);
     const degraded = await panel.dom();
     check('失败降级：风险区明示「页面侧不可用（原因）」', /页面侧不可用/.test(degraded.pageUnavailable), degraded.pageUnavailable);
-    check('失败降级：「从页面拾取」入口被禁用（不静默失败）', degraded.pickDisabled === true, JSON.stringify(degraded.pickDisabled));
-    check('失败降级：入口的禁用原因 = 页面侧不可用（用户看得到原因）', /页面侧不可用/.test(String(degraded.pickReason ?? '')), String(degraded.pickReason));
+    check('失败降级：面板侧 `#l0-pick` 已退役（不再有可点的假入口）', degraded.pickRetired === true, JSON.stringify(degraded.pickRetired));
+    check('失败降级：不可用事实在状态栏风险行可读（页面侧不可用，不静默失败）', /页面侧不可用/.test(String(degraded.pickReason ?? '')), String(degraded.pickReason));
 
     // ── I-01：撤销后**同 origin 的另一 tab** 也必须被拆干净（origin 广播 teardown）──
     // 旧实现只对 bound/active 的那**一个** tab 发 teardown，于是「A/B 两 tab 同 origin
@@ -1100,8 +1103,8 @@ async function main() {
     );
     check(
       'AC-V3-018（撤销态）：撤销后「从页面拾取」入口被禁用（可读原因，不静默）',
-      goneReadback.pickDisabled === true,
-      JSON.stringify({ disabled: goneReadback.pickDisabled, reason: goneReadback.pickReason }),
+      goneReadback.pickRetired === true && /页面侧不可用/.test(String(goneReadback.pickReason ?? '')),
+      JSON.stringify({ retired: goneReadback.pickRetired, reason: goneReadback.pickReason }),
     );
     sCdp.close();
     pCdp.close();

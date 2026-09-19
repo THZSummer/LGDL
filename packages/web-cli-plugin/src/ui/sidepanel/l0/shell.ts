@@ -77,7 +77,6 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   const sessionLabel = get('session-label');
   const policyBadge = doc.createElement('span');
   const kicker = get('l0-kicker');
-  const pick = get<HTMLButtonElement>('l0-pick');
   const refToggle = get<HTMLButtonElement>('l0-ref-toggle');
   const refSummary = get('l1-ref-summary');
   const statusBar = mountStatusBar(doc);
@@ -166,9 +165,10 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     // ③ disclosure chrome (`#l0-more` + the folded-options pool) — the ONE writer.
     applyMore(view);
     applyMoreOptions(view);
-    pick.disabled = view.pick.disabled;
-    pick.setAttribute('title', view.pick.reason);
-    pick.setAttribute('data-disabled-reason', view.pick.reason);
+    // V4-4 TASK-806: the panel-side `#l0-pick` button is retired. The `view.pick`
+    // projection is NOT dropped — it still drives the status-bar「页面侧不可用」risk
+    // row below and `riskActiveOf()`, so the unavailable fact stays discoverable
+    // (never a silent failure). Only the retired button's writes are gone.
     // `#l0-more`'s label / `data-count` / `hidden` are written by `applyMore()`
     // ONLY (the retired decision-card writer moved here, single writer kept) — writing
     // them from two places re-introduced the「无卡却还有 1 个」re-render symptom.
@@ -201,7 +201,7 @@ export function mountL0(deps: MountL0Deps): L0Handle {
         row.className = 'risk-row';
         row.setAttribute('data-risk-class', 'pageUnavailable');
         row.setAttribute('data-risk-severity', 'warn');
-        row.textContent = `页面侧不可用：${view.pick.unavailable}（「从页面拾取」已禁用；不静默失败）`;
+        row.textContent = `页面侧不可用：${view.pick.unavailable}（拾取不可达；不静默失败）`;
         rail.appendChild(row);
       }
     }

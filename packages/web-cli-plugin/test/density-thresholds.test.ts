@@ -323,9 +323,17 @@ test('index.html: V4 三区骨架（body 直挂 / 文档序 / 状态栏非流后
       `#stream 子树内不得出现 [data-chrome-control]（<${parsed.tags[index].tag}>）`,
     );
   }
-  // ── 占位宿主：被取代容器必须带 data-transitional-host（父 ADR-V4-005 第 6 条）──
+  // ── V4-4 收口（ADR-V4-040 §3 / R4-18）：过渡宿主计数必须为 0 ──
+  // The v4-1「只建不销」obligation is now CLOSED: every displaced container was
+  // either re-homed into a `li[data-host]` (structural, no transitional marker) or
+  // retired outright. The assertion is inverted on purpose — a re-introduced
+  // `[data-transitional-host]` is exactly the「过渡态永久化」the ruling forbids.
   const hosts = descendants(streamIndex!).filter((i) => 'data-transitional-host' in parsed.tags[i].attrs);
-  assert.ok(hosts.length >= 1, '#stream 内必须存在 ≥1 个 data-transitional-host 占位宿主（本叶只建不销）');
+  assert.equal(hosts.length, 0, '#stream 内不得再出现 data-transitional-host（v4 收口清零）');
+  // The retired containers keep a structural marker so their identity is still
+  // machine-checkable (`li[data-host]`), which is what makes the clearance visible.
+  const structuralHosts = descendants(streamIndex!).filter((i) => 'data-host' in parsed.tags[i].attrs);
+  assert.ok(structuralHosts.length >= 1, '#stream 内必须保留 ≥1 个 li[data-host] 结构宿主标识');
   // ── 法一静态半：工具栏/状态栏内零一次性交互卡 ──
   for (const zone of ['region-toolbar', 'region-statusbar']) {
     for (const index of descendants(parsed.idsIndex.get(zone)!)) {

@@ -32,6 +32,9 @@ import {
   type DigestStore,
 } from './stream-digest.js';
 import type { CardDeps } from './cards/index.js';
+import { syncNextstepPending } from './cards/nextstep.js';
+import { recommendNextStep } from './recommend.js';
+import { createSystemChannelState } from './system-events.js';
 import {
   CONSENT_DEFAULT_OPEN,
   CONSENT_SUMMARY_TEXT,
@@ -46,6 +49,7 @@ import {
   discoveryNotice,
   historyEntries,
   llmStatusView,
+  refCounts,
   sendDisabledReason,
   sortSessions,
   stateActionFromPayload,
@@ -64,6 +68,8 @@ import type { ActiveTabView } from '../../background/state-message.js';
 import type { TestConnectionResult } from '../../llm/test-connection.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
 import { cancelReasonText } from './stream-plaintext.js';
+import { refReanchoredText, refStaleText } from './system-events.js';
+import { refOrdinal as parseRefOrdinal } from './l1/ref-store.js';
 import { requestOriginPermissionDetailed, createChromeAsyncKv } from '../../platform/extension-env.js';
 import { handleClipboardOpMessage } from '../../platform/clipboard-page.js';
 import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
@@ -183,11 +189,61 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     return;
   }
   if (action === 'next' && value) {
-    dispatch({ type: 'notice', text: `已选：${value}（推荐卡发起在 v4-4 落地）` });
+    // V4-4 TASK-805 (ADR-V4-037 §5): chips 即指令 — a chip goes through the SAME
+    // production entry as the composer submit (same validation, same `pending` /
+    // `sendDisabledReason` gating, same audit). No second path exists.
+    requestTurn(value);
+    return;
+  }
+  if (action === 'repick') {
+    // V4-4 TASK-806 (ADR-V4-038 §5): a pick is a LOCAL page-side act, not a turn —
+    // it therefore goes through `requestPick()` (not `requestTurn`), and is not
+    // gated on `pending`.
+    void pickInput?.requestPick();
+    return;
+  }
+  if (action === 'describe' && value) {
+    // The `ref` card's free-text fallback: reuse the existing ask fallback submit
+    // path (`submitAskFor`) — no shadow command channel.
+    submitAskFor(requestIdForCard(cardId), value, false);
+    return;
+  }
+  if (action === 'describe') {
+    // The card owns its own disclosure; reaching here means the card had no owner.
+    revealAskFallback();
     return;
   }
   dispatch({ type: 'notice', text: `该卡片的「${action}」交互将在 v4-3 / v4-4 落地（本叶只固化契约）` });
   void cardId;
+}
+
+/**
+ * V4-4 TASK-805 (ADR-V4-037 §5) — the **ONE turn-issuing production entry**.
+ *
+ * The composer submit and every `next`-act recommendation chip call this. Returns
+ * `false` when the turn was refused by the existing gating (empty text / send
+ * disabled), so the composer can keep the user's draft without a second check.
+ */
+function requestTurn(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending }).sendDisabled) {
+    return false;
+  }
+  // Explicit user intent: the next render must pin to the newest message even if the
+  // user had scrolled up before sending.
+  scrollFollow.userSent();
+  dispatch({ type: 'user', text: trimmed });
+  // V3-4 P5 (FR-V3-060 / design baseline P5):「回合进行中」与页面侧的执行可视化是同一个
+  // 信号 —— 回合开始时把最后一个引用目标闪动一下并标记 chip 状态。
+  const active = l1?.store().all().slice(-1)[0];
+  const chip = document.getElementById('l0-ref-toggle');
+  if (active) {
+    void pickInput?.highlight(active.facts.refId, active.facts.selector, 'flash');
+    chip?.setAttribute('data-turn', 'running');
+  }
+  void send(makeMessage('chat', { user: trimmed }));
+  return true;
 }
 
 /** The business key of an ask/auth stream card (never a DOM guess). */
@@ -705,13 +761,13 @@ function installV3TestHooks(): void {
         render();
         return true;
       },
+      /**
+       * V4-3 (I-07③, v4-3 review): settle **every** open decision card — each with the
+       * action its own kind requires. `ask-resolved` alone can never settle an `auth`
+       * card (its terminal comes from `confirm-resolved`), so the older loop left an
+       * open auth card alive and the `MAX_OPEN_ASKS + 1` guard exited silently.
+       */
       clearAsk() {
-        // V4-3 (I-07③, v4-3 review): settle **every** open decision card — and with the
-        // action its own kind requires. The old loop dispatched `ask-resolved` only,
-        // which can never settle an `auth` card (its terminal comes from
-        // `confirm-resolved`), so an open auth card survived every iteration and the
-        // `MAX_OPEN_ASKS + 1` guard exited silently. Each card is now named explicitly
-        // (no「settle the last card of some kind」guess).
         for (const entry of [...openAskEntries(state.stream)]) {
           if (entry.kind === 'auth') {
             dispatch({ type: 'confirm-resolved', allow: false, ...(entry.requestId ? { requestId: entry.requestId } : {}) });
@@ -753,9 +809,78 @@ function installV3TestHooks(): void {
         // cards of the previous cell would legitimately accumulate (append-only!) and
         // silently shift the next cell's measurement. This is the TEST seam only —
         // the product never clears the stream.
-        state = { ...state, stream: createStreamState(state.stream.sessionId) };
+        // V4-4: the system channel's dedupe / rate accounting is per-fixture state too.
+        state = { ...state, stream: createStreamState(state.stream.sessionId), systemChannel: createSystemChannelState() };
         streamRender?.reset();
         render();
+      },
+      /**
+       * V4-4 TASK-809 test seam — drive the **single system channel** through the
+       * REAL reducer action (the same one every merged source uses). Returns the
+       * channel's dropped count so the gate can prove a rate-capped row is counted.
+       */
+      systemRow(kind: string, text: string, at?: number) {
+        dispatch({ type: 'system', kind: kind as never, text, ...(at !== undefined ? { at } : {}) });
+        return state.systemChannel.dropped;
+      },
+      /** V4-4: the channel's dedupe / rate read-out (total / dropped / rendered rows). */
+      systemStats() {
+        return {
+          total: state.systemChannel.total,
+          dropped: state.systemChannel.dropped,
+          rows: project(state.stream).filter((v) => v.kind === 'system').length,
+        };
+      },
+      /** V4-4: project a reference through the REAL reducer action (new card each time). */
+      refCard(refNum: number, refState: 'valid' | 'stale', opts?: { why?: string; systemText?: string }) {
+        dispatch({
+          type: 'ref',
+          refNum,
+          refState,
+          refLabel: `#${refNum} （引用）`,
+          evidence: ['选择器：#app', '语义路径：main > div', '文本摘要：示例', '捕获时间：2026-09-19T00:00:00.000Z'],
+          ...(opts?.why !== undefined ? { why: opts.why } : {}),
+          ...(opts?.systemText !== undefined ? { systemText: opts.systemText } : {}),
+        });
+        return project(state.stream).filter((v) => v.kind === 'ref').length;
+      },
+      /**
+       * V4-4: run the REAL producer against the live state and mint the card through
+       * the reducer. `mode` selects the fixture (the gate drives each truth source).
+       */
+      recommend(mode: 'ref' | 'stale' | 'firstRun' | 'idle' | 'empty' = 'ref', at?: number) {
+        const views = project(state.stream);
+        const counts = refCounts(views);
+        const input: Parameters<typeof recommendNextStep>[0] = {
+          ref: {
+            validCount: mode === 'ref' || mode === 'idle' ? Math.max(1, counts.validCount) : 0,
+            staleCount: mode === 'stale' ? Math.max(1, counts.staleCount) : 0,
+            ...(counts.latestRefNum !== undefined ? { latestRefNum: counts.latestRefNum } : { latestRefNum: 1 }),
+          },
+          session: { openAsks: state.stream.openAsks.length, busy: state.pending },
+          site: { authorized: state.authorized, trust: state.trust === 'trusted' ? 'trusted' : 'untrusted' },
+          catalog: { toolCount: CATALOG_BASELINE_META.toolCount, subcommandCount: CATALOG_BASELINE_META.subcommandCount },
+          probe: { phase: mode === 'idle' ? 'ready' : state.probe?.phase, steady: state.probe?.steady === true },
+          risks: mode === 'stale' ? ['refInvalid'] : [],
+          onboarding: { firstRun: mode === 'firstRun', pendingSteps: mode === 'firstRun' ? ['授权当前站点'] : [] },
+          ...(at !== undefined ? { now: at } : { now: Date.now() }),
+        };
+        const result = recommendNextStep(input);
+        const card = result.cards[0];
+        if (card) {
+          dispatch({
+            type: 'nextstep',
+            chips: card.chips.map((c) => c.text),
+            acts: card.chips.map((c) => c.act),
+            rule: card.rule,
+          });
+        }
+        return JSON.stringify({ produced: result.cards.length, rule: card?.rule ?? null, suppression: result.suppression ?? null });
+      },
+      /** V4-4: the live `pending` gate (drives the chip availability sync). */
+      setPending(value: boolean) {
+        dispatch({ type: 'pending', value });
+        return state.pending;
       },
       snapshot() {
         return {
@@ -996,6 +1121,10 @@ function render(): void {
   // handed to the renderer, so placeholder and cards can never disagree.
   const empty = views.length === 0 && !state.pending;
   streamRenderer().setEmpty(empty);
+  // V4-4 TASK-805 (FR-CHAT-063): the `pending` gate is reflected on every rendered
+  // recommendation chip (`disabled` + `aria-disabled`, NEVER hidden) — a live
+  // availability update on already-rendered chips, not a card patch.
+  syncNextstepPending($('stream'), state.pending);
   if (appended > 0 && follow) {
     followToBottom(log);
   }
@@ -1062,6 +1191,13 @@ function render(): void {
   if (state.stream.dropped > 0) {
     const bar = document.getElementById('statusbar-text');
     if (bar) bar.textContent = `${bar.textContent} · 流已淘汰 ${state.stream.dropped} 条（截断规则见台账）`;
+  }
+  // V4-4 TASK-802/807 (FR-CHAT-053 / NFR-CHAT-011): the system channel's dropped
+  // count is readable in the status bar — a rate-capped row is NEVER silent.
+  const systemDropped = state.systemChannel.dropped;
+  if (systemDropped > 0) {
+    const bar = document.getElementById('statusbar-text');
+    if (bar) bar.textContent = `${bar.textContent} · 系统事件被限速丢弃 ${systemDropped} 条（不静默）`;
   }
 }
 
@@ -1286,7 +1422,38 @@ function maybeRescue(): void {
       // previous verdict) — the judge remains the single writer of `readableReason`.
       l1?.judge();
       render();
+      // V4-4 TASK-801 (shim E2): the failure is projected into the stream together
+      // with its readable reason — the「解析即消失」path is gone for references.
+      projectRef(facts.refId, refStaleText(parseRefOrdinal(facts.refId), target.readableReason ?? '目标元素已不存在'));
     });
+}
+
+/**
+ * V4-4 TASK-801 (ADR-V4-035) — project one registry record into the stream.
+ *
+ * The `ref` card is a **projection + event record**: this helper reads
+ * `l1/ref-store.ts#cardProjection()` (a pure, append-only read) and dispatches ONE
+ * `ref` event. Because the reducer mints a fresh card per event, a re-pick /
+ * re-anchor necessarily produces a NEW card with `refNum+1` while the old card's DOM
+ * is untouched. `projectedRefState` only suppresses *repeats of the same fact* (the
+ * append-only log must not grow on every render), never a real state change.
+ */
+const projectedRefState = new Map<string, string>();
+function projectRef(refId: string, systemText?: string): void {
+  const projection = l1?.store().cardProjection(refId);
+  if (!projection) return;
+  const marker = `${projection.refState}:${projection.refNum}`;
+  if (!systemText && projectedRefState.get(refId) === marker) return;
+  projectedRefState.set(refId, marker);
+  dispatch({
+    type: 'ref',
+    refNum: projection.refNum,
+    refState: projection.refState,
+    refLabel: projection.refLabel,
+    evidence: projection.evidence,
+    ...(projection.refWhy !== undefined ? { why: projection.refWhy } : {}),
+    ...(systemText !== undefined ? { systemText } : {}),
+  });
 }
 
 /**
@@ -1316,6 +1483,14 @@ function reanchorRef(refId: string): void {
       l1?.setRescue(undefined);
       l1?.judge();
       render();
+      // V4-4 TASK-801 (shim E5): the re-anchor is a NEW reference — project the new
+      // card and write the readable system row (旧引用保留, ordinal increments). The
+      // old card keeps its exact DOM (append-only).
+      const records = l1?.store().all() ?? [];
+      const fresh = records[records.length - 1];
+      if (fresh && fresh.facts.refId !== refId) {
+        projectRef(fresh.facts.refId, refReanchoredText(parseRefOrdinal(refId), parseRefOrdinal(fresh.facts.refId)));
+      }
     });
 }
 
@@ -1372,7 +1547,18 @@ function acceptCapture(facts: Record<string, unknown>, resolution: { status: str
     if (fresh) l1?.setResolution(fresh);
     const judged = l1?.judge() ?? [];
     render();
-    ask(judged.find((r) => r.facts.refId === refId)?.verdict ?? 'unknown');
+    // V4-4 TASK-801: the capture is projected into the stream (valid ⇒ a usable ref
+    // card with the evidence layer; unusable ⇒ a stale card + its system row).
+    const self = judged.find((r) => r.facts.refId === refId);
+    if (self) {
+      projectRef(
+        refId,
+        self.verdict === 'valid'
+          ? undefined
+          : refStaleText(parseRefOrdinal(refId), self.readableReason ?? '引用不可用（按失效处理）'),
+      );
+    }
+    ask(self?.verdict ?? 'unknown');
   })();
 }
 
@@ -1449,7 +1635,12 @@ function submitAsk(value: string | undefined, canceled: boolean): void {
 function dispatch(action: Parameters<typeof reduce>[1]): void {
   // V4-2: the ONE clock the pure reducer may read — stamped at the dispatch
   // boundary so `reduce`/`project` stay deterministic and replay-equivalent.
-  state = reduce(state, { ...action, at: Date.now() });
+  //
+  // V4-4 (TASK-802/809): a caller that supplies `at` explicitly (the deterministic
+  // test seam that drives the dedupe window / rate cap) keeps it; production callers
+  // never pass one. Without this, every gate-driven row landed on the same real
+  // millisecond and the de-noising rules could not be exercised at all.
+  state = reduce(state, action.at !== undefined ? action : { ...action, at: Date.now() });
   render();
 }
 
@@ -1961,6 +2152,8 @@ function wire(): void {
     disclosure,
     openL2: (which) => l0?.openL2(which),
     revealFallback: () => revealAskFallback(),
+    // V4-4 TASK-806 (ADR-V4-038): the single page-side pick entry.
+    requestPick: () => void pickInput?.requestPick(),
     // R3: the one-click re-anchor seam (the real work is in pick-input.ts).
     reanchor: (refId) => reanchorRef(refId),
     // A REAL re-pull of `insight-tree`: the receipt's tool-surface evidence must
@@ -1995,10 +2188,13 @@ function wire(): void {
     notify: (text) => dispatch({ type: 'notice', text }),
   });
 
-  // V3-4 (FR-V3-060 / ADR-V3-030): the TWO injection triggers.
-  // ① the「从页面拾取」entry (the pick layer IS the input — no resident composer).
-  $('l0-pick').addEventListener('click', () => void pickInput?.startPick());
-  // ② the panel is present on an authorized origin ⇒ the layer exists, so the
+  // V4-4 TASK-806 (ADR-V4-038): the panel-side `#l0-pick` entry is RETIRED. The two
+  // in-panel recovery paths (the `ref` card's「重新拾取」and the recommendation chip)
+  // both go through `requestPick()` — the single production entry — and the primary
+  // entry is the page-side layer itself (authorized sites only; zero injection).
+  // The settings-view「站点与授权」guidance is wired below (text only, no injection).
+  document.getElementById('pick-guidance')?.addEventListener('click', () => void pickInput?.requestPick());
+  // The panel is present on an authorized origin ⇒ the layer exists, so the
   //    right-click menu is available without the user entering pick mode first.
   // FR-V3-066: hovering the side-panel chip flashes the page-side target.
   $('l0-ref-toggle').addEventListener('pointerenter', () => {
@@ -2059,24 +2255,8 @@ function wire(): void {
   $('composer').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('input') as HTMLInputElement;
-    const text = input.value.trim();
-    if (!text) return;
-    if (buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending }).sendDisabled) return;
-    input.value = '';
-    // Explicit user intent: the next render must pin to the newest message even
-    // if the user had scrolled up before sending.
-    scrollFollow.userSent();
-    dispatch({ type: 'user', text });
-    // V3-4 P5 (FR-V3-060 / design baseline P5):「回合进行中」与页面侧的执行可视化是同一
-    // 个信号 —— 回合开始时把最后一个引用目标闪动一下并标记 chip 状态，`chat-result done`
-    // 到达后翻转为「已处理」。
-    const active = l1?.store().all().slice(-1)[0];
-    const chip = document.getElementById('l0-ref-toggle');
-    if (active) {
-      void pickInput?.highlight(active.facts.refId, active.facts.selector, 'flash');
-      chip?.setAttribute('data-turn', 'running');
-    }
-    void send(makeMessage('chat', { user: text }));
+    // V4-4 TASK-805: the composer and the recommendation chips share ONE entry.
+    if (requestTurn(input.value)) input.value = '';
   });
 
   // TASK-023: keep the「回到底部」affordance + follow anchor in sync with the

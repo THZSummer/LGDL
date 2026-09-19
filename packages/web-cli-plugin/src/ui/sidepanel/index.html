@@ -267,7 +267,7 @@
       /* ── 区二（V4-1 / ADR-V4-017）：聊天流（flex 填充，唯一滚动容器） ─────
          `#region-stream` 是**区**（flex 容器，不滚动）；`ol#stream[role=log]` 是
          流本体与唯一滚动容器（`#log` → `#stream` 是本叶唯一 id 重命名）。
-         `#stream` 之上的 `#l0-decision`（决策卡）经 `data-transitional-host`
+         `#stream` 之上的 `#l0-decision`（决策卡）经**过渡宿主**
          占位宿主落在流内 `li` 上，由 v4-3/v4-4 换实现。 ── */
       #region-stream { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
       #stream {
@@ -286,9 +286,10 @@
       }
       /* 占位宿主（父 ADR-V4-005 第 6 条）：被取代但尚未换实现的容器同构迁入
          流内 li；内容 / id / ARIA 全保留。退役在 v4-3 / v4-4，v4 收口断言计数 = 0。 */
-      #stream > li[data-transitional-host] { list-style: none; display: block; min-width: 0; }
+      #stream > li[data-host="l1-panels"],
+      #stream > li[data-host="strips"] { list-style: none; display: block; min-width: 0; }
       /* D-043: centering applies *only* while the transcript has no rendered entry.
-         V4-1 修订：流内**恒有** `li[data-transitional-host]` 占位宿主（决策卡 /
+         V4-1 修订：流内**恒有**过渡宿主 `li[data-host]`（决策卡 /
          composer / L1 内容层 / 提示带），故居中只能作用于**空态占位文本本身**。
          若继续对 `#stream` 本体做 `align-items/justify-content: center`，宿主会在
          内容高于容器时从**顶部**溢出，而 flex 居中的起始溢出在 Chrome 里是**不可
@@ -689,7 +690,7 @@
 
       @media (max-width: 380px) {
         .msg-content { max-width: 100%; }
-        #region-toolbar, #panel-bottom { padding: 6px 8px; }
+        #region-toolbar { padding: 6px 8px; }
         #stream { padding: 10px 8px; }
         #settings-root { padding: 8px; }
       }
@@ -986,9 +987,9 @@
            ② main#region-stream      ol#stream[role=log] + #view-host + #scroll-bottom
            ③ footer#region-statusbar 连接状态一行 + #risk-chips > #risk-rail
          `#log` → `#stream` is the ONLY id rename of this leaf; the retired
-         containers (`#panel-top` / `#panel-main` / `#panel-bottom` /
+         containers (`#panel-top` / `#panel-main` / the footer zone /
          `#l0-status-band` / `#l0-statusbar`) are element-reused or moved into
-         `li[data-transitional-host]` hosts. Management controls (法则六) live in
+         `li[data-host]` hosts. Management controls (法则六) live in
          `#settings-view`'s「站点与授权」section. ── */
       /* v3 的 `#risk-rail` 是 body 直挂独立 section；v4 把它改为状态栏内层容器
          （外层 `#risk-chips` 是设计契约 id）。选择器入口不变 ⇒ 探针与风险类归属
@@ -1144,7 +1145,7 @@
       .l1-group { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; }
       .l1-group > button { font-size: 11.5px; text-align: left; }
       /* L1-local scroll block: the group can hold five panels, so its container gets
-         a bounded height. V4-1: the group lives in a `data-transitional-host="v4-4"`
+         a bounded height. V4-1: the group lives in a `data-host="l1-panels"`
          host inside `#stream` (not in a zone), so the panel-level scroller census
          (`#stream` is the only scroller) is unaffected. */
       #topbar { max-height: 40vh; overflow-y: auto; overflow-x: hidden; }
@@ -1232,7 +1233,7 @@
     <!-- ══ 区二（V4-1 / ADR-V4-017）：聊天流（唯一交互面） ══════════════════
          `#region-stream` 是**区**（flex 容器，不滚动）；`ol#stream[role=log]` 是流
          本体与唯一滚动容器（`#log` → `#stream` 是本叶**唯一** id 重命名）。
-         被取代但尚未换实现的容器同构迁入流内 `li[data-transitional-host]` 占位宿主
+         被取代但尚未换实现的容器同构迁入流内 `li[data-host]` 宿主
          （id / 类名 / ARIA 对全保留；退役在 v4-3 / v4-4，v4 收口断言宿主计数 = 0）。 ── -->
     <main id="region-stream" data-region="stream" aria-label="聊天流（唯一交互面）">
       <ol id="stream" role="log" aria-label="会话记录" aria-live="polite">
@@ -1244,7 +1245,6 @@
           <div id="l0-decision">
             <div class="l0-kicker" id="l0-kicker">下一步做什么</div>
             <div class="row">
-              <button id="l0-pick" type="button">从页面拾取</button>
               <button id="l0-more" type="button" aria-expanded="false" aria-controls="l1-more">更多选项（还有 0 个）</button>
             </div>
             <!-- FR-V3-039 ①: the receipt SUMMARY is the resident L0 piece. `hidden` until
@@ -1294,7 +1294,7 @@
         <!-- ── 占位宿主 v4-4：L1 内容层（局部树 / 已决策历史 / 回执证据 / 手势说明）。
              八个 L1 内容类默认全部 `hidden`（C1/C2 只豁免 hidden 祖先），触发器与目标
              的 aria-expanded / aria-controls 成对属性原样保留。 ── -->
-        <li data-transitional-host="v4-4" data-host="l1-panels">
+        <li data-host="l1-panels">
           <div class="l1-group" id="l1-group">
             <button id="l1-local-tree-toggle" type="button" data-disclose="l1-local-tree" aria-expanded="false" aria-controls="l1-local-tree">归属（局部树）· 0 个节点</button>
             <div id="l1-local-tree" data-l1-panel="l1-local-tree" hidden>
@@ -1332,7 +1332,7 @@
 
         <!-- ── 占位宿主 v4-4：三条提示带（env-guard / site-hint / onboarding /
              discovery-notice / notice）。语义归并由 v4-4 落；本叶只保证断言仍可解析。 ── -->
-        <li data-transitional-host="v4-4" data-host="strips">
+        <li data-host="strips">
           <div class="strips">
             <div id="env-guard" role="alert" hidden></div>
             <div id="site-hint" role="status" aria-live="polite" hidden>
@@ -1412,6 +1412,15 @@
       <div id="topbar" class="toolbar row" aria-label="站点与授权">
         <button id="open-settings" class="primary" type="button">⚙ 设置</button>
         <button id="authorize" type="button">授权当前站点</button>
+        <!-- ── V4-4 TASK-806 (ADR-V4-038 / EC-CHAT-007): the panel-side pick entry
+             `#l0-pick` is RETIRED (a one-shot interaction does not belong in a
+             toolbar). Discoverability is carried by three assets instead: the
+             page-side layer (authorized sites), the in-flow `ref` card's
+             「重新拾取」/ the recommendation chip, and this settings-view guidance.
+             Unauthorized sites inject NOTHING — the guidance is text only. ── -->
+        <p id="pick-guidance" class="hint">
+          拾取入口在页面里：授权当前站点后，在页面中用页面内拾取 UI 选中元素；面板内的引用卡与推荐卡也提供「重新拾取」。
+        </p>
         <!-- V3-1: "谁在管我" details (consent text + per-origin auto-auth switches)
              are appended here by `renderConsent()`. -->
         <div id="l1-status-extra"></div>

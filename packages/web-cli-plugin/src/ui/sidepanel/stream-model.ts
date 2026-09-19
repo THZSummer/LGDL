@@ -200,8 +200,24 @@ export interface StreamPayload {
   readonly refState?: 'valid' | 'stale';
   /** Short reference description (selector / label digest, already sanitised). */
   readonly refLabel?: string;
+  /** V4-4 (ADR-V4-035): the stale reason (the judge's readable reason, frozen). */
+  readonly refWhy?: string;
+  /**
+   * V4-4 (ADR-V4-035): the read-only evidence layer rows（选择器 / 语义路径 / 文本摘要 /
+   * 捕获时间）. Each row is a constructed `label + value` string; the layer is a
+   * `<details>` so its content never counts against the visible density budget.
+   */
+  readonly refEvidence?: readonly string[];
   /** nextstep chips (each chip = a command). */
   readonly chips?: readonly string[];
+  /**
+   * V4-4 (ADR-V4-037 §5): the aligned action id of each chip (`next` = issue a turn
+   * through the composer's own entry; `repick` / `describe` = the local recovery
+   * acts). Kept parallel to {@link chips} so a chip's intent is data, not a guess.
+   */
+  readonly nextstepActs?: readonly string[];
+  /** V4-4: the recommendation rule id that produced the card (`risk-recovery` … ). */
+  readonly nextstepRule?: string;
   /** Short, already-sanitised label persisted to the digest (never the body). */
   readonly label?: string;
 }

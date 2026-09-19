@@ -190,18 +190,20 @@ async function main() {
       pCdp,
       `(() => {
          const rail = document.getElementById('risk-rail');
-         const pick = document.getElementById('l0-pick');
          return {
            railText: rail ? rail.textContent : '',
-           pickDisabled: Boolean(pick && pick.disabled),
-           pickReason: pick ? (pick.getAttribute('data-disabled-reason') || '') : '',
+           // V4-4 TASK-806: the panel-side pick entry is retired; the unauthorized
+           // discoverability path is the settings-view guidance (TEXT ONLY — the
+           // guidance itself performs no injection).
+           pickRetired: document.getElementById('l0-pick') === null,
+           pickGuidance: document.getElementById('pick-guidance') ? document.getElementById('pick-guidance').textContent : '',
            layerMarker: typeof window.__wcliPickLayer,
          };
        })()`,
     );
     check('AC-V3-018：L0 风险位明示「页面侧零注入」', /零注入/.test(String(l0?.railText ?? '')), String(l0?.railText));
-    check('AC-V3-018：「从页面拾取」入口被禁用（未授权）', l0?.pickDisabled === true, JSON.stringify(l0));
-    check('AC-V3-018：禁用原因可读', /未授权|页面侧不可用/.test(String(l0?.pickReason ?? '')), String(l0?.pickReason));
+    check('AC-V3-018：面板侧 `#l0-pick` 已退役（未授权不再有可点入口）', l0?.pickRetired === true, JSON.stringify(l0));
+    check('AC-V3-018：未授权拾取指引可读（授权入口 + 页面内拾取，纯文案零注入）', /授权/.test(String(l0?.pickGuidance ?? '')) && /拾取/.test(String(l0?.pickGuidance ?? '')), String(l0?.pickGuidance));
     check('未授权时侧栏自身也不带拾取层', l0?.layerMarker === 'undefined', String(l0?.layerMarker));
 
     // ── BLOCK-1 / I-04 回归：**带路径**的未授权页面同样零注入 ───────────────────

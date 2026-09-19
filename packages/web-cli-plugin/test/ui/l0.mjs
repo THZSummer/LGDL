@@ -75,13 +75,13 @@ const L0_STATIC_FLOOR = 73;
 /** The four toolbar entry keys + the theme toggle = the admission set (恰 5)。 */
 const TOOLBAR_ENTRY_KEYS = ['tree', 'commands', 'audit', 'settings'];
 /**
- * 登记占位宿主数（review 修复轮 I7）：真实 `li[data-transitional-host]` = **4**
- * （v4-3 × 2 = decision / composer；v4-4 × 2 = l1-panels / strips）。原断言只判 `> 0`，
- * 而 `grep -c 'data-transitional-host='` 会把 1 处 CSS 注释（index.html:1115）误计为宿主
- * ⇒ 台账/build.md 曾记「5 个」。现在断言**等于登记值**：新增/误删宿主都会 FAIL，且
- * v4-4 收口时的「清零义务」只需把本常量改为 0（分母可见，不再靠 `> 0` 蒙混）。
+ * 登记占位宿主数（**V4-4 收口**）：v4-1 只建不销、v4-3 退役两处，本叶把最后两处
+ * （`l1-panels` / `strips`）一并清零 ⇒ 登记值 = **0**。断言从「等于登记值」升级为
+ * 「`querySelectorAll('[data-transitional-host]').length === 0`」的**结构性判据**
+ * （R4-18：过渡态不得永久化）。`grep -c 'data-transitional-host='` 的注释误计问题随
+ * 注释一并清理，本文件不再依赖 grep 计数。
  */
-const REGISTERED_TRANSITIONAL_HOSTS = 2; // V4-3 (TASK-707): the two v4-3 hosts retired; the two v4-4 hosts remain
+const REGISTERED_TRANSITIONAL_HOSTS = 0; // V4-4 (TASK-810/812): v4 收口 —— 过渡宿主清零（R4-18）
 /** per-target `aria-controls` 语义（ADR-V4-022 第 3 条）。 */
 const ARIA_TARGET_BY_ENTRY = {
   'l2-entry-tree': 'view-host',
@@ -148,6 +148,7 @@ const zoneProbe = `(() => {
     detailInsideStatusbar: Boolean(document.getElementById('region-statusbar')?.contains(detail)),
     chromeInStream,
     hosts: hosts.map((el) => el.getAttribute('data-transitional-host')),
+    structuralHosts: document.querySelectorAll('#stream > li[data-host]').length,
     hostCount: hosts.length,
     streamTag: stream ? stream.tagName : null,
     streamRole: stream ? stream.getAttribute('role') : null,
@@ -265,8 +266,8 @@ async function main() {
     check('① `#log` → `#stream` 是唯一 id 重命名：#stream 为 ol 且 role=log', zones.streamTag === 'OL' && zones.streamRole === 'log', `${zones.streamTag}/${zones.streamRole}`);
     check('① 状态栏嵌套 = #risk-chips > #risk-rail（chip 入状态栏，不新开分区）', zones.railInsideChips === true && zones.chipsInsideRail === false, JSON.stringify({ railInChips: zones.railInsideChips, chipsInRail: zones.chipsInsideRail }));
     check('① `#risk-detail` 在状态栏内且默认 hidden（不计入默认密度）', zones.detailInsideStatusbar === true && (await evaluate(cdp, `document.getElementById('risk-detail').hidden`)) === true);
-    check(`① 占位宿主 \`data-transitional-host\` 计数 == 登记值 ${REGISTERED_TRANSITIONAL_HOSTS}（v4-3 两处已退役；v4-4 清零在 TASK-812）`, zones.hostCount === REGISTERED_TRANSITIONAL_HOSTS, `实测 ${zones.hostCount}`);
-    check('① 占位宿主均带合法退役叶标记（v4-3 / v4-4）', zones.hosts.length > 0 && zones.hosts.every((h) => h === 'v4-3' || h === 'v4-4'), JSON.stringify(zones.hosts));
+    check(`① 过渡宿主清零：querySelectorAll('[data-transitional-host]').length === 0（v4 收口 / R4-18）`, zones.hostCount === 0 && zones.hostCount === REGISTERED_TRANSITIONAL_HOSTS, `实测 ${zones.hostCount}`);
+    check('① 退役容器的结构标识仍在（li[data-host]，清零不等于丢锚）', zones.hostCount === 0 && zones.structuralHosts >= 1, JSON.stringify({ hosts: zones.hostCount, structural: zones.structuralHosts }));
 
     // ══ ② 工具栏准入 ≤5 + 只读摘要 + 插槽（V4-1 新断言面） ══════════════════
     console.log('\n▶ ② 工具栏：可点恰 5 / data-toolbar-slot / 只读摘要 / 徽标同源');
@@ -304,8 +305,11 @@ async function main() {
           residentInputs: residentInputs.map((el) => el.id || el.tagName),
           fallbackHidden: document.getElementById('ask-fallback')?.hidden ?? null,
           composerHidden: document.getElementById('composer').hidden,
-          pickText: document.getElementById('l0-pick').textContent,
           refText: document.getElementById('l0-ref-toggle').textContent,
+          // V4-4 TASK-806: panel-side #l0-pick retired — the discoverability anchor is the
+          // settings-view guidance (text only, zero injection).
+          pickGuidance: document.getElementById('pick-guidance')?.textContent ?? '',
+          pickRetired: document.getElementById('l0-pick') === null,
           hostAttr: document.getElementById('l0-decision')?.closest('[data-transitional-host]')?.getAttribute('data-transitional-host') ?? null,
         };
       })()`,
@@ -328,7 +332,11 @@ async function main() {
     check('③ 默认态可见文本输入框计数 = 0（法四：含 input:not([type]) / textarea）', skeleton.residentInputs.length === 0, skeleton.residentInputs.join(','));
     check('③ 末项兜底输入框默认 hidden', skeleton.fallbackHidden === true);
     check('③ `#composer` 存在但默认 hidden（法四显式取代 v3「composer 贴底」）', skeleton.composerHidden === true);
-    check('③ 「从页面拾取」入口存在（替代输入框）', /从页面拾取/.test(skeleton.pickText));
+    // V4-4 TASK-806: the panel-side entry is RETIRED; discoverability is carried by
+    // the settings-view guidance (text only) — the page-side layer stays the primary
+    // entry (zero injection, asserted by page-input / zero-injection gates).
+    check('③ 面板侧 `#l0-pick` 已退役（DOM 计数 = 0，替代输入框的入口在页面侧）', skeleton.pickRetired === true, String(skeleton.pickRetired));
+    check('③ 设置视图「站点与授权」含拾取指引（可发现性未丢）', /拾取/.test(skeleton.pickGuidance), skeleton.pickGuidance);
     check('③ 引用条入口存在（含计数）', /引用\s*\d+\s*条/.test(skeleton.refText), skeleton.refText);
 
     // N must follow the real option list (change truth → change N)

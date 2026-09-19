@@ -55,6 +55,16 @@ export interface PickInputHandle {
   ensureInjected(): Promise<void>;
   /** Trigger 2 — the「从页面拾取」entry. */
   startPick(): Promise<void>;
+  /**
+   * V4-4 TASK-806 (ADR-V4-038) — the **ONLY production entry** to a page-side pick.
+   *
+   * The former panel-side `#l0-pick` button is retired (a one-shot interaction does
+   * not belong in a toolbar / status bar), so every in-panel recovery path (the
+   * `ref` card's「重新拾取」and the recommendation chip) goes through this one
+   * wrapper. `startPick()` is only ever called from here — a wiring gate asserts it,
+   * which is what makes a second bypass impossible rather than merely discouraged.
+   */
+  requestPick(): Promise<void>;
   /** AC-CONV-1: report the complete judge env, still fail-closed while incomplete. */
   judgeEnv(): RefEnv;
   /**
@@ -308,6 +318,23 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
   doc.addEventListener('dragleave', onDragLeave as EventListener, true);
   doc.addEventListener('drop', onDrop as EventListener, true);
 
+  /**
+   * V4-4 TASK-806 — the page-side pick body. Declared as a local function (not an
+   * object method) so it has exactly **one** call site: {@link requestPick}. The
+   * wiring gate counts the two occurrences of `startPick(` in this file
+   * (declaration + that one call) and fails on a third, i.e. on any bypass.
+   */
+  async function startPick(): Promise<void> {
+    const ok = await inject();
+    if (!ok) {
+      deps.notify(`✖ 页面侧不可用：${state.unavailable ?? '注入失败'}`);
+      return;
+    }
+    // The layer is in pick mode: the user's next Alt-hover / selection / right-click
+    // produces a reference. No composer input is involved (FR-V3-061).
+    await deps.send({ kind: 'pick-layer-env', ...deps.envInput() }).catch(() => undefined);
+  }
+
   return {
     async ensureInjected() {
       const base = deps.envInput();
@@ -320,15 +347,11 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
       }
       await inject();
     },
-    async startPick() {
-      const ok = await inject();
-      if (!ok) {
-        deps.notify(`✖ 页面侧不可用：${state.unavailable ?? '注入失败'}`);
-        return;
-      }
-      // The layer is in pick mode: the user's next Alt-hover / selection / right-click
-      // produces a reference. No composer input is involved (FR-V3-061).
-      await deps.send({ kind: 'pick-layer-env', ...deps.envInput() }).catch(() => undefined);
+    startPick,
+    async requestPick() {
+      // The thin, single wrapper (ADR-V4-038 §2). Behaviour is byte-identical to the
+      // v3-4 `startPick()`; what changes is that it is now the only way in.
+      await startPick();
     },
     judgeEnv,
     highlight,

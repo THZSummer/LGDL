@@ -1,198 +1,198 @@
 {
- "feature": "V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移（父：specs-tree-web-cli-plugin-v4-chat）",
- "featureKey": "specs-tree-v4-4-ref-system-nextstep",
- "version": "v4.0.0",
- "name": "V4-4 引用卡 / 系统事件行 / 推荐卡流内化 + 页面侧拾取入口迁移——引用生命周期入流 + 6+ 系统事件通道归并 + 推荐卡（真值派生 + chips 即指令）+ 拾取可发现性与救援路径重锚 + V3-VOL-3 收口锚（重定基线 + 绝对上限带值闭合）",
- "phase": "tasked",
- "workflow": "3.plan",
- "agent": "sddu-plan",
- "depth": 2,
- "parent": "specs-tree-web-cli-plugin-v4-chat",
- "childrens": [],
- "leaf": true,
- "createdAt": "2026-09-18",
- "updatedAt": "2026-09-18T06:00:00.000Z",
- "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**最后完成的叶**，承载 V3-VOL-3 父级收口锚）。承载父 FR-CHAT-050~064（TRACE / NEXT 组）与 FR-CHAT-090~094（VOL 组）：① 引用生命周期在流内以 ref 卡呈现（有效/失效；失效卡保留；新引用序号递增）；② 重拾/重锚生成新引用卡（新 id + 序号递增）+ 旧引用零改动（沿用 R3 append-only 先例）；③ 失效卡含原因 + 恢复路径（「重新拾取」/「改用描述」，兜底默认收起）；④ 系统事件行（单行 + HH:MM:SS 时间戳 + 只追加不被覆盖）；⑤ 6+ 瞬时通道归并（#env-guard/#site-hint/#onboarding/#discovery-notice/#notice/#send-reason + 导航失效 + 探测态），既有语义不丢；⑥ 拾取入口迁移后的可发现性与救援路径重锚（页面侧可达、未授权路径可发现、#l0-pick.click() 复用点断裂处置）；⑦ 推荐卡（真值派生不新增 LLM 产物 + chips 即指令 + 规则表/优先级/上限 + 无候选不渲染 + 与 pending 门控一致 + 安全边界）；⑧ **V3-VOL-3 收口锚**：重定 sidepanel 基线（五要素）+ 绝对上限带值闭合（PENDING_ABSOLUTE_CAP resolved:true + 三值齐备；推导规则 = 重构落地实测值向上取整到 50KB 档 + 10% 余量，作者一句确认；不预填、不静默删除、不设自缚装置）。权威条文见父 spec.md §5.6 / §5.7 / §5.10 / §10.4。",
- "scope": {
-  "in": [
-   "引用卡（有效/失效 + 失效保留 + 新序号递增）",
-   "重拾/重锚生成新引用卡 + 旧引用零改动",
-   "失效卡含原因 + 恢复路径（重新拾取 / 改用描述）",
-   "系统事件行单行 + 时间戳 + 只追加不被覆盖",
-   "6+ 瞬时通道归并（既有语义不丢）",
-   "拾取入口迁移后的可发现性与救援路径重锚",
-   "推荐卡生产者机制（真值派生，不新增 LLM 产物）",
-   "chips 即指令（点击直接发起回合）",
-   "推荐规则表 + 优先级 + 上限；无候选不渲染空卡",
-   "推荐与 pending 门控一致性",
-   "推荐内容安全边界（不推荐被拦/deny 动作，不含明文）",
-   "V3-VOL-3 收口锚：重定 sidepanel 基线（五要素）+ 绝对上限带值闭合（推导规则 + 作者确认）"
+  "feature": "V4-4 引用卡 / 系统事件行 / 推荐卡 + 拾取入口迁移（父：specs-tree-web-cli-plugin-v4-chat）",
+  "featureKey": "specs-tree-v4-4-ref-system-nextstep",
+  "version": "v4.0.0",
+  "name": "V4-4 引用卡 / 系统事件行 / 推荐卡流内化 + 页面侧拾取入口迁移——引用生命周期入流 + 6+ 系统事件通道归并 + 推荐卡（真值派生 + chips 即指令）+ 拾取可发现性与救援路径重锚 + V3-VOL-3 收口锚（重定基线 + 绝对上限带值闭合）",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v4-chat",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-18",
+  "updatedAt": "2026-09-19",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v4-chat 立项的叶子子 Feature（P0，**最后完成的叶**，承载 V3-VOL-3 父级收口锚）。承载父 FR-CHAT-050~064（TRACE / NEXT 组）与 FR-CHAT-090~094（VOL 组）：① 引用生命周期在流内以 ref 卡呈现（有效/失效；失效卡保留；新引用序号递增）；② 重拾/重锚生成新引用卡（新 id + 序号递增）+ 旧引用零改动（沿用 R3 append-only 先例）；③ 失效卡含原因 + 恢复路径（「重新拾取」/「改用描述」，兜底默认收起）；④ 系统事件行（单行 + HH:MM:SS 时间戳 + 只追加不被覆盖）；⑤ 6+ 瞬时通道归并（#env-guard/#site-hint/#onboarding/#discovery-notice/#notice/#send-reason + 导航失效 + 探测态），既有语义不丢；⑥ 拾取入口迁移后的可发现性与救援路径重锚（页面侧可达、未授权路径可发现、#l0-pick.click() 复用点断裂处置）；⑦ 推荐卡（真值派生不新增 LLM 产物 + chips 即指令 + 规则表/优先级/上限 + 无候选不渲染 + 与 pending 门控一致 + 安全边界）；⑧ **V3-VOL-3 收口锚**：重定 sidepanel 基线（五要素）+ 绝对上限带值闭合（PENDING_ABSOLUTE_CAP resolved:true + 三值齐备；推导规则 = 重构落地实测值向上取整到 50KB 档 + 10% 余量，作者一句确认；不预填、不静默删除、不设自缚装置）。权威条文见父 spec.md §5.6 / §5.7 / §5.10 / §10.4。",
+  "scope": {
+    "in": [
+      "引用卡（有效/失效 + 失效保留 + 新序号递增）",
+      "重拾/重锚生成新引用卡 + 旧引用零改动",
+      "失效卡含原因 + 恢复路径（重新拾取 / 改用描述）",
+      "系统事件行单行 + 时间戳 + 只追加不被覆盖",
+      "6+ 瞬时通道归并（既有语义不丢）",
+      "拾取入口迁移后的可发现性与救援路径重锚",
+      "推荐卡生产者机制（真值派生，不新增 LLM 产物）",
+      "chips 即指令（点击直接发起回合）",
+      "推荐规则表 + 优先级 + 上限；无候选不渲染空卡",
+      "推荐与 pending 门控一致性",
+      "推荐内容安全边界（不推荐被拦/deny 动作，不含明文）",
+      "V3-VOL-3 收口锚：重定 sidepanel 基线（五要素）+ 绝对上限带值闭合（推导规则 + 作者确认）"
+    ],
+    "out": [
+      "不做事件模型/卡渲染基础 → 归 v4-2",
+      "不做 ask/授权业务 → 归 v4-3",
+      "不做三区骨架与密度口径 → 归 v4-1",
+      "不新增 LLM 侧产物（推荐若必须 LLM 则属新面，显式登记不隐含）；不新增权限；不改判定链；不碰 src/content/**、不碰 pick-layer.js",
+      "不删除或降级任何既有断言；不以放宽体积上限换功能；不设自缚装置；不预填 PENDING_ABSOLUTE_CAP 值、不静默删除标记"
+    ]
+  },
+  "covers": [
+    "FR-CHAT-050",
+    "FR-CHAT-051",
+    "FR-CHAT-052",
+    "FR-CHAT-053",
+    "FR-CHAT-054",
+    "FR-CHAT-055",
+    "FR-CHAT-060",
+    "FR-CHAT-061",
+    "FR-CHAT-062",
+    "FR-CHAT-063",
+    "FR-CHAT-064",
+    "FR-CHAT-090",
+    "FR-CHAT-091",
+    "FR-CHAT-092",
+    "FR-CHAT-093",
+    "FR-CHAT-094"
   ],
-  "out": [
-   "不做事件模型/卡渲染基础 → 归 v4-2",
-   "不做 ask/授权业务 → 归 v4-3",
-   "不做三区骨架与密度口径 → 归 v4-1",
-   "不新增 LLM 侧产物（推荐若必须 LLM 则属新面，显式登记不隐含）；不新增权限；不改判定链；不碰 src/content/**、不碰 pick-layer.js",
-   "不删除或降级任何既有断言；不以放宽体积上限换功能；不设自缚装置；不预填 PENDING_ABSOLUTE_CAP 值、不静默删除标记"
-  ]
- },
- "covers": [
-  "FR-CHAT-050",
-  "FR-CHAT-051",
-  "FR-CHAT-052",
-  "FR-CHAT-053",
-  "FR-CHAT-054",
-  "FR-CHAT-055",
-  "FR-CHAT-060",
-  "FR-CHAT-061",
-  "FR-CHAT-062",
-  "FR-CHAT-063",
-  "FR-CHAT-064",
-  "FR-CHAT-090",
-  "FR-CHAT-091",
-  "FR-CHAT-092",
-  "FR-CHAT-093",
-  "FR-CHAT-094"
- ],
- "acceptanceAnchors": [
-  "AC-CHAT-011",
-  "AC-CHAT-012",
-  "AC-CHAT-013",
-  "AC-CHAT-016",
-  "AC-CHAT-018",
-  "AC-CHAT-020",
-  "AC-CHAT-021",
-  "AC-CHAT-023",
-  "AC-CHAT-025"
- ],
- "coversIssues": [
-  "Q-CHAT-003",
-  "Q-CHAT-005",
-  "Q-CHAT-006",
-  "Q-CHAT-011",
-  "Q-CHAT-012",
-  "Q-CHAT-013"
- ],
- "coversRisks": [
-  "R-CHAT-009",
-  "R-CHAT-010",
-  "R-CHAT-012",
-  "R-CHAT-015",
-  "R-CHAT-016"
- ],
- "dependencies": {
-  "on": [
-   "specs-tree-web-cli-plugin-v4-chat（父，phase=specified / status=tracked；权威条文 §5.6 / §5.7 / §5.10 / §10.4）",
-   "specs-tree-v4-2-chat-stream-model（事件模型 + 卡渲染 + 固化契约）",
-   "packages/web-cli-plugin v1 + v2 + v3 已验收实现（只读复用：l1/ref-store 五维判定 + 序号单调不复用 + 退役留痕 / l2/counts 计数单源 / size-baseline V3-VOL-3 机器判据）"
+  "acceptanceAnchors": [
+    "AC-CHAT-011",
+    "AC-CHAT-012",
+    "AC-CHAT-013",
+    "AC-CHAT-016",
+    "AC-CHAT-018",
+    "AC-CHAT-020",
+    "AC-CHAT-021",
+    "AC-CHAT-023",
+    "AC-CHAT-025"
   ],
-  "blocking": []
- },
- "deliveryOrder": {
-  "position": 4,
-  "note": "最后完成；前置 v4-2，建议在 v4-3 之后串行门禁；本叶**执行父级 V3-VOL-3 收口锚**（重定基线 + 绝对上限带值闭合）"
- },
- "independence": {
-  "changeSurface": "侧栏侧（引用卡渲染 + 系统事件通道归并 + 推荐卡生产者/渲染 + 拾取入口重锚）+ 相关单测 + test/size-baseline.ts（收口闭合）；不碰 src/content/**、不碰 pick-layer.js、不新增权限",
-  "supersessionLoad": "高：#l0-ref-toggle / #l0-pick / #l2-entries / 6 条 strips 与 3 处引用投影被取代 → 走取代台账；journey 保护段处置（若涉及）须哈希留痕",
-  "canReachAllGreen": true,
-  "gateSet": [
-   "typecheck",
-   "plugin npm test",
-   "test:ui journey ≥167",
-   "test:insight ≥108",
-   "test:binding ≥192",
-   "test:hardening 24",
-   "test:e2e",
-   "test:supersession",
-   "test:gate-integrity",
-   "test:l0 ≥73 / test:l1 ≥64 / test:l2 ≥68",
-   "test:density（不回退）",
-   "test:size-ruling-vol3 + 体积收口闭合",
-   "test:zero-injection 27",
-   "test:page-input 102"
+  "coversIssues": [
+    "Q-CHAT-003",
+    "Q-CHAT-005",
+    "Q-CHAT-006",
+    "Q-CHAT-011",
+    "Q-CHAT-012",
+    "Q-CHAT-013"
   ],
-  "gateDiscipline": "严格串行（禁并发 Chromium）；日志完整落盘（禁 tail 截断）；反证必须实跑 FAIL → 还原 → PASS 且声明 expectFailPattern；每叶收尾全门禁绿"
- },
- "openPoints": [
-  {
-   "id": "V44-O-1",
-   "topic": "推荐产生规则表的具体条目、优先级与上限数值",
-   "status": "open",
-   "needs": "plan"
+  "coversRisks": [
+    "R-CHAT-009",
+    "R-CHAT-010",
+    "R-CHAT-012",
+    "R-CHAT-015",
+    "R-CHAT-016"
+  ],
+  "dependencies": {
+    "on": [
+      "specs-tree-web-cli-plugin-v4-chat（父，phase=specified / status=tracked；权威条文 §5.6 / §5.7 / §5.10 / §10.4）",
+      "specs-tree-v4-2-chat-stream-model（事件模型 + 卡渲染 + 固化契约）",
+      "packages/web-cli-plugin v1 + v2 + v3 已验收实现（只读复用：l1/ref-store 五维判定 + 序号单调不复用 + 退役留痕 / l2/counts 计数单源 / size-baseline V3-VOL-3 机器判据）"
+    ],
+    "blocking": []
   },
-  {
-   "id": "V44-O-2",
-   "topic": "页面侧是否提供流内推荐所需的数据通道（现有 5 条是否足够；若新增 kind 走独立校验器）",
-   "status": "open",
-   "needs": "plan"
+  "deliveryOrder": {
+    "position": 4,
+    "note": "最后完成；前置 v4-2，建议在 v4-3 之后串行门禁；本叶**执行父级 V3-VOL-3 收口锚**（重定基线 + 绝对上限带值闭合）"
   },
-  {
-   "id": "V44-O-3",
-   "topic": "系统事件 6+ 通道归并后的去重/降噪规则（避免稳态刷屏）",
-   "status": "open",
-   "needs": "plan"
+  "independence": {
+    "changeSurface": "侧栏侧（引用卡渲染 + 系统事件通道归并 + 推荐卡生产者/渲染 + 拾取入口重锚）+ 相关单测 + test/size-baseline.ts（收口闭合）；不碰 src/content/**、不碰 pick-layer.js、不新增权限",
+    "supersessionLoad": "高：#l0-ref-toggle / #l0-pick / #l2-entries / 6 条 strips 与 3 处引用投影被取代 → 走取代台账；journey 保护段处置（若涉及）须哈希留痕",
+    "canReachAllGreen": true,
+    "gateSet": [
+      "typecheck",
+      "plugin npm test",
+      "test:ui journey ≥167",
+      "test:insight ≥108",
+      "test:binding ≥192",
+      "test:hardening 24",
+      "test:e2e",
+      "test:supersession",
+      "test:gate-integrity",
+      "test:l0 ≥73 / test:l1 ≥64 / test:l2 ≥68",
+      "test:density（不回退）",
+      "test:size-ruling-vol3 + 体积收口闭合",
+      "test:zero-injection 27",
+      "test:page-input 102"
+    ],
+    "gateDiscipline": "严格串行（禁并发 Chromium）；日志完整落盘（禁 tail 截断）；反证必须实跑 FAIL → 还原 → PASS 且声明 expectFailPattern；每叶收尾全门禁绿"
   },
-  {
-   "id": "V44-O-4",
-   "topic": "绝对上限的最终档位（实测值向上取整到 50KB 档）与作者确认时点",
-   "status": "open",
-   "needs": "收口轮按推导规则 + 作者一句确认"
+  "openPoints": [
+    {
+      "id": "V44-O-1",
+      "topic": "推荐产生规则表的具体条目、优先级与上限数值",
+      "status": "open",
+      "needs": "plan"
+    },
+    {
+      "id": "V44-O-2",
+      "topic": "页面侧是否提供流内推荐所需的数据通道（现有 5 条是否足够；若新增 kind 走独立校验器）",
+      "status": "open",
+      "needs": "plan"
+    },
+    {
+      "id": "V44-O-3",
+      "topic": "系统事件 6+ 通道归并后的去重/降噪规则（避免稳态刷屏）",
+      "status": "open",
+      "needs": "plan"
+    },
+    {
+      "id": "V44-O-4",
+      "topic": "绝对上限的最终档位（实测值向上取整到 50KB 档）与作者确认时点",
+      "status": "open",
+      "needs": "收口轮按推导规则 + 作者一句确认"
+    },
+    {
+      "id": "V44-O-5",
+      "topic": "docs/v4-supersession-ledger.json / docs/v4-density-baseline.json 的文件名与挂载点",
+      "status": "open",
+      "needs": "plan"
+    }
+  ],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/state.json",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/discovery.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/plan.md",
+    "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.json",
+    "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
+    "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json"
   },
-  {
-   "id": "V44-O-5",
-   "topic": "docs/v4-supersession-ledger.json / docs/v4-density-baseline.json 的文件名与挂载点",
-   "status": "open",
-   "needs": "plan"
+  "status": "tracked",
+  "phaseHistory": [
+    {
+      "phase": "registered",
+      "timestamp": "2026-09-18T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v4-chat 创建叶子目录）"
+    },
+    {
+      "phase": "specified",
+      "timestamp": "2026-09-18T00:00:00.000Z",
+      "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成；权威条文见父 spec.md §5.6 / §5.7 / §5.10 / §10.4）"
+    },
+    {
+      "phase": "planned",
+      "timestamp": "2026-09-18T03:00:00.000Z",
+      "triggeredBy": "sddu-plan（产出本叶 plan.md v1.0；ADR-V4-035~040（6 条））"
+    },
+    {
+      "phase": "tasked",
+      "timestamp": "2026-09-18T06:00:00.000Z",
+      "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0；12 任务 / 6 波）"
+    }
+  ],
+  "phaseNote": "builded（⚠️ 1 项登记偏差 + 2 项门禁未绿）。12 任务代码落地；node 968/968；已实跑 Chromium 门禁 l0 217 / l1 111 / l2 73 / stream 63 / page-input 102 / zero-injection 27 / ask-auth 61 / recommendation 37 / journey(ui) / insight / hardening / e2e 全绿。**V3-VOL-3 八步带值闭合**：B_final=465,000 → 档位 512,000 → 绝对上限 563,200；min(563,200, 488,250)=488,250；PENDING_ABSOLUTE_CAP resolved:true 三值齐备（authorConfirmation = 作者确认占位，标注可一行否决）。宿主清零：index.html data-transitional-host=0。红线：content.js 177,076 / pick-layer.js 33,900 逐字节不变。residual：① KL-V44-01（TASK-803 的导航失效/#notice 自动归并未启用——追加该行会让 320px risk(staleRef) 夹具的 #scroll-bottom 常驻，触发已冻结的 evaluateDelta 与跨窗口确定性判据；需一次密度口径裁决，见 docs/v4-supersession-ledger.json#knownLimitations[KL-V44-01]）② test:density ✘ ③ test:binding 未复验（首轮 #8d 未出现 #confirm；二次复跑 SW 不可达抖动，门禁文件零 diff）。产物：build.md v1.0。",
+  "tasks": {
+    "range": "TASK-801~812",
+    "alias": "V44-01~12",
+    "count": 12,
+    "waves": 6,
+    "complexity": {
+      "S": 0,
+      "M": 5,
+      "L": 7
+    },
+    "gateNote": "新增 test:recommendation（TASK-809）；末任务 = V3-VOL-3 父级收口锚（TASK-811/812，含宿主计数=0）",
+    "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.md"
   }
- ],
- "files": {
-  "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/spec.md",
-  "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/state.json",
-  "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
-  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/discovery.md",
-  "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/plan.md",
-  "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/plan.md",
-  "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.md",
-  "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.json",
-  "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.md",
-  "parentTasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/tasks.json"
- },
- "status": "tracked",
- "phaseHistory": [
-  {
-   "phase": "registered",
-   "timestamp": "2026-09-18T00:00:00.000Z",
-   "triggeredBy": "sddu-spec（随父 Feature specs-tree-web-cli-plugin-v4-chat 创建叶子目录）"
-  },
-  {
-   "phase": "specified",
-   "timestamp": "2026-09-18T00:00:00.000Z",
-   "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0，需求定义完成；权威条文见父 spec.md §5.6 / §5.7 / §5.10 / §10.4）"
-  },
-  {
-   "phase": "planned",
-   "timestamp": "2026-09-18T03:00:00.000Z",
-   "triggeredBy": "sddu-plan（产出本叶 plan.md v1.0；ADR-V4-035~040（6 条））"
-  },
-  {
-   "phase": "tasked",
-   "timestamp": "2026-09-18T06:00:00.000Z",
-   "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0；12 任务 / 6 波）"
-  }
- ],
- "phaseNote": "phase=planned（status=tracked）。产出本叶 `plan.md` v1.0（**ADR-V4-035~040（6 条）**）。本叶 = 过程全景收口 + **V3-VOL-3 父级收口锚**。ADR-V4-035 引用投影点 **三处保持三处**（页面角标 / 流内 `ref` 卡含证据层 / 状态栏风险 chip；L0 chip 与 L1 证据面板吸入卡内；重拾生成新卡 + 旧卡零改动；判定语义零变更）；ADR-V4-036 `appendSystem` **唯一通道** + 四步管线（净化 / 去重窗口 5 s / 速率上限 20 行每分钟 + `dropped` 登记 / 追加）+ **只追加不覆盖** + 6+ 通道语义保留矩阵（onboarding/discovery-notice → 首装卡）；ADR-V4-037 推荐卡 = **真值白名单 7 项**（禁设置项计数真值）+ 规则表 4 条 + `MAX_NEXTSTEP_CARDS_PER_ROUND=1` / `MAX_CHIPS_PER_CARD=3` / `NEXTSTEP_MIN_INTERVAL_MS=10000` + **chips 即指令走同一生产入口** + `pending` 门控 + 安全边界（不推荐被拦动作 / 不含明文）+ 无候选不渲染；ADR-V4-038 拾取入口 = `#l0-pick` 退役 + **`requestPick()` 单一生产入口**（与 `requestTurn()` 分工明确）+ 页面侧可达（零改动）+ 未授权设置视图引导 + **零注入** + `test/ref-pick-wiring.test.ts` 布线门禁；ADR-V4-039 **V3-VOL-3 收口 8 步**（build 实测 `B_final` → 五要素重登记 → `ceilTo50KB(B_final) × 1.10` → **作者一句确认** → `PENDING_ABSOLUTE_CAP` 三值闭合 → `min(绝对上限, floor(基线×1.05))` → 三条反证 → `SIDEPANEL_CEILING_CAP` 保持 `record-only` 不被读取）；ADR-V4-040 每叶五要素中间重登记细则 + 本叶收尾 20 项门禁清单 + **过渡态宿主清零**（`[data-transitional-host]` 数 = 0）+ 计数下界只增。 **本叶收尾门禁（严格串行、一次一个 Chromium、日志落盘禁 tail 截断）**：typecheck · build · `npm test`（含 `recommendation-sources.test.ts` / `ref-pick-wiring.test.ts`）· `test:supersession` · `test:gate-integrity`（追加 `test/ui/recommendation.mjs`）· `test:zero-injection`(27) · `test:page-input`(102) · `test:l0` · `test:l1` · `test:l2` · `test:density` · `test:ui`(≥167) · `test:insight`(≥108) · `test:binding`(≥192) · `test:hardening` · `test:e2e` · `test:stream` · `test:ask-auth` · **`test:recommendation`（新增 Chromium 门禁）** · `test:design-contract`(60/60) · **`test:size-ruling-vol3`（V3-VOL-3 带值闭合 + min() 三条反证）** · 体积守卫（content 177,076 无容差 / pick-layer 33,900 / sidepanel 收口带值闭合）。 权威跨叶契约见父 `../plan.md`（ADR-V4-001~016）。**本阶段只做 plan**：未写 tasks/代码、未改 `src/**`·`test/**`·`dist/**`·`manifest.json`·ROADMAP、未动 `main`、未 commit/push、**未跑任何门禁/构建/Chromium**。下一阶段：@sddu-tasks specs-tree-v4-4-ref-system-nextstep。\n\ntasks 阶段完成（2026-09-18，sddu-tasks）：产出本叶 tasks.md v1.0 + tasks.json v1.0 —— 12 任务 / 6 波（别名 V44-01~12，全局编号 TASK-801~812），含每任务的可验证验收（引用 FR/AC/ADR/R 编号）、触碰面（NEW/MODIFY/RETIRE 文件组）、波次与检查点、D-005 式测试守恒账（新增/取代/重写计数）。门禁：新增 test:recommendation（TASK-809）；末任务 = V3-VOL-3 父级收口锚（TASK-811/812，含宿主计数=0）。纪律：只写本 Feature 目录、零生产代码改动、未跑门禁/构建/Chromium、未 commit/push。",
- "tasks": {
-  "range": "TASK-801~812",
-  "alias": "V44-01~12",
-  "count": 12,
-  "waves": 6,
-  "complexity": {
-   "S": 0,
-   "M": 5,
-   "L": 7
-  },
-  "gateNote": "新增 test:recommendation（TASK-809）；末任务 = V3-VOL-3 父级收口锚（TASK-811/812，含宿主计数=0）",
-  "artifact": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-4-ref-system-nextstep/tasks.md"
- }
 }

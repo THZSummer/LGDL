@@ -138,6 +138,13 @@ export interface L1Deps {
    * to the panel's pick-input owner — this is only the wiring seam.
    */
   reanchor(refId: string): void;
+  /**
+   * V4-4 TASK-806 (ADR-V4-038): the **single production entry** to a page-side pick.
+   * The v3-4 seam went through the retired `#l0-pick` DOM button (`pick.click()`);
+   * it now calls `pick-input.ts#requestPick()` directly, so the recovery path cannot
+   * break when the panel-side entry is retired.
+   */
+  requestPick(): void;
   now(): number;
 }
 
@@ -219,7 +226,6 @@ export function mountL1(deps: L1Deps): L1Handle {
   const receiptSummary = el('l0-receipt-summary');
   const refToggle = el('l0-ref-toggle');
   const refBadge = el('l0-ref-badge');
-  const pick = el<HTMLButtonElement>('l0-pick');
   const topbar = el('topbar');
   const gestureRows = el('l1-gestures-rows');
 
@@ -264,7 +270,7 @@ export function mountL1(deps: L1Deps): L1Handle {
   doc.getElementById('l0-more')?.addEventListener('click', () => mirror('l1-more', L1_MORE_GROUP));
 
   // ── the two recovery paths (FR-V3-038): reuse the existing entries ─────────
-  el('l1-ref-repick').addEventListener('click', () => pick.click());
+  el('l1-ref-repick').addEventListener('click', () => deps.requestPick());
   el('l1-ref-describe').addEventListener('click', () => deps.revealFallback());
   // R3: the third, conditional path — a one-click re-anchor onto the unique text
   // candidate. It is only ever reachable while the rescue says「文本唯一匹配 ∧ 路径未变」;
@@ -307,9 +313,10 @@ export function mountL1(deps: L1Deps): L1Handle {
     // risk class (reference invalidation), so the density caliber attributes their
     // text to the risk increment instead of reading it as unrelated growth
     // (AC-V3-003 / `density-metrics.mjs#isRiskClassSource`).
-    for (const node of [refToggle, refBadge, pick]) node.setAttribute('data-ref-stale', String(bad));
-    pick.textContent = bad ? repickLabel(stale.length) : PICK_LABEL;
-    pick.setAttribute('data-repick', String(bad));
+    // V4-4 TASK-806: the retired `#l0-pick` is no longer a projection target; the
+    // stale mark now rides the chip + its badge only (the in-flow `ref` card and the
+    // status-bar risk chip are the other two projection points, ADR-V4-035).
+    for (const node of [refToggle, refBadge]) node.setAttribute('data-ref-stale', String(bad));
   };
 
   const paint = (): void => {

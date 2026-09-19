@@ -54,6 +54,8 @@ import { createToolCard, patchToolCard } from './tool.js';
 import { createThinkingCard, patchThinkingCard } from './thinking.js';
 import { answeredState, createAskuserCard, patchAskuserCard } from './askuser.js';
 import { createAuthCard, decisionState, patchAuthCard } from './auth.js';
+import { createRefCard } from './ref.js';
+import { createNextstepCard } from './nextstep.js';
 
 export { CARD_KIND_LAYER, PROCESS_CARD_TYPES, PRIMARY_CARD_TYPES, STREAM_EVENT_KINDS, formatClock };
 export type { CardDeps } from './shared.js';
@@ -72,6 +74,8 @@ export {
   createAiCard,
   createUserCard,
   createSystemCard,
+  createRefCard,
+  createNextstepCard,
   createNoticeCard,
   createErrorCard,
   createCommandCard,
@@ -85,71 +89,6 @@ export {
 
 /** 12 项 = 7 主类（前，设计契约顺序）+ 5 过程族。 */
 export const CARD_TYPES: readonly StreamEventKind[] = STREAM_EVENT_KINDS;
-
-/* ────────────────────────────────────────────────────────────────────────────
- * Skeleton factories (v4-2 renders the CONTRACT; v4-3 / v4-4 own the business)
- * ──────────────────────────────────────────────────────────────────────────── */
-
-/** A `nextstep` card: chips are commands (FR-CHAT-034 / shim B4). ≤3 clickables. */
-export function createNextstepCard(view: CardView, deps: CardDeps): HTMLLIElement {
-  const doc = deps.doc;
-  const { li, col } = createCardShell(view, deps, ['entry-assistant', 'msg', 'msg-assistant', 'msg-next'], CARD_TAG_LABELS.nextstep);
-  const chips = doc.createElement('div');
-  chips.className = 'next-chips';
-  for (const chip of view.payload.chips ?? []) {
-    const btn = doc.createElement('button');
-    btn.type = 'button';
-    btn.className = 'next-chip';
-    btn.setAttribute('data-act', 'next');
-    btn.textContent = chip;
-    btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'next', chip));
-    chips.appendChild(btn);
-  }
-  col.appendChild(chips);
-  return li;
-}
-
-/**
- * Reference card **skeleton** (valid / stale; ≤2 clickables). v4-4 owns the
- * five-dimension judgement and the re-anchor business; v4-2 renders the projection
- * contract (`data-ref-state` / `data-ref-num`, stale cards kept, number increments).
- */
-export function createRefCard(view: CardView, deps: CardDeps): HTMLLIElement {
-  const doc = deps.doc;
-  const state = view.payload.refState ?? 'valid';
-  const num = view.payload.refNum ?? 1;
-  const { li, col } = createCardShell(view, deps, ['entry-assistant', 'msg', 'msg-assistant', 'msg-ref'], CARD_TAG_LABELS.ref);
-  li.setAttribute('data-ref-state', state);
-  li.setAttribute('data-ref-num', String(num));
-  const chips = doc.createElement('div');
-  chips.className = 'ref-chips';
-  const numChip = doc.createElement('span');
-  numChip.className = 'ref-chip';
-  numChip.textContent = `#${num} ${view.payload.refLabel ?? '（引用）'}`;
-  chips.appendChild(numChip);
-  col.appendChild(chips);
-  if (state === 'stale') {
-    const why = doc.createElement('p');
-    why.className = 'ref-stale-why hint';
-    why.textContent = '目标已不在页面上（页面已变化）。';
-    col.appendChild(why);
-    const row = doc.createElement('div');
-    row.className = 'ref-actions';
-    for (const [act, label] of [
-      ['repick', '重新拾取'],
-      ['describe', '改用描述'],
-    ] as const) {
-      const btn = doc.createElement('button');
-      btn.type = 'button';
-      btn.setAttribute('data-act', act);
-      btn.textContent = label;
-      btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, act));
-      row.appendChild(btn);
-    }
-    col.appendChild(row);
-  }
-  return li;
-}
 
 /* ────────────────────────────────────────────────────────────────────────────
  * The total factory registry

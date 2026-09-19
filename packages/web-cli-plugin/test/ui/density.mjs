@@ -425,8 +425,10 @@ async function fingerprint(cdp) {
     cdp,
     `(() => JSON.stringify({
       origin: document.getElementById('status')?.textContent ?? '',
-      authorized: !document.getElementById('l0-pick')?.disabled || true,
-      pickDisabled: document.getElementById('l0-pick')?.disabled ?? null,
+      // V4-4 TASK-806: panel-side #l0-pick retired — the fingerprint tracks the settings-view
+      // guidance instead (a retired entry must not be able to flip the cell print).
+      pickGuidance: document.getElementById('pick-guidance')?.textContent ?? '',
+      pickRetired: document.getElementById('l0-pick') === null,
       onboardingHidden: document.getElementById('onboarding')?.hidden ?? null,
       discoveryHidden: document.getElementById('discovery-notice')?.hidden ?? null,
       askHidden: document.getElementById('ask')?.hidden ?? null,
@@ -780,24 +782,27 @@ async function stageC(cdp) {
       await setRisk(cdp, sub.key, 'off');
     }
   }
-  // `#l0-pick` must be disabled while unauthorized / probing (FR-V3-014)
+  // V4-4 TASK-806 (FR-V3-014 等价重锚): the panel-side `#l0-pick` is retired, so
+  //「未授权 / 探测中不得有可点的拾取入口」is now proven structurally (the element is
+  // absent) plus the readable path (the settings-view guidance + the「页面侧零注入」
+  // risk row). The intent is preserved; only the anchor moved.
   await resetFixture(cdp, { authorized: false, ask: true });
   await setRisk(cdp, 'unauthorized', 'natural');
   await sleep(200);
   const pickState = await evaluate(
     cdp,
     `(() => ({
-      unauthorized: document.getElementById('l0-pick').disabled,
-      title: document.getElementById('l0-pick').getAttribute('title'),
+      retired: document.getElementById('l0-pick') === null,
+      guidance: document.getElementById('pick-guidance') ? document.getElementById('pick-guidance').textContent : '',
       zeroInjection: (document.getElementById('risk-rail').textContent || '').includes('页面侧零注入'),
     }))()`,
   );
-  check('unauthorized 时「从页面拾取」禁用', pickState.unauthorized === true, JSON.stringify(pickState));
+  check('unauthorized 时面板侧拾取入口已退役（无假入口）', pickState.retired === true && /拾取/.test(pickState.guidance), JSON.stringify(pickState));
   check('unauthorized 时风险位明示「页面侧零注入」', pickState.zeroInjection === true, JSON.stringify(pickState));
   await setRisk(cdp, 'probing', 'force');
   await sleep(200);
-  const pickProbing = await evaluate(cdp, `document.getElementById('l0-pick').disabled`);
-  check('probing 时「从页面拾取」禁用', pickProbing === true, String(pickProbing));
+  const pickProbing = await evaluate(cdp, `document.getElementById('l0-pick') === null && /拾取/.test(document.getElementById('pick-guidance').textContent)`);
+  check('probing 时同样无可点拾取入口（页面侧零注入不变）', pickProbing === true, String(pickProbing));
 
   const worst = cells.reduce(
     (acc, cell) => ({

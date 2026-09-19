@@ -47,6 +47,56 @@ export function ordinalGlyph(refId: string): string {
   return Number.isFinite(n) && n >= 1 ? (GLYPHS[n - 1] ?? `#${n}`) : `#${refId}`;
 }
 
+/**
+ * V4-4 TASK-801 (ADR-V4-035) — the **read-only projection** of one registry record
+ * into the stream `ref` card.
+ *
+ * This is an **append-only interface**: it reads the record and returns a frozen
+ * value; it never writes the registry, never re-judges, never mints an id. The
+ * judgement / ordinal / retirement semantics of the store are therefore provably
+ * unchanged by it (the v4-3 `l1-ref-validity.test.ts` + `ref-wiring.test.ts`
+ * assertions keep passing verbatim).
+ */
+export interface RefCardProjection {
+  /** The stable business number (`ref_7` → `7`), never reused. */
+  readonly refNum: number;
+  readonly refState: 'valid' | 'stale';
+  readonly refLabel: string;
+  /** The judge's readable reason — present exactly when the reference is unusable. */
+  readonly refWhy?: string;
+  /** 选择器 / 语义路径 / 文本摘要 / 捕获时间 — the four read-only evidence rows. */
+  readonly evidence: readonly string[];
+}
+
+/** `ref_7` → `7` (`NaN`-safe: a non-conforming id projects as `0`). */
+export function refOrdinal(refId: string): number {
+  const n = Number(/^ref_(\d+)$/.exec(refId)?.[1]);
+  return Number.isFinite(n) && n >= 1 ? n : 0;
+}
+
+/** One evidence row (`标签：值`); the value is already truncated at ingestion. */
+function evidenceRow(tag: string, value: string): string {
+  return `${tag}：${value}`;
+}
+
+/** The pure projection of a record (see {@link RefCardProjection}). */
+export function projectRefCard(record: RefRecord): RefCardProjection {
+  const f = record.facts;
+  const valid = record.verdict === 'valid';
+  return Object.freeze({
+    refNum: refOrdinal(f.refId),
+    refState: valid ? 'valid' : 'stale',
+    refLabel: `${ordinalGlyph(f.refId)} ${f.selector || f.semanticPath || '（引用）'}`,
+    ...(valid ? {} : { refWhy: record.readableReason ?? '引用不可用（按失效处理）' }),
+    evidence: Object.freeze([
+      evidenceRow('选择器', f.selector || '（无）'),
+      evidenceRow('语义路径', f.semanticPath || '（无）'),
+      evidenceRow('文本摘要', f.textDigest || '（无）'),
+      evidenceRow('捕获时间', f.capturedAt ? new Date(f.capturedAt).toISOString() : '（未知）'),
+    ]),
+  });
+}
+
 /** One tracked reference: the raw facts plus the latest (re-judged) verdict. */
 export interface RefRecord {
   facts: RefFacts;
@@ -90,6 +140,11 @@ export interface RefStore {
   dispatch(refId: string, env: RefEnv): { allowed: boolean; verdict: RefVerdict; reason: string };
   /** Monotonic counter of commands actually dispatched through a reference. */
   commandSends(): number;
+  /**
+   * V4-4 TASK-801 (ADR-V4-035): the **append-only** stream projection of one
+   * record. Pure read — judgement / ordinal / retirement semantics untouched.
+   */
+  cardProjection(refId: string): RefCardProjection | undefined;
   reset(): void;
 }
 
@@ -187,6 +242,10 @@ export function createRefStore(): RefStore {
       return { allowed: true, verdict: 'valid', reason: '' };
     },
     commandSends: () => sends,
+    cardProjection(refId) {
+      const record = find(refId);
+      return record ? projectRefCard(record) : undefined;
+    },
     reset() {
       records.length = 0;
       retired.clear();

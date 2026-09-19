@@ -158,6 +158,10 @@ export const EXPECTED_AUDITED_FILES = [
   // V4-3 (TASK-709 / TASK-710): the ask/auth inflow gate (choice/text + 固化两态 +
   // AC-CHAT-016). Additive — the Chromium-gate count constant stays 9.
   'test/ui/ask-auth-inflow.mjs',
+  // V4-4 (TASK-807 / TASK-810): the recommendation / system-event / ref-card gate
+  // (chips 即指令 + pending 门控 + 系统行去噪 + 宿主清零). Additive — the Chromium-gate
+  // count constant stays 9 (ADR-V4-040 §5).
+  'test/ui/recommendation.mjs',
 ] as const;
 
 /** Gates whose red-proof is static only (see the module doc's coverage limits). */

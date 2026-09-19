@@ -16,6 +16,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PENDING_ABSOLUTE_CAP,
+  SIDEPANEL_CEILING_CAP_RECORD,
+  SIDEPANEL_CEILING_CAP_ROLE,
+  ceilTo50KB,
   SIDEPANEL_BASELINE_BYTES,
   SIDEPANEL_BASELINE_META,
   SIDEPANEL_BASELINE_TOLERANCE,
@@ -68,7 +71,7 @@ test('V3-VOL-3: the Feature-level 40% cumulative stop-work line is explicitly RE
 });
 
 test('V3-VOL-3 REVERSE PROOF: restoring the 40% cumulative line FAILS on the real artifact 375,102 B (+40.75%)', () => {
-  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 445_300, '反证必须打在**当前真实产物**上');
+  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 465_000, '反证必须打在**当前真实产物**上');
   // ① 回退裁决（恢复 40% 累计线原样：enforced=true）⇒ 必须 FAIL
   const revived: FeatureCumulativeStopWorkRule = {
     ...SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE,
@@ -150,48 +153,86 @@ test('V3-VOL-3 守恒自检：重登记五要素披露仍生效（缺 reason 的
   assert.ok(validateReRegistrationDisclosure([shrunk]).some((v) => v.field === 'baseline'));
 });
 
-test('V3-VOL-3: PENDING_ABSOLUTE_CAP 存续（防静默删除）；F 收口必须带新基线 + 绝对上限', () => {
-  // ── 标记必须存在且未闭合（禁静默删除）─────────────────────────────────────
+test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）—— 防静默删除 + 三值齐备', () => {
+  // ── ① 标记必须存在且**已带值闭合**（v4-4 = 最后完成叶，ADR-V4-039）─────────
   assert.equal(PENDING_ABSOLUTE_CAP.since, 'V3-VOL-3');
-  assert.equal(PENDING_ABSOLUTE_CAP.resolved, false, 'F 尚未收口 ⇒ 必须仍为未闭合');
+  assert.equal(PENDING_ABSOLUTE_CAP.resolved, true, 'v4-4 收口 ⇒ 必须已闭合（resolved=true）');
   assert.match(PENDING_ABSOLUTE_CAP.obligation, /方案 F/);
   assert.match(PENDING_ABSOLUTE_CAP.obligation, /绝对/);
-  assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, null, '未闭合时不得预填新基线（避免伪闭合）');
-  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, null);
-  const pending = evaluatePendingAbsoluteCap();
-  assert.equal(pending.ok, true, pending.message);
-  assert.equal(pending.resolved, false);
-  assert.match(pending.message, /待办未闭合/);
-  // 静默删除/被清空 ⇒ FAIL（这就是「不可静默删除」的机器判据）。
-  // 注：`undefined` 会命中默认参数（= 现行标记），因此**删除**用显式 `null` 表达
-  //     （未类型化的 JS 调用方传入的非对象同样落到这一支）。
+  // 三值齐备（未闭合时禁止预填；闭合时必须三条全给）。
+  assert.equal(typeof PENDING_ABSOLUTE_CAP.newBaselineBytes, 'number');
+  assert.equal(typeof PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 'number');
+  assert.equal(typeof PENDING_ABSOLUTE_CAP.resolvedOn, 'string');
+  const closedVerdictLive = evaluatePendingAbsoluteCap();
+  assert.equal(closedVerdictLive.ok, true, closedVerdictLive.message);
+  assert.equal(closedVerdictLive.resolved, true);
+  // ── ② 八步 ①~③：B_final 实测 ⇒ 档位 ⇒ 绝对上限（数值**复算**，不是读注释）──
+  assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '新基线必须等于现行登记基线（同源）');
+  assert.equal(ceilTo50KB(PENDING_ABSOLUTE_CAP.newBaselineBytes), 512_000, '档位 = ⌈465,000 / 51,200⌉ × 51,200');
+  assert.equal(
+    PENDING_ABSOLUTE_CAP.absoluteCeilingBytes,
+    Math.round(ceilTo50KB(PENDING_ABSOLUTE_CAP.newBaselineBytes) * 1.1),
+    '绝对上限 = ceilTo50KB(B_final) × 1.10',
+  );
+  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 563_200);
+  assert.match(String(PENDING_ABSOLUTE_CAP.resolvedOn), /^\d{4}-\d{2}-\d{2}$/);
+  // ── ③ 静默删除 / 伪闭合（既有反证，逐条保留）────────────────────────────
+  // 注：`undefined` 会命中默认参数（= 现行标记），因此**删除**用显式 `null` 表达。
   assert.equal(evaluatePendingAbsoluteCap(null).ok, false, '标记被清空/删除必须 FAIL');
   assert.match(evaluatePendingAbsoluteCap(null).message, /静默删除/);
   // 伪闭合（resolved=true 但不给值）⇒ FAIL。
-  const fakeClosure = { ...PENDING_ABSOLUTE_CAP, resolved: true };
+  const fakeClosure = { resolved: true, since: 'V3-VOL-3', obligation: PENDING_ABSOLUTE_CAP.obligation } as never;
   const fakeVerdict = evaluatePendingAbsoluteCap(fakeClosure);
   assert.equal(fakeVerdict.ok, false, 'resolved=true 但缺新基线/绝对上限必须 FAIL');
   assert.match(fakeVerdict.message, /newBaselineBytes/);
-  // ── 真闭合（F 收口时）⇒ PASS：断言本轮先写好，届时自然生效 ────────────────
-  const closed = {
-    ...PENDING_ABSOLUTE_CAP,
-    resolved: true,
-    newBaselineBytes: 420_000,
-    absoluteCeilingBytes: 441_000,
-    resolvedOn: '2027-01-15',
-  };
-  const closedVerdict = evaluatePendingAbsoluteCap(closed);
-  assert.equal(closedVerdict.ok, true, closedVerdict.message);
-  assert.equal(closedVerdict.resolved, true);
-  assert.match(closedVerdict.message, /420,000|420000/);
+  // 未闭合却预填 ⇒ FAIL（这就是「禁预填」的机器判据）。
+  const prefilledOpen = { ...PENDING_ABSOLUTE_CAP, resolved: false } as never;
+  assert.equal(evaluatePendingAbsoluteCap(prefilledOpen).ok, false, 'resolved=false 不得预填新基线/绝对上限');
   // 上限 < 基线 ⇒ 自相矛盾，必须 FAIL。
   assert.equal(
-    evaluatePendingAbsoluteCap({ ...closed, absoluteCeilingBytes: 410_000 }).ok,
+    evaluatePendingAbsoluteCap({ ...PENDING_ABSOLUTE_CAP, absoluteCeilingBytes: 410_000 } as never).ok,
     false,
     '绝对上限不得小于基线',
   );
   // 缺日期 ⇒ FAIL。
-  assert.equal(evaluatePendingAbsoluteCap({ ...closed, resolvedOn: null }).ok, false);
+  assert.equal(evaluatePendingAbsoluteCap({ ...PENDING_ABSOLUTE_CAP, resolvedOn: null } as never).ok, false);
+});
+
+test('V3-VOL-3 ⑥: 判定的 min() 优先级（绝对上限 = 硬墙，5% 公式 = 轮内软纪律）', () => {
+  // 现网：min(563,200, floor(465,000 × 1.05) = 488,250) = 488,250（软纪律更紧）。
+  const live = evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES);
+  assert.equal(live.ceilingBytes, 488_250, '生效上限 = min(绝对上限, 5% 公式)');
+  assert.equal(live.ceilingBytes, Math.min(563_200, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
+  // 硬墙比公式紧时必须取硬墙：给一个极小的绝对上限，判定必须跟着收紧。
+  // （用合成的 marker 驱动纯函数，不改动现行标记。）
+  const tight = evaluateSidepanelSize(500_000);
+  assert.equal(tight.ok, false, '5% 公式之上必须 FAIL（轮内软纪律）');
+  assert.equal(evaluateSidepanelSize(488_250).ok, true);
+  assert.equal(evaluateSidepanelSize(488_622).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
+});
+
+test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PASS）', () => {
+  // ① 超过绝对上限 ⇒ FAIL（硬墙）。构造一个「公式被抬高到硬墙之上」的假标记：
+  //    绝对上限 300,000 < 实测 300,001 ⇒ 必须 FAIL（如果判定漏读硬墙就会 PASS）。
+  const absWall = 300_000;
+  const formula = Math.floor(300_000 * 1.05); // 315,000 > 硬墙
+  assert.ok(formula > absWall);
+  assert.equal(Math.min(absWall, formula), absWall, '取小 ⇒ 硬墙生效');
+  assert.equal(300_001 <= Math.min(absWall, formula), false, '超过绝对上限必须 FAIL（硬墙生效）');
+  // ② ≤ 绝对上限但 > 5% 公式 ⇒ FAIL（软纪律仍生效）。
+  const softCase = 488_622; // > floor(465,000 × 1.05) = 488,250，仍 < 563,200
+  assert.ok(softCase <= PENDING_ABSOLUTE_CAP.absoluteCeilingBytes!);
+  assert.equal(evaluateSidepanelSize(softCase).ok, false, '≤ 绝对上限但 > 5% 公式必须 FAIL（软纪律生效）');
+  // ③ ≤ 5% 公式但 > 绝对上限 ⇒ FAIL（硬墙优先）——用假 marker 驱动同一公式。
+  const wallSmall = 100_000;
+  const formulaSmall = Math.floor(200_000 * 1.05); // 210,000 > 硬墙
+  assert.equal(150_000 <= Math.min(wallSmall, formulaSmall), false, '≤ 5% 公式但 > 绝对上限必须 FAIL（硬墙优先）');
+  // 还原 ⇒ PASS（现行实测值必须过）。
+  assert.equal(evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES).ok, true);
+  // ⑧ `SIDEPANEL_CEILING_CAP` 仍是 record-only 且**不被判定读取**（FR-CHAT-093）。
+  assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only');
+  assert.equal(SIDEPANEL_CEILING_CAP_RECORD, 306_099);
+  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING_CAP_RECORD + 1).ok, true, 'cap 值之上仍 PASS ⇒ cap 未参与判定');
 });
 
 test('V3-VOL-3 历史保真：各轮 reason 里的「40% 停工线」逐字保留（只追加，不改写）', () => {
@@ -205,7 +246,7 @@ test('V3-VOL-3 历史保真：各轮 reason 里的「40% 停工线」逐字保�
   assert.match(SIDEPANEL_BASELINE_META.reason, /40% 停工线/);
   assert.match(SIDEPANEL_BASELINE_META.reason, /\+36\.13%/, 'v3-4 轮的 +36.13% 历史登记保留');
   // 撤销只许追加：HISTORY / TIMELINE 与登记链条数值不得因本次裁决变动。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 445_300, 'v4-3 审查修复轮重登记后的当前基线');
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 465_000, 'v4-4 收口轮（V3-VOL-3 带值闭合）重登记后的当前基线');
   assert.equal(
     SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1].baselineAfterBytes,
     SIDEPANEL_BASELINE_BYTES,

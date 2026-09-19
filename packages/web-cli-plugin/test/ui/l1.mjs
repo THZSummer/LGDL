@@ -375,7 +375,7 @@ async function main() {
         cdp,
         `(() => {
           const row = document.querySelector('#risk-rail .risk-row[data-risk-class="staleRef"]');
-          return JSON.stringify({ exists: Boolean(row), text: row ? (row.querySelector('.risk-text')?.textContent || '').trim() : '', badge: row ? (row.querySelector('.risk-badge')?.textContent || '').trim() : '', icon: row ? Boolean(row.querySelector('.risk-icon')) : false, aria: document.getElementById('l0-ref-toggle').getAttribute('aria-disabled'), repick: document.getElementById('l0-pick').textContent });
+          return JSON.stringify({ exists: Boolean(row), text: row ? (row.querySelector('.risk-text')?.textContent || '').trim() : '', badge: row ? (row.querySelector('.risk-badge')?.textContent || '').trim() : '', icon: row ? Boolean(row.querySelector('.risk-icon')) : false, aria: document.getElementById('l0-ref-toggle').getAttribute('aria-disabled'), repick: document.querySelector('#l1-ref-repick')?.textContent ?? '' });
         })()`,
       );
       const r = JSON.parse(rail);
@@ -383,7 +383,10 @@ async function main() {
       const expected = REASON[dimension].replace('引用 1 ', `引用 ${ordinal} `);
       check(`⑦ ${dimension} → 风险位常驻该行且三通道齐备（文字+徽标+图标）`, r.exists && r.text.length > 0 && r.badge.length > 0 && r.icon, rail);
       check(`⑦ ${dimension} → 可读原因指到该维（逐字）`, r.text === expected, `${r.text} ≠ ${expected}`);
-      check(`⑦ ${dimension} → chip 标记失效 + 「从页面拾取」改写为「重新拾取」`, r.aria === 'true' && /^重新拾取/.test(r.repick), rail);
+      // V4-4 TASK-806: the retired `#l0-pick` used to be rewritten to「重新拾取」; the
+      // recovery entry is now the `#l1-ref-repick` button itself (same wording, same
+      // single production entry `requestPick()`).
+      check(`⑦ ${dimension} → chip 标记失效 + 恢复入口为「重新拾取」`, r.aria === 'true' && /^重新拾取/.test(r.repick), rail);
     }
     const crossOrigin = await judge(REF_FACTS, { ...GOOD_ENV, currentOrigin: 'https://other.test' }, RESOLVED);
     check(

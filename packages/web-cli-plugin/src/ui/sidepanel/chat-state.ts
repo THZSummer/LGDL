@@ -38,6 +38,8 @@ import {
 } from './stream-model.js';
 import type { AskCancelReason, OpenAskEntry, StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
 import { ASK_COPY, cancelSystemLine, label } from './stream-plaintext.js';
+import { appendSystem, continuedSystemText, createSystemChannelState, SYSTEM_COPY } from './system-events.js';
+import type { SystemChannelState, SystemEventKind } from './system-events.js';
 
 export { REF_ROUND_PREFIX };
 
@@ -118,6 +120,12 @@ export interface SidepanelState {
   ask: AskState | null;
   auditCount: number;
   notice?: string;
+  /**
+   * V4-4 (ADR-V4-036): the single system-event channel's dedupe / rate accounting.
+   * Carried on the state (never a module global) so two panels in one process do not
+   * share a window, and so `project()` stays replay-equivalent.
+   */
+  systemChannel: SystemChannelState;
 }
 
 /** The v1 action set — **zero deletions** (TASK-607 acceptance). */
@@ -143,7 +151,24 @@ type SidepanelActionBody =
   | { type: 'notice'; text: string }
   // ── V4-2 additions (appended branches only) ───────────────────────────────
   | { type: 'stream-session'; sessionId: string; label?: string }
-  | { type: 'stream-merge'; events: readonly StreamEvent[] };
+  | { type: 'stream-merge'; events: readonly StreamEvent[] }
+  // ── V4-4 additions (appended branches only) ───────────────────────────────
+  /**
+   * V4-4 TASK-801 (ADR-V4-035): projection of the reference registry into the
+   * stream. ONE event per reference card; `refState:'stale'` appends the failure
+   * fact and (when `systemText` is given) the readable system row. A re-pick /
+   * re-anchor is a **NEW** `ref` card (`refNum+1`) — the old card is untouched
+   * (append-only, R3 discipline).
+   */
+  | { type: 'ref'; refNum: number; refState: 'valid' | 'stale'; refLabel?: string; detail?: string; systemText?: string; why?: string; evidence?: readonly string[] }
+  /** V4-4 TASK-802/803: one merged system row through the single channel. */
+  | { type: 'system'; kind: SystemEventKind; text: string }
+  /**
+   * V4-4 TASK-805 (ADR-V4-037): mint one recommendation card. Two hard gates live
+   * HERE (not in the caller) so no producer can bypass them: `pending ⇒ no new card`
+   * and `no chips ⇒ no card` (EC-CHAT-008).
+   */
+  | { type: 'nextstep'; chips: readonly string[]; acts: readonly string[]; rule?: string };
 
 /**
  * Every action may carry `at` — the one clock the reducer is allowed to read
@@ -164,6 +189,7 @@ export function createInitialState(): SidepanelState {
     confirm: null,
     ask: null,
     auditCount: 0,
+    systemChannel: createSystemChannelState(),
   };
 }
 
@@ -305,19 +331,31 @@ function cardIdForRequest(stream: StreamState, requestId: string | undefined): s
   return undefined;
 }
 
-/** Append one **already-sanitised** system row (never a caller body). */
-function systemRow(state: SidepanelState, at: number, text: string): SidepanelState {
-  // I-01 (v4-3 review): every production `label` goes through the factory, which
-  // scans the copy at construction time (`label()` → `assertStreamPlaintext`). The
-  // factory had zero production call sites before this round, so the「生成侧工厂
-  // 约束」layer was declaration-only.
-  return push(state, { kind: 'system', ts: at, payload: { text, label: label([text]) } });
+/**
+ * Append one **already-sanitised** system row through the **single channel**
+ * (ADR-V4-036). This is the ONLY `kind: 'system'` payload construction in the
+ * reducer: every source (`notice` / `env-guard` / `site-hint` / `send-reason` /
+ * navigation invalidation / probe phase / session / decision / ref / turn) routes
+ * here, so the dedupe window + rate cap + `dropped` accounting cannot be bypassed.
+ *
+ * I-01 (v4-3 review): every production `label` goes through the factory, which
+ * scans the copy at construction time (`label()` → `assertStreamPlaintext`). v4-4
+ * additionally runs the text through {@link appendSystem}, whose ① step is the same
+ * fail-closed scan — so a pasted URL / page text throws **before** a row exists.
+ */
+function systemRow(state: SidepanelState, at: number, text: string, kind: SystemEventKind = 'notice'): SidepanelState {
+  const { channel, text: accepted, continued, rateLimited } = appendSystem(state.systemChannel, kind, text, at);
+  const next: SidepanelState = { ...state, systemChannel: channel };
+  if (accepted === null) return next;
+  const body = continued ? continuedSystemText(accepted) : accepted;
+  void rateLimited;
+  return push(next, { kind: 'system', ts: at, payload: { text: body, label: label([body]) } });
 }
 
 /** One system row per superseded card — the「不静默」half of the R1 upgrade. */
 function traceSuperseded(state: SidepanelState, at: number, superseded: readonly OpenAskEntry[]): SidepanelState {
   let out = state;
-  for (let i = 0; i < superseded.length; i += 1) out = systemRow(out, at, ASK_COPY.supersededSystem);
+  for (let i = 0; i < superseded.length; i += 1) out = systemRow(out, at, ASK_COPY.supersededSystem, 'decision');
   return out;
 }
 
@@ -357,9 +395,9 @@ function settleTurnEnd(state: SidepanelState, at: number, reason: 'timeout' | 'a
     const { state: stream, closed } = closeOpenAsks(state.stream, at, reason, (entry) => !isRefRound(entry.requestId));
     out = { ...out, stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP) };
     const line = cancelSystemLine(reason);
-    if (line) for (let i = 0; i < closed.length; i += 1) out = systemRow(out, at, line);
+    if (line) for (let i = 0; i < closed.length; i += 1) out = systemRow(out, at, line, 'turn');
   }
-  for (let i = 0; i < owned.length; i += 1) out = systemRow(out, at, ASK_COPY.turnEndRefPending);
+  for (let i = 0; i < owned.length; i += 1) out = systemRow(out, at, ASK_COPY.turnEndRefPending, 'turn');
   return out;
 }
 
@@ -368,7 +406,7 @@ function closeOpenAskCards(state: SidepanelState, at: number, reason: AskCancelR
   const { state: stream, closed } = closeOpenAsks(state.stream, at, reason);
   let out: SidepanelState = { ...state, stream: boundStreamEvents(stream, DEFAULT_STREAM_CAP) };
   const line = cancelSystemLine(reason);
-  if (line) for (let i = 0; i < closed.length; i += 1) out = systemRow(out, at, line);
+  if (line) for (let i = 0; i < closed.length; i += 1) out = systemRow(out, at, line, 'turn');
   return out;
 }
 
@@ -477,7 +515,7 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
         ...(reason ? { cancelReason: reason } : {}),
       });
       const line = action.canceled ? cancelSystemLine(action.reason ?? 'user') : null;
-      if (line) out = systemRow(out, at, line);
+      if (line) out = systemRow(out, at, line, 'decision');
       return out;
     }
     case 'confirm': {
@@ -529,6 +567,60 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
     }
     case 'stream-session':
       return { ...state, stream: switchStreamSession(state.stream, action.sessionId, action.label ?? action.sessionId) };
+    case 'notice':
+      // V4-4 TASK-803 (ADR-V4-036 §5) — the `#notice` merge, scoped to the facts the
+      // frozen fixtures do NOT already render.
+      //
+      // ⚠️ REGISTERED DEVIATION: the nav-invalidation fact (the one `#notice` the
+      // density/journey fixtures carry) rides the `nav` system row (see `reduce()`),
+      // so appending a SECOND row here would double-render the same fact and push
+      // the settled 320px fixture into overflow (`#scroll-bottom` becomes resident,
+      // which the risk-increment attribution correctly refuses). The legacy `#notice`
+      // slot therefore keeps its v1 overwrite semantics for the remaining notices
+      // (receipts / errors / hints) and is **not** duplicated into the channel.
+      return state;
+    case 'system':
+      // V4-4 (ADR-V4-036): the ONE merged channel. A source that uses this action
+      // cannot bypass the dedupe window / rate cap / `dropped` accounting.
+      return systemRow(state, at, action.text, action.kind);
+    case 'nextstep': {
+      // FR-CHAT-063: never mint a new card while a turn is pending. EC-CHAT-008:
+      // never mint an empty card (「下一步：无」is a fake recommendation).
+      if (state.pending) return state;
+      const chips = action.chips.slice(0, 3);
+      if (chips.length === 0) return state;
+      return push(state, {
+        kind: 'nextstep',
+        ts: at,
+        payload: {
+          chips,
+          nextstepActs: action.acts.slice(0, 3),
+          ...(action.rule ? { nextstepRule: action.rule } : {}),
+          label: label([action.rule ?? '下一步推荐']),
+        },
+      });
+    }
+    case 'ref': {
+      // V4-4 TASK-801 (ADR-V4-035): the reference registry's projection into the
+      // stream. `push` mints a NEW card for every event (the `ref` kind has no
+      // "same card, later state" migration), so a re-pick / re-anchor necessarily
+      // produces a new card with `refNum+1` while the old card keeps its DOM.
+      const cardId = freshCardId(state.stream, 'r');
+      const payload: StreamPayload = {
+        refNum: action.refNum,
+        refState: action.refState,
+        ...(action.refLabel !== undefined ? { refLabel: action.refLabel } : {}),
+        ...(action.why !== undefined ? { refWhy: action.why } : {}),
+        ...(action.evidence !== undefined ? { refEvidence: action.evidence } : {}),
+        ...(action.detail !== undefined ? { text: action.detail } : {}),
+        // The persisted label never carries the body (zero-plaintext): it is the
+        // structured「引用 N（有效/失效）」fact, built through the factory.
+        label: label([`引用 ${action.refNum}`, action.refState === 'valid' ? '有效' : '失效']),
+      };
+      let out = push(state, { kind: 'ref', ts: at, cardId, payload });
+      if (action.systemText) out = systemRow(out, at, action.systemText, 'ref');
+      return out;
+    }
     case 'stream-merge': {
       // Degraded rebuild from a digest: merge events that are not already present.
       // I-06 (v4-2 review): the merge is **idempotent by BOTH keys**. Deduping on
@@ -586,6 +678,25 @@ function streamBranch(state: SidepanelState, action: SidepanelAction): Sidepanel
  * (TASK-607: 12 actions zero-deleted); the stream branch only appends.
  */
 export function reduce(state: SidepanelState, action: SidepanelAction): SidepanelState {
+  // ── V4-4 TASK-803 (ADR-V4-036 §5) — REGISTERED DEFERRAL ─────────────────────
+  //
+  // The 6+ transient channels are all routed through the single `appendSystem`
+  // channel by construction (see `systemRow`), and the merge is exercisable through
+  // the `{type:'system'}` action / the `window.__v3.testing.systemRow` seam.
+  //
+  // The **automatic** merge of the two channels the frozen fixtures already render
+  // (navigation invalidation, and the legacy `#notice` overwrite slot) is
+  // deliberately NOT enabled in this build. Reason, measured: appending that one row
+  // to `#stream` pushes the settled 320px fixture across the fold, so
+  // `#scroll-bottom` becomes resident in the risk pass only. That trips two frozen
+  // judges — `evaluateDelta` (a NON-risk clickable occupying the risk-increment
+  // budget) and the cross-window determinism check — and re-anchoring either would
+  // mean changing the density caliber, which this leaf may not do.
+  //
+  // Enabling it requires (and is blocked on) a density-caliber decision:
+  // `#scroll-bottom` must be registered as a scroll affordance excluded from the
+  // incremental attribution, or the `risk@320` cell must be re-anchored. Registered
+  // in `docs/v4-supersession-ledger.json#knownLimitations[KL-V44-01]`.
   return streamBranch(reduceChat(state, action), action);
 }
 

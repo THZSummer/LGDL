@@ -12,6 +12,7 @@ import { AUTO_AUTH_DEFAULTS, autoAuthBadge, type AutoAuthSettings } from '../../
 import type { SidepanelState } from './chat-state.js';
 // V4-3 (ADR-V4-032): the open-ask ceiling is defined ONCE in the model.
 import { MAX_OPEN_ASKS } from './stream-model.js';
+import type { CardView } from './stream-model.js';
 import type { SnapshotCounts } from '../../insight/tree-model.js';
 // V3-3 (FR-V3-046): the L2 counts are derived in ONE place (`l2/counts.ts`) and
 // carried here as an opaque value — this module never invents a count of its own.
@@ -972,4 +973,76 @@ export interface DecisionRound {
 /** `已决策 N 步` — N is the round count, recomputable from the same array. */
 export function decisionHistoryLabel(n: number): string {
   return `已决策 ${Math.max(0, n)} 步`;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V4-4 TASK-807 (ADR-V4-035/036) — the stream-slice view models
+ *
+ * Pure projections over `project(state.stream)`. They exist so the panel's render
+ * path reads ONE derived shape per content class instead of re-filtering the
+ * projection ad hoc (which is how a second, drifting caliber would appear).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** One system-event row as the status bar / digest needs it (no body, no DOM). */
+export interface SystemEventRow {
+  readonly cardId: string;
+  readonly ts: number;
+  readonly text: string;
+}
+
+/** Every `system` row of the projection, in stream order (V4-4 TASK-802). */
+export function systemEventRows(views: readonly CardView[]): readonly SystemEventRow[] {
+  return Object.freeze(
+    views
+      .filter((v) => v.kind === 'system')
+      .map((v) => Object.freeze({ cardId: v.cardId, ts: v.ts, text: v.payload.text ?? v.payload.label ?? '' })),
+  );
+}
+
+/** Every `ref` card of the projection, in stream order (V4-4 TASK-801). */
+export function refCards(views: readonly CardView[]): readonly CardView[] {
+  return Object.freeze(views.filter((v) => v.kind === 'ref'));
+}
+
+/** Every `nextstep` card of the projection, in stream order (V4-4 TASK-805). */
+export function nextstepCards(views: readonly CardView[]): readonly CardView[] {
+  return Object.freeze(views.filter((v) => v.kind === 'nextstep'));
+}
+
+/** The usable / unusable reference split the recommendation producer reads (①). */
+export function refCounts(views: readonly CardView[]): { validCount: number; staleCount: number; latestRefNum?: number } {
+  let validCount = 0;
+  let staleCount = 0;
+  let latestRefNum: number | undefined;
+  for (const card of refCards(views)) {
+    if (card.payload.refState === 'stale') staleCount += 1;
+    else validCount += 1;
+    if (card.payload.refNum !== undefined) latestRefNum = card.payload.refNum;
+  }
+  return { validCount, staleCount, ...(latestRefNum !== undefined ? { latestRefNum } : {}) };
+}
+
+/**
+ * The **first-run card** view (TASK-803: `#onboarding` / `#discovery-notice` merge
+ * into one in-flow card counted in the `firstRun` tier, never mixed with `default`).
+ * `terminable` preserves the existing「已终结」condition (the same predicate that
+ * hides `#onboarding`), so the merge loses no semantic.
+ */
+export interface FirstRunCardView {
+  readonly visible: boolean;
+  readonly title: string;
+  readonly lines: readonly string[];
+  readonly terminable: boolean;
+}
+
+export function firstRunCard(onboarding: OnboardingView): FirstRunCardView {
+  const open = onboarding.visible && onboarding.currentStep !== null;
+  const current = onboarding.steps.find((s) => s.current);
+  return Object.freeze({
+    visible: open,
+    title: '首次使用：还差几步就能用了',
+    lines: Object.freeze(current ? [current.text] : []),
+    // The existing terminus: onboarding is over once it is no longer visible.
+    terminable: !open,
+  });
 }
