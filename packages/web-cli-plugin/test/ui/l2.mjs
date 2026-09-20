@@ -115,9 +115,11 @@ async function resetFixture(cdp) {
   await evaluate(cdp, `window.__v3.testing.collapseAll(); window.__v3.testing.reset(); true`);
   await evaluate(cdp, `window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令', '导出诊断']); true`);
   // The counts must be the REAL derived values before any judgement reads them.
+  // FIX-3: the toolbar summary is no longer the count string, so the readiness probe
+  // keys on the entry's own `data-count` (the badge channel) instead of the summary.
   await waitFor(
     cdp,
-    `(() => { const el = document.getElementById('l2-entry-summary'); return el && /树\\s*\\d/.test(el.textContent) ? '1' : ''; })()`,
+    `(() => { const el = document.getElementById('l2-entry-tree'); return el && /^\\d+$/.test(el.getAttribute('data-count') || '') ? '1' : ''; })()`,
     60,
     200,
   );
@@ -337,16 +339,24 @@ async function main() {
     );
     const defaultCounts = JSON.parse(await evaluate(cdp, countProbe));
     check(
-      '① 常驻一行状态栏文本不含数字（计数在入口面板摘要内 —— 默认档足迹稳定）',
+      '① 常驻一行状态栏文本不含数字（计数在四入口标签/徽标内 —— 默认档足迹稳定）',
       !/\d/.test(defaultCounts.barText ?? ''),
       defaultCounts.barText,
     );
+    // ── FIX-3（F 还原度快修轮，2026-09-20）─────────────────────────────────────
+    // `#l2-entry-summary` 由计数串改为 origin · 授权态 · 会话 digest：计数不再三处
+    // 重复（摘要 + 标签 + 徽标），收敛为两处（标签 + 徽标）。
     check(
-      '① 入口面板摘要（#l2-entry-summary）确实带四类计数（默认态即可读，无需打开）',
-      /树\s*\d/.test(defaultCounts.summary) &&
-        /命令\s*\d/.test(defaultCounts.summary) &&
-        /审计\s*\d/.test(defaultCounts.summary) &&
-        /设置\s*\d/.test(defaultCounts.summary),
+      '① 入口摘要（#l2-entry-summary）= origin · 授权态 · 会话 digest（替代旧计数串）',
+      /v3-l2\.test/.test(defaultCounts.summary) && /已授权/.test(defaultCounts.summary) && /会话/.test(defaultCounts.summary),
+      defaultCounts.summary,
+    );
+    check(
+      '① FIX-3 计数收敛为 2 处：摘要不再含四类计数（树/命令/审计/设置）',
+      !/树\s*\d/.test(defaultCounts.summary) &&
+        !/命令\s*\d/.test(defaultCounts.summary) &&
+        !/审计\s*\d/.test(defaultCounts.summary) &&
+        !/设置\s*\d/.test(defaultCounts.summary),
       defaultCounts.summary,
     );
 
@@ -485,7 +495,7 @@ async function main() {
     const before = JSON.parse(await evaluate(cdp, countProbe));
     const treeBeforeEntry = before.entries.find((e) => e.key === 'tree');
     labels.before = treeBeforeEntry?.dataCount ?? null;
-    check('③ 入口标签 ≡ data-count ≡ 面板摘要（三处同源）', threeWayJudge(before).length === 0, JSON.stringify(threeWayJudge(before)));
+    check('③ 入口标签 ≡ data-count（FIX-3：两处同源；摘要已是 origin·授权态·会话 digest）', twoWayJudge(before).length === 0, JSON.stringify(twoWayJudge(before)));
     check(
       '③ `{live, baseline}` 分列可见（两个带标签的数字，未合并）',
       /实时\s*\d+\s*卡/.test(before.entries.find((e) => e.key === 'commands')?.text ?? '') &&
@@ -521,7 +531,7 @@ async function main() {
       after.derived?.tree === Number(labels.after) && Number(labels.after) - Number(labels.before) === 1,
       JSON.stringify({ before: before.derived?.tree, after: after.derived?.tree, lb: labels.before, la: labels.after }),
     );
-    check('③ 改真值后三处同源仍成立（不是只改了显示）', threeWayJudge(after).length === 0, JSON.stringify(threeWayJudge(after)));
+    check('③ 改真值后两处同源仍成立（不是只改了显示）', twoWayJudge(after).length === 0, JSON.stringify(twoWayJudge(after)));
     check(
       '③ 审计计数来自既有通道的条目数（与视图内条目数一致）',
       typeof after.derived?.audit === 'number',
@@ -731,7 +741,7 @@ async function main() {
     );
     check('⑩ 设置分区集合 == 已登记 registry（数量与 id 逐项）', JSON.stringify(settings.sections) === JSON.stringify(registeredSectionIds()), JSON.stringify(settings.sections));
     check('⑩ 设置项集合与 v1 等价（7 个 v1 id + 迁移 details 全在）', settings.hasAllV1 === true, JSON.stringify(settings.hasAllV1));
-    check('⑩ 设置入口计数 == 渲染出的分区数（入口/摘要/视图三处同源）', String(JSON.parse(await evaluate(cdp, countProbe)).derived?.settings) === String(settings.sections.length), `${JSON.stringify(JSON.parse(await evaluate(cdp, countProbe)).derived?.settings)} vs ${settings.sections.length}`);
+    check('⑩ 设置入口计数 == 渲染出的分区数（入口标签/徽标/视图三处同源）', String(JSON.parse(await evaluate(cdp, countProbe)).derived?.settings) === String(settings.sections.length), `${JSON.stringify(JSON.parse(await evaluate(cdp, countProbe)).derived?.settings)} vs ${settings.sections.length}`);
     check('⑩ 设置视图仍由 v1 返回按钮关闭（`#settings-back` 语义未改）', Boolean(await evaluate(cdp, `!!document.getElementById('settings-back')`)), 'settings-back');
     await evaluate(cdp, `document.getElementById('settings-back').click(); true`);
     await sleep(200);
@@ -803,27 +813,29 @@ async function main() {
 }
 
 /**
- * Three-way same-source judge: the entry's own label digit ≡ its `data-count` ≡ the
- * panel summary's digit (the same rule `test/ui/l0.mjs` ⑥b enforces — kept here so a
- * count can never be right in one place and wrong in another).
+ * Two-way same-source judge: the entry's own label digit ≡ its `data-count`.
+ *
+ * FIX-3 (F 还原度快修轮, 2026-09-20): the third channel (the panel summary's digit) is
+ * gone — `#l2-entry-summary` is the origin · 授权态 · 会话 digest now, so the counts
+ * live in exactly two channels. The judgement is re-anchored, not relaxed: label and
+ * `data-count` must still agree per entry.
  */
-function threeWayJudge(snapshot) {
+function twoWayJudge(snapshot) {
   const failures = [];
-  const summaryCount = (label) => {
-    const m = new RegExp(`${label}\\s*(\\d+)`).exec(snapshot.summary ?? '');
-    return m ? Number(m[1]) : null;
-  };
-  for (const [label, key] of [['树', 'tree'], ['命令', 'commands'], ['审计', 'audit'], ['设置', 'settings']]) {
+  for (const [, key] of [['树', 'tree'], ['命令', 'commands'], ['审计', 'audit'], ['设置', 'settings']]) {
     const entry = snapshot.entries.find((e) => e.key === key);
     if (!entry || !/^\d+$/.test(String(entry.dataCount))) {
       failures.push(`${key}: data-count 不是数字（${entry?.dataCount}）`);
       continue;
     }
-    if (entry.labelCount !== Number(entry.dataCount) || Number(entry.dataCount) !== summaryCount(label)) {
-      failures.push(`${key}: 三处不同源（label=${entry.labelCount} data-count=${entry.dataCount} summary=${summaryCount(label)}）`);
+    if (entry.labelCount !== Number(entry.dataCount)) {
+      failures.push(`${key}: 两处不同源（label=${entry.labelCount} data-count=${entry.dataCount}）`);
     }
   }
   if (/\d/.test(snapshot.barText ?? '')) failures.push(`常驻一行状态栏不得含数字：${snapshot.barText}`);
+  if (/树\s*\d/.test(snapshot.summary ?? '') || /命令\s*\d/.test(snapshot.summary ?? '')) {
+    failures.push(`FIX-3：摘要不得再含计数（${snapshot.summary}）`);
+  }
   return failures;
 }
 

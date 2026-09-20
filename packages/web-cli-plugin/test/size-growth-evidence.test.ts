@@ -193,7 +193,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
   // 〖V4-4 R2〗基线 465,000 → 465,277（+277，chat-state 自动归并接线）⇒ 累计增量 169,775 → **170,052**。
-  assert.equal(b.deltaBytes, 183_796);
+  assert.equal(b.deltaBytes, 184_801);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -373,9 +373,10 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // 〖v4-4 审查修复轮〗最新一轮 = `v44ReviewfixRows`（11 行，Σ +12,846 + glue 40）；
   // 〖v4-4 快修轮（2026-09-20，review R2 I-09~I-11）〗最新一轮 = `v44I09fixRows`（1 行：
   // `sidepanel.ts` 78,892 → 79,626 = +734 B；glue 0 ⇒ Σ + 0 == 478,897 − 478,163）。
-  // 〖V4-4 收口轮（2026-09-20，F-01 + N-01~N-05）〗最新一轮 = `v44CloseoutRows`（1 行：
+  // 〖F 还原度快修轮（2026-09-20，FIX-1~FIX-4）〗最新一轮 = `fFidelityFixRows`（5 行，Σ +1,005 + glue 0）。
+  // 〖V4-4 收口轮（2026-09-20，F-01 + N-01~N-05）〗历史 = `v44CloseoutRows`（1 行：
   // `sidepanel.ts` 79,626 → 79,750 = +124 B；glue 0 ⇒ Σ + 0 == 479,021 − 478,897）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v44CloseoutRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.fFidelityFixRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -574,6 +575,8 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'v44I09fixRows', rows: b.v44I09fixRows, glue: b.v44I09fixUnattributedGlueBytes },
     // V4-4 收口轮（F-01 + N-01~N-05）：追加第 12 组（只增不减）。
     { name: 'v44CloseoutRows', rows: b.v44CloseoutRows, glue: b.v44CloseoutUnattributedGlueBytes },
+    // F 还原度快修轮（FIX-1~FIX-4）：追加第 13 组（只增不减）。
+    { name: 'fFidelityFixRows', rows: b.fFidelityFixRows, glue: b.fFidelityFixUnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -587,7 +590,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   assert.deepEqual(problems, [], `round rows 与登记值不自洽（N-05）：\n${problems.join('\n')}`);
   // 每组都必须真的被判（否则本断言可被空集合空转）。V4-4 追加第 8 组、R2 追加第 9 组、
   // 审查修复轮第 10 组、快修轮第 11 组、收口轮第 12 组（只增不减）。
-  assert.equal(groups.length, 12);
+  assert.equal(groups.length, 13);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );

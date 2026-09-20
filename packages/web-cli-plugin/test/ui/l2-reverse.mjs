@@ -96,12 +96,12 @@ const CASES = [
   },
   {
     id: 'RP-V33-03',
-    assertion: '取代台账 `v3GateFloors["test/ui/l2.mjs"]` 下界（删 5 条 `check(` ⇒ 台账必须红；v4-1 计数 72 / 下界 68）',
+    assertion: '取代台账 `v3GateFloors["test/ui/l2.mjs"]` 下界（删 6 条 `check(` ⇒ 台账必须红；F 快修轮计数 73 / 下界 68）',
     requirement: 'AC-V3-011 / AC-V3-012 · NFR-V3-013（F-01 订正后的正确调用形态 = 形态 B）',
     expectFailPattern: '67 < 台账下界 68 —— 删除断言未登记',
     expectAlsoPresent: ['--files-override '],
     note:
-      '注入：`test/ui/l2.mjs` 的**同 basename 副本**删掉 5 条 `check(`（72 → 67，低于下界 68）；**正确形态** = 直接执行测试文件（不带 `--test`）' +
+      '注入：`test/ui/l2.mjs` 的**同 basename 副本**删掉 6 条 `check(`（F 快修轮计数 73 → 67，低于下界 68；注入量随断言 +1 同步 +1，判据文本不变）；**正确形态** = 直接执行测试文件（不带 `--test`）' +
       '`node dist-test/test/supersession-ledger.test.js --files-override <副本>` —— 判据真的走 override 分支（`override ok (` 必须出现），' +
       '且失败文本必须是「运行时 check 计数 67 < 台账下界 68 —— 删除断言未登记」。真文件未改。',
   },
@@ -344,16 +344,17 @@ try {
       const copyDir = resolve(LOG_DIR, 'rp-v33-03-copy');
       mkdirSync(copyDir, { recursive: true });
       const copy = resolve(copyDir, 'l2.mjs');
-      // V4-1 等价重锚：注入量 1 → 5 条（l2.mjs 计数 72、v3 台账下界 68；删 1 条不再越界），
+      // V4-1 等价重锚：注入量 1 → 5 条（l2.mjs 计数 72、v3 台账下界 68；删 1 条不再越界）；
+      // F 还原度快修轮：l2.mjs 计数 72 → 73（toolbar 摘要 digest 新增一条断言）⇒ 注入量随之为 6（73 − 6 = 67 < 68），判据语义与文本不变。
       // 锚点改为按行取前 5 条 `check(` 调用行（不再绑定某条具体断言文本）。same basename as the ledger file, so the
       // `--files-override` seam matches it to `v3GateFloors["test/ui/l2.mjs"]`.
       const original = readFileSync(L2_GATE, 'utf8');
       const lines = original.split('\n');
       const checkLineIdx = lines.map((l, i) => (/^\s*check\(/.test(l) ? i : -1)).filter((i) => i >= 0);
-      if (checkLineIdx.length < 5) {
+      if (checkLineIdx.length < 6) {
         failures.push(`${test.id} 注入锚点不足（l2.mjs 仅 ${checkLineIdx.length} 条 check( 开头的调用行）`);
       }
-      const dropIdx = checkLineIdx.slice(0, 5);
+      const dropIdx = checkLineIdx.slice(0, 6);
       const text = lines.filter((_, i) => !dropIdx.includes(i)).join('\n');
       writeFileSync(copy, text, 'utf8');
       const checksLeft = (text.match(/\bcheck\(/g) ?? []).length;

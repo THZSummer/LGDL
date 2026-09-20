@@ -16,7 +16,7 @@ import type { CardView } from './stream-model.js';
 import type { SnapshotCounts } from '../../insight/tree-model.js';
 // V3-3 (FR-V3-046): the L2 counts are derived in ONE place (`l2/counts.ts`) and
 // carried here as an opaque value — this module never invents a count of its own.
-import { L2_VIEW_KEYS, L2_VIEW_TITLES, l2EntryCount, l2EntryLabel, l2StatusBarText } from './l2/counts.js';
+import { L2_VIEW_KEYS, L2_VIEW_TITLES, l2EntryCount, l2EntryLabel } from './l2/counts.js';
 import type { L2Counts } from './l2/counts.js';
 
 // ── F-2: LLM configuration status ─────────────────────────────────────────
@@ -342,7 +342,11 @@ const ONBOARDING_TEXTS: readonly string[] = [
   '配置模型：点击上方「⚙ 设置」，在当前面板内选择厂商并填入 API Key',
   '打开目标站点：在标签页中打开声明了 web-cli 协议的站点',
   '点击浏览器工具栏的插件图标（这是绑定的唯一触发点）：插件会绑定并发现当前站点，然后自动打开侧栏',
-  '点击下方「授权当前站点」，确认知情同意与站点权限',
+  // F 还原度快修轮 (2026-09-20): v4-4 moved `#authorize` into the settings view, so the
+  // old「点击下方「授权当前站点」」pointed at a control that is no longer below. The step
+  // names the two real entries instead: the onboarding recommendation chip (which now
+  // routes straight into the permission flow, act:'authorize') and 设置 → 站点与授权.
+  '点「下一步推荐」卡中的「授权当前站点」（或 设置 → 站点与授权），确认知情同意与站点权限',
   '在输入框输入指令并发送，开始对话',
 ];
 
@@ -760,8 +764,16 @@ export const OTHER_OPTION_LABEL = '其他…（我来描述）';
 /** Visible recommended slots. FR-V3-011 allows ≤2; V3-1 shows one (see risk-rail). */
 export const L0_VISIBLE_RECOMMENDED = 2;
 
-/** `#l0-base` label — the question the L0 decision zone always answers. */
-export const L0_KICKER = '下一步做什么';
+/**
+ * `#l0-base` label — the role name of the decision/receipt/reference slot.
+ *
+ * F 还原度快修轮 (2026-09-20): the old copy was「下一步做什么」, which competed for the
+ * same「下一步」surface as the in-stream recommendation card (`下一步推荐`). The slot is
+ * not a second recommendation — it is the resident decision / receipt / reference
+ * zone — so the kicker states that static role instead. The DOM id / class / ARIA are
+ * untouched (the gates read them).
+ */
+export const L0_KICKER = '决策 · 回执 · 引用';
 
 /** Derive the active risk classes from the app state (priority order fixed). */
 export function deriveRiskClasses(input: L0Input): L0RiskClass[] {
@@ -788,6 +800,31 @@ export function siteDisplayName(origin?: string, explicit?: string): string {
   } catch {
     return origin;
   }
+}
+
+/**
+ * F 还原度快修轮 (2026-09-20) — the **toolbar digest** (`#l2-entry-summary`).
+ *
+ * The F design pins the toolbar summary to `origin + 授权态` (the strip also carries
+ * the session label). The v3 count string (`状态：树 N · 命令 N/M · 审计 N · 设置 N`)
+ * made the counts appear **three** times on the first screen (summary + entry label +
+ * entry badge); the counts now stay in exactly the two entry channels (EC-V3-016's
+ * 「两个带标签的数字，未合并」 is untouched), and the summary becomes this digest.
+ *
+ * The inputs are the SAME state fields the band already renders
+ * (`activeOrigin` / `authorized` / `sessionLabel`) — no new truth source, and the
+ * `l2/counts.ts` single count source is not modified.
+ */
+export function toolbarDigest(input: {
+  activeOrigin?: string;
+  authorized: boolean;
+  sessionLabel?: string;
+}): string {
+  const site = input.activeOrigin && input.activeOrigin.trim() ? input.activeOrigin.trim() : '无活跃站点';
+  const auth = input.authorized ? '已授权' : '未授权';
+  const session =
+    input.sessionLabel && input.sessionLabel.trim() ? input.sessionLabel.trim() : '会话：（无活跃站点）';
+  return `${site} · ${auth} · ${session}`;
 }
 
 /**
@@ -826,21 +863,23 @@ export function l0ViewModel(input: L0Input): L0View {
   // has not been read yet the labels/`data-count`s are explicitly unknown (`n/a`),
   // never a fabricated zero (FR-V3-046).
   const l2Counts = input.l2Counts ?? null;
-  const statusbar = l2Counts
-    ? {
-        text: L2_BAR_TEXT,
-        summary: l2StatusBarText(l2Counts),
-        entries: L2_VIEW_KEYS.map((key) => ({
+  const statusbar = {
+    text: L2_BAR_TEXT,
+    // F 还原度快修轮: the summary is the origin · 授权态 · 会话 digest, NOT the count
+    // string (counts live in the entry label + badge only, exactly two channels).
+    summary: toolbarDigest({
+      activeOrigin: input.activeOrigin,
+      authorized: input.authorized,
+      sessionLabel: input.sessionLabel,
+    }),
+    entries: l2Counts
+      ? L2_VIEW_KEYS.map((key) => ({
           key: key as string,
           label: l2EntryLabel(key, l2Counts),
           count: l2EntryCount(key, l2Counts) ?? -1,
-        })),
-      }
-    : {
-        text: L2_BAR_TEXT,
-        summary: '状态：读取中…',
-        entries: L2_VIEW_KEYS.map((key) => ({ key: key as string, label: `${L2_VIEW_TITLES[key]} · …`, count: -1 })),
-      };
+        }))
+      : L2_VIEW_KEYS.map((key) => ({ key: key as string, label: `${L2_VIEW_TITLES[key]} · …`, count: -1 })),
+  };
 
   return {
     band: {

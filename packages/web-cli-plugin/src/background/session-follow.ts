@@ -99,7 +99,7 @@ export async function followActiveTab(
     deps.markStale();
     deps.notice(
       '已切换标签页：当前标签页不支持注入（浏览器内置/扩展页面或地址不可读），原绑定站点已标记失效。' +
-        '请在目标站点标签页点击插件工具栏图标，或先在侧栏「授权当前站点」。',
+        '请在目标站点标签页点击插件工具栏图标，或先在侧栏「设置 → 站点与授权」点「授权当前站点」。',
     );
     await deps.persist();
     return { action: 'stale' };
@@ -135,7 +135,7 @@ export async function followActiveTab(
   } else {
     // Auto-switch ≠ auto-authorize: the session is adopted, but we do **not**
     // inject and we do not error — the panel exposes the actionable「授权当前站点」.
-    deps.notice(`已切换到站点 ${origin} 的会话；该站点尚未授权，可点【授权当前站点】后使用站点工具。`);
+    deps.notice(`已切换到站点 ${origin} 的会话；该站点尚未授权，可在侧栏「设置 → 站点与授权」点【授权当前站点】后使用站点工具。`);
   }
 
   await deps.persist();

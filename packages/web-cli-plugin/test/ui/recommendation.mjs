@@ -16,6 +16,8 @@
  *   ⑧ 宿主清零：`[data-transitional-host]` 计数 = 0（v4 收口）
  *   ⑨ 无未捕获异常 + 零横向溢出 + 计数守恒（D-005 只增）
  *   ⑬ 首装路径（I-09 快修轮）：真·首装 ⇒ `onboarding` 规则的 nextstep 卡出现（**不经 seam**）
+ *   ⑭ FIX-1（F 还原度快修轮，2026-09-20）：授权 chip 直达授权流（本地权限流；
+ *      `act:'authorize'` → `authorizeCurrentSite()`，不产生 user 回合、不受 pending 门控）
  *
  * Serial discipline: exactly ONE Chromium instance, one page target (NFR-CHAT-009).
  */
@@ -206,6 +208,74 @@ async function main() {
     );
     const empty = JSON.parse(emptyRaw);
     check('④ 无候选 ⇒ 不生成卡（无「下一步：无」式假推荐）', empty.produced.produced === 0 && empty.cards === 0, emptyRaw);
+
+    // ══ ⑭ FIX-1（F 还原度快修轮，2026-09-20）：授权 chip 直达授权流 ═════════════
+    // 缺陷：onboarding 的「授权当前站点」chip 曾带 `act:'next'` ⇒ 把字符串当聊天消息
+    // 发给 LLM。修复后它带 `act:'authorize'` ⇒ `handleCardAction` 走本地权限流
+    // （`authorizeCurrentSite()`），**不**经 `requestTurn`、不受 `pending` 门控。
+    // 判定判据（可失败，非「消息形状」推断）：点击后 (a) 流内 user 回合数不变；
+    // (b) 出现**只有授权流会产出**的回执（`已授权 <origin>；…` 系统行）。
+    console.log('\n▶ ⑭ FIX-1：授权 chip → 权限请求路径（不产生 user 回合）');
+    const authChipRaw = await evaluate(
+      cdp,
+      `(() => {
+         window.__v3.testing.streamReset();
+         window.__v3.testing.recommend('firstRun');
+         const card = document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]');
+         const chip = card ? card.querySelector('button.next-chip[data-act="authorize"]') : null;
+         const usersBefore = document.querySelectorAll('#stream [data-msg-type="user"]').length;
+         const inputBefore = document.getElementById('input').value;
+         // The permission request is stubbed so the gate drives the REAL authorizeCurrentSite()
+         // path deterministically (headless has no native gesture-gated prompt). The stub
+         // records the requested origin pattern — the same argument the product passes.
+         const orig = chrome.permissions.request;
+         window.__authProbe = [];
+         let stubApplied = false;
+         try {
+           chrome.permissions.request = (arg) => { window.__authProbe.push(arg); return Promise.resolve(true); };
+           stubApplied = chrome.permissions.request !== orig;
+         } catch (e) { stubApplied = false; }
+         if (chip) chip.click();
+         return JSON.stringify({
+           card: Boolean(card),
+           chipText: chip ? chip.textContent : null,
+           chipAct: chip ? chip.getAttribute('data-act') : null,
+           otherActs: card ? [...card.querySelectorAll('button.next-chip')].filter((c) => c !== chip).map((c) => c.getAttribute('data-act')) : [],
+           usersBefore,
+           inputBefore,
+           stubApplied,
+         });
+       })()`,
+    );
+    const authChip = JSON.parse(authChipRaw);
+    await waitFor(
+      cdp,
+      `[...document.querySelectorAll('#stream [data-msg-type="system"]')].some((r) => /已授权/.test(r.textContent || '')) ? '1' : ''`,
+      60,
+      200,
+    );
+    const authAfterRaw = await evaluate(
+      cdp,
+      `(() => JSON.stringify({
+         users: document.querySelectorAll('#stream [data-msg-type="user"]').length,
+         input: document.getElementById('input').value,
+         authorizedNotice: [...document.querySelectorAll('#stream [data-msg-type="system"]')].some((r) => /已授权/.test(r.textContent || '')),
+         probe: window.__authProbe ?? [],
+       }))()`,
+    );
+    const authAfter = JSON.parse(authAfterRaw);
+    check('⑭ 首装卡存在「授权当前站点」chip 且 act=authorize（闭集扩为 4）', authChip.card === true && authChip.chipAct === 'authorize' && String(authChip.chipText).includes('授权当前站点'), authChipRaw);
+    check('⑭ 同卡的「了解 6 个页面手势」仍是 next（闭集扩展不误伤回合 chip）', authChip.otherActs.length >= 1 && authChip.otherActs.every((a) => a === 'next'), authChipRaw);
+    check('⑭ 权限请求探针已装入（stub 生效，判定非空转）', authChip.stubApplied === true, authChipRaw);
+    check('⑭ 点击授权 chip 不产生 user 回合（授权不是聊天消息）', authAfter.users === authChip.usersBefore, `${authChipRaw} | ${authAfterRaw}`);
+    check('⑭ 点击授权 chip 不把文本复制进输入框', authAfter.input === '' && authChip.inputBefore === '', `${authChipRaw} | ${authAfterRaw}`);
+    check('⑭ 点击授权 chip 走权限请求路径（产出「已授权 <origin>」回执）', authAfter.authorizedNotice === true, authAfterRaw);
+    check(
+      '⑭ 授权 chip 真的发起站点权限请求（chrome.permissions.request 收到 activeOrigin 的匹配式）',
+      Array.isArray(authAfter.probe) && authAfter.probe.length === 1 && JSON.stringify(authAfter.probe[0]).includes('v4-4.test'),
+      authAfterRaw,
+    );
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
 
     // ── ⑦ 引用卡（有效 / 失效 / 两条恢复路径） ───────────────────────────────
     console.log('\n▶ ⑦ 引用卡：有效=证据层只读；失效=原因 + 两条恢复路径 + 兜底默认收起');

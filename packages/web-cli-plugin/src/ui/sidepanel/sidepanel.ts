@@ -224,6 +224,15 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     revealAskFallback();
     return;
   }
+  if (action === 'authorize') {
+    // F 还原度快修轮 (2026-09-20): an authorization is a LOCAL browser-permission flow,
+    // not a turn — it goes through the SAME single entry the settings-view `#authorize`
+    // button uses (`authorizeCurrentSite()`), never `requestTurn`, and is not gated on
+    // `pending` (same rationale as `repick`). Before this branch the onboarding chip
+    // shipped `act:'next'`, so「授权当前站点」was sent to the LLM as a chat message.
+    authorizeCurrentSite();
+    return;
+  }
   dispatch({ type: 'notice', text: `该卡片的「${action}」交互将在 v4-3 / v4-4 落地（本叶只固化契约）` });
   void cardId;
 }
@@ -255,6 +264,42 @@ function requestTurn(text: string): boolean {
   }
   void send(makeMessage('chat', { user: trimmed }));
   return true;
+}
+
+/**
+ * F 还原度快修轮 (2026-09-20) — the **ONE panel-side authorize production entry**.
+ *
+ * Until this round the flow lived only inside the `#authorize` click listener. The
+ * onboarding recommendation chip now carries `act:'authorize'` (the recommendation
+ * vocabulary gained the act because authorization is a browser-permission flow, not
+ * a chat message), so the flow had to become a named single entry: the settings-view
+ * button and the chip call THIS function, and nothing else reaches
+ * `requestOriginPermissionDetailed`.
+ *
+ * Semantics are byte-for-byte the previous button handler: the optional host
+ * permission is requested **inside the user gesture** (IMP-4 / FR-006), best-effort —
+ * OriginStore authorization is the authoritative gate; the readable reason (D-064)
+ * states the activeTab fallback explicitly. No new permission is introduced (the
+ * manifest / permission set is untouched — this is the existing flow, re-exposed).
+ */
+function authorizeCurrentSite(): void {
+  const origin = state.activeOrigin;
+  if (!origin) return;
+  void (async () => {
+    // Request the optional host permission inside the user gesture (IMP-4 /
+    // FR-006); best-effort — OriginStore authorization is the authoritative gate.
+    // D-064: keep the readable reason and state the activeTab fallback explicitly.
+    const req = await requestOriginPermissionDetailed(origin);
+    await send(makeMessage('authorize', { origin, hostPermissionGranted: req.granted }));
+    dispatch({ type: 'state', authorized: true });
+    const permissionText = req.granted
+      ? `已获得站点访问权限（${req.pattern}）`
+      : `未获得持久站点权限（${req.reason ?? '未知原因'}），回退到 activeTab 临时授权——仅在点击插件图标的手势内有效`;
+    dispatch({
+      type: 'notice',
+      text: `已授权 ${origin}；${permissionText}。${consentSummary()}`,
+    });
+  })();
 }
 
 /** The business key of an ask/auth stream card (never a DOM guess). */
@@ -2643,25 +2688,7 @@ function wire(): void {
     updateScrollHint();
   });
 
-  $('authorize').addEventListener('click', () => {
-    const origin = state.activeOrigin;
-    if (!origin) return;
-    void (async () => {
-      // Request the optional host permission inside the user gesture (IMP-4 /
-      // FR-006); best-effort — OriginStore authorization is the authoritative gate.
-      // D-064: keep the readable reason and state the activeTab fallback explicitly.
-      const req = await requestOriginPermissionDetailed(origin);
-      await send(makeMessage('authorize', { origin, hostPermissionGranted: req.granted }));
-      dispatch({ type: 'state', authorized: true });
-      const permissionText = req.granted
-        ? `已获得站点访问权限（${req.pattern}）`
-        : `未获得持久站点权限（${req.reason ?? '未知原因'}），回退到 activeTab 临时授权——仅在点击插件图标的手势内有效`;
-      dispatch({
-        type: 'notice',
-        text: `已授权 ${origin}；${permissionText}。${consentSummary()}`,
-      });
-    })();
-  });
+  $('authorize').addEventListener('click', () => authorizeCurrentSite());
 
   $('revoke').addEventListener('click', () => {
     const origin = state.activeOrigin;

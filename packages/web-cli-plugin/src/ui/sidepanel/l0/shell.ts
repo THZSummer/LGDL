@@ -19,7 +19,7 @@
  */
 import type { DisclosureController } from '../disclosure.js';
 import type { L2Counts, L2ViewKey } from '../l2/counts.js';
-import { OTHER_OPTION_LABEL, l0ViewModel, moreOptionsLabel } from '../view-model.js';
+import { L0_KICKER, OTHER_OPTION_LABEL, l0ViewModel, moreOptionsLabel } from '../view-model.js';
 import type { L0Input, L0View } from '../view-model.js';
 import { setAskFallbackOpen } from '../cards/askuser.js';
 import { renderRiskRail } from './risk-rail.js';
@@ -160,8 +160,11 @@ export function mountL0(deps: MountL0Deps): L0Handle {
       summary.setAttribute('title', view.band.origin ? `完整 origin：${view.band.origin}` : '无活跃站点');
     }
 
-    // ③ decision card
-    kicker.textContent = view.decision.visible ? '下一步做什么' : '下一步做什么（等待任务）';
+    // ③ decision slot
+    // F 还原度快修轮 (2026-09-20): the kicker states the slot's static role
+    // (`决策 · 回执 · 引用`) instead of competing with the in-stream「下一步推荐」card.
+    // The element id / class / ARIA and the surrounding DOM are unchanged.
+    kicker.textContent = L0_KICKER;
     // ③ disclosure chrome (`#l0-more` + the folded-options pool) — the ONE writer.
     applyMore(view);
     applyMoreOptions(view);

@@ -105,7 +105,8 @@ const SYSTEM_PROMPT =
   '(which tool failed and the readable reason) — never gloss over a failure or say ' +
   'there is nothing to report. If the failure reason says the target origin is not ' +
   'authorized (web-fetch refuses instead of sending a CORS-blocked request), tell ' +
-  'the user to click the extension icon on that site tab and choose「授权当前站点」' +
+  'the user to open the side panel on that site tab and click「授权当前站点」' +
+  '(Settings → Site & authorization, or the next-step recommendation card)' +
   '(or use tabs open) and then retry.';
 
 interface Singletons {
@@ -696,7 +697,7 @@ async function init(): Promise<Singletons> {
           return {
             state: 'unknown',
             blocked: true,
-            reason: '该站点尚未授权：插件不会注入探测脚本；请点击「授权当前站点」，授权后将自动探测。',
+            reason: '该站点尚未授权：插件不会注入探测脚本；请点侧栏「设置 → 站点与授权」中的「授权当前站点」（或「下一步推荐」卡中的「授权当前站点」），授权后将自动探测。',
           };
         }
         const injected = await ensureContentScript(tabId);

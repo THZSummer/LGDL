@@ -32,6 +32,7 @@ import test from 'node:test';
 import {
   MAX_CHIPS_PER_CARD,
   MAX_NEXTSTEP_CARDS_PER_ROUND,
+  NEXTSTEP_ACTS,
   NEXTSTEP_MIN_INTERVAL_MS,
   NEXTSTEP_PRIORITY,
   NEXTSTEP_SOURCE_WHITELIST,
@@ -240,4 +241,41 @@ test('④ 安全边界（C3 修复）：候选含**任一**被拦 next chip ⇒ 
     baseInput({ ref: { validCount: 0, staleCount: 1 }, deniedCommands: local.chips.map((c) => c.text) }),
   );
   assert.equal(r2.cards.length, 1, '本地动作（repick/describe）不得被 deny 集误伤');
+});
+
+// ── FIX-1（F 还原度快修轮，2026-09-20）─────────────────────────────────────────
+
+test('FIX-1 act 闭集扩为 4：授权是本地动作（不进回合命令闭集）', () => {
+  assert.deepEqual([...NEXTSTEP_ACTS], ['next', 'repick', 'describe', 'authorize']);
+  // The onboarding rule's authorization chip must carry the local act — shipping
+  // `next` is exactly the defect this fix removes (the string was sent to the LLM).
+  const onboarding = candidateRules(
+    baseInput({
+      ref: { validCount: 0, staleCount: 0 },
+      site: { authorized: false, trust: 'untrusted' },
+      probe: { phase: 'idle', steady: false },
+      onboarding: { firstRun: true, pendingSteps: ['授权当前站点'] },
+    }),
+  ).find((c) => c.rule === 'onboarding');
+  assert.ok(onboarding, '前置：首装态必须产出 onboarding 候选');
+  const authChip = onboarding.chips.find((c) => c.text.includes('授权当前站点'));
+  assert.ok(authChip, 'onboarding 卡必须含「授权当前站点」chip');
+  assert.equal(authChip.act, 'authorize', 'FIX-1：授权 chip 的 act 必须是 authorize，不得是 next');
+  // 「了解 6 个页面手势」仍是回合命令（它确实要 LLM 讲）。
+  assert.equal(onboarding.chips.find((c) => c.text.includes('页面手势'))?.act, 'next');
+});
+
+test('FIX-1 deny 集只命名回合命令：授权 chip 的文本即使出现在 deny 集也不误伤本地动作', () => {
+  const input = baseInput({
+    ref: { validCount: 0, staleCount: 0 },
+    site: { authorized: false, trust: 'untrusted' },
+    probe: { phase: 'idle', steady: false },
+    onboarding: { firstRun: true, pendingSteps: ['授权当前站点'] },
+    deniedCommands: ['授权当前站点'],
+  });
+  // The card also carries a `next` chip (「了解 6 个页面手势」) which is NOT denied,
+  // so the onboarding card survives; the authorize chip itself is never deny-checked.
+  const r = recommendNextStep(input);
+  assert.equal(r.cards.length, 1, '授权是本地动作，deny 集不得据此整卡拦下');
+  assert.equal(r.cards[0].rule, 'onboarding');
 });

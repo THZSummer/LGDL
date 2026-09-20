@@ -144,7 +144,15 @@ export function l2EntryCount(key: L2ViewKey, counts: L2Counts): number | null {
   }
 }
 
-/** One-line status-bar summary — the same numbers as the entries (single source). */
+/**
+ * One-line count summary — the same numbers as the entries (single source).
+ *
+ * F 还原度快修轮 (2026-09-20): `#l2-entry-summary` no longer renders this string — the
+ * toolbar summary is the `origin · 授权态 · 会话` digest (`view-model.ts#toolbarDigest`)
+ * and the counts live in exactly two channels (each entry's label + badge). The
+ * function is kept as the count source's own readable projection and stays the
+ * subject of `test/l2-counts.test.ts`; nothing in the production panel calls it.
+ */
 export function l2StatusBarText(counts: L2Counts): string {
   const commands =
     counts.commands.baseline === null

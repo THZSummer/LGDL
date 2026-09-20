@@ -13,13 +13,13 @@
  *   ③ `footer#region-statusbar`连接状态一行 + `#risk-chips > #risk-rail` + `#risk-detail`
  *
  * The **semantic contract is preserved, not relaxed** — same intents, re-anchored:
- *   · ① 三件事同屏（我在哪 / 谁在管我 / 下一步做什么）→ 摘要 + 决策卡 + 状态栏
+ *   · ① 三件事同屏（我在哪 / 谁在管我 / 决策·回执·引用）→ 摘要 + 决策槽 + 状态栏（FIX-4）
  *   · ② 唯一决策卡 + ≤2 推荐选项 + 可重算的「更多选项（还有 N 个）」
  *   · ③ 默认屏无可见常驻输入框（法四；`#composer` 存在时必须 `hidden`）
  *   · ④ 五类风险 × 2 场景（默认可见 ∧ 全部折叠后仍可见）= 10 条
  *   · ⑤ 风险位祖先闭包无 hidden / 无折叠容器 / 无折叠触发器（AC-V3-009）
  *   · ⑥ 全部 `[aria-controls]` 元素的成对 ARIA + per-target 语义 + 可发现性
- *   · ⑦ FR-V3-015 计数三处同源（入口标签 ≡ `data-count` ≡ 摘要）+ 内联反证
+ *   · ⑦ FR-V3-015 计数两处同源（入口标签 ≡ `data-count`；FIX-3：摘要改为 origin·授权态·会话 digest，不再重复计数）+ 内联反证
  *   · ⑧ 320/400 常驻元素集合相等 + 文档级零水平溢出（AC-V3-021）
  *   · ⑨ 几何：三区两两不重叠 · `#stream` 是唯一面板级滚动容器 · 流区高度占比
  *        ≥ `STREAM_HEIGHT_RATIO_MIN`（v4 取代 v3 的「#log ≥488px」像素锚）
@@ -342,7 +342,7 @@ async function main() {
     check('③ ① 我在哪 / 谁在管我（.site-summary 只读摘要）默认态可见', skeleton.summaryVisible === true);
     // V4-3 (TASK-707): the v4-3 transitional host is retired (count = 0); the ask card
     // now lives directly in the stream, so `#l0-decision` no longer sits under a host.
-    check('③ ③ 下一步做什么（#l0-decision）默认态可见且在流内（v4-3 占位宿主已退役）', skeleton.decisionVisible === true && skeleton.decisionInStream === true && skeleton.hostAttr === null, JSON.stringify({ v: skeleton.decisionVisible, inStream: skeleton.decisionInStream, host: skeleton.hostAttr }));
+    check('③ ③ 决策槽（#l0-decision）默认态可见且在流内（v4-3 占位宿主已退役；FIX-4：kicker 改为非竞争语义）', skeleton.decisionVisible === true && skeleton.decisionInStream === true && skeleton.hostAttr === null, JSON.stringify({ v: skeleton.decisionVisible, inStream: skeleton.decisionInStream, host: skeleton.hostAttr }));
     check('③ 一行状态栏（#region-statusbar）默认态可见（J1）', skeleton.statusbarVisible === true);
     check('③ 摘要文字含 origin 站点名（可读，非纯图标）', skeleton.summaryText.includes('v3-l0.test'), skeleton.summaryText.slice(0, 80));
     check('③ 默认态决策卡数 = 1（唯一决策卡）', skeleton.decisionCards === 1, String(skeleton.decisionCards));
@@ -742,8 +742,8 @@ async function main() {
     );
     check('⑧b 反证（对照段）：未注入 / 还原后判据必须为空', ariaViolations(ariaFail.before).length === 0 && ariaViolations(ariaFail.after).length === 0, ariaFailRaw);
 
-    // ══ ⑨ FR-V3-015：四入口计数三处同源 + 内联反证 ══════════════════════════
-    console.log('\n▶ ⑨ FR-V3-015：四入口计数同源（标签 ≡ data-count ≡ 摘要）+ 反证');
+    // ══ ⑨ FR-V3-015：四入口计数两处同源（标签 ≡ data-count）+ 摘要 digest + 内联反证 ══
+    console.log('\n▶ ⑨ FR-V3-015：四入口计数同源（标签 ≡ data-count）+ FIX-3 摘要 digest + 反证');
     const l2ProbeExpr = `(() => {
       const entries = ${JSON.stringify(TOOLBAR_ENTRY_KEYS)}.map((key) => {
         const btn = document.getElementById('l2-entry-' + key);
@@ -768,16 +768,12 @@ async function main() {
     })()`;
     const l2CountJudge = (l2) => {
       const failures = [];
-      const summaryCount = (label) => {
-        const m = new RegExp(`${label}\\s*(\\d+)`).exec(l2.summary ?? '');
-        return m ? Number(m[1]) : null;
-      };
       if (l2.entries.length !== 4 || l2.entries.some((e) => e.missing === true)) failures.push('工具栏入口数 ≠ 4');
       for (const [label, key] of [['树', 'tree'], ['命令', 'commands'], ['审计', 'audit'], ['设置', 'settings']]) {
         const entry = l2.entries.find((e) => e.key === key);
         if (!/^\d+$/.test(String(entry?.dataCount))) failures.push(`${key}: data-count 不是数字（${entry?.dataCount}）`);
-        else if (entry.labelCount !== Number(entry.dataCount) || Number(entry.dataCount) !== summaryCount(label)) {
-          failures.push(`${key}: 三处不同源（label=${entry?.labelCount} data-count=${entry?.dataCount} summary=${summaryCount(label)}）`);
+        else if (entry.labelCount !== Number(entry.dataCount)) {
+          failures.push(`${key}: 两处不同源（label=${entry?.labelCount} data-count=${entry?.dataCount}）`);
         }
       }
       const settingsCount = Number(l2.entries.find((e) => e.key === 'settings')?.dataCount);
@@ -787,13 +783,30 @@ async function main() {
     const l2Raw = await evaluate(cdp, l2ProbeExpr);
     const l2Parsed = JSON.parse(l2Raw);
     check('⑨ 常驻一行状态栏文本不含数字（计数在入口面板摘要内，默认档足迹稳定）', !/\d/.test(l2Parsed.barText ?? ''), JSON.stringify(l2Parsed.barText));
+    // ── FIX-3（F 还原度快修轮，2026-09-20）──────────────────────────────────────
+    // 摘要从计数串改为 origin · 授权态 · 会话 digest；计数收敛为**两处**（入口标签 +
+    // 徽标）。旧断言（摘要含四类计数）与它守护的「三处同源」一起被新语义取代：
+    // 摘要不再重复计数，而入口标签 ≡ data-count 仍然逐项机对（EC-V3-016 不合并）。
     check(
-      '⑨ 工具栏摘要（#l2-entry-summary）确实带着四类计数（不是空的摘要）',
-      /树\s*\d/.test(l2Parsed.summary ?? '') && /命令\s*\d/.test(l2Parsed.summary ?? '') && /审计\s*\d/.test(l2Parsed.summary ?? '') && /设置\s*\d/.test(l2Parsed.summary ?? ''),
+      '⑨ 工具栏摘要（#l2-entry-summary）= origin · 授权态 · 会话 digest（非计数串）',
+      /v3-l0\.test/.test(l2Parsed.summary ?? '') && /已授权/.test(l2Parsed.summary ?? '') && /会话/.test(l2Parsed.summary ?? ''),
+      JSON.stringify(l2Parsed.summary),
+    );
+    check(
+      '⑨ FIX-3 计数收敛为 2 处：摘要不再含四类计数（树/命令/审计/设置）',
+      !/树\s*\d/.test(l2Parsed.summary ?? '') &&
+        !/命令\s*\d/.test(l2Parsed.summary ?? '') &&
+        !/审计\s*\d/.test(l2Parsed.summary ?? '') &&
+        !/设置\s*\d/.test(l2Parsed.summary ?? ''),
       JSON.stringify(l2Parsed.summary),
     );
     const l2Failures = l2CountJudge(l2Parsed);
-    check('⑨ FR-V3-015 4 个工具栏入口**各带真值计数**（入口标签 ≡ data-count ≡ 摘要，三处同源）', l2Failures.length === 0, `${JSON.stringify(l2Failures)} | ${l2Raw}`);
+    check('⑨ FR-V3-015 4 个工具栏入口**各带真值计数**（入口标签 ≡ data-count，两处同源）', l2Failures.length === 0, `${JSON.stringify(l2Failures)} | ${l2Raw}`);
+    check(
+      '⑨ FIX-3 每入口的计数恰以两通道出现（.view-label 数字 + .badge 数字，各有标签）',
+      l2Parsed.entries.every((e) => Number.isInteger(e.labelCount) && String(e.dataCount).length > 0),
+      JSON.stringify(l2Parsed.entries.map((e) => [e.key, e.labelCount, e.dataCount])),
+    );
     const slotsOk = l2Parsed.entries.every((e) => e.slot === 'view');
     check('⑨ 四个工具栏入口的 data-toolbar-slot 全为 view（准入分类单源）', slotsOk === true, JSON.stringify(l2Parsed.entries.map((e) => [e.key, e.slot])));
     await evaluate(
@@ -812,11 +825,12 @@ async function main() {
     const l2TrueTreeCount = l2Before.entries.find((e) => e.key === 'tree')?.dataCount ?? '';
     await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', '99'); true`);
     const l2Tampered = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
-    check('⑨ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「三处同源」判据必须检出', l2Tampered.some((f) => f.includes('tree')), JSON.stringify(l2Tampered));
+    check('⑨ FR-V3-015 反证（FAIL 段）：篡改 data-count → 「两处同源」判据必须检出', l2Tampered.some((f) => f.includes('tree')), JSON.stringify(l2Tampered));
     check('⑨ FR-V3-015 反证用的真值确实来自运行期派生（不是 0 / 不是空值）', /^\d+$/.test(String(l2TrueTreeCount)) && Number(l2TrueTreeCount) > 0, `tree data-count=${l2TrueTreeCount} | ${JSON.stringify(l2Before.entries)}`);
     await evaluate(cdp, `document.getElementById('l2-entry-tree').setAttribute('data-count', ${JSON.stringify(String(l2TrueTreeCount))}); true`);
     const l2Restored = l2CountJudge(JSON.parse(await evaluate(cdp, l2ProbeExpr)));
     check('⑨ FR-V3-015 反证（还原段）：还原真值后判据必须再次为空', l2Restored.length === 0, JSON.stringify(l2Restored));
+
 
     const reach = await evaluate(
       cdp,

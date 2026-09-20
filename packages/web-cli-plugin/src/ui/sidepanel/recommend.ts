@@ -109,12 +109,19 @@ export interface RecommendInput {
 /**
  * What a chip does when clicked. `'next'` = **issue a turn** through the same
  * production entry as the composer (`requestTurn`); `'repick'` = the local page-side
- * pick (`requestPick`); `'describe'` = reveal the card's free-text fallback. The two
- * local acts are NOT turn commands (ADR-V4-038 §5) — keeping them in one closed
- * vocabulary is what lets the wiring gate assert「chips 即指令」without pretending a
- * pick is a chat message.
+ * pick (`requestPick`); `'describe'` = reveal the card's free-text fallback;
+ * `'authorize'` = the local browser-permission flow (`authorizeCurrentSite`).
+ *
+ * The three local acts are NOT turn commands (ADR-V4-038 §5) — keeping them in one
+ * closed vocabulary is what lets the wiring gate assert「chips 即指令」without
+ * pretending a pick / an authorization is a chat message.
+ *
+ * F 还原度快修轮 (2026-09-20): `'authorize'` was added because the onboarding rule's
+ * 「授权当前站点」chip used to be `'next'`, i.e. the string was sent to the LLM as a
+ * chat message while authorization is really a browser-permission flow. The chip now
+ * reaches the ONE panel-side authorize entry (the same one `#authorize` calls).
  */
-export const NEXTSTEP_ACTS = Object.freeze(['next', 'repick', 'describe'] as const);
+export const NEXTSTEP_ACTS = Object.freeze(['next', 'repick', 'describe', 'authorize'] as const);
 export type NextstepAct = (typeof NEXTSTEP_ACTS)[number];
 
 export interface NextstepChip {
@@ -197,7 +204,9 @@ export function candidateRules(input: RecommendInput): readonly NextstepCandidat
   if (input.onboarding.firstRun && input.onboarding.pendingSteps.length > 0) {
     out.push(
       candidate('onboarding', [
-        { text: '授权当前站点', act: 'next' },
+        // F 还原度快修轮: the authorization is a browser-permission flow, not a turn —
+        // `act: 'authorize'` routes the click through `authorizeCurrentSite()`.
+        { text: '授权当前站点', act: 'authorize' },
         { text: '了解 6 个页面手势', act: 'next' },
       ]),
     );

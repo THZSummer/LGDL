@@ -154,7 +154,7 @@ export function untrustedOriginGuidance(origin: string, url: string): string {
     '原因：扩展页面（chrome-extension://）与站点是不同源，Chrome 对未授予 host 权限的域名会以 CORS 拦截扩展发出的跨源请求。' +
       '因此本次「未发出任何网络请求」——不会在 chrome://extensions 产生 CORS 错误条目。',
     '可执行指引：',
-    `① 在该站点标签页点击浏览器工具栏的插件图标 → 点「授权当前站点」（写入站点权限 ${pattern}）→ 返回侧栏重试本命令；`,
+    `① 在该站点标签页点击浏览器工具栏的插件图标（绑定站点）→ 在侧栏「设置 → 站点与授权」点「授权当前站点」，或点「下一步推荐」卡中的「授权当前站点」（写入站点权限 ${pattern}）→ 返回侧栏重试本命令；`,
     `② 或先用 \`tabs open --url ${url}\` 打开该站点并授权，再由站点工具/页面上下文读取其内容（同源相对路径优先走页面上下文）。`,
   ].join('\n');
 }
