@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "feature": "specs-tree-web-cli-plugin-v45-f-regularization",
+    "featureKey": "specs-tree-web-cli-plugin-v45-f-regularization",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-21",
+    "version": "1.0.0",
+    "scope": "总览（不承接执行）",
+    "sourcePlan": "父 plan.md v1.0（跨切契约 / ADR-V45-001~012 索引 / 五波序 ADR-V45-012）+ 唯一叶 plan.md v1.0（12 ADR 正文）",
+    "sourceSpec": "父 spec.md v1.0（FR-V45-001~093 / NFR-V45-001~008 / EC-V45-001~013 / AC-V45-001~022 / NG-V45-001~017 / §11 37 条元素去向）+ 唯一叶 spec.md v1.0",
+    "totalTasks": 19,
+    "totalWaves": 5,
+    "complexity": { "S": 2, "M": 6, "L": 11 },
+    "deviation": {
+      "id": "ADR-V4-001 承接 / 父 spec §12.1",
+      "desc": "父 Feature 定位为轻量规范容器（不承接 tasks/build/review/validate、不产出 tasks.json）；本轮按编排器指令产出**总览型** tasks（无一条可执行任务），偏差显式登记、可整篇作废而不牵连叶子"
+    },
+    "numbering": {
+      "namespace": "TASK-V45-1xx",
+      "leafBlocks": { "v45-1": "TASK-V45-101~119" },
+      "leafAliases": { "v45-1": "V451-01~19" },
+      "conflictCheck": "grep -rn \"TASK-V45\" .sddu/ = 0（本轮实测）；与 v1 TASK-001~040 / v2 2xx~3xx / v3 4xx / v4 5xx~8xx 零冲突"
+    }
+  },
+  "leaves": [
+    {
+      "leafKey": "specs-tree-v45-1-single-write-chronology",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/",
+      "position": 1,
+      "isOnly": true,
+      "tasks": "TASK-V45-101~119（19）",
+      "waves": "W1~W5",
+      "size": { "S": 2, "M": 6, "L": 11 },
+      "spikes": ["TASK-V45-102", "TASK-V45-103"],
+      "commitIntervals": { "A": "W1", "B": "W2", "C": "W3", "D": "W4+W5（原子）" },
+      "artifacts": ["spec.md", "plan.md", "tasks.md", "tasks.json", "state.json", "TREE.md"],
+      "note": "唯一叶 = v4.5 的实施承载（44 FR / 22 AC 全部）；父不另立任务"
+    }
+  ],
+  "crossLeafOrder": {
+    "structure": "single-leaf",
+    "order": ["specs-tree-v45-1-single-write-chronology"],
+    "note": "单叶无跨叶依赖；叶内波次 = 唯一执行序（叶 tasks.md §1 关键路径）"
+  },
+  "waveSummary": [
+    { "wave": "W1", "name": "门禁脚手架 / 断言预迁移", "tasks": ["TASK-V45-101", "TASK-V45-102", "TASK-V45-103"], "count": 3, "interval": "A" },
+    { "wave": "W2", "name": "strips 单写", "tasks": ["TASK-V45-104", "TASK-V45-105", "TASK-V45-106"], "count": 3, "interval": "B" },
+    { "wave": "W3", "name": "宿主退役 + 元素迁移", "tasks": ["TASK-V45-107", "TASK-V45-108", "TASK-V45-109", "TASK-V45-110", "TASK-V45-111", "TASK-V45-112"], "count": 6, "interval": "C" },
+    { "wave": "W4", "name": "门禁重算 + journey 取代 + 密度", "tasks": ["TASK-V45-113", "TASK-V45-114", "TASK-V45-115", "TASK-V45-116"], "count": 4, "interval": "D" },
+    { "wave": "W5", "name": "收尾", "tasks": ["TASK-V45-117", "TASK-V45-118", "TASK-V45-119"], "count": 3, "interval": "D" }
+  ],
+  "checkpoints": [
+    { "id": "CP-V45-1", "after": "W1（区间 A）", "criteria": "3 个新 node 门禁骨架 + EXPECTED_AUDITED_FILES 追加 + CHROMIUM_GATES 保持 9；2 个 spikeGate 结论产出（keep-feasible / eight-steps-feasible 或上报）" },
+    { "id": "CP-V45-2", "after": "W2（区间 B）", "criteria": "emitter 唯一 + 5 条提示带 DOM 真退役 + 15 门禁 44 处引用重写（≥原值）+ 载体数 == 1 + 4 组反证" },
+    { "id": "CP-V45-3", "after": "W3（区间 C）", "criteria": "#stream 零宿主 + 纯卡序；卡内化 / L2 承载块 / composer 出流 / disclosure 三声明 / 零宿主判据 / recovery 扩展全部到位（终态 DOM）" },
+    { "id": "CP-V45-4", "after": "W4（区间 D 前半）", "criteria": "journey 新 pin + supersessionChain 链式可机核；binding 保段双判据绿；11 处门禁计数 ≥ 基线且无恒绿判据；density 31 格 v45Ledger 逐格留痕" },
+    { "id": "CP-V45-5", "after": "W5（区间 D 收口）", "criteria": "体积五要素（direction）+ 三值同源 + 档位不下移；24 门禁串行全绿；红线逐字节；人工面逐项标注；收口文档 4 项治理动作登记" }
+  ],
+  "orchestratorRequirements": [
+    { "req": "按 W1~W5 五波展开（ADR-V45-012）", "satisfied": true, "where": "叶 tasks.md §1 / §4 + 父 §1" },
+    { "req": "任务编号 TASK-V45-101 起", "satisfied": true, "where": "TASK-V45-101~119（零冲突实测）" },
+    { "req": "每任务：标题/输入/动作/产出/验收（可机核）/依赖/风险/规模", "satisfied": true, "where": "叶 tasks.md §2 每任务块 + tasks.json tasks[]" },
+    { "req": "覆盖面 ①~⑭ 全含", "satisfied": true, "where": "叶 tasks.md §3.1 + 父 §3 + tasks.json coverageMap" },
+    { "req": "并行度标注（可并行 / 严格串行；门禁串行纪律不变）", "satisfied": true, "where": "叶 tasks.md §1 关键路径 + §4 策略表 + tasks.json parallelizable / waves[].strategy" },
+    { "req": "spikeGate 先验闸门标出", "satisfied": true, "where": "TASK-V45-102（→114）/ TASK-V45-103（→113）" },
+    { "req": "每任务「红线检查点」三段清单（触冻界面 / 阈值面 / 台账面）", "satisfied": true, "where": "叶 tasks.md §0.1 代号表 + 每任务红线检查点块 + tasks.json redlineLegend / tasks[].redlines" },
+    { "req": "W4+W5 原子区间", "satisfied": true, "where": "叶 §0.4 / §4 + tasks.json meta.commitIntervals.D" },
+    { "req": "父+叶 tasks.md + tasks.json", "satisfied": true, "where": "父（总览）+ 叶（19 任务正文）" },
+    { "req": "state.json = tasked + TREE 更新", "satisfied": true, "where": "父/叶 state.json phase=tasked；TREE 经 sddu-tree 定向更新" }
+  ],
+  "testConservationTotals": {
+    "gateCount": 24,
+    "newGates": ["test/host-registry.test.ts", "test/local-act-wiring.test.ts", "test/settings-help.test.ts"],
+    "chromiumGates": { "before": 9, "after": 9, "note": "保持等值 9" },
+    "lowerBounds": {
+      "npmTest": 1001, "journey": 167, "insight": 116, "binding": 192, "l0": 223, "l1": 111, "l2": 74,
+      "density": 175, "hardening": 24, "pageInput": 106, "stream": 63, "askAuth": 61, "recommendation": 56,
+      "supersession": 33, "gateIntegrity": 12, "zeroInjection": 27, "sizeRulingVol3": 10, "designContract": 6,
+      "l1Reverse": 9, "l2Reverse": 10, "refPickWiring": 11
+    },
+    "rule": "计数只增不减；唯一例外 = 保护段显式八步取代（登记 modifiedRanges[] / redlineRemap[]）"
+  },
+  "crossCutRedlines": {
+    "inherited": "N1~N18（父 plan §2.4）",
+    "frozenSurfaces": "T1~T10（父 plan §2.5）",
+    "mapFile": "父 tasks.md §4（红线 → 守线任务）"
+  },
+  "stoppingRules": [
+    { "trigger": "binding 段前等长补偿不可行", "at": ["TASK-V45-102", "TASK-V45-114"], "action": "停下上报；获批后走显式取代（链式八步）；禁静默改 pin" },
+    { "trigger": "journey 新 pin 无法命中 / 链断", "at": ["TASK-V45-103", "TASK-V45-113"], "action": "回八步 ①~④；不得改 v3 台账" },
+    { "trigger": "净减 > 19,225 B 或 size > ceiling", "at": ["TASK-V45-118"], "action": "停下上报（禁静默改三值 / 禁故意增重）" },
+    { "trigger": "任一密度登记格 C1/C2 > 阈值", "at": ["TASK-V45-116"], "action": "停下上报（阈值零放宽）" },
+    { "trigger": "反证恒绿", "at": ["TASK-V45-106", "TASK-V45-111", "TASK-V45-115", "TASK-V45-116"], "action": "重写注入点；仍不能红 ⇒ 判据无效并上报" },
+    { "trigger": "KL-N-10 首轮异常", "at": ["TASK-V45-114", "TASK-V45-119"], "action": "隔离复跑 ≥2；仍红如实登记不阻塞收口" }
+  ],
+  "blockers": [
+    { "id": "BLK-V45-1", "type": "spike-gate", "task": "TASK-V45-114", "desc": "TASK-V45-102 结论 = report-to-orchestrator ⇒ 不得开工" },
+    { "id": "BLK-V45-2", "type": "spike-gate", "task": "TASK-V45-113", "desc": "TASK-V45-103 链式谓词须不破 v3 严格判据" },
+    { "id": "BLK-V45-3", "type": "serial-discipline", "task": "TASK-V45-115/116/119", "desc": "Chromium 门禁严格串行（一次一个）" },
+    { "id": "BLK-V45-4", "type": "atomicity", "task": "TASK-V45-113~119", "desc": "W4+W5 同一 commit 区间（R-V45-109）" },
+    { "id": "BLK-V45-5", "type": "stop-and-report", "task": "TASK-V45-116/118", "desc": "密度越阈 / 体积过界 ⇒ 停下上报" },
+    { "id": "BLK-V45-6", "type": "external", "task": "TASK-V45-119", "desc": "人工面 headless 不可合成 ⇒ 如实标注 ⏳ 未执行（V45-P-014）" }
+  ],
+  "unfilledPoints": [
+    { "id": "V45-P-012", "status": "pending-measurement", "owner": "TASK-V45-116" },
+    { "id": "V45-P-013", "status": "pending-measurement", "owner": "TASK-V45-118" },
+    { "id": "V45-P-014", "status": "pending-human", "owner": "TASK-V45-119" },
+    { "id": "V45-P-015", "status": "ruled-by-plan", "owner": "TASK-V45-112", "ruling": "RECOVERY_CHIP_ORDER 规则表（site/probe 首项 = rebind；渲染前取 ≤3）" }
+  ],
+  "artifacts": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/state.json"
+  ],
+  "note": "父总览：单叶 Feature（唯一叶 = 实施承载）；19 任务 / 5 波 / 4 提交区间（A W1 / B W2 / C W3 / D W4+W5 原子）；2 spikeGate；24 门禁守恒（新增 3 node 门禁，CHROMIUM_GATES 保持 9）。父文档不含可执行任务。"
+}

@@ -1,0 +1,441 @@
+{
+  "meta": {
+    "feature": "V4.5-1 单写化 + 宿主时间序化（父：specs-tree-web-cli-plugin-v45-f-regularization）",
+    "featureKey": "specs-tree-v45-1-single-write-chronology",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-21",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V45-001~012 全部正文 + §5 文件影响 63 项 + §6 风险）+ 父 plan.md v1.0（跨切契约 / N1~N18 红线 / T1~T10 不动面 / 五波序 ADR-V45-012）",
+    "sourceSpec": "父 spec.md v1.0（FR-V45-010~093 / NFR-V45-001~008 / EC-V45-001~013 / AC-V45-001~022 / NG-V45-001~017 / §11 37 条元素去向）+ 本叶 spec.md v1.0 §4~§8",
+    "taskCount": 19,
+    "waveCount": 5,
+    "complexity": { "S": 2, "M": 6, "L": 11 },
+    "typeBreakdown": { "implementation": 9, "gate": 8, "spike": 2, "doc": 0, "human": 0 },
+    "numbering": { "namespace": "TASK-V45-1xx", "globalBlock": "TASK-V45-101~119", "leafAlias": "V451-01~19", "conflictCheck": "grep -rn \"TASK-V45\" .sddu/ = 0（本轮实测）；与 v1 TASK-001~040 / v2 2xx~3xx / v3 4xx / v4 5xx~8xx 零冲突" },
+    "templateDeviation": {
+      "id": "模板 §8 建议 5~15 个任务",
+      "actual": 19,
+      "reason": "编排器明定「按 W1~W5 五波展开」且覆盖面必含 ①~⑭ 共 14 项（其中 W3 独占 6 项：宿主退役 + decision 壳 / l1-panels / composer / host-registry / recovery）；过并会破坏「每任务独立可验证」。与 v2/v3/v4 叶子先例（9~17 任务）同量级。plan §8.1 估 ~52~58 工作项 ⇒ 本轮按「独立可验证交付物」聚合为 19 原子任务（平均 ≈3 工作项/任务）"
+    },
+    "covers": "FR-V45-001~004 / 010~015 / 020~026 / 030~033 / 040~042 / 050~052 / 060~062 / 070~074 / 080~084 / 090~093（AC-V45-001~022 全部锚点）",
+    "commitIntervals": {
+      "A": { "wave": 1, "tasks": ["TASK-V45-101", "TASK-V45-102", "TASK-V45-103"], "note": "门禁脚手架 + 断言预迁移 + 2 个 spikeGate（探针不入版本库）" },
+      "B": { "wave": 2, "tasks": ["TASK-V45-104", "TASK-V45-105", "TASK-V45-106"], "note": "strips 单写；完成前不得跑 journey/density 收口判据" },
+      "C": { "wave": 3, "tasks": ["TASK-V45-107", "TASK-V45-108", "TASK-V45-109", "TASK-V45-110", "TASK-V45-111", "TASK-V45-112"], "note": "宿主退役 + 元素迁移（终态 DOM）" },
+      "D": { "wave": "4+5", "tasks": ["TASK-V45-113", "TASK-V45-114", "TASK-V45-115", "TASK-V45-116", "TASK-V45-117", "TASK-V45-118", "TASK-V45-119"], "atomic": true, "note": "W4+W5 单一原子区间：终态 DOM + 新 pin + 密度台账 + 体积登记 + 门禁日志必须一次落盘；失败整区间回滚重跑（R-V45-109）" }
+    }
+  },
+  "redlineLegend": {
+    "frozen": {
+      "F1": "design/** + option-f-shim.mjs 双 sha256 零触碰；CARD_TYPES 12 项零扩展",
+      "F2": "src/content/** / dist/content.js (177,076 B / 52a82620…) / dist/pick-layer.js (33,900 B / 5f567d7e…) 零改动",
+      "F3": "SW / KIND_SET / 判定链内容哈希 / manifest.json（零权限、无 contextMenus）零改动",
+      "F4": "docs/v3-supersession-ledger.json 零 diff + zeroDiffFiles 其余 8 项逐字节不变",
+      "F5": "packages/web-cli-base/** / .opencode/opencode.json / ROADMAP.md / F-29 零改动；兼容读取面 id 保留"
+    },
+    "thresholds": {
+      "T-a": "密度阈值 7/15 · 9/20 · 17/35 + DENSITY_EXCLUDED_SUBTREES=['#stream'] + perCardBudget/防滥用 + registeredCells 31 → 零 diff",
+      "T-b": "STREAM_HEIGHT_RATIO_MIN=0.65（只上调）+ logClientHeightFloor + streamRatioSpike —— 门槛不动、锚点可换",
+      "T-c": "SIDEPANEL_CEILING == floor(baseline×1.05)（无 cap）；CAP 保持 record-only 不被读取；档位不下移（460,801 ≤ b）；absoluteCeilingBytes=563,200；authorConfirmation=pending-author-line",
+      "T-d": "单通道 4 规则常量逐字（5000 / 20 / 「持续：」/ 净化白名单）",
+      "T-e": "MAX_CHIPS_PER_CARD=3 / NEXTSTEP_SOURCE_WHITELIST 7 项零扩项 / RECOMMEND_MODULE_WHITELIST / deny 集仅作用于 act==='next'"
+    },
+    "ledgers": {
+      "L-a": "docs/v4-supersession-ledger.json（protectedRanges / supersessionChain / protectedSupersession / modifiedRanges[] / redlineRemap[] / entries[] / unfrozenZeroDiffFiles[] / leafBases[] / v3Vol3Closeout）",
+      "L-b": "docs/v4-density-baseline.json（v45Ledger / riskIncrementRegistry 4 溯源字段 / 夹具锚说明）",
+      "L-c": "test/size-baseline.ts 五要素 + _HISTORY + _TIMELINE + SIDEPANEL_RE_REGISTRATIONS + SIDEPANEL_GROWTH_BREAKDOWN"
+    }
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-V45-101", "TASK-V45-102", "TASK-V45-103"], "strategy": "T101 落盘骨架；T102/T103 并行只读探针（spikeGate，临时目录不入版本库）", "interval": "A" },
+    { "wave": 2, "tasks": ["TASK-V45-104", "TASK-V45-105", "TASK-V45-106"], "strategy": "严格串行（emitter 唯一 → DOM 退役 → 断言重写）", "interval": "B" },
+    { "wave": 3, "tasks": ["TASK-V45-107", "TASK-V45-108", "TASK-V45-109", "TASK-V45-110", "TASK-V45-111", "TASK-V45-112"], "strategy": "严格串行（index.html / sidepanel.ts / view-model.ts / l0.mjs 四文件共享）", "interval": "C" },
+    { "wave": 4, "tasks": ["TASK-V45-113", "TASK-V45-114", "TASK-V45-115", "TASK-V45-116"], "strategy": "T114 ∥ T115（文件不相交）；T113 须后于 journey 重锚；T116 须后于终态 DOM + build 记体积", "interval": "D" },
+    { "wave": 5, "tasks": ["TASK-V45-117", "TASK-V45-118", "TASK-V45-119"], "strategy": "T117 实现可与 W4 并行准备（复跑进串行队列）；T118 依赖 T116 体积值；T119 末位收口", "interval": "D (atomic with W4)" }
+  ],
+  "criticalPath": ["TASK-V45-101", "TASK-V45-104", "TASK-V45-105", "TASK-V45-106", "TASK-V45-107", "TASK-V45-108", "TASK-V45-109", "TASK-V45-110", "TASK-V45-111", "TASK-V45-112", "TASK-V45-115", "TASK-V45-113", "TASK-V45-116", "TASK-V45-118", "TASK-V45-119"],
+  "parallelizable": [
+    { "set": ["TASK-V45-102", "TASK-V45-103", "TASK-V45-101"], "note": "只读探针与门禁骨架文件不相交" },
+    { "set": ["TASK-V45-114", "TASK-V45-115"], "note": "binding.mjs 与 11 处门禁文件不相交；台账 L-a 写入与 Chromium 门禁仍串行" },
+    { "set": ["TASK-V45-117", "TASK-V45-113"], "note": "options 独立文件，可与 W4 并行准备；test:zero-injection 复跑须进串行门禁队列" }
+  ],
+  "spikes": [
+    { "id": "TASK-V45-102", "kind": "spikeGate", "topic": "binding 段前字节中立避让可行性", "gates": "TASK-V45-114", "decision": ["keep-feasible", "report-to-orchestrator"], "stoppingRule": "不可行 ⇒ 停下上报（获批复走 binding pin 显式取代链式八步，禁静默改 pin）" },
+    { "id": "TASK-V45-103", "kind": "spikeGate", "topic": "journey #15a~#15q 同编号等价改写 + 链式 superseder 查找预演", "gates": "TASK-V45-113", "decision": ["eight-steps-feasible", "report-to-orchestrator"], "stoppingRule": "链式谓词不破 v3 严格判据方可开工；否则回八步 ①~④ 并上报（禁改 v3 台账）" }
+  ],
+  "coverageMap": {
+    "1": { "item": "host-registry 零宿主断言 + RETIRED 扩容", "tasks": ["TASK-V45-111", "TASK-V45-107"] },
+    "2": { "item": "5 通道 DOM 真退役 + 15 门禁 44 处 id 引用断言重写（数量 ≥ 原值）", "tasks": ["TASK-V45-105", "TASK-V45-106", "TASK-V45-104"] },
+    "3": { "item": "decision 壳元素迁移（选项池/后果预演 → askuser·auth 卡；receipt → 固化区；ref 证据 + 三恢复按钮 → ref 卡）", "tasks": ["TASK-V45-108", "TASK-V45-109"] },
+    "4": { "item": "l1-panels 4 开关去向（局部树 → L2 树视图 / 历史退役 + 计数入审计标题 / 回执 → 审计 / 手势 → 设置帮助分区）", "tasks": ["TASK-V45-109", "TASK-V45-112"] },
+    "5": { "item": "composer 迁 body 尾", "tasks": ["TASK-V45-110"] },
+    "6": { "item": "journey supersessionChain 第二次八步取代", "tasks": ["TASK-V45-113", "TASK-V45-103"] },
+    "7": { "item": "binding 字节中立避让 + 段外迁移", "tasks": ["TASK-V45-114", "TASK-V45-102"] },
+    "8": { "item": "density 31 格重算 + 台账 + v45Ledger", "tasks": ["TASK-V45-116"] },
+    "9": { "item": "risk-recovery 扩展（site/probe + rebind/help，act 6 项 + 布线门禁）", "tasks": ["TASK-V45-112"] },
+    "10": { "item": "options 解冻 + 文案订正", "tasks": ["TASK-V45-117"] },
+    "11": { "item": "体积五要素双向登记", "tasks": ["TASK-V45-118"] },
+    "12": { "item": "l0 / l1 / disclosure / system-merge 断言重写", "tasks": ["TASK-V45-115", "TASK-V45-111", "TASK-V45-110"] },
+    "13": { "item": "反证重写（注入点随形态搬迁）", "tasks": ["TASK-V45-115", "TASK-V45-106", "TASK-V45-111", "TASK-V45-113", "TASK-V45-114", "TASK-V45-116"] },
+    "14": { "item": "文档收尾", "tasks": ["TASK-V45-119"] },
+    "w1": { "item": "W1 门禁脚手架 / 断言预迁移", "tasks": ["TASK-V45-101", "TASK-V45-102", "TASK-V45-103"] }
+  },
+  "testConservation": {
+    "baselineSource": "父 state.json#domainBaseline.gateCountsAfterFFidelityFix（f-fidelity-fix §2 / v4-chat closeout §4）",
+    "npmTest": { "baseline": 1001, "expected": ">=1001" },
+    "l0": { "baseline": 223, "expected": ">=223", "mode": "⑧ EXPECTED_TRIGGERS 重锚 + ⑩ 结构集合去 l0-decision + 零宿主结构性判据" },
+    "l1": { "baseline": 111, "expected": ">=111", "mode": "②⑫ 展开几何 / 往返 → 卡内 / 视图内" },
+    "l2": { "baseline": 74, "expected": ">=74", "mode": "审计证据区 / 帮助分区三方同源 + 树归因块可达" },
+    "density": { "baseline": 175, "expected": ">=175", "mode": "31 格重算 + 夹具三重构造判据（两轮实测）" },
+    "journey": { "baseline": 167, "expected": ">=167", "mode": "保护段第二次八步同编号等价改写（只增）" },
+    "insight": { "baseline": 116, "expected": ">=116", "mode": "文本读取点改流内行 / firstRunCard" },
+    "binding": { "baseline": 192, "expected": ">=192", "mode": "段前字节中立 + 段后等价改写；KL-N-10 隔离复跑 ≥2" },
+    "hardening": { "baseline": 24, "expected": ">=24", "mode": "#env-guard 三断言 → 流内行" },
+    "pageInput": { "baseline": 106, "expected": ">=106", "mode": "L1 面板引用 → 卡作用域 / 视图承载块" },
+    "stream": { "baseline": 63, "expected": ">=63", "mode": "纯卡序 + 唯一非卡子节点显式登记" },
+    "askAuth": { "baseline": 61, "expected": ">=61", "mode": "卡内选项池 / 后果预演 / 固化区新锚点" },
+    "recommendation": { "baseline": 56, "expected": ">=56", "mode": "⑬⑭ 重锚 + act:'help' 零回合 + site/probe 恢复卡" },
+    "supersession": { "baseline": 33, "expected": ">=33", "mode": "链式 superseder 查找 + supersessionChain schema（只增）" },
+    "gateIntegrity": { "baseline": 12, "expected": ">=12", "mode": "EXPECTED_AUDITED_FILES 追加 3 项；CHROMIUM_GATES 保持 9" },
+    "zeroInjection": { "baseline": 27, "expected": ">=27", "mode": "options 解冻复跑 + title 净化反证" },
+    "sizeRulingVol3": { "baseline": 10, "expected": ">=10", "mode": "档位不下移闸门（newBaselineBytes >= 460,801）" },
+    "designContract": { "baseline": 6, "expected": ">=6", "mode": "零触碰 design/** ⇒ 恒绿" },
+    "l1Reverse": { "baseline": 9, "expected": ">=9", "mode": "注入点随形态搬迁重写" },
+    "l2Reverse": { "baseline": 10, "expected": ">=10", "mode": "注入点随形态搬迁重写" },
+    "refPickWiring": { "baseline": 11, "expected": ">=11", "mode": "ref 卡内唯一调用点（条件触碰）" },
+    "newGates": ["test/host-registry.test.ts", "test/local-act-wiring.test.ts", "test/settings-help.test.ts"]
+  },
+  "serialGates": {
+    "count": 24,
+    "policy": "严格串行、一次一个 Chromium（finally 自清 profile）；test / test:ui / test:binding 绝不并发；日志 tee 全量 /tmp/opencode/v45-gate-logs/（禁截断）",
+    "order": ["typecheck", "build", "test", "test:supersession", "test:gate-integrity", "test:zero-injection", "test:design-contract", "test:page-input", "test:l0", "test:l1", "test:l2", "test:density", "test:ui", "test:insight", "test:binding", "test:hardening", "test:e2e", "test:stream", "test:ask-auth", "test:recommendation", "test:ref-pick-wiring", "test:size-ruling-vol3", "test:l1-reverse", "test:l2-reverse"]
+  },
+  "tasks": [
+    {
+      "id": "TASK-V45-101", "alias": "V451-01", "wave": 1, "size": "M", "type": "gate",
+      "title": "门禁脚手架三件套 + 受审集合追加 + 计数只增对账表",
+      "deps": [], "adr": ["ADR-V45-012", "ADR-V45-010", "ADR-V45-007", "ADR-V45-008"], "risks": ["R-REG-011", "R-REG-009"],
+      "parallelWith": ["TASK-V45-102", "TASK-V45-103"],
+      "input": "plan ADR-V45-012 §1 + §5.2（3 NEW 门禁）+ §2.1 A28/A29",
+      "acceptance": [
+        "CHROMIUM_GATES.length === 9（等值断言未改）",
+        "EXPECTED_AUDITED_FILES ⊇ 3 个新门禁且原集合为子集（只追加）",
+        "3 个新文件各导出 ≥1 判据函数 + 每条判据有 expectFailPattern 字面",
+        "对账表覆盖 18 门禁且每行「目标下界 ≥ 基线」"
+      ],
+      "redlines": { "frozen": ["F1", "F2", "F3", "F4", "F5"], "thresholds": ["T-a", "T-b", "T-c", "T-d", "T-e"], "ledgers": ["L-a", "L-b", "L-c"], "note": "台账只读，本任务不写入" },
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w1-node.log"]
+    },
+    {
+      "id": "TASK-V45-102", "alias": "V451-02", "wave": 1, "size": "S", "type": "spike",
+      "title": "spikeGate-A：binding 段前字节中立避让可行性探针",
+      "deps": [], "adr": ["ADR-V45-005"], "risks": ["R-V45-102", "R-REG-002"],
+      "parallelWith": ["TASK-V45-101", "TASK-V45-103"],
+      "gate": { "gates": "TASK-V45-114", "decision": ["keep-feasible", "report-to-orchestrator"], "stoppingRule": "不可行 ⇒ 停下上报（禁静默改 pin）" },
+      "input": "ADR-V45-005 §2；protectedRanges[1]（107780..115930 / be9ad0e9…）；binding.mjs:896 / :2256 / :880",
+      "acceptance": [
+        "报告含量化预算 availablePreSegmentBytes ≥ |ΔbyteLength|",
+        "模拟后 byteOffsetOf(startAnchor) === 107780 成立（或给出明确不可行证据）",
+        "结论为二值之一且带证据；git status --short 零输出（探针不入版本库）",
+        "binding.mjs:880 panelNotice 未被识别为迁移点"
+      ],
+      "redlines": { "frozen": ["F1", "F2", "F3", "F4", "F5"], "thresholds": ["T-a", "T-b", "T-c", "T-d", "T-e"], "ledgers": ["L-a"], "note": "禁止改 pin" },
+      "verify": ["node /tmp/opencode/v45-spike/binding-byteline-probe.mjs | tee /tmp/opencode/v45-gate-logs/w1-spike-binding.log", "git status --short"]
+    },
+    {
+      "id": "TASK-V45-103", "alias": "V451-03", "wave": 1, "size": "S", "type": "spike",
+      "title": "spikeGate-B：journey #15a~#15q 等价改写 + 链式 superseder 查找预演",
+      "deps": [], "adr": ["ADR-V45-004"], "risks": ["R-REG-001", "R-V45-108"],
+      "parallelWith": ["TASK-V45-101", "TASK-V45-102"],
+      "gate": { "gates": "TASK-V45-113", "decision": ["eight-steps-feasible", "report-to-orchestrator"], "stoppingRule": "链式谓词不破 v3 严格判据方可开工" },
+      "input": "ADR-V45-004 §3/§5；test/supersession-ledger.test.ts:699-740；journey pin 43054..55259 / e2b500df…",
+      "acceptance": [
+        "链式谓词对 v3 pin（6b45c3fa…）与 v4-1 pin（e2b500df…）均命中",
+        "段内新 sha 与 startByte/endByte 可复算（给出复算值）",
+        "supersessionChain 最小 schema 5 字段齐备；链连续性/覆盖/同源 4 条断言草案成文",
+        "git status --short 零输出"
+      ],
+      "redlines": { "frozen": ["F4"], "thresholds": ["T-b"], "ledgers": ["L-a"], "note": "仅预演，schema 草案不落盘至台账" },
+      "verify": ["node /tmp/opencode/v45-spike/journey-supersede-probe.mjs | tee /tmp/opencode/v45-gate-logs/w1-spike-journey.log", "git status --short"]
+    },
+    {
+      "id": "TASK-V45-104", "alias": "V451-04", "wave": 2, "size": "L", "type": "implementation",
+      "title": "STRIP_CHANNEL_KINDS 重构 + appendSystem 单写收口 + #send-reason 保留",
+      "deps": ["TASK-V45-101"], "adr": ["ADR-V45-001"], "risks": ["R-REG-010"],
+      "input": "ADR-V45-001 §7；host-registry.ts:107-114 / :74-76；system-events.ts 4 规则常量",
+      "acceptance": [
+        "每个 channel 恰 1 个 emitter 调用点（源文本抽取机核）",
+        "每条绑定 carrierCount === 1",
+        "#send-reason 仍是 #region-statusbar 后代",
+        "system-events.ts 零 diff（4 规则常量逐字）",
+        "源文本 ALSO append-recorded 零命中"
+      ],
+      "redlines": { "frozen": ["F5"], "thresholds": ["T-a", "T-b", "T-d"], "ledgers": ["L-a"], "note": "登记旧判据 → 新语义映射" },
+      "verify": ["git diff --stat -- packages/web-cli-plugin/src/ui/sidepanel/system-events.ts", "npm run typecheck --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-V45-105", "alias": "V451-05", "wave": 2, "size": "L", "type": "implementation",
+      "title": "5 条提示带 DOM 真退役 + firstRunCard 归并 + title 净化承载",
+      "deps": ["TASK-V45-104"], "adr": ["ADR-V45-001"], "risks": ["R-V45-104", "R-REG-901", "R-REG-005"],
+      "input": "ADR-V45-001 §1~5；父 spec §11；index.html:1335-1345 + :1381-1389；view-model.ts#firstRunCard",
+      "acceptance": [
+        "5 个退役 id getElementById === null；#stream 子树零 [data-host=\"strips\"]",
+        "首屏三事实（env/site/probe）各恰 1 个可见载体",
+        "terminable / !open 谓词在位；欢迎卡 ≤1 / 首屏卡 ≤2 / 文案 ≤8 行",
+        "title 净化反证：注入 ?token=… ⇒ 抛错",
+        "0 计数控件停渲染（FIX-5 消解）；#send-reason 仍在状态栏"
+      ],
+      "redlines": { "frozen": ["F2", "F3", "F5"], "thresholds": ["T-a", "T-d"], "ledgers": ["L-a"], "note": "登记退役条目 + 承载块 newTitle 可定位" },
+      "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "npm run test:zero-injection --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w2-zero-injection.log"]
+    },
+    {
+      "id": "TASK-V45-106", "alias": "V451-06", "wave": 2, "size": "L", "type": "gate",
+      "title": "strips 15 门禁 / 44 处 id 引用断言重写（≥原值）+ 载体数 == 1 + 4 组反证",
+      "deps": ["TASK-V45-105"], "adr": ["ADR-V45-001"], "risks": ["R-REG-005", "R-V45-104", "R-V45-106"],
+      "input": "ADR-V45-001 §6；迁移量预登记（15 文件 / 44 处）；notice 同名语义白名单",
+      "acceptance": [
+        "逐文件引用点数量 ≥ 原值，合计 ≥44（计数表）",
+        "每个退役 id 处同时有「节点为 null」与「载体恰 1」双断言",
+        "4 组反证逐组实跑：注入 ⇒ FAIL（expectFailPattern）→ 逐字节 sha256 还原 ⇒ PASS",
+        "白名单 9 文件 git diff --stat 零行",
+        "归并矩阵新语义 3 条断言在位（唯一 emitter / 载体数 == 1 / #send-reason 仍在）"
+      ],
+      "redlines": { "frozen": ["F4", "F5"], "thresholds": ["T-a", "T-d"], "ledgers": ["L-a"], "note": "每处改写登记 modifiedRanges[]（newTitle 可定位、reason ≥ 40）" },
+      "verify": ["npm run test:ui --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w2-journey.log", "npm run test:hardening --workspace @lgdl/web-cli-plugin", "npm run test:insight --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-V45-107", "alias": "V451-07", "wave": 3, "size": "M", "type": "implementation",
+      "title": "messageAnchor 迁移（→ null）+ 4 宿主 DOM 移除 + #stream 纯卡序",
+      "deps": ["TASK-V45-106"], "adr": ["ADR-V45-002"], "risks": ["R-REG-906"],
+      "input": "ADR-V45-002 §1-2；stream-render.ts:69-71 / :78-93；plan §2.1 A1/A2/A3",
+      "acceptance": [
+        "#stream 子树内 [data-host] / [data-transitional-host] 计数 == 0（任意深度）",
+        "#stream > li 全部带 data-msg-type",
+        "唯一非卡子节点 = p.log-empty-text（显式登记）；反证：注入其他子节点 ⇒ 红",
+        "assertChromeNotInStream() 成立；反证：注入 .view-btn ⇒ 抛错"
+      ],
+      "redlines": { "frozen": ["F5"], "thresholds": ["T-a", "T-b"], "ledgers": ["L-a"], "note": "登记 4 宿主退役条目" },
+      "verify": ["npm run test:stream --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w3-stream.log"]
+    },
+    {
+      "id": "TASK-V45-108", "alias": "V451-08", "wave": 3, "size": "L", "type": "implementation",
+      "title": "decision 壳元素卡内化（ref 卡 / askuser·auth 卡 / receipt 固化区）",
+      "deps": ["TASK-V45-107"], "adr": ["ADR-V45-002"], "risks": ["R-V45-103"],
+      "input": "ADR-V45-002 §3；父 spec §11.1；index.html:1244-1284；#ask*/#confirm* 先例",
+      "acceptance": [
+        "文档内 #l1-more / #l1-ref 计数 ≤ 1；反证：伪造第二张卡 ⇒ 红",
+        "三恢复按钮卡内可达（重拾 / 描述 / 唯一匹配重锚）",
+        "#l1-ref-rescue 可见性谓词逐字不变（EC-V45-005）",
+        "三段模板文案逐字不变；历史卡 [data-card-key] 作用域承载",
+        "cards/nextstep.ts 预期零改动（data-act 纯透传）"
+      ],
+      "redlines": { "frozen": ["F1"], "thresholds": ["T-e"], "ledgers": ["L-a"], "note": "CARD_TYPES 12 项零扩展；登记迁移条目" },
+      "verify": ["npm run test:ask-auth --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w3-ask-auth.log", "npm run test:ref-pick-wiring --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-V45-109", "alias": "V451-09", "wave": 3, "size": "L", "type": "implementation",
+      "title": "l1-panels 4 开关去向 + L2 只读承载块（树归因 / 审计证据 / 审计计数）",
+      "deps": ["TASK-V45-108"], "adr": ["ADR-V45-002"], "risks": ["R-REG-902", "R-REG-904"],
+      "input": "ADR-V45-002 §4；父 spec §11.2；index.html:1297-1333 / :1353-1379；l2/view-host.ts",
+      "acceptance": [
+        "#view-host 内 #l2-tree-attribution / #l2-audit-evidence / #l2-audit-count 可达",
+        "#l2-audit-count 全仓唯一",
+        "L2 既有内容零改动（NG-V45-014）；滚动容器计数 == 1（不引入第二滚动容器）",
+        "两个消解控件（#l1-local-tree-global / #l1-receipt-audit）零悬空引用",
+        "assertChromeNotInStream() 继续成立"
+      ],
+      "redlines": { "frozen": ["F5"], "thresholds": ["T-a", "T-b"], "ledgers": ["L-a", "L-b"], "note": "迁入 #view-host 不豁免 ⇒ 进被测量面" },
+      "verify": ["npm run test:l2 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w3-l2.log", "npm run test:l1 --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-V45-110", "alias": "V451-10", "wave": 3, "size": "M", "type": "implementation",
+      "title": "#composer 出流（body 尾 hidden）+ disclosure.ts 三份声明重写",
+      "deps": ["TASK-V45-109"], "adr": ["ADR-V45-003", "ADR-V45-002"], "risks": ["R-V45-105"],
+      "input": "ADR-V45-003；ADR-V45-002 §5；index.html:1287-1292；disclosure.ts:66-106",
+      "acceptance": [
+        "#composer.parentElement === document.body ∧ hidden === true ∧ #stream 子树不含 composer/input/send",
+        "#input / #send getElementById 命中且 value 可读写（兼容面）",
+        "requestTurn 调用点集合 == 基线；submit 监听在位",
+        "COLLAPSIBLE_TARGETS.length === 7；NEVER_FOLDABLE.length === 14；RETIRED_FOLDABLE_IDS / RETIRED_NEVER_FOLDABLE_IDS 各带 ≥1 反证",
+        "源文本 composer.hidden = false 零命中；反证：移回 #stream ⇒ 双红"
+      ],
+      "redlines": { "frozen": ["F5"], "thresholds": ["T-b"], "ledgers": ["L-a"], "note": "兼容读取面 id 全保留" },
+      "verify": ["npm run test:l0 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w3-l0.log", "npm test --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-V45-111", "alias": "V451-11", "wave": 3, "size": "M", "type": "gate",
+      "title": "host-registry 零宿主反向判据 + RETIRED_* 扩容 + l0 结构判据 + 5 组伪造反证",
+      "deps": ["TASK-V45-110"], "adr": ["ADR-V45-010"], "risks": ["R-REG-010", "R-REG-906"],
+      "input": "ADR-V45-010；host-registry.ts:46-77 / :132-152；test/ui/l0.mjs:71-83",
+      "acceptance": [
+        "6 类问题串逐条可 FAIL（各 1 反证，expectFailPattern 记载）",
+        "5 组伪造 reading 逐组红（删属性 / 改名 / 塞进卡 / 只删标记 / 空注册表仍留 DOM）",
+        "注入 1 个 li[data-host=\"x\"] ⇒ FAIL；移除 ⇒ PASS（逐字节还原）",
+        "RETIRED_CONTAINER_IDS 14 项在 DOM 中均为 null",
+        "l0.mjs:874-875 三视口常驻集合去 l0-decision 并等价补新常驻面"
+      ],
+      "redlines": { "frozen": ["F5"], "thresholds": ["T-a"], "ledgers": ["L-a"], "note": "登记原 4 条永久登记记录的退役" },
+      "verify": ["npm run test:l0 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w3-l0-zero-host.log", "npm test --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-V45-112", "alias": "V451-12", "wave": 3, "size": "L", "type": "implementation",
+      "title": "risk-recovery 扩展 + act 闭集 6 项 + 本地 act 布线门禁 + 设置「帮助」分区",
+      "deps": ["TASK-V45-108", "TASK-V45-110"], "adr": ["ADR-V45-007", "ADR-V45-008"], "risks": ["R-REG-903", "R-REG-904", "R-REG-905", "R-V45-103"],
+      "input": "ADR-V45-007 / 008；recommend.ts:124-125 / :206-211；cards/nextstep.ts:44-60；settings/sections.ts:28-36；view-model.ts:982-992",
+      "acceptance": [
+        "NEXTSTEP_SOURCE_WHITELIST.length === 7（零扩项）；RECOMMEND_MODULE_WHITELIST 零扩项",
+        "site / probe 触发产出恢复卡且 chips 含 rebind（首项）",
+        "NEXTSTEP_ACTS 逐字 6 项；新增第 7 个 act ⇒ 闭集同源断言红",
+        "每个本地 act：唯一调用点 + 分支零 requestTurn( + ≥3 组伪造反证可 FAIL",
+        "帮助分区三方同源（SETTINGS_SECTION_IDS.length === 8 == .wc-section 计数 == data-count）；行数 == L1_GESTURE_LABELS.length(6)；分区内 button/a/input 计数 == 0；键盘可达",
+        "chip act:'help' 点击零回合 / 零输入框写入",
+        "反证：删 site 触发 ⇒ 恢复卡断言红；rebind chip 改 act:'next' ⇒ 布线门禁 + 零回合红"
+      ],
+      "redlines": { "frozen": ["F1"], "thresholds": ["T-e"], "ledgers": ["L-a"], "note": "登记闭集 4 → 6 项、SETTINGS_SECTION_IDS 7 → 8" },
+      "verify": ["npm run test:recommendation --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w3-recommendation.log", "npm test --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w3-node-act.log"]
+    },
+    {
+      "id": "TASK-V45-113", "alias": "V451-13", "wave": 4, "size": "L", "type": "gate",
+      "title": "journey 第二次八步显式取代 + supersessionChain + 链式判据升级",
+      "deps": ["TASK-V45-112", "TASK-V45-103"], "adr": ["ADR-V45-004"], "risks": ["R-REG-001", "R-REG-014", "R-V45-108", "R-V45-106"],
+      "gate": { "dependsOnSpike": "TASK-V45-103", "stoppingRule": "新 pin 无法命中 / 链断 ⇒ 回八步 ①~④；不得改 v3 台账" },
+      "input": "ADR-V45-004；journey.mjs:841-1038 / :658-670；supersession-ledger.test.ts:699-740",
+      "acceptance": [
+        "journey 运行时 check 数 ≥167；八步证据 ①~⑧ 齐备",
+        "新 pin 命中；supersessionChain 链连续（首节 supersededFrom:null）且覆盖 v3 pin 与 v4-1 pin",
+        "protectedRanges[0].supersededFrom === chain.at(-2).sha256；newPin.sha256 同源",
+        "v3 段严格判据仍绿（6b45c3fa… 可逐字节复算）；knownGap ↔ status 一致性机核绿",
+        "RP-V4-08 四反证逐条实跑（含注入点随形态搬迁重写）"
+      ],
+      "redlines": { "frozen": ["F4"], "thresholds": ["T-b"], "ledgers": ["L-a"], "note": "pin / chain / history / modifiedRanges / redlineRemap 逐项" },
+      "verify": ["npm run test:supersession --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w4-supersession.log", "npm run test:ui --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w4-journey.log", "git diff --stat -- packages/web-cli-plugin/docs/v3-supersession-ledger.json"]
+    },
+    {
+      "id": "TASK-V45-114", "alias": "V451-14", "wave": 4, "size": "M", "type": "gate",
+      "title": "binding 保段落地 + 段外逐行登记",
+      "deps": ["TASK-V45-102"], "adr": ["ADR-V45-005"], "risks": ["R-REG-002", "R-V45-102", "R-V45-104"],
+      "parallelWith": ["TASK-V45-115"],
+      "gate": { "dependsOnSpike": "TASK-V45-102", "stoppingRule": "探针结论 report-to-orchestrator ⇒ 本任务暂停并上报；禁静默改 pin" },
+      "input": "ADR-V45-005；binding.mjs:896 / :2256 / :880；protectedRanges[1]（107780..115930 / be9ad0e9…）",
+      "acceptance": [
+        "protectedPinFailures(bindingRange, currentText) === []",
+        "byteOffsetOf(startAnchor) === 107780 显式断言绿",
+        "binding.mjs:880 panelNotice 零触碰",
+        "两条 modifiedRanges 登记可定位（newTitle 命中原文件）",
+        "3 反证：段内 1 byte ⇒ sha 红；段前多 1 byte 不补偿 ⇒ startByte 红；diff 未登记 ⇒ hunk↔台账红",
+        "test:binding ≥192（KL-N-10 隔离复跑 ≥2，仍红如实登记不阻塞收口）"
+      ],
+      "redlines": { "frozen": ["F4"], "thresholds": ["T-b"], "ledgers": ["L-a"], "note": "不得静默改 pin" },
+      "verify": ["npm run test:binding --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w4-binding.log"]
+    },
+    {
+      "id": "TASK-V45-115", "alias": "V451-15", "wave": 4, "size": "L", "type": "gate",
+      "title": "11 处门禁等价重锚 + 反证注入点重写",
+      "deps": ["TASK-V45-112", "TASK-V45-111"], "adr": ["ADR-V45-012", "ADR-V45-001", "ADR-V45-002"], "risks": ["R-REG-003", "R-REG-004", "R-REG-005", "R-REG-009", "R-V45-106"],
+      "parallelWith": ["TASK-V45-114"],
+      "input": "plan §5.2（test/ 34 项）；§2.1 A13/A14/A28/A30",
+      "acceptance": [
+        "各门禁计数 ≥ 基线（l0 ≥223 / l1 ≥111 / l2 ≥74 / page-input ≥106 / stream ≥63 / ask-auth ≥61 / recommendation ≥56 / hardening ≥24 / insight ≥116 / node test ≥1001）",
+        "无「不再 FAIL 的判据」（每个改动判据注入后必红，逐条留证）",
+        "l1-reverse ≥9 / l2-reverse ≥10（注入点已重写，非恒绿）",
+        "gate-integrity ≥12；expectFailPattern 声明数只增；CHROMIUM_GATES 保持 9",
+        "每处改写登记 modifiedRanges[]（hunk ↔ 条目全命中；newTitle 可定位；reason ≥ 40）"
+      ],
+      "redlines": { "frozen": ["F1", "F4", "F5"], "thresholds": ["T-a", "T-b", "T-e"], "ledgers": ["L-a"], "note": "零放宽；hunk ↔ 条目全命中" },
+      "verify": ["for g in l0 l1 l2 page-input stream ask-auth insight hardening recommendation l1-reverse l2-reverse; do npm run test:$g --workspace @lgdl/web-cli-plugin || exit 1; done", "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin"]
+    },
+    {
+      "id": "TASK-V45-116", "alias": "V451-16", "wave": 4, "size": "L", "type": "gate",
+      "title": "density 31 格实测重算 + v45Ledger + 夹具三重构造判据",
+      "deps": ["TASK-V45-115"], "adr": ["ADR-V45-006"], "risks": ["R-REG-006", "R-REG-008", "R-REG-009", "R-REG-902", "R-V45-107", "R-V45-106"],
+      "input": "ADR-V45-006；density-scope.ts:35；density.mjs:313-364,546,705,744；docs/v4-density-baseline.json；V45-P-012（pending-measurement，禁预填）",
+      "acceptance": [
+        "31 格逐格留痕（before/after/delta/reason/historyRetained 齐备）",
+        "阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 零 diff",
+        "test:density ≥175（首轮实测 + 复跑全绿）",
+        "夹具三重构造判据逐 cell 断言；反证「延后一步 ⇒ 红」实跑",
+        "RP-V4-01~09 复跑无恒绿（注入点已重写）；riskIncrementRegistry 4 溯源字段齐备",
+        "任一登记格 C1/C2 > 阈值 ⇒ 停下上报（禁静默放宽 / 删格 / 挪回 #stream）"
+      ],
+      "redlines": { "frozen": ["F5"], "thresholds": ["T-a", "T-b"], "ledgers": ["L-b"], "note": "每格留痕 + 溯源字段；阈值零 diff" },
+      "verify": ["npm run build --workspace @lgdl/web-cli-plugin && stat -c %s packages/web-cli-plugin/dist/sidepanel.js", "npm run test:density --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w4-density-run1.log", "npm run test:density --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w4-density-run2.log"]
+    },
+    {
+      "id": "TASK-V45-117", "alias": "V451-17", "wave": 5, "size": "M", "type": "gate",
+      "title": "options/index.html 解冻 + 范围门禁 + zero-injection 复跑",
+      "deps": ["TASK-V45-101"], "adr": ["ADR-V45-009"], "risks": ["R-REG-013"],
+      "parallelWith": ["TASK-V45-113"],
+      "input": "ADR-V45-009；v3 台账 zeroDiffFiles（9 项含 options）；supersession-ledger.test.ts:824-840；FIX-2 4 处订正",
+      "acceptance": [
+        "该文件 git diff -U0 仅文案行（无结构/属性/脚本变化）；字节变化 ≤ 阈值",
+        "unfrozenZeroDiffFiles 条目 9 字段齐备；reason.length ≥ 40",
+        "zero-injection ≥27 且计数不减；v3 台账零 diff",
+        "3 反证逐条可 FAIL（加 <script> / 删条目 / reason < 40）",
+        "全仓「侧栏『授权当前站点』」零命中（白名单除外）"
+      ],
+      "redlines": { "frozen": ["F3", "F4"], "thresholds": ["T-a", "T-b", "T-c", "T-d", "T-e"], "ledgers": ["L-a"], "note": "解冻留痕 + 前后文案 + 日期 + 操作者" },
+      "verify": ["git diff -U0 -- packages/web-cli-plugin/src/ui/options/index.html", "npm run test:zero-injection --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w5-zero-injection.log"]
+    },
+    {
+      "id": "TASK-V45-118", "alias": "V451-18", "wave": 5, "size": "L", "type": "gate",
+      "title": "体积五要素双向登记 + V3-VOL-3 三值同源 + 档位闸门",
+      "deps": ["TASK-V45-116"], "adr": ["ADR-V45-011"], "risks": ["R-REG-007", "R-REG-015", "R-V45-101"],
+      "input": "ADR-V45-011；size-baseline.ts:301,360-366,395-510,940-992；size-budget.test.ts:45-53；size-growth-evidence.test.ts:126-133；v4-supersession-ledger.json#v3Vol3Closeout；V45-P-013（pending-measurement，禁预填）",
+      "acceptance": [
+        "五要素齐备（含 direction）+ 三条历史数组保留旧值",
+        "SIDEPANEL_CEILING === floor(baseline × 1.05)；SIDEPANEL_CEILING_CAP 零判定用法",
+        "Σ 归因 == 登记增量（允许负 Δ）；I-10 元组前后值/Δ/% 与登记字段逐项相等",
+        "newBaselineBytes >= 460_801 ∧ ceilTo50KB === 512_000 ∧ absoluteCeilingBytes === 563_200 ∧ authorConfirmation.status === 'pending-author-line'",
+        "红线逐字节复核通过（content.js / pick-layer.js / design/** / manifest.json / 判定链 / v3 台账）",
+        "4 反证逐条可 FAIL；test:size-ruling-vol3 ≥10",
+        "净减 > 19,225 B ⇒ 停下上报（禁静默改三值 / 禁故意增重）"
+      ],
+      "redlines": { "frozen": ["F1", "F2", "F3", "F4"], "thresholds": ["T-c"], "ledgers": ["L-a", "L-c"], "note": "三值 + cap 角色 + 档位硬边界" },
+      "verify": ["stat -c %s packages/web-cli-plugin/dist/sidepanel.js packages/web-cli-plugin/dist/content.js packages/web-cli-plugin/dist/pick-layer.js", "npm run test:size-ruling-vol3 --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/opencode/v45-gate-logs/w5-size-ruling-vol3.log"]
+    },
+    {
+      "id": "TASK-V45-119", "alias": "V451-19", "wave": 5, "size": "L", "type": "gate",
+      "title": "收尾原子区间：24 门禁串行 + 红线逐字节 + 人工面清单 + 收口文档",
+      "deps": ["TASK-V45-113", "TASK-V45-114", "TASK-V45-115", "TASK-V45-116", "TASK-V45-117", "TASK-V45-118"],
+      "adr": ["ADR-V45-012", "ADR-V45-011"], "risks": ["R-REG-011", "R-REG-012", "R-V45-108", "R-V45-109", "R-V45-106"],
+      "atomicInterval": "D",
+      "input": "plan §2.5 T1~T10 + §6.3 Top5；父 §2.4 N1~N18；spec §8.3 门禁集合",
+      "acceptance": [
+        "24 门禁全绿且计数 ≥ 基线（逐项列出实测值）；日志全量落盘（禁截断）",
+        "#stream 内 [data-host] / [data-transitional-host] 计数 === 0",
+        "零「不再 FAIL 的判据」；expectFailPattern 声明数 ≥ 基线",
+        "红线 5 项逐字节通过；不动面 T1~T10 逐项零 diff",
+        "台账 hunk ↔ 条目全命中 + newTitle 可定位 + reason ≥ 40",
+        "人工面清单每项标注（无空白项，无伪造 PASS）",
+        "收口文档登记 4 项治理动作（FIX-5 / N-05 / options 解冻 / direction=lowered 归因）"
+      ],
+      "redlines": { "frozen": ["F1", "F2", "F3", "F4", "F5"], "thresholds": ["T-a", "T-b", "T-c", "T-d", "T-e"], "ledgers": ["L-a", "L-b", "L-c"], "note": "全项逐字节；台账收口一致性" },
+      "verify": ["for s in typecheck build test test:supersession test:gate-integrity test:zero-injection test:design-contract test:page-input test:l0 test:l1 test:l2 test:density test:ui test:insight test:binding test:hardening test:e2e test:stream test:ask-auth test:recommendation test:ref-pick-wiring test:size-ruling-vol3 test:l1-reverse test:l2-reverse; do npm run $s --workspace @lgdl/web-cli-plugin 2>&1 | tee \"/tmp/opencode/v45-gate-logs/${s//:/-}.log\" || exit 1; done", "git diff --quiet -- packages/web-cli-plugin/docs/v3-supersession-ledger.json packages/web-cli-base .opencode/opencode.json ROADMAP.md"]
+    }
+  ],
+  "stoppingRules": [
+    { "trigger": "binding 段前等长补偿不可行", "at": ["TASK-V45-102", "TASK-V45-114"], "action": "上报证据；获批后走 binding pin 显式取代（链式八步）；禁静默改 pin" },
+    { "trigger": "journey 新 pin 无法命中 / v3 段判据因 supersededFrom 链断而红", "at": ["TASK-V45-103", "TASK-V45-113"], "action": "回八步 ①~④；禁改 v3 台账" },
+    { "trigger": "净减 > 19,225 B（newBaselineBytes < 460_801）或 size > ceiling", "at": ["TASK-V45-118"], "action": "停下上报（禁静默改三值 / 禁自缚装置 / 禁故意增重）" },
+    { "trigger": "任一密度登记格 C1/C2 > 阈值", "at": ["TASK-V45-116"], "action": "停下上报（阈值零放宽；禁删格 / 挪回 #stream）" },
+    { "trigger": "某判据注入后仍绿（反证空转）", "at": ["TASK-V45-106", "TASK-V45-111", "TASK-V45-115", "TASK-V45-116"], "action": "重写注入点；仍不能红 ⇒ 判据视为无效并上报" },
+    { "trigger": "KL-N-10 首轮异常", "at": ["TASK-V45-114", "TASK-V45-119"], "action": "隔离复跑 ≥2；仍红如实登记不阻塞收口" },
+    { "trigger": "台账 newTitle 无法定位 / hunk 未命中", "at": ["TASK-V45-104", "TASK-V45-105", "TASK-V45-106", "TASK-V45-108", "TASK-V45-110", "TASK-V45-113", "TASK-V45-114", "TASK-V45-115", "TASK-V45-117"], "action": "补齐台账；不得先删后补" }
+  ],
+  "blockers": [
+    { "id": "BLK-V45-1", "type": "spike-gate", "task": "TASK-V45-114", "desc": "TASK-V45-102 结论 = report-to-orchestrator ⇒ 不得开工（禁静默改 pin）" },
+    { "id": "BLK-V45-2", "type": "spike-gate", "task": "TASK-V45-113", "desc": "TASK-V45-103 链式谓词不破 v3 严格判据方可开工" },
+    { "id": "BLK-V45-3", "type": "serial-discipline", "task": "TASK-V45-115/116/119", "desc": "Chromium 门禁严格串行（一次一个）；test/test:ui/test:binding 绝不并发" },
+    { "id": "BLK-V45-4", "type": "atomicity", "task": "TASK-V45-113~119", "desc": "W4+W5 同一 commit 区间；中间态不得单独提交（R-V45-109）" },
+    { "id": "BLK-V45-5", "type": "stop-and-report", "task": "TASK-V45-116/118", "desc": "密度越阈 / 体积过界 ⇒ 停下上报编排器（阈值与三值零放宽）" },
+    { "id": "BLK-V45-6", "type": "external", "task": "TASK-V45-119", "desc": "人工面（title 读屏 / 三主题高 DPI / 320px 迁入块）headless 不可合成 ⇒ 如实标注 ⏳ 未执行（V45-P-014）" }
+  ],
+  "note": "V4.5-1 19 任务 / 5 波 / 4 提交区间（A=W1 / B=W2 / C=W3 / D=W4+W5 原子）。红线骨架 = 四条结构性不变量（I1 零宿主 / I2 纯卡序 / I3 事实唯一 / I4 恢复链不断）；门禁纪律 = 计数只增 + 反证实跑 + 注入点随形态重写 + 严格串行；保护段 = journey 二次取代（链式）与 binding 保段（字节中立避让）两条独立路径，各由 W1 spikeGate 先验。",
+  "unfilledPoints": [
+    { "id": "V45-P-012", "topic": "密度重算的具体格数与差值", "status": "pending-measurement", "owner": "TASK-V45-116", "rule": "禁预填" },
+    { "id": "V45-P-013", "topic": "体积净增 / 净减值", "status": "pending-measurement", "owner": "TASK-V45-118", "rule": "禁预填；五要素按实测填" },
+    { "id": "V45-P-014", "topic": "title 承载长文案的读屏体验", "status": "pending-human", "owner": "TASK-V45-119", "rule": "不得冒充 PASS" }
+  ]
+}
