@@ -3,15 +3,15 @@
  "featureKey": "specs-tree-v45-1-single-write-chronology",
  "version": "v4.5.0",
  "name": "V4.5-1 单写化 + 宿主时间序化——5 条提示带可见投影退役（可见面唯一=流内行/卡）+ 4 个固定位置宿主清零（ol#stream = 纯时间序卡列表）+ #composer 出流（body 尾 hidden，id/ARIA 保留）+ 风险恢复规则扩展（site/probe 触发 + 恢复 chips）+ 手势迁设置「帮助」分区 + options 纯文案解冻 + host-registry 零宿主断言+ 密度基线重算（显式取代 + 反证）+ journey 第二次八步取代 + 体积五要素",
- "phase": "specified",
+ "phase": "planned",
  "workflow": "2.plan",
- "agent": "sddu-spec",
+ "agent": "sddu-plan",
  "depth": 2,
  "parent": "specs-tree-web-cli-plugin-v45-f-regularization",
  "childrens": [],
  "leaf": true,
  "createdAt": "2026-09-21",
- "updatedAt": "2026-09-21T09:00:00.000Z",
+ "updatedAt": "2026-09-21T12:00:00.000Z",
  "description": "跟随父 Feature specs-tree-web-cli-plugin-v45-f-regularization（F-31 / v0.9.1）立项的**唯一叶**（P0，position=1）。承载父 §5.1~§5.10 全部 44 条 FR：① SINGLE（FR-V45-010~015）5 条提示带可见投影**真退役**（DOM 移除，非 hidden）+ 事实唯一可见面 + 单通道 4 规则逐字不变 + 富内容承载（行 title + 设置站点详情 + 推荐卡恢复 chips）+ 归并矩阵判据重写；② CHRONO（FR-V45-020~026）4 宿主清零（decision / composer / l1-panels / strips）+ 37 条存活元素去向（父 §11）+ #composer 迁 body 尾 hidden（id/ARIA 保留，法四不变）+ 折叠声明零漂移；③ RECOVERY（FR-V45-030~033）risk-recovery 触发集扩展（site / probe）+ 「重新绑定当前标签页」chip + NEXTSTEP_ACTS 闭集终态 6 项 + 本地 act 布线门禁；④ HELP（FR-V45-040~042）设置视图「帮助」分区（SETTINGS_SECTION_IDS 单源派生）+ chip act:'help'；⑤ UNFREEZE（FR-V45-050~052）options/index.html 纯文案解冻 + 订正 + 显式登记 + zero-injection 复跑；⑥ REGISTRY（FR-V45-060~062）零宿主断言 + RETIRED_HOST_IDS 扩容 + 5 类问题串终态；⑦ DENSITY（FR-V45-070~074）口径零放宽 + 31 格重算为新基线（台账显式取代 + 反证）+ 夹具锚改构造保证；⑧ LEDGER（FR-V45-080~084）journey 第二次八步取代 + binding 段外逐行登记 + 11 处门禁等价重锚 + knownGap 一致性 + 两段证伪；⑨ VOL（FR-V45-090~093）体积五要素 + 披露算术机核 + V3-VOL-3 三值同源 + 红线逐字节。权威条文见父 spec.md（§5 / §11 / §13 / §15）。",
  "scope": {
   "in": [
@@ -262,9 +262,10 @@
   {
    "id": "V45-P-015",
    "topic": "恢复 chips 在 MAX_CHIPS_PER_CARD = 3 上限内的具体取舍（重新拾取 / 改用描述 / 重新绑定）",
-   "status": "open",
+   "status": "ruled-by-plan",
    "needs": "plan（父 FR-V45-031 已定「至少三项 + 卡上限 3 ⇒ 按规则优先级取 ≤3」的口径；具体规则表定值由 plan 给）",
-   "landing": "FR-V45-030 / 031"
+   "landing": "FR-V45-030 / 031",
+   "ruling": "RECOVERY_CHIP_ORDER 规则表（叶 plan ADR-V45-007 §裁决 2）：refInvalid/declarationInvalid/hardFloor → repick→describe→rebind；site → **rebind**→repick→describe；probe → **rebind**→describe→repick；渲染前取 ≤ MAX_CHIPS_PER_CARD(=3)。"
   }
  ],
  "files": {
@@ -273,7 +274,9 @@
   "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/TREE.md",
   "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/spec.md",
   "parentState": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/state.json",
-  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/discovery.md"
+  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/discovery.md",
+  "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/plan.md",
+  "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/plan.md"
  },
  "status": "tracked",
  "phaseHistory": [
@@ -286,8 +289,47 @@
    "phase": "specified",
    "timestamp": "2026-09-21T09:00:00.000Z",
    "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0：承载父 §5.1~§5.10 全部 44 FR；范围做 / 不做；5 段执行序验收包（父 AC-V45-001~022 锚点）；独立性说明（变更面 / 取代负荷 / 门禁集合 / 叶内执行序）；4 条本叶开放问题（2 待实测 + 1 待人工面 + 1 归 plan））"
+  },
+  {
+   "phase": "planned",
+   "timestamp": "2026-09-21T12:00:00.000Z",
+   "triggeredBy": "sddu-plan（产出唯一叶 plan.md v1.0：ADR-V45-001~012 全部正文（每条含 背景/选项/裁决/后果/回滚 + FR-AC 映射）；A1~A30 现状基线（本轮只读实测 file:line）；五组方案对比 P-V45-01~05；D-P-V45-01~08；60 项文件影响（src 19 / test 33 / docs 2 / SDDU 6）；风险继承 21 条 + 新增 R-V45-101~109；五波实施序）"
   }
  ],
- "phaseNote": "phase=specified（status=tracked）。本轮为 spec 阶段：只读代码 + 只写父 Feature 目录内文件（含本叶目录）；未跑门禁 / 构建 / Chromium；未改 src/test/dist/design/docs/ROADMAP。下一步 = @sddu-plan specs-tree-v45-1-single-write-chronology（本叶）与父 @sddu-plan specs-tree-web-cli-plugin-v45-f-regularization。",
- "notes": "V4.5-1 叶子规范完成（2026-09-21，sddu-spec）。本叶 = v4.5 的**唯一叶**（父 §12.1 结构裁决）。\n\n**为什么必须单叶**：两项核心共享同一次 scope 体积重登记与同一次 journey 结构重锚 ⇒ 门禁迁移不可分割；体积五要素与 journey 取代都依赖**终态 DOM**，分两次做会产生「中间态取代」（多余台账条目 + 二次新 pin），并把同一段保护区改两遍（违背取代台账「同编号等价改写」守恒口径）。\n\n**37 条元素去向**（父 §11 施工图）：退役 19 / 迁移 13 / 消解 3 / 保留 2 / 新增宿主 0。关键去向：#l1-ref + #l1-ref-repick / -describe / -rescue → ref 卡卡内（N-05 关闭）；#l0-more / #l1-more / #l1-consequences(-toggle) / #l1-consequence-tpl → askuser / auth 卡内；#l0-receipt-summary → 卡固化区 + 审计视图；#l1-history → 退役（计数入审计标题）；#l1-gestures → 设置「帮助」分区；#l1-local-tree-* → 树视图（L2）；#l1-receipt-* → 审计视图（L2）；#composer / #input / #send → body 尾 hidden（id / ARIA 保留）；#send-reason → 保留（状态栏职责）；#rebind → 保留 + 新增推荐 chip 单一生产入口。\n\n**四门禁处置**：journey → 第二次八步显式取代（新 pin + ≥167 + RP-V4-08 反证）；binding → 保段（sha be9ad0e9… 不变）或显式取代 + 段外 #4b/#4c、AP#4b 逐行登记；density → 31 格重算 + v4.5 台账显式取代 + 夹具锚改构造保证（阈值逐字不变）；supersession → knownGap ↔ status 一致性机核保持绿。\n\n纪律：本轮只写本 Feature 目录；未改 src/test/dist/design/docs/ROADMAP；未跑门禁或 Chromium（spec 阶段零运行时验证）；commit 采用 path-limited `git add`（禁 `git add -A`）。注：`/tool sddu_update_state` 在本会话工具集中不可见 → 状态文件由 Agent 直接写入（phase=specified / status=tracked）。"
+ "phaseNote": "phase=planned（status=tracked）。本轮为 plan 阶段：只读代码/测试/台账/先例 + 只写父 Feature 目录内文件（含本叶目录：plan.md / state.json / TREE.md）；未跑门禁 / 构建 / Chromium；未改 src/test/dist/docs/design/ROADMAP。下一步 = @sddu-tasks specs-tree-v45-1-single-write-chronology。",
+ "notes": "V4.5-1 叶子规范完成（2026-09-21，sddu-spec）。本叶 = v4.5 的**唯一叶**（父 §12.1 结构裁决）。\n\n**为什么必须单叶**：两项核心共享同一次 scope 体积重登记与同一次 journey 结构重锚 ⇒ 门禁迁移不可分割；体积五要素与 journey 取代都依赖**终态 DOM**，分两次做会产生「中间态取代」（多余台账条目 + 二次新 pin），并把同一段保护区改两遍（违背取代台账「同编号等价改写」守恒口径）。\n\n**37 条元素去向**（父 §11 施工图）：退役 19 / 迁移 13 / 消解 3 / 保留 2 / 新增宿主 0。关键去向：#l1-ref + #l1-ref-repick / -describe / -rescue → ref 卡卡内（N-05 关闭）；#l0-more / #l1-more / #l1-consequences(-toggle) / #l1-consequence-tpl → askuser / auth 卡内；#l0-receipt-summary → 卡固化区 + 审计视图；#l1-history → 退役（计数入审计标题）；#l1-gestures → 设置「帮助」分区；#l1-local-tree-* → 树视图（L2）；#l1-receipt-* → 审计视图（L2）；#composer / #input / #send → body 尾 hidden（id / ARIA 保留）；#send-reason → 保留（状态栏职责）；#rebind → 保留 + 新增推荐 chip 单一生产入口。\n\n**四门禁处置**：journey → 第二次八步显式取代（新 pin + ≥167 + RP-V4-08 反证）；binding → 保段（sha be9ad0e9… 不变）或显式取代 + 段外 #4b/#4c、AP#4b 逐行登记；density → 31 格重算 + v4.5 台账显式取代 + 夹具锚改构造保证（阈值逐字不变）；supersession → knownGap ↔ status 一致性机核保持绿。\n\n纪律：本轮只写本 Feature 目录；未改 src/test/dist/design/docs/ROADMAP；未跑门禁或 Chromium（spec 阶段零运行时验证）；commit 采用 path-limited `git add`（禁 `git add -A`）。注：`/tool sddu_update_state` 在本会话工具集中不可见 → 状态文件由 Agent 直接写入（phase=specified / status=tracked）。\n\n**plan 阶段完成（2026-09-21，sddu-plan）**：本叶 `plan.md` v1.0（1001 行）= **v4.5 的实施承载**，含 12 条 ADR 全部正文 + 五波实施序 + 60 项文件影响 + 风险登记。\n\n**本叶开放问题处置**：V45-P-012（密度格数）/ V45-P-013（体积值）保持 `pending-measurement`（禁止预填）；V45-P-014（title 读屏）保持 `pending-human`；**V45-P-015（恢复 chips 取舍）→ 已由 ADR-V45-007 的 `RECOVERY_CHIP_ORDER` 规则表定值**（site/probe 首项 = 「重新绑定当前标签页」，渲染前取 ≤3）。\n\n**关键设计定论（与父 spec 的接口）**：迁移元素承载 = 卡内作用域 + **唯一活跃/最新卡铸造稳定 id**（沿用 v4-3 `#ask*`/`#confirm*` 先例；零新机制）；`COLLAPSIBLE_TARGETS` 7→7（零缩减，新增 `l2-tree-attribution`/`l2-audit-evidence` 两项，退役 `l1-ref`/`l1-history` 收入 `RETIRED_FOLDABLE_IDS`）；`NEVER_FOLDABLE` 12→14（删 `l0-decision` 收入 `RETIRED_NEVER_FOLDABLE_IDS`，新增 3 个迁移面；`composer` 保留）；台账 schema 扩展 = `supersessionChain[]` + `protectedSupersession.history[]` + `unfrozenZeroDiffFiles[]` 字段扩展；体积硬边界 = 净减 ≤ 19,225 B（否则 V3-VOL-3 档位 512,000 → 460,800，与 FR-V45-092 冲突 ⇒ 停机上报）。",
+ "planCounts": {
+  "adrs": 12,
+  "waves": 5,
+  "estimatedTasks": "52~58（建议 54）",
+  "fileChangeItems": 60,
+  "fileChangeBreakdown": {
+   "src": 19,
+   "test": 33,
+   "docs": 2,
+   "sddu": 6
+  },
+  "newFiles": 4,
+  "modifiedFiles": 50,
+  "deletedFiles": 0,
+  "hostsBefore": 4,
+  "hostsAfter": 0,
+  "newHosts": 0,
+  "elementDestination": {
+   "retired": 19,
+   "migrated": 13,
+   "dissolved": 3,
+   "kept": 2
+  },
+  "protectedPins": {
+   "journey": "second-supersede (supersessionChain)",
+   "binding": "keep (byte-neutral avoidance)"
+  },
+  "risksInherited": 21,
+  "risksAdded": 9,
+  "planDocLines": {
+   "parent": 285,
+   "leaf": 1001
+  }
+ }
 }
