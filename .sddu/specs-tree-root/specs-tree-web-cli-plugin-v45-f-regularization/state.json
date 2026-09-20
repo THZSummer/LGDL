@@ -1,0 +1,332 @@
+{
+  "feature": "specs-tree-web-cli-plugin-v45-f-regularization",
+  "featureKey": "specs-tree-web-cli-plugin-v45-f-regularization",
+  "version": "v4.5.0",
+  "name": "web-cli-plugin v4.5「F 还原度转正」—— F 方案（聊天流统一承载）的结构性收尾：5 条提示带退役可见投影（单写化）+ 4 个固定位置宿主时间序化（ol#stream 成为纯时间序卡列表）+ FIX-5 空态噪音消解 + options 授权文案解冻裁决",
+  "phase": "discovered",
+  "workflow": "1.spec",
+  "agent": "sddu-discovery",
+  "depth": 1,
+  "parent": null,
+  "childrens": [],
+  "leaf": false,
+  "createdAt": "2026-09-21",
+  "updatedAt": "2026-09-21T00:00:00.000Z",
+  "description": "v4.5 = 从 v4（F-30）收口时已登记为 deferred 的结构性遗留转正，不是新增想法。立项来源（逐字）：① docs/f-fidelity-fix-2026-09-20.md §5.3「strips 单写化（退役可读投影、事件行为唯一面）—— 动保护门禁 pin 的容器，结构性，需单独立项」② 同文档 §5.4「宿主时间序化（decision / l1-panels / strips 并入时间序）—— 同上，结构性，需单独立项」③ 同文档 §5.1「FIX-5（空态 L1 噪音）—— deferred……按约定顺延」④ 同文档 §5.2「src/ui/options/index.html 的授权指引文案……若要改需先走一次显式解冻登记，属治理动作，本轮不做」⑤ specs-tree-web-cli-plugin-v4-chat/closeout.md §7 deferred 1（N-05 重锚按钮不在流内卡内，升级条件=真机反馈需要卡内按钮 ⇒ 小改进项）/ deferred 9（密度打开态类残余）/ deferred 2（KL-N-10 binding 环境性 flake）/ deferred 8（V3-VOL-3 绝对上限作者确认仍挂起）。题眼：v4 的 host-registry.ts:46-51 把 4 个宿主逐字登记为「permanent structural home now」、理由是「its content is pinned by protection gates」——即**由门禁反推出形态的永久性**；v4.5 要推翻这条推理链：先让实现服从 F 稿纯形，再让门禁描述新形态。核心问题四条：Q-REG-001 同一事实流内外双写（事实面不唯一，削弱法二）· Q-REG-002 流被 4 个固定位置宿主切段（ol#stream 的 DOM = [decision][卡…][composer][l1-panels][strips]，卡由 stream-render.ts:66-71 的 messageAnchor 插到 composer 之前；index.html:296-299 逐字记录 #l0-decision 曾实测跑到视口上方 −511px 且不可滚动到达）· Q-REG-003 过渡态被注册表固化为永久（收口义务 R4-18/ADR-V4-005 §6 在制度上被消解）· Q-REG-004 空态/默认首屏被 6 个 0 计数控件占据（且在 #stream 豁免子树内 = 预算看不见的噪音）。用户 = 作者本人（插件唯一真实用户与决策者，与 v3/v4 同一事实基础）。范围 = 核心 2 项（strips 单写化 / 宿主时间序化）+ 附带 2 项（FIX-5 消解口径 / options 解冻裁决）；非目标 6 项（content.js 与 pick-layer.js 字节冻结 / SW·KIND_SET·判定链·manifest / L2 视图内部 / A2A F-29 / design/** 与 shim 的 sha256 冻结契约 / 12 卡类型学与三区法则本身）。",
+  "scope": {
+    "in": [
+      "核心 1 — strips 单写化：5 条提示带（env-guard / site-hint / onboarding / discovery-notice / notice）**退役可见投影**，事实只以「流内系统事件行 / 流内卡」单次可见（富内容去向需 spec 裁决：firstRun 已有流内卡先例 view-model.ts#firstRunCard；site-hint 富文本三段 + #rebind 可点动作 / discovery-notice 两段 + 退避重试语义是否需要详情面、在哪）",
+      "核心 2 — 宿主时间序化：decision 壳（#l0-kicker / #l0-more / #l0-receipt-summary / #l0-ref-toggle / #l1-more / #l1-consequences / #l1-ref 证据面板）与 l1-panels 组（#l1-local-tree-toggle / #l1-history-toggle / #l1-receipt-toggle / #l1-gestures-toggle）**去固定位置**；目标 = ol#stream 成为纯时间序卡列表，固定位置宿主清零或降到最小（候选方向由 spec 裁决：并入流内卡 [ref 卡携带证据 + 恢复入口] / 迁 L2 视图 [#view-host 视图替换机制已存在] / 空态隐藏）",
+      "附带 1 — FIX-5 空态 L1 噪音：消解口径 = 若核心 2 已使 0 计数控件不再恒驻，则本项不单独存在（须 spec 显式登记消解或独立成条）",
+      "附带 2 — src/ui/options/index.html 授权指引文案：v3 台账 zeroDiffFiles 冻结面（9 项之一），需**显式解冻裁决**（是否解冻 / 解冻范围 / 如何登记）——属治理动作",
+      "保护门禁迁移（内嵌义务）：journey 保护段（active pin 43054..55259 / sha e2b500df…，supersededFrom 6b45c3fa…，leafBase 187c205）可能需**第二次八步显式取代**；binding 保护段（107780..115930 / sha be9ad0e9…，decision = keep）本体可零 diff 但段外 #notice / #discovery-notice 断言需等价改写并逐行登记",
+      "体积链强制重登记（内嵌义务）：任何 dist/sidepanel.js byte 变化 ⇒ 五要素重登记（前后值/日期/来源/理由/历史保留 + 构建命令 + 逐模块 metafile 归因）+ ceiling 必须严格等于 floor(baseline × 1.05)（无 cap）+ 披露算术机核（I-10 validateReRegistrationDisclosure）+ V3-VOL-3 newBaselineBytes 同源前移（档位 512,000 与绝对上限 563,200 不变）",
+      "门禁等价重锚（内嵌义务）：l0.mjs ⑧ EXPECTED_TRIGGERS（12 条）+ disclosure.ts 三份声明（COLLAPSIBLE_TARGETS 7 / DISCLOSURE_WIRING 7 对 / NEVER_FOLDABLE 含 l0-decision）+ l1.mjs ②⑫ + hardening.mjs #env-guard 三条正面断言 + journey #11c~#11e（#site-hint display !== 'none' + 文案）+ density 夹具稳态锚（#notice）—— 断言零删除零降级、计数只增不减"
+    ],
+    "out": [
+      "不动面（零容差冻结）：dist/content.js 177,076 B / sha256 52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6；dist/pick-layer.js 33,900 B / sha256 5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59；src/content/** 零 diff",
+      "不动面：SW / KIND_SET / 判定链（src/security/policy.ts 与 src/security/auto-authorize.ts 在 v3 zeroDiffFiles 内容哈希 pin）/ manifest.json（零新增静态权限、无 contextMenus）",
+      "不动面：design/ui-redesign/option-f-chat-stream.html（sha256 49ce27fc1daba083cc361639d3d0a1ad991b961f0fa0f45fc016815e0fe2e526）与 option-f-shim.mjs（sha256 8ca5db6f7a152c2890814cff2fe58dc11345338890b26de62b3355837f591ed4，SHIM_CHECK_CALLS = 60）—— 本 Feature 修实现层形态，不改 12 卡类型学与三区法则；改稿须同步常量 + ASSERTION_MAP + 台账 designContractChanges",
+      "不动面：L2 视图内部（tree / commands / audit 三视图内容）；风险位永不折叠原则；STREAM_HEIGHT_RATIO_MIN = 0.65（只允许上调）；密度阈值 7/15 · 9/20 · 17/35；防滥用单卡 ≤6 / 首屏 ≤2 / 合计 ≤8 / 欢迎卡 ≤1",
+      "A2A（F-29）未立项未排期，保持原样不动；ROADMAP 相关区段一字不动",
+      "不改 packages/web-cli-base/**；不新增依赖；不合 main、不发布",
+      "本阶段（discovery）不写 FR/NFR/AC、不写 ADR/技术方案、不排任务、不评估方案、不改任何生产代码/测试/dist/design/docs/ROADMAP"
+    ]
+  },
+  "artifacts": [
+    "discovery.md"
+  ],
+  "files": {
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/discovery.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/TREE.md"
+  },
+  "coversIssues": [
+    "Q-REG-001",
+    "Q-REG-002",
+    "Q-REG-003",
+    "Q-REG-004",
+    "Q-REG-005",
+    "Q-REG-006",
+    "Q-REG-007",
+    "Q-REG-008",
+    "Q-REG-009",
+    "Q-REG-010",
+    "Q-REG-011",
+    "Q-REG-012"
+  ],
+  "dependencies": {
+    "on": [
+      "packages/web-cli-plugin v1（F-14）+ v2（F-27）+ v3（F-28）+ v4（F-30）已验收实现（只读复用：三区 flex 布局 / #view-host 视图替换机制 / 流内卡族 cards/index.ts#CARD_TYPES / firstRunCard 归并先例 / system-events.ts 单系统事件通道 / l1/ref-store 五维判定与 append-only 引用语义 / l2/counts 计数单源）",
+      "F 设计契约 packages/web-cli-plugin/design/ui-redesign/option-f-chat-stream.html（三区法则 ⑤ 法一~法五 + 相对 E 的 5 条变化点）+ option-f-shim.mjs（60 断言）",
+      "v4.5 的直接输入文档 packages/web-cli-plugin/docs/f-fidelity-fix-2026-09-20.md（FIX-1~4 已落地 + §5 deferred 1~4）",
+      "v4 父收口总账 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/closeout.md（§7 deferred 1/2/8/9 + §4 门禁总账 + §5 体积与 V3-VOL-3）",
+      "取代与登记机制 docs/v4-supersession-ledger.json（protectedSupersession 八步 / protectedRanges 双 pin / redlineRemap / knownLimitations KL-N-08·KL-N-10 / v3Vol3Closeout）+ docs/v3-supersession-ledger.json（zeroDiffFiles 9 项 + 冻结历史口径）"
+    ],
+    "blocking": []
+  },
+  "roadmap": {
+    "id": "F-31",
+    "idOccupancyCheck": "本轮实测：grep -c \"F-31\" .sddu/specs-tree-root/ROADMAP.md = 0（未占用）；grep -rn \"F-31\" . （排除 node_modules）= 4 处，全部是 v4-chat 产物中的文字说明（state.json:249 idOccupancyCheck 与 discovery.md:39,287 的「F-30 未占用，无需改 F-31」），不是 Feature 登记、不构成占用；F-32/F-33 = 0 命中。结论：登记为 F-31 即可，无需顺延",
+    "versionPlacementSuggestion": "v0.9.1（v4 维护版本段）—— 本轮实测 grep -c \"v0.9.1\" ROADMAP.md = 0（零冲突；v0.9.0 现为三主题并列：工程质量与文档对齐 / F-28 v3-ui / F-30 v4-chat）。另实测 grep -c \"f-fidelity-fix\\|FIX-1\\|FIXFID\" ROADMAP.md = 0 ⇒ f-fidelity-fix 快修轮根本未登记进 ROADMAP（独立成本文档），v4.5 将是第一个「维护轮」版本位。措辞建议：v0.9.1 = v4（F-30）的维护收尾，不是新主题。ROADMAP 登记由收口执行（本阶段未改 ROADMAP）",
+    "reservedNeighbour": "F-29 = A2A 双向候选（未立项未排期，保持原样不动）",
+    "roadmapDocVersion": "1.27.0（本轮实测）"
+  },
+  "domainBaseline": {
+    "head": "08e3932",
+    "branch": "feature/web-cli-plugin",
+    "main": "2ddc922（未动）",
+    "sidepanelBytes": 480026,
+    "sidepanelEffectiveCeilingBytes": 504027,
+    "sidepanelEffectiveCeilingFormula": "min(563200, floor(480026 × 1.05)) = min(563200, 504027) = 504027",
+    "sidepanelHeadroomBytes": 24001,
+    "absoluteCeilingBytes": 563200,
+    "absoluteCeilingDerivation": "ceilTo50KB(B_final 465000) = 512000 × 1.10 = 563200（V3-VOL-3 八步带值闭合）",
+    "sidepanelCeilingCapRole": "record-only（V3-VOL-1 ②：撤销自缚硬上限，不设自缚装置）",
+    "authorConfirmationStatus": "pending-author-line（未闭合义务，不得伪称已确认）",
+    "contentBytes": 177076,
+    "contentSha256": "52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6",
+    "pickLayerBytes": 33900,
+    "pickLayerSha256": "5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59",
+    "designDraftSha256": "49ce27fc1daba083cc361639d3d0a1ad991b961f0fa0f45fc016815e0fe2e526",
+    "designShimSha256": "8ca5db6f7a152c2890814cff2fe58dc11345338890b26de62b3355837f591ed4",
+    "designShimCheckCalls": 60,
+    "streamSubtreeDensityExempt": true,
+    "densityExemptSubtrees": ["#stream"],
+    "densityThresholds": { "default": "7/15", "firstRun": "9/20", "risk": "17/35" },
+    "densityRegisteredCells": 31,
+    "densityMachineComparedCells": 28,
+    "densityNominalCells": 3,
+    "streamHeightRatioMin": 0.65,
+    "gateCountsAfterFFidelityFix": {
+      "npmTest": 1001,
+      "supersession": 33,
+      "l0": 223,
+      "l1": 111,
+      "l2": 74,
+      "density": 175,
+      "journey": 167,
+      "insight": 116,
+      "binding": 192,
+      "hardening": 24,
+      "e2e": "PASS",
+      "gateIntegrity": 12,
+      "gateIntegritySelftest": 15,
+      "designContract": 6,
+      "zeroInjection": 27,
+      "pageInput": 106,
+      "stream": 63,
+      "askAuth": 61,
+      "recommendation": 56,
+      "refPickWiring": 11,
+      "sizeRulingVol3": 10,
+      "l1Reverse": 9,
+      "l2Reverse": 10
+    },
+    "protectedPins": {
+      "journey": {
+        "startByte": 43054,
+        "endByte": 55259,
+        "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+        "status": "active",
+        "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+        "oldPin": { "startByte": 42766, "endByte": 54004 },
+        "leafBase": "187c205"
+      },
+      "binding": {
+        "startByte": 107780,
+        "endByte": 115930,
+        "sha256": "be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936",
+        "status": "active",
+        "supersededFrom": null,
+        "decision": "keep"
+      }
+    },
+    "hostRegistry": {
+      "registeredStructuralHosts": ["decision", "composer", "l1-panels", "strips"],
+      "retiredHostIds": ["l0-pick", "l0-status-band"],
+      "stripChannelKinds": ["env-guard→env", "site-hint→site", "onboarding→firstRun", "discovery-notice→probe", "send-reason→send", "notice→notice"],
+      "registeredTransitionalHosts": 0
+    },
+    "streamChildDomOrder": ["li[data-host=\"decision\"]", "（卡由 stream-render.ts#messageAnchor 插在 composer 宿主之前）", "li[data-host=\"composer\"]", "li[data-host=\"l1-panels\"]", "li[data-host=\"strips\"]"],
+    "zeroDiffFilesV3": [
+      "packages/web-cli-plugin/test/sidepanel-view.test.ts",
+      "packages/web-cli-plugin/test/perf-budget.test.ts",
+      "packages/web-cli-plugin/manifest.json",
+      "packages/web-cli-plugin/src/ui/options/index.html",
+      "packages/web-cli-plugin/src/content/content-script.ts",
+      "packages/web-cli-plugin/src/content/dom-agent.ts",
+      "packages/web-cli-plugin/src/content/page-bridge.ts",
+      "packages/web-cli-plugin/src/security/policy.ts",
+      "packages/web-cli-plugin/src/security/auto-authorize.ts"
+    ]
+  },
+  "openPoints": [
+    {
+      "id": "O-REG-001",
+      "topic": "富提示的详情面去向：site-hint（sh-title / sh-detail / sh-action 三段 + #rebind 可点动作）与 discovery-notice（dn-title / dn-detail 两段 + 退避重试语义）是否需要详情面、在哪",
+      "status": "open",
+      "disposition": "待 spec 裁决。候选（编排器预登记，非方案评估）：① 流内卡携带（firstRunCard 先例）② 系统事件行 + 独立详情面（L2 或设置视图）③ 保留最小只读投影但去重写（与「单写化」冲突，须显式裁决是否可接受）",
+      "whySpecMustRule": "不裁决则「单行系统事件行」能否承载富文本 + 可点动作无法判定，核心 1 无法落地"
+    },
+    {
+      "id": "O-REG-002",
+      "topic": "「已决策历史」（#l1-history，已决策 N 步）与流本身的关系：是否重复、是否退役、退役后「可回看」语义由谁承载",
+      "status": "open",
+      "disposition": "待 spec 裁决。候选：① 退役（流即历史，rounds[] 已由 project() 的已终态 askuser/auth 卡事件派生 = 数据单源）② 保留为计数 + 入口但位置迁移 ③ 并入流内摘要卡",
+      "whySpecMustRule": "不裁决则 l1-panels 无法去固定位置（历史触发器是 4 个之一）"
+    },
+    {
+      "id": "O-REG-003",
+      "topic": "手势说明（#l1-gestures-toggle，「6 个手势」表）的去向 —— 既非 0 计数（恒为 6）也非过程事实，是静态帮助内容；F 的三区法则与 7 类卡都没有它的归属",
+      "status": "open",
+      "disposition": "待 spec 裁决。候选：① 迁 L2 视图 ② 并入设置视图 ③ 保留但移出 #stream（进工具栏会与「可点 ≤5」预算冲突，须显式裁决）。同类问题先例：v4 曾把「站点级授权/会话/隐私开关/知情同意在 F 三区法则下无归属」登记为 Q-CHAT-013 / O-CHAT-005（裁决 = 法则六「过程入流，管理入视图」）",
+      "whySpecMustRule": "不裁决则该触发器的固定位置无法移除"
+    },
+    {
+      "id": "O-REG-004",
+      "topic": "src/ui/options/index.html 授权指引文案是否解冻（v3 台账 zeroDiffFiles 冻结面，9 项之一）",
+      "status": "open",
+      "disposition": "待 spec 裁决（治理动作）。候选：① 不解冻（保留 deferred，如实登记）② 显式解冻单文件 + 登记 ③ 解冻但改动限制为纯文案替换（零结构/零权限/零依赖）。注意：docs/v3-supersession-ledger.json 为冻结历史，不得解冻",
+      "whySpecMustRule": "不解冻则 FIX-2 的 deferred 永久保留（文档-实现不一致继续存在）；解冻则需登记并可能连带 zero-injection 等门禁重估"
+    },
+    {
+      "id": "O-REG-005",
+      "topic": "是否需要外部竞品调研（「聊天式 agent 面板如何组织流外管理面」）",
+      "status": "open",
+      "disposition": "待 spec 裁决。本轮未执行、不编造结论（discovery §4.1）。候选：① 不需要（本 Feature 是既有设计的形态收尾，非选型）② 需要，登记为待调研项",
+      "whySpecMustRule": "若需要而未做则方案论证缺外部参照；若不需要而未显式裁决则后续可能被质疑遗漏"
+    },
+    {
+      "id": "O-REG-006",
+      "topic": "密度耦合口径的实测裁决（Q-REG-010 / A-REG-007）：f-fidelity-fix §5.1 称隐藏 0 计数「会同时改写 density 默认档 31 格」，但源码口径显示这些控件在 #stream 子树内、而 #stream 整棵子树被 density-scope.ts:38 排除",
+      "status": "open",
+      "disposition": "待 spec 以 Chromium 实测裁决。已识别的真实耦合：① density.mjs:346-364 的夹具稳态锚 = #notice 存在且非 hidden（必改）② 若内容迁出 #stream 落入被测量的区壳（#view-host 不豁免）则区壳读数与 riskIncrementRegistry 双向期望需重算。禁止沿用未验证断言排工作量",
+      "whySpecMustRule": "两读法并存 ⇒ 工作量与验收面不同"
+    },
+    {
+      "id": "O-REG-007",
+      "topic": "host-registry.ts 的最终形态：宿主清零后的判据是「集合为空」「集合等于最小集」还是「注册表退役为纯注释」",
+      "status": "open",
+      "disposition": "待 spec 裁决。候选：① 清零 + 注册表改为「禁止新增宿主」的反向判据 ② 保留最小集（如仅 composer，法四需要 #composer 保持 hidden）③ 注册表降为文档（不承判据）。约束：evaluateHostRegistry 的 5 类问题串必须有终态；test/density-thresholds.test.ts:715 的「每个 strip 通道 id 仍在 DOM」判据与「退役投影」直接矛盾，必须重写（不是放宽）",
+      "whySpecMustRule": "不裁决则核心 3（治理结构反向锁定形态）无法关闭"
+    },
+    {
+      "id": "O-REG-008",
+      "topic": "N-05（一键重锚按钮在 L1 面板而非流内卡内）是否随之关闭",
+      "status": "open",
+      "disposition": "待 spec 裁决。候选：① 随 #l1-ref 面板的裁决一并关闭 ② 若仍不在卡内则保留 deferred（v4-chat closeout §7 deferred 1 的升级条件 = 真机反馈需要卡内按钮）",
+      "whySpecMustRule": "若 #l1-ref 面板退役或迁移，N-05 的处置必须重述"
+    },
+    {
+      "id": "O-REG-009",
+      "topic": "FIX-5 是否作为独立验收项（还是被核心 2 覆盖后消解、仅登记为「已由宿主时间序化覆盖」）",
+      "status": "open",
+      "disposition": "待 spec 裁决：① 消解（不单独成叶/成条）② 独立成 AC。影响叶拆分与 AC 归属",
+      "whySpecMustRule": "与编排器预登记口径「被 2 覆盖则消解」相关，但需 spec 显式落条"
+    }
+  ],
+  "pendingObligations": [
+    {
+      "id": "SUPERSESSION-JOURNEY-2",
+      "obligation": "宿主清零/投影退役改变 #stream 的子节点集合 ⇒ journey 保护段（active pin 43054..55259 / sha e2b500df…）可能需**第二次八步显式取代**：新 pin 重算 + supersededFrom 链式保留（保持旧 pin 可机核）+ redlineRemap[] 追加 + 计数守恒 ≥167 + RP-V4-08 反证（段内改 1 byte 必红 / 段外改 1 byte 不红 / 逐字节还原）+ knownGap status↔一致性（status=complete-steps-1-8 时该字段必须为空或仅声明闭环）",
+      "carrier": "docs/v4-supersession-ledger.json#protectedSupersession / #protectedRanges[0] + test/supersession-ledger.test.ts + test/ui/journey.mjs",
+      "landing": "对应叶（core-1 或 core-2），八步逐项留证"
+    },
+    {
+      "id": "SUPERSESSION-BINDING-OUTSIDE",
+      "obligation": "binding 保护段（107780..115930 / sha be9ad0e9…，decision = keep）本体可零 diff，但**段外**断言直接读 #notice（binding.mjs:896 #4b/#4c 授权回执）与 #discovery-notice（binding.mjs:2256 AP#4b）⇒ 需等价改写并在取代台账 modifiedRanges[] 逐行登记（v4-1 同例）",
+      "carrier": "docs/v4-supersession-ledger.json#protectedRanges[1] + test/ui/binding.mjs",
+      "landing": "core-1 叶"
+    },
+    {
+      "id": "VOLUME-RE-REGISTRATION",
+      "obligation": "任何 dist/sidepanel.js byte 变化 ⇒ 强制五要素重登记（前后值/日期/来源/理由/历史保留 + 构建命令 + 逐模块 metafile 归因，Σ 逐模块 Δ + 未归因胶水 == 登记增量）+ ceiling 必须严格等于 floor(baseline × 1.05)（无 cap、SIDEPANEL_CEILING_CAP 保持 record-only）+ 披露算术机核（I-10 validateReRegistrationDisclosure：元组前后值/Δ/% 与登记字段逐项相等、META.measuredBy 与末条登记同源）+ V3-VOL-3 newBaselineBytes 同源前移（档位 512,000 与绝对上限 563,200 不变）+ authorConfirmation.status 保持 pending-author-line（不得伪称已确认）",
+      "carrier": "test/size-baseline.ts + test/size-budget.test.ts + test/size-growth-evidence.test.ts + test/size-ruling-vol3.test.ts + docs/v4-supersession-ledger.json#v3Vol3Closeout",
+      "landing": "收口轮（或每轮按实际 byte 变化）"
+    },
+    {
+      "id": "DENSITY-FIXTURE-ANCHOR",
+      "obligation": "密度夹具稳态锚 = #notice 存在且非 hidden（test/ui/density.mjs:346-364，closeout 轮 validate R1 F2/K-1 的修复产物）⇒ 退役 #notice 可见投影时必须重写该锚，且**不得静默回退**该修复（夹具确定性必须继续由构造保证、不依赖运行顺序）；31 登记格（28 机对 + 3 名义）与 riskIncrementRegistry 双向精确期望、阈值 7/15·9/20·17/35 与豁免口径（只认 hidden）**逐字不变**",
+      "carrier": "test/ui/density.mjs + docs/v4-density-baseline.json + test/density-thresholds.test.ts",
+      "landing": "core-1 叶"
+    },
+    {
+      "id": "ANTI-VACUITY-EVIDENCE",
+      "obligation": "每条被改动的判据都必须配**可 FAIL 反证**（RP-V4-01~09 与 l1-reverse/l2-reverse 的注入点若被搬走必须重写注入点，判据不得空转）+ 注入后 sha256 逐字节还原；BLOCK-02 教训（删属性充数 / 自我裁决自我验收）不得重演",
+      "carrier": "test/ui/density.mjs --reverse RP-V4-* + test/gate-integrity.test.ts（12 条，判定器 selftest 15）+ test/ui/l1-reverse.mjs / l2-reverse.mjs",
+      "landing": "各叶"
+    },
+    {
+      "id": "KL-N-10-DISCIPLINE",
+      "obligation": "test:binding 环境性 flake（KL-N-10）：串行链首轮偶发红且每次失败项不同（#6l / #8d / #8e），隔离复跑 ≥2 次即绿；仍红如实记录不阻塞收口，不伪造串行绿",
+      "carrier": "docs/v4-supersession-ledger.json#knownLimitations（KL-N-10 / KL-N-08）+ f-fidelity-fix §2",
+      "landing": "验证轮"
+    }
+  ],
+  "recommendedChildren": [
+    "specs-tree-v45-1-strips-single-write（核心 1：strips 单写化 —— 5 条提示带退役可见投影 + STRIP_CHANNEL_KINDS / 「id 仍在 DOM」判据重写 + #notice 稳态锚迁移 + env-guard/hardening/journey #11c~#11e/binding #4b~#4c 等价改写 + 富提示详情面落地〔依 O-REG-001〕）",
+    "specs-tree-v45-2-host-timeline（核心 2：宿主时间序化 —— decision 壳与 l1-panels 组去固定位置 + host-registry.ts 语义重写 + ol#stream 纯时间序判据 + l0.mjs EXPECTED_TRIGGERS / disclosure.ts / l1.mjs ②⑫ 等价重锚 + FIX-5 消解口径）",
+    "specs-tree-v45-3-options-unfreeze（附带 2，可选叶：依 O-REG-004 裁决 —— 若解冻则改文案 + 显式解冻登记；若不解冻本叶不建）"
+  ],
+  "splitNote": "父 Feature = 轻量规范容器（同 v3-ui / v4-chat 先例：phase=tasked / workflow=4.tasks / agent=sddu-tasks，不承接 build/review/validate，不产出 tasks.json）。核心 2 项取代的对象、门禁面、取代台账条目互不重叠，具备独立成叶判据；但两者共享同一次 scope 体积重登记与同一次 journey 结构重锚 ⇒ 必须串行（deliveryOrder 明确）。拆分由 spec 决定，discovery 只提建议。",
+  "riskPreRegistration": {
+    "protectionGateMigrationEstimate": {
+      "caliber": "静态引用规模（grep 实测 packages/web-cli-plugin/test/**），用作工作量上界参考；不是「要改的断言数」（等价重锚可能一条多改）；discovery 不做估算承诺",
+      "strips": { "ids": ["env-guard", "site-hint", "onboarding", "discovery-notice", "notice", "send-reason"], "gateFiles": 15, "elementIdRefs": 44 },
+      "decisionShell": { "ids": ["l0-more", "l0-ref-toggle", "l0-receipt-summary", "l0-decision", "l1-more", "l1-ref", "l1-consequences-toggle"], "gateFiles": 9, "elementIdRefs": 58 },
+      "l1Panels": { "ids": ["l1-local-tree-toggle", "l1-history-toggle", "l1-receipt-toggle", "l1-gestures-toggle"], "gateFiles": 4, "elementIdRefs": 6 },
+      "protectedPins": 2,
+      "volumeChainFiles": 4,
+      "densityCells": 31
+    },
+    "register": [
+      { "id": "R-REG-001", "risk": "journey 保护段需二次显式取代（#15a~#15q 读 #stream 直接子节点与顺序）", "level": "中高" },
+      { "id": "R-REG-002", "risk": "binding 段外 #notice / #discovery-notice 断言需等价改写 + modifiedRanges[] 逐行登记", "level": "中高" },
+      { "id": "R-REG-003", "risk": "l0.mjs EXPECTED_TRIGGERS 12 条与 disclosure.ts 三份声明同源耦合，断言零删除 ⇒ 只能等价重锚", "level": "中高" },
+      { "id": "R-REG-004", "risk": "l1.mjs ②⑫ + page-input 依赖 4 个触发器可见性；「非空文字标签」判据与空态隐藏正面冲突", "level": "中" },
+      { "id": "R-REG-005", "risk": "hardening / env-guard 单测 / journey #11c~#11e 是「投影存在」的正面断言 ⇒ 正面冲突", "level": "中高" },
+      { "id": "R-REG-006", "risk": "密度夹具稳态锚 = #notice；重写不得静默回退 closeout 轮的夹具确定性修复", "level": "中" },
+      { "id": "R-REG-007", "risk": "体积五要素重登记 + 算术机核 + V3-VOL-3 三值前移 + authorConfirmation 占位保持", "level": "中" },
+      { "id": "R-REG-008", "risk": "密度 31 登记格分歧口径导致工作量误估（#stream 豁免 vs f-fidelity-fix §5.1 表述）", "level": "中" },
+      { "id": "R-REG-009", "risk": "RP 反证/探针若不再 FAIL 即判据空转（BLOCK-02 同类教训）", "level": "中高" },
+      { "id": "R-REG-010", "risk": "host-registry.ts 自身「判据即结构」耦合体；「id 仍在 DOM」判据与退役投影直接矛盾，必须重写而非放宽", "level": "中高" },
+      { "id": "R-REG-011", "risk": "门禁自身形态漂移抬高元门禁成本；串行纪律（绝不并发）", "level": "低" },
+      { "id": "R-REG-012", "risk": "KL-N-10 binding 环境性 flake 被误读为回归", "level": "低" },
+      { "id": "R-REG-013", "risk": "options/index.html 解冻是治理动作，可能打开更大面（zero-injection 等）", "level": "低" },
+      { "id": "R-REG-014", "risk": "STREAM_HEIGHT_RATIO_MIN = 0.65 只允许上调；journey #15b 与 l0.mjs:874-875 结构集合可能需重锚", "level": "中" },
+      { "id": "R-REG-015", "risk": "净增超 24,001 B 直接 FAIL（生效上限 504,027）；净减触发体积链重登记", "level": "中" }
+    ]
+  },
+  "assumptions": [
+    { "id": "A-REG-001", "assumption": "5 条提示带的事实已 100% 由流内系统事件行/卡承载，退役可见投影不丢事实", "verify": "逐通道核对 STRIP_CHANNEL_KINDS 6 条绑定各有真实生产 emitter（host-registry.ts:25-27 声称有 node gate 断言）；system-merge.test.ts 只覆盖 2 条自动通道 ⇒ 剩余 4 条需 spec 复算（待验证）" },
+    { "id": "A-REG-002", "assumption": "site-hint / discovery-notice 的富内容在「单行系统事件行 + 卡」承载下不丢语义", "verify": "逐条比对 #site-hint-title/-detail/-action 与 #discovery-title/-detail 的全部文案分支（sidepanel.ts:1558、journey.mjs:658-670 #11c~#11e）——待验证" },
+    { "id": "A-REG-003", "assumption": "空态 0 计数控件对未来使用者构成噪音（当前唯一用户是作者，尚无真实空态首屏反馈）", "verify": "作者确认（一行）；不据此声称普适收益，标注待验证" },
+    { "id": "A-REG-004", "assumption": "三条候选方向至少一条能同时满足法一~法五 + 工具栏可点 ≤5 + assertChromeNotInStream 形态判据", "verify": "spec/plan 逐方向对账；三条都不满足则需回到 discovery 重议（回退条件）" },
+    { "id": "A-REG-005", "assumption": "退役投影使 sidepanel.js 净减（至少不超 floor(480,026 × 1.05) = 504,027 B）", "verify": "npm run build + stat -c %s dist/sidepanel.js + 逐模块 metafile 归因（五要素重登记）——待验证" },
+    { "id": "A-REG-006", "assumption": "journey / binding 保护段语义可在不降低断言力前提下重锚", "verify": "八步取代 + countEvidence（journey 下界 167）+ RP-V4-08 反证——待验证" },
+    { "id": "A-REG-007", "assumption": "密度 31 登记格不因隐藏 0 计数而变（#stream 豁免）", "verify": "Chromium 实跑 npm run test:density 前后对比；禁止沿用未验证断言排工作量" },
+    { "id": "A-REG-008", "assumption": "本轮 .sddu/** 只写本 Feature 目录、src/test/dist 零改动，不影响既有门禁", "verify": "git status --short + git diff --quiet -- packages/web-cli-plugin 复核" }
+  ],
+  "evidenceGaps": [
+    "真机首屏截图未入库：f-fidelity-fix 文档记录的是结论与修法，仓库内未发现对应截图/录屏产物；本报告问题陈述以源码事实（discovery.md §7.1 A~F）+ 文档保留的观测事实为准，不声称有截图证据",
+    "外部竞品调研未执行（discovery.md §4.1，如实登记不编造结论）",
+    "#l0-decision 跑到视口上方 −511px 是 v4-1 注释中的历史实测值（本轮未复现，登记为「源码注释记录」而非「本轮实测」）",
+    "门禁计数全部引自 f-fidelity-fix §2 与 v4-chat closeout §4（本轮 discovery 未跑任何门禁/构建/Chromium，零运行时验证）"
+  ],
+  "notes": "discovery 阶段完成（2026-09-21，sddu-discovery）。产出 discovery.md v1.0 + state.json（phase=discovered / status=tracked）。\n\n立项核验（本轮实测）：① F 编号 —— grep -c \"F-31\" ROADMAP.md = 0（未占用）；grep -rn \"F-31\" 全仓 = 4 处，全部是 v4-chat 产物中的文字说明（state.json:249 与 discovery.md:39,287 的「F-30 未占用，无需改 F-31」），不是 Feature 登记、不构成占用；F-32/F-33 = 0 命中 ⇒ 登记 F-31 即可，无需顺延。② 版本位 —— grep -c \"v0.9.1\" ROADMAP.md = 0（零冲突）；另实测 grep -c \"f-fidelity-fix\\|FIX-1\\|FIXFID\" ROADMAP.md = 0 ⇒ f-fidelity-fix 快修轮根本未登记进 ROADMAP（独立成本文档），v4.5 将是第一个「维护轮」版本位 ⇒ 采纳 v0.9.1（v4 维护版本段），措辞区分于 v0.9.0 三主题并列。ROADMAP 一字未动（登记留给收口）。\n\n现状摸底关键事实（全部带 file:line 证据，见 discovery.md §7.1）：① 流结构 —— ol#stream 有 4 个 li[data-host]（index.html:1239-1348），卡由 stream-render.ts:66-71 的 messageAnchor（= composer 宿主）反序 insertBefore 插入 ⇒ DOM = [decision][卡…][composer][l1-panels][strips]；index.html:296-299 逐字记录 #l0-decision 曾实测跑到视口上方 −511px 且不可滚动到达。② 双写 —— host-registry.ts:74-76 的 strips reason 逐字承认「keep their readable status projection（protection gates pin #notice/#discovery-notice/#site-hint/#env-guard），but every fact is ALSO append-recorded through the one system channel」；STRIP_CHANNEL_KINDS 登记 6 条绑定（devdoc §7.1 B1）。③ 注册表固化 —— host-registry.ts:46-51 逐字「Each is a permanent structural home now」「the v4-1「过渡」reading no longer applies」；RETIRED_HOST_IDS 只剩 l0-pick / l0-status-band（:89-92）。④ 空态噪音 —— index.html:1297-1333 的 4 个 l1-*-toggle 无任何隐藏分支，计数只在 l1/panels.ts:345-346,363-364 填数字；且全部在 #stream 子树内 ⇒ density-scope.ts:38 的 DENSITY_EXCLUDED_SUBTREES=['#stream'] 使其成为「预算看不见的噪音」（默认档实测 5 可点 / 7 行，阈值 7/15）。\n\n与编排器预判的偏差（如实登记）：① F-31 零占用与 v0.9.1 零冲突**与预判一致**；② **新发现（编排器未提及）**：f-fidelity-fix §5.1 称「隐藏 0 计数会同时改写 density 默认档 31 格」，但源码口径显示 #stream 整棵子树被密度口径排除（density-scope.ts:38），实测默认档 5 可点 = 工具栏 4 入口 + 主题切换 ⇒ 该表述与实际耦合面**可能不符**；密度侧的真实耦合是 (a) density.mjs:346-364 的夹具稳态锚 = #notice 存在且非 hidden（必改）(b) 若内容迁出 #stream 落入被测量的区壳（#view-host 不豁免）则区壳读数与 riskIncrementRegistry 双向期望需重算 ⇒ 登记 Q-REG-010 / A-REG-007 / O-REG-006，要求 spec 以 Chromium 实测裁决、**禁止沿用未验证断言排工作量**；③ **新发现**：host-registry.ts 的模块注释逐字把 4 宿主登记为「permanent」「CLOSED state」，而 BLOCK-02 的原始判决是「删属性充数 = 自我裁决自我验收」⇒ 问题不只是「有 4 个宿主」，而是「**过渡关闭这条义务在制度上被消解**」⇒ 独立成 Q-REG-003 与 O-REG-007（注册表终态形态）；④ **新发现**：test/density-thresholds.test.ts:715 的归并矩阵判据要求「每个 strip 通道（除 #notice 外）必须 id 仍在 DOM 且绑定一个 kind」，且 test/system-merge.test.ts:61,102-107 断言「#notice 元素仍读到同一条事实」⇒ 与「退役可见投影」**正面矛盾**，该判据必须重写（不是放宽）⇒ 登记 R-REG-010；⑤ **新发现**：test/env-guard.test.ts 是该能力的独立单测、hardening.mjs:205,224-227 与 journey.mjs:658-670（#11c~#11e）是「投影存在」的正面断言（display !== 'none' + 具体文案）⇒ 正面冲突面比编排器预估更大 ⇒ 登记 R-REG-005 / Q-REG-012；⑥ **新发现**：site-hint 不是单行文本（sh-title/sh-detail/sh-action 三段 + #rebind 可点动作，index.html:1335-1445 + sidepanel.ts:1558,2634-2635）⇒ 「富内容去向」是核心 1 的**前置裁决**而非细节 ⇒ 登记 O-REG-001（含三条候选）；⑦ **新发现**：N-05（一键重锚按钮在 L1 面板）与 #l1-ref 面板的去向**同生共死** ⇒ 登记 Q-REG-005 / O-REG-008；⑧ **新发现**：options/index.html 解冻属治理动作，可能连带 zero-injection（27 断言）等门禁重估 ⇒ 登记 R-REG-013。\n\n纪律：**只读代码 + 只写本 Feature 目录**；未改生产代码/测试/dist/design/docs/其他 SDDU 目录/ROADMAP；未跑任何门禁或 Chromium（discovery 零运行时验证）；未 commit/push（本阶段由编排器统一提交）。注：`/tool sddu_update_state` 在本次会话工具集中不可见 → 本状态文件由 Agent 直接写入（phase=discovered / status=tracked）。",
+  "status": "tracked",
+  "phaseHistory": [
+    {
+      "phase": "registered",
+      "timestamp": "2026-09-21T00:00:00.000Z",
+      "triggeredBy": "sddu-discovery（按编排器代作者决策 D1/D2：Feature 命名 specs-tree-web-cli-plugin-v45-f-regularization，继承 v1/v2/v3/v4 命名惯例；作者已授权编排器代行决策、全流程自行调度）"
+    },
+    {
+      "phase": "discovered",
+      "timestamp": "2026-09-21T00:00:00.000Z",
+      "triggeredBy": "sddu-discovery（产出 discovery.md v1.0：立项来源逐字 6 条 + F-31/v0.9.1 零占用核验 + 范围核心 2/附带 2/非目标 6 + 现状基线 §7.1 A~F 全量 file:line 证据 + Q-REG-001~012（核心 4/次要 4/潜在 4）+ A-REG-001~008 + R-REG-001~015（含保护门禁迁移量预登记）+ O-REG-001~009 + pendingObligations 6 条 + 3 叶拆分草案）"
+    }
+  ],
+  "phaseNote": "phase=discovered（status=tracked）。本轮为 discovery 阶段：只读代码 + 只写本 Feature 目录；未跑门禁/构建/Chromium；未改 src/test/dist/design/docs/ROADMAP；未 commit/push。下一步 = @sddu-spec specs-tree-web-cli-plugin-v45-f-regularization。"
+}
