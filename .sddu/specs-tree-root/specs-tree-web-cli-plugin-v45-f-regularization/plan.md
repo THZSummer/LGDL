@@ -7,7 +7,7 @@
 > **版本**: v1.0
 > **更新人**: SDDU Plan Agent
 > **更新时间**: 2026-09-21
-> **更新说明**: 初始创建（v4.5「F 还原度转正」统领性技术方案：父 `plan.md` + 唯一叶 `plan.md` 同批产出；**ADR-V45-001~012**（正文在叶 §7）+ 跨切契约 + 红线继承表 + 不动面 T1~T10 + 五波实施序 + 聚合文件影响 60 项 + 风险登记（继承 R-REG-001~015 / R-REG-901~906 + plan 新增 R-V45-101~109））。**本任务只做 plan**：不写 tasks、不写代码、不改 `src/**`·`test/**`·`dist/**`·`docs/**`·`design/**`·ROADMAP、不改 v1/v2/v3/v4 SDDU 目录、不动 `main`、**不跑门禁/构建/Chromium**、**未调用任何受管 Provider**（routing.v1 = `local_or_compute → none`）。
+> **更新说明**: 初始创建（v4.5「F 还原度转正」统领性技术方案：父 `plan.md` + 唯一叶 `plan.md` 同批产出；**ADR-V45-001~012**（正文在叶 §7）+ 跨切契约 + 红线继承表 + 不动面 T1~T10 + 五波实施序 + 聚合文件影响 63 项 + 风险登记（继承 R-REG-001~015 / R-REG-901~906 + plan 新增 R-V45-101~109））。**本任务只做 plan**：不写 tasks、不写代码、不改 `src/**`·`test/**`·`dist/**`·`docs/**`·`design/**`·ROADMAP、不改 v1/v2/v3/v4 SDDU 目录、不动 `main`、**不跑门禁/构建/Chromium**、**未调用任何受管 Provider**（routing.v1 = `local_or_compute → none`）。
 
 ---
 
@@ -169,17 +169,17 @@ body
 
 ## 5. 聚合文件影响分析
 
-> **叶子级明细**（60 项逐路径 + 操作 + 说明，src 19 / test 33 / docs 2 / SDDU 6）见 **叶 `plan.md` §5**。本表只给**跨切聚合**（按资产类别 + 触碰面）。
+> **叶子级明细**（63 项逐路径 + 操作 + 说明，src 21 / test 34 / docs 2 / SDDU 6）见 **叶 `plan.md` §5**。本表只给**跨切聚合**（按资产类别 + 触碰面）。
 
 | 类别 | 项数 | 主要内容 | 是否动约束面 |
 |---|:--:|---|:--:|
-| `src/ui/sidepanel/**` | 15 | `index.html`（退役 4 宿主 + 新增 L2 承载块 + composer 出流）/ `host-registry.ts`（零宿主判据）/ `disclosure.ts`（三份声明）/ `stream-render.ts`（锚迁移）/ `sidepanel.ts`（单源化 + 迁移 + 2 个本地 act 分支）/ `view-model.ts`（firstRunCard + 手势单源 + 0 计数停渲染）/ `recommend.ts`（触发集 + 规则表 + 闭集 6）/ `cards/{ref,askuser,auth,nextstep,shared}.ts` / `l1/{panels,receipt,local-tree}.ts` / `l2/{audit,view-host}.ts` | 是（形态面） |
+| `src/ui/sidepanel/**` | 17 | `index.html`（退役 4 宿主 + 新增 L2 承载块 + composer 出流）/ `host-registry.ts`（零宿主判据）/ `disclosure.ts`（三份声明）/ `stream-render.ts`（锚迁移）/ `sidepanel.ts`（单源化 + 迁移 + 2 个本地 act 分支）/ `view-model.ts`（firstRunCard + 手势单源 + 0 计数停渲染）/ `recommend.ts`（触发集 + 规则表 + 闭集 6）/ `cards/{ref,askuser,auth,nextstep,shared}.ts` / `l1/{panels,receipt,local-tree}.ts` / `l2/{audit,view-host}.ts` | 是（形态面） |
 | `src/ui/settings/**` | 3 | `sections.ts`（7 → 8）/ `panel.ts`（挂载）/ **NEW** `help.ts`（只读帮助分区） | 是（计数派生） |
 | `src/ui/options/index.html` | 1 | **纯文案行**解冻订正 | 是（治理面，范围门禁） |
 | `test/**` | 33 | 30 MODIFY（journey / binding / density / l0 / l1 / l2 / page-input / hardening / insight / recommendation / stream / ask-auth / l1-reverse / l2-reverse / 各 node 门禁）+ 3 NEW（`host-registry` / `local-act-wiring` / `settings-help`） | 是（判据面） |
 | `docs/**` | 2 | `v4-supersession-ledger.json`（链式 pin + 条目 + 解冻 + 三值）/ `v4-density-baseline.json`（v4.5 台账 + 31 格 + 夹具锚 + registry） | 是（台账面） |
 | SDDU | 6 | 父/叶 `plan.md` + 父/叶 `state.json` + 父/叶 `TREE.md` | 否 |
-| **合计** | **60** | 新增 4（**零新增宿主**）；修改 50；删除文件 0 | — |
+| **合计** | **63** | 新增 4（**零新增宿主**）；修改 59；删除文件 0 | — |
 
 **跨切不变量**：`#stream` 宿主 4 → **0**；新增宿主 **0**；退役 DOM 元素 19 / 迁移 13 / 消解 3 / 保留 2（父 §11）；保护段 1 段二次取代 + 1 段保段；台账新增 `entries` 估 40~55 / `modifiedRanges` 估 25~35（**实测后填值，禁预填**）。
 
@@ -281,5 +281,5 @@ body
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
-| v1.0 | 初始创建（v4.5「F 还原度转正」**统领性技术方案**：父 `plan.md` + 唯一叶 `plan.md` 同批产出；**ADR-V45-001~012**（正文在叶 §7）；⚠️ 偏差登记 = 父产出 `plan.md`（容器内核仍遵守：父不产出 tasks / 不承接 build·review·validate）；§1.2 编排器 12 项必答 → ADR 索引；§2 跨切架构 + I1~I4 不变量 + **红线继承表 N1~N18** + **不动面 T1~T10**；§3 总体路线对比（A 纯形优先 vs B 门禁优先 vs C 文档对齐）；§4 跨切决策表 D-P-V45-01~07；§5 聚合文件影响 **60 项**（src 19 / test 33 / docs 2 / SDDU 6，新增 4，零新增宿主）；§6 风险（继承 R-REG-001~015 + R-REG-901~906 + plan 新增 R-V45-101~109）+ Top5；§8 实施估算（五波 ~52~58 任务 / 建议 54）+ 风险集中区 + 父级 DoD）。**本阶段只做 plan**：不写 tasks、不写代码、不改 `src/**`·`test/**`·`dist/**`·`docs/**`·`design/**`·ROADMAP、不动 `main`、不 commit/push、**未跑任何门禁 / 构建 / Chromium**、**未调用任何受管 Provider**（routing.v1 = `local_or_compute → none`）。 | 2026-09-21 | SDDU Plan Agent |
+| v1.0 | 初始创建（v4.5「F 还原度转正」**统领性技术方案**：父 `plan.md` + 唯一叶 `plan.md` 同批产出；**ADR-V45-001~012**（正文在叶 §7）；⚠️ 偏差登记 = 父产出 `plan.md`（容器内核仍遵守：父不产出 tasks / 不承接 build·review·validate）；§1.2 编排器 12 项必答 → ADR 索引；§2 跨切架构 + I1~I4 不变量 + **红线继承表 N1~N18** + **不动面 T1~T10**；§3 总体路线对比（A 纯形优先 vs B 门禁优先 vs C 文档对齐）；§4 跨切决策表 D-P-V45-01~07；§5 聚合文件影响 **63 项**（src 21 / test 34 / docs 2 / SDDU 6，新增 4，零新增宿主）；§6 风险（继承 R-REG-001~015 + R-REG-901~906 + plan 新增 R-V45-101~109）+ Top5；§8 实施估算（五波 ~52~58 任务 / 建议 54）+ 风险集中区 + 父级 DoD）。**本阶段只做 plan**：不写 tasks、不写代码、不改 `src/**`·`test/**`·`dist/**`·`docs/**`·`design/**`·ROADMAP、不动 `main`、不 commit/push、**未跑任何门禁 / 构建 / Chromium**、**未调用任何受管 Provider**（routing.v1 = `local_or_compute → none`）。 | 2026-09-21 | SDDU Plan Agent |
 
