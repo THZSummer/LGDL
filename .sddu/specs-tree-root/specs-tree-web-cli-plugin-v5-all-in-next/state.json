@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-web-cli-plugin-v5-all-in-next",
   "version": "v5.0.0",
   "name": "web-cli-plugin v5「All-in-Next 聊天即操作台」（方案 G）—— 把用户授权 / 权限申请 / 绑定 / 浏览器权限申请 / LLM 配置等所有需用户操作处抽象为 web-op + next，在 chat 内一站式闭环；新增法七（一切操作皆 Next，禁止死端）+ 法八（值不入流）；NextProvider 契约 v2 插件注册表；真机断流缺陷并入首验收场景 S2",
-  "phase": "planned",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "phase": "tasked",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -53,7 +53,7 @@
   ],
   "leaf": false,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T06:00:00.000Z",
+  "updatedAt": "2026-09-22T08:00:00.000Z",
   "description": "web-cli-plugin v5「All-in-Next 聊天即操作台」（方案 G）的 discovery 阶段产物。立项来源 = ① 作者主题指示（2026-09-21 逐字：「所有的用户授权、权限申请、绑定、浏览器权限申请、LLM配置等，都要支持抽象成web-op-cli（类似LGDL的lgdl-web-op-cli），都要支持一站式在chat里面闭环」+「所有的下一步需要用户操作的地方，都要支持在chat里面以next的方式和用户交互完成，不允许让用户跳来跳去」）② 真机断流现场（23:12:51~23:12:59 逐字：未授权站点页面侧零注入之后无任何可达 next）③ 设计基准 option-g-all-in-next.html（定稿冻结，三轮优化终稿）+ option-g-shim.mjs（127/127 实跑全绿）④ 作者 5 裁决（optional_permissions / 掩码零明文 / F 式 HTML+shim / 设置视图保留管理面 / 断流并入首验收）。核心问题 5 条：真机死端（阻塞终态后流内零可达 next：error 卡裸奔 + risk-recovery 三动作不解未授权 + 授权入口仅首装态 + page-unavailable 仅风险行）· 用户操作面散落在 chat 之外（设置视图 8 分区 + options 页承载 LLM 配置 / 授权 / 浏览器权限 / 会话 / 诊断）· 架构不可扩张（推荐器 = 4 规则手写 + NEXTSTEP_ACTS 6 项逐字闭集 + handleCardAction 手写 switch 16 分支 + chip 绑 data-act 而非 opId）· 敏感值无流内入口且法二/法八未切分 · 授权态三处投影且非首装会话无授权入口。范围 = 核心 6（法七无死端 / web-op 管线 + NextProvider 注册表契约 v2 / 浏览器权限申请流内闭环 / LLM 配置流内闭环 + 法八 / 授权态下移状态栏常显 chip / 管理操作流内闭环 + 设置视图保留管理面）+ 附带 2（可拖动宽度 280–640 / S2 断流样板首验收）；非目标 8 项（content.js 与 pick-layer.js 冻结 / A2A F-29 不动 / 12 kind 不加 / 三区法则不变 / design 稿不改 / 判定链 zeroDiffFiles 零触碰 / 安装期静态权限不变 / L2 视图内部）。红线继承 N1~N21；显式取代 X1~X6。问题清单 Q-ALLN-001~014（核心 5 / 次要 5 / 潜在 4）；假设 A-ALLN-001~010；风险 R-ALLN-001~016（含 Top5 + 门禁迁移量估计）；开放问题 O-ALLN-001~012；叶子拆分草案 4 叶（串行）。",
   "scope": {
     "in": [
@@ -100,7 +100,9 @@
     "ADR-V5-009-dead-end-guard-gate.md",
     "ADR-V5-010-law8-four-face-plaintext-gate.md",
     "ADR-V5-011-volume-budget.md",
-    "ADR-V5-012-wave-plan-and-protection.md"
+    "ADR-V5-012-wave-plan-and-protection.md",
+    "tasks.md",
+    "tasks.json"
   ],
   "files": {
     "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/discovery.md",
@@ -128,7 +130,15 @@
     "adr09": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/ADR-V5-009-dead-end-guard-gate.md",
     "adr10": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/ADR-V5-010-law8-four-face-plaintext-gate.md",
     "adr11": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/ADR-V5-011-volume-budget.md",
-    "adr12": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/ADR-V5-012-wave-plan-and-protection.md"
+    "adr12": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/ADR-V5-012-wave-plan-and-protection.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/tasks.json",
+    "leaf1Tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/tasks.md",
+    "leaf2Tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/tasks.md",
+    "leaf3Tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/tasks.md",
+    "leaf1TasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/tasks.json",
+    "leaf2TasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/tasks.json",
+    "leaf3TasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/tasks.json"
   },
   "coversIssues": [
     "Q-ALLN-001 死端：阻塞终态之后流内零可达 next（法七不成立）",
@@ -713,9 +723,14 @@
       "phase": "planned",
       "timestamp": "2026-09-22T06:00:00.000Z",
       "triggeredBy": "sddu-plan（产出父 plan.md v1.0 + 3 叶 plan.md v1.0 + ADR-V5-001~012 全 12 条正文：① 契约 v2 注册表（两集模型 / ACT_TO_OP 6 行 / recommend.ts 取代路径）② op 管线四态 + askuser secret·form 扩形 + 阻塞类 error 出生带恢复区 ③ SW 执行器 + op-* type-only + 双侧 op-table 同源（特权 op 恰 2）④ optional_permissions 首批 0 项新增（机制预留，manifest 零 diff）⑤ settings 4 类收编（单一执行体 + 零双路径）⑥ 授权 chip 状态栏常显两态 + 零双写五条（6 ≤ 7）⑦ 宽度产品侧落点 data-narrow + 密度登记格口径解耦（X5）⑧ 双稿双 shim design-contract（F 冻结 + G 127 新增）⑨ 死端守护门禁（5 类 + N=0 + 死端=0 + 双向反证）⑩ 法八四面零明文机核 ⑪ 体积预算 Σ17,600 B / 余量 24,926 B + 四级越限预案 ⑫ 3 叶 19 波 / ~76 任务 + journey 保段优先（必要时第三次八步）+ binding 保段（字节中立避让）；红线继承 N1~N25 + 不动面 T1~T10；风险 = 继承 R-ALLN-001~016 / R-ALLN-901~910 + plan 新增 R-V5-101~110；本轮只做 plan：零 src/test/dist/docs/design/ROADMAP 改动，零门禁/构建/Chromium，未调用任何受管 Provider）"
+    },
+    {
+      "phase": "tasked",
+      "timestamp": "2026-09-22T08:00:00.000Z",
+      "triggeredBy": "sddu-tasks（产出 父 tasks.md + tasks.json（总览型，tasks[] 空）+ 3 叶 tasks.md / tasks.json：3 叶 × 19 波 × 76 任务（TASK-V5-101~176 三叶连续编号；S×5 / M×45 / L×26）+ 每任务红线检查点四段代号（F1~F5 / T-a~T-e / L-a~L-c / C-1~C-7）+ 4 个 spikeGate + 体积预算逐叶分摊对照表 Σ17,600 B + 24 门禁守恒总表 + 停机规则 9 条；本轮只做 tasks：零 src/test/dist/docs/design/ROADMAP 改动，零门禁/构建/Chromium，未调用任何受管 Provider）"
     }
   ],
-  "phaseNote": "phase=specified（status=tracked）。本轮为 spec 阶段：只写本 Feature 目录内文件（spec.md + 3 叶 spec.md + state.json + TREE.md）；未改 src / test / dist / design / docs / ROADMAP；零运行时验证（所有数字引自已入库产物与源码）。**3 叶**：v5-1（契约 v2 注册表 + op 管线 + act→opId + 瘦分发 + 双契约 + 证明义务机核）→ v5-2（9 op + SW 执行器 + optional_permissions + 掩码 llm-config + settings 收编 + 断流首验收）→ v5-3（授权 chip + 可拖动宽度 + 密度口径 + 死端守护门禁 + 法八机核；收口叶）。下一步 = @sddu-plan specs-tree-web-cli-plugin-v5-all-in-next（按叶串行规划；v5-1 为首叶）。",
+  "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：产出父总览型 tasks（0 条可执行任务，偏差同 v4/v4.5 先例显式登记）+ 3 叶共 76 原子任务（19 波）。下游 = @sddu-build（按叶串行：v5-1 TASK-V5-101 → v5-2 TASK-V5-123 → v5-3 TASK-V5-153）。",
   "specCounts": {
     "fr": 80,
     "nfr": 12,
@@ -808,5 +823,50 @@
       "design/**",
       "packages/web-cli-base/**"
     ]
+  },
+  "taskCounts": {
+    "total": 76,
+    "waveCount": 19,
+    "complexity": {
+      "S": 5,
+      "M": 45,
+      "L": 26
+    },
+    "perLeaf": {
+      "specs-tree-v5-1-next-registry-pipeline": {
+        "tasks": 22,
+        "waves": 5,
+        "block": "TASK-V5-101~122",
+        "S": 2,
+        "M": 15,
+        "L": 5
+      },
+      "specs-tree-v5-2-ops-first-batch": {
+        "tasks": 30,
+        "waves": 7,
+        "block": "TASK-V5-123~152",
+        "S": 2,
+        "M": 16,
+        "L": 12
+      },
+      "specs-tree-v5-3-chrome-face": {
+        "tasks": 24,
+        "waves": 7,
+        "block": "TASK-V5-153~176",
+        "S": 1,
+        "M": 14,
+        "L": 9
+      }
+    },
+    "spikeGates": [
+      "SG-1（TASK-V5-106）",
+      "SG-3（TASK-V5-129）",
+      "SG-2（TASK-V5-144）",
+      "SG-4（TASK-V5-153）"
+    ],
+    "volumeBudgetBytes": 17600,
+    "headroomBytes": 24926,
+    "newGates": 8,
+    "humanFacingItems": 9
   }
 }

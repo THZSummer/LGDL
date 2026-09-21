@@ -22,7 +22,9 @@ specs-tree-web-cli-plugin-v5-all-in-next/
 ├── discovery.md          # 问题挖掘报告：specs-tree-web-cli-plugin-v5-all-in-next
 ├── plan.md          # 技术计划：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」；父 Feature 统领性技术方案）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」）
-├── state.json          # 状态文件 (🟢 tracked [planned])
+├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── tasks.json          # 任务清单 (机器可读)
+├── tasks.md          # 任务分解：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」；父 Feature 统领性任务总览）
 ├── specs-tree-v5-1-next-registry-pipeline/          # 本叶 = v5 的**首叶**，交付「可以让后续操作『注册即接入』的那一层」：`NextProvid
 ├── specs-tree-v5-2-ops-first-batch/          # 本叶 = v5 的**次叶**，交付「**一站式闭环真的能用**」：把 9 个 op（设计稿 8 个
 └── specs-tree-v5-3-chrome-face/          # 本叶 = v5 的**末叶（收口叶）**，交付「**形态与判据同时收口**」：授权态**下移状态栏常
@@ -46,14 +48,16 @@ specs-tree-web-cli-plugin-v5-all-in-next/
 | discovery.md | 问题挖掘报告：specs-tree-web-cli-plugin-v5-all-in-next — web-cli-plugin v5「All-in-Next 聊天即操作台」问题挖掘报告 —— 把作者主题（**所有需要用户操作的地方都在 chat 里以 ... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」；父 Feature 统领性技术方案） — v4 把「一切交互皆消息」做成了行为，v4.5 把流做成了纯时间序，但**「下一步」仍不保证**：真机 23:12:59 的 ✖ 行之后**流内零可达 n... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」） — web-cli-plugin v5「All-in-Next 聊天即操作台」需求规范 —— 把作者主题（**所有需要用户操作的地方都在 chat 里以 ne... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [planned] |
+| state.json | 状态文件 | 🟢 tracked [tasked] |
+| tasks.json | 任务清单（机器可读） | ✅ 存在 |
+| tasks.md | 任务分解：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」；父 Feature 统领性任务总览） — 任务分解：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊... | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 设计 (3/7) |
-| Status | 🟢 tracked [planned] |
+| Phase | 任务分解 (4/7) |
+| Status | 🟢 tracked [tasked] |
 
 ## 上级目录
 - [返回上级](../TREE.md)

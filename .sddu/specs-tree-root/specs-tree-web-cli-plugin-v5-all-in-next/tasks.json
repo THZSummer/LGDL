@@ -1,0 +1,248 @@
+{
+  "meta": {
+    "feature": "specs-tree-web-cli-plugin-v5-all-in-next",
+    "featureKey": "specs-tree-web-cli-plugin-v5-all-in-next",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-22",
+    "version": "1.0.0",
+    "scope": "总览（不承接执行）",
+    "sourcePlan": "父 plan.md v1.0（跨切契约 / ADR-V5-001~012 索引 / 波次 ADR-V5-012）+ 3 叶 plan.md v1.0",
+    "sourceSpec": "父 spec.md v1.0（80 FR / 12 NFR / 21 EC / 25 AC / 20 NG / DC-ALLN-001~012 / §12 X1~X6 / §13 N1~N25 / §14 3 叶拆分）+ 3 叶 spec.md v1.0",
+    "totalTasks": 76,
+    "totalWaves": 19,
+    "complexity": { "S": 5, "M": 45, "L": 26 },
+    "deviation": {
+      "id": "父 spec.md §14.1（轻量规范容器）",
+      "desc": "父 Feature 定位为轻量规范容器（不承接 build/review/validate、不产出 tasks.json）；本轮按编排器任务书产出**总览型** tasks.md + tasks.json（tasks[] 为空、无一条可执行任务），偏差显式登记、可整篇作废而不牵连叶",
+      "containerCore": "父不承接 build/review/validate；实施全部由 3 叶承载；父 state.json 的 depth=1 / childrens 结构不变"
+    },
+    "numbering": {
+      "namespace": "TASK-V5-1xx",
+      "leafBlocks": {
+        "v5-1": "TASK-V5-101~122（22）",
+        "v5-2": "TASK-V5-123~152（30）",
+        "v5-3": "TASK-V5-153~176（24）"
+      },
+      "conflictCheck": "三叶连续编号、零交叠；与 v1 TASK-001~040 / v2 2xx~3xx / v3 4xx / v4 5xx~8xx / v4.5 TASK-V45-1xx 零冲突"
+    },
+    "deliveryOrder": ["specs-tree-v5-1-next-registry-pipeline", "specs-tree-v5-2-ops-first-batch", "specs-tree-v5-3-chrome-face"],
+    "serialRule": "叶间硬串行（v5-2 依赖 v5-1 接口；v5-3 依赖 v5-2 的 op.authorize / op.revoke / op.rebind 与 S2 样本）"
+  },
+  "leaves": [
+    {
+      "leafKey": "specs-tree-v5-1-next-registry-pipeline",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/",
+      "position": 1,
+      "tasks": "TASK-V5-101~122（22）",
+      "waves": "W1~W5（全局 W01~W05）",
+      "size": { "S": 2, "M": 15, "L": 5 },
+      "spikes": ["TASK-V5-106（SG-1）"],
+      "commitIntervals": { "A": "W1", "B": "W2", "C": "W3（原子）", "D": "W4", "E": "W5" },
+      "volumeBudgetBytes": 8800,
+      "mainAdrs": ["ADR-V5-001", "ADR-V5-002（机制侧）", "ADR-V5-008"],
+      "artifacts": ["spec.md", "plan.md", "tasks.md", "tasks.json", "state.json", "TREE.md"],
+      "note": "首叶 = 契约 v2 注册表 + op 管线机制 + act→opId + 瘦分发 + 双契约入册 + 阻塞态枚举单源；不落地 9 op 业务能力"
+    },
+    {
+      "leafKey": "specs-tree-v5-2-ops-first-batch",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/",
+      "position": 2,
+      "tasks": "TASK-V5-123~152（30）",
+      "waves": "W1~W7（全局 W06~W12）",
+      "size": { "S": 2, "M": 16, "L": 12 },
+      "spikes": ["TASK-V5-129（SG-3）", "TASK-V5-144（SG-2）"],
+      "commitIntervals": { "A": "W1", "B": "W2", "C": "W3", "D": "W4", "E": "W5", "F": "W6", "G": "W7" },
+      "volumeBudgetBytes": 5550,
+      "mainAdrs": ["ADR-V5-002（执行侧）", "ADR-V5-003", "ADR-V5-004", "ADR-V5-005"],
+      "artifacts": ["spec.md", "plan.md", "tasks.md", "tasks.json", "state.json", "TREE.md"],
+      "note": "次叶 = 9 op 落地 + SW 执行器 + op-* type-only + optional_permissions（0 项新增）+ 掩码 secret + settings 4 类收编 + S2 断流样本与首验收；no-dead-end.mjs / law8-plaintext.mjs 归 v5-3 单点落地"
+    },
+    {
+      "leafKey": "specs-tree-v5-3-chrome-face",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/",
+      "position": 3,
+      "tasks": "TASK-V5-153~176（24）",
+      "waves": "W1~W7（全局 W13~W19）",
+      "size": { "S": 1, "M": 14, "L": 9 },
+      "spikes": ["TASK-V5-153（SG-4）"],
+      "commitIntervals": { "A": "W1", "B": "W2", "C": "W3", "D": "W4（原子）", "E": "W5", "F": "W6", "G": "W7（原子）" },
+      "volumeBudgetBytes": 3250,
+      "mainAdrs": ["ADR-V5-006", "ADR-V5-007", "ADR-V5-009", "ADR-V5-010", "ADR-V5-012（收口侧）"],
+      "isCloseoutLeaf": true,
+      "artifacts": ["spec.md", "plan.md", "tasks.md", "tasks.json", "state.json", "TREE.md"],
+      "note": "末叶 / 收口叶 = 授权 chip 唯一载体 + 零双写五条 + data-narrow + 密度口径解耦 + 死端守护门禁 + 法八四面机核 + 共享面收口（journey / 体积三叶合计 / 台账 / 全门禁 + e2e）"
+    }
+  ],
+  "crossLeafOrder": {
+    "structure": "3-leaf-serial",
+    "order": ["specs-tree-v5-1-next-registry-pipeline", "specs-tree-v5-2-ops-first-batch", "specs-tree-v5-3-chrome-face"],
+    "note": "叶间不可并行；叶内波次为唯一执行序（见各叶 tasks.md §1 关键路径）"
+  },
+  "waveSummary": [
+    { "global": "W01", "leaf": "v5-1", "wave": 1, "name": "Definition / Provider / 规则迁移", "tasks": "101~106", "count": 6, "interval": "A" },
+    { "global": "W02", "leaf": "v5-1", "wave": 2, "name": "管线四态机制", "tasks": "107~110", "count": 4, "interval": "B" },
+    { "global": "W03", "leaf": "v5-1", "wave": 3, "name": "ACT_TO_OP + 瘦分发 + X3 门禁重锚", "tasks": "111~115", "count": 5, "interval": "C" },
+    { "global": "W04", "leaf": "v5-1", "wave": 4, "name": "义务表 + 双契约入册（X4）", "tasks": "116~119", "count": 4, "interval": "D" },
+    { "global": "W05", "leaf": "v5-1", "wave": 5, "name": "阻塞单源 + 常驻候选 + 体积 + 收尾", "tasks": "120~122", "count": 3, "interval": "E" },
+    { "global": "W06", "leaf": "v5-2", "wave": 1, "name": "本地只读 5 op + op-table", "tasks": "123~128", "count": 6, "interval": "A" },
+    { "global": "W07", "leaf": "v5-2", "wave": 2, "name": "特权 op 底座 + op.authorize（SG-3）", "tasks": "129~133", "count": 5, "interval": "B" },
+    { "global": "W08", "leaf": "v5-2", "wave": 3, "name": "op.llm-config（掩码 secret）", "tasks": "134~137", "count": 4, "interval": "C" },
+    { "global": "W09", "leaf": "v5-2", "wave": 4, "name": "op.perm.request（form）+ X1", "tasks": "138~140", "count": 3, "interval": "D" },
+    { "global": "W10", "leaf": "v5-2", "wave": 5, "name": "op.revoke + 拒绝非死端（SG-2）", "tasks": "141~144", "count": 4, "interval": "E" },
+    { "global": "W11", "leaf": "v5-2", "wave": 6, "name": "settings 4 类收编 + 布线门禁", "tasks": "145~148", "count": 4, "interval": "F" },
+    { "global": "W12", "leaf": "v5-2", "wave": 7, "name": "S2 首验收 + X2 + 体积 + 收尾", "tasks": "149~152", "count": 4, "interval": "G" },
+    { "global": "W13", "leaf": "v5-3", "wave": 1, "name": "法八四面机核（判据先立）+ SG-4", "tasks": "153~155", "count": 3, "interval": "A" },
+    { "global": "W14", "leaf": "v5-3", "wave": 2, "name": "error 出生带恢复区", "tasks": "156~158", "count": 3, "interval": "B" },
+    { "global": "W15", "leaf": "v5-3", "wave": 3, "name": "死端守护门禁 + S2 主验收", "tasks": "159~162", "count": 4, "interval": "C" },
+    { "global": "W16", "leaf": "v5-3", "wave": 4, "name": "授权 chip 唯一载体 + 零双写五条", "tasks": "163~166", "count": 4, "interval": "D" },
+    { "global": "W17", "leaf": "v5-3", "wave": 5, "name": "data-narrow + 三档 radio 零残留", "tasks": "167~169", "count": 3, "interval": "E" },
+    { "global": "W18", "leaf": "v5-3", "wave": 6, "name": "密度口径解耦 + 台账重锚（X5）", "tasks": "170~172", "count": 3, "interval": "F" },
+    { "global": "W19", "leaf": "v5-3", "wave": 7, "name": "共享面收口（journey / 体积终轮 / 台账 / 全门禁 + E2E）", "tasks": "173~176", "count": 4, "interval": "G（原子）" }
+  ],
+  "checkpoints": [
+    { "id": "CP-V5-1", "after": "W01~W05（v5-1 收尾 TASK-V5-122）", "criteria": "注册表 R1~R7 逐点机核绿；分发器 per-op 分支 == 0 且四操作哈希不变；义务表 9 行一致；design-contract F 60 保留 + G 127 新增；BLOCKED_TERMINALS 单源；本叶计数只增对账完成" },
+    { "id": "CP-V5-2", "after": "W06~W12（v5-2 收尾 TASK-V5-152）", "criteria": "9 op 五要素齐备；content.js 逐字节零增长；特权 op == 2；三表整体回滚；settings 4 类零双路径；S2 死端 = 0（node 判据）；binding 段内零改 / 段外登记" },
+    { "id": "CP-V5-3", "after": "W13~W19（v5-3 收尾 TASK-V5-176）", "criteria": "法八四面 + 全属性零命中；死端守护 5 类 + 双向反证；#auth-state 两态唯一载体 + 6 ≤ 7；data-narrow 360/361；31 格逐格留痕；journey 显式二选一；体积三叶合计登记；e2e PASS；人工面 9 项逐项标注" }
+  ],
+  "volumeLedger": {
+    "authority": "ADR-V5-011 §1（12 行逐项表）",
+    "sidepanelBaselineBytes": 498521,
+    "sidepanelCeilingBytes": 523447,
+    "headroomBytes": 24926,
+    "distanceToTierBytes": 13479,
+    "tierBytes": 512000,
+    "absoluteCeilingBytes": 563200,
+    "totalBudgetBytes": 17600,
+    "reservedFloorBytes": 7326,
+    "items": [
+      { "no": 1, "item": "Definition", "carrier": "next-registry/definition.ts", "bytes": 600, "leaf": "v5-1", "tasks": ["TASK-V5-101"] },
+      { "no": 2, "item": "Provider（validate / topo / resolveOrder / register·unregister·overwrite）", "carrier": "next-registry/registry.ts", "bytes": 2400, "leaf": "v5-1", "tasks": ["TASK-V5-102", "TASK-V5-103", "TASK-V5-104"] },
+      { "no": 3, "item": "Consumer + 管线 + handleCardAction 瘦身净变化", "carrier": "pipeline.ts + dispatch.ts + sidepanel.ts", "bytes": 3100, "leaf": "v5-1", "tasks": ["TASK-V5-107", "TASK-V5-108", "TASK-V5-109", "TASK-V5-110", "TASK-V5-111", "TASK-V5-112", "TASK-V5-113"] },
+      { "no": 4, "item": "9 op 执行体（净）", "carrier": "next-registry/ops.ts", "bytes": 3400, "leaf": "v5-2", "tasks": ["TASK-V5-123", "TASK-V5-124", "TASK-V5-125", "TASK-V5-126", "TASK-V5-127", "TASK-V5-128", "TASK-V5-133", "TASK-V5-137", "TASK-V5-139", "TASK-V5-141"] },
+      { "no": 5, "item": "证明义务表 + 一致性校验", "carrier": "next-registry/obligation-table.ts", "bytes": 900, "leaf": "v5-1", "tasks": ["TASK-V5-116", "TASK-V5-117"] },
+      { "no": 6, "item": "4 内置 provider 迁移（净）", "carrier": "providers.ts + recommend.ts", "bytes": 1400, "leaf": "v5-1", "tasks": ["TASK-V5-105"] },
+      { "no": 7, "item": "askuser 扩形（secret / form 渲染 + 提交）", "carrier": "cards/askuser.ts + sidepanel.ts", "bytes": 1800, "leaf": "v5-2", "tasks": ["TASK-V5-134", "TASK-V5-135", "TASK-V5-136", "TASK-V5-138"] },
+      { "no": 8, "item": "error 出生恢复区", "carrier": "cards/error.ts + stream-model.ts", "bytes": 700, "leaf": "v5-3", "tasks": ["TASK-V5-156", "TASK-V5-157"] },
+      { "no": 9, "item": "授权态下移（净）", "carrier": "statusbar.ts + view-model.ts + index.html + risk-rail.ts", "bytes": 1600, "leaf": "v5-3", "tasks": ["TASK-V5-163", "TASK-V5-164", "TASK-V5-165", "TASK-V5-166"] },
+      { "no": 10, "item": "data-narrow（ResizeObserver + 样式块）", "carrier": "sidepanel.ts + 样式", "bytes": 500, "leaf": "v5-3", "tasks": ["TASK-V5-167", "TASK-V5-168"] },
+      { "no": 11, "item": "密度台账 / 等价重锚（运行时净）", "carrier": "各模块", "bytes": 200, "leaf": "v5-3", "tasks": ["TASK-V5-169", "TASK-V5-170", "TASK-V5-171"] },
+      { "no": 12, "item": "胶水 / 未归因", "carrier": "—", "bytes": 1000, "leaf": "各叶", "tasks": ["TASK-V5-121", "TASK-V5-152", "TASK-V5-174"] }
+    ],
+    "perLeaf": {
+      "v5-1": { "itemsBytes": 8400, "glueBytes": 400, "totalBytes": 8800, "registerTask": "TASK-V5-121" },
+      "v5-2": { "itemsBytes": 5200, "glueBytes": 350, "totalBytes": 5550, "registerTask": "TASK-V5-152" },
+      "v5-3": { "itemsBytes": 3000, "glueBytes": 250, "totalBytes": 3250, "registerTask": "TASK-V5-174（三叶合计）" },
+      "sum": { "itemsBytes": 16600, "glueBytes": 1000, "totalBytes": 17600 }
+    },
+    "escalation": [
+      { "case": "Δ ≤ 24,926 B（≤5%）", "action": "五要素重登记 + metafile 归因；档位 / 绝对上限不变；authorConfirmation.status 保持 pending-author-line" },
+      { "case": "24,926 < Δ ≤ 38,405（越 5% 但新基线 < 512,000）", "action": "同上 + 显式登记『越 5% 轮内软纪律』；禁静默放宽上限 / 禁引入新 cap" },
+      { "case": "新基线 > 512,000（越档位）", "action": "触发档位上调义务（显式登记 + authorConfirmation 占位规则，不得伪称已确认）；绝对上限 563,200 不变" },
+      { "case": "新基线 > 563,200（越绝对上限）", "action": "停机上报（硬墙）" }
+    ],
+    "note": "plan 文本口径差异显式登记：v5-2 plan §6 记『≈8,900 B』（含 settings 收编与 SW 侧归因的文本预估，ADR-V5-011 §1 无对应行项）；本表以 ADR-V5-011 12 行逐项表为权威，差异上界 ≈3,350 B 由收口 metafile 实测按 FR-ALLN-130 只追加修正（不改 ADR 历史值 / 不引入新 cap）"
+  },
+  "sharedSurfaces": {
+    "caliber": "FR-ALLN-004：四类共享面被 ≥2 叶触碰 ⇒ 必须恰一次做完；禁止『两叶各改一次同一条目』",
+    "volume": { "registerLeaf": "各叶登记自身增量；收口合计在 v5-3", "tasks": ["TASK-V5-121", "TASK-V5-152", "TASK-V5-174"], "check": "SIDEPANEL_BASELINE_BYTES_TIMELINE 只追加 + metafile 归因（Σ 逐模块 Δ + 未归因 == 登记增量）" },
+    "designContract": { "registerLeaf": "v5-1", "tasks": ["TASK-V5-118", "TASK-V5-119"], "check": "G_* 常量 + G_ASSERTION_MAP 127 行 + designContractChanges 条目（空 → G）" },
+    "journeyProtection": { "registerLeaf": "v5-3", "tasks": ["TASK-V5-169", "TASK-V5-173"], "check": "保段（sha cc79f413… / startByte 43054 双不变）或第三次八步（新 pin + 第 4 链节 + redlineRemap[] + 计数守恒 ≥171）" },
+    "supersessionLedger": { "registerLeaf": "各叶各登各的条目（台账文件只追加）", "tasks": ["TASK-V5-115", "TASK-V5-119", "TASK-V5-121", "TASK-V5-140", "TASK-V5-151", "TASK-V5-152", "TASK-V5-172", "TASK-V5-173", "TASK-V5-175"], "check": "test:supersession ≥35 + knownGap ↔ status 一致性" }
+  },
+  "crossCutRedlines": {
+    "N22": { "item": "handleCardAction 零 per-op 分支（diff = 0）", "tasks": ["TASK-V5-113", "TASK-V5-114", "TASK-V5-115"] },
+    "N23": { "item": "#auth-state 为授权态全 UI 唯一常显载体（四词工具栏零出现 / rail 授权类零残留）", "tasks": ["TASK-V5-163", "TASK-V5-164", "TASK-V5-165", "TASK-V5-166"] },
+    "N24": { "item": "流内零明文四面（payload / digest / 审计 / DOM value 与全部属性）", "tasks": ["TASK-V5-135", "TASK-V5-136", "TASK-V5-154", "TASK-V5-155"] },
+    "N25": { "item": "op.turn 唯一经 requestTurn；其余 op 零 requestTurn", "tasks": ["TASK-V5-128", "TASK-V5-147"] }
+  },
+  "supersessionMap": {
+    "X1": { "item": "optional_permissions 放开（首批 0 项 + 机制预留）", "tasks": ["TASK-V5-138", "TASK-V5-139", "TASK-V5-140"], "ledger": "modifiedRanges[]（四门禁等价重锚逐行）" },
+    "X2": { "item": "op-* 消息族 type-only（KIND_SET 零新增 / content.js 逐字节）", "tasks": ["TASK-V5-129", "TASK-V5-130", "TASK-V5-131", "TASK-V5-132", "TASK-V5-151"], "ledger": "modifiedRanges[] + test:content 反证留证" },
+    "X3": { "item": "act 闭集 6 项 → op 注册表", "tasks": ["TASK-V5-105", "TASK-V5-111", "TASK-V5-112", "TASK-V5-113", "TASK-V5-114", "TASK-V5-115"], "ledger": "modifiedRanges[] 逐行 + 各门禁计数对账" },
+    "X4": { "item": "G 稿 + 127 断言入 design-contract（F 并存不替换）", "tasks": ["TASK-V5-106", "TASK-V5-118", "TASK-V5-119"], "ledger": "designContract.designContractChanges[]（空 → G 条目）" },
+    "X5": { "item": "密度三档视口 → 连续宽度 + data-narrow + 口径解耦", "tasks": ["TASK-V5-167", "TASK-V5-168", "TASK-V5-170", "TASK-V5-171", "TASK-V5-172", "TASK-V5-173"], "ledger": "docs/v4-density-baseline.json（tiers 重锚 + v5Ledger + modifiedRanges[]）" },
+    "X6": { "item": "data-act → data-op + 注册表候选 + 统一管线 + error 行内恢复", "tasks": ["TASK-V5-111", "TASK-V5-112", "TASK-V5-113", "TASK-V5-156", "TASK-V5-157", "TASK-V5-158"], "ledger": "台账 + test:stream / test:ask-auth 计数对账（只增）" }
+  },
+  "spikeGates": [
+    { "code": "SG-1", "task": "TASK-V5-106", "leaf": "v5-1", "topic": "G shim 127 断言抽取 + F/G 混池防御", "gates": ["TASK-V5-118", "TASK-V5-119"], "stoppingRule": "不可行 / sha 不符 ⇒ 暂停上报（禁静默改 F 常量 / 禁缩窄 127 映射）" },
+    { "code": "SG-3", "task": "TASK-V5-129", "leaf": "v5-2", "topic": "op-* type-only 通路（KIND_SET 零新增 / content.js 零增长）", "gates": ["TASK-V5-130", "TASK-V5-131"], "stoppingRule": "不可行 ⇒ 暂停上报（禁把 op-* 加进 KIND_SET）" },
+    { "code": "SG-2", "task": "TASK-V5-144", "leaf": "v5-2", "topic": "binding 保护段字节中立避让可行性", "gates": ["TASK-V5-152"], "stoppingRule": "不可行 ⇒ 暂停上报（禁静默改 binding pin）" },
+    { "code": "SG-4", "task": "TASK-V5-153", "leaf": "v5-3", "topic": "5 类阻塞终态 headless 驱动 seam 可得性", "gates": ["TASK-V5-159", "TASK-V5-160"], "stoppingRule": "seam 不足 ⇒ 回 v5-1 补 provider 的可注入 when(ctx)（禁以人工判据替代）" }
+  ],
+  "independentParallelGroups": [
+    { "group": "P1", "members": ["TASK-V5-101", "TASK-V5-102", "TASK-V5-103", "TASK-V5-104", "TASK-V5-105", "TASK-V5-106"], "note": "W1 文件不相交；106 只读探针不落版本库" },
+    { "group": "P2", "members": ["TASK-V5-116", "TASK-V5-118"], "note": "obligation-table.ts 与 design-contract.test.ts 不相交" },
+    { "group": "P3", "members": ["TASK-V5-124", "TASK-V5-125", "TASK-V5-126", "TASK-V5-127"], "note": "本地只读 op 各自既有单一入口" },
+    { "group": "P4", "members": ["TASK-V5-135", "TASK-V5-136"], "note": "stream-model.ts 与 sidepanel.ts 不相交" },
+    { "group": "P5", "members": ["TASK-V5-145", "TASK-V5-148"], "note": "settings/ops.ts 与 authorize-chip-wiring.test.ts 不相交" },
+    { "group": "P6", "members": ["TASK-V5-144", "TASK-V5-141"], "note": "只读探针与 op.revoke 不相交" },
+    { "group": "P7", "members": ["TASK-V5-162", "TASK-V5-159"], "note": "host-registry.test.ts 与 no-dead-end.mjs 不相交" }
+  ],
+  "gateConservation": {
+    "baselineSource": "父 spec.md §9.5（引自 v4.5 收口总账 §3.1）",
+    "gates": [
+      { "gate": "npm test", "baseline": 1045, "expected": ">=1045", "owners": ["TASK-V5-122", "TASK-V5-152", "TASK-V5-176"] },
+      { "gate": "test:l0", "baseline": 244, "expected": ">=244", "owners": ["TASK-V5-169"] },
+      { "gate": "test:density", "baseline": 232, "expected": ">=232", "owners": ["TASK-V5-169", "TASK-V5-171"] },
+      { "gate": "test:ui（journey）", "baseline": 171, "expected": ">=171", "owners": ["TASK-V5-169", "TASK-V5-173"] },
+      { "gate": "test:stream", "baseline": 63, "expected": ">=63", "owners": ["TASK-V5-151", "TASK-V5-158"] },
+      { "gate": "test:ask-auth", "baseline": 61, "expected": ">=61", "owners": ["TASK-V5-151"] },
+      { "gate": "test:recommendation", "baseline": 59, "expected": ">=59", "owners": ["TASK-V5-115"] },
+      { "gate": "test:binding", "baseline": 192, "expected": ">=192", "owners": ["TASK-V5-140", "TASK-V5-152"] },
+      { "gate": "test:insight", "baseline": 116, "expected": ">=116", "owners": ["TASK-V5-151"] },
+      { "gate": "test:page-input", "baseline": 108, "expected": ">=108", "owners": ["TASK-V5-169"] },
+      { "gate": "test:ref-pick-wiring", "baseline": 11, "expected": ">=11", "owners": ["TASK-V5-115", "TASK-V5-147"] },
+      { "gate": "test:design-contract", "baseline": 6, "expected": ">=13", "owners": ["TASK-V5-118", "TASK-V5-119"] },
+      { "gate": "test:supersession", "baseline": 35, "expected": ">=35", "owners": ["TASK-V5-119", "TASK-V5-172", "TASK-V5-175"] },
+      { "gate": "test:gate-integrity", "baseline": 13, "expected": ">=13", "owners": ["TASK-V5-114", "TASK-V5-117", "TASK-V5-155", "TASK-V5-162", "TASK-V5-175"] },
+      { "gate": "test:zero-injection", "baseline": 27, "expected": ">=27", "owners": ["TASK-V5-155"] },
+      { "gate": "test:size-ruling-vol3", "baseline": 12, "expected": ">=12", "owners": ["TASK-V5-174"] },
+      { "gate": "test:l1", "baseline": 116, "expected": ">=116", "owners": ["TASK-V5-122"] },
+      { "gate": "test:l2", "baseline": 74, "expected": ">=74", "owners": ["TASK-V5-122", "TASK-V5-176"] },
+      { "gate": "test:hardening", "baseline": 24, "expected": ">=24", "owners": ["TASK-V5-122"] },
+      { "gate": "test:l1-reverse", "baseline": 9, "expected": ">=9", "owners": ["TASK-V5-122"] },
+      { "gate": "test:l2-reverse", "baseline": 10, "expected": ">=10", "owners": ["TASK-V5-122"] },
+      { "gate": "e2e", "baseline": "PASS", "expected": "PASS", "owners": ["TASK-V5-176"] }
+    ],
+    "newGates": [
+      { "gate": "next-registry", "file": "test/next-registry.test.ts", "owners": ["TASK-V5-102", "TASK-V5-103", "TASK-V5-104"] },
+      { "gate": "next-obligation-table", "file": "test/next-obligation-table.test.ts", "owners": ["TASK-V5-117"] },
+      { "gate": "next-dispatch-diff0", "file": "test/next-dispatch-diff0.test.ts", "owners": ["TASK-V5-114"] },
+      { "gate": "op-protocol", "file": "test/op-protocol.test.ts", "owners": ["TASK-V5-130"] },
+      { "gate": "sw-op-mirror", "file": "test/sw-op-mirror.test.ts", "owners": ["TASK-V5-132"] },
+      { "gate": "op-wiring", "file": "test/op-wiring.test.ts", "owners": ["TASK-V5-147"] },
+      { "gate": "no-dead-end", "file": "test/ui/no-dead-end.mjs", "owners": ["TASK-V5-159", "TASK-V5-160", "TASK-V5-161"] },
+      { "gate": "law8-plaintext", "file": "test/ui/law8-plaintext.mjs", "owners": ["TASK-V5-154", "TASK-V5-155"] }
+    ],
+    "sizeOnlyIncrease": "全部 24 门禁计数 ≥ 基线（唯一例外 = 保护段显式八步取代 + 台账留痕）"
+  },
+  "stoppingRules": [
+    { "no": 1, "trigger": "content.js / pick-layer.js 任一逐字节 ≠ 基线", "action": "立即停机（N1 / N2 零容差）" },
+    { "no": 2, "trigger": "manifest.json 出现任何 diff", "action": "停机（N8 / ADR-V5-004）" },
+    { "no": 3, "trigger": "KIND_SET 内容新增任一字符串", "action": "停机（X2；改走 type-only）" },
+    { "no": 4, "trigger": "F 契约 4 常量被替换 / 60 行映射被改写", "action": "停机（N21 / NG-ALLN-010）" },
+    { "no": 5, "trigger": "journey 保护段既不能保段、八步亦未获批；或 binding 段前等长补偿不可行", "action": "停机上报（ADR-V5-012 §2 / SG-2）" },
+    { "no": 6, "trigger": "反证恒绿（注入后仍 PASS）", "action": "停机；重写注入点" },
+    { "no": 7, "trigger": "体积越绝对上限 563,200 B", "action": "停机（硬墙）；不得自行放宽" },
+    { "no": 8, "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）", "action": "停机；还原并重锚" },
+    { "no": 9, "trigger": "任一红线检查点被触碰（F* / T-* / L-* / C-*）", "action": "停机；回滚该区间（波内自成原子区间，不跨区间回滚）" }
+  ],
+  "blockers": [
+    { "id": "BLK-V5-1", "type": "spike-gate", "task": "TASK-V5-118", "desc": "SG-1（TASK-V5-106）结论 = report-to-orchestrator ⇒ 不得开工" },
+    { "id": "BLK-V5-3", "type": "spike-gate", "task": "TASK-V5-130", "desc": "SG-3（TASK-V5-129）结论 = report-to-orchestrator ⇒ 不得开工" },
+    { "id": "BLK-V5-4", "type": "spike-gate", "task": "TASK-V5-152", "desc": "SG-2（TASK-V5-144）结论 = report-to-orchestrator ⇒ binding 段外登记与收尾暂停" },
+    { "id": "BLK-V5-6", "type": "spike-gate", "task": "TASK-V5-159", "desc": "SG-4（TASK-V5-153）结论 = report-to-orchestrator ⇒ 死端守护门禁不得开工" },
+    { "id": "BLK-V5-9", "type": "cross-leaf", "task": "TASK-V5-123 / TASK-V5-153", "desc": "叶间硬串行：v5-2 以 v5-1 全绿为前置；v5-3 以 v5-1 + v5-2 全绿为前置" }
+  ],
+  "unfilledPoints": [
+    { "id": "ALLN-P-001", "topic": "体积净增最终值 + 是否触发档位上调", "status": "pending-measurement", "owner": "TASK-V5-174", "rule": "禁预填（PO-ALLN-005 / FR-ALLN-130）" },
+    { "id": "ALLN-P-002", "topic": "密度 31 登记格在连续宽度下的逐格重锚值", "status": "pending-measurement", "owner": "TASK-V5-171", "rule": "禁预填（PO-ALLN-006）" },
+    { "id": "ALLN-P-003", "topic": "journey 保护段保段 or 第三次取代的实际结论", "status": "pending-measurement", "owner": "TASK-V5-173", "rule": "禁预填；须显式二选一" },
+    { "id": "ALLN-P-004", "topic": "人工面 9 项（弹窗体感 / 拖动性能 / 读屏 / 真机 S2 走查 等）", "status": "pending-human", "owner": "TASK-V5-176", "rule": "逐项 ⏳ / PASS，不得冒充 PASS（PO-ALLN-007 / NG-ALLN-020）" },
+    { "id": "ALLN-P-005", "topic": "V3-VOL-3 绝对上限的作者一句外部确认", "status": "pending-author-line", "owner": "TASK-V5-174", "rule": "不得伪称已确认（PO-ALLN-004）" }
+  ],
+  "artifacts": ["tasks.md", "tasks.json", "state.json", "TREE.md"],
+  "note": "F-32 父 tasks 总览：3 叶 × 19 波 × 76 任务（TASK-V5-101~176 三叶连续编号；S×5 / M×45 / L×26）。四类共享面「恰一次」：体积（各叶增量 + v5-3 合计）/ design-contract（v5-1）/ journey 保护段（v5-3）/ 取代台账（各登各的条目，文件只追加）。4 个 spikeGate：SG-1（G shim 127）/ SG-3（op-* type-only）/ SG-2（binding 避让）/ SG-4（5 类阻塞 seam）。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none）。"
+}
