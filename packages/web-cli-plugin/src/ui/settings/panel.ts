@@ -55,6 +55,14 @@ export interface SettingsPanelDeps {
   getActiveOrigin: () => string | undefined;
   /** Surface a readable one-off notice in the chat view. */
   onNotice?: (text: string) => void;
+  /**
+   * V4.5-1 W2 (TASK-V45-105 / ADR-V45-001 §4) — the「站点」分区的**长文案详情**.
+   *
+   * 与流内 `site` 系统行的 `title` **同源**：两者都取自 `activeSiteNotice(...).detail`
+   * 这一个派生函数（面板侧只做投影；`title` 另过 `plaintextTitle` 的 fail-closed 净化）。
+   * 返回空串即隐藏该行（无活跃站点且无原因时不留空白块）。
+   */
+  getSiteDetail?: () => string;
   /** Called after an LLM config change so the chat header status refreshes. */
   onLlmChanged?: () => void;
 }
@@ -215,6 +223,10 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   badge.title = '点击关闭该站点的自动授权（读/写都关）';
   aaSection.appendChild(badge);
 
+  // V4.5-1 W2 (TASK-V45-105)：退役的 `#site-hint` 长文案在设置视图的站点分区里有确定归属
+  // —— 只读、零控件、与流内行 `title` **同源**（不引入第二个交互面，法则六）。
+  const aaSiteDetail = h(doc, 'p', { id: 'settings-site-detail', class: 'wc-note' });
+  aaSection.appendChild(aaSiteDetail);
   const aaHard = h(doc, 'div', { class: 'wc-note wc-aa-note', text: AUTO_AUTH_HARD_LINES.join('') });
   aaSection.appendChild(aaHard);
   const aaList = h(doc, 'div', { id: 'settings-auto-auth-list' });
@@ -852,6 +864,8 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   }
 
   async function refresh(): Promise<void> {
+    // V4.5-1 W2：站点分区详情与流内 `site` 行的 `title` 同源（同一派生函数；只读投影）。
+    aaSiteDetail.textContent = deps.getSiteDetail?.() ?? '';
     await refreshLlm();
     await refreshTabs();
     await refreshCapabilities();

@@ -930,7 +930,12 @@ function installV3TestHooks(): void {
         return Object.freeze({
           ...reading,
           registered: REGISTERED_STRUCTURAL_HOSTS.map((h) => h.host),
-          stripChannels: STRIP_CHANNEL_KINDS.map((c) => ({ id: c.id, kind: c.kind })),
+          stripChannels: STRIP_CHANNEL_KINDS.map((c) => ({
+            channel: c.channel,
+            kind: c.kind,
+            emitterSite: c.emitterSite,
+            carrierCount: c.carrierCount,
+          })),
           problems: evaluateHostRegistry(reading),
         });
       },
@@ -1107,6 +1112,9 @@ async function openSettingsView(): Promise<void> {
       ops: buildSettingsOps(),
       getActiveOrigin: () => state.activeOrigin,
       onNotice: (text) => dispatch({ type: 'notice', text }),
+      // V4.5-1 W2/TASK-V45-105：站点分区详情与流内 `site` 行的 `title` **同源**
+      // （同一 `activeSiteNotice` 派生；流内那侧另过 `plaintextTitle` 净化）。
+      getSiteDetail: () => activeSiteNotice({ hasOrigin: Boolean(state.activeOrigin), tab: activeTab }).detail,
       onLlmChanged: () => void refreshLlmStatus(),
     });
   }
@@ -1227,22 +1235,60 @@ function send<T>(message: PluginMessage): Promise<PluginResponse<T>> {
  * ──────────────────────────────────────────────────────────────────────────── */
 /** Last observed value per channel (module state — cleared by `testing.reset()`). */
 const channelMemory = new Map<string, string>();
-const pendingChannelRows: Array<{ kind: 'env' | 'site' | 'firstRun' | 'probe' | 'send'; text: string }> = [];
+/**
+ * V4.5-1 W2 (TASK-V45-105): a pending row carries the **single-line fact** (`text`) plus
+ * the optional **long copy** (`title`). The long copy used to be the retired strip node's
+ * body (`#site-hint-detail` / `#discovery-detail`); it now rides the row's `title`, which
+ * goes through the SAME fail-closed plaintext projector as the row text (`systemRow` →
+ * `plaintextTitle`), so a URL query / markup / secret in the detail throws at build time.
+ */
+const pendingChannelRows: Array<{ kind: 'env' | 'site' | 'firstRun' | 'probe' | 'send'; text: string; title?: string }> = [];
+
+/**
+ * V4.5-1 W2 (TASK-V45-105) — the channels whose **current state** must be carried by
+ * their stream row on the **first observation** too.
+ *
+ * WHY: the retired DOM projections used to paint the current state (`#site-hint` /
+ * `#discovery-notice`) on every render. With the nodes gone, the single-line system row
+ * is the fact's ONLY visible carrier — so「首次观察 = 基线，不追加」would leave the首屏
+ * 三事实（env / site / probe）**unreachable**. The existing `channelMemory` guard still
+ * suppresses repeats (an unchanged fact never floods), and the 5 s dedupe window + the
+ * 20-row/minute cap still bound the stream.
+ *
+ * The two channels NOT listed keep the change-only rule **because their carrier is not
+ * the row**: `firstRun` is carried by `firstRunCard` (the row records step *transitions*)
+ * and `send` is carried by the preserved `#send-reason` in `#region-statusbar`. This
+ * keeps「载体数 == 1」true for every fact family.
+ */
+const CHANNEL_STATE_CARRIERS: ReadonlySet<'env' | 'site' | 'firstRun' | 'probe' | 'send'> = new Set([
+  'site',
+  'probe',
+]);
 
 /** Record one channel observation; append only on a real change (never on load). */
-function observeChannel(kind: 'env' | 'site' | 'firstRun' | 'probe' | 'send', text: string): void {
+function observeChannel(
+  kind: 'env' | 'site' | 'firstRun' | 'probe' | 'send',
+  text: string,
+  title?: string,
+): void {
   const prev = channelMemory.get(kind);
   if (prev === text) return;
+  const firstObservation = prev === undefined;
   channelMemory.set(kind, text);
-  if (prev === undefined || text.length === 0) return; // baseline / hidden ⇒ nothing to append
-  pendingChannelRows.push({ kind, text });
+  if (text.length === 0) return; // the fact is not visible ⇒ nothing to append
+  // Change-only channels (firstRun / send) keep the v4-4 rule; the state carriers
+  // (site / probe) also append their **first** observation — see CHANNEL_STATE_CARRIERS.
+  if (firstObservation && !CHANNEL_STATE_CARRIERS.has(kind)) return;
+  pendingChannelRows.push({ kind, text, ...(title !== undefined && title.length > 0 ? { title } : {}) });
 }
 
 /** Flush the channel rows collected during a render (one `dispatch` each). */
 function flushChannelRows(): void {
   if (pendingChannelRows.length === 0) return;
   const rows = pendingChannelRows.splice(0, pendingChannelRows.length);
-  for (const row of rows) dispatch({ type: 'system', kind: row.kind, text: row.text });
+  for (const row of rows) {
+    dispatch({ type: 'system', kind: row.kind, text: row.text, ...(row.title !== undefined ? { title: row.title } : {}) });
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1414,17 +1460,12 @@ function render(): void {
   ($('revoke') as HTMLButtonElement).disabled = buttons.revokeDisabled;
   ($('send') as HTMLButtonElement).disabled = buttons.sendDisabled;
 
-  // V4-4 REVIEW-FIX (BLOCK-02): the five remaining transient channels are
-  // eventized here — every render reports the channel's current readable value and
-  // `flushChannelRows()` appends a system row only when it really changed.
-  renderSiteHint();
+  // V4-4 REVIEW-FIX (BLOCK-02) / V4.5-1 W2 (TASK-V45-105): the five transient channels
+  // are **single-written** here — every render reports the channel's current readable
+  // value and `flushChannelRows()` appends a system row only when it really changed. The
+  // five strip NODES are gone (`index.html`), so there is no second projection left to
+  // paint: `renderSendReason()` keeps painting `#send-reason` (the one preserved id).
   renderSendReason();
-
-  const notice = $('notice');
-  notice.textContent = state.notice ?? '';
-  // V3-1: `hidden`, not `display:none` — the caliber counts text/controls inside a
-  // CSS-hidden subtree, so a `display` toggle would silently spend density budget.
-  notice.hidden = !state.notice;
 
   // V4-3: the confirmation surface is the stream `auth` card now. Its `#confirm`
   // node exists only while a card is open, so the lookup is optional — a forced
@@ -1441,8 +1482,6 @@ function render(): void {
   }
 
   renderLlmStatus();
-  renderOnboarding();
-  renderDiscoveryNotice();
   renderSession();
   renderAutoAuth();
   // V3-4 / AC-CONV-1: the ONE production env injection point. It runs on every render
@@ -1543,21 +1582,6 @@ function renderLlmStatus(): void {
   btn.classList.toggle('primary', view.warn);
 }
 
-/**
- * TASK-020 任务 B: explain「无活跃站点」with a specific reason + next action, and
- * expose the「重新绑定当前标签页」escape hatch. The「已在目标站点但未 supported」
- * case is owned by `discovery-notice` (activeOrigin present → this block hides).
- */
-function renderSiteHint(): void {
-  const box = $('site-hint');
-  const view = activeSiteNotice({ hasOrigin: Boolean(state.activeOrigin), tab: activeTab });
-  box.hidden = !view.visible;
-  if (!view.visible) return;
-  $('site-hint-title').textContent = view.title;
-  $('site-hint-detail').textContent = view.detail;
-  $('site-hint-action').textContent = view.action;
-}
-
 /** TASK-020 任务 B: make the disable reason visible next to the composer. */
 function renderSendReason(): void {
   const el = $('send-reason');
@@ -1572,54 +1596,6 @@ function renderSendReason(): void {
   // which is what the gates read).
   el.title = reason;
   el.hidden = !reason;
-}
-
-/** F-3: state-driven first-run guidance (only the next action is emphasized). */
-function renderOnboarding(): void {
-  const box = $('onboarding');
-  box.textContent = '';
-  const view = buildOnboarding({
-    configured: llmLoaded && Boolean(llmSummary?.configured),
-    hasOrigin: Boolean(state.activeOrigin),
-    discovered: state.discoveryState !== undefined,
-    authorized: state.authorized,
-    hasConversation: state.entries.length > 0,
-  });
-  // BLOCK-02: the first-run guidance is rendered from the **firstRunCard** view
-  // (the former zero-call-site factory is now live; its title/lines stay byte-
-  // identical to the v1 markup so the density reading is unchanged).
-  const firstRun = firstRunCard(view);
-  box.hidden = !view.visible;
-  if (!view.visible) return;
-
-  const title = document.createElement('div');
-  title.className = 'onboarding-title';
-  title.textContent = firstRun.title;
-  box.appendChild(title);
-
-  const list = document.createElement('ol');
-  for (const step of view.steps) {
-    const li = document.createElement('li');
-    li.className = `onboarding-step${step.current ? ' current' : ''}${step.done ? ' done' : ''}`;
-    li.textContent = `${step.done ? '✓ ' : step.current ? '▶ ' : ''}${step.text}`;
-    list.appendChild(li);
-  }
-  box.appendChild(list);
-}
-
-/**
- * TASK-032: explain the discovery state honestly. Probing is **fully automatic**
- * (panel open / tab switch / navigation / hello + bounded backoff retry), so this
- * renderer never exposes a manual「重新探测」entry — it only shows the readable
- * status / reason, including「正在自动探测…（第 N 次重试）」for temporary failures.
- */
-function renderDiscoveryNotice(): void {
-  const box = $('discovery-notice');
-  const view = discoveryNotice(state.activeOrigin ? state.discoveryState : undefined, state.discoveryReason, state.probe);
-  box.hidden = !view.visible;
-  if (!view.visible) return;
-  $('discovery-title').textContent = view.title;
-  $('discovery-detail').textContent = view.detail;
 }
 
 /**
@@ -1642,14 +1618,12 @@ function renderDiscoveryNotice(): void {
  */
 function eventizeChannels(): void {
   const site = activeSiteNotice({ hasOrigin: Boolean(state.activeOrigin), tab: activeTab });
-  // ⚠️ Only the **markup-free** copy rides the channel: the readable detail of the
-  // discovery notice embeds a literal `<link rel="web-cli">` (a correct, useful DOM
-  // string), and the zero-plaintext caliber forbids raw markup in a system row — a
-  // system row is not a render surface. The strip keeps showing the full detail; the
-  // row records the fact (title + next action).
-  observeChannel('site', site.visible ? `${site.title}｜${site.action}` : '');
+  // ⚠️ V4.5-1 W2：行 `text` 仍是**无标记**的单行事实（系统行不是渲染面）；strip 节点退役
+  // 后，长文案改由行 `title` 承载，并在 `systemRow` 里走 `plaintextTitle` 的 fail-closed
+  // 净化（`<link rel="web-cli">` 这类产品自撰标记被剥掉、残留 URL query / secret 仍抛错）。
+  observeChannel('site', site.visible ? `${site.title}｜${site.action}` : '', site.visible ? site.detail : undefined);
   const disc = discoveryNotice(state.activeOrigin ? state.discoveryState : undefined, state.discoveryReason, state.probe);
-  observeChannel('probe', disc.visible ? `${SYSTEM_COPY.probePhase}｜${disc.title}` : '');
+  observeChannel('probe', disc.visible ? `${SYSTEM_COPY.probePhase}｜${disc.title}` : '', disc.visible ? disc.detail : undefined);
   const flow = askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length });
   observeChannel('send', sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab, flow }));
   const firstRun = firstRunCard(
@@ -2842,10 +2816,10 @@ function wire(): void {
       const audit = document.getElementById('audit') as HTMLButtonElement | null;
       if (audit) audit.click();
     },
-    onNotice: (text) => {
-      const node = document.getElementById('notice');
-      if (node) node.textContent = text;
-    },
+    // V4.5-1 W2 (TASK-V45-105): the `#notice` overwrite node retired — the tree
+    // drawer's one-off notice rides the SAME single system channel as every other
+    // notice (ordered, timestamped, un-overwritable) instead of a DOM overwrite.
+    onNotice: (text) => dispatch({ type: 'notice', text }),
   });
   // V3-3 (ADR-V3-025): the view host is mounted AFTER the tree drawer on purpose —
   // both listen for `Escape` on `document`, and the INNER component must win: the
@@ -2883,13 +2857,12 @@ function wire(): void {
 
 /** TASK-019 任务 A: blocking banner + disabled actions when not in an extension. */
 function applyEnvGuard(env: EnvGuardResult): void {
-  const banner = $('env-guard');
-  banner.textContent = env.banner;
-  banner.hidden = env.inExtension;
   if (env.inExtension) return;
-  // BLOCK-02 (v4-4 review): the env guard is a one-shot blocking fact — it is
-  // append-recorded through the single system channel (`env` kind). The banner DOM
-  // stays: `hardening.mjs` / `sidepanel-view.test.ts` pin it as the readable alert.
+  // BLOCK-02 (v4-4 review) / V4.5-1 W2 (TASK-V45-105): the env guard is a one-shot
+  // blocking fact — it is append-recorded through the single system channel (`env`
+  // kind) and that stream row is now its **only** visible carrier (the `#env-guard`
+  // node retired; the options page keeps its own `#env-guard`, which is a different
+  // document and stays untouched).
   dispatch({ type: 'system', kind: 'env', text: env.banner });
   for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-settings', 'rebind']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;

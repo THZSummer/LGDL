@@ -286,8 +286,7 @@
       }
       /* 占位宿主（父 ADR-V4-005 第 6 条）：被取代但尚未换实现的容器同构迁入
          流内 li；内容 / id / ARIA 全保留。退役在 v4-3 / v4-4，v4 收口断言计数 = 0。 */
-      #stream > li[data-host="l1-panels"],
-      #stream > li[data-host="strips"] { list-style: none; display: block; min-width: 0; }
+      #stream > li[data-host="l1-panels"] { list-style: none; display: block; min-width: 0; }
       /* D-043: centering applies *only* while the transcript has no rendered entry.
          V4-1 修订：流内**恒有**过渡宿主 `li[data-host]`（决策卡 /
          composer / L1 内容层 / 提示带），故居中只能作用于**空态占位文本本身**。
@@ -537,37 +536,8 @@
         background: var(--warn-bg); color: var(--warn-text);
         font-size: 10.5px; line-height: 1.55;
       }
-      .strips { display: flex; flex-direction: column; gap: 6px; max-height: 34vh; overflow-y: auto; min-width: 0; }
-      #env-guard {
-        border: 2px solid #dc2626; background: var(--danger-bg); color: var(--danger-text);
-        border-radius: var(--radius-sm); padding: 8px; font-weight: 600;
-      }
-      #site-hint {
-        border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
-        border-radius: var(--radius-sm); padding: 6px 9px;
-      }
-      #site-hint .sh-title { font-weight: 600; }
-      #site-hint .sh-detail { margin: 3px 0; font-size: 12px; line-height: 1.55; }
-      #site-hint .sh-action { font-size: 12px; font-weight: 600; }
-      #onboarding {
-        border: 1px solid var(--border-strong); background: var(--bg-subtle);
-        border-radius: var(--radius-sm); padding: 6px 9px; font-size: 12px;
-      }
-      #onboarding .onboarding-title { font-weight: 600; }
-      #onboarding ol { margin: 4px 0 0; padding-inline-start: 18px; }
-      #onboarding li { margin: 1px 0; }
-      #onboarding li.current { font-weight: 600; color: var(--accent-text); }
-      #onboarding li.done { color: var(--text-muted); }
-      #discovery-notice {
-        border: 1px solid var(--border-strong); background: var(--bg-subtle);
-        border-radius: var(--radius-sm); padding: 6px 9px;
-      }
-      #discovery-notice .dn-title { font-weight: 600; }
-      #discovery-notice .dn-detail { margin: 4px 0; color: var(--text-muted); font-size: 12px; }
-      #notice {
-        background: var(--warn-bg); color: var(--warn-text);
-        border: 1px solid var(--warn-border); border-radius: var(--radius-sm); padding: 6px 9px; font-size: 12px;
-      }
+      /* V4.5-1 W2（TASK-V45-105）：五条提示带的节点与其样式一并退役（死 CSS 不留；
+         `#site-hint .sh-*` 之外的同名类仍由设置视图的表头使用，故按选择器逐条移除）。 */
       #confirm {
         border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn-text);
         border-radius: var(--radius-sm); padding: 8px 9px;
@@ -1330,24 +1300,12 @@
           </div>
         </li>
 
-        <!-- ── 占位宿主 v4-4：三条提示带（env-guard / site-hint / onboarding /
-             discovery-notice / notice）。语义归并由 v4-4 落；本叶只保证断言仍可解析。 ── -->
-        <li data-host="strips">
-          <div class="strips">
-            <div id="env-guard" role="alert" hidden></div>
-            <div id="site-hint" role="status" aria-live="polite" hidden>
-              <div class="sh-title" id="site-hint-title"></div>
-              <div class="sh-detail" id="site-hint-detail"></div>
-              <div class="sh-action" id="site-hint-action"></div>
-            </div>
-            <div id="onboarding" hidden></div>
-            <div id="discovery-notice" role="status" aria-live="polite" hidden>
-              <div class="dn-title" id="discovery-title"></div>
-              <div class="dn-detail" id="discovery-detail"></div>
-            </div>
-            <div id="notice" role="status" aria-live="polite" hidden></div>
-          </div>
-        </li>
+        <!-- ── V4.5-1 W2（TASK-V45-105 / ADR-V45-001 §1）：`li[data-host="strips"]` 与
+             `#env-guard` / `#site-hint` / `#onboarding` / `#discovery-notice` / `#notice`
+             五条提示带**真退役**（节点与包裹层移除，不是 `hidden`）。这些事实的唯一可见
+             载体 = 流内系统行（`[data-msg-type="system"][data-kind="…"]`，长文案走行
+             `title`）；`#send-reason` **不在退役面**（在 `#region-statusbar` 内）。
+             首屏三事实（env / site / probe）各恰 1 个可见载体，由门禁逐条断言。 ── -->
       </ol>
 
       <!-- ── V3-3 (ADR-V3-025 / ADR-V3-028/ADR-V4-022): the L2 **view replacement**

@@ -238,13 +238,24 @@ test('V45 W1 反证：5 组伪造 reading 逐组红（R-REG-906 绕过路径封�
   assert.deepEqual(stillGreen, [], `以下伪造 reading 未被判红（判据可被绕过）：${stillGreen.join(', ')}`);
 });
 
-test('V45 W1 反证：判据在**真实**注册表读数上不恒红（W1 现状 = 旧注册表，仍须有可比对读数）', () => {
-  // W1 阶段 `host-registry.ts` 仍是 v4-4 形态（登记 4 宿主）。这里断言的是**读数接口**
-  // 仍然可用（`evaluateHostRegistry` 是同一实现的旧口径），避免「判据替换」把旧读数接口删掉：
-  // W3/TASK-V45-111 会把 `l0.mjs` 的读数换成零宿主读数，本断言同时登记该切换点。
-  const legacy: HostRegistryReading = { presentHosts: ['decision', 'composer', 'l1-panels', 'strips'], transitionalCount: 0, retiredPresent: [] };
-  assert.deepEqual(evaluateHostRegistry(legacy), [], 'v4-4 旧口径在 W1 阶段必须仍自洽（读数接口未坏）');
-  assert.ok(RETIRED_HOST_IDS.length >= 2, 'v4-4 的退役容器册必须仍可读（W3 扩容为 14）');
+test('V45 W2 迁移：真实注册表读数收口到「strips 已退役」（读数接口不恒红）', () => {
+  // W2（TASK-V45-105）把 `strips` 宿主退役 ⇒ 注册表从 4 条降为 3 条，且 `strips` 进入
+  // `RETIRED_HOST_IDS`（零 DOM 残留）。W3/TASK-V45-111 会把注册表清空为 `[]`，并把
+  // `l0.mjs` 的读数换成零宿主读数 —— 本断言是该切换点的可机核坐标。
+  const current: HostRegistryReading = { presentHosts: ['decision', 'composer', 'l1-panels'], transitionalCount: 0, retiredPresent: [] };
+  assert.deepEqual(evaluateHostRegistry(current), [], 'W2 真实口径（3 宿主）必须自洽（读数接口未坏）');
+  // 反证 ①：`strips` 宿主复活 ⇒ 必须判红（未登记宿主）。
+  assert.ok(
+    evaluateHostRegistry({ presentHosts: ['decision', 'composer', 'l1-panels', 'strips'], transitionalCount: 0, retiredPresent: [] }).length > 0,
+    '退役的 strips 宿主复活必须被判红（不得静默重回注册表）',
+  );
+  // 反证 ②：注册表里的任一条被静默删除 ⇒ 必须判红。
+  assert.ok(
+    evaluateHostRegistry({ presentHosts: ['composer', 'l1-panels'], transitionalCount: 0, retiredPresent: [] }).length > 0,
+    '已登记宿主被静默删除必须被判红',
+  );
+  assert.ok(RETIRED_HOST_IDS.includes('strips'), 'W2：strips 必须进入退役册（零 DOM 残留）');
+  assert.ok(RETIRED_HOST_IDS.length >= 3, '退役册必须仍可读（W3 扩容为 14）');
 });
 
 /* ────────────────────────────────────────────────────────────────────────────

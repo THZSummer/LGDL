@@ -261,7 +261,12 @@ test('sidepanel UI surface: settings entry, llm status, onboarding are present',
   const html = read('../../src/ui/sidepanel/index.html');
   assert.match(html, /id="open-settings"/);
   assert.match(html, /id="llm-status"/);
-  assert.match(html, /id="onboarding"/);
+  // V4.5-1 W2（TASK-V45-106 §5）：`#onboarding` 节点**真退役** ⇒ 双断言
+  // （节点为 `null` + 流内载体仍在）。退役 ≠ hidden / 空壳。
+  assert.equal(html.includes('id="onboarding"'), false, '退役：`#onboarding` 必须为 null（不得 hidden / 空壳充数）');
+  const onboardingSrc = read('../../src/ui/sidepanel/sidepanel.ts');
+  assert.match(onboardingSrc, /observeChannel\('firstRun'/, '首装事实的流内载体（firstRun 通道）必须在位');
+  assert.match(onboardingSrc, /firstRunCard\(/, '`firstRunCard` 归并必须先于退役仍然接线');
   // TASK-033: no settings entry navigates away from the panel.
   assert.equal(html.includes('id="open-options"'), false);
   // F-7 defensive layout
@@ -354,11 +359,14 @@ test('env-guard (TASK-019 A): options + sidepanel block outside the extension', 
   assert.match(optSrc, /envGuardButtonState/);
 
   const spHtml = read('../../src/ui/sidepanel/index.html');
-  assert.match(spHtml, /id="env-guard"/);
+  // V4.5-1 W2（TASK-V45-105）：**侧栏**的 `#env-guard` 真退役（options 页的 `#env-guard`
+  // 是另一个文档，保留 —— 上面的两个断言正是它的保留判据）。双断言：节点 null + 流内载体在。
+  assert.equal(spHtml.includes('id="env-guard"'), false, '侧栏 `#env-guard` 必须为 null（options 页同 id 是另一文档）');
 
   const spSrc = read('../../src/ui/sidepanel/sidepanel.ts');
   assert.match(spSrc, /detectExtensionEnv/);
   assert.match(spSrc, /applyEnvGuard/);
+  assert.match(spSrc, /dispatch\(\{ type: 'system', kind: 'env', text: env\.banner \}\)/, '环境守卫事实的唯一可见载体 = 流内 `env` 系统行');
 });
 
 // ── TASK-019 任务 B: 站点未声明协议的显式说明 ───────────────────────────────
@@ -438,15 +446,17 @@ test('discovery notice payload (TASK-019 B): discoveryReason survives the state 
 
 test('discovery notice wiring (TASK-032): automatic probe, no manual retry entry', () => {
   const html = read('../../src/ui/sidepanel/index.html');
-  assert.match(html, /id="discovery-notice"/);
-  assert.match(html, /id="discovery-title"/);
-  assert.match(html, /id="discovery-detail"/);
+  // V4.5-1 W2（TASK-V45-106 §5）：三条 `#discovery-*` 节点真退役（双断言：null + 流内载体在）。
+  for (const retired of ['discovery-notice', 'discovery-title', 'discovery-detail']) {
+    assert.equal(html.includes(`id="${retired}"`), false, `退役：#${retired} 必须为 null`);
+  }
   // TASK-032: the manual「重新探测」button is gone — the user must never need it.
   assert.equal(html.includes('id="discovery-retry"'), false, '手动「重新探测」按钮必须移除');
   assert.equal(html.includes('重新探测'), false, '不再有手动重试文案');
 
   const src = read('../../src/ui/sidepanel/sidepanel.ts');
-  assert.match(src, /renderDiscoveryNotice\(\)/);
+  assert.equal(src.includes('renderDiscoveryNotice()'), false, '退役渲染器 `renderDiscoveryNotice()` 不得残留（禁空壳函数）');
+  assert.match(src, /observeChannel\('probe'/, '探测事实的流内载体（probe 通道）必须在位');
   assert.match(src, /msg\.kind === 'probe-changed'/);
   assert.equal(/makeMessage\('reprobe'\)/.test(src), false, '侧栏不再发送手动 reprobe');
 
@@ -560,10 +570,11 @@ test('D-064: onboarding states the icon click is the ONLY bind trigger', () => {
 
 test('TASK-020 B/D + TASK-028: sidepanel exposes site-hint / rebind / auto-test surfaces', () => {
   const html = read('../../src/ui/sidepanel/index.html');
-  assert.match(html, /id="site-hint"/);
-  assert.match(html, /id="site-hint-title"/);
-  assert.match(html, /id="site-hint-detail"/);
-  assert.match(html, /id="site-hint-action"/);
+  // V4.5-1 W2（TASK-V45-106 §3/§5）：四条 `#site-hint*` 节点真退役 ⇒ 逐条「节点为 null」，
+  // 事实面改为**三处呼应**：流内 `site` 行 + 行 `title`（长文案，同过净化）+ 设置站点分区详情。
+  for (const retired of ['site-hint', 'site-hint-title', 'site-hint-detail', 'site-hint-action']) {
+    assert.equal(html.includes(`id="${retired}"`), false, `退役：#${retired} 必须为 null`);
+  }
   assert.match(html, /id="rebind"/);
   assert.match(html, /重新绑定当前标签页/);
   assert.match(html, /id="send-reason"/);
@@ -572,7 +583,9 @@ test('TASK-020 B/D + TASK-028: sidepanel exposes site-hint / rebind / auto-test 
   assert.match(html, /id="llm-test-result"/);
 
   const src = read('../../src/ui/sidepanel/sidepanel.ts');
-  assert.match(src, /renderSiteHint\(\)/);
+  assert.equal(src.includes('renderSiteHint()'), false, '退役渲染器 `renderSiteHint()` 不得残留（禁空壳函数）');
+  assert.match(src, /observeChannel\('site'/, '站点事实的流内载体（site 通道）必须在位');
+  assert.match(src, /getSiteDetail:/, '设置站点分区详情必须与流内行 `title` 同源接线');
   assert.match(src, /renderSendReason\(\)/);
   assert.match(src, /makeMessage\('rebind'\)/);
   // auto-test reuses the existing `llm-test` message (no new request path)

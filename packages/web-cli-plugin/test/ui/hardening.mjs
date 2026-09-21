@@ -348,14 +348,23 @@ async function phaseB() {
       }
       return undefined;
     };
+    // V4.5-1 W2（TASK-V45-106 §5）：`#discovery-notice` / `-title` / `-detail` 三条节点真退役
+    // ⇒ 读取点改锚到**流内唯一载体**：`probe` 系统行（单行事实）+ 行 `title`（长文案，同过净化）。
+    // 断言口径逐条不变（可见 / 标题 / 详情 / 自动重试），并保留「不存在手动重探入口」的判据。
     const readNotice = (sp) =>
-      evaluate(sp, `(() => { const n=document.getElementById('discovery-notice'); const detail=document.getElementById('discovery-detail').textContent; return {
+      evaluate(sp, `(() => {
+        const row = document.querySelector('#stream [data-msg-type="system"][data-kind="probe"]');
+        const line = row ? row.querySelector('.sys-line') : null;
+        const text = line ? (line.textContent || '') : '';
+        const detail = line ? (line.getAttribute('title') || '') : '';
+        return {
         status: document.getElementById('status').textContent,
-        shown: getComputedStyle(n).display !== 'none',
-        title: document.getElementById('discovery-title').textContent,
+        shown: !!row,
+        title: text,
         detail,
-        retryAbsent: document.getElementById('discovery-retry') === null,
-        autoRetry: /自动重试/.test(detail),
+        retryAbsent: document.getElementById('discovery-retry') === null
+          && document.querySelector('#stream [data-msg-type="system"][data-kind="probe"] #discovery-retry') === null,
+        autoRetry: /自动重试/.test(text + ' ' + detail),
       }; })()`);
 
     // B1: definitively no declaration → 'unsupported'

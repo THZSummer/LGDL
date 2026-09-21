@@ -341,16 +341,23 @@ async function resetFixture(cdp, opts = {}) {
 
 /**
  * The settled-state anchor, read after every `resetFixture()`: the fixture must be
- * in the SAME state for every cell (the 29-char `#notice` of the settled session is
+ * in the SAME state for every cell (the 29-char notice of the settled session is
  * present, not absent). Returns the raw probe so a mismatch can be printed.
+ *
+ * V4.5-1 W2 (TASK-V45-106 §5 / ADR-V45-006 §3): the retired `#notice` **node** is
+ * replaced by its **stream row** — the same fact, now with exactly one carrier
+ * (`#stream [data-msg-type="system"][data-kind="notice"]`). The full three-part
+ * construction judgement (源行存在 ∧ 无未终态卡 ∧ 卡数 == 登记期望) lands in
+ * W4/TASK-V45-116; this round keeps the「同一稳态」semantics (row present ∧ non-empty)
+ * so the 31-cell measurement stays comparable with the registered baseline.
  */
 const settledProbe = `(() => {
-  const n = document.getElementById('notice');
+  const row = document.querySelector('#stream [data-msg-type="system"][data-kind="notice"]');
   return JSON.stringify({
-    noticeExists: Boolean(n),
-    noticeHidden: n ? n.hidden : null,
-    noticeLen: n ? (n.textContent || '').length : null,
-    noticeText: n ? (n.textContent || '').slice(0, 60) : null,
+    noticeExists: Boolean(row),
+    noticeHidden: row ? false : null,
+    noticeLen: row ? (row.textContent || '').length : null,
+    noticeText: row ? (row.textContent || '').slice(0, 60) : null,
   });
 })()`;
 
@@ -359,7 +366,7 @@ async function assertFixtureSettled(cdp, label) {
   const raw = await evaluate(cdp, settledProbe);
   const s = JSON.parse(raw);
   check(
-    `${label} 夹具确定性：达到同一稳态（#notice 持续存在的会话态，而非首次运行的未稳态）`,
+    `${label} 夹具确定性：达到同一稳态（流内 notice 系统行持续存在的会话态，而非首次运行的未稳态）`,
     s.noticeExists === true && s.noticeHidden === false && s.noticeLen > 0,
     raw,
   );
@@ -429,8 +436,11 @@ async function fingerprint(cdp) {
       // guidance instead (a retired entry must not be able to flip the cell print).
       pickGuidance: document.getElementById('pick-guidance')?.textContent ?? '',
       pickRetired: document.getElementById('l0-pick') === null,
-      onboardingHidden: document.getElementById('onboarding')?.hidden ?? null,
-      discoveryHidden: document.getElementById('discovery-notice')?.hidden ?? null,
+      // V4.5-1 W2（TASK-V45-106 §5）：两个退役节点的可见性改由**流内唯一载体**判定
+      // —— 首装 = onboarding 推荐卡或 firstRun 行；探测说明 = probe 行。
+      onboardingHidden: document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]') === null
+        && document.querySelector('#stream [data-msg-type="system"][data-kind="firstRun"]') === null,
+      discoveryHidden: document.querySelector('#stream [data-msg-type="system"][data-kind="probe"]') === null,
       askHidden: document.getElementById('ask')?.hidden ?? null,
       moreHidden: document.getElementById('l0-more')?.hidden ?? null,
       disclosure: window.__v3.disclosure.snapshot(),
@@ -589,7 +599,7 @@ async function stageB(cdp) {
         );
       }
       if (tier === 'firstRun') {
-        check(`firstRun@${vp} 首装态确实生效（onboarding 或 discovery-notice 可见）`, fp.onboardingHidden === false || fp.discoveryHidden === false, JSON.stringify(fp));
+        check(`firstRun@${vp} 首装态确实生效（onboarding 卡 / firstRun 行 或 probe 行可见）`, fp.onboardingHidden === false || fp.discoveryHidden === false, JSON.stringify(fp));
       }
     }
   }

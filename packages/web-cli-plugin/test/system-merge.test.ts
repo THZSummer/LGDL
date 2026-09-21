@@ -246,16 +246,19 @@ test('V4-4 BLOCK-02（review 修复）：归并矩阵的每个 strip 通道都�
   const { STRIP_CHANNEL_KINDS } = await import('../src/ui/sidepanel/host-registry.js');
   const pkg = fileURLToPath(new URL('../../', import.meta.url));
   const panel = readFileSync(join(pkg, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+  // V4.5-1 W2（TASK-V45-106 §6）：判据从「三者之一存在」升级为**唯一 emitter 机核**
+  // —— `emitterSite` 是通道登记的**可定位源文本片段**，它在生产源里必须**恰出现 1 次**
+  // （旧判据只要「某处提到 kind」即可通过，无法区分单写与双写；新判据逐通道数调用点）。
+  const chatState = readFileSync(join(pkg, 'src/ui/sidepanel/chat-state.ts'), 'utf8');
+  const production = `${panel}\n${chatState}`;
   for (const binding of STRIP_CHANNEL_KINDS) {
-    const direct = panel.includes(`dispatch({ type: 'system', kind: '${binding.kind}'`);
-    const observed = panel.includes(`observeChannel('${binding.kind}'`);
-    const noticeMerged =
-      binding.kind === 'notice' &&
-      readFileSync(join(pkg, 'src/ui/sidepanel/chat-state.ts'), 'utf8').includes("systemRow(state, at, action.text, 'notice')");
-    assert.ok(
-      direct || observed || noticeMerged,
-      `通道 ${binding.id}（kind=${binding.kind}）没有生产 emitter —— 归并登记失真`,
+    const occurrences = production.split(binding.emitterSite).length - 1;
+    assert.equal(
+      occurrences,
+      1,
+      `通道 ${binding.channel}（kind=${binding.kind}）的生产 emitter 必须恰 1 处（实测 ${occurrences}）—— 归并登记失真 / 双写未收口（emitterSite=${binding.emitterSite}）`,
     );
+    assert.equal(binding.carrierCount, 1, `通道 ${binding.channel}: 可见载体数必须登记为 1（事实面唯一）`);
   }
 });
 

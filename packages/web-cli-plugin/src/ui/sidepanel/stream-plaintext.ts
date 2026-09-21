@@ -69,6 +69,30 @@ export function label(parts: readonly (string | number | undefined)[]): string {
 }
 
 /**
+ * V4.5-1 W2 (TASK-V45-105 / NFR-V45-003 / R-REG-901) — the **ONE** projector for the
+ * long copy a stream row carries as its `title`.
+ *
+ * The retired strip nodes used to hold the long copy as their body
+ * (`#site-hint-detail` / `#discovery-detail`). With the nodes gone, the long copy rides
+ * the row's `title` — which is *still a render surface reachable from page facts*, so it
+ * goes through the **same** fail-closed caliber as the row text:
+ *
+ *   ① product-authored markup (`<link rel="web-cli">` is a legitimate DOM string that a
+ *      detail sentence embeds) is stripped — a system row is not a render surface;
+ *   ② the result is scanned by {@link assertStreamPlaintext}: a residual URL query /
+ *      secret / command-argument body / backtick **throws** at build time.
+ *
+ * Order matters: strip-then-scan (a silent strip of a *leak* is impossible because the
+ * scan runs on the stripped result). The reverse proof in `test/side-content` /
+ * `test/env-guard` injects `?token=…` and page text and requires the throw.
+ */
+export function plaintextTitle(text: string): string {
+  const plain = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  assertStreamPlaintext(plain);
+  return plain;
+}
+
+/**
  * The single source of the ask/authorization **copy** (card固化 + system rows).
  * Every string here is a constructed constant, so the whole vocabulary is
  * plaintext-free by construction; {@link assertStreamCopySafe} re-checks it (a

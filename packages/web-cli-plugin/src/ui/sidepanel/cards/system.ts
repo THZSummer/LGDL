@@ -17,9 +17,15 @@ import type { CardDeps } from './shared.js';
 export function createSystemCard(view: CardView, deps: CardDeps): HTMLLIElement {
   const doc = deps.doc;
   const { li, col } = createCardShell(view, deps, ['entry-system', 'msg', 'msg-system'], CARD_TAG_LABELS.system);
+  // V4.5-1 W2 (TASK-V45-105 / ADR-V45-001 §6): the row names its origin channel on the
+  // DOM (`data-kind`) — that is what makes the retirement-aware selector
+  // `#stream [data-msg-type="system"][data-kind="<kind>"]` resolvable now that the strip
+  // ids are gone. The long copy rides `title` (already sanitised at the ONE write path).
+  if (view.payload.systemKind !== undefined) li.setAttribute('data-kind', view.payload.systemKind);
   const line = doc.createElement('div');
   line.className = 'msg-content content-system sys-line';
   line.textContent = view.payload.text ?? view.payload.label ?? '';
+  if (view.payload.systemTitle !== undefined) line.title = view.payload.systemTitle;
   col.appendChild(line);
   return li;
 }

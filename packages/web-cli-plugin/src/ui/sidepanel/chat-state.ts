@@ -37,7 +37,7 @@ import {
   openSessionSegment,
 } from './stream-model.js';
 import type { AskCancelReason, OpenAskEntry, StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
-import { ASK_COPY, cancelSystemLine, label } from './stream-plaintext.js';
+import { ASK_COPY, cancelSystemLine, label, plaintextTitle } from './stream-plaintext.js';
 import { appendSystem, continuedSystemText, createSystemChannelState, SYSTEM_COPY } from './system-events.js';
 import type { SystemChannelState, SystemEventKind } from './system-events.js';
 
@@ -148,7 +148,7 @@ type SidepanelActionBody =
    * semantics for the legacy view.
    */
   | { type: 'history'; entries: Array<{ role: ChatRole; text: string }>; sessionId?: string; sessionLabel?: string }
-  | { type: 'notice'; text: string }
+  | { type: 'notice'; text: string; title?: string }
   // ── V4-2 additions (appended branches only) ───────────────────────────────
   | { type: 'stream-session'; sessionId: string; label?: string }
   | { type: 'stream-merge'; events: readonly StreamEvent[] }
@@ -162,7 +162,7 @@ type SidepanelActionBody =
    */
   | { type: 'ref'; refNum: number; refState: 'valid' | 'stale'; refLabel?: string; detail?: string; systemText?: string; why?: string; evidence?: readonly string[] }
   /** V4-4 TASK-802/803: one merged system row through the single channel. */
-  | { type: 'system'; kind: SystemEventKind; text: string }
+  | { type: 'system'; kind: SystemEventKind; text: string; title?: string }
   /**
    * V4-4 TASK-805 (ADR-V4-037): mint one recommendation card. Two hard gates live
    * HERE (not in the caller) so no producer can bypass them: `pending ⇒ no new card`
@@ -349,12 +349,28 @@ function systemRow(
   text: string,
   kind: SystemEventKind = 'notice',
   factId?: string,
+  title?: string,
 ): SidepanelState {
   const { channel, text: accepted, continued } = appendSystem(state.systemChannel, kind, text, at, factId);
   const next: SidepanelState = { ...state, systemChannel: channel };
   if (accepted === null) return next;
   const body = continued ? continuedSystemText(accepted) : accepted;
-  return push(next, { kind: 'system', ts: at, payload: { text: body, label: label([body]) } });
+  // V4.5-1 W2 (TASK-V45-105) —「事实唯一」的两半在同一个写入点定死：
+  //   ① `systemKind` 落在 payload 上 ⇒ 渲染成 `data-kind`（ADR-V45-001 的选择器由此可解析）；
+  //   ② 长文案（原退役 strip 节点的正文）走 `plaintextTitle` 的 fail-closed 净化后落在
+  //      `systemTitle` ⇒ 渲染成行 `title`；注入 URL query / 页面标记在这里**抛错**，
+  //      而不是在渲染面被静默 strip。
+  const safeTitle = title === undefined || title.length === 0 ? undefined : plaintextTitle(title);
+  return push(next, {
+    kind: 'system',
+    ts: at,
+    payload: {
+      text: body,
+      label: label([body]),
+      systemKind: kind,
+      ...(safeTitle !== undefined ? { systemTitle: safeTitle } : {}),
+    },
+  });
 }
 
 /**
@@ -627,18 +643,17 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
       // V4-4 TASK-803 补完（R2 / KL-V44-01 裁决② / ADR-V4-036 §5·矩阵「`#notice`」行）——
       // the legacy **overwrite slot** is merged into the single append-only channel.
       //
-      // The strip element (`#notice`, `index.html`) keeps rendering the *latest* fact:
-      // it is read by the protected gates (`test/ui/binding.mjs` waits for the
-      // 「已授权」receipt there) and its readable-in-one-glance role is unchanged. What
-      // the merge adds is the part the overwrite slot could never provide — the fact
-      // is now also **ordered, timestamped and un-overwritable** in the stream, so a
-      // later notice can no longer make an earlier one unobservable (FR-CHAT-053).
+      // V4.5-1 W2 (TASK-V45-105): the `#notice` strip element **retired**, so this
+      // append-only row is now the fact's ONLY visible carrier (the v1 `state.notice`
+      // slot stays readable for the reducer-level caliber, but nothing paints it). The
+      // row is ordered / timestamped / un-overwritable, which is exactly what the old
+      // overwrite slot could never provide (FR-CHAT-053).
       // Dedupe (5 s window) + the rate cap are applied by `systemRow`, never bypassed.
-      return systemRow(state, at, action.text, 'notice');
+      return systemRow(state, at, action.text, 'notice', undefined, action.title);
     case 'system':
       // V4-4 (ADR-V4-036): the ONE merged channel. A source that uses this action
       // cannot bypass the dedupe window / rate cap / `dropped` accounting.
-      return systemRow(state, at, action.text, action.kind);
+      return systemRow(state, at, action.text, action.kind, undefined, action.title);
     case 'nextstep': {
       // FR-CHAT-063: never mint a new card while a turn is pending. EC-CHAT-008:
       // never mint an empty card (「下一步：无」is a fake recommendation).

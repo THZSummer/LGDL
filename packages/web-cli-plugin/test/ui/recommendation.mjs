@@ -96,7 +96,9 @@ async function main() {
       cdp,
       `(() => {
          const card = document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]');
-         const onboard = document.getElementById('onboarding');
+         // V4.5-1 W2（TASK-V45-106 §5）：退役的 #onboarding 节点 → 流内 firstRun 载体。
+         const onboard = document.querySelector('#stream [data-msg-type="system"][data-kind="firstRun"]')
+           ?? document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]');
          const chips = card ? [...card.querySelectorAll('button.next-chip')] : [];
          return JSON.stringify({
            onboardVisible: onboard ? onboard.hidden === false : null,
@@ -110,7 +112,7 @@ async function main() {
        })()`,
     );
     const firstRun = JSON.parse(firstRunRaw);
-    check('⑬ 前置：面板确实处于首装态（#onboarding 可见）', firstRun.onboardVisible === true, firstRunRaw);
+    check('⑬ 前置：面板确实处于首装态（流内 firstRun 载体可见：#onboarding 节点已退役）', firstRun.onboardVisible === true, firstRunRaw);
     check('⑬ 首装 ⇒ 流内出现推荐卡（不经 seam 驱动）', firstRunEntry === '1' && firstRun.card === true, firstRunRaw);
     check('⑬ 卡规则 = onboarding（R-ONBOARDING）', firstRun.rule === 'onboarding', firstRunRaw);
     check('⑬ 卡带可点 chip（chips 即指令的进入面）', firstRun.chips.length >= 1 && firstRun.acts.every((a) => typeof a === 'string' && a.length > 0), firstRunRaw);

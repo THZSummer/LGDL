@@ -96,6 +96,19 @@ const V4_RETIRED_IDS: readonly string[] = Object.freeze([
   'ask-input',
   'ask-submit',
   'ask-cancel',
+  // V4.5-1 W2（TASK-V45-105 / ADR-V45-001 §1）：五条提示带**真退役**（节点与包裹层移除）。
+  // 它们的事实唯一载体 = 流内系统行（`[data-kind]`）+ `firstRunCard`；长文案走行 `title`。
+  // `#send-reason` **不在退役面**（`#region-statusbar` 内保留），故不在此列。
+  'env-guard',
+  'site-hint',
+  'site-hint-title',
+  'site-hint-detail',
+  'site-hint-action',
+  'onboarding',
+  'discovery-notice',
+  'discovery-title',
+  'discovery-detail',
+  'notice',
 ]);
 const V4_ID_RENAMES: Readonly<Record<string, string>> = Object.freeze({ log: 'stream' });
 
@@ -712,13 +725,72 @@ test('index.html: 结构宿主注册表与 DOM 逐项一致（未登记宿主 / 
   for (const id of hosts.RETIRED_HOST_IDS) {
     assert.ok(!new RegExp(`id="${id}"`).test(html), `已退役容器 #${id} 仍在 index.html（删属性不改 DOM 不算退役）`);
   }
-  // ④ 归并矩阵：每个 strip 通道（除已归并的 #notice 外）必须 id 仍在 DOM 且绑定一个 kind。
+  // ④ V4.5-1 W2（TASK-V45-106 §6）**归并矩阵新语义三条**（旧「legacy id 仍在 DOM」判据
+  //    与退役正面矛盾，已按新形态重写；断言数只增不减）：
+  //    ① 每个通道在**生产源文本**里恰有 1 个 emitter 调用点（唯一写入口）；
+  //    ② 该通道的可见载体数 == 登记 `carrierCount`（恒 1：事实面唯一）；
+  //    ③ `#send-reason` 仍在 `#region-statusbar` 内（保留要素，不随 strips 退役）。
+  const sidepanelSrc = readFileSync(resolve(PKG, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+  const chatStateSrc = readFileSync(resolve(PKG, 'src/ui/sidepanel/chat-state.ts'), 'utf8');
+  const productionSrc = `${sidepanelSrc}\n${chatStateSrc}`;
+  const countOccurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
+  const emitterCounts = hosts.STRIP_CHANNEL_KINDS.map((b) => ({
+    channel: b.channel,
+    count: countOccurrences(productionSrc, b.emitterSite),
+  }));
+  // ① 唯一 emitter（逐通道恰 1）—— 每个通道一条断言（`evaluateStripChannels` 汇总 + 逐条可读）。
   for (const binding of hosts.STRIP_CHANNEL_KINDS) {
-    assert.ok(new RegExp(`id="${binding.id}"`).test(html), `归并通道 ${binding.id} 的可读投影必须仍在 DOM（保护门禁读取）`);
-    assert.equal(typeof binding.kind, 'string');
-    assert.ok(binding.kind.length > 0);
+    const site = emitterCounts.find((e) => e.channel === binding.channel);
+    assert.equal(
+      site?.count,
+      1,
+      `归并通道 ${binding.channel}（kind=${binding.kind}）的生产 emitter 必须恰 1 处，实测 ${site?.count} —— 双写路径必须收口（emitterSite=${binding.emitterSite}）`,
+    );
   }
-  // ⑤ 判据可 FAIL：伪造一个未登记宿主 / 复活 #l0-pick 必须被判红。
+  // ② 载体数 == 1（显式常量；运行时 live 读数在 W4/TASK-V45-116 接入）。
+  for (const binding of hosts.STRIP_CHANNEL_KINDS) {
+    assert.equal(binding.carrierCount, 1, `归并通道 ${binding.channel}: carrierCount 必须显式为 1（事实面唯一）`);
+  }
+  // ③ `#send-reason` 保留：仍是 `#region-statusbar` 的后代（状态栏职责不变）。
+  const statusbar = /<footer id="region-statusbar"[\s\S]*?<\/footer>/.exec(html)?.[0] ?? '';
+  assert.ok(statusbar.length > 0, 'index.html 必须仍有 #region-statusbar（状态栏是常驻面）');
+  assert.match(statusbar, /id="send-reason"/, '`#send-reason` 必须仍在 `#region-statusbar` 内（保留要素）');
+  // ④ 退役面零残留：五条提示带的节点 id 与包裹层不得再出现在 index.html（真退役 ≠ hidden）。
+  for (const retired of ['env-guard', 'site-hint', 'onboarding', 'discovery-notice', 'notice']) {
+    assert.equal(
+      new RegExp(`id="${retired}"`).test(html),
+      false,
+      `已退役提示带 #${retired} 仍在 index.html（真退役要求节点为 null，禁 hidden / 空壳充数）`,
+    );
+  }
+  assert.equal(html.includes('class="strips"'), false, '`.strips` 包裹层必须随宿主一并退役');
+  // ⑤ 判据汇总可 FAIL：伪造通道读数（emitter 缺 / 载体数 ≠ 1 / send-reason 不在状态栏）逐条必红。
+  assert.deepEqual(
+    hosts.evaluateStripChannels({ emitterCounts, observedCarriers: [], sendReasonInStatusbar: true }),
+    [],
+    '真实读数必须通过汇总判据（判据不得恒红）',
+  );
+  assert.ok(
+    hosts.evaluateStripChannels({
+      emitterCounts: emitterCounts.map((e) => (e.channel === 'env' ? { ...e, count: 2 } : e)),
+      observedCarriers: [],
+      sendReasonInStatusbar: true,
+    }).some((p) => p.includes('emitter 调用点 = 2')),
+    '伪造第二处 emitter 必须被判红',
+  );
+  assert.ok(
+    hosts.evaluateStripChannels({
+      emitterCounts,
+      observedCarriers: [{ channel: 'notice', count: 2 }],
+      sendReasonInStatusbar: true,
+    }).some((p) => p.includes('可见载体数 = 2')),
+    '伪造第二载体必须被判红（事实面唯一）',
+  );
+  assert.ok(
+    hosts.evaluateStripChannels({ emitterCounts, observedCarriers: [], sendReasonInStatusbar: false }).length > 0,
+    '`#send-reason` 离开状态栏必须被判红',
+  );
+  // ⑥ 判据可 FAIL：伪造一个未登记宿主 / 复活 #l0-pick 必须被判红。
   const forgedReading = { presentHosts: ['decision', 'forged-host'], transitionalCount: 0, retiredPresent: [] };
   assert.ok(hosts.evaluateHostRegistry(forgedReading).length > 0, '未登记宿主必须被判红');
   assert.ok(

@@ -749,7 +749,7 @@ async function phase0() {
   }
 }
 
-// ── phase 1: full chain on the real site ─────────────────────────────────────
+// phase 1: full chain on the real site ──────────────────────
 async function phase1(mock) {
   console.log(`\n▶ 阶段 1：真站点全链路（绑定 → 注入 → 发现 → 授权 → 发送可用 → mock 对话）`);
   const work = await mkdtemp(join(tmpdir(), 'web-cli-binding-ext-'));
@@ -893,7 +893,7 @@ async function phase1(mock) {
     await v3OpenStatusDetails(ext);
     await realClick(ext, '#authorize');
     await v3Collapse(ext);
-    const authNotice = await waitFor(ext, `(() => { const t = document.getElementById('notice').textContent; return /已授权/.test(t) ? t : ''; })()`, 40, 200);
+    const authNotice = await waitFor(ext, `(() => { const t = document.querySelector('#stream [data-msg-type="system"][data-kind="notice"]')?.textContent || ''; return /已授权/.test(t) ? t : ''; })()`, 40, 200);
     check(Boolean(authNotice), '#4b 【授权当前站点】真实点击后出现可读回执', authNotice);
     check(/站点访问权限|activeTab|未获得持久站点权限/.test(authNotice ?? ''), '#4c 授权回执说明站点权限结果/回退', authNotice);
     const authorized = await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'state' }).then((r) => r.data.authorized)`);
@@ -2253,7 +2253,7 @@ async function phaseAutoProbe() {
     // The manual「重新探测」entry must not exist at all.
     const retryAbsent = await evaluate(sp, `document.getElementById('discovery-retry') === null`);
     check(retryAbsent === true, 'AP#4 侧栏不存在手动「重新探测」按钮（用户无需手动探测）');
-    const manualTextAbsent = await evaluate(sp, `!document.getElementById('discovery-notice').textContent.includes('重新探测')`);
+    const manualTextAbsent = await evaluate(sp, `(() => { const rows = [...document.querySelectorAll('#stream [data-msg-type="system"][data-kind="probe"]')]; const t = rows.map((r) => r.textContent + ' ' + (r.querySelector('.sys-line')?.getAttribute('title') ?? '')).join('|'); return !t.includes('重新探测'); })()`);
     check(manualTextAbsent === true, 'AP#4b 探测说明文案不含「重新探测」');
 
     // Failure → automatic backoff retry, observed via the real state projection.

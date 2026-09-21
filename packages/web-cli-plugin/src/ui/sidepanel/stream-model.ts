@@ -220,6 +220,22 @@ export interface StreamPayload {
   readonly nextstepRule?: string;
   /** Short, already-sanitised label persisted to the digest (never the body). */
   readonly label?: string;
+  /**
+   * V4.5-1 W2 (TASK-V45-105) — the closed `SystemEventKind` of a `system` row.
+   *
+   * Typed as `string` (not `SystemEventKind`) on purpose: `stream-model` must not import
+   * `system-events` back (the channel imports the model). The renderer copies it onto the
+   * row as `data-kind`, which is what makes the ADR-V45-001 selector
+   * `#stream [data-msg-type="system"][data-kind="notice"]` resolvable. The closed set is
+   * asserted where it is produced (`chat-state.ts#systemRow` ← `SystemEventKind`).
+   */
+  readonly systemKind?: string;
+  /**
+   * V4.5-1 W2 (TASK-V45-105) — the long copy of a system row, carried as the row's
+   * `title`. Goes through `plaintextTitle()` at the single write path (`systemRow`), so it
+   * is sanitised exactly once (never at the render site).
+   */
+  readonly systemTitle?: string;
 }
 
 /** One immutable stream event. */

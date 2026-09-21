@@ -65,7 +65,7 @@ const MD_REPLY = [
 ].join('\n');
 
 
-  // ── V3-1 (registered supersession V31-S2): L1 disclosure pre-steps ────────
+  //  V3-1 (registered supersession V31-S2): L1 disclosure pre-steps ──
   // v3-1 moved the former toolbar into the L1 status panel and made the composer
   // hidden-until-used disclosure. These helpers open those layers through the
   // product's own controller (`window.__v3.disclosure` / the L0 shell) so every
@@ -80,7 +80,7 @@ const MD_REPLY = [
     await sleep(250);
   };
 
-// ── assertions ───────────────────────────────────────────────────────────────
+//  assertions 
 const failures = [];
 let passes = 0;
 function check(cond, label, detail) {
@@ -93,7 +93,7 @@ function check(cond, label, detail) {
   }
 }
 
-// ── minimal CDP client (raw WebSocket, no dependency) ────────────────────────
+//  minimal CDP client (raw WebSocket, no dependency) ─
 async function connectCdp(wsUrl) {
   const ws = new WebSocket(wsUrl);
   await new Promise((res, rej) => {
@@ -238,7 +238,7 @@ async function waitFor(cdp, expression, tries = 100, gapMs = 200) {
   return undefined;
 }
 
-// ── hermetic mock OpenAI endpoint ────────────────────────────────────────────
+//  hermetic mock OpenAI endpoint 
 function startMockLlm() {
   /** TASK-028: count only real model POSTs so cache-hit / zero-request paths are provable. */
   let posts = 0;
@@ -296,7 +296,7 @@ function startMockLlm() {
   });
 }
 
-// ── main journey ─────────────────────────────────────────────────────────────
+//  main journey 
 async function main() {
   if (!(await stat(dist).then(() => true).catch(() => false))) {
     console.error(`✖ dist/ 不存在：先运行 npm run build --workspace @lgdl/web-cli-plugin（期望 ${dist}）`);
@@ -505,7 +505,7 @@ async function main() {
     const tn = JSON.parse(toolsOn);
     check(tn.enabled === true && tn.hasTabs === true, '#17e 重新开启后 deriveTools 恢复含 tabs', toolsOn);
 
-    // ── FR-052 / ADR-017: options 页「自动授权（按站点）」管理 ──────────────
+    //  FR-052 / ADR-017: options 页「自动授权（按站点）」管理 ────
     const aaInit = await evaluate(
       page,
       `(() => {
@@ -586,14 +586,17 @@ async function main() {
     });
 
     // TASK-032: probing is fully automatic — the manual「重新探测」entry is gone.
+    // V4.5-1 W2（TASK-V45-106 §5）：`#discovery-notice` 真退役 ⇒ 判据改锚到**全面板文本 + 流内
+    // `probe` 行**（不再依赖一个恒存在的空节点）；两条判据（无手动重探入口 / 无手动重试文案）等价保留。
     const autoProbe = await waitFor(
       sp,
       `(() => {
-        const n = document.getElementById('discovery-notice');
-        if (!n) return '';
+        const row = document.querySelector('#stream [data-msg-type="system"][data-kind="probe"]');
+        const line = row ? row.querySelector('.sys-line') : null;
+        const rowText = (line ? line.textContent : '') + ' ' + (line ? (line.getAttribute('title') || '') : '');
         return JSON.stringify({
           retryAbsent: document.getElementById('discovery-retry') === null,
-          noManualText: !n.textContent.includes('重新探测'),
+          noManualText: !document.body.textContent.includes('重新探测') && !rowText.includes('重新探测'),
         });
       })()`,
       60,
@@ -655,19 +658,21 @@ async function main() {
     check(/Key ✅/.test(llmLine ?? ''), '#11b 侧栏 LLM 行含 Key ✅', llmLine);
 
     const site = await evaluate(sp, `(() => {
-      const h = document.getElementById('site-hint');
+      const row = document.querySelector('#stream [data-msg-type="system"][data-kind="site"]');
+      const line = row ? row.querySelector('.sys-line') : null;
       return {
-        shown: getComputedStyle(h).display !== 'none',
-        title: document.getElementById('site-hint-title').textContent,
-        action: document.getElementById('site-hint-action').textContent,
+        shown: !!row,
+        text: line ? line.textContent : '',
+        title: line ? (line.getAttribute('title') || '') : '',
         rebind: !!document.getElementById('rebind'),
         sendDisabled: document.getElementById('send').disabled,
         sendReason: document.getElementById('send-reason').textContent,
       };
     })()`);
-    check(site.shown === true, '#11c 无活跃站点时显示可解释块（不再只有「无活跃站点」）', JSON.stringify(site));
-    check(/不可注入|尚未绑定|没有可用标签页/.test(site.title), '#11d 显示具体原因文案', site.title);
-    check(/重新绑定当前标签页/.test(site.action), '#11e 给出下一步动作', site.action);
+    check(site.shown === true, '#11c 无活跃站点时流内出现可解释系统行（不再只有「无活跃站点」）', JSON.stringify(site));
+    check(/不可注入|尚未绑定|没有可用标签页/.test(site.text), '#11d 显示具体原因文案', site.text);
+    check(/重新绑定当前标签页/.test(site.text), '#11e 给出下一步动作（rebind 指引）', site.text);
+    check(site.title.length > 0, '#11f 行 title 承载长文案（与设置站点分区同源）', site.title);
     check(site.rebind === true, '#11f 「重新绑定当前标签页」按钮存在');
     check(site.sendDisabled === true && /发送已禁用/.test(site.sendReason), '#11g 发送禁用原因在输入框附近可见', site.sendReason);
 
@@ -830,7 +835,7 @@ async function main() {
     check(mdView.literalBold === false && mdView.literalPipe === false, '#14h 无残留字面 Markdown 标记', mdRaw);
     check(mdView.overflow === true, '#14i 侧栏仍无水平溢出（scrollWidth === clientWidth）', `${mdView.scrollWidth}/${mdView.clientWidth}`);
 
-    // ── #15 TASK-023: three-zone layout + message bubbles + tool card ──────
+    //  #15 TASK-023: three-zone layout + message bubbles + tool card ──
     // Pin a deterministic side-panel viewport (400×900) for the layout metrics.
     await sp.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });
     await sleep(300);
