@@ -1195,7 +1195,7 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     ['test/ui/ask-auth-inflow.mjs', /BLOCK-01 假批准回归：auth cancelled ⇒ 渲染「已取消」/],
     ['test/ui/ask-auth-inflow.mjs', /BLOCK-04 回归：终态授权卡点审计/],
     ['test/ui/ask-auth-inflow.mjs', /\(FAIL 段\) 注入「选项行不收起」⇒ 展开态判据必须 FAIL/],
-    ['test/ui/l1.mjs', /BLOCK-03：已决策历史的选择文案 = 流内卡的\*\*真实答案\*\*/],
+    ['test/ui/l1.mjs', /⑪ 「已决策 N 步」只有审计视图标题一个声明点/],
     ['test/ui/l0.mjs', /反证（FAIL 段）：篡改 data-count/],
     ['test/ui/l1.mjs', /D1 反证（FAIL 段）/],
     // v3-4 fix round (review R1) — the new BLOCK-1 / I-01 / I-04 assertions must carry
@@ -1224,7 +1224,7 @@ test('元门禁 R4a/R4b：反证驱动脚本必须逐条声明 expectFailPattern
     ['test/ui/recommendation.mjs', /⑪ 产品路径（不经 seam）：生产者真实接线 ⇒ 流内出现 nextstep 卡/],
     ['test/ui/recommendation.mjs', /⑫ 提交描述 ⇒ 真实结算/],
     ['test/ui/recommendation.mjs', /⑫ 兜底输入唯一/],
-    ['test/ui/l0.mjs', /① 结构宿主注册表判据 = 0 问题/],
+    ['test/ui/l0.mjs', /① 零宿主终态：`#stream` 子树内 \[data-host\] 计数 = 0/],
     ['test/ui/l0.mjs', /① 已退役容器零 DOM 残留/],
     ['test/ui/density.mjs', /I-07 登记格溯源门槛/],
   ];

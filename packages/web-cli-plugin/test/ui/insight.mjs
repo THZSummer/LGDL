@@ -125,7 +125,7 @@ const checkL2OpenLayout = (metrics, prefix) => {
   check(metrics.panelScrollerCount === 1, `${prefix} 面板级滚动容器恰为 1 个（视图内局部滚动块）`, JSON.stringify(metrics.viewScrollers));
   check(
     metrics.composerVisible === false,
-    `${prefix} 法四（v4-1 显式取代 v3 「#composer 贴底」红线）：视图打开态默认屏**无可见常驻输入框**（#composer 被 hidden 的 #stream 祖先闭包遮蔽；fail-closed 只认 hidden）`,
+    `${prefix} 法四（v4-1 显式取代 v3 「#composer 贴底」红线）：视图打开态默认屏**无可见常驻输入框**（W3 起 #composer 迁 body 尾，仍由自身 hidden 遮蔽；fail-closed 只认 hidden）`,
     JSON.stringify({ visible: metrics.composerVisible, ownHidden: metrics.composerHidden, gap: metrics.composerGapToBottom }),
   );
   check(metrics.docOverflowX === 0, `${prefix} 文档级水平溢出 = 0`, `${metrics.docOverflowX}px`);
@@ -376,6 +376,7 @@ const MEASURE = `(() => {
     // the two layout checkers can assert the v4 statement instead of the v3
     // "贴底" band (COMPOSER_GAP).
     composerInStream: composer ? !!composer.closest('#stream') : false,
+    composerParentIsBody: composer ? composer.parentElement === document.body : false,
     composerHidden: composer ? composer.hidden === true : null,
     // V4-1 法四 fail-closed 可见性：只认 hidden（CSS 隐身不豁免，与 RP-V4-04 / density 同口径）。
     composerVisible: composer ? composer.closest('[hidden]') === null : false,
@@ -401,8 +402,10 @@ const MEASURE = `(() => {
     // at a glance (no assertion reads this field). V4-1 re-anchors the id list to the
     // three zones + the surviving in-flow hosts (panel-main/panel-top/panel-bottom
     // are retired; log -> stream).
-    zones: ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l0-decision', 'stream', 'view-host', 'settings-view']
-      .map((id) => { const el = document.getElementById(id); const r = el ? el.getBoundingClientRect() : null; return id + (el && el.hidden ? ':hidden' : ':' + Math.round(r.height)); }),
+    // V4.5-1 W3：#l0-decision 已退役 ⇒ 诊断坐标表补入两个 L2 只读承载块（诊断字段，
+    // 无断言读取；id 集合等价重锚，数量不减）。
+    zones: ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l2-tree-attribution', 'l2-audit-evidence', 'stream', 'view-host', 'settings-view']
+      .map((id) => { const el = document.getElementById(id); const r = el ? el.getBoundingClientRect() : null; return id + (el && el.hidden ? ':hidden' : ':' + Math.round(r ? r.height : 0)); }),
   };
   ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });
   return out;
@@ -431,6 +434,7 @@ const RAW_MEASURE = `(() => {
     logRatio: Math.round((log.clientHeight / window.innerHeight) * 1000) / 10,
     composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
     composerInStream: composer ? !!composer.closest('#stream') : false,
+    composerParentIsBody: composer ? composer.parentElement === document.body : false,
     composerHidden: composer ? composer.hidden === true : null,
     // V4-1 法四 fail-closed 可见性：只认 hidden（CSS 隐身不豁免，与 RP-V4-04 / density 同口径）。
     composerVisible: composer ? composer.closest('[hidden]') === null : false,
@@ -454,10 +458,13 @@ function checkLayout(metrics, prefix) {
     `${prefix} #stream 稳态高度占比 ≥ ${LOG_MIN_RATIO}%（次断言）`,
     `${metrics.logRatio}%`,
   );
+  // V4.5-1 W3（TASK-V45-110 / ADR-V45-003）：`#composer` **出流** —— 兜底展开态它必须
+  // 可见、位于 `body` 尾（不再是流内占位宿主）、且不越出视口（gap ≥ 0）。语义等价：
+  // 「展开后输入可用 ∧ 不遮挡 ∧ 不越界」三条逐字保留，只有物理位置重锚。
   check(
-    metrics.composerVisible === true && metrics.composerInStream === true && metrics.composerGapToBottom >= 0,
-    `${prefix} 法四（v4-1 取代 v3「#composer 贴底」红线）：兜底展开态 #composer 位于 #stream 流内占位宿主，可见且不越出视口（gap ≥ 0）`,
-    `visible=${metrics.composerVisible} inStream=${metrics.composerInStream} gap=${metrics.composerGapToBottom}`,
+    metrics.composerVisible === true && metrics.composerParentIsBody === true && metrics.composerGapToBottom >= 0,
+    `${prefix} 法四（v4-1 取代 v3「#composer 贴底」红线）：兜底展开态 #composer 迁 body 尾（出流）且可见、不越出视口（gap ≥ 0）`,
+    `visible=${metrics.composerVisible} body=${metrics.composerParentIsBody} inStream=${metrics.composerInStream} gap=${metrics.composerGapToBottom}`,
   );
   check(
     metrics.fabComposerArea === 0,
@@ -643,9 +650,10 @@ async function main() {
       `${rawOpenClose.logRatio}%`,
     );
     check(
-      rawOpenClose.composerVisible === true && rawOpenClose.composerInStream === true && rawOpenClose.composerGapToBottom >= 0,
-      '#I-08b 原始口径 法四（v4-1 取代「贴底」红线）：#composer 在 #stream 流内、可见且不越出视口',
-      `visible=${rawOpenClose.composerVisible} inStream=${rawOpenClose.composerInStream} gap=${rawOpenClose.composerGapToBottom}`,
+      // V4.5-1 W3：出流后位置判据重锚（可见 / 不越界 / 不遮挡三条不变），位置 = body 尾。
+      rawOpenClose.composerVisible === true && rawOpenClose.composerParentIsBody === true && rawOpenClose.composerGapToBottom >= 0,
+      '#I-08b 原始口径 法四（v4-1 取代「贴底」红线）：#composer 迁 body 尾（出流）、可见且不越出视口',
+      `visible=${rawOpenClose.composerVisible} body=${rawOpenClose.composerParentIsBody} inStream=${rawOpenClose.composerInStream} gap=${rawOpenClose.composerGapToBottom}`,
     );
     check(rawOpenClose.fabComposerArea === 0, '#I-09b 原始口径 FAB∩composer 仍为 0', `area=${rawOpenClose.fabComposerArea}`);
 
@@ -805,8 +813,8 @@ async function main() {
           header: hr ? [Math.round(hr.top), Math.round(hr.height), getComputedStyle(head).position] : null,
           inputOffsetTop: Math.round(el.offsetTop),
           viewport: [window.innerWidth, window.innerHeight],
-          zones: ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l0-decision', 'view-host', 'settings-view']
-            .map((id) => { const z = document.getElementById(id); return id + (z && z.hidden ? ':hidden' : ':' + Math.round(z.getBoundingClientRect().height)); }),
+          zones: ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l2-tree-attribution', 'l2-audit-evidence', 'view-host', 'settings-view']
+            .map((id) => { const z = document.getElementById(id); return id + (z && z.hidden ? ':hidden' : ':' + Math.round(z ? z.getBoundingClientRect().height : 0)); }),
           composerHidden: document.getElementById('composer').hidden === true,
           viewHeight: (() => { const v = document.querySelector('[data-l2-view="tree"]'); return v ? Math.round(v.getBoundingClientRect().height) : null; })(),
         });

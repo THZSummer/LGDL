@@ -31,6 +31,7 @@ import test from 'node:test';
 
 import {
   MAX_CHIPS_PER_CARD,
+  activeRecoveryTrigger,
   MAX_NEXTSTEP_CARDS_PER_ROUND,
   NEXTSTEP_ACTS,
   NEXTSTEP_MIN_INTERVAL_MS,
@@ -80,7 +81,9 @@ function baseInput(over: Partial<RecommendInput> = {}): RecommendInput {
     session: { openAsks: 0, busy: false },
     site: { authorized: true, trust: 'trusted' },
     catalog: { toolCount: 122, subcommandCount: 40 },
-    probe: { phase: 'ready', steady: false },
+    // V4.5-1 W3: `steady:false` is a recovery trigger now (`probe` 未就绪), so the
+    //「clean settled」fixture must declare a settled probe.
+    probe: { phase: 'ready', steady: true },
     risks: [],
     onboarding: { firstRun: false, pendingSteps: [] },
     now: 1_000_000,
@@ -149,17 +152,42 @@ test('④ 空闲间隔未到 ⇒ 不生成（防刷屏）', () => {
   assert.equal(ok.cards.length, 1, '间隔满 10s 后应恢复');
 });
 
-test('④ 无候选 ⇒ 空集且不渲染空卡（EC-CHAT-008）', () => {
-  const r = recommendNextStep(
+test('④ V4.5-1：site / probe 入 priority 1 触发集 ⇒ 未授权或未就绪必有可行动恢复卡', () => {
+  // `site`：未授权 / 无活跃站点 ⇒ 恢复卡（`rebind` 首项）。
+  const site = recommendNextStep(
     baseInput({
       ref: { validCount: 0, staleCount: 0 },
       site: { authorized: false, trust: 'untrusted' },
+      probe: { phase: 'ready', steady: true },
+      onboarding: { firstRun: false, pendingSteps: [] },
+    }),
+  );
+  assert.equal(site.cards.length, 1);
+  assert.equal(site.cards[0].rule, 'risk-recovery');
+  assert.equal(site.cards[0].chips[0].text, '重新绑定当前标签页', 'site 触发必须由规则表首项给出 rebind');
+  assert.equal(site.cards[0].chips[0].act, 'rebind');
+  // `probe`：探测态未就绪 ⇒ 恢复卡（`rebind` 首项）。
+  const probe = recommendNextStep(
+    baseInput({
+      ref: { validCount: 0, staleCount: 0 },
+      site: { authorized: true, trust: 'trusted' },
       probe: { phase: 'idle', steady: false },
       onboarding: { firstRun: false, pendingSteps: [] },
     }),
   );
-  assert.deepEqual(r.cards, []);
-  assert.equal(r.suppression, 'empty');
+  assert.equal(probe.cards.length, 1);
+  assert.equal(probe.cards[0].rule, 'risk-recovery');
+  assert.equal(probe.cards[0].chips[0].act, 'rebind');
+  // 触发集顺序：风险类优先于 site / probe（`refInvalid` 先命中）。
+  assert.equal(activeRecoveryTrigger({ ...baseInput({ ref: { validCount: 0, staleCount: 1 }, site: { authorized: false }, probe: { phase: 'idle', steady: false } }) }), 'refInvalid');
+  assert.equal(activeRecoveryTrigger(baseInput({ site: { authorized: false } })), 'site');
+  assert.equal(activeRecoveryTrigger(baseInput({ probe: { phase: 'waiting', steady: false } })), 'probe');
+  // 相位**未知**（未探测过）不是异常 —— 否则恢复卡会永久挤掉 discovery / ref-action。
+  assert.equal(activeRecoveryTrigger(baseInput({ probe: { steady: false } })), null);
+  assert.equal(activeRecoveryTrigger(baseInput({ probe: { phase: 'probing', steady: false } })), null, '探测进行中不是可行动异常');
+  assert.equal(activeRecoveryTrigger(baseInput()), null, '干净态不得有恢复触发（判据不得恒真）');
+  // `empty` 分支仍由规则表空集守住（settled 输入不可能同时无规则，故此处直核规则表）。
+  assert.deepEqual(candidateRules(baseInput({ site: { authorized: false } })).filter((c) => c.rule === 'risk-recovery').length, 1);
 });
 
 test('④ 上限：一轮最多 1 张卡；恢复类优先于发现类', () => {
@@ -167,7 +195,9 @@ test('④ 上限：一轮最多 1 张卡；恢复类优先于发现类', () => {
     baseInput({
       ref: { validCount: 2, staleCount: 1, latestRefNum: 4 },
       onboarding: { firstRun: true, pendingSteps: ['授权当前站点'] },
-      probe: { phase: 'ready', steady: false },
+      // V4.5-1 W3: `steady:false` is a recovery trigger now (`probe` 未就绪), so the
+    //「clean settled」fixture must declare a settled probe.
+    probe: { phase: 'ready', steady: true },
     }),
   );
   assert.equal(r.cards.length, MAX_NEXTSTEP_CARDS_PER_ROUND);
@@ -178,7 +208,9 @@ test('④ 安全边界：唯一候选全是被拦命令 ⇒ 不推荐（fail-clo
   const discoveryInput = baseInput({
     ref: { validCount: 0, staleCount: 0 },
     site: { authorized: true },
-    probe: { phase: 'ready', steady: false },
+    // V4.5-1 W3: `steady:false` is a recovery trigger now (`probe` 未就绪), so the
+    //「clean settled」fixture must declare a settled probe.
+    probe: { phase: 'ready', steady: true },
     onboarding: { firstRun: false, pendingSteps: [] },
   });
   const chip = candidateRules(discoveryInput).find((c) => c.rule === 'capability-discovery')!;
@@ -245,10 +277,10 @@ test('④ 安全边界（C3 修复）：候选含**任一**被拦 next chip ⇒ 
 
 // ── FIX-1（F 还原度快修轮，2026-09-20）─────────────────────────────────────────
 
-test('FIX-1 act 闭集扩为 4：授权是本地动作（不进回合命令闭集）', () => {
-  assert.deepEqual([...NEXTSTEP_ACTS], ['next', 'repick', 'describe', 'authorize']);
+test('V4.5-1 act 闭集终态 6 项：authorize / rebind / help 都是本地动作（不进回合命令闭集）', () => {
+  assert.deepEqual([...NEXTSTEP_ACTS], ['next', 'repick', 'describe', 'authorize', 'rebind', 'help']);
   // The onboarding rule's authorization chip must carry the local act — shipping
-  // `next` is exactly the defect this fix removes (the string was sent to the LLM).
+  // `next` is exactly the defect the FIX-1 round removed (the string was sent to the LLM).
   const onboarding = candidateRules(
     baseInput({
       ref: { validCount: 0, staleCount: 0 },
@@ -261,21 +293,26 @@ test('FIX-1 act 闭集扩为 4：授权是本地动作（不进回合命令闭�
   const authChip = onboarding.chips.find((c) => c.text.includes('授权当前站点'));
   assert.ok(authChip, 'onboarding 卡必须含「授权当前站点」chip');
   assert.equal(authChip.act, 'authorize', 'FIX-1：授权 chip 的 act 必须是 authorize，不得是 next');
-  // 「了解 6 个页面手势」仍是回合命令（它确实要 LLM 讲）。
-  assert.equal(onboarding.chips.find((c) => c.text.includes('页面手势'))?.act, 'next');
+  // V4.5-1 W3（FR-V45-041）：手势说明是设置「帮助」分区的本地导航，不是回合。
+  const helpChip = onboarding.chips.find((c) => c.text.includes('页面手势'));
+  assert.equal(helpChip?.act, 'help', '「了解 6 个页面手势」chip 的 act 必须是 help（本地设置导航）');
+  assert.equal(helpChip?.text, '了解 6 个页面手势', '文案必须逐字不变');
+  // 新增第 7 个 act ⇒ 闭集断言红（同源守卫）。
+  assert.ok(!(NEXTSTEP_ACTS as readonly string[]).includes('unknown-act'));
 });
 
 test('FIX-1 deny 集只命名回合命令：授权 chip 的文本即使出现在 deny 集也不误伤本地动作', () => {
   const input = baseInput({
     ref: { validCount: 0, staleCount: 0 },
-    site: { authorized: false, trust: 'untrusted' },
-    probe: { phase: 'idle', steady: false },
+    site: { authorized: true, trust: 'trusted' },
+    probe: { phase: 'ready', steady: true },
     onboarding: { firstRun: true, pendingSteps: ['授权当前站点'] },
     deniedCommands: ['授权当前站点'],
   });
-  // The card also carries a `next` chip (「了解 6 个页面手势」) which is NOT denied,
-  // so the onboarding card survives; the authorize chip itself is never deny-checked.
+  // Both onboarding chips are local acts now (`authorize` / `help`), so a deny set that
+  // names them cannot suppress the card (deny only ever judges `act === 'next'`).
   const r = recommendNextStep(input);
   assert.equal(r.cards.length, 1, '授权是本地动作，deny 集不得据此整卡拦下');
   assert.equal(r.cards[0].rule, 'onboarding');
+  assert.ok(r.cards[0].chips.every((c) => c.act !== 'next'), '前置：本卡片全是本地动作');
 });

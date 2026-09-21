@@ -32,6 +32,7 @@
  */
 import { ASK_COPY } from '../stream-plaintext.js';
 import type { CardView } from '../stream-model.js';
+import { mountDecisionRegion } from './decision-region.js';
 import { CARD_TAG_LABELS, createCardShell, createFixedRegion, fixedText, type CardDeps } from './shared.js';
 
 /**
@@ -74,6 +75,12 @@ export function setCardFallbackOpen(cardForm: HTMLElement, open: boolean): void 
   if (other) other.setAttribute('aria-expanded', String(open));
   for (const btn of Array.from(cardForm.querySelectorAll<HTMLElement>('[data-act="choose"]'))) {
     btn.hidden = open;
+  }
+  // V4.5-1 W3 (TASK-V45-108): the card-internalized option pool (the decision region's
+  //「更多选项」trigger) is a THIRD way to answer, so it joins the same mutual disclosure —
+  // otherwise an expanded card would reach 5 clickables and two cards 10 > the 8 cap.
+  for (const trigger of Array.from(cardForm.querySelectorAll<HTMLElement>('[data-disclose="l1-more"]'))) {
+    trigger.hidden = open;
   }
   if (open) (cardForm.querySelector('input') as HTMLInputElement | null)?.focus();
 }
@@ -229,6 +236,11 @@ function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
     });
     options.appendChild(other);
   }
+  // V4.5-1 W3 (TASK-V45-108 / ADR-V45-002 §3): the decision region (option pool +
+  // consequence preview) is mounted **inside the open card's own form**, so it is
+  // created and removed with the card's interactivity — the retired `#l0-decision`
+  // shell has no counterpart left.
+  mountDecisionRegion(view, deps, ask);
   col.appendChild(ask);
 }
 

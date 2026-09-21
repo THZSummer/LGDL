@@ -109,6 +109,23 @@ const V4_RETIRED_IDS: readonly string[] = Object.freeze([
   'discovery-title',
   'discovery-detail',
   'notice',
+  // V4.5-1 W3（TASK-V45-107~110 / ADR-V45-002）：4 个固定位置宿主与决策壳 / L1 组的
+  // 静态容器一并**真退役**。事实面 = 流内卡（选项池 / 后果预演 / 引用证据 / 恢复区）+
+  // `#view-host` 只读承载块 + 设置「帮助」分区；`#composer` / `#input` / `#send` /
+  // `#send-reason` / `#rebind` **保留**（兼容读取面），故不在此列。
+  'l0-decision',
+  'l0-kicker',
+  'l0-more',
+  'l0-ref-toggle',
+  'l0-ref-badge',
+  'l0-receipt-summary',
+  'l1-group',
+  'l1-history-toggle',
+  'l1-history',
+  'l1-history-rows',
+  'l1-local-tree-toggle',
+  'l1-receipt-toggle',
+  'l1-gestures-toggle',
 ]);
 const V4_ID_RENAMES: Readonly<Record<string, string>> = Object.freeze({ log: 'stream' });
 
@@ -127,8 +144,14 @@ const V1_ID_BASELINE: readonly string[] = Object.freeze([
 /** C1's tag whitelist, verbatim from spec §9.1. */
 const C1_TAGS = ['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA'] as const;
 
-/** v3 L0 containers that must exist and stay foldable-independent. */
-const L0_CONTAINERS = ['risk-rail', 'risk-chips', 'risk-detail', 'l0-decision', 'view-host', 'l1-more', 'l1-ref', 'l2-entries', 'region-toolbar', 'region-stream', 'region-statusbar', 'stream', 'statusbar-text', 'theme-toggle'];
+/**
+ * Containers that must exist in the static markup (V4.5-1 W3 等价重锚): the retired
+ * decision shell / L1 group ids are replaced by the **new carriers** — the two L2
+ * read-only blocks (whose interiors keep the legacy content ids) — while the two
+ * card-minted faces (`l1-more` / `l1-consequences`) are deliberately absent because
+ * they are minted per decision card.
+ */
+const L0_CONTAINERS = ['risk-rail', 'risk-chips', 'risk-detail', 'view-host', 'l2-tree-attribution', 'l1-local-tree', 'l2-audit-evidence', 'l1-receipt', 'l2-audit-count', 'l2-entries', 'region-toolbar', 'region-stream', 'region-statusbar', 'stream', 'statusbar-text', 'theme-toggle'];
 
 // ── a tiny, dependency-free tag scanner (good enough for our own HTML) ───────
 interface TagInfo {
@@ -341,12 +364,14 @@ test('index.html: V4 三区骨架（body 直挂 / 文档序 / 状态栏非流后
   // either re-homed into a `li[data-host]` (structural, no transitional marker) or
   // retired outright. The assertion is inverted on purpose — a re-introduced
   // `[data-transitional-host]` is exactly the「过渡态永久化」the ruling forbids.
-  const hosts = descendants(streamIndex!).filter((i) => 'data-transitional-host' in parsed.tags[i].attrs);
+  const hosts = [...descendants(streamIndex!), streamIndex!].filter((i) => 'data-transitional-host' in parsed.tags[i].attrs);
   assert.equal(hosts.length, 0, '#stream 内不得再出现 data-transitional-host（v4 收口清零）');
-  // The retired containers keep a structural marker so their identity is still
-  // machine-checkable (`li[data-host]`), which is what makes the clearance visible.
-  const structuralHosts = descendants(streamIndex!).filter((i) => 'data-host' in parsed.tags[i].attrs);
-  assert.ok(structuralHosts.length >= 1, '#stream 内必须保留 ≥1 个 li[data-host] 结构宿主标识');
+  // V4.5-1 W3（TASK-V45-107 / ADR-V45-002 §2）：**零宿主**是终态 —— `li[data-host]` 任意深度
+  // 都是回归（注册表降级为反向判据），`#stream` 的子节点只允许是卡或空态占位。
+  const structuralHosts = [...descendants(streamIndex!), streamIndex!].filter((i) => 'data-host' in parsed.tags[i].attrs);
+  assert.equal(structuralHosts.length, 0, '#stream 子树内 li[data-host] 计数必须为 0（零宿主终态）');
+  const streamChildren = parsed.tags[streamIndex!].children.filter((i) => parsed.tags[i].tag !== '#text');
+  assert.equal(streamChildren.length, 0, '#stream 静态子节点必须为空（卡由渲染器追加；空态占位由 setEmpty 铸造）');
   // ── 法一静态半：工具栏/状态栏内零一次性交互卡 ──
   for (const zone of ['region-toolbar', 'region-statusbar']) {
     for (const index of descendants(parsed.idsIndex.get(zone)!)) {
@@ -360,18 +385,30 @@ test('index.html: V4 三区骨架（body 直挂 / 文档序 / 状态栏非流后
   }
 });
 
-test('index.html: 收起一律 hidden 属性；composer 保持 hidden 且落在流内占位宿主；body 仍是 flex 列', () => {
-  for (const id of ['l1-more', 'l1-ref', 'view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'scroll-bottom', 'risk-chips', 'risk-detail']) {
+test('index.html: 收起一律 hidden 属性；composer 迁 body 尾且保持 hidden；body 仍是 flex 列', () => {
+  for (const id of ['view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'scroll-bottom', 'risk-chips', 'risk-detail']) {
     const index = parsed.idsIndex.get(id)!;
     assert.ok(index !== undefined, `#${id} 必须存在`);
     assert.equal('hidden' in parsed.tags[index].attrs, true, `#${id} 必须默认带 hidden 属性（不得用 CSS 隐身）`);
   }
-  // 法四骨架层：composer 默认 hidden，且它现在挂在 #stream 内的占位宿主里
+  // ── V4.5-1 W3（TASK-V45-110 / ADR-V45-003）：`#composer` **出流** —— 它是 `body` 的
+  //    最后一个元素并继续带 `hidden`（法四：默认屏无常驻输入框）；`#stream` 子树内不得
+  //    再有 `#composer` / `#input` / `#send`（零宿主 + 纯卡序）。──
   const composerIndex = parsed.idsIndex.get('composer')!;
   const streamIndex = parsed.idsIndex.get('stream')!;
-  assert.equal(ancestors(composerIndex).includes(streamIndex), true, '#composer 必须落在 #stream 内的占位宿主（V4-1 法四）');
+  assert.equal(parsed.tags[composerIndex].parent, parsed.bodyIndex, '#composer 必须是 body 直接子元素（出流）');
+  const bodyChildren = parsed.tags[parsed.bodyIndex].children.filter((i) => parsed.tags[i].tag !== '#text');
+  // The `<script src>` bootstrap stays the very last element (v1 contract); `#composer`
+  // must be the last element BEFORE it — i.e. no layout-bearing node follows it.
+  const afterComposer = bodyChildren.slice(bodyChildren.indexOf(composerIndex) + 1).filter((i) => parsed.tags[i].tag !== 'script');
+  assert.deepEqual(afterComposer, [], '#composer 之后不得再有布局元素（它是 #settings-view 之后、<script> 之前的最后一个节点）');
+  assert.equal(ancestors(composerIndex).includes(streamIndex), false, '#composer 不得再落在 #stream 内（零宿主）');
+  for (const id of ['input', 'send']) {
+    assert.equal(ancestors(parsed.idsIndex.get(id)!).includes(streamIndex), false, `#${id} 不得再落在 #stream 内`);
+    assert.equal('hidden' in parsed.tags[parsed.idsIndex.get(id)!].attrs, false, `#${id} 自身不带 hidden（由 #composer 承载）`);
+  }
   // 法四：默认屏不得出现可见常驻输入框 —— 静态半（唯一非 hidden 的 input 不允许存在）
-  for (const index of descendants(streamIndex)) {
+  for (const index of [streamIndex, ...descendants(streamIndex)]) {
     if (parsed.tags[index].tag !== 'input') continue;
     const hiddenOnPath = [index, ...ancestors(index)].some((i) => 'hidden' in parsed.tags[i].attrs);
     assert.equal(hiddenOnPath, true, '默认屏不得出现非 hidden 的输入框（法四静态半）');
@@ -707,23 +744,40 @@ test('V4 AC-V3-007 冻结: v3 密度基线 schema 保真断言逐字保留（v4 
  * 说明每个存活宿主的处置（`transitional:false` + 理由 + 通道绑定），退役容器必须**不在 DOM**
  * 里；任何未登记宿主 / 被重新引入的退役容器都必须 FAIL。
  */
-test('index.html: 结构宿主注册表与 DOM 逐项一致（未登记宿主 / 复活退役容器必须 FAIL）', async () => {
+test('index.html: 零宿主反向判据与退役真相册（任意宿主 / 复活退役容器必须 FAIL）', async () => {
   const hosts = await import('../src/ui/sidepanel/host-registry.js');
-  // ① 注册表形态：transitional 恒 false，通道 kind 必须落在 SYSTEM_EVENT_KINDS 闭集内。
-  assert.ok(hosts.REGISTERED_STRUCTURAL_HOSTS.length >= 1, '结构宿主注册表不得为空（否则判据空转）');
-  for (const h of hosts.REGISTERED_STRUCTURAL_HOSTS) {
-    assert.equal(h.transitional, false, `${h.host}: transitional 必须为 false（过渡宿主只能出现在 RETIRED_HOST_IDS）`);
-    assert.ok(h.reason.trim().length >= 20, `${h.host}: 必须写明该宿主为何不再是过渡态`);
-  }
-  const registered = new Set(hosts.REGISTERED_HOST_ATTRS);
-  const domHosts = new Set(
-    [...html.matchAll(/<li data-host="([^"]+)"/g)].map((m) => m[1]),
-  );
-  // ② 双向相等：DOM 里的宿主集合必须恰等于注册集合（多一个 / 少一个都 FAIL）。
-  assert.deepEqual([...domHosts].sort(), [...registered].sort(), 'DOM 宿主集合必须与注册表逐项一致');
-  // ③ 退役容器必须零 DOM 残留（结构性：查 id，不查属性）。
-  for (const id of hosts.RETIRED_HOST_IDS) {
+  // ① V4.5-1 W3（TASK-V45-111 / ADR-V45-010 §1）：注册表**清空为反向判据** —— 不再是
+  //    「登记集合 == 实存集合」的双向比对，而是「实存集合 == ∅」。
+  assert.equal(hosts.REGISTERED_STRUCTURAL_HOSTS.length, 0, '结构宿主注册表必须清空（零宿主是终态）');
+  assert.equal(hosts.REGISTERED_HOST_ATTRS.length, 0, '派生的注册属性集合必须为空');
+  assert.deepEqual([...hosts.RETIRED_HOST_ATTRS], ['decision', 'composer', 'l1-panels', 'strips']);
+  assert.equal(hosts.RETIRED_CONTAINER_IDS.length, 14, '退役容器清单必须是 14 项');
+  assert.equal(hosts.RETIRED_HOST_IDS.length, 18, '并集别名 = 4 宿主值 + 14 容器 id');
+  // ② DOM 侧：index.html 内任意深度不得再有 li[data-host]（零宿主静态半）。
+  const domHosts = [...html.matchAll(/<li[^>]*data-host="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(domHosts, [], 'index.html 不得再出现任何 data-host（零宿主）');
+  // ③ 退役**容器 id** 必须零 DOM 残留（结构性：查 id，不查属性）。
+  for (const id of hosts.RETIRED_CONTAINER_IDS) {
     assert.ok(!new RegExp(`id="${id}"`).test(html), `已退役容器 #${id} 仍在 index.html（删属性不改 DOM 不算退役）`);
+  }
+  // ③b 退役**宿主值**必须零 `data-host` 残留（值可能恰好也是别的容器 id，故用属性判）。
+  for (const host of hosts.RETIRED_HOST_ATTRS) {
+    assert.ok(!new RegExp(`data-host="${host}"`).test(html), `已退役宿主 data-host="${host}" 仍残留在 index.html`);
+  }
+  // ③c 保留面反证：`#input` / `#send` / `#send-reason` / `#rebind` **不得**在退役清单里。
+  for (const kept of ['input', 'send', 'send-reason', 'rebind']) {
+    assert.equal((hosts.RETIRED_HOST_IDS as readonly string[]).includes(kept), false, `保留面 #${kept} 不得进入退役清单`);
+  }
+  // `composer` 是**退役的宿主值**（`li[data-host="composer"]` 已移除）而 `#composer` 本体
+  // 保留（迁 body 尾、继续 hidden）—— 两个语义必须分开：宿主值在退役册，兼容面 id 不在。
+  assert.ok((hosts.RETIRED_HOST_ATTRS as readonly string[]).includes('composer'), '宿主值 composer 必须入退役册');
+  assert.equal((hosts.RETIRED_CONTAINER_IDS as readonly string[]).includes('composer'), false, '兼容面 #composer 不得入退役容器册');
+  assert.match(html, /<form id="composer" hidden>/, '#composer 本体必须保留（id / hidden 零变化）');
+  // ③c 退役真相册：每项必须有 movedTo + 「重新引入即红」的反证（判据不得只删标记）。
+  assert.equal(hosts.RETIRED_HOST_DISPOSITIONS.length, hosts.RETIRED_HOST_IDS.length);
+  for (const d of hosts.RETIRED_HOST_DISPOSITIONS) {
+    assert.ok(d.movedTo.trim().length >= 4, `${d.item}: 必须登记去向`);
+    assert.match(d.counterProof, /红/, `${d.item}: 必须登记「重新引入即红」的反证`);
   }
   // ④ V4.5-1 W2（TASK-V45-106 §6）**归并矩阵新语义三条**（旧「legacy id 仍在 DOM」判据
   //    与退役正面矛盾，已按新形态重写；断言数只增不减）：
@@ -790,11 +844,68 @@ test('index.html: 结构宿主注册表与 DOM 逐项一致（未登记宿主 / 
     hosts.evaluateStripChannels({ emitterCounts, observedCarriers: [], sendReasonInStatusbar: false }).length > 0,
     '`#send-reason` 离开状态栏必须被判红',
   );
-  // ⑥ 判据可 FAIL：伪造一个未登记宿主 / 复活 #l0-pick 必须被判红。
-  const forgedReading = { presentHosts: ['decision', 'forged-host'], transitionalCount: 0, retiredPresent: [] };
-  assert.ok(hosts.evaluateHostRegistry(forgedReading).length > 0, '未登记宿主必须被判红');
-  assert.ok(
-    hosts.evaluateHostRegistry({ presentHosts: [], transitionalCount: 1, retiredPresent: ['l0-pick'] }).length >= 3,
-    '复活过渡标记 / 退役容器 / 缺失宿主必须被判红',
+  // ⑥ V4.5-1 W3（TASK-V45-111 / ADR-V45-010 §3）：**6 类问题串逐类可 FAIL**。
+  //  ① 任意深度 li[data-host]（含改名前的等价形态）；
+  {
+    assert.ok(
+      hosts.evaluateHostRegistry({ presentHosts: ['forged-host'], transitionalCount: 0, retiredPresent: [] }).some((p) => p.includes('零宿主判据')),
+      '① 实存任意宿主必须判红',
+    );
+  }
+  //  ② 退役宿主值存在；
+  {
+    assert.ok(
+      hosts
+        .evaluateHostRegistry({ presentHosts: ['decision'], transitionalCount: 0, retiredPresent: [] })
+        .some((p) => p.includes('已退役宿主')),
+      '② 退役宿主值存在必须判红',
+    );
+  }
+  //  ③ 退役容器 id 存在；
+  {
+    assert.ok(
+      hosts
+        .evaluateHostRegistry({ presentHosts: [], transitionalCount: 0, retiredPresent: ['l0-pick'] })
+        .some((p) => p.includes('已退役容器 #l0-pick')),
+      '③ 退役容器残留必须判红',
+    );
+  }
+  //  ④ 过渡标记 ≠ 0；
+  {
+    assert.ok(
+      hosts
+        .evaluateHostRegistry({ presentHosts: [], transitionalCount: 1, retiredPresent: [] })
+        .some((p) => p.includes('data-transitional-host')),
+      '④ 复活过渡标记必须判红',
+    );
+  }
+  //  ⑤ 退役项反证元数据齐备（无 movedTo / counterProof 的退役登记必须判红）；
+  {
+    const forged = hosts.RETIRED_HOST_DISPOSITIONS.map((d) => ({ ...d, counterProof: d.item === 'strips' ? '' : d.counterProof }));
+    assert.ok(
+      hosts
+        .evaluateHostRegistry({ presentHosts: [], transitionalCount: 0, retiredPresent: [] }, forged).some((p) => p.includes('反证')),
+      '⑤ 缺反证的退役登记必须判红',
+    );
+  }
+  //  ⑥ 源文本不含双写理由（FR-V45-011 的机器判据）。
+  {
+    assert.ok(
+      hosts
+        .evaluateHostRegistry({
+          presentHosts: [],
+          transitionalCount: 0,
+          retiredPresent: [],
+          sources: [{ path: 'forged.ts', text: '// ALSO append-recorded to the system channel' }],
+        })
+        .some((p) => p.includes('双写理由')),
+      '⑥ 双写理由字面必须判红',
+    );
+  }
+  // 干净读数必须通过（判据不得恒红）。
+  assert.deepEqual(
+    hosts.evaluateHostRegistry({ presentHosts: [], transitionalCount: 0, retiredPresent: [] }),
+    [],
+    '零宿主真实读数必须通过',
   );
 });

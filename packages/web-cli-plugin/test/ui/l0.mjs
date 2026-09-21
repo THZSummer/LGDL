@@ -5,7 +5,7 @@
  * ── Why this file is a full rewrite（登记型取代） ────────────────────────────
  *
  * v3's L0 gate asserted the v3 skeleton: four residents (`#risk-rail` / `#panel-top`
- * / `#l0-decision` / `#l0-statusbar`) + the foldable entry panel `#l2-entries` +
+ * / `#l0-decision`（W3 退役）) + the foldable entry panel `#l2-entries` +
  * `#panel-main > #log`. V4-1 replaces exactly those hosts with the three zones:
  *
  *   ① `header#region-toolbar`  只读站点摘要 + 4 视图入口 + 主题（可点 == 5）
@@ -267,7 +267,9 @@ async function main() {
     check('① 状态栏嵌套 = #risk-chips > #risk-rail（chip 入状态栏，不新开分区）', zones.railInsideChips === true && zones.chipsInsideRail === false, JSON.stringify({ railInChips: zones.railInsideChips, chipsInRail: zones.chipsInsideRail }));
     check('① `#risk-detail` 在状态栏内且默认 hidden（不计入默认密度）', zones.detailInsideStatusbar === true && (await evaluate(cdp, `document.getElementById('risk-detail').hidden`)) === true);
     check(`① 过渡宿主清零：querySelectorAll('[data-transitional-host]').length === 0（v4 收口 / R4-18）`, zones.hostCount === 0 && zones.hostCount === REGISTERED_TRANSITIONAL_HOSTS, `实测 ${zones.hostCount}`);
-    check('① 退役容器的结构标识仍在（li[data-host]，清零不等于丢锚）', zones.hostCount === 0 && zones.structuralHosts >= 1, JSON.stringify({ hosts: zones.hostCount, structural: zones.structuralHosts }));
+    // V4.5-1 W3（TASK-V45-107/111）：**零宿主是终态** —— 4 个固定位置宿主全部 DOM 移除，
+    // 「清零」现在同时意味着「结构标识也不留」（注册表降级为反向判据）。
+    check('① 零宿主终态：`#stream` 子树内 [data-host] 计数 = 0（结构标识随形态收口）', zones.hostCount === 0 && zones.structuralHosts === 0, JSON.stringify({ hosts: zones.hostCount, structural: zones.structuralHosts }));
     // ── BLOCK-02（V4-4 审查修复轮）：**结构性**判据（删属性 ≠ 退役）─────────────
     // 产品把「登记的宿主集合 / 实存集合 / 退役容器残留 / 过渡标记计数」一次性交出，判定由
     // 共享纯函数 `host-registry.ts#evaluateHostRegistry` 给出（单一实现，门禁不另立口径）。
@@ -303,95 +305,120 @@ async function main() {
     check('② 4 个视图入口 + 主题 = 恰 5 个插槽（不多不少）', zones.toolbarSlots.length === 5 && zones.toolbarSlots.filter(([, s]) => s === 'view').length === 4);
     check('② `.site-summary` 是只读 role=status（非 button/a/input，不计入可点预算）', zones.summaryIsReadOnly?.role === 'status' && zones.summaryIsReadOnly?.interactive === false, JSON.stringify(zones.summaryIsReadOnly));
 
-    // ══ ③ 三件事同屏 + 唯一决策卡 + 法四 ════════════════════════════════════
-    console.log('\n▶ ③ 三件事 + 唯一决策卡 + 无常驻输入框（法四）');
+    // ══ ③ 三件事同屏 + 唯一决策面（流内卡）+ 法四 ═══════════════════════════
+    console.log('\n▶ ③ 三件事 + 唯一决策面（流内 ask 卡）+ 承载 W3；零宿主 + 法四');
     const skeleton = await evaluate(
       cdp,
       `(() => {
         const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
         const summary = document.querySelector('.site-summary');
-        const decision = document.getElementById('l0-decision');
         const statusbar = document.getElementById('region-statusbar');
-        // V4-3: the ask card lives in #stream now; the open one is the "decision card".
+        // V4.5-1 W3（TASK-V45-107/108）：决策面 = 流内 ask 卡（决策壳已退役，零宿主）。
         const asks = [...document.querySelectorAll('[data-msg-type="askuser"][data-answered="false"]')].filter(visible);
         const options = [...document.querySelectorAll('#ask-options button, #ask-options [role="radio"]')];
         const residentInputs = [...document.querySelectorAll('input[type="text"], input:not([type]), textarea')].filter(visible);
+        const moreToggle = document.getElementById('l1-more-toggle');
+        const composer = document.getElementById('composer');
         return {
           summaryVisible: visible(summary),
           summaryText: summary ? summary.textContent : '',
-          decisionVisible: visible(decision),
-          decisionInStream: Boolean(document.getElementById('stream')?.contains(decision)),
+          decisionShellRetired: document.getElementById('l0-decision') === null && document.getElementById('l0-more') === null
+            && document.getElementById('l0-kicker') === null && document.getElementById('l0-ref-toggle') === null,
+          hostCount: document.querySelectorAll('#stream [data-host], #stream [data-transitional-host]').length,
+          streamForeign: [...document.getElementById('stream').children].filter((el) => !el.hasAttribute('data-msg-type') && !el.classList.contains('log-empty-text')).length,
           statusbarVisible: visible(statusbar),
           decisionCards: asks.length,
+          cardInStream: asks.length === 1 ? Boolean(document.getElementById('stream')?.contains(asks[0])) : null,
           visibleOptions: options.length,
-          moreText: document.getElementById('l0-more').textContent,
-          moreCount: Number(document.getElementById('l0-more').getAttribute('data-count')),
-          moreHidden: document.getElementById('l0-more').hidden,
+          moreInCard: moreToggle ? Boolean(asks[0]?.contains(moreToggle)) : false,
+          moreText: moreToggle ? moreToggle.textContent : null,
+          moreCount: moreToggle ? Number(moreToggle.getAttribute('data-count')) : null,
+          moreHidden: moreToggle ? moreToggle.hidden : null,
           residentInputs: residentInputs.map((el) => el.id || el.tagName),
           fallbackHidden: document.getElementById('ask-fallback')?.hidden ?? null,
-          composerHidden: document.getElementById('composer').hidden,
-          refText: document.getElementById('l0-ref-toggle').textContent,
+          composerHidden: composer.hidden,
+          composerParentIsBody: composer.parentElement === document.body,
+          composerInStream: Boolean(document.getElementById('stream')?.contains(composer)),
           // V4-4 TASK-806: panel-side #l0-pick retired — the discoverability anchor is the
           // settings-view guidance (text only, zero injection).
           pickGuidance: document.getElementById('pick-guidance')?.textContent ?? '',
           pickRetired: document.getElementById('l0-pick') === null,
-          hostAttr: document.getElementById('l0-decision')?.closest('[data-transitional-host]')?.getAttribute('data-transitional-host') ?? null,
         };
       })()`,
     );
     check('③ ① 我在哪 / 谁在管我（.site-summary 只读摘要）默认态可见', skeleton.summaryVisible === true);
-    // V4-3 (TASK-707): the v4-3 transitional host is retired (count = 0); the ask card
-    // now lives directly in the stream, so `#l0-decision` no longer sits under a host.
-    check('③ ③ 决策槽（#l0-decision）默认态可见且在流内（v4-3 占位宿主已退役；FIX-4：kicker 改为非竞争语义）', skeleton.decisionVisible === true && skeleton.decisionInStream === true && skeleton.hostAttr === null, JSON.stringify({ v: skeleton.decisionVisible, inStream: skeleton.decisionInStream, host: skeleton.hostAttr }));
+    // V4.5-1 W3（TASK-V45-107/108 / ADR-V45-002）：决策壳**零残留**，任意宿主计数 = 0，
+    // 决策面唯一载体 = 流内 ask 卡（它的选项池 / 后果预演在卡内）。
+    check(
+      '③ ③ 决策壳（#l0-decision / #l0-more / #l0-kicker / #l0-ref-toggle）零残留（W3 真退役）',
+      skeleton.decisionShellRetired === true,
+      JSON.stringify({ retired: skeleton.decisionShellRetired }),
+    );
+    check('③ 零宿主：`#stream` 子树内 [data-host] / [data-transitional-host] 计数 = 0', skeleton.hostCount === 0, String(skeleton.hostCount));
+    check('③ 纯卡序：`#stream` 无「既非卡也非空态占位」的子节点', skeleton.streamForeign === 0, String(skeleton.streamForeign));
     check('③ 一行状态栏（#region-statusbar）默认态可见（J1）', skeleton.statusbarVisible === true);
     check('③ 摘要文字含 origin 站点名（可读，非纯图标）', skeleton.summaryText.includes('v3-l0.test'), skeleton.summaryText.slice(0, 80));
-    check('③ 默认态决策卡数 = 1（唯一决策卡）', skeleton.decisionCards === 1, String(skeleton.decisionCards));
+    check('③ 默认态决策卡数 = 1（唯一决策卡）且在流内', skeleton.decisionCards === 1 && skeleton.cardInStream === true, JSON.stringify({ n: skeleton.decisionCards, inStream: skeleton.cardInStream }));
     // V4-3 (ADR-V4-030 decision 9): a choice card renders up to 3 options + the
     // terminal「其他…」= ≤4 clickable options (was ≤2 in the retired decision slot).
-    check('③ 可见选项 ≤ 4 且 ≥ 1（v4-3 choice 卡 ≤3 + 末项）', skeleton.visibleOptions <= 4 && skeleton.visibleOptions >= 1, String(skeleton.visibleOptions));
+    check('③ 可见选项 ≤ 4 且 ≥ 1（choice 卡 ≤3 + 末项）', skeleton.visibleOptions <= 4 && skeleton.visibleOptions >= 1, String(skeleton.visibleOptions));
+    // V4.5-1 W3: the「更多选项」trigger is minted INSIDE the card (the retired shell's
+    // `#l0-more` is gone) and its N is derived from the same option list.
+    check('③ 「更多选项（还有 N 个）」触发器在卡内（决策区随元素卡内化）', skeleton.moreInCard === true, JSON.stringify({ inCard: skeleton.moreInCard }));
     check(
-      '③ 「更多选项（还有 N 个）」的 N 从真值派生（4 选项 → 2 可见 + 2 收起，N = 2 + 1 末项）',
-      skeleton.moreCount === 3 && skeleton.moreText === '更多选项（还有 3 个）',
+      '③ 「更多选项（还有 N 个）」的 N 从真值派生（4 选项 → 卡内 3 可见 + 1 收起，N = 1 + 1 末项）',
+      skeleton.moreCount === 2 && skeleton.moreText === '更多选项（还有 2 个）',
       `${skeleton.moreText} / data-count=${skeleton.moreCount}`,
     );
     check('③ 默认态可见文本输入框计数 = 0（法四：含 input:not([type]) / textarea）', skeleton.residentInputs.length === 0, skeleton.residentInputs.join(','));
     check('③ 末项兜底输入框默认 hidden', skeleton.fallbackHidden === true);
     check('③ `#composer` 存在但默认 hidden（法四显式取代 v3「composer 贴底」）', skeleton.composerHidden === true);
+    check('③ `#composer` 迁 body 尾（`parentElement === body`）且不在 `#stream` 内（W3 出流）', skeleton.composerParentIsBody === true && skeleton.composerInStream === false, JSON.stringify({ body: skeleton.composerParentIsBody, inStream: skeleton.composerInStream }));
     // V4-4 TASK-806: the panel-side entry is RETIRED; discoverability is carried by
     // the settings-view guidance (text only) — the page-side layer stays the primary
     // entry (zero injection, asserted by page-input / zero-injection gates).
     check('③ 面板侧 `#l0-pick` 已退役（DOM 计数 = 0，替代输入框的入口在页面侧）', skeleton.pickRetired === true, String(skeleton.pickRetired));
     check('③ 设置视图「站点与授权」含拾取指引（可发现性未丢）', /拾取/.test(skeleton.pickGuidance), skeleton.pickGuidance);
-    check('③ 引用条入口存在（含计数）', /引用\s*\d+\s*条/.test(skeleton.refText), skeleton.refText);
 
     // N must follow the real option list (change truth → change N)
     await evaluate(cdp, `window.__v3.testing.ask('换一轮', ['甲', '乙', '丙', '丁', '戊']); true`);
     await sleep(250);
-    const moreAgain = await evaluate(cdp, `document.getElementById('l0-more').getAttribute('data-count') + '|' + document.getElementById('l0-more').textContent`);
-    check('③ 真实选项数变化 → N 随之变化（硬编码即 FAIL）', moreAgain === '4|更多选项（还有 4 个）', moreAgain);
+    const moreAgain = await evaluate(cdp, `document.getElementById('l1-more-toggle').getAttribute('data-count') + '|' + document.getElementById('l1-more-toggle').textContent`);
+    check('③ 真实选项数变化 → N 随之变化（硬编码即 FAIL；5 选项 → 卡内 3 + 2 收起 + 末项 = 3）', moreAgain === '3|更多选项（还有 3 个）', moreAgain);
     const terminalText = await evaluate(
       cdp,
       `(() => { const pool = document.getElementById('l1-more-options'); const btns = [...pool.querySelectorAll('button')]; return btns.length ? btns[btns.length - 1].textContent : ''; })()`,
     );
     check('③ FR-V3-012 末项文案逐字（渲染态 DOM 文本 = 「其他…（我来描述）」）', terminalText === '其他…（我来描述）', JSON.stringify(terminalText));
+    // V4.5-1 W3: the pool's own options are NOT a second projection of `#ask-options`
+    // (the first three are rendered inline) — the pool holds only the rest.
+    const poolOptions = await evaluate(
+      cdp,
+      `(() => [...document.querySelectorAll('#l1-more-options button')].map((b) => b.textContent))()`,
+    );
+    check(
+      '③ 单写：卡内选项池只装「#ask-options 未展示的选项 + 末项」（无重复投影）',
+      JSON.stringify(poolOptions) === JSON.stringify(['丁', '戊', '其他…（我来描述）']),
+      JSON.stringify(poolOptions),
+    );
     await evaluate(cdp, `window.__v3.testing.clearAsk(); true`);
     await sleep(200);
-    const noAsk = await evaluate(cdp, `JSON.stringify({ openAsks: document.querySelectorAll('[data-msg-type="askuser"][data-answered="false"]').length, moreHidden: document.getElementById('l0-more').hidden })`);
-    check('③ 无待答回合时决策卡不再 open（不留空卡）', noAsk === '{"openAsks":0,"moreHidden":true}', noAsk);
+    const noAsk = await evaluate(
+      cdp,
+      `JSON.stringify({ openAsks: document.querySelectorAll('[data-msg-type="askuser"][data-answered="false"]').length, moreMinted: document.getElementById('l1-more-toggle') !== null })`,
+    );
+    check('③ 无待答回合时决策卡不再 open（不留空卡）', noAsk === '{"openAsks":0,"moreMinted":false}', noAsk);
     await evaluate(cdp, `window.__v3.testing.refresh(); true`);
     await sleep(250);
     const noAskAgain = await evaluate(
       cdp,
       `JSON.stringify({
-        moreHidden: document.getElementById('l0-more').hidden,
-        moreText: document.getElementById('l0-more').textContent,
-        moreCount: document.getElementById('l0-more').getAttribute('data-count'),
+        moreMinted: document.getElementById('l1-more-toggle') !== null,
         openAsks: document.querySelectorAll('[data-msg-type="askuser"][data-answered="false"]').length,
       })`,
     );
     const noAskParsed = JSON.parse(noAskAgain);
-    check('③ I1：无卡态第二次 render 后 #l0-more 仍 hidden（不得复活悬空入口）', noAskParsed.moreHidden === true && noAskParsed.openAsks === 0, noAskAgain);
-    check('③ I1：无卡态 #l0-more 文案 / data-count 如实归零（不得写「还有 1 个」）', noAskParsed.moreText === '更多选项（还有 0 个）' && noAskParsed.moreCount === '0', noAskAgain);
+    check('③ I1（W3 等价）：无卡态第二次 render 后卡内触发器**不被铸造**（不得复活悬空入口）', noAskParsed.moreMinted === false && noAskParsed.openAsks === 0, noAskAgain);
     await resetFixture(cdp);
 
     // ══ ④ 状态栏 J1~J4 + assertFoldable 负向 ═════════════════════════════════
@@ -552,8 +579,11 @@ async function main() {
         const chain = [];
         let n = confirmRow;
         while (n) { chain.push({ id: n.id, hidden: n.hidden, l1: n.hasAttribute('data-l1-panel'), l2: n.hasAttribute('data-l2-view') }); n = n.parentElement; }
+        // V4.5-1 W3：决策面 = 流内卡；「更多选项」池在卡内（#l1-more-options），
+        // 旁路控件判据的扫描面随之重锚到流内决策卡（#l0-decision 已退役）。
         const moreOptions = document.getElementById('l1-more-options');
-        const allowControls = [...document.querySelectorAll('#l0-decision button, #l0-decision [role="button"]')]
+        const decisionScope = document.querySelector('[data-msg-type="askuser"], [data-msg-type="auth"]') ?? document.getElementById('stream');
+        const allowControls = [...decisionScope.querySelectorAll('button, [role="button"]')]
           .filter(visible)
           .filter((b) => /^(允许|放行|允许执行|忽略硬底线|覆盖)$/.test((b.textContent || '').trim()));
         return JSON.stringify({
@@ -578,7 +608,9 @@ async function main() {
       cdp,
       `(() => {
         const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
-        const scope = [document.getElementById('risk-rail'), document.getElementById('l0-decision')];
+        // V4.5-1 W3：第二条扫描轴从退役的决策壳改为流内决策卡（同一语义：决策面不得有
+        // 「允许/放行」旁路）。
+        const scope = [document.getElementById('risk-rail'), document.querySelector('[data-msg-type="askuser"], [data-msg-type="auth"]') ?? document.getElementById('stream')];
         const labels = scope
           .flatMap((root) => [...root.querySelectorAll('button, [role="button"]')])
           .filter(visible)
@@ -644,20 +676,22 @@ async function main() {
       })()`,
     );
     const entries = JSON.parse(disclosure);
+    // V4.5-1 W3（TASK-V45-110）：折叠触发器集合等价重锚 —— 6 个退役触发器（`#l0-more` /
+    // `#l0-ref-toggle` / 4 个 L1 开关）从契约移除，两个**卡内**触发器（选项池 / 后果预演）
+    // 与 4 个视图入口 + 树 FAB 构成新契约（12 条，数量不减）。
     const EXPECTED_TRIGGERS = [
-      'l0-more',
-      'l0-ref-toggle',
       'l2-entry-tree',
       'l2-entry-commands',
       'l2-entry-audit',
       'l2-entry-settings',
       'tree-fab',
+      // 卡内（默认夹具里 ask 卡在场）：选项池 / 后果预演触发器 + 末项。
+      'l1-more-toggle',
       'l1-consequences-toggle',
-      'l1-local-tree-toggle',
-      'l1-history-toggle',
-      'l1-receipt-toggle',
-      'l1-gestures-toggle',
+      'ask-other',
     ];
+    // 退役触发器：**零 DOM 残留**（W3 真退役；重新引入即红）。
+    const RETIRED_TRIGGERS = ['l0-more', 'l0-ref-toggle', 'l1-local-tree-toggle', 'l1-history-toggle', 'l1-receipt-toggle', 'l1-gestures-toggle'];
     check('⑧ 遍历范围 = 全部 [aria-controls] 元素（未被白名单缩窄）', entries.length >= EXPECTED_TRIGGERS.length, `实测 ${entries.length} 个：${entries.map((e) => e.trigger).join(', ')}`);
     for (const [trigger, expectedTarget] of Object.entries(ARIA_TARGET_BY_ENTRY)) {
       const entry = entries.find((e) => e.trigger === trigger);
@@ -670,6 +704,53 @@ async function main() {
     for (const trigger of EXPECTED_TRIGGERS) {
       check(`⑧ ${trigger} 在遍历范围内（可见性契约不得被漏检）`, entries.some((e) => e.trigger === trigger), entries.map((e) => e.trigger).join(', '));
     }
+    // V4.5-1 W3（TASK-V45-110）：6 个退役触发器（决策壳 2 + L1 组 4）必须零 DOM 残留。
+    const retiredTriggers = await evaluate(
+      cdp,
+      `(() => ${JSON.stringify(RETIRED_TRIGGERS)}.filter((id) => document.getElementById(id) !== null))()`,
+    );
+    check('⑧ 退役触发器零 DOM 残留（#l0-more / #l0-ref-toggle / 4 个 L1 开关）', Array.isArray(retiredTriggers) && retiredTriggers.length === 0, JSON.stringify(retiredTriggers));
+    check('⑧ 退役触发器不出现任何 [aria-controls] 指向它们', entries.every((e) => !RETIRED_TRIGGERS.includes(e.targetId)), entries.map((e) => e.targetId).join(', '));
+    // V4.5-1 W3（TASK-V45-111）：逐项负向断言 —— 每个退役触发器 / 退役容器都必须
+    // `getElementById(...) === null`（删属性不改 DOM 不算退役）。
+    for (const id of RETIRED_TRIGGERS) {
+      const present = await evaluate(cdp, `document.getElementById(${JSON.stringify(id)}) !== null`);
+      check(`⑧ 退役触发器 #${id} 零 DOM 残留`, present === false, String(present));
+    }
+    const RETIRED_CONTAINERS = [
+      'l0-decision', 'l0-pick', 'l0-status-band', 'l0-kicker', 'l0-more', 'l0-ref-toggle', 'l0-receipt-summary',
+      'l1-group', 'l1-history-toggle', 'l1-history', 'l1-history-rows', 'l1-local-tree-toggle', 'l1-receipt-toggle',
+      'l1-gestures-toggle',
+    ];
+    for (const id of RETIRED_CONTAINERS) {
+      const present = await evaluate(cdp, `document.getElementById(${JSON.stringify(id)}) !== null`);
+      check(`⑧ 退役容器 #${id} 零 DOM 残留（结构性清零，不是删标记）`, present === false, String(present));
+    }
+    // 卡内触发器成对：`#l1-more-toggle` → `#l1-more`（卡内目标存在且默认 hidden）。
+    const cardPair = await evaluate(
+      cdp,
+      `(() => { const t = document.getElementById('l1-more-toggle'); const g = document.getElementById('l1-more'); return JSON.stringify({ hasTrigger: Boolean(t), hasTarget: Boolean(g), expanded: t ? t.getAttribute('aria-expanded') : null, controls: t ? t.getAttribute('aria-controls') : null, targetHidden: g ? g.hidden : null }); })()`,
+    );
+    const cp2 = JSON.parse(cardPair);
+    check('⑧ 卡内选项池触发器成对（aria-expanded + aria-controls=#l1-more ∧ 目标默认 hidden）', cp2.hasTrigger === true && cp2.hasTarget === true && cp2.controls === 'l1-more' && cp2.expanded === 'false' && cp2.targetHidden === true, cardPair);
+    // 内容面契约：7 个 `[data-l1-panel]` 面（卡内 / L2 承载块 / 设置帮助）与折叠白名单同源。
+    const faces = await evaluate(
+      cdp,
+      `(() => ({ panels: [...document.querySelectorAll('[data-l1-panel]')].map((p) => p.getAttribute('data-l1-panel')), targets: [...(window.__v3.disclosure.targets || [])] }))()`,
+    );
+    // V4.5-1 W3：在场的 `[data-l1-panel]` 面必须 ⊆ 折叠白名单，且 6 个静态/卡内面在场
+    // （`l1-gestures` 只在设置视图挂载后存在 —— 其可达性由 ⑨/设置分区断言覆盖）。
+    const expectedFaces = ['l1-more', 'l1-consequences', 'l1-local-tree', 'l1-receipt', 'l2-tree-attribution', 'l2-audit-evidence'];
+    check(
+      '⑧ 在场内容面 ⊆ 折叠白名单（声明集合不得超出控制器的可折叠集合）',
+      faces.panels.every((f) => faces.targets.includes(f)),
+      JSON.stringify(faces),
+    );
+    check(
+      '⑧ 6 个静态/卡内内容面齐备（l1-gestures 随设置视图挂载后存在）',
+      expectedFaces.every((f) => faces.panels.includes(f)),
+      JSON.stringify(faces.panels),
+    );
     const SKELETON_EXEMPT_TARGETS = ['view-host', 'settings-view'];
     check(
       '⑧ 骨架期豁免集合恰为两个 L2 视图宿主（不回退、不扩大）',
@@ -869,10 +950,12 @@ async function main() {
       JSON.stringify(sets[320].visible) === JSON.stringify(sets[400].visible),
       `only400=${sets[400].visible.filter((i) => !sets[320].visible.includes(i)).join(',')} only320=${sets[320].visible.filter((i) => !sets[400].visible.includes(i)).join(',')}`,
     );
+    // V4.5-1 W3：`#l0-decision` 退役 ⇒ 等价补入新的决策面坐标（两个 L2 只读承载块 =
+    // 迁入方向性的静态锚点），常驻集合数量不减。
     check(
-      '⑩ 320px 下三区 + 风险位 + 决策卡 + 入口仍在文档中',
-      ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l0-decision', 'l2-entries'].every((id) => sets[320].all.includes(id)),
-      JSON.stringify(['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l0-decision', 'l2-entries'].filter((i) => !sets[320].all.includes(i))),
+      '⑩ 320px 下三区 + 风险位 + 2 个 L2 只读承载块 + 入口仍在文档中',
+      ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l2-tree-attribution', 'l2-audit-evidence', 'l2-entries'].every((id) => sets[320].all.includes(id)),
+      JSON.stringify(['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l2-tree-attribution', 'l2-audit-evidence', 'l2-entries'].filter((i) => !sets[320].all.includes(i))),
     );
 
     // ══ ⑪ 几何：三区不重叠 + 唯一滚动 + 流区占比 + composer hidden ═══════════
@@ -925,12 +1008,13 @@ async function main() {
         const composer = document.getElementById('composer');
         const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
         const inStream = Boolean(document.getElementById('stream')?.contains(composer));
+        const parentIsBody = composer.parentElement === document.body;
         const readOnlyPanel = document.querySelectorAll('#region-toolbar input, #region-statusbar input, #region-toolbar textarea, #region-statusbar textarea').length;
-        return { fallback: document.getElementById('ask-fallback').hidden, composer: composer.hidden, visible: visible(composer), inStream, readOnlyPanel };
+        return { fallback: document.getElementById('ask-fallback').hidden, composer: composer.hidden, visible: visible(composer), inStream, parentIsBody, readOnlyPanel };
       })()`,
     );
     check('⑪ 兜底展开后 `#ask-fallback` 与 `#composer` 均可见且输入可用', revealed.fallback === false && revealed.composer === false && revealed.visible === true, JSON.stringify(revealed));
-    check('⑪ `#composer` 的常驻位置是流内占位宿主（工具栏/状态栏零输入框 ⇒ 法四）', revealed.inStream === true && revealed.readOnlyPanel === 0, JSON.stringify(revealed));
+    check('⑪ `#composer` 迁 body 尾（`parentElement === body`）且不在 `#stream` 内（工具栏/状态栏零输入框 ⇒ 法四）', revealed.parentIsBody === true && revealed.inStream === false && revealed.readOnlyPanel === 0, JSON.stringify(revealed));
     await evaluate(cdp, `window.__v3.testing.hideFallback(); true`);
     await sleep(250);
     const collapsedAgain = await evaluate(

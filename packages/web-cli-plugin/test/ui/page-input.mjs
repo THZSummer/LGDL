@@ -142,12 +142,15 @@ async function main() {
         evaluate(
           pCdp,
           `(() => ({
-             chip: document.getElementById('l0-ref-toggle')?.textContent ?? '',
-             chipHover: document.getElementById('l0-ref-toggle')?.getAttribute('data-ref-hover') ?? '',
+             // V4.5-1 W3：引用状态由**流内最新 ref 卡的 chip** 承载（退役的 #l0-ref-toggle）。
+             // 与写入者一致：唯一「最新 ref 卡」持有 chip 通道（见 sidepanel#newestRefChip）。
+             chip: (() => { const c = document.querySelectorAll('#stream [data-msg-type="ref"] .ref-chip'); return c.length ? c[c.length - 1].textContent ?? '' : ''; })(),
+             chipHover: (() => { const c = document.querySelectorAll('#stream [data-msg-type="ref"] .ref-chip'); return c.length ? (c[c.length - 1].getAttribute('data-ref-hover') ?? '') : ''; })(),
+             refCardCount: document.querySelectorAll('#stream [data-msg-type="ref"]').length,
              askPrompt: document.getElementById('ask-prompt')?.textContent ?? '',
-             askVisible: Boolean(document.getElementById('l0-decision') && !document.getElementById('l0-decision').hidden),
+             askVisible: Boolean(document.querySelector('[data-msg-type="askuser"][data-answered="false"]')),
              fallbackHidden: document.getElementById('ask-fallback')?.hidden !== false,
-             optionKeys: Array.from(document.querySelectorAll('#l0-decision button')).map((b) => b.getAttribute('data-key') || b.id),
+             optionKeys: Array.from(document.querySelectorAll('[data-msg-type="askuser"] button, [data-msg-type="auth"] button')).map((b) => b.getAttribute('data-key') || b.id),
              pageUnavailable: document.getElementById('l0-page-unavailable')?.textContent ?? '',
              riskRail: document.getElementById('risk-rail')?.textContent ?? '',
              // V4-4 TASK-806: the panel-side #l0-pick is retired. The readable
@@ -230,7 +233,8 @@ async function main() {
     );
     check('① 交互 1：同一次拾取生成 1 道选择题', dom.askVisible === true && dom.askPrompt.length > 0, JSON.stringify(dom.askPrompt));
     check('② 拾取结果不是常驻输入框（#ask-fallback 保持隐藏）', dom.fallbackHidden === true, JSON.stringify(dom.fallbackHidden));
-    check('① chip 文案反映引用条数', /引用 1 条/.test(dom.chip), dom.chip);
+    // V4.5-1 W3：chip 的载体迁入最新 ref 卡，文案 = 序号 + 角色（`#1 （引用）`）。
+    check('① chip 文案反映引用身份（序号 + 选择器摘要，卡内 chip 承载退役的 #l0-ref-toggle）', dom.chip.length > 0 && /#\S+/.test(dom.chip) && dom.refCardCount >= 1, JSON.stringify({ chip: dom.chip, cards: dom.refCardCount }));
     check('④ 拾取期间命令发送计数 = 0', (snap?.l1?.commandSends ?? -1) === 0, JSON.stringify(snap?.l1?.commandSends));
     check(
       '⑧ 引用 id 贯穿：证据层行数 = 3 行/引用 + 判定',
@@ -261,8 +265,10 @@ async function main() {
          dt.setData('application/x-wcli-ref', ${JSON.stringify(payload)});
          const zone = document.body;
          zone.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
-         const active = document.getElementById('l0-decision').getAttribute('data-drop-active');
-         document.getElementById('l0-decision').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+         // V4.5-1 W3：拖放落点从退役的 #l0-decision 壳改为**流内决策面**（#stream）。
+         const zone2 = document.getElementById('stream');
+         const active = zone2.getAttribute('data-drop-active');
+         zone2.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
          return active;
        })()`,
     );
@@ -377,7 +383,17 @@ async function main() {
     await op(siteTab, 'alt', false);
 
     // ── ⑧ bidirectional highlight ───────────────────────────────────────────
-    await evaluate(pCdp, `document.getElementById('l0-ref-toggle').dispatchEvent(new Event('pointerenter')); true`);
+    // W3 前置：hover 通道的载体在 ref 卡内 —— 确保至少有一张 ref 卡在场。
+    await evaluate(
+      pCdp,
+      `(() => { if (!document.querySelector('#stream [data-msg-type="ref"]')) window.__v3.testing.refCard(1, 'valid'); return true; })()`,
+    );
+    await sleep(200);
+    // V4.5-1 W3：hover 通道的载体 = 最新 ref 卡的 chip（退役的 #l0-ref-toggle）。
+    await evaluate(
+      pCdp,
+      `(() => { const chips = document.querySelectorAll('#stream [data-msg-type="ref"] .ref-chip'); const c = chips[chips.length - 1]; if (c) c.dispatchEvent(new Event('pointerenter')); return true; })()`,
+    );
     await sleep(300);
     const bidirectional = await op(siteTab, 'snapshot');
     check('⑧ 双向联动：hover 侧栏 chip ⇒ 页面侧闪动描边可见', bidirectional?.outlineVisible === true, JSON.stringify(bidirectional));
@@ -411,10 +427,9 @@ async function main() {
     check('⑨ 宿主输入照常可用（拾取层不阻断编辑）', typed?.typed === 'typed' && typed?.active === true, JSON.stringify(typed));
 
     // ── ⑩ the gesture table equals the implementation ───────────────────────
+    // V4.5-1 W3：手势表迁入设置「帮助」分区（退役的 #l1-gestures-toggle）——进入设置视图即渲染。
     await evaluate(pCdp, `window.__v3.testing.openStatusDetails(); true`);
-    await sleep(250);
-    await evaluate(pCdp, `document.getElementById('l1-gestures-toggle').click(); true`);
-    await sleep(250);
+    await sleep(300);
     const table = await panel.dom();
     check('⑩ 手势表条目数 = 6（实现数）', table.gestureRows.length === 6, JSON.stringify(table.gestureRows));
     check('⑩ 手势表与实现的 6 项**集合相等**（不许多列未实现手势）', JSON.stringify(table.gestureRows) === JSON.stringify(GESTURE_LABELS), JSON.stringify(table.gestureRows));
@@ -734,9 +749,13 @@ async function main() {
       /文本唯一匹配/.test(String(rescueReport?.refs?.[0]?.reason ?? '')) && /可一键重锚/.test(String(rescueReport?.refs?.[0]?.reason ?? '')),
       String(rescueReport?.refs?.[0]?.reason),
     );
-    // 打开引用证据层，按真实 UI 路径点击「一键重锚」。
-    await evaluate(pCdp, `document.getElementById('l0-ref-toggle').click(); true`);
-    await sleep(200);
+    // 打开引用证据层（W3：证据层在 ref 卡内，唯一最新卡铸造 id），按真实 UI 路径点击「一键重锚」。
+    await evaluate(
+      pCdp,
+      // 编号从真实 refId 派生（ref_<n> → n），卡内 id 由最新卡铸造。
+      `(() => { const n = Number(String(${JSON.stringify(fx.refId)}).replace('ref_', '')) || 1; window.__v3.testing.refCard(n, 'stale', { why: '引用不可用（按失效处理）' }); return true; })()`,
+    );
+    await sleep(250);
     const rescueUi = await evaluate(
       pCdp,
       `JSON.stringify({
@@ -796,7 +815,9 @@ async function main() {
          const rec = window.__v3.testing.l1('report');
          window.__v3.testing.l1('rescue', { refId: rec.refs.slice(-1)[0].refId, candidates: 2, unique: false, urlChanged: false });
          const multi = window.__v3.testing.l1('report');
-         document.getElementById('l0-ref-toggle').click();
+         // W3：救援按钮在 ref 卡内 —— 先铸造最新卡（编号从 refId 派生）。
+         const n = Number(String(multi.refs.slice(-1)[0].refId).replace('ref_', '')) || 1;
+         window.__v3.testing.refCard(n, 'stale', { why: multi.refs.slice(-1)[0].reason });
          const btnHidden = document.getElementById('l1-ref-rescue').hidden;
          return JSON.stringify({ reason: multi.refs.slice(-1)[0].reason, btnHidden });
        })()`,
@@ -821,7 +842,8 @@ async function main() {
          const rec = window.__v3.testing.l1('report');
          window.__v3.testing.l1('rescue', { refId: rec.refs.slice(-1)[0].refId, candidates: 1, unique: true, urlChanged: true });
          const moved = window.__v3.testing.l1('report');
-         document.getElementById('l0-ref-toggle').click();
+         const n = Number(String(moved.refs.slice(-1)[0].refId).replace('ref_', '')) || 1;
+         window.__v3.testing.refCard(n, 'stale', { why: moved.refs.slice(-1)[0].reason });
          const btnHidden = document.getElementById('l1-ref-rescue').hidden;
          return JSON.stringify({ reason: moved.refs.slice(-1)[0].reason, btnHidden });
        })()`,

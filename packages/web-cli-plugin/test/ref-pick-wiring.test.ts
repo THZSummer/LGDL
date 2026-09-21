@@ -86,8 +86,14 @@ test('AC-1 反证：伪造第二处 startPick() 调用 ⇒ 唯一入口判定必
 
 test('AC-1 requestPick 是接口成员且被所有面板侧恢复路径复用', () => {
   assert.match(PICK_INPUT, /requestPick\(\):\s*Promise<void>/, 'PickInputHandle 必须声明 requestPick');
-  assert.match(PANELS, /deps\.requestPick\(\)/, 'l1/panels.ts 的「重新拾取」必须走 requestPick');
+  // V4.5-1 W3（TASK-V45-108）：「重新拾取」的入口从退役的 L1 面板移到 **ref 卡内**
+  // （`data-act="repick"` → `onCardAction(cardId,'repick')`），面板侧的唯一生产入口仍是
+  // `requestPick()`：卡分支与推荐卡 chip 都通过它，卡片自身不得触到页面侧 API。
+  const REF_CARD = read('src/ui/sidepanel/cards/ref.ts');
+  assert.match(REF_CARD, /onCardAction\?\.\(view\.cardId, 'repick'\)/, 'ref 卡的「重新拾取」必须走 onCardAction("repick")');
+  assert.ok(!/requestPick\(|startPick\(/.test(REF_CARD), 'ref 卡不得直接调用页面侧拾取 API（必须经面板单一入口）');
   assert.match(SIDEPANEL, /pickInput\?\.requestPick\(\)/, 'sidepanel.ts 必须复用 requestPick（引用卡 / 推荐卡）');
+  assert.ok(!/deps\.requestPick\(\)/.test(PANELS), 'l1/panels.ts 不得再持有拾取入口（已随卡片迁移）');
   assert.ok(!/startPick\(/.test(PANELS), 'l1/panels.ts 不得直接调用 startPick');
 });
 
@@ -170,13 +176,20 @@ test('I-03（review 修复）：引用投影点恰三处；证据层单一构造
   const { REF_PROJECTION_POINTS, refEvidenceRows } = await import('../src/ui/sidepanel/l1/ref-store.js');
   assert.equal(REF_PROJECTION_POINTS.length, 3, `投影点必须恰为 3 处，实测 ${JSON.stringify(REF_PROJECTION_POINTS)}`);
   assert.equal(typeof refEvidenceRows, 'function', '证据层必须由 ref-store 的单一时机构造');
-  // 面板侧证据层必须复用该构造，不得再自建第二份（I-03 的「删重复实现之一」）。
-  assert.match(PANELS, /refEvidenceRows\(/, 'l1/panels.ts 必须复用 ref-store 的证据构造（单源）');
-  assert.ok(
-    !/rows\.push\(\[`\$\{r\.glyph\} 稳定选择器`/.test(PANELS),
-    'l1/panels.ts 不得再自建选择器证据行（重复实现已在 review 修复轮删除）',
+  // V4.5-1 W3（TASK-V45-108）：证据行的**唯一构造点**仍是 `refEvidenceRows`（`ref-store`
+  // 的 `projectRefCard` 调用它），而渲染侧（ref 卡）只投影 payload 里的字符串 —— 退役的
+  // L1 面板不再自建第二份行。判据从「panels 复用」重锚为「构造点唯一 ∧ 渲染侧零自建」。
+  const REF_STORE = read('src/ui/sidepanel/l1/ref-store.ts');
+  assert.equal(
+    (REF_STORE.match(/refEvidenceRows\(/g) ?? []).length,
+    2,
+    'refEvidenceRows 必须恰 2 处：1 处定义 + 1 处生产调用点（`projectRefCard`，单源）',
   );
-  // 反证：把面板侧改回自建行 ⇒ 同一判据必须能红。
-  const forged = PANELS.replace('refEvidenceRows(', 'void 0; (').replace("rows.push([`${r.glyph} 稳定选择器`", "rows.push([`${r.glyph} 稳定选择器`");
-  assert.ok(!/refEvidenceRows\(/.test(forged), '伪造后 refEvidenceRows 不再被调用 ⇒ 判据可红');
+  const REF_CARD = read('src/ui/sidepanel/cards/ref.ts');
+  assert.ok(!/refEvidenceRows\(/.test(REF_CARD), 'ref 卡不得再自建证据行（只投影 payload.refEvidence）');
+  assert.match(REF_CARD, /view\.payload\.refEvidence/, 'ref 卡的证据层必须来自 reducer 冻结的 payload（同一构造点的产物）');
+  assert.ok(!/rows\.push\(\[`\$\{r\.glyph\} 稳定选择器`/.test(PANELS), 'l1/panels.ts 不得自建选择器证据行');
+  // 反证：把渲染侧的 payload 投影改回自建 ⇒ 同一判据必须能红。
+  const forged = REF_STORE.replace('refEvidenceRows(record)', 'void 0');
+  assert.ok(!/refEvidenceRows\(record\)/.test(forged), '伪造后唯一生产调用点消失 ⇒ 判据可红');
 });

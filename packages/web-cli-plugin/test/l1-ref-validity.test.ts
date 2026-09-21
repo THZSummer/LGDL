@@ -266,13 +266,17 @@ test('v3-2 receipt: 三件齐备 + 零明文（越界即抛）', () => {
   assert.match(failed.summary, /✖ 失败/);
 });
 
-test('v3-2 view-model: L1 八类清单 + 破坏性过滤 + 历史计数标签（纯函数）', () => {
-  assert.equal(L1_PANEL_IDS.length, 8);
-  assert.equal(new Set(L1_PANEL_IDS).size, 8, '八类 id 不得重复');
+test('v3-2 view-model: 内容面清单 + 破坏性过滤 + 历史计数标签（纯函数）', () => {
+  // V4.5-1 W3 (TASK-V45-109): the eight v3 classes were hosted by the retired decision
+  // shell + L1 group, so the list is restated as the **seven faces that exist in the new
+  // form** — one-to-one with `disclosure.ts#COLLAPSIBLE_TARGETS`.
+  assert.equal(L1_PANEL_IDS.length, 7);
+  assert.equal(new Set(L1_PANEL_IDS).size, 7, '七类 id 不得重复');
   assert.deepEqual(
     [...L1_PANEL_IDS],
-    ['l1-status', 'l1-consequences', 'l1-ref-evidence', 'l1-local-tree', 'l1-history', 'l1-receipt', 'l1-gestures', 'l1-more'],
+    ['l1-more', 'l1-consequences', 'l1-local-tree', 'l1-receipt', 'l1-gestures', 'l2-tree-attribution', 'l2-audit-evidence'],
   );
+  assert.deepEqual([...L1_PANEL_IDS].sort(), [...COLLAPSIBLE_TARGETS].sort(), '内容面清单必须与折叠白名单同源');
   // V3-4 (FR-V3-070): v3-2 shipped 4 gestures; this leaf completes the implemented set
   // to 6 and renders the table FROM the list, so the count and the table cannot drift.
   assert.equal(L1_GESTURE_COUNT, 6);
@@ -286,13 +290,18 @@ test('v3-2 view-model: L1 八类清单 + 破坏性过滤 + 历史计数标签（
   assert.equal(decisionHistoryLabel(-1), '已决策 0 步', 'N 不得为负');
 });
 
-test('v3-2 disclosure: L1 面板进入白名单，但 #risk-rail 仍结构性不可折叠', () => {
-  for (const id of ['l1-consequences', 'l1-local-tree', 'l1-history', 'l1-receipt', 'l1-gestures']) {
+test('v3-2 disclosure: 内容面进入白名单，但 #risk-rail / 退役面仍结构性不可折叠', () => {
+  // V4.5-1 W3: the five surviving v3 faces keep their whitepaper entries; `l1-history` /
+  // `l1-ref-evidence` retired (history = the stream; the evidence panel lives in the ref
+  // card), so folding them is refused instead of silently accepted.
+  for (const id of ['l1-consequences', 'l1-local-tree', 'l1-receipt', 'l1-gestures', 'l1-more']) {
     assert.ok(COLLAPSIBLE_TARGETS.includes(id as never), `${id} 必须可折叠（经唯一控制器）`);
   }
-  assert.equal(assertFoldable('l1-history'), 'l1-history');
+  assert.equal(assertFoldable('l1-local-tree'), 'l1-local-tree');
+  assert.throws(() => assertFoldable('l1-history'), DisclosureError, '退役的折叠面必须抛错');
+  assert.throws(() => assertFoldable('l1-ref-evidence'), DisclosureError, '退役的折叠面必须抛错');
   assert.throws(() => assertFoldable('#risk-rail'), DisclosureError, '风险位永不可折叠');
-  assert.throws(() => assertFoldable('l0-decision'), DisclosureError);
+  assert.throws(() => assertFoldable('l0-decision'), DisclosureError, '退役的决策壳必须抛错');
 });
 
 // ── R1（2026-09-17，收口后缺陷修复轮）────────────────────────────────────────

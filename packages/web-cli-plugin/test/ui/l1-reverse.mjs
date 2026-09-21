@@ -114,10 +114,12 @@ const CASES = [
     artifact: JS,
     assertion: '⑨ 「改用描述」走既有 #ask 兜底输入',
     requirement: 'FR-V3-038（恢复路径①）',
-    from: 'el2("l1-ref-describe").addEventListener("click", () => deps.revealFallback());',
-    to: 'el2("l1-ref-describe").addEventListener("click", () => void 0);',
-    expectFailPattern: /「改用描述」走既有 #ask 兜底输入/,
-    note: '注入后：改用描述不再打开兜底输入 → 该恢复路径 FAIL',
+    // V4.5-1 W3（EC-V45-012：注入点随形态搬迁必须重写）：恢复区已随元素**卡内化** ——
+    // 锚点从退役的 L1 图层改为 **ref 卡内**的「改用描述」局部披露接线。
+    from: 'describe.addEventListener("click", () => {\n      fallback.hidden = !fallback.hidden;',
+    to: 'describe.addEventListener("click", () => {\n      fallback.hidden = true;',
+    expectFailPattern: /「改用描述」走既有兜底输入/,
+    note: '注入后：改用描述不再打开兜底输入（卡内局部披露被短路）→ 该恢复路径 FAIL（W3：锚点随元素卡内化重锚）',
   },
   {
     id: 'RP-L1-F',
@@ -142,17 +144,17 @@ const CASES = [
   {
     id: 'RP-L1-H',
     artifact: HTML,
-    // V4-1 等价重锚（ADR-V4-005 / ADR-V4-017 第 5 条）：v3 的第八类 L1 面板 `l1-status`
-    // 的宿主是 `#l0-status-band`，该容器在三区骨架里已退役（站点摘要变只读、入口迁工具栏）
-    // ⇒ v4 的 `[data-l1-panel]` 恰为 **7** 个。反证语义（属性改名 ⇒ 枚举断言必须红）不变，
-    // 注入次数与期望失败文本随**同一契约**的新基数改写；`l1.mjs` 的断言已同步为 7。
-    assertion: '① 7 类 L1 面板可枚举 + 默认 hidden + 逐类 ≤1 次交互',
-    requirement: 'FR-V3-031（v4：7 类就地展开；`l1-status` 随 #l0-status-band 退役）',
+    // 〖V4.5-1 W3（TASK-V45-109）〗等价重锚：4 个固定位置宿主退役后，静态 HTML 里仍有
+    // **4** 个 `[data-l1-panel]` 面（两个 L2 只读承载块 + 其内部两个内容容器）；其余三个面
+    // （卡内选项池 / 后果预演、设置帮助分区的手势表）由卡与设置视图**按需铸造**。反证语义
+    // （属性改名 ⇒ 枚举/白名单断言必须红）逐字不变，只更新注入基数与期望失败文本。
+    assertion: '① 在场内容面 ⊆ 折叠白名单 + 6 个静态/卡内面齐备（W3 契约）',
+    requirement: 'FR-V3-031 等价重锚（v4.5-1：内容面卡内化 / 视图迁移；`l1-status` 与 4 宿主一并退役）',
     from: 'data-l1-panel=',
     to: 'data-l1-panel-x=',
-    count: 7,
-    expectFailPattern: /恰好 7 个 \[data-l1-panel\]/,
-    note: '注入后：DOM 契约属性改名 → 枚举断言 FAIL（门禁读的正是这份 HTML）',
+    count: 4,
+    expectFailPattern: /在场内容面 ⊆ 折叠白名单|6 个静态\/卡内面齐备/,
+    note: '注入后：DOM 契约属性改名 → 面集合断言 FAIL（门禁读的正是这份 HTML）',
   },
   {
     id: 'RP-L1-C2',

@@ -19,7 +19,7 @@
  */
 import type { DisclosureController } from '../disclosure.js';
 import type { L2Counts, L2ViewKey } from '../l2/counts.js';
-import { L0_KICKER, OTHER_OPTION_LABEL, l0ViewModel, moreOptionsLabel } from '../view-model.js';
+import { l0ViewModel } from '../view-model.js';
 import type { L0Input, L0View } from '../view-model.js';
 import { setAskFallbackOpen } from '../cards/askuser.js';
 import { renderRiskRail } from './risk-rail.js';
@@ -76,19 +76,14 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   const llmStatus = get('llm-status');
   const sessionLabel = get('session-label');
   const policyBadge = doc.createElement('span');
-  const kicker = get('l0-kicker');
-  const refToggle = get<HTMLButtonElement>('l0-ref-toggle');
-  const refSummary = get('l1-ref-summary');
   const statusBar = mountStatusBar(doc);
   const statusZone = mountStatusZone(doc);
-  const more = get<HTMLButtonElement>('l0-more');
-  const moreOptions = get('l1-more-options');
 
-  // V4-3 (ADR-V4-030 decision 8 / TASK-707): `l0/decision-card.ts` is retired — the
-  // ONE decision slot is gone and the ask cards live in `#stream`. The two legacy
-  // chrome writers it owned (`#l0-more` label/count/hidden + the `#l1-more-options`
-  // pool) survive here so the disclosure contract keeps its single writer; the
-  // fallback input it used to reveal now belongs to the active stream ask card.
+  // V4.5-1 W3 (TASK-V45-108): the decision shell is GONE — `#l0-kicker` / `#l0-more` /
+  // `#l0-ref-toggle` / `#l0-ref-badge` / `#l0-receipt-summary` retired, and the option
+  // pool / consequence preview are rendered **inside the open ask/auth card**
+  // (`cards/decision-region.ts`). What survives here is the secondary full-text channel
+  // (ADR-V3-014 §5): revealing the fallback also reveals `#composer`.
   const revealFallback = (): void => {
     // I-03 (v4-3 review): go through the ask card's own mutual-disclosure function so
     // the「改用描述」entry point and the in-card「其他…」toggle produce the SAME DOM
@@ -115,36 +110,6 @@ export function mountL0(deps: MountL0Deps): L0Handle {
 
   let current: L0View | null = null;
 
-  const applyMore = (view: L0View): void => {
-    const count = view.decision.visible ? view.decision.foldedCount : 0;
-    more.textContent = moreOptionsLabel(count);
-    more.setAttribute('data-count', String(count));
-    const nothingBehind = view.decision.visibleOptions.length === 0 && view.decision.foldedOptions.length === 0;
-    more.hidden = !view.decision.visible || view.decision.foldedCount <= 0 || nothingBehind;
-  };
-
-  const applyMoreOptions = (view: L0View): void => {
-    moreOptions.textContent = '';
-    for (const optionLabel of view.decision.foldedOptions) {
-      const btn = doc.createElement('button');
-      btn.type = 'button';
-      btn.setAttribute('data-key', `ask-folded:${optionLabel}`);
-      btn.textContent = optionLabel;
-      btn.addEventListener('click', () => deps.onAnswer(optionLabel));
-      moreOptions.appendChild(btn);
-    }
-    if (view.decision.visible && (view.decision.visibleOptions.length > 0 || view.decision.foldedOptions.length > 0)) {
-      const terminal = doc.createElement('button');
-      terminal.type = 'button';
-      terminal.setAttribute('data-key', 'ask-other');
-      terminal.setAttribute('aria-expanded', 'false');
-      terminal.setAttribute('aria-controls', 'ask-fallback');
-      terminal.textContent = OTHER_OPTION_LABEL;
-      terminal.addEventListener('click', () => revealFallback());
-      moreOptions.appendChild(terminal);
-    }
-  };
-
   const applyView = (view: L0View): void => {
     current = view;
     status.textContent = view.band.statusText;
@@ -160,29 +125,15 @@ export function mountL0(deps: MountL0Deps): L0Handle {
       summary.setAttribute('title', view.band.origin ? `完整 origin：${view.band.origin}` : '无活跃站点');
     }
 
-    // ③ decision slot
-    // F 还原度快修轮 (2026-09-20): the kicker states the slot's static role
-    // (`决策 · 回执 · 引用`) instead of competing with the in-stream「下一步推荐」card.
-    // The element id / class / ARIA and the surrounding DOM are unchanged.
-    kicker.textContent = L0_KICKER;
-    // ③ disclosure chrome (`#l0-more` + the folded-options pool) — the ONE writer.
-    applyMore(view);
-    applyMoreOptions(view);
+    // ③ decision slot — V4.5-1 W3: the shell writers are retired together with their
+    // containers. The decision facts are rendered by the card that owns them
+    // (`askuser` / `auth` for the option pool, `ref` for the evidence + recovery).
     // V4-4 TASK-806: the panel-side `#l0-pick` button is retired. The `view.pick`
     // projection is NOT dropped — it still drives the status-bar「页面侧不可用」risk
     // row below and `riskActiveOf()`, so the unavailable fact stays discoverable
     // (never a silent failure). Only the retired button's writes are gone.
-    // `#l0-more`'s label / `data-count` / `hidden` are written by `applyMore()`
-    // ONLY (the retired decision-card writer moved here, single writer kept) — writing
-    // them from two places re-introduced the「无卡却还有 1 个」re-render symptom.
-    refToggle.textContent = view.ref.label;
-    refToggle.setAttribute('data-stale', String(view.ref.stale));
-    // FR-V3-037: the invalidation mark is risk information, so the density caliber
-    // attributes this chip to the risk class while it is stale.
-    refToggle.setAttribute('data-ref-stale', String(view.ref.stale));
-    refSummary.textContent = view.ref.count
-      ? `引用 ${view.ref.count} 条（选择器 / 语义路径 / 文本摘要 / 捕获时间；证据层只读）。`
-      : '暂无引用：用「从页面拾取」生成第一条引用。';
+    // `view.decision` / `view.ref` stay in the pure view model (the gates derive from
+    // it) but are no longer painted here: their carriers are the stream cards.
 
     // 风险位 — its ONLY writer, always resident, never folded (D3).
     // V3-2 (FR-V3-037): the invalidation row carries the dimension-specific
@@ -255,4 +206,4 @@ export function mountL0(deps: MountL0Deps): L0Handle {
 }
 
 /** Re-exported so tests/tools can assert the mandated terminal copy verbatim. */
-export const L0_OTHER_OPTION_LABEL = OTHER_OPTION_LABEL;
+export { OTHER_OPTION_LABEL as L0_OTHER_OPTION_LABEL } from '../view-model.js';

@@ -63,8 +63,8 @@ export const JUDGEMENTS: readonly LocalActJudgement[] = [
   { id: 'LA-2-call-site-set', expectFailPattern: '调用点集合判据失败：', status: 'landed' },
   { id: 'LA-3-no-request-turn', expectFailPattern: '本地 act 分支不得出现 requestTurn', status: 'landed' },
   { id: 'LA-4-closed-set-same-source', expectFailPattern: 'act 闭集同源判据失败：', status: 'landed' },
-  { id: 'LA-5-rebind-entry', expectFailPattern: '（W3 实体化：rebind 唯一入口）', status: 'pending-w3' },
-  { id: 'LA-6-help-entry', expectFailPattern: '（W3 实体化：help 唯一入口）', status: 'pending-w3' },
+  { id: 'LA-5-rebind-entry', expectFailPattern: '唯一调用点判据失败：rebindCurrentTab', status: 'landed' },
+  { id: 'LA-6-help-entry', expectFailPattern: '唯一调用点判据失败：openSettingsSection', status: 'landed' },
 ];
 
 /**
@@ -74,8 +74,11 @@ export const JUDGEMENTS: readonly LocalActJudgement[] = [
  */
 export const LOCAL_ACT_SLOTS = [
   { act: 'authorize', entry: 'authorizeCurrentSite', callSiteCount: 2, w1CallSiteCount: 2, status: 'landed' },
-  { act: 'rebind', entry: 'rebindCurrentTab', callSiteCount: 2, w1CallSiteCount: 1, status: 'pending-w3' },
-  { act: 'help', entry: 'openSettingsSection', callSiteCount: 1, w1CallSiteCount: 0, status: 'pending-w3' },
+  // V4.5-1 W3（TASK-V45-112）：`rebind` 的单一入口 = `#rebind` 监听器 + `handleCardAction`
+  // 的 'rebind' 分支（2 个调用点，且都在既有入口函数内）。
+  { act: 'rebind', entry: 'rebindCurrentTab', callSiteCount: 2, w1CallSiteCount: 1, status: 'landed' },
+  // `help` 的单一入口 = chip 分支（1 个调用点）。
+  { act: 'help', entry: 'openSettingsSection', callSiteCount: 1, w1CallSiteCount: 0, status: 'landed' },
 ] as const;
 
 /** Call sites of `name(` in the source (comments and `import` lines excluded). */
@@ -249,20 +252,56 @@ test('V45 W1 LA-3+④：本地 act 永不入 deny 集（deny 只作用于 act ==
  * 3. 预留位（W3/TASK-V45-112 实体化）
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test('V45 W1 预留位：rebind / help 本地 act 槽位已声明（W3 实体化，不得在 W1 伪 FAIL）', () => {
-  const pending = LOCAL_ACT_SLOTS.filter((s) => s.status === 'pending-w3');
-  assert.equal(pending.length, 2, `必须恰好 2 个待实体化槽位（rebind / help），实测 ${pending.length}`);
-  assert.deepEqual(pending.map((s) => s.act).sort(), ['help', 'rebind']);
-  for (const p of pending) {
-    // W1 现状必须与登记逐字一致（`rebind`：设置按钮 1 个入口；`help`：尚未接线），
-    // 且 chip 分支**尚未**存在 —— W3/TASK-V45-112 会把两者同时推进到目标值。
-    assert.equal(
-      callSites(SIDEPANEL, p.entry).length,
-      p.w1CallSiteCount,
-      `${p.entry} 在 W1 阶段的调用点数必须 == 登记值 ${p.w1CallSiteCount}`,
-    );
-    assert.equal(actBranchBody(SIDEPANEL, p.act), null, `'${p.act}' chip 分支在 W1 阶段必须尚未接线`);
+test('V45 W3 LA-5/LA-6：rebind / help 已实体化（唯一入口 + 分支零 requestTurn + 闭集同源）', () => {
+  // ① 每个本地 act 的单一生产入口调用点集合 == 登记值（W3 目标值）。
+  for (const slot of LOCAL_ACT_SLOTS) {
+    assert.deepEqual(singleEntryProblems(SIDEPANEL, slot.entry, slot.callSiteCount), [], `${slot.act} 的唯一入口调用点集合`);
+    assert.ok(slot.callSiteCount >= 1, `${slot.act} 必须至少 1 个调用点（否则入口不存在）`);
   }
+  // ② 每个本地 act 的 chip 分支必须接线到声明入口，且**无** `requestTurn(`。
+  for (const slot of LOCAL_ACT_SLOTS) {
+    assert.deepEqual(localActBranchProblems(SIDEPANEL, slot.act, slot.entry), [], `${slot.act} 分支`);
+    const body = actBranchBody(SIDEPANEL, slot.act);
+    assert.ok(body && body.trim().length > 0, `${slot.act} 分支不得为空（本地动作必须接线）`);
+  }
+  // ③ 闭集同源：三个本地 act 都在 `NEXTSTEP_ACTS` 内，且闭集恰好 6 项（逐字该序）。
+  assert.deepEqual(closedSetProblems(NEXTSTEP_ACTS, LOCAL_ACT_SLOTS), []);
+  assert.deepEqual([...NEXTSTEP_ACTS], ['next', 'repick', 'describe', 'authorize', 'rebind', 'help'], '闭集必须逐字 6 项');
+  for (const act of ['rebind', 'help']) assert.ok((NEXTSTEP_ACTS as readonly string[]).includes(act), `闭集必须含 ${act}`);
+  // ④ 「了解 6 个页面手势」chip 的 act 必是 help（本地设置导航），不是 next。
+  const onboarding = candidateRules({
+    ref: { validCount: 0, staleCount: 0 },
+    session: { openAsks: 0, busy: false },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 0, subcommandCount: 0 },
+    probe: { phase: 'ready', steady: true },
+    risks: [],
+    onboarding: { firstRun: true, pendingSteps: ['授权当前站点'] },
+    now: 1,
+  }).find((c) => c.rule === 'onboarding');
+  assert.ok(onboarding, '前置：授权站点 + 首装态必须产出 onboarding 候选');
+  assert.equal(onboarding!.chips.find((c) => c.text.includes('页面手势'))?.act, 'help', '手势 chip 必须是本地 help 动作');
+  assert.equal(onboarding!.chips.find((c) => c.text.includes('授权当前站点'))?.act, 'authorize');
+});
+
+test('V45 W3 LA-5 反证：删掉 rebind 分支 / 接错入口 ⇒ 判据必红（不得空转）', () => {
+  const body = actBranchBody(SIDEPANEL, 'rebind');
+  assert.ok(body, '前置：rebind 分支存在');
+  const forgedMissing = SIDEPANEL.replace(body as string, '');
+  assert.ok(localActBranchProblems(forgedMissing, 'rebind').length > 0, '分支缺失必须判红');
+  assert.ok(
+    localActBranchProblems(SIDEPANEL, 'rebind', 'openSettingsSection').length > 0,
+    '接错入口必须判红',
+  );
+  const forgedTurn = SIDEPANEL.replace(body as string, body!.replace('rebindCurrentTab();', "requestTurn('重新绑定当前标签页');"));
+  assert.ok(
+    localActBranchProblems(forgedTurn, 'rebind', 'rebindCurrentTab').some((p) => p.includes('requestTurn')),
+    '把 rebind 当聊天消息必须判红',
+  );
+  // help 同理：删分支 ⇒ 红。
+  const helpBody = actBranchBody(SIDEPANEL, 'help');
+  assert.ok(helpBody, '前置：help 分支存在');
+  assert.ok(localActBranchProblems(SIDEPANEL.replace(helpBody as string, ''), 'help').length > 0, 'help 分支缺失必须判红');
 });
 
 test('V45 W1 元判据：每条 judgement 都声明非占位 expectFailPattern', () => {

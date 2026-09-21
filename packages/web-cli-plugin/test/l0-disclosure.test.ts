@@ -24,9 +24,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 import {
+  CARD_MINTED_TARGETS,
   COLLAPSIBLE_TARGETS,
   DISCLOSURE_WIRING,
+  NEVER_AUTO_COLLAPSE_TARGETS,
   NEVER_FOLDABLE,
+  RETIRED_FOLDABLE_IDS,
+  RETIRED_NEVER_FOLDABLE_IDS,
+  RETIRED_TRIGGER_IDS,
   DisclosureError,
   assertFoldable,
   createDisclosure,
@@ -129,25 +134,38 @@ class StubDoc {
   }
 }
 
-/** A stub that mirrors `src/ui/sidepanel/index.html`'s disclosure wiring. */
-function buildPanel() {
+/**
+ * A stub that mirrors the panel's disclosure wiring **after W3**: the two card-minted
+ * targets (`l1-more` / `l1-consequences`) exist only while a decision card is open, the
+ * view-internal faces exist inside the L2 blocks / the settings section.
+ */
+function buildPanel(opts: { cardOpen?: boolean } = {}) {
   const doc = new StubDoc();
+  const cardOpen = opts.cardOpen !== false;
   for (const w of DISCLOSURE_WIRING) {
+    if (!w.triggerId) continue;
     const trigger = doc.add(w.triggerId);
     trigger.setAttribute('aria-expanded', 'false');
     trigger.setAttribute('aria-controls', w.targetId);
-    doc.add(w.targetId).hidden = true;
+  }
+  // The view-internal faces are static markup (always present).
+  for (const id of ['l1-local-tree', 'l1-receipt', 'l1-gestures', 'l2-tree-attribution', 'l2-audit-evidence']) {
+    doc.add(id).hidden = false;
+  }
+  if (cardOpen) {
+    for (const id of CARD_MINTED_TARGETS) doc.add(id).hidden = true;
   }
   doc.add('risk-rail').hidden = false;
   doc.add('confirm').hidden = true;
-  doc.add('l0-decision').hidden = false;
-  // V4-1: the three-zone shell the never-foldable set now names.
+  // V4-1 / V4.5-1: the never-foldable shell the set names (the decision shell retired).
   doc.add('region-toolbar');
   doc.add('region-stream');
   doc.add('region-statusbar');
   doc.add('stream');
   doc.add('view-host').hidden = true;
   doc.add('settings-view').hidden = true;
+  doc.add('settings-root');
+  doc.add('settings-help');
   doc.add('risk-chips').hidden = true;
   doc.add('risk-detail').hidden = true;
   return doc;
@@ -170,49 +188,114 @@ const readSource = (rel: string) => readFileSync(resolve(packageRoot(), rel), 'u
 const stripComments = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-// ── 1. whitelist: the risk rail / confirm card / decision area cannot fold ───
-test('disclosure: 白名单外目标（含 #risk-rail / #region-statusbar）一律抛错', () => {
+// ── 1. whitelist: the risk rail / confirm card / retired faces cannot fold ───
+test('disclosure: 白名单外目标（含 #risk-rail / #region-statusbar / 退役面）一律抛错', () => {
+  // V4.5-1 W3: the seven faces = the five migrated ones + the two L2 carrier blocks.
+  assert.deepEqual(
+    [...COLLAPSIBLE_TARGETS],
+    ['l1-more', 'l1-consequences', 'l1-local-tree', 'l1-receipt', 'l1-gestures', 'l2-tree-attribution', 'l2-audit-evidence'],
+  );
   assert.ok(COLLAPSIBLE_TARGETS.includes('l1-local-tree'));
-  // V4-1: the two v3 targets that retired as foldable panels must now be OUT.
+  // V4-1 kept: the two v3 targets that retired as foldable panels must now be OUT.
   assert.equal(isFoldable('topbar'), false, 'V4-1: #topbar 迁入设置视图，不再是可折叠面板');
   assert.equal(isFoldable('l2-entries'), false, 'V4-1: #l2-entries 成为常驻工具栏入口');
   for (const forbidden of NEVER_FOLDABLE) {
     assert.equal(isFoldable(forbidden), false, `${forbidden} 必须在白名单外`);
     assert.throws(() => assertFoldable(forbidden), DisclosureError, `assertFoldable(#${forbidden}) 必须抛错`);
   }
+  // V4.5-1 W3: the ban list and the whitelist are disjoint BY ASSERTION — a target can
+  // never be「可折叠」and「永不折叠」at the same time.
+  for (const id of COLLAPSIBLE_TARGETS) {
+    assert.equal((NEVER_FOLDABLE as readonly string[]).includes(id), false, `${id} 不得同时出现在 NEVER_FOLDABLE`);
+  }
+  assert.equal(NEVER_FOLDABLE.length, 14, '永不折叠集合 12 − l0-decision + region-stream/settings-root/settings-help = 14');
+  // Retired faces are still refused, each with its own registered reason.
+  assert.deepEqual([...RETIRED_NEVER_FOLDABLE_IDS], ['l0-decision']);
+  for (const id of RETIRED_NEVER_FOLDABLE_IDS) {
+    assert.equal(isFoldable(id), false);
+    assert.throws(() => assertFoldable(id), DisclosureError, `退役的永不折叠面 #${id} 必须仍被拒绝`);
+  }
+  assert.deepEqual([...RETIRED_FOLDABLE_IDS], ['l1-history', 'l1-ref']);
+  for (const id of RETIRED_FOLDABLE_IDS) {
+    assert.equal(isFoldable(id), false);
+    assert.throws(() => assertFoldable(id), DisclosureError, `退役的折叠面 #${id} 必须仍被拒绝`);
+  }
   assert.equal(normalizeId('#risk-rail'), 'risk-rail');
   assert.equal(assertFoldable('l1-local-tree'), 'l1-local-tree');
   assert.equal(assertFoldable('#l1-more'), 'l1-more');
-  // V4-1 负向断言（ADR-V4-019 第 7 条）：状态栏本体必须抛错。
+  // V4-1 负向断言（ADR-V4-019 第 7 条）+ V4.5-1 新增三面。
   assert.throws(() => assertFoldable('#region-statusbar'), DisclosureError, 'assertFoldable(#region-statusbar) 必须抛错');
   assert.throws(() => assertFoldable('#risk-chips'), DisclosureError);
   assert.throws(() => assertFoldable('#stream'), DisclosureError);
+  assert.throws(() => assertFoldable('#region-stream'), DisclosureError);
+  assert.throws(() => assertFoldable('#settings-root'), DisclosureError);
+  assert.throws(() => assertFoldable('#settings-help'), DisclosureError);
 });
 
-test('disclosure: collapseAll() 折叠白名单内目标且 #risk-rail 完全不受影响', () => {
+test('disclosure: 声明单源（wiring 逐目标恰一条 ∧ 退役触发器零命中 ∧ 目标有静态声明点）', () => {
+  assert.equal(DISCLOSURE_WIRING.length, COLLAPSIBLE_TARGETS.length, 'wiring 必须逐目标一条');
+  assert.deepEqual([...DISCLOSURE_WIRING].map((w) => w.targetId), [...COLLAPSIBLE_TARGETS]);
+  // A registered pair with a `null` trigger =「该面无折叠触发」（视图内常开 / 卡内触发）；
+  // a minted trigger must be a real card-minted button id.
+  const withTrigger = DISCLOSURE_WIRING.filter((w) => w.triggerId !== null).map((w) => w.triggerId);
+  assert.deepEqual(withTrigger, ['l1-more-toggle', 'l1-consequences-toggle']);
+  assert.equal(new Set(RETIRED_TRIGGER_IDS).size, 6);
+  for (const retired of RETIRED_TRIGGER_IDS) {
+    assert.equal((withTrigger as readonly string[]).includes(retired), false, `退役触发器 #${retired} 不得重新进入 wiring`);
+  }
+  const html = readSource('src/ui/sidepanel/index.html');
+  for (const retired of RETIRED_TRIGGER_IDS) {
+    assert.equal(new RegExp(`id="${retired}"`).test(html), false, `退役触发器 #${retired} 不得回到 index.html`);
+  }
+  // Only the two card-minted faces are allowed to be absent from the static markup; every
+  // other target must have a static declaration point (index.html or settings/help.ts).
+  const helpSource = readSource('src/ui/settings/help.ts');
+  for (const id of COLLAPSIBLE_TARGETS) {
+    if ((CARD_MINTED_TARGETS as readonly string[]).includes(id)) continue;
+    assert.ok(
+      new RegExp(`id="${id}"`).test(html) || helpSource.includes(`'${id}'`),
+      `目标 #${id} 必须有静态声明点（index.html 或 settings/help.ts）`,
+    );
+  }
+});
+
+test('disclosure: collapseAll() 只折叠卡内面；视图内面/风险位不受影响', () => {
   const doc = buildPanel();
   const rail = doc.getElementById('risk-rail')!;
   const controller = createDisclosure(doc);
-  controller.open('l1-local-tree');
   controller.open('l1-more');
-  controller.open('l1-receipt');
+  controller.open('l1-consequences');
   controller.collapseAll();
-  for (const id of COLLAPSIBLE_TARGETS) {
+  for (const id of CARD_MINTED_TARGETS) {
     assert.equal(doc.getElementById(id)!.hidden, true, `#${id} 应被收起（hidden 属性）`);
+  }
+  // A view-internal face is dismissed by leaving the view — auto-folding it would leave a
+  // silently hidden read-only block inside an open view.
+  for (const id of NEVER_AUTO_COLLAPSE_TARGETS) {
+    assert.equal(doc.getElementById(id)!.hidden, false, `视图内面 #${id} 不得被 collapseAll() 收起`);
   }
   assert.equal(rail.hidden, false, '风险位不得被 collapseAll() 影响');
   assert.equal(doc.getElementById('confirm')!.hidden, true, '破坏性确认卡默认由产品状态控制，不参与折叠');
   assert.throws(() => controller.toggle('risk-rail'), DisclosureError);
 });
 
+test('disclosure: 卡内面无卡时可缺（collapseAll 不抛错），显式操作缺目标仍抛错', () => {
+  const doc = buildPanel({ cardOpen: false });
+  const controller = createDisclosure(doc);
+  assert.equal(doc.getElementById('l1-more'), null, '无卡态卡内面不存在');
+  assert.doesNotThrow(() => controller.collapseAll(), '无卡态 collapseAll() 不得抛错（卡内作用域）');
+  assert.equal(controller.isOpen('l1-more'), false, '缺目标 ⇒ isOpen=false（不伪造展开态）');
+  assert.throws(() => controller.open('l1-more'), DisclosureError, '显式打开缺目标必须抛错（编程错误）');
+});
+
 // ── 2. collapse is the `hidden` attribute, never CSS ────────────────────────
 test('disclosure: 收起一律用 hidden 属性；源码零 CSS 隐身折叠', () => {
   const doc = buildPanel();
   const controller = createDisclosure(doc);
-  controller.open('l1-ref');
-  assert.equal(doc.getElementById('l1-ref')!.hidden, false);
-  controller.close('l1-ref');
-  assert.equal(doc.getElementById('l1-ref')!.hidden, true);
+  controller.open('l1-more');
+  assert.equal(doc.getElementById('l1-more')!.hidden, false);
+  controller.close('l1-more');
+  assert.equal(doc.getElementById('l1-more')!.hidden, true);
   const source = stripComments(readSource('src/ui/sidepanel/disclosure.ts'));
   assert.equal(/display\s*:\s*none/.test(source), false, '控制器源码不得出现 display:none');
   assert.equal(/visibility\s*:\s*hidden/.test(source), false, '控制器源码不得出现 visibility:hidden');
@@ -223,14 +306,17 @@ test('disclosure: 收起一律用 hidden 属性；源码零 CSS 隐身折叠', (
 test('disclosure: aria-expanded / aria-controls 必须成对，缺一即抛错', () => {
   const doc = buildPanel();
   const controller = createDisclosure(doc);
-  controller.open('l1-local-tree');
-  assert.equal(doc.getElementById('l1-local-tree-toggle')!.getAttribute('aria-expanded'), 'true');
-  assert.equal(doc.getElementById('l1-local-tree-toggle')!.getAttribute('aria-controls'), 'l1-local-tree');
-  controller.close('l1-local-tree');
-  assert.equal(doc.getElementById('l1-local-tree-toggle')!.getAttribute('aria-expanded'), 'false');
+  // V4.5-1 W3: the view-internal faces have no trigger any more (a view is dismissed by
+  // leaving it); the ONLY live triggers are the two card-minted ones.
+  assert.equal(doc.getElementById('l1-local-tree-toggle'), null, '退役触发器不得存在');
+  controller.open('l1-more');
+  assert.equal(doc.getElementById('l1-more-toggle')!.getAttribute('aria-expanded'), 'true');
+  assert.equal(doc.getElementById('l1-more-toggle')!.getAttribute('aria-controls'), 'l1-more');
+  controller.close('l1-more');
+  assert.equal(doc.getElementById('l1-more-toggle')!.getAttribute('aria-expanded'), 'false');
 
   const broken = buildPanel();
-  broken.getElementById('l0-more')!.attrs.delete('aria-expanded');
+  broken.getElementById('l1-more-toggle')!.attrs.delete('aria-expanded');
   assert.throws(() => createDisclosure(broken).open('l1-more'), DisclosureError, '缺 aria-expanded 必须抛错');
 });
 
@@ -242,22 +328,21 @@ test('disclosure: 展开态记忆往返（open → 切走 → 返回后相等）
   controller.close('l1-more');
   controller.open('l1-receipt');
   const before = controller.snapshot();
-  // V3-2 extended the whitelist with the five L1 content panels (ADR-V3-021); the
-  // expected map is re-pinned to the FULL whitelist (a superset check, never a
-  // narrowed one) so the round-trip claim still covers every foldable target.
+  // V4.5-1 W3: re-pinned to the FULL new whitelist (a superset check, never a narrowed
+  // one) so the round-trip claim still covers every foldable target.
   assert.deepEqual(before, {
     'l1-more': false,
-    'l1-ref': false,
     'l1-consequences': false,
     'l1-local-tree': true,
-    'l1-history': false,
     'l1-receipt': true,
-    'l1-gestures': false,
+    'l1-gestures': true,
+    'l2-tree-attribution': true,
+    'l2-audit-evidence': true,
   });
   assert.equal(Object.keys(before).length, COLLAPSIBLE_TARGETS.length, '快照必须覆盖白名单全部目标');
-  // simulate: enter an L2 view (everything folds) then come back
   controller.collapseAll();
-  assert.equal(controller.isOpen('l1-local-tree'), false);
+  assert.equal(controller.isOpen('l1-more'), false);
+  assert.equal(controller.isOpen('l2-audit-evidence'), true, '视图内面不参与自动折叠（NEVER_AUTO_COLLAPSE_TARGETS）');
   controller.restore(before);
   assert.deepEqual(controller.snapshot(), before, '返回后展开态必须与进入前相等');
   assert.ok(controller.expandMemory instanceof Map);

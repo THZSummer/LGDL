@@ -22,10 +22,15 @@
  */
 
 /**
- * The seven v1 top-level settings sections (in render order). `settings-migration`
- * is a `<details>` nested inside `settings-compliance`, i.e. it is part of that
- * section's item set — counted by the FR-V3-051 equivalence assertion (which
- * checks the 8 v1 ids), not by the section count.
+ * The settings top-level sections (in render order). `settings-migration` is a
+ * `<details>` nested inside `settings-compliance`, i.e. part of that section's item
+ * set — counted by the FR-V3-051 equivalence assertion (which checks the 8 v1 ids), not
+ * by the section count.
+ *
+ * V4.5-1 W3 (TASK-V45-112 / ADR-V45-008 §1) appended `settings-help`: the six-gesture
+ * table moved from the retired in-stream L1 panel into a read-only settings section, so
+ * **7 → 8**. The count stays DERIVED (`settingsSectionCount()` / `deriveCounts()`) —
+ * hard-coding it anywhere is the failure mode the two guards above exist to catch.
  */
 export const SETTINGS_SECTION_IDS = Object.freeze([
   'settings-llm',
@@ -35,6 +40,7 @@ export const SETTINGS_SECTION_IDS = Object.freeze([
   'settings-sessions',
   'settings-diagnostics',
   'settings-compliance',
+  'settings-help',
 ] as const);
 
 /** Number of v1 settings sections — always `SETTINGS_SECTION_IDS.length`. */

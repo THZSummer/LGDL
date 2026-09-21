@@ -48,62 +48,127 @@ export interface DisclosureDoc {
 }
 
 /**
- * The **only** foldable targets in v4. Ids, not selectors, so a typo fails loudly
- * at once. Deliberately absent: `#region-statusbar` / `#risk-chips` / `#risk-rail`
- * / `#risk-detail` (永不折叠, D3 + J1~J4), `#stream` / `#view-host` /
- * `#settings-view`（流本体与视图宿主不可折叠）, `#confirm` / `#l0-decision`
- * （破坏性确认不参与折叠, FR-V3-018）。
+ * The **only** foldable targets (V4.5-1 W3 / TASK-V45-110 / ADR-V45-002 §5).
  *
- * V3-2 appended the five L1 content panels (ADR-V3-021). **V4-1 removed two**
- * and added none (ADR-V4-018 / ADR-V4-019 第 7 条):
- *   · `topbar` — the management toolbar moved into `#settings-view`'s「站点与授权」
- *     section (法则六) and is no longer a collapsible panel;
- *   · `l2-entries` — the four L2 entries became **always-visible toolbar entries**
- *     (no disclosure affordance any more).
- * The five L1 content panels stay foldable: they are moving to a transitional host
- * inside `#stream`, but their trigger/target pairs and semantics are unchanged.
+ * The migration kept the **count at seven** — no foldable face was dropped without a
+ * registered replacement:
+ *
+ *   · `l1-more` / `l1-consequences` — now minted **inside** the unique open
+ *     `askuser` / `auth` card (the option pool + the consequence preview). Only the
+ *     newest open card owns the ids, exactly like the `#ask*` / `#confirm*` family;
+ *   · `l1-local-tree` / `l1-receipt` — the content containers moved into the L2
+ *     read-only blocks (`#l2-tree-attribution` / `#l2-audit-evidence`) with their ids
+ *     and `data-l1-panel` intact (their triggers are retired: inside a view the block
+ *     is simply open);
+ *   · `l1-gestures` — the six-gesture table moved into the settings「帮助」section
+ *     (`#settings-help`, ADR-V45-008) with its id / table structure unchanged;
+ *   · `l2-tree-attribution` / `l2-audit-evidence` — the two new L2 carrier blocks.
+ *
+ * Deliberately absent (unchanged from v4): `#region-statusbar` / `#risk-chips` /
+ * `#risk-rail` / `#risk-detail`, `#stream` / `#view-host` / `#settings-view`,
+ * `#confirm` / `#ask` / `#composer`（永不折叠, see {@link NEVER_FOLDABLE}）.
  */
 export const COLLAPSIBLE_TARGETS = Object.freeze([
   'l1-more',
-  'l1-ref',
   'l1-consequences',
   'l1-local-tree',
-  'l1-history',
   'l1-receipt',
   'l1-gestures',
-] as const);
-
-/** Trigger → target wiring. Each trigger must carry `aria-expanded` + `aria-controls`. */
-export const DISCLOSURE_WIRING = Object.freeze([
-  Object.freeze({ triggerId: 'l0-more', targetId: 'l1-more', summary: '其余选项' }),
-  Object.freeze({ triggerId: 'l0-ref-toggle', targetId: 'l1-ref', summary: '引用证据' }),
-  Object.freeze({ triggerId: 'l1-consequences-toggle', targetId: 'l1-consequences', summary: '选项后果与影响预演' }),
-  Object.freeze({ triggerId: 'l1-local-tree-toggle', targetId: 'l1-local-tree', summary: '局部树' }),
-  Object.freeze({ triggerId: 'l1-history-toggle', targetId: 'l1-history', summary: '已决策历史' }),
-  Object.freeze({ triggerId: 'l1-receipt-toggle', targetId: 'l1-receipt', summary: '回执完整证据' }),
-  Object.freeze({ triggerId: 'l1-gestures-toggle', targetId: 'l1-gestures', summary: '页面交互说明' }),
+  'l2-tree-attribution',
+  'l2-audit-evidence',
 ] as const);
 
 /**
+ * Targets that are **card-minted** (the unique open `askuser` / `auth` card owns the
+ * id) — they may legitimately be absent from the document when no such card is open,
+ * so `collapseAll()` skips them instead of throwing (TASK-V45-110 判定：卡内作用域).
+ * (A third of the whitelist lives inside a view and is excluded from the auto-fold for
+ * the same reason a view is not a foldable target — see {@link NEVER_AUTO_COLLAPSE_TARGETS}.)
+ * Existence is still REQUIRED for `open()` / `close()` / `toggle()`: an explicit
+ * interaction on a missing target stays a programming error.
+ */
+export const CARD_MINTED_TARGETS: readonly string[] = Object.freeze(['l1-more', 'l1-consequences']);
+
+/**
+ * Targets that live **inside a view** (`#view-host` / `#settings-view`). They are
+ * whitelisted (their content is a read-only block) but excluded from `collapseAll()`: a
+ * view is dismissed by *leaving* the view, and auto-folding a block inside an open view
+ * would leave a silently hidden read-only area. `open()` / `close()` still work on them
+ * (a gate can fold them explicitly), and the rendered mark / `aria` stays the
+ * controller's — not a second mechanism.
+ */
+export const NEVER_AUTO_COLLAPSE_TARGETS: readonly string[] = Object.freeze([
+  'l1-local-tree',
+  'l1-receipt',
+  'l1-gestures',
+  'l2-tree-attribution',
+  'l2-audit-evidence',
+]);
+
+/** Trigger → target wiring. A `null` trigger = the target has no fold affordance. */
+export const DISCLOSURE_WIRING = Object.freeze([
+  Object.freeze({ triggerId: 'l1-more-toggle', targetId: 'l1-more', summary: '其余选项' }),
+  Object.freeze({ triggerId: 'l1-consequences-toggle', targetId: 'l1-consequences', summary: '选项后果与影响预演' }),
+  Object.freeze({ triggerId: null, targetId: 'l1-local-tree', summary: '局部树只读归因' }),
+  Object.freeze({ triggerId: null, targetId: 'l1-receipt', summary: '回执证据' }),
+  Object.freeze({ triggerId: null, targetId: 'l1-gestures', summary: '页面交互说明（设置「帮助」分区）' }),
+  Object.freeze({ triggerId: null, targetId: 'l2-tree-attribution', summary: '树视图只读归因块' }),
+  Object.freeze({ triggerId: null, targetId: 'l2-audit-evidence', summary: '审计视图证据区' }),
+] as const);
+
+/**
+ * V4.5-1 W3: the foldable faces that **retired** with the decision shell / L1 group.
+ * Re-introducing one as a foldable target (or as an `aria-controls` target) is a
+ * regression — asserted negatively by `test/l0-disclosure.test.ts`.
+ */
+export const RETIRED_FOLDABLE_IDS: readonly string[] = Object.freeze(['l1-history', 'l1-ref']);
+
+/**
+ * V4.5-1 W3: the triggers that retired together with the hosts they lived in. Zero DOM
+ * presence is required (`getElementById(...) === null`); a re-introduced trigger would
+ * be a second, fixed fold affordance outside a card.
+ */
+export const RETIRED_TRIGGER_IDS: readonly string[] = Object.freeze([
+  'l0-more',
+  'l0-ref-toggle',
+  'l1-local-tree-toggle',
+  'l1-history-toggle',
+  'l1-receipt-toggle',
+  'l1-gestures-toggle',
+]);
+
+/**
  * Targets that must never be foldable — asserted negatively by the unit test.
- * V4-1 extends the v3 set with the whole three-zone shell: the status bar (J1),
- * the chips container (J2), the stream and its view host, the settings view and
- * the risk detail container.
+ *
+ * V4.5-1 W3: `l0-decision` (the shell) retired, so it moved to
+ * {@link RETIRED_NEVER_FOLDABLE_IDS} with its own counter-proof; three **new** real
+ * surfaces joined the ban list instead (`region-stream` = the chat zone,
+ * `settings-root` = the settings mount, `settings-help` = the new read-only help
+ * section) ⇒ 12 − 1 + 3 = **14** (`'composer'` stays: 永不折叠 ≠ 是否在流内 —
+ * ADR-V45-003 §4).
  */
 export const NEVER_FOLDABLE = Object.freeze([
   'risk-rail',
   'risk-chips',
   'risk-detail',
-  'region-statusbar',
   'region-toolbar',
+  'region-stream',
+  'region-statusbar',
   'stream',
   'view-host',
   'settings-view',
+  'settings-root',
+  'settings-help',
   'confirm',
-  'l0-decision',
   'ask',
   'composer',
 ]);
+
+/**
+ * Former never-foldable targets that retired. Kept as a registered ban: folding one is
+ * still refused, and the entry documents WHY it left the live list.
+ */
+export const RETIRED_NEVER_FOLDABLE_IDS = Object.freeze(['l0-decision']);
 
 /** Thrown for a whitelist violation or an unpaired ARIA trigger. */
 export class DisclosureError extends Error {
@@ -133,7 +198,11 @@ export function assertFoldable(targetId: string): string {
   if (!isFoldable(id)) {
     const why = (NEVER_FOLDABLE as readonly string[]).includes(id)
       ? '该目标属于「永不折叠」集合（风险位 / 破坏性确认 / 决策区）'
-      : '该目标不在 COLLAPSIBLE_TARGETS 白名单内';
+      : (RETIRED_NEVER_FOLDABLE_IDS as readonly string[]).includes(id)
+        ? '该目标已退役（决策壳随宿主清零移除）'
+        : (RETIRED_FOLDABLE_IDS as readonly string[]).includes(id)
+          ? '该目标已退役（折叠面随宿主清零迁移到卡内 / 视图内）'
+          : '该目标不在 COLLAPSIBLE_TARGETS 白名单内';
     throw new DisclosureError(`assertFoldable: 拒绝折叠 #${id} — ${why}`);
   }
   return id;
@@ -158,13 +227,16 @@ export interface DisclosureController {
  * Build the controller over an injected document. The real panel calls this
  * with `document`; the unit test calls it with a stub.
  */
-export function createDisclosure(doc: DisclosureDoc, wiring = DISCLOSURE_WIRING): DisclosureController {
+export function createDisclosure(
+  doc: DisclosureDoc,
+  wiring: readonly { readonly triggerId: string | null; readonly targetId: string; readonly summary: string }[] = DISCLOSURE_WIRING,
+): DisclosureController {
   const expandMemory = new Map<string, boolean>();
   const targetOf = (id: string): DisclosureElement | null => doc.getElementById(normalizeId(id));
   const triggerOf = (id: string): DisclosureElement | null => {
     const norm = normalizeId(id);
     const wired = wiring.find((w) => w.targetId === norm);
-    if (wired) {
+    if (wired?.triggerId) {
       const byId = doc.getElementById(wired.triggerId);
       if (byId) return byId;
     }
@@ -213,7 +285,14 @@ export function createDisclosure(doc: DisclosureDoc, wiring = DISCLOSURE_WIRING)
       return target ? target.hidden !== true : false;
     },
     collapseAll() {
-      for (const id of COLLAPSIBLE_TARGETS) apply(id, false);
+      // V4.5-1 W3: a card-minted target only exists while its card is open (skip when
+      // absent instead of throwing — the card's own scope owns its lifetime), and the L2
+      // view blocks are dismissed by leaving the view (never auto-folded).
+      for (const id of COLLAPSIBLE_TARGETS) {
+        if ((NEVER_AUTO_COLLAPSE_TARGETS as readonly string[]).includes(id)) continue;
+        if ((CARD_MINTED_TARGETS as readonly string[]).includes(id) && !targetOf(id)) continue;
+        apply(id, false);
+      }
     },
     expandMemory,
     snapshot() {
@@ -225,6 +304,10 @@ export function createDisclosure(doc: DisclosureDoc, wiring = DISCLOSURE_WIRING)
       const entries = state instanceof Map ? [...state.entries()] : Object.entries(state);
       for (const [key, open] of entries) {
         if (!isFoldable(key)) continue;
+        // V4.5-1 W3: a lazily-mounted face (the settings「帮助」section's `l1-gestures`) may
+        // legitimately not exist when a snapshot is restored — there is nothing to restore
+        // there, so it is skipped. Explicit `open()` / `close()` still throw (a编程错误).
+        if (!targetOf(key)) continue;
         apply(key, Boolean(open));
       }
     },
@@ -233,6 +316,7 @@ export function createDisclosure(doc: DisclosureDoc, wiring = DISCLOSURE_WIRING)
 
   // Wire real clicks when the document gives us addEventListener-capable nodes.
   for (const w of wiring) {
+    if (!w.triggerId) continue;
     const trigger = doc.getElementById(w.triggerId);
     if (trigger?.addEventListener) {
       trigger.addEventListener('click', () => {
@@ -247,8 +331,11 @@ export function createDisclosure(doc: DisclosureDoc, wiring = DISCLOSURE_WIRING)
   return controller;
 }
 
-function wiredTriggerId(targetId: string, wiring: readonly { triggerId: string; targetId: string }[]): string | undefined {
-  return wiring.find((w) => w.targetId === normalizeId(targetId))?.triggerId;
+function wiredTriggerId(
+  targetId: string,
+  wiring: readonly { readonly triggerId: string | null; readonly targetId: string }[],
+): string | undefined {
+  return wiring.find((w) => w.targetId === normalizeId(targetId))?.triggerId ?? undefined;
 }
 
 /** `window.__v3` shape shared by all v3 gates (read-only from later leaves). */

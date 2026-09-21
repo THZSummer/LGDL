@@ -4,10 +4,10 @@
 > **前置依赖**: 本叶 `tasks.md` / `tasks.json`（19 原子任务 / 5 波）、本叶 `plan.md`（ADR-V45-001~012）、父 `spec.md`（44 FR / 22 AC / §11 37 条元素去向）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-21
-> **版本**: v1.0（R1 = W1 + W2；W3/W4/W5 待 R2/R3 追加）
+> **版本**: v1.1（R1 = W1 + W2；R2 = W3 已追加；W4/W5 待 R3）
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-21
-> **更新说明**: 初始创建 —— 提交区间 A（W1：门禁脚手架 + 双 spikeGate）+ 提交区间 B（W2：五通道单写化 / strips DOM 真退役 / 断言重写）
+> **更新说明**: v1.1 —— 追加 R2（提交区间 C = W3：TASK-V45-107~112 宿主全退役 + 元素卡内化 / 视图迁移 + 零宿主判据 + risk-recovery 扩展 + 设置「帮助」分区）
 
 ---
 
@@ -203,7 +203,151 @@ v4-1 pin: 43054..55259 sha e2b500df…
 
 ---
 
-## 4. 任务完成清单
+## 4. 构建概要（R2 = W3，提交区间 C）
+
+> 本段覆盖 **R2 = W3**（`TASK-V45-107~112`，单一提交区间 C）。序列严格 107 → 112。
+
+| 维度 | 数值 |
+|------|:--:|
+| 完成任务数 | **6**（107 ✅ / 108 ✅ / 109 ✅ / 110 ✅ / 111 ✅ / 112 ✅） |
+| 复杂度分布 | M×3（107 / 110 / 111）/ L×3（108 / 109 / 112） |
+| 新增文件 | 2（`src/ui/sidepanel/cards/decision-region.ts` / `src/ui/settings/help.ts`） |
+| 修改文件 | src 18 + test 21 + docs 2（逐路径见 §5） |
+| 体积 | **493,501 B**（前值 480,896 B，+12,605 B / +2.62%；ceiling = floor × 1.05 = **518,176 B**，档位 512,000 / 绝对上限 563,200 未下移） |
+
+### 4.1 逐任务处置
+
+**TASK-V45-107（M）—— `messageAnchor()` → `null` + 4 宿主 DOM 移除 + `#stream` 纯卡序**
+
+* `stream-render.ts#messageAnchor()` 恒返回 `null`（源码不再查询 `li[data-host="composer"]`）；`setEmpty()` 口径不变。
+* `index.html`：`li[data-host="decision"]` / `"composer"` / `"l1-panels"` 三个宿主连同包裹层与死 CSS 一并移除（`strips` 已在 W2 退役）⇒ **任意深度 `[data-host]` 计数 = 0**；`#stream` 静态子节点为空（卡由渲染器追加、空态占位由 `setEmpty()` 铸造）。
+* 新增产品侧结构判据 `density-scope.ts#assertStreamPureCardOrder()` / `readStreamShape()`（唯一允许的非卡子节点 = `p.log-empty-text`；任意宿主 ⇒ 抛错），由 `window.__v3.testing.assertStreamPureCardOrder()` 暴露给门禁；l1 门禁新增 4 条反证（注入宿主 / 注入非卡子节点 / 还原 PASS / 形状读数同源）。
+
+**TASK-V45-108（L）—— decision 壳元素卡内化**
+
+| 原元素 | 落位（新形态） | 承载方式 |
+|---|---|---|
+| `#l0-kicker` / `#l0-ref-badge` | **退役** | 角色名 / 失效标记由卡自身 `data-*` + 卡内徽标（`.ref-chip[data-ref-stale]` / `.ref-stale-badge`）承载 |
+| `#l0-ref-toggle` | **退役** | 流内最新 ref 卡的 chip（hover / turn 通道由 `newestRefChip()` 单点写入；卡内 chip 的 `pointerenter` 走 `handleCardAction('hover')`） |
+| `#l0-more` + `#l1-more` / `#l1-more-options` / `#l1-consequences-toggle` / `#l1-consequences` / `#l1-consequence-tpl` | **迁移 → ask/auth 卡内** | 新增 `cards/decision-region.ts`：卡内 `#l1-more-toggle`（新触发器，`data-count` + `aria-controls`）→ `#l1-more`（选项池，默认 `hidden`）→ 后果预演（**三段模板文案逐字不变**，由卡内 `<template id="l1-consequence-tpl">` 克隆）；id 家族按 `#ask*` / `#confirm*` 先例**由唯一最新卡铸造**（构建前先从旧卡剥离） |
+| `#l0-receipt-summary` | **迁移 → 卡固化区** | `l1/panels.ts#paintReceiptSummary()`：写入**最新卡**的 `.card-fixed`（节点按需铸造并随最新载体迁移，id 唯一） |
+| `#l1-ref` / `-summary` / `-rows` / `-actions` / `-repick` / `-describe` / `-rescue` / `-reason` | **迁移 → ref 卡证据区 / 恢复区** | `cards/ref.ts` 在**最新 ref 卡**上铸造该 id 家族（`<details id="l1-ref">` + 三恢复按钮；`#l1-ref-rescue` 的可见性仍由唯一判定器写：`canReanchor()` 谓词逐字不变 ⇒ **EC-V45-005 / N-05 随此关闭**） |
+
+* 单写性：卡内选项池只装「`#ask-options` 未展示的选项 + 末项」（l0 门禁新增「无重复投影」断言）。
+* 卡内预算：`#l1-more-toggle` 加入 `setCardFallbackOpen` 的互斥披露（展开兜底即隐藏触发器）⇒ 单卡 ≤6、两卡同开合计 ≤8 逐字不变（ask-auth 门禁 ⑪ 全绿）。
+
+**TASK-V45-109（L）—— `l1-panels` 4 开关去向 + L2 只读承载块**
+
+| 原元素 | 去向 | 载体 |
+|---|---|---|
+| `li[data-host="l1-panels"]` / `#l1-group` + 4 触发器 | 退役 | 节点移除（`hidden` 面板随宿主一并走） |
+| `#l1-history-toggle` / `-history` / `-rows` | 退役（历史 = 流本身） | 已决步数计数 → **`#l2-audit-count`**（审计视图标题区，DOM 声明点**恰 1 个**，门禁逐项断言） |
+| `#l1-local-tree-toggle` / `-tree` / `-rows` / `-hint` | 迁移 → 树视图只读归因块 | `#view-host [data-l2-view="tree"] > #l2-tree-attribution`（内容容器 `#l1-local-tree` / `-rows` / `-hint` 同 id、同一写入者 `l1/panels.ts`） |
+| `#l1-receipt-toggle` / `-receipt` / `-rows` / `-audit-summary` | 迁移 → 审计视图证据区 | `#view-host [data-l2-view="audit"] > #l2-audit-evidence`（行数与摘要语义不变） |
+| `#l1-local-tree-global`（查看全局树） | **消解** | 已在树视图内 ⇒ 控件移除且全仓零悬空引用（l1 门禁逐项断言） |
+| `#l1-receipt-audit`（查看审计） | **消解** | 已在审计视图内 ⇒ 同上 |
+
+* 迁入方向性：门禁断言两个承载块都挂在 `#view-host` 内、零可点控件、不引入第二滚动容器（滚动容器计数仍为 1）。
+
+**TASK-V45-110（M）—— `#composer` 出流 + `disclosure.ts` 三份声明重写**
+
+* `#composer` 作为 `body` 最后一个**布局**元素（`<script>` 之前）并保持 `hidden`；id / ARIA / 内部结构零变化；`#stream` 子树不再包含 `#composer` / `#input` / `#send`（l0 / density-thresholds / insight 三处门禁逐项断言）。
+* **布局护栏（R-V45-105）**：新增 `sidepanel.ts#syncComposerVisibility()` 作为 `#composer.hidden` 的**唯一派生点**（= 兜底开启 ∧ 聊天面可见），`render()` / `view-host.close()` / 卡内兜底入口均经它 ⇒ 视图打开态不会浮出输入框（insight 门禁的 fail-closed 可见性判据全绿）。
+* `disclosure.ts`：`COLLAPSIBLE_TARGETS` **7 → 7**（新增 `l2-tree-attribution` / `l2-audit-evidence`，退役面入 `RETIRED_FOLDABLE_IDS`）；`NEVER_FOLDABLE` **12 → 14**；`DISCLOSURE_WIRING` 7 对（5 对为「无触发器（视图内常开）」，以 `triggerId: null` 显式登记）；新增 `RETIRED_TRIGGER_IDS`（6）；`collapseAll()` 对卡内面「缺席即跳过」、对视图内面不自动折叠（两条新判据）。
+
+**TASK-V45-111（M）—— 零宿主反向判据 + `RETIRED_*` 扩容 + l0 结构判据 + 5 组伪造反证**
+
+* `REGISTERED_STRUCTURAL_HOSTS = []`（注册表**降级为反向判据**：任意 `li[data-host]` 即红）；新增 `RETIRED_HOST_ATTRS`（4）/ `RETIRED_CONTAINER_IDS`（14）/ `RETIRED_HOST_DISPOSITIONS`（逐项「去向 + 重新引入即红」反证）；`RETIRED_HOST_IDS` 保留为并集别名（18）。
+* `evaluateHostRegistry()` 升级为 **6 类问题串**（任意宿主 / 退役宿主值 / 退役容器 / 过渡标记 / 反证元数据 / 双写理由字面），带注入式 `dispositions` 反证缝；面板侧 `hosts()` 按「容器查 id、宿主值查 `[data-host]`」两轴读数（`composer` 是退役**宿主值**而 `#composer` 是保留**兼容面** —— 两者显式分离）。
+* l0 门禁：零宿主终态 + 14 个退役容器 + 6 个退役触发器逐项负向 + 产品自断言反证（223 → **227** passed）。
+
+**TASK-V45-112（L）—— `risk-recovery` 扩展 + act 闭集 6 项 + 布线门禁 + 设置「帮助」分区**
+
+* `recommend.ts`：`RECOVERY_TRIGGERS` 扩为 5（`refInvalid` / `declarationInvalid` / `hardFloor` / `site` / `probe`，priority 1）；新增 `RECOVERY_CHIP_ORDER` 规则表（`site` 首项 = `rebind`、`refInvalid` 首项 = `repick`…）；`RECOVERY_CHIP_TEXT` 单源文案；`NEXTSTEP_ACTS` = `['next','repick','describe','authorize','rebind','help']`（**逐字 6 项**）；onboarding chip「了解 6 个页面手势」`next` → `help`（文案逐字不变）。
+* 面板侧三处本地生产入口各恰 1~2 调用点并零 `requestTurn`：`rebind` → `rebindCurrentTab()`、`help` → `openSettingsSection('settings-help')`、`reauthorize` → `authorizeCurrentSite()`（`test/local-act-wiring.test.ts` 由「W1 预留位」翻为**landed**，逐 act 断言唯一入口 + 分支零 `requestTurn` + 闭集同源 + 3 组伪造反证）。
+* 设置「帮助」分区：`SETTINGS_SECTION_IDS` 7 → **8**（单源派生），新增 `settings/help.ts`（6 行手势表由 `viewModel#gestureRows()` 单源渲染、**只读零可点**），`panel.ts` 挂载；`NEVER_FOLDABLE` 追加 `settings-help`。
+
+### 4.2 W3 门禁实测（严格串行、一次一个 Chromium；日志全量落盘 `/tmp/opencode/v4-gate-logs/v45-r2/`）
+
+| 门禁 | R1 基线 | W3 实测 | 判定 |
+|---|:--:|:--:|:--:|
+| `typecheck` | PASS | **PASS** | ✅ |
+| `npm test`（node） | 1034 | **1037** | ✅ +3 |
+| `test:l0` | 223 | **227** | ✅ +4 |
+| `test:l1` | 111 | **115** | ✅ +4 |
+| `test:l2` | 74 | **74** | ✅ |
+| `test:l1-reverse` | 9 | **9**（RP-L1-E / H 锚点随形态重锚） | ✅ |
+| `test:l2-reverse` | 10 | **10** | ✅ |
+| `test:ui`（journey） | 168 | **168** | ✅（保护段逐字节未变） |
+| `test:binding` | 192 | **192**（隔离复跑 2/4 绿 ⇒ KL-N-10） | ⚠️ KL-N-10 |
+| `test:hardening` | 24 | **24** | ✅ |
+| `test:stream` | 63 | **63** | ✅ |
+| `test:ask-auth` | 61 | **61** | ✅ |
+| `test:insight` | 116 | **116** | ✅ |
+| `test:recommendation` | 56 | **59** | ✅ +3 |
+| `test:page-input` | 106 | **106** | ✅ |
+| `test:zero-injection` | 27 | **27** | ✅ |
+| `test:e2e` | PASS | **PASS** | ✅ |
+| `test:density` | 红（预期） | **红（预期，形状不变）** | ⏳ W4/T116 |
+
+> **density 红预期照旧**：W2 退役 `#notice` 节点后夹具稳态锚已失效（门禁输出 `noticeExists:false`），31 格重算 + 夹具三重构造判据按 ADR-V45-006 归 **W4/TASK-V45-116**；本轮**未修未放宽**（阈值 7/15 · 9/20 · 17/35 与豁免口径零改动）。
+
+### 4.3 保护段状态（**本轮仍不动 pin**）
+
+| 保护段 | 状态 | 证据 |
+|---|---|---|
+| journey `test/ui/journey.mjs` `43054..55259` / sha `e2b500df…` | ✅ **逐字节未变** | W3 未触碰段内文本；`test:ui` 168 passed、`test:supersession` 的 `protectedPinFailures` 零违规 |
+| binding `test/ui/binding.mjs` `107780..115930` / sha `be9ad0e9…` | ✅ **逐字节未变** | W3 未触碰 binding.mjs；`test:binding` 192 passed（隔离复跑） |
+
+> 两次八步取代（TASK-V45-113/114）仍在 W4 —— 本轮段内零字节改动，因此 pin 未失配；spikeGate-A（`keep-feasible`）/ spikeGate-B（`eight-steps-feasible`）结论继续有效。
+
+### 4.4 体积五要素重登记（W3 轮，FR-V45-090~093 的**中间轮**）
+
+| 要素 | 内容 |
+|---|---|
+| 前值 | **480,896 B**（v45-1-w2） |
+| 后值 | **493,501 B**（+12,605 B，+2.62%） |
+| 日期 / 来源 | 2026-09-21 / `packages/web-cli-plugin/dist/sidepanel.js` |
+| 构建命令 / 测量人 | `npm run build --workspace @lgdl/web-cli-plugin` / SDDU v4.5-1 R2（W3） |
+| 理由 | 4 宿主 DOM 移除 + `assertStreamPureCardOrder` 自断言；`decision-region.ts`（6,386 B）与 `settings/help.ts`（1,343 B）两个新必需模块；`recommend.ts` 触发集 / 规则表 / 闭集 6 项；`disclosure.ts` 三份声明重写；`host-registry.ts` 零宿主反向判据 + 退休真相册；`l1/panels.ts` 卡内化后主写入者转移（−5,046 B） |
+| 逐模块归因 | `SIDEPANEL_GROWTH_BREAKDOWN.v45W3Rows`（真实 `dist/build-meta.json`，Σ 模块 **+12,527** + 未归因胶水 **+78** == 登记增量 **+12,605**） |
+| ceiling | `floor(493,501 × 1.05) = **518,176 B**`（公式判定，cap 仍 record-only）；档位 `ceilTo50KB(493,501) = 512,000` **未下移** ⇒ 绝对上限 563,200 不变 |
+| 历史保留 | 480,896 / 480,026 / 479,021 / 478,897 / 478,163 / 465,277 / 465,000 … 逐字保留在 `_HISTORY` / `_TIMELINE` / `RE_REGISTRATIONS`；`docs/v4-density-baseline.json#volume` 与 `test/size-baseline.ts` 同源前移 |
+| 红线 | `dist/content.js` 177,076 B / `dist/pick-layer.js` 33,900 B **逐字节不变**；SW / `KIND_SET` / 判定链 / manifest / `design/**` + shim sha 零触碰；v3 台账零 diff |
+
+> 是「**中间轮**」而非收口轮：W4/W5（TASK-V45-113~119）仍会在同一叶再次重登记（同一终态 DOM 的原子区间 D）。本轮重登记仅为了让门禁在 W3 区间保持「登记值 == 当前产物」。
+
+### 4.5 门禁等价重锚与断言对账（**数量只增**）
+
+| 门禁 | 原断言 | W3 处置 | 现断言 |
+|---|:--:|---|:--:|
+| `test/ui/l0.mjs` | 223 | ③ 改判「零宿主 + 纯卡序 + 卡内触发器」；⑧ EXPECTED_TRIGGERS 12 → 8 在场 + 6 退役触发器负向 + 14 退役容器负向；⑩ 常驻集合去 `l0-decision` 补两个 L2 承接块；新增产品自断言 4 条反证 | **227** |
+| `test/ui/l1.mjs` | 111 | ① 内容面契约重锚（7 面 / 6 静态 + 帮助面）；② 展开面改卡内；③/⑦/⑨/⑩/⑪ 载体改卡内 / L2 块 / 设置帮助；新增零宿主自断言反证 + 迁入块只读判据 | **115** |
+| `test/ui/recommendation.mjs` | 56 | ⑬/⑭/①/④/⑥ 按 site/probe 触发优先重锚（恢复卡 ⇄ onboarding 两种形态都断言）；⑧ 零宿主终态三断言 | **59** |
+| `test/ui/page-input.mjs` | 106 | ①/chip 载体改卡内、⑤ 拖放落点改 `#stream`、⑧ hover 双向、⑩ 手势表改设置帮助；救援流程先在卡内铸造再驱动 | **106** |
+| `test/ui/insight.mjs` | 116 | composer 出流后的位置判据重锚（body 尾 / 不在流内）+ 诊断坐标表补 L2 块 | **116** |
+| `test/ui/l1-reverse.mjs` | 9 | RP-L1-E 锚点随元素卡内化重锚（ref 卡内「改用描述」局部披露）、RP-L1-H 注入基数 7 → 4 | **9** |
+| node 侧 | 1034 | `l0-disclosure` 白名单重写（7 → 7，含两表互斥 / 卡内缺席容错 / 视图内面不自动折叠）、`host-registry` 零宿主 6 类逐条反证、`local-act-wiring` 预留位翻 landed、`recommendation-sources` 触发集与闭集 6、`size-*` 重登记、`gate-integrity` 例外模式重锚 | **1037** |
+
+### 4.6 W3 台账登记（`docs/v4-supersession-ledger.json`）
+
+* `entries[]` 新增 **V45W3-E-01~12**（宿主注册表降级 / `messageAnchor` / 披露三声明 / composer 出流 + `newestRefChip` / L1 四去向 / act 闭集 6 / 4 宿主 DOM 退役 / l0 门禁重锚 / 体积重登记 ×2 / ref 卡吸收证据面板 / l0 零宿主判据）。
+* 既有 v4 条目中指向被 W3 改写文本的 `newTitle` 逐条**重锚**（45 条，reason 内注明「newTitle 重锚，语义由 V45W3-E-* 承接」——历史 `oldTitle`/`id` 零改动）。
+* 叶段（`leafBases[a04e677]`）逐字登记补齐：`registeredLines` 96 → **547**（23 个文件），scope 逐叶复算一致。
+* `docs/v4-density-baseline.json#volume`：`registeredBaselineBytes` / `ceilingBytes` 同源前移（493,501 / 518,176）。
+
+### 4.7 已知偏差与停机规则
+
+| # | 事项 | 处置 |
+|---|---|---|
+| D-W3-1 | `NEVER_FOLDABLE` 的 3 个新增项与 ADR-V45-002 §5 的字面不同（ADR 写 `l2-tree-attribution` / `l2-audit-evidence`，但那两项同时在 `COLLAPSIBLE_TARGETS` 里 ⇒ 与「两表互斥」断言自相矛盾） | 新增项改为 **`region-stream` / `settings-root` / `settings-help`**（真实存在且从未可折叠），长度 **14** 与 ADR 一致；`l2-*` 留在白名单。两表互斥由新增断言守住（**登记为偏差，待 review 裁决**） |
+| D-W3-2 | `probe` 触发集按 ADR 字面「`steady === false` ∨ `phase !== 'ready'`」会让**相位未知**（未探测过）也判为异常 ⇒ 恢复卡永久压过 ref-action / discovery | 收窄为「**可行动的未就绪**」：相位存在 ∧ `steady === false` ∧ 相位 ∉ {`ready`,`probing`}（**登记为偏差**；数据源仍只用 `probe` 一项，`site` 触发逐字按 ADR）。门禁两种形态都断言 |
+| D-W3-3 | 体积为**中间轮**重登记（W4/W5 还会重登记一次） | 已登记「中间轮」字样 + 五要素齐备（见 §4.4） |
+| K-W3-1 | `test:binding` 4 次运行 2 绿 2 红（失败项 `#6l` 等，逐次不同） | **KL-N-10 环境性 flake 维持**（隔离复跑 ≥2 绿；不阻塞收口） |
+
+---
+
+## 5. 任务完成清单
 
 | 任务 | 名称 | 复杂度 | 状态 | 对应 FR |
 |------|------|:--:|:--:|------|
@@ -213,7 +357,13 @@ v4-1 pin: 43054..55259 sha e2b500df…
 | TASK-V45-104 | `STRIP_CHANNEL_KINDS` 重构 + `appendSystem` 单写收口 | L | ✅ completed | FR-V45-011 / 012 / 015 |
 | TASK-V45-105 | 5 条提示带 DOM 真退役 + `firstRunCard` 归并 + `title` 净化承载 | L | ✅ completed | FR-V45-010 / 013 / 014 / 025 |
 | TASK-V45-106 | strips 15 门禁 / 44 处断言重写 + 载体数 == 1 + 4 组反证 | L | ✅ completed | FR-V45-015 / 011 / 010 |
-| TASK-V45-107~119 | W3 / W4 / W5 | — | ⏳ 未开工（待 R2 / R3） | — |
+| TASK-V45-107 | `messageAnchor` 迁移 + 4 宿主 DOM 移除 + `#stream` 纯卡序 | M | ✅ completed | FR-V45-020 / 024 |
+| TASK-V45-108 | `decision` 壳元素卡内化（ref 卡 / askuser·auth 卡 / receipt 固化区） | L | ✅ completed | FR-V45-021 / 026 |
+| TASK-V45-109 | `l1-panels` 4 开关去向 + L2 只读承载块 | L | ✅ completed | FR-V45-022 / 026 |
+| TASK-V45-110 | `#composer` 出流 + `disclosure.ts` 三份声明重写 | M | ✅ completed | FR-V45-023 / 026 |
+| TASK-V45-111 | host-registry 零宿主判据 + `RETIRED_*` 扩容 + l0 结构判据 + 5 组反证 | M | ✅ completed | FR-V45-060~062 |
+| TASK-V45-112 | risk-recovery 扩展 + act 闭集 6 项 + 布线门禁 + 设置「帮助」分区 | L | ✅ completed | FR-V45-030~033 / 040~042 |
+| TASK-V45-113~119 | W4 / W5 | — | ⏳ 未开工（待 R3） | — |
 
 ---
 
@@ -221,7 +371,7 @@ v4-1 pin: 43054..55259 sha e2b500df…
 
 | 场景 | 操作 |
 |------|------|
-| R1 收口后（W1+W2 已提交） | 运行 `@sddu-build specs-tree-web-cli-plugin-v45-f-regularization` 继续 **R2 = W3（TASK-V45-107~112，提交区间 C）** |
+| R2 收口后（W3 已提交） | 运行 `@sddu-build specs-tree-web-cli-plugin-v45-f-regularization` 继续 **R3 = W4+W5（TASK-V45-113~119，单一原子提交区间 D）** |
 | W3 完成后 | R3 = W4+W5（`TASK-V45-113~119`，**单一原子提交区间 D**） |
 | 全部任务完成 | 运行 `@sddu-review specs-tree-v45-1-single-write-chronology` 开始审查 |
 
@@ -232,3 +382,4 @@ v4-1 pin: 43054..55259 sha e2b500df…
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（R1 = W1 + W2；含双 spikeGate 结论原文与量化证据） | 2026-09-21 | SDDU Build Agent |
+| v1.1 | 追加 R2 = W3（TASK-V45-107~112）：逐任务处置 / 卡内化与四去向映射 / 门禁等价重锚对账 / 体积中间轮五要素 / 台账登记 / 保护段状态 / 偏差与 flake 登记 | 2026-09-21 | SDDU Build Agent |

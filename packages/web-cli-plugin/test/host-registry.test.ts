@@ -38,7 +38,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  REGISTERED_STRUCTURAL_HOSTS,
+  RETIRED_CONTAINER_IDS,
+  RETIRED_HOST_ATTRS,
+  RETIRED_HOST_DISPOSITIONS,
   RETIRED_HOST_IDS,
+  DOUBLE_WRITE_REASON_LITERALS,
   evaluateHostRegistry,
   type HostRegistryReading,
 } from '../src/ui/sidepanel/host-registry.js';
@@ -47,34 +52,16 @@ import {
  * 1. The W3 terminal semantics — the zero-host reverse judgement
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** The retired `data-host` values (ADR-V45-010 §2; W3/TASK-V45-111 lands it). */
-export const RETIRED_HOST_ATTRS = Object.freeze(['decision', 'composer', 'l1-panels', 'strips'] as const);
-
-/** The retired container ids that must have zero DOM presence (ADR-V45-010 §2). */
-export const RETIRED_CONTAINER_IDS = Object.freeze([
-  'l0-decision',
-  'l0-pick',
-  'l0-status-band',
-  'l0-kicker',
-  'l0-more',
-  'l0-ref-toggle',
-  'l0-receipt-summary',
-  'l1-group',
-  'l1-history-toggle',
-  'l1-history',
-  'l1-history-rows',
-  'l1-local-tree-toggle',
-  'l1-receipt-toggle',
-  'l1-gestures-toggle',
-] as const);
-
+// V4.5-1 W3: the retired attrs / containers are **the product's own constants** (single
+// source). The 14-item list is additionally re-stated verbatim below as an independent
+// caliber, so a silent edit of the product list cannot pass unnoticed.
 /** The reading the terminal judgement consumes (one shape, every depth). */
 export interface ZeroHostReading {
   /** Every `li[data-host]` value present **at any depth** inside `#stream`. */
   readonly presentHosts: readonly string[];
   /** `document.querySelectorAll('#stream [data-transitional-host]').length`. */
   readonly transitionalCount: number;
-  /** The subset of {@link RETIRED_CONTAINER_IDS} still present in the document. */
+  /** The subset of the product's `RETIRED_CONTAINER_IDS` still present in the document. */
   readonly retiredContainersPresent: readonly string[];
   /** Per retired item: is its「重新引入即红」reverse-proof metadata registered? */
   readonly retiredProofRegistered: Record<string, boolean>;
@@ -155,7 +142,7 @@ export const JUDGEMENTS: readonly NodeJudgement[] = Object.freeze([
   Object.freeze({ id: 'ZH-5-reverse-proof-meta', expectFailPattern: '退役项缺少「重新引入即红」反证登记：', status: 'landed' }),
   Object.freeze({ id: 'ZH-6-dual-write', expectFailPattern: '注册表源文本仍含双写理由', status: 'landed' }),
   // W1 预留位：真实 DOM reading 的接入（TASK-V45-111）
-  Object.freeze({ id: 'ZH-7-live-dom-reading', expectFailPattern: '（W3 实体化：live `#stream` 子树读数）', status: 'pending-w3' }),
+  Object.freeze({ id: 'ZH-7-live-dom-reading', expectFailPattern: '零宿主判据失败：任意深度仍存在 li[data-host="strips"]', status: 'landed' }),
 ]);
 
 /** `true` when at least one judgement of every class produces its declared pattern. */
@@ -238,25 +225,73 @@ test('V45 W1 反证：5 组伪造 reading 逐组红（R-REG-906 绕过路径封�
   assert.deepEqual(stillGreen, [], `以下伪造 reading 未被判红（判据可被绕过）：${stillGreen.join(', ')}`);
 });
 
-test('V45 W2 迁移：真实注册表读数收口到「strips 已退役」（读数接口不恒红）', () => {
-  // W2（TASK-V45-105）把 `strips` 宿主退役 ⇒ 注册表从 4 条降为 3 条，且 `strips` 进入
-  // `RETIRED_HOST_IDS`（零 DOM 残留）。W3/TASK-V45-111 会把注册表清空为 `[]`，并把
-  // `l0.mjs` 的读数换成零宿主读数 —— 本断言是该切换点的可机核坐标。
-  const current: HostRegistryReading = { presentHosts: ['decision', 'composer', 'l1-panels'], transitionalCount: 0, retiredPresent: [] };
-  assert.deepEqual(evaluateHostRegistry(current), [], 'W2 真实口径（3 宿主）必须自洽（读数接口未坏）');
-  // 反证 ①：`strips` 宿主复活 ⇒ 必须判红（未登记宿主）。
+test('V45 W3 终态：零宿主反向判据（注册表清空 + RETIRED 扩容 + 6 类问题串逐类可 FAIL）', () => {
+  // ① 注册表降级为反向判据（ADR-V45-010 §1）：`[]` = 任何 `li[data-host]` 都是回归。
+  assert.deepEqual([...REGISTERED_STRUCTURAL_HOSTS], [], '注册表必须清空（零宿主是终态）');
+  assert.deepEqual([...RETIRED_HOST_ATTRS], ['decision', 'composer', 'l1-panels', 'strips']);
+  assert.deepEqual([...RETIRED_CONTAINER_IDS].sort(), [...TEST_RETIRED_CONTAINER_IDS].sort(), '产品常量必须与 ADR-V45-010 §2 的 14 项逐字一致');
+  assert.equal(RETIRED_CONTAINER_IDS.length, 14);
+  assert.equal(RETIRED_HOST_IDS.length, 18, '并集别名 = 4 + 14');
+  assert.equal(RETIRED_HOST_DISPOSITIONS.length, 18, '退役真相册必须逐项登记（去向 + 反证）');
+  assert.equal(DOUBLE_WRITE_REASON_LITERALS.length, 3);
+
+  // ② 干净读数（零宿主 / 零过渡标记 / 零容器残留）必须通过 —— 判据不得恒红。
+  const clean: HostRegistryReading = { presentHosts: [], transitionalCount: 0, retiredPresent: [] };
+  assert.deepEqual(evaluateHostRegistry(clean), [], '零宿主真实读数必须通过');
+
+  // ③ 6 类问题串逐类可 FAIL（每类 1 条反证）。
+  assert.ok(evaluateHostRegistry({ ...clean, presentHosts: ['zone'] }).some((p) => p.includes('零宿主判据：实存 li[data-host]')), '① 任意宿主');
+  assert.ok(evaluateHostRegistry({ ...clean, presentHosts: ['composer'] }).some((p) => p.includes('已退役宿主')), '② 退役宿主值');
+  assert.ok(evaluateHostRegistry({ ...clean, retiredPresent: ['l0-kicker'] }).some((p) => p.includes('已退役容器')), '③ 退役容器');
+  assert.ok(evaluateHostRegistry({ ...clean, transitionalCount: 1 }).some((p) => p.includes('data-transitional-host')), '④ 过渡标记');
   assert.ok(
-    evaluateHostRegistry({ presentHosts: ['decision', 'composer', 'l1-panels', 'strips'], transitionalCount: 0, retiredPresent: [] }).length > 0,
-    '退役的 strips 宿主复活必须被判红（不得静默重回注册表）',
+    evaluateHostRegistry(clean, RETIRED_HOST_DISPOSITIONS.map((d) => (d.item === 'strips' ? { ...d, counterProof: '' } : d))).some((p) =>
+      p.includes('反证'),
+    ),
+    '⑤ 缺反证的退役登记',
   );
-  // 反证 ②：注册表里的任一条被静默删除 ⇒ 必须判红。
   assert.ok(
-    evaluateHostRegistry({ presentHosts: ['composer', 'l1-panels'], transitionalCount: 0, retiredPresent: [] }).length > 0,
-    '已登记宿主被静默删除必须被判红',
+    evaluateHostRegistry({ ...clean, sources: [{ path: 'forged.ts', text: '// ALSO append-recorded' }] }).some((p) => p.includes('双写理由')),
+    '⑥ 双写理由字面',
   );
-  assert.ok(RETIRED_HOST_IDS.includes('strips'), 'W2：strips 必须进入退役册（零 DOM 残留）');
-  assert.ok(RETIRED_HOST_IDS.length >= 3, '退役册必须仍可读（W3 扩容为 14）');
+
+  // ④ ZH-7（W3 实体化）：live DOM 读数形状与判据同源 —— `hosts()` 面板读数喂同一个判据。
+  const liveShaped: HostRegistryReading = {
+    presentHosts: [],
+    transitionalCount: 0,
+    retiredPresent: [],
+    sources: [{ path: 'src/ui/sidepanel/host-registry.ts', text: '// 单写契约：事实只以流内行 / 卡单次可见' }],
+  };
+  assert.deepEqual(evaluateHostRegistry(liveShaped, RETIRED_HOST_DISPOSITIONS), [], '真实形状读数（含源文本）必须通过');
+  assert.ok(liveShaped.sources!.length >= 1, 'live 读数必须真的带上源文本（否则 ZH-6 空转）');
+  // 反证：同一形状注入双写理由 ⇒ 必须红（ZH-6 不是恒绿）。
+  assert.ok(
+    evaluateHostRegistry({ ...liveShaped, sources: [{ path: 'forged.ts', text: DOUBLE_WRITE_REASON_LITERALS[0] }] }).length > 0,
+    'ZH-6 注入双写理由必须判红',
+  );
+
+  // ⑤ 版本化反证：任何「先登记再比对」的旧形态都无法通过 —— 注册表清空后「登记缺失」
+  //    不再是问题，反而是实存集合本身即回归。
+  assert.ok(evaluateHostRegistry({ presentHosts: ['decision', 'composer', 'l1-panels'], transitionalCount: 0, retiredPresent: [] }).length >= 3);
 });
+
+/** The 14 retired container ids, verbatim from ADR-V45-010 §2 (independent copy for the equality check). */
+const TEST_RETIRED_CONTAINER_IDS = Object.freeze([
+  'l0-decision',
+  'l0-pick',
+  'l0-status-band',
+  'l0-kicker',
+  'l0-more',
+  'l0-ref-toggle',
+  'l0-receipt-summary',
+  'l1-group',
+  'l1-history-toggle',
+  'l1-history',
+  'l1-history-rows',
+  'l1-local-tree-toggle',
+  'l1-receipt-toggle',
+  'l1-gestures-toggle',
+]);
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 5. `expectFailPattern` 表自检（每条判据必须声明，且不得是占位）

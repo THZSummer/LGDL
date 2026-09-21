@@ -41,6 +41,8 @@ import { L1_GESTURE_LABELS } from '../src/ui/sidepanel/view-model.js';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const PANEL = readFileSync(join(PKG, 'src/ui/settings/panel.ts'), 'utf8');
+/** The「帮助」section's own module (W3/TASK-V45-112) — the gesture table's new home. */
+const HELP_SOURCE = readFileSync(join(PKG, 'src/ui/settings/help.ts'), 'utf8');
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 1. The judges (pure)
@@ -56,7 +58,7 @@ export const JUDGEMENTS: readonly HelpJudgement[] = [
   { id: 'SH-1-registry-rendered', expectFailPattern: '分区注册表与渲染面不同源：', status: 'landed' },
   { id: 'SH-2-derived-count', expectFailPattern: '分区计数未派生：', status: 'landed' },
   { id: 'SH-3-gesture-single-source', expectFailPattern: '手势行数未单源：', status: 'landed' },
-  { id: 'SH-4-zero-clickable', expectFailPattern: '（W3 实体化：分区内零可点控件）', status: 'pending-w3' },
+  { id: 'SH-4-zero-clickable', expectFailPattern: '分区内零可点控件', status: 'landed' },
   { id: 'SH-5-keyboard-reachable', expectFailPattern: '（W3 实体化：键盘可达）', status: 'pending-w3' },
 ];
 
@@ -90,7 +92,7 @@ export function derivedCountProblems(count: number, ids: readonly string[], pane
   if (count !== ids.length) {
     problems.push(`分区计数未派生：settingsSectionCount()=${count} ≠ SETTINGS_SECTION_IDS.length=${ids.length}`);
   }
-  // A hard-coded count would show up as `data-count="8"`-style literals in the panel.
+  // A hard-coded count would show up as `data-count="9"`-style literals in the panel.
   const literal = /data-count="\d+"|data-count',\s*'\d+'/;
   if (literal.test(panelSource)) {
     problems.push(`分区计数未派生：panel.ts 出现 data-count 字面量（计数必须由注册表派生）`);
@@ -124,7 +126,7 @@ export function zeroClickableProblems(clickableCount: number): string[] {
 test('V45 W1 SH-2：SETTINGS_SECTION_IDS 计数由注册表派生（settingsSectionCount 同源）', () => {
   assert.equal(settingsSectionCount(), SETTINGS_SECTION_IDS.length);
   assert.equal(settingsSectionCount(['a', 'b', 'c']), 3, '计数函数必须真的按入参派生');
-  assert.ok(SETTINGS_SECTION_IDS.length >= 7, `W1 现状必须 ≥7 个分区（实测 ${SETTINGS_SECTION_IDS.length}）`);
+  assert.equal(SETTINGS_SECTION_IDS.length, 8, `W3 终态必须是 8 个分区（实测 ${SETTINGS_SECTION_IDS.length}）`);
 });
 
 test('V45 W1 SH-2：注册表 id 唯一且带 settings- 前缀（改名必须被看住）', () => {
@@ -133,8 +135,10 @@ test('V45 W1 SH-2：注册表 id 唯一且带 settings- 前缀（改名必须被
   for (const id of SETTINGS_SECTION_IDS) assert.match(id, /^settings-/, `分区 id 必须以 settings- 前缀：${id}`);
 });
 
-test('V45 W1 SH-1：分区注册表 ↔ panel.ts 渲染面三方同源（id + class: wc-section 成对）', () => {
-  assert.deepEqual(registryRenderedProblems(SETTINGS_SECTION_IDS, PANEL), []);
+test('V45 W1 SH-1：分区注册表 ↔ 渲染面三方同源（id + class: wc-section 成对）', () => {
+  // The「帮助」section's markup lives in its own module; the judge is fed the union of
+  // both render surfaces, so「单源」still covers every registry id (never a narrowed set).
+  assert.deepEqual(registryRenderedProblems(SETTINGS_SECTION_IDS, `${PANEL}\n${HELP_SOURCE}`), []);
 });
 
 test('V45 W1 SH-3：手势表行数单源（L1_GESTURE_LABELS 恰 6 条，仍是手势表的唯一来源）', () => {
@@ -142,9 +146,22 @@ test('V45 W1 SH-3：手势表行数单源（L1_GESTURE_LABELS 恰 6 条，仍是
   assert.deepEqual(gestureRowProblems([...L1_GESTURE_LABELS], L1_GESTURE_LABELS), []);
 });
 
-test('V45 W1 SH-4（预留）：帮助分区尚**未**渲染（W3/TASK-V45-112 实体化为第 8 分区）', () => {
-  assert.equal(PANEL.includes(`id: '${HELP_SECTION_ID}'`), false, 'W1 阶段 #settings-help 必须尚未渲染（否则预留位失真）');
-  assert.equal((SETTINGS_SECTION_IDS as readonly string[]).includes(HELP_SECTION_ID), false, 'W1 阶段注册表必须尚未含 settings-help');
+test('V45 W3 SH-4：帮助分区已实体化为第 8 分区（只读零可点 + 手势表单源）', () => {
+  assert.equal((SETTINGS_SECTION_IDS as readonly string[]).includes(HELP_SECTION_ID), true, '注册表必须含 settings-help');
+  assert.equal(SETTINGS_SECTION_IDS.length, 8, '分区数必须是 8');
+  // The section is BUILT by its own module (single source for the gesture rows) and
+  // MOUNTED by `panel.ts`; both halves are machine-checked so「渲染点」cannot vanish.
+  assert.ok(HELP_SOURCE.includes(`id: ${HELP_SECTION_ID}`) || HELP_SOURCE.includes(`'${HELP_SECTION_ID}'`), 'help.ts 必须声明该分区 id');
+  assert.ok(PANEL.includes('buildHelpSection(doc, h)'), 'panel.ts 必须挂载帮助分区');
+  // Zero clickables: the section builds a table and NOTHING else — no button/a/input
+  // creation call may appear in its source (the live-DOM half is `test/ui/l2.mjs`).
+  for (const tag of ["'button'", "'a'", "'input'", "'select'", "'textarea'"]) {
+    assert.equal(HELP_SOURCE.includes(tag), false, `help.ts 不得创建 ${tag}（帮助内容不是第二交互面）`);
+  }
+  // The rows come from the ONE list (`gestureRows()`), never a second copy.
+  assert.ok(HELP_SOURCE.includes('gestureRows()'), 'help.ts 必须从 `gestureRows()` 单源渲染');
+  assert.deepEqual(gestureRowProblems([...L1_GESTURE_LABELS], L1_GESTURE_LABELS), []);
+  assert.deepEqual(zeroClickableProblems(0), []);
 });
 
 /* ────────────────────────────────────────────────────────────────────────────

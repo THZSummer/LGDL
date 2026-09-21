@@ -55,61 +55,127 @@
  * @module ui/sidepanel/host-registry
  */
 
-/** The `data-host` values that must exist inside `#stream` (registered, permanent). */
+/** A retired item's counter-proof registration (TASK-V45-111 ⑤ / R-REG-906). */
+export interface RetiredHostDisposition {
+  /** The `data-host` value (for {@link RETIRED_HOST_ATTRS}) or container id (for {@link RETIRED_CONTAINER_IDS}). */
+  readonly item: string;
+  /** Where the fact it carried lives now (a stream card / an L2 read-only block / a settings section …). */
+  readonly movedTo: string;
+  /**
+   * The **counter-proof** that must be able to FAIL: re-introducing the item has to
+   * turn the judgement red. A retired item without one is「只删标记」, not a retirement.
+   */
+  readonly counterProof: string;
+}
+
+/**
+ * V4.5-1 W3 (TASK-V45-111 / ADR-V45-010 §1) — **the registry is emptied**.
+ *
+ * Before W3 this table registered four `li[data-host]` hosts as「permanent structural
+/**
+ * The disposition of a host that *would* be registered while the transition was open.
+ * W3 empties the table, so this shape now only documents the retired contract (kept so
+ * the historical readers / gates can still name the shape).
+ */
 export interface StructuralHostDisposition {
   /** The `data-host` attribute value. */
   readonly host: string;
-  /** Always `false` — a `true` entry would be a transitional host and must be registered in `RETIRED_HOST_IDS` instead. */
+  /** Always `false` — a `true` entry would be a transitional host and must be in {@link RETIRED_HOST_ATTRS}. */
   readonly transitional: false;
-  /** The single system-channel kinds this host carries (`[]` = not a system channel). */
+  /** The single system-channel kinds this host carried (`[]` = not a system channel). */
   readonly channelKinds: readonly string[];
   readonly reason: string;
 }
 
 /**
- * The `li[data-host]` hosts that remain **after W2**. W2 retired the `strips` host
- * (its five channels are now single-written system rows), so three hosts are left;
- * W3/TASK-V45-111 empties this table entirely (zero hosts = the terminal reading,
- * where any `li[data-host]` at all is a regression).
+ * V4.5-1 W3 (TASK-V45-111 / ADR-V45-010 §1) — **the registry is emptied**.
+ *
+ * Before W3 this table registered four `li[data-host]` hosts as「permanent structural
+ * home now」*because*「its content is pinned by protection gates」 — i.e. the permanence
+ * was **inferred from the gates instead of from the form** (the v4.5 ticket's core
+ * finding). W3 makes the implementation obey the F form first (four hosts gone, the
+ * stream is a pure card list) and then restates the gates.
+ *
+ * The table therefore becomes a **reverse criterion**: `[]` means *any* `li[data-host]`
+ * at all is a regression, with no prior registration needed to detect it
+ * (`evaluateHostRegistry()` ①).
  */
-export const REGISTERED_STRUCTURAL_HOSTS: readonly StructuralHostDisposition[] = Object.freeze([
-  Object.freeze({
-    host: 'decision',
-    transitional: false,
-    channelKinds: Object.freeze(['decision', 'turn']) as unknown as readonly string[],
-    reason: 'L0 decision/receipt slot (`#l0-decision`): ask/auth/reference decisions render as in-flow cards; the slot keeps the drop target + receipt summary (protection gates read it).',
-  }),
-  Object.freeze({
-    host: 'composer',
-    transitional: false,
-    channelKinds: Object.freeze(['turn']) as unknown as readonly string[],
-    reason: 'Composer host: the turn entry is the single `requestTurn()` path; `#composer` stays `hidden` (law four) and `#input`/`#send` are read by journey/binding.',
-  }),
-  Object.freeze({
-    host: 'l1-panels',
-    transitional: false,
-    channelKinds: Object.freeze([]) as unknown as readonly string[],
-    reason: 'L1 disclosure group (7 classes): read-only projections of existing facts; no system-event channel of its own.',
-  }),
-]);
+export const REGISTERED_STRUCTURAL_HOSTS: readonly StructuralHostDisposition[] = Object.freeze([]);
 
-/** The `data-host` values that must exist (derived from the registry — never hand-listed). */
+/** The `data-host` values that must exist inside `#stream` — derived, always `[]` now. */
 export const REGISTERED_HOST_ATTRS: readonly string[] = Object.freeze(
   REGISTERED_STRUCTURAL_HOSTS.map((h) => h.host).sort(),
 );
 
 /**
- * The **retired** containers: the v4-1 obligation said their content is displaced,
- * so their DOM must be GONE (not merely unmarked). Enumerated explicitly so the
- * criterion stays falsifiable — re-adding one is a structural regression.
+ * The **retired** `data-host` values (V4.5-1 W3 / TASK-V45-111 / ADR-V45-010 §2):
+ * `decision` / `composer` / `l1-panels` joined `strips` when the four fixed-position
+ * hosts were removed from `index.html`. A re-introduced host FAILS the judgement.
+ */
+export const RETIRED_HOST_ATTRS: readonly string[] = Object.freeze([
+  'decision',
+  'composer',
+  'l1-panels',
+  'strips',
+]);
+
+/**
+ * The **retired container ids** — fourteen legacy containers whose content either
+ * moved into a stream card / an L2 read-only block or was dissolved. Zero DOM
+ * presence is required (`getElementById(id) === null`), so「退役」cannot be satisfied
+ * by deleting the attribute while keeping the node (the v4-4 BLOCK-02 lesson).
+ *
+ * Deliberately absent (they are PRESERVED):
+ *   `#composer` / `#input` / `#send` (compatibility read surface — NFR-V45-006),
+ *   `#send-reason` (status bar), `#rebind` (settings view), and the content
+ *   containers that merely moved (`#l1-local-tree-rows` / `#l1-receipt-rows` …).
+ */
+export const RETIRED_CONTAINER_IDS: readonly string[] = Object.freeze([
+  'l0-decision',
+  'l0-pick',
+  'l0-status-band',
+  'l0-kicker',
+  'l0-more',
+  'l0-ref-toggle',
+  'l0-receipt-summary',
+  'l1-group',
+  'l1-history-toggle',
+  'l1-history',
+  'l1-history-rows',
+  'l1-local-tree-toggle',
+  'l1-receipt-toggle',
+  'l1-gestures-toggle',
+]);
+
+/**
+ * The union alias kept for the existing readers (`hosts()` / gates read one list).
+ * The v4.5-1 split is `RETIRED_HOST_ATTRS` (host values) + `RETIRED_CONTAINER_IDS`
+ * (container ids); this alias is the **derived** union, never a hand-written second list.
  */
 export const RETIRED_HOST_IDS: readonly string[] = Object.freeze([
-  'l0-pick', // V4-4 TASK-806: the panel-side pick entry (a one-shot act does not belong in a toolbar)
-  'l0-status-band', // V4-1: the v3 one-click status band (the summary became read-only)
-  // V4.5-1 W2/TASK-V45-105: the five merged strips' **host** is gone (`#stream` lost
-  // its `strips` li together with the five nodes inside it). W3/TASK-V45-111 splits this
-  // list into `RETIRED_HOST_ATTRS` + `RETIRED_CONTAINER_IDS` and empties the registry.
-  'strips',
+  ...RETIRED_HOST_ATTRS,
+  ...RETIRED_CONTAINER_IDS,
+]);
+
+/**
+ * The retirement truth-table: every retired host value / container id, where its fact
+ * lives now, and the counter-proof that keeps「退役」falsifiable (judgement ⑤).
+ */
+export const RETIRED_HOST_DISPOSITIONS: readonly RetiredHostDisposition[] = Object.freeze([
+  ...RETIRED_HOST_ATTRS.map((item) =>
+    Object.freeze({
+      item,
+      movedTo: '流内卡（`askuser` / `auth` / `ref`）+ `#view-host` 只读承载块 + 设置「帮助」分区',
+      counterProof: `向 #stream 注入 1 个 li[data-host="${item}"] ⇒ 零宿主判据红（移除后逐字节还原 ⇒ 绿）`,
+    }),
+  ),
+  ...RETIRED_CONTAINER_IDS.map((item) =>
+    Object.freeze({
+      item,
+      movedTo: '卡内作用域（`[data-card-key]`）+ 卡固化区 / L2 只读承载块 / 设置「帮助」分区',
+      counterProof: `把 #${item} 重新插入文档 ⇒ 退役容器判据红（移除后 ⇒ 绿）`,
+    }),
+  ),
 ]);
 
 /**
@@ -246,33 +312,87 @@ export interface HostRegistryReading {
   readonly transitionalCount: number;
   /** The subset of {@link RETIRED_HOST_IDS} that is still present in the DOM. */
   readonly retiredPresent: readonly string[];
+  /**
+   * V4.5-1 W3 (TASK-V45-111 ⑥ / FR-V45-011): the production source texts the
+   * 「双写理由已移除」judgement scans. Optional so the live panel reading stays cheap;
+   * when provided, a source containing the double-write rationale FAILS.
+   */
+  readonly sources?: readonly { readonly path: string; readonly text: string }[];
 }
 
 /**
- * The ONE judgement. Returns the readable problems (empty = structurally clean).
+ * The double-write rationale literals that must have **zero** hits anymore
+ * (FR-V45-011: the「also append-recorded」justification is what made the DOM
+ * projection look sanctioned).
+ */
+export const DOUBLE_WRITE_REASON_LITERALS: readonly string[] = Object.freeze([
+  'ALSO append-recorded',
+  'additionally written to the system channel',
+  'permanent structural home now',
+]);
+
+/**
+ * The ONE judgement — **six problem classes** (TASK-V45-111 / ADR-V45-010 §3):
+ *
+ *   ① any depth `li[data-host]` exists ⇒ red (the registry is a *reverse* criterion:
+ *      a new host needs a ruling, not an attribute);
+ *   ② any `RETIRED_HOST_ATTRS` value exists ⇒ red;
+ *   ③ any `RETIRED_CONTAINER_IDS` id exists in the DOM ⇒ red;
+ *   ④ `[data-transitional-host]` count ≠ 0 ⇒ red (the transition is closed, not renamed);
+ *   ⑤ every retired item carries a counter-proof registration (no silent retirements);
+ *   ⑥ the production sources carry none of {@link DOUBLE_WRITE_REASON_LITERALS}.
  *
  * Deliberately a pure function of the reading: the panel, the Chromium gate and the
  * node gate all call the same implementation, so a second, drifting caliber cannot
  * appear.
  */
-export function evaluateHostRegistry(reading: HostRegistryReading): string[] {
+export function evaluateHostRegistry(
+  reading: HostRegistryReading,
+  /**
+   * Injection seam (RP-V3-05 pattern): the retired truth-table may be **forged** so the
+   * reverse proof can show judgement ⑤ really FAILs when the counter-proof metadata is
+   * removed. Defaults to the product table — the gate never has to pass it.
+   */
+  dispositions: readonly RetiredHostDisposition[] = RETIRED_HOST_DISPOSITIONS,
+): string[] {
   const problems: string[] = [];
+  // ① zero hosts — ANY depth, including a renamed / nested host.
   const present = [...reading.presentHosts].sort();
-  const registered = [...REGISTERED_HOST_ATTRS];
-  for (const host of registered) {
-    if (!present.includes(host)) problems.push(`登记的结构宿主 ${host} 缺失（不得静默删除：注册表是结构契约）`);
+  if (present.length > 0) {
+    problems.push(`零宿主判据：实存 li[data-host] = [${present.join(', ')}]，必须为 ∅（任何宿主都必须先走裁决）`);
   }
-  for (const host of present) {
-    if (!registered.includes(host)) problems.push(`未登记的 li[data-host="${host}"] —— 新增宿主必须走注册表 + 裁决，不得只加属性`);
+  // ② retired host attribute values must be absent.
+  for (const host of RETIRED_HOST_ATTRS) {
+    if (present.includes(host)) {
+      problems.push(`零宿主判据：已退役宿主 data-host="${host}" 仍在 DOM —— 宿主退役不得回退`);
+    }
   }
-  for (const entry of REGISTERED_STRUCTURAL_HOSTS) {
-    if (entry.transitional !== false) problems.push(`宿主 ${entry.host} 的 transitional 必须为 false（过渡宿主只能出现在 RETIRED_HOST_IDS）`);
-  }
-  if (reading.transitionalCount !== 0) {
-    problems.push(`[data-transitional-host] 计数 = ${reading.transitionalCount}，必须为 0（过渡态不得重开）`);
-  }
+  // ③ retired container ids must be absent.
   for (const id of reading.retiredPresent) {
-    problems.push(`已退役容器 #${id} 仍在 DOM —— 结构性清零判据被绕过（删属性不改 DOM 不算退役）`);
+    problems.push(`零宿主判据：已退役容器 #${id} 仍在 DOM —— 结构性清零判据被绕过（删属性不改 DOM 不算退役）`);
+  }
+  // ④ the transitional marker may not come back.
+  if (reading.transitionalCount !== 0) {
+    problems.push(`零宿主判据：[data-transitional-host] 计数 = ${reading.transitionalCount}，必须为 0（过渡态不得重开）`);
+  }
+  // ⑤ every retired item needs a counter-proof registration.
+  const registered = new Set(dispositions.map((d) => d.item));
+  for (const item of RETIRED_HOST_IDS) {
+    if (!registered.has(item)) {
+      problems.push(`零宿主判据：退役项 ${item} 缺少「重新引入即红」的反证登记（退役不得只删标记）`);
+    }
+  }
+  const proofMissing = dispositions.filter((d) => !d.counterProof.trim() || !d.movedTo.trim());
+  if (proofMissing.length > 0) {
+    problems.push(`零宿主判据：${proofMissing.length} 条退役登记缺少 movedTo / counterProof（反证不得空转）`);
+  }
+  // ⑥ the double-write rationale must be gone from the sources.
+  for (const source of reading.sources ?? []) {
+    for (const literal of DOUBLE_WRITE_REASON_LITERALS) {
+      if (source.text.includes(literal)) {
+        problems.push(`零宿主判据：${source.path} 仍含双写理由字面「${literal}」（FR-V45-011：理由已随形态收口失效）`);
+      }
+    }
   }
   return problems;
 }

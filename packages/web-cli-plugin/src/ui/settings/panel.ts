@@ -18,6 +18,7 @@ import { providerById, DEFAULT_MAX_ROUNDS } from '../../llm/providers.js';
 import type { DiagReport } from './diagnostics.js';
 import { diagStatusIcon, renderDiagText, sanitizeDiagText, summarizeReport } from './diagnostics.js';
 import { ensureSettingsStyles } from './styles.js';
+import { buildHelpSection } from './help.js';
 import { AUTO_AUTH_HARD_LINES } from '../../security/auto-authorize.js';
 import { requestCapabilityPermissionOnGesture, type OptionalCapability } from '../../platform/capability-permissions.js';
 import {
@@ -405,6 +406,12 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
   );
   helpSection.appendChild(migration);
   root.appendChild(helpSection);
+
+  // ── section 8/8 (V4.5-1 W3 / TASK-V45-112):「帮助」—— 只读手势表 ────────────
+  // The retired in-stream L1 gesture panel (`#l1-gestures`) lives here now; the section
+  // is registered in `SETTINGS_SECTION_IDS` so its count stays derived, and it renders
+  // ZERO clickables (help is not an action surface).
+  root.appendChild(buildHelpSection(doc, h));
 
   // ── state ────────────────────────────────────────────────────────────────
   let activeOrigin: string | undefined;

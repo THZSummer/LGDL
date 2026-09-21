@@ -956,16 +956,31 @@ export function moreOptionsLabel(foldedCount: number): string {
 // `sidepanel.js` size guard, so shipping it as markup keeps the bundle lean
 // without weakening any assertion (ADR-V3-021 §1).
 
-/** `data-l1-panel` id of each of the eight L1 content classes (FR-V3-031). */
+/**
+ * `data-l1-panel` id of each content face (FR-V3-031 等价重锚, V4.5-1 W3 TASK-V45-109).
+ *
+ * The v3 list was「八个 L1 内容类」whose hosts were the decision shell + the L1 group.
+ * W3 retires both hosts, so the list is restated as the **seven disclosure faces that
+ * actually exist in the new form** — and it is now one-to-one with
+ * `disclosure.ts#COLLAPSIBLE_TARGETS` (a machine-checked equality):
+ *
+ *   · `l1-more` / `l1-consequences` — minted inside the newest open `askuser` / `auth` card;
+ *   · `l1-local-tree` / `l1-receipt` — the content containers inside the L2 read-only
+ *     blocks (`#l2-tree-attribution` / `#l2-audit-evidence`);
+ *   · `l1-gestures` — the six-gesture table inside the settings「帮助」section;
+ *   · `l2-tree-attribution` / `l2-audit-evidence` — the two new L2 carrier blocks.
+ *
+ * Retired (moved to `disclosure.ts#RETIRED_FOLDABLE_IDS`): `l1-status`, `l1-history`,
+ * `l1-ref-evidence`.
+ */
 export const L1_PANEL_IDS = Object.freeze([
-  'l1-status',
+  'l1-more',
   'l1-consequences',
-  'l1-ref-evidence',
   'l1-local-tree',
-  'l1-history',
   'l1-receipt',
   'l1-gestures',
-  'l1-more',
+  'l2-tree-attribution',
+  'l2-audit-evidence',
 ] as const);
 
 /**
@@ -990,6 +1005,26 @@ export const L1_GESTURE_LABELS: readonly string[] = Object.freeze([
 
 /** The four gestures v3-2 shipped — superseded by {@link L1_GESTURE_LABELS}. */
 export const L1_GESTURE_COUNT = L1_GESTURE_LABELS.length;
+
+/**
+ * V4.5-1 W3 (TASK-V45-109 / ADR-V45-008 §2) — the readable effect of each gesture, keyed
+ * by {@link L1_GESTURE_LABELS}. Moved here from `l1/panels.ts` so the **settings「帮助」
+ * section** (`settings/help.ts`) and the retired L1 table render from ONE list: the row
+ * count, the labels and the effects can no longer drift apart.
+ */
+export const GESTURE_EFFECTS: Readonly<Record<string, string>> = Object.freeze({
+  'Alt + 悬停': '唯一描边 + 语义路径/选择器/摘要；Esc 或松开 Alt 即撤销（零命令）',
+  'Alt + 拖动': '跟随胶囊；拖到侧栏生成引用，未落到侧栏 ⇒ 已取消（零副作用）',
+  右键: '自绘菜单：纳入引用 / 作为操作目标 / 引用选中文本 / 在此处拾取 / 交给页面原生菜单',
+  拖选文本: '选区右下气泡「引用选中内容（N 字）」→ 点击生成引用（输入框内禁用）',
+  '双击（G1）': '双击元素直接生成引用（同一捕获路径）',
+  '悬停 600ms ⊕（G2）': '目标出现 ⊕ 角标 → 点击生成引用（同一捕获路径）',
+});
+
+/** The gesture table's rows, from the ONE list (labels + effects, no second source). */
+export function gestureRows(): readonly { readonly label: string; readonly effect: string }[] {
+  return L1_GESTURE_LABELS.map((label) => ({ label, effect: GESTURE_EFFECTS[label] ?? '生成 1 个引用 + 1 道选择题' }));
+}
 
 /** Labels that make an option destructive (structural filter, single source). */
 export const DESTRUCTIVE_OPTION_PATTERN = /删除|清空|移除|覆盖|撤销|重置|批量|卸载/;

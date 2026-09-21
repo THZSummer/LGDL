@@ -73,8 +73,72 @@ export const NEXTSTEP_SOURCE_WHITELIST = Object.freeze([
  */
 export const RECOMMEND_MODULE_WHITELIST = Object.freeze(['./stream-plaintext.js'] as const);
 
-/** The five risk classes (parent ADR/V4-1 caliber) — the recovery trigger subset. */
+/**
+ * The **risk classes** that used to be the whole recovery trigger set (parent ADR/V4-1
+ * caliber). Unchanged — it is the risk-rail subset, not the recovery rule table.
+ */
 export const RECOVERY_RISK_CLASSES = Object.freeze(['refInvalid', 'declarationInvalid', 'hardFloor'] as const);
+
+/**
+ * V4.5-1 W3 (TASK-V45-112 / ADR-V45-007 §1) — the **recovery trigger set**.
+ *
+ * Retiring the five strips removed the visible「无活跃站点 / 探测未就绪」guidance, so a
+ * site/probe fact must now be recoverable from the recommendation card itself:
+ *
+ *   · `refInvalid` / `declarationInvalid` / `hardFloor` — the v4 risk classes;
+ *   · `site`  — `input.site.authorized === false`（无活跃站点 / 绑定失效）;
+ *   · `probe` — **可行动的未就绪**：已报出相位且 `steady === false` 且相位 ∉ {`ready`,
+ *     `probing`}（如 `waiting` 退避等待 / `idle` 未开跑）。相位**未知**不算异常 ——
+ *     否则每个未探测过的首屏都会退化到恢复卡，把同一条 ADR 要求的 ref-action /
+ *     capability-discovery 永久挤掉（登记为 build 偏差；数据源仍只用 `probe` 一项）。
+ *
+ * The **data sources are not extended**: `site` / `probe` are already two of the seven
+ * {@link NEXTSTEP_SOURCE_WHITELIST} entries and the input shape is unchanged.
+ */
+export const RECOVERY_TRIGGERS = Object.freeze([
+  'refInvalid',
+  'declarationInvalid',
+  'hardFloor',
+  'site',
+  'probe',
+] as const);
+export type RecoveryTrigger = (typeof RECOVERY_TRIGGERS)[number];
+
+/**
+ * Which recovery trigger is active right now — the FIRST match in
+ * {@link RECOVERY_TRIGGERS} order (a stable, recomputable tie-break: the risk classes
+ * outrank the site/probe state). `null` ⇒ no recovery candidate.
+ */
+export function activeRecoveryTrigger(input: RecommendInput): RecoveryTrigger | null {
+  const risks = new Set(input.risks);
+  for (const trigger of RECOVERY_TRIGGERS) {
+    if (trigger === 'site') {
+      if (input.site.authorized === false) return trigger;
+      continue;
+    }
+    if (trigger === 'probe') {
+      // 「探测态异常」= 已报出相位，且该相位是**可行动的未就绪**（如 `waiting` 退避等待 /
+      // `idle` 未开跑）。**相位未知不是异常** —— 否则每个未探测过的首屏都会退化到恢复卡，
+      // 把同一条 ADR 要求的 ref-action / capability-discovery 永久挤掉（`phase === undefined`
+      // 时上面两条 `steady=false` 默认值同样不构成异常，故这里显式要求相位存在）。
+      const phase = input.probe.phase;
+      if (input.probe.steady === false && phase !== undefined && phase !== 'ready' && phase !== 'probing') {
+        return trigger;
+      }
+      continue;
+    }
+    if (input.ref.staleCount >= 1 && trigger === 'refInvalid') return trigger;
+    if (risks.has(trigger)) return trigger;
+  }
+  return null;
+}
+
+/** The chips of one recovery trigger: the rule table's acts, named, ≤ MAX_CHIPS_PER_CARD. */
+export function recoveryChips(trigger: RecoveryTrigger): readonly NextstepChip[] {
+  return RECOVERY_CHIP_ORDER[trigger]
+    .slice(0, MAX_CHIPS_PER_CARD)
+    .map((act) => Object.freeze({ text: RECOVERY_CHIP_TEXT[act] ?? act, act }));
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 2. Input / output shapes
@@ -120,14 +184,45 @@ export interface RecommendInput {
  * 「授权当前站点」chip used to be `'next'`, i.e. the string was sent to the LLM as a
  * chat message while authorization is really a browser-permission flow. The chip now
  * reaches the ONE panel-side authorize entry (the same one `#authorize` calls).
+ *
+ * V4.5-1 W3 (TASK-V45-112 / ADR-V45-007 §3): the closed set reaches its **terminal six**
+ * — `'rebind'` (the settings-view `#rebind` entry: re-binding the current tab is a
+ * browser flow, not a turn) and `'help'` (open the settings「帮助」section: the retired
+ * onboarding guidance) join. Every local act has ONE production entry and NEVER calls
+ * `requestTurn` (asserted by `test/local-act-wiring.test.ts`).
  */
-export const NEXTSTEP_ACTS = Object.freeze(['next', 'repick', 'describe', 'authorize'] as const);
+export const NEXTSTEP_ACTS = Object.freeze(['next', 'repick', 'describe', 'authorize', 'rebind', 'help'] as const);
 export type NextstepAct = (typeof NEXTSTEP_ACTS)[number];
 
 export interface NextstepChip {
   readonly text: string;
   readonly act: NextstepAct;
 }
+
+/**
+ * The **chip rule table** (FR-V45-031 定值) — trigger → candidate acts, in priority
+ * order. The renderer keeps at most `MAX_CHIPS_PER_CARD`, so the table's *first* item is
+ * the guarantee: `site` / `probe` therefore always lead with「重新绑定当前标签页」
+ * (`rebind`), while an invalid reference leads with `repick`.
+ */
+export const RECOVERY_CHIP_ORDER: Readonly<Record<RecoveryTrigger, readonly NextstepAct[]>> = Object.freeze({
+  refInvalid: Object.freeze(['repick', 'describe', 'rebind'] as NextstepAct[]),
+  declarationInvalid: Object.freeze(['repick', 'describe', 'rebind'] as NextstepAct[]),
+  hardFloor: Object.freeze(['repick', 'describe', 'rebind'] as NextstepAct[]),
+  site: Object.freeze(['rebind', 'repick', 'describe'] as NextstepAct[]),
+  probe: Object.freeze(['rebind', 'describe', 'repick'] as NextstepAct[]),
+});
+
+/** The single chip copy per act (the rule table chooses the act; this names it). */
+export const RECOVERY_CHIP_TEXT: Readonly<Record<string, string>> = Object.freeze({
+  next: '继续',
+  repick: '重新拾取',
+  describe: '改用描述',
+  authorize: '授权当前站点',
+  rebind: '重新绑定当前标签页',
+  help: '了解 6 个页面手势',
+});
+
 
 export interface NextstepCandidate {
   readonly rule: NextstepRuleId;
@@ -178,15 +273,12 @@ export function candidateRules(input: RecommendInput): readonly NextstepCandidat
   const out: NextstepCandidate[] = [];
   const risks = new Set(input.risks);
 
-  // R-RISK-RECOVERY (priority 1): an unusable reference, an invalid declaration or a
-  // hard-floor intervention must be recoverable from the stream itself.
-  if (input.ref.staleCount >= 1 || RECOVERY_RISK_CLASSES.some((c) => risks.has(c))) {
-    out.push(
-      candidate('risk-recovery', [
-        { text: '重新拾取', act: 'repick' },
-        { text: '改用描述', act: 'describe' },
-      ]),
-    );
+  // R-RISK-RECOVERY (priority 1): an unusable reference, an invalid declaration, a
+  // hard-floor intervention, an unauthorized/unbound site or an unsettled probe must be
+  // recoverable from the stream itself (`RECOVERY_TRIGGERS` + `RECOVERY_CHIP_ORDER`).
+  const recovery = activeRecoveryTrigger(input);
+  if (recovery) {
+    out.push(candidate('risk-recovery', recoveryChips(recovery)));
   }
 
   // R-REF-ACTION (priority 2): a usable reference exists and no decision card is
@@ -207,7 +299,9 @@ export function candidateRules(input: RecommendInput): readonly NextstepCandidat
         // F 还原度快修轮: the authorization is a browser-permission flow, not a turn —
         // `act: 'authorize'` routes the click through `authorizeCurrentSite()`.
         { text: '授权当前站点', act: 'authorize' },
-        { text: '了解 6 个页面手势', act: 'next' },
+        // V4.5-1 W3 (FR-V45-041): the gesture help is a LOCAL settings navigation
+        // (`openSettingsSection('settings-help')`), not a turn — the copy stays verbatim.
+        { text: '了解 6 个页面手势', act: 'help' },
       ]),
     );
   }

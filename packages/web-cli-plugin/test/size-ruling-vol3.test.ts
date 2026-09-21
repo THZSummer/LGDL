@@ -79,7 +79,7 @@ test('V3-VOL-3: the Feature-level 40% cumulative stop-work line is explicitly RE
 });
 
 test('V3-VOL-3 REVERSE PROOF: restoring the 40% cumulative line FAILS on the real artifact 375,102 B (+40.75%)', () => {
-  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 480896, '反证必须打在**当前真实产物**上（V4.5-1 R1 W1+W2 重登记）');
+  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 493501, '反证必须打在**当前真实产物**上（V4.5-1 R1 W1+W2 重登记）');
   // ① 回退裁决（恢复 40% 累计线原样：enforced=true）⇒ 必须 FAIL
   const revived: FeatureCumulativeStopWorkRule = {
     ...SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE,
@@ -207,16 +207,16 @@ test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）——
 });
 
 test('V3-VOL-3 ⑥: 判定的 min() 优先级（绝对上限 = 硬墙，5% 公式 = 轮内软纪律）', () => {
-  // 现网：min(563,200, floor(480,896 × 1.05) = 504940) = 504940（软纪律更紧）。
+  // 现网：min(563,200, floor(493,501 × 1.05) = 518176) = 518176（软纪律更紧）。
   const live = evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES);
-  assert.equal(live.ceilingBytes, 504940, '生效上限 = min(绝对上限, 5% 公式)');
+  assert.equal(live.ceilingBytes, 518176, '生效上限 = min(绝对上限, 5% 公式)');
   assert.equal(live.ceilingBytes, Math.min(563_200, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
   // 硬墙比公式紧时必须取硬墙：给一个极小的绝对上限，判定必须跟着收紧。
   // （用合成的 marker 驱动纯函数，不改动现行标记。）
   const tight = evaluateSidepanelSize(530_000);
   assert.equal(tight.ok, false, '5% 公式之上必须 FAIL（轮内软纪律）');
-  assert.equal(evaluateSidepanelSize(504940).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
-  assert.equal(evaluateSidepanelSize(504_941).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
+  assert.equal(evaluateSidepanelSize(518176).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
+  assert.equal(evaluateSidepanelSize(518_177).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
 });
 
 test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PASS）', () => {
@@ -228,7 +228,7 @@ test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PA
   assert.equal(Math.min(absWall, formula), absWall, '取小 ⇒ 硬墙生效');
   assert.equal(300_001 <= Math.min(absWall, formula), false, '超过绝对上限必须 FAIL（硬墙生效）');
   // ② ≤ 绝对上限但 > 5% 公式 ⇒ FAIL（软纪律仍生效）。
-  const softCase = 504963; // > floor(480,896 × 1.05) = 504940，仍 < 563,200
+  const softCase = 518_177; // > floor(493,501 × 1.05) = 518,176，仍 < 563,200
   assert.ok(softCase <= PENDING_ABSOLUTE_CAP.absoluteCeilingBytes!);
   assert.equal(evaluateSidepanelSize(softCase).ok, false, '≤ 绝对上限但 > 5% 公式必须 FAIL（软纪律生效）');
   // ③ ≤ 5% 公式但 > 绝对上限 ⇒ FAIL（硬墙优先）——用假 marker 驱动同一公式。
@@ -254,7 +254,7 @@ test('V3-VOL-3 历史保真：各轮 reason 里的「40% 停工线」逐字保�
   assert.match(SIDEPANEL_BASELINE_META.reason, /40% 停工线/);
   assert.match(SIDEPANEL_BASELINE_META.reason, /\+36\.13%/, 'v3-4 轮的 +36.13% 历史登记保留');
   // 撤销只许追加：HISTORY / TIMELINE 与登记链条数值不得因本次裁决变动。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 480896, 'V4.5-1 R1 重登记后的当前基线');
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 493501, 'V4.5-1 R1 重登记后的当前基线');
   assert.equal(
     SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1].baselineAfterBytes,
     SIDEPANEL_BASELINE_BYTES,

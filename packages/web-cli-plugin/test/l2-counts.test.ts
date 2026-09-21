@@ -184,21 +184,25 @@ test('counts: 入口标签 / data-count / 状态栏摘要三处同源（可复�
 
 // ── 4. the settings registry is a single source, not a magic number ─────────
 
-test('settings/sections: 分区计数来自登记表；每个 id 仍作为 wc-section 渲染（重命名即 FAIL）', () => {
+test('settings/sections: 分区计数来自登记表；每个 id 仍有渲染点（重命名即 FAIL）', () => {
   const panel = readFileSync(resolve(PKG, 'src/ui/settings/panel.ts'), 'utf8');
+  const HELP_SOURCE = readFileSync(resolve(PKG, 'src/ui/settings/help.ts'), 'utf8');
   assert.equal(settingsSectionCount(), SETTINGS_SECTION_IDS.length);
-  assert.equal(SETTINGS_SECTION_IDS.length, 7, 'v1 顶层分区数（`.wc-section`）必须是 7');
+  // V4.5-1 W3（TASK-V45-112 / ADR-V45-008 §1）：手势表迁入设置「帮助」分区 ⇒ 7 → 8。
+  assert.equal(SETTINGS_SECTION_IDS.length, 8, '顶层分区数（`.wc-section`）必须是 8');
   for (const id of SETTINGS_SECTION_IDS) {
-    assert.ok(
-      new RegExp(`h\\(doc, 'section', \\{ id: '${id}', class: 'wc-section' \\}\\)`).test(panel),
-      `settings/sections.ts 登记了 ${id}，但 panel.ts 未把它渲染为 .wc-section（漂移）`,
-    );
+    // The「帮助」section is built by its own module (single source for the gesture table)
+    // and mounted by `panel.ts`; every other section is rendered inline in `panel.ts`.
+    const renderedInline = new RegExp(`h\\(doc, 'section', \\{ id: '${id}', class: 'wc-section' \\}\\)`).test(panel);
+    const renderedByHelpModule =
+      id === 'settings-help' && /buildHelpSection\(doc, h\)/.test(panel) && HELP_SOURCE.includes(`id: '${id}'`);
+    assert.ok(renderedInline || renderedByHelpModule, `settings/sections.ts 登记了 ${id}，但无渲染点（漂移）`);
   }
   // the count really is the registry's length, not a literal
   assert.equal(
     deriveCounts({ insightCounts: null, catalogMeta: null, auditEntries: null, settingsSections: [...SETTINGS_SECTION_IDS, 'settings-extra'] })
       .settings,
-    8,
+    9,
     '分区计数必须随登记表长度变化（写死则不变）',
   );
   assert.equal(deriveCounts({ insightCounts: null, catalogMeta: null, auditEntries: null }).settings, SETTINGS_SECTION_IDS.length);

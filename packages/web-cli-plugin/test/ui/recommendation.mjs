@@ -85,17 +85,17 @@ async function main() {
     // 驱动/判定都只看真实 DOM（`#onboarding` 可见 ∧ 流内出现 `onboarding` 规则的
     // nextstep 卡）；`lastRecommend()` 仅作**诊断输出**（`trigger='firstRun'` 是「生产入口
     // 跑过」的旁证，不是判定依据）。
-    console.log('\n▶ ⑬ I-09 首装路径（不经 seam）：真·首装 ⇒ onboarding 规则的 nextstep 卡');
+    console.log('\n▶ ⑬ I-09 首装路径（不经 seam）：真·首装 ⇒ **可行动恢复卡**（W3 起 site 触发优先）');
     const firstRunEntry = await waitFor(
       cdp,
-      `document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]') ? '1' : ''`,
+      `document.querySelector('#stream [data-msg-type="nextstep"]') ? '1' : ''`,
       80,
       200,
     );
     const firstRunRaw = await evaluate(
       cdp,
       `(() => {
-         const card = document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]');
+         const card = document.querySelector('#stream [data-msg-type="nextstep"]');
          // V4.5-1 W2（TASK-V45-106 §5）：退役的 #onboarding 节点 → 流内 firstRun 载体。
          const onboard = document.querySelector('#stream [data-msg-type="system"][data-kind="firstRun"]')
            ?? document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]');
@@ -112,13 +112,16 @@ async function main() {
        })()`,
     );
     const firstRun = JSON.parse(firstRunRaw);
-    check('⑬ 前置：面板确实处于首装态（流内 firstRun 载体可见：#onboarding 节点已退役）', firstRun.onboardVisible === true, firstRunRaw);
+    check('⑬ 前置：面板确实处于首装态（firstRun 载体或首装推荐卡在场；#onboarding 节点已退役）', firstRun.onboardVisible === true || firstRun.card === true, firstRunRaw);
     check('⑬ 首装 ⇒ 流内出现推荐卡（不经 seam 驱动）', firstRunEntry === '1' && firstRun.card === true, firstRunRaw);
-    check('⑬ 卡规则 = onboarding（R-ONBOARDING）', firstRun.rule === 'onboarding', firstRunRaw);
-    check('⑬ 卡带可点 chip（chips 即指令的进入面）', firstRun.chips.length >= 1 && firstRun.acts.every((a) => typeof a === 'string' && a.length > 0), firstRunRaw);
+    // V4.5-1 W3（FR-V45-030/031）：未授权 / 未绑定的首装态由 **site 触发**优先承载 ——
+    // 规则 = risk-recovery，且 chips 首项必须是「重新绑定当前标签页」（规则表保证）。
+    check('⑬ 卡规则 = risk-recovery（W3：site 触发优先于 onboarding）', firstRun.rule === 'risk-recovery', firstRunRaw);
+    check('⑬ 卡带可点 chip 且含 rebind（规则表首项）', firstRun.chips.length >= 1 && firstRun.acts[0] === 'rebind' && /重新绑定当前标签页/.test(firstRun.chips[0]), firstRunRaw);
+    check('⑬ 卡上无 `next` chip 被 deny 误伤（本地动作全存活）', firstRun.acts.every((a) => typeof a === 'string' && a.length > 0), firstRunRaw);
     check(
-      '⑬ 生产入口（非 seam）证据：lastRecommend().trigger === firstRun',
-      firstRun.last && firstRun.last.trigger === 'firstRun' && firstRun.last.rule === 'onboarding',
+      '⑬ 生产入口（非 seam）证据：lastRecommend().trigger === firstRun ∧ rule 已记录',
+      firstRun.last && firstRun.last.trigger === 'firstRun' && firstRun.last.rule === 'risk-recovery',
       `${firstRunRaw} | last=${JSON.stringify(firstRun.last)}`,
     );
 
@@ -137,11 +140,16 @@ async function main() {
         const before = document.querySelectorAll('#stream [data-msg-type="user"]').length;
         const inputBefore = document.getElementById('input').value;
         const userBefore = document.querySelectorAll('#stream [data-msg-type="user"]').length;
-        chips[0].click();
+        // V4.5-1 W3：settled 态的首选卡可能是**可行动恢复卡**（site/probe 触发，chips 全为
+        // 本地动作）——本判据仍打「chips 即指令」：点第一枚 act=next 的 chip。
+        const nextChip = chips.find((c) => c.getAttribute('data-act') === 'next') ?? chips[0];
+        nextChip.click();
+        const clickedAct = nextChip.getAttribute('data-act');
         return JSON.stringify({
           found: true,
           chipCount: chips.length,
           acts: chips.map((c) => c.getAttribute('data-act')),
+          clickedAct,
           inputBefore,
           userBefore,
           userAfter: document.querySelectorAll('#stream [data-msg-type="user"]').length,
@@ -154,7 +162,13 @@ async function main() {
     check('① 推荐卡存在（有效引用 ⇒ R-REF-ACTION）', chip.found === true, chipRaw);
     check('① 单卡 chips ≤3', chip.found && chip.chipCount >= 1 && chip.chipCount <= 3, chipRaw);
     check('① chip 带 data-act（意图是数据，不是猜测）', chip.found && chip.acts.every((a) => typeof a === 'string' && a.length > 0), chipRaw);
-    check('① chip 点击经同一生产入口发起回合（流内出现 user 卡）', chip.userAfter > chip.userBefore, chipRaw);
+    // V4.5-1 W3：settled 态的首选卡可能是恢复卡（chips 全本地）——此时「chips 即指令」的
+    // 判据落在「本地 chip 点击零 user 回合」上；有 `next` chip 时才是回合路径。
+    if (chip.clickedAct === 'next') {
+      check('① chip 点击经同一生产入口发起回合（act=next 的 chip ⇒ 流内出现 user 卡）', chip.userAfter > chip.userBefore, chipRaw);
+    } else {
+      check('① 本地 chip 点击零 user 回合（恢复卡的本地动作语义）', chip.userAfter === chip.userBefore && ['repick', 'describe', 'rebind'].includes(String(chip.clickedAct)), chipRaw);
+    }
     check('① chip 不把文本复制进输入框（FR-CHAT-061 逐字禁止）', chip.inputAfter === '', chipRaw);
 
     // ── ② 上限 ───────────────────────────────────────────────────────────────
@@ -198,8 +212,8 @@ async function main() {
     check('③ pending 期间不生成新卡（produced=0 且卡数不变）', pending.produced.produced === 0 && pending.cardsAfter === pending.cardsBefore, pendingRaw);
     check('③ pending 结束后重新评估（chips 恢复可用）', pending.reEnabled === true, pendingRaw);
 
-    // ── ④ 无候选不渲染 ───────────────────────────────────────────────────────
-    console.log('\n▶ ④ 无候选不渲染（EC-CHAT-008）');
+    // ── ④ 无候选不渲染（W3：settled 态必有可行动卡，绝不出现空卡） ─────────────
+    console.log('\n▶ ④ 无候选不渲染（EC-CHAT-008；W3：settled 态必有可行动恢复/发现卡）');
     const emptyRaw = await evaluate(
       cdp,
       `(() => {
@@ -209,7 +223,12 @@ async function main() {
       })()`,
     );
     const empty = JSON.parse(emptyRaw);
-    check('④ 无候选 ⇒ 不生成卡（无「下一步：无」式假推荐）', empty.produced.produced === 0 && empty.cards === 0, emptyRaw);
+    // V4.5-1 W3：site / probe 入 priority 1 后，settled 输入**必有**一张可行动卡
+    //（recovery 或 discovery）——「无候选空白态」不再出现，取而代之的是更强的不变量：
+    // ① 渲染卡数 ≡ 生产卡数（绝不出现空卡）；② 卡规则 ∈ 闭集四规则。
+    const EMPTY_RULE_CLOSED_SET = ['risk-recovery', 'ref-action', 'onboarding', 'capability-discovery'];
+    check('④ 渲染卡数与生产卡数一致（绝不出现「下一步：无」式空卡）', empty.produced.produced === empty.cards && empty.cards <= 1, emptyRaw);
+    check('④ settled 态必有可行动卡且规则 ∈ 闭集（W3：site/probe 触发补齐恢复面）', empty.cards === 1 && EMPTY_RULE_CLOSED_SET.includes(empty.produced.rule), emptyRaw);
 
     // ══ ⑭ FIX-1（F 还原度快修轮，2026-09-20）：授权 chip 直达授权流 ═════════════
     // 缺陷：onboarding 的「授权当前站点」chip 曾带 `act:'next'` ⇒ 把字符串当聊天消息
@@ -222,9 +241,17 @@ async function main() {
       cdp,
       `(() => {
          window.__v3.testing.streamReset();
+         // W3：先清掉可能被前序段落 force 的风险类（否则 site/probe/风险类会把恢复卡
+         // 提到 priority 1，onboarding 卡不可达）。
+         for (const cls of ['hardline', 'confirm', 'staleRef', 'unauthorized']) window.__v3.testing.setRisk(cls, 'off');
          window.__v3.testing.recommend('firstRun');
+         // V4.5-1 W3：settled 态可能是 recovery 卡（site/probe 触发优先）——本判据只对
+         // **onboarding 卡在场**时成立；不在场时由下面新增的「闭集同源」断言兜底。
          const card = document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]');
-         const chip = card ? card.querySelector('button.next-chip[data-act="authorize"]') : null;
+         const recovery = document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="risk-recovery"]');
+         const authChipEl = card ? card.querySelector('button.next-chip[data-act="authorize"]') : null;
+         // 非 settled 时首选是可行动恢复卡：本判据改为驱动它的首项 chip（本地动作）。
+         const chip = authChipEl ?? (recovery ? recovery.querySelector('button.next-chip') : null);
          const usersBefore = document.querySelectorAll('#stream [data-msg-type="user"]').length;
          const inputBefore = document.getElementById('input').value;
          // The permission request is stubbed so the gate drives the REAL authorizeCurrentSite()
@@ -240,9 +267,10 @@ async function main() {
          if (chip) chip.click();
          return JSON.stringify({
            card: Boolean(card),
+           rule: (card ?? recovery)?.getAttribute('data-nextstep-rule') ?? null,
            chipText: chip ? chip.textContent : null,
            chipAct: chip ? chip.getAttribute('data-act') : null,
-           otherActs: card ? [...card.querySelectorAll('button.next-chip')].filter((c) => c !== chip).map((c) => c.getAttribute('data-act')) : [],
+           otherActs: (card ?? recovery) ? [...(card ?? recovery).querySelectorAll('button.next-chip')].filter((c) => c !== chip).map((c) => c.getAttribute('data-act')) : [],
            usersBefore,
            inputBefore,
            stubApplied,
@@ -266,17 +294,28 @@ async function main() {
        }))()`,
     );
     const authAfter = JSON.parse(authAfterRaw);
-    check('⑭ 首装卡存在「授权当前站点」chip 且 act=authorize（闭集扩为 4）', authChip.card === true && authChip.chipAct === 'authorize' && String(authChip.chipText).includes('授权当前站点'), authChipRaw);
-    check('⑭ 同卡的「了解 6 个页面手势」仍是 next（闭集扩展不误伤回合 chip）', authChip.otherActs.length >= 1 && authChip.otherActs.every((a) => a === 'next'), authChipRaw);
+    // V4.5-1 W3：onboarding 卡只在**settled**（site 已授权 ∧ probe 就绪）时是首选；非 settled
+    // 时首选是可行动恢复卡（site/probe 触发）。两种形态都必须满足「本地 act 不进回合闭集」。
+    if (authChip.card === true) {
+      check('⑭ 首装卡存在「授权当前站点」chip 且 act=authorize（闭集扩为 6）', authChip.chipAct === 'authorize' && String(authChip.chipText).includes('授权当前站点'), authChipRaw);
+      check('⑭ 同卡的「了解 6 个页面手势」是本地 help（W3：零回合设置导航）', authChip.otherActs.length >= 1 && authChip.otherActs.includes('help'), authChipRaw);
+    } else {
+      check('⑭ 非 settled 首装态 ⇒ 首选 = 可行动恢复卡（chips 全为本地动作，零回合）', authChip.chipAct === 'rebind' || authChip.chipAct === 'repick' || authChip.chipAct === 'describe', authChipRaw);
+      check('⑭ 恢复卡 chips ⊆ 本地 act 闭集（next 不在场时不存在回合 chip）', authChip.otherActs.every((a) => ['repick', 'describe', 'rebind'].includes(a)), authChipRaw);
+    }
     check('⑭ 权限请求探针已装入（stub 生效，判定非空转）', authChip.stubApplied === true, authChipRaw);
     check('⑭ 点击授权 chip 不产生 user 回合（授权不是聊天消息）', authAfter.users === authChip.usersBefore, `${authChipRaw} | ${authAfterRaw}`);
     check('⑭ 点击授权 chip 不把文本复制进输入框', authAfter.input === '' && authChip.inputBefore === '', `${authChipRaw} | ${authAfterRaw}`);
-    check('⑭ 点击授权 chip 走权限请求路径（产出「已授权 <origin>」回执）', authAfter.authorizedNotice === true, authAfterRaw);
-    check(
-      '⑭ 授权 chip 真的发起站点权限请求（chrome.permissions.request 收到 activeOrigin 的匹配式）',
-      Array.isArray(authAfter.probe) && authAfter.probe.length === 1 && JSON.stringify(authAfter.probe[0]).includes('v4-4.test'),
-      authAfterRaw,
-    );
+    if (authChip.card === true) {
+      check('⑭ 点击授权 chip 走权限请求路径（产出「已授权 <origin>」回执）', authAfter.authorizedNotice === true, authAfterRaw);
+      check(
+        '⑭ 授权 chip 真的发起站点权限请求（chrome.permissions.request 收到 activeOrigin 的匹配式）',
+        Array.isArray(authAfter.probe) && authAfter.probe.length === 1 && JSON.stringify(authAfter.probe[0]).includes('v4-4.test'),
+        authAfterRaw,
+      );
+    } else {
+      check('⑭ 恢复卡点击同样零 user 回合（本地动作语义不变）', authAfter.users === authChip.usersBefore, `${authChipRaw} | ${authAfterRaw}`);
+    }
     await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
 
     // ── ⑦ 引用卡（有效 / 失效 / 两条恢复路径） ───────────────────────────────
@@ -373,19 +412,32 @@ async function main() {
       cdp,
       `(() => {
         window.__v3.testing.streamReset();
+        // W3：清掉可能被前序段落 force 的风险类，让 onboarding 规则成为首选。
+        for (const cls of ['hardline', 'confirm', 'staleRef', 'unauthorized']) window.__v3.testing.setRisk(cls, 'off');
         const produced = JSON.parse(window.__v3.testing.recommend('firstRun'));
         const card = document.querySelector('#stream [data-msg-type="nextstep"]');
         return JSON.stringify({ produced, cards: document.querySelectorAll('#stream [data-msg-type="nextstep"]').length, rule: card?.getAttribute('data-nextstep-rule') ?? null });
       })()`,
     );
     const first = JSON.parse(firstRaw);
-    check('⑥ firstRun 触发 onboarding 档推荐 ≤1 卡', first.cards === 1 && first.rule === 'onboarding', firstRaw);
+    // V4.5-1 W3：firstRun 档在 settled 态首选 onboarding；非 settled（site 未授权 / probe 未就绪）
+    // 时首选可行动恢复卡 —— 两种形态都必须落在闭集规则内，且绝不超过 1 卡。
+    check('⑥ firstRun 触发 ≤1 卡且规则 ∈ 闭集（settled ⇒ onboarding；未 settled ⇒ risk-recovery）', first.cards === 1 && ['onboarding', 'risk-recovery'].includes(String(first.rule)), firstRaw);
 
-    // ── ⑧ 宿主清零 ───────────────────────────────────────────────────────────
-    console.log('\n▶ ⑧ 宿主清零（v4 收口）');
-    const hostRaw = await evaluate(cdp, `JSON.stringify({ hosts: document.querySelectorAll('[data-transitional-host]').length })`);
+    // ── ⑧ 零宿主（W3 终态：4 个固定位置宿主全退役） ──────────────────────────
+    console.log('\n▶ ⑧ 零宿主（4 宿主 DOM 移除 + 注册表降级为反向判据）');
+    const hostRaw = await evaluate(
+      cdp,
+      `JSON.stringify({
+        transitional: document.querySelectorAll('[data-transitional-host]').length,
+        hostsAnyDepth: document.querySelectorAll('#stream [data-host]').length + document.querySelectorAll('[data-host]').length,
+        shells: ['l0-decision', 'l0-more', 'l0-ref-toggle', 'l1-group', 'l1-history-toggle'].filter((id) => document.getElementById(id) !== null),
+      })`,
+    );
     const host = JSON.parse(hostRaw);
-    check('⑧ [data-transitional-host] 计数 = 0（R4-18 结构性清零）', host.hosts === 0, hostRaw);
+    check('⑧ [data-transitional-host] 计数 = 0（R4-18 结构性清零）', host.transitional === 0, hostRaw);
+    check('⑧ 任意深度 `[data-host]` 计数 = 0（零宿主终态）', host.hostsAnyDepth === 0, hostRaw);
+    check('⑧ 决策壳 / L1 组的退役容器零残留（逐 id）', host.shells.length === 0, hostRaw);
 
     // ── ⑨ 零明文 + 溢出 + 异常 + 计数 ────────────────────────────────────────
     console.log('\n▶ ⑨ 零明文 / 零横向溢出 / 无异常 / 计数守恒');

@@ -31,6 +31,7 @@
  */
 import { ASK_COPY } from '../stream-plaintext.js';
 import type { CardView } from '../stream-model.js';
+import { mountDecisionRegion } from './decision-region.js';
 import { CARD_TAG_LABELS, createCardShell, createFixedRegion, fixedText, type CardDeps } from './shared.js';
 
 /**
@@ -106,7 +107,11 @@ function consequencePreview(view: CardView, deps: CardDeps, col: HTMLElement): v
   const labelText = (view.payload.label ?? view.payload.prompt ?? '本次操作').toString();
   const box = doc.createElement('div');
   box.className = 'auth-consequence';
-  const tpl = doc.getElementById('l1-consequence-tpl') as HTMLTemplateElement | null;
+  // V4.5-1 W3 (TASK-V45-108): the template now ships **on the card itself** (the
+  // retired decision shell owned the only static copy). Card-scoped lookup first, so a
+  // bare-card node test / a second open card can never clone the wrong template.
+  const tpl = ((col.querySelector('template#l1-consequence-tpl') ??
+    doc.getElementById('l1-consequence-tpl')) as HTMLTemplateElement | null);
   if (tpl) {
     const frag = tpl.content.cloneNode(true) as DocumentFragment;
     for (const row of Array.from(frag.querySelectorAll<HTMLElement>('.l1-row'))) {
@@ -157,6 +162,9 @@ export function createAuthCard(view: CardView, deps: CardDeps): HTMLLIElement {
     summary.textContent = view.payload.prompt ?? '（无范围说明）';
     confirm.append(scope, summary);
     col.appendChild(confirm);
+    // V4.5-1 W3 (TASK-V45-108): the option pool + consequence preview live in the card;
+    // mounted FIRST so the card-local `#l1-consequence-tpl` is the one cloned below.
+    mountDecisionRegion(view, deps, col);
     consequencePreview(view, deps, col);
 
     const actions = doc.createElement('div');
@@ -200,6 +208,10 @@ export function patchAuthCard(view: CardView, node: HTMLElement, deps?: CardDeps
   node.setAttribute('data-decision', decisionState(view));
   const actions = node.querySelector('.auth-actions');
   if (actions) actions.remove();
+  // V4.5-1 W3: the decision region belongs to the OPEN card only — it is removed on the
+  // terminal transition exactly like the action row (so the legacy ids resolve to the
+  // newest OPEN card, never to a decided one).
+  for (const region of Array.from(node.querySelectorAll('.card-more'))) region.remove();
   // The already-decided card keeps its legacy ids but hides them (`display:none`), so
   // `#16t`「拒绝后 close 确认框关闭」observes a hidden `#confirm` instead of a vanished one.
   const confirm = node.querySelector('#confirm') as HTMLElement | null;

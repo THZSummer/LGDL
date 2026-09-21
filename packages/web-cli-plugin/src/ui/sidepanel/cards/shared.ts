@@ -37,6 +37,21 @@ export interface CardDeps {
    * intent (the完整交互 lands in the next leaves).
    */
   readonly onCardAction?: (cardId: string, action: string, value?: string) => void;
+  /**
+   * V4.5-1 W3 (TASK-V45-108): the ONE disclosure controller, so a card-internalized
+   * folding face (`#l1-more` / `#l1-consequences`) goes through the same controller as
+   * every other collapse (no second folding mechanism inside a card).
+   */
+  readonly disclosure?: {
+    toggle(id: string): boolean;
+    open(id: string): boolean;
+    close(id: string): boolean;
+  };
+  /**
+   * V4.5-1 W3 (TASK-V45-108): reveal the card's own fallback input (the terminal
+   * 「其他…（我来描述）」item of the option pool) — the card-local mutual disclosure.
+   */
+  readonly onRevealFallback?: () => void;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

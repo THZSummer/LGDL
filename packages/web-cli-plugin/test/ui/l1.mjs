@@ -57,9 +57,9 @@ import { join } from 'node:path';
 const FIXTURE_ORIGIN = 'https://v3-l1.test';
 const LLM_KEY = 'web-cli:web-cli:llm';
 /** D-005 runtime floor（本叶台账 `v4GateFloors` 的 l1 下界；只增不减）。 */
-const L1_RUNTIME_FLOOR = 103;
+const L1_RUNTIME_FLOOR = 111;
 /** v3 静态 `check(` 计点下界（v3 台账近似值，只增）。 */
-const L1_STATIC_FLOOR = 64;
+const L1_STATIC_FLOOR = 72;
 /**
  * V4-1 TASK-509 —— 入口机制重写（内容契约保留）。
  *
@@ -73,37 +73,39 @@ const L1_STATIC_FLOOR = 64;
  * 这是**收紧**：v3 的连带展开是为了迁就 7/7 满额的可点预算，工具栏 = 常驻导航后
  * 每类都有自己的一等入口。
  */
+/**
+ * V4.5-1 W3（TASK-V45-108/109）—— 内容面契约等价重锚。
+ *
+ * 4 个固定位置宿主退役后，v3 的八个内容类各有唯一落位：`l1-more` / `l1-consequences`
+ * 迁入 ask/auth 卡的决策区（**唯一活跃/最新卡**铸造 id）、`l1-ref-evidence` 迁入 ref 卡
+ * 证据区、`l1-local-tree` / `l1-receipt` 迁入 L2 只读承载块、`l1-gestures` 迁设置「帮助」
+ * 分区、`l1-status` 保持设置视图常驻分区、`l1-history` 退役（历史 = 流本身）。
+ */
 const CLASSES = [
+  'l1-more',
   'l1-consequences',
-  'l1-ref-evidence',
   'l1-local-tree',
-  'l1-history',
   'l1-receipt',
   'l1-gestures',
-  'l1-more',
+  'l2-tree-attribution',
+  'l2-audit-evidence',
 ];
+/** 静态/卡内面（默认夹具里在场；`l1-gestures` 要等设置视图挂载）。 */
+const STATIC_FACES = ['l1-more', 'l1-consequences', 'l1-local-tree', 'l1-receipt', 'l2-tree-attribution', 'l2-audit-evidence'];
+/** 退役容器（14）+ 退役触发器（6）——零 DOM 残留。 */
+const RETIRED_CONTAINERS = [
+  'l0-decision', 'l0-pick', 'l0-status-band', 'l0-kicker', 'l0-more', 'l0-ref-toggle', 'l0-receipt-summary',
+  'l1-group', 'l1-history-toggle', 'l1-history', 'l1-history-rows', 'l1-local-tree-toggle', 'l1-receipt-toggle',
+  'l1-gestures-toggle',
+];
+const RETIRED_TRIGGERS = ['l0-more', 'l0-ref-toggle', 'l1-local-tree-toggle', 'l1-history-toggle', 'l1-receipt-toggle', 'l1-gestures-toggle'];
 /** v4：状态/授权类的 1 次交互入口（设置视图的「站点与授权」分区）。 */
 const STATUS_ENTRY = 'l2-entry-settings';
-/** class → the L0/L1 trigger whose ONE click must reveal it. */
-const ENTRY = {
-  'l1-consequences': 'l0-more',
-  'l1-ref-evidence': 'l0-ref-toggle',
-  'l1-local-tree': 'l1-local-tree-toggle',
-  'l1-history': 'l1-history-toggle',
-  'l1-receipt': 'l1-receipt-toggle',
-  'l1-gestures': 'l1-gestures-toggle',
-  'l1-more': 'l0-more',
-};
-/** class → the class's OWN labelled trigger (`data-count` lives there). */
-const TRIGGER = {
-  'l1-consequences': 'l1-consequences-toggle',
-  'l1-ref-evidence': 'l0-ref-toggle',
-  'l1-local-tree': 'l1-local-tree-toggle',
-  'l1-history': 'l1-history-toggle',
-  'l1-receipt': 'l1-receipt-toggle',
-  'l1-gestures': 'l1-gestures-toggle',
-  'l1-more': 'l0-more',
-};
+/** 卡内决策区的触发器（唯一活跃 ask/auth 卡铸造）。 */
+const CARD_TRIGGERS = ['l1-more-toggle', 'l1-consequences-toggle'];
+/** 卡内两个可折叠面的 id（等价取代 v3「八类全 hidden」的折叠语义）。 */
+const CARD_FACE_IDS = ['l1-more', 'l1-consequences'];
+
 /** The verbatim readable reasons (plan §2.3(4)) — the renderer must match. */
 const REASON = {
   'dom-gone': '引用 1 的目标元素已不存在（选择器解析失败或元素被替换）',
@@ -179,47 +181,143 @@ async function main() {
     await resetFixture(cdp);
 
     // ── ① the eight classes are enumerable + each is ≤1 interaction ─────────
-    console.log('\n▶ ① 八类 L1 内容：可枚举 + 逐类 ≤1 次交互');
+    console.log('\n▶ ① 内容面契约：可枚举 + 逐面可达 + 退役面零残留（W3 等价重锚）');
     const enumerated = await evaluate(
       cdp,
       `(() => {
         const panels = [...document.querySelectorAll('[data-l1-panel]')];
+        const targets = [...(window.__v3.disclosure.targets || [])];
         return JSON.stringify({
-          ids: panels.map((p) => p.getAttribute('data-l1-panel')),
-          allHidden: panels.every((p) => p.hidden === true),
+          ids: [...new Set(panels.map((p) => p.getAttribute('data-l1-panel')))],
           dataIds: panels.map((p) => p.id),
+          targets,
+          // 退役面（容器 + 触发器）零残留：这是 W3「宿主清零」的内容侧坐标。
+          retiredPresent: ${JSON.stringify([...RETIRED_CONTAINERS, ...RETIRED_TRIGGERS])}.filter((id) => document.getElementById(id) !== null),
+          hosts: document.querySelectorAll('#stream [data-host], #stream [data-transitional-host]').length,
+          streamForeign: [...document.getElementById('stream').children].filter((el) => !el.hasAttribute('data-msg-type') && !el.classList.contains('log-empty-text')).length,
         });
       })()`,
     );
     const en = JSON.parse(enumerated);
-    check('① 恰好 7 个 [data-l1-panel] 且 id 集合与契约一致', JSON.stringify([...en.ids].sort()) === JSON.stringify([...CLASSES].sort()), enumerated);
-    check('① 7 个 L1 面板默认全部 hidden（折叠只用 hidden 属性）', en.allHidden === true, enumerated);
+    check('① 在场内容面 ⊆ 折叠白名单（声明集合不得超出控制器）', en.ids.every((id) => en.targets.includes(id)), enumerated);
+    check('① 6 个静态/卡内面齐备（`l1-gestures` 随设置视图挂载）', STATIC_FACES.every((f) => en.ids.includes(f)), enumerated);
+    check('① 折叠白名单恰 7 项且与内容面契约同源', en.targets.length === 7 && CLASSES.every((c) => en.targets.includes(c)), enumerated);
+    check('① 退役容器 / 退役触发器零 DOM 残留（14 + 6 项逐项）', en.retiredPresent.length === 0, JSON.stringify(en.retiredPresent));
+    check('① 零宿主 + 纯卡序：`#stream` 无宿主、无非卡子节点', en.hosts === 0 && en.streamForeign === 0, JSON.stringify({ hosts: en.hosts, foreign: en.streamForeign }));
 
-    for (const cls of CLASSES) {
+    // 卡内两面：默认夹具的 ask 卡在场，两个触发器可点且各自目标按 hidden 折叠。
+    for (const [triggerId, targetId, parentId] of [['l1-more-toggle', 'l1-more', null], ['l1-consequences-toggle', 'l1-consequences', 'l1-more']]) {
       const probe = await evaluate(
         cdp,
         `(() => {
           window.__v3.testing.collapseAll();
-          const panel = [...document.querySelectorAll('[data-l1-panel]')].find((p) => p.getAttribute('data-l1-panel') === ${JSON.stringify(cls)});
-          const trigger = document.getElementById(${JSON.stringify(ENTRY[cls])});
-          const before = panel ? panel.hidden : null;
+          // The consequence preview lives INSIDE the option pool: open the pool first so
+          // the nested target's visibility is judged on its own disclosure.
+          const parent = ${JSON.stringify(parentId)};
+          if (parent) { const p = document.getElementById(parent); if (p && p.hidden === true && document.getElementById('l1-more-toggle')) document.getElementById('l1-more-toggle').click(); }
+          const trigger = document.getElementById(${JSON.stringify(triggerId)});
+          const target = document.getElementById(${JSON.stringify(targetId)});
+          const before = target ? target.hidden : null;
           trigger.click();
           const visible = ${VISIBLE};
           return JSON.stringify({
             before,
-            afterHidden: panel ? panel.hidden : null,
-            visible: panel ? visible(panel) : false,
-            text: panel ? (panel.textContent || '').trim().length : 0,
+            afterHidden: target ? target.hidden : null,
+            visible: target ? visible(target) : false,
+            text: target ? (target.textContent || '').trim().length : 0,
             aria: trigger.getAttribute('aria-expanded'),
+            controls: trigger.getAttribute('aria-controls'),
           });
         })()`,
       );
       const p = JSON.parse(probe);
-      check(`① ${cls}：默认 hidden → 1 次点击（${ENTRY[cls]}）后可见且有非空内容`, p.before === true && p.afterHidden === false && p.visible === true && p.text > 0, probe);
-      // I-07（R1 修复，2026-09-16）：`aria` 此前**采集即弃**（NFR-V3-009/011 的
-      // 「触发器 aria-expanded 切换正确」没有直接断言）—— 现按已采集值补显式判据。
-      check(`① ${cls}：1 次点击后触发器 aria-expanded=true（ARIA 状态与可见性同步）`, p.aria === 'true', probe);
+      check(`① ${targetId}：默认 hidden → 1 次点击（${triggerId}）后可见且有非空内容`, p.before === true && p.afterHidden === false && p.visible === true && p.text > 0, probe);
+      check(`① ${targetId}：1 次点击后触发器 aria-expanded=true（ARIA 与可见性同步）`, p.aria === 'true' && p.controls === targetId, probe);
     }
+    // 视图内两面（L2 只读承载块）：离开视图即不可达 ——「视图内容不参与折叠」。
+    const viewFaces = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.collapseAll();
+        const visible = ${VISIBLE};
+        const out = {};
+        for (const id of ['l2-tree-attribution', 'l2-audit-evidence']) {
+          const el = document.getElementById(id);
+          out[id] = { exists: Boolean(el), hidden: el ? el.hidden : null, visible: el ? visible(el) : false };
+        }
+        return JSON.stringify(out);
+      })()`,
+    );
+    const vf = JSON.parse(viewFaces);
+    check('① 两个 L2 只读承载块存在且不被 collapseAll() 折叠（视图内容不参与自动折叠）', vf['l2-tree-attribution'].exists && vf['l2-tree-attribution'].hidden === false && vf['l2-audit-evidence'].exists && vf['l2-audit-evidence'].hidden === false, viewFaces);
+    // 零宿主 / 纯卡序的**产品自断言** + 反证（RP-V4-06 同款：注入即抛错 ⇒ 判据不空转）。
+    const orderSelf = await evaluate(
+      cdp,
+      `(() => {
+        const verdict = (() => { try { window.__v3.testing.assertStreamPureCardOrder(); return 'ok'; } catch (e) { return String(e && e.message ? e.message : e); } })();
+        // 反证 ①：注入 1 个 li[data-host] ⇒ 零宿主判据必须抛错。
+        const host = document.createElement('li');
+        host.setAttribute('data-host', 'forged');
+        document.getElementById('stream').appendChild(host);
+        let hostVerdict;
+        try { window.__v3.testing.assertStreamPureCardOrder(); hostVerdict = 'NO-THROW'; } catch (e) { hostVerdict = String(e && e.message ? e.message : e); }
+        host.remove();
+        // 反证 ②：注入 1 个非卡子节点 ⇒ 纯卡序判据必须抛错。
+        const foreign = document.createElement('div');
+        foreign.textContent = 'forged';
+        document.getElementById('stream').appendChild(foreign);
+        let foreignVerdict;
+        try { window.__v3.testing.assertStreamPureCardOrder(); foreignVerdict = 'NO-THROW'; } catch (e) { foreignVerdict = String(e && e.message ? e.message : e); }
+        foreign.remove();
+        // 还原段：移除注入后必须再次通过。
+        const restored = (() => { try { window.__v3.testing.assertStreamPureCardOrder(); return 'ok'; } catch (e) { return String(e); } })();
+        const shape = window.__v3.testing.streamShape();
+        return JSON.stringify({ verdict, hostVerdict, foreignVerdict, restored, shape, auditCountDecls: document.querySelectorAll('#l2-audit-count').length, treeBlocks: document.querySelectorAll('#view-host #l2-tree-attribution, #view-host #l2-audit-evidence').length });
+      })()`,
+    );
+    const os = JSON.parse(orderSelf);
+    check('① 产品自断言 `assertStreamPureCardOrder()` 在真实产物上通过（零宿主 + 纯卡序）', os.verdict === 'ok', orderSelf);
+    check('① 反证（FAIL 段）：注入 1 个 li[data-host] ⇒ 零宿主判据抛错（判据不空转）', typeof os.hostVerdict === 'string' && os.hostVerdict.includes('宿主'), String(os.hostVerdict));
+    check('① 反证（FAIL 段）：注入 1 个非卡子节点 ⇒ 纯卡序判据抛错', typeof os.foreignVerdict === 'string' && os.foreignVerdict.includes('非卡子节点'), String(os.foreignVerdict));
+    check('① 反证（还原段）：移除注入后自断言必须再次通过', os.restored === 'ok', String(os.restored));
+    check('① 形状读数同源（卡子节点 = 投影卡数 ∧ 宿主 0 ∧ 外来子节点 0）', os.shape.hostNodes === 0 && os.shape.foreignChildren === 0, JSON.stringify(os.shape));
+    check('① `#l2-audit-count`（已决步数）全仓唯一声明点（DOM 计数 = 1）', os.auditCountDecls === 1, String(os.auditCountDecls));
+    check('① 两个 L2 只读承载块都挂在 `#view-host` 内（迁入方向性：不引入第二滚动容器）', os.treeBlocks === 2, String(os.treeBlocks));
+    // 迁入块的「只读 + 有档」：两个承载块各自带 data-l2-block 标记与可读标题。
+    const blockMeta = await evaluate(
+      cdp,
+      `(() => [...document.querySelectorAll('#l2-tree-attribution, #l2-audit-evidence')].map((el) => ({
+        id: el.id,
+        mark: el.getAttribute('data-l2-block'),
+        title: (el.querySelector('.l2-block-title')?.textContent ?? '').trim(),
+        clickables: el.querySelectorAll('button, a, input, select, textarea').length,
+      })))()`,
+    );
+    for (const b of blockMeta) {
+      check(`① ${b.id}：迁入块带 data-l2-block 标记 + 非空只读标题`, Boolean(b.mark) && b.title.length > 0, JSON.stringify(b));
+      check(`① ${b.id}：迁入块零可点控件（只读承载，不成为第二交互面）`, b.clickables === 0, JSON.stringify(b));
+    }
+
+    // 设置「帮助」分区：一次交互（设置入口）即可达，且手势表 6 行单源。
+    const helpSection = await evaluate(
+      cdp,
+      `(() => {
+        const entry = document.getElementById(${JSON.stringify(STATUS_ENTRY)});
+        entry.click();
+        const section = document.getElementById('settings-help');
+        const rows = [...document.querySelectorAll('#l1-gestures-rows tr')];
+        const clickables = section ? section.querySelectorAll('button, a, input, select, textarea').length : -1;
+        const panel = document.querySelector('[data-l1-panel="l1-gestures"]');
+        const out = { sectionExists: Boolean(section), rows: rows.length, clickables, panelExists: Boolean(panel), panelHidden: panel ? panel.hidden : null };
+        document.getElementById('settings-back').click();
+        return JSON.stringify(out);
+      })()`,
+    );
+    const hs = JSON.parse(helpSection);
+    check('① 设置「帮助」分区 1 次交互可达（#settings-help 渲染为第 8 分区）', hs.sectionExists === true, helpSection);
+    check('① 帮助分区手势表 6 行（单源 `L1_GESTURE_LABELS`）且分区内零可点控件', hs.rows === 6 && hs.clickables === 0, helpSection);
+    check('① `l1-gestures` 面随分区挂载（第 7 个内容面就位）', hs.panelExists === true && hs.panelHidden === false, helpSection);
+
     // ── ①b v4 入口机制：状态/授权类 = 设置视图内的常驻分区（法则六） ────────
     const groupOpen = await evaluate(
       cdp,
@@ -235,9 +333,6 @@ async function main() {
           return [id, el ? visible(el) : null];
         });
         const settingsVisible = document.getElementById('settings-view').hidden === false;
-        // V4-1：#settings-view 是 v1 的**同文档视图替换**机制（body.settings-open
-        // ⇒ 三区 display:none），与 #view-host 的 hidden 机制并行。断言按各自的
-        // **真实机制**判定「聊天区被替换」——不把一种机制硬套到另一种上。
         const chatReplaced = getComputedStyle(document.getElementById('region-stream')).display === 'none';
         const ariaOpen = entry.getAttribute('aria-expanded');
         document.getElementById('settings-back').click();
@@ -260,58 +355,39 @@ async function main() {
     const geo = await evaluate(
       cdp,
       `(() => {
-        // V4-1 入口机制：L1 内容层的四个宿主（局部树 / 历史 / 回执 / 手势）各有
-        // 自己的触发器，一次点击即展开 —— 不再依赖退役的 #l0-status-band 连带展开。
-        const open = () => {
-          window.__v3.testing.collapseAll();
-          for (const id of ['l1-local-tree-toggle', 'l1-history-toggle', 'l1-receipt-toggle', 'l1-gestures-toggle']) {
-            const el = document.getElementById(id);
-            if (el && el.getAttribute('aria-expanded') === 'false') el.click();
-          }
-        };
-        open();
+        // V4.5-1 W3：展开面 = 卡内决策区（选项池 + 后果预演）。「展开只增滚动长度、
+        // 不遮挡风险位与决策卡」的语义逐字保留，只有展开对象从退役的 L1 组换成卡内面。
+        window.__v3.testing.collapseAll();
+        for (const id of ['l1-more-toggle', 'l1-consequences-toggle']) {
+          const el = document.getElementById(id);
+          if (el && el.getAttribute('aria-expanded') === 'false') el.click();
+        }
+        const card = document.querySelector('[data-msg-type="askuser"]');
+        const pool = document.getElementById('l1-more');
+        const bar = document.getElementById('region-statusbar');
         const stream = document.getElementById('stream');
-        // 展开会让内容变长（只增滚动长度，不换容器）；点焦点会把触发器滚进视野，
-        // 故先把滚动位归零再量「决策卡是否仍完整可见」——测的是结构遮挡，不是滚动位。
-        stream.scrollTop = 0;
-        const barBox = document.getElementById('region-statusbar').getBoundingClientRect();
-        const streamBox = stream.getBoundingClientRect();
-        const card = document.getElementById('l0-decision').getBoundingClientRect();
-        const group = document.getElementById('l1-group').getBoundingClientRect();
-        const inter = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
-        const inView = (r) => r.top >= 0 && r.bottom <= window.innerHeight && r.height > 0;
-        const scrollers = [...document.querySelectorAll('#region-stream *, #region-stream')]
-          .filter((el) => { const s = getComputedStyle(el); return (s.overflowY === 'auto' || s.overflowY === 'scroll') && el.scrollHeight > el.clientHeight; })
-          .map((el) => el.id || el.className);
+        const vh = window.innerHeight;
+        const c = card.getBoundingClientRect();
+        const b = bar.getBoundingClientRect();
+        const s = stream.getBoundingClientRect();
         return JSON.stringify({
-          barInView: inView(barBox), cardInView: inView(card),
-          cardBox: { top: Math.round(card.top), bottom: Math.round(card.bottom), h: Math.round(card.height) },
-          streamBox: { top: Math.round(streamBox.top), bottom: Math.round(streamBox.bottom), h: Math.round(streamBox.height) },
-          scrollTop: stream.scrollTop, scrollHeight: stream.scrollHeight,
-          // 可见盒零交叠：#stream 的可视底边不得越过状态栏顶边（展开区在滚动容器
-          // 内 ⇒ 原始 rect 会溢出容器底，故用**容器可见盒**判定，而非未裁剪 rect）。
-          streamBarOverlap: inter(streamBox, barBox),
-          cardGroup: inter(card, group),
-          groupInsideStream: stream.contains(document.getElementById('l1-group')),
-          groupTallerThanStream: group.height > streamBox.height,
-          panelScrollers: scrollers,
-          streamId: stream.id,
-          railInStatusbar: Boolean(document.getElementById('region-statusbar').contains(document.getElementById('risk-rail'))),
-          barBottomVsStreamBottom: Math.round(streamBox.bottom) <= Math.round(barBox.top),
+          cardInView: c.top >= -1 && c.bottom <= vh + 1,
+          poolVisible: pool ? pool.hidden === false : false,
+          groupInsideStream: Boolean(card && stream.contains(card)),
+          streamBarOverlap: Math.max(0, Math.min(s.bottom, b.bottom) - Math.max(s.top, b.top)),
+          barBottomVsStreamBottom: b.bottom >= s.bottom - 1,
+          railInStatusbar: document.getElementById('region-statusbar').contains(document.getElementById('risk-rail')),
         });
       })()`,
     );
     const g = JSON.parse(geo);
-    check('② 展开后 #region-statusbar 仍在视口内（body 直挂 ⇒ 流内展开推不动风险位）', g.barInView === true, geo);
-    check('② 展开后决策卡（#l0-decision）仍完整在视口内（展开只增滚动长度，不遮挡）', g.cardInView === true, geo);
-    check('② 展开区 #l1-group 在滚动容器内、且 #stream 可见盒与状态栏零交叠（不挤压风险位）', g.groupInsideStream === true && g.streamBarOverlap === 0 && g.barBottomVsStreamBottom === true, geo);
-    check('② 展开区与决策卡交面积 = 0（展开不覆盖决策卡）', g.cardGroup === 0, geo);
-    check('② 展开后 #region-stream 内滚动容器仍只有 #stream（L1 展开不新增滚动面）', g.panelScrollers.every((id) => id === 'stream'), JSON.stringify(g.panelScrollers));
+    check('② 展开后决策卡（流内 ask 卡）仍完整在视口内（展开只增滚动长度，不遮挡）', g.cardInView === true, geo);
+    check('② 展开区（卡内选项池）可见 ∧ 卡在滚动容器内 ∧ #stream 可见盒与状态栏零交叠', g.poolVisible === true && g.groupInsideStream === true && g.streamBarOverlap === 0 && g.barBottomVsStreamBottom === true, geo);
     check('② 风险位归属状态栏（v4 位置迁移后祖先闭包仍干净）', g.railInStatusbar === true, geo);
 
     // ── ③ consequences: two paragraphs each + irreversibility ───────────────
     console.log('\n▶ ③ 后果说明与影响预演：每选项两段必填 + 破坏性选项不可逆声明');
-    await evaluate(cdp, `window.__v3.testing.collapseAll(); document.getElementById('l0-more').click(); true`);
+    await evaluate(cdp, `window.__v3.testing.collapseAll(); document.getElementById('l1-more-toggle').click(); true`);
     await sleep(200);
     const cons = await evaluate(
       cdp,
@@ -349,6 +425,11 @@ async function main() {
           window.__v3.testing.l1('res', ${JSON.stringify(res ?? null)});
           const report = window.__v3.testing.l1('report');
           const last = report.refs[report.refs.length - 1];
+          // V4.5-1 W3：恢复区 / 证据层现在**只在 ref 卡内**铸造（唯一最新卡）——门禁必须先
+          // 走一次真实投影动作，才能读取卡内 id（这正是「元素卡内化」的可达性证明）。
+          if (last.verdict !== 'valid') {
+            window.__v3.testing.refCard(Number(String(last.refId).replace('ref_', '')) || 1, 'stale', { why: last.reason });
+          }
           return JSON.stringify({ refId: rec.facts.refId, verdict: last.verdict, reason: last.reason, refs: report.refs.length });
         })()`,
       );
@@ -375,7 +456,9 @@ async function main() {
         cdp,
         `(() => {
           const row = document.querySelector('#risk-rail .risk-row[data-risk-class="staleRef"]');
-          return JSON.stringify({ exists: Boolean(row), text: row ? (row.querySelector('.risk-text')?.textContent || '').trim() : '', badge: row ? (row.querySelector('.risk-badge')?.textContent || '').trim() : '', icon: row ? Boolean(row.querySelector('.risk-icon')) : false, aria: document.getElementById('l0-ref-toggle').getAttribute('aria-disabled'), repick: document.querySelector('#l1-ref-repick')?.textContent ?? '' });
+          // V4.5-1 W3：芯片 / 恢复入口的载体迁入 ref 卡（退役的 #l0-ref-toggle /
+          // #l0-ref-badge 由卡内 chip + #l1-ref-actions 等价承载）。
+          return JSON.stringify({ exists: Boolean(row), text: row ? (row.querySelector('.risk-text')?.textContent || '').trim() : '', badge: row ? (row.querySelector('.risk-badge')?.textContent || '').trim() : '', icon: row ? Boolean(row.querySelector('.risk-icon')) : false, actionsVisible: (() => { const a = document.getElementById('l1-ref-actions'); return a ? a.hidden === false : null; })(), repick: document.querySelector('#l1-ref-repick')?.textContent ?? '' });
         })()`,
       );
       const r = JSON.parse(rail);
@@ -386,7 +469,7 @@ async function main() {
       // V4-4 TASK-806: the retired `#l0-pick` used to be rewritten to「重新拾取」; the
       // recovery entry is now the `#l1-ref-repick` button itself (same wording, same
       // single production entry `requestPick()`).
-      check(`⑦ ${dimension} → chip 标记失效 + 恢复入口为「重新拾取」`, r.aria === 'true' && /^重新拾取/.test(r.repick), rail);
+      check(`⑦ ${dimension} → 卡内恢复区可见 + 恢复入口为「重新拾取」`, r.actionsVisible === true && /^重新拾取/.test(r.repick), rail);
     }
     const crossOrigin = await judge(REF_FACTS, { ...GOOD_ENV, currentOrigin: 'https://other.test' }, RESOLVED);
     check(
@@ -481,10 +564,13 @@ async function main() {
         // is retired and covered by test/ui/ask-auth-inflow.mjs. What must hold during
         // folding is: L1 all hidden, the confirm RISK row resident, and zero bypassing
         // allow/deny control anywhere outside the (absent) card.
-        const allowControls = [...document.querySelectorAll('#l0-decision button, #l0-decision [role="button"]')]
+        const decisionScope = document.querySelector('[data-msg-type="askuser"], [data-msg-type="auth"]') ?? document.getElementById('stream');
+        const allowControls = [...decisionScope.querySelectorAll('button, [role="button"]')]
           .filter(visible)
           .filter((b) => /^(允许|放行|允许执行|忽略硬底线|覆盖)$/.test((b.textContent || '').trim()));
-        const l1Hidden = [...document.querySelectorAll('[data-l1-panel]')].every((p) => p.hidden === true);
+        // V4.5-1 W3：卡内 / 视图内面不参与 collapseAll（视图内容不折叠）；折叠语义的
+        // 等价判据 = 两个卡内面已收起。
+        const l1Hidden = ['l1-more', 'l1-consequences'].every((id) => { const n = document.getElementById(id); return n ? n.hidden === true : true; });
         return JSON.stringify({
           l1AllHidden: l1Hidden,
           confirmRowVisible: visible(confirmRow),
@@ -514,10 +600,12 @@ async function main() {
         window.__v3.testing.l1('env', ${JSON.stringify(GOOD_ENV)});
         window.__v3.testing.l1('res', { status: 'missing' });
         const before = window.__v3.testing.l1('report');
-        document.getElementById('l0-ref-toggle').click();
+        // V4.5-1 W3：证据层 / 恢复区现在由 ref 卡承载（唯一最新卡铸造 id）——先走一次
+        // 真实投影动作铸造卡，再按真实 UI 路径读取 / 点击卡内控件。
+        window.__v3.testing.refCard(Number(String(before.refs[before.refs.length - 1].refId).replace('ref_', '')) || 1, 'stale', { why: before.refs[before.refs.length - 1].reason });
         const actionsVisible = document.getElementById('l1-ref-actions').hidden === false;
         const reason = document.getElementById('l1-ref-reason').textContent || '';
-        const badgeVisible = document.getElementById('l0-ref-badge').hidden === false;
+        const badgeVisible = document.querySelector('.ref-stale-badge') ? document.querySelector('.ref-stale-badge').hidden === false : null;
         document.getElementById('l1-ref-describe').click();
         // V4-3（TASK-711 R2 / RP-L1-E 重 pin）：ask-fallback 不再常驻 —— 它由流内 ask 卡
         // 按需铸造（revealFallback -> revealAskFallback 先建 text 卡再揭示）。
@@ -525,6 +613,11 @@ async function main() {
         // 「因错而红」（判定器会正确判无效），而不是具名断言失败。语义不变：无兜底节点 = 未打开。
         const fallbackNode = document.getElementById('ask-fallback');
         const fallbackOpen = fallbackNode ? fallbackNode.hidden === false : false;
+        // V4-4（BLOCK-03）：ref 卡的「改用描述」是**卡内局部披露**（.ref-fallback 类），
+        // 不新造第二个输入框 —— W3 后两种载体之一可见即等价。
+        const refFallback = document.querySelector('.ref-fallback');
+        const refFallbackOpen = refFallback ? refFallback.hidden === false : false;
+        const visibleTextInputs = [...document.querySelectorAll('input[type="text"], input:not([type])')].filter((el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; }).length;
         // N-04（2026-09-16 收口轮）：面板不再自己写「{status:'resolved', refMark:新id}」。
         // 重拾由「调用方传入新鲜事实」发起，页面侧观测（这里由门禁扮演调用方）在拿到
         // 新 id 之后注入 —— 观测驱动，而不是断言驱动。
@@ -532,7 +625,7 @@ async function main() {
         window.__v3.testing.l1('res', { status: 'resolved', refMark: fresh.facts.refId, nodeCount: 1 });
         const after = window.__v3.testing.l1('report');
         return JSON.stringify({
-          beforeStale: before.stale, actionsVisible, reason, badgeVisible, fallbackOpen,
+          beforeStale: before.stale, actionsVisible, reason, badgeVisible, fallbackOpen, refFallbackOpen, visibleTextInputs,
           beforeIds: before.refs.map((r) => r.refId), afterIds: after.refs.map((r) => r.refId),
           verdicts: after.refs.map((r) => r.verdict), stale: after.stale,
           repickCount: after.refs.length,
@@ -541,8 +634,9 @@ async function main() {
     );
     const rec9 = JSON.parse(recovery);
     check('⑨ 失效态下恢复路径可见 + 可读原因给出', rec9.actionsVisible === true && rec9.reason.length > 0, recovery);
-    check('⑨ chip 侧失效徽标可见（三通道之一）', rec9.badgeVisible === true, recovery);
-    check('⑨ 「改用描述」走既有 #ask 兜底输入（不新造输入框）', rec9.fallbackOpen === true, recovery);
+    check('⑨ 卡内失效徽标可见（三通道之一，`.ref-stale-badge` 承载退役的 `#l0-ref-badge`）', rec9.badgeVisible === true, recovery);
+    check('⑨ 「改用描述」走既有兜底输入（卡内 `.ref-fallback` 或 #ask-fallback，二者之一可见）', rec9.fallbackOpen === true || rec9.refFallbackOpen === true, recovery);
+    check('⑨ 「改用描述」不新造第 3 个输入框（可见文本输入 ≤2：卡内兜底 + 兜底 composer）', rec9.visibleTextInputs <= 2, recovery);
     check('⑨ 「重新拾取」产生 NEW id（失效 id 不重用）', rec9.repickCount === rec9.beforeIds.length + 1 && !rec9.beforeIds.includes(rec9.afterIds[rec9.afterIds.length - 1]), recovery);
     check('⑨ 恢复后引用回到 valid 态（判据重跑，不是缓存）', rec9.verdicts[rec9.verdicts.length - 1] === 'valid' && rec9.stale === 0, recovery);
 
@@ -594,6 +688,12 @@ async function main() {
     const receipt = await evaluate(
       cdp,
       `(async () => {
+        // V4.5-1 W3：回执摘要的载体 = **最新终态卡的固化区**（退役的 #l0-decision 壳
+        // 不再持有它）——先铸造一张终态 ref 卡作为载体，再跑两次真实重拉。
+        window.__v3.testing.streamReset();
+        // 载体的真实形态 = 一张**终态卡**的固化区：走真实的 ask → 作答路径铸造它。
+        window.__v3.testing.ask('回执载体', ['甲']);
+        document.querySelector('[data-msg-type="askuser"] [data-act="choose"]').click();
         const first = await window.__v3.testing.l1('receipt', { ok: true, text: '✓ 已完成', actionId: 'revoke-origin', command: 'revoke', ms: 42, auditId: 'audit-7', tool: 'bookmarks' });
         const second = await window.__v3.testing.l1('receipt', { ok: true, text: '✓ 已完成', actionId: 'revoke-origin', command: 'revoke', ms: 50, auditId: 'audit-8', tool: 'bookmarks' });
         // v4 入口机制：审计出口现在从**工具栏入口**直达（v3 的 #l0-statusbar 入口面板已退役）
@@ -602,9 +702,13 @@ async function main() {
           seq1: first.refreshSeq, seq2: second.refreshSeq,
           pieces: window.__v3.testing.l1('report').pieces,
           summaryHidden: document.getElementById('l0-receipt-summary').hidden,
+          summaryInFixed: Boolean(document.getElementById('l0-receipt-summary')?.closest('.card-fixed')),
+          summaryInFrozenCard: Boolean(document.getElementById('l0-receipt-summary')?.closest('[data-frozen="true"]')),
           summaryText: document.getElementById('l0-receipt-summary').textContent || '',
           rows: [...document.querySelectorAll('#l1-receipt-rows .l1-row')].map((r) => r.textContent),
-          auditLabel: document.getElementById('l1-receipt-audit').textContent,
+          // V4.5-1 W3：#l1-receipt-audit（「查看审计」按钮）**消解** —— 已在审计视图内；
+          // 等价载体 = 审计视图标题 + 证据区标题。
+          auditLabel: (document.getElementById('l2-title')?.textContent ?? '') + '／' + (document.querySelector('#l2-audit-evidence .l2-block-title')?.textContent ?? ''),
           auditSummary: document.getElementById('l1-receipt-audit-summary').textContent || '',
           viewHost: document.getElementById('view-host').hidden === false,
           evidenceText: (document.querySelector('#l1-receipt-rows') || {}).textContent || '',
@@ -615,142 +719,64 @@ async function main() {
     const rc = JSON.parse(receipt);
     check('⑩ 证据来自真实重拉（refreshSeq 单调递增：1 → 2，不是缓存）', rc.seq1 === 1 && rc.seq2 === 2, receipt);
     check('⑩ 三件齐备（摘要 / 证据 / 审计出口）', rc.pieces.summary === true && rc.pieces.evidence === true && rc.pieces.audit === true, receipt);
-    check('⑩ 摘要在默认态常驻可见（L0 常驻位）', rc.summaryHidden === false && /回执：/.test(rc.summaryText), receipt);
+    check('⑩ 摘要在默认态常驻可见（W3 起驻**卡固化区**，仍是常驻可读面）', rc.summaryHidden === false && /回执：/.test(rc.summaryText), receipt);
+    check('⑩ 摘要的载体 = 卡固化区 `.card-fixed`（退役的 #l0-decision 壳不再持有它）', rc.summaryInFixed === true && rc.summaryInFrozenCard === true, receipt);
     check('⑩ 完整证据 ≤1 次交互可达（8 行白名单字段）', rc.rows.length === 8, JSON.stringify(rc.rows));
-    check('⑩ 审计出口指向 L2 审计视图（2 次交互可达）', /查看审计/.test(rc.auditLabel) && rc.viewHost === true, receipt);
+    check('⑩ 审计出口指向 L2 审计视图（1 次交互可达；「查看审计」控件已消解 = 零悬空引用）', /审计/.test(rc.auditLabel) && rc.viewHost === true, receipt);
     check('⑩ 零明文：证据/回执不出现 URL 查询串 / apiKey', !/\?[A-Za-z0-9_]+=/.test(rc.evidenceText) && !/api[-_]?key/i.test(rc.evidenceText), rc.evidenceText);
 
-    // ── ③③④⑤ discoverability + counts + evidence read-only + local tree ──
-    console.log('\n▶ ⑪ 可发现性（非空文字 + 真值计数）+ 证据层只读 + 局部树 ≤3 + 历史可复算');
+    // ── ⑪ discoverability + evidence read-only + local tree + decided-steps ──
+    console.log('\n▶ ⑪ 可发现性（非空文字 + 真值计数）+ 证据层只读 + 局部树 ≤3 + 已决步数唯一');
     const discover = await evaluate(
       cdp,
       `(() => {
-        const map = ${JSON.stringify(TRIGGER)};
+        window.__v3.testing.collapseAll();
+        // 卡内面（选项池 / 后果预演）只在**唯一活跃决策卡**上铸造 —— 先确保有一张 open 卡。
+        if (!document.getElementById('l1-more-toggle')) window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令', '删除这条记录', '打开设置']);
+        // 证据层只在 ref 卡内：铸造一张最新 ref 卡，才能判定「只读 + 四要素」。
+        if (!document.getElementById('l1-ref-rows')) window.__v3.testing.refCard(7, 'stale', { why: '引用 7 的目标元素已不存在（选择器解析失败或元素被替换）' });
+        const carriers = [['l1-more-toggle', 'l1-more'], ['l1-consequences-toggle', 'l1-consequences']];
         const out = {};
-        for (const cls of Object.keys(map)) {
-          const panel = [...document.querySelectorAll('[data-l1-panel]')].find((p) => p.getAttribute('data-l1-panel') === cls);
-          const trigger = document.getElementById(map[cls]);
-          out[cls] = { text: (trigger.textContent || '').trim(), count: trigger.getAttribute('data-count'), label: trigger.getAttribute('aria-label') };
+        for (const [triggerId, targetId] of carriers) {
+          const trigger = document.getElementById(triggerId);
+          out[targetId] = { text: (trigger.textContent || '').trim(), count: trigger.getAttribute('data-count'), label: trigger.getAttribute('aria-label') };
         }
+        for (const id of ['l2-tree-attribution', 'l2-audit-evidence', 'settings-help']) {
+          const el = document.getElementById(id);
+          out[id] = { text: (el?.textContent ?? '').trim(), count: (el?.getAttribute('data-count') ?? ''), label: (el?.getAttribute('aria-label') ?? '') };
+        }
+        const retiredPresent = ${JSON.stringify(RETIRED_TRIGGERS)}.filter((id) => document.getElementById(id) !== null);
         const refRows = document.getElementById('l1-ref-rows');
-        const writeControls = [...document.querySelectorAll('#l1-ref-rows button, #l1-ref-rows input, #l1-ref-rows select, #l1-ref-rows textarea')].length;
-        const allWrite = [...document.querySelectorAll('[data-l1-panel] [data-write-op]')].length;
+        const writeControls = refRows ? [...refRows.querySelectorAll('button, input, select, textarea')].length : -1;
+        const allWrite = document.querySelectorAll('[data-l1-panel] [data-write-op]').length;
         return JSON.stringify({
-          entries: out, writeControls, allWrite,
-          evidenceRows: [...refRows.querySelectorAll('.l1-row')].map((r) => r.textContent),
+          entries: out, retiredPresent, writeControls, allWrite,
+          evidenceRows: refRows ? [...refRows.querySelectorAll('.l1-row')].map((r) => r.textContent) : [],
           localTree: window.__v3.testing.l1('report').localTree,
+          treeRows: [...document.querySelectorAll('#l1-local-tree-rows .l1-row')].map((r) => r.textContent),
           globalEntry: Boolean(document.getElementById('l1-local-tree-global')),
-          globalLabel: document.getElementById('l1-local-tree-global').textContent,
+          historyToggle: Boolean(document.getElementById('l1-history-toggle')),
           historyCount: window.__v3.testing.l1('report').historyCount,
-          historyLabel: document.getElementById('l1-history-toggle').textContent,
+          auditCount: (document.getElementById('l2-audit-count')?.textContent ?? ''),
           gestureRows: document.querySelectorAll('#l1-gestures tbody tr').length,
           gestures: window.__v3.testing.l1('report').gestures,
-          consequencesToggle: document.getElementById('l1-consequences-toggle').textContent,
         });
       })()`,
     );
     const d = JSON.parse(discover);
-    check('⑪ 8 个 L1 入口都有非空文字标签 + data-count（无「只有图标」入口）', Object.values(d.entries).every((e) => e.text.length > 0 && /^\d+$/.test(e.count)), discover);
-    // V3-4（FR-V3-070）：手势表由**单一清单**渲染（`L1_GESTURE_LABELS`），实现补齐到
-    // 6 项后此处同编号重 pin 为 6 —— 断言结构不变、且比原来更强（行数 ≡ 常量 ≡ 标签文本
-    // 三者必须同时相等，任何一处漂移都会红灯）。
-    check('⑪ 计数与真值同源（手势表行数 ≡ 常量 ≡ 触发器等）', d.gestureRows === d.gestures && d.gestures === 6 && /6 个手势/.test(d.entries['l1-gestures'].text), discover);
-    check('⑪ 后果面板计数 = 真实选项数（4）', d.entries['l1-consequences'].count === '4' && /4 个选项/.test(d.consequencesToggle), discover);
-    check('⑪ 回执证据计数 = 真实行数（8）', d.entries['l1-receipt'].count === '8', discover);
-    check('⑪ 证据层写入控件 = 0（只读投影，含零提权控件）', d.writeControls === 0 && d.allWrite === 0, discover);
-    check('⑪ 证据四要素齐备（选择器 / 语义路径 / 文本摘要 / 捕获时间）', ['稳定选择器', '语义路径', '文本摘要', '捕获时间'].every((k) => d.evidenceRows.some((r) => r.includes(k))), JSON.stringify(d.evidenceRows));
-    check('⑪ 局部树节点数 ≤3（硬上限）', d.localTree <= 3, String(d.localTree));
-    check('⑪ 「查看全局树」入口存在且指向 L2（2 次交互可达）', d.globalEntry === true && /全局树/.test(d.globalLabel), discover);
-
-    // local tree injection (real v2 snapshot shape) + history round-trip
-    const treeHist = await evaluate(
-      cdp,
-      `(() => {
-        const leaf = (id, label, path, cross) => ({
-          id: 'n-' + id, kind: 'capability', label, nodeId: id, ariaLevel: path.length, path,
-          mainOwner: 'capability', crossRefCount: (cross || []).length, crossRefLabels: cross || [], crossTargets: [], badgeSummary: [], children: [],
-        });
-        const root = { id: 'root', kind: 'root', label: '连接树', ariaLevel: 1, path: ['连接树'], mainOwner: 'root', crossRefCount: 0, crossRefLabels: [], crossTargets: [], badgeSummary: [], children: [] };
-        const cap = { ...leaf('cap', '能力面', ['连接树', '能力面']), kind: 'face', children: [] };
-        const site = { ...leaf('site', '站点面', ['连接树', '站点面']), kind: 'face', children: [] };
-        const target = leaf('cmd', 'bookmarks.create', ['连接树', '能力面', '浏览器能力', 'bookmarks.create'], ['依赖权限']);
-        const browser = { ...leaf('browser', '浏览器能力', ['连接树', '能力面', '浏览器能力']), kind: 'group', children: [target] };
-        cap.children = [browser];
-        root.children = [cap, site];
-        const view = window.__v3.testing.l1('tree', { root }, 'cmd');
-        const rows = [...document.querySelectorAll('#l1-local-tree-rows .l1-row')].map((r) => r.textContent);
-        // history: answer the current round through the real product path, then re-ask.
-        window.__v3.testing.l1('history');
-        const beforeHistory = window.__v3.testing.l1('report').historyCount;
-        // V4-3: the ask card is the only decision surface now — make sure a real open
-        // card exists before driving the round (the fixture may have answered the last).
-        if (!document.querySelector('#ask-options button')) window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令']);
-        document.querySelector('#ask-options button').click();
-        const afterFirst = window.__v3.testing.l1('report').historyCount;
-        window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令']);
-        document.querySelector('#ask-options button').click();
-        const afterSecond = window.__v3.testing.l1('report').historyCount;
-        const rounds = window.__v3.testing.l1('report').rounds;
-        const execBefore = JSON.stringify(window.__v3.testing.l1('report').refs);
-        // v4：以「进入命令目录视图 → 返回」这一对真实交互替代 v3 的 #l0-status-band 点击，
-        // 证明视图往返（而不只是折叠往返）对已执行动作/引用态零副作用。
-        document.getElementById('l2-entry-commands').click();
-        document.getElementById('l2-back').click();
-        const execAfter = JSON.stringify(window.__v3.testing.l1('report').refs);
-        return JSON.stringify({ view, rows, beforeHistory, afterFirst, afterSecond, rounds, execStable: execBefore === execAfter, label: document.getElementById('l1-history-toggle').textContent });
-      })()`,
-    );
-    const th = JSON.parse(treeHist);
-    check('⑪ 注入快照后局部树 ≤3 节点且含当前节点与父链', th.view.count <= 3 && th.view.labels.length === th.view.count && th.rows.length === th.view.count, JSON.stringify(th.view));
-    // I-01（R1 修复，2026-09-16）：原为恒真占位断言 `check(…, true, …)`（且括注「由 ⑫ 覆盖」
-    // 指向错误段）—— 现改为**真断言**，判据就是「含父链」本身：注入 v2 形状快照后，局部树必须
-    // 是主归属链的**尾部切片**（祖先在前、当前节点在末位），链长超硬上限时必须标记 `truncated`。
-    // 注入事实：`cmd` 的 path 为 4 段（连接树 › 能力面 › 浏览器能力 › bookmarks.create）⇒
-    // 上限 3 ⇒ labels = ['能力面','浏览器能力','bookmarks.create'] 且 truncated=true。
-    check(
-      '⑪ 局部树注入：确为父链尾部切片（祖先在前、当前节点在末位）且超限标记 truncated',
-      th.view.labels[th.view.labels.length - 1] === 'bookmarks.create'
-        && th.view.labels[0] === '能力面'
-        && th.view.labels.includes('浏览器能力')
-        && th.view.truncated === true
-        && th.view.empty === false,
-      JSON.stringify(th.view),
-    );
-    check('⑪ 交叉引用以徽标呈现（不复制节点）', th.view.crossRefs.length > 0, JSON.stringify(th.view));
-    check('⑪ 「已决策 N 步」的 N 可复算（1 → 2，与 rounds 数组长度一致）', th.afterFirst === th.beforeHistory + 1 && th.afterSecond === th.afterFirst + 1 && th.rounds.length === th.afterSecond, treeHist);
-    check('⑪ 改选被标记（同一 prompt 二次决策 → changed=true）', th.rounds.some((r) => r.changed === true), JSON.stringify(th.rounds));
-    check('⑪ 回看历史零副作用（展开前后已执行动作/引用态逐字不变）', th.execStable === true, treeHist);
-    check('⑪ 历史入口标签含真实步数', new RegExp(`已决策 ${th.afterSecond} 步`).test(th.label), th.label);
-    // ── BLOCK-03（v4-3 审查修复轮）：答案源必须来自**流内卡的终态** ────────────
-    // 修复前 `rounds[]` 由 `input.ask` 差值推断，其答案生产者随 `decision-card.ts` 一起
-    // 被删 ⇒ 每一轮都回落成上一条用户消息或「（无回答）」+ canceled:true。本段在真实产品
-    // 路径上断言「文案 = 卡的答案」，修复前必红。
-    check(
-      '⑪ BLOCK-03：已决策历史的选择文案 = 流内卡的**真实答案**',
-      th.rounds.length >= 2 &&
-        th.rounds[th.rounds.length - 1].chosen === '查看站点声明' &&
-        th.rounds[th.rounds.length - 2].chosen === '查看站点声明' &&
-        th.rounds[th.rounds.length - 1].canceled === false,
-      JSON.stringify(th.rounds),
-    );
-    const cancelledRound = await evaluate(
-      cdp,
-      `(() => {
-        window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令']);
-        document.getElementById('ask-cancel').click();
-        const rounds = window.__v3.testing.l1('report').rounds;
-        const last = rounds[rounds.length - 1];
-        const hit = [...document.querySelectorAll('#l1-history-rows .l1-row')].map((r) => r.textContent).find((t) => /这一步先做什么/.test(t)) ?? '';
-        return JSON.stringify({ last, hit, count: rounds.length });
-      })()`,
-    );
-    const cr = JSON.parse(cancelledRound);
-    check(
-      '⑪ BLOCK-03：取消轮必须 canceled=true 且原因可读（不是「（无回答）」）',
-      cr.last.canceled === true && /已取消（用户）/.test(cr.last.chosen) && !/（无回答）/.test(cr.last.chosen),
-      cancelledRound,
-    );
-    check('⑪ BLOCK-03：历史行文案与卡的终态同源（渲染文本含真实答案）', /查看站点声明/.test(cr.hit), cr.hit);
+    for (const [cls, e] of Object.entries(d.entries)) {
+      check(`⑪ ${cls} 的载体有非空文字标签（禁「只有图标」）`, e.text.length > 0 || e.label.length > 0, JSON.stringify(e));
+    }
+    check('⑪ 卡内选项池触发器的计数从真值派生（data-count 可解析）', /^\d+$/.test(String(d.entries['l1-more'].count)), JSON.stringify(d.entries));
+    check('⑪ 后果预演的计数 = 真实选项数（4 个选项 → 触发器文案含「4 个选项」）', /4 个选项/.test(d.entries['l1-consequences'].text), discover);
+    check('⑪ 退役触发器零 DOM 残留（6 项）', d.retiredPresent.length === 0, JSON.stringify(d.retiredPresent));
+    check('⑪ 证据层只读（#l1-ref-rows 内零可写控件）', d.writeControls === 0, String(d.writeControls));
+    check('⑪ 全层面零写操作标记（[data-write-op] = 0）', d.allWrite === 0, String(d.allWrite));
+    check('⑪ 证据四要素齐备（选择器 / 语义路径 / 文本摘要 / 捕获时间）', ['选择器', '语义路径', '文本摘要', '捕获时间'].every((k) => d.evidenceRows.some((r) => r.includes(k))), JSON.stringify(d.evidenceRows));
+    check('⑪ 局部树节点数 ≤3（硬上限，L2 归因块复用同一裁剪规则）', d.localTree <= 3, String(d.localTree));
+    check('⑪ 「查看全局树」控件已消解（已在树视图内 ⇒ 零悬空引用）', d.globalEntry === false, String(d.globalEntry));
+    check('⑪ 「已决策 N 步」只有审计视图标题一个声明点（原 #l1-history-toggle 已退役）', d.historyToggle === false && /已决策\s*\d+\s*步/.test(d.auditCount), JSON.stringify({ toggle: d.historyToggle, count: d.auditCount }));
+    check('⑪ 手势表行数 ≡ 单源常量（6），行数随设置帮助分区挂载', d.gestureRows === d.gestures && d.gestures === 6, JSON.stringify({ rows: d.gestureRows, gestures: d.gestures }));
 
     // ── ⑫ density does not regress after an expand/collapse round trip ─────
     console.log('\n▶ ⑫ 密度不回归：展开/收起往返后默认档仍达标（三视口，复用 v3-1 口径）');
@@ -758,11 +784,11 @@ async function main() {
     await evaluate(
       cdp,
       `(() => {
-        // v4 入口机制：七类各有自己的触发器（工具栏/决策卡/内容层宿主），
-        // 不再依赖退役的 #l0-status-band 连带展开 —— 按 aria-expanded 幂等切换。
-        const triggers = ['l0-more', 'l0-ref-toggle', 'l1-local-tree-toggle', 'l1-history-toggle', 'l1-receipt-toggle', 'l1-gestures-toggle'];
-        const openAll = () => { for (const id of triggers) { const el = document.getElementById(id); if (el.getAttribute('aria-expanded') === 'false') el.click(); } };
-        const closeAll = () => { for (const id of triggers) { const el = document.getElementById(id); if (el.getAttribute('aria-expanded') === 'true') el.click(); } };
+        // V4.5-1 W3：折叠面只剩两个**卡内**触发器（其余面在视图中常开）——
+        // 按 aria-expanded 幂等切换，往返后状态必须复原。
+        const triggers = ['l1-more-toggle', 'l1-consequences-toggle'];
+        const openAll = () => { for (const id of triggers) { const el = document.getElementById(id); if (el && el.getAttribute('aria-expanded') === 'false') el.click(); } };
+        const closeAll = () => { for (const id of triggers) { const el = document.getElementById(id); if (el && el.getAttribute('aria-expanded') === 'true') el.click(); } };
         openAll(); closeAll();
         window.__v3.testing.collapseAll();
         return true;

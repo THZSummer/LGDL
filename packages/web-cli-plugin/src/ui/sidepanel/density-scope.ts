@@ -144,3 +144,81 @@ export const CARD_BUDGET_LIMITS = Object.freeze({
   maxWelcomeLines: MAX_WELCOME_LINES,
   maxStreamResidentClickables: MAX_STREAM_RESIDENT_CLICKABLES,
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V4.5-1 W3 (TASK-V45-107 / ADR-V45-002 §2) — the **pure chronological card list**
+ * criterion, shipped in the product (same shape as `assertChromeNotInStream`).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** The empty-state placeholder class — the ONLY allowed non-card child of `#stream`. */
+export const EMPTY_STREAM_PLACEHOLDER_CLASS = 'log-empty-text';
+
+/** The card identity attribute (`<li data-msg-type="…" data-card-key="…">`). */
+export const CARD_IDENTITY_ATTR = 'data-msg-type';
+
+/** The fixed-position host attribute (zero occurrences is the terminal reading). */
+export const HOST_ATTR = 'data-host';
+
+export interface StreamShapeReading {
+  /** How many direct children of `#stream` carry a card identity. */
+  readonly cardChildren: number;
+  /** How many direct children carry the empty-state placeholder class. */
+  readonly emptyPlaceholders: number;
+  /** How many direct children are neither a card nor the placeholder. */
+  readonly foreignChildren: number;
+  /** Any depth `li[data-host]` / `li[data-transitional-host]` count (must be 0). */
+  readonly hostNodes: number;
+  /** Foreign children, for the readable message. */
+  readonly foreignIds: readonly string[];
+}
+
+/**
+ * Read the stream's shape. Pure DOM read — the SAME function feeds the product
+ * assertion, the node gate and the Chromium gate, so a second caliber cannot appear.
+ */
+export function readStreamShape(root: ParentNode = document): StreamShapeReading {
+  const stream = root.querySelector?.(STREAM_SELECTOR) ?? null;
+  if (!stream) throw new Error('readStreamShape: #stream 不存在（三区骨架未落地）');
+  const children = Array.from((stream as Element).children ?? []);
+  const foreign = children.filter(
+    (el) =>
+      !el.hasAttribute(CARD_IDENTITY_ATTR) && !el.classList.contains(EMPTY_STREAM_PLACEHOLDER_CLASS),
+  );
+  return {
+    cardChildren: children.filter((el) => el.hasAttribute(CARD_IDENTITY_ATTR)).length,
+    emptyPlaceholders: children.filter((el) => el.classList.contains(EMPTY_STREAM_PLACEHOLDER_CLASS)).length,
+    foreignChildren: foreign.length,
+    hostNodes: (stream as Element).querySelectorAll(`[${HOST_ATTR}], [${TRANSITIONAL_HOST_ATTR}]`).length,
+    foreignIds: foreign.map((el) => (el as HTMLElement).id || el.tagName.toLowerCase()),
+  };
+}
+
+/**
+ * The **pure card order** judgement (falsifiable, non-vacuous):
+ *
+ *   ① every direct child of `#stream` is either a card (`li[data-msg-type]`) or the
+ *      empty-state placeholder — any other child fails (the whitelist is a registry,
+ *      so a new fixed home cannot be smuggled in as a wrapper);
+ *   ② the placeholder appears **at most once** (and only as a direct child);
+ *   ③ **zero** `li[data-host]` / `li[data-transitional-host]` at ANY depth — the four
+ *      fixed-position hosts are retired and may not come back by rename.
+ *
+ * Throws (never returns false) — the v4-4 BLOCK-02 lesson: a silently-false assertion
+ * is the failure mode this criterion exists to prevent.
+ */
+export function assertStreamPureCardOrder(root: ParentNode = document): void {
+  const shape = readStreamShape(root);
+  if (shape.hostNodes !== 0) {
+    throw new Error(
+      `assertStreamPureCardOrder: #stream 子树内含 ${shape.hostNodes} 个宿主节点（[${HOST_ATTR}] / [${TRANSITIONAL_HOST_ATTR}]）—— 零宿主是终态，不得以改名复活`,
+    );
+  }
+  if (shape.foreignChildren !== 0) {
+    throw new Error(
+      `assertStreamPureCardOrder: #stream 含 ${shape.foreignChildren} 个非卡子节点（${shape.foreignIds.join(', ')}）—— 唯一允许的非卡子节点是空态占位 .${EMPTY_STREAM_PLACEHOLDER_CLASS}`,
+    );
+  }
+  if (shape.emptyPlaceholders > 1) {
+    throw new Error(`assertStreamPureCardOrder: 空态占位计数 = ${shape.emptyPlaceholders}，必须 ≤ 1`);
+  }
+}

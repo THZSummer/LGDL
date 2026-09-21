@@ -37,6 +37,8 @@ import { recommendNextStep } from './recommend.js';
 import { createSystemChannelState, droppedSystemText, SYSTEM_COPY } from './system-events.js';
 import {
   REGISTERED_STRUCTURAL_HOSTS,
+  RETIRED_CONTAINER_IDS,
+  RETIRED_HOST_ATTRS,
   RETIRED_HOST_IDS,
   STRIP_CHANNEL_KINDS,
   evaluateHostRegistry,
@@ -96,6 +98,10 @@ import { probingSteadyView, type L0Input, type L0View } from './view-model.js';
 // fail-closed reference judge and the receipt triple. Additive: the L0 skeleton
 // keeps its ownership and no existing handler is rewritten.
 import { mountL1, type L1Handle, type L1Input } from './l1/panels.js';
+// V4.5-1 W3 (TASK-V45-112 / ADR-V45-008): the「帮助」section's id comes from the section
+// module (ONE literal in the repo), so the chip's local act and the rendered section
+// cannot drift apart.
+import { HELP_SECTION_ID } from '../settings/help.js';
 import type { OwnershipTree } from '../../insight/ownership-tree.js';
 import type { DeclarationStatus, RefRescue, RefResolution } from './l1/ref-validity.js';
 // V3-4 (ADR-V3-030 / AC-CONV-1): the panel side of「页面即输入」— the two injection
@@ -107,7 +113,7 @@ import { mountPickInput, type PickInputHandle } from './pick-input.js';
 import { deriveCounts, type L2Counts, type L2ViewKey } from './l2/counts.js';
 import { mountViewHost, type ViewHostHandle } from './l2/view-host.js';
 import { mountTheme, type ThemeHandle } from './theme.js';
-import { assertChromeNotInStream } from './density-scope.js';
+import { assertChromeNotInStream, assertStreamPureCardOrder, readStreamShape } from './density-scope.js';
 import { buildCatalogView, renderCommandCatalog } from './l2/command-catalog.js';
 import { buildAuditRows, renderAudit } from './l2/audit.js';
 import { buildArchiveModel } from '../../insight/archive-catalog.js';
@@ -158,6 +164,10 @@ function cardDeps(): CardDeps {
         set: (cardId, open) => toolOpenState.set(cardId, open),
       },
       onCardAction: (cardId, action, value) => handleCardAction(cardId, action, value),
+      // V4.5-1 W3 (TASK-V45-108): the card-internalized decision region folds through
+      // the SAME controller as every other panel collapse.
+      disclosure: installDisclosure(),
+      onRevealFallback: () => revealAskFallback(),
     };
   }
   return cardDepsHandle;
@@ -224,6 +234,33 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     revealAskFallback();
     return;
   }
+  if (action === 'hover') {
+    // V4.5-1 W3 (FR-V3-066)：ref 卡 chip 的 hover 触发页面侧闪动 —— 与页面侧角标 hover
+    // 走同一通道（`pickInput.highlight`），卡片只上报意图。
+    const lastRef = l1?.store().all().slice(-1)[0];
+    if (lastRef) void pickInput?.highlight(lastRef.facts.refId, lastRef.facts.selector, 'flash');
+    return;
+  }
+  if (action === 'rebind') {
+    // V4.5-1 W3 (TASK-V45-112 / ADR-V45-007 §4): re-binding the current tab is a LOCAL
+    // browser flow — the chip reaches the SAME single entry the settings-view `#rebind`
+    // button calls, never `requestTurn` (and never gated on `pending`).
+    void rebindCurrentTab();
+    return;
+  }
+  if (action === 'help') {
+    // V4.5-1 W3 (FR-V45-041): the onboarding chip opens the settings「帮助」section —
+    // zero user turn, zero input write.
+    openSettingsSection(HELP_SECTION_ID);
+    return;
+  }
+  if (action === 'reanchor') {
+    // V4.5-1 W3 (TASK-V45-108): the `ref` card's「一键重锚」. The card knows its own
+    // business id, the LIVE rescue target lives in the L1 judge — the panel asks the
+    // judge for the current one (fail-closed when there is none).
+    l1?.reanchorCurrent();
+    return;
+  }
   if (action === 'authorize') {
     // F 还原度快修轮 (2026-09-20): an authorization is a LOCAL browser-permission flow,
     // not a turn — it goes through the SAME single entry the settings-view `#authorize`
@@ -244,6 +281,16 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
  * `false` when the turn was refused by the existing gating (empty text / send
  * disabled), so the composer can keep the user's draft without a second check.
  */
+/**
+ * V4.5-1 W3 (TASK-V45-108): the retired `#l0-ref-toggle` chip's page-side channel
+ * (`data-ref-hover` / `data-turn`) now rides the **newest `ref` card's own chip** — the
+ * card is the single reference carrier, so the flash channel follows it.
+ */
+function newestRefChip(): HTMLElement | null {
+  const chips = document.querySelectorAll('#stream [data-msg-type="ref"] .ref-chip');
+  return (chips[chips.length - 1] as HTMLElement | undefined) ?? null;
+}
+
 function requestTurn(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
@@ -257,7 +304,7 @@ function requestTurn(text: string): boolean {
   // V3-4 P5 (FR-V3-060 / design baseline P5):「回合进行中」与页面侧的执行可视化是同一个
   // 信号 —— 回合开始时把最后一个引用目标闪动一下并标记 chip 状态。
   const active = l1?.store().all().slice(-1)[0];
-  const chip = document.getElementById('l0-ref-toggle');
+  const chip = newestRefChip();
   if (active) {
     void pickInput?.highlight(active.facts.refId, active.facts.selector, 'flash');
     chip?.setAttribute('data-turn', 'running');
@@ -655,6 +702,19 @@ function installV3TestHooks(): void {
         assertChromeNotInStream(document);
         return true;
       },
+      /**
+       * V4.5-1 W3 (TASK-V45-107 / ADR-V45-002 §2): the「pure chronological card list」
+       * assertion, shipped in the product and driven by the gate exactly like
+       * `assertChromeNotInStream()` (the RP-V4-06 pattern).
+       */
+      assertStreamPureCardOrder(): true {
+        assertStreamPureCardOrder(document);
+        return true;
+      },
+      /** The read-only shape reading behind it (gate-readable, one implementation). */
+      streamShape() {
+        return readStreamShape(document);
+      },
       /** V4-1: the current theme state (diagnostics only — never a security input). */
       themeState(): string {
         return themeToggle?.state ?? 'auto';
@@ -708,6 +768,8 @@ function installV3TestHooks(): void {
       },
       hideFallback() {
         l0?.hideFallback();
+        fallbackOpen = false;
+        syncComposerVisibility();
       },
       /** Open the L1 status panel (`#topbar`) — the v1 toolbar lives there now. */
       openStatusDetails() {
@@ -921,7 +983,13 @@ function installV3TestHooks(): void {
         const presentHosts = [...document.querySelectorAll('#stream > li[data-host]')].map(
           (el) => el.getAttribute('data-host') ?? '',
         );
-        const retiredPresent = RETIRED_HOST_IDS.filter((id) => document.getElementById(id) !== null);
+        // V4.5-1 W3: the two halves are read by their own selector — container ids by
+        // `getElementById`, retired host VALUES by `[data-host]` (`composer` is a retired
+        // host value while `#composer` itself is a preserved compatibility surface).
+        const retiredPresent = [
+          ...RETIRED_CONTAINER_IDS.filter((id) => document.getElementById(id) !== null),
+          ...RETIRED_HOST_ATTRS.filter((host) => document.querySelector(`[data-host="${host}"]`) !== null),
+        ];
         const reading = {
           presentHosts,
           transitionalCount: document.querySelectorAll('[data-transitional-host]').length,
@@ -1121,6 +1189,23 @@ async function openSettingsView(): Promise<void> {
   settingsHandle.setActiveOrigin(state.activeOrigin);
   settingsViewSwitch.showSettings();
   await settingsHandle.refresh();
+}
+
+/**
+ * V4.5-1 W3 (TASK-V45-112 / ADR-V45-007 §4) — the **ONE**「open a settings section」
+ * production entry. The onboarding chip's `act:'help'` and any future deep link call
+ * THIS function: it opens the settings view (the existing switch) and moves focus onto
+ * the target section, so the navigation is a single, testable path (no `requestTurn`,
+ * no second view mechanism).
+ */
+function openSettingsSection(sectionId: string): void {
+  void openSettingsView().then(() => {
+    const section = document.getElementById(sectionId);
+    if (section && typeof (section as HTMLElement).focus === 'function') {
+      section.setAttribute('tabindex', '-1');
+      (section as HTMLElement).focus();
+    }
+  });
 }
 
 /**
@@ -1434,6 +1519,8 @@ function render(): void {
   // stay untouched: they are retired by v4-3 / v4-4, not by this leaf.
   const views = project(state.stream);
   const live = liveCardIds(state.stream);
+  // V4.5-1 W3: the ONE derivation of `#composer`'s visibility (see `syncComposerVisibility`).
+  syncComposerVisibility();
   const { appended } = streamRenderer().render(views, live);
   // I-07 (v4-2 review): the empty state has ONE source — the stream projection that
   // is actually drawn. The old `isLogEmpty(state.entries.length)` read the v1
@@ -1950,9 +2037,30 @@ function ensureTextAskCard(): void {
  * is created through the real reducer first, so the fallback always has an owner and
  * the reveal never silently no-ops.
  */
+/**
+ * V4.5-1 W3 (TASK-V45-110 / ADR-V45-003 §5 / R-V45-105) — the **layout guard**.
+ *
+ * `#composer` left `#stream`, so it no longer inherits the stream's `hidden` when an L2
+ * view replaces the chat surface. The panel is therefore the ONE writer of its `hidden`
+ * state, derived from「the fallback is open」∧「the chat surface is visible」— so the
+ * secondary full-text channel can never float above a view (the fail-closed reading the
+ * gates use only trusts `hidden`).
+ */
+let fallbackOpen = false;
+function syncComposerVisibility(): void {
+  const composer = document.getElementById('composer') as HTMLInputElement | null;
+  if (!composer) return;
+  const l2Open = document.getElementById('view-host')?.hidden !== true;
+  const settingsOpen = document.getElementById('settings-view')?.hidden !== true;
+  const chatVisible = document.getElementById('stream')?.hidden !== true && !l2Open && !settingsOpen;
+  composer.hidden = !(fallbackOpen && chatVisible);
+}
+
 function revealAskFallback(): void {
   ensureTextAskCard();
   l0?.revealFallback();
+  fallbackOpen = true;
+  syncComposerVisibility();
 }
 
 /**
@@ -2504,6 +2612,7 @@ function openL2View(which: L2ViewKey, opts: { openTreeBody?: boolean } = {}): vo
     return;
   }
   const opened = viewHost?.open(which);
+  syncComposerVisibility();
   if (!opened) return;
   if (which === 'tree') {
     // ADR-V3-028: the FAB keeps its id/semantics; it is revealed with the view
@@ -2563,7 +2672,7 @@ function wire(): void {
     onPageHover: (refId) => {
       // FR-V3-066: hovering the page badge lights the side-panel chip (the same ordinal).
       // The attribute IS the channel (one writer, no shadow state to drift).
-      document.getElementById('l0-ref-toggle')?.setAttribute('data-ref-hover', refId);
+      newestRefChip()?.setAttribute('data-ref-hover', refId);
       render();
     },
     onUnavailable: (reason) => {
@@ -2583,10 +2692,8 @@ function wire(): void {
   // The panel is present on an authorized origin ⇒ the layer exists, so the
   //    right-click menu is available without the user entering pick mode first.
   // FR-V3-066: hovering the side-panel chip flashes the page-side target.
-  $('l0-ref-toggle').addEventListener('pointerenter', () => {
-    const last = l1?.store().all().slice(-1)[0];
-    if (last) void pickInput?.highlight(last.facts.refId, last.facts.selector, 'flash');
-  });
+  // V4.5-1 W3：chip hover 的监听已随卡片内化（`cards/ref.ts` 的卡内监听 → `handleCardAction('hover')`），
+  // 面板侧不再有第二个全局监听面。
   // The layer lives only while the panel does (ADR-V3-030 §4). The port disconnect in
   // the background covers the hard close; this covers a panel unload/reload.
   window.addEventListener('pagehide', () => {
@@ -2729,7 +2836,7 @@ function wire(): void {
       else if (variant === 'done') {
         dispatch({ type: 'pending', value: false });
         // P5: the page-side flash has finished being the「进行中」signal.
-        document.getElementById('l0-ref-toggle')?.setAttribute('data-turn', 'done');
+        newestRefChip()?.setAttribute('data-turn', 'done');
         // BLOCK-01 (v4-4 review):「空闲 = 回合结束且无 open ask」is the third
         // production timing. The producer itself refuses to mint while `pending`, so
         // this runs after the settle above.

@@ -62,12 +62,17 @@ export interface StreamRenderHandle {
 }
 
 /**
- * Where message cards live: before the `composer` transitional host so the host
- * stays after the conversation (the host is retired by v4-3; with no host the cards
- * simply append at the end of the stream).
+ * Where message cards live — **V4.5-1 W3 (TASK-V45-107 / ADR-V45-002 §1)**: nowhere
+ * in particular. The `composer` host that used to be the anchor is retired together
+ * with the other three fixed-position hosts, so the ONLY allowed non-card child is the
+ * empty-state placeholder; cards are appended at the end of the stream
+ * (`insertBefore(node, null)` semantics) and the stream is a pure chronological card
+ * list. Returning `null` unconditionally also means the source can never look up
+ * `li[data-host="composer"]` again.
  */
 function messageAnchor(container: HTMLElement): Node | null {
-  return container.querySelector(':scope > li[data-host="composer"]');
+  void container;
+  return null;
 }
 
 export function createStreamRender(options: StreamRenderOptions): StreamRenderHandle {
