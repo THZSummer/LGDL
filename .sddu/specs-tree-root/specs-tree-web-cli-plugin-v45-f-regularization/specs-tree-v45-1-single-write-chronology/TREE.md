@@ -18,7 +18,7 @@ specs-tree-v45-1-single-write-chronology/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-v45-1-single-write-chronology（V4.5-1 单写化 + 宿主时间序化） — 构建报告：specs-tree-v45-1-single-write-chronology（V4.5-1 单写化 + 宿主时间序化） | ✅ 存在 |
+| build.md | 构建报告：specs-tree-v45-1-single-write-chronology（V4.5-1 单写化 + 宿主时间序化） — 八步证据（每步可机核，`docs/v4-supersession-ledger.json#protectedSupersession`）： | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v45-1-single-write-chronology（V4.5-1 单写化 + 宿主时间序化；实施承载叶） — ├── header#region-toolbar             （不变：只读摘要 + 4 视图入口 + 主题；≤5 可点） | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v45-1-single-write-chronology（V4.5-1 单写化 + 宿主时间序化） — 本叶 = v4.5 的**唯一叶**，把两项核心（5 条提示带单写化 / 4 个固定位置宿主时间序化）与两项附带（FIX-5 消解 / `options/... | ✅ 存在 |
 | state.json | 状态文件 | 🟢 tracked [builded] |
