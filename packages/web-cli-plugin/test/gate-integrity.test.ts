@@ -67,6 +67,27 @@
  * {@link EXPECTED_AUDITED_FILES} list is asserted to be a *subset* of the scan, so
  * renaming/deleting a known gate still fails (the set may grow, never shrink).
  *
+ * ── V4.5-1 W1 (TASK-V45-101): the **node-gate** half of the audited set ──────
+ *
+ * The three v4.5 node gates (`test/host-registry.test.ts` /
+ * `test/local-act-wiring.test.ts` / `test/settings-help.test.ts`) live in the package
+ * `test/` root — outside `test/ui` — so the scan gained a second axis: any
+ * `test/*.test.ts` that declares a **per-judgement `expectFailPattern` truth table**
+ * (the node-gate counterpart of a Chromium gate's dynamic FAIL-段) is discovered and
+ * audited. Consequences, in order of importance:
+ *   · `CHROMIUM_GATES.length === 9` is **unchanged** (a node gate is not a Chromium
+ *     gate — the `page-input.mjs` precedent, applied once more);
+ *   · `EXPECTED_AUDITED_FILES` only ever grows: the three new paths are appended, the
+ *     original set stays a subset, and a rename/removal still FAILs;
+ *   · the R1a/R1b/R2/R3 rules are **not relaxed** for the new files: they must be
+ *     silent on them (they carry no CDP client, no `failures.push(`/`FAILED (` marker
+ *     and no `process.exit`), which the real-root audit below asserts.
+ *   · the marker is the two-part「`JUDGEMENTS` 表 + 每条 `expectFailPattern`」— which
+ *     keeps the auditor (`test/gate-integrity.test.ts`, whose synthetic fixtures quote
+ *     the very shapes the rules forbid) and `test/size-budget.test.ts` (a disclosure
+ *     caliber, not a gate body) out of its own audited set, with no hand-maintained
+ *     exclusion list.
+ *
  * ── Honest coverage limits (registered, not papered over) ───────────────────
  *
  *  * Static analysis is *structural*: it recognises the defended shapes, it does
@@ -162,6 +183,27 @@ export const EXPECTED_AUDITED_FILES = [
   // (chips 即指令 + pending 门控 + 系统行去噪 + 宿主清零). Additive — the Chromium-gate
   // count constant stays 9 (ADR-V4-040 §5).
   'test/ui/recommendation.mjs',
+  // ── V4.5-1 W1 (TASK-V45-101 / ADR-V45-012 §1) — the **node-gate** half ──────
+  // Node gates live in the package `test/` root (not `test/ui`), so the directory
+  // scan below was extended to discover them by their falsifiability marker
+  // (`expectFailPattern`) instead of by directory. Additive on both axes:
+  //   · `CHROMIUM_GATES.length === 9` stays untouched (the `page-input.mjs` precedent);
+  //   · the audited set may only ever GROW — a rename/removal of one of these three
+  //     still FAILs the subset assertion below.
+  // The three files declare a per-judgement `expectFailPattern` truth table and export
+  // their judges; they carry no CDP client and no `failures.push(`, exactly like the
+  // existing `test/authorize-chip-wiring.test.ts` precedent — so the R1a/R1b/R2/R3
+  // rules stay silent on them (verified by the audit running over the real root).
+  'test/host-registry.test.ts',
+  'test/local-act-wiring.test.ts',
+  'test/settings-help.test.ts',
+] as const;
+
+/** V4.5-1 W1: the node (non-Chromium) gates — discovered by {@link NODE_GATE_MARKER}. */
+export const NODE_GATE_FILES = [
+  'test/host-registry.test.ts',
+  'test/local-act-wiring.test.ts',
+  'test/settings-help.test.ts',
 ] as const;
 
 /** Gates whose red-proof is static only (see the module doc's coverage limits). */
@@ -182,12 +224,32 @@ export const STATIC_ONLY_GATES = [
  */
 const GATE_DIRS = ['test/ui', 'test/e2e'] as const;
 const GATE_MARKER = /failures\.push\(|send\(method, params|_v3-helpers\.mjs/;
+/**
+ * V4.5-1 W1 (TASK-V45-101): the **node-gate** roots/marker.
+ *
+ * A node gate is a `test/*.test.ts` that declares a **per-judgement
+ * `expectFailPattern` truth table** — the same falsifiability contract the Chromium
+ * gates satisfy dynamically. Discovery is by marker (not by a hand-written list) so a
+ * fourth node gate joins the audit automatically; `EXPECTED_AUDITED_FILES` stays the
+ * literal floor that makes a rename/removal visible.
+ */
+const NODE_GATE_DIR = 'test' as const;
+/**
+ * A node gate declares a **`JUDGEMENTS` table** whose entries each carry a literal
+ * `expectFailPattern`. The two-part marker (not `expectFailPattern` alone) is
+ * deliberate: `test/gate-integrity.test.ts` itself *contains* the rules' violation
+ * shapes as synthetic fixtures and `test/size-budget.test.ts` carries disclosure
+ * `expectFailPattern`s — neither is a gate *body*, and the auditor must not audit
+ * itself (that would be circular).
+ */
+const NODE_GATE_MARKER = /export const JUDGEMENTS[\s\S]{0,2000}?expectFailPattern\s*:/;
 /** The caliber-only module has no gate body — it must NOT be pulled in. */
 const NON_GATE_FILES = ['test/ui/density-metrics.mjs'] as const;
 
 /**
  * Derive the audited set from the filesystem (N-12). A ninth gate that carries any
  * gate marker is included automatically — and therefore must pass the audit.
+ * V4.5-1: node gates (`test/*.test.ts` with an `expectFailPattern` table) join too.
  */
 export function discoverGateFiles(root: string): string[] {
   const found: string[] = [];
@@ -204,6 +266,17 @@ export function discoverGateFiles(root: string): string[] {
       const text = readFileSync(resolve(root, rel), 'utf8');
       if (GATE_MARKER.test(text)) found.push(rel);
     }
+  }
+  // V4.5-1: node gates — `test/*.test.ts` declaring an `expectFailPattern` table.
+  try {
+    for (const name of readdirSync(resolve(root, NODE_GATE_DIR))) {
+      if (!name.endsWith('.test.ts')) continue;
+      const rel = `${NODE_GATE_DIR}/${name}`;
+      const text = readFileSync(resolve(root, rel), 'utf8');
+      if (NODE_GATE_MARKER.test(text)) found.push(rel);
+    }
+  } catch {
+    /* a root without `test/` simply contributes nothing */
   }
   return found.sort();
 }
@@ -547,6 +620,23 @@ test('元门禁：受审集合由目录扫描推导（新门禁自动纳入；�
     }
   }
   assert.equal(CHROMIUM_GATES.length, 9, 'Chromium 门禁必须恰好 9 个（journey/insight/binding/l0/l1/l2/density/hardening/e2e；v3-3 新增 l2）');
+});
+
+// ── 0a. V4.5-1 W1: the node-gate half of the audited set is discovered too ──
+test('元门禁（V4.5-1 W1）：node 门禁由 JUDGEMENTS 标记自动纳入（CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  for (const file of NODE_GATE_FILES) {
+    assert.ok(discovered.includes(file), `${file} 未被 node 门禁扫描纳入（判据表 + expectFailPattern 标记失效）`);
+    assert.ok(EXPECTED_AUDITED_FILES.includes(file), `${file} 必须在 EXPECTED_AUDITED_FILES 的下界声明里（只追加）`);
+  }
+  // 3 个新 node 门禁都必须是**真门禁**（判据表非空 + 每条带 expectFailPattern 字面）。
+  for (const file of NODE_GATE_FILES) {
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    assert.ok(/export const JUDGEMENTS/.test(text), `${file} 必须导出 JUDGEMENTS 判据表`);
+    assert.ok((text.match(/expectFailPattern\s*:/g) ?? []).length >= 3, `${file} 每条判据必须声明 expectFailPattern`);
+  }
+  // CHROMIUM_GATES 计数不变（node 门禁不是 Chromium 门禁）。
+  assert.equal(CHROMIUM_GATES.length, 9);
 });
 
 // ── 0b. N-12's own reverse proof: a fresh gate file is auto-audited ──────────

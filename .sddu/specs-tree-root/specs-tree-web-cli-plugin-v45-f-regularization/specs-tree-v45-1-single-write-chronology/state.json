@@ -1,444 +1,651 @@
 {
- "feature": "V4.5-1 单写化 + 宿主时间序化（父：specs-tree-web-cli-plugin-v45-f-regularization）",
- "featureKey": "specs-tree-v45-1-single-write-chronology",
- "version": "v4.5.0",
- "name": "V4.5-1 单写化 + 宿主时间序化——5 条提示带可见投影退役（可见面唯一=流内行/卡）+ 4 个固定位置宿主清零（ol#stream = 纯时间序卡列表）+ #composer 出流（body 尾 hidden，id/ARIA 保留）+ 风险恢复规则扩展（site/probe 触发 + 恢复 chips）+ 手势迁设置「帮助」分区 + options 纯文案解冻 + host-registry 零宿主断言+ 密度基线重算（显式取代 + 反证）+ journey 第二次八步取代 + 体积五要素",
- "phase": "tasked",
- "workflow": "3.tasks",
- "agent": "sddu-tasks",
- "depth": 2,
- "parent": "specs-tree-web-cli-plugin-v45-f-regularization",
- "childrens": [],
- "leaf": true,
- "createdAt": "2026-09-21",
- "updatedAt": "2026-09-21T18:00:00.000Z",
- "description": "跟随父 Feature specs-tree-web-cli-plugin-v45-f-regularization（F-31 / v0.9.1）立项的**唯一叶**（P0，position=1）。承载父 §5.1~§5.10 全部 44 条 FR：① SINGLE（FR-V45-010~015）5 条提示带可见投影**真退役**（DOM 移除，非 hidden）+ 事实唯一可见面 + 单通道 4 规则逐字不变 + 富内容承载（行 title + 设置站点详情 + 推荐卡恢复 chips）+ 归并矩阵判据重写；② CHRONO（FR-V45-020~026）4 宿主清零（decision / composer / l1-panels / strips）+ 37 条存活元素去向（父 §11）+ #composer 迁 body 尾 hidden（id/ARIA 保留，法四不变）+ 折叠声明零漂移；③ RECOVERY（FR-V45-030~033）risk-recovery 触发集扩展（site / probe）+ 「重新绑定当前标签页」chip + NEXTSTEP_ACTS 闭集终态 6 项 + 本地 act 布线门禁；④ HELP（FR-V45-040~042）设置视图「帮助」分区（SETTINGS_SECTION_IDS 单源派生）+ chip act:'help'；⑤ UNFREEZE（FR-V45-050~052）options/index.html 纯文案解冻 + 订正 + 显式登记 + zero-injection 复跑；⑥ REGISTRY（FR-V45-060~062）零宿主断言 + RETIRED_HOST_IDS 扩容 + 5 类问题串终态；⑦ DENSITY（FR-V45-070~074）口径零放宽 + 31 格重算为新基线（台账显式取代 + 反证）+ 夹具锚改构造保证；⑧ LEDGER（FR-V45-080~084）journey 第二次八步取代 + binding 段外逐行登记 + 11 处门禁等价重锚 + knownGap 一致性 + 两段证伪；⑨ VOL（FR-V45-090~093）体积五要素 + 披露算术机核 + V3-VOL-3 三值同源 + 红线逐字节。权威条文见父 spec.md（§5 / §11 / §13 / §15）。",
- "scope": {
-  "in": [
-   "SINGLE：5 条提示带（#env-guard / #site-hint / #onboarding / #discovery-notice / #notice）DOM 真退役（非 hidden）；#send-reason 保留（状态栏职责）",
-   "SINGLE：事实唯一可见面（首屏三事实 env / site / probe 各恰 1 个可见载体）；单通道 4 规则（净化 / 去重 5000ms / 限速 20 行·分钟 + dropped 不静默 / 「持续：」前缀）语义逐字不变",
-   "SINGLE：富提示承载 = 单行事实行 + 行 title（与设置站点详情同源）+ 推荐卡 risk-recovery 恢复 chips；零新增宿主",
-   "CHRONO：ol#stream 成为纯时间序卡列表（任意深度零 [data-host] / [data-transitional-host]）",
-   "CHRONO：decision 壳退役 + 8 个存活元素去向（回执摘要 → 卡固化区/审计；ref 证据+恢复 → ref 卡卡内；选项池+后果预演 → ask/auth 卡内；kicker / ref-badge 随壳退役）",
-   "CHRONO：l1-panels 组退役 + 4 开关去向（历史 → 退役 + 计数入审计视图标题；手势 → 设置「帮助」分区；局部树归因 → 树视图 L2；回执证据 → 审计视图 L2）",
-   "CHRONO：#composer 迁 body 尾部 + 保持 hidden + id/ARIA 保留（journey / binding / requestTurn 继续读）；messageAnchor 不再依赖流内宿主",
-   "CHRONO：disclosure.ts 三份声明随退役重写（'composer' 保留在 NEVER_FOLDABLE）；风险位永不折叠红线逐字保留",
-   "RECOVERY：risk-recovery 触发集扩展（site / probe 入恢复触发集，priority 1）+ 「重新绑定当前标签页」chip（复用 #rebind 同一生产入口）+ act 闭集终态 6 项 + 每个本地 act 布线门禁与反证",
-   "HELP：设置视图新增「帮助」分区（6 手势表，L1_GESTURE_LABELS 单源；SETTINGS_SECTION_IDS 单源派生；只读零可点）+ onboarding chip act:'help'",
-   "UNFREEZE：src/ui/options/index.html 单文件纯文案解冻 + 订正为「设置 → 站点与授权」口径 + 显式解冻登记（v4.5 取代台账，v3 台账零 diff）+ test:zero-injection ≥27 复跑",
-   "REGISTRY：零宿主断言（实存集合 == ∅）+ RETIRED_HOST_IDS 扩容（decision / composer / l1-panels / strips）+ 旧容器 id 零残留 + 5 类问题串终态 + 伪造 reading 反证",
-   "DENSITY：31 登记格按 Chromium 实测重算为新基线 + docs/v4-density-baseline.json v4.5 台账显式取代（前后值/日期/来源/理由/历史保留）+ riskIncrementRegistry 双向期望与溯源门槛字段重锚 + 夹具稳态锚改构造保证 + 反证不空转（注入点重写）；阈值 7/15·9/20·17/35 与 #stream 豁免口径逐字不变",
-   "LEDGER：journey 保护段第二次八步显式取代（新 pin + supersededFrom 链式保留 + modifiedRanges[] + redlineRemap[] + 计数守恒 ≥167 + RP-V4-08 反证）；binding 保护段保段或显式取代 + 段外逐行登记；11 处门禁等价重锚（数量不减）",
-   "VOL：体积五要素重登记 + ceiling 严格 == floor(baseline × 1.05)（无 cap）+ 披露算术机核（I-10）+ V3-VOL-3 三值同源（档位 512,000 / 绝对上限 563,200 不变；authorConfirmation 保持 pending-author-line）+ 红线逐字节复核"
+  "feature": "V4.5-1 单写化 + 宿主时间序化（父：specs-tree-web-cli-plugin-v45-f-regularization）",
+  "featureKey": "specs-tree-v45-1-single-write-chronology",
+  "version": "v4.5.0",
+  "name": "V4.5-1 单写化 + 宿主时间序化——5 条提示带可见投影退役（可见面唯一=流内行/卡）+ 4 个固定位置宿主清零（ol#stream = 纯时间序卡列表）+ #composer 出流（body 尾 hidden，id/ARIA 保留）+ 风险恢复规则扩展（site/probe 触发 + 恢复 chips）+ 手势迁设置「帮助」分区 + options 纯文案解冻 + host-registry 零宿主断言+ 密度基线重算（显式取代 + 反证）+ journey 第二次八步取代 + 体积五要素",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-tasks",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v45-f-regularization",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-21",
+  "updatedAt": "2026-09-21T00:00:00.000Z",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v45-f-regularization（F-31 / v0.9.1）立项的**唯一叶**（P0，position=1）。承载父 §5.1~§5.10 全部 44 条 FR：① SINGLE（FR-V45-010~015）5 条提示带可见投影**真退役**（DOM 移除，非 hidden）+ 事实唯一可见面 + 单通道 4 规则逐字不变 + 富内容承载（行 title + 设置站点详情 + 推荐卡恢复 chips）+ 归并矩阵判据重写；② CHRONO（FR-V45-020~026）4 宿主清零（decision / composer / l1-panels / strips）+ 37 条存活元素去向（父 §11）+ #composer 迁 body 尾 hidden（id/ARIA 保留，法四不变）+ 折叠声明零漂移；③ RECOVERY（FR-V45-030~033）risk-recovery 触发集扩展（site / probe）+ 「重新绑定当前标签页」chip + NEXTSTEP_ACTS 闭集终态 6 项 + 本地 act 布线门禁；④ HELP（FR-V45-040~042）设置视图「帮助」分区（SETTINGS_SECTION_IDS 单源派生）+ chip act:'help'；⑤ UNFREEZE（FR-V45-050~052）options/index.html 纯文案解冻 + 订正 + 显式登记 + zero-injection 复跑；⑥ REGISTRY（FR-V45-060~062）零宿主断言 + RETIRED_HOST_IDS 扩容 + 5 类问题串终态；⑦ DENSITY（FR-V45-070~074）口径零放宽 + 31 格重算为新基线（台账显式取代 + 反证）+ 夹具锚改构造保证；⑧ LEDGER（FR-V45-080~084）journey 第二次八步取代 + binding 段外逐行登记 + 11 处门禁等价重锚 + knownGap 一致性 + 两段证伪；⑨ VOL（FR-V45-090~093）体积五要素 + 披露算术机核 + V3-VOL-3 三值同源 + 红线逐字节。权威条文见父 spec.md（§5 / §11 / §13 / §15）。",
+  "scope": {
+    "in": [
+      "SINGLE：5 条提示带（#env-guard / #site-hint / #onboarding / #discovery-notice / #notice）DOM 真退役（非 hidden）；#send-reason 保留（状态栏职责）",
+      "SINGLE：事实唯一可见面（首屏三事实 env / site / probe 各恰 1 个可见载体）；单通道 4 规则（净化 / 去重 5000ms / 限速 20 行·分钟 + dropped 不静默 / 「持续：」前缀）语义逐字不变",
+      "SINGLE：富提示承载 = 单行事实行 + 行 title（与设置站点详情同源）+ 推荐卡 risk-recovery 恢复 chips；零新增宿主",
+      "CHRONO：ol#stream 成为纯时间序卡列表（任意深度零 [data-host] / [data-transitional-host]）",
+      "CHRONO：decision 壳退役 + 8 个存活元素去向（回执摘要 → 卡固化区/审计；ref 证据+恢复 → ref 卡卡内；选项池+后果预演 → ask/auth 卡内；kicker / ref-badge 随壳退役）",
+      "CHRONO：l1-panels 组退役 + 4 开关去向（历史 → 退役 + 计数入审计视图标题；手势 → 设置「帮助」分区；局部树归因 → 树视图 L2；回执证据 → 审计视图 L2）",
+      "CHRONO：#composer 迁 body 尾部 + 保持 hidden + id/ARIA 保留（journey / binding / requestTurn 继续读）；messageAnchor 不再依赖流内宿主",
+      "CHRONO：disclosure.ts 三份声明随退役重写（'composer' 保留在 NEVER_FOLDABLE）；风险位永不折叠红线逐字保留",
+      "RECOVERY：risk-recovery 触发集扩展（site / probe 入恢复触发集，priority 1）+ 「重新绑定当前标签页」chip（复用 #rebind 同一生产入口）+ act 闭集终态 6 项 + 每个本地 act 布线门禁与反证",
+      "HELP：设置视图新增「帮助」分区（6 手势表，L1_GESTURE_LABELS 单源；SETTINGS_SECTION_IDS 单源派生；只读零可点）+ onboarding chip act:'help'",
+      "UNFREEZE：src/ui/options/index.html 单文件纯文案解冻 + 订正为「设置 → 站点与授权」口径 + 显式解冻登记（v4.5 取代台账，v3 台账零 diff）+ test:zero-injection ≥27 复跑",
+      "REGISTRY：零宿主断言（实存集合 == ∅）+ RETIRED_HOST_IDS 扩容（decision / composer / l1-panels / strips）+ 旧容器 id 零残留 + 5 类问题串终态 + 伪造 reading 反证",
+      "DENSITY：31 登记格按 Chromium 实测重算为新基线 + docs/v4-density-baseline.json v4.5 台账显式取代（前后值/日期/来源/理由/历史保留）+ riskIncrementRegistry 双向期望与溯源门槛字段重锚 + 夹具稳态锚改构造保证 + 反证不空转（注入点重写）；阈值 7/15·9/20·17/35 与 #stream 豁免口径逐字不变",
+      "LEDGER：journey 保护段第二次八步显式取代（新 pin + supersededFrom 链式保留 + modifiedRanges[] + redlineRemap[] + 计数守恒 ≥167 + RP-V4-08 反证）；binding 保护段保段或显式取代 + 段外逐行登记；11 处门禁等价重锚（数量不减）",
+      "VOL：体积五要素重登记 + ceiling 严格 == floor(baseline × 1.05)（无 cap）+ 披露算术机核（I-10）+ V3-VOL-3 三值同源（档位 512,000 / 绝对上限 563,200 不变；authorConfirmation 保持 pending-author-line）+ 红线逐字节复核"
+    ],
+    "out": [
+      "不碰 src/content/** / dist/content.js（177,076 B / sha 52a82620…）/ dist/pick-layer.js（33,900 B / sha 5f567d7e…）",
+      "不动 SW / KIND_SET / 判定链（policy.ts / auto-authorize.ts 内容哈希 pin）/ manifest.json（零新增权限、无 contextMenus）",
+      "不碰 design/** 与 option-f-shim.mjs（双 sha256 冻结 + shim 60/60）；不改 12 卡类型学与三区法则本身",
+      "不做 L2 视图内部重构（只允许新增承载块：树木归因块 / 审计证据区 / 帮助分区 / 站点详情）",
+      "不新增宿主 / 不以 hidden 充数 / 不新增真值源 / 不新增 LLM 产物 / 不新增网络或隐私面 / 无新依赖",
+      "不放宽任何阈值与口径（7/15·9/20·17/35；豁免只认 hidden；STREAM_HEIGHT_RATIO_MIN=0.65 只允许上调；防滥用常量不动）",
+      "不删除或降级任何断言（唯一例外：保护段显式八步取代 + 台账留痕）；不设自缚装置（SIDEPANEL_CEILING_CAP 保持 record-only）",
+      "不预填 / 不静默改 V3-VOL-3 三值与 authorConfirmation（不得伪称已确认）；不做竞品调研；不改 ROADMAP（F-31 / v0.9.1 登记留给收口）；不动 F-29 区段"
+    ]
+  },
+  "covers": [
+    "FR-V45-001",
+    "FR-V45-002",
+    "FR-V45-003",
+    "FR-V45-004",
+    "FR-V45-010",
+    "FR-V45-011",
+    "FR-V45-012",
+    "FR-V45-013",
+    "FR-V45-014",
+    "FR-V45-015",
+    "FR-V45-020",
+    "FR-V45-021",
+    "FR-V45-022",
+    "FR-V45-023",
+    "FR-V45-024",
+    "FR-V45-025",
+    "FR-V45-026",
+    "FR-V45-030",
+    "FR-V45-031",
+    "FR-V45-032",
+    "FR-V45-033",
+    "FR-V45-040",
+    "FR-V45-041",
+    "FR-V45-042",
+    "FR-V45-050",
+    "FR-V45-051",
+    "FR-V45-052",
+    "FR-V45-060",
+    "FR-V45-061",
+    "FR-V45-062",
+    "FR-V45-070",
+    "FR-V45-071",
+    "FR-V45-072",
+    "FR-V45-073",
+    "FR-V45-074",
+    "FR-V45-080",
+    "FR-V45-081",
+    "FR-V45-082",
+    "FR-V45-083",
+    "FR-V45-084",
+    "FR-V45-090",
+    "FR-V45-091",
+    "FR-V45-092",
+    "FR-V45-093"
   ],
-  "out": [
-   "不碰 src/content/** / dist/content.js（177,076 B / sha 52a82620…）/ dist/pick-layer.js（33,900 B / sha 5f567d7e…）",
-   "不动 SW / KIND_SET / 判定链（policy.ts / auto-authorize.ts 内容哈希 pin）/ manifest.json（零新增权限、无 contextMenus）",
-   "不碰 design/** 与 option-f-shim.mjs（双 sha256 冻结 + shim 60/60）；不改 12 卡类型学与三区法则本身",
-   "不做 L2 视图内部重构（只允许新增承载块：树木归因块 / 审计证据区 / 帮助分区 / 站点详情）",
-   "不新增宿主 / 不以 hidden 充数 / 不新增真值源 / 不新增 LLM 产物 / 不新增网络或隐私面 / 无新依赖",
-   "不放宽任何阈值与口径（7/15·9/20·17/35；豁免只认 hidden；STREAM_HEIGHT_RATIO_MIN=0.65 只允许上调；防滥用常量不动）",
-   "不删除或降级任何断言（唯一例外：保护段显式八步取代 + 台账留痕）；不设自缚装置（SIDEPANEL_CEILING_CAP 保持 record-only）",
-   "不预填 / 不静默改 V3-VOL-3 三值与 authorConfirmation（不得伪称已确认）；不做竞品调研；不改 ROADMAP（F-31 / v0.9.1 登记留给收口）；不动 F-29 区段"
+  "acceptanceAnchors": [
+    "AC-V45-001",
+    "AC-V45-002",
+    "AC-V45-003",
+    "AC-V45-004",
+    "AC-V45-005",
+    "AC-V45-006",
+    "AC-V45-007",
+    "AC-V45-008",
+    "AC-V45-009",
+    "AC-V45-010",
+    "AC-V45-011",
+    "AC-V45-012",
+    "AC-V45-013",
+    "AC-V45-014",
+    "AC-V45-015",
+    "AC-V45-016",
+    "AC-V45-017",
+    "AC-V45-018",
+    "AC-V45-019",
+    "AC-V45-020",
+    "AC-V45-021",
+    "AC-V45-022"
+  ],
+  "coversNonFunctional": [
+    "NFR-V45-001",
+    "NFR-V45-002",
+    "NFR-V45-003",
+    "NFR-V45-004",
+    "NFR-V45-005",
+    "NFR-V45-006",
+    "NFR-V45-007",
+    "NFR-V45-008"
+  ],
+  "coversEdgeCases": [
+    "EC-V45-001",
+    "EC-V45-002",
+    "EC-V45-003",
+    "EC-V45-004",
+    "EC-V45-005",
+    "EC-V45-006",
+    "EC-V45-007",
+    "EC-V45-008",
+    "EC-V45-009",
+    "EC-V45-010",
+    "EC-V45-011",
+    "EC-V45-012",
+    "EC-V45-013"
+  ],
+  "coversNonGoals": [
+    "NG-V45-001",
+    "NG-V45-002",
+    "NG-V45-003",
+    "NG-V45-004",
+    "NG-V45-005",
+    "NG-V45-006",
+    "NG-V45-007",
+    "NG-V45-008",
+    "NG-V45-009",
+    "NG-V45-010",
+    "NG-V45-011",
+    "NG-V45-012",
+    "NG-V45-013",
+    "NG-V45-014",
+    "NG-V45-015",
+    "NG-V45-016",
+    "NG-V45-017"
+  ],
+  "coversIssues": [
+    "Q-REG-001",
+    "Q-REG-002",
+    "Q-REG-003",
+    "Q-REG-004",
+    "Q-REG-005",
+    "Q-REG-006",
+    "Q-REG-007",
+    "Q-REG-008",
+    "Q-REG-009",
+    "Q-REG-010",
+    "Q-REG-011",
+    "Q-REG-012"
+  ],
+  "coversRisks": [
+    "R-REG-001",
+    "R-REG-002",
+    "R-REG-003",
+    "R-REG-004",
+    "R-REG-005",
+    "R-REG-006",
+    "R-REG-007",
+    "R-REG-008",
+    "R-REG-009",
+    "R-REG-010",
+    "R-REG-011",
+    "R-REG-012",
+    "R-REG-013",
+    "R-REG-014",
+    "R-REG-015",
+    "R-REG-901",
+    "R-REG-902",
+    "R-REG-903",
+    "R-REG-904",
+    "R-REG-905",
+    "R-REG-906"
+  ],
+  "dependencies": {
+    "on": [
+      "父 ../spec.md v1.0（2026-09-21）——权威条文 §5 / §11 / §13 / §15",
+      "父 ../discovery.md v1.0（2026-09-21）——Q-REG-001~012 / A-REG-001~008 / R-REG-001~015 / O-REG-001~009（已全裁决）/ §7.1 现状基线（全量 file:line）/ §7.2 红线清单 N1~N18",
+      "packages/web-cli-plugin v1（F-14）+ v2（F-27）+ v3（F-28）+ v4（F-30）已验收实现（只读复用：三区 flex / #view-host 视图替换 / 流内卡族 / firstRunCard 归并先例 / system-events 单通道 / ref 卡与 ref-store / l2/counts 计数单源 / SETTINGS_SECTION_IDS 分区单源）",
+      "docs/f-fidelity-fix-2026-09-20.md（FIX-1~4 已落地 + §5 deferred 1~4——本叶的直接输入）",
+      "docs/v4-supersession-ledger.json（protectedSupersession 八步 / protectedRanges 双 pin / redlineRemap / knownLimitations KL-N-08·KL-N-10 / v3Vol3Closeout）+ docs/v4-density-baseline.json（阈值 / 31 格 / riskIncrementRegistry / knownLimitations）+ docs/v3-supersession-ledger.json（zeroDiffFiles 9 项，冻结历史不得解冻）",
+      "design/ui-redesign/option-f-chat-stream.html（F 纯形契约）+ option-f-shim.mjs（60 断言）—— 只读，零触碰"
+    ],
+    "blocking": []
+  },
+  "deliveryOrder": {
+    "position": 1,
+    "note": "首且唯一（P0）。叶内执行序（非需求）：① SINGLE 退役面 DOM 移除 + 归并判据重写 → ② CHRONO 宿主清零 + 元素迁移 + #composer 出流 → ③ RECOVERY / HELP 推荐卡扩展 + act 闭集 + 布线门禁 → ④ UNFREEZE options 解冻（可并行准备）→ ⑤ 收口：密度重算 + journey 取代 + 体积重登记（共享收口面，**必须一次做完**——体积五要素与 journey 取代都依赖终态 DOM，分两次会产生中间态取代）"
+  },
+  "independence": {
+    "changeSurface": "src/ui/sidepanel/**（index.html / host-registry.ts / disclosure.ts / stream-render.ts / l1/panels.ts / recommend.ts / view-model.ts / sidepanel.ts / cards/{ref,askuser,auth,nextstep}.ts / l2 承载块 / system-events 常量面只读）+ src/ui/settings/**（新增「帮助」分区）+ src/ui/options/index.html（仅纯文案行）+ test/**（等价重锚 + 新门禁 + 反证）+ test/size-baseline.ts（五要素）+ docs/{v4-density-baseline,v4-supersession-ledger}.json（显式台账）",
+    "supersessionLoad": "高：journey 保护段第二次八步取代（新 pin + supersededFrom 链式保留 + modifiedRanges[] + redlineRemap[] + 计数守恒 + RP-V4-08 反证）；binding 保护段保段或显式取代 + 段外 #4b/#4c 与 AP#4b 逐行登记；密度 31 格重算 + v4.5 台账显式取代 + 夹具锚迁移；退役容器清单扩容 + 5 类问题串终态；docs/v3-supersession-ledger.json 零 diff",
+    "canReachAllGreen": true,
+    "gateSet": [
+      "typecheck",
+      "plugin npm test ≥1001",
+      "test:ui（串行）",
+      "test:journey ≥167",
+      "test:insight ≥116",
+      "test:binding ≥192",
+      "test:hardening ≥24",
+      "test:e2e",
+      "test:supersession ≥33",
+      "test:gate-integrity ≥12",
+      "test:l0 ≥223",
+      "test:l1 ≥111",
+      "test:l2 ≥74",
+      "test:density ≥175",
+      "test:page-input ≥106",
+      "test:stream ≥63",
+      "test:ask-auth ≥61",
+      "test:recommendation ≥56",
+      "test:ref-pick-wiring ≥11",
+      "test:size-ruling-vol3 ≥10",
+      "test:l1-reverse ≥9",
+      "test:l2-reverse ≥10",
+      "test:zero-injection ≥27",
+      "test:design-contract ≥6"
+    ],
+    "gateDiscipline": "严格串行（禁并发 Chromium；一次一个；finally 自清 profile）；日志全量落盘（禁截断）；反证必须实跑「注入 → FAIL（声明 expectFailPattern）→ 逐字节 sha256 还原 → PASS」；KL-N-10 首轮异常隔离复跑 ≥2、仍红如实登记不阻塞收口；人工面逐项标注不得冒充 PASS"
+  },
+  "openPoints": [
+    {
+      "id": "V45-P-012",
+      "topic": "密度重算的具体格数与差值",
+      "status": "pending-measurement",
+      "needs": "build 轮 Chromium 实测（口径已由父 DC-V45-006 定：显式取代 + 反证 + 阈值不动 + 豁免单源不动；禁止预填）"
+    },
+    {
+      "id": "V45-P-013",
+      "topic": "体积净增 / 净减值",
+      "status": "pending-measurement",
+      "needs": "build / 收口轮按实测填写五要素（上限与纪律已定）"
+    },
+    {
+      "id": "V45-P-014",
+      "topic": "title 承载长文案的读屏体验是否可接受",
+      "status": "pending-human",
+      "needs": "人工面（headless 不可合成；父 NFR-V45-008 / AC-V45-022）"
+    },
+    {
+      "id": "V45-P-015",
+      "topic": "恢复 chips 在 MAX_CHIPS_PER_CARD = 3 上限内的具体取舍（重新拾取 / 改用描述 / 重新绑定）",
+      "status": "ruled-by-plan",
+      "needs": "plan（父 FR-V45-031 已定「至少三项 + 卡上限 3 ⇒ 按规则优先级取 ≤3」的口径；具体规则表定值由 plan 给）",
+      "landing": "FR-V45-030 / 031",
+      "ruling": "RECOVERY_CHIP_ORDER 规则表（叶 plan ADR-V45-007 §裁决 2）：refInvalid/declarationInvalid/hardFloor → repick→describe→rebind；site → **rebind**→repick→describe；probe → **rebind**→describe→repick；渲染前取 ≤ MAX_CHIPS_PER_CARD(=3)。"
+    }
+  ],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/TREE.md",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/spec.md",
+    "parentState": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/state.json",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/discovery.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/plan.md",
+    "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/tasks.json",
+    "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/tasks.md"
+  },
+  "status": "tracked",
+  "phaseHistory": [
+    {
+      "phase": "registered",
+      "timestamp": "2026-09-21T09:00:00.000Z",
+      "triggeredBy": "sddu-spec（按父 §12.1 单叶结构裁决创建叶子目录；discovery 建议的 3 叶草案被否决并登记理由）"
+    },
+    {
+      "phase": "specified",
+      "timestamp": "2026-09-21T09:00:00.000Z",
+      "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0：承载父 §5.1~§5.10 全部 44 FR；范围做 / 不做；5 段执行序验收包（父 AC-V45-001~022 锚点）；独立性说明（变更面 / 取代负荷 / 门禁集合 / 叶内执行序）；4 条本叶开放问题（2 待实测 + 1 待人工面 + 1 归 plan））"
+    },
+    {
+      "phase": "planned",
+      "timestamp": "2026-09-21T12:00:00.000Z",
+      "triggeredBy": "sddu-plan（产出唯一叶 plan.md v1.0：ADR-V45-001~012 全部正文（每条含 背景/选项/裁决/后果/回滚 + FR-AC 映射）；A1~A30 现状基线（本轮只读实测 file:line）；五组方案对比 P-V45-01~05；D-P-V45-01~08；60 项文件影响（src 19 / test 33 / docs 2 / SDDU 6）；风险继承 21 条 + 新增 R-V45-101~109；五波实施序）"
+    },
+    {
+      "phase": "tasked",
+      "timestamp": "2026-09-21T18:00:00.000Z",
+      "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0 + 父总览型 tasks.md/tasks.json：19 原子任务 / 5 波（W1 门禁脚手架+断言预迁移 → W2 strips 单写 → W3 宿主退役+元素迁移 → W4 门禁重算+journey 取代+密度 → W5 收尾）；规模 S×2 / M×6 / L×11；2 个 spikeGate（binding 字节中立避让 → T114；journey 链式判据预演 → T113）；4 个提交区间（A=W1 / B=W2 / C=W3 / D=W4+W5 原子）；每任务含 输入/动作/产出/可机核验收/依赖/风险/规模 + 红线检查点三段清单（F1~F5 冻界面 / T-a~T-e 阈值面 / L-a~L-c 台账面）；编排器覆盖面 ①~⑭ 逐项映射；停机规则 7 条）"
+    },
+    {
+      "phase": "builded",
+      "timestamp": "2026-09-21T00:00:00.000Z",
+      "triggeredBy": "sddu-build R1（W1+W2，TASK-V45-101~106；提交区间 A+B）：W1 落盘 3 个 node 门禁骨架 + EXPECTED_AUDITED_FILES 追加 + node 门禁扫描扩展 + 计数只增对账表 + 双 spikeGate 结论（A=keep-feasible / B=eight-steps-feasible）"
+    }
+  ],
+  "phaseNote": "builded（进行态：R1 = W1+W2；剩余 W3/W4/W5 待 R2/R3）",
+  "notes": "V4.5-1 叶子规范完成（2026-09-21，sddu-spec）。本叶 = v4.5 的**唯一叶**（父 §12.1 结构裁决）。\n\n**为什么必须单叶**：两项核心共享同一次 scope 体积重登记与同一次 journey 结构重锚 ⇒ 门禁迁移不可分割；体积五要素与 journey 取代都依赖**终态 DOM**，分两次做会产生「中间态取代」（多余台账条目 + 二次新 pin），并把同一段保护区改两遍（违背取代台账「同编号等价改写」守恒口径）。\n\n**37 条元素去向**（父 §11 施工图）：退役 19 / 迁移 13 / 消解 3 / 保留 2 / 新增宿主 0。关键去向：#l1-ref + #l1-ref-repick / -describe / -rescue → ref 卡卡内（N-05 关闭）；#l0-more / #l1-more / #l1-consequences(-toggle) / #l1-consequence-tpl → askuser / auth 卡内；#l0-receipt-summary → 卡固化区 + 审计视图；#l1-history → 退役（计数入审计标题）；#l1-gestures → 设置「帮助」分区；#l1-local-tree-* → 树视图（L2）；#l1-receipt-* → 审计视图（L2）；#composer / #input / #send → body 尾 hidden（id / ARIA 保留）；#send-reason → 保留（状态栏职责）；#rebind → 保留 + 新增推荐 chip 单一生产入口。\n\n**四门禁处置**：journey → 第二次八步显式取代（新 pin + ≥167 + RP-V4-08 反证）；binding → 保段（sha be9ad0e9… 不变）或显式取代 + 段外 #4b/#4c、AP#4b 逐行登记；density → 31 格重算 + v4.5 台账显式取代 + 夹具锚改构造保证（阈值逐字不变）；supersession → knownGap ↔ status 一致性机核保持绿。\n\n纪律：本轮只写本 Feature 目录；未改 src/test/dist/design/docs/ROADMAP；未跑门禁或 Chromium（spec 阶段零运行时验证）；commit 采用 path-limited `git add`（禁 `git add -A`）。注：`/tool sddu_update_state` 在本会话工具集中不可见 → 状态文件由 Agent 直接写入（phase=specified / status=tracked）。\n\n**plan 阶段完成（2026-09-21，sddu-plan）**：本叶 `plan.md` v1.0（1001 行）= **v4.5 的实施承载**，含 12 条 ADR 全部正文 + 五波实施序 + 63 项文件影响 + 风险登记。\n\n**本叶开放问题处置**：V45-P-012（密度格数）/ V45-P-013（体积值）保持 `pending-measurement`（禁止预填）；V45-P-014（title 读屏）保持 `pending-human`；**V45-P-015（恢复 chips 取舍）→ 已由 ADR-V45-007 的 `RECOVERY_CHIP_ORDER` 规则表定值**（site/probe 首项 = 「重新绑定当前标签页」，渲染前取 ≤3）。\n\n**关键设计定论（与父 spec 的接口）**：迁移元素承载 = 卡内作用域 + **唯一活跃/最新卡铸造稳定 id**（沿用 v4-3 `#ask*`/`#confirm*` 先例；零新机制）；`COLLAPSIBLE_TARGETS` 7→7（零缩减，新增 `l2-tree-attribution`/`l2-audit-evidence` 两项，退役 `l1-ref`/`l1-history` 收入 `RETIRED_FOLDABLE_IDS`）；`NEVER_FOLDABLE` 12→14（删 `l0-decision` 收入 `RETIRED_NEVER_FOLDABLE_IDS`，新增 3 个迁移面；`composer` 保留）；台账 schema 扩展 = `supersessionChain[]` + `protectedSupersession.history[]` + `unfrozenZeroDiffFiles[]` 字段扩展；体积硬边界 = 净减 ≤ 19,225 B（否则 V3-VOL-3 档位 512,000 → 460,800，与 FR-V45-092 冲突 ⇒ 停机上报）。\n\n**tasks 阶段完成（2026-09-21，sddu-tasks）**：本叶 `tasks.md` v1.0 + `tasks.json` v1.0（**19 原子任务 / 5 波**，编号 `TASK-V45-101~119` / 别名 `V451-01~19`；与 v1 0xx~1xx / v2 2xx~3xx / v3 4xx / v4 5xx~8xx **零冲突**，本轮实测 `grep -rn \"TASK-V45\" .sddu/ = 0`）。\n\n**五波与规模**：W1 门禁脚手架/断言预迁移（101 门禁脚手架+受审集合追加+计数只增对账表 · 102 **spikeGate-A** binding 段前字节中立避让探针 · 103 **spikeGate-B** journey 等价改写+链式 superseder 预演）→ W2 strips 单写（104 STRIP_CHANNEL_KINDS 重构+单写收口 · 105 5 条提示带 DOM 真退役+firstRunCard/title 承载 · 106 15 门禁 44 处断言重写+载体数==1+4 组反证）→ W3 宿主退役+元素迁移（107 messageAnchor+4 宿主移除+纯卡序 · 108 decision 壳卡内化 · 109 l1-panels 4 去向+L2 承载块 · 110 composer 出流+disclosure 三声明 · 111 host-registry 零宿主判据+5 组伪造反证 · 112 risk-recovery+act 闭集 6+布线门禁+帮助分区）→ W4 门禁重算+journey 取代+密度（113 八步取代+supersessionChain+链式判据 · 114 binding 保段+段外登记 · 115 11 处门禁重锚+反证注入点重写 · 116 density 31 格+v45Ledger+夹具锚）→ W5 收尾（117 options 解冻+范围门禁 · 118 体积五要素双向+三值同源+档位闸门 · 119 24 门禁串行+红线逐字节+人工面+收口文档）。规模 S×2 / M×6 / L×11。\n\n**并行/串行**：关键路径 = 101→104→105→106→107→108→109→110→111→112→115→113→116→118→119；可并行组 = {102,103,101}（只读探针）· {114,115}（文件不相交）· {117,113}（独立文件，复跑进串行队列）；W2/W3 严格串行（index.html / sidepanel.ts / view-model.ts / l0.mjs 共享）；Chromium 门禁纪律不变（一次一个）。\n\n**spikeGate 2 个**：T102（binding 段前等长补偿可行性；不可行 ⇒ 停下上报，获批后走显式取代，禁静默改 pin）→ 闸 T114；T103（链式谓词须不破 v3 段严格判据）→ 闸 T113。\n\n**原子区间**：A=W1 / B=W2 / C=W3 / **D=W4+W5 单一原子区间**（终态 DOM + 新 pin + 密度台账 + 体积登记 + 门禁日志必须一次落盘；中间态不得单独提交；失败整区间回滚，R-V45-109）。\n\n**红线检查点**（每任务三段清单）：`F1~F5` 冻界面（design/** / dist 双子 / SW+KIND_SET+manifest / v3 台账零 diff / web-cli-base+ROADMAP+F-29）· `T-a~T-e` 阈值面（密度阈值与豁免单源 / 0.65 只上调 / 体积 ceiling 与三值+cap record-only / 单通道 4 规则 / chips 与白名单）· `L-a~L-c` 台账面（v4 取代台账 / v4 密度台账 / 体积五要素+历史数组）。\n\n**模板偏差登记**：模板建议 5~15 任务，本轮 19 —— 理由 = 编排器明定五波 + 覆盖面必含 ①~⑭（W3 独占 6 项）；与 v2/v3/v4 叶子先例（9~17）同量级；plan 估 ~52~58 工作项 ⇒ 按「独立可验证交付物」聚合为 19 原子任务。\n\n注：`/tool sddu_update_state` 在本会话工具集中不可见 ⇒ 状态文件由 Agent 直接写入（phase=tasked / status=tracked），沿用 spec/plan 阶段同口径。",
+  "planCounts": {
+    "adrs": 12,
+    "waves": 5,
+    "estimatedTasks": "52~58（建议 54）",
+    "fileChangeItems": 63,
+    "fileChangeBreakdown": {
+      "src": 21,
+      "test": 34,
+      "docs": 2,
+      "sddu": 6
+    },
+    "newFiles": 4,
+    "modifiedFiles": 59,
+    "deletedFiles": 0,
+    "hostsBefore": 4,
+    "hostsAfter": 0,
+    "newHosts": 0,
+    "elementDestination": {
+      "retired": 19,
+      "migrated": 13,
+      "dissolved": 3,
+      "kept": 2
+    },
+    "protectedPins": {
+      "journey": "second-supersede (supersessionChain)",
+      "binding": "keep (byte-neutral avoidance)"
+    },
+    "risksInherited": 21,
+    "risksAdded": 9,
+    "planDocLines": {
+      "parent": 285,
+      "leaf": 1001
+    }
+  },
+  "taskCounts": {
+    "tasks": 19,
+    "waves": 5,
+    "complexity": {
+      "S": 2,
+      "M": 6,
+      "L": 11
+    },
+    "numbering": {
+      "namespace": "TASK-V45-1xx",
+      "block": "TASK-V45-101~119",
+      "alias": "V451-01~19",
+      "conflictCheck": "grep -rn \"TASK-V45\" .sddu/ = 0"
+    },
+    "spikes": [
+      {
+        "id": "TASK-V45-102",
+        "topic": "binding 段前字节中立避让可行性",
+        "gates": "TASK-V45-114（保段路径，无需显式取代预案）",
+        "decision": [
+          "keep-feasible",
+          "report-to-orchestrator"
+        ],
+        "verdict": "keep-feasible",
+        "evidence": {
+          "migratePointsInsideProtectedRange": 0,
+          "deltaByteLength": 52,
+          "availablePreSegmentBytes": 1485,
+          "compensation": [
+            ":752 删 17 个 '─'（51 B，纯装饰分隔线）",
+            ":752 删 1 个注释行内部空白（1 B）"
+          ],
+          "segmentShaInvariant": true,
+          "startByteAfterSim": "107780",
+          "fileTotalDelta": 0,
+          "panelNoticeWhiteListed": true
+        },
+        "failureCriteria": [
+          "段内迁移点存在",
+          "可删白区耗尽（|Δ| > 预算）",
+          "startByte 无法逐字节复现",
+          "段本体 sha 漂移",
+          "白名单误判"
+        ],
+        "probe": "/tmp/opencode/v45-spike/binding-byteline-probe.mjs",
+        "log": "/tmp/opencode/v4-gate-logs/v45-r1/w1-spike-binding.log"
+      },
+      {
+        "id": "TASK-V45-103",
+        "topic": "journey #15a~#15q 等价改写 + 链式 superseder 预演",
+        "gates": "TASK-V45-113",
+        "decision": [
+          "eight-steps-feasible",
+          "report-to-orchestrator"
+        ],
+        "verdict": "eight-steps-feasible",
+        "evidence": {
+          "chainPredicateHitsV3Pin": true,
+          "chainPredicateHitsV41Pin": true,
+          "segmentShaRecomputable": true,
+          "supersessionChainSchemaFields": [
+            "sha256",
+            "supersededFrom",
+            "supersededOn",
+            "leafBase",
+            "note"
+          ],
+          "chainAssertionDrafts": [
+            "链长≥2",
+            "链连续性 chain[i].supersededFrom === chain[i-1].sha256（首节 null）",
+            "链覆盖 v3 pin 与 v4-1 pin",
+            "protectedRanges[0].supersededFrom === chain.at(-2).sha256",
+            "newPin.sha256 同源",
+            "history 保留 v4-1 段"
+          ],
+          "outsideSegmentRewriteDelta": 174,
+          "outsideSegmentCompensation": [
+            ":83 删 20 个 '─'",
+            ":299 删 20 个 '─'",
+            ":241 删 18 个 '─'"
+          ],
+          "startByteAfterSim": "43054",
+          "segmentShaAfterSimUnchanged": true
+        },
+        "failureCriteria": [
+          "链式谓词对 v3 pin 未命中",
+          "chain schema/连续性/覆盖不成立",
+          "段外改写无法字节中立"
+        ],
+        "probe": "/tmp/opencode/v45-spike/journey-supersede-probe.mjs",
+        "log": "/tmp/opencode/v4-gate-logs/v45-r1/w1-spike-journey.log"
+      }
+    ],
+    "commitIntervals": {
+      "A": [
+        "TASK-V45-101",
+        "TASK-V45-102",
+        "TASK-V45-103"
+      ],
+      "B": [
+        "TASK-V45-104",
+        "TASK-V45-105",
+        "TASK-V45-106"
+      ],
+      "C": [
+        "TASK-V45-107",
+        "TASK-V45-108",
+        "TASK-V45-109",
+        "TASK-V45-110",
+        "TASK-V45-111",
+        "TASK-V45-112"
+      ],
+      "D": [
+        "TASK-V45-113",
+        "TASK-V45-114",
+        "TASK-V45-115",
+        "TASK-V45-116",
+        "TASK-V45-117",
+        "TASK-V45-118",
+        "TASK-V45-119"
+      ]
+    },
+    "criticalPath": [
+      "TASK-V45-101",
+      "TASK-V45-104",
+      "TASK-V45-105",
+      "TASK-V45-106",
+      "TASK-V45-107",
+      "TASK-V45-108",
+      "TASK-V45-109",
+      "TASK-V45-110",
+      "TASK-V45-111",
+      "TASK-V45-112",
+      "TASK-V45-115",
+      "TASK-V45-113",
+      "TASK-V45-116",
+      "TASK-V45-118",
+      "TASK-V45-119"
+    ],
+    "coverageMap": "①~⑭ + W1 全部映射（见 tasks.md §3.1 / tasks.json coverageMap）",
+    "redlineLegend": {
+      "frozen": "F1~F5",
+      "thresholds": "T-a~T-e",
+      "ledgers": "L-a~L-c"
+    },
+    "testConservation": {
+      "summary": "24 门禁计数只增（l0≥223 / l1≥111 / l2≥74 / density≥175 / journey≥167 / insight≥116 / binding≥192 / hardening≥24 / page-input≥106 / stream≥63 / ask-auth≥61 / recommendation≥56 / supersession≥33 / gate-integrity≥12 / zero-injection≥27 / size-ruling-vol3≥10 / design-contract≥6 / l1-reverse≥9 / l2-reverse≥10 / ref-pick-wiring≥11 / npm test≥1001）；新增 3 node 门禁；CHROMIUM_GATES 保持 9",
+      "caliber": "计数只增（FR-V45-004）；断言零删除零降级；唯一例外 = 保护段显式八步取代（W4/TASK-V45-113）",
+      "table": [
+        {
+          "gate": "npmTest",
+          "baseline": 1001,
+          "targetLowerBound": ">=1001",
+          "rewriteMode": "node 门禁只追加（W1 新增 3 个 node 门禁骨架：+33 断言；实测 1034）",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "l0",
+          "baseline": 223,
+          "targetLowerBound": ">=223",
+          "rewriteMode": "⑧ EXPECTED_TRIGGERS 重锚 + ⑩ 结构集合去 l0-decision + 零宿主结构性判据",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "l1",
+          "baseline": 111,
+          "targetLowerBound": ">=111",
+          "rewriteMode": "②⑫ 展开几何 / openAll-closeAll 往返 → 卡内 / 视图内",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "l2",
+          "baseline": 74,
+          "targetLowerBound": ">=74",
+          "rewriteMode": "审计证据区 / 帮助分区三方同源 + 树归因块可达",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "density",
+          "baseline": 175,
+          "targetLowerBound": ">=175",
+          "rewriteMode": "31 格重算 + 夹具三重构造判据（两轮实测）",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "journey",
+          "baseline": 167,
+          "targetLowerBound": ">=167",
+          "rewriteMode": "保护段第二次八步同编号等价改写（只增）",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "insight",
+          "baseline": 116,
+          "targetLowerBound": ">=116",
+          "rewriteMode": "文本读取点改流内行 / firstRunCard",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "binding",
+          "baseline": 192,
+          "targetLowerBound": ">=192",
+          "rewriteMode": "段前字节中立（spikeGate-A = keep-feasible）+ 段后等价改写；KL-N-10 隔离复跑 ≥2",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "hardening",
+          "baseline": 24,
+          "targetLowerBound": ">=24",
+          "rewriteMode": "#discovery-notice 读取点 → 流内行（options 页 #env-guard 保留 ⇒ 零触碰）",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "pageInput",
+          "baseline": 106,
+          "targetLowerBound": ">=106",
+          "rewriteMode": "L1 面板引用 → 卡作用域 / 视图承载块",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "stream",
+          "baseline": 63,
+          "targetLowerBound": ">=63",
+          "rewriteMode": "纯卡序 + 唯一非卡子节点显式登记",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "askAuth",
+          "baseline": 61,
+          "targetLowerBound": ">=61",
+          "rewriteMode": "卡内选项池 / 后果预演 / 固化区新锚点",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "recommendation",
+          "baseline": 56,
+          "targetLowerBound": ">=56",
+          "rewriteMode": "⑬⑭ 重锚 + act:'help' 零回合 + site/probe 恢复卡",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "supersession",
+          "baseline": 33,
+          "targetLowerBound": ">=33",
+          "rewriteMode": "链式 superseder 查找（spikeGate-B 预演：v3 + v4-1 pin 均命中）+ supersessionChain schema（只增）",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "gateIntegrity",
+          "baseline": 12,
+          "targetLowerBound": ">=12",
+          "rewriteMode": "EXPECTED_AUDITED_FILES 追加 3 项 + node 门禁扫描扩展（CHROMIUM_GATES 保持 9）",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "zeroInjection",
+          "baseline": 27,
+          "targetLowerBound": ">=27",
+          "rewriteMode": "options 解冻复跑 + title 净化反证",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "sizeRulingVol3",
+          "baseline": 10,
+          "targetLowerBound": ">=10",
+          "rewriteMode": "档位不下移闸门（newBaselineBytes >= 460,801）",
+          "lowerBoundNotBelowBaseline": true
+        },
+        {
+          "gate": "designContract",
+          "baseline": 6,
+          "targetLowerBound": ">=6",
+          "rewriteMode": "零触碰 design/** ⇒ 恒绿",
+          "lowerBoundNotBelowBaseline": true
+        }
+      ],
+      "gateCount": 18,
+      "newGates": [
+        "test/host-registry.test.ts",
+        "test/local-act-wiring.test.ts",
+        "test/settings-help.test.ts"
+      ],
+      "chromiumGateCount": 9,
+      "measuredAtW1": {
+        "npmTest": 1034,
+        "log": "/tmp/opencode/v4-gate-logs/v45-r1/w1-node.log"
+      },
+      "measuredAtW2": null
+    },
+    "atomicIntervalD": "W4+W5 单一原子 commit 区间（R-V45-109）",
+    "templateDeviation": "模板 5~15 vs 实产 19（理由见 tasks.md §0.3）"
+  },
+  "artifacts": [
+    "discovery.md",
+    "spec.md",
+    "specs-tree-v45-1-single-write-chronology/spec.md",
+    "plan.md",
+    "specs-tree-v45-1-single-write-chronology/plan.md",
+    "tasks.md",
+    "tasks.json",
+    "specs-tree-v45-1-single-write-chronology/tasks.md",
+    "specs-tree-v45-1-single-write-chronology/tasks.json"
   ]
- },
- "covers": [
-  "FR-V45-001",
-  "FR-V45-002",
-  "FR-V45-003",
-  "FR-V45-004",
-  "FR-V45-010",
-  "FR-V45-011",
-  "FR-V45-012",
-  "FR-V45-013",
-  "FR-V45-014",
-  "FR-V45-015",
-  "FR-V45-020",
-  "FR-V45-021",
-  "FR-V45-022",
-  "FR-V45-023",
-  "FR-V45-024",
-  "FR-V45-025",
-  "FR-V45-026",
-  "FR-V45-030",
-  "FR-V45-031",
-  "FR-V45-032",
-  "FR-V45-033",
-  "FR-V45-040",
-  "FR-V45-041",
-  "FR-V45-042",
-  "FR-V45-050",
-  "FR-V45-051",
-  "FR-V45-052",
-  "FR-V45-060",
-  "FR-V45-061",
-  "FR-V45-062",
-  "FR-V45-070",
-  "FR-V45-071",
-  "FR-V45-072",
-  "FR-V45-073",
-  "FR-V45-074",
-  "FR-V45-080",
-  "FR-V45-081",
-  "FR-V45-082",
-  "FR-V45-083",
-  "FR-V45-084",
-  "FR-V45-090",
-  "FR-V45-091",
-  "FR-V45-092",
-  "FR-V45-093"
- ],
- "acceptanceAnchors": [
-  "AC-V45-001",
-  "AC-V45-002",
-  "AC-V45-003",
-  "AC-V45-004",
-  "AC-V45-005",
-  "AC-V45-006",
-  "AC-V45-007",
-  "AC-V45-008",
-  "AC-V45-009",
-  "AC-V45-010",
-  "AC-V45-011",
-  "AC-V45-012",
-  "AC-V45-013",
-  "AC-V45-014",
-  "AC-V45-015",
-  "AC-V45-016",
-  "AC-V45-017",
-  "AC-V45-018",
-  "AC-V45-019",
-  "AC-V45-020",
-  "AC-V45-021",
-  "AC-V45-022"
- ],
- "coversNonFunctional": [
-  "NFR-V45-001",
-  "NFR-V45-002",
-  "NFR-V45-003",
-  "NFR-V45-004",
-  "NFR-V45-005",
-  "NFR-V45-006",
-  "NFR-V45-007",
-  "NFR-V45-008"
- ],
- "coversEdgeCases": [
-  "EC-V45-001",
-  "EC-V45-002",
-  "EC-V45-003",
-  "EC-V45-004",
-  "EC-V45-005",
-  "EC-V45-006",
-  "EC-V45-007",
-  "EC-V45-008",
-  "EC-V45-009",
-  "EC-V45-010",
-  "EC-V45-011",
-  "EC-V45-012",
-  "EC-V45-013"
- ],
- "coversNonGoals": [
-  "NG-V45-001",
-  "NG-V45-002",
-  "NG-V45-003",
-  "NG-V45-004",
-  "NG-V45-005",
-  "NG-V45-006",
-  "NG-V45-007",
-  "NG-V45-008",
-  "NG-V45-009",
-  "NG-V45-010",
-  "NG-V45-011",
-  "NG-V45-012",
-  "NG-V45-013",
-  "NG-V45-014",
-  "NG-V45-015",
-  "NG-V45-016",
-  "NG-V45-017"
- ],
- "coversIssues": [
-  "Q-REG-001",
-  "Q-REG-002",
-  "Q-REG-003",
-  "Q-REG-004",
-  "Q-REG-005",
-  "Q-REG-006",
-  "Q-REG-007",
-  "Q-REG-008",
-  "Q-REG-009",
-  "Q-REG-010",
-  "Q-REG-011",
-  "Q-REG-012"
- ],
- "coversRisks": [
-  "R-REG-001",
-  "R-REG-002",
-  "R-REG-003",
-  "R-REG-004",
-  "R-REG-005",
-  "R-REG-006",
-  "R-REG-007",
-  "R-REG-008",
-  "R-REG-009",
-  "R-REG-010",
-  "R-REG-011",
-  "R-REG-012",
-  "R-REG-013",
-  "R-REG-014",
-  "R-REG-015",
-  "R-REG-901",
-  "R-REG-902",
-  "R-REG-903",
-  "R-REG-904",
-  "R-REG-905",
-  "R-REG-906"
- ],
- "dependencies": {
-  "on": [
-   "父 ../spec.md v1.0（2026-09-21）——权威条文 §5 / §11 / §13 / §15",
-   "父 ../discovery.md v1.0（2026-09-21）——Q-REG-001~012 / A-REG-001~008 / R-REG-001~015 / O-REG-001~009（已全裁决）/ §7.1 现状基线（全量 file:line）/ §7.2 红线清单 N1~N18",
-   "packages/web-cli-plugin v1（F-14）+ v2（F-27）+ v3（F-28）+ v4（F-30）已验收实现（只读复用：三区 flex / #view-host 视图替换 / 流内卡族 / firstRunCard 归并先例 / system-events 单通道 / ref 卡与 ref-store / l2/counts 计数单源 / SETTINGS_SECTION_IDS 分区单源）",
-   "docs/f-fidelity-fix-2026-09-20.md（FIX-1~4 已落地 + §5 deferred 1~4——本叶的直接输入）",
-   "docs/v4-supersession-ledger.json（protectedSupersession 八步 / protectedRanges 双 pin / redlineRemap / knownLimitations KL-N-08·KL-N-10 / v3Vol3Closeout）+ docs/v4-density-baseline.json（阈值 / 31 格 / riskIncrementRegistry / knownLimitations）+ docs/v3-supersession-ledger.json（zeroDiffFiles 9 项，冻结历史不得解冻）",
-   "design/ui-redesign/option-f-chat-stream.html（F 纯形契约）+ option-f-shim.mjs（60 断言）—— 只读，零触碰"
-  ],
-  "blocking": []
- },
- "deliveryOrder": {
-  "position": 1,
-  "note": "首且唯一（P0）。叶内执行序（非需求）：① SINGLE 退役面 DOM 移除 + 归并判据重写 → ② CHRONO 宿主清零 + 元素迁移 + #composer 出流 → ③ RECOVERY / HELP 推荐卡扩展 + act 闭集 + 布线门禁 → ④ UNFREEZE options 解冻（可并行准备）→ ⑤ 收口：密度重算 + journey 取代 + 体积重登记（共享收口面，**必须一次做完**——体积五要素与 journey 取代都依赖终态 DOM，分两次会产生中间态取代）"
- },
- "independence": {
-  "changeSurface": "src/ui/sidepanel/**（index.html / host-registry.ts / disclosure.ts / stream-render.ts / l1/panels.ts / recommend.ts / view-model.ts / sidepanel.ts / cards/{ref,askuser,auth,nextstep}.ts / l2 承载块 / system-events 常量面只读）+ src/ui/settings/**（新增「帮助」分区）+ src/ui/options/index.html（仅纯文案行）+ test/**（等价重锚 + 新门禁 + 反证）+ test/size-baseline.ts（五要素）+ docs/{v4-density-baseline,v4-supersession-ledger}.json（显式台账）",
-  "supersessionLoad": "高：journey 保护段第二次八步取代（新 pin + supersededFrom 链式保留 + modifiedRanges[] + redlineRemap[] + 计数守恒 + RP-V4-08 反证）；binding 保护段保段或显式取代 + 段外 #4b/#4c 与 AP#4b 逐行登记；密度 31 格重算 + v4.5 台账显式取代 + 夹具锚迁移；退役容器清单扩容 + 5 类问题串终态；docs/v3-supersession-ledger.json 零 diff",
-  "canReachAllGreen": true,
-  "gateSet": [
-   "typecheck",
-   "plugin npm test ≥1001",
-   "test:ui（串行）",
-   "test:journey ≥167",
-   "test:insight ≥116",
-   "test:binding ≥192",
-   "test:hardening ≥24",
-   "test:e2e",
-   "test:supersession ≥33",
-   "test:gate-integrity ≥12",
-   "test:l0 ≥223",
-   "test:l1 ≥111",
-   "test:l2 ≥74",
-   "test:density ≥175",
-   "test:page-input ≥106",
-   "test:stream ≥63",
-   "test:ask-auth ≥61",
-   "test:recommendation ≥56",
-   "test:ref-pick-wiring ≥11",
-   "test:size-ruling-vol3 ≥10",
-   "test:l1-reverse ≥9",
-   "test:l2-reverse ≥10",
-   "test:zero-injection ≥27",
-   "test:design-contract ≥6"
-  ],
-  "gateDiscipline": "严格串行（禁并发 Chromium；一次一个；finally 自清 profile）；日志全量落盘（禁截断）；反证必须实跑「注入 → FAIL（声明 expectFailPattern）→ 逐字节 sha256 还原 → PASS」；KL-N-10 首轮异常隔离复跑 ≥2、仍红如实登记不阻塞收口；人工面逐项标注不得冒充 PASS"
- },
- "openPoints": [
-  {
-   "id": "V45-P-012",
-   "topic": "密度重算的具体格数与差值",
-   "status": "pending-measurement",
-   "needs": "build 轮 Chromium 实测（口径已由父 DC-V45-006 定：显式取代 + 反证 + 阈值不动 + 豁免单源不动；禁止预填）"
-  },
-  {
-   "id": "V45-P-013",
-   "topic": "体积净增 / 净减值",
-   "status": "pending-measurement",
-   "needs": "build / 收口轮按实测填写五要素（上限与纪律已定）"
-  },
-  {
-   "id": "V45-P-014",
-   "topic": "title 承载长文案的读屏体验是否可接受",
-   "status": "pending-human",
-   "needs": "人工面（headless 不可合成；父 NFR-V45-008 / AC-V45-022）"
-  },
-  {
-   "id": "V45-P-015",
-   "topic": "恢复 chips 在 MAX_CHIPS_PER_CARD = 3 上限内的具体取舍（重新拾取 / 改用描述 / 重新绑定）",
-   "status": "ruled-by-plan",
-   "needs": "plan（父 FR-V45-031 已定「至少三项 + 卡上限 3 ⇒ 按规则优先级取 ≤3」的口径；具体规则表定值由 plan 给）",
-   "landing": "FR-V45-030 / 031",
-   "ruling": "RECOVERY_CHIP_ORDER 规则表（叶 plan ADR-V45-007 §裁决 2）：refInvalid/declarationInvalid/hardFloor → repick→describe→rebind；site → **rebind**→repick→describe；probe → **rebind**→describe→repick；渲染前取 ≤ MAX_CHIPS_PER_CARD(=3)。"
-  }
- ],
- "files": {
-  "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/spec.md",
-  "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/state.json",
-  "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/TREE.md",
-  "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/spec.md",
-  "parentState": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/state.json",
-  "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/discovery.md",
-  "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/plan.md",
-  "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/plan.md",
-  "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/tasks.md",
-  "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/tasks.json",
-  "parentTasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/tasks.md"
- },
- "status": "tracked",
- "phaseHistory": [
-  {
-   "phase": "registered",
-   "timestamp": "2026-09-21T09:00:00.000Z",
-   "triggeredBy": "sddu-spec（按父 §12.1 单叶结构裁决创建叶子目录；discovery 建议的 3 叶草案被否决并登记理由）"
-  },
-  {
-   "phase": "specified",
-   "timestamp": "2026-09-21T09:00:00.000Z",
-   "triggeredBy": "sddu-spec（产出叶子 spec.md v1.0：承载父 §5.1~§5.10 全部 44 FR；范围做 / 不做；5 段执行序验收包（父 AC-V45-001~022 锚点）；独立性说明（变更面 / 取代负荷 / 门禁集合 / 叶内执行序）；4 条本叶开放问题（2 待实测 + 1 待人工面 + 1 归 plan））"
-  },
-  {
-   "phase": "planned",
-   "timestamp": "2026-09-21T12:00:00.000Z",
-   "triggeredBy": "sddu-plan（产出唯一叶 plan.md v1.0：ADR-V45-001~012 全部正文（每条含 背景/选项/裁决/后果/回滚 + FR-AC 映射）；A1~A30 现状基线（本轮只读实测 file:line）；五组方案对比 P-V45-01~05；D-P-V45-01~08；60 项文件影响（src 19 / test 33 / docs 2 / SDDU 6）；风险继承 21 条 + 新增 R-V45-101~109；五波实施序）"
-  },
-  {
-   "phase": "tasked",
-   "timestamp": "2026-09-21T18:00:00.000Z",
-   "triggeredBy": "sddu-tasks（产出本叶 tasks.md v1.0 + tasks.json v1.0 + 父总览型 tasks.md/tasks.json：19 原子任务 / 5 波（W1 门禁脚手架+断言预迁移 → W2 strips 单写 → W3 宿主退役+元素迁移 → W4 门禁重算+journey 取代+密度 → W5 收尾）；规模 S×2 / M×6 / L×11；2 个 spikeGate（binding 字节中立避让 → T114；journey 链式判据预演 → T113）；4 个提交区间（A=W1 / B=W2 / C=W3 / D=W4+W5 原子）；每任务含 输入/动作/产出/可机核验收/依赖/风险/规模 + 红线检查点三段清单（F1~F5 冻界面 / T-a~T-e 阈值面 / L-a~L-c 台账面）；编排器覆盖面 ①~⑭ 逐项映射；停机规则 7 条）"
-  }
- ],
- "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：只读 plan/spec/discovery/台账/先例 + 只写本 Feature 目录内文件（父/叶 tasks.md + tasks.json + state.json + TREE.md）；未跑门禁 / 构建 / Chromium；未改 src/test/dist/docs/design/ROADMAP。下一步 = @sddu-build TASK-V45-101。",
- "notes": "V4.5-1 叶子规范完成（2026-09-21，sddu-spec）。本叶 = v4.5 的**唯一叶**（父 §12.1 结构裁决）。\n\n**为什么必须单叶**：两项核心共享同一次 scope 体积重登记与同一次 journey 结构重锚 ⇒ 门禁迁移不可分割；体积五要素与 journey 取代都依赖**终态 DOM**，分两次做会产生「中间态取代」（多余台账条目 + 二次新 pin），并把同一段保护区改两遍（违背取代台账「同编号等价改写」守恒口径）。\n\n**37 条元素去向**（父 §11 施工图）：退役 19 / 迁移 13 / 消解 3 / 保留 2 / 新增宿主 0。关键去向：#l1-ref + #l1-ref-repick / -describe / -rescue → ref 卡卡内（N-05 关闭）；#l0-more / #l1-more / #l1-consequences(-toggle) / #l1-consequence-tpl → askuser / auth 卡内；#l0-receipt-summary → 卡固化区 + 审计视图；#l1-history → 退役（计数入审计标题）；#l1-gestures → 设置「帮助」分区；#l1-local-tree-* → 树视图（L2）；#l1-receipt-* → 审计视图（L2）；#composer / #input / #send → body 尾 hidden（id / ARIA 保留）；#send-reason → 保留（状态栏职责）；#rebind → 保留 + 新增推荐 chip 单一生产入口。\n\n**四门禁处置**：journey → 第二次八步显式取代（新 pin + ≥167 + RP-V4-08 反证）；binding → 保段（sha be9ad0e9… 不变）或显式取代 + 段外 #4b/#4c、AP#4b 逐行登记；density → 31 格重算 + v4.5 台账显式取代 + 夹具锚改构造保证（阈值逐字不变）；supersession → knownGap ↔ status 一致性机核保持绿。\n\n纪律：本轮只写本 Feature 目录；未改 src/test/dist/design/docs/ROADMAP；未跑门禁或 Chromium（spec 阶段零运行时验证）；commit 采用 path-limited `git add`（禁 `git add -A`）。注：`/tool sddu_update_state` 在本会话工具集中不可见 → 状态文件由 Agent 直接写入（phase=specified / status=tracked）。\n\n**plan 阶段完成（2026-09-21，sddu-plan）**：本叶 `plan.md` v1.0（1001 行）= **v4.5 的实施承载**，含 12 条 ADR 全部正文 + 五波实施序 + 63 项文件影响 + 风险登记。\n\n**本叶开放问题处置**：V45-P-012（密度格数）/ V45-P-013（体积值）保持 `pending-measurement`（禁止预填）；V45-P-014（title 读屏）保持 `pending-human`；**V45-P-015（恢复 chips 取舍）→ 已由 ADR-V45-007 的 `RECOVERY_CHIP_ORDER` 规则表定值**（site/probe 首项 = 「重新绑定当前标签页」，渲染前取 ≤3）。\n\n**关键设计定论（与父 spec 的接口）**：迁移元素承载 = 卡内作用域 + **唯一活跃/最新卡铸造稳定 id**（沿用 v4-3 `#ask*`/`#confirm*` 先例；零新机制）；`COLLAPSIBLE_TARGETS` 7→7（零缩减，新增 `l2-tree-attribution`/`l2-audit-evidence` 两项，退役 `l1-ref`/`l1-history` 收入 `RETIRED_FOLDABLE_IDS`）；`NEVER_FOLDABLE` 12→14（删 `l0-decision` 收入 `RETIRED_NEVER_FOLDABLE_IDS`，新增 3 个迁移面；`composer` 保留）；台账 schema 扩展 = `supersessionChain[]` + `protectedSupersession.history[]` + `unfrozenZeroDiffFiles[]` 字段扩展；体积硬边界 = 净减 ≤ 19,225 B（否则 V3-VOL-3 档位 512,000 → 460,800，与 FR-V45-092 冲突 ⇒ 停机上报）。\n\n**tasks 阶段完成（2026-09-21，sddu-tasks）**：本叶 `tasks.md` v1.0 + `tasks.json` v1.0（**19 原子任务 / 5 波**，编号 `TASK-V45-101~119` / 别名 `V451-01~19`；与 v1 0xx~1xx / v2 2xx~3xx / v3 4xx / v4 5xx~8xx **零冲突**，本轮实测 `grep -rn \"TASK-V45\" .sddu/ = 0`）。\n\n**五波与规模**：W1 门禁脚手架/断言预迁移（101 门禁脚手架+受审集合追加+计数只增对账表 · 102 **spikeGate-A** binding 段前字节中立避让探针 · 103 **spikeGate-B** journey 等价改写+链式 superseder 预演）→ W2 strips 单写（104 STRIP_CHANNEL_KINDS 重构+单写收口 · 105 5 条提示带 DOM 真退役+firstRunCard/title 承载 · 106 15 门禁 44 处断言重写+载体数==1+4 组反证）→ W3 宿主退役+元素迁移（107 messageAnchor+4 宿主移除+纯卡序 · 108 decision 壳卡内化 · 109 l1-panels 4 去向+L2 承载块 · 110 composer 出流+disclosure 三声明 · 111 host-registry 零宿主判据+5 组伪造反证 · 112 risk-recovery+act 闭集 6+布线门禁+帮助分区）→ W4 门禁重算+journey 取代+密度（113 八步取代+supersessionChain+链式判据 · 114 binding 保段+段外登记 · 115 11 处门禁重锚+反证注入点重写 · 116 density 31 格+v45Ledger+夹具锚）→ W5 收尾（117 options 解冻+范围门禁 · 118 体积五要素双向+三值同源+档位闸门 · 119 24 门禁串行+红线逐字节+人工面+收口文档）。规模 S×2 / M×6 / L×11。\n\n**并行/串行**：关键路径 = 101→104→105→106→107→108→109→110→111→112→115→113→116→118→119；可并行组 = {102,103,101}（只读探针）· {114,115}（文件不相交）· {117,113}（独立文件，复跑进串行队列）；W2/W3 严格串行（index.html / sidepanel.ts / view-model.ts / l0.mjs 共享）；Chromium 门禁纪律不变（一次一个）。\n\n**spikeGate 2 个**：T102（binding 段前等长补偿可行性；不可行 ⇒ 停下上报，获批后走显式取代，禁静默改 pin）→ 闸 T114；T103（链式谓词须不破 v3 段严格判据）→ 闸 T113。\n\n**原子区间**：A=W1 / B=W2 / C=W3 / **D=W4+W5 单一原子区间**（终态 DOM + 新 pin + 密度台账 + 体积登记 + 门禁日志必须一次落盘；中间态不得单独提交；失败整区间回滚，R-V45-109）。\n\n**红线检查点**（每任务三段清单）：`F1~F5` 冻界面（design/** / dist 双子 / SW+KIND_SET+manifest / v3 台账零 diff / web-cli-base+ROADMAP+F-29）· `T-a~T-e` 阈值面（密度阈值与豁免单源 / 0.65 只上调 / 体积 ceiling 与三值+cap record-only / 单通道 4 规则 / chips 与白名单）· `L-a~L-c` 台账面（v4 取代台账 / v4 密度台账 / 体积五要素+历史数组）。\n\n**模板偏差登记**：模板建议 5~15 任务，本轮 19 —— 理由 = 编排器明定五波 + 覆盖面必含 ①~⑭（W3 独占 6 项）；与 v2/v3/v4 叶子先例（9~17）同量级；plan 估 ~52~58 工作项 ⇒ 按「独立可验证交付物」聚合为 19 原子任务。\n\n注：`/tool sddu_update_state` 在本会话工具集中不可见 ⇒ 状态文件由 Agent 直接写入（phase=tasked / status=tracked），沿用 spec/plan 阶段同口径。",
- "planCounts": {
-  "adrs": 12,
-  "waves": 5,
-  "estimatedTasks": "52~58（建议 54）",
-  "fileChangeItems": 63,
-  "fileChangeBreakdown": {
-   "src": 21,
-   "test": 34,
-   "docs": 2,
-   "sddu": 6
-  },
-  "newFiles": 4,
-  "modifiedFiles": 59,
-  "deletedFiles": 0,
-  "hostsBefore": 4,
-  "hostsAfter": 0,
-  "newHosts": 0,
-  "elementDestination": {
-   "retired": 19,
-   "migrated": 13,
-   "dissolved": 3,
-   "kept": 2
-  },
-  "protectedPins": {
-   "journey": "second-supersede (supersessionChain)",
-   "binding": "keep (byte-neutral avoidance)"
-  },
-  "risksInherited": 21,
-  "risksAdded": 9,
-  "planDocLines": {
-   "parent": 285,
-   "leaf": 1001
-  }
- },
- "taskCounts": {
-  "tasks": 19,
-  "waves": 5,
-  "complexity": {
-   "S": 2,
-   "M": 6,
-   "L": 11
-  },
-  "numbering": {
-   "namespace": "TASK-V45-1xx",
-   "block": "TASK-V45-101~119",
-   "alias": "V451-01~19",
-   "conflictCheck": "grep -rn \"TASK-V45\" .sddu/ = 0"
-  },
-  "spikes": [
-   {
-    "id": "TASK-V45-102",
-    "topic": "binding 段前字节中立避让可行性",
-    "gates": "TASK-V45-114",
-    "decision": [
-     "keep-feasible",
-     "report-to-orchestrator"
-    ]
-   },
-   {
-    "id": "TASK-V45-103",
-    "topic": "journey #15a~#15q 等价改写 + 链式 superseder 预演",
-    "gates": "TASK-V45-113",
-    "decision": [
-     "eight-steps-feasible",
-     "report-to-orchestrator"
-    ]
-   }
-  ],
-  "commitIntervals": {
-   "A": [
-    "TASK-V45-101",
-    "TASK-V45-102",
-    "TASK-V45-103"
-   ],
-   "B": [
-    "TASK-V45-104",
-    "TASK-V45-105",
-    "TASK-V45-106"
-   ],
-   "C": [
-    "TASK-V45-107",
-    "TASK-V45-108",
-    "TASK-V45-109",
-    "TASK-V45-110",
-    "TASK-V45-111",
-    "TASK-V45-112"
-   ],
-   "D": [
-    "TASK-V45-113",
-    "TASK-V45-114",
-    "TASK-V45-115",
-    "TASK-V45-116",
-    "TASK-V45-117",
-    "TASK-V45-118",
-    "TASK-V45-119"
-   ]
-  },
-  "criticalPath": [
-   "TASK-V45-101",
-   "TASK-V45-104",
-   "TASK-V45-105",
-   "TASK-V45-106",
-   "TASK-V45-107",
-   "TASK-V45-108",
-   "TASK-V45-109",
-   "TASK-V45-110",
-   "TASK-V45-111",
-   "TASK-V45-112",
-   "TASK-V45-115",
-   "TASK-V45-113",
-   "TASK-V45-116",
-   "TASK-V45-118",
-   "TASK-V45-119"
-  ],
-  "coverageMap": "①~⑭ + W1 全部映射（见 tasks.md §3.1 / tasks.json coverageMap）",
-  "redlineLegend": {
-   "frozen": "F1~F5",
-   "thresholds": "T-a~T-e",
-   "ledgers": "L-a~L-c"
-  },
-  "testConservation": "24 门禁计数只增（l0≥223 / l1≥111 / l2≥74 / density≥175 / journey≥167 / insight≥116 / binding≥192 / hardening≥24 / page-input≥106 / stream≥63 / ask-auth≥61 / recommendation≥56 / supersession≥33 / gate-integrity≥12 / zero-injection≥27 / size-ruling-vol3≥10 / design-contract≥6 / l1-reverse≥9 / l2-reverse≥10 / ref-pick-wiring≥11 / npm test≥1001）；新增 3 node 门禁；CHROMIUM_GATES 保持 9",
-  "atomicIntervalD": "W4+W5 单一原子 commit 区间（R-V45-109）",
-  "templateDeviation": "模板 5~15 vs 实产 19（理由见 tasks.md §0.3）"
- },
- "artifacts": [
-  "discovery.md",
-  "spec.md",
-  "specs-tree-v45-1-single-write-chronology/spec.md",
-  "plan.md",
-  "specs-tree-v45-1-single-write-chronology/plan.md",
-  "tasks.md",
-  "tasks.json",
-  "specs-tree-v45-1-single-write-chronology/tasks.md",
-  "specs-tree-v45-1-single-write-chronology/tasks.json"
- ]
 }
