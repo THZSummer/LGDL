@@ -46,6 +46,7 @@ import { label } from '../src/ui/sidepanel/stream-plaintext.js';
 // V5-1（TASK-V5-115 / FR-ALLN-112 X3 / ADR-V5-001）—— 闭集判据等价重锚所需的两个 op 源：
 // `ACT_TO_OP`（act → opId 的**唯一权威**）与义务表的 9 opId 集（新增 op 自动纳入的判据域）。
 import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
+import { NEXT_SOURCE_NAMES } from '../src/ui/sidepanel/next-registry/definition.js';
 import { OBLIGATION_OP_IDS } from '../src/ui/sidepanel/next-registry/obligation-table.js';
 import { OPS_BY_ID } from '../src/ui/sidepanel/next-registry/pipeline.js';
 import { RECOVERY_CHIP_ORDER } from '../src/ui/sidepanel/recommend.js';
@@ -359,6 +360,27 @@ export function sourceWhitelistProblems(list: readonly string[]): string[] {
   return problems;
 }
 
+/**
+ * V5-1 validate R1 **I-04** — the judge for the **cross-table** drift seam: the 7-source
+ * list is declared twice (`definition.ts#NEXT_SOURCE_NAMES` — the `NextCtx` field set —
+ * and `recommend.ts#NEXTSTEP_SOURCE_WHITELIST` — the producer's truth sources). They are
+ * two independent literals; without this judge they can drift apart silently.
+ * `order-sensitive`: the two lists must be verbatim equal (element + order).
+ */
+export function crossTableSourceProblems(definitionList: readonly string[], recommendList: readonly string[]): string[] {
+  const problems: string[] = [];
+  if (definitionList.length !== recommendList.length) {
+    problems.push(`跨表 7 源列表长度不等：definition=${definitionList.length} recommend=${recommendList.length}`);
+  }
+  const n = Math.min(definitionList.length, recommendList.length);
+  for (let i = 0; i < n; i += 1) {
+    if (definitionList[i] !== recommendList[i]) {
+      problems.push(`跨表 7 源列表第 ${i + 1} 项不等：definition=${String(definitionList[i])} recommend=${String(recommendList[i])}`);
+    }
+  }
+  return problems;
+}
+
 test('V5-1 X3：注册表 opId 集判据（opId ⊆ 义务表 9 op；act→opId 同源；新增 op 自动纳入）', () => {
   assert.deepEqual(opVocabularyProblems(Object.keys(OPS_BY_ID)), [], '已注册 op 必须全部在义务表内');
   assert.equal(OBLIGATION_OP_IDS.length, 9, '义务表 opId 集恰 9 项（DC-ALLN-001）');
@@ -386,6 +408,17 @@ test('V5-1 X3：源白名单 7 项语义保留（零扩项）+ NextCtx 键集 ==
   const removed = [...NEXTSTEP_SOURCE_WHITELIST].filter((n) => n !== 'site');
   assert.ok(sourceWhitelistProblems(removed).length > 0, '删一条源白名单项必须判红');
   assert.ok(sourceWhitelistProblems([...NEXTSTEP_SOURCE_WHITELIST, 'settings']).length > 0, '新增一项（含 settings 计数投影）必须判红');
+});
+
+test('V5-1 validate I-04：跨表 7 源列表逐字相等（definition#NEXT_SOURCE_NAMES == recommend#NEXTSTEP_SOURCE_WHITELIST）', () => {
+  assert.deepEqual(crossTableSourceProblems([...NEXT_SOURCE_NAMES], [...NEXTSTEP_SOURCE_WHITELIST]), [], '两处 7 源列表必须逐字（元素 + 序）相等');
+  assert.deepEqual([...NEXT_SOURCE_NAMES], [...NEXTSTEP_SOURCE_WHITELIST]);
+  // 反证（同一 judge）：任一侧改一字节 / 调序 / 删项 ⇒ 必红（判据不得空转）。
+  assert.ok(crossTableSourceProblems(['ref', 'session', 'site', 'catalog', 'probe', 'risk', 'settings'], [...NEXTSTEP_SOURCE_WHITELIST]).length > 0, 'definition 侧漂移必须判红');
+  const reordered = [...NEXTSTEP_SOURCE_WHITELIST];
+  [reordered[0], reordered[1]] = [reordered[1], reordered[0]];
+  assert.ok(crossTableSourceProblems([...NEXT_SOURCE_NAMES], reordered).length > 0, 'recommend 侧调序必须判红');
+  assert.ok(crossTableSourceProblems([...NEXT_SOURCE_NAMES].slice(0, 6), [...NEXTSTEP_SOURCE_WHITELIST]).length > 0, '长度不等必须判红');
 });
 
 test('V5-1 X3：chip act 视角与 opId 视角一致（双采集等价，能力零丢失）', () => {

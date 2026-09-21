@@ -60,7 +60,7 @@
 | MODIFY | `test/local-act-wiring.test.ts` | 115 | X3 形态③④：`X3_RECONCILIATION`（旧→新判据 4 条逐条登记，`leaf: v5-1`）+ act → opId → op 槽 → 单一入口 → 义务表**同源链**判据 + 反证；+2 用例 |
 | MODIFY | `test/authorize-chip-wiring.test.ts` | 115 | X3 形态④：authorize 的 opId 同源链 + 三条反证（映射缺失 / 槽离开单一入口 / 权限请求多一处）；+2 用例 |
 | MODIFY | `test/gate-integrity.test.ts` | 114/117/119/120 | 受审集合**只追加** 4 条新 node 门禁路径 + `V51_NODE_GATE_FILES` + 新 test 块（marker 自动发现 + `CHROMIUM_GATES === 9` 不动）；13 → **14** 用例 |
-| MODIFY | `test/ui/recommendation.mjs` | 115 | ⑮ 新段（**纯追加**）：chip `data-op`（opId）与 `data-act`（渲染别名）**双采集一致** + 零悬空 opId（∈ 首批 9 op）+ `#stream [data-op]` 选择器锚 + 门禁映射表同源；运行期 59 → **66** |
+| MODIFY | `test/ui/recommendation.mjs` | 115 | ⑮ 新段（**纯追加**）：chip `data-op`（opId）与 `data-act`（渲染别名）**双采集一致** + 零悬空 opId（∈ 首批 9 op）+ `#stream [data-op]` 选择器锚 + 门禁映射表同源；运行期 59 → **65**（⑮ 净 +6；validate R1 I-01 订正，见下方注） |
 | MODIFY | `docs/v4-supersession-ledger.json` | 115 / 119 | `designContract.designContractChanges`：`[] → [G 条目五要素]`；`modifiedRanges[]`：追加 4 条 **equivalent-rewrite** 登记（`oldId` / `reason ≥40` / `leaf: v5-1` / `deletedLines: 0`） |
 
 ---
@@ -124,7 +124,7 @@
 | `test:density` | 232 | 232 | **232** | ✅（28 格 + 几何下界 488px 面未动） |
 | `test:ui`（journey） | 171 | 171 | **171** | ✅（journey 保护段 pin `cc79f413…` 未改） |
 | `test:binding` | 192 | 192（flake） | **192** | ✅（本轮 1 次实跑即绿；保护段 `be9ad0e9…` 未改） |
-| `test:recommendation` | 59 | 59 | **66** | ✅ 只增（⑮ 新段 +7） |
+| `test:recommendation` | 59 | 59 | **65** | ✅ 只增（⑮ 新段 **+6**；validate R1 I-01 订正：原登记 66/+7 与 HEAD 产物不符） |
 | `test:stream` | 63 | 63 | **63** | ✅ |
 | `test:ask-auth` | 61 | 61 | **61** | ✅ |
 | `test:insight` | 116 | 未跑 | **116** | ✅ |
@@ -139,6 +139,8 @@
 - **体积**：`dist/sidepanel.js` **507,315 B** ≤ 生效上限 **532,680 B**；**R2 Δ = 0**（`src/**` 零修改面 + 新模块不在 bundle graph 内）。
 - **红线逐字节**：`content.js` 177,076 B / `52a82620…` ✓；`pick-layer.js` 33,900 B / `5f567d7e…` ✓；`src/content/**` 零 diff ✓；`design/**` 零 diff ✓。
 - **零宿主**：`REGISTERED_STRUCTURAL_HOSTS = []` 未动；`test:recommendation` ⑧ 段 `[data-host]` 任意深度计数 = 0 ✓。
+
+> **validate R1 订正（I-01，2026-09-22，HEAD `91a5ff8` + I-04 修订后）**：`test:recommendation` 的登记值 **66 → 65**。证据：① validate 独立复跑 HEAD 产物两次，均 `65 passed / 0 failed`（Chromium 实跑，日志 `/tmp/opencode/v5-1-validate/logs/V1-recommendation-run{1,2}.log`）；② ⑮ 段**净新增 6 条** `check(`（静态 `check(` 64 → 70；运行期 59 → 65），原登记「+7 / 66」系计数偏差。方向仍「只增」。`npm test` 基线（node，1129）不受影响。
 
 ### 5.1 体积五要素终轮（TASK-V5-121）
 

@@ -115,7 +115,7 @@
 | FR-ALLN-038 | 注册表形态 = 纯 TS 注册（无 JSON 加载面） | P0 |
 | FR-ALLN-055 | 统一管线四态唯一（无 per-op 旁路）；`params` / `consent` 缺省语义正确 | P0 |
 | FR-ALLN-056 | act → opId 6 条等价映射（唯一权威常量 + 双向可查） | P0 |
-| FR-ALLN-057 | chip 绑 `data-op`；分发只读 `data-op` | P0 |
+| FR-ALLN-057 | chip 绑 `data-op`；分发只读 `data-op`〔口径注 ①〕 | P0 |
 | FR-ALLN-058 | 瘦分发：一次查表 + 零 per-op 分支；四种操作下分发器哈希不变 | P0 |
 | FR-ALLN-059 | 本地 op 语义对齐：零回合 / 不受 `pending` 门控 / 单一生产入口（布线门禁） | P0 |
 | FR-ALLN-010 | 阻塞终态 5 类闭集（唯一声明源） | P0 |
@@ -136,6 +136,8 @@
 | FR-ALLN-123 | `knownGap` 一致性机核 | P0 |
 | FR-ALLN-125 | 新门禁纳入 `gate-integrity` 受审集合 | P0 |
 | FR-ALLN-130 / 133 | 体积五要素（本叶增量）+ 红线逐字节复核（content / pick-layer / 判定链 / v3 台账） | P0 |
+
+> **口径注 ①（validate R1 I-02 追加；只加注，不改实现）**：`data-op` = **对外词汇锚**（chip 渲染写出 + 门禁采集 + `#stream [data-op]` 选择器锚）；进程内分发以内存 `act → ACT_TO_OP` **桥接**取 opId（`dispatch.ts#dispatchChipAction`）。FR-ALLN-057「分发只读 `data-op`」按此口径成立——判据是 **`data-act` 零回读**：分发路径中 `getAttribute('data-act')` 必须 0 次（`test/next-dispatch-diff0.test.ts` D0-6 + `test/next-pipeline.test.ts` NP-8 双证，validate V3 注入反证复跑）。「chip 绑 `data-op`」为渲染侧字面事实（`cards/nextstep.ts:64`，由 `ACT_TO_OP` 派生）。
 
 ---
 
@@ -244,3 +246,4 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（V5-1 叶子规范：契约 v2 注册表 + op 管线 + act→opId + 瘦分发 + 双契约 + 证明义务机核；承载父 §5.4 / §5.6 / §5.10 / X3·X4·X6(chip 侧) / §13 / §9.1~9.3 共 33 条 FR 的实施切片；首叶 / P0 / 依赖链起点） | 2026-09-22 | SDDU Spec Agent |
+| v1.1 | validate R1 I-02 订正：FR-ALLN-057 追加**口径注 ①**（`data-op` = 对外词汇锚 + 进程内 `act→ACT_TO_OP` 桥接；判据 = `data-act` 零回读）。**只加注、零实现改动、零需求变更**。 | 2026-09-22 | SDDU Validate Agent |

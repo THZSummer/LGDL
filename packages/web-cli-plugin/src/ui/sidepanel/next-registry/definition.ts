@@ -40,8 +40,14 @@ export const BLOCKED_TERMINALS = Object.freeze([
 ] as const);
 export type BlockedTerminal = (typeof BLOCKED_TERMINALS)[number];
 
-/** The idle-state anti-flicker interval (mirrors `recommend.ts`, single value). */
-export const NEXTSTEP_MIN_INTERVAL_MS = 10_000;
+/**
+ * The idle-state anti-flicker interval — a **re-export** of the ONE declaration in
+ * `recommend.ts` (V5-1 validate R1 finding I-04: this module used to carry a second,
+ * product-unreferenced copy of the literal `10_000`; two independent declarations of
+ * one value is a drift seam this module must not own). Nothing in the bundle reads it
+ * through this path, so the re-export tree-shakes to zero bytes.
+ */
+export { NEXTSTEP_MIN_INTERVAL_MS } from '../recommend.js';
 
 /** The 7 allowed truth sources — the field set of {@link NextCtx} (逐字). */
 export const NEXT_SOURCE_NAMES = Object.freeze(['ref', 'session', 'site', 'catalog', 'probe', 'risk', 'onboarding'] as const);
