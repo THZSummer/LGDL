@@ -140,7 +140,16 @@ type SidepanelActionBody =
   | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; probe?: ProbeState; authorized?: boolean; trust?: SidepanelState['trust']; autoAuth?: { read: boolean; write: boolean }; invalidated?: boolean }
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
   | { type: 'confirm-resolved'; allow: boolean; requestId?: string }
-  | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
+  | {
+      type: 'ask';
+      requestId: string;
+      kind: AskState['kind'];
+      prompt: string;
+      options?: string[];
+      default?: string;
+      /** V5-2 TASK-V5-138: the `form` card's option pool (source = OPTIONAL_CAPABILITIES). */
+      formOptions?: readonly { readonly id: string; readonly label: string; readonly scope: string }[];
+    }
   | { type: 'ask-resolved'; answer?: string; canceled?: boolean; requestId?: string; reason?: AskCancelReason; maskedLength?: number }
   | { type: 'audit-count'; count: number }
   /**
@@ -568,6 +577,9 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
           askKind: action.kind,
           prompt: action.prompt,
           ...(action.options ? { options: action.options } : {}),
+          // V5-2 TASK-V5-138 (ADR-V5-004 §3): the `form` pool rides the payload unchanged;
+          // its single source is `OPTIONAL_CAPABILITY_FORM_OPTIONS` (platform layer).
+          ...(action.formOptions ? { formOptions: action.formOptions } : {}),
         },
       });
       let out: SidepanelState = {

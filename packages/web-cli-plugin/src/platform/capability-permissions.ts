@@ -66,6 +66,44 @@ export const OPTIONAL_CAPABILITY_LABEL: Readonly<Record<OptionalCapability, stri
 /** All capabilities (stable order for settings rows / reconciliation loops). */
 export const OPTIONAL_CAPABILITIES: readonly OptionalCapability[] = ['bookmarks', 'downloads', 'notify', 'clipboard'];
 
+/**
+ * V5-2 **TASK-V5-138/139** (ADR-V5-004 §3 · FR-ALLN-043) — one capability as a
+ * `form` option. The `askuser#form` card and `op.perm.request` both read THIS list,
+ * so the option source has exactly one declaration (no second名册).
+ *
+ * `scope` is the readable permission list the capability needs (`clipboard` has two).
+ */
+export interface CapabilityFormOption {
+  readonly id: OptionalCapability;
+  readonly label: string;
+  readonly scope: string;
+}
+
+/**
+ * The `form` option pool — **derived** from {@link OPTIONAL_CAPABILITIES} (never a
+ * second hand-written list, ADR-V5-004 §3). `settings/ops.ts#loadCapabilities` and the
+ * `op.perm.request` params both consume the same constants, so a new permission cannot
+ * be offered by the card without entering the registry.
+ */
+export const OPTIONAL_CAPABILITY_FORM_OPTIONS: readonly CapabilityFormOption[] = Object.freeze(
+  OPTIONAL_CAPABILITIES.map((id) =>
+    Object.freeze({ id, label: OPTIONAL_CAPABILITY_LABEL[id], scope: OPTIONAL_CAPABILITY_PERMISSIONS[id].join(' · ') }),
+  ),
+);
+
+/** Whether a raw id is a **registered** capability (the runtime「新增项必须在册」judge). */
+export function isRegisteredCapability(id: string): id is OptionalCapability {
+  return (OPTIONAL_CAPABILITIES as readonly string[]).includes(id);
+}
+
+/**
+ * The loud half: the ids the caller offered that are **not** in the registry. Runtime
+ * validation (§139) refuses the op instead of silently skipping an unknown item.
+ */
+export function unregisteredCapabilityIds(ids: readonly string[]): string[] {
+  return ids.filter((id) => !isRegisteredCapability(id));
+}
+
 /** Readable, non-secret permission list for a capability. */
 export function permissionsOf(cap: OptionalCapability): string[] {
   return [...OPTIONAL_CAPABILITY_PERMISSIONS[cap]];

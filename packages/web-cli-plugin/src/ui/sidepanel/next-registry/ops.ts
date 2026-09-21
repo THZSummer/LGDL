@@ -44,6 +44,7 @@
 import { PROVIDERS } from '../../../llm/providers.js';
 import { OP_DESCRIPTORS, type OpDescriptor } from '../../../shared/op-table.js';
 import type { AskSpec, ConsentSpec, NextCtx, NextOp, OpCtx, OpOutcome, ReceiptSpec } from './definition.js';
+import type { OpSnapshot } from './pipeline.js';
 import { resolveOrder } from './registry.js';
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -68,10 +69,27 @@ export interface PanelOps {
   rebind?(): void;
   /** `op.help` — the existing settings「帮助」section navigation. */
   help?(): void;
-  /** `op.llm-config` — the existing LLM test-connection + masked save entry. */
-  llmConfig?(): void;
-  /** `op.revoke` — the existing revoke entry (v5-2 R2 fills the three-table form). */
-  revoke?(target?: string): void;
+  /** `op.llm-config` — the existing LLM test-connection + masked save entry (`raw` = a
+   * settings-surface JSON payload when the settings form drives the same op). */
+  llmConfig?(raw?: string): void | Promise<OpOutcome>;
+  /**
+   * `op.revoke` — the existing revoke entry (v5-2 R2 fills the three-table form).
+   * Returns the typed outcome so the pipeline can report a reachable next on failure.
+   */
+  revoke?(target?: string): void | Promise<OpOutcome>;
+  /**
+   * V5-2 TASK-V5-139 — `op.perm.request`'s panel half: validate the selected ids against
+   * the registry, run the two-stage handshake and record **both** outcomes (grant / deny).
+   * `swExec` delegates here (the gesture must stay in the page).
+   */
+  permRequest?(ids: readonly string[]): void | Promise<OpOutcome>;
+  /**
+   * V5-2 TASK-V5-142 — the **three-table** snapshot / whole rollback seam
+   * (authorization / permission / credential). `undefined` ⇒ the empty snapshot (a
+   * read-only op needs none), never a silent single-table rollback.
+   */
+  snapshotTables?(op: NextOp): Promise<OpSnapshot> | OpSnapshot;
+  restoreTables?(snap: OpSnapshot): Promise<void> | void;
   /** The ONE stream row writer (the receipt / notice channel). */
   notice?(text: string): void;
   /** The live recommendation context (the 7 truth sources `op.help` derives from). */
@@ -80,6 +98,13 @@ export interface PanelOps {
   collectParams?(op: NextOp, ctx: OpCtx): Promise<unknown>;
   /** The op `consent` collector (stream auth card → allow/reject). */
   collectConsent?(op: NextOp, ctx: OpCtx): Promise<'allow' | 'reject'>;
+  /**
+   * V5-2 TASK-V5-143 (FR-ALLN-014 · EC-ALLN-005/006) — the **reachable next** seam:
+   * after a consent refusal / a denied permission / a cancelled ask the panel mints its
+   * recovery card (the live recommendation), so「拒绝」固化事实之后仍有可走的一步
+   * (法七不破: the refusal is a trace, not a dead end).
+   */
+  reachableNext?(op: NextOp, state: 'cancelled' | 'rejected' | 'failed'): void;
 }
 
 let PANEL: PanelOps = {};
@@ -89,6 +114,20 @@ export function bindPanelOps(ops: PanelOps): void {
 /** Write one stream row through the ONE system channel (used by the pipeline settle). */
 export function panelNotice(text: string): void {
   PANEL.notice?.(text);
+}
+
+/** V5-2 TASK-V5-143 — mint the reachable recovery card after a refusal / failure. */
+export function panelReachableNext(op: NextOp, state: 'cancelled' | 'rejected' | 'failed'): void {
+  PANEL.reachableNext?.(op, state);
+}
+
+/** V5-2 TASK-V5-142 — the panel's **three-table** snapshot (absent ⇒ empty snapshot). */
+export async function panelSnapshot(op: NextOp): Promise<OpSnapshot> {
+  return PANEL.snapshotTables ? await PANEL.snapshotTables(op) : { tables: [] };
+}
+/** V5-2 TASK-V5-142 — the whole-snapshot rollback (never a per-table one). */
+export async function panelRestore(snap: OpSnapshot): Promise<void> {
+  if (PANEL.restoreTables) await PANEL.restoreTables(snap);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -107,9 +146,19 @@ export function panelNotice(text: string): void {
  * `op.perm.request`'s body lands with v5-2 R2 (TASK-V5-139); until then it is refused
  * **loudly** — never a silent success.
  */
-export async function swExec(op: NextOp, _ctx: OpCtx): Promise<OpOutcome> {
+export async function swExec(op: NextOp, ctx: OpCtx): Promise<OpOutcome> {
   if (op.opId === 'op.authorize' && PANEL.authorize) {
     return (await PANEL.authorize()) ?? { ok: true };
+  }
+  // V5-2 TASK-V5-139: the privileged permission request — the selected capability ids
+  // arrive as the ONE comma-joined params value (the card's own submit shape).
+  if (op.opId === 'op.perm.request' && PANEL.permRequest) {
+    const ids = String(ctx.value ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (ids.length === 0) return { ok: false, reason: 'perm-empty-selection' };
+    return (await PANEL.permRequest(ids)) ?? { ok: true };
   }
   return { ok: false, reason: `sw-exec-pending:${op.opId}` };
 }
@@ -117,6 +166,21 @@ export async function swExec(op: NextOp, _ctx: OpCtx): Promise<OpOutcome> {
 /* ────────────────────────────────────────────────────────────────────────────
  * 3. The op implementations (five elements each)
  * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * V5-2 TASK-V5-141 (FR-ALLN-044 · AC-ALLN-007/011) — the revoke **targets**.
+ *
+ * `REVOKE_CARD_TARGETS` is the user-facing three the confirmation card offers (站点授权 /
+ * 浏览器权限 / LLM 凭据); {@link REVOKE_TARGETS} additionally carries `auto-auth`, the
+ * internal delegation value `settings/ops.ts#clearAutoAuth` passes (ADR-V5-005 §1) — one
+ * execute body, two callers, **no second execution path**.
+ */
+export const REVOKE_CARD_TARGETS: readonly string[] = Object.freeze(['site-auth', 'permission', 'credential']);
+export const REVOKE_TARGETS: readonly string[] = Object.freeze([...REVOKE_CARD_TARGETS, 'auto-auth']);
+/** Whether a revoke target is one the ONE execute body understands. */
+export function isRevokeTarget(target: string | undefined): boolean {
+  return target !== undefined && REVOKE_TARGETS.includes(target);
+}
 
 /** One ask of a multi-parameter op (the `NextOp.params` field stays the *first* one). */
 export interface OpParamSpec {
@@ -144,10 +208,31 @@ const PARAM_ROWS: readonly (readonly [string, readonly OpParamSpec[]])[] = [
     ],
   ],
   ['op.perm.request', [{ kind: 'form', prompt: '选择要申请的浏览器权限' }]],
+  [
+    'op.revoke',
+    [
+      {
+        kind: 'choice',
+        prompt: '撤销目标（高风险 · 不可逆）',
+        options: [...REVOKE_CARD_TARGETS],
+      },
+    ],
+  ],
 ];
 export const OP_PARAM_SEQUENCE: Readonly<Record<string, readonly OpParamSpec[]>> = Object.freeze(
   Object.fromEntries(PARAM_ROWS),
 );
+
+/**
+ * V5-2 **TASK-V5-145** (ADR-V5-005 §4 · R-V5-109) — the receipt text of one outcome, from
+ * the **one** op table. The pipeline's settle and the settings delegation both call it, so
+ * the two entries can never disagree on the copy (同源构造：same opId / same caliber).
+ */
+export function opReceiptText(opId: string, out: OpOutcome): string {
+  if (out.ok) return OPS_BY_ID[opId]?.receipt?.text ?? `✓ ${opId} 已完成`;
+  // 失败文案必须可读且**不假成功**（如实说明未生效 / 可重试）—— 两个入口共用本构造。
+  return `✖ ${opId} 失败（未生效：${out.reason ?? '未知原因'}）；可重试`;
+}
 
 /** `[risk, params, consent, receiptText, run]` — see the module note. */
 type ImplRow = readonly [
@@ -206,11 +291,22 @@ const IMPL: Readonly<Record<string, ImplRow>> = Object.freeze({
   'op.perm.request': [
     'mid',
     { prompt: '选择要申请的浏览器权限', kind: 'form' },
-    { prompt: '申请浏览器权限（需浏览器确认）' },
-    '✓ 已处理浏览器权限申请',
+    // FR-ALLN-043: the consent copy must state the honest removal caliber — the revoke
+    // of a granted browser permission always needs the user's own confirmation in Chrome.
+    { prompt: '申请浏览器权限（浏览器会弹出确认；回收也须你在浏览器确认，插件不做静默回收）' },
+    '✓ 已处理浏览器权限申请（浏览器侧确认后生效）',
     null,
   ],
-  'op.revoke': ['high', null, { prompt: '撤销不可逆：引用 / 权限 / 凭据一并失效' }, '✓ 已撤销', (c) => PANEL.revoke?.(c.value)],
+  'op.revoke': [
+    'high',
+    // V5-2 TASK-V5-141: the three user-facing targets (the settings delegation may also
+    // pass `auto-auth` internally — see REVOKE_TARGETS).
+    { prompt: '选择撤销目标（不可逆）', kind: 'choice' },
+    // FR-ALLN-044: the confirmation card must carry the irreversibility itself.
+    { prompt: '撤销不可逆：站点授权 / 浏览器权限 / LLM 凭据一旦撤销不能自动恢复（浏览器权限的回收须你在浏览器确认）' },
+    '✓ 已撤销（不可逆）· 审计入口：审计视图',
+    (c) => PANEL.revoke?.(c.value),
+  ],
 });
 
 const OK: OpOutcome = Object.freeze({ ok: true });

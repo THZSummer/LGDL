@@ -172,6 +172,10 @@ export const EXPECTED_AUDITED_FILES = [
   // the node half is discovered by marker, and this floor makes a rename/removal FAIL).
   'test/op-protocol.test.ts',
   'test/sw-op-mirror.test.ts',
+  // V5-2 TASK-V5-147 / 149: the per-op wiring gate + the S2 dead-end chain (node judged;
+  // appended — the node half is discovered by the「JUDGEMENTS + expectFailPattern」marker).
+  'test/op-wiring.test.ts',
+  'test/s2-deadend-chain.test.ts',
   'test/ui/l1-reverse.mjs',
   // v3-3 fix round: the versioned L2 reverse-proof harness (F-01 订正 + expectFailPattern).
   'test/ui/l2-reverse.mjs',

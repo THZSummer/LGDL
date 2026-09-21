@@ -34,7 +34,7 @@ import {
 import type { CardDeps } from './cards/index.js';
 import { syncNextstepPending } from './cards/nextstep.js';
 import { recommendCtx, recommendNextStep } from './recommend.js';
-import { bindPanelOps, PARAMS_REJECTED } from './next-registry/pipeline.js';
+import { bindPanelOps, dispatchOp, PARAMS_REJECTED } from './next-registry/pipeline.js';
 import { OP_PARAM_SEQUENCE } from './next-registry/ops.js';
 import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definition.js';
 import { providerById } from '../../llm/providers.js';
@@ -87,6 +87,19 @@ import { cancelReasonText } from './stream-plaintext.js';
 import { refReanchoredText, refStaleText } from './system-events.js';
 import { refOrdinal as parseRefOrdinal } from './l1/ref-store.js';
 import { requestOriginPermissionDetailed, createChromeAsyncKv } from '../../platform/extension-env.js';
+import {
+  OPTIONAL_CAPABILITIES,
+  OPTIONAL_CAPABILITY_FORM_OPTIONS,
+  capabilityPermissionsApi,
+  hasCapabilityPermission,
+  isRegisteredCapability,
+  permissionsOf,
+  removeCapabilityPermission,
+  requestCapabilityPermissionOnGesture,
+  unregisteredCapabilityIds,
+  type OptionalCapability,
+} from '../../platform/capability-permissions.js';
+import { collectThreeTableSnapshot, restoreThreeTableSnapshot, type TableAdapter } from './next-registry/snapshot.js';
 import { handleClipboardOpMessage } from '../../platform/clipboard-page.js';
 import { detectExtensionEnv, type ChromeEnvLike, type EnvGuardResult } from '../../platform/env-guard.js';
 import { createKeyStore } from '../../llm/key-store.js';
@@ -1249,6 +1262,18 @@ const opParams: string[] = [];
 let llmSnapshot: Awaited<ReturnType<typeof keyStore.load>> | null = null;
 
 /**
+ * V5-2 (TASK-V5-136/142) — the **ONE** credential write site (法八 key-sink caliber).
+ *
+ * Every credential write in the panel goes through here: the masked card's submit
+ * (`submitSecret`) and the snapshot rollback (`restoreCredentials`) / revoke
+ * (`op.revoke` target `credential`). `keyStore.save(` therefore appears exactly once,
+ * and the value never travels through `dispatch` (only facts do).
+ */
+async function writeCredentials(cfg: Awaited<ReturnType<typeof keyStore.load>>): Promise<void> {
+  await keyStore.save(cfg);
+}
+
+/**
  * `submitSecret(requestId, value)` — the masked card's submit (FR-ALLN-021 / N24).
  * The value goes **straight to the key store**; only the fact (`maskedLength`) is
  * dispatched, and a blank value is a no-op with zero side effects (EC-ALLN-009).
@@ -1264,7 +1289,7 @@ async function submitSecret(requestId: string, value: string): Promise<void> {
   }
   llmSnapshot = await keyStore.load();
   const provider = providerById(opParams[0] ?? '');
-  await keyStore.save({ providerId: provider.id, apiKey: secret, model: opParams[1] || provider.defaultModel });
+  await writeCredentials({ providerId: provider.id, apiKey: secret, model: opParams[1] || provider.defaultModel });
   dispatch({ type: 'ask-resolved', requestId, answer: undefined, maskedLength: secret.length });
   settle?.(secret);
 }
@@ -1296,6 +1321,9 @@ function collectOpParams(op: NextOp, ctx: OpCtx): Promise<unknown> {
         kind: spec.kind,
         prompt: spec.prompt,
         ...(spec.options ? { options: [...spec.options] } : {}),
+        // V5-2 TASK-V5-138 (ADR-V5-004 §3): the `form` pool is the platform layer's
+        // single source — the card renders exactly what the registry declares.
+        ...(spec.kind === 'form' ? { formOptions: OPTIONAL_CAPABILITY_FORM_OPTIONS.map((o) => ({ ...o })) } : {}),
       });
       const v = await new Promise<string | undefined>((resolve) => opAskResolvers.set(rid, resolve));
       if (v === undefined) {
@@ -1335,13 +1363,182 @@ async function restoreCredentials(): Promise<void> {
   const snapshot = llmSnapshot;
   llmSnapshot = null;
   if (!snapshot) return;
-  await buildSettingsOps().saveLlm({
-    providerId: snapshot.providerId,
-    apiKey: snapshot.apiKey,
-    model: snapshot.model,
-    baseURL: snapshot.baseURL ?? '',
-    maxRounds: snapshot.maxRounds ?? '',
+  // 142（R-ALLN-904）: the rollback goes through the SAME single credential write site
+  // (`writeCredentials`) — never a second path, and never a value through the stream.
+  await writeCredentials(snapshot);
+}
+
+/**
+ * V5-2 **TASK-V5-139** (ADR-V5-004 §3 · FR-ALLN-043 · AC-ALLN-007/010) — `op.perm.request`'s
+ * **panel half**: the runtime「新增项必须在册」judge + the two-stage handshake per selected
+ * capability, with BOTH outcomes固化 (a grant and a denial each write their own row).
+ *
+ * The gesture stays here (Chrome requires the request inside an extension-page gesture);
+ * the SW is the 裁决 / 快照 / 审计 owner (`op-exec` probe → gesture → commit). Zero new
+ * manifest items: every id is one of the existing `OPTIONAL_CAPABILITIES`.
+ */
+async function permRequest(ids: readonly string[]): Promise<OpOutcome> {
+  const unknown = unregisteredCapabilityIds(ids);
+  if (unknown.length > 0) {
+    dispatch({ type: 'notice', text: `✖ 申请未提交：${unknown.join('、')} 不在册（新增项必须先在册）` });
+    return { ok: false, reason: `perm-not-registered:${unknown.join(',')}` };
+  }
+  const granted: string[] = [];
+  const denied: string[] = [];
+  for (const id of ids) {
+    const cap = id as OptionalCapability;
+    const consentToken = `op.perm.request:${cap}`;
+    const probe = await send<{ needsGesture?: boolean }>(
+      makeMessage('op-exec', { opId: 'op.perm.request', phase: 'probe', consentToken, permission: cap }),
+    );
+    if (!probe.ok) {
+      dispatch({ type: 'notice', text: `✖ 权限申请未提交：${probe.error ?? '后台无响应'}` });
+      return { ok: false, reason: probe.error ?? 'perm-probe-failed' };
+    }
+    // The ONE gesture entry (inside the click path) — never a request from the SW.
+    const res = await requestCapabilityPermissionOnGesture(cap);
+    const commit = await send(
+      makeMessage('op-exec', {
+        opId: 'op.perm.request',
+        phase: 'commit',
+        consentToken,
+        permission: cap,
+        gestureResult: { granted: res.granted, ...(res.error ? { reason: res.error } : {}) },
+      }),
+    );
+    if (!commit.ok) {
+      dispatch({ type: 'notice', text: `✖ 权限申请裁决失败：${commit.error ?? '后台无响应'}` });
+      return { ok: false, reason: commit.error ?? 'perm-commit-failed' };
+    }
+    if (res.granted) {
+      granted.push(cap);
+      // The existing reconcile so the tool surface follows the grant (same entry the
+      // settings view uses — one path, no second channel).
+      await buildSettingsOps().notifyCapabilityPermissionChanged(cap);
+    } else {
+      denied.push(cap);
+    }
+  }
+  // 双固化（FR-ALLN-043）: the approve and the deny paths each write their own fact row.
+  if (granted.length > 0 && denied.length === 0) {
+    dispatch({ type: 'notice', text: `✓ 已处理浏览器权限申请（${granted.join('、')} 已授予）` });
+    return { ok: true };
+  }
+  if (granted.length === 0) {
+    dispatch({
+      type: 'notice',
+      text: `已拒绝：未授予 ${denied.join('、')} 权限；浏览器权限的回收须你在浏览器确认（插件不做静默回收），可稍后重试。`,
+    });
+    return { ok: false, reason: 'perm-denied' };
+  }
+  dispatch({
+    type: 'notice',
+    text: `✓ 已处理浏览器权限申请（已授予 ${granted.join('、')}；未授予 ${denied.join('、')}）`,
   });
+  return { ok: true };
+}
+
+/**
+ * V5-2 **TASK-V5-141/142** (FR-ALLN-044 · AC-ALLN-007/011 · R-ALLN-904) — `op.revoke`'s
+ * ONE execute body (the settings delegation and the chat chip both reach it).
+ *
+ * `raw` encodes `target[:arg]`: the card carries the bare target choice, the settings
+ * delegation carries `permission:<cap>` / `auto-auth:<origin>` (ADR-V5-005 §1) — one
+ * body, two callers, no second execution path.
+ */
+async function revokeTarget(raw?: string): Promise<OpOutcome> {
+  const [target, arg] = String(raw ?? '').split(':');
+  if (target === 'site-auth' || target === 'auto-auth') {
+    const origin = arg || state.activeOrigin;
+    if (!origin) return { ok: false, reason: 'revoke-no-origin' };
+    if (target === 'auto-auth') {
+      await send(makeMessage('auto-auth', { action: 'clear', origin }));
+      await refreshState();
+      return { ok: true };
+    }
+    const res = await send<{ hostPermissionRemoved?: boolean }>(makeMessage('revoke', { origin }));
+    dispatch({ type: 'state', authorized: false });
+    // 如实说明（不虚报）：host permission 的移除由后台按 Chrome 规则执行。
+    if (res.data?.hostPermissionRemoved !== true) {
+      dispatch({ type: 'notice', text: `已撤销 ${origin} 的授权；站点访问权限仍由浏览器持有，须你在浏览器确认回收。` });
+    }
+    return { ok: true };
+  }
+  if (target === 'permission') {
+    const caps = (arg ? [arg] : [...OPTIONAL_CAPABILITIES]) as readonly string[];
+    const bad = unregisteredCapabilityIds(caps);
+    if (bad.length > 0) return { ok: false, reason: `revoke-unregistered:${bad.join(',')}` };
+    for (const cap of caps) {
+      const api = capabilityPermissionsApi();
+      const removed = await removeCapabilityPermission(api, cap as OptionalCapability);
+      if (!removed.removed) return { ok: false, reason: `revoke-permission-failed:${cap}` };
+      // 不假成功：`permissions.remove` 对**静态**授权是 no-op（仍解析 true），因此必须
+      // 用 `contains` 复读实际授予态 —— 仍持有 ⇒ 如实返回失败（「权限仍保留」）。
+      if (await hasCapabilityPermission(api, cap as OptionalCapability)) {
+        return { ok: false, reason: `permission-still-held:${cap}` };
+      }
+      await buildSettingsOps().notifyCapabilityPermissionChanged(cap as OptionalCapability);
+    }
+    return { ok: true };
+  }
+  if (target === 'credential') {
+    const current = await keyStore.load();
+    await writeCredentials({ ...current, apiKey: '' });
+    return { ok: true };
+  }
+  return { ok: false, reason: `revoke-unknown-target:${target}` };
+}
+
+/**
+ * V5-2 **TASK-V5-142** (R-ALLN-904 · EC-ALLN-011) — the production **three-table**
+ * adapters (authorization / permission / credential). The pipeline snapshots all three
+ * before a mutating op and restores **all three** on failure.
+ */
+function threeTableAdapters(): readonly TableAdapter[] {
+  return [
+    {
+      name: 'authorization',
+      read: () => [{ origin: state.activeOrigin ?? null, authorized: state.authorized, autoAuth: state.autoAuth }],
+      write: async (rows) => {
+        const row = rows?.[0] as { origin?: string | null; authorized?: boolean } | undefined;
+        const origin = row?.origin ?? state.activeOrigin ?? undefined;
+        if (!origin) return;
+        if (row?.authorized === false) {
+          await send(makeMessage('revoke', { origin }));
+          await refreshState();
+        } else if (row?.authorized === true) {
+          await send(makeMessage('authorize', { origin }));
+        }
+      },
+    },
+    {
+      name: 'permission',
+      read: async () => {
+        const api = capabilityPermissionsApi();
+        const out: Array<{ cap: OptionalCapability; granted: boolean }> = [];
+        for (const cap of OPTIONAL_CAPABILITIES) {
+          const ok = api?.contains ? await api.contains({ permissions: permissionsOf(cap) }).catch(() => false) : false;
+          out.push({ cap, granted: ok === true });
+        }
+        return out;
+      },
+      // Chrome only grants a permission inside a **user gesture**, so the restore can
+      // only reconcile; the honest caliber is registered in the consent copy
+      // (「回收也须你在浏览器确认」) — never a silent re-grant.
+      write: async () => {
+        for (const cap of OPTIONAL_CAPABILITIES) await buildSettingsOps().notifyCapabilityPermissionChanged(cap);
+      },
+    },
+    {
+      name: 'credential',
+      read: async () => [{ cfg: await keyStore.load() }],
+      write: async (rows) => {
+        const cfg = (rows?.[0] as { cfg?: Awaited<ReturnType<typeof keyStore.load>> } | undefined)?.cfg;
+        if (!cfg) return;
+        await writeCredentials(cfg);
+      },
+    },
+  ];
 }
 
 /**
@@ -1352,6 +1549,10 @@ function buildSettingsOps(): SettingsOps {
   const env = detectExtensionEnv(typeof chrome !== 'undefined' ? (chrome as unknown as ChromeEnvLike) : undefined);
   return createSettingsOps({
     env,
+    // V5-2 TASK-V5-145/146: the settings surface reaches the SAME op execute body
+    // (`dispatchOp`) instead of its own implementation — one path, two consent carriers.
+    surface: 'settings',
+    dispatchOp: (opId, ctx, surface) => dispatchOp(opId, ctx, surface),
     transport: transportFromRuntime(chrome.runtime as unknown as { sendMessage(message: unknown): Promise<unknown> }),
     store: keyStore,
     buildStamp: shortBuildStamp(),
@@ -1604,7 +1805,7 @@ let lastRecommendCtx: NextCtx | null = null;
  * candidate survives. Returns the produced rule (or `null` for a suppression), which
  * is what the diagnostics seam exposes.
  */
-function maybeRecommend(trigger: RecommendTrigger): string | null {
+function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {}): string | null {
   const views = project(state.stream);
   const counts = refCounts(views);
   const staleRefs = l1?.store().stale() ?? [];
@@ -1630,7 +1831,9 @@ function maybeRecommend(trigger: RecommendTrigger): string | null {
       trigger === 'firstRun'
         ? { firstRun: firstRun.visible, pendingSteps: firstRun.lines }
         : { firstRun: false, pendingSteps: [] },
-    ...(lastNextstepProducedAt !== undefined ? { lastProducedAt: lastNextstepProducedAt } : {}),
+    // V5-2 TASK-V5-143: a refusal / failure must reach a next step **immediately** —
+    // the anti-flicker interval is for idle repetition, never for a recovery row.
+    ...(!opts.force && lastNextstepProducedAt !== undefined ? { lastProducedAt: lastNextstepProducedAt } : {}),
     now: Date.now(),
   };
   lastRecommendCtx = recommendCtx(input);
@@ -2931,8 +3134,8 @@ function wire(): void {
     settingsViewSwitch.showChat();
   });
 
-  // TASK-020 任务 B: explicit rebind escape hatch for「无活跃站点」.
-  $('rebind').addEventListener('click', () => void rebindCurrentTab());
+  // TASK-020 任务 B: explicit rebind escape hatch for「无活跃站点」— now an op trigger.
+  $('rebind').addEventListener('click', () => void dispatchOp('op.rebind'));
 
   // decision ② / FR-048: session switcher (click a session to switch) + groups.
   $('session-list').addEventListener('click', (e) => {
@@ -3006,8 +3209,36 @@ function wire(): void {
     ctx: () => lastRecommendCtx,
     collectParams: (op, ctx) => collectOpParams(op, ctx),
     collectConsent: (op) => collectOpConsent(op),
-    llmConfig: async () => {
+    // V5-2 TASK-V5-139/141/142/143 — the four R2 seams (one per task, no side paths).
+    permRequest: (ids) => permRequest(ids),
+    revoke: (target) => revokeTarget(target),
+    reachableNext: () => {
+      maybeRecommend('idle', { force: true });
+    },
+    snapshotTables: () => collectThreeTableSnapshot(threeTableAdapters()),
+    restoreTables: (snap) => restoreThreeTableSnapshot(threeTableAdapters(), snap),
+    llmConfig: async (raw) => {
       const settingsOps = buildSettingsOps();
+      // V5-2 TASK-V5-145 (ADR-V5-005 §3): the settings form's payload arrives via the
+      // op ctx value (never through `dispatch`) — the form's own submit IS the consent.
+      if (raw && raw.trim().startsWith('{')) {
+        const input = JSON.parse(raw) as { providerId?: string; apiKey?: string; model?: string; baseURL?: string };
+        const p = providerById(input.providerId ?? '');
+        const key = (input.apiKey ?? '').trim();
+        const existing = (await keyStore.loadProvider(p.id)).apiKey;
+        if (!key && !existing) {
+          dispatch({ type: 'notice', text: `✖ 未保存：未填写 ${p.name} 的 API Key，且该厂商尚无已保存的 Key。` });
+          return { ok: false, reason: 'llm-key-missing' };
+        }
+        await writeCredentials({
+          providerId: p.id,
+          apiKey: key || existing,
+          model: (input.model ?? '').trim() || p.defaultModel,
+          baseURL: input.baseURL ?? '',
+        });
+        await refreshLlmStatus();
+        return { ok: true };
+      }
       const provider = providerById(opParams[0] ?? '');
       const test = await settingsOps.testConnection({ providerId: provider.id, model: opParams[1] || provider.defaultModel });
       // 执行前快照、失败回滚（FR-ALLN-042 / R-ALLN-904 上游）: the old credentials stay
@@ -3022,19 +3253,15 @@ function wire(): void {
     },
   });
 
-  $('authorize').addEventListener('click', () => authorizeCurrentSite());
+  // V5-2 TASK-V5-146 (ADR-V5-005 §2): the settings-view buttons are **op triggers** —
+  // `dispatchOp` is the same entry the chat chips use, so no second execution path
+  // (the `authorizeCurrentSite` / `rebindCurrentTab` bodies stay the ONE production
+  // entries, reached through the op's panel slot below).
+  // 本按钮是**设置面**的显式确认控件 ⇒ 它自己就是 consent 载体（ADR-V5-005 §3）：
+  // 走 `settings` 面跳过流内 consent 卡（与 options.html 同一登记口径），执行体仍是同一个。
+  $('authorize').addEventListener('click', () => void dispatchOp('op.authorize', {}, 'settings'));
 
-  $('revoke').addEventListener('click', () => {
-    const origin = state.activeOrigin;
-    if (!origin) return;
-    void send<{ revoked: boolean; hostPermissionRemoved: boolean }>(makeMessage('revoke', { origin })).then((res) => {
-      dispatch({ type: 'state', authorized: false });
-      dispatch({
-        type: 'notice',
-        text: `已撤销 ${origin} 的授权${res.data?.hostPermissionRemoved ? '（站点访问权限已移除）' : ''}；相关能力已禁用，可随时重新授权。`,
-      });
-    });
-  });
+  $('revoke').addEventListener('click', () => void dispatchOp('op.revoke', { value: 'site-auth' }));
 
   // V4-3: the ask/auth controls now live on the **stream cards** (their own
   // listeners call `handleCardAction`). The single delegated handler below covers

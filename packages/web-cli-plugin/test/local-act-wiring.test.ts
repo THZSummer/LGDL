@@ -65,8 +65,12 @@ export const JUDGEMENTS: readonly LocalActJudgement[] = [
  * `ACT_TO_OP` mapping (both are asserted, so act→op→entry is a single chain).
  */
 export const LOCAL_ACT_SLOTS = [
-  { act: 'authorize', opSlot: 'authorize', opId: 'op.authorize', entry: 'authorizeCurrentSite', callSiteCount: 2, status: 'landed' },
-  { act: 'rebind', opSlot: 'rebind', opId: 'op.rebind', entry: 'rebindCurrentTab', callSiteCount: 2, status: 'landed' },
+  // 〖V5-2 R2（TASK-V5-146/148）等价重锚〗设置按钮改为 **op 触发器**（`dispatchOp`），
+  // 因此「单一生产入口」的调用点集合收敛为**恰 1 处 = op 槽**（按钮不再直呼入口）。
+  // 判据力**只升**：新增「按钮必须是 op 触发器」这一条（见 LA-1b），计数由 2 → 1 是
+  // 「唯一入口」更强而非更松（原先的按钮直呼路径正是双入口的残余）。
+  { act: 'authorize', opSlot: 'authorize', opId: 'op.authorize', entry: 'authorizeCurrentSite', callSiteCount: 1, status: 'landed' },
+  { act: 'rebind', opSlot: 'rebind', opId: 'op.rebind', entry: 'rebindCurrentTab', callSiteCount: 1, status: 'landed' },
   { act: 'help', opSlot: 'help', opId: 'op.help', entry: 'openSettingsSection', callSiteCount: 1, status: 'landed' },
 ] as const;
 
@@ -166,13 +170,35 @@ export function closedSetProblems(acts: readonly string[], slots: readonly { rea
  * 2. 真源码断言（W1 已落地面：`authorize` —— FIX-1 先例）
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test('V45 W1 LA-1：authorize 单一生产入口 authorizeCurrentSite 恰 2 个调用点（设置按钮 + op 槽）', () => {
-  assert.deepEqual(singleEntryProblems(SIDEPANEL, 'authorizeCurrentSite', 2), []);
+test('V45 W1 LA-1：authorize 单一生产入口 authorizeCurrentSite 恰 1 个调用点（op 槽）', () => {
+  assert.deepEqual(singleEntryProblems(SIDEPANEL, 'authorizeCurrentSite', 1), []);
 });
 
-test('V45 W1 LA-1 反证：伪造第三处调用 ⇒ 唯一入口判据必红', () => {
+test('V5-2 R2 LA-1b：设置按钮必须是 **op 触发器**（dispatchOp 直落 op.authorize），不得直呼入口', () => {
+  // 判据力只升：原先按钮直呼 `authorizeCurrentSite()`（第二个调用点），现在必须经
+  // `dispatchOp` 走同一 execute body —— 按钮与 chat chip 同调 dispatchOp（ADR-V5-005 §2）。
+  assert.match(
+    SIDEPANEL,
+    /\$\('authorize'\)\.addEventListener\('click', \(\) => void dispatchOp\('op\.authorize'[^)]*\)\)/,
+    '设置按钮必须改为 op 触发器 dispatchOp(\'op.authorize\')',
+  );
+  assert.match(
+    SIDEPANEL,
+    /\$\('rebind'\)\.addEventListener\('click', \(\) => void dispatchOp\('op\.rebind'\)\)/,
+    'rebind 按钮必须改为 op 触发器 dispatchOp(\'op.rebind\')',
+  );
+  // 反证：把按钮改回直呼入口 ⇒ 「唯一入口调用点数」判据必须红（1 → 2）。
+  const forged = SIDEPANEL.replace(
+    "$('authorize').addEventListener('click', () => void dispatchOp('op.authorize', {}, 'settings'));",
+    "$('authorize').addEventListener('click', () => authorizeCurrentSite());",
+  );
+  assert.notEqual(forged, SIDEPANEL, '前置：注入锚点必须存在');
+  assert.ok(singleEntryProblems(forged, 'authorizeCurrentSite', 1).length > 0, '按钮直呼入口必须被判红（双入口复辟）');
+});
+
+test('V45 W1 LA-1 反证：伪造第二处调用 ⇒ 唯一入口判据必红', () => {
   const forged = `${SIDEPANEL}\n  authorizeCurrentSite();\n`;
-  const problems = singleEntryProblems(forged, 'authorizeCurrentSite', 2);
+  const problems = singleEntryProblems(forged, 'authorizeCurrentSite', 1);
   assert.ok(problems.length > 0, '伪造调用必须被判红');
   assert.ok(problems.some((p) => p.includes('唯一调用点判据失败：')), problems.join(' | '));
 });

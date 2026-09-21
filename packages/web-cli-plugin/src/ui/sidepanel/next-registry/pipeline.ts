@@ -20,7 +20,17 @@
  */
 import { MAX_OPEN_ASKS, REF_ROUND_PREFIX } from '../stream-model.js';
 import type { NextOp, OpCtx, OpOutcome } from './definition.js';
-import { OPS_BY_ID, collectOpConsent, collectOpParams, panelNotice, swExec } from './ops.js';
+import {
+  OPS_BY_ID,
+  collectOpConsent,
+  collectOpParams,
+  opReceiptText,
+  panelNotice,
+  panelReachableNext,
+  panelRestore,
+  panelSnapshot,
+  swExec,
+} from './ops.js';
 
 // V5-2: the panel seam and the op table moved to `ops.ts` (the single op source);
 // they are re-exported here so every existing consumer/gate keeps one import site.
@@ -91,18 +101,28 @@ async function defaultExecSw(op: NextOp, ctx: OpCtx): Promise<OpOutcome> {
  */
 async function defaultSettle(op: NextOp, state: SettleState): Promise<void> {
   if (state === 'completed') {
-    if (!emitsOwnRow(op) && op.receipt) panelNotice(op.receipt.text);
+    if (!emitsOwnRow(op) && op.receipt) panelNotice(opReceiptText(op.opId, { ok: true }));
     return;
   }
-  panelNotice(`${state === 'cancelled' ? '已取消' : '已拒绝'}：${op.opId} 未执行（可继续其他操作）`);
+  // V5-2 TASK-V5-143 (FR-ALLN-014 · 法七不破): a refusal固化为一行**事实**，并立刻
+  // 给出可达的一步（恢复卡 / 紧随 nextstep）—— 拒绝不是死端，不重试同一授权、不改既有授权。
+  panelNotice(`${state === 'cancelled' ? '已取消' : '已拒绝'}：${op.opId} 未执行（可继续其他操作，下方给出可选下一步）`);
+  panelReachableNext(op, state);
 }
-async function defaultSnapshot(): Promise<OpSnapshot> {
-  return { tables: [] };
+async function defaultSnapshot(op: NextOp): Promise<OpSnapshot> {
+  // V5-2 TASK-V5-142 (R-ALLN-904): the panel owns the three tables (authorization /
+  // permission / credential); EVERY table is collected here so a rollback is whole.
+  return panelSnapshot(op);
 }
 async function defaultErrorWithRecovery(op: NextOp, boundary: string, err: unknown): Promise<OpOutcome> {
   const reason = `${boundary}:${op.opId}:${String(err)}`;
-  panelNotice(`✖ ${op.opId} 失败：${err instanceof Error ? err.message : String(err)}（可重试）`);
+  panelNotice(`✖ ${op.opId} 失败：${err instanceof Error ? err.message : String(err)}（可重试，下方给出可选下一步）`);
+  // V5-2 TASK-V5-143/150: the ✖ row must not be bare — a reachable next follows it.
+  panelReachableNext(op, 'failed');
   return { ok: false, reason };
+}
+async function defaultRollback(snap: OpSnapshot): Promise<void> {
+  await panelRestore(snap);
 }
 async function defaultFail(reason: string): Promise<OpOutcome> {
   return { ok: false, reason };
@@ -163,10 +183,32 @@ export async function runOp(opId: string, ctx: OpCtx = {}, deps: PipelineDeps = 
     await settle(op_, 'completed', ctx, snap);
     return out;
   } catch (err) {
-    if (snap) await (deps.rollback ?? nullAsync)(snap);
+    // 142: the rollback is the WHOLE snapshot (三表整体回滚) — never one table at a time.
+    if (snap) await (deps.rollback ?? defaultRollback)(snap);
     return (deps.errorWithRecovery ?? defaultErrorWithRecovery)(op_, 'card-boundary', err);
   }
 }
 
 /** A `params` spec whose collection was refused maps to this sentinel (tests). */
 export const PARAMS_REJECTED: typeof REJECTED = REJECTED;
+
+/**
+ * V5-2 **TASK-V5-145/146** (ADR-V5-005 §2/§3 · FR-ALLN-075/076/078) — the **settings /
+ * options surface entry**. Same `runOp`, same op table, same `execute` body; the only
+ * difference is the **consent carrier**: a settings page has no chat stream, so its own
+ * explicit button / form submit IS the consent (登记为「同执行体、不同 consent 载体」,
+ * ADR-V5-005 §3 — R-V5-108). It therefore skips the stream cards and writes no stream row
+ * (the surface renders the returned `OpResult` text instead).
+ */
+export function dispatchOp(
+  opId: string,
+  ctx: OpCtx = {},
+  surface: 'panel' | 'settings' | 'options' = 'panel',
+): Promise<OpOutcome> {
+  if (surface === 'panel') return runOp(opId, ctx);
+  return runOp(opId, ctx, {
+    collectParams: async () => ctx.value,
+    collectConsent: async () => 'allow',
+    settle: async () => {},
+  });
+}

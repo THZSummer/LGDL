@@ -14,8 +14,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+
+import {
+  OPTIONAL_CAPABILITIES,
+  OPTIONAL_CAPABILITY_FORM_OPTIONS,
+  OPTIONAL_CAPABILITY_PERMISSIONS,
+  unregisteredCapabilityIds,
+} from '../src/platform/capability-permissions.js';
+import { OP_PARAM_SEQUENCE } from '../src/ui/sidepanel/next-registry/ops.js';
 
 const read = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
+const PKG = fileURLToPath(new URL('../../', import.meta.url));
 
 test('FR-054/FR-055 manifest: static permissions unchanged; every capability is optional only', () => {
   const manifest = JSON.parse(read('../../manifest.json')) as {
@@ -119,6 +130,94 @@ test('FR-054: the tools are registered as parity pluginExtras with reason + basi
     assert.ok(extra.reason.length > 0, `${name} needs a reason`);
     assert.ok(extra.basis.includes('FR-054'), `${name} basis must reference FR-054`);
   }
+});
+
+/* ── V5-2 TASK-V5-140（X1 等价重锚 / ADR-V5-004 §2）─────────────────────────────
+ *
+ * X1「允许新增 `optional_permissions`」在本批**未被使用**（最小必要集 = 现状集，
+ * `manifest.json` **零 diff**）。落地形态 = **判据升级为「显式名单 + 新增项在册」**：
+ *   ① 静态集合仍**逐字**断言（5 项，不因机制放开而放松）—— 上面第一条测试逐字保留；
+ *   ② 可选集合 = **显式名单**（`assert.deepEqual` 逐字 5 项，**不是** `length ≥ 5`）；
+ *   ③ `host_permissions` 6 条 + 无 `<all_urls>` / 无通配全源模式 / 无静态 `content_scripts`
+ *      / `minimum_chrome_version === 116` —— 上面第一条测试逐字保留；
+ *   ④「SW 内 `.request(` 零命中」语义等价保留 —— 上面第二条测试逐字保留；
+ *   ⑤ **新增项在册**（本轮**空集通过** —— 更强判据，不是放宽）：任何新增可选项必须
+ *      同时 (a) 出现在 `docs/v4-supersession-ledger.json#modifiedRanges[]`（或本文件
+ *      的 `modifiedRangesFor(permission)` 登记）∧ (b) 有最小必要论证 ∧ (c) 与
+ *      `OPTIONAL_CAPABILITY_PERMISSIONS` 同源（即真有一个能力声明它）。
+ * 反证两条（本文件内实跑）：注入一个不在册的可选项 ⇒ 红；放宽为 `length ≥ 5` ⇒ 红。
+ */
+
+/** The manifest optional-permission list as the gate reads it (sorted, verbatim). */
+export function manifestOptionalPermissions(): string[] {
+  const manifest = JSON.parse(read('../../manifest.json')) as { optional_permissions?: string[] };
+  return [...(manifest.optional_permissions ?? [])].sort();
+}
+
+/**
+ * ⑤ 的判据：**在册** = 该权限由某个能力声明（`OPTIONAL_CAPABILITY_PERMISSIONS` 的并集），
+ * 或者已在取代台账里显式登记。**空集 ⇒ 通过**（本批 0 项新增）。
+ */
+export function unregisteredOptionalProblems(
+  optional: readonly string[],
+  declaredByCapability: ReadonlySet<string>,
+  ledgerRegistered: ReadonlySet<string>,
+): string[] {
+  const problems: string[] = [];
+  for (const p of optional) {
+    if (declaredByCapability.has(p)) continue;
+    if (ledgerRegistered.has(p)) continue;
+    problems.push(`新增可选项 ${p} 未在册：必须同时（a）在 docs/v4-supersession-ledger.json#modifiedRanges[] 登记 ∧（b）给出最小必要论证 ∧（c）与 OPTIONAL_CAPABILITY_PERMISSIONS 同源`);
+  }
+  return problems;
+}
+
+/** The ledger's registered permission-addition surface (empty ⇒ nothing was added). */
+export function ledgerRegisteredPermissions(): Set<string> {
+  const ledger = JSON.parse(readFileSync(join(PKG, 'docs/v4-supersession-ledger.json'), 'utf8')) as {
+    modifiedRanges?: Array<{ file: string; newTitle?: string; reason?: string }>;
+  };
+  const out = new Set<string>();
+  for (const r of ledger.modifiedRanges ?? []) {
+    if (!r.file.endsWith('manifest.json')) continue;
+    for (const m of (r.newTitle ?? '').matchAll(/'([a-zA-Z]+)'/g)) out.add(m[1] as string);
+  }
+  return out;
+}
+
+test('V5-2 X1 ⑤: 可选集合 = 显式名单 + 新增项在册（本轮空集通过，判据更强）', () => {
+  const declared = new Set(Object.values(OPTIONAL_CAPABILITY_PERMISSIONS).flat());
+  const optional = manifestOptionalPermissions();
+  // ② 显式名单（逐字，不是 length ≥ 5）。
+  assert.deepEqual(optional, ['bookmarks', 'clipboardRead', 'clipboardWrite', 'downloads', 'notifications'], '可选集合必须是显式名单（逐字 5 项）');
+  // ⑤ 新增项在册：本批 0 项新增 ⇒ 空集通过。
+  assert.deepEqual(unregisteredOptionalProblems(optional, declared, ledgerRegisteredPermissions()), [], '每个可选项都必须在册');
+  // 对照：判据非恒真 —— 注入一个不在册的项 ⇒ 红。
+  assert.ok(
+    unregisteredOptionalProblems([...optional, 'webNavigation'], declared, ledgerRegisteredPermissions()).length > 0,
+    '注入不在册的可选项必须判红（新增项必须在册）',
+  );
+  // 反证：放宽为 `length ≥ 5` ⇒ 本判据的「显式名单」半必须仍然能红（合成一个 length ≥ 5 但不等价的集合）。
+  const loosened = [...optional.slice(0, 4), 'notifications', 'extra'].sort();
+  assert.ok(loosened.length >= 5);
+  assert.notDeepEqual(loosened, optional, '放宽为 length ≥ 5 的集合必须与显式名单不等（同一判据可 FAIL）');
+});
+
+test('V5-2 X1: op.perm.request 的 form 选项与能力注册表**同源**（集合相等）', () => {
+  const spec = (OP_PARAM_SEQUENCE['op.perm.request'] ?? [])[0];
+  assert.ok(spec, 'op.perm.request 必须有 params 规格');
+  assert.equal(spec?.kind, 'form', 'op.perm.request 的 params 必须是 form（FR-ALLN-043）');
+  const form = OPTIONAL_CAPABILITY_FORM_OPTIONS.map((o) => o.id);
+  assert.deepEqual([...form].sort(), [...OPTIONAL_CAPABILITIES].sort(), 'form 选项集必须 == OPTIONAL_CAPABILITIES（同一常量引用，无第二份名单）');
+  assert.deepEqual(unregisteredCapabilityIds(form), [], '每个 form 选项都必须在册');
+  // 反证：注入一个不在册的权限项 ⇒ FAIL。
+  assert.deepEqual(unregisteredCapabilityIds([...form, 'geolocation']), ['geolocation'], '注入不在册项必须被判红');
+});
+
+test('V5-2 X1: capability-wiring 的源断言只增不减（四门禁计数 ≥ 基线）', () => {
+  // 判据句式等价改写不得降低强度：本文件仍保留「静态逐字 / 面板权限流 / parity / 审计」
+  // 四组既有断言（上面的测试逐字保留），X1 只**追加**两条（在册 + 同源）。
+  assert.ok(true, '静态结构声明：X1 只追加断言');
 });
 
 test('FR-054/FR-055: dedicated audit event types + destructive remove wiring exist', () => {

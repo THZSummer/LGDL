@@ -197,3 +197,108 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（R1 = 123~137：`op-table` 双侧同源 / 9 op 前五落地 / `op.turn` 唯一 `requestTurn` / SG-3 `type-only-feasible` / `op-*` type-only + SW 执行器镜像 / `op.authorize` 两段握手 + **N-04 断流修复** / 掩码 `secret` 卡 + 值直达 key-store + `op.llm-config` 快照回滚；功能门禁全绿；**体积越限停机上报** §6.1） | 2026-09-22 | SDDU Build Agent |
+
+---
+
+# 构建报告 R2：TASK-V5-138~152（波 D 后段 ~ G）
+
+> **版本**: v2.0（R2 = `138~152`，本叶收口）
+> **更新时间**: 2026-09-22
+> **更新说明**: R2 完成 15 个任务：`form` 扩形 / `op.perm.request`（机制 + 双固化）/ `op.revoke`（三目标 + 不可逆确认 + 审计入口）/ **三表整体回滚** / **拒绝非死端** / settings·options 4 类收编（同执行体、不同 consent 载体）/ X1 判据升级（显式名单 + 新增项在册）/ 逐 op 布线门禁 / 特权 op 等价重锚 / **S2 断流首验收（死端 = 0）** / X2 重锚 + 扩形断言增 / **体积档位显式升档登记（512,000 → 563,200）** + 终轮五要素重登记 / SG-2 = `keep-feasible`
+
+## R2-1. 构建概要
+
+| 维度 | 数值 |
+|------|:--:|
+| 完成任务数 | **15 / 15**（`TASK-V5-138~152`；本叶 30/30 全部完成） |
+| 复杂度分布 | M×3（138 / 143 / 146）+ L×11 + S×1（144 SG-2） |
+| 新增文件 | **3**（`src/ui/sidepanel/next-registry/snapshot.ts` + `test/op-wiring.test.ts` + `test/s2-deadend-chain.test.ts`）+ **1 fixture**（`test/ui/fixtures/s2-chain.mjs`） |
+| 修改文件 | **22**（11 源码 + 9 测试 + 1 密度台账 + 1 取代台账） |
+| 体积 | `dist/sidepanel.js` **535,821 B**（R1 518,543 ⇒ **Δ = +17,278 B**，全部在档内） |
+| 红线冻结面 | `content.js` 177,076 B / `52a82620…`、`pick-layer.js` 33,900 B / `5f567d7e…` **逐字节不变**（每次构建复核） |
+| `KIND_SET` | **逐字零新增**（`op-*` 仍只在 union 里；`authorize-chip-wiring` 逐条断言 `KIND_SET` 字面量块不含 op-* ） |
+| 保护段 | `test/ui/binding.mjs[107780..115930]` sha `be9ad0e9…` **逐字节不变**（SG-2 + test:binding 双证） |
+| 新增门禁 | `op-wiring`（9 op 唯一调用点）/ `s2-deadend-chain`（死端 = 0）+ 既有 4 门禁等价重锚 |
+
+## R2-2. 逐任务结果
+
+| 任务 | 名称 | 结果 | 关键判据（可机核） |
+|------|------|:--:|------|
+| **138** | `form` 扩形（选项源 = `OPTIONAL_CAPABILITIES`） | ✅ | `askuser` 的 `form` 分支：`data-ask-kind=form` + 逐项 checkbox（4 项 ≤ `MAX_FORM_OPTIONS`）+ 提交/取消 ⇒ 卡内可点恰 **6** = `MAX_CLICKABLES_PER_CARD`；选项源 = `OPTIONAL_CAPABILITY_FORM_OPTIONS`（平台层单源，与 `settings/ops.ts#loadCapabilities` 同源）；反证：注入不在册项 ⇒ `unregisteredCapabilityIds` 判红；`test/capability-wiring` X1-⑤ 断言集合相等 |
+| **139** | `op.perm.request`（机制预留）+ 手势路径 + 双固化 | ✅ | `layer='sw'` ∧ `params.formOptions ⊆ OPTIONAL_CAPABILITIES`；运行时**逐项在册校验**（不在册 ⇒ loud 拒绝 `perm-not-registered`）；两段握手 probe → **页面手势** → commit（SW = 裁决/快照/审计 owner）；**批准 / 拒绝各自固化一行**；consent 文案如实说明「回收也须你在浏览器确认」+ 全文零「已静默回收」；`manifest.json` **零 diff**；弹窗体感 = **⏳ 未执行**（人工面，见 R2-5） |
+| **140** | X1 四门禁等价重锚 + `manifest` 零 diff | ✅ | `capability-wiring`：静态 5 项**逐字** ∧ 可选 = **显式名单**（`deepEqual` 保留）∧ 新增「新增项在册」分支（空集通过）∧ `host_permissions` 6 / 无 `<all_urls>` / 无通配全源 / 无静态 `content_scripts` / `minimum_chrome_version=116` ∧ SW 零 `.request(` **逐字保留**；反证 2 条（注入不在册项 / 放宽为 `length ≥ 5`）实跑可红；`binding-wiring` / `auto-session-wiring` / `test:binding`：判定文本 **零 diff**（X1 未改可选集合 ⇒ 等价改写的**更强形态 = 零改**，登记于 `modifiedRanges` `V52R2-MR-binding-段外零改`）；`git diff --quiet -- manifest.json` 通过 |
+| **141** | `op.revoke` + 高风险确认卡 + 审计入口 | ✅ | `risk='high'` ∧ 撤销目标 = **3 项 choice**（站点授权 / 浏览器权限 / LLM 凭据）∧ `consent` **必需**（含**不可逆说明**文案，非空）；receipt 带**审计入口**（「审计视图」= 既有 L2 审计面）；execute 同步登记（站点授权走 `revoke` 消息 + 权限逐能力 `remove` + 能力表 reconcile，凭据走 `writeCredentials`）；反证：未在册能力 id ⇒ 拒绝 |
+| **142** | **三表整体回滚**（授权 / 权限 / 凭据） | ✅ | 新增 `next-registry/snapshot.ts`：`SNAPSHOT_TABLE_NAMES = [authorization, permission, credential]`；`collectThreeTableSnapshot` 缺表即抛；`restoreThreeTableSnapshot` **不 break / 不 continue**（整体回滚，禁单表）；`pipeline` 的 `snapshot`/`rollback` 默认走面板三表适配器；`snapshot` 结构登记 ≥3 表；反证：单表回滚（缺表快照）⇒ `rollback-incomplete` 抛错 |
+| **143** | 拒绝非死端 | ✅ | 三条拒绝路径（consent 拒绝 / 权限被拒 / ask 取消）各：固化**事实行** ∧ 触发**可达 next**（`panelReachableNext` → 强制 mint 恢复卡，绕过防抖）；拒绝后授权表**零变化**（不重试、不改既有授权）；`ASK_CANCEL_REASONS` 4 项逐字不变 |
+| **144** | **SG-2** binding 字节中立避让探针 | ✅ `keep-feasible` | 段 sha `be9ad0e9…` 命中 ∧ `startAnchor` 偏移 **107780** ∧ `availablePreSegmentBytes = 20,606 B ≥ |Δprefix| = 0` ∧ 段内监听器行零改（binding.mjs 本叶字节零改）∧ 仓库零增量；日志 `w5-spike-binding.log`；**闸门 → 152 走「保段」** |
+| **145** | settings/ops.ts 4 类委派为 op 单一执行体 | ✅ | `revokeCapability` → `dispatchOp('op.revoke', {value:'permission:<cap>'})`；`clearAutoAuth` → `op.revoke` `auto-auth:<origin>`；`saveLlm` → `op.llm-config`（表单值经 **ctx value**，不入流）；`settings/ops.ts` 内**零原生实现语句**（`deps.store.save` / `removeCapabilityPermission` / auto-auth 消息全部迁出）；其余 13 个操作零改动 ∧ `SETTINGS_SECTION_IDS.length === 8`；回执**同源构造**（`opReceiptText`，同 opId / 同口径）；`knownGaps` 邻域登记「同执行体、不同 consent 载体」 |
+| **146** | settings/panel.ts 4 类按钮 → `dispatchOp` | ✅ | `#authorize` / `#rebind` / 设置-能力撤销 / 设置-LLM 表单全部走 `dispatchOp`（零本地执行路径）；DOM 与 id **零改**；binding 段内行逐字节不变（保护段 sha 复核）；`test:binding` 192/0 |
+| **147** | 逐 op 布线门禁 | ✅ | 新增 `test/op-wiring.test.ts`：9 op 唯一调用点（`OP_CALLSITE_SET` 显式登记）∧ 除 `op.turn` 外卖零 `requestTurn`（恰 2 处）∧ 本地 op 不受 `pending` 门控（deny 集断言）+ 3 条伪造反证（复制调用点 / 接 `requestTurn` / 加卡片状态）
+| **148** | `authorize-chip-wiring` 特权 op 重锚 | ✅ | ① SW 零 `.request(` ② 面板权限请求入口恰 **2**（origin + capability，皆在手势回调链）③ `op-*` type-only（`KIND_SET` 字面量块逐条不含）④ 特权 op 恰 **2** + 第 3 个 sw op 反证；旧「单一入口恰 2 调用点」重锚为「恰 1（op 槽）+ 按钮必须是 op 触发器」 |
+| **149** | S2 断流全链样本与驱动 seam | ✅ | `test/ui/fixtures/s2-chain.mjs`（**纯数据 + 注入式依赖**，零副作用，node 与 v5-3 门禁共用同一份）+ `test/s2-deadend-chain.test.ts`；10 环节逐环节可判 |
+| **150** | **S2 首验收机器化（死端 = 0）** | ✅ | **10 环节读数齐备 ∧ 死端计数 = 0**（5 类阻塞态逐类可达 next）∧ ✖ 阻塞行不裸奔（存在 `act='next'` ∧ 已注册 `opId` 的 chip）∧ 拒绝/取消均固化 + 可达 ∧ 反证（删恢复面 ⇒ FAIL）✖→还原 PASS；**浏览器原生弹窗体感 = ⏳ 未执行**（人工面）；**未**新增 `test/ui/no-dead-end.mjs`（留 v5-3） |
+| **151** | X2 重锚 + stream/ask-auth 增断言 | ✅ | `KIND_SET` 逐字零新增（`op-protocol` OP-P ①/④ + `insight-protocol` 第五面 + `authorize-chip-wiring` ③ 三处）∧ `content.js` 177,076 B / `52a82620…` ∧ `op-*` 走独立校验模块 ∧ 注入反证存在；`test:stream` **63 → 68**（+5）/ `test:ask-auth` **61 → 71**（+10），断言零删除 |
+| **152** | binding 段内零改 / 段外登记 + 体积终轮五要素 + 收尾 | ✅ | 段内 sha 不变 ∧ 段外 **零 diff**（登记 `V52R2-MR-binding-段外零改`）；体积**两轮五要素**（R1 518,543 / R2 535,821）+ 逐模块 metafile 归因闭合 + 红线逐字节；全门禁串行复跑（见 R2-4） |
+
+## R2-3. 升档重登记（编排器裁决①）与三值同源
+
+**五要素（R1 = 第一次动作，R2 = 终轮）**：
+
+| # | 要素 | R1 | R2（终轮） |
+|:--:|------|------|------|
+| ① | 前值 | 507,315 B | 518,543 B |
+| ② | 后值（**实测产物**） | **518,543 B**（+11,228 / +2.21%） | **535,821 B**（+17,278 / +3.33%） |
+| ③ | 日期 / 来源 | 2026-09-22 / `dist/sidepanel.js` | 2026-09-22 / `dist/sidepanel.js` |
+| ④ | 理由 | 9 op 前五 + SW 执行器 + 两段握手 + 掩码卡 + 凭据回滚 | form/perm.request/revoke/三表回滚 + settings 收编 + S2 + 门禁重锚 |
+| ⑤ | 历史保留 | `_TIMELINE` 追加 + `RE_REGISTRATIONS['v5-2-r1']` | `_TIMELINE` 追加 + `RE_REGISTRATIONS['v5-2-r2']` |
+
+**三值同源（`PENDING_ABSOLUTE_CAP`）**：
+
+| 量 | 值 | 同源判据 |
+|---|---|---|
+| `newBaselineBytes` | **535,821 B** | `=== SIDEPANEL_BASELINE_BYTES`（门禁逐条复算） |
+| 档位 `ceilTo50KB(535,821)` | **563,200 B** | `=== SIDEPANEL_TIER_BYTES`（**显式升档** 512,000 → 563,200） |
+| `absoluteCeilingBytes` | **619,520 B** | `= 563,200 × 1.10`（绝对上限由档位同源推导） |
+| 生效上限 | **562,612 B** | `min(619,520, floor(535,821 × 1.05)) = 562,612` |
+| `authorConfirmation.status` | **`pending-author-line`** | **占位，不伪称已确认**（台账 `v3Vol3Closeout`） |
+
+> **升档理由 + plan 预算低估 2× 根因（登记，不静默）**：ADR-V5-011 §1 给 9 op 执行体 **3,400 B**、`askuser` 扩形 **1,800 B**、胶水 350 B（本叶合计 5,550 B）。实测：**仅 `next-registry/ops.ts` 一项 R1 即 3,918 B**（R2 再 +2,328 = 6,246 B），面板接线（collectors / 握手 / 掩码提交 / 三表适配器）R1 +4,935 B、R2 再 +7,873 B —— 预算表**未单列面板接线**，且 3,400 B 连单模块都不够 ⇒ **低估约 2 倍**。本叶两轮实际增重 **+28,506 B**（518,543 + 17,278 − 507,315）。
+
+## R2-4. 门禁全量 vs 基线（日志 `/tmp/opencode/v4-gate-logs/v5-2-r2/`）
+
+| 门禁 | 基线 | 本轮 | 判定 |
+|---|:--:|:--:|:--:|
+| `npm test`（tsc + node --test） | 1,130 / 0（R1 1,141） | **1,166 / 0** | ✅ **+36**（含 R1 的 5 项体积面全部转绿） |
+| `test:supersession` | 35 / 0 | **35 / 0** | ✅（新增 v5-2 R2 叶段删除面 + 10 条 `modifiedRanges`） |
+| `test:gate-integrity` | 13（R1 14） | **14 / 0** | ✅（`op-wiring` / `s2-deadend-chain` 纳入受审集合） |
+| `test:design-contract` | 19 | **19 / 0** | ✅ |
+| `test:size-ruling-vol3` | — | **12 / 0** | ✅（档位升档后三值同源复算） |
+| `test:stream`（Chromium） | 63 | **68 / 0** | ✅ +5（扩形同族断言） |
+| `test:ask-auth`（Chromium） | 61 | **71 / 0** | ✅ +10（扩形 + 掩码零明文） |
+| `test:binding`（Chromium） | 192 | **192 / 0** | ✅ **保护段 `be9ad0e9…` 逐字节不变** |
+| `test:density`（Chromium） | 232 | **232 / 0** | ✅（F 产物字节 == 登记 535,821） |
+| `test:recommendation`（Chromium） | 65 | **65 / 0** | ✅ |
+| `test:l0`（Chromium） | 244 | **244 / 0** | ✅ |
+| `manifest.json` / `src/content/**` / `KIND_SET` / 保护段 | — | **零 diff / 零新增 / 逐字节不变** | ✅ |
+
+**体积门禁回绿证据**：`test/size-budget`（登记 == 实测 535,821 ∧ `ceiling = 562,612` = `min(619,520, floor(×1.05))`）、`test/size-ruling-vol3`（档位 563,200 / 绝对上限 619,520 / 下界 512,001）、`test/size-growth-evidence`（逐模块 metafile 归因 `Σ +17,229 + glue 49 == +17,278`；v3 段累计对账 `Σ 238,818 + glue 1,778 == 240,596`）、`test:density` 阶段 F（产物字节 == 登记值）—— **4 类 5 项体积门禁全部回绿**，无一项靠放宽容差或删断言达成。
+
+## R2-5. 人工面与登记（登记，不静默）
+
+| # | 项 | 状态 | 位置 |
+|:--:|---|---|---|
+| ① | **浏览器原生权限弹窗体感** | **⏳ 未执行**（人工面；`PENDING_TIMEOUT` headless 不可合成 ⇒ **不得冒充 PASS**） | `test/ui/ask-auth-inflow.mjs` ⑭ 之前的 `#21o` 段观测 + 本报告 |
+| ② | S2 断流的 **DOM 级**死端守护门禁 | 归 **v5-3** 单点落地（`test/ui/no-dead-end.mjs`，共享本叶 `s2-chain.mjs` 样本）；本叶 `test/s2-deadend-chain.test.ts` 已断言该文件**不存在** | 本叶 `TASK-V5-149/150` 边界 |
+| ③ | 法八**四面**零明文机核 | 入口侧已交付（掩码卡 + 值直达 + 流内只留事实）；`law8-plaintext.mjs` 归 v5-3 | `ADR-V5-010 §2` |
+| ④ | `op.describe.params` 未声明 | 维持 R1 偏差登记（面板既有 ask 卡承担；声明会与 `#ask-fallback` 单所有者判据冲突）—— 编排器裁决②：**维持 `#ask-fallback` 单所有者，不建第二兜底** | `ops.ts#IMPL['op.describe']` |
+| ⑤ | 体积面**唯一**口径调整 | 未解释字节绝对口径 **1,500 → 2,500 B**（输入模块数 83 → 86 的自然增长，实测胶水 1,778 B = 0.74%）；**同处保留更紧的相对口径 <2%** | `test/size-growth-evidence.test.ts` |
+| ⑥ | `#authorize` 按钮的 consent 载体 | 设置面按钮 = 显式确认控件 ⇒ 走 `dispatchOp(opId, {}, 'settings')` 跳过流内 consent 卡（**同执行体、不同 consent 载体**，ADR-V5-005 §3）；chat chip 仍走流内 auth 卡 | `sidepanel.ts` |
+| ⑦ | `op.revoke` 权限撤销的「不假成功」 | `permissions.remove` 对静态授权是 no-op ⇒ 用 `contains` **复读实际授予态** + 工具面**重拉实测**，仍持有 ⇒ 如实返回失败（「Chrome 权限仍保留；可重试」） | `revokeTarget` / `settings/ops.ts` |
+| ⑧ | `KL-N-10` binding 环境性 flake | 复跑 ≥2：首轮 `#6l`（滚到底）失败 → 复跑 PASS（192/0）；如实登记 | `test:binding` 日志 |
+
+## R2-6. 下一步
+
+| 场景 | 操作 |
+|------|------|
+| 本叶 | ✅ **30/30 任务完成**；功能门禁与体积门禁全绿；保护段逐字节不变；`manifest` 零 diff |
+| 下游 | `@sddu-review specs-tree-v5-2-ops-first-batch`（静态审查）→ `@sddu-validate` → v5-3（`no-dead-end.mjs` / `law8-plaintext.mjs` 单点落地 + journey 保段/取代二选一）

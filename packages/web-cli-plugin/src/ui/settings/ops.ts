@@ -14,6 +14,7 @@
  * transport and can never reach a real `chrome` global by accident.
  */
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
+import { opReceiptText } from '../sidepanel/next-registry/ops.js';
 import { providerById } from '../../llm/providers.js';
 import type { KeyStore, LlmSettings } from '../../llm/key-store.js';
 import type { LlmStatusSummary } from '../../llm/status.js';
@@ -50,6 +51,7 @@ import {
 import type { SessionGroupView } from './view.js';
 import {
   OPTIONAL_CAPABILITIES,
+  OPTIONAL_CAPABILITY_TOOL,
   capabilityPermissionsApi,
   hasCapabilityPermission,
   removeCapabilityPermission,
@@ -78,6 +80,22 @@ export interface SettingsOpsDeps {
    */
   permissions?: PermissionsApiLike;
   now?: () => number;
+  /**
+   * V5-2 **TASK-V5-145** (ADR-V5-005 §1/§3 · FR-ALLN-075~078) — the **op single
+   * execution body**, injected by the surface (side panel / options page). The four
+   * overlapping settings actions below delegate here, so their `execute` bodies live
+   * exactly once (in `next-registry/ops.ts`'s table) and the settings surface owns no
+   * native implementation statement (`deps.store.save` / `removeCapabilityPermission` /
+   * the auto-auth message) any more.
+   *
+   * `surface` is the **consent carrier** disclosure: `settings` / `options` skip the
+   * stream cards because the surface's own explicit control IS the consent (登记为
+   * 「同执行体、不同 consent 载体」). Absent ⇒ the legacy in-module behaviour (so the
+   * existing unit tests keep their seam).
+   */
+  dispatchOp?: (opId: string, ctx: { value?: string }, surface: 'settings' | 'options') => Promise<{ ok: boolean; reason?: string }>;
+  /** Which surface this instance serves (the delegation's consent carrier). */
+  surface?: 'settings' | 'options';
 }
 
 export type OpMessageKind = 'ok' | 'warn' | 'err' | '';
@@ -172,6 +190,33 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
     return applyMeasuredGrants(capabilitiesView(raw), await measuredGrants());
   }
 
+  /** Re-read the capability status through the ONE existing message (the op delegation's data). */
+  async function freshCapabilities(): Promise<CapabilitiesView | undefined> {
+    try {
+      const res = await send<CapabilitiesView>(makeMessage('capabilities', { action: 'status' }));
+      return res.ok && res.data ? await measuredView(res.data) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** The LLM tool surface as the background reports it (the honest re-read for receipts). */
+  async function capabilityToolSet(): Promise<readonly string[]> {
+    try {
+      const res = await send<{ tools?: string[] }>(makeMessage('capabilities', { action: 'status' }));
+      return res.ok && res.data ? res.data.tools ?? [] : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** The surface's typed-op delegation (absent ⇒ the caller keeps the legacy path). */
+  async function viaOp<T = unknown>(opId: string, value?: string): Promise<OpResult<T>> {
+    const surface = deps.surface ?? 'settings';
+    const out = await deps.dispatchOp!(opId, value === undefined ? {} : { value }, surface);
+    return { ok: out.ok, kind: out.ok ? 'ok' : 'err', text: opReceiptText(opId, out) };
+  }
+
   return {
     async loadLlm() {
       if (!deps.env.inExtension) return notExtension();
@@ -197,6 +242,13 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
 
     async saveLlm(input) {
       if (!deps.env.inExtension) return notExtension();
+      if (deps.dispatchOp) {
+        // V5-2 TASK-V5-145: the execute body is the op's (one source). The form input
+        // travels in the **ctx value** (never through `dispatch`, so 法八 holds: no
+        // stream payload, no digest entry, no attribute carries it).
+        const out = await viaOp<{ providerName: string; model: string }>('op.llm-config', JSON.stringify(input));
+        return out.ok ? { ...out, data: { providerName: providerById(input.providerId).name, model: input.model } } : out;
+      }
       try {
         const provider = providerById(input.providerId);
         const existing = await deps.store.loadProvider(provider.id);
@@ -351,6 +403,18 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
 
     async revokeCapability(cap) {
       if (!deps.env.inExtension) return notExtension();
+      if (deps.dispatchOp) {
+        const out = await viaOp<CapabilitiesView>('op.revoke', `permission:${cap}`);
+        const data = await freshCapabilities();
+        // 不假成功（EC-V23-003）：工具面**重拉实测**仍含该工具 ⇒ 如实返回失败文案
+        // （「Chrome 权限仍保留；可重试」）—— op 的 success 只代表执行体自身判定通过。
+        const tools = await capabilityToolSet();
+        if (!out.ok || tools.includes(OPTIONAL_CAPABILITY_TOOL[cap])) {
+          const detail = tools.includes(OPTIONAL_CAPABILITY_TOOL[cap]) ? '工具面仍包含该工具（未移除）' : out.text;
+          return { ok: false, kind: 'err', text: capabilityRevokeFailureReceipt(cap, detail).text, ...(data ? { data } : {}) };
+        }
+        return data ? { ...out, data } : out;
+      }
       // `chrome.permissions.remove` needs NO user gesture (unlike `request`), so
       // it runs here directly. Removing the permission fires the background's
       // `permissions.onRemoved` reconciliation; we then send the explicit
@@ -400,6 +464,16 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
 
     async clearAutoAuth(origin) {
       if (!deps.env.inExtension) return notExtension();
+      if (deps.dispatchOp) {
+        const out = await viaOp<AutoAuthRecordView[]>('op.revoke', `auto-auth:${origin}`);
+        if (!out.ok) return out;
+        try {
+          const res = await send<{ origins?: AutoAuthRecordView[] }>(makeMessage('auto-auth', { action: 'get' }));
+          return { ...out, data: res.ok && res.data ? autoAuthRows(res.data.origins) : [] } as OpResult<AutoAuthRecordView[]>;
+        } catch {
+          return { ...out, data: [] } as OpResult<AutoAuthRecordView[]>;
+        }
+      }
       try {
         const res = await send<{ origins?: AutoAuthRecordView[] }>(makeMessage('auto-auth', { action: 'clear', origin }));
         if (!res.ok || !res.data) return { ok: false, kind: 'err', text: `✖ 关闭自动授权失败：${res.error ?? '后台无响应'}` };

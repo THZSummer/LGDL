@@ -35,6 +35,10 @@ import { NEXTSTEP_ACTS, candidateRules } from '../src/ui/sidepanel/recommend.js'
 import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
 // V5-1（TASK-V5-115）—— X3 同源链的终点：义务表 opId 集（注册表边界与门禁同源）。
 import { OBLIGATION_OP_IDS } from '../src/ui/sidepanel/next-registry/obligation-table.js';
+// V5-2 TASK-V5-148（ADR-V5-003 §3/§4）—— 特权 op 等价重锚的四个判据源。
+import { OP_DESCRIPTORS } from '../src/shared/op-table.js';
+import { OP_MESSAGE_KINDS } from '../src/background/op-protocol.js';
+import { kindSetBlock, kindSetLiterals } from './op-protocol.test.js';
 
 // Resolved from the PACKAGE ROOT: `npm test` compiles to `dist-test/`, so a
 // `new URL('../src/…', import.meta.url)` would look inside `dist-test/src/`.
@@ -90,21 +94,61 @@ test('AC-1 权限请求唯一调用点（requestOriginPermissionDetailed 恰 1 �
   assert.match(sites[0].text, /await\s+requestOriginPermissionDetailed\(origin\)/);
 });
 
-test('AC-1 授权单一入口 authorizeCurrentSite：声明 1 处 + 调用 2 处（设置按钮 + op 槽）', () => {
+test('AC-1 授权单一入口 authorizeCurrentSite：声明 1 处 + 调用 1 处（op 槽）', () => {
+  // 〖V5-2 TASK-V5-148 等价重锚〗设置按钮改为 op 触发器（`dispatchOp('op.authorize')`），
+  // 因此单一生产入口的调用点收敛为**恰 1 处 = bindPanelOps 的 authorize op 槽**。
+  // 判据力只升：新增「按钮必须是 op 触发器」断言（LA-1b 与 test:authorize-chip-wiring 双面）。
   const calls = authorizeEntryCallSites(SIDEPANEL);
   assert.equal(
     calls.length,
-    2,
-    `authorizeCurrentSite 必须恰有 2 个调用点（#authorize 监听器 + bindPanelOps 的 authorize op 槽），实测 ${calls.length}：${JSON.stringify(calls)}`,
-  );
-  assert.ok(
-    calls.some((c) => /addEventListener\('click', \(\) => authorizeCurrentSite\(\)\)/.test(c.text)),
-    `设置按钮必须复用同一入口：${JSON.stringify(calls)}`,
+    1,
+    `authorizeCurrentSite 必须恰有 1 个调用点（bindPanelOps 的 authorize op 槽），实测 ${calls.length}：${JSON.stringify(calls)}`,
   );
   assert.ok(
     calls.some((c) => /authorizeCurrentSite\s*\(\)/.test(c.text) && !/addEventListener/.test(c.text)),
     `op 槽必须复用同一入口（不是第二条执行路径）：${JSON.stringify(calls)}`,
   );
+  assert.match(
+    SIDEPANEL,
+    /\$\('authorize'\)\.addEventListener\('click', \(\) => void dispatchOp\('op\.authorize'[^)]*\)\)/,
+    '设置按钮必须复用同一 op 入口（dispatchOp），不得直呼函数体',
+  );
+});
+
+test('V5-2 TASK-V5-148 ①~④：特权 op 等价重锚（SW 零 .request( ∧ 面板权限入口恰 2 ∧ type-only ∧ 特权恰 2）', () => {
+  // ① SW 内 `.request(` 仍零命中（语义等价保留，逐字不改）。
+  const sw = readFileSync(join(PKG, 'src/background/service-worker.ts'), 'utf8');
+  assert.equal(/\.request\s*\(/.test(sw), false, '① SW 永不调用 chrome.permissions.request（手势只在页面）');
+  // ② 面板侧的**权限请求入口恰 2**（站点 origin + 能力 capability），且都在手势回调链内
+  //    （`authorizeCurrentSite` / `permRequest` 都由点击路径直接进入）。
+  assert.equal(permissionRequestSites(SIDEPANEL).length, 1, '②a 站点权限请求仍恰 1 处（authorizeCurrentSite 内）');
+  assert.equal(
+    (SIDEPANEL.match(/requestCapabilityPermissionOnGesture\s*\(/g) ?? []).filter((_m, i, all) => all.length > 0).length,
+    1,
+    '②b 能力权限请求恰 1 处（permRequest 内）',
+  );
+  assert.match(SIDEPANEL, /async function permRequest\(/, '②c 能力权限请求必须在 op.perm.request 的执行体内');
+  // ③ op-exec 族 **type-only**：三个 kind 只作 union 成员，**运行期 `KIND_SET` 零新增**
+  //    （`KIND_SET` 会被 `content.js` 打包 ⇒ 增一个即红线破）。
+  const messaging = readFileSync(join(PKG, 'src/background/messaging.ts'), 'utf8');
+  assert.deepEqual([...OP_MESSAGE_KINDS].sort(), ['op-audit', 'op-exec', 'op-exec-result'], '③a op-* 族恰 3 个 kind（type-only）');
+  const block = kindSetBlock(messaging);
+  assert.ok(block, '③b 必须能定位 KIND_SET 字面量块（判据不得空转）');
+  const literals = kindSetLiterals(block!);
+  for (const kind of OP_MESSAGE_KINDS) {
+    assert.equal(literals.includes(kind), false, `③b ${kind} 不得进入运行期 KIND_SET（type-only 成员）`);
+  }
+  assert.ok(literals.includes('chat'), '③c 对照：KIND_SET 必须仍含既有 kind（判据非恒真）');
+  // ④ 特权 op 清单**恰 2 项**（layer === 'sw'）。
+  assert.equal(OP_DESCRIPTORS.filter((d) => d.layer === 'sw').length, 2, '④ 特权 op 必须恰 2 项（FR-ALLN-066）');
+});
+
+test('V5-2 TASK-V5-148 反证：第 3 个 layer=sw 的 op ⇒ 特权判据必红（逐字节还原 ⇒ PASS）', () => {
+  const real = OP_DESCRIPTORS.filter((d) => d.layer === 'sw');
+  assert.equal(real.length, 2);
+  const forged = [...real, { id: 'op.ghost', layer: 'sw' as const }];
+  assert.notEqual(forged.filter((d) => d.layer === 'sw').length, 2, '注入第 3 个特权 op 后计数必须 ≠ 2（判据可 FAIL）');
+  assert.equal(real.length, 2, '还原后必须仍为 2（PASS）');
 });
 
 // ── AC-2 ─────────────────────────────────────────────────────────────────────
@@ -124,9 +168,9 @@ test('AC-1 反证：伪造第二处权限请求调用 ⇒ 唯一入口判定必�
   assert.equal(permissionRequestSites(forged).length, 2, '伪造调用必须被计数为第二处');
 });
 
-test('AC-1 反证：伪造第三处 authorizeCurrentSite() ⇒ 调用点数判定必红', () => {
+test('AC-1 反证：伪造第二处 authorizeCurrentSite() ⇒ 调用点数判定必红', () => {
   const forged = `${SIDEPANEL}\n  authorizeCurrentSite();\n`;
-  assert.equal(authorizeEntryCallSites(forged).length, 3, '伪造调用必须被计数为第三处');
+  assert.equal(authorizeEntryCallSites(forged).length, 2, '伪造调用必须被计数为第二处（基线恰 1）');
 });
 
 test('AC-2 反证：把 authorize op 槽改回 requestTurn ⇒ 回合判定必红', () => {

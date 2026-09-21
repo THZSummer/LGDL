@@ -171,6 +171,87 @@ async function main() {
     const textAnswered = await evaluate(cdp, `document.querySelector('[data-msg-type="askuser"] .card-fixed b')?.textContent ?? ''`);
     check('② text 型提交后固化「已答：我的补充」', textAnswered === '已答：我的补充', String(textAnswered));
 
+    // ── ⑭ 扩形（secret / form）— V5-2 TASK-V5-135/138/151 ────────────────────────
+    // 扩形是**既有 kind 的枚举值**（`askuser`，不是新卡类型）；两份渲染各有独立判据。
+    console.log('\n▶ ⑭ 扩形：secret 掩码卡 + form 多选卡');
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamReset(); window.__v3.testing.streamSeed([{ kind: 'askuser', cardId: 'sc1', payload: { askKind: 'secret', prompt: 'API Key（仅写入本机）', secretLabel: '凭据（不回显）', requestId: 'sc-req' } }]); true`,
+    );
+    await sleep(200);
+    const secretRaw = await evaluate(
+      cdp,
+      `(() => {
+        const input = document.getElementById('ask-input');
+        const card = document.querySelector('[data-msg-type="askuser"]');
+        const vis = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
+        return JSON.stringify({
+          kind: card?.getAttribute('data-ask-kind'),
+          type: input?.getAttribute('type'),
+          secret: input?.getAttribute('data-secret'),
+          hasFallback: Boolean(document.getElementById('ask-fallback')),
+          clickables: [...card.querySelectorAll('button,input,select,textarea')].filter(vis).length,
+        });
+      })()`,
+    );
+    const secret = JSON.parse(secretRaw);
+    check('⑭ secret 型 data-ask-kind=secret（既有 kind 的枚举值，非新卡类型）', secret.kind === 'secret', secretRaw);
+    check('⑭ secret 型输入 type=password + data-secret=true（值不回显）', secret.type === 'password' && secret.secret === 'true', secretRaw);
+    check('⑭ secret 型卡内可点 ≤6（复用一个 input/submit/cancel 三元组）', secret.clickables <= 6, secretRaw);
+    // 提交一个值 ⇒ 固化只落**事实**（掩码 + 长度类别），值零出现（法八入口侧）。
+    await evaluate(
+      cdp,
+      `(() => { const i = document.getElementById('ask-input'); i.value = 'sk-abcdefghijklmnop'; document.getElementById('ask-submit').click(); return true; })()`,
+    );
+    await sleep(200);
+    const secretFixed = await evaluate(
+      cdp,
+      `(() => {
+        const card = document.querySelector('[data-msg-type="askuser"]');
+        const fixed = card?.querySelector('.card-fixed b')?.textContent ?? '';
+        return JSON.stringify({ fixed, stream: document.getElementById('stream').textContent ?? '' });
+      })()`,
+    );
+    const sf = JSON.parse(secretFixed);
+    // 类别（8+ / 8-）取决于驱动路径：真实 op params 的掩码卡带 `maskedLength`（≥8 ⇒ 8+）；
+    // seed 直驱的卡没有该事实 ⇒ 类别位落 8-。判据锚在**文案只含事实**（掩码 · 零明文 · 类别位）上。
+    check('⑭ secret 固化文案 = 事实（掩码 · 零明文 · 长度类别位）', /掩码 · 零明文 · 8[+-] 位/.test(sf.fixed), secretFixed);
+    check('⑭ 流内零明文：值/前缀不出现在消息区（法八入口侧）', !sf.stream.includes('sk-abcdefghijklmnop') && !/sk-abcdef/.test(sf.stream), secretFixed);
+
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamReset(); window.__v3.testing.streamSeed([{ kind: 'askuser', cardId: 'fm1', payload: { askKind: 'form', prompt: '选择要申请的浏览器权限', requestId: 'fm-req', formOptions: [{ id: 'bookmarks', label: '书签访问', scope: 'bookmarks' }, { id: 'downloads', label: '下载记录（只读）', scope: 'downloads' }, { id: 'notify', label: '系统通知', scope: 'notifications' }, { id: 'clipboard', label: '剪贴板访问', scope: 'clipboardRead · clipboardWrite' }] } }]); true`,
+    );
+    await sleep(200);
+    const formRaw = await evaluate(
+      cdp,
+      `(() => {
+        const card = document.querySelector('[data-msg-type="askuser"]');
+        const vis = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
+        const boxes = [...card.querySelectorAll('input[type="checkbox"][data-cap]')];
+        return JSON.stringify({
+          kind: card?.getAttribute('data-ask-kind'),
+          ids: boxes.map((b) => b.getAttribute('data-cap')),
+          hasFallbackInput: Boolean(document.getElementById('ask-input')),
+          hasSubmit: Boolean(document.getElementById('ask-submit')),
+          hasCancel: Boolean(document.getElementById('ask-cancel')),
+          clickables: [...card.querySelectorAll('button,input,select,textarea')].filter(vis).length,
+        });
+      })()`,
+    );
+    const form = JSON.parse(formRaw);
+    check('⑭ form 型 data-ask-kind=form（既有 kind 的枚举值，非新卡类型）', form.kind === 'form', formRaw);
+    check('⑭ form 型选项逐项 ∈ 能力注册表（集合相等）', JSON.stringify([...form.ids].sort()) === JSON.stringify(['bookmarks', 'clipboard', 'downloads', 'notify']), formRaw);
+    check('⑭ form 型选项数 ≤4 ∧ 卡内控件 ≤6（4 checkbox + 提交 + 取消）', form.ids.length <= 4 && form.clickables <= 6, formRaw);
+    check('⑭ form 型不铸文本输入（复用面之外不加第 4 个控件）', form.hasFallbackInput === false && form.hasSubmit === true && form.hasCancel === true, formRaw);
+    await evaluate(
+      cdp,
+      `(() => { const card = document.querySelector('[data-msg-type="askuser"]'); const boxes = [...card.querySelectorAll('input[type="checkbox"][data-cap]')]; boxes[0].checked = true; boxes[3].checked = true; document.getElementById('ask-submit').click(); return true; })()`,
+    );
+    await sleep(200);
+    const formAnswered = await evaluate(cdp, `document.querySelector('[data-msg-type="askuser"] .card-fixed b')?.textContent ?? ''`);
+    check('⑭ form 型一次提交多字段（选中项按逗号合并为单个 params 值）', formAnswered === '已答：bookmarks,clipboard', String(formAnswered));
+
     // ── ⑤ 超时 / 取代留痕 ─────────────────────────────────────────────────────
     console.log('\n▶ ⑤ 超时 / 取代留痕（固化 + 系统行）');
     await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.ask('后台提问', ['是', '否', '先跳过']); window.__v3.testing.timeoutOpenAsks(); true`);

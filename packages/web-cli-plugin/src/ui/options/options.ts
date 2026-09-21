@@ -49,6 +49,7 @@ import {
   type SessionGroupView,
 } from '../settings/view.js';
 import { createSettingsOps, transportFromRuntime } from '../settings/ops.js';
+import { dispatchOp } from '../sidepanel/next-registry/pipeline.js';
 import { requestCapabilityPermissionOnGesture, type OptionalCapability } from '../../platform/capability-permissions.js';
 import { handleClipboardOpMessage } from '../../platform/clipboard-page.js';
 import {
@@ -90,6 +91,11 @@ let lastDiag: DiagReport | null = null;
 // this fallback page and the side-panel settings view cannot drift.
 const settingsOps = createSettingsOps({
   env: envGuard,
+  // V5-2 TASK-V5-145 (ADR-V5-005 §3 · R-V5-108): this surface has no chat stream, so it
+  // reaches the SAME op execute body with its own explicit control as the consent
+  // carrier (「同执行体、不同 consent 载体」). Absent op ⇒ the legacy in-module path.
+  surface: 'options',
+  dispatchOp: (opId, ctx) => dispatchOp(opId, ctx, 'options'),
   transport: transportFromRuntime(
     (typeof chrome !== 'undefined' ? chrome.runtime : { sendMessage: async () => ({ ok: false, error: '非扩展环境' }) }) as never,
   ),

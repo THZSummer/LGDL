@@ -329,6 +329,38 @@ async function main() {
     check('⑦ 固化区 aria-live=polite', a11y.fixedAria === true, a11yRaw);
     check('⑦ 收起一律用 hidden（非 display:none；终态卡为结构移除）', a11y.hiddenAttr === true, a11yRaw);
 
+    // ── ⑦b 扩形（secret / form）— V5-2 TASK-V5-134/135/138/151 ──────────────────
+    // 判据力只升：扩形是**既有 kind（`askuser`）的枚举值**，两张卡都必须落进同一
+    // 卡类型学（`data-msg-type="askuser"`）且自带同类终态契约（固化区 + aria-live）。
+    console.log('\n▶ ⑦b 扩形：secret / form 两卡同族（无新卡类型）');
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamReset(); window.__v3.testing.streamSeed([
+        { kind: 'askuser', cardId: 'x-secret', payload: { askKind: 'secret', prompt: 'API Key', requestId: 'x-s' } },
+        { kind: 'askuser', cardId: 'x-form', payload: { askKind: 'form', prompt: '选择权限', requestId: 'x-f', formOptions: [{ id: 'bookmarks', label: '书签访问', scope: 'bookmarks' }, { id: 'downloads', label: '下载记录（只读）', scope: 'downloads' }] } },
+      ]); true`,
+    );
+    await sleep(200);
+    const shapedRaw = await evaluate(
+      cdp,
+      `(() => {
+        const cards = [...document.querySelectorAll('#stream > [data-msg-type]')];
+        return JSON.stringify({
+          types: cards.map((c) => c.getAttribute('data-msg-type')),
+          kinds: cards.map((c) => c.getAttribute('data-ask-kind')),
+          fixedAria: cards.every((c) => c.querySelector('.card-fixed')?.getAttribute('aria-live') === 'polite'),
+          secretPassword: document.querySelector('[data-card-key="x-secret"] input')?.getAttribute('type'),
+          formBoxes: document.querySelectorAll('[data-card-key="x-form"] input[type="checkbox"][data-cap]').length,
+        });
+      })()`,
+    );
+    const shaped = JSON.parse(shapedRaw);
+    check('⑦b 两张扩形卡都落进 `askuser` 一族（无新卡类型）', shaped.types.every((t) => t === 'askuser') && shaped.types.length === 2, shapedRaw);
+    check('⑦b `data-ask-kind` 扩形枚举 = {secret, form}（既有 kind 的枚举值）', JSON.stringify([...shaped.kinds].sort()) === JSON.stringify(['form', 'secret']), shapedRaw);
+    check('⑦b 扩形卡同样带固化区 aria-live=polite（终态契约同族）', shaped.fixedAria === true, shapedRaw);
+    check('⑦b secret 输入 = password（不回显）', shaped.secretPassword === 'password', shapedRaw);
+    check('⑦b form 多选 = 逐项 checkbox（data-cap 逐项可判）', shaped.formBoxes === 2, shapedRaw);
+
     // ── ⑧ long session ≈320 cards ───────────────────────────────────────────
     console.log('\n▶ ⑧ 长会话（≈320 卡）追加不整层重建');
     const longRaw = await evaluate(

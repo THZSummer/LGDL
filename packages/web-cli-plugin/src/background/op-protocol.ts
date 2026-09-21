@@ -69,6 +69,13 @@ export interface OpExecRequest {
   readonly consentToken?: string;
   /** Present on the `commit` phase only. */
   readonly gestureResult?: OpGestureResult;
+  /**
+   * V5-2 TASK-V5-139 (`op.perm.request` only) — the ONE capability the gesture
+   * targets. Its value must be a **registered** capability id (the SW refuses an
+   * unregistered one: 「新增项必须在册」, ADR-V5-004 §2). Zero runtime bytes for the
+   * content bundle (type-only membership, like the `op-*` kinds themselves).
+   */
+  readonly permission?: string;
 }
 
 /**
@@ -89,6 +96,9 @@ export function opExecRequestProblems(value: unknown): string[] {
   }
   if (m.origin !== undefined && (typeof m.origin !== 'string' || m.origin.length === 0)) {
     problems.push('op-exec: origin 若给必须是非空字符串');
+  }
+  if (m.permission !== undefined && (typeof m.permission !== 'string' || m.permission.length === 0)) {
+    problems.push('op-exec: permission 若给必须是非空字符串（在册能力 id）');
   }
   if (m.phase === 'commit') {
     const g = m.gestureResult as OpGestureResult | undefined;

@@ -159,6 +159,62 @@ function clockTextNode(doc: Document, ts: number): HTMLElement {
 }
 
 /**
+ * V5-2 **TASK-V5-138** (ADR-V5-002 §2 · ADR-V5-004 §3 · FR-ALLN-043 · AC-ALLN-007) —
+ * the `form` card's **multi-select** construction: one checkbox per option from
+ * `payload.formOptions` + submit/cancel.
+ *
+ * ① The option source is the **payload** (which `sidepanel.ts#collectOpParams` derives
+ *    from `OPTIONAL_CAPABILITY_FORM_OPTIONS`) — the card never invents an option;
+ * ② the selected ids are submitted as the ONE comma-joined value, so the pipeline's
+ *    `params` state stays a single string (no interface extension);
+ * ③ the option count is capped at {@link MAX_FORM_OPTIONS} and the card's clickables
+ *    are therefore exactly 4 + 2 = 6 = `MAX_CLICKABLES_PER_CARD` (measured, not assumed).
+ */
+export const MAX_FORM_OPTIONS = 4;
+
+function buildFormSelect(view: CardView, deps: CardDeps, ask: HTMLElement, options: HTMLElement): void {
+  const doc = deps.doc;
+  options.className = 'row ask-options-form';
+  const pool = [...(view.payload.formOptions ?? [])].slice(0, MAX_FORM_OPTIONS);
+  const boxes: HTMLInputElement[] = [];
+  for (const opt of pool) {
+    const label = doc.createElement('label');
+    label.className = 'ask-check';
+    label.setAttribute('data-form-option', opt.id);
+    const box = doc.createElement('input');
+    box.type = 'checkbox';
+    box.className = 'ask-check-input';
+    box.setAttribute('data-cap', opt.id);
+    box.setAttribute('aria-label', `${opt.label}（${opt.scope}）`);
+    const text = doc.createElement('span');
+    text.textContent = opt.label;
+    label.append(box, text);
+    options.appendChild(label);
+    boxes.push(box);
+  }
+  const submit = doc.createElement('button');
+  submit.id = 'ask-submit';
+  submit.type = 'button';
+  submit.className = 'btn-primary';
+  submit.setAttribute('data-act', 'answer');
+  submit.textContent = '提交所选';
+  submit.addEventListener('click', () => {
+    const picked = boxes.filter((b) => b.checked).map((b) => b.getAttribute('data-cap') ?? '');
+    // An empty selection is a **cancel** (fail-closed: never a default grant).
+    if (picked.length === 0) deps.onCardAction?.(view.cardId, 'cancel');
+    else deps.onCardAction?.(view.cardId, 'answer', picked.join(','));
+  });
+  const cancel = doc.createElement('button');
+  cancel.id = 'ask-cancel';
+  cancel.type = 'button';
+  cancel.setAttribute('data-act', 'cancel');
+  cancel.textContent = '取消';
+  cancel.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'cancel'));
+  options.append(submit, cancel);
+  void ask;
+}
+
+/**
  * The open form. The legacy id family (`#ask` / `#ask-prompt` / `#ask-options` /
  * `#ask-fallback` / `#ask-input` / `#ask-submit` / `#ask-cancel`) is written HERE,
  * on the open card only — the terminal branch never mints them.
@@ -192,6 +248,17 @@ function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
   // the `type="password"` + `data-secret` variant of it, so the card family keeps one
   // construction (no second DOM path) and 3 clickables (≤ MAX_CLICKABLES_PER_CARD = 6).
   const isSecret = askKind === 'secret';
+  // V5-2 TASK-V5-138 (ADR-V5-002 §2 / ADR-V5-004 §3 · FR-ALLN-043): the `form` card is
+  // its OWN construction — a multi-select checkbox group + submit/cancel. It must NOT
+  // also mount the text input / the decision region, otherwise 4 checkboxes + input +
+  // submit + cancel = 7 > MAX_CLICKABLES_PER_CARD (measured: the budget is exactly 6:
+  // 4 options + submit + cancel).
+  const isForm = askKind === 'form';
+  if (isForm) {
+    buildFormSelect(view, deps, ask, options);
+    col.appendChild(ask);
+    return;
+  }
   const fallback = doc.createElement('div');
   fallback.id = 'ask-fallback';
   fallback.className = 'ask-fallback';

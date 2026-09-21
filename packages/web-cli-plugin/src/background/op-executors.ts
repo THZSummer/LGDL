@@ -56,6 +56,12 @@ export interface OpExecDeps {
   patternOf(origin: string): string | null;
   /** An audit row for the executor's decision (type `origin-authorize`, one source). */
   audit(origin: string, decision: 'granted' | 'denied', reason: string): void;
+  /**
+   * V5-2 TASK-V5-139 — the `op.perm.request` audit row (the capability grant/deny the
+   * **page gesture** produced; the SW records the裁决, Chrome owns the grant itself).
+   * Optional so the existing `op.authorize` judges stay unchanged.
+   */
+  auditCapability?(capability: string, decision: 'granted' | 'denied', reason: string): void;
 }
 
 function refusal(error: string): OpExecResult {
@@ -84,12 +90,16 @@ export async function execSwOp(req: OpExecRequest, deps: OpExecDeps): Promise<Op
   }
 
   // ── commit: the ONLY commit point ──────────────────────────────────────────
-  // `op.perm.request` is registered but its executor body lands with v5-2 R2
-  // (TASK-V5-139); refusing loudly is the honest placeholder (never a silent pass).
-  if (req.opId !== 'op.authorize') {
-    return refusal(`op-exec: ${req.opId} 的执行体尚未落地（机制预留，v5-2 R2）`);
-  }
   const granted = req.gestureResult?.granted === true;
+  if (req.opId !== 'op.authorize') {
+    // V5-2 TASK-V5-139 (`op.perm.request`): the SW is the 裁决 / 快照 / 审计 owner;
+    // the grant itself happens in the **page gesture** (Chrome refuses here), so the
+    // commit records the gesture outcome and audits it. No authorization-table write.
+    const capability = req.permission;
+    if (!capability) return refusal(`op-exec: ${req.opId} 的 commit 必须携带 permission（在册能力 id）`);
+    if (row.audit) deps.auditCapability?.(capability, granted ? 'granted' : 'denied', `${req.opId} 经 SW 执行器裁决（${req.phase} · ${capability}）`);
+    return { ok: true, data: { opId: req.opId, phase: 'commit', capability, granted, needsUserRemoval: true } };
+  }
   try {
     const record = await deps.authorize(origin, granted);
     if (row.audit) {
