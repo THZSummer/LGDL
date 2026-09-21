@@ -193,8 +193,8 @@
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/spec.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/state.json",
     "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/TREE.md",
-    "plan": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/plan.md",
-    "parentPlan": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/plan.md"
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/plan.md",
+    "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/plan.md"
   },
   "mainAdrs": [
     "ADR-V5-002（执行侧）",
