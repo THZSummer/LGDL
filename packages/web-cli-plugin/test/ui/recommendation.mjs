@@ -18,6 +18,9 @@
  *   ⑬ 首装路径（I-09 快修轮）：真·首装 ⇒ `onboarding` 规则的 nextstep 卡出现（**不经 seam**）
  *   ⑭ FIX-1（F 还原度快修轮，2026-09-20）：授权 chip 直达授权流（本地权限流；
  *      `act:'authorize'` → `authorizeCurrentSite()`，不产生 user 回合、不受 pending 门控）
+ *   ⑮ V5-1（TASK-V5-115 / FR-ALLN-057·058·112 / X3·X6）：chip `data-op`（opId，**分发
+ *      依据**）与 `data-act`（渲染别名）**双采集一致**；零悬空 opId（∈ 首批 9 op）；
+ *      `#stream [data-op]` 成为流内可达 next 的选择器锚。纯新增，零删除既有断言。
  *
  * Serial discipline: exactly ONE Chromium instance, one page target (NFR-CHAT-009).
  */
@@ -559,6 +562,72 @@ async function main() {
       describeState,
     );
     check('⑫ 不再落「将在 v4-3 / v4-4 落地」占位通知', describe.placeholder === false, describeState);
+
+    // ══ ⑮ V5-1（TASK-V5-115 / FR-ALLN-057·058·112 / X3·X6）chip opId 双采集 ═══
+    // 旧视角 = `data-act`（渲染别名）；新视角 = `data-op`（**分发依据**，opId）。
+    // 本段**纯新增**（零删除既有断言）：只做等价重锚 + 加严，不减少任何判据。
+    console.log('\n▶ ⑮ V5-1：chip `data-op`（opId）与 `data-act`（渲染别名）双采集一致');
+    const opIdRaw = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.streamReset();
+        // 驱动一张恢复卡（本地 chip，零回合），让 chip 的两种属性都可采集。
+        window.__v3.testing.setRisk('staleRef', 'on');
+        const rec = JSON.parse(window.__v3.testing.recommend('stale', Date.now() + 20000));
+        const chips = [...document.querySelectorAll('#stream [data-msg-type="nextstep"] button.next-chip')];
+        const rows = chips.map((c) => ({ act: c.getAttribute('data-act'), op: c.getAttribute('data-op') }));
+        return JSON.stringify({
+          produced: rec.produced,
+          suppression: rec.suppression,
+          cards: document.querySelectorAll('#stream [data-msg-type="nextstep"]').length,
+          chips: rows,
+          withOp: rows.filter((r) => typeof r.op === 'string' && r.op.length > 0).length,
+          opSelectorCount: document.querySelectorAll('#stream [data-op]').length,
+        });
+      })()`,
+    );
+    const opId = JSON.parse(opIdRaw);
+    const OP_IDS = [
+      'op.turn',
+      'op.pick',
+      'op.describe',
+      'op.authorize',
+      'op.rebind',
+      'op.help',
+      'op.llm-config',
+      'op.perm.request',
+      'op.revoke',
+    ];
+    const ACT_TO_OP_IN_GATE = {
+      next: 'op.turn',
+      repick: 'op.pick',
+      describe: 'op.describe',
+      authorize: 'op.authorize',
+      rebind: 'op.rebind',
+      help: 'op.help',
+    };
+    check(
+      '⑮ 前置：恢复卡产出且 chip 可采集（本段判据非空转）',
+      opId.produced >= 1 && opId.cards >= 1 && opId.chips.length >= 1,
+      opIdRaw,
+    );
+    check('⑮ 每枚 next-chip 都带 opId（`data-op` 零缺失）', opId.chips.length > 0 && opId.withOp === opId.chips.length, opIdRaw);
+    check(
+      '⑮ 双采集一致：每枚 chip 的 `data-op` == ACT_TO_OP[`data-act`]',
+      opId.chips.every((c) => ACT_TO_OP_IN_GATE[c.act] === c.op),
+      opIdRaw,
+    );
+    check(
+      '⑮ 无悬空 opId：全部 `data-op` 都在首批 9 op 清单内',
+      opId.chips.every((c) => OP_IDS.includes(c.op)),
+      opIdRaw,
+    );
+    check('⑮ opId 成为流内可达 next 的选择器锚（`#stream [data-op]` 计数 ≥1）', opId.opSelectorCount >= 1, opIdRaw);
+    check(
+      '⑮ 门禁自身的映射表与 6 act 一一对应（同源；改动即红）',
+      Object.keys(ACT_TO_OP_IN_GATE).length === 6 && new Set(Object.values(ACT_TO_OP_IN_GATE)).size === 6,
+      JSON.stringify(ACT_TO_OP_IN_GATE),
+    );
 
     cdp.close();
 

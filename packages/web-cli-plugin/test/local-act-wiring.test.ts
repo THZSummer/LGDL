@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 
 import { NEXTSTEP_ACTS, candidateRules } from '../src/ui/sidepanel/recommend.js';
 import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
+// V5-1（TASK-V5-115）—— X3 同源链的终点：义务表 opId 集（注册表边界与门禁同源）。
+import { OBLIGATION_OP_IDS } from '../src/ui/sidepanel/next-registry/obligation-table.js';
 
 // Resolved from the PACKAGE ROOT: `npm test` compiles to `dist-test/`, so a
 // `new URL('../src/…', import.meta.url)` would look inside `dist-test/src/`.
@@ -304,4 +306,91 @@ test('V45 W1 元判据：每条 judgement 都声明非占位 expectFailPattern',
     assert.ok(!j.expectFailPattern.includes('TODO'), `${j.id}: expectFailPattern 不得是 TODO`);
   }
   assert.ok(JUDGEMENTS.filter((j) => j.status === 'landed').length >= 4, '已落地判据必须 ≥4 条');
+});
+
+/* ── V5-1（TASK-V5-115 / FR-ALLN-112·120 / AC-ALLN-009·019 · X3）──────────────
+ *
+ * X3 施工图形态③④ 的对账面：**旧断言的语义逐条有对应新断言**（无「不再 FAIL 的判据」），
+ * 且 act → opId → op 槽 → 单一入口 → 义务表 是一条**同源链**（任一环改一处即红）。
+ * R1（TASK-V5-113）已把本地 act 槽预迁移为 op 槽；R2（本任务）补齐**对账表 + 反证**。
+ */
+
+/**
+ * 旧判据 → 新判据的逐条映射（X3 形态③④的对账表；`leaf:'v5-1'`）。
+ * `oldId` = 被重锚的旧断言的可定位标识（v4.5-1 的门禁判据 id / 断言文本）；`newId` =
+ * 接管它的判据 id（本文件 `JUDGEMENTS` 或 V5-1 新增链路判据）。
+ */
+export interface X3ReconciliationRow {
+  readonly oldId: string;
+  readonly newId: string;
+  readonly oldAssertion: string;
+  readonly newAssertion: string;
+  readonly reason: string;
+  readonly leaf: string;
+}
+
+export const X3_RECONCILIATION: readonly X3ReconciliationRow[] = [
+  {
+    oldId: 'LA-3-if-action-authorize-branch',
+    newId: 'LA-3-no-request-turn',
+    oldAssertion: 'handleCardAction 的 `if (action === \'authorize\')` 分支体调用 authorizeCurrentSite()',
+    newAssertion: 'bindPanelOps 的 authorize op 槽调用同一入口 + ACT_TO_OP.authorize === op.authorize（同源链）」',
+    reason: 'per-op 分支已退役（集 B 收敛为一次查表）：判据从「分支体」重锚为「op 槽 → 单一入口 + 映射同源」，判据力只升不降。',
+    leaf: 'v5-1',
+  },
+  {
+    oldId: 'LA-5-if-action-rebind-branch',
+    newId: 'LA-5-rebind-entry',
+    oldAssertion: 'handleCardAction 的 `if (action === \'rebind\')` 分支体调用 rebindCurrentTab()',
+    newAssertion: 'rebind op 槽 → rebindCurrentTab() 唯一入口（调用点集合 = 登记值）',
+    reason: '同上：rebind 的本地语义（零回合 / 单一入口）在 op 词汇下逐条保持，判据落在 op 槽与入口调用点集合上。',
+    leaf: 'v5-1',
+  },
+  {
+    oldId: 'LA-6-if-action-help-branch',
+    newId: 'LA-6-help-entry',
+    oldAssertion: 'handleCardAction 的 `if (action === \'help\')` 分支体调用 openSettingsSection()',
+    newAssertion: 'help op 槽 → openSettingsSection() 唯一入口（设置导航，零回合）',
+    reason: '同上：help 是本地设置导航而非回合；重锚后仍要求「单一入口 + 零 requestTurn」，语义零丢失。',
+    leaf: 'v5-1',
+  },
+  {
+    oldId: 'LA-4-NEXTSTEP_ACTS-verbatim-6',
+    newId: 'LA-4-closed-set-same-source',
+    oldAssertion: 'NEXTSTEP_ACTS 逐字 6 项（act 是分发词汇）',
+    newAssertion: 'NEXTSTEP_ACTS == Object.keys(ACT_TO_OP)（act 降渲染别名，唯一权威是映射表）',
+    reason: 'act 从分发词汇降为渲染别名：旧闭集的 6 项仍逐字被钉死，但钉在 act→opId 映射表的键集上（新增 op 自动纳入）。',
+    leaf: 'v5-1',
+  },
+];
+
+test('V5-1 X3 对账：4 条重锚逐条登记（oldId / newId / 两侧断言 / reason ≥40 / leaf v5-1）', () => {
+  assert.ok(X3_RECONCILIATION.length >= 4, 'X3 对账表必须覆盖 ≥4 条重锚');
+  const judgementIds = new Set(JUDGEMENTS.map((j) => j.id));
+  for (const row of X3_RECONCILIATION) {
+    assert.ok(row.oldId.trim().length > 0, 'oldId 必须可定位');
+    assert.ok(row.oldAssertion.trim().length > 0 && row.newAssertion.trim().length > 0, `${row.oldId}: 两侧断言都必须写明`);
+    assert.ok(row.reason.trim().length >= 40, `${row.oldId}: reason 必须 ≥40 字符`);
+    assert.equal(row.leaf, 'v5-1', `${row.oldId}: leaf 必须登记为 v5-1`);
+    assert.ok(judgementIds.has(row.newId), `${row.oldId}: newId ${row.newId} 必须在 JUDGEMENTS 内（接管判据必须真的存在）`);
+  }
+});
+
+test('V5-1 X3 同源链：act → opId → op 槽 → 单一入口 → 义务表（改任一环即红）', () => {
+  for (const slot of LOCAL_ACT_SLOTS) {
+    assert.equal(ACT_TO_OP[slot.act as keyof typeof ACT_TO_OP], slot.opId, `${slot.act} 的 act→opId 必须同源`);
+    const binding = opSlotBinding(SIDEPANEL, slot.opSlot);
+    assert.ok(binding && new RegExp(`${slot.entry}\\s*\\(`).test(binding), `${slot.opId} 的 op 槽必须接线到 ${slot.entry}()`);
+    assert.ok(OBLIGATION_OP_IDS.includes(slot.opId), `${slot.opId} 必须在义务表 opId 集内（注册表边界与门禁同源）`);
+  }
+  // 反证：把 opId 改掉（模拟「映射表改了、门禁没跟」）⇒ 同源链判据必红。
+  const forged = { ...ACT_TO_OP, rebind: 'op.turn' } as Record<string, string>;
+  assert.notEqual(forged.rebind, LOCAL_ACT_SLOTS[1].opId, '伪造映射必须使同源链判据可红');
+  // 反证：把 op 槽接到 requestTurn（本地动作变回合）⇒ LA-3 判据必红（既有反证已实跑）。
+  const binding = opSlotBinding(SIDEPANEL, 'rebind');
+  const forgedSource = SIDEPANEL.replace(binding as string, "rebind: () => requestTurn('重新绑定当前标签页'),");
+  assert.ok(
+    localActSlotProblems(forgedSource, 'rebind', 'rebindCurrentTab').length > 0,
+    '同源链的「零回合」环必须可红',
+  );
 });

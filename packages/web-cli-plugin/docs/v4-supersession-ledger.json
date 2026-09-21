@@ -7613,6 +7613,90 @@
       "addedLinesText": "",
       "reason": "V4.5-1 W2（TASK-V45-104/105/106）同编号等价改写的 base 相对删除行：退役旧形态判据 / 旧承载写法，改写为新形态判据（节点为 null + 流内载体数 == 1 + 长文案走行 title）。逐行命中区间即可；语义由 v4.5-1 叶段的 registeredUncoveredLines 与 entries 逐字保证。",
       "leaf": "specs-tree-v45-1-single-write-chronology"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/recommendation-sources.test.ts",
+      "oldRange": [
+        300,
+        300
+      ],
+      "newRange": [
+        288,
+        296
+      ],
+      "range": "288..296",
+      "oldId": "V51R2-MR-recommendation-sources.test.ts-300",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 0,
+      "deletedLinesText": [],
+      "addedLinesText": [
+        "V5-1（TASK-V5-115 / FR-ALLN-112 X3）等价重锚（加严，零降级）：旧「闭集 6 项」判据保留为渲染别名一致性检查，新的唯一权威是 ACT_TO_OP 的 6 行映射（act 降渲染别名；opId 集由注册表 / 义务表给出 ⇒ 新增 op 自动纳入）"
+      ],
+      "reason": "X3 形态①的等价重写：act 闭集 → opId 集。判据力只升不降（旧 6 项仍逐字钉死，新增 op 自动纳入），零删除；登记为 equivalent-rewrite 以便 review 逐条对账。",
+      "leaf": "v5-1"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/local-act-wiring.test.ts",
+      "oldRange": [
+        301,
+        307
+      ],
+      "newRange": [
+        367,
+        395
+      ],
+      "range": "367..395",
+      "oldId": "V51R2-MR-local-act-wiring.test.ts-X3",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 0,
+      "deletedLinesText": [],
+      "addedLinesText": [
+        "X3 对账表（oldId → newId 逐条）+ act → opId → op 槽 → 单一入口 → 义务表的同源链判据 + 反证"
+      ],
+      "reason": "X3 形态③④：本地 act 槽 → 本地 op 槽的重锚已在 R1（TASK-V5-113）落地；R2 补齐对账表与反证（判据零删除、只增）。",
+      "leaf": "v5-1"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/authorize-chip-wiring.test.ts",
+      "oldRange": [
+        140,
+        153
+      ],
+      "newRange": [
+        163,
+        186
+      ],
+      "range": "163..186",
+      "oldId": "V51R2-MR-authorize-chip-wiring.test.ts-X3",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 0,
+      "deletedLinesText": [],
+      "addedLinesText": [
+        "authorize 的 opId 同源链（act → op.authorize → op 槽 → authorizeCurrentSite → 义务表）+ 三条反证（映射缺失 / 槽离开单一入口 / 权限请求多一处）"
+      ],
+      "reason": "X3 形态④：授权 chip 的单一入口判据在 op 词汇下等价重锚并加严（同源链 + 反证），既有 AC-1/AC-2 判据逐字保留。",
+      "leaf": "v5-1"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/recommendation.mjs",
+      "oldRange": [
+        515,
+        519
+      ],
+      "newRange": [
+        566,
+        613
+      ],
+      "range": "566..613",
+      "oldId": "V51R2-MR-recommendation.mjs-X6",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 0,
+      "deletedLinesText": [],
+      "addedLinesText": [
+        "⑮ V5-1：chip data-op（opId）与 data-act（渲染别名）双采集一致 + 零悬空 opId + #stream [data-op] 选择器锚 + 门禁映射表同源（运行期 59 → 66，只增）"
+      ],
+      "reason": "X3 形态②/X6 chip 侧：data-act → data-op 的等价重锚（双采集一致即等价证据）；纯新增 7 条运行期断言，既有 59 条零删除零降级。",
+      "leaf": "v5-1"
     }
   ],
   "protectedSupersession": {
@@ -8154,7 +8238,21 @@
     "checkOccurrences": "61 = 60 调用点 + 1 函数声明（口径显式，见测试内断言）",
     "mappingRows": 60,
     "script": "package.json#scripts.test:design-contract（独立步骤；同时因 `test/*.test.ts` 编译而随 `npm test` 的 `node --test dist-test/test/*.test.js` 一并执行）",
-    "designContractChanges": [],
+    "designContractChanges": [
+      {
+        "object": "packages/web-cli-plugin/design/ui-redesign/option-g-all-in-next.html + option-g-shim.mjs（G 稿与 G shim）",
+        "before": null,
+        "after": {
+          "draftSha": "a7c0a77ac6253e32d1ccef894f32eb8d0dc2d10c99f145261a69ebc699cc83c9",
+          "shimSha": "d0107ecbbd56edfe19592e256a66d27fb3d1c5c1a2d87c1773364f4520e609ce",
+          "assertions": 127,
+          "groups": 14
+        },
+        "date": "2026-09-22",
+        "reason": "X4 / FR-ALLN-101~102 / ADR-V5-008：G 稿 + 127 断言**新增**入 design-contract 门禁，与 F **并存不替换**（F 4 常量 + 60 行映射逐字冻结；G 4 常量 + 127 行映射 + 14 组；两侧共享 helper 但**各自独立计数**，混池防御因 F∩G id 集 = 51 项非空 ⇒ 不得依赖互斥）。设计稿与 shim 本体零改动（design/** 零 diff），本项登记的是**契约入册**这一事实。",
+        "leaf": "specs-tree-v5-1-next-registry-pipeline"
+      }
+    ],
     "note": "本叶**不改设计稿**、**不改 shim 断言**：设计契约只是被机器化（实跑 60/60 + sha256 冻结 + 60 行映射表 + CARD_TYPES 逐字）。任何未来变更必须改常量 + 常量计数 + 映射表 + 在本数组登记（FR-CHAT-036 禁静默改断言）。"
   },
   "rewriteRegions": [

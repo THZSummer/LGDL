@@ -197,6 +197,27 @@ export const EXPECTED_AUDITED_FILES = [
   'test/host-registry.test.ts',
   'test/local-act-wiring.test.ts',
   'test/settings-help.test.ts',
+  // ── V5-1（TASK-V5-114 / 117 / 119 / 120 · ADR-V5-001 / 008 / 009）────────────
+  // The v5-1 leaf adds four **node** gates, each declaring a `JUDGEMENTS` table with a
+  // per-judgement `expectFailPattern` (the same falsifiability contract as the v4.5-1
+  // three above). Additive on both axes — `CHROMIUM_GATES.length === 9` stays
+  // untouched (the `page-input.mjs` precedent) and the audited set may only GROW:
+  //   · `next-dispatch-diff0` — 集 B 零 per-op 分支 + 四操作哈希不变（AC-ALLN-005）；
+  //   · `next-obligation-table` — 注册表 ↔ 义务表（行数 / opId 集 / 四要素 / 无悬空）；
+  //   · `blocked-terminals` — 阻塞态枚举单源 + `site.unauthorized` 去 `firstRun`（FR-ALLN-010/013）；
+  //   · `design-contract` — 双契约 F 60 冻结 + G 127 新增（X4 / FR-ALLN-100~103）。
+  'test/next-dispatch-diff0.test.ts',
+  'test/next-obligation-table.test.ts',
+  'test/blocked-terminals.test.ts',
+  'test/design-contract.test.ts',
+] as const;
+
+/** V5-1：本轮新增 / 加严的 node 门禁（发现由 `NODE_GATE_MARKER` 自动完成）。 */
+export const V51_NODE_GATE_FILES = [
+  'test/next-dispatch-diff0.test.ts',
+  'test/next-obligation-table.test.ts',
+  'test/blocked-terminals.test.ts',
+  'test/design-contract.test.ts',
 ] as const;
 
 /** V4.5-1 W1: the node (non-Chromium) gates — discovered by {@link NODE_GATE_MARKER}. */
@@ -637,6 +658,23 @@ test('元门禁（V4.5-1 W1）：node 门禁由 JUDGEMENTS 标记自动纳入（
   }
   // CHROMIUM_GATES 计数不变（node 门禁不是 Chromium 门禁）。
   assert.equal(CHROMIUM_GATES.length, 9);
+});
+
+// ── 0a-2. V5-1: the four new node gates join the audited set (marker-discovered) ──
+test('元门禁（V5-1）：四个新 node 门禁由 JUDGEMENTS 标记自动纳入（CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  for (const file of V51_NODE_GATE_FILES) {
+    assert.ok(discovered.includes(file), `${file} 未被 node 门禁扫描纳入（判据表 + expectFailPattern 标记失效）`);
+    assert.ok((EXPECTED_AUDITED_FILES as readonly string[]).includes(file), `${file} 必须在 EXPECTED_AUDITED_FILES 的下界声明里（只追加）`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    assert.ok(/export const JUDGEMENTS/.test(text), `${file} 必须导出 JUDGEMENTS 判据表`);
+    assert.ok((text.match(/expectFailPattern\s*:/g) ?? []).length >= 3, `${file} 每条判据必须声明 expectFailPattern`);
+  }
+  // 既有下界仍是子集（集合只增不减）。
+  for (const file of NODE_GATE_FILES) {
+    assert.ok(discovered.includes(file), `v4.5-1 的 node 门禁 ${file} 不得因本次追加而脱离受审集合`);
+  }
+  assert.equal(CHROMIUM_GATES.length, 9, 'Chromium 门禁计数常量不得改动（无新增 Chromium 门禁文件）');
 });
 
 // ── 0b. N-12's own reverse proof: a fresh gate file is auto-audited ──────────

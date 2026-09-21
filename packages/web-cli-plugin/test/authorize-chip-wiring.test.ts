@@ -33,6 +33,8 @@ import test from 'node:test';
 
 import { NEXTSTEP_ACTS, candidateRules } from '../src/ui/sidepanel/recommend.js';
 import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
+// V5-1（TASK-V5-115）—— X3 同源链的终点：义务表 opId 集（注册表边界与门禁同源）。
+import { OBLIGATION_OP_IDS } from '../src/ui/sidepanel/next-registry/obligation-table.js';
 
 // Resolved from the PACKAGE ROOT: `npm test` compiles to `dist-test/`, so a
 // `new URL('../src/…', import.meta.url)` would look inside `dist-test/src/`.
@@ -150,4 +152,34 @@ test('act 闭集含 authorize，且 onboarding 授权 chip 实际产出该 act�
     now: 1,
   }).find((c) => c.rule === 'onboarding');
   assert.equal(onboarding?.chips[0]?.act, 'authorize');
+});
+
+/* ── V5-1（TASK-V5-115 / FR-ALLN-112·120 / AC-ALLN-009 · X3 形态③④）──────────
+ *
+ * R1（TASK-V5-113）已把 `authorize` 分支预迁移为 op 槽；R2 补齐**opId 同源链的对账与
+ * 反证**：act → opId → op 槽 → 单一入口 → 义务表，任一环被改都必须让判据红。
+ */
+
+test('V5-1 X3 authorize 同源链：act → op.authorize → op 槽 → authorizeCurrentSite → 义务表', () => {
+  assert.equal(ACT_TO_OP.authorize, 'op.authorize', 'act→opId 必须同源（唯一权威 ACT_TO_OP）');
+  const binding = authorizeSlotBinding(SIDEPANEL);
+  assert.ok(binding, '前置：authorize op 槽必须存在');
+  assert.match(binding as string, /authorizeCurrentSite\(\)/, 'op 槽必须走单一授权入口');
+  assert.ok(OBLIGATION_OP_IDS.includes(ACT_TO_OP.authorize), 'op.authorize 必须在义务表 9 op 内（注册表边界同源）');
+  // 权限请求调用点仍唯一（本地权限流的「唯一入口」在 op 词汇下逐条保持）。
+  assert.equal(permissionRequestSites(SIDEPANEL).length, 1, '权限请求调用点必须仍唯一');
+});
+
+test('V5-1 X3 反证：删掉 authorize 的 opId 映射 / 让 op 槽离开单一入口 ⇒ 同源链判据必红', () => {
+  // ① 映射缺失（模拟「注册表改了、门禁没跟」）。
+  const forgedMap: Record<string, string> = { ...ACT_TO_OP };
+  delete forgedMap.authorize;
+  assert.equal(forgedMap.authorize, undefined, '伪造映射必须使同源链的可定位判据变红');
+  // ② op 槽离开单一入口（第二次执行路径）。
+  const binding = authorizeSlotBinding(SIDEPANEL);
+  const forged = SIDEPANEL.replace(binding as string, 'authorize: () => requestOriginPermissionDetailed(origin),');
+  const forgedBinding = authorizeSlotBinding(forged);
+  assert.ok(forgedBinding && !/authorizeCurrentSite\(\)/.test(forgedBinding), '伪造槽必须被同源链判据识别为「离开单一入口」');
+  // ③ 权限请求多一处调用 ⇒ 唯一入口判据必红。
+  assert.equal(permissionRequestSites(`${SIDEPANEL}\n  void requestOriginPermissionDetailed('https://x.test');\n`).length, 2);
 });
