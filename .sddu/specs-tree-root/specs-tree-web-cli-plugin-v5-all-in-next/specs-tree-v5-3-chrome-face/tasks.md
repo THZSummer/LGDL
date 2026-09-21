@@ -878,7 +878,7 @@ python3 -c "import json;d=json.load(open('packages/web-cli-plugin/docs/v4-densit
 - [ ] RP-V4-08 实跑：段内 1 byte ⇒ FAIL；段外 1 byte ⇒ 不红；逐字节还原 ⇒ PASS
 - [ ] `knownGap ↔ status` 一致性绿
 
-**红线检查点**: 冻界面 `F1` / `F4`；阈值面 `T-b`（`STREAM_HEIGHT_RATIO_MIN = 0.65` **只上调**）；台账面 `L-a`（pin / `supersessionChain` / `modifiedRanges` / `redlineRemap`）；契约面 `C-5`（**显式二选一**）；契约面 `C-1`–`C-7`（本任务只读复核，零触碰）。
+**红线检查点**: 冻界面 `F1` / `F4`；阈值面 `T-b`（`STREAM_HEIGHT_RATIO_MIN = 0.65` **只上调**）；台账面 `L-a`（pin / `supersessionChain` / `modifiedRanges` / `redlineRemap`）；契约面 `C-5`（**显式二选一**）/ `C-1`–`C-7`（本任务只读复核，零触碰）。
 
 **验证命令**:
 ```bash
@@ -916,7 +916,7 @@ npm run test:supersession --workspace @lgdl/web-cli-plugin 2>&1 | tee /tmp/openc
 - [ ] 档位闸门算术成立（不下移）；若越限分级处置条目存在
 - [ ] `test:size-ruling-vol3 ≥12` ∧ 红线逐字节（`content.js` / `pick-layer.js`）
 
-**红线检查点**: 冻界面 `F2`（红线逐字节）；阈值面 `T-c`（**上限公式 / cap / 档位 / 绝对上限 / authorConfirmation**）；台账面 `L-a`（`v3Vol3Closeout`）/ `L-c`（五要素 + `_TIMELINE` + `_HISTORY`）。
+**红线检查点**: 冻界面 `F2`（红线逐字节）；阈值面 `T-c`（**上限公式 / cap / 档位 / 绝对上限 / authorConfirmation**）；台账面 `L-a`（`v3Vol3Closeout`）/ `L-c`（五要素 + `_TIMELINE` + `_HISTORY`）；契约面 `C-1`–`C-7`（本任务只读复核，零触碰）。
 
 **验证命令**:
 ```bash
