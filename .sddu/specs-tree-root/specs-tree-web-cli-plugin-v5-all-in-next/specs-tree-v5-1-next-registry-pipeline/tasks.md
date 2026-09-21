@@ -895,7 +895,7 @@ npm test --workspace @lgdl/web-cli-plugin -- blocked-terminals 2>&1 | tee /tmp/o
 - [ ] `SIDEPANEL_CEILING_CAP === 'record-only'` ∧ `authorConfirmation.status === 'pending-author-line'` ∧ 档位 512,000 未变
 - [ ] 越限若发生：分级处置条目存在（不得静默）
 
-**红线检查点**: 冻界面 `F2`（红线逐字节）/ `F4` / `F5`；阈值面 `T-c`（上限公式 / cap / 档位 / 绝对上限）；台账面 `L-c`（五要素 + `_TIMELINE` + `_HISTORY`）。
+**红线检查点**: 冻界面 `F2`（红线逐字节）/ `F4` / `F5`；阈值面 `T-c`（上限公式 / cap / 档位 / 绝对上限）；台账面 `L-c`（五要素 + `_TIMELINE` + `_HISTORY`）；契约面 `C-1`–`C-7`（本任务只读复核，零触碰）。
 
 **验证命令**:
 ```bash
