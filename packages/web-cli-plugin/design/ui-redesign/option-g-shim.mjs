@@ -16,6 +16,10 @@
  *     separator + 键盘可达 + clamp）与双主题、风险 chip 永不折叠
  *   · 授权态下移（作者 2026-09-21 反馈修订）：工具栏区四词零出现 / 状态栏常显 chip 两态与
  *     点击行为（黄 → 流内产 next；绿 → 展开管理详情）/ 风险 rail 零双写 / 默认可点 6 ≤ 7
+ *   · 架构依据回注（§N，作者 2026-09-21 指示「用 gh 探索 deepseek-harness」）：
+ *     引用注记「已核实」+ Cordis 出处文件 / NextProvider 契约 v2 七点（可逆注册往返 ·
+ *     依赖声明 ⊆ SERVICES · priority/prepend 与按 id 整行覆盖 · 分发模式表 · 失败语义三级 ·
+ *     Seam 三件套 · 证明义务表 8 行 + 分发器 diff = 0 契约义务）
  *
  * 用法：node option-g-shim.mjs        （退出码 0 = 全通过，1 = 有失败）
  * 依赖：仅 Node 内置 fs / path / url / vm。不联网、不装包。
@@ -1588,6 +1592,219 @@ check('M21 实测修订登记（自检区）：真实浏览器实测 + 两处修
     && /\.msg-system\s+\.ts\.sys-time\s*\{[^}]*white-space:\s*nowrap/.test(css);
 });
 
+/* ── N. 架构依据回注：deepseek-harness 已核实引用 + NextProvider 契约 v2 七点 ──
+      （作者 2026-09-21 指示「用 gh 探索 deepseek-harness」；本组只增不减，不改 S1~S7 结构） */
+
+/* R2/R3/R4/R5 齐备的最小合法 provider（供 §N 自造用例） */
+function nDef(id, over) {
+  return Object.assign({
+    id,
+    pri: 3, priLabel: '发现', prepend: false,
+    deps: [], mode: 'emit', fail: 'card-boundary',
+    when: function () { return true; },
+    chips: ['op.help']
+  }, over || {});
+}
+
+check('N1 引用注记已升级为「已核实」：仓库元数据 + Cordis + 三处出处文件（头注 + 架构区）', () => {
+  const head = html.slice(0, html.indexOf('<html lang='));
+  const arch = one('#arch-section');
+  const quotes = one('#dsh-quotes');
+  const keys = ['已核实', 'Cordis', 'TypeScript', 'MIT', 'Everything is a Plugin'];
+  keys.forEach(k => inc(arch.textContent, k, '架构区元数据'));
+  keys.forEach(k => inc(head, k, '头注元数据'));
+  ['docs/cordis-primer.md', 'docs/architecture.md', 'docs/cookbook/extension-cookbook.md']
+    .forEach(f => { inc(quotes.textContent, f, '出处文件'); inc(head, f, '头注出处文件'); });
+  return inc(quotes.textContent, 'A context is a repository of services', '引用 1')
+    && inc(quotes.textContent, 'There is no privileged core to patch', '引用 2')
+    && inc(quotes.textContent, 'No row modifies the loop', '引用 3')
+    && ninc(arch.textContent, '未经在线核实', '架构区（旧登记应已作废）')
+    && ninc(head, '未经在线核实', '头注（旧登记应已作废）');
+});
+
+check('N2 R1 可逆注册往返：N → N+1 → N（disposer 幂等，注册表计数与读数同步）', () => {
+  demo.setScene('S1');
+  reg.unregisterDemoProvider();                 // 复位（§H5 曾注册过 demo provider）
+  const base = reg.count();
+  const r = reg.registerDemoProvider();
+  const afterAdd = reg.count();
+  const r1 = reg.unregisterDemoProvider();
+  const afterRemove = reg.count();
+  const r2 = reg.unregisterDemoProvider();      // 幂等：重复卸载不再减
+  return r.ok === true && afterAdd === base + 1 && r1.count === base && afterRemove === base
+    && r2.count === base && reg.count() === base
+    && eq(one('#reg-count').textContent, String(base), '视察器计数') === true
+    && inc(reg.roundTripReadout(), 'R1', '往返读数');
+});
+
+check('N3 R1b disposer 契约：注册返回幂等 unregister()，重复调用结果一致', () => {
+  const base = reg.count();
+  const r = reg.register(nDef('n3.tmp'));
+  const n1 = r.unregister().count;
+  const n2 = r.unregister().count;
+  return typeof r.unregister === 'function' && r.count === base + 1
+    && n1 === base && n2 === base && reg.count() === base;
+});
+
+check('N4 R5 ② 注册失败 = loud：重复 id 被拒 + 红显 data-state=fail + 计数不变', () => {
+  demo.setScene('S1');
+  const before = reg.count();
+  one('#reg-dupe').click();
+  const st = reg.status();
+  const tr = reg.trace();
+  return reg.count() === before && st.state === 'fail' && inc(st.text, '注册失败', 'loud 状态')
+    && inc(st.text, 'registry', 'loud 状态') && tr.lastError.indexOf('duplicate id') !== -1
+    && tr.failCount >= 1 && String(one('#reg-count').textContent) === String(before);
+});
+
+check('N5 R5 ②b 未知 deps → loud（注册被拒）；R4 非法 mode / 悬空 chips / 缺 when 同拒', () => {
+  const before = reg.count();
+  const bad = reg.register(nDef('n5.bad', { deps: ['nope'] }));
+  const okAfter = reg.count() === before;
+  return bad.ok === false && inc(bad.error, 'unknown deps', '错误文案') && okAfter
+    && inc(reg.trace().lastError, 'unknown deps', '视察器 trace')
+    && inc(reg.validate(nDef('x', { mode: 'parallel' })), 'illegal mode', 'mode 校验')
+    && inc(reg.validate(nDef('x', { chips: ['op.nope'], mode: 'emit' })), 'dangling chips', 'chips 校验')
+    && inc(reg.validate(nDef('x', { when: undefined, mode: 'emit' })), 'missing when', 'when 校验');
+});
+
+check('N6 R2 依赖声明：每个 provider 有 deps 数组且 ⊆ SERVICES（含 snapshot 依赖实存）', () => {
+  const svc = reg.services;
+  const bad = reg.providers.filter(p => !Array.isArray(p.deps) || p.deps.some(d => svc.indexOf(d) === -1));
+  if (bad.length) throw new Error('非法 deps：' + bad.map(p => p.id).join(', '));
+  return svc.indexOf('snapshot') !== -1 && svc.indexOf('session') !== -1
+    && reg.providers.some(p => p.deps.indexOf('snapshot') !== -1)
+    && reg.providers.some(p => p.deps.indexOf('session') !== -1);
+});
+
+check('N7 R2b 依赖解析：被依赖者先就绪（顺序来自服务依赖，不来自列表位置）', () => {
+  /* 列表位置故意把消费者放前、被依赖者放后；解析后必须反转 */
+  const list = [nDef('consumer', { pri: 1, deps: ['dep.a'] }), nDef('dep.a', { pri: 1, deps: [] })];
+  const order = reg.resolveOrder(list).map(p => p.id);
+  eq(order.join(','), 'dep.a,consumer', '依赖解析顺序');
+  /* 外服依赖（SERVICES 内但非 provider）不阻塞就绪 */
+  const list2 = [nDef('only', { pri: 0, deps: ['snapshot'] })];
+  eq(reg.resolveOrder(list2).map(p => p.id).join(','), 'only', '外服依赖不阻塞');
+  return true;
+});
+
+check('N8 R3 优先级显式：priority / prepend 字段齐备；覆盖按 id 定位整行（计数不变）', () => {
+  const bad = reg.providers.filter(p => typeof p.pri !== 'number' || typeof p.prepend !== 'boolean');
+  if (bad.length) throw new Error('缺 priority / prepend：' + bad.map(p => p.id).join(', '));
+  const before = reg.count();
+  const mk1 = reg.register(nDef('n8.tmp', { mode: 'emit' }));
+  const mid = reg.count();
+  const mk2 = reg.register(nDef('n8.tmp', { mode: 'waterfall' }), { overwrite: true });
+  const rows = reg.providers.filter(p => p.id === 'n8.tmp');
+  const after = reg.count();
+  reg.unregister('n8.tmp')();
+  return mk1.ok === true && mid === before + 1 && mk2.ok === true && after === before + 1
+    && rows.length === 1 && rows[0].mode === 'waterfall' && reg.count() === before;
+});
+
+check('N9 R3b S6 多 next 仲裁：首活跃 provider = site.unauthorized（P0 + prepend）', () => {
+  demo.setScene('S6');
+  const active = reg.active('S6');
+  const item = one('#reg-list li[data-provider="site.unauthorized"]');
+  return !!active[0] && active[0].id === 'site.unauthorized' && active[0].pri === 0
+    && active[0].prepend === true && item.getAttribute('data-prepend') === 'true'
+    && item.getAttribute('data-pri') === '0'
+    && one('#msg-g-next-arbitrate [data-act="next"]').getAttribute('data-op') === 'op.authorize';
+});
+
+check('N10 R4 分发模式公开契约：#mode-table 逐挂载点标注 waterfall / emit；provider.mode ∈ MODES', () => {
+  const table = one('#mode-table');
+  const rows = table.querySelectorAll('tbody tr');
+  const txt = table.textContent;
+  const bad = reg.providers.filter(p => reg.modes.indexOf(p.mode) === -1);
+  if (bad.length) throw new Error('非法 mode：' + bad.map(p => p.id).join(', '));
+  return rows.length >= 5 && inc(txt, 'waterfall', '模式表') && inc(txt, 'emit', '模式表')
+    && inc(txt, 'next', '模式表挂载点') && inc(txt, 'consent', '模式表挂载点')
+    && inc(txt, 'receipt', '模式表挂载点')
+    && reg.modes.length === 2 && reg.providers.some(p => p.mode === 'emit')
+    && reg.providers.some(p => p.mode === 'waterfall');
+});
+
+check('N11 R5 失败语义三级文本：#fail-levels 恰三条（单卡边界 / loud / 快照回滚）', () => {
+  const ul = one('#fail-levels');
+  const txt = ul.textContent;
+  return ul.querySelectorAll('li').length === 3
+    && inc(txt, '单卡边界', '①') && inc(txt, 'loud', '②')
+    && inc(txt, '快照', '③') && inc(txt, '回滚', '③')
+    && inc(txt, '法七不破', '①') && inc(txt, '不静默', '②')
+    && Object.keys(reg.failLevels).length === 3;
+});
+
+check('N12 R5 ③ 改状态操作快照 / 回滚：3 个 op 在 provider 表与证明义务表内逐行明示', () => {
+  const provTxt = one('#provider-table').textContent;
+  const oblRows = one('#obligation-table').querySelectorAll('tbody tr');
+  const three = ['op.llm-config', 'op.perm.request', 'op.revoke'];
+  return three.every(op => inc(provTxt, '快照回滚', op + ' 所在 provider 行应登记快照回滚'))
+    && three.every(op => {
+      const row = oblRows.filter(tr => tr.textContent.indexOf(op) !== -1)[0];
+      if (!row) throw new Error('证明义务表缺行：' + op);
+      return inc(row.textContent, '快照', op + ' 行失败语义');
+    });
+});
+
+check('N13 R6 Seam 三件套：Definition / Provider / Consumer 文案齐备且实指到代码', () => {
+  const txt = one('#seam-triad').textContent;
+  const arch = one('#arch-section').textContent;
+  return inc(txt, 'Definition', 'Definition') && inc(txt, 'Provider', 'Provider')
+    && inc(txt, 'Consumer', 'Consumer') && inc(txt, 'NextProvider 接口', 'Definition 实指')
+    && inc(txt, '注册表', 'Provider 实指') && inc(arch, 'handleCardAction', 'Consumer 实指')
+    && inc(arch, '注册表视察器', 'Consumer 观测面');
+});
+
+check('N14 R7 证明义务表：8 个 op 各一行 + 每行四要素 + tfoot 明示契约义务', () => {
+  const table = one('#obligation-table');
+  const rows = table.querySelectorAll('tbody tr');
+  eq(rows.length, 8, '证明义务表行数');
+  const missing = ops.map(o => o.opId).filter(id => !rows.some(r => r.textContent.indexOf(id) !== -1));
+  if (missing.length) throw new Error('缺 op 行：' + missing.join(', '));
+  const notFour = rows.filter(r => r.querySelectorAll('td').length !== 4);
+  if (notFour.length) throw new Error('四要素不全（应 4 个 td）：' + notFour.length + ' 行');
+  const foot = table.querySelectorAll('tfoot tr');
+  const footTxt = table.querySelector('tfoot').textContent;
+  return foot.length === 1 && inc(footTxt, 'diff = 0', 'tfoot 契约')
+    && inc(footTxt, '只改注册表条目', 'tfoot 契约') && inc(footTxt, 'handleCardAction', 'tfoot 契约')
+    && inc(table.textContent, 'waterfall', '表内模式') && inc(table.textContent, 'emit', '表内模式');
+});
+
+check('N15 R7b 契约断言：注册 / 卸载 / 重复 id 三操作下分发器 diff 恒 0、指纹不变', () => {
+  const fp = reg.fingerprint();
+  const before = reg.count();
+  const a = reg.registerDemoProvider();
+  const b = reg.unregisterDemoProvider();
+  const c = reg.attemptDuplicateRegister();
+  return a.diff === 0 && b.diff === 0 && c.ok === false && c.count === before
+    && reg.diff() === 0 && fp === reg.fingerprint() && eq(one('#reg-diff').textContent, '0') === true
+    && reg.count() === before;
+});
+
+check('N16 架构区扩写为 §①~§⑧ 八节 + provider 表 8 行（场景 S1~S7 零重构）', () => {
+  const sec = one('#arch-section');
+  const heads = sec.querySelectorAll('h3').map(h => h.textContent);
+  const provRows = one('#provider-table').querySelectorAll('tbody tr');
+  return heads.length >= 8
+    && inc(heads[0], 'NextProvider 契约 v2', '§①')
+    && inc(heads[1], 'provider 清单', '§②')
+    && inc(heads[7], '零新增卡类型', '§⑧')
+    && provRows.length === 8
+    && inc(sec.textContent, 'docs/cordis-primer.md', '架构区出处文件');
+});
+
+check('N17 口径区登记契约 v2 验收口径 + 头注 ⑨ 本轮修订（含「不改 S1~S7」承诺）', () => {
+  const head = html.slice(0, html.indexOf('<html lang='));
+  const spec = one('#spec-section');
+  const heads = spec.querySelectorAll('h3').map(h => h.textContent);
+  return inc(head, '⑨ 本轮修订', '头注') && inc(head, 'R1 可逆注册', '头注七点')
+    && inc(head, 'R7 证明义务表', '头注七点') && inc(head, '不改', '头注承诺')
+    && heads.some(h => h.indexOf('NextProvider 契约 v2 验收口径') !== -1)
+    && inc(spec.textContent, 'R6 Seam 三件套', '口径区') && inc(spec.textContent, 'diff = 0', '口径区')
+    && inc(spec.textContent, '已核实', '口径区');
+});
+
 /* ═════════════════════════════════════════════════════════════════════════
    4. 报告
    ═════════════════════════════════════════════════════════════════════════ */
@@ -1601,6 +1818,6 @@ for (const r of results) {
 
 console.log('');
 console.log(`方案 G（option-g-all-in-next.html）DOM 垫片断言：${passed} passed / ${failed} failed`);
-console.log(`（共 ${results.length} 条；覆盖三区结构继承 / 12 kind 继承 / 法七无死端 / 法八零明文 / chip↔op 绑定 / op 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 / 授权态下移（工具栏零四词 · 状态栏常显 chip 两态与点击行为 · 零双写 · 6 ≤ 7 对账）/ 可拖动侧栏宽度（280–640 · ARIA separator · 键盘 · clamp）与主题）`);
+console.log(`（共 ${results.length} 条；覆盖三区结构继承 / 12 kind 继承 / 法七无死端 / 法八零明文 / chip↔op 绑定 / op 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 / 授权态下移（工具栏零四词 · 状态栏常显 chip 两态与点击行为 · 零双写 · 6 ≤ 7 对账）/ 可拖动侧栏宽度（280–640 · ARIA separator · 键盘 · clamp）与主题 / 架构依据回注（§N：deepseek-harness 已核实引用 + Cordis 出处 + NextProvider 契约 v2 七点：可逆注册往返 / 依赖声明 / 优先级显式 / 分发模式表 / 失败三级 / Seam 三件套 / 证明义务表 8 行））`);
 
 process.exit(failed === 0 ? 0 : 1);

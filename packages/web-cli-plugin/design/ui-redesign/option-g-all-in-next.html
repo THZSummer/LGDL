@@ -55,16 +55,30 @@
   │ 留痕的是**事实**（何时、哪个 op、成功与否、掩码长度），不是**值**。        │
   └─────────────────────────────────────────────────────────────────────┘
 
-  ③ 架构思想：anything-is-plugin
+  ③ 架构思想：anything-is-plugin（**已核实**：deepseek-ai/deepseek-harness）
   ───────────────────────────────────────────────────────────────────────────
-  · 作者提示的理念来源：deepseek-harness 开源项目（作者 2026-09-21 提供引用 URL）。
-    引用：https://github.com/deepseek-ai/deepseek-harness
-    **如实登记**：该仓库内容未经在线核实（检索凭证缺失），anything-is-plugin 的落地
-    口径以作者口述为准；以下按作者口述的思想落地，不自称引用原文表述。
+  · 引用：https://github.com/deepseek-ai/deepseek-harness
+    核实凭据（gh CLI 实测，2026-09-21）：描述 `DeepSeek Harness: Everything is a Plugin.`；
+    主语言 TypeScript；许可证 MIT；基于 **Cordis** 插件框架（服务注册表 ctx.<key> +
+    类型化事件分发的 microkernel）。
+  · 引用原文（逐字，含出处文件）：
+      「A context is a repository of services. … other plugins find services via key
+        instead of importing a concrete implementation.」—— docs/cordis-primer.md
+      「There is no privileged core to patch: you extend dsh by mounting a plugin
+        beside the others.」—— docs/architecture.md
+      「Every product feature maps to a listener on a documented extension point — the
+        microkernel claim made checkable… No row modifies the loop.」
+        —— docs/cookbook/extension-cookbook.md
+  · 七点契约（NextProvider 契约 v2，逐点落位见架构区 §①~§⑦ 与「契约 v2 验收口径」）：
+      R1 可逆注册（disposer）· R2 依赖声明式（deps / inject）· R3 优先级显式化
+      （priority / prepend；覆盖按 id 定位整行）· R4 分发模式公开契约
+      （拦截改写 = waterfall / 纯观测 = emit）· R5 失败语义分级（单卡边界捕获 /
+      注册 loud / 改状态前快照回滚）· R6 Seam 三件套（Definition / Provider / Consumer）
+      · R7 证明义务表（功能 → 机制）
   · 落地形态 = NextProvider 插件注册表 + web-op 操作清单：
-      注册表项 {id, when(ctx)→候选|null, chips[]} 是**纯谓词**，可单测；
-      新增一个操作 = 注册一个插件 + 自带测试，**主流程零改动**
-      （示意：注册表计数 N→N+1，handleCardAction 分发器 diff = 0）。
+      注册表项 {id, deps, priority, prepend?, when(ctx)→候选|null, chips[], dispose()}
+      是**纯谓词**，可单测；新增一个操作 = 注册一个插件 + 自带测试，**主流程零改动**
+      （示意：注册表计数 N→N+1→N 可逆往返，handleCardAction 分发器 diff = 0）。
   · 每个 op = {opId, 风险级, params?, consent?, execute, receipt}；
     统一管线：next chip →（参数? 流内 ask 卡）→（同意? 流内 auth 卡）→ execute → 流内回执。
 
@@ -100,8 +114,10 @@
   ───────────────────────────────────────────────────────────────────────────
   · 演示控制台（非交付 UI）+ **注册表视察器**（G 新增，把 anything-is-plugin 可视化）
   · 交付 UI：模拟浏览器窗口（左 = 宿主页面 · 右 = 插件侧栏，三区）
-  · 架构区（G 新增的可视化章节）：NextProvider 注册表 / web-op 操作清单 / 零新增卡类型
-  · 口径说明区（镜像 F 页脚）：法七验收口径 / 法八验收口径 / 授权态的归属（修订） / 密度继承 / F→G 变化点 / 已知取舍
+  · 架构区（G 新增的可视化章节）：NextProvider 契约 v2 / provider 清单 / web-op 操作清单 /
+    分发模式表 / 失败语义分级 / Seam 三件套 / 证明义务表 / 零新增卡类型
+  · 口径说明区（镜像 F 页脚）：法七验收口径 / 法八验收口径 / 授权态的归属（修订） /
+    NextProvider 契约 v2 验收口径 / 密度继承 / F→G 变化点 / 已知取舍 / 自检
 
   ⑦ 自检
   ───────────────────────────────────────────────────────────────────────────
@@ -128,6 +144,21 @@
     · 角色口径：状态栏 chip =「当前状态」；流内系统行/卡 =「事实发生」（追加式留痕）—— 不算双写。
     · 密度口径不变：默认可点 = 工具栏 5 + 授权 chip 1 = 6 ≤ 7（法五不破）。
   机核：option-g-shim.mjs §M 组（授权态下移 / 两态原文 / 点击行为 / 零双写 / 6 ≤ 7）。
+
+  ⑨ 本轮修订：架构依据回注（作者 2026-09-21 指示「用 gh 探索 deepseek-harness」，已完成）
+  ───────────────────────────────────────────────────────────────────────────
+  · 引用注记升级：**旧「未经核实」登记作废**；改为「已核实」，并逐字引用 3 条原文
+    （含出处文件名 docs/cordis-primer.md / docs/architecture.md /
+    docs/cookbook/extension-cookbook.md），附仓库元数据（描述 / TypeScript / MIT / Cordis）。
+  · NextProvider 契约 v2（吸收 dsh 七点）：R1 可逆注册（disposer，注册往返 N→N+1→N）·
+    R2 依赖声明式（deps ⊆ SERVICES，注册时校验）· R3 优先级显式化（priority / prepend，
+    覆盖按 id 定位整行）· R4 分发模式公开契约（挂载点 × waterfall / emit）· R5 失败语义分级
+    （① 单卡边界捕获 ② 注册 loud 红显 ③ 改状态前快照 / 失败回滚）· R6 Seam 三件套
+    （Definition / Provider / Consumer）· R7 证明义务表（8 个 op 各一行 + 表内明示契约义务）。
+  · 落位：架构区由 3 节扩写为 8 节（§①~§⑧）；注册表视察器小幅增强（卸载往返 /
+    重复 id loud 红显 / 往返读数）；口径说明区新增「契约 v2 验收口径」。
+  · **不改**：42 卡 / 场景 S1~S7 / 三区骨架 / 卡类型契约 / 法五密度 / 法七 / 法八 全部原样。
+  机核：option-g-shim.mjs §N 组（已核实引用 + 契约 v2 七点，逐点 ≥1 条）。
 -->
 <html lang="zh-CN">
   <head>
@@ -435,6 +466,16 @@
       .pipe-stage[data-live="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
       .pipe-arrow { color: var(--stage-muted); font-family: var(--mono); }
       .insp-note { margin: 0; font-size: 10.5px; color: var(--stage-muted); line-height: 1.55; }
+      .insp-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+      /* R5 ② 注册失败 = loud：红显（不静默） */
+      .insp-status { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--stage-border); font-size: 10.5px; color: var(--stage-muted); }
+      .insp-status[data-state="ok"] { border-color: var(--ok); color: var(--ok); }
+      .insp-status[data-state="fail"] { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); font-weight: 700; }
+      .reg-deps { font-family: var(--mono); font-size: 10px; color: var(--stage-muted); }
+      .reg-mode { font-family: var(--mono); font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--stage-border); }
+      .reg-mode[data-mode="waterfall"] { border-color: var(--accent); color: var(--accent-text); }
+      .reg-fail { font-family: var(--mono); font-size: 10px; color: var(--stage-muted); }
+      .reg-item[data-new="true"] { outline: 2px solid var(--accent); }
 
       /* ── 模拟浏览器窗口 ─────────────────────────────────────────── */
       .browser {
@@ -1072,15 +1113,21 @@
       <!-- ═══ 注册表视察器（G 新增；非交付 UI）——把 anything-is-plugin 可视化 ═══ -->
       <section class="inspector" id="reg-inspector" aria-label="NextProvider 注册表视察器（非交付 UI）">
         <div class="insp-head">
-          <span class="insp-title">注册表视察器 · NextProvider（anything-is-plugin）</span>
+          <span class="insp-title">注册表视察器 · NextProvider 契约 v2（anything-is-plugin）</span>
           <span class="insp-metrics">
             <span>registry <b id="reg-count">–</b></span>
             <span>活跃 providers <b id="reg-active">–</b></span>
             <span>ctx <b id="reg-ctx">–</b></span>
             <span>handleCardAction 分发器 diff <b id="reg-diff">0</b></span>
             <span>op 清单 <b id="reg-ops">–</b></span>
+            <span>注册往返 <b id="reg-roundtrip">–</b> <span class="muted">（R1 N→N+1→N）</span></span>
           </span>
-          <button type="button" id="reg-add">注册演示 provider（N→N+1，主流程零改动）</button>
+          <span class="insp-actions">
+            <button type="button" id="reg-add">注册演示 provider（N→N+1，主流程零改动）</button>
+            <button type="button" id="reg-remove">卸载演示 provider（N+1→N，幂等 disposer）</button>
+            <button type="button" id="reg-dupe">注入重复 id（注册失败 → loud 红显）</button>
+          </span>
+          <span class="insp-status" id="reg-status" data-state="ok" role="status">注册表就绪</span>
         </div>
         <ol class="reg-list" id="reg-list"></ol>
         <div class="pipe" id="op-pipeline">
@@ -1096,8 +1143,11 @@
           <span class="pipe-stage" data-stage="receipt" data-scenes="S1 S2 S3 S4 S5" data-evidence="msg-g-sys-rebound">回执</span>
         </div>
         <p class="insp-note">
-          活跃 provider 按 <b>恢复(0) &gt; 引导(1) &gt; 发现(2/3)</b> 排序 —— S6 用一张仲裁卡表达多个阻塞的先后，不并排多张（密度继承 F）。
-          点上方按钮注册第 N+1 个 provider：注册表计数 +1，<b>handleCardAction 分发器 diff 恒为 0</b>（分发只查表，没有 per-op 分支）。
+          活跃 provider 按 <b>恢复(0) &gt; 引导(1) &gt; 发现(2/3)</b> 排序，同优先级内由 <b>deps 依赖解析</b> 与
+          <code>prepend</code> 决定先后（R2 / R3）—— S6 用一张仲裁卡表达多个阻塞的先后，不并排多张（密度继承 F）。
+          「注册演示 provider」= <code>registerNextProvider()</code> 返回<b>幂等</b> <code>unregister()</code>：
+          <b>N → N+1 → N</b> 完整往返（R1 可逆注册）；重复 id 注册被<b>拒绝并红显</b>（R5 ② 注册 loud）。
+          三种操作下 <code>handleCardAction</code> 分发器 <b>diff 恒为 0</b>（分发只查表，没有 per-op 分支）。
         </p>
       </section>
       <!-- ═══ 模拟浏览器窗口：左 = 宿主页面，右 = 插件侧栏 ═══ -->
@@ -2208,23 +2258,68 @@
 
       <!-- ═══ 架构区（G 新增的可视化章节；非交付 UI） ═══ -->
       <!-- ═══ 架构区（G 新增的可视化章节；非交付 UI） ═══ -->
-      <section class="block" id="arch-section" aria-label="架构区：NextProvider 插件注册表 / web-op 操作清单 / 零新增卡类型（非交付 UI）">
-        <h2>架构区 · anything-is-plugin（作者提示的理念来源：deepseek-harness 开源项目）</h2>
-        <p class="muted">
-          引用 URL（作者 2026-09-21 提供）：<code>https://github.com/deepseek-ai/deepseek-harness</code>。
-          如实登记：该仓库内容未经在线核实（检索凭证缺失），<b>未能核实该项目的原文表述</b>；
-          anything-is-plugin 的落地口径以作者口述为准，以下按作者口述的思想落地，不自称引用原文。
+      <section class="block" id="arch-section" aria-label="架构区：NextProvider 契约 v2 / provider 清单 / web-op 操作清单 / 分发模式 / 失败语义分级 / Seam 三件套 / 证明义务表 / 零新增卡类型（非交付 UI）">
+        <h2>架构区 · anything-is-plugin（<b>已核实</b>：deepseek-ai/deepseek-harness · Cordis microkernel）</h2>
+        <p>
+          引用：<code>https://github.com/deepseek-ai/deepseek-harness</code>。
+          <b>核实凭据</b>（gh CLI 实测，2026-09-21）：描述 <code>DeepSeek Harness: Everything is a Plugin.</code>；
+          主语言 TypeScript；许可证 MIT；基于 <b>Cordis</b> 插件框架（服务注册表 <code>ctx.&lt;key&gt;</code> + 类型化事件分发的 microkernel）。
+        </p>
+        <p class="muted" id="dsh-quotes">
+          引用原文（逐字，含出处文件）：
+          「A context is a repository of services. … other plugins find services via key instead of importing a concrete implementation.」
+          —— <code>docs/cordis-primer.md</code>；
+          「There is no privileged core to patch: you extend dsh by mounting a plugin beside the others.」
+          —— <code>docs/architecture.md</code>；
+          「Every product feature maps to a listener on a documented extension point — the microkernel claim made checkable… No row modifies the loop.」
+          —— <code>docs/cookbook/extension-cookbook.md</code>。
         </p>
 
-        <h3>① NextProvider 插件注册表 —— 新增操作 = 注册插件 + 自带测试，主流程零改动</h3>
+        <h3>① NextProvider 契约 v2 —— 可逆注册 / 依赖声明式 / 优先级显式化</h3>
         <p>
-          每个 provider 是 <code>{id, priority, when(ctx)→候选|null, chips[]}</code>。<code>when</code> 是<b>纯谓词</b>（给定 ctx 返回布尔），
-          因此可以单测、可以组合、可以并行求值；<code>chips</code> 只是 opId 列表，渲染与点击都由通用管线接管。
+          每个 provider 是 <code>{id, deps, priority, prepend?, mode, fail, when(ctx)→候选|null, chips[], dispose()}</code>。
+          <code>when</code> 是<b>纯谓词</b>（给定 ctx 返回布尔），因此可以单测、可以组合、可以并行求值；
+          <code>chips</code> 只是 opId 列表，渲染与点击都由通用管线接管。
         </p>
-        <div class="codeblock">// 新增一个「操作」= 注册一个 provider（唯一改动点）
+        <ul>
+          <li><b>R1 可逆注册</b>：<code>registerNextProvider()</code> 返回<b>幂等</b>的 <code>unregister()</code>
+            —— 对应 dsh「Every registration should have a disposer」（<code>docs/cordis-primer.md</code>）；
+            视察器演示「注册 → 计数 N+1 → 卸载 → N」完整往返。</li>
+          <li><b>R2 依赖声明式</b>：provider 用 <code>deps</code> 声明前置就绪的服务（<code>session</code> / <code>snapshot</code> /
+            <code>credentials</code> / <code>permissions</code> / <code>siteRegistry</code>），注册表做依赖解析；
+            顺序来自服务依赖，不来自列表位置（对应 dsh <code>inject</code> 的「依赖就绪才启动」）。</li>
+          <li><b>R3 优先级显式化</b>：<code>priority</code>（0 恢复 / 1 引导 / 2~3 发现）+ <code>prepend</code>（同优先级置前）；
+            覆盖语义按 <b>id 定位整行</b>（对应 dsh patch：以 id 为键、替换整行配置）。</li>
+        </ul>
+        <div class="codeblock">// 新增一个「操作」= 注册一个 provider（唯一改动点）；注册是可逆副作用
+function registerNextProvider(def, opts) {
+  opts = opts || {};
+  const dup = REGISTRY.some(p =&gt; p.id === def.id);
+  if (dup &amp;&amp; !opts.overwrite) {                       // 重复 id → loud（不静默覆盖）
+    return { ok: false, error: 'duplicate id: ' + def.id, unregister: null };
+  }
+  const bad = validateNextProvider(def);              // R2/R4/R5：deps ⊆ SERVICES、mode ∈ MODES…
+  if (bad) return { ok: false, error: bad, unregister: null };
+  if (dup) replaceRowById(def);                       // R3 覆盖：按 id 定位整行（计数不变）
+  else REGISTRY.push(def);
+  renderRegistry();
+  return { ok: true, id: def.id, unregister: unregisterNextProvider(def.id) };   // R1 disposer
+}
+function unregisterNextProvider(id) {                  // 幂等：重复调用结果一致
+  return function () { removeRowById(id); renderRegistry(); return countProviders(); };
+}
+// R2 依赖解析 + R3 优先级：顺序来自服务依赖与显式 priority，不来自列表位置
+function resolveOrder(list) {
+  return topoByDeps(list).sort((a, b) =&gt; (a.priority - b.priority) || (b.prepend ? 1 : 0) - (a.prepend ? 1 : 0));
+}
+
 registry.push({
   id: 'perm.request',
-  priority: 1,                                  // 0 恢复 / 1 引导 / 2~3 发现
+  priority: 1,                                  // 0 恢复 / 1 引导 / 2~3 发现（R3 显式）
+  prepend: false,                               // 同优先级置前开关（R3）
+  deps: ['session', 'snapshot'],                // R2 声明式依赖（不是列表位置）
+  mode: 'waterfall',                            // R4 拦截 / 改写；纯观测为 'emit'
+  fail: 'card-boundary',                        // R5 ① 单卡边界捕获
   when: ctx =&gt; ctx.site.authorized &amp;&amp; !ctx.perm.granted,   // 纯谓词，可单测
   chips: ['op.perm.request']
 });
@@ -2234,17 +2329,78 @@ function handleCardAction(opId) {
   const op = OPS_BY_ID[opId];                    // OPS 是 op 清单（下节）
   return op ? op.execute() : false;              // 分发器不含任何操作的特例代码
 }</div>
+
+        <h3>② provider 清单（8 个）—— 优先级 / 依赖 / 模式 / 失败语义逐项显式</h3>
+        <div class="table-scroll">
+          <table id="provider-table">
+            <caption>初始注册表 8 个 provider：{id, priority, deps, mode, fail, when, chips}</caption>
+            <thead>
+              <tr>
+                <th scope="col">id</th><th scope="col">优先级</th><th scope="col">deps（R2）</th>
+                <th scope="col">when(ctx) 纯谓词</th><th scope="col">chips</th>
+                <th scope="col">模式（R4）</th><th scope="col">失败语义（R5）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><code>site.unauthorized</code><br /><span class="muted">prepend</span></th>
+                <td>P0 · 恢复</td><td>pageSide</td>
+                <td><code>site.active &amp;&amp; !auth</code></td><td><code>op.authorize</code></td>
+                <td><code>waterfall</code></td><td>① 单卡边界</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>ref.stale</code></th>
+                <td>P0 · 恢复</td><td>snapshot</td>
+                <td><code>ref.stale</code></td><td><code>op.pick</code> · <code>op.describe</code></td>
+                <td><code>waterfall</code></td><td>① 单卡边界</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>binding.stale</code></th>
+                <td>P0 · 恢复</td><td>session</td>
+                <td><code>site.bindingStale</code></td><td><code>op.rebind</code></td>
+                <td><code>emit</code></td><td>① 单卡边界（幂等）</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>llm.missing</code></th>
+                <td>P1 · 引导</td><td>credentials</td>
+                <td><code>!llm.configured</code></td><td><code>op.llm-config</code></td>
+                <td><code>waterfall</code></td><td>① + ③ 快照回滚</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>site.unbound</code></th>
+                <td>P1 · 引导</td><td>session</td>
+                <td><code>!site.active</code></td><td><code>op.rebind</code></td>
+                <td><code>emit</code></td><td>① 单卡边界（幂等）</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>perm.missing</code></th>
+                <td>P1 · 引导</td><td>session · snapshot</td>
+                <td><code>auth &amp;&amp; !perm.granted</code></td><td><code>op.perm.request</code></td>
+                <td><code>waterfall</code></td><td>① + ③ 快照回滚</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>manage.revoke</code></th>
+                <td>P2 · 发现</td><td>credentials</td>
+                <td><code>site.authorized</code></td><td><code>op.revoke</code></td>
+                <td><code>waterfall</code></td><td>① + ③ 快照回滚</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>help.discover</code></th>
+                <td>P3 · 发现</td><td>—</td>
+                <td><code>true</code></td><td><code>op.help</code></td>
+                <td><code>emit</code></td><td>① 单卡边界（只读）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p>
           本稿注册表初始 <b>8</b> 个 provider（恢复 3 / 引导 3 / 发现 2）；点演示控制台里的
-          「注册演示 provider」即 <b>N→N+1</b>，而 <code>handleCardAction</code> 分发器 <b>diff = 0</b>（活体可视化见顶部「注册表视察器」）。
+          「注册演示 provider」即 <b>N→N+1</b>（<code>#reg-add</code>），再点「卸载演示 provider」即 <b>N+1→N</b>
+          （幂等 disposer 往返，R1）；重复 id 注册被<b>拒绝并红显</b>（R5 ② 注册 loud）。
+          三种操作下 <code>handleCardAction</code> 分发器 <b>diff = 0</b>（活体可视化见顶部「注册表视察器」）。
         </p>
-        <ul>
-          <li><b>恢复（priority 0）</b>：<code>site.unauthorized</code>（未授权）· <code>ref.stale</code>（引用失效）· <code>binding.stale</code>（绑定失效）</li>
-          <li><b>引导（priority 1）</b>：<code>llm.missing</code>（LLM 未配置）· <code>site.unbound</code>（无活跃站点）· <code>perm.missing</code>（权限缺失）</li>
-          <li><b>发现（priority 2~3）</b>：<code>manage.revoke</code>（管理动作）· <code>help.discover</code>（看看能做什么）</li>
-        </ul>
 
-        <h3>② web-op 操作清单（对标 lgdl-web-op-cli）—— 首批 8 个 op</h3>
+        <h3>③ web-op 操作清单（对标 lgdl-web-op-cli）—— 首批 8 个 op</h3>
         <p>每个 op = <code>{opId, 风险级, params?, consent?, execute, receipt}</code>；统一管线：</p>
         <div class="arch-flow">
           <span class="arch-node hot">next chip</span>
@@ -2335,7 +2491,142 @@ function handleCardAction(opId) {
           </table>
         </div>
 
-        <h3>③ 零新增卡类型 —— 12 kind 契约不动（7 主类 + 5 过程卡）</h3>
+        <h3>④ 分发模式公开契约 —— 挂载点 × 模式（拦截 / 改写 = waterfall；纯观测 = emit）</h3>
+        <p>
+          管线每个挂载点都公开自己的分发模式：能<b>拦截 / 改写</b>流程的挂 <code>waterfall</code>（监听者可返回 typed decision），
+          只<b>观测</b>不改流程的挂 <code>emit</code>。新增 provider 挂到哪个点、以哪种模式介入，必须在本表可见
+          （对应 dsh：类型化事件按 emit / waterfall 等模式分发，不能混用）。
+        </p>
+        <div class="table-scroll">
+          <table id="mode-table">
+            <caption>NextProvider 管线的挂载点与分发模式（R4）</caption>
+            <thead>
+              <tr><th scope="col">挂载点</th><th scope="col">语义</th><th scope="col">模式</th><th scope="col">本稿挂载的 provider</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><code>next</code></th>
+                <td>候选求值：<code>when(ctx)</code> 纯谓词决定是否出候选</td>
+                <td><code>waterfall</code> · 拦截 / 改写</td>
+                <td>全部 8 个（纯谓词，不改 ctx）</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>params</code></th>
+                <td>参数采集：把 ask 卡插进流里并读取应答</td>
+                <td><code>waterfall</code> · 改写</td>
+                <td><code>llm.missing</code> · <code>perm.missing</code> · <code>ref.stale</code></td>
+              </tr>
+              <tr>
+                <th scope="row"><code>consent</code></th>
+                <td>同意门：返回放行 / 拒绝的 typed decision</td>
+                <td><code>waterfall</code> · 拦截</td>
+                <td><code>site.unauthorized</code> · <code>llm.missing</code> · <code>perm.missing</code> · <code>manage.revoke</code></td>
+              </tr>
+              <tr>
+                <th scope="row"><code>execute</code></th>
+                <td>执行阶段：<code>op.execute()</code>（失败在卡边界捕获）</td>
+                <td><code>waterfall</code> · 改写（返回成败）</td>
+                <td>全部 8 个（统一查表分发）</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>receipt</code></th>
+                <td>回执：追加固化区 + 系统行（只留痕，不改流程）</td>
+                <td><code>emit</code> · 纯观测</td>
+                <td>全部 8 个（只追加，不回写状态）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>⑤ 失败语义分级（三级）—— 单卡边界 / 注册 loud / 快照回滚</h3>
+        <ul id="fail-levels">
+          <li><b>① chip 执行异常 → 单卡边界捕获</b>：任一 next chip 的 <code>execute()</code> 抛错，只在<b>该卡边界</b>捕获，
+            产出流内错误卡 + 恢复 next（<b>法七不破</b>：错误行不裸奔），不打断同屏其他卡。</li>
+          <li><b>② provider 注册失败 → loud</b>：重复 id / 未知 <code>deps</code> / 非法 <code>mode</code> / chips 悬空，
+            一律<b>拒绝注册并红显</b>（视察器 <code>#reg-status[data-state="fail"]</code>），绝不静默覆盖或静默默认。</li>
+          <li><b>③ 改状态操作 → 执行前快照、失败整体回滚</b>：<code>op.llm-config</code>（凭据表）·
+            <code>op.perm.request</code>（权限表）· <code>op.revoke</code>（授权 / 权限 / 凭据三表）在执行前取快照，
+            失败回滚到快照（对应 dsh plugin-manager 的 install / remove 快照语义：失败恢复
+            <code>package.json</code> + lockfile，不留下半完成态）。</li>
+        </ul>
+
+        <h3>⑥ Seam 三件套 —— Definition / Provider / Consumer 三者齐备才算 seam</h3>
+        <p>一个能力 seam 要成立，声明、实现、消费三方都必须可见（对应 dsh：服务声明类 / 实现包 / 直接消费者同表登记）。</p>
+        <div class="arch-flow" id="seam-triad">
+          <span class="arch-node hot">Definition · NextProvider 接口</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="arch-node">Provider · NextProvider 注册表</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="arch-node">Consumer · handleCardAction 分发器 + 注册表视察器</span>
+        </div>
+        <ul>
+          <li><b>Definition</b>：<code>NextProvider</code> 的形状（<code>id / deps / priority / prepend / mode / fail / when / chips / dispose</code>）—— 本区 §①。</li>
+          <li><b>Provider</b>：注册表本身（8 个初始 provider + 演示注册），负责依赖解析与优先级排序 —— 本区 §②。</li>
+          <li><b>Consumer</b>：<code>handleCardAction</code> 分发器（唯一消费入口）+ 注册表视察器（观测面，非交付 UI）。</li>
+        </ul>
+
+        <h3>⑦ 证明义务表 —— 功能 → 机制（8 个 op 各一行）</h3>
+        <p class="muted">
+          每个功能都必须能映射到「触发 provider / 管线挂载点与模式 / 失败语义」四要素，否则不允许进注册表；
+          表尾额外登记一条<b>明示契约义务</b>。
+        </p>
+        <div class="table-scroll">
+          <table id="obligation-table">
+            <caption>证明义务表：功能 → 机制（功能名 / 触发 provider / 管线模式 / 失败语义）</caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th><th scope="col">功能（opId）</th><th scope="col">触发 provider</th>
+                <th scope="col">管线挂载点 · 模式</th><th scope="col">失败语义</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">1</th><td><code>op.authorize</code> 授权当前站点</td><td><code>site.unauthorized</code></td>
+                <td><code>next → consent → execute → receipt</code> · <code>waterfall</code></td><td>① 单卡边界捕获 → 错误卡 + 恢复 next（可重试）</td>
+              </tr>
+              <tr>
+                <th scope="row">2</th><td><code>op.rebind</code> 重新绑定</td><td><code>binding.stale</code> · <code>site.unbound</code></td>
+                <td><code>next → execute → receipt</code> · <code>emit</code>（幂等只读）</td><td>① 幂等：失败即错误卡 + 恢复 next</td>
+              </tr>
+              <tr>
+                <th scope="row">3</th><td><code>op.llm-config</code> LLM 配置</td><td><code>llm.missing</code></td>
+                <td><code>params → consent → execute → receipt</code> · <code>waterfall</code></td><td>① + ③ 执行前快照凭据表，失败回滚（旧配置不变）</td>
+              </tr>
+              <tr>
+                <th scope="row">4</th><td><code>op.perm.request</code> 权限申请</td><td><code>perm.missing</code></td>
+                <td><code>params(form) → consent → execute → receipt</code> · <code>waterfall</code></td><td>① + ③ 执行前快照；浏览器拒绝 = 固化「已拒绝」（非异常，不 loud）</td>
+              </tr>
+              <tr>
+                <th scope="row">5</th><td><code>op.revoke</code> 撤销</td><td><code>manage.revoke</code></td>
+                <td><code>consent → execute → receipt</code> · <code>waterfall</code>（不可逆说明卡）</td><td>① + ③ 执行前快照授权 / 权限 / 凭据三表，失败整体回滚</td>
+              </tr>
+              <tr>
+                <th scope="row">6</th><td><code>op.pick</code> 页面拾取</td><td><code>ref.stale</code></td>
+                <td><code>next → execute</code>（页面侧拾取）· <code>emit</code></td><td>① 取消 / 超时 → 错误卡 + 恢复 next</td>
+              </tr>
+              <tr>
+                <th scope="row">7</th><td><code>op.describe</code> 描述替代</td><td><code>ref.stale</code></td>
+                <td><code>params(text) → execute → receipt</code> · <code>waterfall</code>（文本改写为引用）</td><td>① 空描述 → 卡内校验，零副作用</td>
+              </tr>
+              <tr>
+                <th scope="row">8</th><td><code>op.help</code> 看看能做什么</td><td><code>help.discover</code></td>
+                <td><code>execute</code>（只读）· <code>emit</code></td><td>① 只读；失败即错误卡，<b>零回写</b></td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row" colspan="2">契约断言（明示义务）</th>
+                <td colspan="3">
+                  <b>新增 provider 只改注册表条目</b>：注册表由 <code>registerNextProvider</code> 单点写入，
+                  <code>handleCardAction</code> 分发器零 per-op 分支 → <b>分发器 diff = 0</b>
+                  （视察器 <code>#reg-diff</code> 恒显 0；注册 / 卸载 / 重复 id 三种操作下都不变）。
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <h3>⑧ 零新增卡类型 —— 12 kind 契约不动（7 主类 + 5 过程卡）</h3>
         <p>
           G 不发明新卡型：<b>askuser 扩形</b>（<code>secret</code> 掩码输入 / <code>form</code> 参数表单）与
           <b>操作回执复用既有固化区 + 系统行</b>，都落在同一个 <code>[data-msg-type]</code> taxonomy 与同一套固化契约里。
@@ -2463,6 +2754,28 @@ function handleCardAction(opId) {
           <li><b>密度</b>：默认可点 = 工具栏 5 + 授权 chip 1 = <b>6 ≤ 7</b>（法五不破；见下节对账）。</li>
         </ul>
 
+        <h3>NextProvider 契约 v2 验收口径（可机核 · 对标 deepseek-harness 已核实七点）</h3>
+        <p class="muted">
+          澄清：以下七条是本稿的<b>设计约束</b>，不是「与 dsh 实现同构」的声明（边界见「已知取舍」）。
+        </p>
+        <ul id="contract-v2-spec">
+          <li><b>R1 可逆注册</b>：注册 → 卸载完整往返（N→N+1→N），disposer <b>幂等</b>（重复卸载不再减）；
+            机核 §N2 / §N3，视察器 <code>#reg-roundtrip</code> 实时读数。</li>
+          <li><b>R2 依赖声明式</b>：每个 provider 的 <code>deps</code> 必须 ⊆ <code>SERVICES</code>；注册时校验，
+            未知依赖 = loud 失败；活跃集内按依赖就绪定序（不靠列表位置）。</li>
+          <li><b>R3 优先级显式化</b>：<code>priority</code> 必填 + <code>prepend</code> 同优先级置前；
+            覆盖走 <code>{overwrite:true}</code> 按 <b>id 定位整行</b>替换（计数不变）。S6 仲裁首项 = <code>site.unauthorized</code>。</li>
+          <li><b>R4 分发模式公开契约</b>：<code>#mode-table</code> 逐挂载点标注 <code>waterfall</code> / <code>emit</code>；
+            provider 的 <code>mode</code> 字段必须 ∈ 该集合（非法即 loud）。</li>
+          <li><b>R5 失败语义分级</b>：① 单卡边界捕获（错误卡 + 恢复 next，法七不破）② 注册 loud 红显
+            ③ 改状态操作执行前快照 / 失败回滚（<code>op.llm-config</code> · <code>op.perm.request</code> · <code>op.revoke</code> 明示）。</li>
+          <li><b>R6 Seam 三件套</b>：Definition（NextProvider 接口）/ Provider（注册表）/ Consumer
+            （<code>handleCardAction</code> 分发器 + 注册表视察器）三者齐备才算 seam。</li>
+          <li><b>R7 证明义务表</b>：<code>#obligation-table</code> 8 个 op 各一行四要素
+            （功能名 / 触发 provider / 管线模式 / 失败语义）+ 表尾<b>明示契约义务</b>「新增 provider 只改注册表条目，
+            <code>handleCardAction</code> 分发器 diff = 0」。</li>
+        </ul>
+
         <h3>密度口径（法五，与 F 完全一致）</h3>
         <ul>
           <li><b>可点元素</b> = <code>#panel</code> 内、非 <code>[hidden]</code> 子树中的
@@ -2534,9 +2847,14 @@ function handleCardAction(opId) {
             但 <code>handleCardAction</code> 的 diff = 0 是<b>设计性质</b>而非运行时度量（本稿用「分发器无 per-op 分支」实现它）。</li>
           <li><b>掩码输入无法证伪「存储侧明文」</b>：设计稿只能保证<b>流内零明文</b>；存储侧的加密与生命周期由实现负责，不在 UI 稿口径内。</li>
           <li><b>浏览器权限的不可逆性由浏览器决定</b>：<code>op.perm.request</code> 只能申请，回收必须由用户在浏览器侧确认 —— G 把它如实说清楚，不假装能静默回收。</li>
-          <li><b>anything-is-plugin 的原文未能核实</b>（检索凭证缺失）：引用 URL 由作者 2026-09-21 提供
-            （<code>https://github.com/deepseek-ai/deepseek-harness</code>），仓库内容未经在线核实；
-            落地口径以作者口述为准，已在头注与本节如实登记。</li>
+          <li><b>「已核实」的边界如实登记</b>：仓库元数据（描述 / TypeScript / MIT / Cordis）与 3 条引用原文
+            已由 gh CLI 于 2026-09-21 核实（出处文件名逐条列出，见架构区与头注 §③）；但
+            <b>dsh 的真实 API 形状 ≠ 本稿的 NextProvider 契约</b> —— 本稿是把 dsh 的七点约束
+            （可逆注册 / 依赖声明 / 优先级 / 分发模式 / 失败分级 / Seam / 证明义务）当作<b>设计对标的约束</b>
+            来落地，不声称与 dsh 实现同构。取舍是选「有据可依的约束对标」而不是「宣称实现同构」。</li>
+          <li><b>契约 v2 的 loud 校验会让演示「可失败」</b>：视察器新增「注入重复 id」按钮专门演示
+            注册失败红显（R5 ②）。取舍是选「失败可见」而不是「永远只展示成功路径」；
+            代价是演示控制台多出两个按钮（<b>在 <code>#panel</code> 之外，不占交付 UI 密度预算</b>）。</li>
           <li><b>连续宽度让「窄屏兜底」不再有档位边界</b>：原三档（320 / 400 / 520）可枚举、易断言；
             改为 280–640px 连续宽度后，窄屏样式（隐藏视图文字标签、压缩站点 origin）改由
             <code>#panel[data-narrow="true"]</code>（当前宽度 ≤360px）触发。
@@ -2560,8 +2878,9 @@ function handleCardAction(opId) {
             运行 <code>node option-g-shim.mjs</code> → 全绿（退出码 0）。</li>
           <li>覆盖：三区结构继承 / 12 kind 继承 / 法七无死端（5 类阻塞 + ✖ 行不裸奔）/ 法八零明文 /
             chip↔op 绑定 / 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 ≤7 /
-            <b>授权态下移（§M：工具栏零四词 · 常显 chip 两态原文 · 黄 → 流内产 next · 绿 → 管理详情 ·
-            零双写 · 6 ≤ 7 对账）</b> / 可拖动宽度（ARIA separator + 键盘 + clamp）与双主题。</li>
+             <b>授权态下移（§M：工具栏零四词 · 常显 chip 两态原文 · 黄 → 流内产 next · 绿 → 管理详情 ·
+             零双写 · 6 ≤ 7 对账）</b> / 可拖动宽度（ARIA separator + 键盘 + clamp）与双主题 /
+             <b>架构依据回注（§N：deepseek-harness 已核实引用 + Cordis 出处 + 契约 v2 七点逐点 ≥1 条）</b>。</li>
           <li><b>真实浏览器实测（Chromium headless · <code>file://</code> 双击打开路径）</b>：
             场景切换 / 授权 chip 两态与点击 / 管理详情展开 / 拖动宽度（280–640 · 键盘 · 双击复位）逐一实测通过。
             实测修掉两处<b>只在真实浏览器暴露</b>的问题（垫片用数组实现 <code>querySelectorAll</code>，掩盖了它们）：
@@ -2711,45 +3030,68 @@ function handleCardAction(opId) {
         var OPS_BY_ID = {};
         OPS.forEach(function (op) { OPS_BY_ID[op.opId] = op; });
 
-        /* NextProvider 插件注册表：{id, pri, when(ctx), chips[]} —— when 是纯谓词 */
+        /* ── NextProvider 契约 v2（吸收 deepseek-harness / Cordis 七点）──────────
+           {id, pri(优先级 R3), prepend, deps(依赖声明 R2), mode(分发模式 R4),
+            fail(失败语义 R5), when(ctx) 纯谓词, chips[]}
+           R1 可逆注册：registerNextProvider() 返回幂等 unregister()（disposer）。 ── */
+
+        /* R2 依赖声明的合法服务目录：deps 只能声明这里的服务（未知依赖 = 注册 loud 失败） */
+        var SERVICES = ['session', 'snapshot', 'credentials', 'permissions', 'siteRegistry', 'pageSide'];
+        /* R4 分发模式公开契约：拦截 / 改写 = waterfall；纯观测 = emit */
+        var MODES = ['waterfall', 'emit'];
+        /* R5 失败语义三级 */
+        var FAIL_LEVELS = {
+          'card-boundary': '① chip 执行异常 → 单卡边界捕获（错误卡 + 恢复 next，法七不破）',
+          'loud': '② 注册失败 → loud（红显，不静默覆盖）',
+          'snapshot-rollback': '③ 改状态操作 → 执行前快照、失败整体回滚'
+        };
+
         var REGISTRY = [
           {
-            id: 'site.unauthorized', pri: 0, priLabel: '恢复',
+            id: 'site.unauthorized', pri: 0, priLabel: '恢复', prepend: true,
+            deps: ['pageSide'], mode: 'waterfall', fail: 'card-boundary',
             when: function (c) { return c.site.active && !c.site.authorized; },
             chips: ['op.authorize']
           },
           {
-            id: 'ref.stale', pri: 0, priLabel: '恢复',
+            id: 'ref.stale', pri: 0, priLabel: '恢复', prepend: false,
+            deps: ['snapshot'], mode: 'waterfall', fail: 'card-boundary',
             when: function (c) { return c.ref.stale; },
             chips: ['op.pick', 'op.describe']
           },
           {
-            id: 'binding.stale', pri: 0, priLabel: '恢复',
+            id: 'binding.stale', pri: 0, priLabel: '恢复', prepend: false,
+            deps: ['session'], mode: 'emit', fail: 'card-boundary',
             when: function (c) { return c.site.bindingStale; },
             chips: ['op.rebind']
           },
           {
-            id: 'llm.missing', pri: 1, priLabel: '引导',
+            id: 'llm.missing', pri: 1, priLabel: '引导', prepend: false,
+            deps: ['credentials'], mode: 'waterfall', fail: 'snapshot-rollback',
             when: function (c) { return !c.llm.configured; },
             chips: ['op.llm-config']
           },
           {
-            id: 'site.unbound', pri: 1, priLabel: '引导',
+            id: 'site.unbound', pri: 1, priLabel: '引导', prepend: false,
+            deps: ['session'], mode: 'emit', fail: 'card-boundary',
             when: function (c) { return !c.site.active; },
             chips: ['op.rebind']
           },
           {
-            id: 'perm.missing', pri: 1, priLabel: '引导',
+            id: 'perm.missing', pri: 1, priLabel: '引导', prepend: false,
+            deps: ['session', 'snapshot'], mode: 'waterfall', fail: 'snapshot-rollback',
             when: function (c) { return c.site.authorized && !c.perm.granted; },
             chips: ['op.perm.request']
           },
           {
-            id: 'manage.revoke', pri: 2, priLabel: '发现',
+            id: 'manage.revoke', pri: 2, priLabel: '发现', prepend: false,
+            deps: ['credentials'], mode: 'waterfall', fail: 'snapshot-rollback',
             when: function (c) { return c.site.authorized; },
             chips: ['op.revoke']
           },
           {
-            id: 'help.discover', pri: 3, priLabel: '发现',
+            id: 'help.discover', pri: 3, priLabel: '发现', prepend: false,
+            deps: [], mode: 'emit', fail: 'card-boundary',
             when: function () { return true; },
             chips: ['op.help']
           }
@@ -2757,7 +3099,11 @@ function handleCardAction(opId) {
 
         /* 分发器指纹：handleCardAction 只查表、没有 per-op 分支 → 注册新插件后 diff 恒为 0 */
         var DISPATCHER_DIFF = 0;
-        var DISPATCHER_FINGERPRINT = 'handleCardAction(v1): OPS_BY_ID[opId].execute() — no per-op branch';
+        var DISPATCHER_FINGERPRINT = 'handleCardAction(v2): OPS_BY_ID[opId].execute() — no per-op branch';
+
+        /* 视察器状态（R1 往返 / R5 ② loud） */
+        var DEMO_PROVIDER_ID = 'demo.sandbox';
+        var REGISTER_TRACE = { lastRoundTrip: null, failCount: 0, lastError: '', lastNewId: '' };
 
         function ctxOf(scene) {
           var base = {
@@ -2783,10 +3129,40 @@ function handleCardAction(opId) {
           return base;
         }
 
+        function countProviders() { return REGISTRY.length; }
+
+        /* R2 依赖解析：被声明依赖的服务先就绪（顺序来自服务依赖，不来自列表位置）。
+           只对活跃集内互为 provider 的依赖做拓扑；外服（session/snapshot/…）视为已就绪。 */
+        function resolveOrder(list) {
+          var byId = {};
+          list.forEach(function (p) { byId[p.id] = p; });
+          var placed = {};
+          var remaining = list.slice().sort(function (a, b) {
+            return (a.pri - b.pri)
+              || ((b.prepend ? 1 : 0) - (a.prepend ? 1 : 0))     /* R3 prepend：同优先级置前 */
+              || (list.indexOf(a) - list.indexOf(b));            /* 稳定：保留注册顺序 */
+          });
+          var out = [];
+          var guard = 0;
+          while (remaining.length && guard++ < 200) {
+            var progressed = false;
+            for (var i = 0; i < remaining.length; i++) {
+              var p = remaining[i];
+              var deps = (p.deps || []).filter(function (d) { return !!byId[d]; });
+              var ready = deps.every(function (d) { return placed[d]; });
+              if (ready) {
+                out.push(p); placed[p.id] = true; remaining.splice(i, 1);
+                progressed = true; break;
+              }
+            }
+            if (!progressed) break;   /* 环 → 保持当前顺序，不死循环 */
+          }
+          return out.concat(remaining);
+        }
+
         function activeProviders(scene) {
           var ctx = ctxOf(scene || state.scene);
-          return REGISTRY.filter(function (p) { return !!p.when(ctx); })
-            .sort(function (a, b) { return a.pri - b.pri; });
+          return resolveOrder(REGISTRY.filter(function (p) { return !!p.when(ctx); }));
         }
 
         /* 分发器：只查表，无 per-op 分支（anything-is-plugin 的落点） */
@@ -2796,16 +3172,124 @@ function handleCardAction(opId) {
           return op.execute() !== false;
         }
 
+        /* R2/R4：注册前校验（不合法即 loud，不静默兜底） */
+        function validateNextProvider(def) {
+          if (!def || !def.id) return 'missing id';
+          if (typeof def.when !== 'function') return 'missing when(ctx)';
+          if (!Array.isArray(def.chips) || !def.chips.length) return 'missing chips';
+          var known = OPS_BY_ID;
+          var dangling = def.chips.filter(function (c) { return !known[c]; });
+          if (dangling.length) return 'dangling chips: ' + dangling.join(',');
+          if (typeof def.pri !== 'number') return 'missing priority';
+          if (MODES.indexOf(def.mode) === -1) return 'illegal mode: ' + def.mode;
+          var deps = def.deps || [];
+          if (!Array.isArray(deps)) return 'deps must be array';
+          var unknown = deps.filter(function (d) { return SERVICES.indexOf(d) === -1; });
+          if (unknown.length) return 'unknown deps: ' + unknown.join(',');
+          if (def.fail && !FAIL_LEVELS[def.fail]) return 'unknown fail level: ' + def.fail;
+          return '';
+        }
+
+        function indexOfProvider(id) {
+          for (var i = 0; i < REGISTRY.length; i++) if (REGISTRY[i].id === id) return i;
+          return -1;
+        }
+        /* R3 覆盖语义：按 id 定位整行、替换整行（计数不变；dsh patch 语义） */
+        function replaceRowById(def) {
+          var i = indexOfProvider(def.id);
+          if (i === -1) { REGISTRY.push(def); return false; }
+          REGISTRY[i] = def;
+          return true;
+        }
+        function removeRowById(id) {
+          var i = indexOfProvider(id);
+          if (i === -1) return false;      /* 幂等：再卸载是 no-op */
+          REGISTRY.splice(i, 1);
+          return true;
+        }
+
+        /* R1 可逆注册：返回幂等 disposer（Every registration should have a disposer） */
+        function registerNextProvider(def, opts) {
+          opts = opts || {};
+          var dup = indexOfProvider(def && def.id ? def.id : '') !== -1;
+          if (dup && !opts.overwrite) {
+            return registerFailure('duplicate id: ' + def.id);
+          }
+          var bad = validateNextProvider(def);
+          if (bad) return registerFailure(bad);
+          if (dup) replaceRowById(def); else REGISTRY.push(def);
+          REGISTER_TRACE.lastNewId = def.id;
+          REGISTER_TRACE.lastError = '';
+          setRegisterStatus('ok', '已注册 ' + def.id + ' · registry ' + countProviders());
+          renderRegistry();
+          return {
+            ok: true, id: def.id, count: countProviders(),
+            diff: DISPATCHER_DIFF, fingerprint: DISPATCHER_FINGERPRINT,
+            unregister: unregisterNextProvider(def.id)
+          };
+        }
+
+        function registerFailure(error) {
+          REGISTER_TRACE.failCount += 1;
+          REGISTER_TRACE.lastError = error;
+          setRegisterStatus('fail', '注册失败（loud）：' + error + ' · registry ' + countProviders());
+          say('注册被拒（loud）：' + error + '；registry 仍为 ' + countProviders() + ' 个 provider');
+          return { ok: false, error: error, count: countProviders(), unregister: null };
+        }
+
+        /* 幂等 disposer：重复卸载结果一致（R1） */
+        function unregisterNextProvider(id) {
+          return function () {
+            var removed = removeRowById(id);
+            setRegisterStatus('ok', '已卸载 ' + id + ' · registry ' + countProviders());
+            renderRegistry();
+            return { id: id, removed: removed, count: countProviders(), diff: DISPATCHER_DIFF };
+          };
+        }
+
+        function setRegisterStatus(st, text) {
+          var el = $('reg-status');
+          if (!el) return;
+          el.setAttribute('data-state', st === 'fail' ? 'fail' : 'ok');
+          el.textContent = text;
+        }
+
+        /* 演示：N → N+1（注册） */
         function registerDemoProvider() {
-          REGISTRY.push({
-            id: 'demo.sandbox', pri: 3, priLabel: '发现',
+          var def = {
+            id: DEMO_PROVIDER_ID, pri: 3, priLabel: '发现', prepend: false,
+            deps: ['snapshot'], mode: 'emit', fail: 'card-boundary',
             when: function () { return true; },
             chips: ['op.help']
+          };
+          var before = countProviders();
+          var r = registerNextProvider(def, { overwrite: indexOfProvider(DEMO_PROVIDER_ID) !== -1 });
+          if (r.ok) {
+            REGISTER_TRACE.lastRoundTrip = before;
+            r.roundTrip = before + '→' + r.count;
+            say('已注册 ' + DEMO_PROVIDER_ID + '：registry ' + r.count + ' 个 provider（N→N+1）；'
+              + 'handleCardAction diff = ' + r.diff + '（分发器无 per-op 分支）');
+          }
+          return r;
+        }
+
+        /* 演示：N+1 → N（幂等卸载；再点一次仍是 N） */
+        function unregisterDemoProvider() {
+          var before = countProviders();
+          var r = unregisterNextProvider(DEMO_PROVIDER_ID)();
+          say('已卸载 ' + DEMO_PROVIDER_ID + '：registry ' + r.count + ' 个 provider（幂等 disposer，重复卸载不再减）');
+          return { before: before, count: r.count, removed: r.removed, diff: r.diff };
+        }
+
+        /* 演示：R5 ② 注册失败 → loud（重复 id） */
+        function attemptDuplicateRegister() {
+          var r = registerNextProvider({
+            id: 'site.unauthorized', pri: 0, priLabel: '恢复', prepend: false,
+            deps: [], mode: 'waterfall', fail: 'card-boundary',
+            when: function () { return true; },
+            chips: ['op.authorize']
           });
-          renderRegistry();
-          say('已注册 demo.sandbox：registry ' + REGISTRY.length + ' 个 provider；'
-            + 'handleCardAction diff = ' + DISPATCHER_DIFF + '（分发器无 per-op 分支）');
-          return { count: REGISTRY.length, diff: DISPATCHER_DIFF, fingerprint: DISPATCHER_FINGERPRINT };
+          return r;
         }
 
         /* 渲染注册表视察器（与场景联动） */
@@ -2815,8 +3299,13 @@ function handleCardAction(opId) {
           var activeIds = active.map(function (p) { return p.id; });
           if (list) {
             list.textContent = '';
+            /* 渲染顺序 = 真实求值顺序（activeProviders 的同一排序口径） */
             REGISTRY.map(function (p, i) { return { p: p, i: i }; })
-              .sort(function (a, b) { return a.p.pri - b.p.pri || a.i - b.i; })
+              .sort(function (a, b) {
+                return (a.p.pri - b.p.pri)
+                  || ((b.p.prepend ? 1 : 0) - (a.p.prepend ? 1 : 0))
+                  || (a.i - b.i);
+              })
               .forEach(function (pair) {
                 var p = pair.p;
                 var isActive = activeIds.indexOf(p.id) !== -1;
@@ -2825,15 +3314,31 @@ function handleCardAction(opId) {
                 li.setAttribute('data-provider', p.id);
                 li.setAttribute('data-active', String(isActive));
                 li.setAttribute('data-pri', String(p.pri));
+                /* R2 / R3 / R4 / R5 都落成可见属性（机核可读） */
+                li.setAttribute('data-deps', (p.deps || []).join(','));
+                li.setAttribute('data-mode', p.mode || '');
+                li.setAttribute('data-fail', p.fail || '');
+                li.setAttribute('data-prepend', String(!!p.prepend));
+                li.setAttribute('data-new', String(p.id === REGISTER_TRACE.lastNewId));
                 var idEl = document.createElement('span');
                 idEl.className = 'reg-id';
                 idEl.textContent = p.id;
                 var priEl = document.createElement('span');
                 priEl.className = 'reg-pri';
-                priEl.textContent = 'P' + p.pri + ' · ' + p.priLabel;
+                priEl.textContent = 'P' + p.pri + ' · ' + p.priLabel + (p.prepend ? ' · prepend' : '');
+                var depsEl = document.createElement('span');
+                depsEl.className = 'reg-deps';
+                depsEl.textContent = 'deps: ' + ((p.deps || []).length ? p.deps.join('+') : '—');
                 var whenEl = document.createElement('span');
                 whenEl.className = 'reg-when';
                 whenEl.textContent = isActive ? 'when(ctx) → 候选（活跃）' : 'when(ctx) → null';
+                var modeEl = document.createElement('span');
+                modeEl.className = 'reg-mode';
+                modeEl.setAttribute('data-mode', p.mode || '');
+                modeEl.textContent = p.mode || '—';
+                var failEl = document.createElement('span');
+                failEl.className = 'reg-fail';
+                failEl.textContent = p.fail || '—';
                 var chipsEl = document.createElement('span');
                 chipsEl.className = 'reg-chips';
                 p.chips.forEach(function (opId) {
@@ -2845,7 +3350,10 @@ function handleCardAction(opId) {
                 });
                 li.appendChild(idEl);
                 li.appendChild(priEl);
+                li.appendChild(depsEl);
                 li.appendChild(whenEl);
+                li.appendChild(modeEl);
+                li.appendChild(failEl);
                 li.appendChild(chipsEl);
                 list.appendChild(li);
               });
@@ -2855,6 +3363,8 @@ function handleCardAction(opId) {
           setText('reg-ctx', state.scene + '（ctx.site.auth=' + ctxOf(state.scene).site.authorized + '）');
           setText('reg-diff', String(DISPATCHER_DIFF));
           setText('reg-ops', String(OPS.length));
+          setText('reg-roundtrip', (indexOfProvider(DEMO_PROVIDER_ID) === -1 ? 'N=' : 'N+1=')
+            + countProviders() + '（R1）');
           markPipelineLive();
         }
 
@@ -3632,8 +4142,13 @@ function handleCardAction(opId) {
             btn.setAttribute('data-op-state', ok ? 'dispatched' : 'failed');
           });
         });
+        /* 视察器三操作：注册（R1 N→N+1）/ 卸载（R1 幂等 disposer）/ 重复 id（R5 ② loud） */
         var regAdd = $('reg-add');
         if (regAdd) regAdd.addEventListener('click', function () { registerDemoProvider(); });
+        var regRemove = $('reg-remove');
+        if (regRemove) regRemove.addEventListener('click', function () { unregisterDemoProvider(); });
+        var regDupe = $('reg-dupe');
+        if (regDupe) regDupe.addEventListener('click', function () { attemptDuplicateRegister(); });
 
         $$('[data-risk]').forEach(function (chip) {
           chip.addEventListener('click', function () {
@@ -3704,6 +4219,8 @@ function handleCardAction(opId) {
           authChipState: authChipState,
           runOp: runOp,
           registerDemoProvider: registerDemoProvider,
+          unregisterDemoProvider: unregisterDemoProvider,
+          attemptDuplicateRegister: attemptDuplicateRegister,
           configureLLM: configureLLM,
           grantSite: grantSite,
           resolvePerm: resolvePerm,
@@ -3746,7 +4263,35 @@ function handleCardAction(opId) {
           pipeline: pipelineState,
           stageLive: STAGE_LIVE,
           diff: function () { return DISPATCHER_DIFF; },
-          fingerprint: function () { return DISPATCHER_FINGERPRINT; }
+          fingerprint: function () { return DISPATCHER_FINGERPRINT; },
+          /* ── 契约 v2 机核接口 ── */
+          services: SERVICES,
+          modes: MODES,
+          failLevels: FAIL_LEVELS,
+          validate: validateNextProvider,
+          register: registerNextProvider,
+          unregister: unregisterNextProvider,
+          demoId: DEMO_PROVIDER_ID,
+          registerDemoProvider: registerDemoProvider,
+          unregisterDemoProvider: unregisterDemoProvider,
+          attemptDuplicateRegister: attemptDuplicateRegister,
+          resolveOrder: resolveOrder,
+          trace: function () {
+            return {
+              lastRoundTrip: REGISTER_TRACE.lastRoundTrip,
+              failCount: REGISTER_TRACE.failCount,
+              lastError: REGISTER_TRACE.lastError,
+              lastNewId: REGISTER_TRACE.lastNewId
+            };
+          },
+          status: function () {
+            var el = $('reg-status');
+            return el ? { state: el.getAttribute('data-state'), text: el.textContent } : null;
+          },
+          roundTripReadout: function () {
+            var el = $('reg-roundtrip');
+            return el ? el.textContent : null;
+          }
         };
         window.__ops = OPS;
         window.__blocking = BLOCKING;
