@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v5-2-ops-first-batch",
   "version": "v5.0.0",
   "name": "V5-2 首批 9 op 落地（op.authorize / op.rebind / op.llm-config / op.perm.request / op.revoke / op.pick / op.describe / op.help / op.turn）+ SW 双层执行器 + op-* type-only 消息族 + optional_permissions + 掩码 secret 卡（值直达 key-store）+ settings 4 类收编（零双路径）+ 拒绝非死端 + S2 断流样板机器化首验收",
-  "phase": "specified",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "phase": "planned",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v5-all-in-next",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T01:20:00.000Z",
+  "updatedAt": "2026-09-22T06:00:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**次叶**（P0，deliveryOrder=2，依赖 v5-1）。承载父 spec.md §5.5 OPS（FR-ALLN-040~049）/ §5.7 SW（FR-ALLN-065~069）/ §5.8 SETTINGS（FR-ALLN-075~078）/ §5.2 LAW7 的 014·016（拒绝非死端 + 断流首验收）/ §5.3 LAW8 的 020~022（掩码卡入口侧 + 值直达存储 + 流内只留事实）/ §5.11 X1·X2（FR-ALLN-110·111·116）/ GATE 本叶面（FR-ALLN-120~125）/ FR-ALLN-003·004·130·133 共 33 条 FR 的实施切片。交付：9 个 op 逐个注册（五要素齐备）；panel-local / SW 双层执行器（特权 op 恰 2 项）；op-* type-only 消息族（content.js 逐字节零增长）+ SW 侧注册表镜像契约；optional_permissions 放开（安装期静态面零漂移 + 最小集论证）；askuser 扩形 secret / form + 值直达 key-store；settings 4 类收编（单一执行入口 + 单一调用点机核）；拒绝不是死端；S2 断流样板 headless 全链首验收（死端 = 0；浏览器弹窗体感入人工面）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -168,6 +168,11 @@
       "phase": "specified",
       "timestamp": "2026-09-22T01:20:00.000Z",
       "triggeredBy": "sddu-spec（3 叶结构裁决落地；本叶 spec.md v1.0）"
+    },
+    {
+      "phase": "planned",
+      "timestamp": "2026-09-22T06:00:00.000Z",
+      "triggeredBy": "sddu-plan（产出 specs-tree-v5-2-ops-first-batch 叶 plan.md v1.0：9 op 五要素矩阵 + SW 双层执行器（特权恰 2 / 手势在 page / SW 为裁决·快照·审计 owner）+ op-* type-only + 双侧 op-table 同源 + optional_permissions 最小集（0 项新增）+ askuser secret·form 扩形 + settings 4 类收编 + S2 断流上游样本；7 波 / ~30 任务；权威跨切契约见父 ../plan.md + ../ADR-V5-001~012；本阶段只做 plan，零 src/test/dist/docs/design 改动，零门禁/构建/Chromium）"
     }
   ],
   "phaseNote": "phase=specified（status=tracked）。次叶 / P0 / 依赖 v5-1。本轮为纯文档阶段：零 src / test / dist / design / docs / ROADMAP 改动；零运行时验证。**本叶体积增量预期最大**（9 op + 掩码/表单扩形 + SW 执行器）⇒ 先评估后落地（FR-ALLN-134）。",
@@ -181,11 +186,20 @@
   "artifacts": [
     "spec.md",
     "state.json",
-    "TREE.md"
+    "TREE.md",
+    "plan.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/spec.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/state.json",
-    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/TREE.md"
-  }
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/TREE.md",
+    "plan": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/plan.md",
+    "parentPlan": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/plan.md"
+  },
+  "mainAdrs": [
+    "ADR-V5-002（执行侧）",
+    "ADR-V5-003",
+    "ADR-V5-004",
+    "ADR-V5-005"
+  ]
 }

@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v5-1-next-registry-pipeline",
   "version": "v5.0.0",
   "name": "V5-1 NextProvider 注册表 + op 管线——契约 v2 七点（可逆注册 / 依赖声明式 / 优先级显式化 / 分发模式公开契约 / 失败语义分级 / Seam 三件套 / 证明义务表）+ 统一管线四态 + act→opId 取代 + 瘦分发（分发器 diff = 0）+ 双契约（F 60 冻结不替换 + G 127 新增）+ 证明义务表静态机核",
-  "phase": "specified",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "phase": "planned",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v5-all-in-next",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T01:20:00.000Z",
+  "updatedAt": "2026-09-22T06:00:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**首叶**（P0，deliveryOrder=1，依赖链起点）。承载父 spec.md §5.4 CONTRACT（FR-ALLN-030~038）/ §5.6 PIPE（FR-ALLN-055~059）/ §5.10 DESIGN（FR-ALLN-100~103）/ §5.2 LAW7 的机制侧（FR-ALLN-010·011·013）/ §5.11 的 X3·X4·X6(chip 侧)（FR-ALLN-112·113·115·116）/ §3.2 §5.12 GATE（FR-ALLN-120~125 的本叶面）/ FR-ALLN-003·004·130·133 共 34 条 FR 的实施切片。交付：NextProvider / NextOp 接口（Definition）+ 注册表（Provider）+ handleCardAction 单次查表（Consumer）三件套；R1~R7 逐点可机核；统一管线四态唯一；act→opId 六条等价映射 + chip data-op + 分发器 per-op diff = 0；阻塞态枚举单源 + site.unauthorized 常驻候选（法七机制基础）；双稿双 shim 入 design-contract（F 60 保留 + G 127 新增 + 127 行映射 + designContractChanges 登记）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -156,6 +156,11 @@
       "phase": "specified",
       "timestamp": "2026-09-22T01:20:00.000Z",
       "triggeredBy": "sddu-spec（3 叶结构裁决落地；本叶 spec.md v1.0）"
+    },
+    {
+      "phase": "planned",
+      "timestamp": "2026-09-22T06:00:00.000Z",
+      "triggeredBy": "sddu-plan（产出 specs-tree-v5-1-next-registry-pipeline 叶 plan.md v1.0：契约 v2 注册表（Definition / Provider / Consumer 三件套 + 两集模型 + ACT_TO_OP 6 行 + recommend.ts 取代路径） + 统一管线四态机制 + 证明义务表机核 + 双稿双 shim 入 design-contract（F 保留 + G 新增）；5 波 / ~22 任务；权威跨切契约见父 ../plan.md + ../ADR-V5-001~012；本阶段只做 plan，零 src/test/dist/docs/design 改动，零门禁/构建/Chromium）"
     }
   ],
   "phaseNote": "phase=specified（status=tracked）。首叶 / P0 / 依赖链起点。本轮为纯文档阶段：零 src / test / dist / design / docs / ROADMAP 改动；零运行时验证。上游接口 = 本叶产出；下游 = v5-2（注册 9 op）/ v5-3（消费 op 与死端样本）。",
@@ -169,11 +174,19 @@
   "artifacts": [
     "spec.md",
     "state.json",
-    "TREE.md"
+    "TREE.md",
+    "plan.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/spec.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/state.json",
-    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/TREE.md"
-  }
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/TREE.md",
+    "plan": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/plan.md",
+    "parentPlan": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/plan.md"
+  },
+  "mainAdrs": [
+    "ADR-V5-001",
+    "ADR-V5-002（机制侧）",
+    "ADR-V5-008"
+  ]
 }
