@@ -717,8 +717,12 @@ async function main() {
       const present = await evaluate(cdp, `document.getElementById(${JSON.stringify(id)}) !== null`);
       check(`⑧ 退役触发器 #${id} 零 DOM 残留`, present === false, String(present));
     }
+    // V4.5-1 review R1 BLOCK-01：`l0-receipt-summary` **不是**真退役容器 —— 它是迁移容器
+    // （内容 id 随载体搬入最新卡 `.card-fixed`，由 `l1/panels.ts#paintReceiptSummary` 单一
+    // 写入者铸造）。故此处**移除**该 id（否则与本门禁 l1.mjs ⑩「它在卡固化区内」自相矛盾），
+    // 改为下面两条**时点无关**判据的一半：无回执态零残留。
     const RETIRED_CONTAINERS = [
-      'l0-decision', 'l0-pick', 'l0-status-band', 'l0-kicker', 'l0-more', 'l0-ref-toggle', 'l0-receipt-summary',
+      'l0-decision', 'l0-pick', 'l0-status-band', 'l0-kicker', 'l0-more', 'l0-ref-toggle',
       'l1-group', 'l1-history-toggle', 'l1-history', 'l1-history-rows', 'l1-local-tree-toggle', 'l1-receipt-toggle',
       'l1-gestures-toggle',
     ];
@@ -726,6 +730,45 @@ async function main() {
       const present = await evaluate(cdp, `document.getElementById(${JSON.stringify(id)}) !== null`);
       check(`⑧ 退役容器 #${id} 零 DOM 残留（结构性清零，不是删标记）`, present === false, String(present));
     }
+    // BLOCK-01 时点无关判据（无回执态）：默认夹具尚无真实回执 ⇒ 迁移容器**不得**预先铸造。
+    const noReceipt = await evaluate(
+      cdp,
+      `(() => JSON.stringify({ receipt: document.getElementById('l0-receipt-summary') !== null, problems: window.__v3.testing.hosts().problems }))()`,
+    );
+    const nr = JSON.parse(noReceipt);
+    check(
+      '⑧ BLOCK-01 无回执态：迁移容器 `#l0-receipt-summary` 零残留 ∧ `hosts().problems === []`（时点无关判据之①）',
+      nr.receipt === false && Array.isArray(nr.problems) && nr.problems.length === 0,
+      noReceipt,
+    );
+    // ══ I-05（review R1）：**显式等价性对账** ══════════════════════════════════════════
+    // 正面触发器契约 12 → 8（收窄 4 条：`l0-more` / `l0-ref-toggle` / 2 个 L1 开关），
+    // 等价性由**新增负向 + 卡内正面**补偿，不再是散注：
+    //    6（退役触发器零残留）+ 13（退役容器零残留，含 `l0-decision` 壳）+ 2（卡内成对）
+    //    = 21 条断言面 ≥ 收窄的 4 条正面契约。
+    // 并且：本门禁的容器清单必须与**产品常量** `RETIRED_CONTAINER_IDS` 逐项相等 —— 两份清单
+    // 一旦漂移就是 BLOCK-01 的成因（产品清单 / 门禁清单 / 铸造点三者口径不一）。
+    const registrySrc = readFileSync(resolve(PACKAGE_ROOT, 'src/ui/sidepanel/host-registry.ts'), 'utf8');
+    const productContainers = (() => {
+      const start = registrySrc.indexOf('export const RETIRED_CONTAINER_IDS');
+      const end = registrySrc.indexOf(']);', start);
+      return [...registrySrc.slice(start, end).matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]);
+    })();
+    check(
+      `⑧ I-05 等价性对账①：本门禁退役容器清单 ≡ 产品常量 RETIRED_CONTAINER_IDS（${productContainers.length} 项逐项相等）`,
+      productContainers.length === RETIRED_CONTAINERS.length
+        && productContainers.every((id) => RETIRED_CONTAINERS.includes(id))
+        && RETIRED_CONTAINERS.every((id) => productContainers.includes(id)),
+      JSON.stringify({ product: productContainers, gate: RETIRED_CONTAINERS }),
+    );
+    check(
+      '⑧ I-05 等价性对账②：正面契约收窄 4（12 → 8）≤ 负向/正面补偿（6 退役触发器 + 13 退役容器 + 2 卡内成对），断言面 29 ≥ 收窄前的 12（只增不减）',
+      EXPECTED_TRIGGERS.length === 8
+        && RETIRED_TRIGGERS.length === 6
+        && RETIRED_CONTAINERS.length === 13
+        && EXPECTED_TRIGGERS.length + RETIRED_TRIGGERS.length + RETIRED_CONTAINERS.length + 2 >= 12,
+      JSON.stringify({ expectedTriggers: EXPECTED_TRIGGERS.length, retiredTriggers: RETIRED_TRIGGERS.length, retiredContainers: RETIRED_CONTAINERS.length, cardPairs: 2 }),
+    );
     // 卡内触发器成对：`#l1-more-toggle` → `#l1-more`（卡内目标存在且默认 hidden）。
     const cardPair = await evaluate(
       cdp,
@@ -1205,6 +1248,128 @@ async function main() {
       probeClickables === 3,
       `probeClickables=${probeClickables}`,
     );
+
+    // ══ BLOCK-03（v4.5-1 review R1）：单写 live 判据 + firstRun 口径 + 注入反证 ══════
+    // 核心：`evaluateStripChannels` 的**载体半边**此前只被喂 `[]`（`!carrier ⇒ continue` ⇒
+    // 判据空转）。本节把面板的 live 读数（`window.__v3.testing.stripChannelReading()`）真的
+    // 接进判据，逐通道断言「恰 1 个可见载体面」，并实跑 ADR §8① 的两段注入反证。
+    console.log('\n▶ BLOCK-03 单写 live 判据：载体面恰 1 / firstRun「卡在⇒行不在」/ 第二载体注入必红');
+    const stripBindings = JSON.parse(await evaluate(cdp, `JSON.stringify(window.__v3.testing.stripChannelBindings())`));
+    const productionSrc = `${readFileSync(resolve(PACKAGE_ROOT, 'src/ui/sidepanel/sidepanel.ts'), 'utf8')}\n${readFileSync(resolve(PACKAGE_ROOT, 'src/ui/sidepanel/chat-state.ts'), 'utf8')}`;
+    const countOccurrences = (haystack, needle) => haystack.split(needle).length - 1;
+    const emitterCounts = stripBindings.map((b) => ({ channel: b.channel, count: countOccurrences(productionSrc, b.emitterSite) }));
+    const readStripLive = async () =>
+      JSON.parse(
+        await evaluate(
+          cdp,
+          `JSON.stringify({ reading: window.__v3.testing.stripChannelReading(), counts: window.__v3.testing.stripCarrierCounts(), problems: window.__v3.testing.stripChannelProblems(${JSON.stringify(emitterCounts)}) })`,
+        ),
+      );
+    // 构造：四个退役通道各恰一个流内载体面（走产品唯一通道 `dispatch({type:'system'})`）。
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
+    for (const kind of ['env', 'site', 'probe', 'notice']) {
+      await evaluate(cdp, `window.__v3.testing.systemRow(${JSON.stringify(kind)}, '单写 live 载体判据：${kind}'); true`);
+    }
+    await sleep(200);
+    const live = await readStripLive();
+    for (const kind of ['env', 'site', 'probe', 'notice']) {
+      const carrier = live.reading.observedCarriers.find((x) => x.channel === kind);
+      check(
+        `BLOCK-03 ${kind} 通道**恰 1** 个可见载体面（live 读数，非自声明常量）`,
+        carrier && carrier.count === 1,
+        JSON.stringify(live.reading),
+      );
+      // 「恰 1」的**raw** 半：`querySelectorAll(...)` 实测行数（历史行也是信号 —— 多一行即
+      // 说明有第二写点；这一半是 review R1 BLOCK-03 的 ② 项字面要求）。
+      check(
+        `BLOCK-03 ${kind} 通道 raw 载体节点数 = 1（querySelectorAll 实测，非首个命中查询）`,
+        live.counts[kind] === 1,
+        JSON.stringify(live.counts),
+      );
+    }
+    check(
+      'BLOCK-03 live 单写判据 = 0 问题（emitter 恰 1 + 载体面 ≤1 + `#send-reason` 在状态栏）',
+      Array.isArray(live.problems) && live.problems.length === 0,
+      JSON.stringify(live.problems),
+    );
+    // ── firstRun：「卡在 ⇒ 行不在」（产品抑制路径）+ 双载体必红 ──────────────────
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamSeed([{ kind: 'nextstep', cardId: 'l0-fr-card', payload: { chips: ['完成首次设置'], nextstepRule: 'onboarding' } }]); true`,
+    );
+    await evaluate(cdp, `window.__v3.testing.refresh(); true`);
+    await sleep(200);
+    const frLive = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => JSON.stringify({ card: document.querySelectorAll('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]').length, rows: document.querySelectorAll('#stream [data-msg-type="system"][data-kind="firstRun"]').length }))()`,
+      ),
+    );
+    check(
+      'BLOCK-03 firstRun：卡在 ⇒ 单行系统事件行不在（事实不双见；事件化路径不追加行）',
+      frLive.card === 1 && frLive.rows === 0,
+      JSON.stringify(frLive),
+    );
+    await evaluate(cdp, `window.__v3.testing.systemRow('firstRun', '注入的第二载体（反证）'); true`);
+    await sleep(150);
+    const frDouble = await readStripLive();
+    check(
+      'BLOCK-03 firstRun 反证：卡 + 行双载体 ⇒ live 判据判红（载体面 = 2）',
+      frDouble.problems.some((p) => p.includes('通道 firstRun 的可见载体面数 = 2')),
+      JSON.stringify(frDouble.problems),
+    );
+    // ── 注入反证 A：复活退役 strip 节点 = 第二**载体面** ⇒ 必红 ⇒ 还原 ⇒ 绿 ──────
+    // 前置：先造一个**活的** env 行（文本与上面循环不同 —— `appendSystem` 有 5 s 同文本去重，
+    // 同文本第二次不会落地，会让本反证因「行缺失」而假绿）。
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, `window.__v3.testing.systemRow('env', '反证 A：env 单载体行'); true`);
+    await sleep(200);
+    // 注入手法：`createElement` + `appendChild`（**不用** `insertAdjacentHTML` —— 面板页启用
+    // Trusted Types（`require-trusted-types-for 'script'`），HTML 字符串插入会被拒，注入静默落空
+    // ⇒ 判据会以「假红」/「恒绿」的方式失真。本门禁其余注入点同口径（见 l1.mjs 的 `createElement`）。
+    const guardInjected = await evaluate(
+      cdp,
+      `(() => { const d = document.createElement('div'); d.id = 'env-guard'; d.textContent = 'forged legacy surface'; document.body.appendChild(d); return document.getElementById('env-guard') !== null; })()`,
+    );
+    await sleep(150);
+    const injected = await readStripLive();
+    check(
+      'BLOCK-03 反证 A：复活 `#env-guard` 第二载体面 ⇒ live 判据判红（载体面 = 2）',
+      guardInjected === true && injected.problems.some((p) => p.includes('通道 env 的可见载体面数 = 2')),
+      `guard=${guardInjected} ${JSON.stringify(injected.problems)}`,
+    );
+    await evaluate(cdp, `document.getElementById('env-guard')?.remove(); true`);
+    await sleep(150);
+    const restored = await readStripLive();
+    check(
+      'BLOCK-03 反证 A 还原：移除第二载体面 ⇒ live 判据回到 0 问题（逐字节还原口径）',
+      Array.isArray(restored.problems) && restored.problems.length === 0,
+      JSON.stringify(restored.problems),
+    );
+    // ── 注入反证 B：第二**同 kind 行**（走产品写路径）⇒ raw 行计数 = 2 ⇒「恰 1」断言必红 ──
+    // 口径说明（必读）：ADR §8① 的「第二载体」有两层 —— ①**载体面**（判据 `evaluateStripChannels`
+    // 的输入，`rows > 0 ⇒ 1`：同 kind 的历史行是**同一面**的历史，不升级为第二面）；②**raw 载体
+    // 节点数**（门禁 `querySelectorAll(...).length` 的实测值，多一行即违反「恰 1」）。本反证打②：
+    // 经产品唯一写路径制造第二行 ⇒ raw 计数必为 2（门禁「恰 1」必红），同时**确认**①的归一化口径
+    // 不被历史行升温（判据不因历史行假红）。还原用 `streamReset()`。
+    const firstRow = await evaluate(cdp, `window.__v3.testing.systemRow('notice', '反证 B：notice 的第一条行'); true`);
+    await sleep(150);
+    const secondRow = await evaluate(cdp, `window.__v3.testing.systemRow('notice', '反证 B：notice 的第二条同 kind 行（产品写路径）'); true`);
+    await sleep(200);
+    const bCounts = JSON.parse(await evaluate(cdp, `JSON.stringify(window.__v3.testing.stripCarrierCounts())`));
+    const bProblems = JSON.parse(await evaluate(cdp, `JSON.stringify(window.__v3.testing.stripChannelProblems(${JSON.stringify(emitterCounts)}))`));
+    check(
+      'BLOCK-03 反证 B：同 kind 第二行经产品写路径真的落地 ⇒ raw 行计数 = 2（「恰 1」断言必红）',
+      firstRow === true && secondRow === true && bCounts.notice === 2,
+      JSON.stringify(bCounts),
+    );
+    check(
+      'BLOCK-03 反证 B 归一化口径：同 kind 的**历史行**不升级为第二载体面（判据不被历史行假红）',
+      !bProblems.some((p) => p.includes('通道 notice 的可见载体面数 = 2')),
+      JSON.stringify(bProblems),
+    );
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
 
     check('无未捕获页面异常（渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();

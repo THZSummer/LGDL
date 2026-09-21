@@ -307,7 +307,7 @@ v4.5 **不是新增想法**，而是把 v4 收口时**已登记、已给出理�
 
 | ID | 类别 | 需求描述 | 验收标准 |
 |----|------|---------|---------|
-| NFR-V45-001 | 性能 | 形态收尾不得使首屏渲染 / 滚动跟随 / 视图往返变差；`#region-stream` 高度占比 **≥65.0%**（只允许上调） | `test:density` 的 `streamRatioSpike`（12/12 PASS，最差格 0.7273）不回退；`journey #15b` 全绿；`#15p/#15r/#15s/#15t` 滚动跟随断言全绿 |
+| NFR-V45-001 | 性能 | 形态收尾不得使首屏渲染 / 滚动跟随 / 视图往返变差；`#region-stream` 高度占比 **≥65.0%**（只允许上调） | `#region-stream` 占比的**断言面** = `journey #15b`（门槛 `STREAM_HEIGHT_RATIO_MIN = 0.65`，全绿）+ `#15p/#15r/#15s/#15t` 滚动跟随断言全绿；**`test:density` 的 `streamRatioSpike`（12/12 PASS，最差格 0.7273）是「记录」不是「断言」**（该字段只存在于 `docs/v4-density-baseline.json` 的 v4-1 spike 记录中，`test/ui/density.mjs` 无引用 / 无判据 ⇒ 不得当作 live 门禁回退判据）。〖review R1 I-04 回写：区分「记录（spike）vs 断言（`#15b`）」〗 |
 | NFR-V45-002 | 可用性 | 320px 窄栏零水平溢出；键盘 Tab 序与 `:focus-visible` 不退化；`role=log` / `aria-live` 语义不因单写化而丢失 | `journey #15q`（320px）全绿；键盘断言全绿；`#stream` 仍 `role=log`；退役面的 live region（`role=status` / `aria-live`）语义由流内行 / 卡**等价承载**（不得整体消失） |
 | NFR-V45-003 | 安全 | 长文案进 `title` 属性时**同样过零明文净化**（URL query / secret / 命令参数体 / raw markup 一律不得进入 DOM 属性）；系统事件行仍是净化后的单行明文 | 新增断言：`title` 内容经 `assertStreamPlaintext` 等价校验（注入 secret / URL query 反证必抛错）；`test:zero-injection ≥27` 全绿 |
 | NFR-V45-004 | 可维护性 | **单源 + 机核**：豁免子树 / 阈值 / `SYSTEM_EVENT_KINDS` / act 闭集 / 手势列表 / 设置分区计数 / 退役宿主清单各自**恰一处**声明，且由门禁从源文本抽取机核（不得靠注释与人工对账） | 「声明恰一次」扫描全绿（各单源）；任一处出现第二声明确实红（反证） |

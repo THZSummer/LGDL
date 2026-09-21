@@ -280,6 +280,13 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
   };
 
   // ── the drop target (「落侧栏」path) ─────────────────────────────────────────
+  // V4.5-1 review R1 BLOCK-02: the drop-highlight write points used to be aimed at
+  // `#l0-decision` — a container retired in W3. The `?.` made the write a **silent
+  // no-op** (the id can never resolve), so the highlight state was unobservable in the
+  // product while `test/ui/page-input.mjs` ⑤ still read it (a read-after-discard). The
+  // target is now the REAL drop surface — the stream `ol#stream` — which is what the
+  // gate dispatches the drag events at, so the highlight is both written and asserted.
+  const dropSurface = (): HTMLElement | null => doc.getElementById('stream');
   const onDragOver = (ev: DragEvent): void => {
     if (!ev.dataTransfer) return;
     // Only a payload we can actually use is accepted, so dragging ordinary text
@@ -287,13 +294,13 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
     if (!Array.from(ev.dataTransfer.types ?? []).includes(DRAG_PAYLOAD_TYPE)) return;
     ev.preventDefault();
     ev.dataTransfer.dropEffect = 'copy';
-    doc.getElementById('l0-decision')?.setAttribute('data-drop-active', 'true');
+    dropSurface()?.setAttribute('data-drop-active', 'true');
   };
   const onDragLeave = (): void => {
-    doc.getElementById('l0-decision')?.removeAttribute('data-drop-active');
+    dropSurface()?.removeAttribute('data-drop-active');
   };
   const onDrop = (ev: DragEvent): void => {
-    doc.getElementById('l0-decision')?.removeAttribute('data-drop-active');
+    dropSurface()?.removeAttribute('data-drop-active');
     let payload = '';
     try {
       payload = ev.dataTransfer?.getData(DRAG_PAYLOAD_TYPE) ?? '';

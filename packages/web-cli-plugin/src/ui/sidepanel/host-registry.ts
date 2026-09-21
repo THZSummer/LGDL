@@ -40,8 +40,10 @@
  *   · `kind`         — the `SystemEventKind` the fact is append-recorded under;
  *   · `emitterSite`  — the **ONE** production call site, locatable in the source text
  *                      (machine-checked by `test/density-thresholds.test.ts`);
- *   · `carrierCount` — the visible carrier count in the stream; an explicit constant
- *                      (always `1`) rather than something derived from a DOM lookup;
+ *   · `carrierCount` — the **upper bound** on the number of visible carrier *surfaces*
+ *                      (always `1`). It is judged against a **live** reading supplied by
+ *                      the panel (`window.__v3.testing.stripChannelReading()`), not merely
+ *                      declared: a second surface fails (review R1 BLOCK-03);
  *   · `reason`       — why this channel is the right carrier for the fact.
  *
  * The former「legacy id **still in the DOM**」criterion is **removed** — it contradicted
@@ -120,15 +122,32 @@ export const RETIRED_HOST_ATTRS: readonly string[] = Object.freeze([
 ]);
 
 /**
- * The **retired container ids** — fourteen legacy containers whose content either
- * moved into a stream card / an L2 read-only block or was dissolved. Zero DOM
- * presence is required (`getElementById(id) === null`), so「退役」cannot be satisfied
- * by deleting the attribute while keeping the node (the v4-4 BLOCK-02 lesson).
+ * ── The discrimination RULE（review R1 I-06 / BLOCK-01）────────────────────────
  *
- * Deliberately absent (they are PRESERVED):
- *   `#composer` / `#input` / `#send` (compatibility read surface — NFR-V45-006),
- *   `#send-reason` (status bar), `#rebind` (settings view), and the content
- *   containers that merely moved (`#l1-local-tree-rows` / `#l1-receipt-rows` …).
+ * The list below is **not**「every id the v4.5-1 round touched」— it is the set of
+ * **真退役容器** (true retirements), and the rule that decides membership is:
+ *
+ *   · **真退役** = the id's **role** disappears with the host (a trigger / a host /
+ *     a decision shell) and the product has **no write point** that re-mints that id
+ *     anywhere. Zero DOM presence is required (`getElementById(id) === null`), so
+ *     「退役」cannot be satisfied by deleting the attribute while keeping the node
+ *     (the v4-4 BLOCK-02 lesson).
+ *   · **迁移容器** = the **content id is moved with its carrier** (the id survives,
+ *     the writer moves) — e.g. `#l1-ref` / `#l1-more` are re-minted *inside* the
+ *     newest card, `#l0-receipt-summary` is re-minted inside the newest card's
+ *     `.card-fixed`, `#l1-gestures` moves to the settings「帮助」section. These keep
+ *     their ids **on purpose**, are registered in {@link MIGRATED_CONTAINER_IDS},
+ *     and must **never** enter this list — a migrated id in the retirement list is
+ *     the BLOCK-01 self-contradiction (the product re-mints it after the first real
+ *     receipt ⇒ a false「retired container still in the DOM」).
+ *
+ * Also deliberately absent (PRESERVED): `#composer` / `#input` / `#send`
+ * (compatibility read surface — NFR-V45-006), `#send-reason` (status bar),
+ * `#rebind` (settings view), and the L2 read-only content containers that merely
+ * moved (`#l1-local-tree` / `#l1-local-tree-rows` / `#l1-receipt` /
+ * `#l1-receipt-rows`).
+ *
+ * ── The 13真退役容器 ─────────────────────────────────────────────────────────
  */
 export const RETIRED_CONTAINER_IDS: readonly string[] = Object.freeze([
   'l0-decision',
@@ -137,7 +156,6 @@ export const RETIRED_CONTAINER_IDS: readonly string[] = Object.freeze([
   'l0-kicker',
   'l0-more',
   'l0-ref-toggle',
-  'l0-receipt-summary',
   'l1-group',
   'l1-history-toggle',
   'l1-history',
@@ -145,6 +163,33 @@ export const RETIRED_CONTAINER_IDS: readonly string[] = Object.freeze([
   'l1-local-tree-toggle',
   'l1-receipt-toggle',
   'l1-gestures-toggle',
+]);
+
+/**
+ * The **migrated containers** (review R1 BLOCK-01 / I-06): ids that survive the
+ * v4.5-1 relocation because their **content id moves with its carrier**. They are
+ * registered here explicitly so the「迁移 vs 真退役」rule is machine-visible and the
+ * two lists can never drift back into the BLOCK-01 contradiction:
+ *
+ *   · `l0-receipt-summary` — the receipt summary: the writer (`l1/panels.ts#paintReceiptSummary`)
+ *     **moves** the node into the newest card's `.card-fixed` (never duplicates it);
+ *   · `l1-more` / `l1-consequences` — the option pool / consequence preview, re-minted
+ *     inside the newest ask / auth card (`cards/decision-region.ts`);
+ *   · `l1-ref` — the reference evidence block, re-minted inside the newest `ref` card
+ *     (`cards/ref.ts`);
+ *   · `l1-gestures` — the gesture table, moved into the settings「帮助」section
+ *     (`settings/help.ts`).
+ *
+ * A node gate asserts the two lists are **disjoint** and that every migrated id is
+ * still re-minted by a production write point (a migrated id that no longer has a
+ * writer has silently become a retirement and must be moved to the retired list).
+ */
+export const MIGRATED_CONTAINER_IDS: readonly string[] = Object.freeze([
+  'l0-receipt-summary',
+  'l1-more',
+  'l1-consequences',
+  'l1-ref',
+  'l1-gestures',
 ]);
 
 /**
@@ -193,8 +238,10 @@ export const RETIRED_HOST_DISPOSITIONS: readonly RetiredHostDisposition[] = Obje
  * `emitterSite` is a **locatable source fragment** (not prose): the node gate
  * `test/density-thresholds.test.ts` counts it in the production source and requires
  * **exactly one** occurrence per channel — a second write path is a gate failure, not a
- * review finding. `carrierCount` is an explicit `1`: the visible carrier is the single
- * stream row (the DOM projection no longer exists, so nothing can be counted twice).
+ * review finding. `carrierCount` is an explicit `1`: the fact family may be projected onto
+ * **one** visible surface; the retired strip node must be gone and the in-stream carrier
+ * (system row / first-run card) is the only one left. The judgement consumes a **live**
+ * reading of that surface count (see {@link StripChannelReading.observedCarriers}).
  */
 export interface StripChannelBinding {
   /** The fact family (the retired strip's role — NOT an element id). */
@@ -228,7 +275,7 @@ export const STRIP_CHANNEL_KINDS: readonly StripChannelBinding[] = Object.freeze
     kind: 'firstRun',
     emitterSite: "observeChannel('firstRun',",
     carrierCount: 1,
-    reason: '首装步骤：由 `firstRunCard` 归并承载（`terminable` / `!open` 谓词不变），步骤变化时追加。',
+    reason: '首装步骤：`firstRunCard` 是**唯一可见载体**（`terminable` / `!open` 谓词不变）；卡在场时**单行系统事件行被抑制**（事实不双见 —— 见 sidepanel.ts `observeChannel(..., suppressed)` 裁决），故载体面数恒 ≤ 1。',
   }),
   Object.freeze({
     channel: 'probe',
@@ -254,6 +301,27 @@ export const STRIP_CHANNEL_KINDS: readonly StripChannelBinding[] = Object.freeze
 ]);
 
 /**
+ * V4.5-1 review R1 BLOCK-03 — the **legacy projection surfaces** per channel.
+ *
+ * Each merged fact family used to have a visible strip node. Those nodes are retired
+ * (`getElementById(id) === null`), so the live carrier reading must count **both**
+ * surfaces: a reintroduced legacy node (a second carrier ⇒ double write) and the
+ * in-stream carrier. Without this half the reading could not see a re-projection
+ * (`firstRun` was the concrete case: a row *plus* the card).
+ *
+ * `send-reason` is the exception: it is **not** a retired id but the preserved
+ * carrier itself (`#send-reason` in `#region-statusbar`), so it maps to its own id.
+ */
+export const STRIP_CHANNEL_LEGACY_IDS: Readonly<Record<string, string>> = Object.freeze({
+  env: 'env-guard',
+  site: 'site-hint',
+  firstRun: 'onboarding',
+  probe: 'discovery-notice',
+  notice: 'notice',
+  'send-reason': 'send-reason',
+});
+
+/**
  * The channel → kind map derived from the ONE table (the merge matrix reads this, never
  * a hand-written second list).
  */
@@ -269,7 +337,17 @@ export const RETIRED_STRIP_CHANNELS: readonly string[] = Object.freeze(
 export interface StripChannelReading {
   /** Per channel: how many times its `emitterSite` occurs in the production sources. */
   readonly emitterCounts: readonly { readonly channel: string; readonly count: number }[];
-  /** Per channel: the **observed** visible carrier count in `#stream` (W3 live reading). */
+  /**
+   * Per channel: the **observed** number of visible carrier **surfaces** (W4 live reading,
+   * supplied by `window.__v3.testing.stripChannelReading()`).
+   *
+   * A *surface* is a DOM region that displays the fact family's **current** state — the
+   * (now retired) strip node and/or the in-stream carrier (a system row / the first-run
+   * card). Cumulative **event rows** are the same surface's history, not a second surface,
+   * and are therefore normalised to `1` (see `stripCarrierCount()` in `sidepanel.ts`).
+   * `0` means「该事实当前不可见」and is legitimate — the judgement only FAILs on **more
+   * than one** surface (双写) or on a **missing** reading (判据不得空转).
+   */
   readonly observedCarriers: readonly { readonly channel: string; readonly count: number }[];
   /** `#send-reason` is still a descendant of `#region-statusbar`. */
   readonly sendReasonInStatusbar: boolean;
@@ -278,11 +356,15 @@ export interface StripChannelReading {
 /**
  * The single-write judgement (three classes, all machine-checkable):
  *   ① every channel has **exactly one** emitter call site in the production sources;
- *   ② every channel's **visible carrier count** equals its declared `carrierCount` (1);
+ *   ② every channel's **live carrier-surface reading** is present and **≤ `carrierCount`**
+ *      (1) — a second surface (a reintroduced strip node, an injected duplicate row) is a
+ *      double write and FAILs. The reading is **mandatory**: an absent channel is「判据空转」
+ *      and FAILs too (review R1 BLOCK-03: the load-bearing half used to be skipped);
  *   ③ `#send-reason` is still inside `#region-statusbar` (the one preserved strip id).
  *
- * Pure: the same implementation is driven by the node gate (source-text counts) and, in
- * W4, by the Chromium reading (live `#stream` counts).
+ * Pure: the same implementation is driven by the node gate (source-text emitter counts +
+ * a live-shaped carrier reading) and by the Chromium gates (the panel's live
+ * `window.__v3.testing.stripChannelReading()`), so a second, drifting caliber cannot appear.
  */
 export function evaluateStripChannels(reading: StripChannelReading): string[] {
   const problems: string[] = [];
@@ -294,9 +376,10 @@ export function evaluateStripChannels(reading: StripChannelReading): string[] {
       problems.push(`单写判据：通道 ${binding.channel} 的 emitter 调用点 = ${site.count}，必须恰好 1（唯一生产入口）`);
     }
     const carrier = reading.observedCarriers.find((c) => c.channel === binding.channel);
-    if (!carrier) continue; // W2: 流内 live 读数在 W4 接入；未提供时只判 emitter 唯一性。
-    if (carrier.count !== binding.carrierCount) {
-      problems.push(`单写判据：通道 ${binding.channel} 的可见载体数 = ${carrier.count}，登记为 ${binding.carrierCount}（事实面必须唯一）`);
+    if (!carrier) {
+      problems.push(`单写判据：通道 ${binding.channel} 未提供 live 载体读数（判据不得空转）`);
+    } else if (carrier.count > binding.carrierCount) {
+      problems.push(`单写判据：通道 ${binding.channel} 的可见载体面数 = ${carrier.count}，上限 ${binding.carrierCount}（事实面必须唯一，禁止双写）`);
     }
   }
   if (!reading.sendReasonInStatusbar) {

@@ -751,8 +751,8 @@ test('index.html: 零宿主反向判据与退役真相册（任意宿主 / 复�
   assert.equal(hosts.REGISTERED_STRUCTURAL_HOSTS.length, 0, '结构宿主注册表必须清空（零宿主是终态）');
   assert.equal(hosts.REGISTERED_HOST_ATTRS.length, 0, '派生的注册属性集合必须为空');
   assert.deepEqual([...hosts.RETIRED_HOST_ATTRS], ['decision', 'composer', 'l1-panels', 'strips']);
-  assert.equal(hosts.RETIRED_CONTAINER_IDS.length, 14, '退役容器清单必须是 14 项');
-  assert.equal(hosts.RETIRED_HOST_IDS.length, 18, '并集别名 = 4 宿主值 + 14 容器 id');
+  assert.equal(hosts.RETIRED_CONTAINER_IDS.length, 13, '退役容器清单必须是 13 项（`l0-receipt-summary` 是迁移容器，见 review R1 BLOCK-01）');
+  assert.equal(hosts.RETIRED_HOST_IDS.length, 17, '并集别名 = 4 宿主值 + 13 容器 id');
   // ② DOM 侧：index.html 内任意深度不得再有 li[data-host]（零宿主静态半）。
   const domHosts = [...html.matchAll(/<li[^>]*data-host="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(domHosts, [], 'index.html 不得再出现任何 data-host（零宿主）');
@@ -801,7 +801,9 @@ test('index.html: 零宿主反向判据与退役真相册（任意宿主 / 复�
       `归并通道 ${binding.channel}（kind=${binding.kind}）的生产 emitter 必须恰 1 处，实测 ${site?.count} —— 双写路径必须收口（emitterSite=${binding.emitterSite}）`,
     );
   }
-  // ② 载体数 == 1（显式常量；运行时 live 读数在 W4/TASK-V45-116 接入）。
+  // ② 载体数**上限** == 1（登记值）；判据消费的 **live 读数** 由面板
+  //    `window.__v3.testing.stripChannelReading()` 供给，并由下面的 ⑤ 逐通道反证
+  //    （review R1 BLOCK-03：此前 observedCarriers 只被喂 `[]`，判据半边空转）。
   for (const binding of hosts.STRIP_CHANNEL_KINDS) {
     assert.equal(binding.carrierCount, 1, `归并通道 ${binding.channel}: carrierCount 必须显式为 1（事实面唯一）`);
   }
@@ -818,32 +820,70 @@ test('index.html: 零宿主反向判据与退役真相册（任意宿主 / 复�
     );
   }
   assert.equal(html.includes('class="strips"'), false, '`.strips` 包裹层必须随宿主一并退役');
-  // ⑤ 判据汇总可 FAIL：伪造通道读数（emitter 缺 / 载体数 ≠ 1 / send-reason 不在状态栏）逐条必红。
+  // ⑤ 判据汇总可 FAIL（review R1 BLOCK-03：**live 载体读数必须被消费**，缺失即红，不得空转）。
+  //    `liveCarriers` = 面板 live 读数的形状（每通道 1 个载体面）。
+  const liveCarriers = hosts.STRIP_CHANNEL_KINDS.map((b) => ({ channel: b.channel, count: 1 }));
   assert.deepEqual(
-    hosts.evaluateStripChannels({ emitterCounts, observedCarriers: [], sendReasonInStatusbar: true }),
+    hosts.evaluateStripChannels({ emitterCounts, observedCarriers: liveCarriers, sendReasonInStatusbar: true }),
     [],
-    '真实读数必须通过汇总判据（判据不得恒红）',
+    '真实形状读数（emitter 恰 1 + 载体面恰 1 + send-reason 在状态栏）必须通过（判据不得恒红）',
   );
   assert.ok(
     hosts.evaluateStripChannels({
       emitterCounts: emitterCounts.map((e) => (e.channel === 'env' ? { ...e, count: 2 } : e)),
-      observedCarriers: [],
+      observedCarriers: liveCarriers,
       sendReasonInStatusbar: true,
     }).some((p) => p.includes('emitter 调用点 = 2')),
     '伪造第二处 emitter 必须被判红',
   );
+  // ⑤b **逐通道**第二载体面 ⇒ 必红（env / site / probe / firstRun / notice / send-reason 全覆盖）。
+  for (const binding of hosts.STRIP_CHANNEL_KINDS) {
+    assert.ok(
+      hosts.evaluateStripChannels({
+        emitterCounts,
+        observedCarriers: liveCarriers.map((c) => (c.channel === binding.channel ? { ...c, count: 2 } : c)),
+        sendReasonInStatusbar: true,
+      }).some((p) => p.includes(`通道 ${binding.channel} 的可见载体面数 = 2`)),
+      `通道 ${binding.channel} 伪造第二载体面必须被判红（事实面唯一）`,
+    );
+  }
+  // ⑤c **缺失 live 载体读数** ⇒ 必红（判据不得空转；此前 `!carrier ⇒ continue` 正是缺口）。
+  for (const binding of hosts.STRIP_CHANNEL_KINDS) {
+    assert.ok(
+      hosts.evaluateStripChannels({
+        emitterCounts,
+        observedCarriers: liveCarriers.filter((c) => c.channel !== binding.channel),
+        sendReasonInStatusbar: true,
+      }).some((p) => p.includes(`通道 ${binding.channel} 未提供 live 载体读数`)),
+      `通道 ${binding.channel} 缺失 live 读数必须被判红（判据不得空转）`,
+    );
+  }
   assert.ok(
-    hosts.evaluateStripChannels({
-      emitterCounts,
-      observedCarriers: [{ channel: 'notice', count: 2 }],
-      sendReasonInStatusbar: true,
-    }).some((p) => p.includes('可见载体数 = 2')),
-    '伪造第二载体必须被判红（事实面唯一）',
-  );
-  assert.ok(
-    hosts.evaluateStripChannels({ emitterCounts, observedCarriers: [], sendReasonInStatusbar: false }).length > 0,
+    hosts.evaluateStripChannels({ emitterCounts, observedCarriers: liveCarriers, sendReasonInStatusbar: false }).length > 0,
     '`#send-reason` 离开状态栏必须被判红',
   );
+  // ⑤d review R1 BLOCK-03 / firstRun 口径：产品侧必须**真的**把「卡在 ⇒ 行抑制」接线到唯一
+  //    `firstRun` emitter（否则「卡在 ⇒ 行不在」只是夹具巧合，判据不可 FAIL）；且 legacy 面
+  //    选择器必须与 6 通道**一一对应**（少一条 ⇒ 该通道的第二载体不可被看见 ⇒ 判据半边失明）。
+  {
+    const sidepanelSrc = readFileSync(resolve(PKG, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+    assert.match(
+      sidepanelSrc,
+      /observeChannel\('firstRun',[^\n]*firstRunCardPresent\)/,
+      'firstRun emitter 必须把「卡在场（firstRunCardPresent）」作为抑制谓词传入（唯一 emitter 的第二实参）',
+    );
+    assert.equal(
+      Object.keys(hosts.STRIP_CHANNEL_LEGACY_IDS).length,
+      hosts.STRIP_CHANNEL_KINDS.length,
+      'legacy 面选择器必须与 STRIP_CHANNEL_KINDS 同基数（每通道恰一个历史投影面）',
+    );
+    for (const binding of hosts.STRIP_CHANNEL_KINDS) {
+      assert.ok(
+        hosts.STRIP_CHANNEL_LEGACY_IDS[binding.channel],
+        `通道 ${binding.channel} 必须登记其 legacy 面 id（否则第二载体对判据不可见）`,
+      );
+    }
+  }
   // ⑥ V4.5-1 W3（TASK-V45-111 / ADR-V45-010 §3）：**6 类问题串逐类可 FAIL**。
   //  ① 任意深度 li[data-host]（含改名前的等价形态）；
   {

@@ -92,9 +92,12 @@ const CLASSES = [
 ];
 /** 静态/卡内面（默认夹具里在场；`l1-gestures` 要等设置视图挂载）。 */
 const STATIC_FACES = ['l1-more', 'l1-consequences', 'l1-local-tree', 'l1-receipt', 'l2-tree-attribution', 'l2-audit-evidence'];
-/** 退役容器（14）+ 退役触发器（6）——零 DOM 残留。 */
+/**
+ * 退役容器（**13**，review R1 BLOCK-01 起：`l0-receipt-summary` 是**迁移容器**，移除）+
+ * 退役触发器（6）——零 DOM 残留。迁移容器的判据在 ⑩：有回执态时**恰 1** 个且在卡固化区内。
+ */
 const RETIRED_CONTAINERS = [
-  'l0-decision', 'l0-pick', 'l0-status-band', 'l0-kicker', 'l0-more', 'l0-ref-toggle', 'l0-receipt-summary',
+  'l0-decision', 'l0-pick', 'l0-status-band', 'l0-kicker', 'l0-more', 'l0-ref-toggle',
   'l1-group', 'l1-history-toggle', 'l1-history', 'l1-history-rows', 'l1-local-tree-toggle', 'l1-receipt-toggle',
   'l1-gestures-toggle',
 ];
@@ -202,7 +205,7 @@ async function main() {
     check('① 在场内容面 ⊆ 折叠白名单（声明集合不得超出控制器）', en.ids.every((id) => en.targets.includes(id)), enumerated);
     check('① 6 个静态/卡内面齐备（`l1-gestures` 随设置视图挂载）', STATIC_FACES.every((f) => en.ids.includes(f)), enumerated);
     check('① 折叠白名单恰 7 项且与内容面契约同源', en.targets.length === 7 && CLASSES.every((c) => en.targets.includes(c)), enumerated);
-    check('① 退役容器 / 退役触发器零 DOM 残留（14 + 6 项逐项）', en.retiredPresent.length === 0, JSON.stringify(en.retiredPresent));
+    check('① 退役容器 / 退役触发器零 DOM 残留（13 + 6 项逐项；`l0-receipt-summary` 为迁移容器，不在此列）', en.retiredPresent.length === 0, JSON.stringify(en.retiredPresent));
     check('① 零宿主 + 纯卡序：`#stream` 无宿主、无非卡子节点', en.hosts === 0 && en.streamForeign === 0, JSON.stringify({ hosts: en.hosts, foreign: en.streamForeign }));
 
     // 卡内两面：默认夹具的 ask 卡在场，两个触发器可点且各自目标按 hidden 折叠。
@@ -705,6 +708,11 @@ async function main() {
           summaryInFixed: Boolean(document.getElementById('l0-receipt-summary')?.closest('.card-fixed')),
           summaryInFrozenCard: Boolean(document.getElementById('l0-receipt-summary')?.closest('[data-frozen="true"]')),
           summaryText: document.getElementById('l0-receipt-summary').textContent || '',
+          // V4.5-1 review R1 BLOCK-01：迁移容器在**有回执态**必须恰 1 个，且产品零宿主判据
+          // （hosts().problems）在其存在时仍为 0 问题（此前它误入退役清单 ⇒ 假阳性）。
+          // （注：本段处于模板字面量内 ⇒ 注释中不得出现未转义的反引号）
+          summaryCount: document.querySelectorAll('#l0-receipt-summary').length,
+          hostProblems: window.__v3.testing.hosts().problems,
           rows: [...document.querySelectorAll('#l1-receipt-rows .l1-row')].map((r) => r.textContent),
           // V4.5-1 W3：#l1-receipt-audit（「查看审计」按钮）**消解** —— 已在审计视图内；
           // 等价载体 = 审计视图标题 + 证据区标题。
@@ -721,6 +729,12 @@ async function main() {
     check('⑩ 三件齐备（摘要 / 证据 / 审计出口）', rc.pieces.summary === true && rc.pieces.evidence === true && rc.pieces.audit === true, receipt);
     check('⑩ 摘要在默认态常驻可见（W3 起驻**卡固化区**，仍是常驻可读面）', rc.summaryHidden === false && /回执：/.test(rc.summaryText), receipt);
     check('⑩ 摘要的载体 = 卡固化区 `.card-fixed`（退役的 #l0-decision 壳不再持有它）', rc.summaryInFixed === true && rc.summaryInFrozenCard === true, receipt);
+    // BLOCK-01 时点无关判据（有回执态）：迁移容器**恰 1** 个，且零宿主判据无假阳性。
+    check(
+      '⑩ BLOCK-01 有回执态：迁移容器 `#l0-receipt-summary` 恰 1 个 ∧ `hosts().problems === []`（时点无关判据之②）',
+      rc.summaryCount === 1 && Array.isArray(rc.hostProblems) && rc.hostProblems.length === 0,
+      receipt,
+    );
     check('⑩ 完整证据 ≤1 次交互可达（8 行白名单字段）', rc.rows.length === 8, JSON.stringify(rc.rows));
     check('⑩ 审计出口指向 L2 审计视图（1 次交互可达；「查看审计」控件已消解 = 零悬空引用）', /审计/.test(rc.auditLabel) && rc.viewHost === true, receipt);
     check('⑩ 零明文：证据/回执不出现 URL 查询串 / apiKey', !/\?[A-Za-z0-9_]+=/.test(rc.evidenceText) && !/api[-_]?key/i.test(rc.evidenceText), rc.evidenceText);

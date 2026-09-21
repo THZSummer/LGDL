@@ -261,6 +261,12 @@ export function mountL1(deps: L1Deps): L1Handle {
    * newest terminal card** (the retired `#l0-decision` shell owned the static node). The
    * node is created on demand and **moved** when a newer card becomes the carrier, so the
    * id never duplicates (the single-writer rule survives the relocation).
+   *
+   * review R1 BLOCK-01 — this id is a **迁移容器** (`MIGRATED_CONTAINER_IDS` in
+   * `host-registry.ts`), NOT a retirement: the id survives, the writer moves. It must
+   * stay out of `RETIRED_CONTAINER_IDS` — the node is (re)minted here once a real
+   * receipt exists, so a retirement-list entry would make `hosts().problems` report a
+   * false positive only *after* the first receipt (a time-dependent judgement).
    */
   const paintReceiptSummary = (): void => {
     const pieces = receiptPiecesPresent(receipt);

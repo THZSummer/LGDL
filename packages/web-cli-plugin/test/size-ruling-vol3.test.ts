@@ -84,7 +84,7 @@ test('V3-VOL-3: the Feature-level 40% cumulative stop-work line is explicitly RE
 });
 
 test('V3-VOL-3 REVERSE PROOF: restoring the 40% cumulative line FAILS on the real artifact 375,102 B (+40.75%)', () => {
-  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 493501, '反证必须打在**当前真实产物**上（V4.5-1 R1 W1+W2 重登记）');
+  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 498521, '反证必须打在**当前真实产物**上（V4.5-1 review R1 修复轮重登记）');
   // ① 回退裁决（恢复 40% 累计线原样：enforced=true）⇒ 必须 FAIL
   const revived: FeatureCumulativeStopWorkRule = {
     ...SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE,
@@ -212,16 +212,16 @@ test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）——
 });
 
 test('V3-VOL-3 ⑥: 判定的 min() 优先级（绝对上限 = 硬墙，5% 公式 = 轮内软纪律）', () => {
-  // 现网：min(563,200, floor(493,501 × 1.05) = 518176) = 518176（软纪律更紧）。
+  // 现网：min(563,200, floor(498,521 × 1.05) = 523447) = 523447（软纪律更紧）。
   const live = evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES);
-  assert.equal(live.ceilingBytes, 518176, '生效上限 = min(绝对上限, 5% 公式)');
+  assert.equal(live.ceilingBytes, 523447, '生效上限 = min(绝对上限, 5% 公式)');
   assert.equal(live.ceilingBytes, Math.min(563_200, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
   // 硬墙比公式紧时必须取硬墙：给一个极小的绝对上限，判定必须跟着收紧。
   // （用合成的 marker 驱动纯函数，不改动现行标记。）
   const tight = evaluateSidepanelSize(530_000);
   assert.equal(tight.ok, false, '5% 公式之上必须 FAIL（轮内软纪律）');
-  assert.equal(evaluateSidepanelSize(518176).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
-  assert.equal(evaluateSidepanelSize(518_177).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
+  assert.equal(evaluateSidepanelSize(523447).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
+  assert.equal(evaluateSidepanelSize(523_448).ok, false, '越 1 B 即 FAIL（边界不是宽松的）');
 });
 
 test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PASS）', () => {
@@ -233,7 +233,7 @@ test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PA
   assert.equal(Math.min(absWall, formula), absWall, '取小 ⇒ 硬墙生效');
   assert.equal(300_001 <= Math.min(absWall, formula), false, '超过绝对上限必须 FAIL（硬墙生效）');
   // ② ≤ 绝对上限但 > 5% 公式 ⇒ FAIL（软纪律仍生效）。
-  const softCase = 518_177; // > floor(493,501 × 1.05) = 518,176，仍 < 563,200
+  const softCase = 523_448; // > floor(498,521 × 1.05) = 523,447，仍 < 563,200
   assert.ok(softCase <= PENDING_ABSOLUTE_CAP.absoluteCeilingBytes!);
   assert.equal(evaluateSidepanelSize(softCase).ok, false, '≤ 绝对上限但 > 5% 公式必须 FAIL（软纪律生效）');
   // ③ ≤ 5% 公式但 > 绝对上限 ⇒ FAIL（硬墙优先）——用假 marker 驱动同一公式。
@@ -259,7 +259,7 @@ test('V3-VOL-3 历史保真：各轮 reason 里的「40% 停工线」逐字保�
   assert.match(SIDEPANEL_BASELINE_META.reason, /40% 停工线/);
   assert.match(SIDEPANEL_BASELINE_META.reason, /\+36\.13%/, 'v3-4 轮的 +36.13% 历史登记保留');
   // 撤销只许追加：HISTORY / TIMELINE 与登记链条数值不得因本次裁决变动。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 493501, 'V4.5-1 R1 重登记后的当前基线');
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 498521, 'V4.5-1 review R1 修复轮重登记后的当前基线');
   assert.equal(
     SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1].baselineAfterBytes,
     SIDEPANEL_BASELINE_BYTES,
@@ -462,13 +462,16 @@ test('V4.5-1 R3: 档位不下移闸门（≥460,801 ∧ ceilTo50KB == 512,000）
   assert.equal(ceilTo50KB(PENDING_ABSOLUTE_CAP.newBaselineBytes!), 512_000, '三值②a：档位必须仍是 512,000');
   assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 563_200, '三值②b：绝对上限必须仍是 563,200');
   assert.equal(PENDING_ABSOLUTE_CAP.resolvedOn, '2026-09-19', '三值③：resolvedOn 保持原实测日期（不随重登记漂移）');
-  assert.equal(SIDEPANEL_W4W5_FINAL_ROUND.ceilingAfterBytes, SIDEPANEL_CEILING, '终轮登记 ceiling 必须与当前 ceiling 同源');
-  // ④ 终轮（W4+W5）= 零字节轮：Δ=0、方向 unchanged、五要素齐备、历史值仍在链上。
-  assert.equal(SIDEPANEL_W4W5_FINAL_ROUND.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '终轮登记值必须等于当前基线');
+  // ④ **最新一轮**（review R1 修复轮）登记 ceiling 必须与当前 ceiling 同源（终轮不再是末项）。
+  const latestRegistration = SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1];
+  assert.equal(latestRegistration.ceilingAfterBytes, SIDEPANEL_CEILING, '最新一轮登记 ceiling 必须与当前 ceiling 同源');
+  assert.equal(latestRegistration.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '最新一轮登记值必须等于当前基线');
+  // ④b R3 终轮（W4+W5）是**历史**零字节轮：Δ=0、方向 unchanged、五要素齐备、历史值仍在链上
+  //     （review 修复轮在其后重登记，不改变 R3 的零字节事实）。
   assert.equal(
     SIDEPANEL_W4W5_FINAL_ROUND.baselineAfterBytes - SIDEPANEL_W4W5_FINAL_ROUND.baselineBeforeBytes,
     0,
-    '终轮必须登记为 Δ=0（R3 无 sidepanel.js 字节变化）',
+    'R3 终轮必须登记为 Δ=0（R3 无 sidepanel.js 字节变化）',
   );
   assert.equal(SIDEPANEL_W4W5_FINAL_ROUND.direction, 'unchanged', '零字节轮的方向必须是 unchanged');
   for (const f of ['date', 'source', 'buildCommand', 'measuredBy', 'reason'] as const) {

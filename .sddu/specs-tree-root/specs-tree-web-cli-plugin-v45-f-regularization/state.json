@@ -14,16 +14,16 @@
    "path": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v45-f-regularization/specs-tree-v45-1-single-write-chronology/",
    "name": "V4.5-1 单写化 + 宿主时间序化（唯一叶）",
    "leaf": true,
-   "phase": "specified",
+   "phase": "reviewed",
    "status": "tracked",
    "depth": 2,
    "deliveryOrder": 1,
-   "note": "父 §12.1 结构裁决：**单叶**。两项核心（strips 单写化 / 宿主时间序化）+ 两项附带（FIX-5 消解 / options 解冻）共享同一次 scope 体积重登记与同一次 journey 结构重锚 ⇒ 门禁迁移不可分割；discovery §6.3 的 3 叶草案被否决（理由已登记）。"
+   "note": "父 §12.1 结构裁决：**单叶**。两项核心（strips 单写化 / 宿主时间序化）+ 两项附带（FIX-5 消解 / options 解冻）共享同一次 scope 体积重登记与同一次 journey 结构重锚 ⇒ 门禁迁移不可分割；discovery §6.3 的 3 叶草案被否决（理由已登记）。 〖review R1 修复轮完成（2026-09-21）〗BLOCK-01~04 全闭合 + I-01~06 全处置；门禁 24 项串行复跑全绿只增；体积 493,501 → 498,521 B（ceiling 523,447；档位 512,000 / 绝对上限 563,200 未变）；保护段与冻结产物逐字节未动 ⇒ 可进 review R2 复审。"
   }
  ],
  "leaf": false,
  "createdAt": "2026-09-21",
- "updatedAt": "2026-09-21T18:00:00.000Z",
+ "updatedAt": "2026-09-21T22:10:00.000Z",
  "description": "v4.5 = 从 v4（F-30）收口时已登记为 deferred 的结构性遗留转正，不是新增想法。立项来源（逐字）：① docs/f-fidelity-fix-2026-09-20.md §5.3「strips 单写化（退役可读投影、事件行为唯一面）—— 动保护门禁 pin 的容器，结构性，需单独立项」② 同文档 §5.4「宿主时间序化（decision / l1-panels / strips 并入时间序）—— 同上，结构性，需单独立项」③ 同文档 §5.1「FIX-5（空态 L1 噪音）—— deferred……按约定顺延」④ 同文档 §5.2「src/ui/options/index.html 的授权指引文案……若要改需先走一次显式解冻登记，属治理动作，本轮不做」⑤ specs-tree-web-cli-plugin-v4-chat/closeout.md §7 deferred 1（N-05 重锚按钮不在流内卡内，升级条件=真机反馈需要卡内按钮 ⇒ 小改进项）/ deferred 9（密度打开态类残余）/ deferred 2（KL-N-10 binding 环境性 flake）/ deferred 8（V3-VOL-3 绝对上限作者确认仍挂起）。题眼：v4 的 host-registry.ts:46-51 把 4 个宿主逐字登记为「permanent structural home now」、理由是「its content is pinned by protection gates」——即**由门禁反推出形态的永久性**；v4.5 要推翻这条推理链：先让实现服从 F 稿纯形，再让门禁描述新形态。核心问题四条：Q-REG-001 同一事实流内外双写（事实面不唯一，削弱法二）· Q-REG-002 流被 4 个固定位置宿主切段（ol#stream 的 DOM = [decision][卡…][composer][l1-panels][strips]，卡由 stream-render.ts:66-71 的 messageAnchor 插到 composer 之前；index.html:296-299 逐字记录 #l0-decision 曾实测跑到视口上方 −511px 且不可滚动到达）· Q-REG-003 过渡态被注册表固化为永久（收口义务 R4-18/ADR-V4-005 §6 在制度上被消解）· Q-REG-004 空态/默认首屏被 6 个 0 计数控件占据（且在 #stream 豁免子树内 = 预算看不见的噪音）。用户 = 作者本人（插件唯一真实用户与决策者，与 v3/v4 同一事实基础）。范围 = 核心 2 项（strips 单写化 / 宿主时间序化）+ 附带 2 项（FIX-5 消解口径 / options 解冻裁决）；非目标 6 项（content.js 与 pick-layer.js 字节冻结 / SW·KIND_SET·判定链·manifest / L2 视图内部 / A2A F-29 / design/** 与 shim 的 sha256 冻结契约 / 12 卡类型学与三区法则本身）。",
  "scope": {
   "in": [
@@ -611,7 +611,7 @@
    "triggeredBy": "sddu-tasks（产出父总览型 tasks.md/tasks.json（无可执行任务）+ 唯一叶 tasks.md/tasks.json：五波总表 W1~W5 / 19 任务 / S×2·M×6·L×11 / 2 spikeGate / 4 提交区间（D = W4+W5 原子）/ TASK-V45-101~119 索引 / 编排器覆盖面 ①~⑭ → 任务映射 / 跨切红线 N1~N18 → 守线任务映射 / 24 门禁守恒总表 + 3 新门禁 / 停机规则 6 条）"
   }
  ],
- "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：只读 plan/spec/discovery/台账/先例 + 只写本 Feature 目录内文件（父/叶 tasks.md + tasks.json + state.json + TREE.md）；未跑门禁 / 构建 / Chromium；未改 src/test/dist/docs/design/ROADMAP。下一步 = @sddu-build TASK-V45-101（唯一叶首任务）。",
+ "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：只读 plan/spec/discovery/台账/先例 + 只写本 Feature 目录内文件（父/叶 tasks.md + tasks.json + state.json + TREE.md）；未跑门禁 / 构建 / Chromium；未改 src/test/dist/docs/design/ROADMAP。下一步 = @sddu-build TASK-V45-101（唯一叶首任务）。\n\n〖review R1 修复轮完成（2026-09-21，sddu-build）〗唯一叶（specs-tree-v45-1-single-write-chronology）的 review R1 4 个阻塞项全闭合、6 个改进项全处置（详见叶 build.md §8）；门禁 24 项串行全绿且只增；体积五要素重登记 493,501 → 498,521 B（ceiling 523,447，档位 512,000 与绝对上限 563,200 未变）；parent spec 的 NFR-V45-001 锚点口径已按 I-04 区分「记录 vs 断言」。",
  "specCounts": {
   "goals": 6,
   "userStories": 6,

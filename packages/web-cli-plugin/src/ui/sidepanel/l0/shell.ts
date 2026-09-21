@@ -80,10 +80,13 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   const statusZone = mountStatusZone(doc);
 
   // V4.5-1 W3 (TASK-V45-108): the decision shell is GONE — `#l0-kicker` / `#l0-more` /
-  // `#l0-ref-toggle` / `#l0-ref-badge` / `#l0-receipt-summary` retired, and the option
-  // pool / consequence preview are rendered **inside the open ask/auth card**
-  // (`cards/decision-region.ts`). What survives here is the secondary full-text channel
-  // (ADR-V3-014 §5): revealing the fallback also reveals `#composer`.
+  // `#l0-ref-toggle` / `#l0-ref-badge` retired, and the option pool / consequence preview
+  // are rendered **inside the open ask/auth card** (`cards/decision-region.ts`). Note the
+  // shell's `#l0-receipt-summary` is a **迁移容器** (review R1 BLOCK-01) — the id moves
+  // with its content into the newest card's `.card-fixed` (`l1/panels.ts`), so it is NOT
+  // retired and must not be listed in `RETIRED_CONTAINER_IDS`.
+  // What survives here is the secondary full-text channel (ADR-V3-014 §5): revealing the
+  // fallback also reveals `#composer`.
   const revealFallback = (): void => {
     // I-03 (v4-3 review): go through the ask card's own mutual-disclosure function so
     // the「改用描述」entry point and the in-card「其他…」toggle produce the SAME DOM

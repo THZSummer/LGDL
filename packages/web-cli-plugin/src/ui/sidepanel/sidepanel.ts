@@ -41,7 +41,9 @@ import {
   RETIRED_HOST_ATTRS,
   RETIRED_HOST_IDS,
   STRIP_CHANNEL_KINDS,
+  STRIP_CHANNEL_LEGACY_IDS,
   evaluateHostRegistry,
+  evaluateStripChannels,
 } from './host-registry.js';
 import {
   CONSENT_DEFAULT_OPEN,
@@ -986,6 +988,11 @@ function installV3TestHooks(): void {
         // V4.5-1 W3: the two halves are read by their own selector — container ids by
         // `getElementById`, retired host VALUES by `[data-host]` (`composer` is a retired
         // host value while `#composer` itself is a preserved compatibility surface).
+        // V4.5-1 review R1 BLOCK-01: the **migrated** containers keep their ids (they are
+        // re-minted inside the newest card / the L2 read-only blocks) and are therefore
+        // deliberately absent from `RETIRED_CONTAINER_IDS` — e.g. `#l0-receipt-summary`,
+        // which `paintReceiptSummary()` re-creates in `.card-fixed` once a real receipt
+        // exists (a retirement-list entry would make this reading time-dependent).
         const retiredPresent = [
           ...RETIRED_CONTAINER_IDS.filter((id) => document.getElementById(id) !== null),
           ...RETIRED_HOST_ATTRS.filter((host) => document.querySelector(`[data-host="${host}"]`) !== null),
@@ -1006,6 +1013,34 @@ function installV3TestHooks(): void {
           })),
           problems: evaluateHostRegistry(reading),
         });
+      },
+      /**
+       * V4.5-1 review R1 BLOCK-03 — the **live single-write reading** the judgement needs
+       * (`host-registry.ts#evaluateStripChannels` ②). Before this, the carrier half was
+       * only ever fed a hard-coded `[]` (⇒ skipped), so a second projection was invisible.
+       */
+      stripChannelReading() {
+        return stripChannelReading();
+      },
+      /** The declared bindings, so the node gate can count the emitter sites it reads. */
+      stripChannelBindings() {
+        return STRIP_CHANNEL_KINDS.map((b) => ({
+          channel: b.channel,
+          kind: b.kind,
+          emitterSite: b.emitterSite,
+          carrierCount: b.carrierCount,
+        }));
+      },
+      /**
+       * The **full** single-write judgement over the live reading + the gate-supplied
+       * emitter counts (one implementation, shared with the node gate).
+       */
+      stripChannelProblems(emitterCounts: { channel: string; count: number }[]) {
+        return evaluateStripChannels({ emitterCounts, ...stripChannelReading() });
+      },
+      /** The live carrier-node **counts** per channel (the per-fact「恰 1」input). */
+      stripCarrierCounts() {
+        return Object.fromEntries(STRIP_CHANNEL_KINDS.map((b) => [b.channel, stripCarrierReading(b.channel, b.kind).rows]));
       },
       /** V4-4: project a reference through the REAL reducer action (new card each time). */
       refCard(refNum: number, refState: 'valid' | 'stale', opts?: { why?: string; systemText?: string }) {
@@ -1350,21 +1385,80 @@ const CHANNEL_STATE_CARRIERS: ReadonlySet<'env' | 'site' | 'firstRun' | 'probe' 
   'probe',
 ]);
 
-/** Record one channel observation; append only on a real change (never on load). */
+/**
+ * Record one channel observation; append only on a real change (never on load).
+ *
+ * V4.5-1 review R1 BLOCK-03 — the optional `suppressed` argument: when the fact family
+ * already has its **single visible carrier** (the `firstRun` case: `firstRunCard` /
+ * the onboarding recommendation card), the single-line system event row is **not
+ * queued** (「卡在 ⇒ 行不在」, the orchestrator's firstRun caliber). The observation is
+ * still remembered so a later card-less transition is not re-emitted as a duplicate.
+ */
 function observeChannel(
   kind: 'env' | 'site' | 'firstRun' | 'probe' | 'send',
   text: string,
   title?: string,
+  suppressed = false,
 ): void {
   const prev = channelMemory.get(kind);
   if (prev === text) return;
   const firstObservation = prev === undefined;
   channelMemory.set(kind, text);
   if (text.length === 0) return; // the fact is not visible ⇒ nothing to append
+  if (suppressed) return; // 已有唯一可见载体（卡）⇒ 事实不双见，行抑制
   // Change-only channels (firstRun / send) keep the v4-4 rule; the state carriers
   // (site / probe) also append their **first** observation — see CHANNEL_STATE_CARRIERS.
   if (firstObservation && !CHANNEL_STATE_CARRIERS.has(kind)) return;
   pendingChannelRows.push({ kind, text, ...(title !== undefined && title.length > 0 ? { title } : {}) });
+}
+/**
+ * V4.5-1 review R1 BLOCK-03 — the **live carrier-surface reading** behind
+ * `window.__v3.testing.stripChannelReading()`.
+ *
+ * A *surface* is a DOM region that displays the fact family's **current** state. It has
+ * two possible halves and the reading counts both, so a re-projection is visible:
+ *
+ *   · the **retired legacy node** (by id, `STRIP_CHANNEL_LEGACY_IDS`) — 0 after the真退役,
+ *     1 if some future change re-introduces it (the second carrier);
+ *   · the **in-stream carrier** — a system row / the first-run card. Cumulative event rows
+ *     are the SAME surface's history, so this half is a boolean (`> 0 ⇒ 1`).
+ *
+ * `firstRun` counts its **two** in-stream carriers separately (the onboarding card **and**
+ * a `data-kind="firstRun"` row), so「卡在 ⇒ 行在」is a double carrier and FAILs; the product
+ * suppresses the row while the card is the carrier (see `observeChannel`'s `suppressed`).
+ * `rows` is the RAW carrier-node count, used by the gates' per-fact「恰 1」assertions.
+ */
+function stripCarrierReading(channel: string, kind: string): { count: number; rows: number } {
+  const legacyId = STRIP_CHANNEL_LEGACY_IDS[channel];
+  const legacy = legacyId !== undefined && document.getElementById(legacyId) !== null ? 1 : 0;
+  if (channel === 'send-reason') {
+    // The preserved carrier itself (NOT a retired id): the status bar element is the one
+    // surface, and it always exists.
+    return { count: legacy, rows: legacy };
+  }
+  if (channel === 'firstRun') {
+    const card = document.querySelectorAll('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]').length;
+    const rows = document.querySelectorAll('#stream [data-msg-type="system"][data-kind="firstRun"]').length;
+    return { count: legacy + (card > 0 ? 1 : 0) + (rows > 0 ? 1 : 0), rows: card + rows };
+  }
+  const rows = document.querySelectorAll(`#stream [data-msg-type="system"][data-kind="${kind}"]`).length;
+  return { count: legacy + (rows > 0 ? 1 : 0), rows };
+}
+/** The live reading object `evaluateStripChannels` consumes (one implementation). */
+function stripChannelReading(): {
+  observedCarriers: readonly { channel: string; count: number; rows: number }[];
+  sendReasonInStatusbar: boolean;
+} {
+  const observedCarriers = STRIP_CHANNEL_KINDS.map((b) => ({
+    channel: b.channel,
+    ...stripCarrierReading(b.channel, b.kind),
+  }));
+  const reason = document.getElementById('send-reason');
+  const statusbar = document.getElementById('region-statusbar');
+  return Object.freeze({
+    observedCarriers: Object.freeze(observedCarriers),
+    sendReasonInStatusbar: Boolean(reason && statusbar && statusbar.contains(reason)),
+  });
 }
 
 /** Flush the channel rows collected during a render (one `dispatch` each). */
@@ -1722,7 +1816,14 @@ function eventizeChannels(): void {
       hasConversation: state.entries.length > 0,
     }),
   );
-  observeChannel('firstRun', firstRun.visible ? `${firstRun.title}｜${firstRun.lines.join('｜')}` : '');
+  // BLOCK-03 firstRun 口径（编排器裁决）：`firstRunCard`（onboarding 推荐卡）是唯一可见载体
+  // —— 卡在场时**抑制**单行系统事件行（事实不双见）。`firstRun.visible` 与卡在同一事件化点
+  // 派生（`maybeRecommendFirstRunEntry()` 紧随其后），故以「事实可见 ∨ 卡已在 DOM」为抑制条件：
+  // 该事实族**不会**出现「行 + 卡」双载体（门禁断言「卡在 ⇒ 行不在」）。
+  const firstRunCardPresent =
+    document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]') !== null;
+  // 一行调用以保住 `emitterSite` 的可定位性（唯一 emitter 机核按源文本片段计数）。
+  observeChannel('firstRun', firstRun.visible ? `${firstRun.title}｜${firstRun.lines.join('｜')}` : '', undefined, firstRun.visible || firstRunCardPresent);
   flushChannelRows();
   // I-09（v4-4 快修轮）：the first-run recommendation timing is produced at THIS
   // eventization point (the same place the `firstRun` channel row is derived), so the

@@ -258,20 +258,26 @@ async function main() {
     const afterCancel = await panel.snapshot();
     check('⑤ 未落点路径：引用数不变、无状态污染（零副作用）', (afterCancel?.l1?.counts ?? -1) === refsBeforeDrop, JSON.stringify(afterCancel?.l1));
     // 落点：把该载荷真的丢进侧栏的拖放区
-    await evaluate(
+    const dropProbe = await evaluate(
       pCdp,
       `(() => {
          const dt = new DataTransfer();
          dt.setData('application/x-wcli-ref', ${JSON.stringify(payload)});
          const zone = document.body;
          zone.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
-         // V4.5-1 W3：拖放落点从退役的 #l0-decision 壳改为**流内决策面**（#stream）。
+         // V4.5-1 review R1 BLOCK-02：拖放落点 = **真实落点面** ol#stream（drop 目标本体）。
+         // 写点与读点同一个载体 —— 断言「高亮出现」；drop 后断言「高亮消失」。
+         // （注：本段处于模板字面量内 ⇒ 注释中不得出现未转义的反引号，否则整段脚本语法错误）
          const zone2 = document.getElementById('stream');
          const active = zone2.getAttribute('data-drop-active');
          zone2.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
-         return active;
+         const cleared = zone2.getAttribute('data-drop-active');
+         return JSON.stringify({ active, cleared });
        })()`,
     );
+    const dp = JSON.parse(dropProbe);
+    check('⑤ 落点高亮：dragover 后 `#stream` 出现 `data-drop-active=true`（写点 = 真实落点面）', dp.active === 'true', dropProbe);
+    check('⑤ 落点高亮：drop 后 `#stream` 的 `data-drop-active` 被清除（高亮消失）', dp.cleared === null, dropProbe);
     await sleep(600);
     const afterDrop = await panel.snapshot();
     check('⑤ 落点路径：引用数 +1（落侧栏才生成引用）', (afterDrop?.l1?.counts ?? 0) === refsBeforeDrop + 1, JSON.stringify(afterDrop?.l1));

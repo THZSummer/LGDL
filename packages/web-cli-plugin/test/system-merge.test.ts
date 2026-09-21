@@ -273,3 +273,55 @@ test('V4-4 BLOCK-01（review 修复）：rule=risk-recovery 的推荐动作不�
   assert.equal(cards[0].payload.nextstepRule, 'risk-recovery', 'rule id 仍以机器可读字段保留（不持久化）');
   assert.equal(cards[0].payload.label, '下一步推荐', '持久化 label 是安全静态文案');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V4.5-1 review R1 **BLOCK-04** —— `title` 净化面（`plaintextTitle`）的反证
+ *
+ * `site.detail` → 流内行 `title` 是**页面事实可达**的渲染面；`stream-plaintext.ts#plaintextTitle`
+ * 是它的 fail-closed 净化（strip-then-scan）。R1 发现该新判据在 `test/**` **零引用** ⇒
+ * 不可 FAIL（违反 NFR-V45-007）。下面 4 条反证把它锁死：① 直接调用抛错；② **唯一写入点**
+ * 的产品路径（`reduce({type:'notice'})` → `systemRow` → `plaintextTitle`）抛错；③ 产品自撰
+ * 标记被剥离（锁 strip-then-scan 顺序）；④ `expectFailPattern` 字面入判据表且可产出。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 每条反证声明一个**可产出**的 `expectFailPattern` 字面（NFR-V45-007）。 */
+export const TITLE_PLAINTEXT_JUDGEMENTS = Object.freeze([
+  Object.freeze({ id: 'TP-1-direct-url-query', expectFailPattern: 'URL query' }),
+  Object.freeze({ id: 'TP-2-write-point-secret', expectFailPattern: '密钥 / 令牌' }),
+  Object.freeze({ id: 'TP-3-strip-then-scan-order', expectFailPattern: '正常文案' }),
+]);
+
+test('V4.5-1 BLOCK-04：`title` 净化面反证（注入 secret / URL query 必抛错 + 剥标记正例）', async () => {
+  const { plaintextTitle } = await import('../src/ui/sidepanel/stream-plaintext.js');
+  // ① 直接调用：URL query ⇒ 抛错（零明文边界，剥标记后再扫）。
+  assert.throws(
+    () => plaintextTitle('https://a.test/x?token=abc'),
+    /URL query/,
+    '① `?token=` 必须抛错（实现采用 strip-then-scan，反证兜底）',
+  );
+  // ② 经**唯一写入点**的产品路径 ⇒ 抛错（不是只测函数）：`notice` 的 `title` 走
+  //    `systemRow` → `plaintextTitle`，密钥形状必须在构造系统行时抛错。
+  const s = createInitialState();
+  assert.throws(
+    () => reduce(s, { type: 'notice', text: '已连接（回执）', title: '页面文本 sk-ABCDEFGHIJKL', at: 0 }),
+    /密钥 \/ 令牌/,
+    '② 经唯一写入点 dispatch 必须抛错（fail-closed 净化不可绕过）',
+  );
+  // 空 fixture 未被污染（抛错发生在 push 之前 ⇒ 没有半成品系统行）。
+  assert.deepEqual(systemRows(s), [], '② 抛错后不得留下半成品系统行');
+  // ③ 剥标记正例：`<link rel="web-cli">` 是产品自撰标记 ⇒ 剥离后返回纯文本（锁顺序）。
+  assert.equal(plaintextTitle('<link rel="web-cli">正常文案'), '正常文案', '③ 产品自撰标记必须被剥离（strip 先于 scan）');
+  // ④ 判据表自检：每条 pattern 非占位、且真的能被产出（此处由 ①~③ 的抛错/返回值覆盖）。
+  assert.ok(TITLE_PLAINTEXT_JUDGEMENTS.length >= 3, 'title 净化判据必须 ≥3 条（只增）');
+  for (const j of TITLE_PLAINTEXT_JUDGEMENTS) {
+    assert.ok(j.expectFailPattern.trim().length >= 4, `${j.id}: expectFailPattern 不得为空/占位`);
+  }
+  const produced = [
+    (() => { try { plaintextTitle('https://a.test/x?token=abc'); return ''; } catch (e) { return String(e); } })(),
+    (() => { try { reduce(createInitialState(), { type: 'notice', text: 't', title: 'sk-ABCDEFGHIJKL', at: 0 }); return ''; } catch (e) { return String(e); } })(),
+    plaintextTitle('<link rel="web-cli">正常文案'),
+  ].join('\n');
+  for (const j of TITLE_PLAINTEXT_JUDGEMENTS) {
+    assert.ok(produced.includes(j.expectFailPattern), `${j.id}: 声明的 expectFailPattern 无法被产出（空声明）`);
+  }
+});

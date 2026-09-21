@@ -691,6 +691,22 @@ async function stageB(cdp) {
           fp.firstRunCarrier === true,
           JSON.stringify(fp),
         );
+        // V4.5-1 review R1 BLOCK-03（firstRun 口径）：`firstRunCard` 是唯一可见载体 ——
+        // 「卡在 ⇒ 单行系统事件行不在」（事实不双见 ⇒ 载体面 ≤1）。本格的事实由**推荐位**承载
+        // （`fp.firstRunCarrier` 已断言它真的可见，非恒真），推荐位既可能是 onboarding 卡，
+        // 也可能是更高优先级的 site 恢复卡 ⇒ 判据写成**互斥式**（卡与行不得同时在场）而不是
+        // 「卡必须存在」（后者会把「事实由恢复卡承载」误判为红）。
+        const frCarrier = JSON.parse(
+          await evaluate(
+            cdp,
+            `(() => JSON.stringify({ card: document.querySelectorAll('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]').length, rows: document.querySelectorAll('#stream [data-msg-type="system"][data-kind="firstRun"]').length, face: window.__v3.testing.stripChannelReading().observedCarriers.find((c) => c.channel === 'firstRun')?.count ?? null }))()`,
+          ),
+        );
+        check(
+          `firstRun@${vp} firstRun 口径：live 载体面 ≤1 ∧ 事实不双见（onboarding 卡与 firstRun 行不得同时在场）`,
+          frCarrier.face !== null && frCarrier.face <= 1 && !(frCarrier.card >= 1 && frCarrier.rows >= 1),
+          JSON.stringify(frCarrier),
+        );
       }
     }
   }

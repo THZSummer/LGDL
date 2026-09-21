@@ -630,6 +630,228 @@ refactor(web-cli-plugin): v4.5 W4+W5——journey 二次取代/密度重算/体�
 
 ---
 
+## 8. review 修复轮（review R1：BLOCK-01~04 + I-01~06）
+
+> **轮次定位**：`@sddu-review` R1 判定 ❌ 不通过（4 阻塞 / 6 改进 / 3 观察，通过率 65.0%）。本轮为**修复轮**（同一叶 `specs-tree-v45-1-single-write-chronology`），**只增不改写历史**：所有前轮登记值逐字保留，新增值一律走「显式重登记 + 逐字登记」。日志目录 `/tmp/opencode/v4-gate-logs/v45-reviewfix/`（**全量落盘，禁 tail 截断**；严格串行、一次一个 Chromium）。
+
+### 8.1 处置总览
+
+| 编号 | 位置 | 处置 | 产物文件 |
+|---|---|---|---|
+| **BLOCK-01** | `host-registry.ts` · `sidepanel.ts` · `l1/panels.ts` · `l0.mjs` · `l1.mjs` · `host-registry.test.ts` · `density-thresholds.test.ts` | **采用编排器裁决「方案② 迁移容器」口径**：`#l0-receipt-summary` **移出** `RETIRED_CONTAINER_IDS`（14 → 13）+ 新增 `MIGRATED_CONTAINER_IDS`（5 项）+ 「真退役 vs 迁移容器」判别规则注释 + **时点无关判据两条**（无回执态零残留 / 有回执态恰 1 ∧ `hosts().problems === []`） | §8.2 |
+| **BLOCK-02** | `pick-input.ts` · `page-input.mjs` | 3 个拖放高亮写点从已退役 `#l0-decision` 迁到**真实落点面** `ol#stream`（写点 = drop 目标本体）；门禁 ⑤ 由「读后即弃」改为**真断言**（高亮出现 ∧ drop 后消失）；注释与实现一致 | §8.3 |
+| **BLOCK-03** | `sidepanel.ts` · `host-registry.ts` · `l0.mjs` · `density.mjs` · `density-thresholds.test.ts` | `observedCarriers` 接 **live 读数**（`window.__v3.testing.stripChannelReading()` / `stripCarrierCounts()` / `stripChannelProblems()`，由 `evaluateStripChannels` 消费）；4 通道「恰 1」双半断言（**载体面恰 1** + **raw 节点数恰 1**）；firstRun 口径裁决落地（卡在 ⇒ 行抑制）并实跑注入反证 | §8.4 |
+| **BLOCK-04** | `system-merge.test.ts` | `plaintextTitle` 反证 **4 条**（`?token=` 直接抛错 / 经唯一写入点 `dispatch` 抛错 + 零半成品行 / `<link rel="web-cli">` 剥标记正例 / `expectFailPattern` 字面入判据表且可产出） | §8.5 |
+| I-01 | `plan.md §5.1` | 追加 **§5.1.1 实现轮实况**（4 项计划内未触碰 + 7 项计划外触碰逐项「计划 → 实际落点」映射 + 修复轮追加的 `pick-input.ts`） | §8.6 |
+| I-02 | `plan.md` ADR-V45-002 §5 | 追加 **D-W3-1 注记**：新增三项为 `region-stream` / `settings-root` / `settings-help`；`l2-*` 只留在 `COLLAPSIBLE_TARGETS`（两表互斥）；长度仍 14 | §8.6 |
+| I-03 | `plan.md` ADR-V45-007 §1 | 追加 **D-W3-2 注记**：`probe` 谓词改写为「**可行动的未就绪**」（相位存在 ∧ `steady === false` ∧ 相位 ∉ {`ready`,`probing`}）+ 与 FR-V45-025 的取舍说明 | §8.6 |
+| I-04 | 父 `spec.md` NFR-V45-001 | 锚点口径区分「**记录**（`streamRatioSpike`，只在台账）vs **断言**（`journey #15b` ≥65%）」 | §8.6 |
+| I-05 | `test/ui/l0.mjs` ⑧ | 新增 **2 条显式等价性对账**：① 门禁退役容器清单 ≡ 产品常量 `RETIRED_CONTAINER_IDS`（逐项相等，防两清单漂移）；② 正面契约收窄 4 ≤ 负向/正面补偿（6 + 13 + 2），断言面 29 ≥ 12（只增不减） | §8.6 |
+| I-06 | `host-registry.ts` | 补「**真退役 vs 迁移容器**」判别规则注释 + 按规则**逐项复核 13 项**（结果见 §8.6） | §8.6 |
+
+### 8.2 BLOCK-01：迁移容器口径（编排器裁决 = **方案②**）
+
+**修法**（`l0-receipt-summary` 是**迁移容器**，与 `#l1-ref` / `#l1-more` / `#l1-gestures` 同口径）：
+
+1. `RETIRED_CONTAINER_IDS` **移出** `l0-receipt-summary`（14 → **13**；`RETIRED_HOST_IDS` 并集 18 → **17**，`RETIRED_HOST_DISPOSITIONS` 同步 17）；`TEST_RETIRED_CONTAINER_IDS`（`host-registry.test.ts` 的独立副本）与 `l0.mjs` / `l1.mjs` 的门禁清单同步。
+2. 新增 **`MIGRATED_CONTAINER_IDS`**（5 项：`l0-receipt-summary` / `l1-more` / `l1-consequences` / `l1-ref` / `l1-gestures`）+ **判别规则注释**（真退役 = 角色随宿主消失且**无产品写点**；迁移容器 = **内容 id 随载体搬迁**、保留 id、**不得入退役清单**）。
+3. **时点无关判据两条**（消除「判据只在夹具无回执时点成立」的时点依赖）：
+   - ①**无回执态**（`l0.mjs` ⑧）：`#l0-receipt-summary` 零残留 ∧ `hosts().problems === []`；
+   - ②**有回执态**（`l1.mjs` ⑩，走真实 ask→作答→重拉路径后）：`summaryCount === 1` ∧ `hosts().problems === []`。
+4. 注释同步：`l0/shell.ts`（壳的 `#l0-receipt-summary` 是迁移容器）· `l1/panels.ts#paintReceiptSummary`（单一写入者，id 不重复）· `sidepanel.ts#installV3TestHooks`（live 读数为何不列该 id）。
+
+**证伪原文**（3 段，全部实跑）：
+
+- **反证 ①（把 id 加回退役清单 → node 门禁必红）**（`/tmp/opencode/v4-gate-logs/v45-reviewfix/F5a-block01-id-back-node.log`）：
+  ```
+  ℹ pass 1043 / ℹ fail 2
+  ✖ index.html: 零宿主反向判据与退役真相册（任意宿主 / 复活退役容器必须 FAIL）
+    AssertionError: 退役容器清单必须是 13 项（`l0-receipt-summary` 是迁移容器，见 review R1 BLOCK-01）
+  ✖ V45 W3 终态：零宿主反向判据（注册表清空 + RETIRED 扩容 + 6 类问题串逐类可 FAIL）
+    AssertionError: 产品常量必须与 ADR-V45-010 §2 的 13 项逐字一致
+  ```
+- **反证 ②（同注入 + 重建 dist → 产品态假阳性被**真实复现**）**（`F5b-block01-l1.log`）：
+  ```
+  ✖ ⑩ BLOCK-01 有回执态：迁移容器 `#l0-receipt-summary` 恰 1 个 ∧ `hosts().problems === []`（时点无关判据之②）
+    …"summaryCount":1,"hostProblems":["零宿主判据：已退役容器 #l0-receipt-summary 仍在 DOM —— 结构性清零判据被绕过（删属性不改 DOM 不算退役）"]…
+  ▶ L1 运行时门禁: 115 passed / 1 failed
+  ```
+  ⇒ 判据修正前，产品在「收到第一条真实回执后」**必然**报假阳性；修正后 116 passed / 0 failed（§8.7）。还原后 `git diff` 逐字节复原、`test:l1` 复绿。
+- **反证 ③（迁移容器入退役并集的机械防线）**：`host-registry.test.ts` 断言「两清单互斥 ∧ `l0-receipt-summary` 必在迁移清单 ∧ 每个迁移 id 不在退役并集 ∧ 迁移清单 ≥5 项」，注入即红（见反证 ① 的第 2 条 FAIL）。
+
+### 8.3 BLOCK-02：死写点迁移 + 空判据转真断言
+
+**修法**：`pick-input.ts` 的 3 个写点（`dragover` 高亮 / `dragleave` 清除 / `drop` 清除）由 `doc.getElementById('l0-decision')`（已退役 ⇒ `?.` 静默 no-op）改为 `dropSurface()` = `doc.getElementById('stream')`（**真实落点面**）；`page-input.mjs` ⑤ 把丢弃的 `active` 读数改为 2 条真断言（`dragover` 后 `data-drop-active === 'true'`；`drop` 后为 `null`）；注释订正为与实现一致。
+
+**证伪原文（两段）**：
+
+- **段 ①「写点断开 ⇒ 新断言必红」**（`F1-block02-write-disconnect.log`；把写点回退到 `#l0-decision` 并重建）：
+  ```
+  ✖ ⑤ 落点高亮：dragover 后 `#stream` 出现 `data-drop-active=true`（写点 = 真实落点面） — {"active":null,"cleared":null}
+  ✔ ⑤ 落点高亮：drop 后 `#stream` 的 `data-drop-active` 被清除（高亮消失）
+  ▶ v3-4 页面即输入门禁: 107 passed / 1 failed
+  ```
+- **段 ②「读点退回读后即弃 ⇒ 同一断开态仍然全绿（证明旧判据空心）」**（`F2-block02-hollow-assertion.log`；保持断开态、把门禁 ⑤ 退回旧形态）：
+  ```
+    ℹ ⑤ 拖放高亮读数（读后即弃，无非断言）: {"active":null,"cleared":null}
+  ▶ v3-4 页面即输入门禁: 106 passed / 0 failed
+  ```
+  ⇒ 修前：**产品从未写 `#stream`**（读数恒 `null`）而门禁全绿（空心）；修后：断开写点即红、还原即绿（108 passed / 0 failed）。
+
+### 8.4 BLOCK-03：live 载体读数 + firstRun 口径裁决
+
+**修法**：
+
+1. **面板侧 live 供给点**（`sidepanel.ts`）：`stripCarrierReading()`（per 通道：退役遗留面 + 流内载体面）/ `stripChannelReading()`（`observedCarriers` + `sendReasonInStatusbar`）/ `stripCarrierCounts()`（raw 节点数）/ `stripChannelProblems(emitterCounts)`（**同一个** `evaluateStripChannels` 实现，与 node 门禁共用，无第二套口径）；`__v3.testing` 暴露 `stripChannelReading` / `stripChannelBindings` / `stripChannelProblems` / `stripCarrierCounts`。
+2. **判据收紧**（`host-registry.ts#evaluateStripChannels`）：载体半边由「缺失即跳过」改为「**缺失即红**（判据不得空转）∧ 载体面 > 上限即红（禁止双写）」；新增 `STRIP_CHANNEL_LEGACY_IDS`（6 通道 ↔ 6 历史面，一一对应）。
+3. **firstRun 口径裁决**（编排器）落地：`firstRunCard` 是**唯一可见载体** —— 卡在场时**抑制**单行系统事件行（`observeChannel(..., suppressed)`；事实不双见）；`stripCarrierReading('firstRun')` 把「卡」与「`data-kind="firstRun"` 行」计为**两个面** ⇒ 双见必红；同 kind 的**历史行**归一为同一面（`rows > 0 ⇒ 1`），raw 行数另由门禁断言。
+4. **门禁断言**：`l0.mjs` 新增 BLOCK-03 段（env/site/probe/notice 各**恰 1**：载体面 + raw 节点数；live 判据 0 问题；firstRun「卡在 ⇒ 行不在」；**三段注入反证**：firstRun 卡+行双载体 / 复活 `#env-guard` 遗留面 / 同 kind 第二行）；`density.mjs` stageB 首装档新增「live 载体面 ≤1 ∧ 事实不双见」；`density-thresholds.test.ts` 新增 ⑤b/⑤c/⑤d（逐通道第二载体面必红 / 缺失读数必红 / firstRun 抑制谓词与 legacy 面表**源文本**机核）。
+
+**证伪原文（三段）**：
+
+- **段 ①「载体半边回退成修复前形态 ⇒ node 判据必红」**（`F3-block03-carrier-revert.log`）：
+  ```
+  ✖ index.html: 零宿主反向判据与退役真相册（任意宿主 / 复活退役容器必须 FAIL）
+    AssertionError: 通道 env 伪造第二载体面必须被判红（事实面唯一）
+  ℹ pass 1044 / ℹ fail 1
+  ```
+- **段 ②「只回退『缺失即跳过』⇒ 判据空转被 ⑤c 抓住」**（`F3b-block03-skip-revert.log`）：
+  ```
+    AssertionError: 通道 env 缺失 live 读数必须被判红（判据不得空转）
+  ℹ pass 1044 / ℹ fail 1
+  ```
+- **段 ③「firstRun 行半边不计入载体面 ⇒ 卡+行双载体反证必红」**（`F4p-block03-firstrun-half.log`，重建 dist 实跑）：
+  ```
+  ✖ BLOCK-03 firstRun 反证：卡 + 行双载体 ⇒ live 判据判红（载体面 = 2） — []
+  ▶ L0 运行时门禁: 243 passed / 1 failed
+  ```
+- **正向实跑（注入 ⇒ 红 ⇒ 还原 ⇒ 绿，在门禁内常态执行）**（`fix-test-l0.log`）：
+  ```
+  ✔ BLOCK-03 反证 A：复活 `#env-guard` 第二载体面 ⇒ live 判据判红（载体面 = 2）
+  ✔ BLOCK-03 反证 A 还原：移除第二载体面 ⇒ live 判据回到 0 问题（逐字节还原口径）
+  ✔ BLOCK-03 反证 B：同 kind 第二行经产品写路径真的落地 ⇒ raw 行计数 = 2（「恰 1」断言必红）
+  ✔ BLOCK-03 反证 B 归一化口径：同 kind 的**历史行**不升级为第二载体面（判据不被历史行假红）
+  ✔ BLOCK-03 firstRun：卡在 ⇒ 单行系统事件行不在（事实不双见；事件化路径不追加行）
+  ✔ BLOCK-03 firstRun 反证：卡 + 行双载体 ⇒ live 判据判红（载体面 = 2）
+  ▶ L0 运行时门禁: 244 passed / 0 failed
+  ```
+
+### 8.5 BLOCK-04：`title` 净化面反证（只增）
+
+`test/system-merge.test.ts` 追加 1 个用例 + 判据表 `TITLE_PLAINTEXT_JUDGEMENTS`（3 条，每条声明可产出的 `expectFailPattern`）：
+
+| # | 反证 | 断言 |
+|---|---|---|
+| ① | `plaintextTitle('https://a.test/x?token=abc')` | 抛错（`/URL query/`） |
+| ② | `reduce(state, { type:'notice', title:'页面文本 sk-ABCDEFGHIJKL' })`（**唯一写入点**） | 抛错（`/密钥 \/ 令牌/`）∧ 抛错后 `systemRows(state) === []`（无半成品行） |
+| ③ | `plaintextTitle('<link rel="web-cli">正常文案')` | 返回 `'正常文案'`（锁 **strip-then-scan** 顺序） |
+| ④ | 判据表自检 | ≥3 条 ∧ 每条 pattern 可被 ①②③ 真实产出（防空声明） |
+
+### 8.6 I-01~I-06 处置与逐项复核结果
+
+- **I-01** → `plan.md` 新增 §5.1.1（含实测来源 `a04e677..HEAD` 的文件清单）：4 项计划内未触碰（`l1/receipt.ts` / `l1/local-tree.ts` / `l2/audit.ts` / `l2/view-host.ts`，等价达成：L2 承载块由 `index.html` **静态声明** + `l1/panels.ts` **单写入者**绘制）；7 项计划外触碰（`cards/decision-region.ts`（NEW）/ `stream-plaintext.ts` / `cards/system.ts` / `chat-state.ts` / `stream-model.ts` / `density-scope.ts` / `l0/shell.ts`）逐项给出理由；修复轮追加 `pick-input.ts` 同表登记。
+- **I-02** → ADR-V45-002 §5 追加 D-W3-1 注记（原字面逐字保留 + 标注不可实现原因：两表互斥判据；实现口径 = 新增 `region-stream` / `settings-root` / `settings-help`，`l2-*` 留白名单，长度仍 14）。
+- **I-03** → ADR-V45-007 §1 `probe` 谓词改写为「可行动的未就绪」+ D-W3-2 注记（原字面保留；收窄理由 = 避免未探测首屏永久退化；需求面无偏差；数据源零扩项）。
+- **I-04** → 父 `spec.md` NFR-V45-001 验收锚点区分「记录 vs 断言」（`streamRatioSpike` 仅存在于 `docs/v4-density-baseline.json`，`test/ui/density.mjs` 无引用；live 断言 = `journey #15b` + `#15p/#15r/#15s/#15t`）。
+- **I-05** → `l0.mjs` ⑧ 新增 2 条**显式等价性对账**（见 §8.1 表）+ 收窄/补偿的可读结论行（`8 + 6 + 13 + 2 = 29 ≥ 12`；另由计数断言 `≥164 / ≥73` 兜底）。
+- **I-06** → `host-registry.ts` 判别规则注释 + **按规则逐项复核 13 项**：
+
+| 复核结论 | 项数 | 明细 |
+|---|:--:|---|
+| **真退役（角色消失且无产品写点）** | **13** | `l0-decision` · `l0-pick` · `l0-status-band` · `l0-kicker` · `l0-more` · `l0-ref-toggle` · `l1-group` · `l1-history-toggle` · `l1-history` · `l1-history-rows` · `l1-local-tree-toggle` · `l1-receipt-toggle` · `l1-gestures-toggle` |
+| **移出（迁移容器，误收）** | **1** | `l0-receipt-summary`（内容 id 随载体搬入最新卡 `.card-fixed`，由 `l1/panels.ts#paintReceiptSummary` 单一写入者铸造） |
+| **复核方式** | — | 全仓 `grep` 写点（每个 id 在 `src/**` 的 `getElementById`/`querySelector` 写点计数）+ 产品态 `getElementById(...) === null`（x 态夹具）+ 门禁逐项负向；`l0-receipt-summary` 是唯一「有写点且在回执态存在」的项 ⇒ 按规则移出 |
+
+### 8.7 门禁复跑（24 项严格串行 · 一次一个 Chromium · 全量日志 `/tmp/opencode/v4-gate-logs/v45-reviewfix/`）
+
+| 门禁 | 基线（R1 复跑） | 本轮实测 | Δ | 判定 |
+|---|:--:|:--:|:--:|:--:|
+| `typecheck` | rc=0 | rc=0 | — | ✅ |
+| `build` | rc=0 | rc=0 | — | ✅ |
+| `npm test` | 1044 | **1045** | +1 | ✅ 只增（BLOCK-04 用例） |
+| `test:supersession` | 35 | 35 | 0 | ✅ |
+| `test:gate-integrity` | 13 | 13 | 0 | ✅ |
+| `test:zero-injection` | 27 | 27 | 0 | ✅ |
+| `test:design-contract` | 6 | 6 | 0 | ✅ |
+| `test:page-input` | 106 | **108** | +2 | ✅（⑤ 真断言 2 条） |
+| `test:l0` | 227 | **244** | +17 | ✅（BLOCK-03 段 + I-05 对账 + raw 计数） |
+| `test:l1` | 115 | **116** | +1 | ✅（⑩ 时点无关判据②） |
+| `test:l2` | 74 | 74 | 0 | ✅ |
+| `test:density` | 229 | **232** | +3 | ✅（首轮 229/3 红 = 断言口径过窄，见 §8.10-③；改为互斥式后 232/0 绿） |
+| `test:ui`（journey） | 171 | 171 | 0 | ✅ 保护段 pin 未动 |
+| `test:insight` | 116 | 116 | 0 | ✅ |
+| `test:binding` | 192 | 192 | 0 | ✅ **首轮即绿**（KL-N-10 未复现） |
+| `test:hardening` | 24 | 24 | 0 | ✅ |
+| `test:e2e` | PASS | PASS | — | ✅ |
+| `test:stream` | 63 | 63 | 0 | ✅ |
+| `test:ask-auth` | 61 | 61 | 0 | ✅ |
+| `test:recommendation` | 59 | 59 | 0 | ✅ |
+| `test:ref-pick-wiring` | 11 | 11 | 0 | ✅ |
+| `test:size-ruling-vol3` | 12 | 12 | 0 | ✅ |
+| `test:l1-reverse` | 9 | 9 | 0 | ✅ |
+| `test:l2-reverse` | 74 | 74 | 0 | ✅ |
+
+**结论**：24/24 全绿（density 首红项已订正口径后复跑绿）；**无任何断言被删除或放宽**（差额全部为 +）。
+
+### 8.8 体积五要素重登记（修复轮）
+
+| 要素 | 值 |
+|---|---|
+| **前值** | `493,501 B`（W4+W5 终轮） |
+| **后值** | **`498,521 B`**（+5,020 B，+1.02%）— 真实 `dist/build-meta.json` 实测 |
+| **日期 / 来源** | `2026-09-21` / `packages/web-cli-plugin/dist/sidepanel.js` |
+| **理由** | ① BLOCK-01 迁移容器口径（`host-registry.ts` 7,128 → 9,273 = +2,145）；② BLOCK-02 写点迁移（`pick-input.ts`，并入产物）；③ BLOCK-03 live 读数 + 测试钩子 + firstRun 抑制（`sidepanel.ts` 81,029 → 83,904 = +2,875）；④ BLOCK-04 / I-01~06 为零产物字节项。Σ 模块 **+5,020 + glue 0 == 登记增量** |
+| **历史保留** | `SIDEPANEL_BASELINE_BYTES_TIMELINE` 末项追加 498,521；`SIDEPANEL_RE_REGISTRATIONS['v45-1-reviewfix']` 追加（前值/后值/ceiling 前后值/历史值 `[493,501, 480,896, 480,026, 479,021, 478,897, 478,163]`） |
+| **ceiling** | `floor(498,521 × 1.05) = ` **`523,447 B`**（公式抬高；容差 5% 未动；cap 保持 `record-only`） |
+| **三值同源** | 档位 `ceilTo50KB(498,521) = ` **`512,000`（未下移）**；绝对上限 **`563,200`（未变）**；判定 = `min(563,200, 523,447) = 523,447`；`docs/v4-supersession-ledger.json#v3Vol3Closeout.⑤.newBaselineBytes` **同源前移 493,501 → 498,521**（由 `test/size-ruling-vol3.test.ts` 机器强制）；`authorConfirmation.status` 保持 `pending-author-line` |
+| **红线** | `dist/content.js` **177,076 B / sha `52a82620…`** 与 `dist/pick-layer.js` **33,900 B / sha `5f567d7e…`** 逐字节不变 |
+
+### 8.9 台账登记（`docs/v4-supersession-ledger.json`）
+
+- **活指针同源前移 39 条 `entries[].newTitle`**（`493_501` → `498_521` × 27；`assert.equal(SIDEPANEL_BASELINE_BYTES, 493501)` → `498521` × 11；`  assert.equal(groups.length, 14)` → `15` × 1）+ `V45W3-E-10` 的 `assert.equal(SIDEPANEL_CEILING, 518176,` → `523447,`（附「活指针」注记）。**历史一律不删**：旧值保留在各条 `reason` / `oldTitle` / `SIDEPANEL_RE_REGISTRATIONS`。
+- **叶段删除行逐字登记**：`test/size-baseline.ts` 的 `deltaBytes` doc-comment 按实测口径订正（`479,021 / 183,796` → `498,521 / 203,296`）⇒ `leafBases[4].registeredUncoveredLines` 追加 **1 组 / 1 行**，`summary` 同源机核（`registeredLines` **584** / `filesWithUnregisteredLeafDeletions` **25** / `note` 追加）。`page-input.mjs` 的 ⑤ 改写删除行（2 条）由 R1 修复轮登记（`count` 14 → **16**）。
+- **`newTitle` 可定位性**：186 条 entries **全部可定位**（`test:supersession` 的「橡皮图章」判据绿）。
+
+### 8.10 修复轮额外发现与处置（3 项 + 1 项口径澄清）
+
+> 均在本轮**首次真实执行**相应门禁时暴露（前轮只跑过 node 面，未跑 Chromium 面）。
+
+| # | 发现 | 为什么前轮没暴露 | 处置 |
+|---|---|---|---|
+| ① | **两个门禁脚本语法错误**：`test/ui/l1.mjs` 与 `test/ui/page-input.mjs` 在 `evaluate(cdp, \`…\`)` **模板字面量内部**的注释里写了未转义反引号（`` `ol#stream` `` / `` `hosts().problems` ``）⇒ 模板提前闭合 ⇒ `SyntaxError: missing ) after argument list`（`node --check` 即红） | 前轮只跑 node 门禁（`npm test`），Chromium 门禁脚本的**语法**不在 node 面被编译/检查 | 去除模板内反引号 + 注释说明纪律；`node --check` 对全部 `test/ui/*.mjs` 逐文件复跑（**0 BROKEN**） |
+| ② | **门禁注入手法失效**：`insertAdjacentHTML('<div id="env-guard">…')` / `('<li data-kind="notice">…')` 在面板页**静默落空**（面板页启用 Trusted Types，HTML 字符串插入被拒）⇒ 反证恒绿（`problems === []` / `rows === 1`） | 同上：反证从未实跑 | 改用 `createElement` + `appendChild`（与本仓既有注入点同口径，见 `l1.mjs:262-271`）；注入返回值纳入断言（`guard=…` / `injected=…`）⇒ 注入失效即红 |
+| ③ | **density stageB 的 firstRun 断言口径过窄**：要求「onboarding 卡必须存在」，而首装档的事实可能由**更高优先级的 site 恢复卡**承载 ⇒ `{"card":0,"rows":0}` 假红（首轮 229/3） | 该断言是 R1 修复轮新增，首轮实跑即暴露 | 改为**互斥式**（卡与行不得同时在场）+ 消费 live `face` 读数（`face ≤ 1`）⇒ 232 passed / 0 failed |
+| ④ | **口径澄清（非缺陷，登记）**：`appendSystem` 有 **5 s 同文本去重** ⇒ 反证若复用同文本行，第二次不会落地，反证会**假绿**。故门禁内所有反证行文本**独立**（`反证 A：…` / `反证 B：…`），并在注释中写明该纪律 | — | 已在 `l0.mjs` BLOCK-03 段注释登记 |
+
+**还原纪律**：三处 `src` 注入（`host-registry.ts` × 2 / `sidepanel.ts` / `pick-input.ts`）与一处门禁注入全部**逐字节还原**（`sha256sum -c` / `git diff` 复核），还原后重建产物 = **498,521 B**（与登记值同源）。
+
+### 8.11 保护段与红线核验（独立复算）
+
+| 项 | 登记值 | 独立复算 | 判定 |
+|---|---|---|---|
+| journey 保护段 | `test/ui/journey.mjs` `43054..58287` / sha `cc79f413…` / 239 行 | 逐字节复算 == `cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7` | ✅ **未动**（本轮零字节触碰 `journey.mjs`） |
+| binding 保护段 | `test/ui/binding.mjs` `107780..115930` / sha `be9ad0e9…` / 183 行（`decision = keep`） | 逐字节复算 == `be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936` | ✅ **未动** |
+| journey 链 | `supersessionChain` 3 链节（`6b45c3fa…` / `e2b500df…` / `cc79f413…`） | `test:supersession` 链式判据绿（35/0） | ✅ |
+| `dist/content.js` | 177,076 B / `52a82620…` | `stat` + `sha256sum` 一致 | ✅ |
+| `dist/pick-layer.js` | 33,900 B / `5f567d7e…` | `stat` + `sha256sum` 一致 | ✅ |
+| 设计契约冻结 | `option-f-chat-stream.html` `49ce27fc…` / `option-f-shim.mjs` `8ca5db6f…` | sha 一致 + `test:design-contract` 6/6 | ✅ |
+| v3 零改动面 | `manifest.json` / `src/content/**` / `src/security/**` / `options/index.html`（v4.5 已显式解冻）/ `sidepanel-view.test.ts` / `perf-budget.test.ts` | `git status --porcelain` 对这些路径**零输出** | ✅ |
+| 阈值 / 豁免 | 7/15 · 9/20 · 17/35；`#stream` 豁免单源 | `test:density` F 段「28 格实测 == 基线登记」绿；阈值零 diff | ✅ |
+
+### 8.12 提交（修复轮）
+
+```
+fix(web-cli-plugin): v4.5 review 修复——BLOCK-01~04（迁移容器口径/死写点迁移/载体数 live 判据/title 反证）+ I-01~06
+```
+
+`git add` **逐路径**（禁 `-A` / `.`）：`packages/web-cli-plugin/src/ui/sidepanel/{host-registry.ts,sidepanel.ts,pick-input.ts,l0/shell.ts,l1/panels.ts}`、
+`packages/web-cli-plugin/test/{host-registry.test.ts,density-thresholds.test.ts,size-baseline.ts,size-budget.test.ts,size-growth-evidence.test.ts,size-ruling-vol3.test.ts,system-merge.test.ts}`、
+`packages/web-cli-plugin/test/ui/{l0.mjs,l1.mjs,density.mjs,page-input.mjs}`、
+`packages/web-cli-plugin/docs/{v4-density-baseline.json,v4-supersession-ledger.json}` +
+本叶/父 SDDU 产物（`build.md` / `plan.md` / `spec.md` / `state.json` / `TREE.md`）。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -637,3 +859,4 @@ refactor(web-cli-plugin): v4.5 W4+W5——journey 二次取代/密度重算/体�
 | v1.0 | 初始创建（R1 = W1 + W2；含双 spikeGate 结论原文与量化证据） | 2026-09-21 | SDDU Build Agent |
 | v1.1 | 追加 R2 = W3（TASK-V45-107~112）：逐任务处置 / 卡内化与四去向映射 / 门禁等价重锚对账 / 体积中间轮五要素 / 台账登记 / 保护段状态 / 偏差与 flake 登记 | 2026-09-21 | SDDU Build Agent |
 | v1.2 | 追加 R3 = W4+W5（TASK-V45-113~119，**单一原子区间 D**）：journey 第二次八步显式取代（新 pin `cc79f413…` + 3 链节）/ binding 保段双绿 + 两处段外改写逐行登记 / 11 处门禁等价重锚 + 反证注入点重写（RP-V3-02 与 RP-V4-02/03 的**恒绿**修复 + 新增 RP-V4-10）/ density 三重构造判据 + 31 格 `v45Ledger`（**红 → 229 passed**）/ options 解冻 9 字段 + 范围门禁 / 体积终轮 `unchanged`（Δ=0）+ `direction` 双向机核 + 三值同源订正 + 档位闸门 / 24 门禁串行实测 + 红线逐字节核验表 + 人工面清单（全部 `⏳ 未执行`）+ 4 项治理动作 + D-W3 裁决记录 | 2026-09-21 | SDDU Build Agent |
+| v1.3 | 追加 §8 **review 修复轮（R1：BLOCK-01~04 + I-01~06）**：BLOCK-01 迁移容器口径（14 → 13 + `MIGRATED_CONTAINER_IDS` + 时点无关判据 ②；假阳性实跑复现与闭合）/ BLOCK-02 死写点迁移（`#l0-decision` → `#stream`）+ 门禁 ⑤ 真断言（两段证伪）/ BLOCK-03 live 载体读数接入 + firstRun 口径裁决 + 三段注入反证（另修正 3 项额外缺陷：门禁模板字面量反引号语法错误 / `insertAdjacentHTML` 注入失效 / density firstRun 断言口径过窄）/ BLOCK-04 `title` 反证 4 条 / I-01~06 回写（plan §5.1.1·ADR D-W3-1·D-W3-2·父 spec NFR-V45-001·l0 对账·13 项复核）/ 体积五要素 493,501 → 498,521（ceiling 523,447，档位 512,000 与绝对上限 563,200 未变）/ 台账 39 条活指针同源前移 + 1 组删除行登记 / 24 门禁串行复跑全绿（1045·244·232·171·35·12·59·108·116…只增） | 2026-09-21 | SDDU Build Agent |

@@ -256,6 +256,34 @@ W5 收尾（体积五要素 + V3-VOL-3 三值同源 + 红线逐字节 + 全门�
 
 > 注：`system-events.ts` / `density-scope.ts` / `cards/index.ts` **预期零改动**（常量面只读）；若 build 发现必须新增 `title` 净化函数（NFR-V45-003），则 `system-events.ts` 计入 MODIFY（**登记为超预期触碰**）。
 
+#### 5.1.1 实现轮实况（review R1 I-01 回写，2026-09-21）
+
+> 口径：**计划 → 实际落点**逐项映射（实测来源 = `a04e677..HEAD` 的 `git diff --name-only` + review R1 修复轮工作树；LNG-V45-004「取代 / 登记与实现同轮」）。**结论：实现形态达成 ADR 语义，但有 4 项计划内 MODIFY 未触碰 + 7 项计划外文件被触碰**——两者都如实登记，不改写计划历史。
+
+**① 计划内但未触碰的 4 项 `src` MODIFY（L2 承载块改由静态声明 + 单写入者绘制）**
+
+| 计划文件 | 计划职责 | 实际落点 | 判定 |
+|---|---|---|---|
+| `l1/receipt.ts` | 回执证据行渲染迁 L2 审计视图承载块 | 承载块容器改由 `index.html` **静态声明**（`#l2-audit-evidence`），内容仍由 `l1/panels.ts` 的**单写入者**绘制 ⇒ 本文件零改动 | 等价达成（DC-V45-011） |
+| `l1/local-tree.ts` | 局部树归因渲染迁 L2 树视图承载块 | 同上（`#l2-tree-attribution` 静态声明 + 单写入者） | 等价达成（DC-V45-011） |
+| `l2/audit.ts` | 新增 `#l2-audit-evidence` + 标题区 `#l2-audit-count` | 两个 id 与标题区计数由 `index.html` 静态声明 + `l2/counts.ts` 单源派生；`#l2-audit-count` 的唯一声明点由门禁机核 | 等价达成（DC-V45-002） |
+| `l2/view-host.ts` | 视图挂载表登记新承载块 | 挂载表**无需扩项**（承载块是视图内的静态只读块，不是新视图） | 等价达成（零机制新增） |
+
+**② 计划外被触碰的 7 项 `src` 文件（逐项给出「计划 → 实际落点」）**
+
+| 计划外文件 | 触碰性质 | 为什么必须碰（实测理由） |
+|---|---|---|
+| `cards/decision-region.ts`（**NEW**） | 新增模块 | ADR-V45-002 §3「决策区卡内化」的实现载体：选项池 / 后果预演 / 三段模板只有在**卡内**渲染才成立；plan §5.1 未单列该文件（计划把职责挂在 `cards/askuser.ts` / `cards/auth.ts` 上），实际拆出独立模块以保持「唯一活跃卡铸造」边界可读 |
+| `stream-plaintext.ts` | 新增 `plaintextTitle()` | NFR-V45-003 / R-REG-901：`title` 长文案的 fail-closed 净化（strip-then-scan）——plan §5.1 已在注里预告「若 build 发现必须新增 `title` 净化函数则计入 MODIFY」，本条即该预告的落点（**非静默扩张**） |
+| `cards/system.ts` | 渲染 `data-kind` / 行 `title` | 单写化的**渲染面**：事实只以流内系统事件行承载（ADR-V45-001），行必须带机器可读 `data-kind` 以便载体读数按 kind 计数（BLOCK-03 的 live 判据消费该属性） |
+| `chat-state.ts` | `systemRow` 落 `systemKind` + 净化后的 `systemTitle` | 同上：`data-kind` / `title` 的数据源（唯一通道 `appendSystem(kind, text)` 的既有位置） |
+| `stream-model.ts` | 类型面扩展（kind / title 字段） | 上两项的类型契约；零新增渲染面 |
+| `density-scope.ts` | 常量面复核（实测触碰，语义未变） | 退役 4 宿主后豁免子树 / 三区常量 / 防滥用常量的**引用面**复核；阈值 7/15·9/20·17/35 与豁免口径逐字未动（`#stream` 单源不变） |
+| `l0/shell.ts` | 决策壳退役后的挂载路径收敛 | ADR-V45-002 §4：`#l0-decision` 壳退役后 `mountL0` 不再挂载壳节点；`revealFallback()` 走卡内同一转换函数（I-03 既有语义不变）。review R1 BLOCK-01 又补注：`#l0-receipt-summary` 是**迁移容器**，不是退役容器 |
+
+> **修复轮追加触碰（本次，同一叶）**：`pick-input.ts`（BLOCK-02：拖放高亮写点由退役 `#l0-decision` 迁到真实落点面 `#stream`）——同为**计划外**文件，随本节一并登记；`host-registry.ts` / `sidepanel.ts` / `l0/shell.ts` / `l1/panels.ts` 为计划内文件的重登记触碰。
+> **未触碰的零改动声明**：`system-events.ts` / `cards/index.ts` 实测零改动（与计划一致）；`cards/nextstep.ts` / `cards/shared.ts` 被触碰但均为纯登记 / 类型面（`data-act` 透传语义零变化，A17 成立）。
+
 ### 5.2 `test/`（34 项：31 MODIFY + 3 NEW）
 
 | 操作 | 文件路径 | 说明 |
@@ -500,6 +528,7 @@ W5 收尾（体积五要素 + V3-VOL-3 三值同源 + 红线逐字节 + 全门�
    - `COLLAPSIBLE_TARGETS` = **7 → 7（零缩减）**：`l1-more` / `l1-consequences` / `l1-local-tree` / `l1-receipt` / `l1-gestures` / `l2-tree-attribution` / `l2-audit-evidence`（后两项为新增视图块；前 5 项为迁移后仍由单一控制器折叠的面）；
    - `DISCLOSURE_WIRING` = 对应 7 对（`l1-more` / `l1-consequences` 的触发器改由卡内 `[data-disclose]` 承担；`l1-history` / `l1-ref` 对**退役**并收入新增 `RETIRED_FOLDABLE_IDS`，带「重新引入即红」反证）；
    - `NEVER_FOLDABLE` = 保留全部不可折叠语义 + **删除 `'l0-decision'`（已退役）并收入新增 `RETIRED_NEVER_FOLDABLE_IDS`**（带反证）+ **新增迁移面 `'l2-tree-attribution'` / `'l2-audit-evidence'` / `'settings-help'`** ⇒ 12 − 1 + 3 = **14（只增）**；`'composer'` **保留**（DC-V45-010：永不折叠 = 禁止折叠，与是否在流内无关）；
+     - **〖D-W3-1 注记（review R1 I-02 回写，2026-09-21）〗** 上一句「新增迁移面」**逐字保留为计划口径的历史**，但该字面把 `'l2-tree-attribution'` / `'l2-audit-evidence'` 两项同时写进 `NEVER_FOLDABLE` 与 `COLLAPSIBLE_TARGETS` —— 两张表**互斥**（门禁有「同一 id 不得同时在两表」判据），故该字面**不可实现**。build 的裁决（`build.md §6.7` / `§4.7` **D-W3-1**，技术上必要且正确，本注记将其回写进 ADR）为：新增的三项是 **`'region-stream'` / `'settings-root'` / `'settings-help'`**；`l2-*` 两项**只留在 `COLLAPSIBLE_TARGETS`**（可折叠白名单，迁移后的只读承载块仍需可折叠）；`NEVER_FOLDABLE` 长度仍 **14**（12 − 1 + 3），`'composer'` 保留。**实现与 ADR 正文以本注记口径为准**（实测 `src/ui/sidepanel/disclosure.ts`：`NEVER_FOLDABLE` = 14 项含 `region-stream` / `settings-root` / `settings-help`；`l2-tree-attribution` / `l2-audit-evidence` 仅在 `COLLAPSIBLE_TARGETS` 的 7 项内）。
    - 新增双判据：`#composer.parentElement === document.body` ∧ `#composer.hidden === true`。
 6. **FIX-5 消解**（FR-V45-025）：0 计数控件停渲染（其恒驻性来源正是 4 宿主与决策壳）；不单列 AC；收口文档登记「已由 v4.5-1 覆盖」。
 7. **L2 迁入方向性**：迁入 `#view-host` 的内容**不豁免**（R-REG-902）；`assertChromeNotInStream()`（`[data-chrome-control]` / `[data-toolbar-slot]` / `.view-btn` 不得在 `#stream` 内）继续成立并被反证；迁入块不引入第二个滚动容器。
@@ -740,7 +769,8 @@ W5 收尾（体积五要素 + V3-VOL-3 三值同源 + 红线逐字节 + 全门�
 
 1. **恢复触发集扩展**（priority 1，与 `refInvalid` / `declarationInvalid` / `hardFloor` 同级）：
    - `site`：`input.site.authorized === false`（无活跃站点 / 绑定失效）；
-   - `probe`：`input.probe.steady === false || input.probe.phase !== 'ready'`（探测态异常 / 未就绪）；
+   - `probe`：**「可行动的未就绪」** = `input.probe.phase !== undefined ∧ input.probe.steady === false ∧ phase ∉ {'ready','probing'}`（即：相位**已报出**、且**未稳态**、且不是 `ready` / 正在 `probing` 的进行态）；
+     - **〖D-W3-2 注记（review R1 I-03 回写，2026-09-21）〗** 本条原字面为「`input.probe.steady === false || input.probe.phase !== 'ready'`」，实现**收窄**为上式（`build.md §6.7` / `§4.7` **D-W3-2**）。收窄理由（充分）：原字面的 `phase !== 'ready'` 分支在**从未探测过**的首屏（`phase === undefined`、`steady` 默认 `false`）恒真 ⇒ 首屏会被永久挤进恢复卡，与 ADR-V45-002 §2 的「空态去噪」/ FR-V45-025 直接冲突；收窄后只有「**有相位可行动线索的**未就绪」才进恢复集，`ready` / `probing` 两个**进行态**不触发（避免把正常探测当异常）。**需求面不构成偏差**：父 spec 只说「触发集扩展（site / probe）」未定谓词，故本注记为 ADR 口径同步（谓词收窄须登记）；数据源零扩项（仍只用 `probe` 一项，`NEXTSTEP_SOURCE_WHITELIST` 7 项不变）；
    - **数据源零扩项**：`NEXTSTEP_SOURCE_WHITELIST` 保持 7 项（`site` / `probe` 已在其中）；`RECOMMEND_MODULE_WHITELIST` 保持 `['./stream-plaintext.js']`；
    - `test/recommendation-sources.test.ts` 白名单**零扩项**断言保持绿。
 2. **chips 规则表（解决本叶开放问题 V45-P-015 的定值）**：新增 `RECOVERY_CHIP_ORDER`（触发 → 候选动作有序表），渲染前取 `≤ MAX_CHIPS_PER_CARD`：

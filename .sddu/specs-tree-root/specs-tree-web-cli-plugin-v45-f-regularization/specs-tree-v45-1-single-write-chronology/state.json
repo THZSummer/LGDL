@@ -11,7 +11,7 @@
  "childrens": [],
  "leaf": true,
  "createdAt": "2026-09-21",
- "updatedAt": "2026-09-21T00:00:00.000Z",
+ "updatedAt": "2026-09-21T22:10:00.000Z",
  "description": "跟随父 Feature specs-tree-web-cli-plugin-v45-f-regularization（F-31 / v0.9.1）立项的**唯一叶**（P0，position=1）。承载父 §5.1~§5.10 全部 44 条 FR：① SINGLE（FR-V45-010~015）5 条提示带可见投影**真退役**（DOM 移除，非 hidden）+ 事实唯一可见面 + 单通道 4 规则逐字不变 + 富内容承载（行 title + 设置站点详情 + 推荐卡恢复 chips）+ 归并矩阵判据重写；② CHRONO（FR-V45-020~026）4 宿主清零（decision / composer / l1-panels / strips）+ 37 条存活元素去向（父 §11）+ #composer 迁 body 尾 hidden（id/ARIA 保留，法四不变）+ 折叠声明零漂移；③ RECOVERY（FR-V45-030~033）risk-recovery 触发集扩展（site / probe）+ 「重新绑定当前标签页」chip + NEXTSTEP_ACTS 闭集终态 6 项 + 本地 act 布线门禁；④ HELP（FR-V45-040~042）设置视图「帮助」分区（SETTINGS_SECTION_IDS 单源派生）+ chip act:'help'；⑤ UNFREEZE（FR-V45-050~052）options/index.html 纯文案解冻 + 订正 + 显式登记 + zero-injection 复跑；⑥ REGISTRY（FR-V45-060~062）零宿主断言 + RETIRED_HOST_IDS 扩容 + 5 类问题串终态；⑦ DENSITY（FR-V45-070~074）口径零放宽 + 31 格重算为新基线（台账显式取代 + 反证）+ 夹具锚改构造保证；⑧ LEDGER（FR-V45-080~084）journey 第二次八步取代 + binding 段外逐行登记 + 11 处门禁等价重锚 + knownGap 一致性 + 两段证伪；⑨ VOL（FR-V45-090~093）体积五要素 + 披露算术机核 + V3-VOL-3 三值同源 + 红线逐字节。权威条文见父 spec.md（§5 / §11 / §13 / §15）。",
  "scope": {
   "in": [
@@ -324,9 +324,14 @@
    "phase": "reviewed",
    "timestamp": "2026-09-21T12:00:00.000Z",
    "triggeredBy": "sddu-review R1（静态审查）：产出 review.md（C1~C20 策略：44 FR 全覆盖 + 四维度覆盖 + 无「不适用」项）+ review-report.md（R1：C1~C20 13✅/4⚠️/3❌；**4 阻塞** BLOCK-01 `l0-receipt-summary` 退役清单与产品铸造点自相矛盾（判据时点依赖 + live 假阳性）/ BLOCK-02 `pick-input.ts` 悬空 `#l0-decision` 写点 + `page-input.mjs` ⑤ 虚假迁移注释与读后即弃断言 / BLOCK-03 「可见载体数 == 1」无 live 判据（`observedCarriers` 无 live 供给点，AC-V45-001 核心验收锚点缺失，ADR 注入反证不可实跑）/ BLOCK-04 新增 `plaintextTitle` 零测试零反证（NFR-V45-003 验收锚点未交付）；6 改进 I-01~I-06 + 3 观察 O-01~O-03；**13 项门禁独立复跑与 build 自报逐项相等**（typecheck / npm test 1044 / l0 227 / density 229 / journey 171 / binding 192 首轮即绿 / l1 115 / recommendation 59 / supersession 35 / gate-integrity 13 / size-ruling-vol3 12 / ref-pick-wiring 11 / design-contract 6）；保护段 4 段 pin 与体积/红线字节独立复算全部命中；结论 ❌ 不通过，须先闭合 4 阻塞项再进入 validate）"
+  },
+  {
+   "phase": "reviewed",
+   "timestamp": "2026-09-21T22:10:00.000Z",
+   "triggeredBy": "sddu-build 修复轮（review R1 的 BLOCK-01~04 + I-01~06 全处置）：方案② 迁移容器口径 / 死写点迁移 / live 载体读数 + firstRun 口径 / title 反证；24 门禁串行复跑全绿只增（1045·244·232·171·35·12·59·108·116）；体积 493,501 → 498,521（ceiling 523,447，档位与绝对上限未变）；保护段与冻结产物逐字节未动；额外修正 3 项门禁缺陷"
   }
  ],
- "phaseNote": "R1 静态审查完成：结论 ❌ 不通过（4 阻塞 / 6 改进 / 3 观察，通过率 65.0%）。阻塞项须由修复轮处置后再走 review R2 复审：BLOCK-01 退役容器清单口径（`l0-receipt-summary` 被登记为「零残留」却由 `l1/panels.ts#paintReceiptSummary` 在回执到达后重新铸造 ⇒ 判据时点依赖 + 产品态 `hosts().problems` 假阳性）；BLOCK-02 `pick-input.ts:290/293/296` 悬空 `#l0-decision` 写点（静默 no-op）+ `page-input.mjs:265-276` 注释失真的迁移声称与丢弃读；BLOCK-03 「可见载体数 == 1」退化为自声明常量（`evaluateStripChannels` 的 `observedCarriers` 无 live 供给点，AC-V45-001 的「首屏三事实各恰 1」无 live 断言，ADR-V45-001 §8① 注入反证不可实跑）；BLOCK-04 新增 `title` fail-closed 净化 `plaintextTitle` 在 `test/**` 零引用（NFR-V45-003「注入 secret / URL query 反证必抛错」未交付，违反 NFR-V45-007）。本轮独立复核确认成立的方面：真退役主体（DOM 零残留 + 门禁逐 id 负向）、单写通道唯一（`systemRow` 单构造点 + emitter 源文本恰 1）、保护段诚实（journey 3 链节逐字节复算 / binding 保段 + 52 B 精确等长补偿）、密度只收紧（28 格仅 1 格下降 / 阈值全零 diff）、体积三值同源且档位不下移、红线逐字节不变、本地 act 产品路径可达。改进项 I-01~I-03 为 plan/ADR 口径回写（文件影响实况 / D-W3-1 / D-W3-2），I-04~I-06 为门禁可读性增强。人工面三项（读屏 / 三主题 + 高 DPI / 320px 迁入块）仍旧未执行，留给 validate 并不得冒充 PASS。",
+ "phaseNote": "R1 静态审查完成：结论 ❌ 不通过（4 阻塞 / 6 改进 / 3 观察，通过率 65.0%）。阻塞项须由修复轮处置后再走 review R2 复审：BLOCK-01 退役容器清单口径（`l0-receipt-summary` 被登记为「零残留」却由 `l1/panels.ts#paintReceiptSummary` 在回执到达后重新铸造 ⇒ 判据时点依赖 + 产品态 `hosts().problems` 假阳性）；BLOCK-02 `pick-input.ts:290/293/296` 悬空 `#l0-decision` 写点（静默 no-op）+ `page-input.mjs:265-276` 注释失真的迁移声称与丢弃读；BLOCK-03 「可见载体数 == 1」退化为自声明常量（`evaluateStripChannels` 的 `observedCarriers` 无 live 供给点，AC-V45-001 的「首屏三事实各恰 1」无 live 断言，ADR-V45-001 §8① 注入反证不可实跑）；BLOCK-04 新增 `title` fail-closed 净化 `plaintextTitle` 在 `test/**` 零引用（NFR-V45-003「注入 secret / URL query 反证必抛错」未交付，违反 NFR-V45-007）。本轮独立复核确认成立的方面：真退役主体（DOM 零残留 + 门禁逐 id 负向）、单写通道唯一（`systemRow` 单构造点 + emitter 源文本恰 1）、保护段诚实（journey 3 链节逐字节复算 / binding 保段 + 52 B 精确等长补偿）、密度只收紧（28 格仅 1 格下降 / 阈值全零 diff）、体积三值同源且档位不下移、红线逐字节不变、本地 act 产品路径可达。改进项 I-01~I-03 为 plan/ADR 口径回写（文件影响实况 / D-W3-1 / D-W3-2），I-04~I-06 为门禁可读性增强。人工面三项（读屏 / 三主题 + 高 DPI / 320px 迁入块）仍旧未执行，留给 validate 并不得冒充 PASS。\n\n〖review R1 修复轮完成（2026-09-21，sddu-build）〗BLOCK-01~04 全闭合 + I-01~06 全处置（详见 build.md §8）：① BLOCK-01 按编排器裁决「方案② 迁移容器」处置（`#l0-receipt-summary` 移出退役清单 → 13 项 + 新增 `MIGRATED_CONTAINER_IDS` 5 项 + 判别规则 + 时点无关判据两条；产品态假阳性已实跑复现并闭合）；② BLOCK-02 拖放高亮写点迁 `#stream` + 门禁 ⑤ 真断言（两段证伪）；③ BLOCK-03 `observedCarriers` 接 live 读数 + 4 通道「恰 1」双半断言 + firstRun 口径裁决（卡在 ⇒ 行抑制）+ 三段证伪与门禁内注入反证实跑；④ BLOCK-04 `title` 反证 4 条只增。**额外修正 3 项缺陷**（l1.mjs / page-input.mjs 模板字面量反引号语法错误、`insertAdjacentHTML` 注入在面板页静默落空改 `createElement`、density firstRun 断言口径过窄改互斥式）。门禁 24 项串行复跑**全绿且只增**（1045 / 244 / 232 / 171 / 35 / 12 / 59 / 108 / 116 / 74 / 63 / 61 / 13 / 27 / 6 / 11 / 9 / 24 / 192 / 116）；体积五要素重登记 493,501 → **498,521 B**（ceiling 523,447 = floor×1.05；档位 512,000 与绝对上限 563,200 未变；三值同源）；保护段 journey `cc79f413…` / binding `be9ad0e9…` 与冻结产物逐字节未动。",
  "notes": "V4.5-1 叶子规范完成（2026-09-21，sddu-spec）。本叶 = v4.5 的**唯一叶**（父 §12.1 结构裁决）。\n\n**为什么必须单叶**：两项核心共享同一次 scope 体积重登记与同一次 journey 结构重锚 ⇒ 门禁迁移不可分割；体积五要素与 journey 取代都依赖**终态 DOM**，分两次做会产生「中间态取代」（多余台账条目 + 二次新 pin），并把同一段保护区改两遍（违背取代台账「同编号等价改写」守恒口径）。\n\n**37 条元素去向**（父 §11 施工图）：退役 19 / 迁移 13 / 消解 3 / 保留 2 / 新增宿主 0。关键去向：#l1-ref + #l1-ref-repick / -describe / -rescue → ref 卡卡内（N-05 关闭）；#l0-more / #l1-more / #l1-consequences(-toggle) / #l1-consequence-tpl → askuser / auth 卡内；#l0-receipt-summary → 卡固化区 + 审计视图；#l1-history → 退役（计数入审计标题）；#l1-gestures → 设置「帮助」分区；#l1-local-tree-* → 树视图（L2）；#l1-receipt-* → 审计视图（L2）；#composer / #input / #send → body 尾 hidden（id / ARIA 保留）；#send-reason → 保留（状态栏职责）；#rebind → 保留 + 新增推荐 chip 单一生产入口。\n\n**四门禁处置**：journey → 第二次八步显式取代（新 pin + ≥167 + RP-V4-08 反证）；binding → 保段（sha be9ad0e9… 不变）或显式取代 + 段外 #4b/#4c、AP#4b 逐行登记；density → 31 格重算 + v4.5 台账显式取代 + 夹具锚改构造保证（阈值逐字不变）；supersession → knownGap ↔ status 一致性机核保持绿。\n\n纪律：本轮只写本 Feature 目录；未改 src/test/dist/design/docs/ROADMAP；未跑门禁或 Chromium（spec 阶段零运行时验证）；commit 采用 path-limited `git add`（禁 `git add -A`）。注：`/tool sddu_update_state` 在本会话工具集中不可见 → 状态文件由 Agent 直接写入（phase=specified / status=tracked）。\n\n**plan 阶段完成（2026-09-21，sddu-plan）**：本叶 `plan.md` v1.0（1001 行）= **v4.5 的实施承载**，含 12 条 ADR 全部正文 + 五波实施序 + 63 项文件影响 + 风险登记。\n\n**本叶开放问题处置**：V45-P-012（密度格数）/ V45-P-013（体积值）保持 `pending-measurement`（禁止预填）；V45-P-014（title 读屏）保持 `pending-human`；**V45-P-015（恢复 chips 取舍）→ 已由 ADR-V45-007 的 `RECOVERY_CHIP_ORDER` 规则表定值**（site/probe 首项 = 「重新绑定当前标签页」，渲染前取 ≤3）。\n\n**关键设计定论（与父 spec 的接口）**：迁移元素承载 = 卡内作用域 + **唯一活跃/最新卡铸造稳定 id**（沿用 v4-3 `#ask*`/`#confirm*` 先例；零新机制）；`COLLAPSIBLE_TARGETS` 7→7（零缩减，新增 `l2-tree-attribution`/`l2-audit-evidence` 两项，退役 `l1-ref`/`l1-history` 收入 `RETIRED_FOLDABLE_IDS`）；`NEVER_FOLDABLE` 12→14（删 `l0-decision` 收入 `RETIRED_NEVER_FOLDABLE_IDS`，新增 3 个迁移面；`composer` 保留）；台账 schema 扩展 = `supersessionChain[]` + `protectedSupersession.history[]` + `unfrozenZeroDiffFiles[]` 字段扩展；体积硬边界 = 净减 ≤ 19,225 B（否则 V3-VOL-3 档位 512,000 → 460,800，与 FR-V45-092 冲突 ⇒ 停机上报）。\n\n**tasks 阶段完成（2026-09-21，sddu-tasks）**：本叶 `tasks.md` v1.0 + `tasks.json` v1.0（**19 原子任务 / 5 波**，编号 `TASK-V45-101~119` / 别名 `V451-01~19`；与 v1 0xx~1xx / v2 2xx~3xx / v3 4xx / v4 5xx~8xx **零冲突**，本轮实测 `grep -rn \"TASK-V45\" .sddu/ = 0`）。\n\n**五波与规模**：W1 门禁脚手架/断言预迁移（101 门禁脚手架+受审集合追加+计数只增对账表 · 102 **spikeGate-A** binding 段前字节中立避让探针 · 103 **spikeGate-B** journey 等价改写+链式 superseder 预演）→ W2 strips 单写（104 STRIP_CHANNEL_KINDS 重构+单写收口 · 105 5 条提示带 DOM 真退役+firstRunCard/title 承载 · 106 15 门禁 44 处断言重写+载体数==1+4 组反证）→ W3 宿主退役+元素迁移（107 messageAnchor+4 宿主移除+纯卡序 · 108 decision 壳卡内化 · 109 l1-panels 4 去向+L2 承载块 · 110 composer 出流+disclosure 三声明 · 111 host-registry 零宿主判据+5 组伪造反证 · 112 risk-recovery+act 闭集 6+布线门禁+帮助分区）→ W4 门禁重算+journey 取代+密度（113 八步取代+supersessionChain+链式判据 · 114 binding 保段+段外登记 · 115 11 处门禁重锚+反证注入点重写 · 116 density 31 格+v45Ledger+夹具锚）→ W5 收尾（117 options 解冻+范围门禁 · 118 体积五要素双向+三值同源+档位闸门 · 119 24 门禁串行+红线逐字节+人工面+收口文档）。规模 S×2 / M×6 / L×11。\n\n**并行/串行**：关键路径 = 101→104→105→106→107→108→109→110→111→112→115→113→116→118→119；可并行组 = {102,103,101}（只读探针）· {114,115}（文件不相交）· {117,113}（独立文件，复跑进串行队列）；W2/W3 严格串行（index.html / sidepanel.ts / view-model.ts / l0.mjs 共享）；Chromium 门禁纪律不变（一次一个）。\n\n**spikeGate 2 个**：T102（binding 段前等长补偿可行性；不可行 ⇒ 停下上报，获批后走显式取代，禁静默改 pin）→ 闸 T114；T103（链式谓词须不破 v3 段严格判据）→ 闸 T113。\n\n**原子区间**：A=W1 / B=W2 / C=W3 / **D=W4+W5 单一原子区间**（终态 DOM + 新 pin + 密度台账 + 体积登记 + 门禁日志必须一次落盘；中间态不得单独提交；失败整区间回滚，R-V45-109）。\n\n**红线检查点**（每任务三段清单）：`F1~F5` 冻界面（design/** / dist 双子 / SW+KIND_SET+manifest / v3 台账零 diff / web-cli-base+ROADMAP+F-29）· `T-a~T-e` 阈值面（密度阈值与豁免单源 / 0.65 只上调 / 体积 ceiling 与三值+cap record-only / 单通道 4 规则 / chips 与白名单）· `L-a~L-c` 台账面（v4 取代台账 / v4 密度台账 / 体积五要素+历史数组）。\n\n**模板偏差登记**：模板建议 5~15 任务，本轮 19 —— 理由 = 编排器明定五波 + 覆盖面必含 ①~⑭（W3 独占 6 项）；与 v2/v3/v4 叶子先例（9~17）同量级；plan 估 ~52~58 工作项 ⇒ 按「独立可验证交付物」聚合为 19 原子任务。\n\n注：`/tool sddu_update_state` 在本会话工具集中不可见 ⇒ 状态文件由 Agent 直接写入（phase=tasked / status=tracked），沿用 spec/plan 阶段同口径。",
  "planCounts": {
   "adrs": 12,
@@ -1108,5 +1113,62 @@
    "message": "refactor(web-cli-plugin): v4.5 W4+W5——journey 二次取代/密度重算/体积三值同步/收口（原子区间）",
    "method": "git add 逐路径（禁 -A / .）；区间 D 一次落盘（R-V45-109）"
   }
+ },
+ "reviewR1Fix": {
+  "round": "review R1 修复轮（同一叶）",
+  "date": "2026-09-21",
+  "agent": "sddu-build",
+  "verdictIn": "review R1 ❌ 不通过（4 阻塞 / 6 改进 / 3 观察，通过率 65.0%）",
+  "blockedClosed": [
+   "BLOCK-01 迁移容器口径（编排器裁决方案②）：`#l0-receipt-summary` 移出 RETIRED_CONTAINER_IDS（14→13）+ 新增 MIGRATED_CONTAINER_IDS（5）+ 判别规则注释 + 时点无关判据两条（无回执态零残留 / 有回执态恰 1 且 hosts().problems === []）；产品态假阳性实跑复现（115/1 红）后闭合（116/0 绿）",
+   "BLOCK-02 悬空写点迁移：pick-input.ts 3 个拖放高亮写点 `#l0-decision` → 真实落点面 `#stream`；page-input.mjs ⑤ 读后即弃 → 真断言 ×2；两段证伪（写点断开 ⇒ 红 107/1；读点退回旧形态 ⇒ 同一断开态仍绿 106/0 = 旧判据空心）",
+   "BLOCK-03 live 载体读数：`observedCarriers` 由 `window.__v3.testing.stripChannelReading()` 供给（`evaluateStripChannels` 消费，缺失即红）；env/site/probe/notice 各「恰 1」双半断言（载体面 + raw 节点数）；firstRun 口径裁决落地（卡在 ⇒ 行抑制）+ 三段证伪（载体半边回退 ⇒ 红 / 缺失即跳过 ⇒ 红 / firstRun 行半边不计入 ⇒ 红）+ 门禁内注入反证实跑（复活遗留面 / 同 kind 第二行 / 卡+行双载体）",
+   "BLOCK-04 `plaintextTitle` 反证 4 条（直接调用抛错 / 经唯一写入点 dispatch 抛错 + 零半成品行 / `<link rel=\"web-cli\">` 剥标记正例 / expectFailPattern 字面可产出）"
+  ],
+  "improvementsDone": [
+   "I-01 plan §5.1.1 实现轮实况",
+   "I-02 ADR-V45-002 §5 D-W3-1 注记",
+   "I-03 ADR-V45-007 §1 probe 谓词改写 + D-W3-2 注记",
+   "I-04 父 spec NFR-V45-001 记录 vs 断言口径",
+   "I-05 l0.mjs ⑧ 显式等价性对账 ×2",
+   "I-06 host-registry 判别规则 + 13 项逐项复核（1 项移出）"
+  ],
+  "extraFindings": [
+   "test/ui/l1.mjs 与 test/ui/page-input.mjs 在模板字面量内写未转义反引号 ⇒ SyntaxError（node --check 全量复跑后 0 BROKEN）",
+   "insertAdjacentHTML 注入在面板页（Trusted Types）静默落空 ⇒ 改 createElement + appendChild，注入返回值纳入断言",
+   "density stageB 的 firstRun 断言口径过窄（要求 onboarding 卡必须存在）⇒ 改互斥式 + live face 读数（232/0 绿）",
+   "口径澄清：appendSystem 5 s 同文本去重会让复用同文本的反证假绿 ⇒ 反证行文本必须独立"
+  ],
+  "gates": {
+   "note": "24 项严格串行（一次一个 Chromium），全量日志 /tmp/opencode/v4-gate-logs/v45-reviewfix/",
+   "nodeNpmTest": "1044 → 1045",
+   "l0": "227 → 244",
+   "l1": "115 → 116",
+   "density": "229 → 232",
+   "pageInput": "106 → 108",
+   "journey": "171（不变）",
+   "supersession": "35（不变）",
+   "binding": "192 首轮即绿（KL-N-10 未复现）",
+   "sizeRulingVol3": 12,
+   "recommendation": 59,
+   "onlyAdded": true
+  },
+  "volume": {
+   "sidepanelBeforeBytes": 493501,
+   "sidepanelAfterBytes": 498521,
+   "ceilingBeforeBytes": 518176,
+   "ceilingAfterBytes": 523447,
+   "tierBytes": 512000,
+   "absoluteCeilingBytes": 563200,
+   "fiveElementsRegistered": true,
+   "threeValuesSameSource": true,
+   "authorConfirmation": "pending-author-line（未变）"
+  },
+  "protectedPins": {
+   "journey": "test/ui/journey.mjs 43054..58287 / sha cc79f413… 逐字节复算命中（未动）",
+   "binding": "test/ui/binding.mjs 107780..115930 / sha be9ad0e9… 逐字节复算命中（未动）",
+   "frozenArtifacts": "dist/content.js 177,076 B / 52a82620… 与 dist/pick-layer.js 33,900 B / 5f567d7e… 逐字节不变"
+  },
+  "handoff": "BLOCK 全闭合、I 全处置 ⇒ 可进 @sddu-review R2 复审（phase 保持 reviewed / status 保持 tracked）"
  }
 }
