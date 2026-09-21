@@ -299,6 +299,43 @@ footer { color: var(--sub); font-size: 11.5px; }
       </span>
       <span class="card-cta">打开方案 F（聊天流统一承载）→</span>
     </a>
+
+    <a class="card" href="option-g-all-in-next.html" style="grid-column: 1 / -1">
+      <span class="card-head">
+        <span class="mark" aria-hidden="true">G</span>
+        <span class="card-title">All-in-Next · 聊天即操作台</span>
+      </span>
+      <span class="card-file">option-g-all-in-next.html</span>
+      <span class="tag ready">已交付</span>
+      <span class="card-line">
+        <b>一句话定位：</b>继承 F 的三区骨架与全部卡契约，把「所有需要用户操作的地方」抽象成 <b>web-op</b> 与
+        <b>下一步 next</b> —— 授权 / 浏览器权限申请 / 绑定 / LLM 配置全部在 chat 里闭环，
+        <b>禁止死端</b>（法七）、<b>值不入流</b>（法八）。
+      </span>
+      <span class="card-line">
+        <b>立项依据（作者 2026-09-21 逐字）：</b>「所有的用户授权、权限申请、绑定、浏览器权限申请、LLM配置等，都要支持抽象成web-op-cli…一站式在chat里面闭环」·
+        「所有的下一步需要用户操作的地方，都要支持在chat里面以next的方式和用户交互完成，不允许让用户跳来跳去」。
+        真机断流现场（23:12:59「✖ 页面侧不可用：未授权站点 https://open.bigmodel.cn：页面侧零注入」之后无任何可达 next）见稿件头注；
+        G 把它做成 <b>首个验收场景 S2（断流样板）</b>，并在页脚给出「死端 1 → 0」逐环节对比表。
+      </span>
+      <span class="card-line">
+        <b>G 新增两条法则（逐字）：</b><b>法七</b> 一切操作皆 Next，禁止死端 —— 凡阻塞前进的终态（未授权 / 未配置 / 权限缺失 / 绑定失效 / 引用全失效），
+        流内必须存在可达的下一步动作；错误行不裸奔（✖ 行必须伴随或紧随恢复 next）。
+        <b>法八</b> 值不入流 —— 敏感值（API Key 等）经掩码输入卡直达存储，流内只留「事实 + 时间戳」，digest / 审计零明文。
+      </span>
+      <span class="card-line">
+        <b>架构（anything-is-plugin）：</b>NextProvider 插件注册表（<code>{id, when(ctx)→候选|null, chips[]}</code>，纯谓词可单测）
+        + web-op 操作清单（首批 8 个 op）+ 四态管线（next → params → consent → execute → receipt）；
+        新增操作 = 注册插件（N→N+1，<code>handleCardAction</code> 分发器 diff = 0）。
+        <b>零新增卡类型</b>：12 kind = 7 主类 + 5 过程卡（<code>tool / command / thinking / error / notice</code>），askuser 扩形 <code>secret</code> / <code>form</code>。
+      </span>
+      <span class="card-line">
+        <b>验证：</b>同目录 <code>option-g-shim.mjs</code>（Node DOM 垫片，体例镜像 F 的 shim）→ <b>80 passed / 0 failed</b>；
+        覆盖三区结构继承、12 kind 继承、法七 5 类阻塞逐一无死端 + ✖ 行不裸奔、法八哨兵值零明文、
+        chip↔op 绑定、op 管线四态、注册表视察器与场景联动、死端对比表、密度 ≤7、三宽度双主题。运行：<code>node option-g-shim.mjs</code>。
+      </span>
+      <span class="card-cta">打开方案 G（All-in-Next · 聊天即操作台）→</span>
+    </a>
   </div>
   <section>
     <h2>差别表 <span class="hint">（A 列取自本方案实际实现参数；B / C 列取自各自稿件顶部的自文档说明）</span></h2>
@@ -439,6 +476,14 @@ footer { color: var(--sub); font-size: 11.5px; }
     补记（方案 F 作者追加）：E 被选为 v3 基准、五稿存档之后，F 只新增自己的卡片与本段补记，<b>未改动 A~E 任何稿件</b>。
     F 的定位是「E 的交互模型修订」而非视觉重做：三档宽度（320 / 400 / 520）与双主题（跟随系统 / 浅色 / 深色）继续与 E 同源可切，
     差别集中在「过程信息住在哪」——F 的答案是全部搬进聊天流。
+  </p>
+
+  <p class="meta">
+    补记（方案 G 作者追加）：G 只新增自己的卡片与本段补记，<b>未改动 A~F 任何稿件与既有卡片</b>，也未改动上面的差别表与样例情境。
+    G 的定位是「F 的操作模型修订」而非骨架重做：三区结构语义（header[role=toolbar] &gt; main[role=log] &gt; footer[role=contentinfo]）、
+    卡类型学（12 kind）、固化契约、密度口径（工具栏 + 状态栏可点 ≤7）与 F 逐字相同；
+    差别集中在两件事 —— <b>下一步从哪来</b>（provider 注册表给候选，而不是写死的推荐）与 <b>值往哪去</b>（掩码卡直达存储，流内零明文）。
+    本稿纯设计产物：不改 <code>src/</code> / <code>test/</code> / <code>manifest.json</code>。
   </p>
 
 </div>

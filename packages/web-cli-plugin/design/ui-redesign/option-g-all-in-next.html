@@ -1,0 +1,3262 @@
+<!doctype html>
+<!--
+═══════════════════════════════════════════════════════════════════════════
+  web-cli plugin · 侧边栏布局重构 · 方案 G
+  「All-in-Next · 聊天即操作台」（Chat as the One-Stop Operation Console）
+═══════════════════════════════════════════════════════════════════════════
+
+  ① 立项依据：作者指示（逐字保留）+ 真机断流现场（逐字保留）
+  ───────────────────────────────────────────────────────────────────────────
+  作者指示（2026-09-21，逐字）：
+  · 「所有的用户授权、权限申请、绑定、浏览器权限申请、LLM配置等，都要支持抽象成
+     web-op-cli…一站式在chat里面闭环」
+  · 「所有的下一步需要用户操作的地方，都要支持在chat里面以next的方式和用户交互完成，
+     不允许让用户跳来跳去」
+
+  真机断流场景（作者 2026-09-21 提供，逐字保留，不美化）：
+      23:12:51 ✓ 已绑定站点 https://open.bigmodel.cn，正在自动探测 web-cli 声明。
+      23:12:51 站点探测状态变化：已按相位变化登记（稳态不重复）｜正在自动探测…
+      23:12:51 下一步推荐：重新绑定当前标签页 / 重新拾取 / 改用描述
+      23:12:57 ✓ 已重新绑定当前标签页：https://open.bigmodel.cn
+      23:12:59 ✖ 页面侧不可用：未授权站点 https://open.bigmodel.cn：页面侧零注入
+
+  断流根因（四层，逐条进设计）：
+    R1  授权 chip 仅存在于 R-ONBOARDING（首装态）——非首装的未授权会话里，
+        没有任何 provider 会给出「授权本站点」的推荐。
+    R2  risk-recovery 三动作（重绑 / 重拾 / 描述）无一能解除「未授权」——
+        推荐看似给了出路，实际是三条死路。
+    R3  ✖ 错误行不带恢复入口 —— 错误行「裸奔」，用户看到终态却没有可达的下一步。
+    R4  结果是死端：阻塞终态（未授权）出现后，流内不存在任何可达的 next。
+
+  ② 与 F 的关系：继承 F 全部，只加两条法则（不改视觉，不改骨架）
+  ───────────────────────────────────────────────────────────────────────────
+  · 继承 F 的 :root 设计令牌、组件样式语言、字体/滚动条口径、三档宽度与双主题切换器。
+  · 继承 F 的三区骨架：header[role=toolbar] > main[role=log] > footer[role=contentinfo]，
+    结构语义与顺序逐字不变。
+  · 继承 F 的五条法则（法一 一切交互皆消息 / 法二 留痕即事实 / 法三 三区各司其职 /
+    法四 输入按需出现 / 法五 默认密度继承）与密度口径（可点 = 工具栏 + 状态栏 ≤7）。
+  · 继承 F 的卡类型学与固化契约；G 把 taxonomy 补全为**12 kind = 7 主类 + 5 过程卡**
+    （tool / command / thinking / error / notice），零新增卡类型。
+
+  G 新增两条法则（逐字，可机核）：
+  ┌ 法七 一切操作皆 Next，禁止死端 ─────────────────────────────────────────┐
+  │ 凡阻塞前进的终态（未授权 / 未配置 / 权限缺失 / 绑定失效 / 引用全失效），    │
+  │ 流内必须存在**可达的下一步动作**；错误行不裸奔 ——                        │
+  │ ✖ 行必须**伴随或紧随**恢复 next（本稿取最严：伴随 = 行内带恢复 chip）。    │
+  └─────────────────────────────────────────────────────────────────────┘
+  ┌ 法八 值不入流 ────────────────────────────────────────────────────────┐
+  │ 敏感值（API Key 等）经**掩码输入卡**直达存储，流内只留「事实 + 时间戳」，  │
+  │ digest / 审计**零明文**。与法二「留痕即事实」的切分：                     │
+  │ 留痕的是**事实**（何时、哪个 op、成功与否、掩码长度），不是**值**。        │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  ③ 架构思想：anything-is-plugin
+  ───────────────────────────────────────────────────────────────────────────
+  · 作者提示的理念来源：deepseek-harness 开源项目（作者口述）。
+    **如实登记**：本次落稿时外部检索凭证缺失，未能核实该项目的原文表述；
+    以下按作者口述的思想落地，不自称引用原文。
+  · 落地形态 = NextProvider 插件注册表 + web-op 操作清单：
+      注册表项 {id, when(ctx)→候选|null, chips[]} 是**纯谓词**，可单测；
+      新增一个操作 = 注册一个插件 + 自带测试，**主流程零改动**
+      （示意：注册表计数 N→N+1，handleCardAction 分发器 diff = 0）。
+  · 每个 op = {opId, 风险级, params?, consent?, execute, receipt}；
+    统一管线：next chip →（参数? 流内 ask 卡）→（同意? 流内 auth 卡）→ execute → 流内回执。
+
+  ④ 作者裁决（已确认，2026-09-21）
+  ───────────────────────────────────────────────────────────────────────────
+  · 裁决① manifest 允许新增 optional_permissions（运行时按需申请浏览器权限；
+    安装期权限不变）—— 本稿以 op.perm.request 表达，权限项来自 optional_permissions。
+  · 裁决② 敏感值掩码卡内输入 + 零明文留痕（法八）。
+  · 裁决③ F 式交互 HTML + shim 契约（本稿体例逐节镜像 F）。
+  · 裁决④ 设置视图保留为管理面（法六不变：chat 是入口之一，不是替代）。
+  · 裁决⑤ 断流缺陷并入 G 首验收场景（S2 = 断流样板，首验收）。
+
+  ⑤ 卡类型契约（12 kind = 7 主类 + 5 过程卡，零新增；每类在本稿有真实样例）
+  ───────────────────────────────────────────────────────────────────────────
+  #   选择器                        层        语义                        固化规则
+  1   [data-msg-type="ai"]          primary   AI 回复                     只追加
+  2   [data-msg-type="user"]        primary   用户发言                     只追加
+  3   [data-msg-type="nextstep"]    primary   下一步推荐（chips 即操作）     点击即发起，chip 记录已选 + opId
+  4   [data-msg-type="askuser"]     primary   问答（choice/text/confirm）    应答/取消后固化不可逆
+                                              G 扩形：secret 掩码 / form 表单
+  5   [data-msg-type="auth"]        primary   权限/授权/consent            批准/拒绝后固化不可逆
+  6   [data-msg-type="system"]      primary   系统事件行（单行 + 时间戳）     只追加
+  7   [data-msg-type="ref"]         primary   页面引用（valid / stale）      失效卡保留，新引用序号递增
+  8   [data-msg-type="tool"]        process   工具结果（连接测试 / 权限回执）  进行中 → 已结算（可 patch）
+  9   [data-msg-type="command"]     process   命令/操作调用记录（值不入流）    只追加
+  10  [data-msg-type="thinking"]    process   过程（进行中…）               进行中 → 已结算
+  11  [data-msg-type="error"]       process   错误行（✖）必须带/紧随恢复 next 只追加
+  12  [data-msg-type="notice"]      process   告知（管理面入口提示）          只追加
+  固化态统一契约（继承 F）：data-* 状态属性 + [hidden] 切换表单/固化区 + `.ts` 时间戳，
+  固化区类名 `.card-fixed`；操作回执**复用**固化区 + 系统行表达，不新增卡类型。
+
+  ⑥ 页面分区（本稿的阅读顺序）
+  ───────────────────────────────────────────────────────────────────────────
+  · 演示控制台（非交付 UI）+ **注册表视察器**（G 新增，把 anything-is-plugin 可视化）
+  · 交付 UI：模拟浏览器窗口（左 = 宿主页面 · 右 = 插件侧栏，三区）
+  · 架构区（G 新增的可视化章节）：NextProvider 注册表 / web-op 操作清单 / 零新增卡类型
+  · 口径说明区（镜像 F 页脚）：法七验收口径 / 法八验收口径 / 密度继承 / F→G 变化点 / 已知取舍
+
+  ⑦ 自检
+  ───────────────────────────────────────────────────────────────────────────
+  · 零外链：全部样式与图标内联（图标一律内联 SVG），无远程资源、无网络请求；
+    下载后双击即可打开，无需服务器、无构建。
+  · 内联 JS 仅用于演示：场景切换（S1~S7）/ 三档宽度 / 双主题 / 视图切换 /
+    问答与授权的「操作前 → 操作后固化」/ 注册表视察器 / op 管线状态 / 页面拾取 /
+    S1/S2/S3 的自动续流 reveal（点一下就继续，不跳走）。
+  · 顶部「演示控制台」「注册表视察器」与底部「架构区」「口径说明区」不属于交付 UI
+    （不在 #panel 内，不参与密度统计）。
+  · 结构语义：header[role=toolbar] > main[role=log] > footer[role=contentinfo]。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>web-cli plugin · 方案 G All-in-Next 聊天即操作台（设计稿）</title>
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════
+         1. 令牌 / 基础（与 F 同源，本块逐字继承自 option-f-chat-stream.html）
+         ═══════════════════════════════════════════════════════════════════ */
+      :root {
+        color-scheme: light dark;
+
+        /* 面板内（与现状一致） */
+        --bg: #ffffff;
+        --bg-subtle: #f6f8fb;
+        --bg-elevated: #ffffff;
+        --text: #1e293b;
+        --text-muted: #64748b;
+        --border: #e5e9f0;
+        --border-strong: #cbd5e1;
+        --accent: #4f46e5;
+        --accent-weak: #eef2ff;
+        --accent-text: #4338ca;
+        --brand-a: #4f46e5;
+        --brand-b: #3b82f6;
+        --tool-bg: #0f172a;
+        --tool-text: #cbd5e1;
+        --tool-border: #1e293b;
+        --warn-bg: #fffbeb;
+        --warn-border: #fde68a;
+        --warn-text: #92400e;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --danger-border: #fecaca;
+        --danger-text: #991b1b;
+        --ok: #15803d;
+        --ok-bg: rgba(21, 128, 61, 0.12);
+        --accent-hover: #4338ca;
+        --warn: #92400e;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        --focus: 0 0 0 2px rgba(79, 70, 229, 0.35);
+
+        /* 演示舞台（面板之外，仅供评审） */
+        --stage-bg: #eceff5;
+        --stage-panel: #ffffff;
+        --stage-text: #334155;
+        --stage-muted: #64748b;
+        --stage-border: #d7dde8;
+        --page-bg: #f8fafc;
+
+        /* 版面尺寸（宽度切换器改写 --panel-w） */
+        --panel-w: 400px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) {
+          --bg: #0b1120;
+          --bg-subtle: #0f172a;
+          --bg-elevated: #101a30;
+          --text: #e2e8f0;
+          --text-muted: #94a3b8;
+          --border: #1e293b;
+          --border-strong: #334155;
+          --accent: #818cf8;
+          --accent-weak: #1e1b4b;
+          --accent-text: #c7d2fe;
+          --tool-bg: #050a16;
+          --tool-text: #cbd5e1;
+          --tool-border: #1e293b;
+          --warn-bg: #3b2f10;
+          --warn-border: #78500f;
+          --warn-text: #fcd34d;
+          --danger: #f87171;
+          --danger-bg: #3f1414;
+          --danger-border: #7f1d1d;
+          --danger-text: #fca5a5;
+          --ok: #4ade80;
+          --ok-bg: rgba(74, 222, 128, 0.14);
+          --accent-hover: #a5b4fc;
+          --warn: #fcd34d;
+          --stage-bg: #070b14;
+          --stage-panel: #0b1120;
+          --stage-text: #cbd5e1;
+          --stage-muted: #94a3b8;
+          --stage-border: #24304a;
+          --page-bg: #0d1424;
+        }
+      }
+
+      /* 手动深色（覆盖系统浅色） */
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0b1120;
+        --bg-subtle: #0f172a;
+        --bg-elevated: #101a30;
+        --text: #e2e8f0;
+        --text-muted: #94a3b8;
+        --border: #1e293b;
+        --border-strong: #334155;
+        --accent: #818cf8;
+        --accent-weak: #1e1b4b;
+        --accent-text: #c7d2fe;
+        --tool-bg: #050a16;
+        --tool-text: #cbd5e1;
+        --tool-border: #1e293b;
+        --warn-bg: #3b2f10;
+        --warn-border: #78500f;
+        --warn-text: #fcd34d;
+        --danger: #f87171;
+        --danger-bg: #3f1414;
+        --danger-border: #7f1d1d;
+        --danger-text: #fca5a5;
+        --ok: #4ade80;
+        --ok-bg: rgba(74, 222, 128, 0.14);
+        --accent-hover: #a5b4fc;
+        --warn: #fcd34d;
+        --stage-bg: #070b14;
+        --stage-panel: #0b1120;
+        --stage-text: #cbd5e1;
+        --stage-muted: #94a3b8;
+        --stage-border: #24304a;
+        --page-bg: #0d1424;
+      }
+
+      /* 手动浅色（覆盖系统深色） */
+      html[data-theme="light"] { color-scheme: light; }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      /* 演示开关用 hidden 切显隐：必须有 !important 才不会被 display:flex 反超 */
+      [hidden] { display: none !important; }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--stage-bg);
+        color: var(--stage-text);
+        overflow-wrap: anywhere;
+      }
+
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      /* ── 通用控件（与 F 同源） ─────────────────────────────────────── */
+      button {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 10px;
+        cursor: pointer;
+        max-width: 100%;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-primary { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+      .btn-primary:hover:not(:disabled) { background: var(--accent-hover); color: #fff; }
+      .btn-danger { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger-text); }
+      .btn-danger:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-bg); color: var(--danger-text); }
+      .mini-btn { font-size: 10.5px; padding: 2px 8px; border-radius: 999px; }
+      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+      .muted { color: var(--text-muted); font-size: 11.5px; }
+      .hint { margin: 5px 0 0; color: var(--text-muted); font-size: 10.5px; line-height: 1.55; }
+      code {
+        font-family: var(--mono);
+        font-size: 11px;
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0 3px;
+      }
+      input, select, textarea {
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 5px 8px;
+        min-width: 0;
+        max-width: 100%;
+      }
+      input::placeholder, textarea::placeholder { color: var(--text-muted); }
+      input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; box-shadow: var(--focus); }
+      .ico { width: 14px; height: 14px; flex: 0 0 auto; display: block; }
+      .ico-lg { width: 16px; height: 16px; flex: 0 0 auto; display: block; }
+
+      /* ── 徽标 / chip（一律带文字，不靠颜色单独传达） ───────────────── */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-subtle);
+        color: var(--text-muted);
+        font-size: 10px;
+        line-height: 1.65;
+        white-space: normal;
+      }
+      .badge.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); font-weight: 600; }
+      .badge.ask { color: var(--warn-text); border-color: var(--warn-border); background: var(--warn-bg); font-weight: 600; }
+      .badge.deny { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); font-weight: 600; }
+      .badge.accent { color: var(--accent-text); border-color: var(--accent); background: var(--accent-weak); font-weight: 600; }
+      .badge.mono { font-family: var(--mono); }
+      /* ═══════════════════════════════════════════════════════════════
+         2. 演示舞台（非交付 UI）
+         ═══════════════════════════════════════════════════════════════ */
+      .stage { max-width: 1180px; margin: 0 auto; padding: 16px 16px 48px; }
+
+      .demo-bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      }
+      .demo-bar-title { font-size: 12px; font-weight: 700; display: flex; flex-direction: column; gap: 2px; }
+      .demo-bar-note { font-weight: 400; font-size: 10.5px; color: var(--stage-muted); max-width: 380px; line-height: 1.5; }
+      .demo-group { display: flex; flex-direction: column; gap: 3px; }
+      .demo-label { font-size: 10px; font-weight: 700; color: var(--stage-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+      .seg { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 2px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 999px; }
+      .seg [role="radio"] { border: 1px solid transparent; background: transparent; border-radius: 999px; padding: 3px 9px; font-size: 11px; color: var(--text-muted); }
+      .seg [role="radio"]:hover { border-color: var(--accent); color: var(--accent-text); background: var(--bg); }
+      .seg [role="radio"][aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+      .metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--stage-text); }
+      .metrics b { font-family: var(--mono); }
+      .m-ok { color: var(--ok); font-weight: 700; }
+      .m-bad { color: var(--danger); font-weight: 700; }
+
+      /* ── 注册表视察器（G 新增；非交付 UI，把 anything-is-plugin 可视化） ── */
+      .inspector {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 12px;
+        margin-bottom: 14px;
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        border-radius: 12px;
+        font-size: 11.5px;
+      }
+      .insp-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+      .insp-title { font-size: 12px; font-weight: 700; }
+      .insp-metrics { display: flex; flex-wrap: wrap; gap: 4px 14px; font-family: var(--mono); font-size: 11px; }
+      .insp-metrics b { color: var(--accent-text); }
+      .reg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+      .reg-item {
+        display: flex; flex-wrap: wrap; gap: 4px 9px; align-items: center;
+        padding: 4px 7px; border: 1px dashed var(--stage-border);
+        border-radius: var(--radius-sm); opacity: 0.45;
+      }
+      .reg-item[data-active="true"] { opacity: 1; border-style: solid; border-color: var(--accent); background: var(--accent-weak); }
+      .reg-id { font-family: var(--mono); font-weight: 700; }
+      .reg-pri { font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--stage-border); }
+      .reg-when { font-family: var(--mono); font-size: 10.5px; color: var(--stage-muted); }
+      .reg-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+      .reg-chip { font-family: var(--mono); font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--stage-border); }
+      .pipe { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+      .pipe-label { font-size: 10px; font-weight: 700; color: var(--stage-muted); }
+      .pipe-stage { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--stage-border); font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); }
+      .pipe-stage[data-live="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+      .pipe-arrow { color: var(--stage-muted); font-family: var(--mono); }
+      .insp-note { margin: 0; font-size: 10.5px; color: var(--stage-muted); line-height: 1.55; }
+
+      /* ── 模拟浏览器窗口 ─────────────────────────────────────────── */
+      .browser {
+        border: 1px solid var(--stage-border);
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--page-bg);
+        box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1);
+      }
+      .browser-chrome {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--tool-bg);
+        color: var(--tool-text);
+        font-size: 11px;
+        border-bottom: 1px solid var(--tool-border);
+      }
+      .chrome-dots { display: inline-flex; gap: 4px; }
+      .chrome-dots i { width: 8px; height: 8px; border-radius: 50%; background: #475569; display: block; }
+      .chrome-tab { padding: 2px 8px; background: rgba(148, 163, 184, 0.16); border-radius: 6px 6px 0 0; white-space: nowrap; }
+      .chrome-url { flex: 1 1 auto; min-width: 0; padding: 2px 8px; background: rgba(148, 163, 184, 0.1); border-radius: 999px; font-family: var(--mono); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .browser-body { display: flex; align-items: stretch; gap: 0; min-height: 600px; }
+
+      .page-area { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; background: var(--page-bg); }
+      .pickbar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        padding: 7px 10px; border-bottom: 1px solid var(--stage-border);
+        background: var(--stage-panel); font-size: 11px;
+      }
+      .pick-state { font-family: var(--mono); font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--stage-border); color: var(--stage-muted); }
+      .pick-state[data-on="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+      .page-scroll { flex: 1 1 auto; overflow: auto; padding: 14px; }
+      .doc { max-width: 560px; }
+      .doc h1 { font-size: 20px; margin: 0 0 4px; color: var(--stage-text); }
+      .doc-meta { margin: 0 0 14px; font-size: 11px; color: var(--stage-muted); }
+      .doc h2 { font-size: 14px; margin: 18px 0 6px; color: var(--stage-text); }
+      .doc p { font-size: 12px; color: var(--stage-text); margin: 0 0 8px; }
+      .doc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+      .doc-actions button { font-size: 11.5px; }
+      .pickable { position: relative; border-radius: 6px; transition: box-shadow 0.15s, outline-color 0.15s; outline: 1px dashed transparent; }
+      .page-area[data-pick-mode="on"] .pickable { outline-color: var(--accent); }
+      .pickable.is-picked { outline: 2px solid var(--accent); box-shadow: 0 0 0 4px var(--accent-weak); }
+
+      /* ═══════════════════════════════════════════════════════════════
+         3. 交付 UI：侧栏面板（三区，结构语义与 F 逐字一致）
+         ═══════════════════════════════════════════════════════════════ */
+      .sidebar { flex: 0 0 auto; width: var(--panel-w); max-width: 100%; min-width: 0; display: flex; }
+
+      .panel {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        min-width: 0;
+        height: 600px;
+        background: var(--bg);
+        border-left: 1px solid var(--border);
+        color: var(--text);
+        overflow: hidden;
+      }
+
+      /* ── 区一：工具栏（常驻，一行，可点 ≤5） ─────────────────────── */
+      .toolbar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        padding: 7px 8px;
+        background: var(--bg-elevated);
+        border-bottom: 1px solid var(--border);
+        min-width: 0;
+      }
+      .site-summary {
+        flex: 1 1 108px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .site-summary .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+      .panel[data-scene="S1"] .site-summary .dot,
+      .panel[data-scene="S2"] .site-summary .dot,
+      .panel[data-scene="S6"] .site-summary .dot { background: var(--warn-text); }
+      .site-summary .site-name { font-weight: 700; white-space: nowrap; }
+      .site-summary .site-origin {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-muted);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .view-nav { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+      .view-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 7px;
+        font-size: 11px;
+        border-radius: var(--radius-sm);
+      }
+      .view-btn .badge { padding: 0 4px; font-size: 9.5px; }
+      .view-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+      /* ── 区二：聊天流（唯一交互面） ──────────────────────────────── */
+      .stream-wrap {
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 10px 9px 14px;
+        background: var(--bg-subtle);
+        scrollbar-width: thin;
+      }
+      .stream-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+      .stream-wrap::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+      .stream-wrap::-webkit-scrollbar-track { background: transparent; }
+
+      .stream { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+      .msg { display: flex; gap: 6px; min-width: 0; align-items: flex-start; }
+
+      .msg-avatar {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--accent-weak);
+        color: var(--accent-text);
+        border: 1px solid var(--accent);
+      }
+      .msg-who {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-strong);
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text-muted);
+      }
+
+      .bubble {
+        min-width: 0;
+        max-width: 100%;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 8px 9px;
+        font-size: 12px;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+      .bubble > *:first-child { margin-top: 0; }
+      .bubble > *:last-child { margin-bottom: 0; }
+
+      /* 卡头标签（统一语言） */
+      .card-tag {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin: 0 0 6px;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text-muted);
+      }
+      .card-tag .ico { width: 12px; height: 12px; }
+      .card-tag .op-id { font-family: var(--mono); font-size: 10px; color: var(--text-muted); font-weight: 400; }
+
+      /* 1. AI 答复卡 */
+      .msg-ai .bubble { flex: 1 1 auto; }
+      .bubble ol, .bubble ul { margin: 6px 0; padding-inline-start: 20px; }
+      .bubble li { margin: 2px 0; }
+      .bubble h4 { margin: 8px 0 4px; font-size: 12px; }
+      .mini-table { width: 100%; border-collapse: collapse; margin: 6px 0 2px; font-size: 11px; }
+      .mini-table caption { text-align: left; color: var(--text-muted); font-size: 10px; padding-bottom: 3px; }
+      .mini-table th, .mini-table td { border: 1px solid var(--border); padding: 3px 5px; text-align: left; vertical-align: top; }
+      .mini-table th { background: var(--bg-subtle); font-weight: 700; }
+
+      /* 2. 用户消息卡 */
+      .msg-user { justify-content: flex-end; }
+      .msg-user .bubble { background: var(--accent-weak); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+      .msg-user .msg-who { order: 2; margin-left: 2px; }
+
+      /* 3. 下一步推荐卡（chips 即操作：每个 chip 带 opId） */
+      .msg-next .bubble { flex: 1 1 auto; border-left: 3px solid var(--accent); }
+      .next-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+      .next-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 9px; border-radius: 999px; }
+      .next-chip.is-chosen { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+      .next-chip .op-code { font-family: var(--mono); font-size: 9.5px; color: var(--text-muted); }
+      .next-chip.is-chosen .op-code { color: var(--ok); }
+      .next-chip[data-pri="0"] { border-color: var(--accent); }
+      .chip-order { display: inline-flex; align-items: center; gap: 4px; }
+      .chip-order .ord { font-family: var(--mono); font-size: 9.5px; font-weight: 700; color: var(--text-muted); }
+
+      /* 4. ask-user 问答卡（G 扩形：text / choice / secret / form） */
+      .msg-ask .bubble { flex: 1 1 auto; border-left: 3px solid var(--warn-text); border-color: var(--warn-border); background: var(--bg-elevated); }
+      .ask-q { margin: 0 0 7px; font-weight: 600; }
+      .ask-form { display: flex; flex-direction: column; gap: 6px; }
+      .ask-input { width: 100%; }
+      .ask-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+      .ask-choices { display: flex; flex-direction: column; gap: 5px; }
+      .choice {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        justify-content: flex-start;
+        text-align: left;
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
+      }
+      .choice .choice-main { flex: 1 1 auto; min-width: 0; }
+      .ask-other { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+      .ask-secret-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+      .ask-secret-row .ask-input { flex: 1 1 auto; width: auto; font-family: var(--mono); }
+      .ask-checks { display: flex; flex-direction: column; gap: 4px; }
+      .ask-checks label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
+      .ask-secret-note {
+        margin: 0;
+        padding: 5px 7px;
+        border: 1px dashed var(--accent);
+        border-radius: var(--radius-sm);
+        background: var(--accent-weak);
+        color: var(--accent-text);
+        font-size: 10.5px;
+        line-height: 1.55;
+      }
+
+      /* 固化区（回答 / 批准 / 拒绝 / 回执 的既成事实） */
+      .card-fixed {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px;
+        margin-top: 6px;
+        padding: 5px 7px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .card-fixed .ico { color: var(--ok); }
+      .card-fixed.is-no .ico { color: var(--danger); }
+      .card-fixed b { color: var(--text); }
+      .msg-ask[data-answered="true"] .bubble { border-left-color: var(--ok); }
+      .msg-ask[data-answered="cancelled"] .bubble { border-left-color: var(--text-muted); }
+      .msg-auth[data-decision="approved"] .bubble { border-left-color: var(--ok); }
+      .msg-auth[data-decision="rejected"] .bubble { border-left-color: var(--danger); }
+
+      /* 5. 权限 / 授权申请 / consent 卡 */
+      .msg-auth .bubble { flex: 1 1 auto; border-left: 3px solid var(--accent); border-color: var(--border-strong); }
+      .auth-scope { margin: 6px 0; padding-inline-start: 18px; font-size: 11px; color: var(--text); }
+      .auth-scope li { margin: 2px 0; }
+      .auth-preview {
+        margin: 6px 0;
+        padding: 6px 8px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+      }
+      .auth-irreversible {
+        margin: 6px 0;
+        padding: 6px 8px;
+        border: 1px solid var(--danger-border);
+        background: var(--danger-bg);
+        color: var(--danger-text);
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+      }
+      .auth-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+
+      /* 6. 系统事件行 */
+      .msg-system {
+        gap: 6px;
+        padding: 2px 0 2px 28px;
+        font-size: 11px;
+        color: var(--text-muted);
+        align-items: baseline;
+      }
+      .msg-system .sys-bullet { flex: 0 0 auto; color: var(--border-strong); }
+      .msg-system .sys-text { min-width: 0; }
+      .msg-system .sys-text b { color: var(--text); }
+      .msg-system.is-flash { animation: flash 1.6s ease-out 1; border-radius: var(--radius-sm); }
+      @keyframes flash { from { background: var(--accent-weak); } to { background: transparent; } }
+
+      /* 7. 引用卡（G：卡内动作即 next，带 opId） */
+      .msg-ref .bubble { flex: 1 1 auto; border-left: 3px solid var(--brand-b); }
+      .ref-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+      .ref-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-subtle);
+        font-size: 10.5px;
+        min-width: 0;
+      }
+      .ref-chip.mono { font-family: var(--mono); font-size: 10px; }
+      .msg-ref[data-ref-state="stale"] .bubble { border-left-color: var(--danger); border-color: var(--danger-border); }
+      .ref-stale-why {
+        margin: 6px 0;
+        padding: 6px 8px;
+        border: 1px solid var(--danger-border);
+        background: var(--danger-bg);
+        color: var(--danger-text);
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+      }
+      .ref-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+      .ref-describe { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 5px; }
+
+      /* 8~12. 过程卡族（tool / command / thinking / error / notice） */
+      .msg-tool .bubble { flex: 1 1 auto; border-left: 3px solid var(--ok); }
+      .msg-tool[data-tool-state="pending"] .bubble { border-left-color: var(--warn-text); }
+      .tool-out {
+        margin: 4px 0 2px;
+        padding: 5px 7px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        line-height: 1.55;
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+      }
+      .msg-command .bubble { flex: 1 1 auto; border-left: 3px solid var(--border-strong); }
+      .cmd-line {
+        margin: 4px 0 2px;
+        padding: 5px 7px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        background: var(--tool-bg);
+        color: var(--tool-text);
+        border-radius: var(--radius-sm);
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .msg-thinking .bubble { flex: 1 1 auto; border-left: 3px dashed var(--text-muted); color: var(--text-muted); }
+      .msg-error .bubble {
+        flex: 1 1 auto;
+        border-left: 3px solid var(--danger);
+        border-color: var(--danger-border);
+        background: var(--danger-bg);
+        color: var(--danger-text);
+      }
+      .msg-error .err-line { font-family: var(--mono); font-size: 11px; line-height: 1.55; }
+      .err-recovery {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px;
+        margin-top: 7px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--danger-border);
+      }
+      .err-recovery .err-label { font-size: 10.5px; font-weight: 700; }
+      .msg-notice .bubble { flex: 1 1 auto; border-left: 3px solid var(--accent); background: var(--bg-subtle); }
+
+      /* ── 按需视图层（L2：树 / 命令 / 审计 / 设置）────────────────── */
+      .view-layer { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+      .view-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .view-title { font-size: 12px; font-weight: 700; }
+      .view-body { border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--bg-elevated); padding: 8px; font-size: 11px; }
+      .view-body h4 { margin: 0 0 5px; font-size: 11.5px; }
+      .view-body ul { margin: 4px 0; padding-inline-start: 18px; }
+      .view-body li { margin: 2px 0; }
+      .digest { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+      .digest li { font-family: var(--mono); font-size: 10.5px; padding: 3px 6px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); }
+
+      /* ── 区三：状态栏（常驻，永不折叠） ──────────────────────────── */
+      .statusbar {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 6px 8px;
+        background: var(--bg-elevated);
+        border-top: 1px solid var(--border);
+        min-width: 0;
+      }
+      .status-line {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        font-size: 10.5px;
+        color: var(--text-muted);
+        min-width: 0;
+      }
+      .status-line .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+      .panel[data-scene="S1"] .status-line .dot,
+      .panel[data-scene="S2"] .status-line .dot,
+      .panel[data-scene="S6"] .status-line .dot { background: var(--warn-text); }
+      .status-line .sb-main { min-width: 0; }
+      .risk-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+      .risk-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+      .risk-chip[data-risk="ref"] { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger-text); }
+      .risk-chip[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); }
+      .risk-detail { display: flex; flex-direction: column; gap: 5px; }
+      .risk-detail-line {
+        margin: 0;
+        padding: 5px 7px;
+        border: 1px dashed var(--warn-border);
+        border-radius: var(--radius-sm);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 10.5px;
+        line-height: 1.55;
+      }
+      .risk-detail-line b { color: var(--text); }
+
+      /* ═══════════════════════════════════════════════════════════════
+         4. 架构区 + 口径说明区（非交付 UI）
+         ═══════════════════════════════════════════════════════════════ */
+      .below { margin-top: 18px; display: flex; flex-direction: column; gap: 14px; }
+      .block {
+        padding: 14px;
+        background: var(--stage-panel);
+        border: 1px solid var(--stage-border);
+        border-radius: 12px;
+        font-size: 12px;
+        line-height: 1.65;
+      }
+      .block > h2 { margin: 0 0 8px; font-size: 14px; }
+      .block h3 { margin: 12px 0 4px; font-size: 12px; }
+      .block ul { margin: 4px 0; padding-inline-start: 20px; }
+      .block table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 11.5px; }
+      .block th, .block td { border: 1px solid var(--stage-border); padding: 4px 6px; text-align: left; vertical-align: top; }
+      .block th { background: var(--bg-subtle); }
+      .table-scroll { overflow-x: auto; }
+      .codeblock {
+        margin: 6px 0;
+        padding: 8px 10px;
+        background: var(--tool-bg);
+        color: var(--tool-text);
+        border-radius: var(--radius-sm);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        line-height: 1.6;
+        overflow-x: auto;
+        white-space: pre;
+      }
+      .arch-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 6px 0; }
+      .arch-node { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--stage-border); font-family: var(--mono); font-size: 10.5px; background: var(--bg-subtle); }
+      .arch-node.hot { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+      .arch-node.soft { border-style: dashed; color: var(--stage-muted); }
+      .verdict { font-size: 11.5px; font-weight: 700; }
+      .verdict.ok { color: var(--ok); }
+      .verdict.bad { color: var(--danger); }
+      .tag-p { font-family: var(--mono); font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--stage-border); }
+      .tag-p.primary { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
+      .tag-p.process { border-color: var(--stage-border); color: var(--stage-muted); }
+
+      /* ── 窄屏兜底（320px 面板零水平溢出） ───────────────────────── */
+      .panel[data-width="320"] .view-btn .view-label { display: none; }
+      .panel[data-width="320"] .site-summary .site-origin { max-width: 96px; }
+      @media (max-width: 900px) {
+        .browser-body { flex-direction: column; }
+        .sidebar { width: 100% !important; }
+        .panel { height: 620px; border-left: 0; border-top: 1px solid var(--border); }
+      }
+    </style>
+  </head>
+  <body>
+      <!-- ═══ 演示控制台（非交付 UI，不在 #panel 内 → 不参与密度统计） ═══ -->
+      <nav class="demo-bar" aria-label="演示控制台（非交付 UI）">
+        <div class="demo-bar-title">
+          <span>演示控制台 · 方案 G（All-in-Next · 聊天即操作台）</span>
+          <span class="demo-bar-note">
+            场景 S1~S7 可切换 · 三档宽度与双主题在任意场景下都可切 ·
+            S1 / S2 / S3 支持「点一下就续流」（不跳走）：S1 输入掩码 Key → 配置；S2 批准授权 → 自动续流
+          </span>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-scene">场景态（7）</span>
+          <div class="seg" id="scene-switch" role="radiogroup" aria-labelledby="lb-scene">
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-scene-set="S1">S1 首装全链（掩码）</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S2">S2 断流样板（首验收）</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S3">S3 浏览器权限</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S4">S4 换厂商 / 改 Key</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S5">S5 管理操作 · 撤销</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S6">S6 多 next 仲裁</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene-set="S7">S7 全景 · 12 卡型</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-width">侧栏宽度</span>
+          <div class="seg" id="width-switch" role="radiogroup" aria-labelledby="lb-width">
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="320">320px</button>
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-width-set="400">400px</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="520">520px</button>
+          </div>
+        </div>
+
+        <div class="demo-group">
+          <span class="demo-label" id="lb-theme">主题</span>
+          <div class="seg" id="theme-switch" role="radiogroup" aria-labelledby="lb-theme">
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-theme-set="auto">跟随系统</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-set="light">浅色</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-set="dark">深色</button>
+          </div>
+        </div>
+
+        <div class="demo-group metrics-group">
+          <span class="demo-label">密度实测（法五口径：#panel 内非 hidden 子树的 button/a/input/select/textarea/[tabindex]）</span>
+          <div class="metrics" id="metrics">
+            <span>工具栏可点 <b id="m-toolbar">–</b> <span class="muted">/ ≤5</span></span>
+            <span>状态栏可点 <b id="m-statusbar">–</b></span>
+            <span>默认屏合计 <b id="m-total">–</b> <span class="muted">/ ≤7</span></span>
+            <span>流内消息 <b id="m-msgs">–</b> <span class="muted">（不计入预算）</span></span>
+            <span>最大 chips/卡 <b id="m-chips">–</b> <span class="muted">/ ≤3</span></span>
+            <span id="m-verdict" class="m-ok">—</span>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ═══ 注册表视察器（G 新增；非交付 UI）——把 anything-is-plugin 可视化 ═══ -->
+      <section class="inspector" id="reg-inspector" aria-label="NextProvider 注册表视察器（非交付 UI）">
+        <div class="insp-head">
+          <span class="insp-title">注册表视察器 · NextProvider（anything-is-plugin）</span>
+          <span class="insp-metrics">
+            <span>registry <b id="reg-count">–</b></span>
+            <span>活跃 providers <b id="reg-active">–</b></span>
+            <span>ctx <b id="reg-ctx">–</b></span>
+            <span>handleCardAction 分发器 diff <b id="reg-diff">0</b></span>
+            <span>op 清单 <b id="reg-ops">–</b></span>
+          </span>
+          <button type="button" id="reg-add">注册演示 provider（N→N+1，主流程零改动）</button>
+        </div>
+        <ol class="reg-list" id="reg-list"></ol>
+        <div class="pipe" id="op-pipeline">
+          <span class="pipe-label">op 管线</span>
+          <span class="pipe-stage" data-stage="next" data-scenes="S1 S2 S3 S4 S5 S6 S7" data-evidence="msg-g-next-llm">next</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="pipe-stage" data-stage="params" data-scenes="S1 S4" data-evidence="msg-g-ask-key">（参数? ask 卡）</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="pipe-stage" data-stage="consent" data-scenes="S1 S2 S3 S4 S5" data-evidence="msg-g-auth-site-1">（同意? auth 卡）</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="pipe-stage" data-stage="execute" data-scenes="S1 S2 S3 S5" data-evidence="msg-g-tool-perm">execute</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="pipe-stage" data-stage="receipt" data-scenes="S1 S2 S3 S4 S5" data-evidence="msg-g-sys-rebound">回执</span>
+        </div>
+        <p class="insp-note">
+          活跃 provider 按 <b>恢复(0) &gt; 引导(1) &gt; 发现(2/3)</b> 排序 —— S6 用一张仲裁卡表达多个阻塞的先后，不并排多张（密度继承 F）。
+          点上方按钮注册第 N+1 个 provider：注册表计数 +1，<b>handleCardAction 分发器 diff 恒为 0</b>（分发只查表，没有 per-op 分支）。
+        </p>
+      </section>
+      <!-- ═══ 模拟浏览器窗口：左 = 宿主页面，右 = 插件侧栏 ═══ -->
+      <div class="browser" aria-label="模拟浏览器窗口（左：宿主页面 · 右：web-cli plugin 侧栏）">
+        <div class="browser-chrome">
+          <span class="chrome-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="chrome-tab">智谱开放平台 · API Keys</span>
+          <span class="chrome-url"><span>https://open.bigmodel.cn/usercenter/apikeys</span></span>
+          <span class="chrome-tab">web-cli plugin（侧栏）</span>
+        </div>
+        <div class="browser-body">
+          <!-- 页面侧（宿主页；拾取入口在页面里，不占面板密度预算） -->
+          <div class="page-area" id="page-area">
+            <div class="pickbar" role="region" aria-label="页面拾取状态">
+              <button type="button" id="pick-toggle" aria-pressed="false">拾取模式：关</button>
+              <span class="pick-state" id="pick-state" data-on="false" role="status">未开启</span>
+              <span class="muted">拾取由 chat 里的 next「重新拾取」发起（op.pick）—— 不跳走，回到流里确认</span>
+            </div>
+            <div class="page-scroll">
+              <article class="doc" aria-label="智谱开放平台 API Keys（宿主页面样例）">
+                <h1 class="pickable" data-pickable data-pick-name="页面标题「API Keys」">API Keys</h1>
+                <p class="doc-meta">站点声明 <code>web-cli/0.2</code> · 未授权（页面侧零注入）· 更新于 2026-09-21 23:10</p>
+
+                <h2 class="pickable" data-pickable data-pick-name="小节标题「我的密钥」">我的密钥</h2>
+                <p class="pickable" data-pickable data-pick-name="段落「密钥只显示一次…」">密钥只在创建时显示一次，请及时保存；本插件不会读取或复制页面上的密钥。</p>
+
+                <div class="doc-actions" id="doc-actions">
+                  <button type="button" class="btn-primary pickable" data-pickable data-pick-name="「创建密钥」按钮" id="doc-export">创建密钥</button>
+                  <button type="button" class="pickable" data-pickable data-pick-name="「复制」按钮">复制</button>
+                  <button type="button" class="pickable" data-pickable data-pick-name="「删除」按钮">删除</button>
+                </div>
+
+                <h2 class="pickable" data-pickable data-pick-name="小节标题「用量」">用量</h2>
+                <p class="pickable" data-pickable data-pick-name="段落「今日调用…」">今日调用 1,204 次 · 限流 0 次 · 账单周期 2026-09。</p>
+
+                <p class="hint">
+                  演示：点上方「拾取模式：关」（或 chat 里点 op.pick 的 next）开启拾取 → 再点任一虚框元素 →
+                  面板回到 S2 并给出「重新拾取」之后的引用卡。此交互属页面侧，不计入面板默认密度。
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <!-- 侧栏：交付 UI（三区结构语义与 F 逐字一致） -->
+          <div class="sidebar" id="sidebar">
+            <div
+              class="panel"
+              id="panel"
+              data-width="400"
+              data-scene="S1"
+              data-pick-mode="off"
+              role="region"
+              aria-label="web-cli plugin 侧边栏（方案 G · All-in-Next 聊天即操作台）"
+            >
+              <!-- ═══════════════════════════════════════════════════════
+                   区一 工具栏（常驻，一行）
+                   · 站点摘要（只读 status，不可点）
+                   · 四视图入口（树 / 命令 / 审计 / 设置，带计数徽标）
+                   · 主题切换
+                   可点元素合计 = 4 + 1 = 5 ≤ 5（与 F 相同，G 不加控件）
+                   ═══════════════════════════════════════════════════════ -->
+              <header class="toolbar" id="region-toolbar" data-region="toolbar" role="toolbar" aria-label="工具栏（常驻）">
+                <div class="site-summary" role="status" aria-label="站点摘要">
+                  <span class="dot" aria-hidden="true"></span>
+                  <span class="site-name">智谱开放平台</span>
+                  <span class="site-origin">https://open.bigmodel.cn</span>
+                  <span class="badge ask" data-scenes="S1 S2 S3 S6">未授权 · 零注入</span>
+                  <span class="badge ok" data-scenes="S4 S5 S7">已授权 · supported</span>
+                </div>
+
+                <nav class="view-nav" aria-label="四视图入口（L2 按需视图）">
+                  <button type="button" class="view-btn" data-open-view="tree" aria-pressed="false" title="全局连接树（4 维）">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="5.6" y="1.2" width="4.8" height="2.6" rx="1" />
+                      <path d="M8 3.8v2.4" />
+                      <path d="M8 6.2H4v2.2" />
+                      <path d="M8 6.2h4v2.2" />
+                      <rect x="1.4" y="8.4" width="5.2" height="2.6" rx="1" />
+                      <rect x="9.4" y="8.4" width="5.2" height="2.6" rx="1" />
+                    </svg>
+                    <span class="view-label">树</span>
+                    <span class="badge">4</span>
+                  </button>
+                  <button type="button" class="view-btn" data-open-view="commands" aria-pressed="false" title="命令目录（122 卡）">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M2.6 5l2.6 3-2.6 3" />
+                      <path d="M8 11h5.2" />
+                    </svg>
+                    <span class="view-label">命令</span>
+                    <span class="badge">122</span>
+                  </button>
+                  <button type="button" class="view-btn" data-open-view="audit" aria-pressed="false" title="审计（14 条）">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M2.6 4.2h6.4" />
+                      <path d="M2.6 8h6.4" />
+                      <path d="M2.6 11.8h4" />
+                      <path d="M10.4 11.2l1.6 1.6 2.6-3.2" />
+                    </svg>
+                    <span class="view-label">审计</span>
+                    <span class="badge">14</span>
+                  </button>
+                  <button type="button" class="view-btn" data-open-view="settings" aria-pressed="false" title="设置（4 分区 · 管理面保留）">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="8" cy="8" r="2.1" />
+                      <path d="M8 1.6v1.7M8 12.7v1.7M1.6 8h1.7M12.7 8h1.7M3.5 3.5l1.2 1.2M11.3 11.3l1.2 1.2M12.5 3.5l-1.2 1.2M4.7 11.3l-1.2 1.2" />
+                    </svg>
+                    <span class="view-label">设置</span>
+                  </button>
+                </nav>
+
+                <button type="button" id="theme-toggle" aria-label="切换主题（当前：跟随系统）" title="切换主题">
+                  <svg class="ico" id="ico-theme-auto" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="8" cy="8" r="3.1" />
+                    <path d="M8 1.4v1.8M8 12.8v1.8M1.4 8h1.8M12.8 8h1.8M3.3 3.3l1.3 1.3M11.4 11.4l1.3 1.3M12.7 3.3l-1.3 1.3M4.6 11.4l-1.3 1.3" />
+                  </svg>
+                  <svg class="ico" id="ico-theme-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                    <path d="M13.2 9.6A5.4 5.4 0 0 1 6.4 2.8a5.2 5.2 0 1 0 6.8 6.8z" />
+                  </svg>
+                  <span class="sr-only" id="theme-toggle-text">主题</span>
+                </button>
+              </header>
+
+              <!-- ═══════════════════════════════════════════════════════
+                   区二 聊天流（唯一交互面）
+                   · <ol role="log"> 追加式消息流，正序，自动滚到底
+                   · 一切交互皆 12 kind 之一（7 主类 + 5 过程卡）
+                   · 法七：每个阻塞终态都有可达的 next；✖ 行不裸奔
+                   ═══════════════════════════════════════════════════════ -->
+              <main class="stream-wrap" id="region-stream" data-region="stream" aria-label="聊天流（唯一交互面）">
+                <!-- 按需视图层（L2）：默认 hidden，打开后替换流内容（同一内容区，不是浮层） -->
+                <div class="view-layer" id="view-layer" hidden>
+                  <div class="view-head">
+                    <button type="button" id="view-back">← 返回聊天流</button>
+                    <span class="view-title" id="view-title">视图</span>
+                    <span class="muted">完整台账在这里；流里只留过程线索（法二）</span>
+                  </div>
+                  <div class="view-body" id="view-tree" hidden>
+                    <h4>全局连接树（4 维）</h4>
+                    <ul>
+                      <li><b>站点</b>：open.bigmodel.cn → 声明 <code>web-cli/0.2</code>（未授权 → 零注入）</li>
+                      <li><b>会话</b>：会话 #12（本标签页）</li>
+                      <li><b>对象</b>：API Keys → 我的密钥 → 「创建密钥」按钮</li>
+                      <li><b>权限</b>：读自动 / 写 ask 保底 / evaluate 硬底线 deny</li>
+                      <li><b>浏览器权限</b>：optional_permissions 已登记 2 项（按需申请，安装期不变）</li>
+                    </ul>
+                  </div>
+                  <div class="view-body" id="view-commands" hidden>
+                    <h4>命令目录（122 卡 · 显示前 6 条）</h4>
+                    <ul>
+                      <li><code>dom.query</code> · allow · 只读</li>
+                      <li><code>dom.text</code> · allow · 只读</li>
+                      <li><code>dom.click</code> · ask 保底 · 写</li>
+                      <li><code>dom.setValue</code> · ask · 写</li>
+                      <li><code>page.navigate</code> · ask · 导航</li>
+                      <li><code>evaluate</code> · <b>deny 硬底线</b> · 永不执行、不提供「允许」</li>
+                    </ul>
+                  </div>
+                  <div class="view-body" id="view-audit" hidden>
+                    <h4>审计（14 条 · 显示最近 5 条）</h4>
+                    <ul>
+                      <li>23:12:51 op.rebind 重新绑定 → 站点 open.bigmodel.cn</li>
+                      <li>23:12:59 op.authorize 请求（未授权站点触发）</li>
+                      <li>23:13:02 op.authorize 已批准（单次 · 页面侧注入）</li>
+                      <li>23:13:05 op.llm-config vendor=ark 测试连接 ok</li>
+                      <li>23:13:08 op.perm.request 站点访问 已授予（optional_permissions）</li>
+                    </ul>
+                    <h4>digest 演示（法八：值不入流 · 零明文）</h4>
+                    <ul class="digest" id="digest-list">
+                      <li>23:13:05 op.llm-config vendor=ark · key=••••••（长度 32）· 结果 ok</li>
+                      <li>23:13:05 op.authorize site=open.bigmodel.cn scope=页面侧注入 · 结果 ok</li>
+                    </ul>
+                    <p class="muted">digest 白名单字段里没有 key 的明文位（原始输入既不落盘、也不进流）。</p>
+                  </div>
+                  <div class="view-body" id="view-settings" hidden>
+                    <h4>设置（4 分区 · 管理面保留，法六不变）</h4>
+                    <ul>
+                      <li>授权与策略档（本站点写操作自动=关）</li>
+                      <li>LLM 连接（火山方舟 · deepseek-v4 · 已配置 · 凭据以掩码呈现）</li>
+                      <li>浏览器权限（optional_permissions 2 项 · 运行时申请 / 可撤销）</li>
+                      <li>留痕与台账（流保留策略 / 审计导出 / digest 导出）</li>
+                    </ul>
+                    <p class="muted">chat 是这些操作的入口之一，不是替代 —— 管理总览仍在这里（法六）。</p>
+                  </div>
+                </div>
+
+                <!-- 消息流本体 -->
+                <ol class="stream" id="stream" role="log" aria-label="会话消息流（一切交互皆消息，只追加）">
+                  <!-- ── 1. AI 答复卡（富文本：编号列表 / 代码 / 表格摘要） ── -->
+                  <li class="msg msg-ai" id="msg-g-welcome" data-msg-type="ai" data-scenes="S1 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" />
+                        <path d="M12.6 10.4l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6z" />
+                      </svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">
+                        <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                        AI 答复 · 欢迎（法七：从这里到能用，全程零跳出面板）
+                      </p>
+                      <p>你在这个站点上要用到的每一步，都在这一条流里完成：</p>
+                      <ol>
+                        <li>配 LLM（掩码输入，值不入流）；</li>
+                        <li>绑定 / 授权站点（<code>op.rebind</code> / <code>op.authorize</code>）；</li>
+                        <li>按需申请浏览器权限（<code>op.perm.request</code>，安装期权限不变）。</li>
+                      </ol>
+                      <table class="mini-table">
+                        <caption>本稿的 op 与风险级（完整清单见页脚「架构区」）</caption>
+                        <thead>
+                          <tr><th scope="col">op</th><th scope="col">风险级</th><th scope="col">consent</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr><th scope="row"><code>op.llm-config</code></th><td>中（写凭据）</td><td>必需（auth 卡）</td></tr>
+                          <tr><th scope="row"><code>op.authorize</code></th><td>低（可撤销）</td><td>必需（auth 卡）</td></tr>
+                          <tr><th scope="row"><code>op.rebind</code></th><td>低（幂等）</td><td>不需要</td></tr>
+                        </tbody>
+                      </table>
+                      <p class="hint">凡是阻塞你的终态，我都会在同一条流里给出可达的下一步 —— 没有死端（法七）。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 2. 用户消息卡 ── -->
+                  <li class="msg msg-user" id="msg-g-user" data-msg-type="user" data-scenes="S1 S7">
+                    <span class="msg-who" aria-hidden="true">我</span>
+                    <article class="bubble">就在这儿一次配好吧，别让我跳来跳去</article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（LLM 未配置 = 阻塞终态 1/5） ── -->
+                  <li class="msg msg-system" id="msg-g-sys-llm-missing" data-msg-type="system" data-scenes="S1 S6 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.2l5.4 9.6H2.6z" /><path d="M8 6.1v2.9" /><path d="M8 10.9h.01" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:12:31</span>
+                    <span class="sys-text">LLM <b>未配置</b>：本机没有可用凭据（阻塞态 1/5）。下一步在流内 —— 见下方推荐卡。</span>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（op.llm-config） ── -->
+                  <li class="msg msg-next" id="msg-g-next-llm" data-msg-type="nextstep" data-scenes="S1 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 点一下就是一条 op 指令（chips 带 opId）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.llm-config" data-pri="1" data-command="配置模型">
+                          配置模型 <span class="op-code">op.llm-config</span> <span class="badge ask">中 · 写凭据</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.help" data-pri="3" data-command="看看能做什么">
+                          看看能做什么 <span class="op-code">op.help</span>
+                        </button>
+                      </div>
+                      <p class="hint">推荐不是自动执行 —— 你点了才会做；点了把「已选 + opId」记在这张卡上。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（G 扩形：secret 掩码输入 · 值不入流） ── -->
+                  <li class="msg msg-ask msg-secret" id="msg-g-ask-key" data-msg-type="askuser" data-ask-kind="text"
+                      data-secret="true" data-init-answered="false" data-answered="false"
+                      data-fixed-label="已答：" data-op="op.llm-config" data-op-stage="params" data-scenes="S1 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · secret 型（G 扩形）· op.llm-config 的 params 步</p>
+                      <p class="ask-q" id="msg-g-ask-key-q">把 API Key 贴进这里（掩码显示）。它只走向存储，不会进入这条流。</p>
+                      <div class="ask-form">
+                        <label class="sr-only" for="ask-g-key-input">API Key（掩码输入）</label>
+                        <div class="ask-secret-row">
+                          <input id="ask-g-key-input" class="ask-input" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…（掩码输入 · 不回显）" />
+                          <button type="button" class="btn-primary" data-act="secret" data-ask="msg-g-ask-key">提交并测试</button>
+                          <button type="button" data-act="cancel" data-ask="msg-g-ask-key">取消</button>
+                        </div>
+                        <p class="ask-secret-note">
+                          <b>法八 · 值不入流：</b>掩码输入卡内输入 → 直达存储；流内只留「事实 + 时间戳 + 掩码长度」，digest / 审计零明文。
+                          （与法二的关系：留痕的是事实，不是值。）
+                        </p>
+                        <span class="hint">空值不提交（不代填默认值）；取消 = 回答被取消。</span>
+                      </div>
+                      <div class="ask-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：</b>
+                        <span class="ts ask-fixed-time"></span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 8. 工具结果卡（连接测试）── -->
+                  <li class="msg msg-tool" id="msg-g-tool-conn" data-msg-type="tool" data-scenes="S1 S7" data-reveal="s1-llm" data-tool-state="done" data-init-tool="done">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.2 2.4a3.1 3.1 0 0 0-3.9 3.9l-3.4 3.4a1.4 1.4 0 0 0 2 2l3.4-3.4a3.1 3.1 0 0 0 3.9-3.9l-1.8 1.8-1.4-1.4z" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">工具结果 · op.llm-config 的 execute 步</p>
+                      <p class="tool-out">连接测试 ✓ 1.2s · 厂商 火山方舟 · 模型 deepseek-v4（凭据已掩码写入本机）</p>
+                      <p class="hint">回执复用既有形态（工具卡 + 系统行），<b>不新增卡类型</b>。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 9. 命令 / 操作调用记录卡（值不入流） ── -->
+                  <li class="msg msg-command" id="msg-g-cmd-llm" data-msg-type="command" data-scenes="S4 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 5.2l2.4 2.8-2.4 2.8" /><path d="M8.4 10.8h4.2" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">命令记录 · op 调用行（法八：值以掩码出现）</p>
+                      <p class="cmd-line">op.llm-config --vendor ark --model deepseek-v4 --key ••••••</p>
+                      <p class="hint">这一行是<b>事实</b>（哪个 op、哪个厂商、什么模型、key 以掩码出现），不是值。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（LLM 配置回执） ── -->
+                  <li class="msg msg-system" id="msg-g-sys-llm-ok" data-msg-type="system" data-scenes="S1 S7" data-reveal="s1-llm">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                    </span>
+                    <span class="ts sys-time" id="sys-g-llm-ts">23:12:44</span>
+                    <span class="sys-text">✓ <code>op.llm-config</code> 已完成：火山方舟 · deepseek-v4 · 凭据已掩码写入（<b>零明文</b>）。下一步在流内。</span>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（op.rebind：打开目标站点） ── -->
+                  <li class="msg msg-next" id="msg-g-next-open" data-msg-type="nextstep" data-scenes="S1 S7" data-reveal="s1-llm">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 续流 2/3</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.rebind" data-pri="1" data-command="打开目标站点并绑定">
+                          打开目标站点并绑定 <span class="op-code">op.rebind</span> <span class="badge ok">低 · 幂等</span>
+                        </button>
+                      </div>
+                      <p class="hint">绑定目标站点这一步也不跳走 —— 站点摘要跟着变，流里继续。</p>
+                    </article>
+                  </li>
+                  <!-- ═══ S2 断流样板：真机 23:12:51 ~ 23:12:59 逐字复刻 ═══ -->
+                  <!-- ── 6. 系统事件行（绑定成功，真机逐字） ── -->
+                  <li class="msg msg-system" id="msg-g-sys-bound" data-msg-type="system" data-scenes="S1 S2 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:12:51</span>
+                    <span class="sys-text">✓ 已绑定站点 https://open.bigmodel.cn，正在自动探测 web-cli 声明。</span>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（S1 续流 2/3：授权） ── -->
+                  <li class="msg msg-next" id="msg-g-next-authorize-a" data-msg-type="nextstep" data-scenes="S1 S6 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 续流 2/3 · 授权（恢复项，priority 0）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.authorize" data-pri="0" data-command="授权当前站点">
+                          授权当前站点 <span class="op-code">op.authorize</span> <span class="badge accent">恢复 · P0</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.rebind" data-pri="1" data-command="重新绑定当前标签页">
+                          重新绑定当前标签页 <span class="op-code">op.rebind</span>
+                        </button>
+                      </div>
+                      <p class="hint">同一个 provider（<code>site.unauthorized</code>）在首装态与非首装态给出<b>同一张</b>恢复卡 —— R1 的「只在首装态有授权 chip」被消掉。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 5. 权限 / 授权申请卡（S1 续流 · 待批） ── -->
+                  <li class="msg msg-auth" id="msg-g-auth-site-1" data-msg-type="auth" data-consent="site-authorize"
+                      data-init-decision="pending" data-decision="pending" data-scenes="S1 S7" data-op="op.authorize" data-op-stage="consent">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8 1.8l5 1.9v4.1c0 3-2.2 5.2-5 6.4-2.8-1.2-5-3.4-5-6.4V3.7z" /><path d="M5.9 8.1l1.5 1.5 2.9-3.2" />
+                      </svg>
+                    </span>
+                    <article class="bubble auth-card">
+                      <p class="card-tag">权限申请 · 授权站点 · 待你批准</p>
+                      <p class="ask-q">要让我在这个站点上工作，需要你授权 —— 批准后页面侧才会开始注入。</p>
+                      <ul class="auth-scope">
+                        <li>op：<code>op.authorize</code> · 风险级 <span class="badge ok">低 · 可撤销</span></li>
+                        <li>站点：https://open.bigmodel.cn（当前标签页）</li>
+                        <li>范围：仅本会话 · 登记式注入</li>
+                        <li>撤销：<code>op.revoke</code>（随时，流内发起）</li>
+                      </ul>
+                      <div class="auth-preview">
+                        <b>后果预演：</b>批准 = 页面侧开始注入、探测恢复；<b>不</b>代表任何写操作被允许 —— 写操作仍逐次 ask 保底，<code>evaluate</code> 始终 deny。
+                      </div>
+                      <div class="auth-actions">
+                        <button type="button" class="btn-primary" data-act="approve" data-auth="msg-g-auth-site-1" data-mode="once">批准（本会话）</button>
+                        <button type="button" class="btn-danger" data-act="reject" data-auth="msg-g-auth-site-1">拒绝</button>
+                      </div>
+                      <div class="auth-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="auth-fixed-text">已批准：</b>
+                        <span class="ts auth-fixed-time"></span>
+                        <span class="muted">· 记录已写入审计</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（探测状态变化，真机逐字） ── -->
+                  <li class="msg msg-system" id="msg-g-sys-probe" data-msg-type="system" data-scenes="S2 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3.1" /><path d="M8 1.5v2.8M8 11.7v2.8M1.5 8h2.8M11.7 8h2.8" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:12:51</span>
+                    <span class="sys-text">站点探测状态变化：已按相位变化登记（稳态不重复）｜正在自动探测…</span>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（真机逐字的「三动作」，逐字保留） ── -->
+                  <li class="msg msg-next" id="msg-g-next-recovery" data-msg-type="nextstep" data-scenes="S2 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 真机原文「重新绑定当前标签页 / 重新拾取 / 改用描述」（逐字保留）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.rebind" data-pri="1" data-command="重新绑定当前标签页">
+                          重新绑定当前标签页 <span class="op-code">op.rebind</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.pick" data-pri="1" data-command="重新拾取">
+                          重新拾取 <span class="op-code">op.pick</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.describe" data-pri="1" data-command="改用描述">
+                          改用描述 <span class="op-code">op.describe</span>
+                        </button>
+                      </div>
+                      <p class="hint">
+                        <b>真机缺陷（R2）：</b>这三条里<b>没有一条能解除「未授权」</b> —— 推荐看似给了出路，实际是三条死路。
+                        G 保留这三条（它们各自有用），但**恢复项由 provider 注册表补齐**（见下方 ✖ 行与其后的 next）。
+                      </p>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（重新绑定成功，真机逐字） ── -->
+                  <li class="msg msg-system" id="msg-g-sys-rebound" data-msg-type="system" data-scenes="S2 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:12:57</span>
+                    <span class="sys-text">✓ 已重新绑定当前标签页：https://open.bigmodel.cn（<code>op.rebind</code> 回执 · 幂等）</span>
+                  </li>
+
+                  <!-- ── 11. 错误行（真机逐字 ✖；G 首验收：行内必须带恢复 next，法七） ── -->
+                  <li class="msg msg-error" id="msg-g-error-unauth" data-msg-type="error" data-scenes="S2 S6 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.6" /><path d="M8 4.8v3.8" /><path d="M8 11.2h.01" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">错误行 · error（真机原文逐字）</p>
+                      <p class="err-line">✖ 页面侧不可用：未授权站点 https://open.bigmodel.cn：页面侧零注入</p>
+                      <div class="err-recovery">
+                        <span class="err-label">法七 · 错误行不裸奔 → 恢复 next（行内）：</span>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.authorize" data-pri="0" data-command="授权当前站点">
+                          授权当前站点 <span class="op-code">op.authorize</span> <span class="badge ok">恢复 · P0</span>
+                        </button>
+                      </div>
+                      <p class="hint">真机缺陷（R3）= 这一行不带恢复入口。G 的判定式：✖ 行要么行内带恢复 next，要么**紧随**一条含恢复 next 的推荐卡 —— 两者本稿都做。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（✖ 行紧随的恢复 next，法七） ── -->
+                  <li class="msg msg-next" id="msg-g-next-authorize-b" data-msg-type="nextstep" data-scenes="S2 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 紧随 ✖ 行 · 恢复（priority 0）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.authorize" data-pri="0" data-command="授权当前站点">
+                          授权当前站点 <span class="op-code">op.authorize</span> <span class="badge accent">恢复 · P0</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.rebind" data-pri="1" data-command="重新绑定当前标签页">
+                          重新绑定当前标签页 <span class="op-code">op.rebind</span>
+                        </button>
+                      </div>
+                      <p class="hint">provider <code>site.unauthorized</code>（when: <code>ctx.site.active ∧ !ctx.site.authorized</code>）在<b>任何</b>非首装会话都会被求值为候选 —— 这正是真机 R1 缺的那一环。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 5. 权限 / 授权申请卡（S2 的恢复动作 · 后果预演） ── -->
+                  <li class="msg msg-auth" id="msg-g-auth-site-2" data-msg-type="auth" data-consent="site-authorize"
+                      data-init-decision="pending" data-decision="pending" data-scenes="S2 S7" data-op="op.authorize" data-op-stage="consent">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8 1.8l5 1.9v4.1c0 3-2.2 5.2-5 6.4-2.8-1.2-5-3.4-5-6.4V3.7z" /><path d="M5.9 8.1l1.5 1.5 2.9-3.2" />
+                      </svg>
+                    </span>
+                    <article class="bubble auth-card">
+                      <p class="card-tag">权限申请 · 授权站点（G 新增 provider 的产物）· 待你批准</p>
+                      <p class="ask-q">要让我在这个站点上工作，需要你授权 —— 批准后页面侧才会开始注入。</p>
+                      <ul class="auth-scope">
+                        <li>op：<code>op.authorize</code> · 风险级 <span class="badge ok">低 · 可撤销</span></li>
+                        <li>站点：https://open.bigmodel.cn（当前标签页）</li>
+                        <li>范围：仅本会话 · 页面侧注入（登记式）</li>
+                        <li>撤销：<code>op.revoke</code>（随时，流内发起）</li>
+                      </ul>
+                      <div class="auth-preview">
+                        <b>后果预演：</b>批准 = 页面侧开始注入、探测恢复、引用可登记；<b>不</b>代表任何写操作被允许 ——
+                        写操作仍然逐次 ask 保底；<code>evaluate</code> 始终 deny。
+                      </div>
+                      <div class="auth-actions">
+                        <button type="button" class="btn-primary" data-act="approve" data-auth="msg-g-auth-site-2" data-mode="once">批准（本会话）</button>
+                        <button type="button" class="btn-danger" data-act="reject" data-auth="msg-g-auth-site-2">拒绝</button>
+                      </div>
+                      <div class="auth-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="auth-fixed-text">已批准：</b>
+                        <span class="ts auth-fixed-time"></span>
+                        <span class="muted">· 记录已写入审计</span>
+                        <button type="button" class="mini-btn" data-act="next" data-op="op.help" data-command="查看审计">查看审计</button>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ═══ 自动续流（reveal s1-auth）：批准之后流自己往下走，不跳走 ═══ -->
+                  <li class="msg msg-system" id="msg-g-sys-auth-receipt" data-msg-type="system" data-scenes="S1 S2 S7" data-reveal="s1-auth">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:13:02</span>
+                    <span class="sys-text">✓ 授权已生效：页面侧注入已启用（登记式）· <code>op.authorize</code> 回执已写入审计。</span>
+                  </li>
+
+                  <li class="msg msg-system" id="msg-g-sys-probe-ok" data-msg-type="system" data-scenes="S1 S2 S7" data-reveal="s1-auth">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:13:03</span>
+                    <span class="sys-text">探测恢复：声明 <code>web-cli/0.2</code> 校验通过 → <b>supported</b>（<b>自动续流</b>，无需你再点一次）。</span>
+                  </li>
+
+                  <li class="msg msg-next" id="msg-g-next-repick" data-msg-type="nextstep" data-scenes="S1 S2 S7" data-reveal="s1-auth">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 续流 3/3 · 试试拾取</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.pick" data-pri="1" data-command="试试拾取">
+                          试试拾取 <span class="op-code">op.pick</span> <span class="badge ok">低 · 只读</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.describe" data-pri="1" data-command="改用描述">
+                          改用描述 <span class="op-code">op.describe</span>
+                        </button>
+                      </div>
+                      <p class="hint">拾取由 chat 发起（op.pick），落到页面上选一个元素，再回到流里确认 —— 全程不跳出面板。</p>
+                    </article>
+                  </li>
+
+                  <li class="msg msg-ai" id="msg-g-ref-ack" data-msg-type="ai" data-scenes="S2 S7" data-reveal="s1-auth">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">AI 答复 · 引用已登记</p>
+                      <p>已引用 <b>①</b>「创建密钥」按钮（<code>#doc-actions</code>，捕获于 23:13:11）。剩下的动作也在流里给你。</p>
+                    </article>
+                  </li>
+
+                  <li class="msg msg-ref" id="msg-g-ref-ok" data-msg-type="ref" data-ref-state="valid" data-ref-num="1" data-scenes="S1 S2 S7" data-reveal="s1-auth">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3.2 2.6h9.6v10.8H3.2z" /><path d="M5.6 6h4.8M5.6 9.4h3.2" />
+                      </svg>
+                    </span>
+                    <article class="bubble ref-card">
+                      <p class="card-tag">页面引用 · ① · 证据只读</p>
+                      <div class="ref-chips">
+                        <span class="ref-chip"><b>①</b>「创建密钥」按钮</span>
+                        <span class="ref-chip mono">#doc-actions</span>
+                        <span class="ref-chip">捕获于 23:13:11</span>
+                        <span class="ref-chip">元素仍在页面上</span>
+                      </div>
+                      <p class="hint">引用只是指向页面的一个「地址」，不会复制页面数据（也<b>不会</b>去读页面上的密钥）。</p>
+                    </article>
+                  </li>
+                  <!-- ═══ S3 浏览器权限申请（op.perm.request · 裁决① optional_permissions） ═══ -->
+                  <!-- ── 3. 下一步推荐卡 ── -->
+                  <li class="msg msg-next" id="msg-g-next-perm" data-msg-type="nextstep" data-scenes="S3 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 阻塞态 3/5：权限缺失 → 恢复 next</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.perm.request" data-pri="0" data-command="申请浏览器权限">
+                          申请浏览器权限 <span class="op-code">op.perm.request</span> <span class="badge ask">中 · 不可静默回收</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.describe" data-pri="1" data-command="改用描述继续">
+                          改用描述继续 <span class="op-code">op.describe</span>
+                        </button>
+                      </div>
+                      <p class="hint">拒绝也有出路（法七）：不重试、不改既有授权，但「改用描述继续」仍然可达。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（G 扩形：form 参数表单 · op 的 params 步） ── -->
+                  <li class="msg msg-ask" id="msg-g-ask-permform" data-msg-type="askuser" data-ask-kind="form"
+                      data-init-answered="true" data-answered="true" data-fixed-label="已答："
+                      data-op="op.perm.request" data-op-stage="params" data-scenes="S3 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · form 型（G 扩形）· op.perm.request 的 params 步 · 已回答</p>
+                      <p class="ask-q">这次要申请哪些浏览器权限？（来自 manifest 的 <code>optional_permissions</code>，安装期权限不变）</p>
+                      <div class="ask-form" hidden>
+                        <div class="ask-checks" role="group" aria-label="可选权限项">
+                          <label><input type="checkbox" name="perm" value="站点访问" checked /> 站点访问（host）</label>
+                          <label><input type="checkbox" name="perm" value="通知" /> 通知（notifications）</label>
+                          <label><input type="checkbox" name="perm" value="剪贴板" checked /> 剪贴板读取（clipboardRead）</label>
+                        </div>
+                        <div class="ask-actions">
+                          <button type="button" class="btn-primary" data-act="answer" data-ask="msg-g-ask-permform">提交并申请</button>
+                          <button type="button" data-act="cancel" data-ask="msg-g-ask-permform">取消</button>
+                        </div>
+                      </div>
+                      <div class="ask-fixed card-fixed">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：站点访问 + 剪贴板</b>
+                        <span class="ts ask-fixed-time">23:13:06</span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 5. consent 卡（auth 卡变体：说明为何需要 / 后果预演 / 不可逆性） ── -->
+                  <li class="msg msg-auth" id="msg-g-consent-perm" data-msg-type="auth" data-consent="browser-perm"
+                      data-init-decision="pending" data-decision="pending" data-scenes="S3 S7" data-op="op.perm.request" data-op-stage="consent">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3.4" y="7" width="9.2" height="6.4" rx="1.5" /><path d="M5.8 7V5.2a2.2 2.2 0 0 1 4.4 0V7" />
+                      </svg>
+                    </span>
+                    <article class="bubble auth-card">
+                      <p class="card-tag">consent · 浏览器权限申请（运行时）· 待你批准</p>
+                      <p class="ask-q">为什么要这个权限？</p>
+                      <ul class="auth-scope">
+                        <li><b>为何需要</b>：站点访问用于登记式注入；剪贴板读取用于「把引用写进剪贴板」这类只读动作。</li>
+                        <li><b>范围</b>：仅 open.bigmodel.cn · 仅本次会话需要时申请</li>
+                        <li><b>安装期权限不变</b>：走 <code>optional_permissions</code> 运行时申请（裁决①）</li>
+                      </ul>
+                      <div class="auth-preview">
+                        <b>后果预演：</b>批准 → 浏览器原生弹窗再确认一次；此后该站点上的相应动作不再逐次询问浏览器。
+                        拒绝 → 什么都不改变，扩展不会自动重试（法七：拒绝后仍有可达 next）。
+                      </div>
+                      <div class="auth-irreversible">
+                        <b>不可逆性：</b>浏览器权限<b>扩展不能静默回收</b> —— 撤销只能在浏览器扩展页或 chat 里的
+                        <code>op.revoke</code> 发起（会明确告知需要你去浏览器确认）。
+                      </div>
+                      <div class="auth-actions">
+                        <button type="button" class="btn-primary" data-act="approve" data-auth="msg-g-consent-perm" data-mode="perm">批准并弹出浏览器确认</button>
+                        <button type="button" class="btn-danger" data-act="reject" data-auth="msg-g-consent-perm">拒绝</button>
+                      </div>
+                      <div class="auth-fixed card-fixed" hidden>
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="auth-fixed-text">已批准：</b>
+                        <span class="ts auth-fixed-time"></span>
+                        <span class="muted">· 记录已写入审计</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 10. 过程卡（thinking：等待浏览器弹窗） ── -->
+                  <li class="msg msg-thinking" id="msg-g-thinking" data-msg-type="thinking" data-scenes="S3 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="4.4" cy="8" r="1" /><circle cx="8" cy="8" r="1" /><circle cx="11.6" cy="8" r="1" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">过程 · thinking（进行中）</p>
+                      <p>正在等待浏览器权限弹窗…（页面侧零注入；你选完我立刻回到这条流里固化回执）</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 8. 工具结果卡（权限回执：批准 / 拒绝都固化） ── -->
+                  <li class="msg msg-tool" id="msg-g-tool-perm" data-msg-type="tool" data-scenes="S3 S7"
+                      data-tool-state="pending" data-init-tool="pending"
+                      data-tool-pending-text="浏览器权限弹窗：等待你在弹窗里选择…（页面侧零注入）">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.2 2.4a3.1 3.1 0 0 0-3.9 3.9l-3.4 3.4a1.4 1.4 0 0 0 2 2l3.4-3.4a3.1 3.1 0 0 0 3.9-3.9l-1.8 1.8-1.4-1.4z" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">工具结果 · op.perm.request 的 execute 步（回执）</p>
+                      <p class="tool-out" id="tool-g-perm-out">浏览器权限弹窗：等待你在弹窗里选择…（页面侧零注入）</p>
+                      <p class="hint">
+                        演示：点上面 consent 卡的「批准 / 拒绝」→ 本卡的 pending → 结算（两端都固化）。
+                        <span class="ts tool-ts" id="tool-g-perm-ts"></span>
+                      </p>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（权限批准回执 · reveal s3-ok） ── -->
+                  <li class="msg msg-system" id="msg-g-sys-perm-ok" data-msg-type="system" data-scenes="S3 S7" data-reveal="s3-ok">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:13:08</span>
+                    <span class="sys-text">✓ <code>op.perm.request</code> 已授予：站点访问 + 剪贴板（optional_permissions）· 回执已固化。</span>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（拒绝后的可达 next · reveal s3-deny） ── -->
+                  <li class="msg msg-next" id="msg-g-next-perm-deny" data-msg-type="nextstep" data-scenes="S3 S7" data-reveal="s3-deny">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 权限被拒之后（法七：拒绝不是死端）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.describe" data-pri="1" data-command="改用描述继续">
+                          改用描述继续 <span class="op-code">op.describe</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.help" data-pri="3" data-command="看看在只读模式下能做什么">
+                          看看只读模式能做什么 <span class="op-code">op.help</span>
+                        </button>
+                      </div>
+                      <p class="hint">不重试、不改既有授权；但出路必须可见 —— 否则拒绝就成了新的死端。</p>
+                    </article>
+                  </li>
+
+                  <!-- ═══ S4 LLM 换厂商 / 改 Key（全程 in chat） ═══ -->
+                  <!-- ── 3. 下一步推荐卡 ── -->
+                  <li class="msg msg-next" id="msg-g-next-switch" data-msg-type="nextstep" data-scenes="S4 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 换厂商 / 改 Key（不用去设置页）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.llm-config" data-pri="1" data-command="换厂商 / 改 Key">
+                          换厂商 / 改 Key <span class="op-code">op.llm-config</span> <span class="badge ask">中 · 写凭据</span>
+                        </button>
+                      </div>
+                      <p class="hint">设置视图仍保留为管理总览（法六）；chat 只是「更快的入口」，不是替代。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（choice · 选择厂商 · 已答固化） ── -->
+                  <li class="msg msg-ask" id="msg-g-ask-vendor" data-msg-type="askuser" data-ask-kind="choice"
+                      data-init-answered="true" data-answered="true" data-fixed-label="已答："
+                      data-op="op.llm-config" data-op-stage="params" data-scenes="S4 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · choice 型 · op.llm-config 的 params 步 · 已回答</p>
+                      <p class="ask-q" id="ask-g-vendor-q">用哪家？</p>
+                      <div class="ask-form" hidden>
+                        <div class="ask-choices" role="group" aria-labelledby="ask-g-vendor-q">
+                          <button type="button" class="choice" data-act="choose" data-ask="msg-g-ask-vendor" data-choice="火山方舟（ark）">
+                            <span class="choice-main">火山方舟（ark）</span><span class="badge ok">当前</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose" data-ask="msg-g-ask-vendor" data-choice="智谱 GLM">
+                            <span class="choice-main">智谱 GLM</span><span class="badge ask">写凭据</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose" data-ask="msg-g-ask-vendor" data-choice="OpenAI 兼容端点">
+                            <span class="choice-main">OpenAI 兼容端点</span><span class="badge ask">写凭据</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose-other" data-ask="msg-g-ask-vendor">
+                            <span class="choice-main">其他…（我来描述）</span>
+                          </button>
+                        </div>
+                        <div class="ask-other" hidden>
+                          <label class="sr-only" for="ask-g-vendor-other">补充描述厂商 / 模型</label>
+                          <input id="ask-g-vendor-other" class="ask-input" type="text" placeholder="例如：自建网关 + deepseek-v4" />
+                          <button type="button" class="btn-primary" data-act="answer" data-ask="msg-g-ask-vendor" data-source="ask-g-vendor-other">用这句回答</button>
+                          <button type="button" data-act="cancel" data-ask="msg-g-ask-vendor">取消</button>
+                        </div>
+                      </div>
+                      <div class="ask-fixed card-fixed">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：智谱 GLM</b>
+                        <span class="ts ask-fixed-time">23:13:14</span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（secret 掩码 · 已答固化 · 零明文） ── -->
+                  <li class="msg msg-ask msg-secret" id="msg-g-ask-key2" data-msg-type="askuser" data-ask-kind="text"
+                      data-secret="true" data-init-answered="true" data-answered="true"
+                      data-fixed-label="已答：" data-op="op.llm-config" data-op-stage="params" data-scenes="S4 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · secret 型（G 扩形）· 新 Key · 已答固化（值不入流）</p>
+                      <p class="ask-q">贴入新的 API Key（掩码输入）。</p>
+                      <div class="ask-form" hidden>
+                        <div class="ask-secret-row">
+                          <input id="ask-g-key2-input" class="ask-input" type="password" autocomplete="off" placeholder="sk-…（掩码输入 · 不回显）" />
+                          <button type="button" class="btn-primary" data-act="secret" data-ask="msg-g-ask-key2">提交并测试</button>
+                          <button type="button" data-act="cancel" data-ask="msg-g-ask-key2">取消</button>
+                        </div>
+                      </div>
+                      <div class="ask-fixed card-fixed">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：API Key 已提交（掩码 •••••• · 长度 32 · 值不入流 · 零明文留痕）</b>
+                        <span class="ts ask-fixed-time">23:13:15</span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（换厂商回执） ── -->
+                  <li class="msg msg-system" id="msg-g-sys-llm-receipt2" data-msg-type="system" data-scenes="S4 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:13:16</span>
+                    <span class="sys-text">✓ <code>op.llm-config</code> 已更新：厂商 智谱 GLM · 连接测试 ok · 凭据已掩码写入（digest 零明文）。</span>
+                  </li>
+                  <!-- ═══ S5 管理操作也可在 chat 发起（撤销授权 · op.revoke 高风险） ═══ -->
+                  <!-- ── 3. 下一步推荐卡 ── -->
+                  <li class="msg msg-next" id="msg-g-next-revoke" data-msg-type="nextstep" data-scenes="S5 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 管理操作也走 next（不用去设置页）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.revoke" data-pri="2" data-command="撤销本站点授权">
+                          撤销本站点授权 <span class="op-code">op.revoke</span> <span class="badge deny">高 · 不可逆</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.help" data-pri="3" data-command="看看能做什么">
+                          看看能做什么 <span class="op-code">op.help</span>
+                        </button>
+                      </div>
+                      <p class="hint">高风险操作留在流里：确认卡 + 后果说明 + 回执，一样不跳走（法七）；管理总览仍在设置视图（法六）。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 4. ask-user 问答卡（choice · 撤销确认卡 · 已答固化） ── -->
+                  <li class="msg msg-ask" id="msg-g-ask-revoke" data-msg-type="askuser" data-ask-kind="choice"
+                      data-init-answered="true" data-answered="true" data-fixed-label="已答："
+                      data-op="op.revoke" data-op-stage="consent" data-scenes="S5 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6.1a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.5" /><path d="M8 11.9h.01" /></svg>
+                    </span>
+                    <article class="bubble ask-card">
+                      <p class="card-tag">ask-user · choice 型 · 撤销确认卡（op.revoke 的 consent 步）· 已回答</p>
+                      <p class="ask-q" id="ask-g-revoke-q">撤销到什么程度？（浏览器权限扩展不能静默回收）</p>
+                      <div class="ask-form" hidden>
+                        <div class="ask-choices" role="group" aria-labelledby="ask-g-revoke-q">
+                          <button type="button" class="choice" data-act="choose" data-ask="msg-g-ask-revoke" data-choice="撤销站点授权（保留浏览器权限）">
+                            <span class="choice-main">撤销站点授权（保留浏览器权限）</span><span class="badge ok">可逆</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose" data-ask="msg-g-ask-revoke" data-choice="同时撤销浏览器权限（需要你去浏览器确认）">
+                            <span class="choice-main">同时撤销浏览器权限（需要你去浏览器确认）</span><span class="badge deny">不可逆</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose" data-ask="msg-g-ask-revoke" data-choice="先不撤销，我只是看看">
+                            <span class="choice-main">先不撤销，我只是看看</span><span class="badge">只读</span>
+                          </button>
+                          <button type="button" class="choice" data-act="choose-other" data-ask="msg-g-ask-revoke">
+                            <span class="choice-main">其他…（我来描述）</span>
+                          </button>
+                        </div>
+                        <div class="ask-other" hidden>
+                          <label class="sr-only" for="ask-g-revoke-other">补充描述撤销范围</label>
+                          <input id="ask-g-revoke-other" class="ask-input" type="text" placeholder="用一句话描述撤销范围" />
+                          <button type="button" class="btn-primary" data-act="answer" data-ask="msg-g-ask-revoke" data-source="ask-g-revoke-other">用这句回答</button>
+                          <button type="button" data-act="cancel" data-ask="msg-g-ask-revoke">取消</button>
+                        </div>
+                      </div>
+                      <div class="ask-fixed card-fixed">
+                        <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                        <b class="ask-fixed-text">已答：撤销站点授权（保留浏览器权限）</b>
+                        <span class="ts ask-fixed-time">23:13:21</span>
+                        <span class="muted">· 既成事实，不撤销</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 6. 系统事件行（撤销回执） ── -->
+                  <li class="msg msg-system" id="msg-g-sys-revoke" data-msg-type="system" data-scenes="S5 S7">
+                    <span class="sys-bullet" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.6l3 3 7-7.6" /></svg>
+                    </span>
+                    <span class="ts sys-time">23:13:22</span>
+                    <span class="sys-text">✓ <code>op.revoke</code> 已完成：站点授权已撤销（open.bigmodel.cn）· 浏览器权限保留（未静默回收）· 回执已写入审计。</span>
+                  </li>
+
+                  <!-- ── 12. 告知卡（notice：设置视图仍是管理总览） ── -->
+                  <li class="msg msg-notice" id="msg-g-notice-settings" data-msg-type="notice" data-scenes="S5 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.6" /><path d="M8 7.4v3.8" /><path d="M8 5h.01" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">告知 · 管理面仍在（法六不变）</p>
+                      <p>完整台账、授权档、LLM 凭据、浏览器权限都在工具栏「设置」里 —— chat 是这些操作的<b>入口之一</b>，不是替代。</p>
+                      <div class="row">
+                        <button type="button" class="mini-btn" data-act="next" data-op="op.help" data-pri="3" data-command="打开设置总览">打开设置总览</button>
+                        <span class="muted">（它就是工具栏那个「设置」，这里给第二个入口）</span>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ═══ S6 多 next 仲裁（同时多个阻塞：恢复 > 引导 > 发现） ═══ -->
+                  <!-- ── 11. 错误行（绑定失效 · 阻塞态 4/5；行内带恢复 next） ── -->
+                  <li class="msg msg-error" id="msg-g-error-binding" data-msg-type="error" data-scenes="S6 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.6" /><path d="M8 4.8v3.8" /><path d="M8 11.2h.01" /></svg>
+                    </span>
+                    <article class="bubble">
+                      <p class="card-tag">错误行 · error（阻塞态 4/5：绑定失效）</p>
+                      <p class="err-line">✖ 绑定已失效：原标签页已关闭 / origin 变更，站点 https://open.bigmodel.cn 当前不可达。</p>
+                      <div class="err-recovery">
+                        <span class="err-label">法七 · 行内恢复 next：</span>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.rebind" data-pri="0" data-command="重新绑定当前标签页">
+                          重新绑定当前标签页 <span class="op-code">op.rebind</span> <span class="badge ok">恢复 · P0</span>
+                        </button>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（紧随绑定失效的恢复 next） ── -->
+                  <li class="msg msg-next" id="msg-g-next-rebind" data-msg-type="nextstep" data-scenes="S6 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 紧随 ✖ 行 · 恢复（priority 0）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.rebind" data-pri="0" data-command="重新绑定当前标签页">
+                          重新绑定当前标签页 <span class="op-code">op.rebind</span> <span class="badge accent">恢复 · P0</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.help" data-pri="3" data-command="看看能做什么">
+                          看看能做什么 <span class="op-code">op.help</span>
+                        </button>
+                      </div>
+                    </article>
+                  </li>
+
+                  <!-- ── 7. 引用卡（失效态 · 卡内动作即 next，带 opId） ── -->
+                  <li class="msg msg-ref" id="msg-g-ref-stale" data-msg-type="ref" data-ref-state="stale" data-ref-num="1" data-scenes="S6 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="5.4" /><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2" /></svg>
+                    </span>
+                    <article class="bubble ref-card">
+                      <p class="card-tag">页面引用 · ① · 已失效（阻塞态 5/5：引用全失效）· 旧卡保留，序号不复用</p>
+                      <div class="ref-chips">
+                        <span class="ref-chip"><b>①</b>「创建密钥」按钮</span>
+                        <span class="ref-chip mono">#doc-actions</span>
+                        <span class="ref-chip">捕获于 23:13:11</span>
+                        <span class="ref-chip">失效于 23:13:26</span>
+                      </div>
+                      <p class="ref-stale-why">
+                        <b>失效原因：</b>目标元素已不存在 —— 页面重渲染移除了 <code>#doc-actions</code>，选择器已匹配不到任何节点。
+                        旧引用不会被悄悄删掉，它留在这里作为事实记录。
+                      </p>
+                      <div class="ref-actions">
+                        <button type="button" class="btn-primary" data-act="next" data-op="op.pick" data-pri="0" data-command="重新拾取">重新拾取 <span class="op-code">op.pick</span></button>
+                        <button type="button" data-act="next" data-op="op.describe" data-pri="1" data-command="改用描述">改用描述 <span class="op-code">op.describe</span></button>
+                      </div>
+                      <div class="ref-describe" id="ref-g-1-describe" hidden>
+                        <label class="sr-only" for="ref-g-1-desc-input">用描述代替引用</label>
+                        <input id="ref-g-1-desc-input" type="text" placeholder="例如：页面右上角那一排按钮里的第一个" />
+                        <button type="button" class="btn-primary" data-act="next" data-op="op.describe" data-pri="1" data-command="用这句继续">用这句继续</button>
+                      </div>
+                      <p class="hint">不会自动重试 —— 重试与否由你决定（避免在失效目标上反复发命令）；但出路在卡内，不需要你另找入口。</p>
+                    </article>
+                  </li>
+
+                  <!-- ── 3. 下一步推荐卡（多 next 仲裁：一张卡表达排序，密度继承 F） ── -->
+                  <li class="msg msg-next" id="msg-g-next-arbitrate" data-msg-type="nextstep" data-scenes="S6 S7">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 多阻塞仲裁（恢复 0 &gt; 引导 1 &gt; 发现 3）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.authorize" data-pri="0" data-command="授权当前站点">
+                          <span class="chip-order"><span class="ord">P0</span>授权当前站点</span> <span class="op-code">op.authorize</span> <span class="badge accent">恢复</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.llm-config" data-pri="1" data-command="配置模型">
+                          <span class="chip-order"><span class="ord">P1</span>配置模型</span> <span class="op-code">op.llm-config</span> <span class="badge ask">引导</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.help" data-pri="3" data-command="看看能做什么">
+                          <span class="chip-order"><span class="ord">P3</span>看看能做什么</span> <span class="op-code">op.help</span> <span class="badge">发现</span>
+                        </button>
+                      </div>
+                      <p class="hint">
+                        同时存在多个阻塞（未授权 + LLM 未配置 + 绑定失效 + 引用失效）时，<b>只出一张推荐卡</b>（chips ≤3），
+                        按 provider 注册表的 priority 排序 —— 恢复永远在引导之前，引导永远在发现之前。
+                      </p>
+                    </article>
+                  </li>
+                  <!-- （S7 全景 = 上列全部 data-scenes 含 S7 的卡同屏；12 kind 各有至少一个非 reveal 样例） -->
+
+
+
+
+                </ol>
+              </main>
+              <!-- ═══════════════════════════════════════════════════════
+                   区三 状态栏（常驻，永不折叠）
+                   · 连接状态一行（只读，不可点）
+                   · 活跃风险 chips（有则显示、无则不占行；永不折叠）
+                   · 点 chip → 内联详情 + 滚动定位到流内相关卡
+                   ═══════════════════════════════════════════════════════ -->
+              <footer class="statusbar" id="region-statusbar" data-region="statusbar" role="contentinfo" aria-label="状态栏（常驻，永不折叠）">
+                <div class="status-line" role="status">
+                  <span class="dot" aria-hidden="true"></span>
+                  <span class="sb-main" data-scenes="S1 S2 S3 S6">未授权 · 页面侧零注入（阻塞项在流内，见最新推荐卡）· 队列 0</span>
+                  <span class="sb-main" data-scenes="S4 S5 S7">已连接 · supported（声明 <code>web-cli/0.2</code>）· 队列 0</span>
+                </div>
+                <div class="risk-chips" id="risk-chips" aria-label="活跃风险">
+                  <button type="button" class="risk-chip" data-risk="auth" data-scenes="S2 S6 S7" aria-expanded="false">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.4" y="7" width="9.2" height="6.4" rx="1.5" /><path d="M5.8 7V5.2a2.2 2.2 0 0 1 4.4 0V7" /></svg>
+                    未授权（零注入）
+                  </button>
+                  <button type="button" class="risk-chip" data-risk="ref" data-scenes="S6 S7" aria-expanded="false">
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="5.4" /><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2" /></svg>
+                    引用失效 ①
+                  </button>
+                </div>
+                <div class="risk-detail" id="risk-detail" hidden>
+                  <p class="risk-detail-line" data-risk-detail="auth" hidden>
+                    <b>未授权</b>：站点 https://open.bigmodel.cn 未授权，页面侧零注入（23:12:59 检出）。
+                    <b>本阶段不发命令、不改授权</b>；恢复入口在流内 —— <code>op.authorize</code>（✖ 行内 + 紧随推荐卡）。
+                  </p>
+                  <p class="risk-detail-line" data-risk-detail="ref" hidden>
+                    <b>引用失效</b>：引用 ① 的目标元素已被页面移除（23:13:26）。
+                    <b>本阶段不发命令、不改授权</b>，重试与否由你决定；卡内已有 <code>op.pick</code> / <code>op.describe</code>。
+                  </p>
+                </div>
+              </footer>
+
+              <p class="sr-only" id="live-region" role="status" aria-live="polite"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ 架构区（G 新增的可视化章节；非交付 UI） ═══ -->
+      <!-- ═══ 架构区（G 新增的可视化章节；非交付 UI） ═══ -->
+      <section class="block" id="arch-section" aria-label="架构区：NextProvider 插件注册表 / web-op 操作清单 / 零新增卡类型（非交付 UI）">
+        <h2>架构区 · anything-is-plugin（作者提示的理念来源：deepseek-harness 开源项目）</h2>
+        <p class="muted">
+          如实登记：本次落稿时外部检索凭证缺失，<b>未能核实该项目的原文表述</b>；以下按作者口述的思想落地，不自称引用原文。
+        </p>
+
+        <h3>① NextProvider 插件注册表 —— 新增操作 = 注册插件 + 自带测试，主流程零改动</h3>
+        <p>
+          每个 provider 是 <code>{id, priority, when(ctx)→候选|null, chips[]}</code>。<code>when</code> 是<b>纯谓词</b>（给定 ctx 返回布尔），
+          因此可以单测、可以组合、可以并行求值；<code>chips</code> 只是 opId 列表，渲染与点击都由通用管线接管。
+        </p>
+        <div class="codeblock">// 新增一个「操作」= 注册一个 provider（唯一改动点）
+registry.push({
+  id: 'perm.request',
+  priority: 1,                                  // 0 恢复 / 1 引导 / 2~3 发现
+  when: ctx =&gt; ctx.site.authorized &amp;&amp; !ctx.perm.granted,   // 纯谓词，可单测
+  chips: ['op.perm.request']
+});
+
+// handleCardAction：只有一次查表，没有任何 per-op 分支 —— 所以 diff 恒为 0
+function handleCardAction(opId) {
+  const op = OPS_BY_ID[opId];                    // OPS 是 op 清单（下节）
+  return op ? op.execute() : false;              // 分发器不含任何操作的特例代码
+}</div>
+        <p>
+          本稿注册表初始 <b>8</b> 个 provider（恢复 3 / 引导 3 / 发现 2）；点演示控制台里的
+          「注册演示 provider」即 <b>N→N+1</b>，而 <code>handleCardAction</code> 分发器 <b>diff = 0</b>（活体可视化见顶部「注册表视察器」）。
+        </p>
+        <ul>
+          <li><b>恢复（priority 0）</b>：<code>site.unauthorized</code>（未授权）· <code>ref.stale</code>（引用失效）· <code>binding.stale</code>（绑定失效）</li>
+          <li><b>引导（priority 1）</b>：<code>llm.missing</code>（LLM 未配置）· <code>site.unbound</code>（无活跃站点）· <code>perm.missing</code>（权限缺失）</li>
+          <li><b>发现（priority 2~3）</b>：<code>manage.revoke</code>（管理动作）· <code>help.discover</code>（看看能做什么）</li>
+        </ul>
+
+        <h3>② web-op 操作清单（对标 lgdl-web-op-cli）—— 首批 8 个 op</h3>
+        <p>每个 op = <code>{opId, 风险级, params?, consent?, execute, receipt}</code>；统一管线：</p>
+        <div class="arch-flow">
+          <span class="arch-node hot">next chip</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="arch-node">（参数? 流内 ask 卡）</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="arch-node">（同意? 流内 auth 卡）</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="arch-node">execute</span>
+          <span class="pipe-arrow" aria-hidden="true">→</span>
+          <span class="arch-node">流内回执（固化区 + 系统行）</span>
+        </div>
+        <div class="table-scroll">
+          <table id="op-table">
+            <caption>首批 op 清单（8 个）：风险级 / params / consent / execute / receipt</caption>
+            <thead>
+              <tr>
+                <th scope="col">opId</th><th scope="col">风险级</th><th scope="col">params</th>
+                <th scope="col">consent</th><th scope="col">execute</th><th scope="col">receipt</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><code>op.authorize</code></th>
+                <td>低 · 可撤销（<code>op.revoke</code> 可逆）</td>
+                <td>无（默认当前标签页 origin）</td>
+                <td><b>必需</b> · auth 卡（后果预演）</td>
+                <td>登记授权，开启页面侧登记式注入</td>
+                <td>固化区 + 系统行「✓ 授权已生效」</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>op.rebind</code></th>
+                <td>低 · 幂等</td>
+                <td>无（取当前标签页）</td>
+                <td>不需要（幂等读操作）</td>
+                <td>重新读取当前标签页并登记</td>
+                <td>系统行「✓ 已重新绑定当前标签页」</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>op.llm-config</code></th>
+                <td>中 · 写凭据（可覆盖）</td>
+                <td>厂商（choice）+ 模型 + <b>API Key（secret 掩码）</b></td>
+                <td><b>必需</b> · auth 卡（「写入本机凭据 · 零明文入流」）</td>
+                <td>测试连接 → 掩码写入存储</td>
+                <td>工具卡 + 系统行「✓ 已配置 LLM（掩码 · 零明文）」</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>op.perm.request</code></th>
+                <td>中 · 浏览器权限（扩展不能静默回收）</td>
+                <td>权限项（<b>form 多选</b>，来自 <code>optional_permissions</code>）</td>
+                <td><b>必需</b> · consent 卡 + 浏览器原生弹窗</td>
+                <td>运行时申请（<code>permissions.request</code>）</td>
+                <td>工具卡 + 系统行（<b>批准 / 拒绝都固化</b>）</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>op.revoke</code></th>
+                <td>高 · 撤销不可逆（引用 / 授权随之失效）</td>
+                <td>目标（choice：站点授权 / 浏览器权限 / LLM 凭据）</td>
+                <td><b>必需</b> · 确认卡（不可逆说明）</td>
+                <td>撤销并同步登记（浏览器权限需用户在浏览器确认）</td>
+                <td>系统行「✓ 已撤销…」+ 审计入口</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>op.pick</code></th>
+                <td>低 · 只读</td>
+                <td>无（进入拾取态）</td>
+                <td>不需要</td>
+                <td>开启拾取态，等待页面点击</td>
+                <td>引用卡（新引用序号递增）</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>op.describe</code></th>
+                <td>低 · 只读</td>
+                <td>描述文本（ask 卡 text）</td>
+                <td>不需要</td>
+                <td>用描述代替引用继续</td>
+                <td>系统行 + 新引用 / 回答固化</td>
+              </tr>
+              <tr>
+                <th scope="row"><code>op.help</code></th>
+                <td>低 · 只读</td>
+                <td>无</td>
+                <td>不需要</td>
+                <td>列出当前 ctx 下可达的 op</td>
+                <td>notice / 系统行（不回写任何授权）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>③ 零新增卡类型 —— 12 kind 契约不动（7 主类 + 5 过程卡）</h3>
+        <p>
+          G 不发明新卡型：<b>askuser 扩形</b>（<code>secret</code> 掩码输入 / <code>form</code> 参数表单）与
+          <b>操作回执复用既有固化区 + 系统行</b>，都落在同一个 <code>[data-msg-type]</code> taxonomy 与同一套固化契约里。
+        </p>
+        <div class="table-scroll">
+          <table id="kind-table">
+            <caption>12 kind = 7 primary + 5 process（本稿每类都有真实样例）</caption>
+            <thead>
+              <tr><th scope="col">#</th><th scope="col">kind</th><th scope="col">层</th><th scope="col">语义</th><th scope="col">G 稿样例</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">1</th><td><code>ai</code></td><td><span class="tag-p primary">primary</span></td><td>AI 回复（支持富文本）</td><td><code>#msg-g-welcome</code></td></tr>
+              <tr><th scope="row">2</th><td><code>user</code></td><td><span class="tag-p primary">primary</span></td><td>用户发言</td><td><code>#msg-g-user</code></td></tr>
+              <tr><th scope="row">3</th><td><code>nextstep</code></td><td><span class="tag-p primary">primary</span></td><td>下一步推荐（chips 带 <code>data-op</code>）</td><td><code>#msg-g-next-llm</code></td></tr>
+              <tr><th scope="row">4</th><td><code>askuser</code></td><td><span class="tag-p primary">primary</span></td><td>问答（choice / text / confirm）；G 扩形 <b>secret / form</b></td><td><code>#msg-g-ask-key</code></td></tr>
+              <tr><th scope="row">5</th><td><code>auth</code></td><td><span class="tag-p primary">primary</span></td><td>权限 / 授权 / consent</td><td><code>#msg-g-auth-site-1</code></td></tr>
+              <tr><th scope="row">6</th><td><code>system</code></td><td><span class="tag-p primary">primary</span></td><td>系统事件行（单行 + 时间戳）</td><td><code>#msg-g-sys-bound</code></td></tr>
+              <tr><th scope="row">7</th><td><code>ref</code></td><td><span class="tag-p primary">primary</span></td><td>页面引用（valid / stale）</td><td><code>#msg-g-ref-ok</code> / <code>#msg-g-ref-stale</code></td></tr>
+              <tr><th scope="row">8</th><td><code>tool</code></td><td><span class="tag-p process">process</span></td><td>工具结果（连接测试 / 权限回执）</td><td><code>#msg-g-tool-perm</code></td></tr>
+              <tr><th scope="row">9</th><td><code>command</code></td><td><span class="tag-p process">process</span></td><td>命令 / op 调用记录（值不入流）</td><td><code>#msg-g-cmd-llm</code></td></tr>
+              <tr><th scope="row">10</th><td><code>thinking</code></td><td><span class="tag-p process">process</span></td><td>过程（进行中…）</td><td><code>#msg-g-thinking</code></td></tr>
+              <tr><th scope="row">11</th><td><code>error</code></td><td><span class="tag-p process">process</span></td><td>错误行（✖）<b>必须带 / 紧随恢复 next</b></td><td><code>#msg-g-error-unauth</code></td></tr>
+              <tr><th scope="row">12</th><td><code>notice</code></td><td><span class="tag-p process">process</span></td><td>告知（管理面入口提示）</td><td><code>#msg-g-notice-settings</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+
+      <!-- ═══ 口径说明区（镜像 F 页脚；非交付 UI） ═══ -->
+      <!-- ═══ 口径说明区（镜像 F 页脚；非交付 UI） ═══ -->
+      <section class="block" id="spec-section" aria-label="口径说明与验收口径（非交付 UI）">
+        <h2>口径说明 · 法七 / 法八 的验收口径（可机核）</h2>
+
+        <h3>法七 验收口径 —— 死端判定</h3>
+        <ul>
+          <li><b>阻塞终态</b>（5 类，本稿各有样例）：未授权（<code>#msg-g-error-unauth</code>）· LLM 未配置（<code>#msg-g-sys-llm-missing</code>）·
+            权限缺失（<code>#msg-g-next-perm</code>）· 绑定失效（<code>#msg-g-error-binding</code>）· 引用全失效（<code>#msg-g-ref-stale</code>）。</li>
+          <li><b>死端判定式</b>：<code>阻塞终态出现后 N 秒内，流内不存在任何可达的 next</code> → 判定为死端。本稿取最严的 <b>N = 0</b>（同屏紧随）。</li>
+          <li><b>机核方式</b>（<code>option-g-shim.mjs</code> §F 组）：对每个阻塞卡，取其之后最近的<b>同场景可见</b>兄弟节点，
+            断言它是 <code>[data-msg-type="nextstep"]</code> 且含 <code>[data-act="next"][data-op]</code>；
+            或该阻塞卡<b>自身行内</b>即含 <code>[data-act="next"][data-op]</code>（✖ 行不裸奔，本稿两处都成立）。</li>
+          <li><b>错误行加严</b>：<code>[data-msg-type="error"]</code> 卡必须满足上一条 —— 这是把真机 R3 变成回归测试的方式。</li>
+        </ul>
+
+        <h3>死端对比表（S2 前后 · 真机 2026-09-21 23:12:51~23:12:59）</h3>
+        <div class="table-scroll">
+          <table id="deadend-compare">
+            <caption>真机（F 落地后） vs G 稿：同一个断流现场，逐环节判定</caption>
+            <thead>
+              <tr><th scope="col">#</th><th scope="col">环节</th><th scope="col">真机（F 落地后）</th><th scope="col">G 稿</th><th scope="col">判定</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">1</th>
+                <td>绑定后自动探测</td>
+                <td>系统行「正在自动探测…」（已按相位变化登记）</td>
+                <td>同（继承 F，不改）</td>
+                <td class="verdict ok">无死端</td>
+              </tr>
+              <tr>
+                <th scope="row">2</th>
+                <td>未授权会话里的推荐</td>
+                <td>「重新绑定当前标签页 / 重新拾取 / 改用描述」——<b>无一能解除未授权</b></td>
+                <td>同一行三动作<b>逐字保留</b>，恢复项由 provider <code>site.unauthorized</code> 补齐（<code>op.authorize</code>）</td>
+                <td class="verdict bad">死端 → <span class="verdict ok">有 next</span></td>
+              </tr>
+              <tr>
+                <th scope="row">3</th>
+                <td>✖ 页面侧不可用（未授权站点 · 页面侧零注入）</td>
+                <td>错误行<b>不带恢复入口</b>（错误行裸奔）</td>
+                <td>✖ 行<b>行内</b>带「授权当前站点」（<code>op.authorize</code>）+ <b>紧随</b>一条含恢复 next 的推荐卡</td>
+                <td class="verdict bad">死端 → <span class="verdict ok">有 next</span></td>
+              </tr>
+              <tr>
+                <th scope="row">4</th>
+                <td>授权入口的可见性</td>
+                <td>授权 chip 仅存在于 R-ONBOARDING（首装态）→ 非首装会话没有该入口</td>
+                <td><code>site.unauthorized</code> 常驻注册表：任何 ctx 下 <code>site.active ∧ !authorized</code> 即出候选</td>
+                <td class="verdict bad">死端 → <span class="verdict ok">有 next</span></td>
+              </tr>
+              <tr>
+                <th scope="row">5</th>
+                <td>授权之后</td>
+                <td>—（真机在此处已经断流）</td>
+                <td><b>自动续流</b>：授权回执 → 探测恢复 → next「重新拾取」→ 引用卡 ✓（零跳出面板）</td>
+                <td class="verdict ok">闭环</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="deadend-summary" class="verdict ok">死端 1 → 0 · 本表 5 个环节全部机核（<code>option-g-shim.mjs</code> §F / §J 组）。</p>
+
+        <h3>法八 验收口径 —— 值不入流（零明文）</h3>
+        <ul>
+          <li><b>唯一入口</b>：值只存在于 <code>&lt;input type="password" data-secret="true"&gt;</code>（掩码输入，卡内按需出现，法四不变）。</li>
+          <li><b>提交路径</b>：<code>answerSecret()</code> 只向存储投递，固化区只写「事实 + 时间戳 + 掩码长度」，<code>digest</code> 行只写 <code>••••••</code>。</li>
+          <li><b>机核方式</b>（§E 组）：把哨兵值写进掩码输入 → 提交 → 断言 <code>#stream</code> / <code>#view-audit</code> / <code>#digest-list</code> / <code>#reg-inspector</code>
+            的 <code>textContent</code> 与所有元素属性<b>均不含该哨兵</b>，且 <code>#digest-list</code> 含 <code>••••••</code>。</li>
+          <li><b>与法二的切分</b>：留痕的是<b>事实</b>（何时 / 哪个 op / 成功与否 / 掩码长度），不是<b>值</b>。</li>
+        </ul>
+
+        <h3>密度口径（法五，与 F 完全一致）</h3>
+        <ul>
+          <li><b>可点元素</b> = <code>#panel</code> 内、非 <code>[hidden]</code> 子树中的
+            <code>button</code> / <code>a</code> / <code>input</code> / <code>select</code> / <code>textarea</code> /
+            带 <code>tabindex</code>（且非 -1）的元素。</li>
+          <li><b>默认屏预算</b> = 工具栏可点 + 状态栏可点 ≤ <b>7</b>（本稿：S1 = 5 + 0 = 5；S2 = 5 + 1 = 6；S6 = 5 + 2 = 7）。</li>
+          <li><b>chips 预算</b>：每卡 ≤ <b>3</b> 个 chip（G 稿最大 = 3，出现在恢复卡与仲裁卡）。</li>
+          <li><b>每回合 ≤ 1 张推荐卡</b>：S6 的多个阻塞用<b>一张</b>仲裁卡表达排序，不并排多张。</li>
+          <li><b>掩码卡预算</b>：1 个 input + 2 个按钮，都在卡内（按需出现）—— <b>不新增常驻控件</b>，工具栏可点数与 F 相同（4 + 1 = 5）。</li>
+          <li><b>不计入</b>：聊天流内消息（记录，不是控件预算）、演示控制台与注册表视察器（在 <code>#panel</code> 之外）、页面侧拾取入口。</li>
+        </ul>
+
+        <h3>相对 F 的变化点（G 只列 5 条）</h3>
+        <p class="muted">F 相对 E 的 5 条变化点见 <code>option-f-chat-stream.html</code> 页脚（本稿不重复）；下表是 F → G 的 5 条。</p>
+        <div class="table-scroll">
+          <table id="change-table">
+            <thead>
+              <tr><th scope="col">#</th><th scope="col">F（聊天流统一承载）</th><th scope="col">G（All-in-Next · 聊天即操作台）</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">1</th>
+                <td>✖ 只是系统事件行的一种说法；真机上错误行<b>不带恢复入口</b>（死端）</td>
+                <td><code>error</code> 成为独立过程卡 kind：<b>行内带恢复 chip + 紧随恢复 next 卡</b>（法七 · 禁止死端）</td>
+              </tr>
+              <tr>
+                <th scope="row">2</th>
+                <td>授权 / 权限 / 绑定 / LLM 配置散落在页面与设置页，流只承载「问答与授权」</td>
+                <td>统一抽象为 <b>web-op 操作清单</b>（8 个 op）+ 四态管线（next → params → consent → execute → receipt）全部流内闭环</td>
+              </tr>
+              <tr>
+                <th scope="row">3</th>
+                <td>敏感值（API Key）没有流内入口，只能去设置页填</td>
+                <td><code>askuser</code> 扩形 <b><code>secret</code> 掩码输入卡</b>：值直达存储、流内只留事实（法八 · 值不入流）</td>
+              </tr>
+              <tr>
+                <th scope="row">4</th>
+                <td>推荐 chip 是「命令字符串」（<code>data-command</code>），谁给推荐是写死的</td>
+                <td>chip 绑定 <b>opId</b>（<code>data-op</code>）；候选由 <b>NextProvider 插件注册表</b>纯谓词产生，新增操作 = 注册插件</td>
+              </tr>
+              <tr>
+                <th scope="row">5</th>
+                <td>卡类型学在稿内写作「7 类」</td>
+                <td><b>12 kind 契约不动</b>（7 主类 + 5 过程卡）：零新增卡类型；操作回执复用既有固化区 + 系统行</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>已知取舍</h3>
+        <ul>
+          <li><b>「恢复优先」会让流更啰嗦</b>：每个阻塞都要求一张恢复卡。取舍是选「永远有出路」而不是「流最短」——
+            用 chips ≤3 + 每回合 ≤1 张推荐卡兜住密度。</li>
+          <li><b>注册表是运行时数据，本稿是静态单文件</b>：视察器里的 provider 列表由内联 JS 注册表渲染（真实求值），
+            但 <code>handleCardAction</code> 的 diff = 0 是<b>设计性质</b>而非运行时度量（本稿用「分发器无 per-op 分支」实现它）。</li>
+          <li><b>掩码输入无法证伪「存储侧明文」</b>：设计稿只能保证<b>流内零明文</b>；存储侧的加密与生命周期由实现负责，不在 UI 稿口径内。</li>
+          <li><b>浏览器权限的不可逆性由浏览器决定</b>：<code>op.perm.request</code> 只能申请，回收必须由用户在浏览器侧确认 —— G 把它如实说清楚，不假装能静默回收。</li>
+          <li><b>anything-is-plugin 的原文未能核实</b>（外部检索凭证缺失）：按作者口述思想落地，已在头注与本节如实登记。</li>
+        </ul>
+
+        <h3>本稿的自检（可复现）</h3>
+        <ul>
+          <li>同目录 <code>option-g-shim.mjs</code>（Node DOM 垫片，体例镜像 <code>option-f-shim.mjs</code>）：
+            运行 <code>node option-g-shim.mjs</code> → 全绿（退出码 0）。</li>
+          <li>覆盖：三区结构继承 / 12 kind 继承 / 法七无死端（5 类阻塞 + ✖ 行不裸奔）/ 法八零明文 /
+            chip↔op 绑定 / 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 ≤7 / 三宽度双主题。</li>
+        </ul>
+      </section>
+
+    </div>
+
+    <script>
+      (function () {
+        'use strict';
+
+        var docEl = document.documentElement;
+        var panel = document.getElementById('panel');
+        var live = document.getElementById('live-region');
+        var TH = ['auto', 'light', 'dark'];
+        var THEME_LABEL = { auto: '跟随系统', light: '浅色', dark: '深色' };
+        var SCENE_LABEL = {
+          S1: 'S1 首装全链（掩码配置）',
+          S2: 'S2 断流样板（首验收）',
+          S3: 'S3 浏览器权限申请',
+          S4: 'S4 换厂商 / 改 Key',
+          S5: 'S5 管理操作 · 撤销',
+          S6: 'S6 多 next 仲裁',
+          S7: 'S7 全景 · 12 卡型'
+        };
+        var state = { scene: 'S1', theme: 'auto', width: '400' };
+        var clock = 23 * 3600 + 12 * 60 + 59;
+
+        function $(id) { return document.getElementById(id); }
+        function $$(sel, root) {
+          var list = (root || document).querySelectorAll(sel);
+          return Array.prototype.slice.call(list);
+        }
+        function say(text) { if (live) live.textContent = text; }
+        function tick() {
+          clock += 2;
+          var h = Math.floor(clock / 3600) % 24;
+          var m = Math.floor(clock / 60) % 60;
+          var s = clock % 60;
+          function p(n) { return ('0' + n).slice(-2); }
+          return p(h) + ':' + p(m) + ':' + p(s);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           0. 契约常量（12 kind / 5 类阻塞 / op 清单 / provider 注册表）
+           ═══════════════════════════════════════════════════════════════ */
+
+        /* 12 kind = 7 primary + 5 process（零新增；与 F 稿的 7 类是包含关系） */
+        var PRIMARY_KINDS = ['ai', 'user', 'nextstep', 'askuser', 'auth', 'system', 'ref'];
+        var PROCESS_KINDS = ['tool', 'command', 'thinking', 'error', 'notice'];
+        var CARD_KINDS = PRIMARY_KINDS.concat(PROCESS_KINDS);
+
+        /* 5 类阻塞终态（法七）；nextId = 该阻塞的「可达 next」所在元素 */
+        var BLOCKING = [
+          { state: 'llm-unconfigured', scenes: ['S1'], cardId: 'msg-g-sys-llm-missing', nextId: 'msg-g-next-llm' },
+          { state: 'site-unauthorized', scenes: ['S2'], cardId: 'msg-g-error-unauth', nextId: 'msg-g-next-authorize-b' },
+          { state: 'perm-missing', scenes: ['S3'], cardId: 'msg-g-next-perm', nextId: 'msg-g-next-perm' },
+          { state: 'binding-stale', scenes: ['S6'], cardId: 'msg-g-error-binding', nextId: 'msg-g-next-rebind' },
+          { state: 'ref-stale', scenes: ['S6'], cardId: 'msg-g-ref-stale', nextId: 'msg-g-ref-stale' }
+        ];
+
+        /* web-op 操作清单：首批 8 个（每个 op 自带 execute / receipt） */
+        var OPS = [
+          {
+            opId: 'op.authorize', risk: '低 · 可撤销', params: '无（当前标签页 origin）',
+            consent: '必需（auth 卡 · 后果预演）', receipt: '固化区 + 系统行「✓ 授权已生效」',
+            execute: function () {
+              say('op.authorize 已发起：授权请求以 auth 卡入流（consequence 预演在卡内）');
+              var card = $('msg-g-auth-site-1');
+              if (card && card.getAttribute('data-decision') === 'pending' && isVisible(card)) flash(card);
+              return true;
+            }
+          },
+          {
+            opId: 'op.rebind', risk: '低 · 幂等', params: '无（取当前标签页）',
+            consent: '不需要（幂等读操作）', receipt: '系统行「✓ 已重新绑定当前标签页」',
+            execute: function () {
+              say('op.rebind 已执行：重新读取当前标签页并登记（幂等，无 consent）');
+              return true;
+            }
+          },
+          {
+            opId: 'op.llm-config', risk: '中 · 写凭据', params: '厂商（choice）+ 模型 + API Key（secret 掩码）',
+            consent: '必需（auth 卡 · 零明文入流）', receipt: '工具卡 + 系统行「✓ 已配置 LLM（掩码 · 零明文）」',
+            execute: function () {
+              var card = $('msg-g-ask-key');
+              if (card && isVisible(card)) flash(card);
+              say('op.llm-config 已发起：先在流内 ask 卡取 params（掩码输入，值不入流）');
+              return true;
+            }
+          },
+          {
+            opId: 'op.perm.request', risk: '中 · 浏览器权限（不可静默回收）', params: '权限项（form 多选 · optional_permissions）',
+            consent: '必需（consent 卡 + 浏览器原生弹窗）', receipt: '工具卡 + 系统行（批准 / 拒绝都固化）',
+            execute: function () {
+              var card = $('msg-g-consent-perm');
+              if (card && isVisible(card)) flash(card);
+              say('op.perm.request 已发起：consent 卡在流内（说明为何需要 + 后果预演 + 不可逆性）');
+              return true;
+            }
+          },
+          {
+            opId: 'op.revoke', risk: '高 · 撤销不可逆', params: '目标（choice：站点授权 / 浏览器权限 / LLM 凭据）',
+            consent: '必需（确认卡 · 不可逆说明）', receipt: '系统行「✓ 已撤销…」+ 审计入口',
+            execute: function () {
+              var card = $('msg-g-ask-revoke');
+              if (card && isVisible(card)) flash(card);
+              say('op.revoke 已发起：确认卡在流内（不可逆性逐条说明）');
+              return true;
+            }
+          },
+          {
+            opId: 'op.pick', risk: '低 · 只读', params: '无（进入拾取态）',
+            consent: '不需要', receipt: '引用卡（新引用序号递增）',
+            execute: function () {
+              setPickMode(true);
+              say('op.pick 已执行：拾取态开启 —— 在页面上点一个元素，回到流里登记引用');
+              return true;
+            }
+          },
+          {
+            opId: 'op.describe', risk: '低 · 只读', params: '描述文本（ask 卡 text）',
+            consent: '不需要', receipt: '系统行 + 新引用 / 回答固化',
+            execute: function () {
+              var box = $('ref-g-1-describe');
+              if (box) box.hidden = false;
+              say('op.describe 已发起：用描述代替引用（输入框只在流内卡里按需出现，法四）');
+              return true;
+            }
+          },
+          {
+            opId: 'op.help', risk: '低 · 只读', params: '无',
+            consent: '不需要', receipt: 'notice / 系统行（不回写任何授权）',
+            execute: function () {
+              say('op.help 已执行：列出当前 ctx 下可达的 op（只读，不回写任何授权）');
+              return true;
+            }
+          }
+        ];
+
+        var OPS_BY_ID = {};
+        OPS.forEach(function (op) { OPS_BY_ID[op.opId] = op; });
+
+        /* NextProvider 插件注册表：{id, pri, when(ctx), chips[]} —— when 是纯谓词 */
+        var REGISTRY = [
+          {
+            id: 'site.unauthorized', pri: 0, priLabel: '恢复',
+            when: function (c) { return c.site.active && !c.site.authorized; },
+            chips: ['op.authorize']
+          },
+          {
+            id: 'ref.stale', pri: 0, priLabel: '恢复',
+            when: function (c) { return c.ref.stale; },
+            chips: ['op.pick', 'op.describe']
+          },
+          {
+            id: 'binding.stale', pri: 0, priLabel: '恢复',
+            when: function (c) { return c.site.bindingStale; },
+            chips: ['op.rebind']
+          },
+          {
+            id: 'llm.missing', pri: 1, priLabel: '引导',
+            when: function (c) { return !c.llm.configured; },
+            chips: ['op.llm-config']
+          },
+          {
+            id: 'site.unbound', pri: 1, priLabel: '引导',
+            when: function (c) { return !c.site.active; },
+            chips: ['op.rebind']
+          },
+          {
+            id: 'perm.missing', pri: 1, priLabel: '引导',
+            when: function (c) { return c.site.authorized && !c.perm.granted; },
+            chips: ['op.perm.request']
+          },
+          {
+            id: 'manage.revoke', pri: 2, priLabel: '发现',
+            when: function (c) { return c.site.authorized; },
+            chips: ['op.revoke']
+          },
+          {
+            id: 'help.discover', pri: 3, priLabel: '发现',
+            when: function () { return true; },
+            chips: ['op.help']
+          }
+        ];
+
+        /* 分发器指纹：handleCardAction 只查表、没有 per-op 分支 → 注册新插件后 diff 恒为 0 */
+        var DISPATCHER_DIFF = 0;
+        var DISPATCHER_FINGERPRINT = 'handleCardAction(v1): OPS_BY_ID[opId].execute() — no per-op branch';
+
+        function ctxOf(scene) {
+          var base = {
+            site: { active: true, authorized: true, bindingStale: false },
+            llm: { configured: true },
+            perm: { granted: true },
+            ref: { stale: false }
+          };
+          if (scene === 'S1') {
+            base.site.active = false; base.site.authorized = false;
+            base.llm.configured = false; base.perm.granted = false;
+          }
+          if (scene === 'S2') { base.site.authorized = false; base.perm.granted = false; }
+          if (scene === 'S3') { base.perm.granted = false; }
+          if (scene === 'S6') {
+            base.site.authorized = false; base.site.bindingStale = true;
+            base.llm.configured = false; base.ref.stale = true;
+          }
+          if (scene === 'S7') { base.ref.stale = true; }
+          return base;
+        }
+
+        function activeProviders(scene) {
+          var ctx = ctxOf(scene || state.scene);
+          return REGISTRY.filter(function (p) { return !!p.when(ctx); })
+            .sort(function (a, b) { return a.pri - b.pri; });
+        }
+
+        /* 分发器：只查表，无 per-op 分支（anything-is-plugin 的落点） */
+        function handleCardAction(opId) {
+          var op = OPS_BY_ID[opId];
+          if (!op) return false;
+          return op.execute() !== false;
+        }
+
+        function registerDemoProvider() {
+          REGISTRY.push({
+            id: 'demo.sandbox', pri: 3, priLabel: '发现',
+            when: function () { return true; },
+            chips: ['op.help']
+          });
+          renderRegistry();
+          say('已注册 demo.sandbox：registry ' + REGISTRY.length + ' 个 provider；'
+            + 'handleCardAction diff = ' + DISPATCHER_DIFF + '（分发器无 per-op 分支）');
+          return { count: REGISTRY.length, diff: DISPATCHER_DIFF, fingerprint: DISPATCHER_FINGERPRINT };
+        }
+
+        /* 渲染注册表视察器（与场景联动） */
+        function renderRegistry() {
+          var list = $('reg-list');
+          var active = activeProviders(state.scene);
+          var activeIds = active.map(function (p) { return p.id; });
+          if (list) {
+            list.textContent = '';
+            REGISTRY.map(function (p, i) { return { p: p, i: i }; })
+              .sort(function (a, b) { return a.p.pri - b.p.pri || a.i - b.i; })
+              .forEach(function (pair) {
+                var p = pair.p;
+                var isActive = activeIds.indexOf(p.id) !== -1;
+                var li = document.createElement('li');
+                li.className = 'reg-item';
+                li.setAttribute('data-provider', p.id);
+                li.setAttribute('data-active', String(isActive));
+                li.setAttribute('data-pri', String(p.pri));
+                var idEl = document.createElement('span');
+                idEl.className = 'reg-id';
+                idEl.textContent = p.id;
+                var priEl = document.createElement('span');
+                priEl.className = 'reg-pri';
+                priEl.textContent = 'P' + p.pri + ' · ' + p.priLabel;
+                var whenEl = document.createElement('span');
+                whenEl.className = 'reg-when';
+                whenEl.textContent = isActive ? 'when(ctx) → 候选（活跃）' : 'when(ctx) → null';
+                var chipsEl = document.createElement('span');
+                chipsEl.className = 'reg-chips';
+                p.chips.forEach(function (opId) {
+                  var c = document.createElement('span');
+                  c.className = 'reg-chip';
+                  c.setAttribute('data-op', opId);
+                  c.textContent = opId;
+                  chipsEl.appendChild(c);
+                });
+                li.appendChild(idEl);
+                li.appendChild(priEl);
+                li.appendChild(whenEl);
+                li.appendChild(chipsEl);
+                list.appendChild(li);
+              });
+          }
+          setText('reg-count', String(REGISTRY.length));
+          setText('reg-active', String(active.length));
+          setText('reg-ctx', state.scene + '（ctx.site.auth=' + ctxOf(state.scene).site.authorized + '）');
+          setText('reg-diff', String(DISPATCHER_DIFF));
+          setText('reg-ops', String(OPS.length));
+          markPipelineLive();
+        }
+
+        /* op 管线：当前场景下「进行到哪一态」 */
+        var STAGE_LIVE = {
+          S1: 'params', S2: 'consent', S3: 'consent', S4: 'params', S5: 'consent', S6: 'next', S7: 'next'
+        };
+        function markPipelineLive() {
+          var live = STAGE_LIVE[state.scene] || 'next';
+          $$('#op-pipeline [data-stage]').forEach(function (el) {
+            el.setAttribute('data-live', String(el.getAttribute('data-stage') === live));
+          });
+        }
+        function pipelineState() {
+          var out = {};
+          $$('#op-pipeline [data-stage]').forEach(function (el) {
+            out[el.getAttribute('data-stage')] = {
+              live: el.getAttribute('data-live') === 'true',
+              scenes: el.getAttribute('data-scenes'),
+              evidence: el.getAttribute('data-evidence')
+            };
+          });
+          return out;
+        }
+
+        function setText(id, v) { var el = $(id); if (el) el.textContent = v; }
+        function flash(el) {
+          if (!el) return;
+          el.classList.add('is-flash');
+          if (el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+        }
+        /* ═══════════════════════════════════════════════════════════════
+           1. 主题（双主题真实可切；auto 走 prefers-color-scheme）
+           ═══════════════════════════════════════════════════════════════ */
+        function setTheme(value) {
+          state.theme = value;
+          if (value === 'auto') docEl.removeAttribute('data-theme');
+          else docEl.setAttribute('data-theme', value);
+          $$('#theme-switch [role="radio"]').forEach(function (n) {
+            n.setAttribute('aria-checked', String(n.getAttribute('data-theme-set') === value));
+            n.tabIndex = n.getAttribute('data-theme-set') === value ? 0 : -1;
+          });
+          var sun = $('ico-theme-auto');
+          var moon = $('ico-theme-moon');
+          var isDark = value === 'dark';
+          if (sun) sun.hidden = isDark;
+          if (moon) moon.hidden = !isDark;
+          var btn = $('theme-toggle');
+          if (btn) btn.setAttribute('aria-label', '切换主题（当前：' + THEME_LABEL[value] + '）');
+          setText('theme-toggle-text', '主题：' + THEME_LABEL[value]);
+          updateMetrics();
+        }
+        function cycleTheme() {
+          var i = TH.indexOf(state.theme);
+          setTheme(TH[(i + 1) % TH.length]);
+          say('主题已切换为「' + THEME_LABEL[state.theme] + '」');
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           2. 宽度（320 / 400 / 520）
+           ═══════════════════════════════════════════════════════════════ */
+        function setWidth(px) {
+          state.width = String(px);
+          panel.setAttribute('data-width', state.width);
+          docEl.style.setProperty('--panel-w', state.width + 'px');
+          $$('#width-switch [role="radio"]').forEach(function (n) {
+            n.setAttribute('aria-checked', String(n.getAttribute('data-width-set') === state.width));
+            n.tabIndex = n.getAttribute('data-width-set') === state.width ? 0 : -1;
+          });
+          updateMetrics();
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           3. 场景（S1~S7）+ reveal（自动续流：进场景复位，点一下展开）
+           ═══════════════════════════════════════════════════════════════ */
+        function sceneHas(el, key) {
+          return (el.getAttribute('data-scenes') || '').split(/\s+/).indexOf(key) !== -1;
+        }
+        function setScene(key) {
+          state.scene = key;
+          panel.setAttribute('data-scene', key);
+          $$('[data-scenes]').forEach(function (el) {
+            if (!sceneHas(el, key)) { el.hidden = true; return; }
+            /* 带 data-reveal 的卡：进场景先复位为隐藏（自动续流由动作触发） */
+            el.hidden = el.hasAttribute('data-reveal');
+          });
+          $$('[data-init-answered]').forEach(resetAskCard);
+          $$('[data-init-decision]').forEach(resetAuthCard);
+          $$('[data-init-tool]').forEach(resetToolCard);
+          $$('.ref-describe').forEach(function (b) { b.hidden = true; });
+          $$('.next-chip').forEach(function (c) { c.classList.remove('is-chosen'); });
+          setPickMode(false);
+          $$('#scene-switch [role="radio"]').forEach(function (n) {
+            n.setAttribute('aria-checked', String(n.getAttribute('data-scene-set') === key));
+            n.tabIndex = n.getAttribute('data-scene-set') === key ? 0 : -1;
+          });
+          closeRiskDetail();
+          renderRegistry();
+          autoScroll();
+          updateMetrics();
+          say('场景已切换为：' + (SCENE_LABEL[key] || key) + '（活跃 provider：'
+            + activeProviders(key).length + '）');
+        }
+        function reveal(key) {
+          $$('[data-reveal="' + key + '"]').forEach(function (el) {
+            if (sceneHas(el, state.scene)) el.hidden = false;
+          });
+          autoScroll();
+          updateMetrics();
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           4. L2 按需视图（替换流内容，不是浮层）
+           ═══════════════════════════════════════════════════════════════ */
+        var VIEW_TITLE = {
+          tree: '全局连接树（4 维）',
+          commands: '命令目录（122 卡）',
+          audit: '审计（14 条）+ digest 演示（法八）',
+          settings: '设置（4 分区 · 管理面保留）'
+        };
+        function openView(name) {
+          var layer = $('view-layer');
+          var stream = $('stream');
+          if (!layer || !stream) return;
+          layer.hidden = false;
+          stream.hidden = true;
+          ['tree', 'commands', 'audit', 'settings'].forEach(function (k) {
+            var body = $('view-' + k);
+            if (body) body.hidden = k !== name;
+          });
+          setText('view-title', VIEW_TITLE[name] || '视图');
+          $$('[data-open-view]').forEach(function (b) {
+            b.setAttribute('aria-pressed', String(b.getAttribute('data-open-view') === name));
+          });
+          updateMetrics();
+          say('已打开视图：' + (VIEW_TITLE[name] || name) + '（完整台账在这里；流里只留过程线索）');
+        }
+        function closeView() {
+          var layer = $('view-layer');
+          var stream = $('stream');
+          if (layer) layer.hidden = true;
+          if (stream) stream.hidden = false;
+          $$('[data-open-view]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+          autoScroll();
+          updateMetrics();
+          say('已返回聊天流');
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           5. ask-user 卡（text / choice / secret / form）+ 授权卡 + 工具卡
+              ── 统一固化契约：data-* 状态 + [hidden] 切表单/固化区 + .ts 时间戳
+           ═══════════════════════════════════════════════════════════════ */
+        function fixAsk(card, kind, text) {
+          var form = card.querySelector('.ask-form');
+          var fixed = card.querySelector('.ask-fixed');
+          var textEl = card.querySelector('.ask-fixed-text');
+          var timeEl = card.querySelector('.ask-fixed-time');
+          if (textEl) textEl.textContent = text;
+          if (timeEl) timeEl.textContent = tick();
+          if (form) form.hidden = true;
+          if (fixed) fixed.hidden = false;
+          card.setAttribute('data-answered', kind);
+          if (kind === 'cancelled' && fixed) fixed.classList.add('is-no');
+        }
+        function resetAskCard(card) {
+          var init = card.getAttribute('data-init-answered') || 'false';
+          var form = card.querySelector('.ask-form');
+          var fixed = card.querySelector('.ask-fixed');
+          var textEl = card.querySelector('.ask-fixed-text');
+          var timeEl = card.querySelector('.ask-fixed-time');
+          var other = card.querySelector('.ask-other');
+          if (other) other.hidden = true;
+          if (form) form.hidden = init !== 'false';
+          if (fixed) {
+            fixed.hidden = init === 'false';
+            fixed.classList.remove('is-no');
+          }
+          if (init === 'false') {
+            if (textEl) textEl.textContent = card.getAttribute('data-fixed-label') || '已答：';
+            if (timeEl) timeEl.textContent = '';
+          }
+          card.setAttribute('data-answered', init);
+          $$('input, textarea', card).forEach(function (i) { i.value = ''; });
+        }
+        function answerAsk(id, text) {
+          var card = $(id);
+          if (!card) return false;
+          if (card.getAttribute('data-secret') === 'true') return answerSecret(id, text);
+          var done = card.getAttribute('data-answered');
+          if (done === 'true' || done === 'cancelled') return false;
+          var value = text;
+          if (value == null || value === '') {
+            var input = card.querySelector('.ask-input');
+            value = input ? input.value : '';
+          }
+          value = String(value || '').replace(/^\s+|\s+$/g, '');
+          if (value === '') value = '（空回答）';
+          fixAsk(card, 'true', '已答：' + value);
+          updateMetrics();
+          say('问答已固化：已答：' + value + '（这条记录不会消失）');
+          return true;
+        }
+        /* 法八：掩码输入 —— 值直达存储，流内只留事实 + 时间戳 + 掩码长度 */
+        function maskDigest(len) { return '••••••'; }
+        function answerSecret(id, text) {
+          var card = $(id);
+          if (!card) return false;
+          var done = card.getAttribute('data-answered');
+          if (done === 'true' || done === 'cancelled') return false;
+          var input = card.querySelector('.ask-input');
+          var value = text != null && text !== '' ? String(text) : (input ? String(input.value || '') : '');
+          if (value.replace(/\s+/g, '') === '') {
+            say('掩码输入卡：空值不提交（不代填默认值）');
+            return false;
+          }
+          var len = value.length;
+          fixAsk(card, 'true', '已答：API Key 已提交（掩码 ' + maskDigest(len) + ' · 长度 ' + len + ' · 值不入流 · 零明文留痕）');
+          if (input) input.value = '';   /* 值不留痕：提交后立刻清空输入 */
+          appendDigest('op.llm-config', 'vendor=ark · key=' + maskDigest(len) + '（长度 ' + len + '）· 结果 ok');
+          say('掩码值已提交（长度 ' + len + '）→ 流内只留事实与时间戳，零明文（法八）');
+          return true;
+        }
+        function cancelAsk(id) {
+          var card = $(id);
+          if (!card) return false;
+          var done = card.getAttribute('data-answered');
+          if (done === 'true' || done === 'cancelled') return false;
+          if (card.getAttribute('data-secret') === 'true') {
+            var input = card.querySelector('.ask-input');
+            if (input) input.value = '';
+          }
+          fixAsk(card, 'cancelled', '已取消（不代填默认值）');
+          updateMetrics();
+          say('问答已固化：已取消（不代填默认值）');
+          return true;
+        }
+        function appendDigest(opId, body) {
+          var list = $('digest-list');
+          if (!list) return;
+          var li = document.createElement('li');
+          li.setAttribute('data-digest-op', opId);
+          li.textContent = tick() + ' ' + opId + ' ' + body;
+          list.appendChild(li);
+        }
+
+        function resetAuthCard(card) {
+          var init = card.getAttribute('data-init-decision') || 'pending';
+          var actions = card.querySelector('.auth-actions');
+          var fixed = card.querySelector('.auth-fixed');
+          var textEl = card.querySelector('.auth-fixed-text');
+          var timeEl = card.querySelector('.auth-fixed-time');
+          if (actions) actions.hidden = init !== 'pending';
+          if (fixed) {
+            fixed.hidden = init === 'pending';
+            fixed.classList.remove('is-no');
+          }
+          if (init === 'pending') {
+            if (textEl) textEl.textContent = '已批准：';
+            if (timeEl) timeEl.textContent = '';
+          }
+          card.setAttribute('data-decision', init);
+        }
+        function decideAuth(id, decision) {
+          var card = $(id);
+          if (!card) return false;
+          if (card.getAttribute('data-decision') !== 'pending') return false;
+          var actions = card.querySelector('.auth-actions');
+          var fixed = card.querySelector('.auth-fixed');
+          var textEl = card.querySelector('.auth-fixed-text');
+          var timeEl = card.querySelector('.auth-fixed-time');
+          var kind = decision === 'rejected' ? 'rejected' : 'approved';
+          var label = kind === 'rejected'
+            ? '已拒绝（不执行）'
+            : (decision === 'session' ? '已批准（本会话）'
+              : (decision === 'perm' ? '已批准（运行时权限）' : '已批准（单次）'));
+          if (textEl) textEl.textContent = label;
+          if (timeEl) timeEl.textContent = tick();
+          if (actions) actions.hidden = true;
+          if (fixed) {
+            fixed.hidden = false;
+            if (kind === 'rejected') fixed.classList.add('is-no');
+          }
+          card.setAttribute('data-decision', kind);
+          /** 法七：授权/拒绝都固化，且都不留死端 —— 批准走自动续流，拒绝有可达 next */
+          if (kind === 'approved') {
+            appendDigest(card.getAttribute('data-op') || 'op', 'consent=已批准 · 结果 ok');
+          } else {
+            appendDigest(card.getAttribute('data-op') || 'op', 'consent=已拒绝 · 不执行 · 不重试');
+          }
+          updateMetrics();
+          say('授权已固化：' + label + '（记录已写入审计）');
+          return true;
+        }
+        function resetToolCard(card) {
+          var init = card.getAttribute('data-init-tool') || 'done';
+          var out = card.querySelector('.tool-out');
+          if (out && init === 'pending' && card.getAttribute('data-tool-pending-text')) {
+            out.textContent = card.getAttribute('data-tool-pending-text');
+          }
+          card.setAttribute('data-tool-state', init);
+          var ts = card.querySelector('.tool-ts');
+          if (ts) ts.textContent = '';
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           6. 高风险动作的演示路径（全部在流内，零跳出面板）
+           ═══════════════════════════════════════════════════════════════ */
+        function configureLLM(secret) {
+          var input = $('ask-g-key-input');
+          var ok = answerAsk('msg-g-ask-key', secret);
+          if (!ok) return false;
+          if (input) input.value = '';
+          reveal('s1-llm');
+          var ts = $('sys-g-llm-ts');
+          if (ts) ts.textContent = tick();
+          say('S1 续流 1/3：LLM 已配置（掩码写入）→ 下一步「打开目标站点并绑定」已入流');
+          return true;
+        }
+        function grantSite(which) {
+          var id = which === 's1' ? 'msg-g-auth-site-1' : 'msg-g-auth-site-2';
+          var ok = decideAuth(id, which === 's1' ? 'approved' : 'session');
+          if (!ok) return false;
+          reveal('s1-auth');
+          say((which === 's1' ? 'S1' : 'S2') + ' 续流：授权回执 → 探测恢复 → next「重新拾取」→ 引用卡（零跳出面板）');
+          return true;
+        }
+        function resolvePerm(granted) {
+          var ok = decideAuth('msg-g-consent-perm', granted ? 'perm' : 'rejected');
+          if (!ok) return false;
+          var tool = $('msg-g-tool-perm');
+          var out = $('tool-g-perm-out');
+          var ts = $('tool-g-perm-ts');
+          if (out) {
+            out.textContent = granted
+              ? '浏览器权限弹窗：已授予 站点访问 + 剪贴板（optional_permissions）· 结果 ok'
+              : '浏览器权限弹窗：已拒绝（不重试、不改既有授权）· 结果 denied';
+          }
+          if (ts) ts.textContent = tick();
+          if (tool) tool.setAttribute('data-tool-state', granted ? 'ok' : 'denied');
+          reveal(granted ? 's3-ok' : 's3-deny');
+          appendDigest('op.perm.request', 'optional=host,clipboardRead · 结果 ' + (granted ? 'granted' : 'denied'));
+          say(granted ? 'S3：权限批准 + 回执固化' : 'S3：权限被拒 → 不重试，但「改用描述继续」仍在流内（法七）');
+          return true;
+        }
+        function runOp(opId, chip) {
+          if (chip) chip.classList.add('is-chosen');
+          var ok = handleCardAction(opId);
+          updateMetrics();
+          return ok;
+        }
+        function setSecret(id, value) {
+          var card = $(id);
+          var input = card ? card.querySelector('.ask-input') : null;
+          if (!input) return false;
+          input.value = value;
+          return true;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           7. 风险 chip：内联详情 + 滚动定位到流内相关卡
+           ═══════════════════════════════════════════════════════════════ */
+        function closeRiskDetail() {
+          var detail = $('risk-detail');
+          if (detail) detail.hidden = true;
+          $$('[data-risk-detail]').forEach(function (p) { p.hidden = true; });
+          $$('[data-risk]').forEach(function (c) { c.setAttribute('aria-expanded', 'false'); });
+        }
+        function focusRisk(kind) {
+          var detail = $('risk-detail');
+          $$('[data-risk-detail]').forEach(function (p) {
+            p.hidden = p.getAttribute('data-risk-detail') !== kind;
+          });
+          if (detail) detail.hidden = false;
+          $$('[data-risk]').forEach(function (c) {
+            c.setAttribute('aria-expanded', String(c.getAttribute('data-risk') === kind));
+          });
+          flash(kind === 'ref' ? $('msg-g-ref-stale') : $('msg-g-error-unauth'));
+          say(kind === 'ref'
+            ? '风险详情：引用失效 —— 本阶段不发命令、不改授权（卡内已有恢复 next）'
+            : '风险详情：未授权 —— 本阶段不发命令、不改授权（✖ 行内已有恢复 next）');
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           8. 自动滚到底 + 密度实测（法五口径）+ 法七自查
+           ═══════════════════════════════════════════════════════════════ */
+        function autoScroll() {
+          var wrap = $('region-stream');
+          if (wrap) wrap.scrollTop = wrap.scrollHeight;
+        }
+        function isVisible(el) {
+          var n = el;
+          while (n && n.hasAttribute) {
+            if (n.hasAttribute('hidden')) return false;
+            n = n.parentNode;
+          }
+          return true;
+        }
+        function clickables(root) {
+          if (!root) return [];
+          return $$('button, a, input, select, textarea, [tabindex]', root).filter(function (el) {
+            if (el.hasAttribute('tabindex') && el.getAttribute('tabindex') === '-1') return false;
+            if (el.tagName === 'INPUT' && el.getAttribute('type') === 'hidden') return false;
+            return isVisible(el);
+          });
+        }
+        function maxChipsPerCard() {
+          var max = 0;
+          $$('#panel [data-msg-type="nextstep"]').forEach(function (card) {
+            if (!isVisible(card)) return;
+            var n = card.querySelectorAll('[data-act="next"]').filter(isVisible).length;
+            if (n > max) max = n;
+          });
+          return max;
+        }
+        function updateMetrics() {
+          var tb = clickables($('region-toolbar')).length;
+          var sb = clickables($('region-statusbar')).length;
+          var total = tb + sb;
+          var msgs = $$('[data-msg-type]').filter(function (m) { return isVisible(m); }).length;
+          var chips = maxChipsPerCard();
+          setText('m-toolbar', String(tb));
+          setText('m-statusbar', String(sb));
+          setText('m-total', String(total));
+          setText('m-msgs', String(msgs));
+          setText('m-chips', String(chips));
+          var verdict = $('m-verdict');
+          if (verdict) {
+            var ok = !(tb > 5 || total > 7 || chips > 3);
+            verdict.textContent = ok ? '✓ 命中密度预算（法五 · chips ≤3）' : '✗ 超出密度预算';
+            verdict.className = ok ? 'm-ok' : 'm-bad';
+          }
+        }
+        function density() {
+          var tb = clickables($('region-toolbar')).length;
+          var sb = clickables($('region-statusbar')).length;
+          return {
+            toolbar: tb,
+            statusbar: sb,
+            total: tb + sb,
+            scene: state.scene,
+            theme: state.theme,
+            width: state.width,
+            panelWidthVar: panel ? panel.getAttribute('data-width') : null,
+            panelScene: panel ? panel.getAttribute('data-scene') : null,
+            chips: maxChipsPerCard(),
+            toolbarBudget: 5,
+            defaultBudget: 7,
+            chipsBudget: 3
+          };
+        }
+
+        /* 法七 · 机核辅助：返回每个阻塞卡的「可达 next」判定
+           （与当前场景无关：按 data-scenes 判定元素是否在该阻塞所属场景可见） */
+        function isVisibleIn(el, key) {
+          var n = el;
+          while (n && n.hasAttribute) {
+            if (n.hasAttribute('data-scenes')) {
+              if (!sceneHas(n, key)) return false;
+            } else if (n.hasAttribute('hidden')) {
+              return false;
+            }
+            n = n.parentNode;
+          }
+          return true;
+        }
+        function nextCountIn(el, key) {
+          if (!el) return 0;
+          return el.querySelectorAll('[data-act="next"]').filter(function (n) { return isVisibleIn(n, key); }).length;
+        }
+        function checkNoDeadEnds() {
+          return BLOCKING.map(function (b) {
+            var key = b.scenes[0];
+            var inline = nextCountIn($(b.cardId), key);
+            var viaNext = nextCountIn($(b.nextId), key);
+            return {
+              state: b.state,
+              scene: key,
+              cardId: b.cardId,
+              nextId: b.nextId,
+              inlineNext: inline,
+              nextHasNext: viaNext,
+              ok: inline > 0 || viaNext > 0
+            };
+          });
+        }
+        /* ═══════════════════════════════════════════════════════════════
+           9. 事件接线（全部走真实点击路径）
+           ═══════════════════════════════════════════════════════════════ */
+        $$('#scene-switch [role="radio"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { setScene(btn.getAttribute('data-scene-set')); });
+        });
+        $$('#width-switch [role="radio"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { setWidth(btn.getAttribute('data-width-set')); });
+        });
+        $$('#theme-switch [role="radio"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { setTheme(btn.getAttribute('data-theme-set')); });
+        });
+        var themeBtn = $('theme-toggle');
+        if (themeBtn) themeBtn.addEventListener('click', cycleTheme);
+
+        $$('[data-open-view]').forEach(function (btn) {
+          btn.addEventListener('click', function () { openView(btn.getAttribute('data-open-view')); });
+        });
+        var backBtn = $('view-back');
+        if (backBtn) backBtn.addEventListener('click', closeView);
+
+        $$('[data-act="answer"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var card = $(btn.getAttribute('data-ask'));
+            var src = btn.getAttribute('data-source');
+            var input = src ? $(src) : (card ? card.querySelector('.ask-input') : null);
+            answerAsk(btn.getAttribute('data-ask'), input ? input.value : '');
+          });
+        });
+        $$('[data-act="secret"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var card = $(btn.getAttribute('data-ask'));
+            var input = card ? card.querySelector('.ask-input') : null;
+            answerAsk(btn.getAttribute('data-ask'), input ? input.value : '');
+          });
+        });
+        $$('[data-act="cancel"]').forEach(function (btn) {
+          btn.addEventListener('click', function () { cancelAsk(btn.getAttribute('data-ask')); });
+        });
+        $$('[data-act="choose"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            answerAsk(btn.getAttribute('data-ask'), btn.getAttribute('data-choice'));
+          });
+        });
+        $$('[data-act="choose-other"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var card = $(btn.getAttribute('data-ask'));
+            var other = card ? card.querySelector('.ask-other') : null;
+            if (other) other.hidden = false;
+            say('已展开「其他…（我来描述）」输入框 —— 输入框只在问题卡内按需出现（法四）');
+          });
+        });
+        $$('[data-act="approve"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var mode = btn.getAttribute('data-mode');
+            var card = $(btn.getAttribute('data-auth'));
+            if (card && card.getAttribute('data-consent') === 'browser-perm') {
+              resolvePerm(true);
+              return;
+            }
+            decideAuth(btn.getAttribute('data-auth'), mode === 'session' ? 'session' : 'approved');
+          });
+        });
+        $$('[data-act="reject"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var card = $(btn.getAttribute('data-auth'));
+            if (card && card.getAttribute('data-consent') === 'browser-perm') {
+              resolvePerm(false);
+              return;
+            }
+            decideAuth(btn.getAttribute('data-auth'), 'rejected');
+          });
+        });
+        /* 推荐 chip = op 指令：chip → handleCardAction（查表分发） */
+        $$('[data-act="next"]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var opId = btn.getAttribute('data-op');
+            var op = OPS_BY_ID[opId];
+            var ok = runOp(opId, btn);
+            if (!op) {
+              say('未知 opId：' + opId + '（分发器只查表，未注册即 false）');
+              return;
+            }
+            say('推荐已选中并作为 op 指令发出：' + (btn.getAttribute('data-command') || opId)
+              + ' → ' + opId + '（' + op.risk + '）· 分发 diff = ' + DISPATCHER_DIFF);
+            btn.setAttribute('data-op-state', ok ? 'dispatched' : 'failed');
+          });
+        });
+        var regAdd = $('reg-add');
+        if (regAdd) regAdd.addEventListener('click', function () { registerDemoProvider(); });
+
+        $$('[data-risk]').forEach(function (chip) {
+          chip.addEventListener('click', function () {
+            var kind = chip.getAttribute('data-risk');
+            var open = chip.getAttribute('aria-expanded') === 'true';
+            if (open) { closeRiskDetail(); say('已收起风险详情'); }
+            else focusRisk(kind);
+          });
+        });
+
+        /* 页面侧拾取（不在 #panel 内，不参与面板密度统计） */
+        var pickBtn = $('pick-toggle');
+        var pickState = $('pick-state');
+        function setPickMode(on) {
+          panel.setAttribute('data-pick-mode', on ? 'on' : 'off');
+          var area = $('page-area');
+          if (area) area.setAttribute('data-pick-mode', on ? 'on' : 'off');
+          if (pickBtn) {
+            pickBtn.setAttribute('aria-pressed', String(on));
+            pickBtn.textContent = '拾取模式：' + (on ? '开' : '关');
+          }
+          if (pickState) {
+            pickState.setAttribute('data-on', String(on));
+            pickState.textContent = on ? '拾取中…' : '未开启';
+          }
+        }
+        if (pickBtn) pickBtn.addEventListener('click', function () {
+          setPickMode(panel.getAttribute('data-pick-mode') !== 'on');
+        });
+        $$('[data-pickable]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            if (panel.getAttribute('data-pick-mode') !== 'on') return;
+            el.classList.add('is-picked');
+            setPickMode(false);
+            if (state.scene === 'S2' || state.scene === 'S1') reveal('s1-auth');
+            say('已拾取「' + el.getAttribute('data-pick-name') + '」并登记为引用 ①（回到流里确认，不跳走）');
+          });
+        });
+
+        /* ═══════════════════════════════════════════════════════════════
+           10. 初始化 + 垫片契约导出
+           ═══════════════════════════════════════════════════════════════ */
+        window.__demo = {
+          setScene: setScene,
+          setWidth: setWidth,
+          setTheme: setTheme,
+          cycleTheme: cycleTheme,
+          openView: openView,
+          closeView: closeView,
+          answerAsk: answerAsk,
+          answerSecret: answerSecret,
+          cancelAsk: cancelAsk,
+          decideAuth: decideAuth,
+          focusRisk: focusRisk,
+          closeRiskDetail: closeRiskDetail,
+          runOp: runOp,
+          registerDemoProvider: registerDemoProvider,
+          configureLLM: configureLLM,
+          grantSite: grantSite,
+          resolvePerm: resolvePerm,
+          reveal: reveal,
+          setSecret: setSecret,
+          setPickMode: setPickMode,
+          checkNoDeadEnds: checkNoDeadEnds,
+          dispatcherDiff: function () { return DISPATCHER_DIFF; },
+          dispatcherFingerprint: function () { return DISPATCHER_FINGERPRINT; },
+          snapshots: function () {
+            return { scene: state.scene, theme: state.theme, width: state.width, ops: OPS.length, providers: REGISTRY.length };
+          }
+        };
+        window.__density = density;
+        /* 垫片契约：暴露纯函数口径，便于 Node 侧用同一实现复核 */
+        window.__clickables = clickables;
+        window.__isVisible = isVisible;
+        window.__registry = {
+          providers: REGISTRY,
+          ops: OPS,
+          opsById: OPS_BY_ID,
+          ctxOf: ctxOf,
+          active: activeProviders,
+          count: function () { return REGISTRY.length; },
+          render: renderRegistry,
+          pipeline: pipelineState,
+          stageLive: STAGE_LIVE,
+          diff: function () { return DISPATCHER_DIFF; },
+          fingerprint: function () { return DISPATCHER_FINGERPRINT; }
+        };
+        window.__ops = OPS;
+        window.__blocking = BLOCKING;
+        window.__kinds = { primary: PRIMARY_KINDS, process: PROCESS_KINDS, all: CARD_KINDS };
+
+        setTheme('auto');
+        setWidth('400');
+        setScene('S1');
+        autoScroll();
+        updateMetrics();
+      })();
+    </script>
+  </body>
+</html>
