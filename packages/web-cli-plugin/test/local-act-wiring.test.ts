@@ -2,24 +2,13 @@
  * V4.5-1 **W1 / TASK-V45-101** — the **node-gate skeleton** for ADR-V45-007
  * (`risk-recovery` 扩展 + act 闭集 6 项 + 本地 act 单一生产入口).
  *
- * ── Why a NEW gate ──────────────────────────────────────────────────────────
+ * ── V5-1 预迁移（TASK-V5-113 → 115 / ADR-V5-001）────────────────────────────
  *
- * FIX-1 (2026-09-20) established the precedent: a **local** act (`authorize`) must
- * reach exactly ONE production entry (`authorizeCurrentSite()`), must never be turned
- * into a chat message (`requestTurn`), and the deny set may only ever judge
- * `act === 'next'`. v4.5 adds two more local acts (`rebind` → `rebindCurrentTab()`,
- * `help` → `openSettingsSection('settings-help')`), and `#rebind` already has a
- * second UI entrance (the settings view). R-REG-905 =「双入口漂移」— the structural
- * defence is a **call-site** gate, not a review finding.
- *
- * ── W1 形态（骨架） ─────────────────────────────────────────────────────────
- *
- * The judge functions are pure source-text extractors (same technique as the
- * `authorize-chip-wiring.test.ts` precedent) and are exercised against the **real**
- * source for the shipped act (`authorize`) plus synthetic sources for the reverse
- * proofs. `rebind` / `help` are declared in {@link LOCAL_ACT_SLOTS} with
- * `status: 'pending-w3'`; `TASK-V45-112` flips them to `landed` and adds the live
- * assertions — the extractors themselves never change.
+ * TASK-V5-113 把 `handleCardAction` 的**集 B**（`next` / `repick` / `describe` /
+ * `describe-submit` / `rebind` / `help` / `authorize`）收敛为 `dispatchChipAction`
+ * 的**一次查表**（per-op 分支 = 0）。因此本地 act 的接线判据从「`if (action ===
+ * 'x')` 分支体」**等价重锚**为「`bindPanelOps({...})` 的 op 槽 → 声明的单一入口」：
+ * 判据力**只升不降**（现在还要求 `ACT_TO_OP` 映射同源）。
  *
  * ── Falsifiability ──────────────────────────────────────────────────────────
  *
@@ -36,6 +25,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { NEXTSTEP_ACTS, candidateRules } from '../src/ui/sidepanel/recommend.js';
+import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
 
 // Resolved from the PACKAGE ROOT: `npm test` compiles to `dist-test/`, so a
 // `new URL('../src/…', import.meta.url)` would look inside `dist-test/src/`.
@@ -61,7 +51,7 @@ export interface LocalActJudgement {
 export const JUDGEMENTS: readonly LocalActJudgement[] = [
   { id: 'LA-1-single-entry', expectFailPattern: '唯一调用点判据失败：', status: 'landed' },
   { id: 'LA-2-call-site-set', expectFailPattern: '调用点集合判据失败：', status: 'landed' },
-  { id: 'LA-3-no-request-turn', expectFailPattern: '本地 act 分支不得出现 requestTurn', status: 'landed' },
+  { id: 'LA-3-no-request-turn', expectFailPattern: '本地 act 不得出现 requestTurn', status: 'landed' },
   { id: 'LA-4-closed-set-same-source', expectFailPattern: 'act 闭集同源判据失败：', status: 'landed' },
   { id: 'LA-5-rebind-entry', expectFailPattern: '唯一调用点判据失败：rebindCurrentTab', status: 'landed' },
   { id: 'LA-6-help-entry', expectFailPattern: '唯一调用点判据失败：openSettingsSection', status: 'landed' },
@@ -69,16 +59,13 @@ export const JUDGEMENTS: readonly LocalActJudgement[] = [
 
 /**
  * The local acts and their declared single production entrance.
- * `status: 'pending-w3'` items are declared-but-not-yet-shipped: asserting them now
- * would be a fake FAIL, so W1 only records them (`TASK-V45-112` flips them).
+ * V5-1: `opSlot` is the `bindPanelOps` key the pipeline reaches; `opId` is the
+ * `ACT_TO_OP` mapping (both are asserted, so act→op→entry is a single chain).
  */
 export const LOCAL_ACT_SLOTS = [
-  { act: 'authorize', entry: 'authorizeCurrentSite', callSiteCount: 2, w1CallSiteCount: 2, status: 'landed' },
-  // V4.5-1 W3（TASK-V45-112）：`rebind` 的单一入口 = `#rebind` 监听器 + `handleCardAction`
-  // 的 'rebind' 分支（2 个调用点，且都在既有入口函数内）。
-  { act: 'rebind', entry: 'rebindCurrentTab', callSiteCount: 2, w1CallSiteCount: 1, status: 'landed' },
-  // `help` 的单一入口 = chip 分支（1 个调用点）。
-  { act: 'help', entry: 'openSettingsSection', callSiteCount: 1, w1CallSiteCount: 0, status: 'landed' },
+  { act: 'authorize', opSlot: 'authorize', opId: 'op.authorize', entry: 'authorizeCurrentSite', callSiteCount: 2, status: 'landed' },
+  { act: 'rebind', opSlot: 'rebind', opId: 'op.rebind', entry: 'rebindCurrentTab', callSiteCount: 2, status: 'landed' },
+  { act: 'help', opSlot: 'help', opId: 'op.help', entry: 'openSettingsSection', callSiteCount: 1, status: 'landed' },
 ] as const;
 
 /** Call sites of `name(` in the source (comments and `import` lines excluded). */
@@ -106,12 +93,17 @@ export function declarationSites(source: string, name: string): number[] {
   return out;
 }
 
-/**
- * The body of `handleCardAction`'s `if (action === '<act>')` branch, or `null` when
- * the branch is missing. Indentation-based (`sidepanel.ts` uses two-space `if`s).
- */
-export function actBranchBody(source: string, act: string): string | null {
-  const m = new RegExp(`\\n {2}if \\(action === '${act}'\\) \\{\\n([\\s\\S]*?)\\n {2}\\}`).exec(source);
+/** The body of the `bindPanelOps({ … })` call, or `null` when it is missing. */
+export function panelOpsBlock(source: string): string | null {
+  const m = /\n {2}bindPanelOps\(\{([\s\S]*?)\n {2}\}\);/m.exec(source);
+  return m ? m[1] : null;
+}
+
+/** The single line that wires an op slot (`act: …`), or `null` when missing. */
+export function opSlotBinding(source: string, slot: string): string | null {
+  const block = panelOpsBlock(source);
+  if (!block) return null;
+  const m = new RegExp(`\\n\\s*${slot}: ([^\\n]*)`).exec(block);
   return m ? m[1] : null;
 }
 
@@ -131,25 +123,25 @@ export function singleEntryProblems(source: string, name: string, expected: numb
 }
 
 /**
- * The judge: the branch must **exist**, must reach the declared single entry, and must
- * never turn the local act into a chat message. An empty/blank branch is a failure too
- * —「找不到 ⇒ 静默放行」is exactly the空转 the reverse proof forbids.
+ * The judge: the op slot must **exist**, must reach the declared single entry, and
+ * must never turn the local act into a chat message. A missing/blank slot is a
+ * failure too —「找不到 ⇒ 静默放行」is exactly the空转 the reverse proof forbids.
  */
-export function localActBranchProblems(source: string, act: string, entry?: string): string[] {
-  const body = actBranchBody(source, act);
+export function localActSlotProblems(source: string, slot: string, entry: string): string[] {
+  const binding = opSlotBinding(source, slot);
   const problems: string[] = [];
-  if (body === null) {
-    problems.push(`本地 act 分支不得出现 requestTurn：找不到 '${act}' 分支（本地动作必须接线）`);
+  if (binding === null) {
+    problems.push(`本地 act 不得出现 requestTurn：找不到 bindPanelOps 的 '${slot}' 槽（本地动作必须接线）`);
     return problems;
   }
-  if (body.trim().length === 0) {
-    problems.push(`本地 act 分支不得出现 requestTurn：'${act}' 分支为空（本地动作必须接线到单一入口）`);
+  if (binding.trim().length === 0) {
+    problems.push(`本地 act 不得出现 requestTurn：'${slot}' 槽为空（本地动作必须接线到单一入口）`);
   }
-  if (entry !== undefined && !new RegExp(`${entry}\\s*\\(`).test(body)) {
-    problems.push(`本地 act 分支不得出现 requestTurn：'${act}' 分支必须调用单一入口 ${entry}()`);
+  if (!new RegExp(`${entry}\\s*\\(`).test(binding)) {
+    problems.push(`本地 act 不得出现 requestTurn：'${slot}' 槽必须调用单一入口 ${entry}()`);
   }
-  if (/requestTurn\s*\(/.test(body)) {
-    problems.push(`本地 act 分支不得出现 requestTurn（'${act}' 分支实测命中）`);
+  if (/requestTurn\s*\(/.test(binding)) {
+    problems.push(`本地 act 不得出现 requestTurn（'${slot}' 槽实测命中）`);
   }
   return problems;
 }
@@ -172,7 +164,7 @@ export function closedSetProblems(acts: readonly string[], slots: readonly { rea
  * 2. 真源码断言（W1 已落地面：`authorize` —— FIX-1 先例）
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test('V45 W1 LA-1：authorize 单一生产入口 authorizeCurrentSite 恰 2 个调用点（设置按钮 + chip 分支）', () => {
+test('V45 W1 LA-1：authorize 单一生产入口 authorizeCurrentSite 恰 2 个调用点（设置按钮 + op 槽）', () => {
   assert.deepEqual(singleEntryProblems(SIDEPANEL, 'authorizeCurrentSite', 2), []);
 });
 
@@ -188,27 +180,28 @@ test('V45 W1 LA-2：权限请求 requestOriginPermissionDetailed 唯一调用点
   assert.equal(declarationSites(SIDEPANEL, 'requestOriginPermissionDetailed').length, 0, '权限请求不得在面板侧另做声明式封装（沿用既有 await 调用）');
 });
 
-test('V45 W1 LA-3：authorize 分支走本地权限流，不得把「授权当前站点」当聊天消息', () => {
-  assert.deepEqual(localActBranchProblems(SIDEPANEL, 'authorize', 'authorizeCurrentSite'), []);
+test('V45 W1 LA-3：authorize op 槽走本地权限流，不得把「授权当前站点」当聊天消息', () => {
+  assert.deepEqual(localActSlotProblems(SIDEPANEL, 'authorize', 'authorizeCurrentSite'), []);
+  assert.equal(ACT_TO_OP.authorize, 'op.authorize', 'act→opId 映射必须同源');
 });
 
-test('V45 W1 LA-3 反证：把 authorize 分支改回 requestTurn ⇒ 回合判据必红', () => {
-  const body = actBranchBody(SIDEPANEL, 'authorize');
-  assert.ok(body, '前置：authorize 分支存在');
-  const forged = SIDEPANEL.replace(body as string, body!.replace('authorizeCurrentSite();', "requestTurn('授权当前站点');"));
-  const problems = localActBranchProblems(forged, 'authorize', 'authorizeCurrentSite');
-  assert.ok(problems.some((p) => p.includes('本地 act 分支不得出现 requestTurn')), problems.join(' | '));
+test('V45 W1 LA-3 反证：把 authorize op 槽改回 requestTurn ⇒ 回合判据必红', () => {
+  const binding = opSlotBinding(SIDEPANEL, 'authorize');
+  assert.ok(binding, '前置：authorize op 槽存在');
+  const forged = SIDEPANEL.replace(binding as string, binding!.replace('authorizeCurrentSite()', "requestTurn('授权当前站点')"));
+  const problems = localActSlotProblems(forged, 'authorize', 'authorizeCurrentSite');
+  assert.ok(problems.some((p) => p.includes('本地 act 不得出现 requestTurn')), problems.join(' | '));
 });
 
-test('V45 W1 LA-3 反证：删掉 authorize 分支 ⇒ 分支缺失同样判红（禁判据空转）', () => {
-  const body = actBranchBody(SIDEPANEL, 'authorize');
-  const forged = SIDEPANEL.replace(body as string, '');
-  const problems = localActBranchProblems(forged, 'authorize', 'authorizeCurrentSite');
-  assert.ok(problems.length > 0, '分支缺失必须判红（判据不得因「找不到」而静默放行）');
-  // 空分支同样是「未接线」，不得静默放行。
+test('V45 W1 LA-3 反证：删掉 authorize op 槽 ⇒ 缺失同样判红（禁判据空转）', () => {
+  const binding = opSlotBinding(SIDEPANEL, 'authorize');
+  const forged = SIDEPANEL.replace(binding as string, 'DELETE_ME');
+  const problems = localActSlotProblems(forged, 'authorize', 'authorizeCurrentSite');
+  assert.ok(problems.length > 0, '槽缺失必须判红（判据不得因「找不到」而静默放行）');
+  // 空槽同样是「未接线」，不得静默放行。
   assert.ok(
-    localActBranchProblems(SIDEPANEL, 'authorize', 'openSettingsSection').length > 0,
-    '接错入口（分支未调用声明入口）必须判红',
+    localActSlotProblems(SIDEPANEL, 'authorize', 'openSettingsSection').length > 0,
+    '接错入口（槽未调用声明入口）必须判红',
   );
 });
 
@@ -249,20 +242,21 @@ test('V45 W1 LA-3+④：本地 act 永不入 deny 集（deny 只作用于 act ==
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
- * 3. 预留位（W3/TASK-V45-112 实体化）
+ * 3. 本地 act 实体化（V5-1：op 槽 + 单一入口 + 闭集同源）
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test('V45 W3 LA-5/LA-6：rebind / help 已实体化（唯一入口 + 分支零 requestTurn + 闭集同源）', () => {
+test('V45 W3 LA-5/LA-6：rebind / help 已实体化（唯一入口 + op 槽零 requestTurn + 闭集同源）', () => {
   // ① 每个本地 act 的单一生产入口调用点集合 == 登记值（W3 目标值）。
   for (const slot of LOCAL_ACT_SLOTS) {
     assert.deepEqual(singleEntryProblems(SIDEPANEL, slot.entry, slot.callSiteCount), [], `${slot.act} 的唯一入口调用点集合`);
     assert.ok(slot.callSiteCount >= 1, `${slot.act} 必须至少 1 个调用点（否则入口不存在）`);
   }
-  // ② 每个本地 act 的 chip 分支必须接线到声明入口，且**无** `requestTurn(`。
+  // ② 每个本地 act 的 op 槽必须接线到声明入口，且**无** `requestTurn(`。
   for (const slot of LOCAL_ACT_SLOTS) {
-    assert.deepEqual(localActBranchProblems(SIDEPANEL, slot.act, slot.entry), [], `${slot.act} 分支`);
-    const body = actBranchBody(SIDEPANEL, slot.act);
-    assert.ok(body && body.trim().length > 0, `${slot.act} 分支不得为空（本地动作必须接线）`);
+    assert.deepEqual(localActSlotProblems(SIDEPANEL, slot.opSlot, slot.entry), [], `${slot.act} op 槽`);
+    const binding = opSlotBinding(SIDEPANEL, slot.opSlot);
+    assert.ok(binding && binding.trim().length > 0, `${slot.act} op 槽不得为空（本地动作必须接线）`);
+    assert.equal(ACT_TO_OP[slot.act as keyof typeof ACT_TO_OP], slot.opId, `${slot.act} 的 opId 映射`);
   }
   // ③ 闭集同源：三个本地 act 都在 `NEXTSTEP_ACTS` 内，且闭集恰好 6 项（逐字该序）。
   assert.deepEqual(closedSetProblems(NEXTSTEP_ACTS, LOCAL_ACT_SLOTS), []);
@@ -284,24 +278,24 @@ test('V45 W3 LA-5/LA-6：rebind / help 已实体化（唯一入口 + 分支零 r
   assert.equal(onboarding!.chips.find((c) => c.text.includes('授权当前站点'))?.act, 'authorize');
 });
 
-test('V45 W3 LA-5 反证：删掉 rebind 分支 / 接错入口 ⇒ 判据必红（不得空转）', () => {
-  const body = actBranchBody(SIDEPANEL, 'rebind');
-  assert.ok(body, '前置：rebind 分支存在');
-  const forgedMissing = SIDEPANEL.replace(body as string, '');
-  assert.ok(localActBranchProblems(forgedMissing, 'rebind').length > 0, '分支缺失必须判红');
+test('V45 W3 LA-5 反证：删掉 rebind op 槽 / 接错入口 ⇒ 判据必红（不得空转）', () => {
+  const binding = opSlotBinding(SIDEPANEL, 'rebind');
+  assert.ok(binding, '前置：rebind op 槽存在');
+  const forgedMissing = SIDEPANEL.replace(binding as string, 'DELETE_ME');
+  assert.ok(localActSlotProblems(forgedMissing, 'rebind', 'rebindCurrentTab').length > 0, '槽缺失必须判红');
   assert.ok(
-    localActBranchProblems(SIDEPANEL, 'rebind', 'openSettingsSection').length > 0,
+    localActSlotProblems(SIDEPANEL, 'rebind', 'openSettingsSection').length > 0,
     '接错入口必须判红',
   );
-  const forgedTurn = SIDEPANEL.replace(body as string, body!.replace('rebindCurrentTab();', "requestTurn('重新绑定当前标签页');"));
+  const forgedTurn = SIDEPANEL.replace(binding as string, binding!.replace('rebindCurrentTab()', "requestTurn('重新绑定当前标签页')"));
   assert.ok(
-    localActBranchProblems(forgedTurn, 'rebind', 'rebindCurrentTab').some((p) => p.includes('requestTurn')),
+    localActSlotProblems(forgedTurn, 'rebind', 'rebindCurrentTab').some((p) => p.includes('requestTurn')),
     '把 rebind 当聊天消息必须判红',
   );
-  // help 同理：删分支 ⇒ 红。
-  const helpBody = actBranchBody(SIDEPANEL, 'help');
-  assert.ok(helpBody, '前置：help 分支存在');
-  assert.ok(localActBranchProblems(SIDEPANEL.replace(helpBody as string, ''), 'help').length > 0, 'help 分支缺失必须判红');
+  // help 同理：删槽 ⇒ 红。
+  const helpBinding = opSlotBinding(SIDEPANEL, 'help');
+  assert.ok(helpBinding, '前置：help op 槽存在');
+  assert.ok(localActSlotProblems(SIDEPANEL.replace(helpBinding as string, 'DELETE_ME'), 'help', 'openSettingsSection').length > 0, 'help 槽缺失必须判红');
 });
 
 test('V45 W1 元判据：每条 judgement 都声明非占位 expectFailPattern', () => {

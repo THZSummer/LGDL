@@ -194,7 +194,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
   // 〖V4-4 R2〗基线 465,000 → 465,277（+277，chat-state 自动归并接线）⇒ 累计增量 169,775 → **170,052**。
-  assert.equal(b.deltaBytes, 203_296);
+  assert.equal(b.deltaBytes, 212_090);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -219,11 +219,11 @@ test('V3-VOL-1 ③ growth: every new/wiring row cites the requirement that force
       assert.equal(row.beforeBytes, null, `${row.module}: 新必需模块在 v3-1 树中必须不存在`);
       assert.ok(row.deltaBytes > 0, `${row.module}: 新必需模块必须贡献正字节`);
       // V4-1：引用面放宽到 v4 的 FR-CHAT/NFR-CHAT（方向不变 —— 仍必须引到一条 FR/NFR，不得是空话）。
-      assert.match(row.requiredBy, /FR-(V3|CHAT|V45)-\d\d\d|NFR-(V3|CHAT|V45)-\d\d\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*：本 Feature 自己的需求编号）`);
+      assert.match(row.requiredBy, /FR-(V3|CHAT|V45|ALLN)-\d\d\d|NFR-(V3|CHAT|V45|ALLN)-\d\d\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*：本 Feature 自己的需求编号）`);
     }
     if (row.kind === 'wiring') {
       assert.ok(row.beforeBytes !== null && row.beforeBytes > 0, `${row.module}: 接线模块必须两轮都存在`);
-      assert.match(row.requiredBy, /FR-(V3|CHAT|V45)-\d\d\d|NFR-(V3|CHAT|V45)-\d\d\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*：本 Feature 自己的需求编号）`);
+      assert.match(row.requiredBy, /FR-(V3|CHAT|V45|ALLN)-\d\d\d|NFR-(V3|CHAT|V45|ALLN)-\d\d\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*：本 Feature 自己的需求编号）`);
     }
     if (row.kind === 'attribution-shift') {
       assert.match(row.requiredBy, /源码未改/, `${row.module}: 位移行必须说明源码未改`);
@@ -380,7 +380,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // 〖V4.5-1 R1（2026-09-21，W1+W2 = TASK-V45-101~106）〗最新一轮 = `v45W1W2Rows`（6 行，Σ +870 + glue 0）。
   // 〖V4.5-1 review R1 修复轮（2026-09-21，BLOCK-01~04 + I-01~06）〗最新一轮 = `v45ReviewfixRows`
   // （2 行：host-registry +2,145 / sidepanel +2,875；glue 0 ⇒ Σ + 0 == 498,521 − 493,501）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v45ReviewfixRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v51R1Rows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -585,6 +585,8 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'v45W1W2Rows', rows: b.v45W1W2Rows, glue: b.v45W1W2UnattributedGlueBytes },
     // V4.5-1 review R1 修复轮（BLOCK-01~04 + I-01~06）：追加第 15 组（只增不减）。
     { name: 'v45ReviewfixRows', rows: b.v45ReviewfixRows, glue: b.v45ReviewfixUnattributedGlueBytes },
+    // V5-1 R1（TASK-V5-101~113）：追加第 16 组（只增不减）。
+    { name: 'v51R1Rows', rows: b.v51R1Rows, glue: b.v51R1UnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -599,7 +601,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   // 每组都必须真的被判（否则本断言可被空集合空转）。V4-4 追加第 8 组、R2 追加第 9 组、
   // 审查修复轮第 10 组、快修轮第 11 组、收口轮第 12 组、V4.5-1 R1 第 14 组、
   // V4.5-1 review R1 修复轮第 15 组（只增不减）。
-  assert.equal(groups.length, 15);
+  assert.equal(groups.length, 16);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );
@@ -668,7 +670,7 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
   //    与最新登记同源（R3 的 Δ=0 是**历史**事实：其 `v45W4W5Rows` 空集 + direction unchanged
   //    仍由下面 ③ 逐条判定；此后任何一轮都必须重新登记 —— 本叶的 review 修复轮即如此）。
   let judged = 0;
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v45ReviewfixRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v51R1Rows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(

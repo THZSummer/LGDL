@@ -25,6 +25,7 @@
  * @module ui/sidepanel/cards/nextstep
  */
 import type { CardView } from '../stream-model.js';
+import { ACT_TO_OP } from '../next-registry/dispatch.js';
 import { CARD_TAG_LABELS, createCardShell } from './shared.js';
 import type { CardDeps } from './shared.js';
 
@@ -57,6 +58,10 @@ export function createNextstepCard(view: CardView, deps: CardDeps): HTMLLIElemen
     btn.type = 'button';
     btn.className = NEXT_CHIP_CLASS;
     btn.setAttribute('data-act', act);
+    // V5-1 TASK-V5-112 (FR-ALLN-057): the分发依据 is the **opId** (`data-op`),
+    // derived from the ONE `ACT_TO_OP` authority; `data-act` stays a render alias.
+    const opId = ACT_TO_OP[act as keyof typeof ACT_TO_OP];
+    if (opId) btn.setAttribute('data-op', opId);
     btn.setAttribute('data-chip-index', String(i));
     btn.textContent = chip;
     btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, act, chip));

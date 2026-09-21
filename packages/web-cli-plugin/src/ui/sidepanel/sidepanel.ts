@@ -34,6 +34,8 @@ import {
 import type { CardDeps } from './cards/index.js';
 import { syncNextstepPending } from './cards/nextstep.js';
 import { recommendNextStep } from './recommend.js';
+import { bindPanelOps } from './next-registry/pipeline.js';
+import { dispatchChipAction } from './next-registry/dispatch.js';
 import { createSystemChannelState, droppedSystemText, SYSTEM_COPY } from './system-events.js';
 import {
   REGISTERED_STRUCTURAL_HOSTS,
@@ -176,10 +178,14 @@ function cardDeps(): CardDeps {
 }
 
 /**
- * V4-3: the stream card actions. Every ask/auth control resolves the **exact**
- * card it belongs to (by `cardId` → `payload.requestId`), so two coexisting open
- * cards can never cross-resolve. The v1 paths (`submitAsk` / `confirm-response`)
- * are reused — no shadow implementation.
+ * V4-3 / V5-1 TASK-V5-113: the stream card actions — the **两集模型** (ADR-V5-001).
+ *
+ *   · 集 A = 卡族协议（`askuser` / `auth` / `ref`）: `answer` / `choose` / `cancel` /
+ *     `approve` / `reject` / `audit` / `hover` / `reanchor` — 保留原行为（从不携带
+ *     `data-op`）。
+ *   · 集 B = next-chip 动作（`next` / `repick` / `describe` / `describe-submit` /
+ *     `rebind` / `help` / `authorize`）: **全部删除**，合并为 `dispatchChipAction`
+ *     的**一次查表**（`ACT_TO_OP[action] ?? OPS_BY_ID[action]` → `runOp`），per-op 分支 = 0。
  */
 function handleCardAction(cardId: string, action: string, value?: string): void {
   const requestId = requestIdForCard(cardId);
@@ -207,53 +213,11 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     openL2View('audit');
     return;
   }
-  if (action === 'next' && value) {
-    // V4-4 TASK-805 (ADR-V4-037 §5): chips 即指令 — a chip goes through the SAME
-    // production entry as the composer submit (same validation, same `pending` /
-    // `sendDisabledReason` gating, same audit). No second path exists.
-    requestTurn(value);
-    return;
-  }
-  if (action === 'repick') {
-    // V4-4 TASK-806 (ADR-V4-038 §5): a pick is a LOCAL page-side act, not a turn —
-    // it therefore goes through `requestPick()` (not `requestTurn`), and is not
-    // gated on `pending`.
-    void pickInput?.requestPick();
-    return;
-  }
-  if (action === 'describe-submit' && value) {
-    // BLOCK-03 (v4-4 review): the `ref` card's「改用描述」fallback submits through the
-    // existing ask-fallback card — the ONE owner of the free-text description. The old
-    // code dispatched `describe-submit` with no branch, so the submit silently fell
-    // into the「将在 v4-3 / v4-4 落地」placeholder (a dead control).
-    submitDescribe(value);
-    return;
-  }
-  if (action === 'describe') {
-    // A recommendation chip's「改用描述」act: reveal the free-text fallback. The `ref`
-    // card deliberately never routes its own「改用描述」button here (it toggles its
-    // LOCAL collapsed input), so exactly one fallback input exists at a time.
-    revealAskFallback();
-    return;
-  }
   if (action === 'hover') {
     // V4.5-1 W3 (FR-V3-066)：ref 卡 chip 的 hover 触发页面侧闪动 —— 与页面侧角标 hover
     // 走同一通道（`pickInput.highlight`），卡片只上报意图。
     const lastRef = l1?.store().all().slice(-1)[0];
     if (lastRef) void pickInput?.highlight(lastRef.facts.refId, lastRef.facts.selector, 'flash');
-    return;
-  }
-  if (action === 'rebind') {
-    // V4.5-1 W3 (TASK-V45-112 / ADR-V45-007 §4): re-binding the current tab is a LOCAL
-    // browser flow — the chip reaches the SAME single entry the settings-view `#rebind`
-    // button calls, never `requestTurn` (and never gated on `pending`).
-    void rebindCurrentTab();
-    return;
-  }
-  if (action === 'help') {
-    // V4.5-1 W3 (FR-V45-041): the onboarding chip opens the settings「帮助」section —
-    // zero user turn, zero input write.
-    openSettingsSection(HELP_SECTION_ID);
     return;
   }
   if (action === 'reanchor') {
@@ -263,16 +227,9 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     l1?.reanchorCurrent();
     return;
   }
-  if (action === 'authorize') {
-    // F 还原度快修轮 (2026-09-20): an authorization is a LOCAL browser-permission flow,
-    // not a turn — it goes through the SAME single entry the settings-view `#authorize`
-    // button uses (`authorizeCurrentSite()`), never `requestTurn`, and is not gated on
-    // `pending` (same rationale as `repick`). Before this branch the onboarding chip
-    // shipped `act:'next'`, so「授权当前站点」was sent to the LLM as a chat message.
-    authorizeCurrentSite();
-    return;
-  }
-  dispatch({ type: 'notice', text: `该卡片的「${action}」交互将在 v4-3 / v4-4 落地（本叶只固化契约）` });
+  // ── 集 B（数据驱动）：1 次查表 + 1 个调用点；不识别 ⇒ 由 `runOp` 的 loud
+  //    `unknown-op` 语义承担（旧 v4-3/v4-4 兜底告知已退役，字面零残留）。
+  dispatchChipAction(action, value);
   void cardId;
 }
 
@@ -2868,6 +2825,23 @@ function wire(): void {
     log.scrollTop = log.scrollHeight;
     scrollFollow.returnedToBottom();
     updateScrollHint();
+  });
+
+  // V5-1 TASK-V5-113：把既有**单一生产入口**注册进 op 管线 —— 集 B 的动作由
+  // `dispatchChipAction → runOp → op.execute` 触达，面板侧仍只有这一组入口（零双路径）。
+  bindPanelOps({
+    turn: (text) => {
+      requestTurn(text);
+    },
+    pick: () => void pickInput?.requestPick(),
+    describe: (value) => {
+      if (value) submitDescribe(value);
+      else revealAskFallback();
+    },
+    authorize: () => authorizeCurrentSite(),
+    rebind: () => void rebindCurrentTab(),
+    help: () => openSettingsSection(HELP_SECTION_ID),
+    notice: (text) => dispatch({ type: 'notice', text }),
   });
 
   $('authorize').addEventListener('click', () => authorizeCurrentSite());

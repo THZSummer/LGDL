@@ -8,13 +8,20 @@
  * 而授权实际是**浏览器权限流**（`chrome.permissions.request`），唯一入口在面板侧
  * `authorizeCurrentSite()`（设置视图 `#authorize` 按钮原本内联的那段）。
  *
+ * ── V5-1 预迁移（TASK-V5-113 → 115 / ADR-V5-001）────────────────────────────
+ *
+ * `handleCardAction` 的 `'authorize'` 分支已收敛进 `dispatchChipAction`（集 B，per-op
+ * 分支 = 0）。判据**等价重锚**为「op 槽 → 单一入口」：`bindPanelOps({ authorize: () =>
+ * authorizeCurrentSite() })` 是 chip 与 `op.authorize` 的唯一接线面 —— 判据力**只升不降**
+ * （现在还要求 `ACT_TO_OP.authorize === 'op.authorize'` 同源）。
+ *
  * ── 两条硬判据，都可失败 ─────────────────────────────────────────────────────
  *
  *   AC-1  权限请求只有一个调用点（`requestOriginPermissionDetailed` 恰 1 处，位于
  *         `authorizeCurrentSite()` 内），且该函数恰有 2 个调用点（`#authorize` 监听器
- *         + `handleCardAction` 的 `'authorize'` 分支）。
- *   AC-2  `handleCardAction` 的 `'authorize'` 分支**不得**出现 `requestTurn(` ——
- *         授权不是回合（与 `repick` 同理：本地行为、不受 `pending` 门控）。
+ *         + `bindPanelOps` 的 `authorize` op 槽）。
+ *   AC-2  `authorize` op 槽**不得**出现 `requestTurn(` —— 授权不是回合（与 `repick`
+ *         同理：本地行为、不受 `pending` 门控）。
  *
  * 判据函数导出，便于把**伪造源码**指给同一判据、证明门禁能红（反证在本文件内实跑）。
  */
@@ -25,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { NEXTSTEP_ACTS, candidateRules } from '../src/ui/sidepanel/recommend.js';
+import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
 
 // Resolved from the PACKAGE ROOT: `npm test` compiles to `dist-test/`, so a
 // `new URL('../src/…', import.meta.url)` would look inside `dist-test/src/`.
@@ -60,13 +68,12 @@ export function authorizeEntryCallSites(source: string): { line: number; text: s
   return out;
 }
 
-/**
- * AC-2: the body of `handleCardAction`'s `'authorize'` branch, or `null` when the
- * branch is missing. Indentation-based — the branch is a two-space-indented `if`.
- */
-export function authorizeBranchBody(source: string): string | null {
-  const m = /\n {2}if \(action === 'authorize'\) \{\n([\s\S]*?)\n {2}\}/.exec(source);
-  return m ? m[1] : null;
+/** The single line that wires the `authorize` op slot in `bindPanelOps({…})`. */
+export function authorizeSlotBinding(source: string): string | null {
+  const m = /\n {2}bindPanelOps\(\{([\s\S]*?)\n {2}\}\);/m.exec(source);
+  if (!m) return null;
+  const line = /\n\s*authorize: ([^\n]*)/.exec(m[1]);
+  return line ? line[1] : null;
 }
 
 // ── AC-1 ─────────────────────────────────────────────────────────────────────
@@ -81,30 +88,31 @@ test('AC-1 权限请求唯一调用点（requestOriginPermissionDetailed 恰 1 �
   assert.match(sites[0].text, /await\s+requestOriginPermissionDetailed\(origin\)/);
 });
 
-test('AC-1 授权单一入口 authorizeCurrentSite：声明 1 处 + 调用 2 处（设置按钮 + chip 分支）', () => {
+test('AC-1 授权单一入口 authorizeCurrentSite：声明 1 处 + 调用 2 处（设置按钮 + op 槽）', () => {
   const calls = authorizeEntryCallSites(SIDEPANEL);
   assert.equal(
     calls.length,
     2,
-    `authorizeCurrentSite 必须恰有 2 个调用点（#authorize 监听器 + handleCardAction 的 authorize 分支），实测 ${calls.length}：${JSON.stringify(calls)}`,
+    `authorizeCurrentSite 必须恰有 2 个调用点（#authorize 监听器 + bindPanelOps 的 authorize op 槽），实测 ${calls.length}：${JSON.stringify(calls)}`,
   );
   assert.ok(
     calls.some((c) => /addEventListener\('click', \(\) => authorizeCurrentSite\(\)\)/.test(c.text)),
     `设置按钮必须复用同一入口：${JSON.stringify(calls)}`,
   );
   assert.ok(
-    calls.some((c) => /^\s*authorizeCurrentSite\(\);$/.test(c.text)),
-    `chip 分支必须复用同一入口：${JSON.stringify(calls)}`,
+    calls.some((c) => /authorizeCurrentSite\s*\(\)/.test(c.text) && !/addEventListener/.test(c.text)),
+    `op 槽必须复用同一入口（不是第二条执行路径）：${JSON.stringify(calls)}`,
   );
 });
 
 // ── AC-2 ─────────────────────────────────────────────────────────────────────
 
-test('AC-2 授权分支走本地权限流，不得把「授权当前站点」当聊天消息（无 requestTurn）', () => {
-  const body = authorizeBranchBody(SIDEPANEL);
-  assert.ok(body, 'handleCardAction 必须存在 authorize 分支');
-  assert.match(body as string, /authorizeCurrentSite\(\)/, 'authorize 分支必须调用单一授权入口');
-  assert.ok(!/requestTurn\s*\(/.test(body as string), 'authorize 分支不得出现 requestTurn（授权不是回合）');
+test('AC-2 授权 op 槽走本地权限流，不得把「授权当前站点」当聊天消息（无 requestTurn）', () => {
+  const binding = authorizeSlotBinding(SIDEPANEL);
+  assert.ok(binding, 'bindPanelOps 必须存在 authorize op 槽');
+  assert.match(binding as string, /authorizeCurrentSite\(\)/, 'authorize op 槽必须调用单一授权入口');
+  assert.ok(!/requestTurn\s*\(/.test(binding as string), 'authorize op 槽不得出现 requestTurn（授权不是回合）');
+  assert.equal(ACT_TO_OP.authorize, 'op.authorize', 'ACT_TO_OP 必须把 authorize 映射到 op.authorize');
 });
 
 // ── 反证：伪造源码 ⇒ 同一判据必红 ────────────────────────────────────────────
@@ -119,12 +127,12 @@ test('AC-1 反证：伪造第三处 authorizeCurrentSite() ⇒ 调用点数判�
   assert.equal(authorizeEntryCallSites(forged).length, 3, '伪造调用必须被计数为第三处');
 });
 
-test('AC-2 反证：把 authorize 分支改回 requestTurn ⇒ 回合判定必红', () => {
-  const body = authorizeBranchBody(SIDEPANEL);
-  assert.ok(body, '前置：分支存在');
-  const forged = SIDEPANEL.replace(body as string, body!.replace('authorizeCurrentSite();', "requestTurn('授权当前站点');"));
-  const forgedBody = authorizeBranchBody(forged);
-  assert.ok(forgedBody && /requestTurn\s*\(/.test(forgedBody), '伪造分支必须被同一判据识别为回合');
+test('AC-2 反证：把 authorize op 槽改回 requestTurn ⇒ 回合判定必红', () => {
+  const binding = authorizeSlotBinding(SIDEPANEL);
+  assert.ok(binding, '前置：op 槽存在');
+  const forged = SIDEPANEL.replace(binding as string, binding!.replace('authorizeCurrentSite()', "requestTurn('授权当前站点')"));
+  const forgedBinding = authorizeSlotBinding(forged);
+  assert.ok(forgedBinding && /requestTurn\s*\(/.test(forgedBinding), '伪造槽必须被同一判据识别为回合');
 });
 
 // ── 与 act 闭集同源 ──────────────────────────────────────────────────────────

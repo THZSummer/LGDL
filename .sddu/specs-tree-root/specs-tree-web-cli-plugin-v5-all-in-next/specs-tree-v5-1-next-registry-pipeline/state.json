@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v5-1-next-registry-pipeline",
   "version": "v5.0.0",
   "name": "V5-1 NextProvider 注册表 + op 管线——契约 v2 七点（可逆注册 / 依赖声明式 / 优先级显式化 / 分发模式公开契约 / 失败语义分级 / Seam 三件套 / 证明义务表）+ 统一管线四态 + act→opId 取代 + 瘦分发（分发器 diff = 0）+ 双契约（F 60 冻结不替换 + G 127 新增）+ 证明义务表静态机核",
-  "phase": "tasked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v5-all-in-next",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T08:00:00.000Z",
+  "updatedAt": "2026-09-22T18:15:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**首叶**（P0，deliveryOrder=1，依赖链起点）。承载父 spec.md §5.4 CONTRACT（FR-ALLN-030~038）/ §5.6 PIPE（FR-ALLN-055~059）/ §5.10 DESIGN（FR-ALLN-100~103）/ §5.2 LAW7 的机制侧（FR-ALLN-010·011·013）/ §5.11 的 X3·X4·X6(chip 侧)（FR-ALLN-112·113·115·116）/ §3.2 §5.12 GATE（FR-ALLN-120~125 的本叶面）/ FR-ALLN-003·004·130·133 共 34 条 FR 的实施切片。交付：NextProvider / NextOp 接口（Definition）+ 注册表（Provider）+ handleCardAction 单次查表（Consumer）三件套；R1~R7 逐点可机核；统一管线四态唯一；act→opId 六条等价映射 + chip data-op + 分发器 per-op diff = 0；阻塞态枚举单源 + site.unauthorized 常驻候选（法七机制基础）；双稿双 shim 入 design-contract（F 60 保留 + G 127 新增 + 127 行映射 + designContractChanges 登记）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -166,9 +166,14 @@
       "phase": "tasked",
       "timestamp": "2026-09-22T08:00:00.000Z",
       "triggeredBy": "sddu-tasks（产出 叶 tasks.md + tasks.json（22 任务 / 5 波 / 5 提交区间 A~E；1 个 spikeGate SG-1）；未改 src/test/dist/docs/design/ROADMAP；未跑门禁/构建/Chromium）"
+    },
+    {
+      "phase": "builded",
+      "timestamp": "2026-09-22T18:15:00.000Z",
+      "triggeredBy": "sddu-build R1（TASK-V5-101~113，波 A~C）：NextProvider 注册表三件套（definition/registry/providers）+ 统一管线四态（pipeline）+ thin-dispatch（dispatch + sidepanel 两集改造 + chip data-op）+ recommend 规则等价迁移 + SG-1 探针；node 1045→1076；UI l0 244 / l1 116 / l2 74 / density 232 / journey 171 / recommendation 59 / binding 192(flake) 全绿；sidepanel +8,794 B ≤ 8,800 预算；content.js / pick-layer.js 逐字节不变。R2 = 114~122 待续。"
     }
   ],
-  "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：产出 叶 tasks.md + tasks.json（22 任务 / 5 波 / 5 提交区间 A~E；1 个 spikeGate SG-1）；未改 src/test/dist/docs/design/ROADMAP；未跑门禁/构建/Chromium。下游 = @sddu-build TASK-V5-101（按叶内波次串行推进）。",
+  "phaseNote": "phase=builded（R1 中间轮，status=tracked）。R1 = 波 A~C（TASK-V5-101~113）已完成并全门禁复跑；R2 = TASK-V5-114~122（diff0 门禁 / X3 三处重锚 / 义务表 / 双契约 G 127 / BLOCKED_TERMINALS 跨源扫描 / 体积收口 / 全门禁收口）待续。",
   "specCounts": {
     "fr": 33,
     "nfr": 7,
@@ -182,7 +187,8 @@
     "TREE.md",
     "plan.md",
     "tasks.md",
-    "tasks.json"
+    "tasks.json",
+    "build.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/spec.md",
@@ -191,7 +197,8 @@
     "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/plan.md",
     "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/plan.md",
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/tasks.md",
-    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/tasks.json"
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/tasks.json",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/build.md"
   },
   "mainAdrs": [
     "ADR-V5-001",
@@ -211,6 +218,194 @@
       "TASK-V5-106（SG-1）"
     ],
     "volumeBudget": "8,800 B（逐项 8,400 + 胶水 400）",
-    "commitIntervalAtomic": []
+    "commitIntervalAtomic": [
+      {
+        "interval": "A",
+        "wave": "W1",
+        "tasks": "TASK-V5-101~106",
+        "status": "completed"
+      },
+      {
+        "interval": "B",
+        "wave": "W2",
+        "tasks": "TASK-V5-107~110",
+        "status": "completed"
+      },
+      {
+        "interval": "C",
+        "wave": "W3",
+        "tasks": "TASK-V5-111~113 (114/115 → R2)",
+        "status": "completed-partial"
+      },
+      {
+        "interval": "D",
+        "wave": "W4",
+        "tasks": "TASK-V5-116~119",
+        "status": "pending"
+      },
+      {
+        "interval": "E",
+        "wave": "W5",
+        "tasks": "TASK-V5-120~122",
+        "status": "pending"
+      }
+    ],
+    "completedR1": 13,
+    "remainingR2": 9
+  },
+  "v5-1": {
+    "definitionMapping": {
+      "note": "NextCtx 字段集 == 旧 7 源白名单（逐字集合相等，无扩项）",
+      "nextCtxFields": [
+        "ref",
+        "session",
+        "site",
+        "catalog",
+        "probe",
+        "risk",
+        "onboarding"
+      ],
+      "nextstepSourceWhitelist": [
+        "ref",
+        "session",
+        "site",
+        "catalog",
+        "probe",
+        "risk",
+        "onboarding"
+      ],
+      "constants": {
+        "NEXT_SERVICES": 6,
+        "NEXT_MODES": 2,
+        "NEXT_MOUNT_POINTS": 5,
+        "BLOCKED_TERMINALS": 5,
+        "NEXTSTEP_MIN_INTERVAL_MS": 10000,
+        "MOUNT_MODE": {
+          "next": "waterfall",
+          "params": "waterfall",
+          "consent": "waterfall",
+          "execute": "waterfall",
+          "receipt": "emit"
+        }
+      }
+    },
+    "migrationLedger": {
+      "note": "旧 recommend.ts 对象 → 内置 provider（逐条等价）",
+      "rows": [
+        {
+          "old": "NEXTSTEP_PRIORITY[0] risk-recovery",
+          "new": "5 × P0 provider (ref.stale/declaration.invalid/binding.stale/site.unauthorized/probe.unsettled)",
+          "note": "priority 0；注册序 = RECOVERY_TRIGGERS 优先级"
+        },
+        {
+          "old": "NEXTSTEP_PRIORITY[1] ref-action",
+          "new": "provider ref-action (priority 2)",
+          "note": "delegate 原谓词"
+        },
+        {
+          "old": "NEXTSTEP_PRIORITY[2] onboarding",
+          "new": "provider onboarding (priority 1)",
+          "note": "delegate 原谓词"
+        },
+        {
+          "old": "NEXTSTEP_PRIORITY[3] capability-discovery",
+          "new": "provider capability-discovery (priority 3)",
+          "note": "delegate 原谓词"
+        },
+        {
+          "old": "activeRecoveryTrigger / RECOVERY_CHIP_ORDER",
+          "new": "provider when(chips) + textOf",
+          "note": "常量逐字保留于 recommend.ts"
+        },
+        {
+          "old": "NEXTSTEP_ACTS 6 act",
+          "new": "ACT_TO_OP 6 行（R1 保留常量，115 重锚）",
+          "note": "T-e 唯一权威"
+        },
+        {
+          "old": "handleCardAction 16 分支",
+          "new": "两集模型（集 A 8 保留 / 集 B 7→1 查表）",
+          "note": "per-op 分支 = 0"
+        }
+      ]
+    },
+    "spikes": [
+      {
+        "id": "SG-1",
+        "task": "TASK-V5-106",
+        "conclusion": "g-contract-feasible",
+        "evidence": {
+          "shimSha256": "d0107ecbbd56edfe19592e256a66d27fb3d1c5c1a2d87c1773364f4520e609ce",
+          "draftSha256": "a7c0a77ac6253e32d1ccef894f32eb8d0dc2d10c99f145261a69ebc699cc83c9",
+          "ids": 127,
+          "groups": 14,
+          "groupCounts": "A6 B5 C8 D6 E7 F11 G8 H7 I17 J5 K3 L4 M23 N17",
+          "run": "127 passed / 0 failed",
+          "checkSubstr": 128,
+          "declarations": 1,
+          "extractionRegex": "/check\\(['\"]([A-Z]\\d+)/g",
+          "adrRegexDiscrepancy": "ADR-V5-008 的 /^check\\((')([A-Z]\\d+)\\s/ 尾锚 \\s 漏 10 条 ⇒ 117（I9/M21）；118 必须用不带 \\s 的抽取",
+          "fgIntersection": 51,
+          "mixedPoolDefense": "id 集非空交集 ⇒ 独立计数 + 共享 helper（禁止 id 互斥假设）"
+        }
+      }
+    ],
+    "r1Gates": {
+      "npmTest": {
+        "baseline": 1045,
+        "actual": 1076
+      },
+      "l0": {
+        "baseline": 244,
+        "actual": 244
+      },
+      "l1": {
+        "baseline": 116,
+        "actual": 116
+      },
+      "l2": {
+        "baseline": 74,
+        "actual": 74
+      },
+      "density": {
+        "baseline": 232,
+        "actual": 232
+      },
+      "journey": {
+        "baseline": 171,
+        "actual": 171
+      },
+      "binding": {
+        "baseline": 192,
+        "actual": 192,
+        "note": "KL-N-10 环境性 flake：4 次中 2 绿 192 / 2 红在不同无关断言，如实登记"
+      },
+      "recommendation": {
+        "baseline": 59,
+        "actual": 59
+      },
+      "stream": {
+        "baseline": 63,
+        "actual": 63
+      },
+      "askAuth": {
+        "baseline": 61,
+        "actual": 61
+      }
+    },
+    "r1Artifact": {
+      "sidepanelBytes": 507315,
+      "baselineBytes": 498521,
+      "deltaBytes": 8794,
+      "budgetBytes": 8800,
+      "contentJs": {
+        "bytes": 177076,
+        "sha256": "52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6"
+      },
+      "pickLayerJs": {
+        "bytes": 33900,
+        "sha256": "5f567d7dedc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59"
+      }
+    }
   }
 }

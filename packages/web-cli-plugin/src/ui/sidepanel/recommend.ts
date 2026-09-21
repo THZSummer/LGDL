@@ -34,6 +34,10 @@
  * @module ui/sidepanel/recommend
  */
 import { label } from './stream-plaintext.js';
+import type { NextCtx } from './next-registry/definition.js';
+import { OP_TO_ACT } from './next-registry/dispatch.js';
+import { registerBuiltinProviders } from './next-registry/providers.js';
+import { resolveOrder } from './next-registry/registry.js';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 1. Rule table + limits (constants so a gate can recompute every one of them)
@@ -67,11 +71,19 @@ export const NEXTSTEP_SOURCE_WHITELIST = Object.freeze([
 ] as const);
 
 /**
- * The modules `recommend.ts` may import. Kept to the zero-plaintext copy factory:
- * the producer must not be able to reach a settings/count projection even by
- * accident (a future import is a gate failure, not a review finding).
+ * The modules `recommend.ts` may import. V5-1 (TASK-V5-105 / ADR-V5-001): the rule
+ * table moved into the `next-registry` built-in providers, so those modules join —
+ * **the exclusion invariant is unchanged**: none of them can reach a settings/count
+ * projection (the gate still scans for `settings` / `deriveCounts`), and
+ * `NEXTSTEP_SOURCE_WHITELIST` stays at the same 7 truth sources.
  */
-export const RECOMMEND_MODULE_WHITELIST = Object.freeze(['./stream-plaintext.js'] as const);
+export const RECOMMEND_MODULE_WHITELIST = Object.freeze([
+  './stream-plaintext.js',
+  './next-registry/definition.js',
+  './next-registry/dispatch.js',
+  './next-registry/providers.js',
+  './next-registry/registry.js',
+] as const);
 
 /**
  * The **risk classes** that used to be the whole recovery trigger set (parent ADR/V4-1
@@ -268,55 +280,43 @@ function candidate(rule: NextstepRuleId, chips: readonly NextstepChip[]): Nextst
   return Object.freeze({ rule, priority: priorityOf(rule), chips: kept, label: label([NEXTSTEP_LABELS[rule]]) });
 }
 
-/** The four rule predicates, in priority order (the rule table, recomputable). */
+/** The 7-source pure context the registered providers read (V5-1, ADR-V5-001). */
+function ctxOf(input: RecommendInput): NextCtx {
+  return {
+    ref: input.ref,
+    session: input.session,
+    site: input.site,
+    catalog: input.catalog,
+    probe: input.probe,
+    risk: input.risks,
+    onboarding: input.onboarding,
+  };
+}
+
+/**
+ * The four rule predicates, in priority order. V5-1 (TASK-V5-105 / ADR-V5-001):
+ * the predicates / priorities / chip order now live in the **registry** (built-in
+ * providers); this function is the equivalent re-anchor of the old hand-written
+ * table — the output shape and ordering are byte-for-byte the previous ones.
+ */
 export function candidateRules(input: RecommendInput): readonly NextstepCandidate[] {
+  registerBuiltinProviders();
+  const ctx = ctxOf(input);
   const out: NextstepCandidate[] = [];
-  const risks = new Set(input.risks);
-
-  // R-RISK-RECOVERY (priority 1): an unusable reference, an invalid declaration, a
-  // hard-floor intervention, an unauthorized/unbound site or an unsettled probe must be
-  // recoverable from the stream itself (`RECOVERY_TRIGGERS` + `RECOVERY_CHIP_ORDER`).
-  const recovery = activeRecoveryTrigger(input);
-  if (recovery) {
-    out.push(candidate('risk-recovery', recoveryChips(recovery)));
+  const seen = new Set<string>();
+  for (const p of resolveOrder()) {
+    const rule = p.rule ?? p.id;
+    if (seen.has(rule) || !(NEXTSTEP_PRIORITY as readonly string[]).includes(rule)) continue;
+    if (!p.when(ctx)) continue;
+    seen.add(rule);
+    const texts = p.textOf ? p.textOf(ctx) : p.chips;
+    const chips: NextstepChip[] = p.chips.map((opId, i) => ({
+      text: texts[i] ?? opId,
+      act: (OP_TO_ACT[opId] ?? 'next') as NextstepAct,
+    }));
+    out.push(candidate(rule as NextstepRuleId, chips));
   }
-
-  // R-REF-ACTION (priority 2): a usable reference exists and no decision card is
-  // open (a recommendation must never compete with an open question).
-  if (input.ref.validCount >= 1 && input.session.openAsks === 0 && input.ref.latestRefNum !== undefined) {
-    out.push(
-      candidate('ref-action', [
-        { text: `用引用 ${input.ref.latestRefNum} 做原地翻译`, act: 'next' },
-        { text: '查看引用证据（选择器 / 语义路径 / 文本摘要）', act: 'next' },
-      ]),
-    );
-  }
-
-  // R-ONBOARDING (priority 3): first-run only, and only while steps remain.
-  if (input.onboarding.firstRun && input.onboarding.pendingSteps.length > 0) {
-    out.push(
-      candidate('onboarding', [
-        // F 还原度快修轮: the authorization is a browser-permission flow, not a turn —
-        // `act: 'authorize'` routes the click through `authorizeCurrentSite()`.
-        { text: '授权当前站点', act: 'authorize' },
-        // V4.5-1 W3 (FR-V45-041): the gesture help is a LOCAL settings navigation
-        // (`openSettingsSection('settings-help')`), not a turn — the copy stays verbatim.
-        { text: '了解 6 个页面手势', act: 'help' },
-      ]),
-    );
-  }
-
-  // R-CAPABILITY (priority 4): authorized ∧ probe settled ∧ idle. The count used is
-  // the command catalog's STATIC face (allowed ④), never a rendered settings count.
-  if (input.site.authorized && input.probe.phase === 'ready' && !input.session.busy) {
-    out.push(
-      candidate('capability-discovery', [
-        { text: `看看这页能做什么（命令目录 ${input.catalog.toolCount} 条）`, act: 'next' },
-        { text: '打开审计查看已授权记录', act: 'next' },
-      ]),
-    );
-  }
-  return Object.freeze(out);
+  return Object.freeze(out.sort((a, b) => a.priority - b.priority));
 }
 
 /**
