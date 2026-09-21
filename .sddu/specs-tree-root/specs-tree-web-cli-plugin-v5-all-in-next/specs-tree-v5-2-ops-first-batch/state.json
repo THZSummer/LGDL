@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v5-2-ops-first-batch",
   "version": "v5.0.0",
   "name": "V5-2 首批 9 op 落地（op.authorize / op.rebind / op.llm-config / op.perm.request / op.revoke / op.pick / op.describe / op.help / op.turn）+ SW 双层执行器 + op-* type-only 消息族 + optional_permissions + 掩码 secret 卡（值直达 key-store）+ settings 4 类收编（零双路径）+ 拒绝非死端 + S2 断流样板机器化首验收",
-  "phase": "builded",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "reviewed",
+  "workflow": "6.review",
+  "agent": "sddu-review",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v5-all-in-next",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T22:30:00.000Z",
+  "updatedAt": "2026-09-22T23:40:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**次叶**（P0，deliveryOrder=2，依赖 v5-1）。承载父 spec.md §5.5 OPS（FR-ALLN-040~049）/ §5.7 SW（FR-ALLN-065~069）/ §5.8 SETTINGS（FR-ALLN-075~078）/ §5.2 LAW7 的 014·016（拒绝非死端 + 断流首验收）/ §5.3 LAW8 的 020~022（掩码卡入口侧 + 值直达存储 + 流内只留事实）/ §5.11 X1·X2（FR-ALLN-110·111·116）/ GATE 本叶面（FR-ALLN-120~125）/ FR-ALLN-003·004·130·133 共 33 条 FR 的实施切片。交付：9 个 op 逐个注册（五要素齐备）；panel-local / SW 双层执行器（特权 op 恰 2 项）；op-* type-only 消息族（content.js 逐字节零增长）+ SW 侧注册表镜像契约；optional_permissions 放开（安装期静态面零漂移 + 最小集论证）；askuser 扩形 secret / form + 值直达 key-store；settings 4 类收编（单一执行入口 + 单一调用点机核）；拒绝不是死端；S2 断流样板 headless 全链首验收（死端 = 0；浏览器弹窗体感入人工面）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -188,9 +188,14 @@
       "phase": "builded",
       "timestamp": "2026-09-22T22:30:00.000Z",
       "triggeredBy": "sddu-build R2（TASK-V5-138~152；本叶 30/30 完成）：form 扩形（选项源 = OPTIONAL_CAPABILITIES）/ op.perm.request（机制 + 门禁手势两段握手 + 批准·拒绝双固化，manifest 零 diff）/ op.revoke（三目标 choice + 不可逆确认 + 审计入口）/ 三表整体回滚（snapshot.ts 不 break/continue）/ 拒绝非死端（固化 + 可达 next）/ settings·options 4 类收编为 op 单一执行体（同执行体、不同 consent 载体）/ X1 判据升级（显式名单 + 新增项在册）/ 逐 op 布线门禁 op-wiring / 特权 op 等价重锚 authorize-chip-wiring / S2 断流首验收（死端 = 0，5 类阻塞态逐类可达 next）/ X2 重锚 + stream 63→68 · ask-auth 61→71 / SG-2 探针 keep-feasible（保护段 be9ad0e9… 逐字节不变）/ 体积档位显式升档 512,000→563,200 + 绝对上限 →619,520 + 两轮五要素重登记（518,543 → 535,821）。门禁：npm test 1166/0、supersession 35/0、gate-integrity 14/0、design-contract 19/0、size-ruling-vol3 12/0、binding 192/0、density 232/0、recommendation 65/0、l0 244/0、stream 68/0、ask-auth 71/0；content.js·pick-layer.js 逐字节不变；manifest 零 diff。人工面：浏览器原生权限弹窗体感 = ⏳ 未执行。"
+    },
+    {
+      "phase": "reviewed",
+      "timestamp": "2026-09-22T23:40:00.000Z",
+      "triggeredBy": "sddu-review R1（静态审查，HEAD 245e0a2；C1~C58 自主清单覆盖 34 条承载 FR × 四维度）：结论 = ❌ 不通过（**3 阻塞 / 15 改进**；维度通过率 29/58 = 50.0%，代码质量 3/6 · 规范符合性 23/41 · 架构一致性 1/6 · 测试质量 2/5）。独立复跑 8 项（npm test 1165/0〔build 报 1166 = ✔ 行数，口径差 1〕/ zero-injection 27/0 / page-input 108/0 / binding 首轮 #6l flake → 复跑 192/0〔KL-N-10〕/ ask-auth 71/0 / stream 68/0 / recommendation 65/0 + 红线 sha 与保护段 be9ad0e9… 复算命中）。三类对抗探针（不改仓库）：① dispatchOp('op.llm-config',{value:JSON},'settings'|'options') 实际 PANEL.llmConfig(undefined) ⇒ 表单值不落存储 + 假成功（BLOCK-01 / C9·C27·C51）；② execute/execSw 返回 {ok:false} 仍 settle('completed') + 写成功回执 + 回滚 0 次（BLOCK-02 / C3·C11·C41·C46·C17·C44）；③ S2 样本 blockedStateCtx('perm.missing') ≡ recoveredCtx() + v5-1 §6-③ 两行仍 pending-v5-2 未登记（BLOCK-03 / C18·C10）。产出 review.md（策略 C1~C58，review 阶段回填）+ review-report.md（R1）；未改 src/test/dist；红线逐字节不变。下游 = @sddu-build R3 修复轮 → review R2 → validate。"
     }
   ],
-  "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：产出 叶 tasks.md + tasks.json（30 任务 / 7 波 / 7 提交区间 A~G；2 个 spikeGate SG-3 / SG-2）；no-dead-end.mjs / law8-plaintext.mjs 归 v5-3 单点落地；未改 src/test/dist/docs/design/ROADMAP；未跑门禁/构建/Chromium。下游 = @sddu-build TASK-V5-123（按叶内波次串行推进）。",
+  "phaseNote": "phase=reviewed（status=tracked）—— **review R1 结论 = ❌ 不通过**（3 阻塞 / 15 改进）。本轮为静态审查：C1~C58 自主清单（覆盖 34 条承载 FR × 四维度）+ 8 项门禁独立复跑 + 3 类对抗探针（委托面 / 失败语义 / S2 驱动）；产出 review.md（策略，review 阶段回填）+ review-report.md（R1）。**未改 src/test/dist**；红线逐字节不变（content.js 52a82620… / pick-layer.js 5f567d7e…）。阻塞三项：① 非 chat 面 op 执行体不可达/载荷丢失（假成功）；② {ok:false} 被当成功且非抛错失败不回滚；③ v5-1 §6-③ 承接项 owner 悬空 + S2 perm.missing 驱动与恢复态同构。下游 = @sddu-build R3 修复轮 → review R2 → @sddu-validate。",
   "specCounts": {
     "fr": 34,
     "nfr": 9,
@@ -204,7 +209,10 @@
     "TREE.md",
     "plan.md",
     "tasks.md",
-    "tasks.json"
+    "tasks.json",
+    "build.md",
+    "review.md",
+    "review-report.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/spec.md",
@@ -213,7 +221,10 @@
     "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/plan.md",
     "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/plan.md",
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/tasks.md",
-    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/tasks.json"
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/tasks.json",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/build.md",
+    "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/review.md",
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/review-report.md"
   },
   "mainAdrs": [
     "ADR-V5-002（执行侧）",
@@ -444,5 +455,55 @@
         "bindingProtectedSegment": "be9ad0e9… 逐字节不变"
       }
     }
+  },
+  "reviewArtifact": {
+    "round": "R1（静态审查）",
+    "reviewedAt": "2026-09-22",
+    "head": "245e0a2",
+    "branch": "feature/web-cli-plugin",
+    "strategy": "review.md（C1~C58；review 阶段回填，plan 阶段未产出）",
+    "report": "review-report.md",
+    "conclusion": "❌ 不通过（3 阻塞 / 15 改进；审查通过率 29/58 = 50.0%）",
+    "dimensionRollup": {
+      "codeQuality": "3✅ / 2⚠️ / 1❌（50.0%）",
+      "specCompliance": "23✅ / 13⚠️ / 5❌（56.1%）",
+      "architecture": "1✅ / 4⚠️ / 1❌（16.7%）",
+      "testQuality": "2✅ / 3⚠️ / 0❌（40.0%）"
+    },
+    "independentRuns": {
+      "npmTest": "1165 tests / 1165 pass / 0 fail（EXIT=0；build 报 1166 = ✔ 行数，口径差 1）",
+      "zeroInjection": "27/0（build R2 未复跑，本审查补跑）",
+      "pageInput": "108/0（build R2 未复跑，本审查补跑）",
+      "binding": "首轮 FAILED(1) = #6l（CDP socket not open，KL-N-10 环境性）→ 复跑 PASS 192/0",
+      "askAuth": "71/0",
+      "stream": "68/0",
+      "recommendation": "65/0",
+      "redlines": "content.js 177,076 B / 52a82620…；pick-layer.js 33,900 B / 5f567d7e…；sidepanel.js 535,821 B",
+      "protectedSegment": "binding.mjs[107780..115930) sha256 = be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936（命中）",
+      "kindSet": "40 项 / `'op-` 字面量 0"
+    },
+    "blockingItems": [
+      "BLOCK-01（C9 / C27 / C51）：非 chat 面 op 执行体不可达 + 载荷丢失 ⇒ op.llm-config 表单值不落存储 + 假成功（`ops.ts:289` 零参箭头 + `ops.ts:325` `(run?.(ctx), OK)` 丢弃 OpOutcome；options.html 未 bindPanelOps）；探针实证",
+      "BLOCK-02（C3 / C11 / C41 / C46 / C17 / C44）：execute/execSw 返回 {ok:false} 仍 settle('completed') 并写成功回执；非抛错失败回滚 0 次 ⇒ EC-ALLN-011 / NFR-ALLN-010 在生产路径不可达；探针实证",
+      "BLOCK-03（C18 / C10）：v5-1 §6-③（llm.unconfigured / perm.missing 修复 provider）owner 悬空且 R2 未登记；S2 样本 perm.missing 的 ctx ≡ recoveredCtx()（无权限事实源）"
+    ],
+    "improvements": [
+      "I-01 op.describe.params 未声明（已登记 + 裁决②）",
+      "I-02 settings/ops.ts 4 类原生实现分支仍在（与 ADR-V5-005 §1 判据 / build R2 表述不符）",
+      "I-03 maskedLength 落原始长度（ADR-V5-010 §2 要求类别）",
+      "I-04 S2 判据力（perm.missing 同构 / 10 环节未机核 / next 未逐类）",
+      "I-05 未解释字节绝对口径 1,500→2,500 属放宽（相对口径为既有）",
+      "I-06 绝对上限 563,200→619,520 与 ADR-V5-011 §2 冲突且 ADR 未修订",
+      "I-07 SW 侧 auditCapability 接缝未接线（op.perm.request 审计不落）",
+      "I-08 consentToken 仅存在性校验 / op-exec 无发送方校验（与 legacy 等价暴露）",
+      "I-09 sw-op-mirror SW-M④ 文案陈旧且未覆盖 R2 commit 分支",
+      "I-10 ops.ts requestTurn 注释与实测不符（0 调用）",
+      "I-11 BLOCKED_P0_MAP 两行仍 pending-v5-2（与 BLOCK-03 同源）",
+      "I-12 门禁计数口径不统一（1166 ✔ 行 vs 1165 tests）",
+      "I-13 台账 V52R2-E-01 reason 写 518,543 与实际 535,821 不一致",
+      "I-14 父 state.json PO-ALLN-005 仍「待实测」",
+      "I-15 tasks.md 无任务状态字段（以 state.json 为准）"
+    ],
+    "next": "@sddu-build R3 修复轮（BLOCK-01~03）→ sddu-review R2 → @sddu-validate"
   }
 }
