@@ -11,7 +11,7 @@
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-21",
-  "updatedAt": "2026-09-21T23:40:00.000Z",
+  "updatedAt": "2026-09-21T23:55:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v45-f-regularization（F-31 / v0.9.1）立项的**唯一叶**（P0，position=1）。承载父 §5.1~§5.10 全部 44 条 FR：① SINGLE（FR-V45-010~015）5 条提示带可见投影**真退役**（DOM 移除，非 hidden）+ 事实唯一可见面 + 单通道 4 规则逐字不变 + 富内容承载（行 title + 设置站点详情 + 推荐卡恢复 chips）+ 归并矩阵判据重写；② CHRONO（FR-V45-020~026）4 宿主清零（decision / composer / l1-panels / strips）+ 37 条存活元素去向（父 §11）+ #composer 迁 body 尾 hidden（id/ARIA 保留，法四不变）+ 折叠声明零漂移；③ RECOVERY（FR-V45-030~033）risk-recovery 触发集扩展（site / probe）+ 「重新绑定当前标签页」chip + NEXTSTEP_ACTS 闭集终态 6 项 + 本地 act 布线门禁；④ HELP（FR-V45-040~042）设置视图「帮助」分区（SETTINGS_SECTION_IDS 单源派生）+ chip act:'help'；⑤ UNFREEZE（FR-V45-050~052）options/index.html 纯文案解冻 + 订正 + 显式登记 + zero-injection 复跑；⑥ REGISTRY（FR-V45-060~062）零宿主断言 + RETIRED_HOST_IDS 扩容 + 5 类问题串终态；⑦ DENSITY（FR-V45-070~074）口径零放宽 + 31 格重算为新基线（台账显式取代 + 反证）+ 夹具锚改构造保证；⑧ LEDGER（FR-V45-080~084）journey 第二次八步取代 + binding 段外逐行登记 + 11 处门禁等价重锚 + knownGap 一致性 + 两段证伪；⑨ VOL（FR-V45-090~093）体积五要素 + 披露算术机核 + V3-VOL-3 三值同源 + 红线逐字节。权威条文见父 spec.md（§5 / §11 / §13 / §15）。",
   "scope": {
     "in": [
@@ -343,6 +343,11 @@
       "phase": "validated",
       "timestamp": "2026-09-21T23:40:00.000Z",
       "triggeredBy": "sddu-validate（独立动态验证 R1：24 门禁独立复跑 24/24 且 == 自报；对抗探针 46 断言全绿 + binding 段内 1 byte 注入红/还原绿；journey/binding/content/pick-layer 字节复算全命中；22 AC 逐条判定；I-07/I-08 零字节订正并复跑绿。结论 ✅ 通过 / 0 阻塞）"
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-21T23:55:00.000Z",
+      "triggeredBy": "sddu-build（**validate 收口轮**，处置 validate R1 的 N-01~N-04 + O-04~O-08 保留登记）：N-02（build.md §8.7 `test:l2-reverse` 74 → **10**）/ N-03（§8.11 journey 保护段 239 → **240** 行，与账本 `protectedRanges[0].lineCount` 同源）/ N-04（§8.11 零改动面移除 `test/sidepanel-view.test.ts`——W2 `adcfdaf` 实改 +24/−11）/ N-01 登记（test:ui `#54g` 环境性 flake，隔离复跑 2/2 绿，同 KL-N-10 纪律）/ O-04~O-08 如实保留；新增 build.md §8.13 + 修订记录 v1.4；**纯文档/状态收口（零 src / 零 test 改动、不重跑门禁）；phase 保持 validated（收口不降级）**"
     }
   ],
   "phaseNote": "验证完成（7/7）：✅ 通过（0 阻塞）。24 门禁独立复跑 24/24 全绿且逐项 == 自报（1045·244·232·108·116·171·192…）；对抗注入全红、还原全绿；保护段与冻结产物逐字节命中；叶子 spec 零漂移。残留 4 项非阻塞（N-01 journey 首轮 flake 隔离复跑 2/2 绿 / N-02~N-04 文档面）+ 5 观察（O-04~O-08）；人工面 3 项 ⏳ 未执行。I-07/I-08 已在本轮零字节订正。",
@@ -1309,5 +1314,62 @@
     },
     "manualFaces": "3 项 ⏳ 未执行（title 读屏 / 三主题+高DPI 迁入块 / 320px 迁入块；AC-V45-022，未冒充 PASS）",
     "handoff": "工作流终点（7/7）；父叶唯一，全部承接"
-  }
+  },
+  "closeoutRounds": [
+    {
+      "round": "V4.5-1 叶收口轮（sddu-build 代行，编排器代作者决策；validate R1 的 N-01~N-04 处置 + O-04~O-08 保留登记）",
+      "date": "2026-09-21",
+      "head": "f2b434b（收口轮起点 = validate 产物提交「docs(sddu): v4.5 validate 产物（含 I-07/I-08 零字节订正）」；工作树干净）",
+      "source": "validate.md / validate-report.md R1（✅ 通过 / 0 阻塞 / 4 非阻塞 N-01~N-04 / 5 观察 O-04~O-08 / 人工面 3 项 ⏳）",
+      "phaseDiscipline": "phase 保持 validated（收口不降级）；status=completed（父 childrens 记 validated + completed）",
+      "dispositions": [
+        "N-02（文档笔误，**订正**）：`build.md §8.7` 的 `test:l2-reverse` 行由 74/74 改为 **10/10**（与 `state.json#buildR3.gateResults['test:l2-reverse']=10` 及父 spec §8.3 下界 ≥10 同源；Δ 仍 0）。",
+        "N-03（文档口径，**订正**）：`build.md §8.11` journey 保护段行「239 行」改为 **240 行**（与 `docs/v4-supersession-ledger.json#protectedRanges[0].lineCount=240` 同源；机核字段为 sha + 偏移，未受影响）。",
+        "N-04（文档措辞，**订正**）：`build.md §8.11` 的「v3 零改动面」清单**移除** `test/sidepanel-view.test.ts`（该文件在 W2 提交 `adcfdaf` 实改 +24/−11；§6.5 红线 T1~T10 不受影响）。",
+        "N-01（环境性 flake，**登记**）：`test/ui/journey.mjs #54g` 首轮 1 项红（bookmarks 权限拒绝路径的持久回执回显）→ **隔离复跑 2/2 全绿**；纪律沿用 `KL-N-10`（串行 / 首轮异常隔离复跑 ≥2 / 日志全量 / 仍红如实记录不阻塞收口）；本叶 `test:ui` 值仍记 **171**（不伪造串行全绿）。",
+        "O-04~O-08（**如实保留登记**，均非阻塞 / 低危）：O-04 `build.md §8.12` 的 `git add` 清单多列 `TREE.md`（历史登记保留）；O-05 `test/density-thresholds.test.ts` 静态 `V4_RETIRED_IDS` 仍含 `l0-receipt-summary` 且无「静态退役 ≠ 迁移容器」注释；O-06 `[data-drop-active]` 全仓无 CSS 消费者（落点高亮不可视）；O-07 `SIDEPANEL_GROWTH_BREAKDOWN.measuredOn` 仍 `2026-09-20`（本轮为零产物文档轮、无新体积登记，故不更新）；O-08 `ADR-V45-001` 未显式注记「0 = 事实不可见合法」（源码注释已登记）。",
+        "配套产出：`build.md` 新增 **§8.13 validate 收口轮**（N/O 处置表 + 收口轮纪律核验）+ 修订记录 **v1.4** 行；父 `childrens[0].note` 追加本收口轮结论。**零 `src` / 零 `test` 改动**（`git diff --quiet -- packages/web-cli-plugin/src packages/web-cli-plugin/test` 零 diff），未跑任何门禁 / 构建 / Chromium。"
+      ],
+      "gates": {
+        "caliber": "取自 validate-report.md §3.3 实测（本轮不重跑）",
+        "total": 24,
+        "passed": 24,
+        "npmTest": 1045,
+        "supersession": 35,
+        "gateIntegrity": 13,
+        "zeroInjection": 27,
+        "designContract": 6,
+        "refPickWiring": 11,
+        "sizeRulingVol3": 12,
+        "l0": 244,
+        "l1": 116,
+        "l2": 74,
+        "density": 232,
+        "journey": 171,
+        "insight": 116,
+        "binding": 192,
+        "hardening": 24,
+        "stream": 63,
+        "askAuth": 61,
+        "recommendation": 59,
+        "pageInput": 108,
+        "l1Reverse": 9,
+        "l2Reverse": 10,
+        "e2e": "PASS",
+        "typecheck": "PASS",
+        "build": "PASS"
+      },
+      "counts": {
+        "note": "计数逐项 ≥ 基线且 == 自报；v4.5 起点 npm 1001 → 1045。"
+      },
+      "redlines": "`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 33,900 B / sha `5f567d7e…` 逐字节不变；journey pin `43054..58287` / `cc79f413…`（240 行）与 binding pin `107780..115930` / `be9ad0e9…` 未动；`sidepanel.js` 498,521 B ≤ 生效上限 523,447 B（档位 512,000 / 绝对上限 563,200 未变；`authorConfirmation.status` 保持 `pending-author-line`）；红线面（`src/content/**` / `manifest.json` / `design/**` / `packages/web-cli-base/**` / `.opencode/opencode.json` / `ROADMAP.md` / `docs/v3-supersession-ledger.json`）本轮零命中。",
+      "artifacts": [
+        "build.md §8.13（新建）+ §8.7 / §8.11 三处就地订正 + 修订记录 v1.4",
+        "本叶 state.json closeoutRounds + phaseHistory（收口轮条目）",
+        "父 state.json childrens[0].note（同步）"
+      ],
+      "phaseAfter": "validated（保持；收口完成，唯一叶 7 阶段全闭环）",
+      "next": "父级收口（specs-tree-web-cli-plugin-v45-f-regularization）：父为轻量规范容器（phase 保持 tasked），汇总唯一叶终态 + ROADMAP v0.9.1 登记（F-31）+ 新建父 closeout.md 总账。"
+    }
+  ]
 }

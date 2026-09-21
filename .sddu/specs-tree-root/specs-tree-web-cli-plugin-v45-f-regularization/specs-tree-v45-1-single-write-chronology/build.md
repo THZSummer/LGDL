@@ -798,7 +798,7 @@ refactor(web-cli-plugin): v4.5 W4+W5——journey 二次取代/密度重算/体�
 | `test:ref-pick-wiring` | 11 | 11 | 0 | ✅ |
 | `test:size-ruling-vol3` | 12 | 12 | 0 | ✅ |
 | `test:l1-reverse` | 9 | 9 | 0 | ✅ |
-| `test:l2-reverse` | 74 | 74 | 0 | ✅ |
+| `test:l2-reverse` | 10 | 10 | 0 | ✅ |
 
 **结论**：24/24 全绿（density 首红项已订正口径后复跑绿）；**无任何断言被删除或放宽**（差额全部为 +）。
 
@@ -838,13 +838,13 @@ refactor(web-cli-plugin): v4.5 W4+W5——journey 二次取代/密度重算/体�
 
 | 项 | 登记值 | 独立复算 | 判定 |
 |---|---|---|---|
-| journey 保护段 | `test/ui/journey.mjs` `43054..58287` / sha `cc79f413…` / 239 行 | 逐字节复算 == `cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7` | ✅ **未动**（本轮零字节触碰 `journey.mjs`） |
+| journey 保护段 | `test/ui/journey.mjs` `43054..58287` / sha `cc79f413…` / 240 行 | 逐字节复算 == `cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7` | ✅ **未动**（本轮零字节触碰 `journey.mjs`） |
 | binding 保护段 | `test/ui/binding.mjs` `107780..115930` / sha `be9ad0e9…` / 183 行（`decision = keep`） | 逐字节复算 == `be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936` | ✅ **未动** |
 | journey 链 | `supersessionChain` 3 链节（`6b45c3fa…` / `e2b500df…` / `cc79f413…`） | `test:supersession` 链式判据绿（35/0） | ✅ |
 | `dist/content.js` | 177,076 B / `52a82620…` | `stat` + `sha256sum` 一致 | ✅ |
 | `dist/pick-layer.js` | 33,900 B / `5f567d7e…` | `stat` + `sha256sum` 一致 | ✅ |
 | 设计契约冻结 | `option-f-chat-stream.html` `49ce27fc…` / `option-f-shim.mjs` `8ca5db6f…` | sha 一致 + `test:design-contract` 6/6 | ✅ |
-| v3 零改动面 | `manifest.json` / `src/content/**` / `src/security/**` / `options/index.html`（v4.5 已显式解冻）/ `sidepanel-view.test.ts` / `perf-budget.test.ts` | `git status --porcelain` 对这些路径**零输出** | ✅ |
+| v3 零改动面 | `manifest.json` / `src/content/**` / `src/security/**` / `options/index.html`（v4.5 已显式解冻）/ `perf-budget.test.ts` | `git status --porcelain` 对这些路径**零输出** | ✅ |
 | 阈值 / 豁免 | 7/15 · 9/20 · 17/35；`#stream` 豁免单源 | `test:density` F 段「28 格实测 == 基线登记」绿；阈值零 diff | ✅ |
 
 ### 8.12 提交（修复轮）
@@ -859,6 +859,29 @@ fix(web-cli-plugin): v4.5 review 修复——BLOCK-01~04（迁移容器口径/�
 `packages/web-cli-plugin/docs/{v4-density-baseline.json,v4-supersession-ledger.json}` +
 本叶/父 SDDU 产物（`build.md` / `plan.md` / `spec.md` / `state.json` / `TREE.md`）。
 
+### 8.13 validate 收口轮（N-01~N-04 处置 + O-04~O-08 保留登记）
+
+> 〖validate 收口轮（2026-09-21，sddu-build 代行，编排器代作者决策）〗本轮为**纯文档订正 / 登记**：零 `src`、零 `test` 改动、不重跑任何门禁；所有前轮登记值逐字保留，仅就地订正 N-02~N-04 三处笔误/口径，并把 N-01 与 O-04~O-08 如实登记。**不得静默遗留**（父 AC-V45-022 / N-01~N-04 全项有落点）。
+
+| 编号 | 级别 | 位置 | validate 判定 | 本轮处置 |
+|:--:|:--:|---|---|---|
+| **N-01** | 非阻塞（环境性 flake） | `test/ui/journey.mjs` `#54g` | 首轮 1 项红（bookmarks 权限拒绝路径的持久回执回显断言）；**隔离复跑 2/2 全绿** ⇒ 环境性 flake（新标签，性质同 `KL-N-10`） | **登记**：纪律沿用 `KL-N-10`（串行 / 首轮异常隔离复跑 ≥2 / 日志全量 / 仍红如实记录不阻塞收口）；本叶 `test:ui` 值仍记 **171**（以隔离复跑绿为准，不伪造串行全绿） |
+| **N-02** | 文档（笔误） | 本文件 §8.7 | `test:l2-reverse` 行记 **74/74**（下界 ≥10），实测 **10**；与 `state.json#buildR3`（10）及父 spec §8.3（≥10）矛盾 | **订正**：§8.7 该行基线列与实测列均改为 **10**（已就地改字；Δ 仍 0） |
+| **N-03** | 文档（口径） | 本文件 §8.11 | journey 保护段行记「**239 行**」，账本 `protectedRanges[0].lineCount` = **240**（同一字节区间 `splitlines()` = 240）；机核字段为 sha + 偏移（已绿） | **订正**：§8.11 该行改为 **240 行**（与账本 `lineCount` 同源） |
+| **N-04** | 文档（措辞） | 本文件 §8.11 | `test/sidepanel-view.test.ts` 被列入「v3 零改动面 … `git status` 零输出」，但该文件在 **W2（`adcfdaf`）实改 +24/−11**（含退役双断言） | **订正**：§8.11 零改动面清单**移除** `test/sidepanel-view.test.ts`（如实归入「W2 已改」；§6.5 红线 T1~T10 不受影响） |
+
+**O-04~O-08 状态（如实保留登记，本轮不新增实现改动）**：
+
+| 编号 | 位置 | 状态 | 说明 |
+|:--:|---|:--:|---|
+| O-04 | 本文件 §8.12 | 保留（review R2 已登记） | `git add` 清单多列 `TREE.md`（该提交未触碰）——作为历史登记保留 |
+| O-05 | `test/density-thresholds.test.ts` | 保留（低危） | 静态 `V4_RETIRED_IDS` 仍含 `l0-receipt-summary`，无「静态退役 ≠ 迁移容器」注释 |
+| O-06 | `[data-drop-active]` | 保留（低危） | 全仓无 CSS 消费者 ⇒ 落点高亮不可视（已登记为已知限制） |
+| O-07 | `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.measuredOn` | 保留（低危） | 仍 `2026-09-20`；本轮为零产物文档轮、无新一轮体积登记，故不更新 |
+| O-08 | `host-registry.ts` / ADR-V45-001 | 保留（低危） | 载体判据「≤1 且缺失即红」已在源码注释登记；ADR-V45-001 未显式注记「0 = 事实不可见合法」 |
+
+**收口轮纪律核验**：`git diff --quiet -- packages/web-cli-plugin/src packages/web-cli-plugin/test` **零 diff**；未跑 `typecheck` / `build` / 任何门禁（原因 = 零代码 / 零测试变更）；N-02~N-04 为**纯文档订正**，不改变任何已登记门禁值、体积字节或保护段 sha。
+
 ---
 
 ## 修订记录
@@ -869,3 +892,4 @@ fix(web-cli-plugin): v4.5 review 修复——BLOCK-01~04（迁移容器口径/�
 | v1.1 | 追加 R2 = W3（TASK-V45-107~112）：逐任务处置 / 卡内化与四去向映射 / 门禁等价重锚对账 / 体积中间轮五要素 / 台账登记 / 保护段状态 / 偏差与 flake 登记 | 2026-09-21 | SDDU Build Agent |
 | v1.2 | 追加 R3 = W4+W5（TASK-V45-113~119，**单一原子区间 D**）：journey 第二次八步显式取代（新 pin `cc79f413…` + 3 链节）/ binding 保段双绿 + 两处段外改写逐行登记 / 11 处门禁等价重锚 + 反证注入点重写（RP-V3-02 与 RP-V4-02/03 的**恒绿**修复 + 新增 RP-V4-10）/ density 三重构造判据 + 31 格 `v45Ledger`（**红 → 229 passed**）/ options 解冻 9 字段 + 范围门禁 / 体积终轮 `unchanged`（Δ=0）+ `direction` 双向机核 + 三值同源订正 + 档位闸门 / 24 门禁串行实测 + 红线逐字节核验表 + 人工面清单（全部 `⏳ 未执行`）+ 4 项治理动作 + D-W3 裁决记录 | 2026-09-21 | SDDU Build Agent |
 | v1.3 | 追加 §8 **review 修复轮（R1：BLOCK-01~04 + I-01~06）**：BLOCK-01 迁移容器口径（14 → 13 + `MIGRATED_CONTAINER_IDS` + 时点无关判据 ②；假阳性实跑复现与闭合）/ BLOCK-02 死写点迁移（`#l0-decision` → `#stream`）+ 门禁 ⑤ 真断言（两段证伪）/ BLOCK-03 live 载体读数接入 + firstRun 口径裁决 + 三段注入反证（另修正 3 项额外缺陷：门禁模板字面量反引号语法错误 / `insertAdjacentHTML` 注入失效 / density firstRun 断言口径过窄）/ BLOCK-04 `title` 反证 4 条 / I-01~06 回写（plan §5.1.1·ADR D-W3-1·D-W3-2·父 spec NFR-V45-001·l0 对账·13 项复核）/ 体积五要素 493,501 → 498,521（ceiling 523,447，档位 512,000 与绝对上限 563,200 未变）/ 台账 39 条活指针同源前移 + 1 组删除行登记 / 24 门禁串行复跑全绿（1045·244·232·171·35·12·59·108·116…只增） | 2026-09-21 | SDDU Build Agent |
+| v1.4 | 追加 §8.13 **validate 收口轮**：N-02（§8.7 `test:l2-reverse` 74 → **10**，笔误订正）/ N-03（§8.11 journey 保护段 239 → **240** 行，与账本 `protectedRanges[0].lineCount` 同源）/ N-04（§8.11 零改动面移除 `test/sidepanel-view.test.ts`——W2 `adcfdaf` 实改 +24/−11，如实订正）/ **N-01 登记**（`test:ui #54g` 环境性 flake，隔离复跑 2/2 绿，同 `KL-N-10` 纪律）/ O-04~O-08 如实保留登记。**纯文档订正，零 `src` / 零 `test` 改动、不重跑门禁** | 2026-09-21 | SDDU Build Agent |
