@@ -19,7 +19,7 @@
       "depth": 2,
       "deliveryOrder": 1,
       "dependsOn": [],
-      "note": "契约 v2 七点（R1 可逆注册 / R2 依赖声明式 / R3 优先级显式化 / R4 分发模式公开契约 / R5 失败语义三级 / R6 Seam 三件套 / R7 证明义务表）+ 统一管线四态 + act→opId 等价映射 + chip data-op + 瘦分发（handleCardAction per-op diff = 0）+ 双契约（F 60 冻结不替换 + G 127 新增 + designContractChanges 登记）+ 证明义务表静态机核 + 阻塞态枚举单源 / site.unauthorized 常驻候选（法七机制基础）。承载父 FR-ALLN-030~038 / 055~059 / 010·011·013 / 100~103 / 112·113·115 / 116 / 120~125 的切片。"
+      "note": "契约 v2 七点（R1 可逆注册 / R2 依赖声明式 / R3 优先级显式化 / R4 分发模式公开契约 / R5 失败语义三级 / R6 Seam 三件套 / R7 证明义务表）+ 统一管线四态 + act→opId 等价映射 + chip data-op + 瘦分发（handleCardAction per-op diff = 0）+ 双契约（F 60 冻结不替换 + G 127 新增 + designContractChanges 登记）+ 证明义务表静态机核 + 阻塞态枚举单源 / site.unauthorized 常驻候选（法七机制基础）。承载父 FR-ALLN-030~038 / 055~059 / 010·011·013 / 100~103 / 112·113·115 / 116 / 120~125 的切片。 〖v5-1 叶收口轮完成（2026-09-22，sddu-build 代行）〗**validated + 收口完成**（本叶 7/7 全闭环；phase 保持 validated 不降级 / status=completed）：N-02 注释订正闭环（`test/size-budget.test.ts` 3 处 → `floor(507,315 × 1.05)`，`size-budget` 16/16 复跑绿）+ N-01 复核闭环 + N-03·N-06·N-07·N-08 登记保留 + **N-04 / N-05 确认 owner=v5-2（恰两项遗留，门禁自紧：补上即要求翻转登记）**；产品面零字节（content `52a82620…` / pick-layer `5f567d7e…` / sidepanel 507,315 B）；Chromium / e2e / build 本轮不重跑。**1/3 叶闭环**，下游 = specs-tree-v5-2-ops-first-batch。"
     },
     {
       "featureKey": "specs-tree-v5-2-ops-first-batch",
@@ -53,7 +53,7 @@
   ],
   "leaf": false,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T23:59:00.000Z",
+  "updatedAt": "2026-09-22T23:59:30.000Z",
   "description": "web-cli-plugin v5「All-in-Next 聊天即操作台」（方案 G）的 discovery 阶段产物。立项来源 = ① 作者主题指示（2026-09-21 逐字：「所有的用户授权、权限申请、绑定、浏览器权限申请、LLM配置等，都要支持抽象成web-op-cli（类似LGDL的lgdl-web-op-cli），都要支持一站式在chat里面闭环」+「所有的下一步需要用户操作的地方，都要支持在chat里面以next的方式和用户交互完成，不允许让用户跳来跳去」）② 真机断流现场（23:12:51~23:12:59 逐字：未授权站点页面侧零注入之后无任何可达 next）③ 设计基准 option-g-all-in-next.html（定稿冻结，三轮优化终稿）+ option-g-shim.mjs（127/127 实跑全绿）④ 作者 5 裁决（optional_permissions / 掩码零明文 / F 式 HTML+shim / 设置视图保留管理面 / 断流并入首验收）。核心问题 5 条：真机死端（阻塞终态后流内零可达 next：error 卡裸奔 + risk-recovery 三动作不解未授权 + 授权入口仅首装态 + page-unavailable 仅风险行）· 用户操作面散落在 chat 之外（设置视图 8 分区 + options 页承载 LLM 配置 / 授权 / 浏览器权限 / 会话 / 诊断）· 架构不可扩张（推荐器 = 4 规则手写 + NEXTSTEP_ACTS 6 项逐字闭集 + handleCardAction 手写 switch 16 分支 + chip 绑 data-act 而非 opId）· 敏感值无流内入口且法二/法八未切分 · 授权态三处投影且非首装会话无授权入口。范围 = 核心 6（法七无死端 / web-op 管线 + NextProvider 注册表契约 v2 / 浏览器权限申请流内闭环 / LLM 配置流内闭环 + 法八 / 授权态下移状态栏常显 chip / 管理操作流内闭环 + 设置视图保留管理面）+ 附带 2（可拖动宽度 280–640 / S2 断流样板首验收）；非目标 8 项（content.js 与 pick-layer.js 冻结 / A2A F-29 不动 / 12 kind 不加 / 三区法则不变 / design 稿不改 / 判定链 zeroDiffFiles 零触碰 / 安装期静态权限不变 / L2 视图内部）。红线继承 N1~N21；显式取代 X1~X6。问题清单 Q-ALLN-001~014（核心 5 / 次要 5 / 潜在 4）；假设 A-ALLN-001~010；风险 R-ALLN-001~016（含 Top5 + 门禁迁移量估计）；开放问题 O-ALLN-001~012；叶子拆分草案 4 叶（串行）。",
   "scope": {
     "in": [

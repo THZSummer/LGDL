@@ -4,10 +4,10 @@
 > **前置依赖**: 本叶 `tasks.md`（22 任务 / 5 波）、`plan.md`（ADR-V5-001/002/008）、父 `spec.md`（FR-ALLN-030~038 / 055~059 / 010·011·013 / 100~103 / X3·X4·X6-chip）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-22
-> **版本**: v1.1（R1 + R2 全量）
+> **版本**: v1.2（R1 + R2 全量 + validate 收口轮）
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-22
-> **更新说明**: R2 收口 —— 追加 TASK-V5-114~122（diff0 门禁 / X3 三处重锚对账与前移 / 义务表 9 行 + 机核 / 双契约 G 127 入册 / `BLOCKED_TERMINALS` 单源与常驻候选 / 体积 Δ=0 / 全门禁串行收口）；R1（101~113）内容逐字保留
+> **更新说明**: 收口轮 —— 处置 validate R1 的 N-01~N-08（**N-02 注释订正闭环**：`size-budget.test.ts` 3 处 `498,521 → 507,315`，零断言值改动，`size-budget` 16/16 复跑绿；**N-01 复核闭环**；N-03/N-06/N-07/N-08 登记保留；**N-04/N-05 确认 owner=v5-2**）⇒ 见 §8；R2（114~122）与 R1（101~113）内容逐字保留
 
 ---
 
@@ -22,6 +22,7 @@
 | 体积 | `dist/sidepanel.js` **507,315 B**（R1 Δ = **+8,794 B**；**R2 Δ = 0**；本叶预算 8,800 B，余 6 B） |
 | 红线冻结面 | `content.js` 177,076 B / `52a82620…`、`pick-layer.js` 33,900 B / `5f567d7e…` **逐字节不变** |
 | 产品 `src/**` 修改面 | R2 = **零修改**（仅新增 `obligation-table.ts`，且**不在 bundle graph 内** ⇒ 产物零字节） |
+| 收口轮（本轮） | N-02 **注释订正闭环** + N-01/N-03~N-08 **登记**（产品面零字节：`dist/sidepanel.js` 507,315 B、`content.js` / `pick-layer.js` sha 未变；`npm test` **1130 → 1130** 持平） |
 
 ---
 
@@ -202,8 +203,50 @@
 
 | 场景 | 操作 |
 |------|------|
-| 本叶 build 完成 | 运行 `@sddu-review specs-tree-v5-1-next-registry-pipeline` 开始代码审查 |
-| 审查 + 验证通过后 | 进入 `specs-tree-v5-2-ops-first-batch`（v5-1 的注册表 / 管线接口是它的前置；同时承接 §6-①③④ 三项 pending） |
+| 本叶终态 | ✅ **7/7 全闭环**（build → review → validate → 收口轮）；`phase = validated`（收口不降级）/ `status = completed` —— 见 §8 |
+| 下一步 | 进入 `specs-tree-v5-2-ops-first-batch`（v5-1 的注册表 / 管线接口是它的前置；须承接 §6-①③④ 三项 pending 与 §8 的 **N-04 / N-05** 两项 owner=v5-2 遗留） |
+
+---
+
+## 8. 收口轮（validate R1 的 N-01~N-08 处置；2026-09-22，HEAD `32f62a2`）
+
+> **触发**：validate R1 结论 ✅ 通过 / 0 阻塞，遗留 7 项非阻塞登记（N-02~N-08；N-01 已由 validate R1 闭环）。
+> **轮次定性**：**纯文档 / 登记收口** —— 不重跑 Chromium / e2e / `npm run build`，不改产品面（`src/**` / `dist/**` 零改动）。
+> **唯一被触碰的文件 = `test/size-budget.test.ts` 的注释字符串**（N-02 授权项，3 处），**零断言值 / 零计数改动**。
+
+### 8.1 N-01~N-08 处置表
+
+| # | 级别 | 事项 | 本轮处置 | 证据 / 机核位置 | owner |
+|:--:|:--:|------|------|------|------|
+| **N-01** | — | `dist/pick-layer.js` sha256 转写笔误（`…dedc…` 应为 `…ededc…`） | **已闭环（validate R1 订正）**；本轮复核确认 | `state.json#v5-1.r1Artifact/r2Artifact.pickLayerJs.sha256` = `5f567d7ededc…`；本轮 `sha256sum dist/pick-layer.js` 命中 | — |
+| **N-02** | N | `test/size-budget.test.ts:53` 注释陈旧：`ceiling = floor(498,521 × 1.05)`，而断言值 532,680 实为 `floor(507,315 × 1.05)`（值正确、注释未随重登记更新） | **本轮闭环：订正注释字符串** —— 同一陈旧串在 **3 处**（`:53` / `:300` / `:439`）一并订正（`498,521 → 507,315`）；**零断言值 / 零计数改动** | `grep -c 'floor(498,521 × 1.05)'` = **0**；`node --test dist-test/test/size-budget.test.js` = **16/16 绿**（EXIT=0，日志 `/tmp/opencode/v5-1-closeout/size-budget.log`）；`npm test` = **1130/0**（与 validate 后值持平） | —（原 owner「v5-2 体积重登记轮」**已解除**） |
+| **N-03** | N | `test:binding` 环境性 flake（KL-N-10，`#8d/#8e` tabs switch 二次确认） | **登记保留**（同源 KL-N-10 纪律：串行 / 首轮异常隔离复跑 ≥2 / 日志全量 / 仍红如实记录、不阻塞收口）。**不伪造串行全绿** | 与 validate-report §1/§5.3、build §5 同源；本叶值仍记 **192** | —（KL-N-10 纪律） |
+| **N-04** | N | FR-ALLN-013 `chips 含 op.authorize` 未落地（`site.unauthorized.chips = [rebind, repick, describe]`） | **确认 owner = v5-2**；门禁自紧保留 —— **补上即要求翻转登记**，不补则门禁判红 | `test/blocked-terminals.test.ts` → `PENDING_ITEMS['FR-ALLN-013-chips']`（`reason ≥40` + 「当前 chips 不含」断言）；当 `RECOVERY_CHIP_ORDER.site` 增 `authorize` 时须同步体积重登记 | `specs-tree-v5-2-ops-first-batch` |
+| **N-05** | N | EC-ALLN-004 注册期悬空 chips 的**运行期**拒绝未接线（`setKnownOpIds` 产品调用点 **0**，`KNOWN_OPS` 恒 `null`） | **确认 owner = v5-2**；现由静态门禁覆盖（运行期接线随 v5-2 注册表调用点落地） | `test/next-obligation-table.test.ts` `OT-4`（chips 无悬空）；validate V2-7 探针实测「产品调用点 = 0」 | `specs-tree-v5-2-ops-first-batch` |
+| **N-06** | N | `F ∩ G = 51`（id 集**非空**交集） | **永久提醒登记**：混池防御**不得**依赖「id 集互斥」 | `test/design-contract.test.ts` 门禁内断言「交集 = **51**」+ **两侧各自独立计数** + 共享 helper **各调用一次**（注入一侧只红该侧） | —（必须记住的事实） |
+| **N-07** | N | 未知 chip action 的处理由「旧 v4-3/v4-4 兜底 notice」改为**静默**（`dispatchChipAction` 返回 false 被忽略） | **行为语义登记**：旧「将在 v4-3/v4-4 落地」notice **已死**，不得据其推断现存兜底逻辑 | `src/ui/sidepanel/sidepanel.ts:229-232`；15 action（集 A 8 + 集 B 7）**全覆盖** ⇒ 静默路径仅对**真正未知** action 可达 | —（行为变化） |
+| **N-08** | N | `test:recommendation` 属 **Chromium 门禁**（**不在** `npm test` 内） | **串行纪律注**：其计数须**独立同源重测**，**不得**由 `npm test` 推导（脚本体 ≠ 可推导项） | `package.json`：`test:recommendation = node test/ui/recommendation.mjs`；本叶值 **65**（validate R1 I-01 订正后） | —（口径） |
+
+### 8.2 本轮纪律核验
+
+| 核验项 | 命令 / 方法 | 结果 |
+|------|------|:--:|
+| 产品 `src/**` | `git status --short`（本轮唯一 `M` = `test/size-budget.test.ts`） | ✅ 零改动 |
+| 红线产物 | `stat -c %s` + `sha256sum dist/{content,pick-layer}.js` | ✅ `content.js` 177,076 B / `52a82620…`；`pick-layer.js` 33,900 B / `5f567d7e…` **逐字节不变** |
+| 体积 | `stat -c %s dist/sidepanel.js` | ✅ **507,315 B** ≤ 532,680（本叶预算 8,800 B / 余 6 B；本轮 Δ = 0） |
+| 测试计数 | `npm test`（tsc + node --test） | ✅ **1130 / 0**（与 validate R1 后值持平；N-02 仅注释 ⇒ 计数不变） |
+| N-02 专项 | `node --test dist-test/test/size-budget.test.js` | ✅ **16 / 0** |
+| 未跑面（如实） | — | Chromium（`test:recommendation` / `l0`~`l2` / `density` / `journey` / `binding` 等）/ `e2e` / `npm run build` **本轮不重跑**（纯登记轮、产品面零字节变化；计数沿用 validate R1 实测） |
+| 提交纪律 | `git add` **逐路径**（禁 `git add -A`） | ✅ 仅本 Feature 目录 + `test/size-budget.test.ts` |
+
+### 8.3 收口结论
+
+- 叶 `specs-tree-v5-1-next-registry-pipeline`：**7/7 全闭环**（build → review → validate → 收口），`phase` 保持 **validated**（**收口不降级**）、`status = completed`。
+- 遗留 `owner = v5-2`：**恰 2 项**（**N-04 / N-05**），均已门禁自紧（补上即要求翻转登记，不补则判红）。
+- 其余登记（N-03 / N-06 / N-07 / N-08）为**纪律 / 事实 / 口径**类，无 owner、不构成缺口；N-01 / N-02 本轮闭环。
+- 下游 = `specs-tree-v5-2-ops-first-batch`（承接本叶接口 + §6-①③④ 与 N-04/N-05）。
+
+---
 
 ## 修订记录
 
@@ -211,3 +254,4 @@
 |------|---------|------|--------|
 | v1.0 | 初始创建（R1 = 波 A~C：101~113；含 SG-1 结论与门禁复跑） | 2026-09-22 | SDDU Build Agent |
 | v1.1 | R2 收口（114~122）：diff0 门禁 / X3 三处重锚对账 / 义务表 9 行 + 机核 / 双契约 G 127 入册 + `designContractChanges` / `BLOCKED_TERMINALS` 单源与常驻候选 / 体积 **Δ = 0** / 全门禁串行 24 项全绿；未闭合项 5 条显式登记（§6） | 2026-09-22 | SDDU Build Agent |
+| v1.2 | validate 收口轮（N-01~N-08 处置）：**N-02 注释订正闭环**（`test/size-budget.test.ts` 3 处 `498,521 → 507,315`，零断言改动；`size-budget` 16/16 + `npm test` 1130/0 复跑绿）/ N-01 复核闭环 / N-03·N-06·N-07·N-08 登记保留 / **N-04·N-05 确认 owner=v5-2（两项）**；新增 §8 + 本轮纪律核验（产品面零字节，Chromium / e2e / build 不重跑） | 2026-09-22 | SDDU Build Agent |

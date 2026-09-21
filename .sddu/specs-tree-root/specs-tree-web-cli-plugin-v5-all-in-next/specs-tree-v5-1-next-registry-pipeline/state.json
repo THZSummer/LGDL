@@ -11,7 +11,7 @@
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T23:59:00.000Z",
+  "updatedAt": "2026-09-22T23:59:30.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**首叶**（P0，deliveryOrder=1，依赖链起点）。承载父 spec.md §5.4 CONTRACT（FR-ALLN-030~038）/ §5.6 PIPE（FR-ALLN-055~059）/ §5.10 DESIGN（FR-ALLN-100~103）/ §5.2 LAW7 的机制侧（FR-ALLN-010·011·013）/ §5.11 的 X3·X4·X6(chip 侧)（FR-ALLN-112·113·115·116）/ §3.2 §5.12 GATE（FR-ALLN-120~125 的本叶面）/ FR-ALLN-003·004·130·133 共 34 条 FR 的实施切片。交付：NextProvider / NextOp 接口（Definition）+ 注册表（Provider）+ handleCardAction 单次查表（Consumer）三件套；R1~R7 逐点可机核；统一管线四态唯一；act→opId 六条等价映射 + chip data-op + 分发器 per-op diff = 0；阻塞态枚举单源 + site.unauthorized 常驻候选（法七机制基础）；双稿双 shim 入 design-contract（F 60 保留 + G 127 新增 + 127 行映射 + designContractChanges 登记）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -186,9 +186,14 @@
       "phase": "validated",
       "timestamp": "2026-09-22T23:59:00.000Z",
       "triggeredBy": "sddu-validate R1（动态验证；HEAD 91a5ff8 起步）：V1~V9 共 79 子断言全绿——V1 独立复跑全门禁（npm test 1129/0 订正前 → 1130/0 订正后 / design-contract 19 / next-registry+pipeline+diff0+obligation+blocked 63 / gate-integrity 14 / supersession 35 / size-budget 16 / growth-evidence 17 / size-ruling-vol3 12 / l0 244 / l1 116 / l2 74 / density 232 / journey 171 / stream 63 / ask-auth 61 / insight 116 / hardening 24 / page-input 108 / zero-injection 27 / ref-pick-wiring 11 / l1-reverse 9 / l2-reverse 10 / e2e PASS；binding 192〔2 跑 1 次 KL-N-10 flake 红〕；test:recommendation 独立复跑 ×3 = 65/0 ⇒ 登记 66 偏差 I-01）；V2 注册表对抗 13/13（往返幂等 / 按 id 整行覆盖 / 3 注册序置换不变 / 重复 id loud / 悬空 chips 仅 setKnownOpIds 开启后拒〔产品调用点 0，I-05 登记〕）；V3 瘦分发对抗（真实注入集 B 分支→D0-1 红；删 ACT_TO_OP 一行→编译期 TS2339 + 运行期 NP-6/D0-5 红；注入 data-act 回读→D0-6 红；四操作下 4 源文件 sha 不变）；V4 迁移等价 22 ctx 组逐字段相等 + site.unauthorized 于 firstRun=false∧!authorized 产出（断流修复注册表层证）；V5 双契约 F 60/G 127/F∩G=51 + 注入 F 删行 / G +1B 均红 + 计数池隔离；V6 管线四态 / unknown-op loud / pending 超 MAX_OPEN_ASKS 入队+系统行 / 快照回滚恰 1 次 / op.execute 单调用点；V7 红线逐字节（content 52a82620… / pick-layer 5f567d7e… / journey 段 cc79f413… + binding 段 be9ad0e9… 复算命中 / 冻结面零 diff / 阈值零改动）；V8 体积 507,315 ≤ 532,680 + 五要素链 + 越限 +30,000B 注入红；V9 AC 抽验 10/10 + R1~R7 各 ≥1 判据 + 共享面恰一次。本轮闭环 4 项：I-01（recommendation 66→65 登记订正） / I-04（definition.ts 重复常量删一份改 re-export + 跨表 7 源相等机核〔新增 1 条 test；build Δ=0，sidepanel 仍 507,315 B〕） / I-02（spec FR-057 口径注 ①，只加注零实现） / 新发现 N-01（state.json pick-layer sha256 转写笔误 dedc→ededc 订正）。遗留 7 项非阻塞（N-02~N-08：size-budget 注释陈旧 / binding flake / FR-013 chips pending-v5-2 / setKnownOpIds 运行期未接线 / F∩G=51 事实 / 未知 action 静默 / recommendation 属 Chromium 门禁）。结论 = ✅ 通过（0 阻塞）。下游 = 无（工作流终点）。"
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-22T23:59:30.000Z",
+      "triggeredBy": "sddu-build 收口轮（validate R1 的 N-01~N-08 处置；HEAD 32f62a2 起步）：N-02 **注释订正闭环**（test/size-budget.test.ts 同一陈旧串 `floor(498,521 × 1.05)` 3 处 → `floor(507,315 × 1.05)`，零断言值 / 零计数改动；`node --test dist-test/test/size-budget.test.js` **16/16 绿** + `npm test` **1130/0** 复跑）；N-01 复核闭环（pick-layer sha256 与实测 5f567d7ededc… 同源）；N-03 登记保留（KL-N-10 binding flake，值仍记 192，不伪造串行全绿）；**N-04 / N-05 确认 owner=v5-2（恰两项遗留，门禁自紧）**；N-06 F∩G=51 永久提醒（混池防御不得依赖互斥）；N-07 未知 action 静默 + 旧 v4-3/v4-4 兜底 notice 退役登记；N-08 test:recommendation 属 Chromium 门禁（计数须独立同源重测）。产出：build.md §8 + 修订记录 v1.2 + 本叶 closeoutRounds + 父 childrens[0].note。**产品面零字节**（src/** 与 dist/** 未改，content 52a82620… / pick-layer 5f567d7e… 复算命中；sidepanel 507,315 B）；Chromium / e2e / build 本轮不重跑。phase 保持 validated（收口不降级）/ status=completed。下游 = specs-tree-v5-2-ops-first-batch。"
     }
   ],
-  "phaseNote": "phase=validated（工作流终点）。R1 动态验证：V1~V9 / 79 子断言全绿；对抗注入 10 类全红且逐字节还原（sha256 校验）；红线与保护段复算命中；体积 507,315 B ≤ 532,680 B（I-04 改 source 后 Δ=0）。review R1 附条件 I-01/I-02/I-04 + 新发现 N-01 已订正并再验证；遗留 7 项非阻塞登记（N-02~N-08，N-04/N-05 由 v5-2 承接且门禁自紧）。结论 = ✅ 通过 / 0 阻塞。下游 = 无。",
+  "phaseNote": "phase=validated（工作流终点）。R1 动态验证：V1~V9 / 79 子断言全绿；对抗注入 10 类全红且逐字节还原（sha256 校验）；红线与保护段复算命中；体积 507,315 B ≤ 532,680 B（I-04 改 source 后 Δ=0）。review R1 附条件 I-01/I-02/I-04 + 新发现 N-01 已订正并再验证；遗留 7 项非阻塞登记（N-02~N-08，N-04/N-05 由 v5-2 承接且门禁自紧）。结论 = ✅ 通过 / 0 阻塞。下游 = 无。\n\n〖v5-1 叶收口轮完成（2026-09-22，sddu-build 代行）〗validate R1 的 N-01~N-08 全处置：**N-02 注释订正闭环**（`test/size-budget.test.ts` 3 处 `floor(498,521 × 1.05)` → `floor(507,315 × 1.05)`，零断言 / 零计数改动；`size-budget` **16/16** + `npm test` **1130/0** 复跑绿）；N-01 复核闭环（pick-layer sha256 命中）；N-03 登记保留（KL-N-10，binding 值仍记 192）；**N-04 / N-05 确认 owner=v5-2（恰两项遗留，门禁自紧）**；N-06 F∩G=51 永久提醒；N-07 未知 action 静默 + 旧 v4-3/v4-4 兜底 notice 退役；N-08 test:recommendation 属 Chromium 门禁（计数须独立同源重测）。产出 `build.md §8` + 修订记录 v1.2 + `closeoutRounds` + 父 childrens note。**产品面零字节**（`src/**` 与 `dist/**` 未改；content `52a82620…` / pick-layer `5f567d7e…` 复算命中；sidepanel 507,315 B；Chromium / e2e / build 不重跑）。phase 保持 **validated**（收口不降级）/ status=completed。下游 = specs-tree-v5-2-ops-first-batch。",
   "specCounts": {
     "fr": 33,
     "nfr": 7,
@@ -695,5 +700,73 @@
       "N-07 未知 action 静默（旧 v4-3/v4-4 兜底 notice 退役；15 action 全覆盖）",
       "N-08 test:recommendation 属 Chromium 门禁（不在 npm test 内）"
     ]
-  }
+  },
+  "closeoutRounds": [
+    {
+      "round": "V5-1 叶收口轮（sddu-build 代行；validate R1 的 N-01~N-08 处置）",
+      "date": "2026-09-22",
+      "head": "32f62a2（收口轮起点 = validate 产物提交「docs(sddu): v5-1 validate 产物（含 I-01/I-04/I-02 订正）」）",
+      "source": "本叶 validate.md / validate-report.md R1（✅ 通过 / 0 阻塞 / 4 本轮闭环 I-01·I-02·I-04·N-01 / 7 遗留非阻塞 N-02~N-08）",
+      "phaseDiscipline": "phase 保持 validated（收口不降级）；status=completed（父 childrens[0] 记 validated + 收口完成）",
+      "dispositions": [
+        "N-02（注释陈旧，**本轮闭环：订正**）：`test/size-budget.test.ts` 同一陈旧串 `ceiling = floor(498,521 × 1.05)` 共 **3 处**（`:53` / `:300` / `:439`）一并订正为 `floor(507,315 × 1.05)` —— 与断言值 532,680（= floor(507,315 × 1.05)）及 `size-baseline` 现行基线 507,315 同源；**零断言值 / 零计数改动**。复跑：`node --test dist-test/test/size-budget.test.js` = **16/16 绿**（EXIT=0，日志 `/tmp/opencode/v5-1-closeout/size-budget.log`）；`npm test` = **1130/0**（与 validate 后值持平）。原 owner「v5-2 体积重登记轮」**解除**。",
+        "N-01（转写笔误，**复核闭环**）：validate R1 已订正 `state.json#v5-1.r1Artifact/r2Artifact.pickLayerJs.sha256`（`…dedc…` → `…ededc…`）；本轮 `sha256sum dist/pick-layer.js` = `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59` 命中，确认与实测同源。",
+        "N-03（环境性 flake，**登记保留**）：`test:binding` KL-N-10（`#8d/#8e` tabs switch 二次确认）；纪律沿用 KL-N-10（串行 / 首轮异常隔离复跑 ≥2 / 日志全量 / 仍红如实记录，**不伪造串行全绿**）；本叶 `test:binding` 值仍记 **192**。",
+        "N-04（pending，**确认 owner=v5-2**）：FR-ALLN-013 `site.unauthorized.chips` 尚未含 `op.authorize`；`test/blocked-terminals.test.ts` → `PENDING_ITEMS['FR-ALLN-013-chips']` 自紧（reason ≥40 + 「当前不含」断言 ⇒ 补上即要求翻转登记并同步体积重登记）。",
+        "N-05（pending，**确认 owner=v5-2**）：EC-ALLN-004 注册期悬空 chips 的**运行期**拒绝未接线（`setKnownOpIds` 产品调用点 **0**，`KNOWN_OPS` 恒 `null`）；现由 `test/next-obligation-table.test.ts` `OT-4` 静态覆盖，运行期接线随 v5-2。",
+        "N-06（事实，**永久提醒登记**）：`F ∩ G = 51`（id 集**非空**交集）⇒ 混池防御**不得**依赖「id 集互斥」；门禁内断言「交集 = 51」+ 两侧各自独立计数 + 共享 helper 各调用一次。",
+        "N-07（行为语义，**登记**）：未知 chip action 由「旧 v4-3/v4-4 兜底 notice」改为**静默**（`dispatchChipAction` 返回 false 被忽略，`src/ui/sidepanel/sidepanel.ts:229-232`）；旧「将在 v4-3/v4-4 落地」notice **已死**，不得据其推断现存兜底；既有 15 action（集 A 8 + 集 B 7）已全覆盖 ⇒ 静默路径仅对**真正未知** action 可达。",
+        "N-08（口径，**串行纪律注**）：`test:recommendation` 属 **Chromium 门禁**（不在 `npm test` 内）⇒ 计数须**独立同源重测**，不得由 `npm test` 推导；本叶值 **65**（validate R1 I-01 订正后）。",
+        "配套产出：`build.md` 新增 **§8 validate 收口轮**（8.1 处置表 / 8.2 纪律核验 / 8.3 收口结论）+ §1 概要行 + §7 终态 + 修订记录 **v1.2**；父 `childrens[0].note` 追加「validated + 收口完成」。**唯一被触碰文件 = `test/size-budget.test.ts` 注释字符串（N-02 授权项，3 处）**；产品 `src/**` / `dist/**` 零改动。"
+      ],
+      "gates": {
+        "caliber": "本轮只复跑 `npm test` + `size-budget` 单文件（纯登记轮；Chromium / e2e / build 不重跑，其余计数取自 validate-report.md §2/§3 实测）",
+        "rerun": {
+          "npmTest": "1130 / 0（EXIT=0）",
+          "sizeBudget": "16 / 0（EXIT=0）"
+        },
+        "fromValidateR1": {
+          "npmTest": 1130,
+          "designContract": 19,
+          "nextRegistry": 16,
+          "nextPipeline": 15,
+          "nextDispatchDiff0": 14,
+          "nextObligationTable": 10,
+          "blockedTerminals": 8,
+          "gateIntegrity": 14,
+          "supersession": 35,
+          "sizeRulingVol3": 12,
+          "sizeGrowthEvidence": 17,
+          "l0": 244,
+          "l1": 116,
+          "l2": 74,
+          "density": 232,
+          "journey": 171,
+          "binding": 192,
+          "recommendation": 65,
+          "stream": 63,
+          "askAuth": 61,
+          "insight": 116,
+          "hardening": 24,
+          "pageInput": 108,
+          "zeroInjection": 27,
+          "refPickWiring": 11,
+          "l1Reverse": 9,
+          "l2Reverse": 10,
+          "e2e": "PASS",
+          "build": "PASS",
+          "typecheck": "PASS"
+        }
+      },
+      "redlines": "`dist/content.js` 177,076 B / sha `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6`、`dist/pick-layer.js` 33,900 B / sha `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59` **逐字节不变**；`dist/sidepanel.js` **507,315 B** ≤ 生效上限 532,680 B（本叶预算 8,800 B / 余 6 B；本轮 Δ = 0）；journey pin `cc79f413…` / binding pin `be9ad0e9…` / 档位 512,000 / 绝对上限 563,200 / `SIDEPANEL_CEILING_CAP` 语义 未动。",
+      "artifacts": [
+        "build.md §8（新建）+ §1 概要行 + §7 终态 + 修订记录 v1.2",
+        "test/size-budget.test.ts 注释 3 处订正（N-02；零断言改动，size-budget 16/16）",
+        "本叶 state.json closeoutRounds + phaseHistory（收口轮条目）",
+        "父 state.json childrens[0].note（同步 validated + 收口完成）"
+      ],
+      "phaseAfter": "validated（保持；收口完成，本叶 7 阶段全闭环）",
+      "next": "specs-tree-v5-2-ops-first-batch（承接本叶注册表 / 管线接口 + build.md §6-①③④ 与 **N-04 / N-05** 两项 owner=v5-2 遗留）。"
+    }
+  ]
 }

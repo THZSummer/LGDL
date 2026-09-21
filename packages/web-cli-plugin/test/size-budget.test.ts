@@ -50,7 +50,7 @@ test('V2-2 size: sidepanel regression ceiling is floor(baseline × 1.05) — 判
     SIDEPANEL_CEILING_UNCAPPED,
     'ceiling 必须等于「未加 cap 的公式值」——判定里不得存在任何隐藏上限',
   );
-  assert.equal(SIDEPANEL_CEILING, 532680, 'ceiling = floor(498,521 × 1.05)（V4.5-1 review R1 修复轮重登记后由公式抬高）');
+  assert.equal(SIDEPANEL_CEILING, 532680, 'ceiling = floor(507,315 × 1.05)（V4.5-1 review R1 修复轮重登记后由公式抬高）');
   // 裁决 V3-VOL-1 ②：cap 降级为**纯记录字段**，判定路径不得再读取它。
   assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only', 'cap 只能是记录字段');
   assert.equal(SIDEPANEL_CEILING_CAP_RECORD, 306_099, 'cap 历史值仅作记录');
@@ -297,7 +297,7 @@ test('W4 size: sidepanel baseline explicitly re-registered (history retained; gu
     '本轮为「提升」重登记：当前基线必须严格大于前值',
   );
   // 裁决 V3-VOL-1 ②：cap 已撤销 → ceiling = 公式值（R2 后为 386,955，**不是** 306,099）。
-  assert.equal(SIDEPANEL_CEILING, 532680, 'ceiling = floor(498,521 × 1.05)（未加 cap 的公式值，V4.5-1 review R1 修复轮重登记）');
+  assert.equal(SIDEPANEL_CEILING, 532680, 'ceiling = floor(507,315 × 1.05)（未加 cap 的公式值，V4.5-1 review R1 修复轮重登记）');
   assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only', 'cap 只能作记录（裁决 V3-VOL-1 ②）');
   assert.equal(SIDEPANEL_CEILING_CAP_RECORD, 306_099, 'cap 的历史值保留为记录');
   assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(507315 * 1.05), '未加 cap 的公式值必须被记录');
@@ -436,7 +436,7 @@ test('V2-4 size: ceiling stays structurally consistent (floor(baseline × 1.05),
     Math.floor(SIDEPANEL_BASELINE_BYTES * (1 + SIDEPANEL_BASELINE_TOLERANCE)),
     '未加 cap 的公式值必须 = floor(baseline × 1.05)',
   );
-  assert.equal(SIDEPANEL_CEILING, 532680, 'V4.5-1 review R1 修复轮重登记后 ceiling = floor(498,521 × 1.05)（公式判定，cap 已撤销）');
+  assert.equal(SIDEPANEL_CEILING, 532680, 'V4.5-1 review R1 修复轮重登记后 ceiling = floor(507,315 × 1.05)（公式判定，cap 已撤销）');
   const over = evaluateSidepanelSize(SIDEPANEL_CEILING + 1);
   assert.equal(over.ok, false);
   assert.equal(
